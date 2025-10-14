@@ -295,7 +295,7 @@ func (r *RelayerFactory) NewTron(ks, ksCSA coretypes.Keystore, chainCfgs RawConf
 	return r.NewLOOPRelayer("Tron", relay.NetworkTron, env.TronPlugin, ks, ksCSA, chainCfgs)
 }
 
-func anyNotNil(vals ...interface{}) bool {
+func anyNotNil(vals ...any) bool {
 	for _, v := range vals {
 		if !reflect.ValueOf(v).IsNil() {
 			return true

@@ -5,6 +5,7 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
+	"maps"
 	"sync"
 	"testing"
 	"time"
@@ -108,9 +109,7 @@ func (a *FakeRageP2PNetwork) GetCapabilityRegistrations() map[CapabilityRegistra
 	defer a.mux.Unlock()
 
 	copiedRegistrations := make(map[CapabilityRegistration]bool)
-	for k, v := range a.capabilityRegistrations {
-		copiedRegistrations[k] = v
-	}
+	maps.Copy(copiedRegistrations, a.capabilityRegistrations)
 	return copiedRegistrations
 }
 

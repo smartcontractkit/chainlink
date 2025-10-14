@@ -26,9 +26,9 @@ func (nop CapabilitiesRegistryNodeOperator) ToWrapper() capabilities_registry_v2
 }
 
 type CapabilitiesRegistryCapability struct {
-	CapabilityID          string                 `json:"capabilityID" yaml:"capabilityID"`
-	ConfigurationContract common.Address         `json:"configurationContract" yaml:"configurationContract"`
-	Metadata              map[string]interface{} `json:"metadata" yaml:"metadata"`
+	CapabilityID          string         `json:"capabilityID" yaml:"capabilityID"`
+	ConfigurationContract common.Address `json:"configurationContract" yaml:"configurationContract"`
+	Metadata              map[string]any `json:"metadata" yaml:"metadata"`
 }
 
 func (cap CapabilitiesRegistryCapability) ToWrapper() (capabilities_registry_v2.CapabilitiesRegistryCapability, error) {
@@ -85,14 +85,14 @@ func (node CapabilitiesRegistryNodeParams) ToWrapper() (capabilities_registry_v2
 }
 
 type CapabilitiesRegistryCapabilityConfiguration struct {
-	CapabilityID string                 `json:"capabilityID" yaml:"capabilityID"`
-	Config       map[string]interface{} `json:"config" yaml:"config"`
+	CapabilityID string         `json:"capabilityID" yaml:"capabilityID"`
+	Config       map[string]any `json:"config" yaml:"config"`
 }
 
 type CapabilitiesRegistryNewDONParams struct {
 	Name                     string                                        `json:"name" yaml:"name"`
 	DonFamilies              []string                                      `json:"donFamilies" yaml:"donFamilies"`
-	Config                   map[string]interface{}                        `json:"config" yaml:"config"`
+	Config                   map[string]any                                `json:"config" yaml:"config"`
 	CapabilityConfigurations []CapabilitiesRegistryCapabilityConfiguration `json:"capabilityConfigurations" yaml:"capabilityConfigurations"`
 	Nodes                    []string                                      `json:"nodes" yaml:"nodes"`
 	F                        uint8                                         `json:"f" yaml:"f"`

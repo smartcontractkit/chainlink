@@ -113,7 +113,7 @@ func TestJobController_Create_DirectRequest_Fast(t *testing.T) {
 	n := 10
 
 	var wg sync.WaitGroup
-	for i := 0; i < n; i++ {
+	for i := range n {
 		wg.Add(1)
 		go func(i int) {
 			defer wg.Done()

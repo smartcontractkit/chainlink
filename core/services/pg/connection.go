@@ -100,7 +100,7 @@ func setMaxMercuryConns(db *sqlx.DB, config ConnectionConfig) {
 }
 
 type Getter interface {
-	Get(dest interface{}, query string, args ...interface{}) error
+	Get(dest any, query string, args ...any) error
 }
 
 func checkVersion(db Getter, minVersion int) error {

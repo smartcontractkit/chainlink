@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"math/big"
+	"slices"
 
 	"golang.org/x/sync/errgroup"
 
@@ -22,7 +23,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 
-	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_0/fee_quoter"
+	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_3/fee_quoter"
 	"github.com/smartcontractkit/chainlink-ccip/pluginconfig"
 
 	cldf_evm "github.com/smartcontractkit/chainlink-deployments-framework/chain/evm"
@@ -58,12 +59,15 @@ const (
 					bytes4 public constant CHAIN_FAMILY_SELECTOR_EVM = 0x2812d52c;
 					// bytes4(keccak256("CCIP ChainFamilySelector SVM"));
 		  		bytes4 public constant CHAIN_FAMILY_SELECTOR_SVM = 0x1e10bdc4;
+					// bytes4(keccak256("CCIP ChainFamilySelector Sui"))
+				bytes4(keccak256("CCIP ChainFamilySelector Sui")) = 0xc4e05953
 				```
 	*/
 	EVMFamilySelector   = "2812d52c"
 	SVMFamilySelector   = "1e10bdc4"
 	AptosFamilySelector = "ac77ffec"
 	TVMFamilySelector   = "647e2ba9"
+	SuiFamilySelector   = "c4e05953"
 )
 
 var (
@@ -526,10 +530,8 @@ func (cfg UpdateOnRampAllowListConfig) Validate(env cldf.Environment) error {
 			if len(update.AddedAllowlistedSenders) > 0 && !update.AllowListEnabled {
 				return fmt.Errorf("can't allowlist senders with disabled allowlist for src=%d, dest=%d", srcSel, destSel)
 			}
-			for _, sender := range update.AddedAllowlistedSenders {
-				if sender == (common.Address{}) {
-					return fmt.Errorf("can't allowlist 0-address sender for src=%d, dest=%d", srcSel, destSel)
-				}
+			if slices.Contains(update.AddedAllowlistedSenders, (common.Address{})) {
+				return fmt.Errorf("can't allowlist 0-address sender for src=%d, dest=%d", srcSel, destSel)
 			}
 		}
 	}
@@ -661,13 +663,7 @@ func (cfg WithdrawOnRampFeeTokensConfig) Validate(e cldf.Environment, state stat
 			return err
 		}
 		for _, feeToken := range feeTokens {
-			found := false
-			for _, onchainFeeToken := range onchainFeeTokens {
-				if onchainFeeToken == feeToken {
-					found = true
-					break
-				}
-			}
+			found := slices.Contains(onchainFeeTokens, feeToken)
 			if !found {
 				return fmt.Errorf("unknown fee token address=%s on chain=%d", feeToken.Hex(), chainSel)
 			}
@@ -1353,7 +1349,6 @@ func UpdateRouterRampsChangeset(e cldf.Environment, cfg UpdateRouterRampsConfig)
 	if err := cfg.Validate(e, state); err != nil {
 		return cldf.ChangesetOutput{}, err
 	}
-
 	report, err := operations.ExecuteSequence(
 		e.OperationsBundle,
 		ccipseqs.RouterApplyRampUpdatesSequence,
@@ -1419,6 +1414,13 @@ func (c SetOCR3OffRampConfig) validateRemoteChain(e *cldf.Environment, state *st
 		if err := commoncs.ValidateOwnership(e.GetContext(), c.MCMS != nil, e.BlockChains.EVMChains()[chainSelector].DeployerKey.From, chainState.Timelock.Address(), chainState.OffRamp); err != nil {
 			return err
 		}
+	case chain_selectors.FamilySui:
+		_, ok := state.SuiChains[chainSelector]
+		if !ok {
+			return fmt.Errorf("remote chain %d not found in onchain state", chainSelector)
+		}
+		return nil
+
 	case chain_selectors.FamilyTon:
 		_, ok := state.TonChains[chainSelector]
 		if !ok {
@@ -1731,6 +1733,8 @@ func DefaultFeeQuoterDestChainConfig(configEnabled bool, destChainSelector ...ui
 			familySelector, _ = hex.DecodeString(AptosFamilySelector) // aptos
 		} else if destFamily == chain_selectors.FamilyTon {
 			familySelector, _ = hex.DecodeString(TVMFamilySelector) // ton
+		} else if destFamily == chain_selectors.FamilySui {
+			familySelector, _ = hex.DecodeString(SuiFamilySelector) // Sui
 		}
 	}
 	return fee_quoter.FeeQuoterDestChainConfig{

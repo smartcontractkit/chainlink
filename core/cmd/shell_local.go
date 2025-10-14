@@ -765,7 +765,7 @@ func (s *Shell) RebroadcastTransactions(c *cli.Context) (err error) {
 		feeCfg, chain.Config().EVM().Transactions(), app.GetConfig().Database(), ks, txBuilder, chain.Logger(), stuckTxDetector, metrics)
 	totalNonces := endingNonce - beginningNonce + 1
 	nonces := make([]evmtypes.Nonce, totalNonces)
-	for i := int64(0); i < totalNonces; i++ {
+	for i := range totalNonces {
 		nonces[i] = evmtypes.Nonce(beginningNonce + i)
 	}
 	if gasPriceWei <= math.MaxInt64 {

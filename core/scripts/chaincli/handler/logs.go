@@ -119,7 +119,7 @@ Scan:
 				continue Scan
 			}
 		}
-		var m map[string]interface{}
+		var m map[string]any
 		if err := json.Unmarshal([]byte(rawLogLine), &m); err != nil {
 			continue
 		}

@@ -122,7 +122,7 @@ func createTransmissionSchedule(scheduleType string, N int) ([]int, error) {
 		return []int{N}, nil
 	case Schedule_OneAtATime:
 		sch := []int{}
-		for i := 0; i < N; i++ {
+		for range N {
 			sch = append(sch, 1)
 		}
 		return sch, nil

@@ -2,6 +2,7 @@ package capabilityregistry
 
 import (
 	"math/big"
+	"slices"
 	"testing"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
@@ -214,13 +215,7 @@ func createCapability(client *MockCapabilityRegistry, name, version, typeName st
 
 	for _, node := range nodes {
 		// Check if the node's P2pId is contained in the don.NodeP2PIds slice
-		isInDon := false
-		for _, donNodeP2pID := range don.NodeP2PIds {
-			if node.P2pId == donNodeP2pID {
-				isInDon = true
-				break
-			}
-		}
+		isInDon := slices.Contains(don.NodeP2PIds, node.P2pId)
 		if isInDon {
 			nodesToUpdate = append(nodesToUpdate, capabilities_registry.CapabilitiesRegistryNodeParams{
 				NodeOperatorId:      node.NodeOperatorId,

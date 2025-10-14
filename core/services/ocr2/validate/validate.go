@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"maps"
 	"os/exec"
 	"strings"
 
@@ -215,9 +216,7 @@ func (o *OCR2OnchainSigningStrategy) IsMultiChain() bool {
 
 func (o *OCR2OnchainSigningStrategy) ConfigCopy() job.JSONConfig {
 	copiedConfig := make(job.JSONConfig)
-	for k, v := range o.Config {
-		copiedConfig[k] = v
-	}
+	maps.Copy(copiedConfig, o.Config)
 	return copiedConfig
 }
 
@@ -347,7 +346,7 @@ func validateOCR2CCIPExecutionSpec(jsonConfig job.JSONConfig) error {
 	if cfg.USDCConfig != (config.USDCConfig{}) {
 		return cfg.USDCConfig.ValidateUSDCConfig()
 	}
-	return nil
+	return config.ValidateLBTCConfigs(cfg.LBTCConfigs)
 }
 
 func validateDonTimePluginSpec(jsonConfig job.JSONConfig) error {

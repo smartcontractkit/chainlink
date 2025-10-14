@@ -2,6 +2,7 @@ package vault
 
 import (
 	"context"
+	"encoding/hex"
 	"encoding/json"
 	"testing"
 	"time"
@@ -152,22 +153,15 @@ func testAuthForRequests(t *testing.T, allowlistedRequest, notAllowlistedRequest
 	mockSyncer := syncerv2mocks.NewWorkflowRegistrySyncer(t)
 	auth := NewRequestAuthorizer(lggr, mockSyncer)
 
-	// Invalid method
-	invalidReq := jsonrpc.Request[json.RawMessage]{
-		Method: "invalid-method",
-		Params: nil,
-	}
-	isAuthorized, _, err := auth.AuthorizeRequest(context.Background(), invalidReq)
-	require.ErrorContains(t, err, "unauthorized method: invalid-method")
-	require.False(t, isAuthorized)
-
 	// Happy path
-	digest, err := auth.digestForRequest(allowlistedRequest)
+	digest, err := allowlistedRequest.Digest()
+	require.NoError(t, err)
+	digestBytes, err := hex.DecodeString(digest)
 	require.NoError(t, err)
 	expiry := uint64(time.Now().UTC().Unix() + 100) //nolint:gosec // it is a safe conversion
 	allowlisted := []workflow_registry_wrapper_v2.WorkflowRegistryOwnerAllowlistedRequest{
 		{
-			RequestDigest:   digest,
+			RequestDigest:   [32]byte(digestBytes),
 			Owner:           owner,
 			ExpiryTimestamp: uint32(expiry), //nolint:gosec // it is a safe conversion
 		},

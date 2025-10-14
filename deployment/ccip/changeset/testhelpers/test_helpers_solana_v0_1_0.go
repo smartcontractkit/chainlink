@@ -2,6 +2,7 @@ package testhelpers
 
 import (
 	"context"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -10,7 +11,6 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"slices"
-	"sort"
 	"strings"
 	"testing"
 	"time"
@@ -23,23 +23,57 @@ import (
 	"github.com/gagliardetto/solana-go"
 	"github.com/gagliardetto/solana-go/programs/token"
 	"github.com/gagliardetto/solana-go/rpc"
+
 	chainsel "github.com/smartcontractkit/chain-selectors"
 
-	mcmstypes "github.com/smartcontractkit/mcms/types"
 	"github.com/stretchr/testify/require"
 	"golang.org/x/sync/errgroup"
+
+	mcmstypes "github.com/smartcontractkit/mcms/types"
 
 	tonOps "github.com/smartcontractkit/chainlink-ton/deployment/ccip"
 	tonCfg "github.com/smartcontractkit/chainlink-ton/deployment/ccip/config"
 
 	aptos_fee_quoter "github.com/smartcontractkit/chainlink-aptos/bindings/ccip/fee_quoter"
 	"github.com/smartcontractkit/chainlink-aptos/bindings/helpers"
+	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/latest/offramp"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_2_0/router"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_5_1/burn_mint_token_pool"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_5_1/usdc_token_pool"
-	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_0/fee_quoter"
-	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_0/message_hasher"
-	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_0/offramp"
+	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_3/fee_quoter"
+	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_3/message_hasher"
+
+	"github.com/smartcontractkit/chainlink-evm/gethwrappers/keystone/generated/capabilities_registry"
+
+	cldf_aptos "github.com/smartcontractkit/chainlink-deployments-framework/chain/aptos"
+	cldf_evm "github.com/smartcontractkit/chainlink-deployments-framework/chain/evm"
+	cldf_solana "github.com/smartcontractkit/chainlink-deployments-framework/chain/solana"
+	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+	cldf_offchain "github.com/smartcontractkit/chainlink-deployments-framework/offchain"
+
+	aptoscs "github.com/smartcontractkit/chainlink/deployment/ccip/changeset/aptos"
+	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/aptos/config"
+
+	ccipChangeSetSolanaV0_1_0 "github.com/smartcontractkit/chainlink/deployment/ccip/changeset/solana_v0_1_0"
+	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/v1_6"
+	"github.com/smartcontractkit/chainlink/deployment/ccip/shared"
+	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
+	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview/evm"
+	solanastateview "github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview/solana"
+
+	commoncs "github.com/smartcontractkit/chainlink/deployment/common/changeset"
+	"github.com/smartcontractkit/chainlink/deployment/common/changeset/state"
+	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
+	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/ccipevm"
+	"github.com/smartcontractkit/chainlink/v2/core/services/relay"
+
+	"github.com/smartcontractkit/chainlink-ccip/pkg/consts"
+	"github.com/smartcontractkit/chainlink-ccip/pkg/reader"
+	cciptypes "github.com/smartcontractkit/chainlink-ccip/pkg/types/ccipocr3"
+
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
+
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_0/onramp"
 	solconfig "github.com/smartcontractkit/chainlink-ccip/chains/solana/contracts/tests/config"
 	"github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/v0_1_0/base_token_pool"
@@ -53,41 +87,22 @@ import (
 	solcommon "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/common"
 	solstate "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/state"
 	soltokens "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/tokens"
-	"github.com/smartcontractkit/chainlink-ccip/pkg/consts"
-	"github.com/smartcontractkit/chainlink-ccip/pkg/reader"
-	"github.com/smartcontractkit/chainlink-common/pkg/logger"
-	cciptypes "github.com/smartcontractkit/chainlink-common/pkg/types/ccipocr3"
-	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
+
 	cldf_chain "github.com/smartcontractkit/chainlink-deployments-framework/chain"
-	cldf_aptos "github.com/smartcontractkit/chainlink-deployments-framework/chain/aptos"
-	cldf_evm "github.com/smartcontractkit/chainlink-deployments-framework/chain/evm"
-	cldf_solana "github.com/smartcontractkit/chainlink-deployments-framework/chain/solana"
-	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
-	cldf_offchain "github.com/smartcontractkit/chainlink-deployments-framework/offchain"
+
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/mock_ethusd_aggregator_wrapper"
-	"github.com/smartcontractkit/chainlink-evm/gethwrappers/keystone/generated/capabilities_registry"
+
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/shared/generated/initial/aggregator_v3_interface"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/shared/generated/initial/burn_mint_erc677"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/shared/generated/initial/mock_v3_aggregator_contract"
 	"github.com/smartcontractkit/chainlink/deployment"
-	aptoscs "github.com/smartcontractkit/chainlink/deployment/ccip/changeset/aptos"
-	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/aptos/config"
-	ccipChangeSetSolanaV0_1_0 "github.com/smartcontractkit/chainlink/deployment/ccip/changeset/solana_v0_1_0"
-	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/v1_6"
-	"github.com/smartcontractkit/chainlink/deployment/ccip/shared"
+
 	ccipclient "github.com/smartcontractkit/chainlink/deployment/ccip/shared/client"
-	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
-	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview/evm"
-	solanastateview "github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview/solana"
-	commoncs "github.com/smartcontractkit/chainlink/deployment/common/changeset"
-	"github.com/smartcontractkit/chainlink/deployment/common/changeset/state"
-	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 	commontypes "github.com/smartcontractkit/chainlink/deployment/common/types"
 	"github.com/smartcontractkit/chainlink/deployment/environment/devenv"
 	"github.com/smartcontractkit/chainlink/deployment/environment/memory"
-	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/ccipevm"
+
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/abihelpers"
-	"github.com/smartcontractkit/chainlink/v2/core/services/relay"
 )
 
 const (
@@ -205,6 +220,11 @@ func WaitForEventFilterRegistration(t *testing.T, oc cldf_offchain.Client, chain
 	case chainsel.FamilyAptos:
 		// Aptos is not using LogPoller
 		return nil
+	case chainsel.FamilySui:
+		// Sui is not using LogPoller
+	case chainsel.FamilyTon:
+		// TODO: TON is not using LogPoller
+		return nil
 	default:
 		return fmt.Errorf("unsupported chain family; %v", family)
 	}
@@ -299,6 +319,15 @@ func LatestBlock(ctx context.Context, env cldf.Environment, chainSelector uint64
 		return block, nil
 	case chainsel.FamilySolana:
 		return env.BlockChains.SolanaChains()[chainSelector].Client.GetSlot(ctx, solconfig.DefaultCommitment)
+	case chainsel.FamilySui:
+		suiClient := env.BlockChains.SuiChains()[chainSelector].Client
+		seqNum, err := suiClient.SuiGetLatestCheckpointSequenceNumber(ctx)
+		if err != nil {
+			return 0, fmt.Errorf("failed to get sui latest checkpoint: %w", err)
+		}
+
+		fmt.Println("LATEST BLOCK ON SUI: ", seqNum)
+		return seqNum, nil
 	case chainsel.FamilyAptos:
 		chainInfo, err := env.BlockChains.AptosChains()[chainSelector].Client.Info()
 		if err != nil {
@@ -316,6 +345,9 @@ func LatestBlocksByChain(ctx context.Context, env cldf.Environment) (map[uint64]
 	chains := []uint64{}
 	chains = slices.AppendSeq(chains, maps.Keys(env.BlockChains.EVMChains()))
 	chains = slices.AppendSeq(chains, maps.Keys(env.BlockChains.SolanaChains()))
+	suiChains := env.BlockChains.SuiChains()
+	chains = slices.AppendSeq(chains, maps.Keys(suiChains))
+
 	chains = slices.AppendSeq(chains, maps.Keys(env.BlockChains.AptosChains()))
 	for _, selector := range chains {
 		block, err := LatestBlock(ctx, env, selector)
@@ -334,9 +366,7 @@ func allocateCCIPChainSelectors(chains map[uint64]cldf_evm.Chain) (homeChainSel 
 	for chainSel := range chains {
 		chainSels = append(chainSels, chainSel)
 	}
-	sort.Slice(chainSels, func(i, j int) bool {
-		return chainSels[i] < chainSels[j]
-	})
+	slices.Sort(chainSels)
 	// Take lowest for determinism.
 	return chainSels[HomeChainIndex], chainSels[FeedChainIndex]
 }
@@ -406,9 +436,10 @@ func retryCcipSendUntilNativeFeeIsSufficient(
 	msg := cfg.Message.(router.ClientEVM2AnyMessage)
 	var retryCount int
 	for {
+		fmt.Println("ABOUT TO SEND THIS MSG: ", msg, cfg.DestChain)
 		fee, err := r.GetFee(&bind.CallOpts{Context: context.Background()}, cfg.DestChain, msg)
 		if err != nil {
-			return nil, 0, fmt.Errorf("failed to get fee: %w", cldf.MaybeDataErr(err))
+			return nil, 0, fmt.Errorf("failed to get EVM fee: %w", cldf.MaybeDataErr(err))
 		}
 
 		cfg.Sender.Value = fee
@@ -490,6 +521,8 @@ func SendRequest(
 		return SendRequestEVM(e, state, cfg)
 	case chainsel.FamilySolana:
 		return SendRequestSol(e, state, cfg)
+	case chainsel.FamilySui:
+		return SendRequestSui(e, state, cfg)
 	case chainsel.FamilyAptos:
 		return SendRequestAptos(e, state, cfg)
 	case chainsel.FamilyTon:
@@ -552,6 +585,14 @@ func SendRequestEVM(
 		SequenceNumber: it.Event.SequenceNumber,
 		RawEvent:       it.Event,
 	}, nil
+}
+
+func SendRequestSui(
+	e cldf.Environment,
+	state stateview.CCIPOnChainState,
+	cfg *ccipclient.CCIPSendReqConfig,
+) (*ccipclient.AnyMsgSentEvent, error) {
+	return SendSuiCCIPRequest(e, cfg)
 }
 
 func SendRequestSol(
@@ -961,6 +1002,8 @@ func AddLane(
 			}))
 	}
 
+	// changesets = append(changesets, AddEVMDestChangesets(e, 909606746561742123, 18395503381733958356, false)...)
+
 	switch toFamily {
 	case chainsel.FamilyEVM:
 		changesets = append(changesets, AddEVMDestChangesets(e, to, from, isTestRouter)...)
@@ -969,7 +1012,7 @@ func AddLane(
 	case chainsel.FamilyAptos:
 		changesets = append(changesets, AddLaneAptosChangesets(t, from, to, gasPrices, nil)...)
 	case chainsel.FamilyTon:
-		onRamp, err := state.GetOnRampAddressBytes(to)
+		onRamp, err := state.GetOnRampAddressBytes(from)
 		if err != nil {
 			return err
 		}
@@ -980,8 +1023,12 @@ func AddLane(
 				TestRouter: false,
 			}))
 	}
+
+	fmt.Println("ADDLANE CHANGESETS: ", changesets)
+
 	e.Env, _, err = commoncs.ApplyChangesets(t, e.Env, changesets)
 	if err != nil {
+		fmt.Println("ERROR APPLYING CHANGESET", err)
 		return err
 	}
 	return nil
@@ -1104,6 +1151,7 @@ func AddEVMSrcChangesets(from, to uint64, isTestRouter bool, gasprice map[uint64
 			},
 		),
 	}
+
 	return evmSrcChangesets
 }
 
@@ -1139,6 +1187,27 @@ func AddEVMDestChangesets(e *DeployedEnv, to, from uint64, isTestRouter bool) []
 		),
 	}
 	return evmDstChangesets
+}
+
+func AddSuiDestChangeset(e *DeployedEnv, to, from uint64, isTestRouter bool) []commoncs.ConfiguredChangeSet {
+	suiDstChangesets := []commoncs.ConfiguredChangeSet{
+		commoncs.Configure(
+			cldf.CreateLegacyChangeSet(v1_6.UpdateOffRampSourcesChangeset),
+			v1_6.UpdateOffRampSourcesConfig{
+				UpdatesByChain: map[uint64]map[uint64]v1_6.OffRampSourceUpdate{
+					to: {
+						from: {
+							IsEnabled:                 true,
+							TestRouter:                isTestRouter,
+							IsRMNVerificationDisabled: !e.RmnEnabledSourceChains[from],
+						},
+					},
+				},
+			},
+		),
+	}
+
+	return suiDstChangesets
 }
 
 func AddLaneAptosChangesets(t *testing.T, srcChainSelector, destChainSelector uint64, gasPrices map[uint64]*big.Int, tokenPrices map[aptos.AccountAddress]*big.Int) []commoncs.ConfiguredChangeSet {
@@ -1337,6 +1406,11 @@ func AddLaneWithDefaultPricesAndFeeQuoterConfig(t *testing.T, e *DeployedEnv, st
 		gasPrices[from] = big.NewInt(1e17)
 		gasPrices[to] = big.NewInt(1e17)
 		tokenPrices[tonState.LinkTokenAddress.String()] = deployment.EDecMult(20, 28)
+	case chainsel.FamilySui:
+		suiState := state.SuiChains[from]
+		gasPrices[from] = big.NewInt(1e17)
+		gasPrices[to] = big.NewInt(1e17)
+		tokenPrices[suiState.LinkTokenCoinMetadataId] = deployment.EDecMult(20, 28)
 	}
 	fqCfg := v1_6.DefaultFeeQuoterDestChainConfig(true, to)
 
@@ -1833,7 +1907,6 @@ func MintAndAllow(
 	allowance := new(big.Int).Mul(big.NewInt(1e18), big.NewInt(100))
 
 	for chain, mintTokenInfos := range tokenMap {
-		mintTokenInfos := mintTokenInfos
 
 		configurePoolGrp.Go(func() error {
 			for _, mintTokenInfo := range mintTokenInfos {
@@ -1926,6 +1999,14 @@ func Transfer(
 			FeeToken:     feeTokenAddr,
 			TokenAmounts: tokens.([]AptosTokenAmount),
 		}
+	case chainsel.FamilySui:
+		msg = SuiSendRequest{
+			Data:         data,
+			Receiver:     common.LeftPadBytes(receiver, 32),
+			ExtraArgs:    extraArgs,
+			FeeToken:     feeToken,
+			TokenAmounts: tokens.([]SuiTokenAmount),
+		}
 	default:
 		t.Errorf("unsupported source chain: %v", family)
 	}
@@ -1944,6 +2025,7 @@ type TestTransferRequest struct {
 	Tokens                []router.ClientEVMTokenAmount
 	SolTokens             []solRouter.SVMTokenAmount
 	AptosTokens           []AptosTokenAmount
+	SuiTokens             []SuiTokenAmount
 	Data                  []byte
 	ExtraArgs             []byte
 	ExpectedTokenBalances []ExpectedBalance
@@ -1991,7 +2073,7 @@ func TransferMultiple(
 			case chainsel.FamilyEVM:
 				destFamily, err := chainsel.GetSelectorFamily(tt.DestChain)
 				require.NoError(t, err)
-				if destFamily == chainsel.FamilySolana {
+				if destFamily == chainsel.FamilySolana || destFamily == chainsel.FamilySui {
 					// for EVM2Solana token transfer we need to use tokenReceiver instead logical receiver
 					expectedTokenBalances.add(tt.DestChain, tt.TokenReceiverATA, tt.ExpectedTokenBalances)
 				} else {
@@ -2014,6 +2096,9 @@ func TransferMultiple(
 				expectedTokenBalances.add(tt.DestChain, tt.Receiver, tt.ExpectedTokenBalances)
 			case chainsel.FamilyAptos:
 				tokens = tt.AptosTokens
+				expectedTokenBalances.add(tt.DestChain, tt.Receiver, tt.ExpectedTokenBalances)
+			case chainsel.FamilySui:
+				tokens = tt.SuiTokens
 				expectedTokenBalances.add(tt.DestChain, tt.Receiver, tt.ExpectedTokenBalances)
 			default:
 				t.Errorf("unsupported source chain: %v", family)
@@ -2130,6 +2215,11 @@ func WaitForTokenBalances(
 					receiver := aptos.AccountAddress{}
 					copy(receiver[32-len(id.receiver):], id.receiver)
 					WaitForTokenBalanceAptos(ctx, t, fungibleAssetMetadata, receiver, env.BlockChains.AptosChains()[chainSelector], expectedBalance)
+				case chainsel.FamilySui:
+					tokenHex := "0x" + hex.EncodeToString(id.token)
+					tokenReceiverHex := "0x" + hex.EncodeToString(id.receiver)
+					fmt.Println("Waiting for TokenBalance sui: ", tokenHex, tokenReceiverHex)
+					WaitForTokenBalanceSui(ctx, t, tokenHex, tokenReceiverHex, env.BlockChains.SuiChains()[chainSelector], balance)
 				default:
 				}
 				return nil

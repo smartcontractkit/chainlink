@@ -507,7 +507,7 @@ func TestNewEVMDeployOperation(t *testing.T) {
 			contractType,
 			nil,
 			nil,
-			func(string) []interface{} { return nil },
+			func(string) []any { return nil },
 		)
 
 		input := opsutils.EVMDeployInput[string]{
@@ -529,7 +529,7 @@ func TestNewEVMDeployOperation(t *testing.T) {
 			contractType,
 			nil,
 			nil,
-			func(string) []interface{} { return nil },
+			func(string) []any { return nil },
 		)
 
 		input := opsutils.EVMDeployInput[string]{
@@ -551,7 +551,7 @@ func TestNewEVMDeployOperation(t *testing.T) {
 			contractType,
 			&bind.MetaData{},
 			nil,
-			func(string) []interface{} { return nil },
+			func(string) []any { return nil },
 		)
 
 		input := opsutils.EVMDeployInput[string]{
@@ -577,7 +577,7 @@ func TestNewEVMDeployOperation(t *testing.T) {
 				EVMBytecode:      nil,
 				ZkSyncVMBytecode: []byte{0x05, 0x06, 0x07, 0x08},
 			},
-			func(string) []interface{} { return nil },
+			func(string) []any { return nil },
 		)
 
 		input := opsutils.EVMDeployInput[string]{
@@ -599,7 +599,7 @@ func TestNewEVMDeployOperation(t *testing.T) {
 			contractType,
 			&bind.MetaData{},
 			nil,
-			func(string) []interface{} { return nil },
+			func(string) []any { return nil },
 		)
 
 		input := opsutils.EVMDeployInput[string]{
@@ -626,7 +626,7 @@ func TestNewEVMDeployOperation(t *testing.T) {
 			contractType,
 			&bind.MetaData{},
 			nil,
-			func(string) []interface{} { return nil },
+			func(string) []any { return nil },
 		)
 
 		input := opsutils.EVMDeployInput[string]{
@@ -653,7 +653,7 @@ func TestNewEVMDeployOperation(t *testing.T) {
 			contractType,
 			&bind.MetaData{ABI: "[]"},
 			nil,
-			func(string) []interface{} { return nil },
+			func(string) []any { return nil },
 		)
 
 		chain, err := cldf_evm_provider.NewSimChainProvider(t, 5009297550715157269,
@@ -691,7 +691,7 @@ func TestNewEVMDeployOperation(t *testing.T) {
 			contractType,
 			&bind.MetaData{ABI: "[]"},
 			nil,
-			func(string) []interface{} { return nil },
+			func(string) []any { return nil },
 		)
 
 		chain, err := cldf_evm_provider.NewSimChainProvider(t, 5009297550715157269,
@@ -732,7 +732,7 @@ func TestNewEVMDeployOperation(t *testing.T) {
 			contractType,
 			&bind.MetaData{ABI: "[]"},
 			nil,
-			func(string) []interface{} { return nil },
+			func(string) []any { return nil },
 		)
 
 		chain, err := cldf_evm_provider.NewSimChainProvider(t, 5009297550715157269,

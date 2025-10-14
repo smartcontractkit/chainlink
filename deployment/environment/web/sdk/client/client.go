@@ -196,6 +196,12 @@ func (c *client) FetchKeys(ctx context.Context, chainType string) ([]string, err
 			accounts = append(accounts, key.Id)
 		}
 		return accounts, nil
+	case generated.OCR2ChainTypeSui:
+		var accounts []string
+		for _, key := range keys.SuiKeys.GetResults() {
+			accounts = append(accounts, key.Id)
+		}
+		return accounts, nil
 	case generated.OCR2ChainTypeSolana:
 		var accounts []string
 		for _, key := range keys.SolanaKeys.GetResults() {

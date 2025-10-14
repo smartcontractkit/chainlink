@@ -37,7 +37,7 @@ func TestORM_MostRecentFluxMonitorRoundID(t *testing.T) {
 	address := testutils.NewAddress()
 
 	// Setup the rounds
-	for round := uint32(0); round < 10; round++ {
+	for round := range uint32(10) {
 		_, err := orm.FindOrCreateFluxMonitorRoundStats(ctx, address, round, 1)
 		require.NoError(t, err)
 	}
@@ -120,7 +120,7 @@ func TestORM_UpdateFluxMonitorRoundStats(t *testing.T) {
 				FinishedAt:     null.TimeFrom(f),
 				AllErrors:      pipeline.RunErrors{null.String{}},
 				FatalErrors:    pipeline.RunErrors{null.String{}},
-				Outputs:        jsonserializable.JSONSerializable{Val: []interface{}{10}, Valid: true},
+				Outputs:        jsonserializable.JSONSerializable{Val: []any{10}, Valid: true},
 				PipelineTaskRuns: []pipeline.TaskRun{
 					{
 						ID:         uuid.New(),

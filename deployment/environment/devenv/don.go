@@ -102,7 +102,6 @@ func (don *DON) NodeIds() []string {
 func (don *DON) CreateSupportedChains(ctx context.Context, chains []ChainConfig, jd JobDistributor) error {
 	g := new(errgroup.Group)
 	for i := range don.Nodes {
-		i := i
 		g.Go(func() error {
 			node := &don.Nodes[i]
 			var jdChains []JDChainConfigInput

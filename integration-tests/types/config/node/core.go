@@ -95,7 +95,7 @@ func WithPrivateEVMs(networks []blockchain.EVMNetwork, commonChainConfig *evmcfg
 		// If len(network.HTTPURLs) == 2 then len(network.URLs) must be 2 or less.
 		urlCount := len(network.HTTPURLs)
 
-		for i := 0; i < urlCount; i++ {
+		for i := range urlCount {
 			node := &evmcfg.Node{
 				Name: ptr.Ptr(fmt.Sprintf("%s-%d", network.Name, i)),
 			}

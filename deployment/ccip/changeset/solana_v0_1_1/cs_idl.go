@@ -221,8 +221,8 @@ func SetAuthorityIDL(e cldf.Environment, c IDLConfig) (cldf.ChangesetOutput, err
 // parse anchor version from running anchor --version
 func ParseAnchorVersion(output string) (string, error) {
 	const prefix = "anchor-cli "
-	if strings.HasPrefix(output, prefix) {
-		return strings.TrimSpace(strings.TrimPrefix(output, prefix)), nil
+	if after, ok := strings.CutPrefix(output, prefix); ok {
+		return strings.TrimSpace(after), nil
 	}
 	return "", fmt.Errorf("unexpected version output: %q", output)
 }
@@ -230,7 +230,7 @@ func ParseAnchorVersion(output string) (string, error) {
 // create Anchor.toml file to simulate anchor workspace
 func WriteAnchorToml(e cldf.Environment, filename, anchorVersion, cluster, wallet string) error {
 	e.Logger.Debugw("Writing Anchor.toml", "filename", filename, "anchorVersion", anchorVersion, "cluster", cluster, "wallet", wallet)
-	config := map[string]interface{}{
+	config := map[string]any{
 		"toolchain": map[string]string{
 			"anchor_version": anchorVersion,
 		},
@@ -294,12 +294,12 @@ func updateIDL(e cldf.Environment, idlFile string, programID string) error {
 		return fmt.Errorf("failed to read IDL: %w", err)
 	}
 	e.Logger.Debug("Parsing IDL")
-	var idl map[string]interface{}
+	var idl map[string]any
 	if err := json.Unmarshal(idlBytes, &idl); err != nil {
 		return fmt.Errorf("failed to parse legacy IDL: %w", err)
 	}
 	e.Logger.Debugw("Updating IDL with programID", "programID", programID)
-	idl["metadata"] = map[string]interface{}{
+	idl["metadata"] = map[string]any{
 		"address": programID,
 	}
 	// Marshal updated IDL back to JSON
@@ -360,9 +360,9 @@ func getIDLAddress(e cldf.Environment, programID solana.PublicKey) (solana.Publi
 // parse IDL buffer from `anchor idl write-buffer` output
 func parseIdlBuffer(output string) (string, error) {
 	const prefix = "Idl buffer created: "
-	for _, line := range strings.Split(output, "\n") {
-		if strings.HasPrefix(line, prefix) {
-			return strings.TrimSpace(strings.TrimPrefix(line, prefix)), nil
+	for line := range strings.SplitSeq(output, "\n") {
+		if after, ok := strings.CutPrefix(line, prefix); ok {
+			return strings.TrimSpace(after), nil
 		}
 	}
 	return "", errors.New("failed to find IDL buffer in output")

@@ -398,7 +398,6 @@ func TestProposeJobSpec_VerifyPreconditions_EVM(t *testing.T) {
 	}
 
 	for _, tc := range cases {
-		tc := tc
 		t.Run(tc.name, func(t *testing.T) {
 			in := base
 			in.Inputs = validEVMInputs()
@@ -510,8 +509,8 @@ func TestProposeJobSpec_Apply(t *testing.T) {
 				{Key: "product", Value: offchain.ProductLabel},
 			},
 			Inputs: job_types.JobSpecInput{
-				"contract_qualifier": "ocr3-contract-qualifier",
-				"chain_selector":     strconv.FormatUint(chainSelector, 10),
+				"contractQualifier": "ocr3-contract-qualifier",
+				"chainSelector":     strconv.FormatUint(chainSelector, 10),
 			},
 		}
 
@@ -549,8 +548,8 @@ func TestProposeJobSpec_Apply(t *testing.T) {
 				{Key: "product", Value: offchain.ProductLabel},
 			},
 			Inputs: job_types.JobSpecInput{
-				// Missing "chain_selector"
-				"contract_qualifier": "ocr-contract-qualifier",
+				// Missing "chainSelector"
+				"contractQualifier": "ocr-contract-qualifier",
 			},
 		}
 
@@ -587,11 +586,11 @@ func TestProposeJobSpec_Apply(t *testing.T) {
 				{Key: "product", Value: offchain.ProductLabel},
 			},
 			Inputs: job_types.JobSpecInput{
-				"template_name":        "worker-ocr3",
-				"contract_qualifier":   "ocr3-contract-qualifier",
-				"chain_selector_evm":   strconv.FormatUint(chainSelector, 10),
-				"chain_selector_aptos": strconv.FormatUint(testEnv.AptosSelector, 10),
-				"bootstrapper_ocr3_urls": []string{
+				"templateName":       "worker-ocr3",
+				"contractQualifier":  "ocr3-contract-qualifier",
+				"chainSelectorEVM":   strconv.FormatUint(chainSelector, 10),
+				"chainSelectorAptos": strconv.FormatUint(testEnv.AptosSelector, 10),
+				"bootstrapperOCR3Urls": []string{
 					"12D3KooWHfYFQ8hGttAYbMCevQVESEQhzJAqFZokMVtom8bNxwGq@127.0.0.1:5001",
 				},
 			},
@@ -652,15 +651,15 @@ func TestProposeJobSpec_Apply(t *testing.T) {
 				{Key: "product", Value: offchain.ProductLabel},
 			},
 			Inputs: job_types.JobSpecInput{
-				// missing `template_name`
-				"contract_qualifier": "ocr3-contract-qualifier",
+				// missing `templateName`
+				"contractQualifier": "ocr3-contract-qualifier",
 			},
 		}
 
 		_, err = jobs.ProposeJobSpec{}.Apply(*env, input)
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), "failed to convert inputs to OCR3 job input")
-		assert.Contains(t, err.Error(), "template_name is required and must be a non-empty string")
+		assert.Contains(t, err.Error(), "templateName is required and must be a non-empty string")
 	})
 
 	t.Run("successful evm job distribution", func(t *testing.T) {
@@ -974,8 +973,8 @@ func TestProposeJobSpec_Apply(t *testing.T) {
 				{Key: "product", Value: offchain.ProductLabel},
 			},
 			Inputs: job_types.JobSpecInput{
-				"contract_qualifier_prefix": "vault_1",
-				"chain_selector":            strconv.FormatUint(chainSelector, 10),
+				"contractQualifierPrefix": "vault_1",
+				"chainSelector":           strconv.FormatUint(chainSelector, 10),
 			},
 		}
 
@@ -1043,8 +1042,8 @@ func TestProposeJobSpec_Apply(t *testing.T) {
 				{Key: "product", Value: offchain.ProductLabel},
 			},
 			Inputs: job_types.JobSpecInput{
-				"contract_qualifier_prefix": "another_vault_1",
-				"chain_selector":            strconv.FormatUint(chainSelector, 10),
+				"contractQualifierPrefix": "another_vault_1",
+				"chainSelector":           strconv.FormatUint(chainSelector, 10),
 			},
 		}
 
@@ -1091,11 +1090,11 @@ func TestProposeJobSpec_Apply(t *testing.T) {
 				{Key: "product", Value: offchain.ProductLabel},
 			},
 			Inputs: job_types.JobSpecInput{
-				"template_name":          "worker-vault",
-				"contract_qualifier":     "vault_1_plugin",
-				"dkg_contract_qualifier": "vault_1_dkg",
-				"chain_selector_evm":     strconv.FormatUint(chainSelector, 10),
-				"bootstrapper_ocr3_urls": []string{
+				"templateName":         "worker-vault",
+				"contractQualifier":    "vault_1_plugin",
+				"dkgContractQualifier": "vault_1_dkg",
+				"chainSelectorEVM":     strconv.FormatUint(chainSelector, 10),
+				"bootstrapperOCR3Urls": []string{
 					"12D3KooWHfYFQ8hGttAYbMCevQVESEQhzJAqFZokMVtom8bNxwGq@127.0.0.1:5001",
 				},
 			},

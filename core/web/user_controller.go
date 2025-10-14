@@ -223,7 +223,7 @@ func (u *UserController) UpdatePassword(c *gin.Context) {
 		return
 	}
 	if !utils.CheckPasswordHash(request.OldPassword, user.HashedPassword) {
-		u.App.GetAuditLogger().Audit(audit.PasswordResetAttemptFailedMismatch, map[string]interface{}{"user": user.Email})
+		u.App.GetAuditLogger().Audit(audit.PasswordResetAttemptFailedMismatch, map[string]any{"user": user.Email})
 		jsonAPIError(c, http.StatusConflict, errors.New("old password does not match"))
 		return
 	}
@@ -236,7 +236,7 @@ func (u *UserController) UpdatePassword(c *gin.Context) {
 		return
 	}
 
-	u.App.GetAuditLogger().Audit(audit.PasswordResetSuccess, map[string]interface{}{"user": user.Email})
+	u.App.GetAuditLogger().Audit(audit.PasswordResetSuccess, map[string]any{"user": user.Email})
 	jsonAPIResponse(c, presenters.NewUserResource(user), "user")
 }
 
@@ -267,7 +267,7 @@ func (u *UserController) NewAPIToken(c *gin.Context) {
 	// In order to create an API token, login validation with provided password must succeed
 	err = u.App.AuthenticationProvider().TestPassword(ctx, sessionUser.Email, request.Password)
 	if err != nil {
-		u.App.GetAuditLogger().Audit(audit.APITokenCreateAttemptPasswordMismatch, map[string]interface{}{"user": user.Email})
+		u.App.GetAuditLogger().Audit(audit.APITokenCreateAttemptPasswordMismatch, map[string]any{"user": user.Email})
 		jsonAPIError(c, http.StatusUnauthorized, errors.New("incorrect password"))
 		return
 	}
@@ -281,7 +281,7 @@ func (u *UserController) NewAPIToken(c *gin.Context) {
 		return
 	}
 
-	u.App.GetAuditLogger().Audit(audit.APITokenCreated, map[string]interface{}{"user": user.Email})
+	u.App.GetAuditLogger().Audit(audit.APITokenCreated, map[string]any{"user": user.Email})
 	jsonAPIResponseWithStatus(c, newToken, "auth_token", http.StatusCreated)
 }
 
@@ -311,7 +311,7 @@ func (u *UserController) DeleteAPIToken(c *gin.Context) {
 	}
 	err = u.App.AuthenticationProvider().TestPassword(ctx, sessionUser.Email, request.Password)
 	if err != nil {
-		u.App.GetAuditLogger().Audit(audit.APITokenDeleteAttemptPasswordMismatch, map[string]interface{}{"user": user.Email})
+		u.App.GetAuditLogger().Audit(audit.APITokenDeleteAttemptPasswordMismatch, map[string]any{"user": user.Email})
 		jsonAPIError(c, http.StatusUnauthorized, errors.New("incorrect password"))
 		return
 	}
@@ -324,7 +324,7 @@ func (u *UserController) DeleteAPIToken(c *gin.Context) {
 		return
 	}
 	{
-		u.App.GetAuditLogger().Audit(audit.APITokenDeleted, map[string]interface{}{"user": user.Email})
+		u.App.GetAuditLogger().Audit(audit.APITokenDeleted, map[string]any{"user": user.Email})
 		jsonAPIResponseWithStatus(c, nil, "auth_token", http.StatusNoContent)
 	}
 }

@@ -47,7 +47,7 @@ func (t *ETHABIDecodeTask) Run(_ context.Context, _ logger.Logger, vars Vars, in
 		return Result{Error: errors.Wrap(ErrBadInput, err.Error())}, runInfo
 	}
 
-	out := make(map[string]interface{})
+	out := make(map[string]any)
 	if len(data) > 0 {
 		if err := args.UnpackIntoMap(out, []byte(data)); err != nil {
 			return Result{Error: err}, runInfo

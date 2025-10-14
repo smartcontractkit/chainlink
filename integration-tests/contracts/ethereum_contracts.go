@@ -1373,7 +1373,7 @@ func (e *EthereumFunctionsRouter) CreateSubscriptionWithConsumer(consumer string
 	for _, l := range tx.Receipt.Logs {
 		e.l.Info().Interface("Log", common.Bytes2Hex(l.Data)).Send()
 	}
-	topicsMap := map[string]interface{}{}
+	topicsMap := map[string]any{}
 
 	fabi, err := abi.JSON(strings.NewReader(functions_router.FunctionsRouterABI))
 	if err != nil {

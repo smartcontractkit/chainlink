@@ -104,7 +104,7 @@ func TestIntegration_KeeperPluginConditionalUpkeep(t *testing.T) {
 	}
 	// Generate 5 keys for nodes (1 bootstrap + 4 ocr nodes) and fund them with ether
 	var nodeKeys [5]ethkey.KeyV2
-	for i := int64(0); i < 5; i++ {
+	for i := range int64(5) {
 		nodeKeys[i] = cltest.MustGenerateRandomKey(t)
 		genesisData[nodeKeys[i].Address] = gethtypes.Account{Balance: assets.Ether(1000).ToInt()}
 	}
@@ -200,7 +200,7 @@ func TestIntegration_KeeperPluginLogUpkeep(t *testing.T) {
 	}
 	// Generate 5 keys for nodes (1 bootstrap + 4 ocr nodes) and fund them with ether
 	var nodeKeys [5]ethkey.KeyV2
-	for i := int64(0); i < 5; i++ {
+	for i := range int64(5) {
 		nodeKeys[i] = cltest.MustGenerateRandomKey(t)
 		genesisData[nodeKeys[i].Address] = gethtypes.Account{Balance: assets.Ether(1000).ToInt()}
 	}
@@ -266,7 +266,7 @@ func TestIntegration_KeeperPluginLogUpkeep(t *testing.T) {
 
 		// Mine enough blocks to ensure these logs don't fall into log provider range
 		dummyBlocks := 500
-		for i := 0; i < dummyBlocks; i++ {
+		for range dummyBlocks {
 			commit()
 			time.Sleep(time.Millisecond * 10)
 		}
@@ -296,7 +296,7 @@ func TestIntegration_KeeperPluginLogUpkeep_Retry(t *testing.T) {
 
 	// Generate 5 keys for nodes (1 bootstrap + 4 ocr nodes) and fund them with ether
 	var nodeKeys [5]ethkey.KeyV2
-	for i := int64(0); i < 5; i++ {
+	for i := range int64(5) {
 		nodeKeys[i] = cltest.MustGenerateRandomKey(t)
 		genesisData[nodeKeys[i].Address] = gethtypes.Account{Balance: assets.Ether(1000).ToInt()}
 	}
@@ -416,7 +416,7 @@ func TestIntegration_KeeperPluginLogUpkeep_ErrHandler(t *testing.T) {
 
 	// Generate 5 keys for nodes (1 bootstrap + 4 ocr nodes) and fund them with ether
 	var nodeKeys [5]ethkey.KeyV2
-	for i := int64(0); i < 5; i++ {
+	for i := range int64(5) {
 		nodeKeys[i] = cltest.MustGenerateRandomKey(t)
 		genesisData[nodeKeys[i].Address] = gethtypes.Account{Balance: assets.Ether(1000).ToInt()}
 	}
@@ -542,7 +542,7 @@ func emitEvents(ctx context.Context, t *testing.T, n int, contracts []*log_upkee
 func mapListener(m *sync.Map, n int) func() bool {
 	return func() bool {
 		count := 0
-		m.Range(func(key, value interface{}) bool {
+		m.Range(func(key, value any) bool {
 			count += value.(int)
 			return true
 		})
@@ -634,7 +634,7 @@ func setupNodes(t *testing.T, nodeKeys [5]ethkey.KeyV2, registry *iregistry21.IK
 	)
 	// Set up the minimum 4 oracles all funded
 	ports := freeport.GetN(t, 4)
-	for i := 0; i < 4; i++ {
+	for i := range 4 {
 		app, peerID, transmitter, kb := setupNode(t, ports[i], nodeKeys[i+1], backend, []commontypes.BootstrapperLocator{
 			// Supply the bootstrap IP and port as a V2 peer address
 			{PeerID: bootstrapPeerID, Addrs: []string{fmt.Sprintf("127.0.0.1:%d", bootstrapNodePort)}},
@@ -696,7 +696,7 @@ func setupNodes(t *testing.T, nodeKeys [5]ethkey.KeyV2, registry *iregistry21.IK
 
 	// Setup config on contract
 	configType := abi.MustNewType("tuple(uint32 paymentPremiumPPB,uint32 flatFeeMicroLink,uint32 checkGasLimit,uint24 stalenessSeconds,uint16 gasCeilingMultiplier,uint96 minUpkeepSpend,uint32 maxPerformGas,uint32 maxCheckDataSize,uint32 maxPerformDataSize,uint32 maxRevertDataSize, uint256 fallbackGasPrice,uint256 fallbackLinkPrice,address transcoder,address[] registrars, address upkeepPrivilegeManager)")
-	onchainConfig, err := abi.Encode(map[string]interface{}{
+	onchainConfig, err := abi.Encode(map[string]any{
 		"paymentPremiumPPB":      uint32(0),
 		"flatFeeMicroLink":       uint32(0),
 		"checkGasLimit":          uint32(6500000),
@@ -777,7 +777,7 @@ func deployUpkeeps(t *testing.T, backend evmtypes.Backend, carrol, steve *bind.T
 	ids := make([]*big.Int, n)
 	addrs := make([]common.Address, n)
 	contracts := make([]*log_upkeep_counter_wrapper.LogUpkeepCounter, n)
-	for i := 0; i < n; i++ {
+	for i := range n {
 		backend.Commit()
 		time.Sleep(1 * time.Second)
 		upkeepAddr, _, upkeepContract, err := log_upkeep_counter_wrapper.DeployLogUpkeepCounter(
@@ -806,7 +806,7 @@ func deployUpkeeps(t *testing.T, backend evmtypes.Backend, carrol, steve *bind.T
 
 func registerUpkeep(t *testing.T, registry *iregistry21.IKeeperRegistryMaster, upkeepAddr common.Address, carrol, steve *bind.TransactOpts, backend evmtypes.Backend) *big.Int {
 	logTriggerConfigType := abi.MustNewType("tuple(address contractAddress, uint8 filterSelector, bytes32 topic0, bytes32 topic1, bytes32 topic2, bytes32 topic3)")
-	logTriggerConfig, err := abi.Encode(map[string]interface{}{
+	logTriggerConfig, err := abi.Encode(map[string]any{
 		"contractAddress": upkeepAddr,
 		"filterSelector":  0,                                                                    // no indexed topics filtered
 		"topic0":          "0x3d53a39550e04688065827f3bb86584cb007ab9ebca7ebd528e7301c9c31eb5d", // event sig for Trigger()
@@ -964,7 +964,7 @@ func (c *feedLookupUpkeepController) DeployUpkeeps(
 	contracts := make([]*log_triggered_streams_lookup_wrapper.LogTriggeredStreamsLookup, count)
 
 	// deploy n upkeep contracts
-	for x := 0; x < count; x++ {
+	for x := range count {
 		var checkErrResult bool
 		if checkErrResultsProvider != nil {
 			checkErrResult = checkErrResultsProvider(x)
@@ -1009,7 +1009,7 @@ func (c *feedLookupUpkeepController) RegisterAndFund(
 	t.Logf("address: %s", c.logSrcAddr.Hex())
 
 	logTriggerConfigType := abi.MustNewType("tuple(address contractAddress, uint8 filterSelector, bytes32 topic0, bytes32 topic1, bytes32 topic2, bytes32 topic3)")
-	config, err := abi.Encode(map[string]interface{}{
+	config, err := abi.Encode(map[string]any{
 		"contractAddress": c.logSrcAddr,
 		"filterSelector":  0,                                                                    // no indexed topics filtered
 		"topic0":          "0xd1ffe9e45581c11d7d9f2ed5f75217cd4be9f8b7eee6af0f6d03f46de53956cd", // LimitOrderExecuted event for dummy protocol

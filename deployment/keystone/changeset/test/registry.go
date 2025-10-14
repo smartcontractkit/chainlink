@@ -384,7 +384,6 @@ func (cc *CapabilityCache) AddCapabilities(_ logger.Logger, chain cldf_evm.Chain
 
 	// get the registered capabilities
 	for _, capb := range toRegister {
-		capb := capb
 		id, err := registry.GetHashedCapabilityId(&bind.CallOpts{}, capb.LabelledName, capb.Version)
 		require.NoError(t, err)
 		out = append(out, internal.RegisteredCapability{

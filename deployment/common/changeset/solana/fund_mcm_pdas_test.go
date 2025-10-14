@@ -222,7 +222,6 @@ func TestFundMCMSignersChangeset_VerifyPreconditions(t *testing.T) {
 	cs := commonSolana.FundMCMSignersChangeset{}
 
 	for _, tt := range tests {
-		tt := tt // capture range variable
 		t.Run(tt.name, func(t *testing.T) {
 			err := cs.VerifyPreconditions(tt.env, tt.config)
 			if tt.expectedError == "" {

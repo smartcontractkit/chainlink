@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"math/rand"
+	"slices"
 	"sort"
 
 	"github.com/AlekSi/pointer"
@@ -218,7 +219,7 @@ func generateBidirectionalRandomLanesWithMinConnectivity(chains []uint64, numLan
 	})
 
 	// Create minimum connectivity: each chain as source and destination bidirectionally
-	for i := 0; i < len(shuffledChains); i++ {
+	for i := range shuffledChains {
 		// First cycle - connect to next chain
 		src := shuffledChains[i]
 		dst := shuffledChains[(i+1)%len(shuffledChains)]
@@ -315,9 +316,7 @@ func (lc *LaneConfiguration) GetConnectedChains() []uint64 {
 	}
 
 	// Sort for deterministic order
-	sort.Slice(connectedChains, func(i, j int) bool {
-		return connectedChains[i] < connectedChains[j]
-	})
+	slices.Sort(connectedChains)
 
 	return connectedChains
 }
@@ -528,9 +527,7 @@ func (lc *LaneConfiguration) GetSourceChainsForDestination(destination uint64) [
 	}
 
 	// Sort for deterministic order
-	sort.Slice(sources, func(i, j int) bool {
-		return sources[i] < sources[j]
-	})
+	slices.Sort(sources)
 
 	return sources
 }
@@ -549,9 +546,7 @@ func (lc *LaneConfiguration) GetDestinationChainsForSource(source uint64) []uint
 	}
 
 	// Sort for deterministic order
-	sort.Slice(destinations, func(i, j int) bool {
-		return destinations[i] < destinations[j]
-	})
+	slices.Sort(destinations)
 
 	return destinations
 }

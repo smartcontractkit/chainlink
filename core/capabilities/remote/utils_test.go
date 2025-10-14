@@ -106,7 +106,7 @@ func TestSanitizeLogString(t *testing.T) {
 	require.Equal(t, "[UNPRINTABLE] 0a", remote.SanitizeLogString("\n"))
 
 	longString := ""
-	for i := 0; i < 100; i++ {
+	for range 100 {
 		longString += "aa-aa-aa-"
 	}
 	require.Equal(t, longString[:256]+" [TRUNCATED]", remote.SanitizeLogString(longString))

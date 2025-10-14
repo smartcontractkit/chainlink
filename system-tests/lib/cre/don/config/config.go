@@ -361,7 +361,7 @@ func addWorkerNodeConfig(
 		ContractVersion: ptr.Ptr(commonInputs.capabilityRegistry.versionType.Version.String()),
 	}
 
-	if donMetadata.HasFlag(cre.WorkflowDON) {
+	if donMetadata.HasFlag(cre.WorkflowDON) || donMetadata.HasFlag("vault") {
 		existingConfig.Capabilities.WorkflowRegistry = coretoml.WorkflowRegistry{
 			Address:         ptr.Ptr(commonInputs.workflowRegistry.address.Hex()),
 			NetworkID:       ptr.Ptr("evm"),

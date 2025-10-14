@@ -1,6 +1,7 @@
 package launcher
 
 import (
+	"maps"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -83,9 +84,7 @@ func Test_ccipDeployment_Transitions(t *testing.T) {
 				}
 
 				currP := make(map[ocrtypes.ConfigDigest]*mocktypes.CCIPOracle)
-				for digest, oracle := range prevP {
-					currP[digest] = oracle
-				}
+				maps.Copy(currP, prevP)
 				return args{prevDeployment: prevP, currDeployment: currP}
 			},
 			expect: func(t *testing.T, args args) {
@@ -106,9 +105,7 @@ func Test_ccipDeployment_Transitions(t *testing.T) {
 				}
 
 				currP := make(map[ocrtypes.ConfigDigest]*mocktypes.CCIPOracle)
-				for digest, oracle := range prevP {
-					currP[digest] = oracle
-				}
+				maps.Copy(currP, prevP)
 				for range 2 {
 					currP[utils.RandomBytes32()] = mocktypes.NewCCIPOracle(t)
 				}

@@ -21,32 +21,32 @@ type SuppressedLogger struct {
 	InfoLevel  bool
 }
 
-func (s *SuppressedLogger) Debug(args ...interface{}) {
+func (s *SuppressedLogger) Debug(args ...any) {
 	if s.DebugLevel {
 		s.Logger.Debug(args...)
 	}
 }
-func (s *SuppressedLogger) Info(args ...interface{}) {
+func (s *SuppressedLogger) Info(args ...any) {
 	if s.InfoLevel {
 		s.Logger.Info(args...)
 	}
 }
-func (s *SuppressedLogger) Debugf(format string, values ...interface{}) {
+func (s *SuppressedLogger) Debugf(format string, values ...any) {
 	if s.DebugLevel {
 		s.Logger.Debugf(format, values...)
 	}
 }
-func (s *SuppressedLogger) Infof(format string, values ...interface{}) {
+func (s *SuppressedLogger) Infof(format string, values ...any) {
 	if s.InfoLevel {
 		s.Logger.Infof(format, values...)
 	}
 }
-func (s *SuppressedLogger) Debugw(msg string, keysAndValues ...interface{}) {
+func (s *SuppressedLogger) Debugw(msg string, keysAndValues ...any) {
 	if s.DebugLevel {
 		s.Logger.Debugw(msg, keysAndValues...)
 	}
 }
-func (s *SuppressedLogger) Infow(msg string, keysAndValues ...interface{}) {
+func (s *SuppressedLogger) Infow(msg string, keysAndValues ...any) {
 	if s.InfoLevel {
 		s.Logger.Infow(msg, keysAndValues...)
 	}

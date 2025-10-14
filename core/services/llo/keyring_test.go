@@ -99,7 +99,7 @@ func Test_Keyring(t *testing.T) {
 				sig, err := kr.Sign(cd, seqNr, ocr3types.ReportWithInfo[llotypes.ReportInfo]{Info: llotypes.ReportInfo{ReportFormat: tc.format}})
 				require.NoError(t, err)
 
-				assert.Equal(t, []byte(fmt.Sprintf("sig-%d", tc.format)), sig)
+				assert.Equal(t, fmt.Appendf(nil, "sig-%d", tc.format), sig)
 
 				assert.False(t, kr.Verify(nil, cd, seqNr, ocr3types.ReportWithInfo[llotypes.ReportInfo]{Info: llotypes.ReportInfo{ReportFormat: tc.format}}, sig))
 
@@ -113,7 +113,7 @@ func Test_Keyring(t *testing.T) {
 	})
 	t.Run("PublicKey", func(t *testing.T) {
 		b := make([]byte, 6+2+1)
-		for i := 0; i < len(b); i++ {
+		for i := range b {
 			b[i] = byte(255)
 		}
 		assert.Equal(t, types.OnchainPublicKey(b), kr.PublicKey())

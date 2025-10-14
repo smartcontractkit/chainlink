@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/hex"
 	"fmt"
+	"maps"
 	"math/big"
 	"sort"
 	"strings"
@@ -48,10 +49,10 @@ import (
 
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_0_0/rmn_proxy_contract"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_0/ccip_reader_tester"
-	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_0/fee_quoter"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_0/offramp"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_0/onramp"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_0/rmn_remote"
+	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_3/fee_quoter"
 	"github.com/smartcontractkit/chainlink-evm/pkg/client"
 	"github.com/smartcontractkit/chainlink-evm/pkg/heads/headstest"
 	"github.com/smartcontractkit/chainlink-evm/pkg/logpoller"
@@ -941,6 +942,7 @@ func TestCCIPReader_DiscoverContracts(t *testing.T) {
 		[]cciptypes.ChainSelector{chainS1, chainD},
 		[]cciptypes.ChainSelector{chainS1, chainD},
 	)
+
 	require.NoError(t, err)
 
 	require.Equal(t, contractAddresses[consts.ContractNameOnRamp][chainS1], cciptypes.UnknownAddress(common.LeftPadBytes(onRampS1Addr.Bytes(), 32)))
@@ -1205,7 +1207,7 @@ func requireEqualRoots(
 	ccipReaderRoots []cciptypes.MerkleRootChain,
 ) {
 	require.Len(t, ccipReaderRoots, len(onchainRoots))
-	for i := 0; i < len(onchainRoots); i++ {
+	for i := range onchainRoots {
 		require.Equal(t,
 			onchainRoots[i].SourceChainSelector,
 			uint64(ccipReaderRoots[i].ChainSel),
@@ -1516,9 +1518,7 @@ func testSetup(
 	require.NoError(t, err)
 
 	contractReaders := map[cciptypes.ChainSelector]contractreader.Extended{params.ReaderChain: extendedCrReaderChain}
-	for chain, cr := range otherCrs {
-		contractReaders[chain] = cr
-	}
+	maps.Copy(contractReaders, otherCrs)
 
 	mokAddrCodec := newMockAddressCodec(t)
 	reader := ccipreaderpkg.NewCCIPReaderWithExtendedContractReaders(
