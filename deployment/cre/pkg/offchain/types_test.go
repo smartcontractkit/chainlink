@@ -18,7 +18,7 @@ func TestAddToFilter(t *testing.T) {
 
 		got := f.AddToFilter(filter)
 
-		req.True(got == filter, "expected in-place mutation, got new pointer")
+		req.Equal(filter, got, "expected in-place mutation, got new pointer")
 		req.Len(got.PublicKeys, 1)
 		req.Equal("0xabc", got.PublicKeys[0])
 		req.Empty(got.Selectors)
@@ -32,7 +32,7 @@ func TestAddToFilter(t *testing.T) {
 
 		got := f.AddToFilter(filter)
 
-		req.True(got == filter, "expected in-place mutation")
+		req.Equal(filter, got, "expected in-place mutation")
 		req.Len(got.Selectors, 1)
 
 		s := got.Selectors[0]
@@ -49,7 +49,7 @@ func TestAddToFilter(t *testing.T) {
 
 		got := f.AddToFilter(filter)
 
-		req.True(got == filter, "expected in-place mutation")
+		req.Equal(filter, got, "expected in-place mutation")
 		req.Len(got.Selectors, 1)
 
 		s := got.Selectors[0]
