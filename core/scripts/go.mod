@@ -257,7 +257,6 @@ require (
 	github.com/gagliardetto/utilz v0.1.3 // indirect
 	github.com/gedex/inflector v0.0.0-20170307190818-16278e9db813 // indirect
 	github.com/getsentry/sentry-go v0.27.0 // indirect
-	github.com/gibson042/canonicaljson-go v1.0.3 // indirect
 	github.com/gin-contrib/cors v1.7.2 // indirect
 	github.com/gin-contrib/expvar v0.0.1 // indirect
 	github.com/gin-contrib/sessions v0.0.5 // indirect
