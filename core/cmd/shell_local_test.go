@@ -552,6 +552,14 @@ func TestShell_BeforeNode(t *testing.T) {
 			// Run before hook to initialize components with authentication
 			err = shell.BeforeNode(c)
 
+			// Always clean up database if it was opened, regardless of authentication success
+			defer func() {
+				if shell.LDB != nil {
+					cleanupErr := shell.AfterNode(c)
+					require.NoError(t, cleanupErr)
+				}
+			}()
+
 			if test.wantUnlocked {
 				require.NoError(t, err)
 				// Verify that shell components were initialized
@@ -563,10 +571,6 @@ func TestShell_BeforeNode(t *testing.T) {
 				keys, keysErr := shell.KeyStore.CSA().GetAll()
 				require.NoError(t, keysErr)
 				assert.NotEmpty(t, keys)
-
-				// Clean up
-				err = shell.AfterNode(c)
-				require.NoError(t, err)
 			} else {
 				require.Error(t, err)
 			}
