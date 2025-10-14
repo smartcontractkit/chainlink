@@ -30,6 +30,7 @@ import (
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/pkg/errors"
 	"github.com/rs/zerolog"
 	"github.com/stretchr/testify/require"
@@ -48,7 +49,6 @@ import (
 	ttypes "github.com/smartcontractkit/chainlink/system-tests/tests/test-helpers/configuration"
 
 	"github.com/smartcontractkit/chainlink-testing-framework/framework"
-	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/blockchain"
 	ns "github.com/smartcontractkit/chainlink-testing-framework/framework/components/simple_node_set"
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/ptr"
 	"github.com/smartcontractkit/chainlink-testing-framework/seth"
@@ -58,11 +58,9 @@ import (
 	keystone_changeset "github.com/smartcontractkit/chainlink/deployment/keystone/changeset"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre"
 	crecontracts "github.com/smartcontractkit/chainlink/system-tests/lib/cre/contracts"
-	environment "github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/flags"
 	creworkflow "github.com/smartcontractkit/chainlink/system-tests/lib/cre/workflow"
 	crecrypto "github.com/smartcontractkit/chainlink/system-tests/lib/crypto"
-	crefunding "github.com/smartcontractkit/chainlink/system-tests/lib/funding"
 )
 
 /////////////////////////
@@ -257,32 +255,14 @@ func CreateAndFundAddresses(t *testing.T, testLogger zerolog.Logger, numberOfAdd
 
 		testLogger.Info().Msgf("Funding address '%s' with amount of '%s' wei", addressToRead.Hex(), amountToFund.String())
 
-		switch bcOutput.CtfOutput.Family {
-		case blockchain.FamilyTron:
-			if err := environment.FundTronAddress(t.Context(), testLogger, addressToRead, amountToFund.Uint64(), bcOutput, fullCldEnvOutput.CldfEnvironment); err != nil {
-				return nil, err
-			}
-		default:
-			if err := fundEthAddress(t, testLogger, addressToRead, amountToFund, sethClient); err != nil {
-				return nil, err
-			}
+		if err := bcOutput.Funder.Fund(t.Context(), addressToRead.Hex(), amountToFund.Uint64(), crypto.FromECDSA(sethClient.MustGetRootPrivateKey())); err != nil {
+			return nil, err
 		}
 
 		addressesToRead = append(addressesToRead, addressToRead)
 	}
 
 	return addressesToRead, nil
-}
-
-func fundEthAddress(t *testing.T, testLogger zerolog.Logger, addressToRead common.Address, amountToFund *big.Int, sethClient *seth.Client) error {
-	receipt, funErr := crefunding.SendFunds(t.Context(), testLogger, sethClient, crefunding.FundsToSend{
-		ToAddress:  addressToRead,
-		Amount:     amountToFund,
-		PrivateKey: sethClient.MustGetRootPrivateKey(),
-	})
-	require.NoError(t, funErr, "failed to send funds")
-	testLogger.Info().Msgf("Funds sent successfully to address '%s': txHash='%s'", addressToRead.Hex(), receipt.TxHash)
-	return nil
 }
 
 //////////////////////////////

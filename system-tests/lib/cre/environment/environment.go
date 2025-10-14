@@ -258,18 +258,20 @@ func SetupTestEnvironment(
 	fmt.Print(libformat.PurpleText("%s", input.StageGen.WrapAndNext("Jobs created in %.2f seconds", input.StageGen.Elapsed().Seconds())))
 	fmt.Print(libformat.PurpleText("%s", input.StageGen.Wrap("Preparing Chainlink Node funding")))
 
-	// This operation cannot execute in the background, because it uses master private key and we want to avoid nonce issues
-	// Once we have generated and funded new private keys for each chain, we can execute fanning out of funds to nodes in the background
-	preFundingOutput, prefundErr := operations.ExecuteOperation(creEnvironment.CldfEnvironment.OperationsBundle, PrepareCLNodesFundingOp, PrepareFundCLNodesOpDeps{
-		TestLogger:  testLogger,
-		Env:         creEnvironment.CldfEnvironment,
-		Blockchains: deployedBlockchains.Outputs,
-		DonTopology: creEnvironment.DonTopology,
-	}, PrepareFundCLNodesOpInput{FundingPerChainFamilyForEachNode: map[string]uint64{
+	fundingPerChainFamilyForEachNode := map[string]uint64{
 		chainselectors.FamilyEVM:    10000000000000000, // 0.01 ETH
 		chainselectors.FamilySolana: 50_000_000_000,    // 50 SOL
 		chainselectors.FamilyTron:   100_000_000,       // 100 TRX in SUN
-	}})
+	}
+
+	// This operation cannot execute in the background, because it uses master private key and we want to avoid nonce issues
+	// Once we have generated and funded new private keys for each chain, we can execute fanning out of funds to nodes in the background
+	privateKeysPerChainFamily, prefundErr := PrepareNodesFunding(
+		ctx,
+		creEnvironment.DonTopology.Dons,
+		deployedBlockchains.Outputs,
+		fundingPerChainFamilyForEachNode,
+	)
 	if prefundErr != nil {
 		return nil, pkgerrors.Wrap(prefundErr, "failed to prepare funding of CL nodes")
 	}
@@ -278,17 +280,14 @@ func SetupTestEnvironment(
 		fmt.Print(libformat.PurpleText("\n---> [BACKGROUND] Funding Chainlink nodes\n\n"))
 		defer fmt.Print(libformat.PurpleText("\n---> [BACKGROUND] Finished Funding Chainlink nodes\n\n"))
 
-		_, fundErr := operations.ExecuteOperation(creEnvironment.CldfEnvironment.OperationsBundle, FundCLNodesOp, FundCLNodesOpDeps{
-			TestLogger:        testLogger,
-			Env:               creEnvironment.CldfEnvironment,
-			BlockchainOutputs: deployedBlockchains.Outputs,
-			DonTopology:       creEnvironment.DonTopology,
-		}, FundCLNodesOpInput{
-			FundingAmountPerChainFamily: preFundingOutput.Output.FundingPerChainFamilyForEachNode,
-			PrivateKeyPerChainFamily:    preFundingOutput.Output.PrivateKeysPerChainFamily,
-		})
-
-		return fundErr
+		return FundNodes(
+			ctx,
+			testLogger,
+			creEnvironment.DonTopology.Dons,
+			deployedBlockchains.Outputs,
+			privateKeysPerChainFamily,
+			fundingPerChainFamilyForEachNode,
+		)
 	})
 
 	fmt.Print(libformat.PurpleText("%s", input.StageGen.WrapAndNext("Chainlink Node funding prepared in %.2f seconds", input.StageGen.Elapsed().Seconds())))

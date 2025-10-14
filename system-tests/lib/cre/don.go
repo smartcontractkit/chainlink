@@ -235,7 +235,7 @@ func NewDON(ctx context.Context, donMetadata *DonMetadata, ctfNodes []*clnode.Ou
 	return don, nil
 }
 
-func RegisterWithJD(ctx context.Context, d *DON, supportedChains []ChainConfig, jd *jd.JobDistributor) error {
+func RegisterWithJD(ctx context.Context, d *DON, supportedChains []CldfChainConfig, jd *jd.JobDistributor) error {
 	mu := &sync.Mutex{}
 
 	errgroup := errgroup.Group{}
@@ -823,8 +823,8 @@ func HasFlag(values []string, capability string) bool {
 }
 
 // TODO do we need to use metadata here? maybe actually some interface that both DON and metadata would implement?
-func FindDONsSupportedChains(donMetadata *DonMetadata, blockchains []*Blockchain) ([]ChainConfig, error) {
-	chains := make([]ChainConfig, 0)
+func FindDONsSupportedChains(donMetadata *DonMetadata, blockchains []*Blockchain) ([]CldfChainConfig, error) {
+	chains := make([]CldfChainConfig, 0)
 
 	for chainSelector, bc := range blockchains {
 		hasEVMChainEnabled := slices.Contains(donMetadata.EVMChains(), bc.ChainID)
@@ -835,7 +835,7 @@ func FindDONsSupportedChains(donMetadata *DonMetadata, blockchains []*Blockchain
 			continue
 		}
 
-		cfg, cfgErr := ChainConfigFromWrapped(bc)
+		cfg, cfgErr := CldfChainConfigFromBlockchain(bc)
 		if cfgErr != nil {
 			return nil, errors.Wrapf(cfgErr, "failed to build chain config for chain selector %d", chainSelector)
 		}

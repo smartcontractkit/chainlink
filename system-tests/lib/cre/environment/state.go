@@ -98,16 +98,16 @@ func BuildFromSavedState(ctx context.Context, cldLogger logger.Logger, cachedInp
 		dons = append(dons, startedDON)
 	}
 
-	chainConfigs := make([]cre.ChainConfig, 0, len(deployedBlockchains.Outputs))
+	chainConfigs := make([]cre.CldfChainConfig, 0, len(deployedBlockchains.Outputs))
 	for _, output := range deployedBlockchains.Outputs {
-		cfg, cfgErr := cre.ChainConfigFromWrapped(output)
+		cfg, cfgErr := cre.CldfChainConfigFromBlockchain(output)
 		if cfgErr != nil {
 			return nil, nil, errors.Wrapf(cfgErr, "failed to build chain config from write for blockchain %s", output.CtfOutput.Family)
 		}
 		chainConfigs = append(chainConfigs, cfg)
 	}
 
-	blockChains, chainErr := cre.NewChains(cldLogger, chainConfigs)
+	blockChains, chainErr := cre.NewCldfChains(cldLogger, chainConfigs)
 	if chainErr != nil {
 		return nil, nil, errors.Wrapf(chainErr, "failed to create block chains")
 	}

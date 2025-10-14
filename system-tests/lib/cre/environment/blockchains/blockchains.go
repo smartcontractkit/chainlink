@@ -52,16 +52,16 @@ func Start(
 		outputs = append(outputs, deployedBlockchain)
 	}
 
-	chainsConfigs := make([]cre.ChainConfig, 0, len(outputs))
+	chainsConfigs := make([]cre.CldfChainConfig, 0, len(outputs))
 	for _, db := range outputs {
-		cfg, cfgErr := cre.ChainConfigFromWrapped(db)
+		cfg, cfgErr := cre.CldfChainConfigFromBlockchain(db)
 		if cfgErr != nil {
 			return nil, pkgerrors.Wrap(cfgErr, "failed to wrap blockchain output to chain config")
 		}
 		chainsConfigs = append(chainsConfigs, cfg)
 	}
 
-	cldfBlockchains, err := cre.NewChains(commonLogger, chainsConfigs)
+	cldfBlockchains, err := cre.NewCldfChains(commonLogger, chainsConfigs)
 	if err != nil {
 		return nil, pkgerrors.Wrap(err, "failed to create chains")
 	}

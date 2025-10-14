@@ -20,8 +20,6 @@ import (
 	"golang.org/x/sync/errgroup"
 
 	chainselectors "github.com/smartcontractkit/chain-selectors"
-	"github.com/zksync-sdk/zksync2-go/accounts"
-	"github.com/zksync-sdk/zksync2-go/clients"
 
 	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/blockchain"
 	"github.com/smartcontractkit/chainlink-testing-framework/seth"
@@ -47,26 +45,23 @@ type CribRPCs struct {
 	External string // URL to be used when connecting from outside the namespace
 }
 
-// ChainConfig holds the configuration for a with a deployer key which can be used to send transactions to the chain.
-type ChainConfig struct {
-	ChainID             string                              // chain id as per EIP-155
-	ChainName           string                              // name of the chain populated from chainselector repo
-	ChainType           string                              // should denote the chain family. Acceptable values are EVM, COSMOS, SOLANA, STARKNET, APTOS etc
-	PreferredURLScheme  cldf_evm_client.URLSchemePreference // preferred url scheme for the chain
-	WSRPCs              []CribRPCs                          // websocket rpcs to connect to the chain
-	HTTPRPCs            []CribRPCs                          // http rpcs to connect to the chain
-	DeployerKey         *bind.TransactOpts                  // key to deploy and configure contracts on the chain
-	IsZkSyncVM          bool
-	ClientZkSyncVM      *clients.Client
-	DeployerKeyZkSyncVM *accounts.Wallet
-	SolDeployerKey      solana.PrivateKey
-	SolArtifactDir      string                                 // directory of pre-built solana artifacts, if any
-	Users               []*bind.TransactOpts                   // map of addresses to their transact opts to interact with the chain as users
-	MultiClientOpts     []func(c *cldf_evm_client.MultiClient) // options to configure the multi client
-	AptosDeployerKey    aptos.Account
+// CldfChainConfig holds the configuration for a with a deployer key which can be used to send transactions to the chain.
+type CldfChainConfig struct {
+	ChainID            string                              // chain id as per EIP-155
+	ChainName          string                              // name of the chain populated from chainselector repo
+	ChainType          string                              // should denote the chain family. Acceptable values are EVM, COSMOS, SOLANA, STARKNET, APTOS etc
+	PreferredURLScheme cldf_evm_client.URLSchemePreference // preferred url scheme for the chain
+	WSRPCs             []CribRPCs                          // websocket rpcs to connect to the chain
+	HTTPRPCs           []CribRPCs                          // http rpcs to connect to the chain
+	DeployerKey        *bind.TransactOpts                  // key to deploy and configure contracts on the chain
+	SolDeployerKey     solana.PrivateKey
+	SolArtifactDir     string                                 // directory of pre-built solana artifacts, if any
+	Users              []*bind.TransactOpts                   // map of addresses to their transact opts to interact with the chain as users
+	MultiClientOpts    []func(c *cldf_evm_client.MultiClient) // options to configure the multi client
+	AptosDeployerKey   aptos.Account
 }
 
-func (c *ChainConfig) ToRPCs() []cldf_evm_client.RPC {
+func (c *CldfChainConfig) ToRPCs() []cldf_evm_client.RPC {
 	rpcs := []cldf_evm_client.RPC{}
 	// assuming that the length of WSRPCs and HTTPRPCs is always the same
 	for i, rpc := range c.WSRPCs {
@@ -80,7 +75,7 @@ func (c *ChainConfig) ToRPCs() []cldf_evm_client.RPC {
 	return rpcs
 }
 
-func NewChains(logger logger.Logger, configs []ChainConfig) (cldf_chain.BlockChains, error) {
+func NewCldfChains(logger logger.Logger, configs []CldfChainConfig) (cldf_chain.BlockChains, error) {
 	var evmSyncMap sync.Map
 	var solSyncMap sync.Map
 	var aptosSyncMap sync.Map
@@ -147,12 +142,6 @@ func NewChains(logger logger.Logger, configs []ChainConfig) (cldf_chain.BlockCha
 					Client:      ec,
 					DeployerKey: chainCfg.DeployerKey,
 					Confirm:     confirmFn,
-				}
-
-				if chainCfg.IsZkSyncVM {
-					chain.IsZkSyncVM = true
-					chain.ClientZkSyncVM = chainCfg.ClientZkSyncVM
-					chain.DeployerKeyZkSyncVM = chainCfg.DeployerKeyZkSyncVM
 				}
 
 				evmSyncMap.Store(chainDetails.ChainSelector, chain)
@@ -285,14 +274,14 @@ func NewChains(logger logger.Logger, configs []ChainConfig) (cldf_chain.BlockCha
 	return cldf_chain.NewBlockChainsFromSlice(blockChains), nil
 }
 
-// ChainConfigFromWrapped converts a single wrapped chain into a ChainConfig.
-func ChainConfigFromWrapped(w *Blockchain) (ChainConfig, error) {
+// CldfChainConfigFromBlockchain converts a single blockchain into a ChainConfig.
+func CldfChainConfigFromBlockchain(w *Blockchain) (CldfChainConfig, error) {
 	if w == nil || w.CtfOutput == nil || len(w.CtfOutput.Nodes) == 0 {
-		return ChainConfig{}, errors.New("invalid wrapped blockchain output")
+		return CldfChainConfig{}, errors.New("invalid wrapped blockchain output")
 	}
 	n := w.CtfOutput.Nodes[0]
 
-	cfg := ChainConfig{
+	cfg := CldfChainConfig{
 		WSRPCs: []CribRPCs{{
 			External: n.ExternalWSUrl, Internal: n.InternalWSUrl,
 		}},
@@ -315,12 +304,12 @@ func ChainConfigFromWrapped(w *Blockchain) (ChainConfig, error) {
 		cfg.ChainID = strconv.FormatUint(w.ChainID, 10)
 		privateKey, err := crypto.HexToECDSA(w.DeployerPrivateKey)
 		if err != nil {
-			return ChainConfig{}, errors.Wrap(err, "failed to parse private key for Tron")
+			return CldfChainConfig{}, errors.Wrap(err, "failed to parse private key for Tron")
 		}
 
 		deployerKey, err := bind.NewKeyedTransactorWithChainID(privateKey, big.NewInt(conversions.MustSafeInt64(w.ChainID)))
 		if err != nil {
-			return ChainConfig{}, errors.Wrap(err, "failed to create transactor for Tron")
+			return CldfChainConfig{}, errors.Wrap(err, "failed to create transactor for Tron")
 		}
 		cfg.DeployerKey = deployerKey
 		return cfg, nil
@@ -328,7 +317,7 @@ func ChainConfigFromWrapped(w *Blockchain) (ChainConfig, error) {
 
 	// EVM
 	if w.SethClient == nil {
-		return ChainConfig{}, fmt.Errorf("blockchain output evm family without SethClient for chainID %d", w.ChainID)
+		return CldfChainConfig{}, fmt.Errorf("blockchain output evm family without SethClient for chainID %d", w.ChainID)
 	}
 
 	cfg.ChainID = strconv.FormatUint(w.ChainID, 10)

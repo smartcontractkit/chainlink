@@ -1,6 +1,7 @@
 package cre
 
 import (
+	"context"
 	"fmt"
 	"maps"
 	"os"
@@ -334,6 +335,13 @@ type Blockchain struct {
 	SolClient          *solrpc.Client
 	DeployerPrivateKey string
 	SolChain           *SolChain
+
+	Funder Funder
+}
+
+type Funder interface {
+	Fund(ctx context.Context, address string, amount uint64, fundingPrivateKey []byte) error
+	Prepare(ctx context.Context, requiredTotal uint64) ([]byte, error) // returns the private key bytes of the funding account
 }
 
 type SolChain struct {

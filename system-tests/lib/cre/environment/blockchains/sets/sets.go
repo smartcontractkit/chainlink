@@ -14,7 +14,7 @@ import (
 func NewDeployerSet(testLogger zerolog.Logger, provider *infra.Provider, cribConfigsDir string) map[blockchain.ChainFamily]blockchains.Deployer {
 	return map[blockchain.ChainFamily]blockchains.Deployer{
 		blockchain.FamilyEVM:    evm.NewDeployer(testLogger, provider, cribConfigsDir),
-		blockchain.FamilySolana: solana.NewDeployer(provider),
-		blockchain.FamilyTron:   tron.NewDeployer(provider),
+		blockchain.FamilySolana: solana.NewDeployer(testLogger, provider),
+		blockchain.FamilyTron:   tron.NewDeployer(testLogger, provider),
 	}
 }
