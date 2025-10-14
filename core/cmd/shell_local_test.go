@@ -573,9 +573,8 @@ func TestShell_BeforeNode(t *testing.T) {
 			}
 
 			// Clean up
-			if shell.LDB != nil {
-				shell.LDB.Close()
-			}
+			err = shell.AfterNode(c)
+			require.NoError(t, err)
 		})
 	}
 }
@@ -669,9 +668,8 @@ func TestShell_RunNode_WithBeforeNode(t *testing.T) {
 			}
 
 			// Clean up
-			if shell.LDB != nil {
-				shell.LDB.Close()
-			}
+			err = shell.AfterNode(c)
+			require.NoError(t, err)
 		})
 	}
 }
