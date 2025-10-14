@@ -122,6 +122,12 @@ func GetChainWriterConfig(publicKeyStr string) (chainwriter.ChainWriterConfig, e
 								Function: strPtr("finish_execute"),
 								Params: []codec.SuiFunctionParam{
 									{
+										Name:      "ref",
+										Type:      "object_id",
+										Required:  true,
+										IsMutable: &nonMutable,
+									},
+									{
 										Name:     "state",
 										Type:     "object_id",
 										Required: true,

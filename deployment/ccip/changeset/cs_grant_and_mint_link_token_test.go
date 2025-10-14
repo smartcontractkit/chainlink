@@ -68,6 +68,11 @@ func TestDeployLinktokenAndTransferOwnershipCS(t *testing.T) {
 	require.NoError(t, err)
 	require.False(t, isMinter, "Deployer should not have mint role after changeset execution")
 
+	// Verify deployer no longer has burn role
+	isBurner, err := linkToken.IsBurner(&bind.CallOpts{}, chain.DeployerKey.From)
+	require.NoError(t, err)
+	require.False(t, isBurner, "Deployer should not have burn role after changeset execution")
+
 	// Verify recipient received the minted tokens
 	balance, err := linkToken.BalanceOf(&bind.CallOpts{}, recipientAddr)
 	require.NoError(t, err)
@@ -77,4 +82,57 @@ func TestDeployLinktokenAndTransferOwnershipCS(t *testing.T) {
 	totalSupply, err := linkToken.TotalSupply(&bind.CallOpts{})
 	require.NoError(t, err)
 	require.GreaterOrEqual(t, totalSupply.Cmp(expectedMintAmount), 0, "Total supply should be at least the minted amount")
+}
+
+func TestDeployLinktokenAndGrantMintRole(t *testing.T) {
+	t.Parallel()
+	lggr := logger.TestLogger(t)
+
+	e := memory.NewMemoryEnvironment(t, lggr, zapcore.InfoLevel, memory.MemoryEnvironmentConfig{
+		Bootstraps: 1,
+		Chains:     1,
+		Nodes:      4,
+	})
+
+	selectors := e.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chain_selectors.FamilyEVM))
+	chainSelector := selectors[0]
+	e, err := commonchangeset.Apply(t, e,
+		commonchangeset.Configure(tokencs.DeployEVMLinkTokens, tokencs.DeployLinkTokensInput{
+			ChainSelectors: []uint64{chainSelector},
+		}))
+
+	require.NoError(t, err)
+
+	// Ensure the link token is deployed
+	state, err := stateview.LoadOnchainState(e)
+	require.NoError(t, err)
+	require.NotNil(t, state.Chains[chainSelector].LinkToken)
+	linkToken := state.Chains[chainSelector].LinkToken
+
+	newMinter := common.HexToAddress("0x1234567890123456789012345678901234567890")
+
+	cfg := changeset.GrantMintRoleInput{
+		GrantMintRoleByChain: map[uint64]changeset.GrantMintRoleConfig{
+			chainSelector: {
+				ToAddress: newMinter,
+			},
+		},
+	}
+
+	err = changeset.GrantMintRole.VerifyPreconditions(e, cfg)
+	require.NoError(t, err)
+
+	output, err := changeset.GrantMintRole.Apply(e, cfg)
+	require.NoError(t, err)
+	require.NotNil(t, output)
+
+	// Verify the newMinter has the mint role
+	isMinter, err := linkToken.IsMinter(&bind.CallOpts{}, newMinter)
+	require.NoError(t, err)
+	require.True(t, isMinter, "New minter should have mint role after changeset execution")
+
+	// Verify the newMinter has the burn role
+	isBurner, err := linkToken.IsBurner(&bind.CallOpts{}, newMinter)
+	require.NoError(t, err)
+	require.True(t, isBurner, "New minter should have burn role after changeset execution")
 }

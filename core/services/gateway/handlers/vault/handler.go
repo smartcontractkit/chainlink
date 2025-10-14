@@ -269,6 +269,8 @@ func (h *handler) HandleJSONRPCUserMessage(ctx context.Context, req jsonrpc.Requ
 	if req.Method == vaulttypes.MethodPublicKeyGet {
 		return h.handlePublicKeyGet(ctx, h.newActiveRequest(req, callback))
 	} else if req.Method == vaulttypes.MethodSecretsGet {
+		// Secrets get is only allowed in non-production builds for testing purposes
+		// So no authorization is required
 		ar := h.newActiveRequest(req, callback)
 		return h.handleSecretsGet(ctx, ar)
 	}
@@ -282,6 +284,10 @@ func (h *handler) HandleJSONRPCUserMessage(ctx context.Context, req jsonrpc.Requ
 	req.ID = owner + "::" + req.ID
 
 	h.lggr.Infow("handling authorized vault request", "method", req.Method, "requestID", req.ID, "owner", owner)
+	if h.getActiveRequest(req.ID) != nil {
+		h.lggr.Errorw("request id already exists", "requestID", req.ID, "owner", owner)
+		return errors.New("request ID already exists: " + req.ID)
+	}
 	ar := h.newActiveRequest(req, callback)
 
 	switch req.Method {

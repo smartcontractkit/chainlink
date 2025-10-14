@@ -2,10 +2,8 @@ package vaulttypes
 
 import (
 	"context"
-	"crypto/sha256"
 	"encoding/binary"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"slices"
 	"time"
@@ -16,7 +14,6 @@ import (
 	"google.golang.org/protobuf/proto"
 
 	vaultcommon "github.com/smartcontractkit/chainlink-common/pkg/capabilities/actions/vault"
-	jsonrpc "github.com/smartcontractkit/chainlink-common/pkg/jsonrpc2"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/build"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ocr2key"
@@ -218,83 +215,4 @@ func ValidateSignatures(resp *SignedOCRResponse, allowedSigners []common.Address
 	}
 
 	return fmt.Errorf("only %d valid signatures, need at least %d", len(validSigners), minRequired)
-}
-
-func DigestForRequest(req jsonrpc.Request[json.RawMessage]) ([32]byte, error) {
-	var seed any
-	switch req.Method {
-	case MethodSecretsCreate:
-		var createSecretsRequests vaultcommon.CreateSecretsRequest
-		if err := json.Unmarshal(*req.Params, &createSecretsRequests); err != nil {
-			return [32]byte{}, errors.New("error unmarshalling create secrets request: " + err.Error())
-		}
-		secrets := make([]*vaultcommon.EncryptedSecret, len(createSecretsRequests.EncryptedSecrets))
-		for i, s := range createSecretsRequests.EncryptedSecrets {
-			secrets[i] = &vaultcommon.EncryptedSecret{
-				EncryptedValue: s.EncryptedValue,
-				Id: &vaultcommon.SecretIdentifier{
-					Key:       s.Id.Key,
-					Namespace: s.Id.Namespace,
-					Owner:     s.Id.Owner,
-				},
-			}
-		}
-		seed = vaultcommon.CreateSecretsRequest{
-			EncryptedSecrets: secrets,
-		}
-	case MethodSecretsUpdate:
-		var updateSecretsRequests vaultcommon.UpdateSecretsRequest
-		if err := json.Unmarshal(*req.Params, &updateSecretsRequests); err != nil {
-			return [32]byte{}, errors.New("error unmarshalling update secrets request: " + err.Error())
-		}
-		secrets := make([]*vaultcommon.EncryptedSecret, len(updateSecretsRequests.EncryptedSecrets))
-		for i, s := range updateSecretsRequests.EncryptedSecrets {
-			secrets[i] = &vaultcommon.EncryptedSecret{
-				EncryptedValue: s.EncryptedValue,
-				Id: &vaultcommon.SecretIdentifier{
-					Key:       s.Id.Key,
-					Namespace: s.Id.Namespace,
-					Owner:     s.Id.Owner,
-				},
-			}
-		}
-		seed = vaultcommon.CreateSecretsRequest{
-			EncryptedSecrets: secrets,
-		}
-	case MethodSecretsList:
-		var listSecretsRequests vaultcommon.ListSecretIdentifiersRequest
-		if err := json.Unmarshal(*req.Params, &listSecretsRequests); err != nil {
-			return [32]byte{}, errors.New("error unmarshalling list secrets request: " + err.Error())
-		}
-		seed = vaultcommon.ListSecretIdentifiersRequest{
-			Owner:     listSecretsRequests.Owner,
-			Namespace: listSecretsRequests.Namespace,
-		}
-	case MethodSecretsDelete:
-		var deleteSecretsRequests vaultcommon.DeleteSecretsRequest
-		if err := json.Unmarshal(*req.Params, &deleteSecretsRequests); err != nil {
-			return [32]byte{}, errors.New("error unmarshalling delete secrets request: " + err.Error())
-		}
-		ids := make([]*vaultcommon.SecretIdentifier, len(deleteSecretsRequests.Ids))
-		for i, id := range deleteSecretsRequests.Ids {
-			ids[i] = &vaultcommon.SecretIdentifier{
-				Key:       id.Key,
-				Namespace: id.Namespace,
-				Owner:     id.Owner,
-			}
-		}
-		seed = vaultcommon.DeleteSecretsRequest{
-			Ids: ids,
-		}
-	default:
-		return [32]byte{}, fmt.Errorf("unauthorized method: %s", req.Method)
-	}
-
-	// Critical: convert to json, to ensure consistent encoding. Otherwise, different
-	// clients may generate different digests for the same logical request.
-	jsonData, err := json.Marshal(seed)
-	if err != nil {
-		return [32]byte{}, errors.New("error marshalling request for digest: " + err.Error())
-	}
-	return sha256.Sum256(jsonData), nil
 }

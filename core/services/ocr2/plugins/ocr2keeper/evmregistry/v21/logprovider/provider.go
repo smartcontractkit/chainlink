@@ -464,9 +464,8 @@ func (p *logEventProvider) readLogs(ctx context.Context, latest int64, filters [
 		if len(filter.addr) == 0 {
 			continue
 		}
-		start := max(
-			// range should not exceed [lookbackBlocks, latest]
-			filter.lastPollBlock, latest-lookbackBlocks)
+		// range should not exceed [lookbackBlocks, latest]
+		start := max(filter.lastPollBlock, latest-lookbackBlocks)
 		// adding a buffer to check for reorged logs.
 		start = start - reorgBuffer
 		// make sure start of the range is not before the config update block

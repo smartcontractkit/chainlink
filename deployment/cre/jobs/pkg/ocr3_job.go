@@ -20,14 +20,14 @@ import (
 )
 
 type OCR3JobConfigInput struct {
-	TemplateName         string        `yaml:"template_name"`
-	ContractQualifier    string        `yaml:"contract_qualifier"`
-	ChainSelectorEVM     ChainSelector `yaml:"chain_selector_evm"`
-	ChainSelectorAptos   ChainSelector `yaml:"chain_selector_aptos"`
-	BootstrapperOCR3Urls []string      `yaml:"bootstrapper_ocr3_urls"`
+	TemplateName         string        `yaml:"templateName"`
+	ContractQualifier    string        `yaml:"contractQualifier"`
+	ChainSelectorEVM     ChainSelector `yaml:"chainSelectorEVM"`
+	ChainSelectorAptos   ChainSelector `yaml:"chainSelectorAptos"`
+	BootstrapperOCR3Urls []string      `yaml:"bootstrapperOCR3Urls"`
 
 	// Optionals: specific to the worker vault OCR3 Job spec
-	DKGContractQualifier string `yaml:"dkg_contract_qualifier"`
+	DKGContractQualifier string `yaml:"dkgContractQualifier"`
 }
 
 type OCR3JobConfig struct {

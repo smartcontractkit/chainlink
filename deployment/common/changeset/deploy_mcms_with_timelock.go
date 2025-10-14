@@ -109,7 +109,6 @@ func DeployMCMSWithTimelockV2(
 	mu := sync.Mutex{}
 	allReports := make([]operations.Report[any, any], 0)
 	for chainSel, cfg := range cfgByChain {
-		chainSel, cfg := chainSel, cfg // capture range variable
 		eg.Go(func() error {
 			family, err := chain_selectors.GetSelectorFamily(chainSel)
 			if err != nil {
