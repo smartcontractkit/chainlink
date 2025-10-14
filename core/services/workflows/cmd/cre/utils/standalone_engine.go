@@ -180,6 +180,7 @@ func NewStandaloneEngine(
 		DebugMode:      true,
 	}
 
+	cfg.UseLocalTimeProvider = true
 	engine, err := v2.NewEngine(cfg)
 	if err != nil {
 		return nil, nil, err
