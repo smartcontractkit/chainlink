@@ -572,7 +572,6 @@ func TestShell_BeforeNode(t *testing.T) {
 				// Clean up
 				err = shell.AfterNode(c)
 				require.NoError(t, err)
-
 			} else {
 				require.Error(t, err)
 			}
