@@ -40,7 +40,6 @@ func TestGuiAssets_DefaultIndexHtml_OK(t *testing.T) {
 	}
 
 	for _, tc := range testCases {
-		tc := tc
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 
@@ -73,7 +72,6 @@ func TestGuiAssets_DefaultIndexHtml_NotFound(t *testing.T) {
 	}
 
 	for _, tc := range testCases {
-		tc := tc
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 
@@ -97,7 +95,7 @@ func TestGuiAssets_DefaultIndexHtml_RateLimited(t *testing.T) {
 
 	// Make calls equal to the rate limit
 	rateLimit := 20
-	for i := 0; i < rateLimit; i++ {
+	for range rateLimit {
 		req, err := http.NewRequestWithContext(testutils.Context(t), "GET", app.Server.URL+"/", nil)
 		require.NoError(t, err)
 		resp, err := client.Do(req)

@@ -251,22 +251,22 @@ func NewCldfChains(logger logger.Logger, configs []CldfChainConfig) (cldf_chain.
 
 	var blockChains []cldf_chain.BlockChain
 
-	evmSyncMap.Range(func(sel, value interface{}) bool {
+	evmSyncMap.Range(func(sel, value any) bool {
 		blockChains = append(blockChains, value.(cldf_evm.Chain))
 		return true
 	})
 
-	solSyncMap.Range(func(sel, value interface{}) bool {
+	solSyncMap.Range(func(sel, value any) bool {
 		blockChains = append(blockChains, value.(cldf_solana.Chain))
 		return true
 	})
 
-	aptosSyncMap.Range(func(sel, value interface{}) bool {
+	aptosSyncMap.Range(func(sel, value any) bool {
 		blockChains = append(blockChains, value.(cldf_aptos.Chain))
 		return true
 	})
 
-	tronSyncMap.Range(func(sel, value interface{}) bool {
+	tronSyncMap.Range(func(sel, value any) bool {
 		blockChains = append(blockChains, value.(cldf_tron.Chain))
 		return true
 	})

@@ -292,7 +292,7 @@ func Test_ORM_CreateChainConfig(t *testing.T) {
 	actual, err := orm.GetChainConfig(ctx, id)
 	require.NoError(t, err)
 
-	assertChainConfigEqual(t, map[string]interface{}{
+	assertChainConfigEqual(t, map[string]any{
 		"feedsManagerID":          cfg1.FeedsManagerID,
 		"chainID":                 cfg1.ChainID,
 		"chainType":               cfg1.ChainType,
@@ -337,7 +337,7 @@ func Test_ORM_CreateBatchChainConfig(t *testing.T) {
 	actual, err := orm.GetChainConfig(ctx, ids[0])
 	require.NoError(t, err)
 
-	assertChainConfigEqual(t, map[string]interface{}{
+	assertChainConfigEqual(t, map[string]any{
 		"feedsManagerID":          cfg1.FeedsManagerID,
 		"chainID":                 cfg1.ChainID,
 		"chainType":               cfg1.ChainType,
@@ -352,7 +352,7 @@ func Test_ORM_CreateBatchChainConfig(t *testing.T) {
 	actual, err = orm.GetChainConfig(ctx, ids[1])
 	require.NoError(t, err)
 
-	assertChainConfigEqual(t, map[string]interface{}{
+	assertChainConfigEqual(t, map[string]any{
 		"feedsManagerID":    cfg2.FeedsManagerID,
 		"chainID":           cfg2.ChainID,
 		"chainType":         cfg2.ChainType,
@@ -437,7 +437,7 @@ func Test_ORM_ListChainConfigsByManagerIDs(t *testing.T) {
 	require.NoError(t, err)
 	require.Len(t, actual, 1)
 
-	assertChainConfigEqual(t, map[string]interface{}{
+	assertChainConfigEqual(t, map[string]any{
 		"feedsManagerID":          cfg1.FeedsManagerID,
 		"chainID":                 cfg1.ChainID,
 		"chainType":               cfg1.ChainType,
@@ -498,7 +498,7 @@ func Test_ORM_UpdateChainConfig(t *testing.T) {
 	actual, err := orm.GetChainConfig(ctx, id)
 	require.NoError(t, err)
 
-	assertChainConfigEqual(t, map[string]interface{}{
+	assertChainConfigEqual(t, map[string]any{
 		"feedsManagerID":          cfg1.FeedsManagerID,
 		"chainID":                 cfg1.ChainID,
 		"chainType":               cfg1.ChainType,
@@ -1767,7 +1767,7 @@ func Test_ORM_IsJobManagedByFeedsManager(t *testing.T) {
 
 // Helpers
 
-func assertChainConfigEqual(t *testing.T, want map[string]interface{}, actual feeds.ChainConfig) {
+func assertChainConfigEqual(t *testing.T, want map[string]any, actual feeds.ChainConfig) {
 	t.Helper()
 
 	assert.Equal(t, want["feedsManagerID"], actual.FeedsManagerID)

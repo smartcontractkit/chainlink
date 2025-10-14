@@ -942,17 +942,17 @@ func TestORM_CreateJob_OCR2_Sending_Keys_Transmitter_Keys_Validations(t *testing
 		ctx := testutils.Context(t)
 		jb.OCR2OracleSpec.TransmitterID = null.String{}
 		_, address2 := cltest.MustInsertRandomKey(t, keyStore.Eth())
-		jb.OCR2OracleSpec.RelayConfig["sendingKeys"] = interface{}([]any{address.String(), address2.String(), common.HexToAddress("0X0").String()})
+		jb.OCR2OracleSpec.RelayConfig["sendingKeys"] = any([]any{address.String(), address2.String(), common.HexToAddress("0X0").String()})
 		assert.Equal(t, "CreateJobFailed: no EVM key matching: \"0x0000000000000000000000000000000000000000\": no such sending key exists", jobORM.CreateJob(ctx, &jb).Error())
 
-		jb.OCR2OracleSpec.RelayConfig["sendingKeys"] = interface{}([]any{1, 2, 3})
+		jb.OCR2OracleSpec.RelayConfig["sendingKeys"] = any([]any{1, 2, 3})
 		assert.Equal(t, "CreateJobFailed: sending keys are of wrong type", jobORM.CreateJob(ctx, &jb).Error())
 	})
 
 	t.Run("sending keys and transmitter ID can't both be defined", func(t *testing.T) {
 		ctx := testutils.Context(t)
 		jb.OCR2OracleSpec.TransmitterID = null.StringFrom(address.String())
-		jb.OCR2OracleSpec.RelayConfig["sendingKeys"] = interface{}([]any{address.String()})
+		jb.OCR2OracleSpec.RelayConfig["sendingKeys"] = any([]any{address.String()})
 		assert.Equal(t, "CreateJobFailed: sending keys and transmitter ID can't both be defined", jobORM.CreateJob(ctx, &jb).Error())
 	})
 
@@ -1610,7 +1610,7 @@ func Test_FindPipelineRunIDsByJobID(t *testing.T) {
 	_, address := cltest.MustInsertRandomKey(t, keyStore.Eth())
 
 	jobs := make([]job.Job, 11)
-	for j := 0; j < len(jobs); j++ {
+	for j := range jobs {
 		_, bridge := cltest.MustCreateBridge(t, db, cltest.BridgeOpts{})
 		_, bridge2 := cltest.MustCreateBridge(t, db, cltest.BridgeOpts{})
 		jobID := uuid.New().String()
@@ -1680,7 +1680,7 @@ func Test_FindPipelineRunIDsByJobID(t *testing.T) {
 		assert.Equal(t, int64(67*(len(jobs)-1)), runIDs[12]-runIDs[79])
 	})
 
-	for i := 0; i < 2100; i++ {
+	for range 2100 {
 		mustInsertPipelineRun(t, pipelineORM, jb)
 	}
 
@@ -2091,7 +2091,7 @@ func Test_ORM_FindJobByWorkflow_Multiple(t *testing.T) {
 		secretsORM := artifacts.NewWorkflowRegistryDS(db, logger.TestLogger(t))
 
 		var sids []int64
-		for i := 0; i < 3; i++ {
+		for i := range 3 {
 			sid, err := secretsORM.Create(ctx, "some-url.com", fmt.Sprintf("some-hash-%d", i), "some-contentz")
 			require.NoError(t, err)
 			sids = append(sids, sid)
@@ -2386,7 +2386,7 @@ func Test_FindGatewayJobID(t *testing.T) {
 	// find only by auth gateway id
 	gatewayJobSpec := job.GatewaySpec{
 		GatewayConfig: job.JSONConfig{
-			"ConnectionManagerConfig": map[string]interface{}{
+			"ConnectionManagerConfig": map[string]any{
 				"AuthGatewayId": "gateway",
 			},
 		},
@@ -2423,7 +2423,7 @@ func Test_FindGatewayJobID_NoMatch(t *testing.T) {
 	// different auth gateway id
 	gatewayJobSpec := job.GatewaySpec{
 		GatewayConfig: job.JSONConfig{
-			"ConnectionManagerConfig": map[string]interface{}{
+			"ConnectionManagerConfig": map[string]any{
 				"AuthGatewayId": "another_gateway",
 			},
 		},

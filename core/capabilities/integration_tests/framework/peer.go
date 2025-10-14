@@ -41,7 +41,7 @@ func peerToNode(nopID uint32, p peerIDAndOCRSigner) (kcr.CapabilitiesRegistryNod
 func getKeyBundlesAndP2PKeys(donName string, numNodes int) ([]ocr2key.KeyBundle, []p2pkey.KeyV2, error) {
 	var keyBundles []ocr2key.KeyBundle
 	var donPeerKeys []p2pkey.KeyV2
-	for i := 0; i < numNodes; i++ {
+	for range numNodes {
 		key, err := p2pkey.NewV2()
 		if err != nil {
 			return nil, nil, fmt.Errorf("failed to create p2p key: %w", err)

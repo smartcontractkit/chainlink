@@ -89,7 +89,7 @@ func (l *LoopRegistryServer) pluginMetricHandler(gc *gin.Context) {
 	pluginName := gc.Param("name")
 	p, ok := l.registry.Get(pluginName)
 	if !ok {
-		gc.Data(http.StatusNotFound, "text/plain", []byte(fmt.Sprintf("plugin %q does not exist", html.EscapeString(pluginName))))
+		gc.Data(http.StatusNotFound, "text/plain", fmt.Appendf(nil, "plugin %q does not exist", html.EscapeString(pluginName)))
 		return
 	}
 
@@ -99,7 +99,7 @@ func (l *LoopRegistryServer) pluginMetricHandler(gc *gin.Context) {
 	if err != nil {
 		msg := "plugin metric handler failed to get plugin url " + html.EscapeString(pluginURL)
 		l.logger.Errorw(msg, "err", err)
-		gc.Data(http.StatusInternalServerError, "text/plain", []byte(fmt.Sprintf("%s: %s", msg, err)))
+		gc.Data(http.StatusInternalServerError, "text/plain", fmt.Appendf(nil, "%s: %s", msg, err))
 		return
 	}
 	defer res.Body.Close()
@@ -107,7 +107,7 @@ func (l *LoopRegistryServer) pluginMetricHandler(gc *gin.Context) {
 	if err != nil {
 		msg := fmt.Sprintf("error reading plugin %q metrics", html.EscapeString(pluginName))
 		l.logger.Errorw(msg, "err", err)
-		gc.Data(http.StatusInternalServerError, "text/plain", []byte(fmt.Sprintf("%s: %s", msg, err)))
+		gc.Data(http.StatusInternalServerError, "text/plain", fmt.Appendf(nil, "%s: %s", msg, err))
 		return
 	}
 

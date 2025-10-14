@@ -256,7 +256,6 @@ func TestCommitStoreReaders(t *testing.T) {
 	lm.On("GasPrice", mock.Anything).Return(assets.NewWei(daPrice), nil)
 
 	for v, cr := range crs {
-		cr := cr
 		t.Run("CommitStoreReader "+v, func(t *testing.T) {
 			// Static config.
 			cfg, err := cr.GetCommitStoreStaticConfig(ctx)

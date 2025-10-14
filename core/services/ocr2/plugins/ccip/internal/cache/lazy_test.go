@@ -43,7 +43,7 @@ func TestLazyFetchMultipleRoutines(t *testing.T) {
 	var wg sync.WaitGroup
 	wg.Add(routines)
 
-	for i := 0; i < routines; i++ {
+	for range routines {
 		go func() {
 			counter, _ := counterFunction()
 			require.Equal(t, 1, counter)

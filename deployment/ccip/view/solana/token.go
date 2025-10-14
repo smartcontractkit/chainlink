@@ -21,7 +21,7 @@ type TokenView struct {
 	Decimals         uint8         `json:"decimals,omitempty"`
 	IsInitialized    bool          `json:"isInitialized,omitempty"`
 	FreezeAuthority  string        `json:"freezeAuthority,omitempty"`
-	TokenMetadata    TokenMetadata `json:"tokenMetadata,omitempty"`
+	TokenMetadata    TokenMetadata `json:"tokenMetadata"`
 }
 
 type TokenMetadata struct {

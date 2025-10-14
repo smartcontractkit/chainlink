@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"slices"
 	"strings"
 	"sync"
 
@@ -452,23 +453,15 @@ func matchesSelectors(selectors []*ptypes.Selector, job *jobv1.Job) bool {
 				return false
 			}
 			list := strings.Split(*selector.Value, ",")
-			found := false
-			for _, v := range list {
-				if *label.Value == v {
-					found = true
-					break
-				}
-			}
+			found := slices.Contains(list, *label.Value)
 			if !found {
 				return false
 			}
 		case ptypes.SelectorOp_NOT_IN:
 			if label != nil && label.Value != nil {
 				list := strings.Split(*selector.Value, ",")
-				for _, v := range list {
-					if *label.Value == v {
-						return false
-					}
+				if slices.Contains(list, *label.Value) {
+					return false
 				}
 			}
 		default:

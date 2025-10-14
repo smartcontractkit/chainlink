@@ -28,25 +28,25 @@ import (
 )
 
 var (
-	chainlinkResources = map[string]interface{}{
-		"resources": map[string]interface{}{
-			"requests": map[string]interface{}{
+	chainlinkResources = map[string]any{
+		"resources": map[string]any{
+			"requests": map[string]any{
 				"cpu":    "1000m",
 				"memory": "4Gi",
 			},
-			"limits": map[string]interface{}{
+			"limits": map[string]any{
 				"cpu":    "1000m",
 				"memory": "4Gi",
 			},
 		},
 	}
-	dbResources = map[string]interface{}{
-		"resources": map[string]interface{}{
-			"requests": map[string]interface{}{
+	dbResources = map[string]any{
+		"resources": map[string]any{
+			"requests": map[string]any{
 				"cpu":    "1000m",
 				"memory": "1Gi",
 			},
-			"limits": map[string]interface{}{
+			"limits": map[string]any{
 				"cpu":    "1000m",
 				"memory": "1Gi",
 			},
@@ -157,7 +157,7 @@ func addRegistry(config *tc.TestConfig) []ethcontracts.KeeperRegistryVersion {
 
 func repeatRegistries(registryVersion ethcontracts.KeeperRegistryVersion, numberOfRegistries int) []ethcontracts.KeeperRegistryVersion {
 	repeatedRegistries := make([]ethcontracts.KeeperRegistryVersion, 0)
-	for i := 0; i < numberOfRegistries; i++ {
+	for range numberOfRegistries {
 		repeatedRegistries = append(repeatedRegistries, registryVersion)
 	}
 	return repeatedRegistries
@@ -288,12 +288,12 @@ func SetupAutomationBenchmarkEnv(t *testing.T, testType string, keeperTestConfig
 		testEnvironment.
 			AddHelm(reorg.New(&reorg.Props{
 				NetworkName: testNetwork.Name,
-				Values: map[string]interface{}{
-					"geth": map[string]interface{}{
-						"tx": map[string]interface{}{
+				Values: map[string]any{
+					"geth": map[string]any{
+						"tx": map[string]any{
 							"replicas": numberOfNodes,
 						},
-						"miner": map[string]interface{}{
+						"miner": map[string]any{
 							"replicas": 2,
 						},
 					},
@@ -305,18 +305,18 @@ func SetupAutomationBenchmarkEnv(t *testing.T, testType string, keeperTestConfig
 				NetworkName: testNetwork.Name,
 				Simulated:   testNetwork.Simulated,
 				WsURLs:      testNetwork.URLs,
-				Values: map[string]interface{}{
-					"resources": map[string]interface{}{
-						"requests": map[string]interface{}{
+				Values: map[string]any{
+					"resources": map[string]any{
+						"requests": map[string]any{
 							"cpu":    "4000m",
 							"memory": "4Gi",
 						},
-						"limits": map[string]interface{}{
+						"limits": map[string]any{
 							"cpu":    "4000m",
 							"memory": "4Gi",
 						},
 					},
-					"geth": map[string]interface{}{
+					"geth": map[string]any{
 						"blocktime":      blockTime,
 						"capacity":       "20Gi",
 						"startGaslimit":  "20000000",
@@ -371,7 +371,7 @@ func SetupAutomationBenchmarkEnv(t *testing.T, testType string, keeperTestConfig
 		testNetwork.HTTPURLs = []string{internalHttpURLs[i]}
 		testNetwork.URLs = []string{internalWsURLs[i]}
 
-		var overrideFn = func(_ interface{}, target interface{}) {
+		var overrideFn = func(_ any, target any) {
 			ctfconfig.MustConfigOverrideChainlinkVersion(keeperTestConfig.GetChainlinkImageConfig(), target)
 			ctfconfig.MightConfigOverridePyroscopeKey(keeperTestConfig.GetPyroscopeConfig(), target)
 		}

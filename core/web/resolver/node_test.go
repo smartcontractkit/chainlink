@@ -91,7 +91,7 @@ func TestResolver_Nodes(t *testing.T) {
 				{
 					Extensions:    nil,
 					ResolverError: gError,
-					Path:          []interface{}{"nodes"},
+					Path:          []any{"nodes"},
 					Message:       gError.Error(),
 				},
 			},

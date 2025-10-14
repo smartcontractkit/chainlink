@@ -52,7 +52,7 @@ func getOCR2Spec100() OffchainReporting2OracleSpec100 {
 		ID:                                100,
 		ContractID:                        "terra_187246hr3781h9fd198fh391g8f924",
 		Relay:                             "terra",
-		RelayConfig:                       map[string]interface{}{"chainID": float64(1337)},
+		RelayConfig:                       map[string]any{"chainID": float64(1337)},
 		P2PBootstrapPeers:                 pq.StringArray{""},
 		OCRKeyBundleID:                    null.String{},
 		MonitoringEndpoint:                null.StringFrom("endpoint:chainlink.monitor"),
@@ -491,10 +491,10 @@ func BenchmarkBackfillingRecordsWithMigration202(b *testing.B) {
 	require.NoError(b, err)
 	assert.Len(b, results, int(previousMigration))
 
-	for j := 0; j < chainCount; j++ {
+	for j := range chainCount {
 		// Insert 100_000 block to database, can't do all at once, so batching by 10k
 		var blocks []logpoller.Block
-		for i := 0; i < maxLogsSize; i++ {
+		for i := range maxLogsSize {
 			blocks = append(blocks, logpoller.Block{
 				EVMChainID:           ubig.NewI(int64(j + 1)),
 				BlockHash:            testutils.Random32Byte(),
@@ -519,13 +519,11 @@ func BenchmarkBackfillingRecordsWithMigration202(b *testing.B) {
 		}
 	}
 
-	b.ResetTimer()
-
 	// 1. Measure time of migration 200
 	// 2. Goose down to 199
 	// 3. Reset last_finalized_block_number to 0
 	// Repeat 1-3
-	for i := 0; i < b.N; i++ {
+	for b.Loop() {
 		b.StartTimer()
 		_, err = p.UpTo(ctx, backfillMigration)
 		require.NoError(b, err)

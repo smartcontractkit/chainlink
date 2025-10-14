@@ -14,7 +14,7 @@ import (
 
 // abiEncodeMethodInputs encodes the inputs for a method call.
 // example abi: `[{ "name" : "method", "type": "function", "inputs": [{"name": "a", "type": "uint256"}]}]`
-func abiEncodeMethodInputs(abiDef abi.ABI, inputs ...interface{}) ([]byte, error) {
+func abiEncodeMethodInputs(abiDef abi.ABI, inputs ...any) ([]byte, error) {
 	packed, err := abiDef.Pack("method", inputs...)
 	if err != nil {
 		return nil, err
@@ -118,7 +118,7 @@ func EVM2AnyToCCIPMsg(
 // BoolsToBitFlags transforms a list of boolean flags to a *big.Int encoded number.
 func BoolsToBitFlags(bools []bool) *big.Int {
 	encodedFlags := big.NewInt(0)
-	for i := 0; i < len(bools); i++ {
+	for i := range bools {
 		if bools[i] {
 			encodedFlags.SetBit(encodedFlags, i, 1)
 		}

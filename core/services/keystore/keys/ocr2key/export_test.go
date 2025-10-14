@@ -22,7 +22,6 @@ func TestExport(t *testing.T) {
 		{chain: chaintype.Tron},
 	}
 	for _, tc := range tt {
-		tc := tc
 		t.Run(string(tc.chain), func(t *testing.T) {
 			kb, err := New(tc.chain)
 			require.NoError(t, err)

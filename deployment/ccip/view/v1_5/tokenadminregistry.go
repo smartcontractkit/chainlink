@@ -60,7 +60,7 @@ func getAllConfiguredTokensPaginated(taContract *token_admin_registry.TokenAdmin
 	grp := errgroup.Group{}
 
 	// Start fixed number of workers
-	for i := 0; i < numWorkers; i++ {
+	for range numWorkers {
 		grp.Go(func() error {
 			for token := range jobCh {
 				config, err := taContract.GetTokenConfig(nil, token)
@@ -89,7 +89,7 @@ func getAllConfiguredTokensPaginated(taContract *token_admin_registry.TokenAdmin
 	}
 
 	// convert sync map to regular map
-	tokenDetailsSyncMap.Range(func(key, value interface{}) bool {
+	tokenDetailsSyncMap.Range(func(key, value any) bool {
 		tokenDetails[key.(common.Address)] = value.(TokenDetails)
 		return true
 	})

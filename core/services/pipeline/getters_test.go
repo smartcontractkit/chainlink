@@ -18,7 +18,7 @@ func TestGetters_VarExpr(t *testing.T) {
 
 	tests := []struct {
 		expr   string
-		result interface{}
+		result any
 		err    error
 	}{
 		// no errors
@@ -71,17 +71,17 @@ func TestGetters_JSONWithVarExprs(t *testing.T) {
 	tests := []struct {
 		json        string
 		field       string
-		result      interface{}
+		result      any
 		err         error
 		allowErrors bool
 	}{
 		// no errors
 		{`{ "x": $(zet) }`, "x", 123, nil, false},
 		{`{ "x": $( zet ) }`, "x", 123, nil, false},
-		{`{ "x": { "y": $(zet) } }`, "x", map[string]interface{}{"y": 123}, nil, false},
+		{`{ "x": { "y": $(zet) } }`, "x", map[string]any{"y": 123}, nil, false},
 		{`{ "z": "foo" }`, "z", "foo", nil, false},
 		{`{ "a": $(arr.1) }`, "a", 200, nil, false},
-		{`{}`, "", map[string]interface{}{}, nil, false},
+		{`{}`, "", map[string]any{}, nil, false},
 		{`{ "e": $(err) }`, "e", errVal, nil, true},
 		{`null`, "", nil, nil, false},
 		{`{ "x": 314159265358979323846264338327950288419716939937510582097494459 }`, "x", big, nil, false},
@@ -104,7 +104,7 @@ func TestGetters_JSONWithVarExprs(t *testing.T) {
 			if test.err != nil {
 				assert.Equal(t, test.err, errors.Cause(err))
 			} else {
-				m, is := v.(map[string]interface{})
+				m, is := v.(map[string]any)
 				if is && test.field != "" {
 					assert.Equal(t, test.result, m[test.field])
 				} else {
@@ -142,7 +142,7 @@ func TestGetters_Inputs(t *testing.T) {
 	tests := []struct {
 		name        string
 		inputs      []pipeline.Result
-		expected    []interface{}
+		expected    []any
 		expectedErr error
 	}{
 		{
@@ -152,7 +152,7 @@ func TestGetters_Inputs(t *testing.T) {
 				{Error: theErr},
 				{Value: "baz"},
 			},
-			[]interface{}{"foo", theErr, "baz"},
+			[]any{"foo", theErr, "baz"},
 			nil,
 		},
 		{
@@ -231,31 +231,31 @@ func TestGetters_From(t *testing.T) {
 		assert.Empty(t, getters)
 	})
 
-	var fooGetter1 pipeline.GetterFunc = func() (interface{}, error) {
+	var fooGetter1 pipeline.GetterFunc = func() (any, error) {
 		return "foo", nil
 	}
-	var fooGetter2 pipeline.GetterFunc = func() (interface{}, error) {
+	var fooGetter2 pipeline.GetterFunc = func() (any, error) {
 		return "foo", nil
 	}
 
 	tests := []struct {
 		name     string
-		input    []interface{}
+		input    []any
 		expected string
 	}{
 		{
 			"only getters",
-			[]interface{}{fooGetter1, fooGetter2},
+			[]any{fooGetter1, fooGetter2},
 			"foo",
 		},
 		{
 			"mix of getters and values",
-			[]interface{}{fooGetter1, "foo"},
+			[]any{fooGetter1, "foo"},
 			"foo",
 		},
 		{
 			"only values",
-			[]interface{}{"foo", "foo"},
+			[]any{"foo", "foo"},
 			"foo",
 		},
 	}
@@ -275,12 +275,12 @@ func TestGetters_From(t *testing.T) {
 }
 
 func createTestVars() pipeline.Vars {
-	return pipeline.NewVarsFrom(map[string]interface{}{
-		"foo": map[string]interface{}{
+	return pipeline.NewVarsFrom(map[string]any{
+		"foo": map[string]any{
 			"bar": "value",
 		},
 		"zet": 123,
-		"arr": []interface{}{
+		"arr": []any{
 			100, 200, 300,
 		},
 		"err": errors.New("some error"),

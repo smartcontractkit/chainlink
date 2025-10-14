@@ -168,7 +168,7 @@ type reportingPluginValidationService struct {
 	services.Service
 }
 
-func (r *reportingPluginValidationService) ValidateConfig(ctx context.Context, config map[string]interface{}) error {
+func (r *reportingPluginValidationService) ValidateConfig(ctx context.Context, config map[string]any) error {
 	tt, ok := config["telemetryType"]
 	if !ok {
 		return errors.New("expected telemtry type")

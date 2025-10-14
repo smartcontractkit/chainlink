@@ -26,7 +26,7 @@ func BuildBootstrapSpec(verifierAddr common.Address, chainID int64, feedId [32]b
 			ContractID: verifierAddr.String(),
 			Relay:      "evm",
 			FeedID:     &hash,
-			RelayConfig: map[string]interface{}{
+			RelayConfig: map[string]any{
 				"chainID": int(chainID),
 			},
 			ContractConfigTrackerPollInterval: *sqlutil.NewInterval(time.Second * 15),
@@ -96,12 +96,12 @@ ask_price [type=median allowedFaults={{.AllowedFaults}} index=2];
 		ForwardingAllowed: false,
 		OCR2OracleSpec: job.OCR2OracleSpec{
 			PluginType: "mercury",
-			PluginConfig: map[string]interface{}{
+			PluginConfig: map[string]any{
 				"serverURL":    fmt.Sprintf("\"%s\"", msRemoteUrl),
 				"serverPubKey": fmt.Sprintf("\"%s\"", msPubKey),
 			},
 			Relay: "evm",
-			RelayConfig: map[string]interface{}{
+			RelayConfig: map[string]any{
 				"chainID":   int(chainID),
 				"fromBlock": fromBlock,
 			},

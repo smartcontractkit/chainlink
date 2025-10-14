@@ -12,6 +12,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
@@ -1460,6 +1461,7 @@ func TestSecretsFetcher_Integration(t *testing.T) {
 	encryptedDecryptionShare2, err := cfg.WorkflowEncryptionKey.Encrypt(decryptionShare2Bytes)
 	require.NoError(t, err)
 	workflowKeyBytes := cfg.WorkflowEncryptionKey.PublicKey()
+
 	mc := vaultMock.Vault{
 		Fn: func(ctx context.Context, req *vault.GetSecretsRequest) (*vault.GetSecretsResponse, error) {
 			return &vault.GetSecretsResponse{
@@ -1468,7 +1470,7 @@ func TestSecretsFetcher_Integration(t *testing.T) {
 						Id: &vault.SecretIdentifier{
 							Key:       "Foo",
 							Namespace: "Default",
-							Owner:     testWorkflowOwnerA,
+							Owner:     common.HexToAddress("0x" + testWorkflowOwnerA).Hex(),
 						},
 						Result: &vault.SecretResponse_Data{
 							Data: &vault.SecretData{
@@ -1535,6 +1537,8 @@ func TestSecretsFetcher_Integration(t *testing.T) {
 		cfg.LocalLimiters.SecretsConcurrency,
 		cfg.WorkflowOwner,
 		cfg.WorkflowName.String(),
+		cfg.WorkflowID,
+		"",
 		cfg.WorkflowEncryptionKey,
 	)
 	cfg.SecretsFetcher = secretsFetcher

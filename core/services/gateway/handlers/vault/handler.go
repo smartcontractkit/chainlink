@@ -262,12 +262,17 @@ func (h *handler) HandleJSONRPCUserMessage(ctx context.Context, req jsonrpc.Requ
 		return errors.New("request ID cannot be empty")
 	}
 
+	h.lggr.Debugw("handling vault request", "method", req.Method, "requestID", req.ID)
 	// Public key requests don't require authorization,
 	// Let's process this request right away.
 	// Note we cache this value quite aggressively so don't need to worry about DoS.
 	if req.Method == vaulttypes.MethodPublicKeyGet {
-		h.lggr.Debugw("handling vault request", "method", req.Method, "requestID", req.ID)
 		return h.handlePublicKeyGet(ctx, h.newActiveRequest(req, callback))
+	} else if req.Method == vaulttypes.MethodSecretsGet {
+		// Secrets get is only allowed in non-production builds for testing purposes
+		// So no authorization is required
+		ar := h.newActiveRequest(req, callback)
+		return h.handleSecretsGet(ctx, ar)
 	}
 
 	isAuthorized, owner, err := h.requestAuthorizer.AuthorizeRequest(ctx, req)
@@ -275,18 +280,19 @@ func (h *handler) HandleJSONRPCUserMessage(ctx context.Context, req jsonrpc.Requ
 		h.lggr.Errorw("request not authorized", "requestID", req.ID, "owner", owner, "reason:", err)
 		return errors.New("request not authorized: " + err.Error())
 	}
-
 	// Prefix request id with owner, to ensure uniqueness across different owners
 	req.ID = owner + "::" + req.ID
 
-	h.lggr.Debugw("handling authorized vault request", "method", req.Method, "requestID", req.ID, "owner", owner)
+	h.lggr.Infow("handling authorized vault request", "method", req.Method, "requestID", req.ID, "owner", owner)
+	if h.getActiveRequest(req.ID) != nil {
+		h.lggr.Errorw("request id already exists", "requestID", req.ID, "owner", owner)
+		return errors.New("request ID already exists: " + req.ID)
+	}
 	ar := h.newActiveRequest(req, callback)
 
 	switch req.Method {
 	case vaulttypes.MethodSecretsCreate:
 		return h.handleSecretsCreate(ctx, ar)
-	case vaulttypes.MethodSecretsGet:
-		return h.handleSecretsGet(ctx, ar)
 	case vaulttypes.MethodSecretsUpdate:
 		return h.handleSecretsUpdate(ctx, ar)
 	case vaulttypes.MethodSecretsDelete:

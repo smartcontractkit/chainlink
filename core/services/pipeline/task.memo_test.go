@@ -16,7 +16,7 @@ func TestMemoTask(t *testing.T) {
 
 	tests := []struct {
 		name   string
-		input  interface{}
+		input  any
 		output string
 	}{
 		{"identity", pipeline.ObjectParam{Type: pipeline.BoolType, BoolValue: true}, "true"},
@@ -38,7 +38,6 @@ func TestMemoTask(t *testing.T) {
 	}
 
 	for _, test := range tests {
-		test := test
 		t.Run(test.name, func(t *testing.T) {
 			vars := pipeline.NewVarsFrom(nil)
 			var value pipeline.ObjectParam

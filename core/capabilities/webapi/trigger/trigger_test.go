@@ -57,7 +57,7 @@ func workflowTriggerConfig(_ testHarness, addresses []string, topics []string) (
 		return nil, err
 	}
 
-	triggerRegistrationConfig, err := values.NewMap(map[string]interface{}{
+	triggerRegistrationConfig, err := values.NewMap(map[string]any{
 		"RateLimiter":    rateLimitConfig,
 		"AllowedSenders": addresses,
 		"AllowedTopics":  topics,
@@ -122,7 +122,7 @@ func gatewayRequest(t *testing.T, privateKey string, topics []string, methodName
 	return req
 }
 
-func getResponseFromArg(arg interface{}) (ghcapabilities.TriggerResponsePayload, error) {
+func getResponseFromArg(arg any) (ghcapabilities.TriggerResponsePayload, error) {
 	resp := arg.(*jsonrpc.Response[json.RawMessage])
 	var msg api.Message
 	err := json.Unmarshal(*resp.Result, &msg)

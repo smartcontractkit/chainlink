@@ -159,11 +159,6 @@ func (ks *sui) Sign(_ context.Context, id string, msg []byte) ([]byte, error) {
 }
 
 func (ks *sui) getByID(id string) (suikey.Key, error) {
-	// ks.logger.Info("SUIKEYID: ", id)
-	for id := range ks.keyRing.Sui {
-		fmt.Printf("keyID: %s\n", id)
-	}
-
 	key, found := ks.keyRing.Sui[id]
 	if !found {
 		return suikey.Key{}, KeyNotFoundError{ID: id, KeyType: "Sui"}

@@ -27,7 +27,7 @@ func (c *ClCluster) Start() error {
 	eg := &errgroup.Group{}
 	nodes := c.Nodes
 
-	for i := 0; i < len(nodes); i++ {
+	for i := range nodes {
 		nodeIndex := i
 		eg.Go(func() error {
 			err := nodes[nodeIndex].StartContainer()
@@ -46,7 +46,7 @@ func (c *ClCluster) Stop() error {
 	nodes := c.Nodes
 	timeout := time.Minute * 1
 
-	for i := 0; i < len(nodes); i++ {
+	for i := range nodes {
 		nodeIndex := i
 		eg.Go(func() error {
 			if container := nodes[nodeIndex].Container; container != nil {

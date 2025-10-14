@@ -63,7 +63,7 @@ func TestResolver_CosmosKeys(t *testing.T) {
 				{
 					Extensions:    nil,
 					ResolverError: gError,
-					Path:          []interface{}{"cosmosKeys"},
+					Path:          []any{"cosmosKeys"},
 					Message:       gError.Error(),
 				},
 			},

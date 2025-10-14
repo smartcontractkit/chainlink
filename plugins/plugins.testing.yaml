@@ -14,4 +14,9 @@ plugins:
       moduleURI: "github.com/smartcontractkit/capabilities/mock"
       gitRef: "02cb745cabad2979034e6f96ebb47c9322df24ba"
       installPath: "github.com/smartcontractkit/capabilities/mock"
+  capabilitywatcher:
+    - enabled: true
+      moduleURI: "github.com/smartcontractkit/capabilities/capabilitywatcher"
+      gitRef: "7e34dbd0c1f900539b4ce462872a935f852032df"
+      installPath: "github.com/smartcontractkit/capabilities/capabilitywatcher"
 

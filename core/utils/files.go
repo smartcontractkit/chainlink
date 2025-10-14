@@ -117,15 +117,15 @@ var (
 // MarshalText encodes s as a human readable string.
 func (s FileSize) MarshalText() ([]byte, error) {
 	if s >= TB {
-		return []byte(fmt.Sprintf("%.2ftb", float64(s)/TB)), nil
+		return fmt.Appendf(nil, "%.2ftb", float64(s)/TB), nil
 	} else if s >= GB {
-		return []byte(fmt.Sprintf("%.2fgb", float64(s)/GB)), nil
+		return fmt.Appendf(nil, "%.2fgb", float64(s)/GB), nil
 	} else if s >= MB {
-		return []byte(fmt.Sprintf("%.2fmb", float64(s)/MB)), nil
+		return fmt.Appendf(nil, "%.2fmb", float64(s)/MB), nil
 	} else if s >= KB {
-		return []byte(fmt.Sprintf("%.2fkb", float64(s)/KB)), nil
+		return fmt.Appendf(nil, "%.2fkb", float64(s)/KB), nil
 	}
-	return []byte(fmt.Sprintf("%db", s)), nil
+	return fmt.Appendf(nil, "%db", s), nil
 }
 
 // UnmarshalText parses a file size from bs in to s.

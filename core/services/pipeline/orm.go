@@ -70,7 +70,7 @@ const KeepersObservationSource = `
 `
 
 type CreateDataSource interface {
-	GetContext(ctx context.Context, dest interface{}, query string, args ...interface{}) error
+	GetContext(ctx context.Context, dest any, query string, args ...any) error
 }
 
 type ORM interface {

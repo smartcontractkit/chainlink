@@ -37,6 +37,6 @@ func (psec *PipelineJobSpecErrorsController) Destroy(c *gin.Context) {
 		return
 	}
 
-	psec.App.GetAuditLogger().Audit(audit.JobErrorDismissed, map[string]interface{}{"id": jobSpec.ID})
+	psec.App.GetAuditLogger().Audit(audit.JobErrorDismissed, map[string]any{"id": jobSpec.ID})
 	jsonAPIResponseWithStatus(c, nil, "job", http.StatusNoContent)
 }

@@ -2,6 +2,7 @@ package chaintype
 
 import (
 	"fmt"
+	"slices"
 	"strings"
 
 	"github.com/pkg/errors"
@@ -110,12 +111,7 @@ func init() {
 
 // IsSupportedChainType checks to see if the chain is supported
 func IsSupportedChainType(chainType ChainType) bool {
-	for _, v := range SupportedChainTypes {
-		if v == chainType {
-			return true
-		}
-	}
-	return false
+	return slices.Contains(SupportedChainTypes, chainType)
 }
 
 // NewErrInvalidChainType returns an error wrapping ErrInvalidChainType for an unsupported chain

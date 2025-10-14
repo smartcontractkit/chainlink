@@ -275,7 +275,6 @@ func TestLoadCCIPStableWithPodChaosDiffCommitAndExec(t *testing.T) {
 		},
 	}
 	for _, in := range inputs {
-		in := in
 		t.Run(in.ChaosName, func(t *testing.T) {
 			t.Parallel()
 			lggr := logging.GetTestLogger(t)

@@ -47,9 +47,9 @@ func Test_CreateFeedsManagerChainConfig(t *testing.T) {
 				}
 			}`
 
-		withVariables = func(chainType string) map[string]interface{} {
-			variables := map[string]interface{}{
-				"input": map[string]interface{}{
+		withVariables = func(chainType string) map[string]any {
+			variables := map[string]any{
+				"input": map[string]any{
 					"feedsManagerID":       stringutils.FromInt64(mgrID),
 					"chainID":              chainID,
 					"chainType":            chainType,
@@ -508,7 +508,7 @@ func Test_DeleteFeedsManagerChainConfig(t *testing.T) {
 					}
 				}
 			}`
-		variables = map[string]interface{}{
+		variables = map[string]any{
 			"id": "1",
 		}
 	)
@@ -609,9 +609,9 @@ func Test_UpdateFeedsManagerChainConfig(t *testing.T) {
 					}
 				}
 			}`
-		variables = map[string]interface{}{
+		variables = map[string]any{
 			"id": "1",
-			"input": map[string]interface{}{
+			"input": map[string]any{
 				"accountAddr":          accountAddr,
 				"accountAddrPubKey":    accountAddrPubKey,
 				"adminAddr":            adminAddr,
