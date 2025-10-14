@@ -2554,7 +2554,7 @@ func applyTokenTransferFeeConfigUpdatesFeeQuoterChangesetV2Logic(env cldf.Enviro
 			)
 			if err != nil {
 				return cldf.ChangesetOutput{}, fmt.Errorf(
-					"failed to create SetTokenTransferFeeConfig transaction (src = %s, dst = %s): %w",
+					"failed to create ApplyTokenTransferFeeConfigUpdates transaction (src = %s, dst = %s): %w",
 					srcChain.String(),
 					dstChain.String(),
 					err,
