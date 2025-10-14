@@ -69,7 +69,7 @@ func TestAddToFilterIfNotPresent(t *testing.T) {
 
 		got := f.AddToFilterIfNotPresent(filter)
 
-		req.True(got == filter, "expected in-place mutation")
+		req.Equal(filter, got, "expected in-place mutation")
 		req.Len(got.PublicKeys, 1)
 		req.Equal([]string{"0xabc"}, got.PublicKeys)
 	})
@@ -82,7 +82,7 @@ func TestAddToFilterIfNotPresent(t *testing.T) {
 
 		got := f.AddToFilterIfNotPresent(filter)
 
-		req.True(got == filter, "expected in-place mutation")
+		req.Equal(filter, got, "expected in-place mutation")
 		req.Len(got.PublicKeys, 2)
 		req.Equal([]string{"0xabc", "0xdef"}, got.PublicKeys)
 	})
@@ -97,7 +97,7 @@ func TestAddToFilterIfNotPresent(t *testing.T) {
 
 		got := f.AddToFilterIfNotPresent(filter)
 
-		req.True(got == filter, "expected in-place mutation")
+		req.Equal(filter, got, "expected in-place mutation")
 		req.Len(got.Selectors, 1)
 	})
 
@@ -111,7 +111,7 @@ func TestAddToFilterIfNotPresent(t *testing.T) {
 
 		got := f.AddToFilterIfNotPresent(filter)
 
-		req.True(got == filter, "expected in-place mutation")
+		req.Equal(filter, got, "expected in-place mutation")
 		req.Len(got.Selectors, 2)
 
 		last := got.Selectors[len(got.Selectors)-1]
@@ -131,7 +131,7 @@ func TestAddToFilterIfNotPresent(t *testing.T) {
 
 		got := f.AddToFilterIfNotPresent(filter)
 
-		req.True(got == filter, "expected in-place mutation")
+		req.Equal(filter, got, "expected in-place mutation")
 		req.Len(got.Selectors, 1)
 	})
 
@@ -146,7 +146,7 @@ func TestAddToFilterIfNotPresent(t *testing.T) {
 
 		got := f.AddToFilterIfNotPresent(filter)
 
-		req.True(got == filter, "expected in-place mutation")
+		req.Equal(filter, got, "expected in-place mutation")
 		req.Len(got.Selectors, 2)
 
 		last := got.Selectors[len(got.Selectors)-1]
