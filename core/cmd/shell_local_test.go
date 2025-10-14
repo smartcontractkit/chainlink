@@ -645,6 +645,15 @@ func TestShell_RunNode_WithBeforeNode(t *testing.T) {
 			require.NoError(t, err)
 
 			err = shell.BeforeNode(c)
+
+			// Always clean up database if it was opened, regardless of authentication success
+			defer func() {
+				if shell.LDB != nil {
+					err := shell.AfterNode(c)
+					require.NoError(t, err)
+				}
+			}()
+
 			if test.expectStart {
 				require.NoError(t, err, "BeforeNode should succeed")
 				// Verify components are initialized
@@ -661,10 +670,6 @@ func TestShell_RunNode_WithBeforeNode(t *testing.T) {
 				require.Error(t, err, "BeforeNode should fail with incorrect password")
 				// Don't test RunNode if BeforeNode failed
 			}
-
-			// Clean up
-			err = shell.AfterNode(c)
-			require.NoError(t, err)
 		})
 	}
 }
