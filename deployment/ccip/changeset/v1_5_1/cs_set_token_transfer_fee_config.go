@@ -97,6 +97,9 @@ func setTokenTransferFeeConfigPrecondition(env cldf.Environment, cfg SetTokenTra
 			if _, exists := chainState.EVM2EVMOnRamp[dstSelector]; !exists {
 				return fmt.Errorf("no EVM2EVMOnRamp exists (src = %d, dst = %d)", srcSelector, dstSelector)
 			}
+			if srcSelector == dstSelector {
+				return fmt.Errorf("destination chain cannot be the same as src chain (src = %d, dst = %d)", srcSelector, dstSelector)
+			}
 
 			tokensToReset := map[common.Address]bool{}
 			for _, tokenAddress := range input.TokensToUseDefaultFeeConfigs {
