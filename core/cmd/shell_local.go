@@ -1052,38 +1052,6 @@ func (s *Shell) RemoveBlocks(c *cli.Context) error {
 	return nil
 }
 
-// BeforeNode initializes database, keystore, logger, and beholder for node startup.
-// This is used as a Before hook in CLI commands that require these components.
-func (s *Shell) BeforeNode(c *cli.Context) error {
-	if err := s.beforeNode(c); err != nil {
-		return s.errorOut(err)
-	}
-	return nil
-}
-
-// afterNode is a thread-safe helper method to close the database and logger.
-// This is used in multiple places: shutdown handler, signal handler, and cleanup.
-// It uses sync.Once to ensure cleanup happens exactly once, even if called concurrently.
-func (s *Shell) afterNode(lggr logger.SugaredLogger) {
-	s.CleanupOnce.Do(func() {
-		if err := s.LDB.Close(); err != nil {
-			lggr.Criticalf("Failed to close LockedDB: %v", err)
-		}
-		lggr.Debug("Closed DB")
-
-		if err := s.CloseLogger(); err != nil {
-			log.Printf("Failed to close Logger: %v", err)
-		}
-	})
-}
-
-// AfterNode cleans up resources initialized by BeforeNode.
-// This is used as an After hook in CLI commands.
-func (s *Shell) AfterNode(c *cli.Context) error {
-	s.afterNode(logger.Sugared(s.Logger))
-	return nil
-}
-
 // beforeNode performs the actual initialization of DB, keystore, and telemetry.
 // It handles password loading, database connection, keystore authentication, and Beholder setup.
 func (s *Shell) beforeNode(c *cli.Context) error {
@@ -1161,5 +1129,37 @@ func (s *Shell) beforeNode(c *cli.Context) error {
 		lggr.Info("Log streaming enabled")
 	}
 
+	return nil
+}
+
+// BeforeNode initializes database, keystore, logger, and beholder for node startup.
+// This is used as a Before hook in CLI commands that require these components.
+func (s *Shell) BeforeNode(c *cli.Context) error {
+	if err := s.beforeNode(c); err != nil {
+		return s.errorOut(err)
+	}
+	return nil
+}
+
+// afterNode is a thread-safe helper method to close the database and logger.
+// This is used in multiple places: shutdown handler, signal handler, and cleanup.
+// It uses sync.Once to ensure cleanup happens exactly once, even if called concurrently.
+func (s *Shell) afterNode(lggr logger.SugaredLogger) {
+	s.CleanupOnce.Do(func() {
+		if err := s.LDB.Close(); err != nil {
+			lggr.Criticalf("Failed to close LockedDB: %v", err)
+		}
+		lggr.Debug("Closed DB")
+
+		if err := s.CloseLogger(); err != nil {
+			log.Printf("Failed to close Logger: %v", err)
+		}
+	})
+}
+
+// AfterNode cleans up resources initialized by BeforeNode.
+// This is used as an After hook in CLI commands.
+func (s *Shell) AfterNode(c *cli.Context) error {
+	s.afterNode(logger.Sugared(s.Logger))
 	return nil
 }
