@@ -192,7 +192,6 @@ func testAuthForRequests(t *testing.T, allowlistedRequest, notAllowlistedRequest
 	require.NoError(t, err)
 	allowlistedReqCopyDigestBytes, err := hex.DecodeString(allowlistedReqCopyDigest)
 	require.NoError(t, err)
-	isAuthorized, _, err = auth.AuthorizeRequest(context.Background(), allowlistedRequest)
 	allowlisted[0].RequestDigest = [32]byte(allowlistedReqCopyDigestBytes)
 	allowlisted[0].ExpiryTimestamp = uint32(time.Now().UTC().Unix() - 1) //nolint:gosec // it is a safe conversion
 	mockSyncer.On("GetAllowlistedRequests", mock.Anything).Return(allowlisted)
