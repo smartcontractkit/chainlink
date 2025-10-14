@@ -1534,7 +1534,7 @@ func TestApplyTokenTransferFeeConfigUpdatesFeeQuoterChangesetV2(t *testing.T) {
 									TokenTransferFeeConfigArgs: map[common.Address]v1_6.OptionalFeeQuoterTokenTransferFeeConfig{
 										dstLinkTokenAddress: {
 											MinFeeUSDCents:    pointer.To(uint32(1)),
-											MaxFeeUSDCents:    pointer.To(uint32(2)),
+											MaxFeeUSDCents:    pointer.To(uint32(1)),
 											DeciBps:           pointer.To(uint16(1)),
 											DestGasOverhead:   pointer.To(uint32(1)),
 											DestBytesOverhead: pointer.To(uint32(1)),
