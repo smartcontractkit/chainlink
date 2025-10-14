@@ -2,6 +2,7 @@ package test
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"sync"
 
@@ -57,7 +58,7 @@ func (s *JDNodeService) GetNode(ctx context.Context, req *nodev1.GetNodeRequest,
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 	if req.Id == "" && req.PublicKey == nil {
-		return nil, fmt.Errorf("either Id or PublicKey must be provided")
+		return nil, errors.New("either Id or PublicKey must be provided")
 	}
 
 	w := &wrappedNode{}
