@@ -552,14 +552,6 @@ func TestShell_BeforeNode(t *testing.T) {
 			// Run before hook to initialize components with authentication
 			err = shell.BeforeNode(c)
 
-			// Always clean up database if it was opened, regardless of authentication success
-			defer func() {
-				if shell.LDB != nil {
-					cleanupErr := shell.AfterNode(c)
-					require.NoError(t, cleanupErr)
-				}
-			}()
-
 			if test.wantUnlocked {
 				require.NoError(t, err)
 				// Verify that shell components were initialized
@@ -573,6 +565,11 @@ func TestShell_BeforeNode(t *testing.T) {
 				assert.NotEmpty(t, keys)
 			} else {
 				require.Error(t, err)
+			}
+			// Clean up database if it was opened
+			if shell.LDB != nil {
+				cleanupErr := shell.AfterNode(c)
+				require.NoError(t, cleanupErr)
 			}
 		})
 	}
@@ -650,14 +647,6 @@ func TestShell_RunNode_WithBeforeNode(t *testing.T) {
 
 			err = shell.BeforeNode(c)
 
-			// Always clean up database if it was opened, regardless of authentication success
-			defer func() {
-				if shell.LDB != nil {
-					cleanupErr := shell.AfterNode(c)
-					require.NoError(t, cleanupErr)
-				}
-			}()
-
 			if test.expectStart {
 				require.NoError(t, err, "BeforeNode should succeed")
 				// Verify components are initialized
@@ -673,6 +662,11 @@ func TestShell_RunNode_WithBeforeNode(t *testing.T) {
 			} else {
 				require.Error(t, err, "BeforeNode should fail with incorrect password")
 				// Don't test RunNode if BeforeNode failed
+			}
+			// Clean up database if it was opened
+			if shell.LDB != nil {
+				cleanupErr := shell.AfterNode(c)
+				require.NoError(t, cleanupErr)
 			}
 		})
 	}
