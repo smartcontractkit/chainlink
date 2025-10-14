@@ -70,32 +70,13 @@ func searchContractInBothSources(e cldf.Environment, chainSelector uint64, contr
 	return "", fmt.Errorf("%s not found", contractType)
 }
 
-// searchAddressesInBothSources searches for a contract address in both AddressBook and DataStore
-// Returns the address if found in either source
-func searchAddressesInBothSources(e cldf.Environment, chainSelector uint64, address string) (bool, error) {
-	// Use the merged address loading from the EVM state function
-	addressesChain, err := state.AddressesForChain(e, chainSelector, "")
-	if err != nil {
-		return false, fmt.Errorf("failed to load addresses: %w", err)
-	}
-
-	// Search through merged addresses for the contract type
-	for addr := range addressesChain {
-		if addr == address {
-			return true, nil
-		}
-	}
-
-	return false, fmt.Errorf("%s not found", address)
-}
-
 func (t TransferToMCMSWithTimelockConfig) Validate(e cldf.Environment) error {
 	evmChains := e.BlockChains.EVMChains()
 	for chainSelector, contracts := range t.ContractsByChain {
 		for _, contract := range contracts {
 			// Cannot transfer an unknown address.
 			// Note this also assures non-zero addresses.
-			if exists, err := searchAddressesInBothSources(e, chainSelector, contract.String()); err != nil || !exists {
+			if exists, err := SearchAddress(e, chainSelector, contract.String()); err != nil || !exists {
 				if err != nil {
 					return fmt.Errorf("failed to check address book: %w", err)
 				}
