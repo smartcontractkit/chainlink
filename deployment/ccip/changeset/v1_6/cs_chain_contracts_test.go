@@ -1519,7 +1519,7 @@ func TestApplyTokenTransferFeeConfigUpdatesFeeQuoterChangesetV2(t *testing.T) {
 			// Try an invalid update
 			_, err = commonchangeset.Apply(t, tenv.Env,
 				commonchangeset.Configure(
-					cldf.CreateLegacyChangeSet(v1_6.ApplyTokenTransferFeeConfigUpdatesFeeQuoterChangesetV2),
+					v1_6.ApplyTokenTransferFeeConfigUpdatesFeeQuoterChangesetV2,
 					v1_6.ApplyTokenTransferFeeConfigUpdatesConfigV2{
 						InputsByChain: map[uint64]map[uint64]v1_6.ApplyTokenTransferFeeConfigUpdatesConfigV2Input{
 							src: {
@@ -1548,7 +1548,7 @@ func TestApplyTokenTransferFeeConfigUpdatesFeeQuoterChangesetV2(t *testing.T) {
 					}),
 			)
 			require.Error(t, err)
-			require.Contains(t, err.Error(), "min fee must be less than max fee for token")
+			require.Contains(t, err.Error(), "min fee must be less than max fee")
 
 			// dst->src token config should still be disabled
 			dstConfig1, err := state.MustGetEVMChainState(dst).FeeQuoter.GetTokenTransferFeeConfig(callOpts, src, dstLinkTokenAddress)
@@ -1563,7 +1563,7 @@ func TestApplyTokenTransferFeeConfigUpdatesFeeQuoterChangesetV2(t *testing.T) {
 			// Now try a valid update
 			_, err = commonchangeset.Apply(t, tenv.Env,
 				commonchangeset.Configure(
-					cldf.CreateLegacyChangeSet(v1_6.ApplyTokenTransferFeeConfigUpdatesFeeQuoterChangesetV2),
+					v1_6.ApplyTokenTransferFeeConfigUpdatesFeeQuoterChangesetV2,
 					v1_6.ApplyTokenTransferFeeConfigUpdatesConfigV2{
 						InputsByChain: map[uint64]map[uint64]v1_6.ApplyTokenTransferFeeConfigUpdatesConfigV2Input{
 							src: {
