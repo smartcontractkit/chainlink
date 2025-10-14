@@ -560,14 +560,9 @@ func TestShell_BeforeNode(t *testing.T) {
 				assert.NotNil(t, shell.LDB)
 
 				// Verify keystore is unlocked by checking if we can access keys
-				ctx := testutils.Context(t)
-				isEmpty, emptyErr := shell.KeyStore.IsEmpty(ctx)
-				require.NoError(t, emptyErr)
-				if !isEmpty {
-					keys, keysErr := shell.KeyStore.CSA().GetAll()
-					require.NoError(t, keysErr)
-					assert.NotEmpty(t, keys)
-				}
+				keys, keysErr := shell.KeyStore.CSA().GetAll()
+				require.NoError(t, keysErr)
+				assert.NotEmpty(t, keys)
 
 				// Clean up
 				err = shell.AfterNode(c)
