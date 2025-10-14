@@ -189,6 +189,44 @@ func TestVaultHandler_HandleJSONRPCUserMessage(t *testing.T) {
 		wg.Wait()
 	})
 
+	t.Run("no id inside CreteSecrets.EncryptedSecrets body", func(t *testing.T) {
+		var wg sync.WaitGroup
+		h, callback, _, _ := setupHandler(t)
+		emptyCreateSecretsRequest := &vaultcommon.CreateSecretsRequest{
+			RequestId: "test_request_id",
+			EncryptedSecrets: []*vaultcommon.EncryptedSecret{
+				{
+					EncryptedValue: "abc123", // should be a valid hex string
+				},
+			},
+		}
+		emptyParams, err := json.Marshal(emptyCreateSecretsRequest)
+		require.NoError(t, err)
+
+		requestID := "1"
+		validJSONRequest := jsonrpc.Request[json.RawMessage]{
+			ID:     requestID,
+			Method: vaulttypes.MethodSecretsCreate,
+			Params: (*json.RawMessage)(&emptyParams),
+		}
+
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			resp, err2 := callback.Wait(t.Context())
+			assert.NoError(t, err2)
+			var secretsResponse jsonrpc.Response[vaultcommon.CreateSecretsResponse]
+			err2 = json.Unmarshal(resp.RawResponse, &secretsResponse)
+			assert.NoError(t, err2)
+			assert.Equal(t, validJSONRequest.ID, secretsResponse.ID, "Request ID should match")
+			assert.ErrorContains(t, secretsResponse.Error, "secret ID must not be nil")
+		}()
+
+		err = h.HandleJSONRPCUserMessage(t.Context(), validJSONRequest, callback)
+		require.NoError(t, err)
+		wg.Wait()
+	})
+
 	t.Run("happy path - delete secrets", func(t *testing.T) {
 		var wg sync.WaitGroup
 		h, callback, don, _ := setupHandler(t)

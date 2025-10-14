@@ -93,6 +93,9 @@ func (s *KVStore) GetSecretIdentifiersCountForOwner(owner string) (int, error) {
 }
 
 func (s *KVStore) WriteMetadata(owner string, metadata *vault.StoredMetadata) error {
+	if metadata == nil {
+		return fmt.Errorf("metadata cannot be nil")
+	}
 	b, err := proto.Marshal(metadata)
 	if err != nil {
 		return fmt.Errorf("failed to marshal metadata: %w", err)

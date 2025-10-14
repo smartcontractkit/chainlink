@@ -703,6 +703,9 @@ func NewApplication(ctx context.Context, opts ApplicationOpts) (Application, err
 			},
 			ocr2DelegateConfig,
 		)
+		if ocr2Delegate == nil {
+			return nil, errors.New("ocr2.NewDelegate() returned nil")
+		}
 		delegates[job.OffchainReporting2] = ocr2Delegate
 		delegates[job.Bootstrap] = ocrbootstrap.NewDelegateBootstrap(
 			opts.DS,
