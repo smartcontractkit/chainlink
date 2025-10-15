@@ -288,6 +288,10 @@ func startCmd() *cobra.Command {
 				return errors.Wrap(err, "failed to load environment configuration")
 			}
 
+			if err := ensureDockerIsRunning(cmdContext); err != nil {
+				return err
+			}
+
 			// This will not work with remote images that require authentication, but it will catch early most of the issues with missing env setup
 			if err := ensureDockerImagesExist(cmdContext, framework.L, in, withPluginsDockerImage); err != nil {
 				return err
@@ -868,6 +872,19 @@ func validateWorkflowTriggerAndCapabilities(in *envconfig.Config, withExampleFla
 		return nil
 	}
 
+	return nil
+}
+
+func ensureDockerIsRunning(ctx context.Context) error {
+	dockerClient, dockerClientErr := client.NewClientWithOpts(client.WithAPIVersionNegotiation())
+	if dockerClientErr != nil {
+		return errors.Wrap(dockerClientErr, "failed to create Docker client")
+	}
+
+	_, pingErr := dockerClient.Ping(ctx)
+	if pingErr != nil {
+		return errors.Wrap(pingErr, "docker is not running. Please start Docker and try again")
+	}
 	return nil
 }
 

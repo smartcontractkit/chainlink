@@ -16,6 +16,7 @@ import (
 	jsonrpc "github.com/smartcontractkit/chainlink-common/pkg/jsonrpc2"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/ratelimit"
+	"github.com/smartcontractkit/chainlink-common/pkg/settings/limits"
 	gateway_common "github.com/smartcontractkit/chainlink-common/pkg/types/gateway"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/config"
@@ -38,7 +39,7 @@ func TestNewGatewayHandler(t *testing.T) {
 		mockHTTPClient := httpmocks.NewHTTPClient(t)
 		lggr := logger.Test(t)
 
-		handler, err := NewGatewayHandler(configBytes, donConfig, mockDon, mockHTTPClient, lggr)
+		handler, err := NewGatewayHandler(configBytes, donConfig, mockDon, mockHTTPClient, lggr, limits.Factory{Logger: lggr})
 		require.NoError(t, err)
 		require.NotNil(t, handler)
 		require.Equal(t, "test-don", handler.donConfig.DonId)
@@ -54,7 +55,7 @@ func TestNewGatewayHandler(t *testing.T) {
 		mockHTTPClient := httpmocks.NewHTTPClient(t)
 		lggr := logger.Test(t)
 
-		handler, err := NewGatewayHandler(invalidConfig, donConfig, mockDon, mockHTTPClient, lggr)
+		handler, err := NewGatewayHandler(invalidConfig, donConfig, mockDon, mockHTTPClient, lggr, limits.Factory{Logger: lggr})
 		require.Error(t, err)
 		require.Nil(t, handler)
 	})
@@ -65,10 +66,6 @@ func TestNewGatewayHandler(t *testing.T) {
 				GlobalRPS:   -1, // Invalid negative rate
 				GlobalBurst: 100,
 			},
-			UserRateLimiter: ratelimit.RateLimiterConfig{
-				GlobalRPS:   50,
-				GlobalBurst: 50,
-			},
 		}
 		configBytes, err := json.Marshal(cfg)
 		require.NoError(t, err)
@@ -78,7 +75,7 @@ func TestNewGatewayHandler(t *testing.T) {
 		mockHTTPClient := httpmocks.NewHTTPClient(t)
 		lggr := logger.Test(t)
 
-		handler, err := NewGatewayHandler(configBytes, donConfig, mockDon, mockHTTPClient, lggr)
+		handler, err := NewGatewayHandler(configBytes, donConfig, mockDon, mockHTTPClient, lggr, limits.Factory{Logger: lggr})
 		require.Error(t, err)
 		require.Nil(t, handler)
 	})
@@ -91,12 +88,6 @@ func TestNewGatewayHandler(t *testing.T) {
 				PerSenderRPS:   10,
 				PerSenderBurst: 10,
 			},
-			UserRateLimiter: ratelimit.RateLimiterConfig{
-				GlobalRPS:      50,
-				GlobalBurst:    50,
-				PerSenderRPS:   5,
-				PerSenderBurst: 5,
-			},
 			// CleanUpPeriodMs not set - should get default
 		}
 		configBytes, err := json.Marshal(cfg)
@@ -107,7 +98,7 @@ func TestNewGatewayHandler(t *testing.T) {
 		mockHTTPClient := httpmocks.NewHTTPClient(t)
 		lggr := logger.Test(t)
 
-		handler, err := NewGatewayHandler(configBytes, donConfig, mockDon, mockHTTPClient, lggr)
+		handler, err := NewGatewayHandler(configBytes, donConfig, mockDon, mockHTTPClient, lggr, limits.Factory{Logger: lggr})
 		require.NoError(t, err)
 		require.NotNil(t, handler)
 		require.Equal(t, defaultCleanUpPeriodMs, handler.config.CleanUpPeriodMs) // Default value
@@ -387,7 +378,7 @@ func TestGatewayHandler_Start_CallsDeleteExpired(t *testing.T) {
 	mockHTTPClient := httpmocks.NewHTTPClient(t)
 	lggr := logger.Test(t)
 
-	handler, err := NewGatewayHandler(configBytes, donConfig, mockDon, mockHTTPClient, lggr)
+	handler, err := NewGatewayHandler(configBytes, donConfig, mockDon, mockHTTPClient, lggr, limits.Factory{Logger: lggr})
 	require.NoError(t, err)
 	require.NotNil(t, handler)
 	mockCache := newMockResponseCache()
@@ -416,12 +407,6 @@ func serviceCfg() ServiceConfig {
 			PerSenderRPS:   10,
 			PerSenderBurst: 10,
 		},
-		UserRateLimiter: ratelimit.RateLimiterConfig{
-			GlobalRPS:      50,
-			GlobalBurst:    50,
-			PerSenderRPS:   5,
-			PerSenderBurst: 5,
-		},
 	}
 	return WithDefaults(cfg)
 }
@@ -442,7 +427,7 @@ func createTestHandlerWithConfig(t *testing.T, cfg ServiceConfig) *gatewayHandle
 	mockHTTPClient := httpmocks.NewHTTPClient(t)
 	lggr := logger.Test(t)
 
-	handler, err := NewGatewayHandler(configBytes, donConfig, mockDon, mockHTTPClient, lggr)
+	handler, err := NewGatewayHandler(configBytes, donConfig, mockDon, mockHTTPClient, lggr, limits.Factory{Logger: lggr})
 	require.NoError(t, err)
 	require.NotNil(t, handler)
 
@@ -682,5 +667,93 @@ func TestMakeOutgoingRequestCachingBehavior(t *testing.T) {
 		require.Equal(t, 0, mockCache.setCallCount, "Set should not be called directly when using CachedFetch")
 		mockHTTPClient.AssertExpectations(t)
 		mockDon.AssertExpectations(t)
+	})
+}
+
+// setupRateLimitingTest creates common test setup for rate limiting tests
+func setupRateLimitingTest(t *testing.T, cfg ServiceConfig) (*gatewayHandler, *jsonrpc.Response[json.RawMessage], *httpmocks.HTTPClient, *handlermocks.DON) {
+	handler := createTestHandlerWithConfig(t, cfg)
+
+	outboundReq := gateway_common.OutboundHTTPRequest{
+		Method:    "GET",
+		URL:       "https://example.com/api",
+		TimeoutMs: 5000,
+	}
+	reqBytes, err := json.Marshal(outboundReq)
+	require.NoError(t, err)
+
+	id := gateway_common.MethodHTTPAction + "/workflowId123/uuid456"
+	rawRequest := json.RawMessage(reqBytes)
+	resp := &jsonrpc.Response[json.RawMessage]{
+		ID:     id,
+		Result: &rawRequest,
+	}
+
+	mockHTTPClient := handler.httpClient.(*httpmocks.HTTPClient)
+	mockDon := handler.don.(*handlermocks.DON)
+
+	return handler, resp, mockHTTPClient, mockDon
+}
+
+// expectSuccessfulRequest sets up expectations for a successful HTTP request
+func expectSuccessfulRequest(mockHTTPClient *httpmocks.HTTPClient, mockDon *handlermocks.DON, nodeAddr string) {
+	httpResp := &network.HTTPResponse{
+		StatusCode: 200,
+		Headers:    map[string]string{"Content-Type": "application/json"},
+		Body:       []byte(`{"result": "success"}`),
+	}
+	mockHTTPClient.EXPECT().Send(mock.Anything, mock.Anything).Return(httpResp, nil).Once()
+	mockDon.EXPECT().SendToNode(mock.Anything, nodeAddr, mock.Anything).Return(nil).Once()
+}
+
+func TestGatewayHandler_MakeOutgoingRequest_NodeRateLimiting(t *testing.T) {
+	t.Run("node rate limiting with AllowVerbose", func(t *testing.T) {
+		cfg := ServiceConfig{
+			NodeRateLimiter: ratelimit.RateLimiterConfig{
+				GlobalRPS:      100,
+				GlobalBurst:    100,
+				PerSenderRPS:   1, // Very low per-sender rate to trigger limits
+				PerSenderBurst: 1,
+			},
+		}
+		handler, resp, mockHTTPClient, mockDon := setupRateLimitingTest(t, cfg)
+
+		// First request should succeed
+		expectSuccessfulRequest(mockHTTPClient, mockDon, "node1")
+
+		err := handler.HandleNodeMessage(testutils.Context(t), resp, "node1")
+		require.NoError(t, err)
+		handler.wg.Wait()
+
+		// Second request from same node should be rate limited
+		err = handler.HandleNodeMessage(testutils.Context(t), resp, "node1")
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "rate limit exceeded for node")
+		handler.wg.Wait()
+	})
+
+	t.Run("global rate limiting", func(t *testing.T) {
+		cfg := ServiceConfig{
+			NodeRateLimiter: ratelimit.RateLimiterConfig{
+				GlobalRPS:      1, // Very low global rate to trigger limits
+				GlobalBurst:    1,
+				PerSenderRPS:   100,
+				PerSenderBurst: 100,
+			},
+		}
+		handler, resp, mockHTTPClient, mockDon := setupRateLimitingTest(t, cfg)
+
+		// First request should succeed
+		expectSuccessfulRequest(mockHTTPClient, mockDon, "node1")
+
+		err := handler.HandleNodeMessage(testutils.Context(t), resp, "node1")
+		require.NoError(t, err)
+		handler.wg.Wait()
+
+		// Second request from different node should be globally rate limited
+		err = handler.HandleNodeMessage(testutils.Context(t), resp, "node2")
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "global rate limit exceeded")
+		handler.wg.Wait()
 	})
 }
