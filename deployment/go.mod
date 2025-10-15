@@ -54,8 +54,8 @@ require (
 	github.com/smartcontractkit/chainlink-sui/deployment v0.0.0-20251012014843-5d44e7731854
 	github.com/smartcontractkit/chainlink-testing-framework/framework v0.10.34
 	github.com/smartcontractkit/chainlink-testing-framework/lib v1.54.5
-	github.com/smartcontractkit/chainlink-ton v0.0.0-20251014215341-00fb61887e0e
-	github.com/smartcontractkit/chainlink-ton/deployment v0.0.0-20251014215341-00fb61887e0e
+	github.com/smartcontractkit/chainlink-ton v0.0.0-20251015122439-fabf23b669ec
+	github.com/smartcontractkit/chainlink-ton/deployment v0.0.0-20251015122439-fabf23b669ec
 	github.com/smartcontractkit/freeport v0.1.3-0.20250716200817-cb5dfd0e369e
 	github.com/smartcontractkit/libocr v0.0.0-20250905115425-2785a5cee79d
 	github.com/smartcontractkit/mcms v0.26.1-0.20251009182503-22a4319a7bf4
