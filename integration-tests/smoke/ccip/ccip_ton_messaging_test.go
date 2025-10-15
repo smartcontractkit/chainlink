@@ -55,6 +55,9 @@ func Test_CCIPMessaging_TON2EVM(t *testing.T) {
 	addrBytes, err := ac.AddressStringToBytes(tonChain.WalletAddress.String())
 	require.NoError(t, err)
 
+	// wait for event filter registration
+	t.Logf("Waiting for event filter registration (~2 mins)...")
+	testhelpers.WaitForEventFilterRegistrationOnLane(t, state, e.Env.Offchain, sourceChain, destChain)
 	// ready to test
 	var (
 		sender = addrBytes
@@ -152,7 +155,7 @@ func Test_CCIPMessaging_EVM2TON(t *testing.T) {
 
 		t.Logf("  TON OffRamp:  %s", offRampAddr.String())
 		t.Logf("  TON Receiver: %s", receiverAddr.String())
-		
+
 		ac := codec.NewAddressCodec()
 		receiverBytes, err := ac.AddressStringToBytes(receiverAddr.String())
 		require.NoError(t, err)
