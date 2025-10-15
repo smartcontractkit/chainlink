@@ -206,7 +206,7 @@ func (s *Capability) CreateSecrets(ctx context.Context, request *vaultcommon.Cre
 		s.lggr.Infof("RequestId: [%s] failed validation checks: %s", request.RequestId, err.Error())
 		return nil, err
 	}
-	authorized, owner, err := s.authorizeCreateSecrets(ctx, *request)
+	authorized, owner, err := s.authorizeCreateSecrets(ctx, *request) //nolint:govet // The mutex isn't used
 	if !authorized || err != nil {
 		s.lggr.Infof("Request Id[%s] not authorized for owner: %s", request.RequestId, owner)
 		return nil, errors.New("request ID: " + request.RequestId + " not authorized: " + err.Error())
@@ -238,7 +238,7 @@ func (s *Capability) UpdateSecrets(ctx context.Context, request *vaultcommon.Upd
 		s.lggr.Infof("RequestId: [%s] failed validation checks: %s", request.RequestId, err.Error())
 		return nil, err
 	}
-	authorized, owner, err := s.authorizeUpdateSecrets(ctx, *request)
+	authorized, owner, err := s.authorizeUpdateSecrets(ctx, *request) //nolint:govet // The mutex isn't used
 	if !authorized || err != nil {
 		s.lggr.Infof("Request Id[%s] not authorized for owner: %s", request.RequestId, owner)
 		return nil, errors.New("request ID: " + request.RequestId + " not authorized: " + err.Error())
@@ -291,7 +291,7 @@ func (s *Capability) DeleteSecrets(ctx context.Context, request *vaultcommon.Del
 		return nil, err
 	}
 
-	authorized, owner, err := s.authorizeDeleteSecrets(ctx, *request)
+	authorized, owner, err := s.authorizeDeleteSecrets(ctx, *request) //nolint:govet // The mutex isn't used
 	if !authorized || err != nil {
 		s.lggr.Infof("Request Id[%s] not authorized for owner: %s", request.RequestId, owner)
 		return nil, errors.New("request ID: " + request.RequestId + " not authorized: " + err.Error())
@@ -358,7 +358,7 @@ func (s *Capability) ListSecretIdentifiers(ctx context.Context, request *vaultco
 		return nil, err
 	}
 
-	authorized, owner, err := s.authorizeListSecrets(ctx, *request)
+	authorized, owner, err := s.authorizeListSecrets(ctx, *request) //nolint:govet // The mutex isn't used
 	if !authorized || err != nil {
 		s.lggr.Infof("Request ID[%s] not authorized for owner: %s", request.RequestId, owner)
 		return nil, errors.New("request ID: " + request.RequestId + " not authorized: " + err.Error())
