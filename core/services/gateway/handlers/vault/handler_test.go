@@ -189,7 +189,7 @@ func TestVaultHandler_HandleJSONRPCUserMessage(t *testing.T) {
 		wg.Wait()
 	})
 
-	t.Run("no id inside CreteSecrets.EncryptedSecrets body", func(t *testing.T) {
+	t.Run("no id inside CreateSecrets.EncryptedSecrets body", func(t *testing.T) {
 		var wg sync.WaitGroup
 		h, callback, _, _ := setupHandler(t)
 		emptyCreateSecretsRequest := &vaultcommon.CreateSecretsRequest{

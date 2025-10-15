@@ -228,7 +228,9 @@ func (h *handler) fetchVaultPublicKey(ctx context.Context) {
 		Method:  vaulttypes.MethodPublicKeyGet,
 		Params:  nil,
 	}
-	h.HandleJSONRPCUserMessage(ctx, getPublicKeyRequest, handlerscommon.NewCallback())
+	if h.HandleJSONRPCUserMessage(ctx, getPublicKeyRequest, handlerscommon.NewCallback()) != nil {
+		h.lggr.Errorw("fetchVaultPublicKey: failed to fetch vault public key")
+	}
 }
 
 // removeExpiredRequests removes expired requests from the pending requests map
