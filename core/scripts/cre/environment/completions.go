@@ -227,24 +227,102 @@ func buildCommandTree() *CompletionNode {
 	// BS command tree
 	bsNode := &CompletionNode{
 		Suggestions: []prompt.Suggest{
-			{Text: "up", Description: "Spin up Blockscout and listen to dst chain (8555)"},
-			{Text: "down", Description: "Remove Blockscout stack"},
-			{Text: "restart", Description: "Restart Blockscout and listen to dst chain (8555)"},
+			{Text: "up", Description: "Spin up Blockscout EVM block explorer"},
+			{Text: "down", Description: "Spin down Blockscout EVM block explorer"},
+			{Text: "restart", Description: "Restart the Blockscout EVM block explorer"},
 		},
 		Children: make(map[string]*CompletionNode),
+		Flags: []prompt.Suggest{
+			{Text: "--url", Description: "EVM RPC node URL (default: http://host.docker.internal:8555)"},
+			{Text: "--chain-id", Description: "RPC's Chain ID (default: 2337)"},
+		},
 	}
+
+	// BS subcommands inherit parent flags
+	bsNode.Children["up"] = &CompletionNode{
+		Flags: bsNode.Flags,
+	}
+
+	bsNode.Children["down"] = &CompletionNode{
+		Flags: bsNode.Flags,
+	}
+
+	bsNode.Children["restart"] = &CompletionNode{
+		Flags: bsNode.Flags,
+	}
+
 	root.Children["bs"] = bsNode
 
 	// OBS command tree
 	obsNode := &CompletionNode{
 		Suggestions: []prompt.Suggest{
-			{Text: "up", Description: "Spin up observability stack (Loki/Prometheus/Grafana)"},
-			{Text: "down", Description: "Spin down observability stack"},
-			{Text: "restart", Description: "Restart observability stack"},
+			{Text: "up", Description: "Spin up the observability stack"},
+			{Text: "down", Description: "Spin down the observability stack"},
+			{Text: "restart", Description: "Restart the observability stack (data wipe)"},
+		},
+		Children: make(map[string]*CompletionNode),
+		Flags: []prompt.Suggest{
+			{Text: "--full", Description: "Enable full observability stack with additional components (default: false)"},
+		},
+	}
+
+	// OBS subcommands inherit parent flags
+	obsNode.Children["up"] = &CompletionNode{
+		Flags: obsNode.Flags,
+	}
+
+	obsNode.Children["down"] = &CompletionNode{
+		Flags: obsNode.Flags,
+	}
+
+	obsNode.Children["restart"] = &CompletionNode{
+		Flags: obsNode.Flags,
+	}
+
+	root.Children["obs"] = obsNode
+
+	// EXAMPLES command tree
+	examplesNode := &CompletionNode{
+		Suggestions: []prompt.Suggest{
+			{Text: "contracts", Description: "Deploy example contracts"},
+			{Text: "deploy-fake-price-provider", Description: "Deploy a fake price provider service locally"},
 		},
 		Children: make(map[string]*CompletionNode),
 	}
-	root.Children["obs"] = obsNode
+
+	// EXAMPLES CONTRACTS - contract deployment
+	contractsNode := &CompletionNode{
+		Suggestions: []prompt.Suggest{
+			{Text: "deploy-permissionless-feeds-consumer", Description: "Deploy a Permissionless Feeds Consumer contract"},
+			{Text: "deploy-balance-reader", Description: "Deploy a Balance Reader contract"},
+		},
+		Children: make(map[string]*CompletionNode),
+	}
+
+	contractsNode.Children["deploy-permissionless-feeds-consumer"] = &CompletionNode{
+		Flags: []prompt.Suggest{
+			{Text: "--rpc-url", Description: "RPC URL (default: http://localhost:8545)"},
+		},
+	}
+
+	contractsNode.Children["deploy-balance-reader"] = &CompletionNode{
+		Flags: []prompt.Suggest{
+			{Text: "--rpc-url", Description: "RPC URL (default: http://localhost:8545)"},
+		},
+	}
+
+	examplesNode.Children["contracts"] = contractsNode
+
+	// EXAMPLES DEPLOY-FAKE-PRICE-PROVIDER
+	examplesNode.Children["deploy-fake-price-provider"] = &CompletionNode{
+		Flags: []prompt.Suggest{
+			{Text: "--auth-key", Description: "Authentication key for the price provider (default: Bearer test-auth-key)"},
+			{Text: "--port", Description: "Port to run the fake price provider on (default: 80)"},
+			{Text: "--feed-ids", Description: "Feed IDs to provide prices for (default: 0x1234567890123456789012345678901234567890123456789012345678901234)"},
+		},
+	}
+
+	root.Children["examples"] = examplesNode
 
 	return root
 }
@@ -348,7 +426,8 @@ func traverseTree(node *CompletionNode, words []string, lastCharIsSpace bool, co
 	commandWords := filterFlags(words)
 
 	// Determine if we're currently typing/completing a flag
-	isTypingFlag := len(words) > 0 && strings.HasPrefix(words[len(words)-1], "-")
+	// Only consider it a flag if we're actively typing it (no trailing space)
+	isTypingFlag := !lastCharIsSpace && len(words) > 0 && strings.HasPrefix(words[len(words)-1], "-")
 
 	// No command words: return current level suggestions
 	if len(commandWords) == 0 {

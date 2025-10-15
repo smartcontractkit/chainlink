@@ -16,6 +16,8 @@ func init() {
 	root.RootCmd.AddCommand(examples.ExamplesCmd)
 	root.RootCmd.AddCommand(minio.MinioCommand)
 	root.RootCmd.AddCommand(mock.MockCommand)
+	root.RootCmd.AddCommand(environment.BsCmd)
+	root.RootCmd.AddCommand(environment.ObsCmd)
 }
 
 func main() {
