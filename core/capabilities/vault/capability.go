@@ -203,13 +203,13 @@ func (s *Capability) CreateSecrets(ctx context.Context, request *vaultcommon.Cre
 	s.lggr.Infof("Received Request: %s", request.String())
 	err := ValidateCreateSecretsRequest(s.publicKey.Get(), request)
 	if err != nil {
-		s.lggr.Infof("Request: [%s] failed validation checks: %s", request.String(), err.Error())
+		s.lggr.Infof("RequestId: [%s] failed validation checks: %s", request.RequestId, err.Error())
 		return nil, err
 	}
-	authorized, owner, err := s.isAuthorizedRequest(ctx, request, vaulttypes.MethodSecretsCreate)
+	authorized, owner, err := s.authorizeCreateSecrets(ctx, *request) //nolint:govet // The mutex isn't used
 	if !authorized || err != nil {
-		s.lggr.Infof("Request [%s] not authorized for owner: %s", request.String(), owner)
-		return nil, errors.New("request not authorized: " + err.Error())
+		s.lggr.Infof("Request Id[%s] not authorized for owner: %s", request.RequestId, owner)
+		return nil, errors.New("request ID: " + request.RequestId + " not authorized: " + err.Error())
 	}
 	if !strings.HasPrefix(request.RequestId, owner) {
 		// Gateway should ensure it prefixes request ids with the owner, to ensure request uniqueness
@@ -235,13 +235,13 @@ func (s *Capability) UpdateSecrets(ctx context.Context, request *vaultcommon.Upd
 	s.lggr.Infof("Received Request: %s", request.String())
 	err := ValidateUpdateSecretsRequest(s.publicKey.Get(), request)
 	if err != nil {
-		s.lggr.Infof("Request: [%s] failed validation checks: %s", request.String(), err.Error())
+		s.lggr.Infof("RequestId: [%s] failed validation checks: %s", request.RequestId, err.Error())
 		return nil, err
 	}
-	authorized, owner, err := s.isAuthorizedRequest(ctx, request, vaulttypes.MethodSecretsUpdate)
+	authorized, owner, err := s.authorizeUpdateSecrets(ctx, *request) //nolint:govet // The mutex isn't used
 	if !authorized || err != nil {
-		s.lggr.Infof("Request [%s] not authorized for owner: %s", request.String(), owner)
-		return nil, errors.New("request not authorized: " + err.Error())
+		s.lggr.Infof("Request Id[%s] not authorized for owner: %s", request.RequestId, owner)
+		return nil, errors.New("request ID: " + request.RequestId + " not authorized: " + err.Error())
 	}
 	if !strings.HasPrefix(request.RequestId, owner) {
 		// Gateway should ensure it prefixes request ids with the owner, to ensure request uniqueness
@@ -291,10 +291,10 @@ func (s *Capability) DeleteSecrets(ctx context.Context, request *vaultcommon.Del
 		return nil, err
 	}
 
-	authorized, owner, err := s.isAuthorizedRequest(ctx, request, vaulttypes.MethodSecretsDelete)
+	authorized, owner, err := s.authorizeDeleteSecrets(ctx, *request) //nolint:govet // The mutex isn't used
 	if !authorized || err != nil {
-		s.lggr.Infof("Request [%s] not authorized for owner: %s", request.String(), owner)
-		return nil, errors.New("request not authorized: " + err.Error())
+		s.lggr.Infof("Request Id[%s] not authorized for owner: %s", request.RequestId, owner)
+		return nil, errors.New("request ID: " + request.RequestId + " not authorized: " + err.Error())
 	}
 	if !strings.HasPrefix(request.RequestId, owner) {
 		// Gateway should ensure it prefixes request ids with the owner, to ensure request uniqueness
@@ -358,10 +358,10 @@ func (s *Capability) ListSecretIdentifiers(ctx context.Context, request *vaultco
 		return nil, err
 	}
 
-	authorized, owner, err := s.isAuthorizedRequest(ctx, request, vaulttypes.MethodSecretsList)
+	authorized, owner, err := s.authorizeListSecrets(ctx, *request) //nolint:govet // The mutex isn't used
 	if !authorized || err != nil {
-		s.lggr.Infof("Request [%s] not authorized for owner: %s", request.String(), owner)
-		return nil, errors.New("request not authorized: " + err.Error())
+		s.lggr.Infof("Request ID[%s] not authorized for owner: %s", request.RequestId, owner)
+		return nil, errors.New("request ID: " + request.RequestId + " not authorized: " + err.Error())
 	}
 	if !strings.HasPrefix(request.RequestId, owner) {
 		// Gateway should ensure it prefixes request ids with the owner, to ensure request uniqueness
@@ -424,14 +424,64 @@ func (s *Capability) handleRequest(ctx context.Context, requestID string, reques
 	}
 }
 
-func (s *Capability) isAuthorizedRequest(ctx context.Context, request any, method string) (bool, string, error) {
+func (s *Capability) getOriginalRequestID(transformedRequestID string) (string, error) {
+	// The transformed RequestID provided to Vault Nodes is of format <owner>::<user-provided-id>.
+	// However, the RequestAuthorizer expects just the <user-provided-id> as the JSONRequest's ID fields,
+	// since that's what was used by the caller when generating the request digest.
+	requestIDParts := strings.Split(transformedRequestID, vaulttypes.RequestIDSeparator)
+	if len(requestIDParts) != 2 {
+		return "", errors.New("internal error: request ID must be in format <owner>::<user-provided-id>")
+	}
+	return requestIDParts[1], nil
+}
+
+func (s *Capability) authorizeCreateSecrets(ctx context.Context, request vaultcommon.CreateSecretsRequest) (bool, string, error) { //nolint:govet // The mutex isn't used
+	originalRequestID, err := s.getOriginalRequestID(request.RequestId)
+	if err != nil {
+		return false, "", err
+	}
+	request.RequestId = originalRequestID
+
+	return s.isAuthorizedRequest(ctx, &request, originalRequestID, vaulttypes.MethodSecretsCreate)
+}
+
+func (s *Capability) authorizeUpdateSecrets(ctx context.Context, request vaultcommon.UpdateSecretsRequest) (bool, string, error) { //nolint:govet // The mutex isn't used
+	originalRequestID, err := s.getOriginalRequestID(request.RequestId)
+	if err != nil {
+		return false, "", err
+	}
+	request.RequestId = originalRequestID
+	return s.isAuthorizedRequest(ctx, &request, originalRequestID, vaulttypes.MethodSecretsUpdate)
+}
+
+func (s *Capability) authorizeDeleteSecrets(ctx context.Context, request vaultcommon.DeleteSecretsRequest) (bool, string, error) { //nolint:govet // The mutex isn't used
+	originalRequestID, err := s.getOriginalRequestID(request.RequestId)
+	if err != nil {
+		return false, "", err
+	}
+	request.RequestId = originalRequestID
+	return s.isAuthorizedRequest(ctx, &request, originalRequestID, vaulttypes.MethodSecretsDelete)
+}
+
+func (s *Capability) authorizeListSecrets(ctx context.Context, request vaultcommon.ListSecretIdentifiersRequest) (bool, string, error) { //nolint:govet // The mutex isn't used
+	originalRequestID, err := s.getOriginalRequestID(request.RequestId)
+	if err != nil {
+		return false, "", err
+	}
+	request.RequestId = originalRequestID
+	return s.isAuthorizedRequest(ctx, &request, originalRequestID, vaulttypes.MethodSecretsList)
+}
+
+func (s *Capability) isAuthorizedRequest(ctx context.Context, request any, requestID, method string) (bool, string, error) {
 	var params json.RawMessage
 	params, err := json.Marshal(request)
 	if err != nil {
 		return false, "", fmt.Errorf("could not marshal CreateSecretsRequest: %w", err)
 	}
+	s.lggr.Debugw("Authorizing request", "method", method, "requestID", requestID)
 	jsonRequest := jsonrpc.Request[json.RawMessage]{
 		Version: jsonrpc.JsonRpcVersion,
+		ID:      requestID,
 		Method:  method,
 		Params:  &params,
 	}

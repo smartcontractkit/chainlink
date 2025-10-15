@@ -26,7 +26,7 @@ import (
 	"github.com/tidwall/gjson"
 
 	"github.com/smartcontractkit/chainlink-testing-framework/framework"
-	"github.com/smartcontractkit/chainlink/core/scripts/cre/environment/tracking"
+	"github.com/smartcontractkit/chainlink-testing-framework/framework/tracking"
 )
 
 var SetupCmd *cobra.Command
@@ -387,9 +387,9 @@ func RunSetup(ctx context.Context, config SetupConfig, noPrompt, purge, withBill
 	defer func() {
 		var trackingErr error
 		if setupErr != nil {
-			trackingErr = localDXTracker.Track("cre.local.setup.result", map[string]any{"result": "failure", "no_prompt": noPrompt, "error": oneLineErrorMessage(setupErr)})
+			trackingErr = localDXTracker.Track(MetricSetupResult, map[string]any{"result": "failure", "no_prompt": noPrompt, "error": oneLineErrorMessage(setupErr)})
 		} else {
-			trackingErr = localDXTracker.Track("cre.local.setup.result", map[string]any{"result": "success", "no_prompt": noPrompt})
+			trackingErr = localDXTracker.Track(MetricSetupResult, map[string]any{"result": "success", "no_prompt": noPrompt})
 		}
 		if trackingErr != nil {
 			fmt.Fprintf(os.Stderr, "failed to track setup: %s\n", trackingErr)
@@ -449,7 +449,7 @@ func RunSetup(ctx context.Context, config SetupConfig, noPrompt, purge, withBill
 	// once we have GH CLI setup we can try to create the DX tracker
 	if ghCli {
 		var trackerErr error
-		localDXTracker, trackerErr = tracking.NewDxTracker()
+		localDXTracker, trackerErr = tracking.NewDxTracker(GetDXGitHubVariableName, GetDXProductName)
 		if trackerErr != nil {
 			fmt.Fprintf(os.Stderr, "failed to create DX tracker: %s\n", trackerErr)
 		}

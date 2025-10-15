@@ -315,7 +315,7 @@ func (s *Shell) runNode(c *cli.Context) error {
 	}
 
 	// rootCtx will be cancelled when SIGINT|SIGTERM is received
-	rootCtx, cancelRootCtx := context.WithCancel(ctx)
+	rootCtx, cancelRootCtx := context.WithCancel(context.Background())
 
 	// cleanExit is used to skip "fail fast" routine
 	cleanExit := make(chan struct{})

@@ -31,8 +31,31 @@ func (f TargetDONFilter) AddToFilter(filter *nodev1.ListNodesRequest_Filter) *no
 			Value: &f.Value,
 		})
 	}
-
 	return filter
+}
+
+func (f TargetDONFilter) AddToFilterIfNotPresent(filter *nodev1.ListNodesRequest_Filter) *nodev1.ListNodesRequest_Filter {
+	switch f.Key {
+	case FilterKeyDONName:
+		for _, s := range filter.Selectors {
+			if s.Key == "don-"+f.Value {
+				return filter
+			}
+		}
+	case FilterKeyCSAPublicKey:
+		for _, pk := range filter.PublicKeys {
+			if pk == f.Value {
+				return filter
+			}
+		}
+	default:
+		for _, s := range filter.Selectors {
+			if s.Key == f.Key {
+				return filter
+			}
+		}
+	}
+	return f.AddToFilter(filter)
 }
 
 func (f TargetDONFilter) ToListFilter() *nodev1.ListNodesRequest_Filter {

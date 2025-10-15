@@ -1,22 +1,23 @@
-package ocrcommon_test
+package ccip
 
 import (
+	"math/big"
 	"testing"
 
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/stretchr/testify/assert"
+	"github.com/pkg/errors"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 
-	"github.com/smartcontractkit/chainlink-evm/pkg/config"
+	"github.com/smartcontractkit/chainlink-common/pkg/types"
 	"github.com/smartcontractkit/chainlink-evm/pkg/keys"
 	"github.com/smartcontractkit/chainlink-evm/pkg/keys/keystest"
+	"github.com/smartcontractkit/chainlink-evm/pkg/testutils"
 	"github.com/smartcontractkit/chainlink-evm/pkg/txmgr"
-	"github.com/smartcontractkit/chainlink-evm/pkg/utils"
+
 	txmmocks "github.com/smartcontractkit/chainlink/v2/common/txmgr/mocks"
 	commontxmmocks "github.com/smartcontractkit/chainlink/v2/common/txmgr/types/mocks"
-	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
-	"github.com/smartcontractkit/chainlink/v2/core/services/ocrcommon"
+	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/transmitter/ocr"
 )
 
 func newMockTxStrategy(t *testing.T) *commontxmmocks.TxStrategy {
@@ -36,7 +37,7 @@ func Test_DefaultTransmitter_CreateEthTransaction(t *testing.T) {
 	txm := txmmocks.NewMockEvmTxManager(t)
 	strategy := newMockTxStrategy(t)
 
-	transmitter, err := ocrcommon.NewTransmitter(
+	transmitter, err := ocr.NewTransmitter(
 		txm,
 		[]common.Address{fromAddress},
 		gasLimit,
@@ -74,7 +75,7 @@ func Test_DefaultTransmitter_Forwarding_Enabled_CreateEthTransaction(t *testing.
 	txm := txmmocks.NewMockEvmTxManager(t)
 	strategy := newMockTxStrategy(t)
 
-	transmitter, err := ocrcommon.NewTransmitter(
+	transmitter, err := ocr.NewTransmitter(
 		txm,
 		[]common.Address{fromAddress, fromAddress2},
 		gasLimit,
@@ -110,7 +111,7 @@ func Test_DefaultTransmitter_Forwarding_Enabled_CreateEthTransaction(t *testing.
 func Test_DefaultTransmitter_Forwarding_Enabled_CreateEthTransaction_Round_Robin_Error(t *testing.T) {
 	t.Parallel()
 
-	fromAddress := testutils.NewAddress()
+	fromAddress := common.Address{}
 
 	gasLimit := uint64(1000)
 	effectiveTransmitterAddress := common.Address{}
@@ -119,7 +120,7 @@ func Test_DefaultTransmitter_Forwarding_Enabled_CreateEthTransaction_Round_Robin
 	txm := txmmocks.NewMockEvmTxManager(t)
 	strategy := newMockTxStrategy(t)
 
-	transmitter, err := ocrcommon.NewTransmitter(
+	transmitter, err := ocr.NewTransmitter(
 		txm,
 		[]common.Address{fromAddress},
 		gasLimit,
@@ -135,15 +136,16 @@ func Test_DefaultTransmitter_Forwarding_Enabled_CreateEthTransaction_Round_Robin
 func Test_DefaultTransmitter_Forwarding_Enabled_CreateEthTransaction_No_Keystore_Error(t *testing.T) {
 	t.Parallel()
 
-	fromAddress := testutils.NewAddress()
-	fromAddress2 := testutils.NewAddress()
+	memKS := keystest.NewMemoryChainStore()
+	fromAddress := memKS.MustCreate(t)
+	fromAddress2 := memKS.MustCreate(t)
 
 	gasLimit := uint64(1000)
 	effectiveTransmitterAddress := common.Address{}
 	txm := txmmocks.NewMockEvmTxManager(t)
 	strategy := newMockTxStrategy(t)
 
-	_, err := ocrcommon.NewTransmitter(
+	_, err := ocr.NewTransmitter(
 		txm,
 		[]common.Address{fromAddress, fromAddress2},
 		gasLimit,
@@ -155,72 +157,49 @@ func Test_DefaultTransmitter_Forwarding_Enabled_CreateEthTransaction_No_Keystore
 	require.Error(t, err)
 }
 
-func Test_DualTransmitter(t *testing.T) {
+func Test_Transmitter_With_StatusChecker_CreateEthTransaction(t *testing.T) {
 	t.Parallel()
 
-	memoryKeystore := keystest.NewMemoryChainStore()
-	fromAddress := memoryKeystore.MustCreate(t)
-	secondaryFromAddress := memoryKeystore.MustCreate(t)
-
-	contractAddress := utils.RandomAddress()
-	secondaryContractAddress := utils.RandomAddress()
+	memKS := keystest.NewMemoryChainStore()
+	fromAddress := memKS.MustCreate(t)
+	ethKeyStore := keys.NewChainStore(memKS, testutils.FixtureChainID)
 
 	gasLimit := uint64(1000)
+	chainID := big.NewInt(0)
 	effectiveTransmitterAddress := fromAddress
-	toAddress := testutils.NewAddress()
-	payload := []byte{1, 2, 3}
 	txm := txmmocks.NewMockEvmTxManager(t)
 	strategy := newMockTxStrategy(t)
-	dualTransmissionConfig := &config.DualTransmissionConfig{
-		ContractAddress:    secondaryContractAddress,
-		TransmitterAddress: secondaryFromAddress,
-		Meta: map[string][]string{
-			"key1": {"value1"},
-			"key2": {"value2", "value3"},
-			"key3": {"value4", "value5", "value6"},
-		},
-	}
+	toAddress := testutils.NewAddress()
+	payload := []byte{1, 2, 3}
+	idempotencyKey := "1-0"
+	txMeta := &txmgr.TxMeta{MessageIDs: []string{"1"}}
 
-	transmitter, err := ocrcommon.NewOCR2FeedsTransmitter(
+	transmitter, err := NewTransmitterWithStatusChecker(
 		txm,
 		[]common.Address{fromAddress},
-		contractAddress,
 		gasLimit,
 		effectiveTransmitterAddress,
 		strategy,
 		txmgr.TransmitCheckerSpec{},
-		keys.NewStore(memoryKeystore),
-		dualTransmissionConfig,
+		chainID,
+		ethKeyStore,
 	)
 	require.NoError(t, err)
 
-	primaryTxConfirmed := false
-	secondaryTxConfirmed := false
+	// This case is for when the message ID was not found in the status checker
+	txm.On("GetTransactionStatus", mock.Anything, idempotencyKey).Return(types.Unknown, errors.New("dummy")).Once()
 
-	txm.On("CreateTransaction", mock.Anything, mock.MatchedBy(func(tx txmgr.TxRequest) bool {
-		switch tx.FromAddress {
-		case fromAddress:
-			// Primary transmission
-			assert.Equal(t, tx.ToAddress, toAddress, "unexpected primary toAddress")
-			assert.Nil(t, tx.Meta, "Meta should be empty")
-			primaryTxConfirmed = true
-		case secondaryFromAddress:
-			// Secondary transmission
-			assert.Equal(t, tx.ToAddress, secondaryContractAddress, "unexpected secondary toAddress")
-			assert.True(t, *tx.Meta.DualBroadcast, "DualBroadcast should be true")
-			assert.Equal(t, "key1=value1&key2=value2&key2=value3&key3=value4&key3=value5&key3=value6", *tx.Meta.DualBroadcastParams, "DualBroadcastParams not equal")
-			secondaryTxConfirmed = true
-		default:
-			// Should never be reached
-			return false
-		}
+	txm.On("CreateTransaction", mock.Anything, txmgr.TxRequest{
+		IdempotencyKey:   &idempotencyKey,
+		FromAddress:      fromAddress,
+		ToAddress:        toAddress,
+		EncodedPayload:   payload,
+		FeeLimit:         gasLimit,
+		ForwarderAddress: common.Address{},
+		Meta:             txMeta,
+		Strategy:         strategy,
+	}).Return(txmgr.Tx{}, nil).Once()
 
-		return true
-	})).Twice().Return(txmgr.Tx{}, nil)
-
-	require.NoError(t, transmitter.CreateEthTransaction(testutils.Context(t), toAddress, payload, nil))
-	require.NoError(t, transmitter.CreateSecondaryEthTransaction(testutils.Context(t), payload, nil))
-
-	require.True(t, primaryTxConfirmed)
-	require.True(t, secondaryTxConfirmed)
+	require.NoError(t, transmitter.CreateEthTransaction(testutils.Context(t), toAddress, payload, txMeta))
+	txm.AssertExpectations(t)
 }
