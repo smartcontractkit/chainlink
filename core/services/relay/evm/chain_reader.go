@@ -15,7 +15,6 @@ import (
 	commoncodec "github.com/smartcontractkit/chainlink-common/pkg/codec"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
-	commonservices "github.com/smartcontractkit/chainlink-common/pkg/services"
 	commontypes "github.com/smartcontractkit/chainlink-common/pkg/types"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/evm"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/query"
@@ -43,7 +42,7 @@ type chainReader struct {
 	parsed   *codec.ParsedTypes
 	bindings *read.BindingsRegistry
 	codec    commontypes.RemoteCodec
-	commonservices.StateMachine
+	services.StateMachine
 }
 
 type EVMClient interface {
@@ -185,8 +184,8 @@ func (cr *chainReader) HealthReport() map[string]error {
 		cr.Name(): cr.Healthy(),
 	}
 
-	commonservices.CopyHealth(report, cr.lp.HealthReport())
-	commonservices.CopyHealth(report, cr.ht.HealthReport())
+	services.CopyHealth(report, cr.lp.HealthReport())
+	services.CopyHealth(report, cr.ht.HealthReport())
 	return report
 }
 
