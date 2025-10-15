@@ -253,10 +253,10 @@ func (r *Report) Reserve(ctx context.Context) error {
 		return ErrInsufficientFunding
 	}
 
-	creditsStr := "10000"
-	if resp.GetCredits() != "" {
+	creditsStr := resp.GetCredits()
+	if creditsStr == "" {
 		r.lggr.Debug("empty credits; setting temporary default of 10000")
-		creditsStr = resp.GetCredits()
+		creditsStr = "0"
 	}
 
 	credits, err := decimal.NewFromString(creditsStr)
