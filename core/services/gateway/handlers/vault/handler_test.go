@@ -162,7 +162,7 @@ func TestVaultHandler_HandleJSONRPCUserMessage(t *testing.T) {
 		}
 		resultBytes, err := json.Marshal(responseData)
 		require.NoError(t, err)
-		expectedRequestID := owner + "::" + requestID
+		expectedRequestID := owner + vaulttypes.RequestIDSeparator + requestID
 		response := jsonrpc.Response[json.RawMessage]{
 			ID:     expectedRequestID,
 			Result: (*json.RawMessage)(&resultBytes),
@@ -262,7 +262,7 @@ func TestVaultHandler_HandleJSONRPCUserMessage(t *testing.T) {
 		}
 		resultBytes, err := json.Marshal(responseData)
 		require.NoError(t, err)
-		expectedRequestID := owner + "::" + requestID
+		expectedRequestID := owner + vaulttypes.RequestIDSeparator + requestID
 		response := jsonrpc.Response[json.RawMessage]{
 			ID:     expectedRequestID,
 			Result: (*json.RawMessage)(&resultBytes),
@@ -321,7 +321,7 @@ func TestVaultHandler_HandleJSONRPCUserMessage(t *testing.T) {
 		}
 		resultBytes, err := json.Marshal(responseData)
 		require.NoError(t, err)
-		expectedRequestID := owner + "::" + requestID
+		expectedRequestID := owner + vaulttypes.RequestIDSeparator + requestID
 		response := jsonrpc.Response[json.RawMessage]{
 			ID:     expectedRequestID,
 			Result: (*json.RawMessage)(&resultBytes),
@@ -380,7 +380,7 @@ func TestVaultHandler_HandleJSONRPCUserMessage(t *testing.T) {
 		}
 		resultBytes, err := json.Marshal(responseData)
 		require.NoError(t, err)
-		expectedRequestID := owner + "::" + requestID
+		expectedRequestID := owner + vaulttypes.RequestIDSeparator + requestID
 		response := jsonrpc.Response[json.RawMessage]{
 			ID:     expectedRequestID,
 			Result: (*json.RawMessage)(&resultBytes),
@@ -434,7 +434,7 @@ func TestVaultHandler_HandleJSONRPCUserMessage(t *testing.T) {
 			Params: (*json.RawMessage)(&reqDataBytes),
 		}
 
-		expectedRequestID := owner + "::" + requestID
+		expectedRequestID := owner + vaulttypes.RequestIDSeparator + requestID
 		response := jsonrpc.Response[json.RawMessage]{
 			ID:     expectedRequestID,
 			Method: vaulttypes.MethodSecretsList,

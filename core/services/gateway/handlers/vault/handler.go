@@ -281,7 +281,7 @@ func (h *handler) HandleJSONRPCUserMessage(ctx context.Context, req jsonrpc.Requ
 		return errors.New("request not authorized: " + err.Error())
 	}
 	// Prefix request id with owner, to ensure uniqueness across different owners
-	req.ID = owner + "::" + req.ID
+	req.ID = owner + vaulttypes.RequestIDSeparator + req.ID
 
 	h.lggr.Infow("handling authorized vault request", "method", req.Method, "requestID", req.ID, "owner", owner)
 	if h.getActiveRequest(req.ID) != nil {
@@ -412,7 +412,7 @@ func (h *handler) tryCachePublicKeyResponse(resp *jsonrpc.Response[json.RawMessa
 func (h *handler) sendSuccessResponse(ctx context.Context, l logger.Logger, ar *activeRequest, resp *jsonrpc.Response[json.RawMessage]) error {
 	// Strip the owner prefix from the response ID before sending it back to the user
 	// This ensures compliance with JSONRPC 2.0 spec, which requires response id to match request id
-	index := strings.Index(resp.ID, "::")
+	index := strings.Index(resp.ID, vaulttypes.RequestIDSeparator)
 	if index != -1 {
 		resp.ID = resp.ID[index+2:]
 	}
@@ -657,7 +657,7 @@ func (h *handler) errorResponse(
 
 	// Strip the owner prefix from the json response ID before sending it back to the user
 	// This ensures compliance with JSONRPC 2.0 spec, which requires response id to match request id
-	index := strings.Index(req.ID, "::")
+	index := strings.Index(req.ID, vaulttypes.RequestIDSeparator)
 	if index != -1 {
 		req.ID = req.ID[index+2:]
 	}

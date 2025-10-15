@@ -31,6 +31,10 @@ const (
 	MethodSecretsList   = "vault.secrets.list"
 	MethodPublicKeyGet  = "vault.publicKey.get"
 
+	// RequestIDSeparator is used to separate parts(owner, user-provided-requestId) of the request ID.
+	RequestIDSeparator = "::"
+
+	// MaxBatchSize is the maximum number of secrets that can be created/updated/deleted in a single request.
 	MaxBatchSize = 10
 )
 
