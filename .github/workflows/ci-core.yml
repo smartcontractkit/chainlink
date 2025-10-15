@@ -697,4 +697,8 @@ jobs:
             --plugin-file ./plugins/plugins.public.yaml \
             --module github.com/smartcontractkit/chainlink-data-streams \
             --module github.com/smartcontractkit/chainlink-feeds \
-            --module github.com/smartcontractkit/chainlink-solana
+            --module github.com/smartcontractkit/chainlink-solana \
+            --module github.com/smartcontractkit/chainlink-sui \
+            --module github.com/smartcontractkit/chainlink-aptos \
+            --module github.com/smartcontractkit/chainlink-ton \
+            --module github.com/smartcontractkit/chainlink-tron/relayer
