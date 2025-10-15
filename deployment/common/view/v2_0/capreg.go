@@ -139,7 +139,6 @@ func GenerateCapabilityRegistryView(capReg *ExtendedCapabilityRegistry) (Capabil
 	if err != nil {
 		return CapabilityRegistryView{}, err
 	}
-	fmt.Println("Contract MetaData:", tv, capReg.Address())
 	caps, err := capReg.GetCapabilitiesSimple(nil)
 	if err != nil {
 		return CapabilityRegistryView{}, err
