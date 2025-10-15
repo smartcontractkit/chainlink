@@ -15,7 +15,7 @@ import (
 
 	jsonrpc "github.com/smartcontractkit/chainlink-common/pkg/jsonrpc2"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
-	"github.com/smartcontractkit/chainlink-common/pkg/ratelimit"
+	"github.com/smartcontractkit/chainlink-common/pkg/settings/limits"
 	gateway_common "github.com/smartcontractkit/chainlink-common/pkg/types/gateway"
 	"github.com/smartcontractkit/chainlink-common/pkg/workflows"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
@@ -543,7 +543,7 @@ func TestHttpTriggerHandler_HandleUserTriggerRequest_Retries(t *testing.T) {
 
 	mockDon := handlermocks.NewDON(t)
 	metadataHandler := createTestMetadataHandler(t)
-	userRateLimiter := createTestUserRateLimiter(t)
+	userRateLimiter := createTestUserRateLimiter()
 	testMetrics := createTestMetrics(t)
 	handler := NewHTTPTriggerHandler(lggr, cfg, donConfig, mockDon, metadataHandler, userRateLimiter, testMetrics)
 	workflowID := "0x1234567890abcdef1234567890abcdef12345678901234567890abcdef123456"
@@ -1371,16 +1371,8 @@ func createTestMetadataHandler(t *testing.T) *WorkflowMetadataHandler {
 	return NewWorkflowMetadataHandler(lggr, cfg, mockDon, donConfig, testMetrics)
 }
 
-func createTestUserRateLimiter(t *testing.T) *ratelimit.RateLimiter {
-	cfg := ratelimit.RateLimiterConfig{
-		GlobalRPS:      50,
-		GlobalBurst:    50,
-		PerSenderRPS:   5,
-		PerSenderBurst: 5,
-	}
-	limiter, err := ratelimit.NewRateLimiter(cfg)
-	require.NoError(t, err)
-	return limiter
+func createTestUserRateLimiter() limits.RateLimiter {
+	return limits.UnlimitedRateLimiter()
 }
 
 func createTestTriggerHandler(t *testing.T) (*httpTriggerHandler, *handlermocks.DON) {
@@ -1404,9 +1396,121 @@ func createTestTriggerHandlerWithConfig(t *testing.T, cfg ServiceConfig) (*httpT
 	mockDon := handlermocks.NewDON(t)
 	lggr := logger.Test(t)
 	metadataHandler := createTestMetadataHandler(t)
-	userRateLimiter := createTestUserRateLimiter(t)
+	userRateLimiter := createTestUserRateLimiter()
 	testMetrics := createTestMetrics(t)
 
 	handler := NewHTTPTriggerHandler(lggr, cfg, donConfig, mockDon, metadataHandler, userRateLimiter, testMetrics)
 	return handler, mockDon
+}
+
+func TestHttpTriggerHandler_HandleUserTriggerRequest_RateLimiting(t *testing.T) {
+	cfg := ServiceConfig{
+		CleanUpPeriodMs:             60000,
+		MaxTriggerRequestDurationMs: 300000,
+	}
+
+	donConfig := &config.DONConfig{
+		DonId: "test-don",
+		F:     1,
+		Members: []config.NodeConfig{
+			{Address: "node1"},
+			{Address: "node2"},
+			{Address: "node3"},
+		},
+	}
+
+	mockDon := handlermocks.NewDON(t)
+	lggr := logger.Test(t)
+	metadataHandler := createTestMetadataHandler(t)
+	testMetrics := createTestMetrics(t)
+
+	t.Run("successful rate limit check with CRE context", func(t *testing.T) {
+		userRateLimiter := createTestUserRateLimiter() // Unlimited
+		handler := NewHTTPTriggerHandler(lggr, cfg, donConfig, mockDon, metadataHandler, userRateLimiter, testMetrics)
+
+		privateKey := createTestPrivateKey(t)
+		workflowID := "0x1234567890abcdef1234567890abcdef12345678901234567890abcdef123456"
+		workflowOwner := "0x1234567890abcdef1234567890abcdef12345678"
+
+		// Register workflow with reference
+		registerWorkflow(t, handler, workflowID, privateKey)
+		handler.workflowMetadataHandler.workflowIDToRef[workflowID] = workflowReference{
+			workflowOwner: workflowOwner,
+			workflowName:  "test-workflow",
+			workflowTag:   "v1.0",
+		}
+
+		triggerReq := gateway_common.HTTPTriggerRequest{
+			Workflow: gateway_common.WorkflowSelector{
+				WorkflowID: workflowID,
+			},
+			Input: []byte(`{"key": "value"}`),
+		}
+		reqBytes, err := json.Marshal(triggerReq)
+		require.NoError(t, err)
+
+		rawParams := json.RawMessage(reqBytes)
+		req := &jsonrpc.Request[json.RawMessage]{
+			Version: "2.0",
+			ID:      "test-request-id",
+			Method:  gateway_common.MethodWorkflowExecute,
+			Params:  &rawParams,
+		}
+		req.Auth = createTestJWTToken(t, req, privateKey)
+
+		callback := hc.NewCallback()
+
+		// Mock DON to expect sends to all nodes
+		mockDon.EXPECT().SendToNode(mock.Anything, "node1", mock.Anything).Return(nil)
+		mockDon.EXPECT().SendToNode(mock.Anything, "node2", mock.Anything).Return(nil)
+		mockDon.EXPECT().SendToNode(mock.Anything, "node3", mock.Anything).Return(nil)
+
+		err = handler.HandleUserTriggerRequest(testutils.Context(t), req, callback, time.Now())
+		require.NoError(t, err)
+	})
+
+	t.Run("rate limit exceeded returns proper error", func(t *testing.T) {
+		// Create a rate limiter with very restrictive limits
+		restrictiveRateLimiter := limits.WorkflowRateLimiter(1, 0)
+		handler := NewHTTPTriggerHandler(lggr, cfg, donConfig, mockDon, metadataHandler, restrictiveRateLimiter, testMetrics)
+
+		privateKey := createTestPrivateKey(t)
+		workflowID := "0x1234567890abcdef1234567890abcdef12345678901234567890abcdef123456"
+		workflowOwner := "0x1234567890abcdef1234567890abcdef12345678"
+
+		// Register workflow with reference
+		registerWorkflow(t, handler, workflowID, privateKey)
+		handler.workflowMetadataHandler.workflowIDToRef[workflowID] = workflowReference{
+			workflowOwner: workflowOwner,
+			workflowName:  "test-workflow",
+			workflowTag:   "v1.0",
+		}
+
+		triggerReq := gateway_common.HTTPTriggerRequest{
+			Workflow: gateway_common.WorkflowSelector{
+				WorkflowID: workflowID,
+			},
+			Input: []byte(`{"key": "value"}`),
+		}
+		reqBytes, err := json.Marshal(triggerReq)
+		require.NoError(t, err)
+
+		rawParams := json.RawMessage(reqBytes)
+		req := &jsonrpc.Request[json.RawMessage]{
+			Version: "2.0",
+			ID:      "test-request-id-rate-limit",
+			Method:  gateway_common.MethodWorkflowExecute,
+			Params:  &rawParams,
+		}
+		req.Auth = createTestJWTToken(t, req, privateKey)
+
+		callback := hc.NewCallback()
+
+		// First request should consume the burst capacity and exceed the rate limit
+		err = handler.HandleUserTriggerRequest(testutils.Context(t), req, callback, time.Now())
+		require.Error(t, err)
+		r, err := callback.Wait(t.Context())
+		require.NoError(t, err)
+		requireUserErrorSent(t, r, jsonrpc.ErrLimitExceeded)
+	})
 }

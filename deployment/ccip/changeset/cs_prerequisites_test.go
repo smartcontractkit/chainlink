@@ -3,35 +3,31 @@ package changeset_test
 import (
 	"testing"
 
+	chainselectors "github.com/smartcontractkit/chain-selectors"
 	"github.com/stretchr/testify/require"
-	"go.uber.org/zap/zapcore"
 
-	chain_selectors "github.com/smartcontractkit/chain-selectors"
-
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 
 	cldf_chain "github.com/smartcontractkit/chainlink-deployments-framework/chain"
-
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+	"github.com/smartcontractkit/chainlink-deployments-framework/engine/test/environment"
 
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
-	"github.com/smartcontractkit/chainlink/deployment/environment/memory"
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
 
 func TestDeployPrerequisites(t *testing.T) {
 	t.Parallel()
-	lggr := logger.TestLogger(t)
 
-	e := memory.NewMemoryEnvironment(t, lggr, zapcore.InfoLevel, memory.MemoryEnvironmentConfig{
-		Bootstraps: 1,
-		Chains:     2,
-		Nodes:      4,
-	})
+	e, err := environment.New(t.Context(),
+		environment.WithEVMSimulatedN(t, 2),
+		environment.WithLogger(logger.Test(t)),
+	)
+	require.NoError(t, err)
 
-	testDeployPrerequisitesWithEnv(t, e)
+	testDeployPrerequisitesWithEnv(t, *e)
 }
 
 func TestDeployPrerequisitesZk(t *testing.T) {
@@ -39,16 +35,18 @@ func TestDeployPrerequisitesZk(t *testing.T) {
 	tests.SkipFlakey(t, "https://smartcontract-it.atlassian.net/browse/CCIP-6427")
 
 	t.Parallel()
-	lggr := logger.TestLogger(t)
-	e := memory.NewMemoryEnvironment(t, lggr, zapcore.InfoLevel, memory.MemoryEnvironmentConfig{
-		ZkChains: 2,
-	})
 
-	testDeployPrerequisitesWithEnv(t, e)
+	e, err := environment.New(t.Context(),
+		environment.WithZKSyncContainerN(t, 2),
+		environment.WithLogger(logger.Test(t)),
+	)
+	require.NoError(t, err)
+
+	testDeployPrerequisitesWithEnv(t, *e)
 }
 
 func testDeployPrerequisitesWithEnv(t *testing.T, e cldf.Environment) {
-	newChain := e.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chain_selectors.FamilyEVM))[0]
+	newChain := e.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chainselectors.FamilyEVM))[0]
 	cfg := changeset.DeployPrerequisiteConfig{
 		Configs: []changeset.DeployPrerequisiteConfigPerChain{
 			{

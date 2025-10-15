@@ -15,7 +15,6 @@ import (
 
 	"github.com/smartcontractkit/chainlink-testing-framework/framework"
 	chipingressset "github.com/smartcontractkit/chainlink-testing-framework/framework/components/dockercompose/chip_ingress_set"
-	"github.com/smartcontractkit/chainlink/core/scripts/cre/environment/tracking"
 	envconfig "github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/config"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/stagegen"
 	libformat "github.com/smartcontractkit/chainlink/system-tests/lib/format"
@@ -62,7 +61,7 @@ func startBeholderCmd() *cobra.Command {
 					metaData["result"] = "success"
 				}
 
-				trackingErr := dxTracker.Track(tracking.MetricBeholderStart, metaData)
+				trackingErr := dxTracker.Track(MetricBeholderStart, metaData)
 				if trackingErr != nil {
 					fmt.Fprintf(os.Stderr, "failed to track beholder start: %s\n", trackingErr)
 				}

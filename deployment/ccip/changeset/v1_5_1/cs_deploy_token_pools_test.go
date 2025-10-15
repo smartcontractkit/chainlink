@@ -9,13 +9,13 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	chain_selectors "github.com/smartcontractkit/chain-selectors"
 	"github.com/stretchr/testify/require"
-	"go.uber.org/zap/zapcore"
 
-	cldf_chain "github.com/smartcontractkit/chainlink-deployments-framework/chain"
-
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-evm/pkg/utils"
 
+	cldf_chain "github.com/smartcontractkit/chainlink-deployments-framework/chain"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+	"github.com/smartcontractkit/chainlink-deployments-framework/engine/test/environment"
 
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers"
@@ -23,19 +23,17 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview/evm"
-
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
-	"github.com/smartcontractkit/chainlink/deployment/environment/memory"
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
 
 func TestValidateDeployTokenPoolContractsConfig(t *testing.T) {
 	t.Parallel()
 
-	lggr := logger.TestLogger(t)
-	e := memory.NewMemoryEnvironment(t, lggr, zapcore.InfoLevel, memory.MemoryEnvironmentConfig{
-		Chains: 2,
-	})
+	e, err := environment.New(t.Context(),
+		environment.WithEVMSimulatedN(t, 2),
+		environment.WithLogger(logger.Test(t)),
+	)
+	require.NoError(t, err)
 
 	tests := []struct {
 		Msg         string
@@ -93,7 +91,7 @@ func TestValidateDeployTokenPoolContractsConfig(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.Msg, func(t *testing.T) {
-			err := test.Input.Validate(e)
+			err := test.Input.Validate(*e)
 			require.Contains(t, err.Error(), test.ErrStr)
 		})
 	}
@@ -102,7 +100,7 @@ func TestValidateDeployTokenPoolContractsConfig(t *testing.T) {
 func TestValidateDeployTokenPoolInput(t *testing.T) {
 	t.Parallel()
 
-	e, selectorA, _, tokens := testhelpers.SetupTwoChainEnvironmentWithTokens(t, logger.TestLogger(t), true)
+	e, selectorA, _, tokens := testhelpers.SetupTwoChainEnvironmentWithTokens(t, logger.Test(t), true)
 	acceptLiquidity := false
 	invalidAddress := utils.RandomAddress()
 
@@ -351,7 +349,7 @@ func TestDeployTokenPoolContracts(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.Msg, func(t *testing.T) {
-			e, selectorA, _, tokens := testhelpers.SetupTwoChainEnvironmentWithTokens(t, logger.TestLogger(t), true)
+			e, selectorA, _, tokens := testhelpers.SetupTwoChainEnvironmentWithTokens(t, logger.Test(t), true)
 
 			if test.SetupExternalMinter {
 				test.Input.ExternalMinter, _ = testhelpers.DeployTokenGovernor(t, e, selectorA, tokens[selectorA].Address)

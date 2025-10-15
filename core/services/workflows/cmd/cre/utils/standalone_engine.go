@@ -14,15 +14,13 @@ import (
 	"gopkg.in/yaml.v3"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/billing"
-	"github.com/smartcontractkit/chainlink-common/pkg/contexts"
-	"github.com/smartcontractkit/chainlink-common/pkg/settings/limits"
-
 	httpserver "github.com/smartcontractkit/chainlink-common/pkg/capabilities/v2/actions/http/server"
 	consensusserver "github.com/smartcontractkit/chainlink-common/pkg/capabilities/v2/consensus/server"
+	"github.com/smartcontractkit/chainlink-common/pkg/contexts"
 	"github.com/smartcontractkit/chainlink-common/pkg/custmsg"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
-	"github.com/smartcontractkit/chainlink-common/pkg/workflows/dontime"
+	"github.com/smartcontractkit/chainlink-common/pkg/settings/limits"
 	"github.com/smartcontractkit/chainlink-common/pkg/workflows/wasm/host"
 	sdkpb "github.com/smartcontractkit/chainlink-protos/cre/go/sdk"
 
@@ -154,12 +152,12 @@ func NewStandaloneEngine(
 	}
 
 	cfg := &v2.EngineConfig{
-		Lggr:            lggr,
-		Module:          module,
-		WorkflowConfig:  config,
-		CapRegistry:     registry,
-		DonTimeStore:    dontime.NewStore(dontime.DefaultRequestTimeout),
-		ExecutionsStore: store.NewInMemoryStore(lggr, clockwork.NewRealClock()),
+		Lggr:                 lggr,
+		Module:               module,
+		WorkflowConfig:       config,
+		CapRegistry:          registry,
+		UseLocalTimeProvider: true,
+		ExecutionsStore:      store.NewInMemoryStore(lggr, clockwork.NewRealClock()),
 
 		WorkflowID:    defaultWorkflowID,
 		WorkflowOwner: defaultOwner,
