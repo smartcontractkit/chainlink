@@ -261,20 +261,28 @@ func NewApp(s *Shell) *cli.App {
 					return err
 				}
 
+				// Configure a new logger with OTel atomic core support
 				lggrCfg := logger.Config{
-					LogLevel:       s.Config.Log().Level(),
-					Dir:            s.Config.Log().File().Dir(),
-					JsonConsole:    s.Config.Log().JSONConsole(),
-					UnixTS:         s.Config.Log().UnixTimestamps(),
+					LogLevel:    s.Config.Log().Level(),
+					Dir:         s.Config.Log().File().Dir(),
+					JsonConsole: s.Config.Log().JSONConsole(),
+					UnixTS:      s.Config.Log().UnixTimestamps(),
+					//nolint:gosec // filemaxsizesmb won't exceed max int
 					FileMaxSizeMB:  int(logFileMaxSizeMB),
 					FileMaxAgeDays: int(s.Config.Log().File().MaxAgeDays()),
 					FileMaxBackups: int(s.Config.Log().File().MaxBackups()),
 					SentryEnabled:  s.Config.Sentry().DSN() != "",
 				}
-				l, closeFn := lggrCfg.New()
+
+				// Noop atomic core that can be swapped out later for OTel support
+				atomicCore := logger.NewAtomicCore()
+
+				l, closeFn := lggrCfg.NewWithCores(atomicCore)
 
 				s.Logger = l
 				s.CloseLogger = closeFn
+				// s.SetOtelCore is a hook that can be used to set the OTel core
+				s.SetOtelCore = atomicCore.Store
 
 				return nil
 			},
