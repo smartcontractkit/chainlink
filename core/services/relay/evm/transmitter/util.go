@@ -17,8 +17,8 @@ import (
 	"github.com/smartcontractkit/chainlink-evm/pkg/keys"
 	evmtxmgr "github.com/smartcontractkit/chainlink-evm/pkg/txmgr"
 	"github.com/smartcontractkit/chainlink-framework/chains/txmgr"
-	cciptransmitter "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/transmitter"
-	"github.com/smartcontractkit/chainlink/v2/core/services/ocrcommon"
+	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/transmitter/ccip"
+	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/transmitter/ocr"
 )
 
 type ConfigTransmitterOpts struct {
@@ -148,7 +148,7 @@ func generateTransmitterFrom(ctx context.Context, rargs types.RelayArgs, ethKeys
 
 	switch types.OCR2PluginType(rargs.ProviderType) {
 	case types.Median:
-		transmitter, err = ocrcommon.NewOCR2FeedsTransmitter(
+		transmitter, err = ocr.NewOCR2FeedsTransmitter(
 			chain.TxManager(),
 			fromAddresses,
 			common.HexToAddress(rargs.ContractID),
@@ -160,7 +160,7 @@ func generateTransmitterFrom(ctx context.Context, rargs types.RelayArgs, ethKeys
 			relayConfig.DualTransmissionConfig,
 		)
 	case types.CCIPExecution:
-		transmitter, err = cciptransmitter.NewTransmitterWithStatusChecker(
+		transmitter, err = ccip.NewTransmitterWithStatusChecker(
 			chain.TxManager(),
 			fromAddresses,
 			gasLimit,
@@ -171,7 +171,7 @@ func generateTransmitterFrom(ctx context.Context, rargs types.RelayArgs, ethKeys
 			ethKeystore,
 		)
 	default:
-		transmitter, err = ocrcommon.NewTransmitter(
+		transmitter, err = ocr.NewTransmitter(
 			chain.TxManager(),
 			fromAddresses,
 			gasLimit,

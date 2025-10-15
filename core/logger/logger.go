@@ -28,9 +28,11 @@ type stderrWriter struct{}
 func (sw stderrWriter) Write(p []byte) (n int, err error) {
 	return os.Stderr.Write(p)
 }
+
 func (sw stderrWriter) Close() error {
 	return nil // never close stderr
 }
+
 func (sw stderrWriter) Sync() error {
 	return os.Stderr.Sync()
 }
@@ -174,6 +176,11 @@ type Config struct {
 // New returns a new Logger with pretty printing to stdout, prometheus counters, and sentry forwarding.
 // Tests should use TestLogger.
 func (c *Config) New() (Logger, func() error) {
+	return c.NewWithCores()
+}
+
+// NewWithCores is like New, but includes additional zapcore.Cores.
+func (c *Config) NewWithCores(cores ...zapcore.Core) (Logger, func() error) {
 	if c.diskSpaceAvailableFn == nil {
 		c.diskSpaceAvailableFn = diskSpaceAvailable
 	}
@@ -189,9 +196,9 @@ func (c *Config) New() (Logger, func() error) {
 		err         error
 	)
 	if !c.DebugLogsToDisk() {
-		l, closeLogger, err = newDefaultLogger(cfg, c.UnixTS)
+		l, closeLogger, err = newDefaultLogger(cfg, c.UnixTS, cores...)
 	} else {
-		l, closeLogger, err = newRotatingFileLogger(cfg, *c)
+		l, closeLogger, err = newRotatingFileLogger(cfg, *c, cores...)
 	}
 	if err != nil {
 		log.Fatal(err)
@@ -241,10 +248,14 @@ func newZapConfigBase() zap.Config {
 	return cfg
 }
 
-func newDefaultLogger(zcfg zap.Config, unixTS bool) (Logger, func() error, error) {
+func newDefaultLogger(zcfg zap.Config, unixTS bool, cores ...zapcore.Core) (Logger, func() error, error) {
 	core, coreCloseFn, err := newDefaultLoggingCore(zcfg, unixTS)
 	if err != nil {
 		return nil, nil, err
+	}
+
+	if len(cores) > 0 {
+		core = zapcore.NewTee(append([]zapcore.Core{core}, cores...)...)
 	}
 
 	l, loggerCloseFn, err := newLoggerForCore(zcfg, core)

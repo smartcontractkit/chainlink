@@ -28,6 +28,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocrcommon"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
+	ocr2 "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/transmitter/ocr"
 	"github.com/smartcontractkit/chainlink/v2/core/services/synchronization"
 	"github.com/smartcontractkit/chainlink/v2/core/services/telemetry"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
@@ -235,7 +236,7 @@ func (d *Delegate) ServicesForSpec(ctx context.Context, jb job.Job) (services []
 		cid := chain.ID()
 		ks := keys.NewChainStore(keystore.NewEthSigner(d.ethKeyStore, cid), cid)
 
-		transmitter, err := ocrcommon.NewTransmitter(
+		transmitter, err := ocr2.NewTransmitter(
 			chain.TxManager(),
 			[]common.Address{concreteSpec.TransmitterAddress.Address()},
 			gasLimit,

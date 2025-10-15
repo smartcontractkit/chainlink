@@ -1,96 +1,88 @@
-package solana_test
+package solana
 
 import (
+	"crypto/ecdsa"
 	"testing"
 	"time"
 
 	"github.com/gagliardetto/solana-go"
-	chainselectors "github.com/smartcontractkit/chain-selectors"
 	mcmssolanasdk "github.com/smartcontractkit/mcms/sdk/solana"
 	mcmstypes "github.com/smartcontractkit/mcms/types"
 	"github.com/stretchr/testify/require"
-	"go.uber.org/zap/zapcore"
 
 	timelockbindings "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/v0_1_1/timelock"
-	cldf_chain "github.com/smartcontractkit/chainlink-deployments-framework/chain"
-	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+	"github.com/smartcontractkit/chainlink-deployments-framework/engine/test/runtime"
 
-	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
-	solanachangesets "github.com/smartcontractkit/chainlink/deployment/common/changeset/solana"
 	"github.com/smartcontractkit/chainlink/deployment/common/changeset/state"
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
-	"github.com/smartcontractkit/chainlink/deployment/environment/memory"
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
 
 func TestGrantRoleTimelockSolana(t *testing.T) {
 	t.Skip("fails with Program is not deployed (DoajfR5tK24xVw51fWcawUZWhAXD8yrBJVacc13neVQA) in CI")
 	t.Parallel()
+
 	// --- arrange ---
-	log := logger.TestLogger(t)
-	envConfig := memory.MemoryEnvironmentConfig{Chains: 0, SolChains: 1}
-	env := memory.NewMemoryEnvironment(t, log, zapcore.InfoLevel, envConfig)
-	solanaSelector := env.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chainselectors.FamilySolana))[0]
-	deployer := env.BlockChains.SolanaChains()[solanaSelector].DeployerKey
-	rpcClient := env.BlockChains.SolanaChains()[solanaSelector].Client
+	rt, selector := setupTest(t)
+
+	chain := rt.Environment().BlockChains.SolanaChains()[selector]
 	executors1 := randomSolanaAccounts(t, 2)
 	executors2 := randomSolanaAccounts(t, 2)
+	addresses, err := rt.State().AddressBook.AddressesForChain(selector)
+	require.NoError(t, err)
+	mcmsState, err := state.MaybeLoadMCMSWithTimelockChainStateSolana(chain, addresses)
+	require.NoError(t, err)
 
-	commonchangeset.SetPreloadedSolanaAddresses(t, env, solanaSelector)
-	chainState := deployMCMS(t, env, solanaSelector)
-	fundSignerPDAs(t, env, solanaSelector, chainState)
+	fundSignerPDAs(t, chain, mcmsState)
 
 	// validate initial executors
-	inspector := mcmssolanasdk.NewTimelockInspector(rpcClient)
-	onChainExecutors, err := inspector.GetExecutors(t.Context(), timelockAddress(chainState))
+	inspector := mcmssolanasdk.NewTimelockInspector(chain.Client)
+	onChainExecutors, err := inspector.GetExecutors(t.Context(), timelockAddress(mcmsState))
 	require.NoError(t, err)
-	require.ElementsMatch(t, onChainExecutors, []string{deployer.PublicKey().String()})
+	require.ElementsMatch(t, onChainExecutors, []string{chain.DeployerKey.PublicKey().String()})
 
 	t.Run("without MCMS", func(t *testing.T) {
-		nomcmsChangeset := commonchangeset.Configure(
-			&solanachangesets.GrantRoleTimelockSolana{},
-			solanachangesets.GrantRoleTimelockSolanaConfig{
+		err = rt.Exec(
+			runtime.ChangesetTask(&GrantRoleTimelockSolana{}, GrantRoleTimelockSolanaConfig{
 				Role:     timelockbindings.Executor_Role,
-				Accounts: map[uint64][]solana.PublicKey{solanaSelector: executors1},
-			},
+				Accounts: map[uint64][]solana.PublicKey{selector: executors1},
+			}),
 		)
 
-		// --- act ---
-		_, _, err = commonchangeset.ApplyChangesets(t, env, []commonchangeset.ConfiguredChangeSet{nomcmsChangeset})
-		require.NoError(t, err)
-
-		// --- assert ---
-		onChainExecutors, err = inspector.GetExecutors(t.Context(), timelockAddress(chainState))
+		onChainExecutors, err = inspector.GetExecutors(t.Context(), timelockAddress(mcmsState))
 		require.NoError(t, err)
 		require.ElementsMatch(t, onChainExecutors, []string{
-			deployer.PublicKey().String(), executors1[0].String(), executors1[1].String(),
+			chain.DeployerKey.PublicKey().String(), executors1[0].String(), executors1[1].String(),
 		})
 	})
 
 	t.Run("with MCMS", func(t *testing.T) {
-		transferMCMSToTimelock(t, env, solanaSelector)
+		err = rt.Exec(
+			runtime.ChangesetTask(&TransferMCMSToTimelockSolana{}, TransferMCMSToTimelockSolanaConfig{
+				Chains:  []uint64{selector},
+				MCMSCfg: proposalutils.TimelockConfig{MinDelay: 1 * time.Second},
+			}),
+			runtime.SignAndExecuteProposalsTask([]*ecdsa.PrivateKey{proposalutils.TestXXXMCMSSigner}),
+		)
+		require.NoError(t, err)
 
-		mcmsChangeset := commonchangeset.Configure(
-			&solanachangesets.GrantRoleTimelockSolana{},
-			solanachangesets.GrantRoleTimelockSolanaConfig{
+		err = rt.Exec(
+			runtime.ChangesetTask(&GrantRoleTimelockSolana{}, GrantRoleTimelockSolanaConfig{
 				Role:     timelockbindings.Executor_Role,
-				Accounts: map[uint64][]solana.PublicKey{solanaSelector: executors2},
+				Accounts: map[uint64][]solana.PublicKey{selector: executors2},
 				MCMS: &proposalutils.TimelockConfig{
 					MinDelay:   1 * time.Second,
 					MCMSAction: mcmstypes.TimelockActionSchedule,
 				},
-			},
+			}),
+			runtime.SignAndExecuteProposalsTask([]*ecdsa.PrivateKey{proposalutils.TestXXXMCMSSigner}),
 		)
-
-		// --- act ---
-		_, _, err = commonchangeset.ApplyChangesets(t, env, []commonchangeset.ConfiguredChangeSet{mcmsChangeset})
 		require.NoError(t, err)
 
 		// --- assert ---
-		onChainExecutors, err = inspector.GetExecutors(t.Context(), timelockAddress(chainState))
+		onChainExecutors, err = inspector.GetExecutors(t.Context(), timelockAddress(mcmsState))
 		require.NoError(t, err)
 		require.ElementsMatch(t, onChainExecutors, []string{
-			deployer.PublicKey().String(),
+			chain.DeployerKey.PublicKey().String(),
 			executors1[0].String(), executors1[1].String(),
 			executors2[0].String(), executors2[1].String(),
 		})
@@ -107,21 +99,6 @@ func randomSolanaAccounts(t *testing.T, n int) []solana.PublicKey {
 	}
 
 	return accounts
-}
-
-func transferMCMSToTimelock(t *testing.T, env cldf.Environment, selector uint64) {
-	t.Helper()
-	configuredChangeset := commonchangeset.Configure(
-		&solanachangesets.TransferMCMSToTimelockSolana{},
-		solanachangesets.TransferMCMSToTimelockSolanaConfig{
-			Chains:  []uint64{selector},
-			MCMSCfg: proposalutils.TimelockConfig{MinDelay: 1 * time.Second},
-		},
-	)
-
-	_, _, err := commonchangeset.ApplyChangesets(t, env, []commonchangeset.ConfiguredChangeSet{configuredChangeset})
-	require.NoError(t, err)
-	t.Logf("transferred MCMS contracts to timelock")
 }
 
 func timelockAddress(chainState *state.MCMSWithTimelockStateSolana) string {
