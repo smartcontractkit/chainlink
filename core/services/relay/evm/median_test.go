@@ -10,9 +10,9 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	commontypes "github.com/smartcontractkit/chainlink-common/pkg/types"
 	"github.com/smartcontractkit/chainlink-evm/pkg/config"
-
 	"github.com/smartcontractkit/chainlink-evm/pkg/testutils"
 	"github.com/smartcontractkit/chainlink-evm/pkg/utils/big"
+
 	"github.com/smartcontractkit/chainlink/v2/common/chains/mocks"
 )
 

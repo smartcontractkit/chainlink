@@ -79,6 +79,10 @@ type EngineLimiters struct {
 	CapabilityCallTime    limits.TimeLimiter
 	LogEvent              limits.BoundLimiter[int]
 	LogLine               limits.BoundLimiter[config.Size]
+
+	ChainWriteTargets limits.BoundLimiter[int]
+	ChainReadCalls    limits.BoundLimiter[int]
+	HTTPActionCalls   limits.BoundLimiter[int]
 }
 
 // NewLimiters returns a new set of EngineLimiters based on the default configuration, and optionally modified by cfgFn.
@@ -146,6 +150,15 @@ func (l *EngineLimiters) init(lf limits.Factory, cfgFn func(*cresettings.Workflo
 	if err != nil {
 		return
 	}
+	l.ChainWriteTargets, err = limits.MakeBoundLimiter(lf, cfg.ChainWrite.TargetsLimit)
+	if err != nil {
+		return
+	}
+	l.ChainReadCalls, err = limits.MakeBoundLimiter(lf, cfg.ChainRead.CallLimit)
+	if err != nil {
+		return
+	}
+	l.HTTPActionCalls, err = limits.MakeBoundLimiter(lf, cfg.HTTPAction.CallLimit)
 	return
 }
 
@@ -164,6 +177,9 @@ func (l *EngineLimiters) Close() error {
 		l.CapabilityCallTime,
 		l.LogEvent,
 		l.LogLine,
+		l.ChainWriteTargets,
+		l.ChainReadCalls,
+		l.HTTPActionCalls,
 	)
 }
 
