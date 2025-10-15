@@ -2,10 +2,13 @@ package test
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"sync"
 
 	"google.golang.org/grpc"
+
+	"github.com/google/uuid"
 
 	csav1 "github.com/smartcontractkit/chainlink-protos/job-distributor/v1/csa"
 	jobv1 "github.com/smartcontractkit/chainlink-protos/job-distributor/v1/job"
@@ -54,10 +57,22 @@ func NewJDServiceFromListNodes(resp *nodev1.ListNodesResponse) (*JDNodeService, 
 func (s *JDNodeService) GetNode(ctx context.Context, req *nodev1.GetNodeRequest, opts ...grpc.CallOption) (*nodev1.GetNodeResponse, error) {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
+	if req.Id == "" && req.PublicKey == nil {
+		return nil, errors.New("either Id or PublicKey must be provided")
+	}
 
-	w, err := s.store.getNode(req.Id)
-	if err != nil {
-		return nil, err
+	w := &wrappedNode{}
+	var err error
+	if req.PublicKey != nil {
+		w, err = s.store.getNodeByCSA(*req.PublicKey)
+		if err != nil {
+			return nil, err
+		}
+	} else {
+		w, err = s.store.getNode(req.Id)
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	return &nodev1.GetNodeResponse{
@@ -128,7 +143,7 @@ func (s *JDNodeService) RegisterNode(ctx context.Context, req *nodev1.RegisterNo
 	}
 	s.store.put(w)
 
-	return &nodev1.RegisterNodeResponse{}, nil
+	return &nodev1.RegisterNodeResponse{Node: w.toJDNode()}, nil
 }
 
 func (s *JDNodeService) ListNodeChainConfigs(ctx context.Context, req *nodev1.ListNodeChainConfigsRequest, opts ...grpc.CallOption) (*nodev1.ListNodeChainConfigsResponse, error) {
@@ -158,16 +173,24 @@ func (s *JDNodeService) ListNodeChainConfigs(ctx context.Context, req *nodev1.Li
 }
 
 func newWrapperFromRegister(req *nodev1.RegisterNodeRequest) (*wrappedNode, error) {
-	return nil, nil
+	return &wrappedNode{
+		Node: deployment.Node{
+			NodeID: uuid.New().String(),
+			Name:   req.Name,
+			CSAKey: req.PublicKey,
+			Labels: req.Labels,
+		},
+		enabled: true,
+	}, nil
 }
 
 func (s *JDNodeService) UpdateNode(ctx context.Context, req *nodev1.UpdateNodeRequest, opts ...grpc.CallOption) (*nodev1.UpdateNodeResponse, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	_, err := s.store.getNodeByP2P(p2pKey(req.Id))
+	_, err := s.store.getNode(req.Id)
 	if err != nil {
-		return nil, fmt.Errorf("node not found for p2p %s", req.Id)
+		return nil, fmt.Errorf("node not found for id %s", req.Id)
 	}
 
 	w, err := newWrapperFromUpdate(req)
@@ -176,7 +199,7 @@ func (s *JDNodeService) UpdateNode(ctx context.Context, req *nodev1.UpdateNodeRe
 	}
 
 	s.store.put(w)
-	return &nodev1.UpdateNodeResponse{}, nil
+	return &nodev1.UpdateNodeResponse{Node: w.toJDNode()}, nil
 }
 
 func (s *JDNodeService) ProposeJob(ctx context.Context, in *jobv1.ProposeJobRequest, opts ...grpc.CallOption) (*jobv1.ProposeJobResponse, error) {
@@ -206,7 +229,15 @@ func (s *JDNodeService) ListProposedJobRequests() ([]*jobv1.ProposeJobRequest, e
 }
 
 func newWrapperFromUpdate(req *nodev1.UpdateNodeRequest) (*wrappedNode, error) {
-	return nil, nil
+	return &wrappedNode{
+		Node: deployment.Node{
+			NodeID: req.Id,
+			Name:   req.Name,
+			CSAKey: req.PublicKey,
+			Labels: req.Labels,
+		},
+		enabled: true,
+	}, nil
 }
 
 func newJDNode(n deployment.Node) *nodev1.Node {

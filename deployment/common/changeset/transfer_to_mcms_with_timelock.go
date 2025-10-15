@@ -76,12 +76,13 @@ func (t TransferToMCMSWithTimelockConfig) Validate(e cldf.Environment) error {
 		for _, contract := range contracts {
 			// Cannot transfer an unknown address.
 			// Note this also assures non-zero addresses.
-			if exists, err := cldf.AddressBookContains(e.ExistingAddresses, chainSelector, contract.String()); err != nil || !exists {
+			if exists, err := SearchAddress(e, chainSelector, contract.String()); err != nil || !exists {
 				if err != nil {
 					return fmt.Errorf("failed to check address book: %w", err)
 				}
-				return fmt.Errorf("contract %s not found in address book", contract)
+				return fmt.Errorf("contract %s not found in address book or datstore", contract)
 			}
+
 			owner, _, err := LoadOwnableContract(contract, evmChains[chainSelector].Client)
 			if err != nil {
 				return fmt.Errorf("failed to load ownable: %w", err)
@@ -210,7 +211,7 @@ func TransferToDeployer(e cldf.Environment, cfg TransferToDeployerConfig) (cldf.
 		},
 	}
 	var salt [32]byte
-	binary.BigEndian.PutUint32(salt[:], uint32(time.Now().Unix()))
+	binary.BigEndian.PutUint32(salt[:], uint32(time.Now().Unix())) //nolint:gosec // this is a salt, so any value is fine
 	tx, err = tls.Timelock.ScheduleBatch(evmChains[cfg.ChainSel].DeployerKey, calls, [32]byte{}, salt, big.NewInt(0))
 	if _, err = cldf.ConfirmIfNoErrorWithABI(evmChains[cfg.ChainSel], tx, owner_helpers.RBACTimelockABI, err); err != nil {
 		return cldf.ChangesetOutput{}, err

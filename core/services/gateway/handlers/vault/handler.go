@@ -281,7 +281,7 @@ func (h *handler) HandleJSONRPCUserMessage(ctx context.Context, req jsonrpc.Requ
 		return errors.New("request not authorized: " + err.Error())
 	}
 	// Prefix request id with owner, to ensure uniqueness across different owners
-	req.ID = owner + "::" + req.ID
+	req.ID = owner + vaulttypes.RequestIDSeparator + req.ID
 
 	h.lggr.Infow("handling authorized vault request", "method", req.Method, "requestID", req.ID, "owner", owner)
 	if h.getActiveRequest(req.ID) != nil {
@@ -412,7 +412,7 @@ func (h *handler) tryCachePublicKeyResponse(resp *jsonrpc.Response[json.RawMessa
 func (h *handler) sendSuccessResponse(ctx context.Context, l logger.Logger, ar *activeRequest, resp *jsonrpc.Response[json.RawMessage]) error {
 	// Strip the owner prefix from the response ID before sending it back to the user
 	// This ensures compliance with JSONRPC 2.0 spec, which requires response id to match request id
-	index := strings.Index(resp.ID, "::")
+	index := strings.Index(resp.ID, vaulttypes.RequestIDSeparator)
 	if index != -1 {
 		resp.ID = resp.ID[index+2:]
 	}
@@ -446,7 +446,7 @@ func (h *handler) handleSecretsCreate(ctx context.Context, ar *activeRequest) er
 	}
 	createSecretsRequest.RequestId = ar.req.ID
 	for _, secretItem := range createSecretsRequest.EncryptedSecrets {
-		if secretItem.Id.Namespace == "" {
+		if secretItem.Id != nil && secretItem.Id.Namespace == "" {
 			secretItem.Id.Namespace = vaulttypes.DefaultNamespace
 		}
 	}
@@ -478,7 +478,7 @@ func (h *handler) handleSecretsUpdate(ctx context.Context, ar *activeRequest) er
 
 	updateSecretsRequest.RequestId = ar.req.ID
 	for _, secretItem := range updateSecretsRequest.EncryptedSecrets {
-		if secretItem.Id.Namespace == "" {
+		if secretItem.Id != nil && secretItem.Id.Namespace == "" {
 			secretItem.Id.Namespace = vaulttypes.DefaultNamespace
 		}
 	}
@@ -509,7 +509,7 @@ func (h *handler) handleSecretsDelete(ctx context.Context, ar *activeRequest) er
 
 	deleteSecretsRequest.RequestId = ar.req.ID
 	for _, id := range deleteSecretsRequest.Ids {
-		if id.Namespace == "" {
+		if id != nil && id.Namespace == "" {
 			id.Namespace = vaulttypes.DefaultNamespace
 		}
 	}
@@ -537,7 +537,7 @@ func (h *handler) handleSecretsGet(ctx context.Context, ar *activeRequest) error
 		return h.sendResponse(ctx, ar, h.errorResponse(ar.req, api.UserMessageParseError, err, nil))
 	}
 	for _, getRequest := range secretsGetRequest.Requests {
-		if getRequest.Id.Namespace == "" {
+		if getRequest.Id != nil && getRequest.Id.Namespace == "" {
 			getRequest.Id.Namespace = vaulttypes.DefaultNamespace
 		}
 	}
@@ -657,7 +657,7 @@ func (h *handler) errorResponse(
 
 	// Strip the owner prefix from the json response ID before sending it back to the user
 	// This ensures compliance with JSONRPC 2.0 spec, which requires response id to match request id
-	index := strings.Index(req.ID, "::")
+	index := strings.Index(req.ID, vaulttypes.RequestIDSeparator)
 	if index != -1 {
 		req.ID = req.ID[index+2:]
 	}

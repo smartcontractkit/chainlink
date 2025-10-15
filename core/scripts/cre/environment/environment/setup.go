@@ -706,6 +706,10 @@ func checkDockerConfiguration() error {
 		// Check settings
 		settings, err := os.ReadFile(configFile)
 		if err != nil {
+			if strings.Contains(err.Error(), "operation not permitted") {
+				logger.Warn().Msgf("  ! Could not check Docker settings due to restrictive TCC policies (can't read file). You need to manually verify the settings in the Docker Desktop UI.")
+				return nil
+			}
 			return fmt.Errorf("failed to read Docker settings: %w", err)
 		}
 

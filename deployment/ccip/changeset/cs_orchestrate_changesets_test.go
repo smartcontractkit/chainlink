@@ -8,20 +8,21 @@ import (
 	"time"
 
 	"github.com/Masterminds/semver/v3"
-	"github.com/stretchr/testify/require"
-	"go.uber.org/zap/zapcore"
-
+	chainselectors "github.com/smartcontractkit/chain-selectors"
 	"github.com/smartcontractkit/mcms"
 	"github.com/smartcontractkit/mcms/types"
+	"github.com/stretchr/testify/require"
+
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+	"github.com/smartcontractkit/chainlink-deployments-framework/engine/test/environment"
+	"github.com/smartcontractkit/chainlink-deployments-framework/engine/test/runtime"
 	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
 	"github.com/smartcontractkit/chainlink-evm/pkg/utils"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
-	"github.com/smartcontractkit/chainlink/deployment/environment/memory"
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
 
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 	commontypes "github.com/smartcontractkit/chainlink/deployment/common/types"
@@ -89,47 +90,53 @@ func mockV1Changeset(e cldf.Environment, c mockChangesetConfig) (cldf.ChangesetO
 	return mockV2ChangesetLogic(e, c)
 }
 
-func newMemoryEnvWithMCMS(t *testing.T) cldf.Environment {
-	lggr := logger.TestLogger(t)
-	env := memory.NewMemoryEnvironment(t, lggr, zapcore.DebugLevel, memory.MemoryEnvironmentConfig{
-		Chains: 1,
-	})
-	env, _, err := commonchangeset.ApplyChangesets(t, env, []commonchangeset.ConfiguredChangeSet{
-		commonchangeset.Configure(
-			cldf.CreateLegacyChangeSet(commonchangeset.DeployMCMSWithTimelockV2),
-			map[uint64]commontypes.MCMSWithTimelockConfigV2{
-				env.BlockChains.ListChainSelectors()[0]: proposalutils.SingleGroupTimelockConfigV2(t),
-			},
-		),
-	})
-	if err != nil {
-		t.Fatalf("failed to apply MCMS changeset: %v", err)
-	}
+// newRuntimeWithMCMS creates a new runtime with a MCMS contract deployed
+func newRuntimeWithMCMS(t *testing.T) *runtime.Runtime {
+	selector := chainselectors.TEST_90000001.Selector
+	rt, err := runtime.New(t.Context(), runtime.WithEnvOpts(
+		environment.WithEVMSimulated(t, []uint64{selector}),
+		environment.WithLogger(logger.Test(t)),
+	))
+	require.NoError(t, err)
 
-	return env
+	err = rt.Exec(
+		runtime.ChangesetTask(cldf.CreateLegacyChangeSet(commonchangeset.DeployMCMSWithTimelockV2), map[uint64]commontypes.MCMSWithTimelockConfigV2{
+			selector: proposalutils.SingleGroupTimelockConfigV2(t),
+		}),
+	)
+	require.NoError(t, err)
+
+	return rt
 }
 
 func TestOrchestrateChangesets_VerifyPreconditions(t *testing.T) {
 	t.Run("description failure", func(t *testing.T) {
-		lggr := logger.TestLogger(t)
-		env := memory.NewMemoryEnvironment(t, lggr, zapcore.DebugLevel, memory.MemoryEnvironmentConfig{})
-		err := changeset.OrchestrateChangesets.VerifyPreconditions(env, changeset.OrchestrateChangesetsConfig{})
+		env, err := environment.New(t.Context(),
+			environment.WithLogger(logger.Test(t)),
+		)
+		require.NoError(t, err)
+
+		err = changeset.OrchestrateChangesets.VerifyPreconditions(*env, changeset.OrchestrateChangesetsConfig{})
 		require.ErrorContains(t, err, "description must not be empty")
 	})
 
 	t.Run("mcms failure", func(t *testing.T) {
-		lggr := logger.TestLogger(t)
-		env := memory.NewMemoryEnvironment(t, lggr, zapcore.DebugLevel, memory.MemoryEnvironmentConfig{})
-		err := changeset.OrchestrateChangesets.VerifyPreconditions(env, changeset.OrchestrateChangesetsConfig{
+		env, err := environment.New(t.Context())
+		require.NoError(t, err)
+
+		err = changeset.OrchestrateChangesets.VerifyPreconditions(*env, changeset.OrchestrateChangesetsConfig{
 			Description: "Test orchestrate changesets",
 		})
 		require.ErrorContains(t, err, "mcms must not be nil")
 	})
 
 	t.Run("precondition failure", func(t *testing.T) {
-		lggr := logger.TestLogger(t)
-		env := memory.NewMemoryEnvironment(t, lggr, zapcore.DebugLevel, memory.MemoryEnvironmentConfig{})
-		err := changeset.OrchestrateChangesets.VerifyPreconditions(env, changeset.OrchestrateChangesetsConfig{
+		env, err := environment.New(t.Context(),
+			environment.WithLogger(logger.Test(t)),
+		)
+		require.NoError(t, err)
+
+		err = changeset.OrchestrateChangesets.VerifyPreconditions(*env, changeset.OrchestrateChangesetsConfig{
 			Description: "Test orchestrate changesets",
 			MCMS: &proposalutils.TimelockConfig{
 				MinDelay: 0 * time.Second,
@@ -149,9 +156,10 @@ func TestOrchestrateChangesets_VerifyPreconditions(t *testing.T) {
 	})
 
 	t.Run("success", func(t *testing.T) {
-		lggr := logger.TestLogger(t)
-		env := memory.NewMemoryEnvironment(t, lggr, zapcore.DebugLevel, memory.MemoryEnvironmentConfig{})
-		err := changeset.OrchestrateChangesets.VerifyPreconditions(env, changeset.OrchestrateChangesetsConfig{
+		env, err := environment.New(t.Context())
+		require.NoError(t, err)
+
+		err = changeset.OrchestrateChangesets.VerifyPreconditions(*env, changeset.OrchestrateChangesetsConfig{
 			Description: "Test orchestrate changesets",
 			MCMS: &proposalutils.TimelockConfig{
 				MinDelay: 0 * time.Second,
@@ -173,8 +181,9 @@ func TestOrchestrateChangesets_VerifyPreconditions(t *testing.T) {
 
 func TestOrchestrateChangesets_Apply(t *testing.T) {
 	t.Run("first fails", func(t *testing.T) {
-		env := newMemoryEnvWithMCMS(t)
-		output, err := changeset.OrchestrateChangesets.Apply(env, changeset.OrchestrateChangesetsConfig{
+		rt := newRuntimeWithMCMS(t)
+
+		output, err := changeset.OrchestrateChangesets.Apply(rt.Environment(), changeset.OrchestrateChangesetsConfig{
 			Description: "Test orchestrate changesets",
 			MCMS: &proposalutils.TimelockConfig{
 				MinDelay: 0 * time.Second,
@@ -195,8 +204,9 @@ func TestOrchestrateChangesets_Apply(t *testing.T) {
 	})
 
 	t.Run("first succeeds, second fails", func(t *testing.T) {
-		env := newMemoryEnvWithMCMS(t)
-		output, err := changeset.OrchestrateChangesets.Apply(env, changeset.OrchestrateChangesetsConfig{
+		rt := newRuntimeWithMCMS(t)
+
+		output, err := changeset.OrchestrateChangesets.Apply(rt.Environment(), changeset.OrchestrateChangesetsConfig{
 			Description: "Test orchestrate changesets",
 			MCMS: &proposalutils.TimelockConfig{
 				MinDelay: 0 * time.Second,
@@ -219,8 +229,8 @@ func TestOrchestrateChangesets_Apply(t *testing.T) {
 	})
 
 	t.Run("both succeed", func(t *testing.T) {
-		env := newMemoryEnvWithMCMS(t)
-		output, err := changeset.OrchestrateChangesets.Apply(env, changeset.OrchestrateChangesetsConfig{
+		rt := newRuntimeWithMCMS(t)
+		output, err := changeset.OrchestrateChangesets.Apply(rt.Environment(), changeset.OrchestrateChangesetsConfig{
 			Description: "Test orchestrate changesets",
 			MCMS: &proposalutils.TimelockConfig{
 				MinDelay: 0 * time.Second,
@@ -248,7 +258,8 @@ func TestOrchestrateChangesets_Apply(t *testing.T) {
 }
 
 func TestOrchestrateChangesetsConfig_MCMSGetsOverridden(t *testing.T) {
-	env := newMemoryEnvWithMCMS(t)
+	rt := newRuntimeWithMCMS(t)
+	env := rt.Environment()
 	state, err := stateview.LoadOnchainState(env)
 	require.NoError(t, err)
 

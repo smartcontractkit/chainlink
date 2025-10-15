@@ -97,6 +97,9 @@ func setTokenTransferFeeConfigPrecondition(env cldf.Environment, cfg SetTokenTra
 			if _, exists := chainState.EVM2EVMOnRamp[dstSelector]; !exists {
 				return fmt.Errorf("no EVM2EVMOnRamp exists (src = %d, dst = %d)", srcSelector, dstSelector)
 			}
+			if srcSelector == dstSelector {
+				return fmt.Errorf("destination chain cannot be the same as src chain (src = %d, dst = %d)", srcSelector, dstSelector)
+			}
 
 			tokensToReset := map[common.Address]bool{}
 			for _, tokenAddress := range input.TokensToUseDefaultFeeConfigs {
@@ -167,9 +170,9 @@ func setTokenTransferFeeConfigLogic(env cldf.Environment, cfg SetTokenTransferFe
 		}
 
 		for dstSelector, input := range inputs {
-			dstChain, exists := env.BlockChains.EVMChains()[dstSelector]
-			if !exists {
-				return cldf.ChangesetOutput{}, fmt.Errorf("could not find dst EVM chain in environment (src = %s, dst = %d)", srcChain.String(), dstSelector)
+			dstChain, err := env.BlockChains.GetBySelector(dstSelector)
+			if err != nil {
+				return cldf.ChangesetOutput{}, fmt.Errorf("could not find dst chain in environment (src = %s, dst = %d)", srcChain.String(), dstSelector)
 			}
 
 			onramp, exists := chainState.EVM2EVMOnRamp[dstSelector]
@@ -203,16 +206,18 @@ func setTokenTransferFeeConfigLogic(env cldf.Environment, cfg SetTokenTransferFe
 					AggregateRateLimitEnabled: pointer.Coalesce(args.AggregateRateLimitEnabled, curConfig.AggregateRateLimitEnabled),
 				}
 
-				// Check if the new config is different from the on-chain config
-				isDifferent := !curConfig.IsEnabled
-				if curConfig.IsEnabled {
-					isDifferent = newConfig.MinFeeUSDCents != curConfig.MinFeeUSDCents ||
-						newConfig.MaxFeeUSDCents != curConfig.MaxFeeUSDCents ||
-						newConfig.DeciBps != curConfig.DeciBps ||
-						newConfig.DestGasOverhead != curConfig.DestGasOverhead ||
-						newConfig.DestBytesOverhead != curConfig.DestBytesOverhead ||
-						newConfig.AggregateRateLimitEnabled != curConfig.AggregateRateLimitEnabled
+				// Make sure that the config is still valid after merge
+				if newConfig.MinFeeUSDCents >= newConfig.MaxFeeUSDCents {
+					return cldf.ChangesetOutput{}, fmt.Errorf("min fee must be less than max fee (src = %s, dst = %s, token = %s)", srcChain.String(), dstChain.String(), tokenAddress.Hex())
 				}
+
+				// Check if the new config is different from the on-chain config
+				isDifferent := newConfig.MinFeeUSDCents != curConfig.MinFeeUSDCents ||
+					newConfig.MaxFeeUSDCents != curConfig.MaxFeeUSDCents ||
+					newConfig.DeciBps != curConfig.DeciBps ||
+					newConfig.DestGasOverhead != curConfig.DestGasOverhead ||
+					newConfig.DestBytesOverhead != curConfig.DestBytesOverhead ||
+					newConfig.AggregateRateLimitEnabled != curConfig.AggregateRateLimitEnabled
 
 				// Only perform an update if the new config is different from the on-chain config
 				env.Logger.Infof("constructed token transfer fee config (src = %s, dst = %s, token = %s, new_cfg = %+v)", srcChain.String(), dstChain.String(), tokenAddress.Hex(), newConfig)

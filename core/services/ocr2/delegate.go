@@ -265,6 +265,9 @@ func NewDelegate(
 	opts DelegateOpts,
 	cfg DelegateConfig,
 ) *Delegate {
+	if cfg == nil {
+		return nil
+	}
 	return &Delegate{
 		ds:                             opts.Ds,
 		jobORM:                         opts.JobORM,
@@ -505,6 +508,9 @@ func (d *Delegate) ServicesForSpec(ctx context.Context, jb job.Job) ([]job.Servi
 		return nil, errors.New("peerWrapper is not started. OCR2 jobs require a started and running p2p v2 peer")
 	}
 
+	if d.cfg == nil {
+		return nil, errors.New("cannot setup OCR2 job service, delegate config was missing")
+	}
 	lc, err := validate.ToLocalConfig(d.cfg.OCR2(), d.cfg.Insecure(), *spec)
 	if err != nil {
 		return nil, err
@@ -1946,6 +1952,9 @@ func (d *Delegate) newServicesOCR2Functions(
 		MetricsRegisterer:      prometheus.WrapRegistererWith(map[string]string{"job_name": jb.Name.ValueOrZero()}, prometheus.DefaultRegisterer),
 	}
 
+	if d.cfg == nil || d.cfg.Threshold() == nil {
+		return nil, errors.New("threshold config not found")
+	}
 	encryptedThresholdKeyShare := d.cfg.Threshold().ThresholdKeyShare()
 	var thresholdKeyShare []byte
 	if len(encryptedThresholdKeyShare) > 0 {
