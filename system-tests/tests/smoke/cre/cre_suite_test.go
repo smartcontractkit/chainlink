@@ -92,7 +92,6 @@ To execute tests with v2 contracts start the local CRE first:
 */
 func Test_CRE_V2_Suite(t *testing.T) {
 	topology := os.Getenv("TOPOLOGY_NAME")
-
 	t.Run("[v2] Proof Of Reserve - "+topology, func(t *testing.T) {
 		// TODO: Review why this test cannot run with two chains? (CRE-983)
 		// How to configure evm for both chains and capabilities DON (DON<>DON topology)?
@@ -104,14 +103,11 @@ func Test_CRE_V2_Suite(t *testing.T) {
 		wfConfig.FeedIDs = []string{wfConfig.FeedIDs[0]}
 		ExecutePoRTest(t, testEnv, priceProvider, wfConfig, false)
 	})
-
 	t.Run("[v2] Vault DON - "+topology, func(t *testing.T) {
-		t.Skip("Flaky - CAPPL-1078")
 		testEnv := t_helpers.SetupTestEnvironmentWithConfig(t, t_helpers.GetDefaultTestConfig(t), v2RegistriesFlags...)
 
 		ExecuteVaultTest(t, testEnv)
 	})
-
 	t.Run("[v2] Cron Beholder - "+topology, func(t *testing.T) {
 		testEnv := t_helpers.SetupTestEnvironmentWithConfig(t, t_helpers.GetDefaultTestConfig(t), v2RegistriesFlags...)
 
