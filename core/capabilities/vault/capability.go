@@ -435,7 +435,7 @@ func (s *Capability) getOriginalRequestID(transformedRequestID string) (string, 
 	return requestIDParts[1], nil
 }
 
-func (s *Capability) authorizeCreateSecrets(ctx context.Context, request vaultcommon.CreateSecretsRequest) (bool, string, error) {
+func (s *Capability) authorizeCreateSecrets(ctx context.Context, request vaultcommon.CreateSecretsRequest) (bool, string, error) { //nolint:govet // The mutex isn't used
 	originalRequestID, err := s.getOriginalRequestID(request.RequestId)
 	if err != nil {
 		return false, "", err
@@ -445,7 +445,7 @@ func (s *Capability) authorizeCreateSecrets(ctx context.Context, request vaultco
 	return s.isAuthorizedRequest(ctx, &request, originalRequestID, vaulttypes.MethodSecretsCreate)
 }
 
-func (s *Capability) authorizeUpdateSecrets(ctx context.Context, request vaultcommon.UpdateSecretsRequest) (bool, string, error) {
+func (s *Capability) authorizeUpdateSecrets(ctx context.Context, request vaultcommon.UpdateSecretsRequest) (bool, string, error) { //nolint:govet // The mutex isn't used
 	originalRequestID, err := s.getOriginalRequestID(request.RequestId)
 	if err != nil {
 		return false, "", err
@@ -454,7 +454,7 @@ func (s *Capability) authorizeUpdateSecrets(ctx context.Context, request vaultco
 	return s.isAuthorizedRequest(ctx, &request, originalRequestID, vaulttypes.MethodSecretsUpdate)
 }
 
-func (s *Capability) authorizeDeleteSecrets(ctx context.Context, request vaultcommon.DeleteSecretsRequest) (bool, string, error) {
+func (s *Capability) authorizeDeleteSecrets(ctx context.Context, request vaultcommon.DeleteSecretsRequest) (bool, string, error) { //nolint:govet // The mutex isn't used
 	originalRequestID, err := s.getOriginalRequestID(request.RequestId)
 	if err != nil {
 		return false, "", err
@@ -463,7 +463,7 @@ func (s *Capability) authorizeDeleteSecrets(ctx context.Context, request vaultco
 	return s.isAuthorizedRequest(ctx, &request, originalRequestID, vaulttypes.MethodSecretsDelete)
 }
 
-func (s *Capability) authorizeListSecrets(ctx context.Context, request vaultcommon.ListSecretIdentifiersRequest) (bool, string, error) {
+func (s *Capability) authorizeListSecrets(ctx context.Context, request vaultcommon.ListSecretIdentifiersRequest) (bool, string, error) { //nolint:govet // The mutex isn't used
 	originalRequestID, err := s.getOriginalRequestID(request.RequestId)
 	if err != nil {
 		return false, "", err
