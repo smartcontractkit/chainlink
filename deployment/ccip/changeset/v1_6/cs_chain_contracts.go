@@ -2360,20 +2360,43 @@ type OptionalFeeQuoterTokenTransferFeeConfig struct {
 	IsEnabled         *bool
 }
 
-func (cfg OptionalFeeQuoterTokenTransferFeeConfig) HasMissingFields() bool {
-	return cfg.MinFeeUSDCents == nil ||
-		cfg.MaxFeeUSDCents == nil ||
-		cfg.DeciBps == nil ||
-		cfg.DestGasOverhead == nil ||
-		cfg.DestBytesOverhead == nil ||
-		cfg.IsEnabled == nil
+func (args OptionalFeeQuoterTokenTransferFeeConfig) FillMissingValues(srcSelector uint64, dstSelector uint64) OptionalFeeQuoterTokenTransferFeeConfig {
+	// this config is dynamically adjusted (ethereum is very expensive)
+	minFeeUsdCentsVal := uint32(25)
+
+	// NOTE: we validate that src != dst so only one of these if statements will execute
+	if srcSelector == chain_selectors.ETHEREUM_MAINNET.Selector {
+		minFeeUsdCentsVal = 50
+	}
+	if dstSelector == chain_selectors.ETHEREUM_MAINNET.Selector {
+		minFeeUsdCentsVal = 150
+	}
+
+	// if the user has already provided the config values, then prefer those over sensible defaults
+	minFeeUsdCents := pointer.Coalesce(args.MinFeeUSDCents, minFeeUsdCentsVal)
+	maxFeeUsdCents := pointer.Coalesce(args.MaxFeeUSDCents, uint32(4_294_967_295))
+	destGasOverhead := pointer.Coalesce(args.DestGasOverhead, uint32(90_000))
+	destBytesOverhead := pointer.Coalesce(args.DestBytesOverhead, uint32(32))
+	deciBps := pointer.Coalesce(args.DeciBps, uint16(0))
+	isEnabled := pointer.Coalesce(args.IsEnabled, true)
+
+	// modify the struct in-place
+	args.MinFeeUSDCents = &minFeeUsdCents
+	args.MaxFeeUSDCents = &maxFeeUsdCents
+	args.DeciBps = &deciBps
+	args.DestGasOverhead = &destGasOverhead
+	args.DestBytesOverhead = &destBytesOverhead
+	args.IsEnabled = &isEnabled
+
+	// return the modified config
+	return args
 }
 
 // ApplyTokenTransferFeeConfigUpdatesFeeQuoterChangesetV2 applies per-source/per-dest token transfer fee updates directly to
 // the FeeQuoter using address-keyed inputs. It validates source and dest selectors, forbids zero / duplicate token addresses,
-// enforces that all fields are provided when no on-chain config exists for a token, merges partial inputs with the current
-// on-chain config, skips no-op updates, and sends a single call per (src,dst). Source chains must be EVM; destinations may be
-// EVM or non-EVM.
+// fills in missing values with sensible defaults when no on-chain config exists for a token, merges partial inputs with the
+// current on-chain config if it exists, skips no-op updates, and sends a single call per (src,dst). Source chains must be EVM
+// and destinations may be EVM or non-EVM.
 var ApplyTokenTransferFeeConfigUpdatesFeeQuoterChangesetV2 = cldf.CreateChangeSet(
 	applyTokenTransferFeeConfigUpdatesFeeQuoterChangesetV2Logic,
 	applyTokenTransferFeeConfigUpdatesFeeQuoterChangesetV2Precondition,
@@ -2490,6 +2513,12 @@ func applyTokenTransferFeeConfigUpdatesFeeQuoterChangesetV2Logic(env cldf.Enviro
 				tokensToUseDefaultFeeConfigs[i] = fee_quoter.FeeQuoterTokenTransferFeeConfigRemoveArgs{DestChainSelector: dstSelector, Token: tokenAddress}
 			}
 
+			env.Logger.Infof("found fee quoter on source chain (src = %s, dst = %s, fq = %s)",
+				srcChain.String(),
+				dstChain.String(),
+				chainState.FeeQuoter.Address().Hex(),
+			)
+
 			tokenTransferFeeConfigs := []fee_quoter.FeeQuoterTokenTransferFeeConfigSingleTokenArgs{}
 			for tokenAddress, args := range input.TokenTransferFeeConfigArgs {
 				// This gets the token transfer fee config for the given token - if it doesn't exist, then the zero struct will be returned and `IsEnabled` will be `false`
@@ -2499,13 +2528,15 @@ func applyTokenTransferFeeConfigUpdatesFeeQuoterChangesetV2Logic(env cldf.Enviro
 					return cldf.ChangesetOutput{}, fmt.Errorf("failed to fetch token transfer fee config (src = %s, dst = %s, token = %s): %w", srcChain.String(), dstChain.String(), tokenAddress.Hex(), err)
 				}
 
-				// If no custom config already exists on-chain for the token, then we have no fallback values to use - in this case the caller must explicitly provide all fields
+				// If no custom config already exists on-chain for the token, then use sensible defaults for any missing fields
 				env.Logger.Infof("fetched token transfer fee config (src = %s, dst = %s, token = %s, cfg = %+v)", srcChain.String(), dstChain.String(), tokenAddress.Hex(), curConfig)
-				if !curConfig.IsEnabled && args.HasMissingFields() {
-					return cldf.ChangesetOutput{}, fmt.Errorf("invalid args - when enabling a new token, all fields must be provided (src = %s, dst = %s, token = %s)", srcChain.String(), dstChain.String(), tokenAddress.Hex())
+				if !curConfig.IsEnabled {
+					env.Logger.Infof("no token transfer fee config exists on chain - filling in missing values (src = %s, dst = %s, token = %s, input = %+v)", srcChain.String(), dstChain.String(), tokenAddress.Hex(), args)
+					args = args.FillMissingValues(srcSelector, dstSelector)
+					env.Logger.Infof("missing values have been filled in with sensible defaults (src = %s, dst = %s, token = %s, input = %+v)", srcChain.String(), dstChain.String(), tokenAddress.Hex(), args)
 				}
 
-				// At this point, we're either using fallback values from the chain or the caller has explicitly provided the inputs
+				// At this point, we're either using inputs from the user (highest precedence), fallback values from the chain, or pre-defined sensible defaults
 				newConfig := fee_quoter.FeeQuoterTokenTransferFeeConfigSingleTokenArgs{
 					Token: tokenAddress,
 					TokenTransferFeeConfig: fee_quoter.FeeQuoterTokenTransferFeeConfig{
