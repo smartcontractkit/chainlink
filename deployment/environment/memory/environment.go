@@ -7,17 +7,20 @@ import (
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/core/types"
+
 	"github.com/smartcontractkit/freeport"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zapcore"
 
+	"github.com/smartcontractkit/chainlink/deployment"
+
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
+
 	cldf_chain "github.com/smartcontractkit/chainlink-deployments-framework/chain"
 	cldf_evm "github.com/smartcontractkit/chainlink-deployments-framework/chain/evm"
 	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	focr "github.com/smartcontractkit/chainlink-deployments-framework/offchain/ocr"
-	"github.com/smartcontractkit/chainlink/deployment"
 )
 
 const (
@@ -28,6 +31,7 @@ type MemoryEnvironmentConfig struct {
 	Chains             int
 	SolChains          int
 	AptosChains        int
+	SuiChains          int
 	ZkChains           int
 	TonChains          int
 	TronChains         int
@@ -99,6 +103,10 @@ func NewMemoryChainsSol(t *testing.T, numChains int, commitSha string) []cldf_ch
 
 func NewMemoryChainsAptos(t *testing.T, numChains int) []cldf_chain.BlockChain {
 	return generateChainsAptos(t, numChains)
+}
+
+func NewMemoryChainsSui(t *testing.T, numChains int) []cldf_chain.BlockChain {
+	return GenerateChainsSui(t, numChains)
 }
 
 func NewMemoryChainsZk(t *testing.T, numChains int) []cldf_chain.BlockChain {
@@ -216,12 +224,13 @@ func NewMemoryEnvironment(
 	}
 	solChains := NewMemoryChainsSol(t, config.SolChains, solanaCommitSha)
 	aptosChains := NewMemoryChainsAptos(t, config.AptosChains)
+	suiChains := NewMemoryChainsSui(t, config.SuiChains)
 	zkChains := NewMemoryChainsZk(t, config.ZkChains)
 	tonChains := NewMemoryChainsTon(t, config.TonChains)
 	tronChains := NewMemoryChainsTron(t, config.TronChains)
 
 	chains := cldf_chain.NewBlockChainsFromSlice(
-		slices.Concat(evmChains, solChains, aptosChains, zkChains, tonChains, tronChains),
+		slices.Concat(evmChains, solChains, aptosChains, zkChains, suiChains, tonChains, tronChains),
 	)
 
 	c := NewNodesConfig{

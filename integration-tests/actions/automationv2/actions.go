@@ -415,7 +415,7 @@ func (a *AutomationTest) AddBootstrapJob() error {
 		OCR2OracleSpec: job.OCR2OracleSpec{
 			ContractID: a.Registry.Address(),
 			Relay:      "evm",
-			RelayConfig: map[string]interface{}{
+			RelayConfig: map[string]any{
 				"chainID": int(a.ChainClient.ChainID),
 			},
 			ContractConfigTrackerPollInterval: *sqlutil.NewInterval(time.Second * 15),
@@ -439,7 +439,7 @@ func (a *AutomationTest) AddAutomationJobs() error {
 	} else {
 		return fmt.Errorf("v2.0, v2.1, v2.2 and v2.3 are the only supported versions")
 	}
-	pluginCfg := map[string]interface{}{
+	pluginCfg := map[string]any{
 		"contractVersion": "\"" + contractVersion + "\"",
 	}
 	if strings.Contains(contractVersion, "v2.1") {
@@ -455,7 +455,7 @@ func (a *AutomationTest) AddAutomationJobs() error {
 				PluginType: "ocr2automation",
 				ContractID: a.Registry.Address(),
 				Relay:      "evm",
-				RelayConfig: map[string]interface{}{
+				RelayConfig: map[string]any{
 					"chainID": int(a.ChainClient.ChainID),
 				},
 				PluginConfig:                      pluginCfg,

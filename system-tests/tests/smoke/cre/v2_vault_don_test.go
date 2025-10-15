@@ -1,14 +1,18 @@
 package cre
 
 import (
+	"encoding/hex"
 	"encoding/json"
+	"math/big"
 	"math/rand"
 	"net/http"
 	"net/url"
+	"slices"
 	"strconv"
 	"testing"
 	"time"
 
+	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/require"
 
@@ -16,7 +20,13 @@ import (
 
 	vault_helpers "github.com/smartcontractkit/chainlink-common/pkg/capabilities/actions/vault"
 	jsonrpc "github.com/smartcontractkit/chainlink-common/pkg/jsonrpc2"
+	"github.com/smartcontractkit/chainlink-testing-framework/seth"
+	keystone_changeset "github.com/smartcontractkit/chainlink/deployment/keystone/changeset"
+	crecontracts "github.com/smartcontractkit/chainlink/system-tests/lib/cre/contracts"
+	t_helpers "github.com/smartcontractkit/chainlink/system-tests/tests/test-helpers"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/vault/vaulttypes"
+
+	workflow_registry_v2_wrapper "github.com/smartcontractkit/chainlink-evm/gethwrappers/workflow/generated/workflow_registry_wrapper_v2"
 
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre"
 	crevault "github.com/smartcontractkit/chainlink/system-tests/lib/cre/capabilities/vault"
@@ -35,14 +45,7 @@ func ExecuteVaultTest(t *testing.T, testEnv *ttypes.TestEnvironment) {
 	testLogger.Info().Msgf("Ensuring DKG result packages are present...")
 	require.Eventually(t, func() bool {
 		for _, nodeSet := range testEnv.Config.NodeSets {
-			var vaultFound bool
-			for _, cap := range nodeSet.Capabilities {
-				if cap == cre.VaultCapability {
-					vaultFound = true
-					break
-				}
-			}
-			if vaultFound {
+			if slices.Contains(nodeSet.Capabilities, cre.VaultCapability) {
 				for i := range nodeSet.Nodes {
 					if i != nodeSet.BootstrapNodeIndex {
 						packageCount, err := vault.GetResultPackageCount(t.Context(), i, nodeSet.DbInput.Port)
@@ -66,8 +69,18 @@ func ExecuteVaultTest(t *testing.T, testEnv *ttypes.TestEnvironment) {
 	require.NoError(t, err, "failed to parse gateway URL")
 	testLogger.Info().Msgf("Gateway URL: %s", gatewayURL.String())
 
-	owner := "Owner1"
-	waitUntilReady(t, owner, gatewayURL.String())
+	// Ignoring the deprecation warning as the suggest solution is not working in CI
+	//lint:ignore SA1019 ignoring deprecation warning for this usage
+	workflowRegistryAddress, _, workflowRegistryErr := crecontracts.FindAddressesForChain(
+		testEnv.CreEnvironment.CldfEnvironment.ExistingAddresses, //nolint:staticcheck // SA1019 ignoring deprecation warning for this usage
+		testEnv.WrappedBlockchainOutputs[0].ChainSelector, keystone_changeset.WorkflowRegistry.String())
+	require.NoError(t, workflowRegistryErr, "failed to find workflow registry address for chain %d", testEnv.WrappedBlockchainOutputs[0].ChainID)
+
+	sethClient := testEnv.WrappedBlockchainOutputs[0].SethClient
+	ownerAddr := sethClient.MustGetRootKeyAddress().Hex()
+	t_helpers.CompileAndDeployWorkflow(t, testEnv, testLogger, "consensustest", &t_helpers.None{}, "../../../../core/scripts/cre/environment/examples/workflows/v2/node-mode/main.go")
+	wfRegistryContract, err := workflow_registry_v2_wrapper.NewWorkflowRegistry(workflowRegistryAddress, sethClient.Client)
+	require.NoError(t, err, "failed to get workflow registry contract wrapper")
 
 	secretID := strconv.Itoa(rand.Intn(10000)) // generate a random secret ID for testing
 	secretValue := "Secret Value to be stored"
@@ -78,70 +91,43 @@ func ExecuteVaultTest(t *testing.T, testEnv *ttypes.TestEnvironment) {
 	// Wait for the node to be up.
 	framework.L.Info().Msg("Waiting 30 seconds for the Vault DON to be ready...")
 	time.Sleep(30 * time.Second)
-	executeVaultSecretsCreateTest(t, encryptedSecret, secretID, owner, gatewayURL.String())
-	executeVaultSecretsGetTest(t, secretID, owner, gatewayURL.String())
-	executeVaultSecretsUpdateTest(t, encryptedSecret, secretID, owner, gatewayURL.String())
-	executeVaultSecretsListTest(t, secretID, owner, gatewayURL.String())
-	executeVaultSecretsDeleteTest(t, secretID, owner, gatewayURL.String())
+	executeVaultSecretsCreateTest(t, encryptedSecret, secretID, ownerAddr, gatewayURL.String(), sethClient, wfRegistryContract)
+	executeVaultSecretsGetTest(t, secretID, ownerAddr, gatewayURL.String(), sethClient, wfRegistryContract)
+	executeVaultSecretsUpdateTest(t, encryptedSecret, secretID, ownerAddr, gatewayURL.String(), sethClient, wfRegistryContract)
+	executeVaultSecretsListTest(t, secretID, ownerAddr, gatewayURL.String(), sethClient, wfRegistryContract)
+	executeVaultSecretsDeleteTest(t, secretID, ownerAddr, gatewayURL.String(), sethClient, wfRegistryContract)
 }
 
-// waitUntilReady tries to list the keys in a loop until it succeeds, indicating that the Vault DON is ready.
-func waitUntilReady(t *testing.T, owner, gatewayURL string) {
-	framework.L.Info().Msg("Polling for vault DON to be ready...")
-
-	uniqueRequestID := uuid.New().String()
-
-	getPublicKeyRequest := jsonrpc.Request[vault_helpers.ListSecretIdentifiersRequest]{
-		Version: jsonrpc.JsonRpcVersion,
-		ID:      uniqueRequestID,
-		Method:  vaulttypes.MethodSecretsList,
-		Params: &vault_helpers.ListSecretIdentifiersRequest{
-			Owner: owner,
-		},
-	}
-	requestBody, err := json.Marshal(getPublicKeyRequest)
-	require.NoError(t, err, "failed to marshal public key request")
-
-	statusCode, _ := sendVaultRequestToGateway(t, gatewayURL, requestBody)
-	if statusCode == http.StatusGatewayTimeout {
-		framework.L.Warn().Msg("Received 504 Gateway Timeout. This may be due to the Vault DON not being ready yet. Retrying 1st time in 30 seconds...")
-		time.Sleep(30 * time.Second)
-		statusCode, _ = sendVaultRequestToGateway(t, gatewayURL, requestBody)
-		if statusCode == http.StatusGatewayTimeout {
-			framework.L.Warn().Msg("Received 504 Gateway Timeout again. This may be due to the Vault DON not being ready yet. Retrying 2nd time in 30 seconds...")
-			time.Sleep(30 * time.Second)
-			statusCode, _ = sendVaultRequestToGateway(t, gatewayURL, requestBody)
-		}
-	}
-	require.Equal(t, http.StatusOK, statusCode, "Gateway endpoint should respond with 200 OK")
-
-	framework.L.Info().Msgf("Received ready response from Vault DON")
-}
-
-func executeVaultSecretsCreateTest(t *testing.T, encryptedSecret, secretID, owner, gatewayURL string) {
+func executeVaultSecretsCreateTest(t *testing.T, encryptedSecret, secretID, owner, gatewayURL string, sethClient *seth.Client, wfRegistryContract *workflow_registry_v2_wrapper.WorkflowRegistry) {
 	framework.L.Info().Msg("Creating secret...")
 
 	uniqueRequestID := uuid.New().String()
 
-	secretsCreateRequest := jsonrpc.Request[vault_helpers.CreateSecretsRequest]{
-		Version: jsonrpc.JsonRpcVersion,
-		ID:      uniqueRequestID,
-		Method:  vaulttypes.MethodSecretsCreate,
-		Params: &vault_helpers.CreateSecretsRequest{
-			RequestId: uniqueRequestID,
-			EncryptedSecrets: []*vault_helpers.EncryptedSecret{
-				{
-					Id: &vault_helpers.SecretIdentifier{
-						Key:   secretID,
-						Owner: owner,
-						// Namespace: "main", // Uncomment if you want to use namespaces
-					}, // Note: Namespace is not used in this test, but can be added if needed
-					EncryptedValue: encryptedSecret,
+	secretsCreateRequest := vault_helpers.CreateSecretsRequest{
+		RequestId: uniqueRequestID,
+		EncryptedSecrets: []*vault_helpers.EncryptedSecret{
+			{
+				Id: &vault_helpers.SecretIdentifier{
+					Key:       secretID,
+					Owner:     owner,
+					Namespace: "main",
 				},
+				EncryptedValue: encryptedSecret,
 			},
 		},
 	}
-	requestBody, err := json.Marshal(secretsCreateRequest)
+	secretsCreateRequestBody, err := json.Marshal(secretsCreateRequest) //nolint:govet // The lock field is not set on this proto
+	require.NoError(t, err, "failed to marshal secrets request")
+	secretsCreateRequestBodyJSON := json.RawMessage(secretsCreateRequestBody)
+	jsonRequest := jsonrpc.Request[json.RawMessage]{
+		Version: jsonrpc.JsonRpcVersion,
+		ID:      uniqueRequestID,
+		Method:  vaulttypes.MethodSecretsCreate,
+		Params:  &secretsCreateRequestBodyJSON,
+	}
+	allowlistRequest(t, owner, jsonRequest, sethClient, wfRegistryContract)
+
+	requestBody, err := json.Marshal(jsonRequest)
 	require.NoError(t, err, "failed to marshal secrets request")
 
 	statusCode, httpResponseBody := sendVaultRequestToGateway(t, gatewayURL, requestBody)
@@ -178,35 +164,43 @@ func executeVaultSecretsCreateTest(t *testing.T, encryptedSecret, secretID, owne
 	framework.L.Info().Msg("Secret created successfully")
 }
 
-func executeVaultSecretsUpdateTest(t *testing.T, encryptedSecret, secretID, owner, gatewayURL string) {
+func executeVaultSecretsUpdateTest(t *testing.T, encryptedSecret, secretID, owner, gatewayURL string, sethClient *seth.Client, wfRegistryContract *workflow_registry_v2_wrapper.WorkflowRegistry) {
 	framework.L.Info().Msg("Updating secret...")
 	uniqueRequestID := uuid.New().String()
 
-	secretsUpdateRequest := jsonrpc.Request[vault_helpers.UpdateSecretsRequest]{
-		Version: jsonrpc.JsonRpcVersion,
-		ID:      uniqueRequestID,
-		Method:  vaulttypes.MethodSecretsUpdate,
-		Params: &vault_helpers.UpdateSecretsRequest{
-			RequestId: uniqueRequestID,
-			EncryptedSecrets: []*vault_helpers.EncryptedSecret{
-				{
-					Id: &vault_helpers.SecretIdentifier{
-						Key:   secretID,
-						Owner: owner,
-					},
-					EncryptedValue: encryptedSecret,
+	secretsUpdateRequest := vault_helpers.UpdateSecretsRequest{
+		RequestId: uniqueRequestID,
+		EncryptedSecrets: []*vault_helpers.EncryptedSecret{
+			{
+				Id: &vault_helpers.SecretIdentifier{
+					Key:       secretID,
+					Owner:     owner,
+					Namespace: "main",
 				},
-				{
-					Id: &vault_helpers.SecretIdentifier{
-						Key:   "invalid",
-						Owner: "invalid",
-					},
-					EncryptedValue: encryptedSecret,
+				EncryptedValue: encryptedSecret,
+			},
+			{
+				Id: &vault_helpers.SecretIdentifier{
+					Key:       "invalid",
+					Owner:     owner,
+					Namespace: "main",
 				},
+				EncryptedValue: encryptedSecret,
 			},
 		},
 	}
-	requestBody, err := json.Marshal(secretsUpdateRequest)
+	secretsUpdateRequestBody, err := json.Marshal(secretsUpdateRequest) //nolint:govet // The lock field is not set on this proto
+	require.NoError(t, err, "failed to marshal secrets request")
+	secretsUpdateRequestBodyJSON := json.RawMessage(secretsUpdateRequestBody)
+	jsonRequest := jsonrpc.Request[json.RawMessage]{
+		Version: jsonrpc.JsonRpcVersion,
+		ID:      uniqueRequestID,
+		Method:  vaulttypes.MethodSecretsUpdate,
+		Params:  &secretsUpdateRequestBodyJSON,
+	}
+	allowlistRequest(t, owner, jsonRequest, sethClient, wfRegistryContract)
+
+	requestBody, err := json.Marshal(jsonRequest)
 	require.NoError(t, err, "failed to marshal secrets request")
 
 	statusCode, httpResponseBody := sendVaultRequestToGateway(t, gatewayURL, requestBody)
@@ -248,7 +242,7 @@ func executeVaultSecretsUpdateTest(t *testing.T, encryptedSecret, secretID, owne
 	framework.L.Info().Msg("Secret updated successfully")
 }
 
-func executeVaultSecretsGetTest(t *testing.T, secretID, owner, gatewayURL string) {
+func executeVaultSecretsGetTest(t *testing.T, secretID, owner, gatewayURL string, sethClient *seth.Client, wfRegistryContract *workflow_registry_v2_wrapper.WorkflowRegistry) {
 	uniqueRequestID := uuid.New().String()
 	framework.L.Info().Msg("Getting secret...")
 	secretsGetRequest := jsonrpc.Request[vault_helpers.GetSecretsRequest]{
@@ -326,20 +320,45 @@ func executeVaultSecretsGetTest(t *testing.T, secretID, owner, gatewayURL string
 	framework.L.Info().Msg("Secret get successful")
 }
 
-func executeVaultSecretsListTest(t *testing.T, secretID, owner, gatewayURL string) {
+func executeVaultSecretsListTest(t *testing.T, secretID, owner, gatewayURL string, sethClient *seth.Client, wfRegistryContract *workflow_registry_v2_wrapper.WorkflowRegistry) {
 	framework.L.Info().Msg("Listing secret...")
 	uniqueRequestID := uuid.New().String()
-
-	secretsListRequest := jsonrpc.Request[vault_helpers.ListSecretIdentifiersRequest]{
+	secretsListRequest := vault_helpers.ListSecretIdentifiersRequest{
+		RequestId: uniqueRequestID,
+		Owner:     owner,
+		Namespace: "main",
+	}
+	secretsListRequestBody, err := json.Marshal(secretsListRequest) //nolint:govet // The lock field is not set on this proto
+	require.NoError(t, err, "failed to marshal secrets request")
+	secretsUpdateRequestBodyJSON := json.RawMessage(secretsListRequestBody)
+	jsonRequest := jsonrpc.Request[json.RawMessage]{
 		Version: jsonrpc.JsonRpcVersion,
 		ID:      uniqueRequestID,
 		Method:  vaulttypes.MethodSecretsList,
-		Params: &vault_helpers.ListSecretIdentifiersRequest{
-			RequestId: uniqueRequestID,
-			Owner:     owner,
-		},
+		Params:  &secretsUpdateRequestBodyJSON,
 	}
-	requestBody, err := json.Marshal(secretsListRequest)
+	allowlistRequest(t, owner, jsonRequest, sethClient, wfRegistryContract)
+
+	// Ensure that multiple requests can be allowlisted
+	uniqueRequestIDTwo := uuid.New().String()
+	secretsListRequestTwo := vault_helpers.ListSecretIdentifiersRequest{
+		RequestId: uniqueRequestIDTwo,
+		Owner:     owner,
+		Namespace: "main",
+	}
+	secretsListRequestBodyTwo, err := json.Marshal(secretsListRequestTwo) //nolint:govet // The lock field is not set on this proto
+	require.NoError(t, err, "failed to marshal secrets request")
+	secretsUpdateRequestBodyJSONTwo := json.RawMessage(secretsListRequestBodyTwo)
+	jsonRequestTwo := jsonrpc.Request[json.RawMessage]{
+		Version: jsonrpc.JsonRpcVersion,
+		ID:      uniqueRequestIDTwo,
+		Method:  vaulttypes.MethodSecretsList,
+		Params:  &secretsUpdateRequestBodyJSONTwo,
+	}
+	allowlistRequest(t, owner, jsonRequestTwo, sethClient, wfRegistryContract)
+
+	// Request 1
+	requestBody, err := json.Marshal(jsonRequest)
 	require.NoError(t, err, "failed to marshal secrets request")
 
 	statusCode, httpResponseBody := sendVaultRequestToGateway(t, gatewayURL, requestBody)
@@ -358,6 +377,24 @@ func executeVaultSecretsListTest(t *testing.T, secretID, owner, gatewayURL strin
 
 	signedOCRResponse := jsonResponse.Result
 	framework.L.Info().Msgf("Signed OCR Response: %s", signedOCRResponse.String())
+
+	// Request 2
+	requestBodyTwo, err := json.Marshal(jsonRequestTwo)
+	require.NoError(t, err, "failed to marshal secrets request")
+	statusCodeTwo, httpResponseBodyTwo := sendVaultRequestToGateway(t, gatewayURL, requestBodyTwo)
+	require.Equal(t, http.StatusOK, statusCodeTwo, "Gateway endpoint should respond with 200 OK")
+	var jsonResponseTwo jsonrpc.Response[vaulttypes.SignedOCRResponse]
+	err = json.Unmarshal(httpResponseBodyTwo, &jsonResponseTwo)
+	require.NoError(t, err, "failed to unmarshal getResponse")
+	framework.L.Info().Msgf("JSON Body: %v", jsonResponseTwo)
+	if jsonResponseTwo.Error != nil {
+		require.Empty(t, jsonResponseTwo.Error.Error())
+	}
+	require.Equal(t, jsonrpc.JsonRpcVersion, jsonResponseTwo.Version)
+	require.Equal(t, uniqueRequestIDTwo, jsonResponseTwo.ID)
+	require.Equal(t, vaulttypes.MethodSecretsList, jsonResponseTwo.Method)
+	signedOCRResponseTwo := jsonResponseTwo.Result
+	framework.L.Info().Msgf("Signed OCR Response: %s", signedOCRResponseTwo.String())
 
 	// TODO: Verify the authenticity of this signed report, by ensuring that the signatures indeed match the payload
 
@@ -378,29 +415,37 @@ func executeVaultSecretsListTest(t *testing.T, secretID, owner, gatewayURL strin
 	framework.L.Info().Msg("Secrets listed successfully")
 }
 
-func executeVaultSecretsDeleteTest(t *testing.T, secretID, owner, gatewayURL string) {
+func executeVaultSecretsDeleteTest(t *testing.T, secretID, owner, gatewayURL string, sethClient *seth.Client, wfRegistryContract *workflow_registry_v2_wrapper.WorkflowRegistry) {
 	framework.L.Info().Msg("Deleting secret...")
 	uniqueRequestID := uuid.New().String()
 
-	secretsUpdateRequest := jsonrpc.Request[vault_helpers.DeleteSecretsRequest]{
-		Version: jsonrpc.JsonRpcVersion,
-		ID:      uniqueRequestID,
-		Method:  vaulttypes.MethodSecretsDelete,
-		Params: &vault_helpers.DeleteSecretsRequest{
-			RequestId: uniqueRequestID,
-			Ids: []*vault_helpers.SecretIdentifier{
-				{
-					Key:   secretID,
-					Owner: owner,
-				},
-				{
-					Key:   "invalid",
-					Owner: "invalid",
-				},
+	secretsDeleteRequest := vault_helpers.DeleteSecretsRequest{
+		RequestId: uniqueRequestID,
+		Ids: []*vault_helpers.SecretIdentifier{
+			{
+				Key:       secretID,
+				Owner:     owner,
+				Namespace: "main",
+			},
+			{
+				Key:       "invalid",
+				Owner:     owner,
+				Namespace: "main",
 			},
 		},
 	}
-	requestBody, err := json.Marshal(secretsUpdateRequest)
+	secretsDeleteRequestBody, err := json.Marshal(secretsDeleteRequest) //nolint:govet // The lock field is not set on this proto
+	require.NoError(t, err, "failed to marshal secrets request")
+	secretsDeleteRequestBodyJSON := json.RawMessage(secretsDeleteRequestBody)
+	jsonRequest := jsonrpc.Request[json.RawMessage]{
+		Version: jsonrpc.JsonRpcVersion,
+		ID:      uniqueRequestID,
+		Method:  vaulttypes.MethodSecretsDelete,
+		Params:  &secretsDeleteRequestBodyJSON,
+	}
+	allowlistRequest(t, owner, jsonRequest, sethClient, wfRegistryContract)
+
+	requestBody, err := json.Marshal(jsonRequest)
 	require.NoError(t, err, "failed to marshal secrets request")
 
 	statusCode, httpResponseBody := sendVaultRequestToGateway(t, gatewayURL, requestBody)
@@ -438,4 +483,25 @@ func executeVaultSecretsDeleteTest(t *testing.T, secretID, owner, gatewayURL str
 	require.Contains(t, result1.Error, "key does not exist")
 
 	framework.L.Info().Msg("Secrets deleted successfully")
+}
+
+func allowlistRequest(t *testing.T, owner string, request jsonrpc.Request[json.RawMessage], sethClient *seth.Client, wfRegistryContract *workflow_registry_v2_wrapper.WorkflowRegistry) {
+	requestDigest, err := request.Digest()
+	require.NoError(t, err, "failed to get digest for request")
+	requestDigestBytes, err := hex.DecodeString(requestDigest)
+	require.NoError(t, err, "failed to decode digest")
+	reqDigestBytes := [32]byte(requestDigestBytes)
+	_, err = wfRegistryContract.AllowlistRequest(sethClient.NewTXOpts(), reqDigestBytes, uint32(time.Now().Add(1*time.Hour).Unix())) //nolint:gosec // disable G115
+	require.NoError(t, err, "failed to allowlist request")
+
+	framework.L.Info().Msgf("Allowlisting request digest at contract %s, for owner: %s, digestHexStr: %s", wfRegistryContract.Address().Hex(), owner, requestDigest)
+	time.Sleep(5 * time.Second) // wait a bit to ensure the allowlist is propagated onchain, gateway and vault don nodes
+	allowedList, err := wfRegistryContract.GetAllowlistedRequests(&bind.CallOpts{}, big.NewInt(0), big.NewInt(100))
+	require.NoError(t, err, "failed to validate allowlisted request")
+	for _, req := range allowedList {
+		if req.RequestDigest == reqDigestBytes {
+			framework.L.Info().Msgf("Request digest found in allowlist")
+		}
+		framework.L.Info().Msgf("Allowlisted request digestHexStr: %s, owner: %s, expiry: %d", hex.EncodeToString(req.RequestDigest[:]), req.Owner.Hex(), req.ExpiryTimestamp)
+	}
 }

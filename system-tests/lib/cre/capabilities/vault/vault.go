@@ -20,11 +20,9 @@ import (
 
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/capabilities"
-	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/don"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/flags"
 
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/jobs"
-	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/node"
 )
 
 const flag = cre.VaultCapability
@@ -73,7 +71,7 @@ func jobSpec(chainID uint64) cre.JobSpecFn {
 		donToJobSpecs := make(cre.DonsToJobSpecs)
 
 		// return early if no DON has the vault capability
-		if !don.AnyDonHasCapability(input.DonTopology.Dons.DonMetadata, flag) {
+		if !input.DonTopology.AnyDonHasCapability(flag) {
 			return donToJobSpecs, nil
 		}
 
@@ -99,26 +97,21 @@ func jobSpec(chainID uint64) cre.JobSpecFn {
 			return nil, errors.Wrap(err, "failed to get DKG address")
 		}
 
-		for _, donMetadata := range input.DonTopology.Dons.DonMetadata {
-			if !flags.HasFlag(donMetadata.Flags, flag) {
+		for _, don := range input.DonTopology.Dons.List() {
+			if !don.HasFlag(flag) {
 				continue
 			}
 
 			// create job specs for the worker nodes
-			workerNodes, wErr := donMetadata.WorkerNodes()
+			workerNodes, wErr := don.Workers()
 			if wErr != nil {
 				// there should be no DON without worker nodes, even gateway DON is composed of a single worker node
 				return nil, errors.Wrap(wErr, "failed to find worker nodes")
 			}
 
-			bootstrapNode, bootErr := input.DonTopology.BootstrapNode()
-			if bootErr != nil {
-				return nil, errors.Wrap(bootErr, "failed to find bootstrap node")
-			}
-
-			bootstrapNodeID, nodeIDErr := node.FindLabelValue(bootstrapNode, node.NodeIDKey)
-			if nodeIDErr != nil {
-				return nil, errors.Wrap(nodeIDErr, "failed to get bootstrap node id from labels")
+			bootstrapNode, isBootstrap := input.DonTopology.Bootstrap()
+			if !isBootstrap {
+				return nil, errors.New("could not find bootstrap node in topology, exactly one bootstrap node is required")
 			}
 
 			_, ocrPeeringData, peeringErr := cre.PeeringCfgs(bootstrapNode)
@@ -127,30 +120,20 @@ func jobSpec(chainID uint64) cre.JobSpecFn {
 			}
 
 			// create job specs for the bootstrap node
-			donToJobSpecs[donMetadata.ID] = append(donToJobSpecs[donMetadata.ID], jobs.BootstrapOCR3(bootstrapNodeID, "vault-capability", vaultCapabilityAddress.Address, chainID))
+			donToJobSpecs[don.ID] = append(donToJobSpecs[don.ID], jobs.BootstrapOCR3(bootstrapNode.JobDistributorDetails.NodeID, "vault-capability", vaultCapabilityAddress.Address, chainID))
 
 			for _, workerNode := range workerNodes {
-				nodeID, nodeIDErr := node.FindLabelValue(workerNode, node.NodeIDKey)
-				if nodeIDErr != nil {
-					return nil, errors.Wrap(nodeIDErr, "failed to get node id from labels")
-				}
-
 				evmKey, ok := workerNode.Keys.EVM[chainID]
 				if !ok {
 					return nil, fmt.Errorf("failed to get EVM key (chainID %d, node index %d)", chainID, workerNode.Index)
 				}
 
-				ocr2KeyBundlesPerFamily, ocr2kbErr := node.ExtractBundleKeysPerFamily(workerNode)
-				if ocr2kbErr != nil {
-					return nil, errors.Wrap(ocr2kbErr, "failed to get ocr2 key bundle id from labels")
-				}
-
-				evmOCR2KeyBundle, ok := ocr2KeyBundlesPerFamily[chainselectors.FamilyEVM]
+				evmOCR2KeyBundle, ok := workerNode.Keys.OCR2BundleIDs[chainselectors.FamilyEVM]
 				if !ok {
 					return nil, errors.New("key bundle ID for evm family is not found")
 				}
 
-				donToJobSpecs[donMetadata.ID] = append(donToJobSpecs[donMetadata.ID], jobs.WorkerVaultOCR3(nodeID, vaultCapabilityAddress.Address, dkgAddress.Address, evmKey.PublicAddress.Hex(), evmOCR2KeyBundle, ocrPeeringData, chainID))
+				donToJobSpecs[don.ID] = append(donToJobSpecs[don.ID], jobs.WorkerVaultOCR3(workerNode.JobDistributorDetails.NodeID, vaultCapabilityAddress.Address, dkgAddress.Address, evmKey.PublicAddress.Hex(), evmOCR2KeyBundle, ocrPeeringData, chainID))
 			}
 		}
 
@@ -158,8 +141,8 @@ func jobSpec(chainID uint64) cre.JobSpecFn {
 	}
 }
 
-func handlerConfig(donMetadata *cre.DonMetadata) (cre.HandlerTypeToConfig, error) {
-	if !flags.HasFlag(donMetadata.Flags, flag) {
+func handlerConfig(don *cre.DON) (cre.HandlerTypeToConfig, error) {
+	if !don.HasFlag(flag) {
 		return nil, nil
 	}
 

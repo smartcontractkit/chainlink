@@ -110,7 +110,6 @@ URL = "ws://localhost:8081/node"
 	signer := gatewaymocks.NewSigner(t)
 	clock := clockwork.NewFakeClock()
 	for name, config := range invalidCases {
-		config := config
 		t.Run(name, func(t *testing.T) {
 			_, err := NewGatewayConnector(parseTOMLConfig(t, config), signer, clock, logger.Test(t))
 			require.Error(t, err)

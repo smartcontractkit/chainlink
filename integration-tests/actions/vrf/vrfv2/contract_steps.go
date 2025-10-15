@@ -276,7 +276,7 @@ func CreateSubs(
 ) ([]uint64, error) {
 	var subIDArr []uint64
 
-	for i := 0; i < subAmountToCreate; i++ {
+	for range subAmountToCreate {
 		subID, err := CreateSubAndFindSubID(coordinator)
 		if err != nil {
 			return nil, err
@@ -558,7 +558,7 @@ func RequestRandomnessWithForceFulfillAndWaitForFulfillment(
 	var configSetEvent *contracts.CoordinatorConfigSet
 	var randomWordsFulfilledEvent *contracts.CoordinatorRandomWordsFulfilled
 	var randomWordsForcedEvent *vrf_owner.VRFOwnerRandomWordsForced
-	for i := 0; i < 3; i++ {
+	for range 3 {
 		select {
 		case err = <-errorChannel:
 			return nil, nil, nil, err

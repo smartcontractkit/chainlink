@@ -86,7 +86,7 @@ func (tc *CosmosTransfersController) Create(c *gin.Context) {
 
 	resource := presenters.NewCosmosMsgResource("cosmos_transfer_"+uuid.New().String(), tr.CosmosChainID, "")
 	resource.State = "unstarted"
-	tc.App.GetAuditLogger().Audit(audit.CosmosTransactionCreated, map[string]interface{}{
+	tc.App.GetAuditLogger().Audit(audit.CosmosTransactionCreated, map[string]any{
 		"cosmosTransactionResource": resource,
 	})
 

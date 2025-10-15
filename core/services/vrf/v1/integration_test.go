@@ -75,7 +75,7 @@ func TestIntegration_VRF_JPV2(t *testing.T) {
 			t.Log("Sent 2 test requests")
 			// Mine the required number of blocks
 			// So our request gets confirmed.
-			for i := 0; i < incomingConfs; i++ {
+			for range incomingConfs {
 				cu.Backend.Commit()
 			}
 			var runs []pipeline.Run
@@ -174,7 +174,7 @@ func TestIntegration_VRF_WithBHS(t *testing.T) {
 	requestBlock := h.Number
 
 	// Wait 101 blocks.
-	for i := 0; i < 100; i++ {
+	for range 100 {
 		cu.Backend.Commit()
 	}
 
@@ -197,7 +197,7 @@ func TestIntegration_VRF_WithBHS(t *testing.T) {
 	}, testutils.WaitTimeout(t), time.Second).Should(gomega.BeTrue())
 
 	// Wait another 160 blocks so that the request is outside the 256 block window
-	for i := 0; i < 160; i++ {
+	for range 160 {
 		cu.Backend.Commit()
 	}
 

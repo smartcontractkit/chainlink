@@ -22,6 +22,8 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"github.com/smartcontractkit/quarantine"
+
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	"github.com/smartcontractkit/chainlink-common/pkg/custmsg"
 	"github.com/smartcontractkit/chainlink-common/pkg/services/servicetest"
@@ -132,7 +134,7 @@ func Test_EventHandlerStateSync(t *testing.T) {
 
 	// Create some initial static state
 	numberWorkflows := 20
-	for i := 0; i < numberWorkflows; i++ {
+	for i := range numberWorkflows {
 		var workflowID [32]byte
 		_, err = rand.Read((workflowID)[:])
 		require.NoError(t, err)
@@ -187,7 +189,7 @@ func Test_EventHandlerStateSync(t *testing.T) {
 
 	// Create different event types for a number of workflows and confirm that the event handler processes them in order
 	numberOfEventCycles := 50
-	for i := 0; i < numberOfEventCycles; i++ {
+	for range numberOfEventCycles {
 		var workflowID [32]byte
 		_, err = rand.Read((workflowID)[:])
 		require.NoError(t, err)
@@ -260,7 +262,7 @@ func Test_InitialStateSync(t *testing.T) {
 	// The number of workflows should be greater than the workflow registry contracts pagination limit to ensure
 	// that the syncer will query the contract multiple times to get the full list of workflows
 	numberWorkflows := 250
-	for i := 0; i < numberWorkflows; i++ {
+	for i := range numberWorkflows {
 		var workflowID [32]byte
 		_, err = rand.Read((workflowID)[:])
 		require.NoError(t, err)
@@ -733,6 +735,7 @@ func Test_RegistrySyncer_WorkflowRegistered_InitiallyActivated(t *testing.T) {
 }
 
 func Test_StratReconciliation_InitialStateSync(t *testing.T) {
+	quarantine.Flaky(t, "DX-2063")
 	t.Run("with heavy load", func(t *testing.T) {
 		lggr := logger.TestLogger(t)
 		backendTH := testutils.NewEVMBackendTH(t)
@@ -750,7 +753,7 @@ func Test_StratReconciliation_InitialStateSync(t *testing.T) {
 		// Use a high number of workflows
 		// Tested up to 7_000
 		numberWorkflows := 1_000
-		for i := 0; i < numberWorkflows; i++ {
+		for i := range numberWorkflows {
 			var workflowID [32]byte
 			_, err = rand.Read((workflowID)[:])
 			require.NoError(t, err)

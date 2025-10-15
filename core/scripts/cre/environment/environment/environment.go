@@ -32,7 +32,6 @@ import (
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/stagegen"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/flags"
 
-	"github.com/smartcontractkit/chainlink/core/scripts/cre/environment/tracking"
 	keystone_changeset "github.com/smartcontractkit/chainlink/deployment/keystone/changeset"
 	libc "github.com/smartcontractkit/chainlink/system-tests/lib/conversions"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre"
@@ -46,6 +45,7 @@ import (
 	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/blockchain"
 	billingplatformservice "github.com/smartcontractkit/chainlink-testing-framework/framework/components/dockercompose/billing_platform_service"
 	chipingressset "github.com/smartcontractkit/chainlink-testing-framework/framework/components/dockercompose/chip_ingress_set"
+	"github.com/smartcontractkit/chainlink-testing-framework/framework/tracking"
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/ptr"
 )
 
@@ -153,7 +153,7 @@ var StartCmdRecoverHandlerFunc = func(p any, cleanupWait time.Duration) {
 			errText = strings.SplitN(fmt.Sprintf("%v", p), "\n", 1)[0]
 		}
 
-		tracingErr := dxTracker.Track("startup.result", map[string]any{
+		tracingErr := dxTracker.Track(MetricStartupResult, map[string]any{
 			"success":  false,
 			"error":    errText,
 			"panicked": true,
@@ -288,6 +288,10 @@ func startCmd() *cobra.Command {
 				return errors.Wrap(err, "failed to load environment configuration")
 			}
 
+			if err := ensureDockerIsRunning(cmdContext); err != nil {
+				return err
+			}
+
 			// This will not work with remote images that require authentication, but it will catch early most of the issues with missing env setup
 			if err := ensureDockerImagesExist(cmdContext, framework.L, in, withPluginsDockerImage); err != nil {
 				return err
@@ -375,7 +379,7 @@ func startCmd() *cobra.Command {
 					metaData["result"] = "success"
 				}
 
-				trackingErr := dxTracker.Track(tracking.MetricBeholderStart, metaData)
+				trackingErr := dxTracker.Track(MetricBeholderStart, metaData)
 				if trackingErr != nil {
 					fmt.Fprintf(os.Stderr, "failed to track beholder start: %s\n", trackingErr)
 				}
@@ -413,7 +417,7 @@ func startCmd() *cobra.Command {
 					metaData["result"] = "success"
 				}
 
-				trackingErr := dxTracker.Track(tracking.MetricBillingStart, metaData)
+				trackingErr := dxTracker.Track(MetricBillingStart, metaData)
 				if trackingErr != nil {
 					fmt.Fprintf(os.Stderr, "failed to track billing start: %s\n", trackingErr)
 				}
@@ -446,8 +450,8 @@ func startCmd() *cobra.Command {
 					keystone_changeset.WorkflowRegistry.String())
 
 				var workflowDonID uint32
-				for idx, donMetadata := range output.DonTopology.ToDonMetadata() {
-					if flags.HasFlag(donMetadata.Flags, cre.WorkflowDON) {
+				for idx, don := range output.DonTopology.Dons.List() {
+					if don.HasFlag(cre.WorkflowDON) {
 						workflowDonID = libc.MustSafeUint32(idx + 1)
 						break
 					}
@@ -511,7 +515,7 @@ func setupDashboards(setupCfg SetupConfig) error {
 	// Wait for grafana at localhost:3000 to be available
 	fmt.Print(libformat.PurpleText("\nWaiting for Grafana to be available at http://localhost:3000\n"))
 	grafanaContacted := false
-	for i := 0; i < 30; i++ {
+	for range 30 {
 		time.Sleep(1 * time.Second)
 		req, _ := http.NewRequestWithContext(context.Background(), http.MethodGet, "http://localhost:3000", nil)
 		_, err = http.DefaultClient.Do(req)
@@ -558,13 +562,13 @@ func trackStartup(success, hasBuiltDockerImage bool, infraType string, errorMess
 		metadata["panicked"] = *panicked
 	}
 
-	dxStartupErr := dxTracker.Track(tracking.MetricStartupResult, metadata)
+	dxStartupErr := dxTracker.Track(MetricStartupResult, metadata)
 	if dxStartupErr != nil {
 		fmt.Fprintf(os.Stderr, "failed to track startup: %s\n", dxStartupErr)
 	}
 
 	if success {
-		dxTimeErr := dxTracker.Track(tracking.MetricStartupTime, map[string]any{
+		dxTimeErr := dxTracker.Track(MetricStartupTime, map[string]any{
 			"duration_seconds":       time.Since(provisioningStartTime).Seconds(),
 			"has_built_docker_image": hasBuiltDockerImage,
 		})
@@ -837,7 +841,7 @@ func initDxTracker() {
 	}
 
 	var trackerErr error
-	dxTracker, trackerErr = tracking.NewDxTracker()
+	dxTracker, trackerErr = tracking.NewDxTracker(GetDXGitHubVariableName, GetDXProductName)
 	if trackerErr != nil {
 		fmt.Fprintf(os.Stderr, "failed to create DX tracker: %s\n", trackerErr)
 		dxTracker = &tracking.NoOpTracker{}
@@ -868,6 +872,19 @@ func validateWorkflowTriggerAndCapabilities(in *envconfig.Config, withExampleFla
 		return nil
 	}
 
+	return nil
+}
+
+func ensureDockerIsRunning(ctx context.Context) error {
+	dockerClient, dockerClientErr := client.NewClientWithOpts(client.WithAPIVersionNegotiation())
+	if dockerClientErr != nil {
+		return errors.Wrap(dockerClientErr, "failed to create Docker client")
+	}
+
+	_, pingErr := dockerClient.Ping(ctx)
+	if pingErr != nil {
+		return errors.Wrap(pingErr, "docker is not running. Please start Docker and try again")
+	}
 	return nil
 }
 

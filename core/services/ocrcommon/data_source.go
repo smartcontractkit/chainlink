@@ -182,13 +182,13 @@ func (ds *inMemoryDataSource) executeRun(ctx context.Context) (*pipeline.Run, pi
 		ds.lggr.Warnf("unable to attach metadata for run, err: %v", err)
 	}
 
-	vars := pipeline.NewVarsFrom(map[string]interface{}{
-		"jb": map[string]interface{}{
+	vars := pipeline.NewVarsFrom(map[string]any{
+		"jb": map[string]any{
 			"databaseID":    ds.jb.ID,
 			"externalJobID": ds.jb.ExternalJobID,
 			"name":          ds.jb.Name.ValueOrZero(),
 		},
-		"jobRun": map[string]interface{}{
+		"jobRun": map[string]any{
 			"meta": md,
 		},
 	})

@@ -78,7 +78,7 @@ jobs:
           # Add list of tests with certain topologies
           PER_TEST_TOPOLOGIES_JSON=${PER_TEST_TOPOLOGIES_JSON:-'{
             "Test_CRE_V1_SecureMint": [
-               {"topology":"workflow","configs":"configs/workflow-solana-don.toml"}
+               {"topology":"workflow","configs":"configs/workflow-don-solana.toml"}
              ],
             "Test_CRE_V1_Tron": [
                {"topology":"workflow","configs":"configs/workflow-don-tron.toml"}

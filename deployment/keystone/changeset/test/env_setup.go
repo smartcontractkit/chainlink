@@ -3,6 +3,7 @@ package test
 import (
 	"errors"
 	"fmt"
+	"maps"
 	"math"
 	"testing"
 
@@ -16,6 +17,8 @@ import (
 	cldf_evm "github.com/smartcontractkit/chainlink-deployments-framework/chain/evm"
 	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+	"github.com/smartcontractkit/chainlink-deployments-framework/engine/test/environment"
+	"github.com/smartcontractkit/chainlink-deployments-framework/engine/test/onchain"
 	focr "github.com/smartcontractkit/chainlink-deployments-framework/offchain/ocr"
 
 	"github.com/smartcontractkit/chainlink/deployment"
@@ -193,25 +196,23 @@ func (te EnvWrapper) GetP2PIDs(donName string) P2PIDs {
 	return te.dons.Get(donName).GetP2PIDs()
 }
 
-func initEnv(t *testing.T, nChains int) (registryChainSel uint64, env cldf.Environment) {
-	chains := cldf_chain.NewBlockChainsFromSlice(memory.NewMemoryChainsEVM(t, nChains, 1))
-	registryChainSel = registryChain(t, chains.EVMChains())
+func initEnv(t *testing.T, nChains int) (uint64, cldf.Environment) {
+	env, err := environment.New(t.Context(),
+		environment.WithEVMSimulatedWithConfigN(t, nChains, onchain.EVMSimLoaderConfig{
+			NumAdditionalAccounts: 1,
+		}),
+	)
+	require.NoError(t, err)
+
+	registryChainSel := registryChain(t, env.BlockChains.EVMChains())
 
 	// note that all the nodes require TOML configuration of the cap registry address
 	// and writers need forwarder address as TOML config
 	// we choose to use changesets to deploy the initial contracts because that's how it's done in the real world
 	// this requires a initial environment to house the address book
-	env = cldf.Environment{
-		GetContext:        t.Context,
-		Logger:            logger.Test(t),
-		ExistingAddresses: cldf.NewMemoryAddressBook(),
-		DataStore:         datastore.NewMemoryDataStore().Seal(),
-		BlockChains:       chains,
-	}
-
 	forwarderChangesets := make([]commonchangeset.ConfiguredChangeSet, nChains)
 	i := 0
-	for _, c := range chains.EVMChains() {
+	for _, c := range env.BlockChains.EVMChains() {
 		forwarderChangesets[i] = commonchangeset.Configure(
 			cldf.CreateLegacyChangeSet(changeset.DeployForwarderV2),
 			&changeset.DeployRequestV2{
@@ -249,12 +250,12 @@ func initEnv(t *testing.T, nChains int) (registryChainSel uint64, env cldf.Envir
 		),
 	}
 	changes = append(changes, forwarderChangesets...)
-	env, _, err := commonchangeset.ApplyChangesets(t, env, changes)
+	updatedEnv, _, err := commonchangeset.ApplyChangesets(t, *env, changes)
 	require.NoError(t, err)
 	require.NotNil(t, env)
 	require.Len(t, env.BlockChains.EVMChains(), nChains)
-	validateInitialChainState(t, env, registryChainSel)
-	return registryChainSel, env
+	validateInitialChainState(t, updatedEnv, registryChainSel)
+	return registryChainSel, updatedEnv
 }
 
 // SetupContractTestEnv sets up a keystone test environment for contract testing with the given configuration
@@ -429,9 +430,7 @@ func setupViewOnlyNodeTest(t *testing.T, registryChainSel uint64, chains map[uin
 				"don": donCfg.Name,
 			}
 			if donCfg.Labels != nil {
-				for k, v := range donCfg.Labels {
-					labels[k] = v
-				}
+				maps.Copy(labels, donCfg.Labels)
 			}
 			cfg := envtest.NodeConfig{
 				ChainSelectors: []uint64{registryChainSel},

@@ -93,7 +93,7 @@ func NewCCIPSpecToml(spec SpecArgs) (string, error) {
 }
 
 func ExternalJobID(spec SpecArgs) (string, error) {
-	in := []byte(fmt.Sprintf("%s%s%s", spec.CapabilityLabelledName, spec.CapabilityVersion, spec.P2PKeyID))
+	in := fmt.Appendf(nil, "%s%s%s", spec.CapabilityLabelledName, spec.CapabilityVersion, spec.P2PKeyID)
 	sha256Hash := sha256.New()
 	sha256Hash.Write(in)
 	in = sha256Hash.Sum(nil)[:16]

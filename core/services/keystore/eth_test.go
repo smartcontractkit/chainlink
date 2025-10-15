@@ -78,7 +78,7 @@ func Test_EthKeyStore(t *testing.T) {
 		ctx := testutils.Context(t)
 		defer reset()
 		var keys []ethkey.KeyV2
-		for i := 0; i < 5; i++ {
+		for range 5 {
 			key, err := ethKeyStore.Create(ctx, &cltest.FixtureChainID)
 			require.NoError(t, err)
 			keys = append(keys, key)

@@ -3,10 +3,12 @@ package shared
 import (
 	"context"
 	"fmt"
+	"strings"
 
 	"github.com/Masterminds/semver/v3"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
+
 	cldf_evm "github.com/smartcontractkit/chainlink-deployments-framework/chain/evm"
 
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/shared/generated/initial/erc20"
@@ -45,6 +47,7 @@ var TokenPoolTypes = map[cldf.ContractType]struct{}{
 }
 
 var TokenPoolVersions = map[semver.Version]struct{}{
+	deployment.Version1_5_0:      {},
 	deployment.Version1_5_1:      {},
 	FastTransferTokenPoolVersion: {},
 	deployment.Version1_6_0:      {},
@@ -88,7 +91,12 @@ func NewTokenPoolWithMetadata[P tokenPool](
 	}
 	version, err := semver.NewVersion(versionStr)
 	if err != nil {
-		return pool, TokenPoolMetadata{}, fmt.Errorf("failed parsing version %s of pool with address %s: %w", versionStr, poolAddress, err)
+		// fallback: try to normalize invalid semver like 1.6.x-dev -> 1.6.0-dev
+		safeVersion := strings.ReplaceAll(versionStr, "x", "3")
+		version, err = semver.NewVersion(safeVersion)
+		if err != nil {
+			return pool, TokenPoolMetadata{}, fmt.Errorf("failed parsing version %s (normalized as %s): %w", versionStr, safeVersion, err)
+		}
 	}
 	token, err := erc20.NewERC20(tokenAddress, chainClient)
 	if err != nil {

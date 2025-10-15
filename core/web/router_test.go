@@ -130,7 +130,7 @@ func TestSessions_RateLimited(t *testing.T) {
 	client := clhttptest.NewTestLocalOnlyHTTPClient()
 	input := `{"email":"brute@force.com", "password": "wrongpassword"}`
 
-	for i := 0; i < 5; i++ {
+	for range 5 {
 		request, err := http.NewRequestWithContext(ctx, "POST", ts.URL+"/sessions", bytes.NewBufferString(input))
 		require.NoError(t, err)
 

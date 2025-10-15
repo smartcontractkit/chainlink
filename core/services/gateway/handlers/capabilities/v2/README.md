@@ -59,7 +59,7 @@ The HTTP Handlers V2 is responsible for:
 3. **Request Parsing**: Extracts `OutboundHTTPRequest` from the JSON-RPC message
 4. **Cache Check**: Determines if request should use cached response or fetch fresh data
 5. **HTTP Execution**: Makes actual HTTP request to external endpoint
-6. **Response Caching**: Stores cacheable responses (2xx, 4xx status codes)
+6. **Response Caching**: Stores cacheable responses (2xx, 4xx status codes) only if `CacheSettings.Store` is `true`
 7. **Node Response**: Sends HTTP response back to requesting node
 
 ### 3.2 Caching Behavior
@@ -68,7 +68,7 @@ The HTTP Handlers V2 is responsible for:
 - **Cache TTL**: Configurable, default 10 minutes
 - **Cache Key**: Generated from workflow ID and request hash
 - **Cache Invalidation**: Time-based expiration with periodic cleanup
-- **Cache Strategy**: All cacheable responses are cached; `CacheSettings.ReadFromCache` determines whether to return a cached value or make a fresh request
+- **Cache Strategy**: All cacheable responses are cached; Non-zero `CacheSettings.MaxAgeMs` determines whether to return a cached value or make a fresh request
 - **Workflow Isolation**: Cache entries are scoped by workflow ID to prevent cross-workflow data leakage
 ---
 

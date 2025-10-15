@@ -123,17 +123,6 @@ func NewEngine(cfg *EngineConfig) (*Engine, error) {
 		beholderLogger.Errorw("WARNING: Debug mode is enabled, this is not suitable for production")
 	}
 
-	if cfg.SecretsFetcher == nil {
-		cfg.SecretsFetcher = NewSecretsFetcher(
-			metricsLabeler,
-			cfg.CapRegistry,
-			beholderLogger,
-			cfg.LocalLimiters.SecretsConcurrency,
-			cfg.WorkflowOwner,
-			cfg.WorkflowName.String(),
-			cfg.WorkflowEncryptionKey)
-	}
-
 	engine := &Engine{
 		cfg:                     cfg,
 		lggr:                    beholderLogger,
@@ -236,7 +225,7 @@ func (e *Engine) runTriggerSubscriptionPhase(ctx context.Context) error {
 		Request:         &sdkpb.ExecuteRequest_Subscribe{},
 		MaxResponseSize: uint64(moduleExecuteMaxResponseSizeBytes), //nolint:gosec // G115
 		Config:          e.cfg.WorkflowConfig,
-	}, NewDisallowedExecutionHelper(e.lggr, userLogChan, timeProvider, e.cfg.SecretsFetcher))
+	}, NewDisallowedExecutionHelper(e.lggr, userLogChan, timeProvider, e.secretsFetcher(e.cfg.WorkflowID)))
 	if err != nil {
 		return fmt.Errorf("failed to execute subscribe: %w", err)
 	}
@@ -279,14 +268,17 @@ func (e *Engine) runTriggerSubscriptionPhase(ctx context.Context) error {
 		triggerEventCh, err := triggerCap.RegisterTrigger(regCtx, capabilities.TriggerRegistrationRequest{
 			TriggerID: registrationID,
 			Metadata: capabilities.RequestMetadata{
-				WorkflowID:               e.cfg.WorkflowID,
-				WorkflowOwner:            e.cfg.WorkflowOwner,
-				WorkflowName:             e.cfg.WorkflowName.Hex(),
-				WorkflowTag:              e.cfg.WorkflowTag,
-				DecodedWorkflowName:      e.cfg.WorkflowName.String(),
-				WorkflowDonID:            e.localNode.WorkflowDON.ID,
-				WorkflowDonConfigVersion: e.localNode.WorkflowDON.ConfigVersion,
-				ReferenceID:              fmt.Sprintf("trigger_%d", i),
+				WorkflowID:                    e.cfg.WorkflowID,
+				WorkflowOwner:                 e.cfg.WorkflowOwner,
+				WorkflowName:                  e.cfg.WorkflowName.Hex(),
+				WorkflowTag:                   e.cfg.WorkflowTag,
+				DecodedWorkflowName:           e.cfg.WorkflowName.String(),
+				WorkflowDonID:                 e.localNode.WorkflowDON.ID,
+				WorkflowDonConfigVersion:      e.localNode.WorkflowDON.ConfigVersion,
+				ReferenceID:                   fmt.Sprintf("trigger_%d", i),
+				WorkflowRegistryChainSelector: e.cfg.WorkflowRegistryChainSelector,
+				WorkflowRegistryAddress:       e.cfg.WorkflowRegistryAddress,
+				EngineVersion:                 platform.ValueWorkflowVersionV2,
 				// no WorkflowExecutionID needed (or available at this stage)
 			},
 			Payload: sub.Payload,
@@ -464,6 +456,9 @@ func (e *Engine) startExecution(ctx context.Context, wrappedTriggerEvent enqueue
 		e.lggr.Errorf("invalid moduleExecuteMaxResponseSizeBytes; must not be negative: %d", moduleExecuteMaxResponseSizeBytes)
 		return
 	}
+	execHelper := &ExecutionHelper{Engine: e, WorkflowExecutionID: executionID, UserLogChan: userLogChan,
+		TimeProvider: timeProvider, SecretsFetcher: e.secretsFetcher(executionID)}
+	execHelper.initLimiters(e.cfg.LocalLimiters)
 	result, err := e.cfg.Module.Execute(execCtx, &sdkpb.ExecuteRequest{
 		Request: &sdkpb.ExecuteRequest_Trigger{
 			Trigger: &sdkpb.Trigger{
@@ -473,8 +468,7 @@ func (e *Engine) startExecution(ctx context.Context, wrappedTriggerEvent enqueue
 		},
 		MaxResponseSize: uint64(moduleExecuteMaxResponseSizeBytes), //nolint:gosec // G115
 		Config:          e.cfg.WorkflowConfig,
-	}, &ExecutionHelper{Engine: e, WorkflowExecutionID: executionID, UserLogChan: userLogChan,
-		TimeProvider: timeProvider, SecretsFetcher: e.cfg.SecretsFetcher})
+	}, execHelper)
 
 	endTime := e.cfg.Clock.Now()
 	executionDuration := endTime.Sub(startTime)
@@ -482,11 +476,15 @@ func (e *Engine) startExecution(ctx context.Context, wrappedTriggerEvent enqueue
 	if isMetering {
 		computeUnit := billing.ResourceType_name[int32(billing.ResourceType_RESOURCE_TYPE_COMPUTE)]
 		mrErr := meteringReport.Settle(computeUnit,
-			[]capabilities.MeteringNodeDetail{{
-				Peer2PeerID: e.localNode.PeerID.String(),
-				SpendUnit:   computeUnit,
-				SpendValue:  strconv.Itoa(int(executionDuration.Milliseconds())),
-			}})
+			capabilities.ResponseMetadata{
+				Metering: []capabilities.MeteringNodeDetail{{
+					Peer2PeerID: e.localNode.PeerID.String(),
+					SpendUnit:   computeUnit,
+					SpendValue:  strconv.Itoa(int(executionDuration.Milliseconds())),
+				}},
+				CapDON_N: 1,
+			},
+		)
 		if mrErr != nil {
 			e.lggr.Errorw("could not set metering for compute", "err", mrErr)
 		}
@@ -534,6 +532,26 @@ func (e *Engine) startExecution(ctx context.Context, wrappedTriggerEvent enqueue
 	e.metrics.With("workflowID", e.cfg.WorkflowID, "workflowName", e.cfg.WorkflowName.String()).IncrementWorkflowExecutionSucceededCounter(ctx)
 	e.cfg.Hooks.OnResultReceived(result)
 	e.cfg.Hooks.OnExecutionFinished(executionID, executionStatus)
+}
+
+func (e *Engine) secretsFetcher(phaseID string) SecretsFetcher {
+	if e.cfg.SecretsFetcher != nil {
+		return e.cfg.SecretsFetcher
+	}
+
+	return NewSecretsFetcher(
+		e.metrics,
+		e.cfg.CapRegistry,
+		e.lggr,
+		e.cfg.LocalLimiters.SecretsConcurrency,
+		e.cfg.WorkflowOwner,
+		e.cfg.WorkflowName.String(),
+		e.cfg.WorkflowID,
+		// phaseID is the executionID if called during an execution,
+		// or the workflowID if called during trigger subscription
+		phaseID,
+		e.cfg.WorkflowEncryptionKey,
+	)
 }
 
 func (e *Engine) close() error {

@@ -71,14 +71,14 @@ type CapabilityConfig struct {
 	// Config is the capability configuration. It will be marshalled to proto config.
 	// It is untyped here because is has to be deserialized from JSON/YAML for any possible capability
 	// If nil, a default config based on the capability type is used
-	Config map[string]interface{}
+	Config map[string]any
 }
 
 type Capability struct {
-	CapabilityID          string         `json:"capability_id" yaml:"capability_id"`
-	ConfigurationContract common.Address `json:"configuration_contract" yaml:"configuration_contract"`
+	CapabilityID          string         `json:"capabilityID" yaml:"capabilityID"`
+	ConfigurationContract common.Address `json:"configurationContract" yaml:"configurationContract"`
 	// Metadata is the capability metadata. It will be marshalled to json config.
-	Metadata map[string]interface{} `json:"metadata" yaml:"metadata"`
+	Metadata map[string]any `json:"metadata" yaml:"metadata"`
 }
 
 var UpdateDON = operations.NewOperation[UpdateDONInput, UpdateDONOutput, UpdateDONDeps](

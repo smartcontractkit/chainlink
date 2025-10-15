@@ -264,7 +264,7 @@ func CreateOCRKeeperJobsLocal(
 		OCR2OracleSpec: job.OCR2OracleSpec{
 			ContractID: registryAddr,
 			Relay:      "evm",
-			RelayConfig: map[string]interface{}{
+			RelayConfig: map[string]any{
 				"chainID": int(chainID),
 			},
 			ContractConfigTrackerPollInterval: *sqlutil.NewInterval(time.Second * 15),
@@ -302,10 +302,10 @@ func CreateOCRKeeperJobsLocal(
 			OCR2OracleSpec: job.OCR2OracleSpec{
 				PluginType: "ocr2automation",
 				Relay:      "evm",
-				RelayConfig: map[string]interface{}{
+				RelayConfig: map[string]any{
 					"chainID": int(chainID),
 				},
-				PluginConfig: map[string]interface{}{
+				PluginConfig: map[string]any{
 					"mercuryCredentialName": "\"cred1\"",
 					"contractVersion":       "\"" + contractVersion + "\"",
 				},

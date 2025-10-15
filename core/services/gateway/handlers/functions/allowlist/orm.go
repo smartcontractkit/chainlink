@@ -80,7 +80,7 @@ func (o *orm) CreateAllowedSenders(ctx context.Context, allowedSenders []common.
 		INSERT INTO %s (allowed_address, router_contract_address)
 		VALUES %s ON CONFLICT (allowed_address, router_contract_address) DO NOTHING;`, tableName, strings.Join(valuesPlaceholder, ", "))
 
-	var args []interface{}
+	var args []any
 	for _, as := range allowedSenders {
 		args = append(args, as, o.routerContractAddress)
 	}
@@ -108,7 +108,7 @@ func (o *orm) DeleteAllowedSenders(ctx context.Context, blockedSenders []common.
 		WHERE router_contract_address = $1
 		AND allowed_address IN (%s);`, tableName, strings.Join(valuesPlaceholder, ", "))
 
-	args := []interface{}{o.routerContractAddress}
+	args := []any{o.routerContractAddress}
 	for _, bs := range blockedSenders {
 		args = append(args, bs)
 	}

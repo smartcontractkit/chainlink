@@ -457,7 +457,7 @@ func (mt *mercuryTransmitter) Transmit(ctx context.Context, reportCtx ocrtypes.R
 
 	g := new(errgroup.Group)
 	for _, s := range mt.servers {
-		s := s // https://golang.org/doc/faq#closures_and_goroutines
+		// https://golang.org/doc/faq#closures_and_goroutines
 		g.Go(func() error {
 			if ok := s.q.Push(req, reportCtx); !ok {
 				s.transmitQueuePushErrorCount.Inc()
@@ -509,7 +509,7 @@ func (mt *mercuryTransmitter) LatestPrice(ctx context.Context, feedID [32]byte) 
 		return nil, nil
 	}
 	payload := fullReport.Payload
-	m := make(map[string]interface{})
+	m := make(map[string]any)
 	if err := PayloadTypes.UnpackIntoMap(m, payload); err != nil {
 		return nil, err
 	}
@@ -550,7 +550,6 @@ func (mt *mercuryTransmitter) latestReport(ctx context.Context, feedID [32]byte)
 	mu := sync.Mutex{}
 	var g errgroup.Group
 	for _, s := range mt.servers {
-		s := s
 		g.Go(func() error {
 			resp, err := s.c.LatestReport(ctx, req)
 			if err != nil {

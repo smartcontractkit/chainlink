@@ -12,7 +12,6 @@ import (
 
 	cciptypes "github.com/smartcontractkit/chainlink-common/pkg/types/ccip"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/bytes"
-
 	"github.com/smartcontractkit/chainlink-evm/pkg/utils"
 )
 
@@ -204,7 +203,20 @@ func (c *DynamicPriceGetterConfig) UnmarshalJSON(data []byte) error {
 type ExecPluginJobSpecConfig struct {
 	SourceStartBlock, DestStartBlock uint64 // Only for first time job add.
 	USDCConfig                       USDCConfig
-	LBTCConfig                       LBTCConfig
+	// Deprecated: store config in LBTCConfigs, read using GetLBTCConfigs. This is kept for backward compatibility
+	LBTCConfig  LBTCConfig
+	LBTCConfigs []LBTCConfig
+}
+
+func (c *ExecPluginJobSpecConfig) GetLBTCConfigs() []LBTCConfig {
+	// prioritize plural LBTC configs field over singular
+	if len(c.LBTCConfigs) > 0 {
+		return c.LBTCConfigs
+	}
+	if c.LBTCConfig != (LBTCConfig{}) {
+		return []LBTCConfig{c.LBTCConfig}
+	}
+	return []LBTCConfig{}
 }
 
 type USDCConfig struct {
@@ -228,7 +240,7 @@ type ExecPluginConfig struct {
 	SourceStartBlock, DestStartBlock uint64 // Only for first time job add.
 	IsSourceProvider                 bool
 	USDCConfig                       USDCConfig
-	LBTCConfig                       LBTCConfig
+	LBTCConfigs                      []LBTCConfig
 	JobID                            string
 }
 
@@ -257,15 +269,22 @@ func (uc *USDCConfig) ValidateUSDCConfig() error {
 	return nil
 }
 
-func (lc *LBTCConfig) ValidateLBTCConfig() error {
-	if lc.AttestationAPI == "" {
-		return errors.New("LBTCConfig: AttestationAPI is required")
-	}
-	if lc.AttestationAPIIntervalMilliseconds < -1 {
-		return errors.New("LBTCConfig: AttestationAPIIntervalMilliseconds must be -1 to disable, 0 for default or greater to define the exact interval")
-	}
-	if lc.SourceTokenAddress == utils.ZeroAddress {
-		return errors.New("LBTCConfig: SourceTokenAddress is required")
+func ValidateLBTCConfigs(lbtcConfigs []LBTCConfig) error {
+	seen := make(map[string]bool)
+	for _, lbtcConfig := range lbtcConfigs {
+		if lbtcConfig.AttestationAPI == "" {
+			return errors.New("LBTCConfig: AttestationAPI is required")
+		}
+		if lbtcConfig.AttestationAPIIntervalMilliseconds < -1 {
+			return errors.New("LBTCConfig: AttestationAPIIntervalMilliseconds must be -1 to disable, 0 for default or greater to define the exact interval")
+		}
+		if lbtcConfig.SourceTokenAddress == utils.ZeroAddress {
+			return errors.New("LBTCConfig: SourceTokenAddress is required")
+		}
+		if seen[lbtcConfig.SourceTokenAddress.String()] {
+			return errors.New("LBTCConfig: Duplicated SourceTokenAddress found")
+		}
+		seen[lbtcConfig.SourceTokenAddress.String()] = true
 	}
 	return nil
 }

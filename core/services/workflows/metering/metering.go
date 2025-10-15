@@ -74,6 +74,8 @@ type ProtoDetail struct {
 type ReportStep struct {
 	// The ID of the capability being used in this step
 	CapabilityID string
+	// CapDONN is the total number of nodes in a capability DON.
+	CapdonN uint32
 	// The maximum amount of universal credits that should be used in this step
 	Deduction decimal.Decimal
 	// The actual resource spend that each node used for this step
@@ -367,7 +369,7 @@ func (r *Report) Deduct(ref string, opt DeductOpt) ([]capabilities.SpendLimit, e
 // by returning earmarked local balance to the available to use pool and adding the spend to the metering report.
 // The Deduct method must be called before Settle.
 // We expect to only set this value once - an error is returned if a step would be overwritten.
-func (r *Report) Settle(ref string, spendsByNode []capabilities.MeteringNodeDetail) error {
+func (r *Report) Settle(ref string, metadata capabilities.ResponseMetadata) error {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 
@@ -388,7 +390,7 @@ func (r *Report) Settle(ref string, spendsByNode []capabilities.MeteringNodeDeta
 	resourceSpends := make(map[string][]ReportStepDetail)
 
 	// Group by resource dimension
-	for _, nodeDetail := range spendsByNode {
+	for _, nodeDetail := range metadata.Metering {
 		resourceSpends[nodeDetail.SpendUnit] = append(resourceSpends[nodeDetail.SpendUnit], ReportStepDetail{
 			Peer2PeerID:   nodeDetail.Peer2PeerID,
 			SpendValue:    nodeDetail.SpendValue,
@@ -424,6 +426,10 @@ func (r *Report) Settle(ref string, spendsByNode []capabilities.MeteringNodeDeta
 			}
 
 			deciVals = append(deciVals, value)
+
+			if isGasSpendType(unit) && len(deciVals) > 1 {
+				r.switchToMeteringMode(fmt.Errorf("multiple executions for single execution unit [%s]: %w", unit, err))
+			}
 		}
 
 		// TODO: explicitly ignore RPC_EVM spend types for now -
@@ -435,7 +441,20 @@ func (r *Report) Settle(ref string, spendsByNode []capabilities.MeteringNodeDeta
 		}
 
 		aggregated.SpendValue = medianSpend(deciVals)
-		bal, err := r.balance.ConvertToBalance(unit, aggregated.SpendValue)
+		value := aggregated.SpendValue
+
+		// if N is not set, assume 1
+		if metadata.CapDON_N == 0 {
+			metadata.CapDON_N = 1
+		}
+
+		// TODO: indicate in the registry config that a capability is single execution or not
+		// https://smartcontract-it.atlassian.net/browse/CRE-1037
+		if !isGasSpendType(unit) {
+			value = value.Mul(decimal.NewFromUint64(uint64(metadata.CapDON_N)))
+		}
+
+		bal, err := r.balance.ConvertToBalance(unit, value)
 
 		if err != nil {
 			r.switchToMeteringMode(fmt.Errorf("attempted to Settle [%s]: %w", unit, err))
@@ -448,6 +467,7 @@ func (r *Report) Settle(ref string, spendsByNode []capabilities.MeteringNodeDeta
 	}
 
 	step.Spends = resourceSpends
+	step.CapdonN = metadata.CapDON_N
 	r.steps[ref] = step
 
 	// if in metering mode, exit early without modifying local balance
@@ -508,7 +528,19 @@ func (r *Report) FormatReport() *protoEvents.MeteringReport {
 		nodeDetails := []*protoEvents.MeteringReportNodeDetail{}
 		r.stepRefLookup = append(r.stepRefLookup, ref+":"+step.CapabilityID)
 
-		for unit, details := range step.Spends {
+		// since map key order is non-deterministic, order the keys to help make tests deterministic
+		orderedUnits := make([]string, 0, len(step.Spends))
+		for unit := range step.Spends {
+			orderedUnits = append(orderedUnits, unit)
+		}
+
+		sort.Slice(orderedUnits, func(i, j int) bool {
+			return orderedUnits[i] > orderedUnits[j]
+		})
+
+		for _, unit := range orderedUnits {
+			details := step.Spends[unit]
+
 			for _, detail := range details {
 				nodeDetails = append(nodeDetails, &protoEvents.MeteringReportNodeDetail{
 					Peer_2PeerId:  detail.Peer2PeerID,
@@ -519,13 +551,21 @@ func (r *Report) FormatReport() *protoEvents.MeteringReport {
 			}
 
 			if aggregated, ok := step.AggregatedSpends[unit]; ok {
-				stepDetails.AggSpendValue = aggregated.SpendValue.StringFixed(defaultDecimalPrecision)
+				// TODO: remove the inaccurate aggregated fields in favor of the repeated field
 				stepDetails.AggSpendUnit = aggregated.SpendUnit
+				stepDetails.AggSpendValue = aggregated.SpendValue.StringFixed(defaultDecimalPrecision)
 				stepDetails.AggSpendValueCre = aggregated.CRESpendValue.StringFixed(defaultDecimalPrecision)
+
+				stepDetails.AggSpend = append(stepDetails.AggSpend, &protoEvents.AggregatedSpendDetail{
+					SpendUnit:     aggregated.SpendUnit,
+					SpendValue:    aggregated.SpendValue.StringFixed(defaultDecimalPrecision),
+					SpendValueCre: aggregated.CRESpendValue.StringFixed(defaultDecimalPrecision),
+				})
 			}
 		}
 
 		stepDetails.Nodes = nodeDetails
+		stepDetails.CapdonN = step.CapdonN
 		protoReport.Steps[ref] = stepDetails
 	}
 

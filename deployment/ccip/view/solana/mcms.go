@@ -21,8 +21,8 @@ import (
 )
 
 type MCMSWithTimelockView struct {
-	Timelock TimelockView `json:"timelock,omitempty"`
-	MCMS     MCMSView     `json:"mcm,omitempty"`
+	Timelock TimelockView `json:"timelock"`
+	MCMS     MCMSView     `json:"mcm"`
 }
 
 type TimelockView struct {
@@ -40,9 +40,9 @@ type TimelockView struct {
 }
 
 type MCMSView struct {
-	Bypasser  MCMSConfig `json:"bypasser,omitempty"`
-	Proposer  MCMSConfig `json:"proposer,omitempty"`
-	Canceller MCMSConfig `json:"canceller,omitempty"`
+	Bypasser  MCMSConfig `json:"bypasser"`
+	Proposer  MCMSConfig `json:"proposer"`
+	Canceller MCMSConfig `json:"canceller"`
 }
 
 type MCMSConfig struct {

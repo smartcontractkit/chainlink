@@ -83,8 +83,8 @@ func GetWritableChainsFromSavedEnvironmentState(t *testing.T, testEnv *ttypes.Te
 	testLogger.Info().Msg("Getting writable chains from saved environment state.")
 	writeableChains := []uint64{}
 	for _, bcOutput := range testEnv.WrappedBlockchainOutputs {
-		for _, donMetadata := range testEnv.CreEnvironment.DonTopology.ToDonMetadata() {
-			if flags.RequiresForwarderContract(donMetadata.Flags, bcOutput.ChainID) {
+		for _, don := range testEnv.CreEnvironment.DonTopology.Dons.List() {
+			if flags.RequiresForwarderContract(don.Flags, bcOutput.ChainID) {
 				if !slices.Contains(writeableChains, bcOutput.ChainID) {
 					writeableChains = append(writeableChains, bcOutput.ChainID)
 				}
@@ -188,6 +188,7 @@ func AssertBeholderMessage(ctx context.Context, t *testing.T, expectedLog string
 							testLogger.Info().
 								Str("expected_log", expectedLog).
 								Str("found_message", strings.TrimSpace(logLine.Message)).
+								Str("workflow_id", typedMsg.M.WorkflowExecutionID).
 								Msg("🎯 Found expected user log message!")
 
 							select {
@@ -196,6 +197,7 @@ func AssertBeholderMessage(ctx context.Context, t *testing.T, expectedLog string
 							}
 							return // Exit the processor goroutine
 						}
+
 						testLogger.Warn().
 							Str("expected_log", expectedLog).
 							Str("found_message", strings.TrimSpace(logLine.Message)).
@@ -247,7 +249,7 @@ func CreateAndFundAddresses(t *testing.T, testLogger zerolog.Logger, numberOfAdd
 	testLogger.Info().Msgf("Creating and funding %d addresses...", numberOfAddressesToCreate)
 	var addressesToRead []common.Address
 
-	for i := 0; i < numberOfAddressesToCreate; i++ {
+	for i := range numberOfAddressesToCreate {
 		addressToRead, _, addrErr := crecrypto.GenerateNewKeyPair()
 		require.NoError(t, addrErr, "failed to generate address to read")
 		orderNum := i + 1
@@ -601,9 +603,16 @@ func CompileAndDeployWorkflow[T WorkflowConfig](t *testing.T,
 	testLogger.Info().Msgf("compiling and registering workflow '%s'", workflowName)
 	homeChainSelector := testEnv.WrappedBlockchainOutputs[0].ChainSelector
 
-	workflowDON, donErr := flags.OneDonMetadataWithFlag(testEnv.CreEnvironment.DonTopology.ToDonMetadata(), cre.WorkflowDON)
-	require.NoError(t, donErr, "failed to get find workflow DON in the topology")
-	compressedWorkflowWasmPath, workflowConfigPath := createWorkflowArtifacts(t, testLogger, workflowName, workflowDON.Name, workflowConfig, workflowFileLocation)
+	workflowDOName := ""
+	for _, don := range testEnv.CreEnvironment.DonTopology.Dons.List() {
+		if don.ID == testEnv.CreEnvironment.DonTopology.WorkflowDonID {
+			workflowDOName = don.Name
+			break
+		}
+	}
+	require.NotEmpty(t, workflowDOName, "failed to find workflow DON in the topology")
+
+	compressedWorkflowWasmPath, workflowConfigPath := createWorkflowArtifacts(t, testLogger, workflowName, workflowDOName, workflowConfig, workflowFileLocation)
 
 	// Ignoring the deprecation warning as the suggest solution is not working in CI
 	//lint:ignore SA1019 ignoring deprecation warning for this usage
@@ -620,7 +629,7 @@ func CompileAndDeployWorkflow[T WorkflowConfig](t *testing.T,
 		WorkflowRegistryAddr:        workflowRegistryAddress,
 		WorkflowRegistryTypeVersion: tv,
 		ChainID:                     homeChainSelector,
-		DonID:                       testEnv.CreEnvironment.DonTopology.ToDonMetadata()[0].ID,
+		DonID:                       testEnv.CreEnvironment.DonTopology.Dons.List()[0].ID,
 		ContainerTargetDir:          creworkflow.DefaultWorkflowTargetDir,
 		WrappedBlockchainOutputs:    testEnv.WrappedBlockchainOutputs,
 	}

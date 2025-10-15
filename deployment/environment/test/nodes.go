@@ -72,7 +72,6 @@ func labelsConversion(m map[string]string) []*ptypes.Label {
 	out := make([]*ptypes.Label, len(m))
 	i := 0
 	for k, v := range m {
-		v := v
 		out[i] = &ptypes.Label{Key: k, Value: &v}
 		i++
 	}

@@ -378,7 +378,7 @@ func newTestUniverse(t *testing.T, ks *keyringsAndSigners[[]byte]) *testUniverse
 	// setOCR3Config to pass.
 	chainStore := keys.NewChainStore(keyStore, big.NewInt(1337))
 	var transmitters []common.Address
-	for i := 0; i < 4; i++ {
+	for range 4 {
 		addr, err := keyStore.Create()
 		require.NoError(t, err, "failed to create key")
 		transmitters = append(transmitters, addr)
@@ -409,7 +409,7 @@ func newTestUniverse(t *testing.T, ks *keyringsAndSigners[[]byte]) *testUniverse
 		keyrings = ks.keyrings
 		signers = ks.signers
 	} else {
-		for i := 0; i < 4; i++ {
+		for range 4 {
 			kb, err2 := ocr2key.New(kschaintype.EVM)
 			require.NoError(t, err2, "failed to create key")
 			kr := ocrimpls.NewOnchainKeyring[[]byte](kb, logger.Test(t))

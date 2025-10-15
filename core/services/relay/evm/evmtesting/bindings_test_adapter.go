@@ -519,7 +519,7 @@ func createDecoder(dst any) (*mapstructure.Decoder, error) {
 	return decoder, err
 }
 
-func stringToByteArrayHook(from reflect.Type, to reflect.Type, data interface{}) (interface{}, error) {
+func stringToByteArrayHook(from reflect.Type, to reflect.Type, data any) (any, error) {
 	if from.Kind() == reflect.String && to == reflect.TypeOf([]byte{}) {
 		return evmcodec.EVMAddressModifier{}.DecodeAddress(data.(string))
 	}

@@ -6,7 +6,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 
 	router1_2 "github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_2_0/router"
-	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_0/fee_quoter"
+	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_3/fee_quoter"
 
 	"github.com/smartcontractkit/chainlink/deployment/ccip/view/v1_2"
 	"github.com/smartcontractkit/chainlink/deployment/common/view/types"
@@ -16,7 +16,7 @@ type FeeQuoterView struct {
 	types.ContractMetaData
 	AuthorizedCallers                       []string                                 `json:"authorizedCallers,omitempty"`
 	FeeTokens                               []string                                 `json:"feeTokens,omitempty"`
-	StaticConfig                            FeeQuoterStaticConfig                    `json:"staticConfig,omitempty"`
+	StaticConfig                            FeeQuoterStaticConfig                    `json:"staticConfig"`
 	DestinationChainConfigBasedOnTestRouter map[uint64]FeeQuoterDestChainConfig      `json:"destinationChainConfigBasedOnTestRouter,omitempty"`
 	DestinationChainConfig                  map[uint64]FeeQuoterDestChainConfig      `json:"destinationChainConfig,omitempty"`
 	TokenPriceFeedConfig                    map[string]FeeQuoterTokenPriceFeedConfig `json:"tokenPriceFeedConfig,omitempty"`

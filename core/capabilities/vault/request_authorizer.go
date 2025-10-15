@@ -2,23 +2,15 @@ package vault
 
 import (
 	"context"
-	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
-	"fmt"
-	"strconv"
-	"strings"
 	"sync"
 	"time"
 
-	"google.golang.org/protobuf/proto"
-
-	vaultcommon "github.com/smartcontractkit/chainlink-common/pkg/capabilities/actions/vault"
 	jsonrpc "github.com/smartcontractkit/chainlink-common/pkg/jsonrpc2"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/workflow/generated/workflow_registry_wrapper_v2"
-	"github.com/smartcontractkit/chainlink/v2/core/build"
-	"github.com/smartcontractkit/chainlink/v2/core/capabilities/vault/vaulttypes"
 	workflowsyncerv2 "github.com/smartcontractkit/chainlink/v2/core/services/workflows/syncer/v2"
 )
 
@@ -27,51 +19,68 @@ type RequestAuthorizer interface {
 }
 type requestAuthorizer struct {
 	workflowRegistrySyncer    workflowsyncerv2.WorkflowRegistrySyncer
-	alreadyAuthorizedRequests map[string]bool
+	alreadyAuthorizedRequests map[string]int64
 	alreadyAuthorizedMutex    sync.Mutex
 	lggr                      logger.Logger
 }
 
+// AuthorizeRequest authorizes a request based on the request digest and the allowlisted requests.
+// It does NOT check if the request method is allowed.
 func (r *requestAuthorizer) AuthorizeRequest(ctx context.Context, req jsonrpc.Request[json.RawMessage]) (isAuthorized bool, owner string, err error) {
-	// TODO(https://smartcontract-it.atlassian.net/browse/PRIV-175): Remove this bypass once we have a Vault DON e2e tests setup in local CRE.
-	if build.IsDev() {
-		r.lggr.Warnw("bypassing RequestAuthorizer since it is not a production build", "build-mode", build.Mode())
-		// returning owner as Owner1, since that's used in vault e2e tests.
-		return true, "Owner1", nil
-	}
 	defer r.clearExpiredAuthorizedRequests()
-	digest, err := r.digestForRequest(req)
+	r.lggr.Infow("AuthorizeRequest", "method", req.Method, "requestID", req.ID)
+	requestDigest, err := req.Digest()
 	if err != nil {
+		r.lggr.Infow("AuthorizeRequest failed to create digest", "method", req.Method, "requestID", req.ID)
 		return false, "", err
 	}
-	allowlistedRequest := r.fetchAllowlistedItem(r.workflowRegistrySyncer.GetAllowlistedRequests(ctx), digest)
+	requestDigestBytes, err := hex.DecodeString(requestDigest)
+	if err != nil {
+		r.lggr.Infow("AuthorizeRequest failed to decode digest", "method", req.Method, "requestID", req.ID)
+		return false, "", err
+	}
+	requestDigestBytes32 := [32]byte(requestDigestBytes)
+	if r.workflowRegistrySyncer == nil {
+		r.lggr.Errorw("AuthorizeRequest workflowRegistrySyncer is nil", "method", req.Method, "requestID", req.ID)
+		return false, "", errors.New("internal error: workflowRegistrySyncer is nil")
+	}
+	allowedRequests := r.workflowRegistrySyncer.GetAllowlistedRequests(ctx)
+	requestDigests := make([]string, 0, len(allowedRequests))
+	for _, allowedRequest := range allowedRequests {
+		requestDigests = append(requestDigests, hex.EncodeToString(allowedRequest.RequestDigest[:]))
+	}
+	r.lggr.Infow("AuthorizeRequest GetAllowlistedRequests", "method", req.Method, "requestID", req.ID, "allowedRequests", allowedRequests, "requestDigestHexStrs", requestDigests)
+	allowlistedRequest := r.fetchAllowlistedItem(allowedRequests, requestDigestBytes32)
 	if allowlistedRequest == nil {
+		r.lggr.Infow("AuthorizeRequest fetchAllowlistedItem request not allowlisted",
+			"method", req.Method,
+			"requestID", req.ID,
+			"digestHexStr", requestDigest,
+			"allowedRequestDigestHexStrs", requestDigests)
 		return false, "", errors.New("request not allowlisted")
 	}
-	authorizedRequestStr := string(allowlistedRequest.RequestDigest[:]) + "-->" + strconv.FormatUint(uint64(allowlistedRequest.ExpiryTimestamp), 10)
+	authorizedRequestStr := string(allowlistedRequest.RequestDigest[:])
+
 	r.alreadyAuthorizedMutex.Lock()
 	defer r.alreadyAuthorizedMutex.Unlock()
-	if r.alreadyAuthorizedRequests[authorizedRequestStr] {
+	if r.alreadyAuthorizedRequests[authorizedRequestStr] > 0 {
+		r.lggr.Infow("AuthorizeRequest already authorized previously", "method", req.Method, "requestID", req.ID, "authorizedRequestStr", authorizedRequestStr)
 		return false, "", errors.New("request already authorized previously")
 	}
-	currentTimestamp := time.Now().UTC().Unix()
-	if currentTimestamp > int64(allowlistedRequest.ExpiryTimestamp) {
+	if time.Now().UTC().Unix() > int64(allowlistedRequest.ExpiryTimestamp) {
+		r.lggr.Infow("AuthorizeRequest expired authorization", "method", req.Method, "requestID", req.ID, "authorizedRequestStr", authorizedRequestStr)
 		return false, "", errors.New("request authorization expired")
 	}
-	r.alreadyAuthorizedRequests[authorizedRequestStr] = true
+	r.lggr.Infow("AuthorizeRequest success in auth", "method", req.Method, "requestID", req.ID, "authorizedRequestStr", authorizedRequestStr)
+	r.alreadyAuthorizedRequests[authorizedRequestStr] = int64(allowlistedRequest.ExpiryTimestamp)
 	return true, allowlistedRequest.Owner.Hex(), nil
 }
 
 func (r *requestAuthorizer) clearExpiredAuthorizedRequests() {
 	r.alreadyAuthorizedMutex.Lock()
 	defer r.alreadyAuthorizedMutex.Unlock()
-	for request := range r.alreadyAuthorizedRequests {
-		expiryStr := strings.Split(request, "-->")[1]
-		expiry, err := strconv.Atoi(expiryStr)
-		if err != nil {
-			panic("could not parse expiry timestamp: " + err.Error())
-		}
-		if time.Now().UTC().Unix() > int64(expiry) {
+	for request, expiry := range r.alreadyAuthorizedRequests {
+		if time.Now().UTC().Unix() > expiry {
 			delete(r.alreadyAuthorizedRequests, request)
 		}
 	}
@@ -86,76 +95,10 @@ func (r *requestAuthorizer) fetchAllowlistedItem(allowListedRequests []workflow_
 	return nil
 }
 
-func (r *requestAuthorizer) digestForRequest(req jsonrpc.Request[json.RawMessage]) ([32]byte, error) {
-	var seed any
-	switch req.Method {
-	case vaulttypes.MethodSecretsCreate:
-		var createSecretsRequests vaultcommon.CreateSecretsRequest
-		if err := json.Unmarshal(*req.Params, &createSecretsRequests); err != nil {
-			return [32]byte{}, errors.New("error unmarshalling create secrets request: " + err.Error())
-		}
-		seed = vaultcommon.CreateSecretsRequest{
-			EncryptedSecrets: createSecretsRequests.EncryptedSecrets,
-		}
-	case vaulttypes.MethodSecretsUpdate:
-		var updateSecretsRequests vaultcommon.UpdateSecretsRequest
-		if err := json.Unmarshal(*req.Params, &updateSecretsRequests); err != nil {
-			return [32]byte{}, errors.New("error unmarshalling update secrets request: " + err.Error())
-		}
-		seed = vaultcommon.UpdateSecretsRequest{
-			EncryptedSecrets: updateSecretsRequests.EncryptedSecrets,
-		}
-	case vaulttypes.MethodSecretsList:
-		var listSecretsRequests vaultcommon.ListSecretIdentifiersRequest
-		if err := json.Unmarshal(*req.Params, &listSecretsRequests); err != nil {
-			return [32]byte{}, errors.New("error unmarshalling list secrets request: " + err.Error())
-		}
-		seed = vaultcommon.ListSecretIdentifiersRequest{
-			Owner:     listSecretsRequests.Owner,
-			Namespace: listSecretsRequests.Namespace,
-		}
-	case vaulttypes.MethodSecretsDelete:
-		var deleteSecretsRequests vaultcommon.DeleteSecretsRequest
-		if err := json.Unmarshal(*req.Params, &deleteSecretsRequests); err != nil {
-			return [32]byte{}, errors.New("error unmarshalling delete secrets request: " + err.Error())
-		}
-		seed = vaultcommon.DeleteSecretsRequest{
-			Ids: deleteSecretsRequests.Ids,
-		}
-	default:
-		return [32]byte{}, fmt.Errorf("unauthorized method: %s", req.Method)
-	}
-
-	return CalculateRequestDigest(seed), nil
-}
-
-// CalculateRequestDigest creates a SHA256 digest of the request for integrity verification
-// This function is shared between client (JWT generation) and server (JWT validation)
-func CalculateRequestDigest(req any) [32]byte {
-	var data []byte
-	if m, ok := req.(proto.Message); ok {
-		// Use protobuf canonical serialization
-		serialized, err := proto.Marshal(m)
-		if err == nil {
-			data = serialized
-		} else {
-			// fallback to string representation if marshal fails
-			data = []byte(fmt.Sprintf("%v", req))
-		}
-	} else if s, ok := req.(fmt.Stringer); ok {
-		data = []byte(s.String())
-	} else {
-		data = []byte(fmt.Sprintf("%v", req))
-	}
-
-	hash := sha256.Sum256(data)
-	return hash
-}
-
 func NewRequestAuthorizer(lggr logger.Logger, workflowRegistrySyncer workflowsyncerv2.WorkflowRegistrySyncer) *requestAuthorizer {
 	return &requestAuthorizer{
 		workflowRegistrySyncer:    workflowRegistrySyncer,
 		lggr:                      logger.Named(lggr, "VaultRequestAuthorizer"),
-		alreadyAuthorizedRequests: make(map[string]bool),
+		alreadyAuthorizedRequests: make(map[string]int64),
 	}
 }

@@ -54,16 +54,16 @@ func (m *MockMercuryConfigProvider) Credentials() *types.MercuryCredentials {
 	return mc
 }
 
-func (m *MockMercuryConfigProvider) IsUpkeepAllowed(s string) (interface{}, bool) {
+func (m *MockMercuryConfigProvider) IsUpkeepAllowed(s string) (any, bool) {
 	args := m.Called(s)
 	return args.Get(0), args.Bool(1)
 }
 
-func (m *MockMercuryConfigProvider) SetUpkeepAllowed(s string, i interface{}, d time.Duration) {
+func (m *MockMercuryConfigProvider) SetUpkeepAllowed(s string, i any, d time.Duration) {
 	m.Called(s, i, d)
 }
 
-func (m *MockMercuryConfigProvider) GetPluginRetry(s string) (interface{}, bool) {
+func (m *MockMercuryConfigProvider) GetPluginRetry(s string) (any, bool) {
 	if value, found := m.cache.Get(s); found {
 		return value, true
 	}
@@ -71,7 +71,7 @@ func (m *MockMercuryConfigProvider) GetPluginRetry(s string) (interface{}, bool)
 	return nil, false
 }
 
-func (m *MockMercuryConfigProvider) SetPluginRetry(s string, i interface{}, d time.Duration) {
+func (m *MockMercuryConfigProvider) SetPluginRetry(s string, i any, d time.Duration) {
 	m.cache.Set(s, i, d)
 }
 

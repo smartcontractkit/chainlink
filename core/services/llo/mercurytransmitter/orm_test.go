@@ -107,8 +107,8 @@ func TestORM(t *testing.T) {
 
 		var transmissions []*Transmission
 		// create 100 records (10 * 10 duplicate sequence numbers)
-		for seqNr := uint64(0); seqNr < 10; seqNr++ {
-			for i := 0; i < 10; i++ {
+		for seqNr := range uint64(10) {
+			for i := range 10 {
 				transmissions = append(transmissions, makeSampleTransmission(seqNr, sURL, []byte{byte(i)}))
 			}
 		}

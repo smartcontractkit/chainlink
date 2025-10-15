@@ -113,7 +113,7 @@ func JSONFromBytes(t testing.TB, body []byte) models.JSON {
 	return j
 }
 
-func MustJSONMarshal(t *testing.T, val interface{}) string {
+func MustJSONMarshal(t *testing.T, val any) string {
 	t.Helper()
 	bs, err := json.Marshal(val)
 	require.NoError(t, err)

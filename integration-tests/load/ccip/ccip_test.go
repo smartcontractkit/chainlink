@@ -275,7 +275,6 @@ func TestCCIPLoad_RPS(t *testing.T) {
 
 		g := new(errgroup.Group)
 		for _, src := range srcChains {
-			src := src
 			g.Go(func() error {
 				selFamily, err := selectors.GetSelectorFamily(src)
 				require.NoError(t, err)

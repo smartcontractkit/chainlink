@@ -45,8 +45,7 @@ type TriggerMetrics struct {
 	requestCount                     metric.Int64Counter
 	requestErrors                    metric.Int64Counter
 	requestSuccess                   metric.Int64Counter
-	workflowOwnerThrottled           metric.Int64Counter
-	globalThrottled                  metric.Int64Counter
+	workflowThrottled                metric.Int64Counter
 	pendingRequestsCleanUpCount      metric.Int64Counter
 	pendingRequestsCount             metric.Int64Gauge
 	requestHandlerLatency            metric.Int64Histogram
@@ -242,20 +241,12 @@ func newTriggerMetrics(meter metric.Meter) (*TriggerMetrics, error) {
 		return nil, fmt.Errorf("failed to create HTTP trigger gateway successful requests metric: %w", err)
 	}
 
-	m.workflowOwnerThrottled, err = meter.Int64Counter(
-		"http_trigger_gateway_workflow_owner_throttled",
-		metric.WithDescription("Number of HTTP trigger gateway requests throttled per workflow owner"),
+	m.workflowThrottled, err = meter.Int64Counter(
+		"http_trigger_gateway_workflow_throttled",
+		metric.WithDescription("Number of HTTP trigger gateway requests throttled per workflow"),
 	)
 	if err != nil {
-		return nil, fmt.Errorf("failed to create HTTP trigger gateway workflow owner throttled metric: %w", err)
-	}
-
-	m.globalThrottled, err = meter.Int64Counter(
-		"http_trigger_gateway_global_throttled",
-		metric.WithDescription("Number of HTTP trigger gateway requests throttled globally"),
-	)
-	if err != nil {
-		return nil, fmt.Errorf("failed to create HTTP trigger gateway global throttled metric: %w", err)
+		return nil, fmt.Errorf("failed to create HTTP trigger gateway workflow throttled metric: %w", err)
 	}
 
 	m.pendingRequestsCleanUpCount, err = meter.Int64Counter(
@@ -419,12 +410,8 @@ func (m *TriggerMetrics) IncrementRequestSuccess(ctx context.Context, lggr logge
 	m.requestSuccess.Add(ctx, 1)
 }
 
-func (m *TriggerMetrics) IncrementWorkflowOwnerThrottled(ctx context.Context, lggr logger.Logger) {
-	m.workflowOwnerThrottled.Add(ctx, 1)
-}
-
-func (m *TriggerMetrics) IncrementGlobalThrottled(ctx context.Context, lggr logger.Logger) {
-	m.globalThrottled.Add(ctx, 1)
+func (m *TriggerMetrics) IncrementWorkflowThrottled(ctx context.Context, lggr logger.Logger) {
+	m.workflowThrottled.Add(ctx, 1)
 }
 
 func (m *TriggerMetrics) IncrementPendingRequestsCleanUpCount(ctx context.Context, count int64, lggr logger.Logger) {

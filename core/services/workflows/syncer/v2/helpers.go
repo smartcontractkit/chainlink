@@ -90,7 +90,7 @@ func (m *mockService) Ready() error { return nil }
 
 func (m *mockService) Name() string { return "svc" }
 
-func HandleRevertData(err error) (interface{}, error) {
+func HandleRevertData(err error) (any, error) {
 	var ec rpc.Error
 	var ed rpc.DataError
 	if errors.As(err, &ec) && errors.As(err, &ed) && ec.ErrorCode() == 3 {

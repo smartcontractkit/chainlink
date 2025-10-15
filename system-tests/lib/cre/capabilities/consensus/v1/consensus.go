@@ -17,7 +17,6 @@ import (
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/capabilities"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/contracts"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/jobs"
-	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/node"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/flags"
 )
 
@@ -84,19 +83,19 @@ func jobSpec(chainID uint64) cre.JobSpecFn {
 			return nil, errors.Wrap(err, "failed to get DON Time address")
 		}
 
-		for _, donMetadata := range input.DonTopology.ToDonMetadata() {
-			if !flags.HasFlag(donMetadata.Flags, flag) {
+		for _, don := range input.DonTopology.Dons.List() {
+			if !don.HasFlag(flag) {
 				continue
 			}
 
-			workerNodes, wErr := donMetadata.WorkerNodes()
+			workerNodes, wErr := don.Workers()
 			if wErr != nil {
 				return nil, errors.Wrap(wErr, "failed to find worker nodes")
 			}
 
-			bootstrapNode, err := input.DonTopology.BootstrapNode()
-			if err != nil {
-				return nil, errors.Wrap(err, "failed to get bootstrap node from DON metadata")
+			bootstrapNode, isBootstrap := input.DonTopology.Bootstrap()
+			if !isBootstrap {
+				return nil, errors.New("could not find bootstrap node in topology, exactly one bootstrap node is required")
 			}
 
 			_, ocrPeeringCfg, err := cre.PeeringCfgs(bootstrapNode)
@@ -104,38 +103,23 @@ func jobSpec(chainID uint64) cre.JobSpecFn {
 				return nil, errors.Wrap(err, "failed to get peering configs")
 			}
 
-			bootstrapNodeID, nodeIDErr := node.FindLabelValue(bootstrapNode, node.NodeIDKey)
-			if nodeIDErr != nil {
-				return nil, errors.Wrap(nodeIDErr, "failed to get bootstrap node id from labels")
-			}
-
-			donToJobSpecs[donMetadata.ID] = append(donToJobSpecs[donMetadata.ID], jobs.BootstrapOCR3(bootstrapNodeID, "ocr3-capability", ocr3CapabilityAddress.Address, chainID))
+			donToJobSpecs[don.ID] = append(donToJobSpecs[don.ID], jobs.BootstrapOCR3(bootstrapNode.JobDistributorDetails.NodeID, "ocr3-capability", ocr3CapabilityAddress.Address, chainID))
 
 			for _, workerNode := range workerNodes {
-				nodeID, nodeIDErr := node.FindLabelValue(workerNode, node.NodeIDKey)
-				if nodeIDErr != nil {
-					return nil, errors.Wrap(nodeIDErr, "failed to get node id from labels")
-				}
-
 				evmKey, ok := workerNode.Keys.EVM[chainID]
 				if !ok {
 					return nil, fmt.Errorf("failed to get EVM key (chainID %d, node index %d)", chainID, workerNode.Index)
 				}
 
-				ocr2KeyBundlesPerFamily, ocr2kbErr := node.ExtractBundleKeysPerFamily(workerNode)
-				if ocr2kbErr != nil {
-					return nil, errors.Wrap(ocr2kbErr, "failed to get ocr2 key bundle id from labels")
-				}
-
 				// we need the OCR2 key bundle for the EVM chain, because OCR jobs currently run only on EVM chains
-				evmOCR2KeyBundle, ok := ocr2KeyBundlesPerFamily[chainselectors.FamilyEVM]
+				evmOCR2KeyBundle, ok := workerNode.Keys.OCR2BundleIDs[chainselectors.FamilyEVM]
 				if !ok {
-					return nil, fmt.Errorf("node %s does not have OCR2 key bundle for evm", nodeID)
+					return nil, fmt.Errorf("node %s does not have OCR2 key bundle for evm", workerNode.Name)
 				}
 
 				// we pass here bundles for all chains to enable multi-chain signing
-				donToJobSpecs[donMetadata.ID] = append(donToJobSpecs[donMetadata.ID], jobs.WorkerOCR3(nodeID, ocr3CapabilityAddress.Address, evmKey.PublicAddress.Hex(), evmOCR2KeyBundle, ocr2KeyBundlesPerFamily, ocrPeeringCfg, chainID))
-				donToJobSpecs[donMetadata.ID] = append(donToJobSpecs[donMetadata.ID], jobs.DonTimeJob(nodeID, donTimeAddress.Address, evmKey.PublicAddress.Hex(), evmOCR2KeyBundle, ocrPeeringCfg, chainID))
+				donToJobSpecs[don.ID] = append(donToJobSpecs[don.ID], jobs.WorkerOCR3(workerNode.JobDistributorDetails.NodeID, ocr3CapabilityAddress.Address, evmKey.PublicAddress.Hex(), evmOCR2KeyBundle, workerNode.Keys.OCR2BundleIDs, ocrPeeringCfg, chainID))
+				donToJobSpecs[don.ID] = append(donToJobSpecs[don.ID], jobs.DonTimeJob(workerNode.JobDistributorDetails.NodeID, donTimeAddress.Address, evmKey.PublicAddress.Hex(), evmOCR2KeyBundle, ocrPeeringCfg, chainID))
 			}
 		}
 

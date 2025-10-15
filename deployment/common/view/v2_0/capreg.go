@@ -1,6 +1,7 @@
 package v2_0
 
 import (
+	"bytes"
 	"encoding/hex"
 	"encoding/json"
 	"errors"
@@ -10,8 +11,10 @@ import (
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/smartcontractkit/chainlink/deployment/cre/capabilities_registry/v2/changeset/pkg"
 
 	capabilities_registry "github.com/smartcontractkit/chainlink-evm/gethwrappers/workflow/generated/capabilities_registry_wrapper_v2"
+
 	"github.com/smartcontractkit/chainlink/deployment/common/view/types"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/p2pkey"
 )
@@ -104,34 +107,34 @@ var (
 	MaxNOPs         = big.NewInt(128)
 )
 
-type extendedCapabilityRegistry struct {
+type ExtendedCapabilityRegistry struct {
 	*capabilities_registry.CapabilitiesRegistry
 }
 
-var _ unpagniatedCapabilityRegistry = (*extendedCapabilityRegistry)(nil)
+var _ unpagniatedCapabilityRegistry = (*ExtendedCapabilityRegistry)(nil)
 
-// implements unpagniatedCapabilityRegistry
-func (e *extendedCapabilityRegistry) GetCapabilitiesSimple(opts *bind.CallOpts) ([]capabilities_registry.CapabilitiesRegistryCapabilityInfo, error) {
+// GetCapabilitiesSimple implements unpagniatedCapabilityRegistry
+func (e *ExtendedCapabilityRegistry) GetCapabilitiesSimple(opts *bind.CallOpts) ([]capabilities_registry.CapabilitiesRegistryCapabilityInfo, error) {
 	return e.GetCapabilities(opts, big.NewInt(0), MaxCapabilities)
 }
 
-// implements unpagniatedCapabilityRegistry
-func (e *extendedCapabilityRegistry) GetNodesSimple(opts *bind.CallOpts) ([]capabilities_registry.INodeInfoProviderNodeInfo, error) {
+// GetNodesSimple implements unpagniatedCapabilityRegistry
+func (e *ExtendedCapabilityRegistry) GetNodesSimple(opts *bind.CallOpts) ([]capabilities_registry.INodeInfoProviderNodeInfo, error) {
 	return e.GetNodes(opts, big.NewInt(0), MaxNodes)
 }
 
-// implements unpagniatedCapabilityRegistry
-func (e *extendedCapabilityRegistry) GetNodeOperatorsSimple(opts *bind.CallOpts) ([]capabilities_registry.CapabilitiesRegistryNodeOperatorInfo, error) {
+// GetNodeOperatorsSimple implements unpagniatedCapabilityRegistry
+func (e *ExtendedCapabilityRegistry) GetNodeOperatorsSimple(opts *bind.CallOpts) ([]capabilities_registry.CapabilitiesRegistryNodeOperatorInfo, error) {
 	return e.GetNodeOperators(opts, big.NewInt(0), MaxNOPs)
 }
 
-// implements unpagniatedCapabilityRegistry
-func (e *extendedCapabilityRegistry) GetDONsSimple(opts *bind.CallOpts) ([]capabilities_registry.CapabilitiesRegistryDONInfo, error) {
+// GetDONsSimple implements unpagniatedCapabilityRegistry
+func (e *ExtendedCapabilityRegistry) GetDONsSimple(opts *bind.CallOpts) ([]capabilities_registry.CapabilitiesRegistryDONInfo, error) {
 	return e.GetDONs(opts, big.NewInt(0), MaxDONs)
 }
 
 // GenerateCapabilityRegistryView generates a CapRegView from a CapabilitiesRegistry contract.
-func GenerateCapabilityRegistryView(capReg *extendedCapabilityRegistry) (CapabilityRegistryView, error) {
+func GenerateCapabilityRegistryView(capReg *ExtendedCapabilityRegistry) (CapabilityRegistryView, error) {
 	tv, err := types.NewContractMetaData(capReg, capReg.Address())
 	if err != nil {
 		return CapabilityRegistryView{}, err
@@ -142,7 +145,11 @@ func GenerateCapabilityRegistryView(capReg *extendedCapabilityRegistry) (Capabil
 	}
 	var capViews []CapabilityView
 	for _, capability := range caps {
-		capViews = append(capViews, NewCapabilityView(capability))
+		capView, capViewErr := NewCapabilityView(capability)
+		if capViewErr != nil {
+			return CapabilityRegistryView{}, fmt.Errorf("failed to create capability view for capability %s: %w", capability.CapabilityId, capViewErr)
+		}
+		capViews = append(capViews, capView)
 	}
 	donInfos, err := capReg.GetDONsSimple(nil)
 	if err != nil {
@@ -150,7 +157,11 @@ func GenerateCapabilityRegistryView(capReg *extendedCapabilityRegistry) (Capabil
 	}
 	var donViews []DonView
 	for _, donInfo := range donInfos {
-		donViews = append(donViews, NewDonView(donInfo))
+		donView, donViewErr := NewDonView(donInfo)
+		if donViewErr != nil {
+			return CapabilityRegistryView{}, fmt.Errorf("failed to create don view for don %d: %w", donInfo.Id, donViewErr)
+		}
+		donViews = append(donViews, donView)
 	}
 
 	nodeInfos, err := capReg.GetNodesSimple(nil)
@@ -205,9 +216,9 @@ func (v *CapabilityRegistryView) DonDenormalizedView() ([]DonDenormalizedView, e
 			}
 		}
 		var capabilities []CapabilityView
-		for _, cap := range v.Capabilities {
-			if don.hasCapability(cap) {
-				capabilities = append(capabilities, cap)
+		for _, capability := range v.Capabilities {
+			if don.hasCapability(capability) {
+				capabilities = append(capabilities, capability)
 			}
 		}
 		out = append(out, DonDenormalizedView{
@@ -248,16 +259,21 @@ func (v *CapabilityRegistryView) NodesToNodesParams() ([]capabilities_registry.C
 	return nodesParams, nil
 }
 
-func (v *CapabilityRegistryView) CapabilitiesToCapabilitiesParams() []capabilities_registry.CapabilitiesRegistryCapability {
+func (v *CapabilityRegistryView) CapabilitiesToCapabilitiesParams() ([]capabilities_registry.CapabilitiesRegistryCapability, error) {
 	var capabilitiesParams []capabilities_registry.CapabilitiesRegistryCapability
 	for _, capability := range v.Capabilities {
-		// TODO decode the metadata from proto to json
+		fmt.Println("capInfo.Metadata:", capability.Metadata)
+		metadataBytes, err := json.Marshal(capability.Metadata)
+		if err != nil {
+			return nil, fmt.Errorf("failed to marshal capability metadata for capability %s: %w", capability.ID, err)
+		}
 		capabilitiesParams = append(capabilitiesParams, capabilities_registry.CapabilitiesRegistryCapability{
 			CapabilityId:          capability.ID,
 			ConfigurationContract: capability.ConfigurationContract,
+			Metadata:              metadataBytes,
 		})
 	}
-	return capabilitiesParams
+	return capabilitiesParams, nil
 }
 
 func (v *CapabilityRegistryView) NopsToNopsParams() []capabilities_registry.CapabilitiesRegistryNodeOperatorInfo {
@@ -274,13 +290,14 @@ func (v *CapabilityRegistryView) NopsToNopsParams() []capabilities_registry.Capa
 func (v *CapabilityRegistryView) CapabilityConfigToCapabilityConfigParams(don DonView) ([]capabilities_registry.CapabilitiesRegistryCapabilityConfiguration, error) {
 	var cfgs []capabilities_registry.CapabilitiesRegistryCapabilityConfiguration
 	for _, cfg := range don.CapabilityConfigurations {
-		config, err := hex.DecodeString(cfg.Config)
+		config := pkg.CapabilityConfig(cfg.Config)
+		cfgBytes, err := config.MarshalProto()
 		if err != nil {
 			return nil, err
 		}
 		cfgs = append(cfgs, capabilities_registry.CapabilitiesRegistryCapabilityConfiguration{
 			CapabilityId: cfg.ID,
-			Config:       config,
+			Config:       cfgBytes,
 		})
 	}
 	return cfgs, nil
@@ -300,19 +317,36 @@ func hexTo32Bytes(val string) ([32]byte, error) {
 type CapabilityView struct {
 	ID                    string         `json:"id"` // hex 32 bytes
 	ConfigurationContract common.Address `json:"configuration_contract,omitempty"`
-	Metadata              string         `json:"metadata,omitempty"` // JSON string of the proto-decoded metadata
+	Metadata              map[string]any `json:"metadata,omitempty"`
 	IsDeprecated          bool           `json:"is_deprecated,omitempty"`
 }
 
 // NewCapabilityView creates a CapabilityView from a CapabilitiesRegistryCapabilityInfo.
-func NewCapabilityView(capInfo capabilities_registry.CapabilitiesRegistryCapabilityInfo) CapabilityView {
-	// TODO metadata decoding from proto to json
+func NewCapabilityView(capInfo capabilities_registry.CapabilitiesRegistryCapabilityInfo) (CapabilityView, error) {
+	var metadata map[string]any
+	// We have a weird case in which the metadata is just null chars (\x00) for a deprecated capability named `cap1` on eth sepolia.
+	// First, find the first null byte.
+	firstNull := bytes.IndexByte(capInfo.Metadata, 0)
+	var cleanMetadata []byte
+	if firstNull != -1 {
+		cleanMetadata = capInfo.Metadata[:firstNull]
+	} else {
+		cleanMetadata = capInfo.Metadata
+	}
+
+	if len(cleanMetadata) > 0 {
+		err := json.Unmarshal(cleanMetadata, &metadata)
+		if err != nil {
+			return CapabilityView{}, fmt.Errorf("failed to unmarshal capability metadata for capability %s: %w", capInfo.CapabilityId, err)
+		}
+	}
+
 	return CapabilityView{
-		ID: capInfo.CapabilityId,
-		//Metadata:              capInfo.Metadata,
+		ID:                    capInfo.CapabilityId,
+		Metadata:              metadata,
 		ConfigurationContract: capInfo.ConfigurationContract,
 		IsDeprecated:          capInfo.IsDeprecated,
-	}
+	}, nil
 }
 
 // Validate checks that the CapabilityView is valid.
@@ -335,26 +369,41 @@ type DonView struct {
 }
 
 type DonUniversalMetadata struct {
-	ID               uint32 `json:"id"`
-	ConfigCount      uint32 `json:"config_count"`
-	F                uint8  `json:"f"`
-	IsPublic         bool   `json:"is_public,omitempty"`
-	AcceptsWorkflows bool   `json:"accepts_workflows,omitempty"`
+	ID               uint32         `json:"id"`
+	Name             string         `json:"name"`
+	ConfigCount      uint32         `json:"config_count"`
+	F                uint8          `json:"f"`
+	IsPublic         bool           `json:"is_public,omitempty"`
+	AcceptsWorkflows bool           `json:"accepts_workflows,omitempty"`
+	DONFamilies      []string       `json:"don_family,omitempty"`
+	Config           map[string]any `json:"config,omitempty"`
 }
 
 // NewDonView creates a DonView from a CapabilitiesRegistryDONInfo.
-func NewDonView(d capabilities_registry.CapabilitiesRegistryDONInfo) DonView {
+func NewDonView(d capabilities_registry.CapabilitiesRegistryDONInfo) (DonView, error) {
+	donCfg := pkg.CapabilityConfig{}
+	err := donCfg.UnmarshalProto(d.Config)
+	if err != nil {
+		return DonView{}, fmt.Errorf("failed to unmarshal don config for don %d: %w", d.Id, err)
+	}
+	capCgfs, err := NewCapabilityConfigurations(d.CapabilityConfigurations)
+	if err != nil {
+		return DonView{}, fmt.Errorf("failed to create capability configurations for don %d: %w", d.Id, err)
+	}
 	return DonView{
 		DonUniversalMetadata: DonUniversalMetadata{
 			ID:               d.Id,
+			Name:             d.Name,
 			ConfigCount:      d.ConfigCount,
 			F:                d.F,
 			IsPublic:         d.IsPublic,
 			AcceptsWorkflows: d.AcceptsWorkflows,
+			DONFamilies:      d.DonFamilies,
+			Config:           donCfg,
 		},
 		NodeP2PIds:               p2pIDs(d.NodeP2PIds),
-		CapabilityConfigurations: NewCapabilityConfigurations(d.CapabilityConfigurations),
-	}
+		CapabilityConfigurations: capCgfs,
+	}, nil
 }
 
 func (dv DonView) Validate() error {
@@ -368,20 +417,25 @@ func (dv DonView) Validate() error {
 
 // CapabilitiesConfiguration is a serialization-friendly view of a capability configuration in the capabilities registry.
 type CapabilitiesConfiguration struct {
-	ID     string `json:"id"`     // hex 32 bytes
-	Config string `json:"config"` // hex
+	ID     string         `json:"id"` // hex 32 bytes
+	Config map[string]any `json:"config"`
 }
 
 // NewCapabilityConfigurations creates a list of CapabilitiesConfiguration from a list of CapabilitiesRegistryCapabilityConfiguration.
-func NewCapabilityConfigurations(cfgs []capabilities_registry.CapabilitiesRegistryCapabilityConfiguration) []CapabilitiesConfiguration {
+func NewCapabilityConfigurations(cfgs []capabilities_registry.CapabilitiesRegistryCapabilityConfiguration) ([]CapabilitiesConfiguration, error) {
 	var out []CapabilitiesConfiguration
 	for _, cfg := range cfgs {
+		capCfg := pkg.CapabilityConfig{}
+		err := capCfg.UnmarshalProto(cfg.Config)
+		if err != nil {
+			return nil, fmt.Errorf("failed to unmarshal capability configuration for capability %s: %w", cfg.CapabilityId, err)
+		}
 		out = append(out, CapabilitiesConfiguration{
 			ID:     cfg.CapabilityId,
-			Config: hex.EncodeToString(cfg.Config),
+			Config: capCfg,
 		})
 	}
-	return out
+	return out, nil
 }
 
 func (cc CapabilitiesConfiguration) Validate() error {
@@ -392,9 +446,10 @@ func (cc CapabilitiesConfiguration) Validate() error {
 	if len(id) != 32 {
 		return errors.New("capability id must be 32 bytes")
 	}
-	_, err = hex.DecodeString(cc.Config)
+	x := pkg.CapabilityConfig(cc.Config)
+	_, err = x.MarshalProto()
 	if err != nil {
-		return errors.New("config must be hex encoded")
+		return errors.New("config must be proto marshalable")
 	}
 	return nil
 }
@@ -507,7 +562,7 @@ func nodeNop(n NodeView, nops []NopView) (NopView, error) {
 func p2pIDs(rawIDs [][32]byte) []p2pkey.PeerID {
 	var out []p2pkey.PeerID
 	for _, id := range rawIDs {
-		out = append(out, p2pkey.PeerID(id))
+		out = append(out, id)
 	}
 	return out
 }

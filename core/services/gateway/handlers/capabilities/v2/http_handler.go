@@ -14,6 +14,8 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/ratelimit"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
+	"github.com/smartcontractkit/chainlink-common/pkg/settings/cresettings"
+	"github.com/smartcontractkit/chainlink-common/pkg/settings/limits"
 	gateway_common "github.com/smartcontractkit/chainlink-common/pkg/types/gateway"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/api"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/config"
@@ -46,7 +48,7 @@ type gatewayHandler struct {
 	lggr            logger.Logger
 	httpClient      network.HTTPClient
 	nodeRateLimiter *ratelimit.RateLimiter // Rate limiter for node requests (e.g. outgoing HTTP requests, HTTP trigger response, auth metadata exchange)
-	userRateLimiter *ratelimit.RateLimiter // Rate limiter for user requests that trigger workflow executions
+	userRateLimiter limits.RateLimiter     // Rate limiter for user requests that trigger workflow executions
 	wg              sync.WaitGroup
 	stopCh          services.StopChan
 	responseCache   ResponseCache // Caches HTTP responses to avoid redundant requests for outbound HTTP actions
@@ -56,14 +58,20 @@ type gatewayHandler struct {
 }
 
 type ResponseCache interface {
+	// Set caches a response if it is cacheable (2xx or 4xx status codes) and the cache is empty or expired for the given request.
 	Set(workflowID string, req gateway_common.OutboundHTTPRequest, response gateway_common.OutboundHTTPResponse)
-	CachedFetch(ctx context.Context, workflowID string, req gateway_common.OutboundHTTPRequest, fetchFn func() gateway_common.OutboundHTTPResponse) gateway_common.OutboundHTTPResponse
+
+	// Fetch retrieves a response from the cache if it exists and the age of cached response is less than the max age of the request.
+	// If the cached response is expired or not cached, it fetches a new response from the fetchFn.
+	// The response is cached if it is cacheable and storeOnFetch is true.
+	Fetch(ctx context.Context, workflowID string, req gateway_common.OutboundHTTPRequest, fetchFn func() gateway_common.OutboundHTTPResponse, storeOnFetch bool) gateway_common.OutboundHTTPResponse
+
+	// DeleteExpired removes all cached responses that have exceeded their TTL (Time To Live).
 	DeleteExpired(ctx context.Context) int
 }
 
 type ServiceConfig struct {
 	NodeRateLimiter               ratelimit.RateLimiterConfig `json:"nodeRateLimiter"`
-	UserRateLimiter               ratelimit.RateLimiterConfig `json:"userRateLimiter"`
 	MaxTriggerRequestDurationMs   int                         `json:"maxTriggerRequestDurationMs"`
 	RetryConfig                   RetryConfig                 `json:"retryConfig"`
 	CleanUpPeriodMs               int                         `json:"cleanUpPeriodMs"`
@@ -79,7 +87,7 @@ type RetryConfig struct {
 	Multiplier        float64 `json:"multiplier"`
 }
 
-func NewGatewayHandler(handlerConfig json.RawMessage, donConfig *config.DONConfig, don handlers.DON, httpClient network.HTTPClient, lggr logger.Logger) (*gatewayHandler, error) {
+func NewGatewayHandler(handlerConfig json.RawMessage, donConfig *config.DONConfig, don handlers.DON, httpClient network.HTTPClient, lggr logger.Logger, lf limits.Factory) (*gatewayHandler, error) {
 	var cfg ServiceConfig
 	err := json.Unmarshal(handlerConfig, &cfg)
 	if err != nil {
@@ -90,7 +98,7 @@ func NewGatewayHandler(handlerConfig json.RawMessage, donConfig *config.DONConfi
 	if err != nil {
 		return nil, fmt.Errorf("failed to create node rate limiter: %w", err)
 	}
-	userRateLimiter, err := ratelimit.NewRateLimiter(cfg.UserRateLimiter)
+	userRateLimiter, err := lf.MakeRateLimiter(cresettings.Default.PerWorkflow.HTTPTrigger.RateLimit)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create user rate limiter: %w", err)
 	}
@@ -119,19 +127,6 @@ func NewGatewayHandler(handlerConfig json.RawMessage, donConfig *config.DONConfi
 }
 
 func WithDefaults(cfg ServiceConfig) ServiceConfig {
-	// TODO: userRateLimiter defaults will be replaced by limits integration
-	if cfg.UserRateLimiter.GlobalBurst == 0 {
-		cfg.UserRateLimiter.GlobalBurst = 100
-	}
-	if cfg.UserRateLimiter.GlobalRPS == 0 {
-		cfg.UserRateLimiter.GlobalRPS = 100
-	}
-	if cfg.UserRateLimiter.PerSenderBurst == 0 {
-		cfg.UserRateLimiter.PerSenderBurst = 100
-	}
-	if cfg.UserRateLimiter.PerSenderRPS == 0 {
-		cfg.UserRateLimiter.PerSenderRPS = 100
-	}
 	if cfg.CleanUpPeriodMs == 0 {
 		cfg.CleanUpPeriodMs = defaultCleanUpPeriodMs
 	}
@@ -311,12 +306,14 @@ func (h *gatewayHandler) makeOutgoingRequest(ctx context.Context, resp *jsonrpc.
 		l := logger.With(h.lggr, "requestID", requestID, "method", req.Method, "timeout", req.TimeoutMs)
 		var outboundResp gateway_common.OutboundHTTPResponse
 		callback := h.createHTTPRequestCallback(newCtx, requestID, httpReq, req)
-		if req.CacheSettings.ReadFromCache {
+		if req.CacheSettings.MaxAgeMs > 0 {
 			h.metrics.Action.IncrementCacheReadCount(ctx, h.lggr)
-			outboundResp = h.responseCache.CachedFetch(ctx, workflowID, req, callback)
+			outboundResp = h.responseCache.Fetch(ctx, workflowID, req, callback, req.CacheSettings.Store)
 		} else {
 			outboundResp = callback()
-			h.responseCache.Set(workflowID, req, outboundResp)
+			if req.CacheSettings.Store {
+				h.responseCache.Set(workflowID, req, outboundResp)
+			}
 		}
 		h.metrics.Action.IncrementCapabilityRequestCount(ctx, nodeAddr, h.lggr)
 		err := h.sendResponseToNode(newCtx, requestID, outboundResp, nodeAddr)
@@ -347,7 +344,9 @@ func (h *gatewayHandler) Start(ctx context.Context) error {
 		if err != nil {
 			return fmt.Errorf("failed to start HTTP auth handler: %w", err)
 		}
+		h.wg.Add(1)
 		go func() {
+			defer h.wg.Done()
 			ticker := time.NewTicker(time.Duration(h.config.CleanUpPeriodMs) * time.Millisecond)
 			defer ticker.Stop()
 			for {

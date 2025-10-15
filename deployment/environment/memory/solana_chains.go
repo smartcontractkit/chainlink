@@ -256,6 +256,19 @@ func FundSolanaAccountsWithLogging(
 	return nil
 }
 
+// DownloadSolanaProgramArtifactsForTest downloads the Solana program artifacts for the test environment.
+//
+// This is a temporary function which will be replaced by a more comprehensive package which can
+// handle a more customizable download of artifacts.
+func DownloadSolanaProgramArtifactsForTest(t *testing.T) {
+	once.Do(func() {
+		err := DownloadSolanaProgramArtifacts(t.Context(), ProgramsPath, logger.Test(t), "b0f7cd3fbdbb")
+		require.NoError(t, err)
+		err = DownloadSolanaCCIPProgramArtifacts(t.Context(), ProgramsPath, logger.Test(t), "")
+		require.NoError(t, err)
+	})
+}
+
 func generateChainsSol(t *testing.T, numChains int, commitSha string) []cldf_chain.BlockChain {
 	t.Helper()
 
@@ -278,7 +291,7 @@ func generateChainsSol(t *testing.T, numChains int, commitSha string) []cldf_cha
 	}
 
 	chains := make([]cldf_chain.BlockChain, 0, numChains)
-	for i := 0; i < numChains; i++ {
+	for i := range numChains {
 		selector := testSolanaChainSelectors[i]
 
 		c, err := cldf_solana_provider.NewCTFChainProvider(t, selector,

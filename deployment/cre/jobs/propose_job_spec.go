@@ -20,12 +20,12 @@ type ProposeJobSpecInput struct {
 	Environment string `json:"environment" yaml:"environment"`
 	Domain      string `json:"domain" yaml:"domain"`
 
-	DONName    string                     `json:"don_name" yaml:"don_name"`
-	DONFilters []offchain.TargetDONFilter `json:"don_filters" yaml:"don_filters"`
+	DONName    string                     `json:"donName" yaml:"donName"`
+	DONFilters []offchain.TargetDONFilter `json:"donFilters" yaml:"donFilters"`
 
-	JobName     string                    `json:"job_name" yaml:"job_name"`
+	JobName     string                    `json:"jobName" yaml:"jobName"`
 	Template    job_types.JobSpecTemplate `json:"template" yaml:"template"`
-	ExtraLabels map[string]string         `json:"extra_labels,omitempty" yaml:"extra_labels,omitempty"`
+	ExtraLabels map[string]string         `json:"extraLabels,omitempty" yaml:"extraLabels,omitempty"`
 
 	// Inputs is a map of input variables to be used in the job spec template.
 	// These will vary based on the template used, and will be validated differently

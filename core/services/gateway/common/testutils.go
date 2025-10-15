@@ -16,7 +16,7 @@ type TestNode struct {
 
 func NewTestNodes(t *testing.T, n int) []TestNode {
 	nodes := make([]TestNode, n)
-	for i := 0; i < n; i++ {
+	for i := range n {
 		privateKey, err := crypto.GenerateKey()
 		require.NoError(t, err)
 		address := strings.ToLower(crypto.PubkeyToAddress(privateKey.PublicKey).Hex())

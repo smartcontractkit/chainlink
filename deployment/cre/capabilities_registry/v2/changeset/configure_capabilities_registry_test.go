@@ -8,21 +8,24 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/google/go-cmp/cmp"
+	chainselectors "github.com/smartcontractkit/chain-selectors"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/protobuf/testing/protocmp"
 	"gopkg.in/yaml.v3"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
+	capabilities_registry_v2 "github.com/smartcontractkit/chainlink-evm/gethwrappers/workflow/generated/capabilities_registry_wrapper_v2"
+
 	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+	"github.com/smartcontractkit/chainlink-deployments-framework/engine/test/environment"
+	"github.com/smartcontractkit/chainlink-deployments-framework/engine/test/runtime"
 	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
 
-	capabilities_registry_v2 "github.com/smartcontractkit/chainlink-evm/gethwrappers/workflow/generated/capabilities_registry_wrapper_v2"
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 	commontypes "github.com/smartcontractkit/chainlink/deployment/common/types"
-	"github.com/smartcontractkit/chainlink/deployment/cre"
 	"github.com/smartcontractkit/chainlink/deployment/cre/capabilities_registry/v2/changeset/operations/contracts"
 	"github.com/smartcontractkit/chainlink/deployment/cre/capabilities_registry/v2/changeset/pkg"
 	"github.com/smartcontractkit/chainlink/deployment/cre/common/strategies"
@@ -33,6 +36,7 @@ import (
 type testFixture struct {
 	env                         cldf.Environment
 	chainSelector               uint64
+	qualifier                   string
 	capabilitiesRegistryAddress string
 	nops                        []CapabilitiesRegistryNodeOperator
 	capabilities                []CapabilitiesRegistryCapability
@@ -52,8 +56,28 @@ const (
 )
 
 func TestConfigureCapabilitiesRegistry(t *testing.T) {
-	fixture := setupCapabilitiesRegistryTest(t)
+	t.Parallel()
 
+	t.Run("select by address", func(t *testing.T) {
+		t.Parallel()
+
+		fixture := setupCapabilitiesRegistryTest(t)
+
+		suite(t, fixture)
+	})
+
+	t.Run("select by qualifier", func(t *testing.T) {
+		t.Parallel()
+
+		fixture := setupCapabilitiesRegistryTest(t)
+		fixture.configureInput.CapabilitiesRegistryAddress = ""
+		fixture.configureInput.Qualifier = fixture.qualifier
+
+		suite(t, fixture)
+	})
+}
+
+func suite(t *testing.T, fixture *testFixture) {
 	t.Run("single configuration", func(t *testing.T) {
 		t.Log("Starting capabilities registry configuration...")
 		configureOutput, err := ConfigureCapabilitiesRegistry{}.Apply(fixture.env, fixture.configureInput)
@@ -172,7 +196,7 @@ func TestConfigureCapabilitiesRegistryInput_YAMLSerialization(t *testing.T) {
 			{
 				CapabilityID:          "write-chain@1.0.0",
 				ConfigurationContract: common.HexToAddress("0x3333333333333333333333333333333333333333"),
-				Metadata: map[string]interface{}{
+				Metadata: map[string]any{
 					"capabilityType": 3,
 					"responseType":   0,
 				},
@@ -180,7 +204,7 @@ func TestConfigureCapabilitiesRegistryInput_YAMLSerialization(t *testing.T) {
 			{
 				CapabilityID:          "trigger@1.0.0",
 				ConfigurationContract: common.Address{}, // Zero address
-				Metadata: map[string]interface{}{
+				Metadata: map[string]any{
 					"capabilityType": 0,
 					"responseType":   0,
 				},
@@ -200,20 +224,20 @@ func TestConfigureCapabilitiesRegistryInput_YAMLSerialization(t *testing.T) {
 			{
 				Name:        "workflow-don-1",
 				DonFamilies: []string{"workflow", "test"},
-				Config: map[string]interface{}{
+				Config: map[string]any{
 					"consensus": "basic",
 					"timeout":   "30s",
 				},
 				CapabilityConfigurations: []CapabilitiesRegistryCapabilityConfiguration{
 					{
 						CapabilityID: "write-chain@1.0.0",
-						Config: map[string]interface{}{
+						Config: map[string]any{
 							"targetChain": "ethereum",
 						},
 					},
 					{
 						CapabilityID: "trigger@1.0.0",
-						Config: map[string]interface{}{
+						Config: map[string]any{
 							"schedule": "0 0 * * *",
 						},
 					},
@@ -315,12 +339,12 @@ nops:
 capabilities:
   - capabilityID: "write-chain@1.0.0"
     configurationContract: "0x0000000000000000000000000000000000000000"
-    metadata: 
+    metadata:
       capabilityType: 3
       responseType: 0
   - capabilityID: "trigger@1.0.0"
     configurationContract: "0x0000000000000000000000000000000000000000"
-    metadata: 
+    metadata:
       capabilityType: 0
       responseType: 1
 nodes:
@@ -363,11 +387,11 @@ dons:
 	assert.Equal(t, "trigger@1.0.0", input.Capabilities[1].CapabilityID)
 
 	// Verify metadata is decoded properly
-	expectedMetadata1 := map[string]interface{}{
+	expectedMetadata1 := map[string]any{
 		"capabilityType": 3,
 		"responseType":   0,
 	}
-	expectedMetadata2 := map[string]interface{}{
+	expectedMetadata2 := map[string]any{
 		"capabilityType": 0,
 		"responseType":   1,
 	}
@@ -387,7 +411,7 @@ dons:
 	assert.Equal(t, uint8(1), input.DONs[0].F)
 
 	// Verify config is decoded properly
-	expectedConfig := map[string]interface{}{
+	expectedConfig := map[string]any{
 		"consensus": "basic",
 	}
 	assert.Equal(t, expectedConfig, input.DONs[0].Config)
@@ -395,7 +419,7 @@ dons:
 	// Verify capability configuration is decoded properly
 	require.Len(t, input.DONs[0].CapabilityConfigurations, 1)
 	assert.Equal(t, "write-chain@1.0.0", input.DONs[0].CapabilityConfigurations[0].CapabilityID)
-	expectedCapConfig := map[string]interface{}{
+	expectedCapConfig := map[string]any{
 		"targetChain": "ethereum",
 	}
 	assert.Equal(t, expectedCapConfig, input.DONs[0].CapabilityConfigurations[0].Config)
@@ -404,31 +428,37 @@ dons:
 
 // setupCapabilitiesRegistryWithMCMS sets up a test environment with MCMS infrastructure
 func setupCapabilitiesRegistryWithMCMS(t *testing.T) *testFixture {
-	lggr := logger.Test(t)
-	env, chainSelector := cre.BuildMinimalEnvironment(t, lggr)
+	selector := chainselectors.TEST_90000001.Selector
+	rt, err := runtime.New(t.Context(), runtime.WithEnvOpts(
+		environment.WithEVMSimulated(t, []uint64{selector}),
+		environment.WithLogger(logger.Test(t)),
+	))
+	require.NoError(t, err)
 
 	// Deploy MCMS infrastructure first
 	t.Log("Setting up MCMS infrastructure...")
 	timelockCfgs := map[uint64]commontypes.MCMSWithTimelockConfigV2{
-		chainSelector: proposalutils.SingleGroupTimelockConfigV2(t),
+		selector: proposalutils.SingleGroupTimelockConfigV2(t),
 	}
 
-	mcmsEnv, err := commonchangeset.Apply(t, env,
-		commonchangeset.Configure(
-			cldf.CreateLegacyChangeSet(commonchangeset.DeployMCMSWithTimelockV2),
-			timelockCfgs,
-		),
+	err = rt.Exec(
+		runtime.ChangesetTask(cldf.CreateLegacyChangeSet(commonchangeset.DeployMCMSWithTimelockV2), timelockCfgs),
 	)
 	require.NoError(t, err, "failed to deploy MCMS infrastructure")
 	t.Log("MCMS infrastructure deployed successfully")
 
 	// Deploy the capabilities registry
 	t.Log("Running deployment changeset...")
-	deployOutput, err := DeployCapabilitiesRegistry{}.Apply(mcmsEnv, DeployCapabilitiesRegistryInput{
-		ChainSelector: chainSelector,
+
+	deployTask := runtime.ChangesetTask(DeployCapabilitiesRegistry{}, DeployCapabilitiesRegistryInput{
+		ChainSelector: selector,
 		Qualifier:     "test-capabilities-registry-v2-mcms",
 	})
-	require.NoError(t, err, "failed to apply deployment changeset")
+
+	err = rt.Exec(deployTask)
+	require.NoError(t, err, "failed to deploy capabilities registry")
+
+	deployOutput := rt.State().Outputs[deployTask.ID()]
 	t.Logf("Deployment result: err=%v, output=%v", err, deployOutput)
 	require.Len(t, deployOutput.Reports, 1, "deployment should produce exactly one report")
 
@@ -455,7 +485,7 @@ func setupCapabilitiesRegistryWithMCMS(t *testing.T) *testFixture {
 		ConfigurationContract: common.Address{},
 		Metadata:              []byte(`{"capabilityType": 3, "responseType": 1}`),
 	}
-	var writeChainCapabilityMetadata map[string]interface{}
+	var writeChainCapabilityMetadata map[string]any
 	err = json.Unmarshal(writeChainCapability.Metadata, &writeChainCapabilityMetadata)
 	require.NoError(t, err)
 
@@ -464,7 +494,7 @@ func setupCapabilitiesRegistryWithMCMS(t *testing.T) *testFixture {
 		ConfigurationContract: common.Address{},
 		Metadata:              []byte(`{"capabilityType": 1, "responseType": 1}`),
 	}
-	var triggerCapabilityMetadata map[string]interface{}
+	var triggerCapabilityMetadata map[string]any
 	err = json.Unmarshal(triggerCapability.Metadata, &triggerCapabilityMetadata)
 	require.NoError(t, err)
 
@@ -505,9 +535,9 @@ func setupCapabilitiesRegistryWithMCMS(t *testing.T) *testFixture {
 	}
 
 	// Create capability configurations
-	configMap := map[string]interface{}{
-		"defaultConfig": map[string]interface{}{},
-		"remoteTriggerConfig": map[string]interface{}{
+	configMap := map[string]any{
+		"defaultConfig": map[string]any{},
+		"remoteTriggerConfig": map[string]any{
 			"registrationRefresh":     "20s",
 			"registrationExpiry":      "60s",
 			"minResponsesToAggregate": 2,
@@ -519,7 +549,7 @@ func setupCapabilitiesRegistryWithMCMS(t *testing.T) *testFixture {
 		{
 			Name:        "test-don-mcms-1",
 			DonFamilies: []string{"don-family-mcms-1"},
-			Config: map[string]interface{}{
+			Config: map[string]any{
 				"name": "test-don-mcms-config",
 				"type": "workflow",
 			},
@@ -538,7 +568,7 @@ func setupCapabilitiesRegistryWithMCMS(t *testing.T) *testFixture {
 
 	// Create the input with MCMS enabled
 	configureInput := ConfigureCapabilitiesRegistryInput{
-		ChainSelector:               chainSelector,
+		ChainSelector:               selector,
 		CapabilitiesRegistryAddress: capabilitiesRegistryAddress,
 		MCMSConfig: &ocr3.MCMSConfig{
 			MinDuration: 30 * time.Second,
@@ -551,8 +581,8 @@ func setupCapabilitiesRegistryWithMCMS(t *testing.T) *testFixture {
 	}
 
 	return &testFixture{
-		env:                         mcmsEnv,
-		chainSelector:               chainSelector,
+		env:                         rt.Environment(),
+		chainSelector:               selector,
 		capabilitiesRegistryAddress: capabilitiesRegistryAddress,
 		nops:                        nops,
 		capabilities:                capabilities,
@@ -563,20 +593,30 @@ func setupCapabilitiesRegistryWithMCMS(t *testing.T) *testFixture {
 }
 
 func setupCapabilitiesRegistryTest(t *testing.T) *testFixture {
-	lggr := logger.Test(t)
-	env, chainSelector := cre.BuildMinimalEnvironment(t, lggr)
+	selector := chainselectors.TEST_90000001.Selector
+	rt, err := runtime.New(t.Context(), runtime.WithEnvOpts(
+		environment.WithEVMSimulated(t, []uint64{selector}),
+		environment.WithLogger(logger.Test(t)),
+	))
+	require.NoError(t, err)
 
 	// Apply the changeset to deploy the V2 capabilities registry
 	t.Log("Running deployment changeset...")
-	deployOutput, err := DeployCapabilitiesRegistry{}.Apply(env, DeployCapabilitiesRegistryInput{
-		ChainSelector: chainSelector,
-		Qualifier:     "test-capabilities-registry-v2",
+	qualifier := "test-capabilities-registry-v2"
+
+	deployTask := runtime.ChangesetTask(DeployCapabilitiesRegistry{}, DeployCapabilitiesRegistryInput{
+		ChainSelector: selector,
+		Qualifier:     qualifier,
 	})
+	err = rt.Exec(deployTask)
+
+	deployOutput := rt.State().Outputs[deployTask.ID()]
+
 	require.NoError(t, err, "failed to apply deployment changeset")
 	require.NotNil(t, deployOutput, "deployment output should not be nil")
 	t.Logf("Deployment result: err=%v, output=%v", err, deployOutput)
 
-	capabilitiesRegistryAddress := deployOutput.DataStore.Addresses().Filter(datastore.AddressRefByQualifier("test-capabilities-registry-v2"))[0].Address
+	capabilitiesRegistryAddress := deployOutput.DataStore.Addresses().Filter(datastore.AddressRefByQualifier(qualifier))[0].Address
 
 	// Setup test data
 	nops := []CapabilitiesRegistryNodeOperator{
@@ -595,7 +635,7 @@ func setupCapabilitiesRegistryTest(t *testing.T) *testFixture {
 		ConfigurationContract: common.Address{},
 		Metadata:              []byte(`{"capabilityType": 3, "responseType": 1}`),
 	}
-	var writeChainCapabilityMetadata map[string]interface{}
+	var writeChainCapabilityMetadata map[string]any
 	err = json.Unmarshal(writeChainCapability.Metadata, &writeChainCapabilityMetadata)
 	require.NoError(t, err)
 
@@ -604,7 +644,7 @@ func setupCapabilitiesRegistryTest(t *testing.T) *testFixture {
 		ConfigurationContract: common.Address{},
 		Metadata:              []byte(`{"capabilityType": 1, "responseType": 1}`),
 	}
-	var triggerCapabilityMetadata map[string]interface{}
+	var triggerCapabilityMetadata map[string]any
 	err = json.Unmarshal(triggerCapability.Metadata, &triggerCapabilityMetadata)
 	require.NoError(t, err)
 
@@ -644,9 +684,9 @@ func setupCapabilitiesRegistryTest(t *testing.T) *testFixture {
 	}
 
 	// Create capability configurations with readable config
-	configMap := map[string]interface{}{
-		"defaultConfig": map[string]interface{}{},
-		"remoteTriggerConfig": map[string]interface{}{
+	configMap := map[string]any{
+		"defaultConfig": map[string]any{},
+		"remoteTriggerConfig": map[string]any{
 			"registrationRefresh":     "20s",
 			"registrationExpiry":      "60s",
 			"minResponsesToAggregate": 2,
@@ -658,7 +698,7 @@ func setupCapabilitiesRegistryTest(t *testing.T) *testFixture {
 		{
 			Name:        "test-don-1",
 			DonFamilies: []string{"don-family-1"},
-			Config: map[string]interface{}{
+			Config: map[string]any{
 				"name": "test-don-v2-config",
 				"type": "workflow",
 			},
@@ -676,7 +716,7 @@ func setupCapabilitiesRegistryTest(t *testing.T) *testFixture {
 		{
 			Name:        "test-don-2",
 			DonFamilies: []string{"don-family-2"},
-			Config: map[string]interface{}{
+			Config: map[string]any{
 				"name": "test-don-v2-config",
 				"type": "trigger",
 			},
@@ -694,7 +734,7 @@ func setupCapabilitiesRegistryTest(t *testing.T) *testFixture {
 	}
 
 	configureInput := ConfigureCapabilitiesRegistryInput{
-		ChainSelector:               chainSelector,
+		ChainSelector:               selector,
 		CapabilitiesRegistryAddress: capabilitiesRegistryAddress,
 		MCMSConfig:                  nil,
 		Nops:                        nops,
@@ -704,8 +744,9 @@ func setupCapabilitiesRegistryTest(t *testing.T) *testFixture {
 	}
 
 	return &testFixture{
-		env:                         env,
-		chainSelector:               chainSelector,
+		env:                         rt.Environment(),
+		chainSelector:               selector,
+		qualifier:                   qualifier,
 		capabilitiesRegistryAddress: capabilitiesRegistryAddress,
 		nops:                        nops,
 		capabilities:                capabilities,
