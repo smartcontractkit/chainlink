@@ -83,7 +83,7 @@ func capabilitySwapCmd() *cobra.Command {
 		},
 	}
 
-	cmd.Flags().StringVarP(&capabilityFlag, "name", "n", "", "Name of the capability to swap")
+	cmd.Flags().StringVarP(&capabilityFlag, "name", "n", "", "Name of the capability to swap (need to mach the value of capability flag used in the environment TOML config)")
 	cmd.Flags().StringVarP(&binaryPath, "binary", "b", "", "Location of the binary to swap on the host machine")
 	cmd.Flags().BoolVarP(&forceFlag, "force", "f", true, "Force removal of Docker containers. Set to false to enable graceful shutdown of the containers (be mindful that it will take longer to remove the them)")
 	_ = cmd.MarkFlagRequired("binary")
