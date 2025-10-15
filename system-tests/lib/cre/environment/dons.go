@@ -8,6 +8,7 @@ import (
 	"maps"
 	"os"
 	"slices"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -185,10 +186,10 @@ func StartDONs(
 	return &startedDONs, nil
 }
 
-func printFailedContainerLogs(logger zerolog.Logger, logLinesCount uint) {
+func printFailedContainerLogs(logger zerolog.Logger, logLinesCount uint64) {
 	logStream, lErr := framework.StreamContainerLogs(framework.ExitedCtfContainersListOpts, container.LogsOptions{
 		ShowStderr: true,
-		Tail:       fmt.Sprintf("%d", logLinesCount),
+		Tail:       strconv.FormatUint(logLinesCount, 10),
 	})
 
 	if lErr != nil {
