@@ -102,7 +102,7 @@ func (h *httpTriggerHandler) HandleUserTriggerRequest(ctx context.Context, req *
 		return err
 	}
 
-	executionID, err := workflows.EncodeExecutionID(workflowID, req.ID)
+	executionID, err := workflows.EncodeExecutionID(strings.TrimPrefix(workflowID, "0x"), req.ID)
 	if err != nil {
 		h.handleUserError(ctx, req.ID, jsonrpc.ErrInternal, internalErrorMessage, callback)
 		return errors.New("error generating execution ID: " + err.Error())
