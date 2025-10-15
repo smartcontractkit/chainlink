@@ -2,15 +2,22 @@ package environment
 
 import (
 	"context"
+	"encoding/binary"
 	"fmt"
+	"io"
+	"maps"
 	"os"
+	"slices"
+	"strings"
 	"sync"
 	"time"
 
+	"github.com/docker/docker/api/types/container"
 	pkgerrors "github.com/pkg/errors"
 	"github.com/rs/zerolog"
 	"golang.org/x/sync/errgroup"
 
+	"github.com/smartcontractkit/chainlink-testing-framework/framework"
 	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/blockchain"
 	ns "github.com/smartcontractkit/chainlink-testing-framework/framework/components/simple_node_set"
 
@@ -19,6 +26,7 @@ import (
 	crecapabilities "github.com/smartcontractkit/chainlink/system-tests/lib/cre/capabilities"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/crib"
 	creflags "github.com/smartcontractkit/chainlink/system-tests/lib/cre/flags"
+	text "github.com/smartcontractkit/chainlink/system-tests/lib/format"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/infra"
 )
 
@@ -139,6 +147,48 @@ func StartDONs(
 			lggr.Info().Msgf("Starting DON named %s", nodeSetInput.Name)
 			nodeset, nodesetErr := ns.NewSharedDBNodeSet(nodeSetInput.Input, registryChainBlockchainOutput)
 			if nodesetErr != nil {
+				// TODO make that into a helper function and use here, where we start blockchains and JD
+				logStream, lErr := framework.StreamContainerLogs(framework.ExitedCtfContainersListOpts, container.LogsOptions{
+					ShowStderr: true,
+					Tail:       "100",
+				})
+				if lErr == nil {
+					framework.L.Error().Msgf("Containers that failed to start: %s", strings.Join(slices.Collect(maps.Keys(logStream)), ", "))
+					for cName, stream := range logStream {
+						content := ""
+						header := make([]byte, 8) // Docker stream header is 8 bytes
+						for {
+							_, err := io.ReadFull(stream, header)
+							if err == io.EOF {
+								break
+							}
+							if err != nil {
+								framework.L.Error().Err(err).Str("Container", cName).Msg("failed to read log stream header")
+								break
+							}
+
+							// Extract log message size
+							msgSize := binary.BigEndian.Uint32(header[4:8])
+
+							// Read the log message
+							msg := make([]byte, msgSize)
+							_, err = io.ReadFull(stream, msg)
+							if err != nil {
+								framework.L.Error().Err(err).Str("Container", cName).Msg("failed to read log message")
+								break
+							}
+
+							content += string(msg)
+						}
+
+						content = strings.TrimSpace(content)
+						if len(content) > 0 {
+							lggr.Info().Str("Container", cName).Msgf("Last 100 lines of logs")
+							fmt.Println(text.RedText("%s\n", content))
+						}
+						_ = stream.Close() // can't do much about the error here
+					}
+				}
 				return pkgerrors.Wrapf(nodesetErr, "failed to start nodeSet named %s", nodeSetInput.Name)
 			}
 
