@@ -2311,6 +2311,63 @@ func DefaultRouterMessage(receiverAddress common.Address) router.ClientEVM2AnyMe
 	}
 }
 
+// GetSolanaPreloadedAddressBook returns an address book with the preloaded Solana addresses for
+// the given selector.
+//
+// This is used because Solana programs have already been predeployed, and we need to seed the
+// address book with the preloaded addresses.
+func GetSolanaPreloadedAddressBook(t *testing.T, selector uint64) *cldf.AddressBookMap {
+	t.Helper()
+
+	ab := cldf.NewMemoryAddressBook()
+
+	tv := cldf.NewTypeAndVersion(shared.Router, deployment.Version1_0_0)
+	err := ab.Save(selector, memory.SolanaProgramIDs["ccip_router"], tv)
+	require.NoError(t, err)
+
+	tv = cldf.NewTypeAndVersion(shared.Receiver, deployment.Version1_0_0)
+	err = ab.Save(selector, memory.SolanaProgramIDs["test_ccip_receiver"], tv)
+	require.NoError(t, err)
+
+	tv = cldf.NewTypeAndVersion(shared.FeeQuoter, deployment.Version1_0_0)
+	err = ab.Save(selector, memory.SolanaProgramIDs["fee_quoter"], tv)
+	require.NoError(t, err)
+
+	tv = cldf.NewTypeAndVersion(shared.OffRamp, deployment.Version1_0_0)
+	err = ab.Save(selector, memory.SolanaProgramIDs["ccip_offramp"], tv)
+	require.NoError(t, err)
+
+	tv = cldf.NewTypeAndVersion(shared.BurnMintTokenPool, deployment.Version1_0_0)
+	err = ab.Save(selector, memory.SolanaProgramIDs["burnmint_token_pool"], tv)
+	require.NoError(t, err)
+
+	tv = cldf.NewTypeAndVersion(shared.LockReleaseTokenPool, deployment.Version1_0_0)
+	err = ab.Save(selector, memory.SolanaProgramIDs["lockrelease_token_pool"], tv)
+	require.NoError(t, err)
+
+	tv = cldf.NewTypeAndVersion(shared.CCTPTokenPool, deployment.Version1_0_0)
+	err = ab.Save(selector, memory.SolanaProgramIDs["cctp_token_pool"], tv)
+	require.NoError(t, err)
+
+	tv = cldf.NewTypeAndVersion(commontypes.ManyChainMultisigProgram, deployment.Version1_0_0)
+	err = ab.Save(selector, memory.SolanaProgramIDs["mcm"], tv)
+	require.NoError(t, err)
+
+	tv = cldf.NewTypeAndVersion(commontypes.AccessControllerProgram, deployment.Version1_0_0)
+	err = ab.Save(selector, memory.SolanaProgramIDs["access_controller"], tv)
+	require.NoError(t, err)
+
+	tv = cldf.NewTypeAndVersion(commontypes.RBACTimelockProgram, deployment.Version1_0_0)
+	err = ab.Save(selector, memory.SolanaProgramIDs["timelock"], tv)
+	require.NoError(t, err)
+
+	tv = cldf.NewTypeAndVersion(shared.RMNRemote, deployment.Version1_0_0)
+	err = ab.Save(selector, memory.SolanaProgramIDs["rmn_remote"], tv)
+	require.NoError(t, err)
+
+	return ab
+}
+
 // TODO: this should be linked to the solChain function
 func SavePreloadedSolAddresses(e cldf.Environment, solChainSelector uint64) error {
 	tv := cldf.NewTypeAndVersion(shared.Router, deployment.Version1_0_0)
