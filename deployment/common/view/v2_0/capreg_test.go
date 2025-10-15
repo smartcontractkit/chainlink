@@ -131,6 +131,7 @@ func TestCapRegView_Denormalize(t *testing.T) {
 				},
 			},
 		})
+		require.NoError(t, testErr)
 		donView2, testErr := v2_0.NewDonView(cr.CapabilitiesRegistryDONInfo{
 			Id:               2,
 			Name:             "second don",
