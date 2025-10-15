@@ -147,48 +147,6 @@ func StartDONs(
 			lggr.Info().Msgf("Starting DON named %s", nodeSetInput.Name)
 			nodeset, nodesetErr := ns.NewSharedDBNodeSet(nodeSetInput.Input, registryChainBlockchainOutput)
 			if nodesetErr != nil {
-				// TODO make that into a helper function and use here, where we start blockchains and JD
-				logStream, lErr := framework.StreamContainerLogs(framework.ExitedCtfContainersListOpts, container.LogsOptions{
-					ShowStderr: true,
-					Tail:       "100",
-				})
-				if lErr == nil {
-					framework.L.Error().Msgf("Containers that failed to start: %s", strings.Join(slices.Collect(maps.Keys(logStream)), ", "))
-					for cName, stream := range logStream {
-						content := ""
-						header := make([]byte, 8) // Docker stream header is 8 bytes
-						for {
-							_, err := io.ReadFull(stream, header)
-							if err == io.EOF {
-								break
-							}
-							if err != nil {
-								framework.L.Error().Err(err).Str("Container", cName).Msg("failed to read log stream header")
-								break
-							}
-
-							// Extract log message size
-							msgSize := binary.BigEndian.Uint32(header[4:8])
-
-							// Read the log message
-							msg := make([]byte, msgSize)
-							_, err = io.ReadFull(stream, msg)
-							if err != nil {
-								framework.L.Error().Err(err).Str("Container", cName).Msg("failed to read log message")
-								break
-							}
-
-							content += string(msg)
-						}
-
-						content = strings.TrimSpace(content)
-						if len(content) > 0 {
-							lggr.Info().Str("Container", cName).Msgf("Last 100 lines of logs")
-							fmt.Println(text.RedText("%s\n", content))
-						}
-						_ = stream.Close() // can't do much about the error here
-					}
-				}
 				return pkgerrors.Wrapf(nodesetErr, "failed to start nodeSet named %s", nodeSetInput.Name)
 			}
 
@@ -213,6 +171,7 @@ func StartDONs(
 	}
 
 	if err := errGroup.Wait(); err != nil {
+		printFailedContainerLogs(lggr, 30)
 		return nil, err
 	}
 
@@ -224,4 +183,52 @@ func StartDONs(
 	})
 
 	return &startedDONs, nil
+}
+
+func printFailedContainerLogs(logger zerolog.Logger, logLinesCount uint) {
+	logStream, lErr := framework.StreamContainerLogs(framework.ExitedCtfContainersListOpts, container.LogsOptions{
+		ShowStderr: true,
+		Tail:       fmt.Sprintf("%d", logLinesCount),
+	})
+
+	if lErr != nil {
+		logger.Error().Err(lErr).Msg("failed to stream Docker container logs")
+		return
+	}
+
+	logger.Error().Msgf("Containers that failed to start: %s", strings.Join(slices.Collect(maps.Keys(logStream)), ", "))
+	for cName, ioReader := range logStream {
+		content := ""
+		header := make([]byte, 8) // Docker stream header is 8 bytes
+		for {
+			_, err := io.ReadFull(ioReader, header)
+			if err == io.EOF {
+				break
+			}
+			if err != nil {
+				logger.Error().Err(err).Str("Container", cName).Msg("failed to read log stream header")
+				break
+			}
+
+			// Extract log message size
+			msgSize := binary.BigEndian.Uint32(header[4:8])
+
+			// Read the log message
+			msg := make([]byte, msgSize)
+			_, err = io.ReadFull(ioReader, msg)
+			if err != nil {
+				logger.Error().Err(err).Str("Container", cName).Msg("failed to read log message")
+				break
+			}
+
+			content += string(msg)
+		}
+
+		content = strings.TrimSpace(content)
+		if len(content) > 0 {
+			logger.Info().Str("Container", cName).Msgf("Last 100 lines of logs")
+			fmt.Println(text.RedText("%s\n", content))
+		}
+		_ = ioReader.Close() // can't do much about the error here
+	}
 }

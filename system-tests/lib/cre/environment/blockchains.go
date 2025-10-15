@@ -152,6 +152,7 @@ func deployBlockchain(testLogger zerolog.Logger, infraIn infra.Provider, bi bloc
 	if infraIn.Type != infra.CRIB {
 		bcOut, err := blockchain.NewBlockchainNetwork(&bi)
 		if err != nil {
+			printFailedContainerLogs(testLogger, 30)
 			return nil, pkgerrors.Wrapf(err, "failed to deploy blockchain %s chainID: %s", bi.Type, bi.ChainID)
 		}
 
