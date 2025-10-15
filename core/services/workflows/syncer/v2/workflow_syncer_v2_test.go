@@ -5,6 +5,7 @@ import (
 	"crypto/rand"
 	"crypto/sha256"
 	"encoding/base64"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -772,12 +773,14 @@ func allowlistRequest(
 	})
 	require.NoError(t, err, "failed to get total allowlisted requests")
 
-	requestDigest, err := vaulttypes.DigestForRequest(input.Request)
+	requestDigest, err := input.Request.Digest()
+	require.NoError(t, err)
+	requestDigestBytes, err := hex.DecodeString(requestDigest)
 	require.NoError(t, err)
 
 	_, err = wfRegC.AllowlistRequest(
 		th.ContractsOwner,
-		requestDigest,
+		[32]byte(requestDigestBytes),
 		uint32(input.ExpiryTimestamp.Unix()), //nolint:gosec // safe conversion
 	)
 	require.NoError(t, err, "failed to register allowlisted request")

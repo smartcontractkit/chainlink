@@ -70,6 +70,11 @@ var ProposeStandardCapabilityJob = operations.NewSequence[
 				},
 			},
 		}
+
+		for _, f := range input.DONFilters {
+			filter = f.AddToFilterIfNotPresent(filter)
+		}
+
 		nodes, err := offchain.FetchNodesFromJD(b.GetContext(), deps.Env.Offchain, filter)
 		if err != nil {
 			return ProposeStandardCapabilityJobOutput{}, fmt.Errorf("failed to fetch nodes from JD: %w", err)

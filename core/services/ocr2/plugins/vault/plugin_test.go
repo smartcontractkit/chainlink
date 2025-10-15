@@ -23,6 +23,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/consensus/requests"
 	vaultcap "github.com/smartcontractkit/chainlink/v2/core/capabilities/vault"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/vault/vaulttypes"
+	"github.com/smartcontractkit/chainlink/v2/core/capabilities/vault/vaultutils"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/dkgrecipientkey"
 )
@@ -2173,7 +2174,7 @@ func TestPlugin_Reports(t *testing.T) {
 		RequestType: vaultcommon.RequestType_CREATE_SECRETS,
 	}, info1))
 
-	expectedBytes, err := ToCanonicalJSON(resp)
+	expectedBytes, err := vaultutils.ToCanonicalJSON(resp)
 	require.NoError(t, err)
 	assert.Equal(t, expectedBytes, []byte(o1.ReportWithInfo.Report))
 
@@ -2671,14 +2672,21 @@ func TestPlugin_StateTransition_UpdateSecretsRequest_WritesSecrets(t *testing.T)
 		Namespace: "main",
 		Key:       "secret",
 	}
-	d, err := proto.Marshal(&vaultcommon.StoredSecret{
+	secret, err := proto.Marshal(&vaultcommon.StoredSecret{
 		EncryptedSecret: []byte("old-encrypted-value"),
+	})
+	require.NoError(t, err)
+	metadata, err := proto.Marshal(&vaultcommon.StoredMetadata{
+		SecretIdentifiers: []*vaultcommon.SecretIdentifier{id},
 	})
 	require.NoError(t, err)
 	kv := &kv{
 		m: map[string]response{
 			keyPrefix + vaulttypes.KeyFor(id): {
-				data: d,
+				data: secret,
+			},
+			metadataPrefix + "owner": {
+				data: metadata,
 			},
 		},
 	}
@@ -2739,6 +2747,7 @@ func TestPlugin_StateTransition_UpdateSecretsRequest_WritesSecrets(t *testing.T)
 
 	ss, err := rs.GetSecret(id)
 	require.NoError(t, err)
+	require.NotNil(t, ss)
 
 	assert.Equal(t, ss.EncryptedSecret, []byte("encrypted-value"))
 
@@ -2827,7 +2836,7 @@ func TestPlugin_Reports_UpdateSecretsRequest(t *testing.T) {
 		RequestType: vaultcommon.RequestType_UPDATE_SECRETS,
 	}, info1))
 
-	expectedBytes, err := ToCanonicalJSON(resp)
+	expectedBytes, err := vaultutils.ToCanonicalJSON(resp)
 	require.NoError(t, err)
 	assert.Equal(t, expectedBytes, []byte(o.ReportWithInfo.Report))
 }
@@ -3305,7 +3314,7 @@ func TestPlugin_Reports_DeleteSecretsRequest(t *testing.T) {
 		RequestType: vaultcommon.RequestType_DELETE_SECRETS,
 	}, info1))
 
-	expectedBytes, err := ToCanonicalJSON(resp)
+	expectedBytes, err := vaultutils.ToCanonicalJSON(resp)
 	require.NoError(t, err)
 	assert.Equal(t, expectedBytes, []byte(o.ReportWithInfo.Report))
 }
@@ -3612,7 +3621,7 @@ func TestPlugin_Reports_ListSecretIdentifiersRequest(t *testing.T) {
 		RequestType: vaultcommon.RequestType_LIST_SECRET_IDENTIFIERS,
 	}, info1))
 
-	expectedBytes, err := ToCanonicalJSON(resp)
+	expectedBytes, err := vaultutils.ToCanonicalJSON(resp)
 	require.NoError(t, err)
 	assert.Equal(t, expectedBytes, []byte(o.ReportWithInfo.Report))
 }

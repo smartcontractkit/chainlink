@@ -2190,6 +2190,29 @@ runner-test-matrix:
     test_config_override_path: integration-tests/ccip-tests/testconfig/tomls/usdc_mock_deployment.toml
     test_go_project_path: integration-tests
 
+  - id: ccip-smoke-lbtc-multiple-tokens
+    path: integration-tests/ccip-tests/smoke/ccip_test.go
+    test_env_type: docker
+    runs_on: ubuntu-latest
+    triggers:
+      - PR E2E CCIP Tests
+      - Merge Queue E2E CCIP Tests
+      - Nightly E2E Tests
+      - Push E2E CCIP Tests
+      - Workflow Dispatch E2E CCIP Tests
+    test_cmd: |
+      cd ccip-tests/smoke && \
+      gotestsum \
+        --junitfile=/tmp/junit.xml \
+        --jsonfile=/tmp/gotest.log \
+        --format=github-actions \
+        -- -run "^TestSmokeCCIPForBidirectionalLane$" -timeout 30m -count=1 -parallel=1
+    test_env_vars:
+      E2E_TEST_SELECTED_NETWORK: SIMULATED_1,SIMULATED_2
+      CHAINLINK_USER_TEAM: CCIP
+    test_config_override_path: integration-tests/ccip-tests/testconfig/tomls/lbtc_mock_deployment_multiple_tokens.toml
+    test_go_project_path: integration-tests
+
   - id: ccip-smoke-lbtc-32bytes-destination-pool-data
     path: integration-tests/ccip-tests/smoke/ccip_test.go
     test_env_type: docker

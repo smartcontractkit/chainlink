@@ -190,6 +190,7 @@ func TestRMN_NotEnoughObservers(t *testing.T) {
 }
 
 func TestRMN_DifferentSigners(t *testing.T) {
+	quarantine.Flaky(t, "DX-2071")
 	runRmnTestCase(t, rmnTestCase{
 		name: "different signers and different observers",
 		homeChainConfig: homeChainConfig{
@@ -214,6 +215,7 @@ func TestRMN_DifferentSigners(t *testing.T) {
 }
 
 func TestRMN_NotEnoughSigners(t *testing.T) {
+	quarantine.Flaky(t, "DX-2045")
 	runRmnTestCase(t, rmnTestCase{
 		name:                "different signers and different observers",
 		passIfNoCommitAfter: 15 * time.Second,

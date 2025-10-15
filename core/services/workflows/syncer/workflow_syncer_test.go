@@ -735,7 +735,11 @@ func Test_RegistrySyncer_WorkflowRegistered_InitiallyActivated(t *testing.T) {
 }
 
 func Test_StratReconciliation_InitialStateSync(t *testing.T) {
+<<<<<<< HEAD
 	quarantine.Flaky(t, "DX-2065")
+=======
+	quarantine.Flaky(t, "DX-2063")
+>>>>>>> 84cba0dd5f7892a287b83999d327cf00e6a0d067
 	t.Run("with heavy load", func(t *testing.T) {
 		lggr := logger.TestLogger(t)
 		backendTH := testutils.NewEVMBackendTH(t)

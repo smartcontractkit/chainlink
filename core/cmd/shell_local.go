@@ -24,6 +24,10 @@ import (
 
 	chain_selectors "github.com/smartcontractkit/chain-selectors"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/beholder"
+	"github.com/smartcontractkit/chainlink-common/pkg/logger/otelzap"
+	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
+
 	"github.com/smartcontractkit/chainlink-evm/pkg/assets"
 	"github.com/smartcontractkit/chainlink-evm/pkg/chains/legacyevm"
 	"github.com/smartcontractkit/chainlink-evm/pkg/gas"
@@ -73,11 +77,15 @@ func initLocalSubCmds(s *Shell, safe bool) []cli.Command {
 			},
 			Usage:  "Run the Chainlink node",
 			Action: s.RunNode,
+			Before: s.BeforeNode,
+			After:  s.AfterNode,
 		},
 		{
 			Name:   "rebroadcast-transactions",
 			Usage:  "Manually rebroadcast txs matching nonce range with the specified gas price. This is useful in emergencies e.g. high gas prices and/or network congestion to forcibly clear out the pending TX queue",
 			Action: s.RebroadcastTransactions,
+			Before: s.BeforeNode,
+			After:  s.AfterNode,
 			Flags: []cli.Flag{
 				cli.Uint64Flag{
 					Name:  "beginningNonce, beginning-nonce, b",
@@ -257,6 +265,8 @@ func initLocalSubCmds(s *Shell, safe bool) []cli.Command {
 			Name:   "remove-blocks",
 			Usage:  "Deletes block range and all associated data",
 			Action: s.RemoveBlocks,
+			Before: s.BeforeNode,
+			After:  s.AfterNode,
 			Flags: []cli.Flag{
 				cli.IntFlag{
 					Name:     "start",
@@ -288,24 +298,6 @@ func (s *Shell) runNode(c *cli.Context) error {
 	ctx := s.ctx()
 	lggr := logger.Sugared(s.Logger.Named("RunNode"))
 
-	var pwd, vrfpwd *string
-	if passwordFile := c.String("password"); passwordFile != "" {
-		p, err := utils.PasswordFromFile(passwordFile)
-		if err != nil {
-			return errors.Wrap(err, "error reading password from file")
-		}
-		pwd = &p
-	}
-	if vrfPasswordFile := c.String("vrfpassword"); len(vrfPasswordFile) != 0 {
-		p, err := utils.PasswordFromFile(vrfPasswordFile)
-		if err != nil {
-			return errors.Wrapf(err, "error reading VRF password from vrfpassword file \"%s\"", vrfPasswordFile)
-		}
-		vrfpwd = &p
-	}
-
-	s.Config.SetPasswords(pwd, vrfpwd)
-
 	s.Config.LogConfiguration(lggr.Debugf, lggr.Warnf)
 
 	if err := s.Config.Validate(); err != nil {
@@ -318,12 +310,9 @@ func (s *Shell) runNode(c *cli.Context) error {
 		lggr.Warn("Chainlink is running in DEVELOPMENT mode. This is a security risk if enabled in production.")
 	}
 
-	if err := utils.EnsureDirAndMaxPerms(s.Config.RootDir(), os.FileMode(0700)); err != nil {
+	if err := utils.EnsureDirAndMaxPerms(s.Config.RootDir(), os.FileMode(0o700)); err != nil {
 		return fmt.Errorf("failed to create root directory %q: %w", s.Config.RootDir(), err)
 	}
-
-	cfg := s.Config
-	ldb := pg.NewLockedDB(cfg.AppID(), cfg.Database(), cfg.Database().Lock(), lggr)
 
 	// rootCtx will be cancelled when SIGINT|SIGTERM is received
 	rootCtx, cancelRootCtx := context.WithCancel(context.Background())
@@ -353,28 +342,12 @@ func (s *Shell) runNode(c *cli.Context) error {
 		lggr.Criticalf("Shutdown grace period of %v exceeded, closing DB and exiting...", s.Config.ShutdownGracePeriod())
 		// LockedDB.Close() will release DB locks and close DB connection
 		// Executing this explicitly because defers are not executed in case of os.Exit()
-		if err := ldb.Close(); err != nil {
-			lggr.Criticalf("Failed to close LockedDB: %v", err)
-		}
-		lggr.Debug("Closed DB")
-		if err := s.CloseLogger(); err != nil {
-			log.Printf("Failed to close Logger: %v", err)
-		}
+		s.afterNode(lggr)
 
 		os.Exit(-1)
 	})
 
-	// Try opening DB connection and acquiring DB locks at once
-	if err := ldb.Open(rootCtx); err != nil {
-		// If not successful, we know neither locks nor connection remains opened
-		return s.errorOut(errors.Wrap(err, "opening db"))
-	}
-	defer lggr.ErrorIfFn(ldb.Close, "Error closing db")
-
-	// From now on, DB locks and DB connection will be released on every return.
-	// Keep watching on logger.Fatal* calls and os.Exit(), because defer will not be executed.
-
-	app, err := s.AppFactory.NewApplication(rootCtx, s.Config, s.Logger, s.Registerer, ldb.DB(), s.KeyStoreAuthenticator)
+	app, err := s.AppFactory.NewApplication(rootCtx, s.Config, s.Logger, s.Registerer, s.DS, s.KeyStore)
 	if err != nil {
 		return s.errorOut(errors.Wrap(err, "fatal error instantiating application"))
 	}
@@ -564,7 +537,7 @@ func (s *Shell) runNode(c *cli.Context) error {
 			return errors.Wrap(err, "error creating api initializer")
 		}
 		if user, err = s.FallbackAPIInitializer.Initialize(ctx, authProviderORM, lggr); err != nil {
-			if errors.Is(err, ErrorNoAPICredentialsAvailable) {
+			if errors.Is(err, ErrNoAPICredentialsAvailable) {
 				return errors.WithStack(err)
 			}
 			return errors.Wrap(err, "error creating fallback initializer")
@@ -696,13 +669,8 @@ func (s *Shell) RebroadcastTransactions(c *cli.Context) (err error) {
 	}
 
 	lggr := logger.Sugared(s.Logger.Named("RebroadcastTransactions"))
-	db, err := pg.OpenUnlockedDB(ctx, s.Config.AppID(), s.Config.Database())
-	if err != nil {
-		return s.errorOut(errors.Wrap(err, "opening DB"))
-	}
-	defer lggr.ErrorIfFn(db.Close, "Error closing db")
 
-	app, err := s.AppFactory.NewApplication(ctx, s.Config, lggr, s.Registerer, db, s.KeyStoreAuthenticator)
+	app, err := s.AppFactory.NewApplication(ctx, s.Config, lggr, s.Registerer, s.DS, s.KeyStore)
 	if err != nil {
 		return s.errorOut(errors.Wrap(err, "fatal error instantiating application"))
 	}
@@ -725,14 +693,6 @@ func (s *Shell) RebroadcastTransactions(c *cli.Context) (err error) {
 	err = ethClient.Dial(ctx)
 	if err != nil {
 		return err
-	}
-
-	if c.IsSet("password") {
-		pwd, err2 := utils.PasswordFromFile(c.String("password"))
-		if err2 != nil {
-			return s.errorOut(fmt.Errorf("error reading password: %w", err2))
-		}
-		s.Config.SetPasswords(&pwd, nil)
 	}
 
 	err = s.Config.Validate()
@@ -1069,31 +1029,15 @@ func (s *Shell) RemoveBlocks(c *cli.Context) error {
 	}
 
 	lggr := logger.Sugared(s.Logger.Named("RemoveBlocks"))
-	ldb := pg.NewLockedDB(cfg.AppID(), cfg.Database(), cfg.Database().Lock(), lggr)
 	ctx, cancel := context.WithCancel(context.Background())
 	go shutdown.HandleShutdown(func(sig string) {
 		cancel()
 		lggr.Info("received signal to stop - closing the database and releasing lock")
 
-		if cErr := ldb.Close(); cErr != nil {
-			lggr.Criticalf("Failed to close LockedDB: %v", cErr)
-		}
-
-		if cErr := s.CloseLogger(); cErr != nil {
-			log.Printf("Failed to close Logger: %v", cErr)
-		}
+		s.afterNode(lggr)
 	})
 
-	if err = ldb.Open(ctx); err != nil {
-		// If not successful, we know neither locks nor connection remains opened
-		return s.errorOut(errors.Wrap(err, "opening db"))
-	}
-	defer lggr.ErrorIfFn(ldb.Close, "Error closing db")
-
-	// From now on, DB locks and DB connection will be released on every return.
-	// Keep watching on logger.Fatal* calls and os.Exit(), because defer will not be executed.
-
-	app, err := s.AppFactory.NewApplication(ctx, s.Config, s.Logger, s.Registerer, ldb.DB(), s.KeyStoreAuthenticator)
+	app, err := s.AppFactory.NewApplication(ctx, s.Config, s.Logger, s.Registerer, s.DS, s.KeyStore)
 	if err != nil {
 		return s.errorOut(errors.Wrap(err, "fatal error instantiating application"))
 	}
@@ -1105,5 +1049,117 @@ func (s *Shell) RemoveBlocks(c *cli.Context) error {
 
 	lggr.Infof("RemoveBlocks: successfully removed blocks")
 
+	return nil
+}
+
+// beforeNode performs the actual initialization of DB, keystore, and telemetry.
+// It handles password loading, database connection, keystore authentication, and Beholder setup.
+func (s *Shell) beforeNode(c *cli.Context) error {
+	ctx := s.ctx()
+
+	var pwd, vrfpwd *string
+	if passwordFile := c.String("password"); passwordFile != "" {
+		p, err := utils.PasswordFromFile(passwordFile)
+		if err != nil {
+			return errors.Wrap(err, "error reading password from file")
+		}
+		pwd = &p
+	}
+	if vrfPasswordFile := c.String("vrfpassword"); len(vrfPasswordFile) != 0 {
+		p, err := utils.PasswordFromFile(vrfPasswordFile)
+		if err != nil {
+			return errors.Wrapf(err, "error reading VRF password from vrfpassword file \"%s\"", vrfPasswordFile)
+		}
+		vrfpwd = &p
+	}
+
+	s.Config.SetPasswords(pwd, vrfpwd)
+
+	lggr := s.Logger
+	cfg := s.Config
+
+	ldb := pg.NewLockedDB(cfg.AppID(), cfg.Database(), cfg.Database().Lock(), lggr)
+	s.LDB = ldb
+
+	// Try opening DB connection and acquiring DB locks at once
+	if err := ldb.Open(ctx); err != nil {
+		// If not successful, we know neither locks nor connection remains opened
+		return s.errorOut(errors.Wrap(err, "opening db"))
+	}
+	db := ldb.DB()
+	// From now on, DB locks and DB connection will be released on every return.
+	// Keep watching on logger.Fatal* calls and os.Exit(), because defer will not be executed.
+
+	err := handleNodeVersioning(ctx, db, lggr, cfg.RootDir(), cfg.Database(), cfg.WebServer().HTTPPort())
+	if err != nil {
+		return err
+	}
+
+	ds := sqlutil.WrapDataSource(db, lggr, sqlutil.TimeoutHook(cfg.Database().DefaultQueryTimeout), sqlutil.MonitorHook(cfg.Database().LogSQL))
+	keyStore := keystore.New(ds, utils.GetScryptParams(cfg), lggr.Infof)
+	s.DS = ds
+	s.KeyStore = keyStore
+
+	err = s.KeyStoreAuthenticator.Authenticate(ctx, keyStore, cfg.Password())
+	if err != nil {
+		return errors.Wrap(err, "error authenticating keystore")
+	}
+
+	beholderAuthHeaders, csaPubKeyHex, err := keystore.BuildBeholderAuth(ctx, keyStore.CSA())
+	if err != nil {
+		return errors.Wrap(err, "failed to build Beholder auth")
+	}
+
+	// Initialize globals with beholder and telemetry
+	err = initGlobals(s.Config.Prometheus(), s.Config.Tracing(), s.Config.Telemetry(), s.Logger, csaPubKeyHex, beholderAuthHeaders)
+	if err != nil {
+		return errors.Wrap(err, "failed initializing globals")
+	}
+
+	// If log streaming is enabled swap core to add Otel
+	if s.Config.Telemetry().LogStreamingEnabled() {
+		if s.SetOtelCore == nil {
+			return errors.New("Shell.SetOtelCore is nil")
+		}
+		otelLogger := beholder.GetLogger()
+		logLevel := s.Config.Log().Level()
+		otelCore := otelzap.NewCore(otelLogger, otelzap.WithLevel(logLevel))
+
+		s.SetOtelCore(&otelCore)
+		lggr.Info("Log streaming enabled")
+	}
+
+	return nil
+}
+
+// BeforeNode initializes database, keystore, logger, and beholder for node startup.
+// This is used as a Before hook in CLI commands that require these components.
+func (s *Shell) BeforeNode(c *cli.Context) error {
+	if err := s.beforeNode(c); err != nil {
+		return s.errorOut(err)
+	}
+	return nil
+}
+
+// afterNode is a thread-safe helper method to close the database and logger.
+// This is used in multiple places: shutdown handler, signal handler, and cleanup.
+// It uses sync.Once to ensure cleanup happens exactly once, even if called concurrently.
+func (s *Shell) afterNode(lggr logger.SugaredLogger) {
+	s.CleanupOnce.Do(func() {
+		if err := s.LDB.Close(); err != nil {
+			lggr.Criticalf("Failed to close LockedDB: %v", err)
+		}
+		lggr.Debug("Closed DB")
+
+		if err := s.CloseLogger(); err != nil {
+			log.Printf("Failed to close Logger: %v", err)
+		}
+	})
+}
+
+// AfterNode cleans up resources initialized by BeforeNode.
+// This is used as an After hook in CLI commands.
+func (s *Shell) AfterNode(c *cli.Context) error {
+	s.afterNode(logger.Sugared(s.Logger))
 	return nil
 }

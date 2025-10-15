@@ -196,11 +196,10 @@ func (w *workflowRegistry) Start(_ context.Context) error {
 				case <-ticker:
 					// Async initialization of contract reader because there is an on-chain
 					// call dependency.  Blocking on initialization results in a
-					// deadlock.  Instead wait until the node has identified it's DON
-					// as a proxy for a DON and on-chain ready state .
+					// deadlock. Instead, wait until the contract reader is ready.
 					reader, err := w.newWorkflowRegistryContractReader(ctx)
 					if err != nil {
-						w.lggr.Errorw("contract reader unavailable", "error", err.Error())
+						w.lggr.Infow("contract reader unavailable", "error", err.Error())
 						break
 					}
 					w.contractReader = reader
@@ -499,13 +498,14 @@ func (w *workflowRegistry) syncUsingReconciliationStrategy(ctx context.Context, 
 			return
 		case <-ticker:
 			w.lggr.Debugw("fetching workflow registry metadata", "don", don.Families)
-			workflowMetadata, head, err := w.getWorkflowMetadata(ctx, don, w.contractReader)
+			allWorkflowsMetadata, head, err := w.getAllWorkflowsMetadata(ctx, don, w.contractReader)
 			if err != nil {
 				w.lggr.Errorw("failed to get registry state", "err", err)
 				continue
 			}
-			w.lggr.Debugw("preparing events to reconcile", "numWorkflowMetadata", len(workflowMetadata), "blockHeight", head.Height, "numPendingEvents", len(pendingEvents))
-			events, err := w.generateReconciliationEvents(ctx, pendingEvents, workflowMetadata, head)
+			w.metrics.recordFetchedWorkflows(ctx, len(allWorkflowsMetadata))
+			w.lggr.Debugw("preparing events to reconcile", "numWorkflows", len(allWorkflowsMetadata), "blockHeight", head.Height, "numPendingEvents", len(pendingEvents))
+			events, err := w.generateReconciliationEvents(ctx, pendingEvents, allWorkflowsMetadata, head)
 			if err != nil {
 				w.lggr.Errorw("failed to generate reconciliation events", "err", err)
 				continue
@@ -545,6 +545,10 @@ func (w *workflowRegistry) syncUsingReconciliationStrategy(ctx context.Context, 
 			}
 
 			w.lggr.Debugw("reconciled events", "report", reconcileReport)
+
+			runningWorkflows := w.engineRegistry.GetAll()
+			w.metrics.recordRunningWorkflows(ctx, len(runningWorkflows))
+			w.metrics.incrementCompletedSyncs(ctx)
 		}
 	}
 }
@@ -645,8 +649,9 @@ func (w *workflowRegistry) newWorkflowRegistryContractReader(
 	return reader, nil
 }
 
-// getWorkflowMetadata uses contract reader to query the contract for all workflow metadata using the method getWorkflowListByDON
-func (w *workflowRegistry) getWorkflowMetadata(ctx context.Context, don capabilities.DON, contractReader types.ContractReader) ([]WorkflowMetadataView, *types.Head, error) {
+// getAllWorkflowsMetadata uses contract reader to query the WorkflowRegistry contract using the method getWorkflowListByDON.
+// It gets metadata for all workflows assigned to any of current DON's families.
+func (w *workflowRegistry) getAllWorkflowsMetadata(ctx context.Context, don capabilities.DON, contractReader types.ContractReader) ([]WorkflowMetadataView, *types.Head, error) {
 	if contractReader == nil {
 		return nil, nil, errors.New("cannot fetch workflow metadata: nil contract reader")
 	}
@@ -815,6 +820,10 @@ func (w *workflowRegistry) getAllowlistedRequests(ctx context.Context, contractR
 		// If search is not complete, set the end index to the start index minus MaxResultsPerQuery
 		// to continue fetching the next batch of allowlisted requests
 		endIndex = endIndex.Sub(endIndex, big.NewInt(MaxResultsPerQuery))
+		// Ensure endIndex doesn't go below zero
+		if endIndex.Cmp(big.NewInt(0)) < 0 {
+			endIndex = big.NewInt(0)
+		}
 	}
 
 	return newAllowlistedRequests, totalAllowlistedRequestsResult, headAtLastRead, nil

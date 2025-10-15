@@ -12,12 +12,15 @@ import (
 
 	"github.com/jpillora/backoff"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/contexts"
 	jsonrpc "github.com/smartcontractkit/chainlink-common/pkg/jsonrpc2"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
-	"github.com/smartcontractkit/chainlink-common/pkg/ratelimit"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
+	"github.com/smartcontractkit/chainlink-common/pkg/settings"
+	"github.com/smartcontractkit/chainlink-common/pkg/settings/limits"
 	gateway_common "github.com/smartcontractkit/chainlink-common/pkg/types/gateway"
 	"github.com/smartcontractkit/chainlink-common/pkg/workflows"
+	"github.com/smartcontractkit/chainlink/v2/core/platform"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/api"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/common/aggregation"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/config"
@@ -53,8 +56,9 @@ type httpTriggerHandler struct {
 	callbacks               map[string]savedCallback // requestID -> savedCallback
 	stopCh                  services.StopChan
 	workflowMetadataHandler *WorkflowMetadataHandler
-	userRateLimiter         *ratelimit.RateLimiter
+	userRateLimiter         limits.RateLimiter
 	metrics                 *metrics.Metrics
+	wg                      sync.WaitGroup
 }
 
 type HTTPTriggerHandler interface {
@@ -63,7 +67,7 @@ type HTTPTriggerHandler interface {
 	HandleNodeTriggerResponse(ctx context.Context, resp *jsonrpc.Response[json.RawMessage], nodeAddr string) error
 }
 
-func NewHTTPTriggerHandler(lggr logger.Logger, cfg ServiceConfig, donConfig *config.DONConfig, don handlers.DON, workflowMetadataHandler *WorkflowMetadataHandler, userRateLimiter *ratelimit.RateLimiter, metrics *metrics.Metrics) *httpTriggerHandler {
+func NewHTTPTriggerHandler(lggr logger.Logger, cfg ServiceConfig, donConfig *config.DONConfig, don handlers.DON, workflowMetadataHandler *WorkflowMetadataHandler, userRateLimiter limits.RateLimiter, metrics *metrics.Metrics) *httpTriggerHandler {
 	return &httpTriggerHandler{
 		lggr:                    logger.Named(lggr, "RequestCallbacks"),
 		callbacks:               make(map[string]savedCallback),
@@ -351,16 +355,21 @@ func (h *httpTriggerHandler) checkRateLimit(ctx context.Context, workflowID, req
 		h.handleUserError(ctx, requestID, jsonrpc.ErrInvalidRequest, "workflow reference not found", callback)
 		return errors.New("workflow reference not found")
 	}
-	workflowOwnerAllow, globalAllow := h.userRateLimiter.AllowVerbose(workflowRef.workflowOwner)
-	if !workflowOwnerAllow {
-		h.metrics.Trigger.IncrementWorkflowOwnerThrottled(ctx, h.lggr)
-		h.handleUserError(ctx, requestID, jsonrpc.ErrLimitExceeded, "rate limit exceeded", callback)
-		return errors.New("workflow owner rate limit exceeded")
-	}
-	if !globalAllow {
-		h.metrics.Trigger.IncrementGlobalThrottled(ctx, h.lggr)
-		h.handleUserError(ctx, requestID, jsonrpc.ErrLimitExceeded, "rate limit exceeded", callback)
-		return errors.New("global rate limit exceeded")
+	ctx = contexts.WithCRE(ctx, contexts.CRE{Owner: workflowRef.workflowOwner, Workflow: workflowID})
+	if err := h.userRateLimiter.AllowErr(ctx); err != nil {
+		lggr := logger.With(h.lggr, platform.KeyWorkflowID, workflowID, platform.KeyWorkflowOwner, workflowRef.workflowOwner, "requestID", requestID, "err", err)
+		var errLimited limits.ErrorRateLimited
+		if errors.As(err, &errLimited) {
+			switch errLimited.Scope {
+			case settings.ScopeWorkflow:
+				lggr.Errorf("failed to start execution: per workflow rate limit exceeded")
+				h.metrics.Trigger.IncrementWorkflowThrottled(ctx, h.lggr)
+			default:
+				lggr.Errorf("failed to start execution: unexpected rate limit for scope %s", errLimited.Scope)
+			}
+			h.handleUserError(ctx, requestID, jsonrpc.ErrLimitExceeded, "rate limit exceeded", callback)
+			return err
+		}
 	}
 	return nil
 }
@@ -427,7 +436,9 @@ func (h *httpTriggerHandler) HandleNodeTriggerResponse(ctx context.Context, resp
 func (h *httpTriggerHandler) Start(ctx context.Context) error {
 	return h.StartOnce("HTTPTriggerHandler", func() error {
 		h.lggr.Info("Starting HTTPTriggerHandler")
+		h.wg.Add(1)
 		go func() {
+			defer h.wg.Done()
 			ticker := time.NewTicker(time.Duration(h.config.CleanUpPeriodMs) * time.Millisecond)
 			defer ticker.Stop()
 			for {
@@ -447,6 +458,7 @@ func (h *httpTriggerHandler) Close() error {
 	return h.StopOnce("HTTPTriggerHandler", func() error {
 		h.lggr.Info("Closing HTTPTriggerHandler")
 		close(h.stopCh)
+		h.wg.Wait()
 		return nil
 	})
 }
