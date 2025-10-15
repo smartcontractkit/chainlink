@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"maps"
+	"net/http"
 	"strings"
 	"sync"
 	"time"
@@ -197,11 +198,14 @@ func (h *handler) Start(_ context.Context) error {
 			ctx, cancel := h.stopCh.NewCtx()
 			defer cancel()
 			ticker := h.clock.NewTicker(defaultCleanUpPeriod)
+			tickerVaultPublicKeyRefresh := h.clock.NewTicker(1 * time.Minute)
 			defer ticker.Stop()
+			defer tickerVaultPublicKeyRefresh.Stop()
 			for {
 				select {
 				case <-ticker.Chan():
 					h.removeExpiredRequests(ctx)
+				case <-tickerVaultPublicKeyRefresh.Chan():
 					// periodically, fetch vault public key, so we can cache it
 					h.fetchVaultPublicKey(ctx)
 				case <-h.stopCh:
@@ -222,14 +226,39 @@ func (h *handler) Close() error {
 }
 
 func (h *handler) fetchVaultPublicKey(ctx context.Context) {
+	ctx, cancel := context.WithDeadline(ctx, h.clock.Now().Add(10*time.Second))
+	defer cancel()
+	param := vaultcommon.GetPublicKeyRequest{}
+	paramBytes, err := json.Marshal(param)
+	if err != nil {
+		h.lggr.Errorw("fetchVaultPublicKey: failed to marshal get public key request", "error", err)
+		return
+	}
 	getPublicKeyRequest := jsonrpc.Request[json.RawMessage]{
 		Version: jsonrpc.JsonRpcVersion,
 		ID:      uuid.New().String(),
 		Method:  vaulttypes.MethodPublicKeyGet,
-		Params:  nil,
+		Params:  (*json.RawMessage)(&paramBytes),
 	}
-	if h.HandleJSONRPCUserMessage(ctx, getPublicKeyRequest, handlerscommon.NewCallback()) != nil {
-		h.lggr.Errorw("fetchVaultPublicKey: failed to fetch vault public key")
+	h.lggr.Debugw("fetchVaultPublicKey: trying to fetch vault public key", "request", getPublicKeyRequest)
+	callback := handlerscommon.NewCallback()
+	err = h.HandleJSONRPCUserMessage(ctx, getPublicKeyRequest, callback)
+	if err != nil {
+		h.lggr.Errorw("fetchVaultPublicKey: failed to fetch vault public key", "request", getPublicKeyRequest, "error", err)
+		return
+	}
+	response, err := callback.Wait(ctx)
+	if err != nil {
+		h.lggr.Errorw("fetchVaultPublicKey: failed to fetch vault public key", "request", getPublicKeyRequest, "error", err)
+		return
+	}
+	httpStatus := api.ToHttpErrorCode(response.ErrorCode)
+	jsonCodec := api.JsonRPCCodec{}
+	jsonResp, _ := jsonCodec.DecodeRawRequest(response.RawResponse, "")
+	if httpStatus != http.StatusOK {
+		h.lggr.Errorw("fetchVaultPublicKey: failed to fetch vault public key", "request", getPublicKeyRequest, "httpStatusCode", httpStatus, "rawResponse", jsonResp)
+	} else {
+		h.lggr.Debugw("fetchVaultPublicKey: successfully fetched vault public key", "request", getPublicKeyRequest, "rawResponse", jsonResp)
 	}
 }
 
@@ -272,7 +301,7 @@ func (h *handler) HandleJSONRPCUserMessage(ctx context.Context, req jsonrpc.Requ
 		return errors.New("request ID cannot be empty")
 	}
 
-	h.lggr.Debugw("handling vault request", "method", req.Method, "requestID", req.ID)
+	h.lggr.Debugw("handling vault request", "method", req.Method, "requestID", req.ID, "request", req)
 	// Public key requests don't require authorization,
 	// Let's process this request right away.
 	// Note we cache this value quite aggressively so don't need to worry about DoS.
