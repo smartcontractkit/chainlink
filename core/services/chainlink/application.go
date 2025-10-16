@@ -6,12 +6,14 @@ import (
 	stderrors "errors"
 	"fmt"
 	"io"
+	"math"
 	"math/big"
 	"net/http"
 	"strconv"
 	"sync"
 	"time"
 
+	"github.com/BurntSushi/toml"
 	"github.com/Masterminds/semver/v3"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
@@ -27,6 +29,10 @@ import (
 	"google.golang.org/grpc/credentials"
 
 	chainselectors "github.com/smartcontractkit/chain-selectors"
+	chainlink_ccv "github.com/smartcontractkit/chainlink-ccv"
+	"github.com/smartcontractkit/chainlink-ccv/integration/pkg/constructors"
+	"github.com/smartcontractkit/chainlink-ccv/protocol"
+	"github.com/smartcontractkit/chainlink-ccv/verifier"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/beholder"
 	"github.com/smartcontractkit/chainlink-common/pkg/billing"
@@ -414,6 +420,15 @@ func NewApplication(ctx context.Context, opts ApplicationOpts) (Application, err
 		return nil, fmt.Errorf("failed to initilize CRE: %w", err)
 	}
 	srvcs = append(srvcs, creServices.srvs...)
+
+	ccvServices, err := newCCVServices(ctx, globalLogger, keyStore, cfg, relayChainInterops)
+	if err != nil {
+		return nil, fmt.Errorf("failed to initialize CCV: %w", err)
+	}
+	if ccvServices != nil {
+		srvcs = append(srvcs, ccvServices.srvs...)
+	}
+
 	// LOOPs can be created as options, in the  case of LOOP relayers, or
 	// as OCR2 job implementations, in the case of Median today.
 	// We will have a non-nil registry here in LOOP relayers are being used, otherwise
@@ -1308,6 +1323,135 @@ func newCREServices(
 		workflowRegistrySyncer:  workflowRegistrySyncerV2,
 		orgResolver:             orgResolver,
 	}, nil
+}
+func getLegacyChains(lggr logger.Logger, relayerChainInterops *CoreRelayerChainInteroperators) map[protocol.ChainSelector]legacyevm.Chain {
+	chains := make(map[protocol.ChainSelector]legacyevm.Chain)
+	for _, c := range relayerChainInterops.LegacyEVMChains().Slice() {
+		chain, ok := c.(legacyevm.Chain)
+		if !ok {
+			lggr.Info("CCV: failed to cast legacyevm.Chain")
+			continue
+		}
+
+		id := chain.ID()
+		if id.Cmp(new(big.Int).SetUint64(math.MaxUint64)) > 0 {
+			lggr.Info("CCV: chain ID too large")
+			continue
+		}
+
+		// convert to selector
+		chain2, ok := chainselectors.ChainByEvmChainID(id.Uint64())
+		if !ok {
+			lggr.Infow("CCV: failed to get chain selector")
+			continue
+		}
+
+		chains[protocol.ChainSelector(chain2.Selector)] = chain
+	}
+	return chains
+}
+
+type CCVServices struct {
+	// Verifier
+	// Executor
+
+	// srvs are all the services that are created, including those that are explicitly exposed
+	srvs []services.ServiceCtx
+}
+
+func ccvConfig(nodeNum int) (constructors.CCVConfig, error) {
+	var cfg constructors.CCVConfig
+	if _, err := toml.Decode(chainlink_ccv.DefaultExecutorConfigTOML, &cfg.Executor); err != nil {
+		return constructors.CCVConfig{}, fmt.Errorf("unable to decode default executor config: %w", err)
+	}
+
+	var verifierCfgs []string
+
+	// Select verifier config based on node number
+	switch nodeNum {
+	case 1:
+		verifierCfgs = []string{
+			chainlink_ccv.DefaultVerifier1ConfigTOML,
+			chainlink_ccv.DefaultVerifier2ConfigTOML,
+		}
+	case 2:
+		verifierCfgs = []string{
+			chainlink_ccv.SecondaryVerifier1ConfigTOML,
+			chainlink_ccv.SecondaryVerifier2ConfigTOML,
+		}
+	case 3:
+		verifierCfgs = []string{
+			chainlink_ccv.TertiaryVerifier1ConfigTOML,
+			chainlink_ccv.TertiaryVerifier2ConfigTOML,
+		}
+	default:
+		return constructors.CCVConfig{}, fmt.Errorf("unsupported node number not in 1-3: %d", nodeNum)
+	}
+
+	for _, vcfg := range verifierCfgs {
+		var decodedCfg verifier.Config
+		if _, err := toml.Decode(vcfg, &decodedCfg); err != nil {
+			return constructors.CCVConfig{}, fmt.Errorf("unable to decode default verifier config: %w", err)
+		}
+		cfg.Verifiers = append(cfg.Verifiers, decodedCfg)
+	}
+
+	return cfg, nil
+}
+
+func newCCVServices(
+	ctx context.Context,
+	globalLogger logger.Logger,
+	keyStore keystore.Master,
+	cfg GeneralConfig,
+	relayerChainInterops *CoreRelayerChainInteroperators,
+) (*CCVServices, error) {
+	var services []services.ServiceCtx
+	globalLogger = globalLogger.Named("CCV")
+
+	// TODO: move config from hardCodedCCVConfig into general config.
+	waiting := 100
+	for waiting > 0 {
+		fmt.Printf("Waiting %d seconds, use debugger to continue...\n", waiting)
+		waiting--
+		time.Sleep(1 * time.Second)
+	}
+
+	legacyRelayers := getLegacyChains(globalLogger, relayerChainInterops)
+	ccvCfg, err := ccvConfig(1)
+	if err != nil {
+		globalLogger.Errorf("Failed to get CCV config: %v", err)
+	}
+
+	for _, vcfg := range ccvCfg.Verifiers {
+		// TODO: ccv secrets?
+		vc, err := constructors.NewVerificationCoordinator(
+			globalLogger.With("service", "Verifier"),
+			vcfg,
+			constructors.VerifierSecrets{},
+			legacyRelayers,
+		)
+		if err != nil {
+			globalLogger.Errorf("Failed to create verifier coordinator: %v", err)
+			return nil, fmt.Errorf("failed to create CCV VerificationCoordinator: %w", err)
+		}
+
+		services = append(services, vc)
+	}
+
+	ec, err := constructors.NewExecutorCoordinator(
+		globalLogger.With("service", "Executor"),
+		ccvCfg.Executor,
+		legacyRelayers,
+	)
+	if err != nil {
+		globalLogger.Errorf("Failed to create executor coordinator: %v", err)
+		return nil, fmt.Errorf("failed to create CCV ExecutorCoordinator: %w", err)
+	}
+	services = append(services, ec)
+
+	// Return services for the node to start.
+	return &CCVServices{srvs: services}, nil
 }
 
 func (app *ChainlinkApplication) SetLogLevel(lvl zapcore.Level) error {

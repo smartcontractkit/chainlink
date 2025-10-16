@@ -20,7 +20,7 @@ COPY . .
 # Install Delve for debugging with cache mounts
 RUN --mount=type=cache,target=/go/pkg/mod \
     --mount=type=cache,target=/root/.cache/go-build \
-    go install github.com/go-delve/delve/cmd/dlv@v1.24.2
+    go install github.com/go-delve/delve/cmd/dlv@v1.25.2
 
 # Flag to control installation of private plugins (default: false).
 ARG CL_INSTALL_PRIVATE_PLUGINS=false
