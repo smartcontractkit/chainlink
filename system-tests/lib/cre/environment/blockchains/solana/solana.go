@@ -67,12 +67,12 @@ func (s *Blockchain) CtfOutput() *blockchain.Output {
 	return s.ctfOutput
 }
 
-func (e *Blockchain) Is(chainFamily string) bool {
-	return strings.EqualFold(e.ctfOutput.Family, chainFamily)
+func (s *Blockchain) Is(chainFamily string) bool {
+	return strings.EqualFold(s.ctfOutput.Family, chainFamily)
 }
 
-func (e *Blockchain) ChainFamily() string {
-	return e.ctfOutput.Family
+func (s *Blockchain) ChainFamily() string {
+	return s.ctfOutput.Family
 }
 
 func (s *Blockchain) Fund(ctx context.Context, address string, amount uint64) error {
@@ -93,21 +93,6 @@ func (s *Blockchain) Fund(ctx context.Context, address string, amount uint64) er
 }
 
 func (s *Blockchain) ToCldfChain() (cldf_chain.BlockChain, error) {
-	// bcNode := s.CtfOutput().Nodes[0]
-
-	// return &blockchains.CldfChainConfig{
-	// 	WSRPCs: []blockchains.RPCs{{
-	// 		External: bcNode.ExternalWSUrl, Internal: bcNode.InternalWSUrl,
-	// 	}},
-	// 	HTTPRPCs: []blockchains.RPCs{{
-	// 		External: bcNode.ExternalHTTPUrl, Internal: bcNode.InternalHTTPUrl,
-	// 	}},
-	// 	ChainType:      strings.ToUpper(s.CtfOutput().Family),
-	// 	ChainID:        s.SolanaChainID,
-	// 	SolDeployerKey: s.PrivateKey,
-	// 	SolArtifactDir: s.ArtifactsDir,
-	// }, nil
-
 	solArtifactPath := s.ArtifactsDir
 	if solArtifactPath == "" {
 		s.testLogger.Info().Msg("Creating tmp directory for generated solana programs and keypairs")
@@ -116,6 +101,10 @@ func (s *Blockchain) ToCldfChain() (cldf_chain.BlockChain, error) {
 		if err != nil {
 			return nil, err
 		}
+	}
+
+	if len(s.CtfOutput().Nodes) == 0 {
+		return nil, errors.New("no nodes found in ctf output")
 	}
 
 	sc := solrpc.New(s.CtfOutput().Nodes[0].ExternalHTTPUrl)
@@ -155,11 +144,6 @@ func (s *Deployer) Deploy(input *blockchain.Input) (blockchains.Blockchain, erro
 	if !ok {
 		return nil, fmt.Errorf("selector not found for solana chainID '%s'", input.ChainID)
 	}
-	// shouldn't be empty, since we call initSolana before wrap, but just in case
-	setErr := setDefaultPrivateKeyIfEmpty()
-	if setErr != nil {
-		return nil, fmt.Errorf("set default private key solana failed: %w", setErr)
-	}
 
 	envp := os.Getenv("SOLANA_PRIVATE_KEY")
 	pk, err := solana.PrivateKeyFromBase58(envp)
@@ -181,66 +165,6 @@ func (s *Deployer) Deploy(input *blockchain.Input) (blockchains.Blockchain, erro
 		ArtifactsDir:  input.ContractsDir,
 	}, nil
 }
-
-// }
-
-// return &cre.Blockchain{
-// 	CtfOutput: bcOut,
-// 	SolClient: solClient,
-// 	SolChain: &cre.SolChain{
-// 		ChainSelector: sel,
-// 		ChainID:       input.ChainID,
-// 		PrivateKey:    pk,
-// 		ArtifactsDir:  input.ContractsDir,
-// 	},
-// 	Funder: &Funder{
-// 		solClient:      solClient,
-// 		mainPrivateKey: pk,
-// 		testLogger:     s.testLogger,
-// 	},
-// }, nil
-// }
-
-// type Funder struct {
-// 	solClient      *rpc.Client
-// 	mainPrivateKey solana.PrivateKey
-// 	testLogger     zerolog.Logger
-// }
-
-// func (f *Funder) Fund(ctx context.Context, address string, amount uint64, fundingPrivateKey []byte) error {
-// 	recipient := solana.MustPublicKeyFromBase58(address)
-// 	f.testLogger.Info().Msgf("Attempting to fund Solana account %s", recipient.String())
-
-// 	err := libfunding.SendFundsSol(ctx, f.testLogger, f.solClient, libfunding.FundsToSendSol{
-// 		Recipent:   recipient,
-// 		PrivateKey: solana.PrivateKey(fundingPrivateKey),
-// 		Amount:     amount,
-// 	})
-// 	if err != nil {
-// 		return fmt.Errorf("failed to fund Solana account for a node: %w", err)
-// 	}
-// 	f.testLogger.Info().Msgf("Successfully funded Solana account %s", recipient.String())
-
-// 	return nil
-// }
-
-// func (f *Funder) Prepare(ctx context.Context, requiredTotal uint64) ([]byte, error) {
-// 	private, pkErr := solana.NewRandomPrivateKey()
-// 	if pkErr != nil {
-// 		return nil, pkgerrors.Wrap(pkErr, "failed to generate private key for solana")
-// 	}
-// 	public := private.PublicKey()
-// 	fundingErr := libfunding.SendFundsSol(ctx, zerolog.Logger{}, f.solClient, libfunding.FundsToSendSol{
-// 		Recipent:   public,
-// 		PrivateKey: f.mainPrivateKey,
-// 		Amount:     requiredTotal,
-// 	})
-// 	if fundingErr != nil {
-// 		return nil, pkgerrors.Wrapf(fundingErr, " failed to fund funding accounts on chain on Solana")
-// 	}
-
-// 	return private, nil
-// }
 
 var once = &sync.Once{}
 

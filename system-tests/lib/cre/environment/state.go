@@ -101,18 +101,12 @@ func BuildFromSavedState(ctx context.Context, cldLogger logger.Logger, cachedInp
 
 	cldfBlockchains := make([]cldf_chain.BlockChain, 0, len(deployedBlockchains.Outputs))
 	for _, db := range deployedBlockchains.Outputs {
-		// chain, chainErr := CldfChainConfigFromBlockchain(db)
 		chain, chainErr := db.ToCldfChain()
 		if chainErr != nil {
 			return nil, nil, errors.Wrap(chainErr, "failed to create cldf chain from blockchain")
 		}
 		cldfBlockchains = append(cldfBlockchains, chain)
 	}
-
-	// blockChains, chainErr := blockchains.NewCldfChains(cldLogger, chainConfigs)
-	// if chainErr != nil {
-	// 	return nil, nil, errors.Wrapf(chainErr, "failed to create block chains")
-	// }
 
 	cldEnv := cldf.NewEnvironment(
 		"cre",

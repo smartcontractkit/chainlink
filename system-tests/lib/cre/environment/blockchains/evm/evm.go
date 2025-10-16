@@ -92,33 +92,17 @@ func (e *Blockchain) Fund(ctx context.Context, address string, amount uint64) er
 }
 
 func (e *Blockchain) ToCldfChain() (cldf_chain.BlockChain, error) {
-	// bcNode := e.CtfOutput().Nodes[0]
-
-	// return &blockchains.CldfChainConfig{
-	// 	WSRPCs: []blockchains.RPCs{{
-	// 		External: bcNode.ExternalWSUrl, Internal: bcNode.InternalWSUrl,
-	// 	}},
-	// 	HTTPRPCs: []blockchains.RPCs{{
-	// 		External: bcNode.ExternalHTTPUrl, Internal: bcNode.InternalHTTPUrl,
-	// 	}},
-	// 	ChainType:   strings.ToUpper(e.CtfOutput().Family),
-	// 	ChainID:     strconv.FormatUint(e.ChainID(), 10),
-	// 	ChainName:   e.SethClient.Cfg.Network.Name,
-	// 	DeployerKey: e.SethClient.NewTXOpts(seth.WithNonce(nil)), // ensure nonce fetched from chain at use time
-	// }, nil
 	chainDetails, err := chainselectors.GetChainDetailsByChainIDAndFamily(strconv.FormatUint(e.ChainID(), 10), e.ctfOutput.Family)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get selector from chain id %d: %w", e.ChainID(), err)
 	}
 
 	rpcs := []cldf_evm_client.RPC{}
-	// assuming that the length of WSRPCs and HTTPRPCs is always the same
 	for i, node := range e.CtfOutput().Nodes {
 		rpcs = append(rpcs, cldf_evm_client.RPC{
 			Name:    fmt.Sprintf("%s-%d", e.ctfOutput.Family, i),
 			WSURL:   node.ExternalWSUrl,
 			HTTPURL: node.ExternalHTTPUrl,
-			// PreferredURLScheme: c.PreferredURLScheme,
 		})
 	}
 
@@ -229,85 +213,6 @@ func (e *Deployer) Deploy(input *blockchain.Input) (blockchains.Blockchain, erro
 		SethClient:    sethClient,
 	}, nil
 }
-
-// return &cre.Blockchain{
-// 	ChainSelector:      selector,
-// 	ChainID:            chainID,
-// 	CtfOutput:          bcOut,
-// 	SethClient:         sethClient,
-// 	DeployerPrivateKey: priv,
-
-// 	Funder: &Funder{
-// 		sethClient: sethClient,
-// 		testLogger: e.testLogger,
-// 	},
-// }, nil
-// }
-
-// type Funder struct {
-// 	sethClient *seth.Client
-// 	testLogger zerolog.Logger
-// }
-
-// func (f *Funder) Fund(ctx context.Context, address string, amount uint64, fundingPrivateKey []byte) error {
-// 	f.testLogger.Info().Msgf("Attempting to fund EVM account %s", address)
-
-// 	fundingKey, fkErr := crypto.ToECDSA(fundingPrivateKey)
-// 	if fkErr != nil {
-// 		return pkgerrors.Wrap(fkErr, "failed to convert funding private key to ECDSA")
-// 	}
-
-// 	_, fundingErr := libfunding.SendFunds(ctx, zerolog.Logger{}, f.sethClient, libfunding.FundsToSend{
-// 		ToAddress:  common.HexToAddress(address),
-// 		Amount:     big.NewInt(libc.MustSafeInt64(amount)),
-// 		PrivateKey: fundingKey,
-// 	})
-
-// 	if fundingErr != nil {
-// 		return pkgerrors.Wrapf(fundingErr, "failed to fund node %s", address)
-// 	}
-// 	f.testLogger.Info().Msgf("Successfully funded EVM account %s", address)
-
-// 	return nil
-// }
-
-// func (f *Funder) Prepare(ctx context.Context, requiredTotal uint64) ([]byte, error) {
-// 	publicAddress, privateKeyBytes, pkErr := generatePubPrivKeyPair()
-// 	if pkErr != nil {
-// 		return nil, pkgerrors.Wrap(pkErr, "failed to generate pub/priv key pair for EVM funding account")
-// 	}
-
-// 	fundingAmount := libc.MustSafeInt64(requiredTotal)
-// 	fundingAmount += (fundingAmount / 5) // add 20% to cover gas fees
-
-// 	_, fundingErr := libfunding.SendFunds(ctx, zerolog.Logger{}, f.sethClient, libfunding.FundsToSend{
-// 		ToAddress:  *publicAddress,
-// 		Amount:     big.NewInt(fundingAmount),
-// 		PrivateKey: f.sethClient.MustGetRootPrivateKey(),
-// 	})
-
-// 	if fundingErr != nil {
-// 		return nil, pkgerrors.Wrapf(fundingErr, "failed to fund funding account %s on chain %d", publicAddress.String(), f.sethClient.ChainID)
-// 	}
-
-// 	return privateKeyBytes, nil
-// }
-
-// func generatePubPrivKeyPair() (*common.Address, []byte, error) {
-// 	privateKey, pkErr := crypto.GenerateKey()
-// 	if pkErr != nil {
-// 		return nil, nil, pkgerrors.Wrap(pkErr, "failed to generate private key for funding accounts")
-// 	}
-// 	privateKeyBytes := crypto.FromECDSA(privateKey)
-// 	publicKey := privateKey.Public()
-// 	publicKeyECDSA, ok := publicKey.(*ecdsa.PublicKey)
-// 	if !ok {
-// 		return nil, nil, errors.New("error casting public key to ECDSA")
-// 	}
-// 	publicAddress := crypto.PubkeyToAddress(*publicKeyECDSA)
-
-// 	return &publicAddress, privateKeyBytes, nil
-// }
 
 func setDefaultPrivateKeyIfEmpty() error {
 	if os.Getenv("PRIVATE_KEY") == "" {

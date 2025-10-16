@@ -56,12 +56,12 @@ func (t *Blockchain) CtfOutput() *blockchain.Output {
 	return t.ctfOutput
 }
 
-func (e *Blockchain) Is(chainFamily string) bool {
-	return strings.EqualFold(e.ctfOutput.Family, chainFamily)
+func (t *Blockchain) Is(chainFamily string) bool {
+	return strings.EqualFold(t.ctfOutput.Family, chainFamily)
 }
 
-func (e *Blockchain) ChainFamily() string {
-	return e.ctfOutput.Family
+func (t *Blockchain) ChainFamily() string {
+	return t.ctfOutput.Family
 }
 
 func (t *Blockchain) Fund(ctx context.Context, address string, amount uint64) error {
@@ -88,40 +88,12 @@ func (t *Blockchain) Fund(ctx context.Context, address string, amount uint64) er
 	return nil
 }
 
-func (e *Blockchain) ToCldfChain() (cldf_chain.BlockChain, error) {
-	// tron's devnet chainID maps to many chain selectors, one for tron one for EVM
-	// we want to force mapping to EVM family here to avoid selector mismatches later
-	chainDetails, err := chainselectors.GetChainDetailsByChainIDAndFamily(strconv.FormatUint(e.ChainID(), 10), chainselectors.FamilyEVM)
-	if err != nil {
-		return nil, fmt.Errorf("failed to get selector from chain id %s: %w", e.ChainID(), err)
+func (t *Blockchain) ToCldfChain() (cldf_chain.BlockChain, error) {
+	if err := t.lazyInitTronChain(); err != nil {
+		return nil, pkgerrors.Wrap(err, "failed to lazy initialize tron chain")
 	}
 
-	signerGen, err := tronprovider.SignerGenCTFDefault()
-	if err != nil {
-		return nil, fmt.Errorf("failed to create signer generator: %w", err)
-	}
-
-	fullNodeURL := strings.Replace(e.CtfOutput().Nodes[0].ExternalHTTPUrl, "/jsonrpc", "/wallet", 1)
-	solidityNodeURL := strings.Replace(e.CtfOutput().Nodes[0].ExternalHTTPUrl, "/jsonrpc", "/walletsolidity", 1)
-
-	tronRPCProvider := tronprovider.NewRPCChainProvider(chainDetails.ChainSelector, tronprovider.RPCChainProviderConfig{
-		FullNodeURL:       fullNodeURL,
-		SolidityNodeURL:   solidityNodeURL,
-		DeployerSignerGen: signerGen,
-	})
-	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
-	defer cancel()
-	tronChain, err := tronRPCProvider.Initialize(ctx)
-	if err != nil {
-		return nil, fmt.Errorf("failed to initialize tron chain: %w", err)
-	}
-
-	tronChain, ok := tronChain.(cldf_tron.Chain)
-	if !ok {
-		return nil, fmt.Errorf("expected cldf_tron.Chain, got %T", tronChain)
-	}
-
-	return tronChain, nil
+	return t.cldfChain, nil
 }
 
 func (t *Blockchain) lazyInitTronChain() error {
@@ -129,18 +101,27 @@ func (t *Blockchain) lazyInitTronChain() error {
 		return nil
 	}
 
-	// copied from system-tests/lib/cre/chain.go
-	externalHTTPURL := t.ctfOutput.Nodes[0].ExternalHTTPUrl
+	if len(t.CtfOutput().Nodes) == 0 {
+		return errors.New("no nodes found in ctf output")
+	}
+
+	// tron's devnet chainID maps to many chain selectors, one for tron one for EVM
+	// we want to force mapping to EVM family here to avoid selector mismatches later
+	chainDetails, err := chainselectors.GetChainDetailsByChainIDAndFamily(strconv.FormatUint(t.ChainID(), 10), chainselectors.FamilyEVM)
+	if err != nil {
+		return fmt.Errorf("failed to get selector from chain id %d: %w", t.ChainID(), err)
+	}
 
 	signerGen, err := tronprovider.SignerGenCTFDefault()
 	if err != nil {
 		return fmt.Errorf("failed to create signer generator: %w", err)
 	}
 
+	externalHTTPURL := t.CtfOutput().Nodes[0].ExternalHTTPUrl
 	fullNodeURL := strings.Replace(externalHTTPURL, "/jsonrpc", "/wallet", 1)
 	solidityNodeURL := strings.Replace(externalHTTPURL, "/jsonrpc", "/walletsolidity", 1)
 
-	tronRPCProvider := tronprovider.NewRPCChainProvider(t.chainSelector, tronprovider.RPCChainProviderConfig{
+	tronRPCProvider := tronprovider.NewRPCChainProvider(chainDetails.ChainSelector, tronprovider.RPCChainProviderConfig{
 		FullNodeURL:       fullNodeURL,
 		SolidityNodeURL:   solidityNodeURL,
 		DeployerSignerGen: signerGen,
@@ -203,86 +184,4 @@ func (t *Deployer) Deploy(input *blockchain.Input) (blockchains.Blockchain, erro
 		ctfOutput:          bcOut,
 		DeployerPrivateKey: blockchain.TRONAccounts.PrivateKeys[0],
 	}, nil
-
-	// // copied from system-tests/lib/cre/chain.go
-	// externalHTTPURL := bcOut.Nodes[0].ExternalHTTPUrl
-	// internalHTTPURL := bcOut.Nodes[0].InternalHTTPUrl
-
-	// signerGen, err := tronprovider.SignerGenCTFDefault()
-	// if err != nil {
-	// 	return nil, fmt.Errorf("failed to create signer generator: %w", err)
-	// }
-
-	// fullNodeURL := strings.Replace(externalHTTPURL, "/jsonrpc", "/wallet", 1)
-	// solidityNodeURL := strings.Replace(externalHTTPURL, "/jsonrpc", "/walletsolidity", 1)
-
-	// tronRPCProvider := tronprovider.NewRPCChainProvider(selector, tronprovider.RPCChainProviderConfig{
-	// 	FullNodeURL:       fullNodeURL,
-	// 	SolidityNodeURL:   solidityNodeURL,
-	// 	DeployerSignerGen: signerGen,
-	// })
-	// ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
-	// defer cancel()
-	// tronChain, err := tronRPCProvider.Initialize(ctx)
-	// if err != nil {
-	// 	return nil, fmt.Errorf("failed to initialize tron chain: %w", err)
-	// }
-
-	// tc, ok := tronChain.(cldf_tron.Chain)
-	// if !ok {
-	// 	return nil, fmt.Errorf("expected cldf_tron.Chain, got %T", tronChain)
-	// }
-
-	// return &cre.Blockchain{
-	// 	ChainSelector: selector,
-	// 	ChainID:       chainID,
-	// 	CtfOutput: &blockchain.Output{
-	// 		ChainID: bcOut.ChainID,
-	// 		Family:  blockchain.FamilyTron,
-	// 		Nodes: []*blockchain.Node{
-	// 			{
-	// 				InternalHTTPUrl: internalHTTPURL,
-	// 				ExternalHTTPUrl: externalHTTPURL,
-	// 			},
-	// 		},
-	// 	},
-	// 	SethClient:         nil,
-	// 	DeployerPrivateKey: blockchain.TRONAccounts.PrivateKeys[0],
-
-	// 	Funder: &Funder{
-	// 		chain:      tc,
-	// 		testLogger: t.testLogger,
-	// 	},
-	// }, nil
 }
-
-// type Funder struct {
-// 	chain      cldf_tron.Chain
-// 	testLogger zerolog.Logger
-// }
-
-// func (f *Funder) Fund(ctx context.Context, address string, amount uint64, _ []byte) error {
-// 	f.testLogger.Info().Msgf("Attempting to fund TRON account %s", address)
-
-// 	receiverAddress := tron_addr.EVMAddressToAddress(common.HexToAddress(address))
-
-// 	tx, err := f.chain.Client.Transfer(f.chain.Address, receiverAddress, libc.MustSafeInt64(amount))
-// 	if err != nil {
-// 		return pkgerrors.Wrapf(err, "failed to create transfer transaction for TRON account %s", address)
-// 	}
-
-// 	txInfo, err := f.chain.SendAndConfirm(ctx, tx, nil)
-// 	if err != nil {
-// 		return pkgerrors.Wrapf(err, "failed to send and confirm transfer to TRON node %s", address)
-// 	}
-
-// 	f.testLogger.Info().Msgf("Successfully funded TRON account %s with %d SUN, txHash: %s", receiverAddress.String(), amount, txInfo.ID)
-
-// 	return nil
-// }
-
-// func (f *Funder) Prepare(ctx context.Context, requiredTotal uint64) ([]byte, error) {
-// 	// TRON uses its own built-in funding account, no preparation needed
-// 	// return a dummy byte slice to satisfy the interface
-// 	return []byte{0}, nil
-// }

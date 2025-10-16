@@ -265,32 +265,6 @@ func SetupTestEnvironment(
 		chainselectors.FamilyTron:   100_000_000,       // 100 TRX in SUN
 	}
 
-	// This operation cannot execute in the background, because it uses master private key and we want to avoid nonce issues
-	// Once we have generated and funded new private keys for each chain, we can execute fanning out of funds to nodes in the background
-	// privateKeysPerChainFamily, prefundErr := PrepareNodesFunding(
-	// 	ctx,
-	// 	creEnvironment.DonTopology.Dons,
-	// 	deployedBlockchains.Outputs,
-	// 	fundingPerChainFamilyForEachNode,
-	// )
-	// if prefundErr != nil {
-	// 	return nil, pkgerrors.Wrap(prefundErr, "failed to prepare funding of CL nodes")
-	// }
-
-	// fundNodesFuture := queue.SubmitErr(func() error {
-	// 	fmt.Print(libformat.PurpleText("\n---> [BACKGROUND] Funding Chainlink nodes\n\n"))
-	// 	defer fmt.Print(libformat.PurpleText("\n---> [BACKGROUND] Finished Funding Chainlink nodes\n\n"))
-
-	// 	return FundNodes(
-	// 		ctx,
-	// 		testLogger,
-	// 		creEnvironment.DonTopology.Dons,
-	// 		deployedBlockchains.Outputs,
-	// 		privateKeysPerChainFamily,
-	// 		fundingPerChainFamilyForEachNode,
-	// 	)
-	// })
-
 	fErr := FundNodes(
 		ctx,
 		testLogger,
@@ -312,7 +286,6 @@ func SetupTestEnvironment(
 	}
 
 	fmt.Print(libformat.PurpleText("%s", input.StageGen.WrapAndNext("Log Poller started in %.2f seconds", input.StageGen.Elapsed().Seconds())))
-
 	fmt.Print(libformat.PurpleText("%s", input.StageGen.Wrap("Starting Workflow Registry Contract configuration")))
 
 	wfRegVersion := *semver.MustParse(input.ContractVersions[keystone_changeset.WorkflowRegistry.String()])
@@ -363,10 +336,6 @@ func SetupTestEnvironment(
 	}
 
 	fmt.Print(libformat.PurpleText("%s", input.StageGen.WrapAndNext("OCR3 and Keystone contracts configured in %.2f seconds", input.StageGen.Elapsed().Seconds())))
-
-	// if err := worker.AwaitErr(ctx, fundNodesFuture); err != nil {
-	// 	return nil, pkgerrors.Wrap(err, "failed to fund chainlink nodes")
-	// }
 
 	if err := worker.AwaitErr(ctx, wfFiltersFuture); err != nil {
 		return nil, pkgerrors.Wrap(err, "failed while waiting for workflow registry filters registration")

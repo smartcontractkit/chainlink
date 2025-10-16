@@ -180,61 +180,6 @@ func StartDONs(
 	return &startedDONs, nil
 }
 
-// not needed, we will do everything in main thread
-// func PrepareNodesFunding(ctx context.Context, dons *cre.Dons, blockchains []blockchains.Blockchain, fundingPerChainFamilyForEachNode map[string]uint64) (map[string]map[uint64][]byte, error) {
-// 	output := make(map[string]map[uint64][]byte)
-// requiredFundingPerChain := make(map[uint64]uint64)
-
-// for _, don := range dons.List() {
-// 	for _, bc := range blockchains {
-// 		if !flags.RequiresForwarderContract(don.Flags, bc.ChainID()) && !bc.Is(chainselectors.FamilySolana) {
-// 			continue
-// 		}
-
-// 		if bc.Is(chainselectors.FamilySolana) {
-// 			requiredFundingPerChain[bc.ChainSelector()] += fundingPerChainFamilyForEachNode[chainselectors.FamilySolana] * uint64(len(don.Nodes))
-// 			continue
-// 		}
-
-// 		if bc.Is(chainselectors.FamilyTron) {
-// 			requiredFundingPerChain[bc.ChainSelector()] += fundingPerChainFamilyForEachNode[chainselectors.FamilyTron] * uint64(len(don.Nodes))
-// 			continue
-// 		}
-
-// 		// default to EVM
-// 		requiredFundingPerChain[bc.ChainSelector()] += fundingPerChainFamilyForEachNode[chainselectors.FamilyEVM] * uint64(len(don.Nodes))
-// 	}
-// }
-
-// for _, bc := range blockchains {
-// 	if requiredFundingPerChain[bc.ChainSelector] == 0 {
-// 		continue
-// 	}
-
-// 	chainFamily := chainselectors.FamilyEVM
-// 	if bc.SolChain != nil {
-// 		chainFamily = chainselectors.FamilySolana
-// 	} else if bc.CtfOutput.Family == blockchain.FamilyTron {
-// 		chainFamily = chainselectors.FamilyTron
-// 	}
-
-// 	if _, exists := output[chainFamily]; !exists {
-// 		output[chainFamily] = make(map[uint64][]byte)
-// 	}
-
-// 	if _, exists := output[chainFamily][bc.ChainSelector]; !exists {
-// 		pkBytes, err := bc.Funder.Prepare(ctx, requiredFundingPerChain[bc.ChainSelector])
-// 		if err != nil {
-// 			return nil, pkgerrors.Wrapf(err, "failed to prepare funding on chain %d", bc.ChainID)
-// 		}
-
-// 		output[chainFamily][bc.ChainSelector] = pkBytes
-// 	}
-// }
-
-// 	return output, nil
-// }
-
 func FundNodes(ctx context.Context, testLogger zerolog.Logger, dons *cre.Dons, blockchains []blockchains.Blockchain, fundingAmountPerChainFamily map[string]uint64) error {
 	for _, don := range dons.List() {
 		testLogger.Info().Msgf("Funding nodes for DON %s", don.Name)
@@ -242,20 +187,21 @@ func FundNodes(ctx context.Context, testLogger zerolog.Logger, dons *cre.Dons, b
 			if !flags.RequiresForwarderContract(don.Flags, bc.ChainID()) && !bc.Is(chainselectors.FamilySolana) { // for now, we can only write to solana, so we consider forwarder is always present
 				continue
 			}
-			chainFamily := bc.CtfOutput().Family
 
+			chainFamily := bc.CtfOutput().Family
 			fundingAmount, ok := fundingAmountPerChainFamily[chainFamily]
 			if !ok {
 				return fmt.Errorf("missing funding amount for chain family %s", chainFamily)
 			}
+
 			for _, node := range don.Nodes {
 				address, addrErr := nodeAddress(node, chainFamily, bc)
 				if addrErr != nil {
-					return pkgerrors.Wrapf(addrErr, "failed to get address for node %s on chain family %s and chain %d", node.Name, chainFamily, bc.ChainID)
+					return pkgerrors.Wrapf(addrErr, "failed to get address for node %s on chain family %s and chain %d", node.Name, chainFamily, bc.ChainID())
 				}
 
 				if address == "" {
-					testLogger.Info().Msgf("No key for chainID %d found for node %s. Skipping funding", bc.ChainID, node.Name)
+					testLogger.Info().Msgf("No key for chainID %d found for node %s. Skipping funding", bc.ChainID(), node.Name)
 					continue // Skip nodes without keys for this chain
 				}
 

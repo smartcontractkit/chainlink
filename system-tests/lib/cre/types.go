@@ -323,30 +323,6 @@ type WrappedNodeOutput struct {
 	Capabilities []string
 }
 
-// type Blockchain interface {
-// 	ChainSelector() uint64
-// 	ChainID() uint64
-// 	CtfOutput() *blockchain.Output
-// 	Fund(ctx context.Context, address string, amount uint64) error
-// }
-
-// type Blockchain struct {
-// 	ChainSelector      uint64
-// 	ChainID            uint64
-// 	CtfOutput          *blockchain.Output
-// 	SethClient         *seth.Client
-// SolClient          *solrpc.Client
-// 	DeployerPrivateKey string
-// 	SolChain           *SolChain
-
-// 	Funder Funder
-// }
-
-// type Funder interface {
-// 	Fund(ctx context.Context, address string, amount uint64, fundingPrivateKey []byte) error
-// 	Prepare(ctx context.Context, requiredTotal uint64) ([]byte, error) // returns the private key bytes of the funding account
-// }
-
 type SolChain struct {
 	ChainSelector uint64
 	ChainID       string
@@ -1137,97 +1113,10 @@ type LinkDonsToJDInput struct {
 	CldfEnvironment *cldf.Environment
 }
 
-// func (f *LinkDonsToJDInput) Validate() error {
-// 	if f.JDClient == nil {
-// 		return errors.New("jd client not set")
-// 	}
-// 	if len(f.Blockchains) == 0 {
-// 		return errors.New("blockchain output not set")
-// 	}
-
-// 	var expectedSeth, expectedSols int
-// 	for _, chain := range f.Blockchains {
-// 		if chain.SolChain != nil {
-// 			expectedSols++
-// 			continue
-// 		}
-// 		expectedSeth++
-// 	}
-// 	if len(f.DONs) == 0 {
-// 		return errors.New("DONS not set")
-// 	}
-// 	if f.Topology == nil {
-// 		return errors.New("topology not set")
-// 	}
-// 	if len(f.Topology.DonsMetadata.List()) == 0 {
-// 		return errors.New("metadata not set")
-// 	}
-// 	if f.CldfEnvironment == nil {
-// 		return errors.New("cldf environment not set")
-// 	}
-
-// 	return nil
-// }
-
 type Environment struct {
 	CldfEnvironment *cldf.Environment
 	DonTopology     *DonTopology
 }
-
-// type DeployCribDonsInput struct {
-// 	Topology       *Topology
-// 	NodeSetInputs  []*CapabilitiesAwareNodeSet
-// 	CribConfigsDir string
-// 	Namespace      string
-// }
-
-// func (d *DeployCribDonsInput) Validate() error {
-// 	if d.Topology == nil {
-// 		return errors.New("topology not set")
-// 	}
-// 	if len(d.Topology.DonsMetadata.List()) == 0 {
-// 		return errors.New("metadata not set")
-// 	}
-// 	if len(d.NodeSetInputs) == 0 {
-// 		return errors.New("node set inputs not set")
-// 	}
-// 	if d.CribConfigsDir == "" {
-// 		return errors.New("crib configs dir not set")
-// 	}
-// 	return nil
-// }
-
-// type DeployCribJdInput struct {
-// 	JDInput        jd.Input
-// 	CribConfigsDir string
-// 	Namespace      string
-// }
-
-// func (d *DeployCribJdInput) Validate() error {
-// 	if d.CribConfigsDir == "" {
-// 		return errors.New("crib configs dir not set")
-// 	}
-// 	return nil
-// }
-
-// type DeployCribBlockchainInput struct {
-// 	BlockchainInput *blockchain.Input
-// 	CribConfigsDir  string
-// 	Namespace       string
-// }
-
-// func (d *DeployCribBlockchainInput) Validate() error {
-// 	if d.BlockchainInput == nil {
-// 		return errors.New("blockchain input not set")
-// 	}
-// 	if d.CribConfigsDir == "" {
-// 		return errors.New("crib configs dir not set")
-// 	}
-// 	if d.Namespace == "" {
-// 		return errors.New("namespace not set")
-// 	}
-// 	return nil
-// }
 
 type (
 	CapabilityRegistryConfigFn = func(donFlags []CapabilityFlag, nodeSetInput *CapabilitiesAwareNodeSet) ([]keystone_changeset.DONCapabilityWithConfig, error)

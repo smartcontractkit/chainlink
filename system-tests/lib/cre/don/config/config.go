@@ -70,15 +70,6 @@ func PrepareNodeTOMLs(
 	localNodeSets := topology.CapabilitiesAwareNodeSets()
 	chainPerSelector := make(map[uint64]creblockchains.Blockchain)
 	for _, bc := range blockchains {
-		// if bc.Is(chain_selectors.FamilySolana) {
-		// 	solBc := bc.(*solana.Blockchain)
-		// 	sel := solBc.ChainSelector()
-		// 	chainPerSelector[sel] = bc
-		// 	chainPerSelector[sel].ChainSelector = sel
-		// 	chainPerSelector[sel].SolChain = bc.SolChain
-		// 	chainPerSelector[sel].SolChain.ArtifactsDir = bc.SolChain.ArtifactsDir
-		// 	continue
-		// }
 		chainPerSelector[bc.ChainSelector()] = bc
 	}
 

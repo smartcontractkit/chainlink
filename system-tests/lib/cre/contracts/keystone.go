@@ -71,15 +71,11 @@ func DeployKeystoneContracts(
 			if slices.Contains(evmForwardersSelectors, bc.ChainSelector()) {
 				continue
 			}
+			// we have just 1 solana chain
 			if bc.Is(chainselectors.FamilySolana) {
 				solForwardersSelectors = append(solForwardersSelectors, bc.ChainSelector())
 				continue
 			}
-			// consider we have just 1 solana chain
-			// if bcOut.SolChain != nil {
-			// 			solForwardersSelectors = append(solForwardersSelectors, bcOut.SolChain.ChainSelector)
-			// 			continue
-			// }
 			if flags.RequiresForwarderContract(donMetadata.ComputedCapabilities, bc.ChainID()) {
 				if strings.EqualFold(bc.CtfOutput().Family, blockchain.FamilyTron) {
 					testLogger.Info().Msgf("Preparing Tron Keystone Forwarder deployment for chain %d", bc.ChainID())

@@ -73,9 +73,6 @@ func transformNodeConfig(input cre.GenerateConfigsInput, existingConfigs cre.Nod
 		if !bc.Is(chainselectors.FamilySolana) {
 			continue
 		}
-		// if bc.SolChain == nil {
-		// 	continue
-		// }
 		data.ChainSelector = bc.ChainSelector()
 		// find Solana forwarder address
 		forwarders := input.Datastore.Addresses().Filter(datastore.AddressRefByChainSelector(data.ChainSelector))
