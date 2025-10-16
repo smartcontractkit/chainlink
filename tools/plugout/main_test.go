@@ -9,14 +9,14 @@ import (
 )
 
 func TestGetGoModVersion(t *testing.T) {
-	// Create a temporary directory for test files
+	// temp workspace
 	tempDir, err := os.MkdirTemp("", "plugout-test")
 	if err != nil {
 		t.Fatalf("Failed to create temp dir: %v", err)
 	}
 	defer os.RemoveAll(tempDir)
 
-	// Create a mock go.mod file with specific format for tests
+	// mock go.mod
 	mockGoModPath := filepath.Join(tempDir, "go.mod")
 	goModContent := `module github.com/smartcontractkit/chainlink
 
@@ -28,93 +28,71 @@ require (
 	github.com/smartcontractkit/chainlink-solana v1.1.2
 )
 `
-	if err := os.WriteFile(mockGoModPath, []byte(goModContent), 0600); err != nil {
+	if err = os.WriteFile(mockGoModPath, []byte(goModContent), 0600); err != nil {
 		t.Fatalf("Failed to write test go.mod: %v", err)
 	}
 
-	// Create a separate test function to mock the global function for testing
-	testGetGoModVersion := func(module string) (string, error) {
-		if module == "github.com/smartcontractkit/chainlink-data-streams" {
-			return "036bb568a69d", nil
-		} else if module == "github.com/smartcontractkit/chainlink-solana" {
-			return "v1.1.2", nil
-		}
-		return "", errors.New("module not found")
-	}
-
-	// Test pseudo-version extraction
-	t.Run("Extract commit hash from pseudo-version", func(t *testing.T) {
-		version, err := testGetGoModVersion("github.com/smartcontractkit/chainlink-data-streams")
+	t.Run("Extract commit hash from pseudoversion", func(t *testing.T) {
+		mv, err := getGoModVersion(mockGoModPath, "github.com/smartcontractkit/chainlink-data-streams")
 		if err != nil {
 			t.Fatalf("getGoModVersion failed: %v", err)
 		}
-		if version != "036bb568a69d" {
-			t.Errorf("Expected version '036bb568a69d', got '%s'", version)
+		if mv.SHA != "036bb568a69d" {
+			t.Errorf("Expected SHA '036bb568a69d', got '%s' (raw: %s)", mv.SHA, mv.Raw)
+		}
+		if mv.Tag != "" {
+			t.Errorf("Expected tag empty for pseudoversion, got '%s'", mv.Tag)
 		}
 	})
 
-	// Test regular version
-	t.Run("Regular version extraction", func(t *testing.T) {
-		version, err := testGetGoModVersion("github.com/smartcontractkit/chainlink-solana")
+	t.Run("Regular tag extraction", func(t *testing.T) {
+		mv, err := getGoModVersion(mockGoModPath, "github.com/smartcontractkit/chainlink-solana")
 		if err != nil {
 			t.Fatalf("getGoModVersion failed: %v", err)
 		}
-		if version != "v1.1.2" {
-			t.Errorf("Expected version 'v1.1.2', got '%s'", version)
+		if mv.Tag != "v1.1.2" {
+			t.Errorf("Expected tag 'v1.1.2', got '%s' (raw: %s)", mv.Tag, mv.Raw)
+		}
+		if mv.SHA != "" {
+			t.Errorf("Expected SHA empty for tag, got '%s'", mv.SHA)
 		}
 	})
 
-	// Now set the global goModPath for the actual function test
-	goModPath = mockGoModPath
-
-	// Integration test of the actual function
-	t.Run("Actual function test", func(t *testing.T) {
-		version, err := getGoModVersion("github.com/smartcontractkit/chainlink-data-streams")
-		if err != nil {
-			t.Fatalf("getGoModVersion failed: %v", err)
+	t.Run("Missing module returns error", func(t *testing.T) {
+		_, err := getGoModVersion(mockGoModPath, "github.com/smartcontractkit/missing-module")
+		if err == nil {
+			t.Fatalf("Expected error for missing module, got nil")
 		}
-		t.Logf("Actual version from go.mod: %s", version)
 	})
 }
 
-func TestVersionMatching(t *testing.T) {
-	// Store the original function and restore it after the test
-	originalGetModVersionFunc := getModVersionFunc
-	defer func() { getModVersionFunc = originalGetModVersionFunc }()
-
-	// Replace with test implementation
-	getModVersionFunc = func(module string) (string, error) {
-		if module == "github.com/smartcontractkit/chainlink-data-streams" {
-			return "036bb568a69d", nil
-		} else if module == "github.com/smartcontractkit/chainlink-feeds" {
-			return "7cd000095135", nil
+func TestVersionMatching_SHAAndPseudo(t *testing.T) {
+	// stub getModVersion via Options
+	get := func(_ string, module string) (ModuleVersion, error) {
+		switch module {
+		case "github.com/smartcontractkit/chainlink-data-streams":
+			return ModuleVersion{Raw: "v0.1.1-0.20250325191518-036bb568a69d", SHA: "036bb568a69d"}, nil
+		case "github.com/smartcontractkit/chainlink-feeds":
+			return ModuleVersion{Raw: "v0.1.2-0.20250227211209-7cd000095135", SHA: "7cd000095135"}, nil
+		default:
+			return ModuleVersion{}, errors.New("module not found")
 		}
-		return "", errors.New("module not found")
 	}
 
-	// Create a temporary directory for test files
+	// temp workspace
 	tempDir, err := os.MkdirTemp("", "plugout-test")
 	if err != nil {
 		t.Fatalf("Failed to create temp dir: %v", err)
 	}
 	defer os.RemoveAll(tempDir)
 
-	// Create a mock go.mod file
-	mockGoModPath := filepath.Join(tempDir, "go.mod")
-	goModContent := `module github.com/smartcontractkit/chainlink
-
-go 1.21.0
-
-require (
-	github.com/smartcontractkit/chainlink-data-streams v0.1.1-0.20250325191518-036bb568a69d
-	github.com/smartcontractkit/chainlink-feeds v0.1.2-0.20250227211209-7cd000095135
-)
-`
-	if err := os.WriteFile(mockGoModPath, []byte(goModContent), 0600); err != nil {
-		t.Fatalf("Failed to write test go.mod: %v", err)
+	// (go.mod exists but not read by our stub)
+	goModPath := filepath.Join(tempDir, "go.mod")
+	if err = os.WriteFile(goModPath, []byte("module x\ngo 1.21\n"), 0600); err != nil {
+		t.Fatalf("Failed to write go.mod: %v", err)
 	}
 
-	// Create a mock plugin yaml file - case 1: full commit hash match
+	// plugin with full & short SHA
 	pluginYamlPath1 := filepath.Join(tempDir, "plugins1.yaml")
 	yamlContent1 := `plugins:
   streams:
@@ -122,79 +100,195 @@ require (
       gitRef: "036bb568a69d7b7a841017ac72a068f06c50c218" # Full hash
   feeds:
     - moduleURI: "github.com/smartcontractkit/chainlink-feeds"
-      gitRef: "7cd000095135" # Short hash matching pseudo-version
+      gitRef: "7cd000095135" # Short hash
 `
-	if err := os.WriteFile(pluginYamlPath1, []byte(yamlContent1), 0600); err != nil {
-		t.Fatalf("Failed to write test plugin yaml: %v", err)
+	if err = os.WriteFile(pluginYamlPath1, []byte(yamlContent1), 0600); err != nil {
+		t.Fatalf("Failed to write test plugin yaml 1: %v", err)
 	}
 
-	// Create a mock plugin yaml file - case 2: mismatch
 	pluginYamlPath2 := filepath.Join(tempDir, "plugins2.yaml")
 	yamlContent2 := `plugins:
   streams:
     - moduleURI: "github.com/smartcontractkit/chainlink-data-streams"
       gitRef: "wrongcommithash123456"
-  feeds:
-    - moduleURI: "github.com/smartcontractkit/chainlink-feeds"
-      gitRef: "7cd000095135" # Correct
 `
-	if err := os.WriteFile(pluginYamlPath2, []byte(yamlContent2), 0600); err != nil {
-		t.Fatalf("Failed to write test plugin yaml: %v", err)
+	if err = os.WriteFile(pluginYamlPath2, []byte(yamlContent2), 0600); err != nil {
+		t.Fatalf("Failed to write test plugin yaml 2: %v", err)
 	}
 
-	// Set up the global variables for testing
-	goModPath = mockGoModPath
-	hasMismatches = false
-
-	// Test scenario 1: Full commit hash matching with extracted pseudo-version
-	t.Run("Full commit hash matching with extracted pseudo-version", func(t *testing.T) {
-		pluginsPaths = []string{pluginYamlPath1}
-		goModules = []string{"github.com/smartcontractkit/chainlink-data-streams"}
-		hasMismatches = false
-
-		checkAndUpdateModuleVersion("github.com/smartcontractkit/chainlink-data-streams")
-
-		if hasMismatches {
-			t.Errorf("Expected no mismatch for full hash '036bb568a69d7b7a841017ac72a068f06c50c218' matching pseudo-version hash '036bb568a69d'")
+	t.Run("Full SHA matches pseudo SHA", func(t *testing.T) {
+		opts := Options{
+			GoModPath:     goModPath,
+			PluginPaths:   []string{pluginYamlPath1},
+			IgnoreModules: nil,
+			Update:        false,
+			GetModVersion: get,
+		}
+		mismatch, err := checkAndUpdateModuleVersion("github.com/smartcontractkit/chainlink-data-streams", opts)
+		if err != nil {
+			t.Fatalf("checkAndUpdateModuleVersion error: %v", err)
+		}
+		if mismatch {
+			t.Fatalf("should not mismatch full=036bb... vs pseudo SHA=036bb...")
 		}
 	})
 
-	// Test scenario 2: Short hash matching with extracted pseudo-version
-	t.Run("Short hash matching with extracted pseudo-version", func(t *testing.T) {
-		pluginsPaths = []string{pluginYamlPath1}
-		goModules = []string{"github.com/smartcontractkit/chainlink-feeds"}
-		hasMismatches = false
-
-		checkAndUpdateModuleVersion("github.com/smartcontractkit/chainlink-feeds")
-
-		if hasMismatches {
-			t.Errorf("Expected no mismatch for short hash '7cd000095135' matching pseudo-version hash '7cd000095135'")
+	t.Run("Short SHA matches pseudo SHA", func(t *testing.T) {
+		opts := Options{
+			GoModPath:     goModPath,
+			PluginPaths:   []string{pluginYamlPath1},
+			IgnoreModules: nil,
+			Update:        false,
+			GetModVersion: get,
+		}
+		mismatch, err := checkAndUpdateModuleVersion("github.com/smartcontractkit/chainlink-feeds", opts)
+		if err != nil {
+			t.Fatalf("checkAndUpdateModuleVersion error: %v", err)
+		}
+		if mismatch {
+			t.Fatalf("should not mismatch short=7cd000095135 vs pseudo SHA=7cd000095135")
 		}
 	})
 
-	// Test scenario 3: Hash mismatch
-	t.Run("Hash mismatch", func(t *testing.T) {
-		pluginsPaths = []string{pluginYamlPath2}
-		goModules = []string{"github.com/smartcontractkit/chainlink-data-streams"}
-		hasMismatches = false
-
-		checkAndUpdateModuleVersion("github.com/smartcontractkit/chainlink-data-streams")
-
-		if !hasMismatches {
-			t.Errorf("Expected mismatch for hash 'wrongcommithash123456' not matching pseudo-version hash '036bb568a69d'")
+	t.Run("Wrong hash yields mismatch", func(t *testing.T) {
+		opts := Options{
+			GoModPath:     goModPath,
+			PluginPaths:   []string{pluginYamlPath2},
+			IgnoreModules: nil,
+			Update:        false,
+			GetModVersion: get,
+		}
+		mismatch, err := checkAndUpdateModuleVersion("github.com/smartcontractkit/chainlink-data-streams", opts)
+		if err != nil {
+			t.Fatalf("checkAndUpdateModuleVersion error: %v", err)
+		}
+		if !mismatch {
+			t.Fatalf("expected mismatch to be true")
 		}
 	})
 }
 
-func TestUpdateGitRefInYAML(t *testing.T) {
-	// Create a temporary directory for test files
+func TestSubmoduleTagMatchingAndUpdate(t *testing.T) {
+	// stub: go.mod tag v1.2.3 for submodule
+	get := func(_ string, module string) (ModuleVersion, error) {
+		if module == "github.com/smartcontractkit/chainlink-starknet/relayer" {
+			return ModuleVersion{Raw: "v1.2.3", Tag: "v1.2.3"}, nil
+		}
+		return ModuleVersion{}, errors.New("not found")
+	}
+
+	// temp workspace
 	tempDir, err := os.MkdirTemp("", "plugout-test")
 	if err != nil {
 		t.Fatalf("Failed to create temp dir: %v", err)
 	}
 	defer os.RemoveAll(tempDir)
 
-	// Create a mock plugin yaml file with comments and formatting
+	// minimal go.mod (exists)
+	goModPath := filepath.Join(tempDir, "go.mod")
+	if err = os.WriteFile(goModPath, []byte("module x\ngo 1.21\n"), 0600); err != nil {
+		t.Fatalf("Failed to write go.mod: %v", err)
+	}
+
+	// YAML has WRONG submodule tag first to trigger mismatch
+	pluginYamlPath := filepath.Join(tempDir, "plugins_sub.yaml")
+	if err = os.WriteFile(pluginYamlPath, []byte(`plugins:
+  starknet:
+    - moduleURI: "github.com/smartcontractkit/chainlink-starknet/relayer"
+      gitRef: "relayer/v0.9.9"
+`), 0600); err != nil {
+		t.Fatalf("Failed to write plugin yaml: %v", err)
+	}
+
+	// 1) mismatch expected
+	opts := Options{
+		GoModPath:     goModPath,
+		PluginPaths:   []string{pluginYamlPath},
+		IgnoreModules: nil,
+		Update:        false,
+		GetModVersion: get,
+	}
+	mismatch, err := checkAndUpdateModuleVersion("github.com/smartcontractkit/chainlink-starknet/relayer", opts)
+	if err != nil {
+		t.Fatalf("checkAndUpdateModuleVersion error: %v", err)
+	}
+	if !mismatch {
+		t.Fatalf("expected mismatch for YAML relayer/v0.9.9 vs go.mod v1.2.3")
+	}
+
+	// 2) update path: expect YAML to be rewritten to relayer/v1.2.3
+	opts.Update = true
+	mismatch, err = checkAndUpdateModuleVersion("github.com/smartcontractkit/chainlink-starknet/relayer", opts)
+	if err != nil {
+		t.Fatalf("checkAndUpdateModuleVersion error: %v", err)
+	}
+	if !mismatch {
+		t.Fatalf("expected mismatch=true even after update")
+	}
+	// After update, verify file contents
+	b, err := os.ReadFile(pluginYamlPath)
+	if err != nil {
+		t.Fatalf("Failed to read updated yaml: %v", err)
+	}
+	if !strings.Contains(string(b), `gitRef: "relayer/v1.2.3"`) {
+		t.Fatalf("Expected YAML gitRef to be updated to 'relayer/v1.2.3', got:\n%s", string(b))
+	}
+	// mismatch result can be true or false depending on whether other entries still mismatch; we don't rely on it here
+}
+
+func TestDeclaredPluginMissingInGoMod_WarnsAndSkips(t *testing.T) {
+	// stub: always "not found in go.mod"
+	get := func(_ string, _ string) (ModuleVersion, error) {
+		return ModuleVersion{}, errors.New("module not found in go.mod")
+	}
+
+	tempDir, err := os.MkdirTemp("", "plugout-test")
+	if err != nil {
+		t.Fatalf("Failed to create temp dir: %v", err)
+	}
+	defer os.RemoveAll(tempDir)
+
+	// minimal go.mod presence
+	goModPath := filepath.Join(tempDir, "go.mod")
+	if err = os.WriteFile(goModPath, []byte("module x\ngo 1.21\n"), 0600); err != nil {
+		t.Fatalf("Failed to write go.mod: %v", err)
+	}
+
+	// plugin declares a module not present in go.mod
+	pluginYamlPath := filepath.Join(tempDir, "plugins_missing.yaml")
+	if err = os.WriteFile(pluginYamlPath, []byte(`plugins:
+  sui:
+    - moduleURI: "github.com/smartcontractkit/chainlink-sui"
+      gitRef: "v0.0.1"
+`), 0600); err != nil {
+		t.Fatalf("Failed to write plugin yaml: %v", err)
+	}
+
+	opts := Options{
+		GoModPath:     goModPath,
+		PluginPaths:   []string{pluginYamlPath},
+		IgnoreModules: nil,
+		Update:        false,
+		GetModVersion: get,
+	}
+
+	mismatch, err := checkAndUpdateModuleVersion("github.com/smartcontractkit/chainlink-sui", opts)
+	if err != nil {
+		t.Fatalf("checkAndUpdateModuleVersion error: %v", err)
+	}
+	if mismatch {
+		t.Fatalf("Expected warn+skip (no mismatch) when module absent from go.mod")
+	}
+}
+
+func TestUpdateGitRefInYAML_PreservesFormatting(t *testing.T) {
+	// temp workspace
+	tempDir, err := os.MkdirTemp("", "plugout-test")
+	if err != nil {
+		t.Fatalf("Failed to create temp dir: %v", err)
+	}
+	defer os.RemoveAll(tempDir)
+
 	pluginYamlPath := filepath.Join(tempDir, "plugins.yaml")
 	yamlContent := `# Plugin configuration
 plugins:
@@ -206,38 +300,91 @@ plugins:
     - moduleURI: "github.com/smartcontractkit/chainlink-feeds"
       gitRef: "7cd000095135" # Another comment
 `
-	if err := os.WriteFile(pluginYamlPath, []byte(yamlContent), 0600); err != nil {
+	if err = os.WriteFile(pluginYamlPath, []byte(yamlContent), 0600); err != nil {
 		t.Fatalf("Failed to write test plugin yaml: %v", err)
 	}
 
-	// Test updating gitRef while preserving comments and formatting
-	t.Run("Update gitRef preserving comments and formatting", func(t *testing.T) {
-		err := updateGitRefInYAML(pluginYamlPath, "github.com/smartcontractkit/chainlink-data-streams", "newcommithash789012")
-		if err != nil {
-			t.Fatalf("updateGitRefInYAML failed: %v", err)
-		}
+	mv := ModuleVersion{Raw: "newcommithash789012", SHA: "newcommithash789012"}
+	if err = updateGitRefInYAML(pluginYamlPath, "github.com/smartcontractkit/chainlink-data-streams", mv); err != nil {
+		t.Fatalf("updateGitRefInYAML failed: %v", err)
+	}
 
-		// Read the updated file
-		content, err := os.ReadFile(pluginYamlPath)
-		if err != nil {
-			t.Fatalf("Failed to read updated yaml: %v", err)
-		}
+	b, err := os.ReadFile(pluginYamlPath)
+	if err != nil {
+		t.Fatalf("Failed to read updated yaml: %v", err)
+	}
+	s := string(b)
+	if !strings.Contains(s, `gitRef: "newcommithash789012" # Comment about the version`) {
+		t.Errorf("gitRef not updated correctly or comment not preserved:\n%s", s)
+	}
+	if !strings.Contains(s, `installPath: "some/install/path"`) {
+		t.Errorf("Other content not preserved:\n%s", s)
+	}
+	if !strings.Contains(s, `gitRef: "7cd000095135" # Another comment`) {
+		t.Errorf("Unrelated module affected:\n%s", s)
+	}
+}
 
-		contentStr := string(content)
-
-		// Check if update was performed correctly
-		if !strings.Contains(contentStr, `gitRef: "newcommithash789012" # Comment about the version`) {
-			t.Errorf("gitRef not updated correctly or comment not preserved: %s", contentStr)
+func TestRunSync_Integration_UsesDiscoveryAndIgnore(t *testing.T) {
+	// stub: two modules with different SHAs
+	get := func(_ string, module string) (ModuleVersion, error) {
+		switch module {
+		case "github.com/smartcontractkit/chainlink-data-streams":
+			return ModuleVersion{Raw: "v0.0.0-20250101000000-aaaaaaaaaaaa", SHA: "aaaaaaaaaaaa"}, nil
+		case "github.com/smartcontractkit/chainlink-feeds":
+			return ModuleVersion{Raw: "v0.0.0-20250101000000-bbbbbbbbbbbb", SHA: "bbbbbbbbbbbb"}, nil
+		default:
+			return ModuleVersion{}, errors.New("module not found")
 		}
+	}
 
-		// Check if other content was preserved
-		if !strings.Contains(contentStr, `installPath: "some/install/path"`) {
-			t.Errorf("Other content not preserved: %s", contentStr)
-		}
+	// temp workspace
+	tempDir, err := os.MkdirTemp("", "plugout-test")
+	if err != nil {
+		t.Fatalf("Failed to create temp dir: %v", err)
+	}
+	defer os.RemoveAll(tempDir)
 
-		// Check if other module was not affected
-		if !strings.Contains(contentStr, `gitRef: "7cd000095135" # Another comment`) {
-			t.Errorf("Unrelated module was affected: %s", contentStr)
-		}
-	})
+	goModPath := filepath.Join(tempDir, "go.mod")
+	if err = os.WriteFile(goModPath, []byte("module x\ngo 1.21\n"), 0600); err != nil {
+		t.Fatalf("Failed to write go.mod: %v", err)
+	}
+
+	pluginsPath := filepath.Join(tempDir, "plugins.yaml")
+	if err = os.WriteFile(pluginsPath, []byte(`plugins:
+  streams:
+    - moduleURI: "github.com/smartcontractkit/chainlink-data-streams"
+      gitRef: "aaaaaaaaaaaa"   # matches SHA
+  feeds:
+    - moduleURI: "github.com/smartcontractkit/chainlink-feeds"
+      gitRef: "WRONGHASH"      # mismatch
+`), 0600); err != nil {
+		t.Fatalf("Failed to write plugins.yaml: %v", err)
+	}
+
+	// CHECK mode: expect mismatch due to 'feeds'
+	opts := Options{
+		GoModPath:     goModPath,
+		PluginPaths:   []string{pluginsPath},
+		IgnoreModules: nil,
+		Update:        false,
+		GetModVersion: get,
+	}
+	hasMismatch, err := runSync(opts)
+	if err != nil {
+		t.Fatalf("runSync error: %v", err)
+	}
+	if !hasMismatch {
+		t.Fatalf("Expected hasMismatch=true due to the 'feeds' mismatch")
+	}
+
+	// Now ignore the mismatching module: expect no mismatches
+	opts.IgnoreModules = []string{"github.com/smartcontractkit/chainlink-feeds"}
+	hasMismatch, err = runSync(opts)
+	if err != nil {
+		t.Fatalf("runSync error: %v", err)
+	}
+	if hasMismatch {
+		t.Fatalf("Expected hasMismatch=false when ignoring mismatching module")
+	}
 }

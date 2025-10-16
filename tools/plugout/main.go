@@ -6,221 +6,373 @@ import (
 	"fmt"
 	"os"
 	"regexp"
+	"sort"
 	"strings"
 
 	"github.com/spf13/cobra"
 	"gopkg.in/yaml.v3"
 )
 
-// Configuration options
-var (
-	goModPath     string
-	updatePlugins bool
-	hasMismatches bool
-	goModules     []string
-	pluginsPaths  []string
-)
+type Options struct {
+	GoModPath     string
+	PluginPaths   []string
+	IgnoreModules []string
+	Update        bool
 
-// Default values for modules and plugin paths
-var (
-	defaultModules = []string{
-		"github.com/smartcontractkit/chainlink-data-streams",
-		"github.com/smartcontractkit/chainlink-feeds",
-		"github.com/smartcontractkit/chainlink-solana",
-		"github.com/smartcontractkit/chainlink-aptos",
-	}
-	defaultPluginsPaths = []string{
-		"./plugins/plugins.public.yaml",
-	}
-)
+	// Test seam; if nil, defaults to getGoModVersion
+	GetModVersion func(goModPath, module string) (ModuleVersion, error)
+}
 
-// Plugin schema for YAML parsing
 type PluginsFile struct {
 	Plugins map[string][]Plugin `yaml:"plugins"`
 }
 
 type Plugin struct {
-	ModuleURI string `yaml:"moduleURI"`
-	GitRef    string `yaml:"gitRef"`
+	ModuleURI   string   `yaml:"moduleURI"`
+	GitRef      string   `yaml:"gitRef"`
+	InstallPath string   `yaml:"installPath"`
+	Libs        []string `yaml:"libs"`
 }
 
-// For testing purposes
-var getModVersionFunc = getGoModVersion
+// Normalized version representation.
+type ModuleVersion struct {
+	Raw       string // the original string (tag/pseudo/SHA)
+	SHA       string // extracted commit SHA if available (7..40 lower-hex)
+	Tag       string // tag like v0.1.5 (without any subdir prefix)
+	TagPrefix string // if raw looked like "sub/dir/vX.Y.Z", TagPrefix is "sub/dir"
+}
 
 func main() {
+	var (
+		flagGoModPath     string
+		flagUpdatePlugins bool
+		flagPluginPaths   []string
+		flagIgnoreModules []string
+	)
+
 	rootCmd := &cobra.Command{
 		Use:   "sync",
 		Short: "Sync plugin versions from go.mod to plugins manifest YAML files",
-		PreRun: func(cmd *cobra.Command, args []string) {
-			// If no modules provided, use defaults
-			if len(goModules) == 0 {
-				goModules = defaultModules
+		RunE: func(cmd *cobra.Command, args []string) error {
+			if len(flagPluginPaths) == 0 {
+				flagPluginPaths = []string{"./plugins/plugins.public.yaml"}
 			}
 
-			// If no plugin paths provided, use defaults
-			if len(pluginsPaths) == 0 {
-				pluginsPaths = defaultPluginsPaths
+			opts := Options{
+				GoModPath:     flagGoModPath,
+				PluginPaths:   flagPluginPaths,
+				IgnoreModules: flagIgnoreModules,
+				Update:        flagUpdatePlugins,
+				GetModVersion: nil, // use default
 			}
+
+			hasMismatch, err := runSync(opts)
+			if err != nil {
+				return err
+			}
+			if hasMismatch && !opts.Update {
+				// Non-zero exit on mismatches in CHECK mode
+				os.Exit(1)
+			}
+			return nil
 		},
-		Run: runSync,
 	}
 
-	rootCmd.Flags().StringVar(&goModPath, "go-mod", "./go.mod", "Path to go.mod file")
-	rootCmd.Flags().BoolVar(&updatePlugins, "update", false, "Write the gitRef using the go.mod version for matching plugins")
-	rootCmd.Flags().StringArrayVar(&goModules, "module", nil, "Go module URI to check (can be specified multiple times)")
-	rootCmd.Flags().StringArrayVar(&pluginsPaths, "plugin-file", nil, "Plugin YAML file to check (can be specified multiple times)")
+	rootCmd.Flags().StringVar(&flagGoModPath, "go-mod", "./go.mod", "Path to go.mod file")
+	rootCmd.Flags().BoolVar(&flagUpdatePlugins, "update", false, "Write the gitRef using the go.mod version for matching plugins")
+	rootCmd.Flags().StringArrayVar(&flagPluginPaths, "plugin-file", nil, "Plugin YAML file to check (can be specified multiple times)")
+	rootCmd.Flags().StringArrayVar(&flagIgnoreModules, "ignore-module", nil, "Module URI to ignore (can be specified multiple times)")
 
 	if err := rootCmd.Execute(); err != nil {
-		fmt.Println(err)
-		os.Exit(1)
-	}
-
-	if hasMismatches && !updatePlugins {
+		fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)
 	}
 }
 
-func runSync(cmd *cobra.Command, args []string) {
-	fmt.Println("=== Starting plugin version sync check ===")
-	fmt.Printf("Checking go.mod path: %s\n", goModPath)
-	fmt.Printf("Modules to check: %s\n", strings.Join(goModules, ", "))
-	fmt.Printf("Plugin files to check: %s\n", strings.Join(pluginsPaths, ", "))
+// -----------------------------------------------------------------------------
+// Orchestration
+// -----------------------------------------------------------------------------
 
-	if updatePlugins {
+// runSync discovers modules from plugin files (minus ignores), verifies files,
+// compares/updates refs, and returns whether any mismatches were found.
+func runSync(opts Options) (bool, error) {
+	fmt.Println("=== Starting plugin version sync check ===")
+	fmt.Printf("Checking go.mod path: %s\n", opts.GoModPath)
+	fmt.Printf("Plugin files to check: %s\n", strings.Join(opts.PluginPaths, ", "))
+
+	if opts.Update {
 		fmt.Println("Mode: UPDATE (will update plugin gitRef values)")
 	} else {
 		fmt.Println("Mode: CHECK ONLY (use --update flag to update plugin files)")
 	}
 	fmt.Println()
 
-	// Validate that go.mod file exists
-	if _, err := os.Stat(goModPath); os.IsNotExist(err) {
-		fmt.Printf("Error: go.mod file not found at path: %s\n", goModPath)
-		os.Exit(1)
+	// Validate that go.mod file exists.
+	if _, err := os.Stat(opts.GoModPath); os.IsNotExist(err) {
+		return false, fmt.Errorf("go.mod file not found at path: %s", opts.GoModPath)
 	}
 
-	// Validate all plugin YAML files exist before continuing
-	for _, pluginPath := range pluginsPaths {
+	// Validate that plugin YAML files exist.
+	for _, pluginPath := range opts.PluginPaths {
 		if _, err := os.Stat(pluginPath); os.IsNotExist(err) {
-			fmt.Printf("Error: Plugin YAML file not found: %s\n", pluginPath)
-			os.Exit(1)
+			return false, fmt.Errorf("plugin YAML file not found: %s", pluginPath)
 		}
 	}
 
-	for _, module := range goModules {
-		checkAndUpdateModuleVersion(module)
+	// Discover modules from plugin files and apply ignores.
+	modulesToCheck := discoverModulesFromPlugins(opts.PluginPaths)
+	if len(modulesToCheck) == 0 {
+		fmt.Println("Warning: No modules discovered from plugin files.")
+	}
+	if len(opts.IgnoreModules) > 0 {
+		modulesToCheck = without(modulesToCheck, opts.IgnoreModules)
+	}
+	sort.Strings(modulesToCheck)
+	fmt.Printf("Modules to check: %s\n", strings.Join(modulesToCheck, ", "))
+	fmt.Println()
+
+	hasMismatch := false
+	for _, module := range modulesToCheck {
+		mismatched, err := checkAndUpdateModuleVersion(module, opts)
+		if err != nil {
+			return hasMismatch, err
+		}
+		if mismatched {
+			hasMismatch = true
+		}
 	}
 
-	if hasMismatches && !updatePlugins {
+	if hasMismatch && !opts.Update {
 		fmt.Println("=== Plugin version sync check completed with mismatches ===")
 	} else {
 		fmt.Println("=== Plugin version sync check completed successfully ===")
 	}
+
+	return hasMismatch, nil
 }
 
-// getGoModVersion extracts the version from go.mod for a specific module
-func getGoModVersion(module string) (string, error) {
-	fmt.Printf("Extracting version for %s from go.mod...\n", module)
+// -----------------------------------------------------------------------------
+// Discovery & helpers
+// -----------------------------------------------------------------------------
+
+// discoverModulesFromPlugins returns a unique list of moduleURIs declared in plugin YAMLs.
+func discoverModulesFromPlugins(paths []string) []string {
+	seen := make(map[string]struct{})
+	for _, p := range paths {
+		data, err := os.ReadFile(p)
+		if err != nil {
+			fmt.Printf("Warning: failed to read %s: %v\n", p, err)
+			continue
+		}
+		var pf PluginsFile
+		if err := yaml.Unmarshal(data, &pf); err != nil {
+			fmt.Printf("Warning: failed to parse YAML %s: %v\n", p, err)
+			continue
+		}
+		for _, list := range pf.Plugins {
+			for _, pl := range list {
+				if pl.ModuleURI != "" {
+					seen[pl.ModuleURI] = struct{}{}
+				}
+			}
+		}
+	}
+	out := make([]string, 0, len(seen))
+	for m := range seen {
+		out = append(out, m)
+	}
+	return out
+}
+
+// without returns a new slice with all elements of input except those in remove.
+func without(input, remove []string) []string {
+	rm := make(map[string]struct{}, len(remove))
+	for _, r := range remove {
+		rm[r] = struct{}{}
+	}
+	out := make([]string, 0, len(input))
+	for _, v := range input {
+		if _, skip := rm[v]; !skip {
+			out = append(out, v)
+		}
+	}
+	return out
+}
+
+// moduleSubdir returns the path within the repo after the "host/org/repo" prefix.
+// e.g.  github.com/smartcontractkit/chainlink-starknet/relayer -> "relayer"
+func moduleSubdir(module string) string {
+	parts := strings.Split(module, "/")
+	if len(parts) <= 3 {
+		return ""
+	}
+	return strings.Join(parts[3:], "/")
+}
+
+// -----------------------------------------------------------------------------
+// Version parsing & extraction
+// -----------------------------------------------------------------------------
+
+var (
+	// Examples:
+	// v0.0.0-20251013133428-62ab1091a563
+	// v1.2.3-0.20250102030405-abcdef123456
+	pseudoWithSHARe = regexp.MustCompile(`^v\d+\.\d+\.\d+(?:-[0-9.]+)?-(?:\d{14})-g?([0-9a-f]{7,40})$`)
+
+	// tag like v0.1.5 (allow pre-release/build suffixes)
+	plainTagRe = regexp.MustCompile(`^v\d+\.\d+\.\d+([.-].*)?$`)
+
+	// subdir-prefixed tag like sub/dir/v0.1.5
+	prefixedTagRe = regexp.MustCompile(`^(.+?)/+(v\d+\.\d+\.\d+(?:[.-].*)?)$`)
+
+	// raw SHA (7..40 hex)
+	shaOnlyRe = regexp.MustCompile(`^[0-9a-f]{7,40}$`)
+)
+
+// normalizeVersion converts any raw string (tag/pseudo/SHA) into ModuleVersion.
+// Pseudoversions never set Tag; subdir-prefixed tags set Tag+TagPrefix.
+func normalizeVersion(raw string) ModuleVersion {
+	mv := ModuleVersion{Raw: raw}
+	low := strings.ToLower(strings.TrimSpace(raw))
+
+	// 1) Pseudoversion? (detect first; return early after extracting SHA)
+	if pseudoWithSHARe.MatchString(low) {
+		mv.SHA = pseudoWithSHARe.FindStringSubmatch(low)[1]
+		return mv
+	}
+	// Fallback pseudoversion detector (suffix after last dash looks like a SHA)
+	if mv.SHA == "" && strings.HasPrefix(low, "v") && strings.Count(low, "-") >= 2 {
+		parts := strings.Split(low, "-")
+		last := strings.TrimPrefix(parts[len(parts)-1], "g")
+		if shaOnlyRe.MatchString(last) {
+			mv.SHA = last
+			return mv
+		}
+	}
+
+	// 2) Raw SHA?
+	if shaOnlyRe.MatchString(low) {
+		mv.SHA = low
+		return mv
+	}
+
+	// 3) Tag (non-pseudo)
+	if plainTagRe.MatchString(low) {
+		// subdir-prefixed tag?
+		if m := prefixedTagRe.FindStringSubmatch(low); len(m) == 3 && plainTagRe.MatchString(m[2]) {
+			orig := strings.TrimSpace(raw)
+			if pos := strings.LastIndex(orig, "/"); pos >= 0 && pos+1 < len(orig) {
+				mv.Tag = orig[pos+1:]
+				mv.TagPrefix = strings.TrimSuffix(orig[:pos], "/")
+				return mv
+			}
+		}
+		// plain tag
+		mv.Tag = raw
+		return mv
+	}
+
+	// otherwise leave as-is (unknown form)
+	return mv
+}
+
+func shaEqual(a, b string) bool {
+	if a == "" || b == "" {
+		return false
+	}
+	// Allow prefix matches (e.g., 12-char vs 40-char).
+	return strings.HasPrefix(a, b) || strings.HasPrefix(b, a)
+}
+
+// getGoModVersion extracts the version for a specific module from go.mod at goModPath.
+func getGoModVersion(goModPath, module string) (ModuleVersion, error) {
+	fmt.Printf("---\nExtracting version for %s from go.mod...\n", module)
 
 	data, err := os.ReadFile(goModPath)
 	if err != nil {
-		return "", fmt.Errorf("failed to read go.mod: %w", err)
+		return ModuleVersion{}, fmt.Errorf("failed to read go.mod: %w", err)
 	}
 
-	// Parse go.mod to find the module version
 	scanner := bufio.NewScanner(strings.NewReader(string(data)))
 	foundModule := false
-	pseudoVersionPattern := regexp.MustCompile(`v[\d]+\.[\d]+\.[\d]+-[\d]+-g([0-9a-f]+)`)
 
 	for scanner.Scan() {
 		line := scanner.Text()
-		// Check if this line contains the module we're looking for
+
+		t := strings.TrimSpace(line)
+		if t == "" || strings.HasPrefix(t, "//") {
+			continue
+		}
+
+		// Look for "<module> <version>" on the same line.
 		if strings.Contains(line, module+" ") {
 			foundModule = true
-			// If the version is on the same line
 			fields := strings.Fields(line)
 			if len(fields) > 1 {
 				version := fields[len(fields)-1]
-
-				// Check if it's a pseudo-version and extract the commit hash
-				if pseudoVersionPattern.MatchString(version) {
-					matches := pseudoVersionPattern.FindStringSubmatch(version)
-					if len(matches) >= 2 {
-						version = matches[1]
-					}
-				}
-
-				fmt.Printf("Version extracted: %s\n", version)
-				return version, nil
+				mv := normalizeVersion(version)
+				fmt.Printf("Version extracted: %s (SHA:%s Tag:%s Prefix:%s)\n", mv.Raw, mv.SHA, mv.Tag, mv.TagPrefix)
+				return mv, nil
 			}
 			continue
 		}
 
-		// If we previously found the module, and this line might contain the version
+		// If module found on previous line, this line may be the version.
 		if foundModule {
 			fields := strings.Fields(line)
 			if len(fields) > 0 {
 				version := fields[0]
-
-				// Check if it's a pseudo-version and extract the commit hash
-				if pseudoVersionPattern.MatchString(version) {
-					matches := pseudoVersionPattern.FindStringSubmatch(version)
-					if len(matches) >= 2 {
-						version = matches[1]
-					}
-				}
-
-				fmt.Printf("Version extracted: %s\n", version)
-				return version, nil
+				mv := normalizeVersion(version)
+				fmt.Printf("Version extracted: %s (SHA:%s Tag:%s Prefix:%s)\n", mv.Raw, mv.SHA, mv.Tag, mv.TagPrefix)
+				return mv, nil
 			}
 		}
 	}
 
-	return "", errors.New("module " + module + " not found in go.mod")
+	return ModuleVersion{}, errors.New("module " + module + " not found in go.mod")
 }
 
-// getYAMLVersion extracts the gitRef from a plugin YAML file for a specific module
-func getYAMLVersion(pluginPath, module string) (string, error) {
+// getYAMLVersion extracts the gitRef for a specific module from a plugin YAML file.
+func getYAMLVersion(pluginPath, module string) (ModuleVersion, error) {
 	fmt.Printf("Extracting version for %s from %s...\n", module, pluginPath)
 
 	data, err := os.ReadFile(pluginPath)
 	if err != nil {
-		return "", fmt.Errorf("failed to read YAML file: %w", err)
+		return ModuleVersion{}, fmt.Errorf("failed to read YAML file: %w", err)
 	}
 
 	var pluginsFile PluginsFile
 	if err := yaml.Unmarshal(data, &pluginsFile); err != nil {
-		return "", fmt.Errorf("failed to parse YAML: %w", err)
+		return ModuleVersion{}, fmt.Errorf("failed to parse YAML: %w", err)
 	}
 
 	for _, plugins := range pluginsFile.Plugins {
 		for _, plugin := range plugins {
 			if plugin.ModuleURI == module {
-				return plugin.GitRef, nil
+				return normalizeVersion(plugin.GitRef), nil
 			}
 		}
 	}
 
-	return "", errors.New("module " + module + " not found in " + pluginPath)
+	return ModuleVersion{}, errors.New("module " + module + " not found in " + pluginPath)
 }
 
-// updateGitRefInYAML updates the gitRef in a plugin YAML file for a specific module
-func updateGitRefInYAML(pluginPath, module, newGitRef string) error {
+// updateGitRefInYAML updates the gitRef in a plugin YAML file for a specific module.
+// If go.mod provided a TAG and the module is a submodule, we write "sub/dir/vX.Y.Z".
+func updateGitRefInYAML(pluginPath, module string, goModMV ModuleVersion) error {
+	newGitRef := desiredYAMLRefForModule(module, goModMV)
 	fmt.Printf("  Updating gitRef for %s to %s in %s\n", module, newGitRef, pluginPath)
 
-	// Read the original file content
 	data, err := os.ReadFile(pluginPath)
 	if err != nil {
 		return fmt.Errorf("failed to read YAML file: %w", err)
 	}
 
-	// First unmarshal to verify the module exists
+	// Verify the module exists in YAML.
 	var pluginsFile PluginsFile
 	if err := yaml.Unmarshal(data, &pluginsFile); err != nil {
 		return fmt.Errorf("failed to parse YAML: %w", err)
 	}
-
-	// Check if module exists in the file
 	moduleExists := false
 	for _, plugins := range pluginsFile.Plugins {
 		for _, plugin := range plugins {
@@ -233,50 +385,42 @@ func updateGitRefInYAML(pluginPath, module, newGitRef string) error {
 			break
 		}
 	}
-
 	if !moduleExists {
 		return errors.New("module " + module + " not found in " + pluginPath)
 	}
 
-	// Convert to string for line-by-line processing
+	// Line-wise replace to preserve formatting/comments.
 	content := string(data)
 	lines := strings.Split(content, "\n")
 
-	// Track if we found the module and if we've updated the gitRef
 	foundModule := false
 	updated := false
 
-	// Process line by line
 	for i, line := range lines {
-		trimmedLine := strings.TrimSpace(line)
+		trimmed := strings.TrimSpace(line)
 
-		// Check if this line contains the moduleURI
-		if strings.Contains(trimmedLine, "moduleURI:") && strings.Contains(trimmedLine, module) {
+		if strings.Contains(trimmed, "moduleURI:") && strings.Contains(trimmed, module) {
 			foundModule = true
 			continue
 		}
 
-		// If we found the module, look for the gitRef line to update
-		if foundModule && strings.Contains(trimmedLine, "gitRef:") {
-			// Extract indentation from the original line
-			indentation := ""
-			for _, char := range line {
-				if char != ' ' && char != '\t' {
+		if foundModule && strings.Contains(trimmed, "gitRef:") {
+			// preserve indentation
+			indent := ""
+			for _, ch := range line {
+				if ch != ' ' && ch != '\t' {
 					break
 				}
-				indentation += string(char)
+				indent += string(ch)
 			}
-
-			// Keep any comment that might be on the same line
+			// preserve comment
 			comment := ""
 			if idx := strings.Index(line, "#"); idx >= 0 {
 				comment = " " + strings.TrimSpace(line[idx:])
 			}
-
-			// Replace the line with updated gitRef, preserving indentation and comment
-			lines[i] = fmt.Sprintf("%sgitRef: %q%s", indentation, newGitRef, comment)
+			lines[i] = fmt.Sprintf("%sgitRef: %q%s", indent, newGitRef, comment)
 			updated = true
-			foundModule = false // Reset to find next occurrence if any
+			foundModule = false
 			continue
 		}
 	}
@@ -285,59 +429,120 @@ func updateGitRefInYAML(pluginPath, module, newGitRef string) error {
 		return errors.New("failed to update gitRef for module " + module)
 	}
 
-	// Join lines back into content
 	newContent := strings.Join(lines, "\n")
-
-	// Write the updated content back to file
 	if err := os.WriteFile(pluginPath, []byte(newContent), 0600); err != nil {
 		return fmt.Errorf("failed to write YAML file: %w", err)
 	}
-
 	return nil
 }
 
-// checkAndUpdateModuleVersion checks the version of a module in go.mod and all plugin files
-func checkAndUpdateModuleVersion(module string) {
-	goModVersion, err := getModVersionFunc(module)
-	if err != nil {
-		fmt.Printf("  ⚠️  %v\n", err)
-		return
+// desiredYAMLRefForModule returns the string to write to YAML for a module/ref.
+// If ref is a tag and module has a subdir, return "subdir/tag". Otherwise return raw.
+func desiredYAMLRefForModule(module string, mv ModuleVersion) string {
+	if mv.Tag != "" {
+		if sub := moduleSubdir(module); sub != "" {
+			return sub + "/" + mv.Tag
+		}
+	}
+	return mv.Raw
+}
+
+// -----------------------------------------------------------------------------
+// Core compare/update
+// -----------------------------------------------------------------------------
+
+// checkAndUpdateModuleVersion compares YAML refs against go.mod for `module`.
+// Returns whether any mismatches were found for this module.
+func checkAndUpdateModuleVersion(module string, opts Options) (bool, error) {
+	get := opts.GetModVersion
+	if get == nil {
+		get = getGoModVersion
 	}
 
-	for _, pluginPath := range pluginsPaths {
-		yamlVersion, err := getYAMLVersion(pluginPath, module)
+	goModMV, err := get(opts.GoModPath, module)
+	if err != nil || goModMV.Raw == "" {
+		fmt.Printf("⚠️  %v\n", err)
+		return false, nil // warn & skip, no mismatch
+	}
+
+	mismatchFound := false
+	for _, pluginPath := range opts.PluginPaths {
+		yamlMV, err := getYAMLVersion(pluginPath, module)
 		if err != nil {
-			fmt.Printf("  ⚠️  %v\n", err)
+			fmt.Printf("⚠️  %v\n", err)
 			continue
 		}
 
-		// Check if versions match
-		versionMatch := false
-
-		// Case 1: Direct exact match
-		if goModVersion == yamlVersion {
-			versionMatch = true
-		} else if !strings.HasPrefix(goModVersion, "v") && strings.HasPrefix(yamlVersion, goModVersion) {
-			// Case 2: the yaml gitRef/version contains sha sum from the go.mod pseudo-version
-			versionMatch = true
-		}
-
-		if !versionMatch {
-			fmt.Printf("  ❌ MISMATCH: %s in %s\n", module, pluginPath)
-			fmt.Printf("    go.mod: %s\n", goModVersion)
-			fmt.Printf("    yaml  : %s\n", yamlVersion)
-
-			if updatePlugins {
-				if err := updateGitRefInYAML(pluginPath, module, goModVersion); err != nil {
+		if !versionsMatchForModule(module, goModMV, yamlMV) {
+			mismatchFound = true
+			fmt.Printf("❌ MISMATCH: %s\n", module)
+			if opts.Update {
+				if err := updateGitRefInYAML(pluginPath, module, goModMV); err != nil {
 					fmt.Printf("    ❌ %v\n", err)
 				} else {
 					fmt.Printf("    ✅ Updated gitRef in %s\n", pluginPath)
 				}
-			} else {
-				hasMismatches = true
 			}
 		} else {
 			fmt.Printf("  ✅ %s versions match in %s\n", module, pluginPath)
 		}
 	}
+	return mismatchFound, nil
+}
+
+// versionsMatchForModule extends versionsMatch with submodule tag-prefix logic.
+func versionsMatchForModule(module string, a, b ModuleVersion) bool {
+	// 1) SHA equality (prefix-friendly).
+	if shaEqual(a.SHA, b.SHA) {
+		return true
+	}
+
+	// 2) If YAML raw contains the go.mod SHA (e.g., YAML has full pseudo, go.mod SHA was normalized).
+	if a.SHA != "" && strings.Contains(strings.ToLower(b.Raw), a.SHA) {
+		return true
+	}
+
+	// 3) Tag equality, accounting for submodule tag prefixes.
+	if tagsMatchWithSubdir(module, a, b) {
+		return true
+	}
+
+	// 4) Raw equality fallback.
+	return a.Raw != "" && a.Raw == b.Raw
+}
+
+// tagsMatchWithSubdir considers these equivalent for module "repo/sub":
+//
+//	go.mod: v1.2.3  <=>  YAML: sub/v1.2.3
+//
+// Works with multi-segment subdirs and v2+ paths like "v2/sub".
+func tagsMatchWithSubdir(module string, a, b ModuleVersion) bool {
+	if a.Tag == "" && b.Tag == "" {
+		return false
+	}
+	if a.Tag != "" && b.Tag != "" && a.Tag == b.Tag {
+		return true
+	}
+
+	sub := moduleSubdir(module)
+	if sub == "" {
+		// root module: just compare plain tags if present
+		return a.Tag != "" && b.Tag != "" && a.Tag == b.Tag
+	}
+
+	// If either side has a prefix already, normalize both possibilities.
+	// Accept:
+	//   a.Tag == b.Tag && (a.TagPrefix == sub || b.TagPrefix == sub)
+	// Or if prefixes absent on one side, accept sub+"/"+plainTag equality against other's raw.
+	if a.Tag != "" && b.Tag != "" && a.Tag == b.Tag && (strings.EqualFold(a.TagPrefix, sub) || strings.EqualFold(b.TagPrefix, sub)) {
+		return true
+	}
+	// Compare raw strings for cases where YAML holds "sub/vX" while go.mod has "vX".
+	if a.Tag != "" && strings.EqualFold(b.Raw, sub+"/"+a.Tag) {
+		return true
+	}
+	if b.Tag != "" && strings.EqualFold(a.Raw, sub+"/"+b.Tag) {
+		return true
+	}
+	return false
 }
