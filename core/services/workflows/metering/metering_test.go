@@ -951,6 +951,59 @@ func Test_Report_Settle(t *testing.T) {
 		assert.Empty(t, logs.All())
 		billingClient.AssertExpectations(t)
 	})
+
+	t.Run("successfully settles zero value rate", func(t *testing.T) {
+		t.Parallel()
+
+		billingClient := mocks.NewBillingClient(t)
+		lggr, logs := logger.TestObserved(t, zapcore.InfoLevel)
+		billingClient.EXPECT().GetWorkflowExecutionRates(mock.Anything, mock.Anything).
+			Return(&billing.GetWorkflowExecutionRatesResponse{
+				RateCards: successRates,
+				GasTokensPerCredit: map[uint64]string{
+					5009297550715157269: "0", // ETH mainnet; zero value rate
+				},
+			}, nil)
+		report := newTestReport(t, lggr, billingClient)
+
+		billingClient.EXPECT().ReserveCredits(mock.Anything, mock.Anything).
+			Return(&successReserveResponseWithRates, nil)
+		require.NoError(t, report.Reserve(t.Context()))
+
+		config, _ := values.NewMap(map[string]any{
+			RatiosKey: map[string]string{
+				testUnitGas: "1.0",
+			},
+		})
+
+		info := capabilities.CapabilityInfo{
+			SpendTypes: []capabilities.CapabilitySpendType{
+				capabilities.CapabilitySpendType(testUnitGas),
+			},
+		}
+
+		value := decimal.NewNullDecimal(decimal.Zero)
+		value.Valid = false
+
+		_, err := report.Deduct("ref1", ByDerivedAvailability(value, 1, info, config))
+		require.NoError(t, err)
+
+		steps := capabilities.ResponseMetadata{Metering: []capabilities.MeteringNodeDetail{
+			{Peer2PeerID: "xyz", SpendUnit: testUnitGas, SpendValue: "0.000700000000000000"}, // should convert to 0 credits
+		}, CapDON_N: 42}
+
+		require.NoError(t, report.Settle("ref1", steps))
+
+		billingClient.EXPECT().
+			SubmitWorkflowReceipt(mock.Anything, mock.MatchedBy(func(report *billing.SubmitWorkflowReceiptRequest) bool {
+				return report.CreditsConsumed == "0"
+			})).Return(&emptypb.Empty{}, nil).Once()
+
+		require.NoError(t, report.SendReceipt(t.Context()))
+
+		assert.Empty(t, logs.All())
+		billingClient.AssertExpectations(t)
+	})
 }
 
 func Test_Report_FormatReport(t *testing.T) {
