@@ -14,7 +14,7 @@ import (
 	"github.com/rs/zerolog"
 
 	chainselectors "github.com/smartcontractkit/chain-selectors"
-
+	cldf_chain "github.com/smartcontractkit/chainlink-deployments-framework/chain"
 	cldf_tron "github.com/smartcontractkit/chainlink-deployments-framework/chain/tron"
 	tronprovider "github.com/smartcontractkit/chainlink-deployments-framework/chain/tron/provider"
 
@@ -60,6 +60,10 @@ func (e *Blockchain) Is(chainFamily string) bool {
 	return strings.EqualFold(e.ctfOutput.Family, chainFamily)
 }
 
+func (e *Blockchain) ChainFamily() string {
+	return e.ctfOutput.Family
+}
+
 func (t *Blockchain) Fund(ctx context.Context, address string, amount uint64) error {
 	t.testLogger.Info().Msgf("Attempting to fund TRON account %s", address)
 
@@ -84,8 +88,40 @@ func (t *Blockchain) Fund(ctx context.Context, address string, amount uint64) er
 	return nil
 }
 
-func (e *Blockchain) ToCldfConfig() (*blockchains.CldfChainConfig, error) {
-	return nil, nil
+func (e *Blockchain) ToCldfChain() (cldf_chain.BlockChain, error) {
+	// tron's devnet chainID maps to many chain selectors, one for tron one for EVM
+	// we want to force mapping to EVM family here to avoid selector mismatches later
+	chainDetails, err := chainselectors.GetChainDetailsByChainIDAndFamily(strconv.FormatUint(e.ChainID(), 10), chainselectors.FamilyEVM)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get selector from chain id %s: %w", e.ChainID(), err)
+	}
+
+	signerGen, err := tronprovider.SignerGenCTFDefault()
+	if err != nil {
+		return nil, fmt.Errorf("failed to create signer generator: %w", err)
+	}
+
+	fullNodeURL := strings.Replace(e.CtfOutput().Nodes[0].ExternalHTTPUrl, "/jsonrpc", "/wallet", 1)
+	solidityNodeURL := strings.Replace(e.CtfOutput().Nodes[0].ExternalHTTPUrl, "/jsonrpc", "/walletsolidity", 1)
+
+	tronRPCProvider := tronprovider.NewRPCChainProvider(chainDetails.ChainSelector, tronprovider.RPCChainProviderConfig{
+		FullNodeURL:       fullNodeURL,
+		SolidityNodeURL:   solidityNodeURL,
+		DeployerSignerGen: signerGen,
+	})
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+	tronChain, err := tronRPCProvider.Initialize(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("failed to initialize tron chain: %w", err)
+	}
+
+	tronChain, ok := tronChain.(cldf_tron.Chain)
+	if !ok {
+		return nil, fmt.Errorf("expected cldf_tron.Chain, got %T", tronChain)
+	}
+
+	return tronChain, nil
 }
 
 func (t *Blockchain) lazyInitTronChain() error {

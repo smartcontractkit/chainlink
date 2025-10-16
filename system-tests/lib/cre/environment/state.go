@@ -10,6 +10,7 @@ import (
 	"google.golang.org/grpc/credentials/insecure"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
+	cldf_chain "github.com/smartcontractkit/chainlink-deployments-framework/chain"
 	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	"github.com/smartcontractkit/chainlink-deployments-framework/offchain/jd"
@@ -98,20 +99,20 @@ func BuildFromSavedState(ctx context.Context, cldLogger logger.Logger, cachedInp
 		dons = append(dons, startedDON)
 	}
 
-	chainConfigs := make([]blockchains.CldfChainConfig, 0, len(deployedBlockchains.Outputs))
-	for _, output := range deployedBlockchains.Outputs {
-		// cfg, cfgErr := cre.CldfChainConfigFromBlockchain(output)
-		cfg, cfgErr := output.ToCldfConfig()
-		if cfgErr != nil {
-			return nil, nil, errors.Wrapf(cfgErr, "failed to build chain config from write for blockchain %s", output.CtfOutput().Family)
+	cldfBlockchains := make([]cldf_chain.BlockChain, 0, len(deployedBlockchains.Outputs))
+	for _, db := range deployedBlockchains.Outputs {
+		// chain, chainErr := CldfChainConfigFromBlockchain(db)
+		chain, chainErr := db.ToCldfChain()
+		if chainErr != nil {
+			return nil, nil, errors.Wrap(chainErr, "failed to create cldf chain from blockchain")
 		}
-		chainConfigs = append(chainConfigs, *cfg)
+		cldfBlockchains = append(cldfBlockchains, chain)
 	}
 
-	blockChains, chainErr := blockchains.NewCldfChains(cldLogger, chainConfigs)
-	if chainErr != nil {
-		return nil, nil, errors.Wrapf(chainErr, "failed to create block chains")
-	}
+	// blockChains, chainErr := blockchains.NewCldfChains(cldLogger, chainConfigs)
+	// if chainErr != nil {
+	// 	return nil, nil, errors.Wrapf(chainErr, "failed to create block chains")
+	// }
 
 	cldEnv := cldf.NewEnvironment(
 		"cre",
@@ -124,7 +125,7 @@ func BuildFromSavedState(ctx context.Context, cldLogger logger.Logger, cachedInp
 			return ctx
 		},
 		focr.XXXGenerateTestOCRSecrets(),
-		blockChains,
+		cldf_chain.NewBlockChainsFromSlice(cldfBlockchains),
 	)
 
 	linkDonsToJDInput := &cre.LinkDonsToJDInput{

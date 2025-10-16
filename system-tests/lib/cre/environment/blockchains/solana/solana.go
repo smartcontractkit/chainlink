@@ -11,12 +11,16 @@ import (
 	"sync"
 
 	"github.com/gagliardetto/solana-go"
+	solanago "github.com/gagliardetto/solana-go"
 	"github.com/gagliardetto/solana-go/rpc"
 	solrpc "github.com/gagliardetto/solana-go/rpc"
 	pkgerrors "github.com/pkg/errors"
 	"github.com/rs/zerolog"
-	chainselectors "github.com/smartcontractkit/chain-selectors"
 
+	chainselectors "github.com/smartcontractkit/chain-selectors"
+	solCommonUtil "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/common"
+	cldf_chain "github.com/smartcontractkit/chainlink-deployments-framework/chain"
+	cldf_solana "github.com/smartcontractkit/chainlink-deployments-framework/chain/solana"
 	cldf_solana_provider "github.com/smartcontractkit/chainlink-deployments-framework/chain/solana/provider"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
@@ -67,6 +71,10 @@ func (e *Blockchain) Is(chainFamily string) bool {
 	return strings.EqualFold(e.ctfOutput.Family, chainFamily)
 }
 
+func (e *Blockchain) ChainFamily() string {
+	return e.ctfOutput.Family
+}
+
 func (s *Blockchain) Fund(ctx context.Context, address string, amount uint64) error {
 	recipient := solana.MustPublicKeyFromBase58(address)
 	s.testLogger.Info().Msgf("Attempting to fund Solana account %s", recipient.String())
@@ -84,20 +92,47 @@ func (s *Blockchain) Fund(ctx context.Context, address string, amount uint64) er
 	return nil
 }
 
-func (s *Blockchain) ToCldfConfig() (*blockchains.CldfChainConfig, error) {
-	bcNode := s.CtfOutput().Nodes[0]
+func (s *Blockchain) ToCldfChain() (cldf_chain.BlockChain, error) {
+	// bcNode := s.CtfOutput().Nodes[0]
 
-	return &blockchains.CldfChainConfig{
-		WSRPCs: []blockchains.RPCs{{
-			External: bcNode.ExternalWSUrl, Internal: bcNode.InternalWSUrl,
-		}},
-		HTTPRPCs: []blockchains.RPCs{{
-			External: bcNode.ExternalHTTPUrl, Internal: bcNode.InternalHTTPUrl,
-		}},
-		ChainType:      strings.ToUpper(s.CtfOutput().Family),
-		ChainID:        s.SolanaChainID,
-		SolDeployerKey: s.PrivateKey,
-		SolArtifactDir: s.ArtifactsDir,
+	// return &blockchains.CldfChainConfig{
+	// 	WSRPCs: []blockchains.RPCs{{
+	// 		External: bcNode.ExternalWSUrl, Internal: bcNode.InternalWSUrl,
+	// 	}},
+	// 	HTTPRPCs: []blockchains.RPCs{{
+	// 		External: bcNode.ExternalHTTPUrl, Internal: bcNode.InternalHTTPUrl,
+	// 	}},
+	// 	ChainType:      strings.ToUpper(s.CtfOutput().Family),
+	// 	ChainID:        s.SolanaChainID,
+	// 	SolDeployerKey: s.PrivateKey,
+	// 	SolArtifactDir: s.ArtifactsDir,
+	// }, nil
+
+	solArtifactPath := s.ArtifactsDir
+	if solArtifactPath == "" {
+		s.testLogger.Info().Msg("Creating tmp directory for generated solana programs and keypairs")
+		solArtifactPath, err := os.MkdirTemp("", "solana-artifacts")
+		s.testLogger.Info().Msgf("Solana programs tmp dir at %s", solArtifactPath)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	sc := solrpc.New(s.CtfOutput().Nodes[0].ExternalHTTPUrl)
+	return cldf_solana.Chain{
+		Selector:    s.ChainSelector(),
+		Client:      sc,
+		DeployerKey: &s.PrivateKey,
+		KeypairPath: solArtifactPath + "/deploy-keypair.json",
+		URL:         s.CtfOutput().Nodes[0].ExternalHTTPUrl,
+		WSURL:       s.CtfOutput().Nodes[0].ExternalWSUrl,
+		Confirm: func(instructions []solanago.Instruction, opts ...solCommonUtil.TxModifier) error {
+			_, err := solCommonUtil.SendAndConfirm(
+				context.Background(), sc, instructions, s.PrivateKey, solrpc.CommitmentConfirmed, opts...,
+			)
+			return err
+		},
+		ProgramsPath: solArtifactPath,
 	}, nil
 }
 
