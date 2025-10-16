@@ -1647,10 +1647,10 @@ github.com/smartcontractkit/chainlink-sui v0.0.0-20251012014843-5d44e7731854 h1:
 github.com/smartcontractkit/chainlink-sui v0.0.0-20251012014843-5d44e7731854/go.mod h1:VlyZhVw+a93Sk8rVHOIH6tpiXrMzuWLZrjs1eTIExW8=
 github.com/smartcontractkit/chainlink-sui/deployment v0.0.0-20251012014843-5d44e7731854 h1:/BKZfcmGghI+LQdXdJXz63l0vYntSg6rd3bfU/5W55I=
 github.com/smartcontractkit/chainlink-sui/deployment v0.0.0-20251012014843-5d44e7731854/go.mod h1:xMf64ftqTx9LuvHjMSxBMmgN41EOMQJ/OpGnvLf4NiM=
-github.com/smartcontractkit/chainlink-testing-framework/framework v0.11.0 h1:0+NfqSLtbDknvXPoLXsQfy0HHI5h6S0xTxh0twSHOaE=
-github.com/smartcontractkit/chainlink-testing-framework/framework v0.11.0/go.mod h1:ssfyl4ynbxSyASGztjuAxhsum5i6uZSHM7Dd0v2p8sc=
-github.com/smartcontractkit/chainlink-testing-framework/framework/components/dockercompose v0.1.16-0.20251016101455-d9fcd25afb8f h1:4MtSyF36hdG3ryru9lweebEtWTGMrUaZASpCXK2a1fc=
-github.com/smartcontractkit/chainlink-testing-framework/framework/components/dockercompose v0.1.16-0.20251016101455-d9fcd25afb8f/go.mod h1:caEHEfBrWnY+zwkUkssL6GN9J47FLL3fEXx8qv3bKbE=
+github.com/smartcontractkit/chainlink-testing-framework/framework v0.11.2 h1:Bl6eBzGmhjtYG3HF9tD3TccwfrPy8nqh8/RxY3Dthb4=
+github.com/smartcontractkit/chainlink-testing-framework/framework v0.11.2/go.mod h1:ssfyl4ynbxSyASGztjuAxhsum5i6uZSHM7Dd0v2p8sc=
+github.com/smartcontractkit/chainlink-testing-framework/framework/components/dockercompose v0.1.16 h1:8KBgGxQXIoed1VbS7yy+V4A1tQyi6proqeDZjyvK6Ys=
+github.com/smartcontractkit/chainlink-testing-framework/framework/components/dockercompose v0.1.16/go.mod h1:caEHEfBrWnY+zwkUkssL6GN9J47FLL3fEXx8qv3bKbE=
 github.com/smartcontractkit/chainlink-testing-framework/framework/components/fake v0.10.0 h1:PWAMYu0WaAMBfbpxCpFJGRIDHmcgmYin6a+UQC0OdtY=
 github.com/smartcontractkit/chainlink-testing-framework/framework/components/fake v0.10.0/go.mod h1:YEQbZRHFojvlQKeuckG/70t0WkAqOBmArSbkacgHSbc=
 github.com/smartcontractkit/chainlink-testing-framework/lib v1.54.5 h1:jARz/SWbmWoGJJGVcAnWwGMb8JuHRTQQsM3m6ZwrAGk=
