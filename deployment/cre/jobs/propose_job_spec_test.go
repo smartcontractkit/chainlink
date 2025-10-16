@@ -93,6 +93,27 @@ func TestProposeJobSpec_VerifyPreconditions(t *testing.T) {
 			expectError: false,
 		},
 		{
+			name: "valid http action job",
+			input: jobs.ProposeJobSpecInput{
+				Environment: "test",
+				JobName:     "confidential-http-test",
+				Domain:      "cre",
+				DONName:     "test-don",
+				DONFilters: []offchain.TargetDONFilter{
+					{Key: offchain.FilterKeyDONName, Value: "d"},
+					{Key: "environment", Value: "e"},
+					{Key: "product", Value: offchain.ProductLabel},
+				},
+				Template: job_types.ConfidentialHTTP,
+				Inputs: job_types.JobSpecInput{
+					"command":       "confidential-http",
+					"config":        `{"proxyMode": "direct"}`,
+					"externalJobID": "confidential-http-job-id",
+				},
+			},
+			expectError: false,
+		},
+		{
 			name: "valid evm job",
 			input: jobs.ProposeJobSpecInput{
 				Environment: "test",
