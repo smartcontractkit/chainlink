@@ -28,10 +28,10 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocrcommon"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
-	ocr2 "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/transmitter/ocr"
 	"github.com/smartcontractkit/chainlink/v2/core/services/synchronization"
 	"github.com/smartcontractkit/chainlink/v2/core/services/telemetry"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
+	ocr2 "github.com/smartcontractkit/chainlink/v2/transmitter/ocr"
 )
 
 type Delegate struct {

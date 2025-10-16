@@ -17,8 +17,8 @@ import (
 	"github.com/smartcontractkit/chainlink-evm/pkg/keys"
 	evmtxmgr "github.com/smartcontractkit/chainlink-evm/pkg/txmgr"
 	"github.com/smartcontractkit/chainlink-framework/chains/txmgr"
-	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/transmitter/ccip"
-	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/transmitter/ocr"
+	"github.com/smartcontractkit/chainlink/v2/transmitter/ccip"
+	"github.com/smartcontractkit/chainlink/v2/transmitter/ocr"
 )
 
 type ConfigTransmitterOpts struct {

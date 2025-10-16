@@ -43,6 +43,7 @@ import (
 	"github.com/smartcontractkit/chainlink-evm/pkg/interceptors/mantle"
 	"github.com/smartcontractkit/chainlink-evm/pkg/keys"
 	evmtypes "github.com/smartcontractkit/chainlink-evm/pkg/types"
+	transmitter2 "github.com/smartcontractkit/chainlink/v2/transmitter"
 
 	coreconfig "github.com/smartcontractkit/chainlink/v2/core/config"
 	"github.com/smartcontractkit/chainlink/v2/core/services/llo"
@@ -57,7 +58,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/functions"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury/wsrpc"
-	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/transmitter"
 )
 
 var (
@@ -343,7 +343,7 @@ func (r *Relayer) NewOCR3CapabilityProvider(ctx context.Context, rargs commontyp
 		return nil, err
 	}
 
-	transmitter, err := transmitter.NewContractTransmitter(ctx, r.lggr, rargs, r.evmKeystore, configWatcher.chain, configWatcher.contractAddress, transmitter.ConfigTransmitterOpts{}, OCR2AggregatorTransmissionContractABI, false)
+	transmitter, err := transmitter2.NewContractTransmitter(ctx, r.lggr, rargs, r.evmKeystore, configWatcher.chain, configWatcher.contractAddress, transmitter2.ConfigTransmitterOpts{}, OCR2AggregatorTransmissionContractABI, false)
 	if err != nil {
 		return nil, err
 	}
@@ -388,7 +388,7 @@ func (r *Relayer) NewPluginProvider(ctx context.Context, rargs commontypes.Relay
 	if err != nil {
 		return nil, err
 	}
-	transmitter, err := transmitter.NewContractTransmitter(ctx, r.lggr, rargs, r.evmKeystore, configWatcher.chain, configWatcher.contractAddress, transmitter.ConfigTransmitterOpts{}, OCR2AggregatorTransmissionContractABI, false)
+	transmitter, err := transmitter2.NewContractTransmitter(ctx, r.lggr, rargs, r.evmKeystore, configWatcher.chain, configWatcher.contractAddress, transmitter2.ConfigTransmitterOpts{}, OCR2AggregatorTransmissionContractABI, false)
 	if err != nil {
 		return nil, err
 	}
@@ -537,9 +537,9 @@ func (r *Relayer) NewCCIPCommitProvider(ctx context.Context, rargs commontypes.R
 	}
 	subjectID := chainToUUID(configWatcher.chain.ID())
 
-	contractTransmitter, err := transmitter.NewContractTransmitter(ctx, lggr, rargs, r.evmKeystore, configWatcher.chain, configWatcher.contractAddress, transmitter.ConfigTransmitterOpts{
+	contractTransmitter, err := transmitter2.NewContractTransmitter(ctx, lggr, rargs, r.evmKeystore, configWatcher.chain, configWatcher.contractAddress, transmitter2.ConfigTransmitterOpts{
 		SubjectID: &subjectID,
-	}, OCR2AggregatorTransmissionContractABI, false, transmitter.WithReportToEthMetadata(fn), transmitter.WithRetention(0))
+	}, OCR2AggregatorTransmissionContractABI, false, transmitter2.WithReportToEthMetadata(fn), transmitter2.WithRetention(0))
 	if err != nil {
 		return nil, err
 	}
@@ -623,17 +623,17 @@ func (r *Relayer) NewCCIPExecProvider(ctx context.Context, rargs commontypes.Rel
 	}
 	subjectID := chainToUUID(configWatcher.chain.ID())
 
-	contractTransmitter, err := transmitter.NewContractTransmitter(
+	contractTransmitter, err := transmitter2.NewContractTransmitter(
 		ctx,
 		lggr,
 		rargs,
 		r.evmKeystore,
 		configWatcher.chain,
 		configWatcher.contractAddress,
-		transmitter.ConfigTransmitterOpts{SubjectID: &subjectID},
+		transmitter2.ConfigTransmitterOpts{SubjectID: &subjectID},
 		OCR2AggregatorTransmissionContractABI,
 		false,
-		transmitter.WithReportToEthMetadata(fn), transmitter.WithRetention(0), transmitter.WithExcludeSignatures())
+		transmitter2.WithReportToEthMetadata(fn), transmitter2.WithRetention(0), transmitter2.WithExcludeSignatures())
 	if err != nil {
 		return nil, err
 	}
@@ -757,7 +757,7 @@ func FilterNamesFromRelayArgs(args commontypes.RelayArgs) (filterNames []string,
 	if relayConfig.FeedID != nil {
 		filterNames = []string{mercury.FilterName(addr.Address(), *relayConfig.FeedID)}
 	} else {
-		filterNames = []string{configPollerFilterName(addr.Address()), transmitter.FilterName(addr.Address())}
+		filterNames = []string{configPollerFilterName(addr.Address()), transmitter2.FilterName(addr.Address())}
 	}
 	return filterNames, err
 }
@@ -886,7 +886,7 @@ func (r *Relayer) NewMedianProvider(ctx context.Context, rargs commontypes.Relay
 
 	reportCodec := evmreportcodec.ReportCodec{}
 
-	ct, err := transmitter.NewContractTransmitter(ctx, lggr, rargs, r.evmKeystore, configWatcher.chain, configWatcher.contractAddress, transmitter.ConfigTransmitterOpts{}, OCR2AggregatorTransmissionContractABI, relayConfig.EnableDualTransmission)
+	ct, err := transmitter2.NewContractTransmitter(ctx, lggr, rargs, r.evmKeystore, configWatcher.chain, configWatcher.contractAddress, transmitter2.ConfigTransmitterOpts{}, OCR2AggregatorTransmissionContractABI, relayConfig.EnableDualTransmission)
 	if err != nil {
 		return nil, err
 	}
@@ -944,7 +944,7 @@ var _ commontypes.MedianProvider = (*medianProvider)(nil)
 type medianProvider struct {
 	lggr                logger.Logger
 	configWatcher       *configWatcher
-	contractTransmitter transmitter.ContractTransmitter
+	contractTransmitter transmitter2.ContractTransmitter
 	reportCodec         median.ReportCodec
 	medianContract      *medianContract
 	chainReader         ChainReaderService

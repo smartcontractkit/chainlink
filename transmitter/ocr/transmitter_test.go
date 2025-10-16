@@ -16,7 +16,7 @@ import (
 	"github.com/smartcontractkit/chainlink-evm/pkg/utils"
 	txmmocks "github.com/smartcontractkit/chainlink/v2/common/txmgr/mocks"
 	commontxmmocks "github.com/smartcontractkit/chainlink/v2/common/txmgr/types/mocks"
-	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/transmitter/ocr"
+	"github.com/smartcontractkit/chainlink/v2/transmitter/ocr"
 )
 
 func newMockTxStrategy(t *testing.T) *commontxmmocks.TxStrategy {
