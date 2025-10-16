@@ -201,11 +201,11 @@ func discoverPluginVersions(path string) (map[string]string, error) {
 	versions := make(map[string]string) // moduleURI -> gitRef
 	data, err := os.ReadFile(path)
 	if err != nil {
-		return nil, fmt.Errorf("failed to read %s: %v", path, err)
+		return nil, fmt.Errorf("failed to read %s: %w", path, err)
 	}
 	var pf PluginsFile
 	if err := yaml.Unmarshal(data, &pf); err != nil {
-		return nil, fmt.Errorf("failed to parse YAML %s: %v", path, err)
+		return nil, fmt.Errorf("failed to parse YAML %s: %w", path, err)
 	}
 	for _, list := range pf.Plugins {
 		for _, plugin := range list {
