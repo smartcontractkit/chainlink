@@ -28,6 +28,7 @@ import (
 	"golang.org/x/sync/errgroup"
 
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/secrets"
+	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/blockchains"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/crypto"
 )
 
@@ -229,7 +230,7 @@ func NewDON(ctx context.Context, donMetadata *DonMetadata, ctfNodes []*clnode.Ou
 	return don, nil
 }
 
-func RegisterWithJD(ctx context.Context, d *DON, supportedChains []CldfChainConfig, jd *jd.JobDistributor) error {
+func RegisterWithJD(ctx context.Context, d *DON, supportedChains []blockchains.CldfChainConfig, jd *jd.JobDistributor) error {
 	mu := &sync.Mutex{}
 
 	errgroup := errgroup.Group{}
@@ -769,9 +770,6 @@ func LinkToJobDistributor(ctx context.Context, input *LinkDonsToJDInput) (*cldf.
 	if input == nil {
 		return nil, errors.New("input is nil")
 	}
-	if err := input.Validate(); err != nil {
-		return nil, errors.Wrap(err, "input validation failed")
-	}
 
 	for idx, don := range input.DONs {
 		supportedChains, schErr := FindDONsSupportedChains(input.Topology.DonsMetadata.List()[idx], input.Blockchains)
@@ -810,25 +808,26 @@ func HasFlag(values []string, capability string) bool {
 	return false
 }
 
-// TODO do we need to use metadata here? maybe actually some interface that both DON and metadata would implement?
-func FindDONsSupportedChains(donMetadata *DonMetadata, blockchains []*Blockchain) ([]CldfChainConfig, error) {
-	chains := make([]CldfChainConfig, 0)
+// TODO move to blockchains package?
+func FindDONsSupportedChains(donMetadata *DonMetadata, bcs []blockchains.Blockchain) ([]blockchains.CldfChainConfig, error) {
+	chains := make([]blockchains.CldfChainConfig, 0)
 
-	for chainSelector, bc := range blockchains {
-		hasEVMChainEnabled := slices.Contains(donMetadata.EVMChains(), bc.ChainID)
+	for chainSelector, bc := range bcs {
+		hasEVMChainEnabled := slices.Contains(donMetadata.EVMChains(), bc.ChainID())
 		hasSolanaWriteCapability := donMetadata.HasFlag(WriteSolanaCapability)
-		chainIsSolana := strings.EqualFold(bc.CtfOutput.Family, chainselectors.FamilySolana)
+		chainIsSolana := strings.EqualFold(bc.CtfOutput().Family, chainselectors.FamilySolana)
 
 		if !hasEVMChainEnabled && (!hasSolanaWriteCapability || !chainIsSolana) {
 			continue
 		}
 
-		cfg, cfgErr := CldfChainConfigFromBlockchain(bc)
+		// cfg, cfgErr := blockchains.CldfChainConfigFromBlockchain(bc)
+		cfg, cfgErr := bc.ToCldfConfig()
 		if cfgErr != nil {
 			return nil, errors.Wrapf(cfgErr, "failed to build chain config for chain selector %d", chainSelector)
 		}
 
-		chains = append(chains, cfg)
+		chains = append(chains, *cfg)
 	}
 
 	return chains, nil

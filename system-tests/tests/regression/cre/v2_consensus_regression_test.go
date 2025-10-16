@@ -38,7 +38,7 @@ func ConsensusFailsTest(t *testing.T, testEnv *ttypes.TestEnvironment, consensus
 	const workflowFileLocation = "./consensus/main.go"
 
 	for _, bcOutput := range testEnv.Blockchains {
-		chainID := bcOutput.CtfOutput.ChainID
+		chainID := bcOutput.CtfOutput().ChainID
 
 		listenerCtx, messageChan, kafkaErrChan := t_helpers.StartBeholder(t, testLogger, testEnv)
 

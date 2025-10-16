@@ -129,8 +129,8 @@ func startBillingStackIfIsNotRunning(t *testing.T, relativePathToRepoRoot, envir
 			var selectedChain *blockchain.Output
 
 			for _, chain := range testEnv.Blockchains {
-				if chain.ChainSelector == cache.ChainSelector {
-					selectedChain = chain.CtfOutput
+				if chain.ChainSelector() == cache.ChainSelector {
+					selectedChain = chain.CtfOutput()
 				}
 			}
 

@@ -44,7 +44,26 @@ func Bootstrap(infraInput infra.Provider) error {
 	return nil
 }
 
-func DeployBlockchain(input *cre.DeployCribBlockchainInput) (*blockchain.Output, error) {
+type DeployCribBlockchainInput struct {
+	BlockchainInput *blockchain.Input
+	CribConfigsDir  string
+	Namespace       string
+}
+
+func (d *DeployCribBlockchainInput) Validate() error {
+	if d.BlockchainInput == nil {
+		return errors.New("blockchain input not set")
+	}
+	if d.CribConfigsDir == "" {
+		return errors.New("crib configs dir not set")
+	}
+	if d.Namespace == "" {
+		return errors.New("namespace not set")
+	}
+	return nil
+}
+
+func DeployBlockchain(input *DeployCribBlockchainInput) (*blockchain.Output, error) {
 	err := input.Validate()
 	if err != nil {
 		return nil, errors.Wrapf(err, "invalid input for deploying blockchain")
@@ -92,7 +111,31 @@ func DeployBlockchain(input *cre.DeployCribBlockchainInput) (*blockchain.Output,
 
 	return nil, errors.New("failed to find a valid component")
 }
-func DeployDons(input *cre.DeployCribDonsInput) ([]*cre.CapabilitiesAwareNodeSet, error) {
+
+type DeployCribDonsInput struct {
+	Topology       *cre.Topology
+	NodeSetInputs  []*cre.CapabilitiesAwareNodeSet
+	CribConfigsDir string
+	Namespace      string
+}
+
+func (d *DeployCribDonsInput) Validate() error {
+	if d.Topology == nil {
+		return errors.New("topology not set")
+	}
+	if len(d.Topology.DonsMetadata.List()) == 0 {
+		return errors.New("metadata not set")
+	}
+	if len(d.NodeSetInputs) == 0 {
+		return errors.New("node set inputs not set")
+	}
+	if d.CribConfigsDir == "" {
+		return errors.New("crib configs dir not set")
+	}
+	return nil
+}
+
+func DeployDons(input *DeployCribDonsInput) ([]*cre.CapabilitiesAwareNodeSet, error) {
 	if input == nil {
 		return nil, errors.New("DeployCribDonsInput is nil")
 	}
@@ -184,7 +227,7 @@ func DeployDons(input *cre.DeployCribDonsInput) ([]*cre.CapabilitiesAwareNodeSet
 	return input.NodeSetInputs, nil
 }
 
-func getConfigAndSecretsForNode(nodeMetadata *cre.NodeMetadata, donIndex int, input *cre.DeployCribDonsInput, donMetadata *cre.DonMetadata) (*string, *string, error) {
+func getConfigAndSecretsForNode(nodeMetadata *cre.NodeMetadata, donIndex int, input *DeployCribDonsInput, donMetadata *cre.DonMetadata) (*string, *string, error) {
 	nodeSpec := input.NodeSetInputs[donIndex].NodeSpecs[nodeMetadata.Index]
 
 	cleanedToml, tomlErr := cleanToml(nodeSpec.Node.TestConfigOverrides)
@@ -210,7 +253,7 @@ func getConfigAndSecretsForNode(nodeMetadata *cre.NodeMetadata, donIndex int, in
 	return &tomlString, &secretsString, nil
 }
 
-func imageNameAndTag(input *cre.DeployCribDonsInput, j int) (string, string, error) {
+func imageNameAndTag(input *DeployCribDonsInput, j int) (string, string, error) {
 	// validate that all nodes in the same node set use the same Docker image
 	dockerImage, dockerImagesErr := nodesetDockerImage(input.NodeSetInputs[j])
 	if dockerImagesErr != nil {
@@ -286,7 +329,20 @@ func mergeToml(tomlOne []byte, tomlTwo []byte) ([]byte, error) {
 	return result, nil
 }
 
-func DeployJd(input *cre.DeployCribJdInput) (*jd.Output, error) {
+type DeployCribJdInput struct {
+	JDInput        jd.Input
+	CribConfigsDir string
+	Namespace      string
+}
+
+func (d *DeployCribJdInput) Validate() error {
+	if d.CribConfigsDir == "" {
+		return errors.New("crib configs dir not set")
+	}
+	return nil
+}
+
+func DeployJd(input *DeployCribJdInput) (*jd.Output, error) {
 	if input == nil {
 		return nil, errors.New("DeployCribJdInput is nil")
 	}

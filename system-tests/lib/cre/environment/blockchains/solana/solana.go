@@ -12,6 +12,7 @@ import (
 
 	"github.com/gagliardetto/solana-go"
 	"github.com/gagliardetto/solana-go/rpc"
+	solrpc "github.com/gagliardetto/solana-go/rpc"
 	pkgerrors "github.com/pkg/errors"
 	"github.com/rs/zerolog"
 	chainselectors "github.com/smartcontractkit/chain-selectors"
@@ -22,7 +23,7 @@ import (
 	"github.com/smartcontractkit/chainlink-testing-framework/framework"
 	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/blockchain"
 	"github.com/smartcontractkit/chainlink/deployment/environment/memory"
-	"github.com/smartcontractkit/chainlink/system-tests/lib/cre"
+	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/blockchains"
 	libfunding "github.com/smartcontractkit/chainlink/system-tests/lib/funding"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/infra"
 )
@@ -41,7 +42,66 @@ func NewDeployer(testLogger zerolog.Logger, provider *infra.Provider) *Deployer 
 	}
 }
 
-func (s *Deployer) Deploy(input *blockchain.Input) (*cre.Blockchain, error) {
+type Blockchain struct {
+	testLogger    zerolog.Logger
+	chainSelector uint64
+	ctfOutput     *blockchain.Output
+	SolClient     *solrpc.Client
+	SolanaChainID string
+	PrivateKey    solana.PrivateKey
+	ArtifactsDir  string
+}
+
+func (s *Blockchain) ChainSelector() uint64 {
+	return s.chainSelector
+}
+func (s *Blockchain) ChainID() uint64 {
+	return 0 // Solana doesn't use numeric chain IDs
+}
+
+func (s *Blockchain) CtfOutput() *blockchain.Output {
+	return s.ctfOutput
+}
+
+func (e *Blockchain) Is(chainFamily string) bool {
+	return strings.EqualFold(e.ctfOutput.Family, chainFamily)
+}
+
+func (s *Blockchain) Fund(ctx context.Context, address string, amount uint64) error {
+	recipient := solana.MustPublicKeyFromBase58(address)
+	s.testLogger.Info().Msgf("Attempting to fund Solana account %s", recipient.String())
+
+	err := libfunding.SendFundsSol(ctx, s.testLogger, s.SolClient, libfunding.FundsToSendSol{
+		Recipent:   recipient,
+		PrivateKey: s.PrivateKey,
+		Amount:     amount,
+	})
+	if err != nil {
+		return fmt.Errorf("failed to fund Solana account for a node: %w", err)
+	}
+	s.testLogger.Info().Msgf("Successfully funded Solana account %s", recipient.String())
+
+	return nil
+}
+
+func (s *Blockchain) ToCldfConfig() (*blockchains.CldfChainConfig, error) {
+	bcNode := s.CtfOutput().Nodes[0]
+
+	return &blockchains.CldfChainConfig{
+		WSRPCs: []blockchains.RPCs{{
+			External: bcNode.ExternalWSUrl, Internal: bcNode.InternalWSUrl,
+		}},
+		HTTPRPCs: []blockchains.RPCs{{
+			External: bcNode.ExternalHTTPUrl, Internal: bcNode.InternalHTTPUrl,
+		}},
+		ChainType:      strings.ToUpper(s.CtfOutput().Family),
+		ChainID:        s.SolanaChainID,
+		SolDeployerKey: s.PrivateKey,
+		SolArtifactDir: s.ArtifactsDir,
+	}, nil
+}
+
+func (s *Deployer) Deploy(input *blockchain.Input) (blockchains.Blockchain, error) {
 	if s.provider.IsCRIB() {
 		return nil, errors.New("CRIB deployment for Solana is not supported yet")
 	}
@@ -78,63 +138,74 @@ func (s *Deployer) Deploy(input *blockchain.Input) (*cre.Blockchain, error) {
 
 	solClient := rpc.New(bcOut.Nodes[0].ExternalHTTPUrl)
 
-	return &cre.Blockchain{
-		CtfOutput: bcOut,
-		SolClient: solClient,
-		SolChain: &cre.SolChain{
-			ChainSelector: sel,
-			ChainID:       input.ChainID,
-			PrivateKey:    pk,
-			ArtifactsDir:  input.ContractsDir,
-		},
-		Funder: &Funder{
-			solClient:      solClient,
-			mainPrivateKey: pk,
-			testLogger:     s.testLogger,
-		},
+	return &Blockchain{
+		SolClient:     solClient,
+		SolanaChainID: input.ChainID,
+		chainSelector: sel,
+		PrivateKey:    pk,
+		ArtifactsDir:  input.ContractsDir,
 	}, nil
 }
 
-type Funder struct {
-	solClient      *rpc.Client
-	mainPrivateKey solana.PrivateKey
-	testLogger     zerolog.Logger
-}
+// }
 
-func (f *Funder) Fund(ctx context.Context, address string, amount uint64, fundingPrivateKey []byte) error {
-	recipient := solana.MustPublicKeyFromBase58(address)
-	f.testLogger.Info().Msgf("Attempting to fund Solana account %s", recipient.String())
+// return &cre.Blockchain{
+// 	CtfOutput: bcOut,
+// 	SolClient: solClient,
+// 	SolChain: &cre.SolChain{
+// 		ChainSelector: sel,
+// 		ChainID:       input.ChainID,
+// 		PrivateKey:    pk,
+// 		ArtifactsDir:  input.ContractsDir,
+// 	},
+// 	Funder: &Funder{
+// 		solClient:      solClient,
+// 		mainPrivateKey: pk,
+// 		testLogger:     s.testLogger,
+// 	},
+// }, nil
+// }
 
-	err := libfunding.SendFundsSol(ctx, f.testLogger, f.solClient, libfunding.FundsToSendSol{
-		Recipent:   recipient,
-		PrivateKey: solana.PrivateKey(fundingPrivateKey),
-		Amount:     amount,
-	})
-	if err != nil {
-		return fmt.Errorf("failed to fund Solana account for a node: %w", err)
-	}
-	f.testLogger.Info().Msgf("Successfully funded Solana account %s", recipient.String())
+// type Funder struct {
+// 	solClient      *rpc.Client
+// 	mainPrivateKey solana.PrivateKey
+// 	testLogger     zerolog.Logger
+// }
 
-	return nil
-}
+// func (f *Funder) Fund(ctx context.Context, address string, amount uint64, fundingPrivateKey []byte) error {
+// 	recipient := solana.MustPublicKeyFromBase58(address)
+// 	f.testLogger.Info().Msgf("Attempting to fund Solana account %s", recipient.String())
 
-func (f *Funder) Prepare(ctx context.Context, requiredTotal uint64) ([]byte, error) {
-	private, pkErr := solana.NewRandomPrivateKey()
-	if pkErr != nil {
-		return nil, pkgerrors.Wrap(pkErr, "failed to generate private key for solana")
-	}
-	public := private.PublicKey()
-	fundingErr := libfunding.SendFundsSol(ctx, zerolog.Logger{}, f.solClient, libfunding.FundsToSendSol{
-		Recipent:   public,
-		PrivateKey: f.mainPrivateKey,
-		Amount:     requiredTotal,
-	})
-	if fundingErr != nil {
-		return nil, pkgerrors.Wrapf(fundingErr, " failed to fund funding accounts on chain on Solana")
-	}
+// 	err := libfunding.SendFundsSol(ctx, f.testLogger, f.solClient, libfunding.FundsToSendSol{
+// 		Recipent:   recipient,
+// 		PrivateKey: solana.PrivateKey(fundingPrivateKey),
+// 		Amount:     amount,
+// 	})
+// 	if err != nil {
+// 		return fmt.Errorf("failed to fund Solana account for a node: %w", err)
+// 	}
+// 	f.testLogger.Info().Msgf("Successfully funded Solana account %s", recipient.String())
 
-	return private, nil
-}
+// 	return nil
+// }
+
+// func (f *Funder) Prepare(ctx context.Context, requiredTotal uint64) ([]byte, error) {
+// 	private, pkErr := solana.NewRandomPrivateKey()
+// 	if pkErr != nil {
+// 		return nil, pkgerrors.Wrap(pkErr, "failed to generate private key for solana")
+// 	}
+// 	public := private.PublicKey()
+// 	fundingErr := libfunding.SendFundsSol(ctx, zerolog.Logger{}, f.solClient, libfunding.FundsToSendSol{
+// 		Recipent:   public,
+// 		PrivateKey: f.mainPrivateKey,
+// 		Amount:     requiredTotal,
+// 	})
+// 	if fundingErr != nil {
+// 		return nil, pkgerrors.Wrapf(fundingErr, " failed to fund funding accounts on chain on Solana")
+// 	}
+
+// 	return private, nil
+// }
 
 var once = &sync.Once{}
 

@@ -27,6 +27,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
+	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/blockchains"
 	blockchain_sets "github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/blockchains/sets"
 	envconfig "github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/config"
 
@@ -115,7 +116,7 @@ type FeedWithStreamID struct {
 type loadTestSetupOutput struct {
 	dataFeedsCacheAddress common.Address
 	forwarderAddress      common.Address
-	blockchains           []*cretypes.Blockchain
+	blockchains           []blockchains.Blockchain
 	donTopology           *cretypes.DonTopology
 	nodeOutput            []*cretypes.WrappedNodeOutput
 }
@@ -150,7 +151,7 @@ func setupLoadTestEnvironment(
 
 	forwarderAddress, _, forwarderErr := crecontracts.FindAddressesForChain(
 		universalSetupOutput.CldEnvironment.ExistingAddresses, //nolint:staticcheck // won't migrate now
-		universalSetupOutput.Blockchains[0].ChainSelector,
+		universalSetupOutput.Blockchains[0].ChainSelector(),
 		keystone_changeset.KeystoneForwarder.String(),
 	)
 	require.NoError(t, forwarderErr, "failed to find forwarder address for chain %d", universalSetupOutput.Blockchains[0].ChainSelector)
@@ -160,7 +161,7 @@ func setupLoadTestEnvironment(
 	createJobsDeps := creenv.CreateJobsWithJdOpDeps{
 		Logger:                    testLogger,
 		SingleFileLogger:          singleFileLogger,
-		HomeChainBlockchainOutput: universalSetupOutput.Blockchains[0].CtfOutput,
+		HomeChainBlockchainOutput: universalSetupOutput.Blockchains[0].CtfOutput(),
 		JobSpecFactoryFunctions:   []cretypes.JobSpecFn{workflowJobsFn},
 		CreEnvironment: &cretypes.Environment{
 			CldfEnvironment: universalSetupOutput.CldEnvironment,

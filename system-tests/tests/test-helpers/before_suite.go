@@ -17,6 +17,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment"
+	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/blockchains"
 	envconfig "github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/config"
 	ttypes "github.com/smartcontractkit/chainlink/system-tests/tests/test-helpers/configuration"
 )
@@ -39,7 +40,7 @@ type TestEnvironment struct {
 	EnvArtifact    *environment.EnvArtifact
 	Logger         zerolog.Logger
 	CreEnvironment *cre.Environment
-	Blockchains    []*cre.Blockchain
+	Blockchains    []blockchains.Blockchain
 }
 
 func SetupTestEnvironmentWithConfig(t *testing.T, tconf *ttypes.TestConfig, flags ...string) *ttypes.TestEnvironment {

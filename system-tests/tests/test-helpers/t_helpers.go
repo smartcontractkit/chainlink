@@ -30,7 +30,6 @@ import (
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/pkg/errors"
 	"github.com/rs/zerolog"
 	"github.com/stretchr/testify/require"
@@ -49,7 +48,6 @@ import (
 	ttypes "github.com/smartcontractkit/chainlink/system-tests/tests/test-helpers/configuration"
 
 	"github.com/smartcontractkit/chainlink-testing-framework/framework"
-	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/blockchain"
 	ns "github.com/smartcontractkit/chainlink-testing-framework/framework/components/simple_node_set"
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/ptr"
 	"github.com/smartcontractkit/chainlink-testing-framework/seth"
@@ -59,6 +57,8 @@ import (
 	keystone_changeset "github.com/smartcontractkit/chainlink/deployment/keystone/changeset"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre"
 	crecontracts "github.com/smartcontractkit/chainlink/system-tests/lib/cre/contracts"
+	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/blockchains"
+	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/blockchains/evm"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/flags"
 	creworkflow "github.com/smartcontractkit/chainlink/system-tests/lib/cre/workflow"
 	crecrypto "github.com/smartcontractkit/chainlink/system-tests/lib/crypto"
@@ -83,9 +83,9 @@ func GetWritableChainsFromSavedEnvironmentState(t *testing.T, testEnv *ttypes.Te
 	writeableChains := []uint64{}
 	for _, blockchain := range testEnv.Blockchains {
 		for _, don := range testEnv.CreEnvironment.DonTopology.Dons.List() {
-			if flags.RequiresForwarderContract(don.Flags, blockchain.ChainID) {
-				if !slices.Contains(writeableChains, blockchain.ChainID) {
-					writeableChains = append(writeableChains, blockchain.ChainID)
+			if flags.RequiresForwarderContract(don.Flags, blockchain.ChainID()) {
+				if !slices.Contains(writeableChains, blockchain.ChainID()) {
+					writeableChains = append(writeableChains, blockchain.ChainID())
 				}
 			}
 		}
@@ -242,7 +242,7 @@ func AssertBeholderMessage(ctx context.Context, t *testing.T, expectedLog string
 //////////////////////////////
 
 // Creates and funds a specified number of new Ethereum addresses on a given chain.
-func CreateAndFundAddresses(t *testing.T, testLogger zerolog.Logger, numberOfAddressesToCreate int, amountToFund *big.Int, sethClient *seth.Client, bcOutput *cre.Blockchain, fullCldEnvOutput *cre.Environment) ([]common.Address, error) {
+func CreateAndFundAddresses(t *testing.T, testLogger zerolog.Logger, numberOfAddressesToCreate int, amountToFund *big.Int, bcOutput blockchains.Blockchain, fullCldEnvOutput *cre.Environment) ([]common.Address, error) {
 	t.Helper()
 
 	testLogger.Info().Msgf("Creating and funding %d addresses...", numberOfAddressesToCreate)
@@ -255,12 +255,7 @@ func CreateAndFundAddresses(t *testing.T, testLogger zerolog.Logger, numberOfAdd
 		testLogger.Info().Msgf("Generated address #%d: %s", orderNum, addressToRead.Hex())
 
 		testLogger.Info().Msgf("Funding address '%s' with amount of '%s' wei", addressToRead.Hex(), amountToFund.String())
-		fundingKeyBytes := []byte{0}
-		if bcOutput.CtfOutput.Family == blockchain.FamilyEVM {
-			fundingKeyBytes = crypto.FromECDSA(sethClient.MustGetRootPrivateKey())
-		}
-
-		if err := bcOutput.Funder.Fund(t.Context(), addressToRead.Hex(), amountToFund.Uint64(), fundingKeyBytes); err != nil {
+		if err := bcOutput.Fund(t.Context(), addressToRead.Hex(), amountToFund.Uint64()); err != nil {
 			return nil, err
 		}
 
@@ -309,7 +304,7 @@ type WorkflowRegistrationConfig struct {
 	ChainID                     uint64
 	DonID                       uint64
 	ContainerTargetDir          string
-	Blockchains                 []*cre.Blockchain
+	Blockchains                 []blockchains.Blockchain
 }
 
 /*
@@ -563,7 +558,7 @@ Use it at the end of your test to `t.Cleanup()` the env after test run
 */
 func deleteWorkflows(t *testing.T, uniqueWorkflowName string,
 	workflowConfigFilePath string, compressedWorkflowWasmPath string,
-	blockchains []*cre.Blockchain,
+	blockchains []blockchains.Blockchain,
 	workflowRegistryAddress common.Address,
 	tv deployment.TypeAndVersion,
 ) {
@@ -574,7 +569,8 @@ func deleteWorkflows(t *testing.T, uniqueWorkflowName string,
 	localEnvErr := creworkflow.RemoveWorkflowArtifactsFromLocalEnv(workflowConfigFilePath, compressedWorkflowWasmPath)
 	require.NoError(t, localEnvErr, "failed to remove workflow artifacts from local environment")
 
-	deleteErr := creworkflow.DeleteWithContract(t.Context(), blockchains[0].SethClient, workflowRegistryAddress, tv, uniqueWorkflowName)
+	require.IsType(t, &evm.Blockchain{}, blockchains[0], "expected EVM blockchain type")
+	deleteErr := creworkflow.DeleteWithContract(t.Context(), blockchains[0].(*evm.Blockchain).SethClient, workflowRegistryAddress, tv, uniqueWorkflowName)
 	require.NoError(t, deleteErr, "failed to delete workflow '%s'. Please delete/unregister it manually.", uniqueWorkflowName)
 	testLogger.Info().Msgf("Workflow '%s' deleted successfully from the registry.", uniqueWorkflowName)
 }
@@ -586,7 +582,7 @@ func CompileAndDeployWorkflow[T WorkflowConfig](t *testing.T,
 	t.Helper()
 
 	testLogger.Info().Msgf("compiling and registering workflow '%s'", workflowName)
-	homeChainSelector := testEnv.Blockchains[0].ChainSelector
+	homeChainSelector := testEnv.Blockchains[0].ChainSelector()
 
 	workflowDOName := ""
 	for _, don := range testEnv.CreEnvironment.DonTopology.Dons.List() {
@@ -618,5 +614,6 @@ func CompileAndDeployWorkflow[T WorkflowConfig](t *testing.T,
 		ContainerTargetDir:          creworkflow.DefaultWorkflowTargetDir,
 		Blockchains:                 testEnv.Blockchains,
 	}
-	registerWorkflow(t.Context(), t, workflowRegConfig, testEnv.Blockchains[0].SethClient, testLogger)
+	require.IsType(t, &evm.Blockchain{}, testEnv.Blockchains[0], "expected EVM blockchain type")
+	registerWorkflow(t.Context(), t, workflowRegConfig, testEnv.Blockchains[0].(*evm.Blockchain).SethClient, testLogger)
 }

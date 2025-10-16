@@ -17,7 +17,6 @@ import (
 	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/jd"
 	ctfconfig "github.com/smartcontractkit/chainlink-testing-framework/lib/config"
 
-	"github.com/smartcontractkit/chainlink/system-tests/lib/cre"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/crib"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/infra"
 )
@@ -32,7 +31,7 @@ func StartJD(lggr zerolog.Logger, jdInput jd.Input, infraInput infra.Provider) (
 	lggr.Info().Msg("Starting Job Distributor")
 
 	if infraInput.Type == infra.CRIB {
-		deployCribJdInput := &cre.DeployCribJdInput{
+		deployCribJdInput := &crib.DeployCribJdInput{
 			JDInput:        jdInput,
 			CribConfigsDir: infra.CribConfigsDir,
 			Namespace:      infraInput.CRIB.Namespace,

@@ -28,6 +28,8 @@ import (
 	cldlogger "github.com/smartcontractkit/chainlink/deployment/logger"
 
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/capabilities/sets"
+	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/blockchains"
+	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/blockchains/evm"
 	blockchains_sets "github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/blockchains/sets"
 	envconfig "github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/config"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/stagegen"
@@ -180,18 +182,23 @@ var StartCmdRecoverHandlerFunc = func(p any, cleanupWait time.Duration) {
 	}
 }
 
-var StartCmdGenerateSettingsFile = func(registryChain *cre.Blockchain, output *creenv.SetupOutput) error {
+var StartCmdGenerateSettingsFile = func(registryChain blockchains.Blockchain, output *creenv.SetupOutput) error {
 	rpcs := map[uint64]string{}
 	for _, bcOut := range output.Blockchains {
-		rpcs[bcOut.ChainSelector] = bcOut.CtfOutput.Nodes[0].ExternalHTTPUrl
+		rpcs[bcOut.ChainSelector()] = bcOut.CtfOutput().Nodes[0].ExternalHTTPUrl
+	}
+
+	regChainEVM, isEVM := registryChain.(*evm.Blockchain)
+	if !isEVM {
+		return fmt.Errorf("registry chain is not EVM, but %T, cannot generate CRE CLI settings file", registryChain)
 	}
 
 	creCLISettingsFile, settingsErr := crecli.PrepareCRECLISettingsFile(
 		crecli.CRECLIProfile,
-		registryChain.SethClient.MustGetRootKeyAddress(),
+		regChainEVM.SethClient.MustGetRootKeyAddress(),
 		output.CldEnvironment.ExistingAddresses, //nolint:staticcheck,nolintlint // SA1019: deprecated but we don't want to migrate now
 		output.DonTopology.WorkflowDonID,
-		registryChain.ChainSelector,
+		regChainEVM.ChainSelector(),
 		rpcs,
 		output.S3ProviderOutput,
 	)
@@ -443,7 +450,7 @@ func startCmd() *cobra.Command {
 
 				wfRegAddr := libcontracts.MustFindAddressesForChain(
 					output.CldEnvironment.ExistingAddresses, //nolint:staticcheck,nolintlint // SA1019: deprecated but we don't want to migrate now
-					output.Blockchains[0].ChainSelector,
+					output.Blockchains[0].ChainSelector(),
 					keystone_changeset.WorkflowRegistry.String())
 
 				var workflowDonID uint32
@@ -458,7 +465,7 @@ func startCmd() *cobra.Command {
 					return errors.New("no workflow DON found")
 				}
 
-				deployErr := deployAndVerifyExampleWorkflow(cmdContext, homeChainOut.CtfOutput.Nodes[0].ExternalHTTPUrl, gatewayURL, output.DonTopology.GatewayConnectorOutput.Configurations[0].Dons[0].ID, workflowDonID, exampleWorkflowTimeout, exampleWorkflowTrigger, wfRegAddr.Hex())
+				deployErr := deployAndVerifyExampleWorkflow(cmdContext, homeChainOut.CtfOutput().Nodes[0].ExternalHTTPUrl, gatewayURL, output.DonTopology.GatewayConnectorOutput.Configurations[0].Dons[0].ID, workflowDonID, exampleWorkflowTimeout, exampleWorkflowTrigger, wfRegAddr.Hex())
 				if deployErr != nil {
 					fmt.Printf("Failed to deploy and verify example workflow: %s\n", deployErr)
 				}

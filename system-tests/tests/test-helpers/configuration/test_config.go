@@ -5,6 +5,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment"
+	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/blockchains"
 	envconfig "github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/config"
 )
 
@@ -26,5 +27,5 @@ type TestEnvironment struct {
 	EnvArtifact    *environment.EnvArtifact
 	Logger         zerolog.Logger
 	CreEnvironment *cre.Environment
-	Blockchains    []*cre.Blockchain
+	Blockchains    []blockchains.Blockchain
 }

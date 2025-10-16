@@ -69,11 +69,14 @@ func transformNodeConfig(input cre.GenerateConfigsInput, existingConfigs cre.Nod
 	}
 
 	data := solanaInput{}
-	for _, bcOut := range input.Blockchains {
-		if bcOut.SolChain == nil {
+	for _, bc := range input.Blockchains {
+		if !bc.Is(chainselectors.FamilySolana) {
 			continue
 		}
-		data.ChainSelector = bcOut.SolChain.ChainSelector
+		// if bc.SolChain == nil {
+		// 	continue
+		// }
+		data.ChainSelector = bc.ChainSelector()
 		// find Solana forwarder address
 		forwarders := input.Datastore.Addresses().Filter(datastore.AddressRefByChainSelector(data.ChainSelector))
 		for _, addr := range forwarders {

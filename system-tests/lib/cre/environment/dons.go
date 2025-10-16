@@ -20,6 +20,8 @@ import (
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre"
 	crecapabilities "github.com/smartcontractkit/chainlink/system-tests/lib/cre/capabilities"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/crib"
+	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/blockchains"
+	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/blockchains/solana"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/flags"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/infra"
 )
@@ -59,7 +61,7 @@ func StartDONs(
 ) (*StartedDONs, error) {
 	if infraInput.Type == infra.CRIB {
 		lggr.Info().Msg("Saving node configs and secret overrides")
-		deployCribDonsInput := &cre.DeployCribDonsInput{
+		deployCribDonsInput := &crib.DeployCribDonsInput{
 			Topology:       topology,
 			NodeSetInputs:  capabilitiesAwareNodeSets,
 			CribConfigsDir: infra.CribConfigsDir,
@@ -178,83 +180,74 @@ func StartDONs(
 	return &startedDONs, nil
 }
 
-func PrepareNodesFunding(ctx context.Context, dons *cre.Dons, blockchains []*cre.Blockchain, fundingPerChainFamilyForEachNode map[string]uint64) (map[string]map[uint64][]byte, error) {
-	output := make(map[string]map[uint64][]byte)
-	requiredFundingPerChain := make(map[uint64]uint64)
+// not needed, we will do everything in main thread
+// func PrepareNodesFunding(ctx context.Context, dons *cre.Dons, blockchains []blockchains.Blockchain, fundingPerChainFamilyForEachNode map[string]uint64) (map[string]map[uint64][]byte, error) {
+// 	output := make(map[string]map[uint64][]byte)
+// requiredFundingPerChain := make(map[uint64]uint64)
 
-	for _, don := range dons.List() {
-		for _, bc := range blockchains {
-			if !flags.RequiresForwarderContract(don.Flags, bc.ChainID) && bc.SolChain == nil {
-				continue
-			}
+// for _, don := range dons.List() {
+// 	for _, bc := range blockchains {
+// 		if !flags.RequiresForwarderContract(don.Flags, bc.ChainID()) && !bc.Is(chainselectors.FamilySolana) {
+// 			continue
+// 		}
 
-			if bc.SolChain != nil {
-				requiredFundingPerChain[bc.SolChain.ChainSelector] += fundingPerChainFamilyForEachNode[chainselectors.FamilySolana] * uint64(len(don.Nodes))
-				continue
-			}
+// 		if bc.Is(chainselectors.FamilySolana) {
+// 			requiredFundingPerChain[bc.ChainSelector()] += fundingPerChainFamilyForEachNode[chainselectors.FamilySolana] * uint64(len(don.Nodes))
+// 			continue
+// 		}
 
-			if bc.CtfOutput.Family == blockchain.FamilyTron {
-				requiredFundingPerChain[bc.ChainSelector] += fundingPerChainFamilyForEachNode[chainselectors.FamilyTron] * uint64(len(don.Nodes))
-				continue
-			}
+// 		if bc.Is(chainselectors.FamilyTron) {
+// 			requiredFundingPerChain[bc.ChainSelector()] += fundingPerChainFamilyForEachNode[chainselectors.FamilyTron] * uint64(len(don.Nodes))
+// 			continue
+// 		}
 
-			requiredFundingPerChain[bc.ChainSelector] += fundingPerChainFamilyForEachNode[chainselectors.FamilyEVM] * uint64(len(don.Nodes))
-		}
-	}
+// 		// default to EVM
+// 		requiredFundingPerChain[bc.ChainSelector()] += fundingPerChainFamilyForEachNode[chainselectors.FamilyEVM] * uint64(len(don.Nodes))
+// 	}
+// }
 
-	for _, bc := range blockchains {
-		if requiredFundingPerChain[bc.ChainSelector] == 0 {
-			continue
-		}
+// for _, bc := range blockchains {
+// 	if requiredFundingPerChain[bc.ChainSelector] == 0 {
+// 		continue
+// 	}
 
-		chainFamily := chainselectors.FamilyEVM
-		if bc.SolChain != nil {
-			chainFamily = chainselectors.FamilySolana
-		} else if bc.CtfOutput.Family == blockchain.FamilyTron {
-			chainFamily = chainselectors.FamilyTron
-		}
+// 	chainFamily := chainselectors.FamilyEVM
+// 	if bc.SolChain != nil {
+// 		chainFamily = chainselectors.FamilySolana
+// 	} else if bc.CtfOutput.Family == blockchain.FamilyTron {
+// 		chainFamily = chainselectors.FamilyTron
+// 	}
 
-		if _, exists := output[chainFamily]; !exists {
-			output[chainFamily] = make(map[uint64][]byte)
-		}
+// 	if _, exists := output[chainFamily]; !exists {
+// 		output[chainFamily] = make(map[uint64][]byte)
+// 	}
 
-		if _, exists := output[chainFamily][bc.ChainSelector]; !exists {
-			pkBytes, err := bc.Funder.Prepare(ctx, requiredFundingPerChain[bc.ChainSelector])
-			if err != nil {
-				return nil, pkgerrors.Wrapf(err, "failed to prepare funding on chain %d", bc.ChainID)
-			}
+// 	if _, exists := output[chainFamily][bc.ChainSelector]; !exists {
+// 		pkBytes, err := bc.Funder.Prepare(ctx, requiredFundingPerChain[bc.ChainSelector])
+// 		if err != nil {
+// 			return nil, pkgerrors.Wrapf(err, "failed to prepare funding on chain %d", bc.ChainID)
+// 		}
 
-			output[chainFamily][bc.ChainSelector] = pkBytes
-		}
-	}
+// 		output[chainFamily][bc.ChainSelector] = pkBytes
+// 	}
+// }
 
-	return output, nil
-}
+// 	return output, nil
+// }
 
-func FundNodes(ctx context.Context, testLogger zerolog.Logger, dons *cre.Dons, blockchains []*cre.Blockchain, privateKeyPerChainFamily map[string]map[uint64][]byte, fundingAmountPerChainFamily map[string]uint64) error {
+func FundNodes(ctx context.Context, testLogger zerolog.Logger, dons *cre.Dons, blockchains []blockchains.Blockchain, fundingAmountPerChainFamily map[string]uint64) error {
 	for _, don := range dons.List() {
 		testLogger.Info().Msgf("Funding nodes for DON %s", don.Name)
 		for _, bc := range blockchains {
-			if !flags.RequiresForwarderContract(don.Flags, bc.ChainID) && bc.SolChain == nil { // for now, we can only write to solana, so we consider forwarder is always present
+			if !flags.RequiresForwarderContract(don.Flags, bc.ChainID()) && !bc.Is(chainselectors.FamilySolana) { // for now, we can only write to solana, so we consider forwarder is always present
 				continue
 			}
-			chainFamily := chainselectors.FamilyEVM
-			if bc.SolChain != nil {
-				chainFamily = chainselectors.FamilySolana
-			} else if bc.CtfOutput.Family == blockchain.FamilyTron {
-				chainFamily = chainselectors.FamilyTron
-			}
+			chainFamily := bc.CtfOutput().Family
 
 			fundingAmount, ok := fundingAmountPerChainFamily[chainFamily]
 			if !ok {
 				return fmt.Errorf("missing funding amount for chain family %s", chainFamily)
 			}
-
-			privateKeyBytes, ok := privateKeyPerChainFamily[chainFamily][bc.ChainSelector]
-			if !ok {
-				return fmt.Errorf("missing funding private key for chain family %s and chain %d", chainFamily, bc.ChainSelector)
-			}
-
 			for _, node := range don.Nodes {
 				address, addrErr := nodeAddress(node, chainFamily, bc)
 				if addrErr != nil {
@@ -266,7 +259,7 @@ func FundNodes(ctx context.Context, testLogger zerolog.Logger, dons *cre.Dons, b
 					continue // Skip nodes without keys for this chain
 				}
 
-				err := bc.Funder.Fund(ctx, address, fundingAmount, privateKeyBytes)
+				err := bc.Fund(ctx, address, fundingAmount)
 				if err != nil {
 					return err
 				}
@@ -279,17 +272,18 @@ func FundNodes(ctx context.Context, testLogger zerolog.Logger, dons *cre.Dons, b
 	return nil
 }
 
-func nodeAddress(node *cre.Node, chainFamily string, bc *cre.Blockchain) (string, error) {
+func nodeAddress(node *cre.Node, chainFamily string, bc blockchains.Blockchain) (string, error) {
 	switch chainFamily {
 	case chainselectors.FamilyEVM, chainselectors.FamilyTron:
-		evmKey, ok := node.Keys.EVM[bc.ChainID]
+		evmKey, ok := node.Keys.EVM[bc.ChainID()]
 		if !ok {
 			return "", nil // Skip nodes without EVM keys for this chain
 		}
 
 		return evmKey.PublicAddress.String(), nil
 	case chainselectors.FamilySolana:
-		solKey, ok := node.Keys.Solana[bc.SolChain.ChainID]
+		solBc := bc.(*solana.Blockchain)
+		solKey, ok := node.Keys.Solana[solBc.SolanaChainID]
 		if !ok {
 			return "", nil // Skip nodes without Solana keys for this chain
 		}
