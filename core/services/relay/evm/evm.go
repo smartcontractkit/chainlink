@@ -42,6 +42,7 @@ import (
 	"github.com/smartcontractkit/chainlink-evm/pkg/config/chaintype"
 	"github.com/smartcontractkit/chainlink-evm/pkg/interceptors/mantle"
 	"github.com/smartcontractkit/chainlink-evm/pkg/keys"
+	"github.com/smartcontractkit/chainlink-evm/pkg/transmitter"
 	evmtypes "github.com/smartcontractkit/chainlink-evm/pkg/types"
 
 	coreconfig "github.com/smartcontractkit/chainlink/v2/core/config"
@@ -57,7 +58,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/functions"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury/wsrpc"
-	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/transmitter"
 )
 
 var (

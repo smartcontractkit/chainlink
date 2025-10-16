@@ -127,6 +127,7 @@ func deployWorkflowCmd() *cobra.Command {
 		workflowFilePathFlag            string
 		configFilePathFlag              string
 		secretsFilePathFlag             string
+		secretsOutputFilePathFlag       string
 		compileWorkflowFlag             bool
 		containerTargetDirFlag          string
 		containerNamePatternFlag        string
@@ -158,7 +159,7 @@ func deployWorkflowCmd() *cobra.Command {
 					metaData["result"] = "success"
 				}
 
-				trackingErr := dxTracker.Track("cre.local.workflow.deploy", metaData)
+				trackingErr := dxTracker.Track(MetricWorkflowDeploy, metaData)
 				if trackingErr != nil {
 					fmt.Fprintf(os.Stderr, "failed to track workflow deploy: %s\n", trackingErr)
 				}
@@ -179,7 +180,7 @@ func deployWorkflowCmd() *cobra.Command {
 				workflowFilePathFlag = compiledWorkflowPath
 			}
 
-			regErr = deployWorkflow(cmd.Context(), workflowFilePathFlag, workflowNameFlag, workflowOwnerAddressFlag, workflowRegistryAddressFlag, capabilitiesRegistryAddressFlag, containerNamePatternFlag, containerTargetDirFlag, configFilePathFlag, secretsFilePathFlag, rpcURLFlag, contractsVersionFlag, donIDFlag, deleteWorkflowFileFlag)
+			regErr = deployWorkflow(cmd.Context(), workflowFilePathFlag, workflowNameFlag, workflowOwnerAddressFlag, workflowRegistryAddressFlag, capabilitiesRegistryAddressFlag, containerNamePatternFlag, containerTargetDirFlag, configFilePathFlag, secretsFilePathFlag, secretsOutputFilePathFlag, rpcURLFlag, contractsVersionFlag, donIDFlag, deleteWorkflowFileFlag)
 
 			return regErr
 		},
@@ -188,6 +189,7 @@ func deployWorkflowCmd() *cobra.Command {
 	cmd.Flags().StringVarP(&workflowFilePathFlag, "workflow-file-path", "w", "", "Path to a base64-encoded workflow WASM file or to a Go file that contains the workflow (if --compile flag is used)")
 	cmd.Flags().StringVarP(&configFilePathFlag, "config-file-path", "c", "", "Path to the workflow config file")
 	cmd.Flags().StringVarP(&secretsFilePathFlag, "secrets-file-path", "s", "", "Path to the secrets file with env var to secret name mappings (not the encrypted one)")
+	cmd.Flags().StringVarP(&secretsOutputFilePathFlag, "secrets-output-file-path", "o", "", "Path to encrypted secrets output file (default \"./encrypted.secrets.json\")")
 	cmd.Flags().StringVarP(&containerTargetDirFlag, "container-target-dir", "t", creworkflow.DefaultWorkflowTargetDir, "Path to the target directory in the Docker container")
 	cmd.Flags().StringVarP(&containerNamePatternFlag, "container-name-pattern", "o", creworkflow.DefaultWorkflowNodePattern, "Pattern to match Docker containers workkflow DON containers (e.g. 'workflow-node')")
 	cmd.Flags().StringVarP(&rpcURLFlag, "rpc-url", "r", "http://localhost:8545", "RPC URL")
@@ -345,7 +347,7 @@ func compileWorkflow(workflowFilePathFlag, workflowNameFlag string) (string, err
 	return compressedWorkflowWasmPath, nil
 }
 
-func deployWorkflow(ctx context.Context, wasmWorkflowFilePathFlag, workflowNameFlag, workflowOwnerAddressFlag, workflowRegistryAddressFlag, capabilitiesRegistryAddressFlag, containerNamePatternFlag, containerTargetDirFlag, configFilePathFlag, secretsFilePathFlag, rpcURLFlag, contractsVersionFlag string, donIDFlag uint32, deleteWorkflowFile bool) error {
+func deployWorkflow(ctx context.Context, wasmWorkflowFilePathFlag, workflowNameFlag, workflowOwnerAddressFlag, workflowRegistryAddressFlag, capabilitiesRegistryAddressFlag, containerNamePatternFlag, containerTargetDirFlag, configFilePathFlag, secretsFilePathFlag, secretsOutputFilePathFlag, rpcURLFlag, contractsVersionFlag string, donIDFlag uint32, deleteWorkflowFile bool) error {
 	copyErr := creworkflow.CopyArtifactsToDockerContainers(containerTargetDirFlag, containerNamePatternFlag, wasmWorkflowFilePathFlag)
 	if copyErr != nil {
 		return errors.Wrap(copyErr, "❌ failed to copy workflow to Docker container")
@@ -390,7 +392,7 @@ func deployWorkflow(ctx context.Context, wasmWorkflowFilePathFlag, workflowNameF
 	if secretsFilePathFlag != "" {
 		fmt.Printf("\n⚙️ Loading and encrypting workflow secrets\n")
 
-		secretPathAbs, secretsErr := creworkflow.PrepareSecrets(sethClient, donIDFlag, common.HexToAddress(capabilitiesRegistryAddressFlag), common.HexToAddress(workflowOwnerAddressFlag), secretsFilePathFlag)
+		secretPathAbs, secretsErr := creworkflow.PrepareSecrets(sethClient, donIDFlag, common.HexToAddress(capabilitiesRegistryAddressFlag), common.HexToAddress(workflowOwnerAddressFlag), secretsFilePathFlag, secretsOutputFilePathFlag)
 		if secretsErr != nil {
 			return errors.Wrap(secretsErr, "failed to prepare secrets")
 		}
@@ -399,7 +401,7 @@ func deployWorkflow(ctx context.Context, wasmWorkflowFilePathFlag, workflowNameF
 			_ = os.Remove(secretPathAbs)
 		}()
 
-		fmt.Printf("\n✅ Encrypted workflow secrets file prepared\n\n")
+		fmt.Printf("\n✅ Encrypted workflow secrets file created at: %s\n\n", secretPathAbs)
 
 		fmt.Printf("\n⚙️ Copying encrypted secrets file to Docker container\n")
 		secretsCopyErr := creworkflow.CopyArtifactsToDockerContainers(containerTargetDirFlag, containerNamePatternFlag, secretPathAbs)
@@ -450,13 +452,13 @@ func deployWorkflow(ctx context.Context, wasmWorkflowFilePathFlag, workflowNameF
 	return nil
 }
 
-func compileCopyAndRegisterWorkflow(ctx context.Context, workflowFilePathFlag, workflowNameFlag, workflowOwnerAddressFlag, workflowRegistryAddressFlag, capabilitiesRegistryAddressFlag, containerNamePatternFlag, containerTargetDirFlag, configFilePathFlag, secretsFilePathFlag, rpcURLFlag, contractsVersionFlag string, donIDFlag uint32) error {
+func compileCopyAndRegisterWorkflow(ctx context.Context, workflowFilePathFlag, workflowNameFlag, workflowOwnerAddressFlag, workflowRegistryAddressFlag, capabilitiesRegistryAddressFlag, containerNamePatternFlag, containerTargetDirFlag, configFilePathFlag, secretsFilePathFlag, secretsOutputFilePathFlag, rpcURLFlag, contractsVersionFlag string, donIDFlag uint32) error {
 	compressedWorkflowWasmPath, compileErr := compileWorkflow(workflowFilePathFlag, workflowNameFlag)
 	if compileErr != nil {
 		return errors.Wrap(compileErr, "❌ failed to compile workflow")
 	}
 
-	return deployWorkflow(ctx, compressedWorkflowWasmPath, workflowNameFlag, workflowOwnerAddressFlag, workflowRegistryAddressFlag, capabilitiesRegistryAddressFlag, containerNamePatternFlag, containerTargetDirFlag, configFilePathFlag, secretsFilePathFlag, rpcURLFlag, contractsVersionFlag, donIDFlag, true)
+	return deployWorkflow(ctx, compressedWorkflowWasmPath, workflowNameFlag, workflowOwnerAddressFlag, workflowRegistryAddressFlag, capabilitiesRegistryAddressFlag, containerNamePatternFlag, containerTargetDirFlag, configFilePathFlag, secretsFilePathFlag, secretsOutputFilePathFlag, rpcURLFlag, contractsVersionFlag, donIDFlag, true)
 }
 
 func isBase64File(filename string) error {

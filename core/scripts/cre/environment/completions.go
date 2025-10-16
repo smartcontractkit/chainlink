@@ -139,6 +139,7 @@ func buildCommandTree() *CompletionNode {
 			{Text: "--workflow-file-path", Description: "⚠️  Path to a base64-encoded workflow WASM file or to a Go file that contains the workflow (if --compile flag is used) (required)"},
 			{Text: "--config-file-path", Description: "⚠️  Path to the workflow config file (required)"},
 			{Text: "--secrets-file-path", Description: "⚠️  Path to the secrets file with env var to secret name mappings (not the encrypted one) (required)"},
+			{Text: "--secrets-output-file-path", Description: "Path to encrypted secrets output file (default: ./encrypted.secrets.json)"},
 			{Text: "--container-target-dir", Description: "Path to the target directory in the Docker container (default: /home/chainlink)"},
 			{Text: "--container-name-pattern", Description: "Pattern to match Docker containers workflow DON containers (e.g. 'workflow-node')"},
 			{Text: "--rpc-url", Description: "RPC URL (default: http://localhost:8545)"},

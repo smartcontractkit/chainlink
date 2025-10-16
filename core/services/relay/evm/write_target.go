@@ -14,20 +14,17 @@ import (
 
 	chainselectors "github.com/smartcontractkit/chain-selectors"
 
-	"github.com/smartcontractkit/chainlink-evm/pkg/config"
-	dfprocessor "github.com/smartcontractkit/chainlink-evm/pkg/report/datafeeds/processor"
-	porprocessor "github.com/smartcontractkit/chainlink-evm/pkg/report/por/processor"
-	df "github.com/smartcontractkit/chainlink-framework/capabilities/writetarget/monitoring/pb/data-feeds/on-chain/registry"
-	"github.com/smartcontractkit/chainlink-framework/capabilities/writetarget/report/platform/processor"
-
-	"github.com/smartcontractkit/chainlink-framework/capabilities/writetarget"
-
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	ocr3types "github.com/smartcontractkit/chainlink-common/pkg/capabilities/consensus/ocr3/types"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
-
 	forwarder "github.com/smartcontractkit/chainlink-evm/gethwrappers/keystone/generated/forwarder_1_0_0"
 	"github.com/smartcontractkit/chainlink-evm/pkg/chains/legacyevm"
+	"github.com/smartcontractkit/chainlink-evm/pkg/config"
+	dfprocessor "github.com/smartcontractkit/chainlink-evm/pkg/report/datafeeds/processor"
+	porprocessor "github.com/smartcontractkit/chainlink-evm/pkg/report/por/processor"
+	"github.com/smartcontractkit/chainlink-framework/capabilities/writetarget"
+	df "github.com/smartcontractkit/chainlink-framework/capabilities/writetarget/monitoring/pb/data-feeds/on-chain/registry"
+	"github.com/smartcontractkit/chainlink-framework/capabilities/writetarget/report/platform/processor"
 )
 
 func NewWriteTarget(ctx context.Context, relayer *Relayer, chain legacyevm.Chain, gasLimitDefault uint64, lggr logger.Logger) (capabilities.ExecutableCapability, error) {

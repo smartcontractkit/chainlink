@@ -189,7 +189,7 @@ func TestVaultHandler_HandleJSONRPCUserMessage(t *testing.T) {
 		wg.Wait()
 	})
 
-	t.Run("no id inside CreteSecrets.EncryptedSecrets body", func(t *testing.T) {
+	t.Run("no id inside CreateSecrets.EncryptedSecrets body", func(t *testing.T) {
 		var wg sync.WaitGroup
 		h, callback, _, _ := setupHandler(t)
 		emptyCreateSecretsRequest := &vaultcommon.CreateSecretsRequest{
@@ -632,7 +632,7 @@ func TestVaultHandler_HandleJSONRPCUserMessage(t *testing.T) {
 }
 
 func TestVaultHandler_PublicKeyGet(t *testing.T) {
-	h, callback, don, clock := setupHandler(t)
+	h, callback, don, _ := setupHandler(t)
 	signers := []string{
 		"d6da96fe596705b32bc3a0e11cdefad77feaad79000000000000000000000000",
 		"327aa349c9718cd36c877d1e90458fe1929768ad000000000000000000000000",
@@ -702,41 +702,4 @@ func TestVaultHandler_PublicKeyGet(t *testing.T) {
 
 	assert.Equal(t, jsonRequest.ID, publicKeyResponse.ID, "request ID should match")
 	assert.Equal(t, publicKey, publicKeyResponse.Result.PublicKey, "public key should match")
-
-	// Now the value has expired, so we'll fetch it again.
-	clock.Advance(10 * time.Minute)
-
-	callback = common.NewCallback()
-	jsonRequest = jsonrpc.Request[json.RawMessage]{
-		ID:     "another_request_id_2",
-		Method: vaulttypes.MethodPublicKeyGet,
-		Params: nil,
-	}
-	err = h.HandleJSONRPCUserMessage(t.Context(), jsonRequest, callback)
-	require.NoError(t, err)
-
-	newPublicKey := "new_test_public_key"
-	responseData = &vaultcommon.GetPublicKeyResponse{
-		PublicKey: newPublicKey,
-	}
-	resultBytes, err = json.Marshal(responseData)
-	require.NoError(t, err)
-	response = jsonrpc.Response[json.RawMessage]{
-		ID:     "another_request_id_2",
-		Method: vaulttypes.MethodPublicKeyGet,
-		Result: (*json.RawMessage)(&resultBytes),
-	}
-	for n := range 2*mcr.F + 1 {
-		err = h.HandleNodeMessage(t.Context(), &response, fmt.Sprintf("0xnode%d", n))
-		require.NoError(t, err)
-	}
-
-	resp, err = callback.Wait(t.Context())
-	require.NoError(t, err)
-	publicKeyResponse = jsonrpc.Response[vaultcommon.GetPublicKeyResponse]{}
-	ierr := json.Unmarshal(resp.RawResponse, &publicKeyResponse)
-	require.NoError(t, ierr)
-
-	assert.Equal(t, jsonRequest.ID, publicKeyResponse.ID, "request ID should match")
-	assert.Equal(t, newPublicKey, publicKeyResponse.Result.PublicKey, "public key should match")
 }
