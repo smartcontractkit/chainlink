@@ -44,8 +44,8 @@ import (
 	"github.com/smartcontractkit/chainlink-evm/pkg/forwarders"
 	"github.com/smartcontractkit/chainlink-evm/pkg/keys"
 	evmtestutils "github.com/smartcontractkit/chainlink-evm/pkg/testutils"
+	"github.com/smartcontractkit/chainlink-evm/pkg/transmitter"
 	ubig "github.com/smartcontractkit/chainlink-evm/pkg/utils/big"
-	"github.com/smartcontractkit/chainlink/v2/transmitter"
 
 	"github.com/smartcontractkit/chainlink/v2/common/logpoller/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/bridges"
