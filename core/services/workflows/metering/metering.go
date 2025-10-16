@@ -487,6 +487,8 @@ func (r *Report) Settle(ref string, metadata capabilities.ResponseMetadata) erro
 		r.lggr.Info("invariant: spend exceeded reserve")
 	}
 
+	r.balance.AddSpent(spentCredits)
+
 	return nil
 }
 
