@@ -322,37 +322,25 @@ func getGoModVersion(goModPath, module string) (ModuleVersion, error) {
 	}
 
 	scanner := bufio.NewScanner(strings.NewReader(string(data)))
-	foundModule := false
 
 	for scanner.Scan() {
 		line := scanner.Text()
 
 		t := strings.TrimSpace(line)
-		if t == "" || strings.HasPrefix(t, "//") || strings.Contains(line, "// indirect") {
+		if t == "" || strings.HasPrefix(t, "//") {
 			continue
 		}
 
 		// Look for "<module> <version>" on the same line.
 		if strings.Contains(line, module+" ") {
-			foundModule = true
 			fields := strings.Fields(line)
-			if len(fields) > 1 {
-				version := fields[len(fields)-1]
-				mv := normalizeVersion(version)
-				fmt.Printf("  - Version extracted: %s (SHA:%s Tag:%s Prefix:%s)\n", mv.Raw, mv.SHA, mv.Tag, mv.TagPrefix)
-				return mv, nil
-			}
-			continue
-		}
-
-		// If module found on previous line, this line may be the version.
-		if foundModule {
-			fields := strings.Fields(line)
-			if len(fields) > 0 {
-				version := fields[0]
-				mv := normalizeVersion(version)
-				fmt.Printf("  - Version extracted: %s (SHA:%s Tag:%s Prefix:%s)\n", mv.Raw, mv.SHA, mv.Tag, mv.TagPrefix)
-				return mv, nil
+			for i, f := range fields {
+				if f == module && i+1 < len(fields) {
+					ver := fields[i+1]
+					mv := normalizeVersion(ver)
+					fmt.Printf("  - Version extracted: %s (SHA:%s Tag:%s Prefix:%s)\n", mv.Raw, mv.SHA, mv.Tag, mv.TagPrefix)
+					return mv, nil
+				}
 			}
 		}
 	}

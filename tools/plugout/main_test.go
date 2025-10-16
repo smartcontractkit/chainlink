@@ -26,20 +26,28 @@ require (
 	github.com/smartcontractkit/chainlink-data-streams v0.1.1-0.20250325191518-036bb568a69d
 	github.com/smartcontractkit/chainlink-feeds v0.1.2-0.20250227211209-7cd000095135
 	github.com/smartcontractkit/chainlink-solana v1.1.2
-	github.com/smartcontractkit/chainlink-tron/relayer v0.1.2-0.20250227211209-7cd000095135 // indirect
+	github.com/smartcontractkit/chainlink-tron/relayer v0.1.2-0.20250227211209-7cd111195135 // indirect
 )
 `
 	if err = os.WriteFile(mockGoModPath, []byte(goModContent), 0600); err != nil {
 		t.Fatalf("Failed to write test go.mod: %v", err)
 	}
 
+	versionsMap := map[string]ModuleVersion{
+		"github.com/smartcontractkit/chainlink-data-streams": {Raw: "v0.1.1-0.20250325191518-036bb568a69d", SHA: "036bb568a69d"},
+		"github.com/smartcontractkit/chainlink-feeds":        {Raw: "v0.1.2-0.20250227211209-7cd000095135", SHA: "7cd000095135"},
+		"github.com/smartcontractkit/chainlink-solana":       {Raw: "v1.1.2", Tag: "v1.1.2"},
+		"github.com/smartcontractkit/chainlink-tron/relayer": {Raw: "v0.1.2-0.20250227211209-7cd111195135", SHA: "7cd111195135"},
+	}
+
 	t.Run("Extract commit hash from pseudoversion", func(t *testing.T) {
-		mv, err := getGoModVersion(mockGoModPath, "github.com/smartcontractkit/chainlink-data-streams")
+		dep := "github.com/smartcontractkit/chainlink-feeds"
+		mv, err := getGoModVersion(mockGoModPath, dep)
 		if err != nil {
 			t.Fatalf("getGoModVersion failed: %v", err)
 		}
-		if mv.SHA != "036bb568a69d" {
-			t.Errorf("Expected SHA '036bb568a69d', got '%s' (raw: %s)", mv.SHA, mv.Raw)
+		if mv.SHA != versionsMap[dep].SHA {
+			t.Errorf("Expected SHA '%s', got '%s' (raw: %s)", versionsMap[dep].SHA, mv.SHA, mv.Raw)
 		}
 		if mv.Tag != "" {
 			t.Errorf("Expected tag empty for pseudoversion, got '%s'", mv.Tag)
@@ -47,12 +55,13 @@ require (
 	})
 
 	t.Run("Regular tag extraction", func(t *testing.T) {
-		mv, err := getGoModVersion(mockGoModPath, "github.com/smartcontractkit/chainlink-solana")
+		dep := "github.com/smartcontractkit/chainlink-solana"
+		mv, err := getGoModVersion(mockGoModPath, dep)
 		if err != nil {
 			t.Fatalf("getGoModVersion failed: %v", err)
 		}
-		if mv.Tag != "v1.1.2" {
-			t.Errorf("Expected tag 'v1.1.2', got '%s' (raw: %s)", mv.Tag, mv.Raw)
+		if mv.Tag != versionsMap[dep].Tag {
+			t.Errorf("Expected tag '%s', got '%s' (raw: %s)", versionsMap[dep].Tag, mv.Tag, mv.Raw)
 		}
 		if mv.SHA != "" {
 			t.Errorf("Expected SHA empty for tag, got '%s'", mv.SHA)
@@ -66,10 +75,14 @@ require (
 		}
 	})
 
-	t.Run("Skip indirect modules", func(t *testing.T) {
-		_, err := getGoModVersion(mockGoModPath, "github.com/smartcontractkit/chainlink-tron/relayer")
-		if err == nil {
-			t.Fatalf("Expected error for indirect module, got nil")
+	t.Run("Indirect module versions should match", func(t *testing.T) {
+		dep := "github.com/smartcontractkit/chainlink-tron/relayer"
+		mv, err := getGoModVersion(mockGoModPath, dep)
+		if err != nil {
+			t.Fatalf("getGoModVersion failed: %v", err)
+		}
+		if mv.SHA != versionsMap[dep].SHA {
+			t.Errorf("Expected SHA %s, got '%s'", versionsMap[dep].SHA, mv.SHA)
 		}
 	})
 }
