@@ -1034,7 +1034,7 @@ func TestWorkflowMetadataHandler_Authorize(t *testing.T) {
 
 		key, err := handler.Authorize(nonExistentWorkflowID, tokenString, req)
 		require.Error(t, err)
-		require.Contains(t, err.Error(), "workflow ID not found in authorized keys")
+		require.Contains(t, err.Error(), "not found")
 		require.Nil(t, key)
 	})
 
@@ -1058,7 +1058,7 @@ func TestWorkflowMetadataHandler_Authorize(t *testing.T) {
 
 		key, err := handler.Authorize(workflowID, tokenString, req)
 		require.Error(t, err)
-		require.Contains(t, err.Error(), "signer not found in authorized keys")
+		require.Contains(t, err.Error(), "is not authorized for workflow")
 		require.Nil(t, key)
 	})
 
@@ -1087,7 +1087,7 @@ func TestWorkflowMetadataHandler_Authorize(t *testing.T) {
 
 		key, err := handler.Authorize(workflowID, tokenString, req)
 		require.Error(t, err)
-		require.Contains(t, err.Error(), "JWT digest does not match request digest")
+		require.Contains(t, err.Error(), "does not match calculated request digest")
 		require.Nil(t, key)
 	})
 

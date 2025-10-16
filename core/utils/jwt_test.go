@@ -239,6 +239,7 @@ func TestVerifyRequestJWT_Integration(t *testing.T) {
 		claims := JWTClaims{
 			Digest: "0x123", // different digest
 			RegisteredClaims: jwt.RegisteredClaims{
+				ID:        "test-jti", // Required field
 				ExpiresAt: jwt.NewNumericDate(now.Add(maxJWTExpiryDuration)),
 				IssuedAt:  jwt.NewNumericDate(now),
 			},
@@ -251,7 +252,7 @@ func TestVerifyRequestJWT_Integration(t *testing.T) {
 
 		_, _, err = VerifyRequestJWT(tokenString, req)
 		require.Error(t, err)
-		require.Contains(t, err.Error(), "JWT digest does not match request digest")
+		require.Contains(t, err.Error(), "does not match calculated request digest")
 	})
 
 	t.Run("expired token", func(t *testing.T) {
@@ -334,7 +335,8 @@ func TestVerifyRequestJWT_Integration(t *testing.T) {
 
 		_, _, err = VerifyRequestJWT(tokenString, req)
 		require.Error(t, err)
-		require.Contains(t, err.Error(), "expiry duration exceeds maximum allowed")
+		require.Contains(t, err.Error(), "token lifetime")
+		require.Contains(t, err.Error(), "exceeds the maximum allowed")
 	})
 
 	t.Run("should validate that required fields expiredAt and issuedAt are present", func(t *testing.T) {
@@ -400,7 +402,8 @@ func TestVerifyRequestJWT_Integration(t *testing.T) {
 
 		_, _, err = VerifyRequestJWT(tokenString, req)
 		require.Error(t, err)
-		require.Contains(t, err.Error(), "expiry duration exceeds maximum allowed 5 minutes")
+		require.Contains(t, err.Error(), "token lifetime")
+		require.Contains(t, err.Error(), "exceeds the maximum allowed")
 
 		_, _, err = VerifyRequestJWT(tokenString, req, WithMaxExpiryDuration(10*time.Minute))
 		require.NoError(t, err)
