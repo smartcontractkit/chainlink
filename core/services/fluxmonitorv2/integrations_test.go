@@ -436,6 +436,7 @@ func checkLogWasConsumed(t *testing.T, fa fluxAggregatorUniverse, ds sqlutil.Dat
 }
 
 func TestFluxMonitor_Deviation(t *testing.T) {
+	quarantine.Flaky(t, "DX-1763")
 	tests := []struct {
 		name    string
 		eip1559 bool

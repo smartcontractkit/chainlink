@@ -922,8 +922,6 @@ func (r *ReportingPlugin) StateTransition(ctx context.Context, seqNr uint64, aq 
 			}
 			obsMap[o.Id] = append(obsMap[o.Id], o)
 		}
-
-		// TODO -- we need to validate that a single oracle doesn't submit multiple observations for the same request.
 	}
 
 	os := &vaultcommon.Outcomes{

@@ -13,11 +13,8 @@ import (
 	"github.com/pkg/errors"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
-	"github.com/smartcontractkit/chainlink-common/pkg/types/chains/evm"
-
 	commontypes "github.com/smartcontractkit/chainlink-common/pkg/types"
-	evmtypes "github.com/smartcontractkit/chainlink-common/pkg/types/chains/evm"
-
+	"github.com/smartcontractkit/chainlink-common/pkg/types/chains/evm"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/query"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/query/primitives"
 	evmprimitives "github.com/smartcontractkit/chainlink-common/pkg/types/query/primitives/evm"
@@ -36,7 +33,7 @@ type evmService struct {
 }
 
 // Direct RPC
-func (e *evmService) CallContract(ctx context.Context, request evmtypes.CallContractRequest) (*evmtypes.CallContractReply, error) {
+func (e *evmService) CallContract(ctx context.Context, request evm.CallContractRequest) (*evm.CallContractReply, error) {
 	opts := types.CallContractOpts{
 		ConfidenceLevel:   request.ConfidenceLevel,
 		IsExternalRequest: request.IsExternal,
@@ -49,10 +46,10 @@ func (e *evmService) CallContract(ctx context.Context, request evmtypes.CallCont
 		return nil, err
 	}
 
-	return &evmtypes.CallContractReply{Data: result}, nil
+	return &evm.CallContractReply{Data: result}, nil
 }
 
-func (e *evmService) FilterLogs(ctx context.Context, request evmtypes.FilterLogsRequest) (*evmtypes.FilterLogsReply, error) {
+func (e *evmService) FilterLogs(ctx context.Context, request evm.FilterLogsRequest) (*evm.FilterLogsReply, error) {
 	opts := types.FilterLogsOpts{
 		ConfidenceLevel:   request.ConfidenceLevel,
 		IsExternalRequest: request.IsExternal,
@@ -62,31 +59,31 @@ func (e *evmService) FilterLogs(ctx context.Context, request evmtypes.FilterLogs
 		return nil, err
 	}
 
-	logs := make([]*evmtypes.Log, 0, len(rawLogs))
+	logs := make([]*evm.Log, 0, len(rawLogs))
 	for _, l := range rawLogs {
 		logs = append(logs, convertLog(&l))
 	}
 
-	return &evmtypes.FilterLogsReply{Logs: logs}, nil
+	return &evm.FilterLogsReply{Logs: logs}, nil
 }
 
-func (e *evmService) BalanceAt(ctx context.Context, request evmtypes.BalanceAtRequest) (*evmtypes.BalanceAtReply, error) {
+func (e *evmService) BalanceAt(ctx context.Context, request evm.BalanceAtRequest) (*evm.BalanceAtReply, error) {
 	balance, err := e.chain.Client().BalanceAtWithOpts(ctx, request.Address, request.BlockNumber, types.BalanceAtOpts{ConfidenceLevel: request.ConfidenceLevel})
 	if err != nil {
 		return nil, err
 	}
 
-	return &evmtypes.BalanceAtReply{Balance: balance}, nil
+	return &evm.BalanceAtReply{Balance: balance}, nil
 }
 
-func (e *evmService) EstimateGas(ctx context.Context, call *evmtypes.CallMsg) (uint64, error) {
+func (e *evmService) EstimateGas(ctx context.Context, call *evm.CallMsg) (uint64, error) {
 	if call == nil {
 		return 0, errors.New("call can not be nil")
 	}
 	return e.chain.Client().EstimateGas(ctx, toEthMsg(*call))
 }
 
-func (e *evmService) GetTransactionByHash(ctx context.Context, request evmtypes.GetTransactionByHashRequest) (*evmtypes.Transaction, error) {
+func (e *evmService) GetTransactionByHash(ctx context.Context, request evm.GetTransactionByHashRequest) (*evm.Transaction, error) {
 	tx, err := e.chain.Client().TransactionByHashWithOpts(ctx, request.Hash, types.TransactionByHashOpts{IsExternalRequest: request.IsExternal})
 	if err != nil {
 		return nil, err
@@ -95,7 +92,7 @@ func (e *evmService) GetTransactionByHash(ctx context.Context, request evmtypes.
 	return convertTransaction(tx), nil
 }
 
-func (e *evmService) GetTransactionReceipt(ctx context.Context, request evmtypes.GeTransactionReceiptRequest) (*evmtypes.Receipt, error) {
+func (e *evmService) GetTransactionReceipt(ctx context.Context, request evm.GeTransactionReceiptRequest) (*evm.Receipt, error) {
 	receipt, err := e.chain.Client().TransactionReceiptWithOpts(ctx, request.Hash, types.TransactionReceiptOpts{IsExternalRequest: request.IsExternal})
 	if err != nil {
 		return nil, err
@@ -105,11 +102,11 @@ func (e *evmService) GetTransactionReceipt(ctx context.Context, request evmtypes
 }
 
 // ChainService
-func (e *evmService) GetTransactionFee(ctx context.Context, transactionID commontypes.IdempotencyKey) (*evmtypes.TransactionFee, error) {
+func (e *evmService) GetTransactionFee(ctx context.Context, transactionID commontypes.IdempotencyKey) (*evm.TransactionFee, error) {
 	return e.chain.TxManager().GetTransactionFee(ctx, transactionID)
 }
 
-func (e *evmService) HeaderByNumber(ctx context.Context, request evmtypes.HeaderByNumberRequest) (*evmtypes.HeaderByNumberReply, error) {
+func (e *evmService) HeaderByNumber(ctx context.Context, request evm.HeaderByNumberRequest) (*evm.HeaderByNumberReply, error) {
 	var err error
 	var h *types.Head
 	switch {
@@ -141,13 +138,13 @@ func (e *evmService) HeaderByNumber(ctx context.Context, request evmtypes.Header
 	}
 
 	header := convertHead(h)
-	return &evmtypes.HeaderByNumberReply{Header: header}, nil
+	return &evm.HeaderByNumberReply{Header: header}, nil
 }
 
 // TODO introduce parameters validation PLEX-1437
 func (e *evmService) QueryTrackedLogs(ctx context.Context, filterQuery []query.Expression,
 	limitAndSort query.LimitAndSort, confidenceLevel primitives.ConfidenceLevel,
-) ([]*evmtypes.Log, error) {
+) ([]*evm.Log, error) {
 	conformations := confidenceToConformations(confidenceLevel)
 	filterQuery = append(filterQuery, logpoller.NewConfirmationsFilter(conformations))
 	queryName := queryNameFromFilter(filterQuery)
@@ -169,7 +166,7 @@ func (e *evmService) GetFiltersNames(_ context.Context) ([]string, error) {
 	return filterNames, nil
 }
 
-func (e *evmService) RegisterLogTracking(ctx context.Context, filter evmtypes.LPFilterQuery) error {
+func (e *evmService) RegisterLogTracking(ctx context.Context, filter evm.LPFilterQuery) error {
 	lpfilter, err := convertLPFilter(filter)
 	if err != nil {
 		return err
@@ -201,7 +198,7 @@ func (e *evmService) GetTransactionStatus(ctx context.Context, transactionID com
 	return status, nil
 }
 
-func (e *evmService) SubmitTransaction(ctx context.Context, txRequest evmtypes.SubmitTransactionRequest) (*evmtypes.TransactionResult, error) {
+func (e *evmService) SubmitTransaction(ctx context.Context, txRequest evm.SubmitTransactionRequest) (*evm.TransactionResult, error) {
 	config := e.chain.Config()
 
 	fromAddress := config.EVM().Workflow().FromAddress().Address()
@@ -262,7 +259,7 @@ func (e *evmService) SubmitTransaction(ctx context.Context, txRequest evmtypes.S
 	}
 
 	if txStatus == evm.TxFatal {
-		return &evmtypes.TransactionResult{TxStatus: txStatus, TxIdempotencyKey: txID}, nil
+		return &evm.TransactionResult{TxStatus: txStatus, TxIdempotencyKey: txID}, nil
 	}
 
 	receipt, err := retry.Do(retryContext, e.logger, func(ctx context.Context) (*evmtxmgr.ChainReceipt, error) {
@@ -280,7 +277,7 @@ func (e *evmService) SubmitTransaction(ctx context.Context, txRequest evmtypes.S
 		return nil, fmt.Errorf("failed getting transaction receipt. %w", err)
 	}
 
-	return &evmtypes.TransactionResult{
+	return &evm.TransactionResult{
 		TxStatus:         evm.TxSuccess,
 		TxHash:           (*receipt).GetTxHash(),
 		TxIdempotencyKey: txID,
@@ -292,7 +289,7 @@ func (e *evmService) CalculateTransactionFee(ctx context.Context, receipt evm.Re
 		GasUsed:           receipt.GasUsed,
 		EffectiveGasPrice: receipt.EffectiveGasPrice,
 	})
-	return &evmtypes.TransactionFee{
+	return &evm.TransactionFee{
 		TransactionFee: txFee,
 	}, nil
 }
@@ -322,8 +319,8 @@ func queryNameFromFilter(filterQuery []query.Expression) string {
 	return address + "-" + eventSig
 }
 
-func convertHead(h *types.Head) *evmtypes.Header {
-	return &evmtypes.Header{
+func convertHead(h *types.Head) *evm.Header {
+	return &evm.Header{
 		Timestamp:  uint64(h.GetTimestamp().Unix()),
 		Hash:       bytesToHash(h.BlockHash().Bytes()),
 		Number:     big.NewInt(h.BlockNumber()),
@@ -331,8 +328,8 @@ func convertHead(h *types.Head) *evmtypes.Header {
 	}
 }
 
-func convertReceipt(r *gethtypes.Receipt) *evmtypes.Receipt {
-	return &evmtypes.Receipt{
+func convertReceipt(r *gethtypes.Receipt) *evm.Receipt {
+	return &evm.Receipt{
 		Status:            r.Status,
 		Logs:              convertLogs(r.Logs),
 		TxHash:            r.TxHash,
@@ -345,7 +342,7 @@ func convertReceipt(r *gethtypes.Receipt) *evmtypes.Receipt {
 	}
 }
 
-func convertEthFilter(q evmtypes.FilterQuery) ethereum.FilterQuery {
+func convertEthFilter(q evm.FilterQuery) ethereum.FilterQuery {
 	return ethereum.FilterQuery{
 		FromBlock: q.FromBlock,
 		ToBlock:   q.ToBlock,
@@ -356,7 +353,7 @@ func convertEthFilter(q evmtypes.FilterQuery) ethereum.FilterQuery {
 
 var errEmptyFilterName = errors.New("filter name can't be empty")
 
-func convertLPFilter(q evmtypes.LPFilterQuery) (logpoller.Filter, error) {
+func convertLPFilter(q evm.LPFilterQuery) (logpoller.Filter, error) {
 	if q.Name == "" {
 		return logpoller.Filter{}, errEmptyFilterName
 	}
@@ -373,13 +370,13 @@ func convertLPFilter(q evmtypes.LPFilterQuery) (logpoller.Filter, error) {
 	}, nil
 }
 
-func convertTransaction(tx *gethtypes.Transaction) *evmtypes.Transaction {
+func convertTransaction(tx *gethtypes.Transaction) *evm.Transaction {
 	var to evm.Address
 	if tx.To() != nil {
 		to = *tx.To()
 	}
 
-	return &evmtypes.Transaction{
+	return &evm.Transaction{
 		To:       to,
 		Data:     tx.Data(),
 		Hash:     tx.Hash(),
@@ -427,7 +424,7 @@ func hashesToArrays(input []common.Hash) [][32]byte {
 
 var empty common.Address
 
-func toEthMsg(msg evmtypes.CallMsg) ethereum.CallMsg {
+func toEthMsg(msg evm.CallMsg) ethereum.CallMsg {
 	var to *common.Address
 
 	if empty.Cmp(msg.To) != 0 {
@@ -442,8 +439,8 @@ func toEthMsg(msg evmtypes.CallMsg) ethereum.CallMsg {
 	}
 }
 
-func convertLogs(logs []*gethtypes.Log) []*evmtypes.Log {
-	ret := make([]*evmtypes.Log, 0, len(logs))
+func convertLogs(logs []*gethtypes.Log) []*evm.Log {
+	ret := make([]*evm.Log, 0, len(logs))
 
 	for _, l := range logs {
 		ret = append(ret, convertLog(l))
@@ -452,8 +449,8 @@ func convertLogs(logs []*gethtypes.Log) []*evmtypes.Log {
 	return ret
 }
 
-func convertLPLogs(logs []logpoller.Log) []*evmtypes.Log {
-	ret := make([]*evmtypes.Log, 0, len(logs))
+func convertLPLogs(logs []logpoller.Log) []*evm.Log {
+	ret := make([]*evm.Log, 0, len(logs))
 	for _, l := range logs {
 		gl := l.ToGethLog()
 		ret = append(ret, convertLog(&gl))
@@ -462,7 +459,7 @@ func convertLPLogs(logs []logpoller.Log) []*evmtypes.Log {
 	return ret
 }
 
-func convertLog(log *gethtypes.Log) *evmtypes.Log {
+func convertLog(log *gethtypes.Log) *evm.Log {
 	topics := hashesToArrays(log.Topics)
 
 	var eventSig [32]byte
@@ -470,7 +467,7 @@ func convertLog(log *gethtypes.Log) *evmtypes.Log {
 		eventSig = log.Topics[0]
 	}
 
-	return &evmtypes.Log{
+	return &evm.Log{
 		LogIndex:    uint32(log.Index),
 		BlockHash:   log.BlockHash,
 		BlockNumber: new(big.Int).SetUint64(log.BlockNumber),

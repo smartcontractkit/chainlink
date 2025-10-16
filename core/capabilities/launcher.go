@@ -270,6 +270,10 @@ func (w *launcher) donPairsToUpdate(myID ragetypes.PeerID, localRegistry *regist
 			}
 			if donA.AcceptsWorkflows && len(donB.CapabilityConfigurations) > 0 || // add DON pair if A is workflow and B is capability
 				donB.AcceptsWorkflows && len(donA.CapabilityConfigurations) > 0 { // add DON pair if B is workflow and A is capability
+				if !donFamiliesOverlap(donA.Families, donB.Families) {
+					w.lggr.Debugw("donPairsToUpdate: filtering out DON pair due to family mismatch", "donA.ID", donA.ID, "donB.ID", donB.ID, "donA.Families", donA.Families, "donB.Families", donB.Families)
+					continue
+				}
 				donPairs = append(donPairs, pairAB)
 			}
 		}
@@ -296,11 +300,16 @@ func (w *launcher) OnNewRegistry(ctx context.Context, localRegistry *registrysyn
 	myWorkflowDONs := []registrysyncer.DON{}
 	remoteWorkflowDONs := []registrysyncer.DON{}
 	myDONs := map[uint32]bool{}
+	myDONFamiliesSet := map[string]bool{}
+	myDONFamilies := []string{}
 	for _, id := range allDONIDs {
 		d := localRegistry.IDsToDONs[id]
 		for _, peerID := range d.Members {
 			if peerID == w.myPeerID {
 				myDONs[d.ID] = true
+				for _, family := range d.Families {
+					myDONFamiliesSet[family] = true
+				}
 			}
 		}
 
@@ -312,8 +321,12 @@ func (w *launcher) OnNewRegistry(ctx context.Context, localRegistry *registrysyn
 			}
 		}
 	}
+	for family := range myDONFamiliesSet {
+		myDONFamilies = append(myDONFamilies, family)
+	}
+	w.lggr.Debugw("Found my DON families", "count", len(myDONFamilies), "myDONFamilies", myDONFamilies)
 	w.lggr.Debugw("Found my workflow DONs", "count", len(myWorkflowDONs), "myWorkflowDONs", myWorkflowDONs)
-	w.lggr.Debugw("Found remote workflow DONs", "count", len(remoteWorkflowDONs), "remoteWorkflowDONs", remoteWorkflowDONs)
+	w.lggr.Debugw("Found all remote workflow DONs", "count", len(remoteWorkflowDONs), "remoteWorkflowDONs", remoteWorkflowDONs)
 
 	// Capability DONs (with IsPublic = true) the current node is a part of.
 	// These need server-side shims to expose my own capabilities externally.
@@ -329,7 +342,17 @@ func (w *launcher) OnNewRegistry(ctx context.Context, localRegistry *registrysyn
 		}
 	}
 	w.lggr.Debugw("Found my capability DONs", "count", len(myCapabilityDONs), "myCapabilityDONs", myCapabilityDONs)
-	w.lggr.Debugw("Found remote capability DONs", "count", len(remoteCapabilityDONs), "remoteCapabilityDONs", remoteCapabilityDONs)
+	w.lggr.Debugw("Found all remote capability DONs", "count", len(remoteCapabilityDONs), "remoteCapabilityDONs", remoteCapabilityDONs)
+
+	if len(myDONFamilies) > 0 {
+		remoteWorkflowDONs = filterDONsByFamilies(remoteWorkflowDONs, myDONFamilies)
+		remoteCapabilityDONs = filterDONsByFamilies(remoteCapabilityDONs, myDONFamilies)
+		w.lggr.Debugw("Filtered remote workflow DONs to my families", "count", len(remoteWorkflowDONs), "remoteWorkflowDONs", remoteWorkflowDONs)
+		w.lggr.Debugw("Filtered remote capability DONs to my families", "count", len(remoteCapabilityDONs), "remoteCapabilityDONs", remoteCapabilityDONs)
+	} else {
+		// legacy / Keystone setting
+		w.lggr.Debug("My node doesn't belong to any DON families. No filtering will be applied.")
+	}
 
 	belongsToAWorkflowDON := len(myWorkflowDONs) > 0
 	if belongsToAWorkflowDON {
@@ -357,7 +380,7 @@ func (w *launcher) OnNewRegistry(ctx context.Context, localRegistry *registrysyn
 
 	// Lastly, we identify peers to connect to, based on their DONs functions
 	w.lggr.Debugw("Updating peer connections", "peerWrapperEnabled", w.peerWrapper != nil, "don2donSharedPeerEnabled", w.don2donSharedPeer != nil)
-	if w.peerWrapper != nil {
+	if w.peerWrapper != nil { // legacy / Keystone setting
 		peer := w.peerWrapper.GetPeer()
 		myPeers := w.peers(belongsToACapabilityDON, belongsToAWorkflowDON, peer.IsBootstrap(), localRegistry)
 		err := peer.UpdateConnections(myPeers)
@@ -373,6 +396,28 @@ func (w *launcher) OnNewRegistry(ctx context.Context, localRegistry *registrysyn
 		}
 	}
 	return nil
+}
+
+func filterDONsByFamilies(donList []registrysyncer.DON, myDONFamilies []string) []registrysyncer.DON {
+	filteredDONs := []registrysyncer.DON{}
+	for _, d := range donList {
+		if donFamiliesOverlap(d.Families, myDONFamilies) {
+			filteredDONs = append(filteredDONs, d)
+		}
+	}
+	return filteredDONs
+}
+
+func donFamiliesOverlap(donA []string, donB []string) bool {
+	if len(donA) == 0 && len(donB) == 0 {
+		return true // legacy setting with empty families - ignore filtering
+	}
+	for _, family := range donA {
+		if slices.Contains(donB, family) {
+			return true
+		}
+	}
+	return false
 }
 
 // addRemoteCapabilities adds remote capabilities from a remote DON to the local node,

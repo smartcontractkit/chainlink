@@ -1,7 +1,6 @@
 package ccip
 
 import (
-	"fmt"
 	"math/big"
 	"slices"
 	"testing"
@@ -10,19 +9,11 @@ import (
 	"github.com/stretchr/testify/require"
 	"golang.org/x/exp/maps"
 
-	"github.com/xssnick/tonutils-go/address"
-	"github.com/xssnick/tonutils-go/tlb"
-	"github.com/xssnick/tonutils-go/tvm/cell"
-
-	"github.com/smartcontractkit/chainlink-deployments-framework/chain/ton"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers"
+	"github.com/xssnick/tonutils-go/tlb"
 
-	"github.com/smartcontractkit/chainlink-ton/pkg/bindings"
 	"github.com/smartcontractkit/chainlink-ton/pkg/ccip/bindings/onramp"
 	"github.com/smartcontractkit/chainlink-ton/pkg/ccip/codec"
-	"github.com/smartcontractkit/chainlink-ton/pkg/ton/tracetracking"
-	"github.com/smartcontractkit/chainlink-ton/pkg/ton/wrappers"
-
 	mt "github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers/messagingtest"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
 	testsetups "github.com/smartcontractkit/chainlink/integration-tests/testsetups/ccip"
@@ -64,6 +55,9 @@ func Test_CCIPMessaging_TON2EVM(t *testing.T) {
 	addrBytes, err := ac.AddressStringToBytes(tonChain.WalletAddress.String())
 	require.NoError(t, err)
 
+	// wait for event filter registration
+	t.Logf("Waiting for event filter registration (~2 mins)...")
+	testhelpers.WaitForEventFilterRegistrationOnLane(t, state, e.Env.Offchain, sourceChain, destChain)
 	// ready to test
 	var (
 		sender = addrBytes
@@ -156,22 +150,14 @@ func Test_CCIPMessaging_EVM2TON(t *testing.T) {
 	)
 
 	t.Run("message to contract receiver", func(t *testing.T) {
-		// deploy receiver contract
-		tonChain := e.Env.BlockChains.TonChains()[destChain]
 		offRampAddr := state.TonChains[destChain].OffRamp
-		receiver, err := deployReceiverContract(tonChain, &offRampAddr)
-		require.NoError(t, err)
+		receiverAddr := state.TonChains[destChain].ReceiverAddress
 
 		t.Logf("  TON OffRamp:  %s", offRampAddr.String())
-		t.Logf("  TON Receiver: %s", receiver.String())
-
-		// TODO: should receiver address be saved in state?
-		ccipChainState := state.TonChains[destChain]
-		ccipChainState.ReceiverAddress = *receiver
-		state.TonChains[destChain] = ccipChainState
+		t.Logf("  TON Receiver: %s", receiverAddr.String())
 
 		ac := codec.NewAddressCodec()
-		receiverBytes, err := ac.AddressStringToBytes(receiver.String())
+		receiverBytes, err := ac.AddressStringToBytes(receiverAddr.String())
 		require.NoError(t, err)
 		require.Len(t, receiverBytes, 36, "receiver bytes should be 36 bytes")
 
@@ -189,32 +175,4 @@ func Test_CCIPMessaging_EVM2TON(t *testing.T) {
 		)
 	})
 	_ = out
-}
-
-func deployReceiverContract(tonChain ton.Chain, offRampAddr *address.Address) (*address.Address, error) {
-	// parse compiled contract
-	// Note: receiver is under ccip/test (not examples) so it's included in GitHub releases
-	codeCell, err := wrappers.ParseCompiledContract(bindings.GetBuildDir("ccip.test.receiver.compiled.json"))
-	if err != nil {
-		return nil, fmt.Errorf("failed to parse Receiver compiled contract: %w", err)
-	}
-
-	// create initial storage - must match TypeScript: beginCell().storeAddress(offRampAddress).endCell()
-	receiverStorage := cell.BeginCell().
-		MustStoreAddr(offRampAddr).
-		EndCell()
-
-	conn := tracetracking.NewSignedAPIClient(tonChain.Client, *tonChain.Wallet)
-	contract, _, err := wrappers.Deploy(
-		&conn,
-		codeCell,
-		receiverStorage,
-		tlb.MustFromTON("0.1"), // should be enough for testing
-		cell.BeginCell().EndCell(),
-	)
-	if err != nil {
-		return nil, fmt.Errorf("failed to deploy Receiver contract: %w", err)
-	}
-	receiver := contract.Address
-	return receiver, nil
 }
