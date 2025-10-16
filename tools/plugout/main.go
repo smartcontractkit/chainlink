@@ -122,7 +122,7 @@ func runSync(opts Options) (bool, error) {
 	// Discover modules from plugin files and apply ignores.
 	modulesToCheck := discoverModulesFromPlugins(opts.PluginPaths)
 	if len(modulesToCheck) == 0 {
-		return false, fmt.Errorf("no modules discovered from plugin files")
+		return false, errors.New("no modules discovered from plugin files")
 	}
 
 	fmt.Println()
@@ -296,12 +296,12 @@ func (m *ModuleVersion) toString() string {
 		return fmt.Sprintf("Tag: %s/%s", m.TagPrefix, m.Tag)
 	}
 	if m.Tag != "" {
-		return fmt.Sprintf("Tag: %s", m.Tag)
+		return "Tag: " + m.Tag
 	}
 	if m.SHA != "" {
-		return fmt.Sprintf("SHA: %s", m.SHA)
+		return "SHA: " + m.SHA
 	}
-	return fmt.Sprintf("Raw: %s", m.Raw)
+	return "Raw: " + m.Raw
 }
 
 func shaEqual(a, b string) bool {
