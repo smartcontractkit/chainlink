@@ -456,6 +456,9 @@ func (e *Engine) startExecution(ctx context.Context, wrappedTriggerEvent enqueue
 		e.lggr.Errorf("invalid moduleExecuteMaxResponseSizeBytes; must not be negative: %d", moduleExecuteMaxResponseSizeBytes)
 		return
 	}
+	execHelper := &ExecutionHelper{Engine: e, WorkflowExecutionID: executionID, UserLogChan: userLogChan,
+		TimeProvider: timeProvider, SecretsFetcher: e.secretsFetcher(executionID)}
+	execHelper.initLimiters(e.cfg.LocalLimiters)
 	result, err := e.cfg.Module.Execute(execCtx, &sdkpb.ExecuteRequest{
 		Request: &sdkpb.ExecuteRequest_Trigger{
 			Trigger: &sdkpb.Trigger{
@@ -465,8 +468,7 @@ func (e *Engine) startExecution(ctx context.Context, wrappedTriggerEvent enqueue
 		},
 		MaxResponseSize: uint64(moduleExecuteMaxResponseSizeBytes), //nolint:gosec // G115
 		Config:          e.cfg.WorkflowConfig,
-	}, &ExecutionHelper{Engine: e, WorkflowExecutionID: executionID, UserLogChan: userLogChan,
-		TimeProvider: timeProvider, SecretsFetcher: e.secretsFetcher(executionID)})
+	}, execHelper)
 
 	endTime := e.cfg.Clock.Now()
 	executionDuration := endTime.Sub(startTime)

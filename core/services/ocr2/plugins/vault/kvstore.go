@@ -31,27 +31,34 @@ type WriteKVStore interface {
 	ReadKVStore
 	WriteSecret(id *vault.SecretIdentifier, secret *vault.StoredSecret) error
 	WriteMetadata(owner string, metadata *vault.StoredMetadata) error
-	AddIDToMetadata(id *vault.SecretIdentifier) error
-	RemoveIDFromMetadata(id *vault.SecretIdentifier) error
 	DeleteSecret(id *vault.SecretIdentifier) error
 }
 
-func NewReadStore(reader ocr3_1types.KeyValueReader) ReadKVStore {
+func NewReadStore(reader ocr3_1types.KeyValueReader) *KVStore {
 	return &KVStore{reader: reader}
 }
 
-func NewWriteStore(writer ocr3_1types.KeyValueReadWriter) WriteKVStore {
+func NewWriteStore(writer ocr3_1types.KeyValueReadWriter) *KVStore {
 	return &KVStore{reader: writer, writer: writer}
 }
 
 func (s *KVStore) GetSecret(id *vault.SecretIdentifier) (*vault.StoredSecret, error) {
+	found, err := s.metadataContainsID(id)
+	if err != nil {
+		return nil, fmt.Errorf("failed to check if metadata contains id: %w", err)
+	}
+
+	if !found {
+		return nil, nil
+	}
+
 	b, err := s.reader.Read([]byte(keyPrefix + vaulttypes.KeyFor(id)))
 	if err != nil {
 		return nil, fmt.Errorf("failed to read secret: %w", err)
 	}
 
 	if b == nil {
-		return nil, nil
+		return nil, errors.New("invariant violation: metadata contains id but secret not found")
 	}
 
 	secret := &vault.StoredSecret{}
@@ -110,7 +117,26 @@ func (s *KVStore) WriteMetadata(owner string, metadata *vault.StoredMetadata) er
 	return nil
 }
 
-func (s *KVStore) AddIDToMetadata(id *vault.SecretIdentifier) error {
+func (s *KVStore) metadataContainsID(id *vault.SecretIdentifier) (bool, error) {
+	md, err := s.GetMetadata(id.Owner)
+	if err != nil {
+		return false, fmt.Errorf("failed to get metadata for owner %s: %w", id.Owner, err)
+	}
+
+	if md == nil {
+		return false, nil
+	}
+
+	for _, i := range md.SecretIdentifiers {
+		if vaulttypes.KeyFor(id) == vaulttypes.KeyFor(i) {
+			return true, nil
+		}
+	}
+
+	return false, nil
+}
+
+func (s *KVStore) addIDToMetadata(id *vault.SecretIdentifier) error {
 	md, err := s.GetMetadata(id.Owner)
 	if err != nil {
 		return fmt.Errorf("failed to get metadata for owner %s: %w", id.Owner, err)
@@ -121,6 +147,13 @@ func (s *KVStore) AddIDToMetadata(id *vault.SecretIdentifier) error {
 			SecretIdentifiers: []*vault.SecretIdentifier{id},
 		}
 	} else {
+		for _, i := range md.SecretIdentifiers {
+			if vaulttypes.KeyFor(id) == vaulttypes.KeyFor(i) {
+				// Nothing to do, early exit.
+				return nil
+			}
+		}
+
 		md.SecretIdentifiers = append(md.SecretIdentifiers, id)
 	}
 
@@ -132,7 +165,7 @@ func (s *KVStore) AddIDToMetadata(id *vault.SecretIdentifier) error {
 	return nil
 }
 
-func (s *KVStore) RemoveIDFromMetadata(id *vault.SecretIdentifier) error {
+func (s *KVStore) removeIDFromMetadata(id *vault.SecretIdentifier) error {
 	md, err := s.GetMetadata(id.Owner)
 	if err != nil {
 		return fmt.Errorf("failed to get metadata for owner %s: %w", id.Owner, err)
@@ -178,7 +211,7 @@ func (s *KVStore) WriteSecret(id *vault.SecretIdentifier, secret *vault.StoredSe
 		return fmt.Errorf("failed to write secret: %w", err)
 	}
 
-	if err := s.AddIDToMetadata(id); err != nil {
+	if err := s.addIDToMetadata(id); err != nil {
 		return fmt.Errorf("failed to add id to metadata: %w", err)
 	}
 
@@ -186,14 +219,14 @@ func (s *KVStore) WriteSecret(id *vault.SecretIdentifier, secret *vault.StoredSe
 }
 
 func (s *KVStore) DeleteSecret(id *vault.SecretIdentifier) error {
-	err := s.writer.Delete([]byte(keyPrefix + vaulttypes.KeyFor(id)))
-	if err != nil {
-		return fmt.Errorf("failed to delete secret: %w", err)
-	}
-
-	err = s.RemoveIDFromMetadata(id)
+	err := s.removeIDFromMetadata(id)
 	if err != nil {
 		return fmt.Errorf("failed to remove id from metadata: %w", err)
+	}
+
+	err = s.writer.Delete([]byte(keyPrefix + vaulttypes.KeyFor(id)))
+	if err != nil {
+		return fmt.Errorf("failed to delete secret: %w", err)
 	}
 
 	return nil

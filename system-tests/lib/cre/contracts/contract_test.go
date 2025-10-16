@@ -76,8 +76,8 @@ func TestToV2ConfigureInput(t *testing.T) {
 		t.Errorf("expected RegistryChainSel 123, got %d", result.RegistryChainSel)
 	}
 
-	if result.ContractAddress != "0x1234567890abcdef" {
-		t.Errorf("expected ContractAddress 0x1234567890abcdef, got %s", result.ContractAddress)
+	if result.ContractAddress != "0x1234567890abcdef" { //nolint:staticcheck // we won't migrate tests
+		t.Errorf("expected ContractAddress 0x1234567890abcdef, got %s", result.ContractAddress) //nolint:staticcheck // we won't migrate tests
 	}
 
 	if len(result.Nops) != 1 {

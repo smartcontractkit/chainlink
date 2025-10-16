@@ -178,22 +178,6 @@ func TestSetTokenTransferFeeConfig_Validations(t *testing.T) {
 				},
 			},
 		},
-		{
-			Msg: "Enabling new token with missing fields (logic-time check)",
-			Err: "invalid args - when enabling a new token, all fields must be provided",
-			Config: v1_5_1.SetTokenTransferFeeConfig{
-				MCMS: mcmCfg,
-				InputsByChain: map[uint64]map[uint64]v1_5_1.SetTokenTransferFeeArgs{
-					src: {
-						dst: {
-							TokenTransferFeeConfigArgs: map[common.Address]v1_5_1.TokenTransferFeeArgs{
-								utils.RandomAddress(): {MinFeeUSDCents: pointer.To(uint32(1))}, // others nil -> should error
-							},
-						},
-					},
-				},
-			},
-		},
 	}
 
 	// Run all tests

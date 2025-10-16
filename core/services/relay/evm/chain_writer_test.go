@@ -22,6 +22,7 @@ import (
 	gasmocks "github.com/smartcontractkit/chainlink-evm/pkg/gas/mocks"
 	rollupmocks "github.com/smartcontractkit/chainlink-evm/pkg/gas/rollups/mocks"
 	"github.com/smartcontractkit/chainlink-evm/pkg/testutils"
+
 	txmmocks "github.com/smartcontractkit/chainlink/v2/common/txmgr/mocks"
 )
 

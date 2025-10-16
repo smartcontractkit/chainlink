@@ -12,7 +12,7 @@ import (
 	"github.com/fbsobreira/gotron-sdk/pkg/address"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
-	commonservices "github.com/smartcontractkit/chainlink-common/pkg/services"
+	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	commontypes "github.com/smartcontractkit/chainlink-common/pkg/types"
 	"github.com/smartcontractkit/chainlink-evm/pkg/assets"
 	evmclient "github.com/smartcontractkit/chainlink-evm/pkg/client"
@@ -24,12 +24,10 @@ import (
 	"github.com/smartcontractkit/chainlink-framework/chains/txmgr"
 	txmgrtypes "github.com/smartcontractkit/chainlink-framework/chains/txmgr/types"
 	trontxm "github.com/smartcontractkit/chainlink-tron/relayer/txm"
-
-	"github.com/smartcontractkit/chainlink/v2/core/services"
 )
 
 type ChainWriterService interface {
-	services.ServiceCtx
+	services.Service
 	commontypes.ContractWriter
 }
 
@@ -67,7 +65,7 @@ func NewChainWriterService(logger logger.Logger, client evmclient.Client, txm ev
 }
 
 type chainWriter struct {
-	commonservices.StateMachine
+	services.StateMachine
 
 	logger      logger.Logger
 	client      evmclient.Client

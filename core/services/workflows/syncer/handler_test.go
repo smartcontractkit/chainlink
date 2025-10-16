@@ -944,7 +944,6 @@ func Test_workflowDeletedHandler(t *testing.T) {
 		assert.False(t, ok)
 	})
 	t.Run("success deleting non-existing workflow spec", func(t *testing.T) {
-
 		var (
 			ctx     = testutils.Context(t)
 			lggr    = logger.TestLogger(t)

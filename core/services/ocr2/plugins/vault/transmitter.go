@@ -95,6 +95,6 @@ func (c *Transmitter) Transmit(ctx context.Context, cd types.ConfigDigest, seqNr
 	return nil
 }
 
-func (c *Transmitter) FromAccount(ctx context.Context) (types.Account, error) {
+func (c *Transmitter) FromAccount(_ context.Context) (types.Account, error) {
 	return c.fromAccount, nil
 }
