@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"slices"
-	"strings"
 
 	"github.com/Masterminds/semver/v3"
 	"github.com/ethereum/go-ethereum/common"
@@ -12,6 +11,7 @@ import (
 	"github.com/rs/zerolog"
 
 	chainselectors "github.com/smartcontractkit/chain-selectors"
+
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	cldf_tron "github.com/smartcontractkit/chainlink-deployments-framework/chain/tron"
 	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
@@ -72,12 +72,12 @@ func DeployKeystoneContracts(
 				continue
 			}
 			// we have just 1 solana chain
-			if bc.Is(chainselectors.FamilySolana) {
+			if bc.IsFamily(chainselectors.FamilySolana) {
 				solForwardersSelectors = append(solForwardersSelectors, bc.ChainSelector())
 				continue
 			}
 			if flags.RequiresForwarderContract(donMetadata.ComputedCapabilities, bc.ChainID()) {
-				if strings.EqualFold(bc.CtfOutput().Family, blockchain.FamilyTron) {
+				if bc.IsFamily(blockchain.FamilyTron) {
 					testLogger.Info().Msgf("Preparing Tron Keystone Forwarder deployment for chain %d", bc.ChainID())
 					tronForwardersSelectors = append(tronForwardersSelectors, bc.ChainSelector())
 				} else {

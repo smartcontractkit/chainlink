@@ -69,7 +69,7 @@ func ExecuteSecureMintTest(t *testing.T, tenv *ttypes.TestEnvironment) {
 	var s setup
 	var solChain *solana.Blockchain
 	for _, w := range bcs {
-		if !w.Is(chainselectors.FamilySolana) {
+		if !w.IsFamily(chainselectors.FamilySolana) {
 			continue
 		}
 		require.IsType(t, &solana.Blockchain{}, solChain, "expected Solana blockchain type")

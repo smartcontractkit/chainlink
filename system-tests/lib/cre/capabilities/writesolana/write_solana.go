@@ -70,7 +70,7 @@ func transformNodeConfig(input cre.GenerateConfigsInput, existingConfigs cre.Nod
 
 	data := solanaInput{}
 	for _, bc := range input.Blockchains {
-		if !bc.Is(chainselectors.FamilySolana) {
+		if !bc.IsFamily(chainselectors.FamilySolana) {
 			continue
 		}
 		data.ChainSelector = bc.ChainSelector()

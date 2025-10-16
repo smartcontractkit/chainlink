@@ -494,7 +494,7 @@ type evmChain struct {
 func findEVMChains(input cre.GenerateConfigsInput) []*evmChain {
 	evmChains := make([]*evmChain, 0)
 	for chainSelector, bcOut := range input.Blockchains {
-		if bcOut.Is(chain_selectors.FamilySolana) {
+		if bcOut.IsFamily(chain_selectors.FamilySolana) {
 			continue
 		}
 
@@ -525,7 +525,7 @@ func findOneSolanaChain(input cre.GenerateConfigsInput) (*solanaChain, error) {
 	chainsFound := 0
 
 	for _, bcOut := range input.Blockchains {
-		if !bcOut.Is(chain_selectors.FamilySolana) {
+		if !bcOut.IsFamily(chain_selectors.FamilySolana) {
 			continue
 		}
 

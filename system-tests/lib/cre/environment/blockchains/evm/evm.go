@@ -16,6 +16,7 @@ import (
 	"github.com/rs/zerolog"
 
 	chainselectors "github.com/smartcontractkit/chain-selectors"
+
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 
 	cldf_chain "github.com/smartcontractkit/chainlink-deployments-framework/chain"
@@ -66,7 +67,7 @@ func (e *Blockchain) CtfOutput() *blockchain.Output {
 	return e.ctfOutput
 }
 
-func (e *Blockchain) Is(chainFamily string) bool {
+func (e *Blockchain) IsFamily(chainFamily string) bool {
 	return strings.EqualFold(e.ctfOutput.Family, chainFamily)
 }
 
@@ -95,6 +96,10 @@ func (e *Blockchain) ToCldfChain() (cldf_chain.BlockChain, error) {
 	chainDetails, err := chainselectors.GetChainDetailsByChainIDAndFamily(strconv.FormatUint(e.ChainID(), 10), e.ctfOutput.Family)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get selector from chain id %d: %w", e.ChainID(), err)
+	}
+
+	if len(e.CtfOutput().Nodes) == 0 {
+		return nil, fmt.Errorf("no nodes found for chain %s-%d", e.ChainFamily(), e.ChainID())
 	}
 
 	rpcs := []cldf_evm_client.RPC{}

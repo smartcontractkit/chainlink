@@ -11,13 +11,12 @@ import (
 	"sync"
 
 	"github.com/gagliardetto/solana-go"
-	solanago "github.com/gagliardetto/solana-go"
-	"github.com/gagliardetto/solana-go/rpc"
 	solrpc "github.com/gagliardetto/solana-go/rpc"
 	pkgerrors "github.com/pkg/errors"
 	"github.com/rs/zerolog"
 
 	chainselectors "github.com/smartcontractkit/chain-selectors"
+
 	solCommonUtil "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/common"
 	cldf_chain "github.com/smartcontractkit/chainlink-deployments-framework/chain"
 	cldf_solana "github.com/smartcontractkit/chainlink-deployments-framework/chain/solana"
@@ -67,7 +66,7 @@ func (s *Blockchain) CtfOutput() *blockchain.Output {
 	return s.ctfOutput
 }
 
-func (s *Blockchain) Is(chainFamily string) bool {
+func (s *Blockchain) IsFamily(chainFamily string) bool {
 	return strings.EqualFold(s.ctfOutput.Family, chainFamily)
 }
 
@@ -93,18 +92,18 @@ func (s *Blockchain) Fund(ctx context.Context, address string, amount uint64) er
 }
 
 func (s *Blockchain) ToCldfChain() (cldf_chain.BlockChain, error) {
-	solArtifactPath := s.ArtifactsDir
-	if solArtifactPath == "" {
+	if s.ArtifactsDir == "" {
 		s.testLogger.Info().Msg("Creating tmp directory for generated solana programs and keypairs")
-		solArtifactPath, err := os.MkdirTemp("", "solana-artifacts")
-		s.testLogger.Info().Msgf("Solana programs tmp dir at %s", solArtifactPath)
+		var err error
+		s.ArtifactsDir, err = os.MkdirTemp("", "solana-artifacts")
+		s.testLogger.Info().Msgf("Solana programs tmp dir at %s", s.ArtifactsDir)
 		if err != nil {
 			return nil, err
 		}
 	}
 
 	if len(s.CtfOutput().Nodes) == 0 {
-		return nil, errors.New("no nodes found in ctf output")
+		return nil, fmt.Errorf("no nodes found for chain %s-%s", s.ChainFamily(), s.SolanaChainID)
 	}
 
 	sc := solrpc.New(s.CtfOutput().Nodes[0].ExternalHTTPUrl)
@@ -112,16 +111,16 @@ func (s *Blockchain) ToCldfChain() (cldf_chain.BlockChain, error) {
 		Selector:    s.ChainSelector(),
 		Client:      sc,
 		DeployerKey: &s.PrivateKey,
-		KeypairPath: solArtifactPath + "/deploy-keypair.json",
+		KeypairPath: s.ArtifactsDir + "/deploy-keypair.json",
 		URL:         s.CtfOutput().Nodes[0].ExternalHTTPUrl,
 		WSURL:       s.CtfOutput().Nodes[0].ExternalWSUrl,
-		Confirm: func(instructions []solanago.Instruction, opts ...solCommonUtil.TxModifier) error {
+		Confirm: func(instructions []solana.Instruction, opts ...solCommonUtil.TxModifier) error {
 			_, err := solCommonUtil.SendAndConfirm(
 				context.Background(), sc, instructions, s.PrivateKey, solrpc.CommitmentConfirmed, opts...,
 			)
 			return err
 		},
-		ProgramsPath: solArtifactPath,
+		ProgramsPath: s.ArtifactsDir,
 	}, nil
 }
 
@@ -155,7 +154,7 @@ func (s *Deployer) Deploy(input *blockchain.Input) (blockchains.Blockchain, erro
 		return nil, pkgerrors.Wrap(err, "failed to save private key for solana")
 	}
 
-	solClient := rpc.New(bcOut.Nodes[0].ExternalHTTPUrl)
+	solClient := solrpc.New(bcOut.Nodes[0].ExternalHTTPUrl)
 
 	return &Blockchain{
 		SolClient:     solClient,
@@ -163,6 +162,7 @@ func (s *Deployer) Deploy(input *blockchain.Input) (blockchains.Blockchain, erro
 		chainSelector: sel,
 		PrivateKey:    pk,
 		ArtifactsDir:  input.ContractsDir,
+		ctfOutput:     bcOut,
 	}, nil
 }
 

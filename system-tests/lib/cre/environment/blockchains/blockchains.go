@@ -16,10 +16,11 @@ type Blockchain interface {
 	ChainSelector() uint64
 	ChainID() uint64
 	ChainFamily() string
-	Is(chainFamily string) bool
+	IsFamily(chainFamily string) bool
+
+	Fund(ctx context.Context, address string, amount uint64) error
 
 	CtfOutput() *blockchain.Output
-	Fund(ctx context.Context, address string, amount uint64) error
 	ToCldfChain() (cldf_chain.BlockChain, error)
 }
 

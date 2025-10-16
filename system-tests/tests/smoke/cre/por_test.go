@@ -99,12 +99,10 @@ func ExecutePoRTest(t *testing.T, testEnv *ttypes.TestEnvironment, priceProvider
 		chainFamily := bcOutput.CtfOutput().Family
 		chainID := bcOutput.ChainID()
 		chainSelector := bcOutput.ChainSelector()
-		chainType := bcOutput.CtfOutput().Type
-		// perChainSethClient := bcOutput.SethClient
 		creEnvironment := testEnv.CreEnvironment
 		feedID := cfg.FeedIDs[idx]
 
-		if chainType == blockchain.FamilySolana {
+		if bcOutput.IsFamily(blockchain.FamilySolana) {
 			continue
 		}
 
@@ -377,7 +375,7 @@ func validatePoRPrices(t *testing.T, testEnv *ttypes.TestEnvironment, priceProvi
 	eg := &errgroup.Group{}
 
 	for idx, bcOutput := range testEnv.Blockchains {
-		if bcOutput.Is(blockchain.FamilySolana) {
+		if bcOutput.IsFamily(blockchain.FamilySolana) {
 			continue
 		}
 

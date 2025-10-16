@@ -14,6 +14,7 @@ import (
 	"github.com/rs/zerolog"
 
 	chainselectors "github.com/smartcontractkit/chain-selectors"
+
 	cldf_chain "github.com/smartcontractkit/chainlink-deployments-framework/chain"
 	cldf_tron "github.com/smartcontractkit/chainlink-deployments-framework/chain/tron"
 	tronprovider "github.com/smartcontractkit/chainlink-deployments-framework/chain/tron/provider"
@@ -56,7 +57,7 @@ func (t *Blockchain) CtfOutput() *blockchain.Output {
 	return t.ctfOutput
 }
 
-func (t *Blockchain) Is(chainFamily string) bool {
+func (t *Blockchain) IsFamily(chainFamily string) bool {
 	return strings.EqualFold(t.ctfOutput.Family, chainFamily)
 }
 
@@ -102,7 +103,7 @@ func (t *Blockchain) lazyInitTronChain() error {
 	}
 
 	if len(t.CtfOutput().Nodes) == 0 {
-		return errors.New("no nodes found in ctf output")
+		return fmt.Errorf("no nodes found for chain %s-%d", t.ChainFamily(), t.ChainID())
 	}
 
 	// tron's devnet chainID maps to many chain selectors, one for tron one for EVM
@@ -138,7 +139,7 @@ func (t *Blockchain) lazyInitTronChain() error {
 		return fmt.Errorf("expected cldf_tron.Chain, got %T", tronChain)
 	}
 
-	*t.cldfChain = tc
+	t.cldfChain = &tc
 
 	return nil
 }

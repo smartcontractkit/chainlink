@@ -29,6 +29,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/secrets"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/blockchains"
+	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/blockchains/solana"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/crypto"
 )
 
@@ -415,7 +416,6 @@ func CreateJDChainConfigs(ctx context.Context, n *Node, supportedChains []blockc
 
 		switch strings.ToLower(chain.ChainFamily()) {
 		case chainselectors.FamilyEVM, chainselectors.FamilyTron:
-
 			evmKey, ok := n.Keys.EVM[chain.ChainID()]
 			if ok {
 				account = evmKey.PublicAddress.Hex()
@@ -431,7 +431,10 @@ func CreateJDChainConfigs(ctx context.Context, n *Node, supportedChains []blockc
 				account = *accountAddr
 			}
 		case chainselectors.FamilySolana:
-			solKey, ok := n.Keys.Solana[chainIDStr] // TODO this might require original solana ChainID
+			// solana chainID is a string, so we need to use it directly
+			solChain := chain.(*solana.Blockchain)
+			chainIDStr = solChain.SolanaChainID
+			solKey, ok := n.Keys.Solana[chainIDStr]
 			if ok {
 				account = solKey.PublicAddress.String()
 			} else {
@@ -459,7 +462,7 @@ func CreateJDChainConfigs(ctx context.Context, n *Node, supportedChains []blockc
 		}
 
 		chainType := strings.ToUpper(chain.ChainFamily())
-		if chain.Is(blockchain.FamilyTron) {
+		if chain.IsFamily(blockchain.FamilyTron) {
 			chainType = strings.ToUpper(blockchain.FamilyEVM)
 		}
 		ocr2BundleID, createErr := n.Clients.GQLClient.FetchOCR2KeyBundleID(ctx, chainType)
@@ -801,16 +804,15 @@ func HasFlag(values []string, capability string) bool {
 	return false
 }
 
-// TODO move to blockchains package?
 func FindDONsSupportedChains(donMetadata *DonMetadata, bcs []blockchains.Blockchain) ([]blockchains.Blockchain, error) {
 	chains := make([]blockchains.Blockchain, 0)
 
 	for _, bc := range bcs {
 		hasEVMChainEnabled := slices.Contains(donMetadata.EVMChains(), bc.ChainID())
 		hasSolanaWriteCapability := donMetadata.HasFlag(WriteSolanaCapability)
-		chainIsSolana := strings.EqualFold(bc.CtfOutput().Family, chainselectors.FamilySolana)
+		chainIsSolana := bc.IsFamily(chainselectors.FamilySolana)
 
-		if !hasEVMChainEnabled && (!hasSolanaWriteCapability || !chainIsSolana) {
+		if !hasEVMChainEnabled && (!hasSolanaWriteCapability || chainIsSolana) {
 			continue
 		}
 

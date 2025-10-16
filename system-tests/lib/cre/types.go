@@ -1016,7 +1016,7 @@ func (c *CapabilitiesAwareNodeSet) ParseChainCapabilities() error {
 func (c *CapabilitiesAwareNodeSet) ValidateChainCapabilities(bcInput []*blockchain.Input) error {
 	knownChains := []uint64{}
 	for _, bc := range bcInput {
-		if bc.Type == blockchain.FamilySolana {
+		if strings.EqualFold(bc.Type, blockchain.FamilySolana) {
 			continue
 		}
 		chainIDUint64, convErr := strconv.ParseUint(bc.ChainID, 10, 64)
