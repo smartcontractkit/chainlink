@@ -122,17 +122,22 @@ func runSync(opts Options) (bool, error) {
 	// Discover modules from plugin files and apply ignores.
 	modulesToCheck := discoverModulesFromPlugins(opts.PluginPaths)
 	if len(modulesToCheck) == 0 {
-		fmt.Println("Warning: No modules discovered from plugin files.")
+		return false, fmt.Errorf("no modules discovered from plugin files")
 	}
+
+	fmt.Println()
 	if len(opts.IgnoreModules) > 0 {
+		fmt.Printf("Ignoring %d modules as specified:\n  - %s\n", len(opts.IgnoreModules), strings.Join(opts.IgnoreModules, "\n  - "))
 		modulesToCheck = without(modulesToCheck, opts.IgnoreModules)
 	}
+	totalModules := len(modulesToCheck)
 	sort.Strings(modulesToCheck)
-	fmt.Printf("Modules to check: %s\n", strings.Join(modulesToCheck, ", "))
+	fmt.Printf("Modules to check (%d): \n  - %s\n", totalModules, strings.Join(modulesToCheck, "\n  - "))
 	fmt.Println()
 
 	hasMismatch := false
-	for _, module := range modulesToCheck {
+	for idx, module := range modulesToCheck {
+		fmt.Printf("\n---\n%s - %d/%d\n---\n", module, idx+1, totalModules) // progress
 		mismatched, err := checkAndUpdateModuleVersion(module, opts)
 		if err != nil {
 			return hasMismatch, err
@@ -159,6 +164,8 @@ func runSync(opts Options) (bool, error) {
 func discoverModulesFromPlugins(paths []string) []string {
 	seen := make(map[string]struct{})
 	for _, p := range paths {
+		// keep track of modules in this file
+		modulesInFile := []string{}
 		data, err := os.ReadFile(p)
 		if err != nil {
 			fmt.Printf("Warning: failed to read %s: %v\n", p, err)
@@ -173,8 +180,16 @@ func discoverModulesFromPlugins(paths []string) []string {
 			for _, pl := range list {
 				if pl.ModuleURI != "" {
 					seen[pl.ModuleURI] = struct{}{}
+					modulesInFile = append(modulesInFile, pl.ModuleURI)
 				}
 			}
+		}
+		if len(modulesInFile) == 0 {
+			fmt.Printf("Warning: no modules found in %s\n", p)
+		} else {
+			fmt.Printf("Discovered %d modules in %s\n", len(modulesInFile), p)
+			sort.Strings(modulesInFile)
+			fmt.Printf("  - %s\n", strings.Join(modulesInFile, ", "))
 		}
 	}
 	out := make([]string, 0, len(seen))
@@ -276,6 +291,19 @@ func normalizeVersion(raw string) ModuleVersion {
 	return mv
 }
 
+func (m *ModuleVersion) toString() string {
+	if m.Tag != "" && m.TagPrefix != "" {
+		return fmt.Sprintf("Tag: %s/%s", m.TagPrefix, m.Tag)
+	}
+	if m.Tag != "" {
+		return fmt.Sprintf("Tag: %s", m.Tag)
+	}
+	if m.SHA != "" {
+		return fmt.Sprintf("SHA: %s", m.SHA)
+	}
+	return fmt.Sprintf("Raw: %s", m.Raw)
+}
+
 func shaEqual(a, b string) bool {
 	if a == "" || b == "" {
 		return false
@@ -286,11 +314,11 @@ func shaEqual(a, b string) bool {
 
 // getGoModVersion extracts the version for a specific module from go.mod at goModPath.
 func getGoModVersion(goModPath, module string) (ModuleVersion, error) {
-	fmt.Printf("---\nExtracting version for %s from go.mod...\n", module)
+	fmt.Printf("Extracting module version for %s from %s...\n", module, goModPath)
 
 	data, err := os.ReadFile(goModPath)
 	if err != nil {
-		return ModuleVersion{}, fmt.Errorf("failed to read go.mod: %w", err)
+		return ModuleVersion{}, fmt.Errorf("failed to read %s: %w", goModPath, err)
 	}
 
 	scanner := bufio.NewScanner(strings.NewReader(string(data)))
@@ -311,7 +339,7 @@ func getGoModVersion(goModPath, module string) (ModuleVersion, error) {
 			if len(fields) > 1 {
 				version := fields[len(fields)-1]
 				mv := normalizeVersion(version)
-				fmt.Printf("Version extracted: %s (SHA:%s Tag:%s Prefix:%s)\n", mv.Raw, mv.SHA, mv.Tag, mv.TagPrefix)
+				fmt.Printf("  - Version extracted: %s (SHA:%s Tag:%s Prefix:%s)\n", mv.Raw, mv.SHA, mv.Tag, mv.TagPrefix)
 				return mv, nil
 			}
 			continue
@@ -323,7 +351,7 @@ func getGoModVersion(goModPath, module string) (ModuleVersion, error) {
 			if len(fields) > 0 {
 				version := fields[0]
 				mv := normalizeVersion(version)
-				fmt.Printf("Version extracted: %s (SHA:%s Tag:%s Prefix:%s)\n", mv.Raw, mv.SHA, mv.Tag, mv.TagPrefix)
+				fmt.Printf("  - Version extracted: %s (SHA:%s Tag:%s Prefix:%s)\n", mv.Raw, mv.SHA, mv.Tag, mv.TagPrefix)
 				return mv, nil
 			}
 		}
@@ -334,7 +362,7 @@ func getGoModVersion(goModPath, module string) (ModuleVersion, error) {
 
 // getYAMLVersion extracts the gitRef for a specific module from a plugin YAML file.
 func getYAMLVersion(pluginPath, module string) (ModuleVersion, error) {
-	fmt.Printf("Extracting version for %s from %s...\n", module, pluginPath)
+	fmt.Printf("Extracting plugins version for %s from %s...\n", module, pluginPath)
 
 	data, err := os.ReadFile(pluginPath)
 	if err != nil {
@@ -349,7 +377,9 @@ func getYAMLVersion(pluginPath, module string) (ModuleVersion, error) {
 	for _, plugins := range pluginsFile.Plugins {
 		for _, plugin := range plugins {
 			if plugin.ModuleURI == module {
-				return normalizeVersion(plugin.GitRef), nil
+				normalizedVersion := normalizeVersion(plugin.GitRef)
+				fmt.Printf("  - Version extracted: %s (from %s)\n", normalizedVersion.toString(), plugin.GitRef)
+				return normalizedVersion, nil
 			}
 		}
 	}
@@ -461,7 +491,7 @@ func checkAndUpdateModuleVersion(module string, opts Options) (bool, error) {
 
 	goModMV, err := get(opts.GoModPath, module)
 	if err != nil || goModMV.Raw == "" {
-		fmt.Printf("⚠️  %v\n", err)
+		fmt.Printf("  - ⚠️  %v\n", err)
 		return false, nil // warn & skip, no mismatch
 	}
 
@@ -469,22 +499,22 @@ func checkAndUpdateModuleVersion(module string, opts Options) (bool, error) {
 	for _, pluginPath := range opts.PluginPaths {
 		yamlMV, err := getYAMLVersion(pluginPath, module)
 		if err != nil {
-			fmt.Printf("⚠️  %v\n", err)
+			fmt.Printf("  - ⚠️  %v\n", err)
 			continue
 		}
 
 		if !versionsMatchForModule(module, goModMV, yamlMV) {
 			mismatchFound = true
-			fmt.Printf("❌ MISMATCH: %s\n", module)
+			fmt.Printf("  - ❌ MISMATCH: %s\n", module)
 			if opts.Update {
 				if err := updateGitRefInYAML(pluginPath, module, goModMV); err != nil {
-					fmt.Printf("    ❌ %v\n", err)
+					fmt.Printf("  - ❌ %v\n", err)
 				} else {
-					fmt.Printf("    ✅ Updated gitRef in %s\n", pluginPath)
+					fmt.Printf("  - ✅ Updated gitRef in %s\n", pluginPath)
 				}
 			}
 		} else {
-			fmt.Printf("  ✅ %s versions match in %s\n", module, pluginPath)
+			fmt.Printf("  - ✅ %s versions match in %s\n", module, pluginPath)
 		}
 	}
 	return mismatchFound, nil
