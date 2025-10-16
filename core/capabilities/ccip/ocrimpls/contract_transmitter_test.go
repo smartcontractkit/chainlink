@@ -20,6 +20,7 @@ import (
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/ocr3types"
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 
+	"github.com/smartcontractkit/chainlink-evm/pkg/writer"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/ccipevm"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/ccipsolana"
 
@@ -52,7 +53,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
 	kschaintype "github.com/smartcontractkit/chainlink/v2/core/services/keystore/chaintype"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ocr2key"
-	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm"
 )
 
 func Test_ContractTransmitter_TransmitWithoutSignatures(t *testing.T) {
@@ -468,7 +468,7 @@ func newTestUniverse(t *testing.T, ks *keyringsAndSigners[[]byte]) *testUniverse
 	require.NoError(t, txm.Start(testutils.Context(t)), "failed to start tx manager")
 	t.Cleanup(func() { require.NoError(t, txm.Close()) })
 
-	chainWriter, err := evm.NewChainWriterService(
+	chainWriter, err := writer.NewChainWriterService(
 		logger.Test(t),
 		simClient,
 		txm,
