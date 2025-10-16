@@ -31,17 +31,11 @@ go run ./tools/plugout/ --update
 ### Options
 
 - `--go-mod <path>`: Path to the go.mod file (default: ./go.mod)
-- `--module <module-uri>`: Go module URI to check (can be specified multiple times)
+- `--ignore-module <module-uri>`: Go module URIs to ignore (can be specified multiple times)
 - `--plugin-file <file-path>`: Plugin YAML file to check (can be specified multiple times)
 - `--update`: Write the gitRef using the go.mod version for matching plugins
 
 ### Examples
-
-Check specific modules:
-
-```bash
-go run ./tools/plugout/ --module github.com/smartcontractkit/chainlink-data-streams --module github.com/smartcontractkit/chainlink-feeds
-```
 
 Check in a custom plugin file:
 
