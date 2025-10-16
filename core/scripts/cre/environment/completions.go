@@ -33,6 +33,7 @@ func buildCommandTree() *CompletionNode {
 			{Text: "env", Description: "Manage local CRE environments"},
 			{Text: "bs", Description: "Manage the Blockscout EVM block explorer"},
 			{Text: "obs", Description: "Manage the observability stack"},
+			{Text: "examples", Description: "Deploy various examples"},
 			{Text: "exit", Description: "Exit the interactive shell"},
 		},
 		Children: make(map[string]*CompletionNode),
