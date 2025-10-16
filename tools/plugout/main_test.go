@@ -26,6 +26,7 @@ require (
 	github.com/smartcontractkit/chainlink-data-streams v0.1.1-0.20250325191518-036bb568a69d
 	github.com/smartcontractkit/chainlink-feeds v0.1.2-0.20250227211209-7cd000095135
 	github.com/smartcontractkit/chainlink-solana v1.1.2
+	github.com/smartcontractkit/chainlink-tron/relayer v0.1.2-0.20250227211209-7cd000095135 // indirect
 )
 `
 	if err = os.WriteFile(mockGoModPath, []byte(goModContent), 0600); err != nil {
@@ -62,6 +63,13 @@ require (
 		_, err := getGoModVersion(mockGoModPath, "github.com/smartcontractkit/missing-module")
 		if err == nil {
 			t.Fatalf("Expected error for missing module, got nil")
+		}
+	})
+
+	t.Run("Skip indirect modules", func(t *testing.T) {
+		_, err := getGoModVersion(mockGoModPath, "github.com/smartcontractkit/chainlink-tron/relayer")
+		if err == nil {
+			t.Fatalf("Expected error for indirect module, got nil")
 		}
 	})
 }

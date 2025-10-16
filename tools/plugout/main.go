@@ -328,7 +328,7 @@ func getGoModVersion(goModPath, module string) (ModuleVersion, error) {
 		line := scanner.Text()
 
 		t := strings.TrimSpace(line)
-		if t == "" || strings.HasPrefix(t, "//") {
+		if t == "" || strings.HasPrefix(t, "//") || strings.Contains(line, "// indirect") {
 			continue
 		}
 
