@@ -3,8 +3,9 @@ package environment
 import (
 	"fmt"
 
-	"github.com/smartcontractkit/chainlink-testing-framework/framework"
 	"github.com/spf13/cobra"
+
+	"github.com/smartcontractkit/chainlink-testing-framework/framework"
 )
 
 func init() {

@@ -20,12 +20,24 @@ func init() {
 	root.RootCmd.AddCommand(environment.ObsCmd)
 }
 
-func main() {
-	if len(os.Args) == 2 && (os.Args[1] == "shell" || os.Args[1] == "sh") {
-		_ = os.Setenv("CTF_CONFIGS", "configs/workflow-don.toml") // Set default config for shell
+var (
+	Version = "dev"
+	Commit  = "none"
+	Date    = "unknown"
+)
 
-		StartShell()
-		return
+func main() {
+	if len(os.Args) == 2 {
+		switch os.Args[1] {
+		case "version", "--version", "-v":
+			fmt.Printf("Local CRE version: %s, commit: %s, date: %s\n", Version, Commit, Date)
+			return
+		case "shell", "sh":
+			_ = os.Setenv("CTF_CONFIGS", "configs/workflow-don.toml") // Set default config for shell
+
+			StartShell()
+			return
+		}
 	}
 	if err := root.RootCmd.Execute(); err != nil {
 		fmt.Fprintf(os.Stderr, "Error: %v\n", err)

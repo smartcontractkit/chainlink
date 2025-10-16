@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"strings"
 
 	"github.com/c-bata/go-prompt"
@@ -43,6 +44,8 @@ func buildCommandTree() *CompletionNode {
 			{Text: "start", Description: "Spin up the development environment"},
 			{Text: "stop", Description: "Tear down the development environment"},
 			{Text: "restart", Description: "Restart the development environment"},
+			{Text: "setup", Description: "Setup the CRE environment prerequisites"},
+			{Text: "build-caps", Description: "Build capabilities binaries"},
 			{Text: "workflow", Description: "Workflow management commands"},
 			{Text: "beholder", Description: "Beholder stack management commands"},
 			{Text: "swap", Description: "Swap capabilities or nodes in running environment"},
@@ -88,6 +91,27 @@ func buildCommandTree() *CompletionNode {
 	envNode.Children["start"] = envStartNode
 	envNode.Children["stop"] = envStopNode
 	envNode.Children["restart"] = envRestartNode
+
+	// ENV SETUP - setup prerequisites
+	envSetupNode := &CompletionNode{
+		Flags: []prompt.Suggest{
+			{Text: "--config", Description: "Path to the TOML configuration file (default: configs/setup.toml)"},
+			{Text: "--no-prompt", Description: "Automatically accept defaults and do not prompt for user input (default: false)"},
+			{Text: "--purge", Description: "Purge all existing images and re-download/re-build them (default: false)"},
+			{Text: "--with-billing", Description: "Include billing service in the setup (default: false)"},
+		},
+	}
+
+	// ENV BUILD-CAPS - build capabilities
+	envBuildCapsNode := &CompletionNode{
+		Flags: []prompt.Suggest{
+			{Text: "--config", Description: "Path to the TOML configuration file (default: configs/setup.toml)"},
+			{Text: "--no-prompt", Description: "Automatically accept defaults and do not prompt for user input (default: false)"},
+		},
+	}
+
+	envNode.Children["setup"] = envSetupNode
+	envNode.Children["build-caps"] = envBuildCapsNode
 
 	// ENV WORKFLOW - workflow management
 	workflowNode := &CompletionNode{
@@ -339,39 +363,27 @@ func getWorkflowTomlFiles(commandPath []string) []prompt.Suggest {
 		{Text: "workflow-gateway-capabilities-don.toml", Description: "Workflow DON and Capabilities DON with Gateway connector in a separate node"},
 	}
 
-	// Try to find additional files not in the curated list
+	// Try to figure out the configs directory path, since binary could be run from different working directories
 	possiblePaths := []string{
 		"./configs/", // if running from core/scripts/cre/environment
-		"./core/scripts/cre/environment/configs/", // if running from repo root
-		"../environment/configs/",                 // if running from parent directory
+		"./core/scripts/cre/environment/configs/",          // if running from repo root
+		"../../core/scripts/cre/environment/configs",       // if running from system-tests/lib
+		"../../../../core/scripts/cre/environment/configs", // if running from system-tests/tests/smoke/cre
 	}
 
-	var files []os.DirEntry
 	var err error
-
+	var configsPath string
 	for _, path := range possiblePaths {
-		files, err = os.ReadDir(path)
+		_, err = os.ReadDir(path)
 		if err == nil {
+			configsPath = path
 			break
 		}
 	}
 
-	// If we found the directory, add any workflow files not in the curated list
 	if err == nil {
-		curatedNames := make(map[string]bool)
-		for _, s := range curatedFiles {
-			curatedNames[s.Text] = true
-		}
-
-		for _, file := range files {
-			if !file.IsDir() && strings.HasPrefix(file.Name(), "workflow") && strings.HasSuffix(file.Name(), ".toml") {
-				if !curatedNames[file.Name()] {
-					curatedFiles = append(curatedFiles, prompt.Suggest{
-						Text:        file.Name(),
-						Description: "Workflow configuration (auto-discovered)",
-					})
-				}
-			}
+		for idx, prompt := range curatedFiles {
+			curatedFiles[idx].Text = filepath.Join(configsPath, prompt.Text)
 		}
 	}
 
@@ -469,7 +481,7 @@ func traverseTree(node *CompletionNode, words []string, lastCharIsSpace bool, co
 		return []prompt.Suggest{}
 	}
 
-	newPath := append(commandPath, currentWord)
+	newPath := append(commandPath, currentWord) //nolint:gocritic // done on purpose to avoid side effects of tree traversal
 
 	// If we have more command words, recurse deeper first
 	if len(commandWords) > 1 {
@@ -517,7 +529,7 @@ func traverseTree(node *CompletionNode, words []string, lastCharIsSpace bool, co
 
 // filterFlags removes flag arguments from words for tree navigation
 func filterFlags(words []string) []string {
-	var result []string
+	result := []string{}
 	skipNext := false
 
 	for i, w := range words {
@@ -556,7 +568,7 @@ func resetTerm() {
 	cmd.Stdin = os.Stdin
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
-	cmd.Run()
+	_ = cmd.Run()
 }
 
 func StartShell() {

@@ -56,7 +56,20 @@ Slack: #topic-local-dev-environments
 
 # Using the CLI
 
-The CLI manages CRE test environments. It is located in `core/scripts/cre/environment`. It doesn't come as a compiled binary, so every command has to be executed as `go run . <command> [subcommand]`.
+The CLI manages CRE test environments. It is located in `core/scripts/cre/environment`. It doesn't come as a compiled binary, so every command has to be executed as `go run . <command> [subcommand]` (although check below!).
+
+## Installing the binary
+You can compile and install the binary by running:
+```shell
+cd core/scripts/cre/environment
+make install
+```
+
+It will compile local CRE as `local_cre`. With it installed you will be able to access interactive shell **with autocompletions** by running `local_cre sh`. Without installing the binary interactive shell won't be available.
+
+![image](./images/autocompletion.png)
+
+> Warning: Control+C won't interrupt commands executed via the interactive shell.
 
 ## Prerequisites (for Docker) ###
 1. **Docker installed and running**
@@ -183,7 +196,7 @@ ctf bs r
 ```
 ---
 
-## Debugging core nodes 
+## Debugging core nodes
 Before start the environment set the `CTF_CLNODE_DLV` environment variable to `true`
 ```bash
 export CTF_CLNODE_DLV="true"
@@ -1444,7 +1457,7 @@ TRON blockchain support is integrated into the CRE environment by configuring TR
 [[nodesets]]
 ...
   [nodesets.chain_capabilities]
-    # Tron is configured as an EVM chain so we can use all the EVM capabilities. 
+    # Tron is configured as an EVM chain so we can use all the EVM capabilities.
     read-contract = ["1337", "3360022319"]
     write-evm = ["1337", "3360022319"]
 ```
