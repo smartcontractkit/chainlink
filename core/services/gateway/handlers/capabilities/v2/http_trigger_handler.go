@@ -345,7 +345,7 @@ func (h *httpTriggerHandler) authorizeRequest(ctx context.Context, workflowID st
 	h.lggr.Debugw("authorizing request", "workflowID", workflowID, "requestID", req.ID)
 	key, err := h.workflowMetadataHandler.Authorize(workflowID, req.Auth, req)
 	if err != nil {
-		h.handleUserError(ctx, req.ID, jsonrpc.ErrInvalidRequest, fmt.Sprintf("Auth failure: %s", err.Error()), callback)
+		h.handleUserError(ctx, req.ID, jsonrpc.ErrInvalidRequest, "Auth failure: "+err.Error(), callback)
 		return nil, errors.Join(errors.New("auth failure"), err)
 	}
 	return key, nil

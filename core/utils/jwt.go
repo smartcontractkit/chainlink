@@ -257,7 +257,7 @@ func VerifyRequestJWT[T any](tokenString string, req jsonrpc.Request[T], opts ..
 		return nil, gethcommon.Address{}, errors.New("claims payload is not in the expected format")
 	}
 	if !verifiedToken.Valid {
-		return nil, gethcommon.Address{}, errors.New("signature or claims validation failed.")
+		return nil, gethcommon.Address{}, errors.New("signature or claims validation failed")
 	}
 	reqDigest, err := req.Digest()
 	if err != nil {
