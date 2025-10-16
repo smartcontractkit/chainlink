@@ -255,7 +255,7 @@ func (r *Report) Reserve(ctx context.Context) error {
 
 	creditsStr := resp.GetCredits()
 	if creditsStr == "" {
-		r.lggr.Debug("empty credits; setting temporary default of 10000")
+		r.lggr.Debug("empty credits; setting default of 0")
 		creditsStr = "0"
 	}
 
