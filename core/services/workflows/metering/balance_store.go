@@ -172,7 +172,12 @@ func (bs *balanceStore) Add(amount decimal.Decimal) error {
 	}
 
 	bs.balance = bs.balance.Add(amount)
-	bs.spent = bs.spent.Sub(amount)
+	// If subtracting would make spent negative, set it to zero instead
+	if amount.GreaterThan(bs.spent) {
+		bs.spent = decimal.Zero
+	} else {
+		bs.spent = bs.spent.Sub(amount)
+	}
 
 	return nil
 }
@@ -192,7 +197,12 @@ func (bs *balanceStore) AddAs(resourceType string, amount decimal.Decimal) error
 	}
 
 	bs.balance = bs.balance.Add(bal)
-	bs.spent = bs.spent.Sub(bal)
+	// If subtracting would make spent negative, set it to zero instead
+	if bal.GreaterThan(bs.spent) {
+		bs.spent = decimal.Zero
+	} else {
+		bs.spent = bs.spent.Sub(bal)
+	}
 
 	return nil
 }

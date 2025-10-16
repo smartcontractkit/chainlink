@@ -5,7 +5,7 @@ import (
 	"math/big"
 	"time"
 
-	"github.com/smartcontractkit/chainlink/v2/core/services/ocrcommon"
+	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/transmitter/ocr"
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
@@ -25,7 +25,7 @@ type (
 	OCRContractTransmitter struct {
 		contractAddress             gethCommon.Address
 		contractABI                 abi.ABI
-		transmitter                 ocrcommon.Transmitter
+		transmitter                 ocr.Transmitter
 		contractCaller              *offchainaggregator.OffchainAggregatorCaller
 		tracker                     *OCRContractTracker
 		chainID                     *big.Int
@@ -37,7 +37,7 @@ func NewOCRContractTransmitter(
 	address gethCommon.Address,
 	contractCaller *offchainaggregator.OffchainAggregatorCaller,
 	contractABI abi.ABI,
-	transmitter ocrcommon.Transmitter,
+	transmitter ocr.Transmitter,
 	logBroadcaster log.Broadcaster,
 	tracker *OCRContractTracker,
 	chainID *big.Int,

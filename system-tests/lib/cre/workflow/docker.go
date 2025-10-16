@@ -4,7 +4,9 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"path/filepath"
 	"strings"
+	"time"
 
 	ctypes "github.com/docker/docker/api/types/container"
 	dc "github.com/docker/docker/client"
@@ -85,6 +87,37 @@ func copyArtifactToDockerContainers(filePath string, containerNamePattern string
 		if copyErr != nil {
 			fmt.Fprint(os.Stderr, execOutput)
 			return errors.Wrap(copyErr, "failed to copy artifact to Docker container")
+		}
+
+		dockerClient, dockerClientErr := dc.NewClientWithOpts(dc.FromEnv, dc.WithAPIVersionNegotiation())
+		if dockerClientErr != nil {
+			return errors.Wrap(dockerClientErr, "failed to create Docker client")
+		}
+
+		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+
+		containerJSON, ispectErr := dockerClient.ContainerInspect(ctx, containerName)
+		if ispectErr != nil {
+			cancel()
+			return errors.Wrap(ispectErr, "failed to inspect Docker container")
+		}
+		cancel()
+		user := containerJSON.Config.User
+		// if not running as root, change ownership to user that is running the container to avoid permission issues
+		if user != "" {
+			targetFilePath := filepath.Join(targetDir, filepath.Base(filePath))
+			execConfig := ctypes.ExecOptions{
+				Cmd:          []string{"chown", user, targetFilePath},
+				AttachStdout: true,
+				AttachStderr: true,
+				User:         "root",
+			}
+			execOutput, execOutputErr := frameworkDockerClient.ExecContainerOptions(containerName, execConfig)
+			if execOutputErr != nil {
+				fmt.Fprint(os.Stderr, execOutput)
+				return errors.Wrap(execOutputErr, "failed to execute mkdir command in Docker container")
+			}
+			fmt.Println("output " + execOutput)
 		}
 	}
 

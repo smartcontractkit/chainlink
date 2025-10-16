@@ -15,7 +15,6 @@ import (
 	"github.com/smartcontractkit/chainlink-testing-framework/framework"
 	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/blockchain"
 	billingplatformservice "github.com/smartcontractkit/chainlink-testing-framework/framework/components/dockercompose/billing_platform_service"
-	"github.com/smartcontractkit/chainlink/core/scripts/cre/environment/tracking"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment"
 	envconfig "github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/config"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/stagegen"
@@ -57,7 +56,7 @@ func startBillingCmds() *cobra.Command {
 					metaData["result"] = "success"
 				}
 
-				trackingErr := dxTracker.Track(tracking.MetricBillingStart, metaData)
+				trackingErr := dxTracker.Track(MetricBillingStart, metaData)
 				if trackingErr != nil {
 					fmt.Fprintf(os.Stderr, "failed to track billing start: %s\n", trackingErr)
 				}

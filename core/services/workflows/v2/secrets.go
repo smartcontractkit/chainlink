@@ -12,6 +12,7 @@ import (
 
 	"google.golang.org/protobuf/types/known/anypb"
 
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/smartcontractkit/tdh2/go/tdh2/tdh2easy"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
@@ -106,6 +107,18 @@ func sha(strs ...string) string {
 	return hex.EncodeToString(h.Sum(nil))
 }
 
+func normalizeOwner(owner string) (string, error) {
+	if len(owner) < 40 {
+		return "", errors.New("invalid owner address: too short")
+	}
+
+	if owner[:2] != "0x" {
+		owner = "0x" + owner
+	}
+
+	return common.HexToAddress(owner).Hex(), nil
+}
+
 func (s *secretsFetcher) getSecretsForBatch(ctx context.Context, request *sdkpb.GetSecretsRequest) ([]*sdkpb.SecretResponse, error) {
 	vaultCap, err := s.capRegistry.GetExecutable(ctx, vault.CapabilityID)
 	if err != nil {
@@ -150,14 +163,19 @@ func (s *secretsFetcher) getSecretsForBatch(ctx context.Context, request *sdkpb.
 		Requests: make([]*vault.SecretRequest, 0),
 	}
 
+	owner, err := normalizeOwner(s.workflowOwner)
+	if err != nil {
+		return nil, fmt.Errorf("could not normalize workflowOwner: %w", err)
+	}
+
 	logKeys := make([]string, 0, len(request.Requests))
 	for _, r := range request.Requests {
-		logKeys = append(logKeys, keyFor(s.workflowOwner, r.Namespace, r.Id))
+		logKeys = append(logKeys, keyFor(owner, r.Namespace, r.Id))
 		vp.Requests = append(vp.Requests, &vault.SecretRequest{
 			Id: &vault.SecretIdentifier{
 				Key:       r.Id,
 				Namespace: r.Namespace,
-				Owner:     s.workflowOwner,
+				Owner:     owner,
 			},
 			EncryptionKeys: encryptionKeys,
 		})
@@ -205,22 +223,21 @@ func (s *secretsFetcher) getSecretsForBatch(ctx context.Context, request *sdkpb.
 
 	sdkResp := make([]*sdkpb.SecretResponse, 0, len(request.Requests))
 	for _, r := range request.Requests {
-		key := keyFor(s.workflowOwner, r.Namespace, r.Id)
+		key := keyFor(owner, r.Namespace, r.Id)
 		resp, ok := m[key]
 		if !ok {
 			errorMessage := "could not find response for the request: " + key
-			errorResponse := s.wrapErrorResponse(lggr, r.Id, r.Namespace, s.workflowOwner, errorMessage)
+			errorResponse := s.wrapErrorResponse(lggr, r.Id, r.Namespace, owner, errorMessage)
 			sdkResp = append(sdkResp, &errorResponse)
 			continue
 		}
-		response := s.getSecretForSingleRequest(logger.With(lggr, "key", key), r.Id, r.Namespace, cfg, resp)
+		response := s.getSecretForSingleRequest(logger.With(lggr, "key", key), r.Id, owner, r.Namespace, cfg, resp)
 		sdkResp = append(sdkResp, &response)
 	}
 	return sdkResp, nil
 }
 
-func (s *secretsFetcher) getSecretForSingleRequest(lggr logger.Logger, id, namespace string, cfg *vaultConfig, response *vault.SecretResponse) sdkpb.SecretResponse {
-	owner := s.workflowOwner
+func (s *secretsFetcher) getSecretForSingleRequest(lggr logger.Logger, id, owner, namespace string, cfg *vaultConfig, response *vault.SecretResponse) sdkpb.SecretResponse {
 	if response.GetId() != nil {
 		if response.GetId().GetKey() != "" {
 			id = response.GetId().GetKey()

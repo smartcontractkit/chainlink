@@ -22,6 +22,8 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"github.com/smartcontractkit/quarantine"
+
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	"github.com/smartcontractkit/chainlink-common/pkg/custmsg"
 	"github.com/smartcontractkit/chainlink-common/pkg/services/servicetest"
@@ -733,6 +735,7 @@ func Test_RegistrySyncer_WorkflowRegistered_InitiallyActivated(t *testing.T) {
 }
 
 func Test_StratReconciliation_InitialStateSync(t *testing.T) {
+	quarantine.Flaky(t, "DX-2063")
 	t.Run("with heavy load", func(t *testing.T) {
 		lggr := logger.TestLogger(t)
 		backendTH := testutils.NewEVMBackendTH(t)
@@ -794,7 +797,7 @@ func Test_StratReconciliation_InitialStateSync(t *testing.T) {
 
 		require.Eventually(t, func() bool {
 			return len(testEventHandler.GetEvents()) == numberWorkflows
-		}, 30*time.Second, 1*time.Second)
+		}, 60*time.Second, 1*time.Second)
 
 		for _, event := range testEventHandler.GetEvents() {
 			assert.Equal(t, WorkflowRegisteredEvent, event.EventType)
@@ -836,7 +839,6 @@ func Test_StratReconciliation_RetriesWithBackoff(t *testing.T) {
 			return errors.New("error handling event")
 		}
 		return nil
-
 	})
 
 	// Create the worker

@@ -40,7 +40,7 @@ type SrcExecProvider struct {
 	maxGasPrice   *big.Int
 	usdcReader    *ccip.USDCReaderImpl
 	usdcConfig    config.USDCConfig
-	lbtcConfig    config.LBTCConfig
+	lbtcConfigs   []config.LBTCConfig
 
 	feeEstimatorConfig estimatorconfig.FeeEstimatorConfigProvider
 
@@ -63,7 +63,7 @@ func NewSrcExecProvider(
 	startBlock uint64,
 	jobID string,
 	usdcConfig config.USDCConfig,
-	lbtcConfig config.LBTCConfig,
+	lbtcConfigs []config.LBTCConfig,
 	feeEstimatorConfig estimatorconfig.FeeEstimatorConfigProvider,
 ) (commontypes.CCIPExecProvider, error) {
 	var usdcReader *ccip.USDCReaderImpl
@@ -85,7 +85,7 @@ func NewSrcExecProvider(
 		startBlock:         startBlock,
 		usdcReader:         usdcReader,
 		usdcConfig:         usdcConfig,
-		lbtcConfig:         lbtcConfig,
+		lbtcConfigs:        lbtcConfigs,
 		feeEstimatorConfig: feeEstimatorConfig,
 	}, nil
 }
@@ -200,8 +200,7 @@ func (s *SrcExecProvider) NewTokenDataReader(ctx context.Context, tokenAddress c
 	if err != nil {
 		return nil, fmt.Errorf("failed to parse token address: %w", err)
 	}
-	switch tokenAddr {
-	case s.usdcConfig.SourceTokenAddress:
+	if tokenAddr == s.usdcConfig.SourceTokenAddress {
 		attestationURI, err := url.ParseRequestURI(s.usdcConfig.AttestationAPI)
 		if err != nil {
 			return nil, fmt.Errorf("failed to parse USDC attestation API: %w", err)
@@ -215,22 +214,24 @@ func (s *SrcExecProvider) NewTokenDataReader(ctx context.Context, tokenAddress c
 			tokenAddr,
 			time.Duration(s.usdcConfig.AttestationAPIIntervalMilliseconds)*time.Millisecond,
 		), nil
-	case s.lbtcConfig.SourceTokenAddress:
-		attestationURI, err := url.ParseRequestURI(s.lbtcConfig.AttestationAPI)
-		if err != nil {
-			return nil, fmt.Errorf("failed to parse USDC attestation API: %w", err)
-		}
-		return lbtc.NewLBTCTokenDataReader(
-			s.lggr,
-			attestationURI,
-			//nolint:gosec // integer overflow
-			int(s.lbtcConfig.AttestationAPITimeoutSeconds),
-			tokenAddr,
-			time.Duration(s.lbtcConfig.AttestationAPIIntervalMilliseconds)*time.Millisecond,
-		), nil
-	default:
-		return nil, fmt.Errorf("unsupported token address: %s", tokenAddress)
 	}
+	for _, lbtcConfig := range s.lbtcConfigs {
+		if tokenAddr == lbtcConfig.SourceTokenAddress {
+			attestationURI, err := url.ParseRequestURI(lbtcConfig.AttestationAPI)
+			if err != nil {
+				return nil, fmt.Errorf("failed to parse USDC attestation API: %w", err)
+			}
+			return lbtc.NewLBTCTokenDataReader(
+				s.lggr,
+				attestationURI,
+				//nolint:gosec // integer overflow
+				int(lbtcConfig.AttestationAPITimeoutSeconds),
+				tokenAddr,
+				time.Duration(lbtcConfig.AttestationAPIIntervalMilliseconds)*time.Millisecond,
+			), nil
+		}
+	}
+	return nil, fmt.Errorf("unsupported token address: %s", tokenAddress)
 }
 
 func (s *SrcExecProvider) NewTokenPoolBatchedReader(ctx context.Context, offRampAddr cciptypes.Address, sourceChainSelector uint64) (cciptypes.TokenPoolBatchedReader, error) {
