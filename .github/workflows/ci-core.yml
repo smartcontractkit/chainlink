@@ -188,6 +188,7 @@ jobs:
             os: ${{ needs.runner-config.outputs.core-tests-integration-runner }}
             should-run: ${{ needs.filter.outputs.should-run-core-tests }}
             setup-solana: "true"
+            install-loopps: "true"
 
           - cmd: go_core_fuzz
             os: ${{ needs.runner-config.outputs.core-fuzz-tests-runner }}
@@ -202,6 +203,7 @@ jobs:
             should-run: ${{ needs.filter.outputs.should-run-deployment-tests }}
             setup-solana: "true"
             setup-aptos: "true"
+            install-loopps: "true"
             setup-sui: "true"
             trunk-auto-quarantine: "true"
 
@@ -277,7 +279,7 @@ jobs:
           CL_DATABASE_URL: ${{ env.DB_URL }}
 
       - name: Install LOOP Plugins
-        if: ${{ matrix.type.should-run == 'true' }}
+        if: ${{ matrix.type.should-run == 'true' && matrix.type.install-loopps == 'true' }}
         run: make install-plugins
 
       - name: Increase Timeouts for Fuzz/Race
@@ -299,7 +301,7 @@ jobs:
           OUTPUT_FILE: ./output.txt
           PRODUCE_JUNIT_XML: ${{ matrix.type.trunk-auto-quarantine }}
           TRUNK_AUTO_QUARANTINE: ${{ matrix.type.trunk-auto-quarantine }}
-          RUN_QUARANTINED_TESTS: 'true' # always run quarantined tests in CI
+          RUN_QUARANTINED_TESTS: "true" # always run quarantined tests in CI
           JUNIT_FILE: ${{ github.workspace }}/junit.xml
         run: |
           GODEBUG=goindex=0 ./tools/bin/${{ matrix.type.cmd }} ./...
@@ -309,7 +311,7 @@ jobs:
         if: ${{ matrix.type.should-run == 'true' && matrix.type.trunk-auto-quarantine == 'true' && !cancelled() }}
         uses: smartcontractkit/.github/actions/branch-out-upload@branch-out-upload/0.1.0
         with:
-          junit-file-path: './junit.xml'
+          junit-file-path: "./junit.xml"
           trunk-org-slug: chainlink
           trunk-token: ${{ secrets.TRUNK_API_KEY }}
           trunk-previous-step-outcome: ${{ steps.run-tests.outcome }}
@@ -700,5 +702,4 @@ jobs:
             --module github.com/smartcontractkit/chainlink-solana \
             --module github.com/smartcontractkit/chainlink-sui \
             --module github.com/smartcontractkit/chainlink-aptos \
-            --module github.com/smartcontractkit/chainlink-ton \
-            --module github.com/smartcontractkit/chainlink-tron/relayer
+            --module github.com/smartcontractkit/chainlink-ton

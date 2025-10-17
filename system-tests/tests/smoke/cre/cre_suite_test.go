@@ -110,7 +110,6 @@ func Test_CRE_V2_Suite(t *testing.T) {
 	})
 
 	t.Run("[v2] Vault DON - "+topology, func(t *testing.T) {
-		t.Skip("Flaky - CAPPL-1078")
 		testEnv := t_helpers.SetupTestEnvironmentWithConfig(t, t_helpers.GetDefaultTestConfig(t), v2RegistriesFlags...)
 
 		ExecuteVaultTest(t, testEnv)
@@ -135,6 +134,7 @@ func Test_CRE_V2_Suite(t *testing.T) {
 	})
 
 	t.Run("[v2] Consensus - "+topology, func(t *testing.T) {
+		t.Skip("Quarantined - CRE-1064")
 		testEnv := t_helpers.SetupTestEnvironmentWithConfig(t, t_helpers.GetDefaultTestConfig(t), v2RegistriesFlags...)
 
 		ExecuteConsensusTest(t, testEnv)

@@ -111,6 +111,7 @@ func (c CapabilityConfiguration) Unmarshal() (capabilities.CapabilityConfigurati
 		RemoteTriggerConfig:    remoteTriggerConfig,
 		RemoteTargetConfig:     remoteTargetConfig,
 		CapabilityMethodConfig: methodConfigs,
+		LocalOnly:              cconf.LocalOnly,
 	}, nil
 }
 
