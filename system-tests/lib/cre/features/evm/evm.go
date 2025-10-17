@@ -2,6 +2,8 @@ package evm
 
 import (
 	"fmt"
+	"slices"
+	"strings"
 
 	"github.com/pkg/errors"
 	"github.com/rs/zerolog"
@@ -9,11 +11,13 @@ import (
 	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
+	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/blockchain"
 	"github.com/smartcontractkit/chainlink/deployment/cre/forwarder"
 	keystone_changeset "github.com/smartcontractkit/chainlink/deployment/keystone/changeset"
 	libc "github.com/smartcontractkit/chainlink/system-tests/lib/conversions"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/contracts"
+	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/flags"
 )
 
 func DeployEVMForwarders(testLogger zerolog.Logger, cldfEnv *cldf.Environment, chainSelectors []uint64, contractVersions map[string]string) error {
@@ -57,7 +61,7 @@ func DeployEVMForwarders(testLogger zerolog.Logger, cldfEnv *cldf.Environment, c
 	return nil
 }
 
-func ConfigureEVMForwarders(testLogger zerolog.Logger, cldfEnv *cldf.Environment, chainsWithForwarders map[uint64]struct{}, ocr3DON *cre.DON, consensusVersion string) error {
+func ConfigureEVMForwarders(testLogger zerolog.Logger, cldfEnv *cldf.Environment, chainSelectors []uint64, ocr3DON *cre.DON, consensusVersion string) error {
 	forwarderCfg := forwarder.DonConfiguration{
 		Name:    ocr3DON.Name,
 		ID:      libc.MustSafeUint32FromUint64(ocr3DON.ID),
@@ -65,6 +69,12 @@ func ConfigureEVMForwarders(testLogger zerolog.Logger, cldfEnv *cldf.Environment
 		Version: 1, // TODO this should be dynamic, but we don't have cap reg configured at this point
 		NodeIDs: ocr3DON.KeystoneDONConfig().NodeIDs,
 	}
+
+	chainsWithForwarders := make(map[uint64]struct{})
+	for _, selector := range chainSelectors {
+		chainsWithForwarders[selector] = struct{}{}
+	}
+
 	fout, err3 := operations.ExecuteSequence(
 		cldfEnv.OperationsBundle,
 		forwarder.ConfigureSeq,
@@ -83,4 +93,40 @@ func ConfigureEVMForwarders(testLogger zerolog.Logger, cldfEnv *cldf.Environment
 	testLogger.Info().Msgf("Configured forwarders for %s consensus: %+v", consensusVersion, fout.Output.Config)
 
 	return nil
+}
+
+func ChainsWithForwarders(blockchains []*cre.WrappedBlockchainOutput, nodeSets []cre.NodeSetWithCapabilityConfigs) map[string][]uint64 {
+	chainsWithForwarders := make(map[string][]uint64)
+
+	for _, bcOut := range blockchains {
+		for _, nodeSet := range nodeSets {
+			if chainSelectors, familyExists := chainsWithForwarders[bcOut.BlockchainOutput.Family]; familyExists {
+				if slices.Contains(chainSelectors, bcOut.ChainSelector) {
+					continue
+				}
+			}
+
+			if !strings.EqualFold(bcOut.BlockchainOutput.Family, blockchain.FamilyEVM) && !strings.EqualFold(bcOut.BlockchainOutput.Family, blockchain.FamilyTron) {
+				continue
+			}
+
+			if flags.RequiresForwarderContract(nodeSet.GetCapabilityFlags(), bcOut.ChainID) {
+				if _, exists := chainsWithForwarders[bcOut.BlockchainOutput.Family]; !exists {
+					chainsWithForwarders[bcOut.BlockchainOutput.Family] = []uint64{}
+				}
+				// if strings.EqualFold(bcOut.BlockchainOutput.Family, blockchain.FamilyTron) {
+				chainsWithForwarders[bcOut.BlockchainOutput.Family] = append(chainsWithForwarders[bcOut.BlockchainOutput.Family], bcOut.ChainSelector)
+				// } else {
+
+				// // deploy EVM forwarder only if not deployed yet (evm_v2 capability high have deployed it already)
+				// forwarderAddr := contracts.MightGetAddressFromDataStore(creEnv.CldfEnvironment.DataStore, bcOut.ChainSelector, keystone_changeset.KeystoneForwarder.String(), creEnv.ContractVersions[keystone_changeset.KeystoneForwarder.String()], "")
+				// if forwarderAddr == nil {
+				// 	evmForwardersSelectors = append(evmForwardersSelectors, bcOut.ChainSelector)
+				// }
+			}
+			// }
+		}
+	}
+
+	return chainsWithForwarders
 }

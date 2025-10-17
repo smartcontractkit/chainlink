@@ -135,10 +135,9 @@ func (o *CustomCompute) PostEnvStartup(
 			return "__builtin_custom-compute-action", nil
 		},
 	)(&cre.JobSpecInput{
-		CldEnvironment: creEnv.CldfEnvironment,
-		DonTopology:    creEnv.DonTopology,
-		InfraInput:     creEnv.Provider,
-		/// Capabilities:  // not needed,
+		CldEnvironment:    creEnv.CldfEnvironment,
+		DonTopology:       creEnv.DonTopology,
+		InfraInput:        creEnv.Provider,
 		NodeSets:          creEnv.DonTopology.Dons.AsNodeSetWithChainCapabilities(),
 		CapabilityConfigs: creEnv.CapabilityConfigs,
 	})

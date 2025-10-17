@@ -64,7 +64,7 @@ func (o *Vault) PreEnvStartup(
 	creEnv *cre.Environment,
 	gatewayJobConfigs map[cre.NodeUUID]*config.GatewayConfig,
 ) (*cre.PreEnvStartupOutput, error) {
-	donsMetadata := topology.DonsMetadataWithFlag(o.Flag())
+	donsMetadata := topology.DonsMetadataWithFlag(flag)
 	if len(donsMetadata) == 0 {
 		return nil, nil
 	}
@@ -113,28 +113,33 @@ func (o *Vault) PreEnvStartup(
 
 		for _, workerNode := range workerNodes {
 			currentConfig := donMetadata.CapabilitiesAwareNodeSet().NodeSpecs[workerNode.Index].Node.TestConfigOverrides
-
-			var typedConfig corechainlink.Config
-			unmarshallErr := toml.Unmarshal([]byte(currentConfig), &typedConfig)
-			if unmarshallErr != nil {
-				return nil, errors.Wrapf(unmarshallErr, "failed to unmarshal config for node index %d", workerNode.Index)
+			updatedConfig, uErr := updateNodeConfig(workerNode, currentConfig, registryChainID, workflowRegistryAddress, wfRegTypeVersion)
+			if uErr != nil {
+				return nil, errors.Wrapf(uErr, "failed to update node config for node index %d", workerNode.Index)
 			}
+			donMetadata.CapabilitiesAwareNodeSet().NodeSpecs[workerNode.Index].Node.TestConfigOverrides = *updatedConfig
 
-			// enable workflow registry syncer
-			typedConfig.Capabilities.WorkflowRegistry = coretoml.WorkflowRegistry{
-				Address:         ptr.Ptr(workflowRegistryAddress.Hex()),
-				NetworkID:       ptr.Ptr("evm"),
-				ChainID:         ptr.Ptr(strconv.FormatUint(registryChainID, 10)),
-				SyncStrategy:    ptr.Ptr("reconciliation"),
-				ContractVersion: ptr.Ptr(wfRegTypeVersion.Version.String()),
-			}
+			// var typedConfig corechainlink.Config
+			// unmarshallErr := toml.Unmarshal([]byte(currentConfig), &typedConfig)
+			// if unmarshallErr != nil {
+			// 	return nil, errors.Wrapf(unmarshallErr, "failed to unmarshal config for node index %d", workerNode.Index)
+			// }
 
-			stringifiedConfig, mErr := toml.Marshal(typedConfig)
-			if mErr != nil {
-				return nil, errors.Wrapf(mErr, "failed to marshal config for node index %d", workerNode.Index)
-			}
+			// // enable workflow registry syncer
+			// typedConfig.Capabilities.WorkflowRegistry = coretoml.WorkflowRegistry{
+			// 	Address:         ptr.Ptr(workflowRegistryAddress.Hex()),
+			// 	NetworkID:       ptr.Ptr("evm"),
+			// 	ChainID:         ptr.Ptr(strconv.FormatUint(registryChainID, 10)),
+			// 	SyncStrategy:    ptr.Ptr("reconciliation"),
+			// 	ContractVersion: ptr.Ptr(wfRegTypeVersion.Version.String()),
+			// }
 
-			donMetadata.CapabilitiesAwareNodeSet().NodeSpecs[workerNode.Index].Node.TestConfigOverrides = string(stringifiedConfig)
+			// stringifiedConfig, mErr := toml.Marshal(typedConfig)
+			// if mErr != nil {
+			// 	return nil, errors.Wrapf(mErr, "failed to marshal config for node index %d", workerNode.Index)
+			// }
+
+			// donMetadata.CapabilitiesAwareNodeSet().NodeSpecs[workerNode.Index].Node.TestConfigOverrides = string(stringifiedConfig)
 		}
 	}
 
@@ -156,6 +161,30 @@ func (o *Vault) PreEnvStartup(
 	return &cre.PreEnvStartupOutput{
 		DONCapabilityWithConfigs: capabilities,
 	}, nil
+}
+
+func updateNodeConfig(workerNode *cre.NodeMetadata, currentConfig string, registryChainID uint64, workflowRegistryAddress common.Address, wfRegTypeVersion cldf.TypeAndVersion) (*string, error) {
+	var typedConfig corechainlink.Config
+	unmarshallErr := toml.Unmarshal([]byte(currentConfig), &typedConfig)
+	if unmarshallErr != nil {
+		return nil, errors.Wrapf(unmarshallErr, "failed to unmarshal config for node index %d", workerNode.Index)
+	}
+
+	// enable workflow registry syncer
+	typedConfig.Capabilities.WorkflowRegistry = coretoml.WorkflowRegistry{
+		Address:         ptr.Ptr(workflowRegistryAddress.Hex()),
+		NetworkID:       ptr.Ptr("evm"),
+		ChainID:         ptr.Ptr(strconv.FormatUint(registryChainID, 10)),
+		SyncStrategy:    ptr.Ptr("reconciliation"),
+		ContractVersion: ptr.Ptr(wfRegTypeVersion.Version.String()),
+	}
+
+	stringifiedConfig, mErr := toml.Marshal(typedConfig)
+	if mErr != nil {
+		return nil, errors.Wrapf(mErr, "failed to marshal config for node index %d", workerNode.Index)
+	}
+
+	return ptr.Ptr(string(stringifiedConfig)), nil
 }
 
 func (o *Vault) PostEnvStartup(
@@ -183,11 +212,6 @@ func (o *Vault) PostEnvStartup(
 		return errors.Wrapf(chErr, "failed to get chain ID from chain selector %d", creEnv.DonTopology.HomeChainSelector)
 	}
 
-	bootstrap, isBootstrap := creEnv.DonTopology.Bootstrap()
-	if !isBootstrap {
-		return errors.New("could not find bootstrap node in topology, exactly one bootstrap node is required")
-	}
-
 	jobErr := createJobs(
 		ctx,
 		chainID,
@@ -196,7 +220,6 @@ func (o *Vault) PostEnvStartup(
 		creEnv.CldfEnvironment.Offchain.(*jd.JobDistributor),
 		vaultDON,
 		creEnv.DonTopology,
-		bootstrap,
 	)
 	if jobErr != nil {
 		return fmt.Errorf("failed to create OCR3 jobs: %w", jobErr)
@@ -231,23 +254,29 @@ func (o *Vault) PostEnvStartup(
 		return errors.Wrap(err, "failed to configure DKG OCR3 contract")
 	}
 
-	client := creEnv.CldfEnvironment.BlockChains.EVMChains()[creEnv.DonTopology.HomeChainSelector].Client
-	dkgContract, err := ocr3_capability.NewOCR3Capability(*vaultDKGOCR3Addr, client)
-	if err != nil {
-		return errors.Wrap(err, "failed to create OCR3 capability contract")
+	// client := creEnv.CldfEnvironment.BlockChains.EVMChains()[creEnv.DonTopology.HomeChainSelector].Client
+	// dkgContract, err := ocr3_capability.NewOCR3Capability(*vaultDKGOCR3Addr, client)
+	// if err != nil {
+	// 	return errors.Wrap(err, "failed to create OCR3 capability contract")
+	// }
+	// details, err := dkgContract.LatestConfigDetails(nil)
+	// if err != nil {
+	// 	return errors.Wrap(err, "failed to get latest config details from OCR3 capability contract")
+	// }
+	// instanceID := string(dkgocrtypes.MakeInstanceID(dkgContract.Address(), details.ConfigDigest))
+	// cfg := vaultprotos.ReportingPluginConfig{
+	// 	DKGInstanceID: &instanceID,
+	// }
+	// cfgb, err := proto.Marshal(&cfg)
+	// if err != nil {
+	// 	return errors.Wrap(err, "failed to marshal vault reporting plugin config")
+	// }
+
+	cfgb, cErr := reportingPluginConfigOverride(vaultDKGOCR3Addr, creEnv)
+	if cErr != nil {
+		return fmt.Errorf("failed to create Vault reporting plugin config override: %w", cErr)
 	}
-	details, err := dkgContract.LatestConfigDetails(nil)
-	if err != nil {
-		return errors.Wrap(err, "failed to get latest config details from OCR3 capability contract")
-	}
-	instanceID := string(dkgocrtypes.MakeInstanceID(dkgContract.Address(), details.ConfigDigest))
-	cfg := vaultprotos.ReportingPluginConfig{
-		DKGInstanceID: &instanceID,
-	}
-	cfgb, err := proto.Marshal(&cfg)
-	if err != nil {
-		return errors.Wrap(err, "failed to marshal vault reporting plugin config")
-	}
+
 	_, err = operations.ExecuteOperation(
 		creEnv.CldfEnvironment.OperationsBundle,
 		ks_contracts_op.ConfigureOCR3Op,
@@ -278,8 +307,12 @@ func createJobs(
 	jdClient *jd.JobDistributor,
 	don *cre.DON,
 	donTopology *cre.DonTopology,
-	bootstrap *cre.Node,
 ) error {
+	bootstrap, isBootstrap := donTopology.Bootstrap()
+	if !isBootstrap {
+		return errors.New("could not find bootstrap node in topology, exactly one bootstrap node is required")
+	}
+
 	workerNodes, wErr := don.Workers()
 	if wErr != nil {
 		return errors.Wrap(wErr, "failed to find worker nodes")
@@ -367,6 +400,28 @@ func dkgReportingPluginConfig(don *cre.DON) (*dkgocrtypes.ReportingPluginConfig,
 	}
 
 	return cfg, nil
+}
+
+func reportingPluginConfigOverride(vaultDKGOCR3Addr *common.Address, creEnv *cre.Environment) ([]byte, error) {
+	client := creEnv.CldfEnvironment.BlockChains.EVMChains()[creEnv.DonTopology.HomeChainSelector].Client
+	dkgContract, err := ocr3_capability.NewOCR3Capability(*vaultDKGOCR3Addr, client)
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to create OCR3 capability contract")
+	}
+	details, err := dkgContract.LatestConfigDetails(nil)
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to get latest config details from OCR3 capability contract")
+	}
+	instanceID := string(dkgocrtypes.MakeInstanceID(dkgContract.Address(), details.ConfigDigest))
+	cfg := vaultprotos.ReportingPluginConfig{
+		DKGInstanceID: &instanceID,
+	}
+	cfgb, err := proto.Marshal(&cfg)
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to marshal vault reporting plugin config")
+	}
+
+	return cfgb, nil
 }
 
 func EncryptSecret(secret, masterPublicKeyStr string) (string, error) {

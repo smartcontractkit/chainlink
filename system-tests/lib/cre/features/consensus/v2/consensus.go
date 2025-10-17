@@ -34,11 +34,11 @@ const flag = cre.ConsensusCapabilityV2
 
 type Consensus struct{}
 
-func (o *Consensus) Flag() cre.CapabilityFlag {
+func (c *Consensus) Flag() cre.CapabilityFlag {
 	return flag
 }
 
-func (o *Consensus) PreEnvStartup(
+func (c *Consensus) PreEnvStartup(
 	ctx context.Context,
 	testLogger zerolog.Logger,
 	registryChainSelector uint64,
@@ -69,7 +69,7 @@ func (o *Consensus) PreEnvStartup(
 
 const ContractQualifier = "capability_consensus"
 
-func (o *Consensus) PostEnvStartup(
+func (c *Consensus) PostEnvStartup(
 	ctx context.Context,
 	testLogger zerolog.Logger,
 	creEnv *cre.Environment,
@@ -197,8 +197,8 @@ func createJobs(
 		if !ok {
 			continue
 		}
-		jobErr := jobs.Create(ctx, cldfEnv.Offchain, donTopology, jobSpecs)
 
+		jobErr := jobs.Create(ctx, cldfEnv.Offchain, donTopology, jobSpecs)
 		if jobErr != nil {
 			return fmt.Errorf("failed to create EVM OCR3 jobs for don %s: %w", don.Name, jobErr)
 		}
