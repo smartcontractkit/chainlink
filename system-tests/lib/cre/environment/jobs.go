@@ -53,6 +53,7 @@ func StartJD(lggr zerolog.Logger, jdInput jd.Input, infraInput infra.Provider) (
 
 	jdOutput, err := jd.NewJD(&jdInput)
 	if err != nil {
+		printFailedContainerLogs(lggr, 30)
 		return nil, pkgerrors.Wrap(err, "failed to create new job distributor")
 	}
 
