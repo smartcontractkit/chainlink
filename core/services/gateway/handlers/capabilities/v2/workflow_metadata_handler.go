@@ -253,8 +253,17 @@ func (h *WorkflowMetadataHandler) runTicker(period time.Duration, fn func()) {
 }
 
 func (h *WorkflowMetadataHandler) validateAuthMetadata(metadata gateway.WorkflowMetadata) error {
-	if metadata.WorkflowSelector.WorkflowID == "" || metadata.WorkflowSelector.WorkflowOwner == "" || metadata.WorkflowSelector.WorkflowName == "" || metadata.WorkflowSelector.WorkflowTag == "" {
-		return errors.New("invalid workflow metadata")
+	if len(metadata.WorkflowSelector.WorkflowID) != workflowIDLength {
+		return fmt.Errorf("invalid workflow ID: expected %d characters, got %d", workflowIDLength, len(metadata.WorkflowSelector.WorkflowID))
+	}
+	if len(metadata.WorkflowSelector.WorkflowOwner) != workflowOwnerLength {
+		return fmt.Errorf("invalid workflow owner: expected %d characters, got %d", workflowOwnerLength, len(metadata.WorkflowSelector.WorkflowOwner))
+	}
+	if len(metadata.WorkflowSelector.WorkflowName) != WorkflowNameHashLength {
+		return fmt.Errorf("invalid workflow name: expected %d characters, got %d", WorkflowNameHashLength, len(metadata.WorkflowSelector.WorkflowName))
+	}
+	if len(metadata.WorkflowSelector.WorkflowTag) == 0 || len(metadata.WorkflowSelector.WorkflowTag) > maxWorkflowTagLength {
+		return fmt.Errorf("invalid workflow tag: expected non-empty and at most %d characters, got %d", maxWorkflowTagLength, len(metadata.WorkflowSelector.WorkflowTag))
 	}
 	if len(metadata.AuthorizedKeys) == 0 {
 		return errors.New("no authorized keys")

@@ -118,7 +118,7 @@ func TestLauncher(t *testing.T) {
 		addCapabilityToDON(localRegistry, capDonID, fullTargetID, capabilities.CapabilityTypeTarget, nil)
 		addCapabilityToDON(localRegistry, capDonID, fullMissingTargetID, capabilities.CapabilityTypeTarget, nil)
 
-		launcher := NewLauncher(
+		launcher, err := NewLauncher(
 			lggr,
 			wrapper,
 			nil,
@@ -127,6 +127,7 @@ func TestLauncher(t *testing.T) {
 			registry,
 			&mockDonNotifier{},
 		)
+		require.NoError(t, err)
 		require.NoError(t, launcher.Start(t.Context()))
 		defer launcher.Close()
 
@@ -166,7 +167,7 @@ func TestLauncher(t *testing.T) {
 		addDON(localRegistry, dID, uint32(0), uint8(1), true, true, nodes, []string{"zone-a"}, 1, [][32]byte{triggerCapID})
 		addCapabilityToDON(localRegistry, dID, fullTriggerCapID, capabilities.CapabilityTypeTrigger, nil)
 
-		launcher := NewLauncher(
+		launcher, err := NewLauncher(
 			lggr,
 			wrapper,
 			nil,
@@ -175,6 +176,7 @@ func TestLauncher(t *testing.T) {
 			registry,
 			&mockDonNotifier{},
 		)
+		require.NoError(t, err)
 		require.NoError(t, launcher.Start(t.Context()))
 		defer launcher.Close()
 
@@ -209,7 +211,7 @@ func TestLauncher(t *testing.T) {
 		addDON(localRegistry, dID, uint32(0), uint8(1), true, true, nodes, []string{"zone-a"}, 1, [][32]byte{targetCapID})
 		addCapabilityToDON(localRegistry, dID, fullTargetID, capabilities.CapabilityTypeTarget, nil)
 
-		launcher := NewLauncher(
+		launcher, err := NewLauncher(
 			lggr,
 			wrapper,
 			nil,
@@ -218,6 +220,7 @@ func TestLauncher(t *testing.T) {
 			registry,
 			&mockDonNotifier{},
 		)
+		require.NoError(t, err)
 		require.NoError(t, launcher.Start(t.Context()))
 		defer launcher.Close()
 
@@ -231,7 +234,7 @@ func TestLauncher(t *testing.T) {
 		dispatcher := remoteMocks.NewDispatcher(t)
 		sharedPeer := mocks.NewSharedPeer(t)
 		sharedPeer.On("ID").Return(ragetypes.PeerID(RandomUTF8BytesWord()))
-		launcher := NewLauncher(
+		launcher, err := NewLauncher(
 			lggr,
 			nil,
 			sharedPeer,
@@ -240,6 +243,7 @@ func TestLauncher(t *testing.T) {
 			registry,
 			&mockDonNotifier{},
 		)
+		require.NoError(t, err)
 		require.NoError(t, launcher.Start(t.Context()))
 		require.NoError(t, launcher.Close())
 	})
@@ -311,7 +315,7 @@ func TestLauncher_RemoteTriggerModeAggregatorShim(t *testing.T) {
 	addCapabilityToDON(localRegistry, capDonID, fullTriggerCapID, capabilities.CapabilityTypeTrigger, cfg)
 	addCapabilityToDON(localRegistry, capDonID, fullTargetID, capabilities.CapabilityTypeTarget, cfg)
 
-	launcher := NewLauncher(
+	launcher, err := NewLauncher(
 		lggr,
 		wrapper,
 		nil,
@@ -320,6 +324,7 @@ func TestLauncher_RemoteTriggerModeAggregatorShim(t *testing.T) {
 		registry,
 		&mockDonNotifier{},
 	)
+	require.NoError(t, err)
 	require.NoError(t, launcher.Start(t.Context()))
 	defer launcher.Close()
 
@@ -400,7 +405,7 @@ func TestSyncer_IgnoresCapabilitiesForPrivateDON(t *testing.T) {
 	addCapabilityToDON(localRegistry, dID, triggerID, capabilities.CapabilityTypeTrigger, nil)
 	addCapabilityToDON(localRegistry, dID, targetID, capabilities.CapabilityTypeTarget, nil)
 
-	launcher := NewLauncher(
+	launcher, err := NewLauncher(
 		lggr,
 		wrapper,
 		nil,
@@ -409,13 +414,14 @@ func TestSyncer_IgnoresCapabilitiesForPrivateDON(t *testing.T) {
 		registry,
 		&mockDonNotifier{},
 	)
+	require.NoError(t, err)
 	require.NoError(t, launcher.Start(t.Context()))
 	defer launcher.Close()
 
 	// If the DON were public, this would fail with two errors:
 	// - error fetching the capabilities from the registry since they haven't been added
 	// - erroneous calls to dispatcher.SetReceiver, since the call hasn't been registered.
-	err := launcher.OnNewRegistry(t.Context(), localRegistry)
+	err = launcher.OnNewRegistry(t.Context(), localRegistry)
 	require.NoError(t, err)
 
 	// Finally, assert that no services were added.
@@ -457,7 +463,7 @@ func TestLauncher_WiresUpClientsForPublicWorkflowDON(t *testing.T) {
 	addCapabilityToDON(localRegistry, capDonID, fullTriggerCapID, capabilities.CapabilityTypeTrigger, cfg)
 	addCapabilityToDON(localRegistry, capDonID, fullTargetID, capabilities.CapabilityTypeTarget, cfg)
 
-	launcher := NewLauncher(
+	launcher, err := NewLauncher(
 		lggr,
 		wrapper,
 		nil,
@@ -466,6 +472,7 @@ func TestLauncher_WiresUpClientsForPublicWorkflowDON(t *testing.T) {
 		registry,
 		&mockDonNotifier{},
 	)
+	require.NoError(t, err)
 	require.NoError(t, launcher.Start(t.Context()))
 	defer launcher.Close()
 
@@ -517,7 +524,7 @@ func TestLauncher_WiresUpClientsForPublicWorkflowDONButIgnoresPrivateCapabilitie
 	addDON(localRegistry, targetCapDonID, uint32(0), uint8(1), false, false, capabilityDonNodes, []string{"zone-a"}, 1, [][32]byte{triggerCapID, targetCapID})
 	addCapabilityToDON(localRegistry, targetCapDonID, fullTargetID, capabilities.CapabilityTypeTarget, cfg)
 
-	launcher := NewLauncher(
+	launcher, err := NewLauncher(
 		lggr,
 		wrapper,
 		nil,
@@ -526,6 +533,7 @@ func TestLauncher_WiresUpClientsForPublicWorkflowDONButIgnoresPrivateCapabilitie
 		registry,
 		&mockDonNotifier{},
 	)
+	require.NoError(t, err)
 	require.NoError(t, launcher.Start(t.Context()))
 	defer launcher.Close()
 	dispatcher.On("SetReceiver", fullTriggerCapID, triggerCapDonID, mock.AnythingOfType("*remote.triggerSubscriber")).Return(nil)
@@ -586,7 +594,7 @@ func TestLauncher_SucceedsEvenIfDispatcherAlreadyHasReceiver(t *testing.T) {
 		mock.AnythingOfType("*remote.triggerPublisher"),
 	).Return(remote.ErrReceiverExists)
 
-	launcher := NewLauncher(
+	launcher, err := NewLauncher(
 		lggr,
 		wrapper,
 		nil,
@@ -595,6 +603,7 @@ func TestLauncher_SucceedsEvenIfDispatcherAlreadyHasReceiver(t *testing.T) {
 		registry,
 		&mockDonNotifier{},
 	)
+	require.NoError(t, err)
 	require.NoError(t, launcher.Start(t.Context()))
 	defer launcher.Close()
 	err = launcher.OnNewRegistry(t.Context(), localRegistry)
@@ -648,7 +657,7 @@ func TestLauncher_SuccessfullyFilterDon2Don(t *testing.T) {
 		mock.AnythingOfType("*remote.triggerPublisher"),
 	).Return(remote.ErrReceiverExists)
 
-	launcher := NewLauncher(
+	launcher, err := NewLauncher(
 		lggr,
 		wrapper,
 		nil,
@@ -657,6 +666,7 @@ func TestLauncher_SuccessfullyFilterDon2Don(t *testing.T) {
 		registry,
 		&mockDonNotifier{},
 	)
+	require.NoError(t, err)
 	require.NoError(t, launcher.Start(t.Context()))
 	defer launcher.Close()
 
@@ -713,7 +723,8 @@ func TestLauncher_DonPairsToUpdate(t *testing.T) {
 	tt := NewTestTopology(pid, 4, 4)
 	wfDONID, capDONID, mixedDONID := registrysyncer.DonID(7), registrysyncer.DonID(12), registrysyncer.DonID(33)
 	localRegistry := tt.MakeLocalRegistry(uint32(wfDONID), uint32(capDONID), uint32(mixedDONID), RandomUTF8BytesWord(), fullTriggerCapID)
-	launcher := NewLauncher(logger.Test(t), nil, sharedPeer, nil, dispatcher, registry, &mockDonNotifier{})
+	launcher, err := NewLauncher(logger.Test(t), nil, sharedPeer, nil, dispatcher, registry, &mockDonNotifier{})
+	require.NoError(t, err)
 
 	sharedPeer.On("IsBootstrap").Return(false).Times(3)
 	// capability DON connects to DONs: workflow and mixed
@@ -788,7 +799,8 @@ func TestLauncher_DonPairsToUpdate_SkipsDifferentFamilies(t *testing.T) {
 	addDON(localRegistry, capDONZoneBID, uint32(0), uint8(1), true, false, capabilityDonNodesZoneB, []string{"zone-b"}, 1, [][32]byte{triggerCapID})
 	addCapabilityToDON(localRegistry, capDONZoneBID, fullTriggerCapID, capabilities.CapabilityTypeTrigger, nil)
 
-	launcher := NewLauncher(logger.Test(t), nil, sharedPeer, nil, dispatcher, registry, &mockDonNotifier{})
+	launcher, err := NewLauncher(logger.Test(t), nil, sharedPeer, nil, dispatcher, registry, &mockDonNotifier{})
+	require.NoError(t, err)
 
 	sharedPeer.On("IsBootstrap").Return(false).Once()
 	// Node belongs to workflow DON, should only connect to capability DON in same family (zone-a)
@@ -811,6 +823,7 @@ func TestLauncher_V2CapabilitiesAddViaCombinedClient(t *testing.T) {
 	workflowDonNodes, capabilityDonNodes, zoneBDonNodes := newNodes(4), newNodes(4), newNodes(4)
 	fullTriggerCapID := "streams-trigger@1.0.0"
 	fullExecutableCapID := "evm@1.0.0"
+	fullLocalCapID := "cron-trigger@1.0.0"
 	triggerCapID := RandomUTF8BytesWord()
 	executableCapID := RandomUTF8BytesWord()
 	wfDonID := uint32(1)
@@ -845,6 +858,11 @@ func TestLauncher_V2CapabilitiesAddViaCombinedClient(t *testing.T) {
 	})
 	require.NoError(t, err)
 
+	localCfg, err := proto.Marshal(&capabilitiespb.CapabilityConfig{
+		LocalOnly: true,
+	})
+	require.NoError(t, err)
+
 	localRegistry := buildLocalRegistry()
 	addDON(localRegistry, wfDonID, 0, 1, true, true, workflowDonNodes, []string{"zone-a"}, 1, nil)
 	addDON(localRegistry, capDonID, 0, 1, true, false, capabilityDonNodes, []string{"zone-a"}, 1, [][32]byte{triggerCapID, executableCapID})
@@ -852,13 +870,14 @@ func TestLauncher_V2CapabilitiesAddViaCombinedClient(t *testing.T) {
 	addCapabilityToDON(localRegistry, capDonID, fullTriggerCapID, capabilities.CapabilityTypeTrigger, triggerCfg)
 	addCapabilityToDON(localRegistry, capDonID, fullExecutableCapID, capabilities.CapabilityTypeTarget, execCfg)
 	addCapabilityToDON(localRegistry, zoneBDonID, fullExecutableCapID, capabilities.CapabilityTypeTarget, execCfg)
+	addCapabilityToDON(localRegistry, capDonID, fullLocalCapID, capabilities.CapabilityTypeAction, localCfg) // should be skipped
 
 	sharedPeer := mocks.NewSharedPeer(t)
 	sharedPeer.On("ID").Return(workflowDonNodes[0])
 	sharedPeer.On("IsBootstrap").Return(false)
 	sharedPeer.On("UpdateConnectionsByDONs", mock.Anything, mock.Anything, mock.Anything).Return(nil)
 
-	launcher := NewLauncher(
+	launcher, err := NewLauncher(
 		lggr,
 		nil,
 		sharedPeer,
@@ -867,6 +886,7 @@ func TestLauncher_V2CapabilitiesAddViaCombinedClient(t *testing.T) {
 		registry,
 		&mockDonNotifier{},
 	)
+	require.NoError(t, err)
 	require.NoError(t, launcher.Start(t.Context()))
 	defer launcher.Close()
 
@@ -927,6 +947,14 @@ func TestLauncher_V2CapabilitiesExposeRemotely(t *testing.T) {
 	}
 	require.NoError(t, registry.Add(t.Context(), mtarg))
 
+	fullLocalCapID := "cron-trigger@1.0.0"
+	mlocal := newMockTrigger(capabilities.MustNewCapabilityInfo(
+		fullLocalCapID,
+		capabilities.CapabilityTypeTrigger,
+		"cron",
+	))
+	require.NoError(t, registry.Add(t.Context(), mlocal))
+
 	dispatcher := remoteMocks.NewDispatcher(t)
 
 	workflowDonNodes, capabilityDonNodes := newNodes(4), newNodes(4)
@@ -964,18 +992,34 @@ func TestLauncher_V2CapabilitiesExposeRemotely(t *testing.T) {
 	})
 	require.NoError(t, err)
 
+	localCfg, err := proto.Marshal(&capabilitiespb.CapabilityConfig{
+		MethodConfigs: map[string]*capabilitiespb.CapabilityMethodConfig{
+			"CronTrigger": {
+				RemoteConfig: &capabilitiespb.CapabilityMethodConfig_RemoteTriggerConfig{
+					RemoteTriggerConfig: &capabilitiespb.RemoteTriggerConfig{
+						RegistrationRefresh:     durationpb.New(1 * time.Second),
+						MinResponsesToAggregate: 3,
+					},
+				},
+			},
+		},
+		LocalOnly: true,
+	})
+	require.NoError(t, err)
+
 	localRegistry := buildLocalRegistry()
 	addDON(localRegistry, wfDonID, 0, 1, true, true, workflowDonNodes, []string{"zone-a"}, 1, nil)
 	addDON(localRegistry, capDonID, 0, 1, true, false, capabilityDonNodes, []string{"zone-a"}, 1, [][32]byte{triggerCapID, executableCapID})
 	addCapabilityToDON(localRegistry, capDonID, fullTriggerCapID, capabilities.CapabilityTypeTrigger, triggerCfg)
 	addCapabilityToDON(localRegistry, capDonID, fullExecutableCapID, capabilities.CapabilityTypeTarget, execCfg)
+	addCapabilityToDON(localRegistry, capDonID, fullLocalCapID, capabilities.CapabilityTypeAction, localCfg) // should be skipped
 
 	sharedPeer := mocks.NewSharedPeer(t)
 	sharedPeer.On("ID").Return(capabilityDonNodes[0])
 	sharedPeer.On("IsBootstrap").Return(false)
 	sharedPeer.On("UpdateConnectionsByDONs", mock.Anything, mock.Anything, mock.Anything).Return(nil)
 
-	launcher := NewLauncher(
+	launcher, err := NewLauncher(
 		lggr,
 		nil,
 		sharedPeer,
@@ -984,6 +1028,7 @@ func TestLauncher_V2CapabilitiesExposeRemotely(t *testing.T) {
 		registry,
 		&mockDonNotifier{},
 	)
+	require.NoError(t, err)
 	require.NoError(t, launcher.Start(t.Context()))
 	defer launcher.Close()
 
