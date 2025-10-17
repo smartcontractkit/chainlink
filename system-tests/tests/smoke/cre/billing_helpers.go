@@ -251,7 +251,7 @@ type billingCredit struct {
 func queryCredits(t *testing.T, db *sql.DB) []billingCredit {
 	t.Helper()
 
-	query := "SELECT credits, credits_reserved, created_at, updated_at FROM billing_platform.organization_credits WHERE organization_id = '000000000000'"
+	query := "SELECT credits, credits_reserved, created_at, updated_at FROM billing_platform.organization_credits WHERE organization_id = 'integration-test-aggregation-org-happy-path-odd-quorum'"
 	rows, err := db.QueryContext(t.Context(), query)
 	require.NoError(t, err, "failed to query billing database")
 
