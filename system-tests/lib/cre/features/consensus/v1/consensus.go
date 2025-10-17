@@ -32,11 +32,11 @@ const flag = cre.ConsensusCapability
 
 type Consensus struct{}
 
-func (o *Consensus) Flag() cre.CapabilityFlag {
+func (c *Consensus) Flag() cre.CapabilityFlag {
 	return flag
 }
 
-func (o *Consensus) PreEnvStartup(
+func (c *Consensus) PreEnvStartup(
 	ctx context.Context,
 	testLogger zerolog.Logger,
 	registryChainSelector uint64,
@@ -69,7 +69,7 @@ const (
 	ContractQualifier = "capability_ocr3"
 )
 
-func (o *Consensus) PostEnvStartup(
+func (c *Consensus) PostEnvStartup(
 	ctx context.Context,
 	testLogger zerolog.Logger,
 	creEnv *cre.Environment,
@@ -94,11 +94,6 @@ func (o *Consensus) PostEnvStartup(
 		return errors.Wrapf(chErr, "failed to get chain ID from chain selector %d", creEnv.DonTopology.HomeChainSelector)
 	}
 
-	bootstrap, isBootstrap := creEnv.DonTopology.Bootstrap()
-	if !isBootstrap {
-		return errors.New("could not find bootstrap node in topology, exactly one bootstrap node is required")
-	}
-
 	jobErr := createJobs(
 		ctx,
 		chainID,
@@ -106,7 +101,6 @@ func (o *Consensus) PostEnvStartup(
 		creEnv.CldfEnvironment.Offchain.(*jd.JobDistributor),
 		consensusDON,
 		creEnv.DonTopology,
-		bootstrap,
 	)
 	if jobErr != nil {
 		return fmt.Errorf("failed to create OCR3 jobs: %w", jobErr)
@@ -151,8 +145,12 @@ func createJobs(
 	jdClient *jd.JobDistributor,
 	consensusDON *cre.DON,
 	donTopology *cre.DonTopology,
-	bootstrap *cre.Node,
 ) error {
+	bootstrap, isBootstrap := donTopology.Bootstrap()
+	if !isBootstrap {
+		return errors.New("could not find bootstrap node in topology, exactly one bootstrap node is required")
+	}
+
 	workerNodes, wErr := consensusDON.Workers()
 	if wErr != nil {
 		return errors.Wrap(wErr, "failed to find worker nodes")

@@ -23,11 +23,11 @@ const flag = cre.CronCapability
 
 type Cron struct{}
 
-func (o *Cron) Flag() cre.CapabilityFlag {
+func (c *Cron) Flag() cre.CapabilityFlag {
 	return flag
 }
 
-func (o *Cron) PreEnvStartup(
+func (c *Cron) PreEnvStartup(
 	ctx context.Context,
 	testLogger zerolog.Logger,
 	registryChainSelector uint64,
@@ -35,7 +35,7 @@ func (o *Cron) PreEnvStartup(
 	creEnv *cre.Environment,
 	gatewayJobConfigs map[cre.NodeUUID]*config.GatewayConfig,
 ) (*cre.PreEnvStartupOutput, error) {
-	donsMetadata := topology.DonsMetadataWithFlag(o.Flag())
+	donsMetadata := topology.DonsMetadataWithFlag(flag)
 	if len(donsMetadata) == 0 {
 		return nil, nil
 	}
@@ -63,7 +63,7 @@ func (o *Cron) PreEnvStartup(
 
 const configTemplate = `""` // Empty config by default
 
-func (o *Cron) PostEnvStartup(
+func (c *Cron) PostEnvStartup(
 	ctx context.Context,
 	testLogger zerolog.Logger,
 	creEnv *cre.Environment,
@@ -95,10 +95,9 @@ func (o *Cron) PostEnvStartup(
 		factory.NoOpExtractor,
 		factory.BinaryPathBuilder,
 	)(&cre.JobSpecInput{
-		CldEnvironment: creEnv.CldfEnvironment,
-		DonTopology:    creEnv.DonTopology,
-		InfraInput:     creEnv.Provider,
-		/// Capabilities:  // not needed,
+		CldEnvironment:    creEnv.CldfEnvironment,
+		DonTopology:       creEnv.DonTopology,
+		InfraInput:        creEnv.Provider,
 		NodeSets:          creEnv.DonTopology.Dons.AsNodeSetWithChainCapabilities(),
 		CapabilityConfigs: creEnv.CapabilityConfigs,
 	})

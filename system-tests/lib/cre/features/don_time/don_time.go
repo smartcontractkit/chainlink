@@ -71,12 +71,6 @@ func (o *DONTime) PostEnvStartup(
 	if chErr != nil {
 		return errors.Wrapf(chErr, "failed to get chain ID from chain selector %d", creEnv.DonTopology.HomeChainSelector)
 	}
-
-	bootstrap, isBootstrap := creEnv.DonTopology.Bootstrap()
-	if !isBootstrap {
-		return errors.New("could not find bootstrap node in topology, exactly one bootstrap node is required")
-	}
-
 	jobErr := createJobs(
 		ctx,
 		chainID,
@@ -84,7 +78,6 @@ func (o *DONTime) PostEnvStartup(
 		creEnv.CldfEnvironment.Offchain.(*jd.JobDistributor),
 		donTimeDON,
 		creEnv.DonTopology,
-		bootstrap,
 	)
 	if jobErr != nil {
 		return fmt.Errorf("failed to create DON Time jobs: %w", jobErr)
@@ -123,8 +116,12 @@ func createJobs(
 	jdClient *jd.JobDistributor,
 	donTimeDON *cre.DON,
 	donTopology *cre.DonTopology,
-	bootstrap *cre.Node,
 ) error {
+	bootstrap, isBootstrap := donTopology.Bootstrap()
+	if !isBootstrap {
+		return errors.New("could not find bootstrap node in topology, exactly one bootstrap node is required")
+	}
+
 	workerNodes, wErr := donTimeDON.Workers()
 	if wErr != nil {
 		return errors.Wrap(wErr, "failed to find worker nodes")

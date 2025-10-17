@@ -213,6 +213,10 @@ func (d *DON) GetCapabilityConfigOverrides() map[string]map[string]any {
 	return d.capabilityConfigOverrides
 }
 
+func (d *DON) GetCapabilityFlags() []string {
+	return d.Flags
+}
+
 func NewDON(ctx context.Context, donMetadata *DonMetadata, ctfNodes []*clnode.Output) (*DON, error) {
 	don := &DON{
 		Nodes:                     make([]*Node, 0),

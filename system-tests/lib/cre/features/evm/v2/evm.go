@@ -5,9 +5,7 @@ import (
 	"context"
 	"fmt"
 	"html/template"
-	"slices"
 	"strconv"
-	"strings"
 	"time"
 
 	"github.com/Masterminds/semver/v3"
@@ -72,82 +70,41 @@ func (o *EVM) PreEnvStartup(
 		return nil, nil
 	}
 
-	// deploy EVM forwarders if needed
-	cldfEnv := creEnv.CldfEnvironment
-	evmForwardersSelectors := make([]uint64, 0)
-	for _, bcOut := range creEnv.Blockchains {
-		for _, donMetadata := range topology.CapabilitiesAwareNodeSets() {
-			if slices.Contains(evmForwardersSelectors, bcOut.ChainSelector) {
-				continue
-			}
+	chainsWithForwarders := evm.ChainsWithForwarders(creEnv.Blockchains, cre.ConvertToNodeSetWithChainCapabilities(topology.CapabilitiesAwareNodeSets()))
+	evmForwardersSelectors, exist := chainsWithForwarders[blockchain.FamilyEVM]
 
-			if !strings.EqualFold(bcOut.BlockchainOutput.Family, blockchain.FamilyEVM) && !strings.EqualFold(bcOut.BlockchainOutput.Family, blockchain.FamilyTron) {
-				continue
+	if exist {
+		selectorsToDeploy := make([]uint64, 0)
+		for _, selector := range evmForwardersSelectors {
+			//filter out EVM forwarder selectors that might have been already deployed by evm_v2 capability
+			forwarderAddr := contracts.MightGetAddressFromDataStore(creEnv.CldfEnvironment.DataStore, selector, keystone_changeset.KeystoneForwarder.String(), creEnv.ContractVersions[keystone_changeset.KeystoneForwarder.String()], "")
+			if forwarderAddr == nil {
+				selectorsToDeploy = append(selectorsToDeploy, selector)
 			}
+		}
 
-			if flags.RequiresForwarderContract(donMetadata.ComputedCapabilities, bcOut.ChainID) {
-				if strings.EqualFold(bcOut.BlockchainOutput.Family, blockchain.FamilyTron) {
-					continue
-				}
-				// deploy EVM forwarder only if not deployed yet (evm_v2 capability high have deployed it already)
-				forwarderAddr := contracts.MightGetAddressFromDataStore(cldfEnv.DataStore, bcOut.ChainSelector, keystone_changeset.KeystoneForwarder.String(), creEnv.ContractVersions[keystone_changeset.KeystoneForwarder.String()], "")
-				if forwarderAddr == nil {
-					evmForwardersSelectors = append(evmForwardersSelectors, bcOut.ChainSelector)
-				}
+		if len(selectorsToDeploy) > 0 {
+			deployErr := evm.DeployEVMForwarders(testLogger, creEnv.CldfEnvironment, selectorsToDeploy, creEnv.ContractVersions)
+			if deployErr != nil {
+				return nil, errors.Wrap(deployErr, "failed to deploy EVM Keystone forwarder")
 			}
 		}
 	}
 
-	if len(evmForwardersSelectors) > 0 {
-		deployErr := evm.DeployEVMForwarders(testLogger, cldfEnv, evmForwardersSelectors, creEnv.ContractVersions)
-		if deployErr != nil {
-			return nil, errors.Wrap(deployErr, "failed to deploy EVM Keystone forwarder")
-		}
-	}
-
-	// add node config for EVM.Workflow
+	// update node configs to include evm v2 configuration
 	for _, donMetadata := range donsMetadata {
 		workerNodes, wErr := donMetadata.Workers()
 		if wErr != nil {
 			return nil, errors.Wrap(wErr, "failed to find worker nodes")
 		}
 		for _, workerNode := range workerNodes {
-			chainsFromAddress, err := findNodeAddressPerChain(donMetadata.CapabilitiesAwareNodeSet(), workerNode)
-			if err != nil {
-				return nil, errors.Wrap(err, "failed to get chains with from address")
-			}
-
 			currentConfig := donMetadata.CapabilitiesAwareNodeSet().NodeSpecs[workerNode.Index].Node.TestConfigOverrides
-
-			var typedConfig corechainlink.Config
-			unmarshallErr := toml.Unmarshal([]byte(currentConfig), &typedConfig)
-			if unmarshallErr != nil {
-				return nil, errors.Wrapf(unmarshallErr, "failed to unmarshal config for node index %d", workerNode.Index)
+			updatedConfig, updErr := updateNodeConfig(workerNode, donMetadata.CapabilitiesAwareNodeSet(), currentConfig)
+			if updErr != nil {
+				return nil, errors.Wrapf(updErr, "failed to update node config for node index %d", workerNode.Index)
 			}
 
-			if len(typedConfig.EVM) < len(chainsFromAddress) {
-				return nil, fmt.Errorf("not enough EVM chains configured in node index %d to add evm config. Expected at least %d chains, but found %d", workerNode.Index, len(chainsFromAddress), len(typedConfig.EVM))
-			}
-
-			for idx, evmChain := range typedConfig.EVM {
-				chainID := libc.MustSafeUint64(evmChain.ChainID.Int64())
-				addr, ok := chainsFromAddress[chainID]
-				if ok {
-					// if present means we need fromAddress for this chain
-					address, err := types.NewEIP55Address(addr.Hex())
-					if err != nil {
-						return nil, errors.Wrapf(err, "failed to convert fromAddress to EIP55Address for chain %d", chainID)
-					}
-					typedConfig.EVM[idx].Workflow.FromAddress = &address
-				}
-			}
-
-			stringifiedConfig, mErr := toml.Marshal(typedConfig)
-			if mErr != nil {
-				return nil, errors.Wrapf(mErr, "failed to marshal config for node index %d", workerNode.Index)
-			}
-
-			donMetadata.CapabilitiesAwareNodeSet().NodeSpecs[workerNode.Index].Node.TestConfigOverrides = string(stringifiedConfig)
+			donMetadata.CapabilitiesAwareNodeSet().NodeSpecs[workerNode.Index].Node.TestConfigOverrides = *updatedConfig
 		}
 	}
 
@@ -185,6 +142,43 @@ func (o *EVM) PreEnvStartup(
 	}, nil
 }
 
+func updateNodeConfig(workerNode *cre.NodeMetadata, nodeSet *cre.CapabilitiesAwareNodeSet, currentConfig string) (*string, error) {
+	chainsFromAddress, err := findNodeAddressPerChain(nodeSet, workerNode)
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to get chains with from address")
+	}
+
+	var typedConfig corechainlink.Config
+	unmarshallErr := toml.Unmarshal([]byte(currentConfig), &typedConfig)
+	if unmarshallErr != nil {
+		return nil, errors.Wrapf(unmarshallErr, "failed to unmarshal config for node index %d", workerNode.Index)
+	}
+
+	if len(typedConfig.EVM) < len(chainsFromAddress) {
+		return nil, fmt.Errorf("not enough EVM chains configured in node index %d to add evm config. Expected at least %d chains, but found %d", workerNode.Index, len(chainsFromAddress), len(typedConfig.EVM))
+	}
+
+	for idx, evmChain := range typedConfig.EVM {
+		chainID := libc.MustSafeUint64(evmChain.ChainID.Int64())
+		addr, ok := chainsFromAddress[chainID]
+		if ok {
+			// if present means we need fromAddress for this chain
+			address, err := types.NewEIP55Address(addr.Hex())
+			if err != nil {
+				return nil, errors.Wrapf(err, "failed to convert fromAddress to EIP55Address for chain %d", chainID)
+			}
+			typedConfig.EVM[idx].Workflow.FromAddress = &address
+		}
+	}
+
+	stringifiedConfig, mErr := toml.Marshal(typedConfig)
+	if mErr != nil {
+		return nil, errors.Wrapf(mErr, "failed to marshal config for node index %d", workerNode.Index)
+	}
+
+	return ptr.Ptr(string(stringifiedConfig)), nil
+}
+
 func (o *EVM) PostEnvStartup(
 	ctx context.Context,
 	testLogger zerolog.Logger,
@@ -196,7 +190,6 @@ func (o *EVM) PostEnvStartup(
 	}
 
 	chainsWithEVMCapability := chainsWithEVMCapability(creEnv.Blockchains, dons)
-
 	for chainID, selector := range chainsWithEVMCapability {
 		qualifier := ks_contracts_op.CapabilityContractIdentifier(uint64(chainID))
 		_, _, seqErr := contracts.DeployOCR3Contract(testLogger, qualifier, creEnv.DonTopology.HomeChainSelector, creEnv.CldfEnvironment, creEnv.ContractVersions)
@@ -219,11 +212,11 @@ func (o *EVM) PostEnvStartup(
 
 	// TODO should we make sure that log poller is listening before we try to configure contracts?
 
-	// configure contracts
+	// configure OCR3 contracts
 	for chainID := range chainsWithEVMCapability {
 		qualifier := ks_contracts_op.CapabilityContractIdentifier(uint64(chainID))
 		// we have deployed OCR3 contract for each EVM chain on the registry chain to avoid a situation when more than 1 OCR contract (of any type) has the same address
-		// because that violates a DB constraint for offchain reporting jobs
+		// because in past that violeted a DB constraint for offchain reporting jobs. Now there is no such limitation, but still it's better to have unique addresses to avoid confusion.
 		evmOCR3Addr := contracts.MustGetAddressFromDataStore(creEnv.CldfEnvironment.DataStore, creEnv.DonTopology.HomeChainSelector, keystone_changeset.OCR3Capability.String(), "1.0.0", qualifier)
 		var evmDON *cre.DON
 		for _, don := range creEnv.DonTopology.DonsWithFlag(cre.EVMCapability) {
@@ -276,9 +269,9 @@ func (o *EVM) PostEnvStartup(
 	// for now we end up configuring forwarders twice, if the same chain has both evm v1 and v2 capabilities enabled
 	// it doesn't create any issues, but ideally we wouldn't do that
 	if len(chainsWithEVMCapability) > 0 {
-		evmChainsWithForwarders := make(map[uint64]struct{})
+		evmChainsWithForwarders := make([]uint64, 0)
 		for chainID := range chainsWithEVMCapability {
-			evmChainsWithForwarders[uint64(chainID)] = struct{}{}
+			evmChainsWithForwarders = append(evmChainsWithForwarders, uint64(chainID))
 		}
 		if evmErr := evm.ConfigureEVMForwarders(testLogger, creEnv.CldfEnvironment, evmChainsWithForwarders, consensusDON, consensusVersion); evmErr != nil {
 			return errors.Wrap(evmErr, "failed to configure EVM forwarders")

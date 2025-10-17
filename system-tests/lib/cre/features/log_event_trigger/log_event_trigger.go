@@ -110,10 +110,9 @@ func (o *LogEventTrigger) PostEnvStartup(
 		},
 		factory.BinaryPathBuilder,
 	)(&cre.JobSpecInput{
-		CldEnvironment: creEnv.CldfEnvironment,
-		DonTopology:    creEnv.DonTopology,
-		InfraInput:     creEnv.Provider,
-		/// Capabilities:  // not needed,
+		CldEnvironment:    creEnv.CldfEnvironment,
+		DonTopology:       creEnv.DonTopology,
+		InfraInput:        creEnv.Provider,
 		NodeSets:          creEnv.DonTopology.Dons.AsNodeSetWithChainCapabilities(),
 		CapabilityConfigs: creEnv.CapabilityConfigs,
 	})

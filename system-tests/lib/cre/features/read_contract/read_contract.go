@@ -35,7 +35,7 @@ func (o *ReadContract) PreEnvStartup(
 	creEnv *cre.Environment,
 	gatewayJobConfigs map[cre.NodeUUID]*config.GatewayConfig,
 ) (*cre.PreEnvStartupOutput, error) {
-	donsMetadata := topology.DonsMetadataWithFlag(o.Flag())
+	donsMetadata := topology.DonsMetadataWithFlag(flag)
 	if len(donsMetadata) == 0 {
 		return nil, nil
 	}
@@ -102,10 +102,9 @@ func (o *ReadContract) PostEnvStartup(
 		},
 		factory.BinaryPathBuilder,
 	)(&cre.JobSpecInput{
-		CldEnvironment: creEnv.CldfEnvironment,
-		DonTopology:    creEnv.DonTopology,
-		InfraInput:     creEnv.Provider,
-		/// Capabilities:  // not needed,
+		CldEnvironment:    creEnv.CldfEnvironment,
+		DonTopology:       creEnv.DonTopology,
+		InfraInput:        creEnv.Provider,
 		NodeSets:          creEnv.DonTopology.Dons.AsNodeSetWithChainCapabilities(),
 		CapabilityConfigs: creEnv.CapabilityConfigs,
 	})

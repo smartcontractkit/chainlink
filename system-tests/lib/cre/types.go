@@ -901,6 +901,10 @@ func (c *CapabilitiesAwareNodeSet) GetCapabilityConfigOverrides() map[string]map
 	return c.CapabilityOverrides
 }
 
+func (c *CapabilitiesAwareNodeSet) GetCapabilityFlags() []string {
+	return c.Flags()
+}
+
 func ConvertToNodeSetWithChainCapabilities(nodeSets []*CapabilitiesAwareNodeSet) []NodeSetWithCapabilityConfigs {
 	result := make([]NodeSetWithCapabilityConfigs, len(nodeSets))
 	for i, nodeSet := range nodeSets {
@@ -1283,11 +1287,13 @@ type JobSpecInput struct {
 type NodeSetWithCapabilityConfigs interface {
 	GetChainCapabilityConfigs() map[string]*ChainCapabilityConfig
 	GetCapabilityConfigOverrides() map[string]map[string]any
+	GetCapabilityFlags() []string
 }
 
 // InstallableCapability defines the interface for capabilities that can be dynamically
 // registered and deployed across DONs. This interface enables plug-and-play capability
 // extension without modifying core infrastructure code.
+// Deprecated: Use Feature interface instead for new capabilities.
 type InstallableCapability interface {
 	// Flag returns the unique identifier used in TOML configurations and internal references
 	Flag() CapabilityFlag
