@@ -114,17 +114,8 @@ func ChainsWithForwarders(blockchains []*cre.WrappedBlockchainOutput, nodeSets [
 				if _, exists := chainsWithForwarders[bcOut.BlockchainOutput.Family]; !exists {
 					chainsWithForwarders[bcOut.BlockchainOutput.Family] = []uint64{}
 				}
-				// if strings.EqualFold(bcOut.BlockchainOutput.Family, blockchain.FamilyTron) {
 				chainsWithForwarders[bcOut.BlockchainOutput.Family] = append(chainsWithForwarders[bcOut.BlockchainOutput.Family], bcOut.ChainSelector)
-				// } else {
-
-				// // deploy EVM forwarder only if not deployed yet (evm_v2 capability high have deployed it already)
-				// forwarderAddr := contracts.MightGetAddressFromDataStore(creEnv.CldfEnvironment.DataStore, bcOut.ChainSelector, keystone_changeset.KeystoneForwarder.String(), creEnv.ContractVersions[keystone_changeset.KeystoneForwarder.String()], "")
-				// if forwarderAddr == nil {
-				// 	evmForwardersSelectors = append(evmForwardersSelectors, bcOut.ChainSelector)
-				// }
 			}
-			// }
 		}
 	}
 

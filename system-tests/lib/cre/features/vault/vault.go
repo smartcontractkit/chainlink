@@ -118,28 +118,6 @@ func (o *Vault) PreEnvStartup(
 				return nil, errors.Wrapf(uErr, "failed to update node config for node index %d", workerNode.Index)
 			}
 			donMetadata.CapabilitiesAwareNodeSet().NodeSpecs[workerNode.Index].Node.TestConfigOverrides = *updatedConfig
-
-			// var typedConfig corechainlink.Config
-			// unmarshallErr := toml.Unmarshal([]byte(currentConfig), &typedConfig)
-			// if unmarshallErr != nil {
-			// 	return nil, errors.Wrapf(unmarshallErr, "failed to unmarshal config for node index %d", workerNode.Index)
-			// }
-
-			// // enable workflow registry syncer
-			// typedConfig.Capabilities.WorkflowRegistry = coretoml.WorkflowRegistry{
-			// 	Address:         ptr.Ptr(workflowRegistryAddress.Hex()),
-			// 	NetworkID:       ptr.Ptr("evm"),
-			// 	ChainID:         ptr.Ptr(strconv.FormatUint(registryChainID, 10)),
-			// 	SyncStrategy:    ptr.Ptr("reconciliation"),
-			// 	ContractVersion: ptr.Ptr(wfRegTypeVersion.Version.String()),
-			// }
-
-			// stringifiedConfig, mErr := toml.Marshal(typedConfig)
-			// if mErr != nil {
-			// 	return nil, errors.Wrapf(mErr, "failed to marshal config for node index %d", workerNode.Index)
-			// }
-
-			// donMetadata.CapabilitiesAwareNodeSet().NodeSpecs[workerNode.Index].Node.TestConfigOverrides = string(stringifiedConfig)
 		}
 	}
 
@@ -253,24 +231,6 @@ func (o *Vault) PostEnvStartup(
 	if err != nil {
 		return errors.Wrap(err, "failed to configure DKG OCR3 contract")
 	}
-
-	// client := creEnv.CldfEnvironment.BlockChains.EVMChains()[creEnv.DonTopology.HomeChainSelector].Client
-	// dkgContract, err := ocr3_capability.NewOCR3Capability(*vaultDKGOCR3Addr, client)
-	// if err != nil {
-	// 	return errors.Wrap(err, "failed to create OCR3 capability contract")
-	// }
-	// details, err := dkgContract.LatestConfigDetails(nil)
-	// if err != nil {
-	// 	return errors.Wrap(err, "failed to get latest config details from OCR3 capability contract")
-	// }
-	// instanceID := string(dkgocrtypes.MakeInstanceID(dkgContract.Address(), details.ConfigDigest))
-	// cfg := vaultprotos.ReportingPluginConfig{
-	// 	DKGInstanceID: &instanceID,
-	// }
-	// cfgb, err := proto.Marshal(&cfg)
-	// if err != nil {
-	// 	return errors.Wrap(err, "failed to marshal vault reporting plugin config")
-	// }
 
 	cfgb, cErr := reportingPluginConfigOverride(vaultDKGOCR3Addr, creEnv)
 	if cErr != nil {

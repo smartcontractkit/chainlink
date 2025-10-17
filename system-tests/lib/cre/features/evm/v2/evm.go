@@ -70,32 +70,6 @@ func (o *EVM) PreEnvStartup(
 		return nil, nil
 	}
 
-	// deploy EVM forwarders if needed
-	// cldfEnv := creEnv.CldfEnvironment
-	// evmForwardersSelectors := make([]uint64, 0)
-	// for _, bcOut := range creEnv.Blockchains {
-	// 	for _, donMetadata := range topology.CapabilitiesAwareNodeSets() {
-	// 		if slices.Contains(evmForwardersSelectors, bcOut.ChainSelector) {
-	// 			continue
-	// 		}
-
-	// 		if !strings.EqualFold(bcOut.BlockchainOutput.Family, blockchain.FamilyEVM) && !strings.EqualFold(bcOut.BlockchainOutput.Family, blockchain.FamilyTron) {
-	// 			continue
-	// 		}
-
-	// 		if flags.RequiresForwarderContract(donMetadata.ComputedCapabilities, bcOut.ChainID) {
-	// 			if strings.EqualFold(bcOut.BlockchainOutput.Family, blockchain.FamilyTron) {
-	// 				continue
-	// 			}
-	// 			// deploy EVM forwarder only if not deployed yet (evm_v2 capability high have deployed it already)
-	// 			forwarderAddr := contracts.MightGetAddressFromDataStore(cldfEnv.DataStore, bcOut.ChainSelector, keystone_changeset.KeystoneForwarder.String(), creEnv.ContractVersions[keystone_changeset.KeystoneForwarder.String()], "")
-	// 			if forwarderAddr == nil {
-	// 				evmForwardersSelectors = append(evmForwardersSelectors, bcOut.ChainSelector)
-	// 			}
-	// 		}
-	// 	}
-	// }
-
 	chainsWithForwarders := evm.ChainsWithForwarders(creEnv.Blockchains, cre.ConvertToNodeSetWithChainCapabilities(topology.CapabilitiesAwareNodeSets()))
 	evmForwardersSelectors, exist := chainsWithForwarders[blockchain.FamilyEVM]
 
@@ -131,42 +105,6 @@ func (o *EVM) PreEnvStartup(
 			}
 
 			donMetadata.CapabilitiesAwareNodeSet().NodeSpecs[workerNode.Index].Node.TestConfigOverrides = *updatedConfig
-			// chainsFromAddress, err := findNodeAddressPerChain(donMetadata.CapabilitiesAwareNodeSet(), workerNode)
-			// if err != nil {
-			// 	return nil, errors.Wrap(err, "failed to get chains with from address")
-			// }
-
-			// currentConfig := donMetadata.CapabilitiesAwareNodeSet().NodeSpecs[workerNode.Index].Node.TestConfigOverrides
-
-			// var typedConfig corechainlink.Config
-			// unmarshallErr := toml.Unmarshal([]byte(currentConfig), &typedConfig)
-			// if unmarshallErr != nil {
-			// 	return nil, errors.Wrapf(unmarshallErr, "failed to unmarshal config for node index %d", workerNode.Index)
-			// }
-
-			// if len(typedConfig.EVM) < len(chainsFromAddress) {
-			// 	return nil, fmt.Errorf("not enough EVM chains configured in node index %d to add evm config. Expected at least %d chains, but found %d", workerNode.Index, len(chainsFromAddress), len(typedConfig.EVM))
-			// }
-
-			// for idx, evmChain := range typedConfig.EVM {
-			// 	chainID := libc.MustSafeUint64(evmChain.ChainID.Int64())
-			// 	addr, ok := chainsFromAddress[chainID]
-			// 	if ok {
-			// 		// if present means we need fromAddress for this chain
-			// 		address, err := types.NewEIP55Address(addr.Hex())
-			// 		if err != nil {
-			// 			return nil, errors.Wrapf(err, "failed to convert fromAddress to EIP55Address for chain %d", chainID)
-			// 		}
-			// 		typedConfig.EVM[idx].Workflow.FromAddress = &address
-			// 	}
-			// }
-
-			// stringifiedConfig, mErr := toml.Marshal(typedConfig)
-			// if mErr != nil {
-			// 	return nil, errors.Wrapf(mErr, "failed to marshal config for node index %d", workerNode.Index)
-			// }
-
-			// donMetadata.CapabilitiesAwareNodeSet().NodeSpecs[workerNode.Index].Node.TestConfigOverrides = string(stringifiedConfig)
 		}
 	}
 
