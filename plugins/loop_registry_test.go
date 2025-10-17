@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/stretchr/testify/require"
+	"go.uber.org/zap/zapcore"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/beholder"
 	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
@@ -73,6 +74,7 @@ func (m mockCfgTelemetry) HeartbeatInterval() time.Duration {
 }
 
 func (m mockCfgTelemetry) LogStreamingEnabled() bool { return false }
+func (m mockCfgTelemetry) LogLevel() zapcore.Level   { return zapcore.InfoLevel }
 
 type mockCfgDatabase struct{}
 

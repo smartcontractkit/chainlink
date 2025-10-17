@@ -495,6 +495,7 @@ EmitterExportTimeout = '1s'
 ChipIngressEndpoint = ''
 ChipIngressInsecureConnection = false
 HeartbeatInterval = '1s'
+LogLevel = 'info'
 LogStreamingEnabled = false
 
 [Workflows]

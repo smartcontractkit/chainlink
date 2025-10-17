@@ -612,6 +612,7 @@ func TestConfig_Marshal(t *testing.T) {
 		ChipIngressInsecureConnection: ptr(false),
 		HeartbeatInterval:             commoncfg.MustNewDuration(1 * time.Second),
 		LogStreamingEnabled:           ptr(false),
+		LogLevel:                      ptr("info"),
 	}
 	full.CRE = toml.CreConfig{
 		UseLocalTimeProvider: ptr(true),
