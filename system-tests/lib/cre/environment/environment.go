@@ -136,6 +136,7 @@ func SetupTestEnvironment(
 	fmt.Print(libformat.PurpleText("%s", input.StageGen.Wrap("Starting %d blockchain(s)", len(input.BlockchainsInput))))
 
 	deployedBlockchains, startErr := blockchains.Start(
+		testLogger,
 		singleFileLogger,
 		input.BlockchainsInput,
 		input.BlockchainDeployers,

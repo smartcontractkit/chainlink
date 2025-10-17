@@ -167,6 +167,7 @@ func StartDONs(
 	}
 
 	if err := errGroup.Wait(); err != nil {
+		infra.PrintFailedContainerLogs(lggr, 30)
 		return nil, err
 	}
 

@@ -5,9 +5,11 @@ import (
 	"fmt"
 
 	pkgerrors "github.com/pkg/errors"
+	"github.com/rs/zerolog"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	cldf_chain "github.com/smartcontractkit/chainlink-deployments-framework/chain"
+	"github.com/smartcontractkit/chainlink/system-tests/lib/infra"
 
 	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/blockchain"
 )
@@ -38,6 +40,7 @@ func (s *DeployedBlockchains) RegistryChain() Blockchain {
 }
 
 func Start(
+	testLogger zerolog.Logger,
 	commonLogger logger.Logger,
 	inputs []*blockchain.Input,
 	deployers map[blockchain.ChainFamily]Deployer,
@@ -52,6 +55,7 @@ func Start(
 
 		deployer, ok := deployers[chainFamily]
 		if !ok {
+			infra.PrintFailedContainerLogs(testLogger, 30)
 			return nil, fmt.Errorf("no deployer found for blockchain type %s", input.Type)
 		}
 
