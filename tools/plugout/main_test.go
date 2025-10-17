@@ -117,18 +117,40 @@ func TestNormalizeVersion(t *testing.T) {
 
 	t.Run("prefixed tag", func(t *testing.T) {
 		mv := normalizeVersion("sub/dir/v1.2.3")
-		// Current implementation does not parse Tag/TagPrefix for prefixed tags.
 		if mv.Raw != "sub/dir/v1.2.3" || mv.Tag != "v1.2.3" || mv.TagPrefix != "sub/dir" || mv.SHA != "" {
 			t.Fatalf("unexpected mv: %+v", mv)
 		}
 	})
 
 	t.Run("pseudo with sha (go style)", func(t *testing.T) {
-		mv := normalizeVersion("v0.0.0-20251013133428-62ab1091a563")
-		if mv.SHA != "62ab1091a563" || mv.Tag != "" || mv.Raw != "v0.0.0-20251013133428-62ab1091a563" {
-			t.Fatalf("unexpected mv: %+v", mv)
+		valids := []string{
+			"v0.0.0-20251013133428-62ab1091a563",
+			"v1.2.3-0.20250102030405-abcdef123456",
+			"v1.2.3-rc.0.20240102030405-deadbeefcafebabe",
+		}
+		for _, v := range valids {
+			mv := normalizeVersion(v)
+			if mv.SHA == "" || mv.Tag != "" || mv.Raw != v {
+				t.Fatalf("unexpected mv for valid pseudo %q: %+v", v, mv)
+			}
 		}
 	})
+
+	t.Run("bad pseudos should not match", func(t *testing.T) {
+		invalids := []string{
+			"v1.2.3--20240102030405-deadbeef",   // extra hyphen
+			"v1.2.3-20240102030405g-deadbeef",   // junk in timestamp
+			"v1.2.3-0-20240102030405-deadbeef",  // missing dot after 0
+			"v1.2.3-rc.20240102030405-deadbeef", // missing .0 before timestamp for pre-release form
+		}
+		for _, inv := range invalids {
+			mv := normalizeVersion(inv)
+			if mv.SHA != "" || mv.Raw != inv {
+				t.Fatalf("expected no match for invalid pseudo version %q, got %+v", inv, mv)
+			}
+		}
+	})
+
 	t.Run("raw sha", func(t *testing.T) {
 		mv := normalizeVersion("abcdef1234567890")
 		if mv.SHA != "abcdef1234567890" || mv.Tag != "" || mv.Raw != "abcdef1234567890" {

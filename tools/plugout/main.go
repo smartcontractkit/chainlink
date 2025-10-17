@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -242,37 +243,32 @@ func moduleSubdir(module string) string {
 }
 
 var (
-	// Examples:
-	// v0.0.0-20251013133428-62ab1091a563
-	// v1.2.3-0.20250102030405-abcdef123456
-	pseudoWithSHARe = regexp.MustCompile(`^v\d+\.\d+\.\d+(?:-[0-9.]+)?-(?:\d{14})-g?([0-9a-f]{7,40})$`)
-
-	// tag like v0.1.5 (allow pre-release/build suffixes)
-	plainTagRe = regexp.MustCompile(`^v\d+\.\d+\.\d+([.-].*)?$`)
-
-	// subdir-prefixed tag like sub/dir/v0.1.5
+	pseudoWithSHARe = regexp.MustCompile(
+		`^v\d+\.\d+\.\d+(?:-\d{14}|-(?:0|[0-9A-Za-z-]+\.0)\.\d{14})-([0-9a-f]{7,40})$`,
+	)
+	plainTagRe    = regexp.MustCompile(`^v\d+\.\d+\.\d+([.-].*)?$`)
 	prefixedTagRe = regexp.MustCompile(`^(.+?)/+(v\d+\.\d+\.\d+(?:[.-].*)?)$`)
-
-	// raw SHA (7..40 hex)
-	shaOnlyRe = regexp.MustCompile(`^[0-9a-f]{7,40}$`)
+	shaOnlyRe     = regexp.MustCompile(`^[0-9a-f]{7,40}$`)
+	// NEW: matches the middle part of a valid pseudoversion
+	pseudoMiddleRe = regexp.MustCompile(`^(?:\d{14}|(?:0|[0-9A-Za-z-]+\.0)\.\d{14})$`)
 )
 
-// normalizeVersion converts any raw string (tag/pseudo/SHA) into ModuleVersion.
-// Pseudoversions never set Tag; subdir-prefixed tags set Tag+TagPrefix.
 func normalizeVersion(raw string) ModuleVersion {
 	mv := ModuleVersion{Raw: raw}
 	low := strings.ToLower(strings.TrimSpace(raw))
 
-	// 1) Pseudoversion? (detect first; return early after extracting SHA)
-	if pseudoWithSHARe.MatchString(low) {
-		mv.SHA = pseudoWithSHARe.FindStringSubmatch(low)[1]
+	// 1) Pseudoversion? (strict)
+	if m := pseudoWithSHARe.FindStringSubmatch(low); m != nil {
+		mv.SHA = m[1]
 		return mv
 	}
-	// Fallback pseudoversion detector (suffix after last dash looks like a SHA)
-	if mv.SHA == "" && strings.HasPrefix(low, "v") && strings.Count(low, "-") >= 2 {
-		parts := strings.Split(low, "-")
-		last := strings.TrimPrefix(parts[len(parts)-1], "g")
-		if shaOnlyRe.MatchString(last) {
+
+	// 1b) Fallback pseudoversion (guarded)
+	if strings.HasPrefix(low, "v") && strings.Count(low, "-") == 2 {
+		parts := strings.Split(low, "-") // ["vX.Y.Z", middle, sha-ish]
+		middle := parts[1]
+		last := strings.TrimPrefix(parts[2], "g") // tolerate optional 'g' prefix
+		if pseudoMiddleRe.MatchString(middle) && shaOnlyRe.MatchString(last) {
 			mv.SHA = last
 			return mv
 		}
@@ -284,6 +280,7 @@ func normalizeVersion(raw string) ModuleVersion {
 		return mv
 	}
 
+	// 3) Prefixed tag?
 	if m := prefixedTagRe.FindStringSubmatch(low); len(m) == 3 && plainTagRe.MatchString(m[2]) {
 		orig := strings.TrimSpace(raw)
 		if pos := strings.LastIndex(orig, "/"); pos >= 0 && pos+1 < len(orig) {
@@ -294,12 +291,13 @@ func normalizeVersion(raw string) ModuleVersion {
 			}
 		}
 	}
+
+	// 4) Plain tag?
 	if plainTagRe.MatchString(low) {
 		mv.Tag = raw
 		return mv
 	}
 
-	// otherwise leave as-is (unknown form)
 	return mv
 }
 
@@ -329,7 +327,7 @@ func getGoModVersion(goModPath, module string) (ModuleVersion, error) {
 	// The working directory should be the module root containing go.mod
 	modDir := filepath.Dir(goModPath)
 
-	cmd := exec.Command("go", "list", "-m", "-json", "-mod=readonly", module)
+	cmd := exec.CommandContext(context.Background(), "go", "list", "-m", "-json", "-mod=readonly", module)
 	cmd.Dir = modDir
 
 	out, err := cmd.Output()
