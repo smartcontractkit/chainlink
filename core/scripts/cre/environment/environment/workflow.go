@@ -191,7 +191,7 @@ func deployWorkflowCmd() *cobra.Command {
 	cmd.Flags().StringVarP(&secretsFilePathFlag, "secrets-file-path", "s", "", "Path to the secrets file with env var to secret name mappings (not the encrypted one)")
 	cmd.Flags().StringVarP(&secretsOutputFilePathFlag, "secrets-output-file-path", "o", "", "Path to encrypted secrets output file (default \"./encrypted.secrets.json\")")
 	cmd.Flags().StringVarP(&containerTargetDirFlag, "container-target-dir", "t", creworkflow.DefaultWorkflowTargetDir, "Path to the target directory in the Docker container")
-	cmd.Flags().StringVarP(&containerNamePatternFlag, "container-name-pattern", "o", creworkflow.DefaultWorkflowNodePattern, "Pattern to match Docker containers workkflow DON containers (e.g. 'workflow-node')")
+	cmd.Flags().StringVarP(&containerNamePatternFlag, "container-name-pattern", "p", creworkflow.DefaultWorkflowNodePattern, "Pattern to match Docker containers workkflow DON containers (e.g. 'workflow-node')")
 	cmd.Flags().StringVarP(&rpcURLFlag, "rpc-url", "r", "http://localhost:8545", "RPC URL")
 	cmd.Flags().StringVarP(&workflowOwnerAddressFlag, "workflow-owner-address", "d", DefaultWorkflowOwnerAddress, "Workflow owner address")
 	cmd.Flags().StringVarP(&workflowRegistryAddressFlag, "workflow-registry-address", "a", DefaultWorkflowRegistryAddress, "Workflow registry address")
