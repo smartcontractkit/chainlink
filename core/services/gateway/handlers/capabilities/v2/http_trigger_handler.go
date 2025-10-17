@@ -33,10 +33,11 @@ var _ HTTPTriggerHandler = (*httpTriggerHandler)(nil)
 
 const (
 	// Reference: https://github.com/smartcontractkit/chainlink-evm/blob/develop/contracts/src/v0.8/workflow/dev/v2/WorkflowRegistry.sol
-	workflowIDLength      = 66 // 0x + 64 hex characters = 32 bytes
-	workflowOwnerLength   = 42 // 0x + 40 hex characters = 20 bytes
-	maxWorkflowNameLength = 64 // Maximum workflow name length
-	maxWorkflowTagLength  = 32 // Maximum workflow tag length
+	workflowIDLength       = 66 // 0x + 64 hex characters = 32 bytes
+	workflowOwnerLength    = 42 // 0x + 40 hex characters = 20 bytes
+	maxWorkflowNameLength  = 64 // Maximum workflow name length
+	WorkflowNameHashLength = 22 // 0x + 20 hex characters = 10 bytes
+	maxWorkflowTagLength   = 32 // Maximum workflow tag length
 )
 
 type savedCallback struct {
@@ -101,7 +102,7 @@ func (h *httpTriggerHandler) HandleUserTriggerRequest(ctx context.Context, req *
 		return err
 	}
 
-	executionID, err := workflows.EncodeExecutionID(workflowID, req.ID)
+	executionID, err := workflows.EncodeExecutionID(strings.TrimPrefix(workflowID, "0x"), req.ID)
 	if err != nil {
 		h.handleUserError(ctx, req.ID, jsonrpc.ErrInternal, internalErrorMessage, callback)
 		return errors.New("error generating execution ID: " + err.Error())
@@ -219,13 +220,11 @@ func (h *httpTriggerHandler) validateWorkflowFields(ctx context.Context, workflo
 			return err
 		}
 	}
-
 	if hasWorkflowOwner {
 		if err := h.validateWorkflowOwner(ctx, workflow.WorkflowOwner, requestID, callback); err != nil {
 			return err
 		}
 	}
-
 	if hasWorkflowName {
 		if err := h.validateWorkflowName(ctx, workflow.WorkflowName, requestID, callback); err != nil {
 			return err
@@ -241,51 +240,37 @@ func (h *httpTriggerHandler) validateWorkflowFields(ctx context.Context, workflo
 	return nil
 }
 
-// validateWorkflowID validates the workflowID format and length
-func (h *httpTriggerHandler) validateWorkflowID(ctx context.Context, workflowID string, requestID string, callback handlers.Callback) error {
-	if !strings.HasPrefix(workflowID, "0x") {
-		h.handleUserError(ctx, requestID, jsonrpc.ErrInvalidRequest, "workflowID must be prefixed with '0x'", callback)
-		return errors.New("workflowID must be prefixed with '0x'")
-	}
-	if workflowID != strings.ToLower(workflowID) {
-		h.handleUserError(ctx, requestID, jsonrpc.ErrInvalidRequest, "workflowID must be lowercase", callback)
-		return errors.New("workflowID must be lowercase")
+func validateHexInput(input string, expectedLength int) error {
+	if input != strings.ToLower(input) {
+		return errors.New("must be lowercase")
 	}
 
-	if len(workflowID) != workflowIDLength {
-		h.handleUserError(ctx, requestID, jsonrpc.ErrInvalidRequest, fmt.Sprintf("workflowID must be %d characters long (0x + 64 hex), got %d", workflowIDLength, len(workflowID)), callback)
-		return fmt.Errorf("workflowID must be %d characters long (0x + 64 hex characters), got %d", workflowIDLength, len(workflowID))
+	if len(input) > expectedLength {
+		return fmt.Errorf("hex string too long: expected at most %d characters, got %d", expectedLength, len(input))
 	}
 
-	_, err := hex.DecodeString(workflowID[2:])
+	hexStr := strings.TrimPrefix(input, "0x")
+	_, err := hex.DecodeString(hexStr)
 	if err != nil {
-		h.handleUserError(ctx, requestID, jsonrpc.ErrInvalidRequest, "workflowID must be a valid hex string", callback)
-		return errors.New("workflowID must be a valid hex string")
+		return errors.New("must be a valid hex string")
 	}
 
 	return nil
 }
 
-// validateWorkflowOwner validates the workflowOwner format and length
+func (h *httpTriggerHandler) validateWorkflowID(ctx context.Context, workflowID string, requestID string, callback handlers.Callback) error {
+	if err := validateHexInput(workflowID, workflowIDLength); err != nil {
+		h.handleUserError(ctx, requestID, jsonrpc.ErrInvalidRequest, "workflowID "+err.Error(), callback)
+		return errors.New("workflowID " + err.Error())
+	}
+
+	return nil
+}
+
 func (h *httpTriggerHandler) validateWorkflowOwner(ctx context.Context, workflowOwner string, requestID string, callback handlers.Callback) error {
-	if !strings.HasPrefix(workflowOwner, "0x") {
-		h.handleUserError(ctx, requestID, jsonrpc.ErrInvalidRequest, "workflowOwner must be prefixed with '0x'", callback)
-		return errors.New("workflowOwner must be prefixed with '0x'")
-	}
-	if workflowOwner != strings.ToLower(workflowOwner) {
-		h.handleUserError(ctx, requestID, jsonrpc.ErrInvalidRequest, "workflowOwner must be lowercase", callback)
-		return errors.New("workflowOwner must be lowercase")
-	}
-
-	if len(workflowOwner) != workflowOwnerLength {
-		h.handleUserError(ctx, requestID, jsonrpc.ErrInvalidRequest, fmt.Sprintf("workflowOwner must be %d characters long (0x + 40 hex), got %d", workflowOwnerLength, len(workflowOwner)), callback)
-		return fmt.Errorf("workflowOwner must be %d characters long (0x + 40 hex characters), got %d", workflowOwnerLength, len(workflowOwner))
-	}
-
-	_, err := hex.DecodeString(workflowOwner[2:])
-	if err != nil {
-		h.handleUserError(ctx, requestID, jsonrpc.ErrInvalidRequest, "workflowOwner must be a valid hex string", callback)
-		return errors.New("workflowOwner must be a valid hex string")
+	if err := validateHexInput(workflowOwner, workflowOwnerLength); err != nil {
+		h.handleUserError(ctx, requestID, jsonrpc.ErrInvalidRequest, "workflowOwner "+err.Error(), callback)
+		return errors.New("workflowOwner " + err.Error())
 	}
 
 	return nil
@@ -321,15 +306,25 @@ func (h *httpTriggerHandler) validateWorkflowTag(ctx context.Context, workflowTa
 	return nil
 }
 
+// normalizeHex normalizes a hex string by stripping 0x prefix, padding with leading zeros, and adding 0x prefix back
+func normalizeHex(input string, length int) string {
+	hexStr := strings.TrimPrefix(input, "0x")
+	// length-2 because we'll add "0x" prefix
+	expectedHexLength := length - 2
+	paddedHex := strings.Repeat("0", expectedHexLength-len(hexStr)) + hexStr
+	return "0x" + paddedHex
+}
+
 func (h *httpTriggerHandler) resolveWorkflowID(ctx context.Context, triggerReq *jsonrpc.Request[gateway_common.HTTPTriggerRequest], requestID string, callback handlers.Callback) (string, error) {
 	workflowID := triggerReq.Params.Workflow.WorkflowID
 	if workflowID != "" {
+		workflowID = normalizeHex(workflowID, workflowIDLength)
 		return workflowID, nil
 	}
-
+	workflowOwner := normalizeHex(triggerReq.Params.Workflow.WorkflowOwner, workflowOwnerLength)
 	workflowName := "0x" + hex.EncodeToString([]byte(workflows.HashTruncateName(triggerReq.Params.Workflow.WorkflowName)))
 	workflowID, found := h.workflowMetadataHandler.GetWorkflowID(
-		triggerReq.Params.Workflow.WorkflowOwner,
+		workflowOwner,
 		workflowName,
 		triggerReq.Params.Workflow.WorkflowTag,
 	)
