@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"os/exec"
@@ -566,7 +567,7 @@ func findWordsAfterCommand(words []string, command string) []string {
 
 // resetTerm resets terminal settings to Unix defaults.
 func resetTerm() {
-	cmd := exec.Command("stty", "sane")
+	cmd := exec.CommandContext(context.Background(), "stty", "sane")
 	cmd.Stdin = os.Stdin
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
