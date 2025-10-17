@@ -9,6 +9,8 @@ import (
 	"strings"
 
 	"github.com/c-bata/go-prompt"
+	"github.com/spf13/cobra"
+	"github.com/spf13/pflag"
 
 	"github.com/smartcontractkit/chainlink/core/scripts/cre/environment/root"
 )
@@ -23,11 +25,187 @@ type CompletionNode struct {
 
 var commandTree *CompletionNode
 
-func init() {
-	commandTree = buildCommandTree()
+// initCommandTree initializes the command tree. Called from StartShell to ensure
+// all Cobra commands are registered before we inspect them.
+func initCommandTree() {
+	if commandTree == nil {
+		commandTree = buildCommandTreeFromCobra()
+	}
 }
 
+// buildCommandTreeFromCobra automatically builds the completion tree by inspecting Cobra commands.
+// This approach uses runtime reflection to discover all commands, subcommands, and flags from the
+// Cobra command tree, ensuring completions stay in sync with actual command definitions.
+//
+// The function:
+//  1. Walks the entire Cobra command tree recursively
+//  2. Extracts command names, descriptions, and aliases
+//  3. Discovers all flags (including persistent flags) with their metadata:
+//     - Flag names
+//     - Descriptions
+//     - Default values
+//     - Required status (via MarkFlagRequired)
+//  4. Builds a CompletionNode tree structure for fast lookup during completion
+//  5. Applies manual customizations (like dynamic TOML file providers)
+//
+// Benefits:
+//   - Automatic: No manual maintenance of flag lists
+//   - Always accurate: Uses actual command definitions
+//   - Complete: Captures all metadata (defaults, descriptions, required status)
+//   - Maintainable: Single source of truth in Cobra commands
+func buildCommandTreeFromCobra() *CompletionNode {
+	completionRoot := &CompletionNode{
+		Children: make(map[string]*CompletionNode),
+	}
+
+	// Get the cobra root command
+	cobraRoot := root.RootCmd
+
+	// Build suggestions from root command's subcommands
+	for _, cmd := range cobraRoot.Commands() {
+		if cmd.Hidden {
+			continue
+		}
+		completionRoot.Suggestions = append(completionRoot.Suggestions, prompt.Suggest{
+			Text:        cmd.Name(),
+			Description: cmd.Short,
+		})
+	}
+
+	// Add manual "exit" command
+	completionRoot.Suggestions = append(completionRoot.Suggestions, prompt.Suggest{
+		Text:        "exit",
+		Description: "Exit the interactive shell",
+	})
+
+	// Recursively populate the tree from cobra commands
+	for _, cmd := range cobraRoot.Commands() {
+		if cmd.Hidden {
+			continue
+		}
+		node := &CompletionNode{
+			Children: make(map[string]*CompletionNode),
+		}
+		populateNodeFromCobraCmd(node, cmd)
+		completionRoot.Children[cmd.Name()] = node
+
+		// Add aliases
+		for _, alias := range cmd.Aliases {
+			completionRoot.Children[alias] = node
+		}
+	}
+
+	// Apply manual customizations (like dynamic providers)
+	applyManualCustomizations(completionRoot)
+
+	return completionRoot
+}
+
+// populateNodeFromCobraCmd recursively populates a completion node from a Cobra command
+func populateNodeFromCobraCmd(node *CompletionNode, cmd *cobra.Command) {
+	// Extract flags from this command
+	node.Flags = extractFlagsFromCobraCommand(cmd)
+
+	// Build suggestions from subcommands
+	for _, subCmd := range cmd.Commands() {
+		if subCmd.Hidden {
+			continue
+		}
+		node.Suggestions = append(node.Suggestions, prompt.Suggest{
+			Text:        subCmd.Name(),
+			Description: subCmd.Short,
+		})
+	}
+
+	// Recursively process subcommands
+	for _, subCmd := range cmd.Commands() {
+		if subCmd.Hidden {
+			continue
+		}
+		childNode := &CompletionNode{
+			Children: make(map[string]*CompletionNode),
+		}
+		populateNodeFromCobraCmd(childNode, subCmd)
+		node.Children[subCmd.Name()] = childNode
+
+		// Add aliases for subcommands
+		for _, alias := range subCmd.Aliases {
+			node.Children[alias] = childNode
+		}
+	}
+}
+
+// extractFlagsFromCobraCommand extracts flag suggestions from a Cobra command
+func extractFlagsFromCobraCommand(cmd *cobra.Command) []prompt.Suggest {
+	var flags []prompt.Suggest
+	seen := make(map[string]bool)
+
+	// Get list of required flags
+	// When a flag is marked as required via cmd.MarkFlagRequired(),
+	// Cobra stores this in the flag's annotations
+	requiredFlags := make(map[string]bool)
+	if cmd.Flags() != nil {
+		cmd.Flags().VisitAll(func(flag *pflag.Flag) {
+			// Check if the flag has the required annotation
+			if flag.Annotations != nil {
+				if _, ok := flag.Annotations[cobra.BashCompOneRequiredFlag]; ok {
+					requiredFlags[flag.Name] = true
+				}
+			}
+		})
+	}
+
+	// Helper to add a flag (avoids duplicates from persistent + local flags)
+	addFlag := func(flag *pflag.Flag) {
+		if seen[flag.Name] {
+			return
+		}
+		seen[flag.Name] = true
+
+		desc := flag.Usage
+		isRequired := requiredFlags[flag.Name]
+
+		// Add required indicator or default value
+		// Use prominent text marker for required flags (can't use emoji due to go-prompt alignment bug)
+		switch {
+		case isRequired:
+			desc = "--- [REQUIRED] --- " + desc
+		case flag.DefValue != "" && flag.DefValue != "false" && flag.DefValue != "0":
+			desc += fmt.Sprintf(" (default: %s)", flag.DefValue)
+		case flag.DefValue == "false":
+			desc += " (default: false)"
+		}
+
+		flags = append(flags, prompt.Suggest{
+			Text:        "--" + flag.Name,
+			Description: desc,
+		})
+	}
+
+	// Add all flags (both persistent and local)
+	cmd.Flags().VisitAll(addFlag)
+
+	return flags
+}
+
+// applyManualCustomizations applies manual customizations that can't be auto-discovered
+func applyManualCustomizations(root *CompletionNode) {
+	// Add dynamic TOML file provider for env start/restart
+	if envNode, ok := root.Children["env"]; ok {
+		if startNode, ok := envNode.Children["start"]; ok {
+			startNode.DynamicProvider = getWorkflowTomlFiles
+		}
+		if restartNode, ok := envNode.Children["restart"]; ok {
+			restartNode.DynamicProvider = getWorkflowTomlFiles
+		}
+	}
+}
+
+// keep the lintern happy
+var _ = buildCommandTree
+
 // buildCommandTree constructs the complete command tree with all subcommands, flags, and dynamic providers
+// NOTE: This function is now replaced by buildCommandTreeFromCobra but kept for reference
 func buildCommandTree() *CompletionNode {
 	root := &CompletionNode{
 		Suggestions: []prompt.Suggest{
@@ -575,6 +753,8 @@ func resetTerm() {
 }
 
 func StartShell() {
+	initCommandTree()
+
 	defer resetTerm()
 	p := prompt.New(
 		executor,
