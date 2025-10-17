@@ -598,7 +598,9 @@ func NewApplication(ctx context.Context, opts ApplicationOpts) (Application, err
 				opts.DS,
 				opts.CapabilitiesRegistry,
 				creServices.workflowRegistrySyncer,
-				globalLogger),
+				globalLogger,
+				opts.LimitsFactory,
+			),
 			job.Stream: streams.NewDelegate(
 				globalLogger,
 				streamRegistry,
@@ -1067,7 +1069,7 @@ func newCREServices(
 			}
 
 			workflowDonNotifier := capabilities.NewDonNotifier()
-			wfLauncher := capabilities.NewLauncher(
+			wfLauncher, err := capabilities.NewLauncher(
 				globalLogger,
 				externalPeerWrapper,
 				don2donSharedPeer,
@@ -1076,6 +1078,9 @@ func newCREServices(
 				opts.CapabilitiesRegistry,
 				workflowDonNotifier,
 			)
+			if err != nil {
+				return nil, fmt.Errorf("could not create workflow launcher: %w", err)
+			}
 
 			switch externalRegistryVersion.Major() {
 			case 1:

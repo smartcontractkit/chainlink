@@ -6,6 +6,7 @@ import (
 	"math/big"
 	"os"
 	"strconv"
+	"sync"
 	"testing"
 	"time"
 
@@ -47,6 +48,15 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/plugins"
 )
 
+// resetShellForTest resets the Shell's cleanup guard for test isolation.
+// This allows multiple initialization/cleanup cycles in tests.
+func resetShellForTest(shell *cmd.Shell) {
+	shell.CleanupOnce = sync.Once{}
+	shell.LDB = nil
+	shell.DS = nil
+	shell.KeyStore = nil
+}
+
 func genTestEVMRelayers(t *testing.T, cfg chainlink.GeneralConfig, ds sqlutil.DataSource, ethKeystore keystore.Eth, csaKeystore core.Keystore) *chainlink.CoreRelayerChainInteroperators {
 	lggr := logger.TestLogger(t)
 	f := chainlink.RelayerFactory{
@@ -71,87 +81,6 @@ func genTestEVMRelayers(t *testing.T, cfg chainlink.GeneralConfig, ds sqlutil.Da
 		t.Fatal(err)
 	}
 	return relayers
-}
-
-func TestShell_RunNodeWithPasswords(t *testing.T) {
-	tests := []struct {
-		name         string
-		pwdfile      string
-		wantUnlocked bool
-	}{
-		{"correct", "../internal/fixtures/correct_password.txt", true},
-		{"incorrect", "../internal/fixtures/incorrect_password.txt", false},
-		{"wrongfile", "doesntexist.txt", false},
-	}
-
-	for _, test := range tests {
-		t.Run(test.name, func(t *testing.T) {
-			cfg := configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
-				s.Password.Keystore = models.NewSecret("dummy")
-				c.EVM[0].Nodes[0].Name = ptr("fake")
-				c.EVM[0].Nodes[0].HTTPURL = commonconfig.MustParseURL("http://fake.com")
-				c.EVM[0].Nodes[0].WSURL = commonconfig.MustParseURL("WSS://fake.com/ws")
-				// seems to be needed for config validate
-				c.Insecure.OCRDevelopmentMode = nil
-			})
-			db := pgtest.NewSqlxDB(t)
-			keyStore := cltest.NewKeyStore(t, db)
-			authProviderORM := localauth.NewORM(db, time.Minute, logger.TestLogger(t), audit.NoopLogger)
-
-			testRelayers := genTestEVMRelayers(t, cfg, db, keyStore.Eth(), &keystore.CSASigner{CSA: keyStore.CSA()})
-
-			// Purge the fixture users to test assumption of single admin
-			// initialUser user created above
-			pgtest.MustExec(t, db, "DELETE FROM users;")
-
-			app := mocks.NewApplication(t)
-			app.On("AuthenticationProvider").Return(authProviderORM).Maybe()
-			app.On("BasicAdminUsersORM").Return(authProviderORM).Maybe()
-			app.On("GetKeyStore").Return(keyStore).Maybe()
-			app.On("GetRelayers").Return(testRelayers).Maybe()
-			app.On("Start", mock.Anything).Maybe().Return(nil)
-			app.On("Stop").Maybe().Return(nil)
-			app.On("ID").Maybe().Return(uuid.New())
-
-			ethClient := evmtest.NewEthClientMock(t)
-			ethClient.On("Dial", mock.Anything).Return(nil).Maybe()
-			ethClient.On("BalanceAt", mock.Anything, mock.Anything, mock.Anything).Return(big.NewInt(10), nil).Maybe()
-
-			cltest.MustInsertRandomKey(t, keyStore.Eth())
-			apiPrompt := cltest.NewMockAPIInitializer(t)
-
-			client := cmd.Shell{
-				Config:                 cfg,
-				FallbackAPIInitializer: apiPrompt,
-				Runner:                 cltest.EmptyRunner{},
-				AppFactory:             cltest.InstanceAppFactoryWithKeystoreMock{App: app},
-				Logger:                 logger.TestLogger(t),
-			}
-
-			set := flag.NewFlagSet("test", 0)
-			flagSetApplyFromAction(client.RunNode, set, "")
-
-			require.NoError(t, set.Set("password", test.pwdfile))
-
-			c := cli.NewContext(nil, set, nil)
-
-			run := func() error {
-				cli := cmd.NewApp(&client)
-				if err := cli.Before(c); err != nil {
-					return err
-				}
-				return client.RunNode(c)
-			}
-
-			if test.wantUnlocked {
-				assert.NoError(t, run())
-				assert.Equal(t, 1, apiPrompt.Count)
-			} else {
-				assert.Error(t, run())
-				assert.Equal(t, 0, apiPrompt.Count)
-			}
-		})
-	}
 }
 
 func TestShell_RunNodeWithAPICredentialsFile(t *testing.T) {
@@ -256,7 +185,7 @@ func TestShell_DiskMaxSizeBeforeRotateOptionDisablesAsExpected(t *testing.T) {
 				Dir:           t.TempDir(),
 				FileMaxSizeMB: int(tt.logFileSize(t) / utils.MB),
 			}
-			assert.NoError(t, os.MkdirAll(cfg.Dir, os.FileMode(0700)))
+			require.NoError(t, os.MkdirAll(cfg.Dir, os.FileMode(0o700)))
 
 			lggr, closeFn := cfg.New()
 			t.Cleanup(func() { assert.NoError(t, closeFn()) })
@@ -324,6 +253,10 @@ func TestShell_RebroadcastTransactions_Txm(t *testing.T) {
 	require.NoError(t, set.Set("password", "../internal/fixtures/correct_password.txt"))
 
 	ctx := cli.NewContext(nil, set, nil)
+
+	// Run before hook to initialize components with authentication
+	err := c.BeforeNode(ctx)
+	require.NoError(t, err)
 
 	for i := beginningNonce; i <= endingNonce; i++ {
 		n := i
@@ -405,6 +338,10 @@ func TestShell_RebroadcastTransactions_OutsideRange_Txm(t *testing.T) {
 			require.NoError(t, set.Set("password", "../internal/fixtures/correct_password.txt"))
 			ctx := cli.NewContext(nil, set, nil)
 
+			// Run before hook to initialize components with authentication
+			err := c.BeforeNode(ctx)
+			require.NoError(t, err)
+
 			for i := beginningNonce; i <= endingNonce; i++ {
 				n := i
 				ethClient.On("SendTransactionReturnCode", mock.Anything, mock.MatchedBy(func(tx *gethTypes.Transaction) bool {
@@ -478,6 +415,11 @@ func TestShell_RebroadcastTransactions_AddressCheck(t *testing.T) {
 			require.NoError(t, set.Set("address", fromAddress.Hex()))
 			require.NoError(t, set.Set("password", "../internal/fixtures/correct_password.txt"))
 			c := cli.NewContext(nil, set, nil)
+
+			// Run before hook to initialize components with authentication
+			err := client.BeforeNode(c)
+			require.NoError(t, err)
+
 			if test.shouldError {
 				require.ErrorContains(t, client.RebroadcastTransactions(c), test.errorContains)
 			} else {
@@ -561,4 +503,171 @@ func TestShell_RemoveBlocks(t *testing.T) {
 		err := shell.RemoveBlocks(c)
 		require.NoError(t, err)
 	})
+}
+
+func TestShell_BeforeNode(t *testing.T) {
+	tests := []struct {
+		name         string
+		pwdfile      string
+		wantUnlocked bool
+	}{
+		{"correct password", "../internal/fixtures/correct_password.txt", true},
+		{"incorrect password", "../internal/fixtures/incorrect_password.txt", false},
+		{"wrong file", "doesntexist.txt", false},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			cfg := configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
+				s.Password.Keystore = models.NewSecret("dummy")
+				c.EVM[0].Nodes[0].Name = ptr("fake")
+				c.EVM[0].Nodes[0].HTTPURL = commonconfig.MustParseURL("http://fake.com")
+				c.EVM[0].Nodes[0].WSURL = commonconfig.MustParseURL("WSS://fake.com/ws")
+				c.Insecure.OCRDevelopmentMode = nil
+			})
+
+			shell := cmd.Shell{
+				Config: cfg,
+				KeyStoreAuthenticator: cmd.TerminalKeyStoreAuthenticator{
+					Prompter: &cltest.MockCountingPrompter{T: t, NotTerminal: true},
+				},
+				Logger: logger.TestLogger(t),
+			}
+			// Reset for test isolation
+			defer resetShellForTest(&shell)
+
+			set := flag.NewFlagSet("test", 0)
+			flagSetApplyFromAction(shell.RunNode, set, "")
+			require.NoError(t, set.Set("password", test.pwdfile))
+
+			c := cli.NewContext(nil, set, nil)
+
+			// Create full CLI app and run the Before hook first
+			app := cmd.NewApp(&shell)
+			err := app.Before(c)
+			if err != nil && test.wantUnlocked {
+				t.Fatalf("CLI Before hook failed: %v", err)
+			}
+
+			// Run before hook to initialize components with authentication
+			err = shell.BeforeNode(c)
+
+			if test.wantUnlocked {
+				require.NoError(t, err)
+				// Verify that shell components were initialized
+				assert.NotNil(t, shell.KeyStore)
+				assert.NotNil(t, shell.DS)
+				assert.NotNil(t, shell.LDB)
+
+				// Verify keystore is unlocked by checking if we can access keys
+				keys, keysErr := shell.KeyStore.CSA().GetAll()
+				require.NoError(t, keysErr)
+				assert.NotEmpty(t, keys)
+			} else {
+				require.Error(t, err)
+			}
+			// Clean up database if it was opened
+			if shell.LDB != nil {
+				cleanupErr := shell.AfterNode(c)
+				require.NoError(t, cleanupErr)
+			}
+		})
+	}
+}
+
+func TestShell_RunNode_WithBeforeNode(t *testing.T) {
+	tests := []struct {
+		name        string
+		pwdfile     string
+		expectStart bool
+	}{
+		{"correct password", "../internal/fixtures/correct_password.txt", true},
+		{"incorrect password", "../internal/fixtures/incorrect_password.txt", false},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			cfg := configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
+				s.Password.Keystore = models.NewSecret("dummy")
+				c.EVM[0].Nodes[0].Name = ptr("fake")
+				c.EVM[0].Nodes[0].HTTPURL = commonconfig.MustParseURL("http://fake.com")
+				c.EVM[0].Nodes[0].WSURL = commonconfig.MustParseURL("WSS://fake.com/ws")
+				// seems to be needed for config validate
+				c.Insecure.OCRDevelopmentMode = nil
+			})
+
+			db := pgtest.NewSqlxDB(t)
+			keyStore := cltest.NewKeyStore(t, db)
+			authProviderORM := localauth.NewORM(db, time.Minute, logger.TestLogger(t), audit.NoopLogger)
+
+			testRelayers := genTestEVMRelayers(t, cfg, db, keyStore.Eth(), &keystore.CSASigner{CSA: keyStore.CSA()})
+
+			// Purge fixture users to test assumption of single admin
+			pgtest.MustExec(t, db, "DELETE FROM users;")
+
+			app := mocks.NewApplication(t)
+			app.On("AuthenticationProvider").Return(authProviderORM).Maybe()
+			app.On("BasicAdminUsersORM").Return(authProviderORM).Maybe()
+			app.On("GetKeyStore").Return(keyStore).Maybe()
+			app.On("GetRelayers").Return(testRelayers).Maybe()
+			app.On("Start", mock.Anything).Maybe().Return(nil)
+			app.On("Stop").Maybe().Return(nil)
+			app.On("ID").Maybe().Return(uuid.New())
+
+			ethClient := clienttest.NewClient(t)
+			ethClient.On("Dial", mock.Anything).Return(nil).Maybe()
+			ethClient.On("BalanceAt", mock.Anything, mock.Anything, mock.Anything).Return(big.NewInt(10), nil).Maybe()
+
+			cltest.MustInsertRandomKey(t, keyStore.Eth())
+			apiPrompt := cltest.NewMockAPIInitializer(t)
+
+			shell := cmd.Shell{
+				Config:                 cfg,
+				FallbackAPIInitializer: apiPrompt,
+				Runner:                 cltest.EmptyRunner{},
+				AppFactory:             cltest.InstanceAppFactory{App: app},
+				KeyStoreAuthenticator: cmd.TerminalKeyStoreAuthenticator{
+					Prompter: &cltest.MockCountingPrompter{T: t, NotTerminal: true},
+				},
+				Logger: logger.TestLogger(t),
+			}
+			// Reset for test isolation
+			defer resetShellForTest(&shell)
+
+			set := flag.NewFlagSet("test", 0)
+			flagSetApplyFromAction(shell.RunNode, set, "")
+			require.NoError(t, set.Set("password", test.pwdfile))
+
+			c := cli.NewContext(nil, set, nil)
+
+			// First initialize components (this includes authentication)
+			cliApp := cmd.NewApp(&shell)
+			err := cliApp.Before(c)
+			require.NoError(t, err)
+
+			err = shell.BeforeNode(c)
+
+			if test.expectStart {
+				require.NoError(t, err, "BeforeNode should succeed")
+				// Verify components are initialized
+				assert.NotNil(t, shell.KeyStore)
+				assert.NotNil(t, shell.DS)
+				assert.NotNil(t, shell.LDB)
+
+				// Now test RunNode with pre-authenticated keystore
+				// Note: RunNode will start the app but we expect it to work since keystore is authenticated
+				err = shell.RunNode(c)
+				require.NoError(t, err, "RunNode should succeed with authenticated keystore")
+				assert.Equal(t, 1, apiPrompt.Count, "API should be initialized")
+			} else {
+				require.Error(t, err, "BeforeNode should fail with incorrect password")
+				// Don't test RunNode if BeforeNode failed
+			}
+			// Clean up database if it was opened
+			if shell.LDB != nil {
+				cleanupErr := shell.AfterNode(c)
+				require.NoError(t, cleanupErr)
+			}
+		})
+	}
 }

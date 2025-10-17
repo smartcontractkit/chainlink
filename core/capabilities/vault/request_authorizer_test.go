@@ -32,6 +32,7 @@ func TestRequestAuthorizer_CreateSecrets(t *testing.T) {
 		},
 	})
 	allowListedReq := jsonrpc.Request[json.RawMessage]{
+		ID:     "123",
 		Method: vaulttypes.MethodSecretsCreate,
 		Params: (*json.RawMessage)(&params),
 	}
@@ -49,6 +50,7 @@ func TestRequestAuthorizer_CreateSecrets(t *testing.T) {
 	})
 	require.NoError(t, err)
 	notAllowListedReq := jsonrpc.Request[json.RawMessage]{
+		ID:     "123",
 		Method: vaulttypes.MethodSecretsCreate,
 		Params: (*json.RawMessage)(&notAllowedParams),
 	}
@@ -70,6 +72,7 @@ func TestRequestAuthorizer_UpdateSecrets(t *testing.T) {
 		},
 	})
 	allowListedReq := jsonrpc.Request[json.RawMessage]{
+		ID:     "123",
 		Method: vaulttypes.MethodSecretsUpdate,
 		Params: (*json.RawMessage)(&params),
 	}
@@ -87,6 +90,7 @@ func TestRequestAuthorizer_UpdateSecrets(t *testing.T) {
 	})
 	require.NoError(t, err)
 	notAllowListedReq := jsonrpc.Request[json.RawMessage]{
+		ID:     "123",
 		Method: vaulttypes.MethodSecretsUpdate,
 		Params: (*json.RawMessage)(&notAllowedParams),
 	}
@@ -104,6 +108,7 @@ func TestRequestAuthorizer_DeleteSecrets(t *testing.T) {
 		},
 	})
 	allowListedReq := jsonrpc.Request[json.RawMessage]{
+		ID:     "123",
 		Method: vaulttypes.MethodSecretsDelete,
 		Params: (*json.RawMessage)(&params),
 	}
@@ -118,6 +123,7 @@ func TestRequestAuthorizer_DeleteSecrets(t *testing.T) {
 	})
 	require.NoError(t, err)
 	notAllowListedReq := jsonrpc.Request[json.RawMessage]{
+		ID:     "123",
 		Method: vaulttypes.MethodSecretsDelete,
 		Params: (*json.RawMessage)(&notAllowedParams),
 	}
@@ -130,6 +136,7 @@ func TestRequestAuthorizer_ListSecrets(t *testing.T) {
 		Namespace: "b",
 	})
 	allowListedReq := jsonrpc.Request[json.RawMessage]{
+		ID:     "123",
 		Method: vaulttypes.MethodSecretsList,
 		Params: (*json.RawMessage)(&params),
 	}
@@ -139,6 +146,7 @@ func TestRequestAuthorizer_ListSecrets(t *testing.T) {
 	})
 	require.NoError(t, err)
 	notAllowListedReq := jsonrpc.Request[json.RawMessage]{
+		ID:     "123",
 		Method: vaulttypes.MethodSecretsList,
 		Params: (*json.RawMessage)(&notAllowedParams),
 	}
@@ -178,9 +186,16 @@ func testAuthForRequests(t *testing.T, allowlistedRequest, notAllowlistedRequest
 	require.ErrorContains(t, err, "already authorized previously")
 
 	// Expired request
+	allowlistedReqCopy := allowlistedRequest
+	allowlistedReqCopy.ID = "456"
+	allowlistedReqCopyDigest, err := allowlistedReqCopy.Digest()
+	require.NoError(t, err)
+	allowlistedReqCopyDigestBytes, err := hex.DecodeString(allowlistedReqCopyDigest)
+	require.NoError(t, err)
+	allowlisted[0].RequestDigest = [32]byte(allowlistedReqCopyDigestBytes)
 	allowlisted[0].ExpiryTimestamp = uint32(time.Now().UTC().Unix() - 1) //nolint:gosec // it is a safe conversion
 	mockSyncer.On("GetAllowlistedRequests", mock.Anything).Return(allowlisted)
-	isAuthorized, _, err = auth.AuthorizeRequest(context.Background(), allowlistedRequest)
+	isAuthorized, _, err = auth.AuthorizeRequest(context.Background(), allowlistedReqCopy)
 	require.False(t, isAuthorized)
 	require.ErrorContains(t, err, "authorization expired")
 

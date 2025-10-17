@@ -8,7 +8,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
-	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/transmitter"
+	"github.com/smartcontractkit/chainlink-evm/pkg/transmitter"
 )
 
 type pluginProvider struct {

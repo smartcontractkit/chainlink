@@ -66,6 +66,11 @@ var (
 		RateCards: successRates,
 		Credits:   "10000",
 	}
+	successZeroReserveResponseWithRates = billing.ReserveCreditsResponse{
+		Success:   true,
+		RateCards: successRates,
+		Credits:   "0",
+	}
 	successReserveResponseWithMultiRates = billing.ReserveCreditsResponse{Success: true, RateCards: successRatesMulti, Credits: "10000"}
 	failureReserveResponse               = billing.ReserveCreditsResponse{
 		Success: false,
@@ -1306,6 +1311,63 @@ func Test_Report_SendReceipt(t *testing.T) {
 
 		_, err = report.Deduct("step3", ByResource(testUnitA, "", decimal.NewFromInt(2)))
 		require.NoError(t, err)
+		require.NoError(t, report.Settle("step3", capabilities.ResponseMetadata{Metering: []capabilities.MeteringNodeDetail{
+			{Peer2PeerID: "node3", SpendUnit: testUnitA, SpendValue: "2"},
+		}}))
+
+		// Total deducted: 2 + 4 + 2 = 8 units of compute = 16 credits consumed
+		billingClient.EXPECT().SubmitWorkflowReceipt(mock.Anything, mock.MatchedBy(func(req *billing.SubmitWorkflowReceiptRequest) bool {
+			if req == nil {
+				return false
+			}
+
+			return req.WorkflowId == "workflowId" &&
+				req.WorkflowExecutionId == "workflowExecutionId" &&
+				req.CreditsConsumed == "16" &&
+				req.WorkflowOwner == "accountId" &&
+				req.WorkflowRegistryAddress == "0x123" &&
+				req.WorkflowRegistryChainSelector == 16015286601757825753 &&
+				req.Metering != nil &&
+				req.Metering.Metadata != nil &&
+				!req.Metering.MeteringMode &&
+				req.Metering.Message == ""
+		})).Return(&emptypb.Empty{}, nil)
+
+		require.NoError(t, report.SendReceipt(t.Context()))
+		billingClient.AssertExpectations(t)
+	})
+
+	t.Run("happy path with zero reserve and insufficient balance does not block workflow execution", func(t *testing.T) {
+		t.Parallel()
+
+		billingClient := mocks.NewBillingClient(t)
+		billingClient.EXPECT().GetWorkflowExecutionRates(mock.Anything, mock.Anything).
+			Return(&billing.GetWorkflowExecutionRatesResponse{
+				RateCards: successRates,
+			}, nil)
+		billingClient.EXPECT().ReserveCredits(mock.Anything, mock.Anything).
+			Return(&successZeroReserveResponseWithRates, nil)
+
+		report := newTestReport(t, logger.Nop(), billingClient)
+
+		require.NoError(t, report.Reserve(t.Context()))
+
+		// Deduct and Settle a few times to consume credits
+		// Each deduction of 2 units of compute consumes 1 credit (rate: 2 units per credit)
+		_, err := report.Deduct("step1", ByResource(testUnitA, "", decimal.NewFromInt(2)))
+		require.ErrorIs(t, err, ErrInsufficientBalance) // insufficient balance does not block workflow execution
+		require.NoError(t, report.Settle("step1", capabilities.ResponseMetadata{Metering: []capabilities.MeteringNodeDetail{
+			{Peer2PeerID: "node1", SpendUnit: testUnitA, SpendValue: "2"},
+		}}))
+
+		_, err = report.Deduct("step2", ByResource(testUnitA, "", decimal.NewFromInt(4)))
+		require.ErrorIs(t, err, ErrInsufficientBalance)
+		require.NoError(t, report.Settle("step2", capabilities.ResponseMetadata{Metering: []capabilities.MeteringNodeDetail{
+			{Peer2PeerID: "node2", SpendUnit: testUnitA, SpendValue: "4"},
+		}}))
+
+		_, err = report.Deduct("step3", ByResource(testUnitA, "", decimal.NewFromInt(2)))
+		require.ErrorIs(t, err, ErrInsufficientBalance)
 		require.NoError(t, report.Settle("step3", capabilities.ResponseMetadata{Metering: []capabilities.MeteringNodeDetail{
 			{Peer2PeerID: "node3", SpendUnit: testUnitA, SpendValue: "2"},
 		}}))

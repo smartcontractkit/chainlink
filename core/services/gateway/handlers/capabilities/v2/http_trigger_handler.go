@@ -12,12 +12,15 @@ import (
 
 	"github.com/jpillora/backoff"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/contexts"
 	jsonrpc "github.com/smartcontractkit/chainlink-common/pkg/jsonrpc2"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
-	"github.com/smartcontractkit/chainlink-common/pkg/ratelimit"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
+	"github.com/smartcontractkit/chainlink-common/pkg/settings"
+	"github.com/smartcontractkit/chainlink-common/pkg/settings/limits"
 	gateway_common "github.com/smartcontractkit/chainlink-common/pkg/types/gateway"
 	"github.com/smartcontractkit/chainlink-common/pkg/workflows"
+	"github.com/smartcontractkit/chainlink/v2/core/platform"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/api"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/common/aggregation"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/config"
@@ -30,10 +33,11 @@ var _ HTTPTriggerHandler = (*httpTriggerHandler)(nil)
 
 const (
 	// Reference: https://github.com/smartcontractkit/chainlink-evm/blob/develop/contracts/src/v0.8/workflow/dev/v2/WorkflowRegistry.sol
-	workflowIDLength      = 66 // 0x + 64 hex characters = 32 bytes
-	workflowOwnerLength   = 42 // 0x + 40 hex characters = 20 bytes
-	maxWorkflowNameLength = 64 // Maximum workflow name length
-	maxWorkflowTagLength  = 32 // Maximum workflow tag length
+	workflowIDLength       = 66 // 0x + 64 hex characters = 32 bytes
+	workflowOwnerLength    = 42 // 0x + 40 hex characters = 20 bytes
+	maxWorkflowNameLength  = 64 // Maximum workflow name length
+	WorkflowNameHashLength = 22 // 0x + 20 hex characters = 10 bytes
+	maxWorkflowTagLength   = 32 // Maximum workflow tag length
 )
 
 type savedCallback struct {
@@ -53,8 +57,9 @@ type httpTriggerHandler struct {
 	callbacks               map[string]savedCallback // requestID -> savedCallback
 	stopCh                  services.StopChan
 	workflowMetadataHandler *WorkflowMetadataHandler
-	userRateLimiter         *ratelimit.RateLimiter
+	userRateLimiter         limits.RateLimiter
 	metrics                 *metrics.Metrics
+	wg                      sync.WaitGroup
 }
 
 type HTTPTriggerHandler interface {
@@ -63,7 +68,7 @@ type HTTPTriggerHandler interface {
 	HandleNodeTriggerResponse(ctx context.Context, resp *jsonrpc.Response[json.RawMessage], nodeAddr string) error
 }
 
-func NewHTTPTriggerHandler(lggr logger.Logger, cfg ServiceConfig, donConfig *config.DONConfig, don handlers.DON, workflowMetadataHandler *WorkflowMetadataHandler, userRateLimiter *ratelimit.RateLimiter, metrics *metrics.Metrics) *httpTriggerHandler {
+func NewHTTPTriggerHandler(lggr logger.Logger, cfg ServiceConfig, donConfig *config.DONConfig, don handlers.DON, workflowMetadataHandler *WorkflowMetadataHandler, userRateLimiter limits.RateLimiter, metrics *metrics.Metrics) *httpTriggerHandler {
 	return &httpTriggerHandler{
 		lggr:                    logger.Named(lggr, "RequestCallbacks"),
 		callbacks:               make(map[string]savedCallback),
@@ -97,7 +102,7 @@ func (h *httpTriggerHandler) HandleUserTriggerRequest(ctx context.Context, req *
 		return err
 	}
 
-	executionID, err := workflows.EncodeExecutionID(workflowID, req.ID)
+	executionID, err := workflows.EncodeExecutionID(strings.TrimPrefix(workflowID, "0x"), req.ID)
 	if err != nil {
 		h.handleUserError(ctx, req.ID, jsonrpc.ErrInternal, internalErrorMessage, callback)
 		return errors.New("error generating execution ID: " + err.Error())
@@ -215,13 +220,11 @@ func (h *httpTriggerHandler) validateWorkflowFields(ctx context.Context, workflo
 			return err
 		}
 	}
-
 	if hasWorkflowOwner {
 		if err := h.validateWorkflowOwner(ctx, workflow.WorkflowOwner, requestID, callback); err != nil {
 			return err
 		}
 	}
-
 	if hasWorkflowName {
 		if err := h.validateWorkflowName(ctx, workflow.WorkflowName, requestID, callback); err != nil {
 			return err
@@ -237,51 +240,37 @@ func (h *httpTriggerHandler) validateWorkflowFields(ctx context.Context, workflo
 	return nil
 }
 
-// validateWorkflowID validates the workflowID format and length
-func (h *httpTriggerHandler) validateWorkflowID(ctx context.Context, workflowID string, requestID string, callback handlers.Callback) error {
-	if !strings.HasPrefix(workflowID, "0x") {
-		h.handleUserError(ctx, requestID, jsonrpc.ErrInvalidRequest, "workflowID must be prefixed with '0x'", callback)
-		return errors.New("workflowID must be prefixed with '0x'")
-	}
-	if workflowID != strings.ToLower(workflowID) {
-		h.handleUserError(ctx, requestID, jsonrpc.ErrInvalidRequest, "workflowID must be lowercase", callback)
-		return errors.New("workflowID must be lowercase")
+func validateHexInput(input string, expectedLength int) error {
+	if input != strings.ToLower(input) {
+		return errors.New("must be lowercase")
 	}
 
-	if len(workflowID) != workflowIDLength {
-		h.handleUserError(ctx, requestID, jsonrpc.ErrInvalidRequest, fmt.Sprintf("workflowID must be %d characters long (0x + 64 hex), got %d", workflowIDLength, len(workflowID)), callback)
-		return fmt.Errorf("workflowID must be %d characters long (0x + 64 hex characters), got %d", workflowIDLength, len(workflowID))
+	if len(input) > expectedLength {
+		return fmt.Errorf("hex string too long: expected at most %d characters, got %d", expectedLength, len(input))
 	}
 
-	_, err := hex.DecodeString(workflowID[2:])
+	hexStr := strings.TrimPrefix(input, "0x")
+	_, err := hex.DecodeString(hexStr)
 	if err != nil {
-		h.handleUserError(ctx, requestID, jsonrpc.ErrInvalidRequest, "workflowID must be a valid hex string", callback)
-		return errors.New("workflowID must be a valid hex string")
+		return errors.New("must be a valid hex string")
 	}
 
 	return nil
 }
 
-// validateWorkflowOwner validates the workflowOwner format and length
+func (h *httpTriggerHandler) validateWorkflowID(ctx context.Context, workflowID string, requestID string, callback handlers.Callback) error {
+	if err := validateHexInput(workflowID, workflowIDLength); err != nil {
+		h.handleUserError(ctx, requestID, jsonrpc.ErrInvalidRequest, "workflowID "+err.Error(), callback)
+		return errors.New("workflowID " + err.Error())
+	}
+
+	return nil
+}
+
 func (h *httpTriggerHandler) validateWorkflowOwner(ctx context.Context, workflowOwner string, requestID string, callback handlers.Callback) error {
-	if !strings.HasPrefix(workflowOwner, "0x") {
-		h.handleUserError(ctx, requestID, jsonrpc.ErrInvalidRequest, "workflowOwner must be prefixed with '0x'", callback)
-		return errors.New("workflowOwner must be prefixed with '0x'")
-	}
-	if workflowOwner != strings.ToLower(workflowOwner) {
-		h.handleUserError(ctx, requestID, jsonrpc.ErrInvalidRequest, "workflowOwner must be lowercase", callback)
-		return errors.New("workflowOwner must be lowercase")
-	}
-
-	if len(workflowOwner) != workflowOwnerLength {
-		h.handleUserError(ctx, requestID, jsonrpc.ErrInvalidRequest, fmt.Sprintf("workflowOwner must be %d characters long (0x + 40 hex), got %d", workflowOwnerLength, len(workflowOwner)), callback)
-		return fmt.Errorf("workflowOwner must be %d characters long (0x + 40 hex characters), got %d", workflowOwnerLength, len(workflowOwner))
-	}
-
-	_, err := hex.DecodeString(workflowOwner[2:])
-	if err != nil {
-		h.handleUserError(ctx, requestID, jsonrpc.ErrInvalidRequest, "workflowOwner must be a valid hex string", callback)
-		return errors.New("workflowOwner must be a valid hex string")
+	if err := validateHexInput(workflowOwner, workflowOwnerLength); err != nil {
+		h.handleUserError(ctx, requestID, jsonrpc.ErrInvalidRequest, "workflowOwner "+err.Error(), callback)
+		return errors.New("workflowOwner " + err.Error())
 	}
 
 	return nil
@@ -317,15 +306,25 @@ func (h *httpTriggerHandler) validateWorkflowTag(ctx context.Context, workflowTa
 	return nil
 }
 
+// normalizeHex normalizes a hex string by stripping 0x prefix, padding with leading zeros, and adding 0x prefix back
+func normalizeHex(input string, length int) string {
+	hexStr := strings.TrimPrefix(input, "0x")
+	// length-2 because we'll add "0x" prefix
+	expectedHexLength := length - 2
+	paddedHex := strings.Repeat("0", expectedHexLength-len(hexStr)) + hexStr
+	return "0x" + paddedHex
+}
+
 func (h *httpTriggerHandler) resolveWorkflowID(ctx context.Context, triggerReq *jsonrpc.Request[gateway_common.HTTPTriggerRequest], requestID string, callback handlers.Callback) (string, error) {
 	workflowID := triggerReq.Params.Workflow.WorkflowID
 	if workflowID != "" {
+		workflowID = normalizeHex(workflowID, workflowIDLength)
 		return workflowID, nil
 	}
-
+	workflowOwner := normalizeHex(triggerReq.Params.Workflow.WorkflowOwner, workflowOwnerLength)
 	workflowName := "0x" + hex.EncodeToString([]byte(workflows.HashTruncateName(triggerReq.Params.Workflow.WorkflowName)))
 	workflowID, found := h.workflowMetadataHandler.GetWorkflowID(
-		triggerReq.Params.Workflow.WorkflowOwner,
+		workflowOwner,
 		workflowName,
 		triggerReq.Params.Workflow.WorkflowTag,
 	)
@@ -351,16 +350,21 @@ func (h *httpTriggerHandler) checkRateLimit(ctx context.Context, workflowID, req
 		h.handleUserError(ctx, requestID, jsonrpc.ErrInvalidRequest, "workflow reference not found", callback)
 		return errors.New("workflow reference not found")
 	}
-	workflowOwnerAllow, globalAllow := h.userRateLimiter.AllowVerbose(workflowRef.workflowOwner)
-	if !workflowOwnerAllow {
-		h.metrics.Trigger.IncrementWorkflowOwnerThrottled(ctx, h.lggr)
-		h.handleUserError(ctx, requestID, jsonrpc.ErrLimitExceeded, "rate limit exceeded", callback)
-		return errors.New("workflow owner rate limit exceeded")
-	}
-	if !globalAllow {
-		h.metrics.Trigger.IncrementGlobalThrottled(ctx, h.lggr)
-		h.handleUserError(ctx, requestID, jsonrpc.ErrLimitExceeded, "rate limit exceeded", callback)
-		return errors.New("global rate limit exceeded")
+	ctx = contexts.WithCRE(ctx, contexts.CRE{Owner: workflowRef.workflowOwner, Workflow: workflowID})
+	if err := h.userRateLimiter.AllowErr(ctx); err != nil {
+		lggr := logger.With(h.lggr, platform.KeyWorkflowID, workflowID, platform.KeyWorkflowOwner, workflowRef.workflowOwner, "requestID", requestID, "err", err)
+		var errLimited limits.ErrorRateLimited
+		if errors.As(err, &errLimited) {
+			switch errLimited.Scope {
+			case settings.ScopeWorkflow:
+				lggr.Errorf("failed to start execution: per workflow rate limit exceeded")
+				h.metrics.Trigger.IncrementWorkflowThrottled(ctx, h.lggr)
+			default:
+				lggr.Errorf("failed to start execution: unexpected rate limit for scope %s", errLimited.Scope)
+			}
+			h.handleUserError(ctx, requestID, jsonrpc.ErrLimitExceeded, "rate limit exceeded", callback)
+			return err
+		}
 	}
 	return nil
 }
@@ -427,7 +431,9 @@ func (h *httpTriggerHandler) HandleNodeTriggerResponse(ctx context.Context, resp
 func (h *httpTriggerHandler) Start(ctx context.Context) error {
 	return h.StartOnce("HTTPTriggerHandler", func() error {
 		h.lggr.Info("Starting HTTPTriggerHandler")
+		h.wg.Add(1)
 		go func() {
+			defer h.wg.Done()
 			ticker := time.NewTicker(time.Duration(h.config.CleanUpPeriodMs) * time.Millisecond)
 			defer ticker.Stop()
 			for {
@@ -447,6 +453,7 @@ func (h *httpTriggerHandler) Close() error {
 	return h.StopOnce("HTTPTriggerHandler", func() error {
 		h.lggr.Info("Closing HTTPTriggerHandler")
 		close(h.stopCh)
+		h.wg.Wait()
 		return nil
 	})
 }

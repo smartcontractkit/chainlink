@@ -10,18 +10,22 @@ var warnCounter = promauto.NewCounter(prometheus.CounterOpts{
 	Name: "log_warn_count",
 	Help: "Number of warning messages in log",
 })
+
 var errorCounter = promauto.NewCounter(prometheus.CounterOpts{
 	Name: "log_error_count",
 	Help: "Number of error messages in log",
 })
+
 var criticalCounter = promauto.NewCounter(prometheus.CounterOpts{
 	Name: "log_critical_count",
 	Help: "Number of critical messages in log",
 })
+
 var panicCounter = promauto.NewCounter(prometheus.CounterOpts{
 	Name: "log_panic_count",
 	Help: "Number of panic messages in log",
 })
+
 var fatalCounter = promauto.NewCounter(prometheus.CounterOpts{
 	Name: "log_fatal_count",
 	Help: "Number of fatal messages in log",
@@ -42,7 +46,8 @@ func newPrometheusLoggerWithCounters(
 	errorCounter prometheus.Counter,
 	criticalCounter prometheus.Counter,
 	panicCounter prometheus.Counter,
-	fatalCounter prometheus.Counter) Logger {
+	fatalCounter prometheus.Counter,
+) Logger {
 	return &prometheusLogger{
 		h:           l.Helper(1),
 		warnCnt:     warnCounter,

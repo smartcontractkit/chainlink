@@ -83,8 +83,7 @@ func CreateJobsWithJdOpFactory(id string, version string) *operations.Operation[
 
 			for _, jobSpecGeneratingFn := range deps.JobSpecFactoryFunctions {
 				singleDonToJobSpecs, jobSpecsErr := jobSpecGeneratingFn(&cre.JobSpecInput{
-					CldEnvironment: deps.CreEnvironment.CldfEnvironment,
-					// BlockchainOutput:          deps.HomeChainBlockchainOutput,
+					CldEnvironment:    deps.CreEnvironment.CldfEnvironment,
 					DonTopology:       deps.CreEnvironment.DonTopology,
 					NodeSets:          cre.ConvertToNodeSetWithChainCapabilities(deps.CapabilitiesAwareNodeSets),
 					CapabilityConfigs: deps.CapabilitiesConfigs,

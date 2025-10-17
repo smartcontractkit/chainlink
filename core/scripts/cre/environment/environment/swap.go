@@ -71,7 +71,7 @@ func capabilitySwapCmd() *cobra.Command {
 					metaData["result"] = "success"
 				}
 
-				trackingErr := dxTracker.Track("cre.local.env.swap.capability", metaData)
+				trackingErr := dxTracker.Track(MetricCapabilitySwap, metaData)
 				if trackingErr != nil {
 					fmt.Fprintf(os.Stderr, "failed to track capability swap: %s\n", trackingErr)
 				}
@@ -320,7 +320,7 @@ func nodesSwapCmd() *cobra.Command {
 					metaData["result"] = "success"
 				}
 
-				trackingErr := dxTracker.Track("cre.local.env.swap.nodes", metaData)
+				trackingErr := dxTracker.Track(MetricNodeSwap, metaData)
 				if trackingErr != nil {
 					fmt.Fprintf(os.Stderr, "failed to track nodes swap: %s\n", trackingErr)
 				}
