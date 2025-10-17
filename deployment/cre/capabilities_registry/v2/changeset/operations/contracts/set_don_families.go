@@ -108,14 +108,14 @@ var SetDONFamilies = operations.NewOperation[SetDONFamiliesInput, SetDONFamilies
 					return nil, fmt.Errorf("failed to mine SetDONFamilies transaction %s: %w", tx.Hash().String(), err)
 				}
 
-				don, err := deps.CapabilitiesRegistry.GetDON(&bind.CallOpts{}, don.Id)
+				latestDON, err := deps.CapabilitiesRegistry.GetDON(&bind.CallOpts{}, don.Id)
 				if err != nil {
 					err = cldf.DecodeErr(capabilities_registry_v2.CapabilitiesRegistryABI, err)
 					return nil, fmt.Errorf("failed to call GetDONByName: %w", err)
 				}
 
 				// Get the updated DON info
-				resultDon = don
+				resultDon = latestDON
 			}
 
 			return tx, nil

@@ -1,6 +1,7 @@
 package changeset
 
 import (
+	"errors"
 	"fmt"
 
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
@@ -28,13 +29,13 @@ type SetDONsFamilies struct{}
 
 func (l SetDONsFamilies) VerifyPreconditions(e cldf.Environment, config SetDONsFamiliesInput) error {
 	if config.RegistrySelector <= 0 {
-		return fmt.Errorf("RegistrySelector must be provided")
+		return errors.New("RegistrySelector must be provided")
 	}
 	if config.RegistryQualifier == "" {
-		return fmt.Errorf("RegistryQualifier must be provided")
+		return errors.New("RegistryQualifier must be provided")
 	}
 	if len(config.DONsFamiliesChanges) == 0 {
-		return fmt.Errorf("must specify at least one DON family change")
+		return errors.New("must specify at least one DON family change")
 	}
 	return nil
 }

@@ -139,7 +139,7 @@ func TestSetDONsFamilies_Apply(t *testing.T) {
 
 		updatedDON, testErr := capReg.GetDONByName(nil, test.DONName)
 		require.NoError(t, testErr)
-		assert.Len(t, updatedDON.DonFamilies, 0)
+		assert.Empty(t, updatedDON.DonFamilies)
 	})
 
 	t.Run("set families for multiple DONs", func(t *testing.T) {
