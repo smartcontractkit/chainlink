@@ -1,11 +1,10 @@
-package ocrcommon
+package block
 
 import (
 	"context"
 	"math/big"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
-
 	evmclient "github.com/smartcontractkit/chainlink-evm/pkg/client"
 	"github.com/smartcontractkit/chainlink-evm/pkg/config/chaintype"
 	evmtypes "github.com/smartcontractkit/chainlink-evm/pkg/types"
@@ -18,8 +17,8 @@ type BlockTranslator interface {
 }
 
 // NewBlockTranslator returns the block translator for the given chain
-func NewBlockTranslator(cfg Config, client evmclient.Client, lggr logger.Logger) BlockTranslator {
-	switch cfg.ChainType() {
+func NewBlockTranslator(chainType chaintype.ChainType, client evmclient.Client, lggr logger.Logger) BlockTranslator {
+	switch chainType {
 	case chaintype.ChainArbitrum:
 		return NewArbitrumBlockTranslator(client, lggr)
 	case "", chaintype.ChainCelo, chaintype.ChainGnosis, chaintype.ChainKroma, chaintype.ChainMetis, chaintype.ChainOptimismBedrock, chaintype.ChainSei, chaintype.ChainScroll, chaintype.ChainWeMix, chaintype.ChainXLayer, chaintype.ChainZkEvm, chaintype.ChainZkSync, chaintype.ChainZircuit, chaintype.ChainRootstock, chaintype.ChainPharos:

@@ -1,4 +1,4 @@
-package ocrcommon
+package block
 
 import (
 	"context"
@@ -11,10 +11,9 @@ import (
 	"github.com/pkg/errors"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
-
 	evmclient "github.com/smartcontractkit/chainlink-evm/pkg/client"
 	evmtypes "github.com/smartcontractkit/chainlink-evm/pkg/types"
-	"github.com/smartcontractkit/chainlink/v2/core/utils"
+	"github.com/smartcontractkit/chainlink/v2/block/utils"
 )
 
 // ArbitrumBlockTranslator uses Arbitrum's special L1BlockNumber to optimise log lookups
