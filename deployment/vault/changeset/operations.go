@@ -26,7 +26,7 @@ import (
 type VaultDeps struct {
 	Chain       cldf_evm.Chain
 	Auth        *bind.TransactOpts
-	DataStore   datastore.MutableDataStore
+	DataStore   datastore.DataStore
 	Environment cldf.Environment
 }
 
@@ -81,7 +81,7 @@ var ValidateTransferOp = operations.NewOperation(
 
 		output := ValidateTransferOutput{Valid: true, Errors: []string{}}
 
-		whitelistMetadata, err := GetChainWhitelistMutable(deps.DataStore, input.ChainSelector)
+		whitelistMetadata, err := getChainWhitelistMutable(deps.DataStore, input.ChainSelector)
 		if err != nil {
 			return output, fmt.Errorf("failed to get whitelist for chain %d: %w", input.ChainSelector, err)
 		}
