@@ -332,7 +332,6 @@ func startCmd() *cobra.Command {
 			}
 
 			output, startErr := StartCLIEnvironment(cmdContext, relativePathToRepoRoot, in, topology, withPluginsDockerImage, defaultCapabilities, extraJobSpecFunctions, envDependencies)
-			startErr = errors.New("on purpose")
 			if startErr != nil {
 				fmt.Fprintf(os.Stderr, "Error: %s\n", startErr)
 				fmt.Fprintf(os.Stderr, "Stack trace: %s\n", string(debug.Stack()))
