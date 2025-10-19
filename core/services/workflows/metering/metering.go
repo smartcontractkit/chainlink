@@ -532,6 +532,7 @@ func (r *Report) FormatReport() *protoEvents.MeteringReport {
 			Trigger: &protoEvents.TriggerDetail{
 				TriggerID: r.labels[platform.KeyTriggerID],
 			},
+			OrgID: r.labels[platform.KeyOrganizationID],
 		},
 		MeteringMode: r.meteringMode,
 	}

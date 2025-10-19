@@ -457,6 +457,8 @@ func buildWorkflowMetadata(kvs map[string]string, workflowExecutionID string) *e
 		}
 	}
 
+	m.OrgID = kvs[platform.KeyOrganizationID]
+
 	return m
 }
 
