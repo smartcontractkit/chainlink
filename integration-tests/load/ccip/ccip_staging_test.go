@@ -2,6 +2,7 @@ package ccip
 
 import (
 	"crypto/ecdsa"
+	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -27,20 +28,25 @@ import (
 func TestStaging_CCIP_Load(t *testing.T) {
 	lggr := logger.Test(t)
 
-	evmSourceKey := simChainTestKey
-	solSourceKey := solTestKey
-
 	// get user defined configurations
 	config, err := tc.GetConfig([]string{"Load"}, tc.CCIP)
 	require.NoError(t, err)
 	userOverrides := config.CCIP.Load
 
+	// check if sui test key is bech32 and convert to hex
+	suiTestKey := *config.CCIP.Load.TestnetConfig.SuiConfig.SuiPrivateKey
+	if strings.HasPrefix(suiTestKey, "suiprivkey") {
+		suiTestKey, err = hexFromSuiBech32PrivKey(suiTestKey)
+		require.NoError(t, err)
+	}
+
 	// generate environment from crib-produced files
 	cribEnv := crib.NewDevspaceEnvFromStateDir(lggr, *userOverrides.CribEnvDirectory)
 	cribDeployOutput, err := cribEnv.GetConfig(crib.DeployerKeys{
-		EVMKey:   evmSourceKey,
-		SolKey:   solSourceKey,
-		AptosKey: aptosTestKey,
+		EVMKey:   *config.CCIP.Load.TestnetConfig.EVMPrivateKey,
+		SolKey:   *config.CCIP.Load.TestnetConfig.SolanaPrivateKey,
+		AptosKey: *config.CCIP.Load.TestnetConfig.AptosPrivateKey,
+		SuiKey:   suiTestKey,
 	})
 	require.NoError(t, err)
 	env, err := crib.NewDeployEnvironmentFromCribOutput(lggr, cribDeployOutput)
@@ -51,7 +57,7 @@ func TestStaging_CCIP_Load(t *testing.T) {
 	require.NoError(t, err)
 
 	// initialize additional accounts on other chains
-	transmitKeys, err := fundAdditionalKeys(lggr, *env, env.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chain_selectors.FamilyEVM))[:*userOverrides.NumDestinationChains])
+	transmitKeys, err := fundAdditionalKeys(lggr, *env, env.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chain_selectors.FamilyEVM))[:*userOverrides.NumDestinationChains], *config.CCIP.Load.TestnetConfig.FundingAmountEth)
 	require.NoError(t, err)
 
 	// Discover lanes from deployed state
@@ -130,7 +136,7 @@ func TestStaging_CCIP_Load(t *testing.T) {
 
 	lggr.Info("Load test complete, returning funds")
 	// return funds to source address at the end of the test
-	sourcePk, err := crypto.HexToECDSA(evmSourceKey)
+	sourcePk, err := crypto.HexToECDSA(*config.CCIP.Load.TestnetConfig.EVMPrivateKey)
 	if err != nil {
 		lggr.Errorw("could not return funds to source address")
 	}

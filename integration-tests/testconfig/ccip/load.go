@@ -45,6 +45,14 @@ type TestnetConfig struct {
 	FundingAmountEth *uint64
 	FundingAmountSol *uint64
 	FundingAmountApt *uint64
+	SuiConfig        SuiConfig
+}
+
+type SuiConfig struct {
+	SuiPrivateKey                 *string
+	SuiFeeTokenObjectId           *string
+	SuiTestReceiverAddress        *string
+	SuiStateReceiverStateObjectId *string
 }
 
 const (
@@ -175,13 +183,22 @@ func (t *TestnetConfig) Validate() error {
 		return errors.New("funding amount should be set for testnet")
 	}
 	if t.EVMPrivateKey == nil {
-		return errors.New("EVM private key should be set for testnet")
+		return errors.New("evm private key should be set for testnet")
 	}
 	if t.SolanaPrivateKey == nil {
-		return errors.New("Solana private key should be set for testnet")
+		return errors.New("solana private key should be set for testnet")
 	}
 	if t.AptosPrivateKey == nil {
-		return errors.New("Aptos private key should be set for testnet")
+		return errors.New("aptos private key should be set for testnet")
 	}
+
+	if t.SuiConfig.SuiPrivateKey == nil {
+		return errors.New("sui private key should be set for testnet")
+	}
+
+	if t.SuiConfig.SuiFeeTokenObjectId == nil {
+		return errors.New("sui fee token object id should be set for testnet")
+	}
+
 	return nil
 }

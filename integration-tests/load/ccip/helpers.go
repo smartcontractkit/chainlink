@@ -31,7 +31,6 @@ import (
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_0/nonce_manager"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_0/offramp"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_0/onramp"
-	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
 	"github.com/smartcontractkit/chainlink/deployment/environment/crib"
@@ -43,10 +42,6 @@ const (
 	executed
 	tickerDuration      = 3 * time.Minute
 	SubscriptionTimeout = 1 * time.Minute
-)
-
-var (
-	fundingAmount = new(big.Int).Mul(deployment.UBigInt(1), deployment.UBigInt(2e16)) // 0.02 eth
 )
 
 type finalSeqNrReport struct {
@@ -482,7 +477,7 @@ func subscribeSkippedIncorrectNonce(
 }
 
 // fundAdditionalKeys will create len(targetChains) new addresses, and send funds to them on every targetChain
-func fundAdditionalKeys(lggr logger.Logger, e cldf.Environment, destChains []uint64) (map[uint64][]*bind.TransactOpts, error) {
+func fundAdditionalKeys(lggr logger.Logger, e cldf.Environment, destChains []uint64, fundingAmount uint64) (map[uint64][]*bind.TransactOpts, error) {
 	deployerMap := make(map[uint64][]*bind.TransactOpts)
 	addressMap := make(map[uint64][]common.Address)
 	numAccounts := len(destChains)
@@ -516,7 +511,7 @@ func fundAdditionalKeys(lggr logger.Logger, e cldf.Environment, destChains []uin
 	for sel, addresses := range addressMap {
 		sel, addresses := sel, addresses
 		g.Go(func() error {
-			return crib.SendFundsToAccounts(e.GetContext(), lggr, e.BlockChains.EVMChains()[sel], addresses, fundingAmount, sel)
+			return crib.SendFundsToAccounts(e.GetContext(), lggr, e.BlockChains.EVMChains()[sel], addresses, new(big.Int).SetUint64(fundingAmount), sel)
 		})
 	}
 

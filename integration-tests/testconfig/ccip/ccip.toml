@@ -410,6 +410,21 @@ addresses_to_fund = [
 # Seth specific configuration, no need for generating ephemeral addresses for ccip-tests.
 ephemeral_addresses_number = 0
 
+[Load.CCIP.Load.TestnetConfig]
+Testnet = false
+EVMPrivateKey = "ac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80"
+AptosPrivateKey = "0x906b8a983b434318ca67b7eff7300f91b02744c84f87d243d2fbc3e528414366"
+SolanaPrivateKey = "57qbvFjTChfNwQxqkFZwjHp7xYoPZa7f9ow6GA59msfCH1g6onSjKUTrrLp4w1nAwbwQuit8YgJJ2AwT9BSwownC"
+FundingAmountEth = 20000000000000000
+FundingAmountSol = 0
+FundingAmountApt = 0
+
+[Load.CCIP.Load.TestnetConfig.SuiConfig]
+SuiPrivateKey = "0x0"
+SuiFeeTokenObjectId = "0x0"
+SuiTestReceiverAddress = "0x0"
+SuiStateReceiverStateObjectId = "0x0"
+
 [Load.CCIP.Load]
 # 0 - no chaos, 1 - rpc latency, 2 - full chaos suite
 ChaosMode = 1

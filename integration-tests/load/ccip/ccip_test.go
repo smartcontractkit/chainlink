@@ -37,9 +37,6 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-testing-framework/wasp"
 
-	crConfig "github.com/smartcontractkit/chainlink-sui/relayer/chainreader/config"
-	"github.com/smartcontractkit/chainlink-sui/relayer/client"
-	"github.com/smartcontractkit/chainlink-sui/relayer/testutils"
 	suistateview "github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview/sui"
 	"github.com/smartcontractkit/chainlink/deployment/environment/crib"
 	tc "github.com/smartcontractkit/chainlink/integration-tests/testconfig"
@@ -53,17 +50,6 @@ var (
 	}
 	wg sync.WaitGroup
 )
-
-// this key only works on simulated geth chains in crib
-const (
-	solTestKey   = "57qbvFjTChfNwQxqkFZwjHp7xYoPZa7f9ow6GA59msfCH1g6onSjKUTrrLp4w1nAwbwQuit8YgJJ2AwT9BSwownC"
-	aptosTestKey = "0x906b8a983b434318ca67b7eff7300f91b02744c84f87d243d2fbc3e528414366"
-	//simChainTestKey = "ac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80"
-	suiTestReceiverAddress = "3f6d6a9e3f7707485bf51c02a6bc6cb6e17dffe7f3e160b3c5520d55d1de8398"
-)
-
-var suiTestKey = os.Getenv("SUI_TEST_KEY")
-var simChainTestKey = os.Getenv("SIM_CHAIN_TEST_KEY")
 
 func runSafely(ops ...func()) {
 	for _, op := range ops {
@@ -118,6 +104,7 @@ func TestCCIPLoad_RPS(t *testing.T) {
 	userOverrides := config.CCIP.Load
 
 	// check if sui test key is bech32 and convert to hex
+	suiTestKey := *config.CCIP.Load.TestnetConfig.SuiConfig.SuiPrivateKey
 	if strings.HasPrefix(suiTestKey, "suiprivkey") {
 		suiTestKey, err = hexFromSuiBech32PrivKey(suiTestKey)
 		require.NoError(t, err)
@@ -126,9 +113,9 @@ func TestCCIPLoad_RPS(t *testing.T) {
 	// generate environment from crib-produced files
 	cribEnv := crib.NewDevspaceEnvFromStateDir(lggr, *userOverrides.CribEnvDirectory)
 	cribDeployOutput, err := cribEnv.GetConfig(crib.DeployerKeys{
-		EVMKey:   simChainTestKey,
-		SolKey:   solTestKey,
-		AptosKey: aptosTestKey,
+		EVMKey:   *config.CCIP.Load.TestnetConfig.EVMPrivateKey,
+		SolKey:   *config.CCIP.Load.TestnetConfig.SolanaPrivateKey,
+		AptosKey: *config.CCIP.Load.TestnetConfig.AptosPrivateKey,
 		SuiKey:   suiTestKey,
 	})
 	require.NoError(t, err)
@@ -177,7 +164,7 @@ func TestCCIPLoad_RPS(t *testing.T) {
 
 	// initialize additional accounts on EVM, we need more accounts to avoid nonce issues
 	// Solana doesn't have a nonce concept so we just use a single account for all chains
-	evmSenders, err := fundAdditionalKeys(lggr, *env, destinationChains)
+	evmSenders, err := fundAdditionalKeys(lggr, *env, destinationChains, *config.CCIP.Load.TestnetConfig.FundingAmountEth)
 	require.NoError(t, err)
 
 	// Keep track of the block number for each chain so that event subscription can be done from that block.
@@ -213,9 +200,6 @@ func TestCCIPLoad_RPS(t *testing.T) {
 	if len(suiChains) > 0 {
 		suiState, err = suistateview.LoadOnchainStatesui(*env)
 		require.NoError(t, err)
-
-		// Merge Sui state into main state for lane discovery
-		state.SuiChains = suiState
 	}
 
 	// Discover lanes from deployed state (now includes Sui chains!)
@@ -223,6 +207,17 @@ func TestCCIPLoad_RPS(t *testing.T) {
 	err = laneConfig.DiscoverLanesFromDeployedState(*env, &state)
 	require.NoError(t, err)
 	laneConfig.LogLaneConfigInfo(lggr)
+
+	var sharedDB *sqlx.DB
+	if len(suiChains) > 0 {
+		databaseURL := os.Getenv("CL_DATABASE_URL")
+		require.NotEmpty(t, databaseURL)
+		sharedDB, err = sqlx.Open("postgres", databaseURL)
+		require.NoError(t, err)
+		defer sharedDB.Close()
+		// Clean up local database before starting test to avoid stale events
+		cleanupSuiDatabase(databaseURL, lggr)
+	}
 
 	// Prepare chain readers
 	chainReaders := make(map[uint64]pkgtypes.ContractReader)
@@ -276,57 +271,16 @@ func TestCCIPLoad_RPS(t *testing.T) {
 			require.NoError(t, err)
 			startBlocks[cs] = &checkpoint
 
-			suiKeystore := testutils.NewTestKeystore(t)
-			ptbClient, err := client.NewPTBClient(env.Logger, env.BlockChains.SuiChains()[cs].URL, nil, 10*time.Second, suiKeystore, 5, "WaitForLocalExecution")
-			require.NoError(t, err)
-
-			chainReaderConfig := crConfig.ChainReaderConfig{
-				Modules: map[string]*crConfig.ChainReaderModule{
-					"OnRamp": {
-						Name: "onramp",
-						Events: map[string]*crConfig.ChainReaderEvent{
-							"CCIPMessageSent": {
-								Name:      "onramp",
-								EventType: "CCIPMessageSent",
-								EventSelector: client.EventSelector{
-									Package: suiState[cs].OnRampAddress,
-									Module:  "onramp",
-									Event:   "CCIPMessageSent",
-								},
-							},
-						},
-					},
-					"OffRamp": {
-						Name: "offramp",
-						Events: map[string]*crConfig.ChainReaderEvent{
-							"CommitReportAccepted": {
-								Name:      "offramp",
-								EventType: "CommitReportAccepted",
-								EventSelector: client.EventSelector{
-									Package: suiState[cs].OffRampAddress,
-									Module:  "offramp",
-									Event:   "CommitReportAccepted",
-								},
-							},
-							"ExecutionStateChanged": {
-								Name:      "offramp",
-								EventType: "ExecutionStateChanged",
-								EventSelector: client.EventSelector{
-									Package: suiState[cs].OffRampAddress,
-									Module:  "offramp",
-									Event:   "ExecutionStateChanged",
-								},
-							},
-						},
-					},
-				},
-			}
-			databaseURL := os.Getenv("CL_DATABASE_URL")
-			require.NotEmpty(t, databaseURL)
-			db, err := sqlx.Open("postgres", databaseURL)
-			require.NoError(t, err)
-			defer db.Close()
-			chainReaders[cs], err = NewChainReaderFromLatestBlock(ctx, env.Logger, ptbClient, chainReaderConfig, db)
+			chainReaders[cs], err = createSuiChainReader(
+				ctx,
+				t,
+				lggr,
+				*env,
+				sharedDB,
+				cs,
+				suiState[cs].OnRampAddress,
+				suiState[cs].OffRampAddress,
+			)
 			require.NoError(t, err)
 			wg.Add(1)
 			go subscribeSuiTransmitEvents(
@@ -395,57 +349,16 @@ func TestCCIPLoad_RPS(t *testing.T) {
 		if selectorFamily == selectors.FamilySui {
 			// Check if chain reader already exists (from source chain setup)
 			if _, exists := chainReaders[cs]; !exists {
-				suiKeystore := testutils.NewTestKeystore(t)
-				ptbClient, err := client.NewPTBClient(env.Logger, env.BlockChains.SuiChains()[cs].URL, nil, 10*time.Second, suiKeystore, 5, "WaitForLocalExecution")
-				require.NoError(t, err)
-
-				chainReaderConfig := crConfig.ChainReaderConfig{
-					Modules: map[string]*crConfig.ChainReaderModule{
-						"OnRamp": {
-							Name: "onramp",
-							Events: map[string]*crConfig.ChainReaderEvent{
-								"CCIPMessageSent": {
-									Name:      "onramp",
-									EventType: "CCIPMessageSent",
-									EventSelector: client.EventSelector{
-										Package: suiState[cs].OnRampAddress,
-										Module:  "onramp",
-										Event:   "CCIPMessageSent",
-									},
-								},
-							},
-						},
-						"OffRamp": {
-							Name: "offramp",
-							Events: map[string]*crConfig.ChainReaderEvent{
-								"CommitReportAccepted": {
-									Name:      "offramp",
-									EventType: "CommitReportAccepted",
-									EventSelector: client.EventSelector{
-										Package: suiState[cs].OffRampAddress,
-										Module:  "offramp",
-										Event:   "CommitReportAccepted",
-									},
-								},
-								"ExecutionStateChanged": {
-									Name:      "offramp",
-									EventType: "ExecutionStateChanged",
-									EventSelector: client.EventSelector{
-										Package: suiState[cs].OffRampAddress,
-										Module:  "offramp",
-										Event:   "ExecutionStateChanged",
-									},
-								},
-							},
-						},
-					},
-				}
-				databaseURL := os.Getenv("CL_DATABASE_URL")
-				require.NotEmpty(t, databaseURL)
-				db, err := sqlx.Open("postgres", databaseURL)
-				require.NoError(t, err)
-				defer db.Close()
-				chainReaders[cs], err = NewChainReaderFromLatestBlock(ctx, env.Logger, ptbClient, chainReaderConfig, db)
+				chainReaders[cs], err = createSuiChainReader(
+					ctx,
+					t,
+					lggr,
+					*env,
+					sharedDB,
+					cs,
+					suiState[cs].OnRampAddress,
+					suiState[cs].OffRampAddress,
+				)
 				require.NoError(t, err)
 			}
 		}
@@ -583,7 +496,7 @@ func TestCCIPLoad_RPS(t *testing.T) {
 				mm.InputChan)
 		case selectors.FamilySui:
 
-			suiReceiver, err := hex.DecodeString(suiTestReceiverAddress)
+			suiReceiver, err := hex.DecodeString(*config.CCIP.Load.TestnetConfig.SuiConfig.SuiTestReceiverAddress)
 			if err != nil {
 				lggr.Errorw("Failed to decode SUI receiver address", "error", err)
 				t.Fatal(err)
@@ -689,4 +602,14 @@ func TestCCIPLoad_RPS(t *testing.T) {
 
 	wg.Wait()
 	lggr.Infow("closed event subscribers")
+
+	// Close all chain readers to prevent hanging goroutines
+	for cs, reader := range chainReaders {
+		if reader != nil {
+			lggr.Infow("Closing chain reader", "chainSelector", cs)
+			if err := reader.Close(); err != nil {
+				lggr.Errorw("Failed to close chain reader", "chainSelector", cs, "error", err)
+			}
+		}
+	}
 }
