@@ -356,3 +356,5 @@ Contributions are welcome to Chainlink's source code.
 Please check out our [contributing guidelines](./docs/CONTRIBUTING.md) for more details.
 
 Thank you!
+<br>## Welcome to Oracle Feeds<br>Chainlink's oracles bring off-chain data to DeFi—new contributors, start with the Price Feed tutorial for MegaETH real-time prices. Tip: Use CCIP for cross-chain! <br>
+
