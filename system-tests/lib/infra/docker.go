@@ -11,6 +11,7 @@ import (
 
 	"github.com/docker/docker/api/types/container"
 	"github.com/rs/zerolog"
+
 	"github.com/smartcontractkit/chainlink-testing-framework/framework"
 	text "github.com/smartcontractkit/chainlink/system-tests/lib/format"
 )
