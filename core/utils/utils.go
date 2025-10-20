@@ -485,20 +485,6 @@ func NewHTTPFetchBackoff() backoff.Backoff {
 	}
 }
 
-// KeyedMutex allows to lock based on particular values
-type KeyedMutex struct {
-	mutexes sync.Map
-}
-
-// LockInt64 locks the value for read/write
-func (m *KeyedMutex) LockInt64(key int64) func() {
-	value, _ := m.mutexes.LoadOrStore(key, new(sync.Mutex))
-	mtx := value.(*sync.Mutex)
-	mtx.Lock()
-
-	return mtx.Unlock
-}
-
 // ConcatBytes appends a bunch of byte arrays into a single byte array
 func ConcatBytes(bufs ...[]byte) []byte {
 	return bytes.Join(bufs, []byte{})

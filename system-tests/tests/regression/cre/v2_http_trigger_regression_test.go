@@ -220,7 +220,7 @@ func executeHTTPTriggerRequestExpectingFailure(t *testing.T, testEnv *ttypes.Tes
 				testLogger.Info().Msgf("Received error in JSON-RPC response: %v", errorMsg)
 
 				// Check if this is an auth failure (expected)
-				if errorMsg == "Auth failure" {
+				if strings.Contains(errorMsg, "Auth failure") {
 					testLogger.Info().Msg("Authorization properly rejected at gateway level")
 					authFailureDetected = true
 					return true

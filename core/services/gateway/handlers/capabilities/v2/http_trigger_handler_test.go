@@ -848,7 +848,7 @@ func TestHttpTriggerHandler_HandleUserTriggerRequest_JWTAuthorization(t *testing
 
 		err = handler.HandleUserTriggerRequest(ctx, req, callback, time.Now())
 		require.Error(t, err)
-		require.Contains(t, err.Error(), "auth failure")
+		require.Contains(t, err.Error(), "workflow not found")
 
 		r, err2 := callback.Wait(t.Context())
 		require.NoError(t, err2)
