@@ -55,7 +55,7 @@ func TestChainReaderSizedBigIntTypes(t *testing.T) {
 			wrapped.Setup(t)
 
 			svc := wrapped.GetContractReader(t)
-			binding := commontypes.BoundContract{Address: "0x21", Name: "Contract"}
+			binding := commontypes.BoundContract{Address: contractAddress.String(), Name: "Contract"}
 
 			require.NoError(t, svc.Bind(t.Context(), []commontypes.BoundContract{binding}))
 
