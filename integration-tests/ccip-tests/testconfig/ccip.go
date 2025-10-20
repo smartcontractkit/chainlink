@@ -61,18 +61,18 @@ func (m *MsgDetails) TransferAmounts() []*big.Int {
 
 func (m *MsgDetails) Validate() error {
 	if m == nil {
-		return fmt.Errorf("msg details should be set")
+		return errors.New("msg details should be set")
 	}
 	if m.MsgType == nil {
-		return fmt.Errorf("msg type should be set")
+		return errors.New("msg type should be set")
 	}
 	if m.IsDataTransfer() {
 		if m.DataLength == nil || *m.DataLength == 0 {
-			return fmt.Errorf("data length should be set and greater than 0")
+			return errors.New("data length should be set and greater than 0")
 		}
 	}
 	if m.DestGasLimit == nil {
-		return fmt.Errorf("destination gas limit should be set")
+		return errors.New("destination gas limit should be set")
 	}
 	if pointer.GetString(m.MsgType) != DataOnlyTransfer &&
 		pointer.GetString(m.MsgType) != TokenOnlyTransfer &&
@@ -82,11 +82,11 @@ func (m *MsgDetails) Validate() error {
 
 	if m.IsTokenTransfer() {
 		if pointer.GetInt64(m.AmountPerToken) == 0 {
-			return fmt.Errorf("token amount should be greater than 0")
+			return errors.New("token amount should be greater than 0")
 		}
 
 		if pointer.GetInt(m.NoOfTokens) == 0 {
-			return fmt.Errorf("number of tokens in msg should be greater than 0")
+			return errors.New("number of tokens in msg should be greater than 0")
 		}
 	}
 
@@ -115,14 +115,14 @@ func (tc *TokenConfig) IsPipelineSpec() bool {
 
 func (tc *TokenConfig) Validate() error {
 	if tc == nil {
-		return fmt.Errorf("token config should be set")
+		return errors.New("token config should be set")
 	}
 	if tc.TimeoutForPriceUpdate == nil || tc.TimeoutForPriceUpdate.Duration().Minutes() == 0 {
-		return fmt.Errorf("timeout for price update should be set")
+		return errors.New("timeout for price update should be set")
 	}
 	if tc.NoOfTokensWithDynamicPrice != nil && *tc.NoOfTokensWithDynamicPrice > 0 {
 		if tc.DynamicPriceUpdateInterval == nil || tc.DynamicPriceUpdateInterval.Duration().Minutes() == 0 {
-			return fmt.Errorf("dynamic price update interval should be set if NoOfTokensWithDynamicPrice is greater than 0")
+			return errors.New("dynamic price update interval should be set if NoOfTokensWithDynamicPrice is greater than 0")
 		}
 	}
 	return nil
@@ -182,17 +182,17 @@ func (m *MsgProfile) MsgDetailWithMaxToken() *MsgDetails {
 
 func (m *MsgProfile) Validate() error {
 	if m == nil {
-		return fmt.Errorf("msg profile should be set")
+		return errors.New("msg profile should be set")
 	}
 	if m.MsgDetails == nil {
-		return fmt.Errorf("msg details should be set")
+		return errors.New("msg details should be set")
 	}
 	allDetails := *m.MsgDetails
 	if len(allDetails) == 0 {
-		return fmt.Errorf("msg details should be set")
+		return errors.New("msg details should be set")
 	}
 	if len(m.Frequencies) == 0 {
-		return fmt.Errorf("frequencies should be set")
+		return errors.New("frequencies should be set")
 	}
 	if len(allDetails) != len(m.Frequencies) {
 		return fmt.Errorf("number of msg details %d and frequencies %d should be same", len(allDetails), len(m.Frequencies))
@@ -228,19 +228,19 @@ type LoadProfile struct {
 
 func (l *LoadProfile) Validate() error {
 	if l == nil {
-		return fmt.Errorf("load profile should be set")
+		return errors.New("load profile should be set")
 	}
 	if err := l.MsgProfile.Validate(); err != nil {
 		return err
 	}
 	if len(l.RequestPerUnitTime) == 0 {
-		return fmt.Errorf("request per unit time should be set")
+		return errors.New("request per unit time should be set")
 	}
 	if l.TimeUnit == nil || l.TimeUnit.Duration().Minutes() == 0 {
-		return fmt.Errorf("time unit should be set")
+		return errors.New("time unit should be set")
 	}
 	if l.TestDuration == nil || l.TestDuration.Duration().Minutes() == 0 {
-		return fmt.Errorf("test duration should be set")
+		return errors.New("test duration should be set")
 	}
 	return nil
 }
@@ -308,7 +308,7 @@ func (c *CCIPTestGroupConfig) Validate() error {
 		c.LoadProfile.MsgProfile.msgDetailsIndexMatrixByFrequency()
 		if c.ExistingDeployment != nil && *c.ExistingDeployment {
 			if c.LoadProfile.TestRunName == "" && os.Getenv(ctfK8config.EnvVarJobImage) != "" {
-				return fmt.Errorf("test run name should be set if existing deployment is true and test is running in k8s")
+				return errors.New("test run name should be set if existing deployment is true and test is running in k8s")
 			}
 		}
 		if c.ReorgProfile != nil {
@@ -322,11 +322,11 @@ func (c *CCIPTestGroupConfig) Validate() error {
 		return err
 	}
 	if c.PhaseTimeout != nil && (c.PhaseTimeout.Duration().Minutes() < 1 || c.PhaseTimeout.Duration().Minutes() > 50) {
-		return fmt.Errorf("phase timeout should be between 1 and 50 minutes")
+		return errors.New("phase timeout should be between 1 and 50 minutes")
 	}
 
 	if c.NoOfCommitNodes < 4 {
-		return fmt.Errorf("insuffcient number of commit nodes provided")
+		return errors.New("insuffcient number of commit nodes provided")
 	}
 	if err := c.TokenConfig.Validate(); err != nil {
 		return err
@@ -334,12 +334,12 @@ func (c *CCIPTestGroupConfig) Validate() error {
 
 	if c.MsgDetails.IsTokenTransfer() {
 		if pointer.GetInt(c.TokenConfig.NoOfTokensPerChain) == 0 {
-			return fmt.Errorf("number of tokens per chain should be greater than 0")
+			return errors.New("number of tokens per chain should be greater than 0")
 		}
 	}
 	if c.MulticallInOneTx != nil {
 		if c.NoOfSendsInMulticall == 0 {
-			return fmt.Errorf("number of sends in multisend should be greater than 0 if multisend is true")
+			return errors.New("number of sends in multisend should be greater than 0 if multisend is true")
 		}
 	}
 	if c.SkipRequestIfAnotherRequestTriggeredWithin != nil && c.LoadProfile != nil &&
@@ -398,7 +398,7 @@ func (c *CCIPContractConfig) ContractsData() ([]byte, error) {
 		c.Data = string(dataContent)
 		// encode it to base64 and set to CONTRACTS_OVERRIDE_CONFIG so that the same content can be passed to remote runner
 		// we add TEST_ prefix to CONTRACTS_OVERRIDE_CONFIG to ensure the env var is ported to remote runner.
-		_, err = EncodeConfigAndSetEnv(c, fmt.Sprintf("TEST_%s", CONTRACTS_OVERRIDE_CONFIG))
+		_, err = EncodeConfigAndSetEnv(c, "TEST_"+CONTRACTS_OVERRIDE_CONFIG)
 		return dataContent, err
 	}
 	return nil, nil

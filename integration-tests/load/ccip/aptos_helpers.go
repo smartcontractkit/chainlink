@@ -2,6 +2,7 @@ package ccip
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"maps"
 	"math"
@@ -136,7 +137,7 @@ func fundAptosLoadAccountsWithBnM(
 
 	aptosClient, ok := client.(*aptos.Client)
 	if !ok {
-		return fmt.Errorf("client is not of type *aptos.Client")
+		return errors.New("client is not of type *aptos.Client")
 	}
 
 	for i, loadAccount := range loadAccounts {

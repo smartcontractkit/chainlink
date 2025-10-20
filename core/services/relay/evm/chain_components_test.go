@@ -71,7 +71,7 @@ func TestContractReaderEventsInitValidation(t *testing.T) {
 					Configs:     map[string]*config.ChainReaderDefinition{},
 				},
 			},
-			expectedError: fmt.Errorf("failed to parse abi"),
+			expectedError: errors.New("failed to parse abi"),
 		},
 		{
 			name: "Conflicting polling filter definitions",

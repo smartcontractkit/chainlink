@@ -228,7 +228,7 @@ func TestLogEventProvider_ScheduleReadJobs(t *testing.T) {
 				runtime.Gosched()
 			}
 
-			require.Equal(t, len(ids), len(got))
+			require.Len(t, got, len(ids))
 			for _, id := range ids {
 				_, ok := got[id.String()]
 				require.True(t, ok, "id not found %s", id.String())

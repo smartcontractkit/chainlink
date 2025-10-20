@@ -102,6 +102,6 @@ func assertUpkeepIDs(t *testing.T, db *sqlx.DB, expected []int64) {
 	var upkeepIDs []int64
 	err := db.Select(&upkeepIDs, `SELECT upkeep_id FROM upkeep_registrations`)
 	require.NoError(t, err)
-	require.Equal(t, len(expected), len(upkeepIDs))
+	require.Len(t, upkeepIDs, len(expected))
 	g.Expect(upkeepIDs).To(gomega.ContainElements(expected))
 }

@@ -1017,7 +1017,7 @@ func (d *Delegate) newServicesGenericPlugin(
 		return nil, fmt.Errorf("failed to create relayer set: %w", err)
 	}
 
-	relayer, err := d.RelayGetter.Get(rid)
+	relayer, err := d.Get(rid)
 	if err != nil {
 		return nil, ErrRelayNotEnabled{Err: err, Relay: spec.Relay, PluginName: pCfg.PluginName}
 	}
@@ -1240,7 +1240,7 @@ func (d *Delegate) newServicesMercury(
 	if rid.Network != relay.NetworkEVM {
 		return nil, fmt.Errorf("mercury services: expected EVM relayer got %q", rid.Network)
 	}
-	relayer, err := d.RelayGetter.Get(rid)
+	relayer, err := d.Get(rid)
 	if err != nil {
 		return nil, ErrRelayNotEnabled{Err: err, Relay: spec.Relay, PluginName: "mercury"}
 	}
@@ -1343,7 +1343,7 @@ func (d *Delegate) newServicesLLO(
 	if err != nil {
 		return nil, ErrJobSpecNoRelayer{Err: err, PluginName: "streams"}
 	}
-	relayer, err := d.RelayGetter.Get(rid)
+	relayer, err := d.Get(rid)
 	if err != nil {
 		return nil, ErrRelayNotEnabled{Err: err, Relay: spec.Relay, PluginName: "streams"}
 	}
@@ -1511,7 +1511,7 @@ func (d *Delegate) newServicesMedian(
 		d.cfg,
 	)
 
-	relayer, err := d.RelayGetter.Get(rid)
+	relayer, err := d.Get(rid)
 	if err != nil {
 		return nil, ErrRelayNotEnabled{Err: err, PluginName: "median", Relay: spec.Relay}
 	}
@@ -1588,7 +1588,7 @@ func (d *Delegate) newServicesOCR2Keepers21(
 	}
 
 	transmitterID := spec.TransmitterID.String
-	relayer, err := d.RelayGetter.Get(rid)
+	relayer, err := d.Get(rid)
 	if err != nil {
 		return nil, ErrRelayNotEnabled{Err: err, Relay: spec.Relay, PluginName: "ocr2keepers"}
 	}
@@ -2107,7 +2107,7 @@ func (d *Delegate) ccipCommitGetDstProvider(ctx context.Context, jb job.Job, plu
 	}
 
 	// Get provider from dest chain
-	dstRelayer, err := d.RelayGetter.Get(dstRid)
+	dstRelayer, err := d.Get(dstRid)
 	if err != nil {
 		return nil, err
 	}
@@ -2164,7 +2164,7 @@ func (d *Delegate) ccipCommitGetSrcProvider(ctx context.Context, jb job.Job, plu
 	srcChainIDstr := strconv.FormatUint(srcChainID, 10)
 
 	// Get provider from source chain
-	srcRelayer, err := d.RelayGetter.Get(types.RelayID{Network: spec.Relay, ChainID: srcChainIDstr})
+	srcRelayer, err := d.Get(types.RelayID{Network: spec.Relay, ChainID: srcChainIDstr})
 	if err != nil {
 		return nil, 0, err
 	}
@@ -2269,7 +2269,7 @@ func (d *Delegate) ccipExecGetDstProvider(ctx context.Context, jb job.Job, plugi
 	}
 
 	// Get provider from dest chain
-	dstRelayer, err := d.RelayGetter.Get(dstRid)
+	dstRelayer, err := d.Get(dstRid)
 	if err != nil {
 		return nil, err
 	}
@@ -2320,7 +2320,7 @@ func (d *Delegate) ccipExecGetSrcProvider(ctx context.Context, jb job.Job, plugi
 	srcChainIDstr := strconv.FormatUint(srcChainID, 10)
 
 	// Get provider from source chain
-	srcRelayer, err := d.RelayGetter.Get(types.RelayID{Network: spec.Relay, ChainID: srcChainIDstr})
+	srcRelayer, err := d.Get(types.RelayID{Network: spec.Relay, ChainID: srcChainIDstr})
 	if err != nil {
 		return nil, 0, fmt.Errorf("failed to get relayer: %w", err)
 	}

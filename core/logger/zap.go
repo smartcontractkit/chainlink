@@ -143,7 +143,7 @@ func (l *zapLogger) Name() string {
 }
 
 func (l *zapLogger) sugaredHelper(skip int) *zap.SugaredLogger {
-	return l.SugaredLogger.WithOptions(zap.AddCallerSkip(skip))
+	return l.WithOptions(zap.AddCallerSkip(skip))
 }
 
 func (l *zapLogger) Sync() error {

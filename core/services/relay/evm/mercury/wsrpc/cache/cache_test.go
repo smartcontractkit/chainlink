@@ -187,7 +187,7 @@ func Test_Cache(t *testing.T) {
 		t.Run("returns context deadline exceeded error if fetch takes too long", func(t *testing.T) {
 			_, err := c.LatestReport(canceledCtx, req1)
 			require.Error(t, err)
-			assert.True(t, errors.Is(err, context.Canceled))
+			assert.ErrorIs(t, err, context.Canceled)
 			assert.EqualError(t, err, "context canceled")
 		})
 		t.Run("returns wrapped context deadline exceeded error if fetch has errored and is in the retry loop", func(t *testing.T) {
@@ -195,7 +195,7 @@ func Test_Cache(t *testing.T) {
 
 			_, err := c.LatestReport(canceledCtx, req1)
 			require.Error(t, err)
-			assert.True(t, errors.Is(err, context.Canceled))
+			assert.ErrorIs(t, err, context.Canceled)
 			assert.EqualError(t, err, "some background fetch error\ncontext canceled")
 		})
 	})

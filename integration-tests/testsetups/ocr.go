@@ -3,6 +3,7 @@ package testsetups
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"math"
 	"math/big"
@@ -10,14 +11,12 @@ import (
 	"os"
 	"os/signal"
 	"sort"
+	"strconv"
 	"strings"
 	"sync"
 	"syscall"
 	"testing"
 	"time"
-
-	"github.com/smartcontractkit/chainlink-testing-framework/lib/grafana"
-	seth_utils "github.com/smartcontractkit/chainlink-testing-framework/lib/utils/seth"
 
 	geth "github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/common"
@@ -25,16 +24,14 @@ import (
 	"github.com/rs/zerolog"
 	"github.com/stretchr/testify/require"
 
-	"github.com/smartcontractkit/chainlink-testing-framework/seth"
-
 	"github.com/smartcontractkit/libocr/gethwrappers/offchainaggregator"
 	"github.com/smartcontractkit/libocr/gethwrappers2/ocr2aggregator"
 
 	"github.com/smartcontractkit/chainlink-testing-framework/havoc"
-
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/blockchain"
 	ctf_client "github.com/smartcontractkit/chainlink-testing-framework/lib/client"
 	ctf_config "github.com/smartcontractkit/chainlink-testing-framework/lib/config"
+	"github.com/smartcontractkit/chainlink-testing-framework/lib/grafana"
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/k8s/environment"
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/k8s/pkg/helm/chainlink"
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/k8s/pkg/helm/ethereum"
@@ -44,7 +41,9 @@ import (
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/logging"
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/networks"
 	reportModel "github.com/smartcontractkit/chainlink-testing-framework/lib/testreporters"
+	seth_utils "github.com/smartcontractkit/chainlink-testing-framework/lib/utils/seth"
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/testcontext"
+	"github.com/smartcontractkit/chainlink-testing-framework/seth"
 
 	"github.com/smartcontractkit/chainlink/deployment/environment/nodeclient"
 	"github.com/smartcontractkit/chainlink/integration-tests/actions"
@@ -157,7 +156,7 @@ func (o *OCRSoakTest) DeployEnvironment(ocrTestConfig tt.OcrTestConfig) {
 
 	nsPre := fmt.Sprintf("soak-ocr-v%s-", o.OCRVersion)
 	if o.OperatorForwarderFlow {
-		nsPre = fmt.Sprintf("%sforwarder-", nsPre)
+		nsPre = nsPre + "forwarder-"
 	}
 
 	nsPre = fmt.Sprintf("%s%s", nsPre, strings.ReplaceAll(strings.ToLower(nodeNetwork.Name), " ", "-"))
@@ -191,7 +190,7 @@ func (o *OCRSoakTest) DeployEnvironment(ocrTestConfig tt.OcrTestConfig) {
 			Values: map[string]any{
 				"fullnameOverride": "anvil",
 				"anvil": map[string]any{
-					"chainId":                   fmt.Sprintf("%d", nodeNetwork.ChainID),
+					"chainId":                   strconv.FormatInt(nodeNetwork.ChainID, 10),
 					"blockTime":                 anvilConfig.BlockTime,
 					"forkURL":                   anvilConfig.URL,
 					"forkBlockNumber":           anvilConfig.BlockNumber,
@@ -332,8 +331,8 @@ func (o *OCRSoakTest) deployForwarderContracts() (operators []common.Address, fo
 	operators, forwarders, _ = actions.DeployForwarderContracts(
 		o.t, o.sethClient, common.HexToAddress(o.linkContract.Address()), len(o.workerNodes),
 	)
-	require.Equal(o.t, len(o.workerNodes), len(operators), "Number of operators should match number of nodes")
-	require.Equal(o.t, len(o.workerNodes), len(forwarders), "Number of authorized forwarders should match number of nodes")
+	require.Len(o.t, operators, len(o.workerNodes), "Number of operators should match number of nodes")
+	require.Len(o.t, forwarders, len(o.workerNodes), "Number of authorized forwarders should match number of nodes")
 
 	forwarderNodesAddresses, err := actions.ChainlinkNodeAddresses(o.workerNodes)
 	require.NoError(o.t, err, "Retrieving on-chain wallet addresses for chainlink nodes shouldn't fail")
@@ -347,9 +346,10 @@ func (o *OCRSoakTest) deployForwarderContracts() (operators []common.Address, fo
 
 // setupOCRContracts deploys and configures OCR contracts based on the version and forwarder flow.
 func (o *OCRSoakTest) setupOCRContracts(ocrTestConfig tt.OcrTestConfig, forwarders []common.Address) {
-	if o.OCRVersion == "1" {
+	switch o.OCRVersion {
+	case "1":
 		o.setupOCRv1Contracts(forwarders)
-	} else if o.OCRVersion == "2" {
+	case "2":
 		o.setupOCRv2Contracts(ocrTestConfig, forwarders)
 	}
 }
@@ -602,7 +602,8 @@ func (o *OCRSoakTest) LoadState() error {
 		return err
 	}
 
-	if testState.OCRVersion == "1" {
+	switch testState.OCRVersion {
+	case "1":
 		o.ocrV1Instances = make([]contracts.OffchainAggregator, len(testState.OCRContractAddresses))
 		for i, addr := range testState.OCRContractAddresses {
 			instance, err := contracts.LoadOffChainAggregator(o.log, o.sethClient, common.HexToAddress(addr))
@@ -611,7 +612,7 @@ func (o *OCRSoakTest) LoadState() error {
 			}
 			o.ocrV1Instances[i] = &instance
 		}
-	} else if testState.OCRVersion == "2" {
+	case "2":
 		o.ocrV2Instances = make([]contracts.OffchainAggregatorV2, len(testState.OCRContractAddresses))
 		for i, addr := range testState.OCRContractAddresses {
 			instance, err := contracts.LoadOffchainAggregatorV2(o.log, o.sethClient, common.HexToAddress(addr))
@@ -638,7 +639,8 @@ func (o *OCRSoakTest) Resume() {
 
 	ocrAddresses := make([]common.Address, *o.Config.GetActiveOCRConfig().Common.NumberOfContracts)
 
-	if o.OCRVersion == "1" {
+	switch o.OCRVersion {
+	case "1":
 		for i, ocrInstance := range o.ocrV1Instances {
 			ocrAddresses[i] = common.HexToAddress(ocrInstance.Address())
 		}
@@ -649,7 +651,7 @@ func (o *OCRSoakTest) Resume() {
 			Topics:    [][]common.Hash{{contractABI.Events["AnswerUpdated"].ID}},
 			FromBlock: big.NewInt(0).SetUint64(o.startingBlockNum),
 		}
-	} else if o.OCRVersion == "2" {
+	case "2":
 		for i, ocrInstance := range o.ocrV2Instances {
 			ocrAddresses[i] = common.HexToAddress(ocrInstance.Address())
 		}
@@ -1082,9 +1084,10 @@ func (o *OCRSoakTest) triggerNewRound(newValue int) error {
 	}
 
 	var err error
-	if o.OCRVersion == "1" {
+	switch o.OCRVersion {
+	case "1":
 		err = actions.SetAllAdapterResponsesToTheSameValue(newValue, o.ocrV1Instances, o.workerNodes, o.mockServer)
-	} else if o.OCRVersion == "2" {
+	case "2":
 		err = actions.SetOCR2AllAdapterResponsesToTheSameValue(newValue, o.ocrV2Instances, o.workerNodes, o.mockServer)
 	}
 	if err != nil {
@@ -1096,11 +1099,12 @@ func (o *OCRSoakTest) triggerNewRound(newValue int) error {
 		Answer:      int64(newValue),
 		FoundEvents: make(map[string][]*testreporters.FoundEvent),
 	}
-	if o.OCRVersion == "1" {
+	switch o.OCRVersion {
+	case "1":
 		for _, ocrInstance := range o.ocrV1Instances {
 			expectedState.FoundEvents[ocrInstance.Address()] = make([]*testreporters.FoundEvent, 0)
 		}
-	} else if o.OCRVersion == "2" {
+	case "2":
 		for _, ocrInstance := range o.ocrV2Instances {
 			expectedState.FoundEvents[ocrInstance.Address()] = make([]*testreporters.FoundEvent, 0)
 		}
@@ -1116,7 +1120,7 @@ func (o *OCRSoakTest) triggerNewRound(newValue int) error {
 func (o *OCRSoakTest) collectEvents() error {
 	start := time.Now()
 	if len(o.ocrRoundStates) == 0 {
-		return fmt.Errorf("error collecting on-chain events, no rounds have been started")
+		return errors.New("error collecting on-chain events, no rounds have been started")
 	}
 	o.ocrRoundStates[len(o.ocrRoundStates)-1].EndTime = start // Set end time for last expected event
 	o.log.Info().Msg("Collecting on-chain events")
@@ -1144,7 +1148,8 @@ func (o *OCRSoakTest) collectEvents() error {
 
 	sortedFoundEvents := make([]*testreporters.FoundEvent, 0)
 	for _, event := range contractEvents {
-		if o.OCRVersion == "1" {
+		switch o.OCRVersion {
+		case "1":
 			answerUpdated, err := o.ocrV1Instances[0].ParseEventAnswerUpdated(event)
 			if err != nil {
 				return fmt.Errorf("error parsing EventAnswerUpdated for event: %v, %w", event, err)
@@ -1156,7 +1161,7 @@ func (o *OCRSoakTest) collectEvents() error {
 				RoundID:     answerUpdated.RoundId.Uint64(),
 				BlockNumber: event.BlockNumber,
 			})
-		} else if o.OCRVersion == "2" {
+		case "2":
 			answerUpdated, err := o.ocrV2Instances[0].ParseEventAnswerUpdated(event)
 			if err != nil {
 				return fmt.Errorf("error parsing EventAnswerUpdated for event: %v, %w", event, err)
@@ -1198,7 +1203,7 @@ func (o *OCRSoakTest) collectEvents() error {
 		Msg("Collected on-chain events")
 
 	if len(contractEvents) == 0 {
-		return fmt.Errorf("no events were collected")
+		return errors.New("no events were collected")
 	}
 
 	return nil

@@ -112,7 +112,7 @@ func (ks *p2p) Import(ctx context.Context, keyJSON []byte, password string) (p2p
 	if _, found := ks.keyRing.P2P[key.ID()]; found {
 		return p2pkey.KeyV2{}, fmt.Errorf("p2p key %s: %w", key.ID(), ErrKeyExists)
 	}
-	return key, ks.keyManager.safeAddKey(ctx, key)
+	return key, ks.safeAddKey(ctx, key)
 }
 
 func (ks *p2p) Export(id p2pkey.PeerID, password string) ([]byte, error) {

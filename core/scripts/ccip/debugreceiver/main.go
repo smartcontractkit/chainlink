@@ -116,5 +116,5 @@ func main() {
 		Data:       bytes.Join([][]byte{hexutil.MustDecode("0xa0c6df15"), any2evm}, []byte{}), // ccipReceive selector
 		AccessList: nil,
 	}, big.NewInt(receiveBlock))
-	fmt.Println(a, err)
+	fmt.Println(string(a), err)
 }

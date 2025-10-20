@@ -120,7 +120,7 @@ func (a *FoundEvent) Time() time.Time {
 func (a *FoundEvent) CSV() [][]string {
 	return [][]string{{
 		a.StartTime.Format("2006-01-02 15:04:05.00 MST"),
-		fmt.Sprintf("Address: %s", a.Address),
+		"Address: " + a.Address,
 		fmt.Sprintf("Round: %d", a.RoundID),
 		fmt.Sprintf("Answer: %d", a.Answer),
 		fmt.Sprintf("Block: %d", a.BlockNumber),
@@ -256,7 +256,7 @@ func (o *OCRSoakTestReporter) SendSlackNotification(t *testing.T, slackClient *s
 	}
 
 	return testreporters.UploadSlackFile(slackClient, slack.UploadFileV2Parameters{
-		Title:           fmt.Sprintf("OCR Soak Test Report %s", o.namespace),
+		Title:           "OCR Soak Test Report " + o.namespace,
 		Filename:        fmt.Sprintf("ocr_soak_%s.csv", o.namespace),
 		File:            o.csvLocation,
 		InitialComment:  fmt.Sprintf("OCR Soak Test Report %s.", o.namespace),

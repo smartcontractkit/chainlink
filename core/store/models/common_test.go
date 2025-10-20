@@ -185,7 +185,7 @@ func TestWebURL_String_HasNilURL(t *testing.T) {
 
 	w := models.WebURL{}
 
-	assert.Equal(t, "", w.String())
+	assert.Empty(t, w.String())
 }
 
 func TestCron_UnmarshalJSON_Success(t *testing.T) {

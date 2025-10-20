@@ -130,7 +130,7 @@ func (ks *solana) Import(ctx context.Context, keyJSON []byte, password string) (
 	if _, found := ks.keyRing.Solana[key.ID()]; found {
 		return solkey.Key{}, fmt.Errorf("key with ID %s already exists", key.ID())
 	}
-	return key, ks.keyManager.safeAddKey(ctx, key)
+	return key, ks.safeAddKey(ctx, key)
 }
 
 func (ks *solana) Export(id string, password string) ([]byte, error) {

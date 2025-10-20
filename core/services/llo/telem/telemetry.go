@@ -142,7 +142,7 @@ type telemeter struct {
 }
 
 func (t *telemeter) EnqueueV3PremiumLegacy(run *pipeline.Run, trrs pipeline.TaskRunResults, streamID uint32, opts llo.DSOpts, val llo.StreamValue, err error) {
-	if t.Service.Ready() != nil {
+	if t.Ready() != nil {
 		// This should never happen, telemeter should always be started BEFORE
 		// the oracle and closed AFTER it
 		t.eng.Errorw("Telemeter not ready, dropping observation", "run", run, "streamID", streamID, "opts", opts, "val", val, "err", err)
@@ -178,7 +178,7 @@ type telemetryCollectionContext struct {
 // It is necessary to make a new channel for every Observation call because it
 // closes over DSOpts which is scoped to that call only.
 func (t *telemeter) MakeObservationScopedTelemetryCh(opts llo.DSOpts, size int) chan<- any {
-	if !(t.captureObservationTelemetry || t.captureEATelemetry) {
+	if !t.captureObservationTelemetry && !t.captureEATelemetry {
 		return nil
 	}
 	ch := make(chan any, size)

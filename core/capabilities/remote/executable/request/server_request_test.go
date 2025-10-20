@@ -309,7 +309,6 @@ func Test_ServerRequest_MessageValidation(t *testing.T) {
 		require.Equal(t, caperrors.OriginUser, capError.Origin())
 		require.Equal(t, caperrors.InvalidArgument, capError.Code())
 		require.Equal(t, "[3]InvalidArgument: error details", capError.Error())
-
 	})
 
 	t.Run("Execute capability", func(t *testing.T) {

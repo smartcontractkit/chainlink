@@ -298,7 +298,7 @@ func (cr *chainReader) QueryKeys(ctx context.Context, filters []commontypes.Cont
 	limitAndSort query.LimitAndSort) (iter.Seq2[string, commontypes.Sequence], error) {
 	eventQueries := make([]read.EventQuery, 0, len(filters))
 	for _, filter := range filters {
-		binding, address, err := cr.bindings.GetReader(filter.Contract.ReadIdentifier(filter.KeyFilter.Key))
+		binding, address, err := cr.bindings.GetReader(filter.Contract.ReadIdentifier(filter.Key))
 		if err != nil {
 			return nil, err
 		}
@@ -314,7 +314,7 @@ func (cr *chainReader) QueryKeys(ctx context.Context, filters []commontypes.Cont
 
 		eventBinding, ok := binding.(*read.EventBinding)
 		if !ok {
-			return nil, fmt.Errorf("query key %s is not an event", filter.KeyFilter.Key)
+			return nil, fmt.Errorf("query key %s is not an event", filter.Key)
 		}
 
 		eventQueries = append(eventQueries, read.EventQuery{

@@ -86,7 +86,7 @@ func TestCalculateSyncActions(t *testing.T) {
 				tt.candidateDigest,
 			)
 
-			require.Equal(t, len(tt.expectedActions), len(actions))
+			require.Len(t, actions, len(tt.expectedActions))
 
 			// Sort both slices to ensure consistent comparison
 			sort.Slice(actions, func(i, j int) bool {

@@ -10,8 +10,9 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline/eautils"
 
 	"github.com/pkg/errors"
-	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 	"github.com/stretchr/testify/assert"
+
+	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	mercurytypes "github.com/smartcontractkit/chainlink-common/pkg/types/mercury"
@@ -44,9 +45,10 @@ func (m *mockFetcher) FetchInitialMaxFinalizedBlockNumber(context.Context) (*int
 }
 
 func (m *mockFetcher) LatestPrice(ctx context.Context, fId [32]byte) (*big.Int, error) {
-	if fId == linkFeedId {
+	switch utils.FeedID(fId) {
+	case linkFeedId:
 		return m.linkPrice, m.linkPriceErr
-	} else if fId == nativeFeedId {
+	case nativeFeedId:
 		return m.nativePrice, m.nativePriceErr
 	}
 	return nil, nil
@@ -377,9 +379,9 @@ func Test_Datasource(t *testing.T) {
 
 				obs, err := ds.Observe(ctx, repts, false)
 				assert.NoError(t, err)
-				assert.Nil(t, obs.LinkPrice.Err)
+				assert.NoError(t, obs.LinkPrice.Err)
 				assert.Equal(t, obs.LinkPrice.Val, relaymercuryv3.MissingPrice)
-				assert.Nil(t, obs.NativePrice.Err)
+				assert.NoError(t, obs.NativePrice.Err)
 				assert.Equal(t, obs.NativePrice.Val, relaymercuryv3.MissingPrice)
 				assert.Equal(t, big.NewInt(122), obs.BenchmarkPrice.Val)
 			})
@@ -389,9 +391,9 @@ func Test_Datasource(t *testing.T) {
 				assert.NoError(t, err)
 
 				assert.Equal(t, obs.LinkPrice.Val, relaymercuryv3.MissingPrice)
-				assert.Nil(t, obs.LinkPrice.Err)
+				assert.NoError(t, obs.LinkPrice.Err)
 				assert.Equal(t, obs.NativePrice.Val, relaymercuryv3.MissingPrice)
-				assert.Nil(t, obs.NativePrice.Err)
+				assert.NoError(t, obs.NativePrice.Err)
 			})
 		})
 	})

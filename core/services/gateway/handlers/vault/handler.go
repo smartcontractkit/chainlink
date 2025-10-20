@@ -328,13 +328,14 @@ func (h *handler) HandleJSONRPCUserMessage(ctx context.Context, req jsonrpc.Requ
 	// Public key requests don't require authorization,
 	// Let's process this request right away.
 	// Note we cache this value quite aggressively so don't need to worry about DoS.
-	if req.Method == vaulttypes.MethodPublicKeyGet {
+	switch req.Method {
+	case vaulttypes.MethodPublicKeyGet:
 		ar, err := h.newActiveRequest(req, callback)
 		if err != nil {
 			return err
 		}
 		return h.handlePublicKeyGet(ctx, ar)
-	} else if req.Method == vaulttypes.MethodSecretsGet {
+	case vaulttypes.MethodSecretsGet:
 		// Secrets get is only allowed in non-production builds for testing purposes
 		// So no authorization is required
 		ar, err := h.newActiveRequest(req, callback)

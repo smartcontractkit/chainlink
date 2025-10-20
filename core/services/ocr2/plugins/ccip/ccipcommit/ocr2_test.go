@@ -1785,7 +1785,7 @@ func TestCommitReportingPlugin_getLatestGasPriceUpdate(t *testing.T) {
 				return
 			}
 			assert.NoError(t, err)
-			assert.Equal(t, len(tc.expUpdates), len(gotUpdates))
+			assert.Len(t, gotUpdates, len(tc.expUpdates))
 			for selector, gotUpdate := range gotUpdates {
 				assert.Equal(t, tc.expUpdates[selector].timestamp.Truncate(time.Second), gotUpdate.timestamp.Truncate(time.Second))
 				assert.Equal(t, tc.expUpdates[selector].value.Uint64(), gotUpdate.value.Uint64())
@@ -1854,7 +1854,7 @@ func TestCommitReportingPlugin_getLatestTokenPriceUpdates(t *testing.T) {
 				return
 			}
 			assert.NoError(t, err)
-			assert.Equal(t, len(tc.expUpdates), len(updates))
+			assert.Len(t, updates, len(tc.expUpdates))
 			for k, v := range updates {
 				assert.Equal(t, tc.expUpdates[k].timestamp.Truncate(time.Second), v.timestamp.Truncate(time.Second))
 				assert.Equal(t, tc.expUpdates[k].value.Uint64(), v.value.Uint64())
@@ -1972,7 +1972,7 @@ func TestCommitReportToEthTxMeta(t *testing.T) {
 			txMeta, err := fn(out)
 			require.NoError(t, err)
 			require.NotNil(t, txMeta)
-			require.EqualValues(t, tc.expectedRange, txMeta.SeqNumbers)
+			require.Equal(t, tc.expectedRange, txMeta.SeqNumbers)
 		})
 	}
 }

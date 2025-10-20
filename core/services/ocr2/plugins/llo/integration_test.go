@@ -548,7 +548,7 @@ channelDefinitionsContractFromBlock = %d`, serverURL, serverPubKey, donID, confi
 		// Set config on the destination verifier
 		signerAddresses := make([]common.Address, len(oracles))
 		for i, oracle := range oracles {
-			signerAddresses[i] = common.BytesToAddress(oracle.OracleIdentity.OnchainPublicKey)
+			signerAddresses[i] = common.BytesToAddress(oracle.OnchainPublicKey)
 		}
 		{
 			recipientAddressesAndWeights := []destination_verifier.CommonAddressAndWeight{}
@@ -581,22 +581,23 @@ channelDefinitionsContractFromBlock = %d`, serverURL, serverPubKey, donID, confi
 				err = reportcodecv3.ReportTypes.UnpackIntoMap(reportElems, report.([]byte))
 				require.NoError(t, err)
 
-				feedID := reportElems["feedId"].([32]uint8)
+				feedID := reportElems["feedId"].(common.Hash)
 
 				if _, exists := seen[feedID]; !exists {
 					continue // already saw all oracles for this feed
 				}
 
 				var expectedBm, expectedBid, expectedAsk *big.Int
-				if feedID == quoteStreamFeedID1 {
+				switch feedID {
+				case quoteStreamFeedID1:
 					expectedBm = quoteStream1.baseBenchmarkPrice.Mul(multiplier).BigInt()
 					expectedBid = quoteStream1.baseBid.Mul(multiplier).BigInt()
 					expectedAsk = quoteStream1.baseAsk.Mul(multiplier).BigInt()
-				} else if feedID == quoteStreamFeedID2 {
+				case quoteStreamFeedID2:
 					expectedBm = quoteStream2.baseBenchmarkPrice.Mul(multiplier).BigInt()
 					expectedBid = quoteStream2.baseBid.Mul(multiplier).BigInt()
 					expectedAsk = quoteStream2.baseAsk.Mul(multiplier).BigInt()
-				} else {
+				default:
 					t.Fatalf("unrecognized feedID: 0x%x", feedID)
 				}
 

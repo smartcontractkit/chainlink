@@ -127,5 +127,4 @@ func TestAtomicCoreSwap(t *testing.T) {
 	assert.Equal(t, 1, otelLogs.Len(), "Expected 1 log after core swap")
 	assert.Equal(t, "after swap", otelLogs.All()[0].Message)
 	assert.Equal(t, zapcore.InfoLevel, otelLogs.All()[0].Level)
-
 }

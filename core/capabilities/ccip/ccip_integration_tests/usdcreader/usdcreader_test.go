@@ -215,7 +215,7 @@ func Test_USDCReader_MessageHashes(t *testing.T) {
 			hashes, err1 := usdcReader.MessagesByTokenID(ctx, tc.sourceChain, tc.destChain, tc.tokens)
 			require.NoError(t, err1)
 
-			require.Equal(t, len(tc.expectedMsgIDs), len(hashes))
+			require.Len(t, hashes, len(tc.expectedMsgIDs))
 
 			for _, msgID := range tc.expectedMsgIDs {
 				_, ok := hashes[msgID]

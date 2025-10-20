@@ -296,12 +296,13 @@ func (l *logPollerWrapper) filterPreviouslyDetectedEvents(logs []logpoller.Log, 
 
 // "internal" method called only by EVM relayer components
 func (l *logPollerWrapper) SubscribeToUpdates(ctx context.Context, subscriberName string, subscriber evmconfig.RouteUpdateSubscriber) {
-	if l.pluginConfig.ContractVersion == 0 {
+	switch l.pluginConfig.ContractVersion {
+	case 0:
 		// in V0, immediately set contract address to Oracle contract and never update again
 		if err := subscriber.UpdateRoutes(ctx, l.routerContract.Address(), l.routerContract.Address()); err != nil {
 			l.eng.Errorw("LogPollerWrapper: Failed to update routes", "subscriberName", subscriberName, "err", err)
 		}
-	} else if l.pluginConfig.ContractVersion == 1 {
+	case 1:
 		l.mu.Lock()
 		defer l.mu.Unlock()
 		l.subscribers[subscriberName] = subscriber

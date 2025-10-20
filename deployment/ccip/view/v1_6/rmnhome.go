@@ -43,7 +43,7 @@ func (c RMNHomeVersionedConfig) MarshalJSON() ([]byte, error) {
 		Digest string `json:"digest"`
 		*Alias
 	}{
-		Digest: hex.EncodeToString(c.Digest[:]),
+		Digest: hex.EncodeToString(c.Digest),
 		Alias:  (*Alias)(&c),
 	})
 }
@@ -65,7 +65,7 @@ func (c *RMNHomeVersionedConfig) UnmarshalJSON(data []byte) error {
 	if err != nil {
 		return err
 	}
-	copy(c.Digest[:], digestBytes)
+	copy(c.Digest, digestBytes)
 	return nil
 }
 

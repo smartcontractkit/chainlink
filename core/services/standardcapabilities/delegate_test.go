@@ -128,7 +128,7 @@ func Test_ValidatedStandardCapabilitiesSpec(t *testing.T) {
 			}
 
 			if tc.expectedSpec != nil {
-				assert.EqualValues(t, tc.expectedSpec, jobSpec.StandardCapabilitiesSpec)
+				assert.Equal(t, tc.expectedSpec, jobSpec.StandardCapabilitiesSpec)
 			}
 		})
 	}

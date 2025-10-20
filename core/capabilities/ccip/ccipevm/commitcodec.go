@@ -7,6 +7,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/pkg/errors"
 
 	cciptypes "github.com/smartcontractkit/chainlink-ccip/pkg/types/ccipocr3"
 
@@ -108,7 +109,7 @@ func (c *CommitPluginCodecV1) Encode(ctx context.Context, report cciptypes.Commi
 func (c *CommitPluginCodecV1) Decode(ctx context.Context, bytes []byte) (cciptypes.CommitPluginReport, error) {
 	method, ok := ccipEncodingUtilsABI.Methods["exposeCommitReport"]
 	if !ok {
-		return cciptypes.CommitPluginReport{}, fmt.Errorf("missing method exposeCommitReport")
+		return cciptypes.CommitPluginReport{}, errors.New("missing method exposeCommitReport")
 	}
 
 	unpacked, err := method.Inputs.Unpack(bytes)

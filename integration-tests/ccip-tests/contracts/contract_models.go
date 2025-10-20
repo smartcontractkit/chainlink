@@ -2,6 +2,7 @@ package contracts
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"math/big"
 	"strconv"
@@ -98,7 +99,7 @@ func (v *Version) UnmarshalText(data []byte) error {
 
 // Latest returns true if the version is the latest version
 func (v *Version) Latest() bool {
-	return v.Version.Equal(&Latest.Version)
+	return v.Equal(&Latest.Version)
 }
 
 const (
@@ -429,7 +430,7 @@ func (w TokenPoolWrapper) SetRebalancer(opts *bind.TransactOpts, from common.Add
 	if w.V1_4_0 != nil && w.V1_4_0.LockReleasePool != nil {
 		return w.V1_4_0.LockReleasePool.SetRebalancer(opts, from)
 	}
-	return nil, fmt.Errorf("no pool found to set rebalancer")
+	return nil, errors.New("no pool found to set rebalancer")
 }
 
 func (w TokenPoolWrapper) SetUSDCDomains(opts *bind.TransactOpts, updates []usdc_token_pool.USDCTokenPoolDomainUpdate) (*types.Transaction, error) {
@@ -448,7 +449,7 @@ func (w TokenPoolWrapper) SetUSDCDomains(opts *bind.TransactOpts, updates []usdc
 		}
 		return w.V1_4_0.USDCPool.SetDomains(opts, V1_4_0Updates)
 	}
-	return nil, fmt.Errorf("no pool found to set USDC domains")
+	return nil, errors.New("no pool found to set USDC domains")
 }
 
 func (w TokenPoolWrapper) WithdrawLiquidity(opts *bind.TransactOpts, amount *big.Int) (*types.Transaction, error) {
@@ -458,7 +459,7 @@ func (w TokenPoolWrapper) WithdrawLiquidity(opts *bind.TransactOpts, amount *big
 	if w.V1_4_0 != nil && w.V1_4_0.LockReleasePool != nil {
 		return w.V1_4_0.LockReleasePool.WithdrawLiquidity(opts, amount)
 	}
-	return nil, fmt.Errorf("no pool found to withdraw liquidity")
+	return nil, errors.New("no pool found to withdraw liquidity")
 }
 
 func (w TokenPoolWrapper) ProvideLiquidity(opts *bind.TransactOpts, amount *big.Int) (*types.Transaction, error) {
@@ -468,7 +469,7 @@ func (w TokenPoolWrapper) ProvideLiquidity(opts *bind.TransactOpts, amount *big.
 	if w.V1_4_0 != nil && w.V1_4_0.LockReleasePool != nil {
 		return w.V1_4_0.LockReleasePool.ProvideLiquidity(opts, amount)
 	}
-	return nil, fmt.Errorf("no pool found to provide liquidity")
+	return nil, errors.New("no pool found to provide liquidity")
 }
 
 func (w TokenPoolWrapper) IsSupportedChain(opts *bind.CallOpts, remoteChainSelector uint64) (bool, error) {
@@ -478,7 +479,7 @@ func (w TokenPoolWrapper) IsSupportedChain(opts *bind.CallOpts, remoteChainSelec
 	if w.V1_4_0 != nil && w.V1_4_0.PoolInterface != nil {
 		return w.V1_4_0.PoolInterface.IsSupportedChain(opts, remoteChainSelector)
 	}
-	return false, fmt.Errorf("no pool found to check if chain is supported")
+	return false, errors.New("no pool found to check if chain is supported")
 }
 
 func (w TokenPoolWrapper) ApplyChainUpdates(opts *bind.TransactOpts, update []token_pool.TokenPoolChainUpdate) (*types.Transaction, error) {
@@ -505,11 +506,10 @@ func (w TokenPoolWrapper) ApplyChainUpdates(opts *bind.TransactOpts, update []to
 		}
 		return w.V1_4_0.PoolInterface.ApplyChainUpdates(opts, V1_4_0Updates)
 	}
-	return nil, fmt.Errorf("no pool found to apply chain updates")
+	return nil, errors.New("no pool found to apply chain updates")
 }
 
 func (w TokenPoolWrapper) SetChainRateLimiterConfig(opts *bind.TransactOpts, selector uint64, out token_pool.RateLimiterConfig, in token_pool.RateLimiterConfig) (*types.Transaction, error) {
-
 	if w.Latest != nil && w.Latest.PoolInterface != nil {
 		selectors := []uint64{selector}
 		out := []token_pool.RateLimiterConfig{out}
@@ -529,7 +529,7 @@ func (w TokenPoolWrapper) SetChainRateLimiterConfig(opts *bind.TransactOpts, sel
 				Rate:      in.Rate,
 			})
 	}
-	return nil, fmt.Errorf("no pool found to set chain rate limiter config")
+	return nil, errors.New("no pool found to set chain rate limiter config")
 }
 
 func (w TokenPoolWrapper) GetCurrentOutboundRateLimiterState(opts *bind.CallOpts, selector uint64) (*RateLimiterConfig, error) {
@@ -557,7 +557,7 @@ func (w TokenPoolWrapper) GetCurrentOutboundRateLimiterState(opts *bind.CallOpts
 			Tokens:    rl.Tokens,
 		}, nil
 	}
-	return nil, fmt.Errorf("no pool found to get current outbound rate limiter state")
+	return nil, errors.New("no pool found to get current outbound rate limiter state")
 }
 
 func (w TokenPoolWrapper) GetCurrentInboundRateLimiterState(opts *bind.CallOpts, selector uint64) (*RateLimiterConfig, error) {
@@ -585,7 +585,7 @@ func (w TokenPoolWrapper) GetCurrentInboundRateLimiterState(opts *bind.CallOpts,
 			Tokens:    rl.Tokens,
 		}, nil
 	}
-	return nil, fmt.Errorf("no pool found to get current outbound rate limiter state")
+	return nil, errors.New("no pool found to get current outbound rate limiter state")
 }
 
 func (w TokenPoolWrapper) SetRouter(opts *bind.TransactOpts, routerAddr common.Address) (*types.Transaction, error) {
@@ -595,7 +595,7 @@ func (w TokenPoolWrapper) SetRouter(opts *bind.TransactOpts, routerAddr common.A
 	if w.V1_4_0 != nil && w.V1_4_0.PoolInterface != nil {
 		return w.V1_4_0.PoolInterface.SetRouter(opts, routerAddr)
 	}
-	return nil, fmt.Errorf("no pool found to set router")
+	return nil, errors.New("no pool found to set router")
 }
 
 func (w TokenPoolWrapper) GetRouter(opts *bind.CallOpts) (common.Address, error) {
@@ -613,7 +613,7 @@ func (w TokenPoolWrapper) GetRouter(opts *bind.CallOpts) (common.Address, error)
 		}
 		return addr, nil
 	}
-	return common.Address{}, fmt.Errorf("no pool found to get router")
+	return common.Address{}, errors.New("no pool found to get router")
 }
 
 func (w TokenPoolWrapper) GetRebalancer(opts *bind.CallOpts) (common.Address, error) {
@@ -631,7 +631,7 @@ func (w TokenPoolWrapper) GetRebalancer(opts *bind.CallOpts) (common.Address, er
 		}
 		return addr, nil
 	}
-	return common.Address{}, fmt.Errorf("no pool found to get rebalancer")
+	return common.Address{}, errors.New("no pool found to get rebalancer")
 }
 
 // TokenPool represents a TokenPool address
@@ -670,7 +670,7 @@ func (pool *TokenPool) IsLockRelease() bool {
 
 func (pool *TokenPool) SyncUSDCDomain(destTokenTransmitter *TokenTransmitter, destPoolAddr common.Address, destChainSelector uint64) error {
 	if !pool.IsUSDC() {
-		return fmt.Errorf("pool is not a USDC pool, cannot sync domain")
+		return errors.New("pool is not a USDC pool, cannot sync domain")
 	}
 
 	var allowedCallerBytes [32]byte
@@ -695,7 +695,7 @@ func (pool *TokenPool) SyncUSDCDomain(destTokenTransmitter *TokenTransmitter, de
 		Str(Network, pool.client.GetNetworkName()).
 		Uint32("Domain", domain).
 		Str("Allowed Caller", destPoolAddr.Hex()).
-		Str("Dest Chain Selector", fmt.Sprintf("%d", destChainSelector)).
+		Str("Dest Chain Selector", strconv.FormatUint(destChainSelector, 10)).
 		Msg("Syncing USDC Domain")
 	tx, err := pool.Instance.SetUSDCDomains(opts, []usdc_token_pool.USDCTokenPoolDomainUpdate{
 		{
@@ -715,7 +715,7 @@ func (pool *TokenPool) SyncUSDCDomain(destTokenTransmitter *TokenTransmitter, de
 // This helps provide liquidity to the pool which is necessary for USDC tests to function properly.
 func (pool *TokenPool) MintUSDCToUSDCPool() error {
 	if !pool.IsUSDC() {
-		return fmt.Errorf("pool is not a USDC pool, cannot send USDC")
+		return errors.New("pool is not a USDC pool, cannot send USDC")
 	}
 	usdcToken, err := pool.GetToken()
 	if err != nil {
@@ -740,7 +740,7 @@ func (pool *TokenPool) MintUSDCToUSDCPool() error {
 
 func (pool *TokenPool) RemoveLiquidity(amount *big.Int) error {
 	if !pool.IsLockRelease() {
-		return fmt.Errorf("pool is not a lock release pool, cannot remove liquidity")
+		return errors.New("pool is not a lock release pool, cannot remove liquidity")
 	}
 	opts, err := pool.client.TransactionOpts(pool.OwnerWallet)
 	if err != nil {
@@ -765,7 +765,7 @@ func (pool *TokenPool) RemoveLiquidity(amount *big.Int) error {
 // AddLiquidity approves the token pool to spend the given amount of tokens from the given wallet
 func (pool *TokenPool) AddLiquidity(token *ERC20Token, fromWallet *blockchain.EthereumWallet, amount *big.Int) error {
 	if !pool.IsLockRelease() {
-		return fmt.Errorf("pool is not a lock release pool, cannot add liquidity")
+		return errors.New("pool is not a lock release pool, cannot add liquidity")
 	}
 	pool.logger.Info().
 		Str("Token", token.Address()).
@@ -904,7 +904,6 @@ func (pool *TokenPool) SetRouter(routerAddr common.Address) error {
 	tx, err := pool.Instance.SetRouter(opts, routerAddr)
 	if err != nil {
 		return fmt.Errorf("failed to set router: %w", err)
-
 	}
 	pool.logger.Info().
 		Str("Token Pool", pool.Address()).
@@ -924,7 +923,7 @@ func (pool *TokenPool) GetToken() (common.Address, error) {
 	if pool.Instance.Latest != nil && pool.Instance.Latest.PoolInterface != nil {
 		return pool.Instance.Latest.PoolInterface.GetToken(nil)
 	}
-	return common.Address{}, fmt.Errorf("no pool found to get token")
+	return common.Address{}, errors.New("no pool found to get token")
 }
 
 func (pool *TokenPool) SetRebalancer(rebalancerAddress common.Address) error {
@@ -938,7 +937,6 @@ func (pool *TokenPool) SetRebalancer(rebalancerAddress common.Address) error {
 	tx, err := pool.Instance.SetRebalancer(opts, rebalancerAddress)
 	if err != nil {
 		return fmt.Errorf("failed to set router: %w", err)
-
 	}
 	pool.logger.Info().
 		Str("Token Pool", pool.Address()).
@@ -1000,7 +998,7 @@ func (w CommitStoreWrapper) SetOCR2Config(opts *bind.TransactOpts,
 	if w.V1_2_0 != nil {
 		return w.V1_2_0.SetOCR2Config(opts, signers, transmitters, f, onchainConfig, offchainConfigVersion, offchainConfig)
 	}
-	return nil, fmt.Errorf("no instance found to set OCR2 config")
+	return nil, errors.New("no instance found to set OCR2 config")
 }
 
 func (w CommitStoreWrapper) GetExpectedNextSequenceNumber(opts *bind.CallOpts) (uint64, error) {
@@ -1010,7 +1008,7 @@ func (w CommitStoreWrapper) GetExpectedNextSequenceNumber(opts *bind.CallOpts) (
 	if w.V1_2_0 != nil {
 		return w.V1_2_0.GetExpectedNextSequenceNumber(opts)
 	}
-	return 0, fmt.Errorf("no instance found to get expected next sequence number")
+	return 0, errors.New("no instance found to get expected next sequence number")
 }
 
 type CommitStore struct {
@@ -1075,7 +1073,7 @@ func (b *CommitStore) WatchReportAccepted(opts *bind.WatchOpts, acceptedEvent ch
 		}
 		return newCommitStore.WatchReportAccepted(opts, acceptedEvent)
 	}
-	return nil, fmt.Errorf("no instance found to watch for report accepted")
+	return nil, errors.New("no instance found to watch for report accepted")
 }
 
 type ReceiverDapp struct {
@@ -1152,7 +1150,7 @@ func (p *PriceRegistryWrapper) GetTokenPrice(opts *bind.CallOpts, token common.A
 		}
 		return p.Value, nil
 	}
-	return nil, fmt.Errorf("no instance found to get token price")
+	return nil, errors.New("no instance found to get token price")
 }
 
 func (p *PriceRegistryWrapper) AddPriceUpdater(opts *bind.TransactOpts, addr common.Address) (*types.Transaction, error) {
@@ -1168,7 +1166,7 @@ func (p *PriceRegistryWrapper) AddPriceUpdater(opts *bind.TransactOpts, addr com
 	if p.V1_2_0 != nil {
 		return p.V1_2_0.ApplyPriceUpdatersUpdates(opts, []common.Address{addr}, []common.Address{})
 	}
-	return nil, fmt.Errorf("no instance found to add price updater")
+	return nil, errors.New("no instance found to add price updater")
 }
 
 func (p *PriceRegistryWrapper) AddFeeToken(opts *bind.TransactOpts, addr common.Address) (*types.Transaction, error) {
@@ -1178,7 +1176,7 @@ func (p *PriceRegistryWrapper) AddFeeToken(opts *bind.TransactOpts, addr common.
 	if p.V1_2_0 != nil {
 		return p.V1_2_0.ApplyFeeTokensUpdates(opts, []common.Address{addr}, []common.Address{})
 	}
-	return nil, fmt.Errorf("no instance found to add fee token")
+	return nil, errors.New("no instance found to add fee token")
 }
 
 func (p *PriceRegistryWrapper) GetDestinationChainGasPrice(opts *bind.CallOpts, chainselector uint64) (InternalTimestampedPackedUint224, error) {
@@ -1202,7 +1200,7 @@ func (p *PriceRegistryWrapper) GetDestinationChainGasPrice(opts *bind.CallOpts, 
 			Timestamp: price.Timestamp,
 		}, nil
 	}
-	return InternalTimestampedPackedUint224{}, fmt.Errorf("no instance found to add fee token")
+	return InternalTimestampedPackedUint224{}, errors.New("no instance found to add fee token")
 }
 
 type InternalGasPriceUpdate struct {
@@ -1311,7 +1309,7 @@ func (c *PriceRegistry) UpdatePrices(tokenUpdates []InternalTokenPriceUpdate, ga
 		}
 	}
 	if tx == nil {
-		return fmt.Errorf("no instance found to update prices")
+		return errors.New("no instance found to update prices")
 	}
 	c.logger.Info().
 		Str(Network, c.client.GetNetworkConfig().Name).
@@ -1332,7 +1330,7 @@ func (c *PriceRegistry) WatchUsdPerUnitGasUpdated(opts *bind.WatchOpts, latest c
 		}
 		return newP.WatchUsdPerUnitGasUpdated(opts, latest, destChain)
 	}
-	return nil, fmt.Errorf("no instance found to watch for price updates for gas")
+	return nil, errors.New("no instance found to watch for price updates for gas")
 }
 
 func (c *PriceRegistry) WatchUsdPerTokenUpdated(opts *bind.WatchOpts, latest chan *fee_quoter.FeeQuoterUsdPerTokenUpdated) (event.Subscription, error) {
@@ -1346,7 +1344,7 @@ func (c *PriceRegistry) WatchUsdPerTokenUpdated(opts *bind.WatchOpts, latest cha
 		}
 		return newP.WatchUsdPerTokenUpdated(opts, latest, nil)
 	}
-	return nil, fmt.Errorf("no instance found to watch for price updates for tokens")
+	return nil, errors.New("no instance found to watch for price updates for tokens")
 }
 
 type TokenAdminRegistry struct {
@@ -1484,8 +1482,8 @@ func (r *Router) CCIPSend(destChainSelector uint64, msg router.ClientEVM2AnyMess
 		Str("Router", r.Address()).
 		Interface("TokensAndAmounts", msg.TokenAmounts).
 		Str("FeeToken", msg.FeeToken.Hex()).
-		Str("ExtraArgs", fmt.Sprintf("0x%x", msg.ExtraArgs[:])).
-		Str("Receiver", fmt.Sprintf("0x%x", msg.Receiver[:])).
+		Str("ExtraArgs", fmt.Sprintf("0x%x", msg.ExtraArgs)).
+		Str("Receiver", fmt.Sprintf("0x%x", msg.Receiver)).
 		Msg("Sending msg")
 	return r.Instance.CcipSend(opts, destChainSelector, msg)
 }
@@ -1572,7 +1570,7 @@ func (w OnRampWrapper) SetNops(opts *bind.TransactOpts, owner common.Address) (*
 			},
 		})
 	}
-	return nil, fmt.Errorf("no instance found to set nops")
+	return nil, errors.New("no instance found to set nops")
 }
 
 func (w OnRampWrapper) SetTokenTransferFeeConfig(
@@ -1597,7 +1595,7 @@ func (w OnRampWrapper) SetTokenTransferFeeConfig(
 		}
 		return w.V1_2_0.SetTokenTransferFeeConfig(opts, configV12)
 	}
-	return nil, fmt.Errorf("no instance found to set token transfer fee config")
+	return nil, errors.New("no instance found to set token transfer fee config")
 }
 
 func (w OnRampWrapper) PayNops(opts *bind.TransactOpts) (*types.Transaction, error) {
@@ -1607,7 +1605,7 @@ func (w OnRampWrapper) PayNops(opts *bind.TransactOpts) (*types.Transaction, err
 	if w.V1_2_0 != nil {
 		return w.V1_2_0.PayNops(opts)
 	}
-	return nil, fmt.Errorf("no instance found to pay nops")
+	return nil, errors.New("no instance found to pay nops")
 }
 
 func (w OnRampWrapper) WithdrawNonLinkFees(opts *bind.TransactOpts, native common.Address, owner common.Address) (*types.Transaction, error) {
@@ -1617,7 +1615,7 @@ func (w OnRampWrapper) WithdrawNonLinkFees(opts *bind.TransactOpts, native commo
 	if w.V1_2_0 != nil {
 		return w.V1_2_0.WithdrawNonLinkFees(opts, native, owner)
 	}
-	return nil, fmt.Errorf("no instance found to withdraw non link fees")
+	return nil, errors.New("no instance found to withdraw non link fees")
 }
 
 func (w OnRampWrapper) SetRateLimiterConfig(opts *bind.TransactOpts, config evm_2_evm_onramp.RateLimiterConfig) (*types.Transaction, error) {
@@ -1631,7 +1629,7 @@ func (w OnRampWrapper) SetRateLimiterConfig(opts *bind.TransactOpts, config evm_
 			Rate:      config.Rate,
 		})
 	}
-	return nil, fmt.Errorf("no instance found to set rate limiter config")
+	return nil, errors.New("no instance found to set rate limiter config")
 }
 
 func (w OnRampWrapper) ParseCCIPSendRequested(l types.Log) (uint64, error) {
@@ -1649,7 +1647,7 @@ func (w OnRampWrapper) ParseCCIPSendRequested(l types.Log) (uint64, error) {
 		}
 		return sendReq.Message.SequenceNumber, nil
 	}
-	return 0, fmt.Errorf("no instance found to parse CCIPSendRequested")
+	return 0, errors.New("no instance found to parse CCIPSendRequested")
 }
 
 // GetDynamicConfig retrieves the dynamic config for the onramp
@@ -1679,7 +1677,7 @@ func (w OnRampWrapper) GetDynamicConfig(opts *bind.CallOpts) (evm_2_evm_onramp.E
 			MaxPerMsgGasLimit:                 cfg.MaxPerMsgGasLimit,
 		}, nil
 	}
-	return evm_2_evm_onramp.EVM2EVMOnRampDynamicConfig{}, fmt.Errorf("no instance found to get dynamic config")
+	return evm_2_evm_onramp.EVM2EVMOnRampDynamicConfig{}, errors.New("no instance found to get dynamic config")
 }
 
 // SetDynamicConfig sets the dynamic config for the onramp
@@ -1703,17 +1701,17 @@ func (w OnRampWrapper) SetDynamicConfig(opts *bind.TransactOpts, dynamicConfig e
 			MaxPerMsgGasLimit:                 dynamicConfig.MaxPerMsgGasLimit,
 		})
 	}
-	return nil, fmt.Errorf("no instance found to set dynamic config")
+	return nil, errors.New("no instance found to set dynamic config")
 }
 
 func (w OnRampWrapper) ApplyPoolUpdates(opts *bind.TransactOpts, tokens []common.Address, pools []common.Address) (*types.Transaction, error) {
 	if w.Latest != nil {
-		return nil, fmt.Errorf("latest version does not support ApplyPoolUpdates")
+		return nil, errors.New("latest version does not support ApplyPoolUpdates")
 	}
 	if w.V1_2_0 != nil {
 		var poolUpdates []evm_2_evm_onramp_1_2_0.InternalPoolUpdate
 		if len(tokens) != len(pools) {
-			return nil, fmt.Errorf("tokens and pools length mismatch")
+			return nil, errors.New("tokens and pools length mismatch")
 		}
 		for i, token := range tokens {
 			poolUpdates = append(poolUpdates, evm_2_evm_onramp_1_2_0.InternalPoolUpdate{
@@ -1723,7 +1721,7 @@ func (w OnRampWrapper) ApplyPoolUpdates(opts *bind.TransactOpts, tokens []common
 		}
 		return w.V1_2_0.ApplyPoolUpdates(opts, []evm_2_evm_onramp_1_2_0.InternalPoolUpdate{}, poolUpdates)
 	}
-	return nil, fmt.Errorf("no instance found to apply pool updates")
+	return nil, errors.New("no instance found to apply pool updates")
 }
 
 // CurrentRateLimiterState returns the current state of the rate limiter
@@ -1752,7 +1750,7 @@ func (w OnRampWrapper) CurrentRateLimiterState(opts *bind.CallOpts) (*RateLimite
 			Tokens:    rlConfig.Tokens,
 		}, err
 	}
-	return nil, fmt.Errorf("no instance found to get current rate limiter state")
+	return nil, errors.New("no instance found to get current rate limiter state")
 }
 
 type OnRamp struct {
@@ -1778,7 +1776,7 @@ func (onRamp *OnRamp) WatchCCIPSendRequested(opts *bind.WatchOpts, sendReqEvent 
 		return newRamp.WatchCCIPSendRequested(opts, sendReqEvent)
 	}
 	// should never reach here
-	return nil, fmt.Errorf("no instance found to watch for CCIPSendRequested")
+	return nil, errors.New("no instance found to watch for CCIPSendRequested")
 }
 
 func (onRamp *OnRamp) Address() string {
@@ -1923,7 +1921,7 @@ func (offRamp *OffRamp) WatchExecutionStateChanged(
 		}
 		return newOffRamp.WatchExecutionStateChanged(opts, execEvent, sequenceNumber, messageId)
 	}
-	return nil, fmt.Errorf("no instance found to watch for ExecutionStateChanged")
+	return nil, errors.New("no instance found to watch for ExecutionStateChanged")
 }
 
 // SetOCR2Config sets the offchain reporting protocol configuration
@@ -1976,7 +1974,7 @@ func (offRamp *OffRamp) SetOCR2Config(
 		}
 		return offRamp.client.ProcessTransaction(tx)
 	}
-	return fmt.Errorf("no instance found to set OCR2 config")
+	return errors.New("no instance found to set OCR2 config")
 }
 
 // AddRateLimitTokens adds token pairs to the OffRamp's rate limit
@@ -1986,7 +1984,7 @@ func (offRamp *OffRamp) AddRateLimitTokens(sourceTokens, destTokens []common.Add
 	}
 
 	if len(sourceTokens) != len(destTokens) {
-		return fmt.Errorf("source and dest tokens must be of the same length")
+		return errors.New("source and dest tokens must be of the same length")
 	}
 	opts, err := offRamp.client.TransactionOpts(offRamp.client.GetDefaultWallet())
 	if err != nil {
@@ -2013,7 +2011,7 @@ func (offRamp *OffRamp) AddRateLimitTokens(sourceTokens, destTokens []common.Add
 			Msg("rateLimitTokens set in OffRamp")
 		return offRamp.client.ProcessTransaction(tx)
 	}
-	return fmt.Errorf("no supported OffRamp version instance found")
+	return errors.New("no supported OffRamp version instance found")
 }
 
 // RemoveRateLimitTokens removes token pairs to the OffRamp's rate limit.
@@ -2077,7 +2075,7 @@ func (offRamp *OffRamp) RemoveRateLimitTokens(ctx context.Context, sourceTokens,
 	case offRamp.Instance.V1_2_0 != nil:
 		return nil
 	}
-	return fmt.Errorf("no supported OffRamp version instance found")
+	return errors.New("no supported OffRamp version instance found")
 }
 
 // RemoveAllRateLimitTokens removes all token pairs from the OffRamp's rate limit.
@@ -2119,7 +2117,7 @@ func (offRamp *OffRamp) RemoveAllRateLimitTokens(ctx context.Context) error {
 	case offRamp.Instance.V1_2_0 != nil:
 		return nil
 	}
-	return fmt.Errorf("no supported OffRamp version instance found")
+	return errors.New("no supported OffRamp version instance found")
 }
 
 // SetRateLimit sets the Aggregate Rate Limit (ARL) values for the OffRamp
@@ -2158,7 +2156,7 @@ func (offRamp *OffRamp) SetRateLimit(rlConfig RateLimiterConfig) error {
 		}
 		return offRamp.client.ProcessTransaction(tx)
 	}
-	return fmt.Errorf("no supported OffRamp version instance found")
+	return errors.New("no supported OffRamp version instance found")
 }
 
 func (offRamp *OffRamp) SyncTokensAndPools(sourceTokens, pools []common.Address) error {
@@ -2188,7 +2186,7 @@ func (offRamp *OffRamp) SyncTokensAndPools(sourceTokens, pools []common.Address)
 			Msg("tokenUpdates set in OffRamp")
 		return offRamp.client.ProcessTransaction(tx)
 	}
-	return fmt.Errorf("no instance found to sync tokens and pools")
+	return errors.New("no instance found to sync tokens and pools")
 }
 
 // OffRampWrapper wraps multiple versions of the OffRamp contract as we support multiple at once.
@@ -2229,7 +2227,7 @@ func (offRamp *OffRampWrapper) CurrentRateLimiterState(opts *bind.CallOpts) (Rat
 			Rate:      rlConfig.Rate,
 		}, nil
 	}
-	return RateLimiterConfig{}, fmt.Errorf("no instance found to get rate limiter state")
+	return RateLimiterConfig{}, errors.New("no instance found to get rate limiter state")
 }
 
 type EVM2EVMOffRampExecutionStateChanged struct {
@@ -2257,7 +2255,7 @@ func (a *MockAggregator) ChainID() uint64 {
 // if answer is nil, it will set next round data by adding random percentage( within provided range) to the previous round data
 func (a *MockAggregator) UpdateRoundData(answer *big.Int, minP, maxP *int) error {
 	if answer == nil && (minP == nil || maxP == nil) {
-		return fmt.Errorf("minP and maxP are required to update round data with random percentage if answer is nil")
+		return errors.New("minP and maxP are required to update round data with random percentage if answer is nil")
 	}
 	// if round id is nil, set it to 1
 	if a.RoundId == nil {

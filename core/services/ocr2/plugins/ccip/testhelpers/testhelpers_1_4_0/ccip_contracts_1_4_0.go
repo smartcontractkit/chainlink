@@ -1,4 +1,3 @@
-//nolint:revive // helpers for specific version
 package testhelpers_1_4_0
 
 import (

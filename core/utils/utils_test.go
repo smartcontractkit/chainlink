@@ -35,7 +35,6 @@ func TestUtils_NewSecret(t *testing.T) {
 		{12, 16}, {24, 32}, {48, 64}, {96, 128},
 	}
 	for _, test := range tests {
-
 		t.Run(fmt.Sprintf("%d_%d", test.numOfBytes, test.wantStrLen), func(t *testing.T) {
 			t.Parallel()
 
@@ -58,7 +57,6 @@ func TestUtils_StringToHex(t *testing.T) {
 	}
 
 	for _, test := range tests {
-
 		t.Run(test.utf8, func(t *testing.T) {
 			t.Parallel()
 

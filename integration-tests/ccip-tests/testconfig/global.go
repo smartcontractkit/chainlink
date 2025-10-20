@@ -497,7 +497,7 @@ type CLCluster struct {
 
 func (c *CLCluster) Validate() error {
 	if c.NoOfNodes == nil || len(c.NodeConfigs) == 0 {
-		return fmt.Errorf("no chainlink nodes specified")
+		return errors.New("no chainlink nodes specified")
 	}
 	if *c.NoOfNodes != len(c.NodeConfigs) {
 		return fmt.Errorf("number of nodes %d does not match number of node configs %d", *c.NoOfNodes, len(c.NodeConfigs))

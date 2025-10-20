@@ -41,13 +41,7 @@ func PackTrigger(id *big.Int, trig triggerWrapper) ([]byte, error) {
 		}
 		trigger, err = utilsABI.Pack("_conditionalTrigger", &trig)
 	case types.LogTrigger:
-		logTrig := ac.IAutomationV21PlusCommonLogTrigger{
-			BlockNum:     trig.BlockNum,
-			BlockHash:    trig.BlockHash,
-			LogBlockHash: trig.LogBlockHash,
-			LogIndex:     trig.LogIndex,
-			TxHash:       trig.TxHash,
-		}
+		logTrig := ac.IAutomationV21PlusCommonLogTrigger(trig)
 		trigger, err = utilsABI.Pack("_logTrigger", &logTrig)
 	default:
 		err = fmt.Errorf("unknown trigger type: %d", upkeepType)
