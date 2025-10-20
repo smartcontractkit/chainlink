@@ -402,13 +402,13 @@ func (lc *LaneConfiguration) DiscoverLanesFromDeployedState(env cldf.Environment
 
 	// Discover Sui source lanes
 	for _, srcChain := range suiChains {
-		srcChainState, exists := state.SuiChains[srcChain]
-		if !exists {
-			continue
+		srcChainState, err := suiState.LoadOnchainStatesui(env)
+		if err != nil {
+			return fmt.Errorf("failed to load Sui chain state: %w", err)
 		}
 
 		// Check which destination chains are configured on the Sui Router
-		destinations, err := lc.getEnabledDestinationsFromSuiRouter(env, srcChain, srcChainState, allChains)
+		destinations, err := lc.getEnabledDestinationsFromSuiRouter(env, srcChain, srcChainState[srcChain], allChains)
 		if err != nil {
 			return fmt.Errorf("failed to get enabled destinations for Sui chain %d: %w", srcChain, err)
 		}

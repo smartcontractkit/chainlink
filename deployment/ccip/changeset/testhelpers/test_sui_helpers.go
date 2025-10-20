@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/hex"
 	"errors"
-	"fmt"
 	"math/big"
 	"strconv"
 	"strings"
@@ -475,9 +474,6 @@ func SendSuiCCIPRequest(e cldf.Environment, cfg *ccipclient.CCIPSendReqConfig) (
 	if err != nil {
 		return nil, errors.New("failed to encode receiver call: " + err.Error())
 	}
-
-	// pprint out the call
-	fmt.Println("encodedOnRampCCIPSendCall: ", encodedOnRampCCIPSendCall)
 
 	_, err = onRampContract.AppendPTB(ctx, deps.SuiChain.GetCallOpts(), ptb, encodedOnRampCCIPSendCall)
 	if err != nil {

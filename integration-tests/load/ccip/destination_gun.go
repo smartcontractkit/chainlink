@@ -40,18 +40,19 @@ type SeqNumRange struct {
 }
 
 type DestinationGun struct {
-	l                logger.Logger
-	env              cldf.Environment
-	state            *stateview.CCIPOnChainState
-	roundNum         *atomic.Int32
-	chainSelector    uint64
-	receiver         []byte
-	testConfig       *ccip.LoadConfig
-	evmSourceKeys    map[uint64]*bind.TransactOpts
-	solanaSourceKeys map[uint64]*solana.PrivateKey
-	suiSourceKeys    map[uint64]cldf_sui.Chain
-	metricPipe       chan messageData
-	availableSources []uint64 // Cache of available source chains for this destination
+	l                        logger.Logger
+	env                      cldf.Environment
+	state                    *stateview.CCIPOnChainState
+	roundNum                 *atomic.Int32
+	chainSelector            uint64
+	receiver                 []byte
+	testConfig               *ccip.LoadConfig
+	evmSourceKeys            map[uint64]*bind.TransactOpts
+	solanaSourceKeys         map[uint64]*solana.PrivateKey
+	suiSourceKeys            map[uint64]cldf_sui.Chain
+	suiReceiverStateObjectId []byte
+	metricPipe               chan messageData
+	availableSources         []uint64 // Cache of available source chains for this destination
 }
 
 func NewDestinationGun(
@@ -291,7 +292,13 @@ func (m *DestinationGun) GetEVMMessage(src uint64) (router.ClientEVM2AnyMessage,
 	case selectors.FamilySui:
 		rcv = common.LeftPadBytes(m.receiver, 32)
 		// OOO always true for Sui
-		extraArgs = testhelpers.MakeSuiExtraArgs(0, true, [][32]byte{})
+		// Clock is always at 0x6, receiver state object is in suiReceiverStateObjectId
+		fmt.Printf("SUI receiveer %v", string(m.suiReceiverStateObjectId))
+		extraArgs, err = GetEVMExtraArgsV2SUI("0x" + string(m.suiReceiverStateObjectId))
+		fmt.Printf("SUI Extra args: %v", extraArgs)
+		if err != nil {
+			return router.ClientEVM2AnyMessage{}, 0, err
+		}
 	}
 
 	message := router.ClientEVM2AnyMessage{
@@ -500,7 +507,7 @@ func (m *DestinationGun) sendSuiSourceMessage(src uint64) error {
 		return fmt.Errorf("no Sui source key available for chain %d", src)
 	}
 
-	msg, err := m.getSuiMessage(src)
+	msg, err := m.getSuiMessage()
 	if err != nil {
 		return fmt.Errorf("failed to get Sui message: %w", err)
 	}
@@ -529,7 +536,7 @@ func (m *DestinationGun) sendSuiSourceMessage(src uint64) error {
 	return nil
 }
 
-func (m *DestinationGun) getSuiMessage(src uint64) (testhelpers.SuiSendRequest, error) {
+func (m *DestinationGun) getSuiMessage() (testhelpers.SuiSendRequest, error) {
 	// Select a message type based on ratio
 	randomValue := mathrand.Intn(100)
 	accumulatedRatio := 0
@@ -549,15 +556,10 @@ func (m *DestinationGun) getSuiMessage(src uint64) (testhelpers.SuiSendRequest, 
 
 	m.l.Infow("Selected message type", "msgType", *selectedMsgDetails.MsgType)
 
-	_, exists := m.state.SuiChains[src]
-	if !exists {
-		return testhelpers.SuiSendRequest{}, fmt.Errorf("no Sui state available for source chain %d", src)
-	}
-
 	message := testhelpers.SuiSendRequest{
 		Receiver:  common.LeftPadBytes(m.receiver, 32),
 		ExtraArgs: []byte{},
-		FeeToken:  "0xdf540d8211c7d9780c7cd1a6853ce7cb793b1503423ba492f4ed9b40fca28d89",
+		FeeToken:  *m.testConfig.TestnetConfig.SuiConfig.SuiFeeTokenObjectId,
 	}
 
 	switch {
@@ -572,7 +574,7 @@ func (m *DestinationGun) getSuiMessage(src uint64) (testhelpers.SuiSendRequest, 
 	case selectedMsgDetails.IsTokenTransfer():
 		message.TokenAmounts = []testhelpers.SuiTokenAmount{
 			{
-				Token:  "0xdf540d8211c7d9780c7cd1a6853ce7cb793b1503423ba492f4ed9b40fca28d89",
+				Token:  *m.testConfig.TestnetConfig.SuiConfig.SuiFeeTokenObjectId,
 				Amount: 1,
 			},
 		}

@@ -7,9 +7,12 @@ import (
 	"fmt"
 	"math"
 	"sync"
+	"testing"
 	"time"
 
 	"github.com/btcsuite/btcutil/bech32"
+	"github.com/ethereum/go-ethereum/common/hexutil"
+	"github.com/jmoiron/sqlx"
 	_ "github.com/lib/pq"
 	"go.uber.org/atomic"
 
@@ -18,12 +21,14 @@ import (
 	pkgtypes "github.com/smartcontractkit/chainlink-common/pkg/types"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/ccipocr3"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/query"
+	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 
 	"github.com/smartcontractkit/chainlink-sui/relayer/chainreader/config"
 	"github.com/smartcontractkit/chainlink-sui/relayer/chainreader/database"
 	"github.com/smartcontractkit/chainlink-sui/relayer/chainreader/indexer"
 	"github.com/smartcontractkit/chainlink-sui/relayer/chainreader/reader"
 	"github.com/smartcontractkit/chainlink-sui/relayer/client"
+	"github.com/smartcontractkit/chainlink-sui/relayer/testutils"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers"
 )
 
@@ -125,23 +130,6 @@ func subscribeSuiTransmitEvents(
 			return
 
 		case <-ticker.C:
-			type Sui2AnyRampMessage struct {
-				Header struct {
-					MessageID           []byte `json:"message_id"`
-					SourceChainSelector uint64 `json:"source_chain_selector"`
-					DestChainSelector   uint64 `json:"dest_chain_selector"`
-					SequenceNumber      uint64 `json:"sequence_number"`
-					Nonce               uint64 `json:"nonce"`
-				} `json:"header"`
-				Sender         string `json:"sender"`
-				Data           []byte `json:"data"`
-				Receiver       []byte `json:"receiver"`
-				ExtraArgs      []byte `json:"extra_args"`
-				FeeToken       string `json:"fee_token"`
-				FeeTokenAmount uint64 `json:"fee_token_amount"`
-				FeeValueJuels  string `json:"fee_value_juels"`
-				TokenAmounts   []any  `json:"token_amounts"`
-			}
 
 			type CCIPMessageSentEvent struct {
 				DestChainSelector uint64 `json:"destChainSelector"`
@@ -179,7 +167,7 @@ func subscribeSuiTransmitEvents(
 				seqNum := event.SequenceNumber
 
 				if destChain == 0 || seqNum == 0 {
-					lggr.Debugw("skipping marker/invalid event",
+					lggr.Debugw("skipping invalid event",
 						"srcChain", srcChainSel,
 						"destChain", destChain,
 						"sequenceNumber", seqNum)
@@ -340,7 +328,7 @@ func subscribeSuiCommitEvents(
 				allRoots := append(event.BlessedMerkleRoots, event.UnblessedMerkleRoots...)
 
 				if len(allRoots) == 0 {
-					lggr.Debugw("skipping empty commit event (likely marker)", "destChain", chainSelector)
+					lggr.Debugw("skipping empty commit event", "destChain", chainSelector)
 					continue
 				}
 
@@ -515,7 +503,7 @@ func subscribeSuiExecutionEvents(
 				event := seq.Data.(*ExecutionStateChangedEvent)
 
 				if event.SourceChainSelector == 0 || event.SequenceNumber == 0 {
-					lggr.Debugw("skipping marker/invalid execution event",
+					lggr.Debugw("skipping invalid execution event",
 						"srcChain", event.SourceChainSelector,
 						"seqNum", event.SequenceNumber)
 					continue
@@ -721,4 +709,126 @@ func setEventCursorToLatest(
 
 	lgr.Infow("Cursor set to latest", "eventHandle", eventHandle, "checkpoint", block.Height)
 	return nil
+}
+
+func GetEVMExtraArgsV2SUI(recv string) ([]byte, error) {
+	var clockObj [32]byte
+	copy(clockObj[:], hexutil.MustDecode(
+		"0x0000000000000000000000000000000000000000000000000000000000000006",
+	))
+
+	var stateObj [32]byte
+	copy(stateObj[:], hexutil.MustDecode(
+		recv, // reciever CCIPReceiverStateObjectId
+	))
+
+	recieverObjectIds := [][32]byte{clockObj, stateObj}
+
+	return testhelpers.MakeSuiExtraArgs(1000000, true, recieverObjectIds, [32]byte{}), nil
+}
+
+// cleanupSuiDatabase cleans up Sui events and transactions tables before test runs
+func cleanupSuiDatabase(dbUrl string, lggr logger.Logger) {
+	db, err := sqlx.Open("postgres", dbUrl)
+	if err != nil {
+		lggr.Warnw("Failed to open database for cleanup", "error", err)
+		return
+	}
+	defer db.Close()
+
+	lggr.Infow("Cleaning up Sui events database for fresh test run")
+
+	// Check if schema exists, create if needed
+	_, err = db.Exec("CREATE SCHEMA IF NOT EXISTS sui")
+	if err != nil {
+		lggr.Warnw("Failed to create sui schema", "error", err)
+	}
+
+	// Truncate events table (table might not exist on first run)
+	_, err = db.Exec("TRUNCATE TABLE sui.events CASCADE")
+	if err != nil {
+		lggr.Debugw("sui.events table doesn't exist or failed to truncate (this is ok on first run)", "error", err)
+	} else {
+		lggr.Infow("Truncated sui.events table")
+	}
+
+	// Truncate transactions table (table might not exist on first run)
+	_, err = db.Exec("TRUNCATE TABLE sui.transactions CASCADE")
+	if err != nil {
+		lggr.Debugw("sui.transactions table doesn't exist or failed to truncate (this is ok on first run)", "error", err)
+	} else {
+		lggr.Infow("Truncated sui.transactions table")
+	}
+
+	lggr.Infow("Database cleanup complete")
+}
+
+// createSuiChainReader creates a chain reader for a Sui chain with configured OnRamp and OffRamp events
+func createSuiChainReader(
+	ctx context.Context,
+	t *testing.T,
+	lggr logger.Logger,
+	env cldf.Environment,
+	db *sqlx.DB,
+	chainSelector uint64,
+	onRampAddress string,
+	offRampAddress string,
+) (pkgtypes.ContractReader, error) {
+	suiKeystore := testutils.NewTestKeystore(t)
+	ptbClient, err := client.NewPTBClient(
+		lggr,
+		env.BlockChains.SuiChains()[chainSelector].URL,
+		nil,
+		10*time.Second,
+		suiKeystore,
+		5,
+		"WaitForLocalExecution",
+	)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create PTB client: %w", err)
+	}
+
+	chainReaderConfig := config.ChainReaderConfig{
+		Modules: map[string]*config.ChainReaderModule{
+			"OnRamp": {
+				Name: "onramp",
+				Events: map[string]*config.ChainReaderEvent{
+					"CCIPMessageSent": {
+						Name:      "onramp",
+						EventType: "CCIPMessageSent",
+						EventSelector: client.EventSelector{
+							Package: onRampAddress,
+							Module:  "onramp",
+							Event:   "CCIPMessageSent",
+						},
+					},
+				},
+			},
+			"OffRamp": {
+				Name: "offramp",
+				Events: map[string]*config.ChainReaderEvent{
+					"CommitReportAccepted": {
+						Name:      "offramp",
+						EventType: "CommitReportAccepted",
+						EventSelector: client.EventSelector{
+							Package: offRampAddress,
+							Module:  "offramp",
+							Event:   "CommitReportAccepted",
+						},
+					},
+					"ExecutionStateChanged": {
+						Name:      "offramp",
+						EventType: "ExecutionStateChanged",
+						EventSelector: client.EventSelector{
+							Package: offRampAddress,
+							Module:  "offramp",
+							Event:   "ExecutionStateChanged",
+						},
+					},
+				},
+			},
+		},
+	}
+
+	return NewChainReaderFromLatestBlock(ctx, lggr, ptbClient, chainReaderConfig, db)
 }
