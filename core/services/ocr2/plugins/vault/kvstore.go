@@ -43,6 +43,9 @@ func NewWriteStore(writer ocr3_1types.KeyValueReadWriter) *KVStore {
 }
 
 func (s *KVStore) GetSecret(id *vault.SecretIdentifier) (*vault.StoredSecret, error) {
+	if id == nil {
+		return nil, errors.New("id cannot be nil")
+	}
 	found, err := s.metadataContainsID(id)
 	if err != nil {
 		return nil, fmt.Errorf("failed to check if metadata contains id: %w", err)
@@ -118,6 +121,9 @@ func (s *KVStore) WriteMetadata(owner string, metadata *vault.StoredMetadata) er
 }
 
 func (s *KVStore) metadataContainsID(id *vault.SecretIdentifier) (bool, error) {
+	if id == nil {
+		return false, errors.New("id cannot be nil")
+	}
 	md, err := s.GetMetadata(id.Owner)
 	if err != nil {
 		return false, fmt.Errorf("failed to get metadata for owner %s: %w", id.Owner, err)
@@ -137,6 +143,9 @@ func (s *KVStore) metadataContainsID(id *vault.SecretIdentifier) (bool, error) {
 }
 
 func (s *KVStore) addIDToMetadata(id *vault.SecretIdentifier) error {
+	if id == nil {
+		return errors.New("id cannot be nil")
+	}
 	md, err := s.GetMetadata(id.Owner)
 	if err != nil {
 		return fmt.Errorf("failed to get metadata for owner %s: %w", id.Owner, err)
@@ -166,6 +175,9 @@ func (s *KVStore) addIDToMetadata(id *vault.SecretIdentifier) error {
 }
 
 func (s *KVStore) removeIDFromMetadata(id *vault.SecretIdentifier) error {
+	if id == nil {
+		return errors.New("id cannot be nil")
+	}
 	md, err := s.GetMetadata(id.Owner)
 	if err != nil {
 		return fmt.Errorf("failed to get metadata for owner %s: %w", id.Owner, err)
@@ -201,6 +213,9 @@ func (s *KVStore) removeIDFromMetadata(id *vault.SecretIdentifier) error {
 }
 
 func (s *KVStore) WriteSecret(id *vault.SecretIdentifier, secret *vault.StoredSecret) error {
+	if id == nil {
+		return errors.New("id cannot be nil")
+	}
 	b, err := proto.Marshal(secret)
 	if err != nil {
 		return fmt.Errorf("failed to marshal secret: %w", err)
@@ -219,6 +234,9 @@ func (s *KVStore) WriteSecret(id *vault.SecretIdentifier, secret *vault.StoredSe
 }
 
 func (s *KVStore) DeleteSecret(id *vault.SecretIdentifier) error {
+	if id == nil {
+		return errors.New("id cannot be nil")
+	}
 	err := s.removeIDFromMetadata(id)
 	if err != nil {
 		return fmt.Errorf("failed to remove id from metadata: %w", err)
