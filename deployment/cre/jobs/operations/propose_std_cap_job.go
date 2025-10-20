@@ -144,10 +144,6 @@ var ProposeStandardCapabilityJob = operations.NewSequence[
 			if !ok {
 				return ProposeStandardCapabilityJobOutput{}, fmt.Errorf("no evm ocr2 config for node %s", ni.NodeID)
 			}
-			aptosConfig, ok := ni.OCRConfigForChainSelector(uint64(input.Job.ChainSelectorAptos))
-			if !ok {
-				return ProposeStandardCapabilityJobOutput{}, fmt.Errorf("no aptos ocr2 config for node %s", ni.NodeID)
-			}
 
 			oracleFactory := &pkg.OracleFactory{
 				Enabled:            true,
@@ -158,9 +154,17 @@ var ProposeStandardCapabilityJob = operations.NewSequence[
 				TransmitterID:      string(evmConfig.TransmitAccount),
 				OnchainSigningStrategy: pkg.OnchainSigningStrategy{
 					StrategyName: "multi-chain",
-					Config: map[string]string{"evm": evmConfig.KeyBundleID,
-						"aptos": aptosConfig.KeyBundleID},
+					Config:       map[string]string{"evm": evmConfig.KeyBundleID},
 				},
+			}
+
+			if input.Job.ChainSelectorAptos > 0 {
+				aptosConfig, ok := ni.OCRConfigForChainSelector(uint64(input.Job.ChainSelectorAptos))
+				if !ok {
+					return ProposeStandardCapabilityJobOutput{}, fmt.Errorf("no aptos ocr2 config for node %s", ni.NodeID)
+				}
+
+				oracleFactory.OnchainSigningStrategy.Config["aptos"] = aptosConfig.KeyBundleID
 			}
 
 			input.Job.OracleFactory = oracleFactory
