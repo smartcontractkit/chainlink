@@ -582,11 +582,21 @@ func (m *DonMetadata) IsWorkflowDON() bool {
 }
 
 type Dons struct {
-	Dons []*DON `toml:"dons" json:"dons"`
+	Dons              []*DON             `toml:"dons" json:"dons"`
+	GatewayConnectors *GatewayConnectors `toml:"gateway_connectors" json:"gateway_connectors"`
 }
 
 func (d *Dons) List() []*DON {
 	return d.Dons
+}
+
+func (d *Dons) MustWorkflowDON() *DON {
+	for _, don := range d.Dons {
+		if don.HasFlag(WorkflowDON) {
+			return don
+		}
+	}
+	panic("no workflow DON found")
 }
 
 func (d *Dons) NodeWithUUID(uuid string) (*Node, bool) {
@@ -609,10 +619,64 @@ func (d *Dons) AsNodeSetWithChainCapabilities() []NodeSetWithCapabilityConfigs {
 	return out
 }
 
-func NewDons(dons []*DON) *Dons {
+func NewDons(dons []*DON, gatewayConnectors *GatewayConnectors) *Dons {
 	return &Dons{
-		Dons: dons,
+		Dons:              dons,
+		GatewayConnectors: gatewayConnectors,
 	}
+}
+
+// BootstrapNode returns the the bootstrap node that should be used as the bootstrap node for P2P peering
+// Currently only one bootstrap is supported.
+func (d *Dons) Bootstrap() (*Node, bool) {
+	for _, don := range d.List() {
+		if node, isBootstrap := don.Bootstrap(); isBootstrap {
+			return node, true
+		}
+	}
+
+	return nil, false
+}
+
+func (d *Dons) Gateway() (*Node, bool) {
+	for _, don := range d.List() {
+		if node, hasGateway := don.Gateway(); hasGateway {
+			return node, true
+		}
+	}
+
+	return nil, false
+}
+
+func (d *Dons) DonsWithFlag(flag CapabilityFlag) []*DON {
+	found := make([]*DON, 0)
+	for _, don := range d.List() {
+		if don.HasFlag(flag) {
+			found = append(found, don)
+		}
+	}
+
+	return found
+}
+
+func (d *Dons) OneDonWithFlag(flag CapabilityFlag) (*DON, error) {
+	found := d.DonsWithFlag(flag)
+
+	if len(found) != 1 {
+		return nil, fmt.Errorf("expected exactly one DON with flag %s, found %d", flag, len(found))
+	}
+
+	return found[0], nil
+}
+
+func (d *Dons) AnyDonHasCapability(capability CapabilityFlag) bool {
+	for _, don := range d.List() {
+		if don.HasFlag(capability) {
+			return true
+		}
+	}
+
+	return false
 }
 
 type DonsMetadata struct {
@@ -776,73 +840,6 @@ func newNodes(cfgs []NodeMetadataConfig) ([]*NodeMetadata, error) {
 	}
 
 	return nodes, nil
-}
-
-func NewDonTopology(registryChainSelector uint64, topology *Topology, dons *Dons) *DonTopology {
-	return &DonTopology{
-		WorkflowDonID:     topology.WorkflowDONID,
-		Dons:              dons,
-		GatewayConnectors: topology.GatewayConnectors,
-	}
-}
-
-type DonTopology struct {
-	WorkflowDonID     uint64             `toml:"workflow_don_id" json:"workflow_don_id"`
-	Dons              *Dons              `toml:"dons" json:"dons"`
-	GatewayConnectors *GatewayConnectors `toml:"gateway_connectors" json:"gateway_connectors"`
-}
-
-// BootstrapNode returns the the bootstrap node that should be used as the bootstrap node for P2P peering
-// Currently only one bootstrap is supported.
-func (d *DonTopology) Bootstrap() (*Node, bool) {
-	for _, don := range d.Dons.List() {
-		if node, isBootstrap := don.Bootstrap(); isBootstrap {
-			return node, true
-		}
-	}
-
-	return nil, false
-}
-
-func (d *DonTopology) Gateway() (*Node, bool) {
-	for _, don := range d.Dons.List() {
-		if node, hasGateway := don.Gateway(); hasGateway {
-			return node, true
-		}
-	}
-
-	return nil, false
-}
-
-func (d *DonTopology) DonsWithFlag(flag CapabilityFlag) []*DON {
-	found := make([]*DON, 0)
-	for _, don := range d.Dons.List() {
-		if don.HasFlag(flag) {
-			found = append(found, don)
-		}
-	}
-
-	return found
-}
-
-func (d *DonTopology) OneDonWithFlag(flag CapabilityFlag) (*DON, error) {
-	found := d.DonsWithFlag(flag)
-
-	if len(found) != 1 {
-		return nil, fmt.Errorf("expected exactly one DON with flag %s, found %d", flag, len(found))
-	}
-
-	return found[0], nil
-}
-
-func (d *DonTopology) AnyDonHasCapability(capability CapabilityFlag) bool {
-	for _, don := range d.Dons.List() {
-		if don.HasFlag(capability) {
-			return true
-		}
-	}
-
-	return false
 }
 
 // CapabilitiesAwareNodeSet is the serialized form that declares nodesets in a topology.
@@ -1154,7 +1151,7 @@ func NewNodeKeys(input NodeKeyInput) (*secrets.NodeKeys, error) {
 type LinkDonsToJDInput struct {
 	JDClient        *cldf_jd.JobDistributor
 	Blockchains     []blockchains.Blockchain
-	DONs            []*DON
+	Dons            *Dons
 	Topology        *Topology
 	CldfEnvironment *cldf.Environment
 }
@@ -1175,7 +1172,7 @@ type (
 
 type JobSpecInput struct {
 	CreEnvironment *Environment
-	DonTopology    *DonTopology
+	Dons           *Dons
 	Capabilities   []InstallableCapability
 	NodeSets       []NodeSetWithCapabilityConfigs
 }
@@ -1253,7 +1250,7 @@ type Feature interface {
 	PostEnvStartup(
 		ctx context.Context,
 		testLogger zerolog.Logger,
-		donTopology *DonTopology,
+		dons *Dons,
 		creEnv *Environment,
 	) error
 }

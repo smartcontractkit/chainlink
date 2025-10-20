@@ -47,18 +47,18 @@ const (
 func (o *DONTime) PostEnvStartup(
 	ctx context.Context,
 	testLogger zerolog.Logger,
-	donTopology *cre.DonTopology,
+	dons *cre.Dons,
 	creEnv *cre.Environment,
 ) error {
 	// should we support more than one DON with DON Time capability?
-	dons := donTopology.DonsWithFlag(flag)
-	if len(dons) == 0 {
+	donsWithFlag := dons.DonsWithFlag(flag)
+	if len(donsWithFlag) == 0 {
 		return nil
 	}
-	if len(dons) > 1 {
+	if len(donsWithFlag) > 1 {
 		return errors.New("more than one DON with DON Time capability is not supported yet")
 	}
-	donTimeDON := dons[0]
+	donTimeDON := donsWithFlag[0]
 
 	_, donTimeContractAddr, timeErr := contracts.DeployOCR3Contract(testLogger, ContractQualifier, creEnv.RegistryChainSelector, creEnv.CldfEnvironment, creEnv.ContractVersions)
 	if timeErr != nil {
@@ -75,7 +75,7 @@ func (o *DONTime) PostEnvStartup(
 		donTimeContractAddr,
 		creEnv.CldfEnvironment.Offchain.(*jd.JobDistributor),
 		donTimeDON,
-		donTopology,
+		dons,
 	)
 	if jobErr != nil {
 		return fmt.Errorf("failed to create DON Time jobs: %w", jobErr)
@@ -113,9 +113,9 @@ func createJobs(
 	donTimeAddress *common.Address,
 	jdClient *jd.JobDistributor,
 	donTimeDON *cre.DON,
-	donTopology *cre.DonTopology,
+	dons *cre.Dons,
 ) error {
-	bootstrap, isBootstrap := donTopology.Bootstrap()
+	bootstrap, isBootstrap := dons.Bootstrap()
 	if !isBootstrap {
 		return errors.New("could not find bootstrap node in topology, exactly one bootstrap node is required")
 	}
@@ -148,7 +148,7 @@ func createJobs(
 	}
 
 	// pass whole topology, since some jobs might need to be created on multiple DONs
-	return jobs.Create(ctx, jdClient, donTopology, jobSpecs)
+	return jobs.Create(ctx, jdClient, dons, jobSpecs)
 }
 
 func WorkerJobSpec(nodeID string, ocr3CapabilityAddress, nodeEthAddress, ocr2KeyBundleID string, ocrPeeringData cre.OCRPeeringData, chainID uint64) *jobv1.ProposeJobRequest {

@@ -270,11 +270,11 @@ const solWorkflowConfigTemplate = `
 func (o *Solana) PostEnvStartup(
 	ctx context.Context,
 	testLogger zerolog.Logger,
-	donTopology *cre.DonTopology,
+	dons *cre.Dons,
 	creEnv *cre.Environment,
 ) error {
-	dons := donTopology.DonsWithFlag(flag)
-	if len(dons) == 0 {
+	donsWithFlag := dons.DonsWithFlag(flag)
+	if len(donsWithFlag) == 0 {
 		return nil
 	}
 
@@ -286,7 +286,7 @@ func (o *Solana) PostEnvStartup(
 
 	// configure Solana forwarder only if we have some
 	if len(solChainsWithForwarder) > 0 {
-		for _, don := range dons {
+		for _, don := range dons.List() {
 			cs := commonchangeset.Configure(ks_sol.ConfigureForwarders{},
 				&ks_sol.ConfigureForwarderRequest{
 					WFDonName:        don.Name,

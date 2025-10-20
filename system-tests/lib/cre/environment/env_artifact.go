@@ -196,14 +196,13 @@ type NOPArtifact struct {
 
 func DumpArtifact(
 	absPath string,
-	donTopology cre.DonTopology,
+	dons cre.Dons,
 	creEnv *cre.Environment,
-	gatewayConnectors *cre.GatewayConnectors,
 	jdOutput jd.Output,
 	nodeSets []*cre.CapabilitiesAwareNodeSet,
 	capabilityRegistryFns []cre.CapabilityRegistryConfigFn,
 ) (string, error) {
-	artifact, err := GenerateArtifact(donTopology, creEnv, gatewayConnectors, jdOutput, nodeSets, capabilityRegistryFns)
+	artifact, err := GenerateArtifact(dons, creEnv, jdOutput, nodeSets, capabilityRegistryFns)
 	if err != nil {
 		return "", pkgerrors.Wrap(err, "failed to generate environment artifact")
 	}
@@ -217,9 +216,8 @@ func DumpArtifact(
 }
 
 func GenerateArtifact(
-	donTopology cre.DonTopology,
+	dons cre.Dons,
 	creEnv *cre.Environment,
-	gatewayConnectors *cre.GatewayConnectors,
 	jdOutput jd.Output,
 	nodeSets []*cre.CapabilitiesAwareNodeSet,
 	capabilityRegistryFns []cre.CapabilityRegistryConfigFn,
@@ -247,10 +245,10 @@ func GenerateArtifact(
 		NOPs:                  make([]NOPArtifact, 0),
 		ContractVersions:      creEnv.ContractVersions,
 		CapabilityConfigs:     creEnv.CapabilityConfigs,
-		GatewayConnectors:     gatewayConnectors,
+		GatewayConnectors:     dons.GatewayConnectors,
 	}
 
-	for donIdx, don := range donTopology.Dons.List() {
+	for donIdx, don := range dons.List() {
 		donArtifact := DonArtifact{
 			DonName:        don.Name,
 			DonID:          don.ID,
@@ -295,7 +293,7 @@ func GenerateArtifact(
 		}
 
 		var nodeIDs []string
-		for _, node := range donTopology.Dons.List()[donIdx].Nodes {
+		for _, node := range dons.List()[donIdx].Nodes {
 			nodeIDs = append(nodeIDs, node.JobDistributorDetails.NodeID)
 		}
 

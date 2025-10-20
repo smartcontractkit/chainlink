@@ -119,7 +119,7 @@ type loadTestSetupOutput struct {
 	dataFeedsCacheAddress common.Address
 	forwarderAddress      common.Address
 	blockchains           []blockchains.Blockchain
-	donTopology           *cretypes.DonTopology
+	dons                  *cretypes.Dons
 	nodeOutput            []*cretypes.WrappedNodeOutput
 }
 
@@ -168,7 +168,7 @@ func setupLoadTestEnvironment(
 		CreEnvironment: &cretypes.Environment{
 			CldfEnvironment: universalSetupOutput.CreEnvironment.CldfEnvironment,
 		},
-		DonTopology: universalSetupOutput.DonTopology,
+		Dons: universalSetupOutput.Dons,
 	}
 
 	_, createJobsErr := operations.ExecuteOperation(universalSetupOutput.CreEnvironment.CldfEnvironment.OperationsBundle, creenv.CreateJobsWithJdOpFactory("load-test-jobs", "1.0.0"), createJobsDeps, createJobsInput)
@@ -177,7 +177,7 @@ func setupLoadTestEnvironment(
 	return &loadTestSetupOutput{
 		forwarderAddress: forwarderAddress,
 		blockchains:      universalSetupOutput.CreEnvironment.Blockchains,
-		donTopology:      universalSetupOutput.DonTopology,
+		dons:             universalSetupOutput.Dons,
 		nodeOutput:       universalSetupOutput.NodeOutput,
 	}
 }
@@ -227,7 +227,7 @@ func TestLoad_Workflow_Streams_MockCapabilities(t *testing.T) {
 	mockJobSpecsFactoryFn := func(input *cretypes.JobSpecInput) (cretypes.DonsToJobSpecs, error) {
 		donTojobSpecs := make(cretypes.DonsToJobSpecs, 0)
 
-		for _, don := range input.DonTopology.Dons.List() {
+		for _, don := range input.Dons.List() {
 			jobSpecs := make(cretypes.DonJobs, 0)
 			workflowNodeSet, err2 := don.Workers()
 			if err2 != nil {
@@ -249,7 +249,7 @@ func TestLoad_Workflow_Streams_MockCapabilities(t *testing.T) {
 	loadTestJobSpecsFactoryFn := func(input *cretypes.JobSpecInput) (cretypes.DonsToJobSpecs, error) {
 		donTojobSpecs := make(cretypes.DonsToJobSpecs, 0)
 
-		for _, don := range input.DonTopology.Dons.List() {
+		for _, don := range input.Dons.List() {
 			jobSpecs := make(cretypes.DonJobs, 0)
 			workflowNodeSet, err2 := don.Workers()
 			if err2 != nil {
@@ -345,9 +345,9 @@ func TestLoad_Workflow_Streams_MockCapabilities(t *testing.T) {
 	ctx := t.Context()
 	// Get OCR2 keys needed to sign the reports
 	kb := make([]ocr2key.KeyBundle, 0)
-	for idx, don := range setupOutput.donTopology.Dons.List() {
+	for idx, don := range setupOutput.dons.List() {
 		if don.HasFlag(cretypes.MockCapability) {
-			for _, n := range setupOutput.donTopology.Dons.List()[idx].Nodes {
+			for _, n := range setupOutput.dons.List()[idx].Nodes {
 				key, err2 := n.ExportOCR2Keys(n.Keys.OCR2BundleIDs[chainselectors.FamilyEVM])
 				if err2 == nil {
 					b, err3 := json.Marshal(key)
@@ -1133,7 +1133,7 @@ func registerEVMWithV1(_ []string, nodeSetInput *cretypes.CapabilitiesAwareNodeS
 // Deprecated: remove this once load tests have been migrated
 func consensusJobSpec(chainID uint64) cretypes.JobSpecFn {
 	return func(input *cretypes.JobSpecInput) (cretypes.DonsToJobSpecs, error) {
-		if input.DonTopology == nil {
+		if input.Dons == nil {
 			return nil, errors.New("topology is nil")
 		}
 		donToJobSpecs := make(cretypes.DonsToJobSpecs)
@@ -1160,7 +1160,7 @@ func consensusJobSpec(chainID uint64) cretypes.JobSpecFn {
 			return nil, errors.Wrap(err, "failed to get DON Time address")
 		}
 
-		for _, don := range input.DonTopology.Dons.List() {
+		for _, don := range input.Dons.List() {
 			if !flags.HasFlag(don.Flags, cretypes.ConsensusCapability) {
 				continue
 			}

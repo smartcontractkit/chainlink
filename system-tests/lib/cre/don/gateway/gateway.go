@@ -153,7 +153,7 @@ func JobConfigs(
 }
 
 // CreateJobs creates gateway job spec for each gateway node in the DON topology and sends it to JD for creation and approval
-func CreateJobs(ctx context.Context, jd *jd.JobDistributor, donTopology *cre.DonTopology, gatewayConfigs map[cre.NodeUUID]*config.GatewayConfig) error {
+func CreateJobs(ctx context.Context, jd *jd.JobDistributor, dons *cre.Dons, gatewayConfigs map[cre.NodeUUID]*config.GatewayConfig) error {
 	jobSpecs := make(cre.DonJobs, 0)
 
 	header := `
@@ -171,7 +171,7 @@ forwardingAllowed = false
 			GC config.GatewayConfig `json:"gatewayConfig"  toml:"gatewayConfig"`
 		}
 
-		gatewayNode, found := donTopology.Dons.NodeWithUUID(nodeUUID)
+		gatewayNode, found := dons.NodeWithUUID(nodeUUID)
 		if !found {
 			return fmt.Errorf("could not find gateway node with UUID %s in DON topology", nodeUUID)
 		}
@@ -194,7 +194,7 @@ forwardingAllowed = false
 		})
 	}
 
-	return jobs.Create(ctx, jd, donTopology, jobSpecs)
+	return jobs.Create(ctx, jd, dons, jobSpecs)
 }
 
 // AddHandlers adds the given handler configurations to the gateway job config of the given DON. It only adds handlers, if they are not already present.

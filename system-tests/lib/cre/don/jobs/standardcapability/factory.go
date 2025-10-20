@@ -101,8 +101,8 @@ func (f *CapabilityJobSpecFactory) BuildJobSpec(
 	commandBuilder CommandBuilder,
 ) func(input *cre.JobSpecInput) (cre.DonsToJobSpecs, error) {
 	return func(input *cre.JobSpecInput) (cre.DonsToJobSpecs, error) {
-		if input.DonTopology == nil {
-			return nil, errors.New("topology is nil")
+		if input.Dons == nil {
+			return nil, errors.New("Dons is nil")
 		}
 		if runtimeValuesExtractor == nil {
 			return nil, errors.New("runtime values extractor is nil")
@@ -113,7 +113,7 @@ func (f *CapabilityJobSpecFactory) BuildJobSpec(
 
 		donToJobSpecs := make(cre.DonsToJobSpecs)
 
-		for donIdx, don := range input.DonTopology.Dons.List() {
+		for donIdx, don := range input.Dons.List() {
 			if donIdx >= len(input.NodeSets) || input.NodeSets[donIdx] == nil {
 				continue
 			}

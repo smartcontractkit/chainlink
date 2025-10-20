@@ -804,7 +804,9 @@ func LinkToJobDistributor(ctx context.Context, input *LinkDonsToJDInput) (*cldf.
 		return nil, errors.New("input is nil")
 	}
 
-	for idx, don := range input.DONs {
+	var nodeIDs []string
+
+	for idx, don := range input.Dons.List() {
 		supportedChains, schErr := FindDONsSupportedChains(input.Topology.DonsMetadata.List()[idx], input.Blockchains)
 		if schErr != nil {
 			return nil, errors.Wrap(schErr, "failed to find supported chains for DON")
@@ -813,10 +815,6 @@ func LinkToJobDistributor(ctx context.Context, input *LinkDonsToJDInput) (*cldf.
 		if err := RegisterWithJD(ctx, don, supportedChains, input.JDClient); err != nil {
 			return nil, fmt.Errorf("failed to register DON with JD: %w", err)
 		}
-	}
-
-	var nodeIDs []string
-	for _, don := range input.DONs {
 		nodeIDs = append(nodeIDs, don.JDNodeIDs()...)
 	}
 

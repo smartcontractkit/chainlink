@@ -102,11 +102,11 @@ PerSenderBurst = {{.PerSenderBurst}}
 func (o *WebAPITarget) PostEnvStartup(
 	ctx context.Context,
 	testLogger zerolog.Logger,
-	donTopology *cre.DonTopology,
+	dons *cre.Dons,
 	creEnv *cre.Environment,
 ) error {
-	dons := donTopology.DonsWithFlag(flag)
-	if len(dons) == 0 {
+	donsWithFlag := dons.DonsWithFlag(flag)
+	if len(donsWithFlag) == 0 {
 		return nil
 	}
 
@@ -136,20 +136,20 @@ func (o *WebAPITarget) PostEnvStartup(
 		},
 	)(&cre.JobSpecInput{
 		CreEnvironment: creEnv,
-		DonTopology:    donTopology,
-		NodeSets:       donTopology.Dons.AsNodeSetWithChainCapabilities(),
+		Dons:           dons,
+		NodeSets:       dons.AsNodeSetWithChainCapabilities(),
 	})
 	if specErr != nil {
 		return fmt.Errorf("failed to build job spec for http action capability: %w", specErr)
 	}
 
-	for _, don := range dons {
+	for _, don := range dons.List() {
 		jobSpecs, ok := donsToJobSpecs[don.ID]
 		if !ok {
 			continue
 		}
 		// pass whole topology, since some jobs might need to be created on multiple DONs
-		jobErr := jobs.Create(ctx, creEnv.CldfEnvironment.Offchain, donTopology, jobSpecs)
+		jobErr := jobs.Create(ctx, creEnv.CldfEnvironment.Offchain, dons, jobSpecs)
 		if jobErr != nil {
 			return fmt.Errorf("failed to create http action jobs for don %s: %w", don.Name, jobErr)
 		}

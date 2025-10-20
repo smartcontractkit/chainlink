@@ -19,7 +19,7 @@ type CreateJobsWithJdOpDeps struct {
 	HomeChainBlockchainOutput *blockchain.Output
 	JobSpecFactoryFunctions   []cre.JobSpecFn
 	CreEnvironment            *cre.Environment
-	DonTopology               *cre.DonTopology
+	Dons                      *cre.Dons
 	CapabilitiesAwareNodeSets []*cre.CapabilitiesAwareNodeSet
 	Capabilities              []cre.InstallableCapability
 }
@@ -43,7 +43,7 @@ var CreateJobsWithJdOp = operations.NewOperation(
 			}
 			singleDonToJobSpecs, jobSpecsErr := jobSpecGeneratingFn(&cre.JobSpecInput{
 				CreEnvironment: deps.CreEnvironment,
-				DonTopology:    deps.DonTopology,
+				Dons:           deps.Dons,
 				NodeSets:       cre.ConvertToNodeSetWithChainCapabilities(deps.CapabilitiesAwareNodeSets),
 				Capabilities:   deps.Capabilities,
 			})
@@ -53,9 +53,9 @@ var CreateJobsWithJdOp = operations.NewOperation(
 			mergeJobSpecSlices(singleDonToJobSpecs, donToJobSpecs)
 		}
 
-		for _, don := range deps.DonTopology.Dons.List() {
+		for _, don := range deps.Dons.List() {
 			if jobSpecs, ok := donToJobSpecs[don.ID]; ok {
-				createErr := jobs.Create(b.GetContext(), deps.CreEnvironment.CldfEnvironment.Offchain, deps.DonTopology, jobSpecs)
+				createErr := jobs.Create(b.GetContext(), deps.CreEnvironment.CldfEnvironment.Offchain, deps.Dons, jobSpecs)
 				if createErr != nil {
 					return CreateJobsWithJdOpOutput{}, pkgerrors.Wrapf(createErr, "failed to create jobs for DON %d", don.ID)
 				}
@@ -80,7 +80,7 @@ func CreateJobsWithJdOpFactory(id string, version string) *operations.Operation[
 			for _, jobSpecGeneratingFn := range deps.JobSpecFactoryFunctions {
 				singleDonToJobSpecs, jobSpecsErr := jobSpecGeneratingFn(&cre.JobSpecInput{
 					CreEnvironment: deps.CreEnvironment,
-					DonTopology:    deps.DonTopology,
+					Dons:           deps.Dons,
 					NodeSets:       cre.ConvertToNodeSetWithChainCapabilities(deps.CapabilitiesAwareNodeSets),
 				})
 				if jobSpecsErr != nil {
@@ -89,9 +89,9 @@ func CreateJobsWithJdOpFactory(id string, version string) *operations.Operation[
 				mergeJobSpecSlices(singleDonToJobSpecs, donToJobSpecs)
 			}
 
-			for _, don := range deps.DonTopology.Dons.List() {
+			for _, don := range deps.Dons.List() {
 				if jobSpecs, ok := donToJobSpecs[don.ID]; ok {
-					createErr := jobs.Create(b.GetContext(), deps.CreEnvironment.CldfEnvironment.Offchain, deps.DonTopology, jobSpecs)
+					createErr := jobs.Create(b.GetContext(), deps.CreEnvironment.CldfEnvironment.Offchain, deps.Dons, jobSpecs)
 					if createErr != nil {
 						return CreateJobsWithJdOpOutput{}, pkgerrors.Wrapf(createErr, "failed to create jobs for DON %d", don.ID)
 					}

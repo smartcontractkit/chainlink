@@ -26,5 +26,5 @@ type TestEnvironment struct {
 	EnvArtifact    *environment.EnvArtifact
 	Logger         zerolog.Logger
 	CreEnvironment *cre.Environment
-	DonTopology    *cre.DonTopology
+	Dons           *cre.Dons
 }

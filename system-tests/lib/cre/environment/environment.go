@@ -51,7 +51,7 @@ const (
 type SetupOutput struct {
 	WorkflowRegistryConfigurationOutput *cre.WorkflowRegistryOutput
 	CreEnvironment                      *cre.Environment
-	DonTopology                         *cre.DonTopology
+	Dons                                *cre.Dons
 	NodeOutput                          []*cre.WrappedNodeOutput
 	S3ProviderOutput                    *s3provider.Output
 	GatewayConnectors                   *cre.GatewayConnectors
@@ -247,14 +247,14 @@ func SetupTestEnvironment(
 	if donStartErr != nil {
 		return nil, pkgerrors.Wrap(donStartErr, "failed to start DONs")
 	}
-	donTopology := cre.NewDonTopology(deployedBlockchains.RegistryChain().ChainSelector(), topology, cre.NewDons(startedDONs.DONs()))
+	dons := cre.NewDons(startedDONs.DONs(), topology.GatewayConnectors)
 
 	linkDonsToJDInput := &cre.LinkDonsToJDInput{
 		JDClient:        startedJD.Client,
 		Blockchains:     deployedBlockchains.Outputs,
 		CldfEnvironment: deployKeystoneContractsOutput.Env,
 		Topology:        topology,
-		DONs:            startedDONs.DONs(),
+		Dons:            dons,
 	}
 
 	_, cldErr := cre.LinkToJobDistributor(ctx, linkDonsToJDInput)
@@ -265,7 +265,7 @@ func SetupTestEnvironment(
 	fmt.Print(libformat.PurpleText("%s", input.StageGen.WrapAndNext("DONs and Job Distributor started and linked in %.2f seconds", input.StageGen.Elapsed().Seconds())))
 	fmt.Print(libformat.PurpleText("%s", input.StageGen.Wrap("Creating Jobs with Job Distributor")))
 
-	gJobErr := gateway.CreateJobs(ctx, startedJD.Client, donTopology, gatewayJobConfigs)
+	gJobErr := gateway.CreateJobs(ctx, startedJD.Client, dons, gatewayJobConfigs)
 	if gJobErr != nil {
 		return nil, pkgerrors.Wrap(gErr, "failed to create gateway jobs with Job Distributor")
 	}
@@ -284,7 +284,7 @@ func SetupTestEnvironment(
 		HomeChainBlockchainOutput: deployedBlockchains.RegistryChain().CtfOutput(),
 		JobSpecFactoryFunctions:   jobSpecFactoryFunctions,
 		CreEnvironment:            creEnvironment,
-		DonTopology:               donTopology,
+		Dons:                      dons,
 		CapabilitiesAwareNodeSets: input.CapabilitiesAwareNodeSets,
 		Capabilities:              input.Capabilities,
 	}
@@ -305,7 +305,7 @@ func SetupTestEnvironment(
 	fErr := FundNodes(
 		ctx,
 		testLogger,
-		donTopology.Dons,
+		dons,
 		deployedBlockchains.Outputs,
 		fundingPerChainFamilyForEachNode,
 	)
@@ -344,7 +344,7 @@ func SetupTestEnvironment(
 			// There are no filters registered with the V2 WF Registry Syncer
 			return nil
 		default:
-			return workflow.WaitForWorkflowRegistryFiltersRegistration(testLogger, singleFileLogger, input.Provider.Type, deployedBlockchains.RegistryChain().ChainID(), donTopology, updatedNodeSets)
+			return workflow.WaitForWorkflowRegistryFiltersRegistration(testLogger, singleFileLogger, input.Provider.Type, deployedBlockchains.RegistryChain().ChainID(), dons, updatedNodeSets)
 		}
 	})
 
@@ -387,7 +387,7 @@ func SetupTestEnvironment(
 		if pErr := feature.PostEnvStartup(
 			ctx,
 			testLogger,
-			donTopology,
+			dons,
 			creEnvironment,
 		); pErr != nil {
 			return nil, fmt.Errorf("failed to execute PostEnvStartup for feature %s: %w", feature.Flag(), pErr)
@@ -409,7 +409,7 @@ func SetupTestEnvironment(
 
 	return &SetupOutput{
 		WorkflowRegistryConfigurationOutput: workflowRegistryConfigurationOutput, // pass to caller, so that it can be optionally attached to TestConfig and saved to disk
-		DonTopology:                         donTopology,
+		Dons:                                dons,
 		NodeOutput:                          startedDONs.NodeOutputs(),
 		CreEnvironment:                      creEnvironment,
 		S3ProviderOutput:                    s3Output,

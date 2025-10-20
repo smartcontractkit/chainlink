@@ -195,7 +195,7 @@ var StartCmdGenerateSettingsFile = func(registryChain blockchains.Blockchain, ou
 		crecli.CRECLIProfile,
 		regChainEVM.SethClient.MustGetRootKeyAddress(),
 		output.CreEnvironment.CldfEnvironment.ExistingAddresses, //nolint:staticcheck,nolintlint // SA1019: deprecated but we don't want to migrate now
-		output.DonTopology.WorkflowDonID,
+		output.Dons.MustWorkflowDON().ID,
 		regChainEVM.ChainSelector(),
 		rpcs,
 		output.S3ProviderOutput,
@@ -442,7 +442,7 @@ func startCmd() *cobra.Command {
 					keystone_changeset.WorkflowRegistry.String())
 
 				var workflowDonID uint32
-				for idx, don := range output.DonTopology.Dons.List() {
+				for idx, don := range output.Dons.List() {
 					if don.HasFlag(cre.WorkflowDON) {
 						workflowDonID = libc.MustSafeUint32(idx + 1)
 						break
@@ -453,7 +453,7 @@ func startCmd() *cobra.Command {
 					return errors.New("no workflow DON found")
 				}
 
-				workflowDON, wErr := output.DonTopology.OneDonWithFlag(cre.WorkflowDON)
+				workflowDON, wErr := output.Dons.OneDonWithFlag(cre.WorkflowDON)
 				if wErr != nil {
 					return errors.Wrap(wErr, "failed to get workflow DON")
 				}
@@ -725,9 +725,8 @@ func StartCLIEnvironment(
 
 	artifactPath, artifactErr := creenv.DumpArtifact(
 		creenv.MustEnvArtifactAbsPath(relativePathToRepoRoot),
-		*universalSetupOutput.DonTopology,
+		*universalSetupOutput.Dons,
 		universalSetupOutput.CreEnvironment,
-		universalSetupOutput.GatewayConnectors,
 		*in.JD.Out,
 		in.NodeSets,
 		capabilitiesContractFactoryFunctions,

@@ -135,26 +135,26 @@ func (o *EVM) PreEnvStartup(
 func (o *EVM) PostEnvStartup(
 	ctx context.Context,
 	testLogger zerolog.Logger,
-	donTopology *cre.DonTopology,
+	dons *cre.Dons,
 	creEnv *cre.Environment,
 ) error {
-	dons := donTopology.DonsWithFlag(flag)
-	if len(dons) == 0 {
+	donsWithFlag := dons.DonsWithFlag(flag)
+	if len(donsWithFlag) == 0 {
 		return nil
 	}
 
 	consensusVersion := "v1"
-	consensusDON, oneErr := donTopology.OneDonWithFlag(cre.ConsensusCapability)
+	consensusDON, oneErr := dons.OneDonWithFlag(cre.ConsensusCapability)
 	if oneErr != nil {
 		// if v1 consensus DON is not found, let's try v2. We should have exactly one DON with either v1 or v2 consensus
-		consensusDON, oneErr = donTopology.OneDonWithFlag(cre.ConsensusCapabilityV2)
+		consensusDON, oneErr = dons.OneDonWithFlag(cre.ConsensusCapabilityV2)
 		consensusVersion = "v2"
 		if oneErr != nil {
 			return errors.New("failed to find DON with consensus v1 or v2 capability")
 		}
 	}
 
-	chainsWithForwarders := evm.ChainsWithForwarders(creEnv.Blockchains, donTopology.Dons.AsNodeSetWithChainCapabilities())
+	chainsWithForwarders := evm.ChainsWithForwarders(creEnv.Blockchains, dons.AsNodeSetWithChainCapabilities())
 
 	// for now we end up configuring forwarders twice, if the same chain has both evm v1 and v2 capabilities enabled
 	// it doesn't create any issues, but ideally we wouldn't do that
@@ -217,12 +217,12 @@ func deployTronForwarders(testLogger zerolog.Logger, cldfEnv *cldf.Environment, 
 	return nil
 }
 
-func configureTronForwarders(testLogger zerolog.Logger, env *cldf.Environment, registryChainSelector uint64, dons []*cre.DON) error {
+func configureTronForwarders(testLogger zerolog.Logger, env *cldf.Environment, registryChainSelector uint64, dons *cre.Dons) error {
 	triggerOptions := cldf_tron.DefaultTriggerOptions()
 	triggerOptions.FeeLimit = 1_000_000_000
 
 	var wfNodeIDs []string
-	for _, don := range dons {
+	for _, don := range dons.List() {
 		workerNodes, wErr := don.Workers()
 		if wErr != nil {
 			return fmt.Errorf("failed to find worker nodes for Tron configuration: %w", wErr)

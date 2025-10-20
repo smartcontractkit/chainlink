@@ -48,8 +48,8 @@ func ExecuteHTTPTriggerActionTest(t *testing.T, testEnv *ttypes.TestEnvironment)
 	t_helpers.CompileAndDeployWorkflow(t, testEnv, testLogger, uniqueWorkflowName, &httpWorkflowConfig, "../../../../core/scripts/cre/environment/examples/workflows/v2/http_simple/main.go")
 
 	testEnv.Logger.Info().Msg("Getting gateway configuration...")
-	require.NotEmpty(t, testEnv.DonTopology.GatewayConnectors.Configurations, "expected at least one gateway configuration")
-	newGatewayURL := testEnv.DonTopology.GatewayConnectors.Configurations[0].Incoming.Protocol + "://" + testEnv.DonTopology.GatewayConnectors.Configurations[0].Incoming.Host + ":" + strconv.Itoa(testEnv.DonTopology.GatewayConnectors.Configurations[0].Incoming.ExternalPort) + testEnv.DonTopology.GatewayConnectors.Configurations[0].Incoming.Path
+	require.NotEmpty(t, testEnv.Dons.GatewayConnectors.Configurations, "expected at least one gateway configuration")
+	newGatewayURL := testEnv.Dons.GatewayConnectors.Configurations[0].Incoming.Protocol + "://" + testEnv.Dons.GatewayConnectors.Configurations[0].Incoming.Host + ":" + strconv.Itoa(testEnv.Dons.GatewayConnectors.Configurations[0].Incoming.ExternalPort) + testEnv.Dons.GatewayConnectors.Configurations[0].Incoming.Path
 	gatewayURL, err := url.Parse(newGatewayURL)
 	require.NoError(t, err, "failed to parse gateway URL")
 

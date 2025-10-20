@@ -26,9 +26,8 @@ import (
 )
 
 func GenerateJobSpecsForStandardCapabilityWithOCR(
-	donTopology *cre.DonTopology,
+	dons *cre.Dons,
 	creEnv *cre.Environment,
-	nodeSets []cre.NodeSetWithCapabilityConfigs,
 	flag cre.CapabilityFlag,
 	contractNamer ContractNamer,
 	dataStoreOCR3ContractKeyProvider DataStoreOCR3ContractKeyProvider,
@@ -37,7 +36,7 @@ func GenerateJobSpecsForStandardCapabilityWithOCR(
 	jobConfigGenerator JobConfigGenerator,
 	configMerger ConfigMerger,
 ) (cre.DonsToJobSpecs, error) {
-	if donTopology == nil {
+	if dons == nil {
 		return nil, errors.New("topology is nil")
 	}
 	if configMerger == nil {
@@ -60,7 +59,7 @@ func GenerateJobSpecsForStandardCapabilityWithOCR(
 
 	logger := framework.L
 
-	for donIdx, don := range donTopology.Dons.List() {
+	for donIdx, don := range dons.List() {
 		if !capabilityEnabler(don, flag) {
 			continue
 		}
@@ -82,11 +81,12 @@ func GenerateJobSpecsForStandardCapabilityWithOCR(
 			return nil, errors.Wrap(wErr, "failed to find worker nodes")
 		}
 
-		bootstrapNode, isBootstrap := donTopology.Bootstrap()
+		bootstrapNode, isBootstrap := dons.Bootstrap()
 		if !isBootstrap {
 			return nil, errors.New("could not find bootstrap node in topology, exactly one bootstrap node is required")
 		}
 
+		nodeSets := dons.AsNodeSetWithChainCapabilities()
 		chainIDs, err := enabledChainsProvider(creEnv.RegistryChainSelector, nodeSets[donIdx], flag)
 		if err != nil {
 			return nil, fmt.Errorf("failed to get enabled chains %w", err)
