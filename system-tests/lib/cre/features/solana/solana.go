@@ -8,7 +8,7 @@ import (
 	"strings"
 
 	"github.com/Masterminds/semver/v3"
-	"github.com/gagliardetto/solana-go"
+	solanago "github.com/gagliardetto/solana-go"
 	"github.com/pelletier/go-toml/v2"
 	"github.com/pkg/errors"
 	"github.com/rs/zerolog"
@@ -35,6 +35,7 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/environment/memory"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/don"
+	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/blockchains/solana"
 )
 
 const flag = cre.WriteSolanaCapability
@@ -56,10 +57,10 @@ func (o *Solana) PreEnvStartup(
 		return nil, nil
 	}
 
-	var solChain *cre.WrappedBlockchainOutput
+	var solChain *solana.Blockchain
 	for _, bcOut := range creEnv.Blockchains {
-		if bcOut.SolChain != nil {
-			solChain = bcOut
+		if bcOut.IsFamily(chainselectors.FamilySolana) {
+			solChain = bcOut.(*solana.Blockchain)
 			break
 		}
 	}
@@ -69,13 +70,13 @@ func (o *Solana) PreEnvStartup(
 		return nil, errors.Wrap(fErr, "failed to deploy solana forwarder")
 	}
 
-	chainID, chErr := chainselectors.SolanaChainIdFromSelector(solChain.ChainSelector)
+	chainID, chErr := chainselectors.SolanaChainIdFromSelector(solChain.ChainSelector())
 	if chErr != nil {
-		return nil, errors.Wrapf(chErr, "failed to get Solana chain ID from selector %d", solChain.ChainSelector)
+		return nil, errors.Wrapf(chErr, "failed to get Solana chain ID from selector %d", solChain.ChainSelector())
 	}
 
 	data := solanaInput{
-		ChainSelector:    solChain.ChainSelector,
+		ChainSelector:    solChain.ChainSelector(),
 		ForwarderAddress: *programID,
 		ForwarderState:   *state,
 	}
@@ -116,7 +117,7 @@ func (o *Solana) PreEnvStartup(
 	}, nil
 }
 
-func deployForwarder(testLogger zerolog.Logger, creEnv *cre.Environment, solChain *cre.WrappedBlockchainOutput) (*string, *string, error) {
+func deployForwarder(testLogger zerolog.Logger, creEnv *cre.Environment, solChain *solana.Blockchain) (*string, *string, error) {
 	memoryDatastore := datastore.NewMemoryDataStore()
 	// load all existing addresses into memory datastore
 	mergeErr := memoryDatastore.Merge(creEnv.CldfEnvironment.DataStore)
@@ -131,7 +132,7 @@ func deployForwarder(testLogger zerolog.Logger, creEnv *cre.Environment, solChai
 
 	// Forwarder for solana is predeployed on chain spin-up. We jus need to add it to memory datastore here
 	errp := memory.PopulateDatastore(memoryDatastore.AddressRefStore, populateContracts,
-		version, ks_sol.DefaultForwarderQualifier, solChain.ChainSelector)
+		version, ks_sol.DefaultForwarderQualifier, solChain.ChainSelector())
 	if errp != nil {
 		return nil, nil, errors.Wrap(errp, "failed to populate datastore with predeployed contracts")
 	}
@@ -140,11 +141,11 @@ func deployForwarder(testLogger zerolog.Logger, creEnv *cre.Environment, solChai
 		ks_sol_seq.DeployForwarderSeq,
 		ks_sol_op.Deps{
 			Env:       *creEnv.CldfEnvironment,
-			Chain:     creEnv.CldfEnvironment.BlockChains.SolanaChains()[solChain.ChainSelector],
+			Chain:     creEnv.CldfEnvironment.BlockChains.SolanaChains()[solChain.ChainSelector()],
 			Datastore: memoryDatastore.Seal(),
 		},
 		ks_sol_seq.DeployForwarderSeqInput{
-			ChainSel:     solChain.ChainSelector,
+			ChainSel:     solChain.ChainSelector(),
 			ProgramName:  deployment.KeystoneForwarderProgramName,
 			Qualifier:    ks_sol.DefaultForwarderQualifier,
 			ContractType: ks_sol.ForwarderContract,
@@ -157,7 +158,7 @@ func deployForwarder(testLogger zerolog.Logger, creEnv *cre.Environment, solChai
 
 	err = memoryDatastore.AddressRefStore.Add(datastore.AddressRef{
 		Address:       out.Output.State.String(),
-		ChainSelector: solChain.ChainSelector,
+		ChainSelector: solChain.ChainSelector(),
 		Version:       semver.MustParse(creEnv.ContractVersions[ks_sol.ForwarderState.String()]),
 		Qualifier:     ks_sol.DefaultForwarderQualifier,
 		Type:          ks_sol.ForwarderState,
@@ -166,7 +167,7 @@ func deployForwarder(testLogger zerolog.Logger, creEnv *cre.Environment, solChai
 		return nil, nil, errors.Wrap(err, "failed to add address to the datastore for Solana Forwarder state")
 	}
 
-	testLogger.Info().Msgf("Deployed Forwarder %s contract on Solana chain chain %d programID: %s state: %s", creEnv.ContractVersions[ks_sol.ForwarderContract.String()], solChain.ChainSelector, out.Output.ProgramID.String(), out.Output.State.String())
+	testLogger.Info().Msgf("Deployed Forwarder %s contract on Solana chain chain %d programID: %s state: %s", creEnv.ContractVersions[ks_sol.ForwarderContract.String()], solChain.ChainSelector(), out.Output.ProgramID.String(), out.Output.State.String())
 
 	creEnv.CldfEnvironment.DataStore = memoryDatastore.Seal()
 
@@ -249,7 +250,7 @@ func updateNodeConfig(workerNode *cre.NodeMetadata, chainID string, data solanaI
 
 type solanaInput struct {
 	ChainSelector    uint64
-	FromAddress      solana.PublicKey
+	FromAddress      solanago.PublicKey
 	ForwarderAddress string
 	ForwarderState   string
 	HasWrite         bool

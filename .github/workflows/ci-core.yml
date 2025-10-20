@@ -201,11 +201,12 @@ jobs:
           - cmd: go_core_ccip_deployment_tests
             os: ${{ needs.runner-config.outputs.deployment-tests-runner }}
             should-run: ${{ needs.filter.outputs.should-run-deployment-tests }}
+            trunk-auto-quarantine: "true"
+            go-mod-directory: "deployment/"
             setup-solana: "true"
             setup-aptos: "true"
             install-loopps: "true"
             setup-sui: "true"
-            trunk-auto-quarantine: "true"
 
     name: Core Tests (${{ matrix.type.cmd }}) # Be careful modifying the job name, as it is used to fetch the job URL
     # We don't directly merge dependabot PRs, so let's not waste the resources
@@ -236,6 +237,8 @@ jobs:
           # race/fuzz tests don't benefit repeated caching, so restore from develop's build cache
           restore-build-cache-only: ${{ matrix.type.cmd == 'go_core_fuzz' || matrix.type.cmd == 'go_core_race_tests' }}
           build-cache-version: ${{ matrix.type.cmd }}
+          go-version-file: ${{ matrix.type.go-mod-directory }}go.mod
+          go-module-file: ${{ matrix.type.go-mod-directory }}go.sum
 
       - name: Setup Solana
         if: ${{ matrix.type.should-run == 'true' && matrix.type.setup-solana == 'true' }}
@@ -679,7 +682,8 @@ jobs:
       - uses: actions/checkout@v4
         with:
           persist-credentials: false
-      - uses: ./.github/actions/setup-go
+      - name: Setup go
+        uses: ./.github/actions/setup-go
       ##
       # Plugins (LOOPPs) are defined in ./plugins/plugins.*.yaml files.
       # Some plugins such as chainlink-data-streams, chainlink-feeds,
@@ -696,10 +700,4 @@ jobs:
           echo "Check for out of sync plugins"
           go run ./tools/plugout/ \
             --go-mod ./go.mod \
-            --plugin-file ./plugins/plugins.public.yaml \
-            --module github.com/smartcontractkit/chainlink-data-streams \
-            --module github.com/smartcontractkit/chainlink-feeds \
-            --module github.com/smartcontractkit/chainlink-solana \
-            --module github.com/smartcontractkit/chainlink-sui \
-            --module github.com/smartcontractkit/chainlink-aptos \
-            --module github.com/smartcontractkit/chainlink-ton
+            --plugin-file ./plugins/plugins.public.yaml

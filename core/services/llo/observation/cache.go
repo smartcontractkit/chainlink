@@ -4,7 +4,6 @@ import (
 	"runtime"
 	"strconv"
 	"sync"
-	"sync/atomic"
 	"time"
 
 	"github.com/prometheus/client_golang/prometheus"
@@ -41,19 +40,15 @@ var (
 // The cache is cleaned up periodically to remove decommissioned stream values
 // if the provided cleanupInterval is greater than 0.
 type Cache struct {
-	mu sync.RWMutex
-
+	mu              sync.RWMutex
 	values          map[llotypes.StreamID]item
-	maxAge          time.Duration
 	cleanupInterval time.Duration
 
-	lastTransmissionSeqNr atomic.Uint64
-	closeChan             chan struct{}
+	closeChan chan struct{}
 }
 
 type item struct {
 	value     llo.StreamValue
-	seqNr     uint64
 	expiresAt time.Time
 }
 
@@ -61,10 +56,9 @@ type item struct {
 //
 // maxAge is the maximum age of a stream value to keep in the cache.
 // cleanupInterval is the interval to clean up the cache.
-func NewCache(maxAge time.Duration, cleanupInterval time.Duration) *Cache {
+func NewCache(cleanupInterval time.Duration) *Cache {
 	c := &Cache{
 		values:          make(map[llotypes.StreamID]item),
-		maxAge:          maxAge,
 		cleanupInterval: cleanupInterval,
 		closeChan:       make(chan struct{}),
 	}
@@ -91,31 +85,19 @@ func NewCache(maxAge time.Duration, cleanupInterval time.Duration) *Cache {
 	return c
 }
 
-// SetLastTransmissionSeqNr sets the last transmission sequence number.
-func (c *Cache) SetLastTransmissionSeqNr(seqNr uint64) {
-	if c == nil {
-		return
-	}
-
-	c.lastTransmissionSeqNr.Store(seqNr)
-}
-
 // Add adds a stream value to the cache.
-func (c *Cache) Add(id llotypes.StreamID, value llo.StreamValue, seqNr uint64) {
-	if c == nil {
-		return
+func (c *Cache) Add(id llotypes.StreamID, value llo.StreamValue, ttl time.Duration) {
+	var expiresAt time.Time
+	if ttl > 0 {
+		expiresAt = time.Now().Add(ttl)
 	}
 
 	c.mu.Lock()
 	defer c.mu.Unlock()
-	c.values[id] = item{value: value, seqNr: seqNr, expiresAt: time.Now().Add(c.maxAge)}
+	c.values[id] = item{value: value, expiresAt: expiresAt}
 }
 
-func (c *Cache) Get(id llotypes.StreamID) llo.StreamValue {
-	if c == nil {
-		return nil
-	}
-
+func (c *Cache) Get(id llotypes.StreamID) (llo.StreamValue, time.Time) {
 	c.mu.RLock()
 	defer c.mu.RUnlock()
 
@@ -123,31 +105,28 @@ func (c *Cache) Get(id llotypes.StreamID) llo.StreamValue {
 	item, ok := c.values[id]
 	if !ok {
 		promCacheMissCount.WithLabelValues(label, "notFound").Inc()
-		return nil
-	}
-
-	if item.seqNr <= c.lastTransmissionSeqNr.Load() {
-		promCacheMissCount.WithLabelValues(label, "seqNr").Inc()
-		return nil
+		return nil, time.Time{}
 	}
 
 	if time.Now().After(item.expiresAt) {
 		promCacheMissCount.WithLabelValues(label, "maxAge").Inc()
-		return nil
+		return nil, time.Time{}
 	}
 
 	promCacheHitCount.WithLabelValues(label).Inc()
-	return item.value
+	return item.value, item.expiresAt
 }
 
 func (c *Cache) cleanup() {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
-	lastTransmissionSeqNr := c.lastTransmissionSeqNr.Load()
-	now := time.Now()
 	for id, item := range c.values {
-		if item.seqNr <= lastTransmissionSeqNr || now.After(item.expiresAt) {
+		if item.expiresAt.IsZero() {
+			continue
+		}
+
+		if time.Now().After(item.expiresAt) {
 			delete(c.values, id)
 		}
 	}

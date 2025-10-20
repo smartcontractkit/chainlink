@@ -29,6 +29,7 @@ import (
 	ks_contracts_op "github.com/smartcontractkit/chainlink/deployment/keystone/changeset/operations/contracts"
 	libc "github.com/smartcontractkit/chainlink/system-tests/lib/conversions"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre"
+	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/blockchains"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/flags"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/p2pkey"
 	syncer_v2 "github.com/smartcontractkit/chainlink/v2/core/services/registrysyncer/v2"
@@ -36,7 +37,7 @@ import (
 
 type DeployKeystoneContractsInput struct {
 	CldfEnvironment  *cldf.Environment
-	CtfBlockchains   []*cre.WrappedBlockchainOutput
+	CtfBlockchains   []blockchains.Blockchain
 	ContractVersions map[string]string
 	WithV2Registries bool
 }
@@ -55,8 +56,7 @@ func DeployKeystoneContracts(
 	memoryDatastore := datastore.NewMemoryDataStore()
 
 	homeChainOutput := input.CtfBlockchains[0]
-
-	homeChainSelector := homeChainOutput.ChainSelector
+	homeChainSelector := homeChainOutput.ChainSelector()
 	deployRegistrySeq := ks_contracts_op.DeployRegistryContractsSequence
 	if input.WithV2Registries {
 		deployRegistrySeq = ks_contracts_op.DeployV2RegistryContractsSequence

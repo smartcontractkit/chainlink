@@ -21,13 +21,14 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/mailbox"
-
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/offchain_aggregator_wrapper"
+	"github.com/smartcontractkit/chainlink-evm/pkg/block"
 	evmclient "github.com/smartcontractkit/chainlink-evm/pkg/client"
 	"github.com/smartcontractkit/chainlink-evm/pkg/config/chaintype"
 	"github.com/smartcontractkit/chainlink-evm/pkg/heads"
 	"github.com/smartcontractkit/chainlink-evm/pkg/log"
 	evmtypes "github.com/smartcontractkit/chainlink-evm/pkg/types"
+
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocrcommon"
 )
@@ -62,7 +63,7 @@ type (
 		logger           logger.Logger
 		ocrDB            OCRContractTrackerDB
 		ds               sqlutil.DataSource
-		blockTranslator  ocrcommon.BlockTranslator
+		blockTranslator  block.BlockTranslator
 		cfg              ocrcommon.Config
 		mailMon          *mailbox.Monitor
 
@@ -127,7 +128,7 @@ func NewOCRContractTracker(
 		logger:               logger,
 		ocrDB:                ocrDB,
 		ds:                   ds,
-		blockTranslator:      ocrcommon.NewBlockTranslator(cfg, ethClient, logger),
+		blockTranslator:      block.NewBlockTranslator(cfg.ChainType(), ethClient, logger),
 		cfg:                  cfg,
 		mailMon:              mailMon,
 		headBroadcaster:      headBroadcaster,

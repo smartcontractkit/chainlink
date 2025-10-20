@@ -21,11 +21,10 @@ type TestConfig struct {
 
 // TestEnvironment holds references to the main test components
 type TestEnvironment struct {
-	Config                   *envconfig.Config
-	TestConfig               *TestConfig
-	EnvArtifact              *environment.EnvArtifact
-	Logger                   zerolog.Logger
-	CreEnvironment           *cre.Environment
-	DonTopology              *cre.DonTopology
-	WrappedBlockchainOutputs []*cre.WrappedBlockchainOutput
+	Config         *envconfig.Config
+	TestConfig     *TestConfig
+	EnvArtifact    *environment.EnvArtifact
+	Logger         zerolog.Logger
+	CreEnvironment *cre.Environment
+	DonTopology    *cre.DonTopology
 }

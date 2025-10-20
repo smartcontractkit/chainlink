@@ -203,8 +203,8 @@ func startBilling(_ context.Context, cleanupWait time.Duration, setupOutput *env
 			var selectedChain *blockchain.Output
 
 			for _, chain := range setupOutput.CreEnvironment.Blockchains {
-				if chain.ChainSelector == in.BillingService.ChainSelector {
-					selectedChain = chain.BlockchainOutput
+				if chain.ChainSelector() == in.BillingService.ChainSelector {
+					selectedChain = chain.CtfOutput()
 				}
 			}
 

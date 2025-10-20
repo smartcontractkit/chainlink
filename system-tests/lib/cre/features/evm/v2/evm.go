@@ -35,6 +35,7 @@ import (
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/jobs"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/jobs/ocr"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/jobs/ocr/chainlevel"
+	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/blockchains"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/features/evm"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/flags"
 )
@@ -274,15 +275,15 @@ func (o *EVM) PostEnvStartup(
 	return nil
 }
 
-func chainsWithEVMCapability(chains []*cre.WrappedBlockchainOutput, dons []*cre.DON) map[ks_contracts_op.EVMChainID]ks_contracts_op.Selector {
+func chainsWithEVMCapability(chains []blockchains.Blockchain, dons []*cre.DON) map[ks_contracts_op.EVMChainID]ks_contracts_op.Selector {
 	chainsWithEVMCapability := make(map[ks_contracts_op.EVMChainID]ks_contracts_op.Selector)
 	for _, chain := range chains {
 		for _, don := range dons {
-			if flags.HasFlagForChain(don.Flags, cre.EVMCapability, chain.ChainID) {
-				if chainsWithEVMCapability[ks_contracts_op.EVMChainID(chain.ChainID)] != 0 {
+			if flags.HasFlagForChain(don.Flags, cre.EVMCapability, chain.ChainID()) {
+				if chainsWithEVMCapability[ks_contracts_op.EVMChainID(chain.ChainID())] != 0 {
 					continue
 				}
-				chainsWithEVMCapability[ks_contracts_op.EVMChainID(chain.ChainID)] = ks_contracts_op.Selector(chain.ChainSelector)
+				chainsWithEVMCapability[ks_contracts_op.EVMChainID(chain.ChainID())] = ks_contracts_op.Selector(chain.ChainSelector())
 			}
 		}
 	}

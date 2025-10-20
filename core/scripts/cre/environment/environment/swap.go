@@ -238,12 +238,6 @@ func swapCapability(ctx context.Context, capabilityFlag, binaryPath string, forc
 		return errors.Wrapf(err, "failed to restart nodeSets")
 	}
 
-	// connect clients again after restarting
-	creEnvironment, _, loadErr = creenv.BuildFromSavedState(ctx, cldLogger, config, envArtifact)
-	if loadErr != nil {
-		return errors.Wrap(loadErr, "failed to load environment")
-	}
-
 	// approve the job proposals again, so that the jobs are restarted with the new binary
 	for donIdx, nodeIDToProposalIDs := range donIdxToNodeIDToProposalIDs {
 		for _, node := range donTopology.Dons.List()[donIdx].Nodes {

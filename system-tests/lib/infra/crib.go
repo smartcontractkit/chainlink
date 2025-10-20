@@ -13,6 +13,8 @@ const (
 	Docker Type         = "docker"
 	AWS    CribProvider = "aws"
 	Kind   CribProvider = "kind"
+
+	CribConfigsDir = "crib-configs"
 )
 
 type Provider struct {

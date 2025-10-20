@@ -85,7 +85,7 @@ func (c *Cron) PostEnvStartup(
 
 	bcOuts := make([]*blockchain.Output, len(creEnv.Blockchains))
 	for i, b := range creEnv.Blockchains {
-		bcOuts[i] = b.BlockchainOutput
+		bcOuts[i] = b.CtfOutput()
 	}
 
 	donsToJobSpecs, specErr := perDonJobSpecFactory.BuildJobSpec(

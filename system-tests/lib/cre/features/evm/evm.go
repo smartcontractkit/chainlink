@@ -3,20 +3,21 @@ package evm
 import (
 	"fmt"
 	"slices"
-	"strings"
 
 	"github.com/pkg/errors"
 	"github.com/rs/zerolog"
 
+	chainselectors "github.com/smartcontractkit/chain-selectors"
+
 	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
-	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/blockchain"
 	"github.com/smartcontractkit/chainlink/deployment/cre/forwarder"
 	keystone_changeset "github.com/smartcontractkit/chainlink/deployment/keystone/changeset"
 	libc "github.com/smartcontractkit/chainlink/system-tests/lib/conversions"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/contracts"
+	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/blockchains"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/flags"
 )
 
@@ -95,26 +96,26 @@ func ConfigureEVMForwarders(testLogger zerolog.Logger, cldfEnv *cldf.Environment
 	return nil
 }
 
-func ChainsWithForwarders(blockchains []*cre.WrappedBlockchainOutput, nodeSets []cre.NodeSetWithCapabilityConfigs) map[string][]uint64 {
+func ChainsWithForwarders(blockchains []blockchains.Blockchain, nodeSets []cre.NodeSetWithCapabilityConfigs) map[string][]uint64 {
 	chainsWithForwarders := make(map[string][]uint64)
 
 	for _, bcOut := range blockchains {
 		for _, nodeSet := range nodeSets {
-			if chainSelectors, familyExists := chainsWithForwarders[bcOut.BlockchainOutput.Family]; familyExists {
-				if slices.Contains(chainSelectors, bcOut.ChainSelector) {
+			if chainSelectors, familyExists := chainsWithForwarders[bcOut.ChainFamily()]; familyExists {
+				if slices.Contains(chainSelectors, bcOut.ChainSelector()) {
 					continue
 				}
 			}
 
-			if !strings.EqualFold(bcOut.BlockchainOutput.Family, blockchain.FamilyEVM) && !strings.EqualFold(bcOut.BlockchainOutput.Family, blockchain.FamilyTron) {
+			if !bcOut.IsFamily(chainselectors.FamilyEVM) && !bcOut.IsFamily(chainselectors.FamilyTron) {
 				continue
 			}
 
-			if flags.RequiresForwarderContract(nodeSet.GetCapabilityFlags(), bcOut.ChainID) {
-				if _, exists := chainsWithForwarders[bcOut.BlockchainOutput.Family]; !exists {
-					chainsWithForwarders[bcOut.BlockchainOutput.Family] = []uint64{}
+			if flags.RequiresForwarderContract(nodeSet.GetCapabilityFlags(), bcOut.ChainID()) {
+				if _, exists := chainsWithForwarders[bcOut.ChainFamily()]; !exists {
+					chainsWithForwarders[bcOut.ChainFamily()] = []uint64{}
 				}
-				chainsWithForwarders[bcOut.BlockchainOutput.Family] = append(chainsWithForwarders[bcOut.BlockchainOutput.Family], bcOut.ChainSelector)
+				chainsWithForwarders[bcOut.ChainFamily()] = append(chainsWithForwarders[bcOut.ChainFamily()], bcOut.ChainSelector())
 			}
 		}
 	}
