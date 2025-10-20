@@ -199,12 +199,12 @@ func startBilling(_ context.Context, cleanupWait time.Duration, setupOutput *env
 
 		// Select the appropriate chain for billing service from available chains in the environment.
 		// otherwise, if RPCURL is defined, billing service can be used standalone
-		if len(setupOutput.BlockchainOutput) != 0 {
+		if len(setupOutput.Blockchains) != 0 {
 			var selectedChain *blockchain.Output
 
-			for _, chain := range setupOutput.BlockchainOutput {
-				if chain.ChainSelector == in.BillingService.ChainSelector {
-					selectedChain = chain.BlockchainOutput
+			for _, chain := range setupOutput.Blockchains {
+				if chain.ChainSelector() == in.BillingService.ChainSelector {
+					selectedChain = chain.CtfOutput()
 				}
 			}
 

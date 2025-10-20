@@ -477,8 +477,8 @@ func ConfigureKeystone(input cre.ConfigureKeystoneInput) error {
 			if typeAndVersion.Type == keystone_changeset.KeystoneForwarder {
 				// Check if any of the blockchain outputs indicate this is a TRON chain
 				isTronChain := false
-				for _, bcOut := range input.BlockchainOutputs {
-					if bcOut.ChainSelector == chainSelector && strings.EqualFold(bcOut.BlockchainOutput.Family, blockchain.FamilyTron) {
+				for _, bcOut := range input.Blockchains {
+					if bcOut.ChainSelector() == chainSelector && bcOut.IsFamily(blockchain.FamilyTron) {
 						tronChainsWithForwarders[chainSelector] = struct{}{}
 						isTronChain = true
 						break

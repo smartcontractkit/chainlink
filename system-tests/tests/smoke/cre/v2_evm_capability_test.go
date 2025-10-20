@@ -15,8 +15,8 @@ import (
 	"github.com/rs/zerolog"
 	"github.com/stretchr/testify/require"
 
-	"github.com/smartcontractkit/chainlink/system-tests/lib/cre"
 	crecontracts "github.com/smartcontractkit/chainlink/system-tests/lib/cre/contracts"
+	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/blockchains/evm"
 	evm_config "github.com/smartcontractkit/chainlink/system-tests/tests/smoke/cre/evm/evmread/config"
 	evmreadcontracts "github.com/smartcontractkit/chainlink/system-tests/tests/smoke/cre/evm/evmread/contracts"
 	t_helpers "github.com/smartcontractkit/chainlink/system-tests/tests/test-helpers"
@@ -36,24 +36,26 @@ func ExecuteEVMReadTest(t *testing.T, testEnv *ttypes.TestEnvironment) {
 
 	var workflowsWg sync.WaitGroup
 	var successfulWorkflowRuns atomic.Int32
-	for _, bcOutput := range testEnv.WrappedBlockchainOutputs {
-		chainID := bcOutput.BlockchainOutput.ChainID
+	for _, bcOutput := range testEnv.Blockchains {
+		chainID := bcOutput.CtfOutput().ChainID
 		if _, ok := enabledChains[chainID]; !ok {
 			lggr.Info().Msgf("Skipping chain %s as it is not enabled for EVM Read workflow test", chainID)
 			continue
 		}
 
 		lggr.Info().Msg("Creating EVM Read workflow configuration...")
-		workflowConfig := configureEVMReadWorkflow(t, lggr, bcOutput)
+		require.IsType(t, &evm.Blockchain{}, bcOutput, "expected EVM blockchain type")
+		evmChain := bcOutput.(*evm.Blockchain)
+		workflowConfig := configureEVMReadWorkflow(t, lggr, evmChain)
 		workflowName := fmt.Sprintf("evm-read-workflow-%s-%04d", chainID, rand.Intn(10000))
 		t_helpers.CompileAndDeployWorkflow(t, testEnv, lggr, workflowName, &workflowConfig, workflowFileLocation)
 
 		workflowsWg.Add(1)
-		go func(bcOutput *cre.WrappedBlockchainOutput) {
+		go func(evmChain *evm.Blockchain) {
 			defer workflowsWg.Done()
-			validateWorkflowExecution(t, lggr, testEnv, bcOutput, workflowName, workflowConfig) //nolint:testifylint // TODO: consider refactoring
+			validateWorkflowExecution(t, lggr, testEnv, evmChain, workflowName, workflowConfig) //nolint:testifylint // TODO: consider refactoring
 			successfulWorkflowRuns.Add(1)
-		}(bcOutput)
+		}(evmChain)
 	}
 
 	// wait for all workflows to complete
@@ -61,11 +63,11 @@ func ExecuteEVMReadTest(t *testing.T, testEnv *ttypes.TestEnvironment) {
 	require.Equal(t, len(enabledChains), int(successfulWorkflowRuns.Load()), "Not all workflows executed successfully")
 }
 
-func validateWorkflowExecution(t *testing.T, lggr zerolog.Logger, testEnv *ttypes.TestEnvironment, bcOutput *cre.WrappedBlockchainOutput, workflowName string, workflowConfig evm_config.Config) {
-	forwarderAddress, _, err := crecontracts.FindAddressesForChain(testEnv.CreEnvironment.CldfEnvironment.ExistingAddresses, bcOutput.ChainSelector, keystonechangeset.KeystoneForwarder.String()) //nolint:staticcheck,nolintlint // SA1019: deprecated but we don't want to migrate now
-	require.NoError(t, err, "failed to find forwarder address for chain %s", bcOutput.ChainSelector)
+func validateWorkflowExecution(t *testing.T, lggr zerolog.Logger, testEnv *ttypes.TestEnvironment, blockchain *evm.Blockchain, workflowName string, workflowConfig evm_config.Config) {
+	forwarderAddress, _, err := crecontracts.FindAddressesForChain(testEnv.CreEnvironment.CldfEnvironment.ExistingAddresses, blockchain.ChainSelector(), keystonechangeset.KeystoneForwarder.String()) //nolint:staticcheck,nolintlint // SA1019: deprecated but we don't want to migrate now
+	require.NoError(t, err, "failed to find forwarder address for chain %s", blockchain.ChainSelector)
 
-	forwarderContract, err := forwarder.NewKeystoneForwarder(forwarderAddress, bcOutput.SethClient.Client)
+	forwarderContract, err := forwarder.NewKeystoneForwarder(forwarderAddress, blockchain.SethClient.Client)
 	require.NoError(t, err, "failed to instantiate forwarder contract")
 
 	msgEmitterAddr := common.BytesToAddress(workflowConfig.ContractAddress)
@@ -83,7 +85,7 @@ func validateWorkflowExecution(t *testing.T, lggr zerolog.Logger, testEnv *ttype
 		}
 
 		if isSubmitted {
-			lggr.Info().Msgf("🎉 Workflow %s executed successfully on chain %s", workflowName, bcOutput.BlockchainOutput.ChainID)
+			lggr.Info().Msgf("🎉 Workflow %s executed successfully on chain %s", workflowName, blockchain.CtfOutput().ChainID)
 			return true
 		}
 
@@ -92,10 +94,10 @@ func validateWorkflowExecution(t *testing.T, lggr zerolog.Logger, testEnv *ttype
 	}, timeout, tick, "workflow %s did not execute within the timeout %s", workflowName, timeout.String())
 }
 
-func configureEVMReadWorkflow(t *testing.T, lggr zerolog.Logger, chain *cre.WrappedBlockchainOutput) evm_config.Config {
+func configureEVMReadWorkflow(t *testing.T, lggr zerolog.Logger, chain *evm.Blockchain) evm_config.Config {
 	t.Helper()
 
-	chainID := chain.BlockchainOutput.ChainID
+	chainID := chain.CtfOutput().ChainID
 	chainSethClient := chain.SethClient
 
 	lggr.Info().Msgf("Deploying message emitter for chain %s", chainID)
@@ -120,7 +122,7 @@ func configureEVMReadWorkflow(t *testing.T, lggr zerolog.Logger, chain *cre.Wrap
 	// create and fund an address to be used by the workflow
 	amountToFund := big.NewInt(0).SetUint64(10) // 10 wei
 	numberOfAddressesToCreate := 1
-	addresses, addrErr := t_helpers.CreateAndFundAddresses(t, lggr, numberOfAddressesToCreate, amountToFund, chainSethClient, chain, nil)
+	addresses, addrErr := t_helpers.CreateAndFundAddresses(t, lggr, numberOfAddressesToCreate, amountToFund, chain, nil)
 	require.NoError(t, addrErr, "failed to create and fund new addresses")
 	require.Len(t, addresses, numberOfAddressesToCreate, "failed to create the correct number of addresses")
 
@@ -130,7 +132,7 @@ func configureEVMReadWorkflow(t *testing.T, lggr zerolog.Logger, chain *cre.Wrap
 	accountAddress := addresses[0].Bytes()
 	return evm_config.Config{
 		ContractAddress:  msgEmitterContractAddr.Bytes(),
-		ChainSelector:    chain.ChainSelector,
+		ChainSelector:    chain.ChainSelector(),
 		AccountAddress:   accountAddress,
 		ExpectedBalance:  amountToFund,
 		ExpectedReceipt:  emittingReceipt,

@@ -2,23 +2,17 @@ package environment
 
 import (
 	"context"
-	"encoding/binary"
 	"fmt"
-	"io"
-	"maps"
 	"os"
-	"slices"
-	"strconv"
-	"strings"
 	"sync"
 	"time"
 
-	"github.com/docker/docker/api/types/container"
 	pkgerrors "github.com/pkg/errors"
 	"github.com/rs/zerolog"
 	"golang.org/x/sync/errgroup"
 
-	"github.com/smartcontractkit/chainlink-testing-framework/framework"
+	chainselectors "github.com/smartcontractkit/chain-selectors"
+
 	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/blockchain"
 	ns "github.com/smartcontractkit/chainlink-testing-framework/framework/components/simple_node_set"
 
@@ -26,8 +20,9 @@ import (
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre"
 	crecapabilities "github.com/smartcontractkit/chainlink/system-tests/lib/cre/capabilities"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/crib"
-	creflags "github.com/smartcontractkit/chainlink/system-tests/lib/cre/flags"
-	text "github.com/smartcontractkit/chainlink/system-tests/lib/format"
+	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/blockchains"
+	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/blockchains/solana"
+	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/flags"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/infra"
 )
 
@@ -66,10 +61,10 @@ func StartDONs(
 ) (*StartedDONs, error) {
 	if infraInput.Type == infra.CRIB {
 		lggr.Info().Msg("Saving node configs and secret overrides")
-		deployCribDonsInput := &cre.DeployCribDonsInput{
+		deployCribDonsInput := &crib.DeployCribDonsInput{
 			Topology:       topology,
 			NodeSetInputs:  capabilitiesAwareNodeSets,
-			CribConfigsDir: cribConfigsDir,
+			CribConfigsDir: infra.CribConfigsDir,
 			Namespace:      infraInput.CRIB.Namespace,
 		}
 
@@ -87,7 +82,7 @@ func StartDONs(
 
 		customBinariesPaths := make(map[cre.CapabilityFlag]string)
 		for flag, config := range capabilityConfigs {
-			if creflags.HasFlagForAnyChain(donMetadata.Flags, flag) && config.BinaryPath != "" {
+			if flags.HasFlagForAnyChain(donMetadata.Flags, flag) && config.BinaryPath != "" {
 				customBinariesPaths[flag] = config.BinaryPath
 			}
 		}
@@ -172,7 +167,7 @@ func StartDONs(
 	}
 
 	if err := errGroup.Wait(); err != nil {
-		printFailedContainerLogs(lggr, 30)
+		infra.PrintFailedContainerLogs(lggr, 30)
 		return nil, err
 	}
 
@@ -186,50 +181,61 @@ func StartDONs(
 	return &startedDONs, nil
 }
 
-func printFailedContainerLogs(logger zerolog.Logger, logLinesCount uint64) {
-	logStream, lErr := framework.StreamContainerLogs(framework.ExitedCtfContainersListOpts, container.LogsOptions{
-		ShowStderr: true,
-		Tail:       strconv.FormatUint(logLinesCount, 10),
-	})
+func FundNodes(ctx context.Context, testLogger zerolog.Logger, dons *cre.Dons, blockchains []blockchains.Blockchain, fundingAmountPerChainFamily map[string]uint64) error {
+	for _, don := range dons.List() {
+		testLogger.Info().Msgf("Funding nodes for DON %s", don.Name)
+		for _, bc := range blockchains {
+			if !flags.RequiresForwarderContract(don.Flags, bc.ChainID()) && !bc.IsFamily(chainselectors.FamilySolana) { // for now, we can only write to solana, so we consider forwarder is always present
+				continue
+			}
 
-	if lErr != nil {
-		logger.Error().Err(lErr).Msg("failed to stream Docker container logs")
-		return
+			chainFamily := bc.CtfOutput().Family
+			fundingAmount, ok := fundingAmountPerChainFamily[chainFamily]
+			if !ok {
+				return fmt.Errorf("missing funding amount for chain family %s", chainFamily)
+			}
+
+			for _, node := range don.Nodes {
+				address, addrErr := nodeAddress(node, chainFamily, bc)
+				if addrErr != nil {
+					return pkgerrors.Wrapf(addrErr, "failed to get address for node %s on chain family %s and chain %d", node.Name, chainFamily, bc.ChainID())
+				}
+
+				if address == "" {
+					testLogger.Info().Msgf("No key for chainID %d found for node %s. Skipping funding", bc.ChainID(), node.Name)
+					continue // Skip nodes without keys for this chain
+				}
+
+				err := bc.Fund(ctx, address, fundingAmount)
+				if err != nil {
+					return err
+				}
+			}
+		}
+
+		testLogger.Info().Msgf("Funded nodes for DON %s", don.Name)
 	}
 
-	logger.Error().Msgf("Containers that failed to start: %s", strings.Join(slices.Collect(maps.Keys(logStream)), ", "))
-	for cName, ioReader := range logStream {
-		content := ""
-		header := make([]byte, 8) // Docker stream header is 8 bytes
-		for {
-			_, err := io.ReadFull(ioReader, header)
-			if err == io.EOF {
-				break
-			}
-			if err != nil {
-				logger.Error().Err(err).Str("Container", cName).Msg("failed to read log stream header")
-				break
-			}
+	return nil
+}
 
-			// Extract log message size
-			msgSize := binary.BigEndian.Uint32(header[4:8])
-
-			// Read the log message
-			msg := make([]byte, msgSize)
-			_, err = io.ReadFull(ioReader, msg)
-			if err != nil {
-				logger.Error().Err(err).Str("Container", cName).Msg("failed to read log message")
-				break
-			}
-
-			content += string(msg)
+func nodeAddress(node *cre.Node, chainFamily string, bc blockchains.Blockchain) (string, error) {
+	switch chainFamily {
+	case chainselectors.FamilyEVM, chainselectors.FamilyTron:
+		evmKey, ok := node.Keys.EVM[bc.ChainID()]
+		if !ok {
+			return "", nil // Skip nodes without EVM keys for this chain
 		}
 
-		content = strings.TrimSpace(content)
-		if len(content) > 0 {
-			logger.Info().Str("Container", cName).Msgf("Last 100 lines of logs")
-			fmt.Println(text.RedText("%s\n", content))
+		return evmKey.PublicAddress.String(), nil
+	case chainselectors.FamilySolana:
+		solBc := bc.(*solana.Blockchain)
+		solKey, ok := node.Keys.Solana[solBc.SolanaChainID]
+		if !ok {
+			return "", nil // Skip nodes without Solana keys for this chain
 		}
-		_ = ioReader.Close() // can't do much about the error here
+		return solKey.PublicAddress.String(), nil
+	default:
+		return "", fmt.Errorf("unsupported chain family %s", chainFamily)
 	}
 }
