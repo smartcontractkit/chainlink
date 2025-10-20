@@ -45,7 +45,7 @@ ChainID = '1'
 FinalityDepth = 26
 SafeDepth = 0
 FinalityTagEnabled = true
-SafeTagEnabled = true
+SafeTagSupported = true
 FinalizedBlockOffset = 12
 
 [[EVM.Nodes]]
@@ -98,7 +98,6 @@ NodeNoNewHeadsThreshold = '1m0s'
 NoNewFinalizedHeadsThreshold = '1m0s'
 FinalityDepth = 0
 FinalityTagEnabled = true
-SafeTagEnabled = true
 FinalizedBlockOffset = 0
 
 [[Solana.Nodes]]
@@ -128,7 +127,6 @@ NodeNoNewHeadsThreshold = '1m0s'
 NoNewFinalizedHeadsThreshold = '1m0s'
 FinalityDepth = 0
 FinalityTagEnabled = true
-SafeTagEnabled = true
 FinalizedBlockOffset = 0
 
 [[Solana.Nodes]]

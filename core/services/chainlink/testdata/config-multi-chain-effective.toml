@@ -389,7 +389,7 @@ BlockBackfillSkip = false
 FinalityDepth = 26
 SafeDepth = 0
 FinalityTagEnabled = true
-SafeTagEnabled = true
+SafeTagSupported = true
 LinkContractAddress = '0x514910771AF9Ca656af840dff83E8264EcF986CA'
 LogBackfillBatchSize = 1000
 LogPollInterval = '15s'
@@ -792,7 +792,6 @@ NodeNoNewHeadsThreshold = '1m0s'
 NoNewFinalizedHeadsThreshold = '1m0s'
 FinalityDepth = 0
 FinalityTagEnabled = true
-SafeTagEnabled = true
 FinalizedBlockOffset = 0
 
 [[Solana.Nodes]]
@@ -856,7 +855,6 @@ NodeNoNewHeadsThreshold = '1m0s'
 NoNewFinalizedHeadsThreshold = '1m0s'
 FinalityDepth = 0
 FinalityTagEnabled = true
-SafeTagEnabled = true
 FinalizedBlockOffset = 0
 
 [[Solana.Nodes]]

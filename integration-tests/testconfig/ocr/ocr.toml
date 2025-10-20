@@ -118,7 +118,7 @@ MinContractPayment = 0
 LogPollInterval="500ms"
 BackupLogPollerBlockDelay = 0
 FinalityTagEnabled = true
-SafeTagEnabled = true
+SafeTagSupported = true
 
 [HeadTracker]
 HistoryDepth = 10
