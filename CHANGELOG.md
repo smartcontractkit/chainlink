@@ -1682,8 +1682,7 @@ For DONs running OCR3, make sure that release 2.23.0 or newer has been deployed 
 
 - [#12496](https://github.com/smartcontractkit/chainlink/pull/12496) [`31350477ae`](https://github.com/smartcontractkit/chainlink/commit/31350477ae51f00e035b1b8c50775e5955258ac1) Thanks [@silaslenihan](https://github.com/silaslenihan)! - Change LimitTransfer gasLimit type from uint32 to uint64
 
-- [#12339](https://github.com/smartcontractkit/chainlink/pull/12339) [`96d2fe13b8`](https://github.com/smartcontractkit/chainlink/commit/96d2fe13b8510631bbc92ffd20a4d923b93002e6) Thanks [@dhaidashenko](https://github.com/dhaidashenko)! - Add the `pool_rpc_node_highest_finalized_block` metric that tracks the highest finalized block seen per RPC. If `FinalityTagEnabled = true
-SafeTagEnabled = true`, a positive `NodePool.FinalizedBlockPollInterval` is needed to collect the metric. If the finality tag is not enabled, the metric is populated with a calculated latest finalized block based on the latest head and finality depth.
+- [#12339](https://github.com/smartcontractkit/chainlink/pull/12339) [`96d2fe13b8`](https://github.com/smartcontractkit/chainlink/commit/96d2fe13b8510631bbc92ffd20a4d923b93002e6) Thanks [@dhaidashenko](https://github.com/dhaidashenko)! - Add the `pool_rpc_node_highest_finalized_block` metric that tracks the highest finalized block seen per RPC. If `FinalityTagEnabled = true`, a positive `NodePool.FinalizedBlockPollInterval` is needed to collect the metric. If the finality tag is not enabled, the metric is populated with a calculated latest finalized block based on the latest head and finality depth.
 
 - [#12473](https://github.com/smartcontractkit/chainlink/pull/12473) [`f1d1f249eb`](https://github.com/smartcontractkit/chainlink/commit/f1d1f249ebecb37da7eacbc4cc12e1eb0205f29a) Thanks [@justinkaseman](https://github.com/justinkaseman)! - Copy common transmitter methods into FunctionsContractTransmitter to enable product specific modification
 
