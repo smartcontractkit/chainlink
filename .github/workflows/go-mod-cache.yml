@@ -34,10 +34,18 @@ jobs:
       matrix:
         include:
           - runs-on: ubuntu-latest
-            suffix: "(Github-hosted)"
+            suffix: "Core (Github-hosted)"
+
+          - runs-on: ubuntu-latest
+            suffix: "Deployment (Github-hosted)"
+            go-mod-directory: "deployment/"
 
           - runs-on: runs-on=${{ github.run_id }}/cpu=8/ram=16/family=c6id/spot=false/extras=s3-cache
-            suffix: "(Self-hosted)"
+            suffix: "Core (Self-hosted)"
+
+          - runs-on: runs-on=${{ github.run_id }}/cpu=8/ram=16/family=c6id/spot=false/extras=s3-cache
+            suffix: "Deployment (Self-hosted)"
+            go-mod-directory: "deployment/"
 
     runs-on: ${{ matrix.runs-on }}
     permissions:
@@ -60,15 +68,22 @@ jobs:
         with:
           only-modules: "true"
           restore-module-cache-only: "false"
+          go-version-file: ${{ matrix.go-mod-directory }}go.mod
+          go-module-file: ${{ matrix.go-mod-directory }}go.sum
 
-      - name: Install Dependencies
+      - name: go mod download
         if: ${{ steps.setup-go.outputs.primary-cache-hit-modules != 'true' }}
         shell: bash
+        working-directory: ${{ matrix.go-mod-directory || '.' }}
         run: |
           echo "::group::go mod download"
           go mod download
           echo "::endgroup::"
 
+      - name: Fetch other dependencies
+        if: ${{ steps.setup-go.outputs.primary-cache-hit-modules != 'true' }}
+        shell: bash
+        run: |
           echo "::group::Install LOOP plugins"
           make install-plugins-public
           echo "::endgroup::"

@@ -86,7 +86,7 @@ func (h *WorkflowMetadataHandler) Authorize(workflowID string, token string, req
 	keys, exists := h.authorizedKeys[workflowID]
 	if !exists {
 		h.lggr.Errorw("Workflow ID not found in authorized keys", "workflowID", workflowID)
-		return nil, errors.New("workflow ID not found in authorized keys")
+		return nil, fmt.Errorf("workflow ID %s not found", workflowID)
 	}
 	key := gateway.AuthorizedKey{
 		KeyType:   gateway.KeyTypeECDSAEVM,
@@ -94,7 +94,7 @@ func (h *WorkflowMetadataHandler) Authorize(workflowID string, token string, req
 	}
 	if _, exists = keys[key]; !exists {
 		h.lggr.Errorw("Signer not found in authorized keys", "signer", signer.Hex())
-		return nil, errors.New("signer not found in authorized keys")
+		return nil, fmt.Errorf("signer '%s' is not authorized for workflow '%s'. Ensure that the signer is registered in the workflow definition", signer.Hex(), workflowID)
 	}
 	h.jwtCache.recordUsage(claims.ID)
 
