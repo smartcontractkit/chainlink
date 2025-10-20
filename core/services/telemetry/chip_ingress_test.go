@@ -126,7 +126,29 @@ func TestChipIngressAdapter_SendLog(t *testing.T) {
 		require.NoError(t, err)
 
 		// Setup expectations
-		mockEmitter.On("Emit", mock.Anything, telemetryLog, mock.Anything).Return(nil).Once()
+		mockEmitter.
+			On("Emit", mock.Anything, telemetryLog, mock.Anything).
+			Run(func(args mock.Arguments) {
+				// args: ctx, body, attrKVs
+				attrKVs, ok := args.Get(2).([]any)
+				require.True(t, ok)
+				require.GreaterOrEqual(t, len(attrKVs)%2, 0)
+				attrs := make(map[string]any)
+				for i := 0; i+1 < len(attrKVs); i += 2 {
+					key, isStr := attrKVs[i].(string)
+					require.True(t, isStr)
+					attrs[key] = attrKVs[i+1]
+				}
+				// Ensure network_name key is present and old network key is absent
+				assert.Equal(t, "EVM", attrs["network_name"])
+				_, hadOld := attrs["network"]
+				assert.False(t, hadOld)
+				// Spot-check a couple of other attributes
+				assert.Equal(t, "1", attrs["chain_id"])
+				assert.Equal(t, contractID, attrs["contract_id"])
+			}).
+			Return(nil).
+			Once()
 
 		// Call SendLog
 		adapter.SendLog(telemetryLog)

@@ -5,8 +5,9 @@ import (
 	"errors"
 	"fmt"
 	"strings"
+	"time"
 
-	chainsel "github.com/smartcontractkit/chain-selectors"
+	chainselector "github.com/smartcontractkit/chain-selectors"
 	"github.com/smartcontractkit/libocr/commontypes"
 
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
@@ -19,6 +20,7 @@ var _ commontypes.MonitoringEndpoint = (*ChipIngressAdapter)(nil)
 // Emitter is the interface for the beholder.Emitter
 // https://github.com/smartcontractkit/chainlink-common/blob/main/pkg/beholder/client.go#L27
 type Emitter interface {
+	// Emit is async and does not block the main thread
 	Emit(ctx context.Context, body []byte, attrKVs ...any) error
 }
 
@@ -54,7 +56,7 @@ func NewChipIngressAdapter(
 	}
 
 	// Use chain-selectors package to get the ChainDetails which includes the selector
-	details, err := chainsel.GetChainDetailsByChainIDAndFamily(chainID, strings.ToLower(network))
+	details, err := chainselector.GetChainDetailsByChainIDAndFamily(chainID, strings.ToLower(network))
 	if err != nil {
 		return nil, fmt.Errorf("failed to get chain details for chainID %s and network %s: %w", chainID, network, err)
 	}
@@ -76,15 +78,18 @@ func NewChipIngressAdapter(
 	}, nil
 }
 
+const emitTimeout = 10 * time.Second
+
 // SendLog implements commontypes.MonitoringEndpoint
 // It forwards the telemetry log to the beholder emitter with proper domain/entity attributes
 func (a *ChipIngressAdapter) SendLog(log []byte) {
-	ctx := context.Background()
+	ctx, _ := context.WithTimeout(context.Background(), emitTimeout)
+	// Emit is asyc and does not block the main thread
 	err := a.emitter.Emit(ctx, log,
 		"beholder_domain", a.Domain,
 		"beholder_entity", a.Entity,
 		"chain_id", a.ChainID,
-		"network", a.Network,
+		"network_name", a.Network,
 		"chain_selector", a.ChainSelector,
 		"contract_id", a.ContractID,
 	)
