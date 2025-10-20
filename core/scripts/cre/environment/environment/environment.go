@@ -139,7 +139,7 @@ var StartCmdPreRunFunc = func(cmd *cobra.Command, args []string) {
 	}()
 }
 
-var StartCmdRecoverHandlerFunc = func(p any, cleanupWait time.Duration) {
+var StartCmdRecoverHandlerFunc = func(p any, cleanupOnFailure bool, cleanupWait time.Duration) {
 	if p != nil {
 		fmt.Println("Panicked when starting environment")
 
@@ -166,15 +166,17 @@ var StartCmdRecoverHandlerFunc = func(p any, cleanupWait time.Duration) {
 			fmt.Fprintf(os.Stderr, "failed to track startup: %s\n", tracingErr)
 		}
 
-		waitToCleanUp(cleanupWait)
-		_, saveErr := framework.SaveContainerLogs("./logs")
-		if saveErr != nil {
-			fmt.Fprintf(os.Stderr, "failed to save container logs: %s\n", saveErr)
-		}
+		if cleanupOnFailure {
+			waitToCleanUp(cleanupWait)
+			_, saveErr := framework.SaveContainerLogs("./logs")
+			if saveErr != nil {
+				fmt.Fprintf(os.Stderr, "failed to save container logs: %s\n", saveErr)
+			}
 
-		removeErr := framework.RemoveTestContainers()
-		if removeErr != nil {
-			fmt.Fprint(os.Stderr, errors.Wrap(removeErr, manualCtfCleanupMsg).Error())
+			removeErr := framework.RemoveTestContainers()
+			if removeErr != nil {
+				fmt.Fprint(os.Stderr, errors.Wrap(removeErr, manualCtfCleanupMsg).Error())
+			}
 		}
 
 		// signal that the environment failed to start
@@ -238,6 +240,7 @@ func startCmd() *cobra.Command {
 		withPluginsDockerImage   string
 		withContractsVersion     string
 		doSetup                  bool
+		cleanupOnFailure         bool
 		cleanupWait              time.Duration
 		withBeholder             bool
 		withDashboards           bool
@@ -254,7 +257,7 @@ func startCmd() *cobra.Command {
 		PersistentPreRun: StartCmdPreRunFunc,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			defer func() {
-				StartCmdRecoverHandlerFunc(recover(), cleanupWait)
+				StartCmdRecoverHandlerFunc(recover(), cleanupOnFailure, cleanupWait)
 			}()
 
 			if doSetup {
@@ -342,15 +345,17 @@ func startCmd() *cobra.Command {
 					fmt.Fprintf(os.Stderr, "failed to track startup: %s\n", dxErr)
 				}
 
-				waitToCleanUp(cleanupWait)
-				_, saveErr := framework.SaveContainerLogs("./logs")
-				if saveErr != nil {
-					fmt.Fprintf(os.Stderr, "failed to save container logs: %s\n", saveErr)
-				}
+				if cleanupOnFailure {
+					waitToCleanUp(cleanupWait)
+					_, saveErr := framework.SaveContainerLogs("./logs")
+					if saveErr != nil {
+						fmt.Fprintf(os.Stderr, "failed to save container logs: %s\n", saveErr)
+					}
 
-				removeErr := framework.RemoveTestContainers()
-				if removeErr != nil {
-					return errors.Wrap(removeErr, manualCtfCleanupMsg)
+					removeErr := framework.RemoveTestContainers()
+					if removeErr != nil {
+						return errors.Wrap(removeErr, manualCtfCleanupMsg)
+					}
 				}
 
 				return errors.Wrap(startErr, "failed to start environment")
@@ -484,6 +489,7 @@ func startCmd() *cobra.Command {
 
 	cmd.Flags().StringVarP(&topology, "topology", "t", TopologyWorkflow, "Topology to use for the environment (workflow, workflow-gateway, workflow-gateway-capabilities)")
 	cmd.Flags().DurationVarP(&cleanupWait, "wait-on-error-timeout", "w", 15*time.Second, "Wait on error timeout (e.g. 10s, 1m, 1h)")
+	cmd.Flags().BoolVarP(&cleanupOnFailure, "cleanup-on-error", "l", false, "Whether to remove Docker containers if startup fails")
 	cmd.Flags().IntSliceVarP(&extraAllowedGatewayPorts, "extra-allowed-gateway-ports", "e", []int{}, "Extra allowed ports for outgoing connections from the Gateway DON (e.g. 8080,8081)")
 	cmd.Flags().BoolVarP(&withExampleFlag, "with-example", "x", false, "Deploy and register example workflow")
 	cmd.Flags().DurationVarP(&exampleWorkflowTimeout, "example-workflow-timeout", "u", 5*time.Minute, "Time to wait until example workflow succeeds")

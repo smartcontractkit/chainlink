@@ -16819,6 +16819,15 @@ FinalityTagEnabled = false # Default
 FinalityTagEnabled means that the chain supports the finalized block tag when querying for a block. If FinalityTagEnabled is set to true for a chain, then FinalityDepth field is ignored.
 Finality for a block is solely defined by the finality related tags provided by the chain's RPC API. This is a placeholder and hasn't been implemented yet.
 
+### SafeTagSupported
+```toml
+SafeTagSupported = true # Default
+```
+SafeTagSupported means that the chain supports the safe block tag when querying for a block.
+When FinalityTagEnabled is true and SafeTagSupported is false, LatestSafeBlock will return the finalized block instead of safe block.
+When SafeTagSupported is true, LatestSafeBlock will return the safe block from the chain.
+When FinalityTagEnabled is false, SafeTagSupported is ignored and LatestSafeBlock uses SafeDepth.
+
 ### FlagsContractAddress
 :warning: **_ADVANCED_**: _Do not change this setting unless you know what you are doing._
 ```toml

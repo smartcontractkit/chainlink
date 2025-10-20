@@ -303,7 +303,6 @@ NodeNoNewHeadsThreshold = '20s'
 NoNewFinalizedHeadsThreshold = '20s'
 FinalityDepth = 0
 FinalityTagEnabled = true
-SafeTagSupported = true
 FinalizedBlockOffset = 50
 `,
 				}
