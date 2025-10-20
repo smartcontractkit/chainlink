@@ -52,14 +52,10 @@ func (o *EVM) Flag() cre.CapabilityFlag {
 func (o *EVM) PreEnvStartup(
 	ctx context.Context,
 	testLogger zerolog.Logger,
+	don *cre.DonMetadata,
 	topology *cre.Topology,
 	creEnv *cre.Environment,
 ) (*cre.PreEnvStartupOutput, error) {
-	donsMetadata := topology.DonsMetadataWithFlag(flag)
-	if len(donsMetadata) == 0 {
-		return nil, nil
-	}
-
 	chainsWithForwarders := evm.ChainsWithForwarders(creEnv.Blockchains, cre.ConvertToNodeSetWithChainCapabilities(topology.CapabilitiesAwareNodeSets()))
 	evmForwardersSelectors, exist := chainsWithForwarders[blockchain.FamilyEVM]
 	if exist {
@@ -89,87 +85,72 @@ func (o *EVM) PreEnvStartup(
 	}
 
 	// update node configs to include write-evm (evm v1) configuration
-	for _, donMetadata := range donsMetadata {
-		workerNodes, wErr := donMetadata.Workers()
-		if wErr != nil {
-			return nil, errors.Wrap(wErr, "failed to find worker nodes")
-		}
-
-		for _, workerNode := range workerNodes {
-			currentConfig := donMetadata.CapabilitiesAwareNodeSet().NodeSpecs[workerNode.Index].Node.TestConfigOverrides
-			updatedConfig, updErr := updateNodeConfig(workerNode, currentConfig, donMetadata.CapabilitiesAwareNodeSet().ChainCapabilities, creEnv)
-			if updErr != nil {
-				return nil, errors.Wrapf(updErr, "failed to update node config for node index %d", workerNode.Index)
-			}
-
-			donMetadata.CapabilitiesAwareNodeSet().NodeSpecs[workerNode.Index].Node.TestConfigOverrides = *updatedConfig
-		}
+	workerNodes, wErr := don.Workers()
+	if wErr != nil {
+		return nil, errors.Wrap(wErr, "failed to find worker nodes")
 	}
 
-	capabilities := make(map[uint64][]keystone_changeset.DONCapabilityWithConfig)
-	for _, donMetadata := range donsMetadata {
-		if capabilities[donMetadata.ID] == nil {
-			capabilities[donMetadata.ID] = []keystone_changeset.DONCapabilityWithConfig{}
+	for _, workerNode := range workerNodes {
+		currentConfig := don.CapabilitiesAwareNodeSet().NodeSpecs[workerNode.Index].Node.TestConfigOverrides
+		updatedConfig, updErr := updateNodeConfig(workerNode, currentConfig, don.CapabilitiesAwareNodeSet().ChainCapabilities, creEnv)
+		if updErr != nil {
+			return nil, errors.Wrapf(updErr, "failed to update node config for node index %d", workerNode.Index)
 		}
-		for _, chainID := range donMetadata.CapabilitiesAwareNodeSet().ChainCapabilities[flag].EnabledChains {
-			fullName := corevm.GenerateWriteTargetName(chainID)
-			splitName := strings.Split(fullName, "@")
 
-			capabilities[donMetadata.ID] = append(capabilities[donMetadata.ID], keystone_changeset.DONCapabilityWithConfig{
-				Capability: kcr.CapabilitiesRegistryCapability{
-					LabelledName:   splitName[0],
-					Version:        splitName[1],
-					CapabilityType: 3, // TARGET
-					ResponseType:   1, // OBSERVATION_IDENTICAL
-				},
-				Config: &capabilitiespb.CapabilityConfig{},
-			})
-		}
+		don.CapabilitiesAwareNodeSet().NodeSpecs[workerNode.Index].Node.TestConfigOverrides = *updatedConfig
+	}
+
+	capabilities := []keystone_changeset.DONCapabilityWithConfig{}
+	for _, chainID := range don.CapabilitiesAwareNodeSet().ChainCapabilities[flag].EnabledChains {
+		fullName := corevm.GenerateWriteTargetName(chainID)
+		splitName := strings.Split(fullName, "@")
+
+		capabilities = append(capabilities, keystone_changeset.DONCapabilityWithConfig{
+			Capability: kcr.CapabilitiesRegistryCapability{
+				LabelledName:   splitName[0],
+				Version:        splitName[1],
+				CapabilityType: 3, // TARGET
+				ResponseType:   1, // OBSERVATION_IDENTICAL
+			},
+			Config: &capabilitiespb.CapabilityConfig{},
+		})
 	}
 
 	return &cre.PreEnvStartupOutput{
-		DONCapabilityWithConfigs: capabilities,
+		DONCapabilityWithConfig: capabilities,
 	}, nil
 }
 
 func (o *EVM) PostEnvStartup(
 	ctx context.Context,
 	testLogger zerolog.Logger,
+	don *cre.Don,
 	dons *cre.Dons,
 	creEnv *cre.Environment,
 ) error {
-	donsWithFlag := dons.DonsWithFlag(flag)
-	if len(donsWithFlag) == 0 {
-		return nil
-	}
-
-	consensusVersion := "v1"
-	consensusDON, oneErr := dons.OneDonWithFlag(cre.ConsensusCapability)
-	if oneErr != nil {
-		// if v1 consensus DON is not found, let's try v2. We should have exactly one DON with either v1 or v2 consensus
-		consensusDON, oneErr = dons.OneDonWithFlag(cre.ConsensusCapabilityV2)
-		consensusVersion = "v2"
-		if oneErr != nil {
-			return errors.New("failed to find DON with consensus v1 or v2 capability")
-		}
-	}
-
+	consensusDons := dons.DonsWithFlags(cre.ConsensusCapability, cre.ConsensusCapabilityV2)
 	chainsWithForwarders := evm.ChainsWithForwarders(creEnv.Blockchains, dons.AsNodeSetWithChainCapabilities())
 
 	// for now we end up configuring forwarders twice, if the same chain has both evm v1 and v2 capabilities enabled
 	// it doesn't create any issues, but ideally we wouldn't do that
 	evmForwardersSelectors, exist := chainsWithForwarders[blockchain.FamilyEVM]
 	if exist {
-		if evmErr := evm.ConfigureEVMForwarders(testLogger, creEnv.CldfEnvironment, evmForwardersSelectors, consensusDON, consensusVersion); evmErr != nil {
-			return errors.Wrap(evmErr, "failed to configure EVM forwarders")
+		for _, don := range consensusDons {
+			config, confErr := evm.ConfigureEVMForwarders(testLogger, creEnv.CldfEnvironment, evmForwardersSelectors, don)
+			if confErr != nil {
+				return errors.Wrap(confErr, "failed to configure EVM forwarders")
+			}
+			testLogger.Info().Msgf("Configured EVM forwarders: %+v", config)
 		}
 	}
 
 	_, exist = chainsWithForwarders[blockchain.FamilyTron]
 	if exist {
-		tErr := configureTronForwarders(testLogger, creEnv.CldfEnvironment, creEnv.RegistryChainSelector, dons)
-		if tErr != nil {
-			return errors.Wrap(tErr, "failed to configure TRON forwarders")
+		for _, don := range consensusDons {
+			tErr := configureTronForwarder(testLogger, creEnv.CldfEnvironment, creEnv.RegistryChainSelector, don)
+			if tErr != nil {
+				return errors.Wrap(tErr, "failed to configure Tron forwarders")
+			}
 		}
 	}
 
@@ -217,24 +198,22 @@ func deployTronForwarders(testLogger zerolog.Logger, cldfEnv *cldf.Environment, 
 	return nil
 }
 
-func configureTronForwarders(testLogger zerolog.Logger, env *cldf.Environment, registryChainSelector uint64, dons *cre.Dons) error {
+func configureTronForwarder(testLogger zerolog.Logger, env *cldf.Environment, registryChainSelector uint64, don *cre.Don) error {
 	triggerOptions := cldf_tron.DefaultTriggerOptions()
 	triggerOptions.FeeLimit = 1_000_000_000
 
 	var wfNodeIDs []string
-	for _, don := range dons.List() {
-		workerNodes, wErr := don.Workers()
-		if wErr != nil {
-			return fmt.Errorf("failed to find worker nodes for Tron configuration: %w", wErr)
-		}
+	workerNodes, wErr := don.Workers()
+	if wErr != nil {
+		return fmt.Errorf("failed to find worker nodes for Tron configuration: %w", wErr)
+	}
 
-		for _, node := range workerNodes {
-			wfNodeIDs = append(wfNodeIDs, node.Keys.P2PKey.PeerID.String())
-		}
+	for _, node := range workerNodes {
+		wfNodeIDs = append(wfNodeIDs, node.Keys.P2PKey.PeerID.String())
 	}
 
 	configChangeset := commonchangeset.Configure(tronchangeset.ConfigureForwarder{}, &tronchangeset.ConfigureForwarderRequest{
-		WFDonName:        "workflow-don",
+		WFDonName:        don.Name,
 		WFNodeIDs:        wfNodeIDs,
 		RegistryChainSel: registryChainSelector,
 		Chains:           make(map[uint64]struct{}),

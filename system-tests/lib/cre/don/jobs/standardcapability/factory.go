@@ -99,11 +99,8 @@ func (f *CapabilityJobSpecFactory) BuildJobSpec(
 	configTemplate string,
 	runtimeValuesExtractor RuntimeValuesExtractor,
 	commandBuilder CommandBuilder,
-) func(input *cre.JobSpecInput) (cre.DonsToJobSpecs, error) {
-	return func(input *cre.JobSpecInput) (cre.DonsToJobSpecs, error) {
-		if input.Dons == nil {
-			return nil, errors.New("Dons is nil")
-		}
+) func(input *cre.JobSpecInput) (cre.DonJobs, error) {
+	return func(input *cre.JobSpecInput) (cre.DonJobs, error) {
 		if runtimeValuesExtractor == nil {
 			return nil, errors.New("runtime values extractor is nil")
 		}
@@ -111,73 +108,67 @@ func (f *CapabilityJobSpecFactory) BuildJobSpec(
 			return nil, errors.New("command builder is nil")
 		}
 
-		donToJobSpecs := make(cre.DonsToJobSpecs)
+		jobSpecs := cre.DonJobs{}
 
-		for donIdx, don := range input.Dons.List() {
-			if donIdx >= len(input.NodeSets) || input.NodeSets[donIdx] == nil {
+		if f.capabilityEnabler(input.Don.Flags, input.NodeSet, capabilityFlag) {
+			return jobSpecs, nil
+		}
+
+		capabilityConfig, ok := input.CreEnvironment.CapabilityConfigs[capabilityFlag]
+		if !ok {
+			return nil, errors.Errorf("%s config not found in capabilities config. Make sure you have set it in the TOML config", capabilityFlag)
+		}
+
+		command, cmdErr := commandBuilder(input, capabilityConfig)
+		if cmdErr != nil {
+			return nil, errors.Wrap(cmdErr, "failed to get capability command")
+		}
+
+		workerNodes, wErr := input.Don.Workers()
+		if wErr != nil {
+			return nil, errors.Wrap(wErr, "failed to find worker nodes")
+		}
+
+		// Generate job specs for each enabled chain
+		for _, chainID := range f.enabledChainsProvider(f.registryChainSelector, input.NodeSet, capabilityFlag) {
+			enabled, mergedConfig, rErr := f.configResolver(input.NodeSet, capabilityConfig, chainID, capabilityFlag)
+			if rErr != nil {
+				return nil, errors.Wrap(rErr, "failed to resolve capability config for chain")
+			}
+			if !enabled {
 				continue
 			}
 
-			if f.capabilityEnabler != nil && !f.capabilityEnabler(don.Flags, input.NodeSets[donIdx], capabilityFlag) {
-				continue
-			}
-
-			capabilityConfig, ok := input.CreEnvironment.CapabilityConfigs[capabilityFlag]
-			if !ok {
-				return nil, errors.Errorf("%s config not found in capabilities config. Make sure you have set it in the TOML config", capabilityFlag)
-			}
-
-			command, cmdErr := commandBuilder(input, capabilityConfig)
-			if cmdErr != nil {
-				return nil, errors.Wrap(cmdErr, "failed to get capability command")
-			}
-
-			workerNodes, wErr := don.Workers()
-			if wErr != nil {
-				return nil, errors.Wrap(wErr, "failed to find worker nodes")
-			}
-
-			// Generate job specs for each enabled chain
-			for _, chainID := range f.enabledChainsProvider(f.registryChainSelector, input.NodeSets[donIdx], capabilityFlag) {
-				enabled, mergedConfig, rErr := f.configResolver(input.NodeSets[donIdx], capabilityConfig, chainID, capabilityFlag)
-				if rErr != nil {
-					return nil, errors.Wrap(rErr, "failed to resolve capability config for chain")
-				}
-				if !enabled {
-					continue
+			// Create job specs for each worker node
+			for _, workerNode := range workerNodes {
+				// Apply runtime values to merged config using the runtime value builder
+				templateData, aErr := credon.ApplyRuntimeValues(mergedConfig, runtimeValuesExtractor(chainID, workerNode))
+				if aErr != nil {
+					return nil, errors.Wrap(aErr, "failed to apply runtime values")
 				}
 
-				// Create job specs for each worker node
-				for _, workerNode := range workerNodes {
-					// Apply runtime values to merged config using the runtime value builder
-					templateData, aErr := credon.ApplyRuntimeValues(mergedConfig, runtimeValuesExtractor(chainID, workerNode))
-					if aErr != nil {
-						return nil, errors.Wrap(aErr, "failed to apply runtime values")
-					}
-
-					// Parse and execute template
-					tmpl, tmplErr := template.New(capabilityFlag + "-config").Parse(configTemplate)
-					if tmplErr != nil {
-						return nil, errors.Wrapf(tmplErr, "failed to parse %s config template", capabilityFlag)
-					}
-
-					var configBuffer bytes.Buffer
-					if err := tmpl.Execute(&configBuffer, templateData); err != nil {
-						return nil, errors.Wrapf(err, "failed to execute %s config template", capabilityFlag)
-					}
-					configStr := configBuffer.String()
-
-					if err := credon.ValidateTemplateSubstitution(configStr, capabilityFlag); err != nil {
-						return nil, errors.Wrapf(err, "%s template validation failed", capabilityFlag)
-					}
-
-					jobSpec := WorkerJobSpec(workerNode.JobDistributorDetails.NodeID, f.jobNamer(chainID, capabilityFlag), command, configStr, "")
-					jobSpec.Labels = []*ptypes.Label{{Key: cre.CapabilityLabelKey, Value: &capabilityFlag}}
-					donToJobSpecs[don.ID] = append(donToJobSpecs[don.ID], jobSpec)
+				// Parse and execute template
+				tmpl, tmplErr := template.New(capabilityFlag + "-config").Parse(configTemplate)
+				if tmplErr != nil {
+					return nil, errors.Wrapf(tmplErr, "failed to parse %s config template", capabilityFlag)
 				}
+
+				var configBuffer bytes.Buffer
+				if err := tmpl.Execute(&configBuffer, templateData); err != nil {
+					return nil, errors.Wrapf(err, "failed to execute %s config template", capabilityFlag)
+				}
+				configStr := configBuffer.String()
+
+				if err := credon.ValidateTemplateSubstitution(configStr, capabilityFlag); err != nil {
+					return nil, errors.Wrapf(err, "%s template validation failed", capabilityFlag)
+				}
+
+				jobSpec := WorkerJobSpec(workerNode.JobDistributorDetails.NodeID, f.jobNamer(chainID, capabilityFlag), command, configStr, "")
+				jobSpec.Labels = []*ptypes.Label{{Key: cre.CapabilityLabelKey, Value: &capabilityFlag}}
+				jobSpecs = append(jobSpecs, jobSpec)
 			}
 		}
 
-		return donToJobSpecs, nil
+		return jobSpecs, nil
 	}
 }

@@ -101,7 +101,7 @@ func NewRoles(roles []string) (Roles, error) {
 	return result, nil
 }
 
-type DON struct {
+type Don struct {
 	Name string `toml:"name" json:"name"`
 	ID   uint64 `toml:"id" json:"id"`
 	F    uint8  `toml:"f" json:"f"` // max faulty nodes
@@ -115,7 +115,7 @@ type DON struct {
 	gh GatewayHelper
 }
 
-func (d *DON) Metadata() *DonMetadata {
+func (d *Don) Metadata() *DonMetadata {
 	dm := &DonMetadata{
 		Name:          d.Name,
 		ID:            d.ID,
@@ -132,7 +132,7 @@ func (d *DON) Metadata() *DonMetadata {
 }
 
 // copied from flags.go to avoid import cycle
-func (d *DON) HasFlag(flag CapabilityFlag) bool {
+func (d *Don) HasFlag(flag CapabilityFlag) bool {
 	if slices.Contains(d.Flags, flag) {
 		return true
 	}
@@ -146,7 +146,7 @@ func (d *DON) HasFlag(flag CapabilityFlag) bool {
 	return false
 }
 
-func (d *DON) Gateway() (*Node, bool) {
+func (d *Don) Gateway() (*Node, bool) {
 	for _, node := range d.Nodes {
 		if node.Roles.Contains(RoleGateway) {
 			return node, true
@@ -157,7 +157,7 @@ func (d *DON) Gateway() (*Node, bool) {
 }
 
 // Currently only one bootstrap node is supported.
-func (d *DON) Bootstrap() (*Node, bool) {
+func (d *Don) Bootstrap() (*Node, bool) {
 	for _, node := range d.Nodes {
 		if node.Roles.Contains(RoleBootstrap) {
 			return node, true
@@ -167,7 +167,7 @@ func (d *DON) Bootstrap() (*Node, bool) {
 	return nil, false
 }
 
-func (d *DON) WorkersCount() int {
+func (d *Don) WorkersCount() int {
 	workers, wErr := d.Workers()
 	if wErr != nil {
 		return 0
@@ -176,7 +176,7 @@ func (d *DON) WorkersCount() int {
 	return len(workers)
 }
 
-func (d *DON) Workers() ([]*Node, error) {
+func (d *Don) Workers() ([]*Node, error) {
 	workers := make([]*Node, 0)
 	for _, node := range d.Nodes {
 		if node.Roles.Contains(RoleWorker) {
@@ -191,7 +191,7 @@ func (d *DON) Workers() ([]*Node, error) {
 	return workers, nil
 }
 
-func (d *DON) JDNodeIDs() []string {
+func (d *Don) JDNodeIDs() []string {
 	nodeIDs := []string{}
 	for _, n := range d.Nodes {
 		nodeIDs = append(nodeIDs, n.JobDistributorDetails.NodeID)
@@ -199,28 +199,28 @@ func (d *DON) JDNodeIDs() []string {
 	return nodeIDs
 }
 
-func (d *DON) RequiresGateway() bool {
+func (d *Don) RequiresGateway() bool {
 	return d.gh.RequiresGateway(d.Flags)
 }
 
-func (d *DON) RequiresWebAPI() bool {
+func (d *Don) RequiresWebAPI() bool {
 	return d.gh.RequiresWebAPI(d.Flags)
 }
 
-func (d *DON) GetChainCapabilityConfigs() map[string]*ChainCapabilityConfig {
+func (d *Don) GetChainCapabilityConfigs() map[string]*ChainCapabilityConfig {
 	return d.chainCapabilityConfigs
 }
 
-func (d *DON) GetCapabilityConfigOverrides() map[string]map[string]any {
+func (d *Don) GetCapabilityConfigOverrides() map[string]map[string]any {
 	return d.capabilityConfigOverrides
 }
 
-func (d *DON) GetCapabilityFlags() []string {
+func (d *Don) GetCapabilityFlags() []string {
 	return d.Flags
 }
 
-func NewDON(ctx context.Context, donMetadata *DonMetadata, ctfNodes []*clnode.Output) (*DON, error) {
-	don := &DON{
+func NewDON(ctx context.Context, donMetadata *DonMetadata, ctfNodes []*clnode.Output) (*Don, error) {
+	don := &Don{
 		Nodes:                     make([]*Node, 0),
 		Name:                      donMetadata.Name,
 		ID:                        donMetadata.ID,
@@ -265,7 +265,7 @@ func NewDON(ctx context.Context, donMetadata *DonMetadata, ctfNodes []*clnode.Ou
 	return don, nil
 }
 
-func RegisterWithJD(ctx context.Context, d *DON, supportedChains []blockchains.Blockchain, jd *jd.JobDistributor) error {
+func RegisterWithJD(ctx context.Context, d *Don, supportedChains []blockchains.Blockchain, jd *jd.JobDistributor) error {
 	mu := &sync.Mutex{}
 
 	errgroup := errgroup.Group{}
@@ -324,7 +324,7 @@ type Node struct {
 	Roles                 Roles                  `toml:"roles" json:"roles"`
 
 	Clients NodeClients `toml:"-" json:"-"`
-	DON     DON         `toml:"-" json:"-"`
+	DON     Don         `toml:"-" json:"-"`
 }
 
 func (n *Node) Metadata() *NodeMetadata {
@@ -863,7 +863,7 @@ type KeystoneDON interface {
 	ResolveORC3Config(config *keystone_changeset.OracleConfig) *keystone_changeset.OracleConfig
 }
 
-func (d *DON) KeystoneDONConfig() ks_contracts_op.ConfigureKeystoneDON {
+func (d *Don) KeystoneDONConfig() ks_contracts_op.ConfigureKeystoneDON {
 	don := ks_contracts_op.ConfigureKeystoneDON{
 		Name: d.Name,
 	}
@@ -877,7 +877,7 @@ func (d *DON) KeystoneDONConfig() ks_contracts_op.ConfigureKeystoneDON {
 	return don
 }
 
-func (d *DON) ResolveORC3Config(config *keystone_changeset.OracleConfig) *keystone_changeset.OracleConfig {
+func (d *Don) ResolveORC3Config(config *keystone_changeset.OracleConfig) *keystone_changeset.OracleConfig {
 	config.TransmissionSchedule = []int{d.WorkersCount()}
 
 	return config

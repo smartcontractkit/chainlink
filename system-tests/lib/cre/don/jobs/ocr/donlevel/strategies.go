@@ -18,7 +18,7 @@ var ConfigMerger = func(flag cre.CapabilityFlag, nodeSet cre.NodeSetWithCapabili
 	return config.ResolveCapabilityConfigForDON(flag, capabilityConfig.Config, nodeSet.GetCapabilityConfigOverrides()), true, nil
 }
 
-var CapabilityEnabler = func(don *cre.DON, flag cre.CapabilityFlag) bool {
+var CapabilityEnabler = func(don *cre.Don, flag cre.CapabilityFlag) bool {
 	if don == nil {
 		return false
 	}

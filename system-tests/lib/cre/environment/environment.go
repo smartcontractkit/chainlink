@@ -143,10 +143,11 @@ func SetupTestEnvironment(
 	}
 
 	creEnvironment := &cre.Environment{
-		Blockchains:       deployedBlockchains.Outputs,
-		ContractVersions:  input.ContractVersions,
-		Provider:          input.Provider,
-		CapabilityConfigs: input.CapabilityConfigs,
+		Blockchains:           deployedBlockchains.Outputs,
+		ContractVersions:      input.ContractVersions,
+		Provider:              input.Provider,
+		CapabilityConfigs:     input.CapabilityConfigs,
+		RegistryChainSelector: deployedBlockchains.RegistryChain().ChainSelector(),
 	}
 
 	fmt.Print(libformat.PurpleText("%s", input.StageGen.WrapAndNext("Blockchains started in %.2f seconds", input.StageGen.Elapsed().Seconds())))
@@ -201,21 +202,27 @@ func SetupTestEnvironment(
 	fmt.Print(libformat.PurpleText("%s", input.StageGen.Wrap("Applying Features before environment startup")))
 	var donsCapabilities = make(map[uint64][]keystone_changeset.DONCapabilityWithConfig)
 	for _, feature := range input.Features.List() {
-		testLogger.Info().Msgf("Executing PreEnvStartup for feature %s", feature.Flag())
-		output, preErr := feature.PreEnvStartup(
-			ctx,
-			testLogger,
-			topology,
-			creEnvironment,
-		)
-		if preErr != nil {
-			return nil, fmt.Errorf("failed to execute PreEnvStartup for feature %s: %w", feature.Flag(), preErr)
+		for _, donMetadata := range topology.DonsMetadataWithFlag(feature.Flag()) {
+			testLogger.Info().Msgf("Executing PreEnvStartup for feature %s for don '%s'", feature.Flag(), donMetadata.Name)
+			output, preErr := feature.PreEnvStartup(
+				ctx,
+				testLogger,
+				donMetadata,
+				topology,
+				creEnvironment,
+			)
+			if preErr != nil {
+				return nil, fmt.Errorf("failed to execute PreEnvStartup for feature %s: %w", feature.Flag(), preErr)
+			}
+			if output != nil {
+				if donsCapabilities[donMetadata.ID] == nil {
+					donsCapabilities[donMetadata.ID] = []keystone_changeset.DONCapabilityWithConfig{}
+				}
+				donsCapabilities[donMetadata.ID] = append(donsCapabilities[donMetadata.ID], output.DONCapabilityWithConfig...)
+				maps.Copy(gatewayJobConfigs, output.GatewayJobConfigs)
+			}
+			testLogger.Info().Msgf("PreEnvStartup for feature %s executed successfully", feature.Flag())
 		}
-		if output != nil {
-			output.Merge(donsCapabilities, gatewayJobConfigs)
-		}
-
-		testLogger.Info().Msgf("PreEnvStartup for feature %s executed successfully", feature.Flag())
 	}
 	fmt.Print(libformat.PurpleText("%s", input.StageGen.WrapAndNext("Applied Features in %.2f seconds", input.StageGen.Elapsed().Seconds())))
 
@@ -383,16 +390,19 @@ func SetupTestEnvironment(
 
 	fmt.Print(libformat.PurpleText("%s", input.StageGen.Wrap("Applying Features after environment startup")))
 	for _, feature := range input.Features.List() {
-		testLogger.Info().Msgf("Executing PostEnvStartup for feature %s", feature.Flag())
-		if pErr := feature.PostEnvStartup(
-			ctx,
-			testLogger,
-			dons,
-			creEnvironment,
-		); pErr != nil {
-			return nil, fmt.Errorf("failed to execute PostEnvStartup for feature %s: %w", feature.Flag(), pErr)
+		for _, don := range dons.DonsWithFlag(feature.Flag()) {
+			testLogger.Info().Msgf("Executing PostEnvStartup for feature %s for don '%s'", feature.Flag(), don.Name)
+			if pErr := feature.PostEnvStartup(
+				ctx,
+				testLogger,
+				don,
+				dons,
+				creEnvironment,
+			); pErr != nil {
+				return nil, fmt.Errorf("failed to execute PostEnvStartup for feature %s: %w", feature.Flag(), pErr)
+			}
+			testLogger.Info().Msgf("PostEnvStartup for feature %s executed successfully", feature.Flag())
 		}
-		testLogger.Info().Msgf("PostEnvStartup for feature %s executed successfully", feature.Flag())
 	}
 	fmt.Print(libformat.PurpleText("%s", input.StageGen.WrapAndNext("Features applied in %.2f seconds", input.StageGen.Elapsed().Seconds())))
 

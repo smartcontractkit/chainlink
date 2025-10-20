@@ -13,6 +13,7 @@ import (
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
 	"github.com/smartcontractkit/chainlink/deployment/cre/forwarder"
+
 	keystone_changeset "github.com/smartcontractkit/chainlink/deployment/keystone/changeset"
 	libc "github.com/smartcontractkit/chainlink/system-tests/lib/conversions"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre"
@@ -62,12 +63,12 @@ func DeployEVMForwarders(testLogger zerolog.Logger, cldfEnv *cldf.Environment, c
 	return nil
 }
 
-func ConfigureEVMForwarders(testLogger zerolog.Logger, cldfEnv *cldf.Environment, chainSelectors []uint64, ocr3DON *cre.DON, consensusVersion string) error {
+func ConfigureEVMForwarders(testLogger zerolog.Logger, cldfEnv *cldf.Environment, chainSelectors []uint64, ocr3DON *cre.Don) (*forwarder.Config, error) {
 	forwarderCfg := forwarder.DonConfiguration{
 		Name:    ocr3DON.Name,
 		ID:      libc.MustSafeUint32FromUint64(ocr3DON.ID),
 		F:       ocr3DON.F,
-		Version: 1, // TODO this should be dynamic, but we don't have cap reg configured at this point
+		Version: 1, // TODO this should be dynamic, but we don't have cap reg configured at this point, can we get that version from forwarder contract?
 		NodeIDs: ocr3DON.KeystoneDONConfig().NodeIDs,
 	}
 
@@ -88,12 +89,10 @@ func ConfigureEVMForwarders(testLogger zerolog.Logger, cldfEnv *cldf.Environment
 		},
 	)
 	if err3 != nil {
-		return errors.Wrap(err3, "failed to configure forwarders")
+		return nil, errors.Wrap(err3, "failed to configure forwarders")
 	}
 
-	testLogger.Info().Msgf("Configured forwarders for %s consensus: %+v", consensusVersion, fout.Output.Config)
-
-	return nil
+	return &fout.Output.Config, nil
 }
 
 func ChainsWithForwarders(blockchains []blockchains.Blockchain, nodeSets []cre.NodeSetWithCapabilityConfigs) map[string][]uint64 {

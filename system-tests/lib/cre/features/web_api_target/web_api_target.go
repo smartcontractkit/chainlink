@@ -34,14 +34,10 @@ func (o *WebAPITarget) Flag() cre.CapabilityFlag {
 func (o *WebAPITarget) PreEnvStartup(
 	ctx context.Context,
 	testLogger zerolog.Logger,
+	don *cre.DonMetadata,
 	topology *cre.Topology,
 	creEnv *cre.Environment,
 ) (*cre.PreEnvStartupOutput, error) {
-	donsMetadata := topology.DonsMetadataWithFlag(flag)
-	if len(donsMetadata) == 0 {
-		return nil, nil
-	}
-
 	// use registry chain, because that is the chain we used when generating gateway connector part of node config (check below)
 	registryChainID, chErr := chainselectors.ChainIdFromSelector(creEnv.RegistryChainSelector)
 	if chErr != nil {
@@ -50,44 +46,33 @@ func (o *WebAPITarget) PreEnvStartup(
 
 	// add 'web-api' handler to gateway config (future jobspec)
 	// add gateway connector to to node TOML config, so that node can route http requests to the gateway
-	for idx, donMetadata := range donsMetadata {
-		handlerConfig, confErr := gateway.HandlerConfig(coregateway.WebAPICapabilitiesType)
-		if confErr != nil {
-			return nil, errors.Wrapf(confErr, "failed to get %s handler config for don %s", coregateway.WebAPICapabilitiesType, donMetadata.Name)
-		}
-		hErr := gateway.AddHandlers(donMetadata, registryChainID, topology.GatewayJobConfigs, []config.Handler{handlerConfig})
-		if hErr != nil {
-			return nil, errors.Wrapf(hErr, "failed to add gateway handlers to gateway config (jobspec) for don %s ", donMetadata.Name)
-		}
-
-		cErr := gateway.AddConnectors(donMetadata, registryChainID, topology.GatewayConnectors)
-		if cErr != nil {
-			return nil, errors.Wrapf(cErr, "failed to add gateway connectors to node's TOML config in for don %s", donMetadata.Name)
-		}
-
-		donsMetadata[idx] = donMetadata
+	handlerConfig, confErr := gateway.HandlerConfig(coregateway.WebAPICapabilitiesType)
+	if confErr != nil {
+		return nil, errors.Wrapf(confErr, "failed to get %s handler config for don %s", coregateway.WebAPICapabilitiesType, don.Name)
+	}
+	hErr := gateway.AddHandlers(don, registryChainID, topology.GatewayJobConfigs, []config.Handler{handlerConfig})
+	if hErr != nil {
+		return nil, errors.Wrapf(hErr, "failed to add gateway handlers to gateway config (jobspec) for don %s ", don.Name)
 	}
 
-	capabilities := make(map[uint64][]keystone_changeset.DONCapabilityWithConfig)
-	for _, donMetadata := range donsMetadata {
-		if capabilities[donMetadata.ID] == nil {
-			capabilities[donMetadata.ID] = []keystone_changeset.DONCapabilityWithConfig{}
-		}
-
-		capabilities[donMetadata.ID] = append(capabilities[donMetadata.ID], keystone_changeset.DONCapabilityWithConfig{
-			Capability: kcr.CapabilitiesRegistryCapability{
-				LabelledName:   "web-api-target",
-				Version:        "1.0.0",
-				CapabilityType: 3, // TARGET
-				ResponseType:   1, // OBSERVATION_IDENTICAL
-			},
-			Config: &capabilitiespb.CapabilityConfig{},
-		})
+	cErr := gateway.AddConnectors(don, registryChainID, topology.GatewayConnectors)
+	if cErr != nil {
+		return nil, errors.Wrapf(cErr, "failed to add gateway connectors to node's TOML config in for don %s", don.Name)
 	}
+
+	capabilities := []keystone_changeset.DONCapabilityWithConfig{{
+		Capability: kcr.CapabilitiesRegistryCapability{
+			LabelledName:   "web-api-target",
+			Version:        "1.0.0",
+			CapabilityType: 3, // TARGET
+			ResponseType:   1, // OBSERVATION_IDENTICAL
+		},
+		Config: &capabilitiespb.CapabilityConfig{},
+	}}
 
 	return &cre.PreEnvStartupOutput{
-		DONCapabilityWithConfigs: capabilities,
-		GatewayJobConfigs:        topology.GatewayJobConfigs,
+		DONCapabilityWithConfig: capabilities,
+		GatewayJobConfigs:       topology.GatewayJobConfigs,
 	}, nil
 }
 
@@ -102,14 +87,10 @@ PerSenderBurst = {{.PerSenderBurst}}
 func (o *WebAPITarget) PostEnvStartup(
 	ctx context.Context,
 	testLogger zerolog.Logger,
+	don *cre.Don,
 	dons *cre.Dons,
 	creEnv *cre.Environment,
 ) error {
-	donsWithFlag := dons.DonsWithFlag(flag)
-	if len(donsWithFlag) == 0 {
-		return nil
-	}
-
 	perDonJobSpecFactory, fErr := factory.NewCapabilityJobSpecFactory(
 		creEnv.RegistryChainSelector,
 		donlevel.CapabilityEnabler,
@@ -127,7 +108,7 @@ func (o *WebAPITarget) PostEnvStartup(
 		bcOuts[i] = b.CtfOutput()
 	}
 
-	donsToJobSpecs, specErr := perDonJobSpecFactory.BuildJobSpec(
+	jobSpecs, specErr := perDonJobSpecFactory.BuildJobSpec(
 		flag,
 		configTemplate,
 		factory.NoOpExtractor, // No runtime values extraction needed
@@ -136,23 +117,17 @@ func (o *WebAPITarget) PostEnvStartup(
 		},
 	)(&cre.JobSpecInput{
 		CreEnvironment: creEnv,
-		Dons:           dons,
-		NodeSets:       dons.AsNodeSetWithChainCapabilities(),
+		Don:            don,
+		NodeSet:        dons.AsNodeSetWithChainCapabilities()[don.ID-1],
 	})
 	if specErr != nil {
 		return fmt.Errorf("failed to build job spec for http action capability: %w", specErr)
 	}
 
-	for _, don := range dons.List() {
-		jobSpecs, ok := donsToJobSpecs[don.ID]
-		if !ok {
-			continue
-		}
-		// pass whole topology, since some jobs might need to be created on multiple DONs
-		jobErr := jobs.Create(ctx, creEnv.CldfEnvironment.Offchain, dons, jobSpecs)
-		if jobErr != nil {
-			return fmt.Errorf("failed to create http action jobs for don %s: %w", don.Name, jobErr)
-		}
+	// pass all dons, since some jobs might need to be created on multiple dons
+	jobErr := jobs.Create(ctx, creEnv.CldfEnvironment.Offchain, dons, jobSpecs)
+	if jobErr != nil {
+		return fmt.Errorf("failed to create http action jobs for don %s: %w", don.Name, jobErr)
 	}
 
 	return nil

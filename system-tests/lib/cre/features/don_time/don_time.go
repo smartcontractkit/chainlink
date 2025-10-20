@@ -33,6 +33,7 @@ func (o *DONTime) Flag() cre.CapabilityFlag {
 func (o *DONTime) PreEnvStartup(
 	ctx context.Context,
 	testLogger zerolog.Logger,
+	don *cre.DonMetadata,
 	topology *cre.Topology,
 	creEnv *cre.Environment,
 ) (*cre.PreEnvStartupOutput, error) {
@@ -47,19 +48,10 @@ const (
 func (o *DONTime) PostEnvStartup(
 	ctx context.Context,
 	testLogger zerolog.Logger,
+	don *cre.Don,
 	dons *cre.Dons,
 	creEnv *cre.Environment,
 ) error {
-	// should we support more than one DON with DON Time capability?
-	donsWithFlag := dons.DonsWithFlag(flag)
-	if len(donsWithFlag) == 0 {
-		return nil
-	}
-	if len(donsWithFlag) > 1 {
-		return errors.New("more than one DON with DON Time capability is not supported yet")
-	}
-	donTimeDON := donsWithFlag[0]
-
 	_, donTimeContractAddr, timeErr := contracts.DeployOCR3Contract(testLogger, ContractQualifier, creEnv.RegistryChainSelector, creEnv.CldfEnvironment, creEnv.ContractVersions)
 	if timeErr != nil {
 		return fmt.Errorf("failed to deploy DONTime contract %w", timeErr)
@@ -74,7 +66,7 @@ func (o *DONTime) PostEnvStartup(
 		chainID,
 		donTimeContractAddr,
 		creEnv.CldfEnvironment.Offchain.(*jd.JobDistributor),
-		donTimeDON,
+		don,
 		dons,
 	)
 	if jobErr != nil {
@@ -95,8 +87,8 @@ func (o *DONTime) PostEnvStartup(
 		ks_contracts_op.ConfigureOCR3OpInput{
 			ContractAddress: donTimeContractAddr,
 			ChainSelector:   creEnv.RegistryChainSelector,
-			DON:             donTimeDON.KeystoneDONConfig(),
-			Config:          donTimeDON.ResolveORC3Config(ocr3Config),
+			DON:             don.KeystoneDONConfig(),
+			Config:          don.ResolveORC3Config(ocr3Config),
 			DryRun:          false,
 		},
 	)
@@ -112,7 +104,7 @@ func createJobs(
 	chainID uint64,
 	donTimeAddress *common.Address,
 	jdClient *jd.JobDistributor,
-	donTimeDON *cre.DON,
+	donTimeDON *cre.Don,
 	dons *cre.Dons,
 ) error {
 	bootstrap, isBootstrap := dons.Bootstrap()

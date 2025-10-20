@@ -31,7 +31,7 @@ import (
 	libc "github.com/smartcontractkit/chainlink/system-tests/lib/conversions"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/contracts"
-	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/don"
+	credon "github.com/smartcontractkit/chainlink/system-tests/lib/cre/don"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/jobs"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/jobs/ocr"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/jobs/ocr/chainlevel"
@@ -58,14 +58,10 @@ func (o *EVM) Flag() cre.CapabilityFlag {
 func (o *EVM) PreEnvStartup(
 	ctx context.Context,
 	testLogger zerolog.Logger,
+	don *cre.DonMetadata,
 	topology *cre.Topology,
 	creEnv *cre.Environment,
 ) (*cre.PreEnvStartupOutput, error) {
-	donsMetadata := topology.DonsMetadataWithFlag(flag)
-	if len(donsMetadata) == 0 {
-		return nil, nil
-	}
-
 	chainsWithForwarders := evm.ChainsWithForwarders(creEnv.Blockchains, cre.ConvertToNodeSetWithChainCapabilities(topology.CapabilitiesAwareNodeSets()))
 	evmForwardersSelectors, exist := chainsWithForwarders[blockchain.FamilyEVM]
 
@@ -88,53 +84,45 @@ func (o *EVM) PreEnvStartup(
 	}
 
 	// update node configs to include evm v2 configuration
-	for _, donMetadata := range donsMetadata {
-		workerNodes, wErr := donMetadata.Workers()
-		if wErr != nil {
-			return nil, errors.Wrap(wErr, "failed to find worker nodes")
+	workerNodes, wErr := don.Workers()
+	if wErr != nil {
+		return nil, errors.Wrap(wErr, "failed to find worker nodes")
+	}
+	for _, workerNode := range workerNodes {
+		currentConfig := don.CapabilitiesAwareNodeSet().NodeSpecs[workerNode.Index].Node.TestConfigOverrides
+		updatedConfig, updErr := updateNodeConfig(workerNode, don.CapabilitiesAwareNodeSet(), currentConfig)
+		if updErr != nil {
+			return nil, errors.Wrapf(updErr, "failed to update node config for node index %d", workerNode.Index)
 		}
-		for _, workerNode := range workerNodes {
-			currentConfig := donMetadata.CapabilitiesAwareNodeSet().NodeSpecs[workerNode.Index].Node.TestConfigOverrides
-			updatedConfig, updErr := updateNodeConfig(workerNode, donMetadata.CapabilitiesAwareNodeSet(), currentConfig)
-			if updErr != nil {
-				return nil, errors.Wrapf(updErr, "failed to update node config for node index %d", workerNode.Index)
-			}
 
-			donMetadata.CapabilitiesAwareNodeSet().NodeSpecs[workerNode.Index].Node.TestConfigOverrides = *updatedConfig
-		}
+		don.CapabilitiesAwareNodeSet().NodeSpecs[workerNode.Index].Node.TestConfigOverrides = *updatedConfig
 	}
 
-	capabilities := make(map[uint64][]keystone_changeset.DONCapabilityWithConfig)
-	for _, donMetadata := range donsMetadata {
-		if capabilities[donMetadata.ID] == nil {
-			capabilities[donMetadata.ID] = []keystone_changeset.DONCapabilityWithConfig{}
+	capabilities := []keystone_changeset.DONCapabilityWithConfig{}
+	for _, chainID := range don.CapabilitiesAwareNodeSet().ChainCapabilities[flag].EnabledChains {
+		selector, selectorErr := chainselectors.SelectorFromChainId(chainID)
+		if selectorErr != nil {
+			return nil, errors.Wrapf(selectorErr, "failed to get selector from chainID: %d", chainID)
 		}
 
-		for _, chainID := range donMetadata.CapabilitiesAwareNodeSet().ChainCapabilities[flag].EnabledChains {
-			selector, selectorErr := chainselectors.SelectorFromChainId(chainID)
-			if selectorErr != nil {
-				return nil, errors.Wrapf(selectorErr, "failed to get selector from chainID: %d", chainID)
-			}
-
-			evmMethodConfigs, err := getEvmMethodConfigs(donMetadata.CapabilitiesAwareNodeSet())
-			if err != nil {
-				return nil, errors.Wrap(err, "there was an error getting EVM method configs")
-			}
-
-			capabilities[donMetadata.ID] = append(capabilities[donMetadata.ID], keystone_changeset.DONCapabilityWithConfig{
-				Capability: kcr.CapabilitiesRegistryCapability{
-					LabelledName: "evm" + ":ChainSelector:" + strconv.FormatUint(selector, 10),
-					Version:      "1.0.0",
-				},
-				Config: &capabilitiespb.CapabilityConfig{
-					MethodConfigs: evmMethodConfigs,
-				},
-			})
+		evmMethodConfigs, err := getEvmMethodConfigs(don.CapabilitiesAwareNodeSet())
+		if err != nil {
+			return nil, errors.Wrap(err, "there was an error getting EVM method configs")
 		}
+
+		capabilities = append(capabilities, keystone_changeset.DONCapabilityWithConfig{
+			Capability: kcr.CapabilitiesRegistryCapability{
+				LabelledName: "evm" + ":ChainSelector:" + strconv.FormatUint(selector, 10),
+				Version:      "1.0.0",
+			},
+			Config: &capabilitiespb.CapabilityConfig{
+				MethodConfigs: evmMethodConfigs,
+			},
+		})
 	}
 
 	return &cre.PreEnvStartupOutput{
-		DONCapabilityWithConfigs: capabilities,
+		DONCapabilityWithConfig: capabilities,
 	}, nil
 }
 
@@ -178,15 +166,11 @@ func updateNodeConfig(workerNode *cre.NodeMetadata, nodeSet *cre.CapabilitiesAwa
 func (o *EVM) PostEnvStartup(
 	ctx context.Context,
 	testLogger zerolog.Logger,
+	don *cre.Don,
 	dons *cre.Dons,
 	creEnv *cre.Environment,
 ) error {
-	donsWithFlag := dons.DonsWithFlag(flag)
-	if len(donsWithFlag) == 0 {
-		return nil
-	}
-
-	chainsWithEVMCapability := chainsWithEVMCapability(creEnv.Blockchains, donsWithFlag)
+	chainsWithEVMCapability := chainsWithEVMCapability(creEnv.Blockchains, dons.DonsWithFlag(flag))
 	for chainID, selector := range chainsWithEVMCapability {
 		qualifier := ks_contracts_op.CapabilityContractIdentifier(uint64(chainID))
 		_, _, seqErr := contracts.DeployOCR3Contract(testLogger, qualifier, creEnv.RegistryChainSelector, creEnv.CldfEnvironment, creEnv.ContractVersions)
@@ -197,6 +181,7 @@ func (o *EVM) PostEnvStartup(
 
 	jobsErr := createJobs(
 		ctx,
+		don,
 		dons,
 		creEnv,
 	)
@@ -212,7 +197,7 @@ func (o *EVM) PostEnvStartup(
 		// we have deployed OCR3 contract for each EVM chain on the registry chain to avoid a situation when more than 1 OCR contract (of any type) has the same address
 		// because in past that violeted a DB constraint for offchain reporting jobs. Now there is no such limitation, but still it's better to have unique addresses to avoid confusion.
 		evmOCR3Addr := contracts.MustGetAddressFromDataStore(creEnv.CldfEnvironment.DataStore, creEnv.RegistryChainSelector, keystone_changeset.OCR3Capability.String(), "1.0.0", qualifier)
-		var evmDON *cre.DON
+		var evmDON *cre.Don
 		for _, don := range dons.DonsWithFlag(cre.EVMCapability) {
 			if flags.HasFlagForChain(don.Flags, cre.EVMCapability, uint64(chainID)) {
 				evmDON = don
@@ -249,16 +234,7 @@ func (o *EVM) PostEnvStartup(
 	}
 
 	// configure EVM forwarders
-	consensusVersion := "v1"
-	consensusDON, oneErr := dons.OneDonWithFlag(cre.ConsensusCapability)
-	if oneErr != nil {
-		// if v1 consensus DON is not found, let's try v2. We should have exactly one DON with either v1 or v2 consensus
-		consensusDON, oneErr = dons.OneDonWithFlag(cre.ConsensusCapabilityV2)
-		consensusVersion = "v2"
-		if oneErr != nil {
-			return errors.New("failed to find DON with consensus v1 or v2 capability")
-		}
-	}
+	consensusDons := dons.DonsWithFlags(cre.ConsensusCapability, cre.ConsensusCapabilityV2)
 
 	// for now we end up configuring forwarders twice, if the same chain has both evm v1 and v2 capabilities enabled
 	// it doesn't create any issues, but ideally we wouldn't do that
@@ -267,15 +243,19 @@ func (o *EVM) PostEnvStartup(
 		for chainID := range chainsWithEVMCapability {
 			evmChainsWithForwarders = append(evmChainsWithForwarders, uint64(chainID))
 		}
-		if evmErr := evm.ConfigureEVMForwarders(testLogger, creEnv.CldfEnvironment, evmChainsWithForwarders, consensusDON, consensusVersion); evmErr != nil {
-			return errors.Wrap(evmErr, "failed to configure EVM forwarders")
+		for _, don := range consensusDons {
+			config, confErr := evm.ConfigureEVMForwarders(testLogger, creEnv.CldfEnvironment, evmChainsWithForwarders, don)
+			if confErr != nil {
+				return errors.Wrap(confErr, "failed to configure EVM forwarders")
+			}
+			testLogger.Info().Msgf("Configured EVM forwarders: %+v", config)
 		}
 	}
 
 	return nil
 }
 
-func chainsWithEVMCapability(chains []blockchains.Blockchain, dons []*cre.DON) map[ks_contracts_op.EVMChainID]ks_contracts_op.Selector {
+func chainsWithEVMCapability(chains []blockchains.Blockchain, dons []*cre.Don) map[ks_contracts_op.EVMChainID]ks_contracts_op.Selector {
 	chainsWithEVMCapability := make(map[ks_contracts_op.EVMChainID]ks_contracts_op.Selector)
 	for _, chain := range chains {
 		for _, don := range dons {
@@ -293,6 +273,7 @@ func chainsWithEVMCapability(chains []blockchains.Blockchain, dons []*cre.DON) m
 
 func createJobs(
 	ctx context.Context,
+	don *cre.Don,
 	dons *cre.Dons,
 	creEnv *cre.Environment,
 ) error {
@@ -317,7 +298,7 @@ func createJobs(
 
 		runtimeFallbacks := buildRuntimeValues(chainID, "evm", creForwarderAddress.Address, nodeAddress)
 
-		templateData, aErr := don.ApplyRuntimeValues(mergedConfig, runtimeFallbacks)
+		templateData, aErr := credon.ApplyRuntimeValues(mergedConfig, runtimeFallbacks)
 		if aErr != nil {
 			return "", errors.Wrap(aErr, "failed to apply runtime values")
 		}
@@ -334,7 +315,7 @@ func createJobs(
 
 		configStr := configBuffer.String()
 
-		if err := don.ValidateTemplateSubstitution(configStr, flag); err != nil {
+		if err := credon.ValidateTemplateSubstitution(configStr, flag); err != nil {
 			return "", errors.Wrapf(err, "%s template validation failed", flag)
 		}
 
@@ -353,7 +334,8 @@ func createJobs(
 		)
 	}
 
-	donsToJobSpecs, jErr := ocr.GenerateJobSpecsForStandardCapabilityWithOCR(
+	jobSpecs, jErr := ocr.GenerateJobSpecsForStandardCapabilityWithOCR(
+		don,
 		dons,
 		creEnv,
 		flag,
@@ -368,16 +350,10 @@ func createJobs(
 		return errors.Wrap(jErr, "failed to generate EVM OCR3 job specs")
 	}
 
-	for _, don := range dons.List() {
-		jobSpecs, ok := donsToJobSpecs[don.ID]
-		if !ok {
-			continue
-		}
-		jobErr := jobs.Create(ctx, creEnv.CldfEnvironment.Offchain, dons, jobSpecs)
+	jobErr := jobs.Create(ctx, creEnv.CldfEnvironment.Offchain, dons, jobSpecs)
 
-		if jobErr != nil {
-			return fmt.Errorf("failed to create EVM OCR3 jobs for don %s: %w", don.Name, jobErr)
-		}
+	if jobErr != nil {
+		return fmt.Errorf("failed to create EVM OCR3 jobs for don %s: %w", don.Name, jobErr)
 	}
 
 	return nil

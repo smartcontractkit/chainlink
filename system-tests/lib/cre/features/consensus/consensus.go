@@ -7,7 +7,7 @@ import (
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre"
 )
 
-func WaitForLogPollerToBeHealthy(don *cre.DON) error {
+func WaitForLogPollerToBeHealthy(don *cre.Don) error {
 	eg := &errgroup.Group{}
 	for _, node := range don.Nodes {
 		eg.Go(func() error {

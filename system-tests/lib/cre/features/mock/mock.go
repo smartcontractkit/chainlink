@@ -29,32 +29,21 @@ func (o *Mock) Flag() cre.CapabilityFlag {
 func (o *Mock) PreEnvStartup(
 	ctx context.Context,
 	testLogger zerolog.Logger,
+	don *cre.DonMetadata,
 	topology *cre.Topology,
 	creEnv *cre.Environment,
 ) (*cre.PreEnvStartupOutput, error) {
-	donsMetadata := topology.DonsMetadataWithFlag(flag)
-	if len(donsMetadata) == 0 {
-		return nil, nil
-	}
-
-	capabilities := make(map[uint64][]keystone_changeset.DONCapabilityWithConfig)
-	for _, donMetadata := range donsMetadata {
-		if capabilities[donMetadata.ID] == nil {
-			capabilities[donMetadata.ID] = []keystone_changeset.DONCapabilityWithConfig{}
-		}
-
-		capabilities[donMetadata.ID] = append(capabilities[donMetadata.ID], keystone_changeset.DONCapabilityWithConfig{
-			Capability: kcr.CapabilitiesRegistryCapability{
-				LabelledName:   "mock",
-				Version:        "1.0.0",
-				CapabilityType: 0, // TRIGGER
-			},
-			Config: &capabilitiespb.CapabilityConfig{},
-		})
-	}
+	capabilities := []keystone_changeset.DONCapabilityWithConfig{{
+		Capability: kcr.CapabilitiesRegistryCapability{
+			LabelledName:   "mock",
+			Version:        "1.0.0",
+			CapabilityType: 0, // TRIGGER
+		},
+		Config: &capabilitiespb.CapabilityConfig{},
+	}}
 
 	return &cre.PreEnvStartupOutput{
-		DONCapabilityWithConfigs: capabilities,
+		DONCapabilityWithConfig: capabilities,
 	}, nil
 }
 
@@ -71,14 +60,10 @@ type = "{{ .Type }}"
 func (o *Mock) PostEnvStartup(
 	ctx context.Context,
 	testLogger zerolog.Logger,
+	don *cre.Don,
 	dons *cre.Dons,
 	creEnv *cre.Environment,
 ) error {
-	donsWithFlag := dons.DonsWithFlag(flag)
-	if len(donsWithFlag) == 0 {
-		return nil
-	}
-
 	perDonJobSpecFactory, fErr := factory.NewCapabilityJobSpecFactory(
 		creEnv.RegistryChainSelector,
 		donlevel.CapabilityEnabler,
@@ -96,30 +81,24 @@ func (o *Mock) PostEnvStartup(
 		bcOuts[i] = b.CtfOutput()
 	}
 
-	donsToJobSpecs, specErr := perDonJobSpecFactory.BuildJobSpec(
+	jobSpecs, specErr := perDonJobSpecFactory.BuildJobSpec(
 		flag,
 		configTemplate,
 		factory.NoOpExtractor,
 		factory.BinaryPathBuilder,
 	)(&cre.JobSpecInput{
 		CreEnvironment: creEnv,
-		Dons:           dons,
-		NodeSets:       dons.AsNodeSetWithChainCapabilities(),
+		Don:            don,
+		NodeSet:        dons.AsNodeSetWithChainCapabilities()[don.ID-1],
 	})
 	if specErr != nil {
 		return fmt.Errorf("failed to build job spec for http action capability: %w", specErr)
 	}
 
-	for _, don := range dons.List() {
-		jobSpecs, ok := donsToJobSpecs[don.ID]
-		if !ok {
-			continue
-		}
-		// pass whole topology, since some jobs might need to be created on multiple DONs
-		jobErr := jobs.Create(ctx, creEnv.CldfEnvironment.Offchain, dons, jobSpecs)
-		if jobErr != nil {
-			return fmt.Errorf("failed to create http action jobs for don %s: %w", don.Name, jobErr)
-		}
+	// pass all dons, since some jobs might need to be created on multiple dons
+	jobErr := jobs.Create(ctx, creEnv.CldfEnvironment.Offchain, dons, jobSpecs)
+	if jobErr != nil {
+		return fmt.Errorf("failed to create http action jobs for don %s: %w", don.Name, jobErr)
 	}
 
 	return nil

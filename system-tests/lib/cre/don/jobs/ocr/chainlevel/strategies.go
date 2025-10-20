@@ -20,7 +20,7 @@ var ConfigMerger = func(flag cre.CapabilityFlag, nodeSet cre.NodeSetWithCapabili
 	return mergedConfig, true, nil
 }
 
-var CapabilityEnabler = func(don *cre.DON, flag cre.CapabilityFlag) bool {
+var CapabilityEnabler = func(don *cre.Don, flag cre.CapabilityFlag) bool {
 	if don == nil || don.GetChainCapabilityConfigs() == nil {
 		return false
 	}

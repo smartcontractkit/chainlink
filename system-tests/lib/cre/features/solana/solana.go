@@ -49,14 +49,10 @@ func (o *Solana) Flag() cre.CapabilityFlag {
 func (o *Solana) PreEnvStartup(
 	ctx context.Context,
 	testLogger zerolog.Logger,
+	don *cre.DonMetadata,
 	topology *cre.Topology,
 	creEnv *cre.Environment,
 ) (*cre.PreEnvStartupOutput, error) {
-	donsMetadata := topology.DonsMetadataWithFlag(flag)
-	if len(donsMetadata) == 0 {
-		return nil, nil
-	}
-
 	var solChain *solana.Blockchain
 	for _, bcOut := range creEnv.Blockchains {
 		if bcOut.IsFamily(chainselectors.FamilySolana) {
@@ -65,6 +61,7 @@ func (o *Solana) PreEnvStartup(
 		}
 	}
 
+	// TODO check if not deployed yet
 	programID, state, fErr := deployForwarder(testLogger, creEnv, solChain)
 	if fErr != nil {
 		return nil, errors.Wrap(fErr, "failed to deploy solana forwarder")
@@ -81,39 +78,35 @@ func (o *Solana) PreEnvStartup(
 		ForwarderState:   *state,
 	}
 
-	capabilities := make(map[uint64][]keystone_changeset.DONCapabilityWithConfig)
-
-	for _, solanaDON := range donsMetadata {
-		workerNodes, wErr := solanaDON.Workers()
-		if wErr != nil {
-			return nil, errors.Wrap(wErr, "failed to find worker nodes")
-		}
-
-		for _, workerNode := range workerNodes {
-			currentConfig := solanaDON.CapabilitiesAwareNodeSet().NodeSpecs[workerNode.Index].Node.TestConfigOverrides
-			updatedConfig, uErr := updateNodeConfig(workerNode, chainID, data, currentConfig, creEnv.CapabilityConfigs[cre.WriteSolanaCapability])
-			if uErr != nil {
-				return nil, errors.Wrapf(uErr, "failed to update node config for node index %d", workerNode.Index)
-			}
-			solanaDON.CapabilitiesAwareNodeSet().NodeSpecs[workerNode.Index].Node.TestConfigOverrides = *updatedConfig
-		}
-
-		fullName := "write_solana_devnet@1.0.0"
-		splitName := strings.Split(fullName, "@")
-
-		capabilities[solanaDON.ID] = append(capabilities[solanaDON.ID], keystone_changeset.DONCapabilityWithConfig{
-			Capability: kcr.CapabilitiesRegistryCapability{
-				LabelledName:   splitName[0],
-				Version:        splitName[1],
-				CapabilityType: 3, // TARGET
-				ResponseType:   1, // OBSERVATION_IDENTICAL
-			},
-			Config: &capabilitiespb.CapabilityConfig{},
-		})
+	workerNodes, wErr := don.Workers()
+	if wErr != nil {
+		return nil, errors.Wrap(wErr, "failed to find worker nodes")
 	}
 
+	for _, workerNode := range workerNodes {
+		currentConfig := don.CapabilitiesAwareNodeSet().NodeSpecs[workerNode.Index].Node.TestConfigOverrides
+		updatedConfig, uErr := updateNodeConfig(workerNode, chainID, data, currentConfig, creEnv.CapabilityConfigs[cre.WriteSolanaCapability])
+		if uErr != nil {
+			return nil, errors.Wrapf(uErr, "failed to update node config for node index %d", workerNode.Index)
+		}
+		don.CapabilitiesAwareNodeSet().NodeSpecs[workerNode.Index].Node.TestConfigOverrides = *updatedConfig
+	}
+
+	fullName := "write_solana_devnet@1.0.0"
+	splitName := strings.Split(fullName, "@")
+
+	capabilities := []keystone_changeset.DONCapabilityWithConfig{{
+		Capability: kcr.CapabilitiesRegistryCapability{
+			LabelledName:   splitName[0],
+			Version:        splitName[1],
+			CapabilityType: 3, // TARGET
+			ResponseType:   1, // OBSERVATION_IDENTICAL
+		},
+		Config: &capabilitiespb.CapabilityConfig{},
+	}}
+
 	return &cre.PreEnvStartupOutput{
-		DONCapabilityWithConfigs: capabilities,
+		DONCapabilityWithConfig: capabilities,
 	}, nil
 }
 
@@ -199,8 +192,6 @@ func updateNodeConfig(workerNode *cre.NodeMetadata, chainID string, data solanaI
 		return nil, errors.Wrap(mErr, "failed to apply runtime values")
 	}
 
-	// currentConfig := solanaDON.CapabilitiesAwareNodeSet().NodeSpecs[workerNode.Index].Node.TestConfigOverrides
-
 	var typedConfig corechainlink.Config
 	unmarshallErr := toml.Unmarshal([]byte(currentConfig), &typedConfig)
 	if unmarshallErr != nil {
@@ -270,14 +261,10 @@ const solWorkflowConfigTemplate = `
 func (o *Solana) PostEnvStartup(
 	ctx context.Context,
 	testLogger zerolog.Logger,
+	don *cre.Don,
 	dons *cre.Dons,
 	creEnv *cre.Environment,
 ) error {
-	donsWithFlag := dons.DonsWithFlag(flag)
-	if len(donsWithFlag) == 0 {
-		return nil
-	}
-
 	solChainsWithForwarder := make(map[uint64]struct{})
 	solForwarders := creEnv.CldfEnvironment.DataStore.Addresses().Filter(datastore.AddressRefByQualifier(ks_sol.DefaultForwarderQualifier))
 	for _, forwarder := range solForwarders {
@@ -286,22 +273,20 @@ func (o *Solana) PostEnvStartup(
 
 	// configure Solana forwarder only if we have some
 	if len(solChainsWithForwarder) > 0 {
-		for _, don := range dons.List() {
-			cs := commonchangeset.Configure(ks_sol.ConfigureForwarders{},
-				&ks_sol.ConfigureForwarderRequest{
-					WFDonName:        don.Name,
-					WFNodeIDs:        don.KeystoneDONConfig().NodeIDs,
-					RegistryChainSel: creEnv.RegistryChainSelector,
-					Chains:           solChainsWithForwarder,
-					Qualifier:        ks_sol.DefaultForwarderQualifier,
-					Version:          "1.0.0",
-				},
-			)
+		cs := commonchangeset.Configure(ks_sol.ConfigureForwarders{},
+			&ks_sol.ConfigureForwarderRequest{
+				WFDonName:        don.Name,
+				WFNodeIDs:        don.KeystoneDONConfig().NodeIDs,
+				RegistryChainSel: creEnv.RegistryChainSelector,
+				Chains:           solChainsWithForwarder,
+				Qualifier:        ks_sol.DefaultForwarderQualifier,
+				Version:          "1.0.0",
+			},
+		)
 
-			_, err := cs.Apply(*creEnv.CldfEnvironment)
-			if err != nil {
-				return errors.Wrap(err, "failed to configure Solana forwarders")
-			}
+		_, err := cs.Apply(*creEnv.CldfEnvironment)
+		if err != nil {
+			return errors.Wrap(err, "failed to configure Solana forwarders")
 		}
 	}
 

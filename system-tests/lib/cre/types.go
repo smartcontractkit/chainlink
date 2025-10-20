@@ -396,7 +396,7 @@ type NodeConfigTransformerFn = func(input GenerateConfigsInput, existingConfigs 
 
 type (
 	HandlerTypeToConfig    = map[string]string
-	GatewayHandlerConfigFn = func(don *DON) (HandlerTypeToConfig, error)
+	GatewayHandlerConfigFn = func(don *Don) (HandlerTypeToConfig, error)
 )
 
 type GenerateConfigsInput struct {
@@ -582,15 +582,15 @@ func (m *DonMetadata) IsWorkflowDON() bool {
 }
 
 type Dons struct {
-	Dons              []*DON             `toml:"dons" json:"dons"`
+	Dons              []*Don             `toml:"dons" json:"dons"`
 	GatewayConnectors *GatewayConnectors `toml:"gateway_connectors" json:"gateway_connectors"`
 }
 
-func (d *Dons) List() []*DON {
+func (d *Dons) List() []*Don {
 	return d.Dons
 }
 
-func (d *Dons) MustWorkflowDON() *DON {
+func (d *Dons) MustWorkflowDON() *Don {
 	for _, don := range d.Dons {
 		if don.HasFlag(WorkflowDON) {
 			return don
@@ -619,7 +619,7 @@ func (d *Dons) AsNodeSetWithChainCapabilities() []NodeSetWithCapabilityConfigs {
 	return out
 }
 
-func NewDons(dons []*DON, gatewayConnectors *GatewayConnectors) *Dons {
+func NewDons(dons []*Don, gatewayConnectors *GatewayConnectors) *Dons {
 	return &Dons{
 		Dons:              dons,
 		GatewayConnectors: gatewayConnectors,
@@ -648,8 +648,8 @@ func (d *Dons) Gateway() (*Node, bool) {
 	return nil, false
 }
 
-func (d *Dons) DonsWithFlag(flag CapabilityFlag) []*DON {
-	found := make([]*DON, 0)
+func (d *Dons) DonsWithFlag(flag CapabilityFlag) []*Don {
+	found := make([]*Don, 0)
 	for _, don := range d.List() {
 		if don.HasFlag(flag) {
 			found = append(found, don)
@@ -659,7 +659,29 @@ func (d *Dons) DonsWithFlag(flag CapabilityFlag) []*DON {
 	return found
 }
 
-func (d *Dons) OneDonWithFlag(flag CapabilityFlag) (*DON, error) {
+func (d *Dons) DonsWithFlags(flags ...CapabilityFlag) []*Don {
+	found := make([]*Don, 0)
+	for _, don := range d.List() {
+		for _, flag := range flags {
+			if don.HasFlag(flag) {
+				found = append(found, don)
+			}
+		}
+	}
+
+	seen := make(map[uint64]struct{})
+	uniqueFound := make([]*Don, 0)
+	for _, don := range found {
+		if _, exists := seen[don.ID]; !exists {
+			seen[don.ID] = struct{}{}
+			uniqueFound = append(uniqueFound, don)
+		}
+	}
+
+	return uniqueFound
+}
+
+func (d *Dons) OneDonWithFlag(flag CapabilityFlag) (*Don, error) {
 	found := d.DonsWithFlag(flag)
 
 	if len(found) != 1 {
@@ -1167,14 +1189,14 @@ type Environment struct {
 
 type (
 	CapabilityRegistryConfigFn = func(donFlags []CapabilityFlag, nodeSetInput *CapabilitiesAwareNodeSet) ([]keystone_changeset.DONCapabilityWithConfig, error)
-	JobSpecFn                  = func(input *JobSpecInput) (DonsToJobSpecs, error)
+	JobSpecFn                  = func(input *JobSpecInput) (DonJobs, error)
 )
 
 type JobSpecInput struct {
 	CreEnvironment *Environment
-	Dons           *Dons
+	Don            *Don
 	Capabilities   []InstallableCapability
-	NodeSets       []NodeSetWithCapabilityConfigs
+	NodeSet        NodeSetWithCapabilityConfigs
 }
 
 type NodeSetWithCapabilityConfigs interface {
@@ -1244,28 +1266,20 @@ type Feature interface {
 	PreEnvStartup(
 		ctx context.Context,
 		testLogger zerolog.Logger,
+		don *DonMetadata,
 		topology *Topology,
 		creEnv *Environment,
 	) (*PreEnvStartupOutput, error)
 	PostEnvStartup(
 		ctx context.Context,
 		testLogger zerolog.Logger,
+		don *Don,
 		dons *Dons,
 		creEnv *Environment,
 	) error
 }
 
 type PreEnvStartupOutput struct {
-	DONCapabilityWithConfigs map[uint64][]keystone_changeset.DONCapabilityWithConfig
-	GatewayJobConfigs        map[NodeUUID]*config.GatewayConfig
-}
-
-func (o *PreEnvStartupOutput) Merge(otherDONCapabilityWithConfigs map[uint64][]keystone_changeset.DONCapabilityWithConfig, otherGatewayJobConfigs map[NodeUUID]*config.GatewayConfig) {
-	for donIdx, caps := range o.DONCapabilityWithConfigs {
-		if otherDONCapabilityWithConfigs[donIdx] == nil {
-			otherDONCapabilityWithConfigs[donIdx] = []keystone_changeset.DONCapabilityWithConfig{}
-		}
-		otherDONCapabilityWithConfigs[donIdx] = append(otherDONCapabilityWithConfigs[donIdx], caps...)
-	}
-	maps.Copy(otherGatewayJobConfigs, o.GatewayJobConfigs)
+	DONCapabilityWithConfig []keystone_changeset.DONCapabilityWithConfig
+	GatewayJobConfigs       map[NodeUUID]*config.GatewayConfig
 }

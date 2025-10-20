@@ -65,7 +65,7 @@ func BuildFromSavedState(ctx context.Context, cldLogger logger.Logger, cachedInp
 	}
 
 	allNodeIDs := make([]string, 0)
-	donsSlice := make([]*cre.DON, 0, len(envArtifact.DONs))
+	donsSlice := make([]*cre.Don, 0, len(envArtifact.DONs))
 
 	jdConfig := jd.JDConfig{
 		GRPC:  envArtifact.JdConfig.ExternalGRPCUrl,
