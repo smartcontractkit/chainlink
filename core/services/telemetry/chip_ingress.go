@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"strings"
-	"time"
 
 	chainselector "github.com/smartcontractkit/chain-selectors"
 	"github.com/smartcontractkit/libocr/commontypes"
@@ -78,12 +77,11 @@ func NewChipIngressAdapter(
 	}, nil
 }
 
-const emitTimeout = 10 * time.Second
-
 // SendLog implements commontypes.MonitoringEndpoint
 // It forwards the telemetry log to the beholder emitter with proper domain/entity attributes
 func (a *ChipIngressAdapter) SendLog(log []byte) {
-	ctx, _ := context.WithTimeout(context.Background(), emitTimeout)
+	// Not need to use context.WithTimeout because Emit is async and uses context.WithoutCancel(ctx)
+	ctx := context.Background()
 	// Emit is asyc and does not block the main thread
 	err := a.emitter.Emit(ctx, log,
 		"beholder_domain", a.Domain,
