@@ -14,6 +14,7 @@ import (
 	"github.com/rs/zerolog"
 
 	chainselectors "github.com/smartcontractkit/chain-selectors"
+
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/ptr"
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 
@@ -34,7 +35,6 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/environment/memory"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/don"
-	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/config"
 )
 
 const flag = cre.WriteSolanaCapability
@@ -48,10 +48,8 @@ func (o *Solana) Flag() cre.CapabilityFlag {
 func (o *Solana) PreEnvStartup(
 	ctx context.Context,
 	testLogger zerolog.Logger,
-	registryChainSelector uint64,
 	topology *cre.Topology,
 	creEnv *cre.Environment,
-	gatewayJobConfigs map[cre.NodeUUID]*config.GatewayConfig,
 ) (*cre.PreEnvStartupOutput, error) {
 	donsMetadata := topology.DonsMetadataWithFlag(flag)
 	if len(donsMetadata) == 0 {
@@ -271,9 +269,10 @@ const solWorkflowConfigTemplate = `
 func (o *Solana) PostEnvStartup(
 	ctx context.Context,
 	testLogger zerolog.Logger,
+	donTopology *cre.DonTopology,
 	creEnv *cre.Environment,
 ) error {
-	dons := creEnv.DonTopology.DonsWithFlag(flag)
+	dons := donTopology.DonsWithFlag(flag)
 	if len(dons) == 0 {
 		return nil
 	}
@@ -291,7 +290,7 @@ func (o *Solana) PostEnvStartup(
 				&ks_sol.ConfigureForwarderRequest{
 					WFDonName:        don.Name,
 					WFNodeIDs:        don.KeystoneDONConfig().NodeIDs,
-					RegistryChainSel: creEnv.DonTopology.HomeChainSelector,
+					RegistryChainSel: creEnv.RegistryChainSelector,
 					Chains:           solChainsWithForwarder,
 					Qualifier:        ks_sol.DefaultForwarderQualifier,
 					Version:          "1.0.0",

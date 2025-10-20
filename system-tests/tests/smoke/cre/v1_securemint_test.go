@@ -88,11 +88,11 @@ func ExecuteSecureMintTest(t *testing.T, tenv *ttypes.TestEnvironment) {
 	// deploy workflow
 	framework.L.Info().Msg("Generate and propose secure mint job...")
 	jobSpec := createSecureMintWorkflowJobSpec(t, &s, solChain)
-	proposeSecureMintJob(t, creEnvironment.CldfEnvironment.Offchain, creEnvironment.DonTopology, jobSpec)
+	proposeSecureMintJob(t, creEnvironment.CldfEnvironment.Offchain, tenv.DonTopology, jobSpec)
 	framework.L.Info().Msgf("Secure mint job is successfully posted. Job spec:\n %v", jobSpec)
 
 	// trigger workflow
-	trigger := createFakeTrigger(t, &s, creEnvironment.DonTopology)
+	trigger := createFakeTrigger(t, &s, tenv.DonTopology)
 	ctx, cancel := context.WithCancel(t.Context())
 	eg := &errgroup.Group{}
 	eg.Go(func() error {

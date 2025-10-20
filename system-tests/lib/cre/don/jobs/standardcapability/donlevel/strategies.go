@@ -17,9 +17,9 @@ func CapabilityEnabler(capabilities []string, _ cre.NodeSetWithCapabilityConfigs
 	return flags.HasFlag(capabilities, flag)
 }
 
-func EnabledChainsProvider(donTopology *cre.DonTopology, _ cre.NodeSetWithCapabilityConfigs, _ cre.CapabilityFlag) []uint64 {
+func EnabledChainsProvider(registryChainSelector uint64, _ cre.NodeSetWithCapabilityConfigs, _ cre.CapabilityFlag) []uint64 {
 	// Most DON-level capabilities do not operate on specific chains, so we return the home chain selector to satisfy the interface
-	return []uint64{donTopology.HomeChainSelector}
+	return []uint64{registryChainSelector}
 }
 
 func ConfigResolver(nodeSet cre.NodeSetWithCapabilityConfigs, capabilityConfig cre.CapabilityConfig, _ uint64, flag cre.CapabilityFlag) (bool, map[string]any, error) {

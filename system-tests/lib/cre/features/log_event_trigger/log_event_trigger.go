@@ -16,7 +16,6 @@ import (
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/jobs"
 	factory "github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/jobs/standardcapability"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/jobs/standardcapability/chainlevel"
-	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/config"
 )
 
 const flag = cre.LogEventTriggerCapability
@@ -30,12 +29,10 @@ func (o *LogEventTrigger) Flag() cre.CapabilityFlag {
 func (o *LogEventTrigger) PreEnvStartup(
 	ctx context.Context,
 	testLogger zerolog.Logger,
-	registryChainSelector uint64,
 	topology *cre.Topology,
 	creEnv *cre.Environment,
-	gatewayJobConfigs map[cre.NodeUUID]*config.GatewayConfig,
 ) (*cre.PreEnvStartupOutput, error) {
-	donsMetadata := topology.DonsMetadataWithFlag(o.Flag())
+	donsMetadata := topology.DonsMetadataWithFlag(flag)
 	if len(donsMetadata) == 0 {
 		return nil, nil
 	}
@@ -46,7 +43,7 @@ func (o *LogEventTrigger) PreEnvStartup(
 			capabilities[donMetadata.ID] = []keystone_changeset.DONCapabilityWithConfig{}
 		}
 
-		for _, chainID := range donMetadata.CapabilitiesAwareNodeSet().GetChainCapabilityConfigs()[o.Flag()].EnabledChains {
+		for _, chainID := range donMetadata.CapabilitiesAwareNodeSet().GetChainCapabilityConfigs()[flag].EnabledChains {
 			capabilities[donMetadata.ID] = append(capabilities[donMetadata.ID], keystone_changeset.DONCapabilityWithConfig{
 				Capability: kcr.CapabilitiesRegistryCapability{
 					LabelledName:   fmt.Sprintf("log-event-trigger-evm-%d", chainID),
@@ -76,14 +73,16 @@ const configTemplate = `"""
 func (o *LogEventTrigger) PostEnvStartup(
 	ctx context.Context,
 	testLogger zerolog.Logger,
+	donTopology *cre.DonTopology,
 	creEnv *cre.Environment,
 ) error {
-	dons := creEnv.DonTopology.DonsWithFlag(flag)
+	dons := donTopology.DonsWithFlag(flag)
 	if len(dons) == 0 {
 		return nil
 	}
 
 	perDonJobSpecFactory, fErr := factory.NewCapabilityJobSpecFactory(
+		creEnv.RegistryChainSelector,
 		chainlevel.CapabilityEnabler,
 		chainlevel.EnabledChainsProvider,
 		chainlevel.ConfigResolver,
@@ -110,11 +109,9 @@ func (o *LogEventTrigger) PostEnvStartup(
 		},
 		factory.BinaryPathBuilder,
 	)(&cre.JobSpecInput{
-		CldEnvironment:    creEnv.CldfEnvironment,
-		DonTopology:       creEnv.DonTopology,
-		InfraInput:        creEnv.Provider,
-		NodeSets:          creEnv.DonTopology.Dons.AsNodeSetWithChainCapabilities(),
-		CapabilityConfigs: creEnv.CapabilityConfigs,
+		CreEnvironment: creEnv,
+		DonTopology:    donTopology,
+		NodeSets:       donTopology.Dons.AsNodeSetWithChainCapabilities(),
 	})
 	if specErr != nil {
 		return fmt.Errorf("failed to build job spec for http action capability: %w", specErr)
@@ -126,7 +123,7 @@ func (o *LogEventTrigger) PostEnvStartup(
 			continue
 		}
 		// pass whole topology, since some jobs might need to be created on multiple DONs
-		jobErr := jobs.Create(ctx, creEnv.CldfEnvironment.Offchain, creEnv.DonTopology, jobSpecs)
+		jobErr := jobs.Create(ctx, creEnv.CldfEnvironment.Offchain, donTopology, jobSpecs)
 		if jobErr != nil {
 			return fmt.Errorf("failed to create http action jobs for don %s: %w", don.Name, jobErr)
 		}

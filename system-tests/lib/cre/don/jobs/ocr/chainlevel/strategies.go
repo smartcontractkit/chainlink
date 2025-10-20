@@ -31,7 +31,7 @@ var CapabilityEnabler = func(don *cre.DON, flag cre.CapabilityFlag) bool {
 	return true
 }
 
-var EnabledChainsProvider = func(donTopology *cre.DonTopology, nodeSet cre.NodeSetWithCapabilityConfigs, flag cre.CapabilityFlag) ([]uint64, error) {
+var EnabledChainsProvider = func(_ uint64, nodeSet cre.NodeSetWithCapabilityConfigs, flag cre.CapabilityFlag) ([]uint64, error) {
 	if nodeSet == nil || nodeSet.GetChainCapabilityConfigs() == nil {
 		return []uint64{}, nil
 	}

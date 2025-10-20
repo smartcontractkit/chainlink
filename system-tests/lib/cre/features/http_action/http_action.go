@@ -34,10 +34,8 @@ func (o *HTTPAction) Flag() cre.CapabilityFlag {
 func (o *HTTPAction) PreEnvStartup(
 	ctx context.Context,
 	testLogger zerolog.Logger,
-	registryChainSelector uint64,
 	topology *cre.Topology,
 	creEnv *cre.Environment,
-	gatewayJobConfigs map[cre.NodeUUID]*config.GatewayConfig,
 ) (*cre.PreEnvStartupOutput, error) {
 	donsMetadata := topology.DonsMetadataWithFlag(flag)
 	if len(donsMetadata) == 0 {
@@ -45,9 +43,9 @@ func (o *HTTPAction) PreEnvStartup(
 	}
 
 	// use registry chain, because that is the chain we used when generating gateway connector part of node config (check below)
-	registryChainID, chErr := chainselectors.ChainIdFromSelector(registryChainSelector)
+	registryChainID, chErr := chainselectors.ChainIdFromSelector(creEnv.RegistryChainSelector)
 	if chErr != nil {
-		return nil, errors.Wrapf(chErr, "failed to get chain ID from selector %d", registryChainSelector)
+		return nil, errors.Wrapf(chErr, "failed to get chain ID from selector %d", creEnv.RegistryChainSelector)
 	}
 
 	// add 'http-capabilities' handler to gateway config (future jobspec)
@@ -57,12 +55,12 @@ func (o *HTTPAction) PreEnvStartup(
 		if confErr != nil {
 			return nil, errors.Wrapf(confErr, "failed to get %s handler config for don %s", coregateway.HTTPCapabilityType, donMetadata.Name)
 		}
-		hErr := gateway.AddHandlers(donMetadata, registryChainID, gatewayJobConfigs, []config.Handler{handlerConfig})
+		hErr := gateway.AddHandlers(donMetadata, registryChainID, topology.GatewayJobConfigs, []config.Handler{handlerConfig})
 		if hErr != nil {
 			return nil, errors.Wrapf(hErr, "failed to add gateway handlers to gateway config (jobspec) for don %s ", donMetadata.Name)
 		}
 
-		cErr := gateway.AddConnectors(donMetadata, registryChainID, topology.GatewayConnectorOutput)
+		cErr := gateway.AddConnectors(donMetadata, registryChainID, topology.GatewayConnectors)
 		if cErr != nil {
 			return nil, errors.Wrapf(cErr, "failed to add gateway connectors to node's TOML config in for don %s", donMetadata.Name)
 		}
@@ -88,7 +86,7 @@ func (o *HTTPAction) PreEnvStartup(
 
 	return &cre.PreEnvStartupOutput{
 		DONCapabilityWithConfigs: capabilities,
-		GatewayJobConfigs:        gatewayJobConfigs,
+		GatewayJobConfigs:        topology.GatewayJobConfigs,
 	}, nil
 }
 
@@ -113,14 +111,16 @@ const configTemplate = `"""
 func (o *HTTPAction) PostEnvStartup(
 	ctx context.Context,
 	testLogger zerolog.Logger,
+	donTopology *cre.DonTopology,
 	creEnv *cre.Environment,
 ) error {
-	dons := creEnv.DonTopology.DonsWithFlag(flag)
+	dons := donTopology.DonsWithFlag(flag)
 	if len(dons) == 0 {
 		return nil
 	}
 
 	perDonJobSpecFactory, fErr := factory.NewCapabilityJobSpecFactory(
+		creEnv.RegistryChainSelector,
 		donlevel.CapabilityEnabler,
 		donlevel.EnabledChainsProvider,
 		donlevel.ConfigResolver,
@@ -141,11 +141,9 @@ func (o *HTTPAction) PostEnvStartup(
 		factory.NoOpExtractor,
 		factory.BinaryPathBuilder,
 	)(&cre.JobSpecInput{
-		CldEnvironment:    creEnv.CldfEnvironment,
-		DonTopology:       creEnv.DonTopology,
-		InfraInput:        creEnv.Provider,
-		NodeSets:          creEnv.DonTopology.Dons.AsNodeSetWithChainCapabilities(),
-		CapabilityConfigs: creEnv.CapabilityConfigs,
+		CreEnvironment: creEnv,
+		DonTopology:    donTopology,
+		NodeSets:       donTopology.Dons.AsNodeSetWithChainCapabilities(),
 	})
 	if specErr != nil {
 		return fmt.Errorf("failed to build job spec for http action capability: %w", specErr)
@@ -157,7 +155,7 @@ func (o *HTTPAction) PostEnvStartup(
 			continue
 		}
 		// pass whole topology, since some jobs might need to be created on multiple DONs
-		jobErr := jobs.Create(ctx, creEnv.CldfEnvironment.Offchain, creEnv.DonTopology, jobSpecs)
+		jobErr := jobs.Create(ctx, creEnv.CldfEnvironment.Offchain, donTopology, jobSpecs)
 		if jobErr != nil {
 			return fmt.Errorf("failed to create http action jobs for don %s: %w", don.Name, jobErr)
 		}

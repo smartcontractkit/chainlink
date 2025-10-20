@@ -179,14 +179,14 @@ var StartCmdRecoverHandlerFunc = func(p any, cleanupWait time.Duration) {
 
 var StartCmdGenerateSettingsFile = func(homeChainOut *cre.WrappedBlockchainOutput, output *creenv.SetupOutput) error {
 	rpcs := map[uint64]string{}
-	for _, bcOut := range output.BlockchainOutput {
+	for _, bcOut := range output.CreEnvironment.Blockchains {
 		rpcs[bcOut.ChainSelector] = bcOut.BlockchainOutput.Nodes[0].ExternalHTTPUrl
 	}
 
 	creCLISettingsFile, settingsErr := crecli.PrepareCRECLISettingsFile(
 		crecli.CRECLIProfile,
 		homeChainOut.SethClient.MustGetRootKeyAddress(),
-		output.CldEnvironment.ExistingAddresses, //nolint:staticcheck,nolintlint // SA1019: deprecated but we don't want to migrate now
+		output.CreEnvironment.CldfEnvironment.ExistingAddresses, //nolint:staticcheck,nolintlint // SA1019: deprecated but we don't want to migrate now
 		output.DonTopology.WorkflowDonID,
 		homeChainOut.ChainSelector,
 		rpcs,
@@ -340,14 +340,14 @@ func startCmd() *cobra.Command {
 				return errors.Wrap(startErr, "failed to start environment")
 			}
 
-			homeChainOut := output.BlockchainOutput[0]
+			homeChainOut := output.CreEnvironment.Blockchains[0]
 
 			sErr := StartCmdGenerateSettingsFile(homeChainOut, output)
 			if sErr != nil {
 				fmt.Fprintf(os.Stderr, "failed to create CRE CLI settings file: %s. You need to create it manually.", sErr)
 			}
 
-			dxErr := trackStartup(true, hasBuiltDockerImage(in, withPluginsDockerImage), output.InfraInput.Type, nil, nil)
+			dxErr := trackStartup(true, hasBuiltDockerImage(in, withPluginsDockerImage), output.CreEnvironment.Provider.Type, nil, nil)
 			if dxErr != nil {
 				fmt.Fprintf(os.Stderr, "failed to track startup: %s\n", dxErr)
 			}
@@ -423,18 +423,18 @@ func startCmd() *cobra.Command {
 			}
 
 			if withExampleFlag {
-				if output.DonTopology.GatewayConnectorOutput == nil || len(output.DonTopology.GatewayConnectorOutput.Configurations) == 0 {
+				if output.GatewayConnectors == nil || len(output.GatewayConnectors.Configurations) == 0 {
 					return errors.New("no gateway connector configurations found")
 				}
 
 				// use first gateway for example workflow
-				gatewayURL := fmt.Sprintf("%s://%s:%d%s", output.DonTopology.GatewayConnectorOutput.Configurations[0].Incoming.Protocol, output.DonTopology.GatewayConnectorOutput.Configurations[0].Incoming.Host, output.DonTopology.GatewayConnectorOutput.Configurations[0].Incoming.ExternalPort, output.DonTopology.GatewayConnectorOutput.Configurations[0].Incoming.Path)
+				gatewayURL := fmt.Sprintf("%s://%s:%d%s", output.GatewayConnectors.Configurations[0].Incoming.Protocol, output.GatewayConnectors.Configurations[0].Incoming.Host, output.GatewayConnectors.Configurations[0].Incoming.ExternalPort, output.GatewayConnectors.Configurations[0].Incoming.Path)
 
 				fmt.Print(libformat.PurpleText("\nRegistering and verifying example workflow\n\n"))
 
 				wfRegAddr := libcontracts.MustFindAddressesForChain(
-					output.CldEnvironment.ExistingAddresses, //nolint:staticcheck,nolintlint // SA1019: deprecated but we don't want to migrate now
-					output.BlockchainOutput[0].ChainSelector,
+					output.CreEnvironment.CldfEnvironment.ExistingAddresses, //nolint:staticcheck,nolintlint // SA1019: deprecated but we don't want to migrate now
+					output.CreEnvironment.Blockchains[0].ChainSelector,
 					keystone_changeset.WorkflowRegistry.String())
 
 				var workflowDonID uint32
@@ -717,13 +717,12 @@ func StartCLIEnvironment(
 
 	artifactPath, artifactErr := creenv.DumpArtifact(
 		creenv.MustEnvArtifactAbsPath(relativePathToRepoRoot),
-		universalSetupOutput.CldEnvironment.DataStore.Addresses(),
-		universalSetupOutput.CldEnvironment.ExistingAddresses,
-		*in.JD.Out,
 		*universalSetupOutput.DonTopology,
-		universalSetupOutput.CldEnvironment.Offchain,
-		capabilitiesContractFactoryFunctions,
+		universalSetupOutput.CreEnvironment,
+		universalSetupOutput.GatewayConnectors,
+		*in.JD.Out,
 		in.NodeSets,
+		capabilitiesContractFactoryFunctions,
 	)
 
 	if artifactErr != nil {

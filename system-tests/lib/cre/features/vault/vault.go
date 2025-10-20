@@ -59,10 +59,8 @@ func (o *Vault) Flag() cre.CapabilityFlag {
 func (o *Vault) PreEnvStartup(
 	ctx context.Context,
 	testLogger zerolog.Logger,
-	registryChainSelector uint64,
 	topology *cre.Topology,
 	creEnv *cre.Environment,
-	gatewayJobConfigs map[cre.NodeUUID]*config.GatewayConfig,
 ) (*cre.PreEnvStartupOutput, error) {
 	donsMetadata := topology.DonsMetadataWithFlag(flag)
 	if len(donsMetadata) == 0 {
@@ -70,9 +68,9 @@ func (o *Vault) PreEnvStartup(
 	}
 
 	// use registry chain, because that is the chain we used when generating gateway connector part of node config (check below)
-	registryChainID, chErr := chainselectors.ChainIdFromSelector(registryChainSelector)
+	registryChainID, chErr := chainselectors.ChainIdFromSelector(creEnv.RegistryChainSelector)
 	if chErr != nil {
-		return nil, errors.Wrapf(chErr, "failed to get chain ID from selector %d", registryChainSelector)
+		return nil, errors.Wrapf(chErr, "failed to get chain ID from selector %d", creEnv.RegistryChainSelector)
 	}
 
 	// add 'vault' handler to gateway config (future jobspec)
@@ -82,12 +80,12 @@ func (o *Vault) PreEnvStartup(
 		if confErr != nil {
 			return nil, errors.Wrapf(confErr, "failed to get %s handler config for don %s", coregateway.VaultHandlerType, donMetadata.Name)
 		}
-		hErr := gateway.AddHandlers(donMetadata, registryChainID, gatewayJobConfigs, []config.Handler{handlerConfig})
+		hErr := gateway.AddHandlers(donMetadata, registryChainID, topology.GatewayJobConfigs, []config.Handler{handlerConfig})
 		if hErr != nil {
 			return nil, errors.Wrapf(hErr, "failed to add gateway handlers to gateway config (jobspec) for don %s ", donMetadata.Name)
 		}
 
-		cErr := gateway.AddConnectors(donMetadata, registryChainID, topology.GatewayConnectorOutput)
+		cErr := gateway.AddConnectors(donMetadata, registryChainID, topology.GatewayConnectors)
 		if cErr != nil {
 			return nil, errors.Wrapf(cErr, "failed to add gateway connectors to node's TOML config in for don %s", donMetadata.Name)
 		}
@@ -97,7 +95,7 @@ func (o *Vault) PreEnvStartup(
 
 	workflowRegistryAddress, wfRegTypeVersion, wfErr := contracts.FindAddressesForChain(
 		creEnv.CldfEnvironment.ExistingAddresses, //nolint:staticcheck // won't migrate
-		registryChainSelector,
+		creEnv.RegistryChainSelector,
 		keystone_changeset.WorkflowRegistry.String(),
 	)
 	if wfErr != nil {
@@ -138,6 +136,7 @@ func (o *Vault) PreEnvStartup(
 
 	return &cre.PreEnvStartupOutput{
 		DONCapabilityWithConfigs: capabilities,
+		GatewayJobConfigs:        topology.GatewayJobConfigs,
 	}, nil
 }
 
@@ -168,10 +167,11 @@ func updateNodeConfig(workerNode *cre.NodeMetadata, currentConfig string, regist
 func (o *Vault) PostEnvStartup(
 	ctx context.Context,
 	testLogger zerolog.Logger,
+	donTopology *cre.DonTopology,
 	creEnv *cre.Environment,
 ) error {
 	// should we support more than one DON with OCR3 capability? Could there be 0? I guess as long as there's 1 with consensus v2?
-	dons := creEnv.DonTopology.DonsWithFlag(flag)
+	dons := donTopology.DonsWithFlag(flag)
 	if len(dons) == 0 {
 		return nil
 	}
@@ -180,14 +180,14 @@ func (o *Vault) PostEnvStartup(
 	}
 	vaultDON := dons[0]
 
-	vaultOCR3Addr, vaultDKGOCR3Addr, err := deployVaultContracts(testLogger, ContractQualifier, creEnv.DonTopology.HomeChainSelector, creEnv.CldfEnvironment, creEnv.ContractVersions)
+	vaultOCR3Addr, vaultDKGOCR3Addr, err := deployVaultContracts(testLogger, ContractQualifier, creEnv.RegistryChainSelector, creEnv.CldfEnvironment, creEnv.ContractVersions)
 	if err != nil {
 		return fmt.Errorf("failed to deploy Vault OCR3 contract %w", err)
 	}
 
-	chainID, chErr := chainselectors.ChainIdFromSelector(creEnv.DonTopology.HomeChainSelector)
+	chainID, chErr := chainselectors.ChainIdFromSelector(creEnv.RegistryChainSelector)
 	if chErr != nil {
-		return errors.Wrapf(chErr, "failed to get chain ID from chain selector %d", creEnv.DonTopology.HomeChainSelector)
+		return errors.Wrapf(chErr, "failed to get chain ID from chain selector %d", creEnv.RegistryChainSelector)
 	}
 
 	jobErr := createJobs(
@@ -197,7 +197,7 @@ func (o *Vault) PostEnvStartup(
 		vaultDKGOCR3Addr,
 		creEnv.CldfEnvironment.Offchain.(*jd.JobDistributor),
 		vaultDON,
-		creEnv.DonTopology,
+		donTopology,
 	)
 	if jobErr != nil {
 		return fmt.Errorf("failed to create OCR3 jobs: %w", jobErr)
@@ -221,7 +221,7 @@ func (o *Vault) PostEnvStartup(
 		},
 		ks_contracts_op.ConfigureDKGOpInput{
 			ContractAddress:       vaultDKGOCR3Addr,
-			ChainSelector:         creEnv.DonTopology.HomeChainSelector,
+			ChainSelector:         creEnv.RegistryChainSelector,
 			DON:                   vaultDON.KeystoneDONConfig(),
 			Config:                vaultDON.ResolveORC3Config(ocr3Config),
 			DryRun:                false,
@@ -232,7 +232,7 @@ func (o *Vault) PostEnvStartup(
 		return errors.Wrap(err, "failed to configure DKG OCR3 contract")
 	}
 
-	cfgb, cErr := reportingPluginConfigOverride(vaultDKGOCR3Addr, creEnv)
+	cfgb, cErr := reportingPluginConfigOverride(vaultDKGOCR3Addr, creEnv, donTopology)
 	if cErr != nil {
 		return fmt.Errorf("failed to create Vault reporting plugin config override: %w", cErr)
 	}
@@ -245,7 +245,7 @@ func (o *Vault) PostEnvStartup(
 		},
 		ks_contracts_op.ConfigureOCR3OpInput{
 			ContractAddress:               vaultOCR3Addr,
-			ChainSelector:                 creEnv.DonTopology.HomeChainSelector,
+			ChainSelector:                 creEnv.RegistryChainSelector,
 			DON:                           vaultDON.KeystoneDONConfig(),
 			Config:                        vaultDON.ResolveORC3Config(ocr3Config),
 			DryRun:                        false,
@@ -362,8 +362,8 @@ func dkgReportingPluginConfig(don *cre.DON) (*dkgocrtypes.ReportingPluginConfig,
 	return cfg, nil
 }
 
-func reportingPluginConfigOverride(vaultDKGOCR3Addr *common.Address, creEnv *cre.Environment) ([]byte, error) {
-	client := creEnv.CldfEnvironment.BlockChains.EVMChains()[creEnv.DonTopology.HomeChainSelector].Client
+func reportingPluginConfigOverride(vaultDKGOCR3Addr *common.Address, creEnv *cre.Environment, donTopology *cre.DonTopology) ([]byte, error) {
+	client := creEnv.CldfEnvironment.BlockChains.EVMChains()[creEnv.RegistryChainSelector].Client
 	dkgContract, err := ocr3_capability.NewOCR3Capability(*vaultDKGOCR3Addr, client)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to create OCR3 capability contract")

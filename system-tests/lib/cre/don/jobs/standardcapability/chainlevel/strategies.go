@@ -27,7 +27,7 @@ func CapabilityEnabler(_ []string, nodeSet cre.NodeSetWithCapabilityConfigs, fla
 	return true
 }
 
-func EnabledChainsProvider(donTopology *cre.DonTopology, nodeSet cre.NodeSetWithCapabilityConfigs, flag cre.CapabilityFlag) []uint64 {
+func EnabledChainsProvider(_ uint64, nodeSet cre.NodeSetWithCapabilityConfigs, flag cre.CapabilityFlag) []uint64 {
 	// for chain-level capabilities, we need to return the list of chains the capability is enabled for
 	chainCapConfig, ok := nodeSet.GetChainCapabilityConfigs()[flag]
 	if !ok || chainCapConfig == nil {

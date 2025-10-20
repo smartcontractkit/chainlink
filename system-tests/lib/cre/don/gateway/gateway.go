@@ -51,7 +51,7 @@ func JobConfigs(
 
 	// if we don't have a gateway connector outputs, it means that this topology does not require a gateway
 	// so we can skip the rest of the setup
-	if topology.GatewayConnectorOutput == nil || len(topology.GatewayConnectorOutput.Configurations) == 0 {
+	if topology.GatewayConnectors == nil || len(topology.GatewayConnectors.Configurations) == 0 {
 		return nil, nil
 	}
 
@@ -66,7 +66,7 @@ func JobConfigs(
 			continue
 		}
 
-		configuration, cErr := topology.GatewayConnectorOutput.FindByNodeUUID(gateway.UUID)
+		configuration, cErr := topology.GatewayConnectors.FindByNodeUUID(gateway.UUID)
 		if cErr != nil {
 			return nil, errors.Wrapf(cErr, "failed to find gateway configuration for node UUID %s", gateway.UUID)
 		}
@@ -266,7 +266,7 @@ func AddHandlers(donMetadata *cre.DonMetadata, registryChainID uint64, gatewayJo
 }
 
 // AddConnectors adds gateway connector configuration to the node TOML config of each node in the given DON. It only adds connectors, if they are not already present.
-func AddConnectors(donMetadata *cre.DonMetadata, registryChainID uint64, output *cre.GatewayConnectorOutput) error {
+func AddConnectors(donMetadata *cre.DonMetadata, registryChainID uint64, output *cre.GatewayConnectors) error {
 	workers, wErr := donMetadata.Workers()
 	if wErr != nil {
 		return wErr

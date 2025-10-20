@@ -16,7 +16,6 @@ import (
 	"github.com/smartcontractkit/chainlink-deployments-framework/offchain/jd"
 	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
 	ks_contracts_op "github.com/smartcontractkit/chainlink/deployment/keystone/changeset/operations/contracts"
-	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/config"
 
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/contracts"
@@ -34,10 +33,8 @@ func (o *DONTime) Flag() cre.CapabilityFlag {
 func (o *DONTime) PreEnvStartup(
 	ctx context.Context,
 	testLogger zerolog.Logger,
-	registryChainSelector uint64,
 	topology *cre.Topology,
 	creEnv *cre.Environment,
-	gatewayJobConfigs map[cre.NodeUUID]*config.GatewayConfig,
 ) (*cre.PreEnvStartupOutput, error) {
 	// nothing to do
 	return nil, nil
@@ -50,10 +47,11 @@ const (
 func (o *DONTime) PostEnvStartup(
 	ctx context.Context,
 	testLogger zerolog.Logger,
+	donTopology *cre.DonTopology,
 	creEnv *cre.Environment,
 ) error {
 	// should we support more than one DON with DON Time capability?
-	dons := creEnv.DonTopology.DonsWithFlag(flag)
+	dons := donTopology.DonsWithFlag(flag)
 	if len(dons) == 0 {
 		return nil
 	}
@@ -62,14 +60,14 @@ func (o *DONTime) PostEnvStartup(
 	}
 	donTimeDON := dons[0]
 
-	_, donTimeContractAddr, timeErr := contracts.DeployOCR3Contract(testLogger, ContractQualifier, creEnv.DonTopology.HomeChainSelector, creEnv.CldfEnvironment, creEnv.ContractVersions)
+	_, donTimeContractAddr, timeErr := contracts.DeployOCR3Contract(testLogger, ContractQualifier, creEnv.RegistryChainSelector, creEnv.CldfEnvironment, creEnv.ContractVersions)
 	if timeErr != nil {
 		return fmt.Errorf("failed to deploy DONTime contract %w", timeErr)
 	}
 
-	chainID, chErr := chainselectors.ChainIdFromSelector(creEnv.DonTopology.HomeChainSelector)
+	chainID, chErr := chainselectors.ChainIdFromSelector(creEnv.RegistryChainSelector)
 	if chErr != nil {
-		return errors.Wrapf(chErr, "failed to get chain ID from chain selector %d", creEnv.DonTopology.HomeChainSelector)
+		return errors.Wrapf(chErr, "failed to get chain ID from chain selector %d", creEnv.RegistryChainSelector)
 	}
 	jobErr := createJobs(
 		ctx,
@@ -77,7 +75,7 @@ func (o *DONTime) PostEnvStartup(
 		donTimeContractAddr,
 		creEnv.CldfEnvironment.Offchain.(*jd.JobDistributor),
 		donTimeDON,
-		creEnv.DonTopology,
+		donTopology,
 	)
 	if jobErr != nil {
 		return fmt.Errorf("failed to create DON Time jobs: %w", jobErr)
@@ -96,7 +94,7 @@ func (o *DONTime) PostEnvStartup(
 		},
 		ks_contracts_op.ConfigureOCR3OpInput{
 			ContractAddress: donTimeContractAddr,
-			ChainSelector:   creEnv.DonTopology.HomeChainSelector,
+			ChainSelector:   creEnv.RegistryChainSelector,
 			DON:             donTimeDON.KeystoneDONConfig(),
 			Config:          donTimeDON.ResolveORC3Config(ocr3Config),
 			DryRun:          false,

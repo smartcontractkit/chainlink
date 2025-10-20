@@ -27,7 +27,6 @@ import (
 	tronchangeset "github.com/smartcontractkit/chainlink/deployment/keystone/changeset/tron"
 	corechainlink "github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 
-	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/config"
 	corevm "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm"
 
 	capabilitiespb "github.com/smartcontractkit/chainlink-common/pkg/capabilities/pb"
@@ -53,10 +52,8 @@ func (o *EVM) Flag() cre.CapabilityFlag {
 func (o *EVM) PreEnvStartup(
 	ctx context.Context,
 	testLogger zerolog.Logger,
-	registryChainSelector uint64,
 	topology *cre.Topology,
 	creEnv *cre.Environment,
-	gatewayJobConfigs map[cre.NodeUUID]*config.GatewayConfig,
 ) (*cre.PreEnvStartupOutput, error) {
 	donsMetadata := topology.DonsMetadataWithFlag(flag)
 	if len(donsMetadata) == 0 {
@@ -68,7 +65,7 @@ func (o *EVM) PreEnvStartup(
 	if exist {
 		selectorsToDeploy := make([]uint64, 0)
 		for _, selector := range evmForwardersSelectors {
-			//filter out EVM forwarder selectors that might have been already deployed by evm_v2 capability
+			// filter out EVM forwarder selectors that might have been already deployed by evm_v2 capability
 			forwarderAddr := contracts.MightGetAddressFromDataStore(creEnv.CldfEnvironment.DataStore, selector, keystone_changeset.KeystoneForwarder.String(), creEnv.ContractVersions[keystone_changeset.KeystoneForwarder.String()], "")
 			if forwarderAddr == nil {
 				selectorsToDeploy = append(selectorsToDeploy, selector)
@@ -138,25 +135,26 @@ func (o *EVM) PreEnvStartup(
 func (o *EVM) PostEnvStartup(
 	ctx context.Context,
 	testLogger zerolog.Logger,
+	donTopology *cre.DonTopology,
 	creEnv *cre.Environment,
 ) error {
-	dons := creEnv.DonTopology.DonsWithFlag(flag)
+	dons := donTopology.DonsWithFlag(flag)
 	if len(dons) == 0 {
 		return nil
 	}
 
 	consensusVersion := "v1"
-	consensusDON, oneErr := creEnv.DonTopology.OneDonWithFlag(cre.ConsensusCapability)
+	consensusDON, oneErr := donTopology.OneDonWithFlag(cre.ConsensusCapability)
 	if oneErr != nil {
 		// if v1 consensus DON is not found, let's try v2. We should have exactly one DON with either v1 or v2 consensus
-		consensusDON, oneErr = creEnv.DonTopology.OneDonWithFlag(cre.ConsensusCapabilityV2)
+		consensusDON, oneErr = donTopology.OneDonWithFlag(cre.ConsensusCapabilityV2)
 		consensusVersion = "v2"
 		if oneErr != nil {
 			return errors.New("failed to find DON with consensus v1 or v2 capability")
 		}
 	}
 
-	chainsWithForwarders := evm.ChainsWithForwarders(creEnv.Blockchains, creEnv.DonTopology.Dons.AsNodeSetWithChainCapabilities())
+	chainsWithForwarders := evm.ChainsWithForwarders(creEnv.Blockchains, donTopology.Dons.AsNodeSetWithChainCapabilities())
 
 	// for now we end up configuring forwarders twice, if the same chain has both evm v1 and v2 capabilities enabled
 	// it doesn't create any issues, but ideally we wouldn't do that
@@ -169,7 +167,7 @@ func (o *EVM) PostEnvStartup(
 
 	_, exist = chainsWithForwarders[blockchain.FamilyTron]
 	if exist {
-		tErr := configureTronForwarders(testLogger, creEnv.CldfEnvironment, creEnv.DonTopology.HomeChainSelector, dons)
+		tErr := configureTronForwarders(testLogger, creEnv.CldfEnvironment, creEnv.RegistryChainSelector, dons)
 		if tErr != nil {
 			return errors.Wrap(tErr, "failed to configure TRON forwarders")
 		}

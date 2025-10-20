@@ -27,7 +27,6 @@ import (
 
 	capabilitiespb "github.com/smartcontractkit/chainlink-common/pkg/capabilities/pb"
 	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
-	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
 	libc "github.com/smartcontractkit/chainlink/system-tests/lib/conversions"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre"
@@ -38,8 +37,6 @@ import (
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/jobs/ocr/chainlevel"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/features/evm"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/flags"
-	"github.com/smartcontractkit/chainlink/system-tests/lib/infra"
-	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/config"
 )
 
 const (
@@ -60,10 +57,8 @@ func (o *EVM) Flag() cre.CapabilityFlag {
 func (o *EVM) PreEnvStartup(
 	ctx context.Context,
 	testLogger zerolog.Logger,
-	registryChainSelector uint64,
 	topology *cre.Topology,
 	creEnv *cre.Environment,
-	gatewayJobConfigs map[cre.NodeUUID]*config.GatewayConfig,
 ) (*cre.PreEnvStartupOutput, error) {
 	donsMetadata := topology.DonsMetadataWithFlag(flag)
 	if len(donsMetadata) == 0 {
@@ -76,7 +71,7 @@ func (o *EVM) PreEnvStartup(
 	if exist {
 		selectorsToDeploy := make([]uint64, 0)
 		for _, selector := range evmForwardersSelectors {
-			//filter out EVM forwarder selectors that might have been already deployed by evm_v2 capability
+			// filter out EVM forwarder selectors that might have been already deployed by evm_v2 capability
 			forwarderAddr := contracts.MightGetAddressFromDataStore(creEnv.CldfEnvironment.DataStore, selector, keystone_changeset.KeystoneForwarder.String(), creEnv.ContractVersions[keystone_changeset.KeystoneForwarder.String()], "")
 			if forwarderAddr == nil {
 				selectorsToDeploy = append(selectorsToDeploy, selector)
@@ -182,9 +177,10 @@ func updateNodeConfig(workerNode *cre.NodeMetadata, nodeSet *cre.CapabilitiesAwa
 func (o *EVM) PostEnvStartup(
 	ctx context.Context,
 	testLogger zerolog.Logger,
+	donTopology *cre.DonTopology,
 	creEnv *cre.Environment,
 ) error {
-	dons := creEnv.DonTopology.DonsWithFlag(flag)
+	dons := donTopology.DonsWithFlag(flag)
 	if len(dons) == 0 {
 		return nil
 	}
@@ -192,7 +188,7 @@ func (o *EVM) PostEnvStartup(
 	chainsWithEVMCapability := chainsWithEVMCapability(creEnv.Blockchains, dons)
 	for chainID, selector := range chainsWithEVMCapability {
 		qualifier := ks_contracts_op.CapabilityContractIdentifier(uint64(chainID))
-		_, _, seqErr := contracts.DeployOCR3Contract(testLogger, qualifier, creEnv.DonTopology.HomeChainSelector, creEnv.CldfEnvironment, creEnv.ContractVersions)
+		_, _, seqErr := contracts.DeployOCR3Contract(testLogger, qualifier, creEnv.RegistryChainSelector, creEnv.CldfEnvironment, creEnv.ContractVersions)
 		if seqErr != nil {
 			return fmt.Errorf("failed to deploy EVM OCR3 contract for chainID %d, selector %d: %w", chainID, selector, seqErr)
 		}
@@ -200,11 +196,8 @@ func (o *EVM) PostEnvStartup(
 
 	jobsErr := createJobs(
 		ctx,
-		creEnv.CldfEnvironment,
-		creEnv.DonTopology.HomeChainSelector,
-		creEnv.DonTopology,
-		creEnv.Provider,
-		creEnv.CapabilityConfigs,
+		donTopology,
+		creEnv,
 	)
 	if jobsErr != nil {
 		return jobsErr
@@ -217,9 +210,9 @@ func (o *EVM) PostEnvStartup(
 		qualifier := ks_contracts_op.CapabilityContractIdentifier(uint64(chainID))
 		// we have deployed OCR3 contract for each EVM chain on the registry chain to avoid a situation when more than 1 OCR contract (of any type) has the same address
 		// because in past that violeted a DB constraint for offchain reporting jobs. Now there is no such limitation, but still it's better to have unique addresses to avoid confusion.
-		evmOCR3Addr := contracts.MustGetAddressFromDataStore(creEnv.CldfEnvironment.DataStore, creEnv.DonTopology.HomeChainSelector, keystone_changeset.OCR3Capability.String(), "1.0.0", qualifier)
+		evmOCR3Addr := contracts.MustGetAddressFromDataStore(creEnv.CldfEnvironment.DataStore, creEnv.RegistryChainSelector, keystone_changeset.OCR3Capability.String(), "1.0.0", qualifier)
 		var evmDON *cre.DON
-		for _, don := range creEnv.DonTopology.DonsWithFlag(cre.EVMCapability) {
+		for _, don := range donTopology.DonsWithFlag(cre.EVMCapability) {
 			if flags.HasFlagForChain(don.Flags, cre.EVMCapability, uint64(chainID)) {
 				evmDON = don
 				break
@@ -243,7 +236,7 @@ func (o *EVM) PostEnvStartup(
 			},
 			ks_contracts_op.ConfigureOCR3OpInput{
 				ContractAddress: ptr.Ptr(common.HexToAddress(evmOCR3Addr)),
-				ChainSelector:   creEnv.DonTopology.HomeChainSelector,
+				ChainSelector:   creEnv.RegistryChainSelector,
 				DON:             evmDON.KeystoneDONConfig(),
 				Config:          evmDON.ResolveORC3Config(ocr3Config),
 				DryRun:          false,
@@ -256,10 +249,10 @@ func (o *EVM) PostEnvStartup(
 
 	// configure EVM forwarders
 	consensusVersion := "v1"
-	consensusDON, oneErr := creEnv.DonTopology.OneDonWithFlag(cre.ConsensusCapability)
+	consensusDON, oneErr := donTopology.OneDonWithFlag(cre.ConsensusCapability)
 	if oneErr != nil {
 		// if v1 consensus DON is not found, let's try v2. We should have exactly one DON with either v1 or v2 consensus
-		consensusDON, oneErr = creEnv.DonTopology.OneDonWithFlag(cre.ConsensusCapabilityV2)
+		consensusDON, oneErr = donTopology.OneDonWithFlag(cre.ConsensusCapabilityV2)
 		consensusVersion = "v2"
 		if oneErr != nil {
 			return errors.New("failed to find DON with consensus v1 or v2 capability")
@@ -299,11 +292,8 @@ func chainsWithEVMCapability(chains []*cre.WrappedBlockchainOutput, dons []*cre.
 
 func createJobs(
 	ctx context.Context,
-	cldfEnv *cldf.Environment,
-	registryChainSelector uint64,
 	donTopology *cre.DonTopology,
-	provider infra.Provider,
-	capabilityConfigs map[string]cre.CapabilityConfig,
+	creEnv *cre.Environment,
 ) error {
 	generateJobSpec := func(logger zerolog.Logger, chainID uint64, nodeAddress string, mergedConfig map[string]any) (string, error) {
 		cs, ok := chainselectors.EvmChainIdToChainSelector()[chainID]
@@ -317,7 +307,7 @@ func createJobs(
 			semver.MustParse("1.0.0"),
 			"",
 		)
-		creForwarderAddress, err := cldfEnv.DataStore.Addresses().Get(creForwarderKey)
+		creForwarderAddress, err := creEnv.CldfEnvironment.DataStore.Addresses().Get(creForwarderKey)
 		if err != nil {
 			return "", errors.Wrap(err, "failed to get CRE Forwarder address")
 		}
@@ -355,7 +345,7 @@ func createJobs(
 			// we have deployed OCR3 contract for each EVM chain on the registry chain to avoid a situation when more than 1 OCR contract (of any type) has the same address
 			// because that violates a DB constraint for offchain reporting jobs
 			// this can be removed once https://smartcontract-it.atlassian.net/browse/PRODCRE-804 is done and we can deploy OCR3 contract for each EVM chain on that chain
-			registryChainSelector,
+			creEnv.RegistryChainSelector,
 			datastore.ContractType(keystone_changeset.OCR3Capability.String()),
 			semver.MustParse("1.0.0"),
 			contractName,
@@ -364,9 +354,8 @@ func createJobs(
 
 	donsToJobSpecs, jErr := ocr.GenerateJobSpecsForStandardCapabilityWithOCR(
 		donTopology,
-		cldfEnv.DataStore,
+		creEnv,
 		donTopology.Dons.AsNodeSetWithChainCapabilities(),
-		provider,
 		flag,
 		ks_contracts_op.CapabilityContractIdentifier,
 		dataStoreOCR3ContractKeyProvider,
@@ -374,7 +363,6 @@ func createJobs(
 		chainlevel.EnabledChainsProvider,
 		generateJobSpec,
 		chainlevel.ConfigMerger,
-		capabilityConfigs,
 	)
 	if jErr != nil {
 		return errors.Wrap(jErr, "failed to generate EVM OCR3 job specs")
@@ -385,7 +373,7 @@ func createJobs(
 		if !ok {
 			continue
 		}
-		jobErr := jobs.Create(ctx, cldfEnv.Offchain, donTopology, jobSpecs)
+		jobErr := jobs.Create(ctx, creEnv.CldfEnvironment.Offchain, donTopology, jobSpecs)
 
 		if jobErr != nil {
 			return fmt.Errorf("failed to create EVM OCR3 jobs for don %s: %w", don.Name, jobErr)

@@ -382,11 +382,11 @@ func (c *ConfigureCapabilityRegistryInput) Validate() error {
 	return nil
 }
 
-type GatewayConnectorOutput struct {
+type GatewayConnectors struct {
 	Configurations []*DonGatewayConfiguration `toml:"configurations" json:"configurations"`
 }
 
-func (g *GatewayConnectorOutput) FindByNodeUUID(uuid string) (*GatewayConfiguration, error) {
+func (g *GatewayConnectors) FindByNodeUUID(uuid string) (*GatewayConfiguration, error) {
 	for _, config := range g.Configurations {
 		if config.NodeUUID == uuid {
 			return config.GatewayConfiguration, nil
@@ -395,8 +395,8 @@ func (g *GatewayConnectorOutput) FindByNodeUUID(uuid string) (*GatewayConfigurat
 	return nil, fmt.Errorf("gateway configuration for node UUID %s not found", uuid)
 }
 
-func NewGatewayConnectorOutput() *GatewayConnectorOutput {
-	return &GatewayConnectorOutput{
+func NewGatewayConnectorOutput() *GatewayConnectors {
+	return &GatewayConnectors{
 		Configurations: make([]*DonGatewayConfiguration, 0),
 	}
 }
@@ -423,7 +423,7 @@ type GenerateConfigsInput struct {
 	AddressBook             cldf.AddressBook
 	NodeSet                 *CapabilitiesAwareNodeSet
 	CapabilityConfigs       CapabilityConfigs
-	GatewayConnectorOutput  *GatewayConnectorOutput // optional, automatically set if some DON in the topology has the GatewayDON flag
+	GatewayConnectorOutput  *GatewayConnectors // optional, automatically set if some DON in the topology has the GatewayDON flag
 }
 
 func (g *GenerateConfigsInput) Validate() error {
@@ -793,18 +793,16 @@ func newNodes(cfgs []NodeMetadataConfig) ([]*NodeMetadata, error) {
 
 func NewDonTopology(registryChainSelector uint64, topology *Topology, dons *Dons) *DonTopology {
 	return &DonTopology{
-		WorkflowDonID:          topology.WorkflowDONID,
-		HomeChainSelector:      registryChainSelector,
-		Dons:                   dons,
-		GatewayConnectorOutput: topology.GatewayConnectorOutput,
+		WorkflowDonID:     topology.WorkflowDONID,
+		Dons:              dons,
+		GatewayConnectors: topology.GatewayConnectors,
 	}
 }
 
 type DonTopology struct {
-	WorkflowDonID          uint64                  `toml:"workflow_don_id" json:"workflow_don_id"`
-	HomeChainSelector      uint64                  `toml:"home_chain_selector" json:"home_chain_selector"`
-	Dons                   *Dons                   `toml:"dons" json:"dons"`
-	GatewayConnectorOutput *GatewayConnectorOutput `toml:"gateway_connector_output" json:"gateway_connector_output"`
+	WorkflowDonID     uint64             `toml:"workflow_don_id" json:"workflow_don_id"`
+	Dons              *Dons              `toml:"dons" json:"dons"`
+	GatewayConnectors *GatewayConnectors `toml:"gateway_connectors" json:"gateway_connectors"`
 }
 
 // BootstrapNode returns the the bootstrap node that should be used as the bootstrap node for P2P peering
@@ -1207,12 +1205,12 @@ func (f *LinkDonsToJDInput) Validate() error {
 }
 
 type Environment struct {
-	CldfEnvironment   *cldf.Environment
-	DonTopology       *DonTopology
-	Blockchains       []*WrappedBlockchainOutput
-	ContractVersions  map[string]string
-	Provider          infra.Provider
-	CapabilityConfigs map[CapabilityFlag]CapabilityConfig
+	CldfEnvironment       *cldf.Environment
+	RegistryChainSelector uint64
+	Blockchains           []*WrappedBlockchainOutput
+	ContractVersions      map[string]string
+	Provider              infra.Provider
+	CapabilityConfigs     map[CapabilityFlag]CapabilityConfig
 }
 
 type DeployCribDonsInput struct {
@@ -1276,12 +1274,10 @@ type (
 )
 
 type JobSpecInput struct {
-	CldEnvironment    *cldf.Environment
-	DonTopology       *DonTopology
-	InfraInput        infra.Provider
-	CapabilityConfigs map[string]CapabilityConfig
-	Capabilities      []InstallableCapability
-	NodeSets          []NodeSetWithCapabilityConfigs
+	CreEnvironment *Environment
+	DonTopology    *DonTopology
+	Capabilities   []InstallableCapability
+	NodeSets       []NodeSetWithCapabilityConfigs
 }
 
 type NodeSetWithCapabilityConfigs interface {
@@ -1351,14 +1347,13 @@ type Feature interface {
 	PreEnvStartup(
 		ctx context.Context,
 		testLogger zerolog.Logger,
-		registryChainSelector uint64,
 		topology *Topology,
 		creEnv *Environment,
-		gatewayJobConfigs map[NodeUUID]*config.GatewayConfig,
 	) (*PreEnvStartupOutput, error)
 	PostEnvStartup(
 		ctx context.Context,
 		testLogger zerolog.Logger,
+		donTopology *DonTopology,
 		creEnv *Environment,
 	) error
 }

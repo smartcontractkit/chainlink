@@ -156,8 +156,8 @@ func executeHTTPTriggerRequestExpectingFailure(t *testing.T, testEnv *ttypes.Tes
 	testLogger := framework.L
 
 	// Get gateway configuration
-	require.NotEmpty(t, testEnv.CreEnvironment.DonTopology.GatewayConnectorOutput.Configurations, "expected at least one gateway configuration")
-	gatewayConfig := testEnv.CreEnvironment.DonTopology.GatewayConnectorOutput.Configurations[0]
+	require.NotEmpty(t, testEnv.DonTopology.GatewayConnectors.Configurations, "expected at least one gateway configuration")
+	gatewayConfig := testEnv.DonTopology.GatewayConnectors.Configurations[0]
 
 	// Build gateway URL
 	newGatewayURL := gatewayConfig.Incoming.Protocol + "://" + gatewayConfig.Incoming.Host + ":" + strconv.Itoa(gatewayConfig.Incoming.ExternalPort) + gatewayConfig.Incoming.Path

@@ -64,8 +64,8 @@ func ExecuteVaultTest(t *testing.T, testEnv *ttypes.TestEnvironment) {
 	time.Sleep(30 * time.Second)
 
 	testLogger.Info().Msg("Getting gateway configuration...")
-	require.NotEmpty(t, testEnv.CreEnvironment.DonTopology.GatewayConnectorOutput.Configurations, "expected at least one gateway configuration")
-	gatewayURL, err := url.Parse(testEnv.CreEnvironment.DonTopology.GatewayConnectorOutput.Configurations[0].Incoming.Protocol + "://" + testEnv.CreEnvironment.DonTopology.GatewayConnectorOutput.Configurations[0].Incoming.Host + ":" + strconv.Itoa(testEnv.CreEnvironment.DonTopology.GatewayConnectorOutput.Configurations[0].Incoming.ExternalPort) + testEnv.CreEnvironment.DonTopology.GatewayConnectorOutput.Configurations[0].Incoming.Path)
+	require.NotEmpty(t, testEnv.DonTopology.GatewayConnectors.Configurations, "expected at least one gateway configuration")
+	gatewayURL, err := url.Parse(testEnv.DonTopology.GatewayConnectors.Configurations[0].Incoming.Protocol + "://" + testEnv.DonTopology.GatewayConnectors.Configurations[0].Incoming.Host + ":" + strconv.Itoa(testEnv.DonTopology.GatewayConnectors.Configurations[0].Incoming.ExternalPort) + testEnv.DonTopology.GatewayConnectors.Configurations[0].Incoming.Path)
 	require.NoError(t, err, "failed to parse gateway URL")
 	testLogger.Info().Msgf("Gateway URL: %s", gatewayURL.String())
 

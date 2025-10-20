@@ -26,5 +26,6 @@ type TestEnvironment struct {
 	EnvArtifact              *environment.EnvArtifact
 	Logger                   zerolog.Logger
 	CreEnvironment           *cre.Environment
+	DonTopology              *cre.DonTopology
 	WrappedBlockchainOutputs []*cre.WrappedBlockchainOutput
 }

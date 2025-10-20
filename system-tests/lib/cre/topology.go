@@ -7,6 +7,7 @@ import (
 	"github.com/pkg/errors"
 
 	libc "github.com/smartcontractkit/chainlink/system-tests/lib/conversions"
+	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/config"
 
 	"github.com/smartcontractkit/chainlink/system-tests/lib/infra"
 )
@@ -17,9 +18,10 @@ const (
 )
 
 type Topology struct {
-	WorkflowDONID          uint64                  `toml:"workflow_don_id" json:"workflow_don_id"`
-	DonsMetadata           *DonsMetadata           `toml:"dons_metadata" json:"dons_metadata"`
-	GatewayConnectorOutput *GatewayConnectorOutput `toml:"gateway_connector_output" json:"gateway_connector_output"`
+	WorkflowDONID     uint64        `toml:"workflow_don_id" json:"workflow_don_id"`
+	DonsMetadata      *DonsMetadata `toml:"dons_metadata" json:"dons_metadata"`
+	GatewayJobConfigs map[NodeUUID]*config.GatewayConfig
+	GatewayConnectors *GatewayConnectors `toml:"gateway_connectors" json:"gateway_connectors"`
 }
 
 func NewTopology(nodeSetInput []*CapabilitiesAwareNodeSet, provider infra.Provider) (*Topology, error) {
@@ -51,14 +53,14 @@ func NewTopology(nodeSetInput []*CapabilitiesAwareNodeSet, provider infra.Provid
 	}
 
 	if donsMetadata.RequiresGateway() {
-		topology.GatewayConnectorOutput = NewGatewayConnectorOutput()
+		topology.GatewayConnectors = NewGatewayConnectorOutput()
 		for _, d := range donsMetadata.List() {
 			if _, hasGateway := d.Gateway(); hasGateway {
 				gc, err := d.GatewayConfig(provider)
 				if err != nil {
 					return nil, fmt.Errorf("failed to get gateway config for DON %s: %w", d.Name, err)
 				}
-				topology.GatewayConnectorOutput.Configurations = append(topology.GatewayConnectorOutput.Configurations, gc)
+				topology.GatewayConnectors.Configurations = append(topology.GatewayConnectors.Configurations, gc)
 			}
 		}
 	}

@@ -16,7 +16,6 @@ import (
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/jobs"
 	factory "github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/jobs/standardcapability"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/jobs/standardcapability/donlevel"
-	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/config"
 )
 
 const flag = cre.CronCapability
@@ -30,10 +29,8 @@ func (c *Cron) Flag() cre.CapabilityFlag {
 func (c *Cron) PreEnvStartup(
 	ctx context.Context,
 	testLogger zerolog.Logger,
-	registryChainSelector uint64,
 	topology *cre.Topology,
 	creEnv *cre.Environment,
-	gatewayJobConfigs map[cre.NodeUUID]*config.GatewayConfig,
 ) (*cre.PreEnvStartupOutput, error) {
 	donsMetadata := topology.DonsMetadataWithFlag(flag)
 	if len(donsMetadata) == 0 {
@@ -66,14 +63,16 @@ const configTemplate = `""` // Empty config by default
 func (c *Cron) PostEnvStartup(
 	ctx context.Context,
 	testLogger zerolog.Logger,
+	donTopology *cre.DonTopology,
 	creEnv *cre.Environment,
 ) error {
-	dons := creEnv.DonTopology.DonsWithFlag(flag)
+	dons := donTopology.DonsWithFlag(flag)
 	if len(dons) == 0 {
 		return nil
 	}
 
 	perDonJobSpecFactory, fErr := factory.NewCapabilityJobSpecFactory(
+		creEnv.RegistryChainSelector,
 		donlevel.CapabilityEnabler,
 		donlevel.EnabledChainsProvider,
 		donlevel.ConfigResolver,
@@ -95,11 +94,9 @@ func (c *Cron) PostEnvStartup(
 		factory.NoOpExtractor,
 		factory.BinaryPathBuilder,
 	)(&cre.JobSpecInput{
-		CldEnvironment:    creEnv.CldfEnvironment,
-		DonTopology:       creEnv.DonTopology,
-		InfraInput:        creEnv.Provider,
-		NodeSets:          creEnv.DonTopology.Dons.AsNodeSetWithChainCapabilities(),
-		CapabilityConfigs: creEnv.CapabilityConfigs,
+		CreEnvironment: creEnv,
+		DonTopology:    donTopology,
+		NodeSets:       donTopology.Dons.AsNodeSetWithChainCapabilities(),
 	})
 	if specErr != nil {
 		return fmt.Errorf("failed to build job spec for http action capability: %w", specErr)
@@ -111,7 +108,7 @@ func (c *Cron) PostEnvStartup(
 			continue
 		}
 		// pass whole topology, since some jobs might need to be created on multiple DONs
-		jobErr := jobs.Create(ctx, creEnv.CldfEnvironment.Offchain, creEnv.DonTopology, jobSpecs)
+		jobErr := jobs.Create(ctx, creEnv.CldfEnvironment.Offchain, donTopology, jobSpecs)
 		if jobErr != nil {
 			return fmt.Errorf("failed to create http action jobs for don %s: %w", don.Name, jobErr)
 		}

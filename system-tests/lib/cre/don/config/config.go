@@ -39,25 +39,20 @@ import (
 const TronEVMChainID = 3360022319
 
 func PrepareNodeTOMLs(
-	registryChainSelector uint64,
+	topology *cre.Topology,
 	creEnv *cre.Environment,
 	nodeSets []*cre.CapabilitiesAwareNodeSet,
 	capabilities []cre.InstallableCapability, // Deprecated, use Features instead and modify node configs inside a Feature
 	nodeConfigTransformerFns []cre.NodeConfigTransformerFn,
-) (*cre.Topology, []*cre.CapabilitiesAwareNodeSet, error) {
-	topology, tErr := cre.NewTopology(nodeSets, creEnv.Provider)
-	if tErr != nil {
-		return nil, nil, errors.Wrap(tErr, "failed to create topology")
-	}
-
+) ([]*cre.CapabilitiesAwareNodeSet, error) {
 	bt, hasBootstrap := topology.Bootstrap()
 	if !hasBootstrap {
-		return nil, nil, errors.New("no DON contains a bootstrap node, but exactly one is required")
+		return nil, errors.New("no DON contains a bootstrap node, but exactly one is required")
 	}
 
 	capabilitiesPeeringData, ocrPeeringData, peeringErr := cre.PeeringCfgs(bt)
 	if peeringErr != nil {
-		return nil, nil, errors.Wrap(peeringErr, "failed to find peering data")
+		return nil, errors.Wrap(peeringErr, "failed to find peering data")
 	}
 
 	localNodeSets := topology.CapabilitiesAwareNodeSets()
@@ -90,18 +85,18 @@ func PrepareNodeTOMLs(
 		}
 
 		if configsFound != 0 && configsFound != len(localNodeSets[i].NodeSpecs) {
-			return nil, nil, fmt.Errorf("%d out of %d node specs have config overrides. Either provide overrides for all nodes or none at all", configsFound, len(localNodeSets[i].NodeSpecs))
+			return nil, fmt.Errorf("%d out of %d node specs have config overrides. Either provide overrides for all nodes or none at all", configsFound, len(localNodeSets[i].NodeSpecs))
 		}
 
 		if secretsFound != 0 && secretsFound != len(localNodeSets[i].NodeSpecs) {
-			return nil, nil, fmt.Errorf("%d out of %d node specs have secrets overrides. Either provide overrides for all nodes or none at all", secretsFound, len(localNodeSets[i].NodeSpecs))
+			return nil, fmt.Errorf("%d out of %d node specs have secrets overrides. Either provide overrides for all nodes or none at all", secretsFound, len(localNodeSets[i].NodeSpecs))
 		}
 
 		// Allow providing only secrets, because we can decode them and use them to generate configs
 		// We can't allow providing only configs, because we don't want to deal with parsing configs to set new secrets there.
 		// If both are provided, we assume that the user knows what they are doing and we don't need to validate anything
 		if configsFound > 0 && secretsFound == 0 {
-			return nil, nil, fmt.Errorf("nodespec config overrides are provided for DON %s, but not secrets. You need to either provide both, only secrets or nothing at all", donMetadata.Name)
+			return nil, fmt.Errorf("nodespec config overrides are provided for DON %s, but not secrets. You need to either provide both, only secrets or nothing at all", donMetadata.Name)
 		}
 
 		configFactoryFunctions := make([]cre.NodeConfigTransformerFn, 0)
@@ -121,15 +116,15 @@ func PrepareNodeTOMLs(
 					Flags:                   donMetadata.Flags,
 					CapabilitiesPeeringData: capabilitiesPeeringData,
 					OCRPeeringData:          ocrPeeringData,
-					HomeChainSelector:       registryChainSelector,
-					GatewayConnectorOutput:  topology.GatewayConnectorOutput,
+					HomeChainSelector:       creEnv.RegistryChainSelector,
+					GatewayConnectorOutput:  topology.GatewayConnectors,
 					NodeSet:                 localNodeSets[i],
 					CapabilityConfigs:       creEnv.CapabilityConfigs,
 				},
 				configFactoryFunctions,
 			)
 			if configErr != nil {
-				return nil, nil, errors.Wrap(configErr, "failed to generate config")
+				return nil, errors.Wrap(configErr, "failed to generate config")
 			}
 
 			for j := range donMetadata.NodesMetadata {
@@ -143,14 +138,14 @@ func PrepareNodeTOMLs(
 				wnode := donMetadata.NodesMetadata[nodeIndex]
 				nodeSecretsTOML, err := wnode.Keys.ToNodeSecretsTOML()
 				if err != nil {
-					return nil, nil, errors.Wrapf(err, "failed to marshal node secrets (DON: %s, Node index: %d)", donMetadata.Name, nodeIndex)
+					return nil, errors.Wrapf(err, "failed to marshal node secrets (DON: %s, Node index: %d)", donMetadata.Name, nodeIndex)
 				}
 				localNodeSets[i].NodeSpecs[nodeIndex].Node.TestSecretsOverrides = nodeSecretsTOML
 			}
 		}
 	}
 
-	return topology, localNodeSets, nil
+	return localNodeSets, nil
 }
 
 func generateNodeTomlConfig(input cre.GenerateConfigsInput, nodeConfigTransformers []cre.NodeConfigTransformerFn) (cre.NodeIndexToConfigOverride, error) {
@@ -302,7 +297,7 @@ func addWorkerNodeConfig(
 	existingConfig corechainlink.Config,
 	ocrPeeringData cre.OCRPeeringData,
 	commonInputs *commonInputs,
-	gatewayConnector *cre.GatewayConnectorOutput,
+	gatewayConnector *cre.GatewayConnectors,
 	donMetadata *cre.DonMetadata,
 	m *cre.NodeMetadata,
 ) (corechainlink.Config, error) {

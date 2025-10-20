@@ -22,15 +22,13 @@ import (
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre"
 	crecapabilities "github.com/smartcontractkit/chainlink/system-tests/lib/cre/capabilities"
 	standardcapability "github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/jobs/standardcapability"
-	"github.com/smartcontractkit/chainlink/system-tests/lib/infra"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 )
 
 func GenerateJobSpecsForStandardCapabilityWithOCR(
 	donTopology *cre.DonTopology,
-	ds datastore.DataStore,
+	creEnv *cre.Environment,
 	nodeSets []cre.NodeSetWithCapabilityConfigs,
-	infraInput infra.Provider,
 	flag cre.CapabilityFlag,
 	contractNamer ContractNamer,
 	dataStoreOCR3ContractKeyProvider DataStoreOCR3ContractKeyProvider,
@@ -38,7 +36,6 @@ func GenerateJobSpecsForStandardCapabilityWithOCR(
 	enabledChainsProvider EnabledChainsProvider,
 	jobConfigGenerator JobConfigGenerator,
 	configMerger ConfigMerger,
-	capabilitiesConfig map[string]cre.CapabilityConfig,
 ) (cre.DonsToJobSpecs, error) {
 	if donTopology == nil {
 		return nil, errors.New("topology is nil")
@@ -68,14 +65,14 @@ func GenerateJobSpecsForStandardCapabilityWithOCR(
 			continue
 		}
 
-		capabilityConfig, ok := capabilitiesConfig[flag]
+		capabilityConfig, ok := creEnv.CapabilityConfigs[flag]
 		if !ok {
-			return nil, fmt.Errorf("%s config not found in capabilities config: %v", flag, capabilitiesConfig)
+			return nil, fmt.Errorf("%s config not found in capabilities config: %v", flag, creEnv.CapabilityConfigs)
 		}
 
-		containerPath, pathErr := crecapabilities.DefaultContainerDirectory(infraInput.Type)
+		containerPath, pathErr := crecapabilities.DefaultContainerDirectory(creEnv.Provider.Type)
 		if pathErr != nil {
-			return nil, errors.Wrapf(pathErr, "failed to get default container directory for infra type %s", infraInput.Type)
+			return nil, errors.Wrapf(pathErr, "failed to get default container directory for infra type %s", creEnv.Provider.Type)
 		}
 
 		binaryPath := filepath.Join(containerPath, filepath.Base(capabilityConfig.BinaryPath))
@@ -90,7 +87,7 @@ func GenerateJobSpecsForStandardCapabilityWithOCR(
 			return nil, errors.New("could not find bootstrap node in topology, exactly one bootstrap node is required")
 		}
 
-		chainIDs, err := enabledChainsProvider(donTopology, nodeSets[donIdx], flag)
+		chainIDs, err := enabledChainsProvider(creEnv.RegistryChainSelector, nodeSets[donIdx], flag)
 		if err != nil {
 			return nil, fmt.Errorf("failed to get enabled chains %w", err)
 		}
@@ -119,7 +116,7 @@ func GenerateJobSpecsForStandardCapabilityWithOCR(
 
 			contractName := contractNamer(chainID)
 			ocr3Key := dataStoreOCR3ContractKeyProvider(contractName, cs)
-			ocr3ConfigContractAddress, err := ds.Addresses().Get(ocr3Key)
+			ocr3ConfigContractAddress, err := creEnv.CldfEnvironment.DataStore.Addresses().Get(ocr3Key)
 			if err != nil {
 				return nil, errors.Wrapf(err, "failed contract address for key %s and chainID %d", ocr3Key, chainID)
 			}
@@ -241,7 +238,7 @@ type JobConfigGenerator = func(logger zerolog.Logger, chainID uint64, nodeAddres
 type CapabilityEnabler func(don *cre.DON, flag cre.CapabilityFlag) bool
 
 // EnabledChainsProvider provides the list of enabled chains for a given capability
-type EnabledChainsProvider func(donTopology *cre.DonTopology, nodeSet cre.NodeSetWithCapabilityConfigs, flag cre.CapabilityFlag) ([]uint64, error)
+type EnabledChainsProvider func(registryChainSelector uint64, nodeSet cre.NodeSetWithCapabilityConfigs, flag cre.CapabilityFlag) ([]uint64, error)
 
 // ContractNamer is a function that returns the name of the OCR3 contract  used in the datastore
 type ContractNamer func(chainID uint64) string

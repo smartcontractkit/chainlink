@@ -149,31 +149,31 @@ func setupLoadTestEnvironment(
 	in.WorkflowRegistryConfiguration.Out = universalSetupOutput.WorkflowRegistryConfigurationOutput
 
 	forwarderAddress, _, forwarderErr := crecontracts.FindAddressesForChain(
-		universalSetupOutput.CldEnvironment.ExistingAddresses,
-		universalSetupOutput.BlockchainOutput[0].ChainSelector,
+		universalSetupOutput.CreEnvironment.CldfEnvironment.ExistingAddresses,
+		universalSetupOutput.CreEnvironment.Blockchains[0].ChainSelector,
 		keystone_changeset.KeystoneForwarder.String(),
 	)
-	require.NoError(t, forwarderErr, "failed to find forwarder address for chain %d", universalSetupOutput.BlockchainOutput[0].ChainSelector)
+	require.NoError(t, forwarderErr, "failed to find forwarder address for chain %d", universalSetupOutput.CreEnvironment.Blockchains[0].ChainSelector)
 
 	// Create workflow jobs only after capability registry configuration is complete to avoid initialization failures
 	createJobsInput := creenv.CreateJobsWithJdOpInput{}
 	createJobsDeps := creenv.CreateJobsWithJdOpDeps{
 		Logger:                    testLogger,
 		SingleFileLogger:          singleFileLogger,
-		HomeChainBlockchainOutput: universalSetupOutput.BlockchainOutput[0].BlockchainOutput,
+		HomeChainBlockchainOutput: universalSetupOutput.CreEnvironment.Blockchains[0].BlockchainOutput,
 		JobSpecFactoryFunctions:   []cretypes.JobSpecFn{workflowJobsFn},
 		CreEnvironment: &cretypes.Environment{
-			CldfEnvironment: universalSetupOutput.CldEnvironment,
-			DonTopology:     universalSetupOutput.DonTopology,
+			CldfEnvironment: universalSetupOutput.CreEnvironment.CldfEnvironment,
 		},
+		DonTopology: universalSetupOutput.DonTopology,
 	}
 
-	_, createJobsErr := operations.ExecuteOperation(universalSetupOutput.CldEnvironment.OperationsBundle, creenv.CreateJobsWithJdOpFactory("load-test-jobs", "1.0.0"), createJobsDeps, createJobsInput)
+	_, createJobsErr := operations.ExecuteOperation(universalSetupOutput.CreEnvironment.CldfEnvironment.OperationsBundle, creenv.CreateJobsWithJdOpFactory("load-test-jobs", "1.0.0"), createJobsDeps, createJobsInput)
 	require.NoError(t, createJobsErr, "failed to create jobs with Job Distributor")
 
 	return &loadTestSetupOutput{
 		forwarderAddress: forwarderAddress,
-		blockchainOutput: universalSetupOutput.BlockchainOutput,
+		blockchainOutput: universalSetupOutput.CreEnvironment.Blockchains,
 		donTopology:      universalSetupOutput.DonTopology,
 		nodeOutput:       universalSetupOutput.NodeOutput,
 	}
@@ -1136,23 +1136,23 @@ func consensusJobSpec(chainID uint64) cretypes.JobSpecFn {
 		donToJobSpecs := make(cretypes.DonsToJobSpecs)
 
 		ocr3Key := datastore.NewAddressRefKey(
-			input.DonTopology.HomeChainSelector,
+			input.CreEnvironment.RegistryChainSelector,
 			datastore.ContractType(keystone_changeset.OCR3Capability.String()),
 			semver.MustParse("1.0.0"),
 			consensus_v1_feature.ContractQualifier,
 		)
-		ocr3CapabilityAddress, err := input.CldEnvironment.DataStore.Addresses().Get(ocr3Key)
+		ocr3CapabilityAddress, err := input.CreEnvironment.CldfEnvironment.DataStore.Addresses().Get(ocr3Key)
 		if err != nil {
 			return nil, errors.Wrap(err, "failed to get Vault capability address")
 		}
 
 		donTimeKey := datastore.NewAddressRefKey(
-			input.DonTopology.HomeChainSelector,
+			input.CreEnvironment.RegistryChainSelector,
 			datastore.ContractType(keystone_changeset.OCR3Capability.String()),
 			semver.MustParse("1.0.0"),
 			don_time_feature.ContractQualifier,
 		)
-		donTimeAddress, err := input.CldEnvironment.DataStore.Addresses().Get(donTimeKey)
+		donTimeAddress, err := input.CreEnvironment.CldfEnvironment.DataStore.Addresses().Get(donTimeKey)
 		if err != nil {
 			return nil, errors.Wrap(err, "failed to get DON Time address")
 		}

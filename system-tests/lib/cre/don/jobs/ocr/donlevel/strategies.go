@@ -25,11 +25,10 @@ var CapabilityEnabler = func(don *cre.DON, flag cre.CapabilityFlag) bool {
 	return don.HasFlag(flag)
 }
 
-var EnabledChainsProvider = func(donTopology *cre.DonTopology, _ cre.NodeSetWithCapabilityConfigs, _ cre.CapabilityFlag) ([]uint64, error) {
-
-	chain, ok := chainselectors.ChainBySelector(donTopology.HomeChainSelector)
+var EnabledChainsProvider = func(registryChainSelector uint64, _ cre.NodeSetWithCapabilityConfigs, _ cre.CapabilityFlag) ([]uint64, error) {
+	chain, ok := chainselectors.ChainBySelector(registryChainSelector)
 	if !ok {
-		return nil, fmt.Errorf("chain for selector '%d' not found", donTopology.HomeChainSelector)
+		return nil, fmt.Errorf("chain for selector '%d' not found", registryChainSelector)
 	}
 
 	return []uint64{chain.EvmChainID}, nil

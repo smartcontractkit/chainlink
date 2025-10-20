@@ -14,11 +14,9 @@ import (
 	kcr "github.com/smartcontractkit/chainlink-evm/gethwrappers/keystone/generated/capabilities_registry_1_1_0"
 
 	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
-	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
 	keystone_changeset "github.com/smartcontractkit/chainlink/deployment/keystone/changeset"
 	ks_contracts_op "github.com/smartcontractkit/chainlink/deployment/keystone/changeset/operations/contracts"
-	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/config"
 
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/contracts"
@@ -27,7 +25,6 @@ import (
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/jobs/ocr"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/jobs/ocr/donlevel"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/features/consensus"
-	"github.com/smartcontractkit/chainlink/system-tests/lib/infra"
 )
 
 const flag = cre.ConsensusCapabilityV2
@@ -41,10 +38,8 @@ func (c *Consensus) Flag() cre.CapabilityFlag {
 func (c *Consensus) PreEnvStartup(
 	ctx context.Context,
 	testLogger zerolog.Logger,
-	registryChainSelector uint64,
 	topology *cre.Topology,
 	creEnv *cre.Environment,
-	gatewayJobConfigs map[cre.NodeUUID]*config.GatewayConfig,
 ) (*cre.PreEnvStartupOutput, error) {
 	capabilities := make(map[uint64][]keystone_changeset.DONCapabilityWithConfig)
 	for _, donMetadata := range topology.DonsMetadataWithFlag(flag) {
@@ -72,10 +67,11 @@ const ContractQualifier = "capability_consensus"
 func (c *Consensus) PostEnvStartup(
 	ctx context.Context,
 	testLogger zerolog.Logger,
+	donTopology *cre.DonTopology,
 	creEnv *cre.Environment,
 ) error {
 	// should we support more than one DON with OCR3 capability? Could there be 0? I guess as long as there's 1 with consensus v2?
-	dons := creEnv.DonTopology.DonsWithFlag(flag)
+	dons := donTopology.DonsWithFlag(flag)
 	if len(dons) == 0 {
 		return nil
 	}
@@ -84,17 +80,15 @@ func (c *Consensus) PostEnvStartup(
 	}
 	consensusV2DON := dons[0]
 
-	_, ocr3ContractAddr, ocrErr := contracts.DeployOCR3Contract(testLogger, ContractQualifier, creEnv.DonTopology.HomeChainSelector, creEnv.CldfEnvironment, creEnv.ContractVersions)
+	_, ocr3ContractAddr, ocrErr := contracts.DeployOCR3Contract(testLogger, ContractQualifier, creEnv.RegistryChainSelector, creEnv.CldfEnvironment, creEnv.ContractVersions)
 	if ocrErr != nil {
 		return fmt.Errorf("failed to deploy OCR3 (consensus v2) contract %w", ocrErr)
 	}
 
 	jobsErr := createJobs(
 		ctx,
-		creEnv.CldfEnvironment,
-		creEnv.DonTopology,
-		creEnv.Provider,
-		creEnv.CapabilityConfigs,
+		donTopology,
+		creEnv,
 	)
 	if jobsErr != nil {
 		return fmt.Errorf("failed to create OCR3 jobs: %w", jobsErr)
@@ -118,7 +112,7 @@ func (c *Consensus) PostEnvStartup(
 		},
 		ks_contracts_op.ConfigureOCR3OpInput{
 			ContractAddress: ocr3ContractAddr,
-			ChainSelector:   creEnv.DonTopology.HomeChainSelector,
+			ChainSelector:   creEnv.RegistryChainSelector,
 			DON:             consensusV2DON.KeystoneDONConfig(),
 			Config:          consensusV2DON.ResolveORC3Config(ocr3Config),
 			DryRun:          false,
@@ -136,10 +130,8 @@ const configTemplate = `'{"chainId":{{.ChainID}},"network":"{{.NetworkFamily}}",
 
 func createJobs(
 	ctx context.Context,
-	cldfEnv *cldf.Environment,
 	donTopology *cre.DonTopology,
-	provider infra.Provider,
-	capabilityConfigs map[string]cre.CapabilityConfig,
+	creEnv *cre.Environment,
 ) error {
 	var generateJobSpec = func(logger zerolog.Logger, chainID uint64, nodeAddress string, mergedConfig map[string]any) (string, error) {
 		runtimeFallbacks := buildRuntimeValues(chainID, "evm", nodeAddress)
@@ -173,9 +165,8 @@ func createJobs(
 
 	donsToJobSpecs, jErr := ocr.GenerateJobSpecsForStandardCapabilityWithOCR(
 		donTopology,
-		cldfEnv.DataStore,
+		creEnv,
 		donTopology.Dons.AsNodeSetWithChainCapabilities(),
-		provider,
 		flag,
 		func(_ uint64) string {
 			return ContractQualifier
@@ -185,7 +176,6 @@ func createJobs(
 		donlevel.EnabledChainsProvider,
 		generateJobSpec,
 		donlevel.ConfigMerger,
-		capabilityConfigs,
 	)
 
 	if jErr != nil {
@@ -198,7 +188,7 @@ func createJobs(
 			continue
 		}
 
-		jobErr := jobs.Create(ctx, cldfEnv.Offchain, donTopology, jobSpecs)
+		jobErr := jobs.Create(ctx, creEnv.CldfEnvironment.Offchain, donTopology, jobSpecs)
 		if jobErr != nil {
 			return fmt.Errorf("failed to create EVM OCR3 jobs for don %s: %w", don.Name, jobErr)
 		}

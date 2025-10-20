@@ -29,7 +29,7 @@ type JobNamer func(chainID uint64, flag cre.CapabilityFlag) string
 type CapabilityEnabler func(capabilities []string, nodeSet cre.NodeSetWithCapabilityConfigs, flag cre.CapabilityFlag) bool
 
 // EnabledChainsProvider provides the list of enabled chains for a given capability.
-type EnabledChainsProvider func(donTopology *cre.DonTopology, nodeSet cre.NodeSetWithCapabilityConfigs, flag cre.CapabilityFlag) []uint64
+type EnabledChainsProvider func(registryChainSelector uint64, nodeSet cre.NodeSetWithCapabilityConfigs, flag cre.CapabilityFlag) []uint64
 
 // ConfigResolver resolves the capability config for a given chain.
 type ConfigResolver func(nodeSet cre.NodeSetWithCapabilityConfigs, capabilityConfig cre.CapabilityConfig, chainID uint64, flag cre.CapabilityFlag) (bool, map[string]any, error)
@@ -43,9 +43,9 @@ var NoOpExtractor RuntimeValuesExtractor = func(_ uint64, _ *cre.Node) map[strin
 // BinaryPathBuilder constructs the container path for capability binaries by combining
 // the default container directory with the base name of the capability's binary path
 var BinaryPathBuilder CommandBuilder = func(input *cre.JobSpecInput, capabilityConfig cre.CapabilityConfig) (string, error) {
-	containerPath, pathErr := crecapabilities.DefaultContainerDirectory(input.InfraInput.Type)
+	containerPath, pathErr := crecapabilities.DefaultContainerDirectory(input.CreEnvironment.Provider.Type)
 	if pathErr != nil {
-		return "", errors.Wrapf(pathErr, "failed to get default container directory for infra type %s", input.InfraInput.Type)
+		return "", errors.Wrapf(pathErr, "failed to get default container directory for infra type %s", input.CreEnvironment.Provider.Type)
 	}
 
 	return filepath.Join(containerPath, filepath.Base(capabilityConfig.BinaryPath)), nil
@@ -59,12 +59,14 @@ type CapabilityJobSpecFactory struct {
 	capabilityEnabler     CapabilityEnabler
 	enabledChainsProvider EnabledChainsProvider
 	configResolver        ConfigResolver
+	registryChainSelector uint64
 }
 
 // NewCapabilityJobSpecFactory creates a job spec factory for capabilities that operate
 // at the DON level without chain-specific configuration (e.g., cron, mock, custom-compute, web-api-*).
 // These capabilities use the home chain selector and can have per-DON configuration overrides.
 func NewCapabilityJobSpecFactory(
+	registryChainSelector uint64,
 	capabilityEnabler CapabilityEnabler,
 	enabledChainsProvider EnabledChainsProvider,
 	configResolver ConfigResolver,
@@ -88,6 +90,7 @@ func NewCapabilityJobSpecFactory(
 		enabledChainsProvider: enabledChainsProvider,
 		configResolver:        configResolver,
 		jobNamer:              jobNamer,
+		registryChainSelector: registryChainSelector,
 	}, nil
 }
 
@@ -119,7 +122,7 @@ func (f *CapabilityJobSpecFactory) BuildJobSpec(
 				continue
 			}
 
-			capabilityConfig, ok := input.CapabilityConfigs[capabilityFlag]
+			capabilityConfig, ok := input.CreEnvironment.CapabilityConfigs[capabilityFlag]
 			if !ok {
 				return nil, errors.Errorf("%s config not found in capabilities config. Make sure you have set it in the TOML config", capabilityFlag)
 			}
@@ -135,7 +138,7 @@ func (f *CapabilityJobSpecFactory) BuildJobSpec(
 			}
 
 			// Generate job specs for each enabled chain
-			for _, chainID := range f.enabledChainsProvider(input.DonTopology, input.NodeSets[donIdx], capabilityFlag) {
+			for _, chainID := range f.enabledChainsProvider(f.registryChainSelector, input.NodeSets[donIdx], capabilityFlag) {
 				enabled, mergedConfig, rErr := f.configResolver(input.NodeSets[donIdx], capabilityConfig, chainID, capabilityFlag)
 				if rErr != nil {
 					return nil, errors.Wrap(rErr, "failed to resolve capability config for chain")

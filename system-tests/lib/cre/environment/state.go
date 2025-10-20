@@ -33,7 +33,7 @@ import (
 // Artifact paths are recorded in `artifact_paths.json` in the environment
 // directory (typically `core/scripts/cre/environment`).
 // Returns the reconstructed CLDF environment, wrapped blockchain outputs, and an error.
-func BuildFromSavedState(ctx context.Context, cldLogger logger.Logger, cachedInput *envconfig.Config, envArtifact *EnvArtifact) (*cre.Environment, []*cre.WrappedBlockchainOutput, error) {
+func BuildFromSavedState(ctx context.Context, cldLogger logger.Logger, cachedInput *envconfig.Config, envArtifact *EnvArtifact) (*cre.Environment, *cre.DonTopology, error) {
 	if cachedInput == nil {
 		return nil, nil, errors.New("cached input cannot be nil")
 	}
@@ -169,9 +169,13 @@ func BuildFromSavedState(ctx context.Context, cldLogger logger.Logger, cachedInp
 	}
 
 	return &cre.Environment{
-		CldfEnvironment: cldEnv,
-		DonTopology:     cre.NewDonTopology(envArtifact.RegistryChainSelector, topology, cre.NewDons(dons)),
-	}, wrappedBlockchainOutputs, nil
+		CldfEnvironment:       cldEnv,
+		Blockchains:           wrappedBlockchainOutputs,
+		RegistryChainSelector: wrappedBlockchainOutputs[0].ChainSelector,
+		Provider:              *cachedInput.Infra,
+		CapabilityConfigs:     envArtifact.CapabilityConfigs,
+		ContractVersions:      envArtifact.ContractVersions,
+	}, cre.NewDonTopology(envArtifact.RegistryChainSelector, topology, cre.NewDons(dons)), nil
 }
 
 func SetDefaultPrivateKeyIfEmpty(defaultPrivateKey string) error {
