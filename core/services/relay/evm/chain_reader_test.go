@@ -207,6 +207,7 @@ func newMockedClient(t *testing.T, value any, internalType string) *mockedClient
 func (_m *mockedClient) BatchCallContext(_ context.Context, _ []rpc.BatchElem) error { return nil }
 
 func (_m *mockedClient) CallContract(_ context.Context, msg ethereum.CallMsg, _ *big.Int) ([]byte, error) {
+	// ensure we never put msg.From to contractAddress to comply with EIP-3607
 	require.NotEqual(_m.t, contractAddress, msg.From)
 	return abi.Arguments{abi.Argument{Type: _m.internalType}}.Pack(_m.value)
 }
