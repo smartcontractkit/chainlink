@@ -1234,7 +1234,7 @@ func newCREServices(
 					artifactsStore, err := artifactsV2.NewStore(lggr, artifactsV2.NewWorkflowRegistryDS(ds, globalLogger),
 						fetcherFunc,
 						retrieverFunc,
-						clockwork.NewRealClock(), key, custmsg.NewLabeler(), artifactsV2.WithMaxArtifactSize(
+						clockwork.NewRealClock(), key, custmsg.NewLabeler(), lf, artifactsV2.WithMaxArtifactSize(
 							artifactsV2.ArtifactConfig{
 								MaxBinarySize:  uint64(capCfg.WorkflowRegistry().MaxBinarySize()),
 								MaxSecretsSize: uint64(capCfg.WorkflowRegistry().MaxEncryptedSecretsSize()),
