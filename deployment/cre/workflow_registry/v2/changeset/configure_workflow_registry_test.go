@@ -23,6 +23,7 @@ func TestSetConfig(t *testing.T) {
 			TagLen:                    16,
 			URLLen:                    128,
 			AttrLen:                   256,
+			ExpiryLen:                 604800,
 			MCMSConfig:                nil,
 		})
 		t.Logf("Metadata config result: err=%v, output=%v", err, output)
@@ -42,6 +43,7 @@ func TestSetConfig(t *testing.T) {
 			TagLen:                    16,
 			URLLen:                    128,
 			AttrLen:                   256,
+			ExpiryLen:                 604800,
 			MCMSConfig: &ocr3.MCMSConfig{
 				MinDuration: 30 * time.Second,
 			},
@@ -366,6 +368,7 @@ func TestConfigureWorkflowRegistryValidation(t *testing.T) {
 					TagLen:        16,
 					URLLen:        128,
 					AttrLen:       256,
+					ExpiryLen:     604800,
 					MCMSConfig:    nil,
 				},
 				expectError: false,
