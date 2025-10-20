@@ -35,6 +35,8 @@ import (
 	libc "github.com/smartcontractkit/chainlink/system-tests/lib/conversions"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre"
 	crecontracts "github.com/smartcontractkit/chainlink/system-tests/lib/cre/contracts"
+	creblockchains "github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/blockchains"
+	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/blockchains/solana"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/infra"
 )
 
@@ -44,7 +46,7 @@ func PrepareNodeTOMLs(
 	registryChainSelector uint64,
 	nodeSets []*cre.CapabilitiesAwareNodeSet,
 	provider infra.Provider,
-	blockchainOutputs []*cre.WrappedBlockchainOutput,
+	blockchains []creblockchains.Blockchain,
 	addressBook cldf.AddressBook,
 	datastore datastore.DataStore,
 	capabilities []cre.InstallableCapability,
@@ -66,17 +68,9 @@ func PrepareNodeTOMLs(
 	}
 
 	localNodeSets := topology.CapabilitiesAwareNodeSets()
-	chainPerSelector := make(map[uint64]*cre.WrappedBlockchainOutput)
-	for _, bcOut := range blockchainOutputs {
-		if bcOut.SolChain != nil {
-			sel := bcOut.SolChain.ChainSelector
-			chainPerSelector[sel] = bcOut
-			chainPerSelector[sel].ChainSelector = sel
-			chainPerSelector[sel].SolChain = bcOut.SolChain
-			chainPerSelector[sel].SolChain.ArtifactsDir = bcOut.SolChain.ArtifactsDir
-			continue
-		}
-		chainPerSelector[bcOut.ChainSelector] = bcOut
+	chainPerSelector := make(map[uint64]creblockchains.Blockchain)
+	for _, bc := range blockchains {
+		chainPerSelector[bc.ChainSelector()] = bc
 	}
 
 	for i, donMetadata := range topology.DonsMetadata.List() {
@@ -121,7 +115,7 @@ func PrepareNodeTOMLs(
 					AddressBook:             addressBook,
 					Datastore:               datastore,
 					DonMetadata:             donMetadata,
-					BlockchainOutput:        chainPerSelector,
+					Blockchains:             chainPerSelector,
 					Flags:                   donMetadata.Flags,
 					CapabilitiesPeeringData: capabilitiesPeeringData,
 					OCRPeeringData:          ocrPeeringData,
@@ -499,22 +493,22 @@ type evmChain struct {
 
 func findEVMChains(input cre.GenerateConfigsInput) []*evmChain {
 	evmChains := make([]*evmChain, 0)
-	for chainSelector, bcOut := range input.BlockchainOutput {
-		if bcOut.SolChain != nil {
+	for chainSelector, bcOut := range input.Blockchains {
+		if bcOut.IsFamily(chain_selectors.FamilySolana) {
 			continue
 		}
 
 		// if the DON doesn't support the chain, we skip it; if slice is empty, it means that the DON supports all chains
 		// TODO: review if we really need this SupportedChains functionality
-		if len(input.DonMetadata.CapabilitiesAwareNodeSet().EVMChains()) > 0 && !slices.Contains(input.DonMetadata.CapabilitiesAwareNodeSet().EVMChains(), bcOut.ChainID) {
+		if len(input.DonMetadata.CapabilitiesAwareNodeSet().EVMChains()) > 0 && !slices.Contains(input.DonMetadata.CapabilitiesAwareNodeSet().EVMChains(), bcOut.ChainID()) {
 			continue
 		}
 
 		evmChains = append(evmChains, &evmChain{
 			Name:    fmt.Sprintf("node-%d", chainSelector),
-			ChainID: bcOut.ChainID,
-			HTTPRPC: bcOut.BlockchainOutput.Nodes[0].InternalHTTPUrl,
-			WSRPC:   bcOut.BlockchainOutput.Nodes[0].InternalWSUrl,
+			ChainID: bcOut.ChainID(),
+			HTTPRPC: bcOut.CtfOutput().Nodes[0].InternalHTTPUrl,
+			WSRPC:   bcOut.CtfOutput().Nodes[0].InternalWSUrl,
 		})
 	}
 	return evmChains
@@ -530,8 +524,8 @@ func findOneSolanaChain(input cre.GenerateConfigsInput) (*solanaChain, error) {
 	var solChain *solanaChain
 	chainsFound := 0
 
-	for _, bcOut := range input.BlockchainOutput {
-		if bcOut.SolChain == nil {
+	for _, bcOut := range input.Blockchains {
+		if !bcOut.IsFamily(chain_selectors.FamilySolana) {
 			continue
 		}
 
@@ -540,8 +534,10 @@ func findOneSolanaChain(input cre.GenerateConfigsInput) (*solanaChain, error) {
 			return nil, errors.New("multiple Solana chains found, expected only one")
 		}
 
+		solBc := bcOut.(*solana.Blockchain)
+
 		ctx, cancelFn := context.WithTimeout(context.Background(), 15*time.Second)
-		chainID, err := bcOut.SolClient.GetGenesisHash(ctx)
+		chainID, err := solBc.SolClient.GetGenesisHash(ctx)
 		if err != nil {
 			cancelFn()
 			return nil, errors.Wrap(err, "failed to get chainID for Solana")
@@ -549,9 +545,9 @@ func findOneSolanaChain(input cre.GenerateConfigsInput) (*solanaChain, error) {
 		cancelFn()
 
 		solChain = &solanaChain{
-			Name:    fmt.Sprintf("node-%d", bcOut.SolChain.ChainSelector),
+			Name:    fmt.Sprintf("node-%d", solBc.ChainSelector()),
 			ChainID: chainID.String(),
-			NodeURL: bcOut.BlockchainOutput.Nodes[0].InternalHTTPUrl,
+			NodeURL: bcOut.CtfOutput().Nodes[0].InternalHTTPUrl,
 		}
 	}
 

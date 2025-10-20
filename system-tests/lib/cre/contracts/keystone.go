@@ -4,12 +4,13 @@ import (
 	"context"
 	"fmt"
 	"slices"
-	"strings"
 
 	"github.com/Masterminds/semver/v3"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/pkg/errors"
 	"github.com/rs/zerolog"
+
+	chainselectors "github.com/smartcontractkit/chain-selectors"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	cldf_tron "github.com/smartcontractkit/chainlink-deployments-framework/chain/tron"
@@ -30,6 +31,7 @@ import (
 	ks_sol_op "github.com/smartcontractkit/chainlink/deployment/keystone/changeset/solana/sequence/operation"
 	tronchangeset "github.com/smartcontractkit/chainlink/deployment/keystone/changeset/tron"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre"
+	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/blockchains"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/flags"
 )
 
@@ -42,7 +44,7 @@ const (
 
 type DeployKeystoneContractsInput struct {
 	CldfEnvironment           *cldf.Environment
-	CtfBlockchains            []*cre.WrappedBlockchainOutput
+	CtfBlockchains            []blockchains.Blockchain
 	ContractVersions          map[string]string
 	WithV2Registries          bool
 	CapabilitiesAwareNodeSets []*cre.CapabilitiesAwareNodeSet
@@ -64,22 +66,22 @@ func DeployKeystoneContracts(
 	evmForwardersSelectors := make([]uint64, 0)
 	solForwardersSelectors := make([]uint64, 0)
 	tronForwardersSelectors := make([]uint64, 0)
-	for _, bcOut := range input.CtfBlockchains {
+	for _, bc := range input.CtfBlockchains {
 		for _, donMetadata := range input.CapabilitiesAwareNodeSets {
-			if slices.Contains(evmForwardersSelectors, bcOut.ChainSelector) {
+			if slices.Contains(evmForwardersSelectors, bc.ChainSelector()) {
 				continue
 			}
-			// consider we have just 1 solana chain
-			if bcOut.SolChain != nil {
-				solForwardersSelectors = append(solForwardersSelectors, bcOut.SolChain.ChainSelector)
+			// we have just 1 solana chain
+			if bc.IsFamily(chainselectors.FamilySolana) {
+				solForwardersSelectors = append(solForwardersSelectors, bc.ChainSelector())
 				continue
 			}
-			if flags.RequiresForwarderContract(donMetadata.ComputedCapabilities, bcOut.ChainID) {
-				if strings.EqualFold(bcOut.BlockchainOutput.Family, blockchain.FamilyTron) {
-					testLogger.Info().Msgf("Preparing Tron Keystone Forwarder deployment for chain %d", bcOut.ChainID)
-					tronForwardersSelectors = append(tronForwardersSelectors, bcOut.ChainSelector)
+			if flags.RequiresForwarderContract(donMetadata.ComputedCapabilities, bc.ChainID()) {
+				if bc.IsFamily(blockchain.FamilyTron) {
+					testLogger.Info().Msgf("Preparing Tron Keystone Forwarder deployment for chain %d", bc.ChainID())
+					tronForwardersSelectors = append(tronForwardersSelectors, bc.ChainSelector())
 				} else {
-					evmForwardersSelectors = append(evmForwardersSelectors, bcOut.ChainSelector)
+					evmForwardersSelectors = append(evmForwardersSelectors, bc.ChainSelector())
 				}
 			}
 		}
@@ -97,7 +99,7 @@ func DeployKeystoneContracts(
 	homeChainOutput := input.CtfBlockchains[0]
 
 	// use CLD to deploy the registry contracts, which are required before constructing the node TOML configs
-	homeChainSelector := homeChainOutput.ChainSelector
+	homeChainSelector := homeChainOutput.ChainSelector()
 	deployRegistrySeq := ks_contracts_op.DeployRegistryContractsSequence
 	if input.WithV2Registries {
 		deployRegistrySeq = ks_contracts_op.DeployV2RegistryContractsSequence
@@ -262,7 +264,7 @@ func DeployKeystoneContracts(
 			}
 
 			evmOCR3Addr := MustGetAddressFromMemoryDataStore(memoryDatastore, homeChainSelector, keystone_changeset.OCR3Capability.String(), "1.0.0", qualifier)
-			testLogger.Info().Msgf("Deployed EVM OCR3 contract (chainID %d) on chainID: %d, selector: %d, at: %s", chainID, homeChainOutput.ChainID, homeChainSelector, evmOCR3Addr)
+			testLogger.Info().Msgf("Deployed EVM OCR3 contract (chainID %d) on chainID: %d, selector: %d, at: %s", chainID, homeChainOutput.ChainID(), homeChainSelector, evmOCR3Addr)
 		}
 	}
 
@@ -329,15 +331,15 @@ func deployVaultContracts(qualifier string, selector uint64, env *cldf.Environme
 	return &report.Output, nil
 }
 
-func ChainsWithEVMCapability(chains []*cre.WrappedBlockchainOutput, nodeSets []*cre.CapabilitiesAwareNodeSet) map[ks_contracts_op.EVMChainID]ks_contracts_op.Selector {
+func ChainsWithEVMCapability(chains []blockchains.Blockchain, nodeSets []*cre.CapabilitiesAwareNodeSet) map[ks_contracts_op.EVMChainID]ks_contracts_op.Selector {
 	chainsWithEVMCapability := make(map[ks_contracts_op.EVMChainID]ks_contracts_op.Selector)
 	for _, chain := range chains {
 		for _, donMetadata := range nodeSets {
-			if flags.HasFlagForChain(donMetadata.ComputedCapabilities, cre.EVMCapability, chain.ChainID) {
-				if chainsWithEVMCapability[ks_contracts_op.EVMChainID(chain.ChainID)] != 0 {
+			if flags.HasFlagForChain(donMetadata.ComputedCapabilities, cre.EVMCapability, chain.ChainID()) {
+				if chainsWithEVMCapability[ks_contracts_op.EVMChainID(chain.ChainID())] != 0 {
 					continue
 				}
-				chainsWithEVMCapability[ks_contracts_op.EVMChainID(chain.ChainID)] = ks_contracts_op.Selector(chain.ChainSelector)
+				chainsWithEVMCapability[ks_contracts_op.EVMChainID(chain.ChainID())] = ks_contracts_op.Selector(chain.ChainSelector())
 			}
 		}
 	}

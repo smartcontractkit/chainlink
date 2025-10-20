@@ -28,6 +28,8 @@ import (
 	"golang.org/x/sync/errgroup"
 
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/secrets"
+	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/blockchains"
+	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/blockchains/solana"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/crypto"
 )
 
@@ -229,7 +231,7 @@ func NewDON(ctx context.Context, donMetadata *DonMetadata, ctfNodes []*clnode.Ou
 	return don, nil
 }
 
-func RegisterWithJD(ctx context.Context, d *DON, supportedChains []ChainConfig, jd *jd.JobDistributor) error {
+func RegisterWithJD(ctx context.Context, d *DON, supportedChains []blockchains.Blockchain, jd *jd.JobDistributor) error {
 	mu := &sync.Mutex{}
 
 	errgroup := errgroup.Group{}
@@ -244,15 +246,15 @@ func RegisterWithJD(ctx context.Context, d *DON, supportedChains []ChainConfig, 
 			for _, role := range node.Roles {
 				switch role {
 				case RoleWorker, RoleBootstrap:
-					jdChains := []JDChainConfigInput{}
-					for _, chain := range supportedChains {
-						jdChains = append(jdChains, JDChainConfigInput{
-							ChainID:   chain.ChainID,
-							ChainType: chain.ChainType,
-						})
-					}
+					// jdChains := []JDChainConfigInput{}
+					// for _, chain := range supportedChains {
+					// 	jdChains = append(jdChains, JDChainConfigInput{
+					// 		ChainID:   strconv.FormatUint(chain.ChainID(), 10),
+					// 		ChainType: strings.ToUpper(chain.ChainFamily()),
+					// 	})
+					// }
 
-					if err := CreateJDChainConfigs(ctx, node, jdChains, jd); err != nil {
+					if err := CreateJDChainConfigs(ctx, node, supportedChains, jd); err != nil {
 						return fmt.Errorf("failed to create supported chains in node %s: %w", node.Name, err)
 					}
 				case RoleGateway:
@@ -407,27 +409,19 @@ type JDChainConfigInput struct {
 	ChainType string
 }
 
-func CreateJDChainConfigs(ctx context.Context, n *Node, chains []JDChainConfigInput, jd *jd.JobDistributor) error {
-	for _, chain := range chains {
+func CreateJDChainConfigs(ctx context.Context, n *Node, supportedChains []blockchains.Blockchain, jd *jd.JobDistributor) error {
+	for _, chain := range supportedChains {
 		var account string
+		chainIDStr := strconv.FormatUint(chain.ChainID(), 10)
 
-		switch strings.ToLower(chain.ChainType) {
+		switch strings.ToLower(chain.ChainFamily()) {
 		case chainselectors.FamilyEVM, chainselectors.FamilyTron:
-			chainID, parseErr := strconv.ParseUint(chain.ChainID, 10, 64)
-			if parseErr != nil {
-				return fmt.Errorf("failed to parse chain id %s: %w", chain.ChainID, parseErr)
-			}
-
-			if chainID == 0 {
-				return fmt.Errorf("invalid chain id: %s", chain.ChainID)
-			}
-
-			evmKey, ok := n.Keys.EVM[chainID]
+			evmKey, ok := n.Keys.EVM[chain.ChainID()]
 			if ok {
 				account = evmKey.PublicAddress.Hex()
 			} else {
 				var fetchErr error
-				accountAddr, fetchErr := n.Clients.GQLClient.FetchAccountAddress(ctx, chain.ChainID)
+				accountAddr, fetchErr := n.Clients.GQLClient.FetchAccountAddress(ctx, chainIDStr)
 				if fetchErr != nil {
 					return fmt.Errorf("failed to fetch account address for node %s: %w", n.Name, fetchErr)
 				}
@@ -437,35 +431,38 @@ func CreateJDChainConfigs(ctx context.Context, n *Node, chains []JDChainConfigIn
 				account = *accountAddr
 			}
 		case chainselectors.FamilySolana:
-			solKey, ok := n.Keys.Solana[chain.ChainID]
+			// solana chainID is a string, so we need to use it directly
+			solChain := chain.(*solana.Blockchain)
+			chainIDStr = solChain.SolanaChainID
+			solKey, ok := n.Keys.Solana[chainIDStr]
 			if ok {
 				account = solKey.PublicAddress.String()
 			} else {
-				accounts, fetchErr := n.Clients.GQLClient.FetchKeys(ctx, chain.ChainType)
+				accounts, fetchErr := n.Clients.GQLClient.FetchKeys(ctx, strings.ToUpper(chain.ChainFamily()))
 				if fetchErr != nil {
-					return fmt.Errorf("failed to fetch account address for node %s and chain %s: %w", n.Name, chain.ChainType, fetchErr)
+					return fmt.Errorf("failed to fetch account address for node %s and chain %s: %w", n.Name, chain.ChainFamily(), fetchErr)
 				}
 				if len(accounts) == 0 {
-					return fmt.Errorf("failed to fetch account address for node %s and chain %s", n.Name, chain.ChainType)
+					return fmt.Errorf("failed to fetch account address for node %s and chain %s", n.Name, chain.ChainFamily())
 				}
 				account = accounts[0]
 			}
 		case chainselectors.FamilyAptos:
 			// always fetch; currently Node doesn't have Aptos keys
-			accounts, err := n.Clients.GQLClient.FetchKeys(ctx, chain.ChainType)
+			accounts, err := n.Clients.GQLClient.FetchKeys(ctx, strings.ToUpper(chain.ChainFamily()))
 			if err != nil {
-				return fmt.Errorf("failed to fetch account address for node %s and chain %s: %w", n.Name, chain.ChainType, err)
+				return fmt.Errorf("failed to fetch account address for node %s and chain %s: %w", n.Name, chain.ChainFamily(), err)
 			}
 			if len(accounts) == 0 {
-				return fmt.Errorf("failed to fetch account address for node %s and chain %s", n.Name, chain.ChainType)
+				return fmt.Errorf("failed to fetch account address for node %s and chain %s", n.Name, chain.ChainFamily())
 			}
 			account = accounts[0]
 		default:
-			return fmt.Errorf("unsupported chainType %v", chain.ChainType)
+			return fmt.Errorf("unsupported chainType %v", chain.ChainFamily())
 		}
 
-		chainType := chain.ChainType
-		if strings.EqualFold(chain.ChainType, blockchain.FamilyTron) {
+		chainType := strings.ToUpper(chain.ChainFamily())
+		if chain.IsFamily(blockchain.FamilyTron) {
 			chainType = strings.ToUpper(blockchain.FamilyEVM)
 		}
 		ocr2BundleID, createErr := n.Clients.GQLClient.FetchOCR2KeyBundleID(ctx, chainType)
@@ -494,7 +491,7 @@ func CreateJDChainConfigs(ctx context.Context, n *Node, chains []JDChainConfigIn
 			}
 			if nodeChainConfigs != nil {
 				for _, chainConfig := range nodeChainConfigs.ChainConfigs {
-					if chainConfig.Chain.Id == chain.ChainID {
+					if chainConfig.Chain.Id == chainIDStr {
 						return nil
 					}
 				}
@@ -504,7 +501,7 @@ func CreateJDChainConfigs(ctx context.Context, n *Node, chains []JDChainConfigIn
 			// each node needs to have OCR2 enabled, because p2pIDs are used by some contracts to identify nodes (e.g. capability registry)
 			_, createErr = n.Clients.GQLClient.CreateJobDistributorChainConfig(ctx, client.JobDistributorChainConfigInput{
 				JobDistributorID: n.JobDistributorDetails.JDID,
-				ChainID:          chain.ChainID,
+				ChainID:          chainIDStr,
 				ChainType:        chainType,
 				AccountAddr:      account,
 				AdminAddr:        n.Addresses.AdminAddress,
@@ -769,12 +766,9 @@ func LinkToJobDistributor(ctx context.Context, input *LinkDonsToJDInput) (*cldf.
 	if input == nil {
 		return nil, errors.New("input is nil")
 	}
-	if err := input.Validate(); err != nil {
-		return nil, errors.Wrap(err, "input validation failed")
-	}
 
 	for idx, don := range input.DONs {
-		supportedChains, schErr := FindDONsSupportedChains(input.Topology.DonsMetadata.List()[idx], input.BlockchainOutputs)
+		supportedChains, schErr := FindDONsSupportedChains(input.Topology.DonsMetadata.List()[idx], input.Blockchains)
 		if schErr != nil {
 			return nil, errors.Wrap(schErr, "failed to find supported chains for DON")
 		}
@@ -810,25 +804,19 @@ func HasFlag(values []string, capability string) bool {
 	return false
 }
 
-// TODO do we need to use metadata here? maybe actually some interface that both DON and metadata would implement?
-func FindDONsSupportedChains(donMetadata *DonMetadata, blockchainOutputs []*WrappedBlockchainOutput) ([]ChainConfig, error) {
-	chains := make([]ChainConfig, 0)
+func FindDONsSupportedChains(donMetadata *DonMetadata, bcs []blockchains.Blockchain) ([]blockchains.Blockchain, error) {
+	chains := make([]blockchains.Blockchain, 0)
 
-	for chainSelector, bcOut := range blockchainOutputs {
-		hasEVMChainEnabled := slices.Contains(donMetadata.EVMChains(), bcOut.ChainID)
+	for _, bc := range bcs {
+		hasEVMChainEnabled := slices.Contains(donMetadata.EVMChains(), bc.ChainID())
 		hasSolanaWriteCapability := donMetadata.HasFlag(WriteSolanaCapability)
-		chainIsSolana := strings.EqualFold(bcOut.BlockchainOutput.Family, chainselectors.FamilySolana)
+		chainIsSolana := bc.IsFamily(chainselectors.FamilySolana)
 
 		if !hasEVMChainEnabled && (!hasSolanaWriteCapability || !chainIsSolana) {
 			continue
 		}
 
-		cfg, cfgErr := ChainConfigFromWrapped(bcOut)
-		if cfgErr != nil {
-			return nil, errors.Wrapf(cfgErr, "failed to build chain config for chain selector %d", chainSelector)
-		}
-
-		chains = append(chains, cfg)
+		chains = append(chains, bc)
 	}
 
 	return chains, nil

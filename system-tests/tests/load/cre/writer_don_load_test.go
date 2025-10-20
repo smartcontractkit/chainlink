@@ -50,6 +50,8 @@ import (
 	cretypes "github.com/smartcontractkit/chainlink/system-tests/lib/cre"
 	libcontracts "github.com/smartcontractkit/chainlink/system-tests/lib/cre/contracts"
 	creenv "github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment"
+	creevm "github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/blockchains/evm"
+	blockchain_sets "github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/blockchains/sets"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/flags"
 	mock_capability "github.com/smartcontractkit/chainlink/system-tests/lib/cre/mock"
 	pb2 "github.com/smartcontractkit/chainlink/system-tests/lib/cre/mock/pb"
@@ -65,7 +67,7 @@ type WriterTest struct {
 	WorkflowID    string `toml:"workflow_id"`
 }
 type TestConfigLoadTestWriter struct {
-	Blockchains                   []blockchain.Input              `toml:"blockchains" validate:"required"`
+	Blockchains                   []*blockchain.Input             `toml:"blockchains" validate:"required"`
 	NodeSets                      []*ns.Input                     `toml:"nodesets" validate:"required"`
 	JD                            *jd.Input                       `toml:"jd" validate:"required"`
 	WorkflowRegistryConfiguration *cretypes.WorkflowRegistryInput `toml:"workflow_registry_configuration"`
@@ -91,6 +93,7 @@ func setupLoadTestWriterEnvironment(
 		JdInput:                              in.JD,
 		Provider:                             *in.Infra,
 		JobSpecFactoryFunctions:              jobSpecFactoryFns,
+		BlockchainDeployers:                  blockchain_sets.NewDeployerSet(testLogger, in.Infra, infra.CribConfigsDir),
 	}
 
 	universalSetupOutput, setupErr := creenv.SetupTestEnvironment(t.Context(), testLogger, cldlogger.NewSingleFileLogger(t), &universalSetupInput, relativePathToRepoRoot)
@@ -101,16 +104,16 @@ func setupLoadTestWriterEnvironment(
 
 	forwarderAddress, _, forwarderErr := libcontracts.FindAddressesForChain(
 		universalSetupOutput.CldEnvironment.ExistingAddresses, //nolint:staticcheck // won't migrate now
-		universalSetupOutput.BlockchainOutput[0].ChainSelector,
+		universalSetupOutput.Blockchains[0].ChainSelector(),
 		keystone_changeset.KeystoneForwarder.String(),
 	)
-	require.NoError(t, forwarderErr, "failed to find forwarder address for chain %d", universalSetupOutput.BlockchainOutput[0].ChainSelector)
+	require.NoError(t, forwarderErr, "failed to find forwarder address for chain %d", universalSetupOutput.Blockchains[0].ChainSelector)
 
 	// DF cache start
 
 	// Deploy
 	deployConfig := df_changeset_types.DeployConfig{
-		ChainsToDeploy: []uint64{universalSetupOutput.BlockchainOutput[0].ChainSelector},
+		ChainsToDeploy: []uint64{universalSetupOutput.Blockchains[0].ChainSelector()},
 		Labels:         []string{"data-feeds"}, // label required by the changeset
 	}
 	dfOutput, dfErr := changeset2.RunChangeset(changeset.DeployCacheChangeset, *universalSetupOutput.CldEnvironment, deployConfig)
@@ -121,18 +124,18 @@ func setupLoadTestWriterEnvironment(
 
 	dfCacheAddress, _, dfCacheErr := libcontracts.FindAddressesForChain(
 		universalSetupOutput.CldEnvironment.ExistingAddresses, //nolint:staticcheck // won't migrate now
-		universalSetupOutput.BlockchainOutput[0].ChainSelector,
+		universalSetupOutput.Blockchains[0].ChainSelector(),
 		changeset.DataFeedsCache.String(),
 	)
-	require.NoError(t, dfCacheErr, "failed to find df cache address for chain %d", universalSetupOutput.BlockchainOutput[0].ChainSelector)
+	require.NoError(t, dfCacheErr, "failed to find df cache address for chain %d", universalSetupOutput.Blockchains[0].ChainSelector)
 	// Config
 	_, configErr := libcontracts.ConfigureDataFeedsCache(testLogger, &cretypes.ConfigureDataFeedsCacheInput{
 		CldEnv:                universalSetupOutput.CldEnvironment,
-		ChainSelector:         universalSetupOutput.BlockchainOutput[0].ChainSelector,
+		ChainSelector:         universalSetupOutput.Blockchains[0].ChainSelector(),
 		FeedIDs:               feedIDs,
 		Descriptions:          feedIDs,
 		DataFeedsCacheAddress: dfCacheAddress,
-		AdminAddress:          universalSetupOutput.BlockchainOutput[0].SethClient.MustGetRootKeyAddress(),
+		AdminAddress:          universalSetupOutput.Blockchains[0].(*creevm.Blockchain).SethClient.MustGetRootKeyAddress(),
 		AllowedSenders:        []common.Address{forwarderAddress},
 		AllowedWorkflowOwners: []common.Address{common.HexToAddress(in.WriterTest.WorkflowOwner)},
 		AllowedWorkflowNames:  workflowNames,
@@ -143,7 +146,7 @@ func setupLoadTestWriterEnvironment(
 	return &loadTestSetupOutput{
 		dataFeedsCacheAddress: dfCacheAddress,
 		forwarderAddress:      forwarderAddress,
-		blockchainOutput:      universalSetupOutput.BlockchainOutput,
+		blockchains:           universalSetupOutput.Blockchains,
 		donTopology:           universalSetupOutput.DonTopology,
 		nodeOutput:            universalSetupOutput.NodeOutput,
 	}
@@ -300,7 +303,7 @@ func TestLoad_Writer_MockCapabilities(t *testing.T) {
 	// Export key bundles so we can import them later in another test, used when crib cluster is already setup and we just want to connect to mocks for a different test
 	require.NoError(t, saveKeyBundles(kb), "could not save OCR2 Keys")
 
-	require.NoError(t, saveClientURL(setupOutput.blockchainOutput[0].SethClient.URL), "could not save seth client url")
+	require.NoError(t, saveClientURL(setupOutput.blockchains[0].(*creevm.Blockchain).SethClient.URL), "could not save seth client url")
 
 	testLogger.Info().Msg("Connecting to mock capabilities...")
 
@@ -355,7 +358,7 @@ func TestLoad_Writer_MockCapabilities(t *testing.T) {
 			Schedule: wasp.Combine(
 				wasp.Plain(1, 10*time.Minute),
 			),
-			Gun:                   NewWriterGun(mocksClient, kb, "write_geth-testnet@1.0.0", setupOutput.blockchainOutput[0].SethClient, tParams),
+			Gun:                   NewWriterGun(mocksClient, kb, "write_geth-testnet@1.0.0", setupOutput.blockchains[0].(*creevm.Blockchain).SethClient, tParams),
 			Labels:                labels,
 			LokiConfig:            wasp.NewEnvLokiConfig(),
 			RateLimitUnitDuration: time.Minute,

@@ -10,6 +10,7 @@ import (
 	"strings"
 
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/gagliardetto/solana-go"
 	"github.com/pelletier/go-toml/v2"
 	"github.com/pkg/errors"
 
@@ -23,17 +24,13 @@ import (
 	cldf_jd "github.com/smartcontractkit/chainlink-deployments-framework/offchain/jd"
 	keystone_changeset "github.com/smartcontractkit/chainlink/deployment/keystone/changeset"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/secrets"
+	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/blockchains"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/crypto"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/infra"
 
 	"github.com/smartcontractkit/chainlink-testing-framework/framework"
 	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/blockchain"
-	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/jd"
 	ns "github.com/smartcontractkit/chainlink-testing-framework/framework/components/simple_node_set"
-	"github.com/smartcontractkit/chainlink-testing-framework/seth"
-
-	"github.com/gagliardetto/solana-go"
-	solrpc "github.com/gagliardetto/solana-go/rpc"
 )
 
 type CapabilityFlag = string
@@ -326,16 +323,6 @@ type WrappedNodeOutput struct {
 	Capabilities []string
 }
 
-type WrappedBlockchainOutput struct {
-	ChainSelector      uint64
-	ChainID            uint64
-	BlockchainOutput   *blockchain.Output
-	SethClient         *seth.Client
-	SolClient          *solrpc.Client
-	DeployerPrivateKey string
-	SolChain           *SolChain
-}
-
 type SolChain struct {
 	ChainSelector uint64
 	ChainID       string
@@ -350,7 +337,7 @@ type ConfigureKeystoneInput struct {
 	CldEnv                      *cldf.Environment
 	NodeSets                    []*CapabilitiesAwareNodeSet
 	CapabilityRegistryConfigFns []CapabilityRegistryConfigFn
-	BlockchainOutputs           []*WrappedBlockchainOutput
+	Blockchains                 []blockchains.Blockchain
 
 	OCR3Config  keystone_changeset.OracleConfig
 	OCR3Address *common.Address // v1 consensus contract address
@@ -429,7 +416,7 @@ type (
 type GenerateConfigsInput struct {
 	Datastore               datastore.DataStore
 	DonMetadata             *DonMetadata
-	BlockchainOutput        map[uint64]*WrappedBlockchainOutput
+	Blockchains             map[uint64]blockchains.Blockchain
 	HomeChainSelector       uint64
 	Flags                   []string
 	CapabilitiesPeeringData CapabilitiesPeeringData
@@ -444,7 +431,7 @@ func (g *GenerateConfigsInput) Validate() error {
 	if len(g.DonMetadata.NodesMetadata) == 0 {
 		return errors.New("don nodes not set")
 	}
-	if len(g.BlockchainOutput) == 0 {
+	if len(g.Blockchains) == 0 {
 		return errors.New("blockchain output not set")
 	}
 	if g.HomeChainSelector == 0 {
@@ -1026,10 +1013,10 @@ func (c *CapabilitiesAwareNodeSet) ParseChainCapabilities() error {
 	return nil
 }
 
-func (c *CapabilitiesAwareNodeSet) ValidateChainCapabilities(bcInput []blockchain.Input) error {
+func (c *CapabilitiesAwareNodeSet) ValidateChainCapabilities(bcInput []*blockchain.Input) error {
 	knownChains := []uint64{}
 	for _, bc := range bcInput {
-		if bc.Type == blockchain.FamilySolana {
+		if strings.EqualFold(bc.Type, blockchain.FamilySolana) {
 			continue
 		}
 		chainIDUint64, convErr := strconv.ParseUint(bc.ChainID, 10, 64)
@@ -1119,103 +1106,16 @@ func NewNodeKeys(input NodeKeyInput) (*secrets.NodeKeys, error) {
 }
 
 type LinkDonsToJDInput struct {
-	JDClient          *cldf_jd.JobDistributor
-	BlockchainOutputs []*WrappedBlockchainOutput
-	DONs              []*DON
-	Topology          *Topology
-	CldfEnvironment   *cldf.Environment
-}
-
-func (f *LinkDonsToJDInput) Validate() error {
-	if f.JDClient == nil {
-		return errors.New("jd client not set")
-	}
-	if len(f.BlockchainOutputs) == 0 {
-		return errors.New("blockchain output not set")
-	}
-
-	var expectedSeth, expectedSols int
-	for _, chain := range f.BlockchainOutputs {
-		if chain.SolChain != nil {
-			expectedSols++
-			continue
-		}
-		expectedSeth++
-	}
-	if len(f.DONs) == 0 {
-		return errors.New("DONS not set")
-	}
-	if f.Topology == nil {
-		return errors.New("topology not set")
-	}
-	if len(f.Topology.DonsMetadata.List()) == 0 {
-		return errors.New("metadata not set")
-	}
-	if f.CldfEnvironment == nil {
-		return errors.New("cldf environment not set")
-	}
-
-	return nil
+	JDClient        *cldf_jd.JobDistributor
+	Blockchains     []blockchains.Blockchain
+	DONs            []*DON
+	Topology        *Topology
+	CldfEnvironment *cldf.Environment
 }
 
 type Environment struct {
 	CldfEnvironment *cldf.Environment
 	DonTopology     *DonTopology
-}
-
-type DeployCribDonsInput struct {
-	Topology       *Topology
-	NodeSetInputs  []*CapabilitiesAwareNodeSet
-	CribConfigsDir string
-	Namespace      string
-}
-
-func (d *DeployCribDonsInput) Validate() error {
-	if d.Topology == nil {
-		return errors.New("topology not set")
-	}
-	if len(d.Topology.DonsMetadata.List()) == 0 {
-		return errors.New("metadata not set")
-	}
-	if len(d.NodeSetInputs) == 0 {
-		return errors.New("node set inputs not set")
-	}
-	if d.CribConfigsDir == "" {
-		return errors.New("crib configs dir not set")
-	}
-	return nil
-}
-
-type DeployCribJdInput struct {
-	JDInput        jd.Input
-	CribConfigsDir string
-	Namespace      string
-}
-
-func (d *DeployCribJdInput) Validate() error {
-	if d.CribConfigsDir == "" {
-		return errors.New("crib configs dir not set")
-	}
-	return nil
-}
-
-type DeployCribBlockchainInput struct {
-	BlockchainInput *blockchain.Input
-	CribConfigsDir  string
-	Namespace       string
-}
-
-func (d *DeployCribBlockchainInput) Validate() error {
-	if d.BlockchainInput == nil {
-		return errors.New("blockchain input not set")
-	}
-	if d.CribConfigsDir == "" {
-		return errors.New("crib configs dir not set")
-	}
-	if d.Namespace == "" {
-		return errors.New("namespace not set")
-	}
-	return nil
 }
 
 type (
