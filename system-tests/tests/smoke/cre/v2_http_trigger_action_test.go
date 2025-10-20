@@ -23,6 +23,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 
+	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/blockchains/evm"
 	libcrypto "github.com/smartcontractkit/chainlink/system-tests/lib/crypto"
 
 	t_helpers "github.com/smartcontractkit/chainlink/system-tests/tests/test-helpers"
@@ -52,8 +53,8 @@ func ExecuteHTTPTriggerActionTest(t *testing.T, testEnv *ttypes.TestEnvironment)
 	gatewayURL, err := url.Parse(newGatewayURL)
 	require.NoError(t, err, "failed to parse gateway URL")
 
-	workflowOwner, err := crypto.HexToECDSA(testEnv.WrappedBlockchainOutputs[0].DeployerPrivateKey)
-	require.NoError(t, err, "failed to convert private key to ECDSA")
+	require.IsType(t, &evm.Blockchain{}, testEnv.Blockchains[0], "expected EVM blockchain type")
+	workflowOwner := testEnv.Blockchains[0].(*evm.Blockchain).SethClient.MustGetRootPrivateKey()
 	workflowOwnerAddress := strings.ToLower(crypto.PubkeyToAddress(workflowOwner.PublicKey).Hex())
 
 	testEnv.Logger.Info().Msgf("Workflow owner address: %s", workflowOwnerAddress)

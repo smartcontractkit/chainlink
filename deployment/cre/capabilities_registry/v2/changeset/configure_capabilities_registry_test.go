@@ -8,21 +8,24 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/google/go-cmp/cmp"
+	chainselectors "github.com/smartcontractkit/chain-selectors"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/protobuf/testing/protocmp"
 	"gopkg.in/yaml.v3"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
+	capabilities_registry_v2 "github.com/smartcontractkit/chainlink-evm/gethwrappers/workflow/generated/capabilities_registry_wrapper_v2"
+
 	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+	"github.com/smartcontractkit/chainlink-deployments-framework/engine/test/environment"
+	"github.com/smartcontractkit/chainlink-deployments-framework/engine/test/runtime"
 	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
 
-	capabilities_registry_v2 "github.com/smartcontractkit/chainlink-evm/gethwrappers/workflow/generated/capabilities_registry_wrapper_v2"
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 	commontypes "github.com/smartcontractkit/chainlink/deployment/common/types"
-	"github.com/smartcontractkit/chainlink/deployment/cre"
 	"github.com/smartcontractkit/chainlink/deployment/cre/capabilities_registry/v2/changeset/operations/contracts"
 	"github.com/smartcontractkit/chainlink/deployment/cre/capabilities_registry/v2/changeset/pkg"
 	"github.com/smartcontractkit/chainlink/deployment/cre/common/strategies"
@@ -53,14 +56,23 @@ const (
 )
 
 func TestConfigureCapabilitiesRegistry(t *testing.T) {
-	fixture := setupCapabilitiesRegistryTest(t)
+	t.Parallel()
+
 	t.Run("select by address", func(t *testing.T) {
+		t.Parallel()
+
+		fixture := setupCapabilitiesRegistryTest(t)
+
 		suite(t, fixture)
 	})
 
 	t.Run("select by qualifier", func(t *testing.T) {
+		t.Parallel()
+
+		fixture := setupCapabilitiesRegistryTest(t)
 		fixture.configureInput.CapabilitiesRegistryAddress = ""
 		fixture.configureInput.Qualifier = fixture.qualifier
+
 		suite(t, fixture)
 	})
 }
@@ -327,12 +339,12 @@ nops:
 capabilities:
   - capabilityID: "write-chain@1.0.0"
     configurationContract: "0x0000000000000000000000000000000000000000"
-    metadata: 
+    metadata:
       capabilityType: 3
       responseType: 0
   - capabilityID: "trigger@1.0.0"
     configurationContract: "0x0000000000000000000000000000000000000000"
-    metadata: 
+    metadata:
       capabilityType: 0
       responseType: 1
 nodes:
@@ -416,31 +428,37 @@ dons:
 
 // setupCapabilitiesRegistryWithMCMS sets up a test environment with MCMS infrastructure
 func setupCapabilitiesRegistryWithMCMS(t *testing.T) *testFixture {
-	lggr := logger.Test(t)
-	env, chainSelector := cre.BuildMinimalEnvironment(t, lggr)
+	selector := chainselectors.TEST_90000001.Selector
+	rt, err := runtime.New(t.Context(), runtime.WithEnvOpts(
+		environment.WithEVMSimulated(t, []uint64{selector}),
+		environment.WithLogger(logger.Test(t)),
+	))
+	require.NoError(t, err)
 
 	// Deploy MCMS infrastructure first
 	t.Log("Setting up MCMS infrastructure...")
 	timelockCfgs := map[uint64]commontypes.MCMSWithTimelockConfigV2{
-		chainSelector: proposalutils.SingleGroupTimelockConfigV2(t),
+		selector: proposalutils.SingleGroupTimelockConfigV2(t),
 	}
 
-	mcmsEnv, err := commonchangeset.Apply(t, env,
-		commonchangeset.Configure(
-			cldf.CreateLegacyChangeSet(commonchangeset.DeployMCMSWithTimelockV2),
-			timelockCfgs,
-		),
+	err = rt.Exec(
+		runtime.ChangesetTask(cldf.CreateLegacyChangeSet(commonchangeset.DeployMCMSWithTimelockV2), timelockCfgs),
 	)
 	require.NoError(t, err, "failed to deploy MCMS infrastructure")
 	t.Log("MCMS infrastructure deployed successfully")
 
 	// Deploy the capabilities registry
 	t.Log("Running deployment changeset...")
-	deployOutput, err := DeployCapabilitiesRegistry{}.Apply(mcmsEnv, DeployCapabilitiesRegistryInput{
-		ChainSelector: chainSelector,
+
+	deployTask := runtime.ChangesetTask(DeployCapabilitiesRegistry{}, DeployCapabilitiesRegistryInput{
+		ChainSelector: selector,
 		Qualifier:     "test-capabilities-registry-v2-mcms",
 	})
-	require.NoError(t, err, "failed to apply deployment changeset")
+
+	err = rt.Exec(deployTask)
+	require.NoError(t, err, "failed to deploy capabilities registry")
+
+	deployOutput := rt.State().Outputs[deployTask.ID()]
 	t.Logf("Deployment result: err=%v, output=%v", err, deployOutput)
 	require.Len(t, deployOutput.Reports, 1, "deployment should produce exactly one report")
 
@@ -550,7 +568,7 @@ func setupCapabilitiesRegistryWithMCMS(t *testing.T) *testFixture {
 
 	// Create the input with MCMS enabled
 	configureInput := ConfigureCapabilitiesRegistryInput{
-		ChainSelector:               chainSelector,
+		ChainSelector:               selector,
 		CapabilitiesRegistryAddress: capabilitiesRegistryAddress,
 		MCMSConfig: &ocr3.MCMSConfig{
 			MinDuration: 30 * time.Second,
@@ -563,8 +581,8 @@ func setupCapabilitiesRegistryWithMCMS(t *testing.T) *testFixture {
 	}
 
 	return &testFixture{
-		env:                         mcmsEnv,
-		chainSelector:               chainSelector,
+		env:                         rt.Environment(),
+		chainSelector:               selector,
 		capabilitiesRegistryAddress: capabilitiesRegistryAddress,
 		nops:                        nops,
 		capabilities:                capabilities,
@@ -575,24 +593,30 @@ func setupCapabilitiesRegistryWithMCMS(t *testing.T) *testFixture {
 }
 
 func setupCapabilitiesRegistryTest(t *testing.T) *testFixture {
-	lggr := logger.Test(t)
-	env, chainSelector := cre.BuildMinimalEnvironment(t, lggr)
+	selector := chainselectors.TEST_90000001.Selector
+	rt, err := runtime.New(t.Context(), runtime.WithEnvOpts(
+		environment.WithEVMSimulated(t, []uint64{selector}),
+		environment.WithLogger(logger.Test(t)),
+	))
+	require.NoError(t, err)
 
 	// Apply the changeset to deploy the V2 capabilities registry
 	t.Log("Running deployment changeset...")
 	qualifier := "test-capabilities-registry-v2"
-	deployOutput, err := DeployCapabilitiesRegistry{}.Apply(env, DeployCapabilitiesRegistryInput{
-		ChainSelector: chainSelector,
+
+	deployTask := runtime.ChangesetTask(DeployCapabilitiesRegistry{}, DeployCapabilitiesRegistryInput{
+		ChainSelector: selector,
 		Qualifier:     qualifier,
 	})
+	err = rt.Exec(deployTask)
+
+	deployOutput := rt.State().Outputs[deployTask.ID()]
+
 	require.NoError(t, err, "failed to apply deployment changeset")
 	require.NotNil(t, deployOutput, "deployment output should not be nil")
 	t.Logf("Deployment result: err=%v, output=%v", err, deployOutput)
 
 	capabilitiesRegistryAddress := deployOutput.DataStore.Addresses().Filter(datastore.AddressRefByQualifier(qualifier))[0].Address
-
-	// Replace the env datastore with the one with deployed contracts
-	env.DataStore = deployOutput.DataStore.Seal()
 
 	// Setup test data
 	nops := []CapabilitiesRegistryNodeOperator{
@@ -710,7 +734,7 @@ func setupCapabilitiesRegistryTest(t *testing.T) *testFixture {
 	}
 
 	configureInput := ConfigureCapabilitiesRegistryInput{
-		ChainSelector:               chainSelector,
+		ChainSelector:               selector,
 		CapabilitiesRegistryAddress: capabilitiesRegistryAddress,
 		MCMSConfig:                  nil,
 		Nops:                        nops,
@@ -720,8 +744,8 @@ func setupCapabilitiesRegistryTest(t *testing.T) *testFixture {
 	}
 
 	return &testFixture{
-		env:                         env,
-		chainSelector:               chainSelector,
+		env:                         rt.Environment(),
+		chainSelector:               selector,
 		qualifier:                   qualifier,
 		capabilitiesRegistryAddress: capabilitiesRegistryAddress,
 		nops:                        nops,

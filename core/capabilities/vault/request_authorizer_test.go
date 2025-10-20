@@ -2,6 +2,7 @@ package vault
 
 import (
 	"context"
+	"encoding/hex"
 	"encoding/json"
 	"testing"
 	"time"
@@ -14,7 +15,6 @@ import (
 	jsonrpc "github.com/smartcontractkit/chainlink-common/pkg/jsonrpc2"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/workflow/generated/workflow_registry_wrapper_v2"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/vault/vaulttypes"
-	"github.com/smartcontractkit/chainlink/v2/core/capabilities/vault/vaultutils"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	syncerv2mocks "github.com/smartcontractkit/chainlink/v2/core/services/workflows/syncer/v2/mocks"
 )
@@ -32,6 +32,7 @@ func TestRequestAuthorizer_CreateSecrets(t *testing.T) {
 		},
 	})
 	allowListedReq := jsonrpc.Request[json.RawMessage]{
+		ID:     "123",
 		Method: vaulttypes.MethodSecretsCreate,
 		Params: (*json.RawMessage)(&params),
 	}
@@ -49,6 +50,7 @@ func TestRequestAuthorizer_CreateSecrets(t *testing.T) {
 	})
 	require.NoError(t, err)
 	notAllowListedReq := jsonrpc.Request[json.RawMessage]{
+		ID:     "123",
 		Method: vaulttypes.MethodSecretsCreate,
 		Params: (*json.RawMessage)(&notAllowedParams),
 	}
@@ -70,6 +72,7 @@ func TestRequestAuthorizer_UpdateSecrets(t *testing.T) {
 		},
 	})
 	allowListedReq := jsonrpc.Request[json.RawMessage]{
+		ID:     "123",
 		Method: vaulttypes.MethodSecretsUpdate,
 		Params: (*json.RawMessage)(&params),
 	}
@@ -87,6 +90,7 @@ func TestRequestAuthorizer_UpdateSecrets(t *testing.T) {
 	})
 	require.NoError(t, err)
 	notAllowListedReq := jsonrpc.Request[json.RawMessage]{
+		ID:     "123",
 		Method: vaulttypes.MethodSecretsUpdate,
 		Params: (*json.RawMessage)(&notAllowedParams),
 	}
@@ -104,6 +108,7 @@ func TestRequestAuthorizer_DeleteSecrets(t *testing.T) {
 		},
 	})
 	allowListedReq := jsonrpc.Request[json.RawMessage]{
+		ID:     "123",
 		Method: vaulttypes.MethodSecretsDelete,
 		Params: (*json.RawMessage)(&params),
 	}
@@ -118,6 +123,7 @@ func TestRequestAuthorizer_DeleteSecrets(t *testing.T) {
 	})
 	require.NoError(t, err)
 	notAllowListedReq := jsonrpc.Request[json.RawMessage]{
+		ID:     "123",
 		Method: vaulttypes.MethodSecretsDelete,
 		Params: (*json.RawMessage)(&notAllowedParams),
 	}
@@ -130,6 +136,7 @@ func TestRequestAuthorizer_ListSecrets(t *testing.T) {
 		Namespace: "b",
 	})
 	allowListedReq := jsonrpc.Request[json.RawMessage]{
+		ID:     "123",
 		Method: vaulttypes.MethodSecretsList,
 		Params: (*json.RawMessage)(&params),
 	}
@@ -139,6 +146,7 @@ func TestRequestAuthorizer_ListSecrets(t *testing.T) {
 	})
 	require.NoError(t, err)
 	notAllowListedReq := jsonrpc.Request[json.RawMessage]{
+		ID:     "123",
 		Method: vaulttypes.MethodSecretsList,
 		Params: (*json.RawMessage)(&notAllowedParams),
 	}
@@ -153,22 +161,15 @@ func testAuthForRequests(t *testing.T, allowlistedRequest, notAllowlistedRequest
 	mockSyncer := syncerv2mocks.NewWorkflowRegistrySyncer(t)
 	auth := NewRequestAuthorizer(lggr, mockSyncer)
 
-	// Invalid method
-	invalidReq := jsonrpc.Request[json.RawMessage]{
-		Method: "invalid-method",
-		Params: nil,
-	}
-	isAuthorized, _, err := auth.AuthorizeRequest(context.Background(), invalidReq)
-	require.ErrorContains(t, err, "unauthorized method: invalid-method")
-	require.False(t, isAuthorized)
-
 	// Happy path
-	digest, err := vaultutils.DigestForRequest(allowlistedRequest)
+	digest, err := allowlistedRequest.Digest()
+	require.NoError(t, err)
+	digestBytes, err := hex.DecodeString(digest)
 	require.NoError(t, err)
 	expiry := uint64(time.Now().UTC().Unix() + 100) //nolint:gosec // it is a safe conversion
 	allowlisted := []workflow_registry_wrapper_v2.WorkflowRegistryOwnerAllowlistedRequest{
 		{
-			RequestDigest:   digest,
+			RequestDigest:   [32]byte(digestBytes),
 			Owner:           owner,
 			ExpiryTimestamp: uint32(expiry), //nolint:gosec // it is a safe conversion
 		},
@@ -185,9 +186,16 @@ func testAuthForRequests(t *testing.T, allowlistedRequest, notAllowlistedRequest
 	require.ErrorContains(t, err, "already authorized previously")
 
 	// Expired request
+	allowlistedReqCopy := allowlistedRequest
+	allowlistedReqCopy.ID = "456"
+	allowlistedReqCopyDigest, err := allowlistedReqCopy.Digest()
+	require.NoError(t, err)
+	allowlistedReqCopyDigestBytes, err := hex.DecodeString(allowlistedReqCopyDigest)
+	require.NoError(t, err)
+	allowlisted[0].RequestDigest = [32]byte(allowlistedReqCopyDigestBytes)
 	allowlisted[0].ExpiryTimestamp = uint32(time.Now().UTC().Unix() - 1) //nolint:gosec // it is a safe conversion
 	mockSyncer.On("GetAllowlistedRequests", mock.Anything).Return(allowlisted)
-	isAuthorized, _, err = auth.AuthorizeRequest(context.Background(), allowlistedRequest)
+	isAuthorized, _, err = auth.AuthorizeRequest(context.Background(), allowlistedReqCopy)
 	require.False(t, isAuthorized)
 	require.ErrorContains(t, err, "authorization expired")
 

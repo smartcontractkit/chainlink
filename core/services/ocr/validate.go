@@ -16,6 +16,7 @@ import (
 	"github.com/smartcontractkit/libocr/offchainreporting"
 
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/offchain_aggregator_wrapper"
+	"github.com/smartcontractkit/chainlink-evm/pkg/block"
 	"github.com/smartcontractkit/chainlink-evm/pkg/chains/legacyevm"
 	"github.com/smartcontractkit/chainlink-evm/pkg/client"
 	evmconfig "github.com/smartcontractkit/chainlink-evm/pkg/config"
@@ -245,7 +246,7 @@ func newContractTracker(chain legacyevm.Chain, contractAddress types.EIP55Addres
 
 	return &OCRContractTracker{
 		contractCaller:   contractCaller,
-		blockTranslator:  ocrcommon.NewBlockTranslator(chain.Config().EVM(), chain.Client(), logger.NullLogger),
+		blockTranslator:  block.NewBlockTranslator(chain.Config().EVM().ChainType(), chain.Client(), logger.NullLogger),
 		ethClient:        chain.Client(),
 		contract:         contract,
 		contractFilterer: filterer,

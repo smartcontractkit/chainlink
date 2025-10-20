@@ -1,6 +1,7 @@
 package v2
 
 import (
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"strings"
@@ -13,11 +14,26 @@ import (
 	jsonrpc "github.com/smartcontractkit/chainlink-common/pkg/jsonrpc2"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	gateway_common "github.com/smartcontractkit/chainlink-common/pkg/types/gateway"
+	"github.com/smartcontractkit/chainlink-common/pkg/workflows"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/config"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers/capabilities/v2/metrics"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
+)
+
+const (
+	testWorkflowID1      = "0x1234567890abcdef1234567890abcdef12345678901234567890abcdef123456"
+	testWorkflowID2      = "0xabcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890"
+	testWorkflowNameHex1 = "0x1234567890abcdef1234"
+	testWorkflowNameHex2 = "0xabcdef1234567890abcd"
+	testWorkflowOwner1   = "0x1234567890abcdef1234567890abcdef12345678"
+	testWorkflowOwner2   = "0xabcdef1234567890abcdef1234567890abcdef12"
+	testWorkflowTag1     = "workflowTag1"
+	testWorkflowTag2     = "workflowTag2"
+	testPublicKey1       = "0x1234567890abcdef1234567890abcdef12345678"
+	testPublicKey2       = "0xabcdef1234567890abcdef1234567890abcdef12"
+	testPublicKey3       = "0xabcdef1234567890abcdef1234567890abcdefab"
 )
 
 func createTestWorkflowMetadataHandler(t *testing.T) (*WorkflowMetadataHandler, *mocks.DON, *config.DONConfig) {
@@ -60,10 +76,10 @@ func TestSyncMetadata(t *testing.T) {
 	}
 	observation := gateway_common.WorkflowMetadata{
 		WorkflowSelector: gateway_common.WorkflowSelector{
-			WorkflowID:    "workflowID",
-			WorkflowName:  "workflowName",
-			WorkflowOwner: "workflowOwner",
-			WorkflowTag:   "workflowTag",
+			WorkflowID:    testWorkflowID1,
+			WorkflowName:  testWorkflowNameHex1,
+			WorkflowOwner: testWorkflowOwner1,
+			WorkflowTag:   testWorkflowTag1,
 		},
 		AuthorizedKeys: []gateway_common.AuthorizedKey{key},
 	}
@@ -75,22 +91,22 @@ func TestSyncMetadata(t *testing.T) {
 	require.NoError(t, err)
 	handler.syncMetadata()
 
-	workflowKeys, exists := handler.authorizedKeys["workflowID"]
+	workflowKeys, exists := handler.authorizedKeys[testWorkflowID1]
 	require.True(t, exists)
 	_, exists = workflowKeys[key]
 	require.True(t, exists)
 	require.Len(t, workflowKeys, 1)
-	ref, exists := handler.workflowIDToRef["workflowID"]
+	ref, exists := handler.workflowIDToRef[testWorkflowID1]
 	require.True(t, exists)
 	expectedRef := workflowReference{
-		workflowName:  "workflowName",
-		workflowOwner: "workflowOwner",
-		workflowTag:   "workflowTag",
+		workflowName:  testWorkflowNameHex1,
+		workflowOwner: testWorkflowOwner1,
+		workflowTag:   testWorkflowTag1,
 	}
 	require.Equal(t, expectedRef, ref)
 	workflowID, exists := handler.workflowRefToID[expectedRef]
 	require.True(t, exists)
-	require.Equal(t, "workflowID", workflowID)
+	require.Equal(t, testWorkflowID1, workflowID)
 }
 
 func TestSyncMetadataMultipleWorkflows(t *testing.T) {
@@ -110,9 +126,9 @@ func TestSyncMetadataMultipleWorkflows(t *testing.T) {
 			observation := gateway_common.WorkflowMetadata{
 				WorkflowSelector: gateway_common.WorkflowSelector{
 					WorkflowID:    workflowID,
-					WorkflowName:  "workflowName",
-					WorkflowOwner: "workflowOwner",
-					WorkflowTag:   "workflowTag",
+					WorkflowName:  testWorkflowNameHex1,
+					WorkflowOwner: testWorkflowOwner1,
+					WorkflowTag:   testWorkflowTag1,
 				},
 				AuthorizedKeys: []gateway_common.AuthorizedKey{
 					{
@@ -130,9 +146,9 @@ func TestSyncMetadataMultipleWorkflows(t *testing.T) {
 	handler.syncMetadata()
 
 	expectedRef := workflowReference{
-		workflowName:  "workflowName",
-		workflowOwner: "workflowOwner",
-		workflowTag:   "workflowTag",
+		workflowName:  testWorkflowNameHex1,
+		workflowOwner: testWorkflowOwner1,
+		workflowTag:   testWorkflowTag1,
 	}
 	require.Len(t, handler.authorizedKeys, 1)
 	for workflowID, workflowKeys := range handler.authorizedKeys {
@@ -207,19 +223,19 @@ func TestOnMetadataPush(t *testing.T) {
 
 	metadata := gateway_common.WorkflowMetadata{
 		WorkflowSelector: gateway_common.WorkflowSelector{
-			WorkflowID:    "workflowID",
-			WorkflowName:  "workflowName",
-			WorkflowOwner: "workflowOwner",
-			WorkflowTag:   "workflowTag",
+			WorkflowID:    testWorkflowID1,
+			WorkflowName:  testWorkflowNameHex1,
+			WorkflowOwner: testWorkflowOwner1,
+			WorkflowTag:   testWorkflowTag1,
 		},
 		AuthorizedKeys: []gateway_common.AuthorizedKey{
 			{
 				KeyType:   gateway_common.KeyTypeECDSAEVM,
-				PublicKey: "0x1234567890abcdef1234567890abcdef12345678",
+				PublicKey: testWorkflowOwner1,
 			},
 			{
 				KeyType:   gateway_common.KeyTypeECDSAEVM,
-				PublicKey: "0xabcdef1234567890abcdef1234567890abcdef12",
+				PublicKey: testWorkflowOwner2,
 			},
 		},
 	}
@@ -265,32 +281,32 @@ func TestOnMetadataPullResponse(t *testing.T) {
 
 	key1 := gateway_common.AuthorizedKey{
 		KeyType:   gateway_common.KeyTypeECDSAEVM,
-		PublicKey: "0x1234567890abcdef1234567890abcdef12345678",
+		PublicKey: testPublicKey1,
 	}
 	key2 := gateway_common.AuthorizedKey{
 		KeyType:   gateway_common.KeyTypeECDSAEVM,
-		PublicKey: "0xabcdef1234567890abcdef1234567890abcdef12",
+		PublicKey: testPublicKey2,
 	}
 	key3 := gateway_common.AuthorizedKey{
 		KeyType:   gateway_common.KeyTypeECDSAEVM,
-		PublicKey: "0xabcdef1234567890abcdef1234567890abcdefab",
+		PublicKey: testPublicKey3,
 	}
 	metadata := []gateway_common.WorkflowMetadata{
 		{
 			WorkflowSelector: gateway_common.WorkflowSelector{
-				WorkflowID:    "workflowID1",
-				WorkflowName:  "workflowName1",
-				WorkflowOwner: "workflowOwner1",
-				WorkflowTag:   "workflowTag1",
+				WorkflowID:    testWorkflowID1,
+				WorkflowName:  testWorkflowNameHex1,
+				WorkflowOwner: testWorkflowOwner1,
+				WorkflowTag:   testWorkflowTag1,
 			},
 			AuthorizedKeys: []gateway_common.AuthorizedKey{key1},
 		},
 		{
 			WorkflowSelector: gateway_common.WorkflowSelector{
-				WorkflowID:    "workflowID2",
-				WorkflowName:  "workflowName2",
-				WorkflowOwner: "workflowOwner2",
-				WorkflowTag:   "workflowTag2",
+				WorkflowID:    testWorkflowID2,
+				WorkflowName:  testWorkflowNameHex2,
+				WorkflowOwner: testWorkflowOwner2,
+				WorkflowTag:   testWorkflowTag2,
 			},
 			AuthorizedKeys: []gateway_common.AuthorizedKey{key2, key3},
 		},
@@ -316,12 +332,12 @@ func TestOnMetadataPullResponse(t *testing.T) {
 	require.NoError(t, err)
 	handler.syncMetadata()
 	require.Len(t, handler.authorizedKeys, 2)
-	keys, exists := handler.authorizedKeys["workflowID1"]
+	keys, exists := handler.authorizedKeys[testWorkflowID1]
 	require.True(t, exists)
 	require.Len(t, keys, 1)
 	_, exists = keys[key1]
 	require.True(t, exists)
-	keys, exists = handler.authorizedKeys["workflowID2"]
+	keys, exists = handler.authorizedKeys[testWorkflowID2]
 	require.True(t, exists)
 	require.Len(t, keys, 2)
 	_, exists = keys[key2]
@@ -329,25 +345,25 @@ func TestOnMetadataPullResponse(t *testing.T) {
 	_, exists = keys[key3]
 	require.True(t, exists)
 	ref1 := workflowReference{
-		workflowOwner: "workflowOwner1",
-		workflowName:  "workflowName1",
-		workflowTag:   "workflowTag1",
+		workflowOwner: testWorkflowOwner1,
+		workflowName:  testWorkflowNameHex1,
+		workflowTag:   testWorkflowTag1,
 	}
 	ref2 := workflowReference{
-		workflowName:  "workflowName2",
-		workflowOwner: "workflowOwner2",
-		workflowTag:   "workflowTag2",
+		workflowName:  testWorkflowNameHex2,
+		workflowOwner: testWorkflowOwner2,
+		workflowTag:   testWorkflowTag2,
 	}
 	id, exists := handler.workflowRefToID[ref1]
 	require.True(t, exists)
-	require.Equal(t, "workflowID1", id)
+	require.Equal(t, testWorkflowID1, id)
 	id, exists = handler.workflowRefToID[ref2]
 	require.True(t, exists)
-	require.Equal(t, "workflowID2", id)
-	r1, exists := handler.workflowIDToRef["workflowID1"]
+	require.Equal(t, testWorkflowID2, id)
+	r1, exists := handler.workflowIDToRef[testWorkflowID1]
 	require.True(t, exists)
 	require.Equal(t, ref1, r1)
-	r2, exists := handler.workflowIDToRef["workflowID2"]
+	r2, exists := handler.workflowIDToRef[testWorkflowID2]
 	require.True(t, exists)
 	require.Equal(t, ref2, r2)
 }
@@ -396,15 +412,15 @@ func TestValidateAuthMetadata(t *testing.T) {
 			name: "valid metadata",
 			metadata: gateway_common.WorkflowMetadata{
 				WorkflowSelector: gateway_common.WorkflowSelector{
-					WorkflowID:    "workflowID",
-					WorkflowName:  "workflowName",
-					WorkflowOwner: "workflowOwner",
-					WorkflowTag:   "workflowTag",
+					WorkflowID:    testWorkflowID1,
+					WorkflowName:  testWorkflowNameHex1,
+					WorkflowOwner: testWorkflowOwner1,
+					WorkflowTag:   testWorkflowTag1,
 				},
 				AuthorizedKeys: []gateway_common.AuthorizedKey{
 					{
 						KeyType:   gateway_common.KeyTypeECDSAEVM,
-						PublicKey: "0x1234567890abcdef1234567890abcdef12345678",
+						PublicKey: testPublicKey1,
 					},
 				},
 			},
@@ -415,85 +431,85 @@ func TestValidateAuthMetadata(t *testing.T) {
 			metadata: gateway_common.WorkflowMetadata{
 				WorkflowSelector: gateway_common.WorkflowSelector{
 					WorkflowID:    "",
-					WorkflowName:  "workflowName",
-					WorkflowOwner: "workflowOwner",
-					WorkflowTag:   "workflowTag",
+					WorkflowName:  testWorkflowNameHex1,
+					WorkflowOwner: testWorkflowOwner1,
+					WorkflowTag:   testWorkflowTag1,
 				},
 				AuthorizedKeys: []gateway_common.AuthorizedKey{
 					{
 						KeyType:   gateway_common.KeyTypeECDSAEVM,
-						PublicKey: "0x1234567890abcdef1234567890abcdef12345678",
+						PublicKey: testPublicKey1,
 					},
 				},
 			},
 			expectError: true,
-			errorMsg:    "invalid workflow metadata",
+			errorMsg:    "invalid workflow ID",
 		},
 		{
 			name: "empty workflow name",
 			metadata: gateway_common.WorkflowMetadata{
 				WorkflowSelector: gateway_common.WorkflowSelector{
-					WorkflowID:    "workflowID",
+					WorkflowID:    testWorkflowID1,
 					WorkflowName:  "",
-					WorkflowOwner: "workflowOwner",
-					WorkflowTag:   "workflowTag",
+					WorkflowOwner: testWorkflowOwner1,
+					WorkflowTag:   testWorkflowTag1,
 				},
 				AuthorizedKeys: []gateway_common.AuthorizedKey{
 					{
 						KeyType:   gateway_common.KeyTypeECDSAEVM,
-						PublicKey: "0x1234567890abcdef1234567890abcdef12345678",
+						PublicKey: testPublicKey1,
 					},
 				},
 			},
 			expectError: true,
-			errorMsg:    "invalid workflow metadata",
+			errorMsg:    "invalid workflow name",
 		},
 		{
 			name: "empty workflow owner",
 			metadata: gateway_common.WorkflowMetadata{
 				WorkflowSelector: gateway_common.WorkflowSelector{
-					WorkflowID:    "workflowID",
-					WorkflowName:  "workflowName",
+					WorkflowID:    testWorkflowID1,
+					WorkflowName:  testWorkflowNameHex1,
 					WorkflowOwner: "",
-					WorkflowTag:   "workflowTag",
+					WorkflowTag:   testWorkflowTag1,
 				},
 				AuthorizedKeys: []gateway_common.AuthorizedKey{
 					{
 						KeyType:   gateway_common.KeyTypeECDSAEVM,
-						PublicKey: "0x1234567890abcdef1234567890abcdef12345678",
+						PublicKey: testPublicKey1,
 					},
 				},
 			},
 			expectError: true,
-			errorMsg:    "invalid workflow metadata",
+			errorMsg:    "invalid workflow owner",
 		},
 		{
 			name: "empty workflow tag",
 			metadata: gateway_common.WorkflowMetadata{
 				WorkflowSelector: gateway_common.WorkflowSelector{
-					WorkflowID:    "workflowID",
-					WorkflowName:  "workflowName",
-					WorkflowOwner: "workflowOwner",
+					WorkflowID:    testWorkflowID1,
+					WorkflowName:  testWorkflowNameHex1,
+					WorkflowOwner: testWorkflowOwner1,
 					WorkflowTag:   "",
 				},
 				AuthorizedKeys: []gateway_common.AuthorizedKey{
 					{
 						KeyType:   gateway_common.KeyTypeECDSAEVM,
-						PublicKey: "0x1234567890abcdef1234567890abcdef12345678",
+						PublicKey: testPublicKey1,
 					},
 				},
 			},
 			expectError: true,
-			errorMsg:    "invalid workflow metadata",
+			errorMsg:    "invalid workflow tag",
 		},
 		{
 			name: "no authorized keys",
 			metadata: gateway_common.WorkflowMetadata{
 				WorkflowSelector: gateway_common.WorkflowSelector{
-					WorkflowID:    "workflowID",
-					WorkflowName:  "workflowName",
-					WorkflowOwner: "workflowOwner",
-					WorkflowTag:   "workflowTag",
+					WorkflowID:    testWorkflowID1,
+					WorkflowName:  testWorkflowNameHex1,
+					WorkflowOwner: testWorkflowOwner1,
+					WorkflowTag:   testWorkflowTag1,
 				},
 				AuthorizedKeys: []gateway_common.AuthorizedKey{},
 			},
@@ -504,15 +520,15 @@ func TestValidateAuthMetadata(t *testing.T) {
 			name: "invalid key type",
 			metadata: gateway_common.WorkflowMetadata{
 				WorkflowSelector: gateway_common.WorkflowSelector{
-					WorkflowID:    "workflowID",
-					WorkflowName:  "workflowName",
-					WorkflowOwner: "workflowOwner",
-					WorkflowTag:   "workflowTag",
+					WorkflowID:    testWorkflowID1,
+					WorkflowName:  testWorkflowNameHex1,
+					WorkflowOwner: testWorkflowOwner1,
+					WorkflowTag:   testWorkflowTag1,
 				},
 				AuthorizedKeys: []gateway_common.AuthorizedKey{
 					{
 						KeyType:   "invalid",
-						PublicKey: "0x1234567890abcdef1234567890abcdef12345678",
+						PublicKey: testPublicKey1,
 					},
 				},
 			},
@@ -523,10 +539,10 @@ func TestValidateAuthMetadata(t *testing.T) {
 			name: "empty public key",
 			metadata: gateway_common.WorkflowMetadata{
 				WorkflowSelector: gateway_common.WorkflowSelector{
-					WorkflowID:    "workflowID",
-					WorkflowName:  "workflowName",
-					WorkflowOwner: "workflowOwner",
-					WorkflowTag:   "workflowTag",
+					WorkflowID:    testWorkflowID1,
+					WorkflowName:  testWorkflowNameHex1,
+					WorkflowOwner: testWorkflowOwner1,
+					WorkflowTag:   testWorkflowTag1,
 				},
 				AuthorizedKeys: []gateway_common.AuthorizedKey{
 					{
@@ -542,10 +558,10 @@ func TestValidateAuthMetadata(t *testing.T) {
 			name: "public key without 0x prefix",
 			metadata: gateway_common.WorkflowMetadata{
 				WorkflowSelector: gateway_common.WorkflowSelector{
-					WorkflowID:    "workflowID",
-					WorkflowName:  "workflowName",
-					WorkflowOwner: "workflowOwner",
-					WorkflowTag:   "workflowTag",
+					WorkflowID:    testWorkflowID1,
+					WorkflowName:  testWorkflowNameHex1,
+					WorkflowOwner: testWorkflowOwner1,
+					WorkflowTag:   testWorkflowTag1,
 				},
 				AuthorizedKeys: []gateway_common.AuthorizedKey{
 					{
@@ -561,10 +577,10 @@ func TestValidateAuthMetadata(t *testing.T) {
 			name: "public key too short",
 			metadata: gateway_common.WorkflowMetadata{
 				WorkflowSelector: gateway_common.WorkflowSelector{
-					WorkflowID:    "workflowID",
-					WorkflowName:  "workflowName",
-					WorkflowOwner: "workflowOwner",
-					WorkflowTag:   "workflowTag",
+					WorkflowID:    testWorkflowID1,
+					WorkflowName:  testWorkflowNameHex1,
+					WorkflowOwner: testWorkflowOwner1,
+					WorkflowTag:   testWorkflowTag1,
 				},
 				AuthorizedKeys: []gateway_common.AuthorizedKey{
 					{
@@ -580,10 +596,10 @@ func TestValidateAuthMetadata(t *testing.T) {
 			name: "public key too long",
 			metadata: gateway_common.WorkflowMetadata{
 				WorkflowSelector: gateway_common.WorkflowSelector{
-					WorkflowID:    "workflowID",
-					WorkflowName:  "workflowName",
-					WorkflowOwner: "workflowOwner",
-					WorkflowTag:   "workflowTag",
+					WorkflowID:    testWorkflowID1,
+					WorkflowName:  testWorkflowNameHex1,
+					WorkflowOwner: testWorkflowOwner1,
+					WorkflowTag:   testWorkflowTag1,
 				},
 				AuthorizedKeys: []gateway_common.AuthorizedKey{
 					{
@@ -599,10 +615,10 @@ func TestValidateAuthMetadata(t *testing.T) {
 			name: "public key not lowercase",
 			metadata: gateway_common.WorkflowMetadata{
 				WorkflowSelector: gateway_common.WorkflowSelector{
-					WorkflowID:    "workflowID",
-					WorkflowName:  "workflowName",
-					WorkflowOwner: "workflowOwner",
-					WorkflowTag:   "workflowTag",
+					WorkflowID:    testWorkflowID1,
+					WorkflowName:  testWorkflowNameHex1,
+					WorkflowOwner: testWorkflowOwner1,
+					WorkflowTag:   testWorkflowTag1,
 				},
 				AuthorizedKeys: []gateway_common.AuthorizedKey{
 					{
@@ -618,23 +634,156 @@ func TestValidateAuthMetadata(t *testing.T) {
 			name: "multiple valid keys",
 			metadata: gateway_common.WorkflowMetadata{
 				WorkflowSelector: gateway_common.WorkflowSelector{
-					WorkflowID:    "workflowID",
-					WorkflowName:  "workflowName",
-					WorkflowOwner: "workflowOwner",
-					WorkflowTag:   "workflowTag",
+					WorkflowID:    testWorkflowID1,
+					WorkflowName:  testWorkflowNameHex1,
+					WorkflowOwner: testWorkflowOwner1,
+					WorkflowTag:   testWorkflowTag1,
 				},
 				AuthorizedKeys: []gateway_common.AuthorizedKey{
 					{
 						KeyType:   gateway_common.KeyTypeECDSAEVM,
-						PublicKey: "0x1234567890abcdef1234567890abcdef12345678",
+						PublicKey: testPublicKey1,
 					},
 					{
 						KeyType:   gateway_common.KeyTypeECDSAEVM,
-						PublicKey: "0xabcdef1234567890abcdef1234567890abcdef12",
+						PublicKey: testPublicKey2,
 					},
 				},
 			},
 			expectError: false,
+		},
+		{
+			name: "workflow ID too short",
+			metadata: gateway_common.WorkflowMetadata{
+				WorkflowSelector: gateway_common.WorkflowSelector{
+					WorkflowID:    "0x1234567890abcdef1234567890abcdef12345678901234567890abcdef12345", // 65 chars
+					WorkflowName:  testWorkflowNameHex1,
+					WorkflowOwner: testWorkflowOwner1,
+					WorkflowTag:   testWorkflowTag1,
+				},
+				AuthorizedKeys: []gateway_common.AuthorizedKey{
+					{
+						KeyType:   gateway_common.KeyTypeECDSAEVM,
+						PublicKey: testPublicKey1,
+					},
+				},
+			},
+			expectError: true,
+			errorMsg:    "invalid workflow ID",
+		},
+		{
+			name: "workflow ID too long",
+			metadata: gateway_common.WorkflowMetadata{
+				WorkflowSelector: gateway_common.WorkflowSelector{
+					WorkflowID:    "0x1234567890abcdef1234567890abcdef12345678901234567890abcdef1234567", // 67 chars
+					WorkflowName:  testWorkflowNameHex1,
+					WorkflowOwner: testWorkflowOwner1,
+					WorkflowTag:   testWorkflowTag1,
+				},
+				AuthorizedKeys: []gateway_common.AuthorizedKey{
+					{
+						KeyType:   gateway_common.KeyTypeECDSAEVM,
+						PublicKey: testPublicKey1,
+					},
+				},
+			},
+			expectError: true,
+			errorMsg:    "invalid workflow ID",
+		},
+		{
+			name: "workflow owner too short",
+			metadata: gateway_common.WorkflowMetadata{
+				WorkflowSelector: gateway_common.WorkflowSelector{
+					WorkflowID:    testWorkflowID1,
+					WorkflowName:  testWorkflowNameHex1,
+					WorkflowOwner: "0x1234567890abcdef1234567890abcdef1234567", // 41 chars
+					WorkflowTag:   testWorkflowTag1,
+				},
+				AuthorizedKeys: []gateway_common.AuthorizedKey{
+					{
+						KeyType:   gateway_common.KeyTypeECDSAEVM,
+						PublicKey: testPublicKey1,
+					},
+				},
+			},
+			expectError: true,
+			errorMsg:    "invalid workflow owner",
+		},
+		{
+			name: "workflow owner too long",
+			metadata: gateway_common.WorkflowMetadata{
+				WorkflowSelector: gateway_common.WorkflowSelector{
+					WorkflowID:    testWorkflowID1,
+					WorkflowName:  testWorkflowNameHex1,
+					WorkflowOwner: "0x1234567890abcdef1234567890abcdef123456789", // 43 chars
+					WorkflowTag:   testWorkflowTag1,
+				},
+				AuthorizedKeys: []gateway_common.AuthorizedKey{
+					{
+						KeyType:   gateway_common.KeyTypeECDSAEVM,
+						PublicKey: testPublicKey1,
+					},
+				},
+			},
+			expectError: true,
+			errorMsg:    "invalid workflow owner",
+		},
+		{
+			name: "workflow name too short",
+			metadata: gateway_common.WorkflowMetadata{
+				WorkflowSelector: gateway_common.WorkflowSelector{
+					WorkflowID:    testWorkflowID1,
+					WorkflowName:  "0x1234567890abcdef123", // 21 chars
+					WorkflowOwner: testWorkflowOwner1,
+					WorkflowTag:   testWorkflowTag1,
+				},
+				AuthorizedKeys: []gateway_common.AuthorizedKey{
+					{
+						KeyType:   gateway_common.KeyTypeECDSAEVM,
+						PublicKey: testPublicKey1,
+					},
+				},
+			},
+			expectError: true,
+			errorMsg:    "invalid workflow name",
+		},
+		{
+			name: "workflow name too long",
+			metadata: gateway_common.WorkflowMetadata{
+				WorkflowSelector: gateway_common.WorkflowSelector{
+					WorkflowID:    testWorkflowID1,
+					WorkflowName:  "0x1234567890abcdef12345", // 23 chars
+					WorkflowOwner: testWorkflowOwner1,
+					WorkflowTag:   testWorkflowTag1,
+				},
+				AuthorizedKeys: []gateway_common.AuthorizedKey{
+					{
+						KeyType:   gateway_common.KeyTypeECDSAEVM,
+						PublicKey: testPublicKey1,
+					},
+				},
+			},
+			expectError: true,
+			errorMsg:    "invalid workflow name",
+		},
+		{
+			name: "workflow tag too long",
+			metadata: gateway_common.WorkflowMetadata{
+				WorkflowSelector: gateway_common.WorkflowSelector{
+					WorkflowID:    testWorkflowID1,
+					WorkflowName:  testWorkflowNameHex1,
+					WorkflowOwner: testWorkflowOwner1,
+					WorkflowTag:   "this_is_a_very_long_workflow_tag_that_exceeds_the_maximum_length", // 65 chars
+				},
+				AuthorizedKeys: []gateway_common.AuthorizedKey{
+					{
+						KeyType:   gateway_common.KeyTypeECDSAEVM,
+						PublicKey: testPublicKey1,
+					},
+				},
+			},
+			expectError: true,
+			errorMsg:    "invalid workflow tag",
 		},
 	}
 
@@ -662,15 +811,15 @@ func TestOnMetadataPushWithValidation(t *testing.T) {
 	t.Run("valid metadata passes validation", func(t *testing.T) {
 		metadata := gateway_common.WorkflowMetadata{
 			WorkflowSelector: gateway_common.WorkflowSelector{
-				WorkflowID:    "workflowID",
-				WorkflowName:  "workflowName",
-				WorkflowOwner: "workflowOwner",
-				WorkflowTag:   "workflowTag",
+				WorkflowID:    testWorkflowID1,
+				WorkflowName:  testWorkflowNameHex1,
+				WorkflowOwner: testWorkflowOwner1,
+				WorkflowTag:   testWorkflowTag1,
 			},
 			AuthorizedKeys: []gateway_common.AuthorizedKey{
 				{
 					KeyType:   gateway_common.KeyTypeECDSAEVM,
-					PublicKey: "0x1234567890abcdef1234567890abcdef12345678",
+					PublicKey: testPublicKey1,
 				},
 			},
 		}
@@ -691,14 +840,14 @@ func TestOnMetadataPushWithValidation(t *testing.T) {
 		metadata := gateway_common.WorkflowMetadata{
 			WorkflowSelector: gateway_common.WorkflowSelector{
 				WorkflowID:    "", // Invalid: empty workflow ID
-				WorkflowName:  "workflowName",
-				WorkflowOwner: "workflowOwner",
-				WorkflowTag:   "workflowTag",
+				WorkflowName:  testWorkflowNameHex1,
+				WorkflowOwner: testWorkflowOwner1,
+				WorkflowTag:   testWorkflowTag1,
 			},
 			AuthorizedKeys: []gateway_common.AuthorizedKey{
 				{
 					KeyType:   gateway_common.KeyTypeECDSAEVM,
-					PublicKey: "0x1234567890abcdef1234567890abcdef12345678",
+					PublicKey: testWorkflowOwner1,
 				},
 			},
 		}
@@ -713,7 +862,7 @@ func TestOnMetadataPushWithValidation(t *testing.T) {
 
 		err = handler.OnMetadataPush(ctx, resp, "node1")
 		require.Error(t, err)
-		require.Contains(t, err.Error(), "invalid workflow metadata")
+		require.Contains(t, err.Error(), "invalid workflow ID")
 	})
 }
 
@@ -729,29 +878,29 @@ func TestOnMetadataPullResponseWithValidation(t *testing.T) {
 		metadata := []gateway_common.WorkflowMetadata{
 			{
 				WorkflowSelector: gateway_common.WorkflowSelector{
-					WorkflowID:    "workflowID1",
-					WorkflowName:  "workflowName1",
-					WorkflowOwner: "workflowOwner1",
-					WorkflowTag:   "workflowTag1",
+					WorkflowID:    testWorkflowID1,
+					WorkflowName:  testWorkflowNameHex1,
+					WorkflowOwner: testWorkflowOwner1,
+					WorkflowTag:   testWorkflowTag1,
 				},
 				AuthorizedKeys: []gateway_common.AuthorizedKey{
 					{
 						KeyType:   gateway_common.KeyTypeECDSAEVM,
-						PublicKey: "0x1234567890abcdef1234567890abcdef12345678",
+						PublicKey: testWorkflowOwner1,
 					},
 				},
 			},
 			{
 				WorkflowSelector: gateway_common.WorkflowSelector{
-					WorkflowID:    "workflowID2",
-					WorkflowName:  "workflowName2",
-					WorkflowOwner: "workflowOwner2",
-					WorkflowTag:   "workflowTag2",
+					WorkflowID:    testWorkflowID2,
+					WorkflowName:  testWorkflowNameHex2,
+					WorkflowOwner: testWorkflowOwner2,
+					WorkflowTag:   testWorkflowTag2,
 				},
 				AuthorizedKeys: []gateway_common.AuthorizedKey{
 					{
 						KeyType:   gateway_common.KeyTypeECDSAEVM,
-						PublicKey: "0xabcdef1234567890abcdef1234567890abcdef12",
+						PublicKey: testWorkflowOwner2,
 					},
 				},
 			},
@@ -776,26 +925,26 @@ func TestOnMetadataPullResponseWithValidation(t *testing.T) {
 					WorkflowID:    "workflowID1",
 					WorkflowName:  "workflowName1",
 					WorkflowOwner: "workflowOwner1",
-					WorkflowTag:   "workflowTag1",
+					WorkflowTag:   testWorkflowTag1,
 				},
 				AuthorizedKeys: []gateway_common.AuthorizedKey{
 					{
 						KeyType:   gateway_common.KeyTypeECDSAEVM,
-						PublicKey: "0x1234567890abcdef1234567890abcdef12345678",
+						PublicKey: testWorkflowOwner1,
 					},
 				},
 			},
 			{
 				WorkflowSelector: gateway_common.WorkflowSelector{
 					WorkflowID:    "", // Invalid: empty workflow ID
-					WorkflowName:  "workflowName2",
-					WorkflowOwner: "workflowOwner2",
-					WorkflowTag:   "workflowTag2",
+					WorkflowName:  testWorkflowNameHex1,
+					WorkflowOwner: testWorkflowOwner1,
+					WorkflowTag:   testWorkflowTag2,
 				},
 				AuthorizedKeys: []gateway_common.AuthorizedKey{
 					{
 						KeyType:   gateway_common.KeyTypeECDSAEVM,
-						PublicKey: "0xabcdef1234567890abcdef1234567890abcdef12",
+						PublicKey: testWorkflowOwner2,
 					},
 				},
 			},
@@ -811,7 +960,7 @@ func TestOnMetadataPullResponseWithValidation(t *testing.T) {
 
 		err = handler.OnMetadataPullResponse(ctx, resp, "node1")
 		require.Error(t, err)
-		require.Contains(t, err.Error(), "invalid workflow metadata")
+		require.Contains(t, err.Error(), "invalid workflow ID")
 	})
 }
 
@@ -821,7 +970,7 @@ func TestWorkflowMetadataHandler_Authorize(t *testing.T) {
 	require.NoError(t, err)
 	signerAddr := crypto.PubkeyToAddress(privateKey.PublicKey)
 
-	workflowID := "0x1234567890abcdef1234567890abcdef12345678901234567890abcdef123456"
+	workflowID := testWorkflowID1
 	authorizedKey := gateway_common.AuthorizedKey{
 		KeyType:   gateway_common.KeyTypeECDSAEVM,
 		PublicKey: strings.ToLower(signerAddr.Hex()),
@@ -885,7 +1034,7 @@ func TestWorkflowMetadataHandler_Authorize(t *testing.T) {
 
 		key, err := handler.Authorize(nonExistentWorkflowID, tokenString, req)
 		require.Error(t, err)
-		require.Contains(t, err.Error(), "workflow ID not found in authorized keys")
+		require.Contains(t, err.Error(), "not found")
 		require.Nil(t, key)
 	})
 
@@ -909,7 +1058,7 @@ func TestWorkflowMetadataHandler_Authorize(t *testing.T) {
 
 		key, err := handler.Authorize(workflowID, tokenString, req)
 		require.Error(t, err)
-		require.Contains(t, err.Error(), "signer not found in authorized keys")
+		require.Contains(t, err.Error(), "is not authorized for workflow")
 		require.Nil(t, key)
 	})
 
@@ -938,7 +1087,7 @@ func TestWorkflowMetadataHandler_Authorize(t *testing.T) {
 
 		key, err := handler.Authorize(workflowID, tokenString, req)
 		require.Error(t, err)
-		require.Contains(t, err.Error(), "JWT digest does not match request digest")
+		require.Contains(t, err.Error(), "does not match calculated request digest")
 		require.Nil(t, key)
 	})
 
@@ -1007,14 +1156,15 @@ func TestWorkflowMetadataHandler_Authorize(t *testing.T) {
 func TestWorkflowMetadataHandler_GetWorkflowID(t *testing.T) {
 	handler, _, _ := createTestWorkflowMetadataHandler(t)
 
-	workflowOwner := "0x1234567890abcdef1234567890abcdef12345678"
+	workflowOwner := testWorkflowOwner1
 	workflowName := "test-workflow"
+	workflowNameHash := "0x" + hex.EncodeToString([]byte(workflows.HashTruncateName(workflowName)))
 	workflowTag := "v1.0"
-	workflowID := "0x1234567890abcdef1234567890abcdef12345678901234567890abcdef123456"
+	workflowID := testWorkflowID1
 
 	workflowRef := workflowReference{
 		workflowOwner: workflowOwner,
-		workflowName:  workflowName,
+		workflowName:  workflowNameHash,
 		workflowTag:   workflowTag,
 	}
 	handler.workflowRefToID = map[workflowReference]string{
@@ -1022,7 +1172,7 @@ func TestWorkflowMetadataHandler_GetWorkflowID(t *testing.T) {
 	}
 
 	t.Run("successful workflow lookup", func(t *testing.T) {
-		id, found := handler.GetWorkflowID(workflowOwner, workflowName, workflowTag)
+		id, found := handler.GetWorkflowID(workflowOwner, workflowNameHash, workflowTag)
 		require.True(t, found)
 		require.Equal(t, workflowID, id)
 	})
@@ -1049,14 +1199,14 @@ func TestWorkflowMetadataHandler_GetWorkflowID(t *testing.T) {
 func TestWorkflowMetadataHandler_GetWorkflowReference(t *testing.T) {
 	handler, _, _ := createTestWorkflowMetadataHandler(t)
 
-	workflowOwner := "0x1234567890abcdef1234567890abcdef12345678"
+	workflowOwner := testWorkflowOwner1
 	workflowName := "test-workflow"
 	workflowTag := "v1.0"
-	workflowID := "0x1234567890abcdef1234567890abcdef12345678901234567890abcdef123456"
+	workflowID := testWorkflowID1
 
 	expectedRef := workflowReference{
 		workflowOwner: workflowOwner,
-		workflowName:  workflowName,
+		workflowName:  "0x" + hex.EncodeToString([]byte(workflows.HashTruncateName(workflowName))),
 		workflowTag:   workflowTag,
 	}
 	handler.workflowIDToRef = map[string]workflowReference{

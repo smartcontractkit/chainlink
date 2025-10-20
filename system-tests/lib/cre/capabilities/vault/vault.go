@@ -6,8 +6,8 @@ import (
 
 	"github.com/Masterminds/semver/v3"
 	"github.com/pkg/errors"
-	chainselectors "github.com/smartcontractkit/chain-selectors"
 
+	chainselectors "github.com/smartcontractkit/chain-selectors"
 	"github.com/smartcontractkit/tdh2/go/tdh2/tdh2easy"
 
 	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"

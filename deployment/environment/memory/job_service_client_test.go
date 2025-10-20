@@ -10,8 +10,8 @@ import (
 	"go.uber.org/zap/zapcore"
 
 	cldf_chain "github.com/smartcontractkit/chainlink-deployments-framework/chain"
+	"github.com/smartcontractkit/chainlink-deployments-framework/engine/test/onchain"
 
-	"github.com/smartcontractkit/chainlink-evm/pkg/testutils"
 	jobv1 "github.com/smartcontractkit/chainlink-protos/job-distributor/v1/job"
 	"github.com/smartcontractkit/chainlink-protos/job-distributor/v1/shared/ptypes"
 
@@ -21,8 +21,12 @@ import (
 
 func TestJobClientProposeJob(t *testing.T) {
 	t.Parallel()
-	ctx := testutils.Context(t)
-	blockchains := cldf_chain.NewBlockChainsFromSlice(memory.NewMemoryChainsEVM(t, 1, 1))
+	ctx := t.Context()
+
+	bc, err := onchain.NewEVMSimLoader().LoadN(t, 1)
+	require.NoError(t, err)
+
+	blockchains := cldf_chain.NewBlockChainsFromSlice(bc)
 	ports := freeport.GetN(t, 1)
 	c := memory.NewNodeConfig{
 		Port:           ports[0],
@@ -122,8 +126,12 @@ func TestJobClientProposeJob(t *testing.T) {
 
 func TestJobClientJobAPI(t *testing.T) {
 	t.Parallel()
-	ctx := testutils.Context(t)
-	blockchains := cldf_chain.NewBlockChainsFromSlice(memory.NewMemoryChainsEVM(t, 1, 1))
+
+	ctx := t.Context()
+	bc, err := onchain.NewEVMSimLoader().LoadN(t, 1)
+	require.NoError(t, err)
+
+	blockchains := cldf_chain.NewBlockChainsFromSlice(bc)
 	ports := freeport.GetN(t, 1)
 	c := memory.NewNodeConfig{
 		Port:           ports[0],

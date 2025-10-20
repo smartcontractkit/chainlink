@@ -55,6 +55,10 @@ func (bs *balanceStore) convertToBalance(fromResourceType string, amount decimal
 	// Special case for gas as gas token conversions are provided in amount per credit.
 	// Other rates are provided as the inverse.
 	if isGasSpendType(fromResourceType) {
+		if rate.IsZero() {
+			return decimal.Zero, nil
+		}
+
 		return amount.Div(rate).Round(defaultDecimalPrecision), nil
 	}
 
@@ -81,6 +85,10 @@ func (bs *balanceStore) convertFromBalance(toResourceType string, amount decimal
 	// Other rates are provided as the inverse.
 	if isGasSpendType(toResourceType) {
 		return amount.Mul(rate).Round(0), nil
+	}
+
+	if rate.IsZero() {
+		return decimal.Zero, nil
 	}
 
 	return amount.Div(rate), nil
@@ -133,7 +141,6 @@ func (bs *balanceStore) Minus(amount decimal.Decimal) error {
 	}
 
 	bs.balance = bs.balance.Sub(amount)
-	bs.spent = bs.spent.Add(amount)
 
 	return nil
 }
@@ -157,7 +164,6 @@ func (bs *balanceStore) MinusAs(resourceType string, amount decimal.Decimal) err
 	}
 
 	bs.balance = bs.balance.Sub(balToMinus)
-	bs.spent = bs.spent.Add(balToMinus)
 
 	return nil
 }
@@ -172,12 +178,6 @@ func (bs *balanceStore) Add(amount decimal.Decimal) error {
 	}
 
 	bs.balance = bs.balance.Add(amount)
-	// If subtracting would make spent negative, set it to zero instead
-	if amount.GreaterThan(bs.spent) {
-		bs.spent = decimal.Zero
-	} else {
-		bs.spent = bs.spent.Sub(amount)
-	}
 
 	return nil
 }
@@ -197,14 +197,15 @@ func (bs *balanceStore) AddAs(resourceType string, amount decimal.Decimal) error
 	}
 
 	bs.balance = bs.balance.Add(bal)
-	// If subtracting would make spent negative, set it to zero instead
-	if bal.GreaterThan(bs.spent) {
-		bs.spent = decimal.Zero
-	} else {
-		bs.spent = bs.spent.Sub(bal)
-	}
 
 	return nil
+}
+
+func (bs *balanceStore) AddSpent(amount decimal.Decimal) {
+	bs.mu.Lock()
+	defer bs.mu.Unlock()
+
+	bs.spent = bs.spent.Add(amount)
 }
 
 // GetSpent returns the total credits spent during execution.

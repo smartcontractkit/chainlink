@@ -498,13 +498,14 @@ func (w *workflowRegistry) syncUsingReconciliationStrategy(ctx context.Context, 
 			return
 		case <-ticker:
 			w.lggr.Debugw("fetching workflow registry metadata", "don", don.Families)
-			workflowMetadata, head, err := w.getWorkflowMetadata(ctx, don, w.contractReader)
+			allWorkflowsMetadata, head, err := w.getAllWorkflowsMetadata(ctx, don, w.contractReader)
 			if err != nil {
 				w.lggr.Errorw("failed to get registry state", "err", err)
 				continue
 			}
-			w.lggr.Debugw("preparing events to reconcile", "numWorkflowMetadata", len(workflowMetadata), "blockHeight", head.Height, "numPendingEvents", len(pendingEvents))
-			events, err := w.generateReconciliationEvents(ctx, pendingEvents, workflowMetadata, head)
+			w.metrics.recordFetchedWorkflows(ctx, len(allWorkflowsMetadata))
+			w.lggr.Debugw("preparing events to reconcile", "numWorkflows", len(allWorkflowsMetadata), "blockHeight", head.Height, "numPendingEvents", len(pendingEvents))
+			events, err := w.generateReconciliationEvents(ctx, pendingEvents, allWorkflowsMetadata, head)
 			if err != nil {
 				w.lggr.Errorw("failed to generate reconciliation events", "err", err)
 				continue
@@ -544,6 +545,10 @@ func (w *workflowRegistry) syncUsingReconciliationStrategy(ctx context.Context, 
 			}
 
 			w.lggr.Debugw("reconciled events", "report", reconcileReport)
+
+			runningWorkflows := w.engineRegistry.GetAll()
+			w.metrics.recordRunningWorkflows(ctx, len(runningWorkflows))
+			w.metrics.incrementCompletedSyncs(ctx)
 		}
 	}
 }
@@ -644,8 +649,9 @@ func (w *workflowRegistry) newWorkflowRegistryContractReader(
 	return reader, nil
 }
 
-// getWorkflowMetadata uses contract reader to query the contract for all workflow metadata using the method getWorkflowListByDON
-func (w *workflowRegistry) getWorkflowMetadata(ctx context.Context, don capabilities.DON, contractReader types.ContractReader) ([]WorkflowMetadataView, *types.Head, error) {
+// getAllWorkflowsMetadata uses contract reader to query the WorkflowRegistry contract using the method getWorkflowListByDON.
+// It gets metadata for all workflows assigned to any of current DON's families.
+func (w *workflowRegistry) getAllWorkflowsMetadata(ctx context.Context, don capabilities.DON, contractReader types.ContractReader) ([]WorkflowMetadataView, *types.Head, error) {
 	if contractReader == nil {
 		return nil, nil, errors.New("cannot fetch workflow metadata: nil contract reader")
 	}

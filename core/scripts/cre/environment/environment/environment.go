@@ -28,11 +28,14 @@ import (
 	cldlogger "github.com/smartcontractkit/chainlink/deployment/logger"
 
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/capabilities/sets"
+	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/blockchains"
+	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/blockchains/evm"
+	blockchains_sets "github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/blockchains/sets"
 	envconfig "github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/config"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/stagegen"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/flags"
+	"github.com/smartcontractkit/chainlink/system-tests/lib/infra"
 
-	"github.com/smartcontractkit/chainlink/core/scripts/cre/environment/tracking"
 	keystone_changeset "github.com/smartcontractkit/chainlink/deployment/keystone/changeset"
 	libc "github.com/smartcontractkit/chainlink/system-tests/lib/conversions"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre"
@@ -43,9 +46,9 @@ import (
 	libformat "github.com/smartcontractkit/chainlink/system-tests/lib/format"
 
 	"github.com/smartcontractkit/chainlink-testing-framework/framework"
-	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/blockchain"
 	billingplatformservice "github.com/smartcontractkit/chainlink-testing-framework/framework/components/dockercompose/billing_platform_service"
 	chipingressset "github.com/smartcontractkit/chainlink-testing-framework/framework/components/dockercompose/chip_ingress_set"
+	"github.com/smartcontractkit/chainlink-testing-framework/framework/tracking"
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/ptr"
 )
 
@@ -153,7 +156,7 @@ var StartCmdRecoverHandlerFunc = func(p any, cleanupWait time.Duration) {
 			errText = strings.SplitN(fmt.Sprintf("%v", p), "\n", 1)[0]
 		}
 
-		tracingErr := dxTracker.Track("startup.result", map[string]any{
+		tracingErr := dxTracker.Track(MetricStartupResult, map[string]any{
 			"success":  false,
 			"error":    errText,
 			"panicked": true,
@@ -179,18 +182,23 @@ var StartCmdRecoverHandlerFunc = func(p any, cleanupWait time.Duration) {
 	}
 }
 
-var StartCmdGenerateSettingsFile = func(homeChainOut *cre.WrappedBlockchainOutput, output *creenv.SetupOutput) error {
+var StartCmdGenerateSettingsFile = func(registryChain blockchains.Blockchain, output *creenv.SetupOutput) error {
 	rpcs := map[uint64]string{}
-	for _, bcOut := range output.BlockchainOutput {
-		rpcs[bcOut.ChainSelector] = bcOut.BlockchainOutput.Nodes[0].ExternalHTTPUrl
+	for _, bcOut := range output.Blockchains {
+		rpcs[bcOut.ChainSelector()] = bcOut.CtfOutput().Nodes[0].ExternalHTTPUrl
+	}
+
+	regChainEVM, isEVM := registryChain.(*evm.Blockchain)
+	if !isEVM {
+		return fmt.Errorf("registry chain is not EVM, but %T, cannot generate CRE CLI settings file", registryChain)
 	}
 
 	creCLISettingsFile, settingsErr := crecli.PrepareCRECLISettingsFile(
 		crecli.CRECLIProfile,
-		homeChainOut.SethClient.MustGetRootKeyAddress(),
+		regChainEVM.SethClient.MustGetRootKeyAddress(),
 		output.CldEnvironment.ExistingAddresses, //nolint:staticcheck,nolintlint // SA1019: deprecated but we don't want to migrate now
 		output.DonTopology.WorkflowDonID,
-		homeChainOut.ChainSelector,
+		regChainEVM.ChainSelector(),
 		rpcs,
 		output.S3ProviderOutput,
 	)
@@ -266,10 +274,6 @@ func startCmd() *cobra.Command {
 				return errors.Wrap(err, "failed to set default CTF configs")
 			}
 
-			if pkErr := creenv.SetDefaultPrivateKeyIfEmpty(blockchain.DefaultAnvilPrivateKey); pkErr != nil {
-				return errors.Wrap(pkErr, "failed to set default private key")
-			}
-
 			cleanUpErr := envconfig.RemoveAllEnvironmentStateDir(relativePathToRepoRoot)
 			if cleanUpErr != nil {
 				return errors.Wrap(cleanUpErr, "failed to clean up environment state files")
@@ -286,6 +290,10 @@ func startCmd() *cobra.Command {
 
 			if err := in.Load(os.Getenv("CTF_CONFIGS")); err != nil {
 				return errors.Wrap(err, "failed to load environment configuration")
+			}
+
+			if err := ensureDockerIsRunning(cmdContext); err != nil {
+				return err
 			}
 
 			// This will not work with remote images that require authentication, but it will catch early most of the issues with missing env setup
@@ -348,7 +356,7 @@ func startCmd() *cobra.Command {
 				return errors.Wrap(startErr, "failed to start environment")
 			}
 
-			homeChainOut := output.BlockchainOutput[0]
+			homeChainOut := output.Blockchains[0]
 
 			sErr := StartCmdGenerateSettingsFile(homeChainOut, output)
 			if sErr != nil {
@@ -375,7 +383,7 @@ func startCmd() *cobra.Command {
 					metaData["result"] = "success"
 				}
 
-				trackingErr := dxTracker.Track(tracking.MetricBeholderStart, metaData)
+				trackingErr := dxTracker.Track(MetricBeholderStart, metaData)
 				if trackingErr != nil {
 					fmt.Fprintf(os.Stderr, "failed to track beholder start: %s\n", trackingErr)
 				}
@@ -413,7 +421,7 @@ func startCmd() *cobra.Command {
 					metaData["result"] = "success"
 				}
 
-				trackingErr := dxTracker.Track(tracking.MetricBillingStart, metaData)
+				trackingErr := dxTracker.Track(MetricBillingStart, metaData)
 				if trackingErr != nil {
 					fmt.Fprintf(os.Stderr, "failed to track billing start: %s\n", trackingErr)
 				}
@@ -442,7 +450,7 @@ func startCmd() *cobra.Command {
 
 				wfRegAddr := libcontracts.MustFindAddressesForChain(
 					output.CldEnvironment.ExistingAddresses, //nolint:staticcheck,nolintlint // SA1019: deprecated but we don't want to migrate now
-					output.BlockchainOutput[0].ChainSelector,
+					output.Blockchains[0].ChainSelector(),
 					keystone_changeset.WorkflowRegistry.String())
 
 				var workflowDonID uint32
@@ -457,7 +465,7 @@ func startCmd() *cobra.Command {
 					return errors.New("no workflow DON found")
 				}
 
-				deployErr := deployAndVerifyExampleWorkflow(cmdContext, homeChainOut.BlockchainOutput.Nodes[0].ExternalHTTPUrl, gatewayURL, output.DonTopology.GatewayConnectorOutput.Configurations[0].Dons[0].ID, workflowDonID, exampleWorkflowTimeout, exampleWorkflowTrigger, wfRegAddr.Hex())
+				deployErr := deployAndVerifyExampleWorkflow(cmdContext, homeChainOut.CtfOutput().Nodes[0].ExternalHTTPUrl, gatewayURL, output.DonTopology.GatewayConnectorOutput.Configurations[0].Dons[0].ID, workflowDonID, exampleWorkflowTimeout, exampleWorkflowTrigger, wfRegAddr.Hex())
 				if deployErr != nil {
 					fmt.Printf("Failed to deploy and verify example workflow: %s\n", deployErr)
 				}
@@ -558,13 +566,13 @@ func trackStartup(success, hasBuiltDockerImage bool, infraType string, errorMess
 		metadata["panicked"] = *panicked
 	}
 
-	dxStartupErr := dxTracker.Track(tracking.MetricStartupResult, metadata)
+	dxStartupErr := dxTracker.Track(MetricStartupResult, metadata)
 	if dxStartupErr != nil {
 		fmt.Fprintf(os.Stderr, "failed to track startup: %s\n", dxStartupErr)
 	}
 
 	if success {
-		dxTimeErr := dxTracker.Track(tracking.MetricStartupTime, map[string]any{
+		dxTimeErr := dxTracker.Track(MetricStartupTime, map[string]any{
 			"duration_seconds":       time.Since(provisioningStartTime).Seconds(),
 			"has_built_docker_image": hasBuiltDockerImage,
 		})
@@ -688,6 +696,9 @@ func StartCLIEnvironment(
 		in.JD.CSAEncryptionKey = hex.EncodeToString(crypto.FromECDSA(key)[:32])
 		fmt.Printf("Generated new CSA encryption key for JD: %s\n", in.JD.CSAEncryptionKey)
 	}
+
+	singleFileLogger := cldlogger.NewSingleFileLogger(nil)
+
 	universalSetupInput := &creenv.SetupInput{
 		CapabilitiesAwareNodeSets: in.NodeSets,
 		BlockchainsInput:          in.Blockchains,
@@ -701,11 +712,12 @@ func StartCLIEnvironment(
 		Capabilities:              capabilities,
 		JobSpecFactoryFunctions:   extraJobSpecFunctions,
 		StageGen:                  initLocalCREStageGen(in),
+		BlockchainDeployers:       blockchains_sets.NewDeployerSet(testLogger, in.Infra, infra.CribConfigsDir),
 	}
 
 	ctx, cancel := context.WithTimeout(cmdContext, 10*time.Minute)
 	defer cancel()
-	universalSetupOutput, setupErr := creenv.SetupTestEnvironment(ctx, testLogger, cldlogger.NewSingleFileLogger(nil), universalSetupInput, relativePathToRepoRoot)
+	universalSetupOutput, setupErr := creenv.SetupTestEnvironment(ctx, testLogger, singleFileLogger, universalSetupInput, relativePathToRepoRoot)
 	if setupErr != nil {
 		return nil, fmt.Errorf("failed to setup test environment: %w", setupErr)
 	}
@@ -837,7 +849,7 @@ func initDxTracker() {
 	}
 
 	var trackerErr error
-	dxTracker, trackerErr = tracking.NewDxTracker()
+	dxTracker, trackerErr = tracking.NewDxTracker(GetDXGitHubVariableName, GetDXProductName)
 	if trackerErr != nil {
 		fmt.Fprintf(os.Stderr, "failed to create DX tracker: %s\n", trackerErr)
 		dxTracker = &tracking.NoOpTracker{}
@@ -868,6 +880,19 @@ func validateWorkflowTriggerAndCapabilities(in *envconfig.Config, withExampleFla
 		return nil
 	}
 
+	return nil
+}
+
+func ensureDockerIsRunning(ctx context.Context) error {
+	dockerClient, dockerClientErr := client.NewClientWithOpts(client.WithAPIVersionNegotiation())
+	if dockerClientErr != nil {
+		return errors.Wrap(dockerClientErr, "failed to create Docker client")
+	}
+
+	_, pingErr := dockerClient.Ping(ctx)
+	if pingErr != nil {
+		return errors.Wrap(pingErr, "docker is not running. Please start Docker and try again")
+	}
 	return nil
 }
 

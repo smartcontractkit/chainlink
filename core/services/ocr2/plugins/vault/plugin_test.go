@@ -2672,14 +2672,21 @@ func TestPlugin_StateTransition_UpdateSecretsRequest_WritesSecrets(t *testing.T)
 		Namespace: "main",
 		Key:       "secret",
 	}
-	d, err := proto.Marshal(&vaultcommon.StoredSecret{
+	secret, err := proto.Marshal(&vaultcommon.StoredSecret{
 		EncryptedSecret: []byte("old-encrypted-value"),
+	})
+	require.NoError(t, err)
+	metadata, err := proto.Marshal(&vaultcommon.StoredMetadata{
+		SecretIdentifiers: []*vaultcommon.SecretIdentifier{id},
 	})
 	require.NoError(t, err)
 	kv := &kv{
 		m: map[string]response{
 			keyPrefix + vaulttypes.KeyFor(id): {
-				data: d,
+				data: secret,
+			},
+			metadataPrefix + "owner": {
+				data: metadata,
 			},
 		},
 	}
@@ -2740,6 +2747,7 @@ func TestPlugin_StateTransition_UpdateSecretsRequest_WritesSecrets(t *testing.T)
 
 	ss, err := rs.GetSecret(id)
 	require.NoError(t, err)
+	require.NotNil(t, ss)
 
 	assert.Equal(t, ss.EncryptedSecret, []byte("encrypted-value"))
 

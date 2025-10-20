@@ -253,7 +253,13 @@ func (r *Report) Reserve(ctx context.Context) error {
 		return ErrInsufficientFunding
 	}
 
-	credits, err := decimal.NewFromString(resp.GetCredits())
+	creditsStr := resp.GetCredits()
+	if creditsStr == "" {
+		r.lggr.Debug("empty credits; setting default of 0")
+		creditsStr = "0"
+	}
+
+	credits, err := decimal.NewFromString(creditsStr)
 	if err != nil {
 		r.switchToMeteringMode(fmt.Errorf("%w: failed to parse credits %s", err, resp.GetCredits()))
 
@@ -480,6 +486,8 @@ func (r *Report) Settle(ref string, metadata capabilities.ResponseMetadata) erro
 		// invariant: capability should not let spend exceed reserve
 		r.lggr.Info("invariant: spend exceeded reserve")
 	}
+
+	r.balance.AddSpent(spentCredits)
 
 	return nil
 }

@@ -2,11 +2,48 @@ package logger
 
 import (
 	"os"
+	"sync/atomic"
 
 	pkgerrors "github.com/pkg/errors"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
 )
+
+// AtomicCore provides thread-safe core swapping using atomic operations.
+// It starts as a noop core and can be atomically swapped to include additional cores.
+var _ zapcore.Core = &AtomicCore{}
+
+type AtomicCore struct {
+	atomic.Pointer[zapcore.Core]
+}
+
+// NewAtomicCore creates a new AtomicCore initialized with a noop core
+func NewAtomicCore() *AtomicCore {
+	ac := &AtomicCore{}
+	noop := zapcore.NewNopCore()
+	ac.Store(&noop)
+	return ac
+}
+
+func (d *AtomicCore) load() zapcore.Core {
+	p := d.Load()
+	if p == nil {
+		return zapcore.NewNopCore()
+	}
+	return *p
+}
+
+func (d *AtomicCore) Enabled(l zapcore.Level) bool { return d.load().Enabled(l) }
+
+func (d *AtomicCore) With(fs []zapcore.Field) zapcore.Core { return d.load().With(fs) }
+
+func (d *AtomicCore) Check(e zapcore.Entry, ce *zapcore.CheckedEntry) *zapcore.CheckedEntry {
+	return d.load().Check(e, ce)
+}
+
+func (d *AtomicCore) Write(e zapcore.Entry, fs []zapcore.Field) error { return d.load().Write(e, fs) }
+
+func (d *AtomicCore) Sync() error { return d.load().Sync() }
 
 var _ Logger = &zapLogger{}
 

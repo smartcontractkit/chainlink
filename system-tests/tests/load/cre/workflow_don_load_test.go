@@ -27,6 +27,8 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
+	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/blockchains"
+	blockchain_sets "github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/blockchains/sets"
 	envconfig "github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/config"
 
 	ocrTypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
@@ -83,7 +85,7 @@ type Chaos struct {
 
 type TestConfigLoadTest struct {
 	Duration                      string                          `toml:"duration"`
-	Blockchains                   []blockchain.Input              `toml:"blockchains" validate:"required"`
+	Blockchains                   []*blockchain.Input             `toml:"blockchains" validate:"required"`
 	NodeSets                      []*ns.Input                     `toml:"nodesets" validate:"required"`
 	JD                            *jd.Input                       `toml:"jd" validate:"required"`
 	WorkflowRegistryConfiguration *cretypes.WorkflowRegistryInput `toml:"workflow_registry_configuration"`
@@ -114,7 +116,7 @@ type FeedWithStreamID struct {
 type loadTestSetupOutput struct {
 	dataFeedsCacheAddress common.Address
 	forwarderAddress      common.Address
-	blockchainOutput      []*cretypes.WrappedBlockchainOutput
+	blockchains           []blockchains.Blockchain
 	donTopology           *cretypes.DonTopology
 	nodeOutput            []*cretypes.WrappedNodeOutput
 }
@@ -136,6 +138,7 @@ func setupLoadTestEnvironment(
 		Provider:                             *in.Infra,
 		JobSpecFactoryFunctions:              jobSpecFactoryFns,
 		ContractVersions:                     cretypes.NewContractVersionsProvider(envconfig.DefaultContractSet(false)).ContractVersions(),
+		BlockchainDeployers:                  blockchain_sets.NewDeployerSet(testLogger, in.Infra, infra.CribConfigsDir),
 	}
 
 	singleFileLogger := cldlogger.NewSingleFileLogger(t)
@@ -148,17 +151,17 @@ func setupLoadTestEnvironment(
 
 	forwarderAddress, _, forwarderErr := crecontracts.FindAddressesForChain(
 		universalSetupOutput.CldEnvironment.ExistingAddresses, //nolint:staticcheck // won't migrate now
-		universalSetupOutput.BlockchainOutput[0].ChainSelector,
+		universalSetupOutput.Blockchains[0].ChainSelector(),
 		keystone_changeset.KeystoneForwarder.String(),
 	)
-	require.NoError(t, forwarderErr, "failed to find forwarder address for chain %d", universalSetupOutput.BlockchainOutput[0].ChainSelector)
+	require.NoError(t, forwarderErr, "failed to find forwarder address for chain %d", universalSetupOutput.Blockchains[0].ChainSelector)
 
 	// Create workflow jobs only after capability registry configuration is complete to avoid initialization failures
 	createJobsInput := creenv.CreateJobsWithJdOpInput{}
 	createJobsDeps := creenv.CreateJobsWithJdOpDeps{
 		Logger:                    testLogger,
 		SingleFileLogger:          singleFileLogger,
-		HomeChainBlockchainOutput: universalSetupOutput.BlockchainOutput[0].BlockchainOutput,
+		HomeChainBlockchainOutput: universalSetupOutput.Blockchains[0].CtfOutput(),
 		JobSpecFactoryFunctions:   []cretypes.JobSpecFn{workflowJobsFn},
 		CreEnvironment: &cretypes.Environment{
 			CldfEnvironment: universalSetupOutput.CldEnvironment,
@@ -171,7 +174,7 @@ func setupLoadTestEnvironment(
 
 	return &loadTestSetupOutput{
 		forwarderAddress: forwarderAddress,
-		blockchainOutput: universalSetupOutput.BlockchainOutput,
+		blockchains:      universalSetupOutput.Blockchains,
 		donTopology:      universalSetupOutput.DonTopology,
 		nodeOutput:       universalSetupOutput.NodeOutput,
 	}

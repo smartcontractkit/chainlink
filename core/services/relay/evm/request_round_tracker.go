@@ -15,9 +15,10 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
-
+	"github.com/smartcontractkit/chainlink-evm/pkg/block"
 	evmclient "github.com/smartcontractkit/chainlink-evm/pkg/client"
 	"github.com/smartcontractkit/chainlink-evm/pkg/log"
+
 	offchain_aggregator_wrapper "github.com/smartcontractkit/chainlink/v2/core/internal/gethwrappers2/generated/offchainaggregator"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocrcommon"
 )
@@ -34,7 +35,7 @@ type RequestRoundTracker struct {
 	lggr             logger.SugaredLogger
 	odb              RequestRoundDB
 	ds               sqlutil.DataSource
-	blockTranslator  ocrcommon.BlockTranslator
+	blockTranslator  block.BlockTranslator
 
 	// Start/Stop lifecycle
 	stopCh          services.StopChan
@@ -66,7 +67,7 @@ func NewRequestRoundTracker(
 		lggr:             logger.Sugared(lggr),
 		odb:              odb,
 		ds:               ds,
-		blockTranslator:  ocrcommon.NewBlockTranslator(chain, ethClient, lggr),
+		blockTranslator:  block.NewBlockTranslator(chain.ChainType(), ethClient, lggr),
 		stopCh:           make(chan struct{}),
 	}
 }

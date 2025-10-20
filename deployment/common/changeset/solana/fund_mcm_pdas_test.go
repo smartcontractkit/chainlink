@@ -1,4 +1,4 @@
-package solana_test
+package solana
 
 import (
 	"fmt"
@@ -6,68 +6,34 @@ import (
 
 	"github.com/gagliardetto/solana-go"
 	"github.com/gagliardetto/solana-go/rpc"
-	"github.com/stretchr/testify/require"
-	"go.uber.org/zap/zapcore"
-
-	cldf_solana "github.com/smartcontractkit/chainlink-deployments-framework/chain/solana"
-	"github.com/smartcontractkit/quarantine"
-
-	cldf_chain "github.com/smartcontractkit/chainlink-deployments-framework/chain"
-
 	chainselectors "github.com/smartcontractkit/chain-selectors"
 	mcmsSolana "github.com/smartcontractkit/mcms/sdk/solana"
+	"github.com/smartcontractkit/quarantine"
+	"github.com/stretchr/testify/require"
 
+	cldf_chain "github.com/smartcontractkit/chainlink-deployments-framework/chain"
+	cldf_solana "github.com/smartcontractkit/chainlink-deployments-framework/chain/solana"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+	"github.com/smartcontractkit/chainlink-deployments-framework/engine/test/environment"
+	"github.com/smartcontractkit/chainlink-deployments-framework/engine/test/runtime"
 
 	"github.com/smartcontractkit/chainlink/deployment"
-	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers"
-
-	"github.com/smartcontractkit/chainlink/deployment/common/changeset"
-	commonSolana "github.com/smartcontractkit/chainlink/deployment/common/changeset/solana"
 	"github.com/smartcontractkit/chainlink/deployment/common/changeset/state"
-	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 	"github.com/smartcontractkit/chainlink/deployment/common/types"
-	"github.com/smartcontractkit/chainlink/deployment/environment/memory"
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
-
-// setupFundingTestEnv deploys all required contracts for the funding test
-func setupFundingTestEnv(t *testing.T) cldf.Environment {
-	lggr := logger.TestLogger(t)
-	cfg := memory.MemoryEnvironmentConfig{
-		Nodes:     1,
-		SolChains: 1,
-	}
-	env := memory.NewMemoryEnvironment(t, lggr, zapcore.DebugLevel, cfg)
-	chainSelector := env.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chainselectors.FamilySolana))[0]
-
-	config := proposalutils.SingleGroupTimelockConfigV2(t)
-	err := testhelpers.SavePreloadedSolAddresses(env, chainSelector)
-	require.NoError(t, err)
-	// Initialize the address book with a dummy address to avoid deploy precondition errors.
-	err = env.ExistingAddresses.Save(chainSelector, "dummyAddress", cldf.TypeAndVersion{Type: "dummy", Version: deployment.Version1_0_0})
-	require.NoError(t, err)
-
-	// Deploy MCMS and Timelock
-	env, err = changeset.Apply(t, env,
-		changeset.Configure(
-			cldf.CreateLegacyChangeSet(changeset.DeployMCMSWithTimelockV2),
-			map[uint64]types.MCMSWithTimelockConfigV2{
-				chainSelector: config,
-			},
-		),
-	)
-	require.NoError(t, err)
-
-	return env
-}
 
 func TestFundMCMSignersChangeset_VerifyPreconditions(t *testing.T) {
 	t.Parallel()
-	lggr := logger.TestLogger(t)
-	validEnv := memory.NewMemoryEnvironment(t, lggr, zapcore.InfoLevel, memory.MemoryEnvironmentConfig{SolChains: 1})
-	validSolChainSelector := validEnv.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chainselectors.FamilySolana))[0]
 
+	selector1 := chainselectors.TEST_22222222222222222222222222222222222222222222.Selector
+	selector2 := chainselectors.TEST_33333333333333333333333333333333333333333333.Selector
+
+	env, err := environment.New(t.Context(),
+		environment.WithSolanaContainer(t, []uint64{selector1, selector2}, t.TempDir(), map[string]string{}),
+	)
+	require.NoError(t, err)
+
+	// Setup selector1 to have a chain where programs are deployed to pass validation
 	timelockID := mcmsSolana.ContractAddress(
 		solana.NewWallet().PublicKey(),
 		[32]byte{'t', 'e', 's', 't'},
@@ -87,60 +53,51 @@ func TestFundMCMSignersChangeset_VerifyPreconditions(t *testing.T) {
 		mcmDummyProgram,
 		[32]byte{'t', 'e', 's', 't', '3'},
 	)
-	err := validEnv.ExistingAddresses.Save(validSolChainSelector, timelockID, cldf.TypeAndVersion{
+	err = env.ExistingAddresses.Save(selector1, timelockID, cldf.TypeAndVersion{
 		Type:    types.RBACTimelock,
 		Version: deployment.Version1_0_0,
 	})
 	require.NoError(t, err)
-	err = validEnv.ExistingAddresses.Save(validSolChainSelector, mcmsProposerID, cldf.TypeAndVersion{
+	err = env.ExistingAddresses.Save(selector1, mcmsProposerID, cldf.TypeAndVersion{
 		Type:    types.ProposerManyChainMultisig,
 		Version: deployment.Version1_0_0,
 	})
 	require.NoError(t, err)
-	err = validEnv.ExistingAddresses.Save(validSolChainSelector, mcmsCancellerID, cldf.TypeAndVersion{
+	err = env.ExistingAddresses.Save(selector1, mcmsCancellerID, cldf.TypeAndVersion{
 		Type:    types.CancellerManyChainMultisig,
 		Version: deployment.Version1_0_0,
 	})
 	require.NoError(t, err)
-	err = validEnv.ExistingAddresses.Save(validSolChainSelector, mcmsBypasserID, cldf.TypeAndVersion{
+	err = env.ExistingAddresses.Save(selector1, mcmsBypasserID, cldf.TypeAndVersion{
 		Type:    types.BypasserManyChainMultisig,
 		Version: deployment.Version1_0_0,
 	})
 	require.NoError(t, err)
+
+	// Setup selector2 to have a chain where the MCMS contracts have not been deployed,
+	// e.g. missing the required addresses so that the state loader returns empty seeds.
 	mcmsProposerIDEmpty := mcmsSolana.ContractAddress(
 		mcmDummyProgram,
 		[32]byte{},
 	)
 
-	// Create an environment that simulates a chain where the MCMS contracts have not been deployed,
-	// e.g. missing the required addresses so that the state loader returns empty seeds.
-	noMCMSEnv := memory.NewMemoryEnvironment(t, lggr, zapcore.InfoLevel, memory.MemoryEnvironmentConfig{})
-	noMCMSEnv.BlockChains = cldf_chain.NewBlockChains(map[uint64]cldf_chain.BlockChain{
-		chainselectors.SOLANA_DEVNET.Selector: cldf_solana.Chain{},
-	})
-	err = noMCMSEnv.ExistingAddresses.Save(chainselectors.SOLANA_DEVNET.Selector, mcmsProposerIDEmpty, cldf.TypeAndVersion{
+	err = env.ExistingAddresses.Save(selector2, mcmsProposerIDEmpty, cldf.TypeAndVersion{
 		Type:    types.BypasserManyChainMultisig,
 		Version: deployment.Version1_0_0,
 	})
 	require.NoError(t, err)
 
-	// Create an environment with a Solana chain that has an invalid (zero) underlying chain.
-	invalidSolChainEnv := memory.NewMemoryEnvironment(t, lggr, zapcore.InfoLevel, memory.MemoryEnvironmentConfig{})
-	invalidSolChainEnv.BlockChains = cldf_chain.NewBlockChains(map[uint64]cldf_chain.BlockChain{
-		validSolChainSelector: cldf_solana.Chain{},
-	})
-
 	tests := []struct {
 		name          string
-		env           cldf.Environment
-		config        commonSolana.FundMCMSignerConfig
+		env           func(t *testing.T) cldf.Environment
+		config        FundMCMSignerConfig
 		expectedError string
 	}{
 		{
 			name: "All preconditions satisfied",
-			env:  validEnv,
-			config: commonSolana.FundMCMSignerConfig{
-				AmountsPerChain: map[uint64]commonSolana.AmountsToTransfer{validSolChainSelector: {
+			env:  func(t *testing.T) cldf.Environment { t.Helper(); return *env },
+			config: FundMCMSignerConfig{
+				AmountsPerChain: map[uint64]AmountsToTransfer{selector1: {
 					ProposeMCM:   100,
 					CancellerMCM: 100,
 					BypasserMCM:  100,
@@ -151,26 +108,29 @@ func TestFundMCMSignersChangeset_VerifyPreconditions(t *testing.T) {
 		},
 		{
 			name: "No Solana chains found in environment",
-			env: memory.NewMemoryEnvironment(t, lggr, zapcore.InfoLevel, memory.MemoryEnvironmentConfig{
-				Bootstraps: 1,
-				Chains:     1,
-				SolChains:  0,
-				Nodes:      1,
-			}),
-			config: commonSolana.FundMCMSignerConfig{
-				AmountsPerChain: map[uint64]commonSolana.AmountsToTransfer{validSolChainSelector: {
+			env: func(t *testing.T) cldf.Environment {
+				t.Helper()
+
+				// Create an environment with no solana chains
+				emptyEnv, err := environment.New(t.Context())
+				require.NoError(t, err)
+
+				return *emptyEnv
+			},
+			config: FundMCMSignerConfig{
+				AmountsPerChain: map[uint64]AmountsToTransfer{selector1: {
 					ProposeMCM:   100,
 					CancellerMCM: 100,
 					BypasserMCM:  100,
 					Timelock:     100,
 				}},
 			},
-			expectedError: fmt.Sprintf("solana chain not found for selector %d", validSolChainSelector),
+			expectedError: fmt.Sprintf("solana chain not found for selector %d", selector1),
 		},
 		{
 			name: "Chain selector not found in environment",
-			env:  validEnv,
-			config: commonSolana.FundMCMSignerConfig{AmountsPerChain: map[uint64]commonSolana.AmountsToTransfer{99999: {
+			env:  func(t *testing.T) cldf.Environment { t.Helper(); return *env },
+			config: FundMCMSignerConfig{AmountsPerChain: map[uint64]AmountsToTransfer{99999: {
 				ProposeMCM:   100,
 				CancellerMCM: 100,
 				BypasserMCM:  100,
@@ -180,9 +140,9 @@ func TestFundMCMSignersChangeset_VerifyPreconditions(t *testing.T) {
 		},
 		{
 			name: "MCMS contracts not deployed (empty seeds)",
-			env:  noMCMSEnv,
-			config: commonSolana.FundMCMSignerConfig{
-				AmountsPerChain: map[uint64]commonSolana.AmountsToTransfer{chainselectors.SOLANA_DEVNET.Selector: {
+			env:  func(t *testing.T) cldf.Environment { t.Helper(); return *env },
+			config: FundMCMSignerConfig{
+				AmountsPerChain: map[uint64]AmountsToTransfer{selector2: {
 					ProposeMCM:   100,
 					CancellerMCM: 100,
 					BypasserMCM:  100,
@@ -193,9 +153,9 @@ func TestFundMCMSignersChangeset_VerifyPreconditions(t *testing.T) {
 		},
 		{
 			name: "Insufficient deployer balance",
-			env:  validEnv,
-			config: commonSolana.FundMCMSignerConfig{
-				AmountsPerChain: map[uint64]commonSolana.AmountsToTransfer{validSolChainSelector: {
+			env:  func(t *testing.T) cldf.Environment { t.Helper(); return *env },
+			config: FundMCMSignerConfig{
+				AmountsPerChain: map[uint64]AmountsToTransfer{selector1: {
 					ProposeMCM:   9999999999999999999,
 					CancellerMCM: 9999999999999999999,
 					BypasserMCM:  9999999999999999999,
@@ -206,9 +166,19 @@ func TestFundMCMSignersChangeset_VerifyPreconditions(t *testing.T) {
 		},
 		{
 			name: "Invalid Solana chain in environment",
-			env:  invalidSolChainEnv,
-			config: commonSolana.FundMCMSignerConfig{
-				AmountsPerChain: map[uint64]commonSolana.AmountsToTransfer{validSolChainSelector: {
+			env: func(t *testing.T) cldf.Environment {
+				t.Helper()
+
+				invalidEnv, err := environment.New(t.Context())
+				require.NoError(t, err)
+				invalidEnv.BlockChains = cldf_chain.NewBlockChains(map[uint64]cldf_chain.BlockChain{
+					selector1: cldf_solana.Chain{}, // Empty chain is invalid
+				})
+
+				return *invalidEnv
+			},
+			config: FundMCMSignerConfig{
+				AmountsPerChain: map[uint64]AmountsToTransfer{selector1: {
 					ProposeMCM:   100,
 					CancellerMCM: 100,
 					BypasserMCM:  100,
@@ -219,16 +189,16 @@ func TestFundMCMSignersChangeset_VerifyPreconditions(t *testing.T) {
 		},
 	}
 
-	cs := commonSolana.FundMCMSignersChangeset{}
+	cs := FundMCMSignersChangeset{}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			err := cs.VerifyPreconditions(tt.env, tt.config)
+			err := cs.VerifyPreconditions(tt.env(t), tt.config)
 			if tt.expectedError == "" {
 				require.NoError(t, err)
 			} else {
 				require.Error(t, err)
-				require.Contains(t, err.Error(), tt.expectedError)
+				require.ErrorContains(t, err, tt.expectedError)
 			}
 		})
 	}
@@ -237,36 +207,29 @@ func TestFundMCMSignersChangeset_VerifyPreconditions(t *testing.T) {
 func TestFundMCMSignersChangeset_Apply(t *testing.T) {
 	quarantine.Flaky(t, "DX-1776")
 	t.Parallel()
-	env := setupFundingTestEnv(t)
-	cfgAmounts := commonSolana.AmountsToTransfer{
+
+	rt, selector := setupTest(t)
+
+	chain := rt.Environment().BlockChains.SolanaChains()[selector]
+	cfgAmounts := AmountsToTransfer{
 		ProposeMCM:   100 * solana.LAMPORTS_PER_SOL,
 		CancellerMCM: 350 * solana.LAMPORTS_PER_SOL,
 		BypasserMCM:  75 * solana.LAMPORTS_PER_SOL,
 		Timelock:     83 * solana.LAMPORTS_PER_SOL,
 	}
-	solChains := env.BlockChains.SolanaChains()
-	amountsPerChain := make(map[uint64]commonSolana.AmountsToTransfer)
-	for chainSelector := range solChains {
-		amountsPerChain[chainSelector] = cfgAmounts
-	}
-	config := commonSolana.FundMCMSignerConfig{
-		AmountsPerChain: amountsPerChain,
-	}
 
-	changesetInstance := commonSolana.FundMCMSignersChangeset{}
-
-	env, _, err := changeset.ApplyChangesets(t, env, []changeset.ConfiguredChangeSet{
-		changeset.Configure(changesetInstance, config),
-	})
+	err := rt.Exec(
+		runtime.ChangesetTask(FundMCMSignersChangeset{}, FundMCMSignerConfig{
+			AmountsPerChain: map[uint64]AmountsToTransfer{selector: cfgAmounts},
+		}),
+	)
 	require.NoError(t, err)
 
-	chainSelector := env.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chainselectors.FamilySolana))[0]
-	solChain := solChains[chainSelector]
-	addresses, err := env.ExistingAddresses.AddressesForChain(chainSelector)
+	addresses, err := rt.State().AddressBook.AddressesForChain(selector)
 	require.NoError(t, err)
 
 	// Check balances of MCM Signer PDAS
-	mcmState, err := state.MaybeLoadMCMSWithTimelockChainStateSolana(solChain, addresses)
+	mcmState, err := state.MaybeLoadMCMSWithTimelockChainStateSolana(chain, addresses)
 	require.NoError(t, err)
 
 	accounts := []solana.PublicKey{
@@ -277,7 +240,7 @@ func TestFundMCMSignersChangeset_Apply(t *testing.T) {
 	}
 	var balances []uint64
 	for _, account := range accounts {
-		balance, err := solChain.Client.GetBalance(env.GetContext(), account, rpc.CommitmentConfirmed)
+		balance, err := chain.Client.GetBalance(t.Context(), account, rpc.CommitmentConfirmed)
 		require.NoError(t, err)
 		t.Logf("Account: %s, Balance: %d", account, balance.Value)
 		balances = append(balances, balance.Value)

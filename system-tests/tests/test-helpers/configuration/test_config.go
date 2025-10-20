@@ -5,6 +5,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment"
+	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/blockchains"
 	envconfig "github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/config"
 )
 
@@ -21,10 +22,10 @@ type TestConfig struct {
 
 // TestEnvironment holds references to the main test components
 type TestEnvironment struct {
-	Config                   *envconfig.Config
-	TestConfig               *TestConfig
-	EnvArtifact              *environment.EnvArtifact
-	Logger                   zerolog.Logger
-	CreEnvironment           *cre.Environment
-	WrappedBlockchainOutputs []*cre.WrappedBlockchainOutput
+	Config         *envconfig.Config
+	TestConfig     *TestConfig
+	EnvArtifact    *environment.EnvArtifact
+	Logger         zerolog.Logger
+	CreEnvironment *cre.Environment
+	Blockchains    []blockchains.Blockchain
 }

@@ -15,7 +15,6 @@ import (
 	"github.com/smartcontractkit/chainlink-testing-framework/framework"
 	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/blockchain"
 	billingplatformservice "github.com/smartcontractkit/chainlink-testing-framework/framework/components/dockercompose/billing_platform_service"
-	"github.com/smartcontractkit/chainlink/core/scripts/cre/environment/tracking"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment"
 	envconfig "github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/config"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/stagegen"
@@ -57,7 +56,7 @@ func startBillingCmds() *cobra.Command {
 					metaData["result"] = "success"
 				}
 
-				trackingErr := dxTracker.Track(tracking.MetricBillingStart, metaData)
+				trackingErr := dxTracker.Track(MetricBillingStart, metaData)
 				if trackingErr != nil {
 					fmt.Fprintf(os.Stderr, "failed to track billing start: %s\n", trackingErr)
 				}
@@ -200,12 +199,12 @@ func startBilling(_ context.Context, cleanupWait time.Duration, setupOutput *env
 
 		// Select the appropriate chain for billing service from available chains in the environment.
 		// otherwise, if RPCURL is defined, billing service can be used standalone
-		if len(setupOutput.BlockchainOutput) != 0 {
+		if len(setupOutput.Blockchains) != 0 {
 			var selectedChain *blockchain.Output
 
-			for _, chain := range setupOutput.BlockchainOutput {
-				if chain.ChainSelector == in.BillingService.ChainSelector {
-					selectedChain = chain.BlockchainOutput
+			for _, chain := range setupOutput.Blockchains {
+				if chain.ChainSelector() == in.BillingService.ChainSelector {
+					selectedChain = chain.CtfOutput()
 				}
 			}
 

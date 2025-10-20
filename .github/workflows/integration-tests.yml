@@ -93,7 +93,7 @@ jobs:
     runs-on: ubuntu-latest
     environment: integration
     outputs:
-      github-ci-changes: ${{ steps.changes.outputs.github_ci_changes }}
+      general-changes: ${{ steps.changes.outputs.general_changes }}
       core-changes: ${{ steps.changes.outputs.core_changes }}
       cre-changes: ${{ steps.changes.outputs.cre_changes }}
       ccip-changes: ${{ steps.changes.outputs.ccip_changes }}
@@ -109,11 +109,14 @@ jobs:
         id: changes
         with:
           filters: |
-            github_ci_changes:
+            general_changes:
               - '.github/workflows/integration-tests.yml'
               - '.github/workflows/run-e2e-tests-reusable-workflow.yml'
               - '.github/workflows/cre-system-tests.yaml'
               - '.github/e2e-tests.yml'
+              - 'GNUmakefile'
+              - 'core/chainlink.Dockerfile'
+              - 'plugins/chainlink.Dockerfile'
             core_changes: &core_changes
               - '**/*.go'
               - '**/*go.sum'
@@ -145,7 +148,7 @@ jobs:
       solana-runner-label: ${{ steps.runner-labels.outputs.solana-runner-label }}
       should-use-self-hosted-runners: ${{ steps.label-runs-on-opt-out.outputs.check-label-found == 'false' }}
       run-e2e-tests-label-found: ${{ steps.label-runs-e2e-tests.outputs.check-label-found || 'false' }}
-      run-e2e-regression-label-found: ${{ steps.label-runs-e2e-regression.outputs.check-label-found || 'false' }}
+      skip-e2e-regression-label-found: ${{ steps.label-skip-e2e-regression.outputs.check-label-found || 'false' }}
     steps:
       - name: Get PR Labels (runs-on-opt-out)
         id: label-runs-on-opt-out
@@ -162,7 +165,7 @@ jobs:
 
       - name: Get PR Labels (skip-e2e-regression)
         if: github.event_name == 'pull_request'
-        id: label-runs-e2e-regression
+        id: label-skip-e2e-regression
         uses: smartcontractkit/.github/actions/get-pr-labels@get-pr-labels/v1
         with:
           check-label: "skip-e2e-regression"
@@ -304,22 +307,26 @@ jobs:
         env:
           GITHUB_EVENT_NAME: ${{ github.event_name }}
           GITHUB_REF_TYPE: ${{ github.ref_type }}
-          CONTAINS_CHANGES: ${{ needs.changes.outputs.github-ci-changes == 'true' || needs.changes.outputs.cre-changes == 'true' }}
-          RUN_E2E_TESTS_REGRESSION_LABEL_FOUND: ${{ needs.labels.outputs.run-e2e-regression-label-found }}
+          CONTAINS_CHANGES: ${{ needs.changes.outputs.general-changes == 'true' || needs.changes.outputs.cre-changes == 'true' }}
+          RUN_E2E_TESTS_LABEL_FOUND: ${{ needs.labels.outputs.run-e2e-tests-label-found }}
+          SKIP_E2E_TESTS_REGRESSION_LABEL_FOUND: ${{ needs.labels.outputs.skip-e2e-regression-label-found }}
         run: |
           if [[ "${GITHUB_EVENT_NAME}" == 'pull_request' ]]; then
             # Run Core CRE E2E tests on PRs if there are relevant changes
             if [[ "${CONTAINS_CHANGES}" == 'true' ]]; then
               echo "should-run=true" | tee -a "$GITHUB_OUTPUT"
-              echo "with-regression=true" | tee -a "$GITHUB_OUTPUT"
-            fi
-            # Opt-out of CRE regression tests if the label 'skip-e2e-regression' is found
-            if [[ "${RUN_E2E_TESTS_REGRESSION_LABEL_FOUND}" == 'true' ]]; then
-              echo "Skipping CRE regression tests: label 'skip-e2e-regression' is found"
+            elif [[ "${RUN_E2E_TESTS_LABEL_FOUND}" == 'true' ]]; then
+              # Run if the PR has the label "run-e2e-tests"
               echo "should-run=true" | tee -a "$GITHUB_OUTPUT"
-              echo "with-regression=false" | tee -a "$GITHUB_OUTPUT"
             fi
 
+            if [[ "${SKIP_E2E_TESTS_REGRESSION_LABEL_FOUND}" == 'true' ]]; then
+              # Opt-out of CRE regression tests if the label 'skip-e2e-regression' is found
+              echo "with-regression=false" | tee -a "$GITHUB_OUTPUT"
+            else
+              # Run CRE regression tests by default
+              echo "with-regression=true" | tee -a "$GITHUB_OUTPUT"
+            fi
           elif [[ "${GITHUB_EVENT_NAME}" == 'merge_group' ]]; then
             # Run Core CRE E2E tests in the merge queue, if there are relevant changes
             echo "workflow-name=Run Core CRE E2E Tests For Merge Queue" | tee -a "$GITHUB_OUTPUT"
@@ -393,7 +400,7 @@ jobs:
         env:
           GITHUB_EVENT_NAME: ${{ github.event_name }}
           GITHUB_REF_TYPE: ${{ github.ref_type }}
-          CONTAINS_CHANGES: ${{ needs.changes.outputs.github-ci-changes == 'true' || needs.changes.outputs.core-changes == 'true' }}
+          CONTAINS_CHANGES: ${{ needs.changes.outputs.general-changes == 'true' || needs.changes.outputs.core-changes == 'true' }}
           RUN_E2E_TESTS_LABEL_FOUND: ${{ needs.labels.outputs.run-e2e-tests-label-found || 'false' }}
         run: |
           if [[ "${GITHUB_EVENT_NAME}" == 'pull_request' ]]; then
@@ -401,7 +408,8 @@ jobs:
             echo "workflow-name=Run Core E2E Tests For PR" | tee -a "$GITHUB_OUTPUT"
             echo "test-trigger=PR E2E Core Tests" | tee -a "$GITHUB_OUTPUT"
 
-            if [[ "${RUN_E2E_TESTS_LABEL_FOUND}" == 'true' && "${CONTAINS_CHANGES}" == 'true' ]]; then
+            if [[ "${RUN_E2E_TESTS_LABEL_FOUND}" == 'true' ]]; then
+              # only run if the PR has the label "run-e2e-tests"
               echo "should-run=true" | tee -a "$GITHUB_OUTPUT"
             fi
 
@@ -491,7 +499,7 @@ jobs:
         env:
           GITHUB_EVENT_NAME: ${{ github.event_name }}
           GITHUB_REF_TYPE: ${{ github.ref_type }}
-          CONTAINS_CHANGES: ${{ needs.changes.outputs.github-ci-changes == 'true' || needs.changes.outputs.core-changes == 'true' }}
+          CONTAINS_CHANGES: ${{ needs.changes.outputs.general-changes == 'true' || needs.changes.outputs.core-changes == 'true' }}
           RUN_E2E_TESTS_LABEL_FOUND: ${{ needs.labels.outputs.run-e2e-tests-label-found || 'false' }}
         run: |
           if [[ "${GITHUB_EVENT_NAME}" == 'pull_request' ]]; then
@@ -499,7 +507,8 @@ jobs:
             echo "workflow-name=Run CCIP E2E Tests For PR" | tee -a "$GITHUB_OUTPUT"
             echo "test-trigger=PR E2E CCIP Tests" | tee -a "$GITHUB_OUTPUT"
 
-            if [[ "${RUN_E2E_TESTS_LABEL_FOUND}" == 'true' && "${CONTAINS_CHANGES}" == 'true' ]]; then
+            if [[ "${RUN_E2E_TESTS_LABEL_FOUND}" == 'true' ]]; then
+              # only run if the PR has the label "run-e2e-tests"
               echo "should-run=true" | tee -a "$GITHUB_OUTPUT"
             fi
 
@@ -740,7 +749,7 @@ jobs:
         env:
           GITHUB_EVENT_NAME: ${{ github.event_name }}
           GITHUB_REF_TYPE: ${{ github.ref_type }}
-          CONTAINS_CHANGES: ${{ needs.changes.outputs.github-ci-changes == 'true' || needs.changes.outputs.core-changes == 'true' }}
+          CONTAINS_CHANGES: ${{ needs.changes.outputs.general-changes == 'true' || needs.changes.outputs.core-changes == 'true' }}
           RUN_E2E_TESTS_LABEL_FOUND: ${{ needs.labels.outputs.run-e2e-tests-label-found || 'false' }}
           INPUTS_RUN_SOLANA: ${{ inputs.run_solana }}
         run: |

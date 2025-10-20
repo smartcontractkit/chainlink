@@ -17,6 +17,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment"
+	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/blockchains"
 	envconfig "github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/config"
 	ttypes "github.com/smartcontractkit/chainlink/system-tests/tests/test-helpers/configuration"
 )
@@ -34,12 +35,12 @@ type TestConfig struct {
 
 // TestEnvironment holds references to the main test components
 type TestEnvironment struct {
-	Config                   *envconfig.Config
-	TestConfig               *TestConfig
-	EnvArtifact              *environment.EnvArtifact
-	Logger                   zerolog.Logger
-	CreEnvironment           *cre.Environment
-	WrappedBlockchainOutputs []*cre.WrappedBlockchainOutput
+	Config         *envconfig.Config
+	TestConfig     *TestConfig
+	EnvArtifact    *environment.EnvArtifact
+	Logger         zerolog.Logger
+	CreEnvironment *cre.Environment
+	Blockchains    []blockchains.Blockchain
 }
 
 func SetupTestEnvironmentWithConfig(t *testing.T, tconf *ttypes.TestConfig, flags ...string) *ttypes.TestEnvironment {
@@ -48,16 +49,16 @@ func SetupTestEnvironmentWithConfig(t *testing.T, tconf *ttypes.TestConfig, flag
 	createEnvironment(t, tconf, flags...)
 	in := getEnvironmentConfig(t)
 	envArtifact := getEnvironmentArtifact(t, tconf.RelativePathToRepoRoot)
-	creEnvironment, wrappedBlockchainOutputs, err := environment.BuildFromSavedState(t.Context(), cldlogger.NewSingleFileLogger(t), in, envArtifact)
+	creEnvironment, blockchains, err := environment.BuildFromSavedState(t.Context(), cldlogger.NewSingleFileLogger(t), in, envArtifact)
 	require.NoError(t, err, "failed to load environment")
 
 	return &ttypes.TestEnvironment{
-		Config:                   in,
-		TestConfig:               tconf,
-		EnvArtifact:              envArtifact,
-		Logger:                   framework.L,
-		CreEnvironment:           creEnvironment,
-		WrappedBlockchainOutputs: wrappedBlockchainOutputs,
+		Config:         in,
+		TestConfig:     tconf,
+		EnvArtifact:    envArtifact,
+		Logger:         framework.L,
+		CreEnvironment: creEnvironment,
+		Blockchains:    blockchains,
 	}
 }
 

@@ -22,6 +22,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/settings/limits"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/core"
 	sdkpb "github.com/smartcontractkit/chainlink-protos/cre/go/sdk"
+	"github.com/smartcontractkit/chainlink/v2/core/capabilities/vault/vaulttypes"
 
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/workflowkey"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/monitoring"
@@ -170,11 +171,15 @@ func (s *secretsFetcher) getSecretsForBatch(ctx context.Context, request *sdkpb.
 
 	logKeys := make([]string, 0, len(request.Requests))
 	for _, r := range request.Requests {
-		logKeys = append(logKeys, keyFor(owner, r.Namespace, r.Id))
+		namespace := r.Namespace
+		if namespace == "" {
+			namespace = vaulttypes.DefaultNamespace
+		}
+		logKeys = append(logKeys, keyFor(owner, namespace, r.Id))
 		vp.Requests = append(vp.Requests, &vault.SecretRequest{
 			Id: &vault.SecretIdentifier{
 				Key:       r.Id,
-				Namespace: r.Namespace,
+				Namespace: namespace,
 				Owner:     owner,
 			},
 			EncryptionKeys: encryptionKeys,
@@ -223,15 +228,19 @@ func (s *secretsFetcher) getSecretsForBatch(ctx context.Context, request *sdkpb.
 
 	sdkResp := make([]*sdkpb.SecretResponse, 0, len(request.Requests))
 	for _, r := range request.Requests {
-		key := keyFor(owner, r.Namespace, r.Id)
+		namespace := r.Namespace
+		if namespace == "" {
+			namespace = vaulttypes.DefaultNamespace
+		}
+		key := keyFor(owner, namespace, r.Id)
 		resp, ok := m[key]
 		if !ok {
 			errorMessage := "could not find response for the request: " + key
-			errorResponse := s.wrapErrorResponse(lggr, r.Id, r.Namespace, owner, errorMessage)
+			errorResponse := s.wrapErrorResponse(lggr, r.Id, namespace, owner, errorMessage)
 			sdkResp = append(sdkResp, &errorResponse)
 			continue
 		}
-		response := s.getSecretForSingleRequest(logger.With(lggr, "key", key), r.Id, owner, r.Namespace, cfg, resp)
+		response := s.getSecretForSingleRequest(logger.With(lggr, "key", key), r.Id, owner, namespace, cfg, resp)
 		sdkResp = append(sdkResp, &response)
 	}
 	return sdkResp, nil
