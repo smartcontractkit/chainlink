@@ -383,7 +383,7 @@ func TestVaultHandler_HandleJSONRPCUserMessage(t *testing.T) {
 			err2 = json.Unmarshal(resp.RawResponse, &secretsResponse)
 			assert.NoError(t, err2)
 			assert.Equal(t, validJSONRequest.ID, secretsResponse.ID, "Request ID should match")
-			assert.ErrorContains(t, secretsResponse.Error,"secret ID must not be nil")
+			assert.ErrorContains(t, secretsResponse.Error, "secret ID must not be nil")
 		}()
 
 		err = h.HandleJSONRPCUserMessage(t.Context(), validJSONRequest, callback)
