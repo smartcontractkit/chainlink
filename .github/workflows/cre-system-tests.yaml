@@ -249,7 +249,7 @@ jobs:
 
       - name: Process and upload flaky Regression tests results (${{ steps.run-tests.outputs.tests_result }})
         if: ${{ !cancelled() }}
-        uses: smartcontractkit/.github/actions/branch-out-upload@branch-out-upload/0.1.0
+        uses: smartcontractkit/.github/actions/branch-out-upload@branch-out-upload/v1
         with:
           junit-file-path: "/tmp/junit-report.xml"
           trunk-org-slug: chainlink
