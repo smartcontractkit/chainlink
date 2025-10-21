@@ -7,7 +7,9 @@ import (
 
 	"github.com/pkg/errors"
 
+	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/clnode"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre"
+	"github.com/smartcontractkit/chainlink/system-tests/lib/infra"
 )
 
 func MakeBinariesExecutable(customBinariesPaths map[cre.CapabilityFlag]string) error {
@@ -68,4 +70,17 @@ func AppendBinariesPathsNodeSpec(nodeSetInput *cre.CapabilitiesAwareNodeSet, don
 	}
 
 	return nodeSetInput, nil
+}
+
+func DefaultContainerDirectory(infraType infra.Type) (string, error) {
+	switch infraType {
+	case infra.CRIB:
+		// chainlink user will always have access to this directory
+		return "/home/chainlink", nil
+	case infra.Docker:
+		// needs to match what CTFv2 uses by default, we should define a constant there and import it here
+		return clnode.DefaultCapabilitiesDir, nil
+	default:
+		return "", fmt.Errorf("unknown infra type: %s", infraType)
+	}
 }

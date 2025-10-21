@@ -60,7 +60,7 @@ func Test_CRE_V1_Billing_EVM_Write(t *testing.T) {
 	testEnv := t_helpers.SetupTestEnvironmentWithConfig(t, t_helpers.GetDefaultTestConfig(t))
 
 	// TODO remove this when OCR works properly with multiple chains in Local CRE
-	testEnv.Blockchains = []blockchains.Blockchain{testEnv.Blockchains[0]}
+	testEnv.CreEnvironment.Blockchains = []blockchains.Blockchain{testEnv.CreEnvironment.Blockchains[0]}
 
 	require.NoError(
 		t,
@@ -78,7 +78,7 @@ func Test_CRE_V1_Billing_Cron_Beholder(t *testing.T) {
 	testEnv := t_helpers.SetupTestEnvironmentWithConfig(t, t_helpers.GetDefaultTestConfig(t))
 
 	// TODO remove this when OCR works properly with multiple chains in Local CRE
-	testEnv.Blockchains = []blockchains.Blockchain{testEnv.Blockchains[0]}
+	testEnv.CreEnvironment.Blockchains = []blockchains.Blockchain{testEnv.CreEnvironment.Blockchains[0]}
 
 	require.NoError(
 		t,
@@ -105,7 +105,7 @@ func Test_CRE_V2_Suite(t *testing.T) {
 		testEnv := t_helpers.SetupTestEnvironmentWithConfig(t, t_helpers.GetDefaultTestConfig(t), v2RegistriesFlags...)
 
 		// TODO: remove this when OCR works properly with multiple chains in Local CRE
-		testEnv.Blockchains = []blockchains.Blockchain{testEnv.Blockchains[0]}
+		testEnv.CreEnvironment.Blockchains = []blockchains.Blockchain{testEnv.CreEnvironment.Blockchains[0]}
 		priceProvider, wfConfig := beforePoRTest(t, testEnv, "por-workflow-v2", PoRWFV2Location)
 		wfConfig.FeedIDs = []string{wfConfig.FeedIDs[0]}
 		ExecutePoRTest(t, testEnv, priceProvider, wfConfig, false)
@@ -147,7 +147,7 @@ func Test_CRE_V2_EVM_Suite(t *testing.T) {
 	topology := os.Getenv("TOPOLOGY_NAME")
 	testEnv := t_helpers.SetupTestEnvironmentWithConfig(t, t_helpers.GetDefaultTestConfig(t), v2RegistriesFlags...)
 	// TODO: remove this when OCR works properly with multiple chains in Local CRE
-	testEnv.Blockchains = []blockchains.Blockchain{testEnv.Blockchains[0]}
+	testEnv.CreEnvironment.Blockchains = []blockchains.Blockchain{testEnv.CreEnvironment.Blockchains[0]}
 
 	t.Run("[v2] EVM Write - "+topology, func(t *testing.T) {
 		priceProvider, porWfCfg := beforePoRTest(t, testEnv, "por-workflowV2", PoRWFV2Location)

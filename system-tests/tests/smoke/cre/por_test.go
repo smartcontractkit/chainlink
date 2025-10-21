@@ -71,7 +71,7 @@ func beforePoRTest(t *testing.T, testEnv *ttypes.TestEnvironment, workflowName, 
 
 func ExecutePoRTest(t *testing.T, testEnv *ttypes.TestEnvironment, priceProvider PriceProvider, cfg WorkflowTestConfig, withBilling bool) {
 	testLogger := framework.L
-	blockchainOutputs := testEnv.Blockchains
+	blockchainOutputs := testEnv.CreEnvironment.Blockchains
 
 	var billingState billingAssertionState
 	if withBilling {
@@ -374,7 +374,7 @@ func validatePoRPrices(t *testing.T, testEnv *ttypes.TestEnvironment, priceProvi
 	t.Helper()
 	eg := &errgroup.Group{}
 
-	for idx, bcOutput := range testEnv.Blockchains {
+	for idx, bcOutput := range testEnv.CreEnvironment.Blockchains {
 		if bcOutput.IsFamily(blockchain.FamilySolana) {
 			continue
 		}

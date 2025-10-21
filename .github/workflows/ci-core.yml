@@ -534,7 +534,7 @@ jobs:
       - name: Ensure clean after generate
         run: |
           git add --all
-          git diff --stat --cached --exit-code
+          git diff --minimal --cached --exit-code
       - run: make gomodtidy
       - name: Ensure clean after tidy
         run: |

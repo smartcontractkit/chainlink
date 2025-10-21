@@ -53,7 +53,7 @@ import (
 
 func ExecuteSecureMintTest(t *testing.T, tenv *ttypes.TestEnvironment) {
 	creEnvironment := tenv.CreEnvironment
-	bcs := tenv.Blockchains
+	bcs := tenv.CreEnvironment.Blockchains
 	ds := creEnvironment.CldfEnvironment.DataStore
 
 	// prevalidate environment
@@ -90,11 +90,11 @@ func ExecuteSecureMintTest(t *testing.T, tenv *ttypes.TestEnvironment) {
 	// deploy workflow
 	framework.L.Info().Msg("Generate and propose secure mint job...")
 	jobSpec := createSecureMintWorkflowJobSpec(t, &s, solChain)
-	proposeSecureMintJob(t, creEnvironment.CldfEnvironment.Offchain, creEnvironment.DonTopology, jobSpec)
+	proposeSecureMintJob(t, creEnvironment.CldfEnvironment.Offchain, tenv.Dons, jobSpec)
 	framework.L.Info().Msgf("Secure mint job is successfully posted. Job spec:\n %v", jobSpec)
 
 	// trigger workflow
-	trigger := createFakeTrigger(t, &s, creEnvironment.DonTopology)
+	trigger := createFakeTrigger(t, &s, tenv.Dons)
 	ctx, cancel := context.WithCancel(t.Context())
 	eg := &errgroup.Group{}
 	eg.Go(func() error {
@@ -408,7 +408,7 @@ func createSecureMintWorkflowJobSpec(t *testing.T, s *setup, solChain *solana.Bl
 	`, workflowJobSpec.Toml())
 }
 
-func proposeSecureMintJob(t *testing.T, offchain offchain.Client, donTopology *cre.DonTopology, jobSpec string) {
+func proposeSecureMintJob(t *testing.T, offchain offchain.Client, dons *cre.Dons, jobSpec string) {
 	workerNodes, err := offchain.ListNodes(t.Context(), &node.ListNodesRequest{
 		Filter: &node.ListNodesRequest_Filter{
 			Selectors: []*ptypes.Selector{{
@@ -427,7 +427,7 @@ func proposeSecureMintJob(t *testing.T, offchain offchain.Client, donTopology *c
 			NodeId: n.Id,
 		})
 	}
-	err = jobs.Create(t.Context(), offchain, donTopology, specs)
+	err = jobs.Create(t.Context(), offchain, dons, specs)
 	if err != nil && strings.Contains(err.Error(), "is already approved") {
 		return
 	}
@@ -524,7 +524,7 @@ func (f *fakeTrigger) createReport() (*values.Map, error) {
 	return event, nil
 }
 
-func createFakeTrigger(t *testing.T, s *setup, dons *cre.DonTopology) *fakeTrigger {
+func createFakeTrigger(t *testing.T, s *setup, dons *cre.Dons) *fakeTrigger {
 	client := createMockClient(t)
 	framework.L.Info().Msg("Successfully exported ocr2 keys")
 
