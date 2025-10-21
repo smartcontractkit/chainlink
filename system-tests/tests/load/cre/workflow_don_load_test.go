@@ -152,7 +152,7 @@ func setupLoadTestEnvironment(
 	in.WorkflowRegistryConfiguration.Out = universalSetupOutput.WorkflowRegistryConfigurationOutput
 
 	forwarderAddress, _, forwarderErr := crecontracts.FindAddressesForChain(
-		universalSetupOutput.CreEnvironment.CldfEnvironment.ExistingAddresses,
+		universalSetupOutput.CreEnvironment.CldfEnvironment.ExistingAddresses, //nolint:staticcheck // deprecated but still used
 		universalSetupOutput.CreEnvironment.Blockchains[0].ChainSelector(),
 		keystone_changeset.KeystoneForwarder.String(),
 	)
