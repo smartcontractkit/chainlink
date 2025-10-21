@@ -147,6 +147,16 @@ func setupRepo(ctx context.Context, logger zerolog.Logger, repo, reference, comm
 	if repo == "" {
 		return "", false, errors.New("repository URL or path is empty")
 	}
+
+	// Expand ~ to home directory in workingDir if present
+	if workingDir != "" && strings.HasPrefix(workingDir, "~/") {
+		homeDir, err := os.UserHomeDir()
+		if err != nil {
+			return "", false, fmt.Errorf("failed to get user home directory: %w", err)
+		}
+		workingDir = filepath.Join(homeDir, workingDir[2:])
+	}
+
 	// Check if repo is a local directory
 	isLocalRepo := false
 	if _, err2 := os.Stat(repo); err2 == nil {
@@ -173,9 +183,8 @@ func setupRepo(ctx context.Context, logger zerolog.Logger, repo, reference, comm
 			}
 			workingDir = tempDir
 		} else {
-			var err error
 			// Clear or create the working directory
-			if _, err = os.Stat(workingDir); err == nil {
+			if _, err := os.Stat(workingDir); err == nil {
 				if err = os.RemoveAll(workingDir); err != nil {
 					return "", false, fmt.Errorf("failed to clear existing working directory: %w", err)
 				}
