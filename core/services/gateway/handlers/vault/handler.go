@@ -484,7 +484,7 @@ func (h *handler) handleSecretsCreate(ctx context.Context, ar *activeRequest) er
 	}
 	createSecretsRequest.RequestId = ar.req.ID
 	for _, secretItem := range createSecretsRequest.EncryptedSecrets {
-		if secretItem.Id != nil && secretItem.Id.Namespace == "" {
+		if secretItem != nil && secretItem.Id != nil && secretItem.Id.Namespace == "" {
 			secretItem.Id.Namespace = vaulttypes.DefaultNamespace
 		}
 	}
@@ -516,7 +516,7 @@ func (h *handler) handleSecretsUpdate(ctx context.Context, ar *activeRequest) er
 
 	updateSecretsRequest.RequestId = ar.req.ID
 	for _, secretItem := range updateSecretsRequest.EncryptedSecrets {
-		if secretItem.Id != nil && secretItem.Id.Namespace == "" {
+		if secretItem != nil && secretItem.Id != nil && secretItem.Id.Namespace == "" {
 			secretItem.Id.Namespace = vaulttypes.DefaultNamespace
 		}
 	}

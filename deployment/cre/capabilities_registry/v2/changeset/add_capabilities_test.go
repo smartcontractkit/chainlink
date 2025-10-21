@@ -61,6 +61,19 @@ func TestAddCapabilities_Apply(t *testing.T) {
 	newCapID := "new-test-capability@1.0.0"
 	newCapMetadata := map[string]any{"capabilityType": float64(0), "responseType": float64(0)}
 	newCapConfig := map[string]any{
+		"restrictedConfig": map[string]any{
+			"fields": map[string]any{
+				"spendRatios": map[string]any{
+					"mapValue": map[string]any{
+						"fields": map[string]any{
+							"RESOURCE_TYPE_COMPUTE": map[string]any{
+								"stringValue": "1.0",
+							},
+						},
+					},
+				},
+			},
+		},
 		"methodConfigs": map[string]any{
 			"BalanceAt": map[string]any{
 				"remoteExecutableConfig": map[string]any{
