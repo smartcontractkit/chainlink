@@ -39,9 +39,9 @@ func (i *SetDONsFamiliesInput) Validate() error {
 }
 
 type DONFamiliesChange struct {
-	DonName            string
-	AddToFamilies      []string
-	RemoveFromFamilies []string
+	DonName            string   `json:"donName" yaml:"donName"`
+	AddToFamilies      []string `json:"addToFamilies" yaml:"addToFamilies"`
+	RemoveFromFamilies []string `json:"removeFromFamilies" yaml:"removeFromFamilies"`
 }
 
 type SetDONsFamiliesOutput struct {

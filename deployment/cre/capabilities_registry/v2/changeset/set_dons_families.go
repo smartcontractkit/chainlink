@@ -17,12 +17,12 @@ import (
 var _ cldf.ChangeSetV2[SetDONsFamiliesInput] = SetDONsFamilies{}
 
 type SetDONsFamiliesInput struct {
-	RegistrySelector  uint64
-	RegistryQualifier string
+	RegistrySelector  uint64 `json:"registrySelector" yaml:"registrySelector"`
+	RegistryQualifier string `json:"registryQualifier" yaml:"registryQualifier"`
 
-	DONsFamiliesChanges []sequences.DONFamiliesChange
+	DONsFamiliesChanges []sequences.DONFamiliesChange `json:"donsFamiliesChanges" yaml:"donsFamiliesChanges"`
 
-	MCMSConfig *ocr3.MCMSConfig
+	MCMSConfig *ocr3.MCMSConfig `json:"mcmsConfig,omitempty" yaml:"mcmsConfig,omitempty"`
 }
 
 type SetDONsFamilies struct{}
