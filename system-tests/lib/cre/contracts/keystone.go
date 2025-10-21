@@ -13,6 +13,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/pkg/errors"
 	"github.com/rs/zerolog"
+	"github.com/smartcontractkit/chainlink/deployment/cre/capabilities_registry/v2/changeset/operations/contracts"
 	"google.golang.org/protobuf/proto"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
@@ -135,7 +136,7 @@ func (d *dons) allDonCapabilities() []keystone_changeset.DonCapabilities {
 
 func (d *dons) mustToV2ConfigureInput(chainSelector uint64, contractAddress string) cap_reg_v2_seq.ConfigureCapabilitiesRegistryInput {
 	nops := make([]capabilities_registry_v2.CapabilitiesRegistryNodeOperatorParams, 0)
-	nodes := make([]capabilities_registry_v2.CapabilitiesRegistryNodeParams, 0)
+	nodes := make([]contracts.NodesInput, 0)
 	capabilities := make([]capabilities_registry_v2.CapabilitiesRegistryCapability, 0)
 	donParams := make([]capabilities_registry_v2.CapabilitiesRegistryNewDONParams, 0)
 
@@ -196,13 +197,13 @@ func (d *dons) mustToV2ConfigureInput(chainSelector uint64, contractAddress stri
 						panic(fmt.Errorf("failed to decode csa key: %w", err))
 					}
 
-					nodes = append(nodes, capabilities_registry_v2.CapabilitiesRegistryNodeParams{
-						NodeOperatorId:      libc.MustSafeUint32(i + 1),
-						P2pId:               n.PeerID,
+					nodes = append(nodes, contracts.NodesInput{
+						NOP:                 nopName,
+						P2pID:               n.PeerID,
 						Signer:              ocrCfg.OffchainPublicKey,
 						EncryptionPublicKey: [32]byte(wfKey),
 						CsaKey:              [32]byte(csKey),
-						CapabilityIds:       capIDs,
+						CapabilityIDs:       capIDs,
 					})
 				}
 			}
