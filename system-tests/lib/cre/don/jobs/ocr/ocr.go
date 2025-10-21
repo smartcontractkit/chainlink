@@ -82,7 +82,17 @@ func GenerateJobSpecsForStandardCapabilityWithOCR(
 		return nil, errors.New("could not find bootstrap node in topology, exactly one bootstrap node is required")
 	}
 
-	nodeSet := dons.AsNodeSetWithChainCapabilities()[don.ID-1] // TODO use uuid
+	var nodeSet cre.NodeSetWithCapabilityConfigs
+	for _, ns := range dons.AsNodeSetWithChainCapabilities() {
+		if ns.GetName() == don.Name {
+			nodeSet = ns
+			break
+		}
+	}
+	if nodeSet == nil {
+		return nil, fmt.Errorf("could not find node set for Don named '%s'", don.Name)
+	}
+
 	chainIDs, err := enabledChainsProvider(creEnv.RegistryChainSelector, nodeSet, flag)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get enabled chains %w", err)

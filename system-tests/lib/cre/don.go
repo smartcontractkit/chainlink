@@ -219,6 +219,10 @@ func (d *Don) GetCapabilityFlags() []string {
 	return d.Flags
 }
 
+func (d *Don) GetName() string {
+	return d.Name
+}
+
 func NewDON(ctx context.Context, donMetadata *DonMetadata, ctfNodes []*clnode.Output) (*Don, error) {
 	don := &Don{
 		Nodes:                     make([]*Node, 0),

@@ -907,6 +907,10 @@ func (c *CapabilitiesAwareNodeSet) GetCapabilityFlags() []string {
 	return c.Flags()
 }
 
+func (c *CapabilitiesAwareNodeSet) GetName() string {
+	return c.Name
+}
+
 func ConvertToNodeSetWithChainCapabilities(nodeSets []*CapabilitiesAwareNodeSet) []NodeSetWithCapabilityConfigs {
 	result := make([]NodeSetWithCapabilityConfigs, len(nodeSets))
 	for i, nodeSet := range nodeSets {
@@ -1201,6 +1205,7 @@ type NodeSetWithCapabilityConfigs interface {
 	GetChainCapabilityConfigs() map[string]*ChainCapabilityConfig
 	GetCapabilityConfigOverrides() map[string]map[string]any
 	GetCapabilityFlags() []string
+	GetName() string
 }
 
 // InstallableCapability defines the interface for capabilities that can be dynamically

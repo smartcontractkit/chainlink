@@ -105,6 +105,17 @@ func (o *WebAPITrigger) PostEnvStartup(
 		bcOuts[i] = b.CtfOutput()
 	}
 
+	var nodeSet cre.NodeSetWithCapabilityConfigs
+	for _, ns := range dons.AsNodeSetWithChainCapabilities() {
+		if ns.GetName() == don.Name {
+			nodeSet = ns
+			break
+		}
+	}
+	if nodeSet == nil {
+		return fmt.Errorf("could not find node set for Don named '%s'", don.Name)
+	}
+
 	jobSpecs, specErr := perDonJobSpecFactory.BuildJobSpec(
 		flag,
 		configTemplate,
@@ -115,7 +126,7 @@ func (o *WebAPITrigger) PostEnvStartup(
 	)(&cre.JobSpecInput{
 		CreEnvironment: creEnv,
 		Don:            don,
-		NodeSet:        dons.AsNodeSetWithChainCapabilities()[don.ID-1],
+		NodeSet:        nodeSet,
 	})
 	if specErr != nil {
 		return fmt.Errorf("failed to build job spec for http action capability: %w", specErr)
