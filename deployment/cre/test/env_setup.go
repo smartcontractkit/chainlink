@@ -147,7 +147,7 @@ func SetupEnvV2(t *testing.T, useMCMS bool) *EnvWrapperV2 {
 		nodesP2PIDsBytes = append(nodesP2PIDsBytes, n.PeerID)
 
 		nodes = append(nodes, changeset2.CapabilitiesRegistryNodeParams{
-			NodeOperatorID:      1,
+			NOP:                 "Operator 1",
 			P2pID:               p2pID,
 			CsaKey:              n.CSA,
 			EncryptionPublicKey: n.WorkflowKey,

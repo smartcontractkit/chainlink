@@ -6,10 +6,10 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 
-	"github.com/smartcontractkit/chainlink/deployment/cre/capabilities_registry/v2/changeset/pkg"
-
 	capabilities_registry_v2 "github.com/smartcontractkit/chainlink-evm/gethwrappers/workflow/generated/capabilities_registry_wrapper_v2"
 
+	"github.com/smartcontractkit/chainlink/deployment/cre/capabilities_registry/v2/changeset/operations/contracts"
+	"github.com/smartcontractkit/chainlink/deployment/cre/capabilities_registry/v2/changeset/pkg"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/p2pkey"
 )
 
@@ -44,7 +44,7 @@ func (cap CapabilitiesRegistryCapability) ToWrapper() (capabilities_registry_v2.
 }
 
 type CapabilitiesRegistryNodeParams struct {
-	NodeOperatorID      uint32   `json:"nodeOperatorID" yaml:"nodeOperatorID"`
+	NOP                 string   `json:"nop" yaml:"nop"`
 	Signer              string   `json:"signer" yaml:"signer"`
 	P2pID               string   `json:"p2pID" yaml:"p2pID"`
 	EncryptionPublicKey string   `json:"encryptionPublicKey" yaml:"encryptionPublicKey"`
@@ -52,30 +52,30 @@ type CapabilitiesRegistryNodeParams struct {
 	CapabilityIDs       []string `json:"capabilityIDs" yaml:"capabilityIDs"`
 }
 
-func (node CapabilitiesRegistryNodeParams) ToWrapper() (capabilities_registry_v2.CapabilitiesRegistryNodeParams, error) {
+func (node CapabilitiesRegistryNodeParams) ToWrapper() (contracts.NodesInput, error) {
 	csaKeyBytes, err := pkg.HexStringTo32Bytes(node.CsaKey)
 	if err != nil {
-		return capabilities_registry_v2.CapabilitiesRegistryNodeParams{}, fmt.Errorf("failed to convert CSA key: %w", err)
+		return contracts.NodesInput{}, fmt.Errorf("failed to convert CSA key: %w", err)
 	}
 
 	signerBytes, err := pkg.HexStringTo32Bytes(node.Signer)
 	if err != nil {
-		return capabilities_registry_v2.CapabilitiesRegistryNodeParams{}, fmt.Errorf("failed to convert signer: %w", err)
+		return contracts.NodesInput{}, fmt.Errorf("failed to convert signer: %w", err)
 	}
 
 	// P2PID is not a hex value
 	p2pIDBytes, err := p2pkey.MakePeerID(node.P2pID)
 	if err != nil {
-		return capabilities_registry_v2.CapabilitiesRegistryNodeParams{}, fmt.Errorf("failed to convert P2P ID: %w", err)
+		return contracts.NodesInput{}, fmt.Errorf("failed to convert P2P ID: %w", err)
 	}
 
 	encryptionPublicKeyBytes, err := pkg.HexStringTo32Bytes(node.EncryptionPublicKey)
 	if err != nil {
-		return capabilities_registry_v2.CapabilitiesRegistryNodeParams{}, fmt.Errorf("failed to convert encryption public key: %w", err)
+		return contracts.NodesInput{}, fmt.Errorf("failed to convert encryption public key: %w", err)
 	}
 
-	return capabilities_registry_v2.CapabilitiesRegistryNodeParams{
-		NodeOperatorId:      node.NodeOperatorID,
+	return contracts.NodesInput{
+		NOP:                 node.NOP,
 		Signer:              signerBytes,
 		P2pId:               p2pIDBytes,
 		EncryptionPublicKey: encryptionPublicKeyBytes,

@@ -49,7 +49,7 @@ var RegisterDons = operations.NewOperation[RegisterDonsInput, RegisterDonsOutput
 		}
 
 		// Get the CapabilitiesRegistryTransactor contract
-		capabilityRegistryTransactor, err := capabilities_registry_v2.NewCapabilitiesRegistryTransactor(
+		capReg, err := capabilities_registry_v2.NewCapabilitiesRegistry(
 			common.HexToAddress(input.Address),
 			chain.Client,
 		)
@@ -74,7 +74,7 @@ var RegisterDons = operations.NewOperation[RegisterDonsInput, RegisterDonsOutput
 
 		// Execute the transaction using the strategy
 		proposals, err := strategy.Apply(func(opts *bind.TransactOpts) (*types.Transaction, error) {
-			tx, err := capabilityRegistryTransactor.AddDONs(opts, input.DONs)
+			tx, err := capReg.AddDONs(opts, input.DONs)
 			if err != nil {
 				err = cldf.DecodeErr(capabilities_registry_v2.CapabilitiesRegistryABI, err)
 				return nil, fmt.Errorf("failed to call AddDONs: %w", err)

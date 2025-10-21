@@ -15,6 +15,7 @@ import (
 
 	capabilities_registry_v2 "github.com/smartcontractkit/chainlink-evm/gethwrappers/workflow/generated/capabilities_registry_wrapper_v2"
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset/state"
+	"github.com/smartcontractkit/chainlink/deployment/cre/capabilities_registry/v2/changeset/pkg"
 	"github.com/smartcontractkit/chainlink/deployment/cre/common/strategies"
 	"github.com/smartcontractkit/chainlink/deployment/cre/ocr3"
 )
@@ -27,8 +28,17 @@ type RegisterNodesDeps struct {
 type RegisterNodesInput struct {
 	Address       string
 	ChainSelector uint64
-	Nodes         []capabilities_registry_v2.CapabilitiesRegistryNodeParams
+	Nodes         []NodesInput
 	MCMSConfig    *ocr3.MCMSConfig
+}
+
+type NodesInput struct {
+	NOP                 string
+	Signer              [32]byte
+	P2pId               [32]byte
+	EncryptionPublicKey [32]byte
+	CsaKey              [32]byte
+	CapabilityIds       []string
 }
 
 type RegisterNodesOutput struct {
@@ -56,23 +66,55 @@ var RegisterNodes = operations.NewOperation[RegisterNodesInput, RegisterNodesOut
 			return RegisterNodesOutput{}, errors.New("chainSelector is not set")
 		}
 
-		if err := validateNodes(input.Nodes); err != nil {
-			return RegisterNodesOutput{}, fmt.Errorf("node validation failed: %w", err)
-		}
-
 		// Get the target chain
 		chain, ok := deps.Env.BlockChains.EVMChains()[input.ChainSelector]
 		if !ok {
 			return RegisterNodesOutput{}, fmt.Errorf("chain not found for selector %d", input.ChainSelector)
 		}
 
-		// Get the CapabilitiesRegistryTransactor contract
-		capabilityRegistryTransactor, err := capabilities_registry_v2.NewCapabilitiesRegistryTransactor(
+		// Get the CapabilitiesRegistry contract
+		capReg, err := capabilities_registry_v2.NewCapabilitiesRegistry(
 			common.HexToAddress(input.Address),
 			chain.Client,
 		)
 		if err != nil {
-			return RegisterNodesOutput{}, fmt.Errorf("failed to create CapabilitiesRegistryTransactor: %w", err)
+			return RegisterNodesOutput{}, fmt.Errorf("failed to create CapabilitiesRegistry: %w", err)
+		}
+
+		var nodes []capabilities_registry_v2.CapabilitiesRegistryNodeParams
+
+		contractNOPs, err := pkg.GetNodeOperators(nil, capReg)
+		if err != nil {
+			return RegisterNodesOutput{}, fmt.Errorf("failed to fetch node operators from contract: %w", err)
+		}
+
+		allNOPsNamesInContract := make(map[string]int)
+		for i, nop := range contractNOPs {
+			// NodeOperatorId is 1-based and returned in order from the contract.
+			// So the ID is the index + 1
+			// See the implementation of `AddNodeOperators` in the contract for reference:
+			// https://github.com/smartcontractkit/chainlink-evm/blob/develop/contracts/src/v0.8/workflow/v2/CapabilitiesRegistry.sol#L568
+			allNOPsNamesInContract[nop.Name] = i + 1
+		}
+
+		for _, node := range input.Nodes {
+			index, exists := allNOPsNamesInContract[node.NOP]
+			if !exists {
+				return RegisterNodesOutput{}, fmt.Errorf("node operator `%s` not found in contract", node.NOP)
+			}
+
+			nodes = append(nodes, capabilities_registry_v2.CapabilitiesRegistryNodeParams{
+				NodeOperatorId:      uint32(index),
+				Signer:              node.Signer,
+				EncryptionPublicKey: node.EncryptionPublicKey,
+				P2pId:               node.P2pId,
+				CsaKey:              node.CsaKey,
+				CapabilityIds:       node.CapabilityIds,
+			})
+		}
+
+		if err := validateNodes(nodes); err != nil {
+			return RegisterNodesOutput{}, fmt.Errorf("node validation failed: %w", err)
 		}
 
 		// Create the appropriate strategy
@@ -92,7 +134,7 @@ var RegisterNodes = operations.NewOperation[RegisterNodesInput, RegisterNodesOut
 
 		// Execute the transaction using the strategy
 		proposals, err := strategy.Apply(func(opts *bind.TransactOpts) (*types.Transaction, error) {
-			tx, err := capabilityRegistryTransactor.AddNodes(opts, input.Nodes)
+			tx, err := capReg.AddNodes(opts, nodes)
 			if err != nil {
 				err = cldf.DecodeErr(capabilities_registry_v2.CapabilitiesRegistryABI, err)
 				return nil, fmt.Errorf("failed to call AddNodes: %w", err)
