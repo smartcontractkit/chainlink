@@ -593,20 +593,11 @@ func (r *Report) FormatReport() *protoEvents.MeteringReport {
 
 // isRetryableError determines if an error is retryable based on gRPC status codes
 func isRetryableError(err error) bool {
-	if err == nil {
-		return false
-	}
-
-	st, ok := status.FromError(err)
-	if !ok {
-		// If we can't determine the status, don't retry
-		return false
-	}
-
-	switch st.Code() {
+	switch status.Code(err) {
 	case codes.Unavailable, codes.DeadlineExceeded, codes.ResourceExhausted:
 		return true
 	default:
+		// includes code.Unknown + err == nil
 		return false
 	}
 }
@@ -641,7 +632,7 @@ func (r *Report) SendReceipt(ctx context.Context) error {
 	var resp *emptypb.Empty
 	var err error
 
-	for attempt := 0; attempt <= maxRetries; attempt++ {
+	for attempt := 0; ; attempt++ {
 		resp, err = r.client.SubmitWorkflowReceipt(ctx, &req)
 		if err == nil {
 			break
