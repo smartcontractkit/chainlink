@@ -1788,8 +1788,8 @@ github.com/smartcontractkit/chainlink-common/pkg/monitoring v0.0.0-2025041523564
 github.com/smartcontractkit/chainlink-common/pkg/monitoring v0.0.0-20250415235644-8703639403c7/go.mod h1:yaDOAZF6MNB+NGYpxGCUc+owIdKrjvFW0JODdTcQ3V0=
 github.com/smartcontractkit/chainlink-data-streams v0.1.6 h1:B3cwmJrVYoJVAjPOyQWTNaGD+V30HI1vFHhC2dQpWDo=
 github.com/smartcontractkit/chainlink-data-streams v0.1.6/go.mod h1:e9jETTzrVO8iu9Zp5gDuTCmBVhSJwUOk6K4Q/VFrJ6o=
-github.com/smartcontractkit/chainlink-deployments-framework v0.56.0 h1:VkzslEC/a7Ze5qqLdX1ZNL7ug0TwVd5w3hL5jA/DvWE=
-github.com/smartcontractkit/chainlink-deployments-framework v0.56.0/go.mod h1:ObH5HJ4yXzTmQLc6Af+ufrTVcQ+ocasHJ0YBZjw5ZCM=
+github.com/smartcontractkit/chainlink-deployments-framework v0.57.1-0.20251021013559-8e3bb894cb72 h1:6guh8bNJOjJIp8tmZNTKbvO2SKI3RjsmKFdG6m80f/M=
+github.com/smartcontractkit/chainlink-deployments-framework v0.57.1-0.20251021013559-8e3bb894cb72/go.mod h1:CxrO3SbpdWq1gyRc/dV1M88a0g1M2cCg8t97ealDWXU=
 github.com/smartcontractkit/chainlink-evm v0.3.4-0.20251020152820-5fb041bf92b7 h1:06577m9+PAmf0EjyAcbSIRGdlF62NR+0dobwOd6/ggQ=
 github.com/smartcontractkit/chainlink-evm v0.3.4-0.20251020152820-5fb041bf92b7/go.mod h1:8qP/pA7OIoDLYxnY+h7sVDLBcNJzPME6UdL4pNI+K9Q=
 github.com/smartcontractkit/chainlink-evm/gethwrappers v0.0.0-20251015115541-729ba0b2b1c1 h1:U0/wYRzESvhGnzbQy2Q/18gTP2UGp1DtZ19TL43NP5k=
@@ -1824,8 +1824,8 @@ github.com/smartcontractkit/chainlink-protos/workflows/go v0.0.0-20251008185222-
 github.com/smartcontractkit/chainlink-protos/workflows/go v0.0.0-20251008185222-47a7460f5207/go.mod h1:HIpGvF6nKCdtZ30xhdkKWGM9+4Z4CVqJH8ZBL1FTEiY=
 github.com/smartcontractkit/chainlink-solana v1.1.2-0.20251020193713-b63bc17bfeb1 h1:aQj7qbQpRUMqTpYqlMaSuY+iMUYV4bU5/Hs8ocrrF9k=
 github.com/smartcontractkit/chainlink-solana v1.1.2-0.20251020193713-b63bc17bfeb1/go.mod h1:BqK7sKZUfX4sVkDSEMnj1Vnagiqh+bt1nARpEFruP40=
-github.com/smartcontractkit/chainlink-sui v0.0.0-20251012014843-5d44e7731854 h1:7KMcSEptDirqBY/jzNhxFvWmDE2s5KQE6uMPQ1inad4=
-github.com/smartcontractkit/chainlink-sui v0.0.0-20251012014843-5d44e7731854/go.mod h1:VlyZhVw+a93Sk8rVHOIH6tpiXrMzuWLZrjs1eTIExW8=
+github.com/smartcontractkit/chainlink-sui v0.0.0-20251013155034-5f85c5f450ab h1:raRTzzR96QW9F+NdHXfF/fgaKUcdXEcN+xPO461XCFY=
+github.com/smartcontractkit/chainlink-sui v0.0.0-20251013155034-5f85c5f450ab/go.mod h1:VlyZhVw+a93Sk8rVHOIH6tpiXrMzuWLZrjs1eTIExW8=
 github.com/smartcontractkit/chainlink-sui/deployment v0.0.0-20251012014843-5d44e7731854 h1:/BKZfcmGghI+LQdXdJXz63l0vYntSg6rd3bfU/5W55I=
 github.com/smartcontractkit/chainlink-sui/deployment v0.0.0-20251012014843-5d44e7731854/go.mod h1:xMf64ftqTx9LuvHjMSxBMmgN41EOMQJ/OpGnvLf4NiM=
 github.com/smartcontractkit/chainlink-testing-framework/framework v0.11.2 h1:Bl6eBzGmhjtYG3HF9tD3TccwfrPy8nqh8/RxY3Dthb4=
@@ -1864,8 +1864,8 @@ github.com/smartcontractkit/grpc-proxy v0.0.0-20240830132753-a7e17fec5ab7 h1:12i
 github.com/smartcontractkit/grpc-proxy v0.0.0-20240830132753-a7e17fec5ab7/go.mod h1:FX7/bVdoep147QQhsOPkYsPEXhGZjeYx6lBSaSXtZOA=
 github.com/smartcontractkit/libocr v0.0.0-20250912173940-f3ab0246e23d h1:LokA9PoCNb8mm8mDT52c3RECPMRsGz1eCQORq+J3n74=
 github.com/smartcontractkit/libocr v0.0.0-20250912173940-f3ab0246e23d/go.mod h1:Acy3BTBxou83ooMESLO90s8PKSu7RvLCzwSTbxxfOK0=
-github.com/smartcontractkit/mcms v0.26.1-0.20251009182503-22a4319a7bf4 h1:Vt13oeOTFZ8IMQQTuWi9MbvR5wl/a1v4BRIV0GyJj7Q=
-github.com/smartcontractkit/mcms v0.26.1-0.20251009182503-22a4319a7bf4/go.mod h1:g8Ot7s0gVJrJWvH1qib2jC7u6Npos1gTlKpoFSbJVI8=
+github.com/smartcontractkit/mcms v0.26.1 h1:nDj2OTeF8B8Xv7QcY1oVbe/sEIkPlc8iSLsBvGHqXqo=
+github.com/smartcontractkit/mcms v0.26.1/go.mod h1:HtE4xd/4UlB1UQiOtAML5MZL7DqVKqsmh4CN5SGvcd0=
 github.com/smartcontractkit/quarantine v0.0.0-20250909213106-ece491bef618 h1:rN8PnOZj53L70zlm1aYz1k14lXNCt7NoV666TDfcTJA=
 github.com/smartcontractkit/quarantine v0.0.0-20250909213106-ece491bef618/go.mod h1:iwy4yWFuK+1JeoIRTaSOA9pl+8Kf//26zezxEXrAQEQ=
 github.com/smartcontractkit/smdkg v0.0.0-20250916143931-2876ea233fd8 h1:AWLLzOSCbSdBEYrAXZn0XKnTFXxr1BANaW2d5qTZbSM=
