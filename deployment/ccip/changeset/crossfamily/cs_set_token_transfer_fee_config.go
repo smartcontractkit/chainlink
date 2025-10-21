@@ -24,6 +24,20 @@ import (
 
 var _ cldf.ChangeSetV2[SetTokenTransferFeeConfigInput] = SetTokenTransferFeeConfig
 
+// SetTokenTransferFeeConfig is a cross-family changeset that updates per-token transfer-fee
+// parameters for both EVM and Solana source chains in one operation. It accepts a two-level
+// map of source -> destination chain selectors with per-token configs, validates each entry,
+// and routes them to the appropriate version-specific changeset.
+//
+// Features:
+//   - Version-aware: automatically detects or respects VersionHints for each family (EVM v1.6.0 / v1.5.1 and Solana v0.1.1 supported).
+//   - Unified schema: validates and converts string token addresses (hex → EVM, base58 → Solana).
+//   - Strict validation: rejects invalid selectors and same-chain (src==dst) updates.
+//   - No-op friendly: skips empty updates and exits cleanly when no changes are needed.
+//   - MCMS integration: batches all family/version changes into a single orchestrated proposal.
+//
+// This changeset performs only validation, version routing, and type conversion. It delegates
+// all actual on-chain logic to the existing family/version changesets.
 var SetTokenTransferFeeConfig = cldf.CreateChangeSet(setTokenTransferFeeLogic, setTokenTransferFeePrecondition)
 
 var SetTokenTransferFeeLatestSupportedVersions = OptionalVersions{
