@@ -60,7 +60,7 @@ require (
 	github.com/smartcontractkit/chainlink-testing-framework/wasp v1.51.1
 	github.com/smartcontractkit/chainlink/core/scripts/cre/environment/examples/workflows/v1/proof-of-reserve/cron-based v0.0.0-20251008094352-f74459c46e8c
 	github.com/smartcontractkit/chainlink/core/scripts/cre/environment/examples/workflows/v2/cron v0.0.0-20251008094352-f74459c46e8c
-	github.com/smartcontractkit/chainlink/deployment v0.0.0-20251008094352-f74459c46e8c
+	github.com/smartcontractkit/chainlink/deployment v0.0.0-20251021194914-c0e3fec1a97c
 	github.com/smartcontractkit/chainlink/system-tests/lib v0.0.0-20251008094352-f74459c46e8c
 	github.com/smartcontractkit/chainlink/system-tests/tests/regression/cre/consensus v0.0.0-20251008094352-f74459c46e8c
 	github.com/smartcontractkit/chainlink/system-tests/tests/regression/cre/evm/evmread-negative v0.0.0-20251008094352-f74459c46e8c
