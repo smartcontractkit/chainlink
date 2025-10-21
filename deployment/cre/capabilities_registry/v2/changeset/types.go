@@ -2,6 +2,7 @@ package changeset
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -75,16 +76,16 @@ func (node CapabilitiesRegistryNodeParams) ToWrapper() (contracts.NodesInput, er
 	}
 
 	if node.NOP == "" {
-		return contracts.NodesInput{}, fmt.Errorf("NOP name cannot be empty")
+		return contracts.NodesInput{}, errors.New("NOP name cannot be empty")
 	}
 
 	return contracts.NodesInput{
 		NOP:                 node.NOP,
 		Signer:              signerBytes,
-		P2pId:               p2pIDBytes,
+		P2pID:               p2pIDBytes,
 		EncryptionPublicKey: encryptionPublicKeyBytes,
 		CsaKey:              csaKeyBytes,
-		CapabilityIds:       node.CapabilityIDs,
+		CapabilityIDs:       node.CapabilityIDs,
 	}, nil
 }
 

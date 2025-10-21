@@ -35,10 +35,10 @@ type RegisterNodesInput struct {
 type NodesInput struct {
 	NOP                 string
 	Signer              [32]byte
-	P2pId               [32]byte
+	P2pID               [32]byte
 	EncryptionPublicKey [32]byte
 	CsaKey              [32]byte
-	CapabilityIds       []string
+	CapabilityIDs       []string
 }
 
 type RegisterNodesOutput struct {
@@ -107,9 +107,9 @@ var RegisterNodes = operations.NewOperation[RegisterNodesInput, RegisterNodesOut
 				NodeOperatorId:      uint32(index),
 				Signer:              node.Signer,
 				EncryptionPublicKey: node.EncryptionPublicKey,
-				P2pId:               node.P2pId,
+				P2pId:               node.P2pID,
 				CsaKey:              node.CsaKey,
-				CapabilityIds:       node.CapabilityIds,
+				CapabilityIds:       node.CapabilityIDs,
 			})
 		}
 
