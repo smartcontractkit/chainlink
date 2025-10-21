@@ -37,7 +37,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-testing-framework/wasp"
 
-	suistateview "github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview/sui"
+	sui_deployment "github.com/smartcontractkit/chainlink-sui/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/environment/crib"
 	tc "github.com/smartcontractkit/chainlink/integration-tests/testconfig"
 	"github.com/smartcontractkit/chainlink/integration-tests/testconfig/ccip"
@@ -196,9 +196,9 @@ func TestCCIPLoad_RPS(t *testing.T) {
 	p := wasp.NewProfile()
 
 	// Load Sui state and merge it into main state BEFORE lane discovery
-	var suiState map[uint64]suistateview.CCIPChainState
+	var suiState map[uint64]sui_deployment.CCIPChainState
 	if len(suiChains) > 0 {
-		suiState, err = suistateview.LoadOnchainStatesui(*env)
+		suiState, err = sui_deployment.LoadOnchainStatesui(*env)
 		require.NoError(t, err)
 	}
 

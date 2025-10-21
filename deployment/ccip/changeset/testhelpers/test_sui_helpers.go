@@ -28,7 +28,7 @@ import (
 	sui_deployment "github.com/smartcontractkit/chainlink-sui/deployment"
 	sui_cs "github.com/smartcontractkit/chainlink-sui/deployment/changesets"
 	sui_ops "github.com/smartcontractkit/chainlink-sui/deployment/ops"
-	ccipops "github.com/smartcontractkit/chainlink-sui/deployment/ops/ccip"
+	// ccipops "github.com/smartcontractkit/chainlink-sui/deployment/ops/ccip"
 	burnminttokenpoolops "github.com/smartcontractkit/chainlink-sui/deployment/ops/ccip_burn_mint_token_pool"
 	lockreleasetokenpoolops "github.com/smartcontractkit/chainlink-sui/deployment/ops/ccip_lock_release_token_pool"
 	managedtokenpoolops "github.com/smartcontractkit/chainlink-sui/deployment/ops/ccip_managed_token_pool"
@@ -140,35 +140,37 @@ func SendSuiCCIPRequest(e cldf.Environment, cfg *ccipclient.CCIPSendReqConfig) (
 	onRampStateObjectID := state.SuiChains[cfg.SourceChain].OnRampStateObjectId
 	linkTokenPkgID := state.SuiChains[cfg.SourceChain].LinkTokenAddress
 	linkTokenObjectMetadataID := state.SuiChains[cfg.SourceChain].LinkTokenCoinMetadataId
-	ccipOwnerCapID := state.SuiChains[cfg.SourceChain].CCIPOwnerCapObjectId
 
-	bigIntSourceUsdPerToken, parsed := new(big.Int).SetString("15377040000000000000000000000", 10) // 1e27 since sui is 1e9
-	if !parsed {
-		return &ccipclient.AnyMsgSentEvent{}, errors.New("failed converting SourceUSDPerToken to bigInt")
-	}
-
-	bigIntGasUsdPerUnitGas, ok := new(big.Int).SetString("41946474500", 10) // optimism sep 4145822215
-	if !ok {
-		return &ccipclient.AnyMsgSentEvent{}, errors.New("failed converting GasUsdPerUnitGas to bigInt")
-	}
+	// ccipOwnerCapID := state.SuiChains[cfg.SourceChain].CCIPOwnerCapObjectId
+	//
+	// bigIntSourceUsdPerToken, parsed := new(big.Int).SetString("21377040000000000000000000000", 10) // 1e27 since sui is 1e9
+	// if !parsed {
+	// 	return &ccipclient.AnyMsgSentEvent{}, errors.New("failed converting SourceUSDPerToken to bigInt")
+	// }
+	//
+	// bigIntGasUsdPerUnitGas, ok := new(big.Int).SetString("41946474500", 10) // optimism sep 4145822215
+	// if !ok {
+	// 	return &ccipclient.AnyMsgSentEvent{}, errors.New("failed converting GasUsdPerUnitGas to bigInt")
+	// }
+>>>>>>> f9063c19aa (Rebase)
 
 	// getValidatedFee
 	msg := cfg.Message.(SuiSendRequest)
 
 	// Update Prices on FeeQuoter with minted LinkToken
-	_, err = operations.ExecuteOperation(e.OperationsBundle, ccipops.FeeQuoterUpdatePricesWithOwnerCapOp, deps.SuiChain,
-		ccipops.FeeQuoterUpdatePricesWithOwnerCapInput{
-			CCIPPackageId:         ccipPackageID,
-			CCIPObjectRef:         ccipObjectRefID,
-			OwnerCapObjectId:      ccipOwnerCapID,
-			SourceTokens:          []string{linkTokenObjectMetadataID},
-			SourceUsdPerToken:     []*big.Int{bigIntSourceUsdPerToken},
-			GasDestChainSelectors: []uint64{cfg.DestChain},
-			GasUsdPerUnitGas:      []*big.Int{bigIntGasUsdPerUnitGas},
-		})
-	if err != nil {
-		return &ccipclient.AnyMsgSentEvent{}, errors.New("failed to updatePrice for Sui chain " + err.Error())
-	}
+	// _, err = operations.ExecuteOperation(e.OperationsBundle, ccipops.FeeQuoterUpdatePricesWithOwnerCapOp, deps.SuiChain,
+	// 	ccipops.FeeQuoterUpdatePricesWithOwnerCapInput{
+	// 		CCIPPackageId:         ccipPackageID,
+	// 		CCIPObjectRef:         ccipObjectRefID,
+	// 		OwnerCapObjectId:      ccipOwnerCapID,
+	// 		SourceTokens:          []string{linkTokenObjectMetadataID},
+	// 		SourceUsdPerToken:     []*big.Int{bigIntSourceUsdPerToken},
+	// 		GasDestChainSelectors: []uint64{cfg.DestChain},
+	// 		GasUsdPerUnitGas:      []*big.Int{bigIntGasUsdPerUnitGas},
+	// 	})
+	// if err != nil {
+	// 	return &ccipclient.AnyMsgSentEvent{}, errors.New("failed to updatePrice for Sui chain " + err.Error())
+	// }
 
 	// TODO: might be needed for validation
 	// feeQuoter, err := module_fee_quoter.NewFeeQuoter(ccipPackageID, deps.SuiChain.Client)
