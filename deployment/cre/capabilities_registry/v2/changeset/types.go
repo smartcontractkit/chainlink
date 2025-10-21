@@ -74,6 +74,10 @@ func (node CapabilitiesRegistryNodeParams) ToWrapper() (contracts.NodesInput, er
 		return contracts.NodesInput{}, fmt.Errorf("failed to convert encryption public key: %w", err)
 	}
 
+	if node.NOP == "" {
+		return contracts.NodesInput{}, fmt.Errorf("NOP name cannot be empty")
+	}
+
 	return contracts.NodesInput{
 		NOP:                 node.NOP,
 		Signer:              signerBytes,
