@@ -25,11 +25,11 @@ import (
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	suiBind "github.com/smartcontractkit/chainlink-sui/bindings/bind"
 	sui_onramp "github.com/smartcontractkit/chainlink-sui/bindings/generated/ccip/ccip_onramp/onramp"
+	sui_deployment "github.com/smartcontractkit/chainlink-sui/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
 	aptosState "github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview/aptos"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview/evm"
 	solState "github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview/solana"
-	suiState "github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview/sui"
 )
 
 // LaneConfig represents a unidirectional lane from source to destination
@@ -402,7 +402,7 @@ func (lc *LaneConfiguration) DiscoverLanesFromDeployedState(env cldf.Environment
 
 	// Discover Sui source lanes
 	for _, srcChain := range suiChains {
-		srcChainState, err := suiState.LoadOnchainStatesui(env)
+		srcChainState, err := sui_deployment.LoadOnchainStatesui(env)
 		if err != nil {
 			return fmt.Errorf("failed to load Sui chain state: %w", err)
 		}
@@ -498,7 +498,7 @@ func (lc *LaneConfiguration) getEnabledDestinationsFromAptosRouter(env cldf.Envi
 }
 
 // getEnabledDestinationsFromSuiRouter checks which destinations are enabled on the SUI Router
-func (lc *LaneConfiguration) getEnabledDestinationsFromSuiRouter(env cldf.Environment, selector uint64, chainState suiState.CCIPChainState, candidateDestinations []uint64) ([]uint64, error) {
+func (lc *LaneConfiguration) getEnabledDestinationsFromSuiRouter(env cldf.Environment, selector uint64, chainState sui_deployment.CCIPChainState, candidateDestinations []uint64) ([]uint64, error) {
 	var enabledDestinations []uint64
 
 	// For each candidate destination, check if it's enabled on the SUI Router
@@ -559,7 +559,7 @@ func (lc *LaneConfiguration) isDestinationEnabledOnAptosRouter(env cldf.Environm
 }
 
 // isDestinationEnabledOnSuiRouter checks if a destination is enabled on the SUI Router
-func (lc *LaneConfiguration) isDestinationEnabledOnSuiRouter(env cldf.Environment, suiChainSelector uint64, chainState suiState.CCIPChainState, destinationChain uint64) (bool, error) {
+func (lc *LaneConfiguration) isDestinationEnabledOnSuiRouter(env cldf.Environment, suiChainSelector uint64, chainState sui_deployment.CCIPChainState, destinationChain uint64) (bool, error) {
 
 	suiChain := env.BlockChains.SuiChains()[suiChainSelector]
 
