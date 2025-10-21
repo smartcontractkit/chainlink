@@ -26,7 +26,10 @@ type UpdateDONInput struct {
 	RegistryChainSel  uint64 `json:"registryChainSel" yaml:"registryChainSel"`
 
 	// DONName to update, this is required
-	DONName           string                       `json:"donName" yaml:"donName"`
+	DONName string `json:"donName" yaml:"donName"`
+	// NewDonName is optional
+	NewDonName string `json:"newDonName" yaml:"newDonName"`
+
 	CapabilityConfigs []contracts.CapabilityConfig `json:"capabilityConfigs" yaml:"capabilityConfigs"` // if Config subfield is nil, a default config is used
 
 	// Force indicates whether to force the update even if we cannot validate that all forwarder contracts are ready to accept the new configure version.
@@ -98,6 +101,7 @@ func (u UpdateDON) Apply(e cldf.Environment, config UpdateDONInput) (cldf.Change
 			P2PIDs:            p2pIDs,
 			CapabilityConfigs: config.CapabilityConfigs,
 			DonName:           config.DONName,
+			NewDonName:        config.NewDonName,
 			F:                 don.F,
 			IsPrivate:         !don.IsPublic,
 			Force:             config.Force,
