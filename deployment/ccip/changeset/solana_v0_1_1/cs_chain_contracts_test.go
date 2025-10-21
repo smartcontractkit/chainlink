@@ -326,12 +326,15 @@ func doTestBilling(t *testing.T, mcms bool) {
 
 	e, tokenAddress, err := deployTokenAndMint(t, tenv.Env, solChain, []string{}, "TEST_TOKEN")
 	require.NoError(t, err)
+	tenv.Env = e
 
 	e, tokenAddressB, err := deployTokenAndMint(t, tenv.Env, solChain, []string{}, "TEST_TOKEN_B")
 	require.NoError(t, err)
+	tenv.Env = e
 
 	e, tokenAddressC, err := deployTokenAndMint(t, tenv.Env, solChain, []string{}, "TEST_TOKEN_C")
 	require.NoError(t, err)
+	tenv.Env = e
 
 	state, err := stateview.LoadOnchainStateSolana(e)
 	require.NoError(t, err)

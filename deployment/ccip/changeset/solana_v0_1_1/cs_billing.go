@@ -719,12 +719,17 @@ func SetMaxFeeJuelsPerMsg(e cldf.Environment, cfg SetMaxFeeJuelsPerMsgConfig) (c
 
 // ADD BILLING TOKEN FOR REMOTE CHAIN V2
 //
-// TokenTransferFeeForRemoteChainConfigV2 is a thin wrapper around the original AddTokenTransferFeeForRemoteChain changeset
-// with some added devex improvements. In the V2 version you can provide a partial (or empty) config and any missing fields
-// will be auto-filled with sensible defaults. It is also possible to provide multiple tokens as input and all of them will
-// be processed using a single MCMS proposal. A few other benefits include additional logging as well as a new input schema
-// format that aligns more closely with the EVM equivalent of this changeset. This changeset also handles no-ops gracefully
-// and uses the CLDF changeset V2 API.
+// AddTokenTransferFeeForRemoteChainV2 wraps the original AddTokenTransferFeeForRemoteChain changeset with several devex
+// improvements. In the V2 version you can provide a partial (or empty) config and any missing fields will be autofilled
+// with sensible defaults. It's also possible to provide multiple tokens as input and all of them will be processed with
+// a single MCMS proposal. A few other benefits include more detailed log messages and a new input schema structure that
+// aligns more closely with the EVM equivalent of this changeset. This changeset also handles no-ops gracefully and uses
+// the CLDF changeset V2 API.
+var AddTokenTransferFeeForRemoteChainV2 = cldf.CreateChangeSet(
+	addTokenTransferFeeForRemoteChainV2Logic,
+	addTokenTransferFeeForRemoteChainV2Precondition,
+)
+
 type TokenTransferFeeForRemoteChainConfigV2 struct {
 	// Map of source chain selector (solana family) => destination chain selector (any family) => config
 	InputsByChain map[uint64]map[uint64]TokenTransferFeeForRemoteChainConfigArgsV2
@@ -911,11 +916,6 @@ func (cfg TokenTransferFeeForRemoteChainConfigV2) buildOrchestrateChangesetsConf
 		MCMS:        cfg.MCMS,
 	}, nil
 }
-
-var AddTokenTransferFeeForRemoteChainV2 = cldf.CreateChangeSet(
-	addTokenTransferFeeForRemoteChainV2Logic,
-	addTokenTransferFeeForRemoteChainV2Precondition,
-)
 
 func addTokenTransferFeeForRemoteChainV2Precondition(env cldf.Environment, cfg TokenTransferFeeForRemoteChainConfigV2) error {
 	if len(cfg.InputsByChain) == 0 {
