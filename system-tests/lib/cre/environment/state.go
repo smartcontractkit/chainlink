@@ -35,7 +35,7 @@ import (
 // Artifact paths are recorded in `artifact_paths.json` in the environment
 // directory (typically `core/scripts/cre/environment`).
 // Returns the reconstructed CLDF environment, wrapped blockchain outputs, and an error.
-func BuildFromSavedState(ctx context.Context, cldLogger logger.Logger, cachedInput *envconfig.Config, envArtifact *EnvArtifact) (*cre.Environment, []blockchains.Blockchain, error) {
+func BuildFromSavedState(ctx context.Context, cldLogger logger.Logger, cachedInput *envconfig.Config, envArtifact *EnvArtifact) (*cre.Environment, *cre.Dons, error) {
 	if cachedInput == nil {
 		return nil, nil, errors.New("cached input cannot be nil")
 	}
@@ -65,7 +65,7 @@ func BuildFromSavedState(ctx context.Context, cldLogger logger.Logger, cachedInp
 	}
 
 	allNodeIDs := make([]string, 0)
-	dons := make([]*cre.DON, 0, len(envArtifact.DONs))
+	donsSlice := make([]*cre.Don, 0, len(envArtifact.DONs))
 
 	jdConfig := jd.JDConfig{
 		GRPC:  envArtifact.JdConfig.ExternalGRPCUrl,
@@ -97,7 +97,7 @@ func BuildFromSavedState(ctx context.Context, cldLogger logger.Logger, cachedInp
 		if donErr != nil {
 			return nil, nil, errors.Wrapf(donErr, "failed to create DON for don %s", don.DonName)
 		}
-		dons = append(dons, startedDON)
+		donsSlice = append(donsSlice, startedDON)
 	}
 
 	cldfBlockchains := make([]cldf_chain.BlockChain, 0, len(deployedBlockchains.Outputs))
@@ -123,12 +123,13 @@ func BuildFromSavedState(ctx context.Context, cldLogger logger.Logger, cachedInp
 		cldf_chain.NewBlockChainsFromSlice(cldfBlockchains),
 	)
 
+	dons := cre.NewDons(donsSlice, envArtifact.GatewayConnectors)
 	linkDonsToJDInput := &cre.LinkDonsToJDInput{
 		JDClient:        offChain,
 		Blockchains:     deployedBlockchains.Outputs,
 		CldfEnvironment: cldEnv,
 		Topology:        topology,
-		DONs:            dons,
+		Dons:            dons,
 	}
 	var linkErr error
 	cldEnv, linkErr = cre.LinkToJobDistributor(ctx, linkDonsToJDInput)
@@ -137,9 +138,13 @@ func BuildFromSavedState(ctx context.Context, cldLogger logger.Logger, cachedInp
 	}
 
 	return &cre.Environment{
-		CldfEnvironment: cldEnv,
-		DonTopology:     cre.NewDonTopology(envArtifact.RegistryChainSelector, topology, cre.NewDons(dons)),
-	}, deployedBlockchains.Outputs, nil
+		CldfEnvironment:       cldEnv,
+		Blockchains:           deployedBlockchains.Outputs,
+		RegistryChainSelector: deployedBlockchains.Outputs[0].ChainSelector(),
+		Provider:              *cachedInput.Infra,
+		CapabilityConfigs:     envArtifact.CapabilityConfigs,
+		ContractVersions:      envArtifact.ContractVersions,
+	}, dons, nil
 }
 
 func SetDefaultPrivateKeyIfEmpty(defaultPrivateKey string) error {

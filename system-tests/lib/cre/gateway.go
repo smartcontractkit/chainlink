@@ -7,8 +7,9 @@ const (
 	gatewayOutgoingPort = 5003
 )
 
-func NewGatewayConfig(p infra.Provider, id int, isBootstrap bool, donName string) *GatewayConfiguration {
+func NewGatewayConfig(p infra.Provider, id int, isBootstrap bool, uuid, donName string) *GatewayConfiguration {
 	return &GatewayConfiguration{
+		NodeUUID: uuid,
 		Outgoing: Outgoing{
 			Path: "/node",
 			Port: gatewayOutgoingPort,
@@ -25,6 +26,7 @@ func NewGatewayConfig(p infra.Provider, id int, isBootstrap bool, donName string
 }
 
 type GatewayConfiguration struct {
+	NodeUUID      string   `toml:"node_uuid" json:"node_uuid"`
 	Outgoing      Outgoing `toml:"outgoing" json:"outgoing"`
 	Incoming      Incoming `toml:"incoming" json:"incoming"`
 	AuthGatewayID string   `toml:"auth_gateway_id" json:"auth_gateway_id"`

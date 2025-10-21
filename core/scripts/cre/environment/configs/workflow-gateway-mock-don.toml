@@ -43,7 +43,7 @@ port = 7891
     # added for visiblity, required always, when don_types include "gateway"
     gateway_node_index = -1
 
-    capabilities = ["ocr3", "custom-compute", "web-api-trigger"]
+    capabilities = ["ocr3", "custom-compute", "web-api-trigger", "don-time"]
 
    [nodesets.chain_capabilities]
     write-evm = ["1337"]

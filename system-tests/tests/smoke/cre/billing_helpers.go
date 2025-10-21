@@ -97,7 +97,7 @@ func startBillingStackIfIsNotRunning(t *testing.T, relativePathToRepoRoot, envir
 			return errors.Wrap(err, "failed to load workflow registry cache")
 		}
 
-		if len(testEnv.Blockchains) == 0 {
+		if len(testEnv.CreEnvironment.Blockchains) == 0 {
 			return errors.New("no blockchain outputs found in the test environment")
 		}
 
@@ -125,10 +125,10 @@ func startBillingStackIfIsNotRunning(t *testing.T, relativePathToRepoRoot, envir
 
 		// Select the appropriate chain for billing service from available chains in the environment.
 		// otherwise, if RPCURL is defined, billing service can be used standalone
-		if len(testEnv.Blockchains) != 0 {
+		if len(testEnv.CreEnvironment.Blockchains) != 0 {
 			var selectedChain *blockchain.Output
 
-			for _, chain := range testEnv.Blockchains {
+			for _, chain := range testEnv.CreEnvironment.Blockchains {
 				if chain.ChainSelector() == cache.ChainSelector {
 					selectedChain = chain.CtfOutput()
 				}
