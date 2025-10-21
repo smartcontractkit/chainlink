@@ -625,10 +625,6 @@ func (r *Report) SendReceipt(ctx context.Context) error {
 		CreditsConsumed:               r.balance.GetSpent().String(),
 	}
 
-	// Retry logic: max 1 retry with 300ms max wait time
-	maxRetries := 1
-	retryDelay := 150 * time.Millisecond // Half of max wait time for single retry
-
 	var resp *emptypb.Empty
 	var err error
 
@@ -638,20 +634,20 @@ func (r *Report) SendReceipt(ctx context.Context) error {
 			break
 		}
 
-		if attempt >= maxRetries || !isRetryableError(err) {
+		if attempt >= r.maxRetries || !isRetryableError(err) {
 			break
 		}
 
 		r.lggr.Warnw("SubmitWorkflowReceipt failed, retrying",
 			"attempt", attempt+1,
-			"maxRetries", maxRetries+1,
+			"maxRetries", r.maxRetries+1,
 			"error", err,
-			"retryDelay", retryDelay)
+			"retryDelay", r.retryDelay)
 
 		select {
 		case <-ctx.Done():
 			return ctx.Err()
-		case <-time.After(retryDelay):
+		case <-time.After(r.retryDelay):
 			// Continue to next attempt
 		}
 	}
