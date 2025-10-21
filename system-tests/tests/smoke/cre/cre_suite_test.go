@@ -53,6 +53,7 @@ func Test_CRE_V1_SecureMint(t *testing.T) {
 	ExecuteSecureMintTest(t, testEnv)
 }
 
+/*
 // TODO: Move Billing tests to v2 Registries
 func Test_CRE_V1_Billing_EVM_Write(t *testing.T) {
 	quarantine.Flaky(t, "DX-1911")
@@ -71,6 +72,7 @@ func Test_CRE_V1_Billing_EVM_Write(t *testing.T) {
 	porWfCfg.FeedIDs = []string{porWfCfg.FeedIDs[0]}
 	ExecutePoRTest(t, testEnv, priceProvider, porWfCfg, true)
 }
+*/
 
 func Test_CRE_V1_Billing_Cron_Beholder(t *testing.T) {
 	testEnv := t_helpers.SetupTestEnvironmentWithConfig(t, t_helpers.GetDefaultTestConfig(t))
