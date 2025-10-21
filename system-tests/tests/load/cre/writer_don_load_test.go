@@ -103,7 +103,7 @@ func setupLoadTestWriterEnvironment(
 	in.WorkflowRegistryConfiguration.Out = universalSetupOutput.WorkflowRegistryConfigurationOutput
 
 	forwarderAddress, _, forwarderErr := libcontracts.FindAddressesForChain(
-		universalSetupOutput.CreEnvironment.CldfEnvironment.ExistingAddresses,
+		universalSetupOutput.CreEnvironment.CldfEnvironment.ExistingAddresses, //nolint:staticcheck // deprecated but still used
 		universalSetupOutput.CreEnvironment.Blockchains[0].ChainSelector(),
 		keystone_changeset.KeystoneForwarder.String(),
 	)
@@ -119,11 +119,11 @@ func setupLoadTestWriterEnvironment(
 	dfOutput, dfErr := changeset2.RunChangeset(changeset.DeployCacheChangeset, *universalSetupOutput.CreEnvironment.CldfEnvironment, deployConfig)
 	require.NoError(t, dfErr, "failed to deploy data feed cache contract")
 
-	mergeErr := universalSetupOutput.CreEnvironment.CldfEnvironment.ExistingAddresses.Merge(dfOutput.AddressBook)
+	mergeErr := universalSetupOutput.CreEnvironment.CldfEnvironment.ExistingAddresses.Merge(dfOutput.AddressBook) //nolint:staticcheck // deprecated but still used
 	require.NoError(t, mergeErr, "failed to merge address book")
 
 	dfCacheAddress, _, dfCacheErr := libcontracts.FindAddressesForChain(
-		universalSetupOutput.CreEnvironment.CldfEnvironment.ExistingAddresses,
+		universalSetupOutput.CreEnvironment.CldfEnvironment.ExistingAddresses, //nolint:staticcheck // deprecated but still used
 		universalSetupOutput.CreEnvironment.Blockchains[0].ChainSelector(),
 		changeset.DataFeedsCache.String(),
 	)

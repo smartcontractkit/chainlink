@@ -237,7 +237,6 @@ func TestLoad_Workflow_Streams_MockCapabilities(t *testing.T) {
 			return nil, errors.Wrap(err2, "failed to find worker nodes")
 		}
 		for _, workerNode := range workflowNodeSet {
-
 			jobSpecs = append(jobSpecs, MockCapabilitiesJob(workerNode.JobDistributorDetails.NodeID, "mock", in.MockCapabilities))
 		}
 

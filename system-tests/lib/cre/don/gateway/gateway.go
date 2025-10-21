@@ -211,7 +211,7 @@ func AddHandlers(donMetadata cre.DonMetadata, registryChainID uint64, gatewayJob
 	// for each DON, we need to add a handler config specific for this capability
 	for _, gc := range gatewayJobConfigs {
 		donFound := false
-		for _, maybeDON := range gc.Dons {
+		for donIdx, maybeDON := range gc.Dons {
 			// first we try to find DON configuration that matches current don, because it might be already present
 			for _, member := range maybeDON.Members {
 				// if any of the member's address matches the EVM key of the worker node, we found the right DON
@@ -222,7 +222,7 @@ func AddHandlers(donMetadata cre.DonMetadata, registryChainID uint64, gatewayJob
 			}
 
 			if donFound {
-				for donIdx, newHandler := range handlerConfigs {
+				for _, newHandler := range handlerConfigs {
 					alreadyPresent := false
 					for _, existingHandlers := range maybeDON.Handlers {
 						if strings.EqualFold(existingHandlers.Name, newHandler.Name) {
