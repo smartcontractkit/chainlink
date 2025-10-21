@@ -49,6 +49,6 @@ plugins:
       installPath: "github.com/smartcontractkit/capabilities/mock"
   confidential-http:
     - moduleURI: "github.com/smartcontractkit/confidential-compute/enclave/apps/confidential-http/capability"
-      gitRef: "c6945f0f6769771c49b1d5f230b90d6426b7bf0c"
+      gitRef: "02eeea529448080a3b3459975f11497671d15699"
       installPath: "github.com/smartcontractkit/confidential-compute/enclave/apps/confidential-http/capability"
 
