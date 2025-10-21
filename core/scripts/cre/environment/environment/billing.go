@@ -176,7 +176,7 @@ func startBilling(_ context.Context, cleanupWait time.Duration, setupOutput *env
 
 	if setupOutput != nil {
 		in.BillingService.ChainSelector = setupOutput.WorkflowRegistryConfigurationOutput.ChainSelector
-		addressRefs, err := setupOutput.CldEnvironment.DataStore.Addresses().Fetch()
+		addressRefs, err := setupOutput.CreEnvironment.CldfEnvironment.DataStore.Addresses().Fetch()
 		if err != nil {
 			return errors.Wrap(err, "failed to fetch address references")
 		}
@@ -199,10 +199,10 @@ func startBilling(_ context.Context, cleanupWait time.Duration, setupOutput *env
 
 		// Select the appropriate chain for billing service from available chains in the environment.
 		// otherwise, if RPCURL is defined, billing service can be used standalone
-		if len(setupOutput.Blockchains) != 0 {
+		if len(setupOutput.CreEnvironment.Blockchains) != 0 {
 			var selectedChain *blockchain.Output
 
-			for _, chain := range setupOutput.Blockchains {
+			for _, chain := range setupOutput.CreEnvironment.Blockchains {
 				if chain.ChainSelector() == in.BillingService.ChainSelector {
 					selectedChain = chain.CtfOutput()
 				}

@@ -36,7 +36,7 @@ func ExecuteEVMReadTest(t *testing.T, testEnv *ttypes.TestEnvironment) {
 
 	var workflowsWg sync.WaitGroup
 	var successfulWorkflowRuns atomic.Int32
-	for _, bcOutput := range testEnv.Blockchains {
+	for _, bcOutput := range testEnv.CreEnvironment.Blockchains {
 		chainID := bcOutput.CtfOutput().ChainID
 		if _, ok := enabledChains[chainID]; !ok {
 			lggr.Info().Msgf("Skipping chain %s as it is not enabled for EVM Read workflow test", chainID)

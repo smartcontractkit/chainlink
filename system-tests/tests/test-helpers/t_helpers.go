@@ -81,11 +81,11 @@ func GetWritableChainsFromSavedEnvironmentState(t *testing.T, testEnv *ttypes.Te
 	testLogger := framework.L
 	testLogger.Info().Msg("Getting writable chains from saved environment state.")
 	writeableChains := []uint64{}
-	for _, blockchain := range testEnv.Blockchains {
-		for _, don := range testEnv.CreEnvironment.DonTopology.Dons.List() {
-			if flags.RequiresForwarderContract(don.Flags, blockchain.ChainID()) {
-				if !slices.Contains(writeableChains, blockchain.ChainID()) {
-					writeableChains = append(writeableChains, blockchain.ChainID())
+	for _, bcOutput := range testEnv.CreEnvironment.Blockchains {
+		for _, don := range testEnv.Dons.List() {
+			if flags.RequiresForwarderContract(don.Flags, bcOutput.ChainID()) {
+				if !slices.Contains(writeableChains, bcOutput.ChainID()) {
+					writeableChains = append(writeableChains, bcOutput.ChainID())
 				}
 			}
 		}
@@ -582,11 +582,11 @@ func CompileAndDeployWorkflow[T WorkflowConfig](t *testing.T,
 	t.Helper()
 
 	testLogger.Info().Msgf("compiling and registering workflow '%s'", workflowName)
-	homeChainSelector := testEnv.Blockchains[0].ChainSelector()
+	homeChainSelector := testEnv.CreEnvironment.Blockchains[0].ChainSelector()
 
 	workflowDOName := ""
-	for _, don := range testEnv.CreEnvironment.DonTopology.Dons.List() {
-		if don.ID == testEnv.CreEnvironment.DonTopology.WorkflowDonID {
+	for _, don := range testEnv.Dons.List() {
+		if don.ID == testEnv.Dons.MustWorkflowDON().ID {
 			workflowDOName = don.Name
 			break
 		}
@@ -600,7 +600,7 @@ func CompileAndDeployWorkflow[T WorkflowConfig](t *testing.T,
 	workflowRegistryAddress, tv, workflowRegistryErr := crecontracts.FindAddressesForChain(
 		testEnv.CreEnvironment.CldfEnvironment.ExistingAddresses, //nolint:staticcheck // SA1019 ignoring deprecation warning for this usage
 		homeChainSelector, keystone_changeset.WorkflowRegistry.String())
-	require.NoError(t, workflowRegistryErr, "failed to find workflow registry address for chain %d", testEnv.Blockchains[0].ChainID)
+	require.NoError(t, workflowRegistryErr, "failed to find workflow registry address for chain %d", testEnv.CreEnvironment.Blockchains[0].ChainID)
 
 	workflowRegConfig := &WorkflowRegistrationConfig{
 		WorkflowName:                workflowName,
@@ -610,10 +610,10 @@ func CompileAndDeployWorkflow[T WorkflowConfig](t *testing.T,
 		WorkflowRegistryAddr:        workflowRegistryAddress,
 		WorkflowRegistryTypeVersion: tv,
 		ChainID:                     homeChainSelector,
-		DonID:                       testEnv.CreEnvironment.DonTopology.Dons.List()[0].ID,
+		DonID:                       testEnv.Dons.List()[0].ID,
 		ContainerTargetDir:          creworkflow.DefaultWorkflowTargetDir,
-		Blockchains:                 testEnv.Blockchains,
+		Blockchains:                 testEnv.CreEnvironment.Blockchains,
 	}
-	require.IsType(t, &evm.Blockchain{}, testEnv.Blockchains[0], "expected EVM blockchain type")
-	registerWorkflow(t.Context(), t, workflowRegConfig, testEnv.Blockchains[0].(*evm.Blockchain).SethClient, testLogger)
+	require.IsType(t, &evm.Blockchain{}, testEnv.CreEnvironment.Blockchains[0], "expected EVM blockchain type")
+	registerWorkflow(t.Context(), t, workflowRegConfig, testEnv.CreEnvironment.Blockchains[0].(*evm.Blockchain).SethClient, testLogger)
 }
