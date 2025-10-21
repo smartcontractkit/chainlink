@@ -30,33 +30,39 @@ type CreateJobsWithJdOpInput struct {
 type CreateJobsWithJdOpOutput struct {
 }
 
-var CreateJobsWithJdOp = operations.NewOperation(
-	"create-jobs-op",
-	semver.MustParse("1.0.0"),
-	"Create Jobs",
-	func(b operations.Bundle, deps CreateJobsWithJdOpDeps, input CreateJobsWithJdOpInput) (CreateJobsWithJdOpOutput, error) {
-		for _, jobSpecGeneratingFn := range deps.JobSpecFactoryFunctions {
-			if jobSpecGeneratingFn == nil {
-				continue
-			}
+var CreateJobsWithJdOp = CreateJobsWithJdOpFactory("create-jobs-op", "1.0.0")
 
-			for idx, don := range deps.Dons.List() {
-				jobSpecs, jobSpecsErr := jobSpecGeneratingFn(&cre.JobSpecInput{
-					CreEnvironment: deps.CreEnvironment,
-					Don:            don,
-					NodeSet:        cre.ConvertToNodeSetWithChainCapabilities(deps.CapabilitiesAwareNodeSets)[idx],
-				})
-				if jobSpecsErr != nil {
-					return CreateJobsWithJdOpOutput{}, pkgerrors.Wrap(jobSpecsErr, "failed to generate job specs")
+// CreateJobsWithJdOpFactory creates a new operation with user-specified ID and version
+func CreateJobsWithJdOpFactory(id string, version string) *operations.Operation[CreateJobsWithJdOpInput, CreateJobsWithJdOpOutput, CreateJobsWithJdOpDeps] {
+	return operations.NewOperation(
+		id,
+		semver.MustParse(version),
+		"Create Jobs",
+		func(b operations.Bundle, deps CreateJobsWithJdOpDeps, input CreateJobsWithJdOpInput) (CreateJobsWithJdOpOutput, error) {
+			for _, jobSpecGeneratingFn := range deps.JobSpecFactoryFunctions {
+				if jobSpecGeneratingFn == nil {
+					continue
 				}
 
-				createErr := jobs.Create(b.GetContext(), deps.CreEnvironment.CldfEnvironment.Offchain, deps.Dons, jobSpecs)
-				if createErr != nil {
-					return CreateJobsWithJdOpOutput{}, pkgerrors.Wrapf(createErr, "failed to create jobs for DON %d", don.ID)
+				for idx, don := range deps.Dons.List() {
+					jobSpecs, jobSpecsErr := jobSpecGeneratingFn(&cre.JobSpecInput{
+						CreEnvironment: deps.CreEnvironment,
+						Don:            don,
+						Dons:           deps.Dons,
+						NodeSet:        cre.ConvertToNodeSetWithChainCapabilities(deps.CapabilitiesAwareNodeSets)[idx],
+					})
+					if jobSpecsErr != nil {
+						return CreateJobsWithJdOpOutput{}, pkgerrors.Wrap(jobSpecsErr, "failed to generate job specs")
+					}
+
+					createErr := jobs.Create(b.GetContext(), deps.CreEnvironment.CldfEnvironment.Offchain, deps.Dons, jobSpecs)
+					if createErr != nil {
+						return CreateJobsWithJdOpOutput{}, pkgerrors.Wrapf(createErr, "failed to create jobs for DON %d", don.ID)
+					}
 				}
 			}
-		}
 
-		return CreateJobsWithJdOpOutput{}, nil
-	},
-)
+			return CreateJobsWithJdOpOutput{}, nil
+		},
+	)
+}

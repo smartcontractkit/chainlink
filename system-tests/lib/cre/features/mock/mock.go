@@ -94,6 +94,9 @@ func (o *Mock) PostEnvStartup(
 	if specErr != nil {
 		return fmt.Errorf("failed to build job spec for http action capability: %w", specErr)
 	}
+	if len(jobSpecs) == 0 {
+		return fmt.Errorf("no job specs created for '%s' capability, even though it is enabled", flag)
+	}
 
 	// pass all dons, since some jobs might need to be created on multiple dons
 	jobErr := jobs.Create(ctx, creEnv.CldfEnvironment.Offchain, dons, jobSpecs)

@@ -21,7 +21,6 @@ import (
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	jobv1 "github.com/smartcontractkit/chainlink-protos/job-distributor/v1/job"
 	ks_sol "github.com/smartcontractkit/chainlink/deployment/keystone/changeset/solana"
-	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/config"
 
 	cldf_jd "github.com/smartcontractkit/chainlink-deployments-framework/offchain/jd"
 	keystone_changeset "github.com/smartcontractkit/chainlink/deployment/keystone/changeset"
@@ -178,8 +177,7 @@ const (
 )
 
 type (
-	DonJobs        = []*jobv1.ProposeJobRequest
-	DonsToJobSpecs = map[uint64]DonJobs
+	DonJobs = []*jobv1.ProposeJobRequest
 )
 
 const (
@@ -1195,6 +1193,7 @@ type (
 type JobSpecInput struct {
 	CreEnvironment *Environment
 	Don            *Don
+	Dons           *Dons
 	NodeSet        NodeSetWithCapabilityConfigs
 }
 
@@ -1280,5 +1279,4 @@ type Feature interface {
 
 type PreEnvStartupOutput struct {
 	DONCapabilityWithConfig []keystone_changeset.DONCapabilityWithConfig
-	GatewayJobConfigs       map[NodeUUID]*config.GatewayConfig
 }

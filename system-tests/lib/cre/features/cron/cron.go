@@ -33,7 +33,7 @@ func (c *Cron) PreEnvStartup(
 	topology *cre.Topology,
 	creEnv *cre.Environment,
 ) (*cre.PreEnvStartupOutput, error) {
-	cap := []keystone_changeset.DONCapabilityWithConfig{{
+	capabilities := []keystone_changeset.DONCapabilityWithConfig{{
 		Capability: kcr.CapabilitiesRegistryCapability{
 			LabelledName:   "cron-trigger",
 			Version:        "1.0.0",
@@ -43,7 +43,7 @@ func (c *Cron) PreEnvStartup(
 	}}
 
 	return &cre.PreEnvStartupOutput{
-		DONCapabilityWithConfig: cap,
+		DONCapabilityWithConfig: capabilities,
 	}, nil
 }
 
@@ -85,6 +85,9 @@ func (c *Cron) PostEnvStartup(
 	})
 	if specErr != nil {
 		return fmt.Errorf("failed to build job spec for http action capability: %w", specErr)
+	}
+	if len(jobSpecs) == 0 {
+		return fmt.Errorf("no job specs created for '%s' capability, even though it is enabled", flag)
 	}
 
 	// pass all dons, since some jobs might need to be created on multiple ones

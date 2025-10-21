@@ -42,7 +42,7 @@ func (c *Consensus) PreEnvStartup(
 	topology *cre.Topology,
 	creEnv *cre.Environment,
 ) (*cre.PreEnvStartupOutput, error) {
-	cap := []keystone_changeset.DONCapabilityWithConfig{{
+	capabilities := []keystone_changeset.DONCapabilityWithConfig{{
 		Capability: kcr.CapabilitiesRegistryCapability{
 			LabelledName:   "consensus",
 			Version:        "1.0.0-alpha",
@@ -53,7 +53,7 @@ func (c *Consensus) PreEnvStartup(
 	}}
 
 	return &cre.PreEnvStartupOutput{
-		DONCapabilityWithConfig: cap,
+		DONCapabilityWithConfig: capabilities,
 	}, nil
 }
 

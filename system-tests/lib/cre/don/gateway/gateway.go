@@ -198,7 +198,7 @@ forwardingAllowed = false
 }
 
 // AddHandlers adds the given handler configurations to the gateway job config of the given DON. It only adds handlers, if they are not already present.
-func AddHandlers(donMetadata *cre.DonMetadata, registryChainID uint64, gatewayJobConfigs map[cre.NodeUUID]*config.GatewayConfig, handlerConfigs []config.Handler) error {
+func AddHandlers(donMetadata cre.DonMetadata, registryChainID uint64, gatewayJobConfigs map[cre.NodeUUID]*config.GatewayConfig, handlerConfigs []config.Handler) error {
 	workers, wErr := donMetadata.Workers()
 	if wErr != nil {
 		return wErr
@@ -209,9 +209,9 @@ func AddHandlers(donMetadata *cre.DonMetadata, registryChainID uint64, gatewayJo
 	}
 
 	// for each DON, we need to add a handler config specific for this capability
-	for nodeUUID, gc := range gatewayJobConfigs {
+	for _, gc := range gatewayJobConfigs {
 		donFound := false
-		for donIdx, maybeDON := range gc.Dons {
+		for _, maybeDON := range gc.Dons {
 			// first we try to find DON configuration that matches current don, because it might be already present
 			for _, member := range maybeDON.Members {
 				// if any of the member's address matches the EVM key of the worker node, we found the right DON
@@ -222,12 +222,12 @@ func AddHandlers(donMetadata *cre.DonMetadata, registryChainID uint64, gatewayJo
 			}
 
 			if donFound {
-				for _, newHandler := range handlerConfigs {
+				for donIdx, newHandler := range handlerConfigs {
 					alreadyPresent := false
-					for _, existingHandlers := range gc.Dons[donIdx].Handlers {
+					for _, existingHandlers := range maybeDON.Handlers {
 						if strings.EqualFold(existingHandlers.Name, newHandler.Name) {
 							alreadyPresent = true
-							continue
+							break
 						}
 					}
 					if !alreadyPresent {
@@ -253,7 +253,7 @@ func AddHandlers(donMetadata *cre.DonMetadata, registryChainID uint64, gatewayJo
 				}
 			}
 
-			gatewayJobConfigs[nodeUUID].Dons = append(gatewayJobConfigs[nodeUUID].Dons, config.DONConfig{
+			gc.Dons = append(gc.Dons, config.DONConfig{
 				DonId:    donMetadata.Name,
 				F:        1,
 				Members:  members,
@@ -266,7 +266,7 @@ func AddHandlers(donMetadata *cre.DonMetadata, registryChainID uint64, gatewayJo
 }
 
 // AddConnectors adds gateway connector configuration to the node TOML config of each node in the given DON. It only adds connectors, if they are not already present.
-func AddConnectors(donMetadata *cre.DonMetadata, registryChainID uint64, output *cre.GatewayConnectors) error {
+func AddConnectors(donMetadata *cre.DonMetadata, registryChainID uint64, connectors cre.GatewayConnectors) error {
 	workers, wErr := donMetadata.Workers()
 	if wErr != nil {
 		return wErr
@@ -296,7 +296,7 @@ func AddConnectors(donMetadata *cre.DonMetadata, registryChainID uint64, output 
 		}
 
 		// make sure that all other gateways are also present in the config
-		for _, gatewayConnector := range output.Configurations {
+		for _, gatewayConnector := range connectors.Configurations {
 			alreadyPresent := false
 			for _, existingGateway := range typedConfig.Capabilities.GatewayConnector.Gateways {
 				if gatewayConnector.AuthGatewayID == *existingGateway.ID {

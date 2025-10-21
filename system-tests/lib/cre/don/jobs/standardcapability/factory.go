@@ -110,7 +110,7 @@ func (f *CapabilityJobSpecFactory) BuildJobSpec(
 
 		jobSpecs := cre.DonJobs{}
 
-		if f.capabilityEnabler(input.Don.Flags, input.NodeSet, capabilityFlag) {
+		if !f.capabilityEnabler(input.Don.Flags, input.NodeSet, capabilityFlag) {
 			return jobSpecs, nil
 		}
 

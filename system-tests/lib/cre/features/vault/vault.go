@@ -75,12 +75,12 @@ func (o *Vault) PreEnvStartup(
 	if confErr != nil {
 		return nil, errors.Wrapf(confErr, "failed to get %s handler config for don %s", coregateway.VaultHandlerType, don.Name)
 	}
-	hErr := gateway.AddHandlers(don, registryChainID, topology.GatewayJobConfigs, []config.Handler{handlerConfig})
+	hErr := gateway.AddHandlers(*don, registryChainID, topology.GatewayJobConfigs, []config.Handler{handlerConfig})
 	if hErr != nil {
 		return nil, errors.Wrapf(hErr, "failed to add gateway handlers to gateway config (jobspec) for don %s ", don.Name)
 	}
 
-	cErr := gateway.AddConnectors(don, registryChainID, topology.GatewayConnectors)
+	cErr := gateway.AddConnectors(don, registryChainID, *topology.GatewayConnectors)
 	if cErr != nil {
 		return nil, errors.Wrapf(cErr, "failed to add gateway connectors to node's TOML config in for don %s", don.Name)
 	}
@@ -120,7 +120,6 @@ func (o *Vault) PreEnvStartup(
 
 	return &cre.PreEnvStartupOutput{
 		DONCapabilityWithConfig: capabilities,
-		GatewayJobConfigs:       topology.GatewayJobConfigs,
 	}, nil
 }
 

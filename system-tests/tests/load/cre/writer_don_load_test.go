@@ -179,26 +179,23 @@ func TestLoad_Writer_MockCapabilities(t *testing.T) {
 		}
 	}
 
-	loadTestJobSpecsFactoryFn := func(input *cretypes.JobSpecInput) (cretypes.DonsToJobSpecs, error) {
-		donTojobSpecs := make(cretypes.DonsToJobSpecs, 0)
+	loadTestJobSpecsFactoryFn := func(input *cretypes.JobSpecInput) (cretypes.DonJobs, error) {
+		jobSpecs := make(cretypes.DonJobs, 0)
 
-		for _, don := range input.Dons.List() {
-			jobSpecs := make(cretypes.DonJobs, 0)
-			workflowNodeSet, err2 := don.Workers()
-			if err2 != nil {
-				// there should be no DON without worker nodes, even gateway DON is composed of a single worker node
-				return nil, errors.Wrap(err2, "failed to find worker nodes")
-			}
-			for _, workerNode := range workflowNodeSet {
-				if don.HasFlag(cretypes.MockCapability) && in.MockCapabilities != nil {
-					jobSpecs = append(jobSpecs, MockCapabilitiesJob(workerNode.JobDistributorDetails.NodeID, "mock", in.MockCapabilities))
-				}
-			}
-
-			donTojobSpecs[don.ID] = jobSpecs
+		if !input.Don.HasFlag(cretypes.MockCapability) || in.MockCapabilities == nil {
+			return jobSpecs, nil
 		}
 
-		return donTojobSpecs, nil
+		workflowNodeSet, err2 := input.Don.Workers()
+		if err2 != nil {
+			// there should be no DON without worker nodes, even gateway DON is composed of a single worker node
+			return nil, errors.Wrap(err2, "failed to find worker nodes")
+		}
+		for _, workerNode := range workflowNodeSet {
+			jobSpecs = append(jobSpecs, MockCapabilitiesJob(workerNode.JobDistributorDetails.NodeID, "mock", in.MockCapabilities))
+		}
+
+		return jobSpecs, nil
 	}
 
 	WriterDONLoadTestCapabilitiesFactoryFn := func(donFlags []string, _ *cretypes.CapabilitiesAwareNodeSet) ([]keystone_changeset.DONCapabilityWithConfig, error) {

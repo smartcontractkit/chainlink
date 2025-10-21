@@ -50,17 +50,17 @@ func (o *CustomCompute) PreEnvStartup(
 	if confErr != nil {
 		return nil, errors.Wrapf(confErr, "failed to get %s handler config for don %s", coregateway.WebAPICapabilitiesType, don.Name)
 	}
-	hErr := gateway.AddHandlers(don, registryChainID, topology.GatewayJobConfigs, []config.Handler{handlerConfig})
+	hErr := gateway.AddHandlers(*don, registryChainID, topology.GatewayJobConfigs, []config.Handler{handlerConfig})
 	if hErr != nil {
 		return nil, errors.Wrapf(hErr, "failed to add gateway handlers to gateway config (jobspec) for don %s ", don.Name)
 	}
 
-	cErr := gateway.AddConnectors(don, registryChainID, topology.GatewayConnectors)
+	cErr := gateway.AddConnectors(don, registryChainID, *topology.GatewayConnectors)
 	if cErr != nil {
 		return nil, errors.Wrapf(cErr, "failed to add gateway connectors to node's TOML config in for don %s", don.Name)
 	}
 
-	cap := []keystone_changeset.DONCapabilityWithConfig{{
+	capabilities := []keystone_changeset.DONCapabilityWithConfig{{
 		Capability: kcr.CapabilitiesRegistryCapability{
 			LabelledName:   "custom-compute",
 			Version:        "1.0.0",
@@ -70,8 +70,7 @@ func (o *CustomCompute) PreEnvStartup(
 	}}
 
 	return &cre.PreEnvStartupOutput{
-		DONCapabilityWithConfig: cap,
-		GatewayJobConfigs:       topology.GatewayJobConfigs,
+		DONCapabilityWithConfig: capabilities,
 	}, nil
 }
 
@@ -122,6 +121,9 @@ func (o *CustomCompute) PostEnvStartup(
 	})
 	if specErr != nil {
 		return fmt.Errorf("failed to build job spec for http action capability: %w", specErr)
+	}
+	if len(jobSpecs) == 0 {
+		return fmt.Errorf("no job specs created for '%s' capability, even though it is enabled", flag)
 	}
 
 	// pass all dons, since some jobs might need to be created on multiple ones

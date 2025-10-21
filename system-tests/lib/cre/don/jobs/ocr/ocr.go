@@ -53,7 +53,7 @@ func GenerateJobSpecsForStandardCapabilityWithOCR(
 		return nil, errors.New("enabled chains provider is nil")
 	}
 
-	var jobSpecs []*jobv1.ProposeJobRequest
+	jobSpecs := []*jobv1.ProposeJobRequest{}
 	logger := framework.L
 
 	if !capabilityEnabler(don, flag) {

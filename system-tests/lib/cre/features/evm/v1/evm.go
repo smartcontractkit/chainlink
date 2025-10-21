@@ -202,7 +202,7 @@ func configureTronForwarder(testLogger zerolog.Logger, env *cldf.Environment, re
 	triggerOptions := cldf_tron.DefaultTriggerOptions()
 	triggerOptions.FeeLimit = 1_000_000_000
 
-	var wfNodeIDs []string
+	wfNodeIDs := []string{}
 	workerNodes, wErr := don.Workers()
 	if wErr != nil {
 		return fmt.Errorf("failed to find worker nodes for Tron configuration: %w", wErr)

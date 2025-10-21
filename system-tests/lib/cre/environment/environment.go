@@ -12,8 +12,6 @@ import (
 
 	chainselectors "github.com/smartcontractkit/chain-selectors"
 
-	jobv1 "github.com/smartcontractkit/chainlink-protos/job-distributor/v1/job"
-
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	cldf_chain "github.com/smartcontractkit/chainlink-deployments-framework/chain"
 	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
@@ -220,7 +218,6 @@ func SetupTestEnvironment(
 					donsCapabilities[donMetadata.ID] = []keystone_changeset.DONCapabilityWithConfig{}
 				}
 				donsCapabilities[donMetadata.ID] = append(donsCapabilities[donMetadata.ID], output.DONCapabilityWithConfig...)
-				maps.Copy(gatewayJobConfigs, output.GatewayJobConfigs)
 			}
 			testLogger.Info().Msgf("PreEnvStartup for feature %s executed successfully", feature.Flag())
 		}
@@ -426,15 +423,6 @@ func SetupTestEnvironment(
 		S3ProviderOutput:                    s3Output,
 		GatewayConnectors:                   topology.GatewayConnectors,
 	}, nil
-}
-
-func mergeJobSpecSlices(from, to cre.DonsToJobSpecs) {
-	for fromDonID, fromJobSpecs := range from {
-		if _, ok := to[fromDonID]; !ok {
-			to[fromDonID] = make([]*jobv1.ProposeJobRequest, 0)
-		}
-		to[fromDonID] = append(to[fromDonID], fromJobSpecs...)
-	}
 }
 
 func appendOutputsToInput(input *SetupInput, nodeSetOutput []*cre.WrappedNodeOutput, blockchains []blockchains.Blockchain, jdOutput *jd.Output) {

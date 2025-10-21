@@ -34,7 +34,7 @@ func (o *WebAPITrigger) Flag() cre.CapabilityFlag {
 func (o *WebAPITrigger) PreEnvStartup(
 	ctx context.Context,
 	testLogger zerolog.Logger,
-	donMetadata *cre.DonMetadata,
+	don *cre.DonMetadata,
 	topology *cre.Topology,
 	creEnv *cre.Environment,
 ) (*cre.PreEnvStartupOutput, error) {
@@ -48,16 +48,16 @@ func (o *WebAPITrigger) PreEnvStartup(
 	// add gateway connector to to node TOML config, so that node can route http requests to the gateway
 	handlerConfig, confErr := gateway.HandlerConfig(coregateway.WebAPICapabilitiesType)
 	if confErr != nil {
-		return nil, errors.Wrapf(confErr, "failed to get %s handler config for don %s", coregateway.WebAPICapabilitiesType, donMetadata.Name)
+		return nil, errors.Wrapf(confErr, "failed to get %s handler config for don %s", coregateway.WebAPICapabilitiesType, don.Name)
 	}
-	hErr := gateway.AddHandlers(donMetadata, registryChainID, topology.GatewayJobConfigs, []config.Handler{handlerConfig})
+	hErr := gateway.AddHandlers(*don, registryChainID, topology.GatewayJobConfigs, []config.Handler{handlerConfig})
 	if hErr != nil {
-		return nil, errors.Wrapf(hErr, "failed to add gateway handlers to gateway config (jobspec) for don %s ", donMetadata.Name)
+		return nil, errors.Wrapf(hErr, "failed to add gateway handlers to gateway config (jobspec) for don %s ", don.Name)
 	}
 
-	cErr := gateway.AddConnectors(donMetadata, registryChainID, topology.GatewayConnectors)
+	cErr := gateway.AddConnectors(don, registryChainID, *topology.GatewayConnectors)
 	if cErr != nil {
-		return nil, errors.Wrapf(cErr, "failed to add gateway connectors to node's TOML config in for don %s", donMetadata.Name)
+		return nil, errors.Wrapf(cErr, "failed to add gateway connectors to node's TOML config in for don %s", don.Name)
 	}
 
 	capabilities := []keystone_changeset.DONCapabilityWithConfig{{
@@ -71,7 +71,6 @@ func (o *WebAPITrigger) PreEnvStartup(
 
 	return &cre.PreEnvStartupOutput{
 		DONCapabilityWithConfig: capabilities,
-		GatewayJobConfigs:       topology.GatewayJobConfigs,
 	}, nil
 }
 
@@ -120,6 +119,9 @@ func (o *WebAPITrigger) PostEnvStartup(
 	})
 	if specErr != nil {
 		return fmt.Errorf("failed to build job spec for http action capability: %w", specErr)
+	}
+	if len(jobSpecs) == 0 {
+		return fmt.Errorf("no job specs created for '%s' capability, even though it is enabled", flag)
 	}
 
 	// pass all dons, since some jobs might need to be created on multiple dons

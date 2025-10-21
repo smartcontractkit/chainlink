@@ -33,7 +33,6 @@ func (o *LogEventTrigger) PreEnvStartup(
 	topology *cre.Topology,
 	creEnv *cre.Environment,
 ) (*cre.PreEnvStartupOutput, error) {
-
 	capabilities := []keystone_changeset.DONCapabilityWithConfig{}
 
 	for _, chainID := range don.CapabilitiesAwareNodeSet().GetChainCapabilityConfigs()[flag].EnabledChains {
@@ -103,6 +102,9 @@ func (o *LogEventTrigger) PostEnvStartup(
 	})
 	if specErr != nil {
 		return fmt.Errorf("failed to build job spec for http action capability: %w", specErr)
+	}
+	if len(jobSpecs) == 0 {
+		return fmt.Errorf("no job specs created for '%s' capability, even though it is enabled", flag)
 	}
 
 	// pass all dons, since some jobs might need to be created on multiple ones

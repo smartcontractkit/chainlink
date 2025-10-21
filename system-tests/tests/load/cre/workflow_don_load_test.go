@@ -224,66 +224,61 @@ func TestLoad_Workflow_Streams_MockCapabilities(t *testing.T) {
 		}
 	}
 
-	mockJobSpecsFactoryFn := func(input *cretypes.JobSpecInput) (cretypes.DonsToJobSpecs, error) {
-		donTojobSpecs := make(cretypes.DonsToJobSpecs, 0)
+	mockJobSpecsFactoryFn := func(input *cretypes.JobSpecInput) (cretypes.DonJobs, error) {
+		jobSpecs := make(cretypes.DonJobs, 0)
 
-		for _, don := range input.Dons.List() {
-			jobSpecs := make(cretypes.DonJobs, 0)
-			workflowNodeSet, err2 := don.Workers()
-			if err2 != nil {
-				// there should be no DON without worker nodes, even gateway DON is composed of a single worker node
-				return nil, errors.Wrap(err2, "failed to find worker nodes")
-			}
-			for _, workerNode := range workflowNodeSet {
-				if don.HasFlag(cretypes.MockCapability) && in.MockCapabilities != nil {
-					jobSpecs = append(jobSpecs, MockCapabilitiesJob(workerNode.JobDistributorDetails.NodeID, "mock", in.MockCapabilities))
-				}
-			}
-
-			donTojobSpecs[don.ID] = jobSpecs
+		if !input.Don.HasFlag(cretypes.MockCapability) || in.MockCapabilities == nil {
+			return jobSpecs, nil
 		}
 
-		return donTojobSpecs, nil
+		workflowNodeSet, err2 := input.Don.Workers()
+		if err2 != nil {
+			// there should be no DON without worker nodes, even gateway DON is composed of a single worker node
+			return nil, errors.Wrap(err2, "failed to find worker nodes")
+		}
+		for _, workerNode := range workflowNodeSet {
+
+			jobSpecs = append(jobSpecs, MockCapabilitiesJob(workerNode.JobDistributorDetails.NodeID, "mock", in.MockCapabilities))
+		}
+
+		return jobSpecs, nil
 	}
 
-	loadTestJobSpecsFactoryFn := func(input *cretypes.JobSpecInput) (cretypes.DonsToJobSpecs, error) {
-		donTojobSpecs := make(cretypes.DonsToJobSpecs, 0)
+	loadTestJobSpecsFactoryFn := func(input *cretypes.JobSpecInput) (cretypes.DonJobs, error) {
+		jobSpecs := make(cretypes.DonJobs, 0)
 
-		for _, don := range input.Dons.List() {
-			jobSpecs := make(cretypes.DonJobs, 0)
-			workflowNodeSet, err2 := don.Workers()
-			if err2 != nil {
-				// there should be no DON without worker nodes, even gateway DON is composed of a single worker node
-				return nil, errors.Wrap(err2, "failed to find worker nodes")
-			}
-			for _, workerNode := range workflowNodeSet {
-				if don.HasFlag(cretypes.WorkflowDON) {
-					for i := range feedsAddresses {
-						feedConfig := make([]FeedConfig, 0)
-
-						for _, feed := range feedsAddresses[i] {
-							feedID, err2 := datastreams.NewFeedID(feed.Feed)
-							if err2 != nil {
-								return nil, err2
-							}
-							feedBytes := feedID.Bytes()
-							feedConfig = append(feedConfig, FeedConfig{
-								FeedIDsIndex: feed.StreamID,
-								Deviation:    "0.001",
-								Heartbeat:    3600,
-								RemappedID:   "0x" + hex.EncodeToString(feedBytes[:]),
-							})
-						}
-
-						jobSpecs = append(jobSpecs, WorkflowsJob(workerNode.JobDistributorDetails.NodeID, fmt.Sprintf("load_%d", i), feedConfig))
-					}
-				}
-			}
-
-			donTojobSpecs[don.ID] = jobSpecs
+		if !input.Don.HasFlag(cretypes.WorkflowDON) {
+			return jobSpecs, nil
 		}
 
-		return donTojobSpecs, nil
+		workflowNodeSet, err2 := input.Don.Workers()
+		if err2 != nil {
+			// there should be no DON without worker nodes, even gateway DON is composed of a single worker node
+			return nil, errors.Wrap(err2, "failed to find worker nodes")
+		}
+		for _, workerNode := range workflowNodeSet {
+			for i := range feedsAddresses {
+				feedConfig := make([]FeedConfig, 0)
+
+				for _, feed := range feedsAddresses[i] {
+					feedID, err2 := datastreams.NewFeedID(feed.Feed)
+					if err2 != nil {
+						return nil, err2
+					}
+					feedBytes := feedID.Bytes()
+					feedConfig = append(feedConfig, FeedConfig{
+						FeedIDsIndex: feed.StreamID,
+						Deviation:    "0.001",
+						Heartbeat:    3600,
+						RemappedID:   "0x" + hex.EncodeToString(feedBytes[:]),
+					})
+				}
+
+				jobSpecs = append(jobSpecs, WorkflowsJob(workerNode.JobDistributorDetails.NodeID, fmt.Sprintf("load_%d", i), feedConfig))
+			}
+		}
+
+		return jobSpecs, nil
 	}
 
 	WorkflowDONLoadTestCapabilitiesFactoryFn := func(donFlags []string, _ *cretypes.CapabilitiesAwareNodeSet) ([]keystone_changeset.DONCapabilityWithConfig, error) {
@@ -1132,11 +1127,12 @@ func registerEVMWithV1(_ []string, nodeSetInput *cretypes.CapabilitiesAwareNodeS
 
 // Deprecated: remove this once load tests have been migrated
 func consensusJobSpec(chainID uint64) cretypes.JobSpecFn {
-	return func(input *cretypes.JobSpecInput) (cretypes.DonsToJobSpecs, error) {
-		if input.Dons == nil {
-			return nil, errors.New("topology is nil")
+	return func(input *cretypes.JobSpecInput) (cretypes.DonJobs, error) {
+		jobSpecs := cretypes.DonJobs{}
+
+		if !flags.HasFlag(input.Don.Flags, cretypes.ConsensusCapability) {
+			return jobSpecs, nil
 		}
-		donToJobSpecs := make(cretypes.DonsToJobSpecs)
 
 		ocr3Key := datastore.NewAddressRefKey(
 			input.CreEnvironment.RegistryChainSelector,
@@ -1160,50 +1156,44 @@ func consensusJobSpec(chainID uint64) cretypes.JobSpecFn {
 			return nil, errors.Wrap(err, "failed to get DON Time address")
 		}
 
-		for _, don := range input.Dons.List() {
-			if !flags.HasFlag(don.Flags, cretypes.ConsensusCapability) {
-				continue
-			}
-
-			// create job specs for the worker nodes
-			workerNodes, wErr := don.Workers()
-			if wErr != nil {
-				return nil, errors.Wrap(wErr, "failed to get worker nodes from DON metadata")
-			}
-
-			bootstrapNode, isBootstrap := don.Bootstrap()
-			if !isBootstrap {
-				return nil, errors.New("could not find bootstrap node in topology, exactly one bootstrap node is required")
-			}
-
-			bootstrapNodeID := strings.TrimPrefix(bootstrapNode.Keys.PeerID(), "p2p_")
-
-			// create job specs for the bootstrap node
-			donToJobSpecs[don.ID] = append(donToJobSpecs[don.ID], ocr.BootstrapOCR3(bootstrapNodeID, "ocr3-capability", ocr3CapabilityAddress.Address, chainID))
-
-			ocrPeeringData := cretypes.OCRPeeringData{
-				OCRBootstraperPeerID: bootstrapNodeID,
-				OCRBootstraperHost:   bootstrapNode.Host,
-				Port:                 credon.OCRPeeringPort,
-			}
-
-			for _, workerNode := range workerNodes {
-				evmKey, ok := workerNode.Keys.EVM[chainID]
-				if !ok {
-					return nil, fmt.Errorf("failed to get EVM key (chainID %d, node index %d)", chainID, workerNode.Index)
-				}
-
-				// we need the OCR2 key bundle for the EVM chain, because OCR jobs currently run only on EVM chains
-				evmOCR2KeyBundle, ok := workerNode.Keys.OCR2BundleIDs[chainselectors.FamilyEVM]
-				if !ok {
-					return nil, fmt.Errorf("node %s does not have OCR2 key bundle for EVM", workerNode.Name)
-				}
-
-				donToJobSpecs[don.ID] = append(donToJobSpecs[don.ID], consensus_v1_feature.WorkerJobSpec(workerNode.JobDistributorDetails.NodeID, ocr3CapabilityAddress.Address, evmKey.PublicAddress.Hex(), evmOCR2KeyBundle, workerNode.Keys.OCR2BundleIDs, ocrPeeringData, chainID))
-				donToJobSpecs[don.ID] = append(donToJobSpecs[don.ID], don_time_feature.WorkerJobSpec(workerNode.JobDistributorDetails.NodeID, donTimeAddress.Address, evmKey.PublicAddress.Hex(), evmOCR2KeyBundle, ocrPeeringData, chainID))
-			}
+		// create job specs for the worker nodes
+		workerNodes, wErr := input.Don.Workers()
+		if wErr != nil {
+			return nil, errors.Wrap(wErr, "failed to get worker nodes from DON metadata")
 		}
 
-		return donToJobSpecs, nil
+		bootstrapNode, isBootstrap := input.Dons.Bootstrap()
+		if !isBootstrap {
+			return nil, errors.New("could not find bootstrap node in topology, exactly one bootstrap node is required")
+		}
+
+		bootstrapNodeID := strings.TrimPrefix(bootstrapNode.Keys.PeerID(), "p2p_")
+
+		// create job specs for the bootstrap node
+		jobSpecs = append(jobSpecs, ocr.BootstrapOCR3(bootstrapNodeID, "ocr3-capability", ocr3CapabilityAddress.Address, chainID))
+
+		ocrPeeringData := cretypes.OCRPeeringData{
+			OCRBootstraperPeerID: bootstrapNodeID,
+			OCRBootstraperHost:   bootstrapNode.Host,
+			Port:                 credon.OCRPeeringPort,
+		}
+
+		for _, workerNode := range workerNodes {
+			evmKey, ok := workerNode.Keys.EVM[chainID]
+			if !ok {
+				return nil, fmt.Errorf("failed to get EVM key (chainID %d, node index %d)", chainID, workerNode.Index)
+			}
+
+			// we need the OCR2 key bundle for the EVM chain, because OCR jobs currently run only on EVM chains
+			evmOCR2KeyBundle, ok := workerNode.Keys.OCR2BundleIDs[chainselectors.FamilyEVM]
+			if !ok {
+				return nil, fmt.Errorf("node %s does not have OCR2 key bundle for EVM", workerNode.Name)
+			}
+
+			jobSpecs = append(jobSpecs, consensus_v1_feature.WorkerJobSpec(workerNode.JobDistributorDetails.NodeID, ocr3CapabilityAddress.Address, evmKey.PublicAddress.Hex(), evmOCR2KeyBundle, workerNode.Keys.OCR2BundleIDs, ocrPeeringData, chainID))
+			jobSpecs = append(jobSpecs, don_time_feature.WorkerJobSpec(workerNode.JobDistributorDetails.NodeID, donTimeAddress.Address, evmKey.PublicAddress.Hex(), evmOCR2KeyBundle, ocrPeeringData, chainID))
+		}
+
+		return jobSpecs, nil
 	}
 }
