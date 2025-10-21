@@ -298,9 +298,7 @@ func (m *DestinationGun) GetEVMMessage(src uint64) (router.ClientEVM2AnyMessage,
 		rcv = common.LeftPadBytes(m.receiver, 32)
 		// OOO always true for Sui
 		// Clock is always at 0x6, receiver state object is in suiReceiverStateObjectId
-		fmt.Printf("SUI receiveer %v", string(m.suiReceiverStateObjectId))
 		extraArgs, err = GetEVMExtraArgsV2SUI("0x" + string(m.suiReceiverStateObjectId))
-		fmt.Printf("SUI Extra args: %v", extraArgs)
 		if err != nil {
 			return router.ClientEVM2AnyMessage{}, 0, err
 		}
@@ -524,8 +522,7 @@ func (m *DestinationGun) sendSuiSourceMessage(src uint64) error {
 		Message:      msg,
 		MaxRetries:   1,
 	}
-
-	_, err = testhelpers.SendRequestSui(m.env, *m.state, &sendRequestCfg)
+	_, err = testhelpers.SendSuiCCIPRequest(m.env, &sendRequestCfg)
 	if err != nil {
 		m.l.Errorw("SendRequestSui failed",
 			"sourceChain", src,
@@ -560,7 +557,6 @@ func (m *DestinationGun) getSuiMessage() (testhelpers.SuiSendRequest, error) {
 	}
 
 	m.l.Infow("Selected message type", "msgType", *selectedMsgDetails.MsgType)
-
 	message := testhelpers.SuiSendRequest{
 		Receiver:  common.LeftPadBytes(m.receiver, 32),
 		ExtraArgs: []byte{},
