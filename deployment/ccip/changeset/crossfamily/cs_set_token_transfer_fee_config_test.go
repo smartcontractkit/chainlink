@@ -41,6 +41,8 @@ const SetTokenTransferFeePriceRegStalenessThreshold = 60 * 60 * 24 * 14 // two w
 var SetTokenTransferFeeMcmsConfig = proposalutils.TimelockConfig{MinDelay: 1 * time.Second}
 
 func deploySolanaToken(t *testing.T, tEnv cldf.Environment, solSelector uint64, tokenSymbol string) (cldf.Environment, solana.PublicKey, error) {
+	t.Helper()
+
 	e, err := commonchangeset.Apply(t, tEnv,
 		commonchangeset.Configure(
 			cldf.CreateLegacyChangeSet(ccip_cs_sol_v0_1_1.DeploySolanaToken),
@@ -74,6 +76,8 @@ func deploySolanaToken(t *testing.T, tEnv cldf.Environment, solSelector uint64, 
 }
 
 func getSolanaTokenTransferFeeConfig(t *testing.T, tEnv cldf.Environment, srcSelector, dstSelector uint64, fq, tokenPubKey solana.PublicKey) solfq.PerChainPerTokenConfig {
+	t.Helper()
+
 	pda, _, err := solstate.FindFqPerChainPerTokenConfigPDA(dstSelector, tokenPubKey, fq)
 	require.NoError(t, err)
 
