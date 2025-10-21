@@ -30,6 +30,7 @@ type NopView struct {
 	IsEnabled        bool                  `json:"isEnabled"`
 	Labels           []LabelView           `json:"labels,omitempty"`
 	ApprovedJobspecs map[string]JobView    `json:"approvedJobspecs,omitempty"` // jobID => jobSpec
+	ProposedJobspecs map[string]JobView    `json:"proposedJobspecs,omitempty"` // jobID => jobSpec
 }
 
 type JobView struct {
@@ -78,7 +79,7 @@ func GenerateNopsView(lggr logger.Logger, nodeIDs []string, oc cldf_offchain.Cli
 		}
 		return nil
 	}
-	jobspecs, err := approvedJobspecs(context.Background(), lggr, nodeIDs, oc)
+	jobspecs, proposedSpecs, err := approvedJobspecs(context.Background(), lggr, nodeIDs, oc)
 	if err != nil {
 		// best effort on job specs
 		lggr.Warnf("Failed to get approved jobspecs: %v", err)
@@ -112,6 +113,7 @@ func GenerateNopsView(lggr logger.Logger, nodeIDs []string, oc cldf_offchain.Cli
 			IsEnabled:        nodeDetails.IsEnabled,
 			Labels:           labels,
 			ApprovedJobspecs: jobspecs[node.NodeID],
+			ProposedJobspecs: proposedSpecs[node.NodeID],
 		}
 		for details, ocrConfig := range node.SelToOCRConfig {
 			nop.OCRKeys[details.ChainName] = OCRKeyView{
@@ -128,8 +130,9 @@ func GenerateNopsView(lggr logger.Logger, nodeIDs []string, oc cldf_offchain.Cli
 	return nv, nil
 }
 
-func approvedJobspecs(ctx context.Context, lggr logger.Logger, nodeIDs []string, oc cldf_offchain.Client) (nodeJobsView map[string]map[string]JobView, verr error) {
+func approvedJobspecs(ctx context.Context, lggr logger.Logger, nodeIDs []string, oc cldf_offchain.Client) (nodeJobsView map[string]map[string]JobView, proposedJobsView map[string]map[string]JobView, verr error) {
 	nodeJobsView = make(map[string]map[string]JobView)
+	proposedJobsView = make(map[string]map[string]JobView)
 
 	jobs, err := oc.ListJobs(ctx, &jobv1.ListJobsRequest{
 		Filter: &jobv1.ListJobsRequest_Filter{
@@ -137,7 +140,7 @@ func approvedJobspecs(ctx context.Context, lggr logger.Logger, nodeIDs []string,
 		},
 	})
 	if err != nil {
-		return nodeJobsView, fmt.Errorf("failed to list jobs for nodes %v: %w", nodeIDs, err)
+		return nodeJobsView, proposedJobsView, fmt.Errorf("failed to list jobs for nodes %v: %w", nodeIDs, err)
 	}
 	nodeJobIDs := make(map[string]map[string]*jobv1.Job) // node id -> job id -> job
 	for i, j := range jobs.Jobs {
@@ -154,6 +157,7 @@ func approvedJobspecs(ctx context.Context, lggr logger.Logger, nodeIDs []string,
 	// list proposals for each node
 	for nodeID, jobs := range nodeJobIDs {
 		jv := make(map[string]JobView) // job id -> view
+		proposed := make(map[string]JobView)
 		lresp, err := oc.ListProposals(ctx, &jobv1.ListProposalsRequest{
 			Filter: &jobv1.ListProposalsRequest_Filter{
 				JobIds: slices.Collect(maps.Keys(jobs)),
@@ -166,6 +170,13 @@ func approvedJobspecs(ctx context.Context, lggr logger.Logger, nodeIDs []string,
 			continue
 		}
 		for _, p := range lresp.Proposals {
+			if p.Status == jobv1.ProposalStatus_PROPOSAL_STATUS_PROPOSED {
+				proposed[p.JobId] = JobView{
+					ProposalID: p.Id,
+					UUID:       jobs[p.JobId].Uuid,
+					Spec:       p.Spec,
+				}
+			}
 			if p.Status == jobv1.ProposalStatus_PROPOSAL_STATUS_APPROVED {
 				jv[p.JobId] = JobView{
 					ProposalID: p.Id,
@@ -175,6 +186,7 @@ func approvedJobspecs(ctx context.Context, lggr logger.Logger, nodeIDs []string,
 			}
 		}
 		nodeJobsView[nodeID] = jv
+		proposedJobsView[nodeID] = proposed
 	}
-	return nodeJobsView, verr
+	return nodeJobsView, proposedJobsView, verr
 }
