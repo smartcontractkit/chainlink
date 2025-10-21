@@ -197,6 +197,7 @@ func SetupTestEnvironment(
 	if gErr != nil {
 		return nil, pkgerrors.Wrap(gErr, "failed to build gateway job config")
 	}
+	topology.GatewayJobConfigs = gatewayJobConfigs
 	fmt.Print(libformat.PurpleText("%s", input.StageGen.WrapAndNext("DONs configuration prepared in %.2f seconds", input.StageGen.Elapsed().Seconds())))
 
 	fmt.Print(libformat.PurpleText("%s", input.StageGen.Wrap("Applying Features before environment startup")))

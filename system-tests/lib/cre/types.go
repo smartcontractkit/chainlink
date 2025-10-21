@@ -1195,7 +1195,6 @@ type (
 type JobSpecInput struct {
 	CreEnvironment *Environment
 	Don            *Don
-	Capabilities   []InstallableCapability
 	NodeSet        NodeSetWithCapabilityConfigs
 }
 

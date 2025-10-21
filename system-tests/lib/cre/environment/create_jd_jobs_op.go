@@ -45,7 +45,6 @@ var CreateJobsWithJdOp = operations.NewOperation(
 					CreEnvironment: deps.CreEnvironment,
 					Don:            don,
 					NodeSet:        cre.ConvertToNodeSetWithChainCapabilities(deps.CapabilitiesAwareNodeSets)[idx],
-					Capabilities:   deps.Capabilities, // TODO how was this used?
 				})
 				if jobSpecsErr != nil {
 					return CreateJobsWithJdOpOutput{}, pkgerrors.Wrap(jobSpecsErr, "failed to generate job specs")
