@@ -9,7 +9,7 @@ import (
 	cldfsolana "github.com/smartcontractkit/chainlink-deployments-framework/chain/solana"
 
 	"github.com/smartcontractkit/chainlink/deployment/common/changeset/state"
-	"github.com/smartcontractkit/chainlink/deployment/internal/solutils"
+	"github.com/smartcontractkit/chainlink/deployment/utils/solutils"
 )
 
 // FundSignerPDAs funds the timelock signer and MCMS signer PDAs with 1 SOL for testing

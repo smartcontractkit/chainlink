@@ -28,7 +28,7 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 	"github.com/smartcontractkit/chainlink/deployment/common/types"
 	"github.com/smartcontractkit/chainlink/deployment/internal/soltestutils"
-	"github.com/smartcontractkit/chainlink/deployment/internal/solutils"
+	"github.com/smartcontractkit/chainlink/deployment/utils/solutils"
 )
 
 func TestTransferFromTimelockConfig_VerifyPreconditions(t *testing.T) {

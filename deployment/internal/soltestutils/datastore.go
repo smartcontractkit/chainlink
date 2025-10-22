@@ -39,6 +39,8 @@ func PreloadAddressBookWithMCMSPrograms(t *testing.T, selector uint64) *cldf.Add
 func GetMCMSStateFromAddressBook(
 	t *testing.T, ab cldf.AddressBook, chain cldfsolana.Chain,
 ) *state.MCMSWithTimelockStateSolana {
+	t.Helper()
+
 	addresses, err := ab.AddressesForChain(chain.Selector)
 	require.NoError(t, err)
 
