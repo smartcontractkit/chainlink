@@ -1069,7 +1069,7 @@ func newCREServices(
 			}
 
 			workflowDonNotifier := capabilities.NewDonNotifier()
-			wfLauncher := capabilities.NewLauncher(
+			wfLauncher, err := capabilities.NewLauncher(
 				globalLogger,
 				externalPeerWrapper,
 				don2donSharedPeer,
@@ -1078,6 +1078,9 @@ func newCREServices(
 				opts.CapabilitiesRegistry,
 				workflowDonNotifier,
 			)
+			if err != nil {
+				return nil, fmt.Errorf("could not create workflow launcher: %w", err)
+			}
 
 			switch externalRegistryVersion.Major() {
 			case 1:

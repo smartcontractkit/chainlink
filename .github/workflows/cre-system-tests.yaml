@@ -147,7 +147,7 @@ jobs:
       # override chip ingress image to use remote image. We have added this env var here, instead of the "Start local CRE" step, because
       # Beholder stack will be started only for the Beholder tests
       CHIP_INGRESS_IMAGE: ${{ secrets.AWS_ACCOUNT_ID_PROD }}.dkr.ecr.${{ secrets.QA_AWS_REGION }}.amazonaws.com/atlas-chip-ingress:bbac3c825b061546980fa9d7dc0f3e8c34347bcf
-      BILLING_PLATFORM_SERVICE_IMAGE: ${{ secrets.AWS_ACCOUNT_ID_PROD }}.dkr.ecr.${{ secrets.QA_AWS_REGION }}.amazonaws.com/billing-platform-service:v1.45.0
+      BILLING_PLATFORM_SERVICE_IMAGE: ${{ secrets.AWS_ACCOUNT_ID_PROD }}.dkr.ecr.${{ secrets.QA_AWS_REGION }}.amazonaws.com/billing-platform-service:v1.57.1
 
     steps:
       - name: Enable S3 Cache for Self-Hosted Runners
@@ -197,7 +197,7 @@ jobs:
         id: start-local-cre
         env:
           E2E_JD_IMAGE: "${{ secrets.AWS_ACCOUNT_ID_PROD }}.dkr.ecr.${{ secrets.QA_AWS_REGION }}.amazonaws.com/job-distributor"
-          E2E_JD_VERSION: "0.12.7"
+          E2E_JD_VERSION: "0.22.1"
           E2E_TEST_CHAINLINK_IMAGE: "${{ secrets.QA_AWS_ACCOUNT_NUMBER }}.dkr.ecr.${{ secrets.QA_AWS_REGION }}.amazonaws.com/${{ inputs.ecr_name }}"
           E2E_TEST_CHAINLINK_VERSION: ${{ inputs.chainlink_image_tag != '' && inputs.chainlink_image_tag || inputs.chainlink_version }}
           CTF_CONFIGS: ${{ matrix.tests.configs }}
@@ -207,12 +207,13 @@ jobs:
           cd core/scripts/cre/environment
 
           # Start CRE with the appropriate contracts version (i.e. Workflow/CapabilityRegistry)
+          # Do not remove Docker containers on error to allow log collection
           if [[ "${CRE_VERSION}" == "v1" ]]; then
             echo "Starting CRE with v1 contracts for test: '${TEST_NAME}'"
-            go run . env start --with-plugins-docker-image "${E2E_TEST_CHAINLINK_IMAGE}:${E2E_TEST_CHAINLINK_VERSION}"
+            go run . env start --with-plugins-docker-image "${E2E_TEST_CHAINLINK_IMAGE}:${E2E_TEST_CHAINLINK_VERSION}" --cleanup-on-error=false
           else
             echo "Starting CRE with v2 contracts for test: '${TEST_NAME}'"
-            go run . env start --with-plugins-docker-image "${E2E_TEST_CHAINLINK_IMAGE}:${E2E_TEST_CHAINLINK_VERSION}" --with-contracts-version v2
+            go run . env start --with-plugins-docker-image "${E2E_TEST_CHAINLINK_IMAGE}:${E2E_TEST_CHAINLINK_VERSION}" --with-contracts-version v2 --cleanup-on-error=false
           fi
 
           exit_code=$?
@@ -248,7 +249,7 @@ jobs:
 
       - name: Process and upload flaky Regression tests results (${{ steps.run-tests.outputs.tests_result }})
         if: ${{ !cancelled() }}
-        uses: smartcontractkit/.github/actions/branch-out-upload@branch-out-upload/0.1.0
+        uses: smartcontractkit/.github/actions/branch-out-upload@branch-out-upload/v1
         with:
           junit-file-path: "/tmp/junit-report.xml"
           trunk-org-slug: chainlink

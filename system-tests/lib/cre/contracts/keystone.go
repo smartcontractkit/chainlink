@@ -2,50 +2,45 @@ package contracts
 
 import (
 	"context"
+	"encoding/hex"
+	"encoding/json"
 	"fmt"
-	"slices"
+	"math"
+	"sort"
 	"strings"
 
-	"github.com/Masterminds/semver/v3"
+	"github.com/ethereum/go-ethereum/accounts/abi/bind/v2"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/pkg/errors"
 	"github.com/rs/zerolog"
+	"google.golang.org/protobuf/proto"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
-	cldf_tron "github.com/smartcontractkit/chainlink-deployments-framework/chain/tron"
 	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+	"github.com/smartcontractkit/chainlink-deployments-framework/offchain"
 	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
-	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/blockchain"
-	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/ptr"
+	kcr "github.com/smartcontractkit/chainlink-evm/gethwrappers/keystone/generated/capabilities_registry_1_1_0"
+	capabilities_registry_v2 "github.com/smartcontractkit/chainlink-evm/gethwrappers/workflow/generated/capabilities_registry_wrapper_v2"
 	"github.com/smartcontractkit/chainlink/deployment"
-	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
-	creforwarder "github.com/smartcontractkit/chainlink/deployment/cre/forwarder"
-	creseq "github.com/smartcontractkit/chainlink/deployment/cre/ocr3/v2/changeset/sequences"
-	"github.com/smartcontractkit/chainlink/deployment/environment/memory"
+	"github.com/smartcontractkit/chainlink/deployment/cre/capabilities_registry/v2/changeset/operations/contracts"
+	cap_reg_v2_seq "github.com/smartcontractkit/chainlink/deployment/cre/capabilities_registry/v2/changeset/sequences"
+	cre_contracts "github.com/smartcontractkit/chainlink/deployment/cre/contracts"
 	keystone_changeset "github.com/smartcontractkit/chainlink/deployment/keystone/changeset"
 	ks_contracts_op "github.com/smartcontractkit/chainlink/deployment/keystone/changeset/operations/contracts"
-	ks_sol "github.com/smartcontractkit/chainlink/deployment/keystone/changeset/solana"
-	ks_sol_seq "github.com/smartcontractkit/chainlink/deployment/keystone/changeset/solana/sequence"
-	ks_sol_op "github.com/smartcontractkit/chainlink/deployment/keystone/changeset/solana/sequence/operation"
-	tronchangeset "github.com/smartcontractkit/chainlink/deployment/keystone/changeset/tron"
+	libc "github.com/smartcontractkit/chainlink/system-tests/lib/conversions"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre"
+	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/blockchains"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/flags"
-)
-
-const (
-	OCR3ContractQualifier        = "capability_ocr3"
-	DONTimeContractQualifier     = "capability_dontime"
-	VaultOCR3ContractQualifier   = "capability_vault"
-	ConsensusV2ContractQualifier = "capability_consensus"
+	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/p2pkey"
+	syncer_v2 "github.com/smartcontractkit/chainlink/v2/core/services/registrysyncer/v2"
 )
 
 type DeployKeystoneContractsInput struct {
-	CldfEnvironment           *cldf.Environment
-	CtfBlockchains            []*cre.WrappedBlockchainOutput
-	ContractVersions          map[string]string
-	WithV2Registries          bool
-	CapabilitiesAwareNodeSets []*cre.CapabilitiesAwareNodeSet
+	CldfEnvironment  *cldf.Environment
+	CtfBlockchains   []blockchains.Blockchain
+	ContractVersions map[string]string
+	WithV2Registries bool
 }
 
 type DeployKeystoneContractsOutput struct {
@@ -61,43 +56,8 @@ func DeployKeystoneContracts(
 ) (*DeployKeystoneContractsOutput, error) {
 	memoryDatastore := datastore.NewMemoryDataStore()
 
-	evmForwardersSelectors := make([]uint64, 0)
-	solForwardersSelectors := make([]uint64, 0)
-	tronForwardersSelectors := make([]uint64, 0)
-	for _, bcOut := range input.CtfBlockchains {
-		for _, donMetadata := range input.CapabilitiesAwareNodeSets {
-			if slices.Contains(evmForwardersSelectors, bcOut.ChainSelector) {
-				continue
-			}
-			// consider we have just 1 solana chain
-			if bcOut.SolChain != nil {
-				solForwardersSelectors = append(solForwardersSelectors, bcOut.SolChain.ChainSelector)
-				continue
-			}
-			if flags.RequiresForwarderContract(donMetadata.ComputedCapabilities, bcOut.ChainID) {
-				if strings.EqualFold(bcOut.BlockchainOutput.Family, blockchain.FamilyTron) {
-					testLogger.Info().Msgf("Preparing Tron Keystone Forwarder deployment for chain %d", bcOut.ChainID)
-					tronForwardersSelectors = append(tronForwardersSelectors, bcOut.ChainSelector)
-				} else {
-					evmForwardersSelectors = append(evmForwardersSelectors, bcOut.ChainSelector)
-				}
-			}
-		}
-	}
-
-	var allNodeFlags []string
-	for i := range input.CapabilitiesAwareNodeSets {
-		allNodeFlags = append(allNodeFlags, input.CapabilitiesAwareNodeSets[i].Flags()...)
-	}
-	vaultOCR3AddrFlag := flags.HasFlag(allNodeFlags, cre.VaultCapability)
-	evmOCR3AddrFlag := flags.HasFlagForAnyChain(allNodeFlags, cre.EVMCapability)
-	consensusV2AddrFlag := flags.HasFlag(allNodeFlags, cre.ConsensusCapabilityV2)
-
-	chainsWithEVMCapability := ChainsWithEVMCapability(input.CtfBlockchains, input.CapabilitiesAwareNodeSets)
 	homeChainOutput := input.CtfBlockchains[0]
-
-	// use CLD to deploy the registry contracts, which are required before constructing the node TOML configs
-	homeChainSelector := homeChainOutput.ChainSelector
+	homeChainSelector := homeChainOutput.ChainSelector()
 	deployRegistrySeq := ks_contracts_op.DeployRegistryContractsSequence
 	if input.WithV2Registries {
 		deployRegistrySeq = ks_contracts_op.DeployV2RegistryContractsSequence
@@ -124,95 +84,6 @@ func DeployKeystoneContracts(
 	if err := memoryDatastore.Merge(registryContractsReport.Output.Datastore); err != nil {
 		return nil, errors.Wrap(err, "failed to merge datastore with Keystone contracts addresses")
 	}
-	if len(evmForwardersSelectors) > 0 {
-		// deploy evm forwarders
-		evmForwardersReport, seqErr2 := operations.ExecuteSequence(
-			input.CldfEnvironment.OperationsBundle,
-			creforwarder.DeploySequence,
-			creforwarder.DeploySequenceDeps{
-				Env: input.CldfEnvironment,
-			},
-			creforwarder.DeploySequenceInput{
-				Targets: evmForwardersSelectors,
-			},
-		)
-		if seqErr2 != nil {
-			return nil, errors.Wrap(seqErr2, "failed to deploy evm forwarder")
-		}
-
-		if seqErr2 = input.CldfEnvironment.ExistingAddresses.Merge(evmForwardersReport.Output.AddressBook); seqErr2 != nil { //nolint:staticcheck // won't migrate now
-			return nil, errors.Wrap(seqErr2, "failed to merge address book with Keystone contracts addresses")
-		}
-
-		if seqErr2 = memoryDatastore.Merge(evmForwardersReport.Output.Datastore); seqErr2 != nil {
-			return nil, errors.Wrap(seqErr2, "failed to merge datastore with Keystone contracts addresses")
-		}
-
-		for _, forwarderSelector := range evmForwardersSelectors {
-			forwarderAddr := MustGetAddressFromMemoryDataStore(memoryDatastore, forwarderSelector, keystone_changeset.KeystoneForwarder.String(), input.ContractVersions[keystone_changeset.KeystoneForwarder.String()], "")
-			testLogger.Info().Msgf("Deployed Forwarder %s contract on chain %d at %s", input.ContractVersions[keystone_changeset.KeystoneForwarder.String()], forwarderSelector, forwarderAddr)
-		}
-	}
-
-	// deploy solana forwarders
-	for _, sel := range solForwardersSelectors {
-		populateContracts := map[string]datastore.ContractType{
-			deployment.KeystoneForwarderProgramName: ks_sol.ForwarderContract,
-		}
-		version := semver.MustParse(input.ContractVersions[ks_sol.ForwarderContract.String()])
-
-		// Forwarder for solana is predeployed on chain spin-up. We jus need to add it to memory datastore here
-		errp := memory.PopulateDatastore(memoryDatastore.AddressRefStore, populateContracts,
-			version, ks_sol.DefaultForwarderQualifier, sel)
-		if errp != nil {
-			return nil, errors.Wrap(errp, "failed to populate datastore with predeployed contracts")
-		}
-		out, err := operations.ExecuteSequence(
-			input.CldfEnvironment.OperationsBundle,
-			ks_sol_seq.DeployForwarderSeq,
-			ks_sol_op.Deps{
-				Env:       *input.CldfEnvironment,
-				Chain:     input.CldfEnvironment.BlockChains.SolanaChains()[sel],
-				Datastore: memoryDatastore.Seal(),
-			},
-			ks_sol_seq.DeployForwarderSeqInput{
-				ChainSel:     sel,
-				ProgramName:  deployment.KeystoneForwarderProgramName,
-				Qualifier:    ks_sol.DefaultForwarderQualifier,
-				ContractType: ks_sol.ForwarderContract,
-				Version:      version,
-			},
-		)
-		if err != nil {
-			return nil, errors.Wrap(err, "failed to deploy sol forwarder")
-		}
-
-		err = memoryDatastore.AddressRefStore.Add(datastore.AddressRef{
-			Address:       out.Output.State.String(),
-			ChainSelector: sel,
-			Version:       semver.MustParse(input.ContractVersions[ks_sol.ForwarderState.String()]),
-			Qualifier:     ks_sol.DefaultForwarderQualifier,
-			Type:          ks_sol.ForwarderState,
-		})
-		if err != nil {
-			return nil, errors.Wrap(err, "failed to add address to the datastore for Solana Forwarder state")
-		}
-
-		testLogger.Info().Msgf("Deployed Forwarder %s contract on Solana chain chain %d programID: %s state: %s", input.ContractVersions[ks_sol.ForwarderContract.String()], sel, out.Output.ProgramID.String(), out.Output.State.String())
-	}
-
-	// deploy tron forwarders
-	if len(tronForwardersSelectors) > 0 {
-		tronErr := deployTronForwarders(input.CldfEnvironment, tronForwardersSelectors)
-		if tronErr != nil {
-			return nil, errors.Wrap(tronErr, "failed to deploy Tron Keystone forwarder contracts using changesets")
-		}
-
-		err := memoryDatastore.Merge(input.CldfEnvironment.DataStore)
-		if err != nil {
-			return nil, errors.Wrap(err, "failed to merge Tron deployment results into main datastore")
-		}
-	}
 
 	wfRegAddr := MustGetAddressFromMemoryDataStore(memoryDatastore, homeChainSelector, keystone_changeset.WorkflowRegistry.String(), input.ContractVersions[keystone_changeset.WorkflowRegistry.String()], "")
 	testLogger.Info().Msgf("Deployed Workflow Registry %s contract on chain %d at %s", input.ContractVersions[keystone_changeset.WorkflowRegistry.String()], homeChainSelector, wfRegAddr)
@@ -220,61 +91,6 @@ func DeployKeystoneContracts(
 	capRegAddr := MustGetAddressFromMemoryDataStore(memoryDatastore, homeChainSelector, keystone_changeset.CapabilitiesRegistry.String(), input.ContractVersions[keystone_changeset.CapabilitiesRegistry.String()], "")
 	testLogger.Info().Msgf("Deployed Capabilities Registry %s contract on chain %d at %s", input.ContractVersions[keystone_changeset.CapabilitiesRegistry.String()], homeChainSelector, capRegAddr)
 
-	// deploy the various ocr contracts
-	// TODO move this deeper into the stack when we have all the p2p ids and can deploy and configure in one sequence
-	// deploy OCR3 contract
-	// we deploy OCR3 contract with a qualifier, so that we can distinguish it from other OCR3 contracts (Vault, EVM, ConsensusV2)
-	_, seqErr = deployOCR3Contract(OCR3ContractQualifier, homeChainSelector, input.CldfEnvironment, memoryDatastore)
-	if seqErr != nil {
-		return nil, fmt.Errorf("failed to deploy OCR3 contract %w", seqErr)
-	}
-	ocr3Addr := MustGetAddressFromMemoryDataStore(memoryDatastore, homeChainSelector, keystone_changeset.OCR3Capability.String(), input.ContractVersions[keystone_changeset.OCR3Capability.String()], OCR3ContractQualifier)
-	testLogger.Info().Msgf("Deployed OCR3 %s contract on chain %d at %s", input.ContractVersions[keystone_changeset.OCR3Capability.String()], homeChainSelector, ocr3Addr)
-
-	// deploy DONTime contract
-	_, seqErr = deployOCR3Contract(DONTimeContractQualifier, homeChainSelector, input.CldfEnvironment, memoryDatastore) // Switch to dedicated config type once available
-	if seqErr != nil {
-		return nil, fmt.Errorf("failed to deploy DONTime contract %w", seqErr)
-	}
-	donTimeAddr := MustGetAddressFromMemoryDataStore(memoryDatastore, homeChainSelector, keystone_changeset.OCR3Capability.String(), input.ContractVersions[keystone_changeset.OCR3Capability.String()], DONTimeContractQualifier)
-	testLogger.Info().Msgf("Deployed OCR3 %s (DON Time) contract on chain %d at %s", input.ContractVersions[keystone_changeset.OCR3Capability.String()], homeChainSelector, donTimeAddr)
-
-	// deploy Vault OCR3 contract
-	if vaultOCR3AddrFlag {
-		report, err := deployVaultContracts(VaultOCR3ContractQualifier, homeChainSelector, input.CldfEnvironment, memoryDatastore)
-		if err != nil {
-			return nil, fmt.Errorf("failed to deploy Vault OCR3 contract %w", err)
-		}
-
-		vaultOCR3Addr := report.PluginAddress
-		testLogger.Info().Msgf("Deployed OCR3 %s (Vault) contract on chain %d at %s", input.ContractVersions[keystone_changeset.OCR3Capability.String()], homeChainSelector, vaultOCR3Addr)
-		vaultDKGOCR3Addr := report.DKGAddress
-		testLogger.Info().Msgf("Deployed OCR3 %s (DKG) contract on chain %d at %s", input.ContractVersions[keystone_changeset.OCR3Capability.String()], homeChainSelector, vaultDKGOCR3Addr)
-	}
-
-	// deploy EVM OCR3 contracts
-	if evmOCR3AddrFlag {
-		for chainID, selector := range chainsWithEVMCapability {
-			qualifier := ks_contracts_op.CapabilityContractIdentifier(uint64(chainID))
-			_, seqErr = deployOCR3Contract(qualifier, homeChainSelector, input.CldfEnvironment, memoryDatastore)
-			if seqErr != nil {
-				return nil, fmt.Errorf("failed to deploy EVM OCR3 contract for chainID %d, selector %d: %w", chainID, selector, seqErr)
-			}
-
-			evmOCR3Addr := MustGetAddressFromMemoryDataStore(memoryDatastore, homeChainSelector, keystone_changeset.OCR3Capability.String(), "1.0.0", qualifier)
-			testLogger.Info().Msgf("Deployed EVM OCR3 contract (chainID %d) on chainID: %d, selector: %d, at: %s", chainID, homeChainOutput.ChainID, homeChainSelector, evmOCR3Addr)
-		}
-	}
-
-	// deploy Consensus V2 OCR3 contract
-	if consensusV2AddrFlag {
-		_, seqErr = deployOCR3Contract(ConsensusV2ContractQualifier, homeChainSelector, input.CldfEnvironment, memoryDatastore)
-		if seqErr != nil {
-			return nil, fmt.Errorf("failed to deploy Consensus V2 OCR3 contract %w", seqErr)
-		}
-		consensusV2OCR3Addr := MustGetAddressFromMemoryDataStore(memoryDatastore, homeChainSelector, keystone_changeset.OCR3Capability.String(), input.ContractVersions[keystone_changeset.OCR3Capability.String()], ConsensusV2ContractQualifier)
-		testLogger.Info().Msgf("Deployed Consensus V2 OCR3 %s contract on chain %d at %s", input.ContractVersions[keystone_changeset.OCR3Capability.String()], homeChainSelector, consensusV2OCR3Addr)
-	}
 	input.CldfEnvironment.DataStore = memoryDatastore.Seal()
 
 	return &DeployKeystoneContractsOutput{
@@ -283,141 +99,393 @@ func DeployKeystoneContracts(
 	}, nil
 }
 
-func deployOCR3Contract(qualifier string, selector uint64, env *cldf.Environment, ds datastore.MutableDataStore) (*ks_contracts_op.DeployOCR3ContractSequenceOutput, error) {
-	ocr3DeployReport, err := operations.ExecuteSequence(
-		env.OperationsBundle,
-		ks_contracts_op.DeployOCR3ContractsSequence,
-		ks_contracts_op.DeployOCR3ContractSequenceDeps{
-			Env: env,
-		},
-		ks_contracts_op.DeployOCR3ContractSequenceInput{
-			ChainSelector: selector,
-			Qualifier:     qualifier,
-		},
-	)
-	if err != nil {
-		return nil, fmt.Errorf("failed to deploy OCR3 contract '%s' on chain %d: %w", qualifier, selector, err)
-	}
-	// TODO: CRE-742 remove address book
-	if err = env.ExistingAddresses.Merge(ocr3DeployReport.Output.AddressBook); err != nil { //nolint:staticcheck // won't migrate now
-		return nil, fmt.Errorf("failed to merge address book with OCR3 contract address for '%s' on chain %d: %w", qualifier, selector, err)
-	}
-	if err = ds.Merge(ocr3DeployReport.Output.Datastore); err != nil {
-		return nil, fmt.Errorf("failed to merge datastore with OCR3 contract address for '%s' on chain %d: %w", qualifier, selector, err)
-	}
-	return &ocr3DeployReport.Output, nil
+const DonFamily = "test-don-family"
+
+type donConfig struct {
+	id uint32 // the DON id as registered in the capabilities registry
+	keystone_changeset.DonCapabilities
+	flags []cre.CapabilityFlag
 }
 
-func deployVaultContracts(qualifier string, selector uint64, env *cldf.Environment, ds datastore.MutableDataStore) (*creseq.DeployVaultOutput, error) {
-	report, err := operations.ExecuteSequence(
-		env.OperationsBundle,
-		creseq.DeployVault,
-		creseq.DeployVaultDeps{
-			Env: env,
-		},
-		creseq.DeployVaultInput{
-			ChainSelector: selector,
-			Qualifier:     qualifier,
-		},
-	)
-	if err != nil {
-		return nil, fmt.Errorf("failed to deploy OCR3 contract '%s' on chain %d: %w", qualifier, selector, err)
-	}
-	if err = ds.Merge(report.Output.Datastore); err != nil {
-		return nil, fmt.Errorf("failed to merge datastore with OCR3 contract address for '%s' on chain %d: %w", qualifier, selector, err)
-	}
-	return &report.Output, nil
+type dons struct {
+	c        map[string]donConfig
+	offChain offchain.Client
 }
 
-func ChainsWithEVMCapability(chains []*cre.WrappedBlockchainOutput, nodeSets []*cre.CapabilitiesAwareNodeSet) map[ks_contracts_op.EVMChainID]ks_contracts_op.Selector {
-	chainsWithEVMCapability := make(map[ks_contracts_op.EVMChainID]ks_contracts_op.Selector)
-	for _, chain := range chains {
-		for _, donMetadata := range nodeSets {
-			if flags.HasFlagForChain(donMetadata.ComputedCapabilities, cre.EVMCapability, chain.ChainID) {
-				if chainsWithEVMCapability[ks_contracts_op.EVMChainID(chain.ChainID)] != 0 {
-					continue
-				}
-				chainsWithEVMCapability[ks_contracts_op.EVMChainID(chain.ChainID)] = ks_contracts_op.Selector(chain.ChainSelector)
-			}
-		}
+func (d *dons) donsOrderedByID() []donConfig {
+	out := make([]donConfig, 0, len(d.c))
+	for _, don := range d.c {
+		out = append(out, don)
 	}
 
-	return chainsWithEVMCapability
-}
-
-func MustGetAddressFromMemoryDataStore(dataStore *datastore.MemoryDataStore, chainSel uint64, contractType string, version string, qualifier string) common.Address {
-	key := datastore.NewAddressRefKey(
-		chainSel,
-		datastore.ContractType(contractType),
-		semver.MustParse(version),
-		qualifier,
-	)
-	addrRef, err := dataStore.Addresses().Get(key)
-	if err != nil {
-		panic(fmt.Sprintf("Failed to get %s %s (qualifier=%s) address for chain %d: %s", contractType, version, qualifier, chainSel, err.Error()))
-	}
-	return common.HexToAddress(addrRef.Address)
-}
-
-func MightGetAddressFromMemoryDataStore(dataStore *datastore.MemoryDataStore, chainSel uint64, contractType string, version string, qualifier string) *common.Address {
-	key := datastore.NewAddressRefKey(
-		chainSel,
-		datastore.ContractType(contractType),
-		semver.MustParse(version),
-		qualifier,
-	)
-
-	addrRef, err := dataStore.Addresses().Get(key)
-	if err != nil {
-		return nil
-	}
-
-	return ptr.Ptr(common.HexToAddress(addrRef.Address))
-}
-
-func MustGetAddressFromDataStore(dataStore datastore.DataStore, chainSel uint64, contractType string, version string, qualifier string) string {
-	key := datastore.NewAddressRefKey(
-		chainSel,
-		datastore.ContractType(contractType),
-		semver.MustParse(version),
-		qualifier,
-	)
-	addrRef, err := dataStore.Addresses().Get(key)
-	if err != nil {
-		panic(fmt.Sprintf("Failed to get %s %s (qualifier=%s) address for chain %d: %s", contractType, version, qualifier, chainSel, err.Error()))
-	}
-	return addrRef.Address
-}
-
-func deployTronForwarders(env *cldf.Environment, chainSelectors []uint64) error {
-	deployOptions := cldf_tron.DefaultDeployOptions()
-	deployOptions.FeeLimit = 1_000_000_000
-
-	deployChangeset := commonchangeset.Configure(tronchangeset.DeployForwarder{}, &tronchangeset.DeployForwarderRequest{
-		ChainSelectors: chainSelectors,
-		Qualifier:      "",
-		DeployOptions:  deployOptions,
+	// Use sort library to sort by ID
+	sort.Slice(out, func(i, j int) bool {
+		return out[i].id < out[j].id
 	})
 
-	updatedEnv, err := commonchangeset.Apply(nil, *env, deployChangeset)
-	if err != nil {
-		return fmt.Errorf("failed to deploy Tron forwarders using changesets: %w", err)
+	return out
+}
+
+func (d *dons) allDonCapabilities() []keystone_changeset.DonCapabilities {
+	out := make([]keystone_changeset.DonCapabilities, 0, len(d.c))
+	for _, don := range d.donsOrderedByID() {
+		out = append(out, don.DonCapabilities)
+	}
+	return out
+}
+
+func (d *dons) mustToV2ConfigureInput(chainSelector uint64, contractAddress string) cap_reg_v2_seq.ConfigureCapabilitiesRegistryInput {
+	nops := make([]capabilities_registry_v2.CapabilitiesRegistryNodeOperatorParams, 0)
+	nodes := make([]contracts.NodesInput, 0)
+	capabilities := make([]capabilities_registry_v2.CapabilitiesRegistryCapability, 0)
+	donParams := make([]capabilities_registry_v2.CapabilitiesRegistryNewDONParams, 0)
+
+	// Collect unique capabilities and NOPs
+	capabilityMap := make(map[string]capabilities_registry_v2.CapabilitiesRegistryCapability)
+	nopMap := make(map[string]capabilities_registry_v2.CapabilitiesRegistryNodeOperatorParams)
+	for _, don := range d.donsOrderedByID() {
+		// Extract capabilities
+		capIDs := make([]string, 0, len(don.Capabilities))
+		for _, myCap := range don.Capabilities {
+			capID := fmt.Sprintf("%s@%s", myCap.Capability.LabelledName, myCap.Capability.Version)
+			capIDs = append(capIDs, capID)
+			if _, exists := capabilityMap[capID]; !exists {
+				metadataJSON, _ := json.Marshal(syncer_v2.CapabilityMetadata{
+					CapabilityType: myCap.Capability.CapabilityType,
+					ResponseType:   myCap.Capability.ResponseType,
+				})
+				capabilityMap[capID] = capabilities_registry_v2.CapabilitiesRegistryCapability{
+					CapabilityId:          capID,
+					ConfigurationContract: common.Address{},
+					Metadata:              metadataJSON,
+				}
+			}
+		}
+
+		// Extract NOPs and nodes
+		adminAddrs, err := generateAdminAddresses(len(don.Nops))
+		if err != nil {
+			panic(fmt.Sprintf("failed to generate admin addresses: %s", err))
+		}
+		for i, nop := range don.Nops {
+			nopName := nop.Name
+			if _, exists := nopMap[nopName]; !exists {
+				nopMap[nopName] = capabilities_registry_v2.CapabilitiesRegistryNodeOperatorParams{
+					Admin: adminAddrs[i],
+					Name:  nopName,
+				}
+
+				ns, err := deployment.NodeInfo(nop.Nodes, d.offChain)
+				if err != nil {
+					panic(err)
+				}
+
+				// Add nodes for this NOP
+				for _, n := range ns {
+					ocrCfg, ok := n.OCRConfigForChainSelector(chainSelector)
+					if !ok {
+						continue
+					}
+
+					wfKey, err := hex.DecodeString(n.WorkflowKey)
+					if err != nil {
+						panic(err)
+					}
+
+					csKey, err := hex.DecodeString(n.CSAKey)
+					if err != nil {
+						panic(fmt.Errorf("failed to decode csa key: %w", err))
+					}
+
+					nodes = append(nodes, contracts.NodesInput{
+						NOP:                 nopName,
+						P2pID:               n.PeerID,
+						Signer:              ocrCfg.OffchainPublicKey,
+						EncryptionPublicKey: [32]byte(wfKey),
+						CsaKey:              [32]byte(csKey),
+						CapabilityIDs:       capIDs,
+					})
+				}
+			}
+		}
+
+		// Create DON parameters
+		var capConfigs []capabilities_registry_v2.CapabilitiesRegistryCapabilityConfiguration
+		for _, cap := range don.Capabilities {
+			capID := fmt.Sprintf("%s@%s", cap.Capability.LabelledName, cap.Capability.Version)
+			configBytes := []byte("{}")
+			if cap.Config != nil {
+				// Convert proto config to bytes if needed
+				if protoBytes, err := proto.Marshal(cap.Config); err == nil {
+					configBytes = protoBytes
+				}
+			}
+			capConfigs = append(capConfigs, capabilities_registry_v2.CapabilitiesRegistryCapabilityConfiguration{
+				CapabilityId: capID,
+				Config:       configBytes,
+			})
+		}
+
+		var donNodes [][32]byte
+		for _, nop := range don.Nops {
+			for _, nodeID := range nop.Nodes {
+				peerID, err := p2pkey.MakePeerID(nodeID)
+				if err != nil {
+					continue
+				}
+				donNodes = append(donNodes, peerID)
+			}
+		}
+
+		donParams = append(donParams, capabilities_registry_v2.CapabilitiesRegistryNewDONParams{
+			Name:                     don.Name,
+			DonFamilies:              []string{DonFamily}, // Default empty
+			Config:                   []byte("{}"),
+			CapabilityConfigurations: capConfigs,
+			Nodes:                    donNodes,
+			F:                        don.F,
+			IsPublic:                 true,
+			AcceptsWorkflows:         true,
+		})
 	}
 
-	env.ExistingAddresses = updatedEnv.ExistingAddresses //nolint:staticcheck // won't migrate now
-
-	if updatedEnv.DataStore != nil {
-		memoryDS := datastore.NewMemoryDataStore()
-		err = memoryDS.Merge(env.DataStore)
-		if err != nil {
-			return fmt.Errorf("failed to merge existing datastore: %w", err)
-		}
-		err = memoryDS.Merge(updatedEnv.DataStore)
-		if err != nil {
-			return fmt.Errorf("failed to merge updated datastore: %w", err)
-		}
-		env.DataStore = memoryDS.Seal()
+	// Convert maps to slices
+	for _, cap := range capabilityMap {
+		capabilities = append(capabilities, cap)
+	}
+	for _, nop := range nopMap {
+		nops = append(nops, nop)
 	}
 
-	return nil
+	return cap_reg_v2_seq.ConfigureCapabilitiesRegistryInput{
+		RegistryChainSel: chainSelector,
+		ContractAddress:  contractAddress,
+		Nops:             nops,
+		Nodes:            nodes,
+		Capabilities:     capabilities,
+		DONs:             donParams,
+	}
+}
+
+func generateAdminAddresses(count int) ([]common.Address, error) {
+	if count <= 0 {
+		return nil, errors.New("count must be a positive integer")
+	}
+
+	// Determine the number of hex digits needed for padding based on the count.
+	// We use the count + 1 to account for the loop range and a safe margin.
+	hexDigits := max(int(math.Ceil(math.Log10(float64(count+1))/math.Log10(16))), 1)
+
+	// The total length of the address after the "0x" prefix must be 40.
+	baseHexLen := 40 - hexDigits
+	if baseHexLen <= 0 {
+		return nil, errors.New("count is too large to generate unique addresses with this base")
+	}
+
+	// Create a base string of 'f' characters to ensure the addresses are not zero.
+	baseString := strings.Repeat("f", baseHexLen)
+
+	addresses := make([]common.Address, count)
+	for i := range count {
+		format := fmt.Sprintf("%s%%0%dx", baseString, hexDigits)
+		fullAddress := fmt.Sprintf(format, i)
+		addresses[i] = common.HexToAddress("0x" + fullAddress)
+	}
+
+	return addresses, nil
+}
+
+func toDons(input cre.ConfigureCapabilityRegistryInput) (*dons, error) {
+	dons := &dons{
+		c:        make(map[string]donConfig),
+		offChain: input.CldEnv.Offchain,
+	}
+
+	for donIdx, donMetadata := range input.Topology.DonsMetadata.List() {
+		// if it's only a gateway DON, we don't want to register it with the Capabilities Registry
+		// since it doesn't have any capabilities
+		if flags.HasOnlyOneFlag(donMetadata.Flags, cre.GatewayDON) {
+			continue
+		}
+
+		var capabilities []keystone_changeset.DONCapabilityWithConfig
+
+		// check what capabilities each DON has and register them with Capabilities Registry contract
+		for _, configFn := range input.CapabilityRegistryConfigFns {
+			if configFn == nil {
+				continue
+			}
+
+			enabledCapabilities, err2 := configFn(donMetadata.Flags, input.NodeSets[donIdx])
+			if err2 != nil {
+				return nil, errors.Wrap(err2, "failed to get capabilities from config function")
+			}
+
+			capabilities = append(capabilities, enabledCapabilities...)
+		}
+
+		// add capabilities that were passed directly via the input (from the PostDONStartup of features)
+		if input.DONCapabilityWithConfigs != nil && input.DONCapabilityWithConfigs[donMetadata.ID] != nil {
+			capabilities = append(capabilities, input.DONCapabilityWithConfigs[donMetadata.ID]...)
+		}
+
+		workerNodes, wErr := donMetadata.Workers()
+		if wErr != nil {
+			return nil, errors.Wrap(wErr, "failed to find worker nodes")
+		}
+
+		donPeerIDs := make([]string, len(workerNodes))
+		for i, node := range workerNodes {
+			// we need to use p2pID here with the "p2p_" prefix
+			donPeerIDs[i] = node.Keys.P2PKey.PeerID.String()
+		}
+
+		forwarderF := (len(workerNodes) - 1) / 3
+		if forwarderF == 0 {
+			if flags.HasFlag(donMetadata.Flags, cre.ConsensusCapability) || flags.HasFlag(donMetadata.Flags, cre.ConsensusCapabilityV2) {
+				return nil, fmt.Errorf("incorrect number of worker nodes: %d. Resulting F must conform to formula: mod((N-1)/3) > 0", len(workerNodes))
+			}
+			// for other capabilities, we can use 1 as F
+			forwarderF = 1
+		}
+
+		// we only need to assign P2P IDs to NOPs, since `ConfigureInitialContractsChangeset` method
+		// will take care of creating DON to Nodes mapping
+		nop := keystone_changeset.NOP{
+			Name:  fmt.Sprintf("NOP for %s DON", donMetadata.Name),
+			Nodes: donPeerIDs,
+		}
+		donName := donMetadata.Name + "-don"
+		c := keystone_changeset.DonCapabilities{
+			Name:         donName,
+			F:            libc.MustSafeUint8(forwarderF),
+			Nops:         []keystone_changeset.NOP{nop},
+			Capabilities: capabilities,
+		}
+
+		dons.c[donName] = donConfig{
+			id:              uint32(donMetadata.ID), //nolint:gosec // G115
+			DonCapabilities: c,
+			flags:           donMetadata.Flags,
+		}
+	}
+
+	return dons, nil
+}
+
+func ConfigureCapabilityRegistry(input cre.ConfigureCapabilityRegistryInput) (CapabilitiesRegistry, error) {
+	if err := input.Validate(); err != nil {
+		return nil, errors.Wrap(err, "input validation failed")
+	}
+
+	dons, dErr := toDons(input)
+	if dErr != nil {
+		return nil, errors.Wrap(dErr, "failed to map input to dons")
+	}
+	if !input.WithV2Registries {
+		_, seqErr := operations.ExecuteSequence(
+			input.CldEnv.OperationsBundle,
+			ks_contracts_op.ConfigureCapabilitiesRegistrySeq,
+			ks_contracts_op.ConfigureCapabilitiesRegistrySeqDeps{
+				Env:  input.CldEnv,
+				Dons: dons.allDonCapabilities(),
+			},
+			ks_contracts_op.ConfigureCapabilitiesRegistrySeqInput{
+				RegistryChainSel: input.ChainSelector,
+				UseMCMS:          false,
+				ContractAddress:  input.CapabilitiesRegistryAddress,
+			},
+		)
+		if seqErr != nil {
+			return nil, errors.Wrap(seqErr, "failed to configure capabilities registry")
+		}
+
+		capReg, cErr := cre_contracts.GetOwnedContractV2[*kcr.CapabilitiesRegistry](
+			input.CldEnv.DataStore.Addresses(),
+			input.CldEnv.BlockChains.EVMChains()[input.ChainSelector],
+			input.CapabilitiesRegistryAddress.Hex(),
+		)
+		if cErr != nil {
+			return nil, errors.Wrap(cErr, "failed to get capabilities registry contract")
+		}
+		return &registryWrapper{V1: capReg.Contract}, nil
+	}
+
+	// Transform dons data to V2 sequence input format
+	v2Input := dons.mustToV2ConfigureInput(input.ChainSelector, input.CapabilitiesRegistryAddress.Hex())
+	_, seqErr := operations.ExecuteSequence(
+		input.CldEnv.OperationsBundle,
+		cap_reg_v2_seq.ConfigureCapabilitiesRegistry,
+		cap_reg_v2_seq.ConfigureCapabilitiesRegistryDeps{
+			Env: input.CldEnv,
+		},
+		v2Input,
+	)
+	if seqErr != nil {
+		return nil, errors.Wrap(seqErr, "failed to configure capabilities registry")
+	}
+
+	capReg, cErr := cre_contracts.GetOwnedContractV2[*capabilities_registry_v2.CapabilitiesRegistry](
+		input.CldEnv.DataStore.Addresses(),
+		input.CldEnv.BlockChains.EVMChains()[input.ChainSelector],
+		input.CapabilitiesRegistryAddress.Hex(),
+	)
+	if cErr != nil {
+		return nil, errors.Wrap(cErr, "failed to get capabilities registry contract")
+	}
+
+	return &registryWrapper{V2: capReg.Contract}, nil
+}
+
+type DonInfo struct {
+	F           uint8
+	ConfigCount uint32
+	NodeP2PIds  [][32]byte
+}
+
+type CapabilitiesRegistry interface {
+	GetDON(opts *bind.CallOpts, donID uint32) (DonInfo, error)
+}
+
+type registryWrapper struct {
+	V1 *kcr.CapabilitiesRegistry
+	V2 *capabilities_registry_v2.CapabilitiesRegistry
+}
+
+func (rw *registryWrapper) GetDON(opts *bind.CallOpts, donID uint32) (DonInfo, error) {
+	if rw.V1 == nil && rw.V2 == nil {
+		return DonInfo{}, errors.New("nil capabilities registry contract")
+	}
+
+	if rw.V1 != nil && rw.V2 != nil {
+		return DonInfo{}, errors.New("invalid registry wrapper state: two versions specified")
+	}
+
+	if rw.V1 != nil {
+		d, err := rw.V1.GetDON(opts, donID)
+		if err != nil {
+			return DonInfo{}, err
+		}
+
+		return DonInfo{
+			F:           d.F,
+			ConfigCount: d.ConfigCount,
+			NodeP2PIds:  d.NodeP2PIds,
+		}, nil
+	}
+
+	if rw.V2 != nil {
+		d, err := rw.V2.GetDON(opts, donID)
+		if err != nil {
+			return DonInfo{}, err
+		}
+
+		return DonInfo{
+			F:           d.F,
+			ConfigCount: d.ConfigCount,
+			NodeP2PIds:  d.NodeP2PIds,
+		}, nil
+	}
+
+	return DonInfo{}, errors.New("no valid capabilities registry contract")
 }

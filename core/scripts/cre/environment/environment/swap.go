@@ -115,7 +115,7 @@ func swapCapability(ctx context.Context, capabilityFlag, binaryPath string, forc
 
 	cldLogger := cldlogger.NewSingleFileLogger(nil)
 
-	creEnvironment, _, loadErr := creenv.BuildFromSavedState(ctx, cldLogger, config, envArtifact)
+	creEnvironment, dons, loadErr := creenv.BuildFromSavedState(ctx, cldLogger, config, envArtifact)
 	if loadErr != nil {
 		return errors.Wrap(loadErr, "failed to load environment")
 	}
@@ -123,13 +123,13 @@ func swapCapability(ctx context.Context, capabilityFlag, binaryPath string, forc
 	// cancel jobs for nodes that have the capability
 	// donId -> nodeId -> proposalIDs
 	donIdxToNodeIDToProposalIDs := map[int]map[string][]string{}
-	for idx, don := range creEnvironment.DonTopology.Dons.List() {
+	for idx, don := range dons.List() {
 		if !flags.HasFlagForAnyChain(don.Flags, capabilityFlag) {
 			continue
 		}
 
 		donIdxToNodeIDToProposalIDs[idx] = map[string][]string{}
-		for _, node := range creEnvironment.DonTopology.Dons.List()[idx].Nodes {
+		for _, node := range don.Nodes {
 			// get all jobs that have a label named "capability" with value equal to capability name
 			jobResp, jobErr := creEnvironment.CldfEnvironment.Offchain.ListJobs(ctx, &jdjob.ListJobsRequest{
 				Filter: &jdjob.ListJobsRequest_Filter{
@@ -168,7 +168,7 @@ func swapCapability(ctx context.Context, capabilityFlag, binaryPath string, forc
 
 	// copy the binary to the Docker containers that have the capability
 	for donIdx := range donIdxToNodeIDToProposalIDs {
-		pattern := ns.NodeNamePrefix(creEnvironment.DonTopology.Dons.List()[donIdx].Name)
+		pattern := ns.NodeNamePrefix(dons.List()[donIdx].Name)
 		capDir, dirErr := crecapabilities.DefaultContainerDirectory(config.Infra.Type)
 		if dirErr != nil {
 			return errors.Wrapf(dirErr, "failed to get default capabilities directory for infra type %s", config.Infra.Type)
@@ -238,15 +238,9 @@ func swapCapability(ctx context.Context, capabilityFlag, binaryPath string, forc
 		return errors.Wrapf(err, "failed to restart nodeSets")
 	}
 
-	// connect clients again after restarting
-	creEnvironment, _, loadErr = creenv.BuildFromSavedState(ctx, cldLogger, config, envArtifact)
-	if loadErr != nil {
-		return errors.Wrap(loadErr, "failed to load environment")
-	}
-
 	// approve the job proposals again, so that the jobs are restarted with the new binary
 	for donIdx, nodeIDToProposalIDs := range donIdxToNodeIDToProposalIDs {
-		for _, node := range creEnvironment.DonTopology.Dons.List()[donIdx].Nodes {
+		for _, node := range dons.List()[donIdx].Nodes {
 			proposalIDs, ok := nodeIDToProposalIDs[node.JobDistributorDetails.NodeID]
 			if ok {
 				framework.L.Info().Msgf("Approving %d job proposals for node %s", len(proposalIDs), node.Name)

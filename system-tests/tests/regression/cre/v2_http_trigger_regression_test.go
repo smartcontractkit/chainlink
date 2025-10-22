@@ -24,6 +24,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 
+	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/blockchains/evm"
 	libcrypto "github.com/smartcontractkit/chainlink/system-tests/lib/crypto"
 	http_negative_config "github.com/smartcontractkit/chainlink/system-tests/tests/regression/cre/http/config"
 	t_helpers "github.com/smartcontractkit/chainlink/system-tests/tests/test-helpers"
@@ -156,8 +157,8 @@ func executeHTTPTriggerRequestExpectingFailure(t *testing.T, testEnv *ttypes.Tes
 	testLogger := framework.L
 
 	// Get gateway configuration
-	require.NotEmpty(t, testEnv.CreEnvironment.DonTopology.GatewayConnectorOutput.Configurations, "expected at least one gateway configuration")
-	gatewayConfig := testEnv.CreEnvironment.DonTopology.GatewayConnectorOutput.Configurations[0]
+	require.NotEmpty(t, testEnv.Dons.GatewayConnectors.Configurations, "expected at least one gateway configuration")
+	gatewayConfig := testEnv.Dons.GatewayConnectors.Configurations[0]
 
 	// Build gateway URL
 	newGatewayURL := gatewayConfig.Incoming.Protocol + "://" + gatewayConfig.Incoming.Host + ":" + strconv.Itoa(gatewayConfig.Incoming.ExternalPort) + gatewayConfig.Incoming.Path
@@ -165,8 +166,7 @@ func executeHTTPTriggerRequestExpectingFailure(t *testing.T, testEnv *ttypes.Tes
 	require.NoError(t, err, "failed to parse gateway URL")
 
 	// Get workflow owner
-	workflowOwner, err := crypto.HexToECDSA(testEnv.WrappedBlockchainOutputs[0].DeployerPrivateKey)
-	require.NoError(t, err, "failed to convert private key to ECDSA")
+	workflowOwner := testEnv.CreEnvironment.Blockchains[0].(*evm.Blockchain).SethClient.MustGetRootPrivateKey()
 	workflowOwnerAddress := strings.ToLower(crypto.PubkeyToAddress(workflowOwner.PublicKey).Hex())
 
 	testLogger.Info().Msgf("Attempting HTTP trigger execution that should fail for workflow: %s", workflowName)
@@ -220,7 +220,7 @@ func executeHTTPTriggerRequestExpectingFailure(t *testing.T, testEnv *ttypes.Tes
 				testLogger.Info().Msgf("Received error in JSON-RPC response: %v", errorMsg)
 
 				// Check if this is an auth failure (expected)
-				if errorMsg == "Auth failure" {
+				if strings.Contains(errorMsg, "Auth failure") {
 					testLogger.Info().Msg("Authorization properly rejected at gateway level")
 					authFailureDetected = true
 					return true

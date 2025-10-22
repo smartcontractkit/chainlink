@@ -44,6 +44,7 @@ import (
 	"github.com/smartcontractkit/chainlink-evm/pkg/keys"
 	"github.com/smartcontractkit/chainlink-evm/pkg/transmitter"
 	evmtypes "github.com/smartcontractkit/chainlink-evm/pkg/types"
+	"github.com/smartcontractkit/chainlink-evm/pkg/writer"
 
 	coreconfig "github.com/smartcontractkit/chainlink/v2/core/config"
 	"github.com/smartcontractkit/chainlink/v2/core/services/llo"
@@ -845,9 +846,9 @@ func (r *Relayer) NewContractWriter(_ context.Context, bytes []byte) (commontype
 		if !ok {
 			return nil, fmt.Errorf("chain %s does not support Tron", r.chain.ID())
 		}
-		return NewChainWriterService(r.lggr, r.chain.Client(), r.chain.TxManager(), r.chain.GasEstimator(), cfg, chain.GetTronTXM())
+		return writer.NewChainWriterService(r.lggr, r.chain.Client(), r.chain.TxManager(), r.chain.GasEstimator(), cfg, chain.GetTronTXM())
 	}
-	return NewChainWriterService(r.lggr, r.chain.Client(), r.chain.TxManager(), r.chain.GasEstimator(), cfg, nil)
+	return writer.NewChainWriterService(r.lggr, r.chain.Client(), r.chain.TxManager(), r.chain.GasEstimator(), cfg, nil)
 }
 
 func (r *Relayer) NewContractReader(ctx context.Context, chainReaderConfig []byte) (commontypes.ContractReader, error) {

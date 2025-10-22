@@ -1,6 +1,7 @@
 package cre
 
 import (
+	"context"
 	"fmt"
 	"maps"
 	"os"
@@ -10,10 +11,11 @@ import (
 	"strings"
 
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/gagliardetto/solana-go"
+	"github.com/google/uuid"
 	"github.com/pelletier/go-toml/v2"
 	"github.com/pkg/errors"
-
-	"github.com/smartcontractkit/smdkg/dkgocr/dkgocrtypes"
+	"github.com/rs/zerolog"
 
 	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
@@ -23,17 +25,13 @@ import (
 	cldf_jd "github.com/smartcontractkit/chainlink-deployments-framework/offchain/jd"
 	keystone_changeset "github.com/smartcontractkit/chainlink/deployment/keystone/changeset"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/secrets"
+	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/blockchains"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/crypto"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/infra"
 
 	"github.com/smartcontractkit/chainlink-testing-framework/framework"
 	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/blockchain"
-	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/jd"
 	ns "github.com/smartcontractkit/chainlink-testing-framework/framework/components/simple_node_set"
-	"github.com/smartcontractkit/chainlink-testing-framework/seth"
-
-	"github.com/gagliardetto/solana-go"
-	solrpc "github.com/gagliardetto/solana-go/rpc"
 )
 
 type CapabilityFlag = string
@@ -47,21 +45,22 @@ const (
 
 // Capabilities
 const (
-	ConsensusCapability     CapabilityFlag = "ocr3"
-	ConsensusCapabilityV2   CapabilityFlag = "consensus" // v2
-	CronCapability          CapabilityFlag = "cron"
-	EVMCapability           CapabilityFlag = "evm"
-	CustomComputeCapability CapabilityFlag = "custom-compute"
-	WriteEVMCapability      CapabilityFlag = "write-evm"
-	WriteSolanaCapability   CapabilityFlag = "write-solana"
-	ReadContractCapability  CapabilityFlag = "read-contract"
-	LogTriggerCapability    CapabilityFlag = "log-event-trigger"
-	WebAPITargetCapability  CapabilityFlag = "web-api-target"
-	WebAPITriggerCapability CapabilityFlag = "web-api-trigger"
-	MockCapability          CapabilityFlag = "mock"
-	VaultCapability         CapabilityFlag = "vault"
-	HTTPTriggerCapability   CapabilityFlag = "http-trigger"
-	HTTPActionCapability    CapabilityFlag = "http-action"
+	ConsensusCapability       CapabilityFlag = "ocr3"
+	DONTimeCapability         CapabilityFlag = "don-time"
+	ConsensusCapabilityV2     CapabilityFlag = "consensus" // v2
+	CronCapability            CapabilityFlag = "cron"
+	EVMCapability             CapabilityFlag = "evm"
+	CustomComputeCapability   CapabilityFlag = "custom-compute"
+	WriteEVMCapability        CapabilityFlag = "write-evm"
+	WriteSolanaCapability     CapabilityFlag = "write-solana"
+	ReadContractCapability    CapabilityFlag = "read-contract"
+	LogEventTriggerCapability CapabilityFlag = "log-event-trigger"
+	WebAPITargetCapability    CapabilityFlag = "web-api-target"
+	WebAPITriggerCapability   CapabilityFlag = "web-api-trigger"
+	MockCapability            CapabilityFlag = "mock"
+	VaultCapability           CapabilityFlag = "vault"
+	HTTPTriggerCapability     CapabilityFlag = "http-trigger"
+	HTTPActionCapability      CapabilityFlag = "http-action"
 	// Add more capabilities as needed
 )
 
@@ -178,8 +177,7 @@ const (
 )
 
 type (
-	DonJobs        = []*jobv1.ProposeJobRequest
-	DonsToJobSpecs = map[uint64]DonJobs
+	DonJobs = []*jobv1.ProposeJobRequest
 )
 
 const (
@@ -192,7 +190,7 @@ type (
 	NodeIndexToSecretsOverride = map[int]string
 )
 
-type CapabilityConfigs = map[string]CapabilityConfig
+type CapabilityConfigs = map[CapabilityFlag]CapabilityConfig
 
 type CapabilityConfig struct {
 	BinaryPath   string         `toml:"binary_path"`
@@ -326,16 +324,6 @@ type WrappedNodeOutput struct {
 	Capabilities []string
 }
 
-type WrappedBlockchainOutput struct {
-	ChainSelector      uint64
-	ChainID            uint64
-	BlockchainOutput   *blockchain.Output
-	SethClient         *seth.Client
-	SolClient          *solrpc.Client
-	DeployerPrivateKey string
-	SolChain           *SolChain
-}
-
 type SolChain struct {
 	ChainSelector uint64
 	ChainID       string
@@ -344,39 +332,22 @@ type SolChain struct {
 	ArtifactsDir  string
 }
 
-type ConfigureKeystoneInput struct {
+type ConfigureCapabilityRegistryInput struct {
 	ChainSelector               uint64
 	Topology                    *Topology
 	CldEnv                      *cldf.Environment
 	NodeSets                    []*CapabilitiesAwareNodeSet
 	CapabilityRegistryConfigFns []CapabilityRegistryConfigFn
-	BlockchainOutputs           []*WrappedBlockchainOutput
-
-	OCR3Config  keystone_changeset.OracleConfig
-	OCR3Address *common.Address // v1 consensus contract address
-
-	DONTimeConfig  keystone_changeset.OracleConfig
-	DONTimeAddress *common.Address
-
-	VaultOCR3Config  keystone_changeset.OracleConfig
-	VaultOCR3Address *common.Address
-
-	DKGReportingPluginConfig *dkgocrtypes.ReportingPluginConfig
-	DKGOCR3Config            keystone_changeset.OracleConfig
-	DKGOCR3Address           *common.Address
-
-	EVMOCR3Config    keystone_changeset.OracleConfig
-	EVMOCR3Addresses map[uint64]common.Address // chain selector to address map
-
-	ConsensusV2OCR3Config  keystone_changeset.OracleConfig // v2 consensus contract config
-	ConsensusV2OCR3Address *common.Address
+	Blockchains                 []blockchains.Blockchain
 
 	CapabilitiesRegistryAddress *common.Address
 
 	WithV2Registries bool
+
+	DONCapabilityWithConfigs map[uint64][]keystone_changeset.DONCapabilityWithConfig
 }
 
-func (c *ConfigureKeystoneInput) Validate() error {
+func (c *ConfigureCapabilityRegistryInput) Validate() error {
 	if c.ChainSelector == 0 {
 		return errors.New("chain selector not set")
 	}
@@ -392,30 +363,30 @@ func (c *ConfigureKeystoneInput) Validate() error {
 	if c.CldEnv == nil {
 		return errors.New("chainlink deployment env not set")
 	}
-	if c.OCR3Address == nil || c.CapabilitiesRegistryAddress == nil {
-		return errors.New("OCR3Address and CapabilitiesRegistryAddress must be set")
-	}
 
 	return nil
 }
 
-type GatewayConnectorDons struct {
-	MembersEthAddresses []string `toml:"members_eth_addresses" json:"members_eth_addresses"`
-	ID                  string   `toml:"id" json:"id"`
-	Handlers            map[string]string
-}
-type GatewayConnectorOutput struct {
+type GatewayConnectors struct {
 	Configurations []*DonGatewayConfiguration `toml:"configurations" json:"configurations"`
 }
 
-func NewGatewayConnectorOutput() *GatewayConnectorOutput {
-	return &GatewayConnectorOutput{
+func (g *GatewayConnectors) FindByNodeUUID(uuid string) (*GatewayConfiguration, error) {
+	for _, config := range g.Configurations {
+		if config.NodeUUID == uuid {
+			return config.GatewayConfiguration, nil
+		}
+	}
+	return nil, fmt.Errorf("gateway configuration for node UUID %s not found", uuid)
+}
+
+func NewGatewayConnectorOutput() *GatewayConnectors {
+	return &GatewayConnectors{
 		Configurations: make([]*DonGatewayConfiguration, 0),
 	}
 }
 
 type DonGatewayConfiguration struct {
-	Dons []GatewayConnectorDons `toml:"dons" json:"dons"` // do not set, it will be set dynamically
 	*GatewayConfiguration
 }
 
@@ -423,13 +394,13 @@ type NodeConfigTransformerFn = func(input GenerateConfigsInput, existingConfigs 
 
 type (
 	HandlerTypeToConfig    = map[string]string
-	GatewayHandlerConfigFn = func(don *DON) (HandlerTypeToConfig, error)
+	GatewayHandlerConfigFn = func(don *Don) (HandlerTypeToConfig, error)
 )
 
 type GenerateConfigsInput struct {
 	Datastore               datastore.DataStore
 	DonMetadata             *DonMetadata
-	BlockchainOutput        map[uint64]*WrappedBlockchainOutput
+	Blockchains             map[uint64]blockchains.Blockchain
 	HomeChainSelector       uint64
 	Flags                   []string
 	CapabilitiesPeeringData CapabilitiesPeeringData
@@ -437,14 +408,14 @@ type GenerateConfigsInput struct {
 	AddressBook             cldf.AddressBook
 	NodeSet                 *CapabilitiesAwareNodeSet
 	CapabilityConfigs       CapabilityConfigs
-	GatewayConnectorOutput  *GatewayConnectorOutput // optional, automatically set if some DON in the topology has the GatewayDON flag
+	GatewayConnectorOutput  *GatewayConnectors // optional, automatically set if some DON in the topology has the GatewayDON flag
 }
 
 func (g *GenerateConfigsInput) Validate() error {
 	if len(g.DonMetadata.NodesMetadata) == 0 {
 		return errors.New("don nodes not set")
 	}
-	if len(g.BlockchainOutput) == 0 {
+	if len(g.Blockchains) == 0 {
 		return errors.New("blockchain output not set")
 	}
 	if g.HomeChainSelector == 0 {
@@ -534,8 +505,7 @@ func (m *DonMetadata) GatewayConfig(p infra.Provider) (*DonGatewayConfiguration,
 	}
 
 	return &DonGatewayConfiguration{
-		Dons:                 make([]GatewayConnectorDons, 0),
-		GatewayConfiguration: NewGatewayConfig(p, gatewayNode.Index, gatewayNode.HasRole(BootstrapNode), m.Name),
+		GatewayConfiguration: NewGatewayConfig(p, gatewayNode.Index, gatewayNode.HasRole(BootstrapNode), gatewayNode.UUID, m.Name),
 	}, nil
 }
 
@@ -610,17 +580,123 @@ func (m *DonMetadata) IsWorkflowDON() bool {
 }
 
 type Dons struct {
-	Dons []*DON `toml:"dons" json:"dons"`
+	Dons              []*Don             `toml:"dons" json:"dons"`
+	GatewayConnectors *GatewayConnectors `toml:"gateway_connectors" json:"gateway_connectors"`
 }
 
-func (d *Dons) List() []*DON {
+func (d *Dons) List() []*Don {
 	return d.Dons
 }
 
-func NewDons(dons []*DON) *Dons {
-	return &Dons{
-		Dons: dons,
+func (d *Dons) MustWorkflowDON() *Don {
+	for _, don := range d.Dons {
+		if don.HasFlag(WorkflowDON) {
+			return don
+		}
 	}
+	panic("no workflow DON found")
+}
+
+func (d *Dons) NodeWithUUID(uuid string) (*Node, bool) {
+	for _, don := range d.Dons {
+		for _, node := range don.Nodes {
+			if node.UUID == uuid {
+				return node, true
+			}
+		}
+	}
+
+	return nil, false
+}
+
+func (d *Dons) AsNodeSetWithChainCapabilities() []NodeSetWithCapabilityConfigs {
+	out := make([]NodeSetWithCapabilityConfigs, len(d.Dons))
+	for i, don := range d.Dons {
+		out[i] = don
+	}
+	return out
+}
+
+func NewDons(dons []*Don, gatewayConnectors *GatewayConnectors) *Dons {
+	return &Dons{
+		Dons:              dons,
+		GatewayConnectors: gatewayConnectors,
+	}
+}
+
+// BootstrapNode returns the the bootstrap node that should be used as the bootstrap node for P2P peering
+// Currently only one bootstrap is supported.
+func (d *Dons) Bootstrap() (*Node, bool) {
+	for _, don := range d.List() {
+		if node, isBootstrap := don.Bootstrap(); isBootstrap {
+			return node, true
+		}
+	}
+
+	return nil, false
+}
+
+func (d *Dons) Gateway() (*Node, bool) {
+	for _, don := range d.List() {
+		if node, hasGateway := don.Gateway(); hasGateway {
+			return node, true
+		}
+	}
+
+	return nil, false
+}
+
+func (d *Dons) DonsWithFlag(flag CapabilityFlag) []*Don {
+	found := make([]*Don, 0)
+	for _, don := range d.List() {
+		if don.HasFlag(flag) {
+			found = append(found, don)
+		}
+	}
+
+	return found
+}
+
+func (d *Dons) DonsWithFlags(flags ...CapabilityFlag) []*Don {
+	found := make([]*Don, 0)
+	for _, don := range d.List() {
+		for _, flag := range flags {
+			if don.HasFlag(flag) {
+				found = append(found, don)
+			}
+		}
+	}
+
+	seen := make(map[uint64]struct{})
+	uniqueFound := make([]*Don, 0)
+	for _, don := range found {
+		if _, exists := seen[don.ID]; !exists {
+			seen[don.ID] = struct{}{}
+			uniqueFound = append(uniqueFound, don)
+		}
+	}
+
+	return uniqueFound
+}
+
+func (d *Dons) OneDonWithFlag(flag CapabilityFlag) (*Don, error) {
+	found := d.DonsWithFlag(flag)
+
+	if len(found) != 1 {
+		return nil, fmt.Errorf("expected exactly one DON with flag %s, found %d", flag, len(found))
+	}
+
+	return found[0], nil
+}
+
+func (d *Dons) AnyDonHasCapability(capability CapabilityFlag) bool {
+	for _, don := range d.List() {
+		if don.HasFlag(capability) {
+			return true
+		}
+	}
+
+	return false
 }
 
 type DonsMetadata struct {
@@ -735,6 +811,7 @@ type NodeMetadata struct {
 	Host  string            `toml:"host" json:"host"`
 	Roles []string          `toml:"roles" json:"roles"`
 	Index int               `toml:"index" json:"index"` // hopefully we can remove it later, but for now we need it to construct urls in CRIB
+	UUID  string            `toml:"uuid" json:"uuid"`
 }
 
 func (n *NodeMetadata) HasRole(role string) bool {
@@ -767,6 +844,7 @@ func NewNodeMetadata(c NodeMetadataConfig) (*NodeMetadata, error) {
 		Host:  c.Host,
 		Roles: c.Roles,
 		Index: c.Index,
+		UUID:  uuid.NewString(),
 	}, nil
 }
 
@@ -782,54 +860,6 @@ func newNodes(cfgs []NodeMetadataConfig) ([]*NodeMetadata, error) {
 	}
 
 	return nodes, nil
-}
-
-func NewDonTopology(registryChainSelector uint64, topology *Topology, dons *Dons) *DonTopology {
-	return &DonTopology{
-		WorkflowDonID:          topology.WorkflowDONID,
-		HomeChainSelector:      registryChainSelector,
-		Dons:                   dons,
-		GatewayConnectorOutput: topology.GatewayConnectorOutput,
-	}
-}
-
-type DonTopology struct {
-	WorkflowDonID          uint64                  `toml:"workflow_don_id" json:"workflow_don_id"`
-	HomeChainSelector      uint64                  `toml:"home_chain_selector" json:"home_chain_selector"`
-	Dons                   *Dons                   `toml:"dons" json:"dons"`
-	GatewayConnectorOutput *GatewayConnectorOutput `toml:"gateway_connector_output" json:"gateway_connector_output"`
-}
-
-// BootstrapNode returns the the bootstrap node that should be used as the bootstrap node for P2P peering
-// Currently only one bootstrap is supported.
-func (t *DonTopology) Bootstrap() (*Node, bool) {
-	for _, don := range t.Dons.List() {
-		if node, isBootstrap := don.Bootstrap(); isBootstrap {
-			return node, true
-		}
-	}
-
-	return nil, false
-}
-
-func (t *DonTopology) Gateway() (*Node, bool) {
-	for _, don := range t.Dons.List() {
-		if node, hasGateway := don.Gateway(); hasGateway {
-			return node, true
-		}
-	}
-
-	return nil, false
-}
-
-func (t *DonTopology) AnyDonHasCapability(capability CapabilityFlag) bool {
-	for _, don := range t.Dons.List() {
-		if don.HasFlag(capability) {
-			return true
-		}
-	}
-
-	return false
 }
 
 // CapabilitiesAwareNodeSet is the serialized form that declares nodesets in a topology.
@@ -863,6 +893,30 @@ func (c *CapabilitiesAwareNodeSet) Flags() []string {
 	var stringCaps []string
 
 	return append(stringCaps, append(c.ComputedCapabilities, c.DONTypes...)...)
+}
+
+func (c *CapabilitiesAwareNodeSet) GetChainCapabilityConfigs() map[string]*ChainCapabilityConfig {
+	return c.ChainCapabilities
+}
+
+func (c *CapabilitiesAwareNodeSet) GetCapabilityConfigOverrides() map[string]map[string]any {
+	return c.CapabilityOverrides
+}
+
+func (c *CapabilitiesAwareNodeSet) GetCapabilityFlags() []string {
+	return c.Flags()
+}
+
+func (c *CapabilitiesAwareNodeSet) GetName() string {
+	return c.Name
+}
+
+func ConvertToNodeSetWithChainCapabilities(nodeSets []*CapabilitiesAwareNodeSet) []NodeSetWithCapabilityConfigs {
+	result := make([]NodeSetWithCapabilityConfigs, len(nodeSets))
+	for i, nodeSet := range nodeSets {
+		result[i] = nodeSet
+	}
+	return result
 }
 
 // EVMChains returns the list of EVM chain IDs that the nodeset supports. If SupportedChains is set, it is returned directly.
@@ -1026,10 +1080,10 @@ func (c *CapabilitiesAwareNodeSet) ParseChainCapabilities() error {
 	return nil
 }
 
-func (c *CapabilitiesAwareNodeSet) ValidateChainCapabilities(bcInput []blockchain.Input) error {
+func (c *CapabilitiesAwareNodeSet) ValidateChainCapabilities(bcInput []*blockchain.Input) error {
 	knownChains := []uint64{}
 	for _, bc := range bcInput {
-		if bc.Type == blockchain.FamilySolana {
+		if strings.EqualFold(bc.Type, blockchain.FamilySolana) {
 			continue
 		}
 		chainIDUint64, convErr := strconv.ParseUint(bc.ChainID, 10, 64)
@@ -1119,123 +1173,45 @@ func NewNodeKeys(input NodeKeyInput) (*secrets.NodeKeys, error) {
 }
 
 type LinkDonsToJDInput struct {
-	JDClient          *cldf_jd.JobDistributor
-	BlockchainOutputs []*WrappedBlockchainOutput
-	DONs              []*DON
-	Topology          *Topology
-	CldfEnvironment   *cldf.Environment
-}
-
-func (f *LinkDonsToJDInput) Validate() error {
-	if f.JDClient == nil {
-		return errors.New("jd client not set")
-	}
-	if len(f.BlockchainOutputs) == 0 {
-		return errors.New("blockchain output not set")
-	}
-
-	var expectedSeth, expectedSols int
-	for _, chain := range f.BlockchainOutputs {
-		if chain.SolChain != nil {
-			expectedSols++
-			continue
-		}
-		expectedSeth++
-	}
-	if len(f.DONs) == 0 {
-		return errors.New("DONS not set")
-	}
-	if f.Topology == nil {
-		return errors.New("topology not set")
-	}
-	if len(f.Topology.DonsMetadata.List()) == 0 {
-		return errors.New("metadata not set")
-	}
-	if f.CldfEnvironment == nil {
-		return errors.New("cldf environment not set")
-	}
-
-	return nil
+	JDClient        *cldf_jd.JobDistributor
+	Blockchains     []blockchains.Blockchain
+	Dons            *Dons
+	Topology        *Topology
+	CldfEnvironment *cldf.Environment
 }
 
 type Environment struct {
-	CldfEnvironment *cldf.Environment
-	DonTopology     *DonTopology
-}
-
-type DeployCribDonsInput struct {
-	Topology       *Topology
-	NodeSetInputs  []*CapabilitiesAwareNodeSet
-	CribConfigsDir string
-	Namespace      string
-}
-
-func (d *DeployCribDonsInput) Validate() error {
-	if d.Topology == nil {
-		return errors.New("topology not set")
-	}
-	if len(d.Topology.DonsMetadata.List()) == 0 {
-		return errors.New("metadata not set")
-	}
-	if len(d.NodeSetInputs) == 0 {
-		return errors.New("node set inputs not set")
-	}
-	if d.CribConfigsDir == "" {
-		return errors.New("crib configs dir not set")
-	}
-	return nil
-}
-
-type DeployCribJdInput struct {
-	JDInput        jd.Input
-	CribConfigsDir string
-	Namespace      string
-}
-
-func (d *DeployCribJdInput) Validate() error {
-	if d.CribConfigsDir == "" {
-		return errors.New("crib configs dir not set")
-	}
-	return nil
-}
-
-type DeployCribBlockchainInput struct {
-	BlockchainInput *blockchain.Input
-	CribConfigsDir  string
-	Namespace       string
-}
-
-func (d *DeployCribBlockchainInput) Validate() error {
-	if d.BlockchainInput == nil {
-		return errors.New("blockchain input not set")
-	}
-	if d.CribConfigsDir == "" {
-		return errors.New("crib configs dir not set")
-	}
-	if d.Namespace == "" {
-		return errors.New("namespace not set")
-	}
-	return nil
+	CldfEnvironment       *cldf.Environment
+	RegistryChainSelector uint64
+	Blockchains           []blockchains.Blockchain
+	ContractVersions      map[string]string
+	Provider              infra.Provider
+	CapabilityConfigs     map[CapabilityFlag]CapabilityConfig
 }
 
 type (
 	CapabilityRegistryConfigFn = func(donFlags []CapabilityFlag, nodeSetInput *CapabilitiesAwareNodeSet) ([]keystone_changeset.DONCapabilityWithConfig, error)
-	JobSpecFn                  = func(input *JobSpecInput) (DonsToJobSpecs, error)
+	JobSpecFn                  = func(input *JobSpecInput) (DonJobs, error)
 )
 
 type JobSpecInput struct {
-	CldEnvironment            *cldf.Environment
-	BlockchainOutput          *blockchain.Output
-	DonTopology               *DonTopology
-	InfraInput                infra.Provider
-	CapabilityConfigs         map[string]CapabilityConfig
-	Capabilities              []InstallableCapability
-	CapabilitiesAwareNodeSets []*CapabilitiesAwareNodeSet
+	CreEnvironment *Environment
+	Don            *Don
+	Dons           *Dons
+	NodeSet        NodeSetWithCapabilityConfigs
+}
+
+type NodeSetWithCapabilityConfigs interface {
+	GetChainCapabilityConfigs() map[string]*ChainCapabilityConfig
+	GetCapabilityConfigOverrides() map[string]map[string]any
+	GetCapabilityFlags() []string
+	GetName() string
 }
 
 // InstallableCapability defines the interface for capabilities that can be dynamically
 // registered and deployed across DONs. This interface enables plug-and-play capability
 // extension without modifying core infrastructure code.
+// Deprecated: Use Feature interface instead for new capabilities.
 type InstallableCapability interface {
 	// Flag returns the unique identifier used in TOML configurations and internal references
 	Flag() CapabilityFlag
@@ -1266,4 +1242,46 @@ type InstallableCapability interface {
 type PersistentConfig interface {
 	Load(absPath string) error
 	Store(absPath string) error
+}
+
+type Features struct {
+	fs []Feature
+}
+
+func NewFeatures(feature ...Feature) Features {
+	return Features{
+		fs: feature,
+	}
+}
+
+func (s *Features) Add(f Feature) {
+	s.fs = append(s.fs, f)
+}
+
+func (s *Features) List() []Feature {
+	return s.fs
+}
+
+type NodeUUID = string
+
+type Feature interface {
+	Flag() CapabilityFlag
+	PreEnvStartup(
+		ctx context.Context,
+		testLogger zerolog.Logger,
+		don *DonMetadata,
+		topology *Topology,
+		creEnv *Environment,
+	) (*PreEnvStartupOutput, error)
+	PostEnvStartup(
+		ctx context.Context,
+		testLogger zerolog.Logger,
+		don *Don,
+		dons *Dons,
+		creEnv *Environment,
+	) error
+}
+
+type PreEnvStartupOutput struct {
+	DONCapabilityWithConfig []keystone_changeset.DONCapabilityWithConfig
 }

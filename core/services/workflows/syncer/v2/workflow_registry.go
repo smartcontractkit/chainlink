@@ -183,8 +183,8 @@ func (w *workflowRegistry) Start(_ context.Context) error {
 
 		w.wg.Add(1)
 		go func() {
-			defer w.lggr.Debugw("Successfully set ContractReader")
 			defer w.wg.Done()
+			defer w.lggr.Debugw("Successfully set ContractReader")
 			defer close(initDoneCh)
 
 			ticker := w.getTicker(defaultTickInterval)

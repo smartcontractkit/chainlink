@@ -17,7 +17,6 @@ import (
 	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/jd"
 	ctfconfig "github.com/smartcontractkit/chainlink-testing-framework/lib/config"
 
-	"github.com/smartcontractkit/chainlink/system-tests/lib/cre"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/crib"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/infra"
 )
@@ -32,9 +31,9 @@ func StartJD(lggr zerolog.Logger, jdInput jd.Input, infraInput infra.Provider) (
 	lggr.Info().Msg("Starting Job Distributor")
 
 	if infraInput.Type == infra.CRIB {
-		deployCribJdInput := &cre.DeployCribJdInput{
+		deployCribJdInput := &crib.DeployCribJdInput{
 			JDInput:        jdInput,
-			CribConfigsDir: cribConfigsDir,
+			CribConfigsDir: infra.CribConfigsDir,
 			Namespace:      infraInput.CRIB.Namespace,
 		}
 
@@ -51,9 +50,18 @@ func StartJD(lggr zerolog.Logger, jdInput jd.Input, infraInput infra.Provider) (
 		jdInput.Image = fmt.Sprintf("%s:%s", jdImage, jdVersion)
 	}
 
-	jdOutput, err := jd.NewJD(&jdInput)
-	if err != nil {
-		return nil, pkgerrors.Wrap(err, "failed to create new job distributor")
+	jdOutput, jdErr := jd.NewJD(&jdInput)
+	if jdErr != nil {
+		jdErr = fmt.Errorf("failed to start JD container for image %s: %w", jdInput.Image, jdErr)
+
+		// useful end user messages
+		if strings.Contains(jdErr.Error(), "pull access denied") || strings.Contains(jdErr.Error(), "may require 'docker login'") {
+			jdErr = errors.Join(jdErr, errors.New("ensure that you either you have built the local image or you are logged into AWS with a profile that can read it (`aws sso login --profile <foo>)`"))
+		}
+
+		infra.PrintFailedContainerLogs(lggr, 30)
+
+		return nil, jdErr
 	}
 
 	jdConfig := cldf_jd.JDConfig{
@@ -65,15 +73,6 @@ func StartJD(lggr zerolog.Logger, jdInput jd.Input, infraInput infra.Provider) (
 	jdClient, jdErr := cldf_jd.NewJDClient(jdConfig)
 	if jdErr != nil {
 		return nil, pkgerrors.Wrap(jdErr, "failed to create JD client")
-	}
-	if jdErr != nil {
-		jdErr = fmt.Errorf("failed to start JD container for image %s: %w", jdInput.Image, jdErr)
-
-		// useful end user messages
-		if strings.Contains(jdErr.Error(), "pull access denied") || strings.Contains(jdErr.Error(), "may require 'docker login'") {
-			jdErr = errors.Join(jdErr, errors.New("ensure that you either you have built the local image or you are logged into AWS with a profile that can read it (`aws sso login --profile <foo>)`"))
-		}
-		return nil, jdErr
 	}
 
 	lggr.Info().Msgf("Job Distributor started in %.2f seconds", time.Since(startTime).Seconds())

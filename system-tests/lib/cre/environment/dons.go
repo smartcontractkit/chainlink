@@ -11,6 +11,8 @@ import (
 	"github.com/rs/zerolog"
 	"golang.org/x/sync/errgroup"
 
+	chainselectors "github.com/smartcontractkit/chain-selectors"
+
 	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/blockchain"
 	ns "github.com/smartcontractkit/chainlink-testing-framework/framework/components/simple_node_set"
 
@@ -18,13 +20,15 @@ import (
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre"
 	crecapabilities "github.com/smartcontractkit/chainlink/system-tests/lib/cre/capabilities"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/crib"
-	creflags "github.com/smartcontractkit/chainlink/system-tests/lib/cre/flags"
+	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/blockchains"
+	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/blockchains/solana"
+	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/flags"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/infra"
 )
 
 type StartedDON struct {
 	NodeOutput *cre.WrappedNodeOutput
-	DON        *cre.DON
+	DON        *cre.Don
 }
 
 type StartedDONs []*StartedDON
@@ -37,8 +41,8 @@ func (s *StartedDONs) NodeOutputs() []*cre.WrappedNodeOutput {
 	return outputs
 }
 
-func (s *StartedDONs) DONs() []*cre.DON {
-	dons := make([]*cre.DON, len(*s))
+func (s *StartedDONs) DONs() []*cre.Don {
+	dons := make([]*cre.Don, len(*s))
 	for idx, don := range *s {
 		dons[idx] = don.DON
 	}
@@ -57,10 +61,10 @@ func StartDONs(
 ) (*StartedDONs, error) {
 	if infraInput.Type == infra.CRIB {
 		lggr.Info().Msg("Saving node configs and secret overrides")
-		deployCribDonsInput := &cre.DeployCribDonsInput{
+		deployCribDonsInput := &crib.DeployCribDonsInput{
 			Topology:       topology,
 			NodeSetInputs:  capabilitiesAwareNodeSets,
-			CribConfigsDir: cribConfigsDir,
+			CribConfigsDir: infra.CribConfigsDir,
 			Namespace:      infraInput.CRIB.Namespace,
 		}
 
@@ -78,7 +82,7 @@ func StartDONs(
 
 		customBinariesPaths := make(map[cre.CapabilityFlag]string)
 		for flag, config := range capabilityConfigs {
-			if creflags.HasFlagForAnyChain(donMetadata.Flags, flag) && config.BinaryPath != "" {
+			if flags.HasFlagForAnyChain(donMetadata.Flags, flag) && config.BinaryPath != "" {
 				customBinariesPaths[flag] = config.BinaryPath
 			}
 		}
@@ -163,6 +167,7 @@ func StartDONs(
 	}
 
 	if err := errGroup.Wait(); err != nil {
+		infra.PrintFailedContainerLogs(lggr, 30)
 		return nil, err
 	}
 
@@ -174,4 +179,63 @@ func StartDONs(
 	})
 
 	return &startedDONs, nil
+}
+
+func FundNodes(ctx context.Context, testLogger zerolog.Logger, dons *cre.Dons, blockchains []blockchains.Blockchain, fundingAmountPerChainFamily map[string]uint64) error {
+	for _, don := range dons.List() {
+		testLogger.Info().Msgf("Funding nodes for DON %s", don.Name)
+		for _, bc := range blockchains {
+			if !flags.RequiresForwarderContract(don.Flags, bc.ChainID()) && !bc.IsFamily(chainselectors.FamilySolana) { // for now, we can only write to solana, so we consider forwarder is always present
+				continue
+			}
+
+			chainFamily := bc.CtfOutput().Family
+			fundingAmount, ok := fundingAmountPerChainFamily[chainFamily]
+			if !ok {
+				return fmt.Errorf("missing funding amount for chain family %s", chainFamily)
+			}
+
+			for _, node := range don.Nodes {
+				address, addrErr := nodeAddress(node, chainFamily, bc)
+				if addrErr != nil {
+					return pkgerrors.Wrapf(addrErr, "failed to get address for node %s on chain family %s and chain %d", node.Name, chainFamily, bc.ChainID())
+				}
+
+				if address == "" {
+					testLogger.Info().Msgf("No key for chainID %d found for node %s. Skipping funding", bc.ChainID(), node.Name)
+					continue // Skip nodes without keys for this chain
+				}
+
+				err := bc.Fund(ctx, address, fundingAmount)
+				if err != nil {
+					return err
+				}
+			}
+		}
+
+		testLogger.Info().Msgf("Funded nodes for DON %s", don.Name)
+	}
+
+	return nil
+}
+
+func nodeAddress(node *cre.Node, chainFamily string, bc blockchains.Blockchain) (string, error) {
+	switch chainFamily {
+	case chainselectors.FamilyEVM, chainselectors.FamilyTron:
+		evmKey, ok := node.Keys.EVM[bc.ChainID()]
+		if !ok {
+			return "", nil // Skip nodes without EVM keys for this chain
+		}
+
+		return evmKey.PublicAddress.String(), nil
+	case chainselectors.FamilySolana:
+		solBc := bc.(*solana.Blockchain)
+		solKey, ok := node.Keys.Solana[solBc.SolanaChainID]
+		if !ok {
+			return "", nil // Skip nodes without Solana keys for this chain
+		}
+		return solKey.PublicAddress.String(), nil
+	default:
+		return "", fmt.Errorf("unsupported chain family %s", chainFamily)
+	}
 }

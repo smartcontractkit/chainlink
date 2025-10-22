@@ -10,36 +10,37 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/gagliardetto/solana-go"
 	chainselectors "github.com/smartcontractkit/chain-selectors"
-	"github.com/stretchr/testify/require"
-	"go.uber.org/zap/zapcore"
-
-	cldf_chain "github.com/smartcontractkit/chainlink-deployments-framework/chain"
-
 	mcmstypes "github.com/smartcontractkit/mcms/types"
+	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+	"github.com/smartcontractkit/chainlink-deployments-framework/engine/test/environment"
 
-	"github.com/smartcontractkit/chainlink/deployment/common/changeset"
 	solanaMCMS "github.com/smartcontractkit/chainlink/deployment/common/changeset/solana/mcms"
 	"github.com/smartcontractkit/chainlink/deployment/common/changeset/state"
 	commontypes "github.com/smartcontractkit/chainlink/deployment/common/types"
-	"github.com/smartcontractkit/chainlink/deployment/environment/memory"
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
+	"github.com/smartcontractkit/chainlink/deployment/internal/soltestutils"
 )
 
 func TestMCMSWithTimelockState_GenerateMCMSWithTimelockViewSolana(t *testing.T) {
 	tests.SkipFlakey(t, "https://smartcontract-it.atlassian.net/browse/DX-404")
-
 	t.Parallel()
-	envConfig := memory.MemoryEnvironmentConfig{SolChains: 1}
-	env := memory.NewMemoryEnvironment(t, logger.TestLogger(t), zapcore.InfoLevel, envConfig)
-	chainSelector := env.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chainselectors.FamilySolana))[0]
-	chain := env.BlockChains.SolanaChains()[chainSelector]
+
+	selector := chainselectors.TEST_22222222222222222222222222222222222222222222.Selector
+	programsPath, programIDs, ab := soltestutils.PreloadMCMS(t, selector)
+	env, err := environment.New(t.Context(),
+		environment.WithSolanaContainer(t, []uint64{selector}, programsPath, programIDs),
+		environment.WithAddressBook(ab),
+	)
+	require.NoError(t, err)
+
+	chain := env.BlockChains.SolanaChains()[selector]
+
 	defaultState := func() *state.MCMSWithTimelockStateSolana {
 		addressBook := cldf.NewMemoryAddressBook()
-		chainState, err := solanaMCMS.DeployMCMSWithTimelockProgramsSolana(env, chain, addressBook,
+		mcmsState, err := solanaMCMS.DeployMCMSWithTimelockProgramsSolana(*env, chain, addressBook,
 			commontypes.MCMSWithTimelockConfigV2{
 				Proposer: mcmstypes.Config{
 					Quorum:  1,
@@ -58,10 +59,8 @@ func TestMCMSWithTimelockState_GenerateMCMSWithTimelockViewSolana(t *testing.T) 
 		)
 		require.NoError(t, err)
 		env.ExistingAddresses = addressBook
-		return chainState
+		return mcmsState
 	}
-
-	changeset.SetPreloadedSolanaAddresses(t, env, chainSelector)
 
 	tests := []struct {
 		name    string

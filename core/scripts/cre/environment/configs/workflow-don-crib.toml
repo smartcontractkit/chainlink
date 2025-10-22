@@ -20,7 +20,7 @@
 
 [jd]
   csa_encryption_key = "d1093c0060d50a3c89c189b2e485da5a3ce57f3dcb38ab7e2c0d5f0bb2314a44"
-  image = "localhost:5001/job-distributor:0.12.7"
+  image = "localhost:5001/job-distributor:0.22.1"
 
 [[nodesets]]
   nodes = 5
@@ -36,7 +36,7 @@
 
   env_vars = { CL_EVM_CMD = "" }
 
-  capabilities = ["ocr3", "custom-compute", "web-api-target", "web-api-trigger", "vault", "cron", "consensus"]
+  capabilities = ["ocr3", "custom-compute", "web-api-target", "web-api-trigger", "vault", "cron", "consensus", "don-time"]
 
   [nodesets.chain_capabilities]
     write-evm = ["1337"]

@@ -97,7 +97,7 @@ func startBillingStackIfIsNotRunning(t *testing.T, relativePathToRepoRoot, envir
 			return errors.Wrap(err, "failed to load workflow registry cache")
 		}
 
-		if len(testEnv.WrappedBlockchainOutputs) == 0 {
+		if len(testEnv.CreEnvironment.Blockchains) == 0 {
 			return errors.New("no blockchain outputs found in the test environment")
 		}
 
@@ -125,12 +125,12 @@ func startBillingStackIfIsNotRunning(t *testing.T, relativePathToRepoRoot, envir
 
 		// Select the appropriate chain for billing service from available chains in the environment.
 		// otherwise, if RPCURL is defined, billing service can be used standalone
-		if len(testEnv.WrappedBlockchainOutputs) != 0 {
+		if len(testEnv.CreEnvironment.Blockchains) != 0 {
 			var selectedChain *blockchain.Output
 
-			for _, chain := range testEnv.WrappedBlockchainOutputs {
-				if chain.ChainSelector == cache.ChainSelector {
-					selectedChain = chain.BlockchainOutput
+			for _, chain := range testEnv.CreEnvironment.Blockchains {
+				if chain.ChainSelector() == cache.ChainSelector {
+					selectedChain = chain.CtfOutput()
 				}
 			}
 
@@ -251,7 +251,7 @@ type billingCredit struct {
 func queryCredits(t *testing.T, db *sql.DB) []billingCredit {
 	t.Helper()
 
-	query := "SELECT credits, credits_reserved, created_at, updated_at FROM billing_platform.organization_credits WHERE organization_id = '000000000000'"
+	query := "SELECT credits, credits_reserved, created_at, updated_at FROM billing_platform.organization_credits WHERE organization_id = 'integration-test-aggregation-org-happy-path-odd-quorum'"
 	rows, err := db.QueryContext(t.Context(), query)
 	require.NoError(t, err, "failed to query billing database")
 

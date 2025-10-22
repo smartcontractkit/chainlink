@@ -212,7 +212,7 @@ func TestConfigureCapabilitiesRegistryInput_YAMLSerialization(t *testing.T) {
 		},
 		Nodes: []CapabilitiesRegistryNodeParams{
 			{
-				NodeOperatorID:      1,
+				NOP:                 "test-nop",
 				Signer:              signer1,
 				P2pID:               p2pID1,
 				EncryptionPublicKey: encryptionPublicKey,
@@ -348,7 +348,7 @@ capabilities:
       capabilityType: 0
       responseType: 1
 nodes:
-  - nodeOperatorID: 1
+  - nop: "test-nop"
     signer: ` + signer1 + `
     p2pID: ` + p2pID1 + `
     encryptionPublicKey: ` + encryptionPublicKey + `
@@ -399,7 +399,7 @@ dons:
 	assert.Equal(t, expectedMetadata2, input.Capabilities[1].Metadata)
 
 	require.Len(t, input.Nodes, 1)
-	assert.Equal(t, uint32(1), input.Nodes[0].NodeOperatorID)
+	assert.Equal(t, "test-nop", input.Nodes[0].NOP)
 	assert.Equal(t, []string{"write-chain@1.0.0", "trigger@1.0.0"}, input.Nodes[0].CapabilityIDs)
 	assert.Equal(t, csaKey, input.Nodes[0].CsaKey)
 
@@ -512,7 +512,7 @@ func setupCapabilitiesRegistryWithMCMS(t *testing.T) *testFixture {
 	// Create nodes
 	nodes := []CapabilitiesRegistryNodeParams{
 		{
-			NodeOperatorID:      uint32(1),
+			NOP:                 "test nop1",
 			Signer:              signer1,
 			EncryptionPublicKey: encryptionPublicKey,
 			P2pID:               p2pID1,
@@ -520,7 +520,7 @@ func setupCapabilitiesRegistryWithMCMS(t *testing.T) *testFixture {
 			CsaKey:              csaKey,
 		},
 		{
-			NodeOperatorID:      uint32(2),
+			NOP:                 "test nop2",
 			Signer:              signer2,
 			EncryptionPublicKey: encryptionPublicKey,
 			P2pID:               p2pID2,
@@ -661,7 +661,7 @@ func setupCapabilitiesRegistryTest(t *testing.T) *testFixture {
 
 	nodes := []CapabilitiesRegistryNodeParams{
 		{
-			NodeOperatorID:      uint32(1),
+			NOP:                 "test nop1",
 			Signer:              signer1,
 			EncryptionPublicKey: encryptionPublicKey,
 			P2pID:               p2pID1,
@@ -669,7 +669,7 @@ func setupCapabilitiesRegistryTest(t *testing.T) *testFixture {
 			CsaKey:              csaKey,
 		},
 		{
-			NodeOperatorID:      uint32(2),
+			NOP:                 "test nop2",
 			Signer:              signer2,
 			EncryptionPublicKey: encryptionPublicKey,
 			P2pID:               p2pID2,
@@ -807,11 +807,22 @@ func verifyCapabilitiesRegistryConfiguration(t *testing.T, fixture *testFixture)
 		expectedEncryptionPublicKey, err := pkg.HexStringTo32Bytes(node.EncryptionPublicKey)
 		require.NoError(t, err, "failed to convert encryption public key hex string to bytes")
 
+		nops, err := pkg.GetNodeOperators(nil, capabilitiesRegistry)
+		require.NoError(t, err, "failed to get registered node operators")
 		got, err := capabilitiesRegistry.GetNode(nil, bytes32P2pID)
 		require.NoError(t, err) // careful here: the err is rpc, contract return empty info if it doesn't find the p2p as opposed to non-exist err.
+
+		var nopFoundID int
+		for nopIndex, nop := range nops {
+			if nop.Name == node.NOP {
+				nopFoundID = nopIndex + 1
+				break
+			}
+		}
+
 		assert.Equal(t, expectedEncryptionPublicKey, got.EncryptionPublicKey, "mismatch node encryption public key node %d", i)
 		assert.Equal(t, expectedSigner, got.Signer, "mismatch node signer node %d", i)
-		assert.Equal(t, node.NodeOperatorID, got.NodeOperatorId, "mismatch node operator id node %d", i)
+		assert.Equal(t, uint32(nopFoundID), got.NodeOperatorId, "mismatch node operator id node %d", i) //nolint:gosec // G115
 		assert.Equal(t, node.CapabilityIDs, got.CapabilityIds, "mismatch node hashed capability ids node %d", i)
 		assert.Equal(t, [32]byte(bytes32P2pID), got.P2pId, "mismatch node p2p id node %d", i)
 		assert.Equal(t, expectedCsaKey, got.CsaKey, "mismatch node CSA key node %d", i)

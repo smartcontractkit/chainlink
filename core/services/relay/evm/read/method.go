@@ -159,7 +159,6 @@ func (b *MethodBinding) GetLatestValueWithHeadData(ctx context.Context, addr com
 
 	callMsg := ethereum.CallMsg{
 		To:   &addr,
-		From: addr,
 		Data: data,
 	}
 

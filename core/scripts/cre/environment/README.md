@@ -453,17 +453,17 @@ Other environment variables:
 
 # Job Distributor Image
 
-Tests require a local Job Distributor image. By default, configs expect version `job-distributor:0.12.7`.
+Tests require a local Job Distributor image. By default, configs expect version `job-distributor:0.22.1`.
 
 To build locally:
 ```bash
 git clone https://github.com/smartcontractkit/job-distributor
 cd job-distributor
-git checkout v0.12.7
-docker build -t job-distributor:0.12.7 -f e2e/Dockerfile.e2e .
+git checkout v0.22.1
+docker build -t job-distributor:0.22.1 -f e2e/Dockerfile.e2e .
 ```
 
-If you pull the image from the PRO ECR remember to either update the image name in [TOML config](./configs/) for your chosed topology or to tag that image as `job-distributor:0.12.7`.
+If you pull the image from the PRO ECR remember to either update the image name in [TOML config](./configs/) for your chosed topology or to tag that image as `job-distributor:0.22.1`.
 
 ## Example Workflows
 

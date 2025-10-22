@@ -129,6 +129,7 @@ func (m *LoopRegistry) Register(id string) (*RegisteredLoop, error) {
 		envCfg.ChipIngressEndpoint = m.cfgTelemetry.ChipIngressEndpoint()
 		envCfg.ChipIngressInsecureConnection = m.cfgTelemetry.ChipIngressInsecureConnection()
 		envCfg.TelemetryLogStreamingEnabled = m.cfgTelemetry.LogStreamingEnabled()
+		envCfg.TelemetryLogLevel = m.cfgTelemetry.LogLevel()
 	}
 	m.lggr.Debugf("Registered loopp %q with port %d", id, envCfg.PrometheusPort)
 

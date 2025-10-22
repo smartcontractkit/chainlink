@@ -12,12 +12,11 @@ import (
 
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/keystone/generated/balance_reader"
 	"github.com/smartcontractkit/chainlink/core/scripts/cre/environment/examples/contracts/permissionless_feeds_consumer"
-
-	creenv "github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment"
+	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment"
 )
 
 func PermissionlessFeedsConsumer(rpcURL string) (*common.Address, error) {
-	if pkErr := creenv.SetDefaultPrivateKeyIfEmpty(blockchain.DefaultAnvilPrivateKey); pkErr != nil {
+	if pkErr := environment.SetDefaultPrivateKeyIfEmpty(blockchain.DefaultAnvilPrivateKey); pkErr != nil {
 		return nil, pkErr
 	}
 
@@ -45,7 +44,7 @@ func PermissionlessFeedsConsumer(rpcURL string) (*common.Address, error) {
 }
 
 func BalanceReader(rpcURL string) (*common.Address, error) {
-	if pkErr := creenv.SetDefaultPrivateKeyIfEmpty(blockchain.DefaultAnvilPrivateKey); pkErr != nil {
+	if pkErr := environment.SetDefaultPrivateKeyIfEmpty(blockchain.DefaultAnvilPrivateKey); pkErr != nil {
 		return nil, pkErr
 	}
 

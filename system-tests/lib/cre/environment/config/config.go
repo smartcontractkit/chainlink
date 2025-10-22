@@ -27,7 +27,7 @@ import (
 )
 
 type Config struct {
-	Blockchains       []blockchain.Input              `toml:"blockchains" validate:"required"`
+	Blockchains       []*blockchain.Input             `toml:"blockchains" validate:"required"`
 	NodeSets          []*cre.CapabilitiesAwareNodeSet `toml:"nodesets" validate:"required"`
 	JD                *jd.Input                       `toml:"jd" validate:"required"`
 	Infra             *infra.Provider                 `toml:"infra" validate:"required"`

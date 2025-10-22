@@ -7,7 +7,7 @@ import (
 
 	"github.com/smartcontractkit/quarantine"
 
-	"github.com/smartcontractkit/chainlink/system-tests/lib/cre"
+	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/blockchains"
 	t_helpers "github.com/smartcontractkit/chainlink/system-tests/tests/test-helpers"
 
 	"github.com/smartcontractkit/chainlink-testing-framework/framework"
@@ -72,7 +72,7 @@ func runEVMNegativeTestSuite(t *testing.T, testCases []evmNegativeTest) {
 		t.Run(testName, func(t *testing.T) {
 			testEnv := t_helpers.SetupTestEnvironmentWithConfig(t, t_helpers.GetDefaultTestConfig(t), v2RegistriesFlags...)
 			// TODO remove this when OCR works properly with multiple chains in Local CRE
-			testEnv.WrappedBlockchainOutputs = []*cre.WrappedBlockchainOutput{testEnv.WrappedBlockchainOutputs[0]}
+			testEnv.CreEnvironment.Blockchains = []blockchains.Blockchain{testEnv.CreEnvironment.Blockchains[0]}
 
 			// Check if test name contains "write" to determine which test function to run
 			if strings.Contains(strings.ToLower(testName), "writereport") {

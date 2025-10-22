@@ -8,6 +8,7 @@ import (
 	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
 
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset/state"
+	"github.com/smartcontractkit/chainlink/deployment/cre/capabilities_registry/v2/changeset/operations/contracts"
 	"github.com/smartcontractkit/chainlink/deployment/cre/capabilities_registry/v2/changeset/pkg"
 	"github.com/smartcontractkit/chainlink/deployment/cre/capabilities_registry/v2/changeset/sequences"
 	"github.com/smartcontractkit/chainlink/deployment/cre/common/strategies"
@@ -75,7 +76,7 @@ func (l ConfigureCapabilitiesRegistry) Apply(e cldf.Environment, config Configur
 		capabilities[i] = c
 	}
 
-	nodes := make([]capabilities_registry_v2.CapabilitiesRegistryNodeParams, len(config.Nodes))
+	nodes := make([]contracts.NodesInput, len(config.Nodes))
 	for i, node := range config.Nodes {
 		n, err := node.ToWrapper()
 		if err != nil {
