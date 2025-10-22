@@ -608,7 +608,7 @@ func New() (*capabilities.Capability, error) {
     )
 }
 
-func registerWithV1(donFlags []string, _ *cre.CapabilitiesAwareNodeSet) ([]keystone_changeset.DONCapabilityWithConfig, error) {
+func registerWithV1(donFlags []string, _ *cre.NodeSet) ([]keystone_changeset.DONCapabilityWithConfig, error) {
     var capabilities []keystone_changeset.DONCapabilityWithConfig
 
     if flags.HasFlag(donFlags, flag) {
@@ -681,7 +681,7 @@ func New() (*capabilities.Capability, error) {
     )
 }
 
-func registerWithV1(_ []string, nodeSetInput *cre.CapabilitiesAwareNodeSet) ([]keystone_changeset.DONCapabilityWithConfig, error) {
+func registerWithV1(_ []string, nodeSetInput *cre.NodeSet) ([]keystone_changeset.DONCapabilityWithConfig, error) {
     capabilities := make([]keystone_changeset.DONCapabilityWithConfig, 0)
 
     if nodeSetInput == nil {

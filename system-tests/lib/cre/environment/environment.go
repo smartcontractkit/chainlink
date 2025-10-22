@@ -56,22 +56,22 @@ type SetupOutput struct {
 }
 
 type SetupInput struct {
-	CapabilitiesAwareNodeSets []*cre.CapabilitiesAwareNodeSet
-	BlockchainsInput          []*blockchain.Input
-	JdInput                   *jd.Input
-	Provider                  infra.Provider
-	ContractVersions          map[string]string
-	WithV2Registries          bool
-	OCR3Config                *keystone_changeset.OracleConfig
-	DONTimeConfig             *keystone_changeset.OracleConfig
-	VaultOCR3Config           *keystone_changeset.OracleConfig
-	S3ProviderInput           *s3provider.Input
-	CapabilityConfigs         cre.CapabilityConfigs
-	CopyCapabilityBinaries    bool // if true, copy capability binaries to the containers (if false, we assume that the plugins image already has them)
-	Capabilities              []cre.InstallableCapability
-	Features                  cre.Features
-	GatewayWhitelistConfig    gateway.WhitelistConfig
-	BlockchainDeployers       map[blockchain.ChainFamily]blockchains.Deployer
+	NodeSets               []*cre.NodeSet
+	BlockchainsInput       []*blockchain.Input
+	JdInput                *jd.Input
+	Provider               infra.Provider
+	ContractVersions       map[string]string
+	WithV2Registries       bool
+	OCR3Config             *keystone_changeset.OracleConfig
+	DONTimeConfig          *keystone_changeset.OracleConfig
+	VaultOCR3Config        *keystone_changeset.OracleConfig
+	S3ProviderInput        *s3provider.Input
+	CapabilityConfigs      cre.CapabilityConfigs
+	CopyCapabilityBinaries bool // if true, copy capability binaries to the containers (if false, we assume that the plugins image already has them)
+	Capabilities           []cre.InstallableCapability
+	Features               cre.Features
+	GatewayWhitelistConfig gateway.WhitelistConfig
+	BlockchainDeployers    map[blockchain.ChainFamily]blockchains.Deployer
 
 	// allow to pass custom transformers for extensibility
 	ConfigFactoryFunctions               []cre.NodeConfigTransformerFn
@@ -86,7 +86,7 @@ func (s *SetupInput) Validate() error {
 		return pkgerrors.New("input is nil")
 	}
 
-	if len(s.CapabilitiesAwareNodeSets) == 0 {
+	if len(s.NodeSets) == 0 {
 		return pkgerrors.New("at least one nodeSet is required")
 	}
 
@@ -170,7 +170,7 @@ func SetupTestEnvironment(
 	fmt.Print(libformat.PurpleText("%s", input.StageGen.WrapAndNext("Workflow and Capability Registry contracts deployed in %.2f seconds", input.StageGen.Elapsed().Seconds())))
 	fmt.Print(libformat.PurpleText("%s", input.StageGen.Wrap("Preparing DONs configuration")))
 
-	topology, tErr := cre.NewTopology(input.CapabilitiesAwareNodeSets, creEnvironment.Provider)
+	topology, tErr := cre.NewTopology(input.NodeSets, creEnvironment.Provider)
 	if tErr != nil {
 		return nil, pkgerrors.Wrap(tErr, "failed to create topology")
 	}
@@ -178,7 +178,7 @@ func SetupTestEnvironment(
 	updatedNodeSets, topoErr := donconfig.PrepareNodeTOMLs(
 		topology,
 		creEnvironment,
-		input.CapabilitiesAwareNodeSets,
+		input.NodeSets,
 		input.Capabilities,
 		input.ConfigFactoryFunctions,
 	)
@@ -290,7 +290,7 @@ func SetupTestEnvironment(
 		JobSpecFactoryFunctions:   jobSpecFactoryFunctions,
 		CreEnvironment:            creEnvironment,
 		Dons:                      dons,
-		CapabilitiesAwareNodeSets: input.CapabilitiesAwareNodeSets,
+		NodeSets:                  input.NodeSets,
 		Capabilities:              input.Capabilities,
 	}
 	_, createJobsErr := operations.ExecuteOperation(deployKeystoneContractsOutput.Env.OperationsBundle, CreateJobsWithJdOp, createJobsDeps, CreateJobsWithJdOpInput{})
@@ -365,7 +365,7 @@ func SetupTestEnvironment(
 			input.ContractVersions[keystone_changeset.CapabilitiesRegistry.String()],
 			""),
 		),
-		NodeSets:                 input.CapabilitiesAwareNodeSets,
+		NodeSets:                 input.NodeSets,
 		WithV2Registries:         input.WithV2Registries,
 		DONCapabilityWithConfigs: make(map[uint64][]keystone_changeset.DONCapabilityWithConfig),
 	}
@@ -428,7 +428,7 @@ func SetupTestEnvironment(
 func appendOutputsToInput(input *SetupInput, nodeSetOutput []*cre.WrappedNodeOutput, blockchains []blockchains.Blockchain, jdOutput *jd.Output) {
 	// append the nodeset output, so that later it can be stored in the cached output, so that we can use the environment again without running setup
 	for idx, nsOut := range nodeSetOutput {
-		input.CapabilitiesAwareNodeSets[idx].Out = nsOut.Output
+		input.NodeSets[idx].Out = nsOut.Output
 	}
 
 	for idx, blockchain := range blockchains {
