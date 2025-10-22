@@ -243,6 +243,7 @@ func Test_RegistrySyncer_WorkflowRegistered_InitiallyPausedV2(t *testing.T) {
 		backendTH = testutils.NewEVMBackendTH(t)
 		db        = pgtest.NewSqlxDB(t)
 		orm       = artifacts.NewWorkflowRegistryDS(db, lggr)
+		lf        = limits.Factory{Logger: lggr}
 
 		giveBinaryURL = "https://original-url.com"
 		donID         = uint32(1)
@@ -276,17 +277,17 @@ func Test_RegistrySyncer_WorkflowRegistered_InitiallyPausedV2(t *testing.T) {
 	giveWorkflow.ID = id
 
 	er := NewEngineRegistry()
-	limiters, err := v2.NewLimiters(limits.Factory{}, nil)
+	limiters, err := v2.NewLimiters(lf, nil)
 	require.NoError(t, err)
-	rl, err := ratelimiter.NewRateLimiter(rlConfig, limits.Factory{})
+	rl, err := ratelimiter.NewRateLimiter(rlConfig, lf)
 	require.NoError(t, err)
 
-	wl, err := syncerlimiter.NewWorkflowLimits(lggr, wlConfig, limits.Factory{})
+	wl, err := syncerlimiter.NewWorkflowLimits(lggr, wlConfig, lf)
 	require.NoError(t, err)
 	wfStore := wfstore.NewInMemoryStore(lggr, clockwork.NewFakeClock())
 	capRegistry := corecaps.NewRegistry(lggr)
 	capRegistry.SetLocalRegistry(&corecaps.TestMetadataRegistry{})
-	store, err := artifacts.NewStore(lggr, orm, fetcherFn, retrieverFn, clockwork.NewFakeClock(), workflowkey.Key{}, emitter, artifacts.WithConfig(artifacts.StoreConfig{
+	store, err := artifacts.NewStore(lggr, orm, fetcherFn, retrieverFn, clockwork.NewFakeClock(), workflowkey.Key{}, emitter, lf, artifacts.WithConfig(artifacts.StoreConfig{
 		ArtifactStorageHost: "storage.chain.link",
 	}))
 	require.NoError(t, err)
@@ -341,6 +342,7 @@ func Test_RegistrySyncer_WorkflowRegistered_InitiallyActivatedV2(t *testing.T) {
 		backendTH = testutils.NewEVMBackendTH(t)
 		db        = pgtest.NewSqlxDB(t)
 		orm       = artifacts.NewWorkflowRegistryDS(db, lggr)
+		lf        = limits.Factory{Logger: lggr}
 
 		giveBinaryURL = "https://original-url.com"
 		donID         = uint32(1)
@@ -374,16 +376,16 @@ func Test_RegistrySyncer_WorkflowRegistered_InitiallyActivatedV2(t *testing.T) {
 	giveWorkflow.ID = id
 
 	er := NewEngineRegistry()
-	limiters, err := v2.NewLimiters(limits.Factory{}, nil)
+	limiters, err := v2.NewLimiters(lf, nil)
 	require.NoError(t, err)
-	rl, err := ratelimiter.NewRateLimiter(rlConfig, limits.Factory{})
+	rl, err := ratelimiter.NewRateLimiter(rlConfig, lf)
 	require.NoError(t, err)
-	wl, err := syncerlimiter.NewWorkflowLimits(lggr, wlConfig, limits.Factory{})
+	wl, err := syncerlimiter.NewWorkflowLimits(lggr, wlConfig, lf)
 	require.NoError(t, err)
 	wfStore := wfstore.NewInMemoryStore(lggr, clockwork.NewFakeClock())
 	capRegistry := corecaps.NewRegistry(lggr)
 	capRegistry.SetLocalRegistry(&corecaps.TestMetadataRegistry{})
-	store, err := artifacts.NewStore(lggr, orm, fetcherFn, retrieverFn, clockwork.NewFakeClock(), workflowkey.Key{}, emitter, artifacts.WithConfig(artifacts.StoreConfig{
+	store, err := artifacts.NewStore(lggr, orm, fetcherFn, retrieverFn, clockwork.NewFakeClock(), workflowkey.Key{}, emitter, lf, artifacts.WithConfig(artifacts.StoreConfig{
 		ArtifactStorageHost: "storage.chain.link",
 	}))
 	require.NoError(t, err)

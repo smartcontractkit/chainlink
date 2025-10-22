@@ -32,6 +32,7 @@ import (
 	vaultMock "github.com/smartcontractkit/chainlink-common/pkg/capabilities/actions/vault/mock"
 	capabilitiespb "github.com/smartcontractkit/chainlink-common/pkg/capabilities/pb"
 	"github.com/smartcontractkit/chainlink-common/pkg/custmsg"
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/services/servicetest"
 	"github.com/smartcontractkit/chainlink-common/pkg/settings"
 	"github.com/smartcontractkit/chainlink-common/pkg/settings/cresettings"
@@ -47,7 +48,6 @@ import (
 	coreCap "github.com/smartcontractkit/chainlink/v2/core/capabilities"
 	capmocks "github.com/smartcontractkit/chainlink/v2/core/capabilities/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/wasmtest"
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	workflowEvents "github.com/smartcontractkit/chainlink/v2/core/services/workflows/events"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/metering"
 	metmocks "github.com/smartcontractkit/chainlink/v2/core/services/workflows/metering/mocks"
@@ -98,7 +98,7 @@ func TestEngine_Init(t *testing.T) {
 
 func TestEngine_Start_RateLimited(t *testing.T) {
 	t.Parallel()
-	sLimiter, err := syncerlimiter.NewWorkflowLimits(logger.TestLogger(t), syncerlimiter.Config{
+	sLimiter, err := syncerlimiter.NewWorkflowLimits(logger.Test(t), syncerlimiter.Config{
 		Global:   2,
 		PerOwner: 1,
 	}, limits.Factory{})
@@ -692,7 +692,7 @@ func TestEngine_Metering_ValidBillingClient(t *testing.T) {
 	cfg := defaultTestConfig(t, func(cfg *cresettings.Workflows) {
 		cfg.CapabilityCallTimeout.DefaultValue = 50 * time.Millisecond
 	})
-	cfg.Lggr, logs = logger.TestLoggerObserved(t, zapcore.ErrorLevel)
+	cfg.Lggr, logs = logger.TestObserved(t, zapcore.ErrorLevel)
 	cfg.Module = module
 	cfg.CapRegistry = capreg
 	cfg.BillingClient = billingClient
@@ -1193,9 +1193,9 @@ func TestEngine_CapabilityCallTimeout(t *testing.T) {
 
 func TestEngine_WASMBinary_Simple(t *testing.T) {
 	cmd := "core/services/workflows/test/wasm/v2/cmd"
-	log := logger.TestLogger(t)
+	log := logger.Test(t)
 	binaryB := wasmtest.CreateTestBinary(cmd, false, t)
-	module, err := host.NewModule(&host.ModuleConfig{
+	module, err := host.NewModule(t.Context(), &host.ModuleConfig{
 		Logger:         log,
 		IsUncompressed: true,
 	}, binaryB)
@@ -1295,6 +1295,7 @@ func TestEngine_WASMBinary_Simple(t *testing.T) {
 	})
 }
 
+// TODO fix
 func TestEngine_WASMBinary_With_Config(t *testing.T) {
 	cmd := "core/services/workflows/test/wasm/v2/cmd/with_config"
 	binaryB := wasmtest.CreateTestBinary(cmd, false, t)
@@ -1303,9 +1304,9 @@ func TestEngine_WASMBinary_With_Config(t *testing.T) {
 	giveName := "Foo"
 	giveNum := int32(42)
 	config := fmt.Appendf(nil, "name: %s\nnumber: %d\n", giveName, giveNum)
-	wasmLogger := logger.NewMockLogger(t)
-	module, err := host.NewModule(&host.ModuleConfig{
-		Logger:         wasmLogger,
+
+	module, err := host.NewModule(t.Context(), &host.ModuleConfig{
+		Logger:         logger.Test(t),
 		IsUncompressed: true,
 	}, binaryB)
 	require.NoError(t, err)
@@ -1398,9 +1399,8 @@ func TestSecretsFetcher_Integration(t *testing.T) {
 	giveName := "Foo"
 	giveNum := int32(42)
 	config := fmt.Appendf(nil, "name: %s\nnumber: %d\n", giveName, giveNum)
-	wasmLogger := logger.NewMockLogger(t)
-	module, err := host.NewModule(&host.ModuleConfig{
-		Logger:         wasmLogger,
+	module, err := host.NewModule(t.Context(), &host.ModuleConfig{
+		Logger:         logger.Test(t),
 		IsUncompressed: true,
 	}, binaryB)
 	require.NoError(t, err)

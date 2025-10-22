@@ -525,7 +525,7 @@ func (h *eventHandler) engineFactoryFn(ctx context.Context, workflowID string, o
 	moduleConfig := &host.ModuleConfig{Logger: h.lggr, Labeler: h.emitter}
 
 	h.lggr.Debugf("Creating module for workflowID %s", workflowID)
-	module, err := host.NewModule(moduleConfig, binary, host.WithDeterminism())
+	module, err := host.NewModule(ctx, moduleConfig, binary, host.WithDeterminism())
 	if err != nil {
 		return nil, fmt.Errorf("could not instantiate module: %w", err)
 	}

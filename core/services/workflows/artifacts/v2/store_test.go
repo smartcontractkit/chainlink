@@ -5,13 +5,14 @@ import (
 	"database/sql"
 	"encoding/base64"
 	"encoding/hex"
+	"testing"
 	"time"
 
 	"github.com/jonboulle/clockwork"
 
-	"testing"
-
+	"github.com/smartcontractkit/chainlink-common/pkg/contexts"
 	"github.com/smartcontractkit/chainlink-common/pkg/custmsg"
+	"github.com/smartcontractkit/chainlink-common/pkg/settings/limits"
 	storage_service "github.com/smartcontractkit/chainlink-protos/storage-service/go"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	ghcapabilities "github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers/capabilities"
@@ -76,6 +77,7 @@ func Test_Store_DeleteWorkflowArtifacts(t *testing.T) {
 		clockwork.NewFakeClock(),
 		encryptionKey,
 		custmsg.NewLabeler(),
+		limits.Factory{Logger: lggr},
 		WithConfig(StoreConfig{
 			ArtifactStorageHost: "example.com",
 		}),
@@ -124,13 +126,15 @@ func Test_Store_FetchWorkflowArtifacts_WithStorage(t *testing.T) {
 		clockwork.NewFakeClock(),
 		encryptionKey,
 		custmsg.NewLabeler(),
+		limits.Factory{Logger: lggr},
 		WithConfig(StoreConfig{
 			ArtifactStorageHost: "storage.chain.link",
 		}),
 	)
 	require.NoError(t, err)
 
-	binary, config, err := h.FetchWorkflowArtifacts(testutils.Context(t), workflowID, binaryURL, configURL)
+	ctx := contexts.WithCRE(testutils.Context(t), contexts.CRE{Workflow: workflowID})
+	binary, config, err := h.FetchWorkflowArtifacts(ctx, workflowID, binaryURL, configURL)
 	require.NoError(t, err)
 	require.Equal(t, []byte(binaryData), binary)
 	require.Equal(t, []byte(configData), config)
@@ -165,13 +169,15 @@ func Test_Store_FetchWorkflowArtifacts_WithoutStorage(t *testing.T) {
 		clockwork.NewFakeClock(),
 		encryptionKey,
 		custmsg.NewLabeler(),
+		limits.Factory{Logger: lggr},
 		WithConfig(StoreConfig{
 			ArtifactStorageHost: "storage.chain.link",
 		}),
 	)
 	require.NoError(t, err)
 
-	binary, config, err := h.FetchWorkflowArtifacts(testutils.Context(t), workflowID, binaryURL, configURL)
+	ctx := contexts.WithCRE(testutils.Context(t), contexts.CRE{Workflow: workflowID})
+	binary, config, err := h.FetchWorkflowArtifacts(ctx, workflowID, binaryURL, configURL)
 	require.NoError(t, err)
 	require.Equal(t, []byte(binaryData), binary)
 	require.Equal(t, []byte(configData), config)
@@ -206,13 +212,15 @@ func Test_Store_FetchWorkflowArtifacts_SkipsRetrieving(t *testing.T) {
 		clockwork.NewFakeClock(),
 		encryptionKey,
 		custmsg.NewLabeler(),
+		limits.Factory{Logger: lggr},
 		WithConfig(StoreConfig{
 			ArtifactStorageHost: "example.com",
 		}),
 	)
 	require.NoError(t, err)
 
-	binary, config, err := h.FetchWorkflowArtifacts(testutils.Context(t), workflowID, binaryURL, configURL)
+	ctx := contexts.WithCRE(testutils.Context(t), contexts.CRE{Workflow: workflowID})
+	binary, config, err := h.FetchWorkflowArtifacts(ctx, workflowID, binaryURL, configURL)
 	require.NoError(t, err)
 	require.Equal(t, []byte(binaryData), binary)
 	require.Equal(t, []byte(configData), config)
