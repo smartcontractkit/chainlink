@@ -23,11 +23,11 @@ func NewDonNotifier() *DonNotifier {
 func (n *DonNotifier) NotifyDonSet(don capabilities.DON) {
 	n.mu.Lock()
 	defer n.mu.Unlock()
+	n.don = don
 	if !n.notified {
-		n.don = don
-		n.notified = true
 		close(n.ch)
 	}
+	n.notified = true
 }
 
 func (n *DonNotifier) WaitForDon(ctx context.Context) (capabilities.DON, error) {
