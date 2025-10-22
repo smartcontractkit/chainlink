@@ -1125,6 +1125,17 @@ func (s *Shell) beforeNode(c *cli.Context) error {
 		logLevel := s.Config.Telemetry().LogLevel()
 		otelCore := otelzap.NewCore(otelLogger, otelzap.WithLevel(logLevel))
 
+		// Swap out the logger, replacing the old one.
+		err = s.CloseLogger()
+		if err != nil {
+			return err
+		}
+
+		lggr, closeFn := s.LoggerConfig.NewWithCores(otelCore)
+
+		s.Logger = lggr
+		s.CloseLogger = closeFn
+
 		s.SetOtelCore(&otelCore)
 		lggr.Info("Log streaming enabled")
 	}
