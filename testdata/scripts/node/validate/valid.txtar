@@ -442,6 +442,7 @@ BlockBackfillSkip = false
 FinalityDepth = 50
 SafeDepth = 0
 FinalityTagEnabled = true
+SafeTagSupported = true
 LinkContractAddress = '0x514910771AF9Ca656af840dff83E8264EcF986CA'
 LogBackfillBatchSize = 1000
 LogPollInterval = '15s'
