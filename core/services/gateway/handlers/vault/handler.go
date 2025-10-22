@@ -99,9 +99,18 @@ func (ar *activeRequest) copiedResponses() map[string]jsonrpc.Response[json.RawM
 	defer ar.mu.Unlock()
 	copied := make(map[string]jsonrpc.Response[json.RawMessage], len(ar.responses))
 	for k, response := range ar.responses {
-		copiedResponse := *response
-		copiedJSONRawMessage := *response.Result
-		copiedResponse.Result = &copiedJSONRawMessage
+		var copiedResponse jsonrpc.Response[json.RawMessage]
+		if response != nil {
+			copiedResponse = *response
+			if response.Result != nil {
+				copiedResult := *response.Result
+				copiedResponse.Result = &copiedResult
+			}
+			if response.Error != nil {
+				copiedError := *response.Error
+				copiedResponse.Error = &copiedError
+			}
+		}
 		copied[k] = copiedResponse
 	}
 	return copied

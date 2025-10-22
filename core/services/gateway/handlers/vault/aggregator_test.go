@@ -67,7 +67,7 @@ func TestAggregator_Valid_Signatures(t *testing.T) {
 	}
 	resp, err := agg.Aggregate(t.Context(), logger.Test(t), &responses, &currResp)
 	require.NoError(t, err)
-	assert.Equal(t, currResp, resp)
+	assert.Equal(t, &currResp, resp)
 }
 
 func mustRandom(length int) []byte {
@@ -133,7 +133,7 @@ func TestAggregator_Valid_FallsBackToQuorum(t *testing.T) {
 	}
 	resp, err := agg.Aggregate(t.Context(), logger.Test(t), &responses, &currResp)
 	require.NoError(t, err)
-	assert.Equal(t, currResp, resp)
+	assert.Equal(t, &currResp, resp)
 }
 
 func TestAggregator_Valid_FallsBackToQuorum_ExcludesSignaturesInSha(t *testing.T) {
