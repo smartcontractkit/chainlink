@@ -535,9 +535,9 @@ func setupDashboards(setupCfg SetupConfig) error {
 	targetPath := cfg.Observability.TargetPath
 	// Expand ~ to home directory in targetPath if present
 	if strings.HasPrefix(targetPath, "~/") {
-		homeDir, err := os.UserHomeDir()
-		if err != nil {
-			return fmt.Errorf("failed to get user home directory: %w", err)
+		homeDir, homeErr := os.UserHomeDir()
+		if homeErr != nil {
+			return fmt.Errorf("failed to get user home directory: %w", homeErr)
 		}
 		targetPath = filepath.Join(homeDir, targetPath[2:])
 	}
