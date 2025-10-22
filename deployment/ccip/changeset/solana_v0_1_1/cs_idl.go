@@ -414,7 +414,7 @@ func SetAuthorityIDLByCLI(e cldf.Environment, newAuthority, programsPath, progra
 // Discriminator to invoke IDL operations
 const IdlIxTag uint64 = 0x0a69e9a778bcf440
 
-const DefaultIDLMaxSize = 10000 // This is using the max value of creating an IDL account
+const DefaultIDLMaxSize = 10000 // This is using the max value of creating an IDL account https://github.com/solana-foundation/anchor/blob/2a050757609a3c59bd77084a259f5ea64fcebfa6/lang/syn/src/codegen/program/idl.rs#L150
 
 // Number ids of the operations: copied from https://github.com/solana-foundation/anchor/blob/v0.29.0/lang/src/idl.rs#L36
 const (
