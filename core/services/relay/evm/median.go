@@ -19,7 +19,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 	offchain_aggregator_wrapper "github.com/smartcontractkit/chainlink-evm/gethwrappers/offchainaggregator/generated/ocr2/offchainaggregator"
 	"github.com/smartcontractkit/chainlink-evm/pkg/chains/legacyevm"
-	"github.com/smartcontractkit/chainlink/v2/round"
+	"github.com/smartcontractkit/chainlink-evm/pkg/round"
 )
 
 var _ median.MedianContract = &medianContract{}
