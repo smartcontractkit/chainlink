@@ -272,8 +272,8 @@ func VerifyRequestJWT[T any](tokenString string, req jsonrpc.Request[T], opts ..
 	if verifiedClaims.IssuedAt == nil {
 		return nil, gethcommon.Address{}, errors.New("issuedAt (iat) is required but missing")
 	}
-	now := time.Now()
-	if verifiedClaims.IssuedAt.Time.After(now) {
+	issuedAt := verifiedClaims.IssuedAt
+	if issuedAt.After(time.Now()) {
 		return nil, gethcommon.Address{}, errors.New("issuedAt (iat) is in the future")
 	}
 	duration := verifiedClaims.ExpiresAt.Sub(verifiedClaims.IssuedAt.Time)
