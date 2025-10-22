@@ -26,6 +26,7 @@ import (
 	suiBind "github.com/smartcontractkit/chainlink-sui/bindings/bind"
 	sui_cs "github.com/smartcontractkit/chainlink-sui/deployment/changesets"
 	sui_ops "github.com/smartcontractkit/chainlink-sui/deployment/ops"
+
 	// ccipops "github.com/smartcontractkit/chainlink-sui/deployment/ops/ccip"
 	burnminttokenpoolops "github.com/smartcontractkit/chainlink-sui/deployment/ops/ccip_burn_mint_token_pool"
 	suiofframp_helper "github.com/smartcontractkit/chainlink-sui/relayer/chainwriter/ptb/offramp"
@@ -225,14 +226,14 @@ func SendSuiCCIPRequest(e cldf.Environment, cfg *ccipclient.CCIPSendReqConfig) (
 		typeArgsList := []string{}
 		typeParamsList := []string{}
 		paramTypes := []string{
-			"vector<u8>",
+			"address",
 		}
 
 		// For SUI -> EVM BurnMint Pool token Transfer, we can use msg.Receiver as tokenReceiver, this field is only used in usdc token pool
 		// bc we need to check the recipient with Circle's packages from the onramp side before sending USDC. and it's not used anyway else.
 		decodedTokenReceiver, _ := hex.DecodeString("0000000000000000000000000000000000000000000000000000000000000000")
-		var tokenReceiver [32]byte
-		copy(tokenReceiver[:], decodedTokenReceiver)
+		// var tokenReceiver [32]byte
+		// copy(tokenReceiver[:], decodedTokenReceiver)
 
 		paramValues := []any{
 			decodedTokenReceiver,
@@ -388,14 +389,16 @@ func SendSuiCCIPRequest(e cldf.Environment, cfg *ccipclient.CCIPSendReqConfig) (
 	typeArgsList := []string{}
 	typeParamsList := []string{}
 	paramTypes := []string{
-		"vector<u8>",
+		"address", // TODO: change this to vector<u8> when the contracts are updated
 	}
 
 	// For SUI -> EVM BurnMint Pool token Transfer, we can use msg.Receiver as tokenReceiver, this field is only used in usdc token pool
 	// bc we need to check the recipient with Circle's packages from the onramp side before sending USDC. and it's not used anyway else.
 	decodedTokenReceiver, _ := hex.DecodeString("0000000000000000000000000000000000000000000000000000000000000000")
-	var tokenReceiver [32]byte
-	copy(tokenReceiver[:], decodedTokenReceiver)
+
+	// TODO: uncomment this when the contracts are updated to use vector<u8>
+	// var tokenReceiver []byte
+	// copy(tokenReceiver[:], decodedTokenReceiver)
 
 	paramValues := []any{
 		decodedTokenReceiver,
