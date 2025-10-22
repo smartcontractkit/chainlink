@@ -621,21 +621,21 @@ func (n *Node) RegisterNodeToJobDistributor(ctx context.Context, jd *jd.JobDistr
 	}
 
 	var registerResponse *nodev1.RegisterNodeResponse
-	var err error
 
 	// register the node in the job distributor
-	retry.Do(ctx, retry.WithMaxRetries(4, retry.NewConstant(5*time.Second)), func(ctx context.Context) error {
-		registerResponse, err = jd.RegisterNode(ctx, &nodev1.RegisterNodeRequest{
+	err := retry.Do(ctx, retry.WithMaxRetries(4, retry.NewConstant(5*time.Second)), func(ctx context.Context) error {
+		var rErr error
+		registerResponse, rErr = jd.RegisterNode(ctx, &nodev1.RegisterNodeRequest{
 			PublicKey: strings.TrimPrefix(n.Keys.CSAKey.Key, "csa_"),
 			Labels:    labels,
 			Name:      n.Name,
 		})
 
-		if err != nil {
-			if strings.Contains(err.Error(), "AlreadyExists") {
-				return err
+		if rErr != nil {
+			if strings.Contains(rErr.Error(), "AlreadyExists") {
+				return rErr
 			}
-			return retry.RetryableError(fmt.Errorf("failed to register node %s in JD, retrying..: %w", n.Name, err))
+			return retry.RetryableError(fmt.Errorf("failed to register node %s in JD, retrying..: %w", n.Name, rErr))
 		}
 		return nil
 	})
