@@ -17,7 +17,7 @@
 [jd]
   # change to your version
   csa_encryption_key = "d1093c0060d50a3c89c189b2e485da5a3ce57f3dcb38ab7e2c0d5f0bb2314a44" # any random 32 byte hex string
-  image = "job-distributor:0.12.7"
+  image = "job-distributor:0.22.1"
 
 [fake]
   port = 8171
@@ -51,7 +51,7 @@
 
   env_vars = { CL_EVM_CMD = "" }
 
-  capabilities = ["ocr3", "custom-compute", "mock", "write-solana"]
+  capabilities = ["ocr3", "custom-compute", "mock", "write-solana", "don-time"]
   supported_sol_chains = ["5eykt4UsFv8P8NJdTREpY1vzqKqZKvdpKuc147dw2N9d"]
   #[nodesets.chain_capabilities]
   #  write-evm = ["1337"]

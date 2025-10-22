@@ -111,7 +111,7 @@ func TestBalanceStore(t *testing.T) {
 		assert.True(t, balanceStore.Get().Equal(decimal.NewFromFloat(1.8)), balanceStore.Get())
 	})
 
-	t.Run("spent credits never go negative", func(t *testing.T) {
+	t.Run("spent credits are disconnected from balance updates", func(t *testing.T) {
 		t.Parallel()
 
 		// Start with 10 credits, spend 5, then add back 8 (more than was spent)
@@ -120,10 +120,13 @@ func TestBalanceStore(t *testing.T) {
 
 		// Spend 5 credits
 		require.NoError(t, balanceStore.Minus(five))
-		assert.True(t, balanceStore.GetSpent().Equal(five), "should have spent 5 credits")
+		assert.True(t, balanceStore.GetSpent().Equal(decimal.Zero), "spent amount should not be updated")
 
 		// Add back 8 credits (more than was spent) - spent should not go negative
 		require.NoError(t, balanceStore.Add(eight))
-		assert.True(t, balanceStore.GetSpent().Equal(decimal.Zero), "spent should be 0, not negative")
+		assert.True(t, balanceStore.GetSpent().Equal(decimal.Zero), "spent amount should not be updated")
+
+		balanceStore.AddSpent(five)
+		assert.True(t, balanceStore.GetSpent().Equal(five), "spent amount should reflect actual capability spend")
 	})
 }

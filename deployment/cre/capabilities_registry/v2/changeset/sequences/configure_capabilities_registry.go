@@ -31,7 +31,7 @@ type ConfigureCapabilitiesRegistryInput struct {
 	// TODO(PRODCRE-1030): Remove support for ContractAddress
 	ContractAddress string
 	Nops            []capabilities_registry_v2.CapabilitiesRegistryNodeOperatorParams
-	Nodes           []capabilities_registry_v2.CapabilitiesRegistryNodeParams
+	Nodes           []contracts.NodesInput
 	Capabilities    []capabilities_registry_v2.CapabilitiesRegistryCapability
 	DONs            []capabilities_registry_v2.CapabilitiesRegistryNewDONParams
 }

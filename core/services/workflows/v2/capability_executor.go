@@ -38,8 +38,8 @@ type ExecutionHelper struct {
 func (c *ExecutionHelper) initLimiters(limiters *EngineLimiters) {
 	c.callLimiters = map[capCall]limits.BoundLimiter[int]{
 		capCall{"http-actions", "SendRequest"}: limiters.HTTPActionCalls,
-		capCall{"evm", "FilterLogs"}:           limiters.ChainWriteTargets,
-		capCall{"evm", "WriteReport"}:          limiters.ChainReadCalls,
+		capCall{"evm", "FilterLogs"}:           limiters.ChainReadCalls,
+		capCall{"evm", "WriteReport"}:          limiters.ChainWriteTargets,
 	}
 }
 

@@ -14,14 +14,15 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/vault/changeset/types"
 )
 
-var FundTimelockChangeset = cldf.CreateChangeSet(fundTimelockLogic, fundTimelockPrecondition)
+var FundTimelockChangeset cldf.ChangeSetV2[types.FundTimelockConfig] = fundTimelockChangeset{}
 
-func fundTimelockPrecondition(e cldf.Environment, cfg types.FundTimelockConfig) error {
-	ctx := e.GetContext()
-	return ValidateFundTimelockConfig(ctx, e, cfg)
+type fundTimelockChangeset struct{}
+
+func (f fundTimelockChangeset) VerifyPreconditions(e cldf.Environment, cfg types.FundTimelockConfig) error {
+	return ValidateFundTimelockConfig(e.GetContext(), e, cfg)
 }
 
-func fundTimelockLogic(e cldf.Environment, cfg types.FundTimelockConfig) (cldf.ChangesetOutput, error) {
+func (f fundTimelockChangeset) Apply(e cldf.Environment, cfg types.FundTimelockConfig) (cldf.ChangesetOutput, error) {
 	lggr := e.Logger
 
 	lggr.Infow("Funding timelock contracts",
@@ -35,17 +36,10 @@ func fundTimelockLogic(e cldf.Environment, cfg types.FundTimelockConfig) (cldf.C
 			return cldf.ChangesetOutput{}, fmt.Errorf("chain %d not found in environment", chainSelector)
 		}
 
-		mutableDS := datastore.NewMemoryDataStore()
-		if e.DataStore != nil {
-			if err := mutableDS.Merge(e.DataStore); err != nil {
-				return cldf.ChangesetOutput{}, fmt.Errorf("failed to merge datastore: %w", err)
-			}
-		}
-
 		deps := VaultDeps{
 			Chain:     chain,
 			Auth:      chain.DeployerKey,
-			DataStore: mutableDS,
+			DataStore: e.DataStore,
 		}
 
 		fundInput := FundTimelockInput{
@@ -115,8 +109,8 @@ func GetTimelockBalances(e cldf.Environment, chainSelectors []uint64) (map[uint6
 	return balances, nil
 }
 
-// CalculateFundingRequirements calculates how much funding each timelock needs for planned transfers
-func CalculateFundingRequirements(e cldf.Environment, cfg types.BatchNativeTransferConfig) (map[uint64]*FundingRequirement, error) {
+// calculateFundingRequirements calculates how much funding each timelock needs for planned transfers
+func calculateFundingRequirements(e cldf.Environment, cfg types.BatchNativeTransferConfig) (map[uint64]*FundingRequirement, error) {
 	requirements := make(map[uint64]*FundingRequirement)
 
 	chainSelectors := make([]uint64, 0, len(cfg.TransfersByChain))

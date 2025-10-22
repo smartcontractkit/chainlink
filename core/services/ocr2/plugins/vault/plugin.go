@@ -862,7 +862,7 @@ func validateObservation(o *vaultcommon.Observation) error {
 			return errors.New("UpdateSecrets request and response must have the same number of items")
 		}
 
-		// We disallow duplicate create requests within a single batch request.
+		// We disallow duplicate update requests within a single batch request.
 		// This prevents users from clobbering their own writes.
 		idSet := map[string]bool{}
 		for _, r := range o.GetUpdateSecretsRequest().EncryptedSecrets {
@@ -882,7 +882,7 @@ func validateObservation(o *vaultcommon.Observation) error {
 			return errors.New("DeleteSecrets request and response must have the same number of items")
 		}
 
-		// We disallow duplicate create requests within a single batch request.
+		// We disallow duplicate delete requests within a single batch request.
 		// This prevents users from clobbering their own writes.
 		idSet := map[string]bool{}
 		for _, r := range o.GetDeleteSecretsRequest().Ids {
@@ -1408,8 +1408,8 @@ func (r *ReportingPlugin) stateTransitionListSecretIdentifiers(ctx context.Conte
 }
 
 func (r *ReportingPlugin) Committed(ctx context.Context, seqNr uint64, keyValueReader ocr3_1types.KeyValueReader) error {
-	// Not currently used by the protocol, so we noop here.
-	return nil
+	// Not currently used by the protocol, so we don't implement it.
+	return errors.New("not implemented")
 }
 
 func (r *ReportingPlugin) Reports(ctx context.Context, seqNr uint64, reportsPlusPrecursor ocr3_1types.ReportsPlusPrecursor) ([]ocr3types.ReportPlus[[]byte], error) {

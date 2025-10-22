@@ -438,6 +438,7 @@ func (p *P2PKey) SetFrom(f *P2PKey) (err error) {
 	}
 	return nil
 }
+
 func (p *P2PKey) validateMerge(f *P2PKey) (err error) {
 	if p.JSON != nil && f.JSON != nil {
 		err = errors.Join(err, configutils.ErrOverride{Name: "JSON"})
@@ -683,8 +684,10 @@ func (l *DatabaseLock) Mode() string {
 
 func (l *DatabaseLock) ValidateConfig() (err error) {
 	if l.LeaseRefreshInterval.Duration() > l.LeaseDuration.Duration()/2 {
-		err = errors.Join(err, configutils.ErrInvalid{Name: "LeaseRefreshInterval", Value: l.LeaseRefreshInterval.String(),
-			Msg: fmt.Sprintf("must be less than or equal to half of LeaseDuration (%s)", l.LeaseDuration.String())})
+		err = errors.Join(err, configutils.ErrInvalid{
+			Name: "LeaseRefreshInterval", Value: l.LeaseRefreshInterval,
+			Msg: fmt.Sprintf("must be less than or equal to half of LeaseDuration (%s)", l.LeaseDuration),
+		})
 	}
 	return
 }
@@ -2431,6 +2434,7 @@ type Telemetry struct {
 	ChipIngressEndpoint           *string
 	ChipIngressInsecureConnection *bool
 	HeartbeatInterval             *commonconfig.Duration
+	LogLevel                      *string
 	LogStreamingEnabled           *bool
 }
 
@@ -2470,6 +2474,9 @@ func (b *Telemetry) setFrom(f *Telemetry) {
 	}
 	if v := f.LogStreamingEnabled; v != nil {
 		b.LogStreamingEnabled = v
+	}
+	if v := f.LogLevel; v != nil {
+		b.LogLevel = v
 	}
 }
 

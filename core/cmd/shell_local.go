@@ -1122,7 +1122,7 @@ func (s *Shell) beforeNode(c *cli.Context) error {
 			return errors.New("Shell.SetOtelCore is nil")
 		}
 		otelLogger := beholder.GetLogger()
-		logLevel := s.Config.Log().Level()
+		logLevel := s.Config.Telemetry().LogLevel()
 		otelCore := otelzap.NewCore(otelLogger, otelzap.WithLevel(logLevel))
 
 		s.SetOtelCore(&otelCore)

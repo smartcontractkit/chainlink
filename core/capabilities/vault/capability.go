@@ -163,6 +163,9 @@ func validateWriteRequest(publicKey *tdh2easy.PublicKey, id string, encryptedSec
 	uniqueIDs := map[string]bool{}
 	cipherText := &tdh2easy.Ciphertext{}
 	for idx, req := range encryptedSecrets {
+		if req == nil {
+			return errors.New("encrypted secret must not be nil at index " + strconv.Itoa(idx))
+		}
 		if req.Id == nil {
 			return errors.New("secret ID must not be nil at index " + strconv.Itoa(idx))
 		}
@@ -269,6 +272,9 @@ func ValidateDeleteSecretsRequest(request *vaultcommon.DeleteSecretsRequest) err
 
 	uniqueIDs := map[string]bool{}
 	for idx, id := range request.Ids {
+		if id == nil {
+			return errors.New("secret ID must not be nil at index " + strconv.Itoa(idx))
+		}
 		if id.Key == "" || id.Namespace == "" || id.Owner == "" {
 			return errors.New("secret ID must have key, namespace and owner set at index " + strconv.Itoa(idx) + ": " + id.String())
 		}

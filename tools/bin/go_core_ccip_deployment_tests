@@ -23,7 +23,13 @@ if [[ "$GITHUB_EVENT_NAME" == 'push' ]]; then
 elif [[ "$GITHUB_EVENT_NAME" == 'schedule' ]]; then
   GO_TEST_FLAGS="$GO_TEST_FLAGS -covermode=atomic -coverpkg=./... -coverprofile=coverage.txt"
 elif [[ "$GITHUB_EVENT_NAME" == 'pull_request' || "$GITHUB_EVENT_NAME" == 'merge_group' ]]; then
-  RERUN_FLAGS="--rerun-fails-abort-on-data-race --rerun-fails=3"
+  RERUN_FLAGS=""
+  if [[ "$TRUNK_AUTO_QUARANTINE" != "true" ]]; then
+    echo "TRUNK_AUTO_QUARANTINE disabled, allowing for gotestsum to rerun failed tests"
+    RERUN_FLAGS="--rerun-fails-abort-on-data-race --rerun-fails=3"
+  else
+    echo "TRUNK_AUTO_QUARANTINE enabled, gotestsum will not rerun failed tests"
+  fi
 fi
 
 if [[ "$PRODUCE_JUNIT_XML" == "true" ]]; then
