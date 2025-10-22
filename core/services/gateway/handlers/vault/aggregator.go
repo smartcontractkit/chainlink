@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"strconv"
 
 	"github.com/ethereum/go-ethereum/common"
 
@@ -81,7 +82,7 @@ func (a *baseAggregator) validateUsingQuorum(don capabilities.DON, resps *map[st
 
 	remainingResponses := len(don.Members) - len(*resps)
 	if maxShaToCount+remainingResponses < requiredQuorum {
-		return nil, errors.New(errQuorumUnobtainable.Error() + ": ")
+		return nil, errors.New(errQuorumUnobtainable.Error() + ". RequiredQuorum=" + strconv.Itoa(requiredQuorum) + ". maxShaToCount=" + strconv.Itoa(maxShaToCount) + " remainingResponses=" + strconv.Itoa(remainingResponses))
 	}
 
 	return nil, errInsufficientResponsesForQuorum
