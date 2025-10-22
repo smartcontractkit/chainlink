@@ -56,16 +56,16 @@ func TestAggregator_Valid_Signatures(t *testing.T) {
 	rawResp, err := json.Marshal(sor)
 	require.NoError(t, err)
 
-	currResp := &jsonrpc.Response[json.RawMessage]{
+	currResp := jsonrpc.Response[json.RawMessage]{
 		Version: jsonrpc.JsonRpcVersion,
 		ID:      "1",
 		Method:  vaulttypes.MethodSecretsCreate,
 		Result:  (*json.RawMessage)(&rawResp),
 	}
-	responses := map[string]*jsonrpc.Response[json.RawMessage]{
+	responses := map[string]jsonrpc.Response[json.RawMessage]{
 		"a": currResp,
 	}
-	resp, err := agg.Aggregate(t.Context(), logger.Test(t), responses, currResp)
+	resp, err := agg.Aggregate(t.Context(), logger.Test(t), &responses, &currResp)
 	require.NoError(t, err)
 	assert.Equal(t, currResp, resp)
 }
@@ -116,7 +116,7 @@ func TestAggregator_Valid_FallsBackToQuorum(t *testing.T) {
 	mcr := &mockCapabilitiesRegistry{F: 1, Nodes: nodes}
 	agg := &baseAggregator{capabilitiesRegistry: mcr}
 
-	currResp := &jsonrpc.Response[json.RawMessage]{
+	currResp := jsonrpc.Response[json.RawMessage]{
 		Version: jsonrpc.JsonRpcVersion,
 		ID:      "1",
 		Method:  vaulttypes.MethodSecretsGet,
@@ -126,12 +126,12 @@ func TestAggregator_Valid_FallsBackToQuorum(t *testing.T) {
 			Message: "some error",
 		},
 	}
-	responses := map[string]*jsonrpc.Response[json.RawMessage]{
+	responses := map[string]jsonrpc.Response[json.RawMessage]{
 		"a": currResp,
 		"b": currResp,
 		"c": currResp,
 	}
-	resp, err := agg.Aggregate(t.Context(), logger.Test(t), responses, currResp)
+	resp, err := agg.Aggregate(t.Context(), logger.Test(t), &responses, &currResp)
 	require.NoError(t, err)
 	assert.Equal(t, currResp, resp)
 }
@@ -151,12 +151,12 @@ func TestAggregator_Valid_FallsBackToQuorum_ExcludesSignaturesInSha(t *testing.T
 	oldResp1 := newMessage(t)
 	oldResp2 := newMessage(t)
 	currResp := newMessage(t)
-	responses := map[string]*jsonrpc.Response[json.RawMessage]{
-		"a": oldResp1,
-		"b": oldResp2,
-		"c": currResp,
+	responses := map[string]jsonrpc.Response[json.RawMessage]{
+		"a": *oldResp1,
+		"b": *oldResp2,
+		"c": *currResp,
 	}
-	resp, err := agg.Aggregate(t.Context(), logger.Test(t), responses, currResp)
+	resp, err := agg.Aggregate(t.Context(), logger.Test(t), &responses, currResp)
 	require.NoError(t, err)
 
 	respDigests := []string{}
@@ -177,16 +177,16 @@ func TestAggregator_InsufficientResponses(t *testing.T) {
 	agg := &baseAggregator{capabilitiesRegistry: mcr}
 
 	rm := json.RawMessage([]byte(`{}`))
-	currResp := &jsonrpc.Response[json.RawMessage]{
+	currResp := jsonrpc.Response[json.RawMessage]{
 		Version: jsonrpc.JsonRpcVersion,
 		ID:      "1",
 		Method:  vaulttypes.MethodSecretsGet,
 		Result:  &rm,
 	}
-	responses := map[string]*jsonrpc.Response[json.RawMessage]{
+	responses := map[string]jsonrpc.Response[json.RawMessage]{
 		"a": currResp,
 	}
-	_, err := agg.Aggregate(t.Context(), logger.Test(t), responses, currResp)
+	_, err := agg.Aggregate(t.Context(), logger.Test(t), &responses, &currResp)
 	require.ErrorContains(t, err, "insufficient valid responses to reach quorum")
 }
 
@@ -223,11 +223,11 @@ func TestAggregator_QuorumUnobtainable(t *testing.T) {
 		Method:  vaulttypes.MethodSecretsGet,
 		Result:  &rm3,
 	}
-	responses := map[string]*jsonrpc.Response[json.RawMessage]{
-		"a": resp1,
-		"b": resp2,
-		"c": resp3,
+	responses := map[string]jsonrpc.Response[json.RawMessage]{
+		"a": *resp1,
+		"b": *resp2,
+		"c": *resp3,
 	}
-	_, err := agg.Aggregate(t.Context(), logger.Test(t), responses, resp3)
+	_, err := agg.Aggregate(t.Context(), logger.Test(t), &responses, resp3)
 	require.ErrorContains(t, err, "failed to validate using quorum: quorum unobtainable")
 }
