@@ -312,6 +312,34 @@ func TestVerifyRequestJWT_Integration(t *testing.T) {
 		require.Contains(t, err.Error(), "token is expired")
 	})
 
+	t.Run("should reject JWT with issuedAt in the future", func(t *testing.T) {
+		digest, err := req.Digest()
+		require.NoError(t, err)
+
+		now := time.Now()
+		// issuedAt is 5 mins in the future (invalid)
+		issuedAt := now.Add(5 * time.Minute)
+		// expiresAt is 6 minute in the future (after issuedAt)
+		expiresAt := now.Add(6 * time.Minute)
+
+		claims := JWTClaims{
+			Digest: "0x" + digest,
+			RegisteredClaims: jwt.RegisteredClaims{
+				ID:        "test-jti",
+				ExpiresAt: jwt.NewNumericDate(expiresAt),
+				IssuedAt:  jwt.NewNumericDate(issuedAt),
+			},
+		}
+
+		token := jwt.NewWithClaims(&SigningMethodEth{}, claims)
+		tokenString, err := token.SignedString(privateKey)
+		require.NoError(t, err)
+
+		_, _, err = VerifyRequestJWT(tokenString, req)
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "issuedAt (iat) is in the future")
+	})
+
 	t.Run("should validate that expiredAt exceeds max expiry", func(t *testing.T) {
 		digest, err := req.Digest()
 		require.NoError(t, err)
