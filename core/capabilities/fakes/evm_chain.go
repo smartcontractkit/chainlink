@@ -434,8 +434,8 @@ func (fc *FakeEVMChain) HeaderByNumber(ctx context.Context, metadata commonCap.R
 
 	// Convert the request block number preserving sign.
 	var reqNum *big.Int
-	if input != nil && input.BlockNumber != nil {
-		reqNum = fromProtoBigInt(input.BlockNumber)
+	if input != nil {
+		reqNum = pb.NewIntFromBigInt(input.BlockNumber)
 	}
 
 	// Enforce int64 constraint
@@ -589,22 +589,4 @@ func (fc *FakeEVMChain) dryRunWriteReport(
 		ResponseMetadata: commonCap.ResponseMetadata{},
 	}
 	return &responseAndMetadata, nil
-}
-
-func fromProtoBigInt(b *pb.BigInt) *big.Int {
-	if b == nil {
-		return nil
-	}
-	// Zero shortcut
-	if len(b.AbsVal) == 0 {
-		return big.NewInt(0)
-	}
-	x := new(big.Int).SetBytes(b.AbsVal)
-	switch {
-	case b.Sign < 0:
-		x.Neg(x)
-	case b.Sign == 0:
-		x.SetInt64(0)
-	}
-	return x
 }
