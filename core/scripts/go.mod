@@ -50,8 +50,8 @@ require (
 	github.com/smartcontractkit/chainlink-common v0.9.6-0.20251020192327-c433c5906b14
 	github.com/smartcontractkit/chainlink-data-streams v0.1.6
 	github.com/smartcontractkit/chainlink-deployments-framework v0.56.0
-	github.com/smartcontractkit/chainlink-evm v0.3.4-0.20251021180700-08329c71e5c4
-	github.com/smartcontractkit/chainlink-evm/gethwrappers v0.0.0-20251015115541-729ba0b2b1c1
+	github.com/smartcontractkit/chainlink-evm v0.3.4-0.20251022075638-49d961001d1b
+	github.com/smartcontractkit/chainlink-evm/gethwrappers v0.0.0-20251022075638-49d961001d1b
 	github.com/smartcontractkit/chainlink-protos/cre/go v0.0.0-20251008161434-22d9bd439bba
 	github.com/smartcontractkit/chainlink-protos/job-distributor v0.13.1
 	github.com/smartcontractkit/chainlink-testing-framework/framework v0.11.2
