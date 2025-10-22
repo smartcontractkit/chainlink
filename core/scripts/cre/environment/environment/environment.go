@@ -243,7 +243,6 @@ func startCmd() *cobra.Command {
 		withBeholder             bool
 		withDashboards           bool
 		withBilling              bool
-		protoConfigs             []string
 		setupConfig              SetupConfig
 	)
 
@@ -365,7 +364,6 @@ func startCmd() *cobra.Command {
 				startBeholderErr := startBeholder(
 					cmdContext,
 					cleanupWait,
-					protoConfigs,
 				)
 
 				metaData := map[string]any{}
@@ -490,7 +488,6 @@ func startCmd() *cobra.Command {
 	cmd.Flags().BoolVarP(&withBeholder, "with-beholder", "b", false, "Deploy Beholder (Chip Ingress + Red Panda)")
 	cmd.Flags().BoolVarP(&withDashboards, "with-dashboards", "d", false, "Deploy Observability Stack and Grafana Dashboards")
 	cmd.Flags().BoolVar(&withBilling, "with-billing", false, "Deploy Billing Platform Service")
-	cmd.Flags().StringArrayVarP(&protoConfigs, "with-proto-configs", "c", []string{"./proto-configs/default.toml"}, "Protos configs to use (e.g. './proto-configs/config_one.toml,./proto-configs/config_two.toml')")
 	cmd.Flags().BoolVarP(&doSetup, "auto-setup", "a", false, "Run setup before starting the environment")
 	cmd.Flags().StringVar(&withContractsVersion, "with-contracts-version", "v1", "Version of workflow and capabilities registry contracts to use (v1 or v2)")
 	cmd.Flags().StringVarP(&setupConfig.ConfigPath, "config", "s", DefaultSetupConfigPath, "Path to the TOML configuration file")

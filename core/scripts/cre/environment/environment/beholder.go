@@ -9,9 +9,9 @@ import (
 	"strings"
 	"time"
 
-	"github.com/BurntSushi/toml"
 	"github.com/pkg/errors"
 	"github.com/spf13/cobra"
+	"golang.org/x/mod/modfile"
 
 	"github.com/smartcontractkit/chainlink-testing-framework/framework"
 	chipingressset "github.com/smartcontractkit/chainlink-testing-framework/framework/components/dockercompose/chip_ingress_set"
@@ -21,6 +21,64 @@ import (
 )
 
 const DefaultBeholderConfigFile = "configs/chip-ingress.toml"
+
+// getProtoSchemaSetFromGoMod reads the root go.mod file and extracts the commit ref
+// from the github.com/smartcontractkit/chainlink-protos/workflows/go dependency.
+// It returns a ProtoSchemaSet with hardcoded values matching default.toml config.
+func getProtoSchemaSetFromGoMod() ([]chipingressset.ProtoSchemaSet, error) {
+	// Find the root go.mod file (6 levels up from this file's location)
+	// This file is at: core/scripts/cre/environment/environment/beholder.go
+	// Root is at: go.mod
+	goModPath := filepath.Join(relativePathToRepoRoot, "go.mod")
+	absGoModPath, err := filepath.Abs(goModPath)
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to get absolute path to go.mod")
+	}
+
+	// Read go.mod file
+	goModContent, err := os.ReadFile(absGoModPath)
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to read go.mod file")
+	}
+
+	// Parse go.mod
+	modFile, err := modfile.Parse("go.mod", goModContent, nil)
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to parse go.mod file")
+	}
+
+	// Find the chainlink-protos/workflows/go dependency
+	const targetModule = "github.com/smartcontractkit/chainlink-protos/workflows/go"
+	var commitRef string
+	for _, req := range modFile.Require {
+		if req.Mod.Path == targetModule {
+			// Version format: v0.0.0-YYYYMMDDHHMMSS-SHORTHASH
+			// Extract the short hash after the last hyphen
+			parts := strings.Split(req.Mod.Version, "-")
+			if len(parts) >= 3 {
+				commitRef = parts[len(parts)-1]
+			}
+			break
+		}
+	}
+
+	if commitRef == "" {
+		return nil, errors.Errorf("failed to find %s dependency or extract commit ref from go.mod", targetModule)
+	}
+
+	framework.L.Info().Msgf("Extracted commit ref from go.mod: %s", commitRef)
+
+	// Return ProtoSchemaSet with hardcoded values from default.toml
+	protoSchemaSet := chipingressset.ProtoSchemaSet{
+		URI:           "https://github.com/smartcontractkit/chainlink-protos",
+		Ref:           commitRef,
+		Folders:       []string{"workflows"},
+		SubjectPrefix: "cre-",
+		ExcludeFiles:  []string{},
+	}
+
+	return []chipingressset.ProtoSchemaSet{protoSchemaSet}, nil
+}
 
 func beholderCmds() *cobra.Command {
 	cmd := &cobra.Command{
@@ -39,9 +97,7 @@ func beholderCmds() *cobra.Command {
 
 func startBeholderCmd() *cobra.Command {
 	var (
-		//		withBeholderFlag2             bool
-		protoConfigs []string
-		timeout      time.Duration
+		timeout time.Duration
 	)
 	cmd := &cobra.Command{
 		Use:              "start",
@@ -73,7 +129,7 @@ func startBeholderCmd() *cobra.Command {
 				return fmt.Errorf("failed to set TESTCONTAINERS_RYUK_DISABLED environment variable: %w", setErr)
 			}
 
-			startBeholderErr = startBeholder(cmd.Context(), timeout, protoConfigs)
+			startBeholderErr = startBeholder(cmd.Context(), timeout)
 			if startBeholderErr != nil {
 				// remove the stack if the error is not related to proto registration
 				if !strings.Contains(startBeholderErr.Error(), protoRegistrationErrMsg) {
@@ -89,7 +145,6 @@ func startBeholderCmd() *cobra.Command {
 			return nil
 		},
 	}
-	cmd.Flags().StringArrayVarP(&protoConfigs, "with-proto-configs", "c", []string{"./proto-configs/default.toml"}, "Protos configs to use (e.g. './proto-configs/config_one.toml,./proto-configs/config_two.toml')")
 	cmd.Flags().DurationVarP(&timeout, "wait-on-error-timeout", "w", 15*time.Second, "Wait on error timeout (e.g. 10s, 1m, 1h)")
 
 	return cmd
@@ -131,7 +186,7 @@ func removeBeholderStateFiles(relativePathToRepoRoot string) error {
 
 var protoRegistrationErrMsg = "proto registration failed"
 
-func startBeholder(cmdContext context.Context, cleanupWait time.Duration, protoConfigsFlag []string) (startupErr error) {
+func startBeholder(cmdContext context.Context, cleanupWait time.Duration) (startupErr error) {
 	// just in case, remove the stack if it exists
 	_ = framework.RemoveTestStack(chipingressset.DEFAULT_STACK_NAME)
 
@@ -196,7 +251,12 @@ func startBeholder(cmdContext context.Context, cleanupWait time.Duration, protoC
 	fmt.Print(libformat.PurpleText("%s", stageGen.WrapAndNext("Started Chip Ingress stack in %.2f seconds", stageGen.Elapsed().Seconds())))
 	fmt.Print(libformat.PurpleText("%s", stageGen.Wrap("Registering protos")))
 
-	registerProtosErr := parseConfigsAndRegisterProtos(cmdContext, protoConfigsFlag, out.RedPanda.SchemaRegistryExternalURL)
+	protoSchemaSets, getProtoErr := getProtoSchemaSetFromGoMod()
+	if getProtoErr != nil {
+		return errors.Wrap(getProtoErr, "failed to get proto schema set from go.mod")
+	}
+
+	registerProtosErr := parseConfigsAndRegisterProtos(cmdContext, protoSchemaSets, out.RedPanda.SchemaRegistryExternalURL)
 	if registerProtosErr != nil {
 		return errors.Wrap(registerProtosErr, "failed to register protos")
 	}
@@ -224,26 +284,7 @@ func startBeholder(cmdContext context.Context, cleanupWait time.Duration, protoC
 	return in.Store(envconfig.MustChipIngressStateFileAbsPath(relativePathToRepoRoot))
 }
 
-func parseConfigsAndRegisterProtos(ctx context.Context, protoConfigsFlag []string, schemaRegistryExternalURL string) error {
-	var protoSchemaSets []chipingressset.ProtoSchemaSet
-	for _, protoConfig := range protoConfigsFlag {
-		file, fileErr := os.ReadFile(protoConfig)
-		if fileErr != nil {
-			return errors.Wrap(fileErr, protoRegistrationErrMsg+": failed to read proto config file: "+protoConfig)
-		}
-
-		type wrappedProtoSchemaSets struct {
-			ProtoSchemaSets []chipingressset.ProtoSchemaSet `toml:"proto_schema_sets"`
-		}
-
-		var schemaSets wrappedProtoSchemaSets
-		if err := toml.Unmarshal(file, &schemaSets); err != nil {
-			return errors.Wrap(err, protoRegistrationErrMsg+"failed to unmarshal proto config file: "+protoConfig)
-		}
-
-		protoSchemaSets = append(protoSchemaSets, schemaSets.ProtoSchemaSets...)
-	}
-
+func parseConfigsAndRegisterProtos(ctx context.Context, protoSchemaSets []chipingressset.ProtoSchemaSet, schemaRegistryExternalURL string) error {
 	if len(protoSchemaSets) == 0 {
 		framework.L.Warn().Msg("no proto configs provided, skipping proto registration")
 
@@ -313,8 +354,7 @@ func createKafkaTopicsCmd() *cobra.Command {
 
 func fetchAndRegisterProtosCmd() *cobra.Command {
 	var (
-		schemaURL    string
-		protoConfigs []string
+		schemaURL string
 	)
 	cmd := &cobra.Command{
 		Use:              "register-protos",
@@ -327,14 +367,14 @@ func fetchAndRegisterProtosCmd() *cobra.Command {
 				schemaURL = "http://localhost:" + chipingressset.DEFAULT_RED_PANDA_SCHEMA_REGISTRY_PORT
 			}
 
-			if len(protoConfigs) == 0 {
-				protoConfigs = []string{"./proto-configs/default.toml"}
+			protoSchemaSets, getProtoErr := getProtoSchemaSetFromGoMod()
+			if getProtoErr != nil {
+				return errors.Wrap(getProtoErr, "failed to get proto schema set from go.mod")
 			}
 
-			return parseConfigsAndRegisterProtos(cmd.Context(), protoConfigs, schemaURL)
+			return parseConfigsAndRegisterProtos(cmd.Context(), protoSchemaSets, schemaURL)
 		},
 	}
 	cmd.Flags().StringVarP(&schemaURL, "red-panda-schema-registry-url", "r", "http://localhost:"+chipingressset.DEFAULT_RED_PANDA_SCHEMA_REGISTRY_PORT, "Red Panda Schema Registry URL")
-	cmd.Flags().StringArrayVarP(&protoConfigs, "with-proto-configs", "c", []string{"./proto-configs/default.toml"}, "Protos configs to use (e.g. './proto-configs/config_one.toml,./proto-configs/config_two.toml')")
 	return cmd
 }
