@@ -528,7 +528,7 @@ EnforceRepeatableRead = true
 DeathDeclarationDelay = '1m0s'
 NewHeadsPollInterval = '0s'
 VerifyChainID = true
-ExternalRequestMaxResponseSize = 15000
+ExternalRequestMaxResponseSize = 50000
 
 [EVM.OCR]
 ContractConfirmations = 4

@@ -483,7 +483,7 @@ VerifyChainID = true # Default
 # Only CRE workflow requests are considered external requests.
 # Only applies for RPCs configured with HTTP urls. There is no limit for WS only RPCs.
 # Set to 0 to disable the size check and allow responses of any size.
-ExternalRequestMaxResponseSize = 15000 # Default
+ExternalRequestMaxResponseSize = 50000 # Default
 # **ADVANCED**
 # Errors enable the node to provide custom regex patterns to match against error messages from RPCs.
 [EVM.NodePool.Errors]
