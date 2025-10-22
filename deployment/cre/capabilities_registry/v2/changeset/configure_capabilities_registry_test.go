@@ -101,8 +101,8 @@ func suite(t *testing.T, fixture *testFixture) {
 		// No need to configure more than once here to test idempotency
 		t.Log("Starting second capabilities registry configuration...")
 		configureOutput1, err := ConfigureCapabilitiesRegistry{}.Apply(fixture.env, fixture.configureInput)
-		assert.Error(t, err, "second configuration should partially succeed - DON name should be taken")
-		assert.ErrorContains(t, err, "failed to call AddDONs: contract error: error -`DONNameAlreadyTaken` args [test-don-1]", "DON name should be taken")
+		require.Error(t, err, "second configuration should partially succeed - DON name should be taken")
+		require.ErrorContains(t, err, "failed to call AddDONs: contract error: error -`DONNameAlreadyTaken` args [test-don-1]", "DON name should be taken")
 		assert.NotNil(t, configureOutput1, "second configuration output should not be nil")
 		t.Logf("Second configuration completed successfully")
 
