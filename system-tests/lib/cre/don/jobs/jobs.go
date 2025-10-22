@@ -15,7 +15,7 @@ import (
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre"
 )
 
-func Create(ctx context.Context, offChainClient cldf_offchain.Client, donTopology *cre.DonTopology, jobSpecs cre.DonJobs) error {
+func Create(ctx context.Context, offChainClient cldf_offchain.Client, dons *cre.Dons, jobSpecs cre.DonJobs) error {
 	if len(jobSpecs) == 0 {
 		return nil
 	}
@@ -34,7 +34,7 @@ func Create(ctx context.Context, offChainClient cldf_offchain.Client, donTopolog
 				return fmt.Errorf("failed to propose job for node %s: %w", jobReq.NodeId, pErr)
 			}
 
-			for _, don := range donTopology.Dons.List() {
+			for _, don := range dons.List() {
 				for _, node := range don.Nodes {
 					if node.JobDistributorDetails.NodeID != jobReq.NodeId {
 						continue

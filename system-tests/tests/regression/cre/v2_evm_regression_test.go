@@ -186,7 +186,7 @@ func EVMReadFailsTest(t *testing.T, testEnv *ttypes.TestEnvironment, evmNegative
 	const workflowFileLocation = "./evm/evmread-negative/main.go"
 	enabledChains := t_helpers.GetEVMEnabledChains(t, testEnv)
 
-	for _, bcOutput := range testEnv.Blockchains {
+	for _, bcOutput := range testEnv.CreEnvironment.Blockchains {
 		chainID := bcOutput.CtfOutput().ChainID
 		chainSelector := bcOutput.ChainSelector()
 		creEnvironment := testEnv.CreEnvironment
@@ -255,7 +255,7 @@ func EVMWriteFailsTest(t *testing.T, testEnv *ttypes.TestEnvironment, evmNegativ
 	const workflowFileLocation = "./evm/evmwrite-negative/main.go"
 	enabledChains := t_helpers.GetEVMEnabledChains(t, testEnv)
 
-	for _, bcOutput := range testEnv.Blockchains {
+	for _, bcOutput := range testEnv.CreEnvironment.Blockchains {
 		chainID := bcOutput.ChainID()
 		chainSelector := bcOutput.ChainSelector()
 		creEnvironment := testEnv.CreEnvironment

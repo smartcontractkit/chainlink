@@ -183,7 +183,7 @@ ctf bs r
 ```
 ---
 
-## Debugging core nodes 
+## Debugging core nodes
 Before start the environment set the `CTF_CLNODE_DLV` environment variable to `true`
 ```bash
 export CTF_CLNODE_DLV="true"
@@ -440,17 +440,17 @@ Other environment variables:
 
 # Job Distributor Image
 
-Tests require a local Job Distributor image. By default, configs expect version `job-distributor:0.12.7`.
+Tests require a local Job Distributor image. By default, configs expect version `job-distributor:0.22.1`.
 
 To build locally:
 ```bash
 git clone https://github.com/smartcontractkit/job-distributor
 cd job-distributor
-git checkout v0.12.7
-docker build -t job-distributor:0.12.7 -f e2e/Dockerfile.e2e .
+git checkout v0.22.1
+docker build -t job-distributor:0.22.1 -f e2e/Dockerfile.e2e .
 ```
 
-If you pull the image from the PRO ECR remember to either update the image name in [TOML config](./configs/) for your chosed topology or to tag that image as `job-distributor:0.12.7`.
+If you pull the image from the PRO ECR remember to either update the image name in [TOML config](./configs/) for your chosed topology or to tag that image as `job-distributor:0.22.1`.
 
 ## Example Workflows
 
@@ -1444,7 +1444,7 @@ TRON blockchain support is integrated into the CRE environment by configuring TR
 [[nodesets]]
 ...
   [nodesets.chain_capabilities]
-    # Tron is configured as an EVM chain so we can use all the EVM capabilities. 
+    # Tron is configured as an EVM chain so we can use all the EVM capabilities.
     read-contract = ["1337", "3360022319"]
     write-evm = ["1337", "3360022319"]
 ```

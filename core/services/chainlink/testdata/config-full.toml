@@ -361,6 +361,7 @@ EmitterExportTimeout = '1s'
 ChipIngressEndpoint = 'example.com/chip-ingress'
 ChipIngressInsecureConnection = false
 HeartbeatInterval = '1s'
+LogLevel = 'info'
 LogStreamingEnabled = false
 
 [Telemetry.ResourceAttributes]

@@ -41,7 +41,7 @@ func WaitForWorkflowRegistryFiltersRegistration(
 	singleFileLogger logger.Logger,
 	infraType infra.Type,
 	registryChainID uint64,
-	topology *cre.DonTopology,
+	dons *cre.Dons,
 	nodeSetInput []*cre.CapabilitiesAwareNodeSet,
 ) error {
 	// we currently have no way of checking if filters were registered, when code runs in CRIB
@@ -50,7 +50,7 @@ func WaitForWorkflowRegistryFiltersRegistration(
 		return nil
 	}
 
-	return waitForAllNodesToHaveExpectedFiltersRegistered(singleFileLogger, testLogger, registryChainID, topology, nodeSetInput)
+	return waitForAllNodesToHaveExpectedFiltersRegistered(singleFileLogger, testLogger, registryChainID, dons, nodeSetInput)
 }
 
 type OwnershipProofSignaturePayload struct {
@@ -232,8 +232,8 @@ func ConfigureWorkflowRegistry(
 }
 
 // waitForAllNodesToHaveExpectedFiltersRegistered manually checks if all WorkflowRegistry filters used by the LogPoller are registered for all nodes. We want to see if this will help with the flakiness.
-func waitForAllNodesToHaveExpectedFiltersRegistered(singeFileLogger logger.Logger, testLogger zerolog.Logger, homeChainID uint64, donTopology *cre.DonTopology, nodeSetInput []*cre.CapabilitiesAwareNodeSet) error {
-	for donIdx, don := range donTopology.Dons.List() {
+func waitForAllNodesToHaveExpectedFiltersRegistered(singleFileLogger logger.Logger, testLogger zerolog.Logger, homeChainID uint64, dons *cre.Dons, nodeSetInput []*cre.CapabilitiesAwareNodeSet) error {
+	for donIdx, don := range dons.List() {
 		if !flags.HasFlag(don.Flags, cre.WorkflowDON) {
 			continue
 		}
@@ -264,7 +264,7 @@ func waitForAllNodesToHaveExpectedFiltersRegistered(singeFileLogger logger.Logge
 					}
 
 					testLogger.Info().Msgf("Checking if all WorkflowRegistry filters are registered for worker node %d", workerNode.Index)
-					allFilters, filtersErr := getAllFilters(context.Background(), singeFileLogger, big.NewInt(libc.MustSafeInt64(homeChainID)), workerNode.Index, nodeSetInput[donIdx].DbInput.Port)
+					allFilters, filtersErr := getAllFilters(context.Background(), singleFileLogger, big.NewInt(libc.MustSafeInt64(homeChainID)), workerNode.Index, nodeSetInput[donIdx].DbInput.Port)
 					if filtersErr != nil {
 						return errors.Wrap(filtersErr, "failed to get filters")
 					}

@@ -2312,6 +2312,7 @@ EmitterExportTimeout = '1s' # Default
 ChipIngressEndpoint = '' # Default
 ChipIngressInsecureConnection = false # Default
 HeartbeatInterval = '1s' # Default
+LogLevel = "info" # Default
 LogStreamingEnabled = false # Default
 ```
 Telemetry holds OTEL settings.
@@ -2379,6 +2380,12 @@ ChipIngressInsecureConnection disables TLS when connecting to CHIP Ingress.
 HeartbeatInterval = '1s' # Default
 ```
 HeartbeatInterval is the interval at which a the application heartbeat is sent to telemetry backends.
+
+### LogLevel
+```toml
+LogLevel = "info" # Default
+```
+LogLevel sets the log level for telemetry streaming (debug, info, warn, error, crit, panic, fatal)
 
 ### LogStreamingEnabled
 ```toml
