@@ -17,11 +17,13 @@ import (
 	"github.com/smartcontractkit/chainlink-deployments-framework/offchain/jd"
 	nodev1 "github.com/smartcontractkit/chainlink-protos/job-distributor/v1/node"
 	"github.com/smartcontractkit/chainlink-protos/job-distributor/v1/shared/ptypes"
-	"github.com/smartcontractkit/chainlink-testing-framework/framework"
+	keystone_changeset "github.com/smartcontractkit/chainlink/deployment/keystone/changeset"
+	ks_contracts_op "github.com/smartcontractkit/chainlink/deployment/keystone/changeset/operations/contracts"
+
+	"github.com/smartcontractkit/chainlink-testing-framework/framework/clclient"
 	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/blockchain"
 	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/clnode"
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/ptr"
-	clclient "github.com/smartcontractkit/chainlink/deployment/environment/nodeclient"
 	"github.com/smartcontractkit/chainlink/deployment/environment/web/sdk/client"
 
 	chainselectors "github.com/smartcontractkit/chain-selectors"
@@ -99,19 +101,21 @@ func NewRoles(roles []string) (Roles, error) {
 	return result, nil
 }
 
-type DON struct {
+type Don struct {
 	Name string `toml:"name" json:"name"`
 	ID   uint64 `toml:"id" json:"id"`
+	F    uint8  `toml:"f" json:"f"` // max faulty nodes
 
 	Nodes []*Node `toml:"nodes" json:"nodes"`
 
-	Flags             []CapabilityFlag `toml:"flags" json:"flags"` // capabilities and roles
-	chainCapabilities map[string]*ChainCapabilityConfig
+	Flags                     []CapabilityFlag `toml:"flags" json:"flags"` // capabilities and roles
+	chainCapabilityConfigs    map[string]*ChainCapabilityConfig
+	capabilityConfigOverrides map[string]map[string]any
 
 	gh GatewayHelper
 }
 
-func (d *DON) Metadata() *DonMetadata {
+func (d *Don) Metadata() *DonMetadata {
 	dm := &DonMetadata{
 		Name:          d.Name,
 		ID:            d.ID,
@@ -128,7 +132,7 @@ func (d *DON) Metadata() *DonMetadata {
 }
 
 // copied from flags.go to avoid import cycle
-func (d *DON) HasFlag(flag CapabilityFlag) bool {
+func (d *Don) HasFlag(flag CapabilityFlag) bool {
 	if slices.Contains(d.Flags, flag) {
 		return true
 	}
@@ -142,7 +146,7 @@ func (d *DON) HasFlag(flag CapabilityFlag) bool {
 	return false
 }
 
-func (d *DON) Gateway() (*Node, bool) {
+func (d *Don) Gateway() (*Node, bool) {
 	for _, node := range d.Nodes {
 		if node.Roles.Contains(RoleGateway) {
 			return node, true
@@ -153,7 +157,7 @@ func (d *DON) Gateway() (*Node, bool) {
 }
 
 // Currently only one bootstrap node is supported.
-func (d *DON) Bootstrap() (*Node, bool) {
+func (d *Don) Bootstrap() (*Node, bool) {
 	for _, node := range d.Nodes {
 		if node.Roles.Contains(RoleBootstrap) {
 			return node, true
@@ -163,7 +167,16 @@ func (d *DON) Bootstrap() (*Node, bool) {
 	return nil, false
 }
 
-func (d *DON) Workers() ([]*Node, error) {
+func (d *Don) WorkersCount() int {
+	workers, wErr := d.Workers()
+	if wErr != nil {
+		return 0
+	}
+
+	return len(workers)
+}
+
+func (d *Don) Workers() ([]*Node, error) {
 	workers := make([]*Node, 0)
 	for _, node := range d.Nodes {
 		if node.Roles.Contains(RoleWorker) {
@@ -178,7 +191,7 @@ func (d *DON) Workers() ([]*Node, error) {
 	return workers, nil
 }
 
-func (d *DON) JDNodeIDs() []string {
+func (d *Don) JDNodeIDs() []string {
 	nodeIDs := []string{}
 	for _, n := range d.Nodes {
 		nodeIDs = append(nodeIDs, n.JobDistributorDetails.NodeID)
@@ -186,26 +199,40 @@ func (d *DON) JDNodeIDs() []string {
 	return nodeIDs
 }
 
-func (d *DON) RequiresGateway() bool {
+func (d *Don) RequiresGateway() bool {
 	return d.gh.RequiresGateway(d.Flags)
 }
 
-func (d *DON) RequiresWebAPI() bool {
+func (d *Don) RequiresWebAPI() bool {
 	return d.gh.RequiresWebAPI(d.Flags)
 }
 
-func (d *DON) ChainCapabilities() map[string]*ChainCapabilityConfig {
-	return d.chainCapabilities
+func (d *Don) GetChainCapabilityConfigs() map[string]*ChainCapabilityConfig {
+	return d.chainCapabilityConfigs
 }
 
-func NewDON(ctx context.Context, donMetadata *DonMetadata, ctfNodes []*clnode.Output) (*DON, error) {
-	don := &DON{
-		Nodes:             make([]*Node, 0),
-		Name:              donMetadata.Name,
-		ID:                donMetadata.ID,
-		Flags:             donMetadata.Flags,
-		chainCapabilities: donMetadata.ns.ChainCapabilities,
+func (d *Don) GetCapabilityConfigOverrides() map[string]map[string]any {
+	return d.capabilityConfigOverrides
+}
+
+func (d *Don) GetCapabilityFlags() []string {
+	return d.Flags
+}
+
+func (d *Don) GetName() string {
+	return d.Name
+}
+
+func NewDON(ctx context.Context, donMetadata *DonMetadata, ctfNodes []*clnode.Output) (*Don, error) {
+	don := &Don{
+		Nodes:                     make([]*Node, 0),
+		Name:                      donMetadata.Name,
+		ID:                        donMetadata.ID,
+		Flags:                     donMetadata.Flags,
+		chainCapabilityConfigs:    donMetadata.ns.ChainCapabilities,
+		capabilityConfigOverrides: donMetadata.ns.CapabilityOverrides,
 	}
+
 	mu := &sync.Mutex{}
 
 	errgroup := errgroup.Group{}
@@ -228,10 +255,21 @@ func NewDON(ctx context.Context, donMetadata *DonMetadata, ctfNodes []*clnode.Ou
 		return nil, fmt.Errorf("failed to create new nodes in DON: %w", err)
 	}
 
+	forwarderF := (don.WorkersCount() - 1) / 3
+	if forwarderF == 0 {
+		if don.HasFlag(ConsensusCapability) || don.HasFlag(ConsensusCapabilityV2) {
+			return nil, fmt.Errorf("incorrect number of worker nodes: %d. Resulting F must conform to formula: mod((N-1)/3) > 0", don.WorkersCount())
+		}
+		// for other capabilities, we can use 1 as F
+		forwarderF = 1
+	}
+
+	don.F = uint8(forwarderF) //nolint:gosec //will never happen, we don't use more than 31 nodes
+
 	return don, nil
 }
 
-func RegisterWithJD(ctx context.Context, d *DON, supportedChains []blockchains.Blockchain, jd *jd.JobDistributor) error {
+func RegisterWithJD(ctx context.Context, d *Don, supportedChains []blockchains.Blockchain, jd *jd.JobDistributor) error {
 	mu := &sync.Mutex{}
 
 	errgroup := errgroup.Group{}
@@ -283,13 +321,14 @@ type Node struct {
 	Name                  string                 `toml:"name" json:"name"`
 	Host                  string                 `toml:"host" json:"host"`
 	Index                 int                    `toml:"index" json:"index"`
+	UUID                  string                 `toml:"uuid" json:"uuid"`
 	Keys                  *secrets.NodeKeys      `toml:"-" json:"-"`
 	Addresses             Addresses              `toml:"addresses" json:"addresses"`
 	JobDistributorDetails *JobDistributorDetails `toml:"job_distributor_details" json:"job_distributor_details"`
 	Roles                 Roles                  `toml:"roles" json:"roles"`
 
 	Clients NodeClients `toml:"-" json:"-"`
-	DON     DON         `toml:"-" json:"-"`
+	DON     Don         `toml:"-" json:"-"`
 }
 
 func (n *Node) Metadata() *NodeMetadata {
@@ -298,6 +337,7 @@ func (n *Node) Metadata() *NodeMetadata {
 		Keys:  n.Keys,
 		Roles: n.Roles.Strings(),
 		Host:  n.Host,
+		UUID:  n.UUID,
 	}
 
 	if node.Keys == nil {
@@ -328,13 +368,13 @@ func NewNode(ctx context.Context, name string, nodeMetadata *NodeMetadata, ctfNo
 		return nil, fmt.Errorf("failed to create node graphql client: %w", gqErr)
 	}
 
-	chainlinkClient, cErr := clclient.NewChainlinkClient(&clclient.ChainlinkConfig{
+	chainlinkClient, cErr := clclient.NewChainlinkClient(&clclient.Config{
 		URL:         ctfNode.Node.ExternalURL,
 		Email:       ctfNode.Node.APIAuthUser,
 		Password:    ctfNode.Node.APIAuthPassword,
 		InternalIP:  ctfNode.Node.InternalIP,
 		HTTPTimeout: ptr.Ptr(10 * time.Second),
-	}, framework.L)
+	})
 	if cErr != nil {
 		return nil, fmt.Errorf("failed to create node rest client: %w", cErr)
 	}
@@ -349,6 +389,7 @@ func NewNode(ctx context.Context, name string, nodeMetadata *NodeMetadata, ctfNo
 		Keys:  nodeMetadata.Keys,
 		Roles: MustNewRoles(nodeMetadata.Roles),
 		Host:  nodeMetadata.Host,
+		UUID:  nodeMetadata.UUID,
 	}
 
 	for i, role := range nodeMetadata.Roles {
@@ -754,7 +795,7 @@ func (n *Node) ApproveProposals(ctx context.Context, proposalIDs []string) error
 	return nil
 }
 
-func (n *Node) ExportOCR2Keys(id string) (*clclient.OCR2ExportKey, error) {
+func (n *Node) ExportOCR2Keys(id string) (*clclient.ExportedOCR2Key, error) {
 	keys, _, err := n.Clients.RestClient.ExportOCR2Key(id)
 	if err != nil {
 		return nil, err
@@ -767,7 +808,9 @@ func LinkToJobDistributor(ctx context.Context, input *LinkDonsToJDInput) (*cldf.
 		return nil, errors.New("input is nil")
 	}
 
-	for idx, don := range input.DONs {
+	var nodeIDs []string
+
+	for idx, don := range input.Dons.List() {
 		supportedChains, schErr := FindDONsSupportedChains(input.Topology.DonsMetadata.List()[idx], input.Blockchains)
 		if schErr != nil {
 			return nil, errors.Wrap(schErr, "failed to find supported chains for DON")
@@ -776,10 +819,6 @@ func LinkToJobDistributor(ctx context.Context, input *LinkDonsToJDInput) (*cldf.
 		if err := RegisterWithJD(ctx, don, supportedChains, input.JDClient); err != nil {
 			return nil, fmt.Errorf("failed to register DON with JD: %w", err)
 		}
-	}
-
-	var nodeIDs []string
-	for _, don := range input.DONs {
 		nodeIDs = append(nodeIDs, don.JDNodeIDs()...)
 	}
 
@@ -820,4 +859,30 @@ func FindDONsSupportedChains(donMetadata *DonMetadata, bcs []blockchains.Blockch
 	}
 
 	return chains, nil
+}
+
+// Make DonMetadata also implement it, just in case?
+type KeystoneDON interface {
+	KeystoneDONConfig() ks_contracts_op.ConfigureKeystoneDON
+	ResolveORC3Config(config *keystone_changeset.OracleConfig) *keystone_changeset.OracleConfig
+}
+
+func (d *Don) KeystoneDONConfig() ks_contracts_op.ConfigureKeystoneDON {
+	don := ks_contracts_op.ConfigureKeystoneDON{
+		Name: d.Name,
+	}
+
+	for _, node := range d.Nodes {
+		if node.HasRole(RoleWorker) {
+			don.NodeIDs = append(don.NodeIDs, node.Keys.P2PKey.PeerID.String())
+		}
+	}
+
+	return don
+}
+
+func (d *Don) ResolveORC3Config(config *keystone_changeset.OracleConfig) *keystone_changeset.OracleConfig {
+	config.TransmissionSchedule = []int{d.WorkersCount()}
+
+	return config
 }

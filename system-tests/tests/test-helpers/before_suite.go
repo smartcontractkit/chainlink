@@ -49,7 +49,7 @@ func SetupTestEnvironmentWithConfig(t *testing.T, tconf *ttypes.TestConfig, flag
 	createEnvironment(t, tconf, flags...)
 	in := getEnvironmentConfig(t)
 	envArtifact := getEnvironmentArtifact(t, tconf.RelativePathToRepoRoot)
-	creEnvironment, blockchains, err := environment.BuildFromSavedState(t.Context(), cldlogger.NewSingleFileLogger(t), in, envArtifact)
+	creEnvironment, dons, err := environment.BuildFromSavedState(t.Context(), cldlogger.NewSingleFileLogger(t), in, envArtifact)
 	require.NoError(t, err, "failed to load environment")
 
 	return &ttypes.TestEnvironment{
@@ -58,7 +58,7 @@ func SetupTestEnvironmentWithConfig(t *testing.T, tconf *ttypes.TestConfig, flag
 		EnvArtifact:    envArtifact,
 		Logger:         framework.L,
 		CreEnvironment: creEnvironment,
-		Blockchains:    blockchains,
+		Dons:           dons,
 	}
 }
 

@@ -11,8 +11,11 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/shopspring/decimal"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/types/known/emptypb"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
@@ -124,6 +127,11 @@ type Report struct {
 	workflowRegistryAddress string
 	// WorkflowRegistryChainSelector is the chain selector for the workflow registry
 	workflowRegistryChainSelector uint64
+
+	// maxRetries is number of attempts to retry SubmitWorkflowReceipt
+	maxRetries int
+	// retryDelay is the delay between retries on SubmitWorkflowReceipt
+	retryDelay time.Duration
 }
 
 func NewReport(
@@ -152,6 +160,9 @@ func NewReport(
 
 		reserved: false,
 		steps:    make(map[string]ReportStep),
+
+		maxRetries: 1,
+		retryDelay: 150 * time.Millisecond,
 	}
 
 	// for safety in evaluating the client interface.
@@ -521,6 +532,7 @@ func (r *Report) FormatReport() *protoEvents.MeteringReport {
 			Trigger: &protoEvents.TriggerDetail{
 				TriggerID: r.labels[platform.KeyTriggerID],
 			},
+			OrgID: r.labels[platform.KeyOrganizationID],
 		},
 		MeteringMode: r.meteringMode,
 	}
@@ -580,6 +592,17 @@ func (r *Report) FormatReport() *protoEvents.MeteringReport {
 	return protoReport
 }
 
+// isRetryableError determines if an error is retryable based on gRPC status codes
+func isRetryableError(err error) bool {
+	switch status.Code(err) {
+	case codes.Unavailable, codes.DeadlineExceeded, codes.ResourceExhausted:
+		return true
+	default:
+		// includes code.Unknown + err == nil
+		return false
+	}
+}
+
 func (r *Report) SendReceipt(ctx context.Context) error {
 	if !r.reserved {
 		return ErrNoReserve
@@ -603,7 +626,33 @@ func (r *Report) SendReceipt(ctx context.Context) error {
 		CreditsConsumed:               r.balance.GetSpent().String(),
 	}
 
-	resp, err := r.client.SubmitWorkflowReceipt(ctx, &req)
+	var resp *emptypb.Empty
+	var err error
+
+	for attempt := 0; ; attempt++ {
+		resp, err = r.client.SubmitWorkflowReceipt(ctx, &req)
+		if err == nil {
+			break
+		}
+
+		if attempt >= r.maxRetries || !isRetryableError(err) {
+			break
+		}
+
+		r.lggr.Warnw("SubmitWorkflowReceipt failed, retrying",
+			"attempt", attempt+1,
+			"maxRetries", r.maxRetries+1,
+			"error", err,
+			"retryDelay", r.retryDelay)
+
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		case <-time.After(r.retryDelay):
+			// Continue to next attempt
+		}
+	}
+
 	if err != nil {
 		return err
 	}

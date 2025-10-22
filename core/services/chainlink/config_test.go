@@ -114,6 +114,7 @@ var (
 					FinalityDepth:        ptr[uint32](26),
 					SafeDepth:            ptr[uint32](0),
 					FinalityTagEnabled:   ptr[bool](true),
+					SafeTagSupported:     ptr(true),
 					FinalizedBlockOffset: ptr[uint32](12),
 				},
 				Nodes: []*evmcfg.Node{
@@ -612,6 +613,7 @@ func TestConfig_Marshal(t *testing.T) {
 		ChipIngressInsecureConnection: ptr(false),
 		HeartbeatInterval:             commoncfg.MustNewDuration(1 * time.Second),
 		LogStreamingEnabled:           ptr(false),
+		LogLevel:                      ptr("info"),
 	}
 	full.CRE = toml.CreConfig{
 		UseLocalTimeProvider: ptr(true),
@@ -657,6 +659,7 @@ func TestConfig_Marshal(t *testing.T) {
 				FinalityDepth:        ptr[uint32](42),
 				SafeDepth:            ptr[uint32](0),
 				FinalityTagEnabled:   ptr[bool](true),
+				SafeTagSupported:     ptr(true),
 				FlagsContractAddress: mustAddress("0xae4E781a6218A8031764928E88d457937A954fC3"),
 				FinalizedBlockOffset: ptr[uint32](16),
 
@@ -1184,6 +1187,7 @@ ChainType = 'Optimism'
 FinalityDepth = 42
 SafeDepth = 0
 FinalityTagEnabled = true
+SafeTagSupported = true
 FlagsContractAddress = '0xae4E781a6218A8031764928E88d457937A954fC3'
 LinkContractAddress = '0x538aAaB4ea120b2bC2fe5D296852D948F07D849e'
 LogBackfillBatchSize = 17

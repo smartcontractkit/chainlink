@@ -27,7 +27,6 @@ on:
     types: [labeled, synchronize]
 
 jobs:
-
   changes:
     runs-on: runs-on=${{ github.run_id }}/cpu=16/ram=64/family=m6i/spot=false/image=ubuntu24-full-x64/extras=s3-cache+tmpfs
     environment: "integration"
@@ -121,7 +120,7 @@ jobs:
 
       - name: Set date variable
         id: set-date
-        if:  ${{ github.event_name == 'pull_request' }}
+        if: ${{ github.event_name == 'pull_request' }}
         run: echo "date=$(date +'%Y%m%d')" >> $GITHUB_OUTPUT
 
       - name: Overwrite chainlink version in TOML config
@@ -130,7 +129,7 @@ jobs:
           cat > core/scripts/cre/environment/configs/ci-override.toml<< EOF
           [jd]
             csa_encryption_key = "d1093c0060d50a3c89c189b2e485da5a3ce57f3dcb38ab7e2c0d5f0bb2314a44"
-            image = "${{ secrets.AWS_ACCOUNT_ID_PROD }}.dkr.ecr.${{ secrets.QA_AWS_REGION }}.amazonaws.com/job-distributor:0.12.7"
+            image = "${{ secrets.AWS_ACCOUNT_ID_PROD }}.dkr.ecr.${{ secrets.QA_AWS_REGION }}.amazonaws.com/job-distributor:0.22.1"
           EOF
 
       - name: Start the environment
@@ -140,7 +139,7 @@ jobs:
         env:
           CTF_CONFIGS: "./configs/workflow-don.toml,./configs/ci-override.toml"
           E2E_JD_IMAGE: "${{ secrets.AWS_ACCOUNT_ID_PROD }}.dkr.ecr.${{ secrets.QA_AWS_REGION }}.amazonaws.com/job-distributor"
-          E2E_JD_VERSION: "0.12.7"
+          E2E_JD_VERSION: "0.22.1"
           E2E_TEST_CHAINLINK_IMAGE: "${{ secrets.QA_AWS_ACCOUNT_NUMBER }}.dkr.ecr.${{ secrets.QA_AWS_REGION }}.amazonaws.com/chainlink"
           E2E_TEST_CHAINLINK_VERSION: ${{ github.event_name == 'pull_request' && format('nightly-{0}-plugins', steps.set-date.outputs.date) || inputs.chainlink_image_tag }}
           DISABLE_DX_TRACKING: "true"
@@ -208,13 +207,13 @@ jobs:
           GETDX_SECRET_KEY: ${{ secrets.GETDX_SECRET_KEY }}
           DX_ACTOR: ${{ contains(github.actor, 'github-merge-queue') && 'Tofel' || github.actor }}
         run: |
-            success=false
-            if [[ "${START_CLI_OUTCOME}" == "success" ]]; then success=true; fi
+          success=false
+          if [[ "${START_CLI_OUTCOME}" == "success" ]]; then success=true; fi
 
-            echo "::debug::success: $success"
+          echo "::debug::success: $success"
 
-            printf -v data '{"name": "cre.local.startup.result", "github_username": "%s", "timestamp": "%s", "metadata": {"success": "%s", "is_ci": true, "error": "N/A", "panicked": "N/A", "runner": "self-hosted-ubuntu-24", "infra": "docker"}}' "$DX_ACTOR" "$EPOCHSECONDS" "$success"
-            curl -X POST -H "Content-Type: application/json" -H "Authorization: Bearer ${GETDX_SECRET_KEY}" -d "$data" https://api.getdx.com/events.track
+          printf -v data '{"name": "cre.local.startup.result", "github_username": "%s", "timestamp": "%s", "metadata": {"success": "%s", "is_ci": true, "error": "N/A", "panicked": "N/A", "runner": "self-hosted-ubuntu-24", "infra": "docker"}}' "$DX_ACTOR" "$EPOCHSECONDS" "$success"
+          curl -X POST -H "Content-Type: application/json" -H "Authorization: Bearer ${GETDX_SECRET_KEY}" -d "$data" https://api.getdx.com/events.track
 
       - name: Track local env startup duration
         # track only scheduled runs to exclude failures in PRs or manual runs
@@ -227,12 +226,12 @@ jobs:
           DEPS_DOWNLOAD_SECONDS: ${{ steps.go-deps.outputs.deps_download_seconds }}
           DX_ACTOR: ${{ contains(github.actor, 'github-merge-queue') && 'Tofel' || github.actor }}
         run: |
-            echo "::debug::execution_time: ${EXECUTION_TIME}"
-            echo "::debug::cache_hit: ${CACHE_HIT}"
-            echo "::debug::deps_download_seconds: ${DEPS_DOWNLOAD_SECONDS}"
+          echo "::debug::execution_time: ${EXECUTION_TIME}"
+          echo "::debug::cache_hit: ${CACHE_HIT}"
+          echo "::debug::deps_download_seconds: ${DEPS_DOWNLOAD_SECONDS}"
 
-            printf -v data '{"name": "cre.local.startup.time", "github_username": "%s", "timestamp": "%s", "metadata": {"startup_seconds": %s, "is_ci": true, "runner": "self-hosted-ubuntu-24", "infra": "docker", "go_cache_hit": %s, "deps_download_seconds": %s}}' "$DX_ACTOR" "$EPOCHSECONDS" "${EXECUTION_TIME}" "${CACHE_HIT}" "${DEPS_DOWNLOAD_SECONDS}"
-            curl -X POST -H "Content-Type: application/json" -H "Authorization: Bearer ${GETDX_SECRET_KEY}" -d "$data" https://api.getdx.com/events.track
+          printf -v data '{"name": "cre.local.startup.time", "github_username": "%s", "timestamp": "%s", "metadata": {"startup_seconds": %s, "is_ci": true, "runner": "self-hosted-ubuntu-24", "infra": "docker", "go_cache_hit": %s, "deps_download_seconds": %s}}' "$DX_ACTOR" "$EPOCHSECONDS" "${EXECUTION_TIME}" "${CACHE_HIT}" "${DEPS_DOWNLOAD_SECONDS}"
+          curl -X POST -H "Content-Type: application/json" -H "Authorization: Bearer ${GETDX_SECRET_KEY}" -d "$data" https://api.getdx.com/events.track
 
       - name: Upload all artifacts as single package
         if: failure()
@@ -240,7 +239,6 @@ jobs:
         with:
           name: local-cre-docker-logs
           path: ./core/scripts/cre/environment/logs/
-
 
   notify-test-failure:
     name: Notify about local env startup failure

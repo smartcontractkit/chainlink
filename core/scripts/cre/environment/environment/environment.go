@@ -12,7 +12,6 @@ import (
 	"os/signal"
 	"path/filepath"
 	"runtime/debug"
-	"strconv"
 	"strings"
 	"syscall"
 	"time"
@@ -27,7 +26,7 @@ import (
 
 	cldlogger "github.com/smartcontractkit/chainlink/deployment/logger"
 
-	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/capabilities/sets"
+	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/gateway"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/blockchains"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/blockchains/evm"
 	blockchains_sets "github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/blockchains/sets"
@@ -40,8 +39,8 @@ import (
 	libc "github.com/smartcontractkit/chainlink/system-tests/lib/conversions"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre"
 	libcontracts "github.com/smartcontractkit/chainlink/system-tests/lib/cre/contracts"
-	gateway "github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/jobs/gateway"
 	creenv "github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment"
+	feature_set "github.com/smartcontractkit/chainlink/system-tests/lib/cre/features/sets"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/crecli"
 	libformat "github.com/smartcontractkit/chainlink/system-tests/lib/format"
 
@@ -59,8 +58,7 @@ const (
 )
 
 var (
-	binDir string
-
+	binDir                        string
 	defaultCapabilitiesConfigFile = "configs/capability_defaults.toml"
 )
 
@@ -186,7 +184,7 @@ var StartCmdRecoverHandlerFunc = func(p any, cleanupOnFailure bool, cleanupWait 
 
 var StartCmdGenerateSettingsFile = func(registryChain blockchains.Blockchain, output *creenv.SetupOutput) error {
 	rpcs := map[uint64]string{}
-	for _, bcOut := range output.Blockchains {
+	for _, bcOut := range output.CreEnvironment.Blockchains {
 		rpcs[bcOut.ChainSelector()] = bcOut.CtfOutput().Nodes[0].ExternalHTTPUrl
 	}
 
@@ -198,8 +196,8 @@ var StartCmdGenerateSettingsFile = func(registryChain blockchains.Blockchain, ou
 	creCLISettingsFile, settingsErr := crecli.PrepareCRECLISettingsFile(
 		crecli.CRECLIProfile,
 		regChainEVM.SethClient.MustGetRootKeyAddress(),
-		output.CldEnvironment.ExistingAddresses, //nolint:staticcheck,nolintlint // SA1019: deprecated but we don't want to migrate now
-		output.DonTopology.WorkflowDonID,
+		output.CreEnvironment.CldfEnvironment.ExistingAddresses, //nolint:staticcheck,nolintlint // SA1019: deprecated but we don't want to migrate now
+		output.Dons.MustWorkflowDON().ID,
 		regChainEVM.ChainSelector(),
 		rpcs,
 		output.S3ProviderOutput,
@@ -315,27 +313,17 @@ func startCmd() *cobra.Command {
 				return errors.Wrap(err, "failed to validate test configuration")
 			}
 
-			homeChainIDInt, chainErr := strconv.Atoi(in.Blockchains[0].ChainID)
-			if chainErr != nil {
-				return fmt.Errorf("failed to convert chain ID to int: %w", chainErr)
-			}
-
-			defaultCapabilities, defaultCapabilitiesErr := sets.NewDefaultSet(libc.MustSafeUint64FromInt(homeChainIDInt))
-			if defaultCapabilitiesErr != nil {
-				return errors.Wrap(defaultCapabilitiesErr, "failed to create default capabilities")
-			}
-
 			if err := validateWorkflowTriggerAndCapabilities(in, withExampleFlag, exampleWorkflowTrigger, withPluginsDockerImage); err != nil {
 				return errors.Wrap(err, "either cron binary path must be set in TOML config (%s) or you must use Docker image with all capabilities included and passed via withPluginsDockerImageFlag")
 			}
 
-			extraJobSpecFunctions := []cre.JobSpecFn{
-				// temporary solution until we figure out where that jobspec should live. Gateway is not a capability, it's more of a role
-				// but we don't have a good expression of that abstraction yet
-				gateway.JobSpec(append(extraAllowedGatewayPorts, in.Fake.Port), []string{}, []string{"0.0.0.0/0"}),
+			features := feature_set.New()
+			gatewayWhitelistConfig := gateway.WhitelistConfig{
+				ExtraAllowedPorts:   append(extraAllowedGatewayPorts, in.Fake.Port),
+				ExtraAllowedIPs:     []string{},
+				ExtraAllowedIPsCIDR: []string{"0.0.0.0/0"},
 			}
-
-			output, startErr := StartCLIEnvironment(cmdContext, relativePathToRepoRoot, in, topology, withPluginsDockerImage, defaultCapabilities, extraJobSpecFunctions, envDependencies)
+			output, startErr := StartCLIEnvironment(cmdContext, relativePathToRepoRoot, in, topology, withPluginsDockerImage, nil, features, nil, envDependencies, gatewayWhitelistConfig)
 			if startErr != nil {
 				fmt.Fprintf(os.Stderr, "Error: %s\n", startErr)
 				fmt.Fprintf(os.Stderr, "Stack trace: %s\n", string(debug.Stack()))
@@ -361,14 +349,14 @@ func startCmd() *cobra.Command {
 				return errors.Wrap(startErr, "failed to start environment")
 			}
 
-			homeChainOut := output.Blockchains[0]
+			homeChainOut := output.CreEnvironment.Blockchains[0]
 
 			sErr := StartCmdGenerateSettingsFile(homeChainOut, output)
 			if sErr != nil {
 				fmt.Fprintf(os.Stderr, "failed to create CRE CLI settings file: %s. You need to create it manually.", sErr)
 			}
 
-			dxErr := trackStartup(true, hasBuiltDockerImage(in, withPluginsDockerImage), output.InfraInput.Type, nil, nil)
+			dxErr := trackStartup(true, hasBuiltDockerImage(in, withPluginsDockerImage), output.CreEnvironment.Provider.Type, nil, nil)
 			if dxErr != nil {
 				fmt.Fprintf(os.Stderr, "failed to track startup: %s\n", dxErr)
 			}
@@ -444,22 +432,22 @@ func startCmd() *cobra.Command {
 			}
 
 			if withExampleFlag {
-				if output.DonTopology.GatewayConnectorOutput == nil || len(output.DonTopology.GatewayConnectorOutput.Configurations) == 0 {
+				if output.GatewayConnectors == nil || len(output.GatewayConnectors.Configurations) == 0 {
 					return errors.New("no gateway connector configurations found")
 				}
 
 				// use first gateway for example workflow
-				gatewayURL := fmt.Sprintf("%s://%s:%d%s", output.DonTopology.GatewayConnectorOutput.Configurations[0].Incoming.Protocol, output.DonTopology.GatewayConnectorOutput.Configurations[0].Incoming.Host, output.DonTopology.GatewayConnectorOutput.Configurations[0].Incoming.ExternalPort, output.DonTopology.GatewayConnectorOutput.Configurations[0].Incoming.Path)
+				gatewayURL := fmt.Sprintf("%s://%s:%d%s", output.GatewayConnectors.Configurations[0].Incoming.Protocol, output.GatewayConnectors.Configurations[0].Incoming.Host, output.GatewayConnectors.Configurations[0].Incoming.ExternalPort, output.GatewayConnectors.Configurations[0].Incoming.Path)
 
 				fmt.Print(libformat.PurpleText("\nRegistering and verifying example workflow\n\n"))
 
 				wfRegAddr := libcontracts.MustFindAddressesForChain(
-					output.CldEnvironment.ExistingAddresses, //nolint:staticcheck,nolintlint // SA1019: deprecated but we don't want to migrate now
-					output.Blockchains[0].ChainSelector(),
+					output.CreEnvironment.CldfEnvironment.ExistingAddresses, //nolint:staticcheck,nolintlint // SA1019: deprecated but we don't want to migrate now
+					output.CreEnvironment.Blockchains[0].ChainSelector(),
 					keystone_changeset.WorkflowRegistry.String())
 
 				var workflowDonID uint32
-				for idx, don := range output.DonTopology.Dons.List() {
+				for idx, don := range output.Dons.List() {
 					if don.HasFlag(cre.WorkflowDON) {
 						workflowDonID = libc.MustSafeUint32(idx + 1)
 						break
@@ -470,7 +458,11 @@ func startCmd() *cobra.Command {
 					return errors.New("no workflow DON found")
 				}
 
-				deployErr := deployAndVerifyExampleWorkflow(cmdContext, homeChainOut.CtfOutput().Nodes[0].ExternalHTTPUrl, gatewayURL, output.DonTopology.GatewayConnectorOutput.Configurations[0].Dons[0].ID, workflowDonID, exampleWorkflowTimeout, exampleWorkflowTrigger, wfRegAddr.Hex())
+				workflowDON, wErr := output.Dons.OneDonWithFlag(cre.WorkflowDON)
+				if wErr != nil {
+					return errors.Wrap(wErr, "failed to get workflow DON")
+				}
+				deployErr := deployAndVerifyExampleWorkflow(cmdContext, homeChainOut.CtfOutput().Nodes[0].ExternalHTTPUrl, gatewayURL, workflowDON.Name, workflowDonID, exampleWorkflowTimeout, exampleWorkflowTrigger, wfRegAddr.Hex())
 				if deployErr != nil {
 					fmt.Printf("Failed to deploy and verify example workflow: %s\n", deployErr)
 				}
@@ -653,9 +645,11 @@ func StartCLIEnvironment(
 	in *envconfig.Config,
 	topologyFlag string,
 	withPluginsDockerImageFlag string,
-	capabilities []cre.InstallableCapability,
+	capabilities []cre.InstallableCapability, // Deprecated: use Features instead
+	features cre.Features,
 	extraJobSpecFunctions []cre.JobSpecFn,
 	env cre.CLIEnvironmentDependencies,
+	gatewayWhitelistConfig gateway.WhitelistConfig,
 ) (*creenv.SetupOutput, error) {
 	testLogger := framework.L
 
@@ -718,6 +712,8 @@ func StartCLIEnvironment(
 		Capabilities:              capabilities,
 		JobSpecFactoryFunctions:   extraJobSpecFunctions,
 		StageGen:                  initLocalCREStageGen(in),
+		Features:                  features,
+		GatewayWhitelistConfig:    gatewayWhitelistConfig,
 		BlockchainDeployers:       blockchains_sets.NewDeployerSet(testLogger, in.Infra, infra.CribConfigsDir),
 	}
 
@@ -735,13 +731,11 @@ func StartCLIEnvironment(
 
 	artifactPath, artifactErr := creenv.DumpArtifact(
 		creenv.MustEnvArtifactAbsPath(relativePathToRepoRoot),
-		universalSetupOutput.CldEnvironment.DataStore.Addresses(),
-		universalSetupOutput.CldEnvironment.ExistingAddresses,
+		*universalSetupOutput.Dons,
+		universalSetupOutput.CreEnvironment,
 		*in.JD.Out,
-		*universalSetupOutput.DonTopology,
-		universalSetupOutput.CldEnvironment.Offchain,
-		capabilitiesContractFactoryFunctions,
 		in.NodeSets,
+		capabilitiesContractFactoryFunctions,
 	)
 
 	if artifactErr != nil {

@@ -28,7 +28,7 @@ import (
 
 type StartedDON struct {
 	NodeOutput *cre.WrappedNodeOutput
-	DON        *cre.DON
+	DON        *cre.Don
 }
 
 type StartedDONs []*StartedDON
@@ -41,8 +41,8 @@ func (s *StartedDONs) NodeOutputs() []*cre.WrappedNodeOutput {
 	return outputs
 }
 
-func (s *StartedDONs) DONs() []*cre.DON {
-	dons := make([]*cre.DON, len(*s))
+func (s *StartedDONs) DONs() []*cre.Don {
+	dons := make([]*cre.Don, len(*s))
 	for idx, don := range *s {
 		dons[idx] = don.DON
 	}
