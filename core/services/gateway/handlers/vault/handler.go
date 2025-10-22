@@ -121,7 +121,7 @@ type capabilitiesRegistry interface {
 }
 
 type aggregator interface {
-	Aggregate(ctx context.Context, l logger.Logger, resps *map[string]jsonrpc.Response[json.RawMessage], currResp *jsonrpc.Response[json.RawMessage]) (*jsonrpc.Response[json.RawMessage], error)
+	Aggregate(ctx context.Context, l logger.Logger, resps map[string]jsonrpc.Response[json.RawMessage], currResp *jsonrpc.Response[json.RawMessage]) (*jsonrpc.Response[json.RawMessage], error)
 }
 
 type handler struct {
@@ -414,7 +414,7 @@ func (h *handler) HandleNodeMessage(ctx context.Context, resp *jsonrpc.Response[
 	}
 
 	copiedResponses := ar.copiedResponses()
-	resp, err := h.aggregator.Aggregate(ctx, l, &copiedResponses, resp)
+	resp, err := h.aggregator.Aggregate(ctx, l, copiedResponses, resp)
 	switch {
 	case errors.Is(err, errInsufficientResponsesForQuorum):
 		l.Debugw("aggregating responses, waiting for other nodes...", "error", err)

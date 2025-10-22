@@ -65,7 +65,7 @@ func TestAggregator_Valid_Signatures(t *testing.T) {
 	responses := map[string]jsonrpc.Response[json.RawMessage]{
 		"a": currResp,
 	}
-	resp, err := agg.Aggregate(t.Context(), logger.Test(t), &responses, &currResp)
+	resp, err := agg.Aggregate(t.Context(), logger.Test(t), responses, &currResp)
 	require.NoError(t, err)
 	assert.Equal(t, &currResp, resp)
 }
@@ -131,7 +131,7 @@ func TestAggregator_Valid_FallsBackToQuorum(t *testing.T) {
 		"b": currResp,
 		"c": currResp,
 	}
-	resp, err := agg.Aggregate(t.Context(), logger.Test(t), &responses, &currResp)
+	resp, err := agg.Aggregate(t.Context(), logger.Test(t), responses, &currResp)
 	require.NoError(t, err)
 	assert.Equal(t, &currResp, resp)
 }
@@ -156,7 +156,7 @@ func TestAggregator_Valid_FallsBackToQuorum_ExcludesSignaturesInSha(t *testing.T
 		"b": *oldResp2,
 		"c": *currResp,
 	}
-	resp, err := agg.Aggregate(t.Context(), logger.Test(t), &responses, currResp)
+	resp, err := agg.Aggregate(t.Context(), logger.Test(t), responses, currResp)
 	require.NoError(t, err)
 
 	respDigests := []string{}
@@ -186,7 +186,7 @@ func TestAggregator_InsufficientResponses(t *testing.T) {
 	responses := map[string]jsonrpc.Response[json.RawMessage]{
 		"a": currResp,
 	}
-	_, err := agg.Aggregate(t.Context(), logger.Test(t), &responses, &currResp)
+	_, err := agg.Aggregate(t.Context(), logger.Test(t), responses, &currResp)
 	require.ErrorContains(t, err, "insufficient valid responses to reach quorum")
 }
 
@@ -228,6 +228,6 @@ func TestAggregator_QuorumUnobtainable(t *testing.T) {
 		"b": *resp2,
 		"c": *resp3,
 	}
-	_, err := agg.Aggregate(t.Context(), logger.Test(t), &responses, resp3)
+	_, err := agg.Aggregate(t.Context(), logger.Test(t), responses, resp3)
 	require.ErrorContains(t, err, "failed to validate using quorum: quorum unobtainable")
 }
