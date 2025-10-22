@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/hex"
 	"errors"
+	"fmt"
 	"math/big"
 	"strconv"
 	"strings"
@@ -22,12 +23,12 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	cldf_sui "github.com/smartcontractkit/chainlink-deployments-framework/chain/sui"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
-	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/shared/generated/initial/burn_mint_erc677"
 	suiBind "github.com/smartcontractkit/chainlink-sui/bindings/bind"
 	sui_deployment "github.com/smartcontractkit/chainlink-sui/deployment"
 	sui_cs "github.com/smartcontractkit/chainlink-sui/deployment/changesets"
 	sui_ops "github.com/smartcontractkit/chainlink-sui/deployment/ops"
+
 	// ccipops "github.com/smartcontractkit/chainlink-sui/deployment/ops/ccip"
 	burnminttokenpoolops "github.com/smartcontractkit/chainlink-sui/deployment/ops/ccip_burn_mint_token_pool"
 	lockreleasetokenpoolops "github.com/smartcontractkit/chainlink-sui/deployment/ops/ccip_lock_release_token_pool"
@@ -152,7 +153,6 @@ func SendSuiCCIPRequest(e cldf.Environment, cfg *ccipclient.CCIPSendReqConfig) (
 	// if !ok {
 	// 	return &ccipclient.AnyMsgSentEvent{}, errors.New("failed converting GasUsdPerUnitGas to bigInt")
 	// }
->>>>>>> f9063c19aa (Rebase)
 
 	// getValidatedFee
 	msg := cfg.Message.(SuiSendRequest)
@@ -284,7 +284,7 @@ func SendSuiCCIPRequest(e cldf.Environment, cfg *ccipclient.CCIPSendReqConfig) (
 		typeArgsList := []string{}
 		typeParamsList := []string{}
 		paramTypes := []string{
-			"vector<u8>",
+			"address",
 		}
 
 		var paramValues []any
@@ -496,14 +496,16 @@ func SendSuiCCIPRequest(e cldf.Environment, cfg *ccipclient.CCIPSendReqConfig) (
 	typeArgsList := []string{}
 	typeParamsList := []string{}
 	paramTypes := []string{
-		"vector<u8>",
+		"address", // TODO: change this to vector<u8> when the contracts are updated
 	}
 
 	// For SUI -> EVM BurnMint Pool token Transfer, we can use msg.Receiver as tokenReceiver, this field is only used in usdc token pool
 	// bc we need to check the recipient with Circle's packages from the onramp side before sending USDC. and it's not used anyway else.
 	decodedTokenReceiver, _ := hex.DecodeString("0000000000000000000000000000000000000000000000000000000000000000")
-	var tokenReceiver [32]byte
-	copy(tokenReceiver[:], decodedTokenReceiver)
+
+	// TODO: uncomment this when the contracts are updated to use vector<u8>
+	// var tokenReceiver []byte
+	// copy(tokenReceiver[:], decodedTokenReceiver)
 
 	paramValues := []any{
 		decodedTokenReceiver,
