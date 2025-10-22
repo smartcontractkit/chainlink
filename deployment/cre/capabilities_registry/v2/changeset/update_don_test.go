@@ -85,9 +85,11 @@ func setupRegistryForUpdateDON(t *testing.T, isWorkflow bool) *updFixture {
 	var triggerMeta map[string]any
 	require.NoError(t, json.Unmarshal(trigger.Metadata, &triggerMeta))
 
+	nop1 := "test-nop-1"
+	nop2 := "test-nop-2"
 	nodes := []changeset.CapabilitiesRegistryNodeParams{
 		{
-			NodeOperatorID:      1,
+			NOP:                 nop1,
 			Signer:              signer1,
 			P2pID:               p2pID1,
 			EncryptionPublicKey: encryptionPublicKey,
@@ -95,7 +97,7 @@ func setupRegistryForUpdateDON(t *testing.T, isWorkflow bool) *updFixture {
 			CapabilityIDs:       []string{writeChain.CapabilityId, trigger.CapabilityId},
 		},
 		{
-			NodeOperatorID:      2,
+			NOP:                 nop2,
 			Signer:              signer2,
 			P2pID:               p2pID2,
 			EncryptionPublicKey: encryptionPublicKey,
@@ -122,8 +124,8 @@ func setupRegistryForUpdateDON(t *testing.T, isWorkflow bool) *updFixture {
 		ChainSelector:               selector,
 		CapabilitiesRegistryAddress: addr,
 		Nops: []changeset.CapabilitiesRegistryNodeOperator{
-			{Admin: common.HexToAddress("0x01"), Name: "nop-1"},
-			{Admin: common.HexToAddress("0x02"), Name: "nop-2"},
+			{Admin: common.HexToAddress("0x01"), Name: nop1},
+			{Admin: common.HexToAddress("0x02"), Name: nop2},
 		},
 		Capabilities: []changeset.CapabilitiesRegistryCapability{
 			{CapabilityID: writeChain.CapabilityId, Metadata: writeChainMeta},
