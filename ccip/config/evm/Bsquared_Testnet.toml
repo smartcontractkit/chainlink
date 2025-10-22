@@ -10,6 +10,7 @@ LogPollInterval = '3s'
 NoNewFinalizedHeadsThreshold = '70m'
 
 FinalityTagEnabled = true
+SafeTagSupported = true
 
 [GasEstimator]
 EIP1559DynamicFees = true

@@ -68,7 +68,7 @@ func NewStandaloneEngine(
 		Timeout:                 &defaultTimeout,
 	}
 
-	module, err := host.NewModule(moduleConfig, binary, host.WithDeterminism())
+	module, err := host.NewModule(ctx, moduleConfig, binary, host.WithDeterminism())
 	if err != nil {
 		return nil, nil, fmt.Errorf("unable to create module from config: %w", err)
 	}

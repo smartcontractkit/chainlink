@@ -20,8 +20,8 @@ import (
 	cldf_chain "github.com/smartcontractkit/chainlink-deployments-framework/chain"
 	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+	"github.com/smartcontractkit/chainlink-deployments-framework/engine/test/environment"
 	focr "github.com/smartcontractkit/chainlink-deployments-framework/offchain/ocr"
-	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
 
 	capabilities_registry_v2 "github.com/smartcontractkit/chainlink-evm/gethwrappers/workflow/generated/capabilities_registry_wrapper_v2"
 
@@ -29,7 +29,6 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/common/changeset"
 	changeset2 "github.com/smartcontractkit/chainlink/deployment/cre/capabilities_registry/v2/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/cre/ocr3"
-	"github.com/smartcontractkit/chainlink/deployment/environment/memory"
 	envtest "github.com/smartcontractkit/chainlink/deployment/environment/test"
 )
 
@@ -60,20 +59,13 @@ type donConfig struct {
 
 // TODO CRE-999; aptos can be made optional
 func initEnv(t *testing.T, lggr logger.Logger) (registryChainSel, aptosChainSel uint64, env *cldf.Environment) {
-	evmChains := memory.NewMemoryChainsEVM(t, 1, 1)
-	chains := cldf_chain.NewBlockChainsFromSlice([]cldf_chain.BlockChain{
-		evmChains[0],
-	})
-	registryChainSel = evmChains[0].ChainSelector()
+	registryChainSel = chain_selectors.TEST_90000001.Selector
 
-	ds := datastore.NewMemoryDataStore()
-	localEnv := cldf.Environment{
-		Logger:           lggr,
-		GetContext:       t.Context,
-		DataStore:        ds.Seal(),
-		BlockChains:      chains,
-		OperationsBundle: operations.NewBundle(t.Context, lggr, operations.NewMemoryReporter()),
-	}
+	e, err := environment.New(t.Context(),
+		environment.WithEVMSimulated(t, []uint64{registryChainSel}),
+		environment.WithLogger(lggr),
+	)
+	require.NoError(t, err)
 
 	deployCapRegChangeset := changeset2.DeployCapabilitiesRegistry{}
 	changes := []changeset.ConfiguredChangeSet{
@@ -86,7 +78,7 @@ func initEnv(t *testing.T, lggr logger.Logger) (registryChainSel, aptosChainSel 
 		),
 	}
 
-	localEnv, _, err := changeset.ApplyChangesets(t, localEnv, changes)
+	localEnv, _, err := changeset.ApplyChangesets(t, *e, changes)
 	require.NoError(t, err)
 
 	env = &localEnv

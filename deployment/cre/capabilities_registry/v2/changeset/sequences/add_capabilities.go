@@ -84,7 +84,7 @@ var AddCapabilities = operations.NewSequence[AddCapabilitiesInput, AddCapabiliti
 			return AddCapabilitiesOutput{}, fmt.Errorf("failed to create CapabilitiesRegistry: %w", err)
 		}
 
-		don, nodes, err := getDonNodes(input.DonName, capReg)
+		don, nodes, err := GetDonNodes(input.DonName, capReg)
 		if err != nil {
 			return AddCapabilitiesOutput{}, fmt.Errorf("failed to get DON %s nodes: %w", input.DonName, err)
 		}
@@ -180,7 +180,7 @@ var AddCapabilities = operations.NewSequence[AddCapabilitiesInput, AddCapabiliti
 	},
 )
 
-func getDonNodes(donName string, capReg *capabilities_registry_v2.CapabilitiesRegistry) (
+func GetDonNodes(donName string, capReg *capabilities_registry_v2.CapabilitiesRegistry) (
 	*capabilities_registry_v2.CapabilitiesRegistryDONInfo,
 	[]capabilities_registry_v2.INodeInfoProviderNodeInfo,
 	error,
