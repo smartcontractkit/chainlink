@@ -1,4 +1,4 @@
-package evm_test
+package round_test
 
 import (
 	"testing"
@@ -23,9 +23,8 @@ import (
 	evmtypes "github.com/smartcontractkit/chainlink-evm/pkg/types"
 
 	logmocks "github.com/smartcontractkit/chainlink/v2/common/log/mocks"
-	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
-	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mocks"
+	"github.com/smartcontractkit/chainlink/v2/round"
 )
 
 func mustNewContract(t *testing.T, address gethCommon.Address) *offchain_aggregator_wrapper.OffchainAggregator {
@@ -45,7 +44,7 @@ type contractTrackerUni struct {
 	lb                  *logmocks.Broadcaster
 	hb                  *headstest.Broadcaster[*evmtypes.Head, common.Hash]
 	ec                  *clienttest.Client
-	requestRoundTracker *evm.RequestRoundTracker
+	requestRoundTracker *round.RequestRoundTracker
 }
 
 func newContractTrackerUni(t *testing.T, opts ...any) (uni contractTrackerUni) {
@@ -75,7 +74,7 @@ func newContractTrackerUni(t *testing.T, opts ...any) (uni contractTrackerUni) {
 
 	db := testutils.NewSqlxDB(t)
 	lggr := logger.Test(t)
-	uni.requestRoundTracker = evm.NewRequestRoundTracker(
+	uni.requestRoundTracker = round.NewRequestRoundTracker(
 		contract,
 		filterer,
 		uni.ec,
@@ -84,7 +83,7 @@ func newContractTrackerUni(t *testing.T, opts ...any) (uni contractTrackerUni) {
 		lggr,
 		db,
 		uni.db,
-		chain.EVM(),
+		chain.EVM().ChainType(),
 	)
 
 	return uni
@@ -101,7 +100,7 @@ func Test_OCRContractTracker_HandleLog_OCRContractLatestRoundRequested(t *testin
 		uni := newContractTrackerUni(t)
 		logBroadcast := logmocks.NewBroadcast(t)
 
-		rawLog := cltest.LogFromFixture(t, "../../../testdata/jsonrpc/ocr2_round_requested_log_1_1.json")
+		rawLog := logFromFixture(t, "./testdata/ocr2_round_requested_log_1_1.json")
 		logBroadcast.On("RawLog").Return(rawLog).Maybe()
 		logBroadcast.On("String").Return("").Maybe()
 		uni.lb.On("MarkConsumed", mock.Anything, mock.Anything, mock.Anything).Return(nil)
@@ -155,7 +154,7 @@ func Test_OCRContractTracker_HandleLog_OCRContractLatestRoundRequested(t *testin
 
 		// Any round supercedes the 0 round
 
-		rawLog := cltest.LogFromFixture(t, "../../../testdata/jsonrpc/ocr2_round_requested_log_1_1.json")
+		rawLog := logFromFixture(t, "./testdata/ocr2_round_requested_log_1_1.json")
 		logBroadcast := logmocks.NewBroadcast(t)
 		logBroadcast.On("RawLog").Return(rawLog).Maybe()
 		logBroadcast.On("String").Return("").Maybe()
@@ -176,7 +175,7 @@ func Test_OCRContractTracker_HandleLog_OCRContractLatestRoundRequested(t *testin
 		assert.Equal(t, 1, int(round))
 
 		// Same round with higher epoch supercedes
-		rawLog2 := cltest.LogFromFixture(t, "../../../testdata/jsonrpc/ocr2_round_requested_log_1_9.json")
+		rawLog2 := logFromFixture(t, "./testdata/ocr2_round_requested_log_1_9.json")
 		logBroadcast2 := logmocks.NewBroadcast(t)
 		logBroadcast2.On("RawLog").Return(rawLog2).Maybe()
 		logBroadcast2.On("String").Return("").Maybe()
@@ -205,7 +204,7 @@ func Test_OCRContractTracker_HandleLog_OCRContractLatestRoundRequested(t *testin
 		assert.Equal(t, 9, int(round))
 
 		// Higher epoch with lower round supercedes
-		rawLog3 := cltest.LogFromFixture(t, "../../../testdata/jsonrpc/ocr2_round_requested_log_2_1.json")
+		rawLog3 := logFromFixture(t, "./testdata/ocr2_round_requested_log_2_1.json")
 		rawLog3.Address = fixtureContract.Address()
 		logBroadcast3 := logmocks.NewBroadcast(t)
 		logBroadcast3.On("RawLog").Return(rawLog3).Maybe()
@@ -229,7 +228,7 @@ func Test_OCRContractTracker_HandleLog_OCRContractLatestRoundRequested(t *testin
 	t.Run("does not mark consumed or update state if latest round fails to save", func(t *testing.T) {
 		uni := newContractTrackerUni(t, fixtureFilterer, fixtureContract)
 
-		rawLog := cltest.LogFromFixture(t, "../../../testdata/jsonrpc/ocr2_round_requested_log_1_1.json")
+		rawLog := logFromFixture(t, "./testdata/ocr2_round_requested_log_1_1.json")
 		rawLog.Address = fixtureContract.Address()
 		logBroadcast := logmocks.NewBroadcast(t)
 		logBroadcast.On("RawLog").Return(rawLog).Maybe()
@@ -251,7 +250,7 @@ func Test_OCRContractTracker_HandleLog_OCRContractLatestRoundRequested(t *testin
 	t.Run("restores latest round requested from database on start", func(t *testing.T) {
 		uni := newContractTrackerUni(t, fixtureFilterer, fixtureContract)
 
-		rawLog := cltest.LogFromFixture(t, "../../../testdata/jsonrpc/ocr2_round_requested_log_1_1.json")
+		rawLog := logFromFixture(t, "./testdata/ocr2_round_requested_log_1_1.json")
 		rr := ocr2aggregator.OCR2AggregatorRoundRequested{
 			Requester:    testutils.NewAddress(),
 			ConfigDigest: ocrtypes.ConfigDigest{},
@@ -260,7 +259,7 @@ func Test_OCRContractTracker_HandleLog_OCRContractLatestRoundRequested(t *testin
 			Raw:          rawLog,
 		}
 
-		eventuallyCloseLogBroadcaster := cltest.NewAwaiter()
+		eventuallyCloseLogBroadcaster := testutils.NewAwaiter()
 		uni.lb.On("Register", uni.requestRoundTracker, mock.Anything).Return(func() { eventuallyCloseLogBroadcaster.ItHappened() })
 		uni.lb.On("IsConnected").Return(true).Maybe()
 
@@ -336,7 +335,7 @@ func Test_OCRContractTracker_IsLaterThan(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			res := evm.IsLaterThan(test.incoming, test.existing)
+			res := round.IsLaterThan(test.incoming, test.existing)
 			assert.Equal(t, test.expected, res)
 		})
 	}

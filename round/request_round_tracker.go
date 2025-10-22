@@ -1,4 +1,4 @@
-package evm
+package round
 
 import (
 	"context"
@@ -18,9 +18,8 @@ import (
 	offchain_aggregator_wrapper "github.com/smartcontractkit/chainlink-evm/gethwrappers/offchainaggregator/generated/ocr2/offchainaggregator"
 	"github.com/smartcontractkit/chainlink-evm/pkg/block"
 	evmclient "github.com/smartcontractkit/chainlink-evm/pkg/client"
+	"github.com/smartcontractkit/chainlink-evm/pkg/config/chaintype"
 	"github.com/smartcontractkit/chainlink-evm/pkg/log"
-
-	"github.com/smartcontractkit/chainlink/v2/core/services/ocrcommon"
 )
 
 // RequestRoundTracker subscribes to new request round logs.
@@ -56,7 +55,7 @@ func NewRequestRoundTracker(
 	lggr logger.Logger,
 	ds sqlutil.DataSource,
 	odb RequestRoundDB,
-	chain ocrcommon.Config,
+	chainType chaintype.ChainType,
 ) (o *RequestRoundTracker) {
 	return &RequestRoundTracker{
 		ethClient:        ethClient,
@@ -67,7 +66,7 @@ func NewRequestRoundTracker(
 		lggr:             logger.Sugared(lggr),
 		odb:              odb,
 		ds:               ds,
-		blockTranslator:  block.NewBlockTranslator(chain.ChainType(), ethClient, lggr),
+		blockTranslator:  block.NewBlockTranslator(chainType, ethClient, lggr),
 		stopCh:           make(chan struct{}),
 	}
 }
