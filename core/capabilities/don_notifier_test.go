@@ -47,3 +47,37 @@ func TestDonNotifier_WaitForDon_ContextTimeout(t *testing.T) {
 	require.Error(t, err)
 	assert.Equal(t, context.DeadlineExceeded, err)
 }
+
+func TestDonNotifier_DonUpdate(t *testing.T) {
+	notifier := capabilities.NewDonNotifier()
+	don1 := commoncap.DON{
+		ID: 1,
+	}
+
+	go func() {
+		time.Sleep(200 * time.Millisecond)
+		notifier.NotifyDonSet(don1)
+	}()
+
+	don2 := commoncap.DON{
+		ID: 2,
+	}
+
+	go func() {
+		time.Sleep(600 * time.Millisecond)
+		notifier.NotifyDonSet(don2)
+	}()
+
+	ctx, cancel := context.WithTimeout(context.Background(), 50*time.Millisecond)
+	defer cancel()
+
+	require.Eventually(t, func() bool {
+		result, _ := notifier.WaitForDon(ctx)
+		return don1.ID == result.ID
+	}, time.Second*2, 50*time.Millisecond)
+
+	require.Eventually(t, func() bool {
+		result, _ := notifier.WaitForDon(ctx)
+		return don2.ID == result.ID
+	}, time.Second*2, 50*time.Millisecond)
+}

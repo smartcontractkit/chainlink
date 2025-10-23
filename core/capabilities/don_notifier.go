@@ -25,19 +25,21 @@ func (n *DonNotifier) NotifyDonSet(don capabilities.DON) {
 	defer n.mu.Unlock()
 	n.don = don
 	if !n.notified {
-		close(n.ch)
+		n.notified = true
 	}
-	n.notified = true
 }
 
 func (n *DonNotifier) WaitForDon(ctx context.Context) (capabilities.DON, error) {
+	n.mu.Lock()
+	defer n.mu.Unlock()
+	if n.notified {
+		return n.don, nil
+	}
 	select {
 	case <-ctx.Done():
 		return capabilities.DON{}, ctx.Err()
 	case <-n.ch:
 	}
 	<-n.ch
-	n.mu.Lock()
-	defer n.mu.Unlock()
 	return n.don, nil
 }
