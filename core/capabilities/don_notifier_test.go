@@ -3,6 +3,7 @@ package capabilities_test
 import (
 	"context"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/require"
 
@@ -60,7 +61,6 @@ func TestDonNotifier_DonUpdate(t *testing.T) {
 		make(chan struct{}),
 		make(chan struct{}),
 	}
-	setCh := make(chan struct{})
 
 	// Set the first DON
 	don1 := commoncap.DON{
@@ -78,7 +78,6 @@ func TestDonNotifier_DonUpdate(t *testing.T) {
 	go func() {
 		<-notifyChs[1]
 		notifier.NotifyDonSet(don2)
-		close(setCh)
 	}()
 
 	ctx, cancel := context.WithCancel(context.Background())
@@ -92,8 +91,10 @@ func TestDonNotifier_DonUpdate(t *testing.T) {
 
 	// Call notify with don 2 eventually waits for don 2 with polling
 	close(notifyChs[1])
-	<-setCh
-	result, err = notifier.WaitForDon(ctx)
-	require.NoError(t, err)
-	assert.Equal(t, don2, result)
+	assert.Eventually(t, func() bool {
+		result, err = notifier.WaitForDon(ctx)
+		require.NoError(t, err)
+
+		return result.ID == don2.ID
+	}, 5*time.Second, 10*time.Millisecond)
 }

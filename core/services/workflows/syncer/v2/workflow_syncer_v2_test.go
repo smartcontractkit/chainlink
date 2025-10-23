@@ -543,13 +543,7 @@ func Test_RegistrySyncer_DONUpdate(t *testing.T) {
 	}
 
 	testEventHandler := newTestEvtHandler(nil)
-	donNotifier := testDonNotifier{
-		don: capabilities.DON{
-			ID:       donID,
-			Families: []string{donFamily},
-		},
-		err: nil,
-	}
+	donNotifier := corecaps.NewDonNotifier()
 	engineRegistry := NewEngineRegistry()
 
 	// Create the worker
@@ -564,13 +558,19 @@ func Test_RegistrySyncer_DONUpdate(t *testing.T) {
 			SyncStrategy: SyncStrategyReconciliation,
 		},
 		testEventHandler,
-		&donNotifier,
+		donNotifier,
 		engineRegistry,
 		WithRetryInterval(1*time.Second),
 	)
 	require.NoError(t, err)
 
 	servicetest.Run(t, worker)
+
+	donNotifier.NotifyDonSet(capabilities.DON{
+		ID:       donID,
+		Families: []string{donFamily},
+	},
+	)
 
 	require.Eventually(t, func() bool {
 		return len(testEventHandler.GetEvents()) == numberWorkflows
