@@ -281,7 +281,6 @@ func NewApp(s *Shell) *cli.App {
 
 				s.Logger = l
 				s.CloseLogger = closeFn
-				s.LoggerConfig = lggrCfg
 				// s.SetOtelCore is a hook that can be used to set the OTel core
 				s.SetOtelCore = atomicCore.Store
 

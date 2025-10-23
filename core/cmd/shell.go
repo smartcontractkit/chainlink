@@ -152,7 +152,6 @@ type Shell struct {
 	Renderer
 	Config                         chainlink.GeneralConfig // initialized in Before
 	Logger                         logger.Logger           // initialized in Before
-	LoggerConfig                   logger.Config           // initialized in Before
 	Registerer                     prometheus.Registerer   // initialized in Before
 	CloseLogger                    func() error            // called in After
 	SetOtelCore                    func(*zapcore.Core)     // reference to AtomicCore.Store
