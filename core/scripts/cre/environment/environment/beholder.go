@@ -33,7 +33,7 @@ type moduleInfo struct {
 // getProtoSchemaSetFromGoMod uses `go list` to extract the version/commit ref
 // from the github.com/smartcontractkit/chainlink-protos/workflows/go dependency.
 // It returns a ProtoSchemaSet with hardcoded values matching default.toml config.
-func getProtoSchemaSetFromGoMod() ([]chipingressset.ProtoSchemaSet, error) {
+func getProtoSchemaSetFromGoMod(ctx context.Context) ([]chipingressset.ProtoSchemaSet, error) {
 	const targetModule = "github.com/smartcontractkit/chainlink-protos/workflows/go"
 
 	// Get the absolute path to the repository root (where go.mod is located)
@@ -43,7 +43,7 @@ func getProtoSchemaSetFromGoMod() ([]chipingressset.ProtoSchemaSet, error) {
 	}
 
 	// Use `go list -m -json` to get module information
-	cmd := exec.Command("go", "list", "-m", "-json", targetModule)
+	cmd := exec.CommandContext(ctx, "go", "list", "-m", "-json", targetModule)
 	cmd.Dir = repoRoot
 
 	output, err := cmd.Output()
@@ -285,7 +285,7 @@ func startBeholder(cmdContext context.Context, cleanupWait time.Duration) (start
 	fmt.Print(libformat.PurpleText("%s", stageGen.WrapAndNext("Started Chip Ingress stack in %.2f seconds", stageGen.Elapsed().Seconds())))
 	fmt.Print(libformat.PurpleText("%s", stageGen.Wrap("Registering protos")))
 
-	protoSchemaSets, getProtoErr := getProtoSchemaSetFromGoMod()
+	protoSchemaSets, getProtoErr := getProtoSchemaSetFromGoMod(cmdContext)
 	if getProtoErr != nil {
 		return errors.Wrap(getProtoErr, "failed to get proto schema set from go.mod")
 	}
@@ -401,7 +401,7 @@ func fetchAndRegisterProtosCmd() *cobra.Command {
 				schemaURL = "http://localhost:" + chipingressset.DEFAULT_RED_PANDA_SCHEMA_REGISTRY_PORT
 			}
 
-			protoSchemaSets, getProtoErr := getProtoSchemaSetFromGoMod()
+			protoSchemaSets, getProtoErr := getProtoSchemaSetFromGoMod(cmd.Context())
 			if getProtoErr != nil {
 				return errors.Wrap(getProtoErr, "failed to get proto schema set from go.mod")
 			}
