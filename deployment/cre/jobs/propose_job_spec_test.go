@@ -602,7 +602,7 @@ func TestProposeJobSpec_Apply(t *testing.T) {
 
 		bootstrapOut, ok := out.Reports[0].Output.(operations.ProposeOCR3BootstrapJobOutput)
 		require.True(t, ok)
-		assert.Len(t, bootstrapOut.Specs, 0) // no specs should be proposed, since no nodes were found
+		assert.Empty(t, bootstrapOut.Specs) // no specs should be proposed, since no nodes were found
 
 		reqs, err := testEnv.TestJD.ListProposedJobRequests()
 		require.NoError(t, err)
@@ -610,7 +610,7 @@ func TestProposeJobSpec_Apply(t *testing.T) {
 		filteredReqs := slices.DeleteFunc(reqs, func(s *job.ProposeJobRequest) bool {
 			return !strings.Contains(s.Spec, `name = "ocr3-bootstrap-job-wrong-zone"`)
 		})
-		assert.Len(t, filteredReqs, 0)
+		assert.Empty(t, filteredReqs)
 	})
 
 	t.Run("failed ocr3 bootstrap job distribution", func(t *testing.T) {
