@@ -3,7 +3,6 @@ package capabilities_test
 import (
 	"context"
 	"testing"
-	"time"
 
 	"github.com/stretchr/testify/require"
 
@@ -19,29 +18,36 @@ func TestDonNotifier_WaitForDon(t *testing.T) {
 	don := commoncap.DON{
 		ID: 1,
 	}
+	notifyCh := make(chan struct{})
+	setCh := make(chan struct{})
 
 	go func() {
-		time.Sleep(100 * time.Millisecond)
+		<-notifyCh
 		notifier.NotifyDonSet(don)
+		close(setCh)
 	}()
 
-	ctx, cancel := context.WithTimeout(context.Background(), 1*time.Second)
+	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
+	close(notifyCh)
 	result, err := notifier.WaitForDon(ctx)
 	require.NoError(t, err)
 	assert.Equal(t, don, result)
 
+	// Verify that a second read returns same DON without ever waiting
+	<-setCh
+	cancel()
 	result, err = notifier.WaitForDon(ctx)
-	require.NoError(t, err)
+	require.NoError(t, err) // should not error because the value is cached
 	assert.Equal(t, don, result)
 }
 
 func TestDonNotifier_WaitForDon_ContextTimeout(t *testing.T) {
 	notifier := capabilities.NewDonNotifier()
 
-	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Millisecond)
-	defer cancel()
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
 
 	_, err := notifier.WaitForDon(ctx)
 	require.Error(t, err)
@@ -50,36 +56,42 @@ func TestDonNotifier_WaitForDon_ContextTimeout(t *testing.T) {
 
 func TestDonNotifier_DonUpdate(t *testing.T) {
 	notifier := capabilities.NewDonNotifier()
+	notifyChs := []chan struct{}{
+		make(chan struct{}),
+		make(chan struct{}),
+	}
+	setCh := make(chan struct{})
 
 	// Set the first DON
 	don1 := commoncap.DON{
 		ID: 1,
 	}
 	go func() {
-		time.Sleep(200 * time.Millisecond)
+		<-notifyChs[0]
 		notifier.NotifyDonSet(don1)
+		close(setCh)
 	}()
 
 	// Update to second DON
 	don2 := commoncap.DON{
 		ID: 2,
 	}
-	notifyCh := make(chan struct{})
 	go func() {
-		time.Sleep(600 * time.Millisecond)
-		close(notifyCh)
+		<-notifyChs[1]
 		notifier.NotifyDonSet(don2)
+		close(setCh)
 	}()
 
-	ctx, cancel := context.WithTimeout(context.Background(), 1*time.Second)
+	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
+	close(notifyChs[0])
 	result, err := notifier.WaitForDon(ctx)
 	require.NoError(t, err)
 	assert.Equal(t, don1, result)
 
-	<-notifyCh
-
+	close(notifyChs[1])
+	<-setCh
 	result, err = notifier.WaitForDon(ctx)
 	require.NoError(t, err)
 	assert.Equal(t, don2, result)
