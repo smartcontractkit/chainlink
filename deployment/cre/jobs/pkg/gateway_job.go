@@ -105,6 +105,8 @@ func (g GatewayJob) Resolve(gatewayNodeIdx int) (string, error) {
 		},
 		HTTPClientConfig: httpClientConfig{
 			MaxResponseBytes: 50_000_000,
+			AllowedPorts:     []int{443},
+			AllowedSchemes:   []string{"https"},
 		},
 		Dons: dons,
 	}
@@ -208,7 +210,9 @@ type member struct {
 }
 
 type httpClientConfig struct {
-	MaxResponseBytes int `toml:"MaxResponseBytes"`
+	MaxResponseBytes int      `toml:"MaxResponseBytes"`
+	AllowedPorts     []int    `toml:"AllowedPorts"`
+	AllowedSchemes   []string `toml:"AllowedSchemes"`
 }
 
 type nodeServerConfig struct {
