@@ -582,7 +582,8 @@ func Test_RegistrySyncer_DONUpdate(t *testing.T) {
 
 	// Fill in some placeholder engines that the actual event handler would have created
 	for _, event := range testEventHandler.GetEvents() {
-		engineRegistry.Add(event.Data.(WorkflowActivatedEvent).WorkflowID, &mockService{})
+		err := engineRegistry.Add(event.Data.(WorkflowActivatedEvent).WorkflowID, &mockService{})
+		require.NoError(t, err)
 	}
 
 	// Change the DON to have no family, so workflows should be removed
