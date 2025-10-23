@@ -15,7 +15,7 @@ require (
 	github.com/BurntSushi/toml v1.4.0
 	github.com/Khan/genqlient v0.7.0
 	github.com/Masterminds/semver/v3 v3.4.0
-	github.com/aptos-labs/aptos-go-sdk v1.9.1-0.20250613185448-581cb03acb8f
+	github.com/aptos-labs/aptos-go-sdk v1.11.0
 	github.com/aws/aws-sdk-go v1.55.7
 	github.com/block-vision/sui-go-sdk v1.1.2
 	github.com/cosmos/gogoproto v1.7.0
@@ -37,7 +37,7 @@ require (
 	github.com/smartcontractkit/ccip-contract-examples/chains/evm v0.0.0-20250826190403-aed7f5f33cde
 	github.com/smartcontractkit/ccip-owner-contracts v0.1.0
 	github.com/smartcontractkit/chain-selectors v1.0.75
-	github.com/smartcontractkit/chainlink-aptos v0.0.0-20251013133428-62ab1091a563
+	github.com/smartcontractkit/chainlink-aptos v0.0.0-20251023094626-811d3c1413e7
 	github.com/smartcontractkit/chainlink-ccip v0.1.1-solana.0.20251009203201-900123a5c46a
 	github.com/smartcontractkit/chainlink-ccip/chains/solana v0.0.0-20250912190424-fd2e35d7deb5
 	github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings v0.0.0-20250912190424-fd2e35d7deb5
@@ -70,9 +70,9 @@ require (
 	github.com/xssnick/tonutils-go v1.14.1
 	github.com/zksync-sdk/zksync2-go v1.1.1-0.20250620124214-2c742ee399c6
 	go.uber.org/zap v1.27.0
-	golang.org/x/crypto v0.42.0
+	golang.org/x/crypto v0.43.0
 	golang.org/x/exp v0.0.0-20250711185948-6ae5c78190dc
-	golang.org/x/mod v0.27.0
+	golang.org/x/mod v0.28.0
 	golang.org/x/oauth2 v0.30.0
 	golang.org/x/sync v0.17.0
 	google.golang.org/grpc v1.76.0
@@ -169,7 +169,7 @@ require (
 	github.com/cockroachdb/pebble v1.1.5 // indirect
 	github.com/cockroachdb/redact v1.1.5 // indirect
 	github.com/cockroachdb/tokenbucket v0.0.0-20230807174530-cc333fc44b06 // indirect
-	github.com/coder/websocket v1.8.13 // indirect
+	github.com/coder/websocket v1.8.14 // indirect
 	github.com/cometbft/cometbft v0.38.17 // indirect
 	github.com/cometbft/cometbft-db v1.0.1 // indirect
 	github.com/consensys/gnark-crypto v0.18.0 // indirect
@@ -286,7 +286,7 @@ require (
 	github.com/hashicorp/go-retryablehttp v0.7.7 // indirect
 	github.com/hashicorp/golang-lru v1.0.2 // indirect
 	github.com/hashicorp/yamux v0.1.2 // indirect
-	github.com/hasura/go-graphql-client v0.13.1 // indirect
+	github.com/hasura/go-graphql-client v0.14.5 // indirect
 	github.com/hdevalence/ed25519consensus v0.2.0 // indirect
 	github.com/holiman/billy v0.0.0-20240216141850-2abb0c79d3c4 // indirect
 	github.com/holiman/bloomfilter/v2 v2.0.3 // indirect
@@ -481,12 +481,13 @@ require (
 	go.uber.org/multierr v1.11.0 // indirect
 	go.uber.org/ratelimit v0.3.1 // indirect
 	golang.org/x/arch v0.11.0 // indirect
-	golang.org/x/net v0.43.0 // indirect
-	golang.org/x/sys v0.36.0 // indirect
-	golang.org/x/term v0.35.0 // indirect
-	golang.org/x/text v0.29.0 // indirect
+	golang.org/x/net v0.45.0 // indirect
+	golang.org/x/sys v0.37.0 // indirect
+	golang.org/x/telemetry v0.0.0-20250908211612-aef8a434d053 // indirect
+	golang.org/x/term v0.36.0 // indirect
+	golang.org/x/text v0.30.0 // indirect
 	golang.org/x/time v0.12.0 // indirect
-	golang.org/x/tools v0.36.0 // indirect
+	golang.org/x/tools v0.37.0 // indirect
 	golang.org/x/xerrors v0.0.0-20240903120638-7835f813f4da // indirect
 	gomodules.xyz/jsonpatch/v2 v2.4.0 // indirect
 	gonum.org/v1/gonum v0.16.0 // indirect

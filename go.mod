@@ -8,7 +8,7 @@ require (
 	github.com/NethermindEth/juno v0.12.5
 	github.com/NethermindEth/starknet.go v0.8.0
 	github.com/andybalholm/brotli v1.1.1
-	github.com/aptos-labs/aptos-go-sdk v1.9.1-0.20250613185448-581cb03acb8f
+	github.com/aptos-labs/aptos-go-sdk v1.11.0
 	github.com/avast/retry-go/v4 v4.6.1
 	github.com/btcsuite/btcd/btcec/v2 v2.3.4
 	github.com/coreos/go-oidc/v3 v3.11.0
@@ -79,7 +79,7 @@ require (
 	github.com/shopspring/decimal v1.4.0
 	github.com/sigurn/crc16 v0.0.0-20211026045750-20ab5afb07e3
 	github.com/smartcontractkit/chain-selectors v1.0.75
-	github.com/smartcontractkit/chainlink-aptos v0.0.0-20251013133428-62ab1091a563
+	github.com/smartcontractkit/chainlink-aptos v0.0.0-20251023094626-811d3c1413e7
 	github.com/smartcontractkit/chainlink-automation v0.8.1
 	github.com/smartcontractkit/chainlink-ccip v0.1.1-solana.0.20251009203201-900123a5c46a
 	github.com/smartcontractkit/chainlink-ccip/chains/solana v0.0.0-20250912190424-fd2e35d7deb5
@@ -132,12 +132,12 @@ require (
 	go.opentelemetry.io/otel/trace v1.38.0
 	go.uber.org/atomic v1.11.0
 	go.uber.org/zap v1.27.0
-	golang.org/x/crypto v0.42.0
+	golang.org/x/crypto v0.43.0
 	golang.org/x/exp v0.0.0-20250711185948-6ae5c78190dc
-	golang.org/x/mod v0.27.0
+	golang.org/x/mod v0.28.0
 	golang.org/x/oauth2 v0.30.0
 	golang.org/x/sync v0.17.0
-	golang.org/x/term v0.35.0
+	golang.org/x/term v0.36.0
 	golang.org/x/time v0.12.0
 	gonum.org/v1/gonum v0.16.0
 	google.golang.org/grpc v1.76.0
@@ -201,7 +201,7 @@ require (
 	github.com/cockroachdb/pebble v1.1.5 // indirect
 	github.com/cockroachdb/redact v1.1.5 // indirect
 	github.com/cockroachdb/tokenbucket v0.0.0-20230807174530-cc333fc44b06 // indirect
-	github.com/coder/websocket v1.8.13 // indirect
+	github.com/coder/websocket v1.8.14 // indirect
 	github.com/cometbft/cometbft v0.38.17 // indirect
 	github.com/cometbft/cometbft-db v1.0.1 // indirect
 	github.com/consensys/gnark-crypto v0.18.0 // indirect
@@ -279,7 +279,7 @@ require (
 	github.com/hashicorp/go-uuid v1.0.3 // indirect
 	github.com/hashicorp/golang-lru v1.0.2 // indirect
 	github.com/hashicorp/yamux v0.1.2 // indirect
-	github.com/hasura/go-graphql-client v0.13.1 // indirect
+	github.com/hasura/go-graphql-client v0.14.5 // indirect
 	github.com/holiman/billy v0.0.0-20240216141850-2abb0c79d3c4 // indirect
 	github.com/holiman/bloomfilter/v2 v2.0.3 // indirect
 	github.com/huin/goupnp v1.3.0 // indirect
@@ -352,7 +352,7 @@ require (
 	github.com/smartcontractkit/chainlink-tron/relayer v0.0.11-0.20251014143056-a0c6328c91e9 // indirect
 	github.com/smartcontractkit/grpc-proxy v0.0.0-20240830132753-a7e17fec5ab7 // indirect
 	github.com/spf13/afero v1.14.0 // indirect
-	github.com/spf13/pflag v1.0.6 // indirect
+	github.com/spf13/pflag v1.0.10 // indirect
 	github.com/spf13/viper v1.20.1 // indirect
 	github.com/stephenlacy/go-ethereum-hdwallet v0.0.0-20230913225845-a4fa94429863 // indirect
 	github.com/streamingfast/logging v0.0.0-20230608130331-f22c91403091 // indirect
@@ -398,10 +398,11 @@ require (
 	go.uber.org/multierr v1.11.0 // indirect
 	go.uber.org/ratelimit v0.3.1 // indirect
 	golang.org/x/arch v0.11.0 // indirect
-	golang.org/x/net v0.43.0 // indirect
-	golang.org/x/sys v0.36.0 // indirect
-	golang.org/x/text v0.29.0 // indirect
-	golang.org/x/tools v0.36.0 // indirect
+	golang.org/x/net v0.45.0 // indirect
+	golang.org/x/sys v0.37.0 // indirect
+	golang.org/x/telemetry v0.0.0-20250908211612-aef8a434d053 // indirect
+	golang.org/x/text v0.30.0 // indirect
+	golang.org/x/tools v0.37.0 // indirect
 	golang.org/x/xerrors v0.0.0-20240903120638-7835f813f4da // indirect
 	google.golang.org/genproto v0.0.0-20250505200425-f936aa4a68b2 // indirect
 	google.golang.org/genproto/googleapis/api v0.0.0-20251007200510-49b9836ed3ff // indirect
