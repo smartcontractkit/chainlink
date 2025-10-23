@@ -10,6 +10,7 @@ import (
 )
 
 // AtomicCore provides thread-safe core swapping using atomic operations.
+// AtomicCore implements zapcore.Core interface.
 // It starts as a noop core and can be atomically swapped to include additional cores.
 var _ zapcore.Core = &AtomicCore{}
 
@@ -44,6 +45,7 @@ func (d *AtomicCore) With(fs []zapcore.Field) zapcore.Core {
 }
 
 // atomicCoreWrapper preserves atomic behavior when fields are applied via With().
+// atomicCoreWrapper implements zapcore.Core as well.
 // Without this wrapper, With() would break the atomic chain by returning a static core.
 // This wrapper delegates to the current atomic core and caches the result for performance.
 type atomicCoreWrapper struct {
