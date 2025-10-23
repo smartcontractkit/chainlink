@@ -2,7 +2,9 @@ package logger
 
 import (
 	"os"
-	"sync/atomic"
+	"slices"
+	"sync"
+	"weak"
 
 	pkgerrors "github.com/pkg/errors"
 	"go.uber.org/zap"
@@ -10,95 +12,49 @@ import (
 )
 
 // AtomicCore provides thread-safe core swapping using atomic operations.
-// AtomicCore implements zapcore.Core interface.
 // It starts as a noop core and can be atomically swapped to include additional cores.
 var _ zapcore.Core = &AtomicCore{}
 
 type AtomicCore struct {
-	atomic.Pointer[zapcore.Core]
+	mu       sync.RWMutex
+	core     zapcore.Core
+	children []weak.Pointer[withCore]
 }
 
 // NewAtomicCore creates a new AtomicCore initialized with a noop core
 func NewAtomicCore() *AtomicCore {
-	ac := &AtomicCore{}
-	noop := zapcore.NewNopCore()
-	ac.Store(&noop)
-	return ac
+	return &AtomicCore{core: zapcore.NewNopCore()}
+}
+
+func (d *AtomicCore) Store(core zapcore.Core) {
+	d.mu.Lock()
+	defer d.mu.Unlock()
+	d.core = core
+	d.children = slices.DeleteFunc(d.children, func(p weak.Pointer[withCore]) bool {
+		c := p.Value()
+		if c == nil {
+			return true
+		}
+		c.Store(d.core)
+		return false
+	})
 }
 
 func (d *AtomicCore) load() zapcore.Core {
-	p := d.Load()
-	if p == nil {
-		return zapcore.NewNopCore()
-	}
-	return *p
+	d.mu.RLock()
+	defer d.mu.RUnlock()
+	return d.core
 }
 
 func (d *AtomicCore) Enabled(l zapcore.Level) bool { return d.load().Enabled(l) }
 
 func (d *AtomicCore) With(fs []zapcore.Field) zapcore.Core {
-	// Return a wrapper that applies fields to the dynamically loaded core
-	return &atomicCoreWrapper{
-		parent: d,
-		fields: fs,
-	}
-}
-
-// atomicCoreWrapper preserves atomic behavior when fields are applied via With().
-// atomicCoreWrapper implements zapcore.Core as well.
-// Without this wrapper, With() would break the atomic chain by returning a static core.
-// This wrapper delegates to the current atomic core and caches the result for performance.
-type atomicCoreWrapper struct {
-	parent *AtomicCore
-	fields []zapcore.Field
-
-	cachedCore       zapcore.Core
-	cachedParentCore zapcore.Core
-}
-
-// getCoreWithFields gets the current core and applies fields to it.
-// Caches the result until the parent core changes.
-func (a *atomicCoreWrapper) getCoreWithFields() zapcore.Core {
-	currentParentCore := a.parent.load()
-
-	// If the parent core has changed, invalidate cache
-	if a.cachedCore == nil || a.cachedParentCore != currentParentCore {
-		a.cachedCore = currentParentCore.With(a.fields)
-		a.cachedParentCore = currentParentCore
-	}
-
-	return a.cachedCore
-}
-
-func (a *atomicCoreWrapper) Enabled(l zapcore.Level) bool {
-	return a.getCoreWithFields().Enabled(l)
-}
-
-func (a *atomicCoreWrapper) With(fs []zapcore.Field) zapcore.Core {
-	// Combine existing fields with new ones
-	combinedFields := make([]zapcore.Field, 0, len(a.fields)+len(fs))
-	combinedFields = append(combinedFields, a.fields...)
-	combinedFields = append(combinedFields, fs...)
-	return &atomicCoreWrapper{
-		parent: a.parent,
-		fields: combinedFields,
-	}
-}
-
-func (a *atomicCoreWrapper) Check(e zapcore.Entry, ce *zapcore.CheckedEntry) *zapcore.CheckedEntry {
-	return a.getCoreWithFields().Check(e, ce)
-}
-
-func (a *atomicCoreWrapper) Write(e zapcore.Entry, fs []zapcore.Field) error {
-	currentParentCore := a.parent.load()
-	combinedFields := make([]zapcore.Field, 0, len(a.fields)+len(fs))
-	combinedFields = append(combinedFields, a.fields...)
-	combinedFields = append(combinedFields, fs...)
-	return currentParentCore.Write(e, combinedFields)
-}
-
-func (a *atomicCoreWrapper) Sync() error {
-	return a.getCoreWithFields().Sync()
+	d.mu.Lock()
+	defer d.mu.Unlock()
+	coreWithFields := d.core.With(fs)
+	w := &withCore{fields: fs, AtomicCore: AtomicCore{core: coreWithFields}}
+	d.children = append(d.children, weak.Make(w))
+	return w
 }
 
 func (d *AtomicCore) Check(e zapcore.Entry, ce *zapcore.CheckedEntry) *zapcore.CheckedEntry {
@@ -108,6 +64,25 @@ func (d *AtomicCore) Check(e zapcore.Entry, ce *zapcore.CheckedEntry) *zapcore.C
 func (d *AtomicCore) Write(e zapcore.Entry, fs []zapcore.Field) error { return d.load().Write(e, fs) }
 
 func (d *AtomicCore) Sync() error { return d.load().Sync() }
+
+type withCore struct {
+	fields []zapcore.Field
+	AtomicCore
+}
+
+func (w *withCore) Store(core zapcore.Core) {
+	w.mu.Lock()
+	defer w.mu.Unlock()
+	w.core = core.With(w.fields)
+	w.children = slices.DeleteFunc(w.children, func(p weak.Pointer[withCore]) bool {
+		c := p.Value()
+		if c == nil {
+			return true
+		}
+		c.Store(w.core)
+		return false
+	})
+}
 
 var _ Logger = &zapLogger{}
 

@@ -120,7 +120,7 @@ func TestAtomicCoreSwap(t *testing.T) {
 	assert.Equal(t, 0, otelLogs.Len(), "Expected no logs before core swap")
 
 	// Swap to the observer core
-	setOtelCore(&otelCore)
+	setOtelCore(otelCore)
 
 	lggr.Info("after swap")
 
