@@ -83,5 +83,4 @@ func TestDonNotifier_DonUpdate(t *testing.T) {
 	result, err = notifier.WaitForDon(ctx)
 	require.NoError(t, err)
 	assert.Equal(t, don2, result)
-
 }
