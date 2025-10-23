@@ -16,6 +16,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/jsonrpc2"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
+	"github.com/smartcontractkit/chainlink-common/pkg/settings/limits"
 
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/api"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/config"
@@ -48,17 +49,20 @@ type gateway struct {
 	services.StateMachine
 
 	codec              api.Codec
-	httpServer         gw_net.HttpServer
+	httpServer         gw_net.HTTPServer
 	handlers           map[string]handlers.Handler
 	serviceNameToDonID map[string]string
 	connMgr            ConnectionManager
 	lggr               logger.Logger
 }
 
-func NewGatewayFromConfig(cfg *config.GatewayConfig, handlerFactory HandlerFactory, lggr logger.Logger) (Gateway, error) {
+func NewGatewayFromConfig(cfg *config.GatewayConfig, handlerFactory HandlerFactory, lggr logger.Logger, lf limits.Factory) (Gateway, error) {
 	codec := &api.JsonRPCCodec{}
-	httpServer := gw_net.NewHttpServer(&cfg.UserServerConfig, lggr)
-	connMgr, err := NewConnectionManager(cfg, clockwork.NewRealClock(), lggr)
+	httpServer, err := gw_net.NewHTTPServer(&cfg.UserServerConfig, lggr, lf)
+	if err != nil {
+		return nil, err
+	}
+	connMgr, err := NewConnectionManager(cfg, clockwork.NewRealClock(), lggr, lf)
 	if err != nil {
 		return nil, err
 	}
@@ -115,7 +119,7 @@ func NewGatewayFromConfig(cfg *config.GatewayConfig, handlerFactory HandlerFacto
 	return NewGateway(codec, httpServer, handlerMap, serviceNameToDonID, connMgr, lggr), nil
 }
 
-func NewGateway(codec api.Codec, httpServer gw_net.HttpServer, handlers map[string]handlers.Handler, serviceNameToDonID map[string]string, connMgr ConnectionManager, lggr logger.Logger) Gateway {
+func NewGateway(codec api.Codec, httpServer gw_net.HTTPServer, handlers map[string]handlers.Handler, serviceNameToDonID map[string]string, connMgr ConnectionManager, lggr logger.Logger) Gateway {
 	gw := &gateway{
 		codec:              codec,
 		httpServer:         httpServer,
