@@ -20,7 +20,7 @@ type CreateJobsWithJdOpDeps struct {
 	JobSpecFactoryFunctions   []cre.JobSpecFn
 	CreEnvironment            *cre.Environment
 	Dons                      *cre.Dons
-	CapabilitiesAwareNodeSets []*cre.CapabilitiesAwareNodeSet
+	NodeSets                  []*cre.NodeSet
 	Capabilities              []cre.InstallableCapability
 }
 
@@ -49,7 +49,7 @@ func CreateJobsWithJdOpFactory(id string, version string) *operations.Operation[
 						CreEnvironment: deps.CreEnvironment,
 						Don:            don,
 						Dons:           deps.Dons,
-						NodeSet:        cre.ConvertToNodeSetWithChainCapabilities(deps.CapabilitiesAwareNodeSets)[idx],
+						NodeSet:        cre.ConvertToNodeSetWithChainCapabilities(deps.NodeSets)[idx],
 					})
 					if jobSpecsErr != nil {
 						return CreateJobsWithJdOpOutput{}, pkgerrors.Wrap(jobSpecsErr, "failed to generate job specs")

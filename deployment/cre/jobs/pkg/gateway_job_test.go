@@ -250,10 +250,10 @@ ServiceName = 'workflows'
 CleanUpPeriodMs = 86400000
 
 [gatewayConfig.Dons.Handlers.Config.NodeRateLimiter]
-globalBurst = 10
-globalRPS = 50
-perSenderBurst = 10
-perSenderRPS = 10
+globalBurst = 100
+globalRPS = 500
+perSenderBurst = 100
+perSenderRPS = 100
 
 [[gatewayConfig.Dons.Members]]
 Address = '0xabc'

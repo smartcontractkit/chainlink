@@ -532,14 +532,24 @@ func setupDashboards(setupCfg SetupConfig) error {
 		return errors.New("timed out waiting for Grafana to be available at http://localhost:3000")
 	}
 
+	targetPath := cfg.Observability.TargetPath
+	// Expand ~ to home directory in targetPath if present
+	if strings.HasPrefix(targetPath, "~/") {
+		homeDir, homeErr := os.UserHomeDir()
+		if homeErr != nil {
+			return fmt.Errorf("failed to get user home directory: %w", homeErr)
+		}
+		targetPath = filepath.Join(homeDir, targetPath[2:])
+	}
+
 	// Check the file exists before trying to run the script
-	scriptPath := filepath.Join(cfg.Observability.TargetPath, "deploy-cre-local.sh")
+	scriptPath := filepath.Join(targetPath, "deploy-cre-local.sh")
 	if _, err = os.Stat(scriptPath); os.IsNotExist(err) {
 		return errors.New("deploy-cre-local.sh script does not exist, ensure the setup command has been run")
 	}
 
 	deployDashboardsCmd := exec.Command("./deploy-cre-local.sh")
-	deployDashboardsCmd.Dir = cfg.Observability.TargetPath
+	deployDashboardsCmd.Dir = targetPath
 	deployOutput, err := deployDashboardsCmd.CombinedOutput()
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Error: %s\n", err)
@@ -700,21 +710,21 @@ func StartCLIEnvironment(
 	singleFileLogger := cldlogger.NewSingleFileLogger(nil)
 
 	universalSetupInput := &creenv.SetupInput{
-		CapabilitiesAwareNodeSets: in.NodeSets,
-		BlockchainsInput:          in.Blockchains,
-		ContractVersions:          env.ContractVersions(),
-		WithV2Registries:          env.WithV2Registries(),
-		JdInput:                   in.JD,
-		Provider:                  *in.Infra,
-		S3ProviderInput:           in.S3ProviderInput,
-		CapabilityConfigs:         in.CapabilityConfigs,
-		CopyCapabilityBinaries:    withPluginsDockerImageFlag == "", // do not copy any binaries to the containers, if we are using plugins image (they already have them)
-		Capabilities:              capabilities,
-		JobSpecFactoryFunctions:   extraJobSpecFunctions,
-		StageGen:                  initLocalCREStageGen(in),
-		Features:                  features,
-		GatewayWhitelistConfig:    gatewayWhitelistConfig,
-		BlockchainDeployers:       blockchains_sets.NewDeployerSet(testLogger, in.Infra, infra.CribConfigsDir),
+		NodeSets:                in.NodeSets,
+		BlockchainsInput:        in.Blockchains,
+		ContractVersions:        env.ContractVersions(),
+		WithV2Registries:        env.WithV2Registries(),
+		JdInput:                 in.JD,
+		Provider:                *in.Infra,
+		S3ProviderInput:         in.S3ProviderInput,
+		CapabilityConfigs:       in.CapabilityConfigs,
+		CopyCapabilityBinaries:  withPluginsDockerImageFlag == "", // do not copy any binaries to the containers, if we are using plugins image (they already have them)
+		Capabilities:            capabilities,
+		JobSpecFactoryFunctions: extraJobSpecFunctions,
+		StageGen:                initLocalCREStageGen(in),
+		Features:                features,
+		GatewayWhitelistConfig:  gatewayWhitelistConfig,
+		BlockchainDeployers:     blockchains_sets.NewDeployerSet(testLogger, in.Infra, infra.CribConfigsDir),
 	}
 
 	ctx, cancel := context.WithTimeout(cmdContext, 10*time.Minute)
@@ -1061,7 +1071,7 @@ func purgeStateCmd() *cobra.Command {
 
 func allCacheFolders() ([]string, error) {
 	// TODO get this path from Beholder in the CTF
-	knownCacheDirRoots := []string{"~/.local/share/beholder"}
+	knownCacheDirRoots := []string{"~/.local/share/beholder", "~/.local/share/observability"}
 
 	cacheDirs := []string{}
 	for _, root := range knownCacheDirRoots {

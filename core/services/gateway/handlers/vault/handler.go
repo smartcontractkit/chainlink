@@ -94,11 +94,25 @@ func (ar *activeRequest) addResponseForNode(nodeAddr string, resp *jsonrpc.Respo
 	return true
 }
 
-func (ar *activeRequest) copiedResponses() map[string]*jsonrpc.Response[json.RawMessage] {
+func (ar *activeRequest) copiedResponses() map[string]jsonrpc.Response[json.RawMessage] {
 	ar.mu.Lock()
 	defer ar.mu.Unlock()
-	copied := make(map[string]*jsonrpc.Response[json.RawMessage], len(ar.responses))
-	maps.Copy(copied, ar.responses)
+	copied := make(map[string]jsonrpc.Response[json.RawMessage], len(ar.responses))
+	for k, response := range ar.responses {
+		var copiedResponse jsonrpc.Response[json.RawMessage]
+		if response != nil {
+			copiedResponse = *response
+			if response.Result != nil {
+				copiedResult := *response.Result
+				copiedResponse.Result = &copiedResult
+			}
+			if response.Error != nil {
+				copiedError := *response.Error
+				copiedResponse.Error = &copiedError
+			}
+		}
+		copied[k] = copiedResponse
+	}
 	return copied
 }
 
@@ -107,7 +121,7 @@ type capabilitiesRegistry interface {
 }
 
 type aggregator interface {
-	Aggregate(ctx context.Context, l logger.Logger, resps map[string]*jsonrpc.Response[json.RawMessage], currResp *jsonrpc.Response[json.RawMessage]) (*jsonrpc.Response[json.RawMessage], error)
+	Aggregate(ctx context.Context, l logger.Logger, resps map[string]jsonrpc.Response[json.RawMessage], currResp *jsonrpc.Response[json.RawMessage]) (*jsonrpc.Response[json.RawMessage], error)
 }
 
 type handler struct {
@@ -399,7 +413,8 @@ func (h *handler) HandleNodeMessage(ctx context.Context, resp *jsonrpc.Response[
 		return nil
 	}
 
-	resp, err := h.aggregator.Aggregate(ctx, l, ar.copiedResponses(), resp)
+	copiedResponses := ar.copiedResponses()
+	resp, err := h.aggregator.Aggregate(ctx, l, copiedResponses, resp)
 	switch {
 	case errors.Is(err, errInsufficientResponsesForQuorum):
 		l.Debugw("aggregating responses, waiting for other nodes...", "error", err)

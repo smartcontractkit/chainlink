@@ -57,19 +57,19 @@ func StartDONs(
 	registryChainBlockchainOutput *blockchain.Output,
 	capabilityConfigs cre.CapabilityConfigs,
 	copyCapabilityBinaries bool,
-	capabilitiesAwareNodeSets []*cre.CapabilitiesAwareNodeSet,
+	nodeSets []*cre.NodeSet,
 ) (*StartedDONs, error) {
 	if infraInput.Type == infra.CRIB {
 		lggr.Info().Msg("Saving node configs and secret overrides")
 		deployCribDonsInput := &crib.DeployCribDonsInput{
 			Topology:       topology,
-			NodeSetInputs:  capabilitiesAwareNodeSets,
+			NodeSet:        nodeSets,
 			CribConfigsDir: infra.CribConfigsDir,
 			Namespace:      infraInput.CRIB.Namespace,
 		}
 
 		var devspaceErr error
-		capabilitiesAwareNodeSets, devspaceErr = crib.DeployDons(deployCribDonsInput)
+		nodeSets, devspaceErr = crib.DeployDons(deployCribDonsInput)
 		if devspaceErr != nil {
 			return nil, pkgerrors.Wrap(devspaceErr, "failed to deploy Dons with crib-sdk")
 		}
@@ -93,27 +93,27 @@ func StartDONs(
 		}
 
 		var err error
-		ns, err := crecapabilities.AppendBinariesPathsNodeSpec(capabilitiesAwareNodeSets[donIdx], donMetadata, customBinariesPaths)
+		ns, err := crecapabilities.AppendBinariesPathsNodeSpec(nodeSets[donIdx], donMetadata, customBinariesPaths)
 		if err != nil {
 			return nil, pkgerrors.Wrapf(err, "failed to append binaries paths to node spec for DON %d", donMetadata.ID)
 		}
-		capabilitiesAwareNodeSets[donIdx] = ns
+		nodeSets[donIdx] = ns
 	}
 
 	// Add env vars, which were provided programmatically, to the node specs
 	// or fail, if node specs already had some env vars set in the TOML config
 	for donIdx, donMetadata := range topology.DonsMetadata.List() {
 		hasEnvVarsInTomlConfig := false
-		for nodeIdx, nodeSpec := range capabilitiesAwareNodeSets[donIdx].NodeSpecs {
+		for nodeIdx, nodeSpec := range nodeSets[donIdx].NodeSpecs {
 			if len(nodeSpec.Node.EnvVars) > 0 {
 				hasEnvVarsInTomlConfig = true
 				break
 			}
 
-			capabilitiesAwareNodeSets[donIdx].NodeSpecs[nodeIdx].Node.EnvVars = capabilitiesAwareNodeSets[donIdx].EnvVars
+			nodeSets[donIdx].NodeSpecs[nodeIdx].Node.EnvVars = nodeSets[donIdx].EnvVars
 		}
 
-		if hasEnvVarsInTomlConfig && len(capabilitiesAwareNodeSets[donIdx].EnvVars) > 0 {
+		if hasEnvVarsInTomlConfig && len(nodeSets[donIdx].EnvVars) > 0 {
 			return nil, fmt.Errorf("extra env vars for Chainlink Nodes are provided in the TOML config for the %s DON, but you tried to provide them programatically. Please set them only in one place", donMetadata.Name)
 		}
 	}
@@ -123,13 +123,13 @@ func StartDONs(
 	if os.Getenv("CI") == "true" {
 		// Due to how we pass custom env vars to reusable workflow we need to use placeholders, so first we need to resolve what's the name of the target environment variable
 		// that stores chainlink version and then we can use it to resolve the image name
-		for i := range capabilitiesAwareNodeSets {
+		for i := range nodeSets {
 			image := fmt.Sprintf("%s:%s", os.Getenv(ctfconfig.E2E_TEST_CHAINLINK_IMAGE_ENV), ctfconfig.MustReadEnvVar_String(ctfconfig.E2E_TEST_CHAINLINK_VERSION_ENV))
-			for j := range capabilitiesAwareNodeSets[i].NodeSpecs {
-				capabilitiesAwareNodeSets[i].NodeSpecs[j].Node.Image = image
+			for j := range nodeSets[i].NodeSpecs {
+				nodeSets[i].NodeSpecs[j].Node.Image = image
 				// unset docker context and file path, so that we can use the image from the registry
-				capabilitiesAwareNodeSets[i].NodeSpecs[j].Node.DockerContext = ""
-				capabilitiesAwareNodeSets[i].NodeSpecs[j].Node.DockerFilePath = ""
+				nodeSets[i].NodeSpecs[j].Node.DockerContext = ""
+				nodeSets[i].NodeSpecs[j].Node.DockerFilePath = ""
 			}
 		}
 	}
@@ -137,30 +137,30 @@ func StartDONs(
 	errGroup, _ := errgroup.WithContext(ctx)
 	var resultMap sync.Map
 
-	for idx, nodeSetInput := range capabilitiesAwareNodeSets {
+	for idx, nodeSet := range nodeSets {
 		errGroup.Go(func() error {
 			startTime := time.Now()
-			lggr.Info().Msgf("Starting DON named %s", nodeSetInput.Name)
-			nodeset, nodesetErr := ns.NewSharedDBNodeSet(nodeSetInput.Input, registryChainBlockchainOutput)
+			lggr.Info().Msgf("Starting DON named %s", nodeSet.Name)
+			nodeset, nodesetErr := ns.NewSharedDBNodeSet(nodeSet.Input, registryChainBlockchainOutput)
 			if nodesetErr != nil {
-				return pkgerrors.Wrapf(nodesetErr, "failed to start nodeSet named %s", nodeSetInput.Name)
+				return pkgerrors.Wrapf(nodesetErr, "failed to start nodeSet named %s", nodeSet.Name)
 			}
 
 			don, donErr := cre.NewDON(ctx, topology.DonsMetadata.List()[idx], nodeset.CLNodes)
 			if donErr != nil {
-				return pkgerrors.Wrapf(donErr, "failed to create DON from node set named %s", nodeSetInput.Name)
+				return pkgerrors.Wrapf(donErr, "failed to create DON from node set named %s", nodeSet.Name)
 			}
 
 			resultMap.Store(idx, &StartedDON{
 				NodeOutput: &cre.WrappedNodeOutput{
 					Output:       nodeset,
-					NodeSetName:  nodeSetInput.Name,
-					Capabilities: nodeSetInput.ComputedCapabilities,
+					NodeSetName:  nodeSet.Name,
+					Capabilities: nodeSet.ComputedCapabilities,
 				},
 				DON: don,
 			})
 
-			lggr.Info().Msgf("DON %s started in %.2f seconds", nodeSetInput.Name, time.Since(startTime).Seconds())
+			lggr.Info().Msgf("DON %s started in %.2f seconds", nodeSet.Name, time.Since(startTime).Seconds())
 
 			return nil
 		})
@@ -171,7 +171,7 @@ func StartDONs(
 		return nil, err
 	}
 
-	startedDONs := make(StartedDONs, len(capabilitiesAwareNodeSets))
+	startedDONs := make(StartedDONs, len(nodeSets))
 	resultMap.Range(func(key, value any) bool {
 		// key is index in the original slice
 		startedDONs[key.(int)] = value.(*StartedDON)

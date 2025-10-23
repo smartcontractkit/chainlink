@@ -56,7 +56,7 @@ func (o *EVM) PreEnvStartup(
 	topology *cre.Topology,
 	creEnv *cre.Environment,
 ) (*cre.PreEnvStartupOutput, error) {
-	chainsWithForwarders := evm.ChainsWithForwarders(creEnv.Blockchains, cre.ConvertToNodeSetWithChainCapabilities(topology.CapabilitiesAwareNodeSets()))
+	chainsWithForwarders := evm.ChainsWithForwarders(creEnv.Blockchains, cre.ConvertToNodeSetWithChainCapabilities(topology.NodeSets()))
 	evmForwardersSelectors, exist := chainsWithForwarders[blockchain.FamilyEVM]
 	if exist {
 		selectorsToDeploy := make([]uint64, 0)
@@ -91,17 +91,17 @@ func (o *EVM) PreEnvStartup(
 	}
 
 	for _, workerNode := range workerNodes {
-		currentConfig := don.CapabilitiesAwareNodeSet().NodeSpecs[workerNode.Index].Node.TestConfigOverrides
-		updatedConfig, updErr := updateNodeConfig(workerNode, currentConfig, don.CapabilitiesAwareNodeSet().ChainCapabilities, creEnv)
+		currentConfig := don.NodeSets().NodeSpecs[workerNode.Index].Node.TestConfigOverrides
+		updatedConfig, updErr := updateNodeConfig(workerNode, currentConfig, don.NodeSets().ChainCapabilities, creEnv)
 		if updErr != nil {
 			return nil, errors.Wrapf(updErr, "failed to update node config for node index %d", workerNode.Index)
 		}
 
-		don.CapabilitiesAwareNodeSet().NodeSpecs[workerNode.Index].Node.TestConfigOverrides = *updatedConfig
+		don.NodeSets().NodeSpecs[workerNode.Index].Node.TestConfigOverrides = *updatedConfig
 	}
 
 	capabilities := []keystone_changeset.DONCapabilityWithConfig{}
-	for _, chainID := range don.CapabilitiesAwareNodeSet().ChainCapabilities[flag].EnabledChains {
+	for _, chainID := range don.NodeSets().ChainCapabilities[flag].EnabledChains {
 		fullName := corevm.GenerateWriteTargetName(chainID)
 		splitName := strings.Split(fullName, "@")
 
