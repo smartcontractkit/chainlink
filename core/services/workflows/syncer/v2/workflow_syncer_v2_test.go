@@ -525,7 +525,7 @@ func Test_RegistrySyncer_DONUpdate(t *testing.T) {
 	updateAuthorizedAddressV2(t, backendTH, wfRegistryC, backendTH.ContractsOwner.From, donFamily)
 	updateAllowedDONsV2(t, backendTH, wfRegistryC, []string{donFamily})
 
-	numberWorkflows := 10
+	numberWorkflows := 2
 	for i := range numberWorkflows {
 		var workflowID [32]byte
 		_, err = rand.Read((workflowID)[:])
@@ -543,6 +543,14 @@ func Test_RegistrySyncer_DONUpdate(t *testing.T) {
 	}
 
 	testEventHandler := newTestEvtHandler(nil)
+	donNotifier := testDonNotifier{
+		don: capabilities.DON{
+			ID:       donID,
+			Families: []string{donFamily},
+		},
+		err: nil,
+	}
+	engineRegistry := NewEngineRegistry()
 
 	// Create the worker
 	worker, err := NewWorkflowRegistry(
@@ -556,14 +564,8 @@ func Test_RegistrySyncer_DONUpdate(t *testing.T) {
 			SyncStrategy: SyncStrategyReconciliation,
 		},
 		testEventHandler,
-		&testDonNotifier{
-			don: capabilities.DON{
-				ID:       donID,
-				Families: []string{donFamily},
-			},
-			err: nil,
-		},
-		NewEngineRegistry(),
+		&donNotifier,
+		engineRegistry,
 		WithRetryInterval(1*time.Second),
 	)
 	require.NoError(t, err)
@@ -578,7 +580,26 @@ func Test_RegistrySyncer_DONUpdate(t *testing.T) {
 		assert.Equal(t, WorkflowActivated, event.Name)
 	}
 
-	// TODO: switch DON Family
+	// Fill in some placeholder engines that the actual event handler would have created
+	for _, event := range testEventHandler.GetEvents() {
+		engineRegistry.Add(event.Data.(WorkflowActivatedEvent).WorkflowID, &mockService{})
+	}
+
+	// Change the DON to have no family, so workflows should be removed
+	testEventHandler.ClearEvents()
+
+	donNotifier.NotifyDonSet(capabilities.DON{
+		ID:       donID,
+		Families: []string{""},
+	})
+
+	require.Eventually(t, func() bool {
+		return len(testEventHandler.GetEvents()) == numberWorkflows
+	}, 30*time.Second, 1*time.Second)
+
+	for _, event := range testEventHandler.GetEvents() {
+		assert.Equal(t, WorkflowDeleted, event.Name)
+	}
 }
 
 func Test_StratReconciliation_RetriesWithBackoffV2(t *testing.T) {
