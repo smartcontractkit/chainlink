@@ -19,6 +19,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 	offchain_aggregator_wrapper "github.com/smartcontractkit/chainlink-evm/gethwrappers/offchainaggregator/generated/ocr2/offchainaggregator"
 	"github.com/smartcontractkit/chainlink-evm/pkg/chains/legacyevm"
+	"github.com/smartcontractkit/chainlink-evm/pkg/round"
 )
 
 var _ median.MedianContract = &medianContract{}
@@ -28,7 +29,7 @@ type medianContract struct {
 	lggr                logger.Logger
 	configTracker       types.ContractConfigTracker
 	contractCaller      *ocr2aggregator.OCR2AggregatorCaller
-	requestRoundTracker *RequestRoundTracker
+	requestRoundTracker *round.RequestRoundTracker
 }
 
 func newMedianContract(configTracker types.ContractConfigTracker, contractAddress common.Address, chain legacyevm.Chain, jobID int32, oracleSpecID int32, ds sqlutil.DataSource, lggr logger.Logger) (*medianContract, error) {
@@ -52,7 +53,7 @@ func newMedianContract(configTracker types.ContractConfigTracker, contractAddres
 		lggr:           lggr,
 		configTracker:  configTracker,
 		contractCaller: contractCaller,
-		requestRoundTracker: NewRequestRoundTracker(
+		requestRoundTracker: round.NewRequestRoundTracker(
 			contract,
 			contractFilterer,
 			chain.Client(),
@@ -60,8 +61,8 @@ func newMedianContract(configTracker types.ContractConfigTracker, contractAddres
 			jobID,
 			lggr,
 			ds,
-			NewRoundRequestedDB(ds, oracleSpecID, lggr),
-			chain.Config().EVM(),
+			round.NewRoundRequestedDB(ds, oracleSpecID, lggr),
+			chain.Config().EVM().ChainType(),
 		),
 	}, nil
 }

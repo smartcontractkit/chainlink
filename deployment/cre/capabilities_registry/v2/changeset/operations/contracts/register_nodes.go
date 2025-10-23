@@ -1,6 +1,7 @@
 package contracts
 
 import (
+	"encoding/hex"
 	"errors"
 	"fmt"
 
@@ -10,6 +11,7 @@ import (
 	"github.com/ethereum/go-ethereum/core/types"
 	mcmslib "github.com/smartcontractkit/mcms"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
 
@@ -81,7 +83,16 @@ var RegisterNodes = operations.NewOperation[RegisterNodesInput, RegisterNodesOut
 			return RegisterNodesOutput{}, fmt.Errorf("failed to create CapabilitiesRegistry: %w", err)
 		}
 
-		var nodes []capabilities_registry_v2.CapabilitiesRegistryNodeParams
+		dedupedNodes, err := dedupNodes(deps.Env.Logger, input.Nodes, capReg)
+		if err != nil {
+			return RegisterNodesOutput{}, fmt.Errorf("failed to deduplicate nodes: %w", err)
+		}
+		if len(dedupedNodes) == 0 {
+			deps.Env.Logger.Info("All nodes are already registered in the contract, nothing to do")
+			return RegisterNodesOutput{
+				Nodes: []*capabilities_registry_v2.CapabilitiesRegistryNodeAdded{},
+			}, nil
+		}
 
 		contractNOPs, err := pkg.GetNodeOperators(nil, capReg)
 		if err != nil {
@@ -97,7 +108,8 @@ var RegisterNodes = operations.NewOperation[RegisterNodesInput, RegisterNodesOut
 			allNOPsNamesInContract[nop.Name] = i + 1
 		}
 
-		for _, node := range input.Nodes {
+		var nodes []capabilities_registry_v2.CapabilitiesRegistryNodeParams
+		for _, node := range dedupedNodes {
 			index, exists := allNOPsNamesInContract[node.NOP]
 			if !exists {
 				return RegisterNodesOutput{}, fmt.Errorf("node operator `%s` not found in contract", node.NOP)
@@ -219,4 +231,27 @@ func validateNodes(nodes []capabilities_registry_v2.CapabilitiesRegistryNodePara
 		}
 	}
 	return nil
+}
+
+func dedupNodes(lggr logger.Logger, inputNodes []NodesInput, capReg *capabilities_registry_v2.CapabilitiesRegistry) ([]NodesInput, error) {
+	contractNodes, err := pkg.GetNodes(nil, capReg)
+	if err != nil {
+		return nil, fmt.Errorf("failed to fetch nodes from contract: %w", err)
+	}
+	contractNodesMap := make(map[[32]byte]struct{})
+	for _, node := range contractNodes {
+		contractNodesMap[node.P2pId] = struct{}{}
+	}
+
+	var dedupedNodes []NodesInput
+	for i, node := range inputNodes {
+		if _, exists := contractNodesMap[node.P2pID]; exists {
+			lggr.Infof("Node with P2P ID %s already registered in contract, skipping", hex.EncodeToString(node.P2pID[:]))
+			continue
+		}
+
+		dedupedNodes = append(dedupedNodes, inputNodes[i])
+	}
+
+	return dedupedNodes, nil
 }

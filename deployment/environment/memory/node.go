@@ -251,7 +251,7 @@ func (n Node) JDChainConfigs() ([]*nodev1.ChainConfig, error) {
 				OcrKeyBundle:     keyBundle,
 				Multiaddr:        n.MultiAddr(),
 				Plugins:          nil, // TODO: programmatic way to list these from the embedded chainlink.Application?
-				ForwarderAddress: ptr(""),
+				ForwarderAddress: pointer.To(""),
 			},
 		})
 	}
@@ -268,7 +268,7 @@ func WithFinalityDepths(finalityDepths map[uint64]uint32) ConfigOpt {
 			chainIDBig := evmutils.New(new(big.Int).SetUint64(chainID))
 			for _, evmChainConfig := range c.EVM {
 				if evmChainConfig.ChainID.Cmp(chainIDBig) == 0 {
-					evmChainConfig.Chain.FinalityDepth = ptr(depth)
+					evmChainConfig.FinalityDepth = pointer.To(depth)
 				}
 			}
 		}
@@ -316,30 +316,30 @@ func NewNode(
 	// Do not want to load fixtures as they contain a dummy chainID.
 	// Create database and initial configuration.
 	cfg, db := heavyweight.FullTestDBNoFixturesV2(t, func(c *chainlink.Config, s *chainlink.Secrets) {
-		c.Insecure.OCRDevelopmentMode = ptr(true) // Disables ocr spec validation so we can have fast polling for the test.
+		c.Insecure.OCRDevelopmentMode = pointer.To(true) // Disables ocr spec validation so we can have fast polling for the test.
 
-		c.Feature.LogPoller = ptr(true)
+		c.Feature.LogPoller = pointer.To(true)
 
 		// P2P V2 configs.
-		c.P2P.V2.Enabled = ptr(true)
+		c.P2P.V2.Enabled = pointer.To(true)
 		c.P2P.V2.DeltaDial = config.MustNewDuration(500 * time.Millisecond)
 		c.P2P.V2.DeltaReconcile = config.MustNewDuration(5 * time.Second)
 		c.P2P.V2.ListenAddresses = &[]string{fmt.Sprintf("127.0.0.1:%d", nodecfg.Port)}
 
 		// Enable Capabilities, This is a pre-requisite for registrySyncer to work.
 		if nodecfg.RegistryConfig.Contract != common.HexToAddress("0x0") {
-			c.Capabilities.ExternalRegistry.NetworkID = ptr(relay.NetworkEVM)
-			c.Capabilities.ExternalRegistry.ChainID = ptr(strconv.FormatUint(nodecfg.RegistryConfig.EVMChainID, 10))
-			c.Capabilities.ExternalRegistry.Address = ptr(nodecfg.RegistryConfig.Contract.String())
+			c.Capabilities.ExternalRegistry.NetworkID = pointer.To(relay.NetworkEVM)
+			c.Capabilities.ExternalRegistry.ChainID = pointer.To(strconv.FormatUint(nodecfg.RegistryConfig.EVMChainID, 10))
+			c.Capabilities.ExternalRegistry.Address = pointer.To(nodecfg.RegistryConfig.Contract.String())
 		}
 
 		// OCR configs
-		c.OCR.Enabled = ptr(false)
-		c.OCR.DefaultTransactionQueueDepth = ptr(uint32(200))
-		c.OCR2.Enabled = ptr(true)
+		c.OCR.Enabled = pointer.To(false)
+		c.OCR.DefaultTransactionQueueDepth = pointer.To(uint32(200))
+		c.OCR2.Enabled = pointer.To(true)
 		c.OCR2.ContractPollInterval = config.MustNewDuration(5 * time.Second)
 
-		c.Log.Level = ptr(configv2.LogLevel(nodecfg.LogLevel))
+		c.Log.Level = pointer.To(configv2.LogLevel(nodecfg.LogLevel))
 
 		var evmConfigs v2toml.EVMConfigs
 		for chainID := range evmchains {
@@ -728,13 +728,13 @@ func CreateKeys(t *testing.T,
 func createConfigV2Chain(chainID uint64) *v2toml.EVMConfig {
 	chainIDBig := evmutils.NewI(int64(chainID))
 	chain := v2toml.Defaults(chainIDBig)
-	chain.GasEstimator.LimitDefault = ptr(uint64(5e6))
+	chain.GasEstimator.LimitDefault = pointer.To(uint64(5e6))
 	chain.LogPollInterval = config.MustNewDuration(500 * time.Millisecond)
-	chain.Transactions.ForwardersEnabled = ptr(false)
-	chain.FinalityDepth = ptr(uint32(2))
+	chain.Transactions.ForwardersEnabled = pointer.To(false)
+	chain.FinalityDepth = pointer.To(uint32(2))
 	return &v2toml.EVMConfig{
 		ChainID: chainIDBig,
-		Enabled: ptr(true),
+		Enabled: pointer.To(true),
 		Chain:   chain,
 		Nodes:   v2toml.EVMNodes{&v2toml.Node{}},
 	}
@@ -756,15 +756,15 @@ func createSolanaChainConfig(chainID string, chain cldf_solana.Chain) *solcfg.TO
 
 	cfg := &solcfg.TOMLConfig{
 		ChainID: &chainID,
-		Enabled: ptr(true),
+		Enabled: pointer.To(true),
 		Chain:   chainConfig,
 		MultiNode: mnCfg.MultiNodeConfig{
 			MultiNode: mnCfg.MultiNode{
-				VerifyChainID: ptr(false),
+				VerifyChainID: pointer.To(false),
 			},
 		},
 		Nodes: []*solcfg.Node{{
-			Name:     ptr("primary"),
+			Name:     pointer.To("primary"),
 			URL:      url,
 			SendOnly: false,
 		}},
@@ -772,8 +772,6 @@ func createSolanaChainConfig(chainID string, chain cldf_solana.Chain) *solcfg.TO
 	cfg.SetDefaults()
 	return cfg
 }
-
-func ptr[T any](v T) *T { return &v }
 
 func setupJD(t *testing.T, app chainlink.Application) {
 	secret := randomBytes32(t)

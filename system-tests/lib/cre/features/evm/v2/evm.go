@@ -62,7 +62,7 @@ func (o *EVM) PreEnvStartup(
 	topology *cre.Topology,
 	creEnv *cre.Environment,
 ) (*cre.PreEnvStartupOutput, error) {
-	chainsWithForwarders := evm.ChainsWithForwarders(creEnv.Blockchains, cre.ConvertToNodeSetWithChainCapabilities(topology.CapabilitiesAwareNodeSets()))
+	chainsWithForwarders := evm.ChainsWithForwarders(creEnv.Blockchains, cre.ConvertToNodeSetWithChainCapabilities(topology.NodeSets()))
 	evmForwardersSelectors, exist := chainsWithForwarders[blockchain.FamilyEVM]
 
 	if exist {
@@ -89,23 +89,23 @@ func (o *EVM) PreEnvStartup(
 		return nil, errors.Wrap(wErr, "failed to find worker nodes")
 	}
 	for _, workerNode := range workerNodes {
-		currentConfig := don.CapabilitiesAwareNodeSet().NodeSpecs[workerNode.Index].Node.TestConfigOverrides
-		updatedConfig, updErr := updateNodeConfig(workerNode, don.CapabilitiesAwareNodeSet(), currentConfig)
+		currentConfig := don.NodeSets().NodeSpecs[workerNode.Index].Node.TestConfigOverrides
+		updatedConfig, updErr := updateNodeConfig(workerNode, don.NodeSets(), currentConfig)
 		if updErr != nil {
 			return nil, errors.Wrapf(updErr, "failed to update node config for node index %d", workerNode.Index)
 		}
 
-		don.CapabilitiesAwareNodeSet().NodeSpecs[workerNode.Index].Node.TestConfigOverrides = *updatedConfig
+		don.NodeSets().NodeSpecs[workerNode.Index].Node.TestConfigOverrides = *updatedConfig
 	}
 
 	capabilities := []keystone_changeset.DONCapabilityWithConfig{}
-	for _, chainID := range don.CapabilitiesAwareNodeSet().ChainCapabilities[flag].EnabledChains {
+	for _, chainID := range don.NodeSets().ChainCapabilities[flag].EnabledChains {
 		selector, selectorErr := chainselectors.SelectorFromChainId(chainID)
 		if selectorErr != nil {
 			return nil, errors.Wrapf(selectorErr, "failed to get selector from chainID: %d", chainID)
 		}
 
-		evmMethodConfigs, err := getEvmMethodConfigs(don.CapabilitiesAwareNodeSet())
+		evmMethodConfigs, err := getEvmMethodConfigs(don.NodeSets())
 		if err != nil {
 			return nil, errors.Wrap(err, "there was an error getting EVM method configs")
 		}
@@ -126,7 +126,7 @@ func (o *EVM) PreEnvStartup(
 	}, nil
 }
 
-func updateNodeConfig(workerNode *cre.NodeMetadata, nodeSet *cre.CapabilitiesAwareNodeSet, currentConfig string) (*string, error) {
+func updateNodeConfig(workerNode *cre.NodeMetadata, nodeSet *cre.NodeSet, currentConfig string) (*string, error) {
 	chainsFromAddress, err := findNodeAddressPerChain(nodeSet, workerNode)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to get chains with from address")
@@ -369,7 +369,7 @@ func buildRuntimeValues(chainID uint64, networkFamily, creForwarderAddress, node
 	}
 }
 
-func findNodeAddressPerChain(nodeSet *cre.CapabilitiesAwareNodeSet, workerNode *cre.NodeMetadata) (map[uint64]common.Address, error) {
+func findNodeAddressPerChain(nodeSet *cre.NodeSet, workerNode *cre.NodeMetadata) (map[uint64]common.Address, error) {
 	// get all the forwarders and add workflow config (FromAddress) for chains that have evm enabled
 	data := make(map[uint64]common.Address)
 	for _, chainID := range nodeSet.ChainCapabilities[flag].EnabledChains {
@@ -385,7 +385,7 @@ func findNodeAddressPerChain(nodeSet *cre.CapabilitiesAwareNodeSet, workerNode *
 
 // getEvmMethodConfigs returns the method configs for all EVM methods we want to support, if any method is missing it
 // will not be reached by the node when running evm capability in remote don
-func getEvmMethodConfigs(nodeSetInput *cre.CapabilitiesAwareNodeSet) (map[string]*capabilitiespb.CapabilityMethodConfig, error) {
+func getEvmMethodConfigs(nodeSet *cre.NodeSet) (map[string]*capabilitiespb.CapabilityMethodConfig, error) {
 	evmMethodConfigs := map[string]*capabilitiespb.CapabilityMethodConfig{}
 
 	// the read actions should be all defined in the proto that are neither a LogTrigger type, not a WriteReport type
@@ -403,7 +403,7 @@ func getEvmMethodConfigs(nodeSetInput *cre.CapabilitiesAwareNodeSet) (map[string
 		evmMethodConfigs[action] = readActionConfig()
 	}
 
-	triggerConfig, err := logTriggerConfig(nodeSetInput)
+	triggerConfig, err := logTriggerConfig(nodeSet)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed get config for LogTrigger")
 	}
@@ -413,8 +413,8 @@ func getEvmMethodConfigs(nodeSetInput *cre.CapabilitiesAwareNodeSet) (map[string
 	return evmMethodConfigs, nil
 }
 
-func logTriggerConfig(nodeSetInput *cre.CapabilitiesAwareNodeSet) (*capabilitiespb.CapabilityMethodConfig, error) {
-	faultyNodes, faultyErr := nodeSetInput.MaxFaultyNodes()
+func logTriggerConfig(nodeSet *cre.NodeSet) (*capabilitiespb.CapabilityMethodConfig, error) {
+	faultyNodes, faultyErr := nodeSet.MaxFaultyNodes()
 	if faultyErr != nil {
 		return nil, errors.Wrap(faultyErr, "failed to get faulty nodes")
 	}

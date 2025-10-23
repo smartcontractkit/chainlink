@@ -56,7 +56,20 @@ Slack: #topic-local-dev-environments
 
 # Using the CLI
 
-The CLI manages CRE test environments. It is located in `core/scripts/cre/environment`. It doesn't come as a compiled binary, so every command has to be executed as `go run . <command> [subcommand]`.
+The CLI manages CRE test environments. It is located in `core/scripts/cre/environment`. It doesn't come as a compiled binary, so every command has to be executed as `go run . <command> [subcommand]` (although check below!).
+
+## Installing the binary
+You can compile and install the binary by running:
+```shell
+cd core/scripts/cre/environment
+make install
+```
+
+It will compile local CRE as `local_cre`. With it installed you will be able to access interactive shell **with autocompletions** by running `local_cre sh`. Without installing the binary interactive shell won't be available.
+
+![image](./images/autocompletion.png)
+
+> Warning: Control+C won't interrupt commands executed via the interactive shell.
 
 ## Prerequisites (for Docker) ###
 1. **Docker installed and running**
@@ -608,7 +621,7 @@ func New() (*capabilities.Capability, error) {
     )
 }
 
-func registerWithV1(donFlags []string, _ *cre.CapabilitiesAwareNodeSet) ([]keystone_changeset.DONCapabilityWithConfig, error) {
+func registerWithV1(donFlags []string, _ *cre.NodeSet) ([]keystone_changeset.DONCapabilityWithConfig, error) {
     var capabilities []keystone_changeset.DONCapabilityWithConfig
 
     if flags.HasFlag(donFlags, flag) {
@@ -681,7 +694,7 @@ func New() (*capabilities.Capability, error) {
     )
 }
 
-func registerWithV1(_ []string, nodeSetInput *cre.CapabilitiesAwareNodeSet) ([]keystone_changeset.DONCapabilityWithConfig, error) {
+func registerWithV1(_ []string, nodeSetInput *cre.NodeSet) ([]keystone_changeset.DONCapabilityWithConfig, error) {
     capabilities := make([]keystone_changeset.DONCapabilityWithConfig, 0)
 
     if nodeSetInput == nil {
