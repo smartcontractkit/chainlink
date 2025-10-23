@@ -1,4 +1,4 @@
-package memory_test
+package memory
 
 import (
 	"fmt"
@@ -16,7 +16,7 @@ import (
 	"github.com/smartcontractkit/chainlink-protos/job-distributor/v1/shared/ptypes"
 
 	"github.com/smartcontractkit/chainlink/deployment"
-	"github.com/smartcontractkit/chainlink/deployment/environment/memory"
+	"github.com/smartcontractkit/chainlink/deployment/helpers/pointer"
 )
 
 func TestJobClientProposeJob(t *testing.T) {
@@ -28,7 +28,7 @@ func TestJobClientProposeJob(t *testing.T) {
 
 	blockchains := cldf_chain.NewBlockChainsFromSlice(bc)
 	ports := freeport.GetN(t, 1)
-	c := memory.NewNodeConfig{
+	c := NewNodeConfig{
 		Port:           ports[0],
 		BlockChains:    blockchains,
 		LogLevel:       zapcore.DebugLevel,
@@ -36,14 +36,14 @@ func TestJobClientProposeJob(t *testing.T) {
 		RegistryConfig: deployment.CapabilityRegistryConfig{},
 		CustomDBSetup:  nil,
 	}
-	testNode := memory.NewNode(t, c)
+	testNode := NewNode(t, c)
 
 	// Set up the JobClient with a mock node
 	nodeID := "node-1"
-	nodes := map[string]memory.Node{
+	nodes := map[string]Node{
 		nodeID: *testNode,
 	}
-	jobClient := memory.NewMemoryJobClient(nodes)
+	jobClient := NewMemoryJobClient(nodes)
 
 	type testCase struct {
 		name      string
@@ -133,7 +133,7 @@ func TestJobClientJobAPI(t *testing.T) {
 
 	blockchains := cldf_chain.NewBlockChainsFromSlice(bc)
 	ports := freeport.GetN(t, 1)
-	c := memory.NewNodeConfig{
+	c := NewNodeConfig{
 		Port:           ports[0],
 		BlockChains:    blockchains,
 		LogLevel:       zapcore.DebugLevel,
@@ -141,17 +141,17 @@ func TestJobClientJobAPI(t *testing.T) {
 		RegistryConfig: deployment.CapabilityRegistryConfig{},
 		CustomDBSetup:  nil,
 	}
-	testNode := memory.NewNode(t, c)
+	testNode := NewNode(t, c)
 
 	// Set up the JobClient with a mock node
 	nodeID := "node-1"
 	externalJobID := "f1ac5211-ab79-4c31-ba1c-0997b72db466"
 
 	jobSpecToml := testJobProposalTOML(t, externalJobID)
-	nodes := map[string]memory.Node{
+	nodes := map[string]Node{
 		nodeID: *testNode,
 	}
-	jobClient := memory.NewMemoryJobClient(nodes)
+	jobClient := NewMemoryJobClient(nodes)
 
 	// Create a mock request
 	req := &jobv1.ProposeJobRequest{
@@ -160,7 +160,7 @@ func TestJobClientJobAPI(t *testing.T) {
 		Labels: []*ptypes.Label{
 			{
 				Key:   "label-key",
-				Value: ptr("label-value"),
+				Value: pointer.To("label-value"),
 			},
 		},
 	}
@@ -347,10 +347,6 @@ func TestJobClientJobAPI(t *testing.T) {
 			})
 		}
 	})
-}
-
-func ptr(s string) *string {
-	return &s
 }
 
 // need some non-ocr job type to avoid the ocr validation and the p2pwrapper check

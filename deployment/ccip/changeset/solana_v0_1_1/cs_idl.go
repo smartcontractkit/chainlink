@@ -60,6 +60,7 @@ type IDLConfig struct {
 	LockReleaseTokenPoolMetadata []string                      // metadata for the lock release token pool (keyed my client identifier (metadata))
 	MCMS                         *proposalutils.TimelockConfig // timelock config for mcms
 	CCTPTokenPool                bool
+	IdlSpace                     uint64
 }
 
 func (c IDLConfig) Validate(e cldf.Environment) error {
@@ -413,7 +414,7 @@ func SetAuthorityIDLByCLI(e cldf.Environment, newAuthority, programsPath, progra
 // Discriminator to invoke IDL operations
 const IdlIxTag uint64 = 0x0a69e9a778bcf440
 
-const DefaultIDLMaxSize = 512 * 1024 // 512 KB
+const DefaultIDLMaxSize = 10000 // This is using the max value of creating an IDL account https://github.com/solana-foundation/anchor/blob/2a050757609a3c59bd77084a259f5ea64fcebfa6/lang/syn/src/codegen/program/idl.rs#L150
 
 // Number ids of the operations: copied from https://github.com/solana-foundation/anchor/blob/v0.29.0/lang/src/idl.rs#L36
 const (
@@ -642,13 +643,13 @@ func setBufferIdlInstruction(e cldf.Environment, programID, buffer, authority so
 	return buildIdlInstruction(programID, accounts, IdlInstructionSetBuffer, []byte{})
 }
 
-func createIdlInstruction(e cldf.Environment, programID, authority solana.PublicKey) (solana.GenericInstruction, error) {
+func createIdlInstruction(e cldf.Environment, programID, authority solana.PublicKey, dataLen uint64) (solana.GenericInstruction, error) {
 	accounts, instruction, err := getAccountsFoCreateIdlInstruction(e, programID, authority)
 	if err != nil {
 		return instruction, err
 	}
 
-	params := idlCreateParams(uint64(DefaultIDLMaxSize))
+	params := idlCreateParams(dataLen)
 
 	return buildIdlInstruction(programID, accounts, IdlInstructionCreate, params)
 }
@@ -724,7 +725,12 @@ func IdlInitIx(e cldf.Environment, programsPath, programID, programName string, 
 			return nil, fmt.Errorf("error setting buffer authority: %w", err)
 		}
 	}
-	instruction, err := createIdlInstruction(e, solana.MustPublicKeyFromBase58(programID), authority)
+	dataLen := uint64(DefaultIDLMaxSize) // Using the max size of the IDL account as default
+	if c.IdlSpace > 0 {
+		dataLen = c.IdlSpace
+	}
+
+	instruction, err := createIdlInstruction(e, solana.MustPublicKeyFromBase58(programID), authority, dataLen)
 	if err != nil {
 		return nil, fmt.Errorf("error generating set buffer ix: %w", err)
 	}

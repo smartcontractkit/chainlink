@@ -51,4 +51,4 @@ artifacts_dirs = ["./bin/amd64", "./chain_capabilities/bin/amd64"]
 [observability]
 repository = "https://github.com/smartcontractkit/chainlink-observability"
 branch = "main"
-target_path = "./observability"
+target_path = "~/.local/share/observability"

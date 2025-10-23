@@ -25,6 +25,7 @@ import (
 	chain_selectors "github.com/smartcontractkit/chain-selectors"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/beholder"
+	"github.com/smartcontractkit/chainlink-common/pkg/custmsg"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger/otelzap"
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 
@@ -285,6 +286,28 @@ func initLocalSubCmds(s *Shell, safe bool) []cli.Command {
 
 // ownerPermsMask are the file permission bits reserved for owner.
 const ownerPermsMask = os.FileMode(0o700)
+
+// EmitNodeConfig emits the node configuration through beholder as a pb.BaseMessage
+func (s *Shell) EmitNodeConfig(ctx context.Context) {
+	cme := custmsg.NewLabeler()
+	labels := map[string]string{
+		"system":  "Application",
+		"version": static.Version,
+		"commit":  static.Sha,
+	}
+	emitter := cme.WithMapLabels(labels)
+
+	// Get the effective TOML configuration (with defaults applied)
+	_, effectiveTOML := s.Config.ConfigTOML()
+
+	// Emit the configuration as a message
+	err := emitter.Emit(ctx, effectiveTOML)
+	if err != nil {
+		s.Logger.Errorf("failed to emit node configuration through beholder: %v", err)
+	} else {
+		s.Logger.Debug("node configuration emitted through beholder")
+	}
+}
 
 // RunNode starts the Chainlink core.
 func (s *Shell) RunNode(c *cli.Context) error {
@@ -1115,6 +1138,9 @@ func (s *Shell) beforeNode(c *cli.Context) error {
 	if err != nil {
 		return errors.Wrap(err, "failed initializing globals")
 	}
+
+	// Emit node configuration through beholder
+	s.EmitNodeConfig(ctx)
 
 	// If log streaming is enabled swap core to add Otel
 	if s.Config.Telemetry().LogStreamingEnabled() {

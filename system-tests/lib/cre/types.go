@@ -336,7 +336,7 @@ type ConfigureCapabilityRegistryInput struct {
 	ChainSelector               uint64
 	Topology                    *Topology
 	CldEnv                      *cldf.Environment
-	NodeSets                    []*CapabilitiesAwareNodeSet
+	NodeSets                    []*NodeSet
 	CapabilityRegistryConfigFns []CapabilityRegistryConfigFn
 	Blockchains                 []blockchains.Blockchain
 
@@ -406,7 +406,7 @@ type GenerateConfigsInput struct {
 	CapabilitiesPeeringData CapabilitiesPeeringData
 	OCRPeeringData          OCRPeeringData
 	AddressBook             cldf.AddressBook
-	NodeSet                 *CapabilitiesAwareNodeSet
+	NodeSet                 *NodeSet
 	CapabilityConfigs       CapabilityConfigs
 	GatewayConnectorOutput  *GatewayConnectors // optional, automatically set if some DON in the topology has the GatewayDON flag
 }
@@ -452,11 +452,11 @@ type DonMetadata struct {
 	ID            uint64          `toml:"id" json:"id"`
 	Name          string          `toml:"name" json:"name"`
 
-	ns CapabilitiesAwareNodeSet // computed field, not serialized
+	ns NodeSet // computed field, not serialized
 	gh GatewayHelper
 }
 
-func NewDonMetadata(c *CapabilitiesAwareNodeSet, id uint64, provider infra.Provider) (*DonMetadata, error) {
+func NewDonMetadata(c *NodeSet, id uint64, provider infra.Provider) (*DonMetadata, error) {
 	cfgs := make([]NodeMetadataConfig, len(c.NodeSpecs))
 	for i, nodeSpec := range c.NodeSpecs {
 		nodeType := WorkerNode
@@ -549,7 +549,7 @@ func (m *DonMetadata) HasFlag(flag CapabilityFlag) bool {
 	return HasFlag(m.Flags, flag)
 }
 
-func (m *DonMetadata) CapabilitiesAwareNodeSet() *CapabilitiesAwareNodeSet {
+func (m *DonMetadata) NodeSets() *NodeSet {
 	return &m.ns
 }
 
@@ -862,11 +862,11 @@ func newNodes(cfgs []NodeMetadataConfig) ([]*NodeMetadata, error) {
 	return nodes, nil
 }
 
-// CapabilitiesAwareNodeSet is the serialized form that declares nodesets in a topology.
-type CapabilitiesAwareNodeSet struct {
+// NodeSet is the serialized form that declares nodesets (DON) in a topology
+type NodeSet struct {
 	*ns.Input
 	Capabilities []string `toml:"capabilities"` // global capabilities that have no chain-specific configuration (like cron, web-api-target, web-api-trigger, etc.)
-	DONTypes     []string `toml:"don_types"`
+	DONTypes     []string `toml:"don_types"`    // workflow, capabilities, gateway
 	// SupportedEVMChains is filter. Use EVMChains() to get the actual list of chains supported by the nodeset.
 	SupportedEVMChains []uint64 `toml:"supported_evm_chains"` // chain IDs that the DON supports, empty means all chains
 	// TODO separate out bootstrap as a concept rather than index
@@ -889,29 +889,29 @@ type CapabilitiesAwareNodeSet struct {
 	ComputedCapabilities []string `toml:"computed_capabilities"`
 }
 
-func (c *CapabilitiesAwareNodeSet) Flags() []string {
+func (c *NodeSet) Flags() []string {
 	var stringCaps []string
 
 	return append(stringCaps, append(c.ComputedCapabilities, c.DONTypes...)...)
 }
 
-func (c *CapabilitiesAwareNodeSet) GetChainCapabilityConfigs() map[string]*ChainCapabilityConfig {
+func (c *NodeSet) GetChainCapabilityConfigs() map[string]*ChainCapabilityConfig {
 	return c.ChainCapabilities
 }
 
-func (c *CapabilitiesAwareNodeSet) GetCapabilityConfigOverrides() map[string]map[string]any {
+func (c *NodeSet) GetCapabilityConfigOverrides() map[string]map[string]any {
 	return c.CapabilityOverrides
 }
 
-func (c *CapabilitiesAwareNodeSet) GetCapabilityFlags() []string {
+func (c *NodeSet) GetCapabilityFlags() []string {
 	return c.Flags()
 }
 
-func (c *CapabilitiesAwareNodeSet) GetName() string {
+func (c *NodeSet) GetName() string {
 	return c.Name
 }
 
-func ConvertToNodeSetWithChainCapabilities(nodeSets []*CapabilitiesAwareNodeSet) []NodeSetWithCapabilityConfigs {
+func ConvertToNodeSetWithChainCapabilities(nodeSets []*NodeSet) []NodeSetWithCapabilityConfigs {
 	result := make([]NodeSetWithCapabilityConfigs, len(nodeSets))
 	for i, nodeSet := range nodeSets {
 		result[i] = nodeSet
@@ -922,7 +922,7 @@ func ConvertToNodeSetWithChainCapabilities(nodeSets []*CapabilitiesAwareNodeSet)
 // EVMChains returns the list of EVM chain IDs that the nodeset supports. If SupportedChains is set, it is returned directly.
 // Otherwise, the chain IDs are computed from the ChainCapabilities map by collecting all EnabledChains from each capability.
 // The returned list is deduplicated and sorted.
-func (c *CapabilitiesAwareNodeSet) EVMChains() []uint64 {
+func (c *NodeSet) EVMChains() []uint64 {
 	if len(c.SupportedEVMChains) != 0 {
 		return c.SupportedEVMChains
 	}
@@ -967,9 +967,9 @@ type ChainCapabilityConfig struct {
 	ChainOverrides map[uint64]map[string]any `toml:"-"`
 }
 
-// ParseChainCapabilities parses chain_capabilities from raw TOML data and sets it on the CapabilitiesAwareNodeSet.
+// ParseChainCapabilities parses chain_capabilities from raw TOML data and sets it on the NodeSet.
 // This allows us to handle the flexible chain_capabilities syntax without a complex custom unmarshaler.
-func (c *CapabilitiesAwareNodeSet) ParseChainCapabilities() error {
+func (c *NodeSet) ParseChainCapabilities() error {
 	c.ChainCapabilities = make(map[string]*ChainCapabilityConfig)
 	c.ComputedCapabilities = append(c.ComputedCapabilities, c.Capabilities...)
 
@@ -1080,7 +1080,7 @@ func (c *CapabilitiesAwareNodeSet) ParseChainCapabilities() error {
 	return nil
 }
 
-func (c *CapabilitiesAwareNodeSet) ValidateChainCapabilities(bcInput []*blockchain.Input) error {
+func (c *NodeSet) ValidateChainCapabilities(bcInput []*blockchain.Input) error {
 	knownChains := []uint64{}
 	for _, bc := range bcInput {
 		if strings.EqualFold(bc.Type, blockchain.FamilySolana) {
@@ -1110,7 +1110,7 @@ func (c *CapabilitiesAwareNodeSet) ValidateChainCapabilities(bcInput []*blockcha
 //
 // For example, with 4 nodes, at most 1 can be faulty.
 // With 7 nodes, at most 2 can be faulty.
-func (c *CapabilitiesAwareNodeSet) MaxFaultyNodes() (uint32, error) {
+func (c *NodeSet) MaxFaultyNodes() (uint32, error) {
 	if c.Nodes <= 0 {
 		return 0, fmt.Errorf("total nodes must be greater than 0, got %d", c.Nodes)
 	}
@@ -1190,7 +1190,7 @@ type Environment struct {
 }
 
 type (
-	CapabilityRegistryConfigFn = func(donFlags []CapabilityFlag, nodeSetInput *CapabilitiesAwareNodeSet) ([]keystone_changeset.DONCapabilityWithConfig, error)
+	CapabilityRegistryConfigFn = func(donFlags []CapabilityFlag, nodeSet *NodeSet) ([]keystone_changeset.DONCapabilityWithConfig, error)
 	JobSpecFn                  = func(input *JobSpecInput) (DonJobs, error)
 )
 

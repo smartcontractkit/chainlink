@@ -165,9 +165,9 @@ func (e *Deployer) Deploy(input *blockchain.Input) (blockchains.Blockchain, erro
 
 	if e.provider.IsCRIB() {
 		deployCribBlockchainInput := &crib.DeployCribBlockchainInput{
-			BlockchainInput: input,
-			CribConfigsDir:  e.cribConfigsDir,
-			Namespace:       e.provider.CRIB.Namespace,
+			Blockchain:     input,
+			CribConfigsDir: e.cribConfigsDir,
+			Namespace:      e.provider.CRIB.Namespace,
 		}
 
 		bcOut, err = crib.DeployBlockchain(deployCribBlockchainInput)

@@ -38,7 +38,7 @@ func TestCache(t *testing.T) {
 	defer cache.close()
 
 	binary := wasmtest.CreateTestBinary(simpleBinaryCmd, false, t)
-	hmod, err := host.NewModule(&host.ModuleConfig{
+	hmod, err := host.NewModule(t.Context(), &host.ModuleConfig{
 		Logger:         logger.Test(t),
 		IsUncompressed: true,
 	}, binary)
@@ -77,7 +77,7 @@ func TestCache_EvictAfterSize(t *testing.T) {
 	defer cache.close()
 
 	binary := wasmtest.CreateTestBinary(simpleBinaryCmd, false, t)
-	hmod, err := host.NewModule(&host.ModuleConfig{
+	hmod, err := host.NewModule(t.Context(), &host.ModuleConfig{
 		Logger:         logger.Test(t),
 		IsUncompressed: true,
 	}, binary)
@@ -122,7 +122,7 @@ func TestCache_AddDuplicatedModule(t *testing.T) {
 	defer cache.close()
 
 	simpleBinary := wasmtest.CreateTestBinary(simpleBinaryCmd, false, t)
-	shmod, err := host.NewModule(&host.ModuleConfig{
+	shmod, err := host.NewModule(t.Context(), &host.ModuleConfig{
 		Logger:         logger.Test(t),
 		IsUncompressed: true,
 	}, simpleBinary)
@@ -142,7 +142,7 @@ func TestCache_AddDuplicatedModule(t *testing.T) {
 
 	// Adding a different module but with the same id should not overwrite the existing module
 	fetchBinary := wasmtest.CreateTestBinary(fetchBinaryCmd, false, t)
-	fhmod, err := host.NewModule(&host.ModuleConfig{
+	fhmod, err := host.NewModule(t.Context(), &host.ModuleConfig{
 		Logger:         logger.Test(t),
 		IsUncompressed: true,
 	}, fetchBinary)

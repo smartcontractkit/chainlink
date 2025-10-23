@@ -284,14 +284,6 @@ func RegisterWithJD(ctx context.Context, d *Don, supportedChains []blockchains.B
 			for _, role := range node.Roles {
 				switch role {
 				case RoleWorker, RoleBootstrap:
-					// jdChains := []JDChainConfigInput{}
-					// for _, chain := range supportedChains {
-					// 	jdChains = append(jdChains, JDChainConfigInput{
-					// 		ChainID:   strconv.FormatUint(chain.ChainID(), 10),
-					// 		ChainType: strings.ToUpper(chain.ChainFamily()),
-					// 	})
-					// }
-
 					if err := CreateJDChainConfigs(ctx, node, supportedChains, jd); err != nil {
 						return fmt.Errorf("failed to create supported chains in node %s: %w", node.Name, err)
 					}
@@ -624,16 +616,29 @@ func (n *Node) RegisterNodeToJobDistributor(ctx context.Context, jd *jd.JobDistr
 		Value: ptr.Ptr(n.Keys.P2PKey.PeerID.String()),
 	})
 
-	// register the node in the job distributor
-	registerResponse, err := jd.RegisterNode(ctx, &nodev1.RegisterNodeRequest{
-		PublicKey: strings.TrimPrefix(n.Keys.CSAKey.Key, "csa_"),
-		Labels:    labels,
-		Name:      n.Name,
-	})
-
 	if n.JobDistributorDetails == nil {
 		n.JobDistributorDetails = &JobDistributorDetails{}
 	}
+
+	var registerResponse *nodev1.RegisterNodeResponse
+
+	// register the node in the job distributor
+	err := retry.Do(ctx, retry.WithMaxRetries(4, retry.NewConstant(5*time.Second)), func(ctx context.Context) error {
+		var rErr error
+		registerResponse, rErr = jd.RegisterNode(ctx, &nodev1.RegisterNodeRequest{
+			PublicKey: strings.TrimPrefix(n.Keys.CSAKey.Key, "csa_"),
+			Labels:    labels,
+			Name:      n.Name,
+		})
+
+		if rErr != nil {
+			if strings.Contains(rErr.Error(), "AlreadyExists") {
+				return rErr
+			}
+			return retry.RetryableError(fmt.Errorf("failed to register node %s in JD, retrying..: %w", n.Name, rErr))
+		}
+		return nil
+	})
 
 	// node already registered, fetch it's id
 	if err != nil && strings.Contains(err.Error(), "AlreadyExists") {

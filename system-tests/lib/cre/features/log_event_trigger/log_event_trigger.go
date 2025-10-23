@@ -35,7 +35,7 @@ func (o *LogEventTrigger) PreEnvStartup(
 ) (*cre.PreEnvStartupOutput, error) {
 	capabilities := []keystone_changeset.DONCapabilityWithConfig{}
 
-	for _, chainID := range don.CapabilitiesAwareNodeSet().GetChainCapabilityConfigs()[flag].EnabledChains {
+	for _, chainID := range don.NodeSets().GetChainCapabilityConfigs()[flag].EnabledChains {
 		capabilities = append(capabilities, keystone_changeset.DONCapabilityWithConfig{
 			Capability: kcr.CapabilitiesRegistryCapability{
 				LabelledName:   fmt.Sprintf("log-event-trigger-evm-%d", chainID),
