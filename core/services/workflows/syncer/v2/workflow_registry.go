@@ -500,7 +500,7 @@ func (w *workflowRegistry) syncUsingReconciliationStrategy(ctx context.Context) 
 			don, err := w.workflowDonNotifier.WaitForDon(ctx)
 			if err != nil {
 				w.lggr.Errorw("failed to get get don from notifier", "err", err)
-				return
+				continue
 			}
 			w.lggr.Debugw("fetching workflow registry metadata", "don", don.Families)
 			allWorkflowsMetadata, head, err := w.getAllWorkflowsMetadata(ctx, don, w.contractReader)
