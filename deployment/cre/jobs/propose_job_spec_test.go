@@ -529,7 +529,7 @@ func TestProposeJobSpec_Apply(t *testing.T) {
 				{Key: offchain.FilterKeyDONName, Value: test.DONName},
 				{Key: "environment", Value: "test"},
 				{Key: "product", Value: offchain.ProductLabel},
-				{Key: "zone", Value: "test-zone-1"},
+				{Key: "zone", Value: test.Zone},
 			},
 			Inputs: job_types.JobSpecInput{
 				"contractQualifier": "ocr3-contract-qualifier",
