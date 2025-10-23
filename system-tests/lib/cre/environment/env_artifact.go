@@ -199,7 +199,7 @@ func DumpArtifact(
 	dons cre.Dons,
 	creEnv *cre.Environment,
 	jdOutput jd.Output,
-	nodeSets []*cre.CapabilitiesAwareNodeSet,
+	nodeSets []*cre.NodeSet,
 	capabilityRegistryFns []cre.CapabilityRegistryConfigFn,
 ) (string, error) {
 	artifact, err := GenerateArtifact(dons, creEnv, jdOutput, nodeSets, capabilityRegistryFns)
@@ -219,7 +219,7 @@ func GenerateArtifact(
 	dons cre.Dons,
 	creEnv *cre.Environment,
 	jdOutput jd.Output,
-	nodeSets []*cre.CapabilitiesAwareNodeSet,
+	nodeSets []*cre.NodeSet,
 	capabilityRegistryFns []cre.CapabilityRegistryConfigFn,
 ) (*EnvArtifact, error) {
 	var err error

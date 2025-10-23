@@ -70,7 +70,7 @@ type mockAggregator struct {
 	err error
 }
 
-func (m *mockAggregator) Aggregate(_ context.Context, _ logger.Logger, _ map[string]*jsonrpc.Response[json.RawMessage], currResp *jsonrpc.Response[json.RawMessage]) (*jsonrpc.Response[json.RawMessage], error) {
+func (m *mockAggregator) Aggregate(_ context.Context, _ logger.Logger, _ map[string]jsonrpc.Response[json.RawMessage], currResp *jsonrpc.Response[json.RawMessage]) (*jsonrpc.Response[json.RawMessage], error) {
 	if m.err != nil {
 		return nil, m.err
 	}

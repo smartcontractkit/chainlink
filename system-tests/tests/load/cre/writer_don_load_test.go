@@ -80,14 +80,14 @@ func setupLoadTestWriterEnvironment(
 	t *testing.T,
 	testLogger zerolog.Logger,
 	in *TestConfigLoadTestWriter,
-	mustSetCapabilitiesFn func(input []*ns.Input) []*cretypes.CapabilitiesAwareNodeSet,
+	mustSetCapabilitiesFn func(input []*ns.Input) []*cretypes.NodeSet,
 	capabilityFactoryFns []cretypes.CapabilityRegistryConfigFn,
 	jobSpecFactoryFns []cretypes.JobSpecFn,
 	feedIDs []string,
 	workflowNames []string,
 ) *loadTestSetupOutput {
 	universalSetupInput := creenv.SetupInput{
-		CapabilitiesAwareNodeSets:            mustSetCapabilitiesFn(in.NodeSets),
+		NodeSets:                             mustSetCapabilitiesFn(in.NodeSets),
 		CapabilitiesContractFactoryFunctions: capabilityFactoryFns,
 		BlockchainsInput:                     in.Blockchains,
 		JdInput:                              in.JD,
@@ -160,8 +160,8 @@ func TestLoad_Writer_MockCapabilities(t *testing.T) {
 	require.NoError(t, err, "couldn't load test config")
 	require.Len(t, in.NodeSets, 1, "expected 1 node sets in the test config")
 
-	mustSetCapabilitiesFn := func(input []*ns.Input) []*cretypes.CapabilitiesAwareNodeSet {
-		return []*cretypes.CapabilitiesAwareNodeSet{
+	mustSetCapabilitiesFn := func(input []*ns.Input) []*cretypes.NodeSet {
+		return []*cretypes.NodeSet{
 			{
 				Input:        input[0],
 				Capabilities: []string{cretypes.MockCapability, cretypes.ConsensusCapability},
@@ -198,7 +198,7 @@ func TestLoad_Writer_MockCapabilities(t *testing.T) {
 		return jobSpecs, nil
 	}
 
-	WriterDONLoadTestCapabilitiesFactoryFn := func(donFlags []string, _ *cretypes.CapabilitiesAwareNodeSet) ([]keystone_changeset.DONCapabilityWithConfig, error) {
+	WriterDONLoadTestCapabilitiesFactoryFn := func(donFlags []string, _ *cretypes.NodeSet) ([]keystone_changeset.DONCapabilityWithConfig, error) {
 		var capabilities []keystone_changeset.DONCapabilityWithConfig
 
 		if flags.HasFlag(donFlags, cretypes.MockCapability) {

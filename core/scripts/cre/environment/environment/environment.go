@@ -230,7 +230,6 @@ var StartCmdGenerateSettingsFile = func(registryChain blockchains.Blockchain, ou
 
 func startCmd() *cobra.Command {
 	var (
-		topology                 string
 		extraAllowedGatewayPorts []int
 		withExampleFlag          bool
 		exampleWorkflowTrigger   string
@@ -265,13 +264,9 @@ func startCmd() *cobra.Command {
 				}
 			}
 
-			if topology != TopologyWorkflow && topology != TopologyWorkflowGatewayCapabilities && topology != TopologyWorkflowGateway && topology != TopologyMock {
-				framework.L.Warn().Msgf("'%s' is an unknown topology. Using whatever configuration was passed in CTF_CONFIGs", topology)
-			}
-
 			PrintCRELogo()
 
-			if err := defaultCtfConfigs(topology); err != nil {
+			if err := setDefaultCtfConfigs(); err != nil {
 				return errors.Wrap(err, "failed to set default CTF configs")
 			}
 
@@ -323,7 +318,7 @@ func startCmd() *cobra.Command {
 				ExtraAllowedIPs:     []string{},
 				ExtraAllowedIPsCIDR: []string{"0.0.0.0/0"},
 			}
-			output, startErr := StartCLIEnvironment(cmdContext, relativePathToRepoRoot, in, topology, withPluginsDockerImage, nil, features, nil, envDependencies, gatewayWhitelistConfig)
+			output, startErr := StartCLIEnvironment(cmdContext, relativePathToRepoRoot, in, withPluginsDockerImage, nil, features, nil, envDependencies, gatewayWhitelistConfig)
 			if startErr != nil {
 				fmt.Fprintf(os.Stderr, "Error: %s\n", startErr)
 				fmt.Fprintf(os.Stderr, "Stack trace: %s\n", string(debug.Stack()))
@@ -479,21 +474,20 @@ func startCmd() *cobra.Command {
 		},
 	}
 
-	cmd.Flags().StringVarP(&topology, "topology", "t", TopologyWorkflow, "Topology to use for the environment (workflow, workflow-gateway, workflow-gateway-capabilities)")
-	cmd.Flags().DurationVarP(&cleanupWait, "wait-on-error-timeout", "w", 15*time.Second, "Wait on error timeout (e.g. 10s, 1m, 1h)")
+	cmd.Flags().DurationVarP(&cleanupWait, "wait-on-error-timeout", "w", 15*time.Second, "Time to wait before removing Docker containers if environment fails to start (e.g. 10s, 1m, 1h)")
 	cmd.Flags().BoolVarP(&cleanupOnFailure, "cleanup-on-error", "l", false, "Whether to remove Docker containers if startup fails")
-	cmd.Flags().IntSliceVarP(&extraAllowedGatewayPorts, "extra-allowed-gateway-ports", "e", []int{}, "Extra allowed ports for outgoing connections from the Gateway DON (e.g. 8080,8081)")
-	cmd.Flags().BoolVarP(&withExampleFlag, "with-example", "x", false, "Deploy and register example workflow")
-	cmd.Flags().DurationVarP(&exampleWorkflowTimeout, "example-workflow-timeout", "u", 5*time.Minute, "Time to wait until example workflow succeeds")
+	cmd.Flags().IntSliceVarP(&extraAllowedGatewayPorts, "extra-allowed-gateway-ports", "e", []int{}, "Extra allowed ports for outgoing connections from the Gateway Connector (e.g. 8080,8081)")
+	cmd.Flags().BoolVarP(&withExampleFlag, "with-example", "x", false, "Deploys and registers example workflow")
+	cmd.Flags().DurationVarP(&exampleWorkflowTimeout, "example-workflow-timeout", "u", 5*time.Minute, "Time to wait until example workflow succeeds (e.g. 10s, 1m, 1h)")
 	cmd.Flags().StringVarP(&withPluginsDockerImage, "with-plugins-docker-image", "p", "", "Docker image to use (must have all capabilities included)")
 	cmd.Flags().StringVarP(&exampleWorkflowTrigger, "example-workflow-trigger", "y", "web-trigger", "Trigger for example workflow to deploy (web-trigger or cron)")
-	cmd.Flags().BoolVarP(&withBeholder, "with-beholder", "b", false, "Deploy Beholder (Chip Ingress + Red Panda)")
-	cmd.Flags().BoolVarP(&withDashboards, "with-dashboards", "d", false, "Deploy Observability Stack and Grafana Dashboards")
-	cmd.Flags().BoolVar(&withBilling, "with-billing", false, "Deploy Billing Platform Service")
-	cmd.Flags().StringArrayVarP(&protoConfigs, "with-proto-configs", "c", []string{"./proto-configs/default.toml"}, "Protos configs to use (e.g. './proto-configs/config_one.toml,./proto-configs/config_two.toml')")
-	cmd.Flags().BoolVarP(&doSetup, "auto-setup", "a", false, "Run setup before starting the environment")
+	cmd.Flags().BoolVarP(&withBeholder, "with-beholder", "b", false, "Deploys Beholder (Chip Ingress + Red Panda)")
+	cmd.Flags().BoolVarP(&withDashboards, "with-dashboards", "d", false, "Deploys Observability Stack and Grafana Dashboards")
+	cmd.Flags().BoolVar(&withBilling, "with-billing", false, "Deploys Billing Platform Service")
+	cmd.Flags().StringArrayVarP(&protoConfigs, "with-proto-configs", "c", []string{"./proto-configs/default.toml"}, "Paths to protobuf config files for Beholder, comma separated")
+	cmd.Flags().BoolVarP(&doSetup, "auto-setup", "a", false, "Runs setup before starting the environment")
 	cmd.Flags().StringVar(&withContractsVersion, "with-contracts-version", "v1", "Version of workflow and capabilities registry contracts to use (v1 or v2)")
-	cmd.Flags().StringVarP(&setupConfig.ConfigPath, "config", "s", DefaultSetupConfigPath, "Path to the TOML configuration file")
+	cmd.Flags().StringVarP(&setupConfig.ConfigPath, "setup-config", "s", DefaultSetupConfigPath, "Path to the TOML configuration file for the setup command")
 	return cmd
 }
 
@@ -532,14 +526,24 @@ func setupDashboards(setupCfg SetupConfig) error {
 		return errors.New("timed out waiting for Grafana to be available at http://localhost:3000")
 	}
 
+	targetPath := cfg.Observability.TargetPath
+	// Expand ~ to home directory in targetPath if present
+	if strings.HasPrefix(targetPath, "~/") {
+		homeDir, homeErr := os.UserHomeDir()
+		if homeErr != nil {
+			return fmt.Errorf("failed to get user home directory: %w", homeErr)
+		}
+		targetPath = filepath.Join(homeDir, targetPath[2:])
+	}
+
 	// Check the file exists before trying to run the script
-	scriptPath := filepath.Join(cfg.Observability.TargetPath, "deploy-cre-local.sh")
+	scriptPath := filepath.Join(targetPath, "deploy-cre-local.sh")
 	if _, err = os.Stat(scriptPath); os.IsNotExist(err) {
 		return errors.New("deploy-cre-local.sh script does not exist, ensure the setup command has been run")
 	}
 
 	deployDashboardsCmd := exec.Command("./deploy-cre-local.sh")
-	deployDashboardsCmd.Dir = cfg.Observability.TargetPath
+	deployDashboardsCmd.Dir = targetPath
 	deployOutput, err := deployDashboardsCmd.CombinedOutput()
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Error: %s\n", err)
@@ -634,7 +638,7 @@ func stopCmd() *cobra.Command {
 		},
 	}
 
-	cmd.Flags().BoolVarP(&allFlag, "all", "a", false, "Remove all environment state files")
+	cmd.Flags().BoolVarP(&allFlag, "all", "a", false, "Remove also all extra services (beholder, billing)")
 
 	return cmd
 }
@@ -643,7 +647,6 @@ func StartCLIEnvironment(
 	cmdContext context.Context,
 	relativePathToRepoRoot string,
 	in *envconfig.Config,
-	topologyFlag string,
 	withPluginsDockerImageFlag string,
 	capabilities []cre.InstallableCapability, // Deprecated: use Features instead
 	features cre.Features,
@@ -700,21 +703,21 @@ func StartCLIEnvironment(
 	singleFileLogger := cldlogger.NewSingleFileLogger(nil)
 
 	universalSetupInput := &creenv.SetupInput{
-		CapabilitiesAwareNodeSets: in.NodeSets,
-		BlockchainsInput:          in.Blockchains,
-		ContractVersions:          env.ContractVersions(),
-		WithV2Registries:          env.WithV2Registries(),
-		JdInput:                   in.JD,
-		Provider:                  *in.Infra,
-		S3ProviderInput:           in.S3ProviderInput,
-		CapabilityConfigs:         in.CapabilityConfigs,
-		CopyCapabilityBinaries:    withPluginsDockerImageFlag == "", // do not copy any binaries to the containers, if we are using plugins image (they already have them)
-		Capabilities:              capabilities,
-		JobSpecFactoryFunctions:   extraJobSpecFunctions,
-		StageGen:                  initLocalCREStageGen(in),
-		Features:                  features,
-		GatewayWhitelistConfig:    gatewayWhitelistConfig,
-		BlockchainDeployers:       blockchains_sets.NewDeployerSet(testLogger, in.Infra, infra.CribConfigsDir),
+		NodeSets:                in.NodeSets,
+		BlockchainsInput:        in.Blockchains,
+		ContractVersions:        env.ContractVersions(),
+		WithV2Registries:        env.WithV2Registries(),
+		JdInput:                 in.JD,
+		Provider:                *in.Infra,
+		S3ProviderInput:         in.S3ProviderInput,
+		CapabilityConfigs:       in.CapabilityConfigs,
+		CopyCapabilityBinaries:  withPluginsDockerImageFlag == "", // do not copy any binaries to the containers, if we are using plugins image (they already have them)
+		Capabilities:            capabilities,
+		JobSpecFactoryFunctions: extraJobSpecFunctions,
+		StageGen:                initLocalCREStageGen(in),
+		Features:                features,
+		GatewayWhitelistConfig:  gatewayWhitelistConfig,
+		BlockchainDeployers:     blockchains_sets.NewDeployerSet(testLogger, in.Infra, infra.CribConfigsDir),
 	}
 
 	ctx, cancel := context.WithTimeout(cmdContext, 10*time.Minute)
@@ -783,25 +786,10 @@ func PrintCRELogo() {
 	fmt.Println()
 }
 
-func defaultCtfConfigs(topologyFlag string) error {
+func setDefaultCtfConfigs() error {
 	if os.Getenv("CTF_CONFIGS") == "" {
-		var setErr error
-		// use default configs for each
-		switch topologyFlag {
-		case TopologyWorkflow:
-			setErr = os.Setenv("CTF_CONFIGS", "configs/workflow-don.toml")
-		case TopologyWorkflowGateway:
-			setErr = os.Setenv("CTF_CONFIGS", "configs/workflow-gateway-don.toml")
-		case TopologyWorkflowGatewayCapabilities:
-			setErr = os.Setenv("CTF_CONFIGS", "configs/workflow-gateway-capabilities-don.toml")
-		case TopologyMock:
-			setErr = os.Setenv("CTF_CONFIGS", "configs/workflow-gateway-mock-don.toml")
-		default:
-			return fmt.Errorf("unknown topology: %s. Please use a known one or indicate which TOML config to use via CTF_CONFIGS environment variable", topologyFlag)
-		}
-
-		if setErr != nil {
-			return fmt.Errorf("failed to set CTF_CONFIGS environment variable: %w", setErr)
+		if err := os.Setenv("CTF_CONFIGS", "configs/workflow-don.toml"); err != nil {
+			return fmt.Errorf("failed to set CTF_CONFIGS environment variable: %w", err)
 		}
 
 		fmt.Printf("Set CTF_CONFIGS environment variable to default value: %s\n", os.Getenv("CTF_CONFIGS"))
@@ -1061,7 +1049,7 @@ func purgeStateCmd() *cobra.Command {
 
 func allCacheFolders() ([]string, error) {
 	// TODO get this path from Beholder in the CTF
-	knownCacheDirRoots := []string{"~/.local/share/beholder"}
+	knownCacheDirRoots := []string{"~/.local/share/beholder", "~/.local/share/observability"}
 
 	cacheDirs := []string{}
 	for _, root := range knownCacheDirRoots {
