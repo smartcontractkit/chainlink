@@ -35,7 +35,69 @@ func (d *AtomicCore) load() zapcore.Core {
 
 func (d *AtomicCore) Enabled(l zapcore.Level) bool { return d.load().Enabled(l) }
 
-func (d *AtomicCore) With(fs []zapcore.Field) zapcore.Core { return d.load().With(fs) }
+func (d *AtomicCore) With(fs []zapcore.Field) zapcore.Core {
+	// Return a wrapper that applies fields to the dynamically loaded core
+	return &atomicCoreWrapper{
+		parent: d,
+		fields: fs,
+	}
+}
+
+// atomicCoreWrapper preserves atomic behavior when fields are applied via With().
+// Without this wrapper, With() would break the atomic chain by returning a static core.
+// This wrapper delegates to the current atomic core and caches the result for performance.
+type atomicCoreWrapper struct {
+	parent *AtomicCore
+	fields []zapcore.Field
+
+	cachedCore       zapcore.Core
+	cachedParentCore zapcore.Core
+}
+
+// getCoreWithFields gets the current core and applies fields to it.
+// Caches the result until the parent core changes.
+func (a *atomicCoreWrapper) getCoreWithFields() zapcore.Core {
+	currentParentCore := a.parent.load()
+
+	// If the parent core has changed, invalidate cache
+	if a.cachedCore == nil || a.cachedParentCore != currentParentCore {
+		a.cachedCore = currentParentCore.With(a.fields)
+		a.cachedParentCore = currentParentCore
+	}
+
+	return a.cachedCore
+}
+
+func (a *atomicCoreWrapper) Enabled(l zapcore.Level) bool {
+	return a.getCoreWithFields().Enabled(l)
+}
+
+func (a *atomicCoreWrapper) With(fs []zapcore.Field) zapcore.Core {
+	// Combine existing fields with new ones
+	combinedFields := make([]zapcore.Field, 0, len(a.fields)+len(fs))
+	combinedFields = append(combinedFields, a.fields...)
+	combinedFields = append(combinedFields, fs...)
+	return &atomicCoreWrapper{
+		parent: a.parent,
+		fields: combinedFields,
+	}
+}
+
+func (a *atomicCoreWrapper) Check(e zapcore.Entry, ce *zapcore.CheckedEntry) *zapcore.CheckedEntry {
+	return a.getCoreWithFields().Check(e, ce)
+}
+
+func (a *atomicCoreWrapper) Write(e zapcore.Entry, fs []zapcore.Field) error {
+	currentParentCore := a.parent.load()
+	combinedFields := make([]zapcore.Field, 0, len(a.fields)+len(fs))
+	combinedFields = append(combinedFields, a.fields...)
+	combinedFields = append(combinedFields, fs...)
+	return currentParentCore.Write(e, combinedFields)
+}
+
+func (a *atomicCoreWrapper) Sync() error {
+	return a.getCoreWithFields().Sync()
+}
 
 func (d *AtomicCore) Check(e zapcore.Entry, ce *zapcore.CheckedEntry) *zapcore.CheckedEntry {
 	return d.load().Check(e, ce)
