@@ -2,8 +2,11 @@ package environment
 
 import (
 	"context"
+	"encoding/hex"
+	"encoding/json"
 	"fmt"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"runtime/debug"
 	"strings"
@@ -11,7 +14,6 @@ import (
 
 	"github.com/pkg/errors"
 	"github.com/spf13/cobra"
-	"golang.org/x/mod/modfile"
 
 	"github.com/smartcontractkit/chainlink-testing-framework/framework"
 	chipingressset "github.com/smartcontractkit/chainlink-testing-framework/framework/components/dockercompose/chip_ingress_set"
@@ -22,51 +24,52 @@ import (
 
 const DefaultBeholderConfigFile = "configs/chip-ingress.toml"
 
-// getProtoSchemaSetFromGoMod reads the root go.mod file and extracts the commit ref
+// moduleInfo represents the JSON output from `go list -m -json`
+type moduleInfo struct {
+	Path    string `json:"Path"`
+	Version string `json:"Version"`
+}
+
+// getProtoSchemaSetFromGoMod uses `go list` to extract the version/commit ref
 // from the github.com/smartcontractkit/chainlink-protos/workflows/go dependency.
 // It returns a ProtoSchemaSet with hardcoded values matching default.toml config.
 func getProtoSchemaSetFromGoMod() ([]chipingressset.ProtoSchemaSet, error) {
-	// Find the root go.mod file (6 levels up from this file's location)
-	// This file is at: core/scripts/cre/environment/environment/beholder.go
-	// Root is at: go.mod
-	goModPath := filepath.Join(relativePathToRepoRoot, "go.mod")
-	absGoModPath, err := filepath.Abs(goModPath)
-	if err != nil {
-		return nil, errors.Wrap(err, "failed to get absolute path to go.mod")
-	}
-
-	// Read go.mod file
-	goModContent, err := os.ReadFile(absGoModPath)
-	if err != nil {
-		return nil, errors.Wrap(err, "failed to read go.mod file")
-	}
-
-	// Parse go.mod
-	modFile, err := modfile.Parse("go.mod", goModContent, nil)
-	if err != nil {
-		return nil, errors.Wrap(err, "failed to parse go.mod file")
-	}
-
-	// Find the chainlink-protos/workflows/go dependency
 	const targetModule = "github.com/smartcontractkit/chainlink-protos/workflows/go"
-	var commitRef string
-	for _, req := range modFile.Require {
-		if req.Mod.Path == targetModule {
-			// Version format: v0.0.0-YYYYMMDDHHMMSS-SHORTHASH
-			// Extract the short hash after the last hyphen
-			parts := strings.Split(req.Mod.Version, "-")
-			if len(parts) >= 3 {
-				commitRef = parts[len(parts)-1]
-			}
-			break
-		}
+
+	// Get the absolute path to the repository root (where go.mod is located)
+	repoRoot, err := filepath.Abs(relativePathToRepoRoot)
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to get absolute path to repository root")
 	}
 
-	if commitRef == "" {
-		return nil, errors.Errorf("failed to find %s dependency or extract commit ref from go.mod", targetModule)
+	// Use `go list -m -json` to get module information
+	cmd := exec.Command("go", "list", "-m", "-json", targetModule)
+	cmd.Dir = repoRoot
+
+	output, err := cmd.Output()
+	if err != nil {
+		return nil, errors.Wrapf(err, "failed to run 'go list -m -json %s'", targetModule)
 	}
 
-	framework.L.Info().Msgf("Extracted commit ref from go.mod: %s", commitRef)
+	// Parse JSON output
+	var modInfo moduleInfo
+	if err := json.Unmarshal(output, &modInfo); err != nil {
+		return nil, errors.Wrap(err, "failed to parse go list JSON output")
+	}
+
+	if modInfo.Version == "" {
+		return nil, errors.Errorf("no version found for module %s", targetModule)
+	}
+
+	// Extract commit ref from version string
+	// Support various formats:
+	// 1. v1.2.1 -> use as-is
+	// 2. v0.0.0-20211026045750-20ab5afb07e3 -> extract short hash (20ab5afb07e3)
+	// 3. 2a35b54f48ae06be4cc81c768dc9cc9e92249571 -> full commit hash, use as-is
+	// 4. v0.0.0-YYYYMMDDHHMMSS-SHORTHASH -> extract short hash
+	commitRef := extractCommitRef(modInfo.Version)
+
+	framework.L.Info().Msgf("Extracted commit ref for %s: %s (from version: %s)", targetModule, commitRef, modInfo.Version)
 
 	// Return ProtoSchemaSet with hardcoded values from default.toml
 	protoSchemaSet := chipingressset.ProtoSchemaSet{
@@ -78,6 +81,37 @@ func getProtoSchemaSetFromGoMod() ([]chipingressset.ProtoSchemaSet, error) {
 	}
 
 	return []chipingressset.ProtoSchemaSet{protoSchemaSet}, nil
+}
+
+// extractCommitRef extracts a commit reference from various version formats
+func extractCommitRef(version string) string {
+	// If it looks like a full commit hash (40 hex characters, no dashes or dots)
+	if len(version) == 40 && isHexString(version) {
+		return version
+	}
+
+	// If version contains hyphens, it might be pseudo-version format:
+	// v0.0.0-YYYYMMDDHHMMSS-SHORTHASH or v1.2.3-0.YYYYMMDDHHMMSS-SHORTHASH
+	if strings.Contains(version, "-") {
+		parts := strings.Split(version, "-")
+		// The last part should be the short hash
+		if len(parts) >= 2 {
+			lastPart := parts[len(parts)-1]
+			// Verify it looks like a hash (12 hex characters typically)
+			if len(lastPart) >= 7 && isHexString(lastPart) {
+				return lastPart
+			}
+		}
+	}
+
+	// Otherwise, use the version as-is (e.g., v1.2.1, v0.10.0)
+	return version
+}
+
+// isHexString checks if a string contains only hexadecimal characters
+func isHexString(s string) bool {
+	_, err := hex.DecodeString(s)
+	return err == nil
 }
 
 func beholderCmds() *cobra.Command {
