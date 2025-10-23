@@ -253,6 +253,7 @@ func setupViewOnlyNodeTest(t *testing.T, registryChainSel, aptosChainSel uint64,
 			"environment":        "test",
 			"product":            "cre",
 			"type":               "plugin",
+			"zone":               "test-zone-1",
 		}
 		if donCfg.Labels != nil {
 			maps.Copy(labels, donCfg.Labels)
@@ -271,6 +272,7 @@ func setupViewOnlyNodeTest(t *testing.T, registryChainSel, aptosChainSel uint64,
 		"environment":        "test",
 		"product":            "cre",
 		"type":               "bootstrap",
+		"zone":               "test-zone-1",
 	}
 	if donCfg.Labels != nil {
 		maps.Copy(btLabels, donCfg.Labels)
