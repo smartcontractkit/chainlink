@@ -110,9 +110,9 @@ func (g GatewayJob) Resolve(gatewayNodeIdx int) (string, error) {
 			MaxRequestBytes:      100_000,
 			Path:                 "/",
 			Port:                 5_002,
-			ReadTimeoutMillis:    1_000,
+			ReadTimeoutMillis:    int(requestTimeout.Milliseconds()),
 			RequestTimeoutMillis: int(requestTimeout.Milliseconds()),
-			WriteTimeoutMillis:   1_000,
+			WriteTimeoutMillis:   int(requestTimeout.Milliseconds()),
 		},
 		HTTPClientConfig: httpClientConfig{
 			MaxResponseBytes: 50_000_000,
