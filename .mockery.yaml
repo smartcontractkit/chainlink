@@ -159,7 +159,7 @@ packages:
     interfaces:
       ConnectionInitiator:
       ConnectionAcceptor:
-      HttpServer:
+      HTTPServer:
       HTTPRequestHandler:
       WebSocketServer:
       HTTPClient:

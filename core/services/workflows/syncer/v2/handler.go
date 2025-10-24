@@ -463,7 +463,7 @@ func (h *eventHandler) engineFactoryFn(ctx context.Context, workflowID string, o
 		MemoryLimiter:                h.engineLimiters.WASMMemorySize,
 		MaxCompressedBinaryLimiter:   h.engineLimiters.WASMCompressedBinarySize,
 		MaxDecompressedBinaryLimiter: h.engineLimiters.WASMBinarySize,
-		MaxResponseSizeLimiter:       h.engineLimiters.WASMResponseSize,
+		MaxResponseSizeLimiter:       h.engineLimiters.ExecutionResponse,
 	}
 
 	h.lggr.Debugf("Creating module for workflowID %s", workflowID)

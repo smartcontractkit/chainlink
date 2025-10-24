@@ -76,7 +76,6 @@ type EngineLimiters struct {
 	WASMBinarySize           limits.BoundLimiter[config.Size]
 	WASMCompressedBinarySize limits.BoundLimiter[config.Size]
 	WASMMemorySize           limits.BoundLimiter[config.Size]
-	WASMResponseSize         limits.BoundLimiter[config.Size]
 
 	CapabilityConcurrency limits.ResourcePoolLimiter[int]
 	SecretsConcurrency    limits.ResourcePoolLimiter[int]
@@ -143,10 +142,6 @@ func (l *EngineLimiters) init(lf limits.Factory, cfgFn func(*cresettings.Workflo
 	if err != nil {
 		return
 	}
-	l.WASMResponseSize, err = limits.MakeBoundLimiter(lf, cfg.WASMResponseSizeLimit)
-	if err != nil {
-		return
-	}
 	l.CapabilityConcurrency, err = limits.MakeResourcePoolLimiter(lf, cfg.CapabilityConcurrencyLimit)
 	if err != nil {
 		return
@@ -196,6 +191,9 @@ func (l *EngineLimiters) Close() error {
 		l.TriggerEventQueue,
 		l.TriggerEventQueueTime,
 		l.ExecutionConcurrency,
+		l.WASMBinarySize,
+		l.WASMMemorySize,
+		l.WASMCompressedBinarySize,
 		l.CapabilityConcurrency,
 		l.SecretsConcurrency,
 		l.ExecutionTime,
