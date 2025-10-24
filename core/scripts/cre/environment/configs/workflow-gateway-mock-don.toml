@@ -27,7 +27,7 @@ port = 7891
 
 [jd]
     csa_encryption_key = "d1093c0060d50a3c89c189b2e485da5a3ce57f3dcb38ab7e2c0d5f0bb2314a44"
-    image = "localhost:5001/job-distributor:0.12.7"
+    image = "localhost:5001/job-distributor:0.22.1"
 
 [[nodesets]]
     nodes = 5
@@ -43,7 +43,7 @@ port = 7891
     # added for visiblity, required always, when don_types include "gateway"
     gateway_node_index = -1
 
-    capabilities = ["ocr3", "custom-compute", "web-api-trigger"]
+    capabilities = ["ocr3", "custom-compute", "web-api-trigger", "don-time"]
 
    [nodesets.chain_capabilities]
     write-evm = ["1337"]

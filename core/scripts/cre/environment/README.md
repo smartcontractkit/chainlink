@@ -56,7 +56,20 @@ Slack: #topic-local-dev-environments
 
 # Using the CLI
 
-The CLI manages CRE test environments. It is located in `core/scripts/cre/environment`. It doesn't come as a compiled binary, so every command has to be executed as `go run . <command> [subcommand]`.
+The CLI manages CRE test environments. It is located in `core/scripts/cre/environment`. It doesn't come as a compiled binary, so every command has to be executed as `go run . <command> [subcommand]` (although check below!).
+
+## Installing the binary
+You can compile and install the binary by running:
+```shell
+cd core/scripts/cre/environment
+make install
+```
+
+It will compile local CRE as `local_cre`. With it installed you will be able to access interactive shell **with autocompletions** by running `local_cre sh`. Without installing the binary interactive shell won't be available.
+
+![image](./images/autocompletion.png)
+
+> Warning: Control+C won't interrupt commands executed via the interactive shell.
 
 ## Prerequisites (for Docker) ###
 1. **Docker installed and running**
@@ -121,7 +134,6 @@ Optional parameters:
 - `-s`: Time to wait for example workflow to execute successfuly (defaults to `5m`)
 - `-p`: Docker `plugins` image to use (must contain all of the following capabilities: `ocr3`, `cron`, `readcontract` and `logevent`)
 - `-y`: Trigger for example workflow to deploy (web-trigger or cron). Default: `web-trigger`. **Important!** `cron` trigger requires user to either provide the capbility binary path in TOML config or Docker image that has it baked in
-- `-c`: List of configuration files for `.proto` files that will be registered in Beholder (only if `--with-beholder/-b` flag is used). Defaults to [./proto-configs/default.toml](./proto-configs/default.toml)
 
 ## Purging environment state
 To remove all state and cache files used by the environment execute:
@@ -183,7 +195,7 @@ ctf bs r
 ```
 ---
 
-## Debugging core nodes 
+## Debugging core nodes
 Before start the environment set the `CTF_CLNODE_DLV` environment variable to `true`
 ```bash
 export CTF_CLNODE_DLV="true"
@@ -440,17 +452,17 @@ Other environment variables:
 
 # Job Distributor Image
 
-Tests require a local Job Distributor image. By default, configs expect version `job-distributor:0.12.7`.
+Tests require a local Job Distributor image. By default, configs expect version `job-distributor:0.22.1`.
 
 To build locally:
 ```bash
 git clone https://github.com/smartcontractkit/job-distributor
 cd job-distributor
-git checkout v0.12.7
-docker build -t job-distributor:0.12.7 -f e2e/Dockerfile.e2e .
+git checkout v0.22.1
+docker build -t job-distributor:0.22.1 -f e2e/Dockerfile.e2e .
 ```
 
-If you pull the image from the PRO ECR remember to either update the image name in [TOML config](./configs/) for your chosed topology or to tag that image as `job-distributor:0.12.7`.
+If you pull the image from the PRO ECR remember to either update the image name in [TOML config](./configs/) for your chosed topology or to tag that image as `job-distributor:0.22.1`.
 
 ## Example Workflows
 
@@ -608,7 +620,7 @@ func New() (*capabilities.Capability, error) {
     )
 }
 
-func registerWithV1(donFlags []string, _ *cre.CapabilitiesAwareNodeSet) ([]keystone_changeset.DONCapabilityWithConfig, error) {
+func registerWithV1(donFlags []string, _ *cre.NodeSet) ([]keystone_changeset.DONCapabilityWithConfig, error) {
     var capabilities []keystone_changeset.DONCapabilityWithConfig
 
     if flags.HasFlag(donFlags, flag) {
@@ -681,7 +693,7 @@ func New() (*capabilities.Capability, error) {
     )
 }
 
-func registerWithV1(_ []string, nodeSetInput *cre.CapabilitiesAwareNodeSet) ([]keystone_changeset.DONCapabilityWithConfig, error) {
+func registerWithV1(_ []string, nodeSetInput *cre.NodeSet) ([]keystone_changeset.DONCapabilityWithConfig, error) {
     capabilities := make([]keystone_changeset.DONCapabilityWithConfig, 0)
 
     if nodeSetInput == nil {
@@ -1444,7 +1456,7 @@ TRON blockchain support is integrated into the CRE environment by configuring TR
 [[nodesets]]
 ...
   [nodesets.chain_capabilities]
-    # Tron is configured as an EVM chain so we can use all the EVM capabilities. 
+    # Tron is configured as an EVM chain so we can use all the EVM capabilities.
     read-contract = ["1337", "3360022319"]
     write-evm = ["1337", "3360022319"]
 ```

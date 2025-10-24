@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"github.com/stretchr/testify/assert"
+	"go.uber.org/zap/zapcore"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/config"
 	"github.com/smartcontractkit/chainlink/v2/core/config/toml"
@@ -258,6 +259,28 @@ func TestTelemetryConfig_LogStreamingEnabled(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			tc := telemetryConfig{s: tt.telemetry}
 			assert.Equal(t, tt.expected, tc.LogStreamingEnabled())
+		})
+	}
+}
+
+func TestTelemetryConfig_LogLevel(t *testing.T) {
+	tests := []struct {
+		name      string
+		telemetry toml.Telemetry
+		expected  zapcore.Level
+	}{
+		{"LogLevelSet", toml.Telemetry{LogLevel: ptr("debug")}, zapcore.DebugLevel},
+		{"LogLevelInfo", toml.Telemetry{LogLevel: ptr("info")}, zapcore.InfoLevel},
+		{"LogLevelWarn", toml.Telemetry{LogLevel: ptr("warn")}, zapcore.WarnLevel},
+		{"LogLevelError", toml.Telemetry{LogLevel: ptr("error")}, zapcore.ErrorLevel},
+		{"LogLevelNil", toml.Telemetry{LogLevel: nil}, zapcore.InfoLevel},
+		{"LogLevelInvalid", toml.Telemetry{LogLevel: ptr("invalid")}, zapcore.InfoLevel},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			tc := telemetryConfig{s: tt.telemetry}
+			assert.Equal(t, tt.expected, tc.LogLevel())
 		})
 	}
 }

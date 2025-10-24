@@ -3,6 +3,7 @@ package fakes
 import (
 	"context"
 	"crypto/ecdsa"
+	"fmt"
 	"math/big"
 	"strings"
 
@@ -12,6 +13,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/ethclient"
+	"github.com/ethereum/go-ethereum/rpc"
 
 	commonCap "github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	evmcappb "github.com/smartcontractkit/chainlink-common/pkg/capabilities/v2/chain-capabilities/evm"
@@ -425,13 +427,49 @@ func (fc *FakeEVMChain) GetTransactionReceipt(ctx context.Context, metadata comm
 func (fc *FakeEVMChain) HeaderByNumber(ctx context.Context, metadata commonCap.RequestMetadata, input *evmcappb.HeaderByNumberRequest) (*commonCap.ResponseAndMetadata[*evmcappb.HeaderByNumberReply], error) {
 	fc.eng.Infow("EVM Chain HeaderByNumber Started", "input", input)
 
-	// Prepare header by number request
-	blockNumber := new(big.Int).SetBytes(input.BlockNumber.AbsVal)
+	var (
+		header *types.Header
+		err    error
+	)
 
-	// Get header by number
-	header, err := fc.gethClient.HeaderByNumber(ctx, blockNumber)
+	// Convert the request block number preserving sign.
+	var reqNum *big.Int
+	if input != nil {
+		reqNum = pb.NewIntFromBigInt(input.BlockNumber)
+	}
+
+	// Enforce int64 constraint
+	if reqNum != nil && !reqNum.IsInt64() {
+		return nil, fmt.Errorf("block number %s is larger than int64: %w", reqNum.String(), ethereum.NotFound)
+	}
+
+	switch {
+	// latest block (nil or explicit "latest"): nil or -2
+	case reqNum == nil || reqNum.Int64() == rpc.LatestBlockNumber.Int64():
+		header, err = fc.gethClient.HeaderByNumber(ctx, nil)
+
+	// non-special, non-negative block number (including 0): >=0
+	case reqNum.Sign() >= 0:
+		header, err = fc.gethClient.HeaderByNumber(ctx, reqNum)
+
+	// finalized tag: -3
+	case reqNum.Int64() == rpc.FinalizedBlockNumber.Int64():
+		header, err = fc.gethClient.HeaderByNumber(ctx, big.NewInt(rpc.FinalizedBlockNumber.Int64()))
+
+	// safe tag: -4
+	case reqNum.Int64() == rpc.SafeBlockNumber.Int64():
+		header, err = fc.gethClient.HeaderByNumber(ctx, big.NewInt(rpc.SafeBlockNumber.Int64()))
+
+	// any other negative is unexpected
+	default:
+		return nil, fmt.Errorf("unexpected block number %s: %w", reqNum.String(), ethereum.NotFound)
+	}
+
 	if err != nil {
 		return nil, err
+	}
+	if header == nil {
+		return nil, ethereum.NotFound
 	}
 
 	// Convert header to protobuf

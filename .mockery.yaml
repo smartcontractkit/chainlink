@@ -159,7 +159,7 @@ packages:
     interfaces:
       ConnectionInitiator:
       ConnectionAcceptor:
-      HttpServer:
+      HTTPServer:
       HTTPRequestHandler:
       WebSocketServer:
       HTTPClient:
@@ -235,9 +235,6 @@ packages:
       dir: "common/types/mocks"
     interfaces:
       MonitoringEndpoint:
-  github.com/smartcontractkit/chainlink/v2/core/services/relay/evm:
-    interfaces:
-      RequestRoundDB:
   github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury:
     interfaces:
       asyncDeleter:

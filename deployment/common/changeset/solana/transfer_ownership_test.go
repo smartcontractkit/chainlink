@@ -18,6 +18,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink/deployment/common/changeset/state"
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
+	"github.com/smartcontractkit/chainlink/deployment/internal/soltestutils"
 )
 
 func TestTransferToMCMSToTimelockSolana(t *testing.T) {
@@ -35,7 +36,7 @@ func TestTransferToMCMSToTimelockSolana(t *testing.T) {
 	mcmsState, err := state.MaybeLoadMCMSWithTimelockChainStateSolana(chain, addresses)
 	require.NoError(t, err)
 
-	fundSignerPDAs(t, chain, mcmsState)
+	soltestutils.FundSignerPDAs(t, chain, mcmsState)
 
 	// validate initial owner
 	deployer := rt.Environment().BlockChains.SolanaChains()[selector].DeployerKey.PublicKey()

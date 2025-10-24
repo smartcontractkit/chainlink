@@ -6,7 +6,6 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"go.opentelemetry.io/otel/log/noop"
-	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
 	"go.uber.org/zap/zaptest/observer"
 
@@ -92,70 +91,41 @@ func TestOtelCore(t *testing.T) {
 	}
 }
 
+// TestAtomicCoreSwap tests the atomic core swap functionality after logger creation.
 func TestAtomicCoreSwap(t *testing.T) {
-	// This test simulates two processes:
-	// 1. Process 1 creates a logger with an AtomicCore (initially noop)
-	// 2. Process 2 swaps in a new OTel core using SetOtelCore
-	// 3. Verify that subsequent logs go to both original and new cores
-
-	// Create test cores that capture log entries
-	observedCore1, observedLogs1 := observer.New(zapcore.InfoLevel)
-	observedCore2, observedLogs2 := observer.New(zapcore.InfoLevel)
-
-	// Process 1: Create logger with AtomicCore
 	atomicCore := NewAtomicCore()
+	setOtelCore := atomicCore.Store
 
-	// Build the logger manually to have full control over cores
-	zcfg := newZapConfigBase()
-	zcfg.Level = zap.NewAtomicLevelAt(zapcore.InfoLevel)
-
-	// Create a tee with observedCore1 and atomicCore
-	teeCore := zapcore.NewTee(observedCore1, atomicCore)
-
-	// Create logger with the combined core
-	errSink, _, err := zap.Open(zcfg.ErrorOutputPaths...)
-	require.NoError(t, err)
-
-	zapLog := zap.New(teeCore, zap.ErrorOutput(errSink), zap.AddCaller(), zap.AddStacktrace(zapcore.ErrorLevel))
-	logger := &zapLogger{
-		level:         zcfg.Level,
-		SugaredLogger: zapLog.Sugar(),
+	lggrCfg := Config{
+		LogLevel:       zapcore.InfoLevel,
+		JsonConsole:    true,
+		UnixTS:         false,
+		FileMaxSizeMB:  0,
+		FileMaxAgeDays: 0,
+		FileMaxBackups: 0,
+		SentryEnabled:  false,
 	}
 
-	// Log before swapping - should only go to observedCore1 (atomicCore is noop)
-	logger.Info("before swap")
-	assert.Equal(t, 1, observedLogs1.Len(), "Expected 1 log in observedCore1 before swap")
-	assert.Equal(t, 0, observedLogs2.Len(), "Expected 0 logs in observedCore2 before swap")
+	lggr, closeFn := lggrCfg.NewWithCores(atomicCore)
+	defer func() {
+		err := closeFn()
+		require.NoError(t, err)
+	}()
 
-	// Process 2: Swap in a new core (simulating SetOtelCore)
-	// In production, this would be an OTel core, but we use observedCore2 for verification
-	core2 := observedCore2
-	atomicCore.Store(&core2)
+	// Create observer to capture logs
+	otelCore, otelLogs := observer.New(zapcore.InfoLevel)
 
-	// Log after swapping - should go to both observedCore1 and observedCore2
-	logger.Info("after swap")
-	assert.Equal(t, 2, observedLogs1.Len(), "Expected 2 logs in observedCore1 after swap")
-	assert.Equal(t, 1, observedLogs2.Len(), "Expected 1 log in observedCore2 after swap")
+	lggr.Info("before swap")
 
-	// Verify the message in observedCore2
-	entries := observedLogs2.All()
-	require.Len(t, entries, 1)
-	assert.Equal(t, "after swap", entries[0].Message)
-	assert.Equal(t, zapcore.InfoLevel, entries[0].Level)
+	assert.Equal(t, 0, otelLogs.Len(), "Expected no logs before core swap")
 
-	// Test with different log levels
-	logger.Debug("debug message")
-	// Debug is below InfoLevel, so shouldn't be logged
-	assert.Equal(t, 2, observedLogs1.Len(), "Debug should not be logged at Info level")
-	assert.Equal(t, 1, observedLogs2.Len(), "Debug should not be logged at Info level")
+	// Swap to the observer core
+	setOtelCore(otelCore)
 
-	logger.Warn("warning message")
-	assert.Equal(t, 3, observedLogs1.Len(), "Warn should be logged")
-	assert.Equal(t, 2, observedLogs2.Len(), "Warn should be logged in both cores")
+	lggr.Info("after swap")
 
-	// Verify the second message in observedCore2
-	entries = observedLogs2.All()
-	require.Len(t, entries, 2)
-	assert.Equal(t, "warning message", entries[1].Message)
-	assert.Equal(t, zapcore.WarnLevel, entries[1].Level)
+	assert.Equal(t, 1, otelLogs.Len(), "Expected 1 log after core swap")
+	assert.Equal(t, "after swap", otelLogs.All()[0].Message)
+	assert.Equal(t, zapcore.InfoLevel, otelLogs.All()[0].Level)
+
 }

@@ -73,6 +73,10 @@ type EngineLimiters struct {
 	TriggerEventQueueTime    limits.TimeLimiter
 	ExecutionConcurrency     limits.ResourcePoolLimiter[int]
 
+	WASMBinarySize           limits.BoundLimiter[config.Size]
+	WASMCompressedBinarySize limits.BoundLimiter[config.Size]
+	WASMMemorySize           limits.BoundLimiter[config.Size]
+
 	CapabilityConcurrency limits.ResourcePoolLimiter[int]
 	SecretsConcurrency    limits.ResourcePoolLimiter[int]
 	ExecutionTime         limits.TimeLimiter
@@ -82,6 +86,7 @@ type EngineLimiters struct {
 
 	ChainWriteTargets limits.BoundLimiter[int]
 	ChainReadCalls    limits.BoundLimiter[int]
+	ConsensusCalls    limits.BoundLimiter[int]
 	HTTPActionCalls   limits.BoundLimiter[int]
 }
 
@@ -125,7 +130,18 @@ func (l *EngineLimiters) init(lf limits.Factory, cfgFn func(*cresettings.Workflo
 	if err != nil {
 		return
 	}
-
+	l.WASMBinarySize, err = limits.MakeBoundLimiter(lf, cfg.WASMBinarySizeLimit)
+	if err != nil {
+		return
+	}
+	l.WASMMemorySize, err = limits.MakeBoundLimiter(lf, cfg.WASMMemoryLimit)
+	if err != nil {
+		return
+	}
+	l.WASMCompressedBinarySize, err = limits.MakeBoundLimiter(lf, cfg.WASMCompressedBinarySizeLimit)
+	if err != nil {
+		return
+	}
 	l.CapabilityConcurrency, err = limits.MakeResourcePoolLimiter(lf, cfg.CapabilityConcurrencyLimit)
 	if err != nil {
 		return
@@ -158,6 +174,10 @@ func (l *EngineLimiters) init(lf limits.Factory, cfgFn func(*cresettings.Workflo
 	if err != nil {
 		return
 	}
+	l.ConsensusCalls, err = limits.MakeBoundLimiter(lf, cfg.Consensus.CallLimit)
+	if err != nil {
+		return
+	}
 	l.HTTPActionCalls, err = limits.MakeBoundLimiter(lf, cfg.HTTPAction.CallLimit)
 	return
 }
@@ -171,6 +191,9 @@ func (l *EngineLimiters) Close() error {
 		l.TriggerEventQueue,
 		l.TriggerEventQueueTime,
 		l.ExecutionConcurrency,
+		l.WASMBinarySize,
+		l.WASMMemorySize,
+		l.WASMCompressedBinarySize,
 		l.CapabilityConcurrency,
 		l.SecretsConcurrency,
 		l.ExecutionTime,
@@ -179,6 +202,7 @@ func (l *EngineLimiters) Close() error {
 		l.LogLine,
 		l.ChainWriteTargets,
 		l.ChainReadCalls,
+		l.ConsensusCalls,
 		l.HTTPActionCalls,
 	)
 }

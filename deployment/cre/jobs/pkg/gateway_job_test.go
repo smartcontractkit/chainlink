@@ -96,6 +96,8 @@ Name = 'Node 4'
 
 [gatewayConfig.HTTPClientConfig]
 MaxResponseBytes = 50000000
+AllowedPorts = [443]
+AllowedSchemes = ['https']
 
 [gatewayConfig.NodeServerConfig]
 HandshakeTimeoutMillis = 1000
@@ -206,6 +208,8 @@ Name = 'Node 4'
 
 [gatewayConfig.HTTPClientConfig]
 MaxResponseBytes = 50000000
+AllowedPorts = [443]
+AllowedSchemes = ['https']
 
 [gatewayConfig.NodeServerConfig]
 HandshakeTimeoutMillis = 1000
@@ -250,10 +254,10 @@ ServiceName = 'workflows'
 CleanUpPeriodMs = 86400000
 
 [gatewayConfig.Dons.Handlers.Config.NodeRateLimiter]
-globalBurst = 10
-globalRPS = 50
-perSenderBurst = 10
-perSenderRPS = 10
+globalBurst = 100
+globalRPS = 500
+perSenderBurst = 100
+perSenderRPS = 100
 
 [[gatewayConfig.Dons.Members]]
 Address = '0xabc'
@@ -289,6 +293,8 @@ Name = 'Node 4'
 
 [gatewayConfig.HTTPClientConfig]
 MaxResponseBytes = 50000000
+AllowedPorts = [443]
+AllowedSchemes = ['https']
 
 [gatewayConfig.NodeServerConfig]
 HandshakeTimeoutMillis = 1000

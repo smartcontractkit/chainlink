@@ -90,7 +90,8 @@ var ProposeStandardCapabilityJob = operations.NewSequence[
 			return ProposeStandardCapabilityJobOutput{}, fmt.Errorf("failed to fetch node infos: %w", err)
 		}
 
-		if !input.Job.GenerateOracleFactory {
+		generateOracleFactory := input.Job.GenerateOracleFactory && input.Job.OracleFactory == nil
+		if !generateOracleFactory {
 			specs := make(map[string][]string)
 
 			for _, ni := range nodeInfos {

@@ -116,6 +116,7 @@ func initGlobals(cfgProm config.Prometheus, cfgTracing config.Tracing, cfgTeleme
 				ChipIngressEmitterGRPCEndpoint: cfgTelemetry.ChipIngressEndpoint(),
 				ChipIngressInsecureConnection:  cfgTelemetry.ChipIngressInsecureConnection(),
 				LogStreamingEnabled:            cfgTelemetry.LogStreamingEnabled(),
+				LogLevel:                       cfgTelemetry.LogLevel(),
 			}
 			// note: due to the OTEL specification, all histogram buckets
 			// must be defined when the beholder client is created
@@ -151,7 +152,7 @@ type Shell struct {
 	Logger                         logger.Logger           // initialized in Before
 	Registerer                     prometheus.Registerer   // initialized in Before
 	CloseLogger                    func() error            // called in After
-	SetOtelCore                    func(*zapcore.Core)     // reference to AtomicCore.Store
+	SetOtelCore                    func(zapcore.Core)      // reference to AtomicCore.Store
 	AppFactory                     AppFactory
 	KeyStoreAuthenticator          TerminalKeyStoreAuthenticator
 	FallbackAPIInitializer         APIInitializer

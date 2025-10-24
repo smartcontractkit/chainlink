@@ -26,8 +26,6 @@ func (c CapabilityConfig) MarshalProto() ([]byte, error) {
 		return nil, fmt.Errorf("failed to json marshal config: %w", err)
 	}
 
-	fmt.Println("JSON Encoded Config:", string(jsonEncodedCfg))
-
 	pbCfg := &pb.CapabilityConfig{}
 	ops := protojson.UnmarshalOptions{DiscardUnknown: true}
 	if err = ops.Unmarshal(jsonEncodedCfg, pbCfg); err != nil {

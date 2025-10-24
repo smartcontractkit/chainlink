@@ -57,6 +57,11 @@ FinalityDepth = 50 # Default
 # FinalityTagEnabled means that the chain supports the finalized block tag when querying for a block. If FinalityTagEnabled is set to true for a chain, then FinalityDepth field is ignored.
 # Finality for a block is solely defined by the finality related tags provided by the chain's RPC API. This is a placeholder and hasn't been implemented yet.
 FinalityTagEnabled = false # Default
+# SafeTagSupported means that the chain supports the safe block tag when querying for a block. 
+# When FinalityTagEnabled is true and SafeTagSupported is false, LatestSafeBlock will return the finalized block instead of safe block.
+# When SafeTagSupported is true, LatestSafeBlock will return the safe block from the chain.
+# When FinalityTagEnabled is false, SafeTagSupported is ignored and LatestSafeBlock uses SafeDepth.
+SafeTagSupported = true # Default
 # **ADVANCED**
 # FlagsContractAddress can optionally point to a [Flags contract](../contracts/src/v0.8/Flags.sol). If set, the node will lookup that contract for each job that supports flags contracts (currently OCR and FM jobs are supported). If the job's contractAddress is set as hibernating in the FlagsContractAddress address, it overrides the standard update parameters (such as heartbeat/threshold).
 FlagsContractAddress = '0xae4E781a6218A8031764928E88d457937A954fC3' # Example
@@ -478,7 +483,7 @@ VerifyChainID = true # Default
 # Only CRE workflow requests are considered external requests.
 # Only applies for RPCs configured with HTTP urls. There is no limit for WS only RPCs.
 # Set to 0 to disable the size check and allow responses of any size.
-ExternalRequestMaxResponseSize = 15000 # Default
+ExternalRequestMaxResponseSize = 50000 # Default
 # **ADVANCED**
 # Errors enable the node to provide custom regex patterns to match against error messages from RPCs.
 [EVM.NodePool.Errors]

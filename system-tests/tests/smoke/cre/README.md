@@ -312,7 +312,7 @@ If you're working with AWS you will need to set the JD image URL in the `overrid
 
 ```toml
 [jd]
-  image = "<PROD_ECR_REGISTRY_URL>/job-distributor:0.12.7"
+  image = "<PROD_ECR_REGISTRY_URL>/job-distributor:0.22.1"
 ```
 
 Replace `<PROD_ECR_REGISTRY_URL>` placeholder with the actual value.
@@ -322,16 +322,16 @@ Replace `<PROD_ECR_REGISTRY_URL>` placeholder with the actual value.
 When working with kind provider, it will require pulling and pushing an image to local registry, similar as with CL node explained before.
 
 ```shell
-docker pull <PROD_ECR_REGISTRY_URL>/job-distributor:0.12.7
-docker tag <PROD_ECR_REGISTRY_URL>/job-distributor:0.12.7 localhost:5001/job-distributor:0.12.7
-docker push localhost:5001/job-distributor:0.12.7
+docker pull <PROD_ECR_REGISTRY_URL>/job-distributor:0.22.1
+docker tag <PROD_ECR_REGISTRY_URL>/job-distributor:0.22.1 localhost:5001/job-distributor:0.22.1
+docker push localhost:5001/job-distributor:0.22.1
 ```
 
 Now, you can set:
 
 ```toml
 [jd]
-  image = "localhost:5001/job-distributor:0.12.7"
+  image = "localhost:5001/job-distributor:0.22.1"
 ```
 
 ---

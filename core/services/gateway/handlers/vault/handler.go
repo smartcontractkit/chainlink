@@ -94,11 +94,25 @@ func (ar *activeRequest) addResponseForNode(nodeAddr string, resp *jsonrpc.Respo
 	return true
 }
 
-func (ar *activeRequest) copiedResponses() map[string]*jsonrpc.Response[json.RawMessage] {
+func (ar *activeRequest) copiedResponses() map[string]jsonrpc.Response[json.RawMessage] {
 	ar.mu.Lock()
 	defer ar.mu.Unlock()
-	copied := make(map[string]*jsonrpc.Response[json.RawMessage], len(ar.responses))
-	maps.Copy(copied, ar.responses)
+	copied := make(map[string]jsonrpc.Response[json.RawMessage], len(ar.responses))
+	for k, response := range ar.responses {
+		var copiedResponse jsonrpc.Response[json.RawMessage]
+		if response != nil {
+			copiedResponse = *response
+			if response.Result != nil {
+				copiedResult := *response.Result
+				copiedResponse.Result = &copiedResult
+			}
+			if response.Error != nil {
+				copiedError := *response.Error
+				copiedResponse.Error = &copiedError
+			}
+		}
+		copied[k] = copiedResponse
+	}
 	return copied
 }
 
@@ -107,7 +121,7 @@ type capabilitiesRegistry interface {
 }
 
 type aggregator interface {
-	Aggregate(ctx context.Context, l logger.Logger, resps map[string]*jsonrpc.Response[json.RawMessage], currResp *jsonrpc.Response[json.RawMessage]) (*jsonrpc.Response[json.RawMessage], error)
+	Aggregate(ctx context.Context, l logger.Logger, resps map[string]jsonrpc.Response[json.RawMessage], currResp *jsonrpc.Response[json.RawMessage]) (*jsonrpc.Response[json.RawMessage], error)
 }
 
 type handler struct {
@@ -306,11 +320,18 @@ func (h *handler) HandleJSONRPCUserMessage(ctx context.Context, req jsonrpc.Requ
 	// Let's process this request right away.
 	// Note we cache this value quite aggressively so don't need to worry about DoS.
 	if req.Method == vaulttypes.MethodPublicKeyGet {
-		return h.handlePublicKeyGet(ctx, h.newActiveRequest(req, callback))
+		ar, err := h.newActiveRequest(req, callback)
+		if err != nil {
+			return err
+		}
+		return h.handlePublicKeyGet(ctx, ar)
 	} else if req.Method == vaulttypes.MethodSecretsGet {
 		// Secrets get is only allowed in non-production builds for testing purposes
 		// So no authorization is required
-		ar := h.newActiveRequest(req, callback)
+		ar, err := h.newActiveRequest(req, callback)
+		if err != nil {
+			return err
+		}
 		return h.handleSecretsGet(ctx, ar)
 	}
 
@@ -323,11 +344,10 @@ func (h *handler) HandleJSONRPCUserMessage(ctx context.Context, req jsonrpc.Requ
 	req.ID = owner + vaulttypes.RequestIDSeparator + req.ID
 
 	h.lggr.Infow("handling authorized vault request", "method", req.Method, "requestID", req.ID, "owner", owner)
-	if h.getActiveRequest(req.ID) != nil {
-		h.lggr.Errorw("request id already exists", "requestID", req.ID, "owner", owner)
-		return errors.New("request ID already exists: " + req.ID)
+	ar, err := h.newActiveRequest(req, callback)
+	if err != nil {
+		return err
 	}
-	ar := h.newActiveRequest(req, callback)
 
 	switch req.Method {
 	case vaulttypes.MethodSecretsCreate:
@@ -343,19 +363,21 @@ func (h *handler) HandleJSONRPCUserMessage(ctx context.Context, req jsonrpc.Requ
 	}
 }
 
-func (h *handler) newActiveRequest(req jsonrpc.Request[json.RawMessage], callback gwhandlers.Callback) *activeRequest {
+func (h *handler) newActiveRequest(req jsonrpc.Request[json.RawMessage], callback gwhandlers.Callback) (*activeRequest, error) {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	if h.activeRequests[req.ID] != nil {
+		h.lggr.Errorw("request id already exists", "requestID", req.ID)
+		return nil, errors.New("request ID already exists: " + req.ID)
+	}
 	ar := &activeRequest{
 		Callback:  callback,
 		req:       req,
 		createdAt: h.clock.Now(),
 		responses: map[string]*jsonrpc.Response[json.RawMessage]{},
 	}
-
-	h.mu.Lock()
 	h.activeRequests[req.ID] = ar
-	h.mu.Unlock()
-
-	return ar
+	return ar, nil
 }
 
 func (h *handler) getActiveRequest(requestID string) *activeRequest {
@@ -391,7 +413,8 @@ func (h *handler) HandleNodeMessage(ctx context.Context, resp *jsonrpc.Response[
 		return nil
 	}
 
-	resp, err := h.aggregator.Aggregate(ctx, l, ar.copiedResponses(), resp)
+	copiedResponses := ar.copiedResponses()
+	resp, err := h.aggregator.Aggregate(ctx, l, copiedResponses, resp)
 	switch {
 	case errors.Is(err, errInsufficientResponsesForQuorum):
 		l.Debugw("aggregating responses, waiting for other nodes...", "error", err)

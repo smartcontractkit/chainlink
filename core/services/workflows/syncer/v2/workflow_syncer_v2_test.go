@@ -243,6 +243,7 @@ func Test_RegistrySyncer_WorkflowRegistered_InitiallyPausedV2(t *testing.T) {
 		backendTH = testutils.NewEVMBackendTH(t)
 		db        = pgtest.NewSqlxDB(t)
 		orm       = artifacts.NewWorkflowRegistryDS(db, lggr)
+		lf        = limits.Factory{Logger: lggr}
 
 		giveBinaryURL = "https://original-url.com"
 		donID         = uint32(1)
@@ -276,17 +277,17 @@ func Test_RegistrySyncer_WorkflowRegistered_InitiallyPausedV2(t *testing.T) {
 	giveWorkflow.ID = id
 
 	er := NewEngineRegistry()
-	limiters, err := v2.NewLimiters(limits.Factory{}, nil)
+	limiters, err := v2.NewLimiters(lf, nil)
 	require.NoError(t, err)
-	rl, err := ratelimiter.NewRateLimiter(rlConfig, limits.Factory{})
+	rl, err := ratelimiter.NewRateLimiter(rlConfig, lf)
 	require.NoError(t, err)
 
-	wl, err := syncerlimiter.NewWorkflowLimits(lggr, wlConfig, limits.Factory{})
+	wl, err := syncerlimiter.NewWorkflowLimits(lggr, wlConfig, lf)
 	require.NoError(t, err)
 	wfStore := wfstore.NewInMemoryStore(lggr, clockwork.NewFakeClock())
 	capRegistry := corecaps.NewRegistry(lggr)
 	capRegistry.SetLocalRegistry(&corecaps.TestMetadataRegistry{})
-	store, err := artifacts.NewStore(lggr, orm, fetcherFn, retrieverFn, clockwork.NewFakeClock(), workflowkey.Key{}, emitter, artifacts.WithConfig(artifacts.StoreConfig{
+	store, err := artifacts.NewStore(lggr, orm, fetcherFn, retrieverFn, clockwork.NewFakeClock(), workflowkey.Key{}, emitter, lf, artifacts.WithConfig(artifacts.StoreConfig{
 		ArtifactStorageHost: "storage.chain.link",
 	}))
 	require.NoError(t, err)
@@ -341,6 +342,7 @@ func Test_RegistrySyncer_WorkflowRegistered_InitiallyActivatedV2(t *testing.T) {
 		backendTH = testutils.NewEVMBackendTH(t)
 		db        = pgtest.NewSqlxDB(t)
 		orm       = artifacts.NewWorkflowRegistryDS(db, lggr)
+		lf        = limits.Factory{Logger: lggr}
 
 		giveBinaryURL = "https://original-url.com"
 		donID         = uint32(1)
@@ -374,16 +376,16 @@ func Test_RegistrySyncer_WorkflowRegistered_InitiallyActivatedV2(t *testing.T) {
 	giveWorkflow.ID = id
 
 	er := NewEngineRegistry()
-	limiters, err := v2.NewLimiters(limits.Factory{}, nil)
+	limiters, err := v2.NewLimiters(lf, nil)
 	require.NoError(t, err)
-	rl, err := ratelimiter.NewRateLimiter(rlConfig, limits.Factory{})
+	rl, err := ratelimiter.NewRateLimiter(rlConfig, lf)
 	require.NoError(t, err)
-	wl, err := syncerlimiter.NewWorkflowLimits(lggr, wlConfig, limits.Factory{})
+	wl, err := syncerlimiter.NewWorkflowLimits(lggr, wlConfig, lf)
 	require.NoError(t, err)
 	wfStore := wfstore.NewInMemoryStore(lggr, clockwork.NewFakeClock())
 	capRegistry := corecaps.NewRegistry(lggr)
 	capRegistry.SetLocalRegistry(&corecaps.TestMetadataRegistry{})
-	store, err := artifacts.NewStore(lggr, orm, fetcherFn, retrieverFn, clockwork.NewFakeClock(), workflowkey.Key{}, emitter, artifacts.WithConfig(artifacts.StoreConfig{
+	store, err := artifacts.NewStore(lggr, orm, fetcherFn, retrieverFn, clockwork.NewFakeClock(), workflowkey.Key{}, emitter, lf, artifacts.WithConfig(artifacts.StoreConfig{
 		ArtifactStorageHost: "storage.chain.link",
 	}))
 	require.NoError(t, err)
@@ -506,6 +508,99 @@ func Test_StratReconciliation_InitialStateSyncV2(t *testing.T) {
 			assert.Equal(t, WorkflowActivated, event.Name)
 		}
 	})
+}
+
+func Test_RegistrySyncer_DONUpdate(t *testing.T) {
+	lggr := logger.TestLogger(t)
+	backendTH := testutils.NewEVMBackendTH(t)
+	donID := uint32(1)
+	donFamily := "A"
+
+	// Deploy a test workflow_registry
+	wfRegistryAddr, _, wfRegistryC, err := workflow_registry_wrapper_v2.DeployWorkflowRegistry(backendTH.ContractsOwner, backendTH.Backend.Client())
+	backendTH.Backend.Commit()
+	require.NoError(t, err)
+
+	// setup the initial contract state
+	updateAuthorizedAddressV2(t, backendTH, wfRegistryC, backendTH.ContractsOwner.From, donFamily)
+	updateAllowedDONsV2(t, backendTH, wfRegistryC, []string{donFamily})
+
+	numberWorkflows := 2
+	for i := range numberWorkflows {
+		var workflowID [32]byte
+		_, err = rand.Read((workflowID)[:])
+		require.NoError(t, err)
+		workflow := RegisterWorkflowCMDV2{
+			Name:      fmt.Sprintf("test-wf-%d", i),
+			Status:    WorkflowStatusActive,
+			BinaryURL: "someurl",
+			Tag:       "sometag",
+			DonFamily: donFamily,
+			KeepAlive: false,
+		}
+		workflow.ID = workflowID
+		upsertWorkflowV2(t, backendTH, wfRegistryC, workflow)
+	}
+
+	testEventHandler := newTestEvtHandler(nil)
+	donNotifier := corecaps.NewDonNotifier()
+	engineRegistry := NewEngineRegistry()
+
+	// Create the worker
+	worker, err := NewWorkflowRegistry(
+		lggr,
+		func(ctx context.Context, bytes []byte) (types.ContractReader, error) {
+			return backendTH.NewContractReader(ctx, t, bytes)
+		},
+		wfRegistryAddr.Hex(),
+		Config{
+			QueryCount:   20,
+			SyncStrategy: SyncStrategyReconciliation,
+		},
+		testEventHandler,
+		donNotifier,
+		engineRegistry,
+		WithRetryInterval(1*time.Second),
+	)
+	require.NoError(t, err)
+
+	servicetest.Run(t, worker)
+
+	donNotifier.NotifyDonSet(capabilities.DON{
+		ID:       donID,
+		Families: []string{donFamily},
+	},
+	)
+
+	require.Eventually(t, func() bool {
+		return len(testEventHandler.GetEvents()) == numberWorkflows
+	}, 60*time.Second, 1*time.Second)
+
+	for _, event := range testEventHandler.GetEvents() {
+		assert.Equal(t, WorkflowActivated, event.Name)
+	}
+
+	// Fill in some placeholder engines that the actual event handler would have created
+	for _, event := range testEventHandler.GetEvents() {
+		err := engineRegistry.Add(event.Data.(WorkflowActivatedEvent).WorkflowID, &mockService{})
+		require.NoError(t, err)
+	}
+
+	// Change the DON to have no family, so workflows should be removed
+	testEventHandler.ClearEvents()
+
+	donNotifier.NotifyDonSet(capabilities.DON{
+		ID:       donID,
+		Families: []string{""},
+	})
+
+	require.Eventually(t, func() bool {
+		return len(testEventHandler.GetEvents()) == numberWorkflows
+	}, 60*time.Second, 1*time.Second)
+
+	for _, event := range testEventHandler.GetEvents() {
+		assert.Equal(t, WorkflowDeleted, event.Name)
+	}
 }
 
 func Test_StratReconciliation_RetriesWithBackoffV2(t *testing.T) {

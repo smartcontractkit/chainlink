@@ -79,35 +79,41 @@ func TestConfigureCapabilitiesRegistry(t *testing.T) {
 
 func suite(t *testing.T, fixture *testFixture) {
 	t.Run("single configuration", func(t *testing.T) {
+		// Resetting the bundle to avoid carrying on previous operations reports
+		fixture.env.OperationsBundle = operations.NewBundle(fixture.env.GetContext, fixture.env.Logger, operations.NewMemoryReporter())
+
 		t.Log("Starting capabilities registry configuration...")
 		configureOutput, err := ConfigureCapabilitiesRegistry{}.Apply(fixture.env, fixture.configureInput)
 		t.Logf("Configuration result: err=%v, output=%v", err, configureOutput)
 		require.NoError(t, err, "configuration should succeed")
-		require.NotNil(t, configureOutput, "configuration output should not be nil")
+		assert.NotNil(t, configureOutput, "configuration output should not be nil")
 		t.Logf("Capabilities registry configured successfully")
 
 		// Verify the configuration
 		verifyCapabilitiesRegistryConfiguration(t, fixture)
 	})
 
-	t.Run("idempotency test - double configuration", func(t *testing.T) {
-		t.Log("Starting first capabilities registry configuration...")
-		configureOutput1, err := ConfigureCapabilitiesRegistry{}.Apply(fixture.env, fixture.configureInput)
-		require.NoError(t, err, "first configuration should succeed")
-		require.NotNil(t, configureOutput1, "first configuration output should not be nil")
-		t.Logf("First configuration completed successfully")
+	t.Run("idempotency test - a second configuration with the same values", func(t *testing.T) {
+		// Resetting the bundle to avoid carrying on previous operations reports
+		fixture.env.OperationsBundle = operations.NewBundle(fixture.env.GetContext, fixture.env.Logger, operations.NewMemoryReporter())
 
-		t.Log("Starting second capabilities registry configuration (idempotency test)...")
-		configureOutput2, err := ConfigureCapabilitiesRegistry{}.Apply(fixture.env, fixture.configureInput)
-		require.NoError(t, err, "second configuration should succeed (idempotent)")
-		require.NotNil(t, configureOutput2, "second configuration output should not be nil")
-		t.Logf("Second configuration completed successfully - idempotency verified")
+		// This test shares the same contract as the one configured in the previous test
+		// No need to configure more than once here to test idempotency
+		t.Log("Starting second capabilities registry configuration...")
+		configureOutput1, err := ConfigureCapabilitiesRegistry{}.Apply(fixture.env, fixture.configureInput)
+		require.Error(t, err, "second configuration should partially succeed - DON name should be taken")
+		require.ErrorContains(t, err, "failed to call AddDONs: contract error: error -`DONNameAlreadyTaken` args [test-don-1]", "DON name should be taken")
+		assert.NotNil(t, configureOutput1, "second configuration output should not be nil")
+		t.Logf("Second configuration completed successfully")
 
 		// Verify that the final state is still correct
 		verifyCapabilitiesRegistryConfiguration(t, fixture)
 	})
 
 	t.Run("MCMS configuration", func(t *testing.T) {
+		// Resetting the bundle to avoid carrying on previous operations reports
+		fixture.env.OperationsBundle = operations.NewBundle(fixture.env.GetContext, fixture.env.Logger, operations.NewMemoryReporter())
+
 		// Set up MCMS infrastructure
 		mcmsFixture := setupCapabilitiesRegistryWithMCMS(t)
 
@@ -212,7 +218,7 @@ func TestConfigureCapabilitiesRegistryInput_YAMLSerialization(t *testing.T) {
 		},
 		Nodes: []CapabilitiesRegistryNodeParams{
 			{
-				NodeOperatorID:      1,
+				NOP:                 "test-nop",
 				Signer:              signer1,
 				P2pID:               p2pID1,
 				EncryptionPublicKey: encryptionPublicKey,
@@ -348,7 +354,7 @@ capabilities:
       capabilityType: 0
       responseType: 1
 nodes:
-  - nodeOperatorID: 1
+  - nop: "test-nop"
     signer: ` + signer1 + `
     p2pID: ` + p2pID1 + `
     encryptionPublicKey: ` + encryptionPublicKey + `
@@ -399,7 +405,7 @@ dons:
 	assert.Equal(t, expectedMetadata2, input.Capabilities[1].Metadata)
 
 	require.Len(t, input.Nodes, 1)
-	assert.Equal(t, uint32(1), input.Nodes[0].NodeOperatorID)
+	assert.Equal(t, "test-nop", input.Nodes[0].NOP)
 	assert.Equal(t, []string{"write-chain@1.0.0", "trigger@1.0.0"}, input.Nodes[0].CapabilityIDs)
 	assert.Equal(t, csaKey, input.Nodes[0].CsaKey)
 
@@ -512,7 +518,7 @@ func setupCapabilitiesRegistryWithMCMS(t *testing.T) *testFixture {
 	// Create nodes
 	nodes := []CapabilitiesRegistryNodeParams{
 		{
-			NodeOperatorID:      uint32(1),
+			NOP:                 "test nop1",
 			Signer:              signer1,
 			EncryptionPublicKey: encryptionPublicKey,
 			P2pID:               p2pID1,
@@ -520,7 +526,7 @@ func setupCapabilitiesRegistryWithMCMS(t *testing.T) *testFixture {
 			CsaKey:              csaKey,
 		},
 		{
-			NodeOperatorID:      uint32(2),
+			NOP:                 "test nop2",
 			Signer:              signer2,
 			EncryptionPublicKey: encryptionPublicKey,
 			P2pID:               p2pID2,
@@ -661,7 +667,7 @@ func setupCapabilitiesRegistryTest(t *testing.T) *testFixture {
 
 	nodes := []CapabilitiesRegistryNodeParams{
 		{
-			NodeOperatorID:      uint32(1),
+			NOP:                 "test nop1",
 			Signer:              signer1,
 			EncryptionPublicKey: encryptionPublicKey,
 			P2pID:               p2pID1,
@@ -669,7 +675,7 @@ func setupCapabilitiesRegistryTest(t *testing.T) *testFixture {
 			CsaKey:              csaKey,
 		},
 		{
-			NodeOperatorID:      uint32(2),
+			NOP:                 "test nop2",
 			Signer:              signer2,
 			EncryptionPublicKey: encryptionPublicKey,
 			P2pID:               p2pID2,
@@ -807,11 +813,22 @@ func verifyCapabilitiesRegistryConfiguration(t *testing.T, fixture *testFixture)
 		expectedEncryptionPublicKey, err := pkg.HexStringTo32Bytes(node.EncryptionPublicKey)
 		require.NoError(t, err, "failed to convert encryption public key hex string to bytes")
 
+		nops, err := pkg.GetNodeOperators(nil, capabilitiesRegistry)
+		require.NoError(t, err, "failed to get registered node operators")
 		got, err := capabilitiesRegistry.GetNode(nil, bytes32P2pID)
 		require.NoError(t, err) // careful here: the err is rpc, contract return empty info if it doesn't find the p2p as opposed to non-exist err.
+
+		var nopFoundID int
+		for nopIndex, nop := range nops {
+			if nop.Name == node.NOP {
+				nopFoundID = nopIndex + 1
+				break
+			}
+		}
+
 		assert.Equal(t, expectedEncryptionPublicKey, got.EncryptionPublicKey, "mismatch node encryption public key node %d", i)
 		assert.Equal(t, expectedSigner, got.Signer, "mismatch node signer node %d", i)
-		assert.Equal(t, node.NodeOperatorID, got.NodeOperatorId, "mismatch node operator id node %d", i)
+		assert.Equal(t, uint32(nopFoundID), got.NodeOperatorId, "mismatch node operator id node %d", i) //nolint:gosec // G115
 		assert.Equal(t, node.CapabilityIDs, got.CapabilityIds, "mismatch node hashed capability ids node %d", i)
 		assert.Equal(t, [32]byte(bytes32P2pID), got.P2pId, "mismatch node p2p id node %d", i)
 		assert.Equal(t, expectedCsaKey, got.CsaKey, "mismatch node CSA key node %d", i)

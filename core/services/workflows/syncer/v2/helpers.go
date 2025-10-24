@@ -74,6 +74,10 @@ type testDonNotifier struct {
 	err error
 }
 
+func (t *testDonNotifier) NotifyDonSet(don capabilities.DON) {
+	t.don = don
+}
+
 func (t *testDonNotifier) WaitForDon(ctx context.Context) (capabilities.DON, error) {
 	return t.don, t.err
 }

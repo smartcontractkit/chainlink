@@ -400,6 +400,7 @@ EmitterExportTimeout = '1s'
 ChipIngressEndpoint = ''
 ChipIngressInsecureConnection = false
 HeartbeatInterval = '1s'
+LogLevel = 'info'
 LogStreamingEnabled = false
 
 [Workflows]
@@ -441,6 +442,7 @@ BlockBackfillSkip = false
 FinalityDepth = 50
 SafeDepth = 0
 FinalityTagEnabled = true
+SafeTagSupported = true
 LinkContractAddress = '0x514910771AF9Ca656af840dff83E8264EcF986CA'
 LogBackfillBatchSize = 1000
 LogPollInterval = '15s'
@@ -526,7 +528,7 @@ EnforceRepeatableRead = true
 DeathDeclarationDelay = '1m0s'
 NewHeadsPollInterval = '0s'
 VerifyChainID = true
-ExternalRequestMaxResponseSize = 15000
+ExternalRequestMaxResponseSize = 50000
 
 [EVM.OCR]
 ContractConfirmations = 4
