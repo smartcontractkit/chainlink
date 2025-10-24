@@ -91,7 +91,7 @@ func (g GatewayJob) Resolve(gatewayNodeIdx int) (string, error) {
 			Path:                   "/",
 			Port:                   5_003,
 			ReadTimeoutMillis:      1_000,
-			RequestTimeoutMillis:   10_000,
+			RequestTimeoutMillis:   12_000,
 			WriteTimeoutMillis:     1_000,
 		},
 		UserServerConfig: userServerConfig{
@@ -99,9 +99,9 @@ func (g GatewayJob) Resolve(gatewayNodeIdx int) (string, error) {
 			MaxRequestBytes:      100_000,
 			Path:                 "/",
 			Port:                 5_002,
-			ReadTimeoutMillis:    80_000,
-			RequestTimeoutMillis: 80_000,
-			WriteTimeoutMillis:   80_000,
+			ReadTimeoutMillis:    1_000,
+			RequestTimeoutMillis: 12_000,
+			WriteTimeoutMillis:   1_000,
 		},
 		HTTPClientConfig: httpClientConfig{
 			MaxResponseBytes: 50_000_000,
@@ -155,7 +155,7 @@ func newDefaultVaultHandler() handler {
 		Name:        "vault",
 		ServiceName: "vault",
 		Config: vaultHandlerConfig{
-			RequestTimeoutSec: 70,
+			RequestTimeoutSec: 11, // must be lower than the overall gateway request timeout.
 			NodeRateLimiter: nodeRateLimiterConfig{
 				GlobalBurst:    10,
 				GlobalRPS:      50,
