@@ -17,12 +17,15 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/cre/pkg/offchain"
 )
 
+const defaultGatewayRequestTimeoutSec = 12
+
 type ProposeGatewayJobInput struct {
-	Domain                  string
-	DONFilters              []offchain.TargetDONFilter
-	DONs                    []DON             `yaml:"dons"`
-	GatewayKeyChainSelector pkg.ChainSelector `yaml:"gatewayKeyChainSelector"`
-	JobLabels               map[string]string
+	Domain                   string
+	DONFilters               []offchain.TargetDONFilter
+	DONs                     []DON             `yaml:"dons"`
+	GatewayRequestTimeoutSec int               `yaml:"gatewayRequestTimeoutSec"`
+	GatewayKeyChainSelector  pkg.ChainSelector `yaml:"gatewayKeyChainSelector"`
+	JobLabels                map[string]string
 }
 
 type DON struct {
@@ -88,9 +91,15 @@ var ProposeGatewayJob = operations.NewOperation[ProposeGatewayJobInput, ProposeG
 			targetDONs = append(targetDONs, td)
 		}
 
+		requestTimeoutSec := input.GatewayRequestTimeoutSec
+		if requestTimeoutSec == 0 {
+			requestTimeoutSec = defaultGatewayRequestTimeoutSec
+		}
+
 		gj := pkg.GatewayJob{
-			JobName:    "CRE Gateway",
-			TargetDONs: targetDONs,
+			JobName:           "CRE Gateway",
+			TargetDONs:        targetDONs,
+			RequestTimeoutSec: requestTimeoutSec,
 		}
 
 		err := gj.Validate()

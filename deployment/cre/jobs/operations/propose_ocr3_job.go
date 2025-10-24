@@ -28,8 +28,10 @@ type ProposeOCR3JobInput struct {
 	ChainSelectorEVM     uint64
 	ChainSelectorAptos   uint64
 	BootstrapperOCR3Urls []string
+
 	// Optionals: specific to the worker vault OCR3 Job spec
-	DKGContractAddress string
+	DKGContractAddress         string
+	VaultRequestExpiryDuration string
 
 	DONFilters  []offchain.TargetDONFilter
 	ExtraLabels map[string]string
@@ -64,7 +66,7 @@ var ProposeOCR3Job = operations.NewSequence[ProposeOCR3JobInput, ProposeOCR3JobO
 
 		specs, err := pkg.BuildOCR3JobConfigSpecs(
 			deps.Env.Offchain, deps.Env.Logger, input.ContractAddress, input.ChainSelectorEVM,
-			input.ChainSelectorAptos, nodes, input.BootstrapperOCR3Urls, input.DONName, input.JobName, input.TemplateName, input.DKGContractAddress,
+			input.ChainSelectorAptos, nodes, input.BootstrapperOCR3Urls, input.DONName, input.JobName, input.TemplateName, input.DKGContractAddress, input.VaultRequestExpiryDuration,
 		)
 		if err != nil {
 			return ProposeOCR3JobOutput{}, fmt.Errorf("failed to build OCR3 job config specs: %w", err)
