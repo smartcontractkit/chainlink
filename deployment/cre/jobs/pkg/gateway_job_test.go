@@ -105,7 +105,7 @@ MaxRequestBytes = 100000
 Path = '/'
 Port = 5003
 ReadTimeoutMillis = 1000
-RequestTimeoutMillis = 10000
+RequestTimeoutMillis = 15000
 WriteTimeoutMillis = 1000
 
 [gatewayConfig.UserServerConfig]
@@ -113,9 +113,9 @@ ContentTypeHeader = 'application/jsonrpc'
 MaxRequestBytes = 100000
 Path = '/'
 Port = 5002
-ReadTimeoutMillis = 80000
-RequestTimeoutMillis = 80000
-WriteTimeoutMillis = 80000
+ReadTimeoutMillis = 15000
+RequestTimeoutMillis = 15000
+WriteTimeoutMillis = 15000
 `
 
 	expectedWithVault = `type = 'gateway'
@@ -151,7 +151,7 @@ Name = 'vault'
 ServiceName = 'vault'
 
 [gatewayConfig.Dons.Handlers.Config]
-requestTimeoutSec = 70
+requestTimeoutSec = 14
 
 [gatewayConfig.Dons.Handlers.Config.NodeRateLimiter]
 globalBurst = 10
@@ -217,7 +217,7 @@ MaxRequestBytes = 100000
 Path = '/'
 Port = 5003
 ReadTimeoutMillis = 1000
-RequestTimeoutMillis = 10000
+RequestTimeoutMillis = 15000
 WriteTimeoutMillis = 1000
 
 [gatewayConfig.UserServerConfig]
@@ -225,9 +225,9 @@ ContentTypeHeader = 'application/jsonrpc'
 MaxRequestBytes = 100000
 Path = '/'
 Port = 5002
-ReadTimeoutMillis = 80000
-RequestTimeoutMillis = 80000
-WriteTimeoutMillis = 80000
+ReadTimeoutMillis = 15000
+RequestTimeoutMillis = 15000
+WriteTimeoutMillis = 15000
 `
 
 	expectedWithHTTPCapabilities = `type = 'gateway'
@@ -275,7 +275,7 @@ Name = 'vault'
 ServiceName = 'vault'
 
 [gatewayConfig.Dons.Handlers.Config]
-requestTimeoutSec = 70
+requestTimeoutSec = 14
 
 [gatewayConfig.Dons.Handlers.Config.NodeRateLimiter]
 globalBurst = 10
@@ -302,7 +302,7 @@ MaxRequestBytes = 100000
 Path = '/'
 Port = 5003
 ReadTimeoutMillis = 1000
-RequestTimeoutMillis = 10000
+RequestTimeoutMillis = 15000
 WriteTimeoutMillis = 1000
 
 [gatewayConfig.UserServerConfig]
@@ -310,9 +310,9 @@ ContentTypeHeader = 'application/jsonrpc'
 MaxRequestBytes = 100000
 Path = '/'
 Port = 5002
-ReadTimeoutMillis = 80000
-RequestTimeoutMillis = 80000
-WriteTimeoutMillis = 80000
+ReadTimeoutMillis = 15000
+RequestTimeoutMillis = 15000
+WriteTimeoutMillis = 15000
 `
 )
 
@@ -321,6 +321,7 @@ func TestGateway_Resolve(t *testing.T) {
 
 	g := GatewayJob{
 		JobName: "Gateway1",
+		RequestTimeoutSec: 15,
 		TargetDONs: []TargetDON{
 			{
 				ID:       "workflow_1",
@@ -379,6 +380,7 @@ func TestGateway_Resolve_WithVaultHandler(t *testing.T) {
 
 	g := GatewayJob{
 		JobName: "Gateway1",
+		RequestTimeoutSec: 15,
 		TargetDONs: []TargetDON{
 			{
 				ID:       "workflow_1",
@@ -438,6 +440,7 @@ func TestGateway_Resolve_WithHTTPCapabilitiesHandler(t *testing.T) {
 
 	g := GatewayJob{
 		JobName: "Gateway1",
+		RequestTimeoutSec: 15,
 		TargetDONs: []TargetDON{
 			{
 				ID:       "workflow_1",

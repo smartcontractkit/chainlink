@@ -81,11 +81,10 @@ func (c OCR3JobConfig) Validate() error {
 
 		if c.VaultRequestExpiryDuration == "" {
 			return errors.New("VaultRequestExpiryDuration is required for worker-vault template")
-		} else {
-			_, err := time.ParseDuration(c.VaultRequestExpiryDuration)
-			if err != nil {
-				return fmt.Errorf("VaultRequestExpiryDuration is not a valid duration: %w", err)
-			}
+		}
+		_, err := time.ParseDuration(c.VaultRequestExpiryDuration)
+		if err != nil {
+			return fmt.Errorf("VaultRequestExpiryDuration is not a valid duration: %w", err)
 		}
 	}
 
