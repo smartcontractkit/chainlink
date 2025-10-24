@@ -90,6 +90,10 @@ func (r *writeReportExcludeSignaturesHasher) Hash(msg *types.MessageBody) ([32]b
 		return [32]byte{}, errors.New("capability request payload is nil")
 	}
 
+	// Exclude SpendLimits from RequestMetadata to ensure identical requests
+	// with different SpendLimits produce the same hash
+	req.Metadata.SpendLimits = nil
+
 	var wrReq evmcappb.WriteReportRequest
 	if err = req.Payload.UnmarshalTo(&wrReq); err != nil {
 		return [32]byte{}, fmt.Errorf("failed to unmarshal Payload to WriteReportRequest: %w", err)

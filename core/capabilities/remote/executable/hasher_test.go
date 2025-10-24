@@ -99,6 +99,33 @@ func TestSimpleHasher_ExcludesSpendLimits(t *testing.T) {
 	require.NotEqual(t, hash1, hash3) // different data should produce different hash
 }
 
+func TestWriteReportExcludeSignaturesHasher_ExcludesSpendLimits(t *testing.T) {
+	// Create two requests with identical payloads but different SpendLimits
+	req1 := getWriteReportRequestWithSpendLimits(t, []byte("testdata"), [][]byte{[]byte("sig1"), []byte("sig2")}, []capabilities.SpendLimit{
+		{SpendType: "gas", Limit: "1000"},
+		{SpendType: "compute", Limit: "500"},
+	})
+	req2 := getWriteReportRequestWithSpendLimits(t, []byte("testdata"), [][]byte{[]byte("sig3"), []byte("sig4")}, []capabilities.SpendLimit{
+		{SpendType: "gas", Limit: "2000"},
+		{SpendType: "compute", Limit: "1000"},
+	})
+	req3 := getWriteReportRequestWithSpendLimits(t, []byte("otherdata"), [][]byte{[]byte("sig1"), []byte("sig2")}, []capabilities.SpendLimit{
+		{SpendType: "gas", Limit: "1000"},
+		{SpendType: "compute", Limit: "500"},
+	})
+
+	hasher := NewWriteReportExcludeSignaturesHasher()
+	hash1, err := hasher.Hash(req1)
+	require.NoError(t, err)
+	hash2, err := hasher.Hash(req2)
+	require.NoError(t, err)
+	hash3, err := hasher.Hash(req3)
+	require.NoError(t, err)
+
+	require.Equal(t, hash1, hash2)    // same data, different SpendLimits and signatures should produce same hash
+	require.NotEqual(t, hash1, hash3) // different data should produce different hash
+}
+
 func getRequest(t *testing.T, data []byte, sigs [][]byte) *types.MessageBody {
 	attrSigs := []*sdk.AttributedSignature{}
 	for i, sig := range sigs {
@@ -130,6 +157,38 @@ func getRequestWithSpendLimits(t *testing.T, data []byte, spendLimits []capabili
 	report := &sdk.ReportResponse{
 		RawReport: data,
 		Sigs:      []*sdk.AttributedSignature{},
+	}
+	wrReq := &evmcappb.WriteReportRequest{
+		Report: report,
+	}
+	wrAny, err := anypb.New(wrReq)
+	require.NoError(t, err)
+	capReq := capabilities.CapabilityRequest{
+		Payload: wrAny,
+		Metadata: capabilities.RequestMetadata{
+			WorkflowID:          "test-workflow",
+			WorkflowExecutionID: "test-execution",
+			SpendLimits:         spendLimits,
+		},
+	}
+	capReqBytes, err := pb.MarshalCapabilityRequest(capReq)
+	require.NoError(t, err)
+	return &types.MessageBody{
+		Payload: capReqBytes,
+	}
+}
+
+func getWriteReportRequestWithSpendLimits(t *testing.T, data []byte, sigs [][]byte, spendLimits []capabilities.SpendLimit) *types.MessageBody {
+	attrSigs := []*sdk.AttributedSignature{}
+	for i, sig := range sigs {
+		attrSigs = append(attrSigs, &sdk.AttributedSignature{
+			Signature: sig,
+			SignerId:  uint32(i), //nolint:gosec // G115
+		})
+	}
+	report := &sdk.ReportResponse{
+		RawReport: data,
+		Sigs:      attrSigs,
 	}
 	wrReq := &evmcappb.WriteReportRequest{
 		Report: report,
