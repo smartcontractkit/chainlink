@@ -12,6 +12,8 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/cre/pkg/offchain"
 )
 
+const defaultVaultRequestExpiryDuration = "10s"
+
 type ProposeOCR3JobDeps struct {
 	Env cldf.Environment
 }
@@ -62,6 +64,10 @@ var ProposeOCR3Job = operations.NewSequence[ProposeOCR3JobInput, ProposeOCR3JobO
 		nodeToCSAKey := make(map[string]string)
 		for _, n := range nodes {
 			nodeToCSAKey[n.Id] = n.GetPublicKey()
+		}
+		vaultReqExpiry := input.VaultRequestExpiryDuration
+		if vaultReqExpiry == "" {
+			vaultReqExpiry = defaultVaultRequestExpiryDuration
 		}
 
 		specs, err := pkg.BuildOCR3JobConfigSpecs(
