@@ -29,7 +29,6 @@ import (
 	"google.golang.org/protobuf/proto"
 
 	"github.com/smartcontractkit/freeport"
-	"github.com/smartcontractkit/quarantine"
 
 	"github.com/smartcontractkit/libocr/offchainreporting2/types"
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/confighelper"
@@ -38,6 +37,7 @@ import (
 	"github.com/smartcontractkit/wsrpc/credentials"
 
 	llotypes "github.com/smartcontractkit/chainlink-common/pkg/types/llo"
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	datastreamsllo "github.com/smartcontractkit/chainlink-data-streams/llo"
 	lloevm "github.com/smartcontractkit/chainlink-data-streams/llo/reportcodecs/evm"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/link_token_interface"
@@ -411,8 +411,7 @@ func promoteStagingConfig(t *testing.T, donID uint32, steve *bind.TransactOpts, 
 }
 
 func TestIntegration_LLO_evm_premium_legacy(t *testing.T) {
-	quarantine.Flaky(t, "https://smartcontract-it.atlassian.net/browse/MERC-7232")
-
+	tests.SkipFlakey(t, "https://smartcontract-it.atlassian.net/browse/MERC-7232")
 	t.Parallel()
 	offchainConfigs := []datastreamsllo.OffchainConfig{
 		{
@@ -652,7 +651,7 @@ channelDefinitionsContractFromBlock = %d`, serverURL, serverPubKey, donID, confi
 }
 
 func TestIntegration_LLO_multi_formats(t *testing.T) {
-	quarantine.Flaky(t, "https://smartcontract-it.atlassian.net/browse/MERC-7232")
+	tests.SkipFlakey(t, "https://smartcontract-it.atlassian.net/browse/MERC-7232")
 	t.Parallel()
 	offchainConfigs := []datastreamsllo.OffchainConfig{
 		{
@@ -1403,7 +1402,7 @@ dp -> deribit_funding_interval_hours_parse -> deribit_funding_interval_hours_dec
 }
 
 func TestIntegration_LLO_stress_test_V1(t *testing.T) {
-	quarantine.Flaky(t, "https://smartcontract-it.atlassian.net/browse/MERC-7232")
+	tests.SkipFlakey(t, "https://smartcontract-it.atlassian.net/browse/MERC-7232")
 	t.Parallel()
 
 	// logLevel: the log level to use for the nodes
@@ -1638,7 +1637,7 @@ channelDefinitionsContractFromBlock = %d`, serverURL, serverPubKey, donID, confi
 }
 
 func TestIntegration_LLO_transmit_errors(t *testing.T) {
-	quarantine.Flaky(t, "https://smartcontract-it.atlassian.net/browse/MERC-7232")
+	tests.SkipFlakey(t, "https://smartcontract-it.atlassian.net/browse/MERC-7232")
 	t.Parallel()
 
 	// logLevel: the log level to use for the nodes
@@ -1812,7 +1811,7 @@ channelDefinitionsContractFromBlock = %d`, serverURL, serverPubKey, serverPubKey
 }
 
 func TestIntegration_LLO_blue_green_lifecycle(t *testing.T) {
-	quarantine.Flaky(t, "https://smartcontract-it.atlassian.net/browse/MERC-7232")
+	tests.SkipFlakey(t, "https://smartcontract-it.atlassian.net/browse/MERC-7232")
 	t.Parallel()
 
 	offchainConfigs := []datastreamsllo.OffchainConfig{
