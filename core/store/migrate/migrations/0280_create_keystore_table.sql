@@ -15,7 +15,7 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
-CREATE OR REPLACE TRIGGER encrypted_keystore_set_updated_at_trigger
+CREATE TRIGGER encrypted_keystore_set_updated_at_trigger
     BEFORE UPDATE ON encrypted_keystore
     FOR EACH ROW
 EXECUTE FUNCTION encrypted_keystore_set_updated_at();
