@@ -218,12 +218,12 @@ func (w *workflowRegistry) Start(_ context.Context) error {
 				return
 			}
 			w.lggr.Debugw("read from don received channel while waiting to start reconciliation sync")
-			don, err := w.workflowDonNotifier.WaitForDon(ctx)
+			_, err := w.workflowDonNotifier.WaitForDon(ctx)
 			if err != nil {
 				w.hooks.OnStartFailure(fmt.Errorf("failed to start workflow sync strategy: %w", err))
 				return
 			}
-			w.syncUsingReconciliationStrategy(ctx, don)
+			w.syncUsingReconciliationStrategy(ctx)
 		}()
 
 		w.wg.Add(1)
@@ -487,7 +487,7 @@ func (w *workflowRegistry) syncAllowlistedRequests(ctx context.Context) {
 
 // syncUsingReconciliationStrategy syncs workflow registry contract state by polling the workflow metadata state and comparing to local state.
 // NOTE: In this mode paused states will be treated as a deleted workflow. Workflows will not be registered as paused.
-func (w *workflowRegistry) syncUsingReconciliationStrategy(ctx context.Context, don capabilities.DON) {
+func (w *workflowRegistry) syncUsingReconciliationStrategy(ctx context.Context) {
 	ticker := w.getTicker(defaultTickInterval)
 	pendingEvents := map[string]*reconciliationEvent{}
 	w.lggr.Debug("running readRegistryStateLoop")
@@ -497,6 +497,11 @@ func (w *workflowRegistry) syncUsingReconciliationStrategy(ctx context.Context, 
 			w.lggr.Debug("shutting down readRegistryStateLoop")
 			return
 		case <-ticker:
+			don, err := w.workflowDonNotifier.WaitForDon(ctx)
+			if err != nil {
+				w.lggr.Errorw("failed to get get don from notifier", "err", err)
+				continue
+			}
 			w.lggr.Debugw("fetching workflow registry metadata", "don", don.Families)
 			allWorkflowsMetadata, head, err := w.getAllWorkflowsMetadata(ctx, don, w.contractReader)
 			if err != nil {

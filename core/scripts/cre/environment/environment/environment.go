@@ -242,7 +242,6 @@ func startCmd() *cobra.Command {
 		withBeholder             bool
 		withDashboards           bool
 		withBilling              bool
-		protoConfigs             []string
 		setupConfig              SetupConfig
 	)
 
@@ -360,7 +359,6 @@ func startCmd() *cobra.Command {
 				startBeholderErr := startBeholder(
 					cmdContext,
 					cleanupWait,
-					protoConfigs,
 				)
 
 				metaData := map[string]any{}
@@ -481,11 +479,10 @@ func startCmd() *cobra.Command {
 	cmd.Flags().DurationVarP(&exampleWorkflowTimeout, "example-workflow-timeout", "u", 5*time.Minute, "Time to wait until example workflow succeeds (e.g. 10s, 1m, 1h)")
 	cmd.Flags().StringVarP(&withPluginsDockerImage, "with-plugins-docker-image", "p", "", "Docker image to use (must have all capabilities included)")
 	cmd.Flags().StringVarP(&exampleWorkflowTrigger, "example-workflow-trigger", "y", "web-trigger", "Trigger for example workflow to deploy (web-trigger or cron)")
-	cmd.Flags().BoolVarP(&withBeholder, "with-beholder", "b", false, "Deploys Beholder (Chip Ingress + Red Panda)")
-	cmd.Flags().BoolVarP(&withDashboards, "with-dashboards", "d", false, "Deploys Observability Stack and Grafana Dashboards")
-	cmd.Flags().BoolVar(&withBilling, "with-billing", false, "Deploys Billing Platform Service")
-	cmd.Flags().StringArrayVarP(&protoConfigs, "with-proto-configs", "c", []string{"./proto-configs/default.toml"}, "Paths to protobuf config files for Beholder, comma separated")
-	cmd.Flags().BoolVarP(&doSetup, "auto-setup", "a", false, "Runs setup before starting the environment")
+	cmd.Flags().BoolVarP(&withBeholder, "with-beholder", "b", false, "Deploy Beholder (Chip Ingress + Red Panda)")
+	cmd.Flags().BoolVarP(&withDashboards, "with-dashboards", "d", false, "Deploy Observability Stack and Grafana Dashboards")
+	cmd.Flags().BoolVar(&withBilling, "with-billing", false, "Deploy Billing Platform Service")
+	cmd.Flags().BoolVarP(&doSetup, "auto-setup", "a", false, "Run setup before starting the environment")
 	cmd.Flags().StringVar(&withContractsVersion, "with-contracts-version", "v1", "Version of workflow and capabilities registry contracts to use (v1 or v2)")
 	cmd.Flags().StringVarP(&setupConfig.ConfigPath, "setup-config", "s", DefaultSetupConfigPath, "Path to the TOML configuration file for the setup command")
 	return cmd
