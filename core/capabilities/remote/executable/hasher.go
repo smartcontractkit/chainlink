@@ -57,7 +57,21 @@ type simpleHasher struct {
 }
 
 func (r *simpleHasher) Hash(msg *types.MessageBody) ([32]byte, error) {
-	return sha256.Sum256(msg.Payload), nil
+	req, err := pb.UnmarshalCapabilityRequest(msg.Payload)
+	if err != nil {
+		return [32]byte{}, fmt.Errorf("failed to unmarshal capability request: %w", err)
+	}
+
+	// Exclude SpendLimits from RequestMetadata to ensure identical requests
+	// with different SpendLimits produce the same hash
+	req.Metadata.SpendLimits = nil
+
+	reqBytes, err := pb.MarshalCapabilityRequest(req)
+	if err != nil {
+		return [32]byte{}, fmt.Errorf("failed to marshal capability request: %w", err)
+	}
+	hash := sha256.Sum256(reqBytes)
+	return hash, nil
 }
 
 func NewSimpleHasher() types.MessageHasher {
