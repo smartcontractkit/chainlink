@@ -5,7 +5,7 @@ import (
 	"errors"
 	"fmt"
 
-	"google.golang.org/protobuf/proto"
+	"google.golang.org/protobuf/types/known/anypb"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/pb"
 	evmcappb "github.com/smartcontractkit/chainlink-common/pkg/capabilities/v2/chain-capabilities/evm"
@@ -103,11 +103,16 @@ func (r *writeReportExcludeSignaturesHasher) Hash(msg *types.MessageBody) ([32]b
 	}
 
 	wrReq.Report.Sigs = nil // exclude signatures from hash
-	filteredPayload, err := proto.Marshal(&wrReq)
+
+	req.Payload, err = anypb.New(&wrReq)
 	if err != nil {
-		return [32]byte{}, fmt.Errorf("failed to marshal WriteReportRequest without signatures: %w", err)
+		return [32]byte{}, fmt.Errorf("failed to marshal WriteReportRequest back to anypb: %w", err)
 	}
-	return sha256.Sum256(filteredPayload), nil
+	reqBytes, err := pb.MarshalCapabilityRequest(req)
+	if err != nil {
+		return [32]byte{}, fmt.Errorf("failed to marshal capability request: %w", err)
+	}
+	return sha256.Sum256(reqBytes), nil
 }
 
 func NewWriteReportExcludeSignaturesHasher() types.MessageHasher {
