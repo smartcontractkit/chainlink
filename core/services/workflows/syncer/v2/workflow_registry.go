@@ -143,7 +143,7 @@ func NewWorkflowRegistry(
 	}
 
 	wr := &workflowRegistry{
-		lggr:                             lggr.Named("WorkflowRegistrySyncerV2"),
+		lggr:                             lggr,
 		contractReaderFn:                 contractReaderFn,
 		workflowRegistryAddress:          addr,
 		lastSeenAllowlistedRequestsCount: big.NewInt(0),
