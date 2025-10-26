@@ -159,7 +159,7 @@ func (c *ExecutionHelper) callCapability(ctx context.Context, request *sdkpb.Cap
 
 	c.lggr.Debugw("Executing capability ...", "capID", request.Id, "capReqCallbackID", request.CallbackId, "capReqMethod", request.Method)
 	c.metrics.With(platform.KeyCapabilityID, request.Id).IncrementCapabilityInvocationCounter(ctx)
-	_ = events.EmitCapabilityStartedEvent(ctx, c.loggerLabels, c.WorkflowExecutionID, request.Id, meteringRef)
+	_ = events.EmitCapabilityStartedEvent(ctx, c.loggerLabels, c.WorkflowExecutionID, request.Id, meteringRef, request.Method)
 
 	execCtx, execCancel, err := c.cfg.LocalLimiters.CapabilityCallTime.WithTimeout(ctx)
 	if err != nil {
@@ -173,14 +173,14 @@ func (c *ExecutionHelper) callCapability(ctx context.Context, request *sdkpb.Cap
 	c.metrics.With(platform.KeyCapabilityID, request.Id).UpdateCapabilityExecutionDurationHistogram(ctx, int64(executionDuration.Seconds()))
 	if err != nil {
 		c.lggr.Debugw("Capability execution failed", "capID", request.Id, "capReqCallbackID", request.CallbackId, "err", err)
-		_ = events.EmitCapabilityFinishedEvent(ctx, c.loggerLabels, c.WorkflowExecutionID, request.Id, meteringRef, store.StatusErrored, err)
+		_ = events.EmitCapabilityFinishedEvent(ctx, c.loggerLabels, c.WorkflowExecutionID, request.Id, meteringRef, store.StatusErrored, request.Method, err)
 		c.metrics.With(platform.KeyCapabilityID, request.Id).IncrementCapabilityFailureCounter(ctx)
 		c.metrics.IncrementTotalWorkflowStepErrorsCounter(ctx)
 		return nil, fmt.Errorf("failed to execute capability: %w", err)
 	}
 
 	c.lggr.Debugw("Capability execution succeeded", "capID", request.Id, "capReqCallbackID", request.CallbackId)
-	_ = events.EmitCapabilityFinishedEvent(ctx, c.loggerLabels, c.WorkflowExecutionID, request.Id, meteringRef, store.StatusCompleted, nil)
+	_ = events.EmitCapabilityFinishedEvent(ctx, c.loggerLabels, c.WorkflowExecutionID, request.Id, meteringRef, store.StatusCompleted, request.Method, nil)
 
 	if meterReport != nil {
 		if err = meterReport.Settle(meteringRef, capResp.Metadata); err != nil {
