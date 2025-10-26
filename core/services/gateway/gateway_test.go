@@ -24,6 +24,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/config"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers"
 	handlermocks "github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers/mocks"
+	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/monitoring"
 	netmocks "github.com/smartcontractkit/chainlink/v2/core/services/gateway/network/mocks"
 )
 
@@ -173,7 +174,9 @@ func newGatewayWithMockHandler(t *testing.T) (gateway.Gateway, *handlermocks.Han
 	handlersObj := map[string]handlers.Handler{
 		"testDON": handler,
 	}
-	gw := gateway.NewGateway(&api.JsonRPCCodec{}, httpServer, handlersObj, map[string]string{"testDON": "testDON"}, nil, logger.Test(t))
+	gMetrics, err := monitoring.NewGatewayMetrics()
+	require.NoError(t, err)
+	gw := gateway.NewGateway(&api.JsonRPCCodec{}, httpServer, handlersObj, map[string]string{"testDON": "testDON"}, nil, gMetrics, logger.Test(t))
 	return gw, handler
 }
 
