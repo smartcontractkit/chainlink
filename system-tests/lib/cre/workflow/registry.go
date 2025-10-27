@@ -30,28 +30,10 @@ import (
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/stagegen"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/flags"
 	libformat "github.com/smartcontractkit/chainlink/system-tests/lib/format"
-	"github.com/smartcontractkit/chainlink/system-tests/lib/infra"
 )
 
 // must match nubmer of events we track in core/services/workflows/syncer/handler.go
 const NumberOfTrackedWorkflowRegistryEvents = 6
-
-func WaitForWorkflowRegistryFiltersRegistration(
-	testLogger zerolog.Logger,
-	singleFileLogger logger.Logger,
-	infraType infra.Type,
-	registryChainID uint64,
-	dons *cre.Dons,
-	nodeSet []*cre.NodeSet,
-) error {
-	// we currently have no way of checking if filters were registered, when code runs in CRIB
-	// as we don't have a way to get its database connection string
-	if infraType == infra.CRIB {
-		return nil
-	}
-
-	return waitForAllNodesToHaveExpectedFiltersRegistered(singleFileLogger, testLogger, registryChainID, dons, nodeSet)
-}
 
 type OwnershipProofSignaturePayload struct {
 	RequestType              uint8          // should be uint8 in Solidity, 1 byte
@@ -231,8 +213,8 @@ func ConfigureWorkflowRegistry(
 	}
 }
 
-// waitForAllNodesToHaveExpectedFiltersRegistered manually checks if all WorkflowRegistry filters used by the LogPoller are registered for all nodes. We want to see if this will help with the flakiness.
-func waitForAllNodesToHaveExpectedFiltersRegistered(singleFileLogger logger.Logger, testLogger zerolog.Logger, homeChainID uint64, dons *cre.Dons, nodeSet []*cre.NodeSet) error {
+// WaitForAllNodesToHaveExpectedFiltersRegistered manually checks if all WorkflowRegistry filters used by the LogPoller are registered for all nodes. We want to see if this will help with the flakiness.
+func WaitForAllNodesToHaveExpectedFiltersRegistered(ctx context.Context, singleFileLogger logger.Logger, testLogger zerolog.Logger, homeChainID uint64, dons *cre.Dons, nodeSet []*cre.NodeSet) error {
 	for donIdx, don := range dons.List() {
 		if !flags.HasFlag(don.Flags, cre.WorkflowDON) {
 			continue
@@ -244,15 +226,24 @@ func waitForAllNodesToHaveExpectedFiltersRegistered(singleFileLogger logger.Logg
 		}
 
 		results := make(map[int]bool)
-		ticker := 5 * time.Second
-		timeout := 2 * time.Minute
+		tickInterval := 5 * time.Second
+		timeoutDuration := 2 * time.Minute
+
+		checkCtx, cancel := context.WithTimeout(ctx, timeoutDuration)
+		defer cancel()
+
+		ticker := time.NewTicker(tickInterval)
+		defer ticker.Stop()
 
 	INNER_LOOP:
 		for {
 			select {
-			case <-time.After(timeout):
-				return fmt.Errorf("timed out, when waiting for %.2f seconds, waiting for all nodes to have expected filters registered", timeout.Seconds())
-			case <-time.Tick(ticker):
+			case <-checkCtx.Done():
+				if errors.Is(checkCtx.Err(), context.DeadlineExceeded) {
+					return fmt.Errorf("timed out after %.2f seconds waiting for all nodes to have expected filters registered", timeoutDuration.Seconds())
+				}
+				return fmt.Errorf("context cancelled while waiting for all nodes to have expected filters registered: %w", checkCtx.Err())
+			case <-ticker.C:
 				if len(results) == len(workerNodes) {
 					testLogger.Info().Msgf("All %d nodes in DON %d have expected filters registered", len(workerNodes), don.ID)
 					break INNER_LOOP
@@ -264,7 +255,7 @@ func waitForAllNodesToHaveExpectedFiltersRegistered(singleFileLogger logger.Logg
 					}
 
 					testLogger.Info().Msgf("Checking if all WorkflowRegistry filters are registered for worker node %d", workerNode.Index)
-					allFilters, filtersErr := getAllFilters(context.Background(), singleFileLogger, big.NewInt(libc.MustSafeInt64(homeChainID)), workerNode.Index, nodeSet[donIdx].DbInput.Port)
+					allFilters, filtersErr := getAllFilters(checkCtx, singleFileLogger, big.NewInt(libc.MustSafeInt64(homeChainID)), workerNode.Index, nodeSet[donIdx].DbInput.Port)
 					if filtersErr != nil {
 						return errors.Wrap(filtersErr, "failed to get filters")
 					}

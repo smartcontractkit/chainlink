@@ -8,12 +8,17 @@ import (
 )
 
 type Pool struct {
-	pool pond.Pool
+	pool   pond.Pool
+	ctx    context.Context
+	cancel context.CancelCauseFunc
 }
 
-func New(maxConcurrency int, opts ...pond.Option) *Pool {
+func New(ctx context.Context, maxConcurrency int, opts ...pond.Option) *Pool {
+	poolCtx, cancel := context.WithCancelCause(ctx)
 	return &Pool{
-		pool: pond.NewPool(maxConcurrency, opts...),
+		pool:   pond.NewPool(maxConcurrency, opts...),
+		ctx:    poolCtx,
+		cancel: cancel,
 	}
 }
 
@@ -26,9 +31,9 @@ type FutureAny struct {
 	}
 }
 
-func (p *Pool) SubmitErr(fn func() error) FutureAny {
-	return p.SubmitAny(func() (any, error) {
-		return nil, fn()
+func (p *Pool) SubmitErr(fn func(context.Context) error) FutureAny {
+	return p.SubmitAny(func(ctx context.Context) (any, error) {
+		return nil, fn(ctx)
 	})
 }
 
@@ -41,7 +46,7 @@ func AwaitErr(ctx context.Context, future FutureAny) error {
 	}
 }
 
-func (p *Pool) SubmitAny(fn func() (any, error)) FutureAny {
+func (p *Pool) SubmitAny(fn func(context.Context) (any, error)) FutureAny {
 	ch := make(chan struct {
 		value any
 		err   error
@@ -49,11 +54,16 @@ func (p *Pool) SubmitAny(fn func() (any, error)) FutureAny {
 
 	task := p.pool.Submit(func() {
 		// If there was no panic, execute the function and send the result to the channel (value or error)
-		value, err := fn()
+		value, err := fn(p.ctx)
 		ch <- struct {
 			value any
 			err   error
 		}{value, err}
+
+		// Cancel pool context if there was an error
+		if err != nil {
+			p.cancel(err)
+		}
 	})
 
 	// Monitor the task for panics that pond caught
@@ -66,6 +76,9 @@ func (p *Pool) SubmitAny(fn func() (any, error)) FutureAny {
 				value any
 				err   error
 			}{nil, taskErr}
+
+			// Cancel pool context on panic
+			p.cancel(taskErr)
 		}
 	}()
 
