@@ -180,7 +180,7 @@ For more details on the URL resolution process and how workflow artifacts are ha
 ## Stop Environment
 ```bash
 # while in core/scripts/cre/environment
-go run main.go env stop
+go run . env stop
 
 # or... if you have the CTF binary
 ctf d rm
