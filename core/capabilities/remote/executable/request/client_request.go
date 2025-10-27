@@ -82,7 +82,7 @@ func NewClientExecuteRequest(ctx context.Context, lggr logger.Logger, req common
 		}
 	}
 
-	lggr = logger.With(lggr, "requestId", requestID, "capabilityID", remoteCapabilityInfo.ID)
+	lggr = logger.With(lggr, "requestId", requestID) // cap ID and method name included in the parent logger
 	return newClientRequest(ctx, lggr, requestID, remoteCapabilityInfo, localDonInfo, dispatcher, requestTimeout, tc, types.MethodExecute, rawRequest, workflowExecutionID, req.Metadata.ReferenceID, capMethodName)
 }
 
@@ -364,7 +364,7 @@ func (c *ClientRequest) sendResponse(response clientResponse) {
 		c.lggr.Warnw("received error response", "error", remote.SanitizeLogString(response.Err.Error()))
 		return
 	}
-	c.lggr.Debugw("received OK response", "count", c.requiredIdenticalResponses)
+	c.lggr.Debugw("received OK response")
 }
 
 func (c *ClientRequest) getMessageHashAndMetadata(msg *types.MessageBody) ([32]byte, commoncap.ResponseMetadata, error) {

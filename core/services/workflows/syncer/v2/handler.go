@@ -213,7 +213,7 @@ func (h *eventHandler) Handle(ctx context.Context, event Event) error {
 			return err
 		}
 
-		h.lggr.Debugw("handled event", "workflowID", wfID, "workflowName", payload.WorkflowName, "workflowOwner", hex.EncodeToString(payload.WorkflowOwner),
+		h.lggr.Debugw("handled event (WorkflowActivated)", "workflowID", wfID, "workflowName", payload.WorkflowName, "workflowOwner", hex.EncodeToString(payload.WorkflowOwner),
 			"workflowTag", payload.WorkflowTag, "type", event.Name)
 		return nil
 	case WorkflowPaused:
@@ -252,7 +252,7 @@ func (h *eventHandler) Handle(ctx context.Context, event Event) error {
 			return err
 		}
 
-		h.lggr.Debugw("handled event", "workflowID", wfID, "workflowName", payload.WorkflowName, "workflowOwner", hex.EncodeToString(payload.WorkflowOwner),
+		h.lggr.Debugw("handled event (WorkflowPaused)", "workflowID", wfID, "workflowName", payload.WorkflowName, "workflowOwner", hex.EncodeToString(payload.WorkflowOwner),
 			"workflowTag", payload.Tag, "type", event.Name)
 		return nil
 	case WorkflowDeleted:
@@ -303,7 +303,7 @@ func (h *eventHandler) Handle(ctx context.Context, event Event) error {
 			return herr
 		}
 
-		h.lggr.Debugw("handled event", "workflowID", wfID, "workflowName", wfName, "workflowOwner", wfOwner, "organizationID", orgID, "type", event.Name)
+		h.lggr.Debugw("handled event (WorkflowDeleted)", "workflowID", wfID, "workflowName", wfName, "workflowOwner", wfOwner, "organizationID", orgID, "type", event.Name)
 		return nil
 	default:
 		return fmt.Errorf("event type unsupported: %v", event.Name)

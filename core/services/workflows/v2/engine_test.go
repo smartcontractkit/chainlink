@@ -1649,25 +1649,25 @@ func requireEventsLabels(t *testing.T, beholderObserver beholdertest.Observer, w
 	}
 }
 
+// requireEventsMessages checks that all expected messages are present in the beholder observer.
+// It does not check the order of messages.
 func requireEventsMessages(t *testing.T, beholderObserver beholdertest.Observer, expected []string) {
 	msgs := beholderObserver.Messages(t)
-	nextToFind := 0
+	// map to handle presence of out-of-order messages
+	want := map[string]struct{}{}
+	for _, e := range expected {
+		want[e] = struct{}{}
+	}
+
 	for _, msg := range msgs {
 		if msg.Attrs["beholder_entity"] == "BaseMessage" {
 			var payload beholderpb.BaseMessage
 			require.NoError(t, proto.Unmarshal(msg.Body, &payload))
-			if nextToFind >= len(expected) {
-				return
-			}
-			if payload.Msg == expected[nextToFind] {
-				nextToFind++
-			}
+			delete(want, payload.Msg)
 		}
 	}
+	assert.Empty(t, want, "not all expected messages were found missing %v", want)
 
-	if nextToFind < len(expected) {
-		t.Errorf("log message not found: %s", expected[nextToFind])
-	}
 }
 
 func requireUserLogs(t *testing.T, beholderObserver beholdertest.Observer, expectedSubstrings []string) {

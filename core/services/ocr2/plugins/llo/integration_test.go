@@ -411,6 +411,7 @@ func promoteStagingConfig(t *testing.T, donID uint32, steve *bind.TransactOpts, 
 }
 
 func TestIntegration_LLO_evm_premium_legacy(t *testing.T) {
+	tests.SkipFlakey(t, "https://smartcontract-it.atlassian.net/browse/MERC-7232")
 	t.Parallel()
 	offchainConfigs := []datastreamsllo.OffchainConfig{
 		{
