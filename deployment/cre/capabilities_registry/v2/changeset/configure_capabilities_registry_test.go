@@ -555,8 +555,7 @@ func setupCapabilitiesRegistryWithMCMS(t *testing.T) *testFixture {
 			Name:        "test-don-mcms-1",
 			DonFamilies: []string{"don-family-mcms-1"},
 			Config: map[string]any{
-				"name": "test-don-mcms-config",
-				"type": "workflow",
+				"defaultConfig": map[string]any{},
 			},
 			CapabilityConfigurations: []CapabilitiesRegistryCapabilityConfiguration{
 				{
@@ -704,8 +703,7 @@ func setupCapabilitiesRegistryTest(t *testing.T) *testFixture {
 			Name:        "test-don-1",
 			DonFamilies: []string{"don-family-1"},
 			Config: map[string]any{
-				"name": "test-don-v2-config",
-				"type": "workflow",
+				"defaultConfig": map[string]any{},
 			},
 			CapabilityConfigurations: []CapabilitiesRegistryCapabilityConfiguration{
 				{
@@ -722,8 +720,7 @@ func setupCapabilitiesRegistryTest(t *testing.T) *testFixture {
 			Name:        "test-don-2",
 			DonFamilies: []string{"don-family-2"},
 			Config: map[string]any{
-				"name": "test-don-v2-config",
-				"type": "trigger",
+				"defaultConfig": map[string]any{},
 			},
 			CapabilityConfigurations: []CapabilitiesRegistryCapabilityConfiguration{
 				{
