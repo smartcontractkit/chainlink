@@ -499,7 +499,7 @@ func (e *Engine) startExecution(ctx context.Context, wrappedTriggerEvent enqueue
 
 	if execErr != nil {
 		executionStatus = store.StatusErrored
-		if errors.Is(err, context.DeadlineExceeded) {
+		if errors.Is(execErr, context.DeadlineExceeded) {
 			executionStatus = store.StatusTimeout
 			e.metrics.UpdateWorkflowTimeoutDurationHistogram(ctx, int64(executionDuration.Seconds()))
 		} else {
