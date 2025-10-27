@@ -158,7 +158,7 @@ jobs:
           touch ./binaries/http_trigger
           touch ./binaries/consensus
           touch ./binaries/evm
-          { time go run main.go env start; } 2> >(tee /tmp/time_output >&2)
+          { time go run . env start; } 2> >(tee /tmp/time_output >&2)
 
           # Convert time to total seconds
           time_str=$(cat /tmp/time_output | grep real | awk '{print $2}')
