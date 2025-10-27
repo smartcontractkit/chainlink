@@ -115,7 +115,7 @@ Path = '/'
 Port = 5002
 ReadTimeoutMillis = 15000
 RequestTimeoutMillis = 15000
-WriteTimeoutMillis = 15000
+WriteTimeoutMillis = 16000
 `
 
 	expectedWithVault = `type = 'gateway'
@@ -227,7 +227,7 @@ Path = '/'
 Port = 5002
 ReadTimeoutMillis = 15000
 RequestTimeoutMillis = 15000
-WriteTimeoutMillis = 15000
+WriteTimeoutMillis = 16000
 `
 
 	expectedWithHTTPCapabilities = `type = 'gateway'
@@ -312,7 +312,7 @@ Path = '/'
 Port = 5002
 ReadTimeoutMillis = 15000
 RequestTimeoutMillis = 15000
-WriteTimeoutMillis = 15000
+WriteTimeoutMillis = 16000
 `
 )
 
