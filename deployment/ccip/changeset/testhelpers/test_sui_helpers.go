@@ -500,12 +500,6 @@ func SendSuiCCIPRequest(e cldf.Environment, cfg *ccipclient.CCIPSendReqConfig) (
 		return nil, errors.New("failed to build PTB (receiver call) using bindings: " + err.Error())
 	}
 
-	// data, err := json.MarshalIndent(ptb.Data.V1.Kind.ProgrammableTransaction, "", "  ")
-	// if err != nil {
-	// 	log.Fatal(err)
-	// }
-	// fmt.Println(string(data))
-
 	executeCCIPSend, err := suiBind.ExecutePTB(ctx, deps.SuiChain.GetCallOpts(), client, ptb)
 	if err != nil {
 		return nil, errors.New("failed to execute ccip_send with err: " + err.Error())

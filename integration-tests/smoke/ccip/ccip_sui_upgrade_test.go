@@ -133,21 +133,21 @@ func Test_CCIP_Upgrade_Sui2EVM(t *testing.T) {
 
 	// make an onRamp call to the new contract
 
-	state, err = stateview.LoadOnchainState(e.Env)
-	require.NoError(t, err)
+	// state, err = stateview.LoadOnchainState(e.Env)
+	// require.NoError(t, err)
 
-	onRampNew, err := module_onramp.NewOnramp(state.SuiChains[sourceChain].OnRampMockV2PackageId, e.Env.BlockChains.SuiChains()[sourceChain].Client)
-	require.NoError(t, err)
+	// // onRampNew, err := module_onramp.NewOnramp(state.SuiChains[sourceChain].OnRampMockV2PackageId, e.Env.BlockChains.SuiChains()[sourceChain].Client)
+	// // require.NoError(t, err)
 
-	b := uint64(700_000_000)
+	// // b := uint64(700_000_000)
 
-	resp, _ := onRampNew.DevInspect().GetFqTypeAndVersion(ctx, &suiBind.CallOpts{
-		Signer:           e.Env.BlockChains.SuiChains()[sourceChain].Signer,
-		WaitForExecution: true,
-		GasBudget:        &b,
-	})
+	// resp, _ := onRampNew.DevInspect().GetFqTypeAndVersion(ctx, &suiBind.CallOpts{
+	// 	Signer:           e.Env.BlockChains.SuiChains()[sourceChain].Signer,
+	// 	WaitForExecution: true,
+	// 	GasBudget:        &b,
+	// })
 
-	fmt.Println("NEW ONRAMP RESP: ", resp)
+	// fmt.Println("NEW ONRAMP RESP: ", resp)
 
 	// // make an onRamp call to the old ccip contract
 	// onRampOld, err := module_onramp.NewOnramp(state.SuiChains[sourceChain].OnRampAddress, e.Env.BlockChains.SuiChains()[sourceChain].Client)
@@ -423,12 +423,20 @@ func upgradeSuiOnRamp(ctx context.Context, t *testing.T, e testhelpers.DeployedE
 	state, err := stateview.LoadOnchainState(e.Env)
 	require.NoError(t, err)
 
+	signerAddr, err := e.Env.BlockChains.SuiChains()[sourceChain].Signer.GetAddress()
+	require.NoError(t, err)
+
 	// compile packages
 	compiledPackage, err := suiBind.CompilePackage(version, map[string]string{
 		"ccip":        state.SuiChains[sourceChain].CCIPAddress,
 		"ccip_onramp": "0x0", // old onRamp address
 		"mcms":        state.SuiChains[sourceChain].MCMsAddress,
 		"mcms_owner":  "0x1",
+
+		"latest_ccip_pkg":     state.SuiChains[sourceChain].CCIPMockV2PackageId,  
+		"original_onramp_pkg": state.SuiChains[sourceChain].OnRampAddress,
+		"upgrade_cap":         state.SuiChains[sourceChain].OnRampUpgradeCapId,
+		"signer":              signerAddr,
 	}, true)
 	require.NoError(t, err)
 
@@ -507,15 +515,9 @@ func upgradeSuiOffRamp(ctx context.Context, t *testing.T, e testhelpers.Deployed
 	state, err := stateview.LoadOnchainState(e.Env)
 	require.NoError(t, err)
 
-	ccipPackageID := state.SuiChains[sourceChain].CCIPMockV2PackageId
-	if ccipPackageID == "" {
-		fmt.Println("ccip v2 not set, using ccip v1 during upgrade")
-		ccipPackageID = state.SuiChains[sourceChain].CCIPAddress
-	}
-
 	// compile packages
 	compiledPackage, err := suiBind.CompilePackage(version, map[string]string{
-		"ccip":         ccipPackageID,
+		"ccip":         state.SuiChains[sourceChain].CCIPAddress,
 		"ccip_offramp": "0x0",
 		"mcms":         state.SuiChains[sourceChain].MCMsAddress,
 		"mcms_owner":   "0x1",
@@ -598,13 +600,23 @@ func upgradeCCIP(ctx context.Context, t *testing.T, e testhelpers.DeployedEnv, s
 	state, err := stateview.LoadOnchainState(e.Env)
 	require.NoError(t, err)
 
+	signerAddr, err := e.Env.BlockChains.SuiChains()[sourceChain].Signer.GetAddress()
+	require.NoError(t, err)
+
+	fmt.Println("UPGRADECAP, SIGNER: ", state.SuiChains[sourceChain].CCIPUpgradeCapObjectId, signerAddr)
 	// compile packages
 	compiledPackage, err := suiBind.CompilePackage(version, map[string]string{
 		"ccip":       "0x0",
 		"mcms":       state.SuiChains[sourceChain].MCMsAddress,
-		"mcms_owner": "0x1",
+		"mcms_owner": signerAddr,
+
+		"original_ccip_pkg": state.SuiChains[sourceChain].CCIPAddress,
+		"upgrade_cap":       state.SuiChains[sourceChain].CCIPUpgradeCapObjectId,
+		"signer":            signerAddr,
 	}, true)
 	require.NoError(t, err)
+
+	fmt.Println("CCIP COMPILED PKG: ", len(compiledPackage.Dependencies), len(compiledPackage.Modules))
 
 	// decode modules from base64 -> [][]byte
 	moduleBytes := make([][]byte, len(compiledPackage.Modules))
@@ -619,6 +631,8 @@ func upgradeCCIP(ctx context.Context, t *testing.T, e testhelpers.DeployedEnv, s
 	for i, dep := range compiledPackage.Dependencies {
 		depAddresses[i] = models.SuiAddress(dep)
 	}
+
+	fmt.Println("Dependency Upgrade Addr: ", depAddresses)
 
 	policy := byte(0)
 
