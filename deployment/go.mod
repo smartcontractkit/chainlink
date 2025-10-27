@@ -50,15 +50,15 @@ require (
 	github.com/smartcontractkit/chainlink-protos/job-distributor v0.17.0
 	github.com/smartcontractkit/chainlink-protos/orchestrator v0.10.0
 	github.com/smartcontractkit/chainlink-solana v1.1.2-0.20251020193713-b63bc17bfeb1
-	github.com/smartcontractkit/chainlink-sui v0.0.0-20251012014843-5d44e7731854
-	github.com/smartcontractkit/chainlink-sui/deployment v0.0.0-20251012014843-5d44e7731854
+	github.com/smartcontractkit/chainlink-sui v0.0.0-20251027135929-381bebcffe3c
+	github.com/smartcontractkit/chainlink-sui/deployment v0.0.0-20251027135929-381bebcffe3c
 	github.com/smartcontractkit/chainlink-testing-framework/framework v0.10.34
 	github.com/smartcontractkit/chainlink-testing-framework/lib v1.54.5
 	github.com/smartcontractkit/chainlink-ton v0.0.0-20251015181357-b635fc06e2ea
 	github.com/smartcontractkit/chainlink-ton/deployment v0.0.0-20251015181357-b635fc06e2ea
 	github.com/smartcontractkit/freeport v0.1.3-0.20250716200817-cb5dfd0e369e
 	github.com/smartcontractkit/libocr v0.0.0-20250912173940-f3ab0246e23d
-	github.com/smartcontractkit/mcms v0.26.1-0.20251009182503-22a4319a7bf4
+	github.com/smartcontractkit/mcms v0.29.0
 	github.com/smartcontractkit/quarantine v0.0.0-20250909213106-ece491bef618
 	github.com/smartcontractkit/smdkg v0.0.0-20250916143931-2876ea233fd8
 	github.com/smartcontractkit/wsrpc v0.8.5-0.20250502134807-c57d3d995945
