@@ -18,6 +18,7 @@ import (
 
 	jsonrpc "github.com/smartcontractkit/chainlink-common/pkg/jsonrpc2"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
+	"github.com/smartcontractkit/chainlink-common/pkg/settings/limits"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/common"
@@ -88,7 +89,7 @@ type connAttempt struct {
 	timestamp   uint32
 }
 
-func NewConnectionManager(gwConfig *config.GatewayConfig, clock clockwork.Clock, lggr logger.Logger) (ConnectionManager, error) {
+func NewConnectionManager(gwConfig *config.GatewayConfig, clock clockwork.Clock, lggr logger.Logger, lf limits.Factory) (ConnectionManager, error) {
 	dons := make(map[string]*donConnectionManager)
 	for _, donConfig := range gwConfig.Dons {
 		if donConfig.DonId == "" {
@@ -128,7 +129,10 @@ func NewConnectionManager(gwConfig *config.GatewayConfig, clock clockwork.Clock,
 		clock:        clock,
 		lggr:         logger.Named(lggr, "ConnectionManager"),
 	}
-	wsServer := network.NewWebSocketServer(&gwConfig.NodeServerConfig, connMgr, lggr)
+	wsServer, err := network.NewWebSocketServer(&gwConfig.NodeServerConfig, connMgr, lggr, lf)
+	if err != nil {
+		return nil, err
+	}
 	connMgr.wsServer = wsServer
 	return connMgr, nil
 }

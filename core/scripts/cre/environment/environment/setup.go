@@ -81,7 +81,6 @@ type config struct {
 type generalConfig struct {
 	AWSProfile      string `toml:"aws_profile"`
 	MinGHCLIVersion string `toml:"min_gh_cli_version"`
-	CTFVersion      string `toml:"ctf_version"`
 }
 
 type jobDistributorConfig struct {
@@ -501,12 +500,6 @@ func RunSetup(ctx context.Context, config SetupConfig, noPrompt, purge, withBill
 		}
 	}
 
-	ctfInstalled, ctfErr := checkCTF(ctx, cfg.General.CTFVersion, noPrompt, purge)
-	if ctfErr != nil {
-		setupErr = errors.Wrap(ctfErr, "failed to ensure CTF CLI")
-		return
-	}
-
 	observabilityRepoPath, _, err := setupRepo(ctx, logger, cfg.Observability.RepoURL, cfg.Observability.Branch,
 		"", cfg.Observability.TargetPath)
 	if err != nil {
@@ -534,11 +527,6 @@ func RunSetup(ctx context.Context, config SetupConfig, noPrompt, purge, withBill
 		logger.Info().Msg("   ✓ GitHub CLI is installed")
 	} else {
 		logger.Warn().Msg("   ✗ GitHub CLI is not installed")
-	}
-	if ctfInstalled {
-		logger.Info().Msg("   ✓ CTF CLI is installed")
-	} else {
-		logger.Warn().Msg("   ✗ CTF CLI is not installed")
 	}
 	if len(cfg.Capabilities.Repositories) > 0 {
 		logger.Info().Msg("   ✓ Capabilities binaries built")
@@ -1030,92 +1018,4 @@ func logInToGithubWithGHCLI(ctx context.Context) error {
 
 	logger.Info().Msg("  ✓ GitHub CLI logged in successfully")
 	return nil
-}
-
-// checkCTF checks if the CTF CLI is installed prompts to install if not
-func checkCTF(ctx context.Context, requiredVersion string, noPrompt bool, purge bool) (installed bool, err error) {
-	logger := framework.L
-
-	if purge {
-		_ = os.Remove(filepath.Join(binDir, "ctf"))
-	}
-	// Check for CTF CLI is in binDir
-	if _, statErr := os.Stat(filepath.Join(binDir, "ctf")); statErr == nil {
-		logger.Info().Msg("✓ CTF CLI is already installed")
-		return true, nil
-	}
-
-	logger.Info().Msg("✗ CTF CLI is not installed")
-	logger.Info().Msg("  Would you like to download and install the CTF CLI now? (y/n) [y]")
-
-	var input = "y" // Default to yes
-	if !noPrompt {
-		_, err = fmt.Scanln(&input)
-		if err != nil {
-			// If error is due to empty input (just pressing Enter), treat as 'y' (yes)
-			if err.Error() != "unexpected newline" {
-				return false, errors.Wrap(err, "failed to read input")
-			}
-		}
-	}
-	input = strings.TrimSpace(strings.ToLower(input))
-	if input != "y" && input != "n" {
-		logger.Warn().Msg("Invalid input. Please enter 'y' or 'n'.")
-		return false, fmt.Errorf("invalid input: %s", input)
-	}
-
-	if strings.ToLower(input) != "y" {
-		logger.Warn().Msg("  ! You will need to install CTF CLI manually")
-		return false, nil
-	}
-
-	logger.Info().Msgf("Installing CTF CLI v%s...", requiredVersion)
-	// change to temp directory and download and extract; change back to original directory on exit
-	tempDir, err := os.MkdirTemp("", "ctf-download")
-	if err != nil {
-		return false, fmt.Errorf("failed to create temp directory: %w", err)
-	}
-	defer os.RemoveAll(tempDir)
-	wd, _ := os.Getwd()
-	if err := os.Chdir(tempDir); err != nil {
-		return false, fmt.Errorf("failed to change directory: %w", err)
-	}
-	defer func() { _ = os.Chdir(wd) }()
-	// install ctf by pulling from GitHub releases https://github.com/smartcontractkit/chainlink-testing-framework/releases/tag/framework%2Fv0.10.3
-	// for MacOS users, it will be framework-vX.X.X-darwin-arm64.tar.gz
-	// for Linux users, it will be framework-vX.X.X-linux-amd64.tar.gz or framework-vX.X.X-linux-arm64.tar.gz
-	osType := runtime.GOOS
-	archType := runtime.GOARCH
-	archiveName := fmt.Sprintf("framework-v%s-%s-%s.tar.gz", requiredVersion, osType, archType)
-	// gh release download framework/v0.10.3 --repo smartcontractkit/chainlink-testing-framework --pattern framework-v0.10.3-darwin-arm64.tar.gz
-	cmd := exec.CommandContext(ctx, "gh", "release", "download", "framework/v"+requiredVersion, "--repo", "smartcontractkit/chainlink-testing-framework", "--pattern", archiveName) //nolint:gosec //G204: Subprocess launched with a potential tainted input or cmd arguments
-	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
-	if err2 := cmd.Run(); err2 != nil {
-		return false, fmt.Errorf("failed to download CTF CLI: %w", err2)
-	}
-
-	logger.Info().Msg("Extracting CTF CLI...")
-	cmd = exec.CommandContext(ctx, "tar", "-C", binDir, "-xf", archiveName)
-	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
-	if err2 := cmd.Run(); err2 != nil {
-		return false, fmt.Errorf("failed to extract CTF CLI: %w", err2)
-	}
-	// Remove archive
-	if err2 := os.Remove(archiveName); err2 != nil {
-		logger.Warn().Msgf("Failed to remove %s. Please remove it manually.", archiveName)
-	}
-
-	logger.Info().Msgf("  ✓ CTF CLI installed to %s/ctf", binDir)
-	logger.Warn().Msg("")
-	logger.Warn().Msgf("   * -------------------------- I M P O R T A N T -------------------------------------- *")
-	logger.Warn().Msgf("   *                                                                                     *")
-	logger.Warn().Msgf("   * Add this directory to your PATH or move the CTF binary to a directory in your PATH  *")
-	logger.Warn().Msgf("   *                                                                                     *")
-	logger.Warn().Msgf("   * ----------------------------------------------------------------------------------- *")
-	logger.Warn().Msg("")
-	logger.Warn().Msgf("   You can run: export PATH=\"%s:$PATH\"", binDir)
-	logger.Warn().Msg("")
-	return true, nil
 }

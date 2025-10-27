@@ -2,19 +2,21 @@ package jobs_test
 
 import (
 	"fmt"
+	"slices"
 	"strconv"
 	"strings"
 	"testing"
 
 	"github.com/Masterminds/semver/v3"
 	chainsel "github.com/smartcontractkit/chain-selectors"
-	"github.com/smartcontractkit/quarantine"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+	"github.com/smartcontractkit/chainlink-protos/job-distributor/v1/job"
 	"github.com/smartcontractkit/chainlink/deployment/cre/jobs"
+	"github.com/smartcontractkit/chainlink/deployment/cre/jobs/operations"
 	"github.com/smartcontractkit/chainlink/deployment/cre/jobs/pkg"
 	"github.com/smartcontractkit/chainlink/deployment/cre/jobs/sequences"
 	job_types "github.com/smartcontractkit/chainlink/deployment/cre/jobs/types"
@@ -433,7 +435,6 @@ func TestProposeJobSpec_VerifyPreconditions_EVM(t *testing.T) {
 }
 
 func TestProposeJobSpec_Apply(t *testing.T) {
-	quarantine.Flaky(t, "DX-1893")
 	testEnv := test.SetupEnvV2(t, false)
 	env := testEnv.Env
 
@@ -521,13 +522,14 @@ func TestProposeJobSpec_Apply(t *testing.T) {
 		input := jobs.ProposeJobSpecInput{
 			Environment: "test",
 			Domain:      "cre",
-			JobName:     "ocr3-bootstrap-job",
+			JobName:     "ocr3-bootstrap-job-success",
 			DONName:     test.DONName,
 			Template:    job_types.BootstrapOCR3,
 			DONFilters: []offchain.TargetDONFilter{
 				{Key: offchain.FilterKeyDONName, Value: test.DONName},
 				{Key: "environment", Value: "test"},
 				{Key: "product", Value: offchain.ProductLabel},
+				{Key: "zone", Value: test.Zone},
 			},
 			Inputs: job_types.JobSpecInput{
 				"contractQualifier": "ocr3-contract-qualifier",
@@ -539,21 +541,76 @@ func TestProposeJobSpec_Apply(t *testing.T) {
 		require.NoError(t, err)
 		assert.Len(t, out.Reports, 1)
 
+		bootstrapOut, ok := out.Reports[0].Output.(operations.ProposeOCR3BootstrapJobOutput)
+		require.True(t, ok)
+		assert.Len(t, bootstrapOut.Specs, 1)
+
 		reqs, err := testEnv.TestJD.ListProposedJobRequests()
 		require.NoError(t, err)
 
 		expectedChainID := chainsel.ETHEREUM_TESTNET_SEPOLIA.EvmChainID
 
-		for _, req := range reqs {
-			if !strings.Contains(req.Spec, `type = "bootstrap"`) {
-				continue
-			}
-			// log each spec in readable yaml format
-			t.Logf("Job Spec:\n%s", req.Spec)
-			assert.Contains(t, req.Spec, `name = "ocr3-bootstrap-job`)
-			assert.Contains(t, req.Spec, `contractID = "0xAb5801a7D398351b8bE11C439e05C5B3259aeC9B"`)
-			assert.Contains(t, req.Spec, fmt.Sprintf("chainID = %d", expectedChainID))
+		filteredReqs := slices.DeleteFunc(reqs, func(s *job.ProposeJobRequest) bool {
+			return !strings.Contains(s.Spec, `name = "ocr3-bootstrap-job-success"`)
+		})
+		assert.Len(t, filteredReqs, 1) // there's only 1 bootstrap node
+
+		req := filteredReqs[0]
+		t.Logf("Job Spec:\n%s", req.Spec)
+		assert.Contains(t, req.Spec, `name = "ocr3-bootstrap-job-success`)
+		assert.Contains(t, req.Spec, `type = "bootstrap`)
+		assert.Contains(t, req.Spec, `contractID = "0xAb5801a7D398351b8bE11C439e05C5B3259aeC9B"`)
+		assert.Contains(t, req.Spec, fmt.Sprintf("chainID = %d", expectedChainID))
+	})
+
+	t.Run("fails ocr3 bootstrap job distribution w/ wrong zone", func(t *testing.T) {
+		chainSelector := chainsel.ETHEREUM_TESTNET_SEPOLIA.Selector
+		ds := datastore.NewMemoryDataStore()
+
+		err := ds.Addresses().Add(datastore.AddressRef{
+			ChainSelector: chainSelector,
+			Type:          datastore.ContractType(ocr3.OCR3Capability),
+			Version:       semver.MustParse("1.0.0"),
+			Address:       "0xAb5801a7D398351b8bE11C439e05C5B3259aeC9B",
+			Qualifier:     "ocr3-contract-qualifier",
+		})
+		require.NoError(t, err)
+
+		env.DataStore = ds.Seal()
+
+		input := jobs.ProposeJobSpecInput{
+			Environment: "test",
+			Domain:      "cre",
+			JobName:     "ocr3-bootstrap-job-wrong-zone",
+			DONName:     test.DONName,
+			Template:    job_types.BootstrapOCR3,
+			DONFilters: []offchain.TargetDONFilter{
+				{Key: offchain.FilterKeyDONName, Value: test.DONName},
+				{Key: "environment", Value: "test"},
+				{Key: "product", Value: offchain.ProductLabel},
+				{Key: "zone", Value: "wrong-test-zone"},
+			},
+			Inputs: job_types.JobSpecInput{
+				"contractQualifier": "ocr3-contract-qualifier",
+				"chainSelector":     strconv.FormatUint(chainSelector, 10),
+			},
 		}
+
+		out, err := jobs.ProposeJobSpec{}.Apply(*env, input)
+		require.NoError(t, err)
+		assert.Len(t, out.Reports, 1)
+
+		bootstrapOut, ok := out.Reports[0].Output.(operations.ProposeOCR3BootstrapJobOutput)
+		require.True(t, ok)
+		assert.Empty(t, bootstrapOut.Specs) // no specs should be proposed, since no nodes were found
+
+		reqs, err := testEnv.TestJD.ListProposedJobRequests()
+		require.NoError(t, err)
+
+		filteredReqs := slices.DeleteFunc(reqs, func(s *job.ProposeJobRequest) bool {
+			return !strings.Contains(s.Spec, `name = "ocr3-bootstrap-job-wrong-zone"`)
+		})
+		assert.Empty(t, filteredReqs)
 	})
 
 	t.Run("failed ocr3 bootstrap job distribution", func(t *testing.T) {

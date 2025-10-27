@@ -146,7 +146,7 @@ func (s *FetcherService) Fetch(ctx context.Context, messageID string, req ghcapa
 		return nil, fmt.Errorf("invalid response from gateway: %w", err)
 	}
 
-	s.lggr.Debugw("received gateway response", "donID", resp.Body.DonId, "msgID", resp.Body.MessageId, "receiver", resp.Body.Receiver, "sender", resp.Body.Sender)
+	s.lggr.Debugw("received gateway response", "donID", resp.Body.DonId, "msgID", resp.Body.MessageId, "receiver", resp.Body.Receiver, "sender", resp.Body.Sender, "workflowID", req.WorkflowID)
 
 	var payload ghcapabilities.Response
 	if err = json.Unmarshal(resp.Body.Payload, &payload); err != nil {
@@ -222,7 +222,7 @@ func newFileFetcher(basePath string, lggr logger.Logger) types.FetcherFunc {
 			return nil, fmt.Errorf("request URL %s is not within the basePath %s", fullPath, basePath)
 		}
 
-		lggr.Debugw("Fetching file", "messageID", messageID, "path", fullPath)
+		lggr.Debugw("Fetching file", "messageID", messageID, "path", fullPath, "workflowID", req.WorkflowID)
 
 		data, err := os.ReadFile(fullPath)
 		if err != nil {
@@ -250,7 +250,7 @@ func newHTTPFetcher(baseURL string, lggr logger.Logger) types.FetcherFunc {
 		u.Path = filepath.Join(u.Path, cleanPath)
 		fetchURL := u.String()
 
-		lggr.Debugw("Fetching HTTP resource", "url", fetchURL)
+		lggr.Debugw("Fetching HTTP resource", "url", fetchURL, "workflowID", req.WorkflowID)
 
 		req2, err := http.NewRequestWithContext(ctx, http.MethodGet, fetchURL, nil)
 		if err != nil {

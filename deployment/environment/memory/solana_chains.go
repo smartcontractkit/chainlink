@@ -1,17 +1,11 @@
 package memory
 
 import (
-	"archive/tar"
-	"compress/gzip"
 	"context"
 	"errors"
 	"fmt"
-	"io"
-	"net/http"
-	"os"
 	"path/filepath"
 	"runtime"
-	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -21,18 +15,22 @@ import (
 	solRpc "github.com/gagliardetto/solana-go/rpc"
 	chainsel "github.com/smartcontractkit/chain-selectors"
 	"github.com/stretchr/testify/require"
-	"golang.org/x/mod/modfile"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
+
 	cldf_chain "github.com/smartcontractkit/chainlink-deployments-framework/chain"
 	cldf_solana "github.com/smartcontractkit/chainlink-deployments-framework/chain/solana"
 	cldf_solana_provider "github.com/smartcontractkit/chainlink-deployments-framework/chain/solana/provider"
 	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
+
+	"github.com/smartcontractkit/chainlink/deployment/utils/solutils"
 )
 
 var (
 	// Instead of a relative path, use runtime.Caller or go-bindata
 	ProgramsPath = getProgramsPath()
+
+	once = &sync.Once{}
 )
 
 func getProgramsPath() string {
@@ -52,57 +50,6 @@ func getTestSolanaChainSelectors() []uint64 {
 		}
 	}
 	return result
-}
-
-func FundSolanaAccounts(
-	ctx context.Context, accounts []solana.PublicKey, solAmount uint64, solanaGoClient *solRpc.Client,
-) error {
-	var sigs = make([]solana.Signature, 0, len(accounts))
-	for _, account := range accounts {
-		sig, err := solanaGoClient.RequestAirdrop(ctx, account, solAmount*solana.LAMPORTS_PER_SOL,
-			solRpc.CommitmentFinalized)
-		if err != nil {
-			return err
-		}
-		sigs = append(sigs, sig)
-	}
-
-	const timeout = 100 * time.Second
-	const pollInterval = 500 * time.Millisecond
-
-	timeoutCtx, cancel := context.WithTimeout(ctx, timeout)
-	defer cancel()
-
-	ticker := time.NewTicker(pollInterval)
-	defer ticker.Stop()
-
-	remaining := len(sigs)
-	for remaining > 0 {
-		select {
-		case <-timeoutCtx.Done():
-			return errors.New("unable to find transaction within timeout")
-		case <-ticker.C:
-			statusRes, sigErr := solanaGoClient.GetSignatureStatuses(ctx, true, sigs...)
-			if sigErr != nil {
-				return sigErr
-			}
-			if statusRes == nil {
-				return errors.New("Status response is nil")
-			}
-			if statusRes.Value == nil {
-				return errors.New("Status response value is nil")
-			}
-
-			unfinalizedCount := 0
-			for _, res := range statusRes.Value {
-				if res == nil || res.ConfirmationStatus == solRpc.ConfirmationStatusFinalized {
-					unfinalizedCount++
-				}
-			}
-			remaining = unfinalizedCount
-		}
-	}
-	return nil
 }
 
 // FundSolanaAccountsWithLogging requests airdrops for the provided accounts and waits for confirmation.
@@ -256,19 +203,6 @@ func FundSolanaAccountsWithLogging(
 	return nil
 }
 
-// DownloadSolanaProgramArtifactsForTest downloads the Solana program artifacts for the test environment.
-//
-// This is a temporary function which will be replaced by a more comprehensive package which can
-// handle a more customizable download of artifacts.
-func DownloadSolanaProgramArtifactsForTest(t *testing.T) {
-	once.Do(func() {
-		err := DownloadSolanaProgramArtifacts(t.Context(), ProgramsPath, logger.Test(t), "b0f7cd3fbdbb")
-		require.NoError(t, err)
-		err = DownloadSolanaCCIPProgramArtifacts(t.Context(), ProgramsPath, logger.Test(t), "")
-		require.NoError(t, err)
-	})
-}
-
 func generateChainsSol(t *testing.T, numChains int, commitSha string) []cldf_chain.BlockChain {
 	t.Helper()
 
@@ -279,9 +213,9 @@ func generateChainsSol(t *testing.T, numChains int, commitSha string) []cldf_cha
 
 	once.Do(func() {
 		// TODO PLEX-1718 use latest contracts sha for now. Derive commit sha from go.mod once contracts are in a separate go module
-		err := DownloadSolanaProgramArtifacts(t.Context(), ProgramsPath, logger.Test(t), "b0f7cd3fbdbb")
+		err := solutils.DownloadChainlinkSolanaProgramArtifacts(t.Context(), ProgramsPath, "b0f7cd3fbdbb", logger.Test(t))
 		require.NoError(t, err)
-		err = DownloadSolanaCCIPProgramArtifacts(t.Context(), ProgramsPath, logger.Test(t), commitSha)
+		err = solutils.DownloadChainlinkCCIPProgramArtifacts(t.Context(), ProgramsPath, commitSha, logger.Test(t))
 		require.NoError(t, err)
 	})
 
@@ -371,214 +305,4 @@ func PopulateDatastore(ds *datastore.MemoryAddressRefStore, contracts map[string
 	}
 
 	return nil
-}
-
-var once = &sync.Once{}
-
-// TODO: these functions should be moved to a better location
-
-func withGetRequest[T any](ctx context.Context, url string, cb func(res *http.Response) (T, error)) (T, error) {
-	var empty T
-
-	req, err := http.NewRequestWithContext(ctx, "GET", url, nil)
-	if err != nil {
-		return empty, err
-	}
-
-	res, err := (&http.Client{}).Do(req)
-	if err != nil {
-		return empty, err
-	}
-	defer res.Body.Close()
-
-	return cb(res)
-}
-
-func DownloadTarGzReleaseAssetFromGithub(
-	ctx context.Context,
-	owner string,
-	repo string,
-	name string,
-	tag string,
-	cb func(r *tar.Reader, h *tar.Header) error,
-) error {
-	url := fmt.Sprintf(
-		"https://github.com/%s/%s/releases/download/%s/%s",
-		owner,
-		repo,
-		tag,
-		name,
-	)
-
-	_, err := withGetRequest(ctx, url, func(res *http.Response) (any, error) {
-		if res.StatusCode != http.StatusOK {
-			return nil, fmt.Errorf("request failed with status %d - could not download tar.gz release artifact from Github (url = '%s')", res.StatusCode, url)
-		}
-
-		gzipReader, err := gzip.NewReader(res.Body)
-		if err != nil {
-			return nil, err
-		}
-		defer gzipReader.Close()
-
-		tarReader := tar.NewReader(gzipReader)
-		for {
-			header, err := tarReader.Next()
-			if err == io.EOF {
-				break
-			}
-			if err != nil {
-				return nil, err
-			}
-			if err := cb(tarReader, header); err != nil {
-				return nil, err
-			}
-		}
-
-		return nil, nil
-	})
-
-	return err
-}
-
-func getModFilePath() (string, error) {
-	_, currentFile, _, _ := runtime.Caller(0)
-	// Get the root directory by walking up from current file until we find go.mod
-	rootDir := filepath.Dir(currentFile)
-	for {
-		if _, err := os.Stat(filepath.Join(rootDir, "go.mod")); err == nil {
-			break
-		}
-		parent := filepath.Dir(rootDir)
-		if parent == rootDir {
-			return "", errors.New("could not find project root directory containing go.mod")
-		}
-		rootDir = parent
-	}
-	return filepath.Join(rootDir, "go.mod"), nil
-}
-
-func getSolanaCcipDependencyVersion(gomodPath string) (string, error) {
-	const dependency = "github.com/smartcontractkit/chainlink-ccip/chains/solana"
-
-	gomod, err := os.ReadFile(gomodPath)
-	if err != nil {
-		return "", err
-	}
-
-	modFile, err := modfile.ParseLax("go.mod", gomod, nil)
-	if err != nil {
-		return "", err
-	}
-
-	for _, dep := range modFile.Require {
-		if dep.Mod.Path == dependency {
-			return dep.Mod.Version, nil
-		}
-	}
-
-	return "", fmt.Errorf("dependency %s not found", dependency)
-}
-
-func GetSha() (version string, err error) {
-	modFilePath, err := getModFilePath()
-	if err != nil {
-		return "", err
-	}
-	go_mod_version, err := getSolanaCcipDependencyVersion(modFilePath)
-	if err != nil {
-		return "", err
-	}
-	tokens := strings.Split(go_mod_version, "-")
-	if len(tokens) == 3 {
-		version := tokens[len(tokens)-1]
-		return version, nil
-	} else {
-		return "", fmt.Errorf("invalid go.mod version: %s", go_mod_version)
-	}
-}
-
-func DownloadSolanaProgramArtifacts(ctx context.Context, dir string, lggr logger.Logger, sha string) error {
-	const ownr = "smartcontractkit"
-	const repo = "chainlink-solana"
-	const name = "artifacts.tar.gz"
-
-	tag := "solana-artifacts-localtest-" + sha
-
-	if lggr != nil {
-		lggr.Infof("Downloading Solana chainlink-solana program artifacts (tag = %s)", tag)
-	}
-
-	return DownloadTarGzReleaseAssetFromGithub(ctx, ownr, repo, name, tag, func(r *tar.Reader, h *tar.Header) error {
-		if h.Typeflag != tar.TypeReg {
-			return nil
-		}
-
-		outPath := filepath.Join(dir, filepath.Base(h.Name))
-		if err := os.MkdirAll(filepath.Dir(outPath), os.ModePerm); err != nil {
-			return err
-		}
-
-		outFile, err := os.Create(outPath)
-		if err != nil {
-			return err
-		}
-		defer outFile.Close()
-
-		if _, err := io.Copy(outFile, r); err != nil {
-			return err
-		}
-
-		if lggr != nil {
-			lggr.Infof("Extracted Solana chainlink-solana artifact: %s", outPath)
-		}
-
-		return nil
-	})
-}
-
-func DownloadSolanaCCIPProgramArtifacts(ctx context.Context, dir string, lggr logger.Logger, sha string) error {
-	const ownr = "smartcontractkit"
-	const repo = "chainlink-ccip"
-	const name = "artifacts.tar.gz"
-
-	if sha == "" {
-		version, err := GetSha()
-		if err != nil {
-			return err
-		}
-		sha = version
-	}
-	tag := "solana-artifacts-localtest-" + sha
-
-	if lggr != nil {
-		lggr.Infof("Downloading Solana CCIP program artifacts (tag = %s)", tag)
-	}
-
-	return DownloadTarGzReleaseAssetFromGithub(ctx, ownr, repo, name, tag, func(r *tar.Reader, h *tar.Header) error {
-		if h.Typeflag != tar.TypeReg {
-			return nil
-		}
-
-		outPath := filepath.Join(dir, filepath.Base(h.Name))
-		if err := os.MkdirAll(filepath.Dir(outPath), os.ModePerm); err != nil {
-			return err
-		}
-
-		outFile, err := os.Create(outPath)
-		if err != nil {
-			return err
-		}
-		defer outFile.Close()
-
-		if _, err := io.Copy(outFile, r); err != nil {
-			return err
-		}
-
-		if lggr != nil {
-			lggr.Infof("Extracted Solana CCIP artifact: %s", outPath)
-		}
-
-		return nil
-	})
 }

@@ -28,6 +28,7 @@ type NopView struct {
 	WorkflowKey      string                `json:"workflowKey,omitempty"`
 	IsConnected      bool                  `json:"isConnected"`
 	IsEnabled        bool                  `json:"isEnabled"`
+	Version          string                `json:"version"`
 	Labels           []LabelView           `json:"labels,omitempty"`
 	ApprovedJobspecs map[string]JobView    `json:"approvedJobspecs,omitempty"` // jobID => jobSpec
 	ProposedJobspecs map[string]JobView    `json:"proposedJobspecs,omitempty"` // jobID => jobSpec
@@ -111,6 +112,7 @@ func GenerateNopsView(lggr logger.Logger, nodeIDs []string, oc cldf_offchain.Cli
 			WorkflowKey:      nodeDetails.GetWorkflowKey(),
 			IsConnected:      nodeDetails.IsConnected,
 			IsEnabled:        nodeDetails.IsEnabled,
+			Version:          nodeDetails.Version,
 			Labels:           labels,
 			ApprovedJobspecs: jobspecs[node.NodeID],
 			ProposedJobspecs: proposedSpecs[node.NodeID],

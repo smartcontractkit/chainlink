@@ -49,9 +49,10 @@ func main() {
 
 	lggr, _ := logger.NewLogger()
 
+	lf := limits.Factory{Logger: lggr}
 	// Note: these nils are optional dependencies that are not needed for simple handlers.
-	handlerFactory := gateway.NewHandlerFactory(nil, nil, nil, nil, nil, lggr, limits.Factory{Logger: lggr})
-	gw, err := gateway.NewGatewayFromConfig(&cfg, handlerFactory, lggr)
+	handlerFactory := gateway.NewHandlerFactory(nil, nil, nil, nil, nil, lggr, lf)
+	gw, err := gateway.NewGatewayFromConfig(&cfg, handlerFactory, lggr, lf)
 	if err != nil {
 		fmt.Println("error creating Gateway object:", err)
 		return

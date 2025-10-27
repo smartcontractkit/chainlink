@@ -35,6 +35,7 @@ import (
 const (
 	DONName           = "test-don"
 	RegistryQualifier = "test-registry"
+	Zone              = "test-zone-1"
 )
 
 type EnvWrapperV2 struct {
@@ -253,6 +254,7 @@ func setupViewOnlyNodeTest(t *testing.T, registryChainSel, aptosChainSel uint64,
 			"environment":        "test",
 			"product":            "cre",
 			"type":               "plugin",
+			"zone":               Zone,
 		}
 		if donCfg.Labels != nil {
 			maps.Copy(labels, donCfg.Labels)
@@ -271,6 +273,7 @@ func setupViewOnlyNodeTest(t *testing.T, registryChainSel, aptosChainSel uint64,
 		"environment":        "test",
 		"product":            "cre",
 		"type":               "bootstrap",
+		"zone":               Zone,
 	}
 	if donCfg.Labels != nil {
 		maps.Copy(btLabels, donCfg.Labels)
