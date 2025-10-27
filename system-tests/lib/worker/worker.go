@@ -47,15 +47,27 @@ func (p *Pool) SubmitAny(fn func() (any, error)) FutureAny {
 		err   error
 	}, 1)
 
-	p.pool.Submit(func() {
+	task := p.pool.Submit(func() {
+		// If there was no panic, execute the function and send the result to the channel (value or error)
 		value, err := fn()
 		ch <- struct {
 			value any
 			err   error
 		}{value, err}
-
-		close(ch)
 	})
+
+	// Monitor the task for panics that pond caught
+	go func() {
+		defer close(ch)
+		if taskErr := task.Wait(); taskErr != nil {
+			// If there was a panic, pond caught it and the task function never sent to the channel
+			// So we send the panic as error instead
+			ch <- struct {
+				value any
+				err   error
+			}{nil, taskErr}
+		}
+	}()
 
 	return FutureAny{ch: ch}
 }
