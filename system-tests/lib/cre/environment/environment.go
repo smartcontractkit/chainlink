@@ -229,6 +229,7 @@ func SetupTestEnvironment(
 	defer queue.StopAndWait() // Ensure cleanup on any exit path
 
 	jdStartedFuture := queue.SubmitAny(func(ctx context.Context) (any, error) {
+		// TODO: pass context after we update the CTF to accept context, when creating new JD instance
 		jdOutput, startJDErr := StartJD(testLogger, *input.JdInput, input.Provider)
 		if startJDErr != nil {
 			return nil, pkgerrors.Wrap(startJDErr, "failed to start Job Distributor")

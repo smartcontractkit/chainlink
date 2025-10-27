@@ -230,15 +230,14 @@ func WaitForAllNodesToHaveExpectedFiltersRegistered(ctx context.Context, singleF
 		timeoutDuration := 2 * time.Minute
 
 		checkCtx, cancel := context.WithTimeout(ctx, timeoutDuration)
-		defer cancel()
-
 		ticker := time.NewTicker(tickInterval)
-		defer ticker.Stop()
 
 	INNER_LOOP:
 		for {
 			select {
 			case <-checkCtx.Done():
+				cancel()
+				ticker.Stop()
 				if errors.Is(checkCtx.Err(), context.DeadlineExceeded) {
 					return fmt.Errorf("timed out after %.2f seconds waiting for all nodes to have expected filters registered", timeoutDuration.Seconds())
 				}
@@ -246,6 +245,9 @@ func WaitForAllNodesToHaveExpectedFiltersRegistered(ctx context.Context, singleF
 			case <-ticker.C:
 				if len(results) == len(workerNodes) {
 					testLogger.Info().Msgf("All %d nodes in DON %d have expected filters registered", len(workerNodes), don.ID)
+					cancel()
+					ticker.Stop()
+
 					break INNER_LOOP
 				}
 
@@ -257,6 +259,8 @@ func WaitForAllNodesToHaveExpectedFiltersRegistered(ctx context.Context, singleF
 					testLogger.Info().Msgf("Checking if all WorkflowRegistry filters are registered for worker node %d", workerNode.Index)
 					allFilters, filtersErr := getAllFilters(checkCtx, singleFileLogger, big.NewInt(libc.MustSafeInt64(homeChainID)), workerNode.Index, nodeSet[donIdx].DbInput.Port)
 					if filtersErr != nil {
+						cancel()
+						ticker.Stop()
 						return errors.Wrap(filtersErr, "failed to get filters")
 					}
 
@@ -276,6 +280,9 @@ func WaitForAllNodesToHaveExpectedFiltersRegistered(ctx context.Context, singleF
 				// return if we have results for all nodes, don't wait for next tick
 				if len(results) == len(workerNodes) {
 					testLogger.Info().Msgf("All %d nodes in DON %d have expected filters registered", len(workerNodes), don.ID)
+					cancel()
+					ticker.Stop()
+
 					break INNER_LOOP
 				}
 			}

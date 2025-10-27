@@ -9,7 +9,7 @@ import (
 
 type Pool struct {
 	pool   pond.Pool
-	ctx    context.Context
+	ctx    context.Context //nolint:containedctx // Pool needs to manage a shared context for all tasks
 	cancel context.CancelCauseFunc
 }
 
