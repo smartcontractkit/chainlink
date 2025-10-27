@@ -17,6 +17,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway"
 	gc "github.com/smartcontractkit/chainlink/v2/core/services/gateway/common"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/config"
+	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/monitoring"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/network"
 )
 
@@ -87,7 +88,9 @@ Address = "0x68902D681c28119f9b2531473a417088bf008E59"
 [nodeServerConfig]
 Path = "/node"` + config
 			lggr := logger.Test(t)
-			_, err := gateway.NewConnectionManager(parseTOMLConfig(t, fullConfig), clockwork.NewFakeClock(), lggr, limits.Factory{Logger: lggr})
+			gMetrics, err := monitoring.NewGatewayMetrics()
+			require.NoError(t, err)
+			_, err = gateway.NewConnectionManager(parseTOMLConfig(t, fullConfig), clockwork.NewFakeClock(), gMetrics, lggr, limits.Factory{Logger: lggr})
 			require.Error(t, err)
 		})
 	}
@@ -243,7 +246,9 @@ func TestConnectionManager_CleanStartClose(t *testing.T) {
 
 func newConnectionManager(t *testing.T, gwConfig *config.GatewayConfig, clock clockwork.Clock) gateway.ConnectionManager {
 	lggr := logger.Test(t)
-	mgr, err := gateway.NewConnectionManager(gwConfig, clock, lggr, limits.Factory{Logger: lggr})
+	gMetrics, err := monitoring.NewGatewayMetrics()
+	require.NoError(t, err)
+	mgr, err := gateway.NewConnectionManager(gwConfig, clock, gMetrics, lggr, limits.Factory{Logger: lggr})
 	require.NoError(t, err)
 	return mgr
 }
