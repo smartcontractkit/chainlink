@@ -1686,16 +1686,10 @@ func TestHttpTriggerHandler_HandleUserTriggerRequest_RateLimiting(t *testing.T) 
 
 func TestHttpTriggerHandler_HandleUserTriggerRequest_StopsRetriesOnQuorum(t *testing.T) {
 	lggr := logger.Test(t)
-	cfg := ServiceConfig{
-		MaxTriggerRequestDurationMs: 60000,
-		CleanUpPeriodMs:             10000,
-		RetryConfig: RetryConfig{
-			InitialIntervalMs: 100,
-			MaxIntervalTimeMs: 1000,
-			Multiplier:        2.0,
-		},
-	}
+	cfg := WithDefaults(ServiceConfig{})
 
+	// 4 nodes, 1 faulty node, so (N+F)//2+1=(4+1)//2+1=3 for threshold
+	// Quorum is reached when 3 nodes respond.
 	donConfig := &config.DONConfig{
 		DonId: "test-don",
 		F:     1,
@@ -1730,7 +1724,7 @@ func TestHttpTriggerHandler_HandleUserTriggerRequest_StopsRetriesOnQuorum(t *tes
 		broadcastComplete := make(chan struct{})
 		callCount := 0
 
-		// Setup: node1 and node2 succeed, node3 fails initially
+		// Setup: node1, node2, node3 succeed, node4 fails indefinitely
 		mockDon.On("SendToNode", mock.Anything, "node1", mock.Anything).Return(nil).Run(func(args mock.Arguments) {
 			callCount++
 			if callCount == 3 {
