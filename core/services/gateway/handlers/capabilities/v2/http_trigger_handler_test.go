@@ -1791,7 +1791,7 @@ func TestHttpTriggerHandler_HandleUserTriggerRequest_StopsRetriesOnQuorum(t *tes
 		require.Equal(t, api.NoError, payload.ErrorCode)
 
 		select {
-		case err := <-errCh:
+		case err = <-errCh:
 			require.NoError(t, err)
 		case <-testutils.Context(t).Done():
 			t.Fatal("Context cancelled waiting for HandleUserTriggerRequest to complete")
