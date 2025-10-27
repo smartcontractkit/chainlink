@@ -8,7 +8,6 @@ import (
 	"testing"
 	"time"
 
-	aptosapi "github.com/aptos-labs/aptos-go-sdk/api"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	gethtypes "github.com/ethereum/go-ethereum/core/types"
@@ -234,9 +233,8 @@ func ExecuteMCMSProposalV2(t *testing.T, env cldf.Environment, proposal *mcmslib
 		}
 		if family == chainsel.FamilyAptos {
 			chain := aptosChains[uint64(chainSelector)]
-			tx := root.RawData.(*aptosapi.PendingTransaction)
-			t.Logf("[ExecuteMCMSProposalV2] SetRoot Aptos tx hash: %s", tx.Hash)
-			err = chain.Confirm(tx.Hash)
+			t.Logf("[ExecuteMCMSProposalV2] SetRoot Aptos tx hash: %s", root.Hash)
+			err = chain.Confirm(root.Hash)
 			if err != nil {
 				return fmt.Errorf("[ExecuteMCMSProposalV2] Confirm failed: %w", err)
 			}
@@ -265,9 +263,8 @@ func ExecuteMCMSProposalV2(t *testing.T, env cldf.Environment, proposal *mcmslib
 		}
 		if family == chainsel.FamilyAptos {
 			chain := aptosChains[uint64(op.ChainSelector)]
-			tx := result.RawData.(*aptosapi.PendingTransaction)
-			t.Logf("[ExecuteMCMSProposalV2] Operation %d Aptos tx hash: %s", i, tx.Hash)
-			err = chain.Confirm(tx.Hash)
+			t.Logf("[ExecuteMCMSProposalV2] Operation %d Aptos tx hash: %s", i, result.Hash)
+			err = chain.Confirm(result.Hash)
 			if err != nil {
 				return fmt.Errorf("[ExecuteMCMSProposalV2] Confirm failed: %w", err)
 			}
@@ -357,8 +354,7 @@ func ExecuteMCMSTimelockProposalV2(t *testing.T, env cldf.Environment, timelockP
 		}
 		if family == chainsel.FamilyAptos {
 			chain := aptosChains[uint64(op.ChainSelector)]
-			aptosTx := tx.RawData.(*aptosapi.PendingTransaction)
-			err = chain.Confirm(aptosTx.Hash)
+			err = chain.Confirm(tx.Hash)
 			if err != nil {
 				return fmt.Errorf("[ExecuteMCMSTimelockProposalV2] Confirm on Aptos failed: %w", err)
 			}

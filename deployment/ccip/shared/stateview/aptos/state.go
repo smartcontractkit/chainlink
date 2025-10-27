@@ -215,8 +215,8 @@ func GetOfframpDynamicConfig(c cldf_aptos.Chain, ccipAddress aptos.AccountAddres
 }
 
 func FindAptosAddress(tv cldf.TypeAndVersion, addresses map[string]cldf.TypeAndVersion) aptos.AccountAddress {
-	for address, tvStr := range addresses {
-		if tv.String() == tvStr.String() {
+	for address, tandv := range addresses {
+		if tv.Equal(tandv) {
 			addr := aptos.AccountAddress{}
 			_ = addr.ParseStringRelaxed(address)
 			return addr
