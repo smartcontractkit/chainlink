@@ -25,9 +25,9 @@ func LoadMCMSAddressesAptos(env cldf.Environment, chainSelectors []uint64) (map[
 				Type:    shared.AptosMCMSType,
 				Version: deployment.Version1_6_0,
 			}) {
-				addr := aptos.AccountAddress{}
-				_ = addr.ParseStringRelaxed(address)
-				mcmsAddress = addr
+				if err := mcmsAddress.ParseStringRelaxed(address); err != nil {
+					return nil, fmt.Errorf("failed to parse address %s: %w", address, err)
+				}
 				break
 			}
 		}
