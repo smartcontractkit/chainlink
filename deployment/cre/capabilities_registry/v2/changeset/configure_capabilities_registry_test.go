@@ -231,8 +231,7 @@ func TestConfigureCapabilitiesRegistryInput_YAMLSerialization(t *testing.T) {
 				Name:        "workflow-don-1",
 				DonFamilies: []string{"workflow", "test"},
 				Config: map[string]any{
-					"consensus": "basic",
-					"timeout":   "30s",
+					"defaultConfig": map[string]any{},
 				},
 				CapabilityConfigurations: []CapabilitiesRegistryCapabilityConfiguration{
 					{
@@ -364,7 +363,7 @@ dons:
   - name: "workflow-don-production"
     donFamilies: ["workflow", "production"]
     config:
-      consensus: "basic"
+      defaultConfig: {}
     capabilityConfigurations:
       - capabilityID: "write-chain@1.0.0"
         config:
@@ -418,7 +417,7 @@ dons:
 
 	// Verify config is decoded properly
 	expectedConfig := map[string]any{
-		"consensus": "basic",
+		"defaultConfig": map[string]any{},
 	}
 	assert.Equal(t, expectedConfig, input.DONs[0].Config)
 
