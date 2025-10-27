@@ -455,7 +455,7 @@ func TestNoTriggers(t *testing.T) {
 	require.NoError(t, err)
 	_, err = p.Up(testutils.Context(t))
 	require.NoError(t, err)
-	row := db.DB.QueryRow("select count(*) from information_schema.triggers")
+	row := db.QueryRow("select count(*) from information_schema.triggers")
 	var count int
 	err = row.Scan(&count)
 	require.NoError(t, err)
