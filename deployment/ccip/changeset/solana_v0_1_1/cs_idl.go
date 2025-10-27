@@ -9,8 +9,6 @@ import (
 	"path/filepath"
 	"strings"
 
-	solanastateview "github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview/solana"
-
 	"github.com/gagliardetto/solana-go"
 	"github.com/pelletier/go-toml"
 	chainsel "github.com/smartcontractkit/chain-selectors"
@@ -22,10 +20,11 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
+	solanastateview "github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview/solana"
 	commonstate "github.com/smartcontractkit/chainlink/deployment/common/changeset/state"
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 	"github.com/smartcontractkit/chainlink/deployment/common/types"
-	"github.com/smartcontractkit/chainlink/deployment/environment/memory"
+	"github.com/smartcontractkit/chainlink/deployment/utils/solutils"
 )
 
 // use this changeset to upload the IDL for a program
@@ -263,7 +262,7 @@ func WriteAnchorToml(e cldf.Environment, filename, anchorVersion, cluster, walle
 // resolve artifacts based on sha and write anchor.toml file to simulate anchor workspace
 func RepoSetup(e cldf.Environment, chain cldfsolana.Chain, gitCommitSha string) error {
 	e.Logger.Debug("Downloading Solana CCIP program artifacts...")
-	err := memory.DownloadSolanaCCIPProgramArtifacts(e.GetContext(), chain.ProgramsPath, e.Logger, gitCommitSha)
+	err := solutils.DownloadChainlinkCCIPProgramArtifacts(e.GetContext(), chain.ProgramsPath, gitCommitSha, e.Logger)
 	if err != nil {
 		return fmt.Errorf("error downloading solana ccip program artifacts: %w", err)
 	}
