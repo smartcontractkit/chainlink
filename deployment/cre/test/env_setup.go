@@ -185,7 +185,7 @@ func SetupEnvV2(t *testing.T, useMCMS bool) *EnvWrapperV2 {
 						F:           uint8(donCfg.F), //nolint:gosec // disable G115
 						Nodes:       nodesP2PIDs,
 						DonFamilies: []string{"test-family"},
-						Config:      map[string]any{"consensus": "basic", "timeout": "30s"},
+						Config:      map[string]any{"defaultConfig": map[string]any{}},
 						CapabilityConfigurations: []changeset2.CapabilitiesRegistryCapabilityConfiguration{
 							{
 								CapabilityID: "test-capability@1.0.0",

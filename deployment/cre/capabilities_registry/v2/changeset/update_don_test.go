@@ -137,8 +137,7 @@ func setupRegistryForUpdateDON(t *testing.T, isWorkflow bool) *updFixture {
 				Name:        donName,
 				DonFamilies: []string{"upd-family"},
 				Config: map[string]any{
-					"name": "don-config",
-					"type": "workflow",
+					"defaultConfig": map[string]any{},
 				},
 				CapabilityConfigurations: []changeset.CapabilitiesRegistryCapabilityConfiguration{
 					{CapabilityID: writeChain.CapabilityId, Config: cfg},
@@ -237,7 +236,16 @@ func TestUpdateDONChangeset_ByName_Workflow_Force_Succeeds(t *testing.T) {
 	t.Parallel()
 	fx := setupRegistryForUpdateDON(t /*isWorkflow=*/, true)
 
-	newCfg := map[string]any{"defaultConfig": map[string]any{"bump": "1"}}
+	// Use a valid protobuf structure with proper fields format
+	newCfg := map[string]any{
+		"defaultConfig": map[string]any{
+			"fields": map[string]any{
+				"testKey": map[string]any{
+					"stringValue": "testValue",
+				},
+			},
+		},
+	}
 	wantProto, err := pkg.CapabilityConfig(newCfg).MarshalProto()
 	require.NoError(t, err)
 

@@ -25,8 +25,7 @@ type fields struct {
 
 func TestCapRegView_Denormalize(t *testing.T) {
 	donConfig := map[string]any{
-		"consensus": "basic",
-		"timeout":   "30s",
+		"defaultConfig": map[string]any{},
 	}
 	donCfgProto := pkg.CapabilityConfig(donConfig)
 	donConfigBytes, err := donCfgProto.MarshalProto()
@@ -39,8 +38,9 @@ func TestCapRegView_Denormalize(t *testing.T) {
 	capMetadataBytes, err := json.Marshal(capMetadata)
 	require.NoError(t, err)
 
-	capMetadataProto := pkg.CapabilityConfig(capMetadata)
-	capMetadataProtoBytes, err := capMetadataProto.MarshalProto()
+	// Capability configuration is separate from metadata - use a valid proto config structure
+	capConfig := pkg.CapabilityConfig(map[string]any{"defaultConfig": map[string]any{}})
+	capConfigProtoBytes, err := capConfig.MarshalProto()
 	require.NoError(t, err)
 
 	t.Run("empty", func(t *testing.T) {
@@ -58,7 +58,7 @@ func TestCapRegView_Denormalize(t *testing.T) {
 			CapabilityConfigurations: []cr.CapabilitiesRegistryCapabilityConfiguration{
 				{
 					CapabilityId: "test-cap-id",
-					Config:       capMetadataProtoBytes,
+					Config:       capConfigProtoBytes,
 				},
 			},
 		})
@@ -123,11 +123,11 @@ func TestCapRegView_Denormalize(t *testing.T) {
 			CapabilityConfigurations: []cr.CapabilitiesRegistryCapabilityConfiguration{
 				{
 					CapabilityId: "test-cap-id",
-					Config:       capMetadataProtoBytes,
+					Config:       capConfigProtoBytes,
 				},
 				{
 					CapabilityId: "test-cap-id-2",
-					Config:       capMetadataProtoBytes,
+					Config:       capConfigProtoBytes,
 				},
 			},
 		})
@@ -142,7 +142,7 @@ func TestCapRegView_Denormalize(t *testing.T) {
 			CapabilityConfigurations: []cr.CapabilitiesRegistryCapabilityConfiguration{
 				{
 					CapabilityId: "other-cap-id",
-					Config:       capMetadataProtoBytes,
+					Config:       capConfigProtoBytes,
 				},
 			},
 		})
