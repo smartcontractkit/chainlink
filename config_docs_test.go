@@ -19,7 +19,7 @@ var (
 func TestConfigDocs(t *testing.T) {
 	config, err := docs.GenerateConfig()
 	assert.NoError(t, err, "invalid config docs")
-	assert.Equal(t, configMD, config, "docs/CONFIG.md is out of date. Run '" +
+	assert.Equal(t, configMD, config, "docs/CONFIG.md is out of date. Run '"+
 		"' to regenerate.")
 
 	secrets, err := docs.GenerateSecrets()
