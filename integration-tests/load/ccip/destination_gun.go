@@ -45,19 +45,18 @@ type SeqNumRange struct {
 }
 
 type DestinationGun struct {
-	l                        logger.Logger
-	env                      cldf.Environment
-	state                    *stateview.CCIPOnChainState
-	roundNum                 *atomic.Int32
-	chainSelector            uint64
-	receiver                 []byte
-	testConfig               *ccip.LoadConfig
-	evmSourceKeys            map[uint64]*bind.TransactOpts
-	solanaSourceKeys         map[uint64]*solana.PrivateKey
-	suiSourceKeys            map[uint64]cldf_sui.Chain
-	suiReceiverStateObjectId []byte
-	metricPipe               chan messageData
-	availableSources         []uint64 // Cache of available source chains for this destination
+	l                logger.Logger
+	env              cldf.Environment
+	state            *stateview.CCIPOnChainState
+	roundNum         *atomic.Int32
+	chainSelector    uint64
+	receiver         []byte
+	testConfig       *ccip.LoadConfig
+	evmSourceKeys    map[uint64]*bind.TransactOpts
+	solanaSourceKeys map[uint64]*solana.PrivateKey
+	suiSourceKeys    map[uint64]cldf_sui.Chain
+	metricPipe       chan messageData
+	availableSources []uint64 // Cache of available source chains for this destination
 }
 
 func NewDestinationGun(
@@ -298,7 +297,7 @@ func (m *DestinationGun) GetEVMMessage(src uint64) (router.ClientEVM2AnyMessage,
 		rcv = common.LeftPadBytes(m.receiver, 32)
 		// OOO always true for Sui
 		// Clock is always at 0x6, receiver state object is in suiReceiverStateObjectId
-		extraArgs, err = GetEVMExtraArgsV2SUI("0x" + string(m.suiReceiverStateObjectId))
+		extraArgs, err = GetEVMExtraArgsV2SUI(*m.testConfig.TestnetConfig.SuiConfig.SuiStateReceiverStateObjectId)
 		if err != nil {
 			return router.ClientEVM2AnyMessage{}, 0, err
 		}
@@ -559,7 +558,7 @@ func (m *DestinationGun) getSuiMessage() (testhelpers.SuiSendRequest, error) {
 	m.l.Infow("Selected message type", "msgType", *selectedMsgDetails.MsgType)
 	message := testhelpers.SuiSendRequest{
 		Receiver:  common.LeftPadBytes(m.receiver, 32),
-		ExtraArgs: []byte{},
+		ExtraArgs: []byte{24, 29, 207, 16, 64, 13, 3, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1},
 		FeeToken:  *m.testConfig.TestnetConfig.SuiConfig.SuiFeeTokenObjectId,
 	}
 

@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"math"
+	"math/big"
 	"sync"
 	"testing"
 	"time"
@@ -16,6 +17,7 @@ import (
 	_ "github.com/lib/pq"
 	"go.uber.org/atomic"
 
+	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_3/message_hasher"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 	pkgtypes "github.com/smartcontractkit/chainlink-common/pkg/types"
@@ -30,6 +32,7 @@ import (
 	"github.com/smartcontractkit/chainlink-sui/relayer/client"
 	"github.com/smartcontractkit/chainlink-sui/relayer/testutils"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers"
+	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/ccipevm"
 )
 
 func hexFromSuiBech32PrivKey(bech string) (string, error) {
@@ -711,20 +714,32 @@ func setEventCursorToLatest(
 	return nil
 }
 
-func GetEVMExtraArgsV2SUI(recv string) ([]byte, error) {
+func GetEVMExtraArgsV2SUI(receiverStateObjectId string) ([]byte, error) {
+	// Tag prefix
+	SUITag := hexutil.MustDecode("0x21ea4ca9")
+
 	var clockObj [32]byte
 	copy(clockObj[:], hexutil.MustDecode(
 		"0x0000000000000000000000000000000000000000000000000000000000000006",
 	))
 
+	fmt.Printf("Receiver state object id: %s", receiverStateObjectId)
 	var stateObj [32]byte
 	copy(stateObj[:], hexutil.MustDecode(
-		recv, // reciever CCIPReceiverStateObjectId
+		receiverStateObjectId,
 	))
 
 	recieverObjectIds := [][32]byte{clockObj, stateObj}
 
-	return testhelpers.MakeSuiExtraArgs(1000000, true, recieverObjectIds, [32]byte{}), nil
+	suiExtraArgsData := message_hasher.ClientSuiExtraArgsV1{
+		GasLimit:                 big.NewInt(1000000),
+		AllowOutOfOrderExecution: true,
+		TokenReceiver:            [32]byte{}, // EOA
+		ReceiverObjectIds:        recieverObjectIds,
+	}
+
+	return ccipevm.SerializeExtraArgs(SUITag, "encodeSUIExtraArgsV1", suiExtraArgsData)
+
 }
 
 // cleanupSuiDatabase cleans up Sui events and transactions tables before test runs

@@ -284,7 +284,7 @@ func SendSuiCCIPRequest(e cldf.Environment, cfg *ccipclient.CCIPSendReqConfig) (
 		typeArgsList := []string{}
 		typeParamsList := []string{}
 		paramTypes := []string{
-			"address",
+			"vector<u8>",
 		}
 
 		var paramValues []any
@@ -496,16 +496,15 @@ func SendSuiCCIPRequest(e cldf.Environment, cfg *ccipclient.CCIPSendReqConfig) (
 	typeArgsList := []string{}
 	typeParamsList := []string{}
 	paramTypes := []string{
-		"address", // TODO: change this to vector<u8> when the contracts are updated
+		"vector<u8>",
 	}
 
 	// For SUI -> EVM BurnMint Pool token Transfer, we can use msg.Receiver as tokenReceiver, this field is only used in usdc token pool
 	// bc we need to check the recipient with Circle's packages from the onramp side before sending USDC. and it's not used anyway else.
 	decodedTokenReceiver, _ := hex.DecodeString("0000000000000000000000000000000000000000000000000000000000000000")
 
-	// TODO: uncomment this when the contracts are updated to use vector<u8>
-	// var tokenReceiver []byte
-	// copy(tokenReceiver[:], decodedTokenReceiver)
+	var tokenReceiver []byte
+	copy(tokenReceiver[:], decodedTokenReceiver)
 
 	paramValues := []any{
 		decodedTokenReceiver,
