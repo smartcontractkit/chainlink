@@ -8,10 +8,12 @@ import (
 
 	"github.com/stretchr/testify/require"
 
+	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 
 	chain_selectors "github.com/smartcontractkit/chain-selectors"
+	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/testcontext"
 
 	"github.com/smartcontractkit/chainlink-deployments-framework/chain"
 
@@ -119,6 +121,7 @@ func Test_CCIP_Messaging_Sui2EVM(t *testing.T) {
 
 func Test_CCIP_Messaging_EVM2Sui(t *testing.T) {
 	lggr := logger.TestLogger(t)
+	ctx := testcontext.Get(t)
 	e, _, _ := testsetups.NewIntegrationEnvironment(
 		t,
 		testhelpers.WithNumOfChains(2),
@@ -139,6 +142,8 @@ func Test_CCIP_Messaging_EVM2Sui(t *testing.T) {
 	err = testhelpers.AddLaneWithDefaultPricesAndFeeQuoterConfig(t, &e, state, sourceChain, destChain, false)
 	require.NoError(t, err)
 
+	srcFeeQuoterDestChainConfig, err := state.Chains[sourceChain].FeeQuoter.GetDestChainConfig(&bind.CallOpts{Context: ctx}, destChain)
+	require.NoError(t, err, "Failed to get destination chain config")
 	var (
 		nonce  uint64
 		sender = common.LeftPadBytes(e.Env.BlockChains.EVMChains()[sourceChain].DeployerKey.From.Bytes(), 32)
@@ -210,4 +215,36 @@ func Test_CCIP_Messaging_EVM2Sui(t *testing.T) {
 			},
 		)
 	})
+
+	t.Run("Message to Sui with valid receiver with data bytes = max data bytes allowed ", func(t *testing.T) {
+		// ccipChainState := state.SuiChains[destChain]
+		message := []byte(strings.Repeat("0", int(srcFeeQuoterDestChainConfig.MaxDataBytes)))
+		messagingtest.Run(t,
+			messagingtest.TestCase{
+				TestSetup:              setup,
+				Nonce:                  &nonce,
+				ValidationType:         messagingtest.ValidationTypeExec,
+				Receiver:               receiverByte,
+				MsgData:                message,
+				ExtraArgs:              testhelpers.MakeSuiExtraArgs(1000000, true, receiverObjectIDs, [32]byte{}),
+				ExpectedExecutionState: testhelpers.EXECUTION_STATE_SUCCESS,
+			},
+		)
+	})
+
+	t.Run("Message to Sui with zero reciever", func(t *testing.T) {
+		message := []byte("Hello Sui, from EVM!")
+		messagingtest.Run(t,
+			messagingtest.TestCase{
+				TestSetup:              setup,
+				Nonce:                  &nonce,
+				ValidationType:         messagingtest.ValidationTypeExec,
+				Receiver:               []byte{},
+				MsgData:                message,
+				ExtraArgs:              testhelpers.MakeSuiExtraArgs(0, true, [][32]byte{}, [32]byte{}),
+				ExpectedExecutionState: testhelpers.EXECUTION_STATE_SUCCESS,
+			},
+		)
+	})
+
 }

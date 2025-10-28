@@ -316,6 +316,10 @@ func Test_CCIPTokenTransfer_EVM2SUI(t *testing.T) {
 
 	// fmt.Println("TOKENBALANCE TEST: RECEIVER: ", suiAddrStr, " TOKENN: ", suiTokenHex)
 
+	emptyReceiver := hexutil.MustDecode(
+		"0x0000000000000000000000000000000000000000000000000000000000000000", // reciever packageID
+	)
+
 	tcs := []testhelpers.TestTransferRequest{
 		{
 			Name:             "Send token to EOA",
@@ -338,10 +342,44 @@ func Test_CCIPTokenTransfer_EVM2SUI(t *testing.T) {
 				},
 			},
 		},
+		// Pure token transfer
+		// ReceiverObjectIds = empty
+		// token.Reciever = non empty (maybe EOA or object)
+		// message.Receiver = empty
+		// don't need extraArgs gasLimit, can be set to 0
+		{
+			Name:             "Send token to EOA with - Pure Token Transfer",
+			SourceChain:      sourceChain,
+			DestChain:        destChain,
+			Data:             []byte{},
+			Receiver:         emptyReceiver, // empty Receiver
+			TokenReceiverATA: suiAddr[:],    // tokenReceiver extracted from extraArgs (the address that actually gets the token)
+			ExpectedStatus:   testhelpers.EXECUTION_STATE_SUCCESS,
+			Tokens: []router.ClientEVMTokenAmount{
+				{
+					Token:  evmToken.Address(),
+					Amount: big.NewInt(1e18),
+				},
+			},
+			ExtraArgs: testhelpers.MakeSuiExtraArgs(0, true, [][32]byte{}, suiAddr),
+			ExpectedTokenBalances: []testhelpers.ExpectedBalance{
+				{
+					Token:  suiTokenBytes,
+					Amount: big.NewInt(1e9),
+				},
+			},
+		},
+		// Programmable token transfer
+		// can be thought of as two seperate paths tokenPool release/mint + message ccip_recieve
+		// RecieverObjectIds = non empty (with clock & recieverStateValue)
+		// token.Reciever = non empty(maybe EOA or object)
+		// message.Reciever = recieverPackageId
+		// extraArgs gasLimit > 0
 		{
 			Name:             "Send token to an Object",
 			SourceChain:      sourceChain,
 			DestChain:        destChain,
+			Data:             []byte("Hello Sui From EVM"),
 			Receiver:         receiverByte, // receiver contract pkgId
 			TokenReceiverATA: stateObj[:],  // tokenReceiver extracted from extraArgs (the object that actually gets the token)
 			ExpectedStatus:   testhelpers.EXECUTION_STATE_SUCCESS,
