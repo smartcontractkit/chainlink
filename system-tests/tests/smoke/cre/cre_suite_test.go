@@ -53,27 +53,6 @@ func Test_CRE_V1_SecureMint(t *testing.T) {
 	ExecuteSecureMintTest(t, testEnv)
 }
 
-/*
-// TODO: Move Billing tests to v2 Registries
-func Test_CRE_V1_Billing_EVM_Write(t *testing.T) {
-	quarantine.Flaky(t, "DX-1911")
-	testEnv := t_helpers.SetupTestEnvironmentWithConfig(t, t_helpers.GetDefaultTestConfig(t))
-
-	// TODO remove this when OCR works properly with multiple chains in Local CRE
-	testEnv.CreEnvironment.Blockchains = []blockchains.Blockchain{testEnv.CreEnvironment.Blockchains[0]}
-
-	require.NoError(
-		t,
-		startBillingStackIfIsNotRunning(t, testEnv.TestConfig.RelativePathToRepoRoot, testEnv.TestConfig.EnvironmentDirPath, testEnv),
-		"failed to start Billing stack",
-	)
-
-	priceProvider, porWfCfg := beforePoRTest(t, testEnv, "por-workflowV2-billing", PoRWFV2Location)
-	porWfCfg.FeedIDs = []string{porWfCfg.FeedIDs[0]}
-	ExecutePoRTest(t, testEnv, priceProvider, porWfCfg, true)
-}
-*/
-
 func Test_CRE_V1_Billing_Cron_Beholder(t *testing.T) {
 	testEnv := t_helpers.SetupTestEnvironmentWithConfig(t, t_helpers.GetDefaultTestConfig(t))
 
@@ -171,4 +150,21 @@ func Test_CRE_V2_HTTP_Action_Suite(t *testing.T) {
 	testEnv := t_helpers.SetupTestEnvironmentWithConfig(t, t_helpers.GetDefaultTestConfig(t), v2RegistriesFlags...)
 
 	ExecuteHTTPActionCRUDSuccessTest(t, testEnv)
+}
+
+func Test_CRE_V2_Billing_EVM_Write(t *testing.T) {
+	testEnv := t_helpers.SetupTestEnvironmentWithConfig(t, t_helpers.GetDefaultTestConfig(t), v2RegistriesFlags...)
+
+	// TODO remove this when OCR works properly with multiple chains in Local CRE
+	testEnv.CreEnvironment.Blockchains = []blockchains.Blockchain{testEnv.CreEnvironment.Blockchains[0]}
+
+	require.NoError(
+		t,
+		startBillingStackIfIsNotRunning(t, testEnv.TestConfig.RelativePathToRepoRoot, testEnv.TestConfig.EnvironmentDirPath, testEnv),
+		"failed to start Billing stack",
+	)
+
+	priceProvider, porWfCfg := beforePoRTest(t, testEnv, "por-workflowV2-billing", PoRWFV2Location)
+	porWfCfg.FeedIDs = []string{porWfCfg.FeedIDs[0]}
+	ExecutePoRTest(t, testEnv, priceProvider, porWfCfg, true)
 }

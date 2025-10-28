@@ -450,14 +450,6 @@ func (r *Report) Settle(ref string, metadata capabilities.ResponseMetadata) erro
 			}
 		}
 
-		// TODO: explicitly ignore RPC_EVM spend types for now -
-		// this check causes TestEngine_Metering_ValidBillingClient/billing_type_and_capability_settle_spend_type_mismatch ./core/services/workflows/v2
-		// to fail because the capability is returning a spend type that isn't gas or compute
-		// This should be removed when we have proper support for non-gas/compute spend types
-		if unit == "RPC_EVM" {
-			continue
-		}
-
 		aggregated.SpendValue = medianSpend(deciVals)
 		value := aggregated.SpendValue
 

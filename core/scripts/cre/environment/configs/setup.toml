@@ -37,7 +37,7 @@ local_image = "billing-platform-service:local-cre"
 
 [billing_platform_service.pull_config]
 local_image = "billing-platform-service:local-cre"
-ecr_image = "{{.ECR}}/billing-platform-service:1.36.1"
+ecr_image = "{{.ECR}}/billing-platform-service:1.63.0"
 
 [capabilities]
 target_path = "./binaries"
