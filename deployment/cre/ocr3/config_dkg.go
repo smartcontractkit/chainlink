@@ -15,13 +15,11 @@ import (
 	"github.com/smartcontractkit/smdkg/dkgocr/dkgocrtypes"
 
 	"github.com/smartcontractkit/chainlink-deployments-framework/offchain/ocr"
-	focr "github.com/smartcontractkit/chainlink-deployments-framework/offchain/ocr"
-
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm"
 )
 
-type OCR3_1OracleConfig struct {
+type V3_1OracleConfig struct {
 	DeltaProgressMillis  uint32
 	DeltaRoundMillis     uint32
 	DeltaGraceMillis     uint32
@@ -54,12 +52,12 @@ func oCR3CapabilityCompatibleOnchainPublicKey(offchainPublicKey types.OffchainPu
 	return result
 }
 
-func GenerateDKGConfigFromNodes(cfg OCR3_1OracleConfig, nodes []deployment.Node, registryChainSel uint64, secrets focr.OCRSecrets, dkgCfg dkgocrtypes.ReportingPluginConfig) (OCR2OracleConfig, error) {
+func GenerateDKGConfigFromNodes(cfg V3_1OracleConfig, nodes []deployment.Node, registryChainSel uint64, secrets ocr.OCRSecrets, dkgCfg dkgocrtypes.ReportingPluginConfig) (OCR2OracleConfig, error) {
 	nca := makeNodeKeysSlice(nodes, registryChainSel)
 	return GenerateDKGConfig(cfg, nca, secrets, dkgCfg)
 }
 
-func GenerateDKGConfig(cfg OCR3_1OracleConfig, nca []NodeKeys, secrets ocr.OCRSecrets, dkgCfg dkgocrtypes.ReportingPluginConfig) (OCR2OracleConfig, error) {
+func GenerateDKGConfig(cfg V3_1OracleConfig, nca []NodeKeys, secrets ocr.OCRSecrets, dkgCfg dkgocrtypes.ReportingPluginConfig) (OCR2OracleConfig, error) {
 	// the transmission schedule is very specific; arguably it should be not be a parameter
 	if len(cfg.TransmissionSchedule) != 1 || cfg.TransmissionSchedule[0] != len(nca) {
 		return OCR2OracleConfig{}, fmt.Errorf("transmission schedule must have exactly one entry, matching the len of the number of nodes want [%d], got %v. Total TransmissionSchedules = %d", len(nca), cfg.TransmissionSchedule, len(cfg.TransmissionSchedule))

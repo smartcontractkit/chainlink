@@ -30,7 +30,7 @@ type ConfigureVaultPluginInput struct {
 	ContractQualifier     string `json:"contractQualifier" yaml:"contractQualifier"`
 
 	DON                   contracts.DonNodeSet         `json:"don" yaml:"don"`
-	OracleConfig          *ocr3.OCR3_1OracleConfig     `json:"oracleConfig" yaml:"oracleConfig"`
+	OracleConfig          *ocr3.V3_1OracleConfig     `json:"oracleConfig" yaml:"oracleConfig"`
 	DryRun                bool                         `json:"dryRun" yaml:"dryRun"`
 	InstanceID            InstanceIDComponents         `json:"instanceID" yaml:"instanceID"`
 	ReportingPluginConfig *vault.ReportingPluginConfig `json:"reportingPluginConfig,omitempty" yaml:"reportingPluginConfig,omitempty"`

@@ -221,12 +221,12 @@ func GenerateOCR3Config(cfg OracleConfig, nca []NodeKeys, secrets focr.OCRSecret
 	return config, nil
 }
 
-func GenerateOCR3_1ConfigFromNodes(cfg OCR3_1OracleConfig, nodes []deployment.Node, registryChainSel uint64, secrets focr.OCRSecrets, reportingPluginConfigOverride []byte) (OCR2OracleConfig, error) {
+func GenerateOCR3_1ConfigFromNodes(cfg V3_1OracleConfig, nodes []deployment.Node, registryChainSel uint64, secrets focr.OCRSecrets, reportingPluginConfigOverride []byte) (OCR2OracleConfig, error) {
 	nca := makeNodeKeysSlice(nodes, registryChainSel)
 	return GenerateOCR3_1Config(cfg, nca, secrets, reportingPluginConfigOverride)
 }
 
-func GenerateOCR3_1Config(cfg OCR3_1OracleConfig, nca []NodeKeys, secrets focr.OCRSecrets, reportingPluginConfigOverride []byte) (OCR2OracleConfig, error) {
+func GenerateOCR3_1Config(cfg V3_1OracleConfig, nca []NodeKeys, secrets focr.OCRSecrets, reportingPluginConfigOverride []byte) (OCR2OracleConfig, error) {
 	// the transmission schedule is very specific; arguably it should be not be a parameter
 	if len(cfg.TransmissionSchedule) != 1 || cfg.TransmissionSchedule[0] != len(nca) {
 		return OCR2OracleConfig{}, fmt.Errorf("transmission schedule must have exactly one entry, matching the len of the number of nodes want [%d], got %v. Total TransmissionSchedules = %d", len(nca), cfg.TransmissionSchedule, len(cfg.TransmissionSchedule))
@@ -528,7 +528,7 @@ func makeIdentities(nca []NodeKeys) ([]confighelper.OracleIdentityExtra, error) 
 			raw := hex.EncodeToString(key)
 			_, exists := allPubKeys[raw]
 			if exists {
-				return nil, fmt.Errorf("Duplicate onchain public key: '%s'", raw)
+				return nil, fmt.Errorf("duplicate onchain public key: '%s'", raw)
 			}
 			allPubKeys[raw] = struct{}{}
 		}

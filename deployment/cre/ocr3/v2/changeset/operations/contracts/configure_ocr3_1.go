@@ -33,7 +33,7 @@ type ConfigureOCR3_1Input struct {
 	ContractAddress *common.Address
 	ChainSelector   uint64
 	DON             DonNodeSet
-	Config          *ocr3.OCR3_1OracleConfig
+	Config          *ocr3.V3_1OracleConfig
 	DryRun          bool
 
 	ReportingPluginConfigOverride []byte
