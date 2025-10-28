@@ -55,6 +55,7 @@ const (
 	defaultLimitsMaxReportLength                         = 500 * 1024 // 500KB
 	defaultLimitsMaxReportCount                          = 20
 	defaultLimitsMaxKeyValueModifiedKeysPlusValuesLength = 1024 * 1024 // 1MB
+	defaultLimitsMaxKeyValueModifiedKeys                 = 500         // BatchSize (20) * ItemsPerBatch (10) * 2 keys (secret + metadata) + buffer (100)
 	defaultLimitsMaxBlobPayloadLength                    = 1024 * 1024 // 1MB
 )
 
@@ -238,8 +239,9 @@ func (r *ReportingPluginFactory) NewReportingPlugin(ctx context.Context, config 
 				MaxObservationBytes:                    int(configProto.LimitsMaxObservationLength),
 				MaxReportsPlusPrecursorBytes:           int(configProto.LimitsMaxReportsPlusPrecursorLength),
 				MaxReportBytes:                         int(configProto.LimitsMaxReportLength),
-				MaxReportCount:                          int(configProto.LimitsMaxReportCount),
+				MaxReportCount:                         int(configProto.LimitsMaxReportCount),
 				MaxKeyValueModifiedKeysPlusValuesBytes: int(configProto.LimitsMaxKeyValueModifiedKeysPlusValuesLength),
+				MaxKeyValueModifiedKeys:                defaultLimitsMaxKeyValueModifiedKeys,
 				MaxBlobPayloadBytes:                    int(configProto.LimitsMaxBlobPayloadLength),
 			},
 		}, nil
