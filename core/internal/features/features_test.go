@@ -353,6 +353,7 @@ var multiWordSpecTemplate string
 // Tests both single and multiple word responses -
 // i.e. both fulfillOracleRequest2 and fulfillOracleRequest.
 func TestIntegration_DirectRequest(t *testing.T) {
+	quarantine.Flaky(t, "DX-2223")
 	quarantine.Flaky(t, "DX-1761")
 	t.Parallel()
 	tests := []struct {
