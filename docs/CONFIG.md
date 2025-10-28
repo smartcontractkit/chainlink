@@ -1599,6 +1599,7 @@ IncomingMessageBufferSize = 10 # Default
 OutgoingMessageBufferSize = 10 # Default
 PeerID = '12D3KooWMoejJznyDuEk5aX6GvbjaG12UzeornPCBNzMRqdwrFJw' # Example
 TraceLogging = false # Default
+EnableExperimentalRageP2P = false # Default
 ```
 
 
@@ -1632,6 +1633,12 @@ PeerID is the default peer ID to use for OCR jobs. If unspecified, uses the firs
 TraceLogging = false # Default
 ```
 TraceLogging enables trace level logging.
+
+### EnableExperimentalRageP2P
+```toml
+EnableExperimentalRageP2P = false # Default
+```
+EnableExperimentalRageP2P needs to be enabled for ocr3.1 components
 
 ## Capabilities.Peering.V2
 ```toml
