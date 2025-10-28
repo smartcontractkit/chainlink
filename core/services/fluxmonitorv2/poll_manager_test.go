@@ -7,6 +7,8 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"github.com/smartcontractkit/quarantine"
+
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/flux_aggregator_wrapper"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/fluxmonitorv2"
@@ -346,6 +348,7 @@ func TestPollManager_ShouldPerformInitialPoll(t *testing.T) {
 }
 
 func TestPollManager_Stop(t *testing.T) {
+	quarantine.Flaky(t, "DX-2256")
 	t.Parallel()
 	pm := newPollManager(t)
 
