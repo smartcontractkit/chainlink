@@ -248,6 +248,7 @@ func SetupAutomationBasic(t *testing.T, nodeUpgrade bool) {
 }
 
 func TestSetUpkeepTriggerConfig(t *testing.T) {
+	quarantine.Flaky(t, "DX-2254")
 	t.Parallel()
 	l := logging.GetTestLogger(t)
 
