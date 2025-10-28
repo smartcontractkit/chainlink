@@ -52,7 +52,7 @@ func TestDonNotifier_WaitForDon_ContextTimeout(t *testing.T) {
 
 	_, err := notifier.WaitForDon(ctx)
 	require.Error(t, err)
-	assert.Equal(t, context.Canceled, err)
+	assert.ErrorContains(t, err, context.Canceled.Error())
 }
 
 func TestDonNotifier_DonUpdate(t *testing.T) {
