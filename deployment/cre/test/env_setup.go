@@ -36,6 +36,7 @@ const (
 	DONName           = "test-don"
 	RegistryQualifier = "test-registry"
 	Zone              = "test-zone-1"
+	TotalNodes        = 4
 )
 
 type EnvWrapperV2 struct {
@@ -99,7 +100,7 @@ func SetupEnvV2(t *testing.T, useMCMS bool) *EnvWrapperV2 {
 	registryChainSel, aptosChainSel, envInitiated := initEnv(t, lggr)
 	lggr.Debug("Initialized environment", "registryChainSel", registryChainSel)
 
-	n := 4
+	n := TotalNodes
 	donCfg := donConfig{
 		Name:             DONName,
 		N:                n,
