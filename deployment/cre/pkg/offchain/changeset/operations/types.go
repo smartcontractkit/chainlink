@@ -3,7 +3,7 @@ package operations
 import nodev1 "github.com/smartcontractkit/chainlink-protos/job-distributor/v1/node"
 
 type JDNode struct {
-	Id              string               `json:"id" yaml:"id"`                           // Unique identifier for the node.
+	ID              string               `json:"id" yaml:"id"`                           // Unique identifier for the node.
 	Name            string               `json:"name" yaml:"name"`                       // Human-readable name for the node.
 	PublicKey       string               `json:"publicKey" yaml:"publicKey"`             // Public key used for secure communications.
 	IsEnabled       bool                 `json:"isEnabled" yaml:"isEnabled"`             // Indicates if the node is currently enabled.
@@ -50,7 +50,7 @@ func NewJDNodeFromProto(n *nodev1.Node) JDNode {
 	}
 
 	return JDNode{
-		Id:              n.Id,
+		ID:              n.Id,
 		Name:            n.Name,
 		PublicKey:       n.PublicKey,
 		IsEnabled:       n.IsEnabled,

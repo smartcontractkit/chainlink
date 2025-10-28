@@ -15,7 +15,7 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/cre/pkg/offchain"
 )
 
-var ErrorNodeAlreadyExists = errors.New("node with given public key already exists")
+var ErrNodeAlreadyExists = errors.New("node with given public key already exists")
 
 type JDRegisterNodeOpDeps struct {
 	Env cldf.Environment
@@ -74,19 +74,15 @@ var JDUpsertNodeOp = operations.NewOperation(
 				Node: NewJDNodeFromProto(node),
 			}, nil
 		}
-		if err != nil && !strings.Contains(err.Error(), ErrorNodeAlreadyExists.Error()) {
+		if err != nil && !strings.Contains(err.Error(), ErrNodeAlreadyExists.Error()) {
 			return JDRegisterNodeOpOutput{
 				Error: err.Error(),
 				Node:  NewJDNodeFromProto(node),
 			}, err
 		}
+
 		// node already exists, ensure it has the don label
 
-		// TODO: when would we ever don't want this label to be checked and added, if not present?
-		// Do we want this to be a separate operation instead? Meaning that if you try to execute the node registration,
-		// and it fails because the node exists, you would then have to explicitly call another operation to ensure the don label is present.
-		// right?
-		// If not, then the default should always be trying to register the node, and then ensuring the don label is present if it already exists.
 		var output JDRegisterNodeOpOutput
 		nodeInfo, nerr := ensureDONLabelOnNode(deps.Env, node, input.DONName)
 		if nerr != nil {
@@ -109,7 +105,7 @@ func registerNodeImpl(deps JDRegisterNodeOpDeps, input JDRegisterNodeOpInput) (*
 	})
 	if n != nil {
 		// node already exists, nothing to do
-		return n.GetNode(), ErrorNodeAlreadyExists
+		return n.GetNode(), ErrNodeAlreadyExists
 	}
 
 	donLabel := "don-" + input.DONName
@@ -140,7 +136,6 @@ func registerNodeImpl(deps JDRegisterNodeOpDeps, input JDRegisterNodeOpInput) (*
 		// We don't want to fail the entire migration if one node fails to register, so we just log the error.
 		terr := fmt.Errorf("failed to register node %s for don %s: %w", input.Name, input.DONName, err)
 		deps.Env.Logger.Errorw("failed to register node", "don", input.DONName, "node", input.Name, "error", err)
-		//output.Error = terr.Error()
 		return nil, terr
 	}
 	// must get the node again to return the full node info such as the IsEnabled field, IsConnected, etc.

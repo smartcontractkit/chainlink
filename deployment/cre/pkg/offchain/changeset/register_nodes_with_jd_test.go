@@ -478,13 +478,13 @@ func TestCsRegisterNodesWithJDV2_Apply(t *testing.T) {
 		cs := changeset.CsRegisterNodesWithJDV2{}
 		_, err = cs.Apply(*env.Env, input)
 		require.Error(t, err)
-		require.Contains(t, err.Error(), operations2.ErrorNodeAlreadyExists.Error())
+		require.Contains(t, err.Error(), operations2.ErrNodeAlreadyExists.Error())
 	})
 }
 
 func checkLabels(t *testing.T, labels []map[string]string, expected map[string]string) {
 	t.Helper()
-	assert.Equal(t, len(expected), len(labels), "number of labels mismatch")
+	assert.Len(t, labels, len(expected), "number of labels mismatch")
 	for _, label := range labels {
 		for k, v := range label {
 			expectedV, ok := expected[k]
@@ -499,10 +499,6 @@ func checkLabels(t *testing.T, labels []map[string]string, expected map[string]s
 // create and offchain client that overrides the RegisterNode method and UpdateNode method to simulate errors
 type testJDClient struct {
 	cldf_offchain.Client
-}
-
-func createTestJDClient(t *testing.T, c cldf_offchain.Client) cldf_offchain.Client {
-	return &testJDClient{c}
 }
 
 func (t testJDClient) RegisterNode(ctx context.Context, in *nodev1.RegisterNodeRequest, opts ...grpc.CallOption) (*nodev1.RegisterNodeResponse, error) {
