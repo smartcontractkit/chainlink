@@ -50,13 +50,15 @@ const (
 	// - A request can contain 2KB of ciphertext, 192 bytes of metadata (key, owner, namespace),
 	// a UUID (16 bytes) plus some overhead = ~2.5KB per request
 	// There can be 10 such items in a request, and 20 per batch, so 2.5KB * 10 * 20 = 500KB
-	defaultLimitsMaxObservationLength                    = 500 * 1024 // 500KB
-	defaultLimitsMaxReportsPlusPrecursorLength           = 500 * 1024 // 500KB
-	defaultLimitsMaxReportLength                         = 500 * 1024 // 500KB
-	defaultLimitsMaxReportCount                          = 20
-	defaultLimitsMaxKeyValueModifiedKeysPlusValuesLength = 1024 * 1024 // 1MB
-	defaultLimitsMaxKeyValueModifiedKeys                 = 500         // BatchSize (20) * ItemsPerBatch (10) * 2 keys (secret + metadata) + buffer (100)
-	defaultLimitsMaxBlobPayloadLength                    = 1024 * 1024 // 1MB
+	defaultLimitsMaxObservationLength                            = 500 * 1024 // 500KB
+	defaultLimitsMaxReportsPlusPrecursorLength                   = 500 * 1024 // 500KB
+	defaultLimitsMaxReportLength                                 = 500 * 1024 // 500KB
+	defaultLimitsMaxReportCount                                  = 20
+	defaultLimitsMaxKeyValueModifiedKeysPlusValuesLength         = 1024 * 1024       // 1MB
+	defaultLimitsMaxKeyValueModifiedKeys                         = 500               // BatchSize (20) * ItemsPerBatch (10) * 2 keys (secret + metadata) + buffer (100)
+	defaultLimitsMaxBlobPayloadLength                            = 1024 * 1024       // 1MB
+	defaultLimitsMaxPerOracleUnexpiredBlobCumulativePayloadBytes = 100 * 1024 * 1024 // 100MB
+	defaultLimitsMaxPerOracleUnexpiredBlobCount                  = 100
 )
 
 var (
@@ -235,14 +237,16 @@ func (r *ReportingPluginFactory) NewReportingPlugin(ctx context.Context, config 
 		}, ocr3_1types.ReportingPluginInfo1{
 			Name: "VaultReportingPlugin",
 			Limits: ocr3_1types.ReportingPluginLimits{
-				MaxQueryBytes:                          int(configProto.LimitsMaxQueryLength),
-				MaxObservationBytes:                    int(configProto.LimitsMaxObservationLength),
-				MaxReportsPlusPrecursorBytes:           int(configProto.LimitsMaxReportsPlusPrecursorLength),
-				MaxReportBytes:                         int(configProto.LimitsMaxReportLength),
-				MaxReportCount:                         int(configProto.LimitsMaxReportCount),
-				MaxKeyValueModifiedKeysPlusValuesBytes: int(configProto.LimitsMaxKeyValueModifiedKeysPlusValuesLength),
-				MaxKeyValueModifiedKeys:                defaultLimitsMaxKeyValueModifiedKeys,
-				MaxBlobPayloadBytes:                    int(configProto.LimitsMaxBlobPayloadLength),
+				MaxQueryBytes:                                   int(configProto.LimitsMaxQueryLength),
+				MaxObservationBytes:                             int(configProto.LimitsMaxObservationLength),
+				MaxReportsPlusPrecursorBytes:                    int(configProto.LimitsMaxReportsPlusPrecursorLength),
+				MaxReportBytes:                                  int(configProto.LimitsMaxReportLength),
+				MaxReportCount:                                  int(configProto.LimitsMaxReportCount),
+				MaxKeyValueModifiedKeysPlusValuesBytes:          int(configProto.LimitsMaxKeyValueModifiedKeysPlusValuesLength),
+				MaxKeyValueModifiedKeys:                         defaultLimitsMaxKeyValueModifiedKeys,
+				MaxBlobPayloadBytes:                             int(configProto.LimitsMaxBlobPayloadLength),
+				MaxPerOracleUnexpiredBlobCumulativePayloadBytes: defaultLimitsMaxPerOracleUnexpiredBlobCumulativePayloadBytes,
+				MaxPerOracleUnexpiredBlobCount:                  defaultLimitsMaxPerOracleUnexpiredBlobCount,
 			},
 		}, nil
 }
