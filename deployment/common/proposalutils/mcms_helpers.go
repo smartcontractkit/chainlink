@@ -111,7 +111,8 @@ func McmsInspectorForChain(env cldf.Environment, chain uint64, opts ...MCMSInspe
 func McmsInspectors(env cldf.Environment) (map[uint64]mcmssdk.Inspector, error) {
 	evmChains := env.BlockChains.EVMChains()
 	solanaChains := env.BlockChains.SolanaChains()
-	inspectors := make(map[uint64]mcmssdk.Inspector, len(evmChains)+len(solanaChains))
+	aptosChains := env.BlockChains.AptosChains()
+	inspectors := make(map[uint64]mcmssdk.Inspector, len(evmChains)+len(solanaChains)+len(aptosChains))
 
 	for _, chain := range evmChains {
 		var err error
@@ -122,6 +123,14 @@ func McmsInspectors(env cldf.Environment) (map[uint64]mcmssdk.Inspector, error) 
 	}
 
 	for _, chain := range solanaChains {
+		var err error
+		inspectors[chain.Selector], err = McmsInspectorForChain(env, chain.Selector)
+		if err != nil {
+			return nil, fmt.Errorf("failed to get mcms inspector for chain %s: %w", chain.String(), err)
+		}
+	}
+
+	for _, chain := range aptosChains {
 		var err error
 		inspectors[chain.Selector], err = McmsInspectorForChain(env, chain.Selector)
 		if err != nil {

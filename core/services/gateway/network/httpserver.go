@@ -15,6 +15,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	"github.com/smartcontractkit/chainlink-common/pkg/settings/cresettings"
 	"github.com/smartcontractkit/chainlink-common/pkg/settings/limits"
+	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/monitoring"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 )
 
@@ -66,6 +67,7 @@ type httpServer struct {
 	handler           HTTPRequestHandler
 	doneCh            chan struct{}
 	cancelBaseContext context.CancelFunc
+	hMetrics          *monitoring.HTTPServerMetrics
 	lggr              logger.Logger
 }
 
@@ -78,12 +80,17 @@ func NewHTTPServer(config *HTTPServerConfig, lggr logger.Logger, lf limits.Facto
 	if err := config.ensureLimiters(lf); err != nil {
 		return nil, fmt.Errorf("failed to create limiters: %w", err)
 	}
+	hMetrics, err := monitoring.NewHTTPServerMetrics()
+	if err != nil {
+		return nil, fmt.Errorf("failed to create http server metrics: %w", err)
+	}
 	baseCtx, cancelBaseCtx := context.WithCancel(context.Background())
 	server := &httpServer{
 		config:            config,
 		doneCh:            make(chan struct{}),
 		cancelBaseContext: cancelBaseCtx,
-		lggr:              logger.Named(lggr, "WebSocketServer"),
+		hMetrics:          hMetrics,
+		lggr:              logger.Named(lggr, "HTTPServer"),
 	}
 	mux := http.NewServeMux()
 	var handler http.Handler
@@ -208,7 +215,11 @@ func (s *httpServer) handleRequest(w http.ResponseWriter, r *http.Request) {
 		jwtToken = strings.TrimPrefix(authHeader, "Bearer ")
 	}
 
+	startTime := time.Now()
 	rawResponse, httpStatusCode := s.handler.ProcessRequest(r.Context(), rawMessage, jwtToken)
+	duration := time.Since(startTime)
+	s.hMetrics.RecordRequestDuration(r.Context(), httpStatusCode, duration)
+	s.hMetrics.RecordRequestCount(r.Context(), httpStatusCode)
 
 	w.Header().Set("Content-Type", s.config.ContentTypeHeader)
 	w.WriteHeader(httpStatusCode)

@@ -1168,10 +1168,11 @@ func TestProposeJobSpec_Apply(t *testing.T) {
 				{Key: "product", Value: offchain.ProductLabel},
 			},
 			Inputs: job_types.JobSpecInput{
-				"templateName":         "worker-vault",
-				"contractQualifier":    "vault_1_plugin",
-				"dkgContractQualifier": "vault_1_dkg",
-				"chainSelectorEVM":     strconv.FormatUint(chainSelector, 10),
+				"templateName":               "worker-vault",
+				"contractQualifier":          "vault_1_plugin",
+				"dkgContractQualifier":       "vault_1_dkg",
+				"vaultRequestExpiryDuration": "10s",
+				"chainSelectorEVM":           strconv.FormatUint(chainSelector, 10),
 				"bootstrapperOCR3Urls": []string{
 					"12D3KooWHfYFQ8hGttAYbMCevQVESEQhzJAqFZokMVtom8bNxwGq@127.0.0.1:5001",
 				},
