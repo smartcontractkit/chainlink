@@ -50,7 +50,7 @@ func GenerateChainsSui(t *testing.T, numChains int) []cldf_chain.BlockChain {
 		hexKey := hex.EncodeToString(seed)             // 64 hex chars
 
 		platform := "linux/amd64"
-		img := "mysten/sui-tools:ci"
+		img := "mysten/sui-tools:devnet"
 		// generate adhoc sui privKey
 		c, err := cldf_sui_provider.NewCTFChainProvider(t, selector,
 			cldf_sui_provider.CTFChainProviderConfig{
