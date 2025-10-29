@@ -70,6 +70,9 @@
       Level = 'debug'
       JSONConsole = true
 
+      [P2P]
+      EnableExperimentalRageP2P = true
+
       [Telemetry]
       Enabled = true
       Endpoint = 'host.docker.internal:4317'
@@ -127,6 +130,9 @@
       Level = 'debug'
       JSONConsole = true
 
+      [P2P]
+      EnableExperimentalRageP2P = true
+
       [Telemetry]
       Enabled = true
       Endpoint = 'host.docker.internal:4317'
@@ -180,6 +186,9 @@
       Level = 'debug'
       JSONConsole = true
 
+      [P2P]
+      EnableExperimentalRageP2P = true
+      
       [Telemetry]
       Enabled = true
       Endpoint = 'host.docker.internal:4317'
