@@ -826,7 +826,7 @@ runner-test-matrix:
     sui_cli_version: mainnet-1.57.2
     install_plugins_public: true
 
-  - id: smoke/ccip/ccip_sui_token_transfer_test.go:Test_CCIP_EVM2Sui_ExecPlugin_MessageVisibilityAndRetryBehavior
+  - id: smoke/ccip/ccip_sui_messaging_test.go:Test_CCIP_EVM2Sui_ExecPlugin_MessageVisibilityAndRetryBehavior
     path: integration-tests/smoke/ccip/ccip_sui_messaging_test.go
     test_env_type: in-memory
     runs_on: ubuntu-latest

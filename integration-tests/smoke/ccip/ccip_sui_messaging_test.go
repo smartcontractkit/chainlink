@@ -633,18 +633,20 @@ func Test_CCIP_EVM2Sui_ExecPlugin_MessageVisibilityAndRetryBehavior(t *testing.T
 
 	t.Run("Message to Sui - ExecPlugin_ShouldRetryFailedMessages_And_ProcessNewVisibleOnes", func(t *testing.T) {
 		message := []byte("Hello Sui, from EVM!")
-		messagingtest.Run(t,
-			messagingtest.TestCase{
-				TestSetup:              setup,
-				Nonce:                  &nonce,
-				ValidationType:         messagingtest.ValidationTypeExec,
-				Receiver:               receiverByte,
-				MsgData:                message,
-				ExtraArgs:              testhelpers.MakeSuiExtraArgs(1000000, true, [][32]byte{clockObj, [32]byte{}}, [32]byte{}), // invalidRecieverStateObjectID
-				NumberOfMessages:       5,
-				ExpectedExecutionState: testhelpers.EXECUTION_STATE_FAILURE,
-			},
-		)
+		go func() {
+			messagingtest.Run(t,
+				messagingtest.TestCase{
+					TestSetup:              setup,
+					Nonce:                  &nonce,
+					ValidationType:         messagingtest.ValidationTypeExec,
+					Receiver:               receiverByte,
+					MsgData:                message,
+					ExtraArgs:              testhelpers.MakeSuiExtraArgs(1000000, true, [][32]byte{clockObj, [32]byte{}}, [32]byte{}), // invalidRecieverStateObjectID
+					NumberOfMessages:       5,
+					ExpectedExecutionState: testhelpers.EXECUTION_STATE_FAILURE,
+				},
+			)
+		}()
 
 		lggr.Info("Waiting briefly before sending valid messages...")
 		time.Sleep(5 * time.Second)
@@ -663,4 +665,5 @@ func Test_CCIP_EVM2Sui_ExecPlugin_MessageVisibilityAndRetryBehavior(t *testing.T
 			},
 		)
 	})
+
 }
