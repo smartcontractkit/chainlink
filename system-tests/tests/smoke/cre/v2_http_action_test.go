@@ -1,12 +1,11 @@
 package cre
 
 import (
-	"strconv"
-	"strings"
 	"testing"
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/fake"
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink-testing-framework/framework"
@@ -18,41 +17,51 @@ import (
 
 // HTTP Action test cases for successful CRUD operations
 type httpActionSuccessTest struct {
-	name     string
-	testCase string
-	method   string
-	body     string
-	url      string
+	name       string
+	testCase   string
+	method     string
+	body       string
+	endpoint   string
+	statusCode int
+	url        string
 }
 
 var httpActionSuccessTests = []httpActionSuccessTest{
 	{
-		name:     "POST operation",
-		testCase: "crud-success",
-		method:   "POST",
-		body:     `{"name": "Test Resource", "type": "test"}`,
-		url:      "http://<host>:<port>/api/resources",
+		name:       "POST operation",
+		testCase:   "crud-post-success",
+		method:     "POST",
+		body:       `{"name": "Test Resource", "type": "test"}`,
+		endpoint:   "/api/resources/",
+		statusCode: 200,
+		url:        "",
 	},
 	{
-		name:     "GET operation",
-		testCase: "crud-success",
-		method:   "GET",
-		body:     ``,
-		url:      "http://<host>:<port>/api/resources/test-resource-123",
+		name:       "GET operation",
+		testCase:   "crud-get-success",
+		method:     "GET",
+		body:       ``,
+		endpoint:   "/api/resources/test-resource-1",
+		statusCode: 200,
+		url:        "",
 	},
 	{
-		name:     "PUT operation",
-		testCase: "crud-success",
-		method:   "PUT",
-		body:     `{"name": "Updated Test Resource", "type": "test"}`,
-		url:      "http://<host>:<port>/api/resources/test-resource-123",
+		name:       "PUT operation",
+		testCase:   "crud-put-success",
+		method:     "PUT",
+		body:       `{"name": "Updated Test Resource", "type": "test"}`,
+		endpoint:   "/api/resources/test-resource-2",
+		statusCode: 201,
+		url:        "",
 	},
 	{
-		name:     "DELETE operation",
-		testCase: "crud-success",
-		method:   "DELETE",
-		body:     ``,
-		url:      "http://<host>:<port>/api/resources/test-resource-123",
+		name:       "DELETE operation",
+		testCase:   "crud-delete-success",
+		method:     "DELETE",
+		body:       ``,
+		statusCode: 200,
+		endpoint:   "/api/resources/test-resource-3",
+		url:        "",
 	},
 }
 
@@ -60,24 +69,33 @@ var httpActionSuccessTests = []httpActionSuccessTest{
 func ExecuteHTTPActionCRUDSuccessTest(t *testing.T, testEnv *ttypes.TestEnvironment) {
 	testLogger := framework.L
 
-	// Use the pre-configured fake server port from the environment
-	// This port is already whitelisted in the gateway configuration
-	fakeServerPort := testEnv.Config.FakeHTTP.Port
+	fakeHTTP, err := fake.NewFakeDataProvider(testEnv.Config.FakeHTTP)
+	if err != nil {
+		testLogger.Error().Err(err).Msg("Failed to start fake HTTP")
+	} else {
+		testLogger.Info().Msg("Fake HTTP started successfully")
+	}
 
-	// Start fake HTTP server with CRUD endpoints
-	fakeServer, err := thelpers.StartCRUDTestServer(t, fakeServerPort, false)
-	require.NoError(t, err, "failed to start fake HTTP server")
+	// Set up a unique endpoint for this test
+	response := map[string]any{
+		"status": "success",
+	}
+
+	for _, testCase := range httpActionSuccessTests {
+		err = fake.JSON(testCase.method, testCase.endpoint, response, testCase.statusCode)
+		require.NoError(t, err, "failed to set up %s endpoint for %s", testCase.endpoint, testCase.method)
+	}
+
+	framework.L.Info().Msgf("Test HTTP server started on port %d at: %s (%s)", testEnv.Config.FakeHTTP.Port, fakeHTTP.BaseURLHost, fakeHTTP.BaseURLDocker)
 
 	defer func() {
-		if fakeServer != nil {
-			testLogger.Info().Msgf("Cleaning up fake server on port %d", fakeServerPort)
+		if fakeHTTP != nil {
+			testLogger.Info().Msgf("Cleaning up fake server on port %d", testEnv.Config.FakeHTTP.Port)
 		}
 	}()
 
 	for _, testCase := range httpActionSuccessTests {
-		// Set dynamic URL with configured port and host.docker.internal
-		testCase.url = strings.ReplaceAll(testCase.url, "<port>", strconv.Itoa(fakeServerPort))
-		testCase.url = strings.ReplaceAll(testCase.url, "<host>", "host.docker.internal") // Use
+		testCase.url = fakeHTTP.BaseURLDocker + testCase.endpoint
 
 		testName := "[v2] HTTP Action " + testCase.name
 		t.Run(testName, func(t *testing.T) {

@@ -50,7 +50,6 @@ import (
 	ttypes "github.com/smartcontractkit/chainlink/system-tests/tests/test-helpers/configuration"
 
 	"github.com/smartcontractkit/chainlink-testing-framework/framework"
-	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/fake"
 	ns "github.com/smartcontractkit/chainlink-testing-framework/framework/components/simple_node_set"
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/ptr"
 	"github.com/smartcontractkit/chainlink-testing-framework/seth"
@@ -276,16 +275,16 @@ func CreateAndFundAddresses(t *testing.T, testLogger zerolog.Logger, numberOfAdd
 // Register your workflow configuration types here
 type WorkflowConfig interface {
 	None |
-		portypes.WorkflowConfig |
-		crontypes.WorkflowConfig |
-		HTTPWorkflowConfig |
-		consensus_negative_config.Config |
-		evmread_config.Config |
-		evmread_negative_config.Config |
-		evmwrite_negative_config.Config |
-		http_config.Config |
-		httpaction_smoke_config.Config |
-		httpaction_negative_config.Config
+	portypes.WorkflowConfig |
+	crontypes.WorkflowConfig |
+	HTTPWorkflowConfig |
+	consensus_negative_config.Config |
+	evmread_config.Config |
+	evmread_negative_config.Config |
+	evmwrite_negative_config.Config |
+	http_config.Config |
+	httpaction_smoke_config.Config |
+	httpaction_negative_config.Config
 }
 
 // None represents an empty workflow configuration
@@ -633,60 +632,4 @@ func CompileAndDeployWorkflow[T WorkflowConfig](t *testing.T,
 	}
 	require.IsType(t, &evm.Blockchain{}, testEnv.CreEnvironment.Blockchains[0], "expected EVM blockchain type")
 	registerWorkflow(t.Context(), t, workflowRegConfig, testEnv.CreEnvironment.Blockchains[0].(*evm.Blockchain).SethClient, testLogger)
-}
-
-// StartCRUDTestServer creates a fake HTTP server that supports CRUD operations.
-// If includeDelayEndpoint is true, it also sets up a delay endpoint for timeout testing.
-func StartCRUDTestServer(t *testing.T, port int, includeDelayEndpoint bool) (*fake.Output, error) {
-	fakeInput := &fake.Input{
-		Port: port,
-	}
-
-	fakeOutput, err := fake.NewFakeDataProvider(fakeInput)
-	if err != nil {
-		return nil, err
-	}
-
-	// Set up CRUD endpoints
-	resourceResponse := map[string]interface{}{
-		"id":     "test-resource-123",
-		"name":   "Test Resource",
-		"status": "success",
-	}
-
-	// POST /api/resources - Create
-	err = fake.JSON("POST", "/api/resources", resourceResponse, 201)
-	require.NoError(t, err, "failed to set up POST endpoint")
-
-	// GET /api/resources/{id} - Read
-	err = fake.JSON("GET", "/api/resources/test-resource-123", resourceResponse, 200)
-	require.NoError(t, err, "failed to set up GET endpoint")
-
-	// PUT /api/resources/{id} - Update
-	updatedResponse := resourceResponse
-	updatedResponse["name"] = "Updated Test Resource"
-	err = fake.JSON("PUT", "/api/resources/test-resource-123", updatedResponse, 200)
-	require.NoError(t, err, "failed to set up PUT endpoint")
-
-	// DELETE /api/resources/{id} - Delete
-	deleteResponse := map[string]interface{}{
-		"message": "Resource deleted successfully",
-		"status":  "success",
-	}
-	err = fake.JSON("DELETE", "/api/resources/test-resource-123", deleteResponse, 200)
-	require.NoError(t, err, "failed to set up DELETE endpoint")
-
-	// Optional delay endpoint for timeout testing
-	if includeDelayEndpoint {
-		delayResponse := map[string]interface{}{
-			"message": "delayed response",
-			"delay":   "10",
-		}
-		err = fake.JSON("GET", "/delay/10", delayResponse, 200)
-		require.NoError(t, err, "failed to set up delay endpoint")
-	}
-
-	framework.L.Info().Msgf("CRUD test server started on port %d at: %s", port, fakeOutput.BaseURLHost)
-	framework.L.Info().Msgf("Server URL will be converted to: %s", strings.Replace(fakeOutput.BaseURLHost, "localhost", "host.docker.internal", 1))
-	return fakeOutput, nil
 }
