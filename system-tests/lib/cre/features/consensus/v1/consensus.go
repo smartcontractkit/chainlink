@@ -10,6 +10,7 @@ import (
 	"github.com/rs/zerolog"
 
 	chainselectors "github.com/smartcontractkit/chain-selectors"
+
 	capabilitiespb "github.com/smartcontractkit/chainlink-common/pkg/capabilities/pb"
 	kcr "github.com/smartcontractkit/chainlink-evm/gethwrappers/keystone/generated/capabilities_registry_1_1_0"
 	cre_jobs "github.com/smartcontractkit/chainlink/deployment/cre/jobs"
@@ -122,14 +123,19 @@ func createJobs(
 	don *cre.Don,
 	dons *cre.Dons,
 ) error {
+	bootstrap, isBootstrap := dons.Bootstrap()
+	if !isBootstrap {
+		return errors.New("could not find bootstrap node in topology, exactly one bootstrap node is required")
+	}
+
 	bootInput := cre_jobs.ProposeJobSpecInput{
 		Domain:      offchain.ProductLabel,
 		Environment: cre.EnvironmentName,
-		DONName:     don.Name,
+		DONName:     bootstrap.DON.Name,
 		JobName:     "consensus-v1-bootstrap",
 		ExtraLabels: map[string]string{cre.CapabilityLabelKey: flag},
 		DONFilters: []offchain.TargetDONFilter{
-			{Key: offchain.FilterKeyDONName, Value: don.Name},
+			{Key: offchain.FilterKeyDONName, Value: bootstrap.DON.Name},
 		},
 		Template: job_types.BootstrapOCR3,
 		Inputs: job_types.JobSpecInput{
@@ -158,11 +164,6 @@ func createJobs(
 		if mErr != nil {
 			return fmt.Errorf("failed to merge bootstrap job specs: %w", mErr)
 		}
-	}
-
-	bootstrap, isBootstrap := dons.Bootstrap()
-	if !isBootstrap {
-		return errors.New("could not find bootstrap node in topology, exactly one bootstrap node is required")
 	}
 
 	_, ocrPeeringCfg, err := cre.PeeringCfgs(bootstrap)

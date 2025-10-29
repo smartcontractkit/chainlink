@@ -233,14 +233,19 @@ func createJobs(
 	don *cre.Don,
 	dons *cre.Dons,
 ) error {
+	bootstrap, isBootstrap := dons.Bootstrap()
+	if !isBootstrap {
+		return errors.New("could not find bootstrap node in topology, exactly one bootstrap node is required")
+	}
+
 	bootInput := cre_jobs.ProposeJobSpecInput{
 		Domain:      offchain.ProductLabel,
 		Environment: cre.EnvironmentName,
-		DONName:     don.Name,
+		DONName:     bootstrap.DON.Name,
 		JobName:     "vault-bootstrap",
 		ExtraLabels: map[string]string{cre.CapabilityLabelKey: flag},
 		DONFilters: []offchain.TargetDONFilter{
-			{Key: offchain.FilterKeyDONName, Value: don.Name},
+			{Key: offchain.FilterKeyDONName, Value: bootstrap.DON.Name},
 		},
 		Template: job_types.BootstrapVault,
 		Inputs: job_types.JobSpecInput{
@@ -269,11 +274,6 @@ func createJobs(
 		if mErr != nil {
 			return fmt.Errorf("failed to merge bootstrap job specs: %w", mErr)
 		}
-	}
-
-	bootstrap, isBootstrap := dons.Bootstrap()
-	if !isBootstrap {
-		return errors.New("could not find bootstrap node in topology, exactly one bootstrap node is required")
 	}
 
 	_, ocrPeeringCfg, err := cre.PeeringCfgs(bootstrap)

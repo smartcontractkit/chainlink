@@ -347,11 +347,11 @@ func createJobs(
 		bootInput := cre_jobs.ProposeJobSpecInput{
 			Domain:      offchain.ProductLabel,
 			Environment: cre.EnvironmentName,
-			DONName:     don.Name,
+			DONName:     bootstrap.DON.Name,
 			JobName:     fmt.Sprintf("evm-v2-bootstrap-%d", chainID),
 			ExtraLabels: map[string]string{cre.CapabilityLabelKey: flag},
 			DONFilters: []offchain.TargetDONFilter{
-				{Key: offchain.FilterKeyDONName, Value: don.Name},
+				{Key: offchain.FilterKeyDONName, Value: bootstrap.DON.Name},
 			},
 			Template: job_types.BootstrapOCR3,
 			Inputs: job_types.JobSpecInput{
