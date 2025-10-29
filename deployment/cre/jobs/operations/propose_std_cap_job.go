@@ -85,6 +85,9 @@ var ProposeStandardCapabilityJob = operations.NewSequence[
 		if err != nil {
 			return ProposeStandardCapabilityJobOutput{}, fmt.Errorf("failed to fetch nodes from JD: %w", err)
 		}
+		if len(nodes) == 0 {
+			return ProposeStandardCapabilityJobOutput{}, fmt.Errorf("no nodes found on JD for DON `%s` with filters %+v", input.DONName, filter)
+		}
 
 		nodeIDs := make([]string, len(nodes))
 		for i, n := range nodes {
@@ -96,7 +99,7 @@ var ProposeStandardCapabilityJob = operations.NewSequence[
 			return ProposeStandardCapabilityJobOutput{}, fmt.Errorf("failed to fetch node infos: %w", err)
 		}
 		if len(nodeInfos) == 0 {
-			return ProposeStandardCapabilityJobOutput{}, fmt.Errorf("no nodes info found for DON `%s` with filters %+v", input.DONName, input.DONFilters)
+			return ProposeStandardCapabilityJobOutput{}, fmt.Errorf("no nodes info found for DON `%s` with filters %+v and node IDs %v", input.DONName, input.DONFilters, nodeIDs)
 		}
 
 		generateOracleFactory := input.Job.GenerateOracleFactory && input.Job.OracleFactory == nil
