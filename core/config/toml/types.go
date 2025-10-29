@@ -1452,6 +1452,7 @@ type P2P struct {
 	OutgoingMessageBufferSize *int64
 	PeerID                    *p2pkey.PeerID
 	TraceLogging              *bool
+	EnableExperimentalRageP2P *bool
 
 	V2 P2PV2 `toml:",omitempty"`
 }
@@ -1468,6 +1469,9 @@ func (p *P2P) setFrom(f *P2P) {
 	}
 	if v := f.TraceLogging; v != nil {
 		p.TraceLogging = v
+	}
+	if v := f.EnableExperimentalRageP2P; v != nil {
+		p.EnableExperimentalRageP2P = v
 	}
 
 	p.V2.setFrom(&f.V2)

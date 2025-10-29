@@ -459,6 +459,8 @@ OutgoingMessageBufferSize = 10 # Default
 PeerID = '12D3KooWMoejJznyDuEk5aX6GvbjaG12UzeornPCBNzMRqdwrFJw' # Example
 # TraceLogging enables trace level logging.
 TraceLogging = false # Default
+# EnableExperimentalRageP2P needs to be enabled for ocr3.1 components
+EnableExperimentalRageP2P = false # Default
 
 [P2P.V2]
 # Enabled enables P2P V2.
@@ -573,6 +575,8 @@ OutgoingMessageBufferSize = 10 # Default
 PeerID = '12D3KooWMoejJznyDuEk5aX6GvbjaG12UzeornPCBNzMRqdwrFJw' # Example
 # TraceLogging enables trace level logging.
 TraceLogging = false # Default
+# EnableExperimentalRageP2P needs to be enabled for ocr3.1 components
+EnableExperimentalRageP2P = false # Default
 
 [Capabilities.Peering.V2]
 # Enabled enables P2P V2.

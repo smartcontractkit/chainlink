@@ -457,6 +457,7 @@ func TestConfig_Marshal(t *testing.T) {
 		OutgoingMessageBufferSize: ptr[int64](17),
 		PeerID:                    mustPeerID("12D3KooWMoejJznyDuEk5aX6GvbjaG12UzeornPCBNzMRqdwrFJw"),
 		TraceLogging:              ptr(true),
+		EnableExperimentalRageP2P: ptr(true),
 		V2: toml.P2PV2{
 			Enabled:           ptr(false),
 			AnnounceAddresses: &[]string{"a", "b", "c"},
@@ -482,6 +483,7 @@ func TestConfig_Marshal(t *testing.T) {
 			OutgoingMessageBufferSize: ptr[int64](17),
 			PeerID:                    mustPeerID("12D3KooWMoejJznyDuEk5aX6GvbjaG12UzeornPCBNzMRqdwrFJw"),
 			TraceLogging:              ptr(true),
+			EnableExperimentalRageP2P: ptr(true),
 			V2: toml.P2PV2{
 				Enabled:           ptr(false),
 				AnnounceAddresses: &[]string{"a", "b", "c"},
@@ -1126,6 +1128,7 @@ IncomingMessageBufferSize = 13
 OutgoingMessageBufferSize = 17
 PeerID = '12D3KooWMoejJznyDuEk5aX6GvbjaG12UzeornPCBNzMRqdwrFJw'
 TraceLogging = true
+EnableExperimentalRageP2P = true
 
 [P2P.V2]
 Enabled = false
