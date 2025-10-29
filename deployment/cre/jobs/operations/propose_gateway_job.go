@@ -1,6 +1,7 @@
 package operations
 
 import (
+	"errors"
 	"fmt"
 
 	"github.com/Masterminds/semver/v3"
@@ -147,6 +148,9 @@ var ProposeGatewayJob = operations.NewOperation[ProposeGatewayJobInput, ProposeG
 			}
 
 			output.Specs[n.GetId()] = append(output.Specs[n.GetId()], spec)
+		}
+		if len(output.Specs) == 0 {
+			return ProposeGatewayJobOutput{}, errors.New("no gateway jobs were proposed")
 		}
 
 		return output, nil

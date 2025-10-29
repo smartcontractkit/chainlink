@@ -128,6 +128,12 @@ func Test_CRE_V2_Suite(t *testing.T) {
 		ExecuteHTTPTriggerActionTest(t, testEnv)
 	})
 
+	t.Run("[v2] HTTP Action CRUD Success - "+topology, func(t *testing.T) {
+		testEnv := t_helpers.SetupTestEnvironmentWithConfig(t, t_helpers.GetDefaultTestConfig(t), v2RegistriesFlags...)
+
+		ExecuteHTTPActionCRUDSuccessTest(t, testEnv)
+	})
+
 	t.Run("[v2] DON Time - "+topology, func(t *testing.T) {
 		testEnv := t_helpers.SetupTestEnvironmentWithConfig(t, t_helpers.GetDefaultTestConfig(t), v2RegistriesFlags...)
 
@@ -155,4 +161,10 @@ func Test_CRE_V2_EVM_Suite(t *testing.T) {
 	t.Run("[v2] EVM Read - "+topology, func(t *testing.T) {
 		ExecuteEVMReadTest(t, testEnv)
 	})
+}
+
+func Test_CRE_V2_HTTP_Action_Suite(t *testing.T) {
+	testEnv := t_helpers.SetupTestEnvironmentWithConfig(t, t_helpers.GetDefaultTestConfig(t), v2RegistriesFlags...)
+
+	ExecuteHTTPActionCRUDSuccessTest(t, testEnv)
 }

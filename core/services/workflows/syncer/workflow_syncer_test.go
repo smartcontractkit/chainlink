@@ -95,9 +95,6 @@ func newTestEvtHandler(errFn func() error) *testEvtHandler {
 	}
 }
 
-type testWorkflowRegistryContractLoader struct {
-}
-
 type testDonNotifier struct {
 	don capabilities.DON
 	err error
@@ -107,12 +104,10 @@ func (t *testDonNotifier) WaitForDon(ctx context.Context) (capabilities.DON, err
 	return t.don, t.err
 }
 
-func (m *testWorkflowRegistryContractLoader) LoadWorkflows(ctx context.Context, don capabilities.DON) (*types.Head, error) {
-	return &types.Head{
-		Height:    "0",
-		Hash:      nil,
-		Timestamp: 0,
-	}, nil
+func (t *testDonNotifier) Subscribe(ctx context.Context) (<-chan capabilities.DON, func(), error) {
+	ch := make(chan capabilities.DON, 1)
+	ch <- t.don
+	return ch, func() {}, t.err
 }
 
 func Test_EventHandlerStateSync(t *testing.T) {
@@ -247,6 +242,7 @@ func Test_EventHandlerStateSync(t *testing.T) {
 		return false
 	}, tests.WaitTimeout(t), time.Second)
 }
+
 func Test_InitialStateSync(t *testing.T) {
 	lggr := logger.TestLogger(t)
 	backendTH := testutils.NewEVMBackendTH(t)
@@ -403,7 +399,7 @@ func Test_SecretsWorker(t *testing.T) {
 
 			workflowEncryptionKey := workflowkey.MustNewXXXTestingOnly(big.NewInt(1))
 			evtHandler, err := NewEventHandler(lggr, wfStore, capRegistry, donTime, true, engineRegistry,
-				emitter, limiters, rl, wl, store, workflowEncryptionKey)
+				emitter, limiters, rl, wl, store, workflowEncryptionKey, &testDonNotifier{})
 			require.NoError(t, err)
 			handler := &testSecretsWorkEventHandler{
 				wrappedHandler: evtHandler,
@@ -589,7 +585,7 @@ func Test_RegistrySyncer_WorkflowRegistered_InitiallyPaused(t *testing.T) {
 	donTime := dontime.NewStore(dontime.DefaultRequestTimeout)
 
 	workflowEncryptionKey := workflowkey.MustNewXXXTestingOnly(big.NewInt(1))
-	handler, err := NewEventHandler(lggr, wfStore, capRegistry, donTime, true, er, emitter, limiters, rl, wl, store, workflowEncryptionKey)
+	handler, err := NewEventHandler(lggr, wfStore, capRegistry, donTime, true, er, emitter, limiters, rl, wl, store, workflowEncryptionKey, &testDonNotifier{})
 	require.NoError(t, err)
 
 	worker, err := NewWorkflowRegistry(
@@ -687,7 +683,7 @@ func Test_RegistrySyncer_WorkflowRegistered_InitiallyActivated(t *testing.T) {
 
 	workflowEncryptionKey := workflowkey.MustNewXXXTestingOnly(big.NewInt(1))
 	handler, err := NewEventHandler(lggr, wfStore, capRegistry, donTime, true, er,
-		emitter, limiters, rl, wl, store, workflowEncryptionKey, WithStaticEngine(&mockService{}))
+		emitter, limiters, rl, wl, store, workflowEncryptionKey, &testDonNotifier{}, WithStaticEngine(&mockService{}))
 	require.NoError(t, err)
 
 	worker, err := NewWorkflowRegistry(
