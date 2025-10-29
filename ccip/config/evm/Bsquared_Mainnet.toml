@@ -9,7 +9,8 @@ LogPollInterval = '3s'
 # finality_depth * block_time / 60 secs = ~66  min (finality time)
 NoNewFinalizedHeadsThreshold = '70m' 
 
-FinalityTagEnabled = true 
+FinalityTagEnabled = true
+SafeTagSupported = true 
 
 [GasEstimator]
 EIP1559DynamicFees = true
