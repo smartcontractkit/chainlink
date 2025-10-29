@@ -944,6 +944,9 @@ func initializeCCTPTokenPoolGlobalConfig(
 	if err != nil {
 		return fmt.Errorf("failed to calculate the token pool global config PDA: %w", err)
 	}
+
+	cctp_token_pool.SetProgramID(cctpTokenPoolProgram)
+
 	ix, err := cctp_token_pool.NewInitGlobalConfigInstruction(
 		config,
 		chain.DeployerKey.PublicKey(),
