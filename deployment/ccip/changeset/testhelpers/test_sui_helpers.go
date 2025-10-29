@@ -329,7 +329,7 @@ func SendSuiCCIPRequest(e cldf.Environment, cfg *ccipclient.CCIPSendReqConfig) (
 			suiBind.Object{Id: "0x6"},
 			cfg.DestChain,
 			msg.Receiver, // receiver
-			[]byte("hello evm from sui"),
+			msg.Data,
 			createTokenTransferParamsResult,               // tokenParams from the original create_token_transfer_params
 			suiBind.Object{Id: linkTokenObjectMetadataID}, // feeTokenMetadata
 			suiBind.Object{Id: msg.FeeToken},
@@ -456,7 +456,7 @@ func SendSuiCCIPRequest(e cldf.Environment, cfg *ccipclient.CCIPSendReqConfig) (
 		suiBind.Object{Id: "0x6"},
 		cfg.DestChain,
 		msg.Receiver, // receiver (TODO: replace this with sender Address use environment.NormalizeTo32Bytes(ethereumAddress) from sui repo)
-		[]byte("hello evm from sui"),
+		msg.Data,
 		extractedAny2SuiMessageResult,                 // tokenParams
 		suiBind.Object{Id: linkTokenObjectMetadataID}, // feeTokenMetadata
 		suiBind.Object{Id: msg.FeeToken},

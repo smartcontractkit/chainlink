@@ -23,7 +23,7 @@ go build -o chainlink-sui ./relayer/cmd/chainlink-sui/main.go
 popd
 
 cd integration-tests/smoke/ccip
-exec go test -v -tags=integration -count=1 -run Test_CCIP_Messaging_EVM2Sui ./... -timeout=20m
+exec go test -v -tags=integration -count=1 -run Test_CCIP_Messaging_Sui2EVM ./... -timeout=20m
 # if [ "${1:-}" = "dest" ]; then
 #   exec go test -v -tags=integration -count=1 -run Test_CCIPMessaging_EVM2Sui ./...
 # else

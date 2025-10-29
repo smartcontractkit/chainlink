@@ -3,6 +3,7 @@ package ccip
 import (
 	"encoding/hex"
 	"fmt"
+	"math/big"
 	"strings"
 	"testing"
 
@@ -14,10 +15,12 @@ import (
 
 	chain_selectors "github.com/smartcontractkit/chain-selectors"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_2_0/router"
+	module_fee_quoter "github.com/smartcontractkit/chainlink-sui/bindings/generated/ccip/ccip/fee_quoter"
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/testcontext"
 
 	"github.com/smartcontractkit/chainlink-deployments-framework/chain"
 
+	suiBind "github.com/smartcontractkit/chainlink-sui/bindings/bind"
 	suiutil "github.com/smartcontractkit/chainlink-sui/bindings/utils"
 	sui_deployment "github.com/smartcontractkit/chainlink-sui/deployment"
 	sui_cs "github.com/smartcontractkit/chainlink-sui/deployment/changesets"
@@ -37,6 +40,7 @@ import (
 )
 
 func Test_CCIP_Messaging_Sui2EVM(t *testing.T) {
+	ctx := testhelpers.Context(t)
 	e, _, _ := testsetups.NewIntegrationEnvironment(
 		t,
 		testhelpers.WithNumOfChains(2),
@@ -100,7 +104,19 @@ func Test_CCIP_Messaging_Sui2EVM(t *testing.T) {
 			sender,
 			false, // testRouter
 		)
+
+		suiLinkFeeToken = outputMap.Objects.MintedLinkTokenObjectId
+		standardMessage = []byte("Hello EVM, from Sui!")
 	)
+
+	suifeeQuoter, err := module_fee_quoter.NewFeeQuoter(suiState[sourceChain].CCIPAddress, e.Env.BlockChains.SuiChains()[sourceChain].Client)
+	require.NoError(t, err)
+
+	suiFeeQuoterDestChainConfig, err := suifeeQuoter.DevInspect().GetDestChainConfig(ctx, &suiBind.CallOpts{
+		Signer:           e.Env.BlockChains.SuiChains()[sourceChain].Signer,
+		WaitForExecution: true,
+	}, suiBind.Object{Id: suiState[sourceChain].CCIPObjectRef}, destChain)
+	require.NoError(t, err, "Failed to get destination chain config")
 
 	t.Run("Message to EVM", func(t *testing.T) {
 		require.NoError(t, err)
@@ -112,10 +128,165 @@ func Test_CCIP_Messaging_Sui2EVM(t *testing.T) {
 				Receiver:               state.Chains[destChain].Receiver.Address().Bytes(),
 				ExtraArgs:              nil,
 				Replayed:               true,
-				FeeToken:               outputMap.Objects.MintedLinkTokenObjectId,
+				FeeToken:               suiLinkFeeToken,
 				ExpectedExecutionState: testhelpers.EXECUTION_STATE_SUCCESS,
 			},
 		)
+	})
+
+	// For testing messages that revert on source
+	mltTestSetup := mlt.NewTestSetup(
+		t,
+		state,
+		sourceChain,
+		destChain,
+		common.HexToAddress(suiLinkFeeToken),
+		suiFeeQuoterDestChainConfig,
+		false, // testRouter
+		true,  // validateResp
+		mlt.WithDeployedEnv(e),
+	)
+
+	invalidDestChainSelectorTestSetup := mlt.NewTestSetup(
+		t,
+		state,
+		sourceChain,
+		destChain,
+		common.HexToAddress("0x0"),
+		suiFeeQuoterDestChainConfig,
+		false, // testRouter
+		true,  // validateResp
+		mlt.WithDeployedEnv(e),
+	)
+
+	t.Run("Max Data Bytes - Should Succeed", func(t *testing.T) {
+		latestHead, err := testhelpers.LatestBlock(ctx, e.Env, destChain)
+		require.NoError(t, err)
+		message := []byte(strings.Repeat("0", int(suiFeeQuoterDestChainConfig.MaxDataBytes)))
+		messagingtest.Run(t,
+			messagingtest.TestCase{
+				TestSetup:      setup,
+				ValidationType: messagingtest.ValidationTypeExec,
+				FeeToken:       suiLinkFeeToken,
+				Receiver:       state.Chains[destChain].Receiver.Address().Bytes(),
+				MsgData:        message,
+				// Just ensuring enough gas is provided to execute the message, doesn't matter if it's way too much
+				ExtraArgs:              testhelpers.MakeBCSEVMExtraArgsV2(big.NewInt(300000), false),
+				ExpectedExecutionState: testhelpers.EXECUTION_STATE_SUCCESS,
+				ExtraAssertions: []func(t *testing.T){
+					func(t *testing.T) { assertEvmMessageReceived(ctx, t, state, destChain, latestHead, message) },
+				},
+			},
+		)
+	})
+
+	t.Run("Max Gas Limit - Should Succeed", func(t *testing.T) {
+		latestHead, err := testhelpers.LatestBlock(ctx, e.Env, destChain)
+		require.NoError(t, err)
+		messagingtest.Run(t,
+			messagingtest.TestCase{
+				TestSetup:              setup,
+				ValidationType:         messagingtest.ValidationTypeExec,
+				FeeToken:               suiLinkFeeToken,
+				Receiver:               state.Chains[destChain].Receiver.Address().Bytes(),
+				MsgData:                standardMessage,
+				ExtraArgs:              testhelpers.MakeBCSEVMExtraArgsV2(big.NewInt(int64(suiFeeQuoterDestChainConfig.MaxPerMsgGasLimit)), false),
+				ExpectedExecutionState: testhelpers.EXECUTION_STATE_SUCCESS,
+				ExtraAssertions: []func(t *testing.T){
+					func(t *testing.T) { assertEvmMessageReceived(ctx, t, state, destChain, latestHead, standardMessage) },
+				},
+			},
+		)
+	})
+
+	t.Run("Max Data Bytes + 1 - Should Fail", func(t *testing.T) {
+		message := []byte(strings.Repeat("0", int(suiFeeQuoterDestChainConfig.MaxDataBytes)+1))
+		mlt.Run(mlt.TestCase{
+			TestSetup: mltTestSetup,
+			Name:      "Max Data Bytes + 1 - Should Fail",
+			Msg: testhelpers.SuiSendRequest{
+				Receiver:  state.Chains[destChain].Receiver.Address().Bytes(),
+				Data:      message,
+				FeeToken:  suiLinkFeeToken,
+				ExtraArgs: nil,
+			},
+			ExpRevert: true,
+		})
+	})
+
+	t.Run("Max Data Bytes + 1 to EOA - Should Fail", func(t *testing.T) {
+		message := []byte(strings.Repeat("0", int(suiFeeQuoterDestChainConfig.MaxDataBytes)+1))
+		mlt.Run(mlt.TestCase{
+			TestSetup: mltTestSetup,
+			Name:      "Max Data Bytes + 1 to EOA - Should Fail",
+			Msg: testhelpers.SuiSendRequest{
+				Receiver:  state.Chains[destChain].Receiver.Address().Bytes(), // Sending to EOA
+				Data:      message,
+				FeeToken:  suiLinkFeeToken,
+				ExtraArgs: nil,
+			},
+			ExpRevert: true,
+		})
+	})
+
+	t.Run("Max Gas Limit + 1 - Should Fail", func(t *testing.T) {
+		message := standardMessage
+		mlt.Run(mlt.TestCase{
+			TestSetup: mltTestSetup,
+			Name:      "Max Gas Limit + 1 - Should Fail",
+			Msg: testhelpers.SuiSendRequest{
+				Receiver:  state.Chains[destChain].Receiver.Address().Bytes(),
+				Data:      message,
+				FeeToken:  suiLinkFeeToken,
+				ExtraArgs: testhelpers.MakeBCSEVMExtraArgsV2(big.NewInt(int64(suiFeeQuoterDestChainConfig.MaxPerMsgGasLimit)+1), false),
+			},
+			ExpRevert: true,
+		})
+	})
+
+	t.Run("Missing ExtraArgs - Should Fail", func(t *testing.T) {
+		message := standardMessage
+		mlt.Run(mlt.TestCase{
+			TestSetup: mltTestSetup,
+			Name:      "Missing ExtraArgs - Should Fail",
+			Msg: testhelpers.SuiSendRequest{
+				Receiver:  state.Chains[destChain].Receiver.Address().Bytes(),
+				Data:      message,
+				FeeToken:  suiLinkFeeToken,
+				ExtraArgs: []byte{},
+			},
+			ExpRevert: true,
+		})
+	})
+
+	t.Run("Send message to invalid receiver - Should Fail", func(t *testing.T) {
+		message := standardMessage
+		mlt.Run(mlt.TestCase{
+			TestSetup: mltTestSetup,
+			Name:      "Send message to invalid receiver - Should Fail",
+			Msg: testhelpers.SuiSendRequest{
+				Receiver:  []byte("0x0000"),
+				Data:      message,
+				FeeToken:  suiLinkFeeToken,
+				ExtraArgs: testhelpers.MakeBCSEVMExtraArgsV2(big.NewInt(300000), false),
+			},
+			ExpRevert: true,
+		})
+	})
+
+	t.Run("Send message to invalid chain selector - Should Fail", func(t *testing.T) {
+		message := []byte("Hello Sui, from EVM!")
+		mlt.Run(mlt.TestCase{
+			TestSetup: invalidDestChainSelectorTestSetup,
+			Name:      "Send message to invalid chain selector - Should Fail",
+			Msg: testhelpers.SuiSendRequest{
+				Receiver:  state.Chains[destChain].Receiver.Address().Bytes(),
+				Data:      message,
+				FeeToken:  suiLinkFeeToken,
+				ExtraArgs: testhelpers.MakeBCSEVMExtraArgsV2(big.NewInt(300000), false),
+			},
+			ExpRevert: true,
+		})
 	})
 
 	fmt.Printf("out: %v\n", out)
