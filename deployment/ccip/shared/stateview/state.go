@@ -55,7 +55,6 @@ import (
 	suiutil "github.com/smartcontractkit/chainlink-sui/bindings/utils"
 
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/latest/don_id_claimer"
-	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/latest/factory_burn_mint_erc20"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/latest/fast_transfer_token_pool"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/latest/log_message_data_receiver"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/latest/maybe_revert_message_receiver"
@@ -75,6 +74,7 @@ import (
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_5_1/burn_from_mint_token_pool"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_5_1/burn_mint_token_pool"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_5_1/burn_with_from_mint_token_pool"
+	factoryBurnMintERC20v1_5_1 "github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_5_1/factory_burn_mint_erc20"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_5_1/lock_release_token_pool"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_5_1/token_pool_factory"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_5_1/usdc_token_pool"
@@ -86,6 +86,7 @@ import (
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_0/rmn_home"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_0/rmn_remote"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_2/cctp_message_transmitter_proxy"
+	factoryBurnMintERC20v1_6_2 "github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_2/factory_burn_mint_erc20"
 	usdc_token_pool_v1_6_2 "github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_2/usdc_token_pool"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_3/fee_quoter"
 	capabilities_registry "github.com/smartcontractkit/chainlink-evm/gethwrappers/keystone/generated/capabilities_registry_1_1_0"
@@ -1281,13 +1282,20 @@ func LoadChainState(ctx context.Context, chain cldf_evm.Chain, addresses map[str
 			}
 			state.ERC20Tokens[ccipshared.TokenSymbol(symbol)] = tok
 			state.ABIByAddress[address] = erc20.ERC20ABI
-		case cldf.NewTypeAndVersion(ccipshared.FactoryBurnMintERC20Token, deployment.Version1_0_0).String():
-			tok, err := factory_burn_mint_erc20.NewFactoryBurnMintERC20(common.HexToAddress(address), chain.Client)
+		case cldf.NewTypeAndVersion(ccipshared.FactoryBurnMintERC20Token, deployment.Version1_6_2).String():
+			tok, err := factoryBurnMintERC20v1_6_2.NewFactoryBurnMintERC20(common.HexToAddress(address), chain.Client)
 			if err != nil {
 				return state, err
 			}
 			state.FactoryBurnMintERC20Token = tok
-			state.ABIByAddress[address] = factory_burn_mint_erc20.FactoryBurnMintERC20ABI
+			state.ABIByAddress[address] = factoryBurnMintERC20v1_6_2.FactoryBurnMintERC20ABI
+		case cldf.NewTypeAndVersion(ccipshared.FactoryBurnMintERC20Token, deployment.Version1_5_1).String():
+			tok, err := factoryBurnMintERC20v1_5_1.NewFactoryBurnMintERC20(common.HexToAddress(address), chain.Client)
+			if err != nil {
+				return state, err
+			}
+			state.FactoryBurnMintERC20Token1_5_1 = tok
+			state.ABIByAddress[address] = factoryBurnMintERC20v1_5_1.FactoryBurnMintERC20ABI
 		case cldf.NewTypeAndVersion(ccipshared.BurnMintERC20Token, deployment.Version1_0_0).String():
 			tok, err := burn_mint_erc20.NewBurnMintERC20(common.HexToAddress(address), chain.Client)
 			if err != nil {
