@@ -37,7 +37,8 @@ const (
 	defaultMetadataAggregationIntervalMs = 1000 * 60 // 1 minute
 	defaultMetadataPullRequestTimeoutMs  = 1000 * 30 // 30 seconds
 	internalErrorMessage                 = "Internal server error occurred while processing the request"
-	defaultOutboundRequestCacheTTLMs     = 1000 * 60 * 10 // 10 minutes
+	defaultOutboundRequestCacheTTLMs     = 1000 * 60 * 10      // 10 minutes
+	defaultJWTReplayPeriodMs             = 1000 * 60 * 60 * 24 // 24 hours
 )
 
 type gatewayHandler struct {
@@ -77,6 +78,7 @@ type ServiceConfig struct {
 	MetadataAggregationIntervalMs int                         `json:"metadataAggregationIntervalMs"`
 	MetadataPullRequestTimeoutMs  int                         `json:"metadataPullRequestTimeoutMs"`
 	OutboundRequestCacheTTLMs     int                         `json:"outboundRequestCacheTTLMs"`
+	JWTReplayPeriodMs             int                         `json:"jwtReplayPeriodMs"`
 }
 
 type RetryConfig struct {
@@ -104,11 +106,6 @@ func NewGatewayHandler(handlerConfig json.RawMessage, donConfig *config.DONConfi
 	metrics, err := metrics.NewMetrics(donConfig)
 	if err != nil {
 		return nil, fmt.Errorf("failed to initialize metrics: %w", err)
-	}
-
-	nodeAddressToNodeName := make(map[string]string)
-	for _, member := range donConfig.Members {
-		nodeAddressToNodeName[member.Address] = member.Name
 	}
 
 	metadataHandler := NewWorkflowMetadataHandler(lggr, cfg, don, donConfig, metrics)
@@ -154,6 +151,9 @@ func WithDefaults(cfg ServiceConfig) ServiceConfig {
 	}
 	if cfg.OutboundRequestCacheTTLMs == 0 {
 		cfg.OutboundRequestCacheTTLMs = defaultOutboundRequestCacheTTLMs
+	}
+	if cfg.JWTReplayPeriodMs == 0 {
+		cfg.JWTReplayPeriodMs = defaultJWTReplayPeriodMs
 	}
 	return cfg
 }
@@ -235,7 +235,7 @@ func (h *gatewayHandler) createHTTPRequestCallback(ctx context.Context, requestI
 			isBlockedRequest := errors.Is(err, network.ErrBlockedRequest)
 			isHTTPSendError := errors.Is(err, network.ErrHTTPSend)
 			isHTTPReadError := errors.Is(err, network.ErrHTTPRead)
-			isExternalEndpointError := isBlockedRequest || isHTTPSendError || isHTTPReadError
+			isExternalEndpointError := isHTTPSendError || isHTTPReadError
 
 			if isBlockedRequest {
 				l.Warnw("HTTP request blocked", "requestID", requestID, "err", err)
@@ -252,7 +252,8 @@ func (h *gatewayHandler) createHTTPRequestCallback(ctx context.Context, requestI
 
 			return gateway_common.OutboundHTTPResponse{
 				ErrorMessage:            err.Error(),
-				IsExternalEndpointError: isExternalEndpointError,
+				IsExternalEndpointError: isExternalEndpointError, // error while sending request to or reading response from external endpoint
+				IsValidationError:       isBlockedRequest,        // validation error before sending request to external endpoint
 				ExternalEndpointLatency: externalEndpointLatency,
 			}
 		}
@@ -295,7 +296,7 @@ func (h *gatewayHandler) HandleJSONRPCUserMessage(ctx context.Context, req jsonr
 
 func (h *gatewayHandler) makeOutgoingRequest(ctx context.Context, resp *jsonrpc.Response[json.RawMessage], nodeAddr string) error {
 	requestID := resp.ID
-	h.lggr.Debugw("handling webAPI outgoing message", "requestID", requestID, "nodeAddr", nodeAddr)
+	h.lggr.Debugw("handling outgoing message", "requestID", requestID, "nodeAddr", nodeAddr)
 	var req gateway_common.OutboundHTTPRequest
 	err := json.Unmarshal(*resp.Result, &req)
 	if err != nil {

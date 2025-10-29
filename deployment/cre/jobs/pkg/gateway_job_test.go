@@ -251,7 +251,7 @@ Name = 'http-capabilities'
 ServiceName = 'workflows'
 
 [gatewayConfig.Dons.Handlers.Config]
-CleanUpPeriodMs = 86400000
+CleanUpPeriodMs = 3600000
 
 [gatewayConfig.Dons.Handlers.Config.NodeRateLimiter]
 globalBurst = 100
@@ -320,7 +320,7 @@ func TestGateway_Resolve(t *testing.T) {
 	t.Parallel()
 
 	g := GatewayJob{
-		JobName: "Gateway1",
+		JobName:           "Gateway1",
 		RequestTimeoutSec: 15,
 		TargetDONs: []TargetDON{
 			{
@@ -379,7 +379,7 @@ func TestGateway_Resolve_WithVaultHandler(t *testing.T) {
 	t.Parallel()
 
 	g := GatewayJob{
-		JobName: "Gateway1",
+		JobName:           "Gateway1",
 		RequestTimeoutSec: 15,
 		TargetDONs: []TargetDON{
 			{
@@ -439,7 +439,7 @@ func TestGateway_Resolve_WithHTTPCapabilitiesHandler(t *testing.T) {
 	t.Parallel()
 
 	g := GatewayJob{
-		JobName: "Gateway1",
+		JobName:           "Gateway1",
 		RequestTimeoutSec: 15,
 		TargetDONs: []TargetDON{
 			{

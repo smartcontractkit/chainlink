@@ -449,6 +449,7 @@ func (h *httpTriggerHandler) HandleNodeTriggerResponse(ctx context.Context, resp
 	h.cleanupCallback(resp.ID)
 	latencyMs := time.Since(saved.requestStartTime).Milliseconds()
 	h.metrics.RecordRequestHandlerLatency(ctx, latencyMs, h.lggr)
+	h.metrics.IncrementRequestSuccess(ctx, h.lggr)
 	return nil
 }
 

@@ -68,7 +68,7 @@ func NewWorkflowMetadataHandler(lggr logger.Logger, cfg ServiceConfig, don handl
 		config:          cfg,
 		stopCh:          make(services.StopChan),
 		metrics:         metrics,
-		jwtCache:        newJWTReplayCache(time.Duration(cfg.CleanUpPeriodMs) * time.Millisecond),
+		jwtCache:        newJWTReplayCache(time.Duration(cfg.JWTReplayPeriodMs) * time.Millisecond),
 	}
 }
 
@@ -158,6 +158,7 @@ func (h *WorkflowMetadataHandler) syncMetadata() {
 	h.authorizedKeys = authorizedKeys
 	h.workflowRefToID = workflowRefToID
 	h.workflowIDToRef = workflowIDToRef
+	h.metrics.RecordLoadedMetadataSize(context.Background(), int64(len(h.workflowIDToRef)), h.lggr)
 }
 
 // sendMetadataPullRequest sends a request to all nodes in the DON to pull the latest metadata.

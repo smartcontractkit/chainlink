@@ -65,6 +65,7 @@ type TriggerMetrics struct {
 	jwtCacheSize                     metric.Int64Gauge
 	jwtCacheCleanUpCount             metric.Int64Counter
 	metadataSyncStartupLatency       metric.Int64Histogram
+	loadedMetadataSize               metric.Int64Gauge
 }
 
 // Metrics combines all gateway metrics for dependency injection
@@ -380,10 +381,18 @@ func newTriggerMetrics(meter metric.Meter) (*TriggerMetrics, error) {
 
 	m.metadataSyncStartupLatency, err = meter.Int64Histogram(
 		"http_trigger_metadata_sync_startup_latency_ms",
-		metric.WithDescription("Time in milliseconds from handler start to first successful workflow metadata sync"),
+		metric.WithDescription("Time in milliseconds from handler start to first successful workflow metadata sync (i.e. first workflow loaded)"),
 	)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create HTTP trigger metadata sync startup latency metric: %w", err)
+	}
+
+	m.loadedMetadataSize, err = meter.Int64Gauge(
+		"http_trigger_loaded_metadata_size",
+		metric.WithDescription("Number of workflows loaded for authorization after f+1 identical metadata received from workflow nodes"),
+	)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create HTTP trigger loaded metadata size metric: %w", err)
 	}
 
 	return m, nil
@@ -556,4 +565,8 @@ func (m *Metrics) IncrementJwtCacheCleanUpCount(ctx context.Context, count int64
 
 func (m *Metrics) RecordMetadataSyncStartupLatency(ctx context.Context, latencyMs int64, lggr logger.Logger) {
 	m.trigger.metadataSyncStartupLatency.Record(ctx, latencyMs)
+}
+
+func (m *Metrics) RecordLoadedMetadataSize(ctx context.Context, size int64, lggr logger.Logger) {
+	m.trigger.loadedMetadataSize.Record(ctx, size)
 }
