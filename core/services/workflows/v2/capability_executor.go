@@ -37,11 +37,11 @@ type ExecutionHelper struct {
 
 func (c *ExecutionHelper) initLimiters(limiters *EngineLimiters) {
 	c.callLimiters = map[capCall]limits.BoundLimiter[int]{
-		capCall{"consensus", "Simple"}:         limiters.ConsensusCalls,
-		capCall{"consensus", "Report"}:         limiters.ConsensusCalls,
-		capCall{"evm", "FilterLogs"}:           limiters.ChainReadCalls,
-		capCall{"evm", "WriteReport"}:          limiters.ChainWriteTargets,
-		capCall{"http-actions", "SendRequest"}: limiters.HTTPActionCalls,
+		{"consensus", "Simple"}:         limiters.ConsensusCalls,
+		{"consensus", "Report"}:         limiters.ConsensusCalls,
+		{"evm", "FilterLogs"}:           limiters.ChainReadCalls,
+		{"evm", "WriteReport"}:          limiters.ChainWriteTargets,
+		{"http-actions", "SendRequest"}: limiters.HTTPActionCalls,
 	}
 }
 
@@ -87,6 +87,8 @@ func (c *ExecutionHelper) callCapability(ctx context.Context, request *sdkpb.Cap
 		return nil, fmt.Errorf("capability info not found: %w", err)
 	}
 
+	localNode := c.localNode.Load()
+
 	// If the capability info is missing a DON, then
 	// the capability is local, and we should use the localNode's DON ID.
 	var donID uint32
@@ -96,7 +98,7 @@ func (c *ExecutionHelper) callCapability(ctx context.Context, request *sdkpb.Cap
 		}
 		donID = info.DON.ID
 	} else {
-		donID = c.localNode.WorkflowDON.ID
+		donID = localNode.WorkflowDON.ID
 	}
 
 	config, err := c.cfg.CapRegistry.ConfigForCapability(ctx, info.ID, donID)
@@ -147,8 +149,8 @@ func (c *ExecutionHelper) callCapability(ctx context.Context, request *sdkpb.Cap
 			WorkflowOwner:            c.cfg.WorkflowOwner,
 			WorkflowExecutionID:      c.WorkflowExecutionID,
 			WorkflowName:             c.cfg.WorkflowName.Hex(),
-			WorkflowDonID:            c.localNode.WorkflowDON.ID,
-			WorkflowDonConfigVersion: c.localNode.WorkflowDON.ConfigVersion,
+			WorkflowDonID:            localNode.WorkflowDON.ID,
+			WorkflowDonConfigVersion: localNode.WorkflowDON.ConfigVersion,
 			ReferenceID:              strconv.Itoa(int(request.CallbackId)),
 			DecodedWorkflowName:      c.cfg.WorkflowName.String(),
 			SpendLimits:              spendLimits,
@@ -159,7 +161,7 @@ func (c *ExecutionHelper) callCapability(ctx context.Context, request *sdkpb.Cap
 
 	c.lggr.Debugw("Executing capability ...", "capID", request.Id, "capReqCallbackID", request.CallbackId, "capReqMethod", request.Method)
 	c.metrics.With(platform.KeyCapabilityID, request.Id).IncrementCapabilityInvocationCounter(ctx)
-	_ = events.EmitCapabilityStartedEvent(ctx, c.loggerLabels, c.WorkflowExecutionID, request.Id, meteringRef)
+	_ = events.EmitCapabilityStartedEvent(ctx, c.loggerLabels, c.WorkflowExecutionID, request.Id, meteringRef, request.Method)
 
 	execCtx, execCancel, err := c.cfg.LocalLimiters.CapabilityCallTime.WithTimeout(ctx)
 	if err != nil {
@@ -173,14 +175,14 @@ func (c *ExecutionHelper) callCapability(ctx context.Context, request *sdkpb.Cap
 	c.metrics.With(platform.KeyCapabilityID, request.Id).UpdateCapabilityExecutionDurationHistogram(ctx, int64(executionDuration.Seconds()))
 	if err != nil {
 		c.lggr.Debugw("Capability execution failed", "capID", request.Id, "capReqCallbackID", request.CallbackId, "err", err)
-		_ = events.EmitCapabilityFinishedEvent(ctx, c.loggerLabels, c.WorkflowExecutionID, request.Id, meteringRef, store.StatusErrored, err)
+		_ = events.EmitCapabilityFinishedEvent(ctx, c.loggerLabels, c.WorkflowExecutionID, request.Id, meteringRef, store.StatusErrored, request.Method, err)
 		c.metrics.With(platform.KeyCapabilityID, request.Id).IncrementCapabilityFailureCounter(ctx)
 		c.metrics.IncrementTotalWorkflowStepErrorsCounter(ctx)
 		return nil, fmt.Errorf("failed to execute capability: %w", err)
 	}
 
 	c.lggr.Debugw("Capability execution succeeded", "capID", request.Id, "capReqCallbackID", request.CallbackId)
-	_ = events.EmitCapabilityFinishedEvent(ctx, c.loggerLabels, c.WorkflowExecutionID, request.Id, meteringRef, store.StatusCompleted, nil)
+	_ = events.EmitCapabilityFinishedEvent(ctx, c.loggerLabels, c.WorkflowExecutionID, request.Id, meteringRef, store.StatusCompleted, request.Method, nil)
 
 	if meterReport != nil {
 		if err = meterReport.Settle(meteringRef, capResp.Metadata); err != nil {

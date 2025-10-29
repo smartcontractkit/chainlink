@@ -240,7 +240,6 @@ flowchart LR
 	click chainlink-ccip/chains/solana/gobindings href "https://github.com/smartcontractkit/chainlink-ccip"
 	chainlink-common --> chain-selectors
 	chainlink-common --> chainlink-common/pkg/chipingress
-	chainlink-common --> chainlink-common/pkg/workflows/sdk/v2/pb
 	chainlink-common --> chainlink-protos/billing/go
 	chainlink-common --> chainlink-protos/cre/go
 	chainlink-common --> chainlink-protos/linking-service/go
@@ -311,6 +310,7 @@ flowchart LR
 	click chainlink-solana href "https://github.com/smartcontractkit/chainlink-solana"
 	chainlink-sui --> chainlink-aptos
 	chainlink-sui --> chainlink-ccip
+	chainlink-sui --> chainlink-common/pkg/values
 	click chainlink-sui href "https://github.com/smartcontractkit/chainlink-sui"
 	chainlink-sui/deployment --> chainlink-deployments-framework
 	click chainlink-sui/deployment href "https://github.com/smartcontractkit/chainlink-sui"

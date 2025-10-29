@@ -2,6 +2,7 @@ package environment
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"maps"
 
@@ -224,8 +225,11 @@ func SetupTestEnvironment(
 	}
 	fmt.Print(libformat.PurpleText("%s", input.StageGen.WrapAndNext("Applied Features in %.2f seconds", input.StageGen.Elapsed().Seconds())))
 
-	queue := worker.New(10)
-	jdStartedFuture := queue.SubmitAny(func() (any, error) {
+	queue := worker.New(ctx, 10)
+	defer queue.StopAndWait() // Ensure cleanup on any exit path
+
+	jdStartedFuture := queue.SubmitAny(func(ctx context.Context) (any, error) {
+		// TODO: pass context after we update the CTF to accept context, when creating new JD instance
 		jdOutput, startJDErr := StartJD(testLogger, *input.JdInput, input.Provider)
 		if startJDErr != nil {
 			return nil, pkgerrors.Wrap(startJDErr, "failed to start Job Distributor")
@@ -233,7 +237,7 @@ func SetupTestEnvironment(
 		return jdOutput, nil
 	})
 
-	donsStartedFuture := queue.SubmitAny(func() (any, error) {
+	donsStartedFuture := queue.SubmitAny(func(ctx context.Context) (any, error) {
 		nodeSetOutput, startDonsErr := StartDONs(ctx, testLogger, topology, input.Provider, deployedBlockchains.RegistryChain().CtfOutput(), input.CapabilityConfigs, input.CopyCapabilityBinaries, updatedNodeSets)
 		if startDonsErr != nil {
 			return nil, pkgerrors.Wrap(startDonsErr, "failed to start DONs")
@@ -242,13 +246,26 @@ func SetupTestEnvironment(
 		return nodeSetOutput, nil
 	})
 
-	// First wait for JD to start, because it will be faster than DONs
+	// Await both futures to ensure proper cleanup even if one fails
 	startedJD, jdStartErr := worker.AwaitAs[*StartedJD](ctx, jdStartedFuture)
+	startedDONs, donStartErr := worker.AwaitAs[*StartedDONs](ctx, donsStartedFuture)
+
+	// Check errors after both awaits complete
+	// If both failed, prefer the non-context-cancelled error as it's likely the root cause
+	if jdStartErr != nil && donStartErr != nil {
+		// If one is context.Canceled, it was likely caused by the other task's error
+		if pkgerrors.Is(jdStartErr, context.Canceled) && !pkgerrors.Is(donStartErr, context.Canceled) {
+			return nil, pkgerrors.Wrap(donStartErr, "failed to start DONs")
+		}
+		if pkgerrors.Is(donStartErr, context.Canceled) && !pkgerrors.Is(jdStartErr, context.Canceled) {
+			return nil, pkgerrors.Wrap(jdStartErr, "failed to start Job Distributor")
+		}
+		// Both real errors
+		return nil, pkgerrors.Wrap(errors.Join(fmt.Errorf("JD failed to start: %w", jdStartErr), fmt.Errorf("DONs failed to start: %w", donStartErr)), "failed to start Job Distributor AND Dons")
+	}
 	if jdStartErr != nil {
 		return nil, pkgerrors.Wrap(jdStartErr, "failed to start Job Distributor")
 	}
-
-	startedDONs, donStartErr := worker.AwaitAs[*StartedDONs](ctx, donsStartedFuture)
 	if donStartErr != nil {
 		return nil, pkgerrors.Wrap(donStartErr, "failed to start DONs")
 	}
@@ -339,7 +356,13 @@ func SetupTestEnvironment(
 		return nil, pkgerrors.Wrap(wfErr, "failed to configure workflow registry")
 	}
 
-	wfFiltersFuture := queue.SubmitErr(func() error {
+	wfFiltersFuture := queue.SubmitErr(func(ctx context.Context) error {
+		// we currently have no way of checking if filters were registered, when code runs in CRIB
+		// as we don't have a way to get its database connection string
+		if input.Provider.Type == infra.CRIB {
+			return nil
+		}
+
 		fmt.Print(libformat.PurpleText("\n---> [BACKGROUND] Waiting for Workflow Registry filters registration\n\n"))
 		defer fmt.Print(libformat.PurpleText("\n---> [BACKGROUND] Finished waiting for Workflow Registry filters registration\n\n"))
 
@@ -349,7 +372,7 @@ func SetupTestEnvironment(
 			// There are no filters registered with the V2 WF Registry Syncer
 			return nil
 		default:
-			return workflow.WaitForWorkflowRegistryFiltersRegistration(testLogger, singleFileLogger, input.Provider.Type, deployedBlockchains.RegistryChain().ChainID(), dons, updatedNodeSets)
+			return workflow.WaitForAllNodesToHaveExpectedFiltersRegistered(ctx, singleFileLogger, testLogger, deployedBlockchains.RegistryChain().ChainID(), dons, updatedNodeSets)
 		}
 	})
 
@@ -407,7 +430,6 @@ func SetupTestEnvironment(
 	if err := worker.AwaitErr(ctx, wfFiltersFuture); err != nil {
 		return nil, pkgerrors.Wrap(err, "failed while waiting for workflow registry filters registration")
 	}
-	queue.StopAndWait()
 
 	appendOutputsToInput(input, startedDONs.NodeOutputs(), deployedBlockchains.Outputs, startedJD.JDOutput)
 

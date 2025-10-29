@@ -3,6 +3,7 @@ package fakes
 import (
 	"context"
 	"crypto/ecdsa"
+	"errors"
 	"fmt"
 	"math/big"
 	"strings"
@@ -300,12 +301,18 @@ func (fc *FakeEVMChain) FilterLogs(ctx context.Context, metadata commonCap.Reque
 func (fc *FakeEVMChain) BalanceAt(ctx context.Context, metadata commonCap.RequestMetadata, input *evmcappb.BalanceAtRequest) (*commonCap.ResponseAndMetadata[*evmcappb.BalanceAtReply], error) {
 	fc.eng.Infow("EVM Chain BalanceAt Started", "input", input)
 
+	if input == nil {
+		return nil, errors.New("BalanceAtRequest is nil")
+	}
+
 	// Prepare balance at request
 	address := common.Address(input.Account)
-	blockNumber := new(big.Int).SetBytes(input.BlockNumber.AbsVal)
+
+	// Convert proto big-int to *big.Int; nil ⇒ latest (handled by geth toBlockNumArg)
+	blockArg := pb.NewIntFromBigInt(input.BlockNumber)
 
 	// Get balance at block number
-	balance, err := fc.gethClient.BalanceAt(ctx, address, blockNumber)
+	balance, err := fc.gethClient.BalanceAt(ctx, address, blockArg)
 	if err != nil {
 		return nil, err
 	}

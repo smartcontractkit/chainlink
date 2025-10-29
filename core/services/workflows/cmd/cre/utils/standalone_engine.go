@@ -14,6 +14,7 @@ import (
 	"gopkg.in/yaml.v3"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/billing"
+	commoncap "github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	httpserver "github.com/smartcontractkit/chainlink-common/pkg/capabilities/v2/actions/http/server"
 	consensusserver "github.com/smartcontractkit/chainlink-common/pkg/capabilities/v2/consensus/server"
 	"github.com/smartcontractkit/chainlink-common/pkg/contexts"
@@ -45,9 +46,13 @@ const (
 	defaultName                      = "myworkflow"
 )
 
-var (
-	defaultTimeout = 10 * time.Minute
-)
+var defaultTimeout = 10 * time.Minute
+
+type mockSubscriber struct{}
+
+func (m mockSubscriber) Subscribe(_ context.Context) (<-chan commoncap.DON, func(), error) {
+	return make(<-chan commoncap.DON), func() {}, nil
+}
 
 func NewStandaloneEngine(
 	ctx context.Context,
@@ -156,6 +161,7 @@ func NewStandaloneEngine(
 		Module:               module,
 		WorkflowConfig:       config,
 		CapRegistry:          registry,
+		DonSubscriber:        mockSubscriber{},
 		UseLocalTimeProvider: true,
 		ExecutionsStore:      store.NewInMemoryStore(lggr, clockwork.NewRealClock()),
 
@@ -255,7 +261,8 @@ func (f *fileBasedSecrets) GetSecrets(ctx context.Context, request *sdkpb.GetSec
 			responses = append(responses, &sdkpb.SecretResponse{
 				Response: &sdkpb.SecretResponse_Error{
 					Error: &sdkpb.SecretError{
-						Error: "secret found but no value associated"},
+						Error: "secret found but no value associated",
+					},
 				},
 			})
 			continue

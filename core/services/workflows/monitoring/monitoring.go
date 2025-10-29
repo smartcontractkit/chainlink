@@ -37,15 +37,17 @@ type EngineMetrics struct {
 	engineHeartbeatCounter metric.Int64Counter
 	engineHeartbeatGauge   metric.Int64Gauge
 
-	workflowCompletedDurationSeconds  metric.Int64Histogram
-	workflowEarlyExitDurationSeconds  metric.Int64Histogram
-	workflowErrorDurationSeconds      metric.Int64Histogram
-	workflowTimeoutDurationSeconds    metric.Int64Histogram
-	workflowStepDurationSeconds       metric.Int64Histogram
+	workflowCompletedDurationSeconds   metric.Int64Histogram
+	workflowEarlyExitDurationSeconds   metric.Int64Histogram
+	workflowErrorDurationSeconds       metric.Int64Histogram
+	workflowTimeoutDurationSeconds     metric.Int64Histogram
+	workflowStepDurationSeconds        metric.Int64Histogram
 	capabilityExecutionDurationSeconds metric.Int64Histogram
-	workflowMissingMeteringReport     metric.Int64Counter
-	workflowMeteringMode              metric.Int64Gauge
+	workflowMissingMeteringReport      metric.Int64Counter
+	workflowMeteringMode               metric.Int64Gauge
+
 	workflowExecutionFailedCounter    metric.Int64Counter
+	workflowExecutionStartedCounter   metric.Int64Counter
 	workflowExecutionSucceededCounter metric.Int64Counter
 
 	getSecretsDuration metric.Int64Histogram
@@ -134,6 +136,11 @@ func InitMonitoringResources() (em *EngineMetrics, err error) {
 	em.workflowTriggerEventQueueFullCounter, err = beholder.GetMeter().Int64Counter("platform_engine_workflow_trigger_event_queue_full")
 	if err != nil {
 		return nil, fmt.Errorf("failed to register workflow trigger event queue full counter: %w", err)
+	}
+
+	em.workflowExecutionStartedCounter, err = beholder.GetMeter().Int64Counter("platform_engine_workflow_execution_started_count")
+	if err != nil {
+		return nil, fmt.Errorf("failed to register workflow execution started counter: %w", err)
 	}
 
 	em.workflowExecutionFailedCounter, err = beholder.GetMeter().Int64Counter("platform_engine_workflow_execution_failed_count")
@@ -431,4 +438,9 @@ func (c WorkflowsMetricLabeler) IncrementWorkflowExecutionFailedCounter(ctx cont
 func (c WorkflowsMetricLabeler) IncrementWorkflowExecutionSucceededCounter(ctx context.Context) {
 	otelLabels := beholder.OtelAttributes(c.Labels).AsStringAttributes()
 	c.em.workflowExecutionSucceededCounter.Add(ctx, 1, metric.WithAttributes(otelLabels...))
+}
+
+func (c WorkflowsMetricLabeler) IncrementWorkflowExecutionStartedCounter(ctx context.Context) {
+	otelLabels := beholder.OtelAttributes(c.Labels).AsStringAttributes()
+	c.em.workflowExecutionStartedCounter.Add(ctx, 1, metric.WithAttributes(otelLabels...))
 }
