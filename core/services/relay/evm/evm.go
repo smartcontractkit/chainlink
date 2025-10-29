@@ -35,6 +35,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 	commontypes "github.com/smartcontractkit/chainlink-common/pkg/types"
 	cciptypes "github.com/smartcontractkit/chainlink-common/pkg/types/ccip"
+	"github.com/smartcontractkit/chainlink-common/pkg/types/chains/evm"
 	coretypes "github.com/smartcontractkit/chainlink-common/pkg/types/core"
 	"github.com/smartcontractkit/chainlink-evm/pkg/chains/legacyevm"
 	"github.com/smartcontractkit/chainlink-evm/pkg/codec"
@@ -159,6 +160,10 @@ type Relayer struct {
 	cdcFactory            func() (channeldefinitions.ChannelDefinitionCacheFactory, error)
 	retirementReportCache retirement.RetirementReportCache
 	registerer            prometheus.Registerer
+}
+
+func (r *Relayer) GetLatestLPBlock(ctx context.Context) (*evm.LPBlock, error) {
+	return nil, errors.New("GetLatestLPBlock not implemented")
 }
 
 type MercuryConfig interface {
