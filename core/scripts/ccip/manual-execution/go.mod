@@ -2,8 +2,6 @@ module manual-execution
 
 go 1.24.5
 
-toolchain go1.25.3
-
 require (
 	github.com/ethereum/go-ethereum v1.16.2
 	github.com/pkg/errors v0.9.1
