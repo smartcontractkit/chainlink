@@ -360,7 +360,7 @@ func AddRemoteChainToFeeQuoter(e cldf.Environment, cfg AddRemoteChainToFeeQuoter
 	if err != nil {
 		ds, err2 := shared.PopulateDataStore(ab)
 		if err2 != nil {
-			return cldf.ChangesetOutput{}, fmt.Errorf("failed to populate in-memory DataStore: %w", err2)
+			err2 = fmt.Errorf("failed to populate in-memory DataStore: %w", err2)
 		}
 		return cldf.ChangesetOutput{AddressBook: ab, DataStore: ds}, errors.Join(err, err2)
 	}
