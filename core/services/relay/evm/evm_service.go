@@ -294,6 +294,21 @@ func (e *evmService) CalculateTransactionFee(ctx context.Context, receipt evm.Re
 	}, nil
 }
 
+func (e *evmService) GetLatestLPBlock(ctx context.Context) (*evm.LPBlock, error) {
+	b, err := e.chain.LogPoller().LatestBlock(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get log pollers latest block. %w", err)
+	}
+
+	return &evm.LPBlock{
+		BlockHash:            b.BlockHash,
+		LatestBlockNumber:    b.BlockNumber,
+		BlockTimestamp:       uint64(b.BlockTimestamp.Unix()), //nolint:gosec // G115
+		FinalizedBlockNumber: b.FinalizedBlockNumber,
+		SafeBlockNumber:      b.SafeBlockNumber,
+	}, nil
+}
+
 func (r *Relayer) GetForwarderForEOA(ctx context.Context, eoa, ocr2AggregatorID evm.Address, pluginType string) (forwarder evm.Address, err error) {
 	if pluginType == string(commontypes.Median) {
 		return r.chain.TxManager().GetForwarderForEOAOCR2Feeds(ctx, eoa, ocr2AggregatorID)

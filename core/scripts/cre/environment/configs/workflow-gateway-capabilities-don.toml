@@ -18,6 +18,9 @@
 [fake]
   port = 8171
 
+[fake_http]
+  port = 8666
+
 #[s3provider]
 #  # use all defaults
 #  port = 9000
@@ -69,6 +72,9 @@
       [Log]
       Level = 'debug'
       JSONConsole = true
+
+      [P2P]
+      EnableExperimentalRageP2P = true
 
       [Telemetry]
       Enabled = true
@@ -127,6 +133,9 @@
       Level = 'debug'
       JSONConsole = true
 
+      [P2P]
+      EnableExperimentalRageP2P = true
+
       [Telemetry]
       Enabled = true
       Endpoint = 'host.docker.internal:4317'
@@ -180,6 +189,9 @@
       Level = 'debug'
       JSONConsole = true
 
+      [P2P]
+      EnableExperimentalRageP2P = true
+      
       [Telemetry]
       Enabled = true
       Endpoint = 'host.docker.internal:4317'
