@@ -365,7 +365,7 @@ func AddTokenPoolAndLookupTable(e cldf.Environment, cfg AddTokenPoolAndLookupTab
 		}
 
 		// confirm instructions
-		if instructions != nil && len(instructions) > 0 {
+		if len(instructions) > 0 {
 			if err := chain.Confirm(instructions); err != nil {
 				return cldf.ChangesetOutput{}, fmt.Errorf("failed to confirm instructions: %w", err)
 			}
