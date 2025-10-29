@@ -12,8 +12,6 @@ import (
 	"github.com/smartcontractkit/mcms"
 	mcmsTypes "github.com/smartcontractkit/mcms/types"
 
-	"github.com/smartcontractkit/chainlink-common/pkg/utils/mathutil"
-
 	cldf_solana "github.com/smartcontractkit/chainlink-deployments-framework/chain/solana"
 
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
@@ -232,12 +230,9 @@ func DeployAndMaybeSaveToAddressBook(
 	isUpgrade bool,
 	metadata string) (solana.PublicKey, error) {
 	programName := getTypeToProgramDeployName()[contractType]
-	// the last bool is whether to overallocate the buffer account, if the program is going to be managed
-	// by timelock/mcms we want to overallocate the buffer account so that future upgrades can be performed
 	programID, err := chain.DeployProgram(e.Logger, cldf_solana.ProgramInfo{
-		Name:  programName,
-		Bytes: deployment.SolanaProgramBytes[programName],
-	}, isUpgrade, true)
+		Name: programName,
+	}, isUpgrade, false)
 	if err != nil {
 		return solana.PublicKey{}, fmt.Errorf("failed to deploy program: %w", err)
 	}
@@ -1016,8 +1011,6 @@ func generateUpgradeTxns(
 	}
 	timelockSignerPDA := state.GetTimelockSignerPDA(mcmState.TimelockProgram, mcmState.TimelockSeed)
 
-	programName := getTypeToProgramDeployName()[contractType]
-	newBytes := deployment.SolanaProgramBytes[programName]
 	bufferSize, err := GetSolProgramSize(&e, chain, bufferProgram)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get buffer size: %w", err)
@@ -1029,7 +1022,7 @@ func generateUpgradeTxns(
 		chain,
 		programID,
 		chain.DeployerKey.PublicKey(),
-		mathutil.Max(newBytes, bufferSize),
+		bufferSize,
 	)
 	if err != nil {
 		return txns, fmt.Errorf("failed to generate extend buffer instruction: %w", err)
