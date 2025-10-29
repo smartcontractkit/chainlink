@@ -17,7 +17,8 @@ import (
 )
 
 const (
-	maxJWTExpiryDuration = 5 * time.Minute // Maximum allowed expiry duration
+	maxJWTExpiryDuration     = 5 * time.Minute // Maximum allowed expiry duration
+	defaultIssuedAtTolerance = 5 * time.Minute // Default tolerance for issuedAt validation to handle clock drift
 )
 
 // Option is a function type that allows configuring CreateRequestJWT.
@@ -35,6 +36,7 @@ type VerifyOption func(*verifyOptions)
 
 type verifyOptions struct {
 	maxExpiryDuration *time.Duration
+	issuedAtTolerance *time.Duration
 }
 
 func WithExpiry(d time.Duration) Option {
@@ -64,6 +66,14 @@ func WithSubject(subject string) Option {
 func WithMaxExpiryDuration(d time.Duration) VerifyOption {
 	return func(opts *verifyOptions) {
 		opts.maxExpiryDuration = &d
+	}
+}
+
+// WithIssuedAtTolerance sets the tolerance for issuedAt validation to handle clock skew.
+// This allows tokens with issuedAt times slightly in the future (within the tolerance) to be accepted
+func WithIssuedAtTolerance(d time.Duration) VerifyOption {
+	return func(opts *verifyOptions) {
+		opts.issuedAtTolerance = &d
 	}
 }
 
@@ -228,13 +238,18 @@ func VerifyRequestJWT[T any](tokenString string, req jsonrpc.Request[T], opts ..
 	if options.maxExpiryDuration != nil {
 		maxExpiryDuration = *options.maxExpiryDuration
 	}
+
+	issuedAtTolerance := defaultIssuedAtTolerance
+	if options.issuedAtTolerance != nil {
+		issuedAtTolerance = *options.issuedAtTolerance
+	}
 	signedString, signature, err := splitToken(tokenString)
 	if err != nil {
 		return nil, gethcommon.Address{}, err
 	}
 	decodedSignature, err := base64.RawURLEncoding.DecodeString(signature)
 	if err != nil {
-		return nil, gethcommon.Address{}, err
+		return nil, gethcommon.Address{}, fmt.Errorf("signature segment is not valid base64url: %w", err)
 	}
 	pubKey, err := GetSignersEthAddress([]byte(signedString), decodedSignature)
 	if err != nil {
@@ -242,7 +257,7 @@ func VerifyRequestJWT[T any](tokenString string, req jsonrpc.Request[T], opts ..
 	}
 	verifiedToken, err := jwt.ParseWithClaims(tokenString, &JWTClaims{}, func(token *jwt.Token) (any, error) {
 		if token.Method.Alg() != EthereumSigningMethod.Alg() {
-			return nil, jwt.ErrSignatureInvalid
+			return nil, fmt.Errorf("unsupported JWT 'alg': '%s'. Expected '%s'", token.Method.Alg(), EthereumSigningMethod.Alg())
 		}
 		if _, ok := token.Method.(*SigningMethodEth); !ok {
 			return nil, jwt.ErrSignatureInvalid
@@ -254,17 +269,14 @@ func VerifyRequestJWT[T any](tokenString string, req jsonrpc.Request[T], opts ..
 	}
 	verifiedClaims, ok := verifiedToken.Claims.(*JWTClaims)
 	if !ok {
-		return nil, gethcommon.Address{}, jwt.ErrTokenInvalidClaims
+		return nil, gethcommon.Address{}, errors.New("claims payload is not in the expected format")
 	}
 	if !verifiedToken.Valid {
-		return nil, gethcommon.Address{}, jwt.ErrTokenInvalidClaims
+		return nil, gethcommon.Address{}, errors.New("signature or claims validation failed")
 	}
 	reqDigest, err := req.Digest()
 	if err != nil {
 		return nil, gethcommon.Address{}, err
-	}
-	if verifiedClaims.Digest != "0x"+reqDigest {
-		return nil, gethcommon.Address{}, errors.New("JWT digest does not match request digest")
 	}
 	if verifiedClaims.ID == "" {
 		return nil, gethcommon.Address{}, errors.New("JWT ID (jti) is required but missing")
@@ -275,9 +287,17 @@ func VerifyRequestJWT[T any](tokenString string, req jsonrpc.Request[T], opts ..
 	if verifiedClaims.IssuedAt == nil {
 		return nil, gethcommon.Address{}, errors.New("issuedAt (iat) is required but missing")
 	}
+	now := time.Now()
+	issuedAt := verifiedClaims.IssuedAt
+	if issuedAt.After(now.Add(issuedAtTolerance)) {
+		return nil, gethcommon.Address{}, fmt.Errorf("issuedAt (iat) is too far in the future (beyond tolerance of %.0f seconds)", issuedAtTolerance.Seconds())
+	}
 	duration := verifiedClaims.ExpiresAt.Sub(verifiedClaims.IssuedAt.Time)
 	if duration > maxExpiryDuration {
-		return nil, gethcommon.Address{}, fmt.Errorf("expiry duration exceeds maximum allowed %.0f minutes", maxExpiryDuration.Minutes())
+		return nil, gethcommon.Address{}, fmt.Errorf("token lifetime %.0f sec exceeds the maximum allowed %.0f sec. Reduce the gap between 'iat' and 'exp'", duration.Seconds(), maxExpiryDuration.Seconds())
+	}
+	if verifiedClaims.Digest != "0x"+reqDigest {
+		return nil, gethcommon.Address{}, fmt.Errorf("claim digest '%s' does not match calculated request digest '0x%s'", verifiedClaims.Digest, reqDigest)
 	}
 
 	return verifiedClaims, pubKey, nil

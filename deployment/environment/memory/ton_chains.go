@@ -1,8 +1,11 @@
 package memory
 
 import (
+	"errors"
 	"fmt"
 	"os"
+	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 
@@ -128,4 +131,21 @@ func fundNodesTon(t *testing.T, tonChain cldf_ton.Chain, nodes []*Node) {
 	}
 	_, _, err := tonChain.Wallet.SendManyWaitTransaction(t.Context(), messages)
 	require.NoError(t, err)
+}
+
+func getModFilePath() (string, error) {
+	_, currentFile, _, _ := runtime.Caller(0)
+	// Get the root directory by walking up from current file until we find go.mod
+	rootDir := filepath.Dir(currentFile)
+	for {
+		if _, err := os.Stat(filepath.Join(rootDir, "go.mod")); err == nil {
+			break
+		}
+		parent := filepath.Dir(rootDir)
+		if parent == rootDir {
+			return "", errors.New("could not find project root directory containing go.mod")
+		}
+		rootDir = parent
+	}
+	return filepath.Join(rootDir, "go.mod"), nil
 }

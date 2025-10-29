@@ -5,6 +5,7 @@ import (
 	"encoding/hex"
 	"testing"
 
+	"github.com/smartcontractkit/libocr/offchainreporting2plus/ocr3_1types"
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/ocr3types"
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 	"github.com/smartcontractkit/smdkg/dkgocr/dkgocrtypes"
@@ -23,6 +24,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/consensus/requests"
 	vaultcap "github.com/smartcontractkit/chainlink/v2/core/capabilities/vault"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/vault/vaulttypes"
+	"github.com/smartcontractkit/chainlink/v2/core/capabilities/vault/vaultutils"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/dkgrecipientkey"
 )
@@ -84,14 +86,16 @@ func TestPlugin_ReportingPluginFactory_UsesDefaultsIfNotProvidedInOffchainConfig
 	assert.Equal(t, 64, typedRP.cfg.MaxIdentifierNamespaceLengthBytes)
 	assert.Equal(t, 64, typedRP.cfg.MaxIdentifierKeyLengthBytes)
 
-	assert.Equal(t, "VaultReportingPlugin", info.Name)
-	assert.Equal(t, 100, info.Limits.MaxQueryLength)
-	assert.Equal(t, 512000, info.Limits.MaxObservationLength)
-	assert.Equal(t, 512000, info.Limits.MaxReportsPlusPrecursorLength)
-	assert.Equal(t, 512000, info.Limits.MaxReportLength)
-	assert.Equal(t, 20, info.Limits.MaxReportCount)
-	assert.Equal(t, 1024*1024, info.Limits.MaxKeyValueModifiedKeysPlusValuesLength)
-	assert.Equal(t, 1024*1024, info.Limits.MaxBlobPayloadLength)
+	infoObject, ok := info.(ocr3_1types.ReportingPluginInfo1)
+	assert.True(t, ok, "ReportingPluginInfo not of type ReportingPluginInfo1")
+	assert.Equal(t, "VaultReportingPlugin", infoObject.Name)
+	assert.Equal(t, 100, infoObject.Limits.MaxQueryBytes)
+	assert.Equal(t, 512000, infoObject.Limits.MaxObservationBytes)
+	assert.Equal(t, 512000, infoObject.Limits.MaxReportsPlusPrecursorBytes)
+	assert.Equal(t, 512000, infoObject.Limits.MaxReportBytes)
+	assert.Equal(t, 20, infoObject.Limits.MaxReportCount)
+	assert.Equal(t, 1024*1024, infoObject.Limits.MaxKeyValueModifiedKeysPlusValuesBytes)
+	assert.Equal(t, 1024*1024, infoObject.Limits.MaxBlobPayloadBytes)
 
 	cfg = vaultcommon.ReportingPluginConfig{
 		BatchSize:                                     2,
@@ -123,14 +127,16 @@ func TestPlugin_ReportingPluginFactory_UsesDefaultsIfNotProvidedInOffchainConfig
 	assert.Equal(t, 2, typedRP.cfg.MaxIdentifierNamespaceLengthBytes)
 	assert.Equal(t, 2, typedRP.cfg.MaxIdentifierKeyLengthBytes)
 
-	assert.Equal(t, "VaultReportingPlugin", info.Name)
-	assert.Equal(t, 2, info.Limits.MaxQueryLength)
-	assert.Equal(t, 2, info.Limits.MaxObservationLength)
-	assert.Equal(t, 2, info.Limits.MaxReportsPlusPrecursorLength)
-	assert.Equal(t, 2, info.Limits.MaxReportLength)
-	assert.Equal(t, 2, info.Limits.MaxReportCount)
-	assert.Equal(t, 2, info.Limits.MaxKeyValueModifiedKeysPlusValuesLength)
-	assert.Equal(t, 2, info.Limits.MaxBlobPayloadLength)
+	infoObject, ok = info.(ocr3_1types.ReportingPluginInfo1)
+	assert.True(t, ok, "ReportingPluginInfo not of type ReportingPluginInfo1")
+	assert.Equal(t, "VaultReportingPlugin", infoObject.Name)
+	assert.Equal(t, 2, infoObject.Limits.MaxQueryBytes)
+	assert.Equal(t, 2, infoObject.Limits.MaxObservationBytes)
+	assert.Equal(t, 2, infoObject.Limits.MaxReportsPlusPrecursorBytes)
+	assert.Equal(t, 2, infoObject.Limits.MaxReportBytes)
+	assert.Equal(t, 2, infoObject.Limits.MaxReportCount)
+	assert.Equal(t, 2, infoObject.Limits.MaxKeyValueModifiedKeysPlusValuesBytes)
+	assert.Equal(t, 2, infoObject.Limits.MaxBlobPayloadBytes)
 }
 
 func TestPlugin_ReportingPluginFactory_UseDKGResult(t *testing.T) {
@@ -180,7 +186,9 @@ func TestPlugin_ReportingPluginFactory_UseDKGResult(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, expectedKeyShare, ks)
 
-	assert.Equal(t, "VaultReportingPlugin", info.Name)
+	infoObject, ok := info.(ocr3_1types.ReportingPluginInfo1)
+	assert.True(t, ok, "ReportingPluginInfo not of type ReportingPluginInfo1")
+	assert.Equal(t, "VaultReportingPlugin", infoObject.Name)
 
 	key, err := lpk.Get().Marshal()
 	require.NoError(t, err)
@@ -2173,7 +2181,7 @@ func TestPlugin_Reports(t *testing.T) {
 		RequestType: vaultcommon.RequestType_CREATE_SECRETS,
 	}, info1))
 
-	expectedBytes, err := ToCanonicalJSON(resp)
+	expectedBytes, err := vaultutils.ToCanonicalJSON(resp)
 	require.NoError(t, err)
 	assert.Equal(t, expectedBytes, []byte(o1.ReportWithInfo.Report))
 
@@ -2671,14 +2679,21 @@ func TestPlugin_StateTransition_UpdateSecretsRequest_WritesSecrets(t *testing.T)
 		Namespace: "main",
 		Key:       "secret",
 	}
-	d, err := proto.Marshal(&vaultcommon.StoredSecret{
+	secret, err := proto.Marshal(&vaultcommon.StoredSecret{
 		EncryptedSecret: []byte("old-encrypted-value"),
+	})
+	require.NoError(t, err)
+	metadata, err := proto.Marshal(&vaultcommon.StoredMetadata{
+		SecretIdentifiers: []*vaultcommon.SecretIdentifier{id},
 	})
 	require.NoError(t, err)
 	kv := &kv{
 		m: map[string]response{
 			keyPrefix + vaulttypes.KeyFor(id): {
-				data: d,
+				data: secret,
+			},
+			metadataPrefix + "owner": {
+				data: metadata,
 			},
 		},
 	}
@@ -2739,6 +2754,7 @@ func TestPlugin_StateTransition_UpdateSecretsRequest_WritesSecrets(t *testing.T)
 
 	ss, err := rs.GetSecret(id)
 	require.NoError(t, err)
+	require.NotNil(t, ss)
 
 	assert.Equal(t, ss.EncryptedSecret, []byte("encrypted-value"))
 
@@ -2827,7 +2843,7 @@ func TestPlugin_Reports_UpdateSecretsRequest(t *testing.T) {
 		RequestType: vaultcommon.RequestType_UPDATE_SECRETS,
 	}, info1))
 
-	expectedBytes, err := ToCanonicalJSON(resp)
+	expectedBytes, err := vaultutils.ToCanonicalJSON(resp)
 	require.NoError(t, err)
 	assert.Equal(t, expectedBytes, []byte(o.ReportWithInfo.Report))
 }
@@ -3305,7 +3321,7 @@ func TestPlugin_Reports_DeleteSecretsRequest(t *testing.T) {
 		RequestType: vaultcommon.RequestType_DELETE_SECRETS,
 	}, info1))
 
-	expectedBytes, err := ToCanonicalJSON(resp)
+	expectedBytes, err := vaultutils.ToCanonicalJSON(resp)
 	require.NoError(t, err)
 	assert.Equal(t, expectedBytes, []byte(o.ReportWithInfo.Report))
 }
@@ -3612,7 +3628,7 @@ func TestPlugin_Reports_ListSecretIdentifiersRequest(t *testing.T) {
 		RequestType: vaultcommon.RequestType_LIST_SECRET_IDENTIFIERS,
 	}, info1))
 
-	expectedBytes, err := ToCanonicalJSON(resp)
+	expectedBytes, err := vaultutils.ToCanonicalJSON(resp)
 	require.NoError(t, err)
 	assert.Equal(t, expectedBytes, []byte(o.ReportWithInfo.Report))
 }

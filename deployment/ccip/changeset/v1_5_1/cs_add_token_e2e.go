@@ -21,11 +21,14 @@ import (
 
 	cldf_evm "github.com/smartcontractkit/chainlink-deployments-framework/chain/evm"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
 
 	"github.com/smartcontractkit/chainlink/deployment"
+	ccipops "github.com/smartcontractkit/chainlink/deployment/ccip/operation/evm"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
 	commoncs "github.com/smartcontractkit/chainlink/deployment/common/changeset"
+	opsutil "github.com/smartcontractkit/chainlink/deployment/common/opsutils"
 
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 )
@@ -656,28 +659,17 @@ func addMinterAndMintTokenERC677Helper(env cldf.Environment, selector uint64, to
 
 func addMinterAndMintTokenHelper(env cldf.Environment, selector uint64, token *burn_mint_erc677.BurnMintERC677, recipient common.Address, amount *big.Int) error {
 	deployerKey := env.BlockChains.EVMChains()[selector].DeployerKey
+	chain := env.BlockChains.EVMChains()[selector]
 	ctx := env.GetContext()
-	// check if the owner is the deployer key
-	owner, err := token.Owner(&bind.CallOpts{Context: ctx})
-	if err != nil {
-		return fmt.Errorf("failed to get owner of token %s on chain %d: %w", token.Address().Hex(), selector, err)
-	}
-	if owner != deployerKey.From {
-		return fmt.Errorf("owner of token %s on chain %d is not the deployer key", token.Address().Hex(), selector)
-	}
+
 	// Grant minter role to the given address
-	tx, err := token.GrantMintRole(deployerKey, recipient)
+	err := addMinterForERC677Token(env, chain, token.Address(), recipient)
 	if err != nil {
-		return fmt.Errorf("failed to grant mint role to %s on chain %d: %w", recipient.Hex(), selector, err)
+		return fmt.Errorf("failed to grant Mint & Burn role to %s on chain %d: %w", recipient.Hex(), selector, err)
 	}
-	if _, err := env.BlockChains.EVMChains()[selector].Confirm(tx); err != nil {
-		return fmt.Errorf("failed to wait for transaction %s on chain %d: %w", tx.Hash().Hex(), selector, err)
-	}
-	env.Logger.Infow("Transaction granting mint role mined successfully",
-		"Hash", tx.Hash().Hex(), "Selector", selector)
 
 	// Mint tokens to the given address and verify the balance
-	tx, err = token.Mint(deployerKey, recipient, amount)
+	tx, err := token.Mint(deployerKey, recipient, amount)
 	if err != nil {
 		return fmt.Errorf("failed to mint %s tokens to %s on chain %d: %w",
 			token.Address().Hex(), recipient.Hex(), selector, err)
@@ -812,6 +804,20 @@ func grantDefaultAdminRoleForBurnMintERC20Token(env cldf.Environment, selector u
 		}
 		env.Logger.Infow("Transaction granting default admin role mined successfully",
 			"Hash", tx.Hash().Hex(), "Selector", selector)
+	}
+
+	return nil
+}
+
+func addMinterForERC677Token(env cldf.Environment, chain cldf_evm.Chain, tokenAddress common.Address, poolAddress common.Address) error {
+	_, err := operations.ExecuteOperation(env.OperationsBundle, ccipops.GrantMintAndBurnRolesERC677Op, chain, opsutil.EVMCallInput[common.Address]{
+		Address:       tokenAddress,
+		ChainSelector: chain.Selector,
+		CallInput:     poolAddress,
+	})
+
+	if err != nil {
+		return fmt.Errorf("failed to grant mint and burn roles: %w", err)
 	}
 
 	return nil

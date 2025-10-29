@@ -8,11 +8,13 @@ import (
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/smartcontractkit/freeport"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/smartcontractkit/chainlink-evm/pkg/utils"
 	"github.com/smartcontractkit/quarantine"
+
+	"github.com/smartcontractkit/chainlink-evm/pkg/utils"
 
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_2_0/router"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/mock_v3_aggregator_contract"
@@ -113,7 +115,25 @@ func Test_CLOSpecApprovalFlow_dynamicPriceGetter(t *testing.T) {
 }
 
 func test_CLOSpecApprovalFlow(t *testing.T, ccipTH integrationtesthelpers.CCIPIntegrationTestHarness, tokenPricesUSDPipeline string, priceGetterConfiguration string) {
-	jobParams := ccipTH.SetUpNodesAndJobs(t, tokenPricesUSDPipeline, priceGetterConfiguration, "http://blah.com")
+	// Starts nodes and configures them in the OCR contracts.
+	bootstrapNode, _, configBlock := ccipTH.SetupAndStartNodes(t.Context(), t, int64(freeport.GetOne(t)))
+	jobParams := ccipTH.NewCCIPJobSpecParams(tokenPricesUSDPipeline, priceGetterConfiguration, configBlock)
+	jobParams.USDCAttestationAPI = "http://blah.com"
+	jobParams.LBTCConfigs = []config.LBTCConfig{
+		{
+			SourceTokenAddress:                 utils.RandomAddress(),
+			AttestationAPI:                     "http://lbtc.com",
+			AttestationAPITimeoutSeconds:       5,
+			AttestationAPIIntervalMilliseconds: 10,
+		},
+		{
+			SourceTokenAddress:                 utils.RandomAddress(),
+			AttestationAPI:                     "http://lbtc-second.com",
+			AttestationAPITimeoutSeconds:       5,
+			AttestationAPIIntervalMilliseconds: 10,
+		},
+	}
+	ccipTH.SetUpJobs(t, bootstrapNode, configBlock, jobParams)
 	ccipTH.SetupFeedsManager(t)
 
 	// Propose and approve new specs

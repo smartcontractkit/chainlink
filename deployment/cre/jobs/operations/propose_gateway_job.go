@@ -1,6 +1,7 @@
 package operations
 
 import (
+	"errors"
 	"fmt"
 
 	"github.com/Masterminds/semver/v3"
@@ -17,12 +18,15 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/cre/pkg/offchain"
 )
 
+const defaultGatewayRequestTimeoutSec = 12
+
 type ProposeGatewayJobInput struct {
-	Domain                  string
-	DONFilters              []offchain.TargetDONFilter
-	DONs                    []DON             `yaml:"dons"`
-	GatewayKeyChainSelector pkg.ChainSelector `yaml:"gateway_key_chain_selector"`
-	JobLabels               map[string]string
+	Domain                   string
+	DONFilters               []offchain.TargetDONFilter
+	DONs                     []DON             `yaml:"dons"`
+	GatewayRequestTimeoutSec int               `yaml:"gatewayRequestTimeoutSec"`
+	GatewayKeyChainSelector  pkg.ChainSelector `yaml:"gatewayKeyChainSelector"`
+	JobLabels                map[string]string
 }
 
 type DON struct {
@@ -88,9 +92,15 @@ var ProposeGatewayJob = operations.NewOperation[ProposeGatewayJobInput, ProposeG
 			targetDONs = append(targetDONs, td)
 		}
 
+		requestTimeoutSec := input.GatewayRequestTimeoutSec
+		if requestTimeoutSec == 0 {
+			requestTimeoutSec = defaultGatewayRequestTimeoutSec
+		}
+
 		gj := pkg.GatewayJob{
-			JobName:    "CRE Gateway",
-			TargetDONs: targetDONs,
+			JobName:           "CRE Gateway",
+			TargetDONs:        targetDONs,
+			RequestTimeoutSec: requestTimeoutSec,
 		}
 
 		err := gj.Validate()
@@ -138,6 +148,9 @@ var ProposeGatewayJob = operations.NewOperation[ProposeGatewayJobInput, ProposeG
 			}
 
 			output.Specs[n.GetId()] = append(output.Specs[n.GetId()], spec)
+		}
+		if len(output.Specs) == 0 {
+			return ProposeGatewayJobOutput{}, errors.New("no gateway jobs were proposed")
 		}
 
 		return output, nil

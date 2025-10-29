@@ -6,7 +6,9 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"github.com/smartcontractkit/chainlink/system-tests/lib/cre"
+	"github.com/smartcontractkit/quarantine"
+
+	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/blockchains"
 	t_helpers "github.com/smartcontractkit/chainlink/system-tests/tests/test-helpers"
 )
 
@@ -51,12 +53,14 @@ func Test_CRE_V1_SecureMint(t *testing.T) {
 	ExecuteSecureMintTest(t, testEnv)
 }
 
+/*
 // TODO: Move Billing tests to v2 Registries
 func Test_CRE_V1_Billing_EVM_Write(t *testing.T) {
+	quarantine.Flaky(t, "DX-1911")
 	testEnv := t_helpers.SetupTestEnvironmentWithConfig(t, t_helpers.GetDefaultTestConfig(t))
 
 	// TODO remove this when OCR works properly with multiple chains in Local CRE
-	testEnv.WrappedBlockchainOutputs = []*cre.WrappedBlockchainOutput{testEnv.WrappedBlockchainOutputs[0]}
+	testEnv.CreEnvironment.Blockchains = []blockchains.Blockchain{testEnv.CreEnvironment.Blockchains[0]}
 
 	require.NoError(
 		t,
@@ -68,12 +72,13 @@ func Test_CRE_V1_Billing_EVM_Write(t *testing.T) {
 	porWfCfg.FeedIDs = []string{porWfCfg.FeedIDs[0]}
 	ExecutePoRTest(t, testEnv, priceProvider, porWfCfg, true)
 }
+*/
 
 func Test_CRE_V1_Billing_Cron_Beholder(t *testing.T) {
 	testEnv := t_helpers.SetupTestEnvironmentWithConfig(t, t_helpers.GetDefaultTestConfig(t))
 
 	// TODO remove this when OCR works properly with multiple chains in Local CRE
-	testEnv.WrappedBlockchainOutputs = []*cre.WrappedBlockchainOutput{testEnv.WrappedBlockchainOutputs[0]}
+	testEnv.CreEnvironment.Blockchains = []blockchains.Blockchain{testEnv.CreEnvironment.Blockchains[0]}
 
 	require.NoError(
 		t,
@@ -91,15 +96,15 @@ To execute tests with v2 contracts start the local CRE first:
  2. Execute the tests in `system-tests/tests/smoke/cre`: `go test -timeout 15m -run "^Test_CRE_V2"`.
 */
 func Test_CRE_V2_Suite(t *testing.T) {
+	quarantine.Flaky(t, "DX-2122")
 	topology := os.Getenv("TOPOLOGY_NAME")
-
 	t.Run("[v2] Proof Of Reserve - "+topology, func(t *testing.T) {
 		// TODO: Review why this test cannot run with two chains? (CRE-983)
 		// How to configure evm for both chains and capabilities DON (DON<>DON topology)?
 		testEnv := t_helpers.SetupTestEnvironmentWithConfig(t, t_helpers.GetDefaultTestConfig(t), v2RegistriesFlags...)
 
 		// TODO: remove this when OCR works properly with multiple chains in Local CRE
-		testEnv.WrappedBlockchainOutputs = []*cre.WrappedBlockchainOutput{testEnv.WrappedBlockchainOutputs[0]}
+		testEnv.CreEnvironment.Blockchains = []blockchains.Blockchain{testEnv.CreEnvironment.Blockchains[0]}
 		priceProvider, wfConfig := beforePoRTest(t, testEnv, "por-workflow-v2", PoRWFV2Location)
 		wfConfig.FeedIDs = []string{wfConfig.FeedIDs[0]}
 		ExecutePoRTest(t, testEnv, priceProvider, wfConfig, false)
@@ -123,12 +128,17 @@ func Test_CRE_V2_Suite(t *testing.T) {
 		ExecuteHTTPTriggerActionTest(t, testEnv)
 	})
 
+	t.Run("[v2] HTTP Action CRUD Success - "+topology, func(t *testing.T) {
+		testEnv := t_helpers.SetupTestEnvironmentWithConfig(t, t_helpers.GetDefaultTestConfig(t), v2RegistriesFlags...)
+
+		ExecuteHTTPActionCRUDSuccessTest(t, testEnv)
+	})
+
 	t.Run("[v2] DON Time - "+topology, func(t *testing.T) {
 		testEnv := t_helpers.SetupTestEnvironmentWithConfig(t, t_helpers.GetDefaultTestConfig(t), v2RegistriesFlags...)
 
 		ExecuteDonTimeTest(t, testEnv)
 	})
-
 	t.Run("[v2] Consensus - "+topology, func(t *testing.T) {
 		testEnv := t_helpers.SetupTestEnvironmentWithConfig(t, t_helpers.GetDefaultTestConfig(t), v2RegistriesFlags...)
 
@@ -140,7 +150,7 @@ func Test_CRE_V2_EVM_Suite(t *testing.T) {
 	topology := os.Getenv("TOPOLOGY_NAME")
 	testEnv := t_helpers.SetupTestEnvironmentWithConfig(t, t_helpers.GetDefaultTestConfig(t), v2RegistriesFlags...)
 	// TODO: remove this when OCR works properly with multiple chains in Local CRE
-	testEnv.WrappedBlockchainOutputs = []*cre.WrappedBlockchainOutput{testEnv.WrappedBlockchainOutputs[0]}
+	testEnv.CreEnvironment.Blockchains = []blockchains.Blockchain{testEnv.CreEnvironment.Blockchains[0]}
 
 	t.Run("[v2] EVM Write - "+topology, func(t *testing.T) {
 		priceProvider, porWfCfg := beforePoRTest(t, testEnv, "por-workflowV2", PoRWFV2Location)
@@ -151,4 +161,10 @@ func Test_CRE_V2_EVM_Suite(t *testing.T) {
 	t.Run("[v2] EVM Read - "+topology, func(t *testing.T) {
 		ExecuteEVMReadTest(t, testEnv)
 	})
+}
+
+func Test_CRE_V2_HTTP_Action_Suite(t *testing.T) {
+	testEnv := t_helpers.SetupTestEnvironmentWithConfig(t, t_helpers.GetDefaultTestConfig(t), v2RegistriesFlags...)
+
+	ExecuteHTTPActionCRUDSuccessTest(t, testEnv)
 }

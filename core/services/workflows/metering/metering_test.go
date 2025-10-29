@@ -49,6 +49,13 @@ var (
 			UnitsPerCredit:  "2",
 		},
 	}
+	successZeroRates = []*billing.RateCard{
+		{
+			ResourceType:    billing.ResourceType_RESOURCE_TYPE_COMPUTE,
+			MeasurementUnit: billing.MeasurementUnit_MEASUREMENT_UNIT_MILLISECONDS,
+			UnitsPerCredit:  "0",
+		},
+	}
 	successRatesMulti = []*billing.RateCard{
 		{
 			ResourceType:    billing.ResourceType_RESOURCE_TYPE_COMPUTE,
@@ -64,6 +71,16 @@ var (
 	successReserveResponseWithRates = billing.ReserveCreditsResponse{
 		Success:   true,
 		RateCards: successRates,
+		Credits:   "10000",
+	}
+	successZeroReserveResponseWithRates = billing.ReserveCreditsResponse{
+		Success:   true,
+		RateCards: successRates,
+		Credits:   "0",
+	}
+	successReserveResponseWithZeroRates = billing.ReserveCreditsResponse{
+		Success:   true,
+		RateCards: successZeroRates,
 		Credits:   "10000",
 	}
 	successReserveResponseWithMultiRates = billing.ReserveCreditsResponse{Success: true, RateCards: successRatesMulti, Credits: "10000"}
@@ -946,6 +963,62 @@ func Test_Report_Settle(t *testing.T) {
 		assert.Empty(t, logs.All())
 		billingClient.AssertExpectations(t)
 	})
+
+	t.Run("successfully settles zero value rate", func(t *testing.T) {
+		t.Parallel()
+
+		billingClient := mocks.NewBillingClient(t)
+		lggr, logs := logger.TestObserved(t, zapcore.InfoLevel)
+		billingClient.EXPECT().GetWorkflowExecutionRates(mock.Anything, mock.Anything).
+			Return(&billing.GetWorkflowExecutionRatesResponse{
+				RateCards: successZeroRates,
+				GasTokensPerCredit: map[uint64]string{
+					5009297550715157269: "0", // ETH mainnet; zero value rate
+				},
+			}, nil)
+		report := newTestReport(t, lggr, billingClient)
+
+		billingClient.EXPECT().ReserveCredits(mock.Anything, mock.Anything).
+			Return(&successReserveResponseWithZeroRates, nil)
+		require.NoError(t, report.Reserve(t.Context()))
+
+		config, _ := values.NewMap(map[string]any{
+			RatiosKey: map[string]string{
+				testUnitA:   "0.5",
+				testUnitGas: "0.5",
+			},
+		})
+
+		info := capabilities.CapabilityInfo{
+			SpendTypes: []capabilities.CapabilitySpendType{
+				capabilities.CapabilitySpendType(testUnitA),
+				capabilities.CapabilitySpendType(testUnitGas),
+			},
+		}
+
+		value := decimal.NewNullDecimal(decimal.Zero)
+		value.Valid = false
+
+		_, err := report.Deduct("ref1", ByDerivedAvailability(value, 1, info, config))
+		require.NoError(t, err)
+
+		steps := capabilities.ResponseMetadata{Metering: []capabilities.MeteringNodeDetail{
+			{Peer2PeerID: "xyz", SpendUnit: testUnitA, SpendValue: "0.000007"},
+			{Peer2PeerID: "xyz", SpendUnit: testUnitGas, SpendValue: "0.000700000000000000"}, // should convert to 0 credits
+		}, CapDON_N: 42}
+
+		require.NoError(t, report.Settle("ref1", steps))
+
+		billingClient.EXPECT().
+			SubmitWorkflowReceipt(mock.Anything, mock.MatchedBy(func(report *billing.SubmitWorkflowReceiptRequest) bool {
+				return report.CreditsConsumed == "0"
+			})).Return(&emptypb.Empty{}, nil).Once()
+
+		require.NoError(t, report.SendReceipt(t.Context()))
+
+		assert.Empty(t, logs.All())
+		billingClient.AssertExpectations(t)
+	})
 }
 
 func Test_Report_FormatReport(t *testing.T) {
@@ -983,6 +1056,38 @@ func Test_Report_FormatReport(t *testing.T) {
 		billingClient.AssertExpectations(t)
 	})
 
+	t.Run("includes orgID in metadata", func(t *testing.T) {
+		t.Parallel()
+
+		testOrgID := "org-123"
+		labels := map[string]string{
+			platform.KeyWorkflowOwner:       "accountId",
+			platform.KeyWorkflowID:          "workflowId",
+			platform.KeyWorkflowVersion:     workflowV2,
+			platform.KeyWorkflowExecutionID: "workflowExecutionId",
+			platform.KeyDonID:               "42",
+			platform.KeyDonF:                "1",
+			platform.KeyDonN:                "3",
+			platform.KeyP2PID:               "peerId",
+			platform.KeyTriggerID:           "triggerId",
+			platform.KeyOrganizationID:      testOrgID,
+		}
+
+		billingClient := mocks.NewBillingClient(t)
+		billingClient.EXPECT().GetWorkflowExecutionRates(mock.Anything, mock.Anything).
+			Return(&billing.GetWorkflowExecutionRatesResponse{}, nil)
+
+		report, err := NewReport(t.Context(), labels, logger.Nop(), billingClient, defaultMetrics(t), dummyRegistryAddress, dummyChainSelector, workflowV2)
+		require.NoError(t, err)
+
+		billingClient.EXPECT().ReserveCredits(mock.Anything, mock.Anything).Return(&successReserveResponse, nil)
+		require.NoError(t, report.Reserve(t.Context()))
+
+		meteringReport := report.FormatReport()
+		require.Equal(t, testOrgID, meteringReport.Metadata.OrgID)
+		billingClient.AssertExpectations(t)
+	})
+
 	t.Run("contains all step data", func(t *testing.T) {
 		t.Parallel()
 
@@ -1016,8 +1121,15 @@ func Test_Report_FormatReport(t *testing.T) {
 						SpendValueCre: "84.0000000000",
 					},
 				},
+				AggSpend: []*eventspb.AggregatedSpendDetail{
+					{
+						SpendValue:    "42.0000000000",
+						SpendUnit:     billing.ResourceType_RESOURCE_TYPE_COMPUTE.String(),
+						SpendValueCre: "840.0000000000",
+					},
+				},
 				AggSpendValue:    "42.0000000000",
-				AggSpendUnit:     billing.ResourceType_RESOURCE_TYPE_COMPUTE.String(),
+				AggSpendUnit:     "RESOURCE_TYPE_COMPUTE",
 				AggSpendValueCre: "840.0000000000",
 				CapdonN:          10,
 			}
@@ -1074,10 +1186,17 @@ func Test_Report_FormatReport(t *testing.T) {
 						SpendValueCre: "24.0000000000",
 					},
 				},
-				AggSpendValue:    "42.0000000000", // median of 42, 44, 12
-				AggSpendUnit:     billing.ResourceType_RESOURCE_TYPE_COMPUTE.String(),
+				AggSpendValue:    "42.0000000000",
+				AggSpendUnit:     "RESOURCE_TYPE_COMPUTE",
 				AggSpendValueCre: "84.0000000000",
 				CapdonN:          1,
+				AggSpend: []*eventspb.AggregatedSpendDetail{
+					{
+						SpendValue:    "42.0000000000", // median of 42, 44, 12
+						SpendUnit:     billing.ResourceType_RESOURCE_TYPE_COMPUTE.String(),
+						SpendValueCre: "84.0000000000",
+					},
+				},
 			}
 		}
 
@@ -1151,10 +1270,22 @@ func Test_Report_FormatReport(t *testing.T) {
 						SpendValueCre: "100.0000000000",
 					},
 				},
-				AggSpendValue:    "1000000000000.0000000000", // converted to wei before median is taken
-				AggSpendUnit:     testUnitGas,
+				AggSpendValue:    "1000000000000.0000000000",
+				AggSpendUnit:     "GAS.5009297550715157269",
 				AggSpendValueCre: "100.0000000000",
 				CapdonN:          1,
+				AggSpend: []*eventspb.AggregatedSpendDetail{
+					{
+						SpendValue:    "42.0000000000", // median of 42, 44, 12
+						SpendUnit:     billing.ResourceType_RESOURCE_TYPE_COMPUTE.String(),
+						SpendValueCre: "84.0000000000",
+					},
+					{
+						SpendValue:    "1000000000000.0000000000", // converted to wei before median is taken
+						SpendUnit:     testUnitGas,
+						SpendValueCre: "100.0000000000",
+					},
+				},
 			}
 		}
 
@@ -1305,6 +1436,63 @@ func Test_Report_SendReceipt(t *testing.T) {
 		require.NoError(t, report.SendReceipt(t.Context()))
 		billingClient.AssertExpectations(t)
 	})
+
+	t.Run("happy path with zero reserve and insufficient balance does not block workflow execution", func(t *testing.T) {
+		t.Parallel()
+
+		billingClient := mocks.NewBillingClient(t)
+		billingClient.EXPECT().GetWorkflowExecutionRates(mock.Anything, mock.Anything).
+			Return(&billing.GetWorkflowExecutionRatesResponse{
+				RateCards: successRates,
+			}, nil)
+		billingClient.EXPECT().ReserveCredits(mock.Anything, mock.Anything).
+			Return(&successZeroReserveResponseWithRates, nil)
+
+		report := newTestReport(t, logger.Nop(), billingClient)
+
+		require.NoError(t, report.Reserve(t.Context()))
+
+		// Deduct and Settle a few times to consume credits
+		// Each deduction of 2 units of compute consumes 1 credit (rate: 2 units per credit)
+		_, err := report.Deduct("step1", ByResource(testUnitA, "", decimal.NewFromInt(2)))
+		require.ErrorIs(t, err, ErrInsufficientBalance) // insufficient balance does not block workflow execution
+		require.NoError(t, report.Settle("step1", capabilities.ResponseMetadata{Metering: []capabilities.MeteringNodeDetail{
+			{Peer2PeerID: "node1", SpendUnit: testUnitA, SpendValue: "2"},
+		}}))
+
+		_, err = report.Deduct("step2", ByResource(testUnitA, "", decimal.NewFromInt(4)))
+		require.ErrorIs(t, err, ErrInsufficientBalance)
+		require.NoError(t, report.Settle("step2", capabilities.ResponseMetadata{Metering: []capabilities.MeteringNodeDetail{
+			{Peer2PeerID: "node2", SpendUnit: testUnitA, SpendValue: "4"},
+		}}))
+
+		_, err = report.Deduct("step3", ByResource(testUnitA, "", decimal.NewFromInt(2)))
+		require.ErrorIs(t, err, ErrInsufficientBalance)
+		require.NoError(t, report.Settle("step3", capabilities.ResponseMetadata{Metering: []capabilities.MeteringNodeDetail{
+			{Peer2PeerID: "node3", SpendUnit: testUnitA, SpendValue: "2"},
+		}}))
+
+		// Total deducted: 2 + 4 + 2 = 8 units of compute = 16 credits consumed
+		billingClient.EXPECT().SubmitWorkflowReceipt(mock.Anything, mock.MatchedBy(func(req *billing.SubmitWorkflowReceiptRequest) bool {
+			if req == nil {
+				return false
+			}
+
+			return req.WorkflowId == "workflowId" &&
+				req.WorkflowExecutionId == "workflowExecutionId" &&
+				req.CreditsConsumed == "16" &&
+				req.WorkflowOwner == "accountId" &&
+				req.WorkflowRegistryAddress == "0x123" &&
+				req.WorkflowRegistryChainSelector == 16015286601757825753 &&
+				req.Metering != nil &&
+				req.Metering.Metadata != nil &&
+				!req.Metering.MeteringMode &&
+				req.Metering.Message == ""
+		})).Return(&emptypb.Empty{}, nil)
+
+		require.NoError(t, report.SendReceipt(t.Context()))
+		billingClient.AssertExpectations(t)
+	})
 }
 
 func Test_Report_EmitReceipt(t *testing.T) {
@@ -1378,6 +1566,13 @@ func Test_Report_EmitReceipt(t *testing.T) {
 			}}))
 
 			expected[stepRef] = &eventspb.MeteringReportStep{
+				AggSpend: []*eventspb.AggregatedSpendDetail{
+					{
+						SpendValue:    "42.0000000000",
+						SpendUnit:     "a",
+						SpendValueCre: "0.0000000000",
+					},
+				},
 				AggSpendValue:    "42.0000000000",
 				AggSpendUnit:     "a",
 				AggSpendValueCre: "0.0000000000",

@@ -222,6 +222,7 @@ IncomingMessageBufferSize = 10
 OutgoingMessageBufferSize = 10
 PeerID = ''
 TraceLogging = false
+EnableExperimentalRageP2P = false
 
 [P2P.V2]
 Enabled = false
@@ -315,6 +316,7 @@ IncomingMessageBufferSize = 10
 OutgoingMessageBufferSize = 10
 PeerID = ''
 TraceLogging = false
+EnableExperimentalRageP2P = false
 
 [Capabilities.Peering.V2]
 Enabled = false
@@ -389,6 +391,7 @@ EmitterExportTimeout = '1s'
 ChipIngressEndpoint = ''
 ChipIngressInsecureConnection = false
 HeartbeatInterval = '1s'
+LogLevel = 'info'
 LogStreamingEnabled = false
 
 [Workflows]

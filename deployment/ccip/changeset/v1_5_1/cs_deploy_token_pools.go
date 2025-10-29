@@ -25,6 +25,7 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview/evm"
+	commontypes "github.com/smartcontractkit/chainlink/deployment/common/types"
 
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/latest/fast_transfer_token_pool"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_5_1/burn_mint_token_pool"
@@ -207,6 +208,13 @@ func DeployTokenPoolContractsChangeset(env cldf.Environment, c DeployTokenPoolCo
 						poolConfig.TokenAddress, chain, err)
 				}
 			}
+			if poolConfig.TokenType == shared.ERC677TokenHelper || poolConfig.TokenType == commontypes.LinkToken {
+				if err := addMinterForERC677Token(env, chain, poolConfig.TokenAddress, contract.Address); err != nil {
+					return fmt.Errorf("failed to add Token pool as minter and burner for ERC677 token %s on %s: %w",
+						poolConfig.TokenAddress, chain, err)
+				}
+			}
+
 			return nil
 		})
 	}

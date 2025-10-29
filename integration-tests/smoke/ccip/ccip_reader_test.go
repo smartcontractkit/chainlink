@@ -35,6 +35,7 @@ import (
 	cldf_evm_provider "github.com/smartcontractkit/chainlink-deployments-framework/chain/evm/provider"
 	"github.com/smartcontractkit/chainlink-evm/pkg/assets"
 	"github.com/smartcontractkit/chainlink-evm/pkg/config"
+	"github.com/smartcontractkit/chainlink-evm/pkg/writer"
 
 	readermocks "github.com/smartcontractkit/chainlink-ccip/mocks/pkg/contractreader"
 	typepkgmock "github.com/smartcontractkit/chainlink-ccip/mocks/pkg/types/ccipocr3"
@@ -49,10 +50,10 @@ import (
 
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_0_0/rmn_proxy_contract"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_0/ccip_reader_tester"
-	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_0/fee_quoter"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_0/offramp"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_0/onramp"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_0/rmn_remote"
+	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_3/fee_quoter"
 	"github.com/smartcontractkit/chainlink-evm/pkg/client"
 	"github.com/smartcontractkit/chainlink-evm/pkg/heads/headstest"
 	"github.com/smartcontractkit/chainlink-evm/pkg/logpoller"
@@ -164,7 +165,7 @@ func TestCCIPReader_GetRMNRemoteConfig(t *testing.T) {
 
 	// Create dummy contract writers
 	contractWriters := make(map[cciptypes.ChainSelector]types.ContractWriter)
-	chainWriter, err := evm.NewChainWriterService(
+	chainWriter, err := writer.NewChainWriterService(
 		logger.TestLogger(t),
 		cl,
 		nil,
@@ -316,7 +317,7 @@ func TestCCIPReader_GetOffRampConfigDigest(t *testing.T) {
 
 	// Create dummy contract writers
 	contractWriters := make(map[cciptypes.ChainSelector]types.ContractWriter)
-	chainWriter, err := evm.NewChainWriterService(
+	chainWriter, err := writer.NewChainWriterService(
 		logger.TestLogger(t),
 		cl,
 		nil,
@@ -889,7 +890,7 @@ func TestCCIPReader_DiscoverContracts(t *testing.T) {
 	contractReaders[chainD] = extendedCrD
 
 	contractWriters := make(map[cciptypes.ChainSelector]types.ContractWriter)
-	chainWriter, err := evm.NewChainWriterService(
+	chainWriter, err := writer.NewChainWriterService(
 		logger.TestLogger(t),
 		clD,
 		nil,
@@ -942,6 +943,7 @@ func TestCCIPReader_DiscoverContracts(t *testing.T) {
 		[]cciptypes.ChainSelector{chainS1, chainD},
 		[]cciptypes.ChainSelector{chainS1, chainD},
 	)
+
 	require.NoError(t, err)
 
 	require.Equal(t, contractAddresses[consts.ContractNameOnRamp][chainS1], cciptypes.UnknownAddress(common.LeftPadBytes(onRampS1Addr.Bytes(), 32)))
@@ -1323,7 +1325,7 @@ func testSetupRealContracts(
 		err = cr.Start(ctx)
 		require.NoError(t, err)
 
-		chainWriter, err := evm.NewChainWriterService(
+		chainWriter, err := writer.NewChainWriterService(
 			logger.TestLogger(t),
 			cl,
 			nil,
@@ -1438,7 +1440,7 @@ func testSetup(
 	require.NoError(t, err)
 
 	contractWriters := make(map[cciptypes.ChainSelector]types.ContractWriter)
-	chainWriter, err := evm.NewChainWriterService(
+	chainWriter, err := writer.NewChainWriterService(
 		logger.TestLogger(t),
 		cl,
 		nil,

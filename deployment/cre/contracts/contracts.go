@@ -22,6 +22,7 @@ import (
 	ocr3_capability "github.com/smartcontractkit/chainlink-evm/gethwrappers/keystone/generated/ocr3_capability_1_0_0"
 	capabilities_registry_v2 "github.com/smartcontractkit/chainlink-evm/gethwrappers/workflow/generated/capabilities_registry_wrapper_v2"
 	workflow_registry "github.com/smartcontractkit/chainlink-evm/gethwrappers/workflow/generated/workflow_registry_wrapper_v1"
+	workflow_registry_v2 "github.com/smartcontractkit/chainlink-evm/gethwrappers/workflow/generated/workflow_registry_wrapper_v2"
 )
 
 var (
@@ -139,6 +140,7 @@ func GetOwnableContractV2[T Ownable](addrs datastore.AddressRefStore, chain cldf
 	case *capabilities_registry_v2.CapabilitiesRegistry:
 	case *ocr3_capability.OCR3Capability:
 	case *workflow_registry.WorkflowRegistry:
+	case *workflow_registry_v2.WorkflowRegistry:
 	default:
 		return nil, fmt.Errorf("unsupported contract type %T", *new(T))
 	}
@@ -179,6 +181,9 @@ func createContractInstance[T Ownable](addr string, chain cldf_evm.Chain) (*T, e
 		instance, err = any(c).(T), e
 	case *workflow_registry.WorkflowRegistry:
 		c, e := workflow_registry.NewWorkflowRegistry(common.HexToAddress(addr), chain.Client)
+		instance, err = any(c).(T), e
+	case *workflow_registry_v2.WorkflowRegistry:
+		c, e := workflow_registry_v2.NewWorkflowRegistry(common.HexToAddress(addr), chain.Client)
 		instance, err = any(c).(T), e
 	default:
 		return nil, errors.New("unsupported contract type for instance creation")

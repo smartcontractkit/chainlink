@@ -14,23 +14,22 @@ import (
 
 	commoncodec "github.com/smartcontractkit/chainlink-common/pkg/codec"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
-	commonservices "github.com/smartcontractkit/chainlink-common/pkg/services"
+	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	commontypes "github.com/smartcontractkit/chainlink-common/pkg/types"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/evm"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/query"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/query/primitives"
 	"github.com/smartcontractkit/chainlink-evm/pkg/codec"
 	"github.com/smartcontractkit/chainlink-evm/pkg/config"
-	"github.com/smartcontractkit/chainlink-protos/cre/go/values"
-
 	"github.com/smartcontractkit/chainlink-evm/pkg/logpoller"
 	evmtypes "github.com/smartcontractkit/chainlink-evm/pkg/types"
-	"github.com/smartcontractkit/chainlink/v2/core/services"
+	"github.com/smartcontractkit/chainlink-protos/cre/go/values"
+
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/read"
 )
 
 type ChainReaderService interface {
-	services.ServiceCtx
+	services.Service
 	commontypes.ContractReader
 }
 
@@ -43,7 +42,7 @@ type chainReader struct {
 	parsed   *codec.ParsedTypes
 	bindings *read.BindingsRegistry
 	codec    commontypes.RemoteCodec
-	commonservices.StateMachine
+	services.StateMachine
 }
 
 type EVMClient interface {
@@ -98,7 +97,7 @@ func (cr *chainReader) init(chainContractReaders map[string]config.ChainContract
 
 		var eventSigsForContractFilter evmtypes.HashArray
 		for typeName, chainReaderDefinition := range chainContractReader.Configs {
-			injectEVMSpecificCodecModifiers(chainReaderDefinition)
+			codec.InjectEVMSpecificCodecModifiers(chainReaderDefinition)
 
 			switch chainReaderDefinition.ReadType {
 			case config.Method:
@@ -146,23 +145,6 @@ func (cr *chainReader) init(chainContractReaders map[string]config.ChainContract
 	return nil
 }
 
-// injectEVMSpecificCodecModifiers injects an AddressModifier into Input/OutputModifications of a ChainReaderDefinition.
-func injectEVMSpecificCodecModifiers(chainReaderDefinition *config.ChainReaderDefinition) {
-	for i, modConfig := range chainReaderDefinition.InputModifications {
-		if addrModifierConfig, ok := modConfig.(*commoncodec.AddressBytesToStringModifierConfig); ok {
-			addrModifierConfig.Modifier = codec.EVMAddressModifier{}
-			chainReaderDefinition.InputModifications[i] = addrModifierConfig
-		}
-	}
-
-	for i, modConfig := range chainReaderDefinition.OutputModifications {
-		if addrModifierConfig, ok := modConfig.(*commoncodec.AddressBytesToStringModifierConfig); ok {
-			addrModifierConfig.Modifier = codec.EVMAddressModifier{}
-			chainReaderDefinition.OutputModifications[i] = addrModifierConfig
-		}
-	}
-}
-
 func (cr *chainReader) Name() string { return cr.lggr.Name() }
 
 // Start registers polling filters if contracts are already bound.
@@ -185,8 +167,8 @@ func (cr *chainReader) HealthReport() map[string]error {
 		cr.Name(): cr.Healthy(),
 	}
 
-	commonservices.CopyHealth(report, cr.lp.HealthReport())
-	commonservices.CopyHealth(report, cr.ht.HealthReport())
+	services.CopyHealth(report, cr.lp.HealthReport())
+	services.CopyHealth(report, cr.ht.HealthReport())
 	return report
 }
 

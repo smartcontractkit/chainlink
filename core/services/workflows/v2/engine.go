@@ -43,7 +43,7 @@ type Engine struct {
 	cfg          *EngineConfig
 	lggr         logger.SugaredLogger
 	loggerLabels map[string]string
-	localNode    capabilities.Node
+	localNode    atomic.Pointer[capabilities.Node]
 
 	// registration ID -> trigger capability
 	triggers map[string]*triggerCapability
@@ -83,7 +83,7 @@ func NewEngine(cfg *EngineConfig) (*Engine, error) {
 	}
 
 	// LocalNode() is expected to be non-blocking at this stage (i.e. the registry is already synced)
-	ctx, cancel := context.WithTimeout(context.Background(), time.Millisecond*100)
+	ctx, cancel := context.WithTimeout(context.Background(), time.Duration(cfg.LocalLimits.LocalNodeTimeoutMs)*time.Millisecond)
 	defer cancel()
 	localNode, err := cfg.CapRegistry.LocalNode(ctx)
 	if err != nil {
@@ -127,7 +127,6 @@ func NewEngine(cfg *EngineConfig) (*Engine, error) {
 		cfg:                     cfg,
 		lggr:                    beholderLogger,
 		loggerLabels:            labelsMap,
-		localNode:               localNode,
 		triggers:                make(map[string]*triggerCapability),
 		allTriggerEventsQueueCh: cfg.LocalLimiters.TriggerEventQueue,
 		executionsSemaphore:     cfg.LocalLimiters.ExecutionConcurrency,
@@ -135,6 +134,7 @@ func NewEngine(cfg *EngineConfig) (*Engine, error) {
 		meterReports:            metering.NewReports(cfg.BillingClient, cfg.WorkflowOwner, cfg.WorkflowID, beholderLogger, labelsMap, metricsLabeler, cfg.WorkflowRegistryAddress, cfg.WorkflowRegistryChainSelector, metering.EngineVersionV2),
 		metrics:                 metricsLabeler,
 	}
+	engine.localNode.Store(&localNode)
 	engine.Service, engine.srvcEng = services.Config{
 		Name:  "WorkflowEngineV2",
 		Start: engine.start,
@@ -146,7 +146,7 @@ func NewEngine(cfg *EngineConfig) (*Engine, error) {
 func (e *Engine) start(ctx context.Context) error {
 	e.cfg.Module.Start()
 	ctx = context.WithoutCancel(ctx)
-	ctx = contexts.WithCRE(ctx, contexts.CRE{Owner: e.cfg.WorkflowOwner, Workflow: e.cfg.WorkflowID}) // TODO org?
+	ctx = contexts.WithCRE(ctx, contexts.CRE{Owner: e.cfg.WorkflowOwner, Workflow: e.cfg.WorkflowID}) // org added later
 	e.srvcEng.GoCtx(ctx, e.heartbeatLoop)
 	e.srvcEng.GoCtx(ctx, e.init)
 	e.srvcEng.GoCtx(ctx, e.handleAllTriggerEvents)
@@ -179,6 +179,30 @@ func (e *Engine) init(ctx context.Context) {
 		return
 	}
 
+	donSubCh, cleanup, err := e.cfg.DonSubscriber.Subscribe(ctx)
+	if err != nil {
+		e.lggr.Errorw("failed to subscribe to DON notifier", "error", err)
+		e.cfg.Hooks.OnInitialized(fmt.Errorf("failed to subscribe to DON notifier: %w", err))
+		return
+	}
+
+	// start loop to sync local node state each time a DON is received on the
+	// subscribed channel
+	e.srvcEng.GoCtx(context.WithoutCancel(ctx), func(ctx context.Context) {
+		defer cleanup()
+		for {
+			select {
+			case <-ctx.Done():
+				return
+			case _, open := <-donSubCh:
+				if !open {
+					return
+				}
+				e.localNodeSync(ctx)
+			}
+		}
+	})
+
 	err = e.runTriggerSubscriptionPhase(ctx)
 	if err != nil {
 		e.lggr.Errorw("Workflow Engine initialization failed", "err", err)
@@ -189,6 +213,27 @@ func (e *Engine) init(ctx context.Context) {
 	e.lggr.Info("Workflow Engine initialized")
 	e.metrics.IncrementWorkflowInitializationCounter(ctx)
 	e.cfg.Hooks.OnInitialized(nil)
+}
+
+func (e *Engine) localNodeSync(ctx context.Context) {
+	to := time.Duration(e.cfg.LocalLimits.LocalNodeTimeoutMs) * time.Millisecond
+	ctx, cancel := context.WithTimeout(ctx, to)
+	defer cancel()
+
+	localNode, err := e.cfg.CapRegistry.LocalNode(ctx)
+	if err != nil {
+		e.cfg.Lggr.Errorf("could not get local node state: %s", err)
+		e.cfg.Hooks.OnNodeSynced(localNode, err)
+		return
+	}
+
+	e.cfg.Lggr.Debugw("Setting local node state",
+		"Workflow DON ID", localNode.WorkflowDON.ID,
+		"Workflow DON Families", localNode.WorkflowDON.Families,
+		"Workflow DON Config Version", localNode.WorkflowDON.ConfigVersion,
+	)
+	e.cfg.Hooks.OnNodeSynced(localNode, nil)
+	e.localNode.Store(&localNode)
 }
 
 func (e *Engine) runTriggerSubscriptionPhase(ctx context.Context) error {
@@ -268,14 +313,17 @@ func (e *Engine) runTriggerSubscriptionPhase(ctx context.Context) error {
 		triggerEventCh, err := triggerCap.RegisterTrigger(regCtx, capabilities.TriggerRegistrationRequest{
 			TriggerID: registrationID,
 			Metadata: capabilities.RequestMetadata{
-				WorkflowID:               e.cfg.WorkflowID,
-				WorkflowOwner:            e.cfg.WorkflowOwner,
-				WorkflowName:             e.cfg.WorkflowName.Hex(),
-				WorkflowTag:              e.cfg.WorkflowTag,
-				DecodedWorkflowName:      e.cfg.WorkflowName.String(),
-				WorkflowDonID:            e.localNode.WorkflowDON.ID,
-				WorkflowDonConfigVersion: e.localNode.WorkflowDON.ConfigVersion,
-				ReferenceID:              fmt.Sprintf("trigger_%d", i),
+				WorkflowID:                    e.cfg.WorkflowID,
+				WorkflowOwner:                 e.cfg.WorkflowOwner,
+				WorkflowName:                  e.cfg.WorkflowName.Hex(),
+				WorkflowTag:                   e.cfg.WorkflowTag,
+				DecodedWorkflowName:           e.cfg.WorkflowName.String(),
+				WorkflowDonID:                 e.localNode.Load().WorkflowDON.ID,
+				WorkflowDonConfigVersion:      e.localNode.Load().WorkflowDON.ConfigVersion,
+				ReferenceID:                   fmt.Sprintf("trigger_%d", i),
+				WorkflowRegistryChainSelector: e.cfg.WorkflowRegistryChainSelector,
+				WorkflowRegistryAddress:       e.cfg.WorkflowRegistryAddress,
+				EngineVersion:                 platform.ValueWorkflowVersionV2,
 				// no WorkflowExecutionID needed (or available at this stage)
 			},
 			Payload: sub.Payload,
@@ -387,6 +435,9 @@ func (e *Engine) startExecution(ctx context.Context, wrappedTriggerEvent enqueue
 	}
 	e.loggerLabels[platform.KeyOrganizationID] = organizationID
 	e.lggr.With(platform.KeyOrganizationID, organizationID)
+	creCtx := contexts.CREValue(ctx)
+	creCtx.Org = organizationID
+	ctx = contexts.WithCRE(ctx, creCtx)
 
 	e.metrics.UpdateTotalWorkflowsGauge(ctx, executingWorkflows.Add(1))
 	defer e.metrics.UpdateTotalWorkflowsGauge(ctx, executingWorkflows.Add(-1))
@@ -437,6 +488,7 @@ func (e *Engine) startExecution(ctx context.Context, wrappedTriggerEvent enqueue
 	startTime := e.cfg.Clock.Now()
 	executionLogger.Infow("Workflow execution starting ...")
 	_ = events.EmitExecutionStartedEvent(ctx, e.loggerLabels, triggerEvent.ID, executionID)
+	e.metrics.With("workflowID", e.cfg.WorkflowID, "workflowName", e.cfg.WorkflowName.String()).IncrementWorkflowExecutionStartedCounter(ctx)
 	var executionStatus string // store.StatusStarted
 
 	var timeProvider TimeProvider = &types.LocalTimeProvider{}
@@ -453,7 +505,12 @@ func (e *Engine) startExecution(ctx context.Context, wrappedTriggerEvent enqueue
 		e.lggr.Errorf("invalid moduleExecuteMaxResponseSizeBytes; must not be negative: %d", moduleExecuteMaxResponseSizeBytes)
 		return
 	}
-	result, err := e.cfg.Module.Execute(execCtx, &sdkpb.ExecuteRequest{
+	execHelper := &ExecutionHelper{
+		Engine: e, WorkflowExecutionID: executionID, UserLogChan: userLogChan,
+		TimeProvider: timeProvider, SecretsFetcher: e.secretsFetcher(executionID),
+	}
+	execHelper.initLimiters(e.cfg.LocalLimiters)
+	result, execErr := e.cfg.Module.Execute(execCtx, &sdkpb.ExecuteRequest{
 		Request: &sdkpb.ExecuteRequest_Trigger{
 			Trigger: &sdkpb.Trigger{
 				Id:      tid,
@@ -462,8 +519,7 @@ func (e *Engine) startExecution(ctx context.Context, wrappedTriggerEvent enqueue
 		},
 		MaxResponseSize: uint64(moduleExecuteMaxResponseSizeBytes), //nolint:gosec // G115
 		Config:          e.cfg.WorkflowConfig,
-	}, &ExecutionHelper{Engine: e, WorkflowExecutionID: executionID, UserLogChan: userLogChan,
-		TimeProvider: timeProvider, SecretsFetcher: e.secretsFetcher(executionID)})
+	}, execHelper)
 
 	endTime := e.cfg.Clock.Now()
 	executionDuration := endTime.Sub(startTime)
@@ -473,7 +529,7 @@ func (e *Engine) startExecution(ctx context.Context, wrappedTriggerEvent enqueue
 		mrErr := meteringReport.Settle(computeUnit,
 			capabilities.ResponseMetadata{
 				Metering: []capabilities.MeteringNodeDetail{{
-					Peer2PeerID: e.localNode.PeerID.String(),
+					Peer2PeerID: e.localNode.Load().PeerID.String(),
 					SpendUnit:   computeUnit,
 					SpendValue:  strconv.Itoa(int(executionDuration.Milliseconds())),
 				}},
@@ -489,19 +545,19 @@ func (e *Engine) startExecution(ctx context.Context, wrappedTriggerEvent enqueue
 		}
 	}
 
-	if err != nil {
+	if execErr != nil {
 		executionStatus = store.StatusErrored
-		if errors.Is(err, context.DeadlineExceeded) {
+		if errors.Is(execErr, context.DeadlineExceeded) {
 			executionStatus = store.StatusTimeout
 			e.metrics.UpdateWorkflowTimeoutDurationHistogram(ctx, int64(executionDuration.Seconds()))
 		} else {
 			e.metrics.UpdateWorkflowErrorDurationHistogram(ctx, int64(executionDuration.Seconds()))
 		}
 
-		executionLogger.Errorw("Workflow execution failed with module execution error", "status", executionStatus, "durationMs", executionDuration.Milliseconds())
+		executionLogger.Errorw("Workflow execution failed with module execution error", "status", executionStatus, "durationMs", executionDuration.Milliseconds(), "err", execErr)
 		_ = events.EmitExecutionFinishedEvent(ctx, e.loggerLabels, executionStatus, executionID, e.lggr)
 		e.cfg.Hooks.OnExecutionFinished(executionID, executionStatus)
-		e.cfg.Hooks.OnExecutionError(err.Error())
+		e.cfg.Hooks.OnExecutionError(execErr.Error())
 		return
 	}
 
@@ -513,7 +569,7 @@ func (e *Engine) startExecution(ctx context.Context, wrappedTriggerEvent enqueue
 		executionStatus = store.StatusErrored
 		e.metrics.UpdateWorkflowErrorDurationHistogram(ctx, int64(executionDuration.Seconds()))
 		e.metrics.With("workflowID", e.cfg.WorkflowID, "workflowName", e.cfg.WorkflowName.String()).IncrementWorkflowExecutionFailedCounter(ctx)
-		executionLogger.Errorw("Workflow execution failed", "status", executionStatus, "durationMs", executionDuration.Milliseconds())
+		executionLogger.Errorw("Workflow execution failed", "status", executionStatus, "durationMs", executionDuration.Milliseconds(), "error", result.GetError())
 		_ = events.EmitExecutionFinishedEvent(ctx, e.loggerLabels, executionStatus, executionID, e.lggr)
 		e.cfg.Hooks.OnExecutionFinished(executionID, executionStatus)
 		e.cfg.Hooks.OnExecutionError(result.GetError())
@@ -574,7 +630,7 @@ func (e *Engine) unregisterAllTriggers(ctx context.Context) {
 			TriggerID: registrationID,
 			Metadata: capabilities.RequestMetadata{
 				WorkflowID:    e.cfg.WorkflowID,
-				WorkflowDonID: e.localNode.WorkflowDON.ID,
+				WorkflowDonID: e.localNode.Load().WorkflowDON.ID,
 			},
 			Payload: trigger.payload,
 		})

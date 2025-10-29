@@ -22,12 +22,8 @@ import (
 
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 
-	"github.com/smartcontractkit/chainlink/deployment"
-
 	commonState "github.com/smartcontractkit/chainlink/deployment/common/changeset/state"
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
-	commontypes "github.com/smartcontractkit/chainlink/deployment/common/types"
-	"github.com/smartcontractkit/chainlink/deployment/environment/memory"
 )
 
 type testMetadata struct {
@@ -191,20 +187,6 @@ func ApplyChangesets(t *testing.T, e cldf.Environment, changesetApplications []C
 		}
 	}
 	return currentEnv, outputs, nil
-}
-
-func SetPreloadedSolanaAddresses(t *testing.T, env cldf.Environment, selector uint64) {
-	typeAndVersion := cldf.NewTypeAndVersion(commontypes.ManyChainMultisigProgram, deployment.Version1_0_0)
-	err := env.ExistingAddresses.Save(selector, memory.SolanaProgramIDs["mcm"], typeAndVersion)
-	require.NoError(t, err)
-
-	typeAndVersion = cldf.NewTypeAndVersion(commontypes.AccessControllerProgram, deployment.Version1_0_0)
-	err = env.ExistingAddresses.Save(selector, memory.SolanaProgramIDs["access_controller"], typeAndVersion)
-	require.NoError(t, err)
-
-	typeAndVersion = cldf.NewTypeAndVersion(commontypes.RBACTimelockProgram, deployment.Version1_0_0)
-	err = env.ExistingAddresses.Save(selector, memory.SolanaProgramIDs["timelock"], typeAndVersion)
-	require.NoError(t, err)
 }
 
 func MustFundAddressWithLink(t *testing.T, e cldf.Environment, chain cldf_evm.Chain, to common.Address, amount int64) {

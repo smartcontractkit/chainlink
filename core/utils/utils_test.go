@@ -367,25 +367,6 @@ func TestLeftPadBitString(t *testing.T) {
 	}
 }
 
-func TestKeyedMutex(t *testing.T) {
-	t.Parallel()
-
-	var km utils.KeyedMutex
-	unlock1 := km.LockInt64(1)
-	unlock2 := km.LockInt64(2)
-
-	awaiter := cltest.NewAwaiter()
-	go func() {
-		km.LockInt64(1)()
-		km.LockInt64(2)()
-		awaiter.ItHappened()
-	}()
-
-	unlock2()
-	unlock1()
-	awaiter.AwaitOrFail(t)
-}
-
 func TestValidateCronSchedule(t *testing.T) {
 	t.Parallel()
 

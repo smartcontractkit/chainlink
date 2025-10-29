@@ -27,7 +27,10 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
+	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/blockchains"
+	blockchain_sets "github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/blockchains/sets"
 	envconfig "github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/config"
+	"github.com/smartcontractkit/chainlink/system-tests/lib/infra"
 
 	ocrTypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 
@@ -49,12 +52,13 @@ import (
 	cretypes "github.com/smartcontractkit/chainlink/system-tests/lib/cre"
 	crecontracts "github.com/smartcontractkit/chainlink/system-tests/lib/cre/contracts"
 	credon "github.com/smartcontractkit/chainlink/system-tests/lib/cre/don"
-	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/jobs"
+	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/jobs/ocr"
 	creenv "github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment"
+	consensus_v1_feature "github.com/smartcontractkit/chainlink/system-tests/lib/cre/features/consensus/v1"
+	don_time_feature "github.com/smartcontractkit/chainlink/system-tests/lib/cre/features/don_time"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/flags"
 	mock_capability "github.com/smartcontractkit/chainlink/system-tests/lib/cre/mock"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/mock/pb"
-	"github.com/smartcontractkit/chainlink/system-tests/lib/infra"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/chaintype"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ocr2key"
 	"github.com/smartcontractkit/chainlink/v2/core/services/llo/cre"
@@ -83,7 +87,7 @@ type Chaos struct {
 
 type TestConfigLoadTest struct {
 	Duration                      string                          `toml:"duration"`
-	Blockchains                   []blockchain.Input              `toml:"blockchains" validate:"required"`
+	Blockchains                   []*blockchain.Input             `toml:"blockchains" validate:"required"`
 	NodeSets                      []*ns.Input                     `toml:"nodesets" validate:"required"`
 	JD                            *jd.Input                       `toml:"jd" validate:"required"`
 	WorkflowRegistryConfiguration *cretypes.WorkflowRegistryInput `toml:"workflow_registry_configuration"`
@@ -114,8 +118,8 @@ type FeedWithStreamID struct {
 type loadTestSetupOutput struct {
 	dataFeedsCacheAddress common.Address
 	forwarderAddress      common.Address
-	blockchainOutput      []*cretypes.WrappedBlockchainOutput
-	donTopology           *cretypes.DonTopology
+	blockchains           []blockchains.Blockchain
+	dons                  *cretypes.Dons
 	nodeOutput            []*cretypes.WrappedNodeOutput
 }
 
@@ -123,19 +127,20 @@ func setupLoadTestEnvironment(
 	t *testing.T,
 	testLogger zerolog.Logger,
 	in *TestConfigLoadTest,
-	mustSetCapabilitiesFn func(input []*ns.Input) []*cretypes.CapabilitiesAwareNodeSet,
+	mustSetCapabilitiesFn func(input []*ns.Input) []*cretypes.NodeSet,
 	capabilityFactoryFns []cretypes.CapabilityRegistryConfigFn,
 	jobSpecFactoryFns []cretypes.JobSpecFn,
 	workflowJobsFn cretypes.JobSpecFn,
 ) *loadTestSetupOutput {
 	universalSetupInput := creenv.SetupInput{
-		CapabilitiesAwareNodeSets:            mustSetCapabilitiesFn(in.NodeSets),
+		NodeSets:                             mustSetCapabilitiesFn(in.NodeSets),
 		CapabilitiesContractFactoryFunctions: capabilityFactoryFns,
 		BlockchainsInput:                     in.Blockchains,
 		JdInput:                              in.JD,
 		Provider:                             *in.Infra,
 		JobSpecFactoryFunctions:              jobSpecFactoryFns,
 		ContractVersions:                     cretypes.NewContractVersionsProvider(envconfig.DefaultContractSet(false)).ContractVersions(),
+		BlockchainDeployers:                  blockchain_sets.NewDeployerSet(testLogger, in.Infra, infra.CribConfigsDir),
 	}
 
 	singleFileLogger := cldlogger.NewSingleFileLogger(t)
@@ -147,32 +152,32 @@ func setupLoadTestEnvironment(
 	in.WorkflowRegistryConfiguration.Out = universalSetupOutput.WorkflowRegistryConfigurationOutput
 
 	forwarderAddress, _, forwarderErr := crecontracts.FindAddressesForChain(
-		universalSetupOutput.CldEnvironment.ExistingAddresses, //nolint:staticcheck // won't migrate now
-		universalSetupOutput.BlockchainOutput[0].ChainSelector,
+		universalSetupOutput.CreEnvironment.CldfEnvironment.ExistingAddresses, //nolint:staticcheck // deprecated but still used
+		universalSetupOutput.CreEnvironment.Blockchains[0].ChainSelector(),
 		keystone_changeset.KeystoneForwarder.String(),
 	)
-	require.NoError(t, forwarderErr, "failed to find forwarder address for chain %d", universalSetupOutput.BlockchainOutput[0].ChainSelector)
+	require.NoError(t, forwarderErr, "failed to find forwarder address for chain %d", universalSetupOutput.CreEnvironment.Blockchains[0].ChainSelector())
 
 	// Create workflow jobs only after capability registry configuration is complete to avoid initialization failures
 	createJobsInput := creenv.CreateJobsWithJdOpInput{}
 	createJobsDeps := creenv.CreateJobsWithJdOpDeps{
 		Logger:                    testLogger,
 		SingleFileLogger:          singleFileLogger,
-		HomeChainBlockchainOutput: universalSetupOutput.BlockchainOutput[0].BlockchainOutput,
+		HomeChainBlockchainOutput: universalSetupOutput.CreEnvironment.Blockchains[0].CtfOutput(),
 		JobSpecFactoryFunctions:   []cretypes.JobSpecFn{workflowJobsFn},
 		CreEnvironment: &cretypes.Environment{
-			CldfEnvironment: universalSetupOutput.CldEnvironment,
-			DonTopology:     universalSetupOutput.DonTopology,
+			CldfEnvironment: universalSetupOutput.CreEnvironment.CldfEnvironment,
 		},
+		Dons: universalSetupOutput.Dons,
 	}
 
-	_, createJobsErr := operations.ExecuteOperation(universalSetupOutput.CldEnvironment.OperationsBundle, creenv.CreateJobsWithJdOpFactory("load-test-jobs", "1.0.0"), createJobsDeps, createJobsInput)
+	_, createJobsErr := operations.ExecuteOperation(universalSetupOutput.CreEnvironment.CldfEnvironment.OperationsBundle, creenv.CreateJobsWithJdOpFactory("load-test-jobs", "1.0.0"), createJobsDeps, createJobsInput)
 	require.NoError(t, createJobsErr, "failed to create jobs with Job Distributor")
 
 	return &loadTestSetupOutput{
 		forwarderAddress: forwarderAddress,
-		blockchainOutput: universalSetupOutput.BlockchainOutput,
-		donTopology:      universalSetupOutput.DonTopology,
+		blockchains:      universalSetupOutput.CreEnvironment.Blockchains,
+		dons:             universalSetupOutput.Dons,
 		nodeOutput:       universalSetupOutput.NodeOutput,
 	}
 }
@@ -186,8 +191,8 @@ func TestLoad_Workflow_Streams_MockCapabilities(t *testing.T) {
 	require.Len(t, in.NodeSets, 2, "expected 2 node sets in the test config")
 	require.NotEmpty(t, os.Getenv("PROMETHEUS_URL"), "PROMETHEUS_URL must be set")
 
-	mustSetCapabilitiesFn := func(input []*ns.Input) []*cretypes.CapabilitiesAwareNodeSet {
-		return []*cretypes.CapabilitiesAwareNodeSet{
+	mustSetCapabilitiesFn := func(input []*ns.Input) []*cretypes.NodeSet {
+		return []*cretypes.NodeSet{
 			{
 				Input:        input[0],
 				Capabilities: []string{cretypes.ConsensusCapability},
@@ -219,69 +224,63 @@ func TestLoad_Workflow_Streams_MockCapabilities(t *testing.T) {
 		}
 	}
 
-	mockJobSpecsFactoryFn := func(input *cretypes.JobSpecInput) (cretypes.DonsToJobSpecs, error) {
-		donTojobSpecs := make(cretypes.DonsToJobSpecs, 0)
+	mockJobSpecsFactoryFn := func(input *cretypes.JobSpecInput) (cretypes.DonJobs, error) {
+		jobSpecs := make(cretypes.DonJobs, 0)
 
-		for _, don := range input.DonTopology.Dons.List() {
-			jobSpecs := make(cretypes.DonJobs, 0)
-			workflowNodeSet, err2 := don.Workers()
-			if err2 != nil {
-				// there should be no DON without worker nodes, even gateway DON is composed of a single worker node
-				return nil, errors.Wrap(err2, "failed to find worker nodes")
-			}
-			for _, workerNode := range workflowNodeSet {
-				if don.HasFlag(cretypes.MockCapability) && in.MockCapabilities != nil {
-					jobSpecs = append(jobSpecs, MockCapabilitiesJob(workerNode.JobDistributorDetails.NodeID, "mock", in.MockCapabilities))
-				}
-			}
-
-			donTojobSpecs[don.ID] = jobSpecs
+		if !input.Don.HasFlag(cretypes.MockCapability) || in.MockCapabilities == nil {
+			return jobSpecs, nil
 		}
 
-		return donTojobSpecs, nil
+		workflowNodeSet, err2 := input.Don.Workers()
+		if err2 != nil {
+			// there should be no DON without worker nodes, even gateway DON is composed of a single worker node
+			return nil, errors.Wrap(err2, "failed to find worker nodes")
+		}
+		for _, workerNode := range workflowNodeSet {
+			jobSpecs = append(jobSpecs, MockCapabilitiesJob(workerNode.JobDistributorDetails.NodeID, "mock", in.MockCapabilities))
+		}
+
+		return jobSpecs, nil
 	}
 
-	loadTestJobSpecsFactoryFn := func(input *cretypes.JobSpecInput) (cretypes.DonsToJobSpecs, error) {
-		donTojobSpecs := make(cretypes.DonsToJobSpecs, 0)
+	loadTestJobSpecsFactoryFn := func(input *cretypes.JobSpecInput) (cretypes.DonJobs, error) {
+		jobSpecs := make(cretypes.DonJobs, 0)
 
-		for _, don := range input.DonTopology.Dons.List() {
-			jobSpecs := make(cretypes.DonJobs, 0)
-			workflowNodeSet, err2 := don.Workers()
-			if err2 != nil {
-				// there should be no DON without worker nodes, even gateway DON is composed of a single worker node
-				return nil, errors.Wrap(err2, "failed to find worker nodes")
-			}
-			for _, workerNode := range workflowNodeSet {
-				if don.HasFlag(cretypes.WorkflowDON) {
-					for i := range feedsAddresses {
-						feedConfig := make([]FeedConfig, 0)
+		if !input.Don.HasFlag(cretypes.WorkflowDON) {
+			return jobSpecs, nil
+		}
 
-						for _, feed := range feedsAddresses[i] {
-							feedID, err2 := datastreams.NewFeedID(feed.Feed)
-							if err2 != nil {
-								return nil, err2
-							}
-							feedBytes := feedID.Bytes()
-							feedConfig = append(feedConfig, FeedConfig{
-								FeedIDsIndex: feed.StreamID,
-								Deviation:    "0.001",
-								Heartbeat:    3600,
-								RemappedID:   "0x" + hex.EncodeToString(feedBytes[:]),
-							})
-						}
+		workflowNodeSet, err2 := input.Don.Workers()
+		if err2 != nil {
+			// there should be no DON without worker nodes, even gateway DON is composed of a single worker node
+			return nil, errors.Wrap(err2, "failed to find worker nodes")
+		}
+		for _, workerNode := range workflowNodeSet {
+			for i := range feedsAddresses {
+				feedConfig := make([]FeedConfig, 0)
 
-						jobSpecs = append(jobSpecs, WorkflowsJob(workerNode.JobDistributorDetails.NodeID, fmt.Sprintf("load_%d", i), feedConfig))
+				for _, feed := range feedsAddresses[i] {
+					feedID, err2 := datastreams.NewFeedID(feed.Feed)
+					if err2 != nil {
+						return nil, err2
 					}
+					feedBytes := feedID.Bytes()
+					feedConfig = append(feedConfig, FeedConfig{
+						FeedIDsIndex: feed.StreamID,
+						Deviation:    "0.001",
+						Heartbeat:    3600,
+						RemappedID:   "0x" + hex.EncodeToString(feedBytes[:]),
+					})
 				}
-			}
 
-			donTojobSpecs[don.ID] = jobSpecs
+				jobSpecs = append(jobSpecs, WorkflowsJob(workerNode.JobDistributorDetails.NodeID, fmt.Sprintf("load_%d", i), feedConfig))
+			}
 		}
 
-		return donTojobSpecs, nil
+		return jobSpecs, nil
 	}
 
-	WorkflowDONLoadTestCapabilitiesFactoryFn := func(donFlags []string, _ *cretypes.CapabilitiesAwareNodeSet) ([]keystone_changeset.DONCapabilityWithConfig, error) {
+	WorkflowDONLoadTestCapabilitiesFactoryFn := func(donFlags []string, _ *cretypes.NodeSet) ([]keystone_changeset.DONCapabilityWithConfig, error) {
 		var capabilities []keystone_changeset.DONCapabilityWithConfig
 
 		if flags.HasFlag(donFlags, cretypes.MockCapability) {
@@ -340,9 +339,9 @@ func TestLoad_Workflow_Streams_MockCapabilities(t *testing.T) {
 	ctx := t.Context()
 	// Get OCR2 keys needed to sign the reports
 	kb := make([]ocr2key.KeyBundle, 0)
-	for idx, don := range setupOutput.donTopology.Dons.List() {
+	for idx, don := range setupOutput.dons.List() {
 		if don.HasFlag(cretypes.MockCapability) {
-			for _, n := range setupOutput.donTopology.Dons.List()[idx].Nodes {
+			for _, n := range setupOutput.dons.List()[idx].Nodes {
 				key, err2 := n.ExportOCR2Keys(n.Keys.OCR2BundleIDs[chainselectors.FamilyEVM])
 				if err2 == nil {
 					b, err3 := json.Marshal(key)
@@ -1091,23 +1090,23 @@ func compareBenchmarkReports(t *testing.T, baselineReport, currentReport *benchs
 }
 
 // Deprecated: remove this once load tests have been migrated
-func registerEVMWithV1(_ []string, nodeSetInput *cretypes.CapabilitiesAwareNodeSet) ([]keystone_changeset.DONCapabilityWithConfig, error) {
+func registerEVMWithV1(_ []string, nodeSet *cretypes.NodeSet) ([]keystone_changeset.DONCapabilityWithConfig, error) {
 	capabilities := make([]keystone_changeset.DONCapabilityWithConfig, 0)
 
-	if nodeSetInput == nil {
+	if nodeSet == nil {
 		return nil, errors.New("node set input is nil")
 	}
 
 	// it's fine if there are no chain capabilities
-	if nodeSetInput.ChainCapabilities == nil {
+	if nodeSet.ChainCapabilities == nil {
 		return nil, nil
 	}
 
-	if _, ok := nodeSetInput.ChainCapabilities[cretypes.WriteEVMCapability]; !ok {
+	if _, ok := nodeSet.ChainCapabilities[cretypes.WriteEVMCapability]; !ok {
 		return nil, nil
 	}
 
-	for _, chainID := range nodeSetInput.ChainCapabilities[cretypes.WriteEVMCapability].EnabledChains {
+	for _, chainID := range nodeSet.ChainCapabilities[cretypes.WriteEVMCapability].EnabledChains {
 		fullName := evm.GenerateWriteTargetName(chainID)
 		splitName := strings.Split(fullName, "@")
 
@@ -1127,78 +1126,73 @@ func registerEVMWithV1(_ []string, nodeSetInput *cretypes.CapabilitiesAwareNodeS
 
 // Deprecated: remove this once load tests have been migrated
 func consensusJobSpec(chainID uint64) cretypes.JobSpecFn {
-	return func(input *cretypes.JobSpecInput) (cretypes.DonsToJobSpecs, error) {
-		if input.DonTopology == nil {
-			return nil, errors.New("topology is nil")
+	return func(input *cretypes.JobSpecInput) (cretypes.DonJobs, error) {
+		jobSpecs := cretypes.DonJobs{}
+
+		if !flags.HasFlag(input.Don.Flags, cretypes.ConsensusCapability) {
+			return jobSpecs, nil
 		}
-		donToJobSpecs := make(cretypes.DonsToJobSpecs)
 
 		ocr3Key := datastore.NewAddressRefKey(
-			input.DonTopology.HomeChainSelector,
+			input.CreEnvironment.RegistryChainSelector,
 			datastore.ContractType(keystone_changeset.OCR3Capability.String()),
 			semver.MustParse("1.0.0"),
-			crecontracts.OCR3ContractQualifier,
+			consensus_v1_feature.ContractQualifier,
 		)
-		ocr3CapabilityAddress, err := input.CldEnvironment.DataStore.Addresses().Get(ocr3Key)
+		ocr3CapabilityAddress, err := input.CreEnvironment.CldfEnvironment.DataStore.Addresses().Get(ocr3Key)
 		if err != nil {
 			return nil, errors.Wrap(err, "failed to get Vault capability address")
 		}
 
 		donTimeKey := datastore.NewAddressRefKey(
-			input.DonTopology.HomeChainSelector,
+			input.CreEnvironment.RegistryChainSelector,
 			datastore.ContractType(keystone_changeset.OCR3Capability.String()),
 			semver.MustParse("1.0.0"),
-			crecontracts.DONTimeContractQualifier,
+			don_time_feature.ContractQualifier,
 		)
-		donTimeAddress, err := input.CldEnvironment.DataStore.Addresses().Get(donTimeKey)
+		donTimeAddress, err := input.CreEnvironment.CldfEnvironment.DataStore.Addresses().Get(donTimeKey)
 		if err != nil {
 			return nil, errors.Wrap(err, "failed to get DON Time address")
 		}
 
-		for _, don := range input.DonTopology.Dons.List() {
-			if !flags.HasFlag(don.Flags, cretypes.ConsensusCapability) {
-				continue
-			}
-
-			// create job specs for the worker nodes
-			workerNodes, wErr := don.Workers()
-			if wErr != nil {
-				return nil, errors.Wrap(wErr, "failed to get worker nodes from DON metadata")
-			}
-
-			bootstrapNode, isBootstrap := don.Bootstrap()
-			if !isBootstrap {
-				return nil, errors.New("could not find bootstrap node in topology, exactly one bootstrap node is required")
-			}
-
-			bootstrapNodeID := strings.TrimPrefix(bootstrapNode.Keys.PeerID(), "p2p_")
-
-			// create job specs for the bootstrap node
-			donToJobSpecs[don.ID] = append(donToJobSpecs[don.ID], jobs.BootstrapOCR3(bootstrapNodeID, "ocr3-capability", ocr3CapabilityAddress.Address, chainID))
-
-			ocrPeeringData := cretypes.OCRPeeringData{
-				OCRBootstraperPeerID: bootstrapNodeID,
-				OCRBootstraperHost:   bootstrapNode.Host,
-				Port:                 credon.OCRPeeringPort,
-			}
-
-			for _, workerNode := range workerNodes {
-				evmKey, ok := workerNode.Keys.EVM[chainID]
-				if !ok {
-					return nil, fmt.Errorf("failed to get EVM key (chainID %d, node index %d)", chainID, workerNode.Index)
-				}
-
-				// we need the OCR2 key bundle for the EVM chain, because OCR jobs currently run only on EVM chains
-				evmOCR2KeyBundle, ok := workerNode.Keys.OCR2BundleIDs[chainselectors.FamilyEVM]
-				if !ok {
-					return nil, fmt.Errorf("node %s does not have OCR2 key bundle for EVM", workerNode.Name)
-				}
-
-				donToJobSpecs[don.ID] = append(donToJobSpecs[don.ID], jobs.WorkerOCR3(workerNode.JobDistributorDetails.NodeID, ocr3CapabilityAddress.Address, evmKey.PublicAddress.Hex(), evmOCR2KeyBundle, workerNode.Keys.OCR2BundleIDs, ocrPeeringData, chainID))
-				donToJobSpecs[don.ID] = append(donToJobSpecs[don.ID], jobs.DonTimeJob(workerNode.JobDistributorDetails.NodeID, donTimeAddress.Address, evmKey.PublicAddress.Hex(), evmOCR2KeyBundle, ocrPeeringData, chainID))
-			}
+		// create job specs for the worker nodes
+		workerNodes, wErr := input.Don.Workers()
+		if wErr != nil {
+			return nil, errors.Wrap(wErr, "failed to get worker nodes from DON metadata")
 		}
 
-		return donToJobSpecs, nil
+		bootstrapNode, isBootstrap := input.Dons.Bootstrap()
+		if !isBootstrap {
+			return nil, errors.New("could not find bootstrap node in topology, exactly one bootstrap node is required")
+		}
+
+		bootstrapNodeID := strings.TrimPrefix(bootstrapNode.Keys.PeerID(), "p2p_")
+
+		// create job specs for the bootstrap node
+		jobSpecs = append(jobSpecs, ocr.BootstrapOCR3(bootstrapNodeID, "ocr3-capability", ocr3CapabilityAddress.Address, chainID))
+
+		ocrPeeringData := cretypes.OCRPeeringData{
+			OCRBootstraperPeerID: bootstrapNodeID,
+			OCRBootstraperHost:   bootstrapNode.Host,
+			Port:                 credon.OCRPeeringPort,
+		}
+
+		for _, workerNode := range workerNodes {
+			evmKey, ok := workerNode.Keys.EVM[chainID]
+			if !ok {
+				return nil, fmt.Errorf("failed to get EVM key (chainID %d, node index %d)", chainID, workerNode.Index)
+			}
+
+			// we need the OCR2 key bundle for the EVM chain, because OCR jobs currently run only on EVM chains
+			evmOCR2KeyBundle, ok := workerNode.Keys.OCR2BundleIDs[chainselectors.FamilyEVM]
+			if !ok {
+				return nil, fmt.Errorf("node %s does not have OCR2 key bundle for EVM", workerNode.Name)
+			}
+
+			jobSpecs = append(jobSpecs, consensus_v1_feature.WorkerJobSpec(workerNode.JobDistributorDetails.NodeID, ocr3CapabilityAddress.Address, evmKey.PublicAddress.Hex(), evmOCR2KeyBundle, workerNode.Keys.OCR2BundleIDs, ocrPeeringData, chainID))
+			jobSpecs = append(jobSpecs, don_time_feature.WorkerJobSpec(workerNode.JobDistributorDetails.NodeID, donTimeAddress.Address, evmKey.PublicAddress.Hex(), evmOCR2KeyBundle, ocrPeeringData, chainID))
+		}
+
+		return jobSpecs, nil
 	}
 }
