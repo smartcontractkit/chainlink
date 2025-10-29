@@ -368,6 +368,11 @@ func (c *ConfigureCapabilityRegistryInput) Validate() error {
 	return nil
 }
 
+type GatewayConfig struct {
+	Name     string // DON name
+	Handlers []string
+}
+
 type GatewayConnectors struct {
 	Configurations []*DonGatewayConfiguration `toml:"configurations" json:"configurations"`
 }
@@ -499,14 +504,14 @@ func NewDonMetadata(c *NodeSet, id uint64, provider infra.Provider) (*DonMetadat
 	return out, nil
 }
 
-func (m *DonMetadata) GatewayConfig(p infra.Provider) (*DonGatewayConfiguration, error) {
+func (m *DonMetadata) GatewayConfig(p infra.Provider, gatewayNodeIdx int) (*DonGatewayConfiguration, error) {
 	gatewayNode, hasGateway := m.Gateway()
 	if !hasGateway {
 		return nil, errors.New("don does not have a gateway node")
 	}
 
 	return &DonGatewayConfiguration{
-		GatewayConfiguration: NewGatewayConfig(p, gatewayNode.Index, gatewayNode.HasRole(BootstrapNode), gatewayNode.UUID, m.Name),
+		GatewayConfiguration: NewGatewayConfig(p, gatewayNode.Index, gatewayNodeIdx, gatewayNode.HasRole(BootstrapNode), gatewayNode.UUID, m.Name),
 	}, nil
 }
 
