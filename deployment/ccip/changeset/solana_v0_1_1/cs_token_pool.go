@@ -236,17 +236,28 @@ func AddTokenPoolAndLookupTable(e cldf.Environment, cfg AddTokenPoolAndLookupTab
 		poolConfigPDA, _ := solTokenUtil.TokenPoolConfigAddress(tokenPubKey, tokenPool)
 		poolSigner, _ := solTokenUtil.TokenPoolSignerAddress(tokenPubKey, tokenPool)
 
+		var instructions []solana.Instruction
+
 		// ata for token pool
-		createI, tokenPoolATA, err := solTokenUtil.CreateAssociatedTokenAccount(
-			tokenprogramID,
-			tokenPubKey,
-			poolSigner,
-			chain.DeployerKey.PublicKey(),
-		)
+		tokenPoolATA, _, err := solTokenUtil.FindAssociatedTokenAddress(tokenprogramID, tokenPubKey, poolSigner)
 		if err != nil {
-			return cldf.ChangesetOutput{}, fmt.Errorf("failed to create associated token account for tokenpool (mint: %s, pool: %s): %w", tokenPubKey.String(), tokenPool.String(), err)
+			return cldf.ChangesetOutput{}, err
 		}
-		instructions := []solana.Instruction{createI}
+
+		// Check if the ATA is already initialized
+		_, err = chain.Client.GetAccountInfo(context.Background(), tokenPoolATA)
+		if err != nil { // it means that the ATA does not exist
+			createI, _, err := solTokenUtil.CreateAssociatedTokenAccount(
+				tokenprogramID,
+				tokenPubKey,
+				poolSigner,
+				chain.DeployerKey.PublicKey(),
+			)
+			if err != nil {
+				return cldf.ChangesetOutput{}, fmt.Errorf("failed to create associated token account for tokenpool (mint: %s, pool: %s): %w", tokenPubKey.String(), tokenPool.String(), err)
+			}
+			instructions = append(instructions, createI)
+		}
 
 		var configPDA solana.PublicKey
 		// Global Configuration
