@@ -5,10 +5,9 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/smartcontractkit/chainlink-testing-framework/framework"
 	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/fake"
 	"github.com/stretchr/testify/require"
-
-	"github.com/smartcontractkit/chainlink-testing-framework/framework"
 
 	httpactionconfig "github.com/smartcontractkit/chainlink/system-tests/tests/smoke/cre/httpaction/config"
 	thelpers "github.com/smartcontractkit/chainlink/system-tests/tests/test-helpers"

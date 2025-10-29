@@ -39,16 +39,6 @@ import (
 	"github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	commonevents "github.com/smartcontractkit/chainlink-protos/workflows/go/common"
 	workflowevents "github.com/smartcontractkit/chainlink-protos/workflows/go/events"
-
-	consensus_negative_config "github.com/smartcontractkit/chainlink/system-tests/tests/regression/cre/consensus/config"
-	evmread_negative_config "github.com/smartcontractkit/chainlink/system-tests/tests/regression/cre/evm/evmread-negative/config"
-	evmwrite_negative_config "github.com/smartcontractkit/chainlink/system-tests/tests/regression/cre/evm/evmwrite-negative/config"
-	http_config "github.com/smartcontractkit/chainlink/system-tests/tests/regression/cre/http/config"
-	httpaction_negative_config "github.com/smartcontractkit/chainlink/system-tests/tests/regression/cre/httpaction-negative/config"
-	evmread_config "github.com/smartcontractkit/chainlink/system-tests/tests/smoke/cre/evm/evmread/config"
-	httpaction_smoke_config "github.com/smartcontractkit/chainlink/system-tests/tests/smoke/cre/httpaction/config"
-	ttypes "github.com/smartcontractkit/chainlink/system-tests/tests/test-helpers/configuration"
-
 	"github.com/smartcontractkit/chainlink-testing-framework/framework"
 	ns "github.com/smartcontractkit/chainlink-testing-framework/framework/components/simple_node_set"
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/ptr"
@@ -64,6 +54,14 @@ import (
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/flags"
 	creworkflow "github.com/smartcontractkit/chainlink/system-tests/lib/cre/workflow"
 	crecrypto "github.com/smartcontractkit/chainlink/system-tests/lib/crypto"
+	consensus_negative_config "github.com/smartcontractkit/chainlink/system-tests/tests/regression/cre/consensus/config"
+	evmread_negative_config "github.com/smartcontractkit/chainlink/system-tests/tests/regression/cre/evm/evmread-negative/config"
+	evmwrite_negative_config "github.com/smartcontractkit/chainlink/system-tests/tests/regression/cre/evm/evmwrite-negative/config"
+	http_config "github.com/smartcontractkit/chainlink/system-tests/tests/regression/cre/http/config"
+	httpaction_negative_config "github.com/smartcontractkit/chainlink/system-tests/tests/regression/cre/httpaction-negative/config"
+	evmread_config "github.com/smartcontractkit/chainlink/system-tests/tests/smoke/cre/evm/evmread/config"
+	httpaction_smoke_config "github.com/smartcontractkit/chainlink/system-tests/tests/smoke/cre/httpaction/config"
+	ttypes "github.com/smartcontractkit/chainlink/system-tests/tests/test-helpers/configuration"
 )
 
 /////////////////////////
@@ -275,16 +273,16 @@ func CreateAndFundAddresses(t *testing.T, testLogger zerolog.Logger, numberOfAdd
 // Register your workflow configuration types here
 type WorkflowConfig interface {
 	None |
-	portypes.WorkflowConfig |
-	crontypes.WorkflowConfig |
-	HTTPWorkflowConfig |
-	consensus_negative_config.Config |
-	evmread_config.Config |
-	evmread_negative_config.Config |
-	evmwrite_negative_config.Config |
-	http_config.Config |
-	httpaction_smoke_config.Config |
-	httpaction_negative_config.Config
+		portypes.WorkflowConfig |
+		crontypes.WorkflowConfig |
+		HTTPWorkflowConfig |
+		consensus_negative_config.Config |
+		evmread_config.Config |
+		evmread_negative_config.Config |
+		evmwrite_negative_config.Config |
+		http_config.Config |
+		httpaction_smoke_config.Config |
+		httpaction_negative_config.Config
 }
 
 // None represents an empty workflow configuration
