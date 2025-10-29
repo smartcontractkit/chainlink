@@ -54,9 +54,10 @@ func verifyProgramSizes(t *testing.T, e cldf.Environment) {
 		deployment.RMNRemoteProgramName:            state.SolChains[solChainSelectors[0]].RMNRemote,
 		deployment.CCTPTokenPoolProgramName:        state.SolChains[solChainSelectors[0]].CCTPTokenPool,
 	}
-	for program, sizeBytes := range deployment.SolanaProgramBytes {
+	for program, programId := range programsToState {
+		sizeBytes := deployment.SolanaProgramBytes[program]
 		t.Logf("Verifying program %s size is at least %d bytes", program, sizeBytes)
-		programDataAccount, _, _ := solana.FindProgramAddress([][]byte{programsToState[program].Bytes()}, solana.BPFLoaderUpgradeableProgramID)
+		programDataAccount, _, _ := solana.FindProgramAddress([][]byte{programId.Bytes()}, solana.BPFLoaderUpgradeableProgramID)
 		programDataSize, err := ccipChangesetSolana.GetSolProgramSize(&e, e.BlockChains.SolanaChains()[solChainSelectors[0]], programDataAccount)
 		require.NoError(t, err)
 		require.GreaterOrEqual(t, programDataSize, sizeBytes)
