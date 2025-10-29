@@ -15,7 +15,7 @@ import (
 	"github.com/smartcontractkit/libocr/gethwrappers/offchainaggregator"
 	"github.com/smartcontractkit/libocr/offchainreporting"
 
-	"github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/offchain_aggregator_wrapper"
+	"github.com/smartcontractkit/chainlink-evm/gethwrappers/offchainaggregator/generated/ocr/offchain_aggregator_wrapper"
 	"github.com/smartcontractkit/chainlink-evm/pkg/chains/legacyevm"
 	"github.com/smartcontractkit/chainlink-evm/pkg/client"
 	evmconfig "github.com/smartcontractkit/chainlink-evm/pkg/config"

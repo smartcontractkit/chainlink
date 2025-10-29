@@ -8,7 +8,7 @@ require (
 	github.com/ethereum/go-ethereum v1.16.2
 	github.com/smartcontractkit/chain-selectors v1.0.67
 	github.com/smartcontractkit/chainlink-common v0.9.6
-	github.com/smartcontractkit/chainlink-evm/gethwrappers v0.0.0-20251003122604-772b72191274
+	github.com/smartcontractkit/chainlink-evm/gethwrappers v0.0.0-20251022073203-7d8ae8cf67c1
 	github.com/smartcontractkit/chainlink-protos/cre/go v0.0.0-20250918131840-564fe2776a35
 	github.com/smartcontractkit/cre-sdk-go v0.8.0
 	github.com/smartcontractkit/cre-sdk-go/capabilities/blockchain/evm v0.8.0
@@ -69,6 +69,7 @@ require (
 	github.com/tklauser/numcpus v0.10.0 // indirect
 	github.com/urfave/cli/v2 v2.27.6 // indirect
 	github.com/wk8/go-ordered-map/v2 v2.1.8 // indirect
+	github.com/yusufpapurcu/wmi v1.2.4 // indirect
 	golang.org/x/crypto v0.40.0 // indirect
 	golang.org/x/sync v0.16.0 // indirect
 	golang.org/x/sys v0.34.0 // indirect
