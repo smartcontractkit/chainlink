@@ -945,8 +945,6 @@ func initializeCCTPTokenPoolGlobalConfig(
 		return fmt.Errorf("failed to calculate the token pool global config PDA: %w", err)
 	}
 
-	cctp_token_pool.SetProgramID(cctpTokenPoolProgram)
-
 	ix, err := cctp_token_pool.NewInitGlobalConfigInstruction(
 		config,
 		chain.DeployerKey.PublicKey(),
@@ -1036,8 +1034,10 @@ func generateUpgradeTxns(
 	if err != nil {
 		return txns, fmt.Errorf("failed to generate extend buffer instruction: %w", err)
 	}
-	if err := chain.Confirm([]solana.Instruction{extendIxn}); err != nil {
-		return txns, fmt.Errorf("failed to confirm instructions: %w", err)
+	if extendIxn != nil {
+		if err := chain.Confirm([]solana.Instruction{extendIxn}); err != nil {
+			return txns, fmt.Errorf("failed to confirm instructions: %w", err)
+		}
 	}
 
 	// if we're not upgrading via timelock, execute the raw ixns
