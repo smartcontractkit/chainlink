@@ -28,6 +28,7 @@ import (
 )
 
 type evmService struct {
+	commontypes.UnimplementedEVMService
 	chain  legacyevm.Chain
 	logger logger.Logger
 }
