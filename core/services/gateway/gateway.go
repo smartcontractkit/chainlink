@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"strings"
+	"time"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/jonboulle/clockwork"
@@ -22,6 +23,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/config"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers"
 	handlerscommon "github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers/common"
+	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/monitoring"
 	gw_net "github.com/smartcontractkit/chainlink/v2/core/services/gateway/network"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 )
@@ -53,16 +55,21 @@ type gateway struct {
 	handlers           map[string]handlers.Handler
 	serviceNameToDonID map[string]string
 	connMgr            ConnectionManager
+	gMetrics           *monitoring.GatewayMetrics
 	lggr               logger.Logger
 }
 
 func NewGatewayFromConfig(cfg *config.GatewayConfig, handlerFactory HandlerFactory, lggr logger.Logger, lf limits.Factory) (Gateway, error) {
 	codec := &api.JsonRPCCodec{}
+	gMetrics, err := monitoring.NewGatewayMetrics()
+	if err != nil {
+		return nil, fmt.Errorf("error creating gateway metrics: %w", err)
+	}
 	httpServer, err := gw_net.NewHTTPServer(&cfg.UserServerConfig, lggr, lf)
 	if err != nil {
 		return nil, err
 	}
-	connMgr, err := NewConnectionManager(cfg, clockwork.NewRealClock(), lggr, lf)
+	connMgr, err := NewConnectionManager(cfg, clockwork.NewRealClock(), gMetrics, lggr, lf)
 	if err != nil {
 		return nil, err
 	}
@@ -116,16 +123,17 @@ func NewGatewayFromConfig(cfg *config.GatewayConfig, handlerFactory HandlerFacto
 
 		donConnMgr.SetHandler(handler)
 	}
-	return NewGateway(codec, httpServer, handlerMap, serviceNameToDonID, connMgr, lggr), nil
+	return NewGateway(codec, httpServer, handlerMap, serviceNameToDonID, connMgr, gMetrics, lggr), nil
 }
 
-func NewGateway(codec api.Codec, httpServer gw_net.HTTPServer, handlers map[string]handlers.Handler, serviceNameToDonID map[string]string, connMgr ConnectionManager, lggr logger.Logger) Gateway {
+func NewGateway(codec api.Codec, httpServer gw_net.HTTPServer, handlers map[string]handlers.Handler, serviceNameToDonID map[string]string, connMgr ConnectionManager, gMetrics *monitoring.GatewayMetrics, lggr logger.Logger) Gateway {
 	gw := &gateway{
 		codec:              codec,
 		httpServer:         httpServer,
 		handlers:           handlers,
 		serviceNameToDonID: serviceNameToDonID,
 		connMgr:            connMgr,
+		gMetrics:           gMetrics,
 		lggr:               logger.Named(lggr, "Gateway"),
 	}
 	httpServer.SetHTTPRequestHandler(gw)
@@ -193,10 +201,14 @@ func (g *gateway) ProcessRequest(ctx context.Context, rawRequest []byte, auth st
 		return newError(jsonRequest.ID, api.UnsupportedDONIdError, "Unsupported DON ID or Handler: "+handlerKey)
 	}
 	// send to the right handler
+	startTime := time.Now()
+	var method string
 	callback := handlerscommon.NewCallback()
 	if isLegacyRequest {
+		method = msg.Body.Method
 		err = h.HandleLegacyUserMessage(ctx, msg, callback)
 	} else {
+		method = jsonRequest.Method
 		err = h.HandleJSONRPCUserMessage(ctx, jsonRequest, callback)
 	}
 	if err != nil {
@@ -204,9 +216,15 @@ func (g *gateway) ProcessRequest(ctx context.Context, rawRequest []byte, auth st
 	}
 	// await response
 	response, err := callback.Wait(ctx)
+	duration := time.Since(startTime)
 	if err != nil {
-		return newError(jsonRequest.ID, api.RequestTimeoutError, "handler timeout: "+err.Error())
+		response := api.RequestTimeoutError
+		g.gMetrics.RecordUserMsgHandlerDuration(ctx, method, response.String(), duration)
+		g.gMetrics.RecordUserMsgHandlerInvocation(ctx, method, response.String())
+		return newError(jsonRequest.ID, response, "handler timeout: "+err.Error())
 	}
+	g.gMetrics.RecordUserMsgHandlerDuration(ctx, method, response.ErrorCode.String(), duration)
+	g.gMetrics.RecordUserMsgHandlerInvocation(ctx, method, response.ErrorCode.String())
 
 	g.lggr.Debugw("received response from handler", "handler", handlerKey, "response", response, "requestID", jsonRequest.ID)
 	promRequest.WithLabelValues(response.ErrorCode.String()).Inc()

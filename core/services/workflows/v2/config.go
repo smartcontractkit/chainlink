@@ -6,6 +6,7 @@ import (
 
 	"github.com/jonboulle/clockwork"
 
+	commoncap "github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	"github.com/smartcontractkit/chainlink-common/pkg/config"
 	"github.com/smartcontractkit/chainlink-common/pkg/custmsg"
 	"github.com/smartcontractkit/chainlink-common/pkg/settings/cresettings"
@@ -19,6 +20,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/services/orgresolver"
+	"github.com/smartcontractkit/chainlink/v2/core/capabilities"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/workflowkey"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/metering"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/store"
@@ -35,6 +37,7 @@ type EngineConfig struct {
 	ExecutionsStore      store.Store
 	Clock                clockwork.Clock
 	SecretsFetcher       SecretsFetcher
+	DonSubscriber        capabilities.DonSubscriber
 
 	WorkflowID            string // hex-encoded [32]byte, no "0x" prefix
 	WorkflowOwner         string // hex-encoded [20]byte, no "0x" prefix
@@ -210,11 +213,13 @@ func (l *EngineLimiters) Close() error {
 const (
 	defaultHeartbeatFrequencyMs = 1000 * 60 // 1 minute
 	defaultShutdownTimeoutMs    = 5000
+	defaultLocalNodeTimeoutMs   = 100
 )
 
 type EngineLimits struct {
 	HeartbeatFrequencyMs uint32
 	ShutdownTimeoutMs    uint32
+	LocalNodeTimeoutMs   uint32
 }
 
 type LifecycleHooks struct {
@@ -224,6 +229,7 @@ type LifecycleHooks struct {
 	OnExecutionError       func(msg string)
 	OnResultReceived       func(*sdkpb.ExecutionResult)
 	OnRateLimited          func(executionID string)
+	OnNodeSynced           func(node commoncap.Node, err error)
 }
 
 func (c *EngineConfig) Validate() error {
@@ -281,6 +287,9 @@ func (l *EngineLimits) setDefaultLimits() {
 	if l.ShutdownTimeoutMs == 0 {
 		l.ShutdownTimeoutMs = defaultShutdownTimeoutMs
 	}
+	if l.LocalNodeTimeoutMs == 0 {
+		l.LocalNodeTimeoutMs = defaultLocalNodeTimeoutMs
+	}
 }
 
 // set all to non-nil so the Engine doesn't have to check before each call
@@ -302,5 +311,8 @@ func (h *LifecycleHooks) setDefaultHooks() {
 	}
 	if h.OnRateLimited == nil {
 		h.OnRateLimited = func(executionID string) {}
+	}
+	if h.OnNodeSynced == nil {
+		h.OnNodeSynced = func(_ commoncap.Node, _ error) {}
 	}
 }

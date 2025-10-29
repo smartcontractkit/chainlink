@@ -24,6 +24,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/common"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/config"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers"
+	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/monitoring"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/network"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 )
@@ -52,6 +53,7 @@ type connectionManager struct {
 	connAttempts       map[string]*connAttempt
 	connAttemptCounter uint64
 	connAttemptsMu     sync.Mutex
+	gMetrics           *monitoring.GatewayMetrics
 	lggr               logger.Logger
 }
 
@@ -73,6 +75,7 @@ type donConnectionManager struct {
 	handler    handlers.Handler
 	closeWait  sync.WaitGroup
 	shutdownCh services.StopChan
+	gMetrics   *monitoring.GatewayMetrics
 	lggr       logger.Logger
 }
 
@@ -89,7 +92,7 @@ type connAttempt struct {
 	timestamp   uint32
 }
 
-func NewConnectionManager(gwConfig *config.GatewayConfig, clock clockwork.Clock, lggr logger.Logger, lf limits.Factory) (ConnectionManager, error) {
+func NewConnectionManager(gwConfig *config.GatewayConfig, clock clockwork.Clock, gMetrics *monitoring.GatewayMetrics, lggr logger.Logger, lf limits.Factory) (ConnectionManager, error) {
 	dons := make(map[string]*donConnectionManager)
 	for _, donConfig := range gwConfig.Dons {
 		if donConfig.DonId == "" {
@@ -119,6 +122,7 @@ func NewConnectionManager(gwConfig *config.GatewayConfig, clock clockwork.Clock,
 			donConfig:  &donConfig,
 			nodes:      nodes,
 			shutdownCh: make(chan struct{}),
+			gMetrics:   gMetrics,
 			lggr:       logger.Named(lggr, "DONConnectionManager."+donConfig.DonId),
 		}
 	}
@@ -127,6 +131,7 @@ func NewConnectionManager(gwConfig *config.GatewayConfig, clock clockwork.Clock,
 		dons:         dons,
 		connAttempts: make(map[string]*connAttempt),
 		clock:        clock,
+		gMetrics:     gMetrics,
 		lggr:         logger.Named(lggr, "ConnectionManager"),
 	}
 	wsServer, err := network.NewWebSocketServer(&gwConfig.NodeServerConfig, connMgr, lggr, lf)
@@ -237,11 +242,13 @@ func (m *connectionManager) FinalizeHandshake(attemptId string, response []byte,
 	if conn != nil {
 		conn.SetPongHandler(func(data string) error {
 			m.lggr.Debugw("received keepalive pong from node", "nodeAddress", attempt.nodeAddress)
+			m.gMetrics.RecordKeepalivePongsReceived(context.Background(), attempt.nodeAddress, attempt.nodeState.name)
 			return nil
 		})
 	}
 	attempt.nodeState.conn.Reset(conn)
 	m.lggr.Infof("node %s connected", attempt.nodeAddress)
+	m.gMetrics.RecordNodeConnectedEvent(context.Background(), attempt.nodeAddress, attempt.nodeState.name)
 	return nil
 }
 
@@ -290,7 +297,10 @@ func (m *donConnectionManager) readLoop(nodeAddress string, nodeState *nodeState
 				m.lggr.Errorw("parse error when reading from node", "nodeAddress", nodeAddress, "err", err)
 				break
 			}
+			startTime := time.Now()
 			err = m.handler.HandleNodeMessage(ctx, &resp, nodeAddress)
+			m.gMetrics.RecordNodeMsgHandlerInvocation(ctx, nodeAddress, nodeState.name, err == nil)
+			m.gMetrics.RecordNodeMsgHandlerDuration(ctx, nodeAddress, nodeState.name, time.Since(startTime), err == nil)
 			if err != nil {
 				m.lggr.Error("error when calling HandleNodeMessage ", err)
 			}
@@ -320,6 +330,7 @@ func (m *donConnectionManager) keepaliveLoop(intervalSec uint32) {
 			errorCount := 0
 			for nodeAddress, nodeState := range m.nodes {
 				err := nodeState.conn.Write(ctx, websocket.PingMessage, []byte{})
+				m.gMetrics.RecordKeepalivePingsSent(ctx, nodeAddress, nodeState.name, err == nil)
 				if err != nil {
 					m.lggr.Debugw("unable to send keepalive ping to node", "nodeAddress", nodeAddress, "name", nodeState.name, "donID", m.donConfig.DonId, "err", err)
 					errorCount++

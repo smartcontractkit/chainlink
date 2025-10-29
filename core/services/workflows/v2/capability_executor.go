@@ -37,11 +37,11 @@ type ExecutionHelper struct {
 
 func (c *ExecutionHelper) initLimiters(limiters *EngineLimiters) {
 	c.callLimiters = map[capCall]limits.BoundLimiter[int]{
-		capCall{"consensus", "Simple"}:         limiters.ConsensusCalls,
-		capCall{"consensus", "Report"}:         limiters.ConsensusCalls,
-		capCall{"evm", "FilterLogs"}:           limiters.ChainReadCalls,
-		capCall{"evm", "WriteReport"}:          limiters.ChainWriteTargets,
-		capCall{"http-actions", "SendRequest"}: limiters.HTTPActionCalls,
+		{"consensus", "Simple"}:         limiters.ConsensusCalls,
+		{"consensus", "Report"}:         limiters.ConsensusCalls,
+		{"evm", "FilterLogs"}:           limiters.ChainReadCalls,
+		{"evm", "WriteReport"}:          limiters.ChainWriteTargets,
+		{"http-actions", "SendRequest"}: limiters.HTTPActionCalls,
 	}
 }
 
@@ -87,6 +87,8 @@ func (c *ExecutionHelper) callCapability(ctx context.Context, request *sdkpb.Cap
 		return nil, fmt.Errorf("capability info not found: %w", err)
 	}
 
+	localNode := c.localNode.Load()
+
 	// If the capability info is missing a DON, then
 	// the capability is local, and we should use the localNode's DON ID.
 	var donID uint32
@@ -96,7 +98,7 @@ func (c *ExecutionHelper) callCapability(ctx context.Context, request *sdkpb.Cap
 		}
 		donID = info.DON.ID
 	} else {
-		donID = c.localNode.WorkflowDON.ID
+		donID = localNode.WorkflowDON.ID
 	}
 
 	config, err := c.cfg.CapRegistry.ConfigForCapability(ctx, info.ID, donID)
@@ -147,8 +149,8 @@ func (c *ExecutionHelper) callCapability(ctx context.Context, request *sdkpb.Cap
 			WorkflowOwner:            c.cfg.WorkflowOwner,
 			WorkflowExecutionID:      c.WorkflowExecutionID,
 			WorkflowName:             c.cfg.WorkflowName.Hex(),
-			WorkflowDonID:            c.localNode.WorkflowDON.ID,
-			WorkflowDonConfigVersion: c.localNode.WorkflowDON.ConfigVersion,
+			WorkflowDonID:            localNode.WorkflowDON.ID,
+			WorkflowDonConfigVersion: localNode.WorkflowDON.ConfigVersion,
 			ReferenceID:              strconv.Itoa(int(request.CallbackId)),
 			DecodedWorkflowName:      c.cfg.WorkflowName.String(),
 			SpendLimits:              spendLimits,

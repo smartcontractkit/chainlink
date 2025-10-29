@@ -732,7 +732,7 @@ func (d *Delegate) newServicesVaultPlugin(
 	if err != nil {
 		return nil, fmt.Errorf("failed to create key value store directory: %w", err)
 	}
-	kvFactory := kvdb.NewBadgerKeyValueDatabaseFactory(fullPath)
+	kvFactory := kvdb.NewPebbleKeyValueDatabaseFactory(fullPath)
 
 	keyBundles := map[string]ocr2key.KeyBundle{
 		string(chaintype.EVM): kb,
@@ -820,7 +820,7 @@ func (d *Delegate) newServicesVaultPlugin(
 		bootstrapPeers,
 		dkgProvider.ContractConfigTracker(),
 		ocrDB,
-		kvdb.NewBadgerKeyValueDatabaseFactory(fullPathDKG),
+		kvdb.NewPebbleKeyValueDatabaseFactory(fullPathDKG),
 		lc,
 		dkgOcrLogger,
 		prometheus.WrapRegistererWith(map[string]string{"job_name": string(types.DKG)}, prometheus.DefaultRegisterer),

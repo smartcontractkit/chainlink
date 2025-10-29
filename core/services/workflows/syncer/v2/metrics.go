@@ -2,6 +2,7 @@ package v2
 
 import (
 	"context"
+	"strconv"
 	"time"
 
 	"go.opentelemetry.io/otel/attribute"
@@ -18,13 +19,8 @@ type metrics struct {
 }
 
 func (m *metrics) recordHandleDuration(ctx context.Context, d time.Duration, event string, success bool) {
-	// Beholder doesn't support non-string attributes
-	successStr := "false"
-	if success {
-		successStr = "true"
-	}
 	m.handleDuration.Record(ctx, d.Milliseconds(), metric.WithAttributes(
-		attribute.String("success", successStr),
+		attribute.String("success", strconv.FormatBool(success)),
 		attribute.String("eventType", event),
 	))
 }

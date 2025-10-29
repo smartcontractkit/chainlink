@@ -331,12 +331,15 @@ func ConfigureOCR3Contract(env *cldf.Environment, chainSel uint64, dons []Regist
 			return fmt.Errorf("failed to get OCR3 contract: %w", err)
 		}
 
+		config, err := ocr3.GenerateOCR3ConfigFromNodes(*cfg, don.Nodes, chainSel, env.OCRSecrets, nil)
+		if err != nil {
+			return err
+		}
+
 		_, err = ocr3.ConfigureOCR3contract(ocr3.ConfigureOCR3Request{
-			Cfg:        cfg,
-			Chain:      registryChain,
-			Contract:   contract,
-			Nodes:      don.Nodes,
-			OcrSecrets: env.OCRSecrets,
+			Config:   config,
+			Chain:    registryChain,
+			Contract: contract,
 		})
 		if err != nil {
 			return fmt.Errorf("failed to configure OCR3 contract for don %s: %w", don.Name, err)

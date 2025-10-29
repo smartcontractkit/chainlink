@@ -83,6 +83,30 @@ func DefaultOCR3Config() (*keystone_changeset.OracleConfig, error) {
 	return oracleConfig, nil
 }
 
+func DefaultOCR3_1Config(numWorkers int) (*ocr3.V3_1OracleConfig, error) {
+	return &ocr3.V3_1OracleConfig{
+		DeltaProgressMillis:  5000, // DKG 10-15 seconds; Vault 5 sec // check bandwidth from nops
+		DeltaRoundMillis:     200,
+		DeltaGraceMillis:     0,
+		DeltaStageMillis:     0,
+		MaxRoundsPerEpoch:    10,
+		TransmissionSchedule: []int{numWorkers},
+
+		MaxDurationInitializationMillis:               10000,
+		MaxDurationShouldAcceptAttestedReportMillis:   1000,
+		MaxDurationShouldTransmitAcceptedReportMillis: 1000,
+
+		WarnDurationQueryMillis:               1000,
+		WarnDurationObservationMillis:         1000,
+		WarnDurationValidateObservationMillis: 1000,
+		WarnDurationObservationQuorumMillis:   1000,
+		WarnDurationStateTransition:           1000,
+		WarnDurationCommitted:                 1000,
+
+		MaxFaultyOracles: 1,
+	}, nil
+}
+
 func DefaultChainCapabilityOCR3Config() (*keystone_changeset.OracleConfig, error) {
 	cfg, err := DefaultOCR3Config()
 	if err != nil {
