@@ -460,7 +460,7 @@ func addTokenE2ELogic(env cldf.Environment, config AddTokensE2EConfig) (cldf.Cha
 		finalCSOut.MCMSTimelockProposals = []mcms.TimelockProposal{*aggregatedProposals}
 	}
 
-	ds, err := shared.PopulateDataStore(finalCSOut.AddressBook)
+	ds, err := shared.PopulateDataStore(finalCSOut.AddressBook) //nolint:staticcheck //SA1019 ignoring deprecated
 	if err != nil {
 		return cldf.ChangesetOutput{}, fmt.Errorf("failed to populate in-memory DataStore: %w", err)
 	}
