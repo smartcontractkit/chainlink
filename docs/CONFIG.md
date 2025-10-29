@@ -1246,6 +1246,7 @@ IncomingMessageBufferSize = 10 # Default
 OutgoingMessageBufferSize = 10 # Default
 PeerID = '12D3KooWMoejJznyDuEk5aX6GvbjaG12UzeornPCBNzMRqdwrFJw' # Example
 TraceLogging = false # Default
+EnableExperimentalRageP2P = false # Default
 ```
 P2P has a versioned networking stack. Currenly only `[P2P.V2]` is supported.
 All nodes in the OCR network should share the same networking stack.
@@ -1280,6 +1281,12 @@ PeerID is the default peer ID to use for OCR jobs. If unspecified, uses the firs
 TraceLogging = false # Default
 ```
 TraceLogging enables trace level logging.
+
+### EnableExperimentalRageP2P
+```toml
+EnableExperimentalRageP2P = false # Default
+```
+EnableExperimentalRageP2P needs to be enabled for ocr3.1 components
 
 ## P2P.V2
 ```toml
@@ -1592,6 +1599,7 @@ IncomingMessageBufferSize = 10 # Default
 OutgoingMessageBufferSize = 10 # Default
 PeerID = '12D3KooWMoejJznyDuEk5aX6GvbjaG12UzeornPCBNzMRqdwrFJw' # Example
 TraceLogging = false # Default
+EnableExperimentalRageP2P = false # Default
 ```
 
 
@@ -1625,6 +1633,12 @@ PeerID is the default peer ID to use for OCR jobs. If unspecified, uses the firs
 TraceLogging = false # Default
 ```
 TraceLogging enables trace level logging.
+
+### EnableExperimentalRageP2P
+```toml
+EnableExperimentalRageP2P = false # Default
+```
+EnableExperimentalRageP2P needs to be enabled for ocr3.1 components
 
 ## Capabilities.Peering.V2
 ```toml
