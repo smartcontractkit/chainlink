@@ -211,14 +211,14 @@ func (l *LDAPServerStateSyncer) Work(ctx context.Context) {
 		}
 
 		// Populate list of session emails present in the local session table but not in the upstream state
-		emailsToPurge := []interface{}{}
+		emailsToPurge := []any{}
 		for _, ldapSession := range existingSessions {
 			if _, ok := upstreamUserStateMap[ldapSession.UserEmail]; !ok {
 				emailsToPurge = append(emailsToPurge, ldapSession.UserEmail)
 			}
 		}
 		// Likewise for API Tokens table
-		apiTokenEmailsToPurge := []interface{}{}
+		apiTokenEmailsToPurge := []any{}
 		for _, ldapSession := range existingAPITokens {
 			if _, ok := upstreamUserStateMap[ldapSession.UserEmail]; !ok {
 				apiTokenEmailsToPurge = append(apiTokenEmailsToPurge, ldapSession.UserEmail)
@@ -243,7 +243,7 @@ func (l *LDAPServerStateSyncer) Work(ctx context.Context) {
 
 		// For each user session row, update role to match state of user map from upstream source
 		queryWhenClause := ""
-		emailValues := []interface{}{}
+		emailValues := []any{}
 		// Prepare CASE WHEN query statement with parameterized argument $n placeholders and matching role based on index
 		for email, user := range upstreamUserStateMap {
 			// Only build on SET CASE statement per local session and API token role, not for each upstream user value

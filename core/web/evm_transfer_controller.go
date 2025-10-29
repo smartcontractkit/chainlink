@@ -67,7 +67,7 @@ func (tc *EVMTransfersController) Create(c *gin.Context) {
 		return
 	}
 
-	tc.App.GetAuditLogger().Audit(audit.EthTransactionCreated, map[string]interface{}{
+	tc.App.GetAuditLogger().Audit(audit.EthTransactionCreated, map[string]any{
 		"ethTX": etx,
 	})
 

@@ -488,7 +488,6 @@ func TestRBAC_Routemap_ViewOnly(t *testing.T) {
 
 	// Assert all view only routes
 	for i, route := range routesRolesMap {
-		route := route
 		t.Run(fmt.Sprintf("%d-%s-%s", i, route.verb, route.path), func(t *testing.T) {
 			var resp *http.Response
 			var cleanup func()

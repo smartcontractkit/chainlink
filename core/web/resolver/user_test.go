@@ -33,8 +33,8 @@ func TestResolver_UpdateUserPassword(t *testing.T) {
 			}
 		}`
 	oldPassword := "old"
-	variables := map[string]interface{}{
-		"input": map[string]interface{}{
+	variables := map[string]any{
+		"input": map[string]any{
 			"newPassword": "new",
 			"oldPassword": oldPassword,
 		},
@@ -123,7 +123,7 @@ func TestResolver_UpdateUserPassword(t *testing.T) {
 				{
 					Extensions:    nil,
 					ResolverError: clearSessionsError{},
-					Path:          []interface{}{"updateUserPassword"},
+					Path:          []any{"updateUserPassword"},
 					Message:       "failed to clear non current user sessions",
 				},
 			},
@@ -153,7 +153,7 @@ func TestResolver_UpdateUserPassword(t *testing.T) {
 				{
 					Extensions:    nil,
 					ResolverError: failedPasswordUpdateError{},
-					Path:          []interface{}{"updateUserPassword"},
+					Path:          []any{"updateUserPassword"},
 					Message:       "failed to update current user password",
 				},
 			},

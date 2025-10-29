@@ -107,7 +107,6 @@ func TestLogController_PatchLogConfig(t *testing.T) {
 	}
 
 	for _, tc := range cases {
-		tc := tc
 		t.Run(tc.Description, func(t *testing.T) {
 			app := cltest.NewApplicationEVMDisabled(t)
 			require.NoError(t, app.Start(testutils.Context(t)))

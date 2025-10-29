@@ -25,12 +25,12 @@ func TestProperLabelsArePassed(t *testing.T) {
 		chainId:             123,
 	}
 
-	for i := 0; i < successCounter; i++ {
+	for range successCounter {
 		_, err := withObservedInteraction[string](details, "successFun", successfulContract)
 		require.NoError(t, err)
 	}
 
-	for i := 0; i < failedCounter; i++ {
+	for range failedCounter {
 		_, err := withObservedInteraction[string](details, "failedFun", failedContract)
 		require.Error(t, err)
 	}
@@ -49,7 +49,7 @@ func TestMetricsSendFromContractDirectly(t *testing.T) {
 
 	observedOfframp := NewObservedOffRampReader(mockedOfframp, chainId, "plugin")
 
-	for i := 0; i < expectedCounter; i++ {
+	for range expectedCounter {
 		_, _ = observedOfframp.GetTokens(ctx)
 	}
 

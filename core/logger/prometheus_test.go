@@ -93,7 +93,7 @@ func assertCounterValue(t *testing.T, c prometheus.Counter, v int) {
 	assert.Equal(t, v, int(m.GetCounter().GetValue()))
 }
 
-func repeat(f func(args ...interface{}), c int) {
+func repeat(f func(args ...any), c int) {
 	for ; c > 0; c-- {
 		f()
 	}

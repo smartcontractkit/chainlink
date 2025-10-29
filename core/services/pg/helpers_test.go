@@ -2,7 +2,7 @@ package pg
 
 import "github.com/jmoiron/sqlx"
 
-func SetConn(lock interface{}, conn *sqlx.Conn) {
+func SetConn(lock any, conn *sqlx.Conn) {
 	switch v := lock.(type) {
 	case *leaseLock:
 		v.conn = conn
@@ -11,7 +11,7 @@ func SetConn(lock interface{}, conn *sqlx.Conn) {
 	}
 }
 
-func GetConn(lock interface{}) *sqlx.Conn {
+func GetConn(lock any) *sqlx.Conn {
 	switch v := lock.(type) {
 	case *leaseLock:
 		return v.conn

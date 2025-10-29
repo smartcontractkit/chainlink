@@ -151,7 +151,7 @@ func TestDefaultEvmBatchCaller_batchCallLimit(t *testing.T) {
 				Run(func(args mock.Arguments) {
 					evmCalls := args.Get(1).([]rpc.BatchElem)
 					for i := range evmCalls {
-						arg := evmCalls[i].Args[0].(map[string]interface{})["data"].(hexutil.Bytes)
+						arg := evmCalls[i].Args[0].(map[string]any)["data"].(hexutil.Bytes)
 						str, isOk := evmCalls[i].Result.(*string)
 						require.True(t, isOk)
 						*str = fmt.Sprintf("0x%064x", new(big.Int).SetBytes(arg[24:]).Uint64())

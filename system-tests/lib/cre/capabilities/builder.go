@@ -88,6 +88,7 @@ func WithValidateFn(validateFn func(*Capability) error) Option {
 	}
 }
 
+// Deprecated: use Features instead. Builder will be removed in future.
 func New(flag cre.CapabilityFlag, opts ...Option) (*Capability, error) {
 	capability := &Capability{
 		flag: flag,

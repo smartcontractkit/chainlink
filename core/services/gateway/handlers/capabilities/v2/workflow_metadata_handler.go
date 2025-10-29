@@ -49,6 +49,7 @@ type WorkflowMetadataHandler struct {
 	stopCh          services.StopChan
 	metrics         *metrics.Metrics
 	jwtCache        *jwtReplayCache // JWT replay protection cache
+	wg              sync.WaitGroup
 }
 
 // NewWorkflowMetadataHandler creates a new WorkflowMetadataHandler.
@@ -85,7 +86,7 @@ func (h *WorkflowMetadataHandler) Authorize(workflowID string, token string, req
 	keys, exists := h.authorizedKeys[workflowID]
 	if !exists {
 		h.lggr.Errorw("Workflow ID not found in authorized keys", "workflowID", workflowID)
-		return nil, errors.New("workflow ID not found in authorized keys")
+		return nil, fmt.Errorf("workflow ID %s not found", workflowID)
 	}
 	key := gateway.AuthorizedKey{
 		KeyType:   gateway.KeyTypeECDSAEVM,
@@ -93,7 +94,7 @@ func (h *WorkflowMetadataHandler) Authorize(workflowID string, token string, req
 	}
 	if _, exists = keys[key]; !exists {
 		h.lggr.Errorw("Signer not found in authorized keys", "signer", signer.Hex())
-		return nil, errors.New("signer not found in authorized keys")
+		return nil, fmt.Errorf("signer '%s' is not authorized for workflow '%s'. Ensure that the signer is registered in the workflow definition", signer.Hex(), workflowID)
 	}
 	h.jwtCache.recordUsage(claims.ID)
 
@@ -235,7 +236,9 @@ func (h *WorkflowMetadataHandler) Start(ctx context.Context) error {
 }
 
 func (h *WorkflowMetadataHandler) runTicker(period time.Duration, fn func()) {
+	h.wg.Add(1)
 	go func() {
+		defer h.wg.Done()
 		ticker := time.NewTicker(period)
 		defer ticker.Stop()
 		for {
@@ -250,8 +253,17 @@ func (h *WorkflowMetadataHandler) runTicker(period time.Duration, fn func()) {
 }
 
 func (h *WorkflowMetadataHandler) validateAuthMetadata(metadata gateway.WorkflowMetadata) error {
-	if metadata.WorkflowSelector.WorkflowID == "" || metadata.WorkflowSelector.WorkflowOwner == "" || metadata.WorkflowSelector.WorkflowName == "" || metadata.WorkflowSelector.WorkflowTag == "" {
-		return errors.New("invalid workflow metadata")
+	if len(metadata.WorkflowSelector.WorkflowID) != workflowIDLength {
+		return fmt.Errorf("invalid workflow ID: expected %d characters, got %d", workflowIDLength, len(metadata.WorkflowSelector.WorkflowID))
+	}
+	if len(metadata.WorkflowSelector.WorkflowOwner) != workflowOwnerLength {
+		return fmt.Errorf("invalid workflow owner: expected %d characters, got %d", workflowOwnerLength, len(metadata.WorkflowSelector.WorkflowOwner))
+	}
+	if len(metadata.WorkflowSelector.WorkflowName) != WorkflowNameHashLength {
+		return fmt.Errorf("invalid workflow name: expected %d characters, got %d", WorkflowNameHashLength, len(metadata.WorkflowSelector.WorkflowName))
+	}
+	if len(metadata.WorkflowSelector.WorkflowTag) == 0 || len(metadata.WorkflowSelector.WorkflowTag) > maxWorkflowTagLength {
+		return fmt.Errorf("invalid workflow tag: expected non-empty and at most %d characters, got %d", maxWorkflowTagLength, len(metadata.WorkflowSelector.WorkflowTag))
 	}
 	if len(metadata.AuthorizedKeys) == 0 {
 		return errors.New("no authorized keys")
@@ -299,6 +311,7 @@ func (h *WorkflowMetadataHandler) Close() error {
 			h.lggr.Errorw("Failed to close WorkflowMetadataAggregator", "error", err)
 		}
 		close(h.stopCh)
+		h.wg.Wait()
 		return nil
 	})
 }

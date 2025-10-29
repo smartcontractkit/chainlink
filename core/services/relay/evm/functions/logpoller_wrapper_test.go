@@ -161,7 +161,7 @@ func TestLogPollerWrapper_FilterPreviouslyDetectedEvents_TruncatesLogs(t *testin
 	_, lpWrapper, _ := setUp(t, 100_000)
 
 	inputLogs := make([]logpoller.Log, maxLogsToProcess+100)
-	for i := 0; i < 1100; i++ {
+	for i := range 1100 {
 		inputLogs[i] = getMockedRequestLog(t)
 	}
 

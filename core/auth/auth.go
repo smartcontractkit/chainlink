@@ -49,7 +49,7 @@ func NewToken() *Token {
 }
 
 func hashInput(ta *Token, salt string) []byte {
-	return []byte(fmt.Sprintf("v0-%s-%s-%s", ta.AccessKey, ta.Secret, salt))
+	return fmt.Appendf(nil, "v0-%s-%s-%s", ta.AccessKey, ta.Secret, salt)
 }
 
 // HashedSecret generates a hashed password for an external initiator

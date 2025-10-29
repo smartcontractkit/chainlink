@@ -24,12 +24,12 @@ func NewSqlxDB(t testing.TB) *sqlx.DB {
 	return sqltest.NewDB(t, dbURL)
 }
 
-func MustExec(t *testing.T, ds sqlutil.DataSource, stmt string, args ...interface{}) {
+func MustExec(t *testing.T, ds sqlutil.DataSource, stmt string, args ...any) {
 	ctx := testutils.Context(t)
 	require.NoError(t, utils.JustError(ds.ExecContext(ctx, stmt, args...)))
 }
 
-func MustCount(t *testing.T, db *sqlx.DB, stmt string, args ...interface{}) (cnt int) {
+func MustCount(t *testing.T, db *sqlx.DB, stmt string, args ...any) (cnt int) {
 	require.NoError(t, db.Get(&cnt, stmt, args...))
 	return
 }

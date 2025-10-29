@@ -316,7 +316,7 @@ func (w *client) Transmit(ctx context.Context, req *pb.TransmitRequest) (resp *p
 
 // hacky workaround to trap panics from buggy underlying wsrpc lib and restart
 // the connection from a known good state
-func (w *client) handlePanic(r interface{}) {
+func (w *client) handlePanic(r any) {
 	w.chResetTransport <- struct{}{}
 }
 

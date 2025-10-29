@@ -23,6 +23,7 @@ import (
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_0_0/rmn_proxy_contract"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_2_0/price_registry"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_2_0/router"
+	burn_mint_token_pool_and_proxy "github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_5_0/burn_mint_token_pool_and_proxy"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_5_0/commit_store"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_5_0/evm_2_evm_offramp"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_5_0/evm_2_evm_onramp"
@@ -37,7 +38,6 @@ import (
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_5_1/token_pool_factory"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_5_1/usdc_token_pool"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_0/ccip_home"
-	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_0/fee_quoter"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_0/nonce_manager"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_0/offramp"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_0/onramp"
@@ -46,6 +46,7 @@ import (
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_0/rmn_remote"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_2/cctp_message_transmitter_proxy"
 	usdc_token_pool_v1_6_2 "github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_2/usdc_token_pool"
+	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_3/fee_quoter"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	capabilities_registry "github.com/smartcontractkit/chainlink-evm/gethwrappers/keystone/generated/capabilities_registry_1_1_0"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/shared/generated/initial/aggregator_v3_interface"
@@ -113,6 +114,7 @@ type CCIPChainState struct {
 
 	// Pools
 	BurnMintTokenPools                               map[shared.TokenSymbol]map[semver.Version]*burn_mint_token_pool.BurnMintTokenPool
+	BurnMintTokenPoolsAndProxies                     map[shared.TokenSymbol]map[semver.Version]*burn_mint_token_pool_and_proxy.BurnMintTokenPoolAndProxy
 	BurnMintFastTransferTokenPools                   map[shared.TokenSymbol]map[semver.Version]*fast_transfer_token_pool.BurnMintFastTransferTokenPool
 	BurnMintWithExternalMinterFastTransferTokenPools map[shared.TokenSymbol]map[semver.Version]*burn_mint_with_external_minter_fast_transfer_token_pool.BurnMintWithExternalMinterFastTransferTokenPool
 	HybridWithExternalMinterFastTransferTokenPools   map[shared.TokenSymbol]map[semver.Version]*hybrid_with_external_minter_fast_transfer_token_pool.HybridWithExternalMinterFastTransferTokenPool
@@ -229,6 +231,9 @@ func (c CCIPChainState) validateCCIPHomeVersionedActiveConfig(e cldf.Environment
 		return nil
 	}
 	if _, exists := e.BlockChains.AptosChains()[chainSel]; exists {
+		return nil
+	}
+	if _, exists := e.BlockChains.SuiChains()[chainSel]; exists {
 		return nil
 	}
 	offRamp, ok := offRampsByChain[chainSel]
@@ -683,7 +688,7 @@ func (c CCIPChainState) GenerateView(lggr logger.Logger, chain string) (view.Cha
 	grp := errgroup.Group{}
 
 	// Start fixed number of workers
-	for i := 0; i < numWorkers; i++ {
+	for range numWorkers {
 		grp.Go(func() error {
 			for job := range jobCh {
 				if err := job(); err != nil {
@@ -747,6 +752,21 @@ func (c CCIPChainState) GenerateView(lggr logger.Logger, chain string) (view.Cha
 			chainView.TokenPoolFactory[c.TokenPoolFactory.Address().Hex()] = tpfView
 			lggr.Infow("generated token pool factory view", "tokenPoolFactory", c.TokenPoolFactory.Address().Hex(), "chain", chain)
 			return nil
+		}
+	}
+	for tokenSymbol, versionToPool := range c.BurnMintTokenPoolsAndProxies {
+		for _, tokenPool := range versionToPool {
+			jobCh <- func() error {
+				tokenPoolView, err := v1_5.GenerateTokenPoolView(tokenPool, c.usdFeedOrDefault(tokenSymbol))
+				if err != nil {
+					return fmt.Errorf("failed to generate burn mint token pool view for %s: %w", tokenPool.Address().String(), err)
+				}
+				chainView.UpdateTokenPool(tokenSymbol.String(), tokenPool.Address().Hex(), v1_5_1.PoolView{
+					TokenPoolView: tokenPoolView,
+				})
+				lggr.Infow("generated burn mint token pool view", "tokenPool", tokenPool.Address().Hex(), "chain", chain)
+				return nil
+			}
 		}
 	}
 	for tokenSymbol, versionToPool := range c.BurnMintTokenPools {

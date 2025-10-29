@@ -51,7 +51,6 @@ func TestProofFlagToBits(t *testing.T) {
 		},
 	}
 	for _, tc := range tt {
-		tc := tc
 		a := ProofFlagsToBits(tc.flags)
 		assert.Equal(t, tc.expected.String(), a.String())
 	}
@@ -76,7 +75,7 @@ func TestEvmWord(t *testing.T) {
 
 func TestABIEncodeDecode(t *testing.T) {
 	abiStr := `[{"components": [{"name":"int1","type":"int256"},{"name":"int2","type":"int256"}], "type":"tuple"}]`
-	values := []interface{}{struct {
+	values := []any{struct {
 		Int1 *big.Int `json:"int1"`
 		Int2 *big.Int `json:"int2"`
 	}{big.NewInt(10), big.NewInt(12)}}
@@ -101,13 +100,13 @@ func TestABIEncodeDecode(t *testing.T) {
 
 func BenchmarkComparisonEncode(b *testing.B) {
 	abiStr := `[{"components": [{"name":"int1","type":"int256"},{"name":"int2","type":"int256"}], "type":"tuple"}]`
-	values := []interface{}{struct {
+	values := []any{struct {
 		Int1 *big.Int `json:"int1"`
 		Int2 *big.Int `json:"int2"`
 	}{big.NewInt(10), big.NewInt(12)}}
 
 	b.Run("WithoutCache", func(b *testing.B) {
-		for i := 0; i < b.N; i++ {
+		for b.Loop() {
 			_, _ = utils.ABIEncode(abiStr, values...)
 		}
 	})
@@ -116,7 +115,7 @@ func BenchmarkComparisonEncode(b *testing.B) {
 	_, _ = ABIEncode(abiStr, values...)
 
 	b.Run("WithCache", func(b *testing.B) {
-		for i := 0; i < b.N; i++ {
+		for b.Loop() {
 			_, _ = ABIEncode(abiStr, values...)
 		}
 	})
@@ -124,14 +123,14 @@ func BenchmarkComparisonEncode(b *testing.B) {
 
 func BenchmarkComparisonDecode(b *testing.B) {
 	abiStr := `[{"components": [{"name":"int1","type":"int256"},{"name":"int2","type":"int256"}], "type":"tuple"}]`
-	values := []interface{}{struct {
+	values := []any{struct {
 		Int1 *big.Int `json:"int1"`
 		Int2 *big.Int `json:"int2"`
 	}{big.NewInt(10), big.NewInt(12)}}
 	data, _ := utils.ABIEncode(abiStr, values...)
 
 	b.Run("WithoutCache", func(b *testing.B) {
-		for i := 0; i < b.N; i++ {
+		for b.Loop() {
 			_, _ = utils.ABIDecode(abiStr, data)
 		}
 	})
@@ -140,7 +139,7 @@ func BenchmarkComparisonDecode(b *testing.B) {
 	_, _ = ABIDecode(abiStr, data)
 
 	b.Run("WithCache", func(b *testing.B) {
-		for i := 0; i < b.N; i++ {
+		for b.Loop() {
 			_, _ = ABIDecode(abiStr, data)
 		}
 	})

@@ -6,94 +6,74 @@ import (
 	"github.com/gagliardetto/solana-go"
 	mcmsTypes "github.com/smartcontractkit/mcms/types"
 	"github.com/stretchr/testify/require"
-	"go.uber.org/zap/zapcore"
 
 	chain_selectors "github.com/smartcontractkit/chain-selectors"
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 
-	cldf_chain "github.com/smartcontractkit/chainlink-deployments-framework/chain"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+	"github.com/smartcontractkit/chainlink-deployments-framework/engine/test/environment"
+	"github.com/smartcontractkit/chainlink-deployments-framework/engine/test/runtime"
 
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/common/changeset/state"
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 	commontypes "github.com/smartcontractkit/chainlink/deployment/common/types"
-	"github.com/smartcontractkit/chainlink/deployment/environment/memory"
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
+	"github.com/smartcontractkit/chainlink/deployment/internal/soltestutils"
+	"github.com/smartcontractkit/chainlink/deployment/utils/solutils"
 )
-
-// setupFiredrillTestEnv deploys all required contracts for the firedrill proposal execution
-func setupFiredrillTestEnv(t *testing.T) cldf.Environment {
-	lggr := logger.TestLogger(t)
-	cfg := memory.MemoryEnvironmentConfig{
-		Chains:    2,
-		SolChains: 1,
-	}
-	env := memory.NewMemoryEnvironment(t, lggr, zapcore.DebugLevel, cfg)
-	chainSelector := env.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chain_selectors.FamilyEVM))[0]
-	chainSelector2 := env.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chain_selectors.FamilyEVM))[1]
-	chainSelectorSolana := env.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chain_selectors.FamilySolana))[0]
-
-	commonchangeset.SetPreloadedSolanaAddresses(t, env, chainSelectorSolana)
-	config := proposalutils.SingleGroupTimelockConfigV2(t)
-	// Deploy MCMS and Timelock
-	env, err := commonchangeset.Apply(t, env,
-		commonchangeset.Configure(
-			cldf.CreateLegacyChangeSet(commonchangeset.DeployMCMSWithTimelockV2),
-			map[uint64]commontypes.MCMSWithTimelockConfigV2{
-				chainSelector:       config,
-				chainSelector2:      config,
-				chainSelectorSolana: config,
-			},
-		),
-	)
-	require.NoError(t, err)
-
-	addresses, err := env.ExistingAddresses.AddressesForChain(chainSelectorSolana)
-	require.NoError(t, err)
-	chainSelectorSolana = env.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chain_selectors.FamilySolana))[0]
-	mcmState, err := state.MaybeLoadMCMSWithTimelockChainStateSolana(env.BlockChains.SolanaChains()[chainSelectorSolana], addresses)
-	require.NoError(t, err)
-	timelockSigner := state.GetTimelockSignerPDA(mcmState.TimelockProgram, mcmState.TimelockSeed)
-	mcmSigner := state.GetMCMSignerPDA(mcmState.McmProgram, mcmState.ProposerMcmSeed)
-	mcmSignerBypasser := state.GetMCMSignerPDA(mcmState.McmProgram, mcmState.BypasserMcmSeed)
-	solChain := env.BlockChains.SolanaChains()[chainSelectorSolana]
-	err = memory.FundSolanaAccounts(env.GetContext(), []solana.PublicKey{timelockSigner, mcmSigner, mcmSignerBypasser, solChain.DeployerKey.PublicKey()}, 150, solChain.Client)
-	require.NoError(t, err)
-	return env
-}
 
 func TestMCMSSignFireDrillChangeset(t *testing.T) {
 	t.Parallel()
-	env := setupFiredrillTestEnv(t)
-	chainSelector := env.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chain_selectors.FamilyEVM))[0]
-	chainSelector2 := env.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chain_selectors.FamilyEVM))[1]
-	chainSelectorSolana := env.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chain_selectors.FamilySolana))[0]
-	// Add the timelock as a signer to check state changes
-	for _, tc := range []struct {
-		name       string
-		changeSets func() []commonchangeset.ConfiguredChangeSet
-	}{
-		{
-			name: "MCMS Firedrill execution",
-			changeSets: func() []commonchangeset.ConfiguredChangeSet {
-				return []commonchangeset.ConfiguredChangeSet{
-					commonchangeset.Configure(
-						cldf.CreateLegacyChangeSet(commonchangeset.MCMSSignFireDrillChangeset),
-						commonchangeset.FireDrillConfig{
-							Selectors: []uint64{chainSelector, chainSelector2, chainSelectorSolana},
-							TimelockCfg: proposalutils.TimelockConfig{
-								MCMSAction: mcmsTypes.TimelockActionBypass,
-							},
-						},
-					),
-				}
+
+	evmSelector1 := chain_selectors.TEST_90000001.Selector
+	evmSelector2 := chain_selectors.TEST_90000002.Selector
+	solSelector := chain_selectors.TEST_22222222222222222222222222222222222222222222.Selector
+	programsPath, programIDs, ab := soltestutils.PreloadMCMS(t, solSelector)
+
+	rt, err := runtime.New(t.Context(), runtime.WithEnvOpts(
+		environment.WithEVMSimulated(t, []uint64{evmSelector1, evmSelector2}),
+		environment.WithSolanaContainer(t, []uint64{solSelector}, programsPath, programIDs),
+		environment.WithAddressBook(ab),
+		environment.WithLogger(logger.Test(t)),
+	))
+	require.NoError(t, err)
+
+	solChain := rt.Environment().BlockChains.SolanaChains()[solSelector]
+
+	// Deploy MCMS and Timelock
+	config := proposalutils.SingleGroupTimelockConfigV2(t)
+
+	err = rt.Exec(
+		runtime.ChangesetTask(cldf.CreateLegacyChangeSet(commonchangeset.DeployMCMSWithTimelockV2), map[uint64]commontypes.MCMSWithTimelockConfigV2{
+			evmSelector1: config,
+			evmSelector2: config,
+			solSelector:  config,
+		}),
+	)
+	require.NoError(t, err)
+
+	// Fund the signer PDAs for the MCMS contracts
+	mcmsState := soltestutils.GetMCMSStateFromAddressBook(t, rt.State().AddressBook, solChain)
+
+	timelockSigner := state.GetTimelockSignerPDA(mcmsState.TimelockProgram, mcmsState.TimelockSeed)
+	mcmSigner := state.GetMCMSignerPDA(mcmsState.McmProgram, mcmsState.ProposerMcmSeed)
+	mcmSignerBypasser := state.GetMCMSignerPDA(mcmsState.McmProgram, mcmsState.BypasserMcmSeed)
+
+	// Note we cannot use FundSignerPDAs here because we also have to fund the bypasser signer PDA.
+	err = solutils.FundAccounts(t.Context(),
+		solChain.Client,
+		[]solana.PublicKey{timelockSigner, mcmSigner, mcmSignerBypasser},
+		150,
+	)
+	require.NoError(t, err)
+
+	err = rt.Exec(
+		runtime.ChangesetTask(cldf.CreateLegacyChangeSet(commonchangeset.MCMSSignFireDrillChangeset), commonchangeset.FireDrillConfig{
+			Selectors: []uint64{evmSelector1, evmSelector2, solSelector},
+			TimelockCfg: proposalutils.TimelockConfig{
+				MCMSAction: mcmsTypes.TimelockActionBypass,
 			},
-		},
-	} {
-		t.Run(tc.name, func(t *testing.T) {
-			changesetsToApply := tc.changeSets()
-			_, _, err := commonchangeset.ApplyChangesets(t, env, changesetsToApply)
-			require.NoError(t, err)
-		})
-	}
+		}),
+	)
+	require.NoError(t, err)
 }

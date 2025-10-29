@@ -25,6 +25,8 @@ import (
 	"github.com/rs/zerolog"
 	"github.com/stretchr/testify/require"
 
+	chainselectors "github.com/smartcontractkit/chain-selectors"
+
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	consensustypes "github.com/smartcontractkit/chainlink-common/pkg/capabilities/consensus/ocr3/types"
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/consensus/report"
@@ -47,8 +49,9 @@ import (
 	cldlogger "github.com/smartcontractkit/chainlink/deployment/logger"
 	cretypes "github.com/smartcontractkit/chainlink/system-tests/lib/cre"
 	libcontracts "github.com/smartcontractkit/chainlink/system-tests/lib/cre/contracts"
-	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/node"
 	creenv "github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment"
+	creevm "github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/blockchains/evm"
+	blockchain_sets "github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/blockchains/sets"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/flags"
 	mock_capability "github.com/smartcontractkit/chainlink/system-tests/lib/cre/mock"
 	pb2 "github.com/smartcontractkit/chainlink/system-tests/lib/cre/mock/pb"
@@ -64,7 +67,7 @@ type WriterTest struct {
 	WorkflowID    string `toml:"workflow_id"`
 }
 type TestConfigLoadTestWriter struct {
-	Blockchains                   []blockchain.Input              `toml:"blockchains" validate:"required"`
+	Blockchains                   []*blockchain.Input             `toml:"blockchains" validate:"required"`
 	NodeSets                      []*ns.Input                     `toml:"nodesets" validate:"required"`
 	JD                            *jd.Input                       `toml:"jd" validate:"required"`
 	WorkflowRegistryConfiguration *cretypes.WorkflowRegistryInput `toml:"workflow_registry_configuration"`
@@ -77,19 +80,20 @@ func setupLoadTestWriterEnvironment(
 	t *testing.T,
 	testLogger zerolog.Logger,
 	in *TestConfigLoadTestWriter,
-	mustSetCapabilitiesFn func(input []*ns.Input) []*cretypes.CapabilitiesAwareNodeSet,
+	mustSetCapabilitiesFn func(input []*ns.Input) []*cretypes.NodeSet,
 	capabilityFactoryFns []cretypes.CapabilityRegistryConfigFn,
 	jobSpecFactoryFns []cretypes.JobSpecFn,
 	feedIDs []string,
 	workflowNames []string,
 ) *loadTestSetupOutput {
 	universalSetupInput := creenv.SetupInput{
-		CapabilitiesAwareNodeSets:            mustSetCapabilitiesFn(in.NodeSets),
+		NodeSets:                             mustSetCapabilitiesFn(in.NodeSets),
 		CapabilitiesContractFactoryFunctions: capabilityFactoryFns,
 		BlockchainsInput:                     in.Blockchains,
 		JdInput:                              in.JD,
 		Provider:                             *in.Infra,
 		JobSpecFactoryFunctions:              jobSpecFactoryFns,
+		BlockchainDeployers:                  blockchain_sets.NewDeployerSet(testLogger, in.Infra, infra.CribConfigsDir),
 	}
 
 	universalSetupOutput, setupErr := creenv.SetupTestEnvironment(t.Context(), testLogger, cldlogger.NewSingleFileLogger(t), &universalSetupInput, relativePathToRepoRoot)
@@ -98,32 +102,40 @@ func setupLoadTestWriterEnvironment(
 	in.WorkflowRegistryConfiguration = &cretypes.WorkflowRegistryInput{}
 	in.WorkflowRegistryConfiguration.Out = universalSetupOutput.WorkflowRegistryConfigurationOutput
 
-	forwarderAddress, _, forwarderErr := libcontracts.FindAddressesForChain(universalSetupOutput.CldEnvironment.ExistingAddresses, universalSetupOutput.BlockchainOutput[0].ChainSelector, keystone_changeset.KeystoneForwarder.String()) //nolint:staticcheck // won't migrate now
-	require.NoError(t, forwarderErr, "failed to find forwarder address for chain %d", universalSetupOutput.BlockchainOutput[0].ChainSelector)
+	forwarderAddress, _, forwarderErr := libcontracts.FindAddressesForChain(
+		universalSetupOutput.CreEnvironment.CldfEnvironment.ExistingAddresses, //nolint:staticcheck // deprecated but still used
+		universalSetupOutput.CreEnvironment.Blockchains[0].ChainSelector(),
+		keystone_changeset.KeystoneForwarder.String(),
+	)
+	require.NoError(t, forwarderErr, "failed to find forwarder address for chain %d", universalSetupOutput.CreEnvironment.Blockchains[0].ChainSelector())
 
 	// DF cache start
 
 	// Deploy
 	deployConfig := df_changeset_types.DeployConfig{
-		ChainsToDeploy: []uint64{universalSetupOutput.BlockchainOutput[0].ChainSelector},
+		ChainsToDeploy: []uint64{universalSetupOutput.CreEnvironment.Blockchains[0].ChainSelector()},
 		Labels:         []string{"data-feeds"}, // label required by the changeset
 	}
-	dfOutput, dfErr := changeset2.RunChangeset(changeset.DeployCacheChangeset, *universalSetupOutput.CldEnvironment, deployConfig)
+	dfOutput, dfErr := changeset2.RunChangeset(changeset.DeployCacheChangeset, *universalSetupOutput.CreEnvironment.CldfEnvironment, deployConfig)
 	require.NoError(t, dfErr, "failed to deploy data feed cache contract")
 
-	mergeErr := universalSetupOutput.CldEnvironment.ExistingAddresses.Merge(dfOutput.AddressBook) //nolint:staticcheck // won't migrate now
+	mergeErr := universalSetupOutput.CreEnvironment.CldfEnvironment.ExistingAddresses.Merge(dfOutput.AddressBook) //nolint:staticcheck // deprecated but still used
 	require.NoError(t, mergeErr, "failed to merge address book")
 
-	dfCacheAddress, _, dfCacheErr := libcontracts.FindAddressesForChain(universalSetupOutput.CldEnvironment.ExistingAddresses, universalSetupOutput.BlockchainOutput[0].ChainSelector, changeset.DataFeedsCache.String()) //nolint:staticcheck // won't migrate now
-	require.NoError(t, dfCacheErr, "failed to find df cache address for chain %d", universalSetupOutput.BlockchainOutput[0].ChainSelector)
+	dfCacheAddress, _, dfCacheErr := libcontracts.FindAddressesForChain(
+		universalSetupOutput.CreEnvironment.CldfEnvironment.ExistingAddresses, //nolint:staticcheck // deprecated but still used
+		universalSetupOutput.CreEnvironment.Blockchains[0].ChainSelector(),
+		changeset.DataFeedsCache.String(),
+	)
+	require.NoError(t, dfCacheErr, "failed to find df cache address for chain %d", universalSetupOutput.CreEnvironment.Blockchains[0].ChainSelector())
 	// Config
 	_, configErr := libcontracts.ConfigureDataFeedsCache(testLogger, &cretypes.ConfigureDataFeedsCacheInput{
-		CldEnv:                universalSetupOutput.CldEnvironment,
-		ChainSelector:         universalSetupOutput.BlockchainOutput[0].ChainSelector,
+		CldEnv:                universalSetupOutput.CreEnvironment.CldfEnvironment,
+		ChainSelector:         universalSetupOutput.CreEnvironment.Blockchains[0].ChainSelector(),
 		FeedIDs:               feedIDs,
 		Descriptions:          feedIDs,
 		DataFeedsCacheAddress: dfCacheAddress,
-		AdminAddress:          universalSetupOutput.BlockchainOutput[0].SethClient.MustGetRootKeyAddress(),
+		AdminAddress:          universalSetupOutput.CreEnvironment.Blockchains[0].(*creevm.Blockchain).SethClient.MustGetRootKeyAddress(),
 		AllowedSenders:        []common.Address{forwarderAddress},
 		AllowedWorkflowOwners: []common.Address{common.HexToAddress(in.WriterTest.WorkflowOwner)},
 		AllowedWorkflowNames:  workflowNames,
@@ -134,8 +146,8 @@ func setupLoadTestWriterEnvironment(
 	return &loadTestSetupOutput{
 		dataFeedsCacheAddress: dfCacheAddress,
 		forwarderAddress:      forwarderAddress,
-		blockchainOutput:      universalSetupOutput.BlockchainOutput,
-		donTopology:           universalSetupOutput.DonTopology,
+		blockchains:           universalSetupOutput.CreEnvironment.Blockchains,
+		dons:                  universalSetupOutput.Dons,
 		nodeOutput:            universalSetupOutput.NodeOutput,
 	}
 }
@@ -148,8 +160,8 @@ func TestLoad_Writer_MockCapabilities(t *testing.T) {
 	require.NoError(t, err, "couldn't load test config")
 	require.Len(t, in.NodeSets, 1, "expected 1 node sets in the test config")
 
-	mustSetCapabilitiesFn := func(input []*ns.Input) []*cretypes.CapabilitiesAwareNodeSet {
-		return []*cretypes.CapabilitiesAwareNodeSet{
+	mustSetCapabilitiesFn := func(input []*ns.Input) []*cretypes.NodeSet {
+		return []*cretypes.NodeSet{
 			{
 				Input:        input[0],
 				Capabilities: []string{cretypes.MockCapability, cretypes.ConsensusCapability},
@@ -167,34 +179,26 @@ func TestLoad_Writer_MockCapabilities(t *testing.T) {
 		}
 	}
 
-	loadTestJobSpecsFactoryFn := func(input *cretypes.JobSpecInput) (cretypes.DonsToJobSpecs, error) {
-		donTojobSpecs := make(cretypes.DonsToJobSpecs, 0)
+	loadTestJobSpecsFactoryFn := func(input *cretypes.JobSpecInput) (cretypes.DonJobs, error) {
+		jobSpecs := make(cretypes.DonJobs, 0)
 
-		for _, donMetadata := range input.DonTopology.Dons.DonMetadata {
-			jobSpecs := make(cretypes.DonJobs, 0)
-			workflowNodeSet, err2 := node.FindManyWithLabel(donMetadata.NodesMetadata, &cretypes.Label{Key: node.NodeTypeKey, Value: cretypes.WorkerNode}, node.EqualLabels)
-			if err2 != nil {
-				// there should be no DON without worker nodes, even gateway DON is composed of a single worker node
-				return nil, errors.Wrap(err2, "failed to find worker nodes")
-			}
-			for _, workerNode := range workflowNodeSet {
-				nodeID, nodeIDErr := node.FindLabelValue(workerNode, node.NodeIDKey)
-				if nodeIDErr != nil {
-					return nil, errors.Wrap(nodeIDErr, "failed to get node id from labels")
-				}
-
-				if flags.HasFlag(donMetadata.Flags, cretypes.MockCapability) && in.MockCapabilities != nil {
-					jobSpecs = append(jobSpecs, MockCapabilitiesJob(nodeID, "mock", in.MockCapabilities))
-				}
-			}
-
-			donTojobSpecs[donMetadata.ID] = jobSpecs
+		if !input.Don.HasFlag(cretypes.MockCapability) || in.MockCapabilities == nil {
+			return jobSpecs, nil
 		}
 
-		return donTojobSpecs, nil
+		workflowNodeSet, err2 := input.Don.Workers()
+		if err2 != nil {
+			// there should be no DON without worker nodes, even gateway DON is composed of a single worker node
+			return nil, errors.Wrap(err2, "failed to find worker nodes")
+		}
+		for _, workerNode := range workflowNodeSet {
+			jobSpecs = append(jobSpecs, MockCapabilitiesJob(workerNode.JobDistributorDetails.NodeID, "mock", in.MockCapabilities))
+		}
+
+		return jobSpecs, nil
 	}
 
-	WriterDONLoadTestCapabilitiesFactoryFn := func(donFlags []string, _ *cretypes.CapabilitiesAwareNodeSet) ([]keystone_changeset.DONCapabilityWithConfig, error) {
+	WriterDONLoadTestCapabilitiesFactoryFn := func(donFlags []string, _ *cretypes.NodeSet) ([]keystone_changeset.DONCapabilityWithConfig, error) {
 		var capabilities []keystone_changeset.DONCapabilityWithConfig
 
 		if flags.HasFlag(donFlags, cretypes.MockCapability) {
@@ -249,13 +253,13 @@ func TestLoad_Writer_MockCapabilities(t *testing.T) {
 	ctx := t.Context()
 	// Get OCR2 keys needed to sign the reports
 	kb := make([]ocr2key.KeyBundle, 0)
-	for idx, donMetadata := range setupOutput.donTopology.Dons.DonMetadata {
-		if flags.HasFlag(donMetadata.Flags, cretypes.MockCapability) {
-			for i, n := range setupOutput.donTopology.Dons.List()[idx].Nodes {
+	for _, don := range setupOutput.dons.List() {
+		if don.HasFlag(cretypes.MockCapability) {
+			for i, n := range don.Nodes {
 				if i == 0 {
 					continue // Skip bootstrap nodes
 				}
-				key, err2 := n.ExportOCR2Keys(n.ChainsOcr2KeyBundlesID["evm"])
+				key, err2 := n.ExportOCR2Keys(n.Keys.OCR2BundleIDs[chainselectors.FamilyEVM])
 				if err2 == nil {
 					b, err3 := json.Marshal(key)
 					require.NoError(t, err3, "could not marshal OCR2 key")
@@ -271,12 +275,9 @@ func TestLoad_Writer_MockCapabilities(t *testing.T) {
 
 	f := 0
 	// Nr of signatures needs to be equal with f+1, compute f based on the nr of ocr3 worker nodes
-	for _, donMetadata := range setupOutput.donTopology.Dons.DonMetadata {
-		if flags.HasFlag(donMetadata.Flags, cretypes.ConsensusCapability) {
-			workerNodes, workerNodesErr := node.FindManyWithLabel(donMetadata.NodesMetadata, &cretypes.Label{
-				Key:   node.NodeTypeKey,
-				Value: cretypes.WorkerNode,
-			}, node.EqualLabels)
+	for _, don := range setupOutput.dons.List() {
+		if don.HasFlag(cretypes.ConsensusCapability) {
+			workerNodes, workerNodesErr := don.Workers()
 			require.NoError(t, workerNodesErr, "could not find any worker nodes for ocr3")
 
 			f = (len(workerNodes) - 1) / 3
@@ -299,7 +300,7 @@ func TestLoad_Writer_MockCapabilities(t *testing.T) {
 	// Export key bundles so we can import them later in another test, used when crib cluster is already setup and we just want to connect to mocks for a different test
 	require.NoError(t, saveKeyBundles(kb), "could not save OCR2 Keys")
 
-	require.NoError(t, saveClientURL(setupOutput.blockchainOutput[0].SethClient.URL), "could not save seth client url")
+	require.NoError(t, saveClientURL(setupOutput.blockchains[0].(*creevm.Blockchain).SethClient.URL), "could not save seth client url")
 
 	testLogger.Info().Msg("Connecting to mock capabilities...")
 
@@ -354,7 +355,7 @@ func TestLoad_Writer_MockCapabilities(t *testing.T) {
 			Schedule: wasp.Combine(
 				wasp.Plain(1, 10*time.Minute),
 			),
-			Gun:                   NewWriterGun(mocksClient, kb, "write_geth-testnet@1.0.0", setupOutput.blockchainOutput[0].SethClient, tParams),
+			Gun:                   NewWriterGun(mocksClient, kb, "write_geth-testnet@1.0.0", setupOutput.blockchains[0].(*creevm.Blockchain).SethClient, tParams),
 			Labels:                labels,
 			LokiConfig:            wasp.NewEnvLokiConfig(),
 			RateLimitUnitDuration: time.Minute,
@@ -446,7 +447,7 @@ func exportTestParams(params testParams) error {
 	}
 
 	// Marshal data to JSON
-	data := map[string]interface{}{
+	data := map[string]any{
 		"workflowName":          params.workflowName,
 		"workflowOwner":         params.workflowOwner,
 		"workflowID":            params.workflowID,
@@ -479,7 +480,7 @@ func importTestParams() (testParams, error) {
 		return params, fmt.Errorf("failed to read test params file: %w", err)
 	}
 
-	var rawData map[string]interface{}
+	var rawData map[string]any
 	if err := json.Unmarshal(data, &rawData); err != nil {
 		return params, fmt.Errorf("failed to unmarshal test params: %w", err)
 	}
@@ -489,7 +490,7 @@ func importTestParams() (testParams, error) {
 	params.workflowID = rawData["workflowID"].(string)
 
 	// Convert interface{} array to []string
-	feedsRaw := rawData["feeds"].([]interface{})
+	feedsRaw := rawData["feeds"].([]any)
 	params.feeds = make([]string, len(feedsRaw))
 	for i, v := range feedsRaw {
 		params.feeds[i] = v.(string)
@@ -507,7 +508,7 @@ type WriterGun struct {
 	capProxy   *mock_capability.Controller
 	keyBundles []ocr2key.KeyBundle
 	triggerID  string
-	waitChans  map[uint8]chan interface{}
+	waitChans  map[uint8]chan any
 	mu         sync.Mutex
 	reportID   uint8
 	seqNr      uint32
@@ -525,7 +526,7 @@ func NewWriterGun(capProxy *mock_capability.Controller, keyBundles []ocr2key.Key
 		seqNr:      1,
 		seth:       seth,
 		testParams: params,
-		waitChans:  make(map[uint8]chan interface{}),
+		waitChans:  make(map[uint8]chan any),
 	}
 
 	go func() {
@@ -599,7 +600,7 @@ func (s *WriterGun) Call(l *wasp.Generator) *wasp.Response {
 	}
 
 	s.mu.Lock()
-	ch := make(chan interface{})
+	ch := make(chan any)
 	s.waitChans[s.reportID] = ch
 	s.mu.Unlock()
 	// Create executable request and execute

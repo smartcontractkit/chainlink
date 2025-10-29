@@ -139,7 +139,7 @@ func NewServerRequest(capability capabilities.ExecutableCapability, method strin
 	capabilityPeerID p2ptypes.PeerID,
 	callingDon capabilities.DON, requestID string,
 	dispatcher types.Dispatcher, requestTimeout time.Duration, capMethodName string, lggr logger.Logger) (*ServerRequest, error) {
-	lggr = logger.Sugared(lggr).Named("ServerRequest").With("requestID", requestID, "capabilityID", capabilityID)
+	lggr = logger.With(logger.Named(lggr, "ServerRequest"), "requestID", requestID) // cap ID and method name included in the parent logger
 
 	m, err := newSrMetrics(capabilityID, callingDon.ID)
 	if err != nil {

@@ -2,6 +2,7 @@ package operations
 
 import (
 	"fmt"
+	"maps"
 
 	"github.com/Masterminds/semver/v3"
 
@@ -15,6 +16,7 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/cre/jobs/pkg"
 	"github.com/smartcontractkit/chainlink/deployment/cre/pkg/offchain"
+	"github.com/smartcontractkit/chainlink/deployment/helpers/pointer"
 )
 
 type ProposeStandardCapabilityJobDeps struct {
@@ -67,11 +69,24 @@ var ProposeStandardCapabilityJob = operations.NewSequence[
 					Op:    ptypes.SelectorOp_EQ,
 					Value: &input.Domain,
 				},
+				{
+					Key:   "type",
+					Op:    ptypes.SelectorOp_EQ,
+					Value: pointer.To(PluginNodeType),
+				},
 			},
 		}
+
+		for _, f := range input.DONFilters {
+			filter = f.AddToFilterIfNotPresent(filter)
+		}
+
 		nodes, err := offchain.FetchNodesFromJD(b.GetContext(), deps.Env.Offchain, filter)
 		if err != nil {
 			return ProposeStandardCapabilityJobOutput{}, fmt.Errorf("failed to fetch nodes from JD: %w", err)
+		}
+		if len(nodes) == 0 {
+			return ProposeStandardCapabilityJobOutput{}, fmt.Errorf("no nodes found on JD for DON `%s` with filters %+v", input.DONName, filter)
 		}
 
 		nodeIDs := make([]string, len(nodes))
@@ -83,22 +98,24 @@ var ProposeStandardCapabilityJob = operations.NewSequence[
 		if err != nil {
 			return ProposeStandardCapabilityJobOutput{}, fmt.Errorf("failed to fetch node infos: %w", err)
 		}
+		if len(nodeInfos) == 0 {
+			return ProposeStandardCapabilityJobOutput{}, fmt.Errorf("no nodes info found for DON `%s` with filters %+v and node IDs %v", input.DONName, input.DONFilters, nodeIDs)
+		}
 
-		if !input.Job.GenerateOracleFactory {
+		generateOracleFactory := input.Job.GenerateOracleFactory && input.Job.OracleFactory == nil
+		if !generateOracleFactory {
 			specs := make(map[string][]string)
 
 			for _, ni := range nodeInfos {
 				spec, err := input.Job.Resolve()
 				if err != nil {
-					return ProposeStandardCapabilityJobOutput{}, fmt.Errorf("failed to resolve consensus job for node %s: %w", ni.NodeID, err)
+					return ProposeStandardCapabilityJobOutput{}, fmt.Errorf("failed to resolve standard capability job for node %s: %w", ni.NodeID, err)
 				}
 
 				jobLabels := map[string]string{
 					offchain.CapabilityLabel: input.Job.JobName,
 				}
-				for k, v := range input.ExtraLabels {
-					jobLabels[k] = v
-				}
+				maps.Copy(jobLabels, input.ExtraLabels)
 
 				// 1 spec per node, each spec is unique to the node due to the oracle factory config
 				report, err := operations.ExecuteOperation(b, ProposeJobSpec, ProposeJobSpecDeps(deps), ProposeJobSpecInput{
@@ -111,12 +128,10 @@ var ProposeStandardCapabilityJob = operations.NewSequence[
 					},
 				})
 				if err != nil {
-					return ProposeStandardCapabilityJobOutput{}, fmt.Errorf("failed to propose consensus job: %w", err)
+					return ProposeStandardCapabilityJobOutput{}, fmt.Errorf("failed to propose standard capability job: %w", err)
 				}
 
-				for k, v := range report.Output.Specs {
-					specs[k] = v
-				}
+				maps.Copy(specs, report.Output.Specs)
 			}
 
 			return ProposeStandardCapabilityJobOutput{Specs: specs}, nil
@@ -142,10 +157,6 @@ var ProposeStandardCapabilityJob = operations.NewSequence[
 			if !ok {
 				return ProposeStandardCapabilityJobOutput{}, fmt.Errorf("no evm ocr2 config for node %s", ni.NodeID)
 			}
-			aptosConfig, ok := ni.OCRConfigForChainSelector(uint64(input.Job.ChainSelectorAptos))
-			if !ok {
-				return ProposeStandardCapabilityJobOutput{}, fmt.Errorf("no aptos ocr2 config for node %s", ni.NodeID)
-			}
 
 			oracleFactory := &pkg.OracleFactory{
 				Enabled:            true,
@@ -156,24 +167,30 @@ var ProposeStandardCapabilityJob = operations.NewSequence[
 				TransmitterID:      string(evmConfig.TransmitAccount),
 				OnchainSigningStrategy: pkg.OnchainSigningStrategy{
 					StrategyName: "multi-chain",
-					Config: map[string]string{"evm": evmConfig.KeyBundleID,
-						"aptos": aptosConfig.KeyBundleID},
+					Config:       map[string]string{"evm": evmConfig.KeyBundleID},
 				},
+			}
+
+			if input.Job.ChainSelectorAptos > 0 {
+				aptosConfig, ok := ni.OCRConfigForChainSelector(uint64(input.Job.ChainSelectorAptos))
+				if !ok {
+					return ProposeStandardCapabilityJobOutput{}, fmt.Errorf("no aptos ocr2 config for node %s", ni.NodeID)
+				}
+
+				oracleFactory.OnchainSigningStrategy.Config["aptos"] = aptosConfig.KeyBundleID
 			}
 
 			input.Job.OracleFactory = oracleFactory
 
 			spec, err := input.Job.Resolve()
 			if err != nil {
-				return ProposeStandardCapabilityJobOutput{}, fmt.Errorf("failed to resolve consensus job for node %s: %w", ni.NodeID, err)
+				return ProposeStandardCapabilityJobOutput{}, fmt.Errorf("failed to resolve standard capability job for node %s: %w", ni.NodeID, err)
 			}
 
 			jobLabels := map[string]string{
 				offchain.CapabilityLabel: input.Job.JobName,
 			}
-			for k, v := range input.ExtraLabels {
-				jobLabels[k] = v
-			}
+			maps.Copy(jobLabels, input.ExtraLabels)
 
 			// 1 spec per node, each spec is unique to the node due to the oracle factory config
 			report, err := operations.ExecuteOperation(b, ProposeJobSpec, ProposeJobSpecDeps(deps), ProposeJobSpecInput{
@@ -186,12 +203,10 @@ var ProposeStandardCapabilityJob = operations.NewSequence[
 				},
 			})
 			if err != nil {
-				return ProposeStandardCapabilityJobOutput{}, fmt.Errorf("failed to propose consensus job: %w", err)
+				return ProposeStandardCapabilityJobOutput{}, fmt.Errorf("failed to propose standard capability job: %w", err)
 			}
 
-			for k, v := range report.Output.Specs {
-				specs[k] = v
-			}
+			maps.Copy(specs, report.Output.Specs)
 		}
 
 		return ProposeStandardCapabilityJobOutput{Specs: specs}, nil

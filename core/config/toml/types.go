@@ -438,6 +438,7 @@ func (p *P2PKey) SetFrom(f *P2PKey) (err error) {
 	}
 	return nil
 }
+
 func (p *P2PKey) validateMerge(f *P2PKey) (err error) {
 	if p.JSON != nil && f.JSON != nil {
 		err = errors.Join(err, configutils.ErrOverride{Name: "JSON"})
@@ -683,8 +684,10 @@ func (l *DatabaseLock) Mode() string {
 
 func (l *DatabaseLock) ValidateConfig() (err error) {
 	if l.LeaseRefreshInterval.Duration() > l.LeaseDuration.Duration()/2 {
-		err = errors.Join(err, configutils.ErrInvalid{Name: "LeaseRefreshInterval", Value: l.LeaseRefreshInterval.String(),
-			Msg: fmt.Sprintf("must be less than or equal to half of LeaseDuration (%s)", l.LeaseDuration.String())})
+		err = errors.Join(err, configutils.ErrInvalid{
+			Name: "LeaseRefreshInterval", Value: l.LeaseRefreshInterval,
+			Msg: fmt.Sprintf("must be less than or equal to half of LeaseDuration (%s)", l.LeaseDuration),
+		})
 	}
 	return
 }
@@ -1452,6 +1455,7 @@ type P2P struct {
 	OutgoingMessageBufferSize *int64
 	PeerID                    *p2pkey.PeerID
 	TraceLogging              *bool
+	EnableExperimentalRageP2P *bool
 
 	V2 P2PV2 `toml:",omitempty"`
 }
@@ -1468,6 +1472,9 @@ func (p *P2P) setFrom(f *P2P) {
 	}
 	if v := f.TraceLogging; v != nil {
 		p.TraceLogging = v
+	}
+	if v := f.EnableExperimentalRageP2P; v != nil {
+		p.EnableExperimentalRageP2P = v
 	}
 
 	p.V2.setFrom(&f.V2)
@@ -1808,9 +1815,7 @@ func (m *MercurySecrets) SetFrom(f *MercurySecrets) (err error) {
 	}
 
 	if m.Credentials != nil && f.Credentials != nil {
-		for k, v := range f.Credentials {
-			m.Credentials[k] = v
-		}
+		maps.Copy(m.Credentials, f.Credentials)
 	} else if v := f.Credentials; v != nil {
 		m.Credentials = v
 	}
@@ -2433,6 +2438,7 @@ type Telemetry struct {
 	ChipIngressEndpoint           *string
 	ChipIngressInsecureConnection *bool
 	HeartbeatInterval             *commonconfig.Duration
+	LogLevel                      *string
 	LogStreamingEnabled           *bool
 }
 
@@ -2472,6 +2478,9 @@ func (b *Telemetry) setFrom(f *Telemetry) {
 	}
 	if v := f.LogStreamingEnabled; v != nil {
 		b.LogStreamingEnabled = v
+	}
+	if v := f.LogLevel; v != nil {
+		b.LogLevel = v
 	}
 }
 

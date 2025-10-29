@@ -64,7 +64,7 @@ func CreateAndFundSendingKeys(
 	chainID *big.Int,
 ) ([]string, error) {
 	var newNativeTokenKeyAddresses []string
-	for i := 0; i < numberOfNativeTokenAddressesToCreate; i++ {
+	for range numberOfNativeTokenAddressesToCreate {
 		newTxKey, response, err := node.CLNode.API.CreateTxKey("evm", chainID.String())
 		if err != nil {
 			return nil, fmt.Errorf("%s, err %w", ErrNodeNewTxKey, err)

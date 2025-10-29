@@ -2341,6 +2341,7 @@ func (v *FetchKeysAptosKeysAptosKeysPayloadResultsAptosKey) GetAccount() string 
 type FetchKeysResponse struct {
 	SolanaKeys FetchKeysSolanaKeysSolanaKeysPayload `json:"solanaKeys"`
 	AptosKeys  FetchKeysAptosKeysAptosKeysPayload   `json:"aptosKeys"`
+	SuiKeys    FetchKeysSuiKeysSuiKeysPayload       `json:"suiKeys"`
 }
 
 // GetSolanaKeys returns FetchKeysResponse.SolanaKeys, and is useful for accessing the field via an interface.
@@ -2348,6 +2349,9 @@ func (v *FetchKeysResponse) GetSolanaKeys() FetchKeysSolanaKeysSolanaKeysPayload
 
 // GetAptosKeys returns FetchKeysResponse.AptosKeys, and is useful for accessing the field via an interface.
 func (v *FetchKeysResponse) GetAptosKeys() FetchKeysAptosKeysAptosKeysPayload { return v.AptosKeys }
+
+// GetSuiKeys returns FetchKeysResponse.SuiKeys, and is useful for accessing the field via an interface.
+func (v *FetchKeysResponse) GetSuiKeys() FetchKeysSuiKeysSuiKeysPayload { return v.SuiKeys }
 
 // FetchKeysSolanaKeysSolanaKeysPayload includes the requested fields of the GraphQL type SolanaKeysPayload.
 type FetchKeysSolanaKeysSolanaKeysPayload struct {
@@ -2366,6 +2370,28 @@ type FetchKeysSolanaKeysSolanaKeysPayloadResultsSolanaKey struct {
 
 // GetId returns FetchKeysSolanaKeysSolanaKeysPayloadResultsSolanaKey.Id, and is useful for accessing the field via an interface.
 func (v *FetchKeysSolanaKeysSolanaKeysPayloadResultsSolanaKey) GetId() string { return v.Id }
+
+// FetchKeysSuiKeysSuiKeysPayload includes the requested fields of the GraphQL type SuiKeysPayload.
+type FetchKeysSuiKeysSuiKeysPayload struct {
+	Results []FetchKeysSuiKeysSuiKeysPayloadResultsSuiKey `json:"results"`
+}
+
+// GetResults returns FetchKeysSuiKeysSuiKeysPayload.Results, and is useful for accessing the field via an interface.
+func (v *FetchKeysSuiKeysSuiKeysPayload) GetResults() []FetchKeysSuiKeysSuiKeysPayloadResultsSuiKey {
+	return v.Results
+}
+
+// FetchKeysSuiKeysSuiKeysPayloadResultsSuiKey includes the requested fields of the GraphQL type SuiKey.
+type FetchKeysSuiKeysSuiKeysPayloadResultsSuiKey struct {
+	Id      string `json:"id"`
+	Account string `json:"account"`
+}
+
+// GetId returns FetchKeysSuiKeysSuiKeysPayloadResultsSuiKey.Id, and is useful for accessing the field via an interface.
+func (v *FetchKeysSuiKeysSuiKeysPayloadResultsSuiKey) GetId() string { return v.Id }
+
+// GetAccount returns FetchKeysSuiKeysSuiKeysPayloadResultsSuiKey.Account, and is useful for accessing the field via an interface.
+func (v *FetchKeysSuiKeysSuiKeysPayloadResultsSuiKey) GetAccount() string { return v.Account }
 
 // FetchOCR2KeyBundlesOcr2KeyBundlesOCR2KeyBundlesPayload includes the requested fields of the GraphQL type OCR2KeyBundlesPayload.
 type FetchOCR2KeyBundlesOcr2KeyBundlesOCR2KeyBundlesPayload struct {
@@ -6427,6 +6453,7 @@ const (
 	OCR2ChainTypeAptos    OCR2ChainType = "APTOS"
 	OCR2ChainTypeTron     OCR2ChainType = "TRON"
 	OCR2ChainTypeTon      OCR2ChainType = "TON"
+	OCR2ChainTypeSui      OCR2ChainType = "SUI"
 )
 
 // OCR2Spec includes the GraphQL fields of OCR2Spec requested by the fragment OCR2Spec.
@@ -8113,6 +8140,12 @@ query FetchKeys {
 		}
 	}
 	aptosKeys {
+		results {
+			id
+			account
+		}
+	}
+	suiKeys {
 		results {
 			id
 			account

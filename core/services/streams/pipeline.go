@@ -73,11 +73,11 @@ func newMultiStreamPipeline(lggr logger.Logger, jb job.Job, runner Runner, rrs R
 		return nil, fmt.Errorf("invalid stream IDs: %w", err)
 	}
 	vars := func() pipeline.Vars {
-		return pipeline.NewVarsFrom(map[string]interface{}{
-			"pipelineSpec": map[string]interface{}{
+		return pipeline.NewVarsFrom(map[string]any{
+			"pipelineSpec": map[string]any{
 				"id": jb.PipelineSpecID,
 			},
-			"jb": map[string]interface{}{
+			"jb": map[string]any{
 				"streamID":      jb.StreamID,
 				"databaseID":    jb.ID,
 				"externalJobID": jb.ExternalJobID,

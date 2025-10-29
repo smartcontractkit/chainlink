@@ -1,121 +1,29 @@
 package changeset
 
 import (
-	"fmt"
 	"testing"
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/stretchr/testify/require"
 
-	"github.com/smartcontractkit/chainlink-common/pkg/logger"
-	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
-	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
-	"github.com/smartcontractkit/chainlink/deployment/common/changeset"
-	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
-	commontypes "github.com/smartcontractkit/chainlink/deployment/common/types"
-	"github.com/smartcontractkit/chainlink/deployment/cre"
 	"github.com/smartcontractkit/chainlink/deployment/cre/ocr3"
 )
 
-type workflowTestFixture struct {
-	env                     cldf.Environment
-	chainSelector           uint64
-	workflowRegistryAddress string
-}
-
-func setupWorkflowRegistryTest(t *testing.T) *workflowTestFixture {
-	lggr := logger.Test(t)
-	env, chainSelector := cre.BuildMinimalEnvironment(t, lggr)
-
-	// Deploy the WorkflowRegistry (same pattern as capabilities registry)
-	t.Log("Running deployment changeset...")
-	deployOutput, err := DeployWorkflowRegistry{}.Apply(env, DeployWorkflowRegistryInput{
-		ChainSelector: chainSelector,
-		Qualifier:     "test-workflow-registry-v2",
-	})
-	require.NoError(t, err, "failed to apply deployment changeset")
-	require.NotNil(t, deployOutput, "deployment output should not be nil")
-	t.Logf("Deployment result: err=%v, output=%v", err, deployOutput)
-
-	// Merge the deployment datastore into the environment (following ApplyChangesets pattern)
-	if deployOutput.DataStore != nil {
-		ds1 := datastore.NewMemoryDataStore()
-		err = ds1.Merge(deployOutput.DataStore.Seal())
-		require.NoError(t, err, "failed to merge new addresses into datastore")
-		err = ds1.Merge(env.DataStore)
-		require.NoError(t, err, "failed to merge current addresses into datastore")
-		env.DataStore = ds1.Seal()
-	}
-
-	workflowRegistryAddress := deployOutput.DataStore.Addresses().Filter(datastore.AddressRefByQualifier("test-workflow-registry-v2"))[0].Address
-	fmt.Println("workflowRegistryAddress", workflowRegistryAddress)
-	return &workflowTestFixture{
-		env:                     env,
-		chainSelector:           chainSelector,
-		workflowRegistryAddress: workflowRegistryAddress,
-	}
-}
-
-func setupWorkflowRegistryWithMCMS(t *testing.T) *workflowTestFixture {
-	lggr := logger.Test(t)
-	env, chainSelector := cre.BuildMinimalEnvironment(t, lggr)
-
-	// Deploy MCMS infrastructure first
-	t.Log("Setting up MCMS infrastructure...")
-	timelockCfgs := map[uint64]commontypes.MCMSWithTimelockConfigV2{
-		chainSelector: proposalutils.SingleGroupTimelockConfigV2(t),
-	}
-
-	mcmsEnv, err := changeset.Apply(t, env,
-		changeset.Configure(
-			cldf.CreateLegacyChangeSet(changeset.DeployMCMSWithTimelockV2),
-			timelockCfgs,
-		),
-	)
-	require.NoError(t, err, "failed to deploy MCMS infrastructure")
-	t.Log("MCMS infrastructure deployed successfully")
-
-	// Deploy the workflow registry
-	t.Log("Running deployment changeset...")
-	deployOutput, err := DeployWorkflowRegistry{}.Apply(mcmsEnv, DeployWorkflowRegistryInput{
-		ChainSelector: chainSelector,
-		Qualifier:     "test-workflow-registry-v2-mcms",
-	})
-	require.NoError(t, err, "failed to apply deployment changeset")
-
-	// Merge the deployment datastore into the environment (following ApplyChangesets pattern)
-	if deployOutput.DataStore != nil {
-		ds1 := datastore.NewMemoryDataStore()
-		err = ds1.Merge(deployOutput.DataStore.Seal())
-		require.NoError(t, err, "failed to merge new addresses into datastore")
-		err = ds1.Merge(mcmsEnv.DataStore)
-		require.NoError(t, err, "failed to merge current addresses into datastore")
-		mcmsEnv.DataStore = ds1.Seal()
-	}
-	t.Logf("Deployment result: err=%v, output=%v", err, deployOutput)
-
-	workflowRegistryAddress := deployOutput.DataStore.Addresses().Filter(datastore.AddressRefByQualifier("test-workflow-registry-v2-mcms"))[0].Address
-	t.Logf("WorkflowRegistry deployed at address: %s", workflowRegistryAddress)
-
-	return &workflowTestFixture{
-		env:                     mcmsEnv,
-		chainSelector:           chainSelector,
-		workflowRegistryAddress: workflowRegistryAddress,
-	}
-}
-
 func TestSetConfig(t *testing.T) {
+	t.Parallel()
+
 	t.Run("basic metadata config", func(t *testing.T) {
-		fixture := setupWorkflowRegistryTest(t)
+		fixture := setupTest(t)
 		t.Log("Starting metadata config...")
-		output, err := SetConfig{}.Apply(fixture.env, SetConfigInput{
-			ChainSelector:             fixture.chainSelector,
-			WorkflowRegistryQualifier: "test-workflow-registry-v2",
+		output, err := SetConfig{}.Apply(fixture.rt.Environment(), SetConfigInput{
+			ChainSelector:             fixture.selector,
+			WorkflowRegistryQualifier: fixture.workflowRegistryQualifier,
 			NameLen:                   32,
 			TagLen:                    16,
 			URLLen:                    128,
 			AttrLen:                   256,
+			ExpiryLen:                 604800,
 			MCMSConfig:                nil,
 		})
 		t.Logf("Metadata config result: err=%v, output=%v", err, output)
@@ -125,16 +33,17 @@ func TestSetConfig(t *testing.T) {
 	})
 
 	t.Run("metadata config with MCMS", func(t *testing.T) {
-		mcmsFixture := setupWorkflowRegistryWithMCMS(t)
+		fixture := setupTestWithMCMS(t)
 
 		t.Log("Starting metadata config with MCMS...")
-		output, err := SetConfig{}.Apply(mcmsFixture.env, SetConfigInput{
-			ChainSelector:             mcmsFixture.chainSelector,
-			WorkflowRegistryQualifier: "test-workflow-registry-v2-mcms",
+		output, err := SetConfig{}.Apply(fixture.rt.Environment(), SetConfigInput{
+			ChainSelector:             fixture.selector,
+			WorkflowRegistryQualifier: fixture.workflowRegistryQualifier,
 			NameLen:                   32,
 			TagLen:                    16,
 			URLLen:                    128,
 			AttrLen:                   256,
+			ExpiryLen:                 604800,
 			MCMSConfig: &ocr3.MCMSConfig{
 				MinDuration: 30 * time.Second,
 			},
@@ -148,13 +57,15 @@ func TestSetConfig(t *testing.T) {
 }
 
 func TestUpdateAllowedSigners(t *testing.T) {
+	t.Parallel()
+
 	t.Run("update allowed signers", func(t *testing.T) {
-		fixture := setupWorkflowRegistryTest(t)
+		fixture := setupTest(t)
 
 		t.Log("Starting update allowed signers...")
-		output, err := UpdateAllowedSigners{}.Apply(fixture.env, UpdateAllowedSignersInput{
-			ChainSelector:             fixture.chainSelector,
-			WorkflowRegistryQualifier: "test-workflow-registry-v2",
+		output, err := UpdateAllowedSigners{}.Apply(fixture.rt.Environment(), UpdateAllowedSignersInput{
+			ChainSelector:             fixture.selector,
+			WorkflowRegistryQualifier: fixture.workflowRegistryQualifier,
 			Signers: []common.Address{
 				common.HexToAddress("0x1234567890123456789012345678901234567890"),
 				common.HexToAddress("0x2234567890123456789012345678901234567890"),
@@ -169,12 +80,12 @@ func TestUpdateAllowedSigners(t *testing.T) {
 	})
 
 	t.Run("update allowed signers with MCMS", func(t *testing.T) {
-		mcmsFixture := setupWorkflowRegistryWithMCMS(t)
+		fixture := setupTestWithMCMS(t)
 
 		t.Log("Starting update allowed signers with MCMS...")
-		output, err := UpdateAllowedSigners{}.Apply(mcmsFixture.env, UpdateAllowedSignersInput{
-			ChainSelector:             mcmsFixture.chainSelector,
-			WorkflowRegistryQualifier: "test-workflow-registry-v2-mcms",
+		output, err := UpdateAllowedSigners{}.Apply(fixture.rt.Environment(), UpdateAllowedSignersInput{
+			ChainSelector:             fixture.selector,
+			WorkflowRegistryQualifier: fixture.workflowRegistryQualifier,
 			Signers: []common.Address{
 				common.HexToAddress("0x1234567890123456789012345678901234567890"),
 			},
@@ -192,13 +103,15 @@ func TestUpdateAllowedSigners(t *testing.T) {
 }
 
 func TestSetWorkflowOwnerConfig(t *testing.T) {
+	t.Parallel()
+
 	t.Run("set workflow owner config", func(t *testing.T) {
-		fixture := setupWorkflowRegistryTest(t)
+		fixture := setupTest(t)
 
 		t.Log("Starting set workflow owner config...")
-		output, err := SetWorkflowOwnerConfig{}.Apply(fixture.env, SetWorkflowOwnerConfigInput{
-			ChainSelector:             fixture.chainSelector,
-			WorkflowRegistryQualifier: "test-workflow-registry-v2",
+		output, err := SetWorkflowOwnerConfig{}.Apply(fixture.rt.Environment(), SetWorkflowOwnerConfigInput{
+			ChainSelector:             fixture.selector,
+			WorkflowRegistryQualifier: fixture.workflowRegistryQualifier,
 			Owner:                     common.HexToAddress("0x1234567890123456789012345678901234567890"),
 			Config:                    []byte("test config data"),
 			MCMSConfig:                nil,
@@ -210,12 +123,12 @@ func TestSetWorkflowOwnerConfig(t *testing.T) {
 	})
 
 	t.Run("set workflow owner config with MCMS", func(t *testing.T) {
-		mcmsFixture := setupWorkflowRegistryWithMCMS(t)
+		fixture := setupTestWithMCMS(t)
 
 		t.Log("Starting set workflow owner config with MCMS...")
-		output, err := SetWorkflowOwnerConfig{}.Apply(mcmsFixture.env, SetWorkflowOwnerConfigInput{
-			ChainSelector:             mcmsFixture.chainSelector,
-			WorkflowRegistryQualifier: "test-workflow-registry-v2-mcms",
+		output, err := SetWorkflowOwnerConfig{}.Apply(fixture.rt.Environment(), SetWorkflowOwnerConfigInput{
+			ChainSelector:             fixture.selector,
+			WorkflowRegistryQualifier: fixture.workflowRegistryQualifier,
 			Owner:                     common.HexToAddress("0x1234567890123456789012345678901234567890"),
 			Config:                    []byte("test config data"),
 			MCMSConfig: &ocr3.MCMSConfig{
@@ -231,13 +144,15 @@ func TestSetWorkflowOwnerConfig(t *testing.T) {
 }
 
 func TestSetDONLimit(t *testing.T) {
+	t.Parallel()
+
 	t.Run("set DON limit", func(t *testing.T) {
-		fixture := setupWorkflowRegistryTest(t)
+		fixture := setupTest(t)
 
 		t.Log("Starting set DON limit...")
-		output, err := SetDONLimit{}.Apply(fixture.env, SetDONLimitInput{
-			ChainSelector:             fixture.chainSelector,
-			WorkflowRegistryQualifier: "test-workflow-registry-v2",
+		output, err := SetDONLimit{}.Apply(fixture.rt.Environment(), SetDONLimitInput{
+			ChainSelector:             fixture.selector,
+			WorkflowRegistryQualifier: fixture.workflowRegistryQualifier,
 			DONFamily:                 "test-don-family",
 			DONLimit:                  10,
 			UserDefaultLimit:          5,
@@ -250,12 +165,12 @@ func TestSetDONLimit(t *testing.T) {
 	})
 
 	t.Run("set DON limit with MCMS", func(t *testing.T) {
-		mcmsFixture := setupWorkflowRegistryWithMCMS(t)
+		fixture := setupTestWithMCMS(t)
 
 		t.Log("Starting set DON limit with MCMS...")
-		output, err := SetDONLimit{}.Apply(mcmsFixture.env, SetDONLimitInput{
-			ChainSelector:             mcmsFixture.chainSelector,
-			WorkflowRegistryQualifier: "test-workflow-registry-v2-mcms",
+		output, err := SetDONLimit{}.Apply(fixture.rt.Environment(), SetDONLimitInput{
+			ChainSelector:             fixture.selector,
+			WorkflowRegistryQualifier: fixture.workflowRegistryQualifier,
 			DONFamily:                 "test-don-family",
 			DONLimit:                  10,
 			UserDefaultLimit:          5,
@@ -272,13 +187,15 @@ func TestSetDONLimit(t *testing.T) {
 }
 
 func TestSetUserDONOverride(t *testing.T) {
-	fixture := setupWorkflowRegistryTest(t)
+	t.Parallel()
 
 	t.Run("set user DON override", func(t *testing.T) {
+		fixture := setupTest(t)
+
 		// set DON limit first
-		_, err := SetDONLimit{}.Apply(fixture.env, SetDONLimitInput{
-			ChainSelector:             fixture.chainSelector,
-			WorkflowRegistryQualifier: "test-workflow-registry-v2",
+		_, err := SetDONLimit{}.Apply(fixture.rt.Environment(), SetDONLimitInput{
+			ChainSelector:             fixture.selector,
+			WorkflowRegistryQualifier: fixture.workflowRegistryQualifier,
 			DONFamily:                 "test-don-family",
 			DONLimit:                  10,
 			UserDefaultLimit:          5,
@@ -287,10 +204,10 @@ func TestSetUserDONOverride(t *testing.T) {
 		require.NoError(t, err, "set DON limit should succeed")
 
 		t.Log("Starting set user DON override...")
-		output, err := SetUserDONOverride{}.Apply(fixture.env, SetUserDONOverrideInput{
-			ChainSelector:             fixture.chainSelector,
+		output, err := SetUserDONOverride{}.Apply(fixture.rt.Environment(), SetUserDONOverrideInput{
+			ChainSelector:             fixture.selector,
 			User:                      common.HexToAddress("0x1234567890123456789012345678901234567890"),
-			WorkflowRegistryQualifier: "test-workflow-registry-v2",
+			WorkflowRegistryQualifier: fixture.workflowRegistryQualifier,
 			DONFamily:                 "test-don-family",
 			Limit:                     5,
 			Enabled:                   true,
@@ -303,12 +220,12 @@ func TestSetUserDONOverride(t *testing.T) {
 	})
 
 	t.Run("set user DON override with MCMS", func(t *testing.T) {
-		mcmsFixture := setupWorkflowRegistryWithMCMS(t)
+		fixture := setupTestWithMCMS(t)
 
 		// set DON limit first
-		_, err := SetDONLimit{}.Apply(mcmsFixture.env, SetDONLimitInput{
-			ChainSelector:             mcmsFixture.chainSelector,
-			WorkflowRegistryQualifier: "test-workflow-registry-v2-mcms",
+		_, err := SetDONLimit{}.Apply(fixture.rt.Environment(), SetDONLimitInput{
+			ChainSelector:             fixture.selector,
+			WorkflowRegistryQualifier: fixture.workflowRegistryQualifier,
 			DONFamily:                 "test-don-family",
 			DONLimit:                  10,
 			UserDefaultLimit:          5,
@@ -317,9 +234,9 @@ func TestSetUserDONOverride(t *testing.T) {
 		require.NoError(t, err, "set DON limit should succeed")
 
 		t.Log("Starting set user DON override with MCMS...")
-		output, err := SetUserDONOverride{}.Apply(mcmsFixture.env, SetUserDONOverrideInput{
-			ChainSelector:             mcmsFixture.chainSelector,
-			WorkflowRegistryQualifier: "test-workflow-registry-v2-mcms",
+		output, err := SetUserDONOverride{}.Apply(fixture.rt.Environment(), SetUserDONOverrideInput{
+			ChainSelector:             fixture.selector,
+			WorkflowRegistryQualifier: fixture.workflowRegistryQualifier,
 			User:                      common.HexToAddress("0x1234567890123456789012345678901234567890"),
 			DONFamily:                 "test-don-family",
 			Limit:                     5,
@@ -337,17 +254,19 @@ func TestSetUserDONOverride(t *testing.T) {
 }
 
 func TestSetCapabilitiesRegistry(t *testing.T) {
-	fixture := setupWorkflowRegistryTest(t)
+	t.Parallel()
 
 	// Test data for DON registry configuration
 	donRegistryAddress := common.HexToAddress("0x1234567890123456789012345678901234567890")
 	donChainSelector := uint64(11155111) // Sepolia chain selector for testing
 
 	t.Run("single DON registry configuration", func(t *testing.T) {
+		fixture := setupTest(t)
+
 		t.Log("Starting DON registry configuration...")
-		configureOutput, err := SetCapabilitiesRegistry{}.Apply(fixture.env, SetCapabilitiesRegistryInput{
-			ChainSelector:             fixture.chainSelector,
-			WorkflowRegistryQualifier: "test-workflow-registry-v2",
+		configureOutput, err := SetCapabilitiesRegistry{}.Apply(fixture.rt.Environment(), SetCapabilitiesRegistryInput{
+			ChainSelector:             fixture.selector,
+			WorkflowRegistryQualifier: fixture.workflowRegistryQualifier,
 			Registry:                  donRegistryAddress,
 			ChainSelectorDON:          donChainSelector,
 			MCMSConfig:                nil,
@@ -361,35 +280,36 @@ func TestSetCapabilitiesRegistry(t *testing.T) {
 	})
 
 	t.Run("idempotency test - double DON registry configuration", func(t *testing.T) {
+		fixture := setupTest(t)
+
 		input := SetCapabilitiesRegistryInput{
-			ChainSelector:             fixture.chainSelector,
-			WorkflowRegistryQualifier: "test-workflow-registry-v2",
+			ChainSelector:             fixture.selector,
+			WorkflowRegistryQualifier: fixture.workflowRegistryQualifier,
 			Registry:                  donRegistryAddress,
 			ChainSelectorDON:          donChainSelector,
 			MCMSConfig:                nil,
 		}
 
 		t.Log("Starting first DON registry configuration...")
-		configureOutput1, err := SetCapabilitiesRegistry{}.Apply(fixture.env, input)
+		configureOutput1, err := SetCapabilitiesRegistry{}.Apply(fixture.rt.Environment(), input)
 		require.NoError(t, err, "first configuration should succeed")
 		require.NotNil(t, configureOutput1, "first configuration output should not be nil")
 		t.Logf("First DON registry configuration completed successfully")
 
 		t.Log("Starting second DON registry configuration (idempotency test)...")
-		configureOutput2, err := SetCapabilitiesRegistry{}.Apply(fixture.env, input)
+		configureOutput2, err := SetCapabilitiesRegistry{}.Apply(fixture.rt.Environment(), input)
 		require.NoError(t, err, "second configuration should succeed (idempotent)")
 		require.NotNil(t, configureOutput2, "second configuration output should not be nil")
 		t.Logf("Second DON registry configuration completed successfully - idempotency verified")
 	})
 
 	t.Run("DON registry configuration with MCMS", func(t *testing.T) {
-		// Set up MCMS infrastructure
-		mcmsFixture := setupWorkflowRegistryWithMCMS(t)
+		fixture := setupTestWithMCMS(t)
 
 		t.Log("Starting DON registry configuration with MCMS...")
-		configureOutput, err := SetCapabilitiesRegistry{}.Apply(mcmsFixture.env, SetCapabilitiesRegistryInput{
-			ChainSelector:             mcmsFixture.chainSelector,
-			WorkflowRegistryQualifier: "test-workflow-registry-v2-mcms",
+		configureOutput, err := SetCapabilitiesRegistry{}.Apply(fixture.rt.Environment(), SetCapabilitiesRegistryInput{
+			ChainSelector:             fixture.selector,
+			WorkflowRegistryQualifier: fixture.workflowRegistryQualifier,
 			Registry:                  donRegistryAddress,
 			ChainSelectorDON:          donChainSelector,
 			MCMSConfig: &ocr3.MCMSConfig{
@@ -430,7 +350,9 @@ func TestSetCapabilitiesRegistry(t *testing.T) {
 }
 
 func TestConfigureWorkflowRegistryValidation(t *testing.T) {
-	fixture := setupWorkflowRegistryTest(t)
+	t.Parallel()
+
+	fixture := setupTest(t)
 
 	t.Run("validate SetConfig input", func(t *testing.T) {
 		tests := []struct {
@@ -441,11 +363,12 @@ func TestConfigureWorkflowRegistryValidation(t *testing.T) {
 			{
 				name: "valid input",
 				input: SetConfigInput{
-					ChainSelector: fixture.chainSelector,
+					ChainSelector: fixture.selector,
 					NameLen:       32,
 					TagLen:        16,
 					URLLen:        128,
 					AttrLen:       256,
+					ExpiryLen:     604800,
 					MCMSConfig:    nil,
 				},
 				expectError: false,
@@ -455,7 +378,7 @@ func TestConfigureWorkflowRegistryValidation(t *testing.T) {
 		for _, tt := range tests {
 			t.Run(tt.name, func(t *testing.T) {
 				changeset := SetConfig{}
-				err := changeset.VerifyPreconditions(fixture.env, tt.input)
+				err := changeset.VerifyPreconditions(fixture.rt.Environment(), tt.input)
 				if tt.expectError {
 					require.Error(t, err)
 				} else {

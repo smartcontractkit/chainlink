@@ -41,7 +41,7 @@ type OCR2ReportDataElem struct {
 type JsonError interface {
 	Error() string
 	// ErrorCode() int
-	ErrorData() interface{}
+	ErrorData() any
 }
 
 func OCR2AutomationReports(hdlr *baseHandler, txs []string) error {
@@ -137,10 +137,10 @@ func OCR2AutomationReports(hdlr *baseHandler, txs []string) error {
 	return nil
 }
 
-func getTransactionDetailForHashes(hdlr *baseHandler, txs []string) ([]*map[string]interface{}, []error, error) {
+func getTransactionDetailForHashes(hdlr *baseHandler, txs []string) ([]*map[string]any, []error, error) {
 	var (
 		txReqs = make([]rpc.BatchElem, len(txs))
-		txRes  = make([]*map[string]interface{}, len(txs))
+		txRes  = make([]*map[string]any, len(txs))
 		txErr  = make([]error, len(txs))
 	)
 
@@ -150,10 +150,10 @@ func getTransactionDetailForHashes(hdlr *baseHandler, txs []string) ([]*map[stri
 			return txRes, txErr, fmt.Errorf("failed to parse transaction hash: %s", txHash)
 		}
 
-		var result map[string]interface{}
+		var result map[string]any
 		txReqs[i] = rpc.BatchElem{
 			Method: "eth_getTransactionByHash",
-			Args: []interface{}{
+			Args: []any{
 				common.BytesToHash(b),
 			},
 			Result: &result,
@@ -171,14 +171,14 @@ func getTransactionDetailForHashes(hdlr *baseHandler, txs []string) ([]*map[stri
 	return txRes, txErr, err
 }
 
-func getSimulationsForTxs(hdlr *baseHandler, txReqs []rpc.BatchElem) ([]*map[string]interface{}, []error, error) {
+func getSimulationsForTxs(hdlr *baseHandler, txReqs []rpc.BatchElem) ([]*map[string]any, []error, error) {
 	var (
-		txRes = make([]*map[string]interface{}, len(txReqs))
+		txRes = make([]*map[string]any, len(txReqs))
 		txErr = make([]error, len(txReqs))
 	)
 
 	for i := range txReqs {
-		var result map[string]interface{}
+		var result map[string]any
 		txReqs[i].Result = &result
 		txRes[i] = &result
 	}
@@ -192,7 +192,7 @@ func getSimulationsForTxs(hdlr *baseHandler, txReqs []rpc.BatchElem) ([]*map[str
 	return txRes, txErr, err
 }
 
-func NewOCR2Transaction(raw map[string]interface{}) (*OCR2Transaction, error) {
+func NewOCR2Transaction(raw map[string]any) (*OCR2Transaction, error) {
 	contract, err := abi.JSON(strings.NewReader(keeper_registry_wrapper2_0.KeeperRegistryABI))
 	if err != nil {
 		return nil, fmt.Errorf("%w", err)
@@ -219,7 +219,7 @@ func NewOCR2Transaction(raw map[string]interface{}) (*OCR2Transaction, error) {
 type OCR2Transaction struct {
 	encoder evm.EVMAutomationEncoder20
 	abi     abi.ABI
-	raw     map[string]interface{}
+	raw     map[string]any
 	tx      *types.Transaction
 }
 
@@ -280,7 +280,7 @@ func (t *OCR2Transaction) DecodeError(b []byte) string {
 	return j
 }
 
-func NewOCR2TransmitTx(raw map[string]interface{}) (*OCR2TransmitTx, error) {
+func NewOCR2TransmitTx(raw map[string]any) (*OCR2TransmitTx, error) {
 	tx, err := NewOCR2Transaction(raw)
 	if err != nil {
 		return nil, err
@@ -304,7 +304,7 @@ func (t *OCR2TransmitTx) UpkeepsInTransmit() ([]ocr2keepers20.UpkeepResult, erro
 		return nil, fmt.Errorf("failed to get method from sig: %w", err)
 	}
 
-	vals := make(map[string]interface{})
+	vals := make(map[string]any)
 	if err := t.abi.Methods[method.Name].Inputs.UnpackIntoMap(vals, txData[4:]); err != nil {
 		return nil, fmt.Errorf("unpacking error: %w", err)
 	}
@@ -378,8 +378,8 @@ func (t *OCR2TransmitTx) BatchElem() (rpc.BatchElem, error) {
 
 	return rpc.BatchElem{
 		Method: "eth_call",
-		Args: []interface{}{
-			map[string]interface{}{
+		Args: []any{
+			map[string]any{
 				"from": from.Hex(),
 				"to":   t.To().Hex(),
 				"data": hexutil.Bytes(t.tx.Data()),
@@ -410,7 +410,7 @@ func (tx *BaseOCR2Tx) Method() (*abi.Method, error) {
 	return tx.abi.MethodById(tx.Data()[0:4])
 }
 
-func (tx *BaseOCR2Tx) DataMap() (map[string]interface{}, error) {
+func (tx *BaseOCR2Tx) DataMap() (map[string]any, error) {
 	txData := tx.Data()
 
 	// recover Method from signature and ABI
@@ -419,7 +419,7 @@ func (tx *BaseOCR2Tx) DataMap() (map[string]interface{}, error) {
 		return nil, fmt.Errorf("failed to get method from sig: %w", err)
 	}
 
-	vals := make(map[string]interface{})
+	vals := make(map[string]any)
 	if err := tx.abi.Methods[method.Name].Inputs.UnpackIntoMap(vals, txData[4:]); err != nil {
 		return nil, fmt.Errorf("unpacking error: %w", err)
 	}

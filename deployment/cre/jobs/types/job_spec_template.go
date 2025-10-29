@@ -17,6 +17,7 @@ const (
 	OCR3
 	HTTPTrigger
 	HTTPAction
+	ConfidentialHTTP
 	EVM
 	Gateway
 	BootstrapVault
@@ -35,6 +36,8 @@ func (jt JobSpecTemplate) String() string {
 		return "http-trigger"
 	case HTTPAction:
 		return "http-action"
+	case ConfidentialHTTP:
+		return "confidential-http"
 	case EVM:
 		return "evm"
 	case Gateway:
@@ -61,6 +64,8 @@ func parseJobSpecTemplate(s string) (JobSpecTemplate, error) {
 		return HTTPTrigger, nil
 	case "http-action":
 		return HTTPAction, nil
+	case "confidential-http":
+		return ConfidentialHTTP, nil
 	case "evm":
 		return EVM, nil
 	case "gateway":

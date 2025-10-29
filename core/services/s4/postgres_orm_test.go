@@ -32,7 +32,7 @@ func generateTestRows(t *testing.T, n int) []*s4.Row {
 	t.Helper()
 
 	rows := make([]*s4.Row, n)
-	for i := 0; i < n; i++ {
+	for i := range n {
 		row := &s4.Row{
 			Address:    big.New(testutils.NewAddress().Big()),
 			SlotId:     1,
@@ -242,7 +242,7 @@ func TestPostgresORM_Namespace(t *testing.T) {
 	const n = 10
 	rowsA := generateTestRows(t, n)
 	rowsB := generateTestRows(t, n)
-	for i := 0; i < n; i++ {
+	for i := range n {
 		err := ormA.Update(ctx, rowsA[i])
 		assert.NoError(t, err)
 

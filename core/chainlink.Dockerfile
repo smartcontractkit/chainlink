@@ -1,7 +1,7 @@
 ##
 # Build image: Chainlink binary with plugins.
 ##
-FROM golang:1.24-bullseye AS buildgo
+FROM golang:1.25.3-bookworm AS buildgo
 RUN go version
 RUN apt-get update && apt-get install -y jq && rm -rf /var/lib/apt/lists/*
 

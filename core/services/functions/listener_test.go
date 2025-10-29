@@ -111,7 +111,7 @@ func NewFunctionsListenerUniverse(t *testing.T, timeoutSec int, pruneFrequencySe
 		"requestTimeoutBatchLookupSize":   1,
 		"listenerEventHandlerTimeoutSec":  1,
 		"pruneCheckFrequencySec":          pruneFrequencySec,
-		"decryptionQueueConfig": map[string]interface{}{
+		"decryptionQueueConfig": map[string]any{
 			"decryptRequestTimeoutSec": 100,
 		},
 		"contractVersion":                    1,

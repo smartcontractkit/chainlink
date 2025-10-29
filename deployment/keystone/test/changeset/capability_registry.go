@@ -4,8 +4,6 @@ import (
 	"fmt"
 	"testing"
 
-	chainsel "github.com/smartcontractkit/chain-selectors"
-
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 
 	"github.com/smartcontractkit/chainlink/deployment/common/view/v1_0"
@@ -16,21 +14,20 @@ import (
 )
 
 type HydrateConfig struct {
-	ChainID uint64
+	ChainSelector uint64
 }
 
 // HydrateCapabilityRegistry deploys a new capabilities registry contract and hydrates it with the provided data.
 func HydrateCapabilityRegistry(t *testing.T, v v1_0.CapabilityRegistryView, env cldf.Environment, cfg HydrateConfig) (*capabilities_registry.CapabilitiesRegistry, error) {
 	t.Helper()
-	chainSelector, err := chainsel.SelectorFromChainId(cfg.ChainID)
-	if err != nil {
-		return nil, fmt.Errorf("failed to get chain selector from chain id: %w", err)
-	}
+
+	chainSelector := cfg.ChainSelector
 	evmChains := env.BlockChains.EVMChains()
-	chain, ok := evmChains[chainSelector]
+	chain, ok := evmChains[cfg.ChainSelector]
 	if !ok {
-		return nil, fmt.Errorf("chain with id %d not found", cfg.ChainID)
+		return nil, fmt.Errorf("chain with selector %d not found", cfg.ChainSelector)
 	}
+
 	changesetOutput, err := changeset.DeployCapabilityRegistryV2(env, &changeset.DeployRequestV2{ChainSel: chainSelector})
 	if err != nil {
 		return nil, fmt.Errorf("failed to deploy contract: %w", err)
@@ -45,7 +42,7 @@ func HydrateCapabilityRegistry(t *testing.T, v v1_0.CapabilityRegistryView, env 
 	}
 	cs, ok := resp.ContractSets[chainSelector]
 	if !ok {
-		return nil, fmt.Errorf("failed to get contract set for chain selector: %d, chain ID: %d", chainSelector, cfg.ChainID)
+		return nil, fmt.Errorf("failed to get contract set for chain selector: %d, chain selector: %d", chainSelector, cfg.ChainSelector)
 	}
 
 	deployedContract := cs.CapabilitiesRegistry

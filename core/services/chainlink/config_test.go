@@ -114,6 +114,7 @@ var (
 					FinalityDepth:        ptr[uint32](26),
 					SafeDepth:            ptr[uint32](0),
 					FinalityTagEnabled:   ptr[bool](true),
+					SafeTagSupported:     ptr(true),
 					FinalizedBlockOffset: ptr[uint32](12),
 				},
 				Nodes: []*evmcfg.Node{
@@ -457,6 +458,7 @@ func TestConfig_Marshal(t *testing.T) {
 		OutgoingMessageBufferSize: ptr[int64](17),
 		PeerID:                    mustPeerID("12D3KooWMoejJznyDuEk5aX6GvbjaG12UzeornPCBNzMRqdwrFJw"),
 		TraceLogging:              ptr(true),
+		EnableExperimentalRageP2P: ptr(true),
 		V2: toml.P2PV2{
 			Enabled:           ptr(false),
 			AnnounceAddresses: &[]string{"a", "b", "c"},
@@ -482,6 +484,7 @@ func TestConfig_Marshal(t *testing.T) {
 			OutgoingMessageBufferSize: ptr[int64](17),
 			PeerID:                    mustPeerID("12D3KooWMoejJznyDuEk5aX6GvbjaG12UzeornPCBNzMRqdwrFJw"),
 			TraceLogging:              ptr(true),
+			EnableExperimentalRageP2P: ptr(true),
 			V2: toml.P2PV2{
 				Enabled:           ptr(false),
 				AnnounceAddresses: &[]string{"a", "b", "c"},
@@ -612,6 +615,7 @@ func TestConfig_Marshal(t *testing.T) {
 		ChipIngressInsecureConnection: ptr(false),
 		HeartbeatInterval:             commoncfg.MustNewDuration(1 * time.Second),
 		LogStreamingEnabled:           ptr(false),
+		LogLevel:                      ptr("info"),
 	}
 	full.CRE = toml.CreConfig{
 		UseLocalTimeProvider: ptr(true),
@@ -657,6 +661,7 @@ func TestConfig_Marshal(t *testing.T) {
 				FinalityDepth:        ptr[uint32](42),
 				SafeDepth:            ptr[uint32](0),
 				FinalityTagEnabled:   ptr[bool](true),
+				SafeTagSupported:     ptr(true),
 				FlagsContractAddress: mustAddress("0xae4E781a6218A8031764928E88d457937A954fC3"),
 				FinalizedBlockOffset: ptr[uint32](16),
 
@@ -1126,6 +1131,7 @@ IncomingMessageBufferSize = 13
 OutgoingMessageBufferSize = 17
 PeerID = '12D3KooWMoejJznyDuEk5aX6GvbjaG12UzeornPCBNzMRqdwrFJw'
 TraceLogging = true
+EnableExperimentalRageP2P = true
 
 [P2P.V2]
 Enabled = false
@@ -1184,6 +1190,7 @@ ChainType = 'Optimism'
 FinalityDepth = 42
 SafeDepth = 0
 FinalityTagEnabled = true
+SafeTagSupported = true
 FlagsContractAddress = '0xae4E781a6218A8031764928E88d457937A954fC3'
 LinkContractAddress = '0x538aAaB4ea120b2bC2fe5D296852D948F07D849e'
 LogBackfillBatchSize = 17

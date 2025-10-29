@@ -30,17 +30,17 @@ import (
 )
 
 var (
-	defaultOCRSettings = map[string]interface{}{
+	defaultOCRSettings = map[string]any{
 		"replicas": 6,
-		"db": map[string]interface{}{
+		"db": map[string]any{
 			"stateful": true,
 			"capacity": "1Gi",
-			"resources": map[string]interface{}{
-				"requests": map[string]interface{}{
+			"resources": map[string]any{
+				"requests": map[string]any{
 					"cpu":    "250m",
 					"memory": "256Mi",
 				},
-				"limits": map[string]interface{}{
+				"limits": map[string]any{
 					"cpu":    "250m",
 					"memory": "256Mi",
 				},
@@ -57,7 +57,7 @@ func TestOCRChaos(t *testing.T) {
 	config, err := tc.GetConfig([]string{"Chaos"}, tc.OCR)
 	require.NoError(t, err, "Error getting config")
 
-	var overrideFn = func(_ interface{}, target interface{}) {
+	var overrideFn = func(_ any, target any) {
 		ctf_config.MustConfigOverrideChainlinkVersion(config.GetChainlinkImageConfig(), target)
 		ctf_config.MightConfigOverridePyroscopeKey(config.GetPyroscopeConfig(), target)
 	}

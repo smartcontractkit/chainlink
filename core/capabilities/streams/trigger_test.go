@@ -106,11 +106,11 @@ func TestStreamsTrigger(t *testing.T) {
 	// send and process all trigger events
 	startTs := time.Now().UnixMilli()
 	processingTime := int64(0)
-	for c := 0; c < T; c++ {
+	for c := range T {
 		triggerEventID := baseTriggerEventID + strconv.Itoa(c)
-		for i := 0; i < N; i++ { // every node ...
+		for i := range N { // every node ...
 			reportList := make([]datastreams.FeedReport, P)
-			for j := 0; j < P; j++ { //  ... sends reports for every feed ...
+			for j := range P { //  ... sends reports for every feed ...
 				reportIdx := (i + j) % R
 				signatures := make([][]byte, F+1)
 				for k := 0; k < F+1; k++ { // ... each signed by F+1 nodes
@@ -141,7 +141,7 @@ func TestStreamsTrigger(t *testing.T) {
 
 func newNodes(t *testing.T, N int) []node {
 	nodes := make([]node, N)
-	for i := 0; i < N; i++ {
+	for i := range N {
 		bundle, err := ocr2key.New(chaintype.EVM)
 		require.NoError(t, err)
 		nodes[i].bundle = bundle
@@ -160,18 +160,18 @@ func newPeerID(t *testing.T) ragetypes.PeerID {
 
 func newFeedsWithSignedReports(t *testing.T, nodes []node, N, P, R int) []feed {
 	feeds := make([]feed, P)
-	for i := 0; i < P; i++ {
+	for i := range P {
 		id, idStr := newFeedID(t)
 		feeds[i].feedID = id
 		feeds[i].feedIDStr = idStr
 		feeds[i].reports = make([]report, R)
-		for j := 0; j < R; j++ {
+		for j := range R {
 			report := newReport(t, id, big.NewInt(int64(basePrice+j)), int64(baseTimestamp+j))
 			feeds[i].reports[j].rawReport = report
 			reportCtx := ocrTypes.ReportContext{ReportTimestamp: ocrTypes.ReportTimestamp{Epoch: uint32(baseTimestamp + j)}}
 			feeds[i].reports[j].reportCtx = rawReportContext(reportCtx)
 			feeds[i].reports[j].signatures = make([][]byte, N)
-			for k := 0; k < N; k++ {
+			for k := range N {
 				signature, err := nodes[k].bundle.Sign(reportCtx, report)
 				require.NoError(t, err)
 				feeds[i].reports[j].signatures[k] = signature

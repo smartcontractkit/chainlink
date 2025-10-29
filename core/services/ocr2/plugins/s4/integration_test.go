@@ -50,7 +50,7 @@ func newDON(t *testing.T, size int, config *s4.PluginConfig) *don {
 	orms := make([]s4_svc.ORM, size)
 	plugins := make([]types.ReportingPlugin, size)
 
-	for i := 0; i < size; i++ {
+	for i := range size {
 		ns := fmt.Sprintf("s4_int_test_%d", i)
 		orm := s4_svc.NewPostgresORM(db, s4_svc.SharedTableName, ns)
 		orms[i] = orm
@@ -119,7 +119,7 @@ func compareSnapshots(s1, s2 []*s4_svc.SnapshotRow) bool {
 	}
 	m1 := make(map[string]struct{}, len(s1))
 	m2 := make(map[string]struct{}, len(s2))
-	for i := 0; i < len(s1); i++ {
+	for i := range s1 {
 		k1 := fmt.Sprintf("%s_%d_%d", s1[i].Address.String(), s1[i].SlotId, s1[i].Version)
 		k2 := fmt.Sprintf("%s_%d_%d", s2[i].Address.String(), s2[i].SlotId, s2[i].Version)
 		m1[k1] = struct{}{}
@@ -361,14 +361,14 @@ func TestS4Integration_RandomState(t *testing.T) {
 
 	nUsers := 100
 	users := make([]user, nUsers)
-	for i := 0; i < nUsers; i++ {
+	for i := range nUsers {
 		pk, addr := testutils.NewPrivateKeyAndAddress(t)
 		users[i] = user{pk, big.New(addr.Big())}
 	}
 
 	// generating test records
 	for o := 0; o < don.size; o++ {
-		for u := 0; u < nUsers; u++ {
+		for u := range nUsers {
 			user := users[u]
 			row := &s4_svc.Row{
 				Address:    user.address,

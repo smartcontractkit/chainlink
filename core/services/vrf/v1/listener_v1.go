@@ -386,14 +386,12 @@ func (lsn *Listener) markLogAsConsumed(ctx context.Context, lb log.Broadcast) {
 func (lsn *Listener) getConfirmedAt(req *solidity_vrf_coordinator_interface.VRFCoordinatorRandomnessRequest, minConfs uint32) uint64 {
 	lsn.RespCountMu.Lock()
 	defer lsn.RespCountMu.Unlock()
-	newConfs := uint64(minConfs) * (1 << lsn.ResponseCount[req.RequestID])
-	// We cap this at 200 because solidity only supports the most recent 256 blocks
-	// in the contract so if it was older than that, fulfillments would start failing
-	// without the blockhash store feeder. We use 200 to give the node plenty of time
-	// to fulfill even on fast chains.
-	if newConfs > 200 {
-		newConfs = 200
-	}
+	newConfs := min(
+		// We cap this at 200 because solidity only supports the most recent 256 blocks
+		// in the contract so if it was older than that, fulfillments would start failing
+		// without the blockhash store feeder. We use 200 to give the node plenty of time
+		// to fulfill even on fast chains.
+		uint64(minConfs)*(1<<lsn.ResponseCount[req.RequestID]), 200)
 	if lsn.ResponseCount[req.RequestID] > 0 {
 		lsn.L.Warnw("Duplicate request found after fulfillment, doubling incoming confirmations",
 			"txHash", req.Raw.TxHash,
@@ -465,8 +463,8 @@ func (lsn *Listener) ProcessRequest(ctx context.Context, req request) bool {
 
 	lggr.Infow("Processing log request")
 
-	vars := pipeline.NewVarsFrom(map[string]interface{}{
-		"jobSpec": map[string]interface{}{
+	vars := pipeline.NewVarsFrom(map[string]any{
+		"jobSpec": map[string]any{
 			"databaseID":    lsn.Job.ID,
 			"externalJobID": lsn.Job.ExternalJobID,
 			"name":          lsn.Job.Name.ValueOrZero(),
@@ -474,7 +472,7 @@ func (lsn *Listener) ProcessRequest(ctx context.Context, req request) bool {
 			"from":          lsn.fromAddresses(),
 			"evmChainID":    lsn.Job.VRFSpec.EVMChainID.String(),
 		},
-		"jobRun": map[string]interface{}{
+		"jobRun": map[string]any{
 			"logBlockHash":   req.req.Raw.BlockHash[:],
 			"logBlockNumber": req.req.Raw.BlockNumber,
 			"logTxHash":      req.req.Raw.TxHash,

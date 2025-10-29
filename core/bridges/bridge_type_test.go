@@ -68,12 +68,12 @@ func BenchmarkParseBridgeName(b *testing.B) {
 	for _, l := range []int{1, 10, 20, 50, 100, 1000, 10000} {
 		b.Run(strconv.Itoa(l), func(b *testing.B) {
 			var sb strings.Builder
-			for i := 0; i < l; i++ {
+			for range l {
 				sb.WriteByte(valid[rand.Intn(len(valid))])
 			}
 			name := sb.String()
 			b.ResetTimer()
-			for i := 0; i < b.N; i++ {
+			for b.Loop() {
 				_, err := bridges.ParseBridgeName(name)
 				if err != nil {
 					b.Fatalf("failed to parse %q: %v\n", name, err)

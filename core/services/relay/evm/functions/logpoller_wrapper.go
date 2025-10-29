@@ -139,10 +139,7 @@ func (l *logPollerWrapper) LatestEvents(ctx context.Context) ([]evmconfig.Oracle
 		return nil, nil, err
 	}
 	latestBlockNum := latest.BlockNumber
-	startBlockNum := latestBlockNum - l.pastBlocksToPoll
-	if startBlockNum < 0 {
-		startBlockNum = 0
-	}
+	startBlockNum := max(latestBlockNum-l.pastBlocksToPoll, 0)
 	l.mu.Unlock()
 
 	// outside of the lock

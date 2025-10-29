@@ -4,17 +4,13 @@ import (
 	"fmt"
 	"testing"
 
-	chain_selectors "github.com/smartcontractkit/chain-selectors"
 	"github.com/stretchr/testify/require"
-	"go.uber.org/zap/zapcore"
-
-	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 
 	cldf_chain "github.com/smartcontractkit/chainlink-deployments-framework/chain"
 	cldf_tron "github.com/smartcontractkit/chainlink-deployments-framework/chain/tron"
+	"github.com/smartcontractkit/chainlink-deployments-framework/engine/test/onchain"
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 
-	"github.com/smartcontractkit/chainlink/deployment/environment/memory"
 	"github.com/smartcontractkit/chainlink/deployment/keystone/changeset/test"
 	"github.com/smartcontractkit/chainlink/deployment/keystone/changeset/tron"
 )
@@ -36,12 +32,13 @@ func TestConfigureForwarder(t *testing.T) {
 			name := fmt.Sprintf("nChains=%d", nChains)
 
 			t.Run(name, func(t *testing.T) {
-				lggr := logger.Test(t)
+				blockchains, err := onchain.NewTronContainerLoader().LoadN(t, nChains)
+				require.NoError(t, err)
+				require.Len(t, blockchains, nChains)
+				require.NotEmpty(t, blockchains)
 
-				env := memory.NewMemoryEnvironment(t, lggr, zapcore.DebugLevel, memory.MemoryEnvironmentConfig{
-					TronChains: nChains,
-				})
-				tronSel := env.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chain_selectors.FamilyTron))[0]
+				tronChain := blockchains[0].(cldf_tron.Chain)
+				tronSel := tronChain.Selector
 
 				// configure don for solana chain
 				te := test.SetupContractTestEnv(t, test.EnvWrapperConfig{
@@ -51,16 +48,13 @@ func TestConfigureForwarder(t *testing.T) {
 					NumChains:       nChains,
 				})
 
-				tronChain := env.BlockChains.TronChains()[tronSel]
-				blockchains := make(map[uint64]cldf_chain.BlockChain)
-
-				blockchains[tronSel] = tronChain
-
+				// Append existing blockchains to the blockchains slice to insert back into the
+				// environment
 				for _, ch := range te.Env.BlockChains.All() {
-					blockchains[ch.ChainSelector()] = ch
+					blockchains = append(blockchains, ch)
 				}
 
-				te.Env.BlockChains = cldf_chain.NewBlockChains(blockchains)
+				te.Env.BlockChains = cldf_chain.NewBlockChainsFromSlice(blockchains)
 
 				deployOptions := cldf_tron.DefaultDeployOptions()
 				deployOptions.FeeLimit = 1_000_000_000
@@ -90,7 +84,7 @@ func TestConfigureForwarder(t *testing.T) {
 					},
 				)
 
-				env, _, err := commonchangeset.ApplyChangesets(t, te.Env, []commonchangeset.ConfiguredChangeSet{deployChangeset, configureChangeset})
+				_, _, err = commonchangeset.ApplyChangesets(t, te.Env, []commonchangeset.ConfiguredChangeSet{deployChangeset, configureChangeset})
 				require.NoError(t, err)
 			})
 		}

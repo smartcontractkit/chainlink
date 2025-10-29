@@ -71,7 +71,7 @@ func TestTokenPoolFactory(t *testing.T) {
 
 		var poolAddresses []cciptypes.Address
 
-		for i := 0; i < len(poolTypes); i++ {
+		for range poolTypes {
 			poolAddresses = append(poolAddresses, ccipcalc.EvmAddrToGeneric(utils.RandomAddress()))
 		}
 

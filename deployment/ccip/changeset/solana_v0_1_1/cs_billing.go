@@ -2,11 +2,14 @@ package solana
 
 import (
 	"context"
+	"errors"
 	"fmt"
+	"math"
 
 	solBinary "github.com/gagliardetto/binary"
 	"github.com/gagliardetto/solana-go"
 	ata "github.com/gagliardetto/solana-go/programs/associated-token-account"
+	"github.com/gagliardetto/solana-go/rpc"
 
 	"github.com/smartcontractkit/mcms"
 	mcmsTypes "github.com/smartcontractkit/mcms/types"
@@ -15,6 +18,8 @@ import (
 	solFeeQuoter "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/v0_1_1/fee_quoter"
 	solState "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/state"
 	solTokenUtil "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/tokens"
+	ccipcommoncs "github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
+	"github.com/smartcontractkit/chainlink/deployment/helpers/pointer"
 
 	cldf_solana "github.com/smartcontractkit/chainlink-deployments-framework/chain/solana"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
@@ -23,6 +28,9 @@ import (
 	solanastateview "github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview/solana"
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 )
+
+// use this changeset to add a token transfer fee for a remote chain to solana (used for very specific cases)
+var _ cldf.ChangeSetV2[TokenTransferFeeForRemoteChainConfigV2] = AddTokenTransferFeeForRemoteChainV2
 
 // use this changeset to add a billing token to solana
 var _ cldf.ChangeSet[BillingTokenConfig] = AddBillingTokenChangeset
@@ -707,4 +715,242 @@ func SetMaxFeeJuelsPerMsg(e cldf.Environment, cfg SetMaxFeeJuelsPerMsgConfig) (c
 	}
 
 	return cldf.ChangesetOutput{}, nil
+}
+
+// ADD BILLING TOKEN FOR REMOTE CHAIN V2
+//
+// AddTokenTransferFeeForRemoteChainV2 wraps the original AddTokenTransferFeeForRemoteChain changeset with several devex
+// improvements. In the V2 version you can provide a partial (or empty) config and any missing fields will be autofilled
+// with sensible defaults. It's also possible to provide multiple tokens as input and all of them will be processed with
+// a single MCMS proposal. A few other benefits include more detailed log messages and a new input schema structure that
+// aligns more closely with the EVM equivalent of this changeset. This changeset also handles no-ops gracefully and uses
+// the CLDF changeset V2 API.
+var AddTokenTransferFeeForRemoteChainV2 = cldf.CreateChangeSet(
+	addTokenTransferFeeForRemoteChainV2Logic,
+	addTokenTransferFeeForRemoteChainV2Precondition,
+)
+
+type TokenTransferFeeForRemoteChainConfigV2 struct {
+	// Map of source chain selector (solana family) => destination chain selector (any family) => config
+	InputsByChain map[uint64]map[uint64]TokenTransferFeeForRemoteChainConfigArgsV2
+
+	// Required MCMS config
+	MCMS *proposalutils.TimelockConfig
+}
+
+type TokenTransferFeeForRemoteChainConfigArgsV2 struct {
+	// Maps each token address to its token fee config
+	TokenAddressToFeeConfig map[solana.PublicKey]OptionalFeeQuoterTokenTransferFeeConfig
+}
+
+type OptionalFeeQuoterTokenTransferFeeConfig struct {
+	MinFeeUsdcents    *uint32
+	MaxFeeUsdcents    *uint32
+	DeciBps           *uint16
+	DestGasOverhead   *uint32
+	DestBytesOverhead *uint32
+	IsEnabled         *bool
+}
+
+func (cfg TokenTransferFeeForRemoteChainConfigV2) buildOrchestrateChangesetsConfig(env cldf.Environment) (ccipcommoncs.OrchestrateChangesetsConfig, error) {
+	env.Logger.Info("building orchestrate changesets config")
+	if cfg.MCMS == nil {
+		return ccipcommoncs.OrchestrateChangesetsConfig{}, errors.New("MCMS config is required")
+	}
+
+	state, err := stateview.LoadOnchainState(env)
+	if err != nil {
+		return ccipcommoncs.OrchestrateChangesetsConfig{}, fmt.Errorf("failed to load onchain state: %w", err)
+	}
+
+	changesets := []ccipcommoncs.WithConfig{}
+	for srcSelector, dst := range cfg.InputsByChain {
+		// get solana chain state and solana chain info
+		err := stateview.ValidateChain(env, state, srcSelector, cfg.MCMS)
+		if err != nil {
+			return ccipcommoncs.OrchestrateChangesetsConfig{}, fmt.Errorf("failed to validate src chain (src = %d): %w", srcSelector, err)
+		}
+		solChainState, ok := state.SolChains[srcSelector]
+		if !ok {
+			return ccipcommoncs.OrchestrateChangesetsConfig{}, fmt.Errorf("failed to find solana chain with selector '%d' in state", srcSelector)
+		}
+		solChain, ok := env.BlockChains.SolanaChains()[srcSelector]
+		if !ok {
+			return ccipcommoncs.OrchestrateChangesetsConfig{}, fmt.Errorf("failed to find solana chain with selector '%d' in environment", srcSelector)
+		}
+
+		// prepare for iteration
+		remoteChainConfigsByToken := map[solana.PublicKey]map[uint64]solFeeQuoter.TokenTransferFeeConfig{}
+		env.Logger.Infof(
+			"successfully found Solana fee quoter in state for selector %d: %s",
+			srcSelector, solChainState.FeeQuoter.String(),
+		)
+
+		// 1st pass -> populate remote chain configs for each (token, dst) pair
+		env.Logger.Infof("building remote chain configs for chain %d", srcSelector)
+		for dstSelector, dstConfig := range dst {
+			// perform basic validations on the first pass
+			if srcSelector == dstSelector {
+				return ccipcommoncs.OrchestrateChangesetsConfig{}, fmt.Errorf("destination chain cannot be the same as source chain (src = %d, dst = %d)", srcSelector, dstSelector)
+			}
+			if err := stateview.ValidateChain(env, state, dstSelector, cfg.MCMS); err != nil {
+				return ccipcommoncs.OrchestrateChangesetsConfig{}, fmt.Errorf("failed to validate dst chain (src = %d, dst = %d): %w", srcSelector, dstSelector, err)
+			}
+
+			// build the config map
+			for tokenAddress, feeConfig := range dstConfig.TokenAddressToFeeConfig {
+				// get the remote billing PDA for the given (token, dst) pair
+				env.Logger.Infof("processing inputs src = %d, dst = %d, token = %s", srcSelector, dstSelector, tokenAddress.String())
+				remoteBillingPDA, _, err := solState.FindFqPerChainPerTokenConfigPDA(dstSelector, tokenAddress, solChainState.FeeQuoter)
+				if err != nil {
+					return ccipcommoncs.OrchestrateChangesetsConfig{}, fmt.Errorf("failed to find remote billing token config pda (src = %d, dst = %d, token = %s): %w", srcSelector, dstSelector, tokenAddress.String(), err)
+				}
+
+				// get the token transfer fee config from the fee quoter - if it doesn't exist, then the zero struct will be returned and `IsEnabled` will be `false`
+				env.Logger.Infof("remote billing PDA = %s", remoteBillingPDA.String())
+				var curConfig solFeeQuoter.PerChainPerTokenConfig
+				err = solChain.GetAccountDataBorshInto(env.GetContext(), remoteBillingPDA, &curConfig)
+				if !errors.Is(err, rpc.ErrNotFound) && err != nil {
+					return ccipcommoncs.OrchestrateChangesetsConfig{}, fmt.Errorf("failed to deserialize PerChainPerTokenConfig (src = %d, dst = %d, token = %s, pda = %s): %w", srcSelector, dstSelector, tokenAddress.String(), remoteBillingPDA.String(), err)
+				}
+
+				// if the config has not been set yet, we auto-fill any missing input fields with sensible defaults
+				env.Logger.Infof("current config = %+v", curConfig)
+				if !curConfig.TokenTransferConfig.IsEnabled {
+					// only use sensible defaults to fill in missing fields - do not overwrite anything that the user provided
+					minFeeUsdCents := pointer.Coalesce(feeConfig.MinFeeUsdcents, uint32(175_000))
+					maxFeeUsdCents := pointer.Coalesce(feeConfig.MaxFeeUsdcents, math.MaxUint32)
+					destGasOverhead := pointer.Coalesce(feeConfig.DestGasOverhead, uint32(90_000))
+					destBytesOverhead := pointer.Coalesce(feeConfig.DestBytesOverhead, uint32(32))
+					deciBps := pointer.Coalesce(feeConfig.DeciBps, uint16(0))
+					isEnabled := pointer.Coalesce(feeConfig.IsEnabled, true)
+					env.Logger.Infof("config is not set - populating missing fields in user input with sensible defaults: %+v", feeConfig)
+
+					// fill in the missing values in-place
+					feeConfig.MinFeeUsdcents = &minFeeUsdCents
+					feeConfig.MaxFeeUsdcents = &maxFeeUsdCents
+					feeConfig.DeciBps = &deciBps
+					feeConfig.DestGasOverhead = &destGasOverhead
+					feeConfig.DestBytesOverhead = &destBytesOverhead
+					feeConfig.IsEnabled = &isEnabled
+					env.Logger.Infof("missing fields in user input have been auto-filled with sensible defaults: %+v", feeConfig)
+				}
+
+				// at this point, we're either using inputs from the user (highest precedence), fallback values from the chain, or pre-defined sensible defaults
+				newConfig := solFeeQuoter.TokenTransferFeeConfig{
+					MinFeeUsdcents:    pointer.Coalesce(feeConfig.MinFeeUsdcents, curConfig.TokenTransferConfig.MinFeeUsdcents),
+					MaxFeeUsdcents:    pointer.Coalesce(feeConfig.MaxFeeUsdcents, curConfig.TokenTransferConfig.MaxFeeUsdcents),
+					DeciBps:           pointer.Coalesce(feeConfig.DeciBps, curConfig.TokenTransferConfig.DeciBps),
+					DestGasOverhead:   pointer.Coalesce(feeConfig.DestGasOverhead, curConfig.TokenTransferConfig.DestGasOverhead),
+					DestBytesOverhead: pointer.Coalesce(feeConfig.DestBytesOverhead, curConfig.TokenTransferConfig.DestBytesOverhead),
+					IsEnabled:         pointer.Coalesce(feeConfig.IsEnabled, curConfig.TokenTransferConfig.IsEnabled),
+				}
+
+				// make sure that the config is still valid after merge
+				if newConfig.MinFeeUsdcents >= newConfig.MaxFeeUsdcents {
+					return ccipcommoncs.OrchestrateChangesetsConfig{}, fmt.Errorf("min fee (%d) must be less than max fee (%d)", newConfig.MinFeeUsdcents, newConfig.MaxFeeUsdcents)
+				}
+
+				// check if the new config is different from the on-chain config
+				isDifferent := newConfig.MinFeeUsdcents != curConfig.TokenTransferConfig.MinFeeUsdcents ||
+					newConfig.MaxFeeUsdcents != curConfig.TokenTransferConfig.MaxFeeUsdcents ||
+					newConfig.DeciBps != curConfig.TokenTransferConfig.DeciBps ||
+					newConfig.DestGasOverhead != curConfig.TokenTransferConfig.DestGasOverhead ||
+					newConfig.DestBytesOverhead != curConfig.TokenTransferConfig.DestBytesOverhead ||
+					newConfig.IsEnabled != curConfig.TokenTransferConfig.IsEnabled
+
+				// only perform an update if the new config is different from the on-chain config
+				env.Logger.Infof("constructed new token transfer fee config: %+v", newConfig)
+				if !isDifferent {
+					env.Logger.Infof(
+						"skipping update since input config is the same as on-chain config (src=%d, dst=%d, token=%s): %+v",
+						srcSelector, dstSelector, tokenAddress.String(), curConfig,
+					)
+					continue
+				}
+
+				// update the config map
+				if _, ok := remoteChainConfigsByToken[tokenAddress]; !ok {
+					remoteChainConfigsByToken[tokenAddress] = map[uint64]solFeeQuoter.TokenTransferFeeConfig{}
+				}
+				remoteChainConfigsByToken[tokenAddress][dstSelector] = newConfig
+			}
+		}
+
+		// 2nd pass -> populate token transfer fee configs and changesets
+		env.Logger.Infof("detected %d token(s) to configure", len(remoteChainConfigsByToken))
+		for tokenPubKey, remoteChainConfigs := range remoteChainConfigsByToken {
+			if len(remoteChainConfigs) == 0 {
+				env.Logger.Infof("detected no changes for token %s - skipping", tokenPubKey.String())
+				continue
+			}
+
+			tokenTransferFeeConfig := TokenTransferFeeForRemoteChainConfig{
+				RemoteChainConfigs: remoteChainConfigs,
+				ChainSelector:      srcSelector,
+				TokenPubKey:        tokenPubKey,
+				MCMS:               cfg.MCMS,
+			}
+
+			err := tokenTransferFeeConfig.Validate(env, state)
+			if err != nil {
+				return ccipcommoncs.OrchestrateChangesetsConfig{}, fmt.Errorf(
+					"validation failed for token transfer fee config (src=%d, token=%s, input=%+v): %w",
+					srcSelector, tokenPubKey.String(), tokenTransferFeeConfig, err,
+				)
+			}
+
+			changesets = append(
+				changesets,
+				ccipcommoncs.CreateGenericChangeSetWithConfig(
+					cldf.CreateLegacyChangeSet(AddTokenTransferFeeForRemoteChain),
+					tokenTransferFeeConfig,
+				),
+			)
+		}
+	}
+
+	return ccipcommoncs.OrchestrateChangesetsConfig{
+		Description: "Apply token transfer fee configs from Solana -> *",
+		ChangeSets:  changesets,
+		MCMS:        cfg.MCMS,
+	}, nil
+}
+
+func addTokenTransferFeeForRemoteChainV2Precondition(env cldf.Environment, cfg TokenTransferFeeForRemoteChainConfigV2) error {
+	if len(cfg.InputsByChain) == 0 {
+		env.Logger.Info("no inputs were provided - exiting precondition stage gracefully")
+		return nil
+	}
+
+	input, err := cfg.buildOrchestrateChangesetsConfig(env)
+	if err != nil {
+		return fmt.Errorf("failed to build OrchestrateChangesetsConfig: %w", err)
+	}
+
+	if len(input.ChangeSets) == 0 {
+		env.Logger.Info("no changesets to orchestrate - exiting precondition stage gracefully")
+		return nil
+	}
+
+	return ccipcommoncs.OrchestrateChangesets.VerifyPreconditions(env, input)
+}
+
+func addTokenTransferFeeForRemoteChainV2Logic(env cldf.Environment, cfg TokenTransferFeeForRemoteChainConfigV2) (cldf.ChangesetOutput, error) {
+	if len(cfg.InputsByChain) == 0 {
+		env.Logger.Info("no inputs were provided - exiting apply stage gracefully")
+		return cldf.ChangesetOutput{}, nil
+	}
+
+	input, err := cfg.buildOrchestrateChangesetsConfig(env)
+	if err != nil {
+		return cldf.ChangesetOutput{}, fmt.Errorf("failed to build OrchestrateChangesetsConfig: %w", err)
+	}
+
+	if len(input.ChangeSets) == 0 {
+		env.Logger.Info("no changesets to orchestrate - exiting apply stage gracefully")
+		return cldf.ChangesetOutput{}, nil
+	}
+
+	return ccipcommoncs.OrchestrateChangesets.Apply(env, input)
 }

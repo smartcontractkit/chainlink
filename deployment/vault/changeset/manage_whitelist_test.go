@@ -1,12 +1,13 @@
 package changeset
 
 import (
-	"sort"
+	"slices"
 	"testing"
 
 	"github.com/ethereum/go-ethereum/common"
-	chainselectors "github.com/smartcontractkit/chain-selectors"
 	"github.com/stretchr/testify/require"
+
+	chainselectors "github.com/smartcontractkit/chain-selectors"
 
 	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
@@ -266,9 +267,7 @@ func TestValidateWhitelist(t *testing.T) {
 	}
 	require.Len(t, chainSelectors, 2)
 
-	sort.Slice(chainSelectors, func(i, j int) bool {
-		return chainSelectors[i] < chainSelectors[j]
-	})
+	slices.Sort(chainSelectors)
 
 	chain1 := chainSelectors[0]
 	chain2 := chainSelectors[1]
@@ -314,7 +313,7 @@ func TestValidateWhitelist(t *testing.T) {
 			},
 		}
 
-		errors, err := ValidateWhitelist(*env, config)
+		errors, err := validateWhitelist(*env, config)
 		require.NoError(t, err)
 		require.Empty(t, errors)
 	})
@@ -334,7 +333,7 @@ func TestValidateWhitelist(t *testing.T) {
 			},
 		}
 
-		validationErrors, err := ValidateWhitelist(*env, config)
+		validationErrors, err := validateWhitelist(*env, config)
 		require.NoError(t, err)
 		require.Len(t, validationErrors, 2)
 
@@ -360,7 +359,7 @@ func TestGetChainWhitelist(t *testing.T) {
 
 	t.Run("get whitelist from empty datastore", func(t *testing.T) {
 		ds := datastore.NewMemoryDataStore().Seal()
-		metadata, err := GetChainWhitelist(ds, selector)
+		metadata, err := getChainWhitelist(ds, selector)
 		require.NoError(t, err)
 		require.NotNil(t, metadata)
 		require.Empty(t, metadata.Addresses)
@@ -391,7 +390,7 @@ func TestGetChainWhitelist(t *testing.T) {
 		require.NoError(t, err)
 
 		sealedDS := ds.Seal()
-		metadata, err := GetChainWhitelist(sealedDS, selector)
+		metadata, err := getChainWhitelist(sealedDS, selector)
 		require.NoError(t, err)
 		require.NotNil(t, metadata)
 		require.Len(t, metadata.Addresses, 2)

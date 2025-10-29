@@ -5,6 +5,7 @@ import (
 	"flag"
 	"fmt"
 	"log"
+	"maps"
 	"os"
 	"strconv"
 
@@ -74,9 +75,7 @@ func withDefaultConfig(m map[string]any) func(*values.Map) {
 		if err != nil {
 			panic(err)
 		}
-		for k, v := range overrides.Underlying {
-			dc.Underlying[k] = v
-		}
+		maps.Copy(dc.Underlying, overrides.Underlying)
 	}
 }
 

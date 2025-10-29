@@ -11,7 +11,7 @@ type ChainView struct {
 	// v1.0
 	DataFeedsCache  map[string]v1_0.CacheView `json:"dataFeedsCache,omitempty"`
 	AggregatorProxy map[string]v1_0.ProxyView `json:"aggregatorProxy,omitempty"`
-	FeedConfig      v1_0.FeedState            `json:"feedConfig,omitempty"`
+	FeedConfig      v1_0.FeedState            `json:"feedConfig"`
 }
 
 func NewChain() ChainView {

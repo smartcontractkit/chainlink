@@ -34,9 +34,9 @@ type Config struct {
 // FetcherFunc is an abstraction for fetching the contents stored at a URL.
 type FetcherFunc func(ctx context.Context, messageID string, req ghcapabilities.Request) ([]byte, error)
 
-type GetAllowlistedRequestsParams struct {
-	Start *big.Int
-	Limit *big.Int
+type GetActiveAllowlistedRequestsReverseParams struct {
+	EndIndex   *big.Int
+	StartIndex *big.Int
 }
 
 type WorkflowMetadataView struct {
@@ -79,6 +79,7 @@ type Event struct {
 	Name WorkflowRegistryEventName
 	Data any
 	Head Head
+	Info string // additional human-readable metadata
 }
 
 // NOTE: The following types differ from gethwrappers in that they are chain agnostic definitions (owners are represented as bytes / workflow IDs might be more than bytes32)

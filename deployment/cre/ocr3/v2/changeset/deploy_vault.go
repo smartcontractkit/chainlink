@@ -15,7 +15,7 @@ import (
 var _ cldf.ChangeSetV2[DeployVaultInput] = DeployVault{}
 
 type DeployVaultInput struct {
-	ChainSelector uint64 `json:"chain_selector" yaml:"chain_selector"`
+	ChainSelector uint64 `json:"chainSelector" yaml:"chainSelector"`
 	Qualifier     string `json:"qualifier" yaml:"qualifier"`
 }
 

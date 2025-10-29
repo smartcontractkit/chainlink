@@ -43,6 +43,13 @@ var RegisterCapabilities = operations.NewOperation[RegisterCapabilitiesInput, Re
 	semver.MustParse("1.0.0"),
 	"Register Capabilities in Capabilities Registry",
 	func(b operations.Bundle, deps RegisterCapabilitiesDeps, input RegisterCapabilitiesInput) (RegisterCapabilitiesOutput, error) {
+		if len(input.Capabilities) == 0 {
+			b.Logger.Info("no capabilities provided, skipping operation")
+			return RegisterCapabilitiesOutput{
+				Capabilities: []*capabilities_registry_v2.CapabilitiesRegistryCapabilityConfigured{},
+			}, nil
+		}
+
 		chain, ok := deps.Env.BlockChains.EVMChains()[input.ChainSelector]
 		if !ok {
 			return RegisterCapabilitiesOutput{}, fmt.Errorf("chain not found for selector %d", input.ChainSelector)

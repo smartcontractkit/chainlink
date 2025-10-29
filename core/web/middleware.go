@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"os"
 	"path"
+	"slices"
 	"strconv"
 	"strings"
 
@@ -185,10 +186,8 @@ func negotiateContentEncoding(r *http.Request, available []string) string {
 	}
 
 	for _, a := range available {
-		for _, acceptEnc := range aes {
-			if acceptEnc == a {
-				return a
-			}
+		if slices.Contains(aes, a) {
+			return a
 		}
 	}
 

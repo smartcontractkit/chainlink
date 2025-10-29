@@ -138,7 +138,7 @@ func TestPacker_UnpackGetUpkeepPrivilegeConfig(t *testing.T) {
 
 				// the actual struct to unmarshal into is not available to this
 				// package so basic json encoding is the limit of the following test
-				var data map[string]interface{}
+				var data map[string]any
 				err = json.Unmarshal(b, &data)
 
 				assert.NoError(t, err, "packed data should unmarshal using json encoding")
@@ -355,17 +355,17 @@ func (c *mercuryConfigMock) Credentials() *types.MercuryCredentials {
 	return nil
 }
 
-func (c *mercuryConfigMock) IsUpkeepAllowed(k string) (interface{}, bool) {
+func (c *mercuryConfigMock) IsUpkeepAllowed(k string) (any, bool) {
 	return nil, false
 }
 
-func (c *mercuryConfigMock) SetUpkeepAllowed(k string, v interface{}, d time.Duration) {
+func (c *mercuryConfigMock) SetUpkeepAllowed(k string, v any, d time.Duration) {
 }
 
-func (c *mercuryConfigMock) GetPluginRetry(k string) (interface{}, bool) {
+func (c *mercuryConfigMock) GetPluginRetry(k string) (any, bool) {
 	return c.pluginRetryCache.Get(k)
 }
 
-func (c *mercuryConfigMock) SetPluginRetry(k string, v interface{}, d time.Duration) {
+func (c *mercuryConfigMock) SetPluginRetry(k string, v any, d time.Duration) {
 	c.pluginRetryCache.Set(k, v, d)
 }

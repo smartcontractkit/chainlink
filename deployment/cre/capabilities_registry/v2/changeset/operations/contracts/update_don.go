@@ -37,6 +37,9 @@ type UpdateDONInput struct {
 	// DonName to update, this is required
 	DonName string
 
+	// NewDonName is optional
+	NewDonName string
+
 	// F is the fault tolerance level
 	// if omitted, the existing value fetched from the registry is used
 	F uint8
@@ -71,14 +74,14 @@ type CapabilityConfig struct {
 	// Config is the capability configuration. It will be marshalled to proto config.
 	// It is untyped here because is has to be deserialized from JSON/YAML for any possible capability
 	// If nil, a default config based on the capability type is used
-	Config map[string]interface{}
+	Config map[string]any
 }
 
 type Capability struct {
-	CapabilityID          string         `json:"capability_id" yaml:"capability_id"`
-	ConfigurationContract common.Address `json:"configuration_contract" yaml:"configuration_contract"`
+	CapabilityID          string         `json:"capabilityID" yaml:"capabilityID"`
+	ConfigurationContract common.Address `json:"configurationContract" yaml:"configurationContract"`
 	// Metadata is the capability metadata. It will be marshalled to json config.
-	Metadata map[string]interface{} `json:"metadata" yaml:"metadata"`
+	Metadata map[string]any `json:"metadata" yaml:"metadata"`
 }
 
 var UpdateDON = operations.NewOperation[UpdateDONInput, UpdateDONOutput, UpdateDONDeps](
@@ -86,8 +89,7 @@ var UpdateDON = operations.NewOperation[UpdateDONInput, UpdateDONOutput, UpdateD
 	semver.MustParse("1.0.0"),
 	"Update DON in Capabilities Registry",
 	func(b operations.Bundle, deps UpdateDONDeps, input UpdateDONInput) (UpdateDONOutput, error) {
-		err := input.Validate()
-		if err != nil {
+		if err := input.Validate(); err != nil {
 			return UpdateDONOutput{}, err
 		}
 
@@ -129,6 +131,11 @@ var UpdateDON = operations.NewOperation[UpdateDONInput, UpdateDONOutput, UpdateD
 			isPublic = don.IsPublic
 		}
 
+		name := don.Name
+		if input.NewDonName != "" {
+			name = input.NewDonName
+		}
+
 		strategy, err := strategies.CreateStrategy(
 			chain,
 			*deps.Env,
@@ -146,7 +153,7 @@ var UpdateDON = operations.NewOperation[UpdateDONInput, UpdateDONOutput, UpdateD
 		// Execute the transaction using the strategy
 		proposals, err := strategy.Apply(func(opts *bind.TransactOpts) (*types.Transaction, error) {
 			tx, err := registry.UpdateDONByName(opts, input.DonName, capabilities_registry_v2.CapabilitiesRegistryUpdateDONParams{
-				Name:                     input.DonName,
+				Name:                     name,
 				Nodes:                    pkg.PeerIDsToBytes(input.P2PIDs),
 				CapabilityConfigurations: cfgs,
 				IsPublic:                 isPublic,
@@ -161,18 +168,16 @@ var UpdateDON = operations.NewOperation[UpdateDONInput, UpdateDONOutput, UpdateD
 			// For direct execution, we can confirm and get the updated DON info
 			if input.MCMSConfig == nil {
 				// Confirm transaction
-				_, err = chain.Confirm(tx)
-				if err != nil {
+				if _, err = chain.Confirm(tx); err != nil {
 					return nil, fmt.Errorf("failed to confirm UpdateDON transaction %s: %w", tx.Hash().String(), err)
 				}
 
 				ctx := b.GetContext()
-				_, err = bind.WaitMined(ctx, chain.Client, tx)
-				if err != nil {
+				if _, err = bind.WaitMined(ctx, chain.Client, tx); err != nil {
 					return nil, fmt.Errorf("failed to mine UpdateDON transaction %s: %w", tx.Hash().String(), err)
 				}
 
-				don, err := registry.GetDONByName(&bind.CallOpts{}, input.DonName)
+				don, err := registry.GetDONByName(&bind.CallOpts{}, name)
 				if err != nil {
 					err = cldf.DecodeErr(capabilities_registry_v2.CapabilitiesRegistryABI, err)
 					return nil, fmt.Errorf("failed to call GetDONByName: %w", err)

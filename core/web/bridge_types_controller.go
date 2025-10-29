@@ -99,7 +99,7 @@ func (btc *BridgeTypesController) Create(c *gin.Context) {
 	resource := presenters.NewBridgeResource(*bt)
 	resource.IncomingToken = bta.IncomingToken
 
-	btc.App.GetAuditLogger().Audit(audit.BridgeCreated, map[string]interface{}{
+	btc.App.GetAuditLogger().Audit(audit.BridgeCreated, map[string]any{
 		"bridgeName":                   bta.Name,
 		"bridgeConfirmations":          bta.Confirmations,
 		"bridgeMinimumContractPayment": bta.MinimumContractPayment,
@@ -182,7 +182,7 @@ func (btc *BridgeTypesController) Update(c *gin.Context) {
 		return
 	}
 
-	btc.App.GetAuditLogger().Audit(audit.BridgeUpdated, map[string]interface{}{
+	btc.App.GetAuditLogger().Audit(audit.BridgeUpdated, map[string]any{
 		"bridgeName":                   bt.Name,
 		"bridgeConfirmations":          bt.Confirmations,
 		"bridgeMinimumContractPayment": bt.MinimumContractPayment,
@@ -227,7 +227,7 @@ func (btc *BridgeTypesController) Destroy(c *gin.Context) {
 		return
 	}
 
-	btc.App.GetAuditLogger().Audit(audit.BridgeDeleted, map[string]interface{}{"name": name})
+	btc.App.GetAuditLogger().Audit(audit.BridgeDeleted, map[string]any{"name": name})
 
 	jsonAPIResponse(c, presenters.NewBridgeResource(bt), "bridge")
 }

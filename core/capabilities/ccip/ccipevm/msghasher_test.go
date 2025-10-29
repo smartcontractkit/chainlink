@@ -144,7 +144,7 @@ func createEVM2EVMMessage(t *testing.T, messageHasher *message_hasher.MessageHas
 
 	numTokens := rand.Intn(10)
 	var sourceTokenDatas [][]byte
-	for i := 0; i < numTokens; i++ {
+	for range numTokens {
 		sourceTokenDatas = append(sourceTokenDatas, sourceTokenData)
 	}
 

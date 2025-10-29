@@ -26,8 +26,8 @@ func createTestRequest(method, url string) gateway_common.OutboundHTTPRequest {
 		},
 		Body: []byte(`{"test": "data"}`),
 		CacheSettings: gateway_common.CacheSettings{
-			ReadFromCache: true,
-			MaxAgeMs:      5000, // 5 seconds
+			MaxAgeMs: 5000, // Read from cache if cache entry is fresher than 5 seconds
+			Store:    true, // Store responses in cache by default for tests
 		},
 	}
 }
@@ -86,34 +86,87 @@ func TestIsCacheableStatusCode(t *testing.T) {
 	}
 }
 
-func TestCacheKey(t *testing.T) {
+func TestRequestHash(t *testing.T) {
 	req := createTestRequest("GET", "https://example.com")
-	workflowID := "workflow-123"
 
-	t.Run("generates consistent key", func(t *testing.T) {
-		key1 := cacheKey(workflowID, req)
-		key2 := cacheKey(workflowID, req)
-		require.Equal(t, key1, key2)
+	t.Run("generates consistent hash", func(t *testing.T) {
+		hash1 := req.Hash()
+		hash2 := req.Hash()
+		require.Equal(t, hash1, hash2)
 	})
 
-	t.Run("includes workflow ID", func(t *testing.T) {
-		key := cacheKey(workflowID, req)
-		require.Contains(t, key, workflowID)
-	})
-
-	t.Run("different workflow IDs generate different keys", func(t *testing.T) {
-		key1 := cacheKey("workflow-1", req)
-		key2 := cacheKey("workflow-2", req)
-		require.NotEqual(t, key1, key2)
-	})
-
-	t.Run("different requests generate different keys", func(t *testing.T) {
+	t.Run("different requests generate different hashes", func(t *testing.T) {
 		req1 := createTestRequest("GET", "https://example.com/path1")
 		req2 := createTestRequest("GET", "https://example.com/path2")
 
-		key1 := cacheKey(workflowID, req1)
-		key2 := cacheKey(workflowID, req2)
-		require.NotEqual(t, key1, key2)
+		hash1 := req1.Hash()
+		hash2 := req2.Hash()
+		require.NotEqual(t, hash1, hash2)
+	})
+
+	t.Run("same request with different method generates different hash", func(t *testing.T) {
+		req1 := createTestRequest("GET", "https://example.com")
+		req2 := createTestRequest("POST", "https://example.com")
+
+		hash1 := req1.Hash()
+		hash2 := req2.Hash()
+		require.NotEqual(t, hash1, hash2)
+	})
+
+	t.Run("having different cacheSettings results in the same Hash", func(t *testing.T) {
+		req1 := createTestRequest("GET", "https://example.com")
+		req1.CacheSettings = gateway_common.CacheSettings{
+			MaxAgeMs: 5000,
+			Store:    true,
+		}
+
+		req2 := createTestRequest("GET", "https://example.com")
+		req2.CacheSettings = gateway_common.CacheSettings{
+			MaxAgeMs: 10000,
+			Store:    false,
+		}
+
+		hash1 := req1.Hash()
+		hash2 := req2.Hash()
+		require.Equal(t, hash1, hash2, "Hash should be the same regardless of CacheSettings")
+	})
+
+	t.Run("having different workflowID results in same Hash", func(t *testing.T) {
+		req1 := createTestRequest("GET", "https://example.com")
+		req1.WorkflowID = "workflow-123"
+
+		req2 := createTestRequest("GET", "https://example.com")
+		req2.WorkflowID = "workflow-456"
+
+		hash1 := req1.Hash()
+		hash2 := req2.Hash()
+		require.Equal(t, hash1, hash2, "Hash should be the same regardless of WorkflowID")
+	})
+
+	t.Run("having same workflowOwner results in the same Hash", func(t *testing.T) {
+		req1 := createTestRequest("GET", "https://example.com")
+		req1.WorkflowOwner = "workflow-owner-123"
+
+		req2 := createTestRequest("GET", "https://example.com")
+		req2.WorkflowOwner = "workflow-owner-123"
+
+		hash1 := req1.Hash()
+		hash2 := req2.Hash()
+		require.Equal(t, hash1, hash2, "Hash should be the same for identical requests")
+	})
+
+	t.Run("having different workflowOwner results in different Hash", func(t *testing.T) {
+		req1 := createTestRequest("GET", "https://example.com")
+		req1.WorkflowOwner = "workflow-owner-123"
+
+		req2 := createTestRequest("GET", "https://example.com")
+		req2.WorkflowOwner = "workflow-owner-456"
+
+		hash1 := req1.Hash()
+		hash2 := req2.Hash()
+		require.NotEqual(t, hash1, hash2, "Hash should be different for different workflow owner")
+		require.NotEmpty(t, hash1, "Hash should not be empty")
+		require.NotEmpty(t, hash2, "Hash should not be empty")
 	})
 }
 
@@ -129,8 +182,7 @@ func TestIsExpiredOrNotCached(t *testing.T) {
 	})
 
 	t.Run("returns false for non-expired entry", func(t *testing.T) {
-		key := cacheKey(workflowID, req)
-		cache.cache[key] = &cachedResponse{
+		cache.cache[req.Hash()] = &cachedResponse{
 			response: createTestResponse(200, "test"),
 			storedAt: time.Now(),
 		}
@@ -140,8 +192,7 @@ func TestIsExpiredOrNotCached(t *testing.T) {
 	})
 
 	t.Run("returns true for expired entry", func(t *testing.T) {
-		key := cacheKey(workflowID, req)
-		cache.cache[key] = &cachedResponse{
+		cache.cache[req.Hash()] = &cachedResponse{
 			response: createTestResponse(200, "test"),
 			storedAt: time.Now().Add(-2 * time.Second),
 		}
@@ -151,7 +202,7 @@ func TestIsExpiredOrNotCached(t *testing.T) {
 	})
 }
 
-func TestCachedFetch(t *testing.T) {
+func TestFetch(t *testing.T) {
 	testMetrics := createCacheTestMetrics(t)
 	cache := newResponseCache(logger.Test(t), 10000, testMetrics) // 10 seconds TTL
 	workflowID := "workflow-123"
@@ -166,7 +217,7 @@ func TestCachedFetch(t *testing.T) {
 			return expectedResp
 		}
 
-		result := cache.CachedFetch(t.Context(), workflowID, req, fetchFn)
+		result := cache.Fetch(t.Context(), workflowID, req, fetchFn, true)
 
 		require.True(t, fetchCalled)
 		require.Equal(t, expectedResp, result)
@@ -177,8 +228,7 @@ func TestCachedFetch(t *testing.T) {
 		cachedResp := createTestResponse(200, "cached data")
 
 		// Pre-populate cache
-		key := cacheKey(workflowID, req)
-		cache.cache[key] = &cachedResponse{
+		cache.cache[req.Hash()] = &cachedResponse{
 			response: cachedResp,
 			storedAt: time.Now(),
 		}
@@ -189,7 +239,7 @@ func TestCachedFetch(t *testing.T) {
 			return createTestResponse(200, "should not be called")
 		}
 
-		result := cache.CachedFetch(t.Context(), workflowID, req, fetchFn)
+		result := cache.Fetch(t.Context(), workflowID, req, fetchFn, true)
 
 		require.False(t, fetchCalled, "fetchFn should not be called on cache hit")
 		require.Equal(t, cachedResp, result)
@@ -199,8 +249,7 @@ func TestCachedFetch(t *testing.T) {
 		req := createTestRequest("GET", "https://example.com/expired")
 		req.CacheSettings.MaxAgeMs = 100
 
-		key := cacheKey(workflowID, req)
-		cache.cache[key] = &cachedResponse{
+		cache.cache[req.Hash()] = &cachedResponse{
 			response: createTestResponse(200, "old data"),
 			storedAt: time.Now().Add(-200 * time.Millisecond),
 		}
@@ -212,13 +261,13 @@ func TestCachedFetch(t *testing.T) {
 			return expectedResp
 		}
 
-		result := cache.CachedFetch(t.Context(), workflowID, req, fetchFn)
+		result := cache.Fetch(t.Context(), workflowID, req, fetchFn, true)
 
 		require.True(t, fetchCalled)
 		require.Equal(t, expectedResp, result)
 	})
 
-	t.Run("caches cacheable responses", func(t *testing.T) {
+	t.Run("caches cacheable responses when storeOnFetch is true", func(t *testing.T) {
 		req := createTestRequest("GET", "https://example.com/cacheable")
 		response := createTestResponse(200, "cacheable response")
 
@@ -226,12 +275,28 @@ func TestCachedFetch(t *testing.T) {
 			return response
 		}
 
-		cache.CachedFetch(t.Context(), workflowID, req, fetchFn)
+		cache.Fetch(t.Context(), workflowID, req, fetchFn, true)
 
-		key := cacheKey(workflowID, req)
-		cachedEntry, exists := cache.cache[key]
+		cachedEntry, exists := cache.cache[req.Hash()]
 		require.True(t, exists)
 		require.Equal(t, response, cachedEntry.response)
+	})
+
+	t.Run("does not cache when storeOnFetch is false", func(t *testing.T) {
+		req := createTestRequest("GET", "https://example.com/nostore")
+		response := createTestResponse(200, "should not be stored")
+
+		fetchFn := func() gateway_common.OutboundHTTPResponse {
+			return response
+		}
+
+		result := cache.Fetch(t.Context(), workflowID, req, fetchFn, false)
+
+		// Should return the response but not cache it
+		require.Equal(t, response, result)
+
+		_, exists := cache.cache[req.Hash()]
+		require.False(t, exists, "response should not be cached when storeOnFetch is false")
 	})
 
 	t.Run("does not cache non-cacheable responses", func(t *testing.T) {
@@ -242,13 +307,12 @@ func TestCachedFetch(t *testing.T) {
 			return response
 		}
 
-		result := cache.CachedFetch(t.Context(), workflowID, req, fetchFn)
+		result := cache.Fetch(t.Context(), workflowID, req, fetchFn, true)
 
 		// Should return the response but not cache it
 		require.Equal(t, response, result)
 
-		key := cacheKey(workflowID, req)
-		_, exists := cache.cache[key]
+		_, exists := cache.cache[req.Hash()]
 		require.False(t, exists, "5xx response should not be cached")
 	})
 }
@@ -264,8 +328,7 @@ func TestSet(t *testing.T) {
 
 		cache.Set(workflowID, req, response)
 
-		key := cacheKey(workflowID, req)
-		cachedEntry, exists := cache.cache[key]
+		cachedEntry, exists := cache.cache[req.Hash()]
 		require.True(t, exists)
 		require.Equal(t, response, cachedEntry.response)
 	})
@@ -276,8 +339,7 @@ func TestSet(t *testing.T) {
 
 		cache.Set(workflowID, req, response)
 
-		key := cacheKey(workflowID, req)
-		_, exists := cache.cache[key]
+		_, exists := cache.cache[req.Hash()]
 		require.False(t, exists, "5xx response should not be cached")
 	})
 
@@ -291,8 +353,7 @@ func TestSet(t *testing.T) {
 		// Immediately try to set again
 		cache.Set(workflowID, req, newResponse)
 
-		key := cacheKey(workflowID, req)
-		cachedEntry, exists := cache.cache[key]
+		cachedEntry, exists := cache.cache[req.Hash()]
 		require.True(t, exists)
 		require.Equal(t, originalResponse, cachedEntry.response)
 	})
@@ -300,8 +361,7 @@ func TestSet(t *testing.T) {
 	t.Run("overwrites expired entry", func(t *testing.T) {
 		req := createTestRequest("GET", "https://example.com/overwrite")
 
-		key := cacheKey(workflowID, req)
-		cache.cache[key] = &cachedResponse{
+		cache.cache[req.Hash()] = &cachedResponse{
 			response: createTestResponse(200, "expired"),
 			storedAt: time.Now().Add(-20 * time.Second),
 		}
@@ -309,7 +369,7 @@ func TestSet(t *testing.T) {
 		newResponse := createTestResponse(200, "fresh")
 		cache.Set(workflowID, req, newResponse)
 
-		cachedEntry, exists := cache.cache[key]
+		cachedEntry, exists := cache.cache[req.Hash()]
 		require.True(t, exists)
 		require.Equal(t, newResponse, cachedEntry.response)
 	})
@@ -320,8 +380,6 @@ func TestDeleteExpired(t *testing.T) {
 	cache := newResponseCache(logger.Test(t), 1000, testMetrics)
 
 	t.Run("deletes expired entries and returns count", func(t *testing.T) {
-		workflowID := "workflow-123"
-
 		expiredReq1 := createTestRequest("GET", "https://example.com/expired1")
 		expiredReq2 := createTestRequest("GET", "https://example.com/expired2")
 		validReq := createTestRequest("GET", "https://example.com/valid")
@@ -329,15 +387,15 @@ func TestDeleteExpired(t *testing.T) {
 		expiredTime := time.Now().Add(-2 * time.Second)
 		validTime := time.Now()
 
-		cache.cache[cacheKey(workflowID, expiredReq1)] = &cachedResponse{
+		cache.cache[expiredReq1.Hash()] = &cachedResponse{
 			response: createTestResponse(200, "expired1"),
 			storedAt: expiredTime,
 		}
-		cache.cache[cacheKey(workflowID, expiredReq2)] = &cachedResponse{
+		cache.cache[expiredReq2.Hash()] = &cachedResponse{
 			response: createTestResponse(200, "expired2"),
 			storedAt: expiredTime,
 		}
-		cache.cache[cacheKey(workflowID, validReq)] = &cachedResponse{
+		cache.cache[validReq.Hash()] = &cachedResponse{
 			response: createTestResponse(200, "valid"),
 			storedAt: validTime,
 		}
@@ -348,7 +406,7 @@ func TestDeleteExpired(t *testing.T) {
 		require.Len(t, cache.cache, 1, "should have 1 entry remaining")
 
 		// Valid entry should still exist
-		_, exists := cache.cache[cacheKey(workflowID, validReq)]
+		_, exists := cache.cache[validReq.Hash()]
 		require.True(t, exists)
 	})
 
@@ -388,9 +446,9 @@ func TestEdgeCases(t *testing.T) {
 
 		cache.Set(workflowID, req, resp)
 
-		result := cache.CachedFetch(t.Context(), workflowID, req, func() gateway_common.OutboundHTTPResponse {
+		result := cache.Fetch(t.Context(), workflowID, req, func() gateway_common.OutboundHTTPResponse {
 			return resp
-		})
+		}, true)
 		require.Equal(t, resp, result)
 	})
 
@@ -403,8 +461,8 @@ func TestEdgeCases(t *testing.T) {
 			CacheSettings: gateway_common.CacheSettings{MaxAgeMs: 1000},
 		}
 
-		key := cacheKey(workflowID, emptyReq)
-		require.NotEmpty(t, key)
+		hash := emptyReq.Hash()
+		require.NotEmpty(t, hash)
 
 		cache.Set(workflowID, emptyReq, createTestResponse(200, "test"))
 	})

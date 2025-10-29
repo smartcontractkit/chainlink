@@ -27,9 +27,9 @@ import (
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_5_1/burn_mint_token_pool"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_5_1/lock_release_token_pool"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_5_1/usdc_token_pool"
-	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_0/fee_quoter"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_0/offramp"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_0/onramp"
+	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_3/fee_quoter"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/shared/generated/initial/burn_mint_erc677"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/shared/generated/initial/erc20"
 )
@@ -89,9 +89,9 @@ func DecodeErrorStringFromABI(errorString string) (string, error) {
 					fmt.Printf("Error is \"%v\" \ninner error: ", errorName)
 					var errorBytes []byte
 					if errorName == "TokenHandlingError" {
-						errorBytes = v.([]interface{})[1].([]byte)
+						errorBytes = v.([]any)[1].([]byte)
 					} else {
-						errorBytes = v.([]interface{})[0].([]byte)
+						errorBytes = v.([]any)[0].([]byte)
 					}
 					if len(errorBytes) < 4 {
 						return "[reverted without error code]", nil

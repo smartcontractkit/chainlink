@@ -21,7 +21,7 @@ func TestMergeTask(t *testing.T) {
 		right             string
 		vars              pipeline.Vars
 		inputs            []pipeline.Result
-		wantData          interface{}
+		wantData          any
 		wantError         bool
 		wantErrorContains string
 	}{
@@ -31,7 +31,7 @@ func TestMergeTask(t *testing.T) {
 			`{"foo": "42", "bar": null, "blobber": false}`,
 			pipeline.NewVarsFrom(nil),
 			[]pipeline.Result{{Value: `{"foo": "baz", "qux": 99, "flibber": null, "baz": true}`}},
-			map[string]interface{}{
+			map[string]any{
 				"foo":     "42",
 				"qux":     float64(99),
 				"bar":     nil,
@@ -48,7 +48,7 @@ func TestMergeTask(t *testing.T) {
 			`{"foo": 42, "qux": null}`,
 			pipeline.NewVarsFrom(nil),
 			[]pipeline.Result{{Value: `{"ignored": true}`}},
-			map[string]interface{}{
+			map[string]any{
 				"foo":     int64(42),
 				"qux":     nil,
 				"flibber": nil,
@@ -62,7 +62,7 @@ func TestMergeTask(t *testing.T) {
 			`{"foo": "baz", "qux": 99, "flibber": null}`,
 			pipeline.NewVarsFrom(nil),
 			[]pipeline.Result{{Value: `{"ignored": true}`}},
-			map[string]interface{}{
+			map[string]any{
 				"foo":     "baz",
 				"qux":     int64(99),
 				"bar":     nil,
@@ -95,15 +95,15 @@ func TestMergeTask(t *testing.T) {
 			"explicit left variable data on right",
 			`{"foo": 42, "bar": null}`,
 			"$(someInput)",
-			pipeline.NewVarsFrom(map[string]interface{}{
-				"someInput": map[string]interface{}{
+			pipeline.NewVarsFrom(map[string]any{
+				"someInput": map[string]any{
 					"foo":     "baz",
 					"qux":     99,
 					"flibber": nil,
 				},
 			}),
 			[]pipeline.Result{},
-			map[string]interface{}{
+			map[string]any{
 				"foo":     "baz",
 				"qux":     99,
 				"bar":     nil,
@@ -116,7 +116,7 @@ func TestMergeTask(t *testing.T) {
 			"explicit left invalid variable data on right",
 			`{"foo": 42, "bar": null}`,
 			"$(someInput)",
-			pipeline.NewVarsFrom(map[string]interface{}{
+			pipeline.NewVarsFrom(map[string]any{
 				"someInput": "this is a string",
 			}),
 			[]pipeline.Result{},
@@ -128,11 +128,11 @@ func TestMergeTask(t *testing.T) {
 			"variable in left",
 			`{"foo": 42, "bar": null}`,
 			`{"flibber": $(someInput)}`,
-			pipeline.NewVarsFrom(map[string]interface{}{
+			pipeline.NewVarsFrom(map[string]any{
 				"someInput": "this is a string",
 			}),
 			[]pipeline.Result{},
-			map[string]interface{}{
+			map[string]any{
 				"foo":     int64(42),
 				"bar":     nil,
 				"flibber": "this is a string",
@@ -144,11 +144,11 @@ func TestMergeTask(t *testing.T) {
 			"variable in right",
 			`{"flibber": $(someInput)}`,
 			`{"foo": 42, "bar": null}`,
-			pipeline.NewVarsFrom(map[string]interface{}{
+			pipeline.NewVarsFrom(map[string]any{
 				"someInput": "this is a string",
 			}),
 			[]pipeline.Result{},
-			map[string]interface{}{
+			map[string]any{
 				"foo":     int64(42),
 				"bar":     nil,
 				"flibber": "this is a string",

@@ -223,7 +223,7 @@ func runKeeperPluginBasic(t *testing.T) {
 	}
 	// Generate 5 keys for nodes (1 bootstrap + 4 ocr nodes) and fund them with ether
 	var nodeKeys [5]ethkey.KeyV2
-	for i := int64(0); i < 5; i++ {
+	for i := range int64(5) {
 		nodeKeys[i] = cltest.MustGenerateRandomKey(t)
 		genesisData[nodeKeys[i].Address] = gethtypes.Account{Balance: assets.Ether(1000).ToInt()}
 	}
@@ -253,7 +253,7 @@ func runKeeperPluginBasic(t *testing.T) {
 	)
 	// Set up the minimum 4 oracles all funded
 	ports := freeport.GetN(t, 4)
-	for i := 0; i < 4; i++ {
+	for i := range 4 {
 		app, peerID, transmitter, kb := setupNode(t, ports[i], nodeKeys[i+1], backend, []commontypes.BootstrapperLocator{
 			// Supply the bootstrap IP and port as a V2 peer address
 			{PeerID: bootstrapPeerID, Addrs: []string{fmt.Sprintf("127.0.0.1:%d", bootstrapNodePort)}},
@@ -315,7 +315,7 @@ func runKeeperPluginBasic(t *testing.T) {
 
 	// Setup config on contract
 	configType := abi.MustNewType("tuple(uint32 paymentPremiumPPB,uint32 flatFeeMicroLink,uint32 checkGasLimit,uint24 stalenessSeconds,uint16 gasCeilingMultiplier,uint96 minUpkeepSpend,uint32 maxPerformGas,uint32 maxCheckDataSize,uint32 maxPerformDataSize,uint256 fallbackGasPrice,uint256 fallbackLinkPrice,address transcoder,address registrar)")
-	onchainConfig, err := abi.Encode(map[string]interface{}{
+	onchainConfig, err := abi.Encode(map[string]any{
 		"paymentPremiumPPB":    uint32(0),
 		"flatFeeMicroLink":     uint32(0),
 		"checkGasLimit":        uint32(6500000),
@@ -479,7 +479,7 @@ func TestIntegration_KeeperPluginForwarderEnabled(t *testing.T) {
 	}
 	// Generate 5 keys for nodes (1 bootstrap + 4 ocr nodes) and fund them with ether
 	var nodeKeys [5]ethkey.KeyV2
-	for i := int64(0); i < 5; i++ {
+	for i := range int64(5) {
 		nodeKeys[i] = cltest.MustGenerateRandomKey(t)
 		genesisData[nodeKeys[i].Address] = gethtypes.Account{Balance: assets.Ether(1000).ToInt()}
 	}
@@ -514,7 +514,7 @@ func TestIntegration_KeeperPluginForwarderEnabled(t *testing.T) {
 	)
 	// Set up the minimum 4 oracles all funded
 	ports := freeport.GetN(t, 4)
-	for i := 0; i < 4; i++ {
+	for i := range 4 {
 		app, peerID, transmitter, kb := setupNode(t, ports[i], nodeKeys[i+1], backend, []commontypes.BootstrapperLocator{
 			// Supply the bootstrap IP and port as a V2 peer address
 			{PeerID: bootstrapPeerID, Addrs: []string{fmt.Sprintf("127.0.0.1:%d", bootstrapNodePort)}},
@@ -579,7 +579,7 @@ func TestIntegration_KeeperPluginForwarderEnabled(t *testing.T) {
 
 	// Setup config on contract
 	configType := abi.MustNewType("tuple(uint32 paymentPremiumPPB,uint32 flatFeeMicroLink,uint32 checkGasLimit,uint24 stalenessSeconds,uint16 gasCeilingMultiplier,uint96 minUpkeepSpend,uint32 maxPerformGas,uint32 maxCheckDataSize,uint32 maxPerformDataSize,uint256 fallbackGasPrice,uint256 fallbackLinkPrice,address transcoder,address registrar)")
-	onchainConfig, err := abi.Encode(map[string]interface{}{
+	onchainConfig, err := abi.Encode(map[string]any{
 		"paymentPremiumPPB":    uint32(0),
 		"flatFeeMicroLink":     uint32(0),
 		"checkGasLimit":        uint32(6500000),
