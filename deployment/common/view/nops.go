@@ -28,6 +28,7 @@ type NopView struct {
 	WorkflowKey      string                `json:"workflowKey,omitempty"`
 	IsConnected      bool                  `json:"isConnected"`
 	IsEnabled        bool                  `json:"isEnabled"`
+	Version          string                `json:"version"`
 	Labels           []LabelView           `json:"labels,omitempty"`
 	ApprovedJobspecs map[string]JobView    `json:"approvedJobspecs,omitempty"` // jobID => jobSpec
 	ProposedJobspecs map[string]JobView    `json:"proposedJobspecs,omitempty"` // jobID => jobSpec
@@ -37,6 +38,7 @@ type JobView struct {
 	ProposalID string `json:"proposal_id"`
 	UUID       string `json:"uuid"`
 	Spec       string `json:"spec"`
+	Revision   int64  `json:"revision,omitempty"`
 }
 
 type LabelView struct {
@@ -111,6 +113,7 @@ func GenerateNopsView(lggr logger.Logger, nodeIDs []string, oc cldf_offchain.Cli
 			WorkflowKey:      nodeDetails.GetWorkflowKey(),
 			IsConnected:      nodeDetails.IsConnected,
 			IsEnabled:        nodeDetails.IsEnabled,
+			Version:          nodeDetails.Version,
 			Labels:           labels,
 			ApprovedJobspecs: jobspecs[node.NodeID],
 			ProposedJobspecs: proposedSpecs[node.NodeID],
@@ -171,17 +174,27 @@ func approvedJobspecs(ctx context.Context, lggr logger.Logger, nodeIDs []string,
 		}
 		for _, p := range lresp.Proposals {
 			if p.Status == jobv1.ProposalStatus_PROPOSAL_STATUS_PROPOSED {
+				if _, exists := jv[p.JobId]; exists && p.Revision < jv[p.JobId].Revision {
+					// skip older revisions
+					continue
+				}
 				proposed[p.JobId] = JobView{
 					ProposalID: p.Id,
 					UUID:       jobs[p.JobId].Uuid,
 					Spec:       p.Spec,
+					Revision:   p.Revision,
 				}
 			}
 			if p.Status == jobv1.ProposalStatus_PROPOSAL_STATUS_APPROVED {
+				if _, exists := jv[p.JobId]; exists && p.Revision < jv[p.JobId].Revision {
+					// skip older revisions
+					continue
+				}
 				jv[p.JobId] = JobView{
 					ProposalID: p.Id,
 					UUID:       jobs[p.JobId].Uuid,
 					Spec:       p.Spec,
+					Revision:   p.Revision,
 				}
 			}
 		}

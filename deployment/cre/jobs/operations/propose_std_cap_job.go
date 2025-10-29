@@ -16,6 +16,7 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/cre/jobs/pkg"
 	"github.com/smartcontractkit/chainlink/deployment/cre/pkg/offchain"
+	"github.com/smartcontractkit/chainlink/deployment/helpers/pointer"
 )
 
 type ProposeStandardCapabilityJobDeps struct {
@@ -71,7 +72,7 @@ var ProposeStandardCapabilityJob = operations.NewSequence[
 				{
 					Key:   "type",
 					Op:    ptypes.SelectorOp_EQ,
-					Value: ptr(PluginNodeType),
+					Value: pointer.To(PluginNodeType),
 				},
 			},
 		}
@@ -87,6 +88,9 @@ var ProposeStandardCapabilityJob = operations.NewSequence[
 		if err != nil {
 			return ProposeStandardCapabilityJobOutput{}, fmt.Errorf("failed to fetch nodes from JD: %w", err)
 		}
+		if len(nodes) == 0 {
+			return ProposeStandardCapabilityJobOutput{}, fmt.Errorf("no nodes found on JD for DON `%s` with filters %+v", input.DONName, filter)
+		}
 
 		nodeIDs := make([]string, len(nodes))
 		for i, n := range nodes {
@@ -97,8 +101,12 @@ var ProposeStandardCapabilityJob = operations.NewSequence[
 		if err != nil {
 			return ProposeStandardCapabilityJobOutput{}, fmt.Errorf("failed to fetch node infos: %w", err)
 		}
+		if len(nodeInfos) == 0 {
+			return ProposeStandardCapabilityJobOutput{}, fmt.Errorf("no nodes info found for DON `%s` with filters %+v and node IDs %v", input.DONName, input.DONFilters, nodeIDs)
+		}
 
-		if !input.Job.GenerateOracleFactory {
+		generateOracleFactory := input.Job.GenerateOracleFactory && input.Job.OracleFactory == nil
+		if !generateOracleFactory {
 			specs := make(map[string][]string)
 
 			for _, ni := range nodeInfos {
@@ -179,7 +187,7 @@ var ProposeStandardCapabilityJob = operations.NewSequence[
 
 			spec, err := input.Job.Resolve()
 			if err != nil {
-				return ProposeStandardCapabilityJobOutput{}, fmt.Errorf("failed to resolve consensus job for node %s: %w", ni.NodeID, err)
+				return ProposeStandardCapabilityJobOutput{}, fmt.Errorf("failed to resolve standard capability job for node %s: %w", ni.NodeID, err)
 			}
 
 			jobLabels := map[string]string{
@@ -198,7 +206,7 @@ var ProposeStandardCapabilityJob = operations.NewSequence[
 				},
 			})
 			if err != nil {
-				return ProposeStandardCapabilityJobOutput{}, fmt.Errorf("failed to propose consensus job: %w", err)
+				return ProposeStandardCapabilityJobOutput{}, fmt.Errorf("failed to propose standard capability job: %w", err)
 			}
 
 			maps.Copy(specs, report.Output.Specs)
@@ -206,7 +214,3 @@ var ProposeStandardCapabilityJob = operations.NewSequence[
 
 		return ProposeStandardCapabilityJobOutput{Specs: specs}, nil
 	})
-
-func ptr[T any](t T) *T {
-	return &t
-}

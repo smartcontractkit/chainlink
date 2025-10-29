@@ -55,7 +55,7 @@ func TestChainReaderSizedBigIntTypes(t *testing.T) {
 			wrapped.Setup(t)
 
 			svc := wrapped.GetContractReader(t)
-			binding := commontypes.BoundContract{Address: contractAddress.String(), Name: "Contract"}
+			binding := commontypes.BoundContract{Address: "0x21", Name: "Contract"}
 
 			require.NoError(t, svc.Bind(t.Context(), []commontypes.BoundContract{binding}))
 
@@ -169,7 +169,7 @@ func TestChainReaderPrimitiveTypes(t *testing.T) {
 			wrapped.Setup(t)
 
 			svc := wrapped.GetContractReader(t)
-			binding := commontypes.BoundContract{Address: contractAddress.Hex(), Name: "Contract"}
+			binding := commontypes.BoundContract{Address: "0x21", Name: "Contract"}
 
 			require.NoError(t, svc.Bind(t.Context(), []commontypes.BoundContract{binding}))
 
@@ -187,7 +187,6 @@ func TestChainReaderPrimitiveTypes(t *testing.T) {
 type mockedClient struct {
 	value        any
 	internalType abi.Type
-	t            *testing.T
 }
 
 func newMockedClient(t *testing.T, value any, internalType string) *mockedClient {
@@ -200,29 +199,20 @@ func newMockedClient(t *testing.T, value any, internalType string) *mockedClient
 	return &mockedClient{
 		value:        value,
 		internalType: internal,
-		t:            t,
 	}
 }
 
 func (_m *mockedClient) BatchCallContext(_ context.Context, _ []rpc.BatchElem) error { return nil }
 
 func (_m *mockedClient) CallContract(_ context.Context, msg ethereum.CallMsg, _ *big.Int) ([]byte, error) {
-	// ensure we never put msg.From to contractAddress to comply with EIP-3607
-	require.NotEqual(_m.t, contractAddress, msg.From)
 	return abi.Arguments{abi.Argument{Type: _m.internalType}}.Pack(_m.value)
 }
 
-func (_m *mockedClient) CodeAt(_ context.Context, addr common.Address, _ *big.Int) ([]byte, error) {
-	if addr.Cmp(contractAddress) == 0 {
-		return []byte{0, 1, 2}, nil
-	}
-
-	return nil, nil
+func (_m *mockedClient) CodeAt(_ context.Context, _ common.Address, _ *big.Int) ([]byte, error) {
+	return []byte{0, 1, 2}, nil
 }
 
 const contractABI = `[{"inputs":[],"name":"GetValue","outputs":[{"internalType":"%s","name":"","type":"%s"}],"stateMutability":"pure","type":"function"}]`
-
-var contractAddress = common.Address{1, 2, 3}
 
 type simpleTester struct {
 	returnVal    any

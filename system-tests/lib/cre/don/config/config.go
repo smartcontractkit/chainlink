@@ -43,10 +43,10 @@ const TronEVMChainID = 3360022319
 func PrepareNodeTOMLs(
 	topology *cre.Topology,
 	creEnv *cre.Environment,
-	nodeSets []*cre.CapabilitiesAwareNodeSet,
+	nodeSets []*cre.NodeSet,
 	capabilities []cre.InstallableCapability, // Deprecated, use Features instead and modify node configs inside a Feature
 	nodeConfigTransformerFns []cre.NodeConfigTransformerFn,
-) ([]*cre.CapabilitiesAwareNodeSet, error) {
+) ([]*cre.NodeSet, error) {
 	bt, hasBootstrap := topology.Bootstrap()
 	if !hasBootstrap {
 		return nil, errors.New("no DON contains a bootstrap node, but exactly one is required")
@@ -57,7 +57,7 @@ func PrepareNodeTOMLs(
 		return nil, errors.Wrap(peeringErr, "failed to find peering data")
 	}
 
-	localNodeSets := topology.CapabilitiesAwareNodeSets()
+	localNodeSets := topology.NodeSets()
 	chainPerSelector := make(map[uint64]creblockchains.Blockchain)
 	for _, bc := range creEnv.Blockchains {
 		chainPerSelector[bc.ChainSelector()] = bc
@@ -493,7 +493,7 @@ func findEVMChains(input cre.GenerateConfigsInput) []*evmChain {
 
 		// if the DON doesn't support the chain, we skip it; if slice is empty, it means that the DON supports all chains
 		// TODO: review if we really need this SupportedChains functionality
-		if len(input.DonMetadata.CapabilitiesAwareNodeSet().EVMChains()) > 0 && !slices.Contains(input.DonMetadata.CapabilitiesAwareNodeSet().EVMChains(), bcOut.ChainID()) {
+		if len(input.DonMetadata.NodeSets().EVMChains()) > 0 && !slices.Contains(input.DonMetadata.NodeSets().EVMChains(), bcOut.ChainID()) {
 			continue
 		}
 

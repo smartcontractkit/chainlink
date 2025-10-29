@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"text/template"
+	"time"
 
 	"github.com/google/uuid"
 
@@ -27,7 +28,8 @@ type OCR3JobConfigInput struct {
 	BootstrapperOCR3Urls []string      `yaml:"bootstrapperOCR3Urls"`
 
 	// Optionals: specific to the worker vault OCR3 Job spec
-	DKGContractQualifier string `yaml:"dkgContractQualifier"`
+	DKGContractQualifier       string `yaml:"dkgContractQualifier"`
+	VaultRequestExpiryDuration string `yaml:"vaultRequestExpiryDuration"`
 }
 
 type OCR3JobConfig struct {
@@ -42,7 +44,8 @@ type OCR3JobConfig struct {
 	ExternalJobID        string
 	TemplateName         string
 
-	DKGContractAddress string
+	DKGContractAddress         string
+	VaultRequestExpiryDuration string
 }
 
 func (c OCR3JobConfig) Validate() error {
@@ -69,6 +72,20 @@ func (c OCR3JobConfig) Validate() error {
 	}
 	if len(c.P2Pv2Bootstrappers) == 0 {
 		return errors.New("P2Pv2Bootstrappers is empty")
+	}
+
+	if c.TemplateName == "worker-vault" {
+		if c.DKGContractAddress == "" {
+			return errors.New("DKGContractAddress is required for worker-vault template")
+		}
+
+		if c.VaultRequestExpiryDuration == "" {
+			return errors.New("VaultRequestExpiryDuration is required for worker-vault template")
+		}
+		_, err := time.ParseDuration(c.VaultRequestExpiryDuration)
+		if err != nil {
+			return fmt.Errorf("VaultRequestExpiryDuration is not a valid duration: %w", err)
+		}
 	}
 
 	return nil
@@ -105,6 +122,7 @@ func BuildOCR3JobConfigSpecs(
 	btURLs []string,
 	donName, jobName, templateName string,
 	dkgContractAddress string,
+	vaultRequestExpiryDuration string,
 ) ([]OCR3JobConfigSpec, error) {
 	nodesLen := len(nodes)
 	if nodesLen == 0 {
@@ -153,17 +171,18 @@ func BuildOCR3JobConfigSpecs(
 			jbName = jobName + " (" + node.Name + ")"
 		}
 		jobConfig := &OCR3JobConfig{
-			JobName:              jbName,
-			ChainID:              chainID,
-			P2PID:                node.PeerID.String(),
-			OCR2EVMKeyBundleID:   evmConfig.KeyBundleID,
-			OCR2AptosKeyBundleID: aptosKeyBundleID,
-			ContractID:           contractID,
-			TransmitterID:        string(evmConfig.TransmitAccount),
-			P2Pv2Bootstrappers:   btURLs,
-			ExternalJobID:        extJobID,
-			TemplateName:         templateName,
-			DKGContractAddress:   dkgContractAddress,
+			JobName:                    jbName,
+			ChainID:                    chainID,
+			P2PID:                      node.PeerID.String(),
+			OCR2EVMKeyBundleID:         evmConfig.KeyBundleID,
+			OCR2AptosKeyBundleID:       aptosKeyBundleID,
+			ContractID:                 contractID,
+			TransmitterID:              string(evmConfig.TransmitAccount),
+			P2Pv2Bootstrappers:         btURLs,
+			ExternalJobID:              extJobID,
+			TemplateName:               templateName,
+			DKGContractAddress:         dkgContractAddress,
+			VaultRequestExpiryDuration: vaultRequestExpiryDuration,
 		}
 
 		err1 := jobConfig.Validate()

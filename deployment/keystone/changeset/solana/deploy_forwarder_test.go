@@ -10,7 +10,6 @@ import (
 	"time"
 
 	"github.com/Masterminds/semver/v3"
-	"github.com/gagliardetto/solana-go"
 	chain_selectors "github.com/smartcontractkit/chain-selectors"
 	"github.com/smartcontractkit/wsrpc/logger"
 	"github.com/stretchr/testify/require"
@@ -18,14 +17,13 @@ import (
 
 	cldfchain "github.com/smartcontractkit/chainlink-deployments-framework/chain"
 	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
-	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 	solanaMCMS "github.com/smartcontractkit/chainlink/deployment/common/changeset/solana/mcms"
-	"github.com/smartcontractkit/chainlink/deployment/common/changeset/state"
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 	commontypes "github.com/smartcontractkit/chainlink/deployment/common/types"
 	"github.com/smartcontractkit/chainlink/deployment/environment/memory"
 	"github.com/smartcontractkit/chainlink/deployment/helpers"
+	"github.com/smartcontractkit/chainlink/deployment/internal/soltestutils"
 	"github.com/smartcontractkit/chainlink/deployment/keystone/changeset/test"
 )
 
@@ -89,6 +87,7 @@ func TestDeployForwarder(t *testing.T) {
 
 func TestConfigureForwarder(t *testing.T) {
 	t.Parallel()
+
 	testCases := []struct {
 		nChains      int
 		ExcludeChain bool // if true, configuration should be applied to all except one chain
@@ -109,7 +108,6 @@ func TestConfigureForwarder(t *testing.T) {
 			t.Run(name, func(t *testing.T) {
 				lggr := logger.Test(t)
 				env := memory.NewMemoryEnvironment(t, lggr, zapcore.DebugLevel, memory.MemoryEnvironmentConfig{
-					Nodes:     1, // nodes unused but required in config
 					SolChains: 1,
 				})
 
@@ -181,7 +179,6 @@ func TestConfigureForwarder(t *testing.T) {
 			t.Run(name, func(t *testing.T) {
 				lggr := logger.Test(t)
 				env := memory.NewMemoryEnvironment(t, lggr, zapcore.DebugLevel, memory.MemoryEnvironmentConfig{
-					Nodes:     1, // nodes unused but required in config
 					SolChains: 1,
 				})
 
@@ -195,8 +192,6 @@ func TestConfigureForwarder(t *testing.T) {
 
 				solChain := env.BlockChains.SolanaChains()[solSel]
 				blockchains := make(map[uint64]cldfchain.BlockChain)
-				blockchains[solSel] = solChain
-
 				blockchains[solSel] = solChain
 
 				for _, ch := range te.Env.BlockChains.All() {
@@ -232,7 +227,9 @@ func TestConfigureForwarder(t *testing.T) {
 				)
 				require.NoError(t, err)
 				te.Env.DataStore = env.DataStore
-				fundSignerPDAs(t, te.Env, solSel, mcmsState)
+
+				chain := te.Env.BlockChains.SolanaChains()[solSel]
+				soltestutils.FundSignerPDAs(t, chain, mcmsState)
 
 				deployChangeset := commonchangeset.Configure(DeployForwarder{},
 					&DeployForwarderRequest{
@@ -289,17 +286,6 @@ func getProgramsPath() string {
 	rootDir := filepath.Dir(filepath.Dir(filepath.Dir(currentFile)))
 	// Construct the absolute path
 	return filepath.Join(rootDir, "changeset/solana", "solana_contracts")
-}
-func fundSignerPDAs(
-	t *testing.T, env cldf.Environment, chainSelector uint64, chainState *state.MCMSWithTimelockStateSolana,
-) {
-	t.Helper()
-	solChain := env.BlockChains.SolanaChains()[chainSelector]
-	timelockSignerPDA := state.GetTimelockSignerPDA(chainState.TimelockProgram, chainState.TimelockSeed)
-	mcmSignerPDA := state.GetMCMSignerPDA(chainState.McmProgram, chainState.ProposerMcmSeed)
-	signerPDAs := []solana.PublicKey{timelockSignerPDA, mcmSignerPDA}
-	err := memory.FundSolanaAccounts(env.GetContext(), signerPDAs, 1, solChain.Client)
-	require.NoError(t, err)
 }
 
 func skipInCI(t *testing.T) {

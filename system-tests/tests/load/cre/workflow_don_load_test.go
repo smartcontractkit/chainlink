@@ -127,13 +127,13 @@ func setupLoadTestEnvironment(
 	t *testing.T,
 	testLogger zerolog.Logger,
 	in *TestConfigLoadTest,
-	mustSetCapabilitiesFn func(input []*ns.Input) []*cretypes.CapabilitiesAwareNodeSet,
+	mustSetCapabilitiesFn func(input []*ns.Input) []*cretypes.NodeSet,
 	capabilityFactoryFns []cretypes.CapabilityRegistryConfigFn,
 	jobSpecFactoryFns []cretypes.JobSpecFn,
 	workflowJobsFn cretypes.JobSpecFn,
 ) *loadTestSetupOutput {
 	universalSetupInput := creenv.SetupInput{
-		CapabilitiesAwareNodeSets:            mustSetCapabilitiesFn(in.NodeSets),
+		NodeSets:                             mustSetCapabilitiesFn(in.NodeSets),
 		CapabilitiesContractFactoryFunctions: capabilityFactoryFns,
 		BlockchainsInput:                     in.Blockchains,
 		JdInput:                              in.JD,
@@ -191,8 +191,8 @@ func TestLoad_Workflow_Streams_MockCapabilities(t *testing.T) {
 	require.Len(t, in.NodeSets, 2, "expected 2 node sets in the test config")
 	require.NotEmpty(t, os.Getenv("PROMETHEUS_URL"), "PROMETHEUS_URL must be set")
 
-	mustSetCapabilitiesFn := func(input []*ns.Input) []*cretypes.CapabilitiesAwareNodeSet {
-		return []*cretypes.CapabilitiesAwareNodeSet{
+	mustSetCapabilitiesFn := func(input []*ns.Input) []*cretypes.NodeSet {
+		return []*cretypes.NodeSet{
 			{
 				Input:        input[0],
 				Capabilities: []string{cretypes.ConsensusCapability},
@@ -280,7 +280,7 @@ func TestLoad_Workflow_Streams_MockCapabilities(t *testing.T) {
 		return jobSpecs, nil
 	}
 
-	WorkflowDONLoadTestCapabilitiesFactoryFn := func(donFlags []string, _ *cretypes.CapabilitiesAwareNodeSet) ([]keystone_changeset.DONCapabilityWithConfig, error) {
+	WorkflowDONLoadTestCapabilitiesFactoryFn := func(donFlags []string, _ *cretypes.NodeSet) ([]keystone_changeset.DONCapabilityWithConfig, error) {
 		var capabilities []keystone_changeset.DONCapabilityWithConfig
 
 		if flags.HasFlag(donFlags, cretypes.MockCapability) {
@@ -1090,23 +1090,23 @@ func compareBenchmarkReports(t *testing.T, baselineReport, currentReport *benchs
 }
 
 // Deprecated: remove this once load tests have been migrated
-func registerEVMWithV1(_ []string, nodeSetInput *cretypes.CapabilitiesAwareNodeSet) ([]keystone_changeset.DONCapabilityWithConfig, error) {
+func registerEVMWithV1(_ []string, nodeSet *cretypes.NodeSet) ([]keystone_changeset.DONCapabilityWithConfig, error) {
 	capabilities := make([]keystone_changeset.DONCapabilityWithConfig, 0)
 
-	if nodeSetInput == nil {
+	if nodeSet == nil {
 		return nil, errors.New("node set input is nil")
 	}
 
 	// it's fine if there are no chain capabilities
-	if nodeSetInput.ChainCapabilities == nil {
+	if nodeSet.ChainCapabilities == nil {
 		return nil, nil
 	}
 
-	if _, ok := nodeSetInput.ChainCapabilities[cretypes.WriteEVMCapability]; !ok {
+	if _, ok := nodeSet.ChainCapabilities[cretypes.WriteEVMCapability]; !ok {
 		return nil, nil
 	}
 
-	for _, chainID := range nodeSetInput.ChainCapabilities[cretypes.WriteEVMCapability].EnabledChains {
+	for _, chainID := range nodeSet.ChainCapabilities[cretypes.WriteEVMCapability].EnabledChains {
 		fullName := evm.GenerateWriteTargetName(chainID)
 		splitName := strings.Split(fullName, "@")
 

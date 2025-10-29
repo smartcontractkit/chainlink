@@ -37,7 +37,7 @@ type WhitelistConfig struct {
 func JobConfigs(
 	registryChainOutput *blockchain.Output,
 	topology *cre.Topology,
-	capabilitiesAwareNodeSets []*cre.CapabilitiesAwareNodeSet,
+	nodeSets []*cre.NodeSet,
 	whitelistConfig WhitelistConfig,
 ) (map[cre.NodeUUID]*config.GatewayConfig, error) {
 	if topology == nil {
@@ -273,7 +273,7 @@ func AddConnectors(donMetadata *cre.DonMetadata, registryChainID uint64, connect
 	}
 
 	for _, workerNode := range workers {
-		currentConfig := donMetadata.CapabilitiesAwareNodeSet().NodeSpecs[workerNode.Index].Node.TestConfigOverrides
+		currentConfig := donMetadata.NodeSets().NodeSpecs[workerNode.Index].Node.TestConfigOverrides
 
 		var typedConfig corechainlink.Config
 		unmarshallErr := toml.Unmarshal([]byte(currentConfig), &typedConfig)
@@ -321,7 +321,7 @@ func AddConnectors(donMetadata *cre.DonMetadata, registryChainID uint64, connect
 			return errors.Wrapf(mErr, "failed to marshal config for node index %d", workerNode.Index)
 		}
 
-		donMetadata.CapabilitiesAwareNodeSet().NodeSpecs[workerNode.Index].Node.TestConfigOverrides = string(stringifiedConfig)
+		donMetadata.NodeSets().NodeSpecs[workerNode.Index].Node.TestConfigOverrides = string(stringifiedConfig)
 	}
 
 	return nil

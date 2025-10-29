@@ -69,7 +69,7 @@ func (d *Delegate) ServicesForSpec(ctx context.Context, spec job.Job) (services 
 		return nil, err
 	}
 	handlerFactory := NewHandlerFactory(d.legacyChains, d.ds, httpClient, d.capabilitiesRegistry, d.workflowRegistrySyncer, d.lggr, d.lf)
-	gateway, err := NewGatewayFromConfig(&gatewayConfig, handlerFactory, d.lggr)
+	gateway, err := NewGatewayFromConfig(&gatewayConfig, handlerFactory, d.lggr, d.lf)
 	if err != nil {
 		return nil, err
 	}

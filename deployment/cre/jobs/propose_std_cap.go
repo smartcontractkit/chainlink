@@ -21,9 +21,14 @@ type ProposeStandardCapabilityJobInput struct {
 	Command string `json:"command" yaml:"command"`
 	Config  string `json:"config" yaml:"config"`
 
-	ExternalJobID         string            `json:"externalJobID" yaml:"externalJobID"`                 // Optional
-	OracleFactory         pkg.OracleFactory `json:"oracleFactory" yaml:"oracleFactory"`                 // Optional
+	ExternalJobID string             `json:"externalJobID" yaml:"externalJobID"` // Optional
+	OracleFactory *pkg.OracleFactory `json:"oracleFactory" yaml:"oracleFactory"` // Optional
+
 	GenerateOracleFactory bool              `json:"generateOracleFactory" yaml:"generateOracleFactory"` // Optional
+	ContractQualifier     string            `yaml:"contractQualifier"`                                  // used to fetch the OCR contract address
+	ChainSelectorEVM      pkg.ChainSelector `yaml:"chainSelectorEVM"`                                   // used to fetch OCR EVM configs from nodes
+	ChainSelectorAptos    pkg.ChainSelector `yaml:"chainSelectorAptos"`                                 // used to fetch OCR Aptos configs from nodes - optional
+	BootstrapPeers        []string          `yaml:"bootstrapPeers"`                                     // set as value in the oracle factory
 
 	DONFilters  []offchain.TargetDONFilter `json:"donFilters" yaml:"donFilters"`
 	ExtraLabels map[string]string          `json:"extraLabels,omitempty" yaml:"extraLabels,omitempty"`
@@ -60,8 +65,12 @@ func (u ProposeStandardCapabilityJob) Apply(e cldf.Environment, input ProposeSta
 				Command:               input.Command,
 				Config:                input.Config,
 				ExternalJobID:         input.ExternalJobID,
-				OracleFactory:         &input.OracleFactory,
+				OracleFactory:         input.OracleFactory,
 				GenerateOracleFactory: input.GenerateOracleFactory,
+				ContractQualifier:     input.ContractQualifier,
+				ChainSelectorEVM:      input.ChainSelectorEVM,
+				ChainSelectorAptos:    input.ChainSelectorAptos,
+				BootstrapPeers:        input.BootstrapPeers,
 			},
 			DONFilters:  input.DONFilters,
 			ExtraLabels: input.ExtraLabels,

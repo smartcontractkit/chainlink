@@ -187,9 +187,20 @@ func (s *JDNodeService) UpdateNode(ctx context.Context, req *nodev1.UpdateNodeRe
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	_, err := s.store.getNode(req.Id)
-	if err != nil {
-		return nil, fmt.Errorf("node not found for id %s", req.Id)
+	if req.Id == "" && req.PublicKey == "" {
+		return nil, errors.New("either Id or PublicKey must be provided")
+	}
+
+	if req.PublicKey != "" {
+		_, err := s.store.getNodeByCSA(req.PublicKey)
+		if err != nil {
+			return nil, err
+		}
+	} else {
+		_, err := s.store.getNode(req.Id)
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	w, err := newWrapperFromUpdate(req)
