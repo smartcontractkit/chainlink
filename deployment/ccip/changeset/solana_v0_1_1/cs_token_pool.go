@@ -254,7 +254,7 @@ func AddTokenPoolAndLookupTable(e cldf.Environment, cfg AddTokenPoolAndLookupTab
 				chain.DeployerKey.PublicKey(),
 			)
 			if err != nil {
-				return cldf.ChangesetOutput{}, fmt.Errorf("failed to create associated token account for tokenpool (mint: %s, pool: %s): %w", tokenPubKey.String(), tokenPool.String(), err)
+				return cldf.ChangesetOutput{}, fmt.Errorf("failed to create the instruction to create associated token account for tokenpool (mint: %s, pool: %s): %w", tokenPubKey.String(), tokenPool.String(), err)
 			}
 			instructions = append(instructions, createI)
 		}
