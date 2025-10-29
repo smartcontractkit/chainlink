@@ -36,6 +36,7 @@ import (
 	ks_contracts_op "github.com/smartcontractkit/chainlink/deployment/keystone/changeset/operations/contracts"
 	coregateway "github.com/smartcontractkit/chainlink/v2/core/services/gateway"
 
+	depcontracts "github.com/smartcontractkit/chainlink/deployment/cre/ocr3/v2/changeset/operations/contracts"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/contracts"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/gateway"
@@ -177,7 +178,7 @@ func (o *Vault) PostEnvStartup(
 		return fmt.Errorf("failed to create OCR3 jobs: %w", jobErr)
 	}
 
-	ocr3Config, ocr3confErr := contracts.DefaultOCR3Config()
+	ocr3Config, ocr3confErr := contracts.DefaultOCR3_1Config(don.WorkersCount())
 	if ocr3confErr != nil {
 		return fmt.Errorf("failed to get default OCR3 config: %w", ocr3confErr)
 	}
@@ -197,7 +198,7 @@ func (o *Vault) PostEnvStartup(
 			ContractAddress:       vaultDKGOCR3Addr,
 			ChainSelector:         creEnv.RegistryChainSelector,
 			DON:                   don.KeystoneDONConfig(),
-			Config:                don.ResolveORC3Config(ocr3Config),
+			Config:                ocr3Config,
 			DryRun:                false,
 			ReportingPluginConfig: *dkgConfig,
 		},
@@ -213,15 +214,15 @@ func (o *Vault) PostEnvStartup(
 
 	_, err = operations.ExecuteOperation(
 		creEnv.CldfEnvironment.OperationsBundle,
-		ks_contracts_op.ConfigureOCR3Op,
-		ks_contracts_op.ConfigureOCR3OpDeps{
+		depcontracts.ConfigureOCR3_1,
+		depcontracts.ConfigureOCR3_1Deps{
 			Env: creEnv.CldfEnvironment,
 		},
-		ks_contracts_op.ConfigureOCR3OpInput{
+		depcontracts.ConfigureOCR3_1Input{
 			ContractAddress:               vaultOCR3Addr,
 			ChainSelector:                 creEnv.RegistryChainSelector,
 			DON:                           don.KeystoneDONConfig(),
-			Config:                        don.ResolveORC3Config(ocr3Config),
+			Config:                        ocr3Config,
 			DryRun:                        false,
 			ReportingPluginConfigOverride: cfgb,
 		},

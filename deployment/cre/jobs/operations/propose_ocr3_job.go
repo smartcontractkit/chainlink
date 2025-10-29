@@ -99,7 +99,7 @@ var ProposeOCR3Job = operations.NewSequence[ProposeOCR3JobInput, ProposeOCR3JobO
 			})
 			if opErr != nil {
 				// Do not fail the sequence if a single proposal fails, make it through all proposals.
-				mergedErrs = fmt.Errorf("error proposing job to node %s spec %s: %w", spec.NodeID, spec.Spec, opErr)
+				mergedErrs = fmt.Errorf("error proposing OCR3 job to node %s spec %s: %w", spec.NodeID, spec.Spec, opErr)
 				continue
 			}
 

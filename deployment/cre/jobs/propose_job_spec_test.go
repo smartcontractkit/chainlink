@@ -15,6 +15,7 @@ import (
 	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	"github.com/smartcontractkit/chainlink-protos/job-distributor/v1/job"
+	"github.com/smartcontractkit/chainlink-protos/job-distributor/v1/node"
 	"github.com/smartcontractkit/chainlink/deployment/cre/jobs"
 	"github.com/smartcontractkit/chainlink/deployment/cre/jobs/operations"
 	"github.com/smartcontractkit/chainlink/deployment/cre/jobs/pkg"
@@ -460,6 +461,13 @@ func TestProposeJobSpec_Apply(t *testing.T) {
 			},
 		}
 
+		allNodes, err := testEnv.TestJD.ListNodes(t.Context(), &node.ListNodesRequest{})
+		require.NoError(t, err)
+
+		for _, n := range allNodes.Nodes {
+			t.Logf("found node %s, with ID %v", n.Name, n.Id)
+		}
+
 		out, err := jobs.ProposeJobSpec{}.Apply(*env, input)
 		require.NoError(t, err)
 		assert.Len(t, out.Reports, 1)
@@ -502,6 +510,34 @@ func TestProposeJobSpec_Apply(t *testing.T) {
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), "failed to convert inputs to standard capability job")
 		assert.Contains(t, err.Error(), "command is required and must be a string")
+	})
+
+	t.Run("failed cron job distribution due to not finding nodes", func(t *testing.T) {
+		input := jobs.ProposeJobSpecInput{
+			Environment: "test",
+			Domain:      "cre",
+			JobName:     "cron-cap-job",
+			DONName:     "wrong-don-name",
+			Template:    job_types.Cron,
+			DONFilters: []offchain.TargetDONFilter{
+				{Key: offchain.FilterKeyDONName, Value: "wrong-don-name"},
+				{Key: "environment", Value: "test-failure"}, // no nodes with this env
+				{Key: "product", Value: offchain.ProductLabel},
+			},
+			Inputs: job_types.JobSpecInput{
+				"command":       "cron",
+				"config":        "CRON_TZ=UTC * * * * *",
+				"externalJobID": "a-cron-job-id",
+				"oracleFactory": pkg.OracleFactory{
+					Enabled: false,
+				},
+			},
+		}
+
+		_, err := jobs.ProposeJobSpec{}.Apply(*env, input)
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "failed to propose standard capability job")
+		assert.Contains(t, err.Error(), "no nodes found on JD for DON `wrong-don-name`")
 	})
 
 	t.Run("successful ocr3 bootstrap job distribution", func(t *testing.T) {
@@ -596,21 +632,11 @@ func TestProposeJobSpec_Apply(t *testing.T) {
 			},
 		}
 
-		out, err := jobs.ProposeJobSpec{}.Apply(*env, input)
-		require.NoError(t, err)
-		assert.Len(t, out.Reports, 1)
-
-		bootstrapOut, ok := out.Reports[0].Output.(operations.ProposeOCR3BootstrapJobOutput)
-		require.True(t, ok)
-		assert.Empty(t, bootstrapOut.Specs) // no specs should be proposed, since no nodes were found
-
-		reqs, err := testEnv.TestJD.ListProposedJobRequests()
-		require.NoError(t, err)
-
-		filteredReqs := slices.DeleteFunc(reqs, func(s *job.ProposeJobRequest) bool {
-			return !strings.Contains(s.Spec, `name = "ocr3-bootstrap-job-wrong-zone"`)
-		})
-		assert.Empty(t, filteredReqs)
+		_, err = jobs.ProposeJobSpec{}.Apply(*env, input)
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "failed to propose bootstrap job")
+		assert.Contains(t, err.Error(), "no nodes found for DON `test-don`")
+		assert.Contains(t, err.Error(), `{key:"zone" value:"wrong-test-zone"}`)
 	})
 
 	t.Run("failed ocr3 bootstrap job distribution", func(t *testing.T) {
