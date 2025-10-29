@@ -537,7 +537,7 @@ func TestProposeJobSpec_Apply(t *testing.T) {
 		_, err := jobs.ProposeJobSpec{}.Apply(*env, input)
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), "failed to propose standard capability job")
-		assert.Contains(t, err.Error(), "no nodes info found for DON `wrong-don-name`")
+		assert.Contains(t, err.Error(), "no nodes found on JD for DON `wrong-don-name`")
 	})
 
 	t.Run("successful ocr3 bootstrap job distribution", func(t *testing.T) {
