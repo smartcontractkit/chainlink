@@ -392,6 +392,29 @@ func Test_CCIPTokenTransfer_EVM2SUI(t *testing.T) {
 			ExtraArgs:             testhelpers.MakeSuiExtraArgs(1000000, true, receiverObjectIDs, stateObj), // receiver is objectId this time
 			ExpectedTokenBalances: []testhelpers.ExpectedBalance{},
 		},
+
+		{
+			Name:             "Send token To EOA + include a reciever but keep gasLimit to 0",
+			SourceChain:      sourceChain,
+			DestChain:        destChain,
+			Data:             []byte("Hello Sui From EVM"),
+			Receiver:         receiverByte, // non empty Receiver
+			TokenReceiverATA: suiAddr[:],   // tokenReceiver extracted from extraArgs (the address that actually gets the token)
+			ExpectedStatus:   testhelpers.EXECUTION_STATE_SUCCESS,
+			Tokens: []router.ClientEVMTokenAmount{
+				{
+					Token:  evmToken.Address(),
+					Amount: big.NewInt(1e18),
+				},
+			},
+			ExtraArgs: testhelpers.MakeSuiExtraArgs(0, true, receiverObjectIDs, suiAddr), // keep gasLimit to 0
+			ExpectedTokenBalances: []testhelpers.ExpectedBalance{
+				{
+					Token:  suiTokenBytes,
+					Amount: big.NewInt(1e9),
+				},
+			},
+		},
 	}
 
 	startBlocks, expectedSeqNums, expectedExecutionStates, expectedTokenBalances := testhelpers.TransferMultiple(ctx, t, e.Env, state, tcs)
