@@ -807,7 +807,7 @@ func deployTokenPools(
 					)
 				}
 				return cldf.ContractDeploy[*factory_burn_mint_erc20.FactoryBurnMintERC20]{
-					Address: factoryBurnMintERC20Addr, Contract: contract, Tx: tx2, Tv: cldf.NewTypeAndVersion(shared.FactoryBurnMintERC20Token, deployment.Version1_0_0), Err: err2,
+					Address: factoryBurnMintERC20Addr, Contract: contract, Tx: tx2, Tv: cldf.NewTypeAndVersion(shared.FactoryBurnMintERC20Token, deployment.Version1_6_2), Err: err2,
 				}
 			},
 		)
