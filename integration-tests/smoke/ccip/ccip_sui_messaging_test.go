@@ -407,7 +407,7 @@ func Test_CCIP_Messaging_EVM2Sui(t *testing.T) {
 				ValidationType:         messagingtest.ValidationTypeExec,
 				Receiver:               receiverByte,
 				MsgData:                message,
-				ExtraArgs:              testhelpers.MakeSuiExtraArgs(1000000, true, receiverObjectIDs, [32]byte{}),
+				ExtraArgs:              testhelpers.MakeSuiExtraArgs(3000000, true, receiverObjectIDs, [32]byte{}),
 				ExpectedExecutionState: testhelpers.EXECUTION_STATE_SUCCESS,
 			},
 		)
