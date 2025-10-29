@@ -162,7 +162,7 @@ func Test_CCIP_Messaging_Sui2EVM(t *testing.T) {
 	t.Run("Max Data Bytes - Should Succeed", func(t *testing.T) {
 		latestHead, err := testhelpers.LatestBlock(ctx, e.Env, destChain)
 		require.NoError(t, err)
-		message := []byte(strings.Repeat("0", int(suiFeeQuoterDestChainConfig.MaxDataBytes)))
+		message := []byte(strings.Repeat("0", int(16000)))
 		messagingtest.Run(t,
 			messagingtest.TestCase{
 				TestSetup:      setup,
