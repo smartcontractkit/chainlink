@@ -170,6 +170,7 @@ func (u ProposeJobSpec) Apply(e cldf.Environment, input ProposeJobSpecInput) (cl
 				ContractAddress:            contractAddrRef.Address,
 				ChainSelectorEVM:           uint64(jobInput.ChainSelectorEVM),
 				ChainSelectorAptos:         uint64(jobInput.ChainSelectorAptos),
+				ChainSelectorSolana:        uint64(jobInput.ChainSelectorSolana),
 				BootstrapperOCR3Urls:       jobInput.BootstrapperOCR3Urls,
 				DKGContractAddress:         dkgContractAddr,
 				VaultRequestExpiryDuration: jobInput.VaultRequestExpiryDuration,

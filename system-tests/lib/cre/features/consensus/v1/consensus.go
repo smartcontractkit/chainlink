@@ -9,6 +9,7 @@ import (
 	"github.com/pkg/errors"
 	"github.com/rs/zerolog"
 
+	chainselectors "github.com/smartcontractkit/chain-selectors"
 	capabilitiespb "github.com/smartcontractkit/chainlink-common/pkg/capabilities/pb"
 	kcr "github.com/smartcontractkit/chainlink-evm/gethwrappers/keystone/generated/capabilities_registry_1_1_0"
 	cre_jobs "github.com/smartcontractkit/chainlink/deployment/cre/jobs"
@@ -185,6 +186,13 @@ func createJobs(
 			"templateName":         "worker-ocr3",
 			"bootstrapperOCR3Urls": []string{ocrPeeringCfg.OCRBootstraperPeerID + "@" + ocrPeeringCfg.OCRBootstraperHost + ":" + strconv.Itoa(ocrPeeringCfg.Port)},
 		},
+	}
+
+	for _, blockchain := range creEnv.Blockchains {
+		if blockchain.IsFamily(chainselectors.FamilySolana) {
+			workerInput.Inputs["chainSelectorSolana"] = blockchain.ChainSelector()
+			break
+		}
 	}
 
 	workerVerErr := cre_jobs.ProposeJobSpec{}.VerifyPreconditions(*creEnv.CldfEnvironment, workerInput)

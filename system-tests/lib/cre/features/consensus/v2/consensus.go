@@ -211,6 +211,13 @@ func createJobs(
 		},
 	}
 
+	for _, blockchain := range creEnv.Blockchains {
+		if blockchain.IsFamily(chainselectors.FamilySolana) {
+			workerInput.Inputs["chainSelectorSolana"] = blockchain.ChainSelector()
+			break
+		}
+	}
+
 	workerVerErr := cre_jobs.ProposeJobSpec{}.VerifyPreconditions(*creEnv.CldfEnvironment, workerInput)
 	if workerVerErr != nil {
 		return fmt.Errorf("precondition verification failed for Consensus v2 worker job: %w", workerVerErr)

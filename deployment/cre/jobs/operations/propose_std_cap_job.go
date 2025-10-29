@@ -183,6 +183,15 @@ var ProposeStandardCapabilityJob = operations.NewSequence[
 				oracleFactory.OnchainSigningStrategy.Config["aptos"] = aptosConfig.KeyBundleID
 			}
 
+			if input.Job.ChainSelectorSolana > 0 {
+				solanaConfig, ok := ni.OCRConfigForChainSelector(uint64(input.Job.ChainSelectorSolana))
+				if !ok {
+					return ProposeStandardCapabilityJobOutput{}, fmt.Errorf("no solana ocr2 config for node %s", ni.NodeID)
+				}
+
+				oracleFactory.OnchainSigningStrategy.Config["solana"] = solanaConfig.KeyBundleID
+			}
+
 			input.Job.OracleFactory = oracleFactory
 
 			spec, err := input.Job.Resolve()
