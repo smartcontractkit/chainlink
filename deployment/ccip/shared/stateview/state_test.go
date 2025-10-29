@@ -2,22 +2,24 @@ package stateview_test
 
 import (
 	"context"
+	"crypto/ecdsa"
 	"testing"
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
 	chain_selectors "github.com/smartcontractkit/chain-selectors"
 	"github.com/stretchr/testify/require"
-	"go.uber.org/zap/zapcore"
-
-	cldf_chain "github.com/smartcontractkit/chainlink-deployments-framework/chain"
-	cldf_evm "github.com/smartcontractkit/chainlink-deployments-framework/chain/evm"
 
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_0/ccip_home"
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	capabilities_registry "github.com/smartcontractkit/chainlink-evm/gethwrappers/keystone/generated/capabilities_registry_1_1_0"
 	"github.com/smartcontractkit/chainlink-evm/pkg/utils"
 
+	cldf_chain "github.com/smartcontractkit/chainlink-deployments-framework/chain"
+	cldf_evm "github.com/smartcontractkit/chainlink-deployments-framework/chain/evm"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+	"github.com/smartcontractkit/chainlink-deployments-framework/engine/test/environment"
+	"github.com/smartcontractkit/chainlink-deployments-framework/engine/test/runtime"
 
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers"
@@ -26,8 +28,6 @@ import (
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 	"github.com/smartcontractkit/chainlink/deployment/common/types"
-	"github.com/smartcontractkit/chainlink/deployment/environment/memory"
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
 
 func TestLoadChainState_MultipleFeeQuoters(t *testing.T) {
@@ -177,14 +177,19 @@ func TestEnforceMCMSUsageIfProd(t *testing.T) {
 	for _, test := range tests {
 		t.Run(test.Msg, func(t *testing.T) {
 			var err error
-			lggr := logger.TestLogger(t)
-			e := memory.NewMemoryEnvironment(t, lggr, zapcore.InfoLevel, memory.MemoryEnvironmentConfig{
-				Chains: 1,
-			})
-			homeChainSelector := e.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chain_selectors.FamilyEVM))[0]
-			evmChains := e.BlockChains.EVMChains()
+
+			homeChainSelector := chain_selectors.TEST_90000001.Selector
+			lggr := logger.Test(t)
+			rt, err := runtime.New(t.Context(), runtime.WithEnvOpts(
+				environment.WithEVMSimulated(t, []uint64{homeChainSelector}),
+				environment.WithLogger(lggr),
+			))
+			require.NoError(t, err)
+
+			evmChains := rt.Environment().BlockChains.EVMChains()
+
 			if test.DeployCCIPHome {
-				_, err = cldf.DeployContract(e.Logger, evmChains[homeChainSelector], e.ExistingAddresses,
+				_, err = cldf.DeployContract(lggr, evmChains[homeChainSelector], rt.State().AddressBook,
 					func(chain cldf_evm.Chain) cldf.ContractDeploy[*ccip_home.CCIPHome] {
 						address, tx2, contract, err2 := ccip_home.DeployCCIPHome(
 							chain.DeployerKey,
@@ -199,7 +204,7 @@ func TestEnforceMCMSUsageIfProd(t *testing.T) {
 			}
 
 			if test.DeployCapReg {
-				_, err = cldf.DeployContract(e.Logger, evmChains[homeChainSelector], e.ExistingAddresses,
+				_, err = cldf.DeployContract(lggr, evmChains[homeChainSelector], rt.State().AddressBook,
 					func(chain cldf_evm.Chain) cldf.ContractDeploy[*capabilities_registry.CapabilitiesRegistry] {
 						address, tx2, contract, err2 := capabilities_registry.DeployCapabilitiesRegistry(
 							chain.DeployerKey,
@@ -213,13 +218,12 @@ func TestEnforceMCMSUsageIfProd(t *testing.T) {
 			}
 
 			if test.DeployMCMS {
-				e, err = commonchangeset.Apply(t, e,
-					commonchangeset.Configure(cldf.CreateLegacyChangeSet(commonchangeset.DeployMCMSWithTimelockV2), map[uint64]types.MCMSWithTimelockConfigV2{
-						homeChainSelector: proposalutils.SingleGroupTimelockConfigV2(t),
-					}),
-				)
+				err = rt.Exec(runtime.ChangesetTask(cldf.CreateLegacyChangeSet(commonchangeset.DeployMCMSWithTimelockV2), map[uint64]types.MCMSWithTimelockConfigV2{
+					homeChainSelector: proposalutils.SingleGroupTimelockConfigV2(t),
+				}))
 				require.NoError(t, err, "failed to deploy MCMS")
-				state, err := stateview.LoadOnchainState(e)
+
+				state, err := stateview.LoadOnchainState(rt.Environment())
 				require.NoError(t, err, "failed to load onchain state")
 
 				addrs := make([]common.Address, 0, 2)
@@ -230,30 +234,29 @@ func TestEnforceMCMSUsageIfProd(t *testing.T) {
 					addrs = append(addrs, state.Chains[homeChainSelector].CapabilityRegistry.Address())
 				}
 				if len(addrs) > 0 {
-					e, err = commonchangeset.Apply(t, e,
-						commonchangeset.Configure(
-							cldf.CreateLegacyChangeSet(commonchangeset.TransferToMCMSWithTimelockV2),
-							commonchangeset.TransferToMCMSWithTimelockConfig{
-								ContractsByChain: map[uint64][]common.Address{
-									homeChainSelector: addrs,
-								},
-								MCMSConfig: proposalutils.TimelockConfig{
-									MinDelay: 0 * time.Second,
-								},
+					err = rt.Exec(
+						runtime.ChangesetTask(cldf.CreateLegacyChangeSet(commonchangeset.TransferToMCMSWithTimelockV2), commonchangeset.TransferToMCMSWithTimelockConfig{
+							ContractsByChain: map[uint64][]common.Address{
+								homeChainSelector: addrs,
 							},
-						),
+							MCMSConfig: proposalutils.TimelockConfig{
+								MinDelay: 0 * time.Second,
+							},
+						}),
+						runtime.SignAndExecuteProposalsTask([]*ecdsa.PrivateKey{proposalutils.TestXXXMCMSSigner}),
 					)
+
 					require.NoError(t, err, "failed to transfer contracts to MCMS")
 				}
 			}
 
-			state, err := stateview.LoadOnchainState(e)
+			state, err := stateview.LoadOnchainState(rt.Environment())
 			require.NoError(t, err, "failed to load onchain state")
 
-			err = state.EnforceMCMSUsageIfProd(e.GetContext(), test.MCMSConfig)
+			err = state.EnforceMCMSUsageIfProd(t.Context(), test.MCMSConfig)
 			if test.ExpectedErr != "" {
 				require.Error(t, err, "expected error but got nil")
-				require.Contains(t, err.Error(), test.ExpectedErr, "error message mismatch")
+				require.ErrorContains(t, err, test.ExpectedErr, "error message mismatch")
 				return
 			}
 			require.NoError(t, err, "failed to validate MCMS config")
