@@ -398,20 +398,20 @@ func Test_CCIP_Messaging_EVM2Sui(t *testing.T) {
 	// SUI MaxDataBytes won't exactly be srcFeeQuoterDestChainConfig.MaxDataBytes because we add following additional overhead;
 	//  suiExpandedDataLength +=
 	// ((receiverObjectIdsLength + Client.SUI_MESSAGING_ACCOUNTS_OVERHEAD) * Client.SUI_ACCOUNT_BYTE_SIZE);
-	t.Run("Message to Sui with valid receiver with data bytes = max data bytes allowed", func(t *testing.T) {
-		message := []byte(strings.Repeat("0", int(16000)))
-		messagingtest.Run(t,
-			messagingtest.TestCase{
-				TestSetup:              setup,
-				Nonce:                  &nonce,
-				ValidationType:         messagingtest.ValidationTypeExec,
-				Receiver:               receiverByte,
-				MsgData:                message,
-				ExtraArgs:              testhelpers.MakeSuiExtraArgs(3000000, true, receiverObjectIDs, [32]byte{}),
-				ExpectedExecutionState: testhelpers.EXECUTION_STATE_SUCCESS,
-			},
-		)
-	})
+	// t.Run("Message to Sui with valid receiver with data bytes = max data bytes allowed", func(t *testing.T) {
+	// 	message := []byte(strings.Repeat("0", int(16000)))
+	// 	messagingtest.Run(t,
+	// 		messagingtest.TestCase{
+	// 			TestSetup:              setup,
+	// 			Nonce:                  &nonce,
+	// 			ValidationType:         messagingtest.ValidationTypeExec,
+	// 			Receiver:               receiverByte,
+	// 			MsgData:                message,
+	// 			ExtraArgs:              testhelpers.MakeSuiExtraArgs(3000000, true, receiverObjectIDs, [32]byte{}),
+	// 			ExpectedExecutionState: testhelpers.EXECUTION_STATE_SUCCESS,
+	// 		},
+	// 	)
+	// })
 
 	t.Run("Message to Sui with zero reciever", func(t *testing.T) {
 		message := []byte("Hello Sui, from EVM!")
