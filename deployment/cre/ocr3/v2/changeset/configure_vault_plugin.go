@@ -30,7 +30,7 @@ type ConfigureVaultPluginInput struct {
 	ContractQualifier     string `json:"contractQualifier" yaml:"contractQualifier"`
 
 	DON                   contracts.DonNodeSet         `json:"don" yaml:"don"`
-	OracleConfig          *ocr3.OracleConfig           `json:"oracleConfig" yaml:"oracleConfig"`
+	OracleConfig          *ocr3.V3_1OracleConfig       `json:"oracleConfig" yaml:"oracleConfig"`
 	DryRun                bool                         `json:"dryRun" yaml:"dryRun"`
 	InstanceID            InstanceIDComponents         `json:"instanceID" yaml:"instanceID"`
 	ReportingPluginConfig *vault.ReportingPluginConfig `json:"reportingPluginConfig,omitempty" yaml:"reportingPluginConfig,omitempty"`
@@ -101,9 +101,9 @@ func (l ConfigureVaultPlugin) Apply(e cldf.Environment, input ConfigureVaultPlug
 		return cldf.ChangesetOutput{}, fmt.Errorf("failed to marshal VaultPlugin reporting plugin config: %w", err)
 	}
 
-	report, err := operations.ExecuteOperation(e.OperationsBundle, contracts.ConfigureOCR3, contracts.ConfigureOCR3Deps{
+	report, err := operations.ExecuteOperation(e.OperationsBundle, contracts.ConfigureOCR3_1, contracts.ConfigureOCR3_1Deps{
 		Env: &e,
-	}, contracts.ConfigureOCR3Input{
+	}, contracts.ConfigureOCR3_1Input{
 		ContractAddress:               &contractAddr,
 		ChainSelector:                 input.ContractChainSelector,
 		DON:                           input.DON,

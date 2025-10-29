@@ -10,12 +10,14 @@ import (
 	"github.com/stretchr/testify/require"
 
 	jsonrpc "github.com/smartcontractkit/chainlink-common/pkg/jsonrpc2"
+	"github.com/smartcontractkit/chainlink-common/pkg/settings/limits"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway"
 	gc "github.com/smartcontractkit/chainlink/v2/core/services/gateway/common"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/config"
+	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/monitoring"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/network"
 )
 
@@ -45,8 +47,7 @@ func TestConnectionManager_NewConnectionManager_ValidConfig(t *testing.T) {
 
 	tomlConfig := parseTOMLConfig(t, defaultConfig)
 
-	_, err := gateway.NewConnectionManager(tomlConfig, clockwork.NewFakeClock(), logger.Test(t))
-	require.NoError(t, err)
+	_ = newConnectionManager(t, tomlConfig, clockwork.NewFakeClock())
 }
 
 func TestConnectionManager_NewConnectionManager_InvalidConfig(t *testing.T) {
@@ -86,7 +87,10 @@ Address = "0x68902D681c28119f9b2531473a417088bf008E59"
 			fullConfig := `
 [nodeServerConfig]
 Path = "/node"` + config
-			_, err := gateway.NewConnectionManager(parseTOMLConfig(t, fullConfig), clockwork.NewFakeClock(), logger.Test(t))
+			lggr := logger.Test(t)
+			gMetrics, err := monitoring.NewGatewayMetrics()
+			require.NoError(t, err)
+			_, err = gateway.NewConnectionManager(parseTOMLConfig(t, fullConfig), clockwork.NewFakeClock(), gMetrics, lggr, limits.Factory{Logger: lggr})
 			require.Error(t, err)
 		})
 	}
@@ -129,8 +133,7 @@ func TestConnectionManager_StartHandshake(t *testing.T) {
 	config, nodes := newTestConfig(t, 4)
 	unrelatedNode := gc.NewTestNodes(t, 1)[0]
 	clock := clockwork.NewFakeClock()
-	mgr, err := gateway.NewConnectionManager(config, clock, logger.Test(t))
-	require.NoError(t, err)
+	mgr := newConnectionManager(t, config, clock)
 
 	authHeaderElems := network.AuthHeaderElems{
 		Timestamp: uint32(clock.Now().Unix()),
@@ -139,7 +142,7 @@ func TestConnectionManager_StartHandshake(t *testing.T) {
 	}
 
 	// valid
-	_, _, err = mgr.StartHandshake(signAndPackAuthHeader(t, &authHeaderElems, nodes[0].PrivateKey))
+	_, _, err := mgr.StartHandshake(signAndPackAuthHeader(t, &authHeaderElems, nodes[0].PrivateKey))
 	require.NoError(t, err)
 
 	// header too short
@@ -182,8 +185,7 @@ func TestConnectionManager_FinalizeHandshake(t *testing.T) {
 
 	config, nodes := newTestConfig(t, 4)
 	clock := clockwork.NewFakeClock()
-	mgr, err := gateway.NewConnectionManager(config, clock, logger.Test(t))
-	require.NoError(t, err)
+	mgr := newConnectionManager(t, config, clock)
 
 	authHeaderElems := network.AuthHeaderElems{
 		Timestamp: uint32(clock.Now().Unix()),
@@ -216,11 +218,10 @@ func TestConnectionManager_SendToNode_Failures(t *testing.T) {
 
 	config, nodes := newTestConfig(t, 2)
 	clock := clockwork.NewFakeClock()
-	mgr, err := gateway.NewConnectionManager(config, clock, logger.Test(t))
-	require.NoError(t, err)
+	mgr := newConnectionManager(t, config, clock)
 
 	donMgr := mgr.DONConnectionManager("my_don_1")
-	err = donMgr.SendToNode(testutils.Context(t), nodes[0].Address, nil)
+	err := donMgr.SendToNode(testutils.Context(t), nodes[0].Address, nil)
 	require.Error(t, err)
 
 	message := &jsonrpc.Request[json.RawMessage]{}
@@ -234,12 +235,20 @@ func TestConnectionManager_CleanStartClose(t *testing.T) {
 	config, _ := newTestConfig(t, 2)
 	config.ConnectionManagerConfig.HeartbeatIntervalSec = 1
 	clock := clockwork.NewFakeClock()
-	mgr, err := gateway.NewConnectionManager(config, clock, logger.Test(t))
-	require.NoError(t, err)
+	mgr := newConnectionManager(t, config, clock)
 
-	err = mgr.Start(testutils.Context(t))
+	err := mgr.Start(testutils.Context(t))
 	require.NoError(t, err)
 
 	err = mgr.Close()
 	require.NoError(t, err)
+}
+
+func newConnectionManager(t *testing.T, gwConfig *config.GatewayConfig, clock clockwork.Clock) gateway.ConnectionManager {
+	lggr := logger.Test(t)
+	gMetrics, err := monitoring.NewGatewayMetrics()
+	require.NoError(t, err)
+	mgr, err := gateway.NewConnectionManager(gwConfig, clock, gMetrics, lggr, limits.Factory{Logger: lggr})
+	require.NoError(t, err)
+	return mgr
 }

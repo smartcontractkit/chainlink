@@ -18,6 +18,9 @@
 [fake]
   port = 8171
 
+[fake_http]
+  port = 8666
+
 #[s3provider]
 #  # use all defaults
 #  port = 9000

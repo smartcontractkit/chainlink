@@ -382,16 +382,17 @@ func TestClient_SetConfig(t *testing.T) {
 	client := executable.NewClient(capabilityID, "execute", dispatcher, lggr)
 
 	// Create valid test data
-	validCapInfo := commoncap.CapabilityInfo{
-		ID:             capabilityID,
-		CapabilityType: commoncap.CapabilityTypeAction,
-		Description:    "Test capability",
-	}
-
 	validDonInfo := commoncap.DON{
 		ID:      1,
 		Members: []p2ptypes.PeerID{NewP2PPeerID(t)},
 		F:       0,
+	}
+
+	validCapInfo := commoncap.CapabilityInfo{
+		ID:             capabilityID,
+		CapabilityType: commoncap.CapabilityTypeAction,
+		Description:    "Test capability",
+		DON:            &validDonInfo,
 	}
 
 	validTimeout := 30 * time.Second
@@ -470,16 +471,17 @@ func TestClient_SetConfig_StartClose(t *testing.T) {
 	dispatcher := broker.NewDispatcherForNode(peerID)
 	client := executable.NewClient(capabilityID, "execute", dispatcher, lggr)
 
-	validCapInfo := commoncap.CapabilityInfo{
-		ID:             capabilityID,
-		CapabilityType: commoncap.CapabilityTypeAction,
-		Description:    "Test capability",
-	}
-
 	validDonInfo := commoncap.DON{
 		ID:      1,
 		Members: []p2ptypes.PeerID{NewP2PPeerID(t)},
 		F:       0,
+	}
+
+	validCapInfo := commoncap.CapabilityInfo{
+		ID:             capabilityID,
+		CapabilityType: commoncap.CapabilityTypeAction,
+		Description:    "Test capability",
+		DON:            &validDonInfo,
 	}
 
 	validTimeout := 30 * time.Second

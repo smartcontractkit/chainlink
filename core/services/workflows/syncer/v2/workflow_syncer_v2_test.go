@@ -264,6 +264,13 @@ func Test_RegistrySyncer_WorkflowRegistered_InitiallyPausedV2(t *testing.T) {
 			return "", nil
 		}
 		workflowEncryptionKey = workflowkey.MustNewXXXTestingOnly(big.NewInt(1))
+		donNotifier           = &testDonNotifier{
+			don: capabilities.DON{
+				ID:       donID,
+				Families: []string{donFamily},
+			},
+			err: nil,
+		}
 	)
 
 	// Deploy a test workflow_registry
@@ -292,7 +299,7 @@ func Test_RegistrySyncer_WorkflowRegistered_InitiallyPausedV2(t *testing.T) {
 	}))
 	require.NoError(t, err)
 
-	handler, err := NewEventHandler(lggr, wfStore, nil, true, capRegistry, er, emitter, limiters, rl, wl, store, workflowEncryptionKey)
+	handler, err := NewEventHandler(lggr, wfStore, nil, true, capRegistry, er, emitter, limiters, rl, wl, store, workflowEncryptionKey, donNotifier)
 	require.NoError(t, err)
 
 	worker, err := NewWorkflowRegistry(
@@ -306,13 +313,7 @@ func Test_RegistrySyncer_WorkflowRegistered_InitiallyPausedV2(t *testing.T) {
 			SyncStrategy: SyncStrategyReconciliation,
 		},
 		handler,
-		&testDonNotifier{
-			don: capabilities.DON{
-				ID:       donID,
-				Families: []string{donFamily},
-			},
-			err: nil,
-		},
+		donNotifier,
 		er,
 	)
 	require.NoError(t, err)
@@ -363,6 +364,13 @@ func Test_RegistrySyncer_WorkflowRegistered_InitiallyActivatedV2(t *testing.T) {
 			return "", nil
 		}
 		workflowEncryptionKey = workflowkey.MustNewXXXTestingOnly(big.NewInt(1))
+		donNotifier           = &testDonNotifier{
+			don: capabilities.DON{
+				ID:       donID,
+				Families: []string{donFamily},
+			},
+			err: nil,
+		}
 	)
 
 	// Deploy a test workflow_registry
@@ -391,7 +399,7 @@ func Test_RegistrySyncer_WorkflowRegistered_InitiallyActivatedV2(t *testing.T) {
 	require.NoError(t, err)
 
 	handler, err := NewEventHandler(lggr, wfStore, nil, true, capRegistry, er,
-		emitter, limiters, rl, wl, store, workflowEncryptionKey, WithStaticEngine(&mockService{}))
+		emitter, limiters, rl, wl, store, workflowEncryptionKey, donNotifier, WithStaticEngine(&mockService{}))
 	require.NoError(t, err)
 
 	worker, err := NewWorkflowRegistry(
@@ -405,13 +413,7 @@ func Test_RegistrySyncer_WorkflowRegistered_InitiallyActivatedV2(t *testing.T) {
 			SyncStrategy: SyncStrategyReconciliation,
 		},
 		handler,
-		&testDonNotifier{
-			don: capabilities.DON{
-				ID:       donID,
-				Families: []string{donFamily},
-			},
-			err: nil,
-		},
+		donNotifier,
 		er,
 	)
 	require.NoError(t, err)

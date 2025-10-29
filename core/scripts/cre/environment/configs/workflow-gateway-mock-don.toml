@@ -25,6 +25,9 @@
 [fake]
 port = 7891
 
+[fake_http]
+port = 8666
+
 [jd]
     csa_encryption_key = "d1093c0060d50a3c89c189b2e485da5a3ce57f3dcb38ab7e2c0d5f0bb2314a44"
     image = "localhost:5001/job-distributor:0.22.1"

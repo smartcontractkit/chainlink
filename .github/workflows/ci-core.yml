@@ -248,7 +248,7 @@ jobs:
         if: ${{ matrix.type.should-run == 'true' && matrix.type.setup-aptos == 'true' }}
         uses: aptos-labs/actions/install-aptos-cli@63740b290d839b87ecfafbcf75ed03a36a54a29f # jan 15, 2025
         with:
-          CLI_VERSION: 7.8.1
+          CLI_VERSION: 7.10.0
 
       - name: Setup Sui CLI v1.57.2
         if: ${{ matrix.type.should-run == 'true' && matrix.type.setup-sui == 'true' }}

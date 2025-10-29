@@ -26,7 +26,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/blockchains/evm"
 	libcrypto "github.com/smartcontractkit/chainlink/system-tests/lib/crypto"
-	http_negative_config "github.com/smartcontractkit/chainlink/system-tests/tests/regression/cre/http/config"
+	http_config "github.com/smartcontractkit/chainlink/system-tests/tests/regression/cre/http/config"
 	t_helpers "github.com/smartcontractkit/chainlink/system-tests/tests/test-helpers"
 	ttypes "github.com/smartcontractkit/chainlink/system-tests/tests/test-helpers/configuration"
 )
@@ -111,7 +111,7 @@ func HTTPTriggerFailsTest(t *testing.T, testEnv *ttypes.TestEnvironment, httpNeg
 		authorizedKeyToUse = publicKeyAddr.Hex()
 	}
 
-	workflowConfig := http_negative_config.Config{
+	workflowConfig := http_config.Config{
 		AuthorizedKey: authorizedKeyToUse,
 		URL:           fakeServer.BaseURLHost + "/orders-" + testID,
 		TestCase:      httpNegativeTest.testCase,

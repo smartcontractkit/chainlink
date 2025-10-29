@@ -3,6 +3,7 @@ package pkg
 import (
 	"errors"
 	"strconv"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/pelletier/go-toml/v2"
@@ -12,6 +13,8 @@ const (
 	GatewayHandlerTypeWebAPICapabilities = "web-api-capabilities"
 	GatewayHandlerTypeHTTPCapabilities   = "http-capabilities"
 	GatewayHandlerTypeVault              = "vault"
+
+	minimumRequestTimeoutSec = 5
 )
 
 type TargetDONMember struct {
@@ -26,9 +29,10 @@ type TargetDON struct {
 }
 
 type GatewayJob struct {
-	TargetDONs    []TargetDON
-	JobName       string
-	ExternalJobID string
+	TargetDONs        []TargetDON
+	JobName           string
+	RequestTimeoutSec int
+	ExternalJobID     string
 }
 
 func (g GatewayJob) Validate() error {
@@ -38,6 +42,12 @@ func (g GatewayJob) Validate() error {
 
 	if len(g.TargetDONs) == 0 {
 		return errors.New("must provide at least one target DON")
+	}
+
+	// We impose a lower bound to account for other timeouts which are hardcoded,
+	// including Read/WriteTimeoutMillis, and handler-specific timeouts like the vault handler timeout.
+	if g.RequestTimeoutSec < minimumRequestTimeoutSec {
+		return errors.New("request timeout must be at least" + strconv.Itoa(minimumRequestTimeoutSec) + " seconds")
 	}
 
 	return nil
@@ -62,7 +72,7 @@ func (g GatewayJob) Resolve(gatewayNodeIdx int) (string, error) {
 			case GatewayHandlerTypeWebAPICapabilities:
 				hs = append(hs, newDefaultWebAPICapabilitiesHandler())
 			case GatewayHandlerTypeVault:
-				hs = append(hs, newDefaultVaultHandler())
+				hs = append(hs, newDefaultVaultHandler(g.RequestTimeoutSec))
 			case GatewayHandlerTypeHTTPCapabilities:
 				hs = append(hs, newDefaultHTTPCapabilitiesHandler())
 			default:
@@ -78,6 +88,7 @@ func (g GatewayJob) Resolve(gatewayNodeIdx int) (string, error) {
 		dons = append(dons, d)
 	}
 
+	requestTimeout := time.Duration(g.RequestTimeoutSec) * time.Second
 	config := gatewayConfig{
 		ConnectionManagerConfig: connectionManagerConfig{
 			AuthChallengeLen:          10,
@@ -91,7 +102,7 @@ func (g GatewayJob) Resolve(gatewayNodeIdx int) (string, error) {
 			Path:                   "/",
 			Port:                   5_003,
 			ReadTimeoutMillis:      1_000,
-			RequestTimeoutMillis:   10_000,
+			RequestTimeoutMillis:   int(requestTimeout.Milliseconds()),
 			WriteTimeoutMillis:     1_000,
 		},
 		UserServerConfig: userServerConfig{
@@ -99,9 +110,9 @@ func (g GatewayJob) Resolve(gatewayNodeIdx int) (string, error) {
 			MaxRequestBytes:      100_000,
 			Path:                 "/",
 			Port:                 5_002,
-			ReadTimeoutMillis:    80_000,
-			RequestTimeoutMillis: 80_000,
-			WriteTimeoutMillis:   80_000,
+			ReadTimeoutMillis:    int(requestTimeout.Milliseconds()),
+			RequestTimeoutMillis: int(requestTimeout.Milliseconds()),
+			WriteTimeoutMillis:   int(requestTimeout.Milliseconds() + 1000),
 		},
 		HTTPClientConfig: httpClientConfig{
 			MaxResponseBytes: 50_000_000,
@@ -152,12 +163,14 @@ type vaultHandlerConfig struct {
 	NodeRateLimiter   nodeRateLimiterConfig `toml:"NodeRateLimiter"`
 }
 
-func newDefaultVaultHandler() handler {
+func newDefaultVaultHandler(requestTimeoutSec int) handler {
 	return handler{
 		Name:        "vault",
 		ServiceName: "vault",
 		Config: vaultHandlerConfig{
-			RequestTimeoutSec: 70,
+			// must be lower than the overall gateway request timeout.
+			// so we allow for the response to be sent back.
+			RequestTimeoutSec: requestTimeoutSec - 1,
 			NodeRateLimiter: nodeRateLimiterConfig{
 				GlobalBurst:    10,
 				GlobalRPS:      50,
