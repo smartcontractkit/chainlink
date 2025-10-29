@@ -7,6 +7,7 @@ import (
 	"io"
 
 	"github.com/ethereum/go-ethereum/common"
+
 	"github.com/smartcontractkit/smdkg/dkgocr/dkgocrtypes"
 
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
@@ -22,9 +23,9 @@ type ConfigureVaultDKGInput struct {
 	ContractChainSelector uint64 `json:"contractChainSelector" yaml:"contractChainSelector"`
 	ContractQualifier     string `json:"contractQualifier" yaml:"contractQualifier"`
 
-	DON          DKGDon             `json:"don" yaml:"don"`
-	OracleConfig *ocr3.OracleConfig `json:"oracleConfig" yaml:"oracleConfig"`
-	DryRun       bool               `json:"dryRun" yaml:"dryRun"`
+	DON          DKGDon                 `json:"don" yaml:"don"`
+	OracleConfig *ocr3.V3_1OracleConfig `json:"oracleConfig" yaml:"oracleConfig"`
+	DryRun       bool                   `json:"dryRun" yaml:"dryRun"`
 
 	MCMSConfig *ocr3.MCMSConfig `json:"mcmsConfig" yaml:"mcmsConfig"`
 }

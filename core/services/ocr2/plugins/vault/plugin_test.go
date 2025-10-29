@@ -5,6 +5,7 @@ import (
 	"encoding/hex"
 	"testing"
 
+	"github.com/smartcontractkit/libocr/offchainreporting2plus/ocr3_1types"
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/ocr3types"
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 	"github.com/smartcontractkit/smdkg/dkgocr/dkgocrtypes"
@@ -85,14 +86,16 @@ func TestPlugin_ReportingPluginFactory_UsesDefaultsIfNotProvidedInOffchainConfig
 	assert.Equal(t, 64, typedRP.cfg.MaxIdentifierNamespaceLengthBytes)
 	assert.Equal(t, 64, typedRP.cfg.MaxIdentifierKeyLengthBytes)
 
-	assert.Equal(t, "VaultReportingPlugin", info.Name)
-	assert.Equal(t, 100, info.Limits.MaxQueryLength)
-	assert.Equal(t, 512000, info.Limits.MaxObservationLength)
-	assert.Equal(t, 512000, info.Limits.MaxReportsPlusPrecursorLength)
-	assert.Equal(t, 512000, info.Limits.MaxReportLength)
-	assert.Equal(t, 20, info.Limits.MaxReportCount)
-	assert.Equal(t, 1024*1024, info.Limits.MaxKeyValueModifiedKeysPlusValuesLength)
-	assert.Equal(t, 1024*1024, info.Limits.MaxBlobPayloadLength)
+	infoObject, ok := info.(ocr3_1types.ReportingPluginInfo1)
+	assert.True(t, ok, "ReportingPluginInfo not of type ReportingPluginInfo1")
+	assert.Equal(t, "VaultReportingPlugin", infoObject.Name)
+	assert.Equal(t, 100, infoObject.Limits.MaxQueryBytes)
+	assert.Equal(t, 512000, infoObject.Limits.MaxObservationBytes)
+	assert.Equal(t, 512000, infoObject.Limits.MaxReportsPlusPrecursorBytes)
+	assert.Equal(t, 512000, infoObject.Limits.MaxReportBytes)
+	assert.Equal(t, 20, infoObject.Limits.MaxReportCount)
+	assert.Equal(t, 1024*1024, infoObject.Limits.MaxKeyValueModifiedKeysPlusValuesBytes)
+	assert.Equal(t, 1024*1024, infoObject.Limits.MaxBlobPayloadBytes)
 
 	cfg = vaultcommon.ReportingPluginConfig{
 		BatchSize:                                     2,
@@ -124,14 +127,16 @@ func TestPlugin_ReportingPluginFactory_UsesDefaultsIfNotProvidedInOffchainConfig
 	assert.Equal(t, 2, typedRP.cfg.MaxIdentifierNamespaceLengthBytes)
 	assert.Equal(t, 2, typedRP.cfg.MaxIdentifierKeyLengthBytes)
 
-	assert.Equal(t, "VaultReportingPlugin", info.Name)
-	assert.Equal(t, 2, info.Limits.MaxQueryLength)
-	assert.Equal(t, 2, info.Limits.MaxObservationLength)
-	assert.Equal(t, 2, info.Limits.MaxReportsPlusPrecursorLength)
-	assert.Equal(t, 2, info.Limits.MaxReportLength)
-	assert.Equal(t, 2, info.Limits.MaxReportCount)
-	assert.Equal(t, 2, info.Limits.MaxKeyValueModifiedKeysPlusValuesLength)
-	assert.Equal(t, 2, info.Limits.MaxBlobPayloadLength)
+	infoObject, ok = info.(ocr3_1types.ReportingPluginInfo1)
+	assert.True(t, ok, "ReportingPluginInfo not of type ReportingPluginInfo1")
+	assert.Equal(t, "VaultReportingPlugin", infoObject.Name)
+	assert.Equal(t, 2, infoObject.Limits.MaxQueryBytes)
+	assert.Equal(t, 2, infoObject.Limits.MaxObservationBytes)
+	assert.Equal(t, 2, infoObject.Limits.MaxReportsPlusPrecursorBytes)
+	assert.Equal(t, 2, infoObject.Limits.MaxReportBytes)
+	assert.Equal(t, 2, infoObject.Limits.MaxReportCount)
+	assert.Equal(t, 2, infoObject.Limits.MaxKeyValueModifiedKeysPlusValuesBytes)
+	assert.Equal(t, 2, infoObject.Limits.MaxBlobPayloadBytes)
 }
 
 func TestPlugin_ReportingPluginFactory_UseDKGResult(t *testing.T) {
@@ -181,7 +186,9 @@ func TestPlugin_ReportingPluginFactory_UseDKGResult(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, expectedKeyShare, ks)
 
-	assert.Equal(t, "VaultReportingPlugin", info.Name)
+	infoObject, ok := info.(ocr3_1types.ReportingPluginInfo1)
+	assert.True(t, ok, "ReportingPluginInfo not of type ReportingPluginInfo1")
+	assert.Equal(t, "VaultReportingPlugin", infoObject.Name)
 
 	key, err := lpk.Get().Marshal()
 	require.NoError(t, err)

@@ -66,7 +66,7 @@ require (
 	dario.cat/mergo v1.0.2 // indirect
 	filippo.io/bigmod v0.1.0 // indirect
 	filippo.io/edwards25519 v1.1.0 // indirect
-	filippo.io/nistec v0.0.3 // indirect
+	filippo.io/nistec v0.0.4 // indirect
 	github.com/99designs/go-keychain v0.0.0-20191008050251-8e49817e8af4 // indirect
 	github.com/99designs/keyring v1.2.1 // indirect
 	github.com/AlekSi/pointer v1.1.0 // indirect
@@ -498,9 +498,9 @@ require (
 	github.com/smartcontractkit/chainlink-tron/relayer v0.0.11-0.20251014143056-a0c6328c91e9 // indirect
 	github.com/smartcontractkit/freeport v0.1.3-0.20250716200817-cb5dfd0e369e // indirect
 	github.com/smartcontractkit/grpc-proxy v0.0.0-20240830132753-a7e17fec5ab7 // indirect
-	github.com/smartcontractkit/libocr v0.0.0-20250912173940-f3ab0246e23d // indirect
+	github.com/smartcontractkit/libocr v0.0.0-20251027221354-bdc84e1ed858 // indirect
 	github.com/smartcontractkit/mcms v0.26.1-0.20251009182503-22a4319a7bf4 // indirect
-	github.com/smartcontractkit/smdkg v0.0.0-20250916143931-2876ea233fd8 // indirect
+	github.com/smartcontractkit/smdkg v0.0.0-20251028194008-216027277fe7 // indirect
 	github.com/smartcontractkit/tdh2/go/ocr2/decryptionplugin v0.0.0-20241009055228-33d0c0bf38de // indirect
 	github.com/smartcontractkit/wsrpc v0.8.5-0.20250502134807-c57d3d995945 // indirect
 	github.com/sony/gobreaker/v2 v2.1.0 // indirect
