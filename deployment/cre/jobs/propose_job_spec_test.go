@@ -7,10 +7,11 @@ import (
 	"testing"
 
 	"github.com/Masterminds/semver/v3"
-	chainsel "github.com/smartcontractkit/chain-selectors"
-	"github.com/smartcontractkit/quarantine"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	chainsel "github.com/smartcontractkit/chain-selectors"
+	"github.com/smartcontractkit/quarantine"
 
 	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
