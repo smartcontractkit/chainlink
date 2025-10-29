@@ -1412,8 +1412,10 @@ func AddLaneWithDefaultPricesAndFeeQuoterConfig(t *testing.T, e *DeployedEnv, st
 	}
 	fqCfg := v1_6.DefaultFeeQuoterDestChainConfig(true, to)
 
+	// EVM -> SUI
 	if toFamily == chainsel.FamilySui {
 		fqCfg.EnforceOutOfOrder = true
+		fqCfg.MaxNumberOfTokensPerMsg = 1
 	}
 
 	err = AddLane(
