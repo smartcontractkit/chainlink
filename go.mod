@@ -105,9 +105,9 @@ require (
 	github.com/smartcontractkit/cre-sdk-go/capabilities/networking/http v0.7.0
 	github.com/smartcontractkit/cre-sdk-go/capabilities/scheduler/cron v0.8.0
 	github.com/smartcontractkit/freeport v0.1.3-0.20250716200817-cb5dfd0e369e
-	github.com/smartcontractkit/libocr v0.0.0-20250912173940-f3ab0246e23d
+	github.com/smartcontractkit/libocr v0.0.0-20251027221354-bdc84e1ed858
 	github.com/smartcontractkit/quarantine v0.0.0-20250909213106-ece491bef618
-	github.com/smartcontractkit/smdkg v0.0.0-20250916143931-2876ea233fd8
+	github.com/smartcontractkit/smdkg v0.0.0-20251028194008-216027277fe7
 	github.com/smartcontractkit/tdh2/go/ocr2/decryptionplugin v0.0.0-20241009055228-33d0c0bf38de
 	github.com/smartcontractkit/tdh2/go/tdh2 v0.0.0-20250624150019-e49f7e125e6b
 	github.com/smartcontractkit/wsrpc v0.8.5-0.20250502134807-c57d3d995945
@@ -160,7 +160,7 @@ require (
 	cosmossdk.io/x/tx v0.13.7 // indirect
 	filippo.io/bigmod v0.1.0 // indirect
 	filippo.io/edwards25519 v1.1.0 // indirect
-	filippo.io/nistec v0.0.3 // indirect
+	filippo.io/nistec v0.0.4 // indirect
 	github.com/99designs/go-keychain v0.0.0-20191008050251-8e49817e8af4 // indirect
 	github.com/99designs/keyring v1.2.1 // indirect
 	github.com/Azure/go-ntlmssp v0.0.0-20221128193559-754e69321358 // indirect

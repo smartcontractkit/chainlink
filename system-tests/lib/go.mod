@@ -48,7 +48,7 @@ require (
 	github.com/smartcontractkit/chainlink/deployment v0.0.0-20251021194914-c0e3fec1a97c
 	github.com/smartcontractkit/crib-sdk v0.4.0
 	github.com/smartcontractkit/libocr v0.0.0-20251027221354-bdc84e1ed858
-	github.com/smartcontractkit/smdkg v0.0.0-20250916143931-2876ea233fd8
+	github.com/smartcontractkit/smdkg v0.0.0-20251028194008-216027277fe7
 	github.com/smartcontractkit/tdh2/go/tdh2 v0.0.0-20250624150019-e49f7e125e6b
 	github.com/stretchr/testify v1.11.1
 	go.uber.org/ratelimit v0.3.1
@@ -73,7 +73,7 @@ require (
 	cosmossdk.io/x/tx v0.13.7 // indirect
 	filippo.io/bigmod v0.1.0 // indirect
 	filippo.io/edwards25519 v1.1.0 // indirect
-	filippo.io/nistec v0.0.3 // indirect
+	filippo.io/nistec v0.0.4 // indirect
 	github.com/99designs/go-keychain v0.0.0-20191008050251-8e49817e8af4 // indirect
 	github.com/99designs/keyring v1.2.1 // indirect
 	github.com/AdaLogics/go-fuzz-headers v0.0.0-20240806141605-e8a1dd7889d6 // indirect
