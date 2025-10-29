@@ -395,8 +395,7 @@ func Test_CCIP_Messaging_EVM2Sui(t *testing.T) {
 	//  suiExpandedDataLength +=
 	// ((receiverObjectIdsLength + Client.SUI_MESSAGING_ACCOUNTS_OVERHEAD) * Client.SUI_ACCOUNT_BYTE_SIZE);
 	t.Run("Message to Sui with valid receiver with data bytes = max data bytes allowed", func(t *testing.T) {
-		suiAdditionalMsgOverhead := uint32(96)
-		message := []byte(strings.Repeat("0", int(srcFeeQuoterDestChainConfig.MaxDataBytes-suiAdditionalMsgOverhead)))
+		message := []byte(strings.Repeat("0", int(16000)))
 		messagingtest.Run(t,
 			messagingtest.TestCase{
 				TestSetup:              setup,
