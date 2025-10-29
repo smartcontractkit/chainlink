@@ -8,10 +8,12 @@ import (
 
 	"github.com/stretchr/testify/require"
 
+	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 
 	chain_selectors "github.com/smartcontractkit/chain-selectors"
+	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_2_0/router"
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/testcontext"
 
 	"github.com/smartcontractkit/chainlink-deployments-framework/chain"
@@ -24,6 +26,7 @@ import (
 	linkops "github.com/smartcontractkit/chainlink-sui/deployment/ops/link"
 
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers"
+	mlt "github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers/messagelimitationstest"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers/messagingtest"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
 	commoncs "github.com/smartcontractkit/chainlink/deployment/common/changeset"
@@ -141,11 +144,6 @@ func Test_CCIP_Messaging_EVM2Sui(t *testing.T) {
 	err = testhelpers.AddLaneWithDefaultPricesAndFeeQuoterConfig(t, &e, state, sourceChain, destChain, false)
 	require.NoError(t, err)
 
-	// srcFeeQuoterDestChainConfig, err := state.Chains[sourceChain].FeeQuoter.GetDestChainConfig(&bind.CallOpts{Context: ctx}, destChain)
-	// require.NoError(t, err, "Failed to get destination chain config")
-
-	// fmt.Println("SIZEE: ", srcFeeQuoterDestChainConfig.MaxDataBytes)
-
 	var (
 		nonce  uint64
 		sender = common.LeftPadBytes(e.Env.BlockChains.EVMChains()[sourceChain].DeployerKey.From.Bytes(), 32)
@@ -158,6 +156,7 @@ func Test_CCIP_Messaging_EVM2Sui(t *testing.T) {
 			sender,
 			false, // test router
 		)
+		nativeFeeToken = "0x0"
 	)
 
 	// Deploy SUI Receiver
@@ -202,6 +201,9 @@ func Test_CCIP_Messaging_EVM2Sui(t *testing.T) {
 
 	receiverObjectIDs := [][32]byte{clockObj, stateObj}
 
+	srcFeeQuoterDestChainConfig, err := state.Chains[sourceChain].FeeQuoter.GetDestChainConfig(&bind.CallOpts{Context: ctx}, destChain)
+	require.NoError(t, err, "Failed to get destination chain config")
+
 	t.Run("Message to Sui", func(t *testing.T) {
 		// ccipChainState := state.SuiChains[destChain]
 		message := []byte("Hello Sui, from EVM!")
@@ -218,20 +220,24 @@ func Test_CCIP_Messaging_EVM2Sui(t *testing.T) {
 		)
 	})
 
-	// t.Run("Message to Sui with valid receiver with data bytes = max data bytes allowed", func(t *testing.T) {
-	// 	message := []byte(strings.Repeat("0", int(srcFeeQuoterDestChainConfig.MaxDataBytes)))
-	// 	messagingtest.Run(t,
-	// 		messagingtest.TestCase{
-	// 			TestSetup:              setup,
-	// 			Nonce:                  &nonce,
-	// 			ValidationType:         messagingtest.ValidationTypeExec,
-	// 			Receiver:               receiverByte,
-	// 			MsgData:                message,
-	// 			ExtraArgs:              testhelpers.MakeSuiExtraArgs(1000000, true, receiverObjectIDs, [32]byte{}),
-	// 			ExpectedExecutionState: testhelpers.EXECUTION_STATE_SUCCESS,
-	// 		},
-	// 	)
-	// })
+	// SUI MaxDataBytes won't exactly be srcFeeQuoterDestChainConfig.MaxDataBytes because we add following additional overhead;
+	//  suiExpandedDataLength +=
+	// ((receiverObjectIdsLength + Client.SUI_MESSAGING_ACCOUNTS_OVERHEAD) * Client.SUI_ACCOUNT_BYTE_SIZE);
+	t.Run("Message to Sui with valid receiver with data bytes = max data bytes allowed", func(t *testing.T) {
+		suiAdditionalMsgOverhead := uint32(96)
+		message := []byte(strings.Repeat("0", int(srcFeeQuoterDestChainConfig.MaxDataBytes-suiAdditionalMsgOverhead)))
+		messagingtest.Run(t,
+			messagingtest.TestCase{
+				TestSetup:              setup,
+				Nonce:                  &nonce,
+				ValidationType:         messagingtest.ValidationTypeExec,
+				Receiver:               receiverByte,
+				MsgData:                message,
+				ExtraArgs:              testhelpers.MakeSuiExtraArgs(1000000, true, receiverObjectIDs, [32]byte{}),
+				ExpectedExecutionState: testhelpers.EXECUTION_STATE_SUCCESS,
+			},
+		)
+	})
 
 	t.Run("Message to Sui with zero reciever", func(t *testing.T) {
 		message := []byte("Hello Sui, from EVM!")
@@ -248,4 +254,120 @@ func Test_CCIP_Messaging_EVM2Sui(t *testing.T) {
 		)
 	})
 
+	// REVERT CASES
+
+	// For testing messages that revert on source
+	mltTestSetup := mlt.NewTestSetup(
+		t,
+		state,
+		sourceChain,
+		destChain,
+		common.HexToAddress("0x0"),
+		srcFeeQuoterDestChainConfig,
+		false, // testRouter
+		true,  // validateResp
+		mlt.WithDeployedEnv(e),
+	)
+
+	invalidDestChainSelectorTestSetup := mlt.NewTestSetup(
+		t,
+		state,
+		sourceChain,
+		destChain,
+		common.HexToAddress("0x0"),
+		srcFeeQuoterDestChainConfig,
+		false, // testRouter
+		true,  // validateResp
+		mlt.WithDeployedEnv(e),
+	)
+
+	t.Run("Max Data Bytes + 1 - Should Fail", func(t *testing.T) {
+		message := []byte(strings.Repeat("0", int(srcFeeQuoterDestChainConfig.MaxDataBytes)+1))
+		mlt.Run(mlt.TestCase{
+			TestSetup: mltTestSetup,
+			Name:      "Max Data Bytes + 1 - Should Fail",
+			Msg: router.ClientEVM2AnyMessage{
+				Receiver:  receiverByte,
+				Data:      message,
+				FeeToken:  common.HexToAddress(nativeFeeToken),
+				ExtraArgs: testhelpers.MakeSuiExtraArgs(uint64(srcFeeQuoterDestChainConfig.MaxPerMsgGasLimit+1), true, [][32]byte{}, [32]byte{}),
+			},
+			ExpRevert: true,
+		})
+	})
+
+	t.Run("Max Data Bytes + 1 to EOA - Should Fail", func(t *testing.T) {
+		message := []byte(strings.Repeat("0", int(srcFeeQuoterDestChainConfig.MaxDataBytes)+1))
+		mlt.Run(mlt.TestCase{
+			TestSetup: mltTestSetup,
+			Name:      "Max Data Bytes + 1 to EOA - Should Fail",
+			Msg: router.ClientEVM2AnyMessage{
+				Receiver:  receiverByte, // Sending to EOA
+				Data:      message,
+				FeeToken:  common.HexToAddress(nativeFeeToken),
+				ExtraArgs: testhelpers.MakeSuiExtraArgs(uint64(srcFeeQuoterDestChainConfig.MaxPerMsgGasLimit)+1, true, receiverObjectIDs, [32]byte{}),
+			},
+			ExpRevert: true,
+		})
+	})
+
+	t.Run("Missing ExtraArgs - Should Fail", func(t *testing.T) {
+		message := []byte("Hello Sui, from EVM!")
+		mlt.Run(mlt.TestCase{
+			TestSetup: mltTestSetup,
+			Name:      "Missing ExtraArgs - Should Fail",
+			Msg: router.ClientEVM2AnyMessage{
+				Receiver:  receiverByte,
+				Data:      message,
+				FeeToken:  common.HexToAddress(nativeFeeToken),
+				ExtraArgs: []byte{},
+			},
+			ExpRevert: true,
+		})
+	})
+
+	t.Run("OutOfOrder Execution False - Should Fail", func(t *testing.T) {
+		message := []byte("Hello Sui, from EVM!")
+		mlt.Run(mlt.TestCase{
+			TestSetup: mltTestSetup,
+			Name:      "OutOfOrder Execution False - Should Fail",
+			Msg: router.ClientEVM2AnyMessage{
+				Receiver:  receiverByte,
+				Data:      message,
+				FeeToken:  common.HexToAddress(nativeFeeToken),
+				ExtraArgs: testhelpers.MakeSuiExtraArgs(100000, false, [][32]byte{}, [32]byte{}),
+			},
+			ExpRevert: true,
+		})
+	})
+
+	t.Run("Send message to invalid receiver - Should Fail", func(t *testing.T) {
+		message := []byte("Hello Sui, from EVM!")
+		mlt.Run(mlt.TestCase{
+			TestSetup: mltTestSetup,
+			Name:      "Send message to invalid receiver - Should Fail",
+			Msg: router.ClientEVM2AnyMessage{
+				Receiver:  []byte("0x000"),
+				Data:      message,
+				FeeToken:  common.HexToAddress(nativeFeeToken),
+				ExtraArgs: testhelpers.MakeSuiExtraArgs(100000, false, [][32]byte{}, [32]byte{}),
+			},
+			ExpRevert: true,
+		})
+	})
+
+	t.Run("Send message to invalid chain selector - Should Fail", func(t *testing.T) {
+		message := []byte("Hello Sui, from EVM!")
+		mlt.Run(mlt.TestCase{
+			TestSetup: invalidDestChainSelectorTestSetup,
+			Name:      "Send message to invalid chain selector - Should Fail",
+			Msg: router.ClientEVM2AnyMessage{
+				Receiver:  receiverByte,
+				Data:      message,
+				FeeToken:  common.HexToAddress(nativeFeeToken),
+				ExtraArgs: testhelpers.MakeSuiExtraArgs(100000, false, [][32]byte{}, [32]byte{}),
+			},
+			ExpRevert: true,
+		})
+	})
 }
