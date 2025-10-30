@@ -107,7 +107,7 @@ func getFFromCapabilitiesRegistry(ctx context.Context, capabilitiesRegistry core
 	don := dons[0]
 	f := int(don.DON.F)
 	if f == 0 {
-		return 0, errors.New("F value from capabilities registry cannot be 0")
+		return 0, errors.New("f value from capabilities registry cannot be 0")
 	}
 	return f, nil
 }
