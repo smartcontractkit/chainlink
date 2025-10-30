@@ -82,6 +82,7 @@ func doTestOnboardTokenPoolForSelfServe(t *testing.T, isMCMsOwner bool) {
 	tokenAdminRegistryPDA, _, _ := solState.FindTokenAdminRegistryPDA(tokenAddress, state.SolChains[solChain].Router)
 	err = e.BlockChains.SolanaChains()[solChain].GetAccountDataBorshInto(ctx, tokenAdminRegistryPDA, &tokenAdminRegistryAccount)
 	require.NoError(t, err)
+	// the actual administrator needs to accept the role
 	require.Equal(t, solana.PublicKey{}, tokenAdminRegistryAccount.Administrator)
 	// pending administrator should be the proposed admin key
 	require.Equal(t, customerAdmin.PublicKey(), tokenAdminRegistryAccount.PendingAdministrator)
