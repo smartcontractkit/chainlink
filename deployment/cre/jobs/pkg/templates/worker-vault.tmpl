@@ -13,6 +13,6 @@ transmitterID = "{{ .TransmitterID }}"
 [relayConfig]
 chainID = "{{ .ChainID }}"
 [pluginConfig]
-requestExpiryDuration = "60s"
+requestExpiryDuration = "{{ .VaultRequestExpiryDuration }}"
 [pluginConfig.dkg]
 dkgContractID = "{{ .DKGContractAddress }}"

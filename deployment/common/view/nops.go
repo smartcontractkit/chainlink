@@ -38,6 +38,7 @@ type JobView struct {
 	ProposalID string `json:"proposal_id"`
 	UUID       string `json:"uuid"`
 	Spec       string `json:"spec"`
+	Revision   int64  `json:"revision,omitempty"`
 }
 
 type LabelView struct {
@@ -173,17 +174,27 @@ func approvedJobspecs(ctx context.Context, lggr logger.Logger, nodeIDs []string,
 		}
 		for _, p := range lresp.Proposals {
 			if p.Status == jobv1.ProposalStatus_PROPOSAL_STATUS_PROPOSED {
+				if _, exists := jv[p.JobId]; exists && p.Revision < jv[p.JobId].Revision {
+					// skip older revisions
+					continue
+				}
 				proposed[p.JobId] = JobView{
 					ProposalID: p.Id,
 					UUID:       jobs[p.JobId].Uuid,
 					Spec:       p.Spec,
+					Revision:   p.Revision,
 				}
 			}
 			if p.Status == jobv1.ProposalStatus_PROPOSAL_STATUS_APPROVED {
+				if _, exists := jv[p.JobId]; exists && p.Revision < jv[p.JobId].Revision {
+					// skip older revisions
+					continue
+				}
 				jv[p.JobId] = JobView{
 					ProposalID: p.Id,
 					UUID:       jobs[p.JobId].Uuid,
 					Spec:       p.Spec,
+					Revision:   p.Revision,
 				}
 			}
 		}

@@ -159,7 +159,7 @@ func (e *Blockchain) ToCldfChain() (cldf_chain.BlockChain, error) {
 	}, nil
 }
 
-func (e *Deployer) Deploy(input *blockchain.Input) (blockchains.Blockchain, error) {
+func (e *Deployer) Deploy(ctx context.Context, input *blockchain.Input) (blockchains.Blockchain, error) {
 	var bcOut *blockchain.Output
 	var err error
 
@@ -170,7 +170,7 @@ func (e *Deployer) Deploy(input *blockchain.Input) (blockchains.Blockchain, erro
 			Namespace:      e.provider.CRIB.Namespace,
 		}
 
-		bcOut, err = crib.DeployBlockchain(deployCribBlockchainInput)
+		bcOut, err = crib.DeployBlockchain(ctx, deployCribBlockchainInput)
 		if err != nil {
 			return nil, pkgerrors.Wrap(err, "failed to deploy blockchain")
 		}
@@ -180,7 +180,7 @@ func (e *Deployer) Deploy(input *blockchain.Input) (blockchains.Blockchain, erro
 			return nil, pkgerrors.Wrap(err, "RPC endpoint is not available")
 		}
 	} else {
-		bcOut, err = blockchain.NewBlockchainNetwork(input)
+		bcOut, err = blockchain.NewWithContext(ctx, input)
 		if err != nil {
 			return nil, pkgerrors.Wrapf(err, "failed to deploy blockchain %s chainID: %s", input.Type, input.ChainID)
 		}

@@ -17,9 +17,8 @@ import (
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zapcore"
 
-	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
-	"github.com/smartcontractkit/chainlink/deployment/common/changeset/state"
 	"github.com/smartcontractkit/chainlink/deployment/helpers"
+	"github.com/smartcontractkit/chainlink/deployment/internal/soltestutils"
 
 	cldfchain "github.com/smartcontractkit/chainlink-deployments-framework/chain"
 	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
@@ -28,6 +27,10 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 	commontypes "github.com/smartcontractkit/chainlink/deployment/common/types"
 	"github.com/smartcontractkit/chainlink/deployment/environment/memory"
+)
+
+const (
+	testQualifier = "test-deploy"
 )
 
 func TestDeployCache(t *testing.T) {
@@ -278,7 +281,8 @@ func TestConfigureCache(t *testing.T) {
 		require.NoError(t, err)
 
 		ds.Seal()
-		fundSignerPDAs(t, env, solSel, mcmsState)
+
+		soltestutils.FundSignerPDAs(t, chain, mcmsState)
 
 		transferOwnershipChangeset := commonchangeset.Configure(TransferOwnershipCache{},
 			&TransferOwnershipCacheRequest{
@@ -320,19 +324,3 @@ func skipInCI(t *testing.T) {
 		t.Skip("Skipping in CI")
 	}
 }
-
-func fundSignerPDAs(
-	t *testing.T, env cldf.Environment, chainSelector uint64, chainState *state.MCMSWithTimelockStateSolana,
-) {
-	t.Helper()
-	solChain := env.BlockChains.SolanaChains()[chainSelector]
-	timelockSignerPDA := state.GetTimelockSignerPDA(chainState.TimelockProgram, chainState.TimelockSeed)
-	mcmSignerPDA := state.GetMCMSignerPDA(chainState.McmProgram, chainState.ProposerMcmSeed)
-	signerPDAs := []solana.PublicKey{timelockSignerPDA, mcmSignerPDA}
-	err := memory.FundSolanaAccounts(env.GetContext(), signerPDAs, 1, solChain.Client)
-	require.NoError(t, err)
-}
-
-const (
-	testQualifier = "test-deploy"
-)

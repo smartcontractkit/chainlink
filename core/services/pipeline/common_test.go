@@ -143,8 +143,10 @@ func TestUnmarshalTaskFromMap(t *testing.T) {
 	}{
 		{pipeline.TaskTypeHTTP, &pipeline.HTTPTask{}},
 		{pipeline.TaskTypeBridge, &pipeline.BridgeTask{}},
+		{pipeline.TaskTypeMax, &pipeline.MaxTask{}},
 		{pipeline.TaskTypeMean, &pipeline.MeanTask{}},
 		{pipeline.TaskTypeMedian, &pipeline.MedianTask{}},
+		{pipeline.TaskTypeMin, &pipeline.MinTask{}},
 		{pipeline.TaskTypeMode, &pipeline.ModeTask{}},
 		{pipeline.TaskTypeSum, &pipeline.SumTask{}},
 		{pipeline.TaskTypeMultiply, &pipeline.MultiplyTask{}},

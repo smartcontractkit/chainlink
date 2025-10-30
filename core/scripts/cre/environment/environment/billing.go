@@ -119,7 +119,7 @@ func removeBillingStateFiles(relativePathToRepoRoot string) error {
 	return os.Remove(absPath)
 }
 
-func startBilling(_ context.Context, cleanupWait time.Duration, setupOutput *environment.SetupOutput) (startupErr error) {
+func startBilling(ctx context.Context, cleanupWait time.Duration, setupOutput *environment.SetupOutput) (startupErr error) {
 	// just in case, remove the stack if it exists
 	_ = framework.RemoveTestStack(billingplatformservice.DEFAULT_BILLING_PLATFORM_SERVICE_SERVICE_NAME)
 
@@ -221,7 +221,7 @@ func startBilling(_ context.Context, cleanupWait time.Duration, setupOutput *env
 		}
 	}
 
-	out, startErr := billingplatformservice.New(in.BillingService)
+	out, startErr := billingplatformservice.NewWithContext(ctx, in.BillingService)
 	if startErr != nil {
 		return errors.Wrap(startErr, "failed to create Billing Platform Service")
 	}

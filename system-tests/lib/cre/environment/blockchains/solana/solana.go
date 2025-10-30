@@ -25,7 +25,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-testing-framework/framework"
 	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/blockchain"
-	"github.com/smartcontractkit/chainlink/deployment/environment/memory"
+	"github.com/smartcontractkit/chainlink/deployment/utils/solutils"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/blockchains"
 	libfunding "github.com/smartcontractkit/chainlink/system-tests/lib/funding"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/infra"
@@ -124,7 +124,7 @@ func (s *Blockchain) ToCldfChain() (cldf_chain.BlockChain, error) {
 	}, nil
 }
 
-func (s *Deployer) Deploy(input *blockchain.Input) (blockchains.Blockchain, error) {
+func (s *Deployer) Deploy(ctx context.Context, input *blockchain.Input) (blockchains.Blockchain, error) {
 	if s.provider.IsCRIB() {
 		return nil, errors.New("CRIB deployment for Solana is not supported yet")
 	}
@@ -134,7 +134,7 @@ func (s *Deployer) Deploy(input *blockchain.Input) (blockchains.Blockchain, erro
 		return nil, pkgerrors.Wrap(err, "failed to init Solana input")
 	}
 
-	bcOut, err := blockchain.NewBlockchainNetwork(input)
+	bcOut, err := blockchain.NewWithContext(ctx, input)
 	if err != nil {
 		return nil, pkgerrors.Wrapf(err, "failed to deploy blockchain %s chainID: %s", input.Type, input.ChainID)
 	}
@@ -183,7 +183,7 @@ func initSolanaInput(bi *blockchain.Input) error {
 				return
 			}
 			// TODO PLEX-1718 use latest contracts sha for now. Derive commit sha from go.mod once contracts are in a separate go module
-			err2 = memory.DownloadSolanaProgramArtifacts(context.Background(), bi.ContractsDir, logger.Nop(), "b0f7cd3fbdbb")
+			err2 = solutils.DownloadChainlinkSolanaProgramArtifacts(context.Background(), bi.ContractsDir, "b0f7cd3fbdbb", logger.Nop())
 		})
 		if err2 != nil {
 			return fmt.Errorf("failed to download solana artifacts: %w", err2)

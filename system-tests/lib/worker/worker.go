@@ -8,12 +8,17 @@ import (
 )
 
 type Pool struct {
-	pool pond.Pool
+	pool   pond.Pool
+	ctx    context.Context //nolint:containedctx // Pool needs to manage a shared context for all tasks
+	cancel context.CancelCauseFunc
 }
 
-func New(maxConcurrency int, opts ...pond.Option) *Pool {
+func New(ctx context.Context, maxConcurrency int, opts ...pond.Option) *Pool {
+	poolCtx, cancel := context.WithCancelCause(ctx)
 	return &Pool{
-		pool: pond.NewPool(maxConcurrency, opts...),
+		pool:   pond.NewPool(maxConcurrency, opts...),
+		ctx:    poolCtx,
+		cancel: cancel,
 	}
 }
 
@@ -26,9 +31,9 @@ type FutureAny struct {
 	}
 }
 
-func (p *Pool) SubmitErr(fn func() error) FutureAny {
-	return p.SubmitAny(func() (any, error) {
-		return nil, fn()
+func (p *Pool) SubmitErr(fn func(context.Context) error) FutureAny {
+	return p.SubmitAny(func(ctx context.Context) (any, error) {
+		return nil, fn(ctx)
 	})
 }
 
@@ -41,21 +46,41 @@ func AwaitErr(ctx context.Context, future FutureAny) error {
 	}
 }
 
-func (p *Pool) SubmitAny(fn func() (any, error)) FutureAny {
+func (p *Pool) SubmitAny(fn func(context.Context) (any, error)) FutureAny {
 	ch := make(chan struct {
 		value any
 		err   error
 	}, 1)
 
-	p.pool.Submit(func() {
-		value, err := fn()
+	task := p.pool.Submit(func() {
+		// If there was no panic, execute the function and send the result to the channel (value or error)
+		value, err := fn(p.ctx)
 		ch <- struct {
 			value any
 			err   error
 		}{value, err}
 
-		close(ch)
+		// Cancel pool context if there was an error
+		if err != nil {
+			p.cancel(err)
+		}
 	})
+
+	// Monitor the task for panics that pond caught
+	go func() {
+		defer close(ch)
+		if taskErr := task.Wait(); taskErr != nil {
+			// If there was a panic, pond caught it and the task function never sent to the channel
+			// So we send the panic as error instead
+			ch <- struct {
+				value any
+				err   error
+			}{nil, taskErr}
+
+			// Cancel pool context on panic
+			p.cancel(taskErr)
+		}
+	}()
 
 	return FutureAny{ch: ch}
 }

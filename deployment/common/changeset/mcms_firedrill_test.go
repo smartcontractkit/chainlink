@@ -19,7 +19,7 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 	commontypes "github.com/smartcontractkit/chainlink/deployment/common/types"
 	"github.com/smartcontractkit/chainlink/deployment/internal/soltestutils"
-	"github.com/smartcontractkit/chainlink/deployment/internal/solutils"
+	"github.com/smartcontractkit/chainlink/deployment/utils/solutils"
 )
 
 func TestMCMSSignFireDrillChangeset(t *testing.T) {
