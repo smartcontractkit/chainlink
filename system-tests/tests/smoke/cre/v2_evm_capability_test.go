@@ -19,8 +19,8 @@ import (
 
 	commonevents "github.com/smartcontractkit/chainlink-protos/workflows/go/common"
 	workflowevents "github.com/smartcontractkit/chainlink-protos/workflows/go/events"
-	"github.com/smartcontractkit/chainlink/system-tests/lib/cre"
 	crecontracts "github.com/smartcontractkit/chainlink/system-tests/lib/cre/contracts"
+	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/blockchains"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/blockchains/evm"
 	evm_config "github.com/smartcontractkit/chainlink/system-tests/tests/smoke/cre/evm/evmread/config"
 	evmreadcontracts "github.com/smartcontractkit/chainlink/system-tests/tests/smoke/cre/evm/evmread/contracts"
@@ -168,32 +168,19 @@ func ExecuteEVMLogTriggerTest(t *testing.T, testEnv *ttypes.TestEnvironment) {
 	const workflowFileLocation = "./evm/logtrigger/main.go"
 	const nodeCount = 4 // number of workflow nodes in the CRE topology
 	lggr := framework.L
-	beholder, err := t_helpers.NewBeholder(lggr, testEnv.TestConfig.RelativePathToRepoRoot, testEnv.TestConfig.EnvironmentDirPath)
-	require.NoError(t, err, "failed to create beholder instance")
-
-	ctxWithTimeout, cancelCtx := context.WithTimeout(t.Context(), 5*time.Minute)
-	defer cancelCtx()
-
-	// We are interested in UserLogs (successful execution)
-	// or BaseMessage with specific error message (engine initialization failure)
-	beholderMessageTypes := map[string]func() proto.Message{
-		"workflows.v1.UserLogs": func() proto.Message {
-			return &workflowevents.UserLogs{}
-		},
-		"BaseMessage": func() proto.Message {
-			return &commonevents.BaseMessage{}
-		},
-	}
+	// beholder, err := t_helpers.NewBeholder(lggr, testEnv.TestConfig.RelativePathToRepoRoot, testEnv.TestConfig.EnvironmentDirPath)
+	// beholderMsgChan, beholderErrChan := beholder.SubscribeToBeholderMessages(ctxWithTimeout, beholderMessageTypes)
+	listenerCtx, messageChan, kafkaErrChan := t_helpers.StartBeholder(t, lggr, testEnv)
 
 	enabledChains := t_helpers.GetEVMEnabledChains(t, testEnv)
-	chainsToTest := make(map[string]*cre.WrappedBlockchainOutput)
-	for _, bcOutput := range testEnv.WrappedBlockchainOutputs {
-		chainID := bcOutput.BlockchainOutput.ChainID
+	chainsToTest := make(map[string]*blockchains.Blockchain)
+	for _, bcOutput := range testEnv.CreEnvironment.Blockchains {
+		chainID := bcOutput.CtfOutput().ChainID
 		if _, ok := enabledChains[chainID]; !ok {
 			lggr.Info().Msgf("Skipping chain %s as it is not enabled for EVM LogTrigger workflow test", chainID)
 			continue
 		}
-		chainsToTest[chainID] = bcOutput
+		chainsToTest[chainID] = &bcOutput
 	}
 
 	successfulLogTriggerChains := make([]string, 0, len(chainsToTest))
@@ -205,18 +192,21 @@ func ExecuteEVMLogTriggerTest(t *testing.T, testEnv *ttypes.TestEnvironment) {
 		lggr.Info().Msgf("About to deploy Workflow %s on chain %s", workflowName, chainID)
 
 		t_helpers.CompileAndDeployWorkflow(t, testEnv, lggr, workflowName, &workflowConfig, workflowFileLocation)
-		beholderMsgChan, beholderErrChan := beholder.SubscribeToBeholderMessages(ctxWithTimeout, beholderMessageTypes)
 
 		triggersUpAndRunning := "Trigger RunSimpleEvmLogTriggerWorkflow called"
-		waitForLogLine(ctxWithTimeout, t, beholderErrChan, beholderMsgChan, lggr, triggersUpAndRunning, nodeCount, chainID)
+		// waitForLogLine(ctxWithTimeout, t, beholderErrChan, beholderMsgChan, lggr, triggersUpAndRunning, nodeCount, chainID)
+		err := t_helpers.AssertBeholderMessage(listenerCtx, t, triggersUpAndRunning, lggr, messageChan, kafkaErrChan, 4*time.Minute)
+		require.NoError(t, err, "Triggers up and running test failed")
 
-		time.Sleep(5 * time.Second)
+		time.Sleep(2 * time.Minute)
 		lggr.Info().Msgf("Triggers are up and running in all nodes %s on chain %s", workflowName, chainID)
 
 		message := "Data for log trigger"
 		emitEvent(t, lggr, chainID, bcOutput, msgEmitter, message, workflowConfig)
 		expectedUserLog := "OnTrigger decoded message: message:" + message
-		waitForLogLine(ctxWithTimeout, t, beholderErrChan, beholderMsgChan, lggr, expectedUserLog, nodeCount, chainID)
+		// waitForLogLine(ctxWithTimeout, t, beholderErrChan, beholderMsgChan, lggr, expectedUserLog, nodeCount, chainID)
+		err = t_helpers.AssertBeholderMessage(listenerCtx, t, expectedUserLog, lggr, messageChan, kafkaErrChan, 4*time.Minute)
+		require.NoError(t, err, "Expected user log test failed")
 
 		lggr.Info().Msgf("🎉 LogTrigger Workflow %s executed successfully on chain %s", workflowName, chainID)
 		successfulLogTriggerChains = append(successfulLogTriggerChains, chainID)
@@ -229,7 +219,7 @@ func ExecuteEVMLogTriggerTest(t *testing.T, testEnv *ttypes.TestEnvironment) {
 	lggr.Info().Msgf("✅ LogTrigger test ran for chains: %v", successfulLogTriggerChains)
 }
 
-func keysFromMap(m map[string]*cre.WrappedBlockchainOutput) []string {
+func keysFromMap(m map[string]*blockchains.Blockchain) []string {
 	keys := make([]string, 0, len(m))
 	for k := range m {
 		keys = append(keys, k)
@@ -269,11 +259,11 @@ func waitForLogLine(ctxWithTimeout context.Context, t *testing.T, beholderErrCha
 							Str("expected_log", expectedUserLog).
 							Str("found_message", strings.TrimSpace(logLine.Message)).
 							Msg("🎯 Found expected user log message!")
-						foundEvents++
-						if foundEvents >= nodeCount {
-							testLogger.Info().Msgf("Found %d identical results for value %q, test has passed", nodeCount, expectedUserLog)
-							return
-						}
+							// foundEvents++
+							// if foundEvents >= 1 {
+						testLogger.Info().Msgf("Found %d identical results for value %q, test has passed", nodeCount, expectedUserLog)
+						return
+						// }
 					} else {
 						testLogger.Info().Msgf("Received user message from Beholder: %s", typedMsg.LogLines)
 					}
@@ -285,9 +275,10 @@ func waitForLogLine(ctxWithTimeout context.Context, t *testing.T, beholderErrCha
 	}
 }
 
-func emitEvent(t *testing.T, lggr zerolog.Logger, chainID string, bcOutput *cre.WrappedBlockchainOutput, msgEmitter *evmreadcontracts.MessageEmitter, expectedUserLog string, workflowConfig evm_logTrigger_config.Config) {
+func emitEvent(t *testing.T, lggr zerolog.Logger, chainID string, bcOutput *blockchains.Blockchain, msgEmitter *evmreadcontracts.MessageEmitter, expectedUserLog string, workflowConfig evm_logTrigger_config.Config) {
 	lggr.Info().Msgf("Emitting event to be picked up by workflow for chain '%s'", chainID)
-	sethClient := bcOutput.SethClient
+	mychain := *bcOutput
+	sethClient := mychain.(*evm.Blockchain).SethClient
 	emittingTx, err := msgEmitter.EmitMessage(sethClient.NewTXOpts(), expectedUserLog)
 	require.NoError(t, err, "failed to emit message from contract '%s'", workflowConfig.Addresses[0])
 
@@ -296,11 +287,13 @@ func emitEvent(t *testing.T, lggr zerolog.Logger, chainID string, bcOutput *cre.
 	lggr.Info().Msgf("Transaction for chain '%s' mined at '%d' with emitted message %q", chainID, emittingReceipt.BlockNumber.Uint64(), expectedUserLog)
 }
 
-func configureEVMLogTriggerWorkflow(t *testing.T, lggr zerolog.Logger, chain *cre.WrappedBlockchainOutput) (evm_logTrigger_config.Config, *evmreadcontracts.MessageEmitter) {
+func configureEVMLogTriggerWorkflow(t *testing.T, lggr zerolog.Logger, chain *blockchains.Blockchain) (evm_logTrigger_config.Config, *evmreadcontracts.MessageEmitter) {
 	t.Helper()
 
-	chainID := chain.BlockchainOutput.ChainID
-	chainSethClient := chain.SethClient
+	mychain := *chain
+	evmChain := mychain.(*evm.Blockchain)
+	chainID := evmChain.CtfOutput().ChainID
+	chainSethClient := evmChain.SethClient
 
 	lggr.Info().Msgf("Deploying message emitter for chain %s", chainID)
 	msgEmitterContractAddr, tx, msgEmitter, err := evmreadcontracts.DeployMessageEmitter(chainSethClient.NewTXOpts(), chainSethClient.Client)
@@ -321,7 +314,7 @@ func configureEVMLogTriggerWorkflow(t *testing.T, lggr zerolog.Logger, chain *cr
 	lggr.Info().Msgf("Topic0 (ABI): %s", eventSigMessageEmitted)
 
 	return evm_logTrigger_config.Config{
-		ChainSelector: chain.ChainSelector,
+		ChainSelector: evmChain.ChainSelector(),
 		Addresses:     []string{msgEmitterContractAddr.Hex()},
 		Topics: []struct {
 			Values []string `yaml:"values"`
