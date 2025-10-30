@@ -315,13 +315,14 @@ func TestConfig_Marshal(t *testing.T) {
 		},
 	}
 	full.TelemetryIngress = toml.TelemetryIngress{
-		UniConn:      ptr(false),
-		Logging:      ptr(true),
-		BufferSize:   ptr[uint16](1234),
-		MaxBatchSize: ptr[uint16](4321),
-		SendInterval: commoncfg.MustNewDuration(time.Minute),
-		SendTimeout:  commoncfg.MustNewDuration(5 * time.Second),
-		UseBatchSend: ptr(true),
+		UniConn:            ptr(false),
+		Logging:            ptr(true),
+		BufferSize:         ptr[uint16](1234),
+		MaxBatchSize:       ptr[uint16](4321),
+		SendInterval:       commoncfg.MustNewDuration(time.Minute),
+		SendTimeout:        commoncfg.MustNewDuration(5 * time.Second),
+		UseBatchSend:       ptr(true),
+		ChipIngressEnabled: ptr(false),
 		Endpoints: []toml.TelemetryIngressEndpoint{{
 			Network:      ptr("EVM"),
 			ChainID:      ptr("1"),
@@ -992,6 +993,7 @@ MaxBatchSize = 4321
 SendInterval = '1m0s'
 SendTimeout = '5s'
 UseBatchSend = true
+ChipIngressEnabled = false
 
 [[TelemetryIngress.Endpoints]]
 Network = 'EVM'
