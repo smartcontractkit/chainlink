@@ -55,6 +55,7 @@ MaxBatchSize = 50
 SendInterval = '500ms'
 SendTimeout = '10s'
 UseBatchSend = true
+ChipIngressEnabled = false
 
 [AuditLogger]
 Enabled = false
@@ -399,4 +400,3 @@ IgnoreJoblessBridges = false
 Invalid configuration: invalid secrets: 2 errors:
 	- Database.URL: empty: must be provided and non-empty
 	- Password.Keystore: empty: must be provided and non-empty
-

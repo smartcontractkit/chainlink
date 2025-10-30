@@ -105,6 +105,8 @@ SendInterval = '500ms' # Default
 SendTimeout = '10s' # Default
 # UseBatchSend toggles sending telemetry to the ingress server using the batch client.
 UseBatchSend = true # Default
+# ChipIngressEnabled enables sending telemetry to CHIP Ingress.
+ChipIngressEnabled = false # Default
 
 [[TelemetryIngress.Endpoints]] # Example
 # Network aka EVM, Solana, Starknet

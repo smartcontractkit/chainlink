@@ -8,7 +8,8 @@ import (
 	"github.com/pkg/errors"
 	"github.com/smartcontractkit/libocr/commontypes"
 
-	"github.com/smartcontractkit/chainlink-common/pkg/logger"
+	"github.com/smartcontractkit/chainlink-common/pkg/beholder"
+	"github.com/smartcontractkit/chainlink-common/pkg/chipingress"
 	common "github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
@@ -32,6 +33,8 @@ type Manager struct {
 	uniConn                     bool
 	useBatchSend                bool
 	MonitoringEndpointGenerator MonitoringEndpointGenerator
+
+	chipIngressClient chipingress.Client
 }
 
 type telemetryEndpoint struct {
@@ -43,16 +46,23 @@ type telemetryEndpoint struct {
 }
 
 // NewManager create a new telemetry manager that is responsible for configuring telemetry agents and generating the defined telemetry endpoints and monitoring endpoints
-func NewManager(cfg config.TelemetryIngress, csaKeyStore keystore.CSA, lggr logger.Logger) *Manager {
+func NewManager(cfg config.TelemetryIngress, csaKeyStore keystore.CSA, lggr common.Logger) *Manager {
+	var chipIngressClient chipingress.Client
+	if cfg.ChipIngressEnabled() {
+		lggr.Info("ChIP Ingress is enabled for telemetry")
+		chipIngressClient = beholder.GetClient().Chip
+	}
+
 	m := &Manager{
-		bufferSize:   cfg.BufferSize(),
-		ks:           csaKeyStore,
-		logging:      cfg.Logging(),
-		maxBatchSize: cfg.MaxBatchSize(),
-		sendInterval: cfg.SendInterval(),
-		sendTimeout:  cfg.SendTimeout(),
-		uniConn:      cfg.UniConn(),
-		useBatchSend: cfg.UseBatchSend(),
+		bufferSize:        cfg.BufferSize(),
+		ks:                csaKeyStore,
+		logging:           cfg.Logging(),
+		maxBatchSize:      cfg.MaxBatchSize(),
+		sendInterval:      cfg.SendInterval(),
+		sendTimeout:       cfg.SendTimeout(),
+		uniConn:           cfg.UniConn(),
+		useBatchSend:      cfg.UseBatchSend(),
+		chipIngressClient: chipIngressClient,
 	}
 	m.Service, m.eng = services.Config{
 		Name: "TelemetryManager",
@@ -102,7 +112,7 @@ func (m *Manager) GenMultitypeMonitoringEndpoint(network string, chainID string,
 	return NewMultiIngressAgent(e.client, network, chainID, contractID)
 }
 
-func (m *Manager) newEndpoint(e config.TelemetryIngressEndpoint, lggr logger.Logger, cfg config.TelemetryIngress) (services.Service, error) {
+func (m *Manager) newEndpoint(e config.TelemetryIngressEndpoint, lggr common.Logger, cfg config.TelemetryIngress) (services.Service, error) {
 	if e.Network() == "" {
 		return nil, errors.New("cannot add telemetry endpoint, network cannot be empty")
 	}
@@ -123,7 +133,7 @@ func (m *Manager) newEndpoint(e config.TelemetryIngressEndpoint, lggr logger.Log
 		return nil, errors.Errorf("cannot add telemetry endpoint for network %q and chainID %q, endpoint already exists", e.Network(), e.ChainID())
 	}
 
-	lggr = logger.Sugared(lggr).Named(e.Network()).Named(e.ChainID())
+	lggr = common.Sugared(lggr).Named(e.Network()).Named(e.ChainID())
 	var tClient synchronization.TelemetryService
 	if m.useBatchSend {
 		tClient = synchronization.NewTelemetryIngressBatchClient(e.URL(), e.ServerPubKey(), m.ks, cfg.Logging(), lggr, cfg.BufferSize(), cfg.MaxBatchSize(), cfg.SendInterval(), cfg.SendTimeout(), cfg.UniConn())
