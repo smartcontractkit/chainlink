@@ -110,9 +110,9 @@ func onTrigger(cfg logtrigger.Config, runtime sdk.Runtime, outputs *evm.Log) (st
 		return "", fmt.Errorf("OnTrigger error decoding log data: %w", err)
 	}
 	runtime.Logger().Info(fmt.Sprintf("OnTrigger decoded message: %s", decodedMessageString))
-	client := evm.Client{ChainSelector: cfg.ChainSelector}
-	txHash := sendTx(t, runtime, cfg, client, decodedMessageString)
-	runtime.Logger().Info("Successfully sent transaction", "hash", common.Hash(txHash).String())
+	// client := evm.Client{ChainSelector: cfg.ChainSelector}
+	// txHash := sendTx(t, runtime, cfg, client, decodedMessageString)
+	// runtime.Logger().Info("Successfully sent transaction", "hash", common.Hash(txHash).String())
 	return "success", nil
 }
 
