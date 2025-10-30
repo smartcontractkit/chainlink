@@ -409,7 +409,7 @@ func Test_CCIPTokenTransfer_EVM2SUI(t *testing.T) {
 	// fmt.Println("TOKENBALANCE TEST: RECEIVER: ", suiAddrStr, " TOKENN: ", suiTokenHex)
 
 	emptyReceiver := hexutil.MustDecode(
-		"0x0000000000000000000000000000000000000000000000000000000000000000", // reciever packageID
+		"0x0000000000000000000000000000000000000000000000000000000000000000", // receiver packageID
 	)
 
 	tcs := []testhelpers.TestTransferRequest{
@@ -436,7 +436,7 @@ func Test_CCIPTokenTransfer_EVM2SUI(t *testing.T) {
 		},
 		// Pure token transfer
 		// ReceiverObjectIds = empty
-		// token.Reciever = non empty (maybe EOA or object)
+		// token.Receiver = non empty (maybe EOA or object)
 		// message.Receiver = empty
 		// don't need extraArgs gasLimit, can be set to 0
 		{
@@ -464,8 +464,8 @@ func Test_CCIPTokenTransfer_EVM2SUI(t *testing.T) {
 		// Programmable token transfer
 		// can be thought of as two seperate paths tokenPool release/mint + message ccip_recieve
 		// RecieverObjectIds = non empty (with clock & recieverStateValue)
-		// token.Reciever = non empty(maybe EOA or object)
-		// message.Reciever = recieverPackageId
+		// token.Receiver = non empty(maybe EOA or object)
+		// message.Receiver = recieverPackageId
 		// extraArgs gasLimit > 0
 		{
 			Name:             "Send token to an Object",
@@ -486,7 +486,7 @@ func Test_CCIPTokenTransfer_EVM2SUI(t *testing.T) {
 		},
 
 		{
-			Name:             "Send token To EOA + include a reciever but keep gasLimit to 0",
+			Name:             "Send token To EOA + include a receiver but keep gasLimit to 0",
 			SourceChain:      sourceChain,
 			DestChain:        destChain,
 			Data:             []byte("Hello Sui From EVM"),

@@ -413,7 +413,7 @@ func Test_CCIP_Messaging_EVM2Sui(t *testing.T) {
 	// 	)
 	// })
 
-	t.Run("Message to Sui with zero reciever", func(t *testing.T) {
+	t.Run("Message to Sui with zero receiver", func(t *testing.T) {
 		message := []byte("Hello Sui, from EVM!")
 		messagingtest.Run(t,
 			messagingtest.TestCase{
@@ -547,10 +547,9 @@ func Test_CCIP_Messaging_EVM2Sui(t *testing.T) {
 }
 
 // Set MsgVisibilityInterval super low
-// Send 5 CCIPSend msgs with invalid reciever
-// Send additional 2 more msgs with valid reciever
+// Send 5 CCIPSend msgs with invalid receiver
+// Send additional 2 more msgs with valid receiver
 func Test_CCIP_EVM2Sui_ExecPlugin_MessageVisibilityAndRetryBehavior(t *testing.T) {
-
 	lggr := logger.TestLogger(t)
 	e, _, _ := testsetups.NewIntegrationEnvironment(
 		t,
