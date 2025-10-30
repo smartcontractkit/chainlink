@@ -33,11 +33,11 @@ plugins:
       installPath: "github.com/smartcontractkit/capabilities/workflowevent"
   httpaction:
     - moduleURI: "github.com/smartcontractkit/capabilities/http_action"
-      gitRef: "a6cdb2bf41d72d957e758f8461f3114d9eed41cf"
+      gitRef: "bc932a4d6b62d8480d207ff244ba1bafedf4c7bf"
       installPath: "github.com/smartcontractkit/capabilities/http_action"
   httptrigger:
     - moduleURI: "github.com/smartcontractkit/capabilities/http_trigger"
-      gitRef: "b3f588f5f2bf0d920ccae5b68d6898a214a6f589"
+      gitRef: "bc932a4d6b62d8480d207ff244ba1bafedf4c7bf"
       installPath: "github.com/smartcontractkit/capabilities/http_trigger"
   evm:
     - moduleURI: "github.com/smartcontractkit/capabilities/chain_capabilities/evm"
