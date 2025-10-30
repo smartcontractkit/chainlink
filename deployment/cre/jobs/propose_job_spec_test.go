@@ -898,7 +898,7 @@ PerSenderBurst = 100
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), "failed to propose bootstrap job")
 		assert.Contains(t, err.Error(), "no nodes found for DON `test-don`")
-		assert.Contains(t, err.Error(), `{key:"zone" value:"wrong-test-zone"}`)
+		assert.Contains(t, err.Error(), `{key:"zone"  value:"wrong-test-zone"}`)
 	})
 
 	t.Run("failed ocr3 bootstrap job distribution", func(t *testing.T) {
