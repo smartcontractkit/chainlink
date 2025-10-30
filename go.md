@@ -1,7 +1,5 @@
 # smartcontractkit Go modules
-
 ## Main module
-
 ```mermaid
 flowchart LR
   subgraph chains
@@ -201,9 +199,7 @@ flowchart LR
 	classDef outline stroke-dasharray:6,fill:none;
 	class chainlink-ccip-repo,chainlink-common-repo,chainlink-evm-repo,chainlink-framework-repo,chainlink-protos-repo,cre-sdk-go-repo,tdh2-repo outline
 ```
-
 ## All modules
-
 ```mermaid
 flowchart LR
   subgraph chains
