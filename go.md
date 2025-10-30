@@ -389,7 +389,9 @@ flowchart LR
 	chainlink/system-tests/tests --> chainlink/system-tests/tests/regression/cre/evm/evmread-negative
 	chainlink/system-tests/tests --> chainlink/system-tests/tests/regression/cre/evm/evmwrite-negative
 	chainlink/system-tests/tests --> chainlink/system-tests/tests/regression/cre/http
+	chainlink/system-tests/tests --> chainlink/system-tests/tests/regression/cre/httpaction-negative
 	chainlink/system-tests/tests --> chainlink/system-tests/tests/smoke/cre/evm/evmread
+	chainlink/system-tests/tests --> chainlink/system-tests/tests/smoke/cre/httpaction
 	click chainlink/system-tests/tests href "https://github.com/smartcontractkit/chainlink"
 	chainlink/system-tests/tests/regression/cre/consensus --> cre-sdk-go/capabilities/scheduler/cron
 	click chainlink/system-tests/tests/regression/cre/consensus href "https://github.com/smartcontractkit/chainlink"
@@ -402,11 +404,17 @@ flowchart LR
 	click chainlink/system-tests/tests/regression/cre/evm/evmwrite-negative href "https://github.com/smartcontractkit/chainlink"
 	chainlink/system-tests/tests/regression/cre/http --> cre-sdk-go/capabilities/networking/http
 	click chainlink/system-tests/tests/regression/cre/http href "https://github.com/smartcontractkit/chainlink"
+	chainlink/system-tests/tests/regression/cre/httpaction-negative --> cre-sdk-go/capabilities/networking/http
+	chainlink/system-tests/tests/regression/cre/httpaction-negative --> cre-sdk-go/capabilities/scheduler/cron
+	click chainlink/system-tests/tests/regression/cre/httpaction-negative href "https://github.com/smartcontractkit/chainlink"
 	chainlink/system-tests/tests/smoke/cre/evm/evmread --> chainlink/system-tests/tests/smoke/cre/evmread
 	click chainlink/system-tests/tests/smoke/cre/evm/evmread href "https://github.com/smartcontractkit/chainlink"
 	chainlink/system-tests/tests/smoke/cre/evmread --> cre-sdk-go/capabilities/blockchain/evm
 	chainlink/system-tests/tests/smoke/cre/evmread --> cre-sdk-go/capabilities/scheduler/cron
 	click chainlink/system-tests/tests/smoke/cre/evmread href "https://github.com/smartcontractkit/chainlink"
+	chainlink/system-tests/tests/smoke/cre/httpaction --> cre-sdk-go/capabilities/networking/http
+	chainlink/system-tests/tests/smoke/cre/httpaction --> cre-sdk-go/capabilities/scheduler/cron
+	click chainlink/system-tests/tests/smoke/cre/httpaction href "https://github.com/smartcontractkit/chainlink"
 	chainlink/v2 --> chainlink-automation
 	chainlink/v2 --> chainlink-data-streams
 	chainlink/v2 --> chainlink-evm
@@ -472,8 +480,10 @@ flowchart LR
 		 chainlink/system-tests/tests/regression/cre/evm/evmread-negative
 		 chainlink/system-tests/tests/regression/cre/evm/evmwrite-negative
 		 chainlink/system-tests/tests/regression/cre/http
+		 chainlink/system-tests/tests/regression/cre/httpaction-negative
 		 chainlink/system-tests/tests/smoke/cre/evm/evmread
 		 chainlink/system-tests/tests/smoke/cre/evmread
+		 chainlink/system-tests/tests/smoke/cre/httpaction
 		 chainlink/v2
 	end
 	click chainlink-repo href "https://github.com/smartcontractkit/chainlink"
