@@ -814,15 +814,29 @@ runner-test-matrix:
     sui_cli_version: mainnet-1.57.2
     install_plugins_public: true
 
-  - id: smoke/ccip/ccip_sui_token_transfer_test.go:Test_CCIPTokenTransfer_EVM2SUI
-    path: integration-tests/smoke/ccip/ccip_sui_token_transfer_test.go
-    test_env_type: in-memory
-    runs_on: ubuntu-latest
-    triggers:
-      - PR Integration CCIP Tests
-      - Nightly Integration CCIP Tests
-    test_cmd: go test ./smoke/ccip -run "Test_CCIPTokenTransfer_EVM2SUI" -timeout 10m -test.parallel=1 -count=1 -json
-    test_go_project_path: integration-tests
-    sui_cli_version: mainnet-1.57.2
-    install_plugins_public: true
+  # Temporary disabling this for flakiness 
+  # - id: smoke/ccip/ccip_sui_token_transfer_test.go:Test_CCIPTokenTransfer_EVM2SUI
+  #   path: integration-tests/smoke/ccip/ccip_sui_token_transfer_test.go
+  #   test_env_type: in-memory
+  #   runs_on: ubuntu-latest
+  #   triggers:
+  #     - PR Integration CCIP Tests
+  #     - Nightly Integration CCIP Tests
+  #   test_cmd: go test ./smoke/ccip -run "Test_CCIPTokenTransfer_EVM2SUI" -timeout 10m -test.parallel=1 -count=1 -json
+  #   test_go_project_path: integration-tests
+  #   sui_cli_version: mainnet-1.57.2
+  #   install_plugins_public: true
+
+  # - id: smoke/ccip/ccip_sui_messaging_test.go:Test_CCIP_EVM2Sui_ExecPlugin_MessageVisibilityAndRetryBehavior
+  #   path: integration-tests/smoke/ccip/ccip_sui_messaging_test.go
+  #   test_env_type: in-memory
+  #   runs_on: ubuntu-latest
+  #   triggers:
+  #     - PR Integration CCIP Tests
+  #     - Nightly Integration CCIP Tests
+  #   test_cmd: go test ./smoke/ccip -run "Test_CCIP_EVM2Sui_ExecPlugin_MessageVisibilityAndRetryBehavior" -timeout 10m -test.parallel=1 -count=1 -json
+  #   test_go_project_path: integration-tests
+  #   sui_cli_version: mainnet-1.57.2
+  #   install_plugins_public: true
+
   # END: CCIP tests

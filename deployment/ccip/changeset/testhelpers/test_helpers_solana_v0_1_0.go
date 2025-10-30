@@ -437,7 +437,6 @@ func retryCcipSendUntilNativeFeeIsSufficient(
 	msg := cfg.Message.(router.ClientEVM2AnyMessage)
 	var retryCount int
 	for {
-		fmt.Println("ABOUT TO SEND THIS MSG: ", msg, cfg.DestChain)
 		fee, err := r.GetFee(&bind.CallOpts{Context: context.Background()}, cfg.DestChain, msg)
 		if err != nil {
 			return nil, 0, fmt.Errorf("failed to get EVM fee: %w", cldf.MaybeDataErr(err))
@@ -1003,8 +1002,6 @@ func AddLane(
 			}))
 	}
 
-	// changesets = append(changesets, AddEVMDestChangesets(e, 909606746561742123, 18395503381733958356, false)...)
-
 	switch toFamily {
 	case chainsel.FamilyEVM:
 		changesets = append(changesets, AddEVMDestChangesets(e, to, from, isTestRouter)...)
@@ -1025,11 +1022,8 @@ func AddLane(
 			}))
 	}
 
-	fmt.Println("ADDLANE CHANGESETS: ", changesets)
-
 	e.Env, _, err = commoncs.ApplyChangesets(t, e.Env, changesets)
 	if err != nil {
-		fmt.Println("ERROR APPLYING CHANGESET", err)
 		return err
 	}
 	return nil
@@ -1389,6 +1383,9 @@ func AddLaneWithDefaultPricesAndFeeQuoterConfig(t *testing.T, e *DeployedEnv, st
 	fromFamily, err := chainsel.GetSelectorFamily(from)
 	require.NoError(t, err)
 
+	toFamily, err := chainsel.GetSelectorFamily(to)
+	require.NoError(t, err)
+
 	// Maps token address => price
 	// Uses string to be re-usable across chains
 	tokenPrices := make(map[string]*big.Int)
@@ -1414,6 +1411,12 @@ func AddLaneWithDefaultPricesAndFeeQuoterConfig(t *testing.T, e *DeployedEnv, st
 		tokenPrices[suiState.LinkTokenCoinMetadataId] = deployment.EDecMult(20, 28)
 	}
 	fqCfg := v1_6.DefaultFeeQuoterDestChainConfig(true, to)
+
+	// EVM -> SUI
+	if toFamily == chainsel.FamilySui {
+		fqCfg.EnforceOutOfOrder = true
+		fqCfg.MaxNumberOfTokensPerMsg = 1
+	}
 
 	err = AddLane(
 		t,
