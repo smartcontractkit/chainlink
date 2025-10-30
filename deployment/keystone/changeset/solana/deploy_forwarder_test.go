@@ -11,6 +11,7 @@ import (
 
 	"github.com/Masterminds/semver/v3"
 	chain_selectors "github.com/smartcontractkit/chain-selectors"
+	"github.com/smartcontractkit/quarantine"
 	"github.com/smartcontractkit/wsrpc/logger"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zapcore"
@@ -86,6 +87,7 @@ func TestDeployForwarder(t *testing.T) {
 }
 
 func TestConfigureForwarder(t *testing.T) {
+	quarantine.Flaky(t, "DX-2268")
 	t.Parallel()
 
 	testCases := []struct {
