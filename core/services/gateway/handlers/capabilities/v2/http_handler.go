@@ -10,6 +10,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	jsonrpc "github.com/smartcontractkit/chainlink-common/pkg/jsonrpc2"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/ratelimit"
@@ -42,6 +43,10 @@ const (
 	defaultOutboundRequestCacheTTLMs     = 1000 * 60 * 10 // 10 minutes
 )
 
+type capabilitiesRegistry interface {
+	DONsForCapability(ctx context.Context, capabilityID string) ([]capabilities.DONWithNodes, error)
+}
+
 type gatewayHandler struct {
 	services.StateMachine
 	config               ServiceConfig
@@ -51,7 +56,7 @@ type gatewayHandler struct {
 	httpClient           network.HTTPClient
 	nodeRateLimiter      *ratelimit.RateLimiter // Rate limiter for node requests (e.g. outgoing HTTP requests, HTTP trigger response, auth metadata exchange)
 	userRateLimiter      limits.RateLimiter     // Rate limiter for user requests that trigger workflow executions
-	capabilitiesRegistry core.CapabilitiesRegistry
+	capabilitiesRegistry capabilitiesRegistry
 	wg                   sync.WaitGroup
 	stopCh               services.StopChan
 	responseCache        ResponseCache // Caches HTTP responses to avoid redundant requests for outbound HTTP actions
@@ -100,7 +105,7 @@ func getFFromCapabilitiesRegistry(ctx context.Context, capabilitiesRegistry core
 	}
 
 	don := dons[0]
-	f := int(don.F)
+	f := int(don.DON.F)
 	if f == 0 {
 		return 0, errors.New("F value from capabilities registry cannot be 0")
 	}

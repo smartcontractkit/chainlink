@@ -32,7 +32,6 @@ const (
 	workflowID    = "0x1234567890abcdef1234567890abcdef12345678901234567890abcdef123456"
 	workflowOwner = "0x1234567890abcdef1234567890abcdef12345678"
 	requestID     = "test-request-id"
-	F             = 1
 )
 
 func createTestMetrics(t *testing.T) *metrics.Metrics {

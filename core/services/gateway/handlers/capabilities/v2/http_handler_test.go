@@ -44,7 +44,7 @@ func newMockCapabilitiesRegistry(t *testing.T, f uint8) *regmocks.CapabilitiesRe
 			},
 			Nodes: []capabilities.Node{},
 		},
-	}, nil)
+	}, nil).Maybe()
 	return capreg
 }
 
