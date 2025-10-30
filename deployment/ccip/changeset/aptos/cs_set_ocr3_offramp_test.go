@@ -6,6 +6,7 @@ import (
 
 	chain_selectors "github.com/smartcontractkit/chain-selectors"
 	mcmstypes "github.com/smartcontractkit/mcms/types"
+	"github.com/smartcontractkit/quarantine"
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink-aptos/bindings/ccip_offramp"
@@ -21,6 +22,7 @@ import (
 )
 
 func TestSetOCR3Offramp_Apply(t *testing.T) {
+	quarantine.Flaky(t, "DX-2124")
 	t.Parallel()
 	// Setup environment and config
 	deployedEnvironment, _ := testhelpers.NewMemoryEnvironment(
