@@ -3,6 +3,7 @@ package keystone
 import (
 	"fmt"
 	"slices"
+	"strings"
 	"testing"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -56,17 +57,17 @@ func createKeystoneWorkflowJob(t *testing.T,
 	consumerAddr common.Address,
 	deltaStage string,
 	schedule string) job.Job {
-	triggerFeedIDs := ""
+	var triggerFeedIDs strings.Builder
 	for _, feedID := range feedIDs {
-		triggerFeedIDs += fmt.Sprintf("        - \"%s\"\n", feedID)
+		triggerFeedIDs.WriteString(fmt.Sprintf("        - \"%s\"\n", feedID))
 	}
 
-	aggregationFeeds := ""
+	var aggregationFeeds strings.Builder
 	for _, feedID := range feedIDs {
-		aggregationFeeds += fmt.Sprintf("          \"%s\":\n            deviation: \"0.001\"\n            heartbeat: 3600\n", feedID)
+		aggregationFeeds.WriteString(fmt.Sprintf("          \"%s\":\n            deviation: \"0.001\"\n            heartbeat: 3600\n", feedID))
 	}
 
-	workflowJobSpec := testspecs.GenerateWorkflowJobSpec(t, fmt.Sprintf(hardcodedWorkflow, workflowName, workflowOwner, triggerFeedIDs, aggregationFeeds,
+	workflowJobSpec := testspecs.GenerateWorkflowJobSpec(t, fmt.Sprintf(hardcodedWorkflow, workflowName, workflowOwner, triggerFeedIDs.String(), aggregationFeeds.String(),
 		consumerAddr.String(), deltaStage, schedule))
 	return workflowJobSpec.Job()
 }
@@ -114,7 +115,7 @@ func createLLOStreamWorkflowJob(t *testing.T,
 	workflowOwner string,
 	streamIDremapped map[uint32]string,
 	consumerAddr common.Address) job.Job {
-	triggerFeedIDs := ""
+	var triggerFeedIDs strings.Builder
 	// keys of the map are stream IDs
 	streamIDs := make([]uint32, 0, len(streamIDremapped))
 	for streamID := range streamIDremapped {
@@ -122,15 +123,15 @@ func createLLOStreamWorkflowJob(t *testing.T,
 	}
 	slices.Sort(streamIDs)
 	for _, streamID := range streamIDs {
-		triggerFeedIDs += fmt.Sprintf("        - \"%d\"\n", streamID)
+		triggerFeedIDs.WriteString(fmt.Sprintf("        - \"%d\"\n", streamID))
 	}
 
-	aggregationFeeds := ""
+	var aggregationFeeds strings.Builder
 	for _, streamID := range streamIDs {
-		aggregationFeeds += fmt.Sprintf("          \"%d\":\n            deviation: \"0.001\"\n            heartbeat: 3600\n            remappedID: \"%s\"\n", streamID, streamIDremapped[streamID])
+		aggregationFeeds.WriteString(fmt.Sprintf("          \"%d\":\n            deviation: \"0.001\"\n            heartbeat: 3600\n            remappedID: \"%s\"\n", streamID, streamIDremapped[streamID]))
 	}
 
-	workflowJobSpec := testspecs.GenerateWorkflowJobSpec(t, fmt.Sprintf(lloStreamsWorkflow, workflowName, workflowOwner, triggerFeedIDs, aggregationFeeds,
+	workflowJobSpec := testspecs.GenerateWorkflowJobSpec(t, fmt.Sprintf(lloStreamsWorkflow, workflowName, workflowOwner, triggerFeedIDs.String(), aggregationFeeds.String(),
 		consumerAddr.String()))
 	return workflowJobSpec.Job()
 }
