@@ -1518,12 +1518,11 @@ func (s *service) newChainConfigMsg(cfg ChainConfig) (*pb.ChainConfig, error) {
 			Id:   cfg.ChainID,
 			Type: protoChainType,
 		},
-		AccountAddress:          cfg.AccountAddress,
-		AdminAddress:            cfg.AdminAddress,
-		AccountAddressPublicKey: cfg.AccountAddressPublicKey.Ptr(),
-		FluxMonitorConfig:       s.newFluxMonitorConfigMsg(cfg.FluxMonitorConfig),
-		Ocr1Config:              ocr1Cfg,
-		Ocr2Config:              ocr2Cfg,
+		AccountAddress:    cfg.AccountAddress,
+		AdminAddress:      cfg.AdminAddress,
+		FluxMonitorConfig: s.newFluxMonitorConfigMsg(cfg.FluxMonitorConfig),
+		Ocr1Config:        ocr1Cfg,
+		Ocr2Config:        ocr2Cfg,
 	}
 
 	if cfg.AccountAddressPublicKey.Valid {
