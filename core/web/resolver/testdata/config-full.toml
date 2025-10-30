@@ -187,6 +187,7 @@ IncomingMessageBufferSize = 13
 OutgoingMessageBufferSize = 17
 PeerID = '12D3KooWMoejJznyDuEk5aX6GvbjaG12UzeornPCBNzMRqdwrFJw'
 TraceLogging = true
+EnableExperimentalRageP2P = true
 
 [P2P.V2]
 Enabled = false
@@ -284,6 +285,7 @@ IncomingMessageBufferSize = 13
 OutgoingMessageBufferSize = 17
 PeerID = '12D3KooWMoejJznyDuEk5aX6GvbjaG12UzeornPCBNzMRqdwrFJw'
 TraceLogging = true
+EnableExperimentalRageP2P = true
 
 [Capabilities.Peering.V2]
 Enabled = false

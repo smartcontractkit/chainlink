@@ -69,7 +69,7 @@ func StartDONs(
 		}
 
 		var devspaceErr error
-		nodeSets, devspaceErr = crib.DeployDons(deployCribDonsInput)
+		nodeSets, devspaceErr = crib.DeployDons(ctx, deployCribDonsInput)
 		if devspaceErr != nil {
 			return nil, pkgerrors.Wrap(devspaceErr, "failed to deploy Dons with crib-sdk")
 		}
@@ -141,7 +141,7 @@ func StartDONs(
 		errGroup.Go(func() error {
 			startTime := time.Now()
 			lggr.Info().Msgf("Starting DON named %s", nodeSet.Name)
-			nodeset, nodesetErr := ns.NewSharedDBNodeSet(nodeSet.Input, registryChainBlockchainOutput)
+			nodeset, nodesetErr := ns.NewSharedDBNodeSetWithContext(ctx, nodeSet.Input, registryChainBlockchainOutput)
 			if nodesetErr != nil {
 				return pkgerrors.Wrapf(nodesetErr, "failed to start nodeSet named %s", nodeSet.Name)
 			}

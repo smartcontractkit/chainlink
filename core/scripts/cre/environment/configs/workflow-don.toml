@@ -10,6 +10,26 @@
   port = "8546"
   docker_cmd_params = ["-b", "0.5", "--mixed-mining"]
 
+# in order for a node to connect to it either:
+# - add any chain capability for it, e.g. read-contract = ["11155111"]
+# - or add it to supported EVM chains, e.g. supported_evm_chains = [11155111, 1337, 2337]
+# if supported_evm_chains is used it must include ALL chains that the node connects to, it is not enough to only add the extra chain_id
+#[[blockchains]]
+#  type = "anvil"
+#  chain_id = "11155111"
+
+# [blockchains.out]
+#    use_cache = true
+#    type = "anvil"
+#    family = "evm"
+#    chain_id = "11155111"
+
+#    [[blockchains.out.nodes]]
+#      ws_url = "wss://sepolia.gateway.tenderly.co/<api-key>"
+#      http_url = "https://sepolia.gateway.tenderly.co/<api-key>"
+#      internal_ws_url = "wss://sepolia.gateway.tenderly.co/<api-key>"
+#      internal_http_url = "https://sepolia.gateway.tenderly.co/<api-key>"
+
 [jd]
   # change to your version
   csa_encryption_key = "d1093c0060d50a3c89c189b2e485da5a3ce57f3dcb38ab7e2c0d5f0bb2314a44" # any random 32 byte hex string
@@ -17,6 +37,9 @@
 
 [fake]
   port = 8171
+
+[fake_http]
+  port = 8666
 
 #[s3provider]
 #  # use all defaults
@@ -38,6 +61,8 @@
   don_types = ["workflow", "gateway"]
   override_mode = "each"
   http_port_range_start = 10100
+
+  # supported_evm_chains = [1337, 2337, 11155111] # uncomment to connect the node to Sepolia, even though there are no capabilities using it
 
   bootstrap_node_index = 0 # added for visibility, index of the node in the nodeset that will act as a bootstrap
   gateway_node_index = 0 # added for visibility, required when don_types include "gateway"
@@ -70,6 +95,9 @@
       Level = 'debug'
       JSONConsole = true
 
+      [P2P]
+      EnableExperimentalRageP2P = true
+
       [Telemetry]
       Enabled = true
       Endpoint = 'host.docker.internal:4317'
@@ -103,38 +131,8 @@
       Level = 'debug'
       JSONConsole = true
 
-      [Telemetry]
-      Enabled = true
-      Endpoint = 'host.docker.internal:4317'
-      ChipIngressEndpoint = 'chip-ingress:50051'
-      ChipIngressInsecureConnection = true
-      InsecureConnection = true
-      TraceSampleRatio = 1
-      HeartbeatInterval = '30s'
-
-      [CRE]
-      EnableDKGRecipient = true
-      UseLocalTimeProvider = false
-
-      # Remove this bit to allow downloading workflows from remote sources
-      [CRE.WorkflowFetcher]
-      URL = "file:///home/chainlink/workflows"
-
-      [Billing]
-      URL = "billing-platform-service:2223"
-      TLSEnabled = false
-      """
-
-  [[nodesets.node_specs]]
-    [nodesets.node_specs.node]
-      docker_ctx = "../../../.."
-      docker_file = "core/chainlink.Dockerfile"
-      docker_build_args = { "CL_IS_PROD_BUILD" = "false" }
-      #image = "chainlink-tmp:latest"
-      user_config_overrides = """
-      [Log]
-      Level = 'debug'
-      JSONConsole = true
+      [P2P]
+      EnableExperimentalRageP2P = true
 
       [Telemetry]
       Enabled = true
@@ -169,6 +167,9 @@
       Level = 'debug'
       JSONConsole = true
 
+      [P2P]
+      EnableExperimentalRageP2P = true
+
       [Telemetry]
       Enabled = true
       Endpoint = 'host.docker.internal:4317'
@@ -201,6 +202,45 @@
       [Log]
       Level = 'debug'
       JSONConsole = true
+
+      [P2P]
+      EnableExperimentalRageP2P = true
+
+      [Telemetry]
+      Enabled = true
+      Endpoint = 'host.docker.internal:4317'
+      ChipIngressEndpoint = 'chip-ingress:50051'
+      ChipIngressInsecureConnection = true
+      InsecureConnection = true
+      TraceSampleRatio = 1
+      HeartbeatInterval = '30s'
+
+      [CRE]
+      EnableDKGRecipient = true
+      UseLocalTimeProvider = false
+
+      # Remove this bit to allow downloading workflows from remote sources
+      [CRE.WorkflowFetcher]
+      URL = "file:///home/chainlink/workflows"
+
+      [Billing]
+      URL = "billing-platform-service:2223"
+      TLSEnabled = false
+      """
+
+  [[nodesets.node_specs]]
+    [nodesets.node_specs.node]
+      docker_ctx = "../../../.."
+      docker_file = "core/chainlink.Dockerfile"
+      docker_build_args = { "CL_IS_PROD_BUILD" = "false" }
+      #image = "chainlink-tmp:latest"
+      user_config_overrides = """
+      [Log]
+      Level = 'debug'
+      JSONConsole = true
+
+      [P2P]
+      EnableExperimentalRageP2P = true
 
       [Telemetry]
       Enabled = true

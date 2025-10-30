@@ -231,8 +231,7 @@ func TestConfigureCapabilitiesRegistryInput_YAMLSerialization(t *testing.T) {
 				Name:        "workflow-don-1",
 				DonFamilies: []string{"workflow", "test"},
 				Config: map[string]any{
-					"consensus": "basic",
-					"timeout":   "30s",
+					"defaultConfig": map[string]any{},
 				},
 				CapabilityConfigurations: []CapabilitiesRegistryCapabilityConfiguration{
 					{
@@ -364,7 +363,7 @@ dons:
   - name: "workflow-don-production"
     donFamilies: ["workflow", "production"]
     config:
-      consensus: "basic"
+      defaultConfig: {}
     capabilityConfigurations:
       - capabilityID: "write-chain@1.0.0"
         config:
@@ -418,7 +417,7 @@ dons:
 
 	// Verify config is decoded properly
 	expectedConfig := map[string]any{
-		"consensus": "basic",
+		"defaultConfig": map[string]any{},
 	}
 	assert.Equal(t, expectedConfig, input.DONs[0].Config)
 
@@ -556,8 +555,7 @@ func setupCapabilitiesRegistryWithMCMS(t *testing.T) *testFixture {
 			Name:        "test-don-mcms-1",
 			DonFamilies: []string{"don-family-mcms-1"},
 			Config: map[string]any{
-				"name": "test-don-mcms-config",
-				"type": "workflow",
+				"defaultConfig": map[string]any{},
 			},
 			CapabilityConfigurations: []CapabilitiesRegistryCapabilityConfiguration{
 				{
@@ -705,8 +703,7 @@ func setupCapabilitiesRegistryTest(t *testing.T) *testFixture {
 			Name:        "test-don-1",
 			DonFamilies: []string{"don-family-1"},
 			Config: map[string]any{
-				"name": "test-don-v2-config",
-				"type": "workflow",
+				"defaultConfig": map[string]any{},
 			},
 			CapabilityConfigurations: []CapabilitiesRegistryCapabilityConfiguration{
 				{
@@ -723,8 +720,7 @@ func setupCapabilitiesRegistryTest(t *testing.T) *testFixture {
 			Name:        "test-don-2",
 			DonFamilies: []string{"don-family-2"},
 			Config: map[string]any{
-				"name": "test-don-v2-config",
-				"type": "trigger",
+				"defaultConfig": map[string]any{},
 			},
 			CapabilityConfigurations: []CapabilitiesRegistryCapabilityConfiguration{
 				{

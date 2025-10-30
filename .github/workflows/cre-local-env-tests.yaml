@@ -171,32 +171,32 @@ jobs:
         shell: bash
         working-directory: core/scripts/cre/environment
         run: |
-          go run main.go env workflow deploy --compile --workflow-file-path ./examples/workflows/v2/cron/main.go --name cronv2workflow
+          go run . env workflow deploy --compile --workflow-file-path ./examples/workflows/v2/cron/main.go --name cronv2workflow
 
       - name: Delete v2 Cron workflow
         shell: bash
         working-directory: core/scripts/cre/environment
         run: |
-          go run main.go env workflow delete --name cronv2workflow
+          go run . env workflow delete --name cronv2workflow
 
       - name: Execute example PoR workflow
         shell: bash
         working-directory: core/scripts/cre/environment
         run: |
-          go run main.go env workflow run-por-example
+          go run . env workflow run-por-example
           # no need to delete it as that command does it automatically
 
       - name: List environment state files
         shell: bash
         working-directory: core/scripts/cre/environment
         run: |
-          go run main.go env state list
+          go run . env state list
 
       - name: Purge environment state files
         shell: bash
         working-directory: core/scripts/cre/environment
         run: |
-          go run main.go env state purge
+          go run . env state purge
 
       - name: Track local env startup success rate
         # track only scheduled runs to exclude failures in PRs or manual runs

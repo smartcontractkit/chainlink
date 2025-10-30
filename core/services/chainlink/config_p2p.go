@@ -25,6 +25,10 @@ func (p *p2p) TraceLogging() bool {
 	return *p.c.TraceLogging
 }
 
+func (p *p2p) EnableExperimentalRageP2P() bool {
+	return *p.c.EnableExperimentalRageP2P
+}
+
 func (p *p2p) IncomingMessageBufferSize() int {
 	return int(*p.c.IncomingMessageBufferSize)
 }

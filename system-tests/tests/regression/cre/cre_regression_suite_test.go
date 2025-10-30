@@ -5,8 +5,6 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/smartcontractkit/quarantine"
-
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/blockchains"
 	t_helpers "github.com/smartcontractkit/chainlink/system-tests/tests/test-helpers"
 
@@ -52,11 +50,10 @@ func Test_CRE_V2_Cron_Regression(t *testing.T) {
 }
 
 func Test_CRE_V2_HTTP_Regression(t *testing.T) {
-	testEnv := t_helpers.SetupTestEnvironmentWithConfig(t, t_helpers.GetDefaultTestConfig(t), v2RegistriesFlags...)
-
 	for _, tCase := range httpNegativeTests {
 		testName := "[v2] HTTP Trigger fails with " + tCase.name
 		t.Run(testName, func(t *testing.T) {
+			testEnv := t_helpers.SetupTestEnvironmentWithConfig(t, t_helpers.GetDefaultTestConfig(t), v2RegistriesFlags...)
 			HTTPTriggerFailsTest(t, testEnv, tCase)
 		})
 	}
@@ -131,10 +128,22 @@ func Test_CRE_V2_EVM_WriteReport_Invalid_Receiver_Regression(t *testing.T) {
 }
 
 func Test_CRE_V2_EVM_WriteReport_Corrupt_Receiver_Address_Regression(t *testing.T) {
-	quarantine.Flaky(t, "DX-2049")
 	runEVMNegativeTestSuite(t, evmNegativeTestsWriteReportCorruptReceiverAddress)
 }
 
 func Test_CRE_V2_EVM_WriteReport_Invalid_Gas_Regression(t *testing.T) {
 	runEVMNegativeTestSuite(t, evmNegativeTestsWriteReportInvalidGas)
+}
+
+func Test_CRE_V2_HTTP_Action_CRUD_Regression(t *testing.T) {
+	for _, tCase := range httpActionFailureTests {
+		testName := "[v2] HTTP Action fails with " + tCase.name
+		t.Run(testName, func(t *testing.T) {
+			testEnv := t_helpers.SetupTestEnvironmentWithConfig(t, t_helpers.GetDefaultTestConfig(t), v2RegistriesFlags...)
+			// TODO remove this when OCR works properly with multiple chains in Local CRE
+			testEnv.CreEnvironment.Blockchains = []blockchains.Blockchain{testEnv.CreEnvironment.Blockchains[0]}
+
+			HTTPActionFailureTest(t, testEnv, tCase)
+		})
+	}
 }
