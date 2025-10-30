@@ -86,5 +86,4 @@ func doTestOnboardTokenPoolForSelfServe(t *testing.T, isMCMsOwner bool) {
 	require.Equal(t, solana.PublicKey{}, tokenAdminRegistryAccount.Administrator)
 	// pending administrator should be the proposed admin key
 	require.Equal(t, customerAdmin.PublicKey(), tokenAdminRegistryAccount.PendingAdministrator)
-
 }
