@@ -22,10 +22,10 @@ github.com/shopspring/decimal v1.4.0 h1:bxl37RwXBklmTi0C79JfXCEBD1cqqHt0bbgBAGFp
 github.com/shopspring/decimal v1.4.0/go.mod h1:gawqmDU56v4yIKSwfBSFip1HdCCXN8/+DMd9qYNcwME=
 github.com/smartcontractkit/chainlink-protos/cre/go v0.0.0-20251021010742-3f8d3dba17d8 h1:hPeEwcvRVtwhyNXH45qbzqmscqlbygu94cROwbjyzNQ=
 github.com/smartcontractkit/chainlink-protos/cre/go v0.0.0-20251021010742-3f8d3dba17d8/go.mod h1:jUC52kZzEnWF9tddHh85zolKybmLpbQ1oNA4FjOHt1Q=
-github.com/smartcontractkit/cre-sdk-go v0.8.0 h1:QHYnz6MgBGFRaTOrP9Nx4HSHUpxYWgRzXGdsAucKAiI=
-github.com/smartcontractkit/cre-sdk-go v0.8.0/go.mod h1:CQY8hCISjctPmt8ViDVgFm4vMGLs5fYI198QhkBS++Y=
-github.com/smartcontractkit/cre-sdk-go/capabilities/scheduler/cron v0.8.0 h1:aO++xdGcQ8TpxAfXrm7EHeIVLDitB8xg7J8/zSxbdBY=
-github.com/smartcontractkit/cre-sdk-go/capabilities/scheduler/cron v0.8.0/go.mod h1:PWyrIw16It4TSyq6mDXqmSR0jF2evZRKuBxu7pK1yDw=
+github.com/smartcontractkit/cre-sdk-go v0.10.0 h1:ZKQaTKa027R8Px30NezXauMaf0toUKeUiOEj+yc67Bg=
+github.com/smartcontractkit/cre-sdk-go v0.10.0/go.mod h1:CQY8hCISjctPmt8ViDVgFm4vMGLs5fYI198QhkBS++Y=
+github.com/smartcontractkit/cre-sdk-go/capabilities/scheduler/cron v0.10.0 h1:g7UrVaNKVEmIhVkJTk4f8raCM8Kp/RTFnAT64wqNmTY=
+github.com/smartcontractkit/cre-sdk-go/capabilities/scheduler/cron v0.10.0/go.mod h1:PWyrIw16It4TSyq6mDXqmSR0jF2evZRKuBxu7pK1yDw=
 github.com/stretchr/testify v1.11.1 h1:7s2iGBzp5EwR7/aIZr8ao5+dra3wiQyKjjFuvgVKu7U=
 github.com/stretchr/testify v1.11.1/go.mod h1:wZwfW3scLgRK+23gO65QZefKpKQRnfz6sD981Nm4B6U=
 google.golang.org/protobuf v1.36.8 h1:xHScyCOEuuwZEc6UtSOvPbAT4zRh0xcNRYekJwfqyMc=

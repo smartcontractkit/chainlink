@@ -144,7 +144,7 @@ func (t *Blockchain) lazyInitTronChain() error {
 	return nil
 }
 
-func (t *Deployer) Deploy(input *blockchain.Input) (blockchains.Blockchain, error) {
+func (t *Deployer) Deploy(ctx context.Context, input *blockchain.Input) (blockchains.Blockchain, error) {
 	if t.provider.IsCRIB() {
 		return nil, errors.New("CRIB deployment for Tron is not supported yet")
 	}
@@ -155,7 +155,7 @@ func (t *Deployer) Deploy(input *blockchain.Input) (blockchains.Blockchain, erro
 	if input.Out != nil {
 		bcOut = input.Out
 	} else {
-		bcOut, err = blockchain.NewBlockchainNetwork(input)
+		bcOut, err = blockchain.NewWithContext(ctx, input)
 		if err != nil {
 			return nil, pkgerrors.Wrapf(err, "failed to deploy blockchain %s chainID: %s", input.Type, input.ChainID)
 		}

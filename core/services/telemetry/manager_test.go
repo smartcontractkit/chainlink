@@ -23,7 +23,7 @@ import (
 	mocks2 "github.com/smartcontractkit/chainlink/v2/core/services/synchronization/mocks"
 )
 
-func setupMockConfig(t *testing.T, useBatchSend bool) *mocks.TelemetryIngress {
+func setupMockConfig(t *testing.T, useBatchSend bool, chipIngressEnabled bool) *mocks.TelemetryIngress {
 	tic := mocks.NewTelemetryIngress(t)
 	tic.On("BufferSize").Return(uint(123))
 	tic.On("Logging").Return(true)
@@ -32,12 +32,13 @@ func setupMockConfig(t *testing.T, useBatchSend bool) *mocks.TelemetryIngress {
 	tic.On("SendTimeout").Return(time.Second * 7)
 	tic.On("UniConn").Return(true)
 	tic.On("UseBatchSend").Return(useBatchSend)
+	tic.On("ChipIngressEnabled").Return(chipIngressEnabled)
 
 	return tic
 }
 
 func TestManagerAgents(t *testing.T) {
-	tic := setupMockConfig(t, true)
+	tic := setupMockConfig(t, true, false)
 	te := mocks.NewTelemetryIngressEndpoint(t)
 	te.On("Network").Return("network-1")
 	te.On("ChainID").Return("network-1-chainID-1")
@@ -55,7 +56,7 @@ func TestManagerAgents(t *testing.T) {
 	me := tm.GenMonitoringEndpoint("network-1", "network-1-chainID-1", "", "")
 	assert.Equal(t, "*telemetry.TypedIngressAgentBatch", reflect.TypeOf(me).String())
 
-	tic = setupMockConfig(t, false)
+	tic = setupMockConfig(t, false, false)
 	tic.On("Endpoints").Return([]config.TelemetryIngressEndpoint{te})
 	tm = NewManager(tic, ks, lggr)
 	require.Equal(t, "*synchronization.telemetryIngressClient", reflect.TypeOf(tm.endpoints[0].client).String())
@@ -143,7 +144,7 @@ func TestNewManager(t *testing.T) {
 		mockEndpoints = append(mockEndpoints, te)
 	}
 
-	tic := setupMockConfig(t, true)
+	tic := setupMockConfig(t, true, false)
 	tic.On("Endpoints").Return(mockEndpoints)
 
 	lggr, logObs := logger.TestLoggerObserved(t, zapcore.InfoLevel)
@@ -196,7 +197,7 @@ func TestNewManager(t *testing.T) {
 }
 
 func TestCorrectEndpointRouting(t *testing.T) {
-	tic := setupMockConfig(t, true)
+	tic := setupMockConfig(t, true, false)
 	tic.On("Endpoints").Return(nil)
 
 	lggr, obsLogs := logger.TestLoggerObserved(t, zapcore.InfoLevel)
@@ -280,4 +281,27 @@ func TestCorrectEndpointRouting(t *testing.T) {
 		require.Equal(t, telemType, string(clientSent[i].TelemType))
 		require.Equal(t, []byte(e.chainID), clientSent[i].Telemetry)
 	}
+}
+
+// add test for current changes in manager
+func TestManager_ChipIngressClient(t *testing.T) {
+	t.Run("disabled chip ingress", func(t *testing.T) {
+		tic := setupMockConfig(t, true, false)
+		tic.On("Endpoints").Return(nil)
+
+		lggr, _ := logger.TestLoggerObserved(t, zapcore.InfoLevel)
+		ks := keymocks.NewCSA(t)
+		tm := NewManager(tic, ks, lggr)
+		assert.Nil(t, tm.chipIngressClient)
+	})
+
+	t.Run("enabled chip ingress", func(t *testing.T) {
+		tic := setupMockConfig(t, true, true)
+		tic.On("Endpoints").Return(nil)
+
+		lggr, _ := logger.TestLoggerObserved(t, zapcore.InfoLevel)
+		ks := keymocks.NewCSA(t)
+		tm := NewManager(tic, ks, lggr)
+		assert.NotNil(t, tm.chipIngressClient)
+	})
 }

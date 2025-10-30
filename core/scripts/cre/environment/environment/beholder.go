@@ -277,7 +277,7 @@ func startBeholder(cmdContext context.Context, cleanupWait time.Duration) (start
 		return errors.Wrap(err, "failed to load test configuration")
 	}
 
-	out, startErr := chipingressset.New(in.ChipIngress)
+	out, startErr := chipingressset.NewWithContext(cmdContext, in.ChipIngress)
 	if startErr != nil {
 		return errors.Wrap(startErr, "failed to create Chip Ingress set")
 	}

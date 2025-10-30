@@ -105,6 +105,7 @@ func onTrigger(config types.WorkflowConfig, runtime cre.Runtime, payload *cron.P
 		func(config types.WorkflowConfig, nodeRuntime cre.NodeRuntime) (priceOutput, error) {
 			httpOutput, err := getHTTPPrice(config, nodeRuntime)
 			if err != nil {
+				runtime.Logger().Error(fmt.Sprintf("failed to get HTTP price: %v", err))
 				return priceOutput{}, fmt.Errorf("failed to get HTTP price: %w", err)
 			}
 			httpOutput.Price.Add(httpOutput.Price, &totalOnChainBalance)
@@ -113,6 +114,7 @@ func onTrigger(config types.WorkflowConfig, runtime cre.Runtime, payload *cron.P
 		cre.ConsensusIdenticalAggregation[priceOutput](),
 	).Await()
 	if err != nil {
+		runtime.Logger().Error(fmt.Sprintf("failed to get price: %v", err))
 		return "", fmt.Errorf("failed to get price: %w", err)
 	}
 	runtime.Logger().With().Info(fmt.Sprintf("Got price: %s, for feed: %s, at time: %d", totalPriceOutput.Price.String(), common.Bytes2Hex(totalPriceOutput.FeedID[:]), totalPriceOutput.Timestamp))

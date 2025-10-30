@@ -3,8 +3,8 @@ module main
 go 1.24.5
 
 require (
-	github.com/smartcontractkit/cre-sdk-go v0.8.0
-	github.com/smartcontractkit/cre-sdk-go/capabilities/scheduler/cron v0.8.0
+	github.com/smartcontractkit/cre-sdk-go v0.10.0
+	github.com/smartcontractkit/cre-sdk-go/capabilities/scheduler/cron v0.10.0
 )
 
 require (

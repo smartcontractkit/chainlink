@@ -63,14 +63,33 @@ var ProposeGatewayJob = operations.NewOperation[ProposeGatewayJobInput, ProposeG
 				return ProposeGatewayJobOutput{}, err
 			}
 
+			req := pkg.FetchNodesRequest{
+				Domain:  input.Domain,
+				Filters: []offchain.TargetDONFilter{filter},
+			}
+			ns, err := pkg.FetchNodesFromJD(deps.Env.GetContext(), deps.Env, req)
+			if err != nil {
+				return ProposeGatewayJobOutput{}, err
+			}
+
+			// make map of node id to node
+			m := make(map[string]*nodev1.Node, len(ns))
+			for _, n := range ns {
+				m[n.Id] = n
+			}
+
 			var members []pkg.TargetDONMember
 			for _, n := range nodes {
 				var found bool
 				for _, cc := range n.ChainConfigs {
 					if cc.Chain.Id == chainID && cc.Chain.Type == fam {
+						nodeName := n.NodeID
+						if matched, ok := m[n.NodeID]; ok {
+							nodeName = matched.Name
+						}
 						members = append(members, pkg.TargetDONMember{
 							Address: cc.AccountAddress,
-							Name:    fmt.Sprintf("DON %s - Node %s", ad.Name, n.NodeID),
+							Name:    fmt.Sprintf("%s (DON %s)", nodeName, ad.Name),
 						})
 						found = true
 
