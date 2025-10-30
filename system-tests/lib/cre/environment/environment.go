@@ -118,7 +118,7 @@ func SetupTestEnvironment(
 	}
 
 	if input.Provider.Type == infra.CRIB {
-		cribErr := crib.Bootstrap(input.Provider)
+		cribErr := crib.Bootstrap(ctx, input.Provider)
 		if cribErr != nil {
 			return nil, pkgerrors.Wrap(cribErr, "failed to bootstrap CRIB")
 		}
@@ -132,6 +132,7 @@ func SetupTestEnvironment(
 	fmt.Print(libformat.PurpleText("%s", input.StageGen.Wrap("Starting %d blockchain(s)", len(input.BlockchainsInput))))
 
 	deployedBlockchains, startErr := blockchains.Start(
+		ctx,
 		testLogger,
 		singleFileLogger,
 		input.BlockchainsInput,
@@ -230,7 +231,7 @@ func SetupTestEnvironment(
 
 	jdStartedFuture := queue.SubmitAny(func(ctx context.Context) (any, error) {
 		// TODO: pass context after we update the CTF to accept context, when creating new JD instance
-		jdOutput, startJDErr := StartJD(testLogger, *input.JdInput, input.Provider)
+		jdOutput, startJDErr := StartJD(ctx, testLogger, *input.JdInput, input.Provider)
 		if startJDErr != nil {
 			return nil, pkgerrors.Wrap(startJDErr, "failed to start Job Distributor")
 		}

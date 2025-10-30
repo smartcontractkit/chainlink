@@ -6,53 +6,78 @@ Slack: #topic-local-dev-environments
 ## Table of content
 
 1. [Using the CLI](#using-the-cli)
-   - [Prerequisites](#prerequisites-for-docker)
+   - [Installing the binary](#installing-the-binary)
+   - [Prerequisites (for Docker)](#prerequisites-for-docker)
+   - [Prerequisites For CRIB](#prerequisites-for-crib)
+   - [QUICKSTART](#quickstart)
    - [Setup](#setup)
    - [Start Environment](#start-environment)
-    - [Using Existing Docker plugins image](#using-existing-docker-plugins-image)
-    - [Beholder](#beholder)
-    - [Storage](#storage)
+      - [Using Existing Docker plugins image](#using-existing-docker-plugins-image)
+      - [Beholder](#beholder)
+      - [Storage](#storage)
+   - [Purging environment state](#purging-environment-state)
    - [Stop Environment](#stop-environment)
    - [Restart Environment](#restarting-the-environment)
+   - [Debugging core nodes](#debugging-core-nodes)
+   - [Debugging capabilities (mac)](#debugging-capabilities-mac)
+   - [Workflow Commands](#workflow-commands)
+   - [Further use](#further-use)
+   - [Advanced Usage](#advanced-usage)
+   - [Testing Billing](#testing-billing)
    - [DX Tracing](#dx-tracing)
 2. [Job Distributor Image](#job-distributor-image)
 3. [Example Workflows](#example-workflows)
-3. [Adding a New Standard Capability](#adding-a-new-standard-capability)
-    - [Capability Types](#capability-types)
-    - [Step 1: Define the Capability Flag](#step-1-define-the-capability-flag)
-    - [Step 2: Create the Capability Implementation](#step-2-create-the-capability-implementation)
-    - [Step 3: Optional Gateway Handler Configuration](#step-3-optional-gateway-handler-configuration)
-    - [Step 4: Optional Node Configuration Modifications](#step-4-optional-node-configuration-modifications)
-    - [Step 5: Add Default Configuration](#step-5-add-default-configuration)
-    - [Step 6: Register the Capability](#step-6-register-the-capability)
-    - [Step 7: Add to Environment Configurations](#step-7-add-to-environment-configurations)
-    - [Configuration Templates](#configuration-templates)
-    - [Important Notes](#important-notes)
+   - [Available Workflows](#available-workflows)
+   - [Deployable Example Workflows](#deployable-example-workflows)
+   - [Manual Workflow Deployment](#manual-workflow-deployment)
+4. [Adding a New Standard Capability](#adding-a-new-standard-capability)
+   - [Capability Types](#capability-types)
+   - [Step 1: Define the Capability Flag](#step-1-define-the-capability-flag)
+   - [Step 2: Create the Capability Implementation](#step-2-create-the-capability-implementation)
+   - [Step 3: Optional Gateway Handler Configuration](#step-3-optional-gateway-handler-configuration)
+   - [Step 4: Optional Node Configuration Modifications](#step-4-optional-node-configuration-modifications)
+   - [Step 5: Add Default Configuration](#step-5-add-default-configuration)
+   - [Step 6: Register the Capability](#step-6-register-the-capability)
+   - [Step 7: Add to Environment Configurations](#step-7-add-to-environment-configurations)
+   - [Configuration Templates](#configuration-templates)
+   - [Important Notes](#important-notes)
 5. [Multiple DONs](#multiple-dons)
-    - [Supported Capabilities](#supported-capabilities)
-    - [DON-level Capabilities](#don-level-capabilities)
-    - [Chain-level Capabilities](#chain-level-capabilities)
-    - [DON Types](#don-types)
-    - [TOML Configuration Structure](#toml-configuration-structure)
-    - [Example: Adding a New Topology](#example-adding-a-new-topology)
-    - [Configuration Modes](#configuration-modes)
-    - [Port Management](#port-management)
-    - [Important Notes](#important-notes)
+   - [Supported Capabilities](#supported-capabilities)
+   - [DON Types](#don-types)
+   - [TOML Configuration Structure](#toml-configuration-structure)
+   - [Example: Adding a New Topology](#example-adding-a-new-topology)
+   - [Configuration Modes](#configuration-modes)
+   - [Port Management](#port-management)
+   - [Important Notes](#important-notes-1)
 6. [Enabling Already Implemented Capabilities](#enabling-already-implemented-capabilities)
-    - [Available Configuration Files](#available-configuration-files)
-    - [Capability Types and Configuration](#capability-types-and-configuration)
-    - [DON-level Capabilities](#don-level-capabilities-1)
-    - [Chain-level Capabilities](#chain-level-capabilities-1)
-    - [Binary Requirements](#binary-requirements)
-    - [Enabling Capabilities in Your Topology](#enabling-capabilities-in-your-topology)
-    - [Configuration Examples](#configuration-examples)
-    - [Custom Capability Configuration](#custom-capability-configuration)
-    - [Important Notes](#important-notes-1)
-    - [Troubleshooting Capability Issues](#troubleshooting-capability-issues)
+   - [Available Configuration Files](#available-configuration-files)
+   - [Capability Types and Configuration](#capability-types-and-configuration)
+   - [Binary Requirements](#binary-requirements)
+   - [Enabling Capabilities in Your Topology](#enabling-capabilities-in-your-topology)
+   - [Configuration Examples](#configuration-examples)
+   - [Custom Capability Configuration](#custom-capability-configuration)
+   - [Important Notes](#important-notes-2)
+   - [Troubleshooting Capability Issues](#troubleshooting-capability-issues)
 7. [Binary Location and Naming](#binary-location-and-naming)
 8. [Hot swapping](#hot-swapping)
+   - [Chainlink nodes' Docker image](#chainlink-nodes-docker-image)
+   - [Capability binary](#capability-binary)
+   - [Automated Hot Swapping with fswatch](#automated-hot-swapping-with-fswatch)
 9. [Telemetry Configuration](#telemetry-configuration)
-10. [Troubleshooting](#troubleshooting)
+   - [OTEL Stack (OpenTelemetry)](#otel-stack-opentelemetry)
+   - [Chip Ingress (Beholder)](#chip-ingress-beholder)
+   - [Expected Error Messages](#expected-error-messages)
+10. [Using a Specific Docker Image for Chainlink Node](#using-a-specific-docker-image-for-chainlink-node)
+11. [Using Existing EVM & P2P Keys](#using-existing-evm--p2p-keys)
+12. [TRON Integration](#tron-integration)
+    - [How It Works](#how-it-works)
+    - [Example Configuration](#example-configuration)
+13. [Connecting to external/public blockchains](#connecting-to-externalpublic-blockchains)
+14. [Troubleshooting](#troubleshooting)
+    - [Chainlink Node Migrations Fail](#chainlink-node-migrations-fail)
+    - [Docker Image Not Found](#docker-image-not-found)
+    - [Docker fails to download public images](#docker-fails-to-download-public-images)
+    - [GH CLI is not installed](#gh-cli-is-not-installed)
 
 # Using the CLI
 
@@ -1434,6 +1459,44 @@ TRON blockchain support is integrated into the CRE environment by configuring TR
 ```
 
 ---
+
+## Connecting to external/public blockchains
+
+In order to connect to existing blockchains you need to take advantage of the "cached output" capability of the blockchain component. Assuming we want to connect to Sepolia via a public RPC we'd add the following bit to the TOML config:
+```toml
+[[blockchains]]
+  type = "anvil"           # type here doesn't really matter as long as it's a valid one
+  chain_id = "11155111"
+
+  [blockchains.out]
+    use_cache = true
+    type = "anvil"         # type here doesn't really matter as long as it's a valid one
+    family = "evm"
+    chain_id = "11155111"
+
+    [[blockchains.out.nodes]]
+      ws_url = "wss://sepolia.gateway.tenderly.co/<api-key>"
+      http_url = "https://sepolia.gateway.tenderly.co/<api-key>"
+      internal_ws_url = "wss://sepolia.gateway.tenderly.co/<api-key>"
+      internal_http_url = "https://sepolia.gateway.tenderly.co/<api-key>"
+```
+
+Now, unless you enable a chain capability for that chain, it won't be added to node TOML config. If you do want to use it anyway, without any capability accessing it you need to use `supported_evm_chains` key in a following way:
+```toml
+[[nodesets]]
+  nodes = 5
+  name = "workflow"
+  don_types = ["workflow", "gateway"]
+  override_mode = "each"
+  http_port_range_start = 10100
+
+  supported_evm_chains = [1337, 2337, 11155111]     # add all chains; ones used by capabilities and the extra chain
+```
+> Important! When using `supported_evm_chains` you need to add there ALL chains that the node will connect to. It will take precedence over chain capabilities.
+
+EVM keys will only be generated for a chain that either is referenced by any chain capabilities or which is present in the `supported_evm_chains` array.
+
+Check [workflow-don.toml](configs/workflow-don.toml) for an example.
 
 ## Troubleshooting
 
