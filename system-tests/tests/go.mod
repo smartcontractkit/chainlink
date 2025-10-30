@@ -67,7 +67,7 @@ require (
 	github.com/smartcontractkit/chainlink/system-tests/tests/regression/cre/evm/evmwrite-negative v0.0.0-20251008094352-f74459c46e8c
 	github.com/smartcontractkit/chainlink/system-tests/tests/regression/cre/http v0.0.0-20251008094352-f74459c46e8c
 	github.com/smartcontractkit/chainlink/system-tests/tests/smoke/cre/evm/evmread v0.0.0-20251008094352-f74459c46e8c
-	github.com/smartcontractkit/libocr v0.0.0-20251027221354-bdc84e1ed858
+	github.com/smartcontractkit/libocr v0.0.0-20251030123553-7ab819193353
 	github.com/stretchr/testify v1.11.1
 	golang.org/x/sync v0.17.0
 	google.golang.org/protobuf v1.36.10
