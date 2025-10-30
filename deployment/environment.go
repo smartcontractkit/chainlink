@@ -418,7 +418,6 @@ func ChainConfigsToOCRConfig(chainConfigs []*nodev1.ChainConfig) (map[chain_sele
 			transmitAccount = *chainConfig.AccountAddressPublicKey
 		}
 
-		fmt.Println("CHAINCONFIG ACCOUNT ADDRESS PUBKEY: ", chainConfig.AccountAddressPublicKey, chainConfig.AccountAddress)
 		selToOCRConfig[details] = OCRConfig{
 			OffchainPublicKey:         opk,
 			OnchainPublicKey:          pubkey,

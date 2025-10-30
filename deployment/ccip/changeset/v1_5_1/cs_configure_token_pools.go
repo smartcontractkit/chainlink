@@ -537,12 +537,12 @@ func configureTokenPool(
 
 		remoteTokenAddress, err := hex.DecodeString(strings.TrimPrefix(remoteTokenAddressStr, "0x"))
 		if err != nil {
-			return fmt.Errorf("failed to convert sui remoteTokenAddress to bytes")
+			return errors.New("failed to convert sui remoteTokenAddress to bytes")
 		}
 
 		remotePoolAddress, err := hex.DecodeString(strings.TrimPrefix(remotePoolAddressStr, "0x"))
 		if err != nil {
-			return fmt.Errorf("failed to convert sui remotePoolAddressStr to bytes")
+			return errors.New("failed to convert sui remotePoolAddressStr to bytes")
 		}
 
 		isSupportedChain, err := tokenPool.IsSupportedChain(&bind.CallOpts{Context: ctx}, remoteChainSelector)
@@ -562,22 +562,22 @@ func configureTokenPool(
 			}
 			var isRemotePoolSupported bool
 			for _, address := range configuredRemotePools {
-				if bytes.Equal(address, remotePoolAddress[:]) {
+				if bytes.Equal(address, remotePoolAddress) {
 					isRemotePoolSupported = true
 					break
 				}
 			}
 			// Check if the remote pool to-be-set is non-empty and not already configured on the token pool
-			if len(remotePoolAddress) <= 0 && !isRemotePoolSupported {
-				remotePoolAddressAdditions[remoteChainSelector] = common.LeftPadBytes(remotePoolAddress[:], 32)
+			if len(remotePoolAddress) == 0 && !isRemotePoolSupported {
+				remotePoolAddressAdditions[remoteChainSelector] = common.LeftPadBytes(remotePoolAddress, 32)
 			}
 		} else {
 			chainAdditions = append(chainAdditions, token_pool.TokenPoolChainUpdate{
 				RemoteChainSelector:       remoteChainSelector,
 				InboundRateLimiterConfig:  chainUpdate.RateLimiterConfig.Inbound,
 				OutboundRateLimiterConfig: chainUpdate.RateLimiterConfig.Outbound,
-				RemoteTokenAddress:        common.LeftPadBytes(remoteTokenAddress[:], 32),
-				RemotePoolAddresses:       [][]byte{common.LeftPadBytes(remotePoolAddress[:], 32)},
+				RemoteTokenAddress:        common.LeftPadBytes(remoteTokenAddress, 32),
+				RemotePoolAddresses:       [][]byte{common.LeftPadBytes(remotePoolAddress, 32)},
 			})
 		}
 	}
