@@ -239,3 +239,29 @@ func generateProposalIfMCMS(e cldf.Environment, chainSelector uint64, mcmsCfg *p
 
 	return cldf.ChangesetOutput{}, nil
 }
+
+type ExecuteConfig struct {
+	ChainSelector uint64
+	MCMS          *proposalutils.TimelockConfig
+	Chain         cldf_solana.Chain
+}
+
+func ExecuteIndividualInstructionsAndBuildProposals(e cldf.Environment, cfg ExecuteConfig, instructions []solana.Instruction, mcmsTxs []mcmsTypes.Transaction) (cldf.ChangesetOutput, error) {
+	for _, instruction := range instructions {
+		if err := cfg.Chain.Confirm([]solana.Instruction{instruction}); err != nil {
+			return cldf.ChangesetOutput{}, fmt.Errorf("failed to confirm instruction: %w", err)
+		}
+	}
+
+	if len(mcmsTxs) > 0 {
+		proposal, err := BuildProposalsForTxns(
+			e, cfg.ChainSelector, "proposal to OnboardTokenPoolsForSelfServe in Solana", cfg.MCMS.MinDelay, mcmsTxs)
+		if err != nil {
+			return cldf.ChangesetOutput{}, fmt.Errorf("failed to build proposal: %w", err)
+		}
+		return cldf.ChangesetOutput{
+			MCMSTimelockProposals: []mcms.TimelockProposal{*proposal},
+		}, nil
+	}
+	return cldf.ChangesetOutput{}, nil
+}

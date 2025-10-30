@@ -15,7 +15,6 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
 	solanastateview "github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview/solana"
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
-	"github.com/smartcontractkit/mcms"
 	mcmsTypes "github.com/smartcontractkit/mcms/types"
 )
 
@@ -41,12 +40,9 @@ func (cfg OnboardTokenPoolsForSelfServeConfig) Validate(e cldf.Environment, chai
 	if err := ValidateMCMSConfigSolana(e, cfg.MCMS, chain, chainState, solana.PublicKey{}, "", map[cldf.ContractType]bool{shared.Router: true}); err != nil {
 		return err
 	}
-
 	routerProgramAddress, _, _ := chainState.GetRouterInfo()
-
 	// Duplicate mint detection
 	seen := make(map[string]int, len(cfg.RegisterTokenConfigs))
-
 	for i, registerTokenConfig := range cfg.RegisterTokenConfigs {
 		mintStr := registerTokenConfig.TokenPubKey.String()
 		if firstIdx, dup := seen[mintStr]; dup {
@@ -72,7 +68,6 @@ func (cfg OnboardTokenPoolsForSelfServeConfig) Validate(e cldf.Environment, chai
 			}
 		}
 	}
-
 	return nil
 }
 
@@ -85,15 +80,13 @@ func OnboardTokenPoolsForSelfServe(e cldf.Environment, cfg OnboardTokenPoolsForS
 	if err != nil {
 		return cldf.ChangesetOutput{}, err
 	}
-
 	mcmsTxs := []mcmsTypes.Transaction{}
-
+	instructions := []solana.Instruction{}
 	for _, registerTokenConfig := range cfg.RegisterTokenConfigs {
 		instruction, err := generateProposeTokenAdminRegistryAdministratorIx(registerTokenConfig, routerState)
 		if err != nil {
 			return cldf.ChangesetOutput{}, err
 		}
-
 		// if the ccip admin is timelock, build mcms transaction
 		if cfg.MCMS != nil {
 			tx, err := BuildMCMSTxn(instruction, routerState.routerProgramID.String(), shared.Router)
@@ -103,25 +96,10 @@ func OnboardTokenPoolsForSelfServe(e cldf.Environment, cfg OnboardTokenPoolsForS
 			mcmsTxs = append(mcmsTxs, *tx)
 		} else {
 			// the ccip admin will always be deployer key if done without mcms
-			instructions := []solana.Instruction{instruction}
-			if err := routerState.chain.Confirm(instructions); err != nil {
-				return cldf.ChangesetOutput{}, fmt.Errorf("failed to confirm instructions: %w", err)
-			}
+			instructions = append(instructions, instruction)
 		}
 	}
-
-	if len(mcmsTxs) > 0 {
-		proposal, err := BuildProposalsForTxns(
-			e, cfg.ChainSelector, "proposal to OnboardTokenPoolsForSelfServe in Solana", cfg.MCMS.MinDelay, mcmsTxs)
-		if err != nil {
-			return cldf.ChangesetOutput{}, fmt.Errorf("failed to build proposal: %w", err)
-		}
-		return cldf.ChangesetOutput{
-			MCMSTimelockProposals: []mcms.TimelockProposal{*proposal},
-		}, nil
-	}
-
-	return cldf.ChangesetOutput{}, nil
+	return ExecuteIndividualInstructionsAndBuildProposals(e, ExecuteConfig{ChainSelector: cfg.ChainSelector, MCMS: cfg.MCMS, Chain: routerState.chain}, instructions, mcmsTxs)
 }
 
 func generateProposeTokenAdminRegistryAdministratorIx(registerTokenConfig OnboardTokenPoolConfig, routerState routerSolanaState) (solana.Instruction, error) {
@@ -129,7 +107,6 @@ func generateProposeTokenAdminRegistryAdministratorIx(registerTokenConfig Onboar
 	tokenAdminRegistryPDA, _, _ := solState.FindTokenAdminRegistryPDA(tokenPubKey, routerState.routerProgramID)
 	tokenAdminRegistryAdmin := registerTokenConfig.TokenAdminRegistryAdmin
 	var instruction solana.Instruction
-
 	// the ccip admin signs and makes tokenAdminRegistryAdmin the pending authority of the tokenAdminRegistry PDA, then they need to accept the role
 	if !registerTokenConfig.Override {
 		tempIx, err := solRouter.NewCcipAdminProposeAdministratorInstruction(
@@ -182,7 +159,6 @@ func loadRouterSolanaState(e cldf.Environment, cfg OnboardTokenPoolsForSelfServe
 	if err != nil {
 		return routerSolanaState{}, err
 	}
-
 	chainState, ok := state.SolChains[cfg.ChainSelector]
 	if !ok {
 		return routerSolanaState{}, fmt.Errorf("chain %d not found in environment", cfg.ChainSelector)
@@ -191,10 +167,8 @@ func loadRouterSolanaState(e cldf.Environment, cfg OnboardTokenPoolsForSelfServe
 	if err := cfg.Validate(e, chainState); err != nil {
 		return routerSolanaState{}, err
 	}
-
 	chain := e.BlockChains.SolanaChains()[cfg.ChainSelector]
 	routerProgramAddress, routerConfigPDA, _ := chainState.GetRouterInfo()
-
 	ccipAdmin := GetAuthorityForIxn(
 		&e,
 		chain,
@@ -203,7 +177,6 @@ func loadRouterSolanaState(e cldf.Environment, cfg OnboardTokenPoolsForSelfServe
 		solana.PublicKey{},
 		"",
 	)
-
 	return routerSolanaState{
 		chain:           chain,
 		routerProgramID: routerProgramAddress,
