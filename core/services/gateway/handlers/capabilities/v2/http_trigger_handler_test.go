@@ -1704,7 +1704,7 @@ func TestHttpTriggerHandler_HandleUserTriggerRequest_StopsRetriesOnQuorum(t *tes
 	mockDon := handlermocks.NewDON(t)
 	metadataHandler := createTestMetadataHandler(t)
 	userRateLimiter := createTestUserRateLimiter()
-	testMetrics := createTestMetrics(t)
+	testMetrics := createTestMetrics(t, donConfig)
 	handler := NewHTTPTriggerHandler(lggr, cfg, donConfig, mockDon, metadataHandler, userRateLimiter, testMetrics)
 	privateKey := createTestPrivateKey(t)
 	registerWorkflow(t, handler, workflowID, privateKey)
