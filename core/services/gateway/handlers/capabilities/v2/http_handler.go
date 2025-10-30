@@ -237,16 +237,17 @@ func (h *gatewayHandler) createHTTPRequestCallback(ctx context.Context, requestI
 			isHTTPReadError := errors.Is(err, network.ErrHTTPRead)
 			isExternalEndpointError := isHTTPSendError || isHTTPReadError
 
-			if isBlockedRequest {
+			switch {
+			case isBlockedRequest:
 				l.Warnw("HTTP request blocked", "requestID", requestID, "err", err)
 				h.metrics.IncrementBlockedRequestCount(ctx, h.lggr)
-			} else if isHTTPSendError {
+			case isHTTPSendError:
 				l.Warnw("error while sending HTTP request to external endpoint", "requestID", requestID, "err", err)
 				h.metrics.IncrementHTTPSendErrorCount(ctx, h.lggr)
-			} else if isHTTPReadError {
+			case isHTTPReadError:
 				l.Warnw("error while reading HTTP response from external endpoint", "requestID", requestID, "err", err)
 				h.metrics.IncrementHTTPReadErrorCount(ctx, h.lggr)
-			} else {
+			default:
 				l.Errorw("error while sending HTTP request", "requestID", requestID, "err", err)
 			}
 
