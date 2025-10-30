@@ -92,7 +92,6 @@ func CreateJobs(ctx context.Context, creEnv *cre.Environment, dons *cre.Dons, ga
 				return fmt.Errorf("failed to merge worker job specs: %w", mErr)
 			}
 		}
-
 	}
 
 	approveErr := jobs.Approve(ctx, creEnv.CldfEnvironment.Offchain, dons, specs)

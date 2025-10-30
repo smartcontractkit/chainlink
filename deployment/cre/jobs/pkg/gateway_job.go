@@ -57,7 +57,7 @@ func (g GatewayJob) Validate() error {
 
 	for _, port := range g.AllowedPorts {
 		if port < 1 || port > 65535 {
-			return errors.New("allowed port out of range: " + strconv.Itoa(int(port)))
+			return errors.New("allowed port out of range: " + strconv.Itoa(port))
 		}
 	}
 
