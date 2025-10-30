@@ -2198,7 +2198,6 @@ func createTestEngineForDonVersionTest(
 		LocalLimits:                       v2.EngineLimits{},
 		LocalLimiters:                     defaultTestConfig(t, nil).LocalLimiters,
 		GlobalExecutionConcurrencyLimiter: sLimiter,
-		GlobalExecutionRateLimiter:        defaultTestConfig(t, nil).GlobalExecutionRateLimiter,
 		BeholderEmitter:                   emitter,
 		WorkflowRegistryAddress:           "0xWorkflowRegistry",
 		WorkflowRegistryChainSelector:     "11155111",
