@@ -47,7 +47,7 @@ require (
 	github.com/smartcontractkit/chain-selectors v1.0.75
 	github.com/smartcontractkit/chainlink-aptos v0.0.0-20251027153600-2b072ff3618e
 	github.com/smartcontractkit/chainlink-automation v0.8.1
-	github.com/smartcontractkit/chainlink-ccip v0.1.1-solana.0.20251024071356-520275eaaf00
+	github.com/smartcontractkit/chainlink-ccip v0.1.1-solana.0.20251027185542-babb09e5363e
 	github.com/smartcontractkit/chainlink-ccip/chains/solana v0.0.0-20250912190424-fd2e35d7deb5
 	github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings v0.0.0-20250912190424-fd2e35d7deb5
 	github.com/smartcontractkit/chainlink-common v0.9.6-0.20251029135506-45658d23dc49
@@ -64,11 +64,11 @@ require (
 	github.com/smartcontractkit/chainlink-testing-framework/sentinel v0.1.2
 	github.com/smartcontractkit/chainlink-testing-framework/seth v1.51.2
 	github.com/smartcontractkit/chainlink-testing-framework/wasp v1.51.0
-	github.com/smartcontractkit/chainlink-ton v0.0.0-20251015181357-b635fc06e2ea
+	github.com/smartcontractkit/chainlink-ton v0.0.0-20251030131713-19a7f1535d30
 	github.com/smartcontractkit/libocr v0.0.0-20251027221354-bdc84e1ed858
 	github.com/smartcontractkit/mcms v0.29.0
 	github.com/smartcontractkit/quarantine v0.0.0-20250909213106-ece491bef618
-	github.com/spf13/cobra v1.9.1
+	github.com/spf13/cobra v1.10.1
 	github.com/stretchr/testify v1.11.1
 	github.com/subosito/gotenv v1.6.0
 	github.com/testcontainers/testcontainers-go v0.38.0
