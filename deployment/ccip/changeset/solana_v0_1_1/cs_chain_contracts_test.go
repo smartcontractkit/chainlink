@@ -851,7 +851,7 @@ func doTestTokenAdminRegistry(t *testing.T, mcms bool) {
 				cldf.CreateLegacyChangeSet(ccipChangesetSolana.TransferAdminRoleTokenAdminRegistry),
 				ccipChangesetSolana.TransferAdminRoleTokenAdminRegistryConfig{
 					ChainSelector: solChain,
-					TransferTokenAdminConfigs: []ccipChangesetSolana.TrasnferTokenAdminConfig{
+					TransferTokenAdminConfigs: []ccipChangesetSolana.TransferTokenAdminConfig{
 						{
 							TokenPubKey:               tokenAddress,
 							NewRegistryAdminPublicKey: newAdminNonTimelock.PublicKey(),
