@@ -462,10 +462,10 @@ func Test_CCIPTokenTransfer_EVM2SUI(t *testing.T) {
 			},
 		},
 		// Programmable token transfer
-		// can be thought of as two separate paths tokenPool release/mint + message ccip_recieve
-		// RecieverObjectIds = non empty (with clock & recieverStateValue)
+		// can be thought of as two separate paths tokenPool release/mint + message ccip_receive
+		// receiverObjectIds = non empty (with clock & receiverStateValue)
 		// token.Receiver = non empty(maybe EOA or object)
-		// message.Receiver = recieverPackageId
+		// message.Receiver = receiverPackageId
 		// extraArgs gasLimit > 0
 		{
 			Name:             "Send token to an Object",
