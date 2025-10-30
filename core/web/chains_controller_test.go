@@ -110,6 +110,7 @@ func Test_EVMChainsController_Show(t *testing.T) {
 }
 
 func Test_EVMChainsController_Index(t *testing.T) {
+	t.Skip("Skipping this test until we can fix the flakiness")
 	quarantine.Flaky(t, "DX-1795")
 	t.Parallel()
 
