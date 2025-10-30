@@ -34,6 +34,7 @@ const (
 	testPublicKey1       = "0x1234567890abcdef1234567890abcdef12345678"
 	testPublicKey2       = "0xabcdef1234567890abcdef1234567890abcdef12"
 	testPublicKey3       = "0xabcdef1234567890abcdef1234567890abcdefab"
+	F                    = 1
 )
 
 func createTestWorkflowMetadataHandler(t *testing.T) (*WorkflowMetadataHandler, *mocks.DON, *config.DONConfig) {
@@ -52,7 +53,7 @@ func createTestWorkflowMetadataHandler(t *testing.T) (*WorkflowMetadataHandler, 
 	cfg := WithDefaults(ServiceConfig{})
 	testMetrics, err := metrics.NewMetrics()
 	require.NoError(t, err)
-	handler := NewWorkflowMetadataHandler(lggr, cfg, mockDon, donConfig, testMetrics)
+	handler := NewWorkflowMetadataHandler(lggr, cfg, mockDon, donConfig, F, testMetrics)
 	return handler, mockDon, donConfig
 }
 
