@@ -122,7 +122,7 @@ func Test_CCIPTokenTransfer_Sui2EVM(t *testing.T) {
 			ChainSelector:  sourceChain,
 			TokenPackageId: state.SuiChains[sourceChain].LinkTokenAddress,
 			TreasuryCapId:  state.SuiChains[sourceChain].LinkTokenTreasuryCapId,
-			Amount:         1000000000, // 1Link with 1e9
+			Amount:         1500000000, // 1.5Link with 1e9
 		}),
 	})
 	require.NoError(t, err)
@@ -217,37 +217,12 @@ func Test_CCIPTokenTransfer_Sui2EVM(t *testing.T) {
 	}, suiBind.Object{Id: suiState[sourceChain].CCIPObjectRef}, destChain)
 	require.NoError(t, err, "Failed to get destination chain config")
 
-	t.Run("Send token to CCIP Receiver setting gas above max gas allowed - should fail", func(t *testing.T) {
-		msg := testhelpers.SuiSendRequest{
-			Receiver:  common.LeftPadBytes(ccipReceiverAddress.Bytes(), 32), // left-pad 20-byte address up to 32 bytes to make it compatible with evm
-			Data:      []byte("Hello, World!"),
-			FeeToken:  outputMap.Objects.MintedLinkTokenObjectId,
-			ExtraArgs: testhelpers.MakeBCSEVMExtraArgsV2(big.NewInt(int64(suiFeeQuoterDestChainConfig.MaxPerMsgGasLimit+10)), false),
-			TokenAmounts: []testhelpers.SuiTokenAmount{
-				{
-					Token:  outputMapTransferToken2.Objects.MintedLinkTokenObjectId,
-					Amount: 1e9,
-				},
-			}}
-
-		baseOpts := []ccipclient.SendReqOpts{
-			ccipclient.WithSourceChain(sourceChain),
-			ccipclient.WithDestChain(destChain),
-			ccipclient.WithTestRouter(false),
-			ccipclient.WithMessage(msg),
-		}
-
-		_, err := testhelpers.SendRequest(e.Env, state, baseOpts...)
-		assertSuiSourceRevertExpectedError(t, err, "transaction failed with error", "function_name: Some(\"resolve_generic_gas_limit\") }, 18)")
-		t.Log("Expected error: ", err)
-	})
-
 	t.Run("Send invalid token to CCIP Receiver - should fail", func(t *testing.T) {
 		msg := testhelpers.SuiSendRequest{
 			Receiver:  common.LeftPadBytes(ccipReceiverAddress.Bytes(), 32), // left-pad 20-byte address up to 32 bytes to make it compatible with evm
 			Data:      []byte("Hello, World!"),
 			FeeToken:  outputMap.Objects.MintedLinkTokenObjectId,
-			ExtraArgs: testhelpers.MakeBCSEVMExtraArgsV2(big.NewInt(int64(suiFeeQuoterDestChainConfig.MaxPerMsgGasLimit)+1), false),
+			ExtraArgs: testhelpers.MakeBCSEVMExtraArgsV2(big.NewInt(int64(suiFeeQuoterDestChainConfig.MaxPerMsgGasLimit)), false),
 			TokenAmounts: []testhelpers.SuiTokenAmount{
 				{
 					Token:  "0x0",
@@ -264,6 +239,31 @@ func Test_CCIPTokenTransfer_Sui2EVM(t *testing.T) {
 
 		_, err := testhelpers.SendRequest(e.Env, state, baseOpts...)
 		assertSuiSourceRevertExpectedError(t, err, "failed to resolve CallArg at index 2", "failed to resolve UnresolvedObject 0x0000000000000000000000000000000000000000000000000000000000000000")
+		t.Log("Expected error: ", err)
+	})
+
+	t.Run("Send token to CCIP Receiver setting gas above max gas allowed - should fail", func(t *testing.T) {
+		msg := testhelpers.SuiSendRequest{
+			Receiver:  common.LeftPadBytes(ccipReceiverAddress.Bytes(), 32), // left-pad 20-byte address up to 32 bytes to make it compatible with evm
+			Data:      []byte("Hello, World!"),
+			FeeToken:  outputMap.Objects.MintedLinkTokenObjectId,
+			ExtraArgs: testhelpers.MakeBCSEVMExtraArgsV2(big.NewInt(int64(suiFeeQuoterDestChainConfig.MaxPerMsgGasLimit+10)), false),
+			TokenAmounts: []testhelpers.SuiTokenAmount{
+				{
+					Token:  outputMapTransferToken2.Objects.MintedLinkTokenObjectId,
+					Amount: 1500000000,
+				},
+			}}
+
+		baseOpts := []ccipclient.SendReqOpts{
+			ccipclient.WithSourceChain(sourceChain),
+			ccipclient.WithDestChain(destChain),
+			ccipclient.WithTestRouter(false),
+			ccipclient.WithMessage(msg),
+		}
+
+		_, err := testhelpers.SendRequest(e.Env, state, baseOpts...)
+		assertSuiSourceRevertExpectedError(t, err, "transaction failed with error", "function_name: Some(\"resolve_generic_gas_limit\") }, 18)")
 		t.Log("Expected error: ", err)
 	})
 
