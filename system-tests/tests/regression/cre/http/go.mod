@@ -2,11 +2,10 @@ module github.com/smartcontractkit/chainlink/system-tests/tests/regression/cre/h
 
 go 1.24.5
 
-toolchain go1.25.3
-
 require (
-	github.com/smartcontractkit/cre-sdk-go v0.6.0
-	github.com/smartcontractkit/cre-sdk-go/capabilities/networking/http v0.6.0
+	github.com/smartcontractkit/cre-sdk-go v0.10.0
+	github.com/smartcontractkit/cre-sdk-go/capabilities/networking/http v0.10.0
+	google.golang.org/protobuf v1.36.8
 	gopkg.in/yaml.v3 v3.0.1
 )
 
@@ -17,5 +16,4 @@ require (
 	github.com/shopspring/decimal v1.4.0 // indirect
 	github.com/smartcontractkit/chainlink-protos/cre/go v0.0.0-20251021010742-3f8d3dba17d8 // indirect
 	github.com/stretchr/testify v1.11.1 // indirect
-	google.golang.org/protobuf v1.36.8 // indirect
 )

@@ -38,11 +38,6 @@ type donNotifier struct {
 	subscribers sync.Map
 }
 
-type subscriber struct {
-	ch      chan capabilities.DON
-	deleted atomic.Bool
-}
-
 func NewDonNotifier() *donNotifier {
 	return &donNotifier{}
 }
@@ -52,14 +47,10 @@ func (n *donNotifier) NotifyDonSet(don capabilities.DON) {
 
 	// Broadcast the new DON to all subscriber channels.
 	n.subscribers.Range(func(key, _ any) bool {
-		s := key.(*subscriber)
-
-		if s.deleted.Load() {
-			return true
-		}
+		s := key.(chan capabilities.DON)
 
 		select {
-		case s.ch <- don:
+		case s <- don:
 		default:
 		}
 
@@ -76,20 +67,18 @@ func (n *donNotifier) Subscribe(ctx context.Context) (<-chan capabilities.DON, f
 	}
 
 	// Buffered so as not to block.
-	s := &subscriber{ch: make(chan capabilities.DON, 1)}
+	s := make(chan capabilities.DON, 1)
 	unsubscribe := func() {
-		s.deleted.Store(true)
 		n.subscribers.Delete(s)
-		close(s.ch)
 	}
 
 	n.subscribers.Store(s, struct{}{})
 
 	if n.don.Load() != nil {
-		s.ch <- *n.don.Load()
+		s <- *n.don.Load()
 	}
 
-	return s.ch, unsubscribe, nil
+	return s, unsubscribe, nil
 }
 
 func (n *donNotifier) WaitForDon(ctx context.Context) (capabilities.DON, error) {

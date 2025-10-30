@@ -47,22 +47,22 @@ require (
 	github.com/shopspring/decimal v1.4.0
 	github.com/smartcontractkit/chainlink-automation v0.8.1
 	github.com/smartcontractkit/chainlink-ccip v0.1.1-solana.0.20251024071356-520275eaaf00
-	github.com/smartcontractkit/chainlink-common v0.9.6-0.20251028192540-2ac3c24aa883
+	github.com/smartcontractkit/chainlink-common v0.9.6-0.20251029135506-45658d23dc49
 	github.com/smartcontractkit/chainlink-data-streams v0.1.6
-	github.com/smartcontractkit/chainlink-deployments-framework v0.56.0
+	github.com/smartcontractkit/chainlink-deployments-framework v0.59.1
 	github.com/smartcontractkit/chainlink-evm v0.3.4-0.20251029010119-b2ed6162042f
 	github.com/smartcontractkit/chainlink-evm/gethwrappers v0.0.0-20251022075638-49d961001d1b
 	github.com/smartcontractkit/chainlink-protos/cre/go v0.0.0-20251021010742-3f8d3dba17d8
 	github.com/smartcontractkit/chainlink-protos/job-distributor v0.17.0
-	github.com/smartcontractkit/chainlink-testing-framework/framework v0.11.2
-	github.com/smartcontractkit/chainlink-testing-framework/framework/components/dockercompose v0.1.16
+	github.com/smartcontractkit/chainlink-testing-framework/framework v0.11.6
+	github.com/smartcontractkit/chainlink-testing-framework/framework/components/dockercompose v0.1.17
 	github.com/smartcontractkit/chainlink-testing-framework/lib v1.54.5
 	github.com/smartcontractkit/chainlink-testing-framework/seth v1.51.2
 	github.com/smartcontractkit/chainlink/core/scripts/cre/environment/examples/workflows/v1/proof-of-reserve/cron-based v0.0.0-20251020210257-0a6ec41648b4
 	github.com/smartcontractkit/chainlink/core/scripts/cre/environment/examples/workflows/v1/proof-of-reserve/web-trigger-based v0.0.0-20251020210257-0a6ec41648b4
 	github.com/smartcontractkit/chainlink/system-tests/lib v0.0.0-20251020210257-0a6ec41648b4
 	github.com/smartcontractkit/cre-sdk-go/capabilities/scheduler/cron v0.8.0
-	github.com/smartcontractkit/libocr v0.0.0-20251027221354-bdc84e1ed858
+	github.com/smartcontractkit/libocr v0.0.0-20251030123553-7ab819193353
 	github.com/spf13/cobra v1.9.1
 	github.com/spf13/pflag v1.0.10
 	github.com/spf13/viper v1.21.0
@@ -511,7 +511,7 @@ require (
 	github.com/smartcontractkit/freeport v0.1.3-0.20250716200817-cb5dfd0e369e // indirect
 	github.com/smartcontractkit/grpc-proxy v0.0.0-20240830132753-a7e17fec5ab7 // indirect
 	github.com/smartcontractkit/mcms v0.29.0 // indirect
-	github.com/smartcontractkit/smdkg v0.0.0-20251028194008-216027277fe7 // indirect
+	github.com/smartcontractkit/smdkg v0.0.0-20251029093710-c38905e58aeb // indirect
 	github.com/smartcontractkit/tdh2/go/ocr2/decryptionplugin v0.0.0-20241009055228-33d0c0bf38de // indirect
 	github.com/smartcontractkit/tdh2/go/tdh2 v0.0.0-20250624150019-e49f7e125e6b // indirect
 	github.com/smartcontractkit/wsrpc v0.8.5-0.20250502134807-c57d3d995945 // indirect
