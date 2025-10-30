@@ -41,9 +41,18 @@ func (cfg OnboardTokenPoolsForSelfServeConfig) Validate(e cldf.Environment, chai
 	if err := ValidateMCMSConfigSolana(e, cfg.MCMS, chain, chainState, solana.PublicKey{}, "", map[cldf.ContractType]bool{shared.Router: true}); err != nil {
 		return err
 	}
+
 	routerProgramAddress, _, _ := chainState.GetRouterInfo()
 
-	for _, registerTokenConfig := range cfg.RegisterTokenConfigs {
+	// Duplicate mint detection
+	seen := make(map[string]int, len(cfg.RegisterTokenConfigs))
+
+	for i, registerTokenConfig := range cfg.RegisterTokenConfigs {
+		mintStr := registerTokenConfig.TokenPubKey.String()
+		if firstIdx, dup := seen[mintStr]; dup {
+			return fmt.Errorf("duplicate token mint %s found at indexes %d and %d", mintStr, firstIdx, i)
+		}
+		seen[mintStr] = i
 		if registerTokenConfig.TokenAdminRegistryAdmin.IsZero() {
 			return errors.New("token admin registry admin is required")
 		}
@@ -53,12 +62,13 @@ func (cfg OnboardTokenPoolsForSelfServeConfig) Validate(e cldf.Environment, chai
 		}
 		tokenAdminRegistryPDA, _, err := solState.FindTokenAdminRegistryPDA(tokenPubKey, routerProgramAddress)
 		if err != nil {
-			return fmt.Errorf("failed to find token admin registry pda (mint: %s, router: %s): %w", tokenPubKey.String(), routerProgramAddress.String(), err)
+			return fmt.Errorf("failed to find token admin registry pda (mint: %s, router: %s): %w",
+				mintStr, routerProgramAddress.String(), err)
 		}
 		var tokenAdminRegistryAccount solCommon.TokenAdminRegistry
 		if err := chain.GetAccountDataBorshInto(context.Background(), tokenAdminRegistryPDA, &tokenAdminRegistryAccount); err == nil {
 			if !registerTokenConfig.Override {
-				return fmt.Errorf("token admin registry already exists for (mint: %s, router: %s)", tokenPubKey.String(), routerProgramAddress.String())
+				return fmt.Errorf("token admin registry already exists for (mint: %s, router: %s)", mintStr, routerProgramAddress.String())
 			}
 		}
 	}
