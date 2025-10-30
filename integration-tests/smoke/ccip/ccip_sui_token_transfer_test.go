@@ -462,7 +462,7 @@ func Test_CCIPTokenTransfer_EVM2SUI(t *testing.T) {
 			},
 		},
 		// Programmable token transfer
-		// can be thought of as two seperate paths tokenPool release/mint + message ccip_recieve
+		// can be thought of as two separate paths tokenPool release/mint + message ccip_recieve
 		// RecieverObjectIds = non empty (with clock & recieverStateValue)
 		// token.Receiver = non empty(maybe EOA or object)
 		// message.Receiver = recieverPackageId
@@ -617,5 +617,4 @@ func Test_CCIPTokenTransfer_EVM2SUI(t *testing.T) {
 		require.Contains(t, err.Error(), "execution reverted")
 		t.Log("Expected error: ", err)
 	})
-
 }

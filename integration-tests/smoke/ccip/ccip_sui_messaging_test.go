@@ -546,6 +546,7 @@ func Test_CCIP_Messaging_EVM2Sui(t *testing.T) {
 	})
 }
 
+// Test is no-op for now
 // Set MsgVisibilityInterval super low
 // Send 5 CCIPSend msgs with invalid receiver
 // Send additional 2 more msgs with valid receiver
