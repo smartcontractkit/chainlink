@@ -124,7 +124,7 @@ func (s *Blockchain) ToCldfChain() (cldf_chain.BlockChain, error) {
 	}, nil
 }
 
-func (s *Deployer) Deploy(input *blockchain.Input) (blockchains.Blockchain, error) {
+func (s *Deployer) Deploy(ctx context.Context, input *blockchain.Input) (blockchains.Blockchain, error) {
 	if s.provider.IsCRIB() {
 		return nil, errors.New("CRIB deployment for Solana is not supported yet")
 	}
@@ -134,7 +134,7 @@ func (s *Deployer) Deploy(input *blockchain.Input) (blockchains.Blockchain, erro
 		return nil, pkgerrors.Wrap(err, "failed to init Solana input")
 	}
 
-	bcOut, err := blockchain.NewBlockchainNetwork(input)
+	bcOut, err := blockchain.NewWithContext(ctx, input)
 	if err != nil {
 		return nil, pkgerrors.Wrapf(err, "failed to deploy blockchain %s chainID: %s", input.Type, input.ChainID)
 	}

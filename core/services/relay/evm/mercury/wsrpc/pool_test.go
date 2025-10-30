@@ -78,7 +78,7 @@ func Test_Pool(t *testing.T) {
 			require.IsType(t, &clientCheckout{}, c)
 
 			conn := c.(*clientCheckout).connection
-			require.Equal(t, conn.Client, client)
+			require.Equal(t, conn.client, client)
 
 			assert.Len(t, conn.checkouts, 1)
 			assert.Same(t, lggr, conn.lggr)
@@ -92,8 +92,8 @@ func Test_Pool(t *testing.T) {
 				require.NoError(t, err)
 
 				assert.Len(t, conn.checkouts, 0)
-				require.IsType(t, nil, conn.Client)
-				assert.Nil(t, conn.Client)
+				require.IsType(t, nil, conn.client)
+				assert.Nil(t, conn.client)
 				assert.True(t, client.closed)
 			})
 		})
@@ -138,37 +138,37 @@ func Test_Pool(t *testing.T) {
 			assert.Same(t, conn1, c2.(*clientCheckout).connection)
 			assert.Same(t, conn1, c3.(*clientCheckout).connection)
 			assert.Len(t, conn1.checkouts, 3)
-			assert.True(t, conn1.Client.(*mockClient).started)
+			assert.True(t, conn1.client.(*mockClient).started)
 
 			conn2 := c4.(*clientCheckout).connection
 			assert.NotEqual(t, conn1, conn2)
 			assert.Len(t, conn2.checkouts, 1)
-			assert.True(t, conn2.Client.(*mockClient).started)
+			assert.True(t, conn2.client.(*mockClient).started)
 
 			conn3 := c5.(*clientCheckout).connection
 			assert.NotEqual(t, conn1, conn3)
 			assert.NotEqual(t, conn2, conn3)
 			assert.Same(t, conn3, c6.(*clientCheckout).connection)
 			assert.Len(t, conn3.checkouts, 2)
-			assert.True(t, conn3.Client.(*mockClient).started)
+			assert.True(t, conn3.client.(*mockClient).started)
 
 			require.NoError(t, c1.Close())
 			assert.Len(t, conn1.checkouts, 2)
-			assert.NotNil(t, conn1.Client)
+			assert.NotNil(t, conn1.client)
 			assert.Len(t, p.connections, 2)
 			assert.Len(t, p.connections[serverURLs[0]], 2)
 			assert.Len(t, p.connections[serverURLs[1]], 1)
 
 			require.NoError(t, c2.Close())
 			assert.Len(t, conn1.checkouts, 1)
-			assert.NotNil(t, conn1.Client)
+			assert.NotNil(t, conn1.client)
 			assert.Len(t, p.connections, 2)
 			assert.Len(t, p.connections[serverURLs[0]], 2)
 			assert.Len(t, p.connections[serverURLs[1]], 1)
 
 			require.NoError(t, c3.Close())
 			assert.Len(t, conn1.checkouts, 0)
-			assert.Nil(t, conn1.Client)
+			assert.Nil(t, conn1.client)
 			assert.Len(t, p.connections, 2)
 			assert.Len(t, p.connections[serverURLs[0]], 1)
 			assert.Len(t, p.connections[serverURLs[1]], 1)
@@ -179,7 +179,7 @@ func Test_Pool(t *testing.T) {
 			assert.Len(t, conn1.checkouts, 0) // actually, conn1 has already been removed from the map and will be garbage collected
 			conn4 := c7.(*clientCheckout).connection
 			assert.Len(t, conn4.checkouts, 1)
-			assert.NotNil(t, conn4.Client)
+			assert.NotNil(t, conn4.client)
 			assert.Len(t, p.connections, 2)
 			assert.Len(t, p.connections[serverURLs[0]], 2)
 			assert.Len(t, p.connections[serverURLs[1]], 1)

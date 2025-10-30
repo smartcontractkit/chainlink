@@ -5,10 +5,10 @@ go 1.24.5
 toolchain go1.25.3
 
 require (
-	github.com/ethereum/go-ethereum v1.16.2
-	github.com/smartcontractkit/cre-sdk-go v0.8.0
-	github.com/smartcontractkit/cre-sdk-go/capabilities/blockchain/evm v0.8.0
-	github.com/smartcontractkit/cre-sdk-go/capabilities/scheduler/cron v0.8.0
+	github.com/ethereum/go-ethereum v1.16.4
+	github.com/smartcontractkit/cre-sdk-go v0.10.0
+	github.com/smartcontractkit/cre-sdk-go/capabilities/blockchain/evm v0.10.0
+	github.com/smartcontractkit/cre-sdk-go/capabilities/scheduler/cron v0.10.0
 	gopkg.in/yaml.v3 v3.0.1
 )
 
@@ -23,7 +23,7 @@ require (
 	github.com/smartcontractkit/chainlink-protos/cre/go v0.0.0-20251021010742-3f8d3dba17d8 // indirect
 	github.com/stretchr/testify v1.11.1 // indirect
 	golang.org/x/crypto v0.41.0 // indirect
-	golang.org/x/sys v0.35.0 // indirect
+	golang.org/x/sys v0.36.0 // indirect
 	google.golang.org/protobuf v1.36.8 // indirect
 	gopkg.in/check.v1 v1.0.0-20201130134442-10cb98267c6c // indirect
 )
