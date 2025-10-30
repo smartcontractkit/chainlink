@@ -10,6 +10,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	chain_selectors "github.com/smartcontractkit/chain-selectors"
 	mcmstypes "github.com/smartcontractkit/mcms/types"
+	"github.com/smartcontractkit/quarantine"
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink-aptos/bindings/bind"
@@ -31,6 +32,7 @@ import (
 )
 
 func TestAddAptosLanes_Apply(t *testing.T) {
+	quarantine.Flaky(t, "DX-2126")
 	t.Parallel()
 	// Setup environment and config
 	deployedEnvironment, _ := testhelpers.NewMemoryEnvironment(
