@@ -18,7 +18,7 @@ import (
 	mcmsTypes "github.com/smartcontractkit/mcms/types"
 )
 
-var _ cldf.ChangeSet[OnboardTokenPoolsForSelfServeConfig] = OnboardTokenPoolForSelfServe
+var _ cldf.ChangeSet[OnboardTokenPoolsForSelfServeConfig] = OnboardTokenPoolsForSelfServe
 
 type OnboardTokenPoolConfig struct {
 	TokenPubKey             solana.PublicKey
@@ -65,11 +65,11 @@ func (cfg OnboardTokenPoolsForSelfServeConfig) Validate(e cldf.Environment, chai
 	return nil
 }
 
-// OnboardTokenPoolForSelfServe registers a token admin registry for a given token and initializes the token pool in CLL Token Pool Program.
+// OnboardTokenPoolsForSelfServe registers a token admin registry for a given token and initializes the token pool in CLL Token Pool Program.
 // This changeset is used when the owner of the token pool doesn't have the mint authority over the token, but they want to self serve.
 // So, this changeset includes the minimum configuration that CCIP Admin needs to do in the Token Admin Registry and in the Token Pool Program
-func OnboardTokenPoolForSelfServe(e cldf.Environment, cfg OnboardTokenPoolsForSelfServeConfig) (cldf.ChangesetOutput, error) {
-	e.Logger.Infow("OnboardTokenPoolForSelfServe", "cfg", cfg)
+func OnboardTokenPoolsForSelfServe(e cldf.Environment, cfg OnboardTokenPoolsForSelfServeConfig) (cldf.ChangesetOutput, error) {
+	e.Logger.Infow("OnboardTokenPoolsForSelfServe", "cfg", cfg)
 	state, err := stateview.LoadOnchainState(e)
 	if err != nil {
 		return cldf.ChangesetOutput{}, err
@@ -163,7 +163,7 @@ func OnboardTokenPoolForSelfServe(e cldf.Environment, cfg OnboardTokenPoolsForSe
 
 	if len(mcmsTxs) > 0 {
 		proposal, err := BuildProposalsForTxns(
-			e, cfg.ChainSelector, "proposal to OnboardTokenPoolForSelfServe in Solana", cfg.MCMS.MinDelay, mcmsTxs)
+			e, cfg.ChainSelector, "proposal to OnboardTokenPoolsForSelfServe in Solana", cfg.MCMS.MinDelay, mcmsTxs)
 		if err != nil {
 			return cldf.ChangesetOutput{}, fmt.Errorf("failed to build proposal: %w", err)
 		}
