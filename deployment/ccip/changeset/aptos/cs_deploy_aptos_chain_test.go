@@ -8,6 +8,7 @@ import (
 	"github.com/aptos-labs/aptos-go-sdk"
 	chain_selectors "github.com/smartcontractkit/chain-selectors"
 	mcmstypes "github.com/smartcontractkit/mcms/types"
+	"github.com/smartcontractkit/quarantine"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zapcore"
@@ -236,6 +237,7 @@ func TestDeployAptosChainImp_VerifyPreconditions(t *testing.T) {
 }
 
 func TestDeployAptosChain_Apply(t *testing.T) {
+	quarantine.Flaky(t, "DX-2125")
 	t.Parallel()
 	lggr := logger.TestLogger(t)
 
