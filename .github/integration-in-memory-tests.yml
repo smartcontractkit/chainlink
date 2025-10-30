@@ -821,7 +821,7 @@ runner-test-matrix:
     triggers:
       - PR Integration CCIP Tests
       - Nightly Integration CCIP Tests
-    test_cmd: go test ./smoke/ccip -run "Test_CCIPTokenTransfer_EVM2SUI" -timeout 15m -test.parallel=1 -count=1 -json
+    test_cmd: go test ./smoke/ccip -run "Test_CCIPTokenTransfer_EVM2SUI" -timeout 10m -test.parallel=1 -count=1 -json
     test_go_project_path: integration-tests
     sui_cli_version: mainnet-1.57.2
     install_plugins_public: true
