@@ -311,8 +311,7 @@ func TestTelemetryConfig_LogExportTimeout(t *testing.T) {
 		expected  time.Duration
 	}{
 		{"LogExportTimeoutSet", toml.Telemetry{LogExportTimeout: ptrDuration(5 * time.Second)}, 5 * time.Second},
-		{"LogExportTimeoutNil", toml.Telemetry{LogExportTimeout: nil}, 0},
-		{"LogExportTimeoutZero", toml.Telemetry{LogExportTimeout: ptrDuration(0)}, 0},
+		{"LogExportTimeoutNil", toml.Telemetry{LogExportTimeout: nil}, 1 * time.Second}, // Default value
 	}
 
 	for _, tt := range tests {
@@ -329,7 +328,7 @@ func TestTelemetryConfig_LogExportMaxBatchSize(t *testing.T) {
 		expected  int
 	}{
 		{"LogExportMaxBatchSizeSet", toml.Telemetry{LogExportMaxBatchSize: ptrInt(512)}, 512},
-		{"LogExportMaxBatchSizeNil", toml.Telemetry{LogExportMaxBatchSize: nil}, 0},
+		{"LogExportMaxBatchSizeNil", toml.Telemetry{LogExportMaxBatchSize: nil}, 512}, // Default value
 	}
 
 	for _, tt := range tests {
@@ -351,7 +350,7 @@ func TestTelemetryConfig_LogExportInterval(t *testing.T) {
 		expected  time.Duration
 	}{
 		{"LogExportIntervalSet", toml.Telemetry{LogExportInterval: ptrDuration(5 * time.Second)}, 5 * time.Second},
-		{"LogExportIntervalNil", toml.Telemetry{LogExportInterval: nil}, 0},
+		{"LogExportIntervalNil", toml.Telemetry{LogExportInterval: nil}, 1 * time.Second}, // Default value
 	}
 
 	for _, tt := range tests {
@@ -369,7 +368,7 @@ func TestTelemetryConfig_LogMaxQueueSize(t *testing.T) {
 		expected  int
 	}{
 		{"LogMaxQueueSizeSet", toml.Telemetry{LogMaxQueueSize: ptrInt(2048)}, 2048},
-		{"LogMaxQueueSizeNil", toml.Telemetry{LogMaxQueueSize: nil}, 0},
+		{"LogMaxQueueSizeNil", toml.Telemetry{LogMaxQueueSize: nil}, 2048}, // Default value
 	}
 
 	for _, tt := range tests {

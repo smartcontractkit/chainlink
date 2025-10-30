@@ -619,7 +619,7 @@ func TestConfig_Marshal(t *testing.T) {
 		LogBatchProcessor:             ptr(true),
 		LogExportTimeout:              commoncfg.MustNewDuration(1 * time.Second),
 		LogExportMaxBatchSize:         ptr[int](512),
-		LogExportInterval:             ptrDuration(5 * time.Second),
+		LogExportInterval:             ptrDuration(1 * time.Second),
 		LogMaxQueueSize:               ptrInt(2048),
 	}
 	full.CRE = toml.CreConfig{

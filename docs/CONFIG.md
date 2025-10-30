@@ -2442,7 +2442,6 @@ LogMaxQueueSize = 2048 # Default
 ```
 LogMaxQueueSize sets the maximum queue size used by the batcher
 
-
 ## Telemetry.ResourceAttributes
 ```toml
 [Telemetry.ResourceAttributes]
