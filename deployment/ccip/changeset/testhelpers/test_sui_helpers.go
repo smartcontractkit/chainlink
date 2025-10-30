@@ -43,12 +43,13 @@ import (
 )
 
 type SuiSendRequest struct {
-	Receiver      []byte
-	Data          []byte
-	ExtraArgs     []byte
-	FeeToken      string
-	FeeTokenStore string
-	TokenAmounts  []SuiTokenAmount
+	Receiver         []byte
+	Data             []byte
+	ExtraArgs        []byte
+	FeeToken         string
+	FeeTokenStore    string
+	TokenAmounts     []SuiTokenAmount
+	TokenReceiverATA []byte
 }
 
 type SuiTokenAmount struct {
@@ -230,12 +231,12 @@ func SendSuiCCIPRequest(e cldf.Environment, cfg *ccipclient.CCIPSendReqConfig) (
 
 		// For SUI -> EVM BurnMint Pool token Transfer, we can use msg.Receiver as tokenReceiver, this field is only used in usdc token pool
 		// bc we need to check the recipient with Circle's packages from the onramp side before sending USDC. and it's not used anyway else.
-		decodedTokenReceiver, _ := hex.DecodeString("0000000000000000000000000000000000000000000000000000000000000000")
-		var tokenReceiver [32]byte
-		copy(tokenReceiver[:], decodedTokenReceiver)
+		// decodedTokenReceiver, _ := hex.DecodeString("0000000000000000000000000000000000000000000000000000000000000000")
+		// var tokenReceiver [32]byte
+		// copy(tokenReceiver[:], decodedTokenReceiver)
 
 		paramValues := []any{
-			decodedTokenReceiver,
+			msg.TokenReceiverATA,
 		}
 
 		onRampCreateTokenTransferParamsCall, err := ccipStateHelperContract.EncodeCallArgsWithGenerics(

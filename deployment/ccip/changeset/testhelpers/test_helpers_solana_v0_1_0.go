@@ -1950,6 +1950,7 @@ func Transfer(
 	useTestRouter bool,
 	data, extraArgs []byte,
 	feeToken string,
+	tokenReceiverATA []byte,
 ) (*ccipclient.AnyMsgSentEvent, map[uint64]*uint64) {
 	startBlocks := make(map[uint64]*uint64)
 
@@ -2002,11 +2003,12 @@ func Transfer(
 		}
 	case chainsel.FamilySui:
 		msg = SuiSendRequest{
-			Data:         data,
-			Receiver:     common.LeftPadBytes(receiver, 32),
-			ExtraArgs:    extraArgs,
-			FeeToken:     feeToken,
-			TokenAmounts: tokens.([]SuiTokenAmount),
+			Data:             data,
+			Receiver:         common.LeftPadBytes(receiver, 32),
+			ExtraArgs:        extraArgs,
+			FeeToken:         feeToken,
+			TokenAmounts:     tokens.([]SuiTokenAmount),
+			TokenReceiverATA: common.LeftPadBytes(tokenReceiverATA, 32),
 		}
 	default:
 		t.Errorf("unsupported source chain: %v", family)
@@ -2106,7 +2108,7 @@ func TransferMultiple(
 			}
 
 			msg, blocks := Transfer(
-				ctx, t, env, state, tt.SourceChain, tt.DestChain, tokens, tt.Receiver, tt.UseTestRouter, tt.Data, tt.ExtraArgs, tt.FeeToken)
+				ctx, t, env, state, tt.SourceChain, tt.DestChain, tokens, tt.Receiver, tt.UseTestRouter, tt.Data, tt.ExtraArgs, tt.FeeToken, tt.TokenReceiverATA)
 			if _, ok := expectedExecutionStates[pairId]; !ok {
 				expectedExecutionStates[pairId] = make(map[uint64]int)
 			}
