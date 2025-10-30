@@ -36,13 +36,13 @@ require (
 	github.com/sethvargo/go-retry v0.2.4
 	github.com/smartcontractkit/ccip-contract-examples/chains/evm v0.0.0-20250826190403-aed7f5f33cde
 	github.com/smartcontractkit/ccip-owner-contracts v0.1.0
-	github.com/smartcontractkit/chain-selectors v1.0.75
+	github.com/smartcontractkit/chain-selectors v1.0.77
 	github.com/smartcontractkit/chainlink-aptos v0.0.0-20251027153600-2b072ff3618e
 	github.com/smartcontractkit/chainlink-ccip v0.1.1-solana.0.20251024071356-520275eaaf00
 	github.com/smartcontractkit/chainlink-ccip/chains/solana v0.0.0-20250912190424-fd2e35d7deb5
 	github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings v0.0.0-20250912190424-fd2e35d7deb5
 	github.com/smartcontractkit/chainlink-common v0.9.6-0.20251029135506-45658d23dc49
-	github.com/smartcontractkit/chainlink-deployments-framework v0.59.1
+	github.com/smartcontractkit/chainlink-deployments-framework v0.59.2-0.20251030215617-29427ff07928
 	github.com/smartcontractkit/chainlink-evm v0.3.4-0.20251029010119-b2ed6162042f
 	github.com/smartcontractkit/chainlink-evm/gethwrappers v0.0.0-20251022075638-49d961001d1b
 	github.com/smartcontractkit/chainlink-framework/multinode v0.0.0-20251021173435-e86785845942
@@ -52,7 +52,7 @@ require (
 	github.com/smartcontractkit/chainlink-solana v1.1.2-0.20251020193713-b63bc17bfeb1
 	github.com/smartcontractkit/chainlink-sui v0.0.0-20251029234211-ed9dc839af35
 	github.com/smartcontractkit/chainlink-sui/deployment v0.0.0-20251029234211-ed9dc839af35
-	github.com/smartcontractkit/chainlink-testing-framework/framework v0.11.3
+	github.com/smartcontractkit/chainlink-testing-framework/framework v0.11.7-0.20251030214303-643ac7de75e0
 	github.com/smartcontractkit/chainlink-testing-framework/lib v1.54.5
 	github.com/smartcontractkit/chainlink-ton v0.0.0-20251015181357-b635fc06e2ea
 	github.com/smartcontractkit/chainlink-ton/deployment v0.0.0-20251015181357-b635fc06e2ea
