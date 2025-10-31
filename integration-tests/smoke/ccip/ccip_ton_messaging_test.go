@@ -229,9 +229,8 @@ func Test_CCIPMessaging_EVM2TON_BatchCommit(t *testing.T) {
 		"dest", destChain,
 	)
 
-	// setup lane (TON destination automatically gets EnforceOutOfOrder=true and proper gas prices)
-	err = testhelpers.AddLaneWithDefaultPricesAndFeeQuoterConfig(t, &e, state, sourceChain, destChain, false)
-	require.NoError(t, err)
+	// connect a single lane, source to dest
+	testhelpers.AddLaneWithEnforceOutOfOrder(t, &e, state, sourceChain, destChain, false)
 
 	// wait for event filter registration
 	t.Logf("Waiting for event filter registration (~2 mins)...")
@@ -270,10 +269,10 @@ func Test_CCIPMessaging_EVM2TON_BatchCommit(t *testing.T) {
 			Nonce:                  nil, // TON nonce check is skipped
 			Receiver:               receiverBytes,
 			MsgData:                fmt.Appendf(nil, "batch message %d", numMessages),
-			ExtraArgs:              testhelpers.MakeEVMExtraArgsV2(100000, false),
+			ExtraArgs:              testhelpers.MakeEVMExtraArgsV2(100000, true),
 			ExpectedExecutionState: testhelpers.EXECUTION_STATE_SUCCESS,
-			NumberOfMessages:       numMessages, // Send 5 messages
-			UseMulticall3:          true,        // Use Multicall3 for batch sending
+			NumberOfMessages:       numMessages,
+			UseMulticall3:          true, // Send all messages in single transaction
 		},
 	)
 
