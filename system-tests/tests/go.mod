@@ -46,13 +46,13 @@ require (
 	github.com/smartcontractkit/chain-selectors v1.0.77
 	github.com/smartcontractkit/chainlink-common v0.9.6-0.20251029135506-45658d23dc49
 	github.com/smartcontractkit/chainlink-data-streams v0.1.6
-	github.com/smartcontractkit/chainlink-deployments-framework v0.59.2-0.20251030215617-29427ff07928
+	github.com/smartcontractkit/chainlink-deployments-framework v0.60.2-0.20251031175009-b86af4221954
 	github.com/smartcontractkit/chainlink-evm/gethwrappers v0.0.0-20251022075638-49d961001d1b
 	github.com/smartcontractkit/chainlink-protos/cre/go v0.0.0-20251021010742-3f8d3dba17d8
 	github.com/smartcontractkit/chainlink-protos/job-distributor v0.17.0
 	github.com/smartcontractkit/chainlink-protos/workflows/go v0.0.0-20251025021331-aa7746850cc4
 	github.com/smartcontractkit/chainlink-solana v1.1.2-0.20251020193713-b63bc17bfeb1
-	github.com/smartcontractkit/chainlink-testing-framework/framework v0.11.7-0.20251030214303-643ac7de75e0
+	github.com/smartcontractkit/chainlink-testing-framework/framework v0.11.7-0.20251031174334-4ed2dc0fad12
 	github.com/smartcontractkit/chainlink-testing-framework/framework/components/fake v0.10.0
 	github.com/smartcontractkit/chainlink-testing-framework/havoc v1.50.7
 	github.com/smartcontractkit/chainlink-testing-framework/lib v1.54.5
