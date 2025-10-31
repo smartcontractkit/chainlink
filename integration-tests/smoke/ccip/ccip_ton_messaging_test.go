@@ -236,9 +236,8 @@ func Test_CCIPMessaging_EVM2TON_BatchCommit(t *testing.T) {
 		"dest", destChain,
 	)
 
-	// setup lane
-	err = testhelpers.AddLaneWithDefaultPricesAndFeeQuoterConfig(t, &e, state, sourceChain, destChain, false)
-	require.NoError(t, err)
+	// setup lane with EnforceOutOfOrder=true (required when MultipleReportsEnabled=true)
+	testhelpers.AddLaneWithEnforceOutOfOrder(t, &e, state, sourceChain, destChain, false)
 
 	// wait for event filter registration
 	t.Logf("Waiting for event filter registration (~2 mins)...")
