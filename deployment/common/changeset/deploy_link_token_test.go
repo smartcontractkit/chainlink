@@ -8,7 +8,6 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 
-	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	"github.com/smartcontractkit/chainlink-deployments-framework/engine/test/environment"
 	"github.com/smartcontractkit/chainlink-deployments-framework/engine/test/runtime"
@@ -33,7 +32,8 @@ func TestDeployLinkToken(t *testing.T) {
 	)
 	require.NoError(t, err)
 
-	addrs := rt.State().DataStore.Addresses().Filter(datastore.AddressRefByChainSelector(selector))
+	addrs, err := rt.State().AddressBook.AddressesForChain(selector)
+	require.NoError(t, err)
 
 	state, err := commonState.MaybeLoadLinkTokenChainState(chain, addrs)
 	require.NoError(t, err)
@@ -62,7 +62,8 @@ func TestDeployLinkTokenZk(t *testing.T) {
 	)
 	require.NoError(t, err)
 
-	addrs := rt.State().DataStore.Addresses().Filter(datastore.AddressRefByChainSelector(selector))
+	addrs, err := rt.State().AddressBook.AddressesForChain(selector)
+	require.NoError(t, err)
 
 	state, err := commonState.MaybeLoadLinkTokenChainState(chain, addrs)
 	require.NoError(t, err)

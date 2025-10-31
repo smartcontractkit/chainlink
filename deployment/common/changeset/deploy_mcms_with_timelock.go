@@ -30,22 +30,48 @@ import (
 
 // migrateAddressBookWithQualifiers migrates an address book to a data store,
 // applying custom qualifiers from MCMS configs when available
-func migrateAddressBookWithQualifiers(ds *datastore.MemoryDataStore, cfgByChain map[uint64]types.MCMSWithTimelockConfigV2) {
-	for _, ref := range ds.Addresses().Filter() {
+func migrateAddressBookWithQualifiers(ab cldf.AddressBook, cfgByChain map[uint64]types.MCMSWithTimelockConfigV2) (datastore.MutableDataStore, error) {
+	addrs, err := ab.Addresses()
+	if err != nil {
+		return nil, err
+	}
+
+	ds := datastore.NewMemoryDataStore()
+
+	for chainSelector, chainAddresses := range addrs {
 		// Get the qualifier for this chain from the config
 		qualifier := ""
-		if cfg, exists := cfgByChain[ref.ChainSelector]; exists && cfg.Qualifier != nil && *cfg.Qualifier != "" {
+		if cfg, exists := cfgByChain[chainSelector]; exists && cfg.Qualifier != nil && *cfg.Qualifier != "" {
 			qualifier = *cfg.Qualifier
 		}
 
-		// If we have a custom qualifier for this chain, use it for MCMS contracts
-		if qualifier != "" && isMCMSContract(string(ref.Type)) {
-			ref.Qualifier = qualifier
-		} else {
-			// Use the original auto-generated qualifier for other contracts
-			ref.Qualifier = fmt.Sprintf("%s-%s", ref.Address, ref.Type)
+		for addr, typever := range chainAddresses {
+			ref := datastore.AddressRef{
+				ChainSelector: chainSelector,
+				Address:       addr,
+				Type:          datastore.ContractType(typever.Type),
+				Version:       &typever.Version,
+			}
+
+			// If we have a custom qualifier for this chain, use it for MCMS contracts
+			if qualifier != "" && isMCMSContract(string(typever.Type)) {
+				ref.Qualifier = qualifier
+			} else {
+				// Use the original auto-generated qualifier for other contracts
+				ref.Qualifier = fmt.Sprintf("%s-%s", addr, typever.Type)
+			}
+
+			// If the address book has labels, we need to add them to the addressRef
+			if !typever.Labels.IsEmpty() {
+				ref.Labels = datastore.NewLabelSet(typever.Labels.List()...)
+			}
+
+			if err = ds.Addresses().Add(ref); err != nil {
+				return nil, fmt.Errorf("failed to add address %s: %w", addr, err)
+			}
 		}
 	}
+	return ds, nil
 }
 
 // isMCMSContract checks if a contract type is part of the MCMS system
@@ -77,7 +103,7 @@ var (
 func DeployMCMSWithTimelockV2(
 	env cldf.Environment, cfgByChain map[uint64]types.MCMSWithTimelockConfigV2,
 ) (cldf.ChangesetOutput, error) {
-	ds := datastore.NewMemoryDataStore()
+	newAddresses := cldf.NewMemoryAddressBook()
 
 	eg := xerrgroup.Group{}
 	mu := sync.Mutex{}
@@ -113,7 +139,7 @@ func DeployMCMSWithTimelockV2(
 				if s != nil {
 					chainstate = s[chainSel]
 				}
-				reports, err := evminternal.DeployMCMSWithTimelockContractsEVM(env, env.BlockChains.EVMChains()[chainSel], ds, cfg, chainstate)
+				reports, err := evminternal.DeployMCMSWithTimelockContractsEVM(env, env.BlockChains.EVMChains()[chainSel], newAddresses, cfg, chainstate)
 				mu.Lock()
 				allReports = append(allReports, reports...)
 				mu.Unlock()
@@ -124,7 +150,7 @@ func DeployMCMSWithTimelockV2(
 				// this is not used in CLD as we need to dynamically resolve the artifacts to deploy these contracts
 				// we did not want to add the artifact resolution logic here, so we instead deploy using ccip/changeset/solana/cs_deploy_chain.go
 				// for in memory tests, programs and state are pre-loaded, so we use this function via testhelpers.TransferOwnershipSolana
-				_, err := solanaMCMS.DeployMCMSWithTimelockProgramsSolana(env, env.BlockChains.SolanaChains()[chainSel], ds, cfg)
+				_, err := solanaMCMS.DeployMCMSWithTimelockProgramsSolana(env, env.BlockChains.SolanaChains()[chainSel], newAddresses, cfg)
 				return err
 
 			default:
@@ -134,10 +160,13 @@ func DeployMCMSWithTimelockV2(
 	}
 	err := eg.Wait()
 	if err != nil {
-		return cldf.ChangesetOutput{Reports: allReports, DataStore: ds}, err
+		return cldf.ChangesetOutput{Reports: allReports, AddressBook: newAddresses}, err
 	}
-	migrateAddressBookWithQualifiers(ds, cfgByChain)
-	return cldf.ChangesetOutput{Reports: allReports, DataStore: ds}, nil
+	ds, err := migrateAddressBookWithQualifiers(newAddresses, cfgByChain)
+	if err != nil {
+		return cldf.ChangesetOutput{Reports: allReports, AddressBook: newAddresses}, fmt.Errorf("failed to migrate address book to data store: %w", err)
+	}
+	return cldf.ChangesetOutput{Reports: allReports, AddressBook: newAddresses, DataStore: ds}, nil
 }
 
 type GrantRoleInput struct {

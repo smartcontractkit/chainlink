@@ -15,7 +15,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 
-	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
+	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	"github.com/smartcontractkit/chainlink-deployments-framework/engine/test/environment"
 
 	solanaMCMS "github.com/smartcontractkit/chainlink/deployment/common/changeset/solana/mcms"
@@ -39,8 +39,8 @@ func TestMCMSWithTimelockState_GenerateMCMSWithTimelockViewSolana(t *testing.T) 
 	chain := env.BlockChains.SolanaChains()[selector]
 
 	defaultState := func() *state.MCMSWithTimelockStateSolana {
-		ds := datastore.NewMemoryDataStore()
-		mcmsState, err := solanaMCMS.DeployMCMSWithTimelockProgramsSolana(*env, chain, ds,
+		addressBook := cldf.NewMemoryAddressBook()
+		mcmsState, err := solanaMCMS.DeployMCMSWithTimelockProgramsSolana(*env, chain, addressBook,
 			commontypes.MCMSWithTimelockConfigV2{
 				Proposer: mcmstypes.Config{
 					Quorum:  1,
@@ -58,8 +58,7 @@ func TestMCMSWithTimelockState_GenerateMCMSWithTimelockViewSolana(t *testing.T) 
 			},
 		)
 		require.NoError(t, err)
-		ds.Merge(env.DataStore)
-		env.DataStore = ds.Seal()
+		env.ExistingAddresses = addressBook
 		return mcmsState
 	}
 

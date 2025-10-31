@@ -9,7 +9,6 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 
-	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
 	evmstate "github.com/smartcontractkit/chainlink/deployment/common/changeset/state"
@@ -83,7 +82,10 @@ func ValidatePreConditions(e cldf.Environment, cfg GrantMintRoleAndMintConfig) e
 func GrantMintRoleAndMintLogic(e cldf.Environment, cfg GrantMintRoleAndMintConfig) (cldf.ChangesetOutput, error) {
 	chain := e.BlockChains.EVMChains()[cfg.Selector]
 
-	addresses := e.DataStore.Addresses().Filter(datastore.AddressRefByChainSelector(cfg.Selector))
+	addresses, err := evmstate.AddressesForChain(e, cfg.Selector, "")
+	if err != nil {
+		return cldf.ChangesetOutput{}, fmt.Errorf("failed to get addresses for chain: %w", err)
+	}
 
 	linkState, err := evmstate.MaybeLoadLinkTokenChainState(chain, addresses)
 	if err != nil {

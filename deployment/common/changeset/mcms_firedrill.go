@@ -11,7 +11,6 @@ import (
 	mcmstypes "github.com/smartcontractkit/mcms/types"
 
 	cldf_chain "github.com/smartcontractkit/chainlink-deployments-framework/chain"
-	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 
 	"github.com/smartcontractkit/chainlink/deployment/common/changeset/state"
@@ -30,7 +29,10 @@ func buildNoOPEVM(e cldf.Environment, selector uint64) (mcmstypes.Transaction, e
 		return mcmstypes.Transaction{}, nil
 	}
 
-	addresses := e.DataStore.Addresses().Filter(datastore.AddressRefByChainSelector(selector))
+	addresses, err := e.ExistingAddresses.AddressesForChain(selector)
+	if err != nil {
+		return mcmstypes.Transaction{}, err
+	}
 	state, err := state.MaybeLoadMCMSWithTimelockChainState(chain, addresses)
 	if err != nil {
 		return mcmstypes.Transaction{}, err
@@ -94,7 +96,10 @@ func MCMSSignFireDrillChangeset(e cldf.Environment, cfg FireDrillConfig) (cldf.C
 		switch family {
 		case chainsel.FamilyEVM:
 
-			addresses := e.DataStore.Addresses().Filter(datastore.AddressRefByChainSelector(selector))
+			addresses, err := e.ExistingAddresses.AddressesForChain(selector)
+			if err != nil {
+				return cldf.ChangesetOutput{}, err
+			}
 			state, err := state.MaybeLoadMCMSWithTimelockChainState(e.BlockChains.EVMChains()[selector], addresses)
 			if err != nil {
 				return cldf.ChangesetOutput{}, err
