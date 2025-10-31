@@ -43,6 +43,7 @@ type ClientRequest struct {
 	totalErrorCount   int
 	responseReceived  map[p2ptypes.PeerID]bool
 	lggr              logger.Logger
+	comparator        *payloadComparator
 
 	requiredIdenticalResponses int
 	remoteNodeCount            int
@@ -195,6 +196,7 @@ func newClientRequest(ctx context.Context, lggr logger.Logger, requestID string,
 		errorCount:                 make(map[string]int),
 		responseReceived:           responseReceived,
 		responseCh:                 make(chan clientResponse, 1),
+		comparator:                 NewPayloadComparator(logger.Named(lggr, "PayloadComparator")),
 		wg:                         &wg,
 		lggr:                       lggr,
 	}, nil
@@ -302,7 +304,7 @@ func (c *ClientRequest) OnMessage(_ context.Context, msg *types.MessageBody) err
 		// metering values are extracted from the CapabilityResponse, added to an array, and the CapabilityResponse
 		// is marshalled without the metering value to get the hash. each node could have a different metering value
 		// which would result in different hashes. removing the metering detail allows for direct comparison of results.
-		responseID, metadata, err := c.getMessageHashAndMetadata(msg)
+		responseID, metadata, err := GetMessageHashAndMetadata(c.lggr, msg)
 		if err != nil {
 			return fmt.Errorf("failed to get message hash: %w", err)
 		}
@@ -326,8 +328,16 @@ func (c *ClientRequest) OnMessage(_ context.Context, msg *types.MessageBody) err
 		c.responseIDCount[responseID]++
 		c.meteringResponses[responseID] = nodeReports
 
+		c.comparator.Compare(msg)
+
 		if len(c.responseIDCount) > 1 {
 			lggr.Warnw("received multiple unique responses for the same request", "count for responseID", len(c.responseIDCount))
+
+			uniqueIDs := make([]string, 0, len(c.responseIDCount))
+			for hash, count := range c.responseIDCount {
+				uniqueIDs = append(uniqueIDs, fmt.Sprintf("%s (count: %d)", hex.EncodeToString(hash[:]), count))
+			}
+			lggr.Errorw("Response disagreement detected", "uniqueResponseIDs", uniqueIDs)
 		}
 
 		if c.responseIDCount[responseID] == c.requiredIdenticalResponses {
@@ -367,7 +377,18 @@ func (c *ClientRequest) sendResponse(response clientResponse) {
 	c.lggr.Debugw("received OK response")
 }
 
-func (c *ClientRequest) getMessageHashAndMetadata(msg *types.MessageBody) ([32]byte, commoncap.ResponseMetadata, error) {
+func (c *ClientRequest) encodePayloadWithMetadata(msg *types.MessageBody, metadata commoncap.ResponseMetadata) ([]byte, error) {
+	resp, err := pb.UnmarshalCapabilityResponse(msg.Payload)
+	if err != nil {
+		return nil, err
+	}
+
+	resp.Metadata = metadata
+
+	return pb.MarshalCapabilityResponse(resp)
+}
+
+func GetMessageHashAndMetadata(lggr logger.Logger, msg *types.MessageBody) ([32]byte, commoncap.ResponseMetadata, error) {
 	var metadata commoncap.ResponseMetadata
 
 	resp, err := pb.UnmarshalCapabilityResponse(msg.Payload)
@@ -384,15 +405,4 @@ func (c *ClientRequest) getMessageHashAndMetadata(msg *types.MessageBody) ([32]b
 	}
 
 	return sha256.Sum256(payload), metadata, nil
-}
-
-func (c *ClientRequest) encodePayloadWithMetadata(msg *types.MessageBody, metadata commoncap.ResponseMetadata) ([]byte, error) {
-	resp, err := pb.UnmarshalCapabilityResponse(msg.Payload)
-	if err != nil {
-		return nil, err
-	}
-
-	resp.Metadata = metadata
-
-	return pb.MarshalCapabilityResponse(resp)
 }

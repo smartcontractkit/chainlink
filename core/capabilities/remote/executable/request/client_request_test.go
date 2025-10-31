@@ -19,6 +19,8 @@ import (
 	"github.com/smartcontractkit/chainlink-protos/workflows/go/events"
 
 	"google.golang.org/protobuf/proto"
+	"google.golang.org/protobuf/types/known/anypb"
+	"google.golang.org/protobuf/types/known/wrapperspb"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/remote/executable/request"
@@ -699,6 +701,111 @@ func Test_ClientRequest_MessageValidation(t *testing.T) {
 			assert.Equal(t, delays[i-1]+1000, delays[i], "delays should increment by 1000ms")
 		}
 	})
+}
+
+func TestPayloadComparator_DivergenceLogging(t *testing.T) {
+	lggr, obs := logger.TestObserved(t, zapcore.DebugLevel)
+	comparator := request.NewPayloadComparator(lggr)
+
+	md := commoncap.ResponseMetadata{
+		CapDON_N: 10,
+	}
+	msgA := createMessageBody(t, 0x41, 5, md) // Content byte at index 5 is 'A' (0x41)
+	msgB := createMessageBody(t, 0x42, 5, md) // Content byte at index 5 is 'B' (0x42)
+
+	comparator.Compare(msgA)
+	assert.Equal(t,
+		obs.FilterMessage("Comparator stored first unique response payload.").Len(),
+		1,
+	)
+
+	comparator.Compare(msgB)
+
+	assert.Equal(t,
+		obs.FilterMessage("Divergent response hash detected. Running detailed payload comparison.").Len(),
+		1,
+		"Did not log the start of divergence check.",
+	)
+
+	filtered := obs.FilterFieldKey("byte_diff_report")
+	assert.Equal(t,
+		filtered.Len(),
+		1,
+		"Did not log the byte difference report.",
+	)
+}
+
+func TestGetMessageHashAndMetadata_IgnoresMetadataDiff(t *testing.T) {
+	lggr := logger.Test(t)
+
+	// Create two messages with identical core payload but different metadata
+	msg1 := createMessageBody(t, 0x41, 5, commoncap.ResponseMetadata{
+		CapDON_N: 10,
+	})
+	msg2 := createMessageBody(t, 0x41, 5, commoncap.ResponseMetadata{
+		CapDON_N: 10,
+		Metering: []commoncap.MeteringNodeDetail{
+			{
+				SpendUnit: "foo",
+			},
+		},
+	})
+
+	hash1, _, err1 := request.GetMessageHashAndMetadata(lggr, msg1)
+	require.NoError(t, err1, "getMessageHashAndMetadata should not return an error for msg1")
+
+	hash2, _, err2 := request.GetMessageHashAndMetadata(lggr, msg2)
+	require.NoError(t, err2, "getMessageHashAndMetadata should not return an error for msg2")
+
+	assert.Equal(t, hash1, hash2, "Hashes must be identical when only ResponseMetadata differs, proving metadata was successfully stripped before hashing.")
+}
+
+// Verify that modifying the underlying value of anypb payload can identify
+// differences at a known index.
+func Test_createAnyPayload(t *testing.T) {
+	content := []byte("this is a test payload content.")
+	payloadA := createAnyPayload(t, content, 0x41, 5)
+	payloadB := createAnyPayload(t, content, 0x42, 5)
+	rawA, rawB := payloadA.GetValue(), payloadB.GetValue()
+
+	diffIndex := -1
+	for i := 0; i < len(rawA) && i < len(rawB); i++ {
+		if rawA[i] != rawB[i] {
+			diffIndex = i
+			break
+		}
+	}
+	require.Equal(t, 5, diffIndex, "The two inner payloads must differ for this test to be valid.")
+}
+
+func createAnyPayload(t *testing.T, payloadData []byte, uniqueByte byte, uniqueIndex int) *anypb.Any {
+	payloadData[uniqueIndex] = uniqueByte
+	innerPayload := wrapperspb.BytesValue{Value: payloadData}
+	anyPayload, err := anypb.New(&innerPayload)
+	require.NoError(t, err)
+	return anyPayload
+}
+
+func createMessageBody(t *testing.T, uniqueByte byte, uniqueIndex int, md commoncap.ResponseMetadata) *types.MessageBody {
+	anyPayload := createAnyPayload(t, []byte("this is a test message"), uniqueByte, uniqueIndex)
+
+	// Create the CapabilityResponse wrapper
+	capResp := commoncap.CapabilityResponse{
+		Payload: anyPayload,
+		Metadata: commoncap.ResponseMetadata{
+			CapDON_N: md.CapDON_N,
+			Metering: md.Metering,
+		},
+	}
+
+	marshaledCapResp, err := pb.MarshalCapabilityResponse(capResp)
+	require.NoError(t, err)
+
+	return &types.MessageBody{
+		MessageId:    []byte("test-request-1"),
+		Payload:      marshaledCapResp,
+		CapabilityId: "test-cap",
+	}
 }
 
 func capabilityDon(t *testing.T, numCapabilityPeers int, f uint8) ([]p2ptypes.PeerID, commoncap.DON, commoncap.CapabilityInfo) {
