@@ -364,8 +364,8 @@ func SetupTestEnvironment(
 	fmt.Print(libformat.PurpleText("%s", input.StageGen.Wrap("Creating Jobs with Job Distributor")))
 
 	// Retry gateway job creation with delays to allow nodes to sync registry
-	const maxRetries = 3
-	const retryDelay = 5 * time.Second
+	const maxRetries = 10
+	const retryDelay = 10 * time.Second
 	var gJobErr error
 	for attempt := 0; attempt < maxRetries; attempt++ {
 		if attempt > 1 {
