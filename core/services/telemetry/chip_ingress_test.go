@@ -12,26 +12,50 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/synchronization"
 )
 
-// MockEmitter is a mock implementation of the Emitter interface
-type MockEmitter struct {
+// MockChipIngressService is a mock implementation of the ChipIngressService interface
+type MockChipIngressService struct {
 	mock.Mock
 }
 
-func (m *MockEmitter) Emit(ctx context.Context, body []byte, attrKVs ...any) error {
-	args := m.Called(ctx, body, attrKVs)
+func (m *MockChipIngressService) Start(ctx context.Context) error {
+	args := m.Called(ctx)
+	return args.Error(0)
+}
+
+func (m *MockChipIngressService) Close() error {
+	args := m.Called()
+	return args.Error(0)
+}
+
+func (m *MockChipIngressService) Send(ctx context.Context, telemetry []byte, contractID string, telemType synchronization.TelemetryType, chainSelector uint64, domain string, entity string) {
+	m.Called(ctx, telemetry, contractID, telemType, chainSelector, domain, entity)
+}
+
+func (m *MockChipIngressService) HealthReport() map[string]error {
+	args := m.Called()
+	return args.Get(0).(map[string]error)
+}
+
+func (m *MockChipIngressService) Name() string {
+	args := m.Called()
+	return args.String(0)
+}
+
+func (m *MockChipIngressService) Ready() error {
+	args := m.Called()
 	return args.Error(0)
 }
 
 func TestNewChipIngressAdapter(t *testing.T) {
 	t.Run("Success - Ethereum Mainnet", func(t *testing.T) {
-		mockEmitter := new(MockEmitter)
+		mockTelemService := new(MockChipIngressService)
 		lggr := logger.TestLogger(t)
 		chainID := "1"
 		network := "EVM"
 		contractID := "0x1234"
 		telemType := synchronization.OCR2Median
 
-		adapter, err := NewChipIngressAdapter(network, chainID, contractID, telemType, mockEmitter, lggr)
+		adapter, err := NewChipIngressAgent(mockTelemService, network, chainID, contractID, telemType, lggr)
 		require.NoError(t, err)
 		require.NotNil(t, adapter)
 
@@ -47,10 +71,10 @@ func TestNewChipIngressAdapter(t *testing.T) {
 	})
 
 	t.Run("Success - Polygon", func(t *testing.T) {
-		mockEmitter := new(MockEmitter)
+		mockTelemService := new(MockChipIngressService)
 		lggr := logger.TestLogger(t)
 
-		adapter, err := NewChipIngressAdapter("EVM", "137", "0xabc", synchronization.OCR3CCIPCommit, mockEmitter, lggr)
+		adapter, err := NewChipIngressAgent(mockTelemService, "EVM", "137", "0xabc", synchronization.OCR3CCIPCommit, lggr)
 		require.NoError(t, err)
 
 		// Verify chain selector was derived correctly (Polygon)
@@ -64,50 +88,50 @@ func TestNewChipIngressAdapter(t *testing.T) {
 	})
 
 	t.Run("Success - Arbitrum One", func(t *testing.T) {
-		mockEmitter := new(MockEmitter)
+		mockTelemService := new(MockChipIngressService)
 		lggr := logger.TestLogger(t)
 
-		adapter, err := NewChipIngressAdapter("EVM", "42161", "0xdef", synchronization.OCR2CCIPExec, mockEmitter, lggr)
+		adapter, err := NewChipIngressAgent(mockTelemService, "EVM", "42161", "0xdef", synchronization.OCR2CCIPExec, lggr)
 		require.NoError(t, err)
 
 		// Verify chain selector was derived correctly (Arbitrum One)
 		assert.Equal(t, uint64(4949039107694359620), adapter.ChainSelector)
 	})
 
-	t.Run("Error - nil emitter", func(t *testing.T) {
+	t.Run("Error - nil telemetry service", func(t *testing.T) {
 		lggr := logger.TestLogger(t)
 
-		adapter, err := NewChipIngressAdapter("EVM", "1", "0x1234", synchronization.OCR2Median, nil, lggr)
+		adapter, err := NewChipIngressAgent(nil, "EVM", "1", "0x1234", synchronization.OCR2Median, lggr)
 		require.Error(t, err)
 		assert.Nil(t, adapter)
-		assert.Contains(t, err.Error(), "beholder emitter cannot be nil")
+		assert.Contains(t, err.Error(), "telemetry service cannot be nil")
 	})
 
 	t.Run("Error - invalid chainID", func(t *testing.T) {
-		mockEmitter := new(MockEmitter)
+		mockTelemService := new(MockChipIngressService)
 		lggr := logger.TestLogger(t)
 
-		adapter, err := NewChipIngressAdapter("EVM", "1234567890123456", "0x1234", synchronization.OCR2Median, mockEmitter, lggr)
+		adapter, err := NewChipIngressAgent(mockTelemService, "EVM", "1234567890123456", "0x1234", synchronization.OCR2Median, lggr)
 		require.Error(t, err)
 		assert.Nil(t, adapter)
 		assert.Contains(t, err.Error(), "failed to get chain details")
 	})
 
 	t.Run("Error - invalid network family", func(t *testing.T) {
-		mockEmitter := new(MockEmitter)
+		mockTelemService := new(MockChipIngressService)
 		lggr := logger.TestLogger(t)
 
-		adapter, err := NewChipIngressAdapter("INVALID_NETWORK", "1", "0x1234", synchronization.OCR2Median, mockEmitter, lggr)
+		adapter, err := NewChipIngressAgent(mockTelemService, "INVALID_NETWORK", "1", "0x1234", synchronization.OCR2Median, lggr)
 		require.Error(t, err)
 		assert.Nil(t, adapter)
 		assert.Contains(t, err.Error(), "failed to get chain details")
 	})
 
 	t.Run("Error - invalid telemetry type", func(t *testing.T) {
-		mockEmitter := new(MockEmitter)
+		mockTelemService := new(MockChipIngressService)
 		lggr := logger.TestLogger(t)
 
-		adapter, err := NewChipIngressAdapter("EVM", "1", "0x1234", synchronization.TelemetryType("unknown"), mockEmitter, lggr)
+		adapter, err := NewChipIngressAgent(mockTelemService, "EVM", "1", "0x1234", synchronization.TelemetryType("unknown"), lggr)
 		require.Error(t, err)
 		assert.Nil(t, adapter)
 		assert.Contains(t, err.Error(), "failed to map telemetry type to domain/entity")
@@ -115,76 +139,57 @@ func TestNewChipIngressAdapter(t *testing.T) {
 }
 
 func TestChipIngressAdapter_SendLog(t *testing.T) {
-	t.Run("Success - sends to beholder", func(t *testing.T) {
-		mockEmitter := new(MockEmitter)
+	t.Run("Success - sends to telemetry service", func(t *testing.T) {
+		mockTelemService := new(MockChipIngressService)
 		lggr := logger.TestLogger(t)
 		contractID := "0x1234567890abcdef"
 		telemType := synchronization.OCR2Median
 		telemetryLog := []byte("test telemetry data")
 
-		adapter, err := NewChipIngressAdapter("EVM", "1", contractID, telemType, mockEmitter, lggr)
+		adapter, err := NewChipIngressAgent(mockTelemService, "EVM", "1", contractID, telemType, lggr)
 		require.NoError(t, err)
 
-		// Setup expectations
-		mockEmitter.
-			On("Emit", mock.Anything, telemetryLog, mock.Anything).
-			Run(func(args mock.Arguments) {
-				// args: ctx, body, attrKVs
-				attrKVs, ok := args.Get(2).([]any)
-				require.True(t, ok)
-				require.GreaterOrEqual(t, len(attrKVs)%2, 0)
-				attrs := make(map[string]any)
-				for i := 0; i+1 < len(attrKVs); i += 2 {
-					key, isStr := attrKVs[i].(string)
-					require.True(t, isStr)
-					attrs[key] = attrKVs[i+1]
-				}
-				// Ensure network_name key is present and old network key is absent
-				assert.Equal(t, "EVM", attrs["network_name"])
-				_, hadOld := attrs["network"]
-				assert.False(t, hadOld)
-				// Spot-check a couple of other attributes
-				assert.Equal(t, "1", attrs["chain_id"])
-				assert.Equal(t, contractID, attrs["contract_id"])
-			}).
-			Return(nil).
+		// Setup expectations - now includes chainSelector, domain, entity
+		mockTelemService.
+			On("Send", mock.Anything, telemetryLog, contractID, telemType, adapter.ChainSelector, adapter.Domain, adapter.Entity).
 			Once()
 
 		// Call SendLog
 		adapter.SendLog(telemetryLog)
 
-		// Verify emit was called
-		mockEmitter.AssertExpectations(t)
+		// Verify Send was called
+		mockTelemService.AssertExpectations(t)
 	})
 
-	t.Run("SendLog continues even if emit fails", func(t *testing.T) {
-		mockEmitter := new(MockEmitter)
+	t.Run("SendLog continues even if send fails", func(t *testing.T) {
+		mockTelemService := new(MockChipIngressService)
 		lggr := logger.TestLogger(t)
 		contractID := "0xabcdef"
 		telemType := synchronization.OCR3Automation
 		telemetryLog := []byte("test data")
 
-		adapter, err := NewChipIngressAdapter("EVM", "137", contractID, telemType, mockEmitter, lggr)
+		adapter, err := NewChipIngressAgent(mockTelemService, "EVM", "137", contractID, telemType, lggr)
 		require.NoError(t, err)
 
-		// Setup expectations - emitter returns error
-		mockEmitter.On("Emit", mock.Anything, telemetryLog, mock.Anything).Return(assert.AnError).Once()
+		// Setup expectations - Send doesn't return an error
+		mockTelemService.On("Send", mock.Anything, telemetryLog, contractID, telemType, adapter.ChainSelector, adapter.Domain, adapter.Entity).
+			Once()
 
-		// Call SendLog - should not panic even if emit fails
+		// Call SendLog - should not panic
 		assert.NotPanics(t, func() {
 			adapter.SendLog(telemetryLog)
 		})
 
-		mockEmitter.AssertExpectations(t)
+		mockTelemService.AssertExpectations(t)
 	})
 
 	t.Run("Multiple SendLog calls", func(t *testing.T) {
-		mockEmitter := new(MockEmitter)
+		mockTelemService := new(MockChipIngressService)
 		lggr := logger.TestLogger(t)
 		contractID := "0x999"
 		telemType := synchronization.OCR2CCIPCommit
 
-		adapter, err := NewChipIngressAdapter("EVM", "42161", contractID, telemType, mockEmitter, lggr)
+		adapter, err := NewChipIngressAgent(mockTelemService, "EVM", "42161", contractID, telemType, lggr)
 		require.NoError(t, err)
 
 		// Setup expectations for multiple calls
@@ -192,26 +197,26 @@ func TestChipIngressAdapter_SendLog(t *testing.T) {
 		log2 := []byte("log 2")
 		log3 := []byte("log 3")
 
-		mockEmitter.On("Emit", mock.Anything, log1, mock.Anything).Return(nil).Once()
-		mockEmitter.On("Emit", mock.Anything, log2, mock.Anything).Return(nil).Once()
-		mockEmitter.On("Emit", mock.Anything, log3, mock.Anything).Return(nil).Once()
+		mockTelemService.On("Send", mock.Anything, log1, contractID, telemType, adapter.ChainSelector, adapter.Domain, adapter.Entity).Once()
+		mockTelemService.On("Send", mock.Anything, log2, contractID, telemType, adapter.ChainSelector, adapter.Domain, adapter.Entity).Once()
+		mockTelemService.On("Send", mock.Anything, log3, contractID, telemType, adapter.ChainSelector, adapter.Domain, adapter.Entity).Once()
 
 		// Send multiple logs
 		adapter.SendLog(log1)
 		adapter.SendLog(log2)
 		adapter.SendLog(log3)
 
-		mockEmitter.AssertExpectations(t)
+		mockTelemService.AssertExpectations(t)
 	})
 }
 
 func TestChipIngressAdapter_ExportedFields(t *testing.T) {
-	mockEmitter := new(MockEmitter)
+	mockTelemService := new(MockChipIngressService)
 	lggr := logger.TestLogger(t)
 	contractID := "0x1234567890"
 	telemType := synchronization.OCR3Mercury
 
-	adapter, err := NewChipIngressAdapter("EVM", "1", contractID, telemType, mockEmitter, lggr)
+	adapter, err := NewChipIngressAgent(mockTelemService, "EVM", "1", contractID, telemType, lggr)
 	require.NoError(t, err)
 
 	t.Run("ChainSelector", func(t *testing.T) {
@@ -241,17 +246,17 @@ func TestChipIngressAdapter_ExportedFields(t *testing.T) {
 
 func TestChipIngressAdapter_InterfaceCompliance(t *testing.T) {
 	// This test verifies that ChipIngressAdapter implements commontypes.MonitoringEndpoint
-	mockEmitter := new(MockEmitter)
+	mockTelemService := new(MockChipIngressService)
 	lggr := logger.TestLogger(t)
 
-	adapter, err := NewChipIngressAdapter("EVM", "1", "0x123", synchronization.OCR2Median, mockEmitter, lggr)
+	adapter, err := NewChipIngressAgent(mockTelemService, "EVM", "1", "0x123", synchronization.OCR2Median, lggr)
 	require.NoError(t, err)
 
 	// Verify it can be assigned to the interface
 	var _ interface{} = adapter
 
 	// Call the interface method
-	mockEmitter.On("Emit", mock.Anything, mock.Anything, mock.Anything).Return(nil)
+	mockTelemService.On("Send", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything)
 	adapter.SendLog([]byte("test"))
-	mockEmitter.AssertCalled(t, "Emit", mock.Anything, mock.Anything, mock.Anything)
+	mockTelemService.AssertCalled(t, "Send", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything)
 }
