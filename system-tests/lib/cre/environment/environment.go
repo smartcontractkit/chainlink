@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"maps"
+	"time"
 
 	"github.com/Masterminds/semver/v3"
 	"github.com/ethereum/go-ethereum/common"
@@ -362,9 +363,24 @@ func SetupTestEnvironment(
 
 	fmt.Print(libformat.PurpleText("%s", input.StageGen.Wrap("Creating Jobs with Job Distributor")))
 
-	gJobErr := gateway.CreateJobs(ctx, startedJD.Client, dons, gatewayJobConfigs)
+	// Retry gateway job creation with delays to allow nodes to sync registry
+	const maxRetries = 3
+	const retryDelay = 5 * time.Second
+	var gJobErr error
+	for attempt := 0; attempt < maxRetries; attempt++ {
+		if attempt > 1 {
+			testLogger.Info().Msgf("Retrying gateway job creation (attempt %d/%d) after %v delay...", attempt, maxRetries, retryDelay)
+			time.Sleep(retryDelay)
+		}
+		gJobErr = gateway.CreateJobs(ctx, startedJD.Client, dons, gatewayJobConfigs)
+		if gJobErr == nil {
+			testLogger.Info().Msgf("Gateway jobs created successfully on attempt %d", attempt)
+			break
+		}
+		testLogger.Warn().Err(gJobErr).Msgf("Failed to create gateway jobs on attempt %d/%d", attempt, maxRetries)
+	}
 	if gJobErr != nil {
-		return nil, pkgerrors.Wrap(gErr, "failed to create gateway jobs with Job Distributor")
+		return nil, pkgerrors.Wrap(gJobErr, "failed to create gateway jobs with Job Distributor after retries")
 	}
 
 	// Deprecated: use Features instead. Support for InstallableCapability will be removed in the future.
