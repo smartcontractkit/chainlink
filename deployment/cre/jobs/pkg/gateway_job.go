@@ -271,7 +271,7 @@ func newDefaultHTTPCapabilitiesHandler() handler {
 				PerSenderBurst: 100,
 				PerSenderRPS:   100,
 			},
-			CleanUpPeriodMs: 1000 * 60 * 10, // 10 minutes
+			CleanUpPeriodMs: 1000 * 60 * 5, // 5 minutes
 		},
 	}
 }
