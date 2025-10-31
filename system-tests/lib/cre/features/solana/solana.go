@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	"github.com/Masterminds/semver/v3"
+	"github.com/ethereum/go-ethereum/common"
 	solanago "github.com/gagliardetto/solana-go"
 	"github.com/pelletier/go-toml/v2"
 	"github.com/pkg/errors"
@@ -27,6 +28,7 @@ import (
 	ks_sol "github.com/smartcontractkit/chainlink/deployment/keystone/changeset/solana"
 	ks_sol_seq "github.com/smartcontractkit/chainlink/deployment/keystone/changeset/solana/sequence"
 	ks_sol_op "github.com/smartcontractkit/chainlink/deployment/keystone/changeset/solana/sequence/operation"
+	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/contracts"
 	envconfig "github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/config"
 
 	corechainlink "github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
@@ -35,6 +37,7 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/environment/memory"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/don"
+	evmblockchain "github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/blockchains/evm"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/blockchains/solana"
 )
 
@@ -270,6 +273,22 @@ func (o *Solana) PostEnvStartup(
 		solChainsWithForwarder[forwarder.ChainSelector] = struct{}{}
 	}
 
+	registryChain, rErr := creEnv.RegistryChain()
+	if rErr != nil {
+		return fmt.Errorf("failed to get registry chain: %w", rErr)
+	}
+
+	asEVM, ok := registryChain.(*evmblockchain.Blockchain)
+	if !ok {
+		return fmt.Errorf("registry chain is not *evmblockchain.Blockchain, but %T", registryChain)
+	}
+
+	capabilitiesRegistryAddress := contracts.MustGetAddressFromDataStore(creEnv.CldfEnvironment.DataStore, creEnv.RegistryChainSelector, keystone_changeset.CapabilitiesRegistry.String(), creEnv.ContractVersions[keystone_changeset.CapabilitiesRegistry.String()], "")
+	capRegInstance, capErr := kcr.NewCapabilitiesRegistry(common.HexToAddress(capabilitiesRegistryAddress), asEVM.SethClient.Client)
+	if capErr != nil {
+		return fmt.Errorf("failed to create capabilities registry instance: %w", capErr)
+	}
+
 	// configure Solana forwarder only if we have some
 	if len(solChainsWithForwarder) > 0 {
 		cs := commonchangeset.Configure(ks_sol.ConfigureForwarders{},
@@ -280,6 +299,7 @@ func (o *Solana) PostEnvStartup(
 				Chains:           solChainsWithForwarder,
 				Qualifier:        ks_sol.DefaultForwarderQualifier,
 				Version:          "1.0.0",
+				Registry:         capRegInstance,
 			},
 		)
 

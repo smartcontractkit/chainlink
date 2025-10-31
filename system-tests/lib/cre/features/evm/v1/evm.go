@@ -37,6 +37,7 @@ import (
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/contracts"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/don"
+	evmblockchain "github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/blockchains/evm"
 	envconfig "github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/config"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/features/evm"
 )
@@ -147,7 +148,7 @@ func (o *EVM) PostEnvStartup(
 	_, exist = chainsWithForwarders[blockchain.FamilyTron]
 	if exist {
 		for _, don := range consensusDons {
-			tErr := configureTronForwarder(testLogger, creEnv.CldfEnvironment, creEnv.RegistryChainSelector, don)
+			tErr := configureTronForwarder(testLogger, creEnv, don)
 			if tErr != nil {
 				return errors.Wrap(tErr, "failed to configure Tron forwarders")
 			}
@@ -196,7 +197,7 @@ func deployTronForwarders(testLogger zerolog.Logger, cldfEnv *cldf.Environment, 
 	return nil
 }
 
-func configureTronForwarder(testLogger zerolog.Logger, env *cldf.Environment, registryChainSelector uint64, don *cre.Don) error {
+func configureTronForwarder(testLogger zerolog.Logger, creEnv *cre.Environment, don *cre.Don) error {
 	triggerOptions := cldf_tron.DefaultTriggerOptions()
 	triggerOptions.FeeLimit = 1_000_000_000
 
@@ -210,20 +211,37 @@ func configureTronForwarder(testLogger zerolog.Logger, env *cldf.Environment, re
 		wfNodeIDs = append(wfNodeIDs, node.Keys.P2PKey.PeerID.String())
 	}
 
+	registryChain, rErr := creEnv.RegistryChain()
+	if rErr != nil {
+		return fmt.Errorf("failed to get registry chain: %w", rErr)
+	}
+
+	asEVM, ok := registryChain.(*evmblockchain.Blockchain)
+	if !ok {
+		return fmt.Errorf("registry chain is not *evmblockchain.Blockchain, but %T", registryChain)
+	}
+
+	capabilitiesRegistryAddress := contracts.MustGetAddressFromDataStore(creEnv.CldfEnvironment.DataStore, creEnv.RegistryChainSelector, keystone_changeset.CapabilitiesRegistry.String(), creEnv.ContractVersions[keystone_changeset.CapabilitiesRegistry.String()], "")
+	capRegInstance, capErr := kcr.NewCapabilitiesRegistry(common.HexToAddress(capabilitiesRegistryAddress), asEVM.SethClient.Client)
+	if capErr != nil {
+		return fmt.Errorf("failed to create capabilities registry instance: %w", capErr)
+	}
+
 	configChangeset := commonchangeset.Configure(tronchangeset.ConfigureForwarder{}, &tronchangeset.ConfigureForwarderRequest{
 		WFDonName:        don.Name,
 		WFNodeIDs:        wfNodeIDs,
-		RegistryChainSel: registryChainSelector,
+		RegistryChainSel: creEnv.RegistryChainSelector,
 		Chains:           make(map[uint64]struct{}),
 		TriggerOptions:   triggerOptions,
+		Registry:         capRegInstance,
 	})
 
-	_, err := commonchangeset.Apply(nil, *env, configChangeset)
+	_, err := commonchangeset.Apply(nil, *creEnv.CldfEnvironment, configChangeset)
 	if err != nil {
 		return fmt.Errorf("failed to configure Tron forwarders using changesets: %w", err)
 	}
 
-	testLogger.Info().Msgf("Configured TRON forwarder for v1 consensus on chain: %d", registryChainSelector)
+	testLogger.Info().Msgf("Configured TRON forwarder for v1 consensus on chain: %d", creEnv.RegistryChainSelector)
 
 	return nil
 }

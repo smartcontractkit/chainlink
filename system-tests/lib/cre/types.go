@@ -1185,6 +1185,15 @@ type Environment struct {
 	CapabilityConfigs     map[CapabilityFlag]CapabilityConfig
 }
 
+func (e *Environment) RegistryChain() (blockchains.Blockchain, error) {
+	for _, bc := range e.Blockchains {
+		if bc.ChainSelector() == e.RegistryChainSelector {
+			return bc, nil
+		}
+	}
+	return nil, fmt.Errorf("registry chain with selector %d not found", e.RegistryChainSelector)
+}
+
 type (
 	CapabilityRegistryConfigFn = func(donFlags []CapabilityFlag, nodeSet *NodeSet) ([]keystone_changeset.DONCapabilityWithConfig, error)
 	JobSpecFn                  = func(input *JobSpecInput) (DonJobs, error)
