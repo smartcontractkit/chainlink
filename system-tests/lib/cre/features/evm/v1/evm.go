@@ -180,7 +180,7 @@ func deployTronForwarders(testLogger zerolog.Logger, cldfEnv *cldf.Environment, 
 		return fmt.Errorf("failed to deploy Tron forwarders using changesets: %w", err)
 	}
 
-	cldfEnv.ExistingAddresses = updatedEnv.ExistingAddresses //nolint:staticcheck // won't migrate now
+	// cldfEnv.ExistingAddresses = updatedEnv.ExistingAddresses //nolint:staticcheck // won't migrate now
 
 	if updatedEnv.DataStore != nil {
 		err = memoryDatastore.Merge(updatedEnv.DataStore)
@@ -230,20 +230,20 @@ func configureTronForwarder(testLogger zerolog.Logger, env *cldf.Environment, re
 	return nil
 }
 
-func findForwarderAddress(chain chain_selectors.Chain, addressBook cldf.AddressBook) (*common.Address, error) {
-	addrsForChains, addErr := addressBook.AddressesForChain(chain.Selector)
-	if addErr != nil {
-		return nil, errors.Wrap(addErr, "failed to get addresses from address book")
-	}
+// func findForwarderAddress(chain chain_selectors.Chain, datastore datastore.DataStore) (*common.Address, error) {
+// 	addrsForChains, addErr := datastore.AddressesForChain(chain.Selector)
+// 	if addErr != nil {
+// 		return nil, errors.Wrap(addErr, "failed to get addresses from address book")
+// 	}
 
-	for addr, addrValue := range addrsForChains {
-		if addrValue.Type == keystone_changeset.KeystoneForwarder {
-			return ptr.Ptr(common.HexToAddress(addr)), nil
-		}
-	}
+// 	for addr, addrValue := range addrsForChains {
+// 		if addrValue.Type == keystone_changeset.KeystoneForwarder {
+// 			return ptr.Ptr(common.HexToAddress(addr)), nil
+// 		}
+// 	}
 
-	return nil, errors.Errorf("failed to find forwarder address for chain %d", chain.Selector)
-}
+// 	return nil, errors.Errorf("failed to find forwarder address for chain %d", chain.Selector)
+// }
 
 func updateNodeConfig(workerNode *cre.NodeMetadata, currentConfig string, chainCapabilityConfigs map[string]*cre.ChainCapabilityConfig, creEnv *cre.Environment) (*string, error) {
 	writeEvmConfigs := []writeEVMData{}
@@ -260,11 +260,11 @@ func updateNodeConfig(workerNode *cre.NodeMetadata, currentConfig string, chainC
 			ChainSelector: chain.Selector,
 		}
 
-		forwarderAddress, fErr := findForwarderAddress(chain, creEnv.CldfEnvironment.ExistingAddresses) //nolint:staticcheck // won't migrate now
-		if fErr != nil {
-			return nil, errors.Errorf("failed to find forwarder address for chain %d", chain.Selector)
-		}
-		evmData.ForwarderAddress = forwarderAddress.Hex()
+		evmData.ForwarderAddress = contracts.MustGetAddressFromDataStore(creEnv.CldfEnvironment.DataStore, chain.Selector, keystone_changeset.KeystoneForwarder.String(), creEnv.ContractVersions[keystone_changeset.KeystoneForwarder.String()], "")
+		// if fErr != nil {
+		// 	return nil, errors.Errorf("failed to find forwarder address for chain %d", chain.Selector)
+		// }
+		//  = forwarderAddress.Hex()
 
 		evmKey, ok := workerNode.Keys.EVM[chainID]
 		if !ok {

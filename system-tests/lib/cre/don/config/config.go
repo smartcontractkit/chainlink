@@ -10,15 +10,12 @@ import (
 	"strings"
 	"time"
 
-	"github.com/ethereum/go-ethereum/common"
 	"github.com/pelletier/go-toml/v2"
 	"github.com/pkg/errors"
 	"go.uber.org/zap/zapcore"
 
 	chain_selectors "github.com/smartcontractkit/chain-selectors"
 	"github.com/smartcontractkit/libocr/commontypes"
-
-	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 
 	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
 	"github.com/smartcontractkit/chainlink-evm/pkg/config/chaintype"
@@ -103,8 +100,9 @@ func PrepareNodeTOMLs(
 		if configsFound == 0 {
 			config, configErr := generateNodeTomlConfig(
 				cre.GenerateConfigsInput{
-					AddressBook:             creEnv.CldfEnvironment.ExistingAddresses, //nolint:staticcheck // won't migrate
+					// AddressBook:             creEnv.CldfEnvironment.ExistingAddresses, //nolint:staticcheck // won't migrate
 					Datastore:               creEnv.CldfEnvironment.DataStore,
+					ContractVersions:        creEnv.ContractVersions,
 					DonMetadata:             donMetadata,
 					Blockchains:             chainPerSelector,
 					Flags:                   donMetadata.Flags,
@@ -278,10 +276,10 @@ func addBootstrapNodeConfig(
 	}
 
 	existingConfig.Capabilities.ExternalRegistry = coretoml.ExternalRegistry{
-		Address:         ptr.Ptr(commonInputs.capabilityRegistry.address.Hex()),
+		Address:         ptr.Ptr(commonInputs.capabilityRegistry.address),
 		NetworkID:       ptr.Ptr("evm"),
 		ChainID:         ptr.Ptr(strconv.FormatUint(commonInputs.registryChainID, 10)),
-		ContractVersion: ptr.Ptr(commonInputs.capabilityRegistry.versionType.Version.String()),
+		ContractVersion: ptr.Ptr(commonInputs.capabilityRegistry.version),
 	}
 
 	return existingConfig, nil
@@ -340,19 +338,19 @@ func addWorkerNodeConfig(
 	}
 
 	existingConfig.Capabilities.ExternalRegistry = coretoml.ExternalRegistry{
-		Address:         ptr.Ptr(commonInputs.capabilityRegistry.address.Hex()),
+		Address:         ptr.Ptr(commonInputs.capabilityRegistry.address),
 		NetworkID:       ptr.Ptr("evm"),
 		ChainID:         ptr.Ptr(strconv.FormatUint(commonInputs.registryChainID, 10)),
-		ContractVersion: ptr.Ptr(commonInputs.capabilityRegistry.versionType.Version.String()),
+		ContractVersion: ptr.Ptr(commonInputs.capabilityRegistry.version),
 	}
 
 	if donMetadata.HasFlag(cre.WorkflowDON) {
 		existingConfig.Capabilities.WorkflowRegistry = coretoml.WorkflowRegistry{
-			Address:         ptr.Ptr(commonInputs.workflowRegistry.address.Hex()),
+			Address:         ptr.Ptr(commonInputs.workflowRegistry.address),
 			NetworkID:       ptr.Ptr("evm"),
 			ChainID:         ptr.Ptr(strconv.FormatUint(commonInputs.registryChainID, 10)),
+			ContractVersion: ptr.Ptr(commonInputs.workflowRegistry.version),
 			SyncStrategy:    ptr.Ptr("reconciliation"),
-			ContractVersion: ptr.Ptr(commonInputs.workflowRegistry.versionType.Version.String()),
 		}
 	}
 
@@ -404,17 +402,17 @@ OUTER:
 	}
 
 	existingConfig.Capabilities.ExternalRegistry = coretoml.ExternalRegistry{
-		Address:         ptr.Ptr(commonInputs.capabilityRegistry.address.Hex()),
+		Address:         ptr.Ptr(commonInputs.capabilityRegistry.address),
 		NetworkID:       ptr.Ptr("evm"),
 		ChainID:         ptr.Ptr(strconv.FormatUint(commonInputs.registryChainID, 10)),
-		ContractVersion: ptr.Ptr(commonInputs.capabilityRegistry.versionType.Version.String()),
+		ContractVersion: ptr.Ptr(commonInputs.capabilityRegistry.version),
 	}
 
 	existingConfig.Capabilities.WorkflowRegistry = coretoml.WorkflowRegistry{
-		Address:         ptr.Ptr(commonInputs.workflowRegistry.address.Hex()),
+		Address:         ptr.Ptr(commonInputs.workflowRegistry.address),
 		NetworkID:       ptr.Ptr("evm"),
 		ChainID:         ptr.Ptr(strconv.FormatUint(commonInputs.registryChainID, 10)),
-		ContractVersion: ptr.Ptr(commonInputs.workflowRegistry.versionType.Version.String()),
+		ContractVersion: ptr.Ptr(commonInputs.workflowRegistry.version),
 		SyncStrategy:    ptr.Ptr("reconciliation"),
 	}
 
@@ -422,8 +420,8 @@ OUTER:
 }
 
 type addressTypeVersion struct {
-	address     common.Address
-	versionType cldf.TypeAndVersion
+	address string
+	version string
 }
 
 type commonInputs struct {
@@ -451,28 +449,28 @@ func gatherCommonInputs(input cre.GenerateConfigsInput) (*commonInputs, error) {
 	}
 
 	// find contract addresses
-	capabilitiesRegistryAddress, capRegTypeVersion, capErr := crecontracts.FindAddressesForChain(input.AddressBook, input.HomeChainSelector, keystone_changeset.CapabilitiesRegistry.String())
-	if capErr != nil {
-		return nil, errors.Wrap(capErr, "failed to find CapabilitiesRegistry address")
-	}
+	capabilitiesRegistryAddress := crecontracts.MustGetAddressFromDataStore(input.Datastore, input.HomeChainSelector, keystone_changeset.CapabilitiesRegistry.String(), input.ContractVersions[keystone_changeset.CapabilitiesRegistry.String()], "")
+	// if capErr != nil {
+	// 	return nil, errors.Wrap(capErr, "failed to find CapabilitiesRegistry address")
+	// }
 
-	workflowRegistryAddress, wfRegTypeVersion, wfErr := crecontracts.FindAddressesForChain(input.AddressBook, input.HomeChainSelector, keystone_changeset.WorkflowRegistry.String())
-	if wfErr != nil {
-		return nil, errors.Wrap(wfErr, "failed to find WorkflowRegistry address")
-	}
+	workflowRegistryAddress := crecontracts.MustGetAddressFromDataStore(input.Datastore, input.HomeChainSelector, keystone_changeset.WorkflowRegistry.String(), input.ContractVersions[keystone_changeset.WorkflowRegistry.String()], "")
+	// if wfErr != nil {
+	// 	return nil, errors.Wrap(wfErr, "failed to find WorkflowRegistry address")
+	// }
 
 	return &commonInputs{
 		registryChainID:       registryChainID,
 		registryChainSelector: input.HomeChainSelector,
 		workflowRegistry: addressTypeVersion{
-			address:     workflowRegistryAddress,
-			versionType: wfRegTypeVersion,
+			address: workflowRegistryAddress,
+			version: input.ContractVersions[keystone_changeset.WorkflowRegistry.String()],
 		},
 		evmChains:   evmChains,
 		solanaChain: solanaChain,
 		capabilityRegistry: addressTypeVersion{
-			address:     capabilitiesRegistryAddress,
-			versionType: capRegTypeVersion,
+			address: capabilitiesRegistryAddress,
+			version: input.ContractVersions[keystone_changeset.CapabilitiesRegistry.String()],
 		},
 	}, nil
 }

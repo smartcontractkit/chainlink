@@ -61,7 +61,6 @@ func (o *Solana) PreEnvStartup(
 		}
 	}
 
-	// TODO check if not deployed yet
 	programID, state, fErr := deployForwarder(testLogger, creEnv, solChain)
 	if fErr != nil {
 		return nil, errors.Wrap(fErr, "failed to deploy solana forwarder")

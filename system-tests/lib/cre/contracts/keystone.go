@@ -77,6 +77,7 @@ func DeployKeystoneContracts(
 		return nil, errors.Wrap(seqErr, "failed to deploy Keystone contracts")
 	}
 
+	// TODO: unfortunately keystone forwarders need to find Capability Registry contract in the AddressBook
 	if err := input.CldfEnvironment.ExistingAddresses.Merge(registryContractsReport.Output.AddressBook); err != nil { //nolint:staticcheck // won't migrate now
 		return nil, errors.Wrap(err, "failed to merge address book with Keystone contracts addresses")
 	}

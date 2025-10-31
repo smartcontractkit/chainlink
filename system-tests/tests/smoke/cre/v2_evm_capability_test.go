@@ -64,10 +64,11 @@ func ExecuteEVMReadTest(t *testing.T, testEnv *ttypes.TestEnvironment) {
 }
 
 func validateWorkflowExecution(t *testing.T, lggr zerolog.Logger, testEnv *ttypes.TestEnvironment, blockchain *evm.Blockchain, workflowName string, workflowConfig evm_config.Config) {
-	forwarderAddress, _, err := crecontracts.FindAddressesForChain(testEnv.CreEnvironment.CldfEnvironment.ExistingAddresses, blockchain.ChainSelector(), keystonechangeset.KeystoneForwarder.String()) //nolint:staticcheck,nolintlint // SA1019: deprecated but we don't want to migrate now
-	require.NoError(t, err, "failed to find forwarder address for chain %s", blockchain.ChainSelector)
+	// forwarderAddress, _, err := crecontracts.FindAddressesForChain(testEnv.CreEnvironment.CldfEnvironment.ExistingAddresses, blockchain.ChainSelector(), keystonechangeset.KeystoneForwarder.String()) //nolint:staticcheck,nolintlint // SA1019: deprecated but we don't want to migrate now
+	// require.NoError(t, err, "failed to find forwarder address for chain %s", blockchain.ChainSelector)
+	forwarderAddress := crecontracts.MustGetAddressFromDataStore(testEnv.CreEnvironment.CldfEnvironment.DataStore, blockchain.ChainSelector(), keystonechangeset.KeystoneForwarder.String(), testEnv.CreEnvironment.ContractVersions[keystonechangeset.KeystoneForwarder.String()], "")
 
-	forwarderContract, err := forwarder.NewKeystoneForwarder(forwarderAddress, blockchain.SethClient.Client)
+	forwarderContract, err := forwarder.NewKeystoneForwarder(common.HexToAddress(forwarderAddress), blockchain.SethClient.Client)
 	require.NoError(t, err, "failed to instantiate forwarder contract")
 
 	msgEmitterAddr := common.BytesToAddress(workflowConfig.ContractAddress)

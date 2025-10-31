@@ -16,7 +16,6 @@ import (
 	"github.com/pkg/errors"
 	"github.com/spf13/cobra"
 
-	"github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/blockchain"
 	"github.com/smartcontractkit/chainlink-testing-framework/seth"
 
@@ -34,17 +33,13 @@ const (
 )
 
 // getWorkflowRegistryTypeVersion returns the appropriate TypeAndVersion based on the contracts version flag
-func getWorkflowRegistryTypeVersion(contractsVersion string) deployment.TypeAndVersion {
+func getWorkflowRegistryTypeVersion(contractsVersion string) *semver.Version {
 	switch strings.ToLower(contractsVersion) {
 	case "v2":
-		return deployment.TypeAndVersion{
-			Version: *semver.MustParse(creconfig.WorkflowRegistryV2Semver),
-		}
+		return semver.MustParse(creconfig.WorkflowRegistryV2Semver)
 	default:
 		// Default to v1 for backward compatibility
-		return deployment.TypeAndVersion{
-			Version: *semver.MustParse("1.0.0"),
-		}
+		return semver.MustParse("1.0.0")
 	}
 }
 

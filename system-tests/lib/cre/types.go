@@ -405,10 +405,11 @@ type GenerateConfigsInput struct {
 	Flags                   []string
 	CapabilitiesPeeringData CapabilitiesPeeringData
 	OCRPeeringData          OCRPeeringData
-	AddressBook             cldf.AddressBook
-	NodeSet                 *NodeSet
-	CapabilityConfigs       CapabilityConfigs
-	GatewayConnectorOutput  *GatewayConnectors // optional, automatically set if some DON in the topology has the GatewayDON flag
+	// AddressBook             cldf.AddressBook
+	NodeSet                *NodeSet
+	CapabilityConfigs      CapabilityConfigs
+	ContractVersions       map[string]string
+	GatewayConnectorOutput *GatewayConnectors // optional, automatically set if some DON in the topology has the GatewayDON flag
 }
 
 func (g *GenerateConfigsInput) Validate() error {
@@ -430,10 +431,10 @@ func (g *GenerateConfigsInput) Validate() error {
 	if g.OCRPeeringData == (OCRPeeringData{}) {
 		return errors.New("ocr peering data not set")
 	}
-	_, addrErr := g.AddressBook.AddressesForChain(g.HomeChainSelector)
-	if addrErr != nil {
-		return fmt.Errorf("failed to get addresses for chain %d: %w", g.HomeChainSelector, addrErr)
-	}
+	// _, addrErr := g.AddressBook.AddressesForChain(g.HomeChainSelector)
+	// if addrErr != nil {
+	// 	return fmt.Errorf("failed to get addresses for chain %d: %w", g.HomeChainSelector, addrErr)
+	// }
 	_, dsErr := g.Datastore.Addresses().Fetch()
 	if dsErr != nil {
 		return fmt.Errorf("failed to get addresses from datastore: %w", dsErr)

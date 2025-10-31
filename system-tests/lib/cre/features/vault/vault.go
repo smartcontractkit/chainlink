@@ -86,14 +86,16 @@ func (o *Vault) PreEnvStartup(
 		return nil, errors.Wrapf(cErr, "failed to add gateway connectors to node's TOML config in for don %s", don.Name)
 	}
 
-	workflowRegistryAddress, wfRegTypeVersion, wfErr := contracts.FindAddressesForChain(
-		creEnv.CldfEnvironment.ExistingAddresses, //nolint:staticcheck // won't migrate
-		creEnv.RegistryChainSelector,
-		keystone_changeset.WorkflowRegistry.String(),
-	)
-	if wfErr != nil {
-		return nil, errors.Wrap(wfErr, "failed to find WorkflowRegistry address")
-	}
+	// workflowRegistryAddress, wfRegTypeVersion, wfErr := contracts.FindAddressesForChain(
+	// 	creEnv.CldfEnvironment.ExistingAddresses, //nolint:staticcheck // won't migrate
+	// 	creEnv.RegistryChainSelector,
+	// 	keystone_changeset.WorkflowRegistry.String(),
+	// )
+	// if wfErr != nil {
+	// 	return nil, errors.Wrap(wfErr, "failed to find WorkflowRegistry address")
+	// }
+
+	workflowRegistryAddress := contracts.MustGetAddressFromDataStore(creEnv.CldfEnvironment.DataStore, creEnv.RegistryChainSelector, keystone_changeset.WorkflowRegistry.String(), creEnv.ContractVersions[keystone_changeset.WorkflowRegistry.String()], "")
 
 	// enable workflow registry syncer in node's TOML config
 	workerNodes, wErr := don.Workers()
@@ -103,7 +105,7 @@ func (o *Vault) PreEnvStartup(
 
 	for _, workerNode := range workerNodes {
 		currentConfig := don.NodeSets().NodeSpecs[workerNode.Index].Node.TestConfigOverrides
-		updatedConfig, uErr := updateNodeConfig(workerNode, currentConfig, registryChainID, workflowRegistryAddress, wfRegTypeVersion)
+		updatedConfig, uErr := updateNodeConfig(workerNode, currentConfig, registryChainID, common.HexToAddress(workflowRegistryAddress), creEnv.ContractVersions[keystone_changeset.WorkflowRegistry.String()])
 		if uErr != nil {
 			return nil, errors.Wrapf(uErr, "failed to update node config for node index %d", workerNode.Index)
 		}
@@ -124,7 +126,7 @@ func (o *Vault) PreEnvStartup(
 	}, nil
 }
 
-func updateNodeConfig(workerNode *cre.NodeMetadata, currentConfig string, registryChainID uint64, workflowRegistryAddress common.Address, wfRegTypeVersion cldf.TypeAndVersion) (*string, error) {
+func updateNodeConfig(workerNode *cre.NodeMetadata, currentConfig string, registryChainID uint64, workflowRegistryAddress common.Address, wfRegVersion string) (*string, error) {
 	var typedConfig corechainlink.Config
 	unmarshallErr := toml.Unmarshal([]byte(currentConfig), &typedConfig)
 	if unmarshallErr != nil {
@@ -137,7 +139,7 @@ func updateNodeConfig(workerNode *cre.NodeMetadata, currentConfig string, regist
 		NetworkID:       ptr.Ptr("evm"),
 		ChainID:         ptr.Ptr(strconv.FormatUint(registryChainID, 10)),
 		SyncStrategy:    ptr.Ptr("reconciliation"),
-		ContractVersion: ptr.Ptr(wfRegTypeVersion.Version.String()),
+		ContractVersion: ptr.Ptr(wfRegVersion),
 	}
 
 	stringifiedConfig, mErr := toml.Marshal(typedConfig)

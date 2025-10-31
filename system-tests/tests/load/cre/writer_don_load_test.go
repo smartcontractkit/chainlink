@@ -102,12 +102,14 @@ func setupLoadTestWriterEnvironment(
 	in.WorkflowRegistryConfiguration = &cretypes.WorkflowRegistryInput{}
 	in.WorkflowRegistryConfiguration.Out = universalSetupOutput.WorkflowRegistryConfigurationOutput
 
-	forwarderAddress, _, forwarderErr := libcontracts.FindAddressesForChain(
-		universalSetupOutput.CreEnvironment.CldfEnvironment.ExistingAddresses, //nolint:staticcheck // deprecated but still used
-		universalSetupOutput.CreEnvironment.Blockchains[0].ChainSelector(),
-		keystone_changeset.KeystoneForwarder.String(),
-	)
-	require.NoError(t, forwarderErr, "failed to find forwarder address for chain %d", universalSetupOutput.CreEnvironment.Blockchains[0].ChainSelector())
+	forwarderAddress := libcontracts.MustGetAddressFromDataStore(universalSetupOutput.CreEnvironment.CldfEnvironment.DataStore, universalSetupOutput.CreEnvironment.Blockchains[0].ChainSelector(), keystone_changeset.KeystoneForwarder.String(), universalSetupOutput.CreEnvironment.ContractVersions[keystone_changeset.KeystoneForwarder.String()], "")
+
+	// forwarderAddress, _, forwarderErr := libcontracts.FindAddressesForChain(
+	// 	universalSetupOutput.CreEnvironment.CldfEnvironment.ExistingAddresses, //nolint:staticcheck // deprecated but still used
+	// 	universalSetupOutput.CreEnvironment.Blockchains[0].ChainSelector(),
+	// 	keystone_changeset.KeystoneForwarder.String(),
+	// )
+	// require.NoError(t, forwarderErr, "failed to find forwarder address for chain %d", universalSetupOutput.CreEnvironment.Blockchains[0].ChainSelector())
 
 	// DF cache start
 
@@ -119,24 +121,27 @@ func setupLoadTestWriterEnvironment(
 	dfOutput, dfErr := changeset2.RunChangeset(changeset.DeployCacheChangeset, *universalSetupOutput.CreEnvironment.CldfEnvironment, deployConfig)
 	require.NoError(t, dfErr, "failed to deploy data feed cache contract")
 
-	mergeErr := universalSetupOutput.CreEnvironment.CldfEnvironment.ExistingAddresses.Merge(dfOutput.AddressBook) //nolint:staticcheck // deprecated but still used
-	require.NoError(t, mergeErr, "failed to merge address book")
+	// mergeErr := universalSetupOutput.CreEnvironment.CldfEnvironment.ExistingAddresses.Merge(dfOutput.AddressBook) //nolint:staticcheck // deprecated but still used
+	// require.NoError(t, mergeErr, "failed to merge address book")
 
-	dfCacheAddress, _, dfCacheErr := libcontracts.FindAddressesForChain(
-		universalSetupOutput.CreEnvironment.CldfEnvironment.ExistingAddresses, //nolint:staticcheck // deprecated but still used
-		universalSetupOutput.CreEnvironment.Blockchains[0].ChainSelector(),
-		changeset.DataFeedsCache.String(),
-	)
-	require.NoError(t, dfCacheErr, "failed to find df cache address for chain %d", universalSetupOutput.CreEnvironment.Blockchains[0].ChainSelector())
+	libcontracts.MergeAllDataStores(universalSetupOutput.CreEnvironment, dfOutput)
+
+	dfCacheAddress := libcontracts.MustGetAddressFromDataStore(universalSetupOutput.CreEnvironment.CldfEnvironment.DataStore, universalSetupOutput.CreEnvironment.Blockchains[0].ChainSelector(), changeset.DataFeedsCache.String(), "1.0.0", "")
+	// dfCacheAddress, _, dfCacheErr := libcontracts.FindAddressesForChain(
+	// 	universalSetupOutput.CreEnvironment.CldfEnvironment.ExistingAddresses, //nolint:staticcheck // deprecated but still used
+	// 	universalSetupOutput.CreEnvironment.Blockchains[0].ChainSelector(),
+	// 	changeset.DataFeedsCache.String(),
+	// )
+	// require.NoError(t, dfCacheErr, "failed to find df cache address for chain %d", universalSetupOutput.CreEnvironment.Blockchains[0].ChainSelector())
 	// Config
 	_, configErr := libcontracts.ConfigureDataFeedsCache(testLogger, &cretypes.ConfigureDataFeedsCacheInput{
 		CldEnv:                universalSetupOutput.CreEnvironment.CldfEnvironment,
 		ChainSelector:         universalSetupOutput.CreEnvironment.Blockchains[0].ChainSelector(),
 		FeedIDs:               feedIDs,
 		Descriptions:          feedIDs,
-		DataFeedsCacheAddress: dfCacheAddress,
+		DataFeedsCacheAddress: common.HexToAddress(dfCacheAddress),
 		AdminAddress:          universalSetupOutput.CreEnvironment.Blockchains[0].(*creevm.Blockchain).SethClient.MustGetRootKeyAddress(),
-		AllowedSenders:        []common.Address{forwarderAddress},
+		AllowedSenders:        []common.Address{common.HexToAddress(forwarderAddress)},
 		AllowedWorkflowOwners: []common.Address{common.HexToAddress(in.WriterTest.WorkflowOwner)},
 		AllowedWorkflowNames:  workflowNames,
 		Out:                   nil,
@@ -144,8 +149,8 @@ func setupLoadTestWriterEnvironment(
 	require.NoError(t, configErr, "failed to configure data feeds cache")
 
 	return &loadTestSetupOutput{
-		dataFeedsCacheAddress: dfCacheAddress,
-		forwarderAddress:      forwarderAddress,
+		dataFeedsCacheAddress: common.HexToAddress(dfCacheAddress),
+		forwarderAddress:      common.HexToAddress(forwarderAddress),
 		blockchains:           universalSetupOutput.CreEnvironment.Blockchains,
 		dons:                  universalSetupOutput.Dons,
 		nodeOutput:            universalSetupOutput.NodeOutput,
