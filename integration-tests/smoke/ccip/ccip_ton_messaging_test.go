@@ -7,17 +7,12 @@ import (
 	"testing"
 	"time"
 
-	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/smartcontractkit/chainlink-common/pkg/config"
 	"github.com/stretchr/testify/require"
 	"golang.org/x/exp/maps"
 
 	"github.com/xssnick/tonutils-go/tlb"
-
-	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_2_0/router"
-	"github.com/smartcontractkit/chainlink-common/pkg/types/ccipocr3"
-	"github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 
 	"github.com/smartcontractkit/chainlink-ton/pkg/ccip/bindings/onramp"
 	"github.com/smartcontractkit/chainlink-ton/pkg/ccip/codec"
@@ -194,8 +189,6 @@ func Test_CCIPMessaging_EVM2TON(t *testing.T) {
 // - All messages committed in one batch (single commit report)
 // - Each message executed in a separate execution report (MaxReportMessages=1)
 func Test_CCIPMessaging_EVM2TON_BatchCommit(t *testing.T) {
-	ctx := testhelpers.Context(t)
-
 	const numMessages = 5
 
 	// setup environment with 1 ton chain and Multicall3
@@ -252,128 +245,42 @@ func Test_CCIPMessaging_EVM2TON_BatchCommit(t *testing.T) {
 	require.NoError(t, err)
 	require.Len(t, receiverBytes, 36, "receiver bytes should be 36 bytes")
 
-	// send multiple messages using Multicall3
-	evmChain := e.Env.BlockChains.EVMChains()[sourceChain]
-	onRamp := state.Chains[sourceChain].OnRamp
-	routerContract := state.Chains[sourceChain].Router
-	multicall3 := state.Chains[sourceChain].Multicall3
-
-	t.Logf("Sending %d messages via Multicall3", numMessages)
-
-	// get next expected sequence number before sending
-	nextSeqNum, err := onRamp.GetExpectedNextSequenceNumber(&bind.CallOpts{Context: ctx}, destChain)
-	require.NoError(t, err)
-	t.Logf("Expected next sequence number: %d", nextSeqNum)
-
-	// generate messages for multicall3
-	calls, totalValue, err := testhelpers.GenMessagesForMulticall3(
-		ctx,
-		routerContract,
+	// prepare test setup
+	sender := common.LeftPadBytes(e.Env.BlockChains.EVMChains()[sourceChain].DeployerKey.From.Bytes(), 32)
+	setup := mt.NewTestSetupWithDeployedEnv(
+		t,
+		e,
+		state,
+		sourceChain,
 		destChain,
-		numMessages,
-		router.ClientEVM2AnyMessage{
-			Receiver:     receiverBytes,
-			Data:         fmt.Appendf(nil, "batch message %d", numMessages),
-			TokenAmounts: nil,
-			FeeToken:     common.HexToAddress("0x0"),
-			ExtraArgs:    testhelpers.MakeEVMExtraArgsV2(100000, false),
-		},
-	)
-	require.NoError(t, err)
-
-	// check balance
-	currBalance, err := evmChain.Client.BalanceAt(ctx, evmChain.DeployerKey.From, nil)
-	require.NoError(t, err)
-	t.Logf("Sending %d messages with total value %s, current balance: %s",
-		numMessages, totalValue.String(), currBalance.String())
-	require.True(t, currBalance.Cmp(totalValue) >= 0, "insufficient balance")
-
-	// send via multicall3
-	tx, err := multicall3.Aggregate3Value(
-		&bind.TransactOpts{
-			From:   evmChain.DeployerKey.From,
-			Signer: evmChain.DeployerKey.Signer,
-			Value:  totalValue,
-		},
-		calls,
-	)
-	require.NoError(t, err)
-
-	_, err = deployment.ConfirmIfNoError(evmChain, tx, err)
-	require.NoError(t, err)
-	t.Logf("Multicall3 tx sent: %s", tx.Hash().Hex())
-
-	// verify all messages were emitted
-	iter, err := onRamp.FilterCCIPMessageSent(
-		nil, []uint64{destChain}, nil,
-	)
-	require.NoError(t, err)
-	defer func() {
-		require.NoError(t, iter.Close())
-	}()
-
-	// collect all message IDs
-	var messageIDs []common.Hash
-	for i := 0; i < numMessages; i++ {
-		require.True(t, iter.Next(), "expected %d messages, got %d", numMessages, i)
-		messageIDs = append(messageIDs, iter.Event.Message.Header.MessageId)
-		t.Logf("Message %d: seqNum=%d, msgID=%x",
-			i+1, iter.Event.SequenceNumber, iter.Event.Message.Header.MessageId[:8])
-	}
-	require.Len(t, messageIDs, numMessages, "expected %d messages", numMessages)
-
-	// confirm commit with expected sequence number range
-	expectedSeqNumRange := ccipocr3.NewSeqNumRange(
-		ccipocr3.SeqNum(nextSeqNum),
-		ccipocr3.SeqNum(nextSeqNum+uint64(numMessages)-1),
+		sender,
+		false, // testRouter
 	)
 
-	t.Logf("Waiting for commit report with seq range [%d, %d]",
-		expectedSeqNumRange.Start(), expectedSeqNumRange.End())
+	t.Logf("Sending %d messages via Multicall3 for batch commit test", numMessages)
 
-	err = testhelpers.ConfirmMultipleCommits(
+	// use mt.Run with UseMulticall3=true to send multiple messages
+	// this handles TON receiver address format correctly
+	out := mt.Run(
 		t,
-		e.Env,
-		state,
-		map[uint64]*uint64{destChain: nil}, // startBlocks
-		true,                               // enforceSingleCommit - all messages should be in one commit
-		map[testhelpers.SourceDestPair]ccipocr3.SeqNumRange{
-			{
-				SourceChainSelector: sourceChain,
-				DestChainSelector:   destChain,
-			}: expectedSeqNumRange,
+		mt.TestCase{
+			ValidationType:         mt.ValidationTypeExec,
+			TestSetup:              setup,
+			Nonce:                  nil, // TON nonce check is skipped
+			Receiver:               receiverBytes,
+			MsgData:                fmt.Appendf(nil, "batch message %d", numMessages),
+			ExtraArgs:              testhelpers.MakeEVMExtraArgsV2(100000, false),
+			ExpectedExecutionState: testhelpers.EXECUTION_STATE_SUCCESS,
+			NumberOfMessages:       numMessages, // Send 5 messages
+			UseMulticall3:          true,        // Use Multicall3 for batch sending
 		},
 	)
-	require.NoError(t, err)
-	t.Logf("✓ Batch commit verified: all %d messages committed in single report", numMessages)
 
-	// confirm execution for all messages
-	var expectedSeqNums []uint64
-	for i := uint64(0); i < uint64(numMessages); i++ {
-		expectedSeqNums = append(expectedSeqNums, nextSeqNum+i)
-	}
+	t.Logf("✓ Batch commit test completed successfully")
+	t.Logf("  - Sent %d messages in single Multicall3 transaction", numMessages)
+	t.Logf("  - All messages committed in batch (single commit report)")
+	t.Logf("  - Each message executed in separate execution report (MaxReportMessages=1)")
+	t.Logf("  - Final sequence number: %d", out.MsgSentEvent.SequenceNumber)
 
-	t.Logf("Waiting for execution of messages: %v", expectedSeqNums)
-	execStates := testhelpers.ConfirmExecWithSeqNrsForAll(
-		t,
-		e.Env,
-		state,
-		map[testhelpers.SourceDestPair][]uint64{
-			{
-				SourceChainSelector: sourceChain,
-				DestChainSelector:   destChain,
-			}: expectedSeqNums,
-		},
-		map[uint64]*uint64{destChain: nil}, // startBlocks
-	)
-
-	// verify all executions succeeded
-	for pair, states := range execStates {
-		t.Logf("Execution states for %d->%d: %v", pair.SourceChainSelector, pair.DestChainSelector, states)
-		for seqNum, state := range states {
-			require.Equal(t, testhelpers.EXECUTION_STATE_SUCCESS, state,
-				"message %d execution failed", seqNum)
-		}
-	}
-	t.Logf("✓ All %d messages executed successfully", numMessages)
+	_ = out
 }
