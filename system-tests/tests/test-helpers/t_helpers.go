@@ -611,13 +611,6 @@ func CompileAndDeployWorkflow[T WorkflowConfig](t *testing.T,
 	require.NotEmpty(t, workflowDOName, "failed to find workflow DON in the topology")
 
 	compressedWorkflowWasmPath, workflowConfigPath := createWorkflowArtifacts(t, testLogger, workflowName, workflowDOName, workflowConfig, workflowFileLocation)
-
-	// Ignoring the deprecation warning as the suggest solution is not working in CI
-	//lint:ignore SA1019 ignoring deprecation warning for this usage
-	// workflowRegistryAddress, tv, workflowRegistryErr := crecontracts.FindAddressesForChain(
-	// 	testEnv.CreEnvironment.CldfEnvironment.ExistingAddresses, //nolint:staticcheck // SA1019 ignoring deprecation warning for this usage
-	// 	homeChainSelector, keystone_changeset.WorkflowRegistry.String())
-	// require.NoError(t, workflowRegistryErr, "failed to find workflow registry address for chain %d", testEnv.CreEnvironment.Blockchains[0].ChainID)
 	workflowRegistryAddress := crecontracts.MustGetAddressRefFromDataStore(testEnv.CreEnvironment.CldfEnvironment.DataStore, testEnv.CreEnvironment.Blockchains[0].ChainSelector(), keystone_changeset.WorkflowRegistry.String(), testEnv.CreEnvironment.ContractVersions[keystone_changeset.WorkflowRegistry.String()], "")
 
 	workflowRegConfig := &WorkflowRegistrationConfig{

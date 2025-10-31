@@ -434,11 +434,6 @@ func startCmd() *cobra.Command {
 				gatewayURL := fmt.Sprintf("%s://%s:%d%s", output.GatewayConnectors.Configurations[0].Incoming.Protocol, output.GatewayConnectors.Configurations[0].Incoming.Host, output.GatewayConnectors.Configurations[0].Incoming.ExternalPort, output.GatewayConnectors.Configurations[0].Incoming.Path)
 
 				fmt.Print(libformat.PurpleText("\nRegistering and verifying example workflow\n\n"))
-
-				// wfRegAddr := libcontracts.MustFindAddressesForChain(
-				// 	output.CreEnvironment.CldfEnvironment.ExistingAddresses, //nolint:staticcheck,nolintlint // SA1019: deprecated but we don't want to migrate now
-				// 	output.CreEnvironment.Blockchains[0].ChainSelector(),
-				// 	keystone_changeset.WorkflowRegistry.String())
 				workflowRegistryAddress := libcontracts.MustGetAddressFromDataStore(output.CreEnvironment.CldfEnvironment.DataStore, output.CreEnvironment.Blockchains[0].ChainSelector(), keystone_changeset.WorkflowRegistry.String(), output.CreEnvironment.ContractVersions[keystone_changeset.WorkflowRegistry.String()], "")
 
 				var workflowDonID uint32

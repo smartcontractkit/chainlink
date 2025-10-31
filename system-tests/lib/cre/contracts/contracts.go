@@ -24,32 +24,6 @@ import (
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre"
 )
 
-// func FindAddressesForChain(addressBook cldf.AddressBook, chainSelector uint64, contractName string) (common.Address, cldf.TypeAndVersion, error) {
-// 	addresses, err := addressBook.AddressesForChain(chainSelector)
-// 	if err != nil {
-// 		return common.Address{}, cldf.TypeAndVersion{}, errors.Wrap(err, "failed to get addresses for chain")
-// 	}
-
-// 	for addrStr, tv := range addresses {
-// 		if !strings.Contains(tv.String(), contractName) {
-// 			continue
-// 		}
-
-// 		return common.HexToAddress(addrStr), tv, nil
-// 	}
-
-// 	return common.Address{}, cldf.TypeAndVersion{}, fmt.Errorf("failed to find %s address in the address book for chain %d", contractName, chainSelector)
-// }
-
-// // TODO: CRE-742 use datastore
-// func MustFindAddressesForChain(addressBook cldf.AddressBook, chainSelector uint64, contractName string) common.Address {
-// 	addr, _, err := FindAddressesForChain(addressBook, chainSelector, contractName)
-// 	if err != nil {
-// 		panic(fmt.Errorf("failed to find %s address in the address book for chain %d", contractName, chainSelector))
-// 	}
-// 	return addr
-// }
-
 // MergeAllDataStores merges all DataStores (after contracts deployments)
 func MergeAllDataStores(creEnvironment *cre.Environment, changesetOutputs ...cldf.ChangesetOutput) {
 	framework.L.Info().Msg("Merging DataStores (after contracts deployments)...")

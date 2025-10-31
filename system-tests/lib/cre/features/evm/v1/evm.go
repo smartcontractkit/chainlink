@@ -180,8 +180,6 @@ func deployTronForwarders(testLogger zerolog.Logger, cldfEnv *cldf.Environment, 
 		return fmt.Errorf("failed to deploy Tron forwarders using changesets: %w", err)
 	}
 
-	// cldfEnv.ExistingAddresses = updatedEnv.ExistingAddresses //nolint:staticcheck // won't migrate now
-
 	if updatedEnv.DataStore != nil {
 		err = memoryDatastore.Merge(updatedEnv.DataStore)
 		if err != nil {
@@ -229,21 +227,6 @@ func configureTronForwarder(testLogger zerolog.Logger, env *cldf.Environment, re
 
 	return nil
 }
-
-// func findForwarderAddress(chain chain_selectors.Chain, datastore datastore.DataStore) (*common.Address, error) {
-// 	addrsForChains, addErr := datastore.AddressesForChain(chain.Selector)
-// 	if addErr != nil {
-// 		return nil, errors.Wrap(addErr, "failed to get addresses from address book")
-// 	}
-
-// 	for addr, addrValue := range addrsForChains {
-// 		if addrValue.Type == keystone_changeset.KeystoneForwarder {
-// 			return ptr.Ptr(common.HexToAddress(addr)), nil
-// 		}
-// 	}
-
-// 	return nil, errors.Errorf("failed to find forwarder address for chain %d", chain.Selector)
-// }
 
 func updateNodeConfig(workerNode *cre.NodeMetadata, currentConfig string, chainCapabilityConfigs map[string]*cre.ChainCapabilityConfig, creEnv *cre.Environment) (*string, error) {
 	writeEvmConfigs := []writeEVMData{}

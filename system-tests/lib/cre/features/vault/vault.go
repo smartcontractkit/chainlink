@@ -86,15 +86,6 @@ func (o *Vault) PreEnvStartup(
 		return nil, errors.Wrapf(cErr, "failed to add gateway connectors to node's TOML config in for don %s", don.Name)
 	}
 
-	// workflowRegistryAddress, wfRegTypeVersion, wfErr := contracts.FindAddressesForChain(
-	// 	creEnv.CldfEnvironment.ExistingAddresses, //nolint:staticcheck // won't migrate
-	// 	creEnv.RegistryChainSelector,
-	// 	keystone_changeset.WorkflowRegistry.String(),
-	// )
-	// if wfErr != nil {
-	// 	return nil, errors.Wrap(wfErr, "failed to find WorkflowRegistry address")
-	// }
-
 	workflowRegistryAddress := contracts.MustGetAddressFromDataStore(creEnv.CldfEnvironment.DataStore, creEnv.RegistryChainSelector, keystone_changeset.WorkflowRegistry.String(), creEnv.ContractVersions[keystone_changeset.WorkflowRegistry.String()], "")
 
 	// enable workflow registry syncer in node's TOML config

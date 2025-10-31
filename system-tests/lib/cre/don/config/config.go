@@ -441,23 +441,14 @@ func gatherCommonInputs(input cre.GenerateConfigsInput) (*commonInputs, error) {
 		return nil, errors.Wrap(homeErr, "failed to get home chain ID")
 	}
 
-	// prepare chains, we need chainIDs and URLs
 	evmChains := findEVMChains(input)
 	solanaChain, solErr := findOneSolanaChain(input)
 	if solErr != nil {
 		return nil, errors.Wrap(solErr, "failed to find Solana chain in the environment configuration")
 	}
 
-	// find contract addresses
 	capabilitiesRegistryAddress := crecontracts.MustGetAddressFromDataStore(input.Datastore, input.HomeChainSelector, keystone_changeset.CapabilitiesRegistry.String(), input.ContractVersions[keystone_changeset.CapabilitiesRegistry.String()], "")
-	// if capErr != nil {
-	// 	return nil, errors.Wrap(capErr, "failed to find CapabilitiesRegistry address")
-	// }
-
 	workflowRegistryAddress := crecontracts.MustGetAddressFromDataStore(input.Datastore, input.HomeChainSelector, keystone_changeset.WorkflowRegistry.String(), input.ContractVersions[keystone_changeset.WorkflowRegistry.String()], "")
-	// if wfErr != nil {
-	// 	return nil, errors.Wrap(wfErr, "failed to find WorkflowRegistry address")
-	// }
 
 	return &commonInputs{
 		registryChainID:       registryChainID,
@@ -490,7 +481,6 @@ func findEVMChains(input cre.GenerateConfigsInput) []*evmChain {
 		}
 
 		// if the DON doesn't support the chain, we skip it; if slice is empty, it means that the DON supports all chains
-		// TODO: review if we really need this SupportedChains functionality
 		if len(input.DonMetadata.NodeSets().EVMChains()) > 0 && !slices.Contains(input.DonMetadata.NodeSets().EVMChains(), bcOut.ChainID()) {
 			continue
 		}

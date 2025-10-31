@@ -132,10 +132,6 @@ func PrepareCRECLISettingsFile(
 	}
 
 	capabilitiesRegistryAddress := contracts.MustGetAddressFromDataStore(datastore, homeChainSelector, keystone_changeset.CapabilitiesRegistry.String(), contractVersions[keystone_changeset.CapabilitiesRegistry.String()], "")
-	// if capErr != nil {
-	// 	return nil, errors.Wrap(capErr, "failed to find CapabilitiesRegistry address")
-	// }
-
 	workflowRegistryAddress := contracts.MustGetAddressFromDataStore(datastore, homeChainSelector, keystone_changeset.WorkflowRegistry.String(), contractVersions[keystone_changeset.WorkflowRegistry.String()], "")
 
 	profileSettings := Settings{
@@ -186,12 +182,6 @@ func PrepareCRECLISettingsFile(
 			URL:           rpc,
 		})
 	}
-
-	// addresses, addrErr := addressBook.Addresses()
-	// if addrErr != nil {
-	// 	return nil, errors.Wrap(addrErr, "failed to get address book addresses")
-	// }
-
 	chainMetadata, cErr := datastore.ChainMetadata().Fetch()
 	if cErr != nil {
 		return nil, errors.Wrap(cErr, "failed to get chain metadata from datastore")
@@ -199,7 +189,6 @@ func PrepareCRECLISettingsFile(
 
 	for _, chain := range chainMetadata {
 		dfAddr := contracts.MustGetAddressFromDataStore(datastore, chain.ChainSelector, "DataFeedsCache", "1.0.0", "")
-		// dfAddr, _, dfErr := contracts.FindAddressesForChain(addressBook, chainSelector, df_changeset.DataFeedsCache.String())
 		profileSettings.Contracts.DataFeeds = append(profileSettings.Contracts.DataFeeds, ContractRegistry{
 			Name:          df_changeset.DataFeedsCache.String(),
 			Address:       dfAddr,
@@ -208,15 +197,11 @@ func PrepareCRECLISettingsFile(
 		// it is okay if there's no data feeds cache address for a chain
 
 		forwaderAddr := contracts.MustGetAddressFromDataStore(datastore, chain.ChainSelector, keystone_changeset.KeystoneForwarder.String(), contractVersions[keystone_changeset.KeystoneForwarder.String()], "")
-		// forwaderAddr, _, forwaderErr := contracts.FindAddressesForChain(addressBook, chainSelector, string(keystone_changeset.KeystoneForwarder))
-		// if forwaderErr == nil {
 		profileSettings.Contracts.Keystone = append(profileSettings.Contracts.Keystone, ContractRegistry{
 			Name:          keystone_changeset.KeystoneForwarder.String(),
 			Address:       forwaderAddr,
 			ChainSelector: chain.ChainSelector,
 		})
-		// }
-		// it is okay if there's no keystone forwarder address for a chain
 	}
 
 	settings, settingsErr := setProfile(profile, profileSettings)

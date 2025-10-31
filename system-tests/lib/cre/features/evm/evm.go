@@ -45,10 +45,6 @@ func DeployEVMForwarders(testLogger zerolog.Logger, cldfEnv *cldf.Environment, c
 		return errors.Wrap(deployErr, "failed to deploy evm forwarder")
 	}
 
-	// if err := cldfEnv.ExistingAddresses.Merge(evmForwardersReport.Output.AddressBook); err != nil { //nolint:staticcheck // won't migrate now
-	// 	return errors.Wrap(err, "failed to merge address book with Keystone contracts addresses")
-	// }
-
 	if err := memoryDatastore.Merge(evmForwardersReport.Output.Datastore); err != nil {
 		return errors.Wrap(err, "failed to merge datastore with Keystone contracts addresses")
 	}

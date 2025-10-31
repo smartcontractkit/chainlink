@@ -115,8 +115,6 @@ func ExecutePoRTest(t *testing.T, testEnv *ttypes.TestEnvironment, priceProvider
 		var readBalancesAddress common.Address
 
 		uniqueWorkflowName := cfg.WorkflowName + "-" + bcOutput.CtfOutput().ChainID + "-" + uuid.New().String()[0:4] // e.g. 'por-workflow-1337-5f37_config'
-		// forwarderAddress, _, forwarderErr := crecontracts.FindAddressesForChain(creEnvironment.CldfEnvironment.ExistingAddresses, chainSelector, keystone_changeset.KeystoneForwarder.String()) //nolint:staticcheck,nolintlint // SA1019: deprecated but we don't want to migrate now
-		// require.NoError(t, forwarderErr, "failed to find Forwarder address for chain %d", chainSelector)
 		forwarderAddress := crecontracts.MustGetAddressFromDataStore(creEnvironment.CldfEnvironment.DataStore, chainSelector, keystone_changeset.KeystoneForwarder.String(), creEnvironment.ContractVersions[keystone_changeset.KeystoneForwarder.String()], "")
 
 		switch chainFamily {
@@ -178,13 +176,9 @@ func deployAndConfigureEVMContracts(t *testing.T, testLogger zerolog.Logger, cha
 	require.NoError(t, dfErr, "failed to deploy Data Feeds Cache contract on chain %d", chainSelector)
 
 	rbAddress, rbErr := crecontracts.DeployReadBalancesContract(testLogger, chainSelector, creEnvironment)
-
 	require.NoError(t, rbErr, "failed to deploy Read Balances contract on chain %d", chainSelector)
 
-	// crecontracts.MergeAllDataStores(creEnvironment, dfOutput, rbOutput)
-
 	testLogger.Info().Msgf("Configuring Data Feeds Cache contract...")
-
 	configInput := &cre.ConfigureDataFeedsCacheInput{
 		CldEnv:                creEnvironment.CldfEnvironment,
 		ChainSelector:         chainSelector,
@@ -430,15 +424,6 @@ func validatePoRPrices(t *testing.T, testEnv *ttypes.TestEnvironment, priceProvi
 }
 
 func validateEVMPrices(t *testing.T, testEnv *ttypes.TestEnvironment, blockchain *evm.Blockchain, feedID string, priceProvider PriceProvider, startTime time.Time, waitFor time.Duration, tick time.Duration) error {
-	// dataFeedsCacheAddresses, _, dataFeedsCacheErr := crecontracts.FindAddressesForChain(
-	// 	testEnv.CreEnvironment.CldfEnvironment.ExistingAddresses, //nolint:staticcheck,nolintlint // SA1019: deprecated but we don't want to migrate now
-	// 	blockchain.ChainSelector(),
-	// 	df_changeset.DataFeedsCache.String(),
-	// )
-	// if dataFeedsCacheErr != nil {
-	// 	return fmt.Errorf("failed to find Data Feeds Cache address for chain %d: %w", blockchain.ChainID(), dataFeedsCacheErr)
-	// }
-
 	dataFeedsCacheAddress := crecontracts.MustGetAddressFromDataStore(testEnv.CreEnvironment.CldfEnvironment.DataStore, blockchain.ChainSelector(), "DataFeedsCache", "1.0.0", "")
 	dataFeedsCacheInstance, instanceErr := data_feeds_cache.NewDataFeedsCache(common.HexToAddress(dataFeedsCacheAddress), blockchain.SethClient.Client)
 	if instanceErr != nil {

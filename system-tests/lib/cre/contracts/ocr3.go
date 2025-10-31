@@ -37,10 +37,6 @@ func DeployOCR3Contract(logger zerolog.Logger, qualifier string, selector uint64
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to deploy OCR3 contract '%s' on chain %d: %w", qualifier, selector, err)
 	}
-	// TODO: CRE-742 remove address book
-	// if err = env.ExistingAddresses.Merge(ocr3DeployReport.Output.AddressBook); err != nil { //nolint:staticcheck // won't migrate now
-	// 	return nil, nil, fmt.Errorf("failed to merge address book with OCR3 contract address for '%s' on chain %d: %w", qualifier, selector, err)
-	// }
 	if err = memoryDatastore.Merge(ocr3DeployReport.Output.Datastore); err != nil {
 		return nil, nil, fmt.Errorf("failed to merge datastore with OCR3 contract address for '%s' on chain %d: %w", qualifier, selector, err)
 	}
