@@ -118,7 +118,7 @@ func OnboardTokenPoolsForSelfServe(e cldf.Environment, cfg OnboardTokenPoolsForS
 			return cldf.ChangesetOutput{}, err
 		}
 		tokenInstructions := []solana.Instruction{proposeTokenAdminRegistryAdminIx}
-		var initializeTokenPoolIx solana.Instruction = nil
+		var initializeTokenPoolIx solana.Instruction
 		if !registerTokenConfig.Override {
 			initializeTokenPoolIx, err = generateInitializeCLLTokenPoolIx(registerTokenConfig, currentTokenPoolSolanaState)
 			if err != nil {
