@@ -53,9 +53,9 @@ type WorkflowMetadataHandler struct {
 }
 
 // NewWorkflowMetadataHandler creates a new WorkflowMetadataHandler.
-func NewWorkflowMetadataHandler(lggr logger.Logger, cfg ServiceConfig, don handlers.DON, donConfig *config.DONConfig, f int, metrics *metrics.Metrics) *WorkflowMetadataHandler {
+func NewWorkflowMetadataHandler(lggr logger.Logger, cfg ServiceConfig, don handlers.DON, donConfig *config.DONConfig, metrics *metrics.Metrics) *WorkflowMetadataHandler {
 	// f+1 identical responses from workflow are needed for workflow metadata to be registered
-	threshold := f + 1
+	threshold := donConfig.F + 1
 	return &WorkflowMetadataHandler{
 		lggr:            logger.Named(lggr, "HTTPTriggerWorkflowMetadataHandler"),
 		authorizedKeys:  make(map[string]map[gateway.AuthorizedKey]struct{}),

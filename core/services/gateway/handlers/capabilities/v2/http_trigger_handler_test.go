@@ -28,11 +28,9 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
-const (
-	workflowID    = "0x1234567890abcdef1234567890abcdef12345678901234567890abcdef123456"
-	workflowOwner = "0x1234567890abcdef1234567890abcdef12345678"
-	requestID     = "test-request-id"
-)
+const workflowID = "0x1234567890abcdef1234567890abcdef12345678901234567890abcdef123456"
+const workflowOwner = "0x1234567890abcdef1234567890abcdef12345678"
+const requestID = "test-request-id"
 
 func createTestMetrics(t *testing.T) *metrics.Metrics {
 	m, err := metrics.NewMetrics()
@@ -673,8 +671,7 @@ func TestHttpTriggerHandler_HandleUserTriggerRequest_Retries(t *testing.T) {
 	metadataHandler := createTestMetadataHandler(t)
 	userRateLimiter := createTestUserRateLimiter()
 	testMetrics := createTestMetrics(t)
-	handler, err := NewHTTPTriggerHandler(lggr, cfg, donConfig, mockDon, metadataHandler, userRateLimiter, F, testMetrics)
-	require.NoError(t, err)
+	handler := NewHTTPTriggerHandler(lggr, cfg, donConfig, mockDon, metadataHandler, userRateLimiter, testMetrics)
 	privateKey := createTestPrivateKey(t)
 	registerWorkflow(t, handler, workflowID, privateKey)
 
@@ -1540,7 +1537,7 @@ func createTestMetadataHandler(t *testing.T) *WorkflowMetadataHandler {
 	}
 	cfg := WithDefaults(ServiceConfig{})
 	testMetrics := createTestMetrics(t)
-	return NewWorkflowMetadataHandler(lggr, cfg, mockDon, donConfig, F, testMetrics)
+	return NewWorkflowMetadataHandler(lggr, cfg, mockDon, donConfig, testMetrics)
 }
 
 func createTestUserRateLimiter() limits.RateLimiter {
@@ -1571,8 +1568,7 @@ func createTestTriggerHandlerWithConfig(t *testing.T, cfg ServiceConfig) (*httpT
 	userRateLimiter := createTestUserRateLimiter()
 	testMetrics := createTestMetrics(t)
 
-	handler, err := NewHTTPTriggerHandler(lggr, cfg, donConfig, mockDon, metadataHandler, userRateLimiter, F, testMetrics)
-	require.NoError(t, err)
+	handler := NewHTTPTriggerHandler(lggr, cfg, donConfig, mockDon, metadataHandler, userRateLimiter, testMetrics)
 	return handler, mockDon
 }
 
@@ -1599,8 +1595,7 @@ func TestHttpTriggerHandler_HandleUserTriggerRequest_RateLimiting(t *testing.T) 
 
 	t.Run("successful rate limit check with CRE context", func(t *testing.T) {
 		userRateLimiter := createTestUserRateLimiter() // Unlimited
-		handler, err := NewHTTPTriggerHandler(lggr, cfg, donConfig, mockDon, metadataHandler, userRateLimiter, F, testMetrics)
-		require.NoError(t, err)
+		handler := NewHTTPTriggerHandler(lggr, cfg, donConfig, mockDon, metadataHandler, userRateLimiter, testMetrics)
 
 		privateKey := createTestPrivateKey(t)
 		workflowID := "0x1234567890abcdef1234567890abcdef12345678901234567890abcdef123456"
@@ -1646,8 +1641,7 @@ func TestHttpTriggerHandler_HandleUserTriggerRequest_RateLimiting(t *testing.T) 
 	t.Run("rate limit exceeded returns proper error", func(t *testing.T) {
 		// Create a rate limiter with very restrictive limits
 		restrictiveRateLimiter := limits.WorkflowRateLimiter(1, 0)
-		handler, err := NewHTTPTriggerHandler(lggr, cfg, donConfig, mockDon, metadataHandler, restrictiveRateLimiter, F, testMetrics)
-		require.NoError(t, err)
+		handler := NewHTTPTriggerHandler(lggr, cfg, donConfig, mockDon, metadataHandler, restrictiveRateLimiter, testMetrics)
 
 		privateKey := createTestPrivateKey(t)
 		workflowID := "0x1234567890abcdef1234567890abcdef12345678901234567890abcdef123456"
@@ -1711,8 +1705,7 @@ func TestHttpTriggerHandler_HandleUserTriggerRequest_StopsRetriesOnQuorum(t *tes
 	metadataHandler := createTestMetadataHandler(t)
 	userRateLimiter := createTestUserRateLimiter()
 	testMetrics := createTestMetrics(t)
-	handler, err := NewHTTPTriggerHandler(lggr, cfg, donConfig, mockDon, metadataHandler, userRateLimiter, F, testMetrics)
-	require.NoError(t, err)
+	handler := NewHTTPTriggerHandler(lggr, cfg, donConfig, mockDon, metadataHandler, userRateLimiter, testMetrics)
 	privateKey := createTestPrivateKey(t)
 	registerWorkflow(t, handler, workflowID, privateKey)
 
