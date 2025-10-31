@@ -265,3 +265,99 @@ func configureEVMLogTriggerWorkflow(t *testing.T, lggr zerolog.Logger, chain *bl
 		Abi:   evmreadcontracts.MessageEmitterMetaData.ABI,
 	}, msgEmitter
 }
+
+func ExecuteEVMLogTriggerTest2(t *testing.T, testEnv *ttypes.TestEnvironment) {
+	const workflowFileLocation = "./evm/logtrigger/main.go"
+	lggr := framework.L
+	listenerCtx, messageChan, kafkaErrChan := t_helpers.StartBeholder(t, lggr, testEnv)
+
+	enabledChains := t_helpers.GetEVMEnabledChains(t, testEnv)
+	chainsToTest := make(map[string]*blockchains.Blockchain)
+	for _, bcOutput := range testEnv.CreEnvironment.Blockchains {
+		chainID := bcOutput.CtfOutput().ChainID
+		if _, ok := enabledChains[chainID]; !ok {
+			lggr.Info().Msgf("Skipping chain %s as it is not enabled for EVM LogTrigger workflow test", chainID)
+			continue
+		}
+		chainsToTest[chainID] = &bcOutput
+	}
+
+	successfulLogTriggerChains := make([]string, 0, len(chainsToTest))
+	for chainID, bcOutput := range chainsToTest {
+		lggr.Info().Msgf("Creating EVM LogTrigger workflow configuration for chain %s", chainID)
+		workflowConfig, msgEmitter := configureEVMLogTriggerWorkflow(t, lggr, bcOutput)
+
+		workflowName := fmt.Sprintf("evm-logTrigger-workflow-%s-%04d", chainID, rand.Intn(10000))
+		lggr.Info().Msgf("About to deploy Workflow %s on chain %s", workflowName, chainID)
+		t_helpers.CompileAndDeployWorkflow(t, testEnv, lggr, workflowName, &workflowConfig, workflowFileLocation)
+
+		triggersUpAndRunning := "Trigger RunSimpleEvmLogTriggerWorkflow called"
+		err := t_helpers.AssertBeholderMessage(listenerCtx, t, triggersUpAndRunning, lggr, messageChan, kafkaErrChan, 4*time.Minute)
+		require.NoError(t, err, "Triggers up and running test failed")
+		lggr.Info().Msgf("Triggers are up and running in all nodes %s on chain %s", workflowName, chainID)
+
+		message := "Data for log trigger"
+		emitEvent(t, lggr, chainID, bcOutput, msgEmitter, message, workflowConfig)
+		expectedUserLog := "OnTrigger decoded message: message:" + message
+		err = t_helpers.AssertBeholderMessage(listenerCtx, t, expectedUserLog, lggr, messageChan, kafkaErrChan, 4*time.Minute)
+		require.NoError(t, err, "Expected user log test failed")
+		mychain := *bcOutput
+		evmChain := mychain.(*evm.Blockchain)
+		validateWorkflowExecution2(t, lggr, testEnv, evmChain, workflowName, workflowConfig)
+
+		lggr.Info().Msgf("🎉 LogTrigger Workflow %s executed successfully on chain %s", workflowName, chainID)
+		successfulLogTriggerChains = append(successfulLogTriggerChains, chainID)
+	}
+
+	require.Lenf(t, successfulLogTriggerChains, len(chainsToTest),
+		"Not all workflows executed successfully. Successful chains: %v, All chains to test: %v",
+		successfulLogTriggerChains, keysFromMap(chainsToTest))
+
+	lggr.Info().Msgf("✅ LogTrigger test ran for chains: %v", successfulLogTriggerChains)
+}
+
+func validateWorkflowExecution2(t *testing.T, lggr zerolog.Logger, testEnv *ttypes.TestEnvironment, blockchain *evm.Blockchain, workflowName string, workflowConfig evm_logTrigger_config.Config) {
+	forwarderAddress, _, err := crecontracts.FindAddressesForChain(testEnv.CreEnvironment.CldfEnvironment.ExistingAddresses, blockchain.ChainSelector(), keystonechangeset.KeystoneForwarder.String()) //nolint:staticcheck,nolintlint // SA1019: deprecated but we don't want to migrate now
+	require.NoError(t, err, "failed to find forwarder address for chain %s", blockchain.ChainSelector)
+
+	forwarderContract, err := forwarder.NewKeystoneForwarder(forwarderAddress, blockchain.SethClient.Client)
+	require.NoError(t, err, "failed to instantiate forwarder contract")
+
+	msgEmitterAddr := common.HexToAddress(workflowConfig.Addresses[0])
+
+	timeout := 5 * time.Minute
+	tick := 3 * time.Second
+	require.Eventually(t, func() bool {
+		lggr.Info().Msgf("Waiting for workflow '%s' to finish", workflowName)
+		ctx, cancel := context.WithTimeout(t.Context(), timeout)
+		defer cancel()
+		isSubmitted := isReportSubmittedByWorkflow2(ctx, t, forwarderContract, msgEmitterAddr, workflowConfig)
+		if !isSubmitted {
+			lggr.Warn().Msgf("Forwarder has not received any reports from a workflow '%s' yet (delay is permissible due to latency in event propagation, waiting).", workflowName)
+			return false
+		}
+
+		if isSubmitted {
+			lggr.Info().Msgf("🎉 Workflow %s executed successfully on chain %s", workflowName, blockchain.CtfOutput().ChainID)
+			return true
+		}
+
+		// if there are no more filtered reports, stop
+		return !isReportSubmittedByWorkflow2(ctx, t, forwarderContract, msgEmitterAddr, workflowConfig)
+	}, timeout, tick, "workflow %s did not execute within the timeout %s", workflowName, timeout.String())
+}
+
+func isReportSubmittedByWorkflow2(ctx context.Context, t *testing.T, forwarderContract *forwarder.KeystoneForwarder, msgEmitterAddr common.Address, cfg evm_logTrigger_config.Config) bool {
+	iter, err := forwarderContract.FilterReportProcessed(
+		&bind.FilterOpts{
+			Start:   0,
+			End:     nil,
+			Context: ctx,
+		},
+		[]common.Address{msgEmitterAddr}, nil, nil)
+
+	require.NoError(t, err, "failed to filter forwarder events")
+	require.NoError(t, iter.Error(), "error during iteration of forwarder events")
+
+	return iter.Next()
+}
