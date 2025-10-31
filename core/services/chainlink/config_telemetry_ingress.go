@@ -56,6 +56,10 @@ func (t *telemetryIngressConfig) Endpoints() []config.TelemetryIngressEndpoint {
 	return endpoints
 }
 
+func (t *telemetryIngressConfig) ChipIngressEnabled() bool {
+	return *t.c.ChipIngressEnabled
+}
+
 func (t *telemetryIngressEndpointConfig) Network() string {
 	return *t.c.Network
 }
