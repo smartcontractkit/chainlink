@@ -151,6 +151,24 @@ func BuildProposalsForBatches(
 	return buildProposalCommon(e, chainSelector, description, minDelay, batches)
 }
 
+type MCMSTxParams struct {
+	Ix           solana.Instruction
+	ProgramID    string
+	ContractType cldf.ContractType
+}
+
+func BuildManyMCMSTxsFrom(input []MCMSTxParams) ([]*mcmsTypes.Transaction, error) {
+	mcmsTxs := []*mcmsTypes.Transaction{}
+	for _, params := range input {
+		tx, err := BuildMCMSTxn(params.Ix, params.ProgramID, params.ContractType)
+		if err != nil {
+			return []*mcmsTypes.Transaction{}, fmt.Errorf("failed to create transaction: %w", err)
+		}
+		mcmsTxs = append(mcmsTxs, tx)
+	}
+	return mcmsTxs, nil
+}
+
 func BuildMCMSTxn(ixn solana.Instruction, programID string, contractType cldf.ContractType) (*mcmsTypes.Transaction, error) {
 	data, err := ixn.Data()
 	if err != nil {
