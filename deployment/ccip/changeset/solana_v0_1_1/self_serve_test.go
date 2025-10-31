@@ -1,13 +1,16 @@
 package solana_test
 
 import (
+	"fmt"
 	"testing"
 	"time"
 
 	"github.com/gagliardetto/solana-go"
+	"github.com/gagliardetto/solana-go/programs/token"
 	chainSelectors "github.com/smartcontractkit/chain-selectors"
 	lockrelease "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/v0_1_1/lockrelease_token_pool"
 	"github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/tokens"
+	cldf_solana "github.com/smartcontractkit/chainlink-deployments-framework/chain/solana"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
 	"github.com/stretchr/testify/require"
@@ -51,10 +54,13 @@ func doTestOnboardTokenPoolForSelfServe(t *testing.T, isMCMsOwner bool) {
 	e, bnmTokenMint, err := deployTokenAndMint(t, tenv.Env, solChainSelector, []string{}, "TEST_TOKEN_2")
 	require.NoError(t, err)
 	tenv.Env = e
-	// TODO: Modify mint authority of the token to be the customerAdmin
 	customerAdmin, err := solana.NewRandomPrivateKey()
 	require.NoError(t, err)
 	state, err := stateview.LoadOnchainStateSolana(e)
+	require.NoError(t, err)
+	err = modifyMintAuthority(e.BlockChains.SolanaChains()[solChainSelector], tenv.Env.BlockChains.SolanaChains()[solChainSelector].DeployerKey.PublicKey(), lnrTokenMint, customerAdmin.PublicKey())
+	require.NoError(t, err)
+	err = modifyMintAuthority(e.BlockChains.SolanaChains()[solChainSelector], tenv.Env.BlockChains.SolanaChains()[solChainSelector].DeployerKey.PublicKey(), bnmTokenMint, customerAdmin.PublicKey())
 	require.NoError(t, err)
 	lockAndReleaseTokenPoolProgramID := state.SolChains[solChainSelector].LockReleaseTokenPools[shared.CLLMetadata]
 	burnAndMintTokenPoolProgramID := state.SolChains[solChainSelector].BurnMintTokenPools[shared.CLLMetadata]
@@ -183,4 +189,16 @@ func doTestOnboardTokenPoolForSelfServe(t *testing.T, isMCMsOwner bool) {
 	err = e.BlockChains.SolanaChains()[solChainSelector].GetAccountDataBorshInto(ctx, tokenPoolPDA, &tokenPoolAccount2)
 	require.NoError(t, err)
 	require.Equal(t, anotherCustomerAdmin.PublicKey(), tokenPoolAccount2.Config.ProposedOwner)
+}
+
+func modifyMintAuthority(state cldf_solana.Chain, deployerKey solana.PublicKey, mint solana.PublicKey, newAuthority solana.PublicKey) error {
+	mintI, err := token.NewSetAuthorityInstruction(token.AuthorityMintTokens, newAuthority, mint, deployerKey, []solana.PublicKey{}).ValidateAndBuild()
+	if err != nil {
+		return err
+	}
+	mintWrap := &tokens.TokenInstruction{mintI, solana.TokenProgramID}
+	if err := state.Confirm([]solana.Instruction{mintWrap}); err != nil {
+		return fmt.Errorf("failed to confirm instructions: %w", err)
+	}
+	return nil
 }
