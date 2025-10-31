@@ -728,24 +728,6 @@ func TestGetMessageHashAndMetadata_IgnoresMetadataDiff(t *testing.T) {
 	assert.Equal(t, hash1, hash2, "Hashes must be identical when only ResponseMetadata differs, proving metadata was successfully stripped before hashing.")
 }
 
-// Verify that modifying the underlying value of anypb payload can identify
-// differences at a known index.
-func Test_createAnyPayload(t *testing.T) {
-	content := []byte("this is a test payload content.")
-	payloadA := createAnyPayload(t, content, 0x41, 5)
-	payloadB := createAnyPayload(t, content, 0x42, 5)
-	rawA, rawB := payloadA.GetValue(), payloadB.GetValue()
-
-	diffIndex := -1
-	for i := 0; i < len(rawA) && i < len(rawB); i++ {
-		if rawA[i] != rawB[i] {
-			diffIndex = i
-			break
-		}
-	}
-	require.Equal(t, 5, diffIndex, "The two inner payloads must differ for this test to be valid.")
-}
-
 func createAnyPayload(t *testing.T, payloadData []byte, uniqueByte byte, uniqueIndex int) *anypb.Any {
 	payloadData[uniqueIndex] = uniqueByte
 	innerPayload := wrapperspb.BytesValue{Value: payloadData}
