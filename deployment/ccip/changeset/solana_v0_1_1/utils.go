@@ -213,7 +213,7 @@ func GetAuthorityForIxn(
 	chainState solanastateview.CCIPChainState,
 	contractType cldf.ContractType,
 	tokenAddress solana.PublicKey, // used for burnmint and lockrelease
-	tokenMetadata string, // used for burnmint and lockrelease
+	tokenMetadata string,          // used for burnmint and lockrelease
 ) solana.PublicKey {
 	timelockSigner, err := FetchTimelockSigner(*e, chain.Selector)
 	if err != nil {
@@ -273,7 +273,7 @@ func ExecuteInstructionsAndBuildProposals(e cldf.Environment, cfg ExecuteConfig,
 
 	if len(mcmsTxs) > 0 {
 		proposal, err := BuildProposalsForTxns(
-			e, cfg.ChainSelector, "proposal to OnboardTokenPoolsForSelfServe in Solana", cfg.MCMS.MinDelay, mcmsTxs)
+			e, cfg.ChainSelector, "proposal in Solana", cfg.MCMS.MinDelay, mcmsTxs)
 		if err != nil {
 			return cldf.ChangesetOutput{}, fmt.Errorf("failed to build proposal: %w", err)
 		}
