@@ -271,6 +271,7 @@ MaxBatchSize = 50 # Default
 SendInterval = '500ms' # Default
 SendTimeout = '10s' # Default
 UseBatchSend = true # Default
+ChipIngressEnabled = false # Default
 ```
 
 
@@ -315,6 +316,12 @@ SendTimeout is the max duration to wait for the request to complete when sending
 UseBatchSend = true # Default
 ```
 UseBatchSend toggles sending telemetry to the ingress server using the batch client.
+
+### ChipIngressEnabled
+```toml
+ChipIngressEnabled = false # Default
+```
+ChipIngressEnabled enables sending telemetry to CHIP Ingress.
 
 ## TelemetryIngress.Endpoints
 ```toml

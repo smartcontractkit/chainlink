@@ -4,6 +4,7 @@ BlockBackfillSkip = false
 SafeDepth = 0
 FinalityDepth = 50
 FinalityTagEnabled = false
+SafeTagSupported = true
 LogBackfillBatchSize = 1000
 LogPollInterval = '15s'
 LogKeepBlocksDepth = 100000

@@ -730,14 +730,15 @@ func (d *DatabaseBackup) setFrom(f *DatabaseBackup) {
 }
 
 type TelemetryIngress struct {
-	UniConn      *bool
-	Logging      *bool
-	BufferSize   *uint16
-	MaxBatchSize *uint16
-	SendInterval *commonconfig.Duration
-	SendTimeout  *commonconfig.Duration
-	UseBatchSend *bool
-	Endpoints    []TelemetryIngressEndpoint `toml:",omitempty"`
+	UniConn            *bool
+	Logging            *bool
+	BufferSize         *uint16
+	MaxBatchSize       *uint16
+	SendInterval       *commonconfig.Duration
+	SendTimeout        *commonconfig.Duration
+	UseBatchSend       *bool
+	Endpoints          []TelemetryIngressEndpoint `toml:",omitempty"`
+	ChipIngressEnabled *bool
 }
 
 type TelemetryIngressEndpoint struct {
@@ -771,6 +772,9 @@ func (t *TelemetryIngress) setFrom(f *TelemetryIngress) {
 	}
 	if v := f.Endpoints; v != nil {
 		t.Endpoints = v
+	}
+	if v := f.ChipIngressEnabled; v != nil {
+		t.ChipIngressEnabled = v
 	}
 }
 
