@@ -260,7 +260,8 @@ func GenerateArtifact(
 
 		workerNodes, wErr := don.Workers()
 		if wErr != nil {
-			return nil, pkgerrors.Wrap(wErr, "failed to find worker nodes")
+			// it is possible that a DON has only bootstrap or gateway nodes
+			continue
 		}
 		donArtifact.F = libc.MustSafeUint8((len(workerNodes) - 1) / 3)
 

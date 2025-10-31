@@ -25,7 +25,6 @@ type Topology struct {
 }
 
 func NewTopology(nodeSet []*NodeSet, provider infra.Provider) (*Topology, error) {
-	// TODO this setup is awkward, consider an withInfra opt to constructor
 	dm := make([]*DonMetadata, len(nodeSet))
 	for i := range nodeSet {
 		// TODO take more care about the ID assignment, it should match what the capabilities registry will assign

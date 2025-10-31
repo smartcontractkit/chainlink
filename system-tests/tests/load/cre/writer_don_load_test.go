@@ -174,7 +174,6 @@ func TestLoad_Writer_MockCapabilities(t *testing.T) {
 				// TODO quick hack, this needs to be removed after the migration to TOML
 				ComputedCapabilities: []string{cretypes.MockCapability, cretypes.ConsensusCapability, "write-evm-1337"},
 				DONTypes:             []string{cretypes.CapabilitiesDON, cretypes.WorkflowDON},
-				BootstrapNodeIndex:   0,
 			},
 		}
 	}

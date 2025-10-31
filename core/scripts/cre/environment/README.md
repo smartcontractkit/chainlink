@@ -931,10 +931,6 @@ Each DON is defined as a `nodesets` entry in the TOML configuration:
   don_types = ["workflow"]     # DON type(s) for this nodeset
   override_mode = "all"        # "all" for uniform config, "each" for per-node
 
-  # Bootstrap and gateway node configuration
-  bootstrap_node_index = 0     # Index of bootstrap node (-1 if none)
-  gateway_node_index = -1      # Index of gateway node (-1 if none)
-
   # Capabilities configuration
   capabilities = ["ocr3", "custom-compute", "cron"]
 
@@ -958,10 +954,6 @@ Here's how to add a new capabilities DON to your configuration:
   override_mode = "all"
   http_port_range_start = 10400
 
-  # No bootstrap or gateway nodes in this DON
-  bootstrap_node_index = -1
-  gateway_node_index = -1
-
   # Enable DON-level capabilities (using hypothetical don-level capability)
   capabilities = ["llo-streams"]
 
@@ -972,6 +964,7 @@ Here's how to add a new capabilities DON to your configuration:
 
   # Node specifications
   [[nodesets.node_specs]]
+    roles = ["bootstrap"]         # explictly indicate the roles for each node, i.e. plugin, bootstrap or gateway
     [nodesets.node_specs.node]
       docker_ctx = "../../../.."
       docker_file = "core/chainlink.Dockerfile"

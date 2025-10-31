@@ -219,11 +219,6 @@ func baseNodeConfig() corechainlink.Config {
 				JSONConsole: ptr.Ptr(true),
 				Level:       ptr.Ptr(coretoml.LogLevel(zapcore.DebugLevel)),
 			},
-			OCR2: coretoml.OCR2{
-				Enabled:              ptr.Ptr(true),
-				DatabaseTimeout:      commonconfig.MustNewDuration(1 * time.Second),
-				ContractPollInterval: commonconfig.MustNewDuration(1 * time.Second),
-			},
 		},
 	}
 }
@@ -236,6 +231,12 @@ func addBootstrapNodeConfig(
 	ocrBoostrapperLocator, ocrBErr := commontypes.NewBootstrapperLocator(ocrPeeringData.OCRBootstraperPeerID, []string{"localhost:" + strconv.Itoa(ocrPeeringData.Port)})
 	if ocrBErr != nil {
 		return existingConfig, errors.Wrap(ocrBErr, "failed to create OCR bootstrapper locator")
+	}
+
+	existingConfig.OCR2 = coretoml.OCR2{
+		Enabled:              ptr.Ptr(true),
+		DatabaseTimeout:      commonconfig.MustNewDuration(1 * time.Second),
+		ContractPollInterval: commonconfig.MustNewDuration(1 * time.Second),
 	}
 
 	existingConfig.P2P = coretoml.P2P{
@@ -298,6 +299,12 @@ func addWorkerNodeConfig(
 	ocrBoostrapperLocator, ocrBErr := commontypes.NewBootstrapperLocator(ocrPeeringData.OCRBootstraperPeerID, []string{ocrPeeringData.OCRBootstraperHost + ":" + strconv.Itoa(ocrPeeringData.Port)})
 	if ocrBErr != nil {
 		return existingConfig, errors.Wrap(ocrBErr, "failed to create OCR bootstrapper locator")
+	}
+
+	existingConfig.OCR2 = coretoml.OCR2{
+		Enabled:              ptr.Ptr(true),
+		DatabaseTimeout:      commonconfig.MustNewDuration(1 * time.Second),
+		ContractPollInterval: commonconfig.MustNewDuration(1 * time.Second),
 	}
 
 	existingConfig.P2P = coretoml.P2P{

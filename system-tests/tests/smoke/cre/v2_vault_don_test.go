@@ -47,8 +47,8 @@ func ExecuteVaultTest(t *testing.T, testEnv *ttypes.TestEnvironment) {
 	require.Eventually(t, func() bool {
 		for _, nodeSet := range testEnv.Config.NodeSets {
 			if slices.Contains(nodeSet.Capabilities, cre.VaultCapability) {
-				for i := range nodeSet.Nodes {
-					if i != nodeSet.BootstrapNodeIndex {
+				for i, node := range nodeSet.NodeSpecs {
+					if !slices.Contains(node.Roles, cre.BootstrapNode) {
 						packageCount, err := vault.GetResultPackageCount(t.Context(), i, nodeSet.DbInput.Port)
 						if err != nil || packageCount != 1 {
 							return false

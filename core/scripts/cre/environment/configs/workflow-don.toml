@@ -63,9 +63,6 @@
   http_port_range_start = 10100
 
   # supported_evm_chains = [1337, 2337, 11155111] # uncomment to connect the node to Sepolia, even though there are no capabilities using it
-
-  bootstrap_node_index = 0 # added for visibility, index of the node in the nodeset that will act as a bootstrap
-  gateway_node_index = 0 # added for visibility, required when don_types include "gateway"
   env_vars = { CL_EVM_CMD = "" }
   capabilities = ["ocr3", "custom-compute", "web-api-target", "web-api-trigger", "vault", "cron", "http-action", "http-trigger", "consensus", "don-time"]
 
@@ -82,6 +79,7 @@
     port = 13000
 
   [[nodesets.node_specs]]
+    roles = ["bootstrap", "gateway"]
     [nodesets.node_specs.node]
       docker_ctx = "../../../.."
       docker_file = "core/chainlink.Dockerfile"
@@ -121,6 +119,7 @@
       """
 
   [[nodesets.node_specs]]
+    roles = ["plugin"]
     [nodesets.node_specs.node]
       docker_ctx = "../../../.."
       docker_file = "core/chainlink.Dockerfile"
@@ -157,6 +156,7 @@
       """
 
   [[nodesets.node_specs]]
+    roles = ["plugin"]
     [nodesets.node_specs.node]
       docker_ctx = "../../../.."
       docker_file = "core/chainlink.Dockerfile"
@@ -193,6 +193,7 @@
       """
 
   [[nodesets.node_specs]]
+    roles = ["plugin"]
     [nodesets.node_specs.node]
       docker_ctx = "../../../.."
       docker_file = "core/chainlink.Dockerfile"
@@ -229,6 +230,7 @@
       """
 
   [[nodesets.node_specs]]
+    roles = ["plugin"]
     [nodesets.node_specs.node]
       docker_ctx = "../../../.."
       docker_file = "core/chainlink.Dockerfile"
