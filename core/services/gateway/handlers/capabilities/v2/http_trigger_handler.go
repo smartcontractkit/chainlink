@@ -53,6 +53,7 @@ type httpTriggerHandler struct {
 	config                  ServiceConfig
 	don                     handlers.DON
 	donConfig               *config.DONConfig
+	f                       int
 	lggr                    logger.Logger
 	callbacksMu             sync.Mutex
 	callbacks               map[string]savedCallback // requestID -> savedCallback
@@ -69,18 +70,19 @@ type HTTPTriggerHandler interface {
 	HandleNodeTriggerResponse(ctx context.Context, resp *jsonrpc.Response[json.RawMessage], nodeAddr string) error
 }
 
-func NewHTTPTriggerHandler(lggr logger.Logger, cfg ServiceConfig, donConfig *config.DONConfig, don handlers.DON, workflowMetadataHandler *WorkflowMetadataHandler, userRateLimiter limits.RateLimiter, metrics *metrics.Metrics) *httpTriggerHandler {
+func NewHTTPTriggerHandler(lggr logger.Logger, cfg ServiceConfig, donConfig *config.DONConfig, don handlers.DON, workflowMetadataHandler *WorkflowMetadataHandler, userRateLimiter limits.RateLimiter, f int, metrics *metrics.Metrics) (*httpTriggerHandler, error) {
 	return &httpTriggerHandler{
 		lggr:                    logger.Named(lggr, "RequestCallbacks"),
 		callbacks:               make(map[string]savedCallback),
 		config:                  cfg,
 		don:                     don,
 		donConfig:               donConfig,
+		f:                       f,
 		stopCh:                  make(services.StopChan),
 		workflowMetadataHandler: workflowMetadataHandler,
 		userRateLimiter:         userRateLimiter,
 		metrics:                 metrics,
-	}
+	}, nil
 }
 
 func (h *httpTriggerHandler) HandleUserTriggerRequest(ctx context.Context, req *jsonrpc.Request[json.RawMessage], callback handlers.Callback, requestStartTime time.Time) error {
@@ -388,7 +390,7 @@ func (h *httpTriggerHandler) setupCallback(ctx context.Context, requestID string
 	}
 
 	// (N+F)//2 + 1 threshold where N = number of nodes, F = number of faulty nodes
-	threshold := (len(h.donConfig.Members)+h.donConfig.F)/2 + 1
+	threshold := (len(h.donConfig.Members)+h.f)/2 + 1
 	agg, err := aggregation.NewIdenticalNodeResponseAggregator(threshold)
 	if err != nil {
 		return nil, errors.New("failed to create response aggregator: " + err.Error())

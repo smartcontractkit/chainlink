@@ -2444,6 +2444,11 @@ type Telemetry struct {
 	HeartbeatInterval             *commonconfig.Duration
 	LogLevel                      *string
 	LogStreamingEnabled           *bool
+	LogBatchProcessor             *bool
+	LogExportTimeout              *commonconfig.Duration
+	LogExportMaxBatchSize         *int
+	LogExportInterval             *commonconfig.Duration
+	LogMaxQueueSize               *int
 }
 
 func (b *Telemetry) setFrom(f *Telemetry) {
@@ -2485,6 +2490,21 @@ func (b *Telemetry) setFrom(f *Telemetry) {
 	}
 	if v := f.LogLevel; v != nil {
 		b.LogLevel = v
+	}
+	if v := f.LogBatchProcessor; v != nil {
+		b.LogBatchProcessor = v
+	}
+	if v := f.LogExportTimeout; v != nil {
+		b.LogExportTimeout = v
+	}
+	if v := f.LogExportMaxBatchSize; v != nil {
+		b.LogExportMaxBatchSize = v
+	}
+	if v := f.LogExportInterval; v != nil {
+		b.LogExportInterval = v
+	}
+	if v := f.LogMaxQueueSize; v != nil {
+		b.LogMaxQueueSize = v
 	}
 }
 
