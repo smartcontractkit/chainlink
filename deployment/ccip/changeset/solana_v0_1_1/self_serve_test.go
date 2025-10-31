@@ -100,9 +100,9 @@ func doTestOnboardTokenPoolForSelfServe(t *testing.T, isMCMsOwner bool) {
 				ChainSelector: solChainSelector,
 				RegisterTokenConfigs: []ccipChangesetSolana.OnboardTokenPoolConfig{
 					{
-						TokenMint:               lnrTokenMint,
-						TokenAdminRegistryAdmin: customerAdmin.PublicKey(),
-						PoolType:                shared.LockReleaseTokenPool,
+						TokenMint:     lnrTokenMint,
+						ProposedOwner: customerAdmin.PublicKey(),
+						PoolType:      shared.LockReleaseTokenPool,
 					},
 				},
 				MCMS: mcmsConfig,
@@ -131,4 +131,6 @@ func doTestOnboardTokenPoolForSelfServe(t *testing.T, isMCMsOwner bool) {
 	require.NoError(t, err)
 	// Verify the mint address is correct
 	require.Equal(t, lnrTokenMint, tokenPoolAccount.Config.Mint)
+	// Verify the proposed owner is correct
+	require.Equal(t, customerAdmin.PublicKey(), tokenPoolAccount.Config.ProposedOwner)
 }

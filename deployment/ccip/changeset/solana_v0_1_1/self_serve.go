@@ -28,11 +28,11 @@ import (
 var _ cldf.ChangeSet[OnboardTokenPoolsForSelfServeConfig] = OnboardTokenPoolsForSelfServe
 
 type OnboardTokenPoolConfig struct {
-	TokenMint               solana.PublicKey
-	TokenAdminRegistryAdmin solana.PublicKey
-	PoolType                cldf.ContractType
-	Metadata                string
-	Override                bool
+	TokenMint     solana.PublicKey
+	ProposedOwner solana.PublicKey
+	PoolType      cldf.ContractType
+	Metadata      string
+	Override      bool
 }
 
 type OnboardTokenPoolsForSelfServeConfig struct {
@@ -62,7 +62,7 @@ func (cfg OnboardTokenPoolsForSelfServeConfig) Validate(e cldf.Environment, chai
 			return fmt.Errorf("duplicate token mint %s found at indexes %d and %d", mintStr, firstIdx, i)
 		}
 		seen[mintStr] = i
-		if registerTokenConfig.TokenAdminRegistryAdmin.IsZero() {
+		if registerTokenConfig.ProposedOwner.IsZero() {
 			return errors.New("token admin registry admin is required")
 		}
 		if err := chainState.CommonValidation(e, cfg.ChainSelector, tokenMint); err != nil {
@@ -117,12 +117,17 @@ func OnboardTokenPoolsForSelfServe(e cldf.Environment, cfg OnboardTokenPoolsForS
 		tokenInstructions := []solana.Instruction{proposeTokenAdminRegistryAdminIx}
 		var initializeTokenPoolIx solana.Instruction = nil
 		if !registerTokenConfig.Override {
-			initializeTokenPoolIx, err = generateInitializeCLLTokenPoolIx(registerTokenConfig, currentTokenPoolSolanaState, routerState.ccipAdmin)
+			initializeTokenPoolIx, err = generateInitializeCLLTokenPoolIx(registerTokenConfig, currentTokenPoolSolanaState)
 			if err != nil {
 				return cldf.ChangesetOutput{}, err
 			}
 			tokenInstructions = append(tokenInstructions, initializeTokenPoolIx)
 		}
+		transferTokenPoolOwnershipIx, err := generateTransferTokenPoolOwnershipIx(registerTokenConfig, currentTokenPoolSolanaState)
+		if err != nil {
+			return cldf.ChangesetOutput{}, err
+		}
+		tokenInstructions = append(tokenInstructions, transferTokenPoolOwnershipIx)
 		// if the ccip admin is timelock, build mcms transaction
 		if cfg.MCMS != nil {
 			inputs := []MCMSTxParams{{
@@ -136,6 +141,11 @@ func OnboardTokenPoolsForSelfServe(e cldf.Environment, cfg OnboardTokenPoolsForS
 						ProgramID:    currentTokenPoolSolanaState.tokenPoolProgramID.String(),
 						ContractType: registerTokenConfig.PoolType})
 			}
+			inputs = append(inputs,
+				MCMSTxParams{
+					Ix:           transferTokenPoolOwnershipIx,
+					ProgramID:    currentTokenPoolSolanaState.tokenPoolProgramID.String(),
+					ContractType: registerTokenConfig.PoolType})
 			moreTx, err := BuildManyMCMSTxsFrom(inputs)
 			if err != nil {
 				return cldf.ChangesetOutput{}, err
@@ -154,7 +164,7 @@ func OnboardTokenPoolsForSelfServe(e cldf.Environment, cfg OnboardTokenPoolsForS
 func generateProposeTokenAdminRegistryAdministratorIx(registerTokenConfig OnboardTokenPoolConfig, routerState routerSolanaState) (solana.Instruction, error) {
 	tokenPubKey := registerTokenConfig.TokenMint
 	tokenAdminRegistryPDA, _, _ := solState.FindTokenAdminRegistryPDA(tokenPubKey, routerState.routerProgramID)
-	tokenAdminRegistryAdmin := registerTokenConfig.TokenAdminRegistryAdmin
+	tokenAdminRegistryAdmin := registerTokenConfig.ProposedOwner
 	var instruction solana.Instruction
 	// the ccip admin signs and makes tokenAdminRegistryAdmin the pending authority of the tokenAdminRegistry PDA, then they need to accept the role
 	if !registerTokenConfig.Override {
@@ -196,14 +206,14 @@ func generateProposeTokenAdminRegistryAdministratorIx(registerTokenConfig Onboar
 	return instruction, nil
 }
 
-func generateInitializeCLLTokenPoolIx(config OnboardTokenPoolConfig, state tokenPoolSolanaState, ccipAdmin solana.PublicKey) (solana.Instruction, error) {
+func generateInitializeCLLTokenPoolIx(config OnboardTokenPoolConfig, state tokenPoolSolanaState) (solana.Instruction, error) {
 	switch config.PoolType {
 	case shared.BurnMintTokenPool:
 		solBurnMintTokenPool.SetProgramID(state.tokenPoolProgramID)
 		return solBurnMintTokenPool.NewInitializeInstruction(
 			state.poolConfigPDA,
 			config.TokenMint,
-			ccipAdmin,
+			state.upgradeAuthority,
 			solana.SystemProgramID,
 			state.tokenPoolProgramID,
 			state.programDataAddress,
@@ -214,11 +224,34 @@ func generateInitializeCLLTokenPoolIx(config OnboardTokenPoolConfig, state token
 		return solLockReleaseTokenPool.NewInitializeInstruction(
 			state.poolConfigPDA,
 			config.TokenMint,
-			ccipAdmin,
+			state.upgradeAuthority,
 			solana.SystemProgramID,
 			state.tokenPoolProgramID,
 			state.programDataAddress,
 			state.configPDA,
+		).ValidateAndBuild()
+	default:
+		return nil, errors.New("invalid token pool type")
+	}
+}
+
+func generateTransferTokenPoolOwnershipIx(config OnboardTokenPoolConfig, state tokenPoolSolanaState) (solana.Instruction, error) {
+	switch config.PoolType {
+	case shared.BurnMintTokenPool:
+		solBurnMintTokenPool.SetProgramID(state.tokenPoolProgramID)
+		return solBurnMintTokenPool.NewTransferOwnershipInstruction(
+			config.ProposedOwner,
+			state.poolConfigPDA,
+			config.TokenMint,
+			state.upgradeAuthority,
+		).ValidateAndBuild()
+	case shared.LockReleaseTokenPool:
+		solLockReleaseTokenPool.SetProgramID(state.tokenPoolProgramID)
+		return solLockReleaseTokenPool.NewTransferOwnershipInstruction(
+			config.ProposedOwner,
+			state.poolConfigPDA,
+			config.TokenMint,
+			state.upgradeAuthority,
 		).ValidateAndBuild()
 	default:
 		return nil, errors.New("invalid token pool type")
@@ -274,6 +307,7 @@ type tokenPoolSolanaState struct {
 	poolConfigPDA      solana.PublicKey
 	configPDA          solana.PublicKey
 	programDataAddress solana.PublicKey
+	upgradeAuthority   solana.PublicKey
 }
 
 func loadTokenPoolSolanaState(cfg OnboardTokenPoolConfig, state globalState) (tokenPoolSolanaState, error) {
@@ -293,10 +327,15 @@ func loadTokenPoolSolanaState(cfg OnboardTokenPoolConfig, state globalState) (to
 	if err != nil {
 		return tokenPoolSolanaState{}, fmt.Errorf("failed to get program data address for program %s: %w", tokenPoolProgramID.String(), err)
 	}
+	upgradeAuthority, _, err := deployment.GetUpgradeAuthority(state.chain.Client, progDataAddr)
+	if err != nil {
+		return tokenPoolSolanaState{}, fmt.Errorf("failed to get upgrade authority for program data %s: %w", progDataAddr.String(), err)
+	}
 	return tokenPoolSolanaState{
 		tokenPoolProgramID: tokenPoolProgramID,
 		poolConfigPDA:      poolConfigPDA,
 		configPDA:          configPDA,
 		programDataAddress: progDataAddr,
+		upgradeAuthority:   upgradeAuthority,
 	}, nil
 }
