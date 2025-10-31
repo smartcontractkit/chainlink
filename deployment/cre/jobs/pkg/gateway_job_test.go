@@ -251,7 +251,7 @@ Name = 'http-capabilities'
 ServiceName = 'workflows'
 
 [gatewayConfig.Dons.Handlers.Config]
-CleanUpPeriodMs = 3600000
+CleanUpPeriodMs = 600000
 
 [gatewayConfig.Dons.Handlers.Config.NodeRateLimiter]
 globalBurst = 100
