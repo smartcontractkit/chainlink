@@ -10,14 +10,12 @@ import (
 	"sync"
 	"time"
 
-	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	jsonrpc "github.com/smartcontractkit/chainlink-common/pkg/jsonrpc2"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/ratelimit"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	"github.com/smartcontractkit/chainlink-common/pkg/settings/cresettings"
 	"github.com/smartcontractkit/chainlink-common/pkg/settings/limits"
-	"github.com/smartcontractkit/chainlink-common/pkg/types/core"
 	gateway_common "github.com/smartcontractkit/chainlink-common/pkg/types/gateway"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/api"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/config"
@@ -30,7 +28,6 @@ var _ handlers.Handler = (*gatewayHandler)(nil)
 
 const (
 	handlerName                          = "HTTPCapabilityHandler"
-	httpTriggerCapabilityID              = "http-trigger@1.0.0-alpha"
 	defaultCleanUpPeriodMs               = 1000 * 60 * 10 // 10 minutes
 	defaultMaxTriggerRequestDurationMs   = 1000 * 60      // 1 minute
 	defaultInitialIntervalMs             = 100
@@ -43,26 +40,21 @@ const (
 	defaultOutboundRequestCacheTTLMs     = 1000 * 60 * 10 // 10 minutes
 )
 
-type capabilitiesRegistry interface {
-	DONsForCapability(ctx context.Context, capabilityID string) ([]capabilities.DONWithNodes, error)
-}
-
 type gatewayHandler struct {
 	services.StateMachine
-	config               ServiceConfig
-	don                  handlers.DON
-	donConfig            *config.DONConfig
-	lggr                 logger.Logger
-	httpClient           network.HTTPClient
-	nodeRateLimiter      *ratelimit.RateLimiter // Rate limiter for node requests (e.g. outgoing HTTP requests, HTTP trigger response, auth metadata exchange)
-	userRateLimiter      limits.RateLimiter     // Rate limiter for user requests that trigger workflow executions
-	capabilitiesRegistry capabilitiesRegistry
-	wg                   sync.WaitGroup
-	stopCh               services.StopChan
-	responseCache        ResponseCache // Caches HTTP responses to avoid redundant requests for outbound HTTP actions
-	triggerHandler       HTTPTriggerHandler
-	metadataHandler      *WorkflowMetadataHandler // Handles authorization for HTTP trigger requests
-	metrics              *metrics.Metrics
+	config          ServiceConfig
+	don             handlers.DON
+	donConfig       *config.DONConfig
+	lggr            logger.Logger
+	httpClient      network.HTTPClient
+	nodeRateLimiter *ratelimit.RateLimiter // Rate limiter for node requests (e.g. outgoing HTTP requests, HTTP trigger response, auth metadata exchange)
+	userRateLimiter limits.RateLimiter     // Rate limiter for user requests that trigger workflow executions
+	wg              sync.WaitGroup
+	stopCh          services.StopChan
+	responseCache   ResponseCache // Caches HTTP responses to avoid redundant requests for outbound HTTP actions
+	triggerHandler  HTTPTriggerHandler
+	metadataHandler *WorkflowMetadataHandler // Handles authorization for HTTP trigger requests
+	metrics         *metrics.Metrics
 }
 
 type ResponseCache interface {
@@ -95,24 +87,7 @@ type RetryConfig struct {
 	Multiplier        float64 `json:"multiplier"`
 }
 
-func getFFromCapabilitiesRegistry(ctx context.Context, capabilitiesRegistry core.CapabilitiesRegistry) (int, error) {
-	dons, err := capabilitiesRegistry.DONsForCapability(ctx, httpTriggerCapabilityID)
-	if err != nil {
-		return 0, err
-	}
-	if len(dons) != 1 {
-		return 0, fmt.Errorf("expected exactly one DON for HTTP trigger capability, found %d", len(dons))
-	}
-
-	don := dons[0]
-	f := int(don.DON.F)
-	if f == 0 {
-		return 0, errors.New("f value from capabilities registry cannot be 0")
-	}
-	return f, nil
-}
-
-func NewGatewayHandler(handlerConfig json.RawMessage, donConfig *config.DONConfig, don handlers.DON, httpClient network.HTTPClient, capabilitiesRegistry core.CapabilitiesRegistry, lggr logger.Logger, lf limits.Factory) (*gatewayHandler, error) {
+func NewGatewayHandler(handlerConfig json.RawMessage, donConfig *config.DONConfig, don handlers.DON, httpClient network.HTTPClient, lggr logger.Logger, lf limits.Factory) (*gatewayHandler, error) {
 	var cfg ServiceConfig
 	err := json.Unmarshal(handlerConfig, &cfg)
 	if err != nil {
@@ -133,31 +108,21 @@ func NewGatewayHandler(handlerConfig json.RawMessage, donConfig *config.DONConfi
 		return nil, fmt.Errorf("failed to initialize metrics: %w", err)
 	}
 
-	f, err := getFFromCapabilitiesRegistry(context.Background(), capabilitiesRegistry)
-	if err != nil {
-		return nil, fmt.Errorf("failed to get F value from capabilities registry: %w", err)
-	}
-	lggr.Infow("Initialized HTTP capability handler with F value from capabilities registry", "f", f, "donId", donConfig.DonId)
-
-	metadataHandler := NewWorkflowMetadataHandler(lggr, cfg, don, donConfig, f, metrics)
-	triggerHandler, err := NewHTTPTriggerHandler(lggr, cfg, donConfig, don, metadataHandler, userRateLimiter, f, metrics)
-	if err != nil {
-		return nil, fmt.Errorf("failed to create HTTP trigger handler: %w", err)
-	}
+	metadataHandler := NewWorkflowMetadataHandler(lggr, cfg, don, donConfig, metrics)
+	triggerHandler := NewHTTPTriggerHandler(lggr, cfg, donConfig, don, metadataHandler, userRateLimiter, metrics)
 	return &gatewayHandler{
-		config:               cfg,
-		don:                  don,
-		donConfig:            donConfig,
-		lggr:                 logger.With(logger.Named(lggr, handlerName), "donId", donConfig.DonId),
-		httpClient:           httpClient,
-		nodeRateLimiter:      nodeRateLimiter,
-		userRateLimiter:      userRateLimiter,
-		capabilitiesRegistry: capabilitiesRegistry,
-		stopCh:               make(services.StopChan),
-		responseCache:        newResponseCache(lggr, cfg.OutboundRequestCacheTTLMs, metrics),
-		triggerHandler:       triggerHandler,
-		metadataHandler:      metadataHandler,
-		metrics:              metrics,
+		config:          cfg,
+		don:             don,
+		donConfig:       donConfig,
+		lggr:            logger.With(logger.Named(lggr, handlerName), "donId", donConfig.DonId),
+		httpClient:      httpClient,
+		nodeRateLimiter: nodeRateLimiter,
+		userRateLimiter: userRateLimiter,
+		stopCh:          make(services.StopChan),
+		responseCache:   newResponseCache(lggr, cfg.OutboundRequestCacheTTLMs, metrics),
+		triggerHandler:  triggerHandler,
+		metadataHandler: metadataHandler,
+		metrics:         metrics,
 	}, nil
 }
 
