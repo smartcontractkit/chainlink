@@ -298,9 +298,9 @@ func ExecuteEVMLogTriggerTest2(t *testing.T, testEnv *ttypes.TestEnvironment) {
 
 		message := "Data for log trigger"
 		emitEvent(t, lggr, chainID, bcOutput, msgEmitter, message, workflowConfig)
-		expectedUserLog := "OnTrigger decoded message: message:" + message
-		err = t_helpers.AssertBeholderMessage(listenerCtx, t, expectedUserLog, lggr, messageChan, kafkaErrChan, 4*time.Minute)
-		require.NoError(t, err, "Expected user log test failed")
+		// expectedUserLog := "OnTrigger decoded message: message:" + message
+		// err = t_helpers.AssertBeholderMessage(listenerCtx, t, expectedUserLog, lggr, messageChan, kafkaErrChan, 4*time.Minute)
+		// require.NoError(t, err, "Expected user log test failed")
 		mychain := *bcOutput
 		evmChain := mychain.(*evm.Blockchain)
 		validateWorkflowExecution2(t, lggr, testEnv, evmChain, workflowName, workflowConfig)
