@@ -183,16 +183,13 @@ func ExecuteEVMLogTriggerTest(t *testing.T, testEnv *ttypes.TestEnvironment) {
 
 		workflowName := fmt.Sprintf("evm-logTrigger-workflow-%s-%04d", chainID, rand.Intn(10000))
 		lggr.Info().Msgf("About to deploy Workflow %s on chain %s", workflowName, chainID)
-
 		t_helpers.CompileAndDeployWorkflow(t, testEnv, lggr, workflowName, &workflowConfig, workflowFileLocation)
 
 		triggersUpAndRunning := "Trigger RunSimpleEvmLogTriggerWorkflow called"
 		err := t_helpers.AssertBeholderMessage(listenerCtx, t, triggersUpAndRunning, lggr, messageChan, kafkaErrChan, 4*time.Minute)
 		require.NoError(t, err, "Triggers up and running test failed")
-
 		lggr.Info().Msgf("Triggers are up and running in all nodes %s on chain %s", workflowName, chainID)
 
-		time.Sleep(1 * time.Minute)
 		message := "Data for log trigger"
 		emitEvent(t, lggr, chainID, bcOutput, msgEmitter, message, workflowConfig)
 		expectedUserLog := "OnTrigger decoded message: message:" + message
