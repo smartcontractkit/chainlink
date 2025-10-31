@@ -356,6 +356,7 @@ func Test_CCIP_Messaging_EVM2Sui(t *testing.T) {
 	_, _, err = commoncs.ApplyChangesets(t, e.Env, []commoncs.ConfiguredChangeSet{
 		commoncs.Configure(sui_cs.RegisterDummyReceiver{}, sui_cs.RegisterDummyReceiverConfig{
 			SuiChainSelector:       destChain,
+			OwnerCapObjectId:       outputMap.Objects.OwnerCapObjectId,
 			CCIPObjectRefObjectId:  state.SuiChains[destChain].CCIPObjectRef,
 			DummyReceiverPackageId: outputMap.PackageId,
 		}),
@@ -614,6 +615,7 @@ func Test_CCIP_EVM2Sui_ExecPlugin_MessageVisibilityAndRetryBehavior(t *testing.T
 	_, _, err = commoncs.ApplyChangesets(t, e.Env, []commoncs.ConfiguredChangeSet{
 		commoncs.Configure(sui_cs.RegisterDummyReceiver{}, sui_cs.RegisterDummyReceiverConfig{
 			SuiChainSelector:       destChain,
+			OwnerCapObjectId:       outputMap.Objects.OwnerCapObjectId,
 			CCIPObjectRefObjectId:  state.SuiChains[destChain].CCIPObjectRef,
 			DummyReceiverPackageId: outputMap.PackageId,
 		}),
