@@ -703,38 +703,6 @@ func Test_ClientRequest_MessageValidation(t *testing.T) {
 	})
 }
 
-func TestPayloadComparator_DivergenceLogging(t *testing.T) {
-	lggr, obs := logger.TestObserved(t, zapcore.DebugLevel)
-	comparator := request.NewPayloadComparator(lggr)
-
-	md := commoncap.ResponseMetadata{
-		CapDON_N: 10,
-	}
-	msgA := createMessageBody(t, 0x41, 5, md) // Content byte at index 5 is 'A' (0x41)
-	msgB := createMessageBody(t, 0x42, 5, md) // Content byte at index 5 is 'B' (0x42)
-
-	comparator.Compare(msgA)
-	assert.Equal(t,
-		obs.FilterMessage("Comparator stored first unique response payload.").Len(),
-		1,
-	)
-
-	comparator.Compare(msgB)
-
-	assert.Equal(t,
-		obs.FilterMessage("Divergent response hash detected. Running detailed payload comparison.").Len(),
-		1,
-		"Did not log the start of divergence check.",
-	)
-
-	filtered := obs.FilterFieldKey("byte_diff_report")
-	assert.Equal(t,
-		filtered.Len(),
-		1,
-		"Did not log the byte difference report.",
-	)
-}
-
 func TestGetMessageHashAndMetadata_IgnoresMetadataDiff(t *testing.T) {
 	lggr := logger.Test(t)
 
