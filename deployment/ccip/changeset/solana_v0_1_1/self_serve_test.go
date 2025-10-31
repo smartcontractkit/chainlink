@@ -47,12 +47,17 @@ func doTestOnboardTokenPoolForSelfServe(t *testing.T, isMCMsOwner bool) {
 	solChainSelector := tenv.Env.BlockChains.ListChainSelectors(cldfChain.WithFamily(chainSelectors.FamilySolana))[0]
 	e, lnrTokenMint, err := deployTokenAndMint(t, tenv.Env, solChainSelector, []string{}, "TEST_TOKEN")
 	require.NoError(t, err)
+	tenv.Env = e
+	e, bnmTokenMint, err := deployTokenAndMint(t, tenv.Env, solChainSelector, []string{}, "TEST_TOKEN_2")
+	require.NoError(t, err)
+	tenv.Env = e
 	// TODO: Modify mint authority of the token to be the customerAdmin
 	customerAdmin, err := solana.NewRandomPrivateKey()
 	require.NoError(t, err)
 	state, err := stateview.LoadOnchainStateSolana(e)
 	require.NoError(t, err)
 	lockAndReleaseTokenPoolProgramID := state.SolChains[solChainSelector].LockReleaseTokenPools[shared.CLLMetadata]
+	burnAndMintTokenPoolProgramID := state.SolChains[solChainSelector].BurnMintTokenPools[shared.CLLMetadata]
 	var mcmsConfig *proposalutils.TimelockConfig
 	if isMCMsOwner {
 		timelockSignerPDA, _ := testhelpers.TransferOwnershipSolanaV0_1_1(t, &e, solChainSelector, true,
@@ -70,6 +75,7 @@ func doTestOnboardTokenPoolForSelfServe(t *testing.T, isMCMsOwner bool) {
 					SetMCMSPrograms:       true,
 					TransferKeys: []solana.PublicKey{
 						lockAndReleaseTokenPoolProgramID,
+						burnAndMintTokenPoolProgramID,
 					},
 				},
 			),
@@ -90,6 +96,10 @@ func doTestOnboardTokenPoolForSelfServe(t *testing.T, isMCMsOwner bool) {
 						PoolType: shared.LockReleaseTokenPool,
 						Metadata: shared.CLLMetadata,
 					},
+					{
+						PoolType: shared.BurnMintTokenPool,
+						Metadata: shared.CLLMetadata,
+					},
 				},
 			},
 		),
@@ -103,6 +113,11 @@ func doTestOnboardTokenPoolForSelfServe(t *testing.T, isMCMsOwner bool) {
 						TokenMint:     lnrTokenMint,
 						ProposedOwner: customerAdmin.PublicKey(),
 						PoolType:      shared.LockReleaseTokenPool,
+					},
+					{
+						TokenMint:     bnmTokenMint,
+						ProposedOwner: customerAdmin.PublicKey(),
+						PoolType:      shared.BurnMintTokenPool,
 					},
 				},
 				MCMS: mcmsConfig,
@@ -133,4 +148,39 @@ func doTestOnboardTokenPoolForSelfServe(t *testing.T, isMCMsOwner bool) {
 	require.Equal(t, lnrTokenMint, tokenPoolAccount.Config.Mint)
 	// Verify the proposed owner is correct
 	require.Equal(t, customerAdmin.PublicKey(), tokenPoolAccount.Config.ProposedOwner)
+
+	anotherCustomerAdmin, err := solana.NewRandomPrivateKey()
+	require.NoError(t, err)
+	e, _, err = commonchangeset.ApplyChangesets(t, e, []commonchangeset.ConfiguredChangeSet{
+		commonchangeset.Configure(
+			// Actual changeset to test
+			cldf.CreateLegacyChangeSet(ccipChangesetSolana.OnboardTokenPoolsForSelfServe),
+			ccipChangesetSolana.OnboardTokenPoolsForSelfServeConfig{
+				ChainSelector: solChainSelector,
+				RegisterTokenConfigs: []ccipChangesetSolana.OnboardTokenPoolConfig{
+					{
+						TokenMint:     lnrTokenMint,
+						ProposedOwner: anotherCustomerAdmin.PublicKey(),
+						PoolType:      shared.LockReleaseTokenPool,
+						Override:      true,
+					},
+				},
+				MCMS: mcmsConfig,
+			},
+		),
+	},
+	)
+	require.NoError(t, err)
+
+	var tokenAdminRegistryAccount2 solCommon.TokenAdminRegistry
+	// Verify that the proposed admin in the token admin registry was updated
+	err = e.BlockChains.SolanaChains()[solChainSelector].GetAccountDataBorshInto(ctx, tokenAdminRegistryPDA, &tokenAdminRegistryAccount2)
+	require.NoError(t, err)
+	require.Equal(t, anotherCustomerAdmin.PublicKey(), tokenAdminRegistryAccount2.PendingAdministrator)
+
+	var tokenPoolAccount2 lockrelease.State
+	// Verify the proposed owner is updated
+	err = e.BlockChains.SolanaChains()[solChainSelector].GetAccountDataBorshInto(ctx, tokenPoolPDA, &tokenPoolAccount2)
+	require.NoError(t, err)
+	require.Equal(t, anotherCustomerAdmin.PublicKey(), tokenPoolAccount2.Config.ProposedOwner)
 }
