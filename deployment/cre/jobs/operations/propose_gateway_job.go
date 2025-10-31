@@ -31,6 +31,7 @@ type ProposeGatewayJobInput struct {
 
 type DON struct {
 	Name     string
+	F        int
 	Handlers []string
 }
 
@@ -104,6 +105,7 @@ var ProposeGatewayJob = operations.NewOperation[ProposeGatewayJobInput, ProposeG
 
 			td := pkg.TargetDON{
 				ID:       ad.Name,
+				F:        ad.F,
 				Members:  members,
 				Handlers: ad.Handlers,
 			}
