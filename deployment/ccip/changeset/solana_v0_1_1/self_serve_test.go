@@ -2,6 +2,7 @@ package solana_test
 
 import (
 	"fmt"
+	"log"
 	"testing"
 	"time"
 
@@ -11,6 +12,7 @@ import (
 	lockrelease "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/v0_1_1/lockrelease_token_pool"
 	"github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/tokens"
 	cldfsolana "github.com/smartcontractkit/chainlink-deployments-framework/chain/solana"
+	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
 	"github.com/stretchr/testify/require"
@@ -70,15 +72,19 @@ func doTestOnboardTokenPoolForSelfServe(t *testing.T, isMCMsOwner bool) {
 			ccipChangesetSolana.CCIPContractsToTransfer{
 				Router: true,
 			})
+
+		// Print out deployer key
+		log.Println("[AGUS] deployer Key: ", tenv.Env.BlockChains.SolanaChains()[solChainSelector].DeployerKey.PublicKey())
+		log.Println("[AGUS] timelockSignerPDA: ", timelockSignerPDA)
 		e, _, err = commonchangeset.ApplyChangesets(t, e, []commonchangeset.ConfiguredChangeSet{
 			commonchangeset.Configure(
 				cldf.CreateLegacyChangeSet(ccipChangesetSolana.SetUpgradeAuthorityChangeset),
 				ccipChangesetSolana.SetUpgradeAuthorityConfig{
 					ChainSelector:         solChainSelector,
 					NewUpgradeAuthority:   timelockSignerPDA,
-					SetAfterInitialDeploy: true,
-					SetOffRamp:            true,
-					SetMCMSPrograms:       true,
+					SetAfterInitialDeploy: false,
+					SetOffRamp:            false,
+					SetMCMSPrograms:       false,
 					TransferKeys: []solana.PublicKey{
 						lockAndReleaseTokenPoolProgramID,
 						burnAndMintTokenPoolProgramID,
@@ -91,6 +97,11 @@ func doTestOnboardTokenPoolForSelfServe(t *testing.T, isMCMsOwner bool) {
 		mcmsConfig = &proposalutils.TimelockConfig{
 			MinDelay: 1 * time.Second,
 		}
+		progDataAddr, err := deployment.GetProgramDataAddress(e.BlockChains.SolanaChains()[solChainSelector].Client, lockAndReleaseTokenPoolProgramID)
+		require.NoError(t, err)
+		upgradeAuthority, _, err := deployment.GetUpgradeAuthority(e.BlockChains.SolanaChains()[solChainSelector].Client, progDataAddr)
+		require.NoError(t, err)
+		require.Equal(t, timelockSignerPDA, upgradeAuthority)
 	}
 	e, _, err = commonchangeset.ApplyChangesets(t, e, []commonchangeset.ConfiguredChangeSet{
 		commonchangeset.Configure(

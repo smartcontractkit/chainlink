@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log"
 
 	"github.com/gagliardetto/solana-go"
 	lockrelease "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/v0_1_0/lockrelease_token_pool"
@@ -209,6 +210,8 @@ func generateProposeTokenAdminRegistryAdministratorIx(registerTokenConfig Onboar
 }
 
 func generateInitializeCLLTokenPoolIx(config OnboardTokenPoolConfig, state tokenPoolSolanaState) (solana.Instruction, error) {
+	log.Println("[AGUS] authority: ", state.upgradeAuthority)
+
 	switch config.PoolType {
 	case shared.BurnMintTokenPool:
 		solBurnMintTokenPool.SetProgramID(state.tokenPoolProgramID)
