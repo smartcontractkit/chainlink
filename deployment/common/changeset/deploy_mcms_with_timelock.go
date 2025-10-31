@@ -45,44 +45,70 @@ func DeployMCMSWithTimelockV2(
 	newAddresses := cldf.NewMemoryAddressBook()
 
 	for chainSel, cfg := range cfgByChain {
+		deployCount := cfg.DeployCount
+		if deployCount == 0 {
+			deployCount = 1
+		}
+		if len(cfg.Labels) > 0 && len(cfg.Labels) != int(deployCount) {
+			return cldf.ChangesetOutput{AddressBook: newAddresses}, fmt.Errorf("chain %d: labels length %d must match deploycount %d", chainSel, len(cfg.Labels), deployCount)
+		}
+
 		family, err := chain_selectors.GetSelectorFamily(chainSel)
 		if err != nil {
 			return cldf.ChangesetOutput{AddressBook: newAddresses}, err
 		}
 
-		switch family {
-		case chain_selectors.FamilyEVM:
-			// load mcms state
-			// we load the state one by one to void early return from MaybeLoadMCMSWithTimelockState
-			// due to one of the chain not found
-			var chainstate *state.MCMSWithTimelockState
-			s, err := state.MaybeLoadMCMSWithTimelockState(env, []uint64{chainSel})
-			if err != nil {
-				// if the state is not found for chain, we assume it's a fresh deployment
-				if !strings.Contains(err.Error(), cldf.ErrChainNotFound.Error()) {
-					return cldf.ChangesetOutput{}, err
+		for i := uint64(0); i < deployCount; i++ {
+			cfgInstance := cfg
+			cfgInstance.DeployCount = 0
+			cfgInstance.Labels = nil
+
+			switch {
+			case len(cfg.Labels) > 0:
+				label := cfg.Labels[i]
+				cfgInstance.Label = &label
+			case cfg.Label != nil && deployCount > 1:
+				autoLabel := fmt.Sprintf("%s-%d", *cfg.Label, i+1)
+				cfgInstance.Label = &autoLabel
+			case cfg.Label == nil && deployCount > 1:
+				autoLabel := fmt.Sprintf("timelock-%d-%d", chainSel, i+1)
+				cfgInstance.Label = &autoLabel
+			}
+
+			switch family {
+			case chain_selectors.FamilyEVM:
+				// load mcms state
+				// we load the state one by one to void early return from MaybeLoadMCMSWithTimelockState
+				// due to one of the chain not found
+				var chainstate *state.MCMSWithTimelockState
+				s, err := state.MaybeLoadMCMSWithTimelockState(env, []uint64{chainSel})
+				if err != nil {
+					// if the state is not found for chain, we assume it's a fresh deployment
+					if !strings.Contains(err.Error(), cldf.ErrChainNotFound.Error()) {
+						return cldf.ChangesetOutput{AddressBook: newAddresses}, err
+					}
 				}
-			}
-			if s != nil {
-				chainstate = s[chainSel]
-			}
-			_, err = evminternal.DeployMCMSWithTimelockContractsEVM(env.GetContext(), env.Logger, env.Chains[chainSel], newAddresses, cfg, chainstate)
-			if err != nil {
+				if s != nil {
+					chainstate = s[chainSel]
+				}
+				_, err = evminternal.DeployMCMSWithTimelockContractsEVM(env.GetContext(), env.Logger, env.Chains[chainSel], newAddresses, cfgInstance, chainstate)
+				if err != nil {
+					return cldf.ChangesetOutput{AddressBook: newAddresses}, err
+				}
+
+			case chain_selectors.FamilySolana:
+				// this is not used in CLD as we need to dynamically resolve the artifacts to deploy these contracts
+				// we did not want to add the artifact resolution logic here, so we instead deploy using ccip/changeset/solana/cs_deploy_chain.go
+				// for in memory tests, programs and state are pre-loaded, so we use this function via testhelpers.TransferOwnershipSolana
+				_, err := solanaMCMS.DeployMCMSWithTimelockProgramsSolana(env, env.SolChains[chainSel], newAddresses, cfgInstance)
+				if err != nil {
+					return cldf.ChangesetOutput{AddressBook: newAddresses}, err
+				}
+
+			default:
+				err = fmt.Errorf("unsupported chain family: %s", family)
 				return cldf.ChangesetOutput{AddressBook: newAddresses}, err
 			}
-
-		case chain_selectors.FamilySolana:
-			// this is not used in CLD as we need to dynamically resolve the artifacts to deploy these contracts
-			// we did not want to add the artifact resolution logic here, so we instead deploy using ccip/changeset/solana/cs_deploy_chain.go
-			// for in memory tests, programs and state are pre-loaded, so we use this function via testhelpers.TransferOwnershipSolana
-			_, err := solanaMCMS.DeployMCMSWithTimelockProgramsSolana(env, env.SolChains[chainSel], newAddresses, cfg)
-			if err != nil {
-				return cldf.ChangesetOutput{AddressBook: newAddresses}, err
-			}
-
-		default:
-			err = fmt.Errorf("unsupported chain family: %s", family)
-			return cldf.ChangesetOutput{AddressBook: newAddresses}, err
 		}
 	}
 	ds, err := deployment.MigrateAddressBook(newAddresses)

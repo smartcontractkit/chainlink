@@ -209,6 +209,47 @@ func TestDeployMCMSWithTimelockV2WithFewExistingContracts(t *testing.T) {
 	require.Equal(t, bypassers, []string{evmState0.BypasserMcm.Address().Hex()})
 }
 
+func TestDeployMCMSWithTimelockV2DeployCount(t *testing.T) {
+	t.Parallel()
+
+	env := memory.NewMemoryEnvironment(t, logger.TestLogger(t), zapcore.InfoLevel, memory.MemoryEnvironmentConfig{Chains: 1})
+	chainSelector := env.AllChainSelectors()[0]
+
+	cfg := proposalutils.SingleGroupTimelockConfigV2(t)
+	baseLabel := "vault-test"
+	cfg.Label = &baseLabel
+	cfg.DeployCount = 2
+
+	configuredChangeset := commonchangeset.Configure(
+		cldf.CreateLegacyChangeSet(commonchangeset.DeployMCMSWithTimelockV2),
+		map[uint64]commontypes.MCMSWithTimelockConfigV2{
+			chainSelector: cfg,
+		},
+	)
+
+	updatedEnv, err := commonchangeset.Apply(t, env, nil, configuredChangeset)
+	require.NoError(t, err)
+
+	addresses, err := updatedEnv.ExistingAddresses.AddressesForChain(chainSelector)
+	require.NoError(t, err)
+
+	timelockLabels := map[string]struct{}{}
+	for _, tv := range addresses {
+		if tv.Type != commontypes.RBACTimelock {
+			continue
+		}
+		labels := tv.Labels.List()
+		require.Len(t, labels, 1)
+		timelockLabels[labels[0]] = struct{}{}
+	}
+
+	require.Equal(t, 2, len(timelockLabels))
+	_, ok := timelockLabels["vault-test-1"]
+	require.True(t, ok)
+	_, ok = timelockLabels["vault-test-2"]
+	require.True(t, ok)
+}
+
 func TestDeployMCMSWithTimelockV2(t *testing.T) {
 	t.Parallel()
 	// --- arrange ---

@@ -66,6 +66,8 @@ type MCMSWithTimelockConfigV2 struct {
 	Proposer         mcmstypes.Config `json:"proposer"`
 	TimelockMinDelay *big.Int         `json:"timelockMinDelay"`
 	Label            *string          `json:"label"`
+	DeployCount      uint64           `json:"deploycount,omitempty"`
+	Labels           []string         `json:"labels,omitempty"`
 }
 
 type OCRParameters struct {
