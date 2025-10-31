@@ -519,13 +519,6 @@ func subscribeSuiExecutionEvents(
 					"messageId", event.MessageId,
 					"state", event.State)
 
-				if _, ok := expectedRange[event.SourceChainSelector]; !ok {
-					lggr.Debugw("received sui execution event (expectedRange not yet populated)",
-						"srcChain", event.SourceChainSelector,
-						"destChain", chainSelector,
-						"seqNum", event.SequenceNumber)
-				}
-
 				if !contains(seenMessages[event.SourceChainSelector], event.SequenceNumber) {
 					seenMessages[event.SourceChainSelector] = append(seenMessages[event.SourceChainSelector], event.SequenceNumber)
 
