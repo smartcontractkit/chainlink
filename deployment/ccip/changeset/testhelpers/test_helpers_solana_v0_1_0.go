@@ -1414,6 +1414,16 @@ func AddLaneWithDefaultPricesAndFeeQuoterConfig(t *testing.T, e *DeployedEnv, st
 
 	// EVM -> SUI
 	if toFamily == chainsel.FamilySui {
+		gasPrices[from] = big.NewInt(1e17)
+		gasPrices[to] = big.NewInt(1e17)
+		fqCfg.EnforceOutOfOrder = true
+		fqCfg.MaxNumberOfTokensPerMsg = 1
+	}
+
+	// EVM -> TON
+	if toFamily == chainsel.FamilyTon {
+		gasPrices[from] = big.NewInt(1e17)
+		gasPrices[to] = big.NewInt(1e17)
 		fqCfg.EnforceOutOfOrder = true
 		fqCfg.MaxNumberOfTokensPerMsg = 1
 	}
