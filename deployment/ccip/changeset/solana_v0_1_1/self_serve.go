@@ -13,9 +13,8 @@ import (
 	solRouter "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/v0_1_1/ccip_router"
 	solLockReleaseTokenPool "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/v0_1_1/lockrelease_token_pool"
 	solState "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/state"
-	"github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/tokens"
 	solTokenUtil "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/tokens"
-	cldf_solana "github.com/smartcontractkit/chainlink-deployments-framework/chain/solana"
+	cldfsolana "github.com/smartcontractkit/chainlink-deployments-framework/chain/solana"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared"
@@ -81,9 +80,12 @@ func (cfg OnboardTokenPoolsForSelfServeConfig) Validate(e cldf.Environment, chai
 		}
 		tokenPoolProgramID := chainState.GetActiveTokenPool(registerTokenConfig.PoolType, registerTokenConfig.Metadata) // If Metadata is nil it returns the CLL Token Pool Program
 		if (tokenPoolProgramID == solana.PublicKey{}) {
-			return fmt.Errorf("token pool program ID not found")
+			return errors.New("token pool program ID not found")
 		}
-		tokenPoolPDA, err := tokens.TokenPoolConfigAddress(tokenMint, tokenPoolProgramID)
+		tokenPoolPDA, err := solTokenUtil.TokenPoolConfigAddress(tokenMint, tokenPoolProgramID)
+		if err != nil {
+			return err
+		}
 		var tokenPoolAccount lockrelease.State
 		if err := chain.GetAccountDataBorshInto(context.Background(), tokenPoolPDA, &tokenPoolAccount); err == nil {
 			if !registerTokenConfig.Override {
@@ -259,7 +261,7 @@ func generateTransferTokenPoolOwnershipIx(config OnboardTokenPoolConfig, state t
 }
 
 type globalState struct {
-	chain      cldf_solana.Chain
+	chain      cldfsolana.Chain
 	chainState solanastateview.CCIPChainState
 }
 
@@ -313,7 +315,7 @@ type tokenPoolSolanaState struct {
 func loadTokenPoolSolanaState(cfg OnboardTokenPoolConfig, state globalState) (tokenPoolSolanaState, error) {
 	tokenPoolProgramID := state.chainState.GetActiveTokenPool(cfg.PoolType, cfg.Metadata) // If Metadata is nil it returns the CLL Token Pool Program
 	if (tokenPoolProgramID == solana.PublicKey{}) {
-		return tokenPoolSolanaState{}, fmt.Errorf("token pool program ID not found")
+		return tokenPoolSolanaState{}, errors.New("token pool program ID not found")
 	}
 	poolConfigPDA, err := solTokenUtil.TokenPoolConfigAddress(cfg.TokenMint, tokenPoolProgramID)
 	if err != nil {
