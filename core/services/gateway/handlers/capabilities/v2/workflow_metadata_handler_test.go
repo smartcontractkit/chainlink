@@ -52,7 +52,7 @@ func createTestWorkflowMetadataHandler(t *testing.T) (*WorkflowMetadataHandler, 
 	cfg := WithDefaults(ServiceConfig{})
 	testMetrics, err := metrics.NewMetrics()
 	require.NoError(t, err)
-	handler := NewWorkflowMetadataHandler(lggr, cfg, mockDon, donConfig, testMetrics)
+	handler := NewWorkflowMetadataHandler(lggr, cfg, mockDon, donConfig, F, testMetrics)
 	return handler, mockDon, donConfig
 }
 

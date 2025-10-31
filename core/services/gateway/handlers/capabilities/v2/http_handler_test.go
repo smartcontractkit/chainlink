@@ -13,10 +13,12 @@ import (
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	jsonrpc "github.com/smartcontractkit/chainlink-common/pkg/jsonrpc2"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/ratelimit"
 	"github.com/smartcontractkit/chainlink-common/pkg/settings/limits"
+	regmocks "github.com/smartcontractkit/chainlink-common/pkg/types/core/mocks"
 	gateway_common "github.com/smartcontractkit/chainlink-common/pkg/types/gateway"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/config"
@@ -24,7 +26,27 @@ import (
 	handlermocks "github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/network"
 	httpmocks "github.com/smartcontractkit/chainlink/v2/core/services/gateway/network/mocks"
+	p2ptypes "github.com/smartcontractkit/chainlink/v2/core/services/p2p/types"
 )
+
+const (
+	F = 1
+)
+
+func newMockCapabilitiesRegistry(t *testing.T, f uint8) *regmocks.CapabilitiesRegistry {
+	capreg := regmocks.NewCapabilitiesRegistry(t)
+	members := []p2ptypes.PeerID{}
+	capreg.On("DONsForCapability", mock.Anything, mock.Anything).Return([]capabilities.DONWithNodes{
+		{
+			DON: capabilities.DON{
+				F:       f,
+				Members: members,
+			},
+			Nodes: []capabilities.Node{},
+		},
+	}, nil).Maybe()
+	return capreg
+}
 
 func TestNewGatewayHandler(t *testing.T) {
 	t.Run("successful creation", func(t *testing.T) {
@@ -37,9 +59,10 @@ func TestNewGatewayHandler(t *testing.T) {
 		}
 		mockDon := handlermocks.NewDON(t)
 		mockHTTPClient := httpmocks.NewHTTPClient(t)
+		mockCapReg := newMockCapabilitiesRegistry(t, F)
 		lggr := logger.Test(t)
 
-		handler, err := NewGatewayHandler(configBytes, donConfig, mockDon, mockHTTPClient, lggr, limits.Factory{Logger: lggr})
+		handler, err := NewGatewayHandler(configBytes, donConfig, mockDon, mockHTTPClient, mockCapReg, lggr, limits.Factory{Logger: lggr})
 		require.NoError(t, err)
 		require.NotNil(t, handler)
 		require.Equal(t, "test-don", handler.donConfig.DonId)
@@ -53,9 +76,10 @@ func TestNewGatewayHandler(t *testing.T) {
 		donConfig := &config.DONConfig{DonId: "test-don"}
 		mockDon := handlermocks.NewDON(t)
 		mockHTTPClient := httpmocks.NewHTTPClient(t)
+		mockCapReg := newMockCapabilitiesRegistry(t, F)
 		lggr := logger.Test(t)
 
-		handler, err := NewGatewayHandler(invalidConfig, donConfig, mockDon, mockHTTPClient, lggr, limits.Factory{Logger: lggr})
+		handler, err := NewGatewayHandler(invalidConfig, donConfig, mockDon, mockHTTPClient, mockCapReg, lggr, limits.Factory{Logger: lggr})
 		require.Error(t, err)
 		require.Nil(t, handler)
 	})
@@ -73,9 +97,10 @@ func TestNewGatewayHandler(t *testing.T) {
 		donConfig := &config.DONConfig{DonId: "test-don"}
 		mockDon := handlermocks.NewDON(t)
 		mockHTTPClient := httpmocks.NewHTTPClient(t)
+		mockCapReg := newMockCapabilitiesRegistry(t, F)
 		lggr := logger.Test(t)
 
-		handler, err := NewGatewayHandler(configBytes, donConfig, mockDon, mockHTTPClient, lggr, limits.Factory{Logger: lggr})
+		handler, err := NewGatewayHandler(configBytes, donConfig, mockDon, mockHTTPClient, mockCapReg, lggr, limits.Factory{Logger: lggr})
 		require.Error(t, err)
 		require.Nil(t, handler)
 	})
@@ -96,9 +121,10 @@ func TestNewGatewayHandler(t *testing.T) {
 		donConfig := &config.DONConfig{DonId: "test-don"}
 		mockDon := handlermocks.NewDON(t)
 		mockHTTPClient := httpmocks.NewHTTPClient(t)
+		mockCapReg := newMockCapabilitiesRegistry(t, F)
 		lggr := logger.Test(t)
 
-		handler, err := NewGatewayHandler(configBytes, donConfig, mockDon, mockHTTPClient, lggr, limits.Factory{Logger: lggr})
+		handler, err := NewGatewayHandler(configBytes, donConfig, mockDon, mockHTTPClient, mockCapReg, lggr, limits.Factory{Logger: lggr})
 		require.NoError(t, err)
 		require.NotNil(t, handler)
 		require.Equal(t, defaultCleanUpPeriodMs, handler.config.CleanUpPeriodMs) // Default value
@@ -376,9 +402,10 @@ func TestGatewayHandler_Start_CallsDeleteExpired(t *testing.T) {
 	donConfig := &config.DONConfig{DonId: "test-don"}
 	mockDon := handlermocks.NewDON(t)
 	mockHTTPClient := httpmocks.NewHTTPClient(t)
+	mockCapReg := newMockCapabilitiesRegistry(t, F)
 	lggr := logger.Test(t)
 
-	handler, err := NewGatewayHandler(configBytes, donConfig, mockDon, mockHTTPClient, lggr, limits.Factory{Logger: lggr})
+	handler, err := NewGatewayHandler(configBytes, donConfig, mockDon, mockHTTPClient, mockCapReg, lggr, limits.Factory{Logger: lggr})
 	require.NoError(t, err)
 	require.NotNil(t, handler)
 	mockCache := newMockResponseCache()
@@ -425,9 +452,10 @@ func createTestHandlerWithConfig(t *testing.T, cfg ServiceConfig) *gatewayHandle
 	}
 	mockDon := handlermocks.NewDON(t)
 	mockHTTPClient := httpmocks.NewHTTPClient(t)
+	mockCapReg := newMockCapabilitiesRegistry(t, F)
 	lggr := logger.Test(t)
 
-	handler, err := NewGatewayHandler(configBytes, donConfig, mockDon, mockHTTPClient, lggr, limits.Factory{Logger: lggr})
+	handler, err := NewGatewayHandler(configBytes, donConfig, mockDon, mockHTTPClient, mockCapReg, lggr, limits.Factory{Logger: lggr})
 	require.NoError(t, err)
 	require.NotNil(t, handler)
 
