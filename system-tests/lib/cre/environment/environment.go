@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"maps"
-	"time"
 
 	"github.com/Masterminds/semver/v3"
 	"github.com/ethereum/go-ethereum/common"
@@ -287,6 +286,56 @@ func SetupTestEnvironment(
 	}
 
 	fmt.Print(libformat.PurpleText("%s", input.StageGen.WrapAndNext("DONs and Job Distributor started and linked in %.2f seconds", input.StageGen.Elapsed().Seconds())))
+	fmt.Print(libformat.PurpleText("%s", input.StageGen.Wrap("Creating Jobs with Job Distributor")))
+
+	gJobErr := gateway.CreateJobs(ctx, startedJD.Client, dons, gatewayJobConfigs)
+	if gJobErr != nil {
+		return nil, pkgerrors.Wrap(gErr, "failed to create gateway jobs with Job Distributor")
+	}
+
+	// Deprecated: use Features instead. Support for InstallableCapability will be removed in the future.
+	jobSpecFactoryFunctions := make([]cre.JobSpecFn, 0)
+	for _, capability := range input.Capabilities {
+		jobSpecFactoryFunctions = append(jobSpecFactoryFunctions, capability.JobSpecFn())
+	}
+
+	// allow to pass custom job spec factories for extensibility
+	jobSpecFactoryFunctions = append(jobSpecFactoryFunctions, input.JobSpecFactoryFunctions...)
+	createJobsDeps := CreateJobsWithJdOpDeps{
+		Logger:                    testLogger,
+		SingleFileLogger:          singleFileLogger,
+		HomeChainBlockchainOutput: deployedBlockchains.RegistryChain().CtfOutput(),
+		JobSpecFactoryFunctions:   jobSpecFactoryFunctions,
+		CreEnvironment:            creEnvironment,
+		Dons:                      dons,
+		NodeSets:                  input.NodeSets,
+		Capabilities:              input.Capabilities,
+	}
+	_, createJobsErr := operations.ExecuteOperation(deployKeystoneContractsOutput.Env.OperationsBundle, CreateJobsWithJdOp, createJobsDeps, CreateJobsWithJdOpInput{})
+	if createJobsErr != nil {
+		return nil, pkgerrors.Wrap(createJobsErr, "failed to create jobs with Job Distributor")
+	}
+
+	fmt.Print(libformat.PurpleText("%s", input.StageGen.WrapAndNext("Jobs created in %.2f seconds", input.StageGen.Elapsed().Seconds())))
+	fmt.Print(libformat.PurpleText("%s", input.StageGen.Wrap("Funding Chainlink nodes")))
+
+	fundingPerChainFamilyForEachNode := map[string]uint64{
+		chainselectors.FamilyEVM:    10000000000000000, // 0.01 ETH
+		chainselectors.FamilySolana: 50_000_000_000,    // 50 SOL
+		chainselectors.FamilyTron:   100_000_000,       // 100 TRX in SUN
+	}
+
+	fErr := FundNodes(
+		ctx,
+		testLogger,
+		dons,
+		deployedBlockchains.Outputs,
+		fundingPerChainFamilyForEachNode,
+	)
+	if fErr != nil {
+		return nil, pkgerrors.Wrap(fErr, "failed to fund chainlink nodes")
+	}
+	fmt.Print(libformat.PurpleText("%s", input.StageGen.WrapAndNext("Chainlink nodes funded in %.2f seconds", input.StageGen.Elapsed().Seconds())))
 
 	fmt.Print(libformat.PurpleText("%s", input.StageGen.Wrap("Configuring Workflow and Capability Registry contracts")))
 	wfRegVersion := *semver.MustParse(input.ContractVersions[keystone_changeset.WorkflowRegistry.String()])
@@ -360,72 +409,6 @@ func SetupTestEnvironment(
 	}
 
 	fmt.Print(libformat.PurpleText("%s", input.StageGen.WrapAndNext("Workflow and Capability Registry contracts configured in %.2f seconds", input.StageGen.Elapsed().Seconds())))
-
-	fmt.Print(libformat.PurpleText("%s", input.StageGen.Wrap("Creating Jobs with Job Distributor")))
-
-	// Retry gateway job creation with delays to allow nodes to sync registry
-	const maxRetries = 10
-	const retryDelay = 10 * time.Second
-	var gJobErr error
-	for attempt := 0; attempt < maxRetries; attempt++ {
-		if attempt > 1 {
-			testLogger.Info().Msgf("Retrying gateway job creation (attempt %d/%d) after %v delay...", attempt, maxRetries, retryDelay)
-			time.Sleep(retryDelay)
-		}
-		gJobErr = gateway.CreateJobs(ctx, startedJD.Client, dons, gatewayJobConfigs)
-		if gJobErr == nil {
-			testLogger.Info().Msgf("Gateway jobs created successfully on attempt %d", attempt)
-			break
-		}
-		testLogger.Warn().Err(gJobErr).Msgf("Failed to create gateway jobs on attempt %d/%d", attempt, maxRetries)
-	}
-	if gJobErr != nil {
-		return nil, pkgerrors.Wrap(gJobErr, "failed to create gateway jobs with Job Distributor after retries")
-	}
-
-	// Deprecated: use Features instead. Support for InstallableCapability will be removed in the future.
-	jobSpecFactoryFunctions := make([]cre.JobSpecFn, 0)
-	for _, capability := range input.Capabilities {
-		jobSpecFactoryFunctions = append(jobSpecFactoryFunctions, capability.JobSpecFn())
-	}
-
-	// allow to pass custom job spec factories for extensibility
-	jobSpecFactoryFunctions = append(jobSpecFactoryFunctions, input.JobSpecFactoryFunctions...)
-	createJobsDeps := CreateJobsWithJdOpDeps{
-		Logger:                    testLogger,
-		SingleFileLogger:          singleFileLogger,
-		HomeChainBlockchainOutput: deployedBlockchains.RegistryChain().CtfOutput(),
-		JobSpecFactoryFunctions:   jobSpecFactoryFunctions,
-		CreEnvironment:            creEnvironment,
-		Dons:                      dons,
-		NodeSets:                  input.NodeSets,
-		Capabilities:              input.Capabilities,
-	}
-	_, createJobsErr := operations.ExecuteOperation(deployKeystoneContractsOutput.Env.OperationsBundle, CreateJobsWithJdOp, createJobsDeps, CreateJobsWithJdOpInput{})
-	if createJobsErr != nil {
-		return nil, pkgerrors.Wrap(createJobsErr, "failed to create jobs with Job Distributor")
-	}
-
-	fmt.Print(libformat.PurpleText("%s", input.StageGen.WrapAndNext("Jobs created in %.2f seconds", input.StageGen.Elapsed().Seconds())))
-	fmt.Print(libformat.PurpleText("%s", input.StageGen.Wrap("Funding Chainlink nodes")))
-
-	fundingPerChainFamilyForEachNode := map[string]uint64{
-		chainselectors.FamilyEVM:    10000000000000000, // 0.01 ETH
-		chainselectors.FamilySolana: 50_000_000_000,    // 50 SOL
-		chainselectors.FamilyTron:   100_000_000,       // 100 TRX in SUN
-	}
-
-	fErr := FundNodes(
-		ctx,
-		testLogger,
-		dons,
-		deployedBlockchains.Outputs,
-		fundingPerChainFamilyForEachNode,
-	)
-	if fErr != nil {
-		return nil, pkgerrors.Wrap(fErr, "failed to fund chainlink nodes")
-	}
-	fmt.Print(libformat.PurpleText("%s", input.StageGen.WrapAndNext("Chainlink nodes funded in %.2f seconds", input.StageGen.Elapsed().Seconds())))
 
 	fmt.Print(libformat.PurpleText("%s", input.StageGen.Wrap("Applying Features after environment startup")))
 	for _, feature := range input.Features.List() {
