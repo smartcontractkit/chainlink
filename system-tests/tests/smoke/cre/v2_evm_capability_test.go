@@ -282,7 +282,7 @@ func ExecuteEVMLogTriggerTest2(t *testing.T, testEnv *ttypes.TestEnvironment) {
 
 	successfulLogTriggerChains := make([]string, 0, len(chainsToTest))
 	for chainID, bcOutput := range chainsToTest {
-		listenerCtx, messageChan, kafkaErrChan := t_helpers.StartBeholder(t, lggr, testEnv)
+		// listenerCtx, messageChan, kafkaErrChan := t_helpers.StartBeholder(t, lggr, testEnv)
 
 		lggr.Info().Msgf("Creating EVM LogTrigger workflow configuration for chain %s", chainID)
 		workflowConfig, msgEmitter := configureEVMLogTriggerWorkflow(t, lggr, bcOutput)
@@ -291,18 +291,19 @@ func ExecuteEVMLogTriggerTest2(t *testing.T, testEnv *ttypes.TestEnvironment) {
 		lggr.Info().Msgf("About to deploy Workflow %s on chain %s", workflowName, chainID)
 		t_helpers.CompileAndDeployWorkflow(t, testEnv, lggr, workflowName, &workflowConfig, workflowFileLocation)
 
-		triggersUpAndRunning := "Trigger RunSimpleEvmLogTriggerWorkflow called"
-		err := t_helpers.AssertBeholderMessage(listenerCtx, t, triggersUpAndRunning, lggr, messageChan, kafkaErrChan, 4*time.Minute)
-		require.NoError(t, err, "Triggers up and running test failed")
-		lggr.Info().Msgf("Triggers are up and running in all nodes %s on chain %s", workflowName, chainID)
+		time.Sleep(30 * time.Second)
+		// triggersUpAndRunning := "Trigger RunSimpleEvmLogTriggerWorkflow called"
+		// err := t_helpers.AssertBeholderMessage(listenerCtx, t, triggersUpAndRunning, lggr, messageChan, kafkaErrChan, 4*time.Minute)
+		// require.NoError(t, err, "Triggers up and running test failed")
+		// lggr.Info().Msgf("Triggers are up and running in all nodes %s on chain %s", workflowName, chainID)
 
 		message := "Data for log trigger"
-		_ = emitEvent(t, lggr, chainID, bcOutput, msgEmitter, message, workflowConfig)
+		startBlock := emitEvent(t, lggr, chainID, bcOutput, msgEmitter, message, workflowConfig)
 		// expectedUserLog := "OnTrigger decoded message: message:" + message
 		// err = t_helpers.AssertBeholderMessage(listenerCtx, t, expectedUserLog, lggr, messageChan, kafkaErrChan, 4*time.Minute)
 		// require.NoError(t, err, "Expected user log test failed")
-		// evmChain := bcOutput.(*evm.Blockchain)
-		// validateWorkflowExecution(t, lggr, testEnv, evmChain, workflowName, common.HexToAddress(workflowConfig.Addresses[0]), startBlock)
+		evmChain := bcOutput.(*evm.Blockchain)
+		validateWorkflowExecution(t, lggr, testEnv, evmChain, workflowName, common.HexToAddress(workflowConfig.Addresses[0]), startBlock)
 
 		lggr.Info().Msgf("🎉 LogTrigger Workflow %s executed successfully on chain %s", workflowName, chainID)
 		successfulLogTriggerChains = append(successfulLogTriggerChains, chainID)
