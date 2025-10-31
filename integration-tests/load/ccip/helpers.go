@@ -489,6 +489,7 @@ func fundAdditionalKeys(lggr logger.Logger, e cldf.Environment, destChains []uin
 			if err != nil {
 				return nil, fmt.Errorf("failed to create new address: %w", err)
 			}
+			lggr.Infow("created account for load testing", "private key", pk, "selector", chain, "address", addr)
 			pvtKey, err := crypto.HexToECDSA(pk)
 			if err != nil {
 				return nil, fmt.Errorf("failed to convert private key to ECDSA: %w", err)
