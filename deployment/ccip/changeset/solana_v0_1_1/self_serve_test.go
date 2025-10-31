@@ -82,9 +82,9 @@ func doTestOnboardTokenPoolForSelfServe(t *testing.T, isMCMsOwner bool) {
 				ccipChangesetSolana.SetUpgradeAuthorityConfig{
 					ChainSelector:         solChainSelector,
 					NewUpgradeAuthority:   timelockSignerPDA,
-					SetAfterInitialDeploy: false,
-					SetOffRamp:            false,
-					SetMCMSPrograms:       false,
+					SetAfterInitialDeploy: true,
+					SetOffRamp:            true,
+					SetMCMSPrograms:       true,
 					TransferKeys: []solana.PublicKey{
 						lockAndReleaseTokenPoolProgramID,
 						burnAndMintTokenPoolProgramID,

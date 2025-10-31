@@ -279,7 +279,7 @@ func AddTokenPoolAndLookupTable(e cldf.Environment, cfg AddTokenPoolAndLookupTab
 			poolInitI, err = solBurnMintTokenPool.NewInitializeInstruction(
 				poolConfigPDA,
 				tokenPubKey,
-				poolConfigPDA,
+				authority,
 				solana.SystemProgramID,
 				tokenPool,
 				programData.Address,
