@@ -302,14 +302,14 @@ func SetupTestEnvironment(
 	// allow to pass custom job spec factories for extensibility
 	jobSpecFactoryFunctions = append(jobSpecFactoryFunctions, input.JobSpecFactoryFunctions...)
 	createJobsDeps := CreateJobsWithJdOpDeps{
-		Logger:                    testLogger,
-		SingleFileLogger:          singleFileLogger,
-		HomeChainBlockchainOutput: deployedBlockchains.RegistryChain().CtfOutput(),
-		JobSpecFactoryFunctions:   jobSpecFactoryFunctions,
-		CreEnvironment:            creEnvironment,
-		Dons:                      dons,
-		NodeSets:                  input.NodeSets,
-		Capabilities:              input.Capabilities,
+		Logger:                        testLogger,
+		SingleFileLogger:              singleFileLogger,
+		RegistryChainBlockchainOutput: deployedBlockchains.RegistryChain().CtfOutput(),
+		JobSpecFactoryFunctions:       jobSpecFactoryFunctions,
+		CreEnvironment:                creEnvironment,
+		Dons:                          dons,
+		NodeSets:                      input.NodeSets,
+		Capabilities:                  input.Capabilities,
 	}
 	_, createJobsErr := operations.ExecuteOperation(deployKeystoneContractsOutput.Env.OperationsBundle, CreateJobsWithJdOp, createJobsDeps, CreateJobsWithJdOpInput{})
 	if createJobsErr != nil {
