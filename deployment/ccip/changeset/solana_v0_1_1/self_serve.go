@@ -6,9 +6,13 @@ import (
 	"fmt"
 
 	"github.com/gagliardetto/solana-go"
+	solTokenUtil "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/tokens"
+	"github.com/smartcontractkit/chainlink/deployment"
 
+	solBurnMintTokenPool "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/v0_1_1/burnmint_token_pool"
 	solCommon "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/v0_1_1/ccip_common"
 	solRouter "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/v0_1_1/ccip_router"
+	solLockReleaseTokenPool "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/v0_1_1/lockrelease_token_pool"
 	solState "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/state"
 	cldf_solana "github.com/smartcontractkit/chainlink-deployments-framework/chain/solana"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
@@ -22,8 +26,10 @@ import (
 var _ cldf.ChangeSet[OnboardTokenPoolsForSelfServeConfig] = OnboardTokenPoolsForSelfServe
 
 type OnboardTokenPoolConfig struct {
-	TokenPubKey             solana.PublicKey
+	TokenMint               solana.PublicKey
 	TokenAdminRegistryAdmin solana.PublicKey
+	PoolType                cldf.ContractType
+	Metadata                string
 	Override                bool
 }
 
@@ -45,7 +51,10 @@ func (cfg OnboardTokenPoolsForSelfServeConfig) Validate(e cldf.Environment, chai
 	// Duplicate mint detection
 	seen := make(map[string]int, len(cfg.RegisterTokenConfigs))
 	for i, registerTokenConfig := range cfg.RegisterTokenConfigs {
-		mintStr := registerTokenConfig.TokenPubKey.String()
+		if registerTokenConfig.PoolType != shared.BurnMintTokenPool && registerTokenConfig.PoolType != shared.LockReleaseTokenPool {
+			return fmt.Errorf("PoolType not supported: %v", registerTokenConfig.PoolType)
+		}
+		mintStr := registerTokenConfig.TokenMint.String()
 		if firstIdx, dup := seen[mintStr]; dup {
 			return fmt.Errorf("duplicate token mint %s found at indexes %d and %d", mintStr, firstIdx, i)
 		}
@@ -53,7 +62,7 @@ func (cfg OnboardTokenPoolsForSelfServeConfig) Validate(e cldf.Environment, chai
 		if registerTokenConfig.TokenAdminRegistryAdmin.IsZero() {
 			return errors.New("token admin registry admin is required")
 		}
-		tokenPubKey := registerTokenConfig.TokenPubKey
+		tokenPubKey := registerTokenConfig.TokenMint
 		if err := chainState.CommonValidation(e, cfg.ChainSelector, tokenPubKey); err != nil {
 			return err
 		}
@@ -77,34 +86,49 @@ func (cfg OnboardTokenPoolsForSelfServeConfig) Validate(e cldf.Environment, chai
 // So, this changeset includes the minimum configuration that CCIP Admin needs to do in the Token Admin Registry and in the Token Pool Program
 func OnboardTokenPoolsForSelfServe(e cldf.Environment, cfg OnboardTokenPoolsForSelfServeConfig) (cldf.ChangesetOutput, error) {
 	e.Logger.Infow("OnboardTokenPoolsForSelfServe", "cfg", cfg)
-	routerState, err := loadRouterSolanaState(e, cfg)
+	solChainState, routerState, err := loadRouterSolanaState(e, cfg)
 	if err != nil {
 		return cldf.ChangesetOutput{}, err
 	}
 	mcmsTxs := []mcmsTypes.Transaction{}
-	instructions := []solana.Instruction{}
+	instructions := [][]solana.Instruction{}
 	for _, registerTokenConfig := range cfg.RegisterTokenConfigs {
-		instruction, err := generateProposeTokenAdminRegistryAdministratorIx(registerTokenConfig, routerState)
+		proposeTokenAdminRegistryAdminIx, err := generateProposeTokenAdminRegistryAdministratorIx(registerTokenConfig, routerState)
 		if err != nil {
 			return cldf.ChangesetOutput{}, err
 		}
+		currentTokenPoolSolanaState, err := loadTokenPoolSolanaState(registerTokenConfig, solChainState)
+		if err != nil {
+			return cldf.ChangesetOutput{}, err
+		}
+		initializeTokenPoolIx, err := generateInitializeCLLTokenPoolIx(registerTokenConfig, currentTokenPoolSolanaState, routerState.ccipAdmin)
+		if err != nil {
+			return cldf.ChangesetOutput{}, err
+		}
+		tokenInstructions := []solana.Instruction{proposeTokenAdminRegistryAdminIx, initializeTokenPoolIx}
 		// if the ccip admin is timelock, build mcms transaction
 		if cfg.MCMS != nil {
-			tx, err := BuildMCMSTxn(instruction, routerState.routerProgramID.String(), shared.Router)
+			proposeTx, err := BuildMCMSTxn(proposeTokenAdminRegistryAdminIx, routerState.routerProgramID.String(), shared.Router)
 			if err != nil {
 				return cldf.ChangesetOutput{}, fmt.Errorf("failed to create transaction: %w", err)
 			}
-			mcmsTxs = append(mcmsTxs, *tx)
+			mcmsTxs = append(mcmsTxs, *proposeTx)
+			contractType := registerTokenConfig.PoolType
+			initTx, err := BuildMCMSTxn(initializeTokenPoolIx, currentTokenPoolSolanaState.tokenPoolProgramID.String(), contractType)
+			if err != nil {
+				return cldf.ChangesetOutput{}, fmt.Errorf("failed to create transaction: %w", err)
+			}
+			mcmsTxs = append(mcmsTxs, *initTx)
 		} else {
 			// the ccip admin will always be deployer key if done without mcms
-			instructions = append(instructions, instruction)
+			instructions = append(instructions, tokenInstructions)
 		}
 	}
-	return ExecuteIndividualInstructionsAndBuildProposals(e, ExecuteConfig{ChainSelector: cfg.ChainSelector, MCMS: cfg.MCMS, Chain: routerState.chain}, instructions, mcmsTxs)
+	return ExecuteInstructionsAndBuildProposals(e, ExecuteConfig{ChainSelector: cfg.ChainSelector, MCMS: cfg.MCMS, Chain: solChainState.chain}, instructions, mcmsTxs)
 }
 
 func generateProposeTokenAdminRegistryAdministratorIx(registerTokenConfig OnboardTokenPoolConfig, routerState routerSolanaState) (solana.Instruction, error) {
-	tokenPubKey := registerTokenConfig.TokenPubKey
+	tokenPubKey := registerTokenConfig.TokenMint
 	tokenAdminRegistryPDA, _, _ := solState.FindTokenAdminRegistryPDA(tokenPubKey, routerState.routerProgramID)
 	tokenAdminRegistryAdmin := registerTokenConfig.TokenAdminRegistryAdmin
 	var instruction solana.Instruction
@@ -148,25 +172,58 @@ func generateProposeTokenAdminRegistryAdministratorIx(registerTokenConfig Onboar
 	return instruction, nil
 }
 
+func generateInitializeCLLTokenPoolIx(config OnboardTokenPoolConfig, state tokenPoolSolanaState, ccipAdmin solana.PublicKey) (solana.Instruction, error) {
+	switch config.PoolType {
+	case shared.BurnMintTokenPool:
+		solBurnMintTokenPool.SetProgramID(state.tokenPoolProgramID)
+		return solBurnMintTokenPool.NewInitializeInstruction(
+			state.poolConfigPDA,
+			config.TokenMint,
+			ccipAdmin,
+			solana.SystemProgramID,
+			state.tokenPoolProgramID,
+			state.programDataAddress,
+			state.configPDA,
+		).ValidateAndBuild()
+	case shared.LockReleaseTokenPool:
+		solLockReleaseTokenPool.SetProgramID(state.tokenPoolProgramID)
+		return solLockReleaseTokenPool.NewInitializeInstruction(
+			state.poolConfigPDA,
+			config.TokenMint,
+			ccipAdmin,
+			solana.SystemProgramID,
+			state.tokenPoolProgramID,
+			state.programDataAddress,
+			state.configPDA,
+		).ValidateAndBuild()
+	default:
+		return nil, errors.New("invalid token pool type")
+	}
+}
+
+type globalState struct {
+	chain      cldf_solana.Chain
+	chainState solanastateview.CCIPChainState
+}
+
 type routerSolanaState struct {
-	chain           cldf_solana.Chain
 	routerProgramID solana.PublicKey
 	routerConfigPDA solana.PublicKey
 	ccipAdmin       solana.PublicKey
 }
 
-func loadRouterSolanaState(e cldf.Environment, cfg OnboardTokenPoolsForSelfServeConfig) (routerSolanaState, error) {
+func loadRouterSolanaState(e cldf.Environment, cfg OnboardTokenPoolsForSelfServeConfig) (globalState, routerSolanaState, error) {
 	state, err := stateview.LoadOnchainState(e)
 	if err != nil {
-		return routerSolanaState{}, err
+		return globalState{}, routerSolanaState{}, err
 	}
 	chainState, ok := state.SolChains[cfg.ChainSelector]
 	if !ok {
-		return routerSolanaState{}, fmt.Errorf("chain %d not found in environment", cfg.ChainSelector)
+		return globalState{}, routerSolanaState{}, fmt.Errorf("chain %d not found in environment", cfg.ChainSelector)
 	}
 
 	if err := cfg.Validate(e, chainState); err != nil {
-		return routerSolanaState{}, err
+		return globalState{}, routerSolanaState{}, err
 	}
 	chain := e.BlockChains.SolanaChains()[cfg.ChainSelector]
 	routerProgramAddress, routerConfigPDA, _ := chainState.GetRouterInfo()
@@ -178,10 +235,44 @@ func loadRouterSolanaState(e cldf.Environment, cfg OnboardTokenPoolsForSelfServe
 		solana.PublicKey{},
 		"",
 	)
-	return routerSolanaState{
-		chain:           chain,
-		routerProgramID: routerProgramAddress,
-		routerConfigPDA: routerConfigPDA,
-		ccipAdmin:       ccipAdmin,
+	return globalState{
+			chain:      chain,
+			chainState: chainState,
+		}, routerSolanaState{
+			routerProgramID: routerProgramAddress,
+			routerConfigPDA: routerConfigPDA,
+			ccipAdmin:       ccipAdmin,
+		}, nil
+}
+
+type tokenPoolSolanaState struct {
+	tokenPoolProgramID solana.PublicKey
+	poolConfigPDA      solana.PublicKey
+	configPDA          solana.PublicKey
+	programDataAddress solana.PublicKey
+}
+
+func loadTokenPoolSolanaState(cfg OnboardTokenPoolConfig, state globalState) (tokenPoolSolanaState, error) {
+	tokenPoolProgramID := state.chainState.GetActiveTokenPool(cfg.PoolType, cfg.Metadata) // If Metadata is nil it returns the CLL Token Pool Program
+	if (tokenPoolProgramID == solana.PublicKey{}) {
+		return tokenPoolSolanaState{}, fmt.Errorf("token pool program ID not found")
+	}
+	poolConfigPDA, err := solTokenUtil.TokenPoolConfigAddress(cfg.TokenMint, tokenPoolProgramID)
+	if err != nil {
+		return tokenPoolSolanaState{}, err
+	}
+	configPDA, err := TokenPoolGlobalConfigPDA(tokenPoolProgramID)
+	if err != nil {
+		return tokenPoolSolanaState{}, fmt.Errorf("failed to get solana token pool global config PDA: %w", err)
+	}
+	progDataAddr, err := deployment.GetProgramDataAddress(state.chain.Client, tokenPoolProgramID)
+	if err != nil {
+		return tokenPoolSolanaState{}, fmt.Errorf("failed to get program data address for program %s: %w", tokenPoolProgramID.String(), err)
+	}
+	return tokenPoolSolanaState{
+		tokenPoolProgramID: tokenPoolProgramID,
+		poolConfigPDA:      poolConfigPDA,
+		configPDA:          configPDA,
+		programDataAddress: progDataAddr,
 	}, nil
 }

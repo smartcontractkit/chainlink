@@ -279,7 +279,7 @@ func AddTokenPoolAndLookupTable(e cldf.Environment, cfg AddTokenPoolAndLookupTab
 			poolInitI, err = solBurnMintTokenPool.NewInitializeInstruction(
 				poolConfigPDA,
 				tokenPubKey,
-				authority,
+				poolConfigPDA,
 				solana.SystemProgramID,
 				tokenPool,
 				programData.Address,
@@ -2642,7 +2642,7 @@ func (cfg ExtendTokenPoolLookupTableConfig) Validate(e cldf.Environment, chainSt
 	}
 
 	if cfg.TokenPubKey.IsZero() {
-		return errors.New("required field 'TokenPubKey' is empty or the zero address")
+		return errors.New("required field 'TokenMint' is empty or the zero address")
 	}
 
 	if cfg.PoolType == "" {

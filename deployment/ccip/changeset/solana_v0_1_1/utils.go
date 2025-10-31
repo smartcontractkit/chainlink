@@ -246,10 +246,10 @@ type ExecuteConfig struct {
 	Chain         cldf_solana.Chain
 }
 
-func ExecuteIndividualInstructionsAndBuildProposals(e cldf.Environment, cfg ExecuteConfig, instructions []solana.Instruction, mcmsTxs []mcmsTypes.Transaction) (cldf.ChangesetOutput, error) {
-	for _, instruction := range instructions {
-		if err := cfg.Chain.Confirm([]solana.Instruction{instruction}); err != nil {
-			return cldf.ChangesetOutput{}, fmt.Errorf("failed to confirm instruction: %w", err)
+func ExecuteInstructionsAndBuildProposals(e cldf.Environment, cfg ExecuteConfig, instructions [][]solana.Instruction, mcmsTxs []mcmsTypes.Transaction) (cldf.ChangesetOutput, error) {
+	for _, instructionSet := range instructions {
+		if err := cfg.Chain.Confirm(instructionSet); err != nil {
+			return cldf.ChangesetOutput{}, fmt.Errorf("failed to confirm instructions: %w", err)
 		}
 	}
 
