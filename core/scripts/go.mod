@@ -62,7 +62,7 @@ require (
 	github.com/smartcontractkit/chainlink/core/scripts/cre/environment/examples/workflows/v1/proof-of-reserve/web-trigger-based v0.0.0-20251020210257-0a6ec41648b4
 	github.com/smartcontractkit/chainlink/system-tests/lib v0.0.0-20251020210257-0a6ec41648b4
 	github.com/smartcontractkit/cre-sdk-go/capabilities/scheduler/cron v0.8.0
-	github.com/smartcontractkit/libocr v0.0.0-20251030123553-7ab819193353
+	github.com/smartcontractkit/libocr v0.0.0-20251031190958-7324c200a6b0
 	github.com/spf13/cobra v1.10.1
 	github.com/spf13/pflag v1.0.10
 	github.com/spf13/viper v1.21.0
