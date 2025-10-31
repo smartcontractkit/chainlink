@@ -51,7 +51,7 @@ func (c TransferSignerRegistryToMCMSWithTimelockSolanaConfig) Validate(e cldf.En
 		return errors.New("no chains found")
 	}
 	solChain := e.BlockChains.SolanaChains()[c.ChainSelector]
-	addresses, err := e.ExistingAddresses.AddressesForChain(c.ChainSelector)
+	addresses, err := state.AddressesForChain(e, c.ChainSelector, "")
 	if err != nil {
 		return fmt.Errorf("failed to get addresses for chain: %w", err)
 	}

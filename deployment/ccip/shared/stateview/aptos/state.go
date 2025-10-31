@@ -25,6 +25,7 @@ import (
 	"github.com/smartcontractkit/chainlink-aptos/bindings/ccip_token_pools/lock_release_token_pool"
 	"github.com/smartcontractkit/chainlink-aptos/bindings/ccip_token_pools/managed_token_pool"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared"
+	commonstate "github.com/smartcontractkit/chainlink/deployment/common/changeset/state"
 	"github.com/smartcontractkit/chainlink/deployment/common/types"
 )
 
@@ -49,7 +50,7 @@ type CCIPChainState struct {
 func LoadOnchainStateAptos(env cldf.Environment) (map[uint64]CCIPChainState, error) {
 	aptosChains := make(map[uint64]CCIPChainState)
 	for chainSelector := range env.BlockChains.AptosChains() {
-		addresses, err := env.ExistingAddresses.AddressesForChain(chainSelector)
+		addresses, err := commonstate.AddressesForChain(env, chainSelector, "")
 		if err != nil {
 			// Chain not found in address book, initialize empty
 			if !errors.Is(err, cldf.ErrChainNotFound) {

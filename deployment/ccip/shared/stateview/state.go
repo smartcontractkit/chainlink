@@ -27,7 +27,6 @@ import (
 
 	cldf_evm "github.com/smartcontractkit/chainlink-deployments-framework/chain/evm"
 	cldf_chain_utils "github.com/smartcontractkit/chainlink-deployments-framework/chain/utils"
-	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/link_token_interface"
@@ -911,7 +910,10 @@ func LoadOnchainState(e cldf.Environment, opts ...LoadOption) (CCIPOnChainState,
 		// here we do not load addresses from datastore as there can be multiple
 		// contracts of the same type and version in datastore which can lead to
 		// ambiguity while loading the state
-		addresses := e.DataStore.Addresses().Filter(datastore.AddressRefByChainSelector(chainSelector))
+		addresses, err := commonstate.AddressesForChain(e, chainSelector, "")
+		if err != nil && !errors.Is(err, cldf.ErrChainNotFound) {
+			return state, fmt.Errorf("failed to get addresses for chain %d: %w", chainSelector, err)
+		}
 		chainState, err := LoadChainState(e.GetContext(), chain, addresses, opts...)
 		if err != nil {
 			return state, err
@@ -922,7 +924,7 @@ func LoadOnchainState(e cldf.Environment, opts ...LoadOption) (CCIPOnChainState,
 }
 
 // LoadChainState Loads all state for a chain into state
-func LoadChainState(ctx context.Context, chain cldf_evm.Chain, addresses []datastore.AddressRef, opts ...LoadOption) (evm.CCIPChainState, error) {
+func LoadChainState(ctx context.Context, chain cldf_evm.Chain, addresses map[string]cldf.TypeAndVersion, opts ...LoadOption) (evm.CCIPChainState, error) {
 	config := &loadStateOpts{}
 	for _, opt := range opts {
 		opt(config)
@@ -946,9 +948,7 @@ func LoadChainState(ctx context.Context, chain cldf_evm.Chain, addresses []datas
 	}
 	state.StaticLinkTokenState = *staticLinkState
 	state.ABIByAddress = make(map[string]string)
-	for _, ref := range addresses {
-		tvStr := cldf.NewTypeAndVersion(cldf.ContractType(ref.Type), *ref.Version)
-		address := ref.Address
+	for address, tvStr := range addresses {
 		switch tvStr.String() {
 		case cldf.NewTypeAndVersion(commontypes.RBACTimelock, deployment.Version1_0_0).String():
 			state.ABIByAddress[address] = gethwrappers.RBACTimelockABI
@@ -1587,7 +1587,7 @@ func LoadOnchainStateSolana(e cldf.Environment) (CCIPOnChainState, error) {
 		SolChains: make(map[uint64]solana.CCIPChainState),
 	}
 	for chainSelector, chain := range e.BlockChains.SolanaChains() {
-		addresses, err := e.ExistingAddresses.AddressesForChain(chainSelector)
+		addresses, err := commonstate.AddressesForChain(e, chainSelector, "")
 		if err != nil {
 			// Chain not found in address book, initialize empty
 			if !errors.Is(err, cldf.ErrChainNotFound) {

@@ -103,7 +103,7 @@ func buildProposalCommon(
 	inspectors := map[uint64]sdk.Inspector{}
 
 	chain := e.BlockChains.SolanaChains()[chainSelector]
-	addresses, _ := e.ExistingAddresses.AddressesForChain(chainSelector)
+	addresses, _ := state.AddressesForChain(e, chainSelector, "")
 	mcmState, _ := state.MaybeLoadMCMSWithTimelockChainStateSolana(chain, addresses)
 
 	timelocks[chainSelector] = mcmsSolana.ContractAddress(
@@ -176,7 +176,7 @@ func BuildMCMSTxn(ixn solana.Instruction, programID string, contractType cldf.Co
 }
 
 func FetchTimelockSigner(e cldf.Environment, chainSelector uint64) (solana.PublicKey, error) {
-	addresses, err := e.ExistingAddresses.AddressesForChain(chainSelector)
+	addresses, err := state.AddressesForChain(e, chainSelector, "")
 	if err != nil {
 		return solana.PublicKey{}, fmt.Errorf("failed to load addresses for chain %d: %w", chainSelector, err)
 	}

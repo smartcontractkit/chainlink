@@ -17,11 +17,12 @@ import (
 	ccip_attestation "github.com/smartcontractkit/chainlink/deployment/ccip/changeset/ccip-attestation"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared"
 	signer_registry "github.com/smartcontractkit/chainlink/deployment/ccip/shared/bindings/signer_registry"
+	commonstate "github.com/smartcontractkit/chainlink/deployment/common/changeset/state"
 )
 
 // Helper function to find signer registry address in address book
 func findSignerRegistryAddress(e cldf.Environment, selector uint64) (common.Address, bool) {
-	addresses, err := e.ExistingAddresses.AddressesForChain(selector)
+	addresses, err := commonstate.AddressesForChain(e, selector, "")
 	if err != nil {
 		return common.Address{}, false
 	}

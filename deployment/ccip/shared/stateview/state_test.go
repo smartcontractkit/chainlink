@@ -17,7 +17,6 @@ import (
 
 	cldf_chain "github.com/smartcontractkit/chainlink-deployments-framework/chain"
 	cldf_evm "github.com/smartcontractkit/chainlink-deployments-framework/chain/evm"
-	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	"github.com/smartcontractkit/chainlink-deployments-framework/engine/test/environment"
 	"github.com/smartcontractkit/chainlink-deployments-framework/engine/test/runtime"
@@ -35,21 +34,10 @@ func TestLoadChainState_MultipleFeeQuoters(t *testing.T) {
 	tenv, _ := testhelpers.NewMemoryEnvironment(t, testhelpers.WithNumOfChains(3))
 	fq1 := utils.RandomAddress().Hex()
 	fq2 := utils.RandomAddress().Hex()
-	addresses := []datastore.AddressRef{
-		{
-			ChainSelector: tenv.HomeChainSel,
-			Address:      common.HexToAddress(fq1).String(),
-			Type:         datastore.ContractType(shared.FeeQuoter),
-			Version: &deployment.Version1_0_0,
-		},
-		{
-			ChainSelector: tenv.HomeChainSel,
-			Address:      common.HexToAddress(fq2).String(),
-			Type:         datastore.ContractType(shared.FeeQuoter),
-			Version:      &deployment.Version1_2_0,
-		},
-	}
-	state, err := stateview.LoadChainState(context.Background(), tenv.Env.BlockChains.EVMChains()[tenv.HomeChainSel], addresses)
+	state, err := stateview.LoadChainState(context.Background(), tenv.Env.BlockChains.EVMChains()[tenv.HomeChainSel], map[string]cldf.TypeAndVersion{
+		fq1: cldf.NewTypeAndVersion(shared.FeeQuoter, deployment.Version1_0_0),
+		fq2: cldf.NewTypeAndVersion(shared.FeeQuoter, deployment.Version1_2_0),
+	})
 	require.NoError(t, err)
 
 	require.Equal(t, fq2, state.FeeQuoter.Address().Hex(), "expected latest fee quoter to be selected")
