@@ -142,6 +142,12 @@ func (h *WorkflowMetadataHandler) syncMetadata() {
 	h.authorizedKeys = authorizedKeys
 	h.workflowRefToID = workflowRefToID
 	h.workflowIDToRef = workflowIDToRef
+
+	workflowIDs := make([]string, 0, len(workflowRefToID))
+	for _, workflowID := range workflowRefToID {
+		workflowIDs = append(workflowIDs, workflowID)
+	}
+	h.lggr.Debugw("Synced workflow metadata", "workflowIDs", workflowIDs, "count", len(workflowIDs))
 }
 
 // sendMetadataPullRequest sends a request to all nodes in the DON to pull the latest metadata.
