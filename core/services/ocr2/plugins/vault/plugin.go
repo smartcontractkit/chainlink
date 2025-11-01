@@ -914,6 +914,7 @@ func (r *ReportingPlugin) StateTransition(ctx context.Context, seqNr uint64, aq 
 	store := NewWriteStore(keyValueReadWriter)
 
 	obsMap := map[string][]*vaultcommon.Observation{}
+	oidsToReqIds := map[uint8][]string{}
 	for _, ao := range aos {
 		obs := &vaultcommon.Observations{}
 		if err := proto.Unmarshal([]byte(ao.Observation), obs); err != nil {
@@ -922,18 +923,26 @@ func (r *ReportingPlugin) StateTransition(ctx context.Context, seqNr uint64, aq 
 			continue
 		}
 
+		reqIds := []string{}
 		for _, o := range obs.Observations {
+			reqIds = append(reqIds, o.Id)
 			if _, ok := obsMap[o.Id]; !ok {
 				obsMap[o.Id] = []*vaultcommon.Observation{}
 			}
 			obsMap[o.Id] = append(obsMap[o.Id], o)
 		}
+
+		oidsToReqIds[uint8(ao.Observer)] = reqIds
 	}
+
+	r.lggr.Debugw("stateTransition started", "oracleIDsToRequestIDs", oidsToReqIds)
 
 	os := &vaultcommon.Outcomes{
 		Outcomes: []*vaultcommon.Outcome{},
 	}
-	for id, obs := range obsMap {
+
+	for _, id := range slices.Sorted(maps.Keys(obsMap)) {
+		obs := obsMap[id]
 		// For each observation we've received for a given Id,
 		// we'll sha it and store it in `shaToObs`.
 		// This means that each entry in `shaToObs` will contain a list of all
@@ -963,7 +972,7 @@ func (r *ReportingPlugin) StateTransition(ctx context.Context, seqNr uint64, aq 
 		}
 
 		if len(chosen) == 0 {
-			r.lggr.Warnw("insufficient observations found for id", "id", id, "threshold", threshold)
+			r.lggr.Warnw("insufficient observations found for id", "id", id, "threshold", threshold, "shaToObs", shaToObs)
 			continue
 		}
 
