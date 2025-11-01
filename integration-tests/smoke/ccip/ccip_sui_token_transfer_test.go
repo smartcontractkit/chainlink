@@ -159,7 +159,6 @@ func Test_CCIPTokenTransfer_Sui2EVM(t *testing.T) {
 					Amount: big.NewInt(1e18),
 				},
 			},
-			TokenReceiverATA: updatedEnv.BlockChains.EVMChains()[destChain].DeployerKey.From.Bytes(), // internally left padded to 32byte
 		},
 		{
 			Name:           "Send token to Receiver",
@@ -180,7 +179,6 @@ func Test_CCIPTokenTransfer_Sui2EVM(t *testing.T) {
 					Amount: big.NewInt(2e18),
 				},
 			},
-			TokenReceiverATA: ccipReceiverAddress.Bytes(), // internally left padded to 32byte
 		},
 	}
 
@@ -511,6 +509,11 @@ func Test_CCIPTokenTransfer_EVM2SUI(t *testing.T) {
 				},
 			},
 		},
+	}
+
+	for _, tc := range tcs {
+		fmt.Println("EVM2SUI tc.Receiver: %s", hexutil.Encode(tc.Receiver))
+		fmt.Println("EVM2SUI tc.TokenReceiverATA: %s", hexutil.Encode(tc.TokenReceiverATA))
 	}
 
 	startBlocks, expectedSeqNums, expectedExecutionStates, expectedTokenBalances := testhelpers.TransferMultiple(ctx, t, e.Env, state, tcs)

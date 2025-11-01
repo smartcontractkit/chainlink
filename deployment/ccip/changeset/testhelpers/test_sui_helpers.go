@@ -16,6 +16,7 @@ import (
 	"github.com/block-vision/sui-go-sdk/sui"
 	suitx "github.com/block-vision/sui-go-sdk/transaction"
 
+	chainsel "github.com/smartcontractkit/chain-selectors"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_5_1/burn_mint_token_pool"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_3/message_hasher"
 
@@ -235,8 +236,22 @@ func SendSuiCCIPRequest(e cldf.Environment, cfg *ccipclient.CCIPSendReqConfig) (
 		// var tokenReceiver [32]byte
 		// copy(tokenReceiver[:], decodedTokenReceiver)
 
-		paramValues := []any{
-			msg.TokenReceiverATA,
+		var paramValues []any
+		destFamily, err := chainsel.GetSelectorFamily(cfg.DestChain)
+		if err != nil {
+			return nil, errors.New("failed to get selector family for destination chain: " + err.Error())
+		}
+		switch destFamily {
+		case chainsel.FamilyEVM, chainsel.FamilyAptos:
+			paramValues = []any{
+				msg.Receiver,
+			}
+		case chainsel.FamilySui, chainsel.FamilySolana:
+			paramValues = []any{
+				msg.TokenReceiverATA,
+			}
+		default:
+			return nil, errors.New("unsupported destination chain family: " + destFamily)
 		}
 
 		onRampCreateTokenTransferParamsCall, err := ccipStateHelperContract.EncodeCallArgsWithGenerics(
