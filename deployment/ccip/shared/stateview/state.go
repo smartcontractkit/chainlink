@@ -1500,7 +1500,6 @@ func LoadChainState(ctx context.Context, chain cldf_evm.Chain, addresses map[str
 				}
 				continue
 			}
-			return state, fmt.Errorf("unknown contract %s", tvStr)
 		}
 	}
 	return state, nil
