@@ -255,7 +255,7 @@ func Test_CCIPTokenTransfer_Sui2EVM(t *testing.T) {
 				},
 			}}
 
-		fmt.Println("Sui2EVM msg.Receiver: %s", hexutil.Encode(msg.Receiver))
+		fmt.Printf("Sui2EVM msg.Receiver: %s\n", hexutil.Encode(msg.Receiver))
 
 		baseOpts := []ccipclient.SendReqOpts{
 			ccipclient.WithSourceChain(sourceChain),
@@ -512,8 +512,8 @@ func Test_CCIPTokenTransfer_EVM2SUI(t *testing.T) {
 	}
 
 	for _, tc := range tcs {
-		fmt.Println("EVM2SUI tc.Receiver: %s", hexutil.Encode(tc.Receiver))
-		fmt.Println("EVM2SUI tc.TokenReceiverATA: %s", hexutil.Encode(tc.TokenReceiverATA))
+		fmt.Printf("EVM2SUI tc.Receiver: %s\n", hexutil.Encode(tc.Receiver))
+		fmt.Printf("EVM2SUI tc.TokenReceiverATA: %s\n", hexutil.Encode(tc.TokenReceiverATA))
 	}
 
 	startBlocks, expectedSeqNums, expectedExecutionStates, expectedTokenBalances := testhelpers.TransferMultiple(ctx, t, e.Env, state, tcs)
