@@ -47,9 +47,7 @@ import (
 	opsutil "github.com/smartcontractkit/chainlink/deployment/common/opsutils"
 )
 
-var (
-	_ cldf.ChangeSet[DeployPrerequisiteConfig] = DeployPrerequisitesChangeset
-)
+var _ cldf.ChangeSet[DeployPrerequisiteConfig] = DeployPrerequisitesChangeset
 
 // DeployPrerequisitesChangeset deploys the pre-requisite contracts for CCIP
 // pre-requisite contracts are the contracts which can be reused from previous versions of CCIP
@@ -64,12 +62,26 @@ func DeployPrerequisitesChangeset(env cldf.Environment, cfg DeployPrerequisiteCo
 	err = deployPrerequisiteChainContracts(env, ab, cfg)
 	if err != nil {
 		env.Logger.Errorw("Failed to deploy prerequisite contracts", "err", err, "addressBook", ab)
+
+		ds, err := shared.PopulateDataStore(ab)
+		if err != nil {
+			return cldf.ChangesetOutput{}, fmt.Errorf("failed to populate in-memory DataStore: %w", err)
+		}
+
 		return cldf.ChangesetOutput{
 			AddressBook: ab,
+			DataStore:   ds,
 		}, fmt.Errorf("failed to deploy prerequisite contracts: %w", err)
 	}
+
+	ds, err := shared.PopulateDataStore(ab)
+	if err != nil {
+		return cldf.ChangesetOutput{}, fmt.Errorf("failed to populate in-memory DataStore: %w", err)
+	}
+
 	return cldf.ChangesetOutput{
 		AddressBook: ab,
+		DataStore:   ds,
 	}, nil
 }
 
@@ -589,9 +601,8 @@ func deployPrerequisiteContracts(e cldf.Environment, ab cldf.AddressBook, state 
 			tokenPoolFactoryAddr = tokenPoolFactory.Address()
 		}
 
-		factoryBurnMintERC20, burnMintTokenPool, burnFromMintTokenPool, burnWithFromMintTokenPool, lockReleaseTokenPool, err =
-			deployTokenPools(e.Logger, chain, ab, rmnProxy.Address(), r.Address(),
-				factoryBurnMintERC20, burnMintTokenPool, burnFromMintTokenPool, burnWithFromMintTokenPool, lockReleaseTokenPool)
+		factoryBurnMintERC20, burnMintTokenPool, burnFromMintTokenPool, burnWithFromMintTokenPool, lockReleaseTokenPool, err = deployTokenPools(e.Logger, chain, ab, rmnProxy.Address(), r.Address(),
+			factoryBurnMintERC20, burnMintTokenPool, burnFromMintTokenPool, burnWithFromMintTokenPool, lockReleaseTokenPool)
 		if err != nil {
 			return err
 		}

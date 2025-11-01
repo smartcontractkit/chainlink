@@ -617,6 +617,11 @@ func TestConfig_Marshal(t *testing.T) {
 		HeartbeatInterval:             commoncfg.MustNewDuration(1 * time.Second),
 		LogStreamingEnabled:           ptr(false),
 		LogLevel:                      ptr("info"),
+		LogBatchProcessor:             ptr(true),
+		LogExportTimeout:              commoncfg.MustNewDuration(1 * time.Second),
+		LogExportMaxBatchSize:         ptr[int](512),
+		LogExportInterval:             ptrDuration(1 * time.Second),
+		LogMaxQueueSize:               ptrInt(2048),
 	}
 	full.CRE = toml.CreConfig{
 		UseLocalTimeProvider: ptr(true),

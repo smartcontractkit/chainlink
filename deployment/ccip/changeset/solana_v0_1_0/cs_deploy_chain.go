@@ -209,14 +209,27 @@ func DeployChainContractsChangeset(e cldf.Environment, c DeployChainContractsCon
 		if err != nil {
 			return cldf.ChangesetOutput{}, fmt.Errorf("failed to build proposal: %w", err)
 		}
+
+		ds, err := shared.PopulateDataStore(newAddresses)
+		if err != nil {
+			return cldf.ChangesetOutput{}, fmt.Errorf("failed to populate in-memory DataStore: %w", err)
+		}
+
 		return cldf.ChangesetOutput{
 			MCMSTimelockProposals: []mcms.TimelockProposal{*proposal},
 			AddressBook:           newAddresses,
+			DataStore:             ds,
 		}, nil
+	}
+
+	ds, err := shared.PopulateDataStore(newAddresses)
+	if err != nil {
+		return cldf.ChangesetOutput{}, fmt.Errorf("failed to populate in-memory DataStore: %w", err)
 	}
 
 	return cldf.ChangesetOutput{
 		AddressBook: newAddresses,
+		DataStore:   ds,
 	}, nil
 }
 
@@ -229,7 +242,8 @@ func DeployAndMaybeSaveToAddressBook(
 	contractType cldf.ContractType,
 	version semver.Version,
 	isUpgrade bool,
-	metadata string) (solana.PublicKey, error) {
+	metadata string,
+) (solana.PublicKey, error) {
 	programName := getTypeToProgramDeployName()[contractType]
 	// the last bool is whether to overallocate the buffer account, if the program is going to be managed
 	// by timelock/mcms we want to overallocate the buffer account so that future upgrades can be performed
@@ -697,7 +711,6 @@ func initializeRouter(
 		ccipRouterProgram,
 		programData.Address,
 	).ValidateAndBuild()
-
 	if err != nil {
 		return fmt.Errorf("failed to build instruction: %w", err)
 	}
@@ -748,7 +761,6 @@ func initializeFeeQuoter(
 		chain.DeployerKey.PublicKey(),
 		solana.SystemProgramID,
 	).ValidateAndBuild()
-
 	if err != nil {
 		return fmt.Errorf("failed to build instruction: %w", err)
 	}
@@ -790,7 +802,6 @@ func initializeOffRamp(
 		offRampAddress,
 		programData.Address,
 	).ValidateAndBuild()
-
 	if err != nil {
 		return fmt.Errorf("failed to build instruction: %w", err)
 	}
@@ -804,7 +815,6 @@ func initializeOffRamp(
 		offRampAddress,
 		programData.Address,
 	).ValidateAndBuild()
-
 	if err != nil {
 		return fmt.Errorf("failed to build instruction: %w", err)
 	}
@@ -1050,7 +1060,8 @@ func GetSolProgramSize(e *cldf.Environment, chain cldf_solana.Chain, programID s
 func getSolProgramData(e cldf.Environment, chain cldf_solana.Chain, programID solana.PublicKey) (struct {
 	DataType uint32
 	Address  solana.PublicKey
-}, error) {
+}, error,
+) {
 	var programData struct {
 		DataType uint32
 		Address  solana.PublicKey
