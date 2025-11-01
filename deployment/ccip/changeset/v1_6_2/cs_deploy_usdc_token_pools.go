@@ -173,8 +173,14 @@ func deployUSDCTokenPoolContractsLogic(env cldf.Environment, c DeployUSDCTokenPo
 		}
 	}
 
+	ds, err := shared.PopulateDataStore(newAddresses)
+	if err != nil {
+		return cldf.ChangesetOutput{}, fmt.Errorf("failed to populate in-memory DataStore: %w", err)
+	}
+
 	return cldf.ChangesetOutput{
-		AddressBook: newAddresses, // TODO: this is deprecated, how do I use the DataStore instead?
+		AddressBook: newAddresses,
+		DataStore:   ds,
 	}, nil
 }
 

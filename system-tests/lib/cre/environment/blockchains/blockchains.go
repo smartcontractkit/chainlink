@@ -27,7 +27,7 @@ type Blockchain interface {
 }
 
 type Deployer interface {
-	Deploy(input *blockchain.Input) (Blockchain, error)
+	Deploy(ctx context.Context, input *blockchain.Input) (Blockchain, error)
 }
 
 type DeployedBlockchains struct {
@@ -40,6 +40,7 @@ func (s *DeployedBlockchains) RegistryChain() Blockchain {
 }
 
 func Start(
+	ctx context.Context,
 	testLogger zerolog.Logger,
 	commonLogger logger.Logger,
 	inputs []*blockchain.Input,
@@ -59,7 +60,7 @@ func Start(
 			return nil, fmt.Errorf("no deployer found for blockchain type %s", input.Type)
 		}
 
-		deployedBlockchain, deployErr := deployer.Deploy(input)
+		deployedBlockchain, deployErr := deployer.Deploy(ctx, input)
 		if deployErr != nil {
 			return nil, pkgerrors.Wrapf(deployErr, "failed to deploy blockchain of type %s", input.Type)
 		}

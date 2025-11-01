@@ -330,11 +330,11 @@ func SendSuiCCIPRequest(e cldf.Environment, cfg *ccipclient.CCIPSendReqConfig) (
 			suiBind.Object{Id: "0x6"},
 			cfg.DestChain,
 			msg.Receiver, // receiver
-			[]byte("hello evm from sui"),
+			msg.Data,
 			createTokenTransferParamsResult,               // tokenParams from the original create_token_transfer_params
 			suiBind.Object{Id: linkTokenObjectMetadataID}, // feeTokenMetadata
 			suiBind.Object{Id: msg.FeeToken},
-			[]byte{}, // extraArgs
+			msg.ExtraArgs, // extraArgs
 		}
 
 		encodedOnRampCCIPSendCall, err := onRampContract.EncodeCallArgsWithGenerics(
@@ -457,11 +457,11 @@ func SendSuiCCIPRequest(e cldf.Environment, cfg *ccipclient.CCIPSendReqConfig) (
 		suiBind.Object{Id: "0x6"},
 		cfg.DestChain,
 		msg.Receiver, // receiver (TODO: replace this with sender Address use environment.NormalizeTo32Bytes(ethereumAddress) from sui repo)
-		[]byte("hello evm from sui"),
+		msg.Data,
 		extractedAny2SuiMessageResult,                 // tokenParams
 		suiBind.Object{Id: linkTokenObjectMetadataID}, // feeTokenMetadata
 		suiBind.Object{Id: msg.FeeToken},
-		[]byte{}, // extraArgs
+		msg.ExtraArgs, // extraArgs
 	}
 
 	encodedOnRampCCIPSendCall, err := onRampContract.EncodeCallArgsWithGenerics(
@@ -543,7 +543,7 @@ func HandleTokenAndPoolDeploymentForSUI(e cldf.Environment, suiChainSel, evmChai
 		return cldf.Environment{}, nil, nil, errors.New("failed to attach token to registry for evm " + err.Error())
 	}
 
-	// eploy & Configure BurnMint TP on SUI
+	// Deploy & Configure BurnMint TP on SUI
 	e, _, err = commoncs.ApplyChangesets(&testing.T{}, e, []commoncs.ConfiguredChangeSet{
 		commoncs.Configure(sui_cs.DeployTPAndConfigure{}, sui_cs.DeployTPAndConfigureConfig{
 			SuiChainSelector: suiChainSel,
