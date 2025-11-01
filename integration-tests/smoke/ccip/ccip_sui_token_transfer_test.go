@@ -141,10 +141,10 @@ func Test_CCIPTokenTransfer_Sui2EVM(t *testing.T) {
 
 	tcs := []testhelpers.TestTransferRequest{
 		{
-			Name:           "Send token to EOA",
-			SourceChain:    sourceChain,
-			DestChain:      destChain,
-			Receiver:       updatedEnv.BlockChains.EVMChains()[destChain].DeployerKey.From.Bytes(), // internally left padded to 32byte
+			Name:        "Send token to EOA",
+			SourceChain: sourceChain,
+			DestChain:   destChain,
+			//Receiver:       updatedEnv.BlockChains.EVMChains()[destChain].DeployerKey.From.Bytes(), // internally left padded to 32byte
 			ExpectedStatus: testhelpers.EXECUTION_STATE_SUCCESS,
 			FeeToken:       outputMap.Objects.MintedLinkTokenObjectId,
 			SuiTokens: []testhelpers.SuiTokenAmount{
@@ -159,6 +159,7 @@ func Test_CCIPTokenTransfer_Sui2EVM(t *testing.T) {
 					Amount: big.NewInt(1e18),
 				},
 			},
+			TokenReceiverATA: updatedEnv.BlockChains.EVMChains()[destChain].DeployerKey.From.Bytes(), // internally left padded to 32byte
 		},
 		{
 			Name:           "Send token to Receiver",
@@ -179,6 +180,7 @@ func Test_CCIPTokenTransfer_Sui2EVM(t *testing.T) {
 					Amount: big.NewInt(2e18),
 				},
 			},
+			TokenReceiverATA: ccipReceiverAddress.Bytes(), // internally left padded to 32byte
 		},
 	}
 
@@ -254,6 +256,8 @@ func Test_CCIPTokenTransfer_Sui2EVM(t *testing.T) {
 					Amount: 1500000000,
 				},
 			}}
+
+		fmt.Println("Sui2EVM msg.Receiver: %s", hexutil.Encode(msg.Receiver))
 
 		baseOpts := []ccipclient.SendReqOpts{
 			ccipclient.WithSourceChain(sourceChain),
