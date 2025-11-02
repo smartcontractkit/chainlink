@@ -107,7 +107,6 @@ func TestOCR2OracleSpec_RelayIdentifier(t *testing.T) {
 		},
 	}
 	for _, tt := range tests {
-		tt := tt
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 
@@ -144,7 +143,7 @@ func TestOCR2OracleSpec(t *testing.T) {
 		TransmitterID:                     null.StringFrom("baz"),
 		ContractConfigConfirmations:       1,
 		ContractConfigTrackerPollInterval: *sqlutil.NewInterval(time.Second),
-		RelayConfig: map[string]interface{}{
+		RelayConfig: map[string]any{
 			"chainID":   1337,
 			"fromBlock": 42,
 			"chainReader": config.ChainReaderConfig{
@@ -266,14 +265,14 @@ func TestOCR2OracleSpec(t *testing.T) {
 				},
 			},
 		},
-		OnchainSigningStrategy: map[string]interface{}{
+		OnchainSigningStrategy: map[string]any{
 			"strategyName": "single-chain",
-			"config": map[string]interface{}{
+			"config": map[string]any{
 				"evm":       "",
 				"publicKey": "0xdeadbeef",
 			},
 		},
-		PluginConfig: map[string]interface{}{"juelsPerFeeCoinSource": `  // data source 1
+		PluginConfig: map[string]any{"juelsPerFeeCoinSource": `  // data source 1
   ds1          [type=bridge name="%s"];
   ds1_parse    [type=jsonparse path="data"];
   ds1_multiply [type=multiply times=2];

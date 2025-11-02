@@ -19,7 +19,7 @@ func Test_BatchFulfillments_AddRun(t *testing.T) {
 	batchLimit := uint32(2500)
 	bfs := newBatchFulfillments(batchLimit, vrfcommon.V2)
 	fromAddress := testutils.NewAddress()
-	for i := 0; i < 4; i++ {
+	for range 4 {
 		bfs.addRun(vrfPipelineResult{
 			gasLimit: 500,
 			req: pendingRequest{
@@ -57,7 +57,7 @@ func Test_BatchFulfillments_AddRun_V2Plus(t *testing.T) {
 	batchLimit := uint32(2500)
 	bfs := newBatchFulfillments(batchLimit, vrfcommon.V2Plus)
 	fromAddress := testutils.NewAddress()
-	for i := 0; i < 4; i++ {
+	for range 4 {
 		bfs.addRun(vrfPipelineResult{
 			gasLimit: 500,
 			req: pendingRequest{

@@ -61,7 +61,7 @@ func Test_CacheFullEviction(t *testing.T) {
 
 	maxElements := 10000
 	commitRoots := make([]ccip.CommitStoreReportWithTxMeta, maxElements)
-	for i := 0; i < maxElements; i++ {
+	for i := range maxElements {
 		finalized := i >= maxElements/2
 		commitRoots[i] = createCommitStoreEntry(utils.RandomBytes32(), time.Now(), finalized)
 	}
@@ -72,7 +72,7 @@ func Test_CacheFullEviction(t *testing.T) {
 	require.Len(t, roots, maxElements)
 
 	// Marks some of them as exeucted and some of them as snoozed
-	for i := 0; i < maxElements; i++ {
+	for i := range maxElements {
 		if i%3 == 0 {
 			cache.MarkAsExecuted(commitRoots[i].MerkleRoot)
 		}

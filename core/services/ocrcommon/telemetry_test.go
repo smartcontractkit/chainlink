@@ -156,7 +156,7 @@ func TestGetChainID(t *testing.T) {
 	assert.Equal(t, "1234567890", e.getChainID())
 
 	j.Type = job.Type(pipeline.OffchainReporting2JobType)
-	j.OCR2OracleSpec.RelayConfig = make(map[string]interface{})
+	j.OCR2OracleSpec.RelayConfig = make(map[string]any)
 	j.OCR2OracleSpec.RelayConfig["chainID"] = "foo"
 	assert.Equal(t, "foo", e.getChainID())
 
@@ -330,7 +330,7 @@ func TestSendEATelemetry(t *testing.T) {
 		},
 	}
 	fr := pipeline.FinalResult{
-		Values:      []interface{}{"123456"},
+		Values:      []any{"123456"},
 		AllErrors:   nil,
 		FatalErrors: []error{nil},
 	}
@@ -388,7 +388,7 @@ func TestGetObservation(t *testing.T) {
 	assert.Equal(t, 0, logs.Len())
 
 	finalResult := &pipeline.FinalResult{
-		Values:      []interface{}{"123456"},
+		Values:      []any{"123456"},
 		AllErrors:   nil,
 		FatalErrors: []error{nil},
 	}
@@ -420,7 +420,7 @@ func TestCollectAndSend(t *testing.T) {
 	enhancedTelemService := NewEnhancedTelemetryService(&jb, enhancedTelemChan, doneCh, monitoringEndpoint, lggr.Named("Enhanced Telemetry"))
 	servicetest.Run(t, enhancedTelemService)
 	finalResult := &pipeline.FinalResult{
-		Values:      []interface{}{"123456"},
+		Values:      []any{"123456"},
 		AllErrors:   nil,
 		FatalErrors: []error{nil},
 	}
@@ -802,7 +802,7 @@ func getViewFunctionTaskRunResults() pipeline.TaskRunResults {
 		pipeline.TaskRunResult{
 			Task: &taskViewFunctionDecode,
 			Result: pipeline.Result{
-				Value: map[string]interface{}{
+				Value: map[string]any{
 					"data": big.NewInt(1178718957397490305),
 				},
 			},

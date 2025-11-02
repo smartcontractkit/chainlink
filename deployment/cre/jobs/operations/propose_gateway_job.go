@@ -1,6 +1,7 @@
 package operations
 
 import (
+	"errors"
 	"fmt"
 
 	"github.com/Masterminds/semver/v3"
@@ -17,16 +18,20 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/cre/pkg/offchain"
 )
 
+const defaultGatewayRequestTimeoutSec = 12
+
 type ProposeGatewayJobInput struct {
-	Domain                  string
-	DONFilters              []offchain.TargetDONFilter
-	DONs                    []DON             `yaml:"dons"`
-	GatewayKeyChainSelector pkg.ChainSelector `yaml:"gateway_key_chain_selector"`
-	JobLabels               map[string]string
+	Domain                   string
+	DONFilters               []offchain.TargetDONFilter
+	DONs                     []DON             `yaml:"dons"`
+	GatewayRequestTimeoutSec int               `yaml:"gatewayRequestTimeoutSec"`
+	GatewayKeyChainSelector  pkg.ChainSelector `yaml:"gatewayKeyChainSelector"`
+	JobLabels                map[string]string
 }
 
 type DON struct {
 	Name     string
+	F        int
 	Handlers []string
 }
 
@@ -59,14 +64,33 @@ var ProposeGatewayJob = operations.NewOperation[ProposeGatewayJobInput, ProposeG
 				return ProposeGatewayJobOutput{}, err
 			}
 
+			req := pkg.FetchNodesRequest{
+				Domain:  input.Domain,
+				Filters: []offchain.TargetDONFilter{filter},
+			}
+			ns, err := pkg.FetchNodesFromJD(deps.Env.GetContext(), deps.Env, req)
+			if err != nil {
+				return ProposeGatewayJobOutput{}, err
+			}
+
+			// make map of node id to node
+			m := make(map[string]*nodev1.Node, len(ns))
+			for _, n := range ns {
+				m[n.Id] = n
+			}
+
 			var members []pkg.TargetDONMember
 			for _, n := range nodes {
 				var found bool
 				for _, cc := range n.ChainConfigs {
 					if cc.Chain.Id == chainID && cc.Chain.Type == fam {
+						nodeName := n.NodeID
+						if matched, ok := m[n.NodeID]; ok {
+							nodeName = matched.Name
+						}
 						members = append(members, pkg.TargetDONMember{
 							Address: cc.AccountAddress,
-							Name:    fmt.Sprintf("DON %s - Node %s", ad.Name, n.NodeID),
+							Name:    fmt.Sprintf("%s (DON %s)", nodeName, ad.Name),
 						})
 						found = true
 
@@ -81,6 +105,7 @@ var ProposeGatewayJob = operations.NewOperation[ProposeGatewayJobInput, ProposeG
 
 			td := pkg.TargetDON{
 				ID:       ad.Name,
+				F:        ad.F,
 				Members:  members,
 				Handlers: ad.Handlers,
 			}
@@ -88,9 +113,15 @@ var ProposeGatewayJob = operations.NewOperation[ProposeGatewayJobInput, ProposeG
 			targetDONs = append(targetDONs, td)
 		}
 
+		requestTimeoutSec := input.GatewayRequestTimeoutSec
+		if requestTimeoutSec == 0 {
+			requestTimeoutSec = defaultGatewayRequestTimeoutSec
+		}
+
 		gj := pkg.GatewayJob{
-			JobName:    "CRE Gateway",
-			TargetDONs: targetDONs,
+			JobName:           "CRE Gateway",
+			TargetDONs:        targetDONs,
+			RequestTimeoutSec: requestTimeoutSec,
 		}
 
 		err := gj.Validate()
@@ -138,6 +169,9 @@ var ProposeGatewayJob = operations.NewOperation[ProposeGatewayJobInput, ProposeG
 			}
 
 			output.Specs[n.GetId()] = append(output.Specs[n.GetId()], spec)
+		}
+		if len(output.Specs) == 0 {
+			return ProposeGatewayJobOutput{}, errors.New("no gateway jobs were proposed")
 		}
 
 		return output, nil

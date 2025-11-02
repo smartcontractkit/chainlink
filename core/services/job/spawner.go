@@ -178,9 +178,9 @@ func (js *spawner) stopAllServices() {
 func (js *spawner) stopService(jobID int32) {
 	lggr := js.lggr.With("jobID", jobID)
 	js.activeJobsMu.Lock()
-	defer js.activeJobsMu.Unlock()
-
 	aj := js.activeJobs[jobID]
+	delete(js.activeJobs, jobID)
+	js.activeJobsMu.Unlock()
 
 	for i := len(aj.services) - 1; i >= 0; i-- {
 		service := aj.services[i]
@@ -195,8 +195,6 @@ func (js *spawner) stopService(jobID int32) {
 			js.SvcErrBuffer.Append(pkgerrors.Wrap(err, "error stopping job service"))
 		}
 	}
-
-	delete(js.activeJobs, jobID)
 }
 
 func (js *spawner) StartService(ctx context.Context, jb Job) error {

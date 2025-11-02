@@ -18,7 +18,7 @@ type RMNRemoteCurseEntry struct {
 type RMNRemoteView struct {
 	types.ContractMetaData
 	IsCursed             bool                     `json:"isCursed"`
-	Config               RMNRemoteVersionedConfig `json:"config,omitempty"`
+	Config               RMNRemoteVersionedConfig `json:"config"`
 	CursedSubjectEntries []RMNRemoteCurseEntry    `json:"cursedSubjectEntries,omitempty"`
 }
 

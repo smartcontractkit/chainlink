@@ -399,16 +399,30 @@ func ChainConfigsToOCRConfig(chainConfigs []*nodev1.ChainConfig) (map[chain_sele
 			pubkey = common.Hex2Bytes(chainConfig.Ocr2Config.OcrKeyBundle.OnchainSigningAddress)
 		}
 
+		if chainConfig.Chain.Type == nodev1.ChainType_CHAIN_TYPE_UNSPECIFIED {
+			chainConfig.Chain.Type = nodev1.ChainType_CHAIN_TYPE_SUI
+		}
+
 		details, err := chainToDetails(chainConfig.Chain)
 		if err != nil {
 			return nil, err
+		}
+
+		transmitAccount := chainConfig.AccountAddress
+		chainFamily, err := chain_selectors.GetSelectorFamily(details.ChainSelector)
+		if err != nil {
+			return nil, fmt.Errorf("failed to get chain family for selector %d: %w", details.ChainSelector, err)
+		}
+		// For Aptos and Sui, the transmit account must be set to the public key, which is submitted to and retrieved from JD
+		if chainConfig.AccountAddressPublicKey != nil && (chainFamily == chain_selectors.FamilyAptos || chainFamily == chain_selectors.FamilySui) {
+			transmitAccount = *chainConfig.AccountAddressPublicKey
 		}
 
 		selToOCRConfig[details] = OCRConfig{
 			OffchainPublicKey:         opk,
 			OnchainPublicKey:          pubkey,
 			PeerID:                    MustPeerIDFromString(chainConfig.Ocr2Config.P2PKeyBundle.PeerId),
-			TransmitAccount:           types2.Account(chainConfig.AccountAddress),
+			TransmitAccount:           types2.Account(transmitAccount),
 			ConfigEncryptionPublicKey: cpk,
 			KeyBundleID:               chainConfig.Ocr2Config.OcrKeyBundle.BundleId,
 		}
@@ -427,6 +441,8 @@ func chainToDetails(c *nodev1.Chain) (chain_selectors.ChainDetails, error) {
 		family = chain_selectors.FamilySolana
 	case nodev1.ChainType_CHAIN_TYPE_STARKNET:
 		family = chain_selectors.FamilyStarknet
+	case nodev1.ChainType_CHAIN_TYPE_SUI:
+		family = chain_selectors.FamilySui
 	case nodev1.ChainType_CHAIN_TYPE_TON:
 		family = chain_selectors.FamilyTon
 	case nodev1.ChainType_CHAIN_TYPE_TRON:
@@ -476,6 +492,8 @@ func detailsToChain(details chain_selectors.ChainDetails) (*nodev1.Chain, error)
 		t = nodev1.ChainType_CHAIN_TYPE_TRON
 	case chain_selectors.FamilyStarknet:
 		t = nodev1.ChainType_CHAIN_TYPE_STARKNET
+	case chain_selectors.FamilySui:
+		t = nodev1.ChainType_CHAIN_TYPE_SUI
 	default:
 		return nil, fmt.Errorf("unsupported chain family %s", family)
 	}

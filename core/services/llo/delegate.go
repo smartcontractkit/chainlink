@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"strconv"
-	"time"
 
 	"github.com/prometheus/client_golang/prometheus"
 	ocrcommontypes "github.com/smartcontractkit/libocr/commontypes"
@@ -121,20 +120,15 @@ func NewDelegate(cfg DelegateConfig) (job.ServiceCtx, error) {
 		CaptureReportTelemetry:      cfg.CaptureReportTelemetry,
 	})
 
-	cache := observation.NewCache(500*time.Millisecond, time.Minute)
 	ds := observation.NewDataSource(
 		logger.Named(lggr, "DataSource"),
 		cfg.Registry,
 		t,
-		cache,
 	)
 
 	notifier, ok := cfg.ContractTransmitter.(TransmitNotifier)
 	if ok {
 		notifier.OnTransmit(t.TrackSeqNr)
-		notifier.OnTransmit(func(digest ocr2types.ConfigDigest, seqNr uint64) {
-			cache.SetLastTransmissionSeqNr(seqNr)
-		})
 	}
 
 	return &delegate{services.StateMachine{}, cfg, reportCodecs, cfg.ShouldRetireCache, ds, t, []Closer{}}, nil
@@ -222,6 +216,9 @@ func (d *delegate) Close() error {
 	return d.StopOnce("LLODelegate", func() (merr error) {
 		for _, oracle := range d.oracles {
 			merr = errors.Join(merr, oracle.Close())
+		}
+		if closer, ok := d.ds.(Closer); ok {
+			merr = errors.Join(merr, closer.Close())
 		}
 		merr = errors.Join(merr, d.telem.Close())
 		return merr

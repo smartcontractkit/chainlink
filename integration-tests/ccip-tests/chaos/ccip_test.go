@@ -99,7 +99,6 @@ func TestChaosCCIP(t *testing.T) {
 	}
 
 	for _, in := range inputs {
-		in := in
 		t.Run(in.testName, func(t *testing.T) {
 			t.Parallel()
 			l := logging.GetTestLogger(t)

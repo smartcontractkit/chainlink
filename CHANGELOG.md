@@ -1,5 +1,133 @@
 # Changelog Chainlink Core
 
+## 2.31.0
+
+### Minor Changes
+
+- [#19459](https://github.com/smartcontractkit/chainlink/pull/19459) [`f1ac655`](https://github.com/smartcontractkit/chainlink/commit/f1ac65512fc1896342440d929f06fb3237480bcb) - #added capability API controller
+
+- [#19628](https://github.com/smartcontractkit/chainlink/pull/19628) [`991564c`](https://github.com/smartcontractkit/chainlink/commit/991564cf26f6b399b28c7f0792ceb12bd3f29ee2) - #internal: Move CREv2 system-tests to one suite
+
+- [#19654](https://github.com/smartcontractkit/chainlink/pull/19654) [`bfc346d`](https://github.com/smartcontractkit/chainlink/commit/bfc346dec9512657dacd9b8977c99fc6a3c009f8) - #internal Add evm.getTransactionReceipts negative system tests
+
+- [#19723](https://github.com/smartcontractkit/chainlink/pull/19723) [`02b4069`](https://github.com/smartcontractkit/chainlink/commit/02b40693e4e8035fc474572bb4d80b0cd41bf6e1) - #internal Optimize beholder validator in system tests (part 2)
+
+- [#19553](https://github.com/smartcontractkit/chainlink/pull/19553) [`8091735`](https://github.com/smartcontractkit/chainlink/commit/80917356c02496456ef612554073afacdda5e947) - #internal Add flaky test detector and auto-quarantine to regression smoke-tests.
+
+- [#19713](https://github.com/smartcontractkit/chainlink/pull/19713) [`790ce70`](https://github.com/smartcontractkit/chainlink/commit/790ce7026c471f6793f8385d6847eb6eaebecbad) - #internal Add consensus negative system tests
+
+- [#19661](https://github.com/smartcontractkit/chainlink/pull/19661) [`0f908f9`](https://github.com/smartcontractkit/chainlink/commit/0f908f968222f93ebbbe2956ec6a1bad4df8771b) - #internal Bump cre-sdk-go in CREv2 workflows and system tests
+
+- [#19531](https://github.com/smartcontractkit/chainlink/pull/19531) [`550e7ce`](https://github.com/smartcontractkit/chainlink/commit/550e7ce59abb07c4244eb19a0e83c5a3a59636b7) - #internal Make CREv2 system tests to run with v2 contracts/registries
+
+- [#19723](https://github.com/smartcontractkit/chainlink/pull/19723) [`02b4069`](https://github.com/smartcontractkit/chainlink/commit/02b40693e4e8035fc474572bb4d80b0cd41bf6e1) - #internal Update PoR workflow to use chainlink BalanceReader bindings
+
+- [#19760](https://github.com/smartcontractkit/chainlink/pull/19760) [`e478a40`](https://github.com/smartcontractkit/chainlink/commit/e478a40e72570493235d14cc429b0b56cba59fa2) - Bump dependency of chainlink-evm #internal
+
+- [#19640](https://github.com/smartcontractkit/chainlink/pull/19640) [`0a7b72f`](https://github.com/smartcontractkit/chainlink/commit/0a7b72f6e85b641fbb7cb46accec5cdf0d2e41f6) - #internal Add topology to smoke tests names
+
+- [#19685](https://github.com/smartcontractkit/chainlink/pull/19685) [`ece61e7`](https://github.com/smartcontractkit/chainlink/commit/ece61e7dbbe4be9ff66b5cba465717ae76118eac) - #internal Add evm.WriteReport negative tests
+
+- [#19578](https://github.com/smartcontractkit/chainlink/pull/19578) [`4dc8682`](https://github.com/smartcontractkit/chainlink/commit/4dc8682150595d111a5e8b7c5c2b33b45a4642f7) - #internal Parallelize CRE regression system-tests
+
+- [#19657](https://github.com/smartcontractkit/chainlink/pull/19657) [`b9a1d97`](https://github.com/smartcontractkit/chainlink/commit/b9a1d973479dd9a4ba13daf014d0e7054c77abc4) - #internal Add negative system tests for evm.HeaderByNumber
+
+- [#19651](https://github.com/smartcontractkit/chainlink/pull/19651) [`93671be`](https://github.com/smartcontractkit/chainlink/commit/93671be2fd2778f12c8cd0c6960b1e9b9d7069f1) - #added coalesce pipeline task
+
+- [#19708](https://github.com/smartcontractkit/chainlink/pull/19708) [`fee5e30`](https://github.com/smartcontractkit/chainlink/commit/fee5e30eb00dfc1365beb734dd197975dfdb9064) - #internal Enable don2don topology for system tests
+
+### Patch Changes
+
+- [#19404](https://github.com/smartcontractkit/chainlink/pull/19404) [`84d34a5`](https://github.com/smartcontractkit/chainlink/commit/84d34a5f80f04fe029accbc3aa1317825f3bd91c) - #changed Support dynamic config updates in TriggerSubscriber
+
+- [#19320](https://github.com/smartcontractkit/chainlink/pull/19320) [`6f9d964`](https://github.com/smartcontractkit/chainlink/commit/6f9d964775c9cfbbcc060393fd611f6590073229) - #updated llo plugin data source and telemetry performance improvements
+
+- [#19548](https://github.com/smartcontractkit/chainlink/pull/19548) [`496d2d6`](https://github.com/smartcontractkit/chainlink/commit/496d2d6f28015f8b30e75ae91bf31a32f1353dd1) - #added versionTag build-time attribute with output of "git describe --always"
+
+- [#19610](https://github.com/smartcontractkit/chainlink/pull/19610) [`7c432e1`](https://github.com/smartcontractkit/chainlink/commit/7c432e13a5c46fd7d0788fa385c235d0f4f1fd2b) - #updated chain selectors
+
+- [#19475](https://github.com/smartcontractkit/chainlink/pull/19475) [`233bd59`](https://github.com/smartcontractkit/chainlink/commit/233bd5986b5c3caf08c9d09f4f795f9f15314cef) - #internal Quarantines flaky tests
+
+- [#19710](https://github.com/smartcontractkit/chainlink/pull/19710) [`5625fd0`](https://github.com/smartcontractkit/chainlink/commit/5625fd08dfcd03072efed15c50cd14518022483f) - #updated CCIP changesets to deploy v1.5.1 TokenPoolFactory instead of latest version
+
+- [#19667](https://github.com/smartcontractkit/chainlink/pull/19667) [`535a014`](https://github.com/smartcontractkit/chainlink/commit/535a014bef3a6a007ecf7fe8c2d9f21907e4d127) - #added Add Workflow Registry Chain Selector to CRE v2 registry events.
+
+## 2.30.0
+
+### Minor Changes
+
+- [#19445](https://github.com/smartcontractkit/chainlink/pull/19445) [`db4c600`](https://github.com/smartcontractkit/chainlink/commit/db4c6003b74f3280aecbcf1403adab1204c1631e) - #internal Add regression system-tests package
+
+### Patch Changes
+
+- [#19460](https://github.com/smartcontractkit/chainlink/pull/19460) [`4f1f2d9`](https://github.com/smartcontractkit/chainlink/commit/4f1f2d991cb73061665fdcba81a3d22c0bff5364) - #fix Workflow Registry Syncer V1 handles delete events first and handles orphaned pending events
+
+- [#19519](https://github.com/smartcontractkit/chainlink/pull/19519) [`7bb659b`](https://github.com/smartcontractkit/chainlink/commit/7bb659bbf3defc24542f17fbeaa58f852f3ac24c) - #internal #bugfix Cancels sync routines if contract reader fails to construct
+
+## 2.29.0 - 2025-10-21
+
+### Minor Changes
+
+- [#19309](https://github.com/smartcontractkit/chainlink/pull/19309) [`7300625`](https://github.com/smartcontractkit/chainlink/commit/730062558d8185f17b19ba1af8f0d85a9b88ad5d) - bump sdk version to 0.7.0 #updated
+
+- [#19206](https://github.com/smartcontractkit/chainlink/pull/19206) [`5521ee4`](https://github.com/smartcontractkit/chainlink/commit/5521ee425d856ba93392da9cd4eed190e5df37ee) - #fix flaky test, bump go-ethereum
+
+- [#19280](https://github.com/smartcontractkit/chainlink/pull/19280) [`ef3a381`](https://github.com/smartcontractkit/chainlink/commit/ef3a381f0f3613b4b77c711b90fb5cb476051dff) - #updated CCIP DeployPrerequsitesChangeset to deploy token pool contracts
+
+- [#18833](https://github.com/smartcontractkit/chainlink/pull/18833) [`ea85386`](https://github.com/smartcontractkit/chainlink/commit/ea8538636d0a69a4093ce2a82695db5b9f84d217) - #internal Tron CRE E2E tests
+
+- [#19301](https://github.com/smartcontractkit/chainlink/pull/19301) [`2fb90db`](https://github.com/smartcontractkit/chainlink/commit/2fb90dbdb1d3b9ed2067761a1de027413e55883b) - #added DKG to local CRE
+
+- [#19162](https://github.com/smartcontractkit/chainlink/pull/19162) [`728267c`](https://github.com/smartcontractkit/chainlink/commit/728267c473f1019c8bd878d01943cb79cd308554) - #added DKGResult database
+
+- [#19161](https://github.com/smartcontractkit/chainlink/pull/19161) [`58aa943`](https://github.com/smartcontractkit/chainlink/commit/58aa943b6341168b5652c8d2032d938cf3fb8455) - #added P256 DKGRecipient key to keystore
+
+- [#19262](https://github.com/smartcontractkit/chainlink/pull/19262) [`03478ed`](https://github.com/smartcontractkit/chainlink/commit/03478edcd69f6634c925c245854ca981bef795ea) - #added GetJobRuns to Job Distributor
+
+- [#19458](https://github.com/smartcontractkit/chainlink/pull/19458) [`fae1588`](https://github.com/smartcontractkit/chainlink/commit/fae1588e6b9a4c1ae05fea1b3050343d33287fec) - #bug use on-chain config in vault plugin
+
+- [#19186](https://github.com/smartcontractkit/chainlink/pull/19186) [`c256437`](https://github.com/smartcontractkit/chainlink/commit/c256437f4683be352374f769453586e52f5ce026) - #changed change FixtureChainID
+
+- [#19160](https://github.com/smartcontractkit/chainlink/pull/19160) [`71bcea4`](https://github.com/smartcontractkit/chainlink/commit/71bcea4d84e71b66e3e712186bfbb07951558d07) - #changed vault plugin to use dkg result database
+
+- [#19445](https://github.com/smartcontractkit/chainlink/pull/19445) [`db4c600`](https://github.com/smartcontractkit/chainlink/commit/db4c6003b74f3280aecbcf1403adab1204c1631e) - #internal Add regression system-tests package
+
+- [#19301](https://github.com/smartcontractkit/chainlink/pull/19301) [`2fb90db`](https://github.com/smartcontractkit/chainlink/commit/2fb90dbdb1d3b9ed2067761a1de027413e55883b) - #added DKG integration with Vault plugin
+
+- [#19214](https://github.com/smartcontractkit/chainlink/pull/19214) [`774a7d6`](https://github.com/smartcontractkit/chainlink/commit/774a7d61324ad91373826568eb452e2291debd20) - CCIP OCR2 beholder metrics #nops
+
+### Patch Changes
+
+- [#19354](https://github.com/smartcontractkit/chainlink/pull/19354) [`5b3c6a4`](https://github.com/smartcontractkit/chainlink/commit/5b3c6a41274511e40ed16d4716eddd2d4433158d) - #removed Secure Mint functionality
+
+- [#19346](https://github.com/smartcontractkit/chainlink/pull/19346) [`bad8917`](https://github.com/smartcontractkit/chainlink/commit/bad8917904065e7471ee512476ff6dee31a6c51c) - #internal #bugfix Links worker to a dummy org in V2 wf registry and fixes deadlock in wf reg syncer v2
+
+- [#19460](https://github.com/smartcontractkit/chainlink/pull/19460) [`4f1f2d9`](https://github.com/smartcontractkit/chainlink/commit/4f1f2d991cb73061665fdcba81a3d22c0bff5364) - #fix Workflow Registry Syncer V1 handles delete events first and handles orphaned pending events
+
+- [#19233](https://github.com/smartcontractkit/chainlink/pull/19233) [`bded0f7`](https://github.com/smartcontractkit/chainlink/commit/bded0f7a31310926ada48de6ce2005562d934b73) - #internal deploys V2 registries in local CRE
+
+- [#19519](https://github.com/smartcontractkit/chainlink/pull/19519) [`7bb659b`](https://github.com/smartcontractkit/chainlink/commit/7bb659bbf3defc24542f17fbeaa58f852f3ac24c) - #internal #bugfix Cancels sync routines if contract reader fails to construct
+
+- [#19193](https://github.com/smartcontractkit/chainlink/pull/19193) [`64a8b3b`](https://github.com/smartcontractkit/chainlink/commit/64a8b3b90e869c088e2bfe437a8fae2832dc2443) - #added Sui keystore and relayer plugin basic integration
+
+- [#19102](https://github.com/smartcontractkit/chainlink/pull/19102) [`6684594`](https://github.com/smartcontractkit/chainlink/commit/6684594b237900103d95fca0cf52c94d26857209) - #added Support capabilities that are both Triggers and Executables
+
+- [#19241](https://github.com/smartcontractkit/chainlink/pull/19241) [`5115b4d`](https://github.com/smartcontractkit/chainlink/commit/5115b4d031a81769230e3cba526db4ad942d6c7f) - #added Dispatcher per-method receivers
+
+- [#19031](https://github.com/smartcontractkit/chainlink/pull/19031) [`3b53839`](https://github.com/smartcontractkit/chainlink/commit/3b53839e726f3fafa461aa4b02c750cb1be7b1f8) - #added smoke tests for DON Time in CRE Local Environment. #internal
+
+- [#19370](https://github.com/smartcontractkit/chainlink/pull/19370) [`b7dd012`](https://github.com/smartcontractkit/chainlink/commit/b7dd012a4b3c0b92f2188fd0ec9bdeef1148797e) - #updated chain selectors
+
+- [#19149](https://github.com/smartcontractkit/chainlink/pull/19149) [`9e1f207`](https://github.com/smartcontractkit/chainlink/commit/9e1f207f936d2ea35b03511f26e3109fc9c51c8f) - #internal changeset support for Solana CCIP attestation signer registry contract
+
+- [#19398](https://github.com/smartcontractkit/chainlink/pull/19398) [`90d78e6`](https://github.com/smartcontractkit/chainlink/commit/90d78e69c9e3e5fd898da0c52e1248e0bea1f3ec) - #internal fix test flake on integration test with evm relayer and wf reg v2 syncer
+
+- [#19326](https://github.com/smartcontractkit/chainlink/pull/19326) [`03bb186`](https://github.com/smartcontractkit/chainlink/commit/03bb18649401e9bee4483734d256f561161f9cdb) - Tidy go.mod and go.sum across submodules to fix missing chain-selectors entry
+
+  #bugfix
+
+- [#19020](https://github.com/smartcontractkit/chainlink/pull/19020) [`75a42c7`](https://github.com/smartcontractkit/chainlink/commit/75a42c777916f41984be031aa9f5b22c96136a32) - #added Integrate SharedPeer with Launcher and Dispatcher
+
 ## 2.28.0 - 2025-09-10
 
 ### Minor Changes

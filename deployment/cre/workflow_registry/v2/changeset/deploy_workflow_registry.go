@@ -1,7 +1,12 @@
 package changeset
 
 import (
+	"errors"
+	"fmt"
+
 	"github.com/Masterminds/semver/v3"
+
+	chain_selectors "github.com/smartcontractkit/chain-selectors"
 
 	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
@@ -24,6 +29,13 @@ type DeployWorkflowRegistryDeps struct {
 type DeployWorkflowRegistry struct{}
 
 func (l DeployWorkflowRegistry) VerifyPreconditions(e cldf.Environment, config DeployWorkflowRegistryInput) error {
+	if config.ChainSelector == 0 {
+		return errors.New("chain selector must be provided")
+	}
+	_, err := chain_selectors.GetChainIDFromSelector(config.ChainSelector) // validate chain selector
+	if err != nil {
+		return fmt.Errorf("could not resolve chain selector %d: %w", config.ChainSelector, err)
+	}
 	return nil
 }
 

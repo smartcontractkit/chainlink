@@ -21,7 +21,7 @@ func TestOCR2TaskJobSpec_String(t *testing.T) {
 			name: "chain-reader-codec",
 			spec: OCR2TaskJobSpec{
 				OCR2OracleSpec: job.OCR2OracleSpec{
-					RelayConfig: map[string]interface{}{
+					RelayConfig: map[string]any{
 						"chainID":   1337,
 						"fromBlock": 42,
 						"chainReader": config.ChainReaderConfig{
@@ -80,7 +80,7 @@ func TestOCR2TaskJobSpec_String(t *testing.T) {
 							},
 						},
 					},
-					PluginConfig: map[string]interface{}{"juelsPerFeeCoinSource": `		// data source 1
+					PluginConfig: map[string]any{"juelsPerFeeCoinSource": `		// data source 1
 		ds1          [type=bridge name="%s"];
 		ds1_parse    [type=jsonparse path="data"];
 		ds1_multiply [type=multiply times=2];

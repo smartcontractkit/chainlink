@@ -89,7 +89,7 @@ func BuildMedianOCR2Config(
 		F:                     f_,
 		OnchainConfig:         onchainConfig,
 		OffchainConfigVersion: offchainConfigVersion,
-		OffchainConfig:        []byte(fmt.Sprintf("0x%s", offchainConfig)),
+		OffchainConfig:        fmt.Appendf(nil, "0x%s", offchainConfig),
 	}, err
 }
 
@@ -231,7 +231,7 @@ func CreateOCRv2Jobs(
 			OCR2OracleSpec: job.OCR2OracleSpec{
 				ContractID: ocrInstance.Address(),
 				Relay:      "evm",
-				RelayConfig: map[string]interface{}{
+				RelayConfig: map[string]any{
 					"chainID": chainId,
 				},
 				MonitoringEndpoint:                null.StringFrom(fmt.Sprintf("%s/%s", mockserver.Config.ClusterURL, "ocr2")),
@@ -277,7 +277,7 @@ func CreateOCRv2Jobs(
 				OCR2OracleSpec: job.OCR2OracleSpec{
 					PluginType: "median",
 					Relay:      "evm",
-					RelayConfig: map[string]interface{}{
+					RelayConfig: map[string]any{
 						"chainID": chainId,
 					},
 					PluginConfig: map[string]any{

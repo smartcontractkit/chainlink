@@ -8,13 +8,13 @@ import (
 )
 
 type marshalTest struct {
-	input interface{}
+	input any
 	want  string
 }
 
 type unmarshalTest struct {
 	input   string
-	want    interface{}
+	want    any
 	wantErr string
 }
 

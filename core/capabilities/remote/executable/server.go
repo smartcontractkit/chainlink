@@ -79,7 +79,7 @@ func NewServer(capabilityID, methodName string, peerID p2ptypes.PeerID, dispatch
 		capMethodName:              methodName,
 		peerID:                     peerID,
 		dispatcher:                 dispatcher,
-		lggr:                       logger.Named(lggr, "ExecutableCapabilityServer"),
+		lggr:                       logger.With(logger.Named(lggr, "ExecutableCapabilityServer"), "capabilityID", capabilityID, "capMethodName", methodName),
 		requestIDToRequest:         map[string]requestAndMsgID{},
 		messageIDToRequestIDsCount: map[string]map[string]int{},
 		stopCh:                     make(services.StopChan),
@@ -174,7 +174,7 @@ func (r *server) Start(ctx context.Context) error {
 			ticker := time.NewTicker(getServerTickerInterval(cfg))
 			defer ticker.Stop()
 
-			r.lggr.Info("executable capability server started")
+			r.lggr.Info("ExecutableCapabilityServer started")
 			for {
 				select {
 				case <-r.stopCh:
@@ -212,7 +212,7 @@ func (r *server) Close() error {
 			}
 		}
 
-		r.lggr.Info("executable capability server closed")
+		r.lggr.Info("ExecutableCapabilityServer closed")
 		return nil
 	})
 }

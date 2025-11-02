@@ -71,7 +71,7 @@ func capabilitySwapCmd() *cobra.Command {
 					metaData["result"] = "success"
 				}
 
-				trackingErr := dxTracker.Track("cre.local.env.swap.capability", metaData)
+				trackingErr := dxTracker.Track(MetricCapabilitySwap, metaData)
 				if trackingErr != nil {
 					fmt.Fprintf(os.Stderr, "failed to track capability swap: %s\n", trackingErr)
 				}
@@ -83,7 +83,7 @@ func capabilitySwapCmd() *cobra.Command {
 		},
 	}
 
-	cmd.Flags().StringVarP(&capabilityFlag, "name", "n", "", "Name of the capability to swap")
+	cmd.Flags().StringVarP(&capabilityFlag, "name", "n", "", "Name of the capability to swap (need to mach the value of capability flag used in the environment TOML config)")
 	cmd.Flags().StringVarP(&binaryPath, "binary", "b", "", "Location of the binary to swap on the host machine")
 	cmd.Flags().BoolVarP(&forceFlag, "force", "f", true, "Force removal of Docker containers. Set to false to enable graceful shutdown of the containers (be mindful that it will take longer to remove the them)")
 	_ = cmd.MarkFlagRequired("binary")
@@ -115,7 +115,7 @@ func swapCapability(ctx context.Context, capabilityFlag, binaryPath string, forc
 
 	cldLogger := cldlogger.NewSingleFileLogger(nil)
 
-	creEnvironment, _, loadErr := creenv.BuildFromSavedState(ctx, cldLogger, config, envArtifact)
+	creEnvironment, dons, loadErr := creenv.BuildFromSavedState(ctx, cldLogger, config, envArtifact)
 	if loadErr != nil {
 		return errors.Wrap(loadErr, "failed to load environment")
 	}
@@ -123,13 +123,13 @@ func swapCapability(ctx context.Context, capabilityFlag, binaryPath string, forc
 	// cancel jobs for nodes that have the capability
 	// donId -> nodeId -> proposalIDs
 	donIdxToNodeIDToProposalIDs := map[int]map[string][]string{}
-	for idx, donMetadata := range creEnvironment.DonTopology.ToDonMetadata() {
-		if !flags.HasFlagForAnyChain(donMetadata.Flags, capabilityFlag) {
+	for idx, don := range dons.List() {
+		if !flags.HasFlagForAnyChain(don.Flags, capabilityFlag) {
 			continue
 		}
 
 		donIdxToNodeIDToProposalIDs[idx] = map[string][]string{}
-		for _, node := range creEnvironment.DonTopology.Dons.List()[idx].Nodes {
+		for _, node := range don.Nodes {
 			// get all jobs that have a label named "capability" with value equal to capability name
 			jobResp, jobErr := creEnvironment.CldfEnvironment.Offchain.ListJobs(ctx, &jdjob.ListJobsRequest{
 				Filter: &jdjob.ListJobsRequest_Filter{
@@ -138,7 +138,7 @@ func swapCapability(ctx context.Context, capabilityFlag, binaryPath string, forc
 						Op:    *ptypes.SelectorOp_EQ.Enum(),
 						Value: &capabilityFlag,
 					}},
-					NodeIds: []string{node.NodeID},
+					NodeIds: []string{node.JobDistributorDetails.NodeID},
 				},
 			})
 
@@ -158,7 +158,7 @@ func swapCapability(ctx context.Context, capabilityFlag, binaryPath string, forc
 				return errors.Wrapf(cancelErr, "failed to cancel job proposals for node %s", node.Name)
 			}
 			framework.L.Info().Msgf("Cancelled %d job proposals for node %s", len(proposalIDs), node.Name)
-			donIdxToNodeIDToProposalIDs[idx][node.NodeID] = proposalIDs
+			donIdxToNodeIDToProposalIDs[idx][node.JobDistributorDetails.NodeID] = proposalIDs
 		}
 	}
 
@@ -168,7 +168,7 @@ func swapCapability(ctx context.Context, capabilityFlag, binaryPath string, forc
 
 	// copy the binary to the Docker containers that have the capability
 	for donIdx := range donIdxToNodeIDToProposalIDs {
-		pattern := ns.NodeNamePrefix(creEnvironment.DonTopology.ToDonMetadata()[donIdx].Name)
+		pattern := ns.NodeNamePrefix(dons.List()[donIdx].Name)
 		capDir, dirErr := crecapabilities.DefaultContainerDirectory(config.Infra.Type)
 		if dirErr != nil {
 			return errors.Wrapf(dirErr, "failed to get default capabilities directory for infra type %s", config.Infra.Type)
@@ -238,16 +238,10 @@ func swapCapability(ctx context.Context, capabilityFlag, binaryPath string, forc
 		return errors.Wrapf(err, "failed to restart nodeSets")
 	}
 
-	// connect clients again after restarting
-	creEnvironment, _, loadErr = creenv.BuildFromSavedState(ctx, cldLogger, config, envArtifact)
-	if loadErr != nil {
-		return errors.Wrap(loadErr, "failed to load environment")
-	}
-
 	// approve the job proposals again, so that the jobs are restarted with the new binary
 	for donIdx, nodeIDToProposalIDs := range donIdxToNodeIDToProposalIDs {
-		for _, node := range creEnvironment.DonTopology.Dons.List()[donIdx].Nodes {
-			proposalIDs, ok := nodeIDToProposalIDs[node.NodeID]
+		for _, node := range dons.List()[donIdx].Nodes {
+			proposalIDs, ok := nodeIDToProposalIDs[node.JobDistributorDetails.NodeID]
 			if ok {
 				framework.L.Info().Msgf("Approving %d job proposals for node %s", len(proposalIDs), node.Name)
 				approveErr := node.ApproveProposals(ctx, proposalIDs)
@@ -320,7 +314,7 @@ func nodesSwapCmd() *cobra.Command {
 					metaData["result"] = "success"
 				}
 
-				trackingErr := dxTracker.Track("cre.local.env.swap.nodes", metaData)
+				trackingErr := dxTracker.Track(MetricNodeSwap, metaData)
 				if trackingErr != nil {
 					fmt.Fprintf(os.Stderr, "failed to track nodes swap: %s\n", trackingErr)
 				}

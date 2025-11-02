@@ -42,9 +42,9 @@ import (
 	"github.com/smartcontractkit/chainlink-evm/pkg/config/chaintype"
 	"github.com/smartcontractkit/chainlink-evm/pkg/interceptors/mantle"
 	"github.com/smartcontractkit/chainlink-evm/pkg/keys"
-	txm "github.com/smartcontractkit/chainlink-evm/pkg/txmgr"
+	"github.com/smartcontractkit/chainlink-evm/pkg/transmitter"
 	evmtypes "github.com/smartcontractkit/chainlink-evm/pkg/types"
-	txmgrcommon "github.com/smartcontractkit/chainlink-framework/chains/txmgr"
+	"github.com/smartcontractkit/chainlink-evm/pkg/writer"
 
 	coreconfig "github.com/smartcontractkit/chainlink/v2/core/config"
 	"github.com/smartcontractkit/chainlink/v2/core/services/llo"
@@ -55,9 +55,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/ccipexec"
 	ccipconfig "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/config"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/estimatorconfig"
-	cciptransmitter "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/transmitter"
 	mercuryconfig "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/mercury/config"
-	"github.com/smartcontractkit/chainlink/v2/core/services/ocrcommon"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/functions"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury/wsrpc"
@@ -346,7 +344,7 @@ func (r *Relayer) NewOCR3CapabilityProvider(ctx context.Context, rargs commontyp
 		return nil, err
 	}
 
-	transmitter, err := newOnChainContractTransmitter(ctx, r.lggr, rargs, r.evmKeystore, configWatcher, configTransmitterOpts{}, OCR2AggregatorTransmissionContractABI)
+	transmitter, err := transmitter.NewContractTransmitter(ctx, r.lggr, rargs, r.evmKeystore, configWatcher.chain, configWatcher.contractAddress, transmitter.ConfigTransmitterOpts{}, OCR2AggregatorTransmissionContractABI, false)
 	if err != nil {
 		return nil, err
 	}
@@ -391,7 +389,7 @@ func (r *Relayer) NewPluginProvider(ctx context.Context, rargs commontypes.Relay
 	if err != nil {
 		return nil, err
 	}
-	transmitter, err := newOnChainContractTransmitter(ctx, r.lggr, rargs, r.evmKeystore, configWatcher, configTransmitterOpts{}, OCR2AggregatorTransmissionContractABI)
+	transmitter, err := transmitter.NewContractTransmitter(ctx, r.lggr, rargs, r.evmKeystore, configWatcher.chain, configWatcher.contractAddress, transmitter.ConfigTransmitterOpts{}, OCR2AggregatorTransmissionContractABI, false)
 	if err != nil {
 		return nil, err
 	}
@@ -540,9 +538,9 @@ func (r *Relayer) NewCCIPCommitProvider(ctx context.Context, rargs commontypes.R
 	}
 	subjectID := chainToUUID(configWatcher.chain.ID())
 
-	contractTransmitter, err := newOnChainContractTransmitter(ctx, lggr, rargs, r.evmKeystore, configWatcher, configTransmitterOpts{
-		subjectID: &subjectID,
-	}, OCR2AggregatorTransmissionContractABI, WithReportToEthMetadata(fn), WithRetention(0))
+	contractTransmitter, err := transmitter.NewContractTransmitter(ctx, lggr, rargs, r.evmKeystore, configWatcher.chain, configWatcher.contractAddress, transmitter.ConfigTransmitterOpts{
+		SubjectID: &subjectID,
+	}, OCR2AggregatorTransmissionContractABI, false, transmitter.WithReportToEthMetadata(fn), transmitter.WithRetention(0))
 	if err != nil {
 		return nil, err
 	}
@@ -605,7 +603,7 @@ func (r *Relayer) NewCCIPExecProvider(ctx context.Context, rargs commontypes.Rel
 			execPluginConfig.SourceStartBlock,
 			execPluginConfig.JobID,
 			execPluginConfig.USDCConfig,
-			execPluginConfig.LBTCConfig,
+			execPluginConfig.LBTCConfigs,
 			feeEstimatorConfig,
 		)
 	}
@@ -626,9 +624,17 @@ func (r *Relayer) NewCCIPExecProvider(ctx context.Context, rargs commontypes.Rel
 	}
 	subjectID := chainToUUID(configWatcher.chain.ID())
 
-	contractTransmitter, err := newOnChainContractTransmitter(ctx, lggr, rargs, r.evmKeystore, configWatcher, configTransmitterOpts{
-		subjectID: &subjectID,
-	}, OCR2AggregatorTransmissionContractABI, WithReportToEthMetadata(fn), WithRetention(0), WithExcludeSignatures())
+	contractTransmitter, err := transmitter.NewContractTransmitter(
+		ctx,
+		lggr,
+		rargs,
+		r.evmKeystore,
+		configWatcher.chain,
+		configWatcher.contractAddress,
+		transmitter.ConfigTransmitterOpts{SubjectID: &subjectID},
+		OCR2AggregatorTransmissionContractABI,
+		false,
+		transmitter.WithReportToEthMetadata(fn), transmitter.WithRetention(0), transmitter.WithExcludeSignatures())
 	if err != nil {
 		return nil, err
 	}
@@ -752,7 +758,7 @@ func FilterNamesFromRelayArgs(args commontypes.RelayArgs) (filterNames []string,
 	if relayConfig.FeedID != nil {
 		filterNames = []string{mercury.FilterName(addr.Address(), *relayConfig.FeedID)}
 	} else {
-		filterNames = []string{configPollerFilterName(addr.Address()), transmitterFilterName(addr.Address())}
+		filterNames = []string{configPollerFilterName(addr.Address()), transmitter.FilterName(addr.Address())}
 	}
 	return filterNames, err
 }
@@ -822,175 +828,10 @@ func (c *configWatcher) ContractConfigTracker() ocrtypes.ContractConfigTracker {
 	return c.configPoller
 }
 
-type configTransmitterOpts struct {
-	// pluginGasLimit overrides the gas limit default provided in the config watcher.
-	pluginGasLimit *uint32
-	// subjectID overrides the queueing subject id (the job external id will be used by default).
-	subjectID *uuid.UUID
-}
-
-// newOnChainContractTransmitter creates a new contract transmitter.
-func newOnChainContractTransmitter(ctx context.Context, lggr logger.Logger, rargs commontypes.RelayArgs, ethKeystore keys.Store, configWatcher *configWatcher, opts configTransmitterOpts, transmissionContractABI abi.ABI, ocrTransmitterOpts ...OCRTransmitterOption) (ContractTransmitter, error) {
-	transmitter, err := generateTransmitterFrom(ctx, rargs, ethKeystore, configWatcher, opts)
-	if err != nil {
-		return nil, err
-	}
-
-	evmTransmitter, err := NewOCRContractTransmitter(
-		ctx,
-		configWatcher.contractAddress,
-		configWatcher.chain.Client(),
-		transmissionContractABI,
-		transmitter,
-		configWatcher.chain.LogPoller(),
-		lggr,
-		ethKeystore,
-		ocrTransmitterOpts...,
-	)
-	if err != nil {
-		return nil, err
-	}
-
-	// This code path should only be called when running CCIP 1.5 jobs on Tron.
-	// All other products should use the standard Tron relayer implementation.
-	if configWatcher.chain.Config().EVM().ChainType() == chaintype.ChainTron {
-		return NewTronContractTransmitter(ctx, TronContractTransmitterOpts{
-			Logger:             lggr,
-			TransmissionsCache: NewTronTransmissionsCache(evmTransmitter),
-			Keystore:           ethKeystore,
-			ConfigWatcher:      configWatcher,
-			OCRTransmitterOpts: ocrTransmitterOpts,
-		})
-	}
-
-	return evmTransmitter, err
-}
-
-// newOnChainDualContractTransmitter creates a new dual contract transmitter.
-func newOnChainDualContractTransmitter(ctx context.Context, lggr logger.Logger, rargs commontypes.RelayArgs, ethKeystore keys.Store, configWatcher *configWatcher, opts configTransmitterOpts, transmissionContractABI abi.ABI, ocrTransmitterOpts ...OCRTransmitterOption) (*dualContractTransmitter, error) {
-	transmitter, err := generateTransmitterFrom(ctx, rargs, ethKeystore, configWatcher, opts)
-	if err != nil {
-		return nil, err
-	}
-
-	return NewOCRDualContractTransmitter(
-		ctx,
-		configWatcher.contractAddress,
-		configWatcher.chain.Client(),
-		transmissionContractABI,
-		transmitter,
-		configWatcher.chain.LogPoller(),
-		lggr,
-		ethKeystore,
-		ocrTransmitterOpts...,
-	)
-}
-
-func NewContractTransmitter(ctx context.Context, lggr logger.Logger, rargs commontypes.RelayArgs, ethKeystore keys.Store, configWatcher *configWatcher, opts configTransmitterOpts, transmissionContractABI abi.ABI, dualTransmission bool, ocrTransmitterOpts ...OCRTransmitterOption) (ContractTransmitter, error) {
-	if dualTransmission {
-		return newOnChainDualContractTransmitter(ctx, lggr, rargs, ethKeystore, configWatcher, opts, transmissionContractABI, ocrTransmitterOpts...)
-	}
-
-	return newOnChainContractTransmitter(ctx, lggr, rargs, ethKeystore, configWatcher, opts, transmissionContractABI, ocrTransmitterOpts...)
-}
-
 type Keystore interface {
 	keys.AddressChecker
 	keys.RoundRobin
 	keys.Locker
-}
-
-func generateTransmitterFrom(ctx context.Context, rargs commontypes.RelayArgs, ethKeystore Keystore, configWatcher *configWatcher, opts configTransmitterOpts) (Transmitter, error) {
-	var relayConfig config.RelayConfig
-	if err := json.Unmarshal(rargs.RelayConfig, &relayConfig); err != nil {
-		return nil, err
-	}
-	var fromAddresses []common.Address
-	sendingKeys := relayConfig.SendingKeys
-	if !relayConfig.EffectiveTransmitterID.Valid {
-		return nil, pkgerrors.New("EffectiveTransmitterID must be specified")
-	}
-	effectiveTransmitterAddress := common.HexToAddress(relayConfig.EffectiveTransmitterID.String)
-
-	sendingKeysLength := len(sendingKeys)
-	if sendingKeysLength == 0 {
-		return nil, pkgerrors.New("no sending keys provided")
-	}
-
-	// If we are using multiple sending keys, then a forwarder is needed to rotate transmissions.
-	// Ensure that this forwarder is not set to a local sending key, and ensure our sending keys are enabled.
-	for _, s := range sendingKeys {
-		if sendingKeysLength > 1 && s == effectiveTransmitterAddress.String() {
-			return nil, pkgerrors.New("the transmitter is a local sending key with transaction forwarding enabled")
-		}
-		if err := ethKeystore.CheckEnabled(ctx, common.HexToAddress(s)); err != nil {
-			return nil, pkgerrors.Wrap(err, "one of the sending keys given is not enabled")
-		}
-		fromAddresses = append(fromAddresses, common.HexToAddress(s))
-	}
-
-	subject := rargs.ExternalJobID
-	if opts.subjectID != nil {
-		subject = *opts.subjectID
-	}
-	strategy := txmgrcommon.NewQueueingTxStrategy(subject, relayConfig.DefaultTransactionQueueDepth)
-
-	var checker txm.TransmitCheckerSpec
-	if relayConfig.SimulateTransactions {
-		checker.CheckerType = txm.TransmitCheckerTypeSimulate
-	}
-
-	gasLimit := configWatcher.chain.Config().EVM().GasEstimator().LimitDefault()
-	ocr2Limit := configWatcher.chain.Config().EVM().GasEstimator().LimitJobType().OCR2()
-	if ocr2Limit != nil {
-		gasLimit = uint64(*ocr2Limit)
-	}
-	if opts.pluginGasLimit != nil {
-		gasLimit = uint64(*opts.pluginGasLimit)
-	}
-
-	var transmitter Transmitter
-	var err error
-
-	switch commontypes.OCR2PluginType(rargs.ProviderType) {
-	case commontypes.Median:
-		transmitter, err = ocrcommon.NewOCR2FeedsTransmitter(
-			configWatcher.chain.TxManager(),
-			fromAddresses,
-			common.HexToAddress(rargs.ContractID),
-			gasLimit,
-			effectiveTransmitterAddress,
-			strategy,
-			checker,
-			ethKeystore,
-			relayConfig.DualTransmissionConfig,
-		)
-	case commontypes.CCIPExecution:
-		transmitter, err = cciptransmitter.NewTransmitterWithStatusChecker(
-			configWatcher.chain.TxManager(),
-			fromAddresses,
-			gasLimit,
-			effectiveTransmitterAddress,
-			strategy,
-			checker,
-			configWatcher.chain.ID(),
-			ethKeystore,
-		)
-	default:
-		transmitter, err = ocrcommon.NewTransmitter(
-			configWatcher.chain.TxManager(),
-			fromAddresses,
-			gasLimit,
-			effectiveTransmitterAddress,
-			strategy,
-			checker,
-			ethKeystore,
-		)
-	}
-	if err != nil {
-		return nil, pkgerrors.Wrap(err, "failed to create transmitter")
-	}
-	return transmitter, nil
 }
 
 func (r *Relayer) NewContractWriter(_ context.Context, bytes []byte) (commontypes.ContractWriter, error) {
@@ -1005,9 +846,9 @@ func (r *Relayer) NewContractWriter(_ context.Context, bytes []byte) (commontype
 		if !ok {
 			return nil, fmt.Errorf("chain %s does not support Tron", r.chain.ID())
 		}
-		return NewChainWriterService(r.lggr, r.chain.Client(), r.chain.TxManager(), r.chain.GasEstimator(), cfg, chain.GetTronTXM())
+		return writer.NewChainWriterService(r.lggr, r.chain.Client(), r.chain.TxManager(), r.chain.GasEstimator(), cfg, chain.GetTronTXM())
 	}
-	return NewChainWriterService(r.lggr, r.chain.Client(), r.chain.TxManager(), r.chain.GasEstimator(), cfg, nil)
+	return writer.NewChainWriterService(r.lggr, r.chain.Client(), r.chain.TxManager(), r.chain.GasEstimator(), cfg, nil)
 }
 
 func (r *Relayer) NewContractReader(ctx context.Context, chainReaderConfig []byte) (commontypes.ContractReader, error) {
@@ -1046,7 +887,7 @@ func (r *Relayer) NewMedianProvider(ctx context.Context, rargs commontypes.Relay
 
 	reportCodec := evmreportcodec.ReportCodec{}
 
-	ct, err := NewContractTransmitter(ctx, lggr, rargs, r.evmKeystore, configWatcher, configTransmitterOpts{}, OCR2AggregatorTransmissionContractABI, relayConfig.EnableDualTransmission)
+	ct, err := transmitter.NewContractTransmitter(ctx, lggr, rargs, r.evmKeystore, configWatcher.chain, configWatcher.contractAddress, transmitter.ConfigTransmitterOpts{}, OCR2AggregatorTransmissionContractABI, relayConfig.EnableDualTransmission)
 	if err != nil {
 		return nil, err
 	}
@@ -1104,7 +945,7 @@ var _ commontypes.MedianProvider = (*medianProvider)(nil)
 type medianProvider struct {
 	lggr                logger.Logger
 	configWatcher       *configWatcher
-	contractTransmitter ContractTransmitter
+	contractTransmitter transmitter.ContractTransmitter
 	reportCodec         median.ReportCodec
 	medianContract      *medianContract
 	chainReader         ChainReaderService

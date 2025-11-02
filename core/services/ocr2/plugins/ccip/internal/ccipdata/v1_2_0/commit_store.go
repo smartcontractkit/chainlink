@@ -107,7 +107,7 @@ func EncodeCommitReport(commitReportArgs abi.Arguments, report cciptypes.CommitS
 		Interval:   commit_store_1_2_0.CommitStoreInterval{Min: report.Interval.Min, Max: report.Interval.Max},
 		MerkleRoot: report.MerkleRoot,
 	}
-	return commitReportArgs.PackValues([]interface{}{rep})
+	return commitReportArgs.PackValues([]any{rep})
 }
 
 func DecodeCommitReport(commitReportArgs abi.Arguments, report []byte) (cciptypes.CommitStoreReport, error) {

@@ -29,7 +29,7 @@ type StandardCapabilityJob struct {
 	GenerateOracleFactory bool          // if true, an oracle factory will be generated using the fields below
 	ContractQualifier     string        `yaml:"contractQualifier"`  // used to fetch the OCR contract address
 	ChainSelectorEVM      ChainSelector `yaml:"chainSelectorEVM"`   // used to fetch OCR EVM configs from nodes
-	ChainSelectorAptos    ChainSelector `yaml:"chainSelectorAptos"` // used to fetch OCR Aptos configs from nodes
+	ChainSelectorAptos    ChainSelector `yaml:"chainSelectorAptos"` // used to fetch OCR Aptos configs from nodes - optional
 	BootstrapPeers        []string      `yaml:"bootstrapPeers"`     // set as value in the oracle factory
 }
 
@@ -75,10 +75,6 @@ func (s *StandardCapabilityJob) Validate() error {
 
 	if s.ChainSelectorEVM == 0 {
 		return errors.New("chain selector EVM cannot be zero")
-	}
-
-	if s.ChainSelectorAptos == 0 {
-		return errors.New("chain selector Aptos cannot be zero")
 	}
 
 	if len(s.BootstrapPeers) == 0 {

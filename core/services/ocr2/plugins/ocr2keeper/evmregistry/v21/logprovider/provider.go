@@ -148,7 +148,7 @@ func (p *logEventProvider) Start(context.Context) error {
 
 		p.lggr.Infow("starting log event provider", "readInterval", p.opts.ReadInterval, "readMaxBatchSize", readMaxBatchSize, "readers", readerThreads)
 
-		for i := 0; i < readerThreads; i++ {
+		for range readerThreads {
 			p.threadCtrl.Go(func(ctx context.Context) {
 				p.startReader(ctx, readQ)
 			})
@@ -388,10 +388,7 @@ func (p *logEventProvider) startReader(pctx context.Context, readQ <-chan []*big
 // getPartitionIds returns the upkeepIDs for the given partition and the number of partitions.
 // Partitioning is done by hashing the upkeepID and taking the modulus of the number of partitions.
 func (p *logEventProvider) getPartitionIds(hashFn hash.Hash, partition int) []*big.Int {
-	numOfPartitions := p.filterStore.Size() / readMaxBatchSize
-	if numOfPartitions < 1 {
-		numOfPartitions = 1
-	}
+	numOfPartitions := max(p.filterStore.Size()/readMaxBatchSize, 1)
 	partition = partition % numOfPartitions
 
 	ids := p.filterStore.GetIDs(func(f upkeepFilter) bool {
@@ -467,11 +464,8 @@ func (p *logEventProvider) readLogs(ctx context.Context, latest int64, filters [
 		if len(filter.addr) == 0 {
 			continue
 		}
-		start := filter.lastPollBlock
 		// range should not exceed [lookbackBlocks, latest]
-		if start < latest-lookbackBlocks {
-			start = latest - lookbackBlocks
-		}
+		start := max(filter.lastPollBlock, latest-lookbackBlocks)
 		// adding a buffer to check for reorged logs.
 		start = start - reorgBuffer
 		// make sure start of the range is not before the config update block

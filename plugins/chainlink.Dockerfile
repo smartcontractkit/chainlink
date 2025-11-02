@@ -3,7 +3,7 @@
 # XXX: Experimental -- not to be used to build images for production use.
 # See: ../core/chainlink.Dockerfile for the production Dockerfile.
 ##
-FROM golang:1.24-bullseye AS buildgo
+FROM golang:1.25.3-bookworm AS buildgo
 RUN go version
 RUN apt-get update && apt-get install -y jq && rm -rf /var/lib/apt/lists/*
 

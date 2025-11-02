@@ -11,9 +11,8 @@ import (
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
-	"github.com/smartcontractkit/chainlink-evm/pkg/config"
-
 	"github.com/smartcontractkit/chainlink-evm/pkg/chains/legacyevm"
+	"github.com/smartcontractkit/chainlink-evm/pkg/config"
 )
 
 func newStandardConfigProvider(ctx context.Context, lggr logger.Logger, chain legacyevm.Chain, opts *config.RelayOpts) (*configWatcher, error) {

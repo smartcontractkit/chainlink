@@ -108,7 +108,7 @@ func (e *CCIPContractsDeployer) DeployMultiCallContract() (common.Address, error
 	address, tx, _, err := e.evmClient.DeployContract("MultiCall Contract", func(
 		auth *bind.TransactOpts,
 		_ bind.ContractBackend,
-	) (common.Address, *types.Transaction, interface{}, error) {
+	) (common.Address, *types.Transaction, any, error) {
 		address, tx, contract, err := bind.DeployContract(auth, multiCallABI, common.FromHex(MultiCallBIN), wrappers.MustNewWrappedContractBackend(e.evmClient, nil))
 		if err != nil {
 			return common.Address{}, nil, nil, err
@@ -132,7 +132,7 @@ func (e *CCIPContractsDeployer) DeployTokenMessenger(tokenTransmitter common.Add
 	address, _, _, err := e.evmClient.DeployContract("Mock Token Messenger", func(
 		auth *bind.TransactOpts,
 		_ bind.ContractBackend,
-	) (common.Address, *types.Transaction, interface{}, error) {
+	) (common.Address, *types.Transaction, any, error) {
 		address, tx, contract, err := mock_usdc_token_messenger.DeployMockE2EUSDCTokenMessenger(auth, wrappers.MustNewWrappedContractBackend(e.evmClient, nil), 0, tokenTransmitter)
 		if err != nil {
 			return common.Address{}, nil, nil, err
@@ -166,7 +166,7 @@ func (e *CCIPContractsDeployer) DeployTokenTransmitter(domain uint32, usdcToken 
 	address, _, instance, err := e.evmClient.DeployContract("Mock Token Transmitter", func(
 		auth *bind.TransactOpts,
 		_ bind.ContractBackend,
-	) (common.Address, *types.Transaction, interface{}, error) {
+	) (common.Address, *types.Transaction, any, error) {
 		address, tx, contract, err := mock_usdc_token_transmitter.DeployMockE2EUSDCTransmitter(auth, wrappers.MustNewWrappedContractBackend(e.evmClient, nil), 0, domain, usdcToken)
 		if err != nil {
 			return common.Address{}, nil, nil, err
@@ -189,7 +189,7 @@ func (e *CCIPContractsDeployer) DeployLinkTokenContract() (*LinkToken, error) {
 	address, _, instance, err := e.evmClient.DeployContract("Link Token", func(
 		auth *bind.TransactOpts,
 		_ bind.ContractBackend,
-	) (common.Address, *types.Transaction, interface{}, error) {
+	) (common.Address, *types.Transaction, any, error) {
 		return link_token_interface.DeployLinkToken(auth, wrappers.MustNewWrappedContractBackend(e.evmClient, nil))
 	})
 
@@ -209,7 +209,7 @@ func (e *CCIPContractsDeployer) DeployBurnMintERC677(ownerMintingAmount *big.Int
 	address, _, instance, err := e.evmClient.DeployContract("Burn Mint ERC 677", func(
 		auth *bind.TransactOpts,
 		_ bind.ContractBackend,
-	) (common.Address, *types.Transaction, interface{}, error) {
+	) (common.Address, *types.Transaction, any, error) {
 		return burn_mint_erc677.DeployBurnMintERC677(auth, wrappers.MustNewWrappedContractBackend(e.evmClient, nil), "Test Token ERC677", "TERC677", 6, new(big.Int).Mul(big.NewInt(1e18), big.NewInt(1e9)))
 	})
 	if err != nil {
@@ -246,7 +246,7 @@ func (e *CCIPContractsDeployer) DeployCustomBurnMintERC677Token(name, symbol str
 	address, _, instance, err := e.evmClient.DeployContract("Burn Mint ERC 677", func(
 		auth *bind.TransactOpts,
 		_ bind.ContractBackend,
-	) (common.Address, *types.Transaction, interface{}, error) {
+	) (common.Address, *types.Transaction, any, error) {
 		return burn_mint_erc677.DeployBurnMintERC677(auth, wrappers.MustNewWrappedContractBackend(e.evmClient, nil), name, symbol, decimals, new(big.Int).Mul(big.NewInt(1e18), big.NewInt(1e9)))
 	})
 	if err != nil {
@@ -485,7 +485,7 @@ func (e *CCIPContractsDeployer) DeployUSDCTokenPoolContract(tokenAddr string, to
 		address, _, _, err := e.evmClient.DeployContract("USDC Token Pool", func(
 			auth *bind.TransactOpts,
 			_ bind.ContractBackend,
-		) (common.Address, *types.Transaction, interface{}, error) {
+		) (common.Address, *types.Transaction, any, error) {
 			return usdc_token_pool.DeployUSDCTokenPool(
 				auth,
 				wrappers.MustNewWrappedContractBackend(e.evmClient, nil),
@@ -505,7 +505,7 @@ func (e *CCIPContractsDeployer) DeployUSDCTokenPoolContract(tokenAddr string, to
 		address, _, _, err := e.evmClient.DeployContract("USDC Token Pool", func(
 			auth *bind.TransactOpts,
 			_ bind.ContractBackend,
-		) (common.Address, *types.Transaction, interface{}, error) {
+		) (common.Address, *types.Transaction, any, error) {
 			return usdc_token_pool_1_4_0.DeployUSDCTokenPool(
 				auth,
 				wrappers.MustNewWrappedContractBackend(e.evmClient, nil),
@@ -580,7 +580,7 @@ func (e *CCIPContractsDeployer) DeployMockLBTCTokenPoolContract(tokenAddr string
 		address, _, _, err := e.evmClient.DeployContract("Mock LBTC Token Pool", func(
 			auth *bind.TransactOpts,
 			_ bind.ContractBackend,
-		) (common.Address, *types.Transaction, interface{}, error) {
+		) (common.Address, *types.Transaction, any, error) {
 			return mock_lbtc_token_pool.DeployMockE2ELBTCTokenPool(
 				auth,
 				wrappers.MustNewWrappedContractBackend(e.evmClient, nil),
@@ -613,7 +613,7 @@ func (e *CCIPContractsDeployer) DeployLockReleaseTokenPoolContract(tokenAddr str
 		address, _, _, err := e.evmClient.DeployContract("LockRelease Token Pool", func(
 			auth *bind.TransactOpts,
 			_ bind.ContractBackend,
-		) (common.Address, *types.Transaction, interface{}, error) {
+		) (common.Address, *types.Transaction, any, error) {
 			return lock_release_token_pool.DeployLockReleaseTokenPool(
 				auth,
 				wrappers.MustNewWrappedContractBackend(e.evmClient, nil),
@@ -634,7 +634,7 @@ func (e *CCIPContractsDeployer) DeployLockReleaseTokenPoolContract(tokenAddr str
 		address, _, _, err := e.evmClient.DeployContract("LockRelease Token Pool", func(
 			auth *bind.TransactOpts,
 			_ bind.ContractBackend,
-		) (common.Address, *types.Transaction, interface{}, error) {
+		) (common.Address, *types.Transaction, any, error) {
 			return lock_release_token_pool_1_4_0.DeployLockReleaseTokenPool(
 				auth,
 				wrappers.MustNewWrappedContractBackend(e.evmClient, nil),
@@ -659,7 +659,7 @@ func (e *CCIPContractsDeployer) DeployMockRMNContract() (*common.Address, error)
 	address, _, _, err := e.evmClient.DeployContract("Mock ARM Contract", func(
 		auth *bind.TransactOpts,
 		_ bind.ContractBackend,
-	) (common.Address, *types.Transaction, interface{}, error) {
+	) (common.Address, *types.Transaction, any, error) {
 		return mock_rmn_contract.DeployMockRMNContract(auth, wrappers.MustNewWrappedContractBackend(e.evmClient, nil))
 	})
 	return address, err
@@ -739,7 +739,7 @@ func (e *CCIPContractsDeployer) DeployCommitStore(sourceChainSelector, destChain
 		address, _, instance, err := e.evmClient.DeployContract("CommitStore Contract", func(
 			auth *bind.TransactOpts,
 			_ bind.ContractBackend,
-		) (common.Address, *types.Transaction, interface{}, error) {
+		) (common.Address, *types.Transaction, any, error) {
 			return commit_store.DeployCommitStore(
 				auth,
 				wrappers.MustNewWrappedContractBackend(e.evmClient, nil),
@@ -766,7 +766,7 @@ func (e *CCIPContractsDeployer) DeployCommitStore(sourceChainSelector, destChain
 		address, _, instance, err := e.evmClient.DeployContract("CommitStore Contract", func(
 			auth *bind.TransactOpts,
 			_ bind.ContractBackend,
-		) (common.Address, *types.Transaction, interface{}, error) {
+		) (common.Address, *types.Transaction, any, error) {
 			return commit_store_1_2_0.DeployCommitStore(
 				auth,
 				wrappers.MustNewWrappedContractBackend(e.evmClient, nil),
@@ -801,7 +801,7 @@ func (e *CCIPContractsDeployer) DeployReceiverDapp(revert bool) (
 	address, _, instance, err := e.evmClient.DeployContract("ReceiverDapp", func(
 		auth *bind.TransactOpts,
 		_ bind.ContractBackend,
-	) (common.Address, *types.Transaction, interface{}, error) {
+	) (common.Address, *types.Transaction, any, error) {
 		return maybe_revert_message_receiver.DeployMaybeRevertMessageReceiver(auth, wrappers.MustNewWrappedContractBackend(e.evmClient, nil), revert)
 	})
 	if err != nil {
@@ -841,7 +841,7 @@ func (e *CCIPContractsDeployer) DeployRouter(wrappedNative common.Address, armAd
 	address, _, instance, err := e.evmClient.DeployContract("Router", func(
 		auth *bind.TransactOpts,
 		_ bind.ContractBackend,
-	) (common.Address, *types.Transaction, interface{}, error) {
+	) (common.Address, *types.Transaction, any, error) {
 		return router.DeployRouter(auth, wrappers.MustNewWrappedContractBackend(e.evmClient, nil), wrappedNative, armAddress)
 	})
 	if err != nil {
@@ -922,7 +922,7 @@ func (e *CCIPContractsDeployer) DeployPriceRegistry(tokens []common.Address) (*P
 	var address *common.Address
 	var wrapper *PriceRegistryWrapper
 	var err error
-	var instance interface{}
+	var instance any
 	version := VersionMap[PriceRegistryContract]
 	e.logger.Info().Str("Version", version.String()).Msg("Deploying PriceRegistry")
 	switch version {
@@ -930,7 +930,7 @@ func (e *CCIPContractsDeployer) DeployPriceRegistry(tokens []common.Address) (*P
 		address, _, instance, err = e.evmClient.DeployContract("PriceRegistry", func(
 			auth *bind.TransactOpts,
 			_ bind.ContractBackend,
-		) (common.Address, *types.Transaction, interface{}, error) {
+		) (common.Address, *types.Transaction, any, error) {
 			return price_registry_1_2_0.DeployPriceRegistry(auth, wrappers.MustNewWrappedContractBackend(e.evmClient, nil), nil, tokens, 60*60*24*14)
 		})
 		if err != nil {
@@ -943,7 +943,7 @@ func (e *CCIPContractsDeployer) DeployPriceRegistry(tokens []common.Address) (*P
 		address, _, instance, err = e.evmClient.DeployContract("PriceRegistry", func(
 			auth *bind.TransactOpts,
 			_ bind.ContractBackend,
-		) (common.Address, *types.Transaction, interface{}, error) {
+		) (common.Address, *types.Transaction, any, error) {
 			return price_registry_1_2_0.DeployPriceRegistry(auth, wrappers.MustNewWrappedContractBackend(e.evmClient, nil), nil, tokens, 60*60*24*14)
 		})
 		if err != nil {
@@ -968,7 +968,7 @@ func (e *CCIPContractsDeployer) DeployTokenAdminRegistry() (*TokenAdminRegistry,
 	address, _, instance, err := e.evmClient.DeployContract("TokenAdminRegistry", func(
 		auth *bind.TransactOpts,
 		_ bind.ContractBackend,
-	) (common.Address, *types.Transaction, interface{}, error) {
+	) (common.Address, *types.Transaction, any, error) {
 		return token_admin_registry.DeployTokenAdminRegistry(auth, wrappers.MustNewWrappedContractBackend(e.evmClient, nil))
 	})
 	if err != nil {
@@ -1081,7 +1081,7 @@ func (e *CCIPContractsDeployer) DeployOnRamp(
 		address, _, instance, err := e.evmClient.DeployContract("OnRamp", func(
 			auth *bind.TransactOpts,
 			_ bind.ContractBackend,
-		) (common.Address, *types.Transaction, interface{}, error) {
+		) (common.Address, *types.Transaction, any, error) {
 			return evm_2_evm_onramp_1_2_0.DeployEVM2EVMOnRamp(
 				auth,
 				wrappers.MustNewWrappedContractBackend(e.evmClient, nil),
@@ -1131,7 +1131,7 @@ func (e *CCIPContractsDeployer) DeployOnRamp(
 		address, _, instance, err := e.evmClient.DeployContract("OnRamp", func(
 			auth *bind.TransactOpts,
 			_ bind.ContractBackend,
-		) (common.Address, *types.Transaction, interface{}, error) {
+		) (common.Address, *types.Transaction, any, error) {
 			return evm_2_evm_onramp.DeployEVM2EVMOnRamp(
 				auth,
 				wrappers.MustNewWrappedContractBackend(e.evmClient, nil),
@@ -1246,7 +1246,7 @@ func (e *CCIPContractsDeployer) DeployOffRamp(
 		address, _, instance, err := e.evmClient.DeployContract("OffRamp Contract", func(
 			auth *bind.TransactOpts,
 			_ bind.ContractBackend,
-		) (common.Address, *types.Transaction, interface{}, error) {
+		) (common.Address, *types.Transaction, any, error) {
 			return evm_2_evm_offramp_1_2_0.DeployEVM2EVMOffRamp(
 				auth,
 				wrappers.MustNewWrappedContractBackend(e.evmClient, nil),
@@ -1291,7 +1291,7 @@ func (e *CCIPContractsDeployer) DeployOffRamp(
 		address, _, instance, err := e.evmClient.DeployContract("OffRamp Contract", func(
 			auth *bind.TransactOpts,
 			_ bind.ContractBackend,
-		) (common.Address, *types.Transaction, interface{}, error) {
+		) (common.Address, *types.Transaction, any, error) {
 			return evm_2_evm_offramp.DeployEVM2EVMOffRamp(
 				auth,
 				wrappers.MustNewWrappedContractBackend(e.evmClient, nil),
@@ -1325,7 +1325,7 @@ func (e *CCIPContractsDeployer) DeployWrappedNative() (*common.Address, error) {
 	address, _, _, err := e.evmClient.DeployContract("WrappedNative", func(
 		auth *bind.TransactOpts,
 		_ bind.ContractBackend,
-	) (common.Address, *types.Transaction, interface{}, error) {
+	) (common.Address, *types.Transaction, any, error) {
 		return weth9.DeployWETH9(auth, wrappers.MustNewWrappedContractBackend(e.evmClient, nil))
 	})
 	if err != nil {
@@ -1338,7 +1338,7 @@ func (e *CCIPContractsDeployer) DeployMockAggregator(decimals uint8, initialAns 
 	address, _, instance, err := e.evmClient.DeployContract("MockAggregator", func(
 		auth *bind.TransactOpts,
 		_ bind.ContractBackend,
-	) (common.Address, *types.Transaction, interface{}, error) {
+	) (common.Address, *types.Transaction, any, error) {
 		return mock_v3_aggregator_contract.DeployMockV3Aggregator(auth, wrappers.MustNewWrappedContractBackend(e.evmClient, nil), decimals, initialAns)
 	})
 	if err != nil {
@@ -1468,7 +1468,7 @@ func OffChainAggregatorV2ConfigWithNodes(numberNodes int, inflightExpiry time.Du
 			Msg("You likely need more chainlink nodes to properly configure OCR, try 5 or more.")
 	}
 	s := make([]int, 0)
-	for i := 0; i < numberNodes; i++ {
+	for range numberNodes {
 		s = append(s, 1)
 	}
 	faultyNodes := 0

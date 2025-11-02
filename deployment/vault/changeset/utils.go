@@ -8,7 +8,7 @@ import (
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 )
 
-func GetContractAddress(ds interface{}, chainSelector uint64, contractType cldf.ContractType) (string, error) {
+func GetContractAddress(ds any, chainSelector uint64, contractType cldf.ContractType) (string, error) {
 	if ds == nil {
 		return "", errors.New("datastore is nil")
 	}

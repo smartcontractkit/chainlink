@@ -34,13 +34,115 @@ import (
 	libc "github.com/smartcontractkit/chainlink/system-tests/lib/conversions"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre"
 	crecontracts "github.com/smartcontractkit/chainlink/system-tests/lib/cre/contracts"
-	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/don"
-	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/flags"
+	creblockchains "github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/blockchains"
+	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/blockchains/solana"
 )
 
 const TronEVMChainID = 3360022319
 
-func Generate(input cre.GenerateConfigsInput, nodeConfigTransformers []cre.NodeConfigTransformerFn) (cre.NodeIndexToConfigOverride, error) {
+func PrepareNodeTOMLs(
+	topology *cre.Topology,
+	creEnv *cre.Environment,
+	nodeSets []*cre.NodeSet,
+	capabilities []cre.InstallableCapability, // Deprecated, use Features instead and modify node configs inside a Feature
+	nodeConfigTransformerFns []cre.NodeConfigTransformerFn,
+) ([]*cre.NodeSet, error) {
+	bt, hasBootstrap := topology.Bootstrap()
+	if !hasBootstrap {
+		return nil, errors.New("no DON contains a bootstrap node, but exactly one is required")
+	}
+
+	capabilitiesPeeringData, ocrPeeringData, peeringErr := cre.PeeringCfgs(bt)
+	if peeringErr != nil {
+		return nil, errors.Wrap(peeringErr, "failed to find peering data")
+	}
+
+	localNodeSets := topology.NodeSets()
+	chainPerSelector := make(map[uint64]creblockchains.Blockchain)
+	for _, bc := range creEnv.Blockchains {
+		chainPerSelector[bc.ChainSelector()] = bc
+	}
+
+	for i, donMetadata := range topology.DonsMetadata.List() {
+		// make sure that either all or none of the node specs have config or secrets provided in the TOML config
+		configsFound := 0
+		secretsFound := 0
+		nodeSet := localNodeSets[i]
+
+		for _, nodeSpec := range nodeSet.NodeSpecs {
+			if nodeSpec.Node.TestConfigOverrides != "" {
+				configsFound++
+			}
+			if nodeSpec.Node.TestSecretsOverrides != "" {
+				secretsFound++
+			}
+		}
+
+		if configsFound != 0 && configsFound != len(localNodeSets[i].NodeSpecs) {
+			return nil, fmt.Errorf("%d out of %d node specs have config overrides. Either provide overrides for all nodes or none at all", configsFound, len(localNodeSets[i].NodeSpecs))
+		}
+
+		if secretsFound != 0 && secretsFound != len(localNodeSets[i].NodeSpecs) {
+			return nil, fmt.Errorf("%d out of %d node specs have secrets overrides. Either provide overrides for all nodes or none at all", secretsFound, len(localNodeSets[i].NodeSpecs))
+		}
+
+		// Allow providing only secrets, because we can decode them and use them to generate configs
+		// We can't allow providing only configs, because we don't want to deal with parsing configs to set new secrets there.
+		// If both are provided, we assume that the user knows what they are doing and we don't need to validate anything
+		if configsFound > 0 && secretsFound == 0 {
+			return nil, fmt.Errorf("nodespec config overrides are provided for DON %s, but not secrets. You need to either provide both, only secrets or nothing at all", donMetadata.Name)
+		}
+
+		configFactoryFunctions := make([]cre.NodeConfigTransformerFn, 0)
+		for _, capability := range capabilities {
+			configFactoryFunctions = append(configFactoryFunctions, capability.NodeConfigTransformerFn())
+		}
+		configFactoryFunctions = append(configFactoryFunctions, nodeConfigTransformerFns...) // allow passing custom transformers
+
+		// generate node TOML configs only if they are not provided in the environment TOML config
+		if configsFound == 0 {
+			config, configErr := generateNodeTomlConfig(
+				cre.GenerateConfigsInput{
+					AddressBook:             creEnv.CldfEnvironment.ExistingAddresses, //nolint:staticcheck // won't migrate
+					Datastore:               creEnv.CldfEnvironment.DataStore,
+					DonMetadata:             donMetadata,
+					Blockchains:             chainPerSelector,
+					Flags:                   donMetadata.Flags,
+					CapabilitiesPeeringData: capabilitiesPeeringData,
+					OCRPeeringData:          ocrPeeringData,
+					HomeChainSelector:       creEnv.RegistryChainSelector,
+					GatewayConnectorOutput:  topology.GatewayConnectors,
+					NodeSet:                 localNodeSets[i],
+					CapabilityConfigs:       creEnv.CapabilityConfigs,
+				},
+				configFactoryFunctions,
+			)
+			if configErr != nil {
+				return nil, errors.Wrap(configErr, "failed to generate config")
+			}
+
+			for j := range donMetadata.NodesMetadata {
+				localNodeSets[i].NodeSpecs[j].Node.TestConfigOverrides = config[j]
+			}
+		}
+
+		// generate node TOML secrets only if they are not provided in the environment TOML config
+		if secretsFound == 0 {
+			for nodeIndex := range donMetadata.NodesMetadata {
+				wnode := donMetadata.NodesMetadata[nodeIndex]
+				nodeSecretsTOML, err := wnode.Keys.ToNodeSecretsTOML()
+				if err != nil {
+					return nil, errors.Wrapf(err, "failed to marshal node secrets (DON: %s, Node index: %d)", donMetadata.Name, nodeIndex)
+				}
+				localNodeSets[i].NodeSpecs[nodeIndex].Node.TestSecretsOverrides = nodeSecretsTOML
+			}
+		}
+	}
+
+	return localNodeSets, nil
+}
+
+func generateNodeTomlConfig(input cre.GenerateConfigsInput, nodeConfigTransformers []cre.NodeConfigTransformerFn) (cre.NodeIndexToConfigOverride, error) {
 	configOverrides := make(cre.NodeIndexToConfigOverride)
 
 	if err := input.Validate(); err != nil {
@@ -58,13 +160,13 @@ func Generate(input cre.GenerateConfigsInput, nodeConfigTransformers []cre.NodeC
 			switch role {
 			case cre.BootstrapNode:
 				var cErr error
-				nodeConfig, cErr = addBootstrapNodeConfig(nodeConfig, input.OCRPeeringData, input.CapabilitiesPeeringData, commonInputs)
+				nodeConfig, cErr = addBootstrapNodeConfig(nodeConfig, input.OCRPeeringData, commonInputs)
 				if cErr != nil {
 					return nil, errors.Wrapf(cErr, "failed to add bootstrap node config for node at index %d in DON %s", nodeIdx, input.DonMetadata.Name)
 				}
 			case cre.WorkerNode:
 				var cErr error
-				nodeConfig, cErr = addWorkerNodeConfig(nodeConfig, input.OCRPeeringData, input.CapabilitiesPeeringData, commonInputs, input.GatewayConnectorOutput, input.DonMetadata.Name, input.DonMetadata.Flags, nodeMetadata)
+				nodeConfig, cErr = addWorkerNodeConfig(nodeConfig, input.OCRPeeringData, commonInputs, input.GatewayConnectorOutput, input.DonMetadata, nodeMetadata)
 				if cErr != nil {
 					return nil, errors.Wrapf(cErr, "failed to add worker node config for node at index %d in DON %s", nodeIdx, input.DonMetadata.Name)
 				}
@@ -129,7 +231,6 @@ func baseNodeConfig() corechainlink.Config {
 func addBootstrapNodeConfig(
 	existingConfig corechainlink.Config,
 	ocrPeeringData cre.OCRPeeringData,
-	capabilitiesPeeringData cre.CapabilitiesPeeringData,
 	commonInputs *commonInputs,
 ) (corechainlink.Config, error) {
 	ocrBoostrapperLocator, ocrBErr := commontypes.NewBootstrapperLocator(ocrPeeringData.OCRBootstraperPeerID, []string{"localhost:" + strconv.Itoa(ocrPeeringData.Port)})
@@ -189,11 +290,9 @@ func addBootstrapNodeConfig(
 func addWorkerNodeConfig(
 	existingConfig corechainlink.Config,
 	ocrPeeringData cre.OCRPeeringData,
-	capabilitiesPeeringData cre.CapabilitiesPeeringData,
 	commonInputs *commonInputs,
-	gatewayConnector *cre.GatewayConnectorOutput,
-	donName string,
-	donFlags []string,
+	gatewayConnector *cre.GatewayConnectors,
+	donMetadata *cre.DonMetadata,
 	m *cre.NodeMetadata,
 ) (corechainlink.Config, error) {
 	ocrBoostrapperLocator, ocrBErr := commontypes.NewBootstrapperLocator(ocrPeeringData.OCRBootstraperPeerID, []string{ocrPeeringData.OCRBootstraperHost + ":" + strconv.Itoa(ocrPeeringData.Port)})
@@ -247,7 +346,7 @@ func addWorkerNodeConfig(
 		ContractVersion: ptr.Ptr(commonInputs.capabilityRegistry.versionType.Version.String()),
 	}
 
-	if flags.HasFlag(donFlags, cre.WorkflowDON) {
+	if donMetadata.HasFlag(cre.WorkflowDON) {
 		existingConfig.Capabilities.WorkflowRegistry = coretoml.WorkflowRegistry{
 			Address:         ptr.Ptr(commonInputs.workflowRegistry.address.Hex()),
 			NetworkID:       ptr.Ptr("evm"),
@@ -257,7 +356,9 @@ func addWorkerNodeConfig(
 		}
 	}
 
-	if flags.HasFlag(donFlags, cre.WorkflowDON) || don.NodeNeedsAnyGateway(donFlags) {
+	// Add only gateway connector only to workflow DON
+	// Capabilities that require gateways should add gateway connector themselves
+	if donMetadata.HasFlag(cre.WorkflowDON) {
 		evmKey, ok := m.Keys.EVM[commonInputs.registryChainID]
 		if !ok {
 			return existingConfig, fmt.Errorf("failed to get EVM key (chainID %d, node index %d)", commonInputs.registryChainID, m.Index)
@@ -276,7 +377,7 @@ func addWorkerNodeConfig(
 			}
 
 			existingConfig.Capabilities.GatewayConnector = coretoml.GatewayConnector{
-				DonID:             ptr.Ptr(donName),
+				DonID:             ptr.Ptr(donMetadata.Name),
 				ChainIDForNodeKey: ptr.Ptr(strconv.FormatUint(commonInputs.registryChainID, 10)),
 				NodeAddress:       ptr.Ptr(evmKey.PublicAddress.Hex()),
 				Gateways:          gateways,
@@ -385,22 +486,22 @@ type evmChain struct {
 
 func findEVMChains(input cre.GenerateConfigsInput) []*evmChain {
 	evmChains := make([]*evmChain, 0)
-	for chainSelector, bcOut := range input.BlockchainOutput {
-		if bcOut.SolChain != nil {
+	for chainSelector, bcOut := range input.Blockchains {
+		if bcOut.IsFamily(chain_selectors.FamilySolana) {
 			continue
 		}
 
 		// if the DON doesn't support the chain, we skip it; if slice is empty, it means that the DON supports all chains
 		// TODO: review if we really need this SupportedChains functionality
-		if len(input.DonMetadata.CapabilitiesAwareNodeSet().EVMChains()) > 0 && !slices.Contains(input.DonMetadata.CapabilitiesAwareNodeSet().EVMChains(), bcOut.ChainID) {
+		if len(input.DonMetadata.NodeSets().EVMChains()) > 0 && !slices.Contains(input.DonMetadata.NodeSets().EVMChains(), bcOut.ChainID()) {
 			continue
 		}
 
 		evmChains = append(evmChains, &evmChain{
 			Name:    fmt.Sprintf("node-%d", chainSelector),
-			ChainID: bcOut.ChainID,
-			HTTPRPC: bcOut.BlockchainOutput.Nodes[0].InternalHTTPUrl,
-			WSRPC:   bcOut.BlockchainOutput.Nodes[0].InternalWSUrl,
+			ChainID: bcOut.ChainID(),
+			HTTPRPC: bcOut.CtfOutput().Nodes[0].InternalHTTPUrl,
+			WSRPC:   bcOut.CtfOutput().Nodes[0].InternalWSUrl,
 		})
 	}
 	return evmChains
@@ -416,8 +517,8 @@ func findOneSolanaChain(input cre.GenerateConfigsInput) (*solanaChain, error) {
 	var solChain *solanaChain
 	chainsFound := 0
 
-	for _, bcOut := range input.BlockchainOutput {
-		if bcOut.SolChain == nil {
+	for _, bcOut := range input.Blockchains {
+		if !bcOut.IsFamily(chain_selectors.FamilySolana) {
 			continue
 		}
 
@@ -426,8 +527,10 @@ func findOneSolanaChain(input cre.GenerateConfigsInput) (*solanaChain, error) {
 			return nil, errors.New("multiple Solana chains found, expected only one")
 		}
 
+		solBc := bcOut.(*solana.Blockchain)
+
 		ctx, cancelFn := context.WithTimeout(context.Background(), 15*time.Second)
-		chainID, err := bcOut.SolClient.GetGenesisHash(ctx)
+		chainID, err := solBc.SolClient.GetGenesisHash(ctx)
 		if err != nil {
 			cancelFn()
 			return nil, errors.Wrap(err, "failed to get chainID for Solana")
@@ -435,9 +538,9 @@ func findOneSolanaChain(input cre.GenerateConfigsInput) (*solanaChain, error) {
 		cancelFn()
 
 		solChain = &solanaChain{
-			Name:    fmt.Sprintf("node-%d", bcOut.SolChain.ChainSelector),
+			Name:    fmt.Sprintf("node-%d", solBc.ChainSelector()),
 			ChainID: chainID.String(),
-			NodeURL: bcOut.BlockchainOutput.Nodes[0].InternalHTTPUrl,
+			NodeURL: bcOut.CtfOutput().Nodes[0].InternalHTTPUrl,
 		}
 	}
 

@@ -134,7 +134,7 @@ func TestRunner(t *testing.T) {
 
 		m, err := bridges.MarshalBridgeMetaData(big.NewInt(10), big.NewInt(100))
 		require.NoError(t, err)
-		runID, taskResults, err := runner.ExecuteAndInsertFinishedRun(testutils.Context(t), *jb.PipelineSpec, pipeline.NewVarsFrom(map[string]interface{}{"jobRun": map[string]interface{}{"meta": m}}), true)
+		runID, taskResults, err := runner.ExecuteAndInsertFinishedRun(testutils.Context(t), *jb.PipelineSpec, pipeline.NewVarsFrom(map[string]any{"jobRun": map[string]any{"meta": m}}), true)
 		require.NoError(t, err)
 
 		results := taskResults.FinalResult()
@@ -794,12 +794,12 @@ func TestRunner_Success_Callback_AsyncJob(t *testing.T) {
 
 	var (
 		eiName    = "substrate-ei"
-		eiSpec    = map[string]interface{}{"foo": "bar"}
-		eiRequest = map[string]interface{}{"result": 42}
+		eiSpec    = map[string]any{"foo": "bar"}
+		eiRequest = map[string]any{"result": 42}
 
 		jobUUID = uuid.MustParse("0EEC7E1D-D0D2-476C-A1A8-72DFB6633F46")
 
-		expectedCreateJobRequest = map[string]interface{}{
+		expectedCreateJobRequest = map[string]any{
 			"jobId":  jobUUID.String(),
 			"type":   eiName,
 			"params": eiSpec,
@@ -818,7 +818,7 @@ func TestRunner_Success_Callback_AsyncJob(t *testing.T) {
 				eiNotifiedOfCreate = true
 				defer r.Body.Close()
 
-				var gotCreateJobRequest map[string]interface{}
+				var gotCreateJobRequest map[string]any
 				err := json.NewDecoder(r.Body).Decode(&gotCreateJobRequest)
 				require.NoError(t, err)
 
@@ -862,7 +862,7 @@ func TestRunner_Success_Callback_AsyncJob(t *testing.T) {
 		bridgeServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			defer r.Body.Close()
 
-			var bridgeRequest map[string]interface{}
+			var bridgeRequest map[string]any
 			err := json.NewDecoder(r.Body).Decode(&bridgeRequest)
 			require.NoError(t, err)
 
@@ -947,7 +947,7 @@ func TestRunner_Success_Callback_AsyncJob(t *testing.T) {
 		require.Empty(t, run.PipelineTaskRuns[1].Error)
 		require.Empty(t, run.PipelineTaskRuns[2].Error)
 		require.Empty(t, run.PipelineTaskRuns[3].Error)
-		require.Equal(t, jsonserializable.JSONSerializable{Val: []interface{}{"123450000000000000000"}, Valid: true}, run.Outputs)
+		require.Equal(t, jsonserializable.JSONSerializable{Val: []any{"123450000000000000000"}, Valid: true}, run.Outputs)
 		require.Equal(t, pipeline.RunErrors{null.String{NullString: sql.NullString{String: "", Valid: false}}}, run.FatalErrors)
 	})
 	// Delete the job
@@ -973,12 +973,12 @@ func TestRunner_Error_Callback_AsyncJob(t *testing.T) {
 
 	var (
 		eiName    = "substrate-ei"
-		eiSpec    = map[string]interface{}{"foo": "bar"}
-		eiRequest = map[string]interface{}{"result": 42}
+		eiSpec    = map[string]any{"foo": "bar"}
+		eiRequest = map[string]any{"result": 42}
 
 		jobUUID = uuid.MustParse("0EEC7E1D-D0D2-476C-A1A8-72DFB6633F47")
 
-		expectedCreateJobRequest = map[string]interface{}{
+		expectedCreateJobRequest = map[string]any{
 			"jobId":  jobUUID.String(),
 			"type":   eiName,
 			"params": eiSpec,
@@ -997,7 +997,7 @@ func TestRunner_Error_Callback_AsyncJob(t *testing.T) {
 				eiNotifiedOfCreate = true
 				defer r.Body.Close()
 
-				var gotCreateJobRequest map[string]interface{}
+				var gotCreateJobRequest map[string]any
 				err := json.NewDecoder(r.Body).Decode(&gotCreateJobRequest)
 				require.NoError(t, err)
 
@@ -1041,7 +1041,7 @@ func TestRunner_Error_Callback_AsyncJob(t *testing.T) {
 		bridgeServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			defer r.Body.Close()
 
-			var bridgeRequest map[string]interface{}
+			var bridgeRequest map[string]any
 			err := json.NewDecoder(r.Body).Decode(&bridgeRequest)
 			require.NoError(t, err)
 
@@ -1126,7 +1126,7 @@ func TestRunner_Error_Callback_AsyncJob(t *testing.T) {
 		assert.Equal(t, "something exploded in EA", run.PipelineTaskRuns[1].Error.String)
 		assert.True(t, run.PipelineTaskRuns[2].Error.Valid)
 		assert.True(t, run.PipelineTaskRuns[3].Error.Valid)
-		require.Equal(t, jsonserializable.JSONSerializable{Val: []interface{}{interface{}(nil)}, Valid: true}, run.Outputs)
+		require.Equal(t, jsonserializable.JSONSerializable{Val: []any{any(nil)}, Valid: true}, run.Outputs)
 		require.Equal(t, pipeline.RunErrors{null.String{NullString: sql.NullString{String: "task inputs: too many errors", Valid: true}}}, run.FatalErrors)
 	})
 	// Delete the job

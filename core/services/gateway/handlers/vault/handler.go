@@ -7,10 +7,12 @@ import (
 	"errors"
 	"fmt"
 	"maps"
+	"net/http"
 	"strings"
 	"sync"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/jonboulle/clockwork"
 	"github.com/smartcontractkit/tdh2/go/tdh2/tdh2easy"
 	"go.opentelemetry.io/otel/attribute"
@@ -28,6 +30,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/api"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/config"
 	gwhandlers "github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers"
+	handlerscommon "github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers/common"
 )
 
 const (
@@ -91,11 +94,25 @@ func (ar *activeRequest) addResponseForNode(nodeAddr string, resp *jsonrpc.Respo
 	return true
 }
 
-func (ar *activeRequest) copiedResponses() map[string]*jsonrpc.Response[json.RawMessage] {
+func (ar *activeRequest) copiedResponses() map[string]jsonrpc.Response[json.RawMessage] {
 	ar.mu.Lock()
 	defer ar.mu.Unlock()
-	copied := make(map[string]*jsonrpc.Response[json.RawMessage], len(ar.responses))
-	maps.Copy(copied, ar.responses)
+	copied := make(map[string]jsonrpc.Response[json.RawMessage], len(ar.responses))
+	for k, response := range ar.responses {
+		var copiedResponse jsonrpc.Response[json.RawMessage]
+		if response != nil {
+			copiedResponse = *response
+			if response.Result != nil {
+				copiedResult := *response.Result
+				copiedResponse.Result = &copiedResult
+			}
+			if response.Error != nil {
+				copiedError := *response.Error
+				copiedResponse.Error = &copiedError
+			}
+		}
+		copied[k] = copiedResponse
+	}
 	return copied
 }
 
@@ -104,7 +121,7 @@ type capabilitiesRegistry interface {
 }
 
 type aggregator interface {
-	Aggregate(ctx context.Context, l logger.Logger, resps map[string]*jsonrpc.Response[json.RawMessage], currResp *jsonrpc.Response[json.RawMessage]) (*jsonrpc.Response[json.RawMessage], error)
+	Aggregate(ctx context.Context, l logger.Logger, resps map[string]jsonrpc.Response[json.RawMessage], currResp *jsonrpc.Response[json.RawMessage]) (*jsonrpc.Response[json.RawMessage], error)
 }
 
 type handler struct {
@@ -128,7 +145,6 @@ type handler struct {
 
 	cachedPublicKeyGetResponse []byte
 	cachedPublicKeyObject      *tdh2easy.PublicKey
-	cachedUntil                time.Time
 
 	clock clockwork.Clock
 }
@@ -148,9 +164,8 @@ type SecretEntry struct {
 }
 
 type Config struct {
-	NodeRateLimiter              ratelimit.RateLimiterConfig `json:"nodeRateLimiter"`
-	RequestTimeoutSec            int                         `json:"requestTimeoutSec"`
-	PublicKeyGetCacheDurationSec int                         `json:"publicKeyGetCacheDurationSec"`
+	NodeRateLimiter   ratelimit.RateLimiterConfig `json:"nodeRateLimiter"`
+	RequestTimeoutSec int                         `json:"requestTimeoutSec"`
 }
 
 func NewHandler(methodConfig json.RawMessage, donConfig *config.DONConfig, don gwhandlers.DON, capabilitiesRegistry capabilitiesRegistry, requestAuthorizer vaultcap.RequestAuthorizer, lggr logger.Logger, clock clockwork.Clock) (*handler, error) {
@@ -161,10 +176,6 @@ func NewHandler(methodConfig json.RawMessage, donConfig *config.DONConfig, don g
 
 	if cfg.RequestTimeoutSec == 0 {
 		cfg.RequestTimeoutSec = 30
-	}
-
-	if cfg.PublicKeyGetCacheDurationSec == 0 {
-		cfg.PublicKeyGetCacheDurationSec = defaultPublicKeyGetCacheDurationSeconds
 	}
 
 	nodeRateLimiter, err := ratelimit.NewRateLimiter(cfg.NodeRateLimiter)
@@ -201,11 +212,16 @@ func (h *handler) Start(_ context.Context) error {
 			ctx, cancel := h.stopCh.NewCtx()
 			defer cancel()
 			ticker := h.clock.NewTicker(defaultCleanUpPeriod)
+			tickerVaultPublicKeyRefresh := h.clock.NewTicker(1 * time.Minute)
 			defer ticker.Stop()
+			defer tickerVaultPublicKeyRefresh.Stop()
 			for {
 				select {
 				case <-ticker.Chan():
 					h.removeExpiredRequests(ctx)
+				case <-tickerVaultPublicKeyRefresh.Chan():
+					// periodically, fetch vault public key, so we can cache it
+					h.fetchVaultPublicKey(ctx)
 				case <-h.stopCh:
 					return
 				}
@@ -221,6 +237,43 @@ func (h *handler) Close() error {
 		close(h.stopCh)
 		return nil
 	})
+}
+
+func (h *handler) fetchVaultPublicKey(ctx context.Context) {
+	ctx, cancel := context.WithDeadline(ctx, h.clock.Now().Add(10*time.Second))
+	defer cancel()
+	param := vaultcommon.GetPublicKeyRequest{}
+	paramBytes, err := json.Marshal(param)
+	if err != nil {
+		h.lggr.Errorw("fetchVaultPublicKey: failed to marshal get public key request", "error", err)
+		return
+	}
+	getPublicKeyRequest := jsonrpc.Request[json.RawMessage]{
+		Version: jsonrpc.JsonRpcVersion,
+		ID:      uuid.New().String(),
+		Method:  vaulttypes.MethodPublicKeyGet,
+		Params:  (*json.RawMessage)(&paramBytes),
+	}
+	h.lggr.Debugw("fetchVaultPublicKey: trying to fetch vault public key", "request", getPublicKeyRequest)
+	callback := handlerscommon.NewCallback()
+	err = h.HandleJSONRPCUserMessage(ctx, getPublicKeyRequest, callback)
+	if err != nil {
+		h.lggr.Errorw("fetchVaultPublicKey: failed to fetch vault public key", "request", getPublicKeyRequest, "error", err)
+		return
+	}
+	response, err := callback.Wait(ctx)
+	if err != nil {
+		h.lggr.Errorw("fetchVaultPublicKey: failed to fetch vault public key", "request", getPublicKeyRequest, "error", err)
+		return
+	}
+	httpStatus := api.ToHttpErrorCode(response.ErrorCode)
+	jsonCodec := api.JsonRPCCodec{}
+	jsonResp, _ := jsonCodec.DecodeRawRequest(response.RawResponse, "")
+	if httpStatus != http.StatusOK {
+		h.lggr.Errorw("fetchVaultPublicKey: failed to fetch vault public key", "request", getPublicKeyRequest, "httpStatusCode", httpStatus, "rawResponse", jsonResp)
+	} else {
+		h.lggr.Debugw("fetchVaultPublicKey: successfully fetched vault public key", "request", getPublicKeyRequest, "rawResponse", jsonResp)
+	}
 }
 
 // removeExpiredRequests removes expired requests from the pending requests map
@@ -262,12 +315,24 @@ func (h *handler) HandleJSONRPCUserMessage(ctx context.Context, req jsonrpc.Requ
 		return errors.New("request ID cannot be empty")
 	}
 
+	h.lggr.Debugw("handling vault request", "method", req.Method, "requestID", req.ID, "request", req)
 	// Public key requests don't require authorization,
 	// Let's process this request right away.
 	// Note we cache this value quite aggressively so don't need to worry about DoS.
 	if req.Method == vaulttypes.MethodPublicKeyGet {
-		h.lggr.Debugw("handling vault request", "method", req.Method, "requestID", req.ID)
-		return h.handlePublicKeyGet(ctx, h.newActiveRequest(req, callback))
+		ar, err := h.newActiveRequest(req, callback)
+		if err != nil {
+			return err
+		}
+		return h.handlePublicKeyGet(ctx, ar)
+	} else if req.Method == vaulttypes.MethodSecretsGet {
+		// Secrets get is only allowed in non-production builds for testing purposes
+		// So no authorization is required
+		ar, err := h.newActiveRequest(req, callback)
+		if err != nil {
+			return err
+		}
+		return h.handleSecretsGet(ctx, ar)
 	}
 
 	isAuthorized, owner, err := h.requestAuthorizer.AuthorizeRequest(ctx, req)
@@ -275,18 +340,18 @@ func (h *handler) HandleJSONRPCUserMessage(ctx context.Context, req jsonrpc.Requ
 		h.lggr.Errorw("request not authorized", "requestID", req.ID, "owner", owner, "reason:", err)
 		return errors.New("request not authorized: " + err.Error())
 	}
-
 	// Prefix request id with owner, to ensure uniqueness across different owners
-	req.ID = owner + "::" + req.ID
+	req.ID = owner + vaulttypes.RequestIDSeparator + req.ID
 
-	h.lggr.Debugw("handling authorized vault request", "method", req.Method, "requestID", req.ID, "owner", owner)
-	ar := h.newActiveRequest(req, callback)
+	h.lggr.Infow("handling authorized vault request", "method", req.Method, "requestID", req.ID, "owner", owner)
+	ar, err := h.newActiveRequest(req, callback)
+	if err != nil {
+		return err
+	}
 
 	switch req.Method {
 	case vaulttypes.MethodSecretsCreate:
 		return h.handleSecretsCreate(ctx, ar)
-	case vaulttypes.MethodSecretsGet:
-		return h.handleSecretsGet(ctx, ar)
 	case vaulttypes.MethodSecretsUpdate:
 		return h.handleSecretsUpdate(ctx, ar)
 	case vaulttypes.MethodSecretsDelete:
@@ -298,19 +363,21 @@ func (h *handler) HandleJSONRPCUserMessage(ctx context.Context, req jsonrpc.Requ
 	}
 }
 
-func (h *handler) newActiveRequest(req jsonrpc.Request[json.RawMessage], callback gwhandlers.Callback) *activeRequest {
+func (h *handler) newActiveRequest(req jsonrpc.Request[json.RawMessage], callback gwhandlers.Callback) (*activeRequest, error) {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	if h.activeRequests[req.ID] != nil {
+		h.lggr.Errorw("request id already exists", "requestID", req.ID)
+		return nil, errors.New("request ID already exists: " + req.ID)
+	}
 	ar := &activeRequest{
 		Callback:  callback,
 		req:       req,
 		createdAt: h.clock.Now(),
 		responses: map[string]*jsonrpc.Response[json.RawMessage]{},
 	}
-
-	h.mu.Lock()
 	h.activeRequests[req.ID] = ar
-	h.mu.Unlock()
-
-	return ar
+	return ar, nil
 }
 
 func (h *handler) getActiveRequest(requestID string) *activeRequest {
@@ -346,7 +413,8 @@ func (h *handler) HandleNodeMessage(ctx context.Context, resp *jsonrpc.Response[
 		return nil
 	}
 
-	resp, err := h.aggregator.Aggregate(ctx, l, ar.copiedResponses(), resp)
+	copiedResponses := ar.copiedResponses()
+	resp, err := h.aggregator.Aggregate(ctx, l, copiedResponses, resp)
 	switch {
 	case errors.Is(err, errInsufficientResponsesForQuorum):
 		l.Debugw("aggregating responses, waiting for other nodes...", "error", err)
@@ -398,15 +466,14 @@ func (h *handler) tryCachePublicKeyResponse(resp *jsonrpc.Response[json.RawMessa
 	h.mu.Lock()
 	h.cachedPublicKeyGetResponse = *resp.Result
 	h.cachedPublicKeyObject = &masterPublicKey
-	h.cachedUntil = h.clock.Now().Add(time.Duration(h.methodConfig.PublicKeyGetCacheDurationSec) * time.Second)
 	h.mu.Unlock()
-	l.Infow("successfully cached public key response", "cachedUntil", h.cachedUntil)
+	l.Infow("successfully cached public key response")
 }
 
 func (h *handler) sendSuccessResponse(ctx context.Context, l logger.Logger, ar *activeRequest, resp *jsonrpc.Response[json.RawMessage]) error {
 	// Strip the owner prefix from the response ID before sending it back to the user
 	// This ensures compliance with JSONRPC 2.0 spec, which requires response id to match request id
-	index := strings.Index(resp.ID, "::")
+	index := strings.Index(resp.ID, vaulttypes.RequestIDSeparator)
 	if index != -1 {
 		resp.ID = resp.ID[index+2:]
 	}
@@ -440,11 +507,11 @@ func (h *handler) handleSecretsCreate(ctx context.Context, ar *activeRequest) er
 	}
 	createSecretsRequest.RequestId = ar.req.ID
 	for _, secretItem := range createSecretsRequest.EncryptedSecrets {
-		if secretItem.Id.Namespace == "" {
+		if secretItem != nil && secretItem.Id != nil && secretItem.Id.Namespace == "" {
 			secretItem.Id.Namespace = vaulttypes.DefaultNamespace
 		}
 	}
-	_, cachedPublicKey, _, _ := h.getCachedPublicKey()
+	_, cachedPublicKey, _ := h.getCachedPublicKey()
 	err := vaultcap.ValidateCreateSecretsRequest(cachedPublicKey, createSecretsRequest)
 	if err != nil {
 		l.Warnw("failed to validate create secrets request", "error", err)
@@ -472,11 +539,11 @@ func (h *handler) handleSecretsUpdate(ctx context.Context, ar *activeRequest) er
 
 	updateSecretsRequest.RequestId = ar.req.ID
 	for _, secretItem := range updateSecretsRequest.EncryptedSecrets {
-		if secretItem.Id.Namespace == "" {
+		if secretItem != nil && secretItem.Id != nil && secretItem.Id.Namespace == "" {
 			secretItem.Id.Namespace = vaulttypes.DefaultNamespace
 		}
 	}
-	_, cachedPublicKey, _, _ := h.getCachedPublicKey()
+	_, cachedPublicKey, _ := h.getCachedPublicKey()
 	vaultCapErr := vaultcap.ValidateUpdateSecretsRequest(cachedPublicKey, updateSecretsRequest)
 	if vaultCapErr != nil {
 		l.Warnw("failed to validate update secrets request", "error", vaultCapErr)
@@ -503,7 +570,7 @@ func (h *handler) handleSecretsDelete(ctx context.Context, ar *activeRequest) er
 
 	deleteSecretsRequest.RequestId = ar.req.ID
 	for _, id := range deleteSecretsRequest.Ids {
-		if id.Namespace == "" {
+		if id != nil && id.Namespace == "" {
 			id.Namespace = vaulttypes.DefaultNamespace
 		}
 	}
@@ -531,7 +598,7 @@ func (h *handler) handleSecretsGet(ctx context.Context, ar *activeRequest) error
 		return h.sendResponse(ctx, ar, h.errorResponse(ar.req, api.UserMessageParseError, err, nil))
 	}
 	for _, getRequest := range secretsGetRequest.Requests {
-		if getRequest.Id.Namespace == "" {
+		if getRequest.Id != nil && getRequest.Id.Namespace == "" {
 			getRequest.Id.Namespace = vaulttypes.DefaultNamespace
 		}
 	}
@@ -572,23 +639,23 @@ func (h *handler) handleSecretsList(ctx context.Context, ar *activeRequest) erro
 	return h.fanOutToVaultNodes(ctx, l, ar)
 }
 
-func (h *handler) getCachedPublicKey() ([]byte, *tdh2easy.PublicKey, time.Time, error) {
+func (h *handler) getCachedPublicKey() ([]byte, *tdh2easy.PublicKey, error) {
 	h.mu.RLock()
 	defer h.mu.RUnlock()
 	if h.cachedPublicKeyGetResponse == nil {
-		return nil, nil, time.Time{}, errors.New("no cached public key response")
+		return nil, nil, errors.New("no cached public key response")
 	}
 	copied := make([]byte, len(h.cachedPublicKeyGetResponse))
 	copy(copied, h.cachedPublicKeyGetResponse)
 	cachedPublicKeyCopy := *h.cachedPublicKeyObject
-	return copied, &cachedPublicKeyCopy, h.cachedUntil, nil
+	return copied, &cachedPublicKeyCopy, nil
 }
 
 func (h *handler) handlePublicKeyGet(ctx context.Context, ar *activeRequest) error {
 	l := logger.With(h.lggr, "method", ar.req.Method, "requestID", ar.req.ID)
 
-	publicKeyResponseBytes, _, cachedUntil, err := h.getCachedPublicKey()
-	if err == nil && h.clock.Now().Before(cachedUntil) {
+	publicKeyResponseBytes, _, err := h.getCachedPublicKey()
+	if err == nil {
 		l.Debugw("returning cached public key response")
 		return h.sendSuccessResponse(ctx, l, ar, &jsonrpc.Response[json.RawMessage]{
 			Version: jsonrpc.JsonRpcVersion,
@@ -598,7 +665,7 @@ func (h *handler) handlePublicKeyGet(ctx context.Context, ar *activeRequest) err
 		})
 	}
 
-	l.Debugw("cache stale: forwarding request to nodes", "cachedUntil", cachedUntil, "now", h.clock.Now(), "err", err)
+	l.Debugw("cache stale: forwarding request to nodes", "now", h.clock.Now(), "err", err)
 	return h.fanOutToVaultNodes(ctx, l, ar)
 }
 
@@ -651,7 +718,7 @@ func (h *handler) errorResponse(
 
 	// Strip the owner prefix from the json response ID before sending it back to the user
 	// This ensures compliance with JSONRPC 2.0 spec, which requires response id to match request id
-	index := strings.Index(req.ID, "::")
+	index := strings.Index(req.ID, vaulttypes.RequestIDSeparator)
 	if index != -1 {
 		req.ID = req.ID[index+2:]
 	}

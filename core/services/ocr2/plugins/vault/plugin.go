@@ -30,6 +30,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/consensus/requests"
 	vaultcap "github.com/smartcontractkit/chainlink/v2/core/capabilities/vault"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/vault/vaulttypes"
+	"github.com/smartcontractkit/chainlink/v2/core/capabilities/vault/vaultutils"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/dkgrecipientkey"
 )
@@ -49,12 +50,15 @@ const (
 	// - A request can contain 2KB of ciphertext, 192 bytes of metadata (key, owner, namespace),
 	// a UUID (16 bytes) plus some overhead = ~2.5KB per request
 	// There can be 10 such items in a request, and 20 per batch, so 2.5KB * 10 * 20 = 500KB
-	defaultLimitsMaxObservationLength                    = 500 * 1024 // 500KB
-	defaultLimitsMaxReportsPlusPrecursorLength           = 500 * 1024 // 500KB
-	defaultLimitsMaxReportLength                         = 500 * 1024 // 500KB
-	defaultLimitsMaxReportCount                          = 20
-	defaultLimitsMaxKeyValueModifiedKeysPlusValuesLength = 1024 * 1024 // 1MB
-	defaultLimitsMaxBlobPayloadLength                    = 1024 * 1024 // 1MB
+	defaultLimitsMaxObservationLength                            = 500 * 1024 // 500KB
+	defaultLimitsMaxReportsPlusPrecursorLength                   = 500 * 1024 // 500KB
+	defaultLimitsMaxReportLength                                 = 500 * 1024 // 500KB
+	defaultLimitsMaxReportCount                                  = 20
+	defaultLimitsMaxKeyValueModifiedKeysPlusValuesLength         = 1024 * 1024       // 1MB
+	defaultLimitsMaxKeyValueModifiedKeys                         = 500               // BatchSize (20) * ItemsPerBatch (10) * 2 keys (secret + metadata) + buffer (100)
+	defaultLimitsMaxBlobPayloadLength                            = 1024 * 1024       // 1MB
+	defaultLimitsMaxPerOracleUnexpiredBlobCumulativePayloadBytes = 100 * 1024 * 1024 // 100MB
+	defaultLimitsMaxPerOracleUnexpiredBlobCount                  = 100
 )
 
 var (
@@ -149,7 +153,7 @@ func (r *ReportingPluginFactory) getKeyMaterial(ctx context.Context, instanceID 
 func (r *ReportingPluginFactory) NewReportingPlugin(ctx context.Context, config ocr3types.ReportingPluginConfig, fetcher ocr3_1types.BlobBroadcastFetcher) (ocr3_1types.ReportingPlugin[[]byte], ocr3_1types.ReportingPluginInfo, error) {
 	var configProto vaultcommon.ReportingPluginConfig
 	if err := proto.Unmarshal(config.OffchainConfig, &configProto); err != nil {
-		return nil, ocr3_1types.ReportingPluginInfo{}, fmt.Errorf("could not unmarshal reporting plugin config: %w", err)
+		return nil, ocr3_1types.ReportingPluginInfo1{}, fmt.Errorf("could not unmarshal reporting plugin config: %w", err)
 	}
 
 	if configProto.BatchSize == 0 {
@@ -205,12 +209,12 @@ func (r *ReportingPluginFactory) NewReportingPlugin(ctx context.Context, config 
 	}
 
 	if configProto.DKGInstanceID == nil {
-		return nil, ocr3_1types.ReportingPluginInfo{}, errors.New("DKG instance ID cannot be nil")
+		return nil, ocr3_1types.ReportingPluginInfo1{}, errors.New("DKG instance ID cannot be nil")
 	}
 
 	publicKey, privateKeyShare, err := r.getKeyMaterial(ctx, *configProto.DKGInstanceID)
 	if err != nil {
-		return nil, ocr3_1types.ReportingPluginInfo{}, fmt.Errorf("could not get key material from DB: %w", err)
+		return nil, ocr3_1types.ReportingPluginInfo1{}, fmt.Errorf("could not get key material from DB: %w", err)
 	}
 
 	r.cfg.LazyPublicKey.Set(publicKey)
@@ -230,16 +234,19 @@ func (r *ReportingPluginFactory) NewReportingPlugin(ctx context.Context, config 
 			store:      r.store,
 			cfg:        cfg,
 			onchainCfg: config,
-		}, ocr3_1types.ReportingPluginInfo{
+		}, ocr3_1types.ReportingPluginInfo1{
 			Name: "VaultReportingPlugin",
 			Limits: ocr3_1types.ReportingPluginLimits{
-				MaxQueryLength:                          int(configProto.LimitsMaxQueryLength),
-				MaxObservationLength:                    int(configProto.LimitsMaxObservationLength),
-				MaxReportsPlusPrecursorLength:           int(configProto.LimitsMaxReportsPlusPrecursorLength),
-				MaxReportLength:                         int(configProto.LimitsMaxReportLength),
-				MaxReportCount:                          int(configProto.LimitsMaxReportCount),
-				MaxKeyValueModifiedKeysPlusValuesLength: int(configProto.LimitsMaxKeyValueModifiedKeysPlusValuesLength),
-				MaxBlobPayloadLength:                    int(configProto.LimitsMaxBlobPayloadLength),
+				MaxQueryBytes:                                   int(configProto.LimitsMaxQueryLength),
+				MaxObservationBytes:                             int(configProto.LimitsMaxObservationLength),
+				MaxReportsPlusPrecursorBytes:                    int(configProto.LimitsMaxReportsPlusPrecursorLength),
+				MaxReportBytes:                                  int(configProto.LimitsMaxReportLength),
+				MaxReportCount:                                  int(configProto.LimitsMaxReportCount),
+				MaxKeyValueModifiedKeysPlusValuesBytes:          int(configProto.LimitsMaxKeyValueModifiedKeysPlusValuesLength),
+				MaxKeyValueModifiedKeys:                         defaultLimitsMaxKeyValueModifiedKeys,
+				MaxBlobPayloadBytes:                             int(configProto.LimitsMaxBlobPayloadLength),
+				MaxPerOracleUnexpiredBlobCumulativePayloadBytes: defaultLimitsMaxPerOracleUnexpiredBlobCumulativePayloadBytes,
+				MaxPerOracleUnexpiredBlobCount:                  defaultLimitsMaxPerOracleUnexpiredBlobCount,
 			},
 		}, nil
 }
@@ -861,7 +868,7 @@ func validateObservation(o *vaultcommon.Observation) error {
 			return errors.New("UpdateSecrets request and response must have the same number of items")
 		}
 
-		// We disallow duplicate create requests within a single batch request.
+		// We disallow duplicate update requests within a single batch request.
 		// This prevents users from clobbering their own writes.
 		idSet := map[string]bool{}
 		for _, r := range o.GetUpdateSecretsRequest().EncryptedSecrets {
@@ -881,7 +888,7 @@ func validateObservation(o *vaultcommon.Observation) error {
 			return errors.New("DeleteSecrets request and response must have the same number of items")
 		}
 
-		// We disallow duplicate create requests within a single batch request.
+		// We disallow duplicate delete requests within a single batch request.
 		// This prevents users from clobbering their own writes.
 		idSet := map[string]bool{}
 		for _, r := range o.GetDeleteSecretsRequest().Ids {
@@ -921,8 +928,6 @@ func (r *ReportingPlugin) StateTransition(ctx context.Context, seqNr uint64, aq 
 			}
 			obsMap[o.Id] = append(obsMap[o.Id], o)
 		}
-
-		// TODO -- we need to validate that a single oracle doesn't submit multiple observations for the same request.
 	}
 
 	os := &vaultcommon.Outcomes{
@@ -1120,7 +1125,18 @@ func (r *ReportingPlugin) stateTransitionCreateSecrets(ctx context.Context, stor
 	sortedResps := []*vaultcommon.CreateSecretResponse{}
 	for _, id := range slices.Sorted(maps.Keys(idToResps)) {
 		resp := idToResps[id]
-		req := idToReqs[id]
+		req, found := idToReqs[id]
+		if !found {
+			// This shouldn't happen, as we've validated that the request and response
+			// have the same number of items.
+			r.lggr.Errorw("could not find request for response", "id", id, "requestID", reqID)
+			sortedResps = append(sortedResps, &vaultcommon.CreateSecretResponse{
+				Id:      resp.Id,
+				Success: false,
+				Error:   "internal error: could not find request for response",
+			})
+			continue
+		}
 		resp, err := r.stateTransitionCreateSecretsRequest(ctx, store, req, resp)
 		if err != nil {
 			r.lggr.Errorw("failed to handle create secret request", "id", req.Id, "requestID", reqID, "error", err)
@@ -1226,7 +1242,16 @@ func (r *ReportingPlugin) stateTransitionUpdateSecrets(ctx context.Context, stor
 	sortedResps := []*vaultcommon.UpdateSecretResponse{}
 	for _, id := range slices.Sorted(maps.Keys(idToResps)) {
 		resp := idToResps[id]
-		req := idToReqs[id]
+		req, found := idToReqs[id]
+		if !found {
+			r.lggr.Errorw("could not find request for response", "id", id, "requestID", reqID)
+			sortedResps = append(sortedResps, &vaultcommon.UpdateSecretResponse{
+				Id:      resp.Id,
+				Success: false,
+				Error:   "internal error: could not find request for response",
+			})
+			continue
+		}
 		resp, err := r.stateTransitionUpdateSecretsRequest(ctx, store, req, resp)
 		if err != nil {
 			r.lggr.Errorw("failed to handle update secret request", "id", req.Id, "requestID", reqID, "error", err)
@@ -1322,7 +1347,16 @@ func (r *ReportingPlugin) stateTransitionDeleteSecrets(ctx context.Context, stor
 	sortedResps := []*vaultcommon.DeleteSecretResponse{}
 	for _, id := range slices.Sorted(maps.Keys(idToResps)) {
 		resp := idToResps[id]
-		req := idToReqs[id]
+		req, found := idToReqs[id]
+		if !found {
+			r.lggr.Errorw("could not find request for response", "id", id)
+			sortedResps = append(sortedResps, &vaultcommon.DeleteSecretResponse{
+				Id:      resp.Id,
+				Success: false,
+				Error:   "internal error: could not find request for response",
+			})
+			continue
+		}
 		resp, err := r.stateTransitionDeleteSecretsRequest(ctx, store, req, resp)
 		if err != nil {
 			r.lggr.Errorw("failed to handle delete secret request", "id", id, "requestId", reqID, "error", err)
@@ -1380,8 +1414,8 @@ func (r *ReportingPlugin) stateTransitionListSecretIdentifiers(ctx context.Conte
 }
 
 func (r *ReportingPlugin) Committed(ctx context.Context, seqNr uint64, keyValueReader ocr3_1types.KeyValueReader) error {
-	// Not currently used by the protocol, so we noop here.
-	return nil
+	// Not currently used by the protocol, so we don't implement it.
+	return errors.New("not implemented")
 }
 
 func (r *ReportingPlugin) Reports(ctx context.Context, seqNr uint64, reportsPlusPrecursor ocr3_1types.ReportsPlusPrecursor) ([]ocr3types.ReportPlus[[]byte], error) {
@@ -1481,7 +1515,7 @@ func (r *ReportingPlugin) generateJSONReport(id string, requestType vaultcommon.
 		return ocr3types.ReportWithInfo[[]byte]{}, errors.New("invalid report: response cannot be nil")
 	}
 
-	jsonb, err := ToCanonicalJSON(msg)
+	jsonb, err := vaultutils.ToCanonicalJSON(msg)
 	if err != nil {
 		return ocr3types.ReportWithInfo[[]byte]{}, fmt.Errorf("failed to convert proto to canonical JSON: %w", err)
 	}

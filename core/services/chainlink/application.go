@@ -150,7 +150,7 @@ type Application interface {
 	RunWebhookJobV2(ctx context.Context, jobUUID uuid.UUID, requestBody string, meta jsonserializable.JSONSerializable) (int64, error)
 	ResumeJobV2(ctx context.Context, taskID uuid.UUID, result pipeline.Result) error
 	// Testing only
-	RunJobV2(ctx context.Context, jobID int32, meta map[string]interface{}) (int64, error)
+	RunJobV2(ctx context.Context, jobID int32, meta map[string]any) (int64, error)
 
 	// Feeds
 	GetFeedsService() feeds.Service
@@ -391,7 +391,18 @@ func NewApplication(ctx context.Context, opts ApplicationOpts) (Application, err
 		srvcs = append(srvcs, peerWrapper)
 	}
 
-	creServices, err := newCREServices(ctx, globalLogger, opts.DS, keyStore, cfg, relayChainInterops, opts.CREOpts, billingClient, storageClient, opts.DonTimeStore, opts.LimitsFactory, peerWrapper)
+	creServices, err := newCREServices(ctx, globalLogger, opts.DS, keyStore, cfg, relayChainInterops, CREOpts{
+		CapabilitiesRegistry:    opts.CapabilitiesRegistry,
+		CapabilitiesDispatcher:  opts.CapabilitiesDispatcher,
+		CapabilitiesPeerWrapper: opts.CapabilitiesPeerWrapper,
+		FetcherFunc:             opts.FetcherFunc,
+		FetcherFactoryFn:        opts.FetcherFactoryFn,
+		BillingClient:           billingClient,
+		LinkingClient:           opts.LinkingClient,
+		StorageClient:           storageClient,
+		UseLocalTimeProvider:    opts.UseLocalTimeProvider,
+		JWTGenerator:            jwtGenerator,
+	}, opts.DonTimeStore, opts.LimitsFactory, peerWrapper)
 	if err != nil {
 		return nil, fmt.Errorf("failed to initilize CRE: %w", err)
 	}
@@ -587,7 +598,9 @@ func NewApplication(ctx context.Context, opts ApplicationOpts) (Application, err
 				opts.DS,
 				opts.CapabilitiesRegistry,
 				creServices.workflowRegistrySyncer,
-				globalLogger),
+				globalLogger,
+				opts.LimitsFactory,
+			),
 			job.Stream: streams.NewDelegate(
 				globalLogger,
 				streamRegistry,
@@ -640,6 +653,7 @@ func NewApplication(ctx context.Context, opts ApplicationOpts) (Application, err
 		peerWrapper,
 		opts.NewOracleFactoryFn,
 		opts.FetcherFactoryFn,
+		creServices.orgResolver,
 	)
 
 	if cfg.OCR().Enabled() {
@@ -691,6 +705,9 @@ func NewApplication(ctx context.Context, opts ApplicationOpts) (Application, err
 			},
 			ocr2DelegateConfig,
 		)
+		if ocr2Delegate == nil {
+			return nil, errors.New("ocr2.NewDelegate() returned nil")
+		}
 		delegates[job.OffchainReporting2] = ocr2Delegate
 		delegates[job.Bootstrap] = ocrbootstrap.NewDelegateBootstrap(
 			opts.DS,
@@ -835,6 +852,8 @@ type CREOpts struct {
 	StorageClient storage.WorkflowClient
 
 	UseLocalTimeProvider bool // Set this to true if the DON Time Plugin is not running
+
+	JWTGenerator nodeauthjwt.JWTGenerator // JWT generator for authenticated services
 }
 
 // creServiceConfig contains the configuration required to create the CRE services
@@ -871,6 +890,9 @@ type CREServices struct {
 	srvs []services.ServiceCtx
 
 	workflowRegistrySyncer syncerV2.WorkflowRegistrySyncer
+
+	// orgResolver provides realtime workflow owner --> orgID resolution
+	orgResolver orgresolver.OrgResolver
 }
 
 func newCREServices(
@@ -881,8 +903,6 @@ func newCREServices(
 	cfg GeneralConfig,
 	relayerChainInterops *CoreRelayerChainInteroperators,
 	opts CREOpts,
-	billingClient metering.BillingClient,
-	storageClient storage.WorkflowClient,
 	dontimeStore *dontime.Store,
 	lf limits.Factory,
 	singletonPeerWrapper *ocrcommon.SingletonPeerWrapper,
@@ -936,7 +956,44 @@ func newCREServices(
 		srvcs = append(srvcs, gatewayConnectorWrapper)
 	}
 
-	var workflowRegistrySyncer syncerV2.WorkflowRegistrySyncer
+	var orgResolver orgresolver.OrgResolver
+	if cfg.CRE().Linking().URL() != "" {
+		var wrChainDetails chainselectors.ChainDetails
+		if capCfg.WorkflowRegistry().Address() != "" {
+			wrChainDetails, err = chainselectors.GetChainDetailsByChainIDAndFamily(
+				capCfg.WorkflowRegistry().ChainID(),
+				capCfg.WorkflowRegistry().NetworkID(),
+			)
+			if err != nil {
+				return nil, fmt.Errorf("failed to get workflow registry chain details by chain ID and network ID: %w", err)
+			}
+		}
+
+		orgResolverConfig := orgresolver.Config{
+			URL:                           cfg.CRE().Linking().URL(),
+			TLSEnabled:                    cfg.CRE().Linking().TLSEnabled(),
+			WorkflowRegistryAddress:       capCfg.WorkflowRegistry().Address(),
+			WorkflowRegistryChainSelector: wrChainDetails.ChainSelector,
+		}
+
+		if opts.JWTGenerator != nil {
+			orgResolverConfig.JWTGenerator = opts.JWTGenerator
+		}
+
+		if opts.LinkingClient != nil {
+			orgResolver, err = orgresolver.NewOrgResolverWithClient(orgResolverConfig, opts.LinkingClient, globalLogger)
+		} else {
+			orgResolver, err = orgresolver.NewOrgResolver(orgResolverConfig, globalLogger)
+		}
+		if err != nil {
+			return nil, fmt.Errorf("failed to create org resolver: %w", err)
+		}
+		srvcs = append(srvcs, orgResolver)
+	} else {
+		globalLogger.Warn("OrgResolver not created - no linking service URL configured")
+	}
+
+	var workflowRegistrySyncerV2 syncerV2.WorkflowRegistrySyncer
 	var externalPeerWrapper p2ptypes.PeerWrapper
 	var don2donSharedPeer p2ptypes.SharedPeer
 	var streamConfig config.StreamConfig
@@ -1012,7 +1069,7 @@ func newCREServices(
 			}
 
 			workflowDonNotifier := capabilities.NewDonNotifier()
-			wfLauncher := capabilities.NewLauncher(
+			wfLauncher, err := capabilities.NewLauncher(
 				globalLogger,
 				externalPeerWrapper,
 				don2donSharedPeer,
@@ -1021,6 +1078,9 @@ func newCREServices(
 				opts.CapabilitiesRegistry,
 				workflowDonNotifier,
 			)
+			if err != nil {
+				return nil, fmt.Errorf("could not create workflow launcher: %w", err)
+			}
 
 			switch externalRegistryVersion.Major() {
 			case 1:
@@ -1126,7 +1186,8 @@ func newCREServices(
 						workflowLimits,
 						artifactsStore,
 						key,
-						syncerV1.WithBillingClient(billingClient),
+						workflowDonNotifier,
+						syncerV1.WithBillingClient(opts.BillingClient),
 						syncerV1.WithWorkflowRegistry(capCfg.WorkflowRegistry().Address(), strconv.FormatUint(wrChainDetails.ChainSelector, 10)),
 					)
 					if err != nil {
@@ -1159,10 +1220,10 @@ func newCREServices(
 						if gatewayConnectorWrapper == nil {
 							return nil, errors.New("unable to create workflow registry syncer without gateway connector")
 						}
-						if storageClient == nil {
+						if opts.StorageClient == nil {
 							return nil, errors.New("unable to create workflow registry syncer without storage client")
 						}
-						fetcher := syncerV2.NewFetcherService(lggr, gatewayConnectorWrapper, storageClient)
+						fetcher := syncerV2.NewFetcherService(lggr, gatewayConnectorWrapper, opts.StorageClient)
 						fetcherFunc = fetcher.Fetch
 						retrieverFunc = fetcher.RetrieveURL
 						srvcs = append(srvcs, fetcher)
@@ -1174,7 +1235,7 @@ func newCREServices(
 					artifactsStore, err := artifactsV2.NewStore(lggr, artifactsV2.NewWorkflowRegistryDS(ds, globalLogger),
 						fetcherFunc,
 						retrieverFunc,
-						clockwork.NewRealClock(), key, custmsg.NewLabeler(), artifactsV2.WithMaxArtifactSize(
+						clockwork.NewRealClock(), key, custmsg.NewLabeler(), lf, artifactsV2.WithMaxArtifactSize(
 							artifactsV2.ArtifactConfig{
 								MaxBinarySize:  uint64(capCfg.WorkflowRegistry().MaxBinarySize()),
 								MaxSecretsSize: uint64(capCfg.WorkflowRegistry().MaxEncryptedSecretsSize()),
@@ -1190,24 +1251,6 @@ func newCREServices(
 
 					engineRegistry := syncerV2.NewEngineRegistry()
 
-					// Create OrgResolver for workflow owner organization resolution
-					var orgResolver orgresolver.OrgResolver
-					if cfg.CRE().Linking().URL() != "" {
-						orgResolverConfig := orgresolver.Config{
-							URL:                           cfg.CRE().Linking().URL(),
-							TLSEnabled:                    cfg.CRE().Linking().TLSEnabled(),
-							WorkflowRegistryAddress:       capCfg.WorkflowRegistry().Address(),
-							WorkflowRegistryChainSelector: wrChainDetails.ChainSelector,
-						}
-						orgResolver, err = orgresolver.NewOrgResolver(orgResolverConfig, globalLogger)
-						if err != nil {
-							return nil, fmt.Errorf("failed to create org resolver: %w", err)
-						}
-						srvcs = append(srvcs, orgResolver)
-					} else {
-						globalLogger.Warn("OrgResolver not created - no linking service URL configured")
-					}
-
 					eventHandler, err := syncerV2.NewEventHandler(
 						lggr,
 						workflowstore.NewInMemoryStore(lggr, clockwork.NewRealClock()),
@@ -1221,7 +1264,8 @@ func newCREServices(
 						workflowLimits,
 						artifactsStore,
 						key,
-						syncerV2.WithBillingClient(billingClient),
+						workflowDonNotifier,
+						syncerV2.WithBillingClient(opts.BillingClient),
 						syncerV2.WithWorkflowRegistry(capCfg.WorkflowRegistry().Address(), strconv.FormatUint(wrChainDetails.ChainSelector, 10)),
 						syncerV2.WithOrgResolver(orgResolver),
 					)
@@ -1229,7 +1273,7 @@ func newCREServices(
 						return nil, fmt.Errorf("unable to create workflow registry event handler: %w", err)
 					}
 
-					wfSyncer, err := syncerV2.NewWorkflowRegistry(
+					workflowRegistrySyncerV2, err = syncerV2.NewWorkflowRegistry(
 						lggr,
 						crFactory,
 						capCfg.WorkflowRegistry().Address(),
@@ -1245,7 +1289,7 @@ func newCREServices(
 						return nil, fmt.Errorf("unable to create workflow registry syncer: %w", err)
 					}
 
-					srvcs = append(srvcs, wfSyncer)
+					srvcs = append(srvcs, workflowRegistrySyncerV2)
 					globalLogger.Debugw("Created WorkflowRegistrySyncer V2")
 
 				default:
@@ -1263,7 +1307,8 @@ func newCREServices(
 		gatewayConnectorWrapper: gatewayConnectorWrapper,
 		getPeerID:               getPeerID,
 		srvs:                    srvcs,
-		workflowRegistrySyncer:  workflowRegistrySyncer,
+		workflowRegistrySyncer:  workflowRegistrySyncerV2,
+		orgResolver:             orgResolver,
 	}, nil
 }
 
@@ -1336,6 +1381,7 @@ func (app *ChainlinkApplication) StopIfStarted() error {
 func (app *ChainlinkApplication) GetLoopRegistry() *plugins.LoopRegistry {
 	return app.loopRegistry
 }
+
 func (app *ChainlinkApplication) GetLoopRegistrarConfig() plugins.RegistrarConfig {
 	return app.loopRegistrarConfig
 }
@@ -1482,7 +1528,7 @@ func (app *ChainlinkApplication) RunWebhookJobV2(ctx context.Context, jobUUID uu
 func (app *ChainlinkApplication) RunJobV2(
 	ctx context.Context,
 	jobID int32,
-	meta map[string]interface{},
+	meta map[string]any,
 ) (int64, error) {
 	if build.IsProd() {
 		return 0, errors.New("manual job runs not supported on secure builds")
@@ -1496,7 +1542,7 @@ func (app *ChainlinkApplication) RunJobV2(
 	// Some jobs are special in that they do not have a task graph.
 	isBootstrap := jb.Type == job.OffchainReporting && jb.OCROracleSpec != nil && jb.OCROracleSpec.IsBootstrapPeer
 	if jb.Type.RequiresPipelineSpec() || !isBootstrap {
-		var vars map[string]interface{}
+		var vars map[string]any
 		var saveTasks bool
 		if jb.Type == job.VRF {
 			saveTasks = true
@@ -1507,22 +1553,23 @@ func (app *ChainlinkApplication) RunJobV2(
 					common.BigToHash(big.NewInt(42)).Bytes(), // seed
 					evmutils.NewHash().Bytes(),               // sender
 					evmutils.NewHash().Bytes(),               // fee
-					evmutils.NewHash().Bytes()},              // requestID
+					evmutils.NewHash().Bytes(),
+				}, // requestID
 					[]byte{}),
 				Topics:      []common.Hash{{}, jb.ExternalIDEncodeBytesToTopic()}, // jobID BYTES
 				TxHash:      evmutils.NewHash(),
 				BlockNumber: 10,
 				BlockHash:   evmutils.NewHash(),
 			}
-			vars = map[string]interface{}{
-				"jobSpec": map[string]interface{}{
+			vars = map[string]any{
+				"jobSpec": map[string]any{
 					"databaseID":    jb.ID,
 					"externalJobID": jb.ExternalJobID,
 					"name":          jb.Name.ValueOrZero(),
 					"publicKey":     jb.VRFSpec.PublicKey[:],
 					"evmChainID":    jb.VRFSpec.EVMChainID.String(),
 				},
-				"jobRun": map[string]interface{}{
+				"jobRun": map[string]any{
 					"meta":           meta,
 					"logBlockHash":   testLog.BlockHash[:],
 					"logBlockNumber": testLog.BlockNumber,
@@ -1532,8 +1579,8 @@ func (app *ChainlinkApplication) RunJobV2(
 				},
 			}
 		} else {
-			vars = map[string]interface{}{
-				"jobRun": map[string]interface{}{
+			vars = map[string]any{
+				"jobRun": map[string]any{
 					"meta": meta,
 				},
 			}

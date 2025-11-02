@@ -757,7 +757,7 @@ func (v *EthereumVRFCoordinatorV2) WaitForConfigSetEvent(timeout time.Duration) 
 // GetAllRandomWords get all VRFv2 randomness output words
 func (v *EthereumVRFConsumerV2) GetAllRandomWords(ctx context.Context, num int) ([]*big.Int, error) {
 	words := make([]*big.Int, 0)
-	for i := 0; i < num; i++ {
+	for i := range num {
 		word, err := v.consumer.SRandomWords(&bind.CallOpts{
 			From:    v.client.MustGetRootKeyAddress(),
 			Context: ctx,

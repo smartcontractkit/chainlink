@@ -5,7 +5,7 @@ import (
 	"errors"
 	"fmt"
 
-	"google.golang.org/protobuf/proto"
+	"google.golang.org/protobuf/types/known/anypb"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/pb"
 	evmcappb "github.com/smartcontractkit/chainlink-common/pkg/capabilities/v2/chain-capabilities/evm"
@@ -57,7 +57,21 @@ type simpleHasher struct {
 }
 
 func (r *simpleHasher) Hash(msg *types.MessageBody) ([32]byte, error) {
-	return sha256.Sum256(msg.Payload), nil
+	req, err := pb.UnmarshalCapabilityRequest(msg.Payload)
+	if err != nil {
+		return [32]byte{}, fmt.Errorf("failed to unmarshal capability request: %w", err)
+	}
+
+	// Exclude SpendLimits from RequestMetadata to ensure identical requests
+	// with different SpendLimits produce the same hash
+	req.Metadata.SpendLimits = nil
+
+	reqBytes, err := pb.MarshalCapabilityRequest(req)
+	if err != nil {
+		return [32]byte{}, fmt.Errorf("failed to marshal capability request: %w", err)
+	}
+	hash := sha256.Sum256(reqBytes)
+	return hash, nil
 }
 
 func NewSimpleHasher() types.MessageHasher {
@@ -76,6 +90,10 @@ func (r *writeReportExcludeSignaturesHasher) Hash(msg *types.MessageBody) ([32]b
 		return [32]byte{}, errors.New("capability request payload is nil")
 	}
 
+	// Exclude SpendLimits from RequestMetadata to ensure identical requests
+	// with different SpendLimits produce the same hash
+	req.Metadata.SpendLimits = nil
+
 	var wrReq evmcappb.WriteReportRequest
 	if err = req.Payload.UnmarshalTo(&wrReq); err != nil {
 		return [32]byte{}, fmt.Errorf("failed to unmarshal Payload to WriteReportRequest: %w", err)
@@ -85,11 +103,16 @@ func (r *writeReportExcludeSignaturesHasher) Hash(msg *types.MessageBody) ([32]b
 	}
 
 	wrReq.Report.Sigs = nil // exclude signatures from hash
-	filteredPayload, err := proto.Marshal(&wrReq)
+
+	req.Payload, err = anypb.New(&wrReq)
 	if err != nil {
-		return [32]byte{}, fmt.Errorf("failed to marshal WriteReportRequest without signatures: %w", err)
+		return [32]byte{}, fmt.Errorf("failed to marshal WriteReportRequest back to anypb: %w", err)
 	}
-	return sha256.Sum256(filteredPayload), nil
+	reqBytes, err := pb.MarshalCapabilityRequest(req)
+	if err != nil {
+		return [32]byte{}, fmt.Errorf("failed to marshal capability request: %w", err)
+	}
+	return sha256.Sum256(reqBytes), nil
 }
 
 func NewWriteReportExcludeSignaturesHasher() types.MessageHasher {

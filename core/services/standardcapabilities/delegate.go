@@ -10,6 +10,7 @@ import (
 	"github.com/pkg/errors"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/loop"
+	"github.com/smartcontractkit/chainlink-common/pkg/services/orgresolver"
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/core"
@@ -56,6 +57,7 @@ type Delegate struct {
 	newOracleFactoryFn      NewOracleFactoryFn
 	computeFetcherFactoryFn compute.FetcherFactory
 	selectorOpts            []func(*gateway.RoundRobinSelector)
+	orgResolver             orgresolver.OrgResolver
 
 	isNewlyCreatedJob bool
 }
@@ -83,6 +85,7 @@ func NewDelegate(
 	ocrPeerWrapper *ocrcommon.SingletonPeerWrapper,
 	newOracleFactoryFn NewOracleFactoryFn,
 	fetcherFactoryFn compute.FetcherFactory,
+	orgResolver orgresolver.OrgResolver,
 	opts ...func(*gateway.RoundRobinSelector),
 ) *Delegate {
 	return &Delegate{
@@ -101,6 +104,7 @@ func NewDelegate(
 		ocrPeerWrapper:          ocrPeerWrapper,
 		newOracleFactoryFn:      newOracleFactoryFn,
 		computeFetcherFactoryFn: fetcherFactoryFn,
+		orgResolver:             orgResolver,
 		selectorOpts:            opts,
 	}
 }
@@ -315,6 +319,7 @@ func (d *Delegate) ServicesForSpec(ctx context.Context, spec job.Job) ([]job.Ser
 		OracleFactory:      oracleFactory,
 		GatewayConnector:   connector,
 		P2PKeystore:        ks,
+		OrgResolver:        d.orgResolver,
 	}
 	standardCapability := NewStandardCapabilities(log, spec.StandardCapabilitiesSpec, d.cfg, dependencies)
 

@@ -2,6 +2,7 @@ package loadvrfv2
 
 import (
 	"context"
+	"maps"
 	"testing"
 	"time"
 
@@ -33,9 +34,7 @@ func MonitorLoadStats(ctx context.Context, lc *wasp.LokiClient, consumer contrac
 
 func UpdateLabels(labels map[string]string, t *testing.T) map[string]string {
 	updatedLabels := make(map[string]string)
-	for k, v := range labels {
-		updatedLabels[k] = v
-	}
+	maps.Copy(updatedLabels, labels)
 	updatedLabels["type"] = LokiTypeLabel
 	updatedLabels["go_test_name"] = t.Name()
 	updatedLabels["gen_name"] = "performance"

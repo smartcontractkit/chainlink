@@ -70,7 +70,7 @@ func (cr *Cron) runPipeline() {
 	ctx, cancel := cr.chStop.NewCtx()
 	defer cancel()
 
-	jobSpec := map[string]interface{}{
+	jobSpec := map[string]any{
 		"databaseID":    cr.jobSpec.ID,
 		"externalJobID": cr.jobSpec.ExternalJobID,
 		"name":          cr.jobSpec.Name.ValueOrZero(),
@@ -79,10 +79,10 @@ func (cr *Cron) runPipeline() {
 		jobSpec["evmChainID"] = id.String()
 	}
 
-	vars := pipeline.NewVarsFrom(map[string]interface{}{
+	vars := pipeline.NewVarsFrom(map[string]any{
 		"jobSpec": jobSpec,
-		"jobRun": map[string]interface{}{
-			"meta": map[string]interface{}{},
+		"jobRun": map[string]any{
+			"meta": map[string]any{},
 		},
 	})
 

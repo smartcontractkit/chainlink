@@ -27,7 +27,7 @@ func Test_ServerRequest_MessageValidation(t *testing.T) {
 
 	numWorkflowPeers := 2
 	workflowPeers := make([]p2ptypes.PeerID, numWorkflowPeers)
-	for i := 0; i < numWorkflowPeers; i++ {
+	for i := range numWorkflowPeers {
 		workflowPeers[i] = NewP2PPeerID(t)
 	}
 

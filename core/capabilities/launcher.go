@@ -52,9 +52,10 @@ type launcher struct {
 	cachedShims         cachedShims
 	registry            *Registry
 	subServices         []services.Service
-	workflowDonNotifier donNotifier
+	workflowDonNotifier DonNotifier
 	don2donSharedPeer   p2ptypes.SharedPeer
 	p2pStreamConfig     p2ptypes.StreamConfig
+	metrics             *launcherMetrics
 }
 
 // For V2 capabilities, shims are created once and their config is updated dynamically.
@@ -70,10 +71,6 @@ func shimKey(capID string, donID uint32, method string) string {
 	return fmt.Sprintf("%s:%d:%s", capID, donID, method)
 }
 
-type donNotifier interface {
-	NotifyDonSet(don capabilities.DON)
-}
-
 // TODO: add metric handler and instrument all the internal log.Error calls
 
 // NewLauncher creates a new capabilities launcher.
@@ -86,8 +83,8 @@ func NewLauncher(
 	streamConfig config.StreamConfig,
 	dispatcher remotetypes.Dispatcher,
 	registry *Registry,
-	workflowDonNotifier donNotifier,
-) *launcher {
+	workflowDonNotifier DonNotifier,
+) (*launcher, error) {
 	p2pStreamConfig := defaultStreamConfig
 	if streamConfig != nil {
 		p2pStreamConfig.IncomingMessageBufferSize = streamConfig.IncomingMessageBufferSize()
@@ -101,6 +98,10 @@ func NewLauncher(
 			Rate:     streamConfig.BytesRateLimiterRate(),
 			Capacity: streamConfig.BytesRateLimiterCapacity(),
 		}
+	}
+	metrics, err := newLauncherMetrics()
+	if err != nil {
+		return nil, fmt.Errorf("failed to create launcher metrics: %w", err)
 	}
 	return &launcher{
 		lggr:        logger.Named(lggr, "CapabilitiesLauncher"),
@@ -118,7 +119,8 @@ func NewLauncher(
 		workflowDonNotifier: workflowDonNotifier,
 		don2donSharedPeer:   don2donSharedPeer,
 		p2pStreamConfig:     p2pStreamConfig,
-	}
+		metrics:             metrics,
+	}, nil
 }
 
 // Maintain only necessary Don2Don connections:
@@ -264,16 +266,16 @@ func (w *launcher) donPairsToUpdate(myID ragetypes.PeerID, localRegistry *regist
 		for _, idB := range allDONIds[i+1:] {
 			donB := localRegistry.IDsToDONs[idB]
 			pairAB := p2ptypes.DonPair{donA.DON, donB.DON}
-			if isBootstrap {
-				donPairs = append(donPairs, pairAB) // bootstrap adds all DON pairs
-				continue
-			}
 			nodeBelongsToB := slices.Contains(donB.Members, myID)
-			if !nodeBelongsToA && !nodeBelongsToB {
+			if !nodeBelongsToA && !nodeBelongsToB && !isBootstrap { // bootstrap adds all allowed DON pairs
 				continue // skip if node doesn't belong to either DON
 			}
 			if donA.AcceptsWorkflows && len(donB.CapabilityConfigurations) > 0 || // add DON pair if A is workflow and B is capability
 				donB.AcceptsWorkflows && len(donA.CapabilityConfigurations) > 0 { // add DON pair if B is workflow and A is capability
+				if !donFamiliesOverlap(donA.Families, donB.Families) {
+					w.lggr.Debugw("donPairsToUpdate: filtering out DON pair due to family mismatch", "donA.ID", donA.ID, "donB.ID", donB.ID, "donA.Families", donA.Families, "donB.Families", donB.Families)
+					continue
+				}
 				donPairs = append(donPairs, pairAB)
 			}
 		}
@@ -300,11 +302,16 @@ func (w *launcher) OnNewRegistry(ctx context.Context, localRegistry *registrysyn
 	myWorkflowDONs := []registrysyncer.DON{}
 	remoteWorkflowDONs := []registrysyncer.DON{}
 	myDONs := map[uint32]bool{}
+	myDONFamiliesSet := map[string]bool{}
+	myDONFamilies := []string{}
 	for _, id := range allDONIDs {
 		d := localRegistry.IDsToDONs[id]
 		for _, peerID := range d.Members {
 			if peerID == w.myPeerID {
 				myDONs[d.ID] = true
+				for _, family := range d.Families {
+					myDONFamiliesSet[family] = true
+				}
 			}
 		}
 
@@ -316,8 +323,12 @@ func (w *launcher) OnNewRegistry(ctx context.Context, localRegistry *registrysyn
 			}
 		}
 	}
+	for family := range myDONFamiliesSet {
+		myDONFamilies = append(myDONFamilies, family)
+	}
+	w.lggr.Debugw("Found my DON families", "count", len(myDONFamilies), "myDONFamilies", myDONFamilies)
 	w.lggr.Debugw("Found my workflow DONs", "count", len(myWorkflowDONs), "myWorkflowDONs", myWorkflowDONs)
-	w.lggr.Debugw("Found remote workflow DONs", "count", len(remoteWorkflowDONs), "remoteWorkflowDONs", remoteWorkflowDONs)
+	w.lggr.Debugw("Found all remote workflow DONs", "count", len(remoteWorkflowDONs), "remoteWorkflowDONs", remoteWorkflowDONs)
 
 	// Capability DONs (with IsPublic = true) the current node is a part of.
 	// These need server-side shims to expose my own capabilities externally.
@@ -333,7 +344,17 @@ func (w *launcher) OnNewRegistry(ctx context.Context, localRegistry *registrysyn
 		}
 	}
 	w.lggr.Debugw("Found my capability DONs", "count", len(myCapabilityDONs), "myCapabilityDONs", myCapabilityDONs)
-	w.lggr.Debugw("Found remote capability DONs", "count", len(remoteCapabilityDONs), "remoteCapabilityDONs", remoteCapabilityDONs)
+	w.lggr.Debugw("Found all remote capability DONs", "count", len(remoteCapabilityDONs), "remoteCapabilityDONs", remoteCapabilityDONs)
+
+	if len(myDONFamilies) > 0 {
+		remoteWorkflowDONs = filterDONsByFamilies(remoteWorkflowDONs, myDONFamilies)
+		remoteCapabilityDONs = filterDONsByFamilies(remoteCapabilityDONs, myDONFamilies)
+		w.lggr.Debugw("Filtered remote workflow DONs to my families", "count", len(remoteWorkflowDONs), "remoteWorkflowDONs", remoteWorkflowDONs)
+		w.lggr.Debugw("Filtered remote capability DONs to my families", "count", len(remoteCapabilityDONs), "remoteCapabilityDONs", remoteCapabilityDONs)
+	} else {
+		// legacy / Keystone setting
+		w.lggr.Debug("My node doesn't belong to any DON families. No filtering will be applied.")
+	}
 
 	belongsToAWorkflowDON := len(myWorkflowDONs) > 0
 	if belongsToAWorkflowDON {
@@ -361,7 +382,7 @@ func (w *launcher) OnNewRegistry(ctx context.Context, localRegistry *registrysyn
 
 	// Lastly, we identify peers to connect to, based on their DONs functions
 	w.lggr.Debugw("Updating peer connections", "peerWrapperEnabled", w.peerWrapper != nil, "don2donSharedPeerEnabled", w.don2donSharedPeer != nil)
-	if w.peerWrapper != nil {
+	if w.peerWrapper != nil { // legacy / Keystone setting
 		peer := w.peerWrapper.GetPeer()
 		myPeers := w.peers(belongsToACapabilityDON, belongsToAWorkflowDON, peer.IsBootstrap(), localRegistry)
 		err := peer.UpdateConnections(myPeers)
@@ -376,7 +397,30 @@ func (w *launcher) OnNewRegistry(ctx context.Context, localRegistry *registrysyn
 			return fmt.Errorf("failed to update peer connections: %w", err)
 		}
 	}
+	w.metrics.incrementCompletedUpdates(ctx)
 	return nil
+}
+
+func filterDONsByFamilies(donList []registrysyncer.DON, myDONFamilies []string) []registrysyncer.DON {
+	filteredDONs := []registrysyncer.DON{}
+	for _, d := range donList {
+		if donFamiliesOverlap(d.Families, myDONFamilies) {
+			filteredDONs = append(filteredDONs, d)
+		}
+	}
+	return filteredDONs
+}
+
+func donFamiliesOverlap(donA []string, donB []string) bool {
+	if len(donA) == 0 && len(donB) == 0 {
+		return true // legacy setting with empty families - ignore filtering
+	}
+	for _, family := range donA {
+		if slices.Contains(donB, family) {
+			return true
+		}
+	}
+	return false
 }
 
 // addRemoteCapabilities adds remote capabilities from a remote DON to the local node,
@@ -384,23 +428,31 @@ func (w *launcher) OnNewRegistry(ctx context.Context, localRegistry *registrysyn
 // it is best effort to ensure that valid capabilities are added even if some fail
 func (w *launcher) addRemoteCapabilities(ctx context.Context, myDON registrysyncer.DON, remoteDON registrysyncer.DON, localRegistry *registrysyncer.LocalRegistry) {
 	for cid, c := range remoteDON.CapabilityConfigurations {
-		err := w.addRemoteCapability(ctx, cid, c, myDON, remoteDON, localRegistry)
+		capabilityConfig, err := c.Unmarshal()
 		if err != nil {
-			// TODO CRE-1021 metrics for failures
-			w.lggr.Errorw("failed to add remote capability ", "myDON", myDON, "remoteDON", remoteDON, "capabilityID", cid, "err", err)
+			w.lggr.Errorw("could not unmarshal capability config", "myDON", myDON, "remoteDON", remoteDON, "capabilityID", cid, "error", err)
+			w.metrics.recordRemoteCapabilityAdded(ctx, cid, remoteDON.Name, resultFailure)
+			continue
 		}
+		if capabilityConfig.LocalOnly {
+			w.lggr.Debugw("skipping local-only capability", "myDON", myDON, "remoteDON", remoteDON, "capabilityID", cid)
+			w.metrics.recordRemoteCapabilityAdded(ctx, cid, remoteDON.Name, resultSkipped)
+			continue
+		}
+		err = w.addRemoteCapability(ctx, cid, capabilityConfig, myDON, remoteDON, localRegistry)
+		if err != nil {
+			w.lggr.Errorw("failed to add remote capability ", "myDON", myDON, "remoteDON", remoteDON, "capabilityID", cid, "err", err)
+			w.metrics.recordRemoteCapabilityAdded(ctx, cid, remoteDON.Name, resultFailure)
+			continue
+		}
+		w.metrics.recordRemoteCapabilityAdded(ctx, cid, remoteDON.Name, resultSuccess)
 	}
 }
 
-func (w *launcher) addRemoteCapability(ctx context.Context, cid string, c registrysyncer.CapabilityConfiguration, myDON registrysyncer.DON, remoteDON registrysyncer.DON, localRegistry *registrysyncer.LocalRegistry) error {
+func (w *launcher) addRemoteCapability(ctx context.Context, cid string, capabilityConfig capabilities.CapabilityConfiguration, myDON registrysyncer.DON, remoteDON registrysyncer.DON, localRegistry *registrysyncer.LocalRegistry) error {
 	capability, ok := localRegistry.IDsToCapabilities[cid]
 	if !ok {
 		return fmt.Errorf("could not find capability matching id %s", cid)
-	}
-
-	capabilityConfig, err := c.Unmarshal()
-	if err != nil {
-		return fmt.Errorf("could not unmarshal capability config for id %s: %w", cid, err)
 	}
 
 	methodConfig := capabilityConfig.CapabilityMethodConfig
@@ -606,26 +658,34 @@ func (w *launcher) serveCapabilities(ctx context.Context, myPeerID p2ptypes.Peer
 	}
 
 	for cid, c := range don.CapabilityConfigurations {
-		err := w.serveCapability(ctx, cid, c, myPeerID, don, localRegistry, idsToDONs)
+		capabilityConfig, err := c.Unmarshal()
 		if err != nil {
-			// TODO CRE-1021 metrics for failures
-			w.lggr.Errorw("failed to serve capability", "myPeerID", myPeerID, "don", don, "capabilityID", cid, "err", err)
+			w.lggr.Errorw("could not unmarshal capability config", "localDON", don, "capabilityID", cid, "error", err)
+			w.metrics.recordLocalCapabilityExposed(ctx, cid, resultFailure)
+			continue
 		}
+		if capabilityConfig.LocalOnly {
+			w.lggr.Debugw("skipping local-only capability", "localDON", don, "capabilityID", cid)
+			w.metrics.recordLocalCapabilityExposed(ctx, cid, resultSkipped)
+			continue
+		}
+		err = w.serveCapability(ctx, cid, capabilityConfig, myPeerID, don, localRegistry, idsToDONs)
+		if err != nil {
+			w.lggr.Errorw("failed to serve capability", "myPeerID", myPeerID, "localDON", don, "capabilityID", cid, "err", err)
+			w.metrics.recordLocalCapabilityExposed(ctx, cid, resultFailure)
+			continue
+		}
+		w.metrics.recordLocalCapabilityExposed(ctx, cid, resultSuccess)
 	}
 }
 
 // serveCapability exposes a single capability.
 // trigger capabilities are exposed via a TriggerPublisher local execution
 // all other capabilities are exposed via an Executable for remote execution
-func (w *launcher) serveCapability(ctx context.Context, cid string, c registrysyncer.CapabilityConfiguration, myPeerID p2ptypes.PeerID, don registrysyncer.DON, localRegistry *registrysyncer.LocalRegistry, idsToDONs map[uint32]capabilities.DON) error {
+func (w *launcher) serveCapability(ctx context.Context, cid string, capabilityConfig capabilities.CapabilityConfiguration, myPeerID p2ptypes.PeerID, don registrysyncer.DON, localRegistry *registrysyncer.LocalRegistry, idsToDONs map[uint32]capabilities.DON) error {
 	capability, ok := localRegistry.IDsToCapabilities[cid]
 	if !ok {
 		return fmt.Errorf("could not find capability matching id %s", cid)
-	}
-
-	capabilityConfig, err := c.Unmarshal()
-	if err != nil {
-		return fmt.Errorf("could not unmarshal capability config for id %s: %w", cid, err)
 	}
 
 	methodConfig := capabilityConfig.CapabilityMethodConfig
@@ -661,7 +721,7 @@ func (w *launcher) serveCapability(ctx context.Context, cid string, c registrysy
 			return publisher, nil
 		}
 
-		if err = w.addReceiver(ctx, capability, don, newTriggerPublisher); err != nil {
+		if err := w.addReceiver(ctx, capability, don, newTriggerPublisher); err != nil {
 			return fmt.Errorf("failed to add server-side receiver for a trigger capability '%s' - it won't be exposed remotely: %w", cid, err)
 		}
 	case capabilities.CapabilityTypeAction:
@@ -706,7 +766,7 @@ func (w *launcher) serveCapability(ctx context.Context, cid string, c registrysy
 			return server, nil
 		}
 
-		if err = w.addReceiver(ctx, capability, don, newActionServer); err != nil {
+		if err := w.addReceiver(ctx, capability, don, newActionServer); err != nil {
 			return fmt.Errorf("failed to add action server-side receiver '%s' - it won't be exposed remotely: %w", cid, err)
 		}
 	case capabilities.CapabilityTypeConsensus:
@@ -754,7 +814,7 @@ func (w *launcher) serveCapability(ctx context.Context, cid string, c registrysy
 			return server, nil
 		}
 
-		if err = w.addReceiver(ctx, capability, don, newTargetServer); err != nil {
+		if err := w.addReceiver(ctx, capability, don, newTargetServer); err != nil {
 			return fmt.Errorf("failed to add server-side receiver for a target capability '%s' - it won't be exposed remotely: %w", cid, err)
 		}
 	default:
