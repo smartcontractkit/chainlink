@@ -182,11 +182,6 @@ func Test_CCIPTokenTransfer_Sui2EVM(t *testing.T) {
 		},
 	}
 
-	for _, tc := range tcs {
-		fmt.Printf("Sui2EVM tc.Receiver: %s\n", hexutil.Encode(tc.Receiver))
-		fmt.Printf("Sui2EVM tc.TokenReceiverATA: %s\n", hexutil.Encode(tc.TokenReceiverATA))
-	}
-
 	startBlocks, expectedSeqNums, expectedExecutionStates, expectedTokenBalances := testhelpers.TransferMultiple(ctx, t, updatedEnv, state, tcs)
 
 	err = testhelpers.ConfirmMultipleCommits(
@@ -512,11 +507,6 @@ func Test_CCIPTokenTransfer_EVM2SUI(t *testing.T) {
 				},
 			},
 		},
-	}
-
-	for _, tc := range tcs {
-		fmt.Printf("EVM2SUI tc.Receiver: %s\n", hexutil.Encode(tc.Receiver))
-		fmt.Printf("EVM2SUI tc.TokenReceiverATA: %s\n", hexutil.Encode(tc.TokenReceiverATA))
 	}
 
 	startBlocks, expectedSeqNums, expectedExecutionStates, expectedTokenBalances := testhelpers.TransferMultiple(ctx, t, e.Env, state, tcs)
