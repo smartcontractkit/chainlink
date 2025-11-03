@@ -214,7 +214,7 @@ func ConfigureWorkflowRegistry(
 }
 
 // WaitForAllNodesToHaveExpectedFiltersRegistered manually checks if all WorkflowRegistry filters used by the LogPoller are registered for all nodes. We want to see if this will help with the flakiness.
-func WaitForAllNodesToHaveExpectedFiltersRegistered(ctx context.Context, singleFileLogger logger.Logger, testLogger zerolog.Logger, homeChainID uint64, dons *cre.Dons, nodeSet []*cre.NodeSet) error {
+func WaitForAllNodesToHaveExpectedFiltersRegistered(ctx context.Context, singleFileLogger logger.Logger, testLogger zerolog.Logger, registryChainID uint64, dons *cre.Dons, nodeSet []*cre.NodeSet) error {
 	for donIdx, don := range dons.List() {
 		if !flags.HasFlag(don.Flags, cre.WorkflowDON) {
 			continue
@@ -257,7 +257,7 @@ func WaitForAllNodesToHaveExpectedFiltersRegistered(ctx context.Context, singleF
 					}
 
 					testLogger.Info().Msgf("Checking if all WorkflowRegistry filters are registered for worker node %d", workerNode.Index)
-					allFilters, filtersErr := getAllFilters(checkCtx, singleFileLogger, big.NewInt(libc.MustSafeInt64(homeChainID)), workerNode.Index, nodeSet[donIdx].DbInput.Port)
+					allFilters, filtersErr := getAllFilters(checkCtx, singleFileLogger, big.NewInt(libc.MustSafeInt64(registryChainID)), workerNode.Index, nodeSet[donIdx].DbInput.Port)
 					if filtersErr != nil {
 						cancel()
 						ticker.Stop()

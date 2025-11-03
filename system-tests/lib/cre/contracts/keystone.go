@@ -56,8 +56,8 @@ func DeployKeystoneContracts(
 ) (*DeployKeystoneContractsOutput, error) {
 	memoryDatastore := datastore.NewMemoryDataStore()
 
-	homeChainOutput := input.CtfBlockchains[0]
-	homeChainSelector := homeChainOutput.ChainSelector()
+	registryChainOutput := input.CtfBlockchains[0]
+	registryChainSelector := registryChainOutput.ChainSelector()
 	deployRegistrySeq := ks_contracts_op.DeployRegistryContractsSequence
 	if input.WithV2Registries {
 		deployRegistrySeq = ks_contracts_op.DeployV2RegistryContractsSequence
@@ -70,7 +70,7 @@ func DeployKeystoneContracts(
 			Env: input.CldfEnvironment,
 		},
 		ks_contracts_op.DeployRegistryContractsSequenceInput{
-			RegistryChainSelector: homeChainSelector,
+			RegistryChainSelector: registryChainSelector,
 		},
 	)
 	if seqErr != nil {
@@ -85,11 +85,11 @@ func DeployKeystoneContracts(
 		return nil, errors.Wrap(err, "failed to merge datastore with Keystone contracts addresses")
 	}
 
-	wfRegAddr := MustGetAddressFromMemoryDataStore(memoryDatastore, homeChainSelector, keystone_changeset.WorkflowRegistry.String(), input.ContractVersions[keystone_changeset.WorkflowRegistry.String()], "")
-	testLogger.Info().Msgf("Deployed Workflow Registry %s contract on chain %d at %s", input.ContractVersions[keystone_changeset.WorkflowRegistry.String()], homeChainSelector, wfRegAddr)
+	wfRegAddr := MustGetAddressFromMemoryDataStore(memoryDatastore, registryChainSelector, keystone_changeset.WorkflowRegistry.String(), input.ContractVersions[keystone_changeset.WorkflowRegistry.String()], "")
+	testLogger.Info().Msgf("Deployed Workflow Registry %s contract on chain %d at %s", input.ContractVersions[keystone_changeset.WorkflowRegistry.String()], registryChainSelector, wfRegAddr)
 
-	capRegAddr := MustGetAddressFromMemoryDataStore(memoryDatastore, homeChainSelector, keystone_changeset.CapabilitiesRegistry.String(), input.ContractVersions[keystone_changeset.CapabilitiesRegistry.String()], "")
-	testLogger.Info().Msgf("Deployed Capabilities Registry %s contract on chain %d at %s", input.ContractVersions[keystone_changeset.CapabilitiesRegistry.String()], homeChainSelector, capRegAddr)
+	capRegAddr := MustGetAddressFromMemoryDataStore(memoryDatastore, registryChainSelector, keystone_changeset.CapabilitiesRegistry.String(), input.ContractVersions[keystone_changeset.CapabilitiesRegistry.String()], "")
+	testLogger.Info().Msgf("Deployed Capabilities Registry %s contract on chain %d at %s", input.ContractVersions[keystone_changeset.CapabilitiesRegistry.String()], registryChainSelector, capRegAddr)
 
 	input.CldfEnvironment.DataStore = memoryDatastore.Seal()
 

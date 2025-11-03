@@ -192,6 +192,7 @@ func NewReport(
 			WorkflowOwner:           labels[platform.KeyWorkflowOwner],
 			WorkflowRegistryAddress: report.workflowRegistryAddress,
 			ChainSelector:           report.workflowRegistryChainSelector,
+			WorkflowExecutionId:     labels[platform.KeyWorkflowID], // we return early if this is empty
 		})
 		if err != nil {
 			report.switchToMeteringMode(err)

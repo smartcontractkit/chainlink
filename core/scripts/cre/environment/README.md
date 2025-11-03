@@ -816,7 +816,7 @@ Add default configuration and binary path to `core/scripts/cre/environment/confi
 Add your capability to the default set in `system-tests/lib/cre/capabilities/sets/sets.go`:
 
 ```go
-func NewDefaultSet(homeChainID uint64, extraAllowedPorts []int, extraAllowedIPs []string, extraAllowedIPsCIDR []string) ([]cre.InstallableCapability, error) {
+func NewDefaultSet(registryChainID uint64, extraAllowedPorts []int, extraAllowedIPs []string, extraAllowedIPsCIDR []string) ([]cre.InstallableCapability, error) {
     capabilities := []cre.InstallableCapability{}
 
     // ... existing capabilities ...

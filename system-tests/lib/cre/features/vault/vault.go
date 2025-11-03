@@ -281,7 +281,7 @@ func createJobs(
 	return jobs.Create(ctx, jdClient, dons, jobSpecs)
 }
 
-func deployVaultContracts(testLogger zerolog.Logger, qualifier string, homeChainSelector uint64, env *cldf.Environment, contractVersions map[string]string) (*common.Address, *common.Address, error) {
+func deployVaultContracts(testLogger zerolog.Logger, qualifier string, registryChainSelector uint64, env *cldf.Environment, contractVersions map[string]string) (*common.Address, *common.Address, error) {
 	memoryDatastore := datastore.NewMemoryDataStore()
 
 	// load all existing addresses into memory datastore
@@ -297,21 +297,21 @@ func deployVaultContracts(testLogger zerolog.Logger, qualifier string, homeChain
 			Env: env,
 		},
 		creseq.DeployVaultInput{
-			ChainSelector: homeChainSelector,
+			ChainSelector: registryChainSelector,
 			Qualifier:     qualifier,
 		},
 	)
 	if err != nil {
-		return nil, nil, fmt.Errorf("failed to deploy OCR3 contract '%s' on chain %d: %w", qualifier, homeChainSelector, err)
+		return nil, nil, fmt.Errorf("failed to deploy OCR3 contract '%s' on chain %d: %w", qualifier, registryChainSelector, err)
 	}
 	if err = memoryDatastore.Merge(report.Output.Datastore); err != nil {
-		return nil, nil, fmt.Errorf("failed to merge datastore with OCR3 contract address for '%s' on chain %d: %w", qualifier, homeChainSelector, err)
+		return nil, nil, fmt.Errorf("failed to merge datastore with OCR3 contract address for '%s' on chain %d: %w", qualifier, registryChainSelector, err)
 	}
 
 	vaultOCR3Addr := report.Output.PluginAddress
-	testLogger.Info().Msgf("Deployed OCR3 %s (Vault) contract on chain %d at %s", contractVersions[keystone_changeset.OCR3Capability.String()], homeChainSelector, vaultOCR3Addr)
+	testLogger.Info().Msgf("Deployed OCR3 %s (Vault) contract on chain %d at %s", contractVersions[keystone_changeset.OCR3Capability.String()], registryChainSelector, vaultOCR3Addr)
 	vaultDKGOCR3Addr := report.Output.DKGAddress
-	testLogger.Info().Msgf("Deployed OCR3 %s (DKG) contract on chain %d at %s", contractVersions[keystone_changeset.OCR3Capability.String()], homeChainSelector, vaultDKGOCR3Addr)
+	testLogger.Info().Msgf("Deployed OCR3 %s (DKG) contract on chain %d at %s", contractVersions[keystone_changeset.OCR3Capability.String()], registryChainSelector, vaultDKGOCR3Addr)
 
 	env.DataStore = memoryDatastore.Seal()
 
