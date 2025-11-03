@@ -111,6 +111,7 @@
       """
 
   [[nodesets.node_specs]]
+    roles = ["plugin"]
     [nodesets.node_specs.node]
       docker_ctx = "../../../.."
       docker_file = "core/chainlink.Dockerfile"
