@@ -882,7 +882,7 @@ func ensureDockerIsRunning(ctx context.Context) error {
 }
 
 func ensureDockerImagesExist(ctx context.Context, logger zerolog.Logger, in *envconfig.Config, withPluginsDockerImageFlag string) error {
-	// skip this check in CI, as we inject images at runtime and this check would fail
+	// Skip checks in CI environment
 	if os.Getenv("CI") == "true" {
 		return nil
 	}

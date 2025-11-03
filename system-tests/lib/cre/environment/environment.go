@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"maps"
+	"os"
 
 	"github.com/Masterminds/semver/v3"
 	"github.com/ethereum/go-ethereum/common"
@@ -42,9 +43,9 @@ import (
 )
 
 const (
-	GithubReadTokenEnvVarName          = "GITHUB_READ_TOKEN"
-	E2eJobDistributorImageEnvVarName   = "E2E_JD_IMAGE"
-	E2eJobDistributorVersionEnvVarName = "E2E_JD_VERSION"
+	GithubReadTokenEnvVarName = "GITHUB_READ_TOKEN"
+	// E2eJobDistributorImageEnvVarName   = "E2E_JD_IMAGE"
+	// E2eJobDistributorVersionEnvVarName = "E2E_JD_VERSION"
 )
 
 type SetupOutput struct {
@@ -111,6 +112,15 @@ func SetupTestEnvironment(
 ) (*SetupOutput, error) {
 	if input == nil {
 		return nil, pkgerrors.New("input is nil")
+	}
+
+	//TODO: remove in December 2025
+	if val := os.Getenv("E2E_JD_IMAGE"); val != "" {
+		return nil, errors.New("E2E_JD_IMAGE and E2E_JD_VERSION are deprecated, please use CTF_JD_IMAGE instead to specify the Job Distributor image with tag")
+	}
+
+	if val := os.Getenv("E2E_TEST_CHAINLINK_IMAGE"); val != "" {
+		return nil, errors.New("E2E_TEST_CHAINLINK_IMAGE and E2E_TEST_CHAINLINK_VERSION are deprecated, please use CTF_CHAINLINK_IMAGE instead to specify the Chainlink Node image with tag")
 	}
 
 	if err := input.Validate(); err != nil {

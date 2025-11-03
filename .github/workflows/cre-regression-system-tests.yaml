@@ -151,10 +151,8 @@ jobs:
         shell: bash
         id: start-local-cre
         env:
-          E2E_JD_IMAGE: "${{ secrets.AWS_ACCOUNT_ID_PROD }}.dkr.ecr.${{ secrets.QA_AWS_REGION }}.amazonaws.com/job-distributor"
-          E2E_JD_VERSION: "0.22.1"
-          E2E_TEST_CHAINLINK_IMAGE: "${{ secrets.QA_AWS_ACCOUNT_NUMBER }}.dkr.ecr.${{ secrets.QA_AWS_REGION }}.amazonaws.com/${{ inputs.ecr_name }}"
-          E2E_TEST_CHAINLINK_VERSION: ${{ inputs.chainlink_image_tag != '' && inputs.chainlink_image_tag || inputs.chainlink_version }}
+          CTF_JD_IMAGE: "${{ secrets.AWS_ACCOUNT_ID_PROD }}.dkr.ecr.${{ secrets.QA_AWS_REGION }}.amazonaws.com/job-distributor:0.22.1"
+          CTF_CHAINLINK_IMAGE: "${{ secrets.QA_AWS_ACCOUNT_NUMBER }}.dkr.ecr.${{ secrets.QA_AWS_REGION }}.amazonaws.com/${{ inputs.ecr_name }}:${{ inputs.chainlink_image_tag != '' && inputs.chainlink_image_tag || inputs.chainlink_version }}"
           CTF_CONFIGS: configs/workflow-gateway-capabilities-don.toml
           CRE_VERSION: ${{ matrix.tests.cre_version }}
           TEST_NAME: ${{ matrix.tests.test_name }}
@@ -164,10 +162,10 @@ jobs:
           # Start CRE with the appropriate contracts version (i.e. Workflow/CapabilityRegistry)
           if [[ "${CRE_VERSION}" == "v1" ]]; then
             echo "Starting CRE with v1 contracts for test: '${TEST_NAME}' and configs: '${CTF_CONFIGS}'"
-            go run . env start --with-plugins-docker-image "${E2E_TEST_CHAINLINK_IMAGE}:${E2E_TEST_CHAINLINK_VERSION}"
+            go run . env start --with-plugins-docker-image "${CTF_CHAINLINK_IMAGE}"
           else
             echo "Starting CRE with v2 contracts for test: '${TEST_NAME}' and configs: '${CTF_CONFIGS}'"
-            go run . env start --with-plugins-docker-image "${E2E_TEST_CHAINLINK_IMAGE}:${E2E_TEST_CHAINLINK_VERSION}" --with-contracts-version v2
+            go run . env start --with-plugins-docker-image "${CTF_CHAINLINK_IMAGE}" --with-contracts-version v2
           fi
 
           exit_code=$?
