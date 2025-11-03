@@ -9,7 +9,7 @@ import (
 	"github.com/Masterminds/semver/v3"
 	"github.com/ethereum/go-ethereum/common"
 
-	"github.com/smartcontractkit/mcms"
+	mcmslib "github.com/smartcontractkit/mcms"
 	"github.com/smartcontractkit/mcms/sdk"
 	mcmstypes "github.com/smartcontractkit/mcms/types"
 	"github.com/smartcontractkit/smdkg/dkgocr/dkgocrtypes"
@@ -20,6 +20,7 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 	"github.com/smartcontractkit/chainlink/deployment/cre/contracts"
+	"github.com/smartcontractkit/chainlink/deployment/cre/mcms"
 	"github.com/smartcontractkit/chainlink/deployment/cre/ocr3"
 )
 
@@ -35,7 +36,7 @@ type ConfigureDKGInput struct {
 	Config          *ocr3.V3_1OracleConfig
 	DryRun          bool
 
-	MCMSConfig            *ocr3.MCMSConfig
+	MCMSConfig            *mcms.Config
 	ReportingPluginConfig dkgocrtypes.ReportingPluginConfig
 }
 
@@ -44,7 +45,7 @@ func (i ConfigureDKGInput) UseMCMS() bool {
 }
 
 type ConfigureDKGOpOutput struct {
-	MCMSTimelockProposals []mcms.TimelockProposal
+	MCMSTimelockProposals []mcmslib.TimelockProposal
 }
 
 var ConfigureDKG = operations.NewOperation(
@@ -144,7 +145,7 @@ var ConfigureDKG = operations.NewOperation(
 			if err != nil {
 				return out, fmt.Errorf("failed to build proposal: %w", err)
 			}
-			out.MCMSTimelockProposals = []mcms.TimelockProposal{*proposal}
+			out.MCMSTimelockProposals = []mcmslib.TimelockProposal{*proposal}
 		}
 		return out, nil
 	},
