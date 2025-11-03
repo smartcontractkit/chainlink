@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"math/big"
 	mathrand "math/rand"
+	"strings"
 	"time"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
@@ -559,7 +560,7 @@ func (m *DestinationGun) getSuiMessage() (testhelpers.SuiSendRequest, error) {
 	message := testhelpers.SuiSendRequest{
 		Receiver:  common.LeftPadBytes(m.receiver, 32),
 		ExtraArgs: []byte{24, 29, 207, 16, 64, 13, 3, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1},
-		FeeToken:  *m.testConfig.TestnetConfig.SuiConfig.SuiFeeTokenObjectId,
+		FeeToken:  strings.TrimPrefix(*m.testConfig.TestnetConfig.SuiConfig.SuiFeeTokenObjectId, "0x"),
 	}
 
 	switch {
@@ -574,7 +575,7 @@ func (m *DestinationGun) getSuiMessage() (testhelpers.SuiSendRequest, error) {
 	case selectedMsgDetails.IsTokenTransfer():
 		message.TokenAmounts = []testhelpers.SuiTokenAmount{
 			{
-				Token:  *m.testConfig.TestnetConfig.SuiConfig.SuiFeeTokenObjectId,
+				Token:  strings.TrimPrefix(*m.testConfig.TestnetConfig.SuiConfig.SuiFeeTokenObjectId, "0x"),
 				Amount: 1,
 			},
 		}
