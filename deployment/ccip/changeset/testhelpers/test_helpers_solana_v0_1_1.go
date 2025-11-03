@@ -15,6 +15,7 @@ import (
 	"github.com/gagliardetto/solana-go"
 	addresslookuptable "github.com/gagliardetto/solana-go/programs/address-lookup-table"
 	"github.com/gagliardetto/solana-go/rpc"
+	tonOps "github.com/smartcontractkit/chainlink-ton/deployment/ccip"
 	"github.com/stretchr/testify/require"
 
 	chainsel "github.com/smartcontractkit/chain-selectors"
@@ -387,6 +388,16 @@ func SendRequestV0_1_1(
 		return SendRequestSolV0_1_1(e, state, cfg)
 	case chainsel.FamilyAptos:
 		return SendRequestAptos(e, state, cfg)
+	case chainsel.FamilyTon:
+		seq, raw, err := tonOps.SendTonRequest(e, state.TonChains[cfg.SourceChain], cfg.SourceChain, cfg.DestChain, cfg.Message.(tonOps.TonSendRequest))
+		if err != nil {
+			return nil, err
+		}
+
+		return &ccipclient.AnyMsgSentEvent{
+			SequenceNumber: seq,
+			RawEvent:       raw,
+		}, nil
 	default:
 		return nil, fmt.Errorf("send request: unsupported chain family: %v", family)
 	}
