@@ -7,6 +7,7 @@ NoNewHeadsThreshold = '40s'
 MinIncomingConfirmations = 1
 NoNewFinalizedHeadsThreshold = '120m' # Soneium can take upto 2Hours to finalize
 FinalityTagEnabled = true
+SafeTagSupported = true
 
 [GasEstimator]
 EIP1559DynamicFees = true

@@ -1,5 +1,6 @@
 ChainID = "2020"
 FinalityTagEnabled = true
+SafeTagSupported = true
 LinkContractAddress = "0x3902228D6A3d2Dc44731fD9d45FeE6a61c722D0b"
 # Ronin produces blocks every 3 seconds
 LogPollInterval = "3s"
