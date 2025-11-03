@@ -1790,8 +1790,8 @@ github.com/smartcontractkit/chainlink-common/pkg/monitoring v0.0.0-2025041523564
 github.com/smartcontractkit/chainlink-common/pkg/monitoring v0.0.0-20250415235644-8703639403c7/go.mod h1:yaDOAZF6MNB+NGYpxGCUc+owIdKrjvFW0JODdTcQ3V0=
 github.com/smartcontractkit/chainlink-data-streams v0.1.6 h1:B3cwmJrVYoJVAjPOyQWTNaGD+V30HI1vFHhC2dQpWDo=
 github.com/smartcontractkit/chainlink-data-streams v0.1.6/go.mod h1:e9jETTzrVO8iu9Zp5gDuTCmBVhSJwUOk6K4Q/VFrJ6o=
-github.com/smartcontractkit/chainlink-deployments-framework v0.60.2-0.20251031175009-b86af4221954 h1:JOHc73CvUM5hBO0xGxGtGak1fMpzCu+DZ9hppcTxAlo=
-github.com/smartcontractkit/chainlink-deployments-framework v0.60.2-0.20251031175009-b86af4221954/go.mod h1:y39Mr9YAElrLEhA3/Wx3c0cT7bark3aiSg4RQXf9WpI=
+github.com/smartcontractkit/chainlink-deployments-framework v0.62.0 h1:/vfXc1kjdXA9qeos05rQ0WLGwnchc3nZ9TWSQVNHNqM=
+github.com/smartcontractkit/chainlink-deployments-framework v0.62.0/go.mod h1:y39Mr9YAElrLEhA3/Wx3c0cT7bark3aiSg4RQXf9WpI=
 github.com/smartcontractkit/chainlink-evm v0.3.4-0.20251029010119-b2ed6162042f h1:XXeZ5ChjN13kDgl8eZVSyrN7ZUlLan2p3dzmtgkMG00=
 github.com/smartcontractkit/chainlink-evm v0.3.4-0.20251029010119-b2ed6162042f/go.mod h1:6Zh4cDsZ5fa3k2t3ShnzEKAE+fp/KwtaWCZOrGoMWjg=
 github.com/smartcontractkit/chainlink-evm/gethwrappers v0.0.0-20251022075638-49d961001d1b h1:Dqhm/67Sb1ohgce8FW6tnK1CRXo2zoLCbV+EGyew5sg=
@@ -1814,6 +1814,8 @@ github.com/smartcontractkit/chainlink-protos/job-distributor v0.17.0 h1:xHPmFDhf
 github.com/smartcontractkit/chainlink-protos/job-distributor v0.17.0/go.mod h1:/dVVLXrsp+V0AbcYGJo3XMzKg3CkELsweA/TTopCsKE=
 github.com/smartcontractkit/chainlink-protos/linking-service/go v0.0.0-20251002192024-d2ad9222409b h1:QuI6SmQFK/zyUlVWEf0GMkiUYBPY4lssn26nKSd/bOM=
 github.com/smartcontractkit/chainlink-protos/linking-service/go v0.0.0-20251002192024-d2ad9222409b/go.mod h1:qSTSwX3cBP3FKQwQacdjArqv0g6QnukjV4XuzO6UyoY=
+github.com/smartcontractkit/chainlink-protos/op-catalog v0.0.4 h1:AEnxv4HM3WD1RbQkRiFyb9cJ6YKAcqBp1CpIcFdZfuo=
+github.com/smartcontractkit/chainlink-protos/op-catalog v0.0.4/go.mod h1:PjZD54vr6rIKEKQj6HNA4hllvYI/QpT+Zefj3tqkFAs=
 github.com/smartcontractkit/chainlink-protos/orchestrator v0.10.0 h1:0eroOyBwmdoGUwUdvMI0/J7m5wuzNnJDMglSOK1sfNY=
 github.com/smartcontractkit/chainlink-protos/orchestrator v0.10.0/go.mod h1:m/A3lqD7ms/RsQ9BT5P2uceYY0QX5mIt4KQxT2G6qEo=
 github.com/smartcontractkit/chainlink-protos/rmn/v1.6/go v0.0.0-20250131130834-15e0d4cde2a6 h1:L6KJ4kGv/yNNoCk8affk7Y1vAY0qglPMXC/hevV/IsA=
@@ -1830,8 +1832,8 @@ github.com/smartcontractkit/chainlink-sui v0.0.0-20251029234211-ed9dc839af35 h1:
 github.com/smartcontractkit/chainlink-sui v0.0.0-20251029234211-ed9dc839af35/go.mod h1:VlyZhVw+a93Sk8rVHOIH6tpiXrMzuWLZrjs1eTIExW8=
 github.com/smartcontractkit/chainlink-sui/deployment v0.0.0-20251029234211-ed9dc839af35 h1:WgLgaH/1IMSKi4DYC3VUh4a2EMk4LZn0Ko+XHMGKBy0=
 github.com/smartcontractkit/chainlink-sui/deployment v0.0.0-20251029234211-ed9dc839af35/go.mod h1:uDAtSOVjQh6/xDf4T5DOgCw6kb02ENkFt4MxjD17NoQ=
-github.com/smartcontractkit/chainlink-testing-framework/framework v0.11.7-0.20251031174334-4ed2dc0fad12 h1:bMjP2aMCpQC2Uq+Gouru1DMZ88A9xDexCIOjH/cKG28=
-github.com/smartcontractkit/chainlink-testing-framework/framework v0.11.7-0.20251031174334-4ed2dc0fad12/go.mod h1:BTUmWJGbOQtMdDW8cy4fu0wLoj8tKFQiLR7SE+OyTXU=
+github.com/smartcontractkit/chainlink-testing-framework/framework v0.11.7 h1:jVlRG9GTpDGYtP0iabxHZW4s3pXdpN4/lTgZEdE64P4=
+github.com/smartcontractkit/chainlink-testing-framework/framework v0.11.7/go.mod h1:BTUmWJGbOQtMdDW8cy4fu0wLoj8tKFQiLR7SE+OyTXU=
 github.com/smartcontractkit/chainlink-testing-framework/framework/components/dockercompose v0.1.15 h1:usf6YCNmSO8R1/rU28wUfIdp7zXlqGGOAttXW5mgkXU=
 github.com/smartcontractkit/chainlink-testing-framework/framework/components/dockercompose v0.1.15/go.mod h1:YqrpawYGRkT/jcvXcmaZeZPOtu0erIenrHl5Mb8+U/c=
 github.com/smartcontractkit/chainlink-testing-framework/framework/components/fake v0.10.0 h1:PWAMYu0WaAMBfbpxCpFJGRIDHmcgmYin6a+UQC0OdtY=
@@ -1968,6 +1970,8 @@ github.com/testcontainers/testcontainers-go v0.38.0 h1:d7uEapLcv2P8AvH8ahLqDMMxd
 github.com/testcontainers/testcontainers-go v0.38.0/go.mod h1:C52c9MoHpWO+C4aqmgSU+hxlR5jlEayWtgYrb8Pzz1w=
 github.com/testcontainers/testcontainers-go/modules/compose v0.37.0 h1:AE6XYnyUMkiyuo8GZ3B36d0i4L/HMSjaQ6QtAffkD4k=
 github.com/testcontainers/testcontainers-go/modules/compose v0.37.0/go.mod h1:fgzGeGw5iVyzS6qWOAYDbvv3iWp/wCtqWNSH4Aev8hs=
+github.com/testcontainers/testcontainers-go/modules/postgres v0.38.0 h1:KFdx9A0yF94K70T6ibSuvgkQQeX1xKlZVF3hEagXEtY=
+github.com/testcontainers/testcontainers-go/modules/postgres v0.38.0/go.mod h1:T/QRECND6N6tAKMxF1Za+G2tpwnGEHcODzHRsgIpw9M=
 github.com/theodesp/go-heaps v0.0.0-20190520121037-88e35354fe0a h1:YuO+afVc3eqrjiCUizNCxI53bl/BnPiVwXqLzqYTqgU=
 github.com/theodesp/go-heaps v0.0.0-20190520121037-88e35354fe0a/go.mod h1:/sfW47zCZp9FrtGcWyo1VjbgDaodxX9ovZvgLb/MxaA=
 github.com/theupdateframework/notary v0.7.0 h1:QyagRZ7wlSpjT5N2qQAh/pN+DVqgekv4DzbAiAiEL3c=
