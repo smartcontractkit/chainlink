@@ -12,7 +12,7 @@ import (
 	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
 	"github.com/smartcontractkit/chainlink-deployments-framework/operations/optest"
 	kcr "github.com/smartcontractkit/chainlink-evm/gethwrappers/keystone/generated/capabilities_registry_1_1_0"
-	"github.com/smartcontractkit/chainlink/deployment/keystone/changeset"
+	"github.com/smartcontractkit/chainlink/deployment/cre/mcms"
 	"github.com/smartcontractkit/chainlink/deployment/keystone/changeset/internal"
 	"github.com/smartcontractkit/chainlink/deployment/keystone/changeset/operations/contracts"
 	"github.com/smartcontractkit/chainlink/deployment/keystone/changeset/test"
@@ -90,7 +90,7 @@ func doDeployConfigureForwardersSeq(t *testing.T, useMcms bool) {
 		RegistryChainSel: te.RegistrySelector,
 	}
 	if useMcms {
-		input.MCMSConfig = &changeset.MCMSConfig{MinDuration: 0}
+		input.MCMSConfig = &mcms.Config{MinDuration: 0}
 	}
 	b := optest.NewBundle(t)
 	seqOutput, err := operations.ExecuteSequence(b, contracts.DeployConfigureForwardersSeq, deps, input)

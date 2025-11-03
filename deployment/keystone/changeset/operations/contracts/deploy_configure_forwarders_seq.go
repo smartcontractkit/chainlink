@@ -7,7 +7,7 @@ import (
 	"github.com/Masterminds/semver/v3"
 	"github.com/ethereum/go-ethereum/common"
 
-	"github.com/smartcontractkit/mcms"
+	mcmslib "github.com/smartcontractkit/mcms"
 	"github.com/smartcontractkit/mcms/sdk"
 	mcmsevm "github.com/smartcontractkit/mcms/sdk/evm"
 	mcmstypes "github.com/smartcontractkit/mcms/types"
@@ -18,14 +18,18 @@ import (
 	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
 	capabilities_registry "github.com/smartcontractkit/chainlink-evm/gethwrappers/keystone/generated/capabilities_registry_1_1_0"
 	forwarder "github.com/smartcontractkit/chainlink-evm/gethwrappers/keystone/generated/forwarder_1_0_0"
-	mcmsOps "github.com/smartcontractkit/chainlink/deployment/common/changeset/evm/mcms/ops"
-	mcmsSeqs "github.com/smartcontractkit/chainlink/deployment/common/changeset/evm/mcms/seqs"
-	creforwarder "github.com/smartcontractkit/chainlink/deployment/cre/forwarder"
 
 	"github.com/smartcontractkit/chainlink/deployment"
+	mcmsOps "github.com/smartcontractkit/chainlink/deployment/common/changeset/evm/mcms/ops"
+	mcmsSeqs "github.com/smartcontractkit/chainlink/deployment/common/changeset/evm/mcms/seqs"
+	mcmschangesetstate "github.com/smartcontractkit/chainlink/deployment/common/changeset/state"
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 	"github.com/smartcontractkit/chainlink/deployment/common/types"
+	contracts2 "github.com/smartcontractkit/chainlink/deployment/cre/capabilities_registry/v2/changeset/operations/contracts"
+	"github.com/smartcontractkit/chainlink/deployment/cre/common/strategies"
 	crecontracts "github.com/smartcontractkit/chainlink/deployment/cre/contracts"
+	creforwarder "github.com/smartcontractkit/chainlink/deployment/cre/forwarder"
+	"github.com/smartcontractkit/chainlink/deployment/cre/mcms"
 	"github.com/smartcontractkit/chainlink/deployment/keystone/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/keystone/changeset/internal"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/p2pkey"
@@ -54,7 +58,7 @@ type DeployConfigureForwardersSeqInput struct {
 	// capabilities registry chain selector
 	RegistryChainSel uint64
 	// MCMSConfig is optional. If non-nil, the changes will be proposed using MCMS.
-	MCMSConfig *changeset.MCMSConfig
+	MCMSConfig *mcms.Config
 }
 
 func (i DeployConfigureForwardersSeqInput) UseMCMS() bool {
@@ -62,7 +66,7 @@ func (i DeployConfigureForwardersSeqInput) UseMCMS() bool {
 }
 
 type DeployConfigureForwardersSeqOutput struct {
-	MCMSTimelockProposals []mcms.TimelockProposal
+	MCMSTimelockProposals []mcmslib.TimelockProposal
 	Addresses             datastore.AddressRefStore
 	AddressBook           cldf.AddressBook // The address book containing the deployed Keystone Forwarders
 }
@@ -75,11 +79,11 @@ var DeployConfigureForwardersSeq = operations.NewSequence[DeployConfigureForward
 		lggr := deps.Env.Logger
 		ab := cldf.NewMemoryAddressBook()
 		as := datastore.NewMemoryDataStore()
-		batches := []mcmstypes.BatchOperation{}
+		var batches []mcmstypes.BatchOperation
 		timelockAddressByChain := make(map[uint64]string)
 		inspectorPerChain := map[uint64]sdk.Inspector{}
 		proposerAddressByChain := make(map[uint64]string)
-		proposals := []mcms.TimelockProposal{}
+		var proposals []mcmslib.TimelockProposal
 		evmChain := deps.Env.BlockChains.EVMChains()
 		donMapCache := make(map[string]internal.RegisteredDon) // cache for registered dons
 		// 1. forwarder deployment, forwarder configuration and ownership transfer to timelock if MCMS is used
@@ -263,6 +267,29 @@ func configureForwarderOp(
 	if err != nil {
 		return fmt.Errorf("configure-forwarders-seq failed: failed to get KeystoneForwarder contract for chain selector %d: %w", target, err)
 	}
+
+	var mcmsContracts *mcmschangesetstate.MCMSWithTimelockState
+	if input.MCMSConfig != nil {
+		var mcmsErr error
+		mcmsContracts, mcmsErr = strategies.GetMCMSContracts(*deps.Env, chain.Selector, "")
+		if mcmsErr != nil {
+			return fmt.Errorf("failed to get MCMS contracts: %w", err)
+		}
+	}
+
+	// Create the appropriate strategy
+	strategy, err := strategies.CreateStrategy(
+		chain,
+		*deps.Env,
+		input.MCMSConfig,
+		mcmsContracts,
+		forwarderAddress,
+		contracts2.ConfigureForwarderDescription,
+	)
+	if err != nil {
+		return fmt.Errorf("failed to create strategy: %w", err)
+	}
+
 	// configure forwarder for each wf don
 	for _, don := range chainDons {
 		if !don.Info.AcceptsWorkflows {
@@ -279,6 +306,7 @@ func configureForwarderOp(
 			Env:      deps.Env,
 			Chain:    &chain,
 			Contract: forwarderContract.Contract,
+			Strategy: strategy,
 		}, creforwarder.ConfigureOpInput{UseMCMS: input.UseMCMS(), ChainSelector: target, Config: cfg})
 		if err != nil {
 			return fmt.Errorf("configure-forwarders-seq failed for chain selector %d, donID: %d: %w", target, don.Info.Id, err)
@@ -345,15 +373,16 @@ func appendCapabilitiesOp(
 	b operations.Bundle,
 	deps DeployConfigureForwardersSeqDeps,
 	input DeployConfigureForwardersSeqInput,
-	proposals *[]mcms.TimelockProposal,
+	proposals *[]mcmslib.TimelockProposal,
 ) error {
+	mcmsConfig := changeset.MCMSConfig(*input.MCMSConfig)
 	appendCapabilitiesReport, err := operations.ExecuteOperation(b, AppendCapabilitiesOp, AppendCapabilitiesOpDeps{
 		Env:               deps.Env,
 		RegistryRef:       deps.RegistryRef,
 		P2pToCapabilities: deps.P2pToWriteCapabilities,
 	}, AppendCapabilitiesOpInput{
 		RegistryChainSel: input.RegistryChainSel,
-		MCMSConfig:       input.MCMSConfig,
+		MCMSConfig:       &mcmsConfig,
 	})
 	if err != nil {
 		return fmt.Errorf("append-capabilities-op failed: %w", err)
@@ -369,12 +398,13 @@ func updateDonOp(
 	b operations.Bundle,
 	deps DeployConfigureForwardersSeqDeps,
 	input DeployConfigureForwardersSeqInput,
-	proposals *[]mcms.TimelockProposal,
+	proposals *[]mcmslib.TimelockProposal,
 ) error {
 	p2pIDs := make([]p2pkey.PeerID, 0, len(deps.P2pToWriteCapabilities))
 	for p2pID := range deps.P2pToWriteCapabilities {
 		p2pIDs = append(p2pIDs, p2pID)
 	}
+	mcmsConfig := changeset.MCMSConfig(*input.MCMSConfig)
 	updateDonReport, err := operations.ExecuteOperation(b, UpdateDonOp, UpdateDonOpDeps{
 		Env:               deps.Env,
 		RegistryRef:       deps.RegistryRef,
@@ -382,7 +412,7 @@ func updateDonOp(
 		CapabilityConfigs: deps.WriteCapabilityConfigs,
 	}, UpdateDonOpInput{
 		RegistryChainSel: input.RegistryChainSel,
-		MCMSConfig:       input.MCMSConfig,
+		MCMSConfig:       &mcmsConfig,
 	})
 	if err != nil {
 		return fmt.Errorf("update-don-op failed: %w", err)
