@@ -157,7 +157,11 @@ func (c *wsConnectionWrapper) writePump() {
 				close(wsMsg.ErrCh)
 				break
 			}
-			wsMsg.ErrCh <- conn.WriteMessage(wsMsg.MsgType, wsMsg.Data)
+			err := conn.WriteMessage(wsMsg.MsgType, wsMsg.Data)
+			if err != nil {
+				c.lggr.Errorw("failed to write message", "msgType", wsMsg.MsgType, "dataLen", len(wsMsg.Data), "error", err)
+			}
+			wsMsg.ErrCh <- err
 			close(wsMsg.ErrCh)
 		case <-c.shutdownCh:
 			return
@@ -169,14 +173,23 @@ func (c *wsConnectionWrapper) readPump(conn *websocket.Conn, closeCh chan<- erro
 	for {
 		msgType, data, err := conn.ReadMessage()
 		if err != nil {
-			closeCh <- conn.Close()
+			c.lggr.Errorw("failed to read message, closing connection", "error", err)
+			closeErr := conn.Close()
+			if closeErr != nil {
+				c.lggr.Errorw("error closing connection", "error", closeErr)
+			}
+			closeCh <- closeErr
 			close(closeCh)
 			return
 		}
 		select {
 		case c.readCh <- ReadItem{msgType, data}:
 		case <-c.shutdownCh:
-			closeCh <- conn.Close()
+			closeErr := conn.Close()
+			if closeErr != nil {
+				c.lggr.Errorw("error closing connection during shutdown", "error", closeErr)
+			}
+			closeCh <- closeErr
 			close(closeCh)
 			return
 		}
