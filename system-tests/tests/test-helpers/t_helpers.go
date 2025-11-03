@@ -596,7 +596,7 @@ func CompileAndDeployWorkflow[T WorkflowConfig](t *testing.T,
 	t.Helper()
 
 	testLogger.Info().Msgf("compiling and registering workflow '%s'", workflowName)
-	homeChainSelector := testEnv.CreEnvironment.Blockchains[0].ChainSelector()
+	registryChainSelector := testEnv.CreEnvironment.Blockchains[0].ChainSelector()
 
 	workflowDOName := ""
 	for _, don := range testEnv.Dons.List() {
@@ -613,7 +613,7 @@ func CompileAndDeployWorkflow[T WorkflowConfig](t *testing.T,
 	//lint:ignore SA1019 ignoring deprecation warning for this usage
 	workflowRegistryAddress, tv, workflowRegistryErr := crecontracts.FindAddressesForChain(
 		testEnv.CreEnvironment.CldfEnvironment.ExistingAddresses, //nolint:staticcheck // SA1019 ignoring deprecation warning for this usage
-		homeChainSelector, keystone_changeset.WorkflowRegistry.String())
+		registryChainSelector, keystone_changeset.WorkflowRegistry.String())
 	require.NoError(t, workflowRegistryErr, "failed to find workflow registry address for chain %d", testEnv.CreEnvironment.Blockchains[0].ChainID)
 
 	workflowRegConfig := &WorkflowRegistrationConfig{
@@ -623,7 +623,7 @@ func CompileAndDeployWorkflow[T WorkflowConfig](t *testing.T,
 		CompressedWasmPath:          compressedWorkflowWasmPath,
 		WorkflowRegistryAddr:        workflowRegistryAddress,
 		WorkflowRegistryTypeVersion: tv,
-		ChainID:                     homeChainSelector,
+		ChainID:                     registryChainSelector,
 		DonID:                       testEnv.Dons.List()[0].ID,
 		ContainerTargetDir:          creworkflow.DefaultWorkflowTargetDir,
 		Blockchains:                 testEnv.CreEnvironment.Blockchains,

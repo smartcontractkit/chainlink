@@ -196,10 +196,8 @@ jobs:
         shell: bash
         id: start-local-cre
         env:
-          E2E_JD_IMAGE: "${{ secrets.AWS_ACCOUNT_ID_PROD }}.dkr.ecr.${{ secrets.QA_AWS_REGION }}.amazonaws.com/job-distributor"
-          E2E_JD_VERSION: "0.22.1"
-          E2E_TEST_CHAINLINK_IMAGE: "${{ secrets.QA_AWS_ACCOUNT_NUMBER }}.dkr.ecr.${{ secrets.QA_AWS_REGION }}.amazonaws.com/${{ inputs.ecr_name }}"
-          E2E_TEST_CHAINLINK_VERSION: ${{ inputs.chainlink_image_tag != '' && inputs.chainlink_image_tag || inputs.chainlink_version }}
+          CTF_JD_IMAGE: "${{ secrets.AWS_ACCOUNT_ID_PROD }}.dkr.ecr.${{ secrets.QA_AWS_REGION }}.amazonaws.com/job-distributor:0.22.1"
+          CTF_CHAINLINK_IMAGE: "${{ secrets.QA_AWS_ACCOUNT_NUMBER }}.dkr.ecr.${{ secrets.QA_AWS_REGION }}.amazonaws.com/${{ inputs.ecr_name }}:${{ inputs.chainlink_image_tag != '' && inputs.chainlink_image_tag || inputs.chainlink_version }}"
           CTF_CONFIGS: ${{ matrix.tests.configs }}
           CRE_VERSION: ${{ matrix.tests.cre_version }}
           TEST_NAME: ${{ matrix.tests.test_name }}
@@ -210,10 +208,10 @@ jobs:
           # Do not remove Docker containers on error to allow log collection
           if [[ "${CRE_VERSION}" == "v1" ]]; then
             echo "Starting CRE with v1 contracts for test: '${TEST_NAME}'"
-            go run . env start --with-plugins-docker-image "${E2E_TEST_CHAINLINK_IMAGE}:${E2E_TEST_CHAINLINK_VERSION}" --cleanup-on-error=false
+            go run . env start --with-plugins-docker-image "${CTF_CHAINLINK_IMAGE}" --cleanup-on-error=false
           else
             echo "Starting CRE with v2 contracts for test: '${TEST_NAME}'"
-            go run . env start --with-plugins-docker-image "${E2E_TEST_CHAINLINK_IMAGE}:${E2E_TEST_CHAINLINK_VERSION}" --with-contracts-version v2 --cleanup-on-error=false
+            go run . env start --with-plugins-docker-image "${CTF_CHAINLINK_IMAGE}" --with-contracts-version v2 --cleanup-on-error=false
           fi
 
           exit_code=$?
