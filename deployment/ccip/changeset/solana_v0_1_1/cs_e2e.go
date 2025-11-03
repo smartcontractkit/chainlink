@@ -417,5 +417,11 @@ func E2ETokenPoolv2(env cldf.Environment, cfg E2ETokenPoolConfigv2) (cldf.Change
 		}
 	}
 
+	ds, err := shared.PopulateDataStore(finalCSOut.AddressBook) //nolint:staticcheck //SA1019 ignoring deprecated
+	if err != nil {
+		return cldf.ChangesetOutput{}, fmt.Errorf("failed to populate in-memory DataStore: %w", err)
+	}
+
+	finalCSOut.DataStore = ds
 	return *finalCSOut, nil
 }

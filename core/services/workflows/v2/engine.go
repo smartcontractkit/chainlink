@@ -62,6 +62,7 @@ type Engine struct {
 type triggerCapability struct {
 	capabilities.TriggerCapability
 	payload *anypb.Any
+	method  string
 }
 
 type enqueuedTriggerEvent struct {
@@ -339,6 +340,7 @@ func (e *Engine) runTriggerSubscriptionPhase(ctx context.Context) error {
 		e.triggers[registrationID] = &triggerCapability{
 			TriggerCapability: triggerCap,
 			payload:           sub.Payload,
+			method:            sub.Method,
 		}
 		eventChans[i] = triggerEventCh
 		triggerCapIDs[i] = sub.Id
@@ -633,6 +635,7 @@ func (e *Engine) unregisterAllTriggers(ctx context.Context) {
 				WorkflowDonID: e.localNode.Load().WorkflowDON.ID,
 			},
 			Payload: trigger.payload,
+			Method:  trigger.method,
 		})
 		if err != nil {
 			e.lggr.Errorw("Failed to unregister trigger", "registrationId", registrationID, "err", err)
