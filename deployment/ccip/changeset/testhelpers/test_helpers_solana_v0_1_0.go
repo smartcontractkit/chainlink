@@ -1022,8 +1022,6 @@ func AddLane(
 			}))
 	}
 
-	fmt.Println("ADDLANE CHANGESETS: ", changesets)
-
 	e.Env, _, err = commoncs.ApplyChangesets(t, e.Env, changesets)
 	if err != nil {
 		return err
