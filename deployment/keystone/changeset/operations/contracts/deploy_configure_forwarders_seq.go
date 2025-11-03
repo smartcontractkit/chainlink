@@ -279,8 +279,7 @@ func configureForwarderOp(
 			Env:      deps.Env,
 			Chain:    &chain,
 			Contract: forwarderContract.Contract,
-			Config:   cfg,
-		}, creforwarder.ConfigureOpInput{UseMCMS: input.UseMCMS(), ChainSelector: target})
+		}, creforwarder.ConfigureOpInput{UseMCMS: input.UseMCMS(), ChainSelector: target, Config: cfg})
 		if err != nil {
 			return fmt.Errorf("configure-forwarders-seq failed for chain selector %d, donID: %d: %w", target, don.Info.Id, err)
 		}
