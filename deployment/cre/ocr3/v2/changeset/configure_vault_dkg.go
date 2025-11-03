@@ -13,6 +13,7 @@ import (
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
 	"github.com/smartcontractkit/chainlink/deployment/cre/jobs/pkg"
+	"github.com/smartcontractkit/chainlink/deployment/cre/mcms"
 	"github.com/smartcontractkit/chainlink/deployment/cre/ocr3"
 	"github.com/smartcontractkit/chainlink/deployment/cre/ocr3/v2/changeset/operations/contracts"
 )
@@ -27,7 +28,7 @@ type ConfigureVaultDKGInput struct {
 	OracleConfig *ocr3.V3_1OracleConfig `json:"oracleConfig" yaml:"oracleConfig"`
 	DryRun       bool                   `json:"dryRun" yaml:"dryRun"`
 
-	MCMSConfig *ocr3.MCMSConfig `json:"mcmsConfig" yaml:"mcmsConfig"`
+	MCMSConfig *mcms.Config `json:"mcmsConfig" yaml:"mcmsConfig"`
 }
 
 type DKGDon struct {

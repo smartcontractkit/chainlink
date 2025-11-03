@@ -28,7 +28,7 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/common/changeset"
 	changeset2 "github.com/smartcontractkit/chainlink/deployment/cre/capabilities_registry/v2/changeset"
-	"github.com/smartcontractkit/chainlink/deployment/cre/ocr3"
+	"github.com/smartcontractkit/chainlink/deployment/cre/mcms"
 	envtest "github.com/smartcontractkit/chainlink/deployment/environment/test"
 )
 
@@ -152,9 +152,9 @@ func SetupEnvV2(t *testing.T, useMCMS bool) *EnvWrapperV2 {
 		})
 	}
 
-	var mcmsConfig *ocr3.MCMSConfig
+	var mcmsConfig *mcms.Config
 	if useMCMS {
-		mcmsConfig = &ocr3.MCMSConfig{
+		mcmsConfig = &mcms.Config{
 			MinDuration: 10 * time.Second,
 		}
 	}
