@@ -824,7 +824,7 @@ runner-test-matrix:
       - Nightly Integration CCIP Tests
     test_cmd: go test ./smoke/ccip -run "Test_CCIPTokenTransfer_EVM2SUI" -timeout 7m -test.parallel=1 -count=1 -json
     test_go_project_path: integration-tests
-    sui_cli_version: mainnet-1.58.1
+    sui_cli_version: testnet-1.58.1
     install_plugins_public: true
 
   # - id: smoke/ccip/ccip_sui_messaging_test.go:Test_CCIP_EVM2Sui_ExecPlugin_MessageVisibilityAndRetryBehavior
