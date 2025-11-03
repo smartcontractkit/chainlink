@@ -15,7 +15,7 @@ import (
 
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset/state"
 	"github.com/smartcontractkit/chainlink/deployment/cre/capabilities_registry/v2/changeset/operations/contracts"
-	"github.com/smartcontractkit/chainlink/deployment/cre/ocr3"
+	"github.com/smartcontractkit/chainlink/deployment/cre/mcms"
 )
 
 type SetDONsFamiliesDeps struct {
@@ -28,7 +28,7 @@ type SetDONsFamiliesInput struct {
 
 	RegistryRef datastore.AddressRefKey
 
-	MCMSConfig *ocr3.MCMSConfig
+	MCMSConfig *mcms.Config
 }
 
 func (i *SetDONsFamiliesInput) Validate() error {

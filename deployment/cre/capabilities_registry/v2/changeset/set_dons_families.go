@@ -11,7 +11,7 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/cre/capabilities_registry/v2/changeset/pkg"
 	"github.com/smartcontractkit/chainlink/deployment/cre/capabilities_registry/v2/changeset/sequences"
 	"github.com/smartcontractkit/chainlink/deployment/cre/common/strategies"
-	"github.com/smartcontractkit/chainlink/deployment/cre/ocr3"
+	"github.com/smartcontractkit/chainlink/deployment/cre/mcms"
 )
 
 var _ cldf.ChangeSetV2[SetDONsFamiliesInput] = SetDONsFamilies{}
@@ -22,7 +22,7 @@ type SetDONsFamiliesInput struct {
 
 	DONsFamiliesChanges []sequences.DONFamiliesChange `json:"donsFamiliesChanges" yaml:"donsFamiliesChanges"`
 
-	MCMSConfig *ocr3.MCMSConfig `json:"mcmsConfig,omitempty" yaml:"mcmsConfig,omitempty"`
+	MCMSConfig *mcms.Config `json:"mcmsConfig,omitempty" yaml:"mcmsConfig,omitempty"`
 }
 
 type SetDONsFamilies struct{}

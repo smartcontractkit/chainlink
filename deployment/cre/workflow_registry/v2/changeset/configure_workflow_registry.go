@@ -10,8 +10,8 @@ import (
 	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
 
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset/state"
-	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 	"github.com/smartcontractkit/chainlink/deployment/cre/common/strategies"
+	"github.com/smartcontractkit/chainlink/deployment/cre/mcms"
 	"github.com/smartcontractkit/chainlink/deployment/cre/workflow_registry/v2/changeset/operations/contracts"
 )
 
@@ -25,14 +25,14 @@ var _ cldf.ChangeSetV2[SetCapabilitiesRegistryInput] = SetCapabilitiesRegistry{}
 
 // SetConfigInput configures metadata validation settings for workflow registry v2
 type SetConfigInput struct {
-	ChainSelector             uint64                        `json:"chainSelector"`
-	WorkflowRegistryQualifier string                        `json:"workflowRegistryQualifier"` // Qualifier to identify the specific workflow registry
-	NameLen                   uint8                         `json:"nameLen"`                   // Maximum length for workflow names
-	TagLen                    uint8                         `json:"tagLen"`                    // Maximum length for workflow tags
-	URLLen                    uint8                         `json:"urlLen"`                    // Maximum length for URLs
-	AttrLen                   uint16                        `json:"attrLen"`                   // Maximum length for attributes
-	ExpiryLen                 uint32                        `json:"expiryLen"`                 // Maximum expiry duration for allowlisted secret requests
-	MCMSConfig                *proposalutils.TimelockConfig `json:"mcmsConfig,omitempty"`      // MCMS configuration
+	ChainSelector             uint64       `json:"chainSelector"`
+	WorkflowRegistryQualifier string       `json:"workflowRegistryQualifier"` // Qualifier to identify the specific workflow registry
+	NameLen                   uint8        `json:"nameLen"`                   // Maximum length for workflow names
+	TagLen                    uint8        `json:"tagLen"`                    // Maximum length for workflow tags
+	URLLen                    uint8        `json:"urlLen"`                    // Maximum length for URLs
+	AttrLen                   uint16       `json:"attrLen"`                   // Maximum length for attributes
+	ExpiryLen                 uint32       `json:"expiryLen"`                 // Maximum expiry duration for allowlisted secret requests
+	MCMSConfig                *mcms.Config `json:"mcmsConfig,omitempty"`      // MCMS configuration
 }
 
 type SetConfig struct{}
@@ -82,12 +82,12 @@ func (l SetConfig) Apply(e cldf.Environment, config SetConfigInput) (cldf.Change
 
 // UpdateAllowedSignersInput updates the list of allowed signers for workflow registry v2
 type UpdateAllowedSignersInput struct {
-	ChainSelector             uint64                        `json:"chainSelector"`
-	WorkflowRegistryQualifier string                        `json:"workflowRegistryQualifier"` // Qualifier to identify the specific workflow registry
-	Signers                   []common.Address              `json:"signers"`                   // List of signer addresses
-	Allowed                   bool                          `json:"allowed"`                   // Whether to allow or disallow these signers
-	MCMSConfig                *proposalutils.TimelockConfig `json:"mcmsConfig,omitempty"`      // MCMS configuration
-	Description               string                        `json:"description,omitempty"`     // Description for MCMS proposal
+	ChainSelector             uint64           `json:"chainSelector"`
+	WorkflowRegistryQualifier string           `json:"workflowRegistryQualifier"` // Qualifier to identify the specific workflow registry
+	Signers                   []common.Address `json:"signers"`                   // List of signer addresses
+	Allowed                   bool             `json:"allowed"`                   // Whether to allow or disallow these signers
+	MCMSConfig                *mcms.Config     `json:"mcmsConfig,omitempty"`      // MCMS configuration
+	Description               string           `json:"description,omitempty"`     // Description for MCMS proposal
 }
 
 type UpdateAllowedSigners struct{}
@@ -142,11 +142,11 @@ func (l UpdateAllowedSigners) Apply(e cldf.Environment, config UpdateAllowedSign
 
 // SetWorkflowOwnerConfigInput configures workflow owner-specific settings
 type SetWorkflowOwnerConfigInput struct {
-	ChainSelector             uint64                        `json:"chainSelector"`
-	WorkflowRegistryQualifier string                        `json:"workflowRegistryQualifier"` // Qualifier to identify the specific workflow registry
-	Owner                     common.Address                `json:"owner"`                     // Workflow owner address
-	Config                    []byte                        `json:"config"`                    // Owner-specific configuration data
-	MCMSConfig                *proposalutils.TimelockConfig `json:"mcmsConfig,omitempty"`      // MCMS configuration
+	ChainSelector             uint64         `json:"chainSelector"`
+	WorkflowRegistryQualifier string         `json:"workflowRegistryQualifier"` // Qualifier to identify the specific workflow registry
+	Owner                     common.Address `json:"owner"`                     // Workflow owner address
+	Config                    []byte         `json:"config"`                    // Owner-specific configuration data
+	MCMSConfig                *mcms.Config   `json:"mcmsConfig,omitempty"`      // MCMS configuration
 }
 
 type SetWorkflowOwnerConfig struct{}
@@ -194,12 +194,12 @@ func (l SetWorkflowOwnerConfig) Apply(e cldf.Environment, config SetWorkflowOwne
 
 // SetDONLimitInput configures DON workflow limits
 type SetDONLimitInput struct {
-	ChainSelector             uint64                        `json:"chainSelector"`
-	WorkflowRegistryQualifier string                        `json:"workflowRegistryQualifier"` // Qualifier to identify the specific workflow registry
-	DONFamily                 string                        `json:"donFamily"`                 // DON family identifier
-	DONLimit                  uint32                        `json:"donlimit"`                  // Maximum number of workflows per owner
-	UserDefaultLimit          uint32                        `json:"userDefaultLimit"`          // Whether the limit is enabled
-	MCMSConfig                *proposalutils.TimelockConfig `json:"mcmsConfig,omitempty"`      // MCMS configuration
+	ChainSelector             uint64       `json:"chainSelector"`
+	WorkflowRegistryQualifier string       `json:"workflowRegistryQualifier"` // Qualifier to identify the specific workflow registry
+	DONFamily                 string       `json:"donFamily"`                 // DON family identifier
+	DONLimit                  uint32       `json:"donlimit"`                  // Maximum number of workflows per owner
+	UserDefaultLimit          uint32       `json:"userDefaultLimit"`          // Whether the limit is enabled
+	MCMSConfig                *mcms.Config `json:"mcmsConfig,omitempty"`      // MCMS configuration
 }
 
 type SetDONLimit struct{}
@@ -247,13 +247,13 @@ func (l SetDONLimit) Apply(e cldf.Environment, config SetDONLimitInput) (cldf.Ch
 
 // SetUserDONOverrideInput configures user-specific DON overrides
 type SetUserDONOverrideInput struct {
-	ChainSelector             uint64                        `json:"chainSelector"`
-	WorkflowRegistryQualifier string                        `json:"workflowRegistryQualifier"` // Qualifier to identify the specific workflow registry
-	User                      common.Address                `json:"user"`                      // User address
-	DONFamily                 string                        `json:"donFamily"`                 // DON family identifier
-	Limit                     uint32                        `json:"limit"`                     // User-specific limit
-	Enabled                   bool                          `json:"enabled"`                   // Whether the override is enabled
-	MCMSConfig                *proposalutils.TimelockConfig `json:"mcmsConfig,omitempty"`      // MCMS configuration
+	ChainSelector             uint64         `json:"chainSelector"`
+	WorkflowRegistryQualifier string         `json:"workflowRegistryQualifier"` // Qualifier to identify the specific workflow registry
+	User                      common.Address `json:"user"`                      // User address
+	DONFamily                 string         `json:"donFamily"`                 // DON family identifier
+	Limit                     uint32         `json:"limit"`                     // User-specific limit
+	Enabled                   bool           `json:"enabled"`                   // Whether the override is enabled
+	MCMSConfig                *mcms.Config   `json:"mcmsConfig,omitempty"`      // MCMS configuration
 }
 
 type SetUserDONOverride struct{}
@@ -302,11 +302,11 @@ func (l SetUserDONOverride) Apply(e cldf.Environment, config SetUserDONOverrideI
 
 // SetCapabilitiesRegistryInput configures the Capabilities registry address
 type SetCapabilitiesRegistryInput struct {
-	ChainSelector             uint64                        `json:"chainSelector"`
-	WorkflowRegistryQualifier string                        `json:"workflowRegistryQualifier"` // Qualifier to identify the specific workflow registry
-	Registry                  common.Address                `json:"registry"`                  // DON registry contract address
-	ChainSelectorDON          uint64                        `json:"chainSelectorDON"`          // Chain selector where the DON registry exists
-	MCMSConfig                *proposalutils.TimelockConfig `json:"mcmsConfig,omitempty"`      // MCMS configuration
+	ChainSelector             uint64         `json:"chainSelector"`
+	WorkflowRegistryQualifier string         `json:"workflowRegistryQualifier"` // Qualifier to identify the specific workflow registry
+	Registry                  common.Address `json:"registry"`                  // DON registry contract address
+	ChainSelectorDON          uint64         `json:"chainSelectorDON"`          // Chain selector where the DON registry exists
+	MCMSConfig                *mcms.Config   `json:"mcmsConfig,omitempty"`      // MCMS configuration
 }
 
 type SetCapabilitiesRegistry struct{}

@@ -8,21 +8,20 @@ import (
 	"github.com/Masterminds/semver/v3"
 	"github.com/ethereum/go-ethereum/common"
 	chainsel "github.com/smartcontractkit/chain-selectors"
-	forwarder "github.com/smartcontractkit/chainlink-evm/gethwrappers/keystone/generated/forwarder_1_0_0"
-	mcmschangesetstate "github.com/smartcontractkit/chainlink/deployment/common/changeset/state"
-	contracts2 "github.com/smartcontractkit/chainlink/deployment/cre/capabilities_registry/v2/changeset/operations/contracts"
-	"github.com/smartcontractkit/mcms"
-
 	"github.com/smartcontractkit/chainlink-deployments-framework/chain/evm"
 	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+	forwarder "github.com/smartcontractkit/chainlink-evm/gethwrappers/keystone/generated/forwarder_1_0_0"
+	mcmschangesetstate "github.com/smartcontractkit/chainlink/deployment/common/changeset/state"
+	contracts2 "github.com/smartcontractkit/chainlink/deployment/cre/capabilities_registry/v2/changeset/operations/contracts"
+	mcmslib "github.com/smartcontractkit/mcms"
 
 	"github.com/smartcontractkit/chainlink-deployments-framework/offchain"
 	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
 	"github.com/smartcontractkit/chainlink/deployment"
-	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 	"github.com/smartcontractkit/chainlink/deployment/cre/common/strategies"
 	"github.com/smartcontractkit/chainlink/deployment/cre/contracts"
+	"github.com/smartcontractkit/chainlink/deployment/cre/mcms"
 )
 
 type ConfigureSeqDeps struct {
@@ -57,7 +56,7 @@ type ConfigureSeqInput struct {
 	DON DonConfiguration // the DON to configuration for the forwarder to accept
 
 	// MCMSConfig is optional. If non-nil, the changes will be proposed using MCMS.
-	MCMSConfig *proposalutils.TimelockConfig
+	MCMSConfig *mcms.Config
 	// Chains is optional. Defines chains for which request will be executed. If empty, runs for all available chains.
 	Chains map[uint64]struct{}
 }
@@ -67,7 +66,7 @@ func (i ConfigureSeqInput) UseMCMS() bool {
 }
 
 type ConfigureSeqOutput struct {
-	MCMSTimelockProposals []mcms.TimelockProposal
+	MCMSTimelockProposals []mcmslib.TimelockProposal
 	Config                Config
 }
 
@@ -80,7 +79,7 @@ var ConfigureSeq = operations.NewSequence[ConfigureSeqInput, ConfigureSeqOutput,
 	"Configure Keystone Forwarders",
 	func(b operations.Bundle, deps ConfigureSeqDeps, input ConfigureSeqInput) (ConfigureSeqOutput, error) {
 		evmChain := deps.Env.BlockChains.EVMChains()
-		proposalPerChain := make(map[uint64]*mcms.TimelockProposal)
+		proposalPerChain := make(map[uint64]*mcmslib.TimelockProposal)
 		forwarderContracts := make(map[uint64]*contracts.OwnedContract[*forwarder.KeystoneForwarder])
 
 		cfg, err := input.DON.ForwarderConfig("evm", deps.Env.Offchain)
@@ -187,7 +186,7 @@ type ConfigureOpInput struct {
 }
 
 type ConfigureOpOutput struct {
-	Proposal *mcms.TimelockProposal // if using MCMS, the batch operation to propose the change
+	Proposal *mcmslib.TimelockProposal // if using MCMS, the batch operation to propose the change
 
 	Forwarder common.Address
 	Config    Config

@@ -10,8 +10,8 @@ import (
 	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
 
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset/state"
-	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 	"github.com/smartcontractkit/chainlink/deployment/cre/common/strategies"
+	"github.com/smartcontractkit/chainlink/deployment/cre/mcms"
 	"github.com/smartcontractkit/chainlink/deployment/cre/workflow_registry/v2/changeset/operations/contracts"
 )
 
@@ -23,10 +23,10 @@ var _ cldf.ChangeSetV2[AdminPauseAllByDONInput] = AdminPauseAllByDON{}
 
 // AdminPauseWorkflowInput pauses a specific workflow
 type AdminPauseWorkflowInput struct {
-	ChainSelector             uint64                        `json:"chainSelector"`
-	WorkflowRegistryQualifier string                        `json:"workflowRegistryQualifier"` // Qualifier to identify the specific workflow registry
-	WorkflowID                [32]byte                      `json:"workflowID"`                // Workflow ID to pause
-	MCMSConfig                *proposalutils.TimelockConfig `json:"mcmsConfig,omitempty"`      // MCMS configuration
+	ChainSelector             uint64       `json:"chainSelector"`
+	WorkflowRegistryQualifier string       `json:"workflowRegistryQualifier"` // Qualifier to identify the specific workflow registry
+	WorkflowID                [32]byte     `json:"workflowID"`                // Workflow ID to pause
+	MCMSConfig                *mcms.Config `json:"mcmsConfig,omitempty"`      // MCMS configuration
 }
 
 type AdminPauseWorkflow struct{}
@@ -75,10 +75,10 @@ func (l AdminPauseWorkflow) Apply(e cldf.Environment, config AdminPauseWorkflowI
 
 // AdminBatchPauseWorkflowsInput pauses multiple workflows in a batch
 type AdminBatchPauseWorkflowsInput struct {
-	ChainSelector             uint64                        `json:"chainSelector"`
-	WorkflowRegistryQualifier string                        `json:"workflowRegistryQualifier"` // Qualifier to identify the specific workflow registry
-	WorkflowIDs               [][32]byte                    `json:"workflowIDs"`               // List of workflow IDs to pause
-	MCMSConfig                *proposalutils.TimelockConfig `json:"mcmsConfig,omitempty"`      // MCMS configuration
+	ChainSelector             uint64       `json:"chainSelector"`
+	WorkflowRegistryQualifier string       `json:"workflowRegistryQualifier"` // Qualifier to identify the specific workflow registry
+	WorkflowIDs               [][32]byte   `json:"workflowIDs"`               // List of workflow IDs to pause
+	MCMSConfig                *mcms.Config `json:"mcmsConfig,omitempty"`      // MCMS configuration
 }
 
 type AdminBatchPauseWorkflows struct{}
@@ -131,10 +131,10 @@ func (l AdminBatchPauseWorkflows) Apply(e cldf.Environment, config AdminBatchPau
 
 // AdminPauseAllByOwnerInput pauses all workflows for a specific owner
 type AdminPauseAllByOwnerInput struct {
-	ChainSelector             uint64                        `json:"chainSelector"`
-	WorkflowRegistryQualifier string                        `json:"workflowRegistryQualifier"` // Qualifier to identify the specific workflow registry
-	Owner                     common.Address                `json:"owner"`                     // Owner whose workflows should be paused
-	MCMSConfig                *proposalutils.TimelockConfig `json:"mcmsConfig,omitempty"`      // MCMS configuration
+	ChainSelector             uint64         `json:"chainSelector"`
+	WorkflowRegistryQualifier string         `json:"workflowRegistryQualifier"` // Qualifier to identify the specific workflow registry
+	Owner                     common.Address `json:"owner"`                     // Owner whose workflows should be paused
+	MCMSConfig                *mcms.Config   `json:"mcmsConfig,omitempty"`      // MCMS configuration
 }
 
 type AdminPauseAllByOwner struct{}
@@ -180,10 +180,10 @@ func (l AdminPauseAllByOwner) Apply(e cldf.Environment, config AdminPauseAllByOw
 
 // AdminPauseAllByDONInput pauses all workflows for a specific DON family
 type AdminPauseAllByDONInput struct {
-	ChainSelector             uint64                        `json:"chainSelector"`
-	WorkflowRegistryQualifier string                        `json:"workflowRegistryQualifier"` // Qualifier to identify the specific workflow registry
-	DONFamily                 string                        `json:"donFamily"`                 // DON family whose workflows should be paused
-	MCMSConfig                *proposalutils.TimelockConfig `json:"mcmsConfig,omitempty"`      // MCMS configuration
+	ChainSelector             uint64       `json:"chainSelector"`
+	WorkflowRegistryQualifier string       `json:"workflowRegistryQualifier"` // Qualifier to identify the specific workflow registry
+	DONFamily                 string       `json:"donFamily"`                 // DON family whose workflows should be paused
+	MCMSConfig                *mcms.Config `json:"mcmsConfig,omitempty"`      // MCMS configuration
 }
 
 type AdminPauseAllByDON struct{}

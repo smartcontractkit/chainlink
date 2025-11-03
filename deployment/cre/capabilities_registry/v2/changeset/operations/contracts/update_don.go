@@ -18,7 +18,7 @@ import (
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset/state"
 	"github.com/smartcontractkit/chainlink/deployment/cre/capabilities_registry/v2/changeset/pkg"
 	"github.com/smartcontractkit/chainlink/deployment/cre/common/strategies"
-	"github.com/smartcontractkit/chainlink/deployment/cre/ocr3"
+	"github.com/smartcontractkit/chainlink/deployment/cre/mcms"
 )
 
 type UpdateDONDeps struct {
@@ -52,7 +52,7 @@ type UpdateDONInput struct {
 	// This is very dangerous, and could break the whole platform if the forwarders are not ready. Be very careful with this option.
 	Force bool
 
-	MCMSConfig *ocr3.MCMSConfig
+	MCMSConfig *mcms.Config
 }
 
 func (r *UpdateDONInput) Validate() error {
