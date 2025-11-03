@@ -214,7 +214,7 @@ func GetAuthorityForIxn(
 	chainState solanastateview.CCIPChainState,
 	contractType cldf.ContractType,
 	tokenAddress solana.PublicKey, // used for burnmint and lockrelease
-	tokenMetadata string,          // used for burnmint and lockrelease
+	tokenMetadata string, // used for burnmint and lockrelease
 ) solana.PublicKey {
 	timelockSigner, err := FetchTimelockSigner(*e, chain.Selector)
 	if err != nil {
