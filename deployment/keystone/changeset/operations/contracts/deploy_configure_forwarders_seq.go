@@ -375,14 +375,18 @@ func appendCapabilitiesOp(
 	input DeployConfigureForwardersSeqInput,
 	proposals *[]mcmslib.TimelockProposal,
 ) error {
-	mcmsConfig := changeset.MCMSConfig(*input.MCMSConfig)
+	var mcmsConfig *changeset.MCMSConfig
+	if input.MCMSConfig != nil {
+		cfg := changeset.MCMSConfig(*input.MCMSConfig)
+		mcmsConfig = &cfg
+	}
 	appendCapabilitiesReport, err := operations.ExecuteOperation(b, AppendCapabilitiesOp, AppendCapabilitiesOpDeps{
 		Env:               deps.Env,
 		RegistryRef:       deps.RegistryRef,
 		P2pToCapabilities: deps.P2pToWriteCapabilities,
 	}, AppendCapabilitiesOpInput{
 		RegistryChainSel: input.RegistryChainSel,
-		MCMSConfig:       &mcmsConfig,
+		MCMSConfig:       mcmsConfig,
 	})
 	if err != nil {
 		return fmt.Errorf("append-capabilities-op failed: %w", err)
@@ -404,7 +408,11 @@ func updateDonOp(
 	for p2pID := range deps.P2pToWriteCapabilities {
 		p2pIDs = append(p2pIDs, p2pID)
 	}
-	mcmsConfig := changeset.MCMSConfig(*input.MCMSConfig)
+	var mcmsConfig *changeset.MCMSConfig
+	if input.MCMSConfig != nil {
+		cfg := changeset.MCMSConfig(*input.MCMSConfig)
+		mcmsConfig = &cfg
+	}
 	updateDonReport, err := operations.ExecuteOperation(b, UpdateDonOp, UpdateDonOpDeps{
 		Env:               deps.Env,
 		RegistryRef:       deps.RegistryRef,
@@ -412,7 +420,7 @@ func updateDonOp(
 		CapabilityConfigs: deps.WriteCapabilityConfigs,
 	}, UpdateDonOpInput{
 		RegistryChainSel: input.RegistryChainSel,
-		MCMSConfig:       &mcmsConfig,
+		MCMSConfig:       mcmsConfig,
 	})
 	if err != nil {
 		return fmt.Errorf("update-don-op failed: %w", err)
