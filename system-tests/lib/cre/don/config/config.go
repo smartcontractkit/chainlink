@@ -417,6 +417,20 @@ func addGatewayNodeConfig(
 		},
 	}
 
+	existingConfig.Capabilities = coretoml.Capabilities{
+		Peering: coretoml.P2P{
+			V2: coretoml.P2PV2{
+				Enabled: ptr.Ptr(false),
+			},
+		},
+		SharedPeering: coretoml.SharedPeering{
+			Enabled: ptr.Ptr(true),
+		},
+		Dispatcher: coretoml.Dispatcher{
+			SendToSharedPeer: ptr.Ptr(true),
+		},
+	}
+
 OUTER:
 	for _, evmChain := range commonInputs.evmChains {
 		// add only unconfigured chains, since other roles might have already added some chains
