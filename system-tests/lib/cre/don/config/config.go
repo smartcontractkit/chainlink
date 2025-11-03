@@ -36,6 +36,7 @@ import (
 	crecontracts "github.com/smartcontractkit/chainlink/system-tests/lib/cre/contracts"
 	creblockchains "github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/blockchains"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/blockchains/solana"
+	"github.com/smartcontractkit/chainlink/system-tests/lib/infra"
 )
 
 const TronEVMChainID = 3360022319
@@ -114,6 +115,7 @@ func PrepareNodeTOMLs(
 					GatewayConnectorOutput:  topology.GatewayConnectors,
 					NodeSet:                 localNodeSets[i],
 					CapabilityConfigs:       creEnv.CapabilityConfigs,
+					Provider:                creEnv.Provider,
 				},
 				configFactoryFunctions,
 			)
@@ -155,7 +157,7 @@ func generateNodeTomlConfig(input cre.GenerateConfigsInput, nodeConfigTransforme
 	}
 
 	for nodeIdx, nodeMetadata := range input.DonMetadata.NodesMetadata {
-		nodeConfig := baseNodeConfig()
+		nodeConfig := baseNodeConfig(commonInputs)
 		for _, role := range nodeMetadata.Roles {
 			switch role {
 			case cre.BootstrapNode:
@@ -209,8 +211,8 @@ func generateNodeTomlConfig(input cre.GenerateConfigsInput, nodeConfigTransforme
 	return configOverrides, nil
 }
 
-func baseNodeConfig() corechainlink.Config {
-	return corechainlink.Config{
+func baseNodeConfig(commonInputs *commonInputs) corechainlink.Config {
+	c := corechainlink.Config{
 		Core: coretoml.Core{
 			Feature: coretoml.Feature{
 				LogPoller: ptr.Ptr(true),
@@ -224,8 +226,22 @@ func baseNodeConfig() corechainlink.Config {
 				DatabaseTimeout:      commonconfig.MustNewDuration(1 * time.Second),
 				ContractPollInterval: commonconfig.MustNewDuration(1 * time.Second),
 			},
+			CRE: coretoml.CreConfig{
+				EnableDKGRecipient:   ptr.Ptr(true),
+				UseLocalTimeProvider: ptr.Ptr(false),
+			},
 		},
 	}
+
+	if commonInputs.provider.IsDocker() {
+		c.Telemetry = coretoml.Telemetry{
+			Enabled:            ptr.Ptr(true),
+			Endpoint:           ptr.Ptr("host.docker.internal:4317"),
+			InsecureConnection: ptr.Ptr(true),
+		}
+	}
+
+	return c
 }
 
 func addBootstrapNodeConfig(
@@ -246,11 +262,27 @@ func addBootstrapNodeConfig(
 		},
 	}
 
+	if commonInputs.provider.IsDocker() {
+		existingConfig.CRE.WorkflowFetcher = &coretoml.WorkflowFetcherConfig{
+			URL: ptr.Ptr("file:///home/chainlink/workflows"),
+		}
+
+		existingConfig.Telemetry.ChipIngressEndpoint = ptr.Ptr("chip-ingress:50051")
+		existingConfig.Telemetry.ChipIngressInsecureConnection = ptr.Ptr(true)
+		existingConfig.Telemetry.HeartbeatInterval = commonconfig.MustNewDuration(30 * time.Second)
+
+		existingConfig.Billing = coretoml.Billing{
+			URL:        ptr.Ptr("billing-platform-service:2223"),
+			TLSEnabled: ptr.Ptr(false),
+		}
+	}
+
 	existingConfig.Capabilities = coretoml.Capabilities{
 		Peering: coretoml.P2P{
 			V2: coretoml.P2PV2{
 				Enabled: ptr.Ptr(false),
 			},
+			EnableExperimentalRageP2P: ptr.Ptr(true),
 		},
 		SharedPeering: coretoml.SharedPeering{
 			Enabled: ptr.Ptr(true),
@@ -308,11 +340,27 @@ func addWorkerNodeConfig(
 		},
 	}
 
+	if commonInputs.provider.IsDocker() {
+		existingConfig.CRE.WorkflowFetcher = &coretoml.WorkflowFetcherConfig{
+			URL: ptr.Ptr("file:///home/chainlink/workflows"),
+		}
+
+		existingConfig.Telemetry.ChipIngressEndpoint = ptr.Ptr("chip-ingress:50051")
+		existingConfig.Telemetry.ChipIngressInsecureConnection = ptr.Ptr(true)
+		existingConfig.Telemetry.HeartbeatInterval = commonconfig.MustNewDuration(30 * time.Second)
+
+		existingConfig.Billing = coretoml.Billing{
+			URL:        ptr.Ptr("billing-platform-service:2223"),
+			TLSEnabled: ptr.Ptr(false),
+		}
+	}
+
 	existingConfig.Capabilities = coretoml.Capabilities{
 		Peering: coretoml.P2P{
 			V2: coretoml.P2PV2{
 				Enabled: ptr.Ptr(false),
 			},
+			EnableExperimentalRageP2P: ptr.Ptr(true),
 		},
 		SharedPeering: coretoml.SharedPeering{
 			Enabled: ptr.Ptr(true),
@@ -435,6 +483,8 @@ type commonInputs struct {
 
 	evmChains   []*evmChain
 	solanaChain *solanaChain
+
+	provider infra.Provider
 }
 
 func gatherCommonInputs(input cre.GenerateConfigsInput) (*commonInputs, error) {
@@ -474,6 +524,7 @@ func gatherCommonInputs(input cre.GenerateConfigsInput) (*commonInputs, error) {
 			address:     capabilitiesRegistryAddress,
 			versionType: capRegTypeVersion,
 		},
+		provider: input.Provider,
 	}, nil
 }
 

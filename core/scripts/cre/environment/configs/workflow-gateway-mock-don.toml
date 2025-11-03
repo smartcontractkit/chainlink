@@ -61,13 +61,7 @@ port = 8666
 
         [nodesets.node_specs.node]
         image = "localhost:5001/chainlink-plugins:latest"
-        user_config_overrides = """
-            [Log]
-            Level = 'info'
-            JSONConsole = true
-            [WebServer.TLS]
-            HTTPSPort=0
-            """
+        user_config_overrides = ""
 
 [[nodesets]]
     nodes = 3
@@ -91,13 +85,7 @@ port = 8666
 
         [nodesets.node_specs.node]
             image = "localhost:5001/chainlink-plugins:latest"
-            user_config_overrides = """
-                [Log]
-                Level = 'info'
-                JSONConsole = true
-                [WebServer.TLS]
-                HTTPSPort=0
-                """
+            user_config_overrides = ""
 
 [[nodesets]]
     nodes = 1
@@ -119,15 +107,4 @@ port = 8666
         [nodesets.node_specs.node]
         image = "localhost:5001/chainlink-plugins:latest"
         custom_ports = ["5002:5002"]
-        user_config_overrides = """
-            [Log]
-            Level = 'debug'
-            JSONConsole = true
-
-            [Telemetry]
-            Enabled = true
-            Endpoint = 'host.docker.internal:4317'
-            ChipIngressEndpoint = 'chip-ingress:50051'
-            InsecureConnection = true
-            TraceSampleRatio = 1
-            """
+        user_config_overrides = ""

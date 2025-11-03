@@ -409,6 +409,7 @@ type GenerateConfigsInput struct {
 	NodeSet                 *NodeSet
 	CapabilityConfigs       CapabilityConfigs
 	GatewayConnectorOutput  *GatewayConnectors // optional, automatically set if some DON in the topology has the GatewayDON flag
+	Provider                infra.Provider
 }
 
 func (g *GenerateConfigsInput) Validate() error {
