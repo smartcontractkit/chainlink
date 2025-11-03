@@ -10,45 +10,41 @@ import (
 	"testing"
 	"time"
 
-	"github.com/stretchr/testify/require"
-
 	"github.com/block-vision/sui-go-sdk/models"
 	"github.com/block-vision/sui-go-sdk/sui"
 	suitx "github.com/block-vision/sui-go-sdk/transaction"
+	"github.com/stretchr/testify/require"
+
+	chainsel "github.com/smartcontractkit/chain-selectors"
 
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_5_1/burn_mint_token_pool"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_3/message_hasher"
-
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
-
+	cldf_sui "github.com/smartcontractkit/chainlink-deployments-framework/chain/sui"
+	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/shared/generated/initial/burn_mint_erc677"
-
 	suiBind "github.com/smartcontractkit/chainlink-sui/bindings/bind"
 	sui_cs "github.com/smartcontractkit/chainlink-sui/deployment/changesets"
 	sui_ops "github.com/smartcontractkit/chainlink-sui/deployment/ops"
 	ccipops "github.com/smartcontractkit/chainlink-sui/deployment/ops/ccip"
 	burnminttokenpoolops "github.com/smartcontractkit/chainlink-sui/deployment/ops/ccip_burn_mint_token_pool"
 	suiofframp_helper "github.com/smartcontractkit/chainlink-sui/relayer/chainwriter/ptb/offramp"
-
 	suideps "github.com/smartcontractkit/chainlink/deployment/ccip/changeset/sui"
 	ccipclient "github.com/smartcontractkit/chainlink/deployment/ccip/shared/client"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
 	commoncs "github.com/smartcontractkit/chainlink/deployment/common/changeset"
-
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/ccipevm"
-
-	cldf_sui "github.com/smartcontractkit/chainlink-deployments-framework/chain/sui"
-	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
-	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
 )
 
 type SuiSendRequest struct {
-	Receiver      []byte
-	Data          []byte
-	ExtraArgs     []byte
-	FeeToken      string
-	FeeTokenStore string
-	TokenAmounts  []SuiTokenAmount
+	Receiver         []byte
+	Data             []byte
+	ExtraArgs        []byte
+	FeeToken         string
+	FeeTokenStore    string
+	TokenAmounts     []SuiTokenAmount
+	TokenReceiverATA []byte
 }
 
 type SuiTokenAmount struct {
@@ -118,7 +114,7 @@ func SendSuiCCIPRequest(e cldf.Environment, cfg *ccipclient.CCIPSendReqConfig) (
 	linkTokenObjectMetadataID := state.SuiChains[cfg.SourceChain].LinkTokenCoinMetadataId
 	ccipOwnerCapID := state.SuiChains[cfg.SourceChain].CCIPOwnerCapObjectId
 
-	bigIntSourceUsdPerToken, parsed := new(big.Int).SetString("21377040000000000000000000000", 10) // 1e27 since sui is 1e9
+	bigIntSourceUsdPerToken, parsed := new(big.Int).SetString("15377040000000000000000000000", 10) // 1e27 since sui is 1e9
 	if !parsed {
 		return &ccipclient.AnyMsgSentEvent{}, errors.New("failed converting SourceUSDPerToken to bigInt")
 	}
@@ -228,14 +224,22 @@ func SendSuiCCIPRequest(e cldf.Environment, cfg *ccipclient.CCIPSendReqConfig) (
 			"vector<u8>",
 		}
 
-		// For SUI -> EVM BurnMint Pool token Transfer, we can use msg.Receiver as tokenReceiver, this field is only used in usdc token pool
-		// bc we need to check the recipient with Circle's packages from the onramp side before sending USDC. and it's not used anyway else.
-		decodedTokenReceiver, _ := hex.DecodeString("0000000000000000000000000000000000000000000000000000000000000000")
-		var tokenReceiver [32]byte
-		copy(tokenReceiver[:], decodedTokenReceiver)
-
-		paramValues := []any{
-			decodedTokenReceiver,
+		var paramValues []any
+		destFamily, err := chainsel.GetSelectorFamily(cfg.DestChain)
+		if err != nil {
+			return nil, errors.New("failed to get selector family for destination chain: " + err.Error())
+		}
+		switch destFamily {
+		case chainsel.FamilyEVM, chainsel.FamilyAptos:
+			paramValues = []any{
+				msg.Receiver,
+			}
+		case chainsel.FamilySui, chainsel.FamilySolana:
+			paramValues = []any{
+				msg.TokenReceiverATA,
+			}
+		default:
+			return nil, errors.New("unsupported destination chain family: " + destFamily)
 		}
 
 		onRampCreateTokenTransferParamsCall, err := ccipStateHelperContract.EncodeCallArgsWithGenerics(
