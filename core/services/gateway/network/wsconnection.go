@@ -153,30 +153,51 @@ func (c *wsConnectionWrapper) writePump() {
 			// synchronization is a tradeoff for the ability to use a single write channel
 			conn := c.conn.Load()
 			if conn == nil {
+				c.lggr.Debug("writePump: no active connection")
 				wsMsg.ErrCh <- ErrNoActiveConnection
 				close(wsMsg.ErrCh)
 				break
 			}
-			wsMsg.ErrCh <- conn.WriteMessage(wsMsg.MsgType, wsMsg.Data)
+			err := conn.WriteMessage(wsMsg.MsgType, wsMsg.Data)
+			if err != nil {
+				c.lggr.Errorw("writePump: failed to write message", "msgType", wsMsg.MsgType, "dataLen", len(wsMsg.Data), "error", err)
+			} else {
+				c.lggr.Debugw("writePump: message written successfully", "msgType", wsMsg.MsgType, "dataLen", len(wsMsg.Data))
+			}
+			wsMsg.ErrCh <- err
 			close(wsMsg.ErrCh)
 		case <-c.shutdownCh:
+			c.lggr.Debug("writePump: shutting down")
 			return
 		}
 	}
 }
 
 func (c *wsConnectionWrapper) readPump(conn *websocket.Conn, closeCh chan<- error) {
+	c.lggr.Debug("readPump: started")
 	for {
 		msgType, data, err := conn.ReadMessage()
 		if err != nil {
-			closeCh <- conn.Close()
+			c.lggr.Errorw("readPump: failed to read message, closing connection", "error", err)
+			closeErr := conn.Close()
+			if closeErr != nil {
+				c.lggr.Errorw("readPump: error closing connection", "error", closeErr)
+			}
+			closeCh <- closeErr
 			close(closeCh)
 			return
 		}
+		c.lggr.Debugw("readPump: message received", "msgType", msgType, "dataLen", len(data))
 		select {
 		case c.readCh <- ReadItem{msgType, data}:
+			c.lggr.Debug("readPump: message pushed to read channel")
 		case <-c.shutdownCh:
-			closeCh <- conn.Close()
+			c.lggr.Debug("readPump: shutting down")
+			closeErr := conn.Close()
+			if closeErr != nil {
+				c.lggr.Errorw("readPump: error closing connection during shutdown", "error", closeErr)
+			}
+			closeCh <- closeErr
 			close(closeCh)
 			return
 		}
