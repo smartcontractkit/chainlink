@@ -854,6 +854,16 @@ HeartbeatInterval = '1s' # Default
 LogLevel = "info" # Default
 # LogStreamingEnabled enables log streaming to the OTel log exporter
 LogStreamingEnabled = false # Default
+# LogBatchProcessor enables batching for telemetry logs
+LogBatchProcessor = true # Default
+# LogExportTimeout sets timeout for exporting telemetry logs
+LogExportTimeout = '1s' # Default
+# LogExportMaxBatchSize sets the maximum batch size of every batch export
+LogExportMaxBatchSize = 512 # Default
+# LogExportInterval sets the maximum duration between batched exports
+LogExportInterval = '1s' # Default
+# LogMaxQueueSize sets the maximum queue size used by the batcher
+LogMaxQueueSize = 2048 # Default
 
 # ResourceAttributes are global metadata to include with all telemetry.
 [Telemetry.ResourceAttributes]

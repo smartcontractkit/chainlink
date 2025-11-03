@@ -118,11 +118,10 @@ func setProfile(profile string, settings Settings) (Profiles, error) {
 func PrepareCRECLISettingsFile(
 	profile string,
 	workflowOwner common.Address,
-	// addressBook cldf.AddressBook,
 	datastore datastore.DataStore,
 	contractVersions map[string]string,
 	donID uint64,
-	homeChainSelector uint64,
+	registryChainSelector uint64,
 	rpcs map[uint64]string,
 	s3ProviderOutput *s3provider.Output,
 ) (*os.File, error) {
@@ -131,8 +130,8 @@ func PrepareCRECLISettingsFile(
 		return nil, errors.Wrap(err, "failed to create CRE CLI settings file")
 	}
 
-	capabilitiesRegistryAddress := contracts.MustGetAddressFromDataStore(datastore, homeChainSelector, keystone_changeset.CapabilitiesRegistry.String(), contractVersions[keystone_changeset.CapabilitiesRegistry.String()], "")
-	workflowRegistryAddress := contracts.MustGetAddressFromDataStore(datastore, homeChainSelector, keystone_changeset.WorkflowRegistry.String(), contractVersions[keystone_changeset.WorkflowRegistry.String()], "")
+	capabilitiesRegistryAddress := contracts.MustGetAddressFromDataStore(datastore, registryChainSelector, keystone_changeset.CapabilitiesRegistry.String(), contractVersions[keystone_changeset.CapabilitiesRegistry.String()], "")
+	workflowRegistryAddress := contracts.MustGetAddressFromDataStore(datastore, registryChainSelector, keystone_changeset.WorkflowRegistry.String(), contractVersions[keystone_changeset.WorkflowRegistry.String()], "")
 
 	profileSettings := Settings{
 		DevPlatform: DevPlatform{
@@ -150,12 +149,12 @@ func PrepareCRECLISettingsFile(
 				{
 					Name:          keystone_changeset.CapabilitiesRegistry.String(),
 					Address:       capabilitiesRegistryAddress,
-					ChainSelector: homeChainSelector,
+					ChainSelector: registryChainSelector,
 				},
 				{
 					Name:          keystone_changeset.WorkflowRegistry.String(),
 					Address:       workflowRegistryAddress,
-					ChainSelector: homeChainSelector,
+					ChainSelector: registryChainSelector,
 				},
 			},
 		},

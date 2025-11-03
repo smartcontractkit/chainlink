@@ -344,9 +344,9 @@ func startCmd() *cobra.Command {
 				return errors.Wrap(startErr, "failed to start environment")
 			}
 
-			homeChainOut := output.CreEnvironment.Blockchains[0]
+			registryChainOut := output.CreEnvironment.Blockchains[0]
 
-			sErr := StartCmdGenerateSettingsFile(homeChainOut, output)
+			sErr := StartCmdGenerateSettingsFile(registryChainOut, output)
 			if sErr != nil {
 				fmt.Fprintf(os.Stderr, "failed to create CRE CLI settings file: %s. You need to create it manually.", sErr)
 			}
@@ -452,7 +452,7 @@ func startCmd() *cobra.Command {
 				if wErr != nil {
 					return errors.Wrap(wErr, "failed to get workflow DON")
 				}
-				deployErr := deployAndVerifyExampleWorkflow(cmdContext, homeChainOut.CtfOutput().Nodes[0].ExternalHTTPUrl, gatewayURL, workflowDON.Name, workflowDonID, exampleWorkflowTimeout, exampleWorkflowTrigger, workflowRegistryAddress)
+				deployErr := deployAndVerifyExampleWorkflow(cmdContext, registryChainOut.CtfOutput().Nodes[0].ExternalHTTPUrl, gatewayURL, workflowDON.Name, workflowDonID, exampleWorkflowTimeout, exampleWorkflowTrigger, workflowRegistryAddress)
 				if deployErr != nil {
 					fmt.Printf("Failed to deploy and verify example workflow: %s\n", deployErr)
 				}

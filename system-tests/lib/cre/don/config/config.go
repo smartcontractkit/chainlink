@@ -108,7 +108,7 @@ func PrepareNodeTOMLs(
 					Flags:                   donMetadata.Flags,
 					CapabilitiesPeeringData: capabilitiesPeeringData,
 					OCRPeeringData:          ocrPeeringData,
-					HomeChainSelector:       creEnv.RegistryChainSelector,
+					RegistryChainSelector:   creEnv.RegistryChainSelector,
 					GatewayConnectorOutput:  topology.GatewayConnectors,
 					NodeSet:                 localNodeSets[i],
 					CapabilityConfigs:       creEnv.CapabilityConfigs,
@@ -436,7 +436,7 @@ type commonInputs struct {
 }
 
 func gatherCommonInputs(input cre.GenerateConfigsInput) (*commonInputs, error) {
-	registryChainID, homeErr := chain_selectors.ChainIdFromSelector(input.HomeChainSelector)
+	registryChainID, homeErr := chain_selectors.ChainIdFromSelector(input.RegistryChainSelector)
 	if homeErr != nil {
 		return nil, errors.Wrap(homeErr, "failed to get home chain ID")
 	}
@@ -447,12 +447,12 @@ func gatherCommonInputs(input cre.GenerateConfigsInput) (*commonInputs, error) {
 		return nil, errors.Wrap(solErr, "failed to find Solana chain in the environment configuration")
 	}
 
-	capabilitiesRegistryAddress := crecontracts.MustGetAddressFromDataStore(input.Datastore, input.HomeChainSelector, keystone_changeset.CapabilitiesRegistry.String(), input.ContractVersions[keystone_changeset.CapabilitiesRegistry.String()], "")
-	workflowRegistryAddress := crecontracts.MustGetAddressFromDataStore(input.Datastore, input.HomeChainSelector, keystone_changeset.WorkflowRegistry.String(), input.ContractVersions[keystone_changeset.WorkflowRegistry.String()], "")
+	capabilitiesRegistryAddress := crecontracts.MustGetAddressFromDataStore(input.Datastore, input.RegistryChainSelector, keystone_changeset.CapabilitiesRegistry.String(), input.ContractVersions[keystone_changeset.CapabilitiesRegistry.String()], "")
+	workflowRegistryAddress := crecontracts.MustGetAddressFromDataStore(input.Datastore, input.RegistryChainSelector, keystone_changeset.WorkflowRegistry.String(), input.ContractVersions[keystone_changeset.WorkflowRegistry.String()], "")
 
 	return &commonInputs{
 		registryChainID:       registryChainID,
-		registryChainSelector: input.HomeChainSelector,
+		registryChainSelector: input.RegistryChainSelector,
 		workflowRegistry: addressTypeVersion{
 			address: workflowRegistryAddress,
 			version: input.ContractVersions[keystone_changeset.WorkflowRegistry.String()],

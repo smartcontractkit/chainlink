@@ -396,14 +396,25 @@ func AddTokenPoolAndLookupTable(e cldf.Environment, cfg AddTokenPoolAndLookupTab
 		if err != nil {
 			return cldf.ChangesetOutput{}, fmt.Errorf("failed to build proposal: %w", err)
 		}
+		ds, err := shared.PopulateDataStore(addressBook)
+		if err != nil {
+			return cldf.ChangesetOutput{}, fmt.Errorf("failed to populate in-memory DataStore: %w", err)
+		}
 		return cldf.ChangesetOutput{
 			AddressBook:           addressBook,
+			DataStore:             ds,
 			MCMSTimelockProposals: []mcms.TimelockProposal{*proposal},
 		}, nil
 	}
 
+	ds, err := shared.PopulateDataStore(addressBook)
+	if err != nil {
+		return cldf.ChangesetOutput{}, fmt.Errorf("failed to populate in-memory DataStore: %w", err)
+	}
+
 	return cldf.ChangesetOutput{
 		AddressBook: addressBook,
+		DataStore:   ds,
 	}, nil
 }
 
@@ -1743,8 +1754,14 @@ func AddTokenPoolLookupTable(e cldf.Environment, cfg TokenPoolLookupTableConfig)
 	}
 	e.Logger.Infow("Added token pool lookup table", "token_pubkey", tokenPubKey.String())
 
+	ds, err := shared.PopulateDataStore(newAddressBook)
+	if err != nil {
+		return cldf.ChangesetOutput{}, fmt.Errorf("failed to populate in-memory DataStore: %w", err)
+	}
+
 	return cldf.ChangesetOutput{
 		AddressBook: newAddressBook,
+		DataStore:   ds,
 	}, nil
 }
 

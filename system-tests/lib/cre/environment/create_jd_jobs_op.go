@@ -14,14 +14,14 @@ import (
 )
 
 type CreateJobsWithJdOpDeps struct {
-	Logger                    zerolog.Logger
-	SingleFileLogger          common.Logger
-	HomeChainBlockchainOutput *blockchain.Output
-	JobSpecFactoryFunctions   []cre.JobSpecFn
-	CreEnvironment            *cre.Environment
-	Dons                      *cre.Dons
-	NodeSets                  []*cre.NodeSet
-	Capabilities              []cre.InstallableCapability
+	Logger                        zerolog.Logger
+	SingleFileLogger              common.Logger
+	RegistryChainBlockchainOutput *blockchain.Output
+	JobSpecFactoryFunctions       []cre.JobSpecFn
+	CreEnvironment                *cre.Environment
+	Dons                          *cre.Dons
+	NodeSets                      []*cre.NodeSet
+	Capabilities                  []cre.InstallableCapability
 }
 
 type CreateJobsWithJdOpInput struct {

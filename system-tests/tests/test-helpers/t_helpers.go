@@ -599,7 +599,7 @@ func CompileAndDeployWorkflow[T WorkflowConfig](t *testing.T,
 	t.Helper()
 
 	testLogger.Info().Msgf("compiling and registering workflow '%s'", workflowName)
-	homeChainSelector := testEnv.CreEnvironment.Blockchains[0].ChainSelector()
+	registryChainSelector := testEnv.CreEnvironment.Blockchains[0].ChainSelector()
 
 	workflowDOName := ""
 	for _, don := range testEnv.Dons.List() {
@@ -620,7 +620,7 @@ func CompileAndDeployWorkflow[T WorkflowConfig](t *testing.T,
 		CompressedWasmPath:      compressedWorkflowWasmPath,
 		WorkflowRegistryAddr:    common.HexToAddress(workflowRegistryAddress.Address),
 		WorkflowRegistryVersion: workflowRegistryAddress.Version,
-		ChainID:                 homeChainSelector,
+		ChainID:                 registryChainSelector,
 		DonID:                   testEnv.Dons.List()[0].ID,
 		ContainerTargetDir:      creworkflow.DefaultWorkflowTargetDir,
 		Blockchains:             testEnv.CreEnvironment.Blockchains,

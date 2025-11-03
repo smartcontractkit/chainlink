@@ -51,9 +51,14 @@ func DeployChainContractsChangeset(env cldf.Environment, c ccipseq.DeployChainCo
 			}
 		}
 	}
+	ds, err := shared.PopulateDataStore(addressBook)
+	if err != nil {
+		return cldf.ChangesetOutput{}, fmt.Errorf("failed to populate in-memory DataStore: %w", err)
+	}
 	return cldf.ChangesetOutput{
 		Reports:     report.ExecutionReports,
 		AddressBook: addressBook,
+		DataStore:   ds,
 	}, nil
 }
 

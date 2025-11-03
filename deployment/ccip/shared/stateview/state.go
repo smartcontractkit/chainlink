@@ -21,8 +21,8 @@ import (
 
 	solOffRamp "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/v0_1_1/ccip_offramp"
 	solState "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/state"
+	"github.com/smartcontractkit/chainlink-evm/gethwrappers/shared/generated/1_5_0/burn_mint_erc20_with_drip"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/shared/generated/initial/burn_mint_erc20"
-	"github.com/smartcontractkit/chainlink-evm/gethwrappers/shared/generated/initial/burn_mint_erc20_with_drip"
 	"github.com/smartcontractkit/chainlink-ton/pkg/ccip/codec"
 
 	cldf_evm "github.com/smartcontractkit/chainlink-deployments-framework/chain/evm"
@@ -1417,20 +1417,20 @@ func LoadChainState(ctx context.Context, chain cldf_evm.Chain, addresses map[str
 			state.DonIDClaimer = donIDClaimer
 			state.ABIByAddress[address] = don_id_claimer.DonIDClaimerABI
 		case cldf.NewTypeAndVersion(ccipshared.ERC677TokenHelper, deployment.Version1_0_0).String():
-			ERC677HelperToken, err := burn_mint_erc20_with_drip.NewBurnMintERC20(common.HexToAddress(address), chain.Client)
+			ERC677HelperToken, err := burn_mint_erc20_with_drip.NewBurnMintERC20WithDrip(common.HexToAddress(address), chain.Client)
 			if err != nil {
 				return state, err
 			}
 
 			if state.BurnMintERC20WithDrip == nil {
-				state.BurnMintERC20WithDrip = make(map[ccipshared.TokenSymbol]*burn_mint_erc20_with_drip.BurnMintERC20)
+				state.BurnMintERC20WithDrip = make(map[ccipshared.TokenSymbol]*burn_mint_erc20_with_drip.BurnMintERC20WithDrip)
 			}
 			symbol, err := ERC677HelperToken.Symbol(nil)
 			if err != nil {
 				return state, fmt.Errorf("failed to get token symbol of token at %s: %w", address, err)
 			}
 			state.BurnMintERC20WithDrip[ccipshared.TokenSymbol(symbol)] = ERC677HelperToken
-			state.ABIByAddress[address] = burn_mint_erc20_with_drip.BurnMintERC20ABI
+			state.ABIByAddress[address] = burn_mint_erc20_with_drip.BurnMintERC20WithDripABI
 		case cldf.NewTypeAndVersion(ccipshared.BurnMintWithExternalMinterTokenPool, deployment.Version1_6_0).String():
 			addr := common.HexToAddress(address)
 			pool, metadata, err := ccipshared.NewTokenPoolWithMetadata(ctx, burn_mint_with_external_minter_token_pool.NewBurnMintWithExternalMinterTokenPool, addr, chain.Client)
