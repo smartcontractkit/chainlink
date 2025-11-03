@@ -9,7 +9,7 @@ import (
 	"github.com/Masterminds/semver/v3"
 	"github.com/ethereum/go-ethereum/common"
 
-	"github.com/smartcontractkit/mcms"
+	mcmslib "github.com/smartcontractkit/mcms"
 	"github.com/smartcontractkit/mcms/sdk"
 
 	mcmstypes "github.com/smartcontractkit/mcms/types"
@@ -21,6 +21,7 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 	"github.com/smartcontractkit/chainlink/deployment/cre/contracts"
+	"github.com/smartcontractkit/chainlink/deployment/cre/mcms"
 	"github.com/smartcontractkit/chainlink/deployment/cre/ocr3"
 )
 
@@ -38,7 +39,7 @@ type ConfigureOCR3_1Input struct {
 
 	ReportingPluginConfigOverride []byte
 
-	MCMSConfig *ocr3.MCMSConfig
+	MCMSConfig *mcms.Config
 }
 
 func (i ConfigureOCR3_1Input) UseMCMS() bool {
@@ -46,7 +47,7 @@ func (i ConfigureOCR3_1Input) UseMCMS() bool {
 }
 
 type ConfigureOCR3_1OpOutput struct {
-	MCMSTimelockProposals []mcms.TimelockProposal
+	MCMSTimelockProposals []mcmslib.TimelockProposal
 }
 
 var ConfigureOCR3_1 = operations.NewOperation[ConfigureOCR3_1Input, ConfigureOCR3_1OpOutput, ConfigureOCR3_1Deps](
