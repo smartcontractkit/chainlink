@@ -964,7 +964,7 @@ Here's how to add a new capabilities DON to your configuration:
 
   # Node specifications
   [[nodesets.node_specs]]
-    roles = ["bootstrap"]         # explictly indicate the roles for each node, i.e. plugin, bootstrap or gateway
+    roles = ["bootstrap"]         # explicitly indicate the roles for each node, i.e. plugin, bootstrap or gateway
     [nodesets.node_specs.node]
       docker_ctx = "../../../.."
       docker_file = "core/chainlink.Dockerfile"
