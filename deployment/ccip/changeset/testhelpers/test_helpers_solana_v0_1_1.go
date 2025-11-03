@@ -15,8 +15,9 @@ import (
 	"github.com/gagliardetto/solana-go"
 	addresslookuptable "github.com/gagliardetto/solana-go/programs/address-lookup-table"
 	"github.com/gagliardetto/solana-go/rpc"
-	tonOps "github.com/smartcontractkit/chainlink-ton/deployment/ccip"
 	"github.com/stretchr/testify/require"
+
+	tonOps "github.com/smartcontractkit/chainlink-ton/deployment/ccip"
 
 	chainsel "github.com/smartcontractkit/chain-selectors"
 
