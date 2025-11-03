@@ -6,6 +6,8 @@ import (
 
 	"github.com/stretchr/testify/require"
 
+	"github.com/smartcontractkit/quarantine"
+
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/blockchains"
 	t_helpers "github.com/smartcontractkit/chainlink/system-tests/tests/test-helpers"
 )
@@ -144,6 +146,7 @@ func Test_CRE_V2_Suite(t *testing.T) {
 }
 
 func Test_CRE_V2_EVM_Suite(t *testing.T) {
+	quarantine.Flaky(t, "DX-2277")
 	topology := os.Getenv("TOPOLOGY_NAME")
 	testEnv := t_helpers.SetupTestEnvironmentWithConfig(t, t_helpers.GetDefaultTestConfig(t), v2RegistriesFlags...)
 	// TODO: remove this when OCR works properly with multiple chains in Local CRE
