@@ -151,16 +151,11 @@ Sui-specific configuration (nested under TestnetConfig):
 ### NumDestinationChains
 Must match the number of RPCs in `chain-details.json`.
 
-### ChaosMode
-- `0`: No chaos
-- `1`: RPC latency (uses `RPCLatency` and `RPCJitter`)
-- `2`: Full chaos suite (requires `[CCIP.Chaos]` configuration)
-
 ## Running the Test
 
 ```bash
 cd integration-tests/load/ccip
-go test -run ^TestCCIPLoad_RPS$ -v -timeout 0
+go test -run ^TestCCIPLoad_RPS_Staging$ -v -timeout 0
 ```
 
 ## Test Flow
