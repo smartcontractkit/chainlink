@@ -114,7 +114,7 @@ func SendSuiCCIPRequest(e cldf.Environment, cfg *ccipclient.CCIPSendReqConfig) (
 	linkTokenObjectMetadataID := state.SuiChains[cfg.SourceChain].LinkTokenCoinMetadataId
 	ccipOwnerCapID := state.SuiChains[cfg.SourceChain].CCIPOwnerCapObjectId
 
-	bigIntSourceUsdPerToken, parsed := new(big.Int).SetString("21377040000000000000000000000", 10) // 1e27 since sui is 1e9
+	bigIntSourceUsdPerToken, parsed := new(big.Int).SetString("15377040000000000000000000000", 10) // 1e27 since sui is 1e9
 	if !parsed {
 		return &ccipclient.AnyMsgSentEvent{}, errors.New("failed converting SourceUSDPerToken to bigInt")
 	}
