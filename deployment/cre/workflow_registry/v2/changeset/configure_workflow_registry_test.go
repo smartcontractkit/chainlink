@@ -7,7 +7,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/stretchr/testify/require"
 
-	"github.com/smartcontractkit/chainlink/deployment/cre/ocr3"
+	"github.com/smartcontractkit/chainlink/deployment/cre/mcms"
 )
 
 func TestSetConfig(t *testing.T) {
@@ -44,7 +44,7 @@ func TestSetConfig(t *testing.T) {
 			URLLen:                    128,
 			AttrLen:                   256,
 			ExpiryLen:                 604800,
-			MCMSConfig: &ocr3.MCMSConfig{
+			MCMSConfig: &mcms.Config{
 				MinDuration: 30 * time.Second,
 			},
 		})
@@ -90,7 +90,7 @@ func TestUpdateAllowedSigners(t *testing.T) {
 				common.HexToAddress("0x1234567890123456789012345678901234567890"),
 			},
 			Allowed: true,
-			MCMSConfig: &ocr3.MCMSConfig{
+			MCMSConfig: &mcms.Config{
 				MinDuration: 30 * time.Second,
 			},
 		})
@@ -131,7 +131,7 @@ func TestSetWorkflowOwnerConfig(t *testing.T) {
 			WorkflowRegistryQualifier: fixture.workflowRegistryQualifier,
 			Owner:                     common.HexToAddress("0x1234567890123456789012345678901234567890"),
 			Config:                    []byte("test config data"),
-			MCMSConfig: &ocr3.MCMSConfig{
+			MCMSConfig: &mcms.Config{
 				MinDuration: 30 * time.Second,
 			},
 		})
@@ -174,7 +174,7 @@ func TestSetDONLimit(t *testing.T) {
 			DONFamily:                 "test-don-family",
 			DONLimit:                  10,
 			UserDefaultLimit:          5,
-			MCMSConfig: &ocr3.MCMSConfig{
+			MCMSConfig: &mcms.Config{
 				MinDuration: 30 * time.Second,
 			},
 		})
@@ -241,7 +241,7 @@ func TestSetUserDONOverride(t *testing.T) {
 			DONFamily:                 "test-don-family",
 			Limit:                     5,
 			Enabled:                   true,
-			MCMSConfig: &ocr3.MCMSConfig{
+			MCMSConfig: &mcms.Config{
 				MinDuration: 30 * time.Second,
 			},
 		})
@@ -312,7 +312,7 @@ func TestSetCapabilitiesRegistry(t *testing.T) {
 			WorkflowRegistryQualifier: fixture.workflowRegistryQualifier,
 			Registry:                  donRegistryAddress,
 			ChainSelectorDON:          donChainSelector,
-			MCMSConfig: &ocr3.MCMSConfig{
+			MCMSConfig: &mcms.Config{
 				MinDuration: 30 * time.Second,
 			},
 		})
