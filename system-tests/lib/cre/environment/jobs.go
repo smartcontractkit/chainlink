@@ -43,12 +43,6 @@ func StartJD(ctx context.Context, lggr zerolog.Logger, jdInput jd.Input, infraIn
 		}
 	}
 
-	// if os.Getenv("CI") == "true" {
-	// 	jdImage := ctfconfig.MustReadEnvVar_String(E2eJobDistributorImageEnvVarName)
-	// 	jdVersion := os.Getenv(E2eJobDistributorVersionEnvVarName)
-	// 	jdInput.Image = fmt.Sprintf("%s:%s", jdImage, jdVersion)
-	// }
-
 	jdOutput, jdErr := jd.NewWithContext(ctx, &jdInput)
 	if jdErr != nil {
 		jdErr = fmt.Errorf("failed to start JD container for image %s: %w", jdInput.Image, jdErr)

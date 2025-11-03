@@ -42,12 +42,6 @@ import (
 	"github.com/smartcontractkit/chainlink/system-tests/lib/worker"
 )
 
-const (
-	GithubReadTokenEnvVarName = "GITHUB_READ_TOKEN"
-	// E2eJobDistributorImageEnvVarName   = "E2E_JD_IMAGE"
-	// E2eJobDistributorVersionEnvVarName = "E2E_JD_VERSION"
-)
-
 type SetupOutput struct {
 	WorkflowRegistryConfigurationOutput *cre.WorkflowRegistryOutput
 	CreEnvironment                      *cre.Environment
@@ -114,7 +108,7 @@ func SetupTestEnvironment(
 		return nil, pkgerrors.New("input is nil")
 	}
 
-	//TODO: remove in December 2025
+	//TODO: remove these checks in December 2025, when everyone has migrated
 	if val := os.Getenv("E2E_JD_IMAGE"); val != "" {
 		return nil, errors.New("E2E_JD_IMAGE and E2E_JD_VERSION are deprecated, please use CTF_JD_IMAGE instead to specify the Job Distributor image with tag")
 	}
