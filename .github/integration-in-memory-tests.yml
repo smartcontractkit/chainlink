@@ -793,7 +793,7 @@ runner-test-matrix:
   - id: smoke/ccip/ccip_sui_messaging_test.go:Test_CCIP_Messaging_EVM2Sui
     path: integration-tests/smoke/ccip/ccip_sui_messaging_test.go
     test_env_type: in-memory
-    runs_on: ubuntu-latest
+    runs_on: ubuntu24.04-8cores-32GB
     triggers:
       - PR Integration CCIP Tests
       - Nightly Integration CCIP Tests
