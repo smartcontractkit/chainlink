@@ -1,33 +1,45 @@
 package ccip
 
 import (
+	"context"
 	"crypto/ecdsa"
+	"encoding/hex"
+	"math/big"
+	"os"
 	"strings"
 	"sync"
 	"testing"
 	"time"
 
+	// Third-party imports
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
+	"github.com/gagliardetto/solana-go"
+	solrpc "github.com/gagliardetto/solana-go/rpc"
 	"github.com/stretchr/testify/require"
+	"golang.org/x/sync/errgroup"
 
-	chain_selectors "github.com/smartcontractkit/chain-selectors"
-
+	"github.com/jmoiron/sqlx"
+	_ "github.com/lib/pq" // PostgreSQL driver
+	pkgtypes "github.com/smartcontractkit/chainlink-common/pkg/types"
 	cldf_chain "github.com/smartcontractkit/chainlink-deployments-framework/chain"
-
-	"github.com/smartcontractkit/chainlink-testing-framework/wasp"
-
+	cldf_sui "github.com/smartcontractkit/chainlink-deployments-framework/chain/sui"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
-	"github.com/smartcontractkit/chainlink/deployment/environment/crib"
-	tc "github.com/smartcontractkit/chainlink/integration-tests/testconfig"
+
+	selectors "github.com/smartcontractkit/chain-selectors"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
+	"github.com/smartcontractkit/chainlink-testing-framework/wasp"
+
+	sui_deployment "github.com/smartcontractkit/chainlink-sui/deployment"
+	"github.com/smartcontractkit/chainlink/deployment/environment/crib"
+	tc "github.com/smartcontractkit/chainlink/integration-tests/testconfig"
+	"github.com/smartcontractkit/chainlink/integration-tests/testconfig/ccip"
 )
 
-func TestStaging_CCIP_Load(t *testing.T) {
+func TestCCIPLoad_RPS_Staging(t *testing.T) {
 	lggr := logger.Test(t)
-
 	// get user defined configurations
 	config, err := tc.GetConfig([]string{"Load"}, tc.CCIP)
 	require.NoError(t, err)
@@ -48,63 +60,450 @@ func TestStaging_CCIP_Load(t *testing.T) {
 		AptosKey: *config.CCIP.Load.TestnetConfig.AptosPrivateKey,
 		SuiKey:   suiTestKey,
 	})
+
 	require.NoError(t, err)
 	env, err := crib.NewDeployEnvironmentFromCribOutput(lggr, cribDeployOutput)
 	require.NoError(t, err)
 	require.NotNil(t, env)
 	userOverrides.Validate(t, env)
+
+	ctx := env.GetContext()
+	ctx, cancel := context.WithCancel(ctx)
+	defer cancel()
+
+	destinationChains := env.BlockChains.ListChainSelectors()[:*userOverrides.NumDestinationChains]
+	evmChains := env.BlockChains.ListChainSelectors(cldf_chain.WithFamily(selectors.FamilyEVM))
+	solChains := env.BlockChains.ListChainSelectors(cldf_chain.WithFamily(selectors.FamilySolana))
+	suiChains := env.BlockChains.ListChainSelectors(cldf_chain.WithFamily(selectors.FamilySui))
+
+	// initialize the block time for each chain
+	blockTimes := make(map[uint64]uint64)
+	for _, cs := range evmChains {
+		// Get the first block
+		block1, err := env.BlockChains.EVMChains()[cs].Client.HeaderByNumber(context.Background(), big.NewInt(1))
+		require.NoError(t, err)
+		time1 := time.Unix(int64(block1.Time), 0) //nolint:gosec // G115
+
+		// Get the second block
+		block2, err := env.BlockChains.EVMChains()[cs].Client.HeaderByNumber(context.Background(), big.NewInt(2))
+		require.NoError(t, err)
+		time2 := time.Unix(int64(block2.Time), 0) //nolint:gosec // G115
+
+		blockTimeDiff := int64(time2.Sub(time1))
+		blockNumberDiff := new(big.Int).Sub(block2.Number, block1.Number).Int64()
+		blockTime := blockTimeDiff / blockNumberDiff / int64(time.Second)
+		blockTimes[cs] = uint64(blockTime) //nolint:gosec // G115
+		lggr.Infow("Chain block time", "chainSelector", cs, "blockTime", blockTime)
+	}
+	for _, cs := range solChains {
+		blockTimes[cs] = 0
+	}
+	for _, cs := range suiChains {
+		// Sui has fast finality with checkpoint-based consensus
+		// Block time varies from 0.24-0.5 seconds, using 1 second as conservative estimate
+		blockTimes[cs] = 1
+		lggr.Infow("Chain block time", "chainSelector", cs, "blockTime", 1, "note", "Sui checkpoint-based")
+	}
+
+	// initialize additional accounts on EVM, we need more accounts to avoid nonce issues
+	// Solana doesn't have a nonce concept so we just use a single account for all chains
+	evmSenders, err := fundAdditionalKeys(lggr, *env, destinationChains, *config.CCIP.Load.TestnetConfig.FundingAmountEth)
+	require.NoError(t, err)
+
+	// Keep track of the block number for each chain so that event subscription can be done from that block.
+	startBlocks := make(map[uint64]*uint64)
 	state, err := stateview.LoadOnchainState(*env)
 	require.NoError(t, err)
 
-	// initialize additional accounts on other chains
-	transmitKeys, err := fundAdditionalKeys(lggr, *env, env.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chain_selectors.FamilyEVM))[:*userOverrides.NumDestinationChains], *config.CCIP.Load.TestnetConfig.FundingAmountEth)
-	require.NoError(t, err)
+	for chainSel := range state.SolChains {
+		SetProgramIDsSafe(state.SolChains[chainSel])
+		err := prepSolAccount(
+			ctx,
+			t,
+			lggr,
+			env,
+			state,
+			chainSel)
+		require.NoError(t, err)
+	}
 
-	// Discover lanes from deployed state
-	laneConfig := &crib.LaneConfiguration{}
-	err = laneConfig.DiscoverLanesFromDeployedState(*env, &state)
-	require.NoError(t, err)
+	finalSeqNrCommitChannels := make(map[uint64]chan finalSeqNrReport)
+	finalSeqNrExecChannels := make(map[uint64]chan finalSeqNrReport)
+	loadFinished := make(chan struct{})
+
+	mm := NewMetricsManager(t, env.Logger, userOverrides, blockTimes)
+	go mm.Start(ctx)
 
 	// gunMap holds a destinationGun for every enabled destination chain
 	gunMap := make(map[uint64]*DestinationGun)
 	p := wasp.NewProfile()
-	for ind := range *userOverrides.NumDestinationChains {
-		cs := env.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chain_selectors.FamilyEVM))[ind]
 
-		messageKeys := make(map[uint64]*bind.TransactOpts)
-		other := env.BlockChains.ListChainSelectors(
-			cldf_chain.WithFamily(chain_selectors.FamilyEVM),
-			cldf_chain.WithChainSelectorsExclusion([]uint64{cs}),
-		)
-		var mu sync.Mutex
-		var wg2 sync.WaitGroup
-		wg2.Add(len(other))
-		for _, src := range other {
-			go func(src uint64) {
-				defer wg2.Done()
-				mu.Lock()
-				messageKeys[src] = transmitKeys[src][ind]
-				mu.Unlock()
-			}(src)
+	// Load Sui state and merge it into main state BEFORE lane discovery
+	var suiState map[uint64]sui_deployment.CCIPChainState
+	if len(suiChains) > 0 {
+		suiState, err = sui_deployment.LoadOnchainStatesui(*env)
+		require.NoError(t, err)
+	}
+
+	// Discover lanes from deployed state (now includes Sui chains!)
+	laneConfig := &crib.LaneConfiguration{}
+	err = laneConfig.DiscoverLanesFromDeployedState(*env, &state)
+	require.NoError(t, err)
+	laneConfig.LogLaneConfigInfo(lggr)
+
+	var sharedDB *sqlx.DB
+	if len(suiChains) > 0 {
+		databaseURL := os.Getenv("CL_DATABASE_URL")
+		require.NotEmpty(t, databaseURL)
+		sharedDB, err = sqlx.Open("postgres", databaseURL)
+		require.NoError(t, err)
+		defer sharedDB.Close()
+		// Clean up local database before starting test to avoid stale events
+		cleanupSuiDatabase(databaseURL, lggr)
+	}
+
+	// Prepare chain readers
+	chainReaders := make(map[uint64]pkgtypes.ContractReader)
+
+	// potential source chains need a subscription
+	for _, cs := range env.BlockChains.ListChainSelectors() {
+		destChains := laneConfig.GetDestinationChainsForSource(cs)
+		selectorFamily, err := selectors.GetSelectorFamily(cs)
+		require.NoError(t, err)
+		wg.Add(1)
+		switch selectorFamily {
+		case selectors.FamilyEVM:
+			latesthdr, err := env.BlockChains.EVMChains()[cs].Client.HeaderByNumber(ctx, nil)
+			require.NoError(t, err)
+			block := latesthdr.Number.Uint64()
+			startBlocks[cs] = &block
+			go subscribeTransmitEvents(
+				ctx,
+				lggr,
+				state.Chains[cs].OnRamp,
+				destChains,
+				startBlocks[cs],
+				cs,
+				loadFinished,
+				env.BlockChains.EVMChains()[cs].Client,
+				&wg,
+				mm.InputChan,
+				finalSeqNrCommitChannels,
+				finalSeqNrExecChannels)
+		case selectors.FamilySolana:
+			client := env.BlockChains.SolanaChains()[cs].Client
+			block, err := client.GetBlockHeight(ctx, solrpc.CommitmentConfirmed)
+			require.NoError(t, err)
+			startBlocks[cs] = &block
+			go subscribeSolTransmitEvents(
+				ctx,
+				lggr,
+				state.SolChains[cs].Router,
+				destChains,
+				block,
+				cs,
+				loadFinished,
+				client,
+				&wg,
+				mm.InputChan,
+				finalSeqNrCommitChannels,
+				finalSeqNrExecChannels)
+		case selectors.FamilySui:
+			suiClient := env.BlockChains.SuiChains()[cs].Client
+			checkpoint, err := suiClient.SuiGetLatestCheckpointSequenceNumber(ctx)
+			require.NoError(t, err)
+			startBlocks[cs] = &checkpoint
+
+			chainReaders[cs], err = createSuiChainReader(
+				ctx,
+				t,
+				lggr,
+				*env,
+				sharedDB,
+				cs,
+				suiState[cs].OnRampAddress,
+				suiState[cs].OffRampAddress,
+			)
+			require.NoError(t, err)
+			go subscribeSuiTransmitEvents(
+				ctx,
+				lggr,
+				chainReaders[cs],
+				suiState[cs].OnRampAddress,
+				destChains,
+				cs,
+				loadFinished,
+				&wg,
+				mm.InputChan,
+				finalSeqNrCommitChannels,
+				finalSeqNrExecChannels)
 		}
-		wg2.Wait()
+	}
+
+	evmSourceKeys := make(map[uint64]map[uint64]*bind.TransactOpts)
+	solSourceKeys := make(map[uint64]*solana.PrivateKey)
+	suiSourceKeys := make(map[uint64]cldf_sui.Chain)
+	var mu sync.Mutex
+
+	for ind, cs := range destinationChains {
 		srcChains := laneConfig.GetSourceChainsForDestination(cs)
-		gunMap[cs], err = NewDestinationGun(
-			env.Logger,
-			cs,
-			*env,
-			&state,
-			state.MustGetEVMChainState(cs).Receiver.Address().Bytes(),
-			userOverrides,
-			messageKeys,
-			nil,
-			nil,
-			nil,
-			srcChains,
-		)
-		if err != nil {
-			lggr.Errorw("Failed to initialize DestinationGun for", "chainSelector", cs, "error", err)
-			t.Fatal(err)
+
+		// Initialize the map for this destination
+		evmSourceKeys[cs] = make(map[uint64]*bind.TransactOpts)
+
+		for _, src := range srcChains {
+			selFamily, err := selectors.GetSelectorFamily(src)
+			if err != nil {
+				lggr.Errorw("Failed to get selector family", "chainSelector", src, "error", err)
+				continue
+			}
+			mu.Lock()
+			switch selFamily {
+			case selectors.FamilyEVM:
+				// Check if we have enough senders for this source chain
+				if ind < len(evmSenders[src]) {
+					evmSourceKeys[cs][src] = evmSenders[src][ind]
+				} else {
+					lggr.Errorw("Not enough EVM senders for source chain",
+						"sourceChain", src,
+						"destinationChain", cs,
+						"requiredIndex", ind,
+						"availableSenders", len(evmSenders[src]))
+				}
+			case selectors.FamilySolana:
+				if _, exists := solSourceKeys[src]; !exists {
+					solSourceKeys[src] = env.BlockChains.SolanaChains()[src].DeployerKey
+				}
+			case selectors.FamilySui:
+				if _, exists := suiSourceKeys[src]; !exists {
+					// Sui doesn't have nonce conflicts, use deployer key directly
+					suiSourceKeys[src] = env.BlockChains.SuiChains()[src]
+				}
+			}
+			mu.Unlock()
+		}
+	}
+
+	// Ensure Sui destination chains have chain readers
+	for _, cs := range destinationChains {
+		selectorFamily, err := selectors.GetSelectorFamily(cs)
+		require.NoError(t, err)
+		if selectorFamily == selectors.FamilySui {
+			// Check if chain reader already exists (from source chain setup)
+			if _, exists := chainReaders[cs]; !exists {
+				chainReaders[cs], err = createSuiChainReader(
+					ctx,
+					t,
+					lggr,
+					*env,
+					sharedDB,
+					cs,
+					suiState[cs].OnRampAddress,
+					suiState[cs].OffRampAddress,
+				)
+				require.NoError(t, err)
+			}
+		}
+	}
+	hasTokenTransfer := false
+
+	for _, src := range *config.CCIP.Load.MessageDetails {
+		if src.MsgType != nil && *src.MsgType == "TokenTransfer" && *src.Ratio > 0 {
+			hasTokenTransfer = true
+			break
+		}
+	}
+
+	// confirmed dest chains need a subscription
+	for _, cs := range destinationChains {
+		srcChains := laneConfig.GetSourceChainsForDestination(cs)
+
+		g := new(errgroup.Group)
+		for _, src := range srcChains {
+			g.Go(func() error {
+				selFamily, err := selectors.GetSelectorFamily(src)
+				require.NoError(t, err)
+				switch selFamily {
+				case selectors.FamilyEVM:
+					if *userOverrides.TestnetConfig.Testnet {
+						// Exit if no token transfer
+						if !hasTokenTransfer {
+							return nil
+						}
+						err := fundLoadAccountsWithBnM(
+							lggr,
+							*env,
+							src,
+							[]*bind.TransactOpts{evmSourceKeys[cs][src]})
+						require.NoError(t, err)
+					}
+					return approveBnmForLoadTestAccount(
+						lggr,
+						state,
+						*env,
+						src,
+						evmSourceKeys[cs][src],
+					)
+
+				default:
+					return nil
+				}
+			})
+		}
+		require.NoError(t, g.Wait())
+
+		selectorFamily, err := selectors.GetSelectorFamily(cs)
+		require.NoError(t, err)
+
+		// Initialize channels for this destination chain
+		finalSeqNrCommitChannels[cs] = make(chan finalSeqNrReport)
+		finalSeqNrExecChannels[cs] = make(chan finalSeqNrReport)
+
+		switch selectorFamily {
+		case selectors.FamilyEVM:
+			gunMap[cs], err = NewDestinationGun(
+				env.Logger,
+				cs,
+				*env,
+				&state,
+				state.Chains[cs].Receiver.Address().Bytes(),
+				userOverrides,
+				evmSourceKeys[cs],
+				solSourceKeys,
+				suiSourceKeys,
+				mm.InputChan,
+				srcChains,
+			)
+			if err != nil {
+				lggr.Errorw("Failed to initialize DestinationGun for", "chainSelector", cs, "error", err)
+				t.Fatal(err)
+			}
+			wg.Add(2)
+			go subscribeCommitEvents(
+				ctx,
+				lggr,
+				state.Chains[cs].OffRamp,
+				srcChains,
+				startBlocks[cs],
+				cs,
+				env.BlockChains.EVMChains()[cs].Client,
+				finalSeqNrCommitChannels[cs],
+				&wg,
+				mm.InputChan)
+			go subscribeExecutionEvents(
+				ctx,
+				lggr,
+				state.Chains[cs].OffRamp,
+				srcChains,
+				startBlocks[cs],
+				cs,
+				env.BlockChains.EVMChains()[cs].Client,
+				finalSeqNrExecChannels[cs],
+				&wg,
+				mm.InputChan)
+
+			// error watchers
+			go subscribeSkippedIncorrectNonce(
+				ctx,
+				cs,
+				state.Chains[cs].NonceManager,
+				lggr)
+
+			go subscribeAlreadyExecuted(
+				ctx,
+				cs,
+				state.Chains[cs].OffRamp,
+				lggr)
+		case selectors.FamilySolana:
+
+			gunMap[cs], err = NewDestinationGun(
+				env.Logger,
+				cs,
+				*env,
+				&state,
+				state.SolChains[cs].Receiver.Bytes(),
+				userOverrides,
+				evmSourceKeys[cs],
+				solSourceKeys,
+				suiSourceKeys,
+				mm.InputChan,
+				srcChains,
+			)
+			if err != nil {
+				lggr.Errorw("Failed to initialize DestinationGun for", "chainSelector", cs, "error", err)
+				t.Fatal(err)
+			}
+			wg.Add(2)
+			go subscribeSolCommitEvents(
+				ctx,
+				lggr,
+				state.SolChains[cs].OffRamp,
+				srcChains,
+				*startBlocks[cs],
+				cs,
+				env.BlockChains.SolanaChains()[cs].Client,
+				finalSeqNrCommitChannels[cs],
+				&wg,
+				mm.InputChan)
+
+			go subscribeSolExecutionEvents(
+				ctx,
+				lggr,
+				state.SolChains[cs].OffRamp,
+				srcChains,
+				*startBlocks[cs],
+				cs,
+				env.BlockChains.SolanaChains()[cs].Client,
+				finalSeqNrExecChannels[cs],
+				&wg,
+				mm.InputChan)
+		case selectors.FamilySui:
+
+			suiReceiver, err := hex.DecodeString(strings.TrimPrefix(*config.CCIP.Load.TestnetConfig.SuiConfig.SuiTestReceiverAddress, "0x"))
+			if err != nil {
+				lggr.Errorw("Failed to decode SUI receiver address", "error", err)
+				t.Fatal(err)
+			}
+			gunMap[cs], err = NewDestinationGun(
+				env.Logger,
+				cs,
+				*env,
+				&state,
+				suiReceiver,
+				userOverrides,
+				evmSourceKeys[cs],
+				solSourceKeys,
+				suiSourceKeys,
+				mm.InputChan,
+				srcChains,
+			)
+			if err != nil {
+				lggr.Errorw("Failed to initialize DestinationGun for", "chainSelector", cs, "error", err)
+				t.Fatal(err)
+			}
+
+			wg.Add(2)
+			go subscribeSuiCommitEvents(
+				ctx,
+				lggr,
+				chainReaders[cs],
+				suiState[cs].OffRampAddress,
+				srcChains,
+				cs,
+				finalSeqNrCommitChannels[cs],
+				&wg,
+				mm.InputChan)
+
+			go subscribeSuiExecutionEvents(
+				ctx,
+				lggr,
+				chainReaders[cs],
+				suiState[cs].OffRampAddress,
+				srcChains,
+				cs,
+				finalSeqNrExecChannels[cs],
+				&wg,
+				mm.InputChan)
 		}
 	}
 
@@ -131,8 +530,51 @@ func TestStaging_CCIP_Load(t *testing.T) {
 			// use the same loki client using `NewLokiClient` with the same config for sending events
 		}))
 	}
+
+	switch config.CCIP.Load.ChaosMode {
+	case ccip.ChaosModeTypeRPCLatency:
+		go runRealisticRPCLatencySuite(t,
+			config.CCIP.Load.GetLoadDuration()+userOverrides.GetTimeoutDuration(),
+			config.CCIP.Load.GetRPCLatency(),
+			config.CCIP.Load.GetRPCJitter(),
+			len(evmChains),
+		)
+	case ccip.ChaosModeTypeFull:
+		go runFullChaosSuite(t)
+	case ccip.ChaosModeNone:
+	}
+
 	_, err = p.Run(true)
 	require.NoError(t, err)
+	// wait some duration so that transmits can happen
+	go func() {
+		time.Sleep(tickerDuration)
+		close(loadFinished)
+	}()
+
+	// after load is finished, wait for a "timeout duration" before considering that messages are timed out
+	timeout := userOverrides.GetTimeoutDuration()
+	if timeout != 0 {
+		testTimer := time.NewTimer(timeout)
+		go func() {
+			<-testTimer.C
+			cancel()
+			t.Fail()
+		}()
+	}
+
+	wg.Wait()
+	lggr.Infow("closed event subscribers")
+
+	// Close all chain readers to prevent hanging goroutines
+	for cs, reader := range chainReaders {
+		if reader != nil {
+			lggr.Infow("Closing chain reader", "chainSelector", cs)
+			if err := reader.Close(); err != nil {
+				lggr.Errorw("Failed to close chain reader", "chainSelector", cs, "error", err)
+			}
+		}
+	}
 
 	lggr.Info("Load test complete, returning funds")
 	// return funds to source address at the end of the test
@@ -149,7 +591,7 @@ func TestStaging_CCIP_Load(t *testing.T) {
 
 	// Get the address from the public key
 	address := crypto.PubkeyToAddress(*publicKeyECDSA).Hex()
-	err = reclaimFunds(lggr, *env, transmitKeys, common.HexToAddress(address))
+	err = reclaimFunds(lggr, *env, evmSenders, common.HexToAddress(address))
 	if err != nil {
 		lggr.Errorw(err.Error())
 	}

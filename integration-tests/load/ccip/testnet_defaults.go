@@ -1,0 +1,57 @@
+package ccip
+
+import (
+	"github.com/ethereum/go-ethereum/common"
+
+	chainsel "github.com/smartcontractkit/chain-selectors"
+)
+
+var TestnetBnMTokenAddress = map[uint64]common.Address{
+	chainsel.ETHEREUM_TESTNET_SEPOLIA.Selector:              common.HexToAddress("0xFd57b4ddBf88a4e07fF4e34C487b99af2Fe82a05"),
+	chainsel.BINANCE_SMART_CHAIN_TESTNET.Selector:           common.HexToAddress("0xbFA2ACd33ED6EEc0ed3Cc06bF1ac38d22b36B9e9"),
+	chainsel.ETHEREUM_TESTNET_SEPOLIA_ARBITRUM_1.Selector:   common.HexToAddress("0xA8C0c11bf64AF62CDCA6f93D3769B88BdD7cb93D"),
+	chainsel.AVALANCHE_TESTNET_FUJI.Selector:                common.HexToAddress("0xD21341536c5cF5EB1bcb58f6723cE26e8D8E90e4"),
+	chainsel.ETHEREUM_TESTNET_SEPOLIA_OPTIMISM_1.Selector:   common.HexToAddress("0x8aF4204e30565DF93352fE8E1De78925F6664dA7"),
+	chainsel.ETHEREUM_TESTNET_SEPOLIA_BASE_1.Selector:       common.HexToAddress("0x88A2d74F47a237a62e7A51cdDa67270CE381555e"),
+	chainsel.POLYGON_TESTNET_AMOY.Selector:                  common.HexToAddress("0xcab0EF91Bee323d1A617c0a027eE753aFd6997E4"),
+	chainsel.SONIC_TESTNET_BLAZE.Selector:                   common.HexToAddress("0x230c46b9a7c8929A80863bDe89082B372a4c7A99"),
+	chainsel.MINT_TESTNET.Selector:                          common.HexToAddress("0x56408DC41E35d3E8E92A16bc94787438df9387a1"),
+	chainsel.SEI_TESTNET_ATLANTIC.Selector:                  common.HexToAddress("0x271F22d029c6edFc9469faE189C4F43E457F257C"),
+	chainsel.RONIN_TESTNET_SAIGON.Selector:                  common.HexToAddress("0x88DD2416699Bad3AeC58f535BC66F7f62DE2B2EC"),
+	chainsel.BINANCE_SMART_CHAIN_TESTNET_OPBNB_1.Selector:   common.HexToAddress("0xFBa11c82823d2c97C682dF35fA979697577cD8aB"),
+	chainsel.PLUME_TESTNET_SEPOLIA.Selector:                 common.HexToAddress("0x225fAc4130595d1C7dabbE61A8bA9B051440b76c"),
+	chainsel.ETHEREUM_TESTNET_SEPOLIA_UNICHAIN_1.Selector:   common.HexToAddress("0x6122841A203d34Cd3087c3C19d04d101F6FaF8e8"),
+	chainsel.BITCOIN_TESTNET_BOTANIX.Selector:               common.HexToAddress("0xDce7E37725219ebdd9D1E8Df97B9d27B12B36297"),
+	chainsel.HEMI_TESTNET_SEPOLIA.Selector:                  common.HexToAddress("0xfa078C5631d0561a91039b53F2E05c444b9A1554"),
+	chainsel.ABSTRACT_TESTNET.Selector:                      common.HexToAddress("0x596b8A0A2A63E5B4b2c0e201c4C27078642c8509"),
+	chainsel.CRONOS_ZKEVM_TESTNET_SEPOLIA.Selector:          common.HexToAddress("0xD6D735213B50c3460499A399AbEAbd3b6B76cf74"),
+	chainsel.SHIBARIUM_TESTNET_PUPPYNET.Selector:            common.HexToAddress("0x81249b4bD91A8706eE67a2f422DB82258D4947ad"),
+	chainsel.ETHERLINK_TESTNET.Selector:                     common.HexToAddress("0x16D07Ca35E692496E20B54b36A00c4bFeF133fa8"),
+	chainsel.BITCOIN_TESTNET_BSQUARED_1.Selector:            common.HexToAddress("0x0643fD73C261eC4B369C3a8C5c0eC8c57485E32d"),
+	chainsel.ETHEREUM_TESTNET_SEPOLIA_BLAST_1.Selector:      common.HexToAddress("0x8D122C3e8ce9C8B62b87d3551bDfD8C259Bb0771"),
+	chainsel.MONAD_TESTNET.Selector:                         common.HexToAddress("0x8d2042f5c4F3900A403b5028Acf5c1eAb0569F7e"),
+	chainsel.HEDERA_TESTNET.Selector:                        common.HexToAddress("0x01Ac06943d2B8327a7845235Ef034741eC1Da352"),
+	chainsel.MEGAETH_TESTNET.Selector:                       common.HexToAddress("0x01e4b536C124cB93AD5F48b381540fA4dec7a244"),
+	chainsel.CRONOS_TESTNET.Selector:                        common.HexToAddress("0x028E1B6f424c5A96E4bD5e1bbaB8b3C9088e5D39"),
+	chainsel.CELO_TESTNET_ALFAJORES.Selector:                common.HexToAddress("0x7e503dd1dAF90117A1b79953321043d9E6815C72"),
+	chainsel.ETHEREUM_TESTNET_SEPOLIA_METIS_1.Selector:      common.HexToAddress("0x20Aa09AAb761e2E600d65c6929A9fd1E59821D3f"),
+	chainsel.ETHEREUM_TESTNET_SEPOLIA_HASHKEY_1.Selector:    common.HexToAddress("0xB0F91Ce2ECAa3555D4b1fD4489bD9a207a7844f0"),
+	chainsel.ETHEREUM_TESTNET_SEPOLIA_ZIRCUIT_1.Selector:    common.HexToAddress("0xB6eC69D477F8FAeDCE1c6d322a7842D1b4D1B08e"),
+	chainsel.BITCOIN_TESTNET_MERLIN.Selector:                common.HexToAddress("0x097984dE1fCC990AA13a6c61e40786021f0373A0"),
+	chainsel.ETHEREUM_TESTNET_SEPOLIA_LISK_1.Selector:       common.HexToAddress("0x03B2F16FC12010d2e35055092055674645C38378"),
+	chainsel.ETHEREUM_TESTNET_SEPOLIA_WORLDCHAIN_1.Selector: common.HexToAddress("0x8fdE0C794fDA5a7A303Ce216f79B9695a7714EcB"),
+	chainsel.BITCOIN_TESTNET_SEPOLIA_BOB_1.Selector:         common.HexToAddress("0x3B7d0d0CeC08eBF8dad58aCCa4719791378b2329"),
+	chainsel.METAL_TESTNET.Selector:                         common.HexToAddress("0xbD6F12f358D8ee3b35B0AD612450a186bA866B72"),
+	chainsel.ETHEREUM_TESTNET_SEPOLIA_ZKSYNC_1.Selector:     common.HexToAddress("0xFf6d0c1518A8104611f482eb2801CaF4f13c9dEb"),
+	chainsel.POLKADOT_TESTNET_ASTAR_SHIBUYA.Selector:        common.HexToAddress("0xc49ec0eB4beb48B8Da4cceC51AA9A5bD0D0A4c43"),
+	chainsel.ETHEREUM_TESTNET_HOLESKY_TAIKO_1.Selector:      common.HexToAddress("0x54B50385e417469dbdb697f40651e8864664D992"),
+	chainsel.ETHEREUM_TESTNET_SEPOLIA_MANTLE_1.Selector:     common.HexToAddress("0xEA8cA8AE1c54faB8D185FC1fd7C2d70Bee8a417e"),
+	chainsel.ETHEREUM_TESTNET_SEPOLIA_MODE_1.Selector:       common.HexToAddress("0xB9d4e1141E67ECFedC8A8139b5229b7FF2BF16F5"),
+	chainsel.GNOSIS_CHAIN_TESTNET_CHIADO.Selector:           common.HexToAddress("0xA189971a2c5AcA0DFC5Ee7a2C44a2Ae27b3CF389"),
+	chainsel.ETHEREUM_TESTNET_HOLESKY_FRAXTAL_1.Selector:    common.HexToAddress("0x6122841A203d34Cd3087c3C19d04d101F6FaF8e8"),
+	chainsel.BITCOIN_TESTNET_ROOTSTOCK.Selector:             common.HexToAddress("0xEc9c9E6A862BA7aee87731110a01A2f087EC7ECc"),
+	chainsel.WEMIX_TESTNET.Selector:                         common.HexToAddress("0xF4E4057FbBc86915F4b2d63EEFFe641C03294ffc"),
+	chainsel.INK_TESTNET_SEPOLIA.Selector:                   common.HexToAddress("0x414dbe1d58dd9BA7C84f7Fc0e4f82bc858675d37"),
+	chainsel.APECHAIN_TESTNET_CURTIS.Selector:               common.HexToAddress("0xF48cae4B1F4EB3a1682600D4F3aFA166db5B162E"),
+	chainsel.ETHEREUM_TESTNET_HOLESKY_MORPH_1.Selector:      common.HexToAddress("0x11F04Bf8708007078B6e4De26d9AeB20cFb079ba"),
+}
