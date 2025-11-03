@@ -24,6 +24,7 @@ type TargetDONMember struct {
 
 type TargetDON struct {
 	ID       string
+	F        int
 	Members  []TargetDONMember
 	Handlers []string
 }
@@ -82,6 +83,7 @@ func (g GatewayJob) Resolve(gatewayNodeIdx int) (string, error) {
 
 		d := don{
 			DonID:    targetDON.ID,
+			F:        targetDON.F,
 			Members:  ms,
 			Handlers: hs,
 		}
@@ -207,6 +209,7 @@ type connectionManagerConfig struct {
 
 type don struct {
 	DonID    string    `toml:"DonId"`
+	F        int       `toml:"F"`
 	Handlers []handler `toml:"Handlers"`
 	Members  []member  `toml:"Members"`
 }
@@ -271,7 +274,7 @@ func newDefaultHTTPCapabilitiesHandler() handler {
 				PerSenderBurst: 100,
 				PerSenderRPS:   100,
 			},
-			CleanUpPeriodMs: 86400000, // 24 hours
+			CleanUpPeriodMs: 10 * 60 * 1000, // 10 minutes
 		},
 	}
 }
