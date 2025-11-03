@@ -6,7 +6,6 @@ import (
 	"encoding/hex"
 	"fmt"
 	"log/slog"
-	"runtime/debug"
 	"strings"
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
@@ -96,11 +95,6 @@ func toByteSlices(addresses []string) [][]byte {
 
 func onTrigger(cfg logtrigger.Config, runtime sdk.Runtime, outputs *evm.Log) (string, error) {
 	runtime.Logger().Info("Trigger OnTrigger called", "outputs", outputs)
-	defer func() {
-		if r := recover(); r != nil {
-			runtime.Logger().Error("recovered from panic", "recovered", r, "stack", string(debug.Stack()))
-		}
-	}()
 	t := &T{Logger: runtime.Logger()}
 	require.NotNil(t, outputs, "Log input should not be nil")
 
