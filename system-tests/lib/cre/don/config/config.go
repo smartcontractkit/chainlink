@@ -172,7 +172,7 @@ func generateNodeTomlConfig(input cre.GenerateConfigsInput, nodeConfigTransforme
 				}
 			case cre.GatewayNode:
 				var cErr error
-				nodeConfig, cErr = addGatewayNodeConfig(nodeConfig, commonInputs)
+				nodeConfig, cErr = addGatewayNodeConfig(nodeConfig, input.OCRPeeringData, commonInputs)
 				if cErr != nil {
 					return nil, errors.Wrapf(cErr, "failed to add gateway node config for node at index %d in DON %s", nodeIdx, input.DonMetadata.Name)
 				}
@@ -397,8 +397,26 @@ func addWorkerNodeConfig(
 
 func addGatewayNodeConfig(
 	existingConfig corechainlink.Config,
+	ocrPeeringData cre.OCRPeeringData,
 	commonInputs *commonInputs,
 ) (corechainlink.Config, error) {
+	// TODO: remove this in the future?
+	// Unless node has Peering enabled it won't create capabilities registry syncer and all requests to vault handler will fail,
+	// because it won't be able to find the DON with vault capability. P2P also required OCR2 to be enabled due to code requirements.
+	// Having said that, this node will never receive any OCR2 or Peering traffic.
+	existingConfig.OCR2 = coretoml.OCR2{
+		Enabled:              ptr.Ptr(true),
+		DatabaseTimeout:      commonconfig.MustNewDuration(1 * time.Second),
+		ContractPollInterval: commonconfig.MustNewDuration(1 * time.Second),
+	}
+
+	existingConfig.P2P = coretoml.P2P{
+		V2: coretoml.P2PV2{
+			Enabled:         ptr.Ptr(true),
+			ListenAddresses: ptr.Ptr([]string{"0.0.0.0:" + strconv.Itoa(ocrPeeringData.Port)}),
+		},
+	}
+
 OUTER:
 	for _, evmChain := range commonInputs.evmChains {
 		// add only unconfigured chains, since other roles might have already added some chains
