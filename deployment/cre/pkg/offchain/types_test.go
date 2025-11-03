@@ -13,7 +13,7 @@ func TestAddToFilter(t *testing.T) {
 	t.Run("CSA public key appends", func(t *testing.T) {
 		req := require.New(t)
 
-		f := TargetDONFilter{Key: FilterKeyCSAPublicKey, Value: "0xabc"}
+		f := NodeLabelFilter{Key: FilterKeyCSAPublicKey, Value: "0xabc"}
 		filter := &nodev1.ListNodesRequest_Filter{}
 
 		got := f.AddToFilter(filter)
@@ -27,7 +27,7 @@ func TestAddToFilter(t *testing.T) {
 	t.Run("DON name adds EXIST selector with don- prefix", func(t *testing.T) {
 		req := require.New(t)
 
-		f := TargetDONFilter{Key: FilterKeyDONName, Value: "eu-west"}
+		f := NodeLabelFilter{Key: FilterKeyDONName, Value: "eu-west"}
 		filter := &nodev1.ListNodesRequest_Filter{}
 
 		got := f.AddToFilter(filter)
@@ -44,7 +44,7 @@ func TestAddToFilter(t *testing.T) {
 	t.Run("generic key adds EQ selector with value pointer", func(t *testing.T) {
 		req := require.New(t)
 
-		f := TargetDONFilter{Key: "region", Value: "us-east-1"}
+		f := NodeLabelFilter{Key: "region", Value: "us-east-1"}
 		filter := &nodev1.ListNodesRequest_Filter{}
 
 		got := f.AddToFilter(filter)
@@ -65,7 +65,7 @@ func TestAddToFilterIfNotPresent(t *testing.T) {
 		req := require.New(t)
 
 		filter := &nodev1.ListNodesRequest_Filter{PublicKeys: []string{"0xabc"}}
-		f := TargetDONFilter{Key: FilterKeyCSAPublicKey, Value: "0xabc"}
+		f := NodeLabelFilter{Key: FilterKeyCSAPublicKey, Value: "0xabc"}
 
 		got := f.AddToFilterIfNotPresent(filter)
 
@@ -78,7 +78,7 @@ func TestAddToFilterIfNotPresent(t *testing.T) {
 		req := require.New(t)
 
 		filter := &nodev1.ListNodesRequest_Filter{PublicKeys: []string{"0xabc"}}
-		f := TargetDONFilter{Key: FilterKeyCSAPublicKey, Value: "0xdef"}
+		f := NodeLabelFilter{Key: FilterKeyCSAPublicKey, Value: "0xdef"}
 
 		got := f.AddToFilterIfNotPresent(filter)
 
@@ -93,7 +93,7 @@ func TestAddToFilterIfNotPresent(t *testing.T) {
 		filter := &nodev1.ListNodesRequest_Filter{
 			Selectors: []*ptypes.Selector{{Op: ptypes.SelectorOp_EXIST, Key: "don-eu-west"}},
 		}
-		f := TargetDONFilter{Key: FilterKeyDONName, Value: "eu-west"}
+		f := NodeLabelFilter{Key: FilterKeyDONName, Value: "eu-west"}
 
 		got := f.AddToFilterIfNotPresent(filter)
 
@@ -107,7 +107,7 @@ func TestAddToFilterIfNotPresent(t *testing.T) {
 		filter := &nodev1.ListNodesRequest_Filter{
 			Selectors: []*ptypes.Selector{{Op: ptypes.SelectorOp_EXIST, Key: "don-us-west"}},
 		}
-		f := TargetDONFilter{Key: FilterKeyDONName, Value: "eu-west"}
+		f := NodeLabelFilter{Key: FilterKeyDONName, Value: "eu-west"}
 
 		got := f.AddToFilterIfNotPresent(filter)
 
@@ -127,7 +127,7 @@ func TestAddToFilterIfNotPresent(t *testing.T) {
 		filter := &nodev1.ListNodesRequest_Filter{
 			Selectors: []*ptypes.Selector{{Op: ptypes.SelectorOp_EQ, Key: "region", Value: &val}},
 		}
-		f := TargetDONFilter{Key: "region", Value: "us"}
+		f := NodeLabelFilter{Key: "region", Value: "us"}
 
 		got := f.AddToFilterIfNotPresent(filter)
 
@@ -142,7 +142,7 @@ func TestAddToFilterIfNotPresent(t *testing.T) {
 		filter := &nodev1.ListNodesRequest_Filter{
 			Selectors: []*ptypes.Selector{{Op: ptypes.SelectorOp_EQ, Key: "network", Value: &val}},
 		}
-		f := TargetDONFilter{Key: "region", Value: "us-east-1"}
+		f := NodeLabelFilter{Key: "region", Value: "us-east-1"}
 
 		got := f.AddToFilterIfNotPresent(filter)
 

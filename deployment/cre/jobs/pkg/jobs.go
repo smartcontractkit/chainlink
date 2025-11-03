@@ -7,7 +7,6 @@ import (
 
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	nodeapiv1 "github.com/smartcontractkit/chainlink-protos/job-distributor/v1/node"
-
 	"github.com/smartcontractkit/chainlink/deployment/cre/pkg/offchain"
 )
 
@@ -16,17 +15,18 @@ type ProposeJobRequest struct {
 	DONName   string
 	Env       string // staging, testnet, mainnet, etc...
 	JobLabels map[string]string
-	DONFilter *nodeapiv1.ListNodesRequest_Filter
+	// Filter is used to select the target nodes
+	Filter *nodeapiv1.ListNodesRequest_Filter
 }
 
 // ProposeJob sends a single job spec to all the nodes in the DON indicated by `req.DONFilter`.
 func ProposeJob(ctx context.Context, e cldf.Environment, req ProposeJobRequest) (map[string][]string, error) {
-	nodes, err := offchain.FetchNodesFromJD(ctx, e.Offchain, req.DONFilter)
+	nodes, err := offchain.FetchNodesFromJD(ctx, e.Offchain, req.Filter)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get don nodes: %w", err)
 	}
 	if len(nodes) == 0 {
-		return nil, fmt.Errorf("no nodes found for DON `%s` with filters %+v", req.DONName, req.DONFilter)
+		return nil, fmt.Errorf("no nodes found for DON `%s` with filters %+v", req.DONName, req.Filter)
 	}
 
 	jobSpecs := map[string][]string{}
@@ -40,7 +40,7 @@ func ProposeJob(ctx context.Context, e cldf.Environment, req ProposeJobRequest) 
 			JobLabels:      req.JobLabels,
 			OffchainClient: e.Offchain,
 			Lggr:           e.Logger,
-			ExtraSelectors: req.DONFilter.GetSelectors(),
+			ExtraSelectors: req.Filter.GetSelectors(),
 		}
 		err = offchain.ProposeJob(ctx, offchainReq)
 		if err != nil {

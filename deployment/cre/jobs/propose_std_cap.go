@@ -30,10 +30,11 @@ type ProposeStandardCapabilityJobInput struct {
 	ChainSelectorAptos    pkg.ChainSelector `yaml:"chainSelectorAptos"`                                 // used to fetch OCR Aptos configs from nodes - optional
 	BootstrapPeers        []string          `yaml:"bootstrapPeers"`                                     // set as value in the oracle factory
 
-	DONFilters  []offchain.TargetDONFilter `json:"donFilters" yaml:"donFilters"`
-	ExtraLabels map[string]string          `json:"extraLabels,omitempty" yaml:"extraLabels,omitempty"`
+	NodesSpecifier offchain.NodesSpecifier
+	ExtraLabels    map[string]string `json:"extraLabels,omitempty" yaml:"extraLabels,omitempty"`
 }
 
+// DEPRECATED: use ProposeJobSpec instead
 type ProposeStandardCapabilityJob struct{}
 
 func (u ProposeStandardCapabilityJob) VerifyPreconditions(_ cldf.Environment, config ProposeStandardCapabilityJobInput) error {
@@ -46,8 +47,8 @@ func (u ProposeStandardCapabilityJob) VerifyPreconditions(_ cldf.Environment, co
 	if config.DONName == "" {
 		return errors.New("don_name is required")
 	}
-	if len(config.DONFilters) == 0 {
-		return errors.New("DONFilters is required")
+	if err := config.NodesSpecifier.Validate(); err != nil {
+		return fmt.Errorf("invalid job nodes specifier: %w", err)
 	}
 	return nil
 }
@@ -72,8 +73,8 @@ func (u ProposeStandardCapabilityJob) Apply(e cldf.Environment, input ProposeSta
 				ChainSelectorAptos:    input.ChainSelectorAptos,
 				BootstrapPeers:        input.BootstrapPeers,
 			},
-			DONFilters:  input.DONFilters,
-			ExtraLabels: input.ExtraLabels,
+			JobNodesSpecifier: input.NodesSpecifier,
+			ExtraLabels:       input.ExtraLabels,
 		},
 	)
 	if err != nil {

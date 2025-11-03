@@ -43,7 +43,7 @@ func TestProposeJobSpec_VerifyPreconditions(t *testing.T) {
 				JobName:     "cron-test",
 				Domain:      "cre",
 				DONName:     "test-don",
-				DONFilters: []offchain.TargetDONFilter{
+				DONFilters: []offchain.NodeLabelFilter{
 					{Key: offchain.FilterKeyDONName, Value: "d"},
 					{Key: "environment", Value: "e"},
 					{Key: "product", Value: offchain.ProductLabel},
@@ -60,7 +60,7 @@ func TestProposeJobSpec_VerifyPreconditions(t *testing.T) {
 				JobName:     "http-trigger-test",
 				Domain:      "cre",
 				DONName:     "test-don",
-				DONFilters: []offchain.TargetDONFilter{
+				DONFilters: []offchain.NodeLabelFilter{
 					{Key: offchain.FilterKeyDONName, Value: "d"},
 					{Key: "environment", Value: "e"},
 					{Key: "product", Value: offchain.ProductLabel},
@@ -81,7 +81,7 @@ func TestProposeJobSpec_VerifyPreconditions(t *testing.T) {
 				JobName:     "http-action-test",
 				Domain:      "cre",
 				DONName:     "test-don",
-				DONFilters: []offchain.TargetDONFilter{
+				DONFilters: []offchain.NodeLabelFilter{
 					{Key: offchain.FilterKeyDONName, Value: "d"},
 					{Key: "environment", Value: "e"},
 					{Key: "product", Value: offchain.ProductLabel},
@@ -102,7 +102,7 @@ func TestProposeJobSpec_VerifyPreconditions(t *testing.T) {
 				JobName:     "confidential-http-test",
 				Domain:      "cre",
 				DONName:     "test-don",
-				DONFilters: []offchain.TargetDONFilter{
+				DONFilters: []offchain.NodeLabelFilter{
 					{Key: offchain.FilterKeyDONName, Value: "d"},
 					{Key: "environment", Value: "e"},
 					{Key: "product", Value: offchain.ProductLabel},
@@ -123,7 +123,7 @@ func TestProposeJobSpec_VerifyPreconditions(t *testing.T) {
 				JobName:     "evm-test",
 				Domain:      "cre",
 				DONName:     "test-don",
-				DONFilters: []offchain.TargetDONFilter{
+				DONFilters: []offchain.NodeLabelFilter{
 					{Key: offchain.FilterKeyDONName, Value: "d"},
 					{Key: "environment", Value: "e"},
 					{Key: "product", Value: offchain.ProductLabel},
@@ -197,7 +197,7 @@ func TestProposeJobSpec_VerifyPreconditions(t *testing.T) {
 				Environment: "test",
 				Domain:      "cre",
 				DONName:     "test-don",
-				DONFilters: []offchain.TargetDONFilter{
+				DONFilters: []offchain.NodeLabelFilter{
 					{Key: offchain.FilterKeyDONName, Value: "d"},
 					{Key: "environment", Value: "e"},
 					{Key: "product", Value: offchain.ProductLabel},
@@ -215,7 +215,7 @@ func TestProposeJobSpec_VerifyPreconditions(t *testing.T) {
 				Domain:      "cre",
 				DONName:     "test-don",
 				JobName:     "cron-test",
-				DONFilters: []offchain.TargetDONFilter{
+				DONFilters: []offchain.NodeLabelFilter{
 					{Key: offchain.FilterKeyDONName, Value: "d"},
 					{Key: "environment", Value: "e"},
 					{Key: "product", Value: offchain.ProductLabel},
@@ -233,7 +233,7 @@ func TestProposeJobSpec_VerifyPreconditions(t *testing.T) {
 				Domain:      "cre",
 				DONName:     "test-don",
 				JobName:     "cron-test",
-				DONFilters: []offchain.TargetDONFilter{
+				DONFilters: []offchain.NodeLabelFilter{
 					{Key: offchain.FilterKeyDONName, Value: "d"},
 					{Key: "environment", Value: "e"},
 					{Key: "product", Value: offchain.ProductLabel},
@@ -268,7 +268,7 @@ func TestProposeJobSpec_VerifyPreconditions_EVM(t *testing.T) {
 		Domain:      "cre",
 		DONName:     "test-don",
 		JobName:     "evm-test",
-		DONFilters: []offchain.TargetDONFilter{
+		DONFilters: []offchain.NodeLabelFilter{
 			{Key: offchain.FilterKeyDONName, Value: "d"},
 			{Key: "environment", Value: "e"},
 			{Key: "product", Value: offchain.ProductLabel},
@@ -446,7 +446,7 @@ func TestProposeJobSpec_Apply(t *testing.T) {
 			JobName:     "cron-cap-job",
 			DONName:     test.DONName,
 			Template:    job_types.Cron,
-			DONFilters: []offchain.TargetDONFilter{
+			DONFilters: []offchain.NodeLabelFilter{
 				{Key: offchain.FilterKeyDONName, Value: test.DONName},
 				{Key: "environment", Value: "test"},
 				{Key: "product", Value: offchain.ProductLabel},
@@ -491,7 +491,7 @@ func TestProposeJobSpec_Apply(t *testing.T) {
 			Domain:      "cre",
 			JobName:     "cron-cap-job",
 			Template:    job_types.Cron,
-			DONFilters: []offchain.TargetDONFilter{
+			DONFilters: []offchain.NodeLabelFilter{
 				{Key: offchain.FilterKeyDONName, Value: test.DONName},
 				{Key: "environment", Value: "test"},
 				{Key: "product", Value: offchain.ProductLabel},
@@ -519,7 +519,7 @@ func TestProposeJobSpec_Apply(t *testing.T) {
 			JobName:     "cron-cap-job",
 			DONName:     "wrong-don-name",
 			Template:    job_types.Cron,
-			DONFilters: []offchain.TargetDONFilter{
+			DONFilters: []offchain.NodeLabelFilter{
 				{Key: offchain.FilterKeyDONName, Value: "wrong-don-name"},
 				{Key: "environment", Value: "test-failure"}, // no nodes with this env
 				{Key: "product", Value: offchain.ProductLabel},
@@ -561,7 +561,7 @@ func TestProposeJobSpec_Apply(t *testing.T) {
 			JobName:     "ocr3-bootstrap-job-success",
 			DONName:     test.DONName,
 			Template:    job_types.BootstrapOCR3,
-			DONFilters: []offchain.TargetDONFilter{
+			DONFilters: []offchain.NodeLabelFilter{
 				{Key: offchain.FilterKeyDONName, Value: test.DONName},
 				{Key: "environment", Value: "test"},
 				{Key: "product", Value: offchain.ProductLabel},
@@ -620,7 +620,7 @@ func TestProposeJobSpec_Apply(t *testing.T) {
 			JobName:     "ocr3-bootstrap-job-wrong-zone",
 			DONName:     test.DONName,
 			Template:    job_types.BootstrapOCR3,
-			DONFilters: []offchain.TargetDONFilter{
+			DONFilters: []offchain.NodeLabelFilter{
 				{Key: offchain.FilterKeyDONName, Value: test.DONName},
 				{Key: "environment", Value: "test"},
 				{Key: "product", Value: offchain.ProductLabel},
@@ -646,7 +646,7 @@ func TestProposeJobSpec_Apply(t *testing.T) {
 			JobName:     "ocr3-bootstrap-job",
 			DONName:     test.DONName,
 			Template:    job_types.BootstrapOCR3,
-			DONFilters: []offchain.TargetDONFilter{
+			DONFilters: []offchain.NodeLabelFilter{
 				{Key: offchain.FilterKeyDONName, Value: test.DONName},
 				{Key: "environment", Value: "test"},
 				{Key: "product", Value: offchain.ProductLabel},
@@ -684,7 +684,7 @@ func TestProposeJobSpec_Apply(t *testing.T) {
 			JobName:     "ocr3-job",
 			DONName:     test.DONName,
 			Template:    job_types.OCR3,
-			DONFilters: []offchain.TargetDONFilter{
+			DONFilters: []offchain.NodeLabelFilter{
 				{Key: offchain.FilterKeyDONName, Value: test.DONName},
 				{Key: "environment", Value: "test"},
 				{Key: "product", Value: offchain.ProductLabel},
@@ -749,7 +749,7 @@ func TestProposeJobSpec_Apply(t *testing.T) {
 			JobName:     "ocr3-job",
 			DONName:     test.DONName,
 			Template:    job_types.OCR3,
-			DONFilters: []offchain.TargetDONFilter{
+			DONFilters: []offchain.NodeLabelFilter{
 				{Key: offchain.FilterKeyDONName, Value: test.DONName},
 				{Key: "environment", Value: "test"},
 				{Key: "product", Value: offchain.ProductLabel},
@@ -773,7 +773,7 @@ func TestProposeJobSpec_Apply(t *testing.T) {
 			JobName:     "capability_evm_1337-1337",
 			DONName:     test.DONName,
 			Template:    job_types.EVM,
-			DONFilters: []offchain.TargetDONFilter{
+			DONFilters: []offchain.NodeLabelFilter{
 				{Key: offchain.FilterKeyDONName, Value: test.DONName},
 				{Key: "environment", Value: "test"},
 				{Key: "product", Value: offchain.ProductLabel},
@@ -850,7 +850,7 @@ func TestProposeJobSpec_Apply(t *testing.T) {
 			JobName:     "capability_evm_1337-1337",
 			DONName:     test.DONName,
 			Template:    job_types.EVM,
-			DONFilters: []offchain.TargetDONFilter{
+			DONFilters: []offchain.NodeLabelFilter{
 				{Key: offchain.FilterKeyDONName, Value: test.DONName},
 				{Key: "environment", Value: "test"},
 				{Key: "product", Value: offchain.ProductLabel},
@@ -886,7 +886,7 @@ func TestProposeJobSpec_Apply(t *testing.T) {
 			JobName:     "http-trigger-job",
 			DONName:     test.DONName,
 			Template:    job_types.HTTPTrigger,
-			DONFilters: []offchain.TargetDONFilter{
+			DONFilters: []offchain.NodeLabelFilter{
 				{Key: offchain.FilterKeyDONName, Value: test.DONName},
 				{Key: "environment", Value: "test"},
 				{Key: "product", Value: offchain.ProductLabel},
@@ -925,7 +925,7 @@ func TestProposeJobSpec_Apply(t *testing.T) {
 			JobName:     "http-action-job",
 			DONName:     test.DONName,
 			Template:    job_types.HTTPAction,
-			DONFilters: []offchain.TargetDONFilter{
+			DONFilters: []offchain.NodeLabelFilter{
 				{Key: offchain.FilterKeyDONName, Value: test.DONName},
 				{Key: "environment", Value: "test"},
 				{Key: "product", Value: offchain.ProductLabel},
@@ -963,7 +963,7 @@ func TestProposeJobSpec_Apply(t *testing.T) {
 			JobName:     "http-trigger-job",
 			DONName:     test.DONName,
 			Template:    job_types.HTTPTrigger,
-			DONFilters: []offchain.TargetDONFilter{
+			DONFilters: []offchain.NodeLabelFilter{
 				{Key: offchain.FilterKeyDONName, Value: test.DONName},
 				{Key: "environment", Value: "test"},
 				{Key: "product", Value: offchain.ProductLabel},
@@ -988,7 +988,7 @@ func TestProposeJobSpec_Apply(t *testing.T) {
 			JobName:     "http-action-job",
 			DONName:     test.DONName,
 			Template:    job_types.HTTPAction,
-			DONFilters: []offchain.TargetDONFilter{
+			DONFilters: []offchain.NodeLabelFilter{
 				{Key: offchain.FilterKeyDONName, Value: test.DONName},
 				{Key: "environment", Value: "test"},
 				{Key: "product", Value: offchain.ProductLabel},
@@ -1011,7 +1011,7 @@ func TestProposeJobSpec_Apply(t *testing.T) {
 			Domain:      "cre",
 			JobName:     "capability_evm_1337-1337",
 			Template:    job_types.EVM, // if unavailable, use the same template you use for cron but with evm inputs.
-			DONFilters: []offchain.TargetDONFilter{
+			DONFilters: []offchain.NodeLabelFilter{
 				{Key: offchain.FilterKeyDONName, Value: test.DONName},
 				{Key: "environment", Value: "test"},
 				{Key: "product", Value: offchain.ProductLabel},
@@ -1071,7 +1071,7 @@ func TestProposeJobSpec_Apply(t *testing.T) {
 			JobName:     "vault-bootstrappers",
 			DONName:     test.DONName,
 			Template:    job_types.BootstrapVault,
-			DONFilters: []offchain.TargetDONFilter{
+			DONFilters: []offchain.NodeLabelFilter{
 				{Key: offchain.FilterKeyDONName, Value: test.DONName},
 				{Key: "environment", Value: "test"},
 				{Key: "product", Value: offchain.ProductLabel},
@@ -1140,7 +1140,7 @@ func TestProposeJobSpec_Apply(t *testing.T) {
 			JobName:     "vault-bootstrappers",
 			DONName:     test.DONName,
 			Template:    job_types.BootstrapVault,
-			DONFilters: []offchain.TargetDONFilter{
+			DONFilters: []offchain.NodeLabelFilter{
 				{Key: offchain.FilterKeyDONName, Value: test.DONName},
 				{Key: "environment", Value: "test"},
 				{Key: "product", Value: offchain.ProductLabel},
@@ -1188,7 +1188,7 @@ func TestProposeJobSpec_Apply(t *testing.T) {
 			JobName:     "vault-job",
 			DONName:     test.DONName,
 			Template:    job_types.OCR3,
-			DONFilters: []offchain.TargetDONFilter{
+			DONFilters: []offchain.NodeLabelFilter{
 				{Key: offchain.FilterKeyDONName, Value: test.DONName},
 				{Key: "environment", Value: "test"},
 				{Key: "product", Value: offchain.ProductLabel},
@@ -1251,7 +1251,7 @@ func TestProposeJobSpec_Apply(t *testing.T) {
 			JobName:     "ocr3-consensus-job",
 			DONName:     test.DONName,
 			Template:    job_types.Consensus,
-			DONFilters: []offchain.TargetDONFilter{
+			DONFilters: []offchain.NodeLabelFilter{
 				{Key: offchain.FilterKeyDONName, Value: test.DONName},
 				{Key: "environment", Value: "test"},
 				{Key: "product", Value: offchain.ProductLabel},
@@ -1317,7 +1317,7 @@ func TestProposeJobSpec_Apply(t *testing.T) {
 			JobName:     "ocr3-consensus-job-aptos",
 			DONName:     test.DONName,
 			Template:    job_types.Consensus,
-			DONFilters: []offchain.TargetDONFilter{
+			DONFilters: []offchain.NodeLabelFilter{
 				{Key: offchain.FilterKeyDONName, Value: test.DONName},
 				{Key: "environment", Value: "test"},
 				{Key: "product", Value: offchain.ProductLabel},
@@ -1386,7 +1386,7 @@ func TestProposeJobSpec_Apply(t *testing.T) {
 			JobName:     "ocr3-consensus-job",
 			DONName:     test.DONName,
 			Template:    job_types.Consensus,
-			DONFilters: []offchain.TargetDONFilter{
+			DONFilters: []offchain.NodeLabelFilter{
 				{Key: offchain.FilterKeyDONName, Value: test.DONName},
 				{Key: "environment", Value: "test"},
 				{Key: "product", Value: offchain.ProductLabel},

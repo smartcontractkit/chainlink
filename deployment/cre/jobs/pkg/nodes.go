@@ -11,12 +11,13 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/cre/pkg/offchain"
 )
 
-type FetchNodesRequest struct {
-	Domain  string
-	Filters []offchain.TargetDONFilter
+type NodesByLabelsRequest struct {
+	Domain      string
+	Environment string
+	Filters     []offchain.NodeLabelFilter
 }
 
-func FetchNodesFromJD(ctx context.Context, e cldf.Environment, req FetchNodesRequest) ([]*nodev1.Node, error) {
+func (req NodesByLabelsRequest) Filter() *nodev1.ListNodesRequest_Filter {
 	filter := &nodev1.ListNodesRequest_Filter{
 		Selectors: []*ptypes.Selector{
 			{
@@ -27,7 +28,7 @@ func FetchNodesFromJD(ctx context.Context, e cldf.Environment, req FetchNodesReq
 			{
 				Key:   "environment",
 				Op:    ptypes.SelectorOp_EQ,
-				Value: &e.Name,
+				Value: &req.Environment,
 			},
 		},
 	}
@@ -35,8 +36,7 @@ func FetchNodesFromJD(ctx context.Context, e cldf.Environment, req FetchNodesReq
 	for _, f := range req.Filters {
 		filter = f.AddToFilter(filter)
 	}
-
-	return offchain.FetchNodesFromJD(ctx, e.Offchain, filter)
+	return filter
 }
 
 type FetchNodeChainConfigsResponse struct {
@@ -44,8 +44,8 @@ type FetchNodeChainConfigsResponse struct {
 	ChainConfigs []*nodev1.ChainConfig
 }
 
-func FetchNodeChainConfigsFromJD(ctx context.Context, e cldf.Environment, filter offchain.TargetDONFilter) ([]FetchNodeChainConfigsResponse, error) {
-	resp, err := e.Offchain.ListNodes(ctx, &nodev1.ListNodesRequest{Filter: filter.ToListFilter()})
+func FetchNodeChainConfigsFromJD(ctx context.Context, e cldf.Environment, filter *nodev1.ListNodesRequest_Filter) ([]FetchNodeChainConfigsResponse, error) {
+	resp, err := e.Offchain.ListNodes(ctx, &nodev1.ListNodesRequest{Filter: filter})
 	if err != nil {
 		return nil, fmt.Errorf("failed to list nodes: %w", err)
 	}

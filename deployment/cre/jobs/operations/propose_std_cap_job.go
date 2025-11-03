@@ -10,13 +10,10 @@ import (
 
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
-	"github.com/smartcontractkit/chainlink-protos/job-distributor/v1/node"
-	"github.com/smartcontractkit/chainlink-protos/job-distributor/v1/shared/ptypes"
 
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/cre/jobs/pkg"
 	"github.com/smartcontractkit/chainlink/deployment/cre/pkg/offchain"
-	"github.com/smartcontractkit/chainlink/deployment/helpers/pointer"
 )
 
 type ProposeStandardCapabilityJobDeps struct {
@@ -32,8 +29,8 @@ type ProposeStandardCapabilityJobInput struct {
 	// If false, the OracleFactory field will be used as-is.
 	Job pkg.StandardCapabilityJob
 
-	DONFilters  []offchain.TargetDONFilter
-	ExtraLabels map[string]string
+	JobNodesSpecifier offchain.NodesSpecifier
+	ExtraLabels       map[string]string
 }
 
 type ProposeStandardCapabilityJobOutput struct {
@@ -52,54 +49,30 @@ var ProposeStandardCapabilityJob = operations.NewSequence[
 		if err := input.Job.Validate(); err != nil {
 			return ProposeStandardCapabilityJobOutput{}, fmt.Errorf("invalid job: %w", err)
 		}
-
-		filter := &node.ListNodesRequest_Filter{
-			Selectors: []*ptypes.Selector{
-				{
-					Key: "don-" + input.DONName,
-					Op:  ptypes.SelectorOp_EXIST,
-				},
-				{
-					Key:   "environment",
-					Op:    ptypes.SelectorOp_EQ,
-					Value: &deps.Env.Name,
-				},
-				{
-					Key:   "product",
-					Op:    ptypes.SelectorOp_EQ,
-					Value: &input.Domain,
-				},
-				{
-					Key:   "type",
-					Op:    ptypes.SelectorOp_EQ,
-					Value: pointer.To(PluginNodeType),
-				},
-			},
+		err := input.JobNodesSpecifier.Validate()
+		if err != nil {
+			return ProposeStandardCapabilityJobOutput{}, fmt.Errorf("invalid job nodes specifier: %w", err)
 		}
 
-		for _, f := range input.DONFilters {
-			filter = f.AddToFilterIfNotPresent(filter)
-		}
-
+		filter := input.JobNodesSpecifier.Filter(input.DONName, deps.Env.Name, input.Domain)
 		nodes, err := offchain.FetchNodesFromJD(b.GetContext(), deps.Env.Offchain, filter)
 		if err != nil {
 			return ProposeStandardCapabilityJobOutput{}, fmt.Errorf("failed to fetch nodes from JD: %w", err)
 		}
 		if len(nodes) == 0 {
-			return ProposeStandardCapabilityJobOutput{}, fmt.Errorf("no nodes found on JD for DON `%s` with filters %+v", input.DONName, filter)
+			return ProposeStandardCapabilityJobOutput{}, fmt.Errorf("no nodes found on JD for DON `%s` for specifier %+v, filter %+v", input.DONName, input.JobNodesSpecifier, filter)
 		}
 
 		nodeIDs := make([]string, len(nodes))
 		for i, n := range nodes {
 			nodeIDs[i] = n.Id
 		}
-
 		nodeInfos, err := deployment.NodeInfo(nodeIDs, deps.Env.Offchain)
 		if err != nil {
 			return ProposeStandardCapabilityJobOutput{}, fmt.Errorf("failed to fetch node infos: %w", err)
 		}
 		if len(nodeInfos) == 0 {
-			return ProposeStandardCapabilityJobOutput{}, fmt.Errorf("no nodes info found for DON `%s` with filters %+v and node IDs %v", input.DONName, input.DONFilters, nodeIDs)
+			return ProposeStandardCapabilityJobOutput{}, fmt.Errorf("no nodes info found for DON `%s` with filters %+v and node IDs %v", input.DONName, input.JobNodesSpecifier, nodeIDs)
 		}
 
 		generateOracleFactory := input.Job.GenerateOracleFactory && input.Job.OracleFactory == nil
@@ -118,14 +91,15 @@ var ProposeStandardCapabilityJob = operations.NewSequence[
 				maps.Copy(jobLabels, input.ExtraLabels)
 
 				// 1 spec per node, each spec is unique to the node due to the oracle factory config
+				specifier := offchain.NodesSpecifier{
+					NodeIDs: []string{ni.NodeID},
+				}
 				report, err := operations.ExecuteOperation(b, ProposeJobSpec, ProposeJobSpecDeps(deps), ProposeJobSpecInput{
-					Domain:    input.Domain,
-					DONName:   input.DONName,
-					Spec:      spec,
-					JobLabels: jobLabels,
-					DONFilters: []offchain.TargetDONFilter{
-						{Key: "p2p_id", Value: ni.PeerID.String()},
-					},
+					Domain:            input.Domain,
+					DONName:           input.DONName,
+					Spec:              spec,
+					JobLabels:         jobLabels,
+					JobNodesSpecifier: specifier,
 				})
 				if err != nil {
 					return ProposeStandardCapabilityJobOutput{}, fmt.Errorf("failed to propose standard capability job: %w", err)
@@ -193,14 +167,15 @@ var ProposeStandardCapabilityJob = operations.NewSequence[
 			maps.Copy(jobLabels, input.ExtraLabels)
 
 			// 1 spec per node, each spec is unique to the node due to the oracle factory config
+			specifier := offchain.NodesSpecifier{
+				NodeIDs: []string{ni.NodeID},
+			}
 			report, err := operations.ExecuteOperation(b, ProposeJobSpec, ProposeJobSpecDeps(deps), ProposeJobSpecInput{
-				Domain:    input.Domain,
-				DONName:   input.DONName,
-				Spec:      spec,
-				JobLabels: jobLabels,
-				DONFilters: []offchain.TargetDONFilter{
-					{Key: "p2p_id", Value: ni.PeerID.String()},
-				},
+				Domain:            input.Domain,
+				DONName:           input.DONName,
+				Spec:              spec,
+				JobLabels:         jobLabels,
+				JobNodesSpecifier: specifier,
 			})
 			if err != nil {
 				return ProposeStandardCapabilityJobOutput{}, fmt.Errorf("failed to propose standard capability job: %w", err)

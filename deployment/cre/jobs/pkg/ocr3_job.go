@@ -14,7 +14,6 @@ import (
 	chainsel "github.com/smartcontractkit/chain-selectors"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
-	nodev1 "github.com/smartcontractkit/chainlink-protos/job-distributor/v1/node"
 
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/cre/jobs/pkg/templates"
@@ -118,20 +117,15 @@ func BuildOCR3JobConfigSpecs(
 	lggr logger.Logger,
 	contractID string,
 	evmChainSel, aptosChainSel uint64,
-	nodes []*nodev1.Node,
+	nodeIDs []string, // the jd ids of the nodes for which to build the job configs
+
 	btURLs []string,
 	donName, jobName, templateName string,
 	dkgContractAddress string,
 	vaultRequestExpiryDuration string,
 ) ([]OCR3JobConfigSpec, error) {
-	nodesLen := len(nodes)
-	if nodesLen == 0 {
-		return nil, errors.New("no nodes to build OCR3 job configs")
-	}
-
-	nodeIDs := make([]string, 0, nodesLen)
-	for _, node := range nodes {
-		nodeIDs = append(nodeIDs, node.Id)
+	if len(nodeIDs) == 0 {
+		return nil, errors.New("no node IDs provided")
 	}
 
 	nodeInfos, err := deployment.NodeInfo(nodeIDs, client)

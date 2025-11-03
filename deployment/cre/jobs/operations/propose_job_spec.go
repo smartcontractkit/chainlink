@@ -1,11 +1,12 @@
 package operations
 
 import (
+	"fmt"
+
 	"github.com/Masterminds/semver/v3"
 
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
-	"github.com/smartcontractkit/chainlink-protos/job-distributor/v1/node"
 	"github.com/smartcontractkit/chainlink-protos/job-distributor/v1/shared/ptypes"
 
 	"github.com/smartcontractkit/chainlink/deployment/cre/jobs/pkg"
@@ -27,8 +28,8 @@ type ProposeJobSpecInput struct {
 
 	Spec string
 
-	DONFilters []offchain.TargetDONFilter
-	JobLabels  map[string]string
+	JobNodesSpecifier offchain.NodesSpecifier
+	JobLabels         map[string]string
 
 	IsBootstrap bool
 }
@@ -43,32 +44,32 @@ var ProposeJobSpec = operations.NewOperation[ProposeJobSpecInput, ProposeJobSpec
 	"Propose Job Spec",
 	func(b operations.Bundle, deps ProposeJobSpecDeps, input ProposeJobSpecInput) (ProposeJobSpecOutput, error) {
 		b.Logger.Debugw("Proposing job", "DON", input.DONName, "domain", input.Domain, "environment", deps.Env.Name)
+		err := input.JobNodesSpecifier.Validate()
+		if err != nil {
+			return ProposeJobSpecOutput{}, fmt.Errorf("invalid job nodes specifier: %w", err)
+		}
+
+		filter := input.JobNodesSpecifier.Filter(input.DONName, deps.Env.Name, input.Domain)
+		nodeType := PluginNodeType
+		if input.IsBootstrap {
+			nodeType = BootstrapNodeTypeKey
+		}
+		typeSelectors := []*ptypes.Selector{
+			{
+				Key:   "type",
+				Op:    ptypes.SelectorOp_EQ,
+				Value: &nodeType,
+			},
+		}
+		filter.Selectors = append(filter.Selectors, typeSelectors...)
+
 		req := pkg.ProposeJobRequest{
 			Spec:      input.Spec,
 			DONName:   input.DONName,
 			Env:       deps.Env.Name,
 			JobLabels: input.JobLabels,
+			Filter:    filter,
 		}
-
-		nodeType := PluginNodeType
-		if input.IsBootstrap {
-			nodeType = BootstrapNodeTypeKey
-		}
-		filter := &node.ListNodesRequest_Filter{
-			Selectors: []*ptypes.Selector{
-				{
-					Key:   "type",
-					Op:    ptypes.SelectorOp_EQ,
-					Value: &nodeType,
-				},
-			},
-		}
-		for _, f := range input.DONFilters {
-			filter = f.AddToFilter(filter)
-		}
-
-		req.DONFilter = filter
-
 		specs, err := pkg.ProposeJob(b.GetContext(), deps.Env, req)
 		if err != nil {
 			return ProposeJobSpecOutput{}, err

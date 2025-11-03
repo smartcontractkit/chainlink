@@ -31,8 +31,9 @@ type ProposeOCR3BootstrapJobInput struct {
 
 	JobName string // Optional job name, if not provided, the default will be used.
 
-	DONFilters  []offchain.TargetDONFilter
-	ExtraLabels map[string]string
+	// NodesSpecifier specifies which nodes the job should be proposed to.
+	NodesSpecifier offchain.NodesSpecifier
+	ExtraLabels    map[string]string
 }
 
 type ProposeOCR3BootstrapJobOutput struct {
@@ -75,12 +76,12 @@ var ProposeOCR3BootstrapJob = operations.NewOperation[ProposeOCR3BootstrapJobInp
 		}
 
 		report, err := operations.ExecuteOperation(b, ProposeJobSpec, ProposeJobSpecDeps(deps), ProposeJobSpecInput{
-			Domain:      input.Domain,
-			DONName:     input.DONName,
-			Spec:        spec,
-			JobLabels:   input.ExtraLabels,
-			DONFilters:  input.DONFilters,
-			IsBootstrap: true,
+			Domain:            input.Domain,
+			DONName:           input.DONName,
+			Spec:              spec,
+			JobLabels:         input.ExtraLabels,
+			JobNodesSpecifier: input.NodesSpecifier,
+			IsBootstrap:       true,
 		})
 		if err != nil {
 			return ProposeOCR3BootstrapJobOutput{}, fmt.Errorf("failed to propose bootstrap job: %w", err)

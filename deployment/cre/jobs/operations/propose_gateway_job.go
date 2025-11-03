@@ -21,18 +21,20 @@ import (
 const defaultGatewayRequestTimeoutSec = 12
 
 type ProposeGatewayJobInput struct {
-	Domain                   string
-	DONFilters               []offchain.TargetDONFilter
-	DONs                     []DON             `yaml:"dons"`
+	Domain string
+
+	DONs []DON `yaml:"dons"`
+
 	GatewayRequestTimeoutSec int               `yaml:"gatewayRequestTimeoutSec"`
 	GatewayKeyChainSelector  pkg.ChainSelector `yaml:"gatewayKeyChainSelector"`
 	JobLabels                map[string]string
 }
 
 type DON struct {
-	Name     string
-	F        int
-	Handlers []string
+	Name           string
+	F              int
+	Handlers       []string
+	NodesSpecifier offchain.NodesSpecifier
 }
 
 type ProposeGatewayJobDeps struct {
@@ -50,10 +52,23 @@ var ProposeGatewayJob = operations.NewOperation[ProposeGatewayJobInput, ProposeG
 	func(b operations.Bundle, deps ProposeGatewayJobDeps, input ProposeGatewayJobInput) (ProposeGatewayJobOutput, error) {
 		targetDONs := make([]pkg.TargetDON, 0)
 		for _, ad := range input.DONs {
-			filter := offchain.TargetDONFilter{
-				Key:   offchain.FilterKeyDONName,
-				Value: ad.Name,
+			// Backward compatibility shim
+			//if ad.NodesSpecifier.LabelFilters == nil  && {
+			err := ad.NodesSpecifier.Validate()
+			if err != nil {
+				// Backward compatibility shim; inject label filter for DON name if none specified
+				if errors.Is(err, offchain.ErrNoSpecifiedMethods) {
+					ad.NodesSpecifier.LabelFilters = []offchain.NodeLabelFilter{
+						{
+							Key:   offchain.FilterKeyDONName,
+							Value: ad.Name,
+						},
+					}
+				} else {
+					return ProposeGatewayJobOutput{}, fmt.Errorf("invalid nodes specifier for DON %s: %w", ad.Name, err)
+				}
 			}
+			filter := ad.NodesSpecifier.Filter(ad.Name, deps.Env.Name, input.Domain)
 			nodes, err := pkg.FetchNodeChainConfigsFromJD(deps.Env.GetContext(), deps.Env, filter)
 			if err != nil {
 				return ProposeGatewayJobOutput{}, err
@@ -64,18 +79,14 @@ var ProposeGatewayJob = operations.NewOperation[ProposeGatewayJobInput, ProposeG
 				return ProposeGatewayJobOutput{}, err
 			}
 
-			req := pkg.FetchNodesRequest{
-				Domain:  input.Domain,
-				Filters: []offchain.TargetDONFilter{filter},
-			}
-			ns, err := pkg.FetchNodesFromJD(deps.Env.GetContext(), deps.Env, req)
+			ns, err := deps.Env.Offchain.ListNodes(deps.Env.GetContext(), &nodev1.ListNodesRequest{Filter: filter})
 			if err != nil {
 				return ProposeGatewayJobOutput{}, err
 			}
 
 			// make map of node id to node
-			m := make(map[string]*nodev1.Node, len(ns))
-			for _, n := range ns {
+			m := make(map[string]*nodev1.Node, len(ns.Nodes))
+			for _, n := range ns.Nodes {
 				m[n.Id] = n
 			}
 
@@ -129,7 +140,7 @@ var ProposeGatewayJob = operations.NewOperation[ProposeGatewayJobInput, ProposeG
 			return ProposeGatewayJobOutput{}, err
 		}
 
-		nodes, err := pkg.FetchNodesFromJD(b.GetContext(), deps.Env, pkg.FetchNodesRequest{
+		nodes, err := pkg.FetchNodesFromJD(b.GetContext(), deps.Env, pkg.NodesByLabelsRequest{
 			Domain:  input.Domain,
 			Filters: input.DONFilters,
 		})

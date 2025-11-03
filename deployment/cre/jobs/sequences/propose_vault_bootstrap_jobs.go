@@ -30,8 +30,8 @@ type ProposeVaultBootstrapJobsInput struct {
 
 	JobName string // Optional job name, if not provided, the default will be used.
 
-	DONFilters  []offchain.TargetDONFilter
-	ExtraLabels map[string]string
+	NodesSpecifier offchain.NodesSpecifier
+	ExtraLabels    map[string]string
 }
 
 type ProposeVaultBootstrapJobsOutput struct {
@@ -62,7 +62,7 @@ var ProposeVaultBootstrapJobs = operations.NewSequence[ProposeVaultBootstrapJobs
 				EnvironmentLabel: input.EnvironmentLabel,
 				ChainSelectorEVM: input.ChainSelectorEVM,
 				JobName:          input.JobName + " (Plugin)",
-				DONFilters:       input.DONFilters,
+				NodesSpecifier:   input.NodesSpecifier,
 				ExtraLabels:      input.ExtraLabels,
 			},
 		)
@@ -99,7 +99,7 @@ var ProposeVaultBootstrapJobs = operations.NewSequence[ProposeVaultBootstrapJobs
 				ContractID:       dkgAddrRef.Address,
 				EnvironmentLabel: input.EnvironmentLabel,
 				ChainSelectorEVM: input.ChainSelectorEVM,
-				DONFilters:       input.DONFilters,
+				NodesSpecifier:   input.NodesSpecifier,
 				JobName:          input.JobName + " (DKG)",
 				ExtraLabels:      input.ExtraLabels,
 			},

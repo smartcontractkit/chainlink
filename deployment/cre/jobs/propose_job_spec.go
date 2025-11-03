@@ -7,7 +7,7 @@ import (
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
 
-	operations2 "github.com/smartcontractkit/chainlink/deployment/cre/jobs/operations"
+	job_ops "github.com/smartcontractkit/chainlink/deployment/cre/jobs/operations"
 	"github.com/smartcontractkit/chainlink/deployment/cre/jobs/pkg"
 	"github.com/smartcontractkit/chainlink/deployment/cre/jobs/sequences"
 	job_types "github.com/smartcontractkit/chainlink/deployment/cre/jobs/types"
@@ -20,8 +20,8 @@ type ProposeJobSpecInput struct {
 	Environment string `json:"environment" yaml:"environment"`
 	Domain      string `json:"domain" yaml:"domain"`
 
-	DONName    string                     `json:"donName" yaml:"donName"`
-	DONFilters []offchain.TargetDONFilter `json:"donFilters" yaml:"donFilters"`
+	DONName        string                  `json:"donName" yaml:"donName"`
+	NodesSpecifier offchain.NodesSpecifier `json:"jobSpecifier" yaml:"jobSpecifier"`
 
 	JobName     string                    `json:"jobName" yaml:"jobName"`
 	Template    job_types.JobSpecTemplate `json:"template" yaml:"template"`
@@ -48,8 +48,8 @@ func (u ProposeJobSpec) VerifyPreconditions(_ cldf.Environment, config ProposeJo
 		return errors.New("don_name is required")
 	}
 
-	if len(config.DONFilters) == 0 {
-		return errors.New("don_filters is required")
+	if err := config.NodesSpecifier.Validate(); err != nil {
+		return fmt.Errorf("invalid job nodes specifier: %w", err)
 	}
 
 	if config.JobName == "" {
@@ -86,13 +86,13 @@ func (u ProposeJobSpec) Apply(e cldf.Environment, input ProposeJobSpecInput) (cl
 
 		r, rErr := operations.ExecuteSequence(
 			e.OperationsBundle,
-			operations2.ProposeStandardCapabilityJob,
-			operations2.ProposeStandardCapabilityJobDeps{Env: e},
-			operations2.ProposeStandardCapabilityJobInput{
-				Job:         job,
-				Domain:      input.Domain,
-				DONName:     input.DONName,
-				DONFilters:  input.DONFilters,
+			job_ops.ProposeStandardCapabilityJob,
+			job_ops.ProposeStandardCapabilityJobDeps{Env: e},
+			job_ops.ProposeStandardCapabilityJobInput{
+				Job:     job,
+				Domain:  input.Domain,
+				DONName: input.DONName,
+
 				ExtraLabels: input.ExtraLabels,
 			},
 		)
@@ -116,16 +116,16 @@ func (u ProposeJobSpec) Apply(e cldf.Environment, input ProposeJobSpecInput) (cl
 
 		r, rErr := operations.ExecuteOperation(
 			e.OperationsBundle,
-			operations2.ProposeOCR3BootstrapJob,
-			operations2.ProposeOCR3BootstrapJobDeps{Env: e},
-			operations2.ProposeOCR3BootstrapJobInput{
+			job_ops.ProposeOCR3BootstrapJob,
+			job_ops.ProposeOCR3BootstrapJobDeps{Env: e},
+			job_ops.ProposeOCR3BootstrapJobInput{
 				Domain:           input.Domain,
 				DONName:          input.DONName,
 				ContractID:       contractAddrRef.Address,
 				EnvironmentLabel: input.Environment,
 				ChainSelectorEVM: uint64(jobInput.ChainSelector),
 				JobName:          input.JobName,
-				DONFilters:       input.DONFilters,
+				NodesSpecifier:   input.NodesSpecifier,
 				ExtraLabels:      input.ExtraLabels,
 			},
 		)
@@ -159,9 +159,9 @@ func (u ProposeJobSpec) Apply(e cldf.Environment, input ProposeJobSpecInput) (cl
 
 		r, rErr := operations.ExecuteSequence(
 			e.OperationsBundle,
-			operations2.ProposeOCR3Job,
-			operations2.ProposeOCR3JobDeps{Env: e},
-			operations2.ProposeOCR3JobInput{
+			job_ops.ProposeOCR3Job,
+			job_ops.ProposeOCR3JobDeps{Env: e},
+			job_ops.ProposeOCR3JobInput{
 				Domain:                     input.Domain,
 				EnvName:                    input.Environment,
 				DONName:                    input.DONName,
@@ -173,7 +173,7 @@ func (u ProposeJobSpec) Apply(e cldf.Environment, input ProposeJobSpecInput) (cl
 				BootstrapperOCR3Urls:       jobInput.BootstrapperOCR3Urls,
 				DKGContractAddress:         dkgContractAddr,
 				VaultRequestExpiryDuration: jobInput.VaultRequestExpiryDuration,
-				DONFilters:                 input.DONFilters,
+				JobNodesSpecifier:          input.NodesSpecifier,
 				ExtraLabels:                input.ExtraLabels,
 			},
 		)
@@ -184,7 +184,7 @@ func (u ProposeJobSpec) Apply(e cldf.Environment, input ProposeJobSpecInput) (cl
 
 		report = r.ToGenericReport()
 	case job_types.Gateway:
-		typedInputs := operations2.ProposeGatewayJobInput{
+		typedInputs := job_ops.ProposeGatewayJobInput{
 			Domain:     input.Domain,
 			DONFilters: input.DONFilters,
 			JobLabels:  input.ExtraLabels,
@@ -196,8 +196,8 @@ func (u ProposeJobSpec) Apply(e cldf.Environment, input ProposeJobSpecInput) (cl
 
 		r, rErr := operations.ExecuteOperation(
 			e.OperationsBundle,
-			operations2.ProposeGatewayJob,
-			operations2.ProposeGatewayJobDeps{Env: e},
+			job_ops.ProposeGatewayJob,
+			job_ops.ProposeGatewayJobDeps{Env: e},
 			typedInputs,
 		)
 		if rErr != nil {
@@ -223,7 +223,7 @@ func (u ProposeJobSpec) Apply(e cldf.Environment, input ProposeJobSpecInput) (cl
 				EnvironmentLabel:        input.Environment,
 				ChainSelectorEVM:        uint64(jobInput.ChainSelector),
 				JobName:                 input.JobName,
-				DONFilters:              input.DONFilters,
+				NodesSpecifier:          input.NodesSpecifier,
 				ExtraLabels:             input.ExtraLabels,
 			},
 		)

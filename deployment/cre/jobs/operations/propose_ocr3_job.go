@@ -35,8 +35,8 @@ type ProposeOCR3JobInput struct {
 	DKGContractAddress         string
 	VaultRequestExpiryDuration string
 
-	DONFilters  []offchain.TargetDONFilter
-	ExtraLabels map[string]string
+	JobNodesSpecifier offchain.NodesSpecifier
+	ExtraLabels       map[string]string
 }
 
 type ProposeOCR3JobOutput struct {
@@ -48,23 +48,32 @@ var ProposeOCR3Job = operations.NewSequence[ProposeOCR3JobInput, ProposeOCR3JobO
 	semver.MustParse("1.0.0"),
 	"Propose OCR3 Job",
 	func(b operations.Bundle, deps ProposeOCR3JobDeps, input ProposeOCR3JobInput) (ProposeOCR3JobOutput, error) {
-		// We only want to target plugin nodes for OCR3 jobs.
-		input.DONFilters = append(input.DONFilters, offchain.TargetDONFilter{
-			Key:   "type",
-			Value: "plugin",
-		})
-		nodes, err := pkg.FetchNodesFromJD(b.GetContext(), deps.Env, pkg.FetchNodesRequest{
-			Domain:  input.Domain,
-			Filters: input.DONFilters,
-		})
+		err := input.JobNodesSpecifier.Validate()
+		if err != nil {
+			return ProposeOCR3JobOutput{}, fmt.Errorf("invalid job nodes specifier: %w", err)
+		}
+		if input.JobNodesSpecifier.LabelFilters != nil {
+			// Backward compatibility: append to existing filters.
+			// We only want to target plugin nodes for OCR3 jobs.
+			input.JobNodesSpecifier.LabelFilters = append(input.JobNodesSpecifier.LabelFilters, offchain.NodeLabelFilter{
+				Key:   "type",
+				Value: "plugin",
+			})
+		}
+
+		nodes, err := offchain.FetchNodesFromJD(b.GetContext(), deps.Env.Offchain, input.JobNodesSpecifier.Filter(input.DONName, input.EnvName, input.Domain))
 		if err != nil {
 			return ProposeOCR3JobOutput{}, fmt.Errorf("failed to fetch nodes from JD: %w", err)
 		}
-
-		nodeToCSAKey := make(map[string]string)
-		for _, n := range nodes {
-			nodeToCSAKey[n.Id] = n.GetPublicKey()
+		if len(nodes) == 0 {
+			return ProposeOCR3JobOutput{}, fmt.Errorf("no nodes found for DON `%s` with provided specifiers %+v, filter %+v", input.DONName, input.JobNodesSpecifier, input.JobNodesSpecifier.Filter(input.DONName, input.EnvName, input.Domain))
 		}
+		nodesIDs := make([]string, 0, len(nodes))
+		for _, n := range nodes {
+			nodesIDs = append(nodesIDs, n.Id)
+		}
+		b.Logger.Debugw("Proposing OCR3 job", "DON", input.DONName, "domain", input.Domain, "environment", input.EnvName, "nodes_count", len(nodes), "node_ids", nodesIDs)
+
 		vaultReqExpiry := input.VaultRequestExpiryDuration
 		if vaultReqExpiry == "" {
 			vaultReqExpiry = defaultVaultRequestExpiryDuration
@@ -72,7 +81,7 @@ var ProposeOCR3Job = operations.NewSequence[ProposeOCR3JobInput, ProposeOCR3JobO
 
 		specs, err := pkg.BuildOCR3JobConfigSpecs(
 			deps.Env.Offchain, deps.Env.Logger, input.ContractAddress, input.ChainSelectorEVM,
-			input.ChainSelectorAptos, nodes, input.BootstrapperOCR3Urls, input.DONName, input.JobName, input.TemplateName, input.DKGContractAddress, vaultReqExpiry,
+			input.ChainSelectorAptos, nodesIDs, input.BootstrapperOCR3Urls, input.DONName, input.JobName, input.TemplateName, input.DKGContractAddress, vaultReqExpiry,
 		)
 		if err != nil {
 			return ProposeOCR3JobOutput{}, fmt.Errorf("failed to build OCR3 job config specs: %w", err)
@@ -81,21 +90,18 @@ var ProposeOCR3Job = operations.NewSequence[ProposeOCR3JobInput, ProposeOCR3JobO
 		finalSpecs := make(map[string][]string)
 
 		var mergedErrs error
+		// Propose each spec to its target node.
 		for _, spec := range specs {
-			// Let's limit the target to the specific node for this spec.
-			filters := []offchain.TargetDONFilter{
-				{
-					Key:   offchain.FilterKeyCSAPublicKey,
-					Value: nodeToCSAKey[spec.NodeID],
-				},
+			// limit to the specific node
+			specifier := offchain.NodesSpecifier{
+				NodeIDs: []string{spec.NodeID},
 			}
-			filters = append(filters, input.DONFilters...)
 			opReport, opErr := operations.ExecuteOperation(b, ProposeJobSpec, ProposeJobSpecDeps(deps), ProposeJobSpecInput{
-				Domain:     input.Domain,
-				DONName:    input.DONName,
-				Spec:       spec.Spec,
-				DONFilters: filters,
-				JobLabels:  input.ExtraLabels,
+				Domain:            input.Domain,
+				DONName:           input.DONName,
+				Spec:              spec.Spec,
+				JobNodesSpecifier: specifier,
+				JobLabels:         input.ExtraLabels,
 			})
 			if opErr != nil {
 				// Do not fail the sequence if a single proposal fails, make it through all proposals.

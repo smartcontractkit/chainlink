@@ -42,7 +42,7 @@ func TestProposeStandardCapabilityJob_VerifyPreconditions(t *testing.T) {
 		JobName: "name",
 		Command: "run",
 		DONName: "test-don",
-		DONFilters: []offchain.TargetDONFilter{
+		DONFilters: []offchain.NodeLabelFilter{
 			{Key: offchain.FilterKeyDONName, Value: "d"},
 			{Key: "environment", Value: "e"},
 			{Key: "product", Value: offchain.ProductLabel},
@@ -62,7 +62,7 @@ func TestProposeStandardCapabilityJob_Apply(t *testing.T) {
 		Command: "cron",
 		DONName: "test-don",
 		Domain:  offchain.ProductLabel,
-		DONFilters: []offchain.TargetDONFilter{
+		DONFilters: []offchain.NodeLabelFilter{
 			{Key: offchain.FilterKeyDONName, Value: test.DONName},
 			{Key: "environment", Value: "test"},
 			{Key: "product", Value: offchain.ProductLabel},
@@ -89,7 +89,7 @@ func TestProposeStandardCapabilityJob_Apply_HTTPTrigger(t *testing.T) {
 		ExternalJobID: "http-trigger-external-id",
 		DONName:       test.DONName,
 		Domain:        offchain.ProductLabel,
-		DONFilters: []offchain.TargetDONFilter{
+		DONFilters: []offchain.NodeLabelFilter{
 			{Key: offchain.FilterKeyDONName, Value: test.DONName},
 			{Key: "environment", Value: "test"},
 			{Key: "product", Value: offchain.ProductLabel},
@@ -126,7 +126,7 @@ func TestProposeStandardCapabilityJob_Apply_HTTPAction(t *testing.T) {
 		ExternalJobID: "http-action-external-id",
 		DONName:       test.DONName,
 		Domain:        offchain.ProductLabel,
-		DONFilters: []offchain.TargetDONFilter{
+		DONFilters: []offchain.NodeLabelFilter{
 			{Key: offchain.FilterKeyDONName, Value: test.DONName},
 			{Key: "environment", Value: "test"},
 			{Key: "product", Value: offchain.ProductLabel},
@@ -169,7 +169,7 @@ func TestProposeStandardCapabilityJob_VerifyPreconditions_HTTPJobs(t *testing.T)
 				Command: "http_trigger",
 				Config:  `{}`,
 				DONName: "test-don",
-				DONFilters: []offchain.TargetDONFilter{
+				DONFilters: []offchain.NodeLabelFilter{
 					{Key: offchain.FilterKeyDONName, Value: "d"},
 					{Key: "environment", Value: "e"},
 					{Key: "product", Value: offchain.ProductLabel},
@@ -184,7 +184,7 @@ func TestProposeStandardCapabilityJob_VerifyPreconditions_HTTPJobs(t *testing.T)
 				Command: "http_action",
 				Config:  `{"proxyMode": "direct"}`,
 				DONName: "test-don",
-				DONFilters: []offchain.TargetDONFilter{
+				DONFilters: []offchain.NodeLabelFilter{
 					{Key: offchain.FilterKeyDONName, Value: "d"},
 					{Key: "environment", Value: "e"},
 					{Key: "product", Value: offchain.ProductLabel},
@@ -199,7 +199,7 @@ func TestProposeStandardCapabilityJob_VerifyPreconditions_HTTPJobs(t *testing.T)
 				Command: "http_trigger",
 				Config:  "",
 				DONName: "test-don",
-				DONFilters: []offchain.TargetDONFilter{
+				DONFilters: []offchain.NodeLabelFilter{
 					{Key: offchain.FilterKeyDONName, Value: "d"},
 				},
 			},
@@ -211,7 +211,7 @@ func TestProposeStandardCapabilityJob_VerifyPreconditions_HTTPJobs(t *testing.T)
 				JobName: "http-action-test",
 				Config:  `{"proxyMode": "direct"}`,
 				DONName: "test-don",
-				DONFilters: []offchain.TargetDONFilter{
+				DONFilters: []offchain.NodeLabelFilter{
 					{Key: offchain.FilterKeyDONName, Value: "d"},
 				},
 			},
