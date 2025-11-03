@@ -30,7 +30,8 @@ CREATE TABLE IF NOT EXISTS ton.log_poller_logs (
 
   address TEXT NOT NULL, -- TON address in user-friendly format. TODO: consider use BYTEA for address field
   event_sig BYTEA NOT NULL CHECK (octet_length(event_sig) = 4), -- CRC32 hash as 4-byte binary
-  data BYTEA, -- BOC-encoded cell data
+  boc_header BYTEA NOT NULL,
+  boc_payload BYTEA NOT NULL,
 
   tx_hash BYTEA NOT NULL,
   tx_lt NUMERIC(20, 0) NOT NULL, -- tx_lt is a uint64 which doesn't fit inside a bigint
@@ -58,8 +59,8 @@ CREATE UNIQUE INDEX IF NOT EXISTS idx_logs_unique ON ton.log_poller_logs (tx_has
 CREATE INDEX IF NOT EXISTS idx_logs_address_msglt ON ton.log_poller_logs(address, msg_lt);
 CREATE INDEX IF NOT EXISTS idx_logs_address_event ON ton.log_poller_logs(address, event_sig);
 
--- Index first 64 bytes of BOC data for byte-level filtering, covers most common filtering patterns
-CREATE INDEX IF NOT EXISTS idx_logs_data_prefix64 ON ton.log_poller_logs (address, event_sig, SUBSTRING(data, 1, 64));
+-- index first 64 bytes of boc payload for byte-level filtering
+CREATE INDEX IF NOT EXISTS idx_logs_data_prefix64 ON ton.log_poller_logs (address, event_sig, SUBSTRING(boc_payload, 1, 64));
 
 -- +goose Down
 DROP INDEX IF EXISTS idx_logs_data_prefix64;
