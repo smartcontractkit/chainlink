@@ -15,9 +15,9 @@ import (
 
 	capabilities_registry_v2 "github.com/smartcontractkit/chainlink-evm/gethwrappers/workflow/generated/capabilities_registry_wrapper_v2"
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset/state"
+	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 	"github.com/smartcontractkit/chainlink/deployment/cre/capabilities_registry/v2/changeset/pkg"
 	"github.com/smartcontractkit/chainlink/deployment/cre/common/strategies"
-	"github.com/smartcontractkit/chainlink/deployment/cre/ocr3"
 )
 
 type RegisterNopsDeps struct {
@@ -29,7 +29,7 @@ type RegisterNopsInput struct {
 	Address       string
 	ChainSelector uint64
 	Nops          []capabilities_registry_v2.CapabilitiesRegistryNodeOperatorParams
-	MCMSConfig    *ocr3.MCMSConfig
+	MCMSConfig    *proposalutils.TimelockConfig
 }
 
 type RegisterNopsOutput struct {

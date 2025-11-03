@@ -7,6 +7,7 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
+	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 	mcmslib "github.com/smartcontractkit/mcms"
 
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
@@ -16,7 +17,6 @@ import (
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset/state"
 	"github.com/smartcontractkit/chainlink/deployment/cre/capabilities_registry/v2/changeset/pkg"
 	"github.com/smartcontractkit/chainlink/deployment/cre/common/strategies"
-	"github.com/smartcontractkit/chainlink/deployment/cre/ocr3"
 )
 
 type RegisterDonsDeps struct {
@@ -28,7 +28,7 @@ type RegisterDonsInput struct {
 	Address       string
 	ChainSelector uint64
 	DONs          []capabilities_registry_v2.CapabilitiesRegistryNewDONParams
-	MCMSConfig    *ocr3.MCMSConfig
+	MCMSConfig    *proposalutils.TimelockConfig
 }
 
 type RegisterDonsOutput struct {

@@ -9,4 +9,5 @@ const (
 	UpdateNodeDescription           = "update node"
 	UpdateNodesDescription          = "update nodes"
 	SetDONFamiliesDescription       = "set DON families"
+	ConfigureForwarderDescription   = "configure forwarder"
 )

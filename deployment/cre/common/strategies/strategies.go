@@ -17,7 +17,6 @@ import (
 
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset/state"
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
-	"github.com/smartcontractkit/chainlink/deployment/cre/ocr3"
 )
 
 // TransactionStrategy interface for executing transactions with different strategies
@@ -42,7 +41,7 @@ func (s *SimpleTransaction) Apply(callFn func(opts *bind.TransactOpts) (*types.T
 
 // MCMSTransaction executes a transaction through MCMS timelock
 type MCMSTransaction struct {
-	Config        *ocr3.MCMSConfig
+	Config        *proposalutils.TimelockConfig
 	Description   string
 	Address       common.Address
 	ChainSel      uint64
@@ -84,7 +83,7 @@ func (m *MCMSTransaction) Apply(callFn func(opts *bind.TransactOpts) (*types.Tra
 		inspectorPerChain,
 		[]mcmstypes.BatchOperation{op},
 		m.Description,
-		proposalutils.TimelockConfig{MinDelay: m.Config.MinDuration},
+		*m.Config,
 	)
 	if err != nil {
 		return nil, err
@@ -97,15 +96,12 @@ func (m *MCMSTransaction) Apply(callFn func(opts *bind.TransactOpts) (*types.Tra
 func CreateStrategy(
 	chain cldf_evm.Chain,
 	env cldf.Environment,
-	mcmsConfig *ocr3.MCMSConfig,
+	mcmsConfig *proposalutils.TimelockConfig,
 	mcmsContracts *commonchangeset.MCMSWithTimelockState,
 	targetAddress common.Address,
 	description string,
 ) (TransactionStrategy, error) {
 	if mcmsConfig != nil {
-		if mcmsConfig == nil {
-			return nil, errors.New("MCMS config is required when mcmsConfig is not nil")
-		}
 		if mcmsContracts == nil {
 			return nil, errors.New("MCMS contracts are required when mcmsConfig is not nil")
 		}

@@ -16,8 +16,8 @@ import (
 
 	workflow_registry_v2 "github.com/smartcontractkit/chainlink-evm/gethwrappers/workflow/generated/workflow_registry_wrapper_v2"
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset/state"
+	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 	"github.com/smartcontractkit/chainlink/deployment/cre/common/strategies"
-	"github.com/smartcontractkit/chainlink/deployment/cre/ocr3"
 )
 
 const (
@@ -37,14 +37,14 @@ type WorkflowRegistryOpDeps struct {
 
 // SetConfig Operation
 type SetConfigOpInput struct {
-	ChainSelector uint64           `json:"chainSelector"`
-	Qualifier     string           `json:"qualifier"` // Qualifier to identify the specific workflow registry
-	NameLen       uint8            `json:"nameLen"`
-	TagLen        uint8            `json:"tagLen"`
-	URLLen        uint8            `json:"urlLen"`
-	AttrLen       uint16           `json:"attrLen"`
-	ExpiryLen     uint32           `json:"expiryLen"`
-	MCMSConfig    *ocr3.MCMSConfig `json:"mcmsConfig,omitempty"`
+	ChainSelector uint64                        `json:"chainSelector"`
+	Qualifier     string                        `json:"qualifier"` // Qualifier to identify the specific workflow registry
+	NameLen       uint8                         `json:"nameLen"`
+	TagLen        uint8                         `json:"tagLen"`
+	URLLen        uint8                         `json:"urlLen"`
+	AttrLen       uint16                        `json:"attrLen"`
+	ExpiryLen     uint32                        `json:"expiryLen"`
+	MCMSConfig    *proposalutils.TimelockConfig `json:"mcmsConfig,omitempty"`
 }
 
 type SetConfigOpOutput struct {
@@ -107,11 +107,11 @@ var SetConfigOp = operations.NewOperation(
 
 // UpdateAllowedSigners Operation
 type UpdateAllowedSignersOpInput struct {
-	ChainSelector uint64           `json:"chainSelector"`
-	Qualifier     string           `json:"qualifier"` // Qualifier to identify the specific workflow registry
-	Signers       []common.Address `json:"signers"`
-	Allowed       bool             `json:"allowed"`
-	MCMSConfig    *ocr3.MCMSConfig `json:"mcmsConfig,omitempty"`
+	ChainSelector uint64                        `json:"chainSelector"`
+	Qualifier     string                        `json:"qualifier"` // Qualifier to identify the specific workflow registry
+	Signers       []common.Address              `json:"signers"`
+	Allowed       bool                          `json:"allowed"`
+	MCMSConfig    *proposalutils.TimelockConfig `json:"mcmsConfig,omitempty"`
 }
 
 type UpdateAllowedSignersOpOutput struct {
@@ -178,11 +178,11 @@ var UpdateAllowedSignersOp = operations.NewOperation(
 
 // SetWorkflowOwnerConfig Operation
 type SetWorkflowOwnerConfigOpInput struct {
-	ChainSelector uint64           `json:"chainSelector"`
-	Qualifier     string           `json:"qualifier"` // Qualifier to identify the specific workflow registry
-	Owner         common.Address   `json:"owner"`
-	Config        []byte           `json:"config"`
-	MCMSConfig    *ocr3.MCMSConfig `json:"mcmsConfig,omitempty"`
+	ChainSelector uint64                        `json:"chainSelector"`
+	Qualifier     string                        `json:"qualifier"` // Qualifier to identify the specific workflow registry
+	Owner         common.Address                `json:"owner"`
+	Config        []byte                        `json:"config"`
+	MCMSConfig    *proposalutils.TimelockConfig `json:"mcmsConfig,omitempty"`
 }
 
 type SetWorkflowOwnerConfigOpOutput struct {
@@ -245,12 +245,12 @@ var SetWorkflowOwnerConfigOp = operations.NewOperation(
 
 // SetDONLimit Operation
 type SetDONLimitOpInput struct {
-	ChainSelector    uint64           `json:"chainSelector"`
-	Qualifier        string           `json:"qualifier"` // Qualifier to identify the specific workflow registry
-	DONFamily        string           `json:"donFamily"`
-	DONLimit         uint32           `json:"donlimit"`
-	UserDefaultLimit uint32           `json:"userDefaultLimit"`
-	MCMSConfig       *ocr3.MCMSConfig `json:"mcmsConfig,omitempty"`
+	ChainSelector    uint64                        `json:"chainSelector"`
+	Qualifier        string                        `json:"qualifier"` // Qualifier to identify the specific workflow registry
+	DONFamily        string                        `json:"donFamily"`
+	DONLimit         uint32                        `json:"donlimit"`
+	UserDefaultLimit uint32                        `json:"userDefaultLimit"`
+	MCMSConfig       *proposalutils.TimelockConfig `json:"mcmsConfig,omitempty"`
 }
 
 type SetDONLimitOpOutput struct {
@@ -313,13 +313,13 @@ var SetDONLimitOp = operations.NewOperation(
 
 // SetUserDONOverride Operation
 type SetUserDONOverrideOpInput struct {
-	ChainSelector uint64           `json:"chainSelector"`
-	Qualifier     string           `json:"qualifier"` // Qualifier to identify the specific workflow registry
-	User          common.Address   `json:"user"`
-	DONFamily     string           `json:"donFamily"`
-	Limit         uint32           `json:"limit"`
-	Enabled       bool             `json:"enabled"`
-	MCMSConfig    *ocr3.MCMSConfig `json:"mcmsConfig,omitempty"`
+	ChainSelector uint64                        `json:"chainSelector"`
+	Qualifier     string                        `json:"qualifier"` // Qualifier to identify the specific workflow registry
+	User          common.Address                `json:"user"`
+	DONFamily     string                        `json:"donFamily"`
+	Limit         uint32                        `json:"limit"`
+	Enabled       bool                          `json:"enabled"`
+	MCMSConfig    *proposalutils.TimelockConfig `json:"mcmsConfig,omitempty"`
 }
 
 type SetUserDONOverrideOpOutput struct {
@@ -382,11 +382,11 @@ var SetUserDONOverrideOp = operations.NewOperation(
 
 // SetCapabilitiesRegistry Operation
 type SetCapabilitiesRegistryOpInput struct {
-	ChainSelector    uint64           `json:"chainSelector"`
-	Qualifier        string           `json:"qualifier"` // Qualifier to identify the specific workflow registry
-	Registry         common.Address   `json:"registry"`
-	ChainSelectorDON uint64           `json:"chainSelectorDON"`
-	MCMSConfig       *ocr3.MCMSConfig `json:"mcmsConfig,omitempty"`
+	ChainSelector    uint64                        `json:"chainSelector"`
+	Qualifier        string                        `json:"qualifier"` // Qualifier to identify the specific workflow registry
+	Registry         common.Address                `json:"registry"`
+	ChainSelectorDON uint64                        `json:"chainSelectorDON"`
+	MCMSConfig       *proposalutils.TimelockConfig `json:"mcmsConfig,omitempty"`
 }
 
 type SetCapabilitiesRegistryOpOutput struct {

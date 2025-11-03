@@ -12,8 +12,8 @@ import (
 	mcmslib "github.com/smartcontractkit/mcms"
 
 	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
+	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 	"github.com/smartcontractkit/chainlink/deployment/cre/common/strategies"
-	"github.com/smartcontractkit/chainlink/deployment/cre/ocr3"
 )
 
 const (
@@ -25,10 +25,10 @@ const (
 
 // AdminPauseWorkflow Operation
 type AdminPauseWorkflowOpInput struct {
-	ChainSelector uint64           `json:"chainSelector"`
-	Qualifier     string           `json:"qualifier"` // Qualifier to identify the specific workflow registry
-	WorkflowID    [32]byte         `json:"workflowID"`
-	MCMSConfig    *ocr3.MCMSConfig `json:"mcmsConfig,omitempty"`
+	ChainSelector uint64                        `json:"chainSelector"`
+	Qualifier     string                        `json:"qualifier"` // Qualifier to identify the specific workflow registry
+	WorkflowID    [32]byte                      `json:"workflowID"`
+	MCMSConfig    *proposalutils.TimelockConfig `json:"mcmsConfig,omitempty"`
 }
 
 type AdminPauseWorkflowOpOutput struct {
@@ -91,10 +91,10 @@ var AdminPauseWorkflowOp = operations.NewOperation(
 
 // AdminBatchPauseWorkflows Operation
 type AdminBatchPauseWorkflowsOpInput struct {
-	ChainSelector uint64           `json:"chainSelector"`
-	Qualifier     string           `json:"qualifier"` // Qualifier to identify the specific workflow registry
-	WorkflowIDs   [][32]byte       `json:"workflowIDs"`
-	MCMSConfig    *ocr3.MCMSConfig `json:"mcmsConfig,omitempty"`
+	ChainSelector uint64                        `json:"chainSelector"`
+	Qualifier     string                        `json:"qualifier"` // Qualifier to identify the specific workflow registry
+	WorkflowIDs   [][32]byte                    `json:"workflowIDs"`
+	MCMSConfig    *proposalutils.TimelockConfig `json:"mcmsConfig,omitempty"`
 }
 
 type AdminBatchPauseWorkflowsOpOutput struct {
@@ -161,11 +161,11 @@ var AdminBatchPauseWorkflowsOp = operations.NewOperation(
 
 // AdminPauseAllByOwner Operation
 type AdminPauseAllByOwnerOpInput struct {
-	ChainSelector uint64           `json:"chainSelector"`
-	Qualifier     string           `json:"qualifier"` // Qualifier to identify the specific workflow registry
-	Owner         common.Address   `json:"owner"`
-	Limit         *big.Int         `json:"limit"`
-	MCMSConfig    *ocr3.MCMSConfig `json:"mcmsConfig,omitempty"`
+	ChainSelector uint64                        `json:"chainSelector"`
+	Qualifier     string                        `json:"qualifier"` // Qualifier to identify the specific workflow registry
+	Owner         common.Address                `json:"owner"`
+	Limit         *big.Int                      `json:"limit"`
+	MCMSConfig    *proposalutils.TimelockConfig `json:"mcmsConfig,omitempty"`
 }
 
 type AdminPauseAllByOwnerOpOutput struct {
@@ -228,11 +228,11 @@ var AdminPauseAllByOwnerOp = operations.NewOperation(
 
 // AdminPauseAllByDON Operation
 type AdminPauseAllByDONOpInput struct {
-	ChainSelector uint64           `json:"chainSelector"`
-	Qualifier     string           `json:"qualifier"` // Qualifier to identify the specific workflow registry
-	DONFamily     string           `json:"donFamily"`
-	Limit         *big.Int         `json:"limit"`
-	MCMSConfig    *ocr3.MCMSConfig `json:"mcmsConfig,omitempty"`
+	ChainSelector uint64                        `json:"chainSelector"`
+	Qualifier     string                        `json:"qualifier"` // Qualifier to identify the specific workflow registry
+	DONFamily     string                        `json:"donFamily"`
+	Limit         *big.Int                      `json:"limit"`
+	MCMSConfig    *proposalutils.TimelockConfig `json:"mcmsConfig,omitempty"`
 }
 
 type AdminPauseAllByDONOpOutput struct {

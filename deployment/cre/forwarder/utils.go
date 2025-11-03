@@ -1,16 +1,14 @@
 package forwarder
 
 import (
+	"context"
 	"errors"
 	"fmt"
-	"math/big"
 
+	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
-
-	mcmstypes "github.com/smartcontractkit/mcms/types"
-
-	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
-	"github.com/smartcontractkit/chainlink/deployment/cre/ocr3/v2/changeset/operations/contracts"
+	"github.com/ethereum/go-ethereum/core/types"
+	"github.com/smartcontractkit/mcms"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 
@@ -18,6 +16,8 @@ import (
 
 	cldf_evm "github.com/smartcontractkit/chainlink-deployments-framework/chain/evm"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+
+	"github.com/smartcontractkit/chainlink/deployment/cre/common/strategies"
 )
 
 // Config is the configuration to set on a Keystone Forwarder contract
@@ -33,48 +33,66 @@ type configureFowarderResponse struct {
 	DonID         uint32
 	Forwarder     common.Address
 
-	BatchOperation *mcmstypes.BatchOperation // if using MCMS, the batch operation to propose the change
+	Proposal *mcms.TimelockProposal // if using MCMS, the proposal to propose the change
 }
 
 // configureForwarder sets the config for the forwarder contract on the chain for all Dons that accept workflows
 // dons that don't accept workflows are not registered with the forwarder
-func configureForwarder(lggr logger.Logger, chain cldf_evm.Chain, fwdr *kf.KeystoneForwarder, cfg Config, useMCMS bool) (*configureFowarderResponse, error) {
+func configureForwarder(
+	ctx context.Context,
+	lggr logger.Logger,
+	chain cldf_evm.Chain,
+	fwdr *kf.KeystoneForwarder,
+	cfg Config,
+	useMCMS bool,
+	strategy strategies.TransactionStrategy,
+) (*configureFowarderResponse, error) {
 	if fwdr == nil {
 		return nil, errors.New("nil forwarder contract")
 	}
 
 	ver := cfg.ConfigVersion // note config count on the don info is the version on the forwarder
 	signers := cfg.Signers
-	txOpts := chain.DeployerKey
-	if useMCMS {
-		txOpts = cldf.SimTransactOpts()
-	}
-	tx, err := fwdr.SetConfig(txOpts, cfg.DonID, ver, cfg.F, signers)
-	if err != nil {
-		err = cldf.DecodeErr(kf.KeystoneForwarderABI, err)
-		return nil, fmt.Errorf("failed to call SetConfig for forwarder %s on chain %d: %w", fwdr.Address().String(), chain.Selector, err)
-	}
-	var op *mcmstypes.BatchOperation
-	if !useMCMS {
+
+	proposals, err := strategy.Apply(func(txOpts *bind.TransactOpts) (*types.Transaction, error) {
+		tx, err := fwdr.SetConfig(txOpts, cfg.DonID, ver, cfg.F, signers)
+		if err != nil {
+			err = cldf.DecodeErr(kf.KeystoneForwarderABI, err)
+			return nil, fmt.Errorf("failed to call SetConfig for forwarder %s on chain %d: %w", fwdr.Address().String(), chain.Selector, err)
+		}
+
+		if useMCMS {
+			return tx, nil
+		}
+
 		_, err = chain.Confirm(tx)
 		if err != nil {
 			err = cldf.DecodeErr(kf.KeystoneForwarderABI, err)
 			return nil, fmt.Errorf("failed to confirm SetConfig for forwarder %s: %w", fwdr.Address().String(), err)
 		}
-	} else {
-		// create the mcms proposals
-		op2, err := proposalutils.BatchOperationForChain(chain.Selector, fwdr.Address().Hex(), tx.Data(), big.NewInt(0), string(contracts.KeystoneForwarder), nil)
-		if err != nil {
-			return nil, fmt.Errorf("failed to create proposal batch operation for chain %d: %w", chain.Selector, err)
-		}
-		op = &op2
+
+		return tx, nil
+	})
+	if err != nil {
+		return nil, fmt.Errorf("failed to set forwarder config on chain %d: %w", chain.Selector, err)
 	}
-	lggr.Debugw("configured forwarder", "forwarder", fwdr.Address().String(), "donId", cfg.DonID, "version", ver, "f", cfg.F, "signers", signers)
+
+	if useMCMS {
+		lggr.Infow("Created MCMS proposal for forwarder", "address", fwdr.Address().String(), "donId", cfg.DonID, "version", ver, "f", cfg.F, "signers", signers)
+
+		return &configureFowarderResponse{
+			ChainSelector: chain.Selector,
+			DonID:         cfg.DonID,
+			Forwarder:     fwdr.Address(),
+			Proposal:      &proposals[0],
+		}, nil
+	}
+
+	lggr.Infow("Successfully configured forwarder", "address", fwdr.Address().String(), "donId", cfg.DonID, "version", ver, "f", cfg.F, "signers", signers)
 
 	return &configureFowarderResponse{
-		ChainSelector:  chain.Selector,
-		DonID:          cfg.DonID,
-		Forwarder:      fwdr.Address(),
-		BatchOperation: op,
+		ChainSelector: chain.Selector,
+		DonID:         cfg.DonID,
+		Forwarder:     fwdr.Address(),
 	}, nil
 }
