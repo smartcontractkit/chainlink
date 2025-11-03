@@ -101,7 +101,7 @@ require (
 	github.com/smartcontractkit/chainlink-protos/workflows/go v0.0.0-20251025021331-aa7746850cc4
 	github.com/smartcontractkit/chainlink-solana v1.1.2-0.20251020193713-b63bc17bfeb1
 	github.com/smartcontractkit/chainlink-sui v0.0.0-20251029234211-ed9dc839af35
-	github.com/smartcontractkit/chainlink-ton v0.0.0-20251030205558-a88be7413ce5
+	github.com/smartcontractkit/chainlink-ton v0.0.0-20251103183119-5d4f72fa818d
 	github.com/smartcontractkit/cre-sdk-go v0.7.1-0.20250919133015-2df149f34a81
 	github.com/smartcontractkit/cre-sdk-go/capabilities/networking/http v0.7.0
 	github.com/smartcontractkit/cre-sdk-go/capabilities/scheduler/cron v0.8.0
@@ -410,6 +410,7 @@ require (
 	gopkg.in/guregu/null.v2 v2.1.2 // indirect
 	gopkg.in/yaml.v2 v2.4.0 // indirect
 	gotest.tools/v3 v3.5.2 // indirect
+	modernc.org/libc v1.66.10 // indirect
 	modernc.org/sqlite v1.37.1 // indirect
 	pgregory.net/rapid v1.1.0 // indirect
 	sigs.k8s.io/yaml v1.4.0 // indirect
