@@ -410,6 +410,7 @@ jobs:
     name: SonarQube Scan
     needs: [golangci, core, core-scripts-tests]
     # If core is cancelled, skip this to not delay the cancellation of the workflow.
+    # zzz
     if: ${{ always() && !cancelled() && github.actor != 'dependabot[bot]' }}
     runs-on: ubuntu-latest
     steps:
