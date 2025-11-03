@@ -146,7 +146,7 @@ var ConfigureOCR3_1 = operations.NewOperation[ConfigureOCR3_1Input, ConfigureOCR
 			if err != nil {
 				return out, fmt.Errorf("failed to build proposal: %w", err)
 			}
-			out.MCMSTimelockProposals = []mcms.TimelockProposal{*proposal}
+			out.MCMSTimelockProposals = []mcmslib.TimelockProposal{*proposal}
 		}
 		return out, nil
 	},
