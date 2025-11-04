@@ -120,7 +120,12 @@ func OnboardTokenPoolsForSelfServe(e cldf.Environment, cfg OnboardTokenPoolsForS
 		// Store in Address Book
 		newAddresses := cldf.NewMemoryAddressBook()
 		tv := cldf.NewTypeAndVersion(registerTokenConfig.TokenProgramName, deployment.Version1_0_0)
-		tv.AddLabel(registerTokenConfig.TokenSymbol)
+		if registerTokenConfig.TokenSymbol != "" {
+			tv.AddLabel(registerTokenConfig.TokenSymbol)
+		}
+		if registerTokenConfig.Metadata != "" {
+			tv.AddLabel(registerTokenConfig.Metadata)
+		}
 		err = newAddresses.Save(cfg.ChainSelector, registerTokenConfig.TokenMint.String(), tv)
 		if err != nil {
 			return cldf.ChangesetOutput{}, err
