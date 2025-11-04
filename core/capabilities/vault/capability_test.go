@@ -1067,15 +1067,23 @@ func TestCapability_Lifecycle(t *testing.T) {
 	reg := coreCapabilities.NewRegistry(lggr)
 	capability := NewCapability(lggr, clock, expiry, handler, requestAuthorizer, reg, nil)
 
+	_, err := reg.GetExecutable(t.Context(), vault.CapabilityID)
+	require.ErrorContains(t, err, "no compatible capability found for id vault@1.0.0")
+
 	require.NoError(t, capability.Start(t.Context()))
 
-	_, err := reg.GetExecutable(t.Context(), vault.CapabilityID)
+	_, err = reg.GetExecutable(t.Context(), vault.CapabilityID)
 	require.NoError(t, err)
 
 	require.NoError(t, capability.Close())
 
-	_, err = reg.GetExecutable(t.Context(), vault.CapabilityID)
-	require.ErrorContains(t, err, "no compatible capability found for id vault@1.0.0")
+	got, err := reg.GetExecutable(t.Context(), vault.CapabilityID)
+	require.NoError(t, err)
+	loader, ok := got.(interface {
+		Load() *capabilities.ExecutableCapability
+	})
+	require.True(t, ok)
+	require.Nil(t, loader.Load())
 }
 
 func TestCapability_PublicKeyGet(t *testing.T) {

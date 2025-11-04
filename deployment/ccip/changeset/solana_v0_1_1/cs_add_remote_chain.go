@@ -2,6 +2,7 @@ package solana
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"math"
 	"strconv"
@@ -28,9 +29,11 @@ import (
 )
 
 // use these three changesets to add a remote chain to solana
-var _ cldf.ChangeSet[AddRemoteChainToRouterConfig] = AddRemoteChainToRouter
-var _ cldf.ChangeSet[AddRemoteChainToOffRampConfig] = AddRemoteChainToOffRamp
-var _ cldf.ChangeSet[AddRemoteChainToFeeQuoterConfig] = AddRemoteChainToFeeQuoter
+var (
+	_ cldf.ChangeSet[AddRemoteChainToRouterConfig]    = AddRemoteChainToRouter
+	_ cldf.ChangeSet[AddRemoteChainToOffRampConfig]   = AddRemoteChainToOffRamp
+	_ cldf.ChangeSet[AddRemoteChainToFeeQuoterConfig] = AddRemoteChainToFeeQuoter
+)
 
 type AddRemoteChainToRouterConfig struct {
 	ChainSelector uint64
@@ -108,7 +111,11 @@ func AddRemoteChainToRouter(e cldf.Environment, cfg AddRemoteChainToRouterConfig
 	ab := cldf.NewMemoryAddressBook()
 	txns, err := doAddRemoteChainToRouter(e, s, cfg, ab)
 	if err != nil {
-		return cldf.ChangesetOutput{AddressBook: ab}, err
+		ds, err2 := shared.PopulateDataStore(ab)
+		if err2 != nil {
+			err2 = fmt.Errorf("failed to populate in-memory DataStore: %w", err2)
+		}
+		return cldf.ChangesetOutput{AddressBook: ab, DataStore: ds}, errors.Join(err, err2)
 	}
 
 	// create proposals for ixns
@@ -118,19 +125,31 @@ func AddRemoteChainToRouter(e cldf.Environment, cfg AddRemoteChainToRouterConfig
 		if err != nil {
 			return cldf.ChangesetOutput{}, fmt.Errorf("failed to build proposal: %w", err)
 		}
+		ds, err := shared.PopulateDataStore(ab)
+		if err != nil {
+			return cldf.ChangesetOutput{}, fmt.Errorf("failed to populate in-memory DataStore: %w", err)
+		}
 		return cldf.ChangesetOutput{
 			MCMSTimelockProposals: []mcms.TimelockProposal{*proposal},
 			AddressBook:           ab,
+			DataStore:             ds,
 		}, nil
 	}
-	return cldf.ChangesetOutput{AddressBook: ab}, nil
+
+	ds, err := shared.PopulateDataStore(ab)
+	if err != nil {
+		return cldf.ChangesetOutput{}, fmt.Errorf("failed to populate in-memory DataStore: %w", err)
+	}
+
+	return cldf.ChangesetOutput{AddressBook: ab, DataStore: ds}, nil
 }
 
 func doAddRemoteChainToRouter(
 	e cldf.Environment,
 	s stateview.CCIPOnChainState,
 	cfg AddRemoteChainToRouterConfig,
-	ab cldf.AddressBook) ([]mcmsTypes.Transaction, error) {
+	ab cldf.AddressBook,
+) ([]mcmsTypes.Transaction, error) {
 	txns := make([]mcmsTypes.Transaction, 0)
 	chainSel := cfg.ChainSelector
 	updates := cfg.UpdatesByChain
@@ -339,7 +358,11 @@ func AddRemoteChainToFeeQuoter(e cldf.Environment, cfg AddRemoteChainToFeeQuoter
 	ab := cldf.NewMemoryAddressBook()
 	txns, err := doAddRemoteChainToFeeQuoter(e, s, cfg, ab)
 	if err != nil {
-		return cldf.ChangesetOutput{AddressBook: ab}, err
+		ds, err2 := shared.PopulateDataStore(ab)
+		if err2 != nil {
+			err2 = fmt.Errorf("failed to populate in-memory DataStore: %w", err2)
+		}
+		return cldf.ChangesetOutput{AddressBook: ab, DataStore: ds}, errors.Join(err, err2)
 	}
 
 	// create proposals for ixns
@@ -349,19 +372,31 @@ func AddRemoteChainToFeeQuoter(e cldf.Environment, cfg AddRemoteChainToFeeQuoter
 		if err != nil {
 			return cldf.ChangesetOutput{}, fmt.Errorf("failed to build proposal: %w", err)
 		}
+		ds, err := shared.PopulateDataStore(ab)
+		if err != nil {
+			return cldf.ChangesetOutput{}, fmt.Errorf("failed to populate in-memory DataStore: %w", err)
+		}
 		return cldf.ChangesetOutput{
 			MCMSTimelockProposals: []mcms.TimelockProposal{*proposal},
 			AddressBook:           ab,
+			DataStore:             ds,
 		}, nil
 	}
-	return cldf.ChangesetOutput{AddressBook: ab}, nil
+
+	ds, err := shared.PopulateDataStore(ab)
+	if err != nil {
+		return cldf.ChangesetOutput{}, fmt.Errorf("failed to populate in-memory DataStore: %w", err)
+	}
+
+	return cldf.ChangesetOutput{AddressBook: ab, DataStore: ds}, nil
 }
 
 func doAddRemoteChainToFeeQuoter(
 	e cldf.Environment,
 	s stateview.CCIPOnChainState,
 	cfg AddRemoteChainToFeeQuoterConfig,
-	ab cldf.AddressBook) ([]mcmsTypes.Transaction, error) {
+	ab cldf.AddressBook,
+) ([]mcmsTypes.Transaction, error) {
 	txns := make([]mcmsTypes.Transaction, 0)
 	chainSel := cfg.ChainSelector
 	updates := cfg.UpdatesByChain
@@ -520,7 +555,12 @@ func AddRemoteChainToOffRamp(e cldf.Environment, cfg AddRemoteChainToOffRampConf
 	ab := cldf.NewMemoryAddressBook()
 	txns, err := doAddRemoteChainToOffRamp(e, s, cfg, ab)
 	if err != nil {
-		return cldf.ChangesetOutput{AddressBook: ab}, err
+		ds, err2 := shared.PopulateDataStore(ab)
+		if err2 != nil {
+			err2 = fmt.Errorf("failed to populate in-memory DataStore: %w", err2)
+		}
+
+		return cldf.ChangesetOutput{AddressBook: ab, DataStore: ds}, errors.Join(err, err2)
 	}
 
 	// create proposals for ixns
@@ -530,19 +570,31 @@ func AddRemoteChainToOffRamp(e cldf.Environment, cfg AddRemoteChainToOffRampConf
 		if err != nil {
 			return cldf.ChangesetOutput{}, fmt.Errorf("failed to build proposal: %w", err)
 		}
+		ds, err := shared.PopulateDataStore(ab)
+		if err != nil {
+			return cldf.ChangesetOutput{}, fmt.Errorf("failed to populate in-memory DataStore: %w", err)
+		}
 		return cldf.ChangesetOutput{
 			MCMSTimelockProposals: []mcms.TimelockProposal{*proposal},
 			AddressBook:           ab,
+			DataStore:             ds,
 		}, nil
 	}
-	return cldf.ChangesetOutput{AddressBook: ab}, nil
+
+	ds, err := shared.PopulateDataStore(ab)
+	if err != nil {
+		return cldf.ChangesetOutput{}, fmt.Errorf("failed to populate in-memory DataStore: %w", err)
+	}
+
+	return cldf.ChangesetOutput{AddressBook: ab, DataStore: ds}, nil
 }
 
 func doAddRemoteChainToOffRamp(
 	e cldf.Environment,
 	s stateview.CCIPOnChainState,
 	cfg AddRemoteChainToOffRampConfig,
-	ab cldf.AddressBook) ([]mcmsTypes.Transaction, error) {
+	ab cldf.AddressBook,
+) ([]mcmsTypes.Transaction, error) {
 	txns := make([]mcmsTypes.Transaction, 0)
 	chainSel := cfg.ChainSelector
 	updates := cfg.UpdatesByChain

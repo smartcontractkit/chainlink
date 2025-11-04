@@ -11,19 +11,17 @@ import (
 
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/jobs"
-	"github.com/smartcontractkit/chainlink/system-tests/lib/infra"
 )
 
 type CreateJobsWithJdOpDeps struct {
-	Logger                    zerolog.Logger
-	SingleFileLogger          common.Logger
-	HomeChainBlockchainOutput *blockchain.Output
-	JobSpecFactoryFunctions   []cre.JobSpecFn
-	CreEnvironment            *cre.Environment
-	CapabilitiesAwareNodeSets []*cre.CapabilitiesAwareNodeSet
-	CapabilitiesConfigs       cre.CapabilityConfigs
-	Capabilities              []cre.InstallableCapability
-	InfraInput                infra.Provider
+	Logger                        zerolog.Logger
+	SingleFileLogger              common.Logger
+	RegistryChainBlockchainOutput *blockchain.Output
+	JobSpecFactoryFunctions       []cre.JobSpecFn
+	CreEnvironment                *cre.Environment
+	Dons                          *cre.Dons
+	NodeSets                      []*cre.NodeSet
+	Capabilities                  []cre.InstallableCapability
 }
 
 type CreateJobsWithJdOpInput struct {
@@ -32,46 +30,7 @@ type CreateJobsWithJdOpInput struct {
 type CreateJobsWithJdOpOutput struct {
 }
 
-var CreateJobsWithJdOp = operations.NewOperation(
-	"create-jobs-op",
-	semver.MustParse("1.0.0"),
-	"Create Jobs",
-	func(b operations.Bundle, deps CreateJobsWithJdOpDeps, input CreateJobsWithJdOpInput) (CreateJobsWithJdOpOutput, error) {
-		donToJobSpecs := make(cre.DonsToJobSpecs)
-
-		for _, jobSpecGeneratingFn := range deps.JobSpecFactoryFunctions {
-			if jobSpecGeneratingFn == nil {
-				continue
-			}
-			singleDonToJobSpecs, jobSpecsErr := jobSpecGeneratingFn(&cre.JobSpecInput{
-				CldEnvironment:            deps.CreEnvironment.CldfEnvironment,
-				BlockchainOutput:          deps.HomeChainBlockchainOutput,
-				DonTopology:               deps.CreEnvironment.DonTopology,
-				InfraInput:                deps.InfraInput,
-				CapabilityConfigs:         deps.CapabilitiesConfigs,
-				CapabilitiesAwareNodeSets: deps.CapabilitiesAwareNodeSets,
-				Capabilities:              deps.Capabilities,
-			})
-			if jobSpecsErr != nil {
-				return CreateJobsWithJdOpOutput{}, pkgerrors.Wrap(jobSpecsErr, "failed to generate job specs")
-			}
-			mergeJobSpecSlices(singleDonToJobSpecs, donToJobSpecs)
-		}
-
-		for _, don := range deps.CreEnvironment.DonTopology.Dons.List() {
-			if jobSpecs, ok := donToJobSpecs[don.ID]; ok {
-				createErr := jobs.Create(b.GetContext(), deps.CreEnvironment.CldfEnvironment.Offchain, deps.CreEnvironment.DonTopology, jobSpecs)
-				if createErr != nil {
-					return CreateJobsWithJdOpOutput{}, pkgerrors.Wrapf(createErr, "failed to create jobs for DON %d", don.ID)
-				}
-			} else {
-				deps.Logger.Warn().Msgf("No job specs found for DON %d", don.ID)
-			}
-		}
-
-		return CreateJobsWithJdOpOutput{}, nil
-	},
-)
+var CreateJobsWithJdOp = CreateJobsWithJdOpFactory("create-jobs-op", "1.0.0")
 
 // CreateJobsWithJdOpFactory creates a new operation with user-specified ID and version
 func CreateJobsWithJdOpFactory(id string, version string) *operations.Operation[CreateJobsWithJdOpInput, CreateJobsWithJdOpOutput, CreateJobsWithJdOpDeps] {
@@ -80,31 +39,26 @@ func CreateJobsWithJdOpFactory(id string, version string) *operations.Operation[
 		semver.MustParse(version),
 		"Create Jobs",
 		func(b operations.Bundle, deps CreateJobsWithJdOpDeps, input CreateJobsWithJdOpInput) (CreateJobsWithJdOpOutput, error) {
-			donToJobSpecs := make(cre.DonsToJobSpecs)
-
 			for _, jobSpecGeneratingFn := range deps.JobSpecFactoryFunctions {
-				singleDonToJobSpecs, jobSpecsErr := jobSpecGeneratingFn(&cre.JobSpecInput{
-					CldEnvironment:            deps.CreEnvironment.CldfEnvironment,
-					BlockchainOutput:          deps.HomeChainBlockchainOutput,
-					DonTopology:               deps.CreEnvironment.DonTopology,
-					CapabilitiesAwareNodeSets: deps.CapabilitiesAwareNodeSets,
-					CapabilityConfigs:         deps.CapabilitiesConfigs,
-					InfraInput:                deps.InfraInput,
-				})
-				if jobSpecsErr != nil {
-					return CreateJobsWithJdOpOutput{}, pkgerrors.Wrap(jobSpecsErr, "failed to generate job specs")
+				if jobSpecGeneratingFn == nil {
+					continue
 				}
-				mergeJobSpecSlices(singleDonToJobSpecs, donToJobSpecs)
-			}
 
-			for _, don := range deps.CreEnvironment.DonTopology.Dons.List() {
-				if jobSpecs, ok := donToJobSpecs[don.ID]; ok {
-					createErr := jobs.Create(b.GetContext(), deps.CreEnvironment.CldfEnvironment.Offchain, deps.CreEnvironment.DonTopology, jobSpecs)
+				for idx, don := range deps.Dons.List() {
+					jobSpecs, jobSpecsErr := jobSpecGeneratingFn(&cre.JobSpecInput{
+						CreEnvironment: deps.CreEnvironment,
+						Don:            don,
+						Dons:           deps.Dons,
+						NodeSet:        cre.ConvertToNodeSetWithChainCapabilities(deps.NodeSets)[idx],
+					})
+					if jobSpecsErr != nil {
+						return CreateJobsWithJdOpOutput{}, pkgerrors.Wrap(jobSpecsErr, "failed to generate job specs")
+					}
+
+					createErr := jobs.Create(b.GetContext(), deps.CreEnvironment.CldfEnvironment.Offchain, deps.Dons, jobSpecs)
 					if createErr != nil {
 						return CreateJobsWithJdOpOutput{}, pkgerrors.Wrapf(createErr, "failed to create jobs for DON %d", don.ID)
 					}
-				} else {
-					deps.Logger.Warn().Msgf("No job specs found for DON %d", don.ID)
 				}
 			}
 

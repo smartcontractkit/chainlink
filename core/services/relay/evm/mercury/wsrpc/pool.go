@@ -8,6 +8,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
+	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury/wsrpc/pb"
 
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury/wsrpc/cache"
 )
@@ -29,7 +30,7 @@ func (cco *clientCheckout) Close() error {
 
 type connection struct {
 	// Client will be nil when checkouts is empty, if len(checkouts) > 0 then it is expected to be a non-nil, started client
-	Client
+	client Client
 
 	lggr            logger.Logger
 	clientPubKeyHex string
@@ -41,7 +42,80 @@ type connection struct {
 
 	checkouts []*clientCheckout // reference count, if this goes to zero the connection should be closed and *client nilified
 
-	mu sync.Mutex
+	mu sync.RWMutex
+}
+
+func (c *connection) Ready() error {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+	if c.client == nil {
+		return errors.New("nil client")
+	}
+	return c.client.Ready()
+}
+
+func (c *connection) HealthReport() map[string]error {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+	if c.client == nil {
+		return map[string]error{} // no name available either
+	}
+	return c.client.HealthReport()
+}
+
+func (c *connection) Name() string {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+	if c.client == nil {
+		return "<nil client>"
+	}
+	return c.client.Name()
+}
+
+func (c *connection) Transmit(ctx context.Context, in *pb.TransmitRequest) (*pb.TransmitResponse, error) {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+	if c.client == nil {
+		return nil, errors.New("nil client")
+	}
+	return c.client.Transmit(ctx, in)
+}
+
+func (c *connection) LatestReport(ctx context.Context, in *pb.LatestReportRequest) (*pb.LatestReportResponse, error) {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+	if c.client == nil {
+		return nil, errors.New("nil client")
+	}
+	return c.client.LatestReport(ctx, in)
+}
+
+func (c *connection) ServerURL() string {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+	if c.client == nil {
+		return "<nil client>"
+	}
+	return c.client.ServerURL()
+}
+
+func (c *connection) RawClient() pb.MercuryClient {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+	if c.client == nil {
+		return errMercuryClient{}
+	}
+	return c.client.RawClient()
+}
+
+type errMercuryClient struct{}
+
+func (e errMercuryClient) Transmit(ctx context.Context, in *pb.TransmitRequest) (*pb.TransmitResponse, error) {
+	return nil, errors.New("nil client")
+}
+
+func (e errMercuryClient) LatestReport(ctx context.Context, in *pb.LatestReportRequest) (*pb.LatestReportResponse, error) {
+	return nil, errors.New("nil client")
 }
 
 func (conn *connection) checkout(ctx context.Context) (cco *clientCheckout, err error) {
@@ -58,8 +132,8 @@ func (conn *connection) checkout(ctx context.Context) (cco *clientCheckout, err 
 // not thread-safe, access must be serialized
 func (conn *connection) ensureStartedClient(ctx context.Context) error {
 	if len(conn.checkouts) == 0 {
-		conn.Client = conn.pool.newClient(ClientOpts{logger.Sugared(conn.lggr), conn.clientSigner, conn.serverPubKey, conn.serverURL, conn.pool.cacheSet, nil})
-		return conn.Client.Start(ctx)
+		conn.client = conn.pool.newClient(ClientOpts{logger.Sugared(conn.lggr), conn.clientSigner, conn.serverPubKey, conn.serverURL, conn.pool.cacheSet, nil})
+		return conn.client.Start(ctx)
 	}
 	return nil
 }
@@ -79,11 +153,11 @@ func (conn *connection) checkin(checkinCco *clientCheckout) {
 		panic("tried to check in client that was never checked out")
 	}
 	if len(conn.checkouts) == 0 {
-		if err := conn.Client.Close(); err != nil {
+		if err := conn.client.Close(); err != nil {
 			// programming error if we hit this
 			panic(err)
 		}
-		conn.Client = nil
+		conn.client = nil
 		conn.pool.remove(conn.serverURL, conn.clientPubKeyHex)
 	}
 }
@@ -91,13 +165,13 @@ func (conn *connection) checkin(checkinCco *clientCheckout) {
 func (conn *connection) forceCloseAll() (err error) {
 	conn.mu.Lock()
 	defer conn.mu.Unlock()
-	if conn.Client != nil {
-		err = conn.Client.Close()
+	if conn.client != nil {
+		err = conn.client.Close()
 		if errors.Is(err, services.ErrAlreadyStopped) {
 			// ignore error if it has already been stopped; no problem
 			err = nil
 		}
-		conn.Client = nil
+		conn.client = nil
 		conn.checkouts = nil
 	}
 	return

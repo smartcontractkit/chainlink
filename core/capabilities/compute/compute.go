@@ -172,7 +172,7 @@ func (c *Compute) execute(ctx context.Context, respCh chan response, req capabil
 
 	m, ok := c.modules.get(id)
 	if !ok {
-		mod, innerErr := c.initModule(id, cfg.ModuleConfig, cfg.Binary, copiedReq.Metadata)
+		mod, innerErr := c.initModule(ctx, id, cfg.ModuleConfig, cfg.Binary, copiedReq.Metadata)
 		if innerErr != nil {
 			respCh <- response{err: innerErr}
 			return
@@ -189,13 +189,13 @@ func (c *Compute) execute(ctx context.Context, respCh chan response, req capabil
 	}
 }
 
-func (c *Compute) initModule(id string, cfg *host.ModuleConfig, binary []byte, requestMetadata capabilities.RequestMetadata) (*module, error) {
+func (c *Compute) initModule(ctx context.Context, id string, cfg *host.ModuleConfig, binary []byte, requestMetadata capabilities.RequestMetadata) (*module, error) {
 	initStart := time.Now()
 
 	cfg.Fetch = c.fetcherFactory.NewFetcher(c.log, c.emitter)
 
 	cfg.MaxResponseSizeBytes = c.maxResponseSizeBytes
-	mod, err := host.NewModule(cfg, binary)
+	mod, err := host.NewModule(ctx, cfg, binary)
 	if err != nil {
 		return nil, fmt.Errorf("failed to instantiate WASM module: %w", err)
 	}

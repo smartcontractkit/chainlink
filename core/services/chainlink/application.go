@@ -1186,6 +1186,7 @@ func newCREServices(
 						workflowLimits,
 						artifactsStore,
 						key,
+						workflowDonNotifier,
 						syncerV1.WithBillingClient(opts.BillingClient),
 						syncerV1.WithWorkflowRegistry(capCfg.WorkflowRegistry().Address(), strconv.FormatUint(wrChainDetails.ChainSelector, 10)),
 					)
@@ -1234,7 +1235,7 @@ func newCREServices(
 					artifactsStore, err := artifactsV2.NewStore(lggr, artifactsV2.NewWorkflowRegistryDS(ds, globalLogger),
 						fetcherFunc,
 						retrieverFunc,
-						clockwork.NewRealClock(), key, custmsg.NewLabeler(), artifactsV2.WithMaxArtifactSize(
+						clockwork.NewRealClock(), key, custmsg.NewLabeler(), lf, artifactsV2.WithMaxArtifactSize(
 							artifactsV2.ArtifactConfig{
 								MaxBinarySize:  uint64(capCfg.WorkflowRegistry().MaxBinarySize()),
 								MaxSecretsSize: uint64(capCfg.WorkflowRegistry().MaxEncryptedSecretsSize()),
@@ -1263,6 +1264,7 @@ func newCREServices(
 						workflowLimits,
 						artifactsStore,
 						key,
+						workflowDonNotifier,
 						syncerV2.WithBillingClient(opts.BillingClient),
 						syncerV2.WithWorkflowRegistry(capCfg.WorkflowRegistry().Address(), strconv.FormatUint(wrChainDetails.ChainSelector, 10)),
 						syncerV2.WithOrgResolver(orgResolver),
@@ -1379,6 +1381,7 @@ func (app *ChainlinkApplication) StopIfStarted() error {
 func (app *ChainlinkApplication) GetLoopRegistry() *plugins.LoopRegistry {
 	return app.loopRegistry
 }
+
 func (app *ChainlinkApplication) GetLoopRegistrarConfig() plugins.RegistrarConfig {
 	return app.loopRegistrarConfig
 }
@@ -1550,7 +1553,8 @@ func (app *ChainlinkApplication) RunJobV2(
 					common.BigToHash(big.NewInt(42)).Bytes(), // seed
 					evmutils.NewHash().Bytes(),               // sender
 					evmutils.NewHash().Bytes(),               // fee
-					evmutils.NewHash().Bytes()},              // requestID
+					evmutils.NewHash().Bytes(),
+				}, // requestID
 					[]byte{}),
 				Topics:      []common.Hash{{}, jb.ExternalIDEncodeBytesToTopic()}, // jobID BYTES
 				TxHash:      evmutils.NewHash(),

@@ -6,6 +6,7 @@ import (
 
 	"github.com/jonboulle/clockwork"
 
+	commoncap "github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	"github.com/smartcontractkit/chainlink-common/pkg/config"
 	"github.com/smartcontractkit/chainlink-common/pkg/custmsg"
 	"github.com/smartcontractkit/chainlink-common/pkg/settings/cresettings"
@@ -19,6 +20,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/services/orgresolver"
+	"github.com/smartcontractkit/chainlink/v2/core/capabilities"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/workflowkey"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/metering"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/store"
@@ -35,6 +37,7 @@ type EngineConfig struct {
 	ExecutionsStore      store.Store
 	Clock                clockwork.Clock
 	SecretsFetcher       SecretsFetcher
+	DonSubscriber        capabilities.DonSubscriber
 
 	WorkflowID            string // hex-encoded [32]byte, no "0x" prefix
 	WorkflowOwner         string // hex-encoded [20]byte, no "0x" prefix
@@ -73,6 +76,10 @@ type EngineLimiters struct {
 	TriggerEventQueueTime    limits.TimeLimiter
 	ExecutionConcurrency     limits.ResourcePoolLimiter[int]
 
+	WASMBinarySize           limits.BoundLimiter[config.Size]
+	WASMCompressedBinarySize limits.BoundLimiter[config.Size]
+	WASMMemorySize           limits.BoundLimiter[config.Size]
+
 	CapabilityConcurrency limits.ResourcePoolLimiter[int]
 	SecretsConcurrency    limits.ResourcePoolLimiter[int]
 	ExecutionTime         limits.TimeLimiter
@@ -82,6 +89,7 @@ type EngineLimiters struct {
 
 	ChainWriteTargets limits.BoundLimiter[int]
 	ChainReadCalls    limits.BoundLimiter[int]
+	ConsensusCalls    limits.BoundLimiter[int]
 	HTTPActionCalls   limits.BoundLimiter[int]
 }
 
@@ -125,7 +133,18 @@ func (l *EngineLimiters) init(lf limits.Factory, cfgFn func(*cresettings.Workflo
 	if err != nil {
 		return
 	}
-
+	l.WASMBinarySize, err = limits.MakeBoundLimiter(lf, cfg.WASMBinarySizeLimit)
+	if err != nil {
+		return
+	}
+	l.WASMMemorySize, err = limits.MakeBoundLimiter(lf, cfg.WASMMemoryLimit)
+	if err != nil {
+		return
+	}
+	l.WASMCompressedBinarySize, err = limits.MakeBoundLimiter(lf, cfg.WASMCompressedBinarySizeLimit)
+	if err != nil {
+		return
+	}
 	l.CapabilityConcurrency, err = limits.MakeResourcePoolLimiter(lf, cfg.CapabilityConcurrencyLimit)
 	if err != nil {
 		return
@@ -158,6 +177,10 @@ func (l *EngineLimiters) init(lf limits.Factory, cfgFn func(*cresettings.Workflo
 	if err != nil {
 		return
 	}
+	l.ConsensusCalls, err = limits.MakeBoundLimiter(lf, cfg.Consensus.CallLimit)
+	if err != nil {
+		return
+	}
 	l.HTTPActionCalls, err = limits.MakeBoundLimiter(lf, cfg.HTTPAction.CallLimit)
 	return
 }
@@ -171,6 +194,9 @@ func (l *EngineLimiters) Close() error {
 		l.TriggerEventQueue,
 		l.TriggerEventQueueTime,
 		l.ExecutionConcurrency,
+		l.WASMBinarySize,
+		l.WASMMemorySize,
+		l.WASMCompressedBinarySize,
 		l.CapabilityConcurrency,
 		l.SecretsConcurrency,
 		l.ExecutionTime,
@@ -179,6 +205,7 @@ func (l *EngineLimiters) Close() error {
 		l.LogLine,
 		l.ChainWriteTargets,
 		l.ChainReadCalls,
+		l.ConsensusCalls,
 		l.HTTPActionCalls,
 	)
 }
@@ -186,11 +213,13 @@ func (l *EngineLimiters) Close() error {
 const (
 	defaultHeartbeatFrequencyMs = 1000 * 60 // 1 minute
 	defaultShutdownTimeoutMs    = 5000
+	defaultLocalNodeTimeoutMs   = 100
 )
 
 type EngineLimits struct {
 	HeartbeatFrequencyMs uint32
 	ShutdownTimeoutMs    uint32
+	LocalNodeTimeoutMs   uint32
 }
 
 type LifecycleHooks struct {
@@ -200,6 +229,7 @@ type LifecycleHooks struct {
 	OnExecutionError       func(msg string)
 	OnResultReceived       func(*sdkpb.ExecutionResult)
 	OnRateLimited          func(executionID string)
+	OnNodeSynced           func(node commoncap.Node, err error)
 }
 
 func (c *EngineConfig) Validate() error {
@@ -257,6 +287,9 @@ func (l *EngineLimits) setDefaultLimits() {
 	if l.ShutdownTimeoutMs == 0 {
 		l.ShutdownTimeoutMs = defaultShutdownTimeoutMs
 	}
+	if l.LocalNodeTimeoutMs == 0 {
+		l.LocalNodeTimeoutMs = defaultLocalNodeTimeoutMs
+	}
 }
 
 // set all to non-nil so the Engine doesn't have to check before each call
@@ -278,5 +311,8 @@ func (h *LifecycleHooks) setDefaultHooks() {
 	}
 	if h.OnRateLimited == nil {
 		h.OnRateLimited = func(executionID string) {}
+	}
+	if h.OnNodeSynced == nil {
+		h.OnNodeSynced = func(_ commoncap.Node, _ error) {}
 	}
 }

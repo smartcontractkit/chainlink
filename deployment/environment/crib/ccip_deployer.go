@@ -40,6 +40,7 @@ import (
 	ccipseq "github.com/smartcontractkit/chainlink/deployment/ccip/sequence/evm/v1_6"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
+	"github.com/smartcontractkit/chainlink/deployment/utils/solutils"
 
 	solconfig "github.com/smartcontractkit/chainlink-ccip/chains/solana/contracts/tests/config"
 	solTestTokenPool "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/v0_1_0/test_token_pool"
@@ -55,7 +56,6 @@ import (
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 	commontypes "github.com/smartcontractkit/chainlink/deployment/common/types"
 	"github.com/smartcontractkit/chainlink/deployment/environment/devenv"
-	"github.com/smartcontractkit/chainlink/deployment/environment/memory"
 )
 
 const (
@@ -86,7 +86,10 @@ func DeployHomeChainContracts(ctx context.Context, lggr logger.Logger, envConfig
 
 	for _, selector := range solChainSelectors {
 		lggr.Infof("Funding solana deployer account %v", e.BlockChains.SolanaChains()[selector].DeployerKey.PublicKey())
-		err = memory.FundSolanaAccounts(e.GetContext(), []solana.PublicKey{e.BlockChains.SolanaChains()[selector].DeployerKey.PublicKey()}, 10000, e.BlockChains.SolanaChains()[selector].Client)
+		chain := e.BlockChains.SolanaChains()[selector]
+		err = solutils.FundAccounts(
+			e.GetContext(), chain.Client, []solana.PublicKey{chain.DeployerKey.PublicKey()}, 10000,
+		)
 		if err != nil {
 			return deployment.CapabilityRegistryConfig{}, nil, err
 		}

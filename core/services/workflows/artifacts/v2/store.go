@@ -17,14 +17,16 @@ import (
 
 	"github.com/jonboulle/clockwork"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/config"
 	"github.com/smartcontractkit/chainlink-common/pkg/custmsg"
+	"github.com/smartcontractkit/chainlink-common/pkg/settings/cresettings"
+	"github.com/smartcontractkit/chainlink-common/pkg/settings/limits"
 	storage_service "github.com/smartcontractkit/chainlink-protos/storage-service/go"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	ghcapabilities "github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers/capabilities"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/workflowkey"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/types"
-	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
 type lastFetchedAtMap struct {
@@ -58,26 +60,45 @@ func safeUint32(n uint64) uint32 {
 	return uint32(n)
 }
 
+type ArtifactLimiters struct {
+	MaxConfigSize  limits.BoundLimiter[config.Size]
+	MaxSecretsSize limits.BoundLimiter[config.Size] // TODO unused
+	MaxBinarySize  limits.BoundLimiter[config.Size]
+}
+
 type ArtifactConfig struct {
 	MaxConfigSize  uint64
 	MaxSecretsSize uint64
 	MaxBinarySize  uint64
 }
 
-// By default, if type is unknown, the largest artifact size is 26.4KB.  Configure the artifact size
-// via the ArtifactConfig to override this default.
-const defaultMaxArtifactSizeBytes = 26.4 * utils.KB
+// MakeLimiters constructs ArtifactLimiters from cfg, or uses defaults if cfg is nil.
+func (cfg *ArtifactConfig) MakeLimiters(lf limits.Factory) (limiters *ArtifactLimiters, err error) {
+	limiters = new(ArtifactLimiters)
+	configSizeLimit := cresettings.Default.PerWorkflow.WASMConfigSizeLimit
+	if cfg != nil {
+		configSizeLimit.DefaultValue = config.Size(safeUint32(cfg.MaxConfigSize))
+	}
+	limiters.MaxConfigSize, err = limits.MakeBoundLimiter(lf, configSizeLimit)
+	if err != nil {
+		return
+	}
 
-func (cfg *ArtifactConfig) ApplyDefaults() {
-	if cfg.MaxConfigSize == 0 {
-		cfg.MaxConfigSize = defaultMaxArtifactSizeBytes
+	secretsSizeLimit := cresettings.Default.PerWorkflow.WASMSecretsSizeLimit
+	if cfg != nil {
+		secretsSizeLimit.DefaultValue = config.Size(safeUint32(cfg.MaxSecretsSize))
 	}
-	if cfg.MaxSecretsSize == 0 {
-		cfg.MaxSecretsSize = defaultMaxArtifactSizeBytes
+	limiters.MaxSecretsSize, err = limits.MakeBoundLimiter(lf, secretsSizeLimit)
+	if err != nil {
+		return
 	}
-	if cfg.MaxBinarySize == 0 {
-		cfg.MaxBinarySize = defaultMaxArtifactSizeBytes
+
+	binarySizeLimit := cresettings.Default.PerWorkflow.WASMBinarySizeLimit
+	if cfg != nil {
+		binarySizeLimit.DefaultValue = config.Size(safeUint32(cfg.MaxBinarySize))
 	}
+	limiters.MaxBinarySize, err = limits.MakeBoundLimiter(lf, binarySizeLimit)
+	return
 }
 
 var defaultSecretsFreshnessDuration = 24 * time.Hour
@@ -109,8 +130,9 @@ type Store struct {
 	lggr logger.Logger
 
 	// limits sets max artifact sizes to fetch when handling events
-	limits *ArtifactConfig
-	config *StoreConfig
+	limits   *ArtifactConfig
+	limiters *ArtifactLimiters
+	config   *StoreConfig
 
 	orm WorkflowRegistryDS
 
@@ -119,9 +141,9 @@ type Store struct {
 	// fetchFn is a function that fetches the contents of a URL with a limit on the size of the response.
 	fetchFn types.FetcherFunc
 
-	lastFetchedAtMap         *lastFetchedAtMap
+	lastFetchedAtMap         *lastFetchedAtMap // TODO unused
 	clock                    clockwork.Clock
-	secretsFreshnessDuration time.Duration
+	secretsFreshnessDuration time.Duration // TODO unused
 
 	encryptionKey workflowkey.Key
 
@@ -129,10 +151,7 @@ type Store struct {
 }
 
 func NewStore(lggr logger.Logger, orm WorkflowRegistryDS, fetchFn types.FetcherFunc, retrieveFunc types.LocationRetrieverFunc, clock clockwork.Clock, encryptionKey workflowkey.Key,
-	emitter custmsg.MessageEmitter, opts ...func(*Store)) (*Store, error) {
-	limits := &ArtifactConfig{}
-	limits.ApplyDefaults()
-
+	emitter custmsg.MessageEmitter, limitsFactory limits.Factory, opts ...func(*Store)) (*Store, error) {
 	artifactsStore := &Store{
 		lggr:                     lggr,
 		orm:                      orm,
@@ -140,7 +159,6 @@ func NewStore(lggr logger.Logger, orm WorkflowRegistryDS, fetchFn types.FetcherF
 		fetchFn:                  fetchFn,
 		lastFetchedAtMap:         newLastFetchedAtMap(),
 		clock:                    clock,
-		limits:                   limits,
 		config:                   &StoreConfig{},
 		secretsFreshnessDuration: defaultSecretsFreshnessDuration,
 		encryptionKey:            encryptionKey,
@@ -149,6 +167,12 @@ func NewStore(lggr logger.Logger, orm WorkflowRegistryDS, fetchFn types.FetcherF
 
 	for _, o := range opts {
 		o(artifactsStore)
+	}
+
+	var err error
+	artifactsStore.limiters, err = artifactsStore.limits.MakeLimiters(limitsFactory)
+	if err != nil {
+		return nil, err
 	}
 
 	if retrieveFunc != nil && artifactsStore.config.ArtifactStorageHost == "" {
@@ -197,10 +221,16 @@ func (h *Store) FetchWorkflowArtifacts(ctx context.Context, workflowID, binaryUR
 		binary, decodedBinary, config []byte
 	)
 
+	maxBinarySize, err := h.limiters.MaxBinarySize.Limit(ctx)
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed to get binary size limit: %w", err)
+	} else if maxBinarySize < 0 {
+		maxBinarySize = 0
+	}
 	req := ghcapabilities.Request{
 		URL:              binaryURL,
 		Method:           http.MethodGet,
-		MaxResponseBytes: safeUint32(h.limits.MaxBinarySize),
+		MaxResponseBytes: safeUint32(uint64(maxBinarySize)), //nolint:gosec // G115
 		WorkflowID:       workflowID,
 	}
 	binary, err = h.fetchFn(ctx, messageID(binaryURL, workflowID), req)
@@ -233,11 +263,17 @@ func (h *Store) FetchWorkflowArtifacts(ctx context.Context, workflowID, binaryUR
 			configURL = signedConfigURL
 		}
 
+		maxResponseBytes, err := h.limiters.MaxConfigSize.Limit(ctx)
+		if err != nil {
+			return nil, nil, fmt.Errorf("failed to get binary size limit: %w", err)
+		} else if maxResponseBytes < 0 {
+			maxResponseBytes = 0
+		}
 		// Fetch the config files from the specified URLs.
 		req := ghcapabilities.Request{
 			URL:              configURL,
 			Method:           http.MethodGet,
-			MaxResponseBytes: safeUint32(h.limits.MaxConfigSize),
+			MaxResponseBytes: safeUint32(uint64(maxResponseBytes)), //nolint:gosec // G115
 			WorkflowID:       workflowID,
 		}
 

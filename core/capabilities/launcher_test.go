@@ -15,6 +15,7 @@ import (
 	ragetypes "github.com/smartcontractkit/libocr/ragep2p/types"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
+	"github.com/smartcontractkit/chainlink-common/pkg/services/servicetest"
 
 	capabilitiespb "github.com/smartcontractkit/chainlink-common/pkg/capabilities/pb"
 	"github.com/smartcontractkit/chainlink-protos/cre/go/values"
@@ -345,7 +346,13 @@ func TestLauncher_RemoteTriggerModeAggregatorShim(t *testing.T) {
 	baseCapability, err := registry.Get(ctx, fullTriggerCapID)
 	require.NoError(t, err)
 
-	remoteTriggerSubscriber, ok := baseCapability.(remote.TriggerSubscriber)
+	loader, ok := baseCapability.(interface {
+		Load() *capabilities.TriggerCapability
+	})
+	require.True(t, ok)
+	loaded := loader.Load()
+	require.NotNil(t, loaded)
+	remoteTriggerSubscriber, ok := (*loaded).(remote.TriggerSubscriber)
 	require.True(t, ok, "remote trigger capability")
 
 	// Register trigger
@@ -887,8 +894,7 @@ func TestLauncher_V2CapabilitiesAddViaCombinedClient(t *testing.T) {
 		&mockDonNotifier{},
 	)
 	require.NoError(t, err)
-	require.NoError(t, launcher.Start(t.Context()))
-	defer launcher.Close()
+	servicetest.Run(t, launcher)
 
 	dispatcher.On("SetReceiverForMethod", fullTriggerCapID, capDonID, "StreamsTrigger", mock.AnythingOfType("*remote.triggerSubscriber")).Return(nil)
 	dispatcher.On("SetReceiverForMethod", fullExecutableCapID, capDonID, "Write", mock.AnythingOfType("*executable.client")).Return(nil)
@@ -899,8 +905,14 @@ func TestLauncher_V2CapabilitiesAddViaCombinedClient(t *testing.T) {
 
 	trigCap, err := registry.Get(t.Context(), fullTriggerCapID)
 	require.NoError(t, err)
-	trigCC, ok := trigCap.(remote.CombinedClient)
-	assert.True(t, ok, "expected CombinedClient object")
+	atomCC, ok := trigCap.(interface {
+		Load() *capabilities.ExecutableAndTriggerCapability
+	})
+	require.True(t, ok, "expected CombinedClient object but got: %T", atomCC)
+	loaded := atomCC.Load()
+	require.NotNil(t, loaded)
+	trigCC, ok := (*loaded).(remote.CombinedClient)
+	require.True(t, ok, "expected CombinedClient object")
 	subscriber := trigCC.GetTriggerSubscriber("StreamsTrigger")
 	capInfo, err := subscriber.Info(t.Context())
 	require.NoError(t, err)
@@ -909,8 +921,14 @@ func TestLauncher_V2CapabilitiesAddViaCombinedClient(t *testing.T) {
 
 	execCap, err := registry.Get(t.Context(), fullExecutableCapID)
 	require.NoError(t, err)
-	execCC, ok := execCap.(remote.CombinedClient)
-	assert.True(t, ok, "expected CombinedClient object")
+	atomCC, ok = execCap.(interface {
+		Load() *capabilities.ExecutableAndTriggerCapability
+	})
+	require.True(t, ok, "expected CombinedClient object but got: %T", atomCC)
+	loaded = atomCC.Load()
+	require.NotNil(t, loaded)
+	execCC, ok := (*loaded).(remote.CombinedClient)
+	require.True(t, ok, "expected CombinedClient object")
 	require.NotNil(t, execCC.GetExecutableClient("Write"))
 
 	// Now update config for one capability and verify it's propagated correctly (DON size)

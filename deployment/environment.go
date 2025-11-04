@@ -408,11 +408,21 @@ func ChainConfigsToOCRConfig(chainConfigs []*nodev1.ChainConfig) (map[chain_sele
 			return nil, err
 		}
 
+		transmitAccount := chainConfig.AccountAddress
+		chainFamily, err := chain_selectors.GetSelectorFamily(details.ChainSelector)
+		if err != nil {
+			return nil, fmt.Errorf("failed to get chain family for selector %d: %w", details.ChainSelector, err)
+		}
+		// For Aptos and Sui, the transmit account must be set to the public key, which is submitted to and retrieved from JD
+		if chainConfig.AccountAddressPublicKey != nil && (chainFamily == chain_selectors.FamilyAptos || chainFamily == chain_selectors.FamilySui) {
+			transmitAccount = *chainConfig.AccountAddressPublicKey
+		}
+
 		selToOCRConfig[details] = OCRConfig{
 			OffchainPublicKey:         opk,
 			OnchainPublicKey:          pubkey,
 			PeerID:                    MustPeerIDFromString(chainConfig.Ocr2Config.P2PKeyBundle.PeerId),
-			TransmitAccount:           types2.Account(chainConfig.AccountAddress),
+			TransmitAccount:           types2.Account(transmitAccount),
 			ConfigEncryptionPublicKey: cpk,
 			KeyBundleID:               chainConfig.Ocr2Config.OcrKeyBundle.BundleId,
 		}

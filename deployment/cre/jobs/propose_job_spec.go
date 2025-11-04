@@ -61,7 +61,7 @@ func (u ProposeJobSpec) VerifyPreconditions(_ cldf.Environment, config ProposeJo
 		if err := verifyEVMJobSpecInputs(config.Inputs); err != nil {
 			return fmt.Errorf("invalid inputs for EVM job spec: %w", err)
 		}
-	case job_types.Cron, job_types.BootstrapOCR3, job_types.OCR3, job_types.Gateway, job_types.HTTPTrigger, job_types.HTTPAction, job_types.BootstrapVault, job_types.Consensus:
+	case job_types.Cron, job_types.BootstrapOCR3, job_types.OCR3, job_types.Gateway, job_types.HTTPTrigger, job_types.HTTPAction, job_types.ConfidentialHTTP, job_types.BootstrapVault, job_types.Consensus:
 	default:
 		return fmt.Errorf("unsupported template: %s", config.Template)
 	}
@@ -77,7 +77,7 @@ func (u ProposeJobSpec) Apply(e cldf.Environment, input ProposeJobSpecInput) (cl
 	var report operations.Report[any, any]
 	switch input.Template {
 	// This will hold all standard capabilities jobs as we add support for them.
-	case job_types.EVM, job_types.Cron, job_types.HTTPTrigger, job_types.HTTPAction, job_types.Consensus:
+	case job_types.EVM, job_types.Cron, job_types.HTTPTrigger, job_types.HTTPAction, job_types.ConfidentialHTTP, job_types.Consensus:
 		// Only consensus generates an oracle factory, for now...
 		job, err := input.Inputs.ToStandardCapabilityJob(input.JobName, input.Template == job_types.Consensus)
 		if err != nil {
@@ -162,18 +162,19 @@ func (u ProposeJobSpec) Apply(e cldf.Environment, input ProposeJobSpecInput) (cl
 			operations2.ProposeOCR3Job,
 			operations2.ProposeOCR3JobDeps{Env: e},
 			operations2.ProposeOCR3JobInput{
-				Domain:               input.Domain,
-				EnvName:              input.Environment,
-				DONName:              input.DONName,
-				JobName:              input.JobName,
-				TemplateName:         jobInput.TemplateName,
-				ContractAddress:      contractAddrRef.Address,
-				ChainSelectorEVM:     uint64(jobInput.ChainSelectorEVM),
-				ChainSelectorAptos:   uint64(jobInput.ChainSelectorAptos),
-				BootstrapperOCR3Urls: jobInput.BootstrapperOCR3Urls,
-				DKGContractAddress:   dkgContractAddr,
-				DONFilters:           input.DONFilters,
-				ExtraLabels:          input.ExtraLabels,
+				Domain:                     input.Domain,
+				EnvName:                    input.Environment,
+				DONName:                    input.DONName,
+				JobName:                    input.JobName,
+				TemplateName:               jobInput.TemplateName,
+				ContractAddress:            contractAddrRef.Address,
+				ChainSelectorEVM:           uint64(jobInput.ChainSelectorEVM),
+				ChainSelectorAptos:         uint64(jobInput.ChainSelectorAptos),
+				BootstrapperOCR3Urls:       jobInput.BootstrapperOCR3Urls,
+				DKGContractAddress:         dkgContractAddr,
+				VaultRequestExpiryDuration: jobInput.VaultRequestExpiryDuration,
+				DONFilters:                 input.DONFilters,
+				ExtraLabels:                input.ExtraLabels,
 			},
 		)
 

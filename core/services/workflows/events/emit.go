@@ -180,7 +180,7 @@ func EmitExecutionFinishedEvent(ctx context.Context, labels map[string]string, s
 	return multiErr
 }
 
-func EmitCapabilityStartedEvent(ctx context.Context, labels map[string]string, executionID, capabilityID, stepRef string) error {
+func EmitCapabilityStartedEvent(ctx context.Context, labels map[string]string, executionID, capabilityID, stepRef, method string) error {
 	metadata := buildWorkflowMetadata(labels, executionID)
 
 	event := &events.CapabilityExecutionStarted{
@@ -209,6 +209,7 @@ func EmitCapabilityStartedEvent(ctx context.Context, labels map[string]string, e
 		Timestamp:           time.Now().Format(time.RFC3339),
 		CapabilityID:        capabilityID,
 		StepRef:             int32(stepRefInt),
+		Method:              method,
 	}
 
 	// Emit both v1 and v2 events
@@ -238,7 +239,7 @@ func EmitTriggerExecutionStarted(ctx context.Context, labels map[string]string, 
 	return emitProtoMessage(ctx, v2Event)
 }
 
-func EmitCapabilityFinishedEvent(ctx context.Context, labels map[string]string, executionID, capabilityID, stepRef, status string, capErr error) error {
+func EmitCapabilityFinishedEvent(ctx context.Context, labels map[string]string, executionID, capabilityID, stepRef, status, method string, capErr error) error {
 	metadata := buildWorkflowMetadata(labels, executionID)
 
 	event := &events.CapabilityExecutionFinished{
@@ -286,6 +287,7 @@ func EmitCapabilityFinishedEvent(ctx context.Context, labels map[string]string, 
 		StepRef:             int32(stepRefInt),
 		Status:              executionStatus,
 		Error:               errMsg,
+		Method:              method,
 	}
 
 	// Emit both v1 and v2 events
@@ -456,6 +458,8 @@ func buildWorkflowMetadata(kvs map[string]string, workflowExecutionID string) *e
 			m.DonN = int32(id)
 		}
 	}
+
+	m.OrgID = kvs[platform.KeyOrganizationID]
 
 	return m
 }

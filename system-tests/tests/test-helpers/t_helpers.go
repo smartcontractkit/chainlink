@@ -39,14 +39,6 @@ import (
 	"github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	commonevents "github.com/smartcontractkit/chainlink-protos/workflows/go/common"
 	workflowevents "github.com/smartcontractkit/chainlink-protos/workflows/go/events"
-
-	consensus_negative_config "github.com/smartcontractkit/chainlink/system-tests/tests/regression/cre/consensus/config"
-	evmread_negative_config "github.com/smartcontractkit/chainlink/system-tests/tests/regression/cre/evm/evmread-negative/config"
-	evmwrite_negative_config "github.com/smartcontractkit/chainlink/system-tests/tests/regression/cre/evm/evmwrite-negative/config"
-	http_negative_config "github.com/smartcontractkit/chainlink/system-tests/tests/regression/cre/http/config"
-	evmread_config "github.com/smartcontractkit/chainlink/system-tests/tests/smoke/cre/evm/evmread/config"
-	ttypes "github.com/smartcontractkit/chainlink/system-tests/tests/test-helpers/configuration"
-
 	"github.com/smartcontractkit/chainlink-testing-framework/framework"
 	ns "github.com/smartcontractkit/chainlink-testing-framework/framework/components/simple_node_set"
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/ptr"
@@ -62,6 +54,14 @@ import (
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/flags"
 	creworkflow "github.com/smartcontractkit/chainlink/system-tests/lib/cre/workflow"
 	crecrypto "github.com/smartcontractkit/chainlink/system-tests/lib/crypto"
+	consensus_negative_config "github.com/smartcontractkit/chainlink/system-tests/tests/regression/cre/consensus/config"
+	evmread_negative_config "github.com/smartcontractkit/chainlink/system-tests/tests/regression/cre/evm/evmread-negative/config"
+	evmwrite_negative_config "github.com/smartcontractkit/chainlink/system-tests/tests/regression/cre/evm/evmwrite-negative/config"
+	http_config "github.com/smartcontractkit/chainlink/system-tests/tests/regression/cre/http/config"
+	httpaction_negative_config "github.com/smartcontractkit/chainlink/system-tests/tests/regression/cre/httpaction-negative/config"
+	evmread_config "github.com/smartcontractkit/chainlink/system-tests/tests/smoke/cre/evm/evmread/config"
+	httpaction_smoke_config "github.com/smartcontractkit/chainlink/system-tests/tests/smoke/cre/httpaction/config"
+	ttypes "github.com/smartcontractkit/chainlink/system-tests/tests/test-helpers/configuration"
 )
 
 /////////////////////////
@@ -81,11 +81,11 @@ func GetWritableChainsFromSavedEnvironmentState(t *testing.T, testEnv *ttypes.Te
 	testLogger := framework.L
 	testLogger.Info().Msg("Getting writable chains from saved environment state.")
 	writeableChains := []uint64{}
-	for _, blockchain := range testEnv.Blockchains {
-		for _, don := range testEnv.CreEnvironment.DonTopology.Dons.List() {
-			if flags.RequiresForwarderContract(don.Flags, blockchain.ChainID()) {
-				if !slices.Contains(writeableChains, blockchain.ChainID()) {
-					writeableChains = append(writeableChains, blockchain.ChainID())
+	for _, bcOutput := range testEnv.CreEnvironment.Blockchains {
+		for _, don := range testEnv.Dons.List() {
+			if flags.RequiresForwarderContract(don.Flags, bcOutput.ChainID()) {
+				if !slices.Contains(writeableChains, bcOutput.ChainID()) {
+					writeableChains = append(writeableChains, bcOutput.ChainID())
 				}
 			}
 		}
@@ -280,7 +280,9 @@ type WorkflowConfig interface {
 		evmread_config.Config |
 		evmread_negative_config.Config |
 		evmwrite_negative_config.Config |
-		http_negative_config.Config
+		http_config.Config |
+		httpaction_smoke_config.Config |
+		httpaction_negative_config.Config
 }
 
 // None represents an empty workflow configuration
@@ -394,11 +396,23 @@ func workflowConfigFactory[T WorkflowConfig](t *testing.T, testLogger zerolog.Lo
 			require.NoError(t, configErr, "failed to create evmwrite-negative workflow config file")
 			testLogger.Info().Msg("EVM Write negative workflow config file created.")
 
-		case *http_negative_config.Config:
+		case *http_config.Config:
 			workflowCfgFilePath, configErr := CreateWorkflowYamlConfigFile(workflowName, cfg)
 			workflowConfigFilePath = workflowCfgFilePath
 			require.NoError(t, configErr, "failed to create http-negative workflow config file")
 			testLogger.Info().Msg("HTTP negative workflow config file created.")
+
+		case *httpaction_smoke_config.Config:
+			workflowCfgFilePath, configErr := CreateWorkflowYamlConfigFile(workflowName, cfg)
+			workflowConfigFilePath = workflowCfgFilePath
+			require.NoError(t, configErr, "failed to create httpaction smoke workflow config file")
+			testLogger.Info().Msg("HTTP Action smoke workflow config file created.")
+
+		case *httpaction_negative_config.Config:
+			workflowCfgFilePath, configErr := CreateWorkflowYamlConfigFile(workflowName, cfg)
+			workflowConfigFilePath = workflowCfgFilePath
+			require.NoError(t, configErr, "failed to create httpaction negative workflow config file")
+			testLogger.Info().Msg("HTTP Action negative workflow config file created.")
 
 		default:
 			require.NoError(t, fmt.Errorf("unsupported workflow config type: %T", cfg))
@@ -582,11 +596,11 @@ func CompileAndDeployWorkflow[T WorkflowConfig](t *testing.T,
 	t.Helper()
 
 	testLogger.Info().Msgf("compiling and registering workflow '%s'", workflowName)
-	homeChainSelector := testEnv.Blockchains[0].ChainSelector()
+	registryChainSelector := testEnv.CreEnvironment.Blockchains[0].ChainSelector()
 
 	workflowDOName := ""
-	for _, don := range testEnv.CreEnvironment.DonTopology.Dons.List() {
-		if don.ID == testEnv.CreEnvironment.DonTopology.WorkflowDonID {
+	for _, don := range testEnv.Dons.List() {
+		if don.ID == testEnv.Dons.MustWorkflowDON().ID {
 			workflowDOName = don.Name
 			break
 		}
@@ -599,8 +613,8 @@ func CompileAndDeployWorkflow[T WorkflowConfig](t *testing.T,
 	//lint:ignore SA1019 ignoring deprecation warning for this usage
 	workflowRegistryAddress, tv, workflowRegistryErr := crecontracts.FindAddressesForChain(
 		testEnv.CreEnvironment.CldfEnvironment.ExistingAddresses, //nolint:staticcheck // SA1019 ignoring deprecation warning for this usage
-		homeChainSelector, keystone_changeset.WorkflowRegistry.String())
-	require.NoError(t, workflowRegistryErr, "failed to find workflow registry address for chain %d", testEnv.Blockchains[0].ChainID)
+		registryChainSelector, keystone_changeset.WorkflowRegistry.String())
+	require.NoError(t, workflowRegistryErr, "failed to find workflow registry address for chain %d", testEnv.CreEnvironment.Blockchains[0].ChainID)
 
 	workflowRegConfig := &WorkflowRegistrationConfig{
 		WorkflowName:                workflowName,
@@ -609,11 +623,11 @@ func CompileAndDeployWorkflow[T WorkflowConfig](t *testing.T,
 		CompressedWasmPath:          compressedWorkflowWasmPath,
 		WorkflowRegistryAddr:        workflowRegistryAddress,
 		WorkflowRegistryTypeVersion: tv,
-		ChainID:                     homeChainSelector,
-		DonID:                       testEnv.CreEnvironment.DonTopology.Dons.List()[0].ID,
+		ChainID:                     registryChainSelector,
+		DonID:                       testEnv.Dons.List()[0].ID,
 		ContainerTargetDir:          creworkflow.DefaultWorkflowTargetDir,
-		Blockchains:                 testEnv.Blockchains,
+		Blockchains:                 testEnv.CreEnvironment.Blockchains,
 	}
-	require.IsType(t, &evm.Blockchain{}, testEnv.Blockchains[0], "expected EVM blockchain type")
-	registerWorkflow(t.Context(), t, workflowRegConfig, testEnv.Blockchains[0].(*evm.Blockchain).SethClient, testLogger)
+	require.IsType(t, &evm.Blockchain{}, testEnv.CreEnvironment.Blockchains[0], "expected EVM blockchain type")
+	registerWorkflow(t.Context(), t, workflowRegConfig, testEnv.CreEnvironment.Blockchains[0].(*evm.Blockchain).SethClient, testLogger)
 }

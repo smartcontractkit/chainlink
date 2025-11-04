@@ -1,6 +1,7 @@
 ChainID = '12325'
 ChainType = 'arbitrum'
 FinalityTagEnabled = true
+SafeTagSupported = true
 FinalityDepth = 10
 LinkContractAddress = '0xa71848C99155DA0b245981E5ebD1C94C4be51c43'
 # Produces blocks on-demand

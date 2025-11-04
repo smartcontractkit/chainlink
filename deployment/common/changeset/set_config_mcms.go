@@ -6,11 +6,13 @@ import (
 	"fmt"
 	"math/big"
 
+	aptos "github.com/aptos-labs/aptos-go-sdk"
 	"github.com/ethereum/go-ethereum/core/types"
 	solanasdk "github.com/gagliardetto/solana-go"
 	"github.com/smartcontractkit/ccip-owner-contracts/pkg/gethwrappers"
 	chain_selectors "github.com/smartcontractkit/chain-selectors"
 	mcmslib "github.com/smartcontractkit/mcms"
+	aptosmcms "github.com/smartcontractkit/mcms/sdk/aptos"
 	"github.com/smartcontractkit/mcms/sdk/evm"
 	"github.com/smartcontractkit/mcms/sdk/solana"
 	mcmstypes "github.com/smartcontractkit/mcms/types"
@@ -81,6 +83,11 @@ func (cfg MCMSConfigV2) Validate(e cldf.Environment, selectors []uint64) error {
 			_, ok := state[chainSelector]
 			if !ok {
 				return fmt.Errorf("chain selector: %d not found for MCMS state", chainSelector)
+			}
+		case chain_selectors.FamilyAptos:
+			_, err := commonState.LoadMCMSAddressesAptos(e, []uint64{chainSelector})
+			if err != nil {
+				return err
 			}
 		}
 
@@ -214,6 +221,12 @@ func SetConfigMCMSV2(e cldf.Environment, cfg MCMSConfigV2) (cldf.ChangesetOutput
 			if useMCMS {
 				batches = append(batches, batch...)
 			}
+		case chain_selectors.FamilyAptos:
+			operation, err := setConfigAptos(e, chainSelector, c, timelockAddressesPerChain, proposerMcmsPerChain, useMCMS)
+			if err != nil {
+				return cldf.ChangesetOutput{}, err
+			}
+			batches = append(batches, operation)
 		}
 	}
 
@@ -272,18 +285,18 @@ func setConfigSolana(
 
 	batches := []mcmstypes.BatchOperation{}
 	// broken into single batch per role (total 3 batches) due to size constraints on solana when all instructions were in the same single batch
-	proposerOps, err := setConfigForRole(e, chain, cfg.Proposer, proposerAddress, string(commontypes.ProposerManyChainMultisig), useMCMS, timelockSignerPDA)
+	proposerOps, err := setConfigForRoleSolana(e, chain, cfg.Proposer, proposerAddress, string(commontypes.ProposerManyChainMultisig), useMCMS, timelockSignerPDA)
 	if err != nil {
 		return nil, err
 	}
 	batches = append(batches, proposerOps)
 
-	cancellerOps, err := setConfigForRole(e, chain, cfg.Canceller, cancellerAddress, string(commontypes.CancellerManyChainMultisig), useMCMS, timelockSignerPDA)
+	cancellerOps, err := setConfigForRoleSolana(e, chain, cfg.Canceller, cancellerAddress, string(commontypes.CancellerManyChainMultisig), useMCMS, timelockSignerPDA)
 	if err != nil {
 		return nil, err
 	}
 	batches = append(batches, cancellerOps)
-	bypasserOps, err := setConfigForRole(e, chain, cfg.Bypasser, bypasserAddress, string(commontypes.BypasserManyChainMultisig), useMCMS, timelockSignerPDA)
+	bypasserOps, err := setConfigForRoleSolana(e, chain, cfg.Bypasser, bypasserAddress, string(commontypes.BypasserManyChainMultisig), useMCMS, timelockSignerPDA)
 	if err != nil {
 		return nil, err
 	}
@@ -292,7 +305,7 @@ func setConfigSolana(
 	return batches, nil
 }
 
-func setConfigForRole(e cldf.Environment, chain cldf_solana.Chain, cfg mcmstypes.Config, mcmAddress string, contractType string, useMCMS bool, timelockSignerPDA solanasdk.PublicKey) (mcmstypes.BatchOperation, error) {
+func setConfigForRoleSolana(e cldf.Environment, chain cldf_solana.Chain, cfg mcmstypes.Config, mcmAddress string, contractType string, useMCMS bool, timelockSignerPDA solanasdk.PublicKey) (mcmstypes.BatchOperation, error) {
 	var configurer *solana.Configurer
 
 	if useMCMS {
@@ -327,4 +340,50 @@ func setConfigForRole(e cldf.Environment, chain cldf_solana.Chain, cfg mcmstypes
 
 	e.Logger.Infow("SetConfig tx confirmed", "txHash", res.Hash)
 	return mcmstypes.BatchOperation{}, nil
+}
+
+func setConfigAptos(
+	e cldf.Environment, chainSelector uint64, cfg ConfigPerRoleV2,
+	timelockAddressesPerChain, proposerMcmsPerChain map[uint64]string, useMCMS bool,
+) (mcmstypes.BatchOperation, error) {
+	if !useMCMS {
+		return mcmstypes.BatchOperation{}, errors.New("can only set Aptos MCMS config using MCMS")
+	}
+	chain, ok := e.BlockChains.AptosChains()[chainSelector]
+	if !ok {
+		return mcmstypes.BatchOperation{}, fmt.Errorf("aptos chain %d not found", chainSelector)
+	}
+	mcmsAddresses, err := commonState.LoadMCMSAddressesAptos(e, []uint64{chainSelector})
+	if err != nil {
+		return mcmstypes.BatchOperation{}, fmt.Errorf("loading mcmsAddresses: %w", err)
+	}
+	mcmsAddress := mcmsAddresses[chain.Selector]
+	timelockAddressesPerChain[chain.Selector] = mcmsAddress.StringLong()
+	proposerMcmsPerChain[chain.Selector] = mcmsAddress.StringLong()
+
+	bypasserTx, err := setConfigForRoleAptos(e.GetContext(), mcmsAddress, aptosmcms.TimelockRoleBypasser, chain.Client, chain.DeployerSigner, cfg.Bypasser)
+	if err != nil {
+		return mcmstypes.BatchOperation{}, err
+	}
+	cancellerTx, err := setConfigForRoleAptos(e.GetContext(), mcmsAddress, aptosmcms.TimelockRoleCanceller, chain.Client, chain.DeployerSigner, cfg.Canceller)
+	if err != nil {
+		return mcmstypes.BatchOperation{}, err
+	}
+	proposerTx, err := setConfigForRoleAptos(e.GetContext(), mcmsAddress, aptosmcms.TimelockRoleProposer, chain.Client, chain.DeployerSigner, cfg.Proposer)
+	if err != nil {
+		return mcmstypes.BatchOperation{}, err
+	}
+	return mcmstypes.BatchOperation{
+		ChainSelector: mcmstypes.ChainSelector(chain.Selector),
+		Transactions:  []mcmstypes.Transaction{bypasserTx, proposerTx, cancellerTx},
+	}, nil
+}
+
+func setConfigForRoleAptos(ctx context.Context, mcmsAddress aptos.AccountAddress, role aptosmcms.TimelockRole, client aptos.AptosRpcClient, auth aptos.TransactionSigner, cfg mcmstypes.Config) (mcmstypes.Transaction, error) {
+	configurer := aptosmcms.NewConfigurer(client, auth, role, aptosmcms.WithDoNotSendInstructionsOnChain())
+	result, err := configurer.SetConfig(ctx, mcmsAddress.StringLong(), &cfg, false)
+	if err != nil {
+		return mcmstypes.Transaction{}, fmt.Errorf("failed to set config for role %v: %w", role.String(), err)
+	}
+	return result.RawData.(mcmstypes.Transaction), nil
 }

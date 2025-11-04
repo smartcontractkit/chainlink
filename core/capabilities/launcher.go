@@ -52,7 +52,7 @@ type launcher struct {
 	cachedShims         cachedShims
 	registry            *Registry
 	subServices         []services.Service
-	workflowDonNotifier donNotifier
+	workflowDonNotifier DonNotifier
 	don2donSharedPeer   p2ptypes.SharedPeer
 	p2pStreamConfig     p2ptypes.StreamConfig
 	metrics             *launcherMetrics
@@ -71,10 +71,6 @@ func shimKey(capID string, donID uint32, method string) string {
 	return fmt.Sprintf("%s:%d:%s", capID, donID, method)
 }
 
-type donNotifier interface {
-	NotifyDonSet(don capabilities.DON)
-}
-
 // TODO: add metric handler and instrument all the internal log.Error calls
 
 // NewLauncher creates a new capabilities launcher.
@@ -87,7 +83,7 @@ func NewLauncher(
 	streamConfig config.StreamConfig,
 	dispatcher remotetypes.Dispatcher,
 	registry *Registry,
-	workflowDonNotifier donNotifier,
+	workflowDonNotifier DonNotifier,
 ) (*launcher, error) {
 	p2pStreamConfig := defaultStreamConfig
 	if streamConfig != nil {
