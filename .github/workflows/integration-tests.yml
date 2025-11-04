@@ -174,12 +174,12 @@ jobs:
         id: runner-labels
         env:
           OPT_OUT: ${{ steps.label-runs-on-opt-out.outputs.check-label-found || 'false' }}
-          GH_BUILDER_RUNNER: ubuntu22.04-8cores-32GB
-          GH_SOLANA_RUNNER: ubuntu22.04-8cores-32GB
+          GH_BUILDER_RUNNER: ubuntu24.04-8cores-32GB-ARM
+          GH_SOLANA_RUNNER: ubuntu24.04-8cores-32GB-ARM
           # include unique label (core/plugins/solana) to ensure jobs are not competing for the same runner
-          SH_BUILDER_RUNNER_CORE: runs-on=${{ github.run_id }}-core/cpu=32+36/memory=64+72/family=c6i+c7i+c5.*/extras=s3-cache+tmpfs
-          SH_BUILDER_RUNNER_PLUGINS: runs-on=${{ github.run_id }}-plugins/cpu=32+36/memory=64+72/family=c6i+c7i+c5.*/extras=s3-cache+tmpfs
-          SH_SOLANA_RUNNER: runs-on=${{ github.run_id }}-solana/cpu=48/ram=96/family=c6i/spot=false/image=ubuntu24-full-x64/extras=s3-cache+tmpfs
+          SH_BUILDER_RUNNER_CORE: runs-on=${{ github.run_id }}-core/cpu=32+36/memory=64+72/family=c6g+c7g/image=ubuntu24-full-arm64/extras=s3-cache+tmpfs
+          SH_BUILDER_RUNNER_PLUGINS: runs-on=${{ github.run_id }}-plugins/cpu=32+36/memory=64+72/family=c6g+c7g/image=ubuntu24-full-arm64/extras=s3-cache+tmpfs
+          SH_SOLANA_RUNNER: runs-on=${{ github.run_id }}-solana/cpu=48/ram=96/family=c6g+c7g/spot=false/image=ubuntu24-full-arm64/extras=s3-cache+tmpfs
         run: |
           if [[ "${OPT_OUT}" == "true" ]]; then
             echo "builder-runner-label=${GH_BUILDER_RUNNER}" | tee -a "$GITHUB_OUTPUT"
@@ -277,6 +277,7 @@ jobs:
         if: matrix.image.should-build && steps.check-image-exists.outputs.exists != 'true'
         uses: smartcontractkit/.github/actions/ctf-build-image@ctf-build-image/v1
         with:
+          platform: linux/arm64
           image-tag: ${{ inputs.evm-ref || env.CHAINLINK_REF }}${{ matrix.image.tag-suffix }}
           dockerfile: ${{ matrix.image.dockerfile }}
           docker-registry-url: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}.dkr.ecr.${{ secrets.QA_AWS_REGION }}.amazonaws.com
@@ -873,7 +874,7 @@ jobs:
       pull-requests: write
       id-token: write
       contents: read
-    runs-on: ubuntu22.04-8cores-32GB
+    runs-on: ubuntu24.04-8cores-32GB-ARM
     needs:
       [
         changes,
@@ -904,7 +905,7 @@ jobs:
       pull-requests: write
       id-token: write
       contents: read
-    runs-on: ubuntu22.04-8cores-32GB
+    runs-on: ubuntu24.04-8cores-32GB-ARM
     needs:
       [
         solana-build-contracts,
@@ -950,7 +951,7 @@ jobs:
       contents: read
     name: Solana Smoke Tests
     if: needs.solana-smoke-tests-setup.outputs.should-run-solana-tests == 'true'
-    runs-on: ${{ needs.labels.outputs.builder-runner-label || 'ubuntu22.04-8cores-32GB' }}
+    runs-on: ${{ needs.labels.outputs.builder-runner-label || 'ubuntu24.04-8cores-32GB-ARM' }}
     needs:
       [
         build-chainlink,
