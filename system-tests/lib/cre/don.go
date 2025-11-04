@@ -113,8 +113,6 @@ type Don struct {
 	Flags                     []CapabilityFlag `toml:"flags" json:"flags"` // capabilities and roles
 	chainCapabilityConfigs    map[string]*ChainCapabilityConfig
 	capabilityConfigOverrides map[string]map[string]any
-
-	gh GatewayHelper
 }
 
 func (d *Don) Metadata() *DonMetadata {
@@ -199,14 +197,6 @@ func (d *Don) JDNodeIDs() []string {
 		nodeIDs = append(nodeIDs, n.JobDistributorDetails.NodeID)
 	}
 	return nodeIDs
-}
-
-func (d *Don) RequiresGateway() bool {
-	return d.gh.RequiresGateway(d.Flags)
-}
-
-func (d *Don) RequiresWebAPI() bool {
-	return d.gh.RequiresWebAPI(d.Flags)
 }
 
 func (d *Don) GetChainCapabilityConfigs() map[string]*ChainCapabilityConfig {

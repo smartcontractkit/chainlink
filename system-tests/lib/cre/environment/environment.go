@@ -186,12 +186,6 @@ func SetupTestEnvironment(
 	if topoErr != nil {
 		return nil, pkgerrors.Wrap(topoErr, "failed to build topology")
 	}
-
-	gatewayConfigs, gErr := gateway.Configs(topology)
-	if gErr != nil {
-		return nil, pkgerrors.Wrap(gErr, "failed to build gateway configs")
-	}
-	topology.GatewayConfigs = gatewayConfigs
 	fmt.Print(libformat.PurpleText("%s", input.StageGen.WrapAndNext("DONs configuration prepared in %.2f seconds", input.StageGen.Elapsed().Seconds())))
 
 	fmt.Print(libformat.PurpleText("%s", input.StageGen.Wrap("Applying Features before environment startup")))

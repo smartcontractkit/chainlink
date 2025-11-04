@@ -20,7 +20,6 @@ import (
 	keystone_changeset "github.com/smartcontractkit/chainlink/deployment/keystone/changeset"
 
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre"
-	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/gateway"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/jobs"
 )
 
@@ -47,13 +46,12 @@ func (o *WebAPITrigger) PreEnvStartup(
 
 	// add 'web-api' handler to gateway config
 	// add gateway connector to to node TOML config, so that node can route http requests to the gateway
-	var hErr error
-	topology.GatewayConfigs, hErr = gateway.AddHandlers(*don, topology.GatewayConfigs, []string{pkg.GatewayHandlerTypeWebAPICapabilities})
+	hErr := topology.AddGatewayHandlers(*don, []string{pkg.GatewayHandlerTypeWebAPICapabilities})
 	if hErr != nil {
 		return nil, errors.Wrapf(hErr, "failed to add gateway handlers to gateway config for don %s ", don.Name)
 	}
 
-	cErr := gateway.AddConnectors(don, registryChainID, *topology.GatewayConnectors)
+	cErr := don.ConfigureForGatewayAccess(registryChainID, *topology.GatewayConnectors)
 	if cErr != nil {
 		return nil, errors.Wrapf(cErr, "failed to add gateway connectors to node's TOML config in for don %s", don.Name)
 	}
