@@ -632,7 +632,8 @@ func makeCapabilities(capabilitiesConfig capabilitiesConfig, repoRootRelativePat
 		// Set GOBIN to the absolute path of the target path, so that binaries are placed there
 		cmd.Env = os.Environ()
 		cmd.Env = append(cmd.Env, "GOBIN="+tempDirAbsPath)
-		cmd.Env = append(cmd.Env, "CL_PLUGIN_GOFLAGS=")
+		// cross-compile for linux/amd64 with CGO disabled, because our Chainlink Docker images use linux/amd64
+		cmd.Env = append(cmd.Env, "CL_PLUGIN_ENVVARS=GOOS=linux GOARCH=amd64 CGO_ENABLED=0")
 		cmd.Stdout = os.Stdout
 		cmd.Stderr = os.Stderr
 
@@ -654,14 +655,20 @@ func makeCapabilities(capabilitiesConfig capabilitiesConfig, repoRootRelativePat
 		return nil, fmt.Errorf("failed to create target path: %w", err)
 	}
 
-	cmd := exec.Command("cp", "-R", tempDir+string(os.PathSeparator)+".", absPath) //nolint:gosec //G204: Subprocess launched with a potential tainted input or cmd arguments
+	cmd := exec.Command("cp", "-R", tempDirAbsPath+string(os.PathSeparator)+".", absPath) //nolint:gosec //G204: Subprocess launched with a potential tainted input or cmd arguments
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 
-	files, err := os.ReadDir(tempDir)
+	if err := cmd.Run(); err != nil {
+		return nil, fmt.Errorf("failed to copy binaries to target path: %w", err)
+	}
+
+	files, err := os.ReadDir(tempDirAbsPath)
 	if err != nil {
 		return nil, fmt.Errorf("failed to read temporary directory: %w", err)
 	}
+
+	fmt.Println("Dir: ", tempDirAbsPath)
 
 	installedCapabilities := []string{}
 	for _, f := range files {

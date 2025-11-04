@@ -139,15 +139,21 @@ Environment can be setup by running `go run . env setup` inside `core/scripts/cr
 - you have required Job Distributor and Chip Ingress (Beholder) images
 - install and copy all capability binaries to expected location
 
-Capability installation is based on `Makefile` commands and by default installing binaries defined in following files:
-- [plugins.public.yaml](../../../../plugins/plugins.public.yaml)
-- [plugins.private.yaml](../../../../plugins/plugins.private.yaml)
+Capability installation is two fold. Private and local plugins are compiled locally and then copied to the running Docker container. Public plugins are installed, when the Docker image is built. The reason is that capability developers need a way to quickly test capabilities they are working on, without having to push the code to remote repository, so that it could be installed in the Docker image (and that's because local capability code is usually located outside Docker build context and thus unavailable).
 
-Plus `local` plugins:
+Private capabilities are defined in [plugins.private.yaml](../../../../plugins/plugins.private.yaml) file, public in [plugins.public.yaml](../../../../plugins/plugins.public.yaml). Local ones include:
 - `chainlink-evm`
 - `chainlink-medianpoc`
 - `chainlink-ocr3-capability`
 - `log-event-trigger`
+
+If you need to modify make commands that are used navigate to [configs/setup.toml](configs/setup.toml) file and adjust following lines:
+```toml
+[capabilities]
+target_path = "./binaries"
+# add "install-plugins-public" to also locally compile and copy public plugins (be aware chainlink-cosmos might fail due to issues with cross-compile)
+make_commands = ["install-plugins-private", "install-plugins-local"]
+```
 
 ## Start Environment
 ```bash
