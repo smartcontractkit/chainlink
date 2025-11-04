@@ -116,6 +116,9 @@ func OnboardTokenPoolsForSelfServe(e cldf.Environment, cfg OnboardTokenPoolsForS
 		tv := cldf.NewTypeAndVersion(registerTokenConfig.TokenProgramName, deployment.Version1_0_0)
 		tv.AddLabel(registerTokenConfig.TokenSymbol)
 		err = newAddresses.Save(cfg.ChainSelector, registerTokenConfig.TokenMint.String(), tv)
+		if err != nil {
+			return cldf.ChangesetOutput{}, err
+		}
 		// Propose Admin in Token Admin Registry
 		proposeTokenAdminRegistryAdminIx, err := generateProposeTokenAdminRegistryAdministratorIx(registerTokenConfig, routerState)
 		if err != nil {
