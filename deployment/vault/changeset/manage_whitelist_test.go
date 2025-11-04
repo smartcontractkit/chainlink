@@ -472,6 +472,11 @@ func TestSetWhitelistChangeset(t *testing.T) {
 						Description: "Team B wallet updated",
 						Labels:      []string{"team", "payments", "updated"},
 					},
+					{
+						Address:     common.HexToAddress(whitelistTestAddr1).Hex(),
+						Description: "Team A wallet (no update labels provided)",
+						Labels:      nil,
+					},
 				},
 				selector2: {
 					{
@@ -497,14 +502,22 @@ func TestSetWhitelistChangeset(t *testing.T) {
 		whitelist, err := GetWhitelistedAddresses(*env, selectors)
 		require.NoError(t, err)
 
-		require.Len(t, whitelist[selector1], 1)
+		require.Len(t, whitelist[selector1], 2)
 		require.Len(t, whitelist[selector2], 2)
 
-		require.Equal(t, whitelistTestAddr2, whitelist[selector1][0].Address)
-		require.Equal(t, []string{"team", "payments", "updated"}, whitelist[selector1][0].Labels)
+		labelsByAddress := make(map[string][]string)
+		for _, entry := range whitelist[selector1] {
+			labelsByAddress[entry.Address] = entry.Labels
+		}
+
+		require.Contains(t, labelsByAddress, whitelistTestAddr1)
+		require.Equal(t, []string{"team", "payments"}, labelsByAddress[whitelistTestAddr1])
+
+		require.Contains(t, labelsByAddress, whitelistTestAddr2)
+		require.Equal(t, []string{"team", "payments", "updated"}, labelsByAddress[whitelistTestAddr2])
 	})
 
-	t.Run("clear whitelist for a chain", func(t *testing.T) {
+	t.Run("empty update leaves existing whitelist untouched", func(t *testing.T) {
 		clearConfig := types.SetWhitelistConfig{
 			WhitelistByChain: map[uint64][]types.WhitelistAddress{
 				selector1: {},
@@ -519,6 +532,6 @@ func TestSetWhitelistChangeset(t *testing.T) {
 
 		whitelist, err := GetWhitelistedAddresses(*env, []uint64{selector1})
 		require.NoError(t, err)
-		require.Empty(t, whitelist[selector1])
+		require.Len(t, whitelist[selector1], 2)
 	})
 }
