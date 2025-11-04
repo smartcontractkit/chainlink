@@ -63,6 +63,10 @@ func (m *MCMSTransaction) Apply(callFn func(opts *bind.TransactOpts) (*types.Tra
 		return nil, err
 	}
 
+	if m.MCMSContracts.Timelock == nil || m.MCMSContracts.ProposerMcm == nil {
+		return nil, errors.New("MCMS contracts are not properly initialized, missing Timelock or Proposer")
+	}
+
 	timelocksPerChain := map[uint64]string{
 		m.ChainSel: m.MCMSContracts.Timelock.Address().Hex(),
 	}
