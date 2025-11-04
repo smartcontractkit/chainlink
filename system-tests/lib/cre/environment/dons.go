@@ -3,7 +3,6 @@ package environment
 import (
 	"context"
 	"fmt"
-	"os"
 	"sync"
 	"time"
 
@@ -16,7 +15,6 @@ import (
 	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/blockchain"
 	ns "github.com/smartcontractkit/chainlink-testing-framework/framework/components/simple_node_set"
 
-	ctfconfig "github.com/smartcontractkit/chainlink-testing-framework/lib/config"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre"
 	crecapabilities "github.com/smartcontractkit/chainlink/system-tests/lib/cre/capabilities"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/crib"
@@ -115,22 +113,6 @@ func StartDONs(
 
 		if hasEnvVarsInTomlConfig && len(nodeSets[donIdx].EnvVars) > 0 {
 			return nil, fmt.Errorf("extra env vars for Chainlink Nodes are provided in the TOML config for the %s DON, but you tried to provide them programatically. Please set them only in one place", donMetadata.Name)
-		}
-	}
-
-	// Hack for CI that allows us to dynamically set the chainlink image and version
-	// CTFv2 currently doesn't support dynamic image and version setting
-	if os.Getenv("CI") == "true" {
-		// Due to how we pass custom env vars to reusable workflow we need to use placeholders, so first we need to resolve what's the name of the target environment variable
-		// that stores chainlink version and then we can use it to resolve the image name
-		for i := range nodeSets {
-			image := fmt.Sprintf("%s:%s", os.Getenv(ctfconfig.E2E_TEST_CHAINLINK_IMAGE_ENV), ctfconfig.MustReadEnvVar_String(ctfconfig.E2E_TEST_CHAINLINK_VERSION_ENV))
-			for j := range nodeSets[i].NodeSpecs {
-				nodeSets[i].NodeSpecs[j].Node.Image = image
-				// unset docker context and file path, so that we can use the image from the registry
-				nodeSets[i].NodeSpecs[j].Node.DockerContext = ""
-				nodeSets[i].NodeSpecs[j].Node.DockerFilePath = ""
-			}
 		}
 	}
 

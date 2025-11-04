@@ -401,7 +401,7 @@ type GenerateConfigsInput struct {
 	Datastore               datastore.DataStore
 	DonMetadata             *DonMetadata
 	Blockchains             map[uint64]blockchains.Blockchain
-	HomeChainSelector       uint64
+	RegistryChainSelector   uint64
 	Flags                   []string
 	CapabilitiesPeeringData CapabilitiesPeeringData
 	OCRPeeringData          OCRPeeringData
@@ -418,7 +418,7 @@ func (g *GenerateConfigsInput) Validate() error {
 	if len(g.Blockchains) == 0 {
 		return errors.New("blockchain output not set")
 	}
-	if g.HomeChainSelector == 0 {
+	if g.RegistryChainSelector == 0 {
 		return errors.New("home chain selector not set")
 	}
 	if len(g.Flags) == 0 {
@@ -430,17 +430,17 @@ func (g *GenerateConfigsInput) Validate() error {
 	if g.OCRPeeringData == (OCRPeeringData{}) {
 		return errors.New("ocr peering data not set")
 	}
-	_, addrErr := g.AddressBook.AddressesForChain(g.HomeChainSelector)
+	_, addrErr := g.AddressBook.AddressesForChain(g.RegistryChainSelector)
 	if addrErr != nil {
-		return fmt.Errorf("failed to get addresses for chain %d: %w", g.HomeChainSelector, addrErr)
+		return fmt.Errorf("failed to get addresses for chain %d: %w", g.RegistryChainSelector, addrErr)
 	}
 	_, dsErr := g.Datastore.Addresses().Fetch()
 	if dsErr != nil {
 		return fmt.Errorf("failed to get addresses from datastore: %w", dsErr)
 	}
-	h := g.Datastore.Addresses().Filter(datastore.AddressRefByChainSelector(g.HomeChainSelector))
+	h := g.Datastore.Addresses().Filter(datastore.AddressRefByChainSelector(g.RegistryChainSelector))
 	if len(h) == 0 {
-		return fmt.Errorf("no addresses found for home chain %d in datastore", g.HomeChainSelector)
+		return fmt.Errorf("no addresses found for home chain %d in datastore", g.RegistryChainSelector)
 	}
 	// TODO check for required registry contracts by type and version
 	return nil

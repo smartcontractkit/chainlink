@@ -27,16 +27,16 @@ require (
 	github.com/pkg/errors v0.9.1
 	github.com/rs/zerolog v1.33.0
 	github.com/slack-go/slack v0.15.0
-	github.com/smartcontractkit/chain-selectors v1.0.75
+	github.com/smartcontractkit/chain-selectors v1.0.77
 	github.com/smartcontractkit/chainlink-aptos v0.0.0-20251027153600-2b072ff3618e
 	github.com/smartcontractkit/chainlink-ccip v0.1.1-solana.0.20251027185542-babb09e5363e
 	github.com/smartcontractkit/chainlink-ccip/chains/solana v0.0.0-20250912190424-fd2e35d7deb5
 	github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings v0.0.0-20250912190424-fd2e35d7deb5
-	github.com/smartcontractkit/chainlink-common v0.9.6-0.20251029135506-45658d23dc49
-	github.com/smartcontractkit/chainlink-deployments-framework v0.59.1
+	github.com/smartcontractkit/chainlink-common v0.9.6-0.20251030115044-5d80c1c62afd
+	github.com/smartcontractkit/chainlink-deployments-framework v0.62.0
 	github.com/smartcontractkit/chainlink-evm v0.3.4-0.20251029010119-b2ed6162042f
 	github.com/smartcontractkit/chainlink-evm/gethwrappers v0.0.0-20251022075638-49d961001d1b
-	github.com/smartcontractkit/chainlink-testing-framework/framework v0.11.3
+	github.com/smartcontractkit/chainlink-testing-framework/framework v0.11.7
 	github.com/smartcontractkit/chainlink-testing-framework/havoc v1.50.5
 	github.com/smartcontractkit/chainlink-testing-framework/lib v1.54.6
 	github.com/smartcontractkit/chainlink-testing-framework/seth v1.51.2
@@ -489,17 +489,17 @@ require (
 	github.com/smartcontractkit/chainlink-protos/svr v1.1.0 // indirect
 	github.com/smartcontractkit/chainlink-protos/workflows/go v0.0.0-20251025021331-aa7746850cc4 // indirect
 	github.com/smartcontractkit/chainlink-solana v1.1.2-0.20251020193713-b63bc17bfeb1 // indirect
-	github.com/smartcontractkit/chainlink-sui v0.0.0-20251029234211-ed9dc839af35 // indirect
-	github.com/smartcontractkit/chainlink-sui/deployment v0.0.0-20251029234211-ed9dc839af35 // indirect
+	github.com/smartcontractkit/chainlink-sui v0.0.0-20251102155039-60906355b420 // indirect
+	github.com/smartcontractkit/chainlink-sui/deployment v0.0.0-20251102155039-60906355b420 // indirect
 	github.com/smartcontractkit/chainlink-testing-framework/lib/grafana v1.51.0 // indirect
 	github.com/smartcontractkit/chainlink-testing-framework/parrot v0.6.2 // indirect
 	github.com/smartcontractkit/chainlink-testing-framework/sentinel v0.1.2 // indirect
-	github.com/smartcontractkit/chainlink-ton v0.0.0-20251103183119-5d4f72fa818d // indirect
-	github.com/smartcontractkit/chainlink-ton/deployment v0.0.0-20251103183119-5d4f72fa818d // indirect
+	github.com/smartcontractkit/chainlink-ton v0.0.0-20251031142050-8d1f83814966 // indirect
+	github.com/smartcontractkit/chainlink-ton/deployment v0.0.0-20251031142050-8d1f83814966 // indirect
 	github.com/smartcontractkit/chainlink-tron/relayer v0.0.11-0.20251014143056-a0c6328c91e9 // indirect
 	github.com/smartcontractkit/freeport v0.1.3-0.20250716200817-cb5dfd0e369e // indirect
 	github.com/smartcontractkit/grpc-proxy v0.0.0-20240830132753-a7e17fec5ab7 // indirect
-	github.com/smartcontractkit/libocr v0.0.0-20251030123553-7ab819193353 // indirect
+	github.com/smartcontractkit/libocr v0.0.0-20251031190958-7324c200a6b0 // indirect
 	github.com/smartcontractkit/mcms v0.29.0 // indirect
 	github.com/smartcontractkit/smdkg v0.0.0-20251029093710-c38905e58aeb // indirect
 	github.com/smartcontractkit/tdh2/go/ocr2/decryptionplugin v0.0.0-20241009055228-33d0c0bf38de // indirect

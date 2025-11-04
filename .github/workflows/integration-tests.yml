@@ -288,7 +288,7 @@ jobs:
             CL_IS_PROD_BUILD=false
           go-get-overrides: |
             github.com/smartcontractkit/chainlink-evm=${{ inputs.evm-ref }}
-          gati-role-arn: ${{ secrets.AWS_OIDC_GLOBAL_READ_ONLY_TOKEN_ISSUER_ROLE_ARN }}
+          gati-role-arn: ${{ secrets.AWS_OIDC_CHAINLINK_READ_ONLY_TOKEN_ISSUER_ROLE_ARN }}
           gati-lambda-url: ${{ secrets.AWS_INFRA_RELENG_TOKEN_ISSUER_LAMBDA_URL }}
 
   run-core-cre-e2e-tests-setup:
@@ -479,7 +479,7 @@ jobs:
       AWS_OIDC_IAM_ROLE_VALIDATION_PROD_ARN: ${{ secrets.AWS_OIDC_IAM_ROLE_VALIDATION_PROD_ARN }}
       AWS_API_GW_HOST_GRAFANA: ${{ secrets.AWS_API_GW_HOST_GRAFANA }}
       SLACK_BOT_TOKEN: ${{ secrets.QA_SLACK_API_KEY }}
-      OPTIONAL_GATI_AWS_ROLE_ARN: ${{ secrets.AWS_OIDC_GLOBAL_READ_ONLY_TOKEN_ISSUER_ROLE_ARN }}
+      OPTIONAL_GATI_AWS_ROLE_ARN: ${{ secrets.AWS_OIDC_CHAINLINK_READ_ONLY_TOKEN_ISSUER_ROLE_ARN }}
       OPTIONAL_GATI_LAMBDA_URL: ${{  secrets.AWS_INFRA_RELENG_TOKEN_ISSUER_LAMBDA_URL}}
       TRUNK_API_KEY: ${{ secrets.TRUNK_API_KEY }}
 
@@ -581,7 +581,7 @@ jobs:
       SLACK_BOT_TOKEN: ${{ secrets.QA_SLACK_API_KEY }}
       MAIN_DNS_ZONE_PUBLIC_SDLC: ${{ secrets.MAIN_DNS_ZONE_PUBLIC_SDLC }}
       AWS_K8S_CLUSTER_NAME_SDLC: ${{ secrets.AWS_K8S_CLUSTER_NAME_SDLC }}
-      OPTIONAL_GATI_AWS_ROLE_ARN: ${{ secrets.AWS_OIDC_GLOBAL_READ_ONLY_TOKEN_ISSUER_ROLE_ARN }}
+      OPTIONAL_GATI_AWS_ROLE_ARN: ${{ secrets.AWS_OIDC_CHAINLINK_READ_ONLY_TOKEN_ISSUER_ROLE_ARN }}
       OPTIONAL_GATI_LAMBDA_URL: ${{  secrets.AWS_INFRA_RELENG_TOKEN_ISSUER_LAMBDA_URL}}
       TRUNK_API_KEY: ${{ secrets.TRUNK_API_KEY }}
 

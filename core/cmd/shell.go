@@ -117,6 +117,11 @@ func initGlobals(cfgProm config.Prometheus, cfgTracing config.Tracing, cfgTeleme
 				ChipIngressInsecureConnection:  cfgTelemetry.ChipIngressInsecureConnection(),
 				LogStreamingEnabled:            cfgTelemetry.LogStreamingEnabled(),
 				LogLevel:                       cfgTelemetry.LogLevel(),
+				LogBatchProcessor:              cfgTelemetry.LogBatchProcessor(),
+				LogExportTimeout:               cfgTelemetry.LogExportTimeout(),
+				LogExportMaxBatchSize:          cfgTelemetry.LogExportMaxBatchSize(),
+				LogExportInterval:              cfgTelemetry.LogExportInterval(),
+				LogMaxQueueSize:                cfgTelemetry.LogMaxQueueSize(),
 			}
 			// note: due to the OTEL specification, all histogram buckets
 			// must be defined when the beholder client is created
