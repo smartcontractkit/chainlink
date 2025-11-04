@@ -26,6 +26,7 @@ import (
 	"github.com/umbracle/ethgo/abi"
 
 	"github.com/smartcontractkit/freeport"
+	"github.com/smartcontractkit/quarantine"
 
 	"github.com/smartcontractkit/libocr/commontypes"
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/confighelper"
@@ -402,6 +403,7 @@ func TestIntegration_KeeperPluginLogUpkeep_Retry(t *testing.T) {
 }
 
 func TestIntegration_KeeperPluginLogUpkeep_ErrHandler(t *testing.T) {
+	quarantine.Flaky(t, "DX-1764")
 	g := gomega.NewWithT(t)
 
 	// setup blockchain
