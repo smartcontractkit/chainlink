@@ -14,6 +14,7 @@ import (
 	"gopkg.in/guregu/null.v4"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/assets"
+	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 	evmassets "github.com/smartcontractkit/chainlink-evm/pkg/assets"
 	"github.com/smartcontractkit/chainlink-evm/pkg/types"
 	"github.com/smartcontractkit/chainlink-evm/pkg/utils/big"
@@ -87,7 +88,7 @@ func TestJob(t *testing.T) {
 				Type:            job.DirectRequest,
 				SchemaVersion:   1,
 				Name:            null.StringFrom("test"),
-				MaxTaskDuration: models.Interval(1 * time.Minute),
+				MaxTaskDuration: sqlutil.Interval(1 * time.Minute),
 			},
 			want: fmt.Sprintf(`
 			{
@@ -160,7 +161,7 @@ func TestJob(t *testing.T) {
 				Type:            job.FluxMonitor,
 				SchemaVersion:   1,
 				Name:            null.StringFrom("test"),
-				MaxTaskDuration: models.Interval(1 * time.Minute),
+				MaxTaskDuration: sqlutil.Interval(1 * time.Minute),
 			},
 			want: fmt.Sprintf(`
 			{
@@ -225,17 +226,17 @@ func TestJob(t *testing.T) {
 					IsBootstrapPeer:                        true,
 					EncryptedOCRKeyBundleID:                &ocrKeyID,
 					TransmitterAddress:                     &transmitterAddress,
-					ObservationTimeout:                     models.Interval(1 * time.Minute),
-					BlockchainTimeout:                      models.Interval(1 * time.Minute),
-					ContractConfigTrackerSubscribeInterval: models.Interval(1 * time.Minute),
-					ContractConfigTrackerPollInterval:      models.Interval(1 * time.Minute),
+					ObservationTimeout:                     sqlutil.Interval(1 * time.Minute),
+					BlockchainTimeout:                      sqlutil.Interval(1 * time.Minute),
+					ContractConfigTrackerSubscribeInterval: sqlutil.Interval(1 * time.Minute),
+					ContractConfigTrackerPollInterval:      sqlutil.Interval(1 * time.Minute),
 					ContractConfigConfirmations:            1,
 					CreatedAt:                              timestamp,
 					UpdatedAt:                              timestamp,
 					EVMChainID:                             evmChainID,
-					DatabaseTimeout:                        models.NewInterval(2 * time.Second),
-					ObservationGracePeriod:                 models.NewInterval(3 * time.Second),
-					ContractTransmitterTransmitTimeout:     models.NewInterval(444 * time.Millisecond),
+					DatabaseTimeout:                        sqlutil.NewInterval(2 * time.Second),
+					ObservationGracePeriod:                 sqlutil.NewInterval(3 * time.Second),
+					ContractTransmitterTransmitTimeout:     sqlutil.NewInterval(444 * time.Millisecond),
 				},
 				ExternalJobID: uuid.MustParse("0EEC7E1D-D0D2-476C-A1A8-72DFB6633F46"),
 				PipelineSpec: &pipeline.Spec{
@@ -247,7 +248,7 @@ func TestJob(t *testing.T) {
 				Name:              null.StringFrom("test"),
 				GasLimit:          clnull.Uint32From(123),
 				ForwardingAllowed: true,
-				MaxTaskDuration:   models.Interval(1 * time.Minute),
+				MaxTaskDuration:   sqlutil.Interval(1 * time.Minute),
 			},
 			want: fmt.Sprintf(`
 			{
@@ -323,7 +324,7 @@ func TestJob(t *testing.T) {
 				Type:            job.Keeper,
 				SchemaVersion:   1,
 				Name:            null.StringFrom("test"),
-				MaxTaskDuration: models.Interval(1 * time.Minute),
+				MaxTaskDuration: sqlutil.Interval(1 * time.Minute),
 			},
 			want: fmt.Sprintf(`
 			{
@@ -388,7 +389,7 @@ func TestJob(t *testing.T) {
 				Type:            job.Cron,
 				SchemaVersion:   1,
 				Name:            null.StringFrom("test"),
-				MaxTaskDuration: models.Interval(1 * time.Minute),
+				MaxTaskDuration: sqlutil.Interval(1 * time.Minute),
 			},
 			want: fmt.Sprintf(`
             {
@@ -449,7 +450,7 @@ func TestJob(t *testing.T) {
 				Type:            job.Webhook,
 				SchemaVersion:   1,
 				Name:            null.StringFrom("test"),
-				MaxTaskDuration: models.Interval(1 * time.Minute),
+				MaxTaskDuration: sqlutil.Interval(1 * time.Minute),
 			},
 			want: `
 			{
@@ -754,7 +755,7 @@ func TestJob(t *testing.T) {
 					ID:          1,
 					ContractID:  "0x16988483b46e695f6c8D58e6e1461DC703e008e1",
 					Relay:       "evm",
-					RelayConfig: map[string]interface{}{"chainID": 1337},
+					RelayConfig: map[string]any{"chainID": 1337},
 				},
 				PipelineSpec: &pipeline.Spec{
 					ID:           1,
@@ -819,8 +820,8 @@ func TestJob(t *testing.T) {
 				ID: 1,
 				GatewaySpec: &job.GatewaySpec{
 					ID: 3,
-					GatewayConfig: map[string]interface{}{
-						"NodeServerConfig": map[string]interface{}{},
+					GatewayConfig: map[string]any{
+						"NodeServerConfig": map[string]any{},
 					},
 				},
 				PipelineSpec: &pipeline.Spec{
@@ -1087,7 +1088,7 @@ func TestJob(t *testing.T) {
 				Type:            job.Keeper,
 				SchemaVersion:   1,
 				Name:            null.StringFrom("test"),
-				MaxTaskDuration: models.Interval(1 * time.Minute),
+				MaxTaskDuration: sqlutil.Interval(1 * time.Minute),
 				JobSpecErrors: []job.SpecError{
 					{
 						ID:          200,
@@ -1152,7 +1153,6 @@ func TestJob(t *testing.T) {
 	}
 
 	for _, tc := range testCases {
-		tc := tc
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 

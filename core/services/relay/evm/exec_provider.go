@@ -12,21 +12,21 @@ import (
 
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 
+	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_2_0/router"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
 	commontypes "github.com/smartcontractkit/chainlink-common/pkg/types"
 	cciptypes "github.com/smartcontractkit/chainlink-common/pkg/types/ccip"
-
-	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_2_0/router"
-	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/config"
-	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/tokendata/lbtc"
-
 	"github.com/smartcontractkit/chainlink-evm/pkg/client"
 	"github.com/smartcontractkit/chainlink-evm/pkg/gas"
 	"github.com/smartcontractkit/chainlink-evm/pkg/logpoller"
+	"github.com/smartcontractkit/chainlink-evm/pkg/transmitter"
 	"github.com/smartcontractkit/chainlink-evm/pkg/txmgr"
+
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip"
+	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/config"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/estimatorconfig"
+	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/tokendata/lbtc"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/tokendata/usdc"
 )
 
@@ -40,7 +40,7 @@ type SrcExecProvider struct {
 	maxGasPrice   *big.Int
 	usdcReader    *ccip.USDCReaderImpl
 	usdcConfig    config.USDCConfig
-	lbtcConfig    config.LBTCConfig
+	lbtcConfigs   []config.LBTCConfig
 
 	feeEstimatorConfig estimatorconfig.FeeEstimatorConfigProvider
 
@@ -63,7 +63,7 @@ func NewSrcExecProvider(
 	startBlock uint64,
 	jobID string,
 	usdcConfig config.USDCConfig,
-	lbtcConfig config.LBTCConfig,
+	lbtcConfigs []config.LBTCConfig,
 	feeEstimatorConfig estimatorconfig.FeeEstimatorConfigProvider,
 ) (commontypes.CCIPExecProvider, error) {
 	var usdcReader *ccip.USDCReaderImpl
@@ -85,7 +85,7 @@ func NewSrcExecProvider(
 		startBlock:         startBlock,
 		usdcReader:         usdcReader,
 		usdcConfig:         usdcConfig,
-		lbtcConfig:         lbtcConfig,
+		lbtcConfigs:        lbtcConfigs,
 		feeEstimatorConfig: feeEstimatorConfig,
 	}, nil
 }
@@ -200,8 +200,7 @@ func (s *SrcExecProvider) NewTokenDataReader(ctx context.Context, tokenAddress c
 	if err != nil {
 		return nil, fmt.Errorf("failed to parse token address: %w", err)
 	}
-	switch tokenAddr {
-	case s.usdcConfig.SourceTokenAddress:
+	if tokenAddr == s.usdcConfig.SourceTokenAddress {
 		attestationURI, err := url.ParseRequestURI(s.usdcConfig.AttestationAPI)
 		if err != nil {
 			return nil, fmt.Errorf("failed to parse USDC attestation API: %w", err)
@@ -215,22 +214,24 @@ func (s *SrcExecProvider) NewTokenDataReader(ctx context.Context, tokenAddress c
 			tokenAddr,
 			time.Duration(s.usdcConfig.AttestationAPIIntervalMilliseconds)*time.Millisecond,
 		), nil
-	case s.lbtcConfig.SourceTokenAddress:
-		attestationURI, err := url.ParseRequestURI(s.lbtcConfig.AttestationAPI)
-		if err != nil {
-			return nil, fmt.Errorf("failed to parse USDC attestation API: %w", err)
-		}
-		return lbtc.NewLBTCTokenDataReader(
-			s.lggr,
-			attestationURI,
-			//nolint:gosec // integer overflow
-			int(s.lbtcConfig.AttestationAPITimeoutSeconds),
-			tokenAddr,
-			time.Duration(s.lbtcConfig.AttestationAPIIntervalMilliseconds)*time.Millisecond,
-		), nil
-	default:
-		return nil, fmt.Errorf("unsupported token address: %s", tokenAddress)
 	}
+	for _, lbtcConfig := range s.lbtcConfigs {
+		if tokenAddr == lbtcConfig.SourceTokenAddress {
+			attestationURI, err := url.ParseRequestURI(lbtcConfig.AttestationAPI)
+			if err != nil {
+				return nil, fmt.Errorf("failed to parse USDC attestation API: %w", err)
+			}
+			return lbtc.NewLBTCTokenDataReader(
+				s.lggr,
+				attestationURI,
+				//nolint:gosec // integer overflow
+				int(lbtcConfig.AttestationAPITimeoutSeconds),
+				tokenAddr,
+				time.Duration(lbtcConfig.AttestationAPIIntervalMilliseconds)*time.Millisecond,
+			), nil
+		}
+	}
+	return nil, fmt.Errorf("unsupported token address: %s", tokenAddress)
 }
 
 func (s *SrcExecProvider) NewTokenPoolBatchedReader(ctx context.Context, offRampAddr cciptypes.Address, sourceChainSelector uint64) (cciptypes.TokenPoolBatchedReader, error) {
@@ -260,7 +261,7 @@ type DstExecProvider struct {
 	client              client.Client
 	lp                  logpoller.LogPoller
 	startBlock          uint64
-	contractTransmitter ContractTransmitter
+	contractTransmitter transmitter.ContractTransmitter
 	configWatcher       *configWatcher
 	gasEstimator        gas.EvmFeeEstimator
 	maxGasPrice         big.Int
@@ -278,7 +279,7 @@ func NewDstExecProvider(
 	client client.Client,
 	lp logpoller.LogPoller,
 	startBlock uint64,
-	contractTransmitter ContractTransmitter,
+	contractTransmitter transmitter.ContractTransmitter,
 	configWatcher *configWatcher,
 	gasEstimator gas.EvmFeeEstimator,
 	maxGasPrice big.Int,

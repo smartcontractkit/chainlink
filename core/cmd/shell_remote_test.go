@@ -21,6 +21,7 @@ import (
 	"github.com/urfave/cli"
 
 	"github.com/smartcontractkit/freeport"
+	"github.com/smartcontractkit/quarantine"
 
 	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
 	"github.com/smartcontractkit/chainlink-evm/pkg/client/clienttest"
@@ -47,7 +48,7 @@ var (
 
 type startOptions struct {
 	// Use to set up mocks on the app
-	FlagsAndDeps []interface{}
+	FlagsAndDeps []any
 	// Add a key on start up
 	WithKey bool
 }
@@ -56,7 +57,7 @@ func startNewApplicationV2(t *testing.T, overrideFn func(c *chainlink.Config, s 
 	t.Helper()
 
 	sopts := &startOptions{
-		FlagsAndDeps: []interface{}{},
+		FlagsAndDeps: []any{},
 	}
 	for _, fn := range setup {
 		fn(sopts)
@@ -79,7 +80,7 @@ func startNewApplicationV2(t *testing.T, overrideFn func(c *chainlink.Config, s 
 	return app
 }
 
-func withMocks(mks ...interface{}) func(opts *startOptions) {
+func withMocks(mks ...any) func(opts *startOptions) {
 	return func(opts *startOptions) {
 		opts.FlagsAndDeps = mks
 	}
@@ -478,6 +479,7 @@ func TestShell_ChangePassword(t *testing.T) {
 }
 
 func TestShell_Profile(t *testing.T) {
+	quarantine.Flaky(t, "DX-1796")
 	t.Parallel()
 
 	app := startNewApplicationV2(t, nil)

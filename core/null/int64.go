@@ -34,7 +34,7 @@ func Int64From(i int64) Int64 {
 // 0 will not be considered a null Int.
 func (i *Int64) UnmarshalJSON(data []byte) error {
 	var err error
-	var v interface{}
+	var v any
 	if err = json.Unmarshal(data, &v); err != nil {
 		return err
 	}
@@ -116,7 +116,7 @@ func (i Int64) Value() (driver.Value, error) {
 }
 
 // Scan reads the database value and returns an instance.
-func (i *Int64) Scan(value interface{}) error {
+func (i *Int64) Scan(value any) error {
 	if value == nil {
 		*i = Int64{}
 		return nil

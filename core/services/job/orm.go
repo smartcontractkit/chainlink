@@ -322,7 +322,7 @@ func (o *orm) CreateJob(ctx context.Context, jb *Job) error {
 					return errors.New("dual transmission is enabled but no dual transmission config present")
 				}
 
-				dualTransmissionConfig, ok := rawDualTransmissionConfig.(map[string]interface{})
+				dualTransmissionConfig, ok := rawDualTransmissionConfig.(map[string]any)
 				if !ok {
 					return errors.New("invalid dual transmission config")
 				}
@@ -337,7 +337,7 @@ func (o *orm) CreateJob(ctx context.Context, jb *Job) error {
 					return errors.New("invalid transmitter address in dual transmission config")
 				}
 
-				if _, ok := dualTransmissionConfig["meta"].(map[string]interface{}); !ok {
+				if _, ok := dualTransmissionConfig["meta"].(map[string]any); !ok {
 					return errors.New("invalid dual transmission meta")
 				}
 
@@ -948,28 +948,28 @@ type OCRConfig interface {
 // LoadConfigVarsLocalOCR loads local OCR vars into the OCROracleSpec.
 func LoadConfigVarsLocalOCR(evmOcrCfg evmconfig.OCR, os OCROracleSpec, ocrCfg OCRConfig) *OCROracleSpec {
 	if os.ObservationTimeout == 0 {
-		os.ObservationTimeout = models.Interval(ocrCfg.ObservationTimeout())
+		os.ObservationTimeout = sqlutil.Interval(ocrCfg.ObservationTimeout())
 	}
 	if os.BlockchainTimeout == 0 {
-		os.BlockchainTimeout = models.Interval(ocrCfg.BlockchainTimeout())
+		os.BlockchainTimeout = sqlutil.Interval(ocrCfg.BlockchainTimeout())
 	}
 	if os.ContractConfigTrackerSubscribeInterval == 0 {
-		os.ContractConfigTrackerSubscribeInterval = models.Interval(ocrCfg.ContractSubscribeInterval())
+		os.ContractConfigTrackerSubscribeInterval = sqlutil.Interval(ocrCfg.ContractSubscribeInterval())
 	}
 	if os.ContractConfigTrackerPollInterval == 0 {
-		os.ContractConfigTrackerPollInterval = models.Interval(ocrCfg.ContractPollInterval())
+		os.ContractConfigTrackerPollInterval = sqlutil.Interval(ocrCfg.ContractPollInterval())
 	}
 	if os.ContractConfigConfirmations == 0 {
 		os.ContractConfigConfirmations = evmOcrCfg.ContractConfirmations()
 	}
 	if os.DatabaseTimeout == nil {
-		os.DatabaseTimeout = models.NewInterval(evmOcrCfg.DatabaseTimeout())
+		os.DatabaseTimeout = sqlutil.NewInterval(evmOcrCfg.DatabaseTimeout())
 	}
 	if os.ObservationGracePeriod == nil {
-		os.ObservationGracePeriod = models.NewInterval(evmOcrCfg.ObservationGracePeriod())
+		os.ObservationGracePeriod = sqlutil.NewInterval(evmOcrCfg.ObservationGracePeriod())
 	}
 	if os.ContractTransmitterTransmitTimeout == nil {
-		os.ContractTransmitterTransmitTimeout = models.NewInterval(evmOcrCfg.ContractTransmitterTransmitTimeout())
+		os.ContractTransmitterTransmitTimeout = sqlutil.NewInterval(evmOcrCfg.ContractTransmitterTransmitTimeout())
 	}
 	os.CaptureEATelemetry = ocrCfg.CaptureEATelemetry()
 
@@ -1102,7 +1102,7 @@ WHERE ocr2spec.id IS NOT NULL OR bs.id IS NOT NULL
 	return int32(results[0]), nil
 }
 
-func (o *orm) findJob(ctx context.Context, jb *Job, col string, arg interface{}) error {
+func (o *orm) findJob(ctx context.Context, jb *Job, col string, arg any) error {
 	err := o.transact(ctx, false, func(tx *orm) error {
 		sql := fmt.Sprintf(`SELECT jobs.*, job_pipeline_specs.pipeline_spec_id FROM jobs JOIN job_pipeline_specs ON (jobs.id = job_pipeline_specs.job_id) WHERE jobs.%s = $1 AND job_pipeline_specs.is_primary = true LIMIT 1`, col)
 		err := tx.ds.GetContext(ctx, jb, sql, arg)

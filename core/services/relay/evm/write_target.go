@@ -14,20 +14,17 @@ import (
 
 	chainselectors "github.com/smartcontractkit/chain-selectors"
 
-	dfprocessor "github.com/smartcontractkit/chainlink-evm/pkg/report/datafeeds/processor"
-	porprocessor "github.com/smartcontractkit/chainlink-evm/pkg/report/por/processor"
-	df "github.com/smartcontractkit/chainlink-framework/capabilities/writetarget/monitoring/pb/data-feeds/on-chain/registry"
-	processor "github.com/smartcontractkit/chainlink-framework/capabilities/writetarget/report/platform/processor"
-
-	"github.com/smartcontractkit/chainlink-framework/capabilities/writetarget"
-
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	ocr3types "github.com/smartcontractkit/chainlink-common/pkg/capabilities/consensus/ocr3/types"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
-
 	forwarder "github.com/smartcontractkit/chainlink-evm/gethwrappers/keystone/generated/forwarder_1_0_0"
 	"github.com/smartcontractkit/chainlink-evm/pkg/chains/legacyevm"
-	relayevmtypes "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/types"
+	"github.com/smartcontractkit/chainlink-evm/pkg/config"
+	dfprocessor "github.com/smartcontractkit/chainlink-evm/pkg/report/datafeeds/processor"
+	porprocessor "github.com/smartcontractkit/chainlink-evm/pkg/report/por/processor"
+	"github.com/smartcontractkit/chainlink-framework/capabilities/writetarget"
+	df "github.com/smartcontractkit/chainlink-framework/capabilities/writetarget/monitoring/pb/data-feeds/on-chain/registry"
+	"github.com/smartcontractkit/chainlink-framework/capabilities/writetarget/report/platform/processor"
 )
 
 func NewWriteTarget(ctx context.Context, relayer *Relayer, chain legacyevm.Chain, gasLimitDefault uint64, lggr logger.Logger) (capabilities.ExecutableCapability, error) {
@@ -35,14 +32,14 @@ func NewWriteTarget(ctx context.Context, relayer *Relayer, chain legacyevm.Chain
 	id := GenerateWriteTargetName(chain.ID().Uint64())
 
 	// EVM-specific init
-	config := chain.Config().EVM().Workflow()
+	evmConfig := chain.Config().EVM().Workflow()
 
 	// Initialize a reader to check whether a value was already transmitted on chain
-	contractReaderConfigEncoded, err := json.Marshal(relayevmtypes.ChainReaderConfig{
-		Contracts: map[string]relayevmtypes.ChainContractReader{
+	contractReaderConfigEncoded, err := json.Marshal(config.ChainReaderConfig{
+		Contracts: map[string]config.ChainContractReader{
 			"forwarder": {
 				ContractABI: forwarder.KeystoneForwarderABI,
-				Configs: map[string]*relayevmtypes.ChainReaderDefinition{
+				Configs: map[string]*config.ChainReaderDefinition{
 					"getTransmissionInfo": {
 						ChainSpecificName: "getTransmissionInfo",
 					},
@@ -58,14 +55,14 @@ func NewWriteTarget(ctx context.Context, relayer *Relayer, chain legacyevm.Chain
 		return nil, err
 	}
 
-	chainWriterConfig := relayevmtypes.ChainWriterConfig{
-		Contracts: map[string]*relayevmtypes.ContractConfig{
+	chainWriterConfig := config.ChainWriterConfig{
+		Contracts: map[string]*config.ContractConfig{
 			"forwarder": {
 				ContractABI: forwarder.KeystoneForwarderABI,
-				Configs: map[string]*relayevmtypes.ChainWriterDefinition{
+				Configs: map[string]*config.ChainWriterDefinition{
 					"report": {
 						ChainSpecificName: "report",
-						FromAddress:       config.FromAddress().Address(),
+						FromAddress:       evmConfig.FromAddress().Address(),
 						GasLimit:          gasLimitDefault,
 					},
 				},
@@ -118,7 +115,7 @@ func NewWriteTarget(ctx context.Context, relayer *Relayer, chain legacyevm.Chain
 	if err != nil {
 		return nil, fmt.Errorf("failed to create Aptos WT monitor client: %+w", err)
 	}
-	ts, err := NewEVMTargetStrategy(cr, cw, relayer.chain.TxManager(), config.ForwarderAddress().String(), gasLimitDefault, lggr)
+	ts, err := NewEVMTargetStrategy(cr, cw, relayer.chain.TxManager(), evmConfig.ForwarderAddress().String(), gasLimitDefault, lggr)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create target strategy: %w", err)
 	}
@@ -126,17 +123,17 @@ func NewWriteTarget(ctx context.Context, relayer *Relayer, chain legacyevm.Chain
 		ID:     id,
 		Logger: lggr,
 		Config: writetarget.Config{
-			PollPeriod:        config.PollPeriod(),
-			AcceptanceTimeout: config.AcceptanceTimeout(),
+			PollPeriod:        evmConfig.PollPeriod(),
+			AcceptanceTimeout: evmConfig.AcceptanceTimeout(),
 		},
 		ChainInfo:            chainInfo,
 		Beholder:             beholder,
 		ChainService:         chain,
 		ConfigValidateFn:     evaluate,
-		NodeAddress:          config.FromAddress().String(),
-		ForwarderAddress:     config.ForwarderAddress().String(),
+		NodeAddress:          evmConfig.FromAddress().String(),
+		ForwarderAddress:     evmConfig.ForwarderAddress().String(),
 		TargetStrategy:       ts,
-		WriteAcceptanceState: *config.TxAcceptanceState(),
+		WriteAcceptanceState: *evmConfig.TxAcceptanceState(),
 	}
 
 	return writetarget.NewWriteTarget(opts), nil

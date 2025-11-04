@@ -137,7 +137,7 @@ func (e *ExecutePluginCodecV1) Encode(ctx context.Context, report ccipocr3.Execu
 		evmReport = append(evmReport, evmChainReport)
 	}
 
-	return e.executeReportMethodInputs.PackValues([]interface{}{&evmReport})
+	return e.executeReportMethodInputs.PackValues([]any{&evmReport})
 }
 
 func (e *ExecutePluginCodecV1) Decode(ctx context.Context, encodedReport []byte) (cciptypes.ExecutePluginReport, error) {

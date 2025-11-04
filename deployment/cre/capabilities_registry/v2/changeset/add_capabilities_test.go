@@ -5,13 +5,15 @@ import (
 	"testing"
 
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/google/go-cmp/cmp"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"google.golang.org/protobuf/testing/protocmp"
 
 	capabilities_registry_v2 "github.com/smartcontractkit/chainlink-evm/gethwrappers/workflow/generated/capabilities_registry_wrapper_v2"
-
 	"github.com/smartcontractkit/chainlink/deployment/cre/capabilities_registry/v2/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/cre/capabilities_registry/v2/changeset/operations/contracts"
+	"github.com/smartcontractkit/chainlink/deployment/cre/capabilities_registry/v2/changeset/pkg"
 	"github.com/smartcontractkit/chainlink/deployment/cre/test"
 )
 
@@ -46,7 +48,7 @@ func TestAddCapabilities_VerifyPreconditions(t *testing.T) {
 		RegistryChainSel:  chainSelector,
 		RegistryQualifier: "qual",
 		DonName:           "don-1",
-		CapabilityConfigs: []contracts.CapabilityConfig{{Capability: contracts.Capability{CapabilityID: "cap@1.0.0"}, Config: map[string]interface{}{"k": "v"}}},
+		CapabilityConfigs: []contracts.CapabilityConfig{{Capability: contracts.Capability{CapabilityID: "cap@1.0.0"}, Config: map[string]any{"k": "v"}}},
 	})
 	require.NoError(t, err)
 }
@@ -57,8 +59,49 @@ func TestAddCapabilities_Apply(t *testing.T) {
 
 	// Prepare new capability to add
 	newCapID := "new-test-capability@1.0.0"
-	newCapMetadata := map[string]interface{}{"capabilityType": float64(0), "responseType": float64(0)}
-	newCapConfig := map[string]interface{}{"newParam": "value"}
+	newCapMetadata := map[string]any{"capabilityType": float64(0), "responseType": float64(0)}
+	newCapConfig := map[string]any{
+		"restrictedConfig": map[string]any{
+			"fields": map[string]any{
+				"spendRatios": map[string]any{
+					"mapValue": map[string]any{
+						"fields": map[string]any{
+							"RESOURCE_TYPE_COMPUTE": map[string]any{
+								"stringValue": "1.0",
+							},
+						},
+					},
+				},
+			},
+		},
+		"methodConfigs": map[string]any{
+			"BalanceAt": map[string]any{
+				"remoteExecutableConfig": map[string]any{
+					"requestTimeout":            "30s",
+					"serverMaxParallelRequests": 10,
+				},
+			},
+			"LogTrigger": map[string]any{
+				"remoteTriggerConfig": map[string]any{
+					"registrationRefresh":     "20s",
+					"registrationExpiry":      "60s",
+					"minResponsesToAggregate": 2,
+					"messageExpiry":           "120s",
+					"maxBatchSize":            25,
+					"batchCollectionPeriod":   "0.2s",
+				},
+			},
+			"WriteReport": map[string]any{
+				"remoteExecutableConfig": map[string]any{
+					"transmissionSchedule":      "OneAtATime",
+					"deltaStage":                "38.4s",
+					"requestTimeout":            "268.8s",
+					"serverMaxParallelRequests": 10,
+					"requestHasherType":         "WriteReportExcludeSignatures",
+				},
+			},
+		},
+	}
 
 	input := changeset.AddCapabilitiesInput{
 		RegistryChainSel:  fixture.RegistrySelector,
@@ -90,13 +133,23 @@ func TestAddCapabilities_Apply(t *testing.T) {
 	)
 	require.NoError(t, err)
 
-	caps, err := capReg.GetCapabilities(nil)
+	// Here we check that the uptyped input of the changeset was correctly applied on-chain as proto and can be decoded back to the same config
+	// encoding to proto bytes is same as in the changeset and decoding to cap cfg is same as in the v2 registry syncer
+	capCfg := pkg.CapabilityConfig(newCapConfig)
+	configProtoBytes, err := capCfg.MarshalProto() // on chain it is stored as proto bytes
+	require.NoError(t, err, "should be able to marshal new capability config to proto bytes")
+
+	expectedConfig := new(pkg.CapabilityConfig) // expected decoded config, to be compared with decoded on-chain config
+	err = expectedConfig.UnmarshalProto(configProtoBytes)
+	require.NoError(t, err, "should be able to unmarshal new capability config from proto bytes")
+
+	caps, err := pkg.GetCapabilities(nil, capReg)
 	require.NoError(t, err)
 	var found bool
 	for _, c := range caps {
 		if c.CapabilityId == newCapID {
 			// metadata check
-			var gotMeta map[string]interface{}
+			var gotMeta map[string]any
 			require.NoError(t, json.Unmarshal(c.Metadata, &gotMeta))
 			assert.Equal(t, newCapMetadata, gotMeta)
 			found = true
@@ -106,7 +159,7 @@ func TestAddCapabilities_Apply(t *testing.T) {
 	require.True(t, found, "new capability should be registered")
 
 	// Nodes should now include new capability id
-	nodes, err := capReg.GetNodes(nil)
+	nodes, err := pkg.GetNodes(nil, capReg)
 	require.NoError(t, err)
 	for _, n := range nodes {
 		assert.Contains(t, n.CapabilityIds, newCapID, "node should have new capability id appended")
@@ -118,9 +171,12 @@ func TestAddCapabilities_Apply(t *testing.T) {
 	var cfgFound bool
 	for _, cfg := range don.CapabilityConfigurations {
 		if cfg.CapabilityId == newCapID {
-			var gotCfg map[string]interface{}
-			require.NoError(t, json.Unmarshal(cfg.Config, &gotCfg))
-			assert.Equal(t, newCapConfig, gotCfg)
+			got := new(pkg.CapabilityConfig)
+			require.NoError(t, got.UnmarshalProto(cfg.Config), "unmarshal capability config proto bytes should not error")
+			if diff := cmp.Diff(expectedConfig, got, protocmp.Transform()); diff != "" {
+				t.Errorf("capability config proto bytes should match: %s", diff)
+			}
+
 			cfgFound = true
 		}
 	}

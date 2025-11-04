@@ -8,11 +8,10 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	workflow_registry "github.com/smartcontractkit/chainlink-evm/gethwrappers/workflow/generated/workflow_registry_wrapper_v1"
 
-	cldf_chain "github.com/smartcontractkit/chainlink-deployments-framework/chain"
 	cldf_evm "github.com/smartcontractkit/chainlink-deployments-framework/chain/evm"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+	"github.com/smartcontractkit/chainlink-deployments-framework/engine/test/onchain"
 
-	"github.com/smartcontractkit/chainlink/deployment/environment/memory"
 	"github.com/smartcontractkit/chainlink/deployment/keystone/changeset"
 )
 
@@ -48,8 +47,10 @@ func SetupTestWorkflowRegistry(t *testing.T, lggr logger.Logger, chainSel uint64
 }
 
 func testChain(t *testing.T) cldf_evm.Chain {
-	chains := cldf_chain.NewBlockChainsFromSlice(memory.NewMemoryChainsEVM(t, 1, 5))
-	require.NotEmpty(t, chains)
+	chains, err := onchain.NewEVMSimLoaderWithConfig(onchain.EVMSimLoaderConfig{
+		NumAdditionalAccounts: 5,
+	}).LoadN(t, 1)
+	require.NoError(t, err)
 
-	return chains.EVMChains()[chains.ListChainSelectors()[0]]
+	return chains[0].(cldf_evm.Chain)
 }

@@ -13,7 +13,7 @@ import (
 	"fmt"
 	"math"
 	mrand "math/rand"
-	"sort"
+	"slices"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -59,7 +59,7 @@ func DurationFromNow(t time.Time) time.Duration {
 }
 
 // FormatJSON applies indent to format a JSON response.
-func FormatJSON(v interface{}) ([]byte, error) {
+func FormatJSON(v any) ([]byte, error) {
 	return json.MarshalIndent(v, "", "  ")
 }
 
@@ -106,14 +106,14 @@ func IsEmpty(bytes []byte) bool {
 }
 
 // UnmarshalToMap takes an input json string and returns a map[string]interface i.e. a raw object
-func UnmarshalToMap(input string) (map[string]interface{}, error) {
-	var output map[string]interface{}
+func UnmarshalToMap(input string) (map[string]any, error) {
+	var output map[string]any
 	err := json.Unmarshal([]byte(input), &output)
 	return output, err
 }
 
 // MustUnmarshalToMap performs UnmarshalToMap, panics upon failure
-func MustUnmarshalToMap(input string) map[string]interface{} {
+func MustUnmarshalToMap(input string) map[string]any {
 	output, err := UnmarshalToMap(input)
 	if err != nil {
 		panic(err)
@@ -235,7 +235,7 @@ func NewBoundedPriorityQueue[T any](capacities map[uint]int) *BoundedPriorityQue
 		priorities = append(priorities, priority)
 		queues[priority] = NewBoundedQueue[T](capacity)
 	}
-	sort.Slice(priorities, func(i, j int) bool { return priorities[i] < priorities[j] })
+	slices.Sort(priorities)
 	bpq := BoundedPriorityQueue[T]{
 		queues:     queues,
 		priorities: priorities,
@@ -483,20 +483,6 @@ func NewHTTPFetchBackoff() backoff.Backoff {
 		Max:    15 * time.Second,
 		Jitter: true,
 	}
-}
-
-// KeyedMutex allows to lock based on particular values
-type KeyedMutex struct {
-	mutexes sync.Map
-}
-
-// LockInt64 locks the value for read/write
-func (m *KeyedMutex) LockInt64(key int64) func() {
-	value, _ := m.mutexes.LoadOrStore(key, new(sync.Mutex))
-	mtx := value.(*sync.Mutex)
-	mtx.Lock()
-
-	return mtx.Unlock
 }
 
 // ConcatBytes appends a bunch of byte arrays into a single byte array

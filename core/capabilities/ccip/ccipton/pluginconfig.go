@@ -3,10 +3,9 @@ package ccipton
 import (
 	chainsel "github.com/smartcontractkit/chain-selectors"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/ccipocr3"
 	"github.com/smartcontractkit/chainlink-ton/pkg/ccip/codec"
-
-	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/ccipnoop"
 	ccipcommon "github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/common"
 )
@@ -14,9 +13,11 @@ import (
 // InitializePluginConfig returns a pluginConfig for TON chains.
 func InitializePluginConfig(lggr logger.Logger, extraDataCodec ccipocr3.ExtraDataCodecBundle) ccipcommon.PluginConfig {
 	return ccipcommon.PluginConfig{
-		AddressCodec:          codec.NewAddressCodec(),
-		CommitPluginCodec:     codec.NewCommitPluginCodecV1(),
-		ExecutePluginCodec:    codec.NewExecutePluginCodecV1(extraDataCodec),
+		AddressCodec:       codec.NewAddressCodec(),
+		CommitPluginCodec:  codec.NewCommitPluginCodecV1(),
+		ExecutePluginCodec: codec.NewExecutePluginCodecV1(extraDataCodec),
+		// TODO(EVM2TON): this is a temp fix for nil msgHasher access, should be using CCIPProvider msgHasher instead
+		MessageHasher:         codec.NewMessageHasherV1(logger.Sugared(lggr).Named(chainsel.FamilyTon).Named("MessageHasherV1"), extraDataCodec),
 		ExtraDataCodec:        codec.NewExtraDataDecoder(),
 		GasEstimateProvider:   ccipnoop.NewGasEstimateProvider(extraDataCodec), // TODO: implement
 		TokenDataEncoder:      ccipnoop.NewTokenDataEncoder(),                  // TODO: implement
@@ -24,10 +25,6 @@ func InitializePluginConfig(lggr logger.Logger, extraDataCodec ccipocr3.ExtraDat
 	}
 }
 
-// TON plugin is a noop implementation for now.
-// This registers TON with a noop plugin via init() when this package is imported.
-// This follows the pattern of dynamic plugin registration used in oraclecreator/plugin.go.
 func init() {
-	// Register the Noop plugin config factory for Ton
 	ccipcommon.RegisterPluginConfig(chainsel.FamilyTon, InitializePluginConfig)
 }

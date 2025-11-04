@@ -45,7 +45,7 @@ func NewApplicationWithConfigV2OnSimulatedBlockchain(
 	t testing.TB,
 	cfg chainlink.GeneralConfig,
 	backend evmtypes.Backend,
-	flagsAndDeps ...interface{},
+	flagsAndDeps ...any,
 ) *TestApplication {
 	bid, err := backend.Client().ChainID(testutils.Context(t))
 	require.NoError(t, err)
@@ -71,7 +71,7 @@ func NewApplicationWithConfigV2AndKeyOnSimulatedBlockchain(
 	t testing.TB,
 	cfg chainlink.GeneralConfig,
 	backend evmtypes.Backend,
-	flagsAndDeps ...interface{},
+	flagsAndDeps ...any,
 ) *TestApplication {
 	bid, err := backend.Client().ChainID(testutils.Context(t))
 	require.NoError(t, err)

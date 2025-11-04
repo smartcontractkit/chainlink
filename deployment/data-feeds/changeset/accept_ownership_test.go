@@ -1,53 +1,47 @@
 package changeset
 
 import (
+	"crypto/ecdsa"
 	"testing"
 
 	"github.com/ethereum/go-ethereum/common"
+	chain_selectors "github.com/smartcontractkit/chain-selectors"
 	"github.com/stretchr/testify/require"
-	"go.uber.org/zap/zapcore"
+
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 
 	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
-
-	chainselectors "github.com/smartcontractkit/chain-selectors"
-
-	cldf_chain "github.com/smartcontractkit/chainlink-deployments-framework/chain"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
-
-	"github.com/smartcontractkit/chainlink/deployment/data-feeds/changeset/types"
+	"github.com/smartcontractkit/chainlink-deployments-framework/engine/test/environment"
+	"github.com/smartcontractkit/chainlink-deployments-framework/engine/test/runtime"
 
 	commonChangesets "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 	commonTypes "github.com/smartcontractkit/chainlink/deployment/common/types"
-
-	"github.com/smartcontractkit/chainlink-common/pkg/logger"
-
-	"github.com/smartcontractkit/chainlink/deployment/environment/memory"
+	"github.com/smartcontractkit/chainlink/deployment/data-feeds/changeset/types"
 )
 
 func TestAcceptOwnership(t *testing.T) {
 	t.Parallel()
 
-	lggr := logger.Test(t)
-	cfg := memory.MemoryEnvironmentConfig{
-		Chains: 1,
-	}
-	env := memory.NewMemoryEnvironment(t, lggr, zapcore.DebugLevel, cfg)
+	selector := chain_selectors.TEST_90000001.Selector
+	rt, err := runtime.New(t.Context(), runtime.WithEnvOpts(
+		environment.WithEVMSimulated(t, []uint64{selector}),
+		environment.WithLogger(logger.Test(t)),
+	))
+	require.NoError(t, err)
 
-	chainSelector := env.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chainselectors.FamilyEVM))[0]
-	chain := env.BlockChains.EVMChains()[chainSelector]
+	chain := rt.Environment().BlockChains.EVMChains()[selector]
 
-	newEnv, err := commonChangesets.Apply(t, env,
-		commonChangesets.Configure(
-			cldf.CreateLegacyChangeSet(commonChangesets.DeployMCMSWithTimelockV2),
-			map[uint64]commonTypes.MCMSWithTimelockConfigV2{
-				chainSelector: proposalutils.SingleGroupTimelockConfigV2(t),
-			},
-		),
+	err = rt.Exec(
+		runtime.ChangesetTask(cldf.CreateLegacyChangeSet(
+			commonChangesets.DeployMCMSWithTimelockV2), map[uint64]commonTypes.MCMSWithTimelockConfigV2{
+			selector: proposalutils.SingleGroupTimelockConfigV2(t),
+		}),
 	)
 	require.NoError(t, err)
 
-	records := newEnv.DataStore.Addresses().Filter(datastore.AddressRefByType("RBACTimelock"))
+	records := rt.Environment().DataStore.Addresses().Filter(datastore.AddressRefByType("RBACTimelock"))
 	require.Len(t, records, 1)
 	timeLockAddress := records[0].Address
 
@@ -56,17 +50,17 @@ func TestAcceptOwnership(t *testing.T) {
 	_, err = chain.Confirm(tx)
 	require.NoError(t, err)
 
-	_, err = commonChangesets.Apply(t, newEnv,
-		commonChangesets.Configure(
-			AcceptOwnershipChangeset,
-			types.AcceptOwnershipConfig{
-				ChainSelector:     chainSelector,
-				ContractAddresses: []common.Address{cache.Contract.Address()},
-				McmsConfig: &types.MCMSConfig{
-					MinDelay: 1,
-				},
+	err = rt.Exec(
+		runtime.ChangesetTask(AcceptOwnershipChangeset, types.AcceptOwnershipConfig{
+			ChainSelector:     selector,
+			ContractAddresses: []common.Address{cache.Contract.Address()},
+			McmsConfig: &types.MCMSConfig{
+				MinDelay: 1,
 			},
-		),
+		}),
+		runtime.SignAndExecuteProposalsTask([]*ecdsa.PrivateKey{proposalutils.TestXXXMCMSSigner}),
 	)
 	require.NoError(t, err)
+	require.Len(t, rt.State().Proposals, 1)
+	require.True(t, rt.State().Proposals[0].IsExecuted)
 }

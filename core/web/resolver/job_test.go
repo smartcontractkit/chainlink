@@ -15,13 +15,13 @@ import (
 	"github.com/stretchr/testify/mock"
 	"gopkg.in/guregu/null.v4"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 	"github.com/smartcontractkit/chainlink-evm/pkg/chains"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	clnull "github.com/smartcontractkit/chainlink/v2/core/null"
 	"github.com/smartcontractkit/chainlink/v2/core/services/directrequest"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
-	"github.com/smartcontractkit/chainlink/v2/core/store/models"
 	"github.com/smartcontractkit/chainlink/v2/core/testdata/testspecs"
 	"github.com/smartcontractkit/chainlink/v2/core/utils/stringutils"
 )
@@ -79,7 +79,7 @@ func TestResolver_Jobs(t *testing.T) {
 						ID:              1,
 						Name:            null.StringFrom("job1"),
 						SchemaVersion:   1,
-						MaxTaskDuration: models.Interval(1 * time.Second),
+						MaxTaskDuration: sqlutil.Interval(1 * time.Second),
 						ExternalJobID:   externalJobID,
 						CreatedAt:       f.Timestamp(),
 						Type:            job.OffchainReporting,
@@ -215,7 +215,7 @@ func TestResolver_Job(t *testing.T) {
 					Name:            null.StringFrom("job1"),
 					SchemaVersion:   1,
 					GasLimit:        clnull.Uint32From(123),
-					MaxTaskDuration: models.Interval(1 * time.Second),
+					MaxTaskDuration: sqlutil.Interval(1 * time.Second),
 					ExternalJobID:   externalJobID,
 					CreatedAt:       f.Timestamp(),
 					Type:            job.OffchainReporting,
@@ -264,7 +264,7 @@ func TestResolver_Job(t *testing.T) {
 					Name:            null.StringFrom("job1"),
 					SchemaVersion:   1,
 					GasLimit:        clnull.Uint32From(123),
-					MaxTaskDuration: models.Interval(1 * time.Second),
+					MaxTaskDuration: sqlutil.Interval(1 * time.Second),
 					ExternalJobID:   externalJobID,
 					CreatedAt:       f.Timestamp(),
 					Type:            job.OffchainReporting,
@@ -318,22 +318,22 @@ func TestResolver_CreateJob(t *testing.T) {
 		}`
 	uuid := uuid.New()
 	spec := fmt.Sprintf(testspecs.DirectRequestSpecTemplate, uuid, uuid, testutils.FixtureChainID.String())
-	variables := map[string]interface{}{
-		"input": map[string]interface{}{
+	variables := map[string]any{
+		"input": map[string]any{
 			"TOML": spec,
 		},
 	}
-	invalid := map[string]interface{}{
-		"input": map[string]interface{}{
+	invalid := map[string]any{
+		"input": map[string]any{
 			"TOML": "some wrong value",
 		},
 	}
 	jb, err := directrequest.ValidatedDirectRequestSpec(spec)
 	assert.NoError(t, err)
 
-	d, err := json.Marshal(map[string]interface{}{
-		"createJob": map[string]interface{}{
-			"job": map[string]interface{}{
+	d, err := json.Marshal(map[string]any{
+		"createJob": map[string]any{
+			"job": map[string]any{
 				"id":              "0",
 				"maxTaskDuration": "0s",
 				"name":            jb.Name,
@@ -391,7 +391,7 @@ func TestResolver_CreateJob(t *testing.T) {
 				{
 					Extensions:    nil,
 					ResolverError: gError,
-					Path:          []interface{}{"createJob"},
+					Path:          []any{"createJob"},
 					Message:       gError.Error(),
 				},
 			},
@@ -425,15 +425,15 @@ func TestResolver_DeleteJob(t *testing.T) {
 					}
 				}
 		}`
-	variables := map[string]interface{}{
+	variables := map[string]any{
 		"id": "123",
 	}
-	invalidVariables := map[string]interface{}{
+	invalidVariables := map[string]any{
 		"id": "asdadada",
 	}
-	d, err := json.Marshal(map[string]interface{}{
-		"deleteJob": map[string]interface{}{
-			"job": map[string]interface{}{
+	d, err := json.Marshal(map[string]any{
+		"deleteJob": map[string]any{
+			"job": map[string]any{
 				"id":              "123",
 				"maxTaskDuration": "2s",
 				"name":            "test-job",
@@ -459,7 +459,7 @@ func TestResolver_DeleteJob(t *testing.T) {
 					ID:              id,
 					Name:            null.StringFrom("test-job"),
 					ExternalJobID:   extJID,
-					MaxTaskDuration: models.Interval(2 * time.Second),
+					MaxTaskDuration: sqlutil.Interval(2 * time.Second),
 					CreatedAt:       f.Timestamp(),
 				}, nil)
 				f.App.On("JobORM").Return(f.Mocks.jobORM)
@@ -520,7 +520,7 @@ func TestResolver_DeleteJob(t *testing.T) {
 				{
 					Extensions:    nil,
 					ResolverError: gError,
-					Path:          []interface{}{"deleteJob"},
+					Path:          []any{"deleteJob"},
 					Message:       gError.Error(),
 				},
 			},
@@ -540,7 +540,7 @@ func TestResolver_DeleteJob(t *testing.T) {
 				{
 					Extensions:    nil,
 					ResolverError: gError,
-					Path:          []interface{}{"deleteJob"},
+					Path:          []any{"deleteJob"},
 					Message:       gError.Error(),
 				},
 			},
@@ -555,7 +555,7 @@ func TestResolver_DeleteJob(t *testing.T) {
 				{
 					Extensions:    nil,
 					ResolverError: idError,
-					Path:          []interface{}{"deleteJob"},
+					Path:          []any{"deleteJob"},
 					Message:       idError.Error(),
 				},
 			},

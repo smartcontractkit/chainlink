@@ -1,18 +1,19 @@
 package changeset
 
 import (
-	"sort"
+	"slices"
 	"testing"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/stretchr/testify/require"
-	"go.uber.org/zap/zapcore"
+
+	chainselectors "github.com/smartcontractkit/chain-selectors"
 
 	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
+	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+	"github.com/smartcontractkit/chainlink-deployments-framework/engine/test/environment"
 
-	"github.com/smartcontractkit/chainlink/deployment/environment/memory"
 	"github.com/smartcontractkit/chainlink/deployment/vault/changeset/types"
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
 
 const (
@@ -22,17 +23,14 @@ const (
 )
 
 func TestSetWhitelistValidation(t *testing.T) {
-	lggr := logger.TestLogger(t)
-	env := memory.NewMemoryEnvironment(t, lggr, zapcore.InfoLevel, memory.MemoryEnvironmentConfig{
-		Chains: 1,
-	})
+	t.Parallel()
 
-	chainSelectors := make([]uint64, 0)
-	for chainSel := range env.BlockChains.EVMChains() {
-		chainSelectors = append(chainSelectors, chainSel)
-	}
-	require.Len(t, chainSelectors, 1)
-	testChainSel := chainSelectors[0]
+	selector1 := chainselectors.TEST_90000001.Selector
+
+	env, err := environment.New(t.Context(),
+		environment.WithEVMSimulated(t, []uint64{selector1}),
+	)
+	require.NoError(t, err)
 
 	tests := []struct {
 		name      string
@@ -52,7 +50,7 @@ func TestSetWhitelistValidation(t *testing.T) {
 			name: "zero address in whitelist",
 			config: types.SetWhitelistConfig{
 				WhitelistByChain: map[uint64][]types.WhitelistAddress{
-					testChainSel: {
+					selector1: {
 						{
 							Address:     "0x0000000000000000000000000000000000000000",
 							Description: "Zero address",
@@ -68,7 +66,7 @@ func TestSetWhitelistValidation(t *testing.T) {
 			name: "duplicate addresses in same chain",
 			config: types.SetWhitelistConfig{
 				WhitelistByChain: map[uint64][]types.WhitelistAddress{
-					testChainSel: {
+					selector1: {
 						{
 							Address:     common.HexToAddress(whitelistTestAddr1).Hex(),
 							Description: "First instance",
@@ -105,7 +103,7 @@ func TestSetWhitelistValidation(t *testing.T) {
 			name: "valid whitelist config",
 			config: types.SetWhitelistConfig{
 				WhitelistByChain: map[uint64][]types.WhitelistAddress{
-					testChainSel: {
+					selector1: {
 						{
 							Address:     common.HexToAddress(whitelistTestAddr1).Hex(),
 							Description: "Test address 1",
@@ -125,12 +123,12 @@ func TestSetWhitelistValidation(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			err := ValidateSetWhitelistConfig(env, tt.config)
+			err := ValidateSetWhitelistConfig(*env, tt.config)
 
 			if tt.wantError {
 				require.Error(t, err)
 				if tt.errorMsg != "" {
-					require.Contains(t, err.Error(), tt.errorMsg)
+					require.ErrorContains(t, err, tt.errorMsg)
 				}
 			} else {
 				require.NoError(t, err)
@@ -140,98 +138,128 @@ func TestSetWhitelistValidation(t *testing.T) {
 }
 
 func TestGetWhitelistedAddresses(t *testing.T) {
-	lggr := logger.TestLogger(t)
-	env := memory.NewMemoryEnvironment(t, lggr, zapcore.InfoLevel, memory.MemoryEnvironmentConfig{
-		Chains: 2,
-	})
+	t.Parallel()
 
-	chainSelectors := make([]uint64, 0)
-	for chainSel := range env.BlockChains.EVMChains() {
-		chainSelectors = append(chainSelectors, chainSel)
-	}
-	require.Len(t, chainSelectors, 2)
-
-	chain1 := chainSelectors[0]
-	chain2 := chainSelectors[1]
-
-	t.Run("get whitelist from uninitialized datastore", func(t *testing.T) {
-		envNoDS := memory.NewMemoryEnvironment(t, lggr, zapcore.InfoLevel, memory.MemoryEnvironmentConfig{
-			Chains: 2,
-		})
-		envNoDS.DataStore = nil
-
-		_, err := GetWhitelistedAddresses(envNoDS, []uint64{chain1})
-		require.Error(t, err)
-		require.Contains(t, err.Error(), "datastore is nil")
-	})
-
-	t.Run("get whitelist from empty whitelist", func(t *testing.T) {
-		env.DataStore = datastore.NewMemoryDataStore().Seal()
-
-		whitelist, err := GetWhitelistedAddresses(env, []uint64{chain1})
-		require.NoError(t, err)
-		require.Empty(t, whitelist[chain1])
-	})
-
-	t.Run("get whitelist after setting addresses", func(t *testing.T) {
-		config := types.SetWhitelistConfig{
-			WhitelistByChain: map[uint64][]types.WhitelistAddress{
-				chain1: {
-					{
-						Address:     common.HexToAddress(whitelistTestAddr1).Hex(),
-						Description: "Test address 1",
-						Labels:      []string{"team", "approved"},
-					},
-					{
-						Address:     common.HexToAddress(whitelistTestAddr2).Hex(),
-						Description: "Test address 2",
-						Labels:      []string{"partner"},
-					},
+	selector1 := chainselectors.TEST_90000001.Selector
+	selector2 := chainselectors.TEST_90000002.Selector
+	setConfig := &types.SetWhitelistConfig{
+		WhitelistByChain: map[uint64][]types.WhitelistAddress{
+			selector1: {
+				{
+					Address:     common.HexToAddress(whitelistTestAddr1).Hex(),
+					Description: "Test address 1",
+					Labels:      []string{"team", "approved"},
 				},
-				chain2: {
-					{
-						Address:     common.HexToAddress(whitelistTestAddr3).Hex(),
-						Description: "Test address 3",
-						Labels:      []string{"contractor"},
-					},
+				{
+					Address:     common.HexToAddress(whitelistTestAddr2).Hex(),
+					Description: "Test address 2",
+					Labels:      []string{"partner"},
 				},
 			},
-		}
+			selector2: {
+				{
+					Address:     common.HexToAddress(whitelistTestAddr3).Hex(),
+					Description: "Test address 3",
+					Labels:      []string{"contractor"},
+				},
+			},
+		},
+	}
 
-		output, err := SetWhitelistChangeset.Apply(env, config)
-		require.NoError(t, err)
-		env.DataStore = output.DataStore.Seal()
+	tests := []struct {
+		name          string
+		before        func(t *testing.T, env *cldf.Environment)
+		setConfig     *types.SetWhitelistConfig
+		giveSelectors []uint64
+		wantErr       string
+		want          func(t *testing.T, got map[uint64][]WhitelistEntry)
+	}{
+		{
+			name:          "get whitelist for specific chain only",
+			setConfig:     setConfig,
+			giveSelectors: []uint64{selector1},
+			want: func(t *testing.T, got map[uint64][]WhitelistEntry) {
+				require.Len(t, got, 1)
+				require.Contains(t, got, selector1)
+				require.NotContains(t, got, selector2)
+				require.Len(t, got[selector1], 2)
+			},
+		},
+		{
+			name:          "get whitelist for multiple chains",
+			setConfig:     setConfig,
+			giveSelectors: []uint64{selector1, selector2},
+			want: func(t *testing.T, got map[uint64][]WhitelistEntry) {
+				require.Len(t, got[selector1], 2)
+				require.Equal(t, whitelistTestAddr1, got[selector1][0].Address)
+				require.Equal(t, []string{"team", "approved"}, got[selector1][0].Labels)
+				require.Equal(t, whitelistTestAddr2, got[selector1][1].Address)
+				require.Equal(t, []string{"partner"}, got[selector1][1].Labels)
 
-		whitelist, err := GetWhitelistedAddresses(env, []uint64{chain1, chain2})
-		require.NoError(t, err)
+				require.Len(t, got[selector2], 1)
+				require.Equal(t, whitelistTestAddr3, got[selector2][0].Address)
+				require.Equal(t, []string{"contractor"}, got[selector2][0].Labels)
+			},
+		},
+		{
+			name:          "get whitelist from empty whitelist",
+			giveSelectors: []uint64{selector1},
+			want: func(t *testing.T, got map[uint64][]WhitelistEntry) {
+				require.Empty(t, got[selector1])
+				require.Empty(t, got[selector2])
+			},
+		},
+		{
+			name: "get whitelist from uninitialized datastore",
+			before: func(t *testing.T, env *cldf.Environment) {
+				env.DataStore = nil
+			},
+			giveSelectors: []uint64{selector1},
+			wantErr:       "datastore is nil",
+		},
+	}
 
-		require.Len(t, whitelist[chain1], 2)
-		require.Equal(t, whitelistTestAddr1, whitelist[chain1][0].Address)
-		require.Equal(t, []string{"team", "approved"}, whitelist[chain1][0].Labels)
-		require.Equal(t, whitelistTestAddr2, whitelist[chain1][1].Address)
-		require.Equal(t, []string{"partner"}, whitelist[chain1][1].Labels)
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
 
-		require.Len(t, whitelist[chain2], 1)
-		require.Equal(t, whitelistTestAddr3, whitelist[chain2][0].Address)
-		require.Equal(t, []string{"contractor"}, whitelist[chain2][0].Labels)
-	})
+			env, err := environment.New(t.Context(),
+				environment.WithEVMSimulated(t, []uint64{selector1, selector2}),
+			)
+			require.NoError(t, err)
 
-	t.Run("get whitelist for specific chain only", func(t *testing.T) {
-		whitelist, err := GetWhitelistedAddresses(env, []uint64{chain1})
-		require.NoError(t, err)
+			if tt.before != nil {
+				tt.before(t, env)
+			}
 
-		require.Len(t, whitelist, 1)
-		require.Contains(t, whitelist, chain1)
-		require.NotContains(t, whitelist, chain2)
-		require.Len(t, whitelist[chain1], 2)
-	})
+			if tt.setConfig != nil {
+				output, err := SetWhitelistChangeset.Apply(*env, *tt.setConfig)
+				require.NoError(t, err)
+				env.DataStore = output.DataStore.Seal()
+			}
+
+			got, err := GetWhitelistedAddresses(*env, tt.giveSelectors)
+
+			if tt.wantErr != "" {
+				require.Error(t, err)
+				require.ErrorContains(t, err, tt.wantErr)
+			} else {
+				require.NoError(t, err)
+				if tt.want != nil {
+					tt.want(t, got)
+				}
+			}
+		})
+	}
 }
 
 func TestValidateWhitelist(t *testing.T) {
-	lggr := logger.TestLogger(t)
-	env := memory.NewMemoryEnvironment(t, lggr, zapcore.InfoLevel, memory.MemoryEnvironmentConfig{
-		Chains: 2,
-	})
+	t.Parallel()
+
+	env, err := environment.New(t.Context(),
+		environment.WithEVMSimulatedN(t, 2),
+	)
+	require.NoError(t, err)
 
 	chainSelectors := make([]uint64, 0)
 	for chainSel := range env.BlockChains.EVMChains() {
@@ -239,9 +267,7 @@ func TestValidateWhitelist(t *testing.T) {
 	}
 	require.Len(t, chainSelectors, 2)
 
-	sort.Slice(chainSelectors, func(i, j int) bool {
-		return chainSelectors[i] < chainSelectors[j]
-	})
+	slices.Sort(chainSelectors)
 
 	chain1 := chainSelectors[0]
 	chain2 := chainSelectors[1]
@@ -270,7 +296,7 @@ func TestValidateWhitelist(t *testing.T) {
 		},
 	}
 
-	output, err := SetWhitelistChangeset.Apply(env, whitelistConfig)
+	output, err := SetWhitelistChangeset.Apply(*env, whitelistConfig)
 	require.NoError(t, err)
 	env.DataStore = output.DataStore.Seal()
 
@@ -287,7 +313,7 @@ func TestValidateWhitelist(t *testing.T) {
 			},
 		}
 
-		errors, err := ValidateWhitelist(env, config)
+		errors, err := validateWhitelist(*env, config)
 		require.NoError(t, err)
 		require.Empty(t, errors)
 	})
@@ -307,7 +333,7 @@ func TestValidateWhitelist(t *testing.T) {
 			},
 		}
 
-		validationErrors, err := ValidateWhitelist(env, config)
+		validationErrors, err := validateWhitelist(*env, config)
 		require.NoError(t, err)
 		require.Len(t, validationErrors, 2)
 
@@ -327,21 +353,13 @@ func TestValidateWhitelist(t *testing.T) {
 }
 
 func TestGetChainWhitelist(t *testing.T) {
-	lggr := logger.TestLogger(t)
-	env := memory.NewMemoryEnvironment(t, lggr, zapcore.InfoLevel, memory.MemoryEnvironmentConfig{
-		Chains: 1,
-	})
+	t.Parallel()
 
-	chainSelectors := make([]uint64, 0)
-	for chainSel := range env.BlockChains.EVMChains() {
-		chainSelectors = append(chainSelectors, chainSel)
-	}
-	require.Len(t, chainSelectors, 1)
-	testChainSel := chainSelectors[0]
+	selector := chainselectors.TEST_90000001.Selector
 
 	t.Run("get whitelist from empty datastore", func(t *testing.T) {
 		ds := datastore.NewMemoryDataStore().Seal()
-		metadata, err := GetChainWhitelist(ds, testChainSel)
+		metadata, err := getChainWhitelist(ds, selector)
 		require.NoError(t, err)
 		require.NotNil(t, metadata)
 		require.Empty(t, metadata.Addresses)
@@ -366,13 +384,13 @@ func TestGetChainWhitelist(t *testing.T) {
 		}
 
 		err := ds.ChainMetadata().Upsert(datastore.ChainMetadata{
-			ChainSelector: testChainSel,
+			ChainSelector: selector,
 			Metadata:      whitelistMetadata,
 		})
 		require.NoError(t, err)
 
 		sealedDS := ds.Seal()
-		metadata, err := GetChainWhitelist(sealedDS, testChainSel)
+		metadata, err := getChainWhitelist(sealedDS, selector)
 		require.NoError(t, err)
 		require.NotNil(t, metadata)
 		require.Len(t, metadata.Addresses, 2)
@@ -388,24 +406,23 @@ func TestGetChainWhitelist(t *testing.T) {
 }
 
 func TestSetWhitelistChangeset(t *testing.T) {
-	lggr := logger.TestLogger(t)
-	env := memory.NewMemoryEnvironment(t, lggr, zapcore.InfoLevel, memory.MemoryEnvironmentConfig{
-		Chains: 2,
-	})
+	t.Parallel()
 
-	chainSelectors := make([]uint64, 0)
-	for chainSel := range env.BlockChains.EVMChains() {
-		chainSelectors = append(chainSelectors, chainSel)
-	}
-	require.Len(t, chainSelectors, 2)
+	var (
+		selector1 = chainselectors.TEST_90000001.Selector
+		selector2 = chainselectors.TEST_90000002.Selector
+		selectors = []uint64{selector1, selector2}
+	)
 
-	chain1 := chainSelectors[0]
-	chain2 := chainSelectors[1]
+	env, err := environment.New(t.Context(),
+		environment.WithEVMSimulated(t, selectors),
+	)
+	require.NoError(t, err)
 
 	t.Run("set whitelist for multiple chains", func(t *testing.T) {
 		config := types.SetWhitelistConfig{
 			WhitelistByChain: map[uint64][]types.WhitelistAddress{
-				chain1: {
+				selector1: {
 					{
 						Address:     common.HexToAddress(whitelistTestAddr1).Hex(),
 						Description: "Team A wallet",
@@ -417,7 +434,7 @@ func TestSetWhitelistChangeset(t *testing.T) {
 						Labels:      []string{"team", "payments"},
 					},
 				},
-				chain2: {
+				selector2: {
 					{
 						Address:     common.HexToAddress(whitelistTestAddr3).Hex(),
 						Description: "Partner wallet",
@@ -427,36 +444,36 @@ func TestSetWhitelistChangeset(t *testing.T) {
 			},
 		}
 
-		output, err := SetWhitelistChangeset.Apply(env, config)
+		output, err := SetWhitelistChangeset.Apply(*env, config)
 		require.NoError(t, err)
 		require.NotNil(t, output.DataStore)
 
 		env.DataStore = output.DataStore.Seal()
 
-		whitelist, err := GetWhitelistedAddresses(env, []uint64{chain1, chain2})
+		whitelist, err := GetWhitelistedAddresses(*env, selectors)
 		require.NoError(t, err)
 
-		require.Len(t, whitelist[chain1], 2)
-		require.Len(t, whitelist[chain2], 1)
+		require.Len(t, whitelist[selector1], 2)
+		require.Len(t, whitelist[selector2], 1)
 
-		require.Equal(t, whitelistTestAddr1, whitelist[chain1][0].Address)
-		require.Equal(t, []string{"team", "payments"}, whitelist[chain1][0].Labels)
+		require.Equal(t, whitelistTestAddr1, whitelist[selector1][0].Address)
+		require.Equal(t, []string{"team", "payments"}, whitelist[selector1][0].Labels)
 
-		require.Equal(t, whitelistTestAddr3, whitelist[chain2][0].Address)
-		require.Equal(t, []string{"partner", "contractor"}, whitelist[chain2][0].Labels)
+		require.Equal(t, whitelistTestAddr3, whitelist[selector2][0].Address)
+		require.Equal(t, []string{"partner", "contractor"}, whitelist[selector2][0].Labels)
 	})
 
 	t.Run("update existing whitelist", func(t *testing.T) {
 		updatedConfig := types.SetWhitelistConfig{
 			WhitelistByChain: map[uint64][]types.WhitelistAddress{
-				chain1: {
+				selector1: {
 					{
 						Address:     common.HexToAddress(whitelistTestAddr2).Hex(),
 						Description: "Team B wallet updated",
 						Labels:      []string{"team", "payments", "updated"},
 					},
 				},
-				chain2: {
+				selector2: {
 					{
 						Address:     common.HexToAddress(whitelistTestAddr3).Hex(),
 						Description: "Partner wallet",
@@ -471,37 +488,37 @@ func TestSetWhitelistChangeset(t *testing.T) {
 			},
 		}
 
-		output, err := SetWhitelistChangeset.Apply(env, updatedConfig)
+		output, err := SetWhitelistChangeset.Apply(*env, updatedConfig)
 		require.NoError(t, err)
 		require.NotNil(t, output.DataStore)
 
 		env.DataStore = output.DataStore.Seal()
 
-		whitelist, err := GetWhitelistedAddresses(env, []uint64{chain1, chain2})
+		whitelist, err := GetWhitelistedAddresses(*env, selectors)
 		require.NoError(t, err)
 
-		require.Len(t, whitelist[chain1], 1)
-		require.Len(t, whitelist[chain2], 2)
+		require.Len(t, whitelist[selector1], 1)
+		require.Len(t, whitelist[selector2], 2)
 
-		require.Equal(t, whitelistTestAddr2, whitelist[chain1][0].Address)
-		require.Equal(t, []string{"team", "payments", "updated"}, whitelist[chain1][0].Labels)
+		require.Equal(t, whitelistTestAddr2, whitelist[selector1][0].Address)
+		require.Equal(t, []string{"team", "payments", "updated"}, whitelist[selector1][0].Labels)
 	})
 
 	t.Run("clear whitelist for a chain", func(t *testing.T) {
 		clearConfig := types.SetWhitelistConfig{
 			WhitelistByChain: map[uint64][]types.WhitelistAddress{
-				chain1: {},
+				selector1: {},
 			},
 		}
 
-		output, err := SetWhitelistChangeset.Apply(env, clearConfig)
+		output, err := SetWhitelistChangeset.Apply(*env, clearConfig)
 		require.NoError(t, err)
 		require.NotNil(t, output.DataStore)
 
 		env.DataStore = output.DataStore.Seal()
 
-		whitelist, err := GetWhitelistedAddresses(env, []uint64{chain1})
+		whitelist, err := GetWhitelistedAddresses(*env, []uint64{selector1})
 		require.NoError(t, err)
-		require.Empty(t, whitelist[chain1])
+		require.Empty(t, whitelist[selector1])
 	})
 }

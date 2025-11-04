@@ -42,10 +42,9 @@ func setFeedConfigLogic(env cldf.Environment, c types.SetRegistryFeedConfig) (cl
 		return cldf.ChangesetOutput{}, err
 	}
 	if !tx.Success {
-		fmt.Println("Transaction failed", tx.Hash)
-	} else {
-		fmt.Println("Transaction succeeded", tx.Hash)
+		return cldf.ChangesetOutput{}, fmt.Errorf("set feed config transaction failed: %s", tx.Hash)
 	}
+	env.Logger.Info("Transaction succeeded", tx.Hash)
 
 	return cldf.ChangesetOutput{}, nil
 }

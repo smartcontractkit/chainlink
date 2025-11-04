@@ -6,56 +6,95 @@ Slack: #topic-local-dev-environments
 ## Table of content
 
 1. [Using the CLI](#using-the-cli)
-   - [Prerequisites](#prerequisites-for-docker)
+   - [Installing the binary](#installing-the-binary)
+   - [Prerequisites (for Docker)](#prerequisites-for-docker)
+   - [Prerequisites For CRIB](#prerequisites-for-crib)
+   - [QUICKSTART](#quickstart)
    - [Setup](#setup)
    - [Start Environment](#start-environment)
-    - [Using Existing Docker plugins image](#using-existing-docker-plugins-image)
-    - [Beholder](#beholder)
-    - [Storage](#storage)
+      - [Using Existing Docker plugins image](#using-existing-docker-plugins-image)
+      - [Beholder](#beholder)
+      - [Storage](#storage)
+   - [Purging environment state](#purging-environment-state)
    - [Stop Environment](#stop-environment)
    - [Restart Environment](#restarting-the-environment)
+   - [Debugging core nodes](#debugging-core-nodes)
+   - [Debugging capabilities (mac)](#debugging-capabilities-mac)
+   - [Workflow Commands](#workflow-commands)
+   - [Further use](#further-use)
+   - [Advanced Usage](#advanced-usage)
+   - [Testing Billing](#testing-billing)
    - [DX Tracing](#dx-tracing)
-2. [Example Workflows](#example-workflows)
-3. [Adding a New Standard Capability](#adding-a-new-standard-capability)
-    - [Capability Types](#capability-types)
-    - [Step 1: Define the Capability Flag](#step-1-define-the-capability-flag)
-    - [Step 2: Create the Capability Implementation](#step-2-create-the-capability-implementation)
-    - [Step 3: Optional Gateway Handler Configuration](#step-3-optional-gateway-handler-configuration)
-    - [Step 4: Optional Node Configuration Modifications](#step-4-optional-node-configuration-modifications)
-    - [Step 5: Add Default Configuration](#step-5-add-default-configuration)
-    - [Step 6: Register the Capability](#step-6-register-the-capability)
-    - [Step 7: Add to Environment Configurations](#step-7-add-to-environment-configurations)
-    - [Configuration Templates](#configuration-templates)
-    - [Important Notes](#important-notes)
-4. [Multiple DONs](#multiple-dons)
-    - [Supported Capabilities](#supported-capabilities)
-    - [DON-level Capabilities](#don-level-capabilities)
-    - [Chain-level Capabilities](#chain-level-capabilities)
-    - [DON Types](#don-types)
-    - [TOML Configuration Structure](#toml-configuration-structure)
-    - [Example: Adding a New Topology](#example-adding-a-new-topology)
-    - [Configuration Modes](#configuration-modes)
-    - [Port Management](#port-management)
-    - [Important Notes](#important-notes)
-5. [Enabling Already Implemented Capabilities](#enabling-already-implemented-capabilities)
-    - [Available Configuration Files](#available-configuration-files)
-    - [Capability Types and Configuration](#capability-types-and-configuration)
-    - [DON-level Capabilities](#don-level-capabilities-1)
-    - [Chain-level Capabilities](#chain-level-capabilities-1)
-    - [Binary Requirements](#binary-requirements)
-    - [Enabling Capabilities in Your Topology](#enabling-capabilities-in-your-topology)
-    - [Configuration Examples](#configuration-examples)
-    - [Custom Capability Configuration](#custom-capability-configuration)
-    - [Important Notes](#important-notes-1)
-    - [Troubleshooting Capability Issues](#troubleshooting-capability-issues)
-6. [Binary Location and Naming](#binary-location-and-naming)
-7. [Hot swapping](#hot-swapping)
-8. [Telemetry Configuration](#telemetry-configuration)
-9. [Troubleshooting](#troubleshooting)
+2. [Job Distributor Image](#job-distributor-image)
+3. [Example Workflows](#example-workflows)
+   - [Available Workflows](#available-workflows)
+   - [Deployable Example Workflows](#deployable-example-workflows)
+   - [Manual Workflow Deployment](#manual-workflow-deployment)
+4. [Adding a New Standard Capability](#adding-a-new-standard-capability)
+   - [Capability Types](#capability-types)
+   - [Step 1: Define the Capability Flag](#step-1-define-the-capability-flag)
+   - [Step 2: Create the Capability Implementation](#step-2-create-the-capability-implementation)
+   - [Step 3: Optional Gateway Handler Configuration](#step-3-optional-gateway-handler-configuration)
+   - [Step 4: Optional Node Configuration Modifications](#step-4-optional-node-configuration-modifications)
+   - [Step 5: Add Default Configuration](#step-5-add-default-configuration)
+   - [Step 6: Register the Capability](#step-6-register-the-capability)
+   - [Step 7: Add to Environment Configurations](#step-7-add-to-environment-configurations)
+   - [Configuration Templates](#configuration-templates)
+   - [Important Notes](#important-notes)
+5. [Multiple DONs](#multiple-dons)
+   - [Supported Capabilities](#supported-capabilities)
+   - [DON Types](#don-types)
+   - [TOML Configuration Structure](#toml-configuration-structure)
+   - [Example: Adding a New Topology](#example-adding-a-new-topology)
+   - [Configuration Modes](#configuration-modes)
+   - [Port Management](#port-management)
+   - [Important Notes](#important-notes-1)
+6. [Enabling Already Implemented Capabilities](#enabling-already-implemented-capabilities)
+   - [Available Configuration Files](#available-configuration-files)
+   - [Capability Types and Configuration](#capability-types-and-configuration)
+   - [Binary Requirements](#binary-requirements)
+   - [Enabling Capabilities in Your Topology](#enabling-capabilities-in-your-topology)
+   - [Configuration Examples](#configuration-examples)
+   - [Custom Capability Configuration](#custom-capability-configuration)
+   - [Important Notes](#important-notes-2)
+   - [Troubleshooting Capability Issues](#troubleshooting-capability-issues)
+7. [Binary Location and Naming](#binary-location-and-naming)
+8. [Hot swapping](#hot-swapping)
+   - [Chainlink nodes' Docker image](#chainlink-nodes-docker-image)
+   - [Capability binary](#capability-binary)
+   - [Automated Hot Swapping with fswatch](#automated-hot-swapping-with-fswatch)
+9. [Telemetry Configuration](#telemetry-configuration)
+   - [OTEL Stack (OpenTelemetry)](#otel-stack-opentelemetry)
+   - [Chip Ingress (Beholder)](#chip-ingress-beholder)
+   - [Expected Error Messages](#expected-error-messages)
+10. [Using a Specific Docker Image for Chainlink Node](#using-a-specific-docker-image-for-chainlink-node)
+11. [Using Existing EVM & P2P Keys](#using-existing-evm--p2p-keys)
+12. [TRON Integration](#tron-integration)
+    - [How It Works](#how-it-works)
+    - [Example Configuration](#example-configuration)
+13. [Connecting to external/public blockchains](#connecting-to-externalpublic-blockchains)
+14. [Troubleshooting](#troubleshooting)
+    - [Chainlink Node Migrations Fail](#chainlink-node-migrations-fail)
+    - [Docker Image Not Found](#docker-image-not-found)
+    - [Docker fails to download public images](#docker-fails-to-download-public-images)
+    - [GH CLI is not installed](#gh-cli-is-not-installed)
 
 # Using the CLI
 
-The CLI manages CRE test environments. It is located in `core/scripts/cre/environment`. It doesn't come as a compiled binary, so every command has to be executed as `go run . <command> [subcommand]`.
+The CLI manages CRE test environments. It is located in `core/scripts/cre/environment`. It doesn't come as a compiled binary, so every command has to be executed as `go run . <command> [subcommand]` (although check below!).
+
+## Installing the binary
+You can compile and install the binary by running:
+```shell
+cd core/scripts/cre/environment
+make install
+```
+
+It will compile local CRE as `local_cre`. With it installed you will be able to access interactive shell **with autocompletions** by running `local_cre sh`. Without installing the binary interactive shell won't be available.
+
+![image](./images/autocompletion.png)
+
+> Warning: Control+C won't interrupt commands executed via the interactive shell.
 
 ## Prerequisites (for Docker) ###
 1. **Docker installed and running**
@@ -139,7 +178,6 @@ Optional parameters:
 - `-s`: Time to wait for example workflow to execute successfuly (defaults to `5m`)
 - `-p`: Docker `plugins` image to use (must contain all of the following capabilities: `ocr3`, `cron`, `readcontract` and `logevent`)
 - `-y`: Trigger for example workflow to deploy (web-trigger or cron). Default: `web-trigger`. **Important!** `cron` trigger requires user to either provide the capbility binary path in TOML config or Docker image that has it baked in
-- `-c`: List of configuration files for `.proto` files that will be registered in Beholder (only if `--with-beholder/-b` flag is used). Defaults to [./proto-configs/default.toml](./proto-configs/default.toml)
 
 ## Purging environment state
 To remove all state and cache files used by the environment execute:
@@ -186,7 +224,7 @@ For more details on the URL resolution process and how workflow artifacts are ha
 ## Stop Environment
 ```bash
 # while in core/scripts/cre/environment
-go run main.go env stop
+go run . env stop
 
 # or... if you have the CTF binary
 ctf d rm
@@ -391,34 +429,6 @@ URL = 'host.docker.internal:2223'
 TLSEnabled = false
 ```
 
-Outside of the local-CRE, the workflow registry chain ID and address is pulled from
-[Capabilities.WorkflowRegistry]. We don't yet have that figured out in the local-CRE
-(it will spin up relayers), so instead you want to mimic the following diffs:
-
-```go
-@@ -535,7 +537,8 @@ func NewApplication(ctx context.Context, opts ApplicationOpts) (Application, err
-                creServices.workflowRateLimiter,
-                creServices.workflowLimits,
-                workflows.WithBillingClient(billingClient),
--               workflows.WithWorkflowRegistry(cfg.Capabilities().WorkflowRegistry().Address(), cfg.Capabilities().WorkflowReg
-istry().ChainID()),
-+               // tmp to avoid booting up relayers
-+               workflows.WithWorkflowRegistry("0xA15BB66138824a1c7167f5E85b957d04Dd34E468", "11155111"),
-```
-
-and
-
-```
-@@ -957,7 +960,7 @@ func newCREServices(
-                                        workflowLimits,
-                                        artifactsStore,
-                                        syncer.WithBillingClient(billingClient),
--                                       syncer.WithWorkflowRegistry(capCfg.WorkflowRegistry().Address(), capCfg.WorkflowRegist
-ry().ChainID()),
-+                                       syncer.WithWorkflowRegistry("0xA15BB66138824a1c7167f5E85b957d04Dd34E468", "11155111"),
-                                )
-```
-
 The happy-path:
 * workflow runs successfully
 * no `switch to metering mode` error logs generated by the workflow run
@@ -455,6 +465,20 @@ Other environment variables:
 * `DX_FORCE_OFFLINE_MODE` -- doesn't send any events, instead saves them on the disk
 
 ---
+
+# Job Distributor Image
+
+Tests require a local Job Distributor image. By default, configs expect version `job-distributor:0.22.1`.
+
+To build locally:
+```bash
+git clone https://github.com/smartcontractkit/job-distributor
+cd job-distributor
+git checkout v0.22.1
+docker build -t job-distributor:0.22.1 -f e2e/Dockerfile.e2e .
+```
+
+If you pull the image from the PRO ECR remember to either update the image name in [TOML config](./configs/) for your chosed topology or to tag that image as `job-distributor:0.22.1`.
 
 ## Example Workflows
 
@@ -526,13 +550,13 @@ For other workflows (v2/cron, v2/node-mode, v2/http), you can deploy them manual
 
 ```bash
 # Deploy v2 cron workflow
-go run . workflow deploy -w ./examples/workflows/v2/cron/main.go -n cron-workflow
+go run . env workflow deploy -w ./examples/workflows/v2/cron/main.go --compile -n cron-workflow
 
 # Deploy v2 http workflow
-go run . workflow deploy -w ./examples/workflows/v2/http/main.go -n http-workflow
+go run . workflow deploy -w ./examples/workflows/v2/http/main.go --compile -n cron-workflow
 
 # Deploy v2 node-mode workflow
-go run . workflow deploy -w ./examples/workflows/v2/node-mode/main.go -n node-mode-workflow
+go run . workflow deploy -w ./examples/workflows/v2/node-mode/main.go --compile -n cron-workflow
 ```
 
 
@@ -612,7 +636,7 @@ func New() (*capabilities.Capability, error) {
     )
 }
 
-func registerWithV1(donFlags []string, _ *cre.CapabilitiesAwareNodeSet) ([]keystone_changeset.DONCapabilityWithConfig, error) {
+func registerWithV1(donFlags []string, _ *cre.NodeSet) ([]keystone_changeset.DONCapabilityWithConfig, error) {
     var capabilities []keystone_changeset.DONCapabilityWithConfig
 
     if flags.HasFlag(donFlags, flag) {
@@ -685,7 +709,7 @@ func New() (*capabilities.Capability, error) {
     )
 }
 
-func registerWithV1(_ []string, nodeSetInput *cre.CapabilitiesAwareNodeSet) ([]keystone_changeset.DONCapabilityWithConfig, error) {
+func registerWithV1(_ []string, nodeSetInput *cre.NodeSet) ([]keystone_changeset.DONCapabilityWithConfig, error) {
     capabilities := make([]keystone_changeset.DONCapabilityWithConfig, 0)
 
     if nodeSetInput == nil {
@@ -811,7 +835,7 @@ Add default configuration and binary path to `core/scripts/cre/environment/confi
 Add your capability to the default set in `system-tests/lib/cre/capabilities/sets/sets.go`:
 
 ```go
-func NewDefaultSet(homeChainID uint64, extraAllowedPorts []int, extraAllowedIPs []string, extraAllowedIPsCIDR []string) ([]cre.InstallableCapability, error) {
+func NewDefaultSet(registryChainID uint64, extraAllowedPorts []int, extraAllowedIPs []string, extraAllowedIPsCIDR []string) ([]cre.InstallableCapability, error) {
     capabilities := []cre.InstallableCapability{}
 
     // ... existing capabilities ...
@@ -1454,6 +1478,44 @@ TRON blockchain support is integrated into the CRE environment by configuring TR
 ```
 
 ---
+
+## Connecting to external/public blockchains
+
+In order to connect to existing blockchains you need to take advantage of the "cached output" capability of the blockchain component. Assuming we want to connect to Sepolia via a public RPC we'd add the following bit to the TOML config:
+```toml
+[[blockchains]]
+  type = "anvil"           # type here doesn't really matter as long as it's a valid one
+  chain_id = "11155111"
+
+  [blockchains.out]
+    use_cache = true
+    type = "anvil"         # type here doesn't really matter as long as it's a valid one
+    family = "evm"
+    chain_id = "11155111"
+
+    [[blockchains.out.nodes]]
+      ws_url = "wss://sepolia.gateway.tenderly.co/<api-key>"
+      http_url = "https://sepolia.gateway.tenderly.co/<api-key>"
+      internal_ws_url = "wss://sepolia.gateway.tenderly.co/<api-key>"
+      internal_http_url = "https://sepolia.gateway.tenderly.co/<api-key>"
+```
+
+Now, unless you enable a chain capability for that chain, it won't be added to node TOML config. If you do want to use it anyway, without any capability accessing it you need to use `supported_evm_chains` key in a following way:
+```toml
+[[nodesets]]
+  nodes = 5
+  name = "workflow"
+  don_types = ["workflow", "gateway"]
+  override_mode = "each"
+  http_port_range_start = 10100
+
+  supported_evm_chains = [1337, 2337, 11155111]     # add all chains; ones used by capabilities and the extra chain
+```
+> Important! When using `supported_evm_chains` you need to add there ALL chains that the node will connect to. It will take precedence over chain capabilities.
+
+EVM keys will only be generated for a chain that either is referenced by any chain capabilities or which is present in the `supported_evm_chains` array.
+
+Check [workflow-don.toml](configs/workflow-don.toml) for an example.
 
 ## Troubleshooting
 

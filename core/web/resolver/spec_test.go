@@ -13,6 +13,7 @@ import (
 	"gopkg.in/guregu/null.v4"
 
 	commonassets "github.com/smartcontractkit/chainlink-common/pkg/assets"
+	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
 
 	"github.com/smartcontractkit/chainlink-evm/pkg/assets"
@@ -378,19 +379,19 @@ func TestResolver_OCRSpec(t *testing.T) {
 				f.Mocks.jobORM.On("FindJobWithoutSpecErrors", mock.Anything, id).Return(job.Job{
 					Type: job.OffchainReporting,
 					OCROracleSpec: &job.OCROracleSpec{
-						BlockchainTimeout:                      models.Interval(1 * time.Minute),
+						BlockchainTimeout:                      sqlutil.Interval(1 * time.Minute),
 						ContractAddress:                        contractAddress,
 						ContractConfigConfirmations:            1,
-						ContractConfigTrackerPollInterval:      models.Interval(1 * time.Minute),
-						ContractConfigTrackerSubscribeInterval: models.Interval(2 * time.Minute),
-						DatabaseTimeout:                        models.NewInterval(3 * time.Second),
-						ObservationGracePeriod:                 models.NewInterval(4 * time.Second),
-						ContractTransmitterTransmitTimeout:     models.NewInterval(555 * time.Millisecond),
+						ContractConfigTrackerPollInterval:      sqlutil.Interval(1 * time.Minute),
+						ContractConfigTrackerSubscribeInterval: sqlutil.Interval(2 * time.Minute),
+						DatabaseTimeout:                        sqlutil.NewInterval(3 * time.Second),
+						ObservationGracePeriod:                 sqlutil.NewInterval(4 * time.Second),
+						ContractTransmitterTransmitTimeout:     sqlutil.NewInterval(555 * time.Millisecond),
 						CreatedAt:                              f.Timestamp(),
 						EVMChainID:                             ubig.NewI(42),
 						IsBootstrapPeer:                        false,
 						EncryptedOCRKeyBundleID:                &keyBundleID,
-						ObservationTimeout:                     models.Interval(2 * time.Minute),
+						ObservationTimeout:                     sqlutil.Interval(2 * time.Minute),
 						P2PV2Bootstrappers:                     pq.StringArray{"12D3KooWL3XJ9EMCyZvmmGXL2LMiVBtrVa2BuESsJiXkSj7333Jw@localhost:5001"},
 						TransmitterAddress:                     &transmitterAddress,
 					},
@@ -466,13 +467,13 @@ func TestResolver_OCR2Spec(t *testing.T) {
 
 	keyBundleID := models.MustSha256HashFromHex("f5bf259689b26f1374efb3c9a9868796953a0f814bb2d39b968d0e61b58620a5")
 
-	relayConfig := map[string]interface{}{
+	relayConfig := map[string]any{
 		"chainID": 1337,
 	}
-	pluginConfig := map[string]interface{}{
+	pluginConfig := map[string]any{
 		"juelsPerFeeCoinSource": 100000000,
 	}
-	onchainSigningStrategy := map[string]interface{}{
+	onchainSigningStrategy := map[string]any{
 		"strategyName": "multi-chain",
 		"config": map[string]any{
 			"evm": "b3df4d8748b67731a1112e8b45a764941974f5590c93672eebbc4f3504dd10ed",
@@ -489,10 +490,10 @@ func TestResolver_OCR2Spec(t *testing.T) {
 				f.Mocks.jobORM.On("FindJobWithoutSpecErrors", mock.Anything, id).Return(job.Job{
 					Type: job.OffchainReporting2,
 					OCR2OracleSpec: &job.OCR2OracleSpec{
-						BlockchainTimeout:                 models.Interval(1 * time.Minute),
+						BlockchainTimeout:                 sqlutil.Interval(1 * time.Minute),
 						ContractID:                        contractAddress.String(),
 						ContractConfigConfirmations:       1,
-						ContractConfigTrackerPollInterval: models.Interval(1 * time.Minute),
+						ContractConfigTrackerPollInterval: sqlutil.Interval(1 * time.Minute),
 						OnchainSigningStrategy:            onchainSigningStrategy,
 						CreatedAt:                         f.Timestamp(),
 						OCRKeyBundleID:                    null.StringFrom(keyBundleID.String()),
@@ -961,10 +962,10 @@ func TestResolver_BootstrapSpec(t *testing.T) {
 						ID:                                id,
 						ContractID:                        "0x613a38AC1659769640aaE063C651F48E0250454C",
 						Relay:                             "evm",
-						RelayConfig:                       map[string]interface{}{},
+						RelayConfig:                       map[string]any{},
 						MonitoringEndpoint:                null.String{},
-						BlockchainTimeout:                 models.Interval(2 * time.Minute),
-						ContractConfigTrackerPollInterval: models.Interval(2 * time.Minute),
+						BlockchainTimeout:                 sqlutil.Interval(2 * time.Minute),
+						ContractConfigTrackerPollInterval: sqlutil.Interval(2 * time.Minute),
 						ContractConfigConfirmations:       100,
 						CreatedAt:                         f.Timestamp(),
 					},
@@ -1075,8 +1076,8 @@ func TestResolver_GatewaySpec(t *testing.T) {
 		id = int32(1)
 	)
 
-	gatewayConfig := map[string]interface{}{
-		"NodeServerConfig": map[string]interface{}{},
+	gatewayConfig := map[string]any{
+		"NodeServerConfig": map[string]any{},
 	}
 
 	testCases := []GQLTestCase{

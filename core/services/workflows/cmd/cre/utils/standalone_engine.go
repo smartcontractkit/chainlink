@@ -14,15 +14,14 @@ import (
 	"gopkg.in/yaml.v3"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/billing"
-	"github.com/smartcontractkit/chainlink-common/pkg/contexts"
-	"github.com/smartcontractkit/chainlink-common/pkg/settings/limits"
-
+	commoncap "github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	httpserver "github.com/smartcontractkit/chainlink-common/pkg/capabilities/v2/actions/http/server"
 	consensusserver "github.com/smartcontractkit/chainlink-common/pkg/capabilities/v2/consensus/server"
+	"github.com/smartcontractkit/chainlink-common/pkg/contexts"
 	"github.com/smartcontractkit/chainlink-common/pkg/custmsg"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
-	"github.com/smartcontractkit/chainlink-common/pkg/workflows/dontime"
+	"github.com/smartcontractkit/chainlink-common/pkg/settings/limits"
 	"github.com/smartcontractkit/chainlink-common/pkg/workflows/wasm/host"
 	sdkpb "github.com/smartcontractkit/chainlink-protos/cre/go/sdk"
 
@@ -47,9 +46,13 @@ const (
 	defaultName                      = "myworkflow"
 )
 
-var (
-	defaultTimeout = 10 * time.Minute
-)
+var defaultTimeout = 10 * time.Minute
+
+type mockSubscriber struct{}
+
+func (m mockSubscriber) Subscribe(_ context.Context) (<-chan commoncap.DON, func(), error) {
+	return make(<-chan commoncap.DON), func() {}, nil
+}
 
 func NewStandaloneEngine(
 	ctx context.Context,
@@ -70,7 +73,7 @@ func NewStandaloneEngine(
 		Timeout:                 &defaultTimeout,
 	}
 
-	module, err := host.NewModule(moduleConfig, binary, host.WithDeterminism())
+	module, err := host.NewModule(ctx, moduleConfig, binary, host.WithDeterminism())
 	if err != nil {
 		return nil, nil, fmt.Errorf("unable to create module from config: %w", err)
 	}
@@ -154,12 +157,13 @@ func NewStandaloneEngine(
 	}
 
 	cfg := &v2.EngineConfig{
-		Lggr:            lggr,
-		Module:          module,
-		WorkflowConfig:  config,
-		CapRegistry:     registry,
-		DonTimeStore:    dontime.NewStore(dontime.DefaultRequestTimeout),
-		ExecutionsStore: store.NewInMemoryStore(lggr, clockwork.NewRealClock()),
+		Lggr:                 lggr,
+		Module:               module,
+		WorkflowConfig:       config,
+		CapRegistry:          registry,
+		DonSubscriber:        mockSubscriber{},
+		UseLocalTimeProvider: true,
+		ExecutionsStore:      store.NewInMemoryStore(lggr, clockwork.NewRealClock()),
 
 		WorkflowID:    defaultWorkflowID,
 		WorkflowOwner: defaultOwner,
@@ -257,7 +261,8 @@ func (f *fileBasedSecrets) GetSecrets(ctx context.Context, request *sdkpb.GetSec
 			responses = append(responses, &sdkpb.SecretResponse{
 				Response: &sdkpb.SecretResponse_Error{
 					Error: &sdkpb.SecretError{
-						Error: "secret found but no value associated"},
+						Error: "secret found but no value associated",
+					},
 				},
 			})
 			continue

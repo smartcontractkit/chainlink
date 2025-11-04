@@ -182,8 +182,8 @@ func Test_CreateBridge(t *testing.T) {
 					}
 				}
 			}`
-		variables = map[string]interface{}{
-			"input": map[string]interface{}{
+		variables = map[string]any{
+			"input": map[string]any{
 				"name":                   "bridge1",
 				"url":                    "https://external.adapter",
 				"confirmations":          1,
@@ -266,9 +266,9 @@ func Test_UpdateBridge(t *testing.T) {
 					}
 				}
 			}`
-		variables = map[string]interface{}{
+		variables = map[string]any{
 			"id": "bridge1",
-			"input": map[string]interface{}{
+			"input": map[string]any{
 				"name":                   "bridge-updated",
 				"url":                    "https://external.adapter.new",
 				"confirmations":          2,
@@ -399,7 +399,7 @@ func Test_DeleteBridgeMutation(t *testing.T) {
 			}
 		}`
 
-	variables := map[string]interface{}{
+	variables := map[string]any{
 		"id": name.String(),
 	}
 
@@ -443,7 +443,7 @@ func Test_DeleteBridgeMutation(t *testing.T) {
 			name:          "invalid bridge type name",
 			authenticated: true,
 			query:         mutation,
-			variables: map[string]interface{}{
+			variables: map[string]any{
 				"id": "][]$$$$324adfas",
 			},
 			result: `
@@ -458,7 +458,7 @@ func Test_DeleteBridgeMutation(t *testing.T) {
 			name:          "invalid bridge type name",
 			authenticated: true,
 			query:         mutation,
-			variables: map[string]interface{}{
+			variables: map[string]any{
 				"id": "bridge1",
 			},
 			before: func(ctx context.Context, f *gqlTestFramework) {
@@ -477,7 +477,7 @@ func Test_DeleteBridgeMutation(t *testing.T) {
 			name:          "bridge with jobs associated",
 			authenticated: true,
 			query:         mutation,
-			variables: map[string]interface{}{
+			variables: map[string]any{
 				"id": "bridge1",
 			},
 			before: func(ctx context.Context, f *gqlTestFramework) {

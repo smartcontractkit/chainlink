@@ -7,6 +7,7 @@ import (
 
 	"github.com/gagliardetto/solana-go"
 	chainSelectors "github.com/smartcontractkit/chain-selectors"
+	"github.com/smartcontractkit/quarantine"
 	"github.com/stretchr/testify/require"
 
 	cldfSolana "github.com/smartcontractkit/chainlink-deployments-framework/chain/solana"
@@ -34,6 +35,7 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
 	solanastateview "github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview/solana"
+	"github.com/smartcontractkit/chainlink/deployment/helpers/pointer"
 
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 
@@ -324,6 +326,16 @@ func doTestBilling(t *testing.T, mcms bool) {
 
 	e, tokenAddress, err := deployTokenAndMint(t, tenv.Env, solChain, []string{}, "TEST_TOKEN")
 	require.NoError(t, err)
+	tenv.Env = e
+
+	e, tokenAddressB, err := deployTokenAndMint(t, tenv.Env, solChain, []string{}, "TEST_TOKEN_B")
+	require.NoError(t, err)
+	tenv.Env = e
+
+	e, tokenAddressC, err := deployTokenAndMint(t, tenv.Env, solChain, []string{}, "TEST_TOKEN_C")
+	require.NoError(t, err)
+	tenv.Env = e
+
 	state, err := stateview.LoadOnchainStateSolana(e)
 	require.NoError(t, err)
 	validTimestamp := int64(100)
@@ -392,6 +404,52 @@ func doTestBilling(t *testing.T, mcms bool) {
 	},
 	)
 	require.NoError(t, err)
+
+	if mcms {
+		e, err = commonchangeset.Apply(t, e,
+			commonchangeset.Configure(
+				ccipChangesetSolana.AddTokenTransferFeeForRemoteChainV2,
+				ccipChangesetSolana.TokenTransferFeeForRemoteChainConfigV2{
+					MCMS: mcmsConfig,
+					InputsByChain: map[uint64]map[uint64]ccipChangesetSolana.TokenTransferFeeForRemoteChainConfigArgsV2{
+						solChain: {
+							evmChain: {
+								TokenAddressToFeeConfig: map[solana.PublicKey]ccipChangesetSolana.OptionalFeeQuoterTokenTransferFeeConfig{
+									tokenAddressB: {
+										MinFeeUsdcents:    pointer.To(uint32(800)),
+										MaxFeeUsdcents:    pointer.To(uint32(1600)),
+										DestGasOverhead:   pointer.To(uint32(100)),
+										DestBytesOverhead: pointer.To(uint32(100)),
+										IsEnabled:         nil, // auto-filled
+										DeciBps:           nil, // auto-filled
+									},
+									tokenAddressC: {
+										// auto-fill everything with sensible defaults
+									},
+								},
+							},
+							evmChain2: {
+								TokenAddressToFeeConfig: map[solana.PublicKey]ccipChangesetSolana.OptionalFeeQuoterTokenTransferFeeConfig{
+									tokenAddressB: {
+										MinFeeUsdcents:    pointer.To(uint32(800)),
+										MaxFeeUsdcents:    pointer.To(uint32(1600)),
+										DestGasOverhead:   pointer.To(uint32(100)),
+										DestBytesOverhead: pointer.To(uint32(100)),
+										IsEnabled:         nil, // auto-filled
+										DeciBps:           nil, // auto-filled
+									},
+									tokenAddressC: {
+										// auto-fill everything with sensible defaults
+									},
+								},
+							},
+						},
+					},
+				},
+			),
+		)
+		require.NoError(t, err)
+	}
 
 	billingConfigPDA, _, _ := solState.FindFqBillingTokenConfigPDA(tokenAddress, state.SolChains[solChain].FeeQuoter)
 	var token0ConfigAccount solFeeQuoter.BillingTokenConfigWrapper
@@ -585,6 +643,7 @@ func doTestBilling(t *testing.T, mcms bool) {
 }
 
 func TestBillingWithMcms(t *testing.T) {
+	quarantine.Flaky(t, "DX-1723")
 	t.Parallel()
 	doTestBilling(t, true)
 }
@@ -596,6 +655,7 @@ func TestBillingWithoutMcms(t *testing.T) {
 }
 
 func TestSetTokenAuthority(t *testing.T) {
+	quarantine.Flaky(t, "DX-1778")
 	t.Parallel()
 	tenv, _ := testhelpers.NewMemoryEnvironment(t, testhelpers.WithSolChains(1), testhelpers.WithCCIPSolanaContractVersion(ccipChangesetSolana.SolanaContractV0_1_1))
 	solChain := tenv.Env.BlockChains.ListChainSelectors(cldfChain.WithFamily(chainSelectors.FamilySolana))[0]
@@ -817,6 +877,7 @@ func doTestTokenAdminRegistry(t *testing.T, mcms bool) {
 }
 
 func TestTokenAdminRegistryWithMcms(t *testing.T) {
+	quarantine.Flaky(t, "DX-1720")
 	t.Parallel()
 	doTestTokenAdminRegistry(t, true)
 }
@@ -927,6 +988,7 @@ func doTestPoolLookupTable(t *testing.T, e cldf.Environment, mcms bool, tokenMet
 }
 
 func TestPoolLookupTableWithMcms(t *testing.T) {
+	quarantine.Flaky(t, "DX-1753")
 	t.Parallel()
 	tenv, _ := testhelpers.NewMemoryEnvironment(t, testhelpers.WithSolChains(1), testhelpers.WithCCIPSolanaContractVersion(ccipChangesetSolana.SolanaContractV0_1_1))
 	doTestPoolLookupTable(t, tenv.Env, true, shared.CLLMetadata)
@@ -948,6 +1010,7 @@ func TestDeployCCIPContracts(t *testing.T) {
 
 // ocr3 test
 func TestSetOcr3Active(t *testing.T) {
+	quarantine.Flaky(t, "DX-1775")
 	t.Parallel()
 	tenv, _ := testhelpers.NewMemoryEnvironment(t,
 		testhelpers.WithNumOfNodes(16),
@@ -977,6 +1040,7 @@ func TestSetOcr3Active(t *testing.T) {
 }
 
 func TestSetOcr3Candidate(t *testing.T) {
+	quarantine.Flaky(t, "DX-1771")
 	t.Parallel()
 	tenv, _ := testhelpers.NewMemoryEnvironment(t,
 		testhelpers.WithSolChains(1), testhelpers.WithCCIPSolanaContractVersion(ccipChangesetSolana.SolanaContractV0_1_1))

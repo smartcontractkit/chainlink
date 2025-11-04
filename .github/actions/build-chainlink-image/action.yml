@@ -45,7 +45,6 @@ runs:
         push_tag: ${{ env.CHAINLINK_IMAGE }}:${{ inputs.git_commit_sha }}${{ inputs.tag_suffix }}
         QA_AWS_REGION: ${{ inputs.AWS_REGION }}
         QA_AWS_ROLE_TO_ASSUME: ${{ inputs.AWS_ROLE_TO_ASSUME }}
-        GO_COVER_FLAG: true
         dep_evm_sha: ${{ inputs.dep_evm_sha }}
     - name: Print Chainlink Image Built
       shell: sh

@@ -40,13 +40,14 @@ import (
 	commonevents "github.com/smartcontractkit/chainlink-protos/workflows/go/common"
 	workflowevents "github.com/smartcontractkit/chainlink-protos/workflows/go/events"
 
+	consensus_negative_config "github.com/smartcontractkit/chainlink/system-tests/tests/regression/cre/consensus/config"
 	evmread_negative_config "github.com/smartcontractkit/chainlink/system-tests/tests/regression/cre/evm/evmread-negative/config"
-	http_negative_config "github.com/smartcontractkit/chainlink/system-tests/tests/regression/cre/http/config"
+	evmwrite_negative_config "github.com/smartcontractkit/chainlink/system-tests/tests/regression/cre/evm/evmwrite-negative/config"
 	evmread_config "github.com/smartcontractkit/chainlink/system-tests/tests/smoke/cre/evm/evmread/config"
+	logtrigger_config "github.com/smartcontractkit/chainlink/system-tests/tests/smoke/cre/evm/logtrigger/config"
 	ttypes "github.com/smartcontractkit/chainlink/system-tests/tests/test-helpers/configuration"
 
 	"github.com/smartcontractkit/chainlink-testing-framework/framework"
-	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/blockchain"
 	ns "github.com/smartcontractkit/chainlink-testing-framework/framework/components/simple_node_set"
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/ptr"
 	"github.com/smartcontractkit/chainlink-testing-framework/seth"
@@ -56,11 +57,14 @@ import (
 	keystone_changeset "github.com/smartcontractkit/chainlink/deployment/keystone/changeset"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre"
 	crecontracts "github.com/smartcontractkit/chainlink/system-tests/lib/cre/contracts"
-	environment "github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment"
+	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/blockchains"
+	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/blockchains/evm"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/flags"
 	creworkflow "github.com/smartcontractkit/chainlink/system-tests/lib/cre/workflow"
 	crecrypto "github.com/smartcontractkit/chainlink/system-tests/lib/crypto"
-	crefunding "github.com/smartcontractkit/chainlink/system-tests/lib/funding"
+	http_config "github.com/smartcontractkit/chainlink/system-tests/tests/regression/cre/http/config"
+	httpaction_negative_config "github.com/smartcontractkit/chainlink/system-tests/tests/regression/cre/httpaction-negative/config"
+	httpaction_smoke_config "github.com/smartcontractkit/chainlink/system-tests/tests/smoke/cre/httpaction/config"
 )
 
 /////////////////////////
@@ -80,11 +84,11 @@ func GetWritableChainsFromSavedEnvironmentState(t *testing.T, testEnv *ttypes.Te
 	testLogger := framework.L
 	testLogger.Info().Msg("Getting writable chains from saved environment state.")
 	writeableChains := []uint64{}
-	for _, bcOutput := range testEnv.WrappedBlockchainOutputs {
-		for _, donMetadata := range testEnv.CreEnvironment.DonTopology.DonsWithMetadata {
-			if flags.RequiresForwarderContract(donMetadata.Flags, bcOutput.ChainID) {
-				if !slices.Contains(writeableChains, bcOutput.ChainID) {
-					writeableChains = append(writeableChains, bcOutput.ChainID)
+	for _, bcOutput := range testEnv.CreEnvironment.Blockchains {
+		for _, don := range testEnv.Dons.List() {
+			if flags.RequiresForwarderContract(don.Flags, bcOutput.ChainID()) {
+				if !slices.Contains(writeableChains, bcOutput.ChainID()) {
+					writeableChains = append(writeableChains, bcOutput.ChainID())
 				}
 			}
 		}
@@ -114,15 +118,6 @@ func GetEVMEnabledChains(t *testing.T, testEnv *ttypes.TestEnvironment) map[stri
 
 /*
 Starts Beholder
-1. Starts Beholder if it is not running already
-2. Loads Beholder stack cache to get Kafka connection details
-3. Starts a Kafka listener for Beholder messages
-
-Returns:
-1. Context for the listener (with timeout)
-2. Channel to receive messages
-3. Channel to receive errors from the listener
-
 Recommendation: Use it in tests that need to listen for Beholder messages.
 */
 func StartBeholder(t *testing.T, testLogger zerolog.Logger, testEnv *ttypes.TestEnvironment) (context.Context, <-chan proto.Message, <-chan error) {
@@ -152,53 +147,16 @@ func StartBeholder(t *testing.T, testLogger zerolog.Logger, testEnv *ttypes.Test
 
 	beholderMsgChan, beholderErrChan := beholder.SubscribeToBeholderMessages(listenerCtx, messageTypes)
 
-	// Wait to allow Beholder to fully initialize, it helps to avoid flakiness in tests
-	initTimeout := 5 * time.Second
-	testLogger.Info().Dur("timeout", initTimeout).Msg("Forcefully waiting for Beholder to warm up...")
-	time.Sleep(initTimeout)
-
-	drainChannels(listenerCtx, t, testLogger, beholderMsgChan, beholderErrChan) // drain any messages that arrived during initialization
-
-	return listenerCtx, beholderMsgChan, beholderErrChan
-}
-
-// Drains any remaining messages from the channels to avoid processing stale messages
-func drainChannels(ctx context.Context, t *testing.T, testLogger zerolog.Logger, messageChan <-chan proto.Message, kafkaErrChan <-chan error) {
-	t.Helper()
-
-	testLogger.Info().Msg("Starting async drain of Beholder channels for stale messages...")
-	msgCount := 0
-	errCount := 0
-
-	// Drain messages for up to 500ms
-	drainTimeout := time.After(500 * time.Millisecond)
-
-	for {
-		select {
-		case msg := <-messageChan:
-			msgCount++
-			switch msg.(type) {
-			case *workflowevents.UserLogs:
-				testLogger.Debug().Msg("Drained UserLogs message")
-			case *commonevents.BaseMessage:
-				testLogger.Debug().Msg("Drained BaseMessage")
-			default:
-				testLogger.Debug().Msgf("Drained unknown message type: %T", msg)
-			}
-
-		case err := <-kafkaErrChan:
-			errCount++
-			testLogger.Debug().Err(err).Msg("Drained error message")
-
-		case <-drainTimeout:
-			if msgCount > 0 || errCount > 0 {
-				testLogger.Info().Int("messages_drained", msgCount).Int("errors_drained", errCount).Msg("Finished draining Beholder channels")
-			} else {
-				testLogger.Info().Msg("No stale Beholder messages found in channels")
-			}
-			return
-		}
+	// Fail fast if there is an error from the heartbeat validation subscription
+	select {
+	case err := <-beholderErrChan:
+		require.NoError(t, err, "Beholder subscription failed during initialization")
+	default:
+		// No immediate error, proceed
 	}
+
+	testLogger.Info().Msg("Beholder listener ready")
+	return listenerCtx, beholderMsgChan, beholderErrChan
 }
 
 /*
@@ -224,7 +182,7 @@ func AssertBeholderMessage(ctx context.Context, t *testing.T, expectedLog string
 						foundErrorLog <- true
 					}
 				case *workflowevents.UserLogs:
-					testLogger.Info().Msg("🎉 Received UserLogs message in test")
+					testLogger.Info().Msg("➡️ Beholder message received in test. Asserting...")
 					receivedUserLogs++
 
 					for _, logLine := range typedMsg.LogLines {
@@ -232,6 +190,7 @@ func AssertBeholderMessage(ctx context.Context, t *testing.T, expectedLog string
 							testLogger.Info().
 								Str("expected_log", expectedLog).
 								Str("found_message", strings.TrimSpace(logLine.Message)).
+								Str("workflow_id", typedMsg.M.WorkflowExecutionID).
 								Msg("🎯 Found expected user log message!")
 
 							select {
@@ -240,10 +199,11 @@ func AssertBeholderMessage(ctx context.Context, t *testing.T, expectedLog string
 							}
 							return // Exit the processor goroutine
 						}
+
 						testLogger.Warn().
 							Str("expected_log", expectedLog).
 							Str("found_message", strings.TrimSpace(logLine.Message)).
-							Msg("Received UserLogs message, but it does not match expected log")
+							Msg("[soft assertion] Received UserLogs message, but it does not match expected log")
 					}
 				default:
 					// ignore other message types
@@ -285,46 +245,27 @@ func AssertBeholderMessage(ctx context.Context, t *testing.T, expectedLog string
 //////////////////////////////
 
 // Creates and funds a specified number of new Ethereum addresses on a given chain.
-func CreateAndFundAddresses(t *testing.T, testLogger zerolog.Logger, numberOfAddressesToCreate int, amountToFund *big.Int, sethClient *seth.Client, bcOutput *cre.WrappedBlockchainOutput, fullCldEnvOutput *cre.Environment) ([]common.Address, error) {
+func CreateAndFundAddresses(t *testing.T, testLogger zerolog.Logger, numberOfAddressesToCreate int, amountToFund *big.Int, bcOutput blockchains.Blockchain, fullCldEnvOutput *cre.Environment) ([]common.Address, error) {
 	t.Helper()
 
 	testLogger.Info().Msgf("Creating and funding %d addresses...", numberOfAddressesToCreate)
-	var addressesToRead []common.Address
+	addressesToRead := []common.Address{}
 
-	for i := 0; i < numberOfAddressesToCreate; i++ {
+	for i := range numberOfAddressesToCreate {
 		addressToRead, _, addrErr := crecrypto.GenerateNewKeyPair()
 		require.NoError(t, addrErr, "failed to generate address to read")
 		orderNum := i + 1
 		testLogger.Info().Msgf("Generated address #%d: %s", orderNum, addressToRead.Hex())
 
 		testLogger.Info().Msgf("Funding address '%s' with amount of '%s' wei", addressToRead.Hex(), amountToFund.String())
-
-		switch bcOutput.BlockchainOutput.Family {
-		case blockchain.FamilyTron:
-			if err := environment.FundTronAddress(t.Context(), testLogger, addressToRead, amountToFund.Uint64(), bcOutput, fullCldEnvOutput.CldfEnvironment); err != nil {
-				return nil, err
-			}
-		default:
-			if err := fundEthAddress(t, testLogger, addressToRead, amountToFund, sethClient); err != nil {
-				return nil, err
-			}
+		if err := bcOutput.Fund(t.Context(), addressToRead.Hex(), amountToFund.Uint64()); err != nil {
+			return nil, err
 		}
 
 		addressesToRead = append(addressesToRead, addressToRead)
 	}
 
 	return addressesToRead, nil
-}
-
-func fundEthAddress(t *testing.T, testLogger zerolog.Logger, addressToRead common.Address, amountToFund *big.Int, sethClient *seth.Client) error {
-	receipt, funErr := crefunding.SendFunds(t.Context(), testLogger, sethClient, crefunding.FundsToSend{
-		ToAddress:  addressToRead,
-		Amount:     amountToFund,
-		PrivateKey: sethClient.MustGetRootPrivateKey(),
-	})
-	require.NoError(t, funErr, "failed to send funds")
-	testLogger.Info().Msgf("Funds sent successfully to address '%s': txHash='%s'", addressToRead.Hex(), receipt.TxHash)
-	return nil
 }
 
 //////////////////////////////
@@ -338,9 +279,14 @@ type WorkflowConfig interface {
 		portypes.WorkflowConfig |
 		crontypes.WorkflowConfig |
 		HTTPWorkflowConfig |
+		consensus_negative_config.Config |
 		evmread_config.Config |
+		logtrigger_config.Config |
 		evmread_negative_config.Config |
-		http_negative_config.Config
+		evmwrite_negative_config.Config |
+		http_config.Config |
+		httpaction_smoke_config.Config |
+		httpaction_negative_config.Config
 }
 
 // None represents an empty workflow configuration
@@ -364,7 +310,7 @@ type WorkflowRegistrationConfig struct {
 	ChainID                     uint64
 	DonID                       uint64
 	ContainerTargetDir          string
-	WrappedBlockchainOutputs    []*cre.WrappedBlockchainOutput
+	Blockchains                 []blockchains.Blockchain
 }
 
 /*
@@ -430,11 +376,23 @@ func workflowConfigFactory[T WorkflowConfig](t *testing.T, testLogger zerolog.Lo
 			require.NoError(t, configErr, "failed to create Cron workflow config file")
 			testLogger.Info().Msg("Cron workflow config file created.")
 
+		case *consensus_negative_config.Config:
+			workflowCfgFilePath, configErr := CreateWorkflowYamlConfigFile(workflowName, cfg)
+			workflowConfigFilePath = workflowCfgFilePath
+			require.NoError(t, configErr, "failed to create consensus workflow config file")
+			testLogger.Info().Msg("Consensus workflow config file created.")
+
 		case *evmread_config.Config:
 			workflowCfgFilePath, configErr := CreateWorkflowYamlConfigFile(workflowName, cfg)
 			workflowConfigFilePath = workflowCfgFilePath
 			require.NoError(t, configErr, "failed to create evmread workflow config file")
 			testLogger.Info().Msg("EVM Read workflow config file created.")
+
+		case *logtrigger_config.Config:
+			workflowCfgFilePath, configErr := CreateWorkflowYamlConfigFile(workflowName, cfg)
+			workflowConfigFilePath = workflowCfgFilePath
+			require.NoError(t, configErr, "failed to create logtrigger workflow config file")
+			testLogger.Info().Msg("EVM LogTrigger workflow config file created.")
 
 		case *evmread_negative_config.Config:
 			workflowCfgFilePath, configErr := CreateWorkflowYamlConfigFile(workflowName, cfg)
@@ -442,11 +400,29 @@ func workflowConfigFactory[T WorkflowConfig](t *testing.T, testLogger zerolog.Lo
 			require.NoError(t, configErr, "failed to create evmread-negative workflow config file")
 			testLogger.Info().Msg("EVM Read negative workflow config file created.")
 
-		case *http_negative_config.Config:
+		case *evmwrite_negative_config.Config:
+			workflowCfgFilePath, configErr := CreateWorkflowYamlConfigFile(workflowName, cfg)
+			workflowConfigFilePath = workflowCfgFilePath
+			require.NoError(t, configErr, "failed to create evmwrite-negative workflow config file")
+			testLogger.Info().Msg("EVM Write negative workflow config file created.")
+
+		case *http_config.Config:
 			workflowCfgFilePath, configErr := CreateWorkflowYamlConfigFile(workflowName, cfg)
 			workflowConfigFilePath = workflowCfgFilePath
 			require.NoError(t, configErr, "failed to create http-negative workflow config file")
 			testLogger.Info().Msg("HTTP negative workflow config file created.")
+
+		case *httpaction_smoke_config.Config:
+			workflowCfgFilePath, configErr := CreateWorkflowYamlConfigFile(workflowName, cfg)
+			workflowConfigFilePath = workflowCfgFilePath
+			require.NoError(t, configErr, "failed to create httpaction smoke workflow config file")
+			testLogger.Info().Msg("HTTP Action smoke workflow config file created.")
+
+		case *httpaction_negative_config.Config:
+			workflowCfgFilePath, configErr := CreateWorkflowYamlConfigFile(workflowName, cfg)
+			workflowConfigFilePath = workflowCfgFilePath
+			require.NoError(t, configErr, "failed to create httpaction negative workflow config file")
+			testLogger.Info().Msg("HTTP Action negative workflow config file created.")
 
 		default:
 			require.NoError(t, fmt.Errorf("unsupported workflow config type: %T", cfg))
@@ -565,7 +541,7 @@ func registerWorkflow(ctx context.Context, t *testing.T,
 
 	t.Cleanup(func() {
 		deleteWorkflows(t, wfRegCfg.WorkflowName, wfRegCfg.ConfigFilePath,
-			wfRegCfg.CompressedWasmPath, wfRegCfg.WrappedBlockchainOutputs,
+			wfRegCfg.CompressedWasmPath, wfRegCfg.Blockchains,
 			wfRegCfg.WorkflowRegistryAddr, wfRegCfg.WorkflowRegistryTypeVersion,
 		)
 	})
@@ -606,7 +582,7 @@ Use it at the end of your test to `t.Cleanup()` the env after test run
 */
 func deleteWorkflows(t *testing.T, uniqueWorkflowName string,
 	workflowConfigFilePath string, compressedWorkflowWasmPath string,
-	blockchainOutputs []*cre.WrappedBlockchainOutput,
+	blockchains []blockchains.Blockchain,
 	workflowRegistryAddress common.Address,
 	tv deployment.TypeAndVersion,
 ) {
@@ -617,7 +593,8 @@ func deleteWorkflows(t *testing.T, uniqueWorkflowName string,
 	localEnvErr := creworkflow.RemoveWorkflowArtifactsFromLocalEnv(workflowConfigFilePath, compressedWorkflowWasmPath)
 	require.NoError(t, localEnvErr, "failed to remove workflow artifacts from local environment")
 
-	deleteErr := creworkflow.DeleteWithContract(t.Context(), blockchainOutputs[0].SethClient, workflowRegistryAddress, tv, uniqueWorkflowName)
+	require.IsType(t, &evm.Blockchain{}, blockchains[0], "expected EVM blockchain type")
+	deleteErr := creworkflow.DeleteWithContract(t.Context(), blockchains[0].(*evm.Blockchain).SethClient, workflowRegistryAddress, tv, uniqueWorkflowName)
 	require.NoError(t, deleteErr, "failed to delete workflow '%s'. Please delete/unregister it manually.", uniqueWorkflowName)
 	testLogger.Info().Msgf("Workflow '%s' deleted successfully from the registry.", uniqueWorkflowName)
 }
@@ -629,18 +606,25 @@ func CompileAndDeployWorkflow[T WorkflowConfig](t *testing.T,
 	t.Helper()
 
 	testLogger.Info().Msgf("compiling and registering workflow '%s'", workflowName)
-	homeChainSelector := testEnv.WrappedBlockchainOutputs[0].ChainSelector
+	registryChainSelector := testEnv.CreEnvironment.Blockchains[0].ChainSelector()
 
-	workflowDON, donErr := flags.OneDonMetadataWithFlag(testEnv.CreEnvironment.DonTopology.ToDonMetadata(), cre.WorkflowDON)
-	require.NoError(t, donErr, "failed to get find workflow DON in the topology")
-	compressedWorkflowWasmPath, workflowConfigPath := createWorkflowArtifacts(t, testLogger, workflowName, workflowDON.Name, workflowConfig, workflowFileLocation)
+	workflowDOName := ""
+	for _, don := range testEnv.Dons.List() {
+		if don.ID == testEnv.Dons.MustWorkflowDON().ID {
+			workflowDOName = don.Name
+			break
+		}
+	}
+	require.NotEmpty(t, workflowDOName, "failed to find workflow DON in the topology")
+
+	compressedWorkflowWasmPath, workflowConfigPath := createWorkflowArtifacts(t, testLogger, workflowName, workflowDOName, workflowConfig, workflowFileLocation)
 
 	// Ignoring the deprecation warning as the suggest solution is not working in CI
 	//lint:ignore SA1019 ignoring deprecation warning for this usage
 	workflowRegistryAddress, tv, workflowRegistryErr := crecontracts.FindAddressesForChain(
 		testEnv.CreEnvironment.CldfEnvironment.ExistingAddresses, //nolint:staticcheck // SA1019 ignoring deprecation warning for this usage
-		homeChainSelector, keystone_changeset.WorkflowRegistry.String())
-	require.NoError(t, workflowRegistryErr, "failed to find workflow registry address for chain %d", testEnv.WrappedBlockchainOutputs[0].ChainID)
+		registryChainSelector, keystone_changeset.WorkflowRegistry.String())
+	require.NoError(t, workflowRegistryErr, "failed to find workflow registry address for chain %d", testEnv.CreEnvironment.Blockchains[0].ChainID)
 
 	workflowRegConfig := &WorkflowRegistrationConfig{
 		WorkflowName:                workflowName,
@@ -649,10 +633,11 @@ func CompileAndDeployWorkflow[T WorkflowConfig](t *testing.T,
 		CompressedWasmPath:          compressedWorkflowWasmPath,
 		WorkflowRegistryAddr:        workflowRegistryAddress,
 		WorkflowRegistryTypeVersion: tv,
-		ChainID:                     homeChainSelector,
-		DonID:                       testEnv.CreEnvironment.DonTopology.DonsWithMetadata[0].ID,
+		ChainID:                     registryChainSelector,
+		DonID:                       testEnv.Dons.List()[0].ID,
 		ContainerTargetDir:          creworkflow.DefaultWorkflowTargetDir,
-		WrappedBlockchainOutputs:    testEnv.WrappedBlockchainOutputs,
+		Blockchains:                 testEnv.CreEnvironment.Blockchains,
 	}
-	registerWorkflow(t.Context(), t, workflowRegConfig, testEnv.WrappedBlockchainOutputs[0].SethClient, testLogger)
+	require.IsType(t, &evm.Blockchain{}, testEnv.CreEnvironment.Blockchains[0], "expected EVM blockchain type")
+	registerWorkflow(t.Context(), t, workflowRegConfig, testEnv.CreEnvironment.Blockchains[0].(*evm.Blockchain).SethClient, testLogger)
 }

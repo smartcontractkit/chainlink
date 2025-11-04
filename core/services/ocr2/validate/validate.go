@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"maps"
 	"os/exec"
 	"strings"
 
@@ -17,6 +18,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/loop/reportingplugins"
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
+	evmconfig "github.com/smartcontractkit/chainlink-evm/pkg/config"
 
 	dontimeCfg "github.com/smartcontractkit/chainlink-common/pkg/workflows/dontime/pb"
 	"github.com/smartcontractkit/chainlink/v2/core/config/env"
@@ -28,7 +30,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocrcommon"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay"
-	evmtypes "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/types"
 	"github.com/smartcontractkit/chainlink/v2/plugins"
 )
 
@@ -215,9 +216,7 @@ func (o *OCR2OnchainSigningStrategy) IsMultiChain() bool {
 
 func (o *OCR2OnchainSigningStrategy) ConfigCopy() job.JSONConfig {
 	copiedConfig := make(job.JSONConfig)
-	for k, v := range o.Config {
-		copiedConfig[k] = v
-	}
+	maps.Copy(copiedConfig, o.Config)
 	return copiedConfig
 }
 
@@ -314,7 +313,7 @@ func validateOCR2KeeperSpec(jsonConfig job.JSONConfig) error {
 }
 
 func validateOCR2MercurySpec(spec *job.OCR2OracleSpec, feedID [32]byte) error {
-	var relayConfig evmtypes.RelayConfig
+	var relayConfig evmconfig.RelayConfig
 	err := json.Unmarshal(spec.RelayConfig.Bytes(), &relayConfig)
 	if err != nil {
 		return pkgerrors.Wrap(err, "error while unmarshalling relay config")
@@ -347,7 +346,7 @@ func validateOCR2CCIPExecutionSpec(jsonConfig job.JSONConfig) error {
 	if cfg.USDCConfig != (config.USDCConfig{}) {
 		return cfg.USDCConfig.ValidateUSDCConfig()
 	}
-	return nil
+	return config.ValidateLBTCConfigs(cfg.LBTCConfigs)
 }
 
 func validateDonTimePluginSpec(jsonConfig job.JSONConfig) error {

@@ -74,8 +74,14 @@ func DeployBaseSignerRegistryContractChangeset(e cldf.Environment, c DeployBaseS
 		return cldf.ChangesetOutput{}, fmt.Errorf("failed to deploy base signer registry contract: %w", err)
 	}
 
+	ds, err := shared.PopulateDataStore(newAddresses)
+	if err != nil {
+		return cldf.ChangesetOutput{}, fmt.Errorf("failed to populate in-memory DataStore: %w", err)
+	}
+
 	return cldf.ChangesetOutput{
 		AddressBook: newAddresses,
+		DataStore:   ds,
 	}, nil
 }
 
@@ -107,7 +113,6 @@ func InitializeBaseSignerRegistryContractChangeset(e cldf.Environment, c Initali
 		eventAuthorityPda,
 		signer_registry.ProgramID,
 	)
-
 	if err != nil {
 		return cldf.ChangesetOutput{}, fmt.Errorf("failed to initialize base signer registry contract: %w", err)
 	}
@@ -128,7 +133,6 @@ func deployBaseSignerRegistryContract(e cldf.Environment, chain cldf_solana.Chai
 		Name:  programName,
 		Bytes: deployment.SolanaProgramBytes[programName],
 	}, config.IsUpgrade, true)
-
 	if err != nil {
 		return solana.PublicKey{}, fmt.Errorf("failed to deploy program: %w", err)
 	}
@@ -224,7 +228,7 @@ func DownloadReleaseArtifactsFromGithubWorkflowRun(
 			continue
 		}
 
-		if err := os.MkdirAll(filepath.Dir(filePath), 0755); err != nil {
+		if err := os.MkdirAll(filepath.Dir(filePath), 0o755); err != nil {
 			return fmt.Errorf("failed to create parent directory for %s: %w", filePath, err)
 		}
 
@@ -259,7 +263,8 @@ func DownloadReleaseArtifactsFromGithubWorkflowRun(
 func getSolProgramData(e cldf.Environment, chain cldf_solana.Chain, programID solana.PublicKey) (struct {
 	DataType uint32
 	Address  solana.PublicKey
-}, error) {
+}, error,
+) {
 	var programData struct {
 		DataType uint32
 		Address  solana.PublicKey

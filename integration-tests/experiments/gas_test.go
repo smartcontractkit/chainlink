@@ -32,7 +32,7 @@ func TestGasExperiment(t *testing.T) {
 	})
 	require.NoError(t, err, "Error sending funds")
 
-	for i := 0; i < 1; i++ {
+	for range 1 {
 		_, err = contracts.DeployLinkTokenContract(l, seth)
 		require.NoError(t, err, "Error deploying LINK contract")
 		time.Sleep(2 * time.Second)

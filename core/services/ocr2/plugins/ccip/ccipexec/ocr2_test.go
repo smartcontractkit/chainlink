@@ -25,7 +25,9 @@ import (
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 
 	cciptypes "github.com/smartcontractkit/chainlink-common/pkg/types/ccip"
+	"github.com/smartcontractkit/chainlink-evm/pkg/statuschecker"
 	"github.com/smartcontractkit/chainlink-evm/pkg/utils"
+
 	lpmocks "github.com/smartcontractkit/chainlink/v2/common/logpoller/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
@@ -41,7 +43,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/prices"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/testhelpers"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/tokendata"
-	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/statuschecker"
 )
 
 func TestExecutionReportingPlugin_Observation(t *testing.T) {
@@ -1237,7 +1238,7 @@ func Test_selectReportsToFillBatch(t *testing.T) {
 			nbMsgPerRoot := 200
 
 			var reports []cciptypes.CommitStoreReport
-			for i := 0; i < nbCommitStoreReports; i++ {
+			for i := range nbCommitStoreReports {
 				reports = append(reports, cciptypes.CommitStoreReport{Interval: cciptypes.CommitStoreInterval{Min: uint64(i * nbMsgPerRoot), Max: uint64((i+1)*nbMsgPerRoot - 1)}})
 			}
 

@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"math/big"
+	"slices"
 
 	"golang.org/x/sync/errgroup"
 
@@ -21,8 +22,9 @@ import (
 	mcmstypes "github.com/smartcontractkit/mcms/types"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
+	"github.com/smartcontractkit/chainlink-evm/pkg/utils"
 
-	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_0/fee_quoter"
+	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_3/fee_quoter"
 	"github.com/smartcontractkit/chainlink-ccip/pluginconfig"
 
 	cldf_evm "github.com/smartcontractkit/chainlink-deployments-framework/chain/evm"
@@ -36,6 +38,7 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/deployergroup"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
 	opsutil "github.com/smartcontractkit/chainlink/deployment/common/opsutils"
+	"github.com/smartcontractkit/chainlink/deployment/helpers/pointer"
 
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_2_0/router"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_0/nonce_manager"
@@ -58,31 +61,35 @@ const (
 					bytes4 public constant CHAIN_FAMILY_SELECTOR_EVM = 0x2812d52c;
 					// bytes4(keccak256("CCIP ChainFamilySelector SVM"));
 		  		bytes4 public constant CHAIN_FAMILY_SELECTOR_SVM = 0x1e10bdc4;
+					// bytes4(keccak256("CCIP ChainFamilySelector Sui"))
+				bytes4(keccak256("CCIP ChainFamilySelector Sui")) = 0xc4e05953
 				```
 	*/
 	EVMFamilySelector   = "2812d52c"
 	SVMFamilySelector   = "1e10bdc4"
 	AptosFamilySelector = "ac77ffec"
 	TVMFamilySelector   = "647e2ba9"
+	SuiFamilySelector   = "c4e05953"
 )
 
 var (
-	_ cldf.ChangeSet[UpdateOnRampDestsConfig]                  = UpdateOnRampsDestsChangeset
-	_ cldf.ChangeSet[UpdateOnRampDynamicConfig]                = UpdateOnRampDynamicConfigChangeset
-	_ cldf.ChangeSet[UpdateOnRampAllowListConfig]              = UpdateOnRampAllowListChangeset
-	_ cldf.ChangeSet[WithdrawOnRampFeeTokensConfig]            = WithdrawOnRampFeeTokensChangeset
-	_ cldf.ChangeSet[UpdateOffRampSourcesConfig]               = UpdateOffRampSourcesChangeset
-	_ cldf.ChangeSet[UpdateRouterRampsConfig]                  = UpdateRouterRampsChangeset
-	_ cldf.ChangeSet[UpdateFeeQuoterDestsConfig]               = UpdateFeeQuoterDestsChangeset
-	_ cldf.ChangeSet[SetOCR3OffRampConfig]                     = SetOCR3OffRampChangeset
-	_ cldf.ChangeSet[UpdateDynamicConfigOffRampConfig]         = UpdateDynamicConfigOffRampChangeset
-	_ cldf.ChangeSet[UpdateFeeQuoterPricesConfig]              = UpdateFeeQuoterPricesChangeset
-	_ cldf.ChangeSet[UpdateNonceManagerConfig]                 = UpdateNonceManagersChangeset
-	_ cldf.ChangeSet[ApplyFeeTokensUpdatesConfig]              = ApplyFeeTokensUpdatesFeeQuoterChangeset
-	_ cldf.ChangeSet[UpdateTokenPriceFeedsConfig]              = UpdateTokenPriceFeedsFeeQuoterChangeset
-	_ cldf.ChangeSet[PremiumMultiplierWeiPerEthUpdatesConfig]  = ApplyPremiumMultiplierWeiPerEthUpdatesFeeQuoterChangeset
-	_ cldf.ChangeSet[ApplyTokenTransferFeeConfigUpdatesConfig] = ApplyTokenTransferFeeConfigUpdatesFeeQuoterChangeset
-	_ cldf.ChangeSet[UpdateWrappedNativeOnRouterConfig]        = UpdateWrappedNativeOnRouterChangeset
+	_ cldf.ChangeSetV2[ApplyTokenTransferFeeConfigUpdatesConfigV2] = ApplyTokenTransferFeeConfigUpdatesFeeQuoterChangesetV2
+	_ cldf.ChangeSet[UpdateOnRampDestsConfig]                      = UpdateOnRampsDestsChangeset
+	_ cldf.ChangeSet[UpdateOnRampDynamicConfig]                    = UpdateOnRampDynamicConfigChangeset
+	_ cldf.ChangeSet[UpdateOnRampAllowListConfig]                  = UpdateOnRampAllowListChangeset
+	_ cldf.ChangeSet[WithdrawOnRampFeeTokensConfig]                = WithdrawOnRampFeeTokensChangeset
+	_ cldf.ChangeSet[UpdateOffRampSourcesConfig]                   = UpdateOffRampSourcesChangeset
+	_ cldf.ChangeSet[UpdateRouterRampsConfig]                      = UpdateRouterRampsChangeset
+	_ cldf.ChangeSet[UpdateFeeQuoterDestsConfig]                   = UpdateFeeQuoterDestsChangeset
+	_ cldf.ChangeSet[SetOCR3OffRampConfig]                         = SetOCR3OffRampChangeset
+	_ cldf.ChangeSet[UpdateDynamicConfigOffRampConfig]             = UpdateDynamicConfigOffRampChangeset
+	_ cldf.ChangeSet[UpdateFeeQuoterPricesConfig]                  = UpdateFeeQuoterPricesChangeset
+	_ cldf.ChangeSet[UpdateNonceManagerConfig]                     = UpdateNonceManagersChangeset
+	_ cldf.ChangeSet[ApplyFeeTokensUpdatesConfig]                  = ApplyFeeTokensUpdatesFeeQuoterChangeset
+	_ cldf.ChangeSet[UpdateTokenPriceFeedsConfig]                  = UpdateTokenPriceFeedsFeeQuoterChangeset
+	_ cldf.ChangeSet[PremiumMultiplierWeiPerEthUpdatesConfig]      = ApplyPremiumMultiplierWeiPerEthUpdatesFeeQuoterChangeset
+	_ cldf.ChangeSet[ApplyTokenTransferFeeConfigUpdatesConfig]     = ApplyTokenTransferFeeConfigUpdatesFeeQuoterChangeset
+	_ cldf.ChangeSet[UpdateWrappedNativeOnRouterConfig]            = UpdateWrappedNativeOnRouterChangeset
 )
 
 type UpdateNonceManagerConfig struct {
@@ -111,7 +118,7 @@ type PreviousRampCfg struct {
 }
 
 func (cfg UpdateNonceManagerConfig) Validate(e cldf.Environment) error {
-	state, err := stateview.LoadOnchainState(e)
+	state, err := stateview.LoadOnchainState(e, stateview.WithLoadLegacyContracts(true))
 	if err != nil {
 		return err
 	}
@@ -229,7 +236,7 @@ func UpdateNonceManagersChangeset(e cldf.Environment, cfg UpdateNonceManagerConf
 	if err := cfg.Validate(e); err != nil {
 		return output, err
 	}
-	s, err := stateview.LoadOnchainState(e)
+	s, err := stateview.LoadOnchainState(e, stateview.WithLoadLegacyContracts(true))
 	if err != nil {
 		return output, fmt.Errorf("failed to load onchain state: %w", err)
 	}
@@ -457,7 +464,7 @@ func UpdateOnRampDynamicConfigChangeset(e cldf.Environment, cfg UpdateOnRampDyna
 	if cfg.MCMS == nil || len(batches) == 0 {
 		return cldf.ChangesetOutput{}, nil
 	}
-	mcmsContractByChain, err := deployergroup.BuildMcmAddressesPerChainByAction(e, state, cfg.MCMS)
+	mcmsContractByChain, err := deployergroup.BuildMcmAddressesPerChainByAction(e, state, cfg.MCMS, nil)
 	if err != nil {
 		return cldf.ChangesetOutput{}, fmt.Errorf("error getting mcms contract by chain: %w", err)
 	}
@@ -526,10 +533,8 @@ func (cfg UpdateOnRampAllowListConfig) Validate(env cldf.Environment) error {
 			if len(update.AddedAllowlistedSenders) > 0 && !update.AllowListEnabled {
 				return fmt.Errorf("can't allowlist senders with disabled allowlist for src=%d, dest=%d", srcSel, destSel)
 			}
-			for _, sender := range update.AddedAllowlistedSenders {
-				if sender == (common.Address{}) {
-					return fmt.Errorf("can't allowlist 0-address sender for src=%d, dest=%d", srcSel, destSel)
-				}
+			if slices.Contains(update.AddedAllowlistedSenders, (common.Address{})) {
+				return fmt.Errorf("can't allowlist 0-address sender for src=%d, dest=%d", srcSel, destSel)
 			}
 		}
 	}
@@ -616,7 +621,7 @@ func UpdateOnRampAllowListChangeset(e cldf.Environment, cfg UpdateOnRampAllowLis
 	if cfg.MCMS == nil {
 		return cldf.ChangesetOutput{}, nil
 	}
-	mcmsContractByChain, err := deployergroup.BuildMcmAddressesPerChainByAction(e, onchain, cfg.MCMS)
+	mcmsContractByChain, err := deployergroup.BuildMcmAddressesPerChainByAction(e, onchain, cfg.MCMS, nil)
 	if err != nil {
 		return cldf.ChangesetOutput{}, fmt.Errorf("error getting mcms contract by chain: %w", err)
 	}
@@ -661,13 +666,7 @@ func (cfg WithdrawOnRampFeeTokensConfig) Validate(e cldf.Environment, state stat
 			return err
 		}
 		for _, feeToken := range feeTokens {
-			found := false
-			for _, onchainFeeToken := range onchainFeeTokens {
-				if onchainFeeToken == feeToken {
-					found = true
-					break
-				}
-			}
+			found := slices.Contains(onchainFeeTokens, feeToken)
 			if !found {
 				return fmt.Errorf("unknown fee token address=%s on chain=%d", feeToken.Hex(), chainSel)
 			}
@@ -719,7 +718,7 @@ func WithdrawOnRampFeeTokensChangeset(e cldf.Environment, cfg WithdrawOnRampFeeT
 	if cfg.MCMS == nil {
 		return cldf.ChangesetOutput{}, nil
 	}
-	mcmsContractByChain, err := deployergroup.BuildMcmAddressesPerChainByAction(e, state, cfg.MCMS)
+	mcmsContractByChain, err := deployergroup.BuildMcmAddressesPerChainByAction(e, state, cfg.MCMS, nil)
 	if err != nil {
 		return cldf.ChangesetOutput{}, fmt.Errorf("error getting mcms contract by chain: %w", err)
 	}
@@ -1353,7 +1352,6 @@ func UpdateRouterRampsChangeset(e cldf.Environment, cfg UpdateRouterRampsConfig)
 	if err := cfg.Validate(e, state); err != nil {
 		return cldf.ChangesetOutput{}, err
 	}
-
 	report, err := operations.ExecuteSequence(
 		e.OperationsBundle,
 		ccipseqs.RouterApplyRampUpdatesSequence,
@@ -1419,6 +1417,13 @@ func (c SetOCR3OffRampConfig) validateRemoteChain(e *cldf.Environment, state *st
 		if err := commoncs.ValidateOwnership(e.GetContext(), c.MCMS != nil, e.BlockChains.EVMChains()[chainSelector].DeployerKey.From, chainState.Timelock.Address(), chainState.OffRamp); err != nil {
 			return err
 		}
+	case chain_selectors.FamilySui:
+		_, ok := state.SuiChains[chainSelector]
+		if !ok {
+			return fmt.Errorf("remote chain %d not found in onchain state", chainSelector)
+		}
+		return nil
+
 	case chain_selectors.FamilyTon:
 		_, ok := state.TonChains[chainSelector]
 		if !ok {
@@ -1523,7 +1528,7 @@ func SetOCR3OffRampChangeset(e cldf.Environment, cfg SetOCR3OffRampConfig) (cldf
 	if cfg.MCMS == nil {
 		return cldf.ChangesetOutput{}, nil
 	}
-	mcmsContractByChain, err := deployergroup.BuildMcmAddressesPerChainByAction(e, state, cfg.MCMS)
+	mcmsContractByChain, err := deployergroup.BuildMcmAddressesPerChainByAction(e, state, cfg.MCMS, nil)
 	if err != nil {
 		return cldf.ChangesetOutput{}, fmt.Errorf("error getting mcms contract by chain: %w", err)
 	}
@@ -1638,7 +1643,7 @@ func UpdateDynamicConfigOffRampChangeset(e cldf.Environment, cfg UpdateDynamicCo
 	if cfg.MCMS == nil {
 		return cldf.ChangesetOutput{}, nil
 	}
-	mcmsContractByChain, err := deployergroup.BuildMcmAddressesPerChainByAction(e, state, cfg.MCMS)
+	mcmsContractByChain, err := deployergroup.BuildMcmAddressesPerChainByAction(e, state, cfg.MCMS, nil)
 	if err != nil {
 		return cldf.ChangesetOutput{}, fmt.Errorf("error getting mcms contract by chain: %w", err)
 	}
@@ -1731,6 +1736,8 @@ func DefaultFeeQuoterDestChainConfig(configEnabled bool, destChainSelector ...ui
 			familySelector, _ = hex.DecodeString(AptosFamilySelector) // aptos
 		} else if destFamily == chain_selectors.FamilyTon {
 			familySelector, _ = hex.DecodeString(TVMFamilySelector) // ton
+		} else if destFamily == chain_selectors.FamilySui {
+			familySelector, _ = hex.DecodeString(SuiFamilySelector) // Sui
 		}
 	}
 	return fee_quoter.FeeQuoterDestChainConfig{
@@ -1986,7 +1993,7 @@ func UpdateTokenPriceFeedsFeeQuoterChangeset(e cldf.Environment, cfg UpdateToken
 	if cfg.MCMS == nil {
 		return cldf.ChangesetOutput{}, nil
 	}
-	mcmsContractByChain, err := deployergroup.BuildMcmAddressesPerChainByAction(e, state, cfg.MCMS)
+	mcmsContractByChain, err := deployergroup.BuildMcmAddressesPerChainByAction(e, state, cfg.MCMS, nil)
 	if err != nil {
 		return cldf.ChangesetOutput{}, fmt.Errorf("error getting mcms contract by chain: %w", err)
 	}
@@ -2332,4 +2339,272 @@ func (cfg UpdateWrappedNativeOnRouterConfig) ToSequenceInput(state stateview.CCI
 	return ccipseqs.RouterUpdateWrappedNativeSequenceInput{
 		UpdatesByChain: input,
 	}
+}
+
+type ApplyTokenTransferFeeConfigUpdatesConfigV2Input struct {
+	TokenTransferFeeConfigRemoveArgs []common.Address
+	TokenTransferFeeConfigArgs       map[common.Address]OptionalFeeQuoterTokenTransferFeeConfig
+}
+
+type ApplyTokenTransferFeeConfigUpdatesConfigV2 struct {
+	InputsByChain map[uint64]map[uint64]ApplyTokenTransferFeeConfigUpdatesConfigV2Input
+	MCMS          *proposalutils.TimelockConfig
+}
+
+type OptionalFeeQuoterTokenTransferFeeConfig struct {
+	MinFeeUSDCents    *uint32
+	MaxFeeUSDCents    *uint32
+	DeciBps           *uint16
+	DestGasOverhead   *uint32
+	DestBytesOverhead *uint32
+	IsEnabled         *bool
+}
+
+func (args OptionalFeeQuoterTokenTransferFeeConfig) FillMissingValues(srcSelector uint64, dstSelector uint64) OptionalFeeQuoterTokenTransferFeeConfig {
+	// this config is dynamically adjusted (ethereum is very expensive)
+	minFeeUsdCentsVal := uint32(25)
+
+	// NOTE: we validate that src != dst so only one of these if statements will execute
+	if srcSelector == chain_selectors.ETHEREUM_MAINNET.Selector {
+		minFeeUsdCentsVal = 50
+	}
+	if dstSelector == chain_selectors.ETHEREUM_MAINNET.Selector {
+		minFeeUsdCentsVal = 150
+	}
+
+	// if the user has already provided the config values, then prefer those over sensible defaults
+	minFeeUsdCents := pointer.Coalesce(args.MinFeeUSDCents, minFeeUsdCentsVal)
+	maxFeeUsdCents := pointer.Coalesce(args.MaxFeeUSDCents, uint32(4_294_967_295))
+	destGasOverhead := pointer.Coalesce(args.DestGasOverhead, uint32(90_000))
+	destBytesOverhead := pointer.Coalesce(args.DestBytesOverhead, uint32(32))
+	deciBps := pointer.Coalesce(args.DeciBps, uint16(0))
+	isEnabled := pointer.Coalesce(args.IsEnabled, true)
+
+	// modify the struct in-place
+	args.MinFeeUSDCents = &minFeeUsdCents
+	args.MaxFeeUSDCents = &maxFeeUsdCents
+	args.DeciBps = &deciBps
+	args.DestGasOverhead = &destGasOverhead
+	args.DestBytesOverhead = &destBytesOverhead
+	args.IsEnabled = &isEnabled
+
+	// return the modified config
+	return args
+}
+
+// ApplyTokenTransferFeeConfigUpdatesFeeQuoterChangesetV2 applies per-source/per-dest token transfer fee updates directly to
+// the FeeQuoter using address-keyed inputs. It validates source and dest selectors, forbids zero / duplicate token addresses,
+// fills in missing values with sensible defaults when no on-chain config exists for a token, merges partial inputs with the
+// current on-chain config if it exists, skips no-op updates, and sends a single call per (src,dst). Source chains must be EVM
+// and destinations may be EVM or non-EVM.
+var ApplyTokenTransferFeeConfigUpdatesFeeQuoterChangesetV2 = cldf.CreateChangeSet(
+	applyTokenTransferFeeConfigUpdatesFeeQuoterChangesetV2Logic,
+	applyTokenTransferFeeConfigUpdatesFeeQuoterChangesetV2Precondition,
+)
+
+func applyTokenTransferFeeConfigUpdatesFeeQuoterChangesetV2Precondition(env cldf.Environment, cfg ApplyTokenTransferFeeConfigUpdatesConfigV2) error {
+	if len(cfg.InputsByChain) == 0 {
+		env.Logger.Warn("no inputs were provided - exiting precondition stage gracefully")
+		return nil
+	}
+
+	state, err := stateview.LoadOnchainState(env)
+	if err != nil {
+		return fmt.Errorf("failed to load onchain state: %w", err)
+	}
+
+	for srcSelector, inputs := range cfg.InputsByChain {
+		err := stateview.ValidateChain(env, state, srcSelector, cfg.MCMS)
+		if err != nil {
+			return fmt.Errorf("failed to validate src chain (src = %d): %w", srcSelector, err)
+		}
+		chainState, ok := state.EVMChainState(srcSelector)
+		if !ok {
+			return fmt.Errorf("selector does not exist in EVM chain state (src = %d)", srcSelector)
+		}
+
+		for dstSelector, input := range inputs {
+			if err := stateview.ValidateChain(env, state, dstSelector, cfg.MCMS); err != nil {
+				return fmt.Errorf("failed to validate dst chain (src = %d, dst = %d): %w", srcSelector, dstSelector, err)
+			}
+			if chainState.FeeQuoter == nil {
+				return fmt.Errorf("no fee quoter exists on src chain (src = %d, dst = %d)", srcSelector, dstSelector)
+			}
+			if srcSelector == dstSelector {
+				return fmt.Errorf("destination chain cannot be the same as src chain (src = %d, dst = %d)", srcSelector, dstSelector)
+			}
+
+			tokensToReset := map[common.Address]bool{}
+			for _, tokenAddress := range input.TokenTransferFeeConfigRemoveArgs {
+				if _, exists := tokensToReset[tokenAddress]; exists {
+					return fmt.Errorf("duplicate address in TokenTransferFeeConfigRemoveArgs (src = %d, dst = %d, addr = %s)", srcSelector, dstSelector, tokenAddress.Hex())
+				}
+				if tokenAddress == utils.ZeroAddress {
+					return fmt.Errorf("zero address not allowed in TokenTransferFeeConfigRemoveArgs (src = %d, dst = %d)", srcSelector, dstSelector)
+				}
+				tokensToReset[tokenAddress] = true
+			}
+
+			for tokenAddress := range input.TokenTransferFeeConfigArgs {
+				if tokenAddress == utils.ZeroAddress {
+					return fmt.Errorf("zero address not allowed in TokenTransferFeeConfigArgs (src = %d, dst = %d)", srcSelector, dstSelector)
+				}
+				if _, exists := tokensToReset[tokenAddress]; exists {
+					return fmt.Errorf(
+						"the same address cannot be referenced in both TokenTransferFeeConfigRemoveArgs and TokenTransferFeeConfigArgs (src = %d, dst = %d, addr = %s)",
+						srcSelector,
+						dstSelector,
+						tokenAddress.Hex(),
+					)
+				}
+			}
+		}
+	}
+
+	return nil
+}
+
+func applyTokenTransferFeeConfigUpdatesFeeQuoterChangesetV2Logic(env cldf.Environment, cfg ApplyTokenTransferFeeConfigUpdatesConfigV2) (cldf.ChangesetOutput, error) {
+	if len(cfg.InputsByChain) == 0 {
+		env.Logger.Warn("no inputs were provided - exiting apply stage gracefully")
+		return cldf.ChangesetOutput{}, nil
+	}
+
+	state, err := stateview.LoadOnchainState(env)
+	if err != nil {
+		return cldf.ChangesetOutput{}, fmt.Errorf("failed to load onchain state: %w", err)
+	}
+
+	deployerGroup := deployergroup.
+		NewDeployerGroup(env, state, cfg.MCMS).
+		WithDeploymentContext("SetTokenTransferFeeConfig")
+
+	env.Logger.Info("preparing deployer group transactions")
+	for srcSelector, inputs := range cfg.InputsByChain {
+		env.Logger.Infof("processing src %d", srcSelector)
+		if len(inputs) == 0 {
+			env.Logger.Infof("no inputs were detected for src %d - skipping", srcSelector)
+			continue
+		}
+
+		srcChain, exists := env.BlockChains.EVMChains()[srcSelector]
+		if !exists {
+			return cldf.ChangesetOutput{}, fmt.Errorf("could not find src EVM chain in environment (src = %d)", srcSelector)
+		}
+
+		chainState, exists := state.Chains[srcSelector]
+		if !exists {
+			return cldf.ChangesetOutput{}, fmt.Errorf("could not find chain in state (src = %s)", srcChain.String())
+		}
+
+		opts, err := deployerGroup.GetDeployer(srcSelector)
+		if err != nil {
+			return cldf.ChangesetOutput{}, fmt.Errorf("failed to get deployer (src = %s): %w", srcChain.String(), err)
+		}
+
+		for dstSelector, input := range inputs {
+			dstChain, err := env.BlockChains.GetBySelector(dstSelector)
+			if err != nil {
+				return cldf.ChangesetOutput{}, fmt.Errorf("could not find dst chain in environment (src = %s, dst = %d)", srcChain.String(), dstSelector)
+			}
+
+			tokensToUseDefaultFeeConfigs := make([]fee_quoter.FeeQuoterTokenTransferFeeConfigRemoveArgs, len(input.TokenTransferFeeConfigRemoveArgs))
+			for i, tokenAddress := range input.TokenTransferFeeConfigRemoveArgs {
+				tokensToUseDefaultFeeConfigs[i] = fee_quoter.FeeQuoterTokenTransferFeeConfigRemoveArgs{DestChainSelector: dstSelector, Token: tokenAddress}
+			}
+
+			env.Logger.Infof("found fee quoter on source chain (src = %s, dst = %s, fq = %s)",
+				srcChain.String(),
+				dstChain.String(),
+				chainState.FeeQuoter.Address().Hex(),
+			)
+
+			tokenTransferFeeConfigs := []fee_quoter.FeeQuoterTokenTransferFeeConfigSingleTokenArgs{}
+			for tokenAddress, args := range input.TokenTransferFeeConfigArgs {
+				// This gets the token transfer fee config for the given token - if it doesn't exist, then the zero struct will be returned and `IsEnabled` will be `false`
+				env.Logger.Infof("fetching token transfer fee config (src = %s, dst = %s, token = %s)", srcChain.String(), dstChain.String(), tokenAddress.Hex())
+				curConfig, err := chainState.FeeQuoter.GetTokenTransferFeeConfig(&bind.CallOpts{Context: env.GetContext()}, dstSelector, tokenAddress)
+				if err != nil {
+					return cldf.ChangesetOutput{}, fmt.Errorf("failed to fetch token transfer fee config (src = %s, dst = %s, token = %s): %w", srcChain.String(), dstChain.String(), tokenAddress.Hex(), err)
+				}
+
+				// If no custom config already exists on-chain for the token, then use sensible defaults for any missing fields
+				env.Logger.Infof("fetched token transfer fee config (src = %s, dst = %s, token = %s, cfg = %+v)", srcChain.String(), dstChain.String(), tokenAddress.Hex(), curConfig)
+				if !curConfig.IsEnabled {
+					env.Logger.Infof("no token transfer fee config exists on chain - filling in missing values (src = %s, dst = %s, token = %s, input = %+v)", srcChain.String(), dstChain.String(), tokenAddress.Hex(), args)
+					args = args.FillMissingValues(srcSelector, dstSelector)
+					env.Logger.Infof("missing values have been filled in with sensible defaults (src = %s, dst = %s, token = %s, input = %+v)", srcChain.String(), dstChain.String(), tokenAddress.Hex(), args)
+				}
+
+				// At this point, we're either using inputs from the user (highest precedence), fallback values from the chain, or pre-defined sensible defaults
+				newConfig := fee_quoter.FeeQuoterTokenTransferFeeConfigSingleTokenArgs{
+					Token: tokenAddress,
+					TokenTransferFeeConfig: fee_quoter.FeeQuoterTokenTransferFeeConfig{
+						MinFeeUSDCents:    pointer.Coalesce(args.MinFeeUSDCents, curConfig.MinFeeUSDCents),
+						MaxFeeUSDCents:    pointer.Coalesce(args.MaxFeeUSDCents, curConfig.MaxFeeUSDCents),
+						DeciBps:           pointer.Coalesce(args.DeciBps, curConfig.DeciBps),
+						DestGasOverhead:   pointer.Coalesce(args.DestGasOverhead, curConfig.DestGasOverhead),
+						DestBytesOverhead: pointer.Coalesce(args.DestBytesOverhead, curConfig.DestBytesOverhead),
+						IsEnabled:         pointer.Coalesce(args.IsEnabled, curConfig.IsEnabled),
+					},
+				}
+
+				// Make sure that the config is still valid after merge
+				if newConfig.TokenTransferFeeConfig.MinFeeUSDCents >= newConfig.TokenTransferFeeConfig.MaxFeeUSDCents {
+					return cldf.ChangesetOutput{}, fmt.Errorf("min fee must be less than max fee (src = %s, dst = %s, token = %s)", srcChain.String(), dstChain.String(), tokenAddress.Hex())
+				}
+				if newConfig.TokenTransferFeeConfig.DestBytesOverhead < globals.CCIPLockOrBurnV1RetBytes {
+					return cldf.ChangesetOutput{}, fmt.Errorf("dest bytes overhead must be at least %d (src = %s, dst = %s, token = %s)", globals.CCIPLockOrBurnV1RetBytes, srcChain.String(), dstChain.String(), tokenAddress.Hex())
+				}
+
+				// Check if the new config is different from the on-chain config
+				isDifferent := newConfig.TokenTransferFeeConfig.MinFeeUSDCents != curConfig.MinFeeUSDCents ||
+					newConfig.TokenTransferFeeConfig.MaxFeeUSDCents != curConfig.MaxFeeUSDCents ||
+					newConfig.TokenTransferFeeConfig.DeciBps != curConfig.DeciBps ||
+					newConfig.TokenTransferFeeConfig.DestGasOverhead != curConfig.DestGasOverhead ||
+					newConfig.TokenTransferFeeConfig.DestBytesOverhead != curConfig.DestBytesOverhead ||
+					newConfig.TokenTransferFeeConfig.IsEnabled != curConfig.IsEnabled
+
+				// Only perform an update if the new config is different from the on-chain config
+				env.Logger.Infof("constructed token transfer fee config (src = %s, dst = %s, token = %s, new_cfg = %+v)", srcChain.String(), dstChain.String(), tokenAddress.Hex(), newConfig)
+				if isDifferent {
+					tokenTransferFeeConfigs = append(tokenTransferFeeConfigs, newConfig)
+				} else {
+					env.Logger.Infof("skipping update since input config is the same as on-chain config (src = %s, dst = %s, token = %s, cfg = %+v)", srcChain.String(), dstChain.String(), tokenAddress.Hex(), curConfig)
+				}
+			}
+
+			resetsCount := len(tokensToUseDefaultFeeConfigs)
+			updateCount := len(tokenTransferFeeConfigs)
+			if updateCount == 0 && resetsCount == 0 {
+				env.Logger.Infof("no changes detected (src = %s, dst = %s) - skipping", srcChain.String(), dstChain.String())
+				continue
+			}
+
+			tokenTransferFeeConfigArgs := []fee_quoter.FeeQuoterTokenTransferFeeConfigArgs{}
+			if updateCount > 0 {
+				tokenTransferFeeConfigArgs = []fee_quoter.FeeQuoterTokenTransferFeeConfigArgs{{
+					DestChainSelector:       dstSelector,
+					TokenTransferFeeConfigs: tokenTransferFeeConfigs,
+				}}
+			}
+
+			env.Logger.Infof("setting token transfer fee configs (src = %s, dst = %s, updates = %d, resets = %d)", srcChain.String(), dstChain.String(), updateCount, resetsCount)
+			_, err = chainState.FeeQuoter.ApplyTokenTransferFeeConfigUpdates(opts,
+				tokenTransferFeeConfigArgs,
+				tokensToUseDefaultFeeConfigs,
+			)
+			if err != nil {
+				return cldf.ChangesetOutput{}, fmt.Errorf(
+					"failed to create ApplyTokenTransferFeeConfigUpdates transaction (src = %s, dst = %s): %w",
+					srcChain.String(),
+					dstChain.String(),
+					err,
+				)
+			}
+		}
+	}
+
+	env.Logger.Info("running deployer group")
+	return deployerGroup.Enact()
 }

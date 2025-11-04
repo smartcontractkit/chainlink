@@ -91,12 +91,12 @@ func Test_Queue(t *testing.T) {
 		deleter.On("AsyncDelete", testTransmissions[0].tr).Once()
 
 		// add 5 more transmissions to overflow the queue by 1
-		for i := 0; i < 5; i++ {
+		for range 5 {
 			transmitQueue.Push(testTransmissions[1].tr, testTransmissions[1].ctx)
 		}
 
 		// expecting testTransmissions[0] to get evicted, processed by deleter and not present in the queue anymore
-		for i := 0; i < 7; i++ {
+		for range 7 {
 			tr := transmitQueue.BlockingPop()
 			assert.NotEqual(t, tr.Req, testTransmissions[0].tr)
 		}

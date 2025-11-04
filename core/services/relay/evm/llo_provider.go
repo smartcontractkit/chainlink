@@ -21,6 +21,8 @@ import (
 	coretypes "github.com/smartcontractkit/chainlink-common/pkg/types/core"
 	llotypes "github.com/smartcontractkit/chainlink-common/pkg/types/llo"
 	"github.com/smartcontractkit/chainlink-evm/pkg/chains/legacyevm"
+	config2 "github.com/smartcontractkit/chainlink-evm/pkg/config"
+	evmllo "github.com/smartcontractkit/chainlink-evm/pkg/llo"
 	"github.com/smartcontractkit/chainlink-evm/pkg/logpoller"
 
 	"github.com/smartcontractkit/chainlink/v2/core/config"
@@ -31,10 +33,8 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/llo/mercurytransmitter"
 	"github.com/smartcontractkit/chainlink/v2/core/services/llo/retirement"
 	lloconfig "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/llo/config"
-	evmllo "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/llo"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury/wsrpc"
-	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/types"
 )
 
 var _ commontypes.LLOProvider = (*lloProvider)(nil)
@@ -81,8 +81,8 @@ func NewLLOProvider(
 	chain legacyevm.Chain,
 	configuratorAddress common.Address,
 	cdcFactory channeldefinitions.ChannelDefinitionCacheFactory,
-	relayConfig types.RelayConfig,
-	relayOpts *types.RelayOpts,
+	relayConfig config2.RelayConfig,
+	relayOpts *config2.RelayOpts,
 	csaKeystore coretypes.Keystore,
 	mercuryCfg MercuryConfig,
 	retirementReportCache retirement.RetirementReportCache,
@@ -325,11 +325,11 @@ func (w *mercuryConfigPollerWrapper) close() error {
 	return w.ConfigPoller.Close()
 }
 
-func newLLOConfigPollers(ctx context.Context, lggr logger.Logger, cc evmllo.ConfigCache, lp logpoller.LogPoller, chainID *big.Int, configuratorAddress common.Address, relayConfig types.RelayConfig) (cps []evmllo.ConfigPollerService, configDigester ocrtypes.OffchainConfigDigester, err error) {
+func newLLOConfigPollers(ctx context.Context, lggr logger.Logger, cc evmllo.ConfigCache, lp logpoller.LogPoller, chainID *big.Int, configuratorAddress common.Address, relayConfig config2.RelayConfig) (cps []evmllo.ConfigPollerService, configDigester ocrtypes.OffchainConfigDigester, err error) {
 	donID := relayConfig.LLODONID
 	donIDHash := evmllo.DonIDToBytes32(donID)
 	switch relayConfig.LLOConfigMode {
-	case types.LLOConfigModeMercury:
+	case config2.LLOConfigModeMercury:
 		// NOTE: This uses the old config digest prefix for compatibility with legacy contracts
 		configDigester = mercury.NewOffchainConfigDigester(donIDHash, chainID, configuratorAddress, ocrtypes.ConfigDigestPrefixMercuryV02)
 		// Mercury config poller will register its own filter
@@ -346,7 +346,7 @@ func newLLOConfigPollers(ctx context.Context, lggr logger.Logger, cc evmllo.Conf
 		// don't need to replay in the wrapper since the provider will handle it
 		w := newMercuryConfigPollerWrapper(lggr, mcp, relayConfig.FromBlock, false)
 		cps = []evmllo.ConfigPollerService{w}
-	case types.LLOConfigModeBlueGreen:
+	case config2.LLOConfigModeBlueGreen:
 		// NOTE: Register filter here because the config poller doesn't do it on its own
 		err := lp.RegisterFilter(ctx, logpoller.Filter{Name: lloProviderConfiguratorFilterName(configuratorAddress, donID), EventSigs: []common.Hash{evmllo.ProductionConfigSet, evmllo.StagingConfigSet, evmllo.PromoteStagingConfig}, Topic2: []common.Hash{donIDHash}, Addresses: []common.Address{configuratorAddress}})
 		if err != nil {

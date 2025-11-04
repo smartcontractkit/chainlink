@@ -42,7 +42,7 @@ func TestResolver_ApproveJobProposalSpec(t *testing.T) {
 				}
 			}
 		}`
-	variables := map[string]interface{}{
+	variables := map[string]any{
 		"id": "1",
 	}
 
@@ -146,7 +146,7 @@ func TestResolver_CancelJobProposalSpec(t *testing.T) {
 				}
 			}
 		}`
-	variables := map[string]interface{}{
+	variables := map[string]any{
 		"id": "1",
 	}
 
@@ -233,7 +233,7 @@ func TestResolver_RejectJobProposalSpec(t *testing.T) {
 				}
 			}
 		}`
-	variables := map[string]interface{}{
+	variables := map[string]any{
 		"id": "1",
 	}
 
@@ -320,9 +320,9 @@ func TestResolver_UpdateJobProposalSpecDefinition(t *testing.T) {
 				}
 			}
 		}`
-	variables := map[string]interface{}{
+	variables := map[string]any{
 		"id": "1",
-		"input": map[string]interface{}{
+		"input": map[string]any{
 			"definition": "",
 		},
 	}

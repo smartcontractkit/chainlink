@@ -18,10 +18,12 @@ import (
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/rs/zerolog"
 	chainselectors "github.com/smartcontractkit/chain-selectors"
-	cldf_chain "github.com/smartcontractkit/chainlink-deployments-framework/chain"
-	ccipclient "github.com/smartcontractkit/chainlink/deployment/ccip/shared/client"
+	"github.com/smartcontractkit/quarantine"
 	"github.com/stretchr/testify/require"
 	"golang.org/x/sync/errgroup"
+
+	cldf_chain "github.com/smartcontractkit/chainlink-deployments-framework/chain"
+	ccipclient "github.com/smartcontractkit/chainlink/deployment/ccip/shared/client"
 
 	"github.com/smartcontractkit/chainlink-protos/job-distributor/v1/node"
 	ctf_client "github.com/smartcontractkit/chainlink-testing-framework/lib/client"
@@ -188,6 +190,7 @@ func TestRMN_NotEnoughObservers(t *testing.T) {
 }
 
 func TestRMN_DifferentSigners(t *testing.T) {
+	quarantine.Flaky(t, "DX-2071")
 	runRmnTestCase(t, rmnTestCase{
 		name: "different signers and different observers",
 		homeChainConfig: homeChainConfig{
@@ -212,6 +215,7 @@ func TestRMN_DifferentSigners(t *testing.T) {
 }
 
 func TestRMN_NotEnoughSigners(t *testing.T) {
+	quarantine.Flaky(t, "DX-2045")
 	runRmnTestCase(t, rmnTestCase{
 		name:                "different signers and different observers",
 		passIfNoCommitAfter: 15 * time.Second,
@@ -292,6 +296,7 @@ func TestRMN_TwoMessagesOneSourceChainCursed(t *testing.T) {
 }
 
 func TestRMN_GlobalCurseTwoMessagesOnTwoLanes(t *testing.T) {
+	quarantine.Flaky(t, "DX-2043")
 	runRmnTestCase(t, rmnTestCase{
 		name:        "global curse messages on two lanes",
 		waitForExec: false,

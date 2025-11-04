@@ -26,6 +26,7 @@ import (
 
 	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
 	"github.com/smartcontractkit/chainlink-common/pkg/services/servicetest"
+	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/jsonserializable"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/mailbox/mailboxtest"
 	"github.com/smartcontractkit/chainlink-evm/pkg/types"
@@ -133,7 +134,7 @@ func TestRunner(t *testing.T) {
 
 		m, err := bridges.MarshalBridgeMetaData(big.NewInt(10), big.NewInt(100))
 		require.NoError(t, err)
-		runID, taskResults, err := runner.ExecuteAndInsertFinishedRun(testutils.Context(t), *jb.PipelineSpec, pipeline.NewVarsFrom(map[string]interface{}{"jobRun": map[string]interface{}{"meta": m}}), true)
+		runID, taskResults, err := runner.ExecuteAndInsertFinishedRun(testutils.Context(t), *jb.PipelineSpec, pipeline.NewVarsFrom(map[string]any{"jobRun": map[string]any{"meta": m}}), true)
 		require.NoError(t, err)
 
 		results := taskResults.FinalResult()
@@ -462,7 +463,7 @@ answer1      [type=median index=0];
 		require.NoError(t, err)
 		err = toml.Unmarshal([]byte(s), &jb)
 		require.NoError(t, err)
-		jb.MaxTaskDuration = models.Interval(cltest.MustParseDuration(t, "1s"))
+		jb.MaxTaskDuration = sqlutil.Interval(cltest.MustParseDuration(t, "1s"))
 		err = jobORM.CreateJob(testutils.Context(t), &jb)
 		require.NoError(t, err)
 
@@ -499,10 +500,10 @@ answer1      [type=median index=0];
 		err = toml.Unmarshal([]byte(s), &jb)
 		require.NoError(t, err)
 
-		jb.MaxTaskDuration = models.Interval(cltest.MustParseDuration(t, "1s"))
+		jb.MaxTaskDuration = sqlutil.Interval(cltest.MustParseDuration(t, "1s"))
 		err = jobORM.CreateJob(testutils.Context(t), &jb)
 		require.NoError(t, err)
-		assert.Equal(t, jb.MaxTaskDuration, models.Interval(cltest.MustParseDuration(t, "1s")))
+		assert.Equal(t, jb.MaxTaskDuration, sqlutil.Interval(cltest.MustParseDuration(t, "1s")))
 
 		lggr := logger.TestLogger(t)
 		pw := ocrcommon.NewSingletonPeerWrapper(keyStore, config.P2P(), config.OCR(), db, lggr)
@@ -591,10 +592,10 @@ answer1      [type=median index=0];
 			err = toml.Unmarshal([]byte(s), &jb)
 			require.NoError(t, err)
 
-			jb.MaxTaskDuration = models.Interval(cltest.MustParseDuration(t, "1s"))
+			jb.MaxTaskDuration = sqlutil.Interval(cltest.MustParseDuration(t, "1s"))
 			err = jobORM.CreateJob(testutils.Context(t), &jb)
 			require.NoError(t, err)
-			assert.Equal(t, jb.MaxTaskDuration, models.Interval(cltest.MustParseDuration(t, "1s")))
+			assert.Equal(t, jb.MaxTaskDuration, sqlutil.Interval(cltest.MustParseDuration(t, "1s")))
 
 			lggr := logger.TestLogger(t)
 			pw := ocrcommon.NewSingletonPeerWrapper(keyStore, config.P2P(), config.OCR(), db, lggr)
@@ -735,7 +736,7 @@ answer1      [type=median index=0];
 
 		// Job specified task timeout should fail.
 		jb = makeMinimalHTTPOracleSpec(t, db, config, cltest.NewEIP55Address().String(), transmitterAddress.Hex(), cltest.DefaultOCRKeyBundleID, serv.URL, "")
-		jb.MaxTaskDuration = models.Interval(time.Duration(1))
+		jb.MaxTaskDuration = sqlutil.Interval(time.Duration(1))
 		jb.Name = null.NewString("a job 3", true)
 		err = jobORM.CreateJob(ctx, jb)
 		require.NoError(t, err)
@@ -793,12 +794,12 @@ func TestRunner_Success_Callback_AsyncJob(t *testing.T) {
 
 	var (
 		eiName    = "substrate-ei"
-		eiSpec    = map[string]interface{}{"foo": "bar"}
-		eiRequest = map[string]interface{}{"result": 42}
+		eiSpec    = map[string]any{"foo": "bar"}
+		eiRequest = map[string]any{"result": 42}
 
 		jobUUID = uuid.MustParse("0EEC7E1D-D0D2-476C-A1A8-72DFB6633F46")
 
-		expectedCreateJobRequest = map[string]interface{}{
+		expectedCreateJobRequest = map[string]any{
 			"jobId":  jobUUID.String(),
 			"type":   eiName,
 			"params": eiSpec,
@@ -817,7 +818,7 @@ func TestRunner_Success_Callback_AsyncJob(t *testing.T) {
 				eiNotifiedOfCreate = true
 				defer r.Body.Close()
 
-				var gotCreateJobRequest map[string]interface{}
+				var gotCreateJobRequest map[string]any
 				err := json.NewDecoder(r.Body).Decode(&gotCreateJobRequest)
 				require.NoError(t, err)
 
@@ -861,7 +862,7 @@ func TestRunner_Success_Callback_AsyncJob(t *testing.T) {
 		bridgeServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			defer r.Body.Close()
 
-			var bridgeRequest map[string]interface{}
+			var bridgeRequest map[string]any
 			err := json.NewDecoder(r.Body).Decode(&bridgeRequest)
 			require.NoError(t, err)
 
@@ -946,7 +947,7 @@ func TestRunner_Success_Callback_AsyncJob(t *testing.T) {
 		require.Empty(t, run.PipelineTaskRuns[1].Error)
 		require.Empty(t, run.PipelineTaskRuns[2].Error)
 		require.Empty(t, run.PipelineTaskRuns[3].Error)
-		require.Equal(t, jsonserializable.JSONSerializable{Val: []interface{}{"123450000000000000000"}, Valid: true}, run.Outputs)
+		require.Equal(t, jsonserializable.JSONSerializable{Val: []any{"123450000000000000000"}, Valid: true}, run.Outputs)
 		require.Equal(t, pipeline.RunErrors{null.String{NullString: sql.NullString{String: "", Valid: false}}}, run.FatalErrors)
 	})
 	// Delete the job
@@ -972,12 +973,12 @@ func TestRunner_Error_Callback_AsyncJob(t *testing.T) {
 
 	var (
 		eiName    = "substrate-ei"
-		eiSpec    = map[string]interface{}{"foo": "bar"}
-		eiRequest = map[string]interface{}{"result": 42}
+		eiSpec    = map[string]any{"foo": "bar"}
+		eiRequest = map[string]any{"result": 42}
 
 		jobUUID = uuid.MustParse("0EEC7E1D-D0D2-476C-A1A8-72DFB6633F47")
 
-		expectedCreateJobRequest = map[string]interface{}{
+		expectedCreateJobRequest = map[string]any{
 			"jobId":  jobUUID.String(),
 			"type":   eiName,
 			"params": eiSpec,
@@ -996,7 +997,7 @@ func TestRunner_Error_Callback_AsyncJob(t *testing.T) {
 				eiNotifiedOfCreate = true
 				defer r.Body.Close()
 
-				var gotCreateJobRequest map[string]interface{}
+				var gotCreateJobRequest map[string]any
 				err := json.NewDecoder(r.Body).Decode(&gotCreateJobRequest)
 				require.NoError(t, err)
 
@@ -1040,7 +1041,7 @@ func TestRunner_Error_Callback_AsyncJob(t *testing.T) {
 		bridgeServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			defer r.Body.Close()
 
-			var bridgeRequest map[string]interface{}
+			var bridgeRequest map[string]any
 			err := json.NewDecoder(r.Body).Decode(&bridgeRequest)
 			require.NoError(t, err)
 
@@ -1125,7 +1126,7 @@ func TestRunner_Error_Callback_AsyncJob(t *testing.T) {
 		assert.Equal(t, "something exploded in EA", run.PipelineTaskRuns[1].Error.String)
 		assert.True(t, run.PipelineTaskRuns[2].Error.Valid)
 		assert.True(t, run.PipelineTaskRuns[3].Error.Valid)
-		require.Equal(t, jsonserializable.JSONSerializable{Val: []interface{}{interface{}(nil)}, Valid: true}, run.Outputs)
+		require.Equal(t, jsonserializable.JSONSerializable{Val: []any{any(nil)}, Valid: true}, run.Outputs)
 		require.Equal(t, pipeline.RunErrors{null.String{NullString: sql.NullString{String: "task inputs: too many errors", Valid: true}}}, run.FatalErrors)
 	})
 	// Delete the job

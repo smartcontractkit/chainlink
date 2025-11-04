@@ -5,22 +5,23 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/cockroachdb/errors"
+	"github.com/gagliardetto/solana-go"
+	"github.com/pkg/errors"
 	"google.golang.org/grpc/credentials/insecure"
 
-	"github.com/gagliardetto/solana-go"
-
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
+	cldf_chain "github.com/smartcontractkit/chainlink-deployments-framework/chain"
 	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+	"github.com/smartcontractkit/chainlink-deployments-framework/offchain/jd"
 	focr "github.com/smartcontractkit/chainlink-deployments-framework/offchain/ocr"
 	"github.com/smartcontractkit/chainlink-testing-framework/framework"
-	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/blockchain"
-	deployment_devenv "github.com/smartcontractkit/chainlink/deployment/environment/devenv"
 
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre"
-	crenode "github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/node"
+	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/blockchains"
+	blockchain_sets "github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/blockchains/sets"
 	envconfig "github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/config"
+	"github.com/smartcontractkit/chainlink/system-tests/lib/infra"
 )
 
 // BuildFromSavedState rebuilds the CLDF environment and per‑chain clients from
@@ -34,7 +35,7 @@ import (
 // Artifact paths are recorded in `artifact_paths.json` in the environment
 // directory (typically `core/scripts/cre/environment`).
 // Returns the reconstructed CLDF environment, wrapped blockchain outputs, and an error.
-func BuildFromSavedState(ctx context.Context, cldLogger logger.Logger, cachedInput *envconfig.Config, envArtifact *EnvArtifact) (*cre.Environment, []*cre.WrappedBlockchainOutput, error) {
+func BuildFromSavedState(ctx context.Context, cldLogger logger.Logger, cachedInput *envconfig.Config, envArtifact *EnvArtifact) (*cre.Environment, *cre.Dons, error) {
 	if cachedInput == nil {
 		return nil, nil, errors.New("cached input cannot be nil")
 	}
@@ -43,44 +44,16 @@ func BuildFromSavedState(ctx context.Context, cldLogger logger.Logger, cachedInp
 		return nil, nil, errors.New("environment artifact cannot be nil")
 	}
 
-	if pkErr := SetDefaultPrivateKeyIfEmpty(blockchain.DefaultAnvilPrivateKey); pkErr != nil {
-		return nil, nil, pkErr
-	}
-	// just in case
-	if pkErr := SetDefaultSolanaPrivateKeyIfEmpty(defaultSolanaPrivateKey); pkErr != nil {
-		return nil, nil, pkErr
-	}
-
-	wrappedBlockchainOutputs := make([]*cre.WrappedBlockchainOutput, 0)
-
-	for _, bc := range cachedInput.Blockchains {
-		if bc.Type == blockchain.FamilySolana {
-			initErr := initSolanaInput(&bc)
-			if initErr != nil {
-				return nil, nil, errors.Wrap(initErr, "failed to init solana")
-			}
-			w, err := wrapSolana(&bc, bc.Out)
-			if err != nil {
-				return nil, nil, errors.Wrap(err, "failed to wrap solana")
-			}
-			wrappedBlockchainOutputs = append(wrappedBlockchainOutputs, w)
-			continue
-		}
-
-		if bc.Type == blockchain.FamilyTron {
-			w, err := wrapTron(&bc, bc.Out)
-			if err != nil {
-				return nil, nil, errors.Wrap(err, "failed to wrap tron")
-			}
-			wrappedBlockchainOutputs = append(wrappedBlockchainOutputs, w)
-			continue
-		}
-
-		w, err := wrapEVM(bc.Out)
-		if err != nil {
-			return nil, nil, errors.Wrap(err, "failed to wrap evm")
-		}
-		wrappedBlockchainOutputs = append(wrappedBlockchainOutputs, w)
+	blockchainDeployers := blockchain_sets.NewDeployerSet(framework.L, cachedInput.Infra, infra.CribConfigsDir)
+	deployedBlockchains, startErr := blockchains.Start(
+		ctx,
+		framework.L,
+		cldLogger,
+		cachedInput.Blockchains,
+		blockchainDeployers,
+	)
+	if startErr != nil {
+		return nil, nil, errors.Wrap(startErr, "failed to start blockchains")
 	}
 
 	addressBook := cldf.NewMemoryAddressBookFromMap(envArtifact.AddressBook)
@@ -92,8 +65,24 @@ func BuildFromSavedState(ctx context.Context, cldLogger logger.Logger, cachedInp
 		}
 	}
 
-	allNodeInfo := make([]deployment_devenv.NodeInfo, 0)
 	allNodeIDs := make([]string, 0)
+	donsSlice := make([]*cre.Don, 0, len(envArtifact.DONs))
+
+	jdConfig := jd.JDConfig{
+		GRPC:  envArtifact.JdConfig.ExternalGRPCUrl,
+		WSRPC: envArtifact.JdConfig.ExternalGRPCUrl,
+		Creds: insecure.NewCredentials(),
+	}
+
+	offChain, offChainErr := jd.NewJDClient(jdConfig)
+	if offChainErr != nil {
+		return nil, nil, errors.Wrap(offChainErr, "failed to create offchain client")
+	}
+
+	topology, tErr := cre.NewTopology(cachedInput.NodeSets, *cachedInput.Infra)
+	if tErr != nil {
+		return nil, nil, errors.Wrap(tErr, "failed to recreate topology from artifact")
+	}
 
 	for idx, don := range envArtifact.DONs {
 		_, ok := envArtifact.Nodes[don.DonName]
@@ -105,60 +94,20 @@ func BuildFromSavedState(ctx context.Context, cldLogger logger.Logger, cachedInp
 			allNodeIDs = append(allNodeIDs, id)
 		}
 
-		bootstrapNodes, err := crenode.FindManyWithLabel(envArtifact.Topology.DonsWithMetadata[idx].NodesMetadata, &cre.Label{Key: crenode.NodeTypeKey, Value: cre.BootstrapNode}, crenode.EqualLabels)
-		if err != nil {
-			return nil, nil, errors.Wrap(err, "failed to find bootstrap nodes")
-		}
-
-		nodeInfo, err := crenode.GetNodeInfo(cachedInput.NodeSets[idx].Out, cachedInput.NodeSets[idx].Name, don.DonID, len(bootstrapNodes))
-		if err != nil {
-			return nil, nil, errors.Wrapf(err, "failed to get node info for don %s", don.DonName)
-		}
-		offChain, offChainErr := deployment_devenv.NewJDClient(ctx, deployment_devenv.JDConfig{
-			WSRPC:    envArtifact.JdConfig.ExternalGRPCUrl,
-			GRPC:     envArtifact.JdConfig.ExternalGRPCUrl,
-			Creds:    insecure.NewCredentials(),
-			NodeInfo: nodeInfo,
-		})
-		if offChainErr != nil {
-			return nil, nil, errors.Wrapf(offChainErr, "failed to create offchain client for don %s", don.DonName)
-		}
-
-		jd, ok := offChain.(*deployment_devenv.JobDistributor)
-		if !ok {
-			return nil, nil, errors.Errorf("offchain client is not a JobDistributor for don %s", don.DonName)
-		}
-		registeredDon, donErr := deployment_devenv.NewRegisteredDON(ctx, nodeInfo, *jd)
+		startedDON, donErr := cre.NewDON(ctx, topology.DonsMetadata.List()[idx], cachedInput.NodeSets[idx].Out.CLNodes)
 		if donErr != nil {
 			return nil, nil, errors.Wrapf(donErr, "failed to create DON for don %s", don.DonName)
 		}
-
-		envArtifact.Topology.DonsWithMetadata[idx].DON = registeredDon
-		allNodeInfo = append(allNodeInfo, nodeInfo...)
+		donsSlice = append(donsSlice, startedDON)
 	}
 
-	offChain, offChainErr := deployment_devenv.NewJDClient(ctx, deployment_devenv.JDConfig{
-		WSRPC:    envArtifact.JdConfig.ExternalGRPCUrl,
-		GRPC:     envArtifact.JdConfig.ExternalGRPCUrl,
-		Creds:    insecure.NewCredentials(),
-		NodeInfo: allNodeInfo,
-	})
-	if offChainErr != nil {
-		return nil, nil, errors.Wrapf(offChainErr, "failed to create offchain client")
-	}
-
-	chainConfigs := make([]deployment_devenv.ChainConfig, 0, len(wrappedBlockchainOutputs))
-	for _, output := range wrappedBlockchainOutputs {
-		cfg, cfgErr := cre.ChainConfigFromWrapped(output)
-		if cfgErr != nil {
-			return nil, nil, errors.Wrapf(cfgErr, "failed to build chain config from write for blockchain %s", output.BlockchainOutput.Family)
+	cldfBlockchains := make([]cldf_chain.BlockChain, 0, len(deployedBlockchains.Outputs))
+	for _, db := range deployedBlockchains.Outputs {
+		chain, chainErr := db.ToCldfChain()
+		if chainErr != nil {
+			return nil, nil, errors.Wrap(chainErr, "failed to create cldf chain from blockchain")
 		}
-		chainConfigs = append(chainConfigs, cfg)
-	}
-
-	blockChains, chainErr := deployment_devenv.NewChains(cldLogger, chainConfigs)
-	if chainErr != nil {
-		return nil, nil, errors.Wrapf(chainErr, "failed to create block chains")
+		cldfBlockchains = append(cldfBlockchains, chain)
 	}
 
 	cldEnv := cldf.NewEnvironment(
@@ -172,13 +121,31 @@ func BuildFromSavedState(ctx context.Context, cldLogger logger.Logger, cachedInp
 			return ctx
 		},
 		focr.XXXGenerateTestOCRSecrets(),
-		blockChains,
+		cldf_chain.NewBlockChainsFromSlice(cldfBlockchains),
 	)
 
-	return &cre.Environment{
+	dons := cre.NewDons(donsSlice, envArtifact.GatewayConnectors)
+	linkDonsToJDInput := &cre.LinkDonsToJDInput{
+		JDClient:        offChain,
+		Blockchains:     deployedBlockchains.Outputs,
 		CldfEnvironment: cldEnv,
-		DonTopology:     &envArtifact.Topology,
-	}, wrappedBlockchainOutputs, nil
+		Topology:        topology,
+		Dons:            dons,
+	}
+	var linkErr error
+	cldEnv, linkErr = cre.LinkToJobDistributor(ctx, linkDonsToJDInput)
+	if linkErr != nil {
+		return nil, nil, errors.Wrap(linkErr, "failed to link dons to JD")
+	}
+
+	return &cre.Environment{
+		CldfEnvironment:       cldEnv,
+		Blockchains:           deployedBlockchains.Outputs,
+		RegistryChainSelector: deployedBlockchains.Outputs[0].ChainSelector(),
+		Provider:              *cachedInput.Infra,
+		CapabilityConfigs:     envArtifact.CapabilityConfigs,
+		ContractVersions:      envArtifact.ContractVersions,
+	}, dons, nil
 }
 
 func SetDefaultPrivateKeyIfEmpty(defaultPrivateKey string) error {

@@ -5,14 +5,14 @@ ctf_version = "0.10.30"
 
 [job_distributor.build_config]
 repository = "https://github.com/smartcontractkit/job-distributor"
-branch = "v0.12.7"
+branch = "v0.22.1"
 dockerfile = "e2e/Dockerfile.e2e"
 docker_ctx = "."
-local_image = "job-distributor:0.12.7"
+local_image = "job-distributor:0.22.1"
 
 [job_distributor.pull_config]
-local_image = "job-distributor:0.12.7"
-ecr_image = "{{.ECR}}/job-distributor:0.12.7"
+local_image = "job-distributor:0.22.1"
+ecr_image = "{{.ECR}}/job-distributor:0.22.1"
 
 [chip_ingress.build_config]
 repository = "https://github.com/smartcontractkit/atlas"
@@ -42,3 +42,8 @@ ecr_image = "{{.ECR}}/billing-platform-service:1.36.1"
 [capabilities]
 target_path = "./binaries"
 make_commands = ["install-plugins-public", "install-plugins-private", "install-plugins-local"]
+
+[observability]
+repository = "https://github.com/smartcontractkit/chainlink-observability"
+branch = "main"
+target_path = "~/.local/share/observability"

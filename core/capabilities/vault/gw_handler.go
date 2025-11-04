@@ -284,7 +284,7 @@ func (h *GatewayHandler) handlePublicKeyGet(ctx context.Context, gatewayID strin
 
 	resp, err := h.secretsService.GetPublicKey(ctx, r)
 	if err != nil {
-		return h.errorResponse(ctx, gatewayID, req, api.HandlerError, fmt.Errorf("failed to list secret identifiers: %w", err))
+		return h.errorResponse(ctx, gatewayID, req, api.HandlerError, fmt.Errorf("failed to get public key: %w", err))
 	}
 
 	b, err := json.Marshal(resp)

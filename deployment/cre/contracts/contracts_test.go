@@ -1,25 +1,26 @@
 package contracts_test
 
 import (
-	"maps"
-	"slices"
 	"testing"
 
 	"github.com/Masterminds/semver/v3"
 	chainsel "github.com/smartcontractkit/chain-selectors"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"go.uber.org/zap/zapcore"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-evm/pkg/testutils"
 
+	cldf_evm "github.com/smartcontractkit/chainlink-deployments-framework/chain/evm"
 	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
+	"github.com/smartcontractkit/chainlink-deployments-framework/engine/test/environment"
+	"github.com/smartcontractkit/chainlink-deployments-framework/engine/test/onchain"
+	"github.com/smartcontractkit/chainlink-deployments-framework/engine/test/runtime"
 
+	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/common/types"
 	"github.com/smartcontractkit/chainlink/deployment/cre/contracts"
-	"github.com/smartcontractkit/chainlink/deployment/environment/memory"
 	"github.com/smartcontractkit/chainlink/deployment/keystone/changeset"
 
 	capabilities_registry "github.com/smartcontractkit/chainlink-evm/gethwrappers/keystone/generated/capabilities_registry_1_1_0"
@@ -29,7 +30,12 @@ func TestGetOwnableContractV2(t *testing.T) {
 	t.Parallel()
 	v1 := semver.MustParse("1.1.0")
 
-	chain := memory.NewMemoryChain(t, chainsel.ETHEREUM_TESTNET_SEPOLIA_ARBITRUM_1.Selector)
+	selector := chainsel.TEST_90000001.Selector
+	bc, err := onchain.NewEVMSimLoader().Load(t, []uint64{selector})
+	require.NoError(t, err)
+
+	chain, ok := bc[0].(cldf_evm.Chain)
+	require.True(t, ok)
 
 	t.Run("finds contract when targetAddr is provided", func(t *testing.T) {
 		t.Parallel()
@@ -41,7 +47,7 @@ func TestGetOwnableContractV2(t *testing.T) {
 
 		// Create an address ref
 		addrRef := datastore.AddressRef{
-			ChainSelector: chainsel.ETHEREUM_TESTNET_SEPOLIA_ARBITRUM_1.Selector,
+			ChainSelector: selector,
 			Address:       targetAddrStr,
 			Type:          datastore.ContractType(contracts.CapabilitiesRegistry),
 			Version:       v1,
@@ -70,7 +76,7 @@ func TestGetOwnableContractV2(t *testing.T) {
 
 		// Create an address ref for existing address
 		addrRef := datastore.AddressRef{
-			ChainSelector: chainsel.ETHEREUM_TESTNET_SEPOLIA_ARBITRUM_1.Selector,
+			ChainSelector: selector,
 			Address:       targetAddrStr,
 			Type:          datastore.ContractType(contracts.CapabilitiesRegistry),
 			Version:       v1,
@@ -89,27 +95,30 @@ func TestGetOwnableContractV2(t *testing.T) {
 func TestGetOwnerTypeAndVersionV2(t *testing.T) {
 	t.Parallel()
 
-	lggr := logger.Test(t)
-	cfg := memory.MemoryEnvironmentConfig{
-		Chains: 1,
-	}
+	selector := chainsel.TEST_90000001.Selector
+	rt, err := runtime.New(t.Context(), runtime.WithEnvOpts(
+		environment.WithEVMSimulated(t, []uint64{selector}),
+		environment.WithLogger(logger.Test(t)),
+	))
+	require.NoError(t, err)
+
+	// Deploy the capability registry
+	err = rt.Exec(
+		runtime.ChangesetTask(cldf.CreateLegacyChangeSet(changeset.DeployCapabilityRegistryV2), &changeset.DeployRequestV2{
+			ChainSel: selector,
+		}),
+	)
+	require.NoError(t, err)
+
+	chain := rt.Environment().BlockChains.EVMChains()[selector]
+
+	addrs, err := rt.State().DataStore.Addresses().Fetch()
+	require.NoError(t, err)
+	require.Len(t, addrs, 1)
+	targetAddrStr := addrs[0].Address
 
 	t.Run("finds owner in datastore", func(t *testing.T) {
 		t.Parallel()
-
-		env := memory.NewMemoryEnvironment(t, lggr, zapcore.DebugLevel, cfg)
-		evmChains := env.BlockChains.EVMChains()
-		chain := evmChains[slices.Collect(maps.Keys(evmChains))[0]]
-
-		resp, err := changeset.DeployCapabilityRegistryV2(env, &changeset.DeployRequestV2{ChainSel: chain.Selector})
-		require.NoError(t, err)
-		require.NotNil(t, resp)
-
-		// Get the deployed registry address
-		addrs, err := resp.DataStore.Addresses().Fetch()
-		require.NoError(t, err)
-		require.Len(t, addrs, 1)
-		targetAddrStr := addrs[0].Address
 
 		// Create datastore and save registry address
 		ds := datastore.NewMemoryDataStore()
@@ -150,19 +159,6 @@ func TestGetOwnerTypeAndVersionV2(t *testing.T) {
 	t.Run("nil owner when owner not in datastore", func(t *testing.T) {
 		t.Parallel()
 
-		env := memory.NewMemoryEnvironment(t, lggr, zapcore.DebugLevel, cfg)
-		evmChains := env.BlockChains.EVMChains()
-		chain := evmChains[slices.Collect(maps.Keys(evmChains))[0]]
-
-		resp, err := changeset.DeployCapabilityRegistryV2(env, &changeset.DeployRequestV2{ChainSel: chain.Selector})
-		require.NoError(t, err)
-		require.NotNil(t, resp)
-
-		addrs, err := resp.DataStore.Addresses().Fetch()
-		require.NoError(t, err)
-		require.Len(t, addrs, 1)
-		targetAddrStr := addrs[0].Address
-
 		// Create datastore and save only registry address (not owner)
 		ds := datastore.NewMemoryDataStore()
 		v1 := semver.MustParse("1.1.0")
@@ -188,26 +184,31 @@ func TestGetOwnerTypeAndVersionV2(t *testing.T) {
 func TestNewOwnableV2(t *testing.T) {
 	t.Parallel()
 
-	lggr := logger.Test(t)
-	cfg := memory.MemoryEnvironmentConfig{
-		Chains: 1,
-	}
+	selector := chainsel.TEST_90000001.Selector
+	rt, err := runtime.New(t.Context(), runtime.WithEnvOpts(
+		environment.WithEVMSimulated(t, []uint64{selector}),
+		environment.WithLogger(logger.Test(t)),
+	))
+	require.NoError(t, err)
+
+	// Deploy the capability registry
+	err = rt.Exec(
+		runtime.ChangesetTask(cldf.CreateLegacyChangeSet(changeset.DeployCapabilityRegistryV2), &changeset.DeployRequestV2{
+			ChainSel: selector,
+		}),
+	)
+	require.NoError(t, err)
+
+	chain := rt.Environment().BlockChains.EVMChains()[selector]
+
+	// Get the deployed registry address
+	addrs, err := rt.State().DataStore.Addresses().Fetch()
+	require.NoError(t, err)
+	require.Len(t, addrs, 1)
+	targetAddrStr := addrs[0].Address
 
 	t.Run("creates OwnedContract for non-MCMS owner", func(t *testing.T) {
 		t.Parallel()
-
-		env := memory.NewMemoryEnvironment(t, lggr, zapcore.DebugLevel, cfg)
-		evmChains := env.BlockChains.EVMChains()
-		chain := evmChains[slices.Collect(maps.Keys(evmChains))[0]]
-
-		resp, err := changeset.DeployCapabilityRegistryV2(env, &changeset.DeployRequestV2{ChainSel: chain.Selector})
-		require.NoError(t, err)
-		require.NotNil(t, resp)
-
-		addrs, err := resp.DataStore.Addresses().Fetch()
-		require.NoError(t, err)
-		require.Len(t, addrs, 1)
-		targetAddrStr := addrs[0].Address
 
 		// Create datastore and save registry
 		ds := datastore.NewMemoryDataStore()
@@ -249,18 +250,6 @@ func TestNewOwnableV2(t *testing.T) {
 	t.Run("creates OwnedContract for MCMS owner", func(t *testing.T) {
 		t.Parallel()
 
-		env := memory.NewMemoryEnvironment(t, lggr, zapcore.DebugLevel, cfg)
-		evmChains := env.BlockChains.EVMChains()
-		chain := evmChains[slices.Collect(maps.Keys(evmChains))[0]]
-
-		resp, err := changeset.DeployCapabilityRegistryV2(env, &changeset.DeployRequestV2{ChainSel: chain.Selector})
-		require.NoError(t, err)
-		require.NotNil(t, resp)
-
-		addrs, err := resp.DataStore.Addresses().Fetch()
-		require.NoError(t, err)
-		require.Len(t, addrs, 1)
-		targetAddrStr := addrs[0].Address
 		// Create datastore and save registry
 		ds := datastore.NewMemoryDataStore()
 		v1 := semver.MustParse("1.1.0")
@@ -300,19 +289,6 @@ func TestNewOwnableV2(t *testing.T) {
 	t.Run("no error when owner type lookup fails due to missing address in datastore (it is non-MCMS owned)", func(t *testing.T) {
 		t.Parallel()
 
-		env := memory.NewMemoryEnvironment(t, lggr, zapcore.DebugLevel, cfg)
-		evmChains := env.BlockChains.EVMChains()
-		chain := evmChains[slices.Collect(maps.Keys(evmChains))[0]]
-
-		resp, err := changeset.DeployCapabilityRegistryV2(env, &changeset.DeployRequestV2{ChainSel: chain.Selector})
-		require.NoError(t, err)
-		require.NotNil(t, resp)
-
-		addrs, err := resp.DataStore.Addresses().Fetch()
-		require.NoError(t, err)
-		require.Len(t, addrs, 1)
-		targetAddrStr := addrs[0].Address
-
 		// Create datastore and save only registry (not owner)
 		ds := datastore.NewMemoryDataStore()
 		v1 := semver.MustParse("1.1.0")
@@ -342,26 +318,30 @@ func TestNewOwnableV2(t *testing.T) {
 func TestGetOwnedContractV2(t *testing.T) {
 	t.Parallel()
 
-	lggr := logger.Test(t)
-	cfg := memory.MemoryEnvironmentConfig{
-		Chains: 1,
-	}
+	selector := chainsel.TEST_90000001.Selector
+	rt, err := runtime.New(t.Context(), runtime.WithEnvOpts(
+		environment.WithEVMSimulated(t, []uint64{selector}),
+		environment.WithLogger(logger.Test(t)),
+	))
+	require.NoError(t, err)
+
+	// Deploy the capability registry
+	err = rt.Exec(
+		runtime.ChangesetTask(cldf.CreateLegacyChangeSet(changeset.DeployCapabilityRegistryV2), &changeset.DeployRequestV2{
+			ChainSel: selector,
+		}),
+	)
+	require.NoError(t, err)
+
+	chain := rt.Environment().BlockChains.EVMChains()[selector]
+
+	addrs, err := rt.State().DataStore.Addresses().Fetch()
+	require.NoError(t, err)
+	require.Len(t, addrs, 1)
+	targetAddrStr := addrs[0].Address
 
 	t.Run("successfully creates owned contract", func(t *testing.T) {
 		t.Parallel()
-
-		env := memory.NewMemoryEnvironment(t, lggr, zapcore.DebugLevel, cfg)
-		evmChains := env.BlockChains.EVMChains()
-		chain := evmChains[slices.Collect(maps.Keys(evmChains))[0]]
-
-		resp, err := changeset.DeployCapabilityRegistryV2(env, &changeset.DeployRequestV2{ChainSel: chain.Selector})
-		require.NoError(t, err)
-		require.NotNil(t, resp)
-
-		addrs, err := resp.DataStore.Addresses().Fetch()
-		require.NoError(t, err)
-		require.Len(t, addrs, 1)
-		targetAddrStr := addrs[0].Address
 
 		// Create datastore and save registry
 		ds := datastore.NewMemoryDataStore()
@@ -385,10 +365,6 @@ func TestGetOwnedContractV2(t *testing.T) {
 
 	t.Run("errors when address not found in datastore", func(t *testing.T) {
 		t.Parallel()
-
-		env := memory.NewMemoryEnvironment(t, lggr, zapcore.DebugLevel, cfg)
-		evmChains := env.BlockChains.EVMChains()
-		chain := evmChains[slices.Collect(maps.Keys(evmChains))[0]]
 
 		// Create empty datastore
 		ds := datastore.NewMemoryDataStore()

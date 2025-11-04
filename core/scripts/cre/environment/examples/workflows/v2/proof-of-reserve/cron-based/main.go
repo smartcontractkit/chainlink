@@ -8,7 +8,6 @@ import (
 	"fmt"
 	"log/slog"
 	"math/big"
-	"strings"
 	"time"
 
 	"gopkg.in/yaml.v3"
@@ -18,7 +17,7 @@ import (
 
 	chain_selectors "github.com/smartcontractkit/chain-selectors"
 
-	"github.com/smartcontractkit/chainlink-common/pkg/values/pb"
+	"github.com/smartcontractkit/chainlink-protos/cre/go/values"
 
 	"github.com/smartcontractkit/cre-sdk-go/capabilities/blockchain/evm"
 	"github.com/smartcontractkit/cre-sdk-go/capabilities/networking/http"
@@ -27,31 +26,9 @@ import (
 	"github.com/smartcontractkit/cre-sdk-go/cre/wasm"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/workflows/sdk"
-	workflowpb "github.com/smartcontractkit/chainlink-common/pkg/workflows/sdk/v2/pb"
+	"github.com/smartcontractkit/chainlink-evm/gethwrappers/keystone/generated/balance_reader"
 	types "github.com/smartcontractkit/chainlink/core/scripts/cre/environment/examples/workflows/v2/proof-of-reserve/cron-based/types"
 )
-
-const balanceReaderABIJson = `[
-   {
-      "inputs":[
-         {
-            "internalType":"address[]",
-            "name":"addresses",
-            "type":"address[]"
-         }
-      ],
-      "name":"getNativeBalances",
-      "outputs":[
-         {
-            "internalType":"uint256[]",
-            "name":"",
-            "type":"uint256[]"
-         }
-      ],
-      "stateMutability":"view",
-      "type":"function"
-   }
-]`
 
 func RunProofOfReservesWorkflow(config types.WorkflowConfig, logger *slog.Logger, secretsProvider cre.SecretsProvider) (cre.Workflow[types.WorkflowConfig], error) {
 	return cre.Workflow[types.WorkflowConfig]{
@@ -76,20 +53,22 @@ func onTrigger(config types.WorkflowConfig, runtime cre.Runtime, payload *cron.P
 	// The happy-path scenario in the system tests guarantees there are at least two addresses present.
 	// However, in real-world usage, it is advisable to implement
 	// proper validation for the configuration and handle possible errors.
-	addressToRead_1 := addressesToRead[0]
+	addressToRead1 := addressesToRead[0]
 	balanceAtOutput, err := evmClient.BalanceAt(runtime, &evm.BalanceAtRequest{
-		Account:     addressToRead_1.Bytes(),
+		Account:     addressToRead1.Bytes(),
 		BlockNumber: nil,
 	}).Await()
 	if err != nil {
 		runtime.Logger().Error(fmt.Sprintf("[logger] failed to get on-chain balance: %v", err))
 		return "", fmt.Errorf("failed to get on-chain balance: %w", err)
 	}
-	balanceAtResult := pb.NewIntFromBigInt(balanceAtOutput.Balance)
-	runtime.Logger().With().Info(fmt.Sprintf("[logger] Got on-chain balance with BalanceAt() for address %s: %s", addressToRead_1, balanceAtResult.String()))
+	runtime.Logger().With().Info(fmt.Sprintf("[logger] Got on-chain balance with BalanceAt() for address %s: %s", addressToRead1, balanceAtOutput.Balance.String()))
+	// Convert protobuf BigInt to big.Int manually to avoid import conflicts
+	balanceAtResult := values.ProtoToBigInt(balanceAtOutput.Balance)
+	runtime.Logger().With().Info(fmt.Sprintf("[logger] Got on-chain balance with BalanceAt() for address %s: %s", addressToRead1, balanceAtResult.String()))
 
 	// get balance with CallContract
-	readBalancesParsedABI, err := getReadBalancesContractABI(runtime, balanceReaderABIJson)
+	readBalancesParsedABI, err := getReadBalancesContractABI(runtime)
 	if err != nil {
 		runtime.Logger().Error(fmt.Sprintf("failed to get ReadBalances ABI: %v", err))
 		return "", fmt.Errorf("failed to get ReadBalances ABI: %w", err)
@@ -98,9 +77,10 @@ func onTrigger(config types.WorkflowConfig, runtime cre.Runtime, payload *cron.P
 	// To test that reading the contract is operational, it is sufficient to use 1 address.
 	// For testing purposes, there is no index out of range or nil handling,
 	// see comments above for more details (TL:DR; implement your own proper validation)
-	addressToRead_2 := addressesToRead[1]
-	readBalancesOutput, err := readBalancesFromContract([]common.Address{addressToRead_2}, readBalancesParsedABI, evmClient, runtime, config)
+	addressToRead2 := addressesToRead[1]
+	readBalancesOutput, err := readBalancesFromContract([]common.Address{addressToRead2}, readBalancesParsedABI, evmClient, runtime, config)
 	if err != nil {
+		runtime.Logger().Error(fmt.Sprintf("failed to read balances from contract: %v", err))
 		return "", fmt.Errorf("failed to read balances from contract: %w", err)
 	}
 
@@ -108,6 +88,7 @@ func onTrigger(config types.WorkflowConfig, runtime cre.Runtime, payload *cron.P
 	methodName := "getNativeBalances"
 	err = readBalancesParsedABI.UnpackIntoInterface(&readBalancePrices, methodName, readBalancesOutput.Data)
 	if err != nil {
+		runtime.Logger().Error(fmt.Sprintf("failed to read CallContract output: %v", err))
 		return "", fmt.Errorf("failed to read CallContract output: %w", err)
 	}
 	runtime.Logger().With().Info(fmt.Sprintf("Read on-onchain balances for addresses %v: %v", addressesToRead, &readBalancePrices))
@@ -124,6 +105,7 @@ func onTrigger(config types.WorkflowConfig, runtime cre.Runtime, payload *cron.P
 		func(config types.WorkflowConfig, nodeRuntime cre.NodeRuntime) (priceOutput, error) {
 			httpOutput, err := getHTTPPrice(config, nodeRuntime)
 			if err != nil {
+				runtime.Logger().Error(fmt.Sprintf("failed to get HTTP price: %v", err))
 				return priceOutput{}, fmt.Errorf("failed to get HTTP price: %w", err)
 			}
 			httpOutput.Price.Add(httpOutput.Price, &totalOnChainBalance)
@@ -132,6 +114,7 @@ func onTrigger(config types.WorkflowConfig, runtime cre.Runtime, payload *cron.P
 		cre.ConsensusIdenticalAggregation[priceOutput](),
 	).Await()
 	if err != nil {
+		runtime.Logger().Error(fmt.Sprintf("failed to get price: %v", err))
 		return "", fmt.Errorf("failed to get price: %w", err)
 	}
 	runtime.Logger().With().Info(fmt.Sprintf("Got price: %s, for feed: %s, at time: %d", totalPriceOutput.Price.String(), common.Bytes2Hex(totalPriceOutput.FeedID[:]), totalPriceOutput.Timestamp))
@@ -141,7 +124,7 @@ func onTrigger(config types.WorkflowConfig, runtime cre.Runtime, payload *cron.P
 		return "", fmt.Errorf("failed to pack price report: %w", err)
 	}
 
-	report, err := runtime.GenerateReport(&workflowpb.ReportRequest{
+	report, err := runtime.GenerateReport(&cre.ReportRequest{
 		EncodedPayload: encodedPrice,
 		EncoderName:    "evm",
 		SigningAlgo:    "ecdsa",
@@ -176,20 +159,22 @@ func onTrigger(config types.WorkflowConfig, runtime cre.Runtime, payload *cron.P
 	return message, nil
 }
 
-func getReadBalancesContractABI(runtime cre.Runtime, balanceReaderABI string) (abi.ABI, error) {
-	parsedABI, err := abi.JSON(strings.NewReader(balanceReaderABI))
-	if err != nil {
-		runtime.Logger().Error(fmt.Sprintf("failed to parse ABI: %v", err))
-		return abi.ABI{}, fmt.Errorf("failed to parse ABI: %w", err)
+func getReadBalancesContractABI(runtime cre.Runtime) (*abi.ABI, error) {
+	runtime.Logger().Info("getting Balance Reader contract ABI")
+	readBalancesABI, abiErr := balance_reader.BalanceReaderMetaData.GetAbi()
+	if abiErr != nil {
+		runtime.Logger().Error("failed to get Balance Reader contract ABI", "error", abiErr)
+		return nil, fmt.Errorf("failed to get Balance Reader contract ABI: %w", abiErr)
 	}
-	runtime.Logger().With().Info(fmt.Sprintln("Parsed ABI successfully"))
-	return parsedABI, nil
+	runtime.Logger().Info("successfully got Balance Reader contract ABI")
+	return readBalancesABI, nil
 }
 
-func readBalancesFromContract(addresses []common.Address, readBalancesABI abi.ABI, evmClient evm.Client, runtime cre.Runtime, config types.WorkflowConfig) (*evm.CallContractReply, error) {
+func readBalancesFromContract(addresses []common.Address, readBalancesABI *abi.ABI, evmClient evm.Client, runtime cre.Runtime, config types.WorkflowConfig) (*evm.CallContractReply, error) {
 	methodName := "getNativeBalances"
 	packedData, err := readBalancesABI.Pack(methodName, addresses)
 	if err != nil {
+		runtime.Logger().Error(fmt.Sprintf("failed to pack read balances call: %v", err))
 		return nil, fmt.Errorf("failed to pack read balances call: %w", err)
 	}
 	readBalancesOutput, err := evmClient.CallContract(runtime, &evm.CallContractRequest{
@@ -243,9 +228,9 @@ func getHTTPPrice(config types.WorkflowConfig, runtime cre.NodeRuntime) (priceOu
 	}
 
 	fetchRequest := http.Request{
-		Url:       config.URL + "?feedID=" + config.FeedID,
-		Method:    "GET",
-		TimeoutMs: 5000,
+		Url:    config.URL + "?feedID=" + config.FeedID,
+		Method: "GET",
+		//Timeout: durationpb.New(5 * time.Second),
 	}
 
 	if string(config.AuthKey) != "" {

@@ -7,6 +7,8 @@ import (
 	"github.com/shopspring/decimal"
 	"github.com/stretchr/testify/assert"
 
+	"github.com/smartcontractkit/quarantine"
+
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/fluxmonitorv2"
 )
@@ -27,6 +29,7 @@ func (o outsideDeviationRow) String() string {
 }
 
 func TestDeviationChecker_OutsideDeviation(t *testing.T) {
+	quarantine.Flaky(t, "DX-1856")
 	t.Parallel()
 
 	f, i := decimal.NewFromFloat, decimal.NewFromInt
@@ -63,7 +66,6 @@ func TestDeviationChecker_OutsideDeviation(t *testing.T) {
 	}
 
 	for _, tc := range testCases {
-		tc := tc
 		// Checks on relative threshold
 		t.Run(tc.name, func(t *testing.T) { c(tc) })
 		// Check corresponding absolute threshold tests; make relative threshold

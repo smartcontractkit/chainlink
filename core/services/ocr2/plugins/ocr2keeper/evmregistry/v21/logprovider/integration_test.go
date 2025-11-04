@@ -14,6 +14,8 @@ import (
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zapcore"
 
+	"github.com/smartcontractkit/quarantine"
+
 	"github.com/smartcontractkit/chainlink-automation/pkg/v3/types"
 	"github.com/smartcontractkit/chainlink-common/pkg/services/servicetest"
 	ocr2keepers "github.com/smartcontractkit/chainlink-common/pkg/types/automation"
@@ -124,6 +126,7 @@ func TestIntegration_LogEventProvider(t *testing.T) {
 }
 
 func TestIntegration_LogEventProvider_UpdateConfig(t *testing.T) {
+	quarantine.Flaky(t, "DX-1779")
 	ctx := testutils.Context(t)
 
 	backend, stopMining, accounts := setupBackend(t)
@@ -197,6 +200,7 @@ func TestIntegration_LogEventProvider_UpdateConfig(t *testing.T) {
 }
 
 func TestIntegration_LogEventProvider_Backfill(t *testing.T) {
+	quarantine.Flaky(t, "DX-1766")
 	ctx, cancel := context.WithTimeout(testutils.Context(t), time.Second*60)
 	defer cancel()
 
@@ -225,7 +229,7 @@ func TestIntegration_LogEventProvider_Backfill(t *testing.T) {
 	poll := pollFn(ctx, t, lp, ethClient)
 
 	rounds := 8
-	for i := 0; i < rounds; i++ {
+	for range rounds {
 		poll(backend.Commit())
 		triggerEvents(ctx, t, backend.Commit, carrol, n, poll, contracts...)
 		poll(backend.Commit())
@@ -249,6 +253,7 @@ func TestIntegration_LogEventProvider_Backfill(t *testing.T) {
 }
 
 func TestIntegration_LogRecoverer_Backfill(t *testing.T) {
+	quarantine.Flaky(t, "DX-1889")
 	ctx := testutils.Context(t)
 
 	backend, stopMining, accounts := setupBackend(t)
@@ -282,7 +287,7 @@ func TestIntegration_LogRecoverer_Backfill(t *testing.T) {
 	poll := pollFn(ctx, t, lp, ethClient)
 
 	rounds := 8
-	for i := 0; i < rounds; i++ {
+	for range rounds {
 		triggerEvents(ctx, t, backend.Commit, carrol, n, poll, contracts...)
 		poll(backend.Commit())
 	}
@@ -413,7 +418,7 @@ func deployUpkeepCounter(
 	contractsAddrs []common.Address,
 	contracts []*log_upkeep_counter_wrapper.LogUpkeepCounter,
 ) {
-	for i := 0; i < n; i++ {
+	for range n {
 		upkeepAddr, _, upkeepContract, err := log_upkeep_counter_wrapper.DeployLogUpkeepCounter(
 			account, backend.Client(),
 			big.NewInt(100000),

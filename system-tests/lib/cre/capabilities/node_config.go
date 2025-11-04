@@ -4,12 +4,12 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"strconv"
 
 	"github.com/pkg/errors"
 
+	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/clnode"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre"
-	libnode "github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/node"
+	"github.com/smartcontractkit/chainlink/system-tests/lib/infra"
 )
 
 func MakeBinariesExecutable(customBinariesPaths map[cre.CapabilityFlag]string) error {
@@ -37,15 +37,15 @@ func MakeBinariesExecutable(customBinariesPaths map[cre.CapabilityFlag]string) e
 	return nil
 }
 
-func AppendBinariesPathsNodeSpec(nodeSetInput *cre.CapabilitiesAwareNodeSet, donMetadata *cre.DonMetadata, customBinariesPaths map[cre.CapabilityFlag]string) (*cre.CapabilitiesAwareNodeSet, error) {
+func AppendBinariesPathsNodeSpec(nodeSet *cre.NodeSet, donMetadata *cre.DonMetadata, customBinariesPaths map[cre.CapabilityFlag]string) (*cre.NodeSet, error) {
 	if len(customBinariesPaths) == 0 {
-		return nodeSetInput, nil
+		return nodeSet, nil
 	}
 
 	// if no capabilities are defined in TOML, but DON has ones that we know require custom binaries
 	// append them to the node specification
 	hasCapabilitiesBinaries := false
-	for _, nodeInput := range nodeSetInput.NodeSpecs {
+	for _, nodeInput := range nodeSet.NodeSpecs {
 		if len(nodeInput.Node.CapabilitiesBinaryPaths) > 0 {
 			hasCapabilitiesBinaries = true
 			break
@@ -58,29 +58,29 @@ func AppendBinariesPathsNodeSpec(nodeSetInput *cre.CapabilitiesAwareNodeSet, don
 				return nil, fmt.Errorf("binary path for capability %s is empty. Make sure you have set the binary path in the TOML config", capabilityFlag)
 			}
 
-			workerNodes, wErr := libnode.FindManyWithLabel(donMetadata.NodesMetadata, &cre.Label{
-				Key:   libnode.NodeTypeKey,
-				Value: cre.WorkerNode,
-			}, libnode.EqualLabels)
+			workerNodes, wErr := donMetadata.Workers()
 			if wErr != nil {
 				return nil, errors.Wrap(wErr, "failed to find worker nodes")
 			}
 
-			for _, node := range workerNodes {
-				nodeIndexStr, nErr := libnode.FindLabelValue(node, libnode.IndexKey)
-				if nErr != nil {
-					return nil, errors.Wrap(nErr, "failed to find index label")
-				}
-
-				nodeIndex, nIErr := strconv.Atoi(nodeIndexStr)
-				if nIErr != nil {
-					return nil, errors.Wrap(nIErr, "failed to convert index label value to int")
-				}
-
-				nodeSetInput.NodeSpecs[nodeIndex].Node.CapabilitiesBinaryPaths = append(nodeSetInput.NodeSpecs[nodeIndex].Node.CapabilitiesBinaryPaths, binaryPath)
+			for _, workerNode := range workerNodes {
+				nodeSet.NodeSpecs[workerNode.Index].Node.CapabilitiesBinaryPaths = append(nodeSet.NodeSpecs[workerNode.Index].Node.CapabilitiesBinaryPaths, binaryPath)
 			}
 		}
 	}
 
-	return nodeSetInput, nil
+	return nodeSet, nil
+}
+
+func DefaultContainerDirectory(infraType infra.Type) (string, error) {
+	switch infraType {
+	case infra.CRIB:
+		// chainlink user will always have access to this directory
+		return "/home/chainlink", nil
+	case infra.Docker:
+		// needs to match what CTFv2 uses by default, we should define a constant there and import it here
+		return clnode.DefaultCapabilitiesDir, nil
+	default:
+		return "", fmt.Errorf("unknown infra type: %s", infraType)
+	}
 }

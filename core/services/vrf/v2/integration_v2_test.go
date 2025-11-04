@@ -27,6 +27,8 @@ import (
 	"github.com/stretchr/testify/require"
 	"gopkg.in/guregu/null.v4"
 
+	"github.com/smartcontractkit/quarantine"
+
 	commonassets "github.com/smartcontractkit/chainlink-common/pkg/assets"
 	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
@@ -166,7 +168,7 @@ func newVRFCoordinatorV2Universe(t *testing.T, key ethkey.KeyV2, numConsumers in
 	)
 
 	// Create consumer contract deployer identities
-	for i := 0; i < numConsumers; i++ {
+	for range numConsumers {
 		vrfConsumers = append(vrfConsumers, evmtestutils.MustNewSimTransactor(t))
 	}
 
@@ -768,7 +770,7 @@ func assertRandomWordsFulfilled(
 	// this could happen occasionally and cause flaky tests.
 	numChecks := 3
 	found := false
-	for i := 0; i < numChecks; i++ {
+	for range numChecks {
 		filter, err := coordinator.FilterRandomWordsFulfilled(nil, []*big.Int{requestID}, nil)
 		require.NoError(t, err)
 		for filter.Next() {
@@ -796,7 +798,7 @@ func assertNumRandomWords(
 	numWords uint32,
 ) {
 	var err error
-	for i := uint32(0); i < numWords; i++ {
+	for i := range numWords {
 		_, err = contract.SRandomWords(nil, big.NewInt(int64(i)))
 		require.NoError(t, err)
 	}
@@ -911,6 +913,7 @@ func checkForReceipt(t *testing.T, db *sqlx.DB, txID int64) bool {
 }
 
 func TestVRFV2Integration_SingleConsumer_ForceFulfillment(t *testing.T) {
+	quarantine.Flaky(t, "DX-1875")
 	t.Parallel()
 	ownerKey := cltest.MustGenerateRandomKey(t)
 	uni := newVRFCoordinatorV2Universe(t, ownerKey, 1)
@@ -1764,7 +1767,7 @@ func TestIntegrationVRFV2(t *testing.T) {
 	_, err = uni.rootContract.OracleWithdraw(uni.nallory, uni.nallory.From, big.NewInt(1000))
 	require.Error(t, err)
 
-	for i := 0; i < requestedIncomingConfs; i++ {
+	for range requestedIncomingConfs {
 		uni.backend.Commit()
 	}
 
@@ -1800,7 +1803,7 @@ func TestIntegrationVRFV2(t *testing.T) {
 	// Assert all the random words received by the consumer are different and non-zero.
 	seen := make(map[string]struct{})
 	var rw *big.Int
-	for i := 0; i < nw; i++ {
+	for i := range nw {
 		rw, err = carolContract.SRandomWords(nil, big.NewInt(int64(i)))
 		require.NoError(t, err)
 		_, ok := seen[rw.String()]
@@ -1915,7 +1918,7 @@ func TestRequestCost(t *testing.T) {
 		require.NoError(tt, err)
 		// Ensure even with large number of consumers its still cheap
 		var addrs []common.Address
-		for i := 0; i < 99; i++ {
+		for range 99 {
 			addrs = append(addrs, testutils.NewAddress())
 		}
 		_, err = carolContract.UpdateSubscription(carol, addrs)
@@ -1979,7 +1982,7 @@ func TestMaxConsumersCost(t *testing.T) {
 	subId, err := carolContract.SSubId(nil)
 	require.NoError(t, err)
 	var addrs []common.Address
-	for i := 0; i < 98; i++ {
+	for range 98 {
 		addrs = append(addrs, testutils.NewAddress())
 	}
 	_, err = carolContract.UpdateSubscription(carol, addrs)
@@ -2031,7 +2034,7 @@ func TestFulfillmentCost(t *testing.T) {
 		requestedIncomingConfs := 3
 		_, err = carolContract.RequestRandomness(carol, vrfkey.PublicKey.MustHash(), subId, uint16(requestedIncomingConfs), uint32(gasRequested), uint32(nw), false)
 		require.NoError(t, err)
-		for i := 0; i < requestedIncomingConfs; i++ {
+		for range requestedIncomingConfs {
 			uni.backend.Commit()
 		}
 
@@ -2072,7 +2075,7 @@ func TestFulfillmentCost(t *testing.T) {
 		requestedIncomingConfs := 3
 		_, err = consumerContract.RequestRandomness(consumerOwner, vrfkey.PublicKey.MustHash(), subId, uint16(requestedIncomingConfs), uint32(gasRequested), uint32(nw), false)
 		require.NoError(t, err)
-		for i := 0; i < requestedIncomingConfs; i++ {
+		for range requestedIncomingConfs {
 			uni.backend.Commit()
 		}
 
@@ -2270,7 +2273,7 @@ func TestStartingCountsV1(t *testing.T) {
 
 	// add evm.receipts
 	receipts := []types.Receipt{}
-	for i := 0; i < 4; i++ {
+	for i := range 4 {
 		receipts = append(receipts, types.Receipt{
 			BlockHash:        evmutils.NewHash(),
 			TxHash:           txAttempts[i].Hash,
@@ -2366,7 +2369,7 @@ func pair(x, y *big.Int) [2]*big.Int { return [2]*big.Int{x, y} }
 // contract at address to, on the given backend, with the given args, and given
 // that the transaction is sent from the from address.
 func estimateGas(t *testing.T, backend types.Backend,
-	from, to common.Address, abi *abi.ABI, method string, args ...interface{},
+	from, to common.Address, abi *abi.ABI, method string, args ...any,
 ) uint64 {
 	rawData, err := abi.Pack(method, args...)
 	require.NoError(t, err, "failed to construct raw %s transaction with args %s",

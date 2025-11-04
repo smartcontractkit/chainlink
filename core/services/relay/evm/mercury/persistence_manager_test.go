@@ -12,7 +12,6 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-evm/pkg/testutils"
-	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury/wsrpc/pb"
 )
 
@@ -27,9 +26,9 @@ func TestPersistenceManager(t *testing.T) {
 	jobID2 := jobID1 + 1
 
 	ctx := testutils.Context(t)
-	db := pgtest.NewSqlxDB(t)
-	pgtest.MustExec(t, db, `SET CONSTRAINTS mercury_transmit_requests_job_id_fkey DEFERRED`)
-	pgtest.MustExec(t, db, `SET CONSTRAINTS feed_latest_reports_job_id_fkey DEFERRED`)
+	db := testutils.NewSqlxDB(t)
+	testutils.MustExec(t, db, `SET CONSTRAINTS mercury_transmit_requests_job_id_fkey DEFERRED`)
+	testutils.MustExec(t, db, `SET CONSTRAINTS feed_latest_reports_job_id_fkey DEFERRED`)
 	pm := bootstrapPersistenceManager(t, jobID1, db)
 
 	reports := sampleReports
@@ -67,9 +66,9 @@ func TestPersistenceManager(t *testing.T) {
 func TestPersistenceManagerAsyncDelete(t *testing.T) {
 	ctx := testutils.Context(t)
 	jobID := rand.Int32()
-	db := pgtest.NewSqlxDB(t)
-	pgtest.MustExec(t, db, `SET CONSTRAINTS mercury_transmit_requests_job_id_fkey DEFERRED`)
-	pgtest.MustExec(t, db, `SET CONSTRAINTS feed_latest_reports_job_id_fkey DEFERRED`)
+	db := testutils.NewSqlxDB(t)
+	testutils.MustExec(t, db, `SET CONSTRAINTS mercury_transmit_requests_job_id_fkey DEFERRED`)
+	testutils.MustExec(t, db, `SET CONSTRAINTS feed_latest_reports_job_id_fkey DEFERRED`)
 	pm := bootstrapPersistenceManager(t, jobID, db)
 
 	reports := sampleReports
@@ -115,19 +114,19 @@ func TestPersistenceManagerAsyncDelete(t *testing.T) {
 func TestPersistenceManagerPrune(t *testing.T) {
 	jobID1 := rand.Int32()
 	jobID2 := jobID1 + 1
-	db := pgtest.NewSqlxDB(t)
-	pgtest.MustExec(t, db, `SET CONSTRAINTS mercury_transmit_requests_job_id_fkey DEFERRED`)
-	pgtest.MustExec(t, db, `SET CONSTRAINTS feed_latest_reports_job_id_fkey DEFERRED`)
+	db := testutils.NewSqlxDB(t)
+	testutils.MustExec(t, db, `SET CONSTRAINTS mercury_transmit_requests_job_id_fkey DEFERRED`)
+	testutils.MustExec(t, db, `SET CONSTRAINTS feed_latest_reports_job_id_fkey DEFERRED`)
 
 	ctx := testutils.Context(t)
 
 	reports := make([][]byte, 25)
-	for i := 0; i < 25; i++ {
+	for i := range 25 {
 		reports[i] = buildSampleV2Report(int64(i))
 	}
 
 	pm2 := bootstrapPersistenceManager(t, jobID2, db)
-	for i := 0; i < 20; i++ {
+	for i := range 20 {
 		err := pm2.Insert(ctx, &pb.TransmitRequest{Payload: reports[i]}, ocrtypes.ReportContext{ReportTimestamp: ocrtypes.ReportTimestamp{Epoch: uint32(i)}}) //nolint:gosec // G115
 		require.NoError(t, err)
 	}

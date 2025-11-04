@@ -188,9 +188,9 @@ func (o *OCRSoakTest) DeployEnvironment(ocrTestConfig tt.OcrTestConfig) {
 	if nodeNetwork.Name == "Anvil" {
 		anvilConfig := ocrTestConfig.GetNetworkConfig().AnvilConfigs["ANVIL"]
 		anvilChart = foundry.New(&foundry.Props{
-			Values: map[string]interface{}{
+			Values: map[string]any{
 				"fullnameOverride": "anvil",
-				"anvil": map[string]interface{}{
+				"anvil": map[string]any{
 					"chainId":                   fmt.Sprintf("%d", nodeNetwork.ChainID),
 					"blockTime":                 anvilConfig.BlockTime,
 					"forkURL":                   anvilConfig.URL,
@@ -200,12 +200,12 @@ func (o *OCRSoakTest) DeployEnvironment(ocrTestConfig tt.OcrTestConfig) {
 					"forkComputeUnitsPerSecond": anvilConfig.ComputePerSecond,
 					"forkNoRateLimit":           anvilConfig.RateLimitDisabled,
 				},
-				"resources": map[string]interface{}{
-					"requests": map[string]interface{}{
+				"resources": map[string]any{
+					"requests": map[string]any{
 						"cpu":    "4",
 						"memory": "6Gi",
 					},
-					"limits": map[string]interface{}{
+					"limits": map[string]any{
 						"cpu":    "4",
 						"memory": "6Gi",
 					},
@@ -223,7 +223,7 @@ func (o *OCRSoakTest) DeployEnvironment(ocrTestConfig tt.OcrTestConfig) {
 		}))
 	}
 
-	var overrideFn = func(_ interface{}, target interface{}) {
+	var overrideFn = func(_ any, target any) {
 		ctf_config.MustConfigOverrideChainlinkVersion(ocrTestConfig.GetChainlinkImageConfig(), target)
 		ctf_config.MightConfigOverridePyroscopeKey(ocrTestConfig.GetPyroscopeConfig(), target)
 	}
@@ -865,7 +865,7 @@ func (o *OCRSoakTest) startAnvilGasLimitSimulation(network blockchain.EVMNetwork
 		Int64("NewGasLimit", newGasLimit).
 		Msg("Starting gas limit simulation on Anvil chain")
 	o.postGrafanaAnnotation(fmt.Sprintf("Starting gas limit simulation on Anvil chain. Config: %+v", conf), nil)
-	err = client.AnvilSetBlockGasLimit([]interface{}{newGasLimit})
+	err = client.AnvilSetBlockGasLimit([]any{newGasLimit})
 	require.NoError(o.t, err, "Error starting gas simulation on Anvil chain")
 	time.Sleep(conf.Duration.Duration)
 	o.log.Info().
@@ -874,7 +874,7 @@ func (o *OCRSoakTest) startAnvilGasLimitSimulation(network blockchain.EVMNetwork
 		Uint64("LatestGasLimit", latestBlock.GasLimit()).
 		Msg("Returning to old gas limit simulation on Anvil chain")
 	o.postGrafanaAnnotation(fmt.Sprintf("Returning to old gas limit simulation on Anvil chain. Config: %+v", conf), nil)
-	err = client.AnvilSetBlockGasLimit([]interface{}{latestBlock.GasLimit()})
+	err = client.AnvilSetBlockGasLimit([]any{latestBlock.GasLimit()})
 	require.NoError(o.t, err, "Error starting gas simulation on Anvil chain")
 	o.gasLimitSimulationHappened = true
 }

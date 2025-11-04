@@ -20,7 +20,7 @@ import (
 	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/blockchain"
 	"github.com/smartcontractkit/chainlink-testing-framework/seth"
 
-	creenv "github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment"
+	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment"
 	creconfig "github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/config"
 	creworkflow "github.com/smartcontractkit/chainlink/system-tests/lib/cre/workflow"
 )
@@ -56,7 +56,6 @@ func workflowCmds() *cobra.Command {
 	}
 
 	workflowCmd.AddCommand(deployAndVerifyExampleWorkflowCmd())
-	workflowCmd.AddCommand(compileDeployWorkflowCmd())
 	workflowCmd.AddCommand(deleteWorkflowCmd())
 	workflowCmd.AddCommand(deleteAllWorkflowsCmd())
 	workflowCmd.AddCommand(compileWorkflowCmd())
@@ -66,7 +65,7 @@ func workflowCmds() *cobra.Command {
 }
 
 func deleteAllWorkflows(ctx context.Context, rpcURL, workflowRegistryAddress, contractsVersion string) error {
-	if pkErr := creenv.SetDefaultPrivateKeyIfEmpty(blockchain.DefaultAnvilPrivateKey); pkErr != nil {
+	if pkErr := environment.SetDefaultPrivateKeyIfEmpty(blockchain.DefaultAnvilPrivateKey); pkErr != nil {
 		return pkErr
 	}
 
@@ -113,7 +112,7 @@ func compileWorkflowCmd() *cobra.Command {
 		},
 	}
 
-	cmd.Flags().StringVarP(&workflowFilePathFlag, "workflow-file-path", "w", "", "Path to the workflow file")
+	cmd.Flags().StringVarP(&workflowFilePathFlag, "workflow-file-path", "w", "", "Path to the workflow main Go file")
 	cmd.Flags().StringVarP(&workflowNameFlag, "workflow-name", "n", "exampleworkflow", "Workflow name")
 
 	if err := cmd.MarkFlagRequired("workflow-file-path"); err != nil {
@@ -128,6 +127,7 @@ func deployWorkflowCmd() *cobra.Command {
 		workflowFilePathFlag            string
 		configFilePathFlag              string
 		secretsFilePathFlag             string
+		secretsOutputFilePathFlag       string
 		compileWorkflowFlag             bool
 		containerTargetDirFlag          string
 		containerNamePatternFlag        string
@@ -137,7 +137,6 @@ func deployWorkflowCmd() *cobra.Command {
 		capabilitiesRegistryAddressFlag string
 		deleteWorkflowFileFlag          bool
 		donIDFlag                       uint32
-		chainIDFlag                     uint64
 		rpcURLFlag                      string
 		contractsVersionFlag            string
 	)
@@ -160,7 +159,7 @@ func deployWorkflowCmd() *cobra.Command {
 					metaData["result"] = "success"
 				}
 
-				trackingErr := dxTracker.Track("cre.local.workflow.deploy", metaData)
+				trackingErr := dxTracker.Track(MetricWorkflowDeploy, metaData)
 				if trackingErr != nil {
 					fmt.Fprintf(os.Stderr, "failed to track workflow deploy: %s\n", trackingErr)
 				}
@@ -181,26 +180,26 @@ func deployWorkflowCmd() *cobra.Command {
 				workflowFilePathFlag = compiledWorkflowPath
 			}
 
-			regErr = deployWorkflow(cmd.Context(), workflowFilePathFlag, workflowNameFlag, workflowOwnerAddressFlag, workflowRegistryAddressFlag, capabilitiesRegistryAddressFlag, containerNamePatternFlag, containerTargetDirFlag, configFilePathFlag, secretsFilePathFlag, rpcURLFlag, contractsVersionFlag, donIDFlag, deleteWorkflowFileFlag)
+			regErr = deployWorkflow(cmd.Context(), workflowFilePathFlag, workflowNameFlag, workflowOwnerAddressFlag, workflowRegistryAddressFlag, capabilitiesRegistryAddressFlag, containerNamePatternFlag, containerTargetDirFlag, configFilePathFlag, secretsFilePathFlag, secretsOutputFilePathFlag, rpcURLFlag, contractsVersionFlag, donIDFlag, deleteWorkflowFileFlag)
 
 			return regErr
 		},
 	}
 
 	cmd.Flags().StringVarP(&workflowFilePathFlag, "workflow-file-path", "w", "", "Path to a base64-encoded workflow WASM file or to a Go file that contains the workflow (if --compile flag is used)")
-	cmd.Flags().StringVarP(&configFilePathFlag, "config-file-path", "c", "", "Path to the config file")
-	cmd.Flags().StringVarP(&secretsFilePathFlag, "secrets-file-path", "s", "", "Path to the secrets file")
+	cmd.Flags().StringVarP(&configFilePathFlag, "config-file-path", "c", "", "Path to the workflow config file")
+	cmd.Flags().StringVarP(&secretsFilePathFlag, "secrets-file-path", "s", "", "Path to the secrets file with env var to secret name mappings (not the encrypted one)")
+	cmd.Flags().StringVarP(&secretsOutputFilePathFlag, "secrets-output-file-path", "o", "", "Path to encrypted secrets output file (default \"./encrypted.secrets.json\")")
 	cmd.Flags().StringVarP(&containerTargetDirFlag, "container-target-dir", "t", creworkflow.DefaultWorkflowTargetDir, "Path to the target directory in the Docker container")
-	cmd.Flags().StringVarP(&containerNamePatternFlag, "container-name-pattern", "o", creworkflow.DefaultWorkflowNodePattern, "Pattern to match the container name")
-	cmd.Flags().Uint64VarP(&chainIDFlag, "chain-id", "i", 1337, "Chain ID")
+	cmd.Flags().StringVarP(&containerNamePatternFlag, "container-name-pattern", "p", creworkflow.DefaultWorkflowNodePattern, "Pattern to match Docker containers workkflow DON containers (e.g. 'workflow-node')")
 	cmd.Flags().StringVarP(&rpcURLFlag, "rpc-url", "r", "http://localhost:8545", "RPC URL")
 	cmd.Flags().StringVarP(&workflowOwnerAddressFlag, "workflow-owner-address", "d", DefaultWorkflowOwnerAddress, "Workflow owner address")
 	cmd.Flags().StringVarP(&workflowRegistryAddressFlag, "workflow-registry-address", "a", DefaultWorkflowRegistryAddress, "Workflow registry address")
 	cmd.Flags().StringVarP(&capabilitiesRegistryAddressFlag, "capabilities-registry-address", "b", DefaultCapabilitiesRegistryAddress, "Capabilities registry address")
-	cmd.Flags().Uint32VarP(&donIDFlag, "don-id", "e", 1, "DON ID")
+	cmd.Flags().Uint32VarP(&donIDFlag, "don-id", "e", 1, "donID used in the workflow registry contract (integer starting with 1)")
 	cmd.Flags().StringVarP(&workflowNameFlag, "name", "n", "", "Workflow name")
-	cmd.Flags().BoolVarP(&deleteWorkflowFileFlag, "delete-workflow-file", "l", false, "Delete the workflow file after deployment")
-	cmd.Flags().BoolVarP(&compileWorkflowFlag, "compile", "x", false, "Compile the workflow before deploying it")
+	cmd.Flags().BoolVarP(&deleteWorkflowFileFlag, "delete-workflow-file", "l", false, "Deletes the workflow file after deployment")
+	cmd.Flags().BoolVarP(&compileWorkflowFlag, "compile", "x", false, "Compiles the workflow before deploying it")
 	cmd.Flags().StringVar(&contractsVersionFlag, "with-contracts-version", "v1", "Version of workflow and capabilities registry contracts to use (v1 or v2)")
 
 	if err := cmd.MarkFlagRequired("workflow-file-path"); err != nil {
@@ -214,85 +213,11 @@ func deployWorkflowCmd() *cobra.Command {
 	return cmd
 }
 
-func compileDeployWorkflowCmd() *cobra.Command {
-	var (
-		workflowFilePathFlag            string
-		configFilePathFlag              string
-		secretsFilePathFlag             string
-		containerTargetDirFlag          string
-		containerNamePatternFlag        string
-		workflowNameFlag                string
-		workflowOwnerAddressFlag        string
-		workflowRegistryAddressFlag     string
-		capabilitiesRegistryAddressFlag string
-		donIDFlag                       uint32
-		chainIDFlag                     uint64
-		rpcURLFlag                      string
-		contractsVersionFlag            string
-	)
-
-	cmd := &cobra.Command{
-		Use:              "compile-deploy",
-		Short:            "DEPRECATED: Use 'go run . env workflow deploy --compile' instead",
-		Long:             `DEPRECATED: Use 'go run . env workflow deploy --compile' instead`,
-		Hidden:           true,
-		PersistentPreRun: globalPreRunFunc,
-		RunE: func(cmd *cobra.Command, args []string) error {
-			fmt.Printf("\n⚠️ ⚠️ ⚠️ ⚠️ ⚠️ ⚠️ ⚠️\n\n")
-			fmt.Printf("\033[31m'go run . env workflow compile-deploy' is DEPRECATED. Use 'go run . env workflow deploy --compile' instead\033[0m\n")
-			fmt.Printf("\n⚠️ ⚠️ ⚠️ ⚠️ ⚠️ ⚠️ ⚠️\n\n")
-
-			initDxTracker()
-			var regErr error
-
-			defer func() {
-				metaData := map[string]any{}
-				if regErr != nil {
-					metaData["result"] = "failure"
-					metaData["error"] = oneLineErrorMessage(regErr)
-				} else {
-					metaData["result"] = "success"
-				}
-
-				trackingErr := dxTracker.Track("cre.local.workflow.deploy", metaData)
-				if trackingErr != nil {
-					fmt.Fprintf(os.Stderr, "failed to track workflow deploy: %s\n", trackingErr)
-				}
-			}()
-
-			regErr = compileCopyAndRegisterWorkflow(cmd.Context(), workflowFilePathFlag, workflowNameFlag, workflowOwnerAddressFlag, workflowRegistryAddressFlag, capabilitiesRegistryAddressFlag, containerNamePatternFlag, containerTargetDirFlag, configFilePathFlag, secretsFilePathFlag, rpcURLFlag, contractsVersionFlag, donIDFlag)
-
-			return regErr
-		},
-	}
-
-	cmd.Flags().StringVarP(&workflowFilePathFlag, "workflow-file-path", "w", "./examples/workflows/v2/cron/main.go", "Path to the Go file that contains the workflow")
-	cmd.Flags().StringVarP(&configFilePathFlag, "config-file-path", "c", "", "Path to the config file")
-	cmd.Flags().StringVarP(&secretsFilePathFlag, "secrets-file-path", "s", "", "Path to the secrets file")
-	cmd.Flags().StringVarP(&containerTargetDirFlag, "container-target-dir", "t", creworkflow.DefaultWorkflowTargetDir, "Path to the target directory in the Docker container")
-	cmd.Flags().StringVarP(&containerNamePatternFlag, "container-name-pattern", "o", creworkflow.DefaultWorkflowNodePattern, "Pattern to match the container name")
-	cmd.Flags().Uint64VarP(&chainIDFlag, "chain-id", "i", 1337, "Chain ID")
-	cmd.Flags().StringVarP(&rpcURLFlag, "rpc-url", "r", "http://localhost:8545", "RPC URL")
-	cmd.Flags().StringVarP(&workflowOwnerAddressFlag, "owner-address", "d", DefaultWorkflowOwnerAddress, "Workflow owner address")
-	cmd.Flags().StringVarP(&workflowRegistryAddressFlag, "workflow-registry-address", "a", DefaultWorkflowRegistryAddress, "Workflow registry address")
-	cmd.Flags().StringVarP(&capabilitiesRegistryAddressFlag, "capabilities-registry-address", "b", DefaultCapabilitiesRegistryAddress, "Capabilities registry address")
-	cmd.Flags().Uint32VarP(&donIDFlag, "don-id", "e", 1, "DON ID")
-	cmd.Flags().StringVarP(&workflowNameFlag, "name", "n", "", "Workflow name")
-	cmd.Flags().StringVar(&contractsVersionFlag, "with-contracts-version", "v1", "Version of workflow and capabilities registry contracts to use (v1 or v2)")
-
-	if err := cmd.MarkFlagRequired("name"); err != nil {
-		panic(err)
-	}
-
-	return cmd
-}
-
 func deleteWorkflowCmd() *cobra.Command {
 	var (
 		workflowNameFlag            string
 		workflowOwnerAddressFlag    string
 		workflowRegistryAddressFlag string
-		chainIDFlag                 uint64
 		rpcURLFlag                  string
 		contractsVersionFlag        string
 	)
@@ -344,7 +269,6 @@ func deleteWorkflowCmd() *cobra.Command {
 		},
 	}
 
-	cmd.Flags().Uint64VarP(&chainIDFlag, "chain-id", "i", 1337, "Chain ID")
 	cmd.Flags().StringVarP(&rpcURLFlag, "rpc-url", "r", "http://localhost:8545", "RPC URL")
 	cmd.Flags().StringVarP(&workflowOwnerAddressFlag, "owner-address", "d", DefaultWorkflowOwnerAddress, "Workflow owner address")
 	cmd.Flags().StringVarP(&workflowRegistryAddressFlag, "workflow-registry-address", "a", DefaultWorkflowRegistryAddress, "Workflow registry address")
@@ -362,7 +286,6 @@ func deleteAllWorkflowsCmd() *cobra.Command {
 	var (
 		workflowOwnerAddressFlag    string
 		workflowRegistryAddressFlag string
-		chainIDFlag                 uint64
 		rpcURLFlag                  string
 		contractsVersionFlag        string
 	)
@@ -403,7 +326,6 @@ func deleteAllWorkflowsCmd() *cobra.Command {
 		},
 	}
 
-	cmd.Flags().Uint64VarP(&chainIDFlag, "chain-id", "i", 1337, "Chain ID")
 	cmd.Flags().StringVarP(&rpcURLFlag, "rpc-url", "r", "http://localhost:8545", "RPC URL")
 	cmd.Flags().StringVarP(&workflowOwnerAddressFlag, "owner-address", "d", DefaultWorkflowOwnerAddress, "Workflow owner address")
 	cmd.Flags().StringVarP(&workflowRegistryAddressFlag, "workflow-registry-address", "a", DefaultWorkflowRegistryAddress, "Workflow registry address")
@@ -425,7 +347,7 @@ func compileWorkflow(workflowFilePathFlag, workflowNameFlag string) (string, err
 	return compressedWorkflowWasmPath, nil
 }
 
-func deployWorkflow(ctx context.Context, wasmWorkflowFilePathFlag, workflowNameFlag, workflowOwnerAddressFlag, workflowRegistryAddressFlag, capabilitiesRegistryAddressFlag, containerNamePatternFlag, containerTargetDirFlag, configFilePathFlag, secretsFilePathFlag, rpcURLFlag, contractsVersionFlag string, donIDFlag uint32, deleteWorkflowFile bool) error {
+func deployWorkflow(ctx context.Context, wasmWorkflowFilePathFlag, workflowNameFlag, workflowOwnerAddressFlag, workflowRegistryAddressFlag, capabilitiesRegistryAddressFlag, containerNamePatternFlag, containerTargetDirFlag, configFilePathFlag, secretsFilePathFlag, secretsOutputFilePathFlag, rpcURLFlag, contractsVersionFlag string, donIDFlag uint32, deleteWorkflowFile bool) error {
 	copyErr := creworkflow.CopyArtifactsToDockerContainers(containerTargetDirFlag, containerNamePatternFlag, wasmWorkflowFilePathFlag)
 	if copyErr != nil {
 		return errors.Wrap(copyErr, "❌ failed to copy workflow to Docker container")
@@ -434,7 +356,7 @@ func deployWorkflow(ctx context.Context, wasmWorkflowFilePathFlag, workflowNameF
 	fmt.Printf("\n✅ Workflow copied to Docker containers\n")
 	fmt.Printf("\n⚙️ Creating Seth client\n\n")
 
-	if pkErr := creenv.SetDefaultPrivateKeyIfEmpty(blockchain.DefaultAnvilPrivateKey); pkErr != nil {
+	if pkErr := environment.SetDefaultPrivateKeyIfEmpty(blockchain.DefaultAnvilPrivateKey); pkErr != nil {
 		return pkErr
 	}
 
@@ -470,7 +392,7 @@ func deployWorkflow(ctx context.Context, wasmWorkflowFilePathFlag, workflowNameF
 	if secretsFilePathFlag != "" {
 		fmt.Printf("\n⚙️ Loading and encrypting workflow secrets\n")
 
-		secretPathAbs, secretsErr := creworkflow.PrepareSecrets(sethClient, donIDFlag, common.HexToAddress(capabilitiesRegistryAddressFlag), common.HexToAddress(workflowOwnerAddressFlag), secretsFilePathFlag)
+		secretPathAbs, secretsErr := creworkflow.PrepareSecrets(sethClient, donIDFlag, common.HexToAddress(capabilitiesRegistryAddressFlag), common.HexToAddress(workflowOwnerAddressFlag), secretsFilePathFlag, secretsOutputFilePathFlag)
 		if secretsErr != nil {
 			return errors.Wrap(secretsErr, "failed to prepare secrets")
 		}
@@ -479,7 +401,7 @@ func deployWorkflow(ctx context.Context, wasmWorkflowFilePathFlag, workflowNameF
 			_ = os.Remove(secretPathAbs)
 		}()
 
-		fmt.Printf("\n✅ Encrypted workflow secrets file prepared\n\n")
+		fmt.Printf("\n✅ Encrypted workflow secrets file created at: %s\n\n", secretPathAbs)
 
 		fmt.Printf("\n⚙️ Copying encrypted secrets file to Docker container\n")
 		secretsCopyErr := creworkflow.CopyArtifactsToDockerContainers(containerTargetDirFlag, containerNamePatternFlag, secretPathAbs)
@@ -530,13 +452,13 @@ func deployWorkflow(ctx context.Context, wasmWorkflowFilePathFlag, workflowNameF
 	return nil
 }
 
-func compileCopyAndRegisterWorkflow(ctx context.Context, workflowFilePathFlag, workflowNameFlag, workflowOwnerAddressFlag, workflowRegistryAddressFlag, capabilitiesRegistryAddressFlag, containerNamePatternFlag, containerTargetDirFlag, configFilePathFlag, secretsFilePathFlag, rpcURLFlag, contractsVersionFlag string, donIDFlag uint32) error {
+func compileCopyAndRegisterWorkflow(ctx context.Context, workflowFilePathFlag, workflowNameFlag, workflowOwnerAddressFlag, workflowRegistryAddressFlag, capabilitiesRegistryAddressFlag, containerNamePatternFlag, containerTargetDirFlag, configFilePathFlag, secretsFilePathFlag, secretsOutputFilePathFlag, rpcURLFlag, contractsVersionFlag string, donIDFlag uint32) error {
 	compressedWorkflowWasmPath, compileErr := compileWorkflow(workflowFilePathFlag, workflowNameFlag)
 	if compileErr != nil {
 		return errors.Wrap(compileErr, "❌ failed to compile workflow")
 	}
 
-	return deployWorkflow(ctx, compressedWorkflowWasmPath, workflowNameFlag, workflowOwnerAddressFlag, workflowRegistryAddressFlag, capabilitiesRegistryAddressFlag, containerNamePatternFlag, containerTargetDirFlag, configFilePathFlag, secretsFilePathFlag, rpcURLFlag, contractsVersionFlag, donIDFlag, true)
+	return deployWorkflow(ctx, compressedWorkflowWasmPath, workflowNameFlag, workflowOwnerAddressFlag, workflowRegistryAddressFlag, capabilitiesRegistryAddressFlag, containerNamePatternFlag, containerTargetDirFlag, configFilePathFlag, secretsFilePathFlag, secretsOutputFilePathFlag, rpcURLFlag, contractsVersionFlag, donIDFlag, true)
 }
 
 func isBase64File(filename string) error {

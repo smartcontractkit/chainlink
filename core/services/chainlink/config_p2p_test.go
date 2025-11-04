@@ -22,6 +22,7 @@ func TestP2PConfig(t *testing.T) {
 	assert.Equal(t, 13, p2p.IncomingMessageBufferSize())
 	assert.Equal(t, 17, p2p.OutgoingMessageBufferSize())
 	assert.True(t, p2p.TraceLogging())
+	assert.True(t, p2p.EnableExperimentalRageP2P())
 
 	v2 := p2p.V2()
 	assert.False(t, v2.Enabled())

@@ -17,10 +17,9 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
-
 	"github.com/smartcontractkit/chainlink-evm/pkg/client"
+	"github.com/smartcontractkit/chainlink-evm/pkg/config"
 	"github.com/smartcontractkit/chainlink-evm/pkg/logpoller"
-	evmRelayTypes "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/types"
 )
 
 var (
@@ -70,7 +69,7 @@ type CPConfig struct {
 	LogDecoder                LogDecoder
 }
 
-func NewConfigPoller(ctx context.Context, lggr logger.Logger, cfg CPConfig) (evmRelayTypes.ConfigPoller, error) {
+func NewConfigPoller(ctx context.Context, lggr logger.Logger, cfg CPConfig) (config.ConfigPoller, error) {
 	return newConfigPoller(ctx, lggr, cfg.Client, cfg.DestinationChainPoller, cfg.AggregatorContractAddress, cfg.ConfigStoreAddress, cfg.LogDecoder)
 }
 

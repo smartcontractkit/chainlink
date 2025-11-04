@@ -6,50 +6,41 @@ import (
 	"github.com/Masterminds/semver/v3"
 	chain_selectors "github.com/smartcontractkit/chain-selectors"
 	"github.com/stretchr/testify/require"
-	"go.uber.org/zap/zapcore"
 
-	cldf_chain "github.com/smartcontractkit/chainlink-deployments-framework/chain"
 	cldf_tron "github.com/smartcontractkit/chainlink-deployments-framework/chain/tron"
 	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
+	"github.com/smartcontractkit/chainlink-deployments-framework/engine/test/environment"
+	"github.com/smartcontractkit/chainlink-deployments-framework/engine/test/runtime"
 
-	commonChangesets "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/data-feeds/changeset/tron"
 	"github.com/smartcontractkit/chainlink/deployment/data-feeds/changeset/types"
-
-	"github.com/smartcontractkit/chainlink-common/pkg/logger"
-
-	"github.com/smartcontractkit/chainlink/deployment/environment/memory"
 )
 
 func TestDeployCache(t *testing.T) {
 	t.Parallel()
-	lggr := logger.Test(t)
-	cfg := memory.MemoryEnvironmentConfig{
-		TronChains: 1,
-	}
-	env := memory.NewMemoryEnvironment(t, lggr, zapcore.DebugLevel, cfg)
+
+	selector := chain_selectors.TRON_DEVNET.Selector
+	rt, err := runtime.New(t.Context(), runtime.WithEnvOpts(
+		environment.WithTronContainer(t, []uint64{selector}),
+	))
+	require.NoError(t, err)
 
 	deployOptions := cldf_tron.DefaultDeployOptions()
 	deployOptions.FeeLimit = 1_000_000_000
 
-	chainSelector := env.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chain_selectors.FamilyTron))[0]
-	resp, err := commonChangesets.Apply(t, env,
-		commonChangesets.Configure(
-			tron.DeployCacheChangeset,
-			types.DeployTronConfig{
-				ChainsToDeploy: []uint64{chainSelector},
-				Labels:         []string{"data-feeds"},
-				Qualifier:      "tron",
-				DeployOptions:  deployOptions,
-			},
-		),
+	err = rt.Exec(
+		runtime.ChangesetTask(tron.DeployCacheChangeset, types.DeployTronConfig{
+			ChainsToDeploy: []uint64{selector},
+			Labels:         []string{"data-feeds"},
+			Qualifier:      "tron",
+			DeployOptions:  deployOptions,
+		}),
 	)
 	require.NoError(t, err)
-	require.NotNil(t, resp)
 
-	addrs, err := resp.DataStore.Addresses().Get(
+	addrs, err := rt.State().DataStore.Addresses().Get(
 		datastore.NewAddressRefKey(
-			chainSelector,
+			selector,
 			"DataFeedsCache",
 			semver.MustParse("1.0.0"),
 			"tron",

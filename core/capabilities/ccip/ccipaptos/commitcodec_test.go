@@ -189,7 +189,7 @@ func BenchmarkCommitPluginCodecV1_Encode(b *testing.B) {
 	ctx := b.Context()
 
 	rep := randomCommitReport()
-	for i := 0; i < b.N; i++ {
+	for b.Loop() {
 		_, err := commitCodec.Encode(ctx, rep)
 		require.NoError(b, err)
 	}
@@ -202,7 +202,7 @@ func BenchmarkCommitPluginCodecV1_Decode(b *testing.B) {
 	encodedReport, err := commitCodec.Encode(ctx, randomCommitReport())
 	require.NoError(b, err)
 
-	for i := 0; i < b.N; i++ {
+	for b.Loop() {
 		_, err := commitCodec.Decode(ctx, encodedReport)
 		require.NoError(b, err)
 	}

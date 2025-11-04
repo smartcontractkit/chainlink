@@ -161,7 +161,7 @@ func (s *server) transmitThreadBusyCountDec() {
 func (s *server) spawnTransmitLoops(stopCh services.StopChan, wg *sync.WaitGroup, donID uint32, n int) {
 	donIDStr := strconv.FormatUint(uint64(donID), 10)
 	wg.Add(n)
-	for i := 0; i < n; i++ {
+	for range n {
 		go s.spawnTransmitLoop(stopCh, wg, donIDStr)
 	}
 }

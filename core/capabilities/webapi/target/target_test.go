@@ -82,7 +82,7 @@ func setup(t *testing.T, config webapi.ServiceConfig) testHarness {
 }
 
 func emptyWfConfig(t *testing.T) *values.Map {
-	wfConfig, err := values.NewMap(map[string]interface{}{})
+	wfConfig, err := values.NewMap(map[string]any{})
 	require.NoError(t, err)
 	return wfConfig
 }
@@ -102,7 +102,7 @@ func inputsAndConfig(t *testing.T) (*values.Map, *values.Map) {
 	}
 	inputs, err := values.NewMap(targetInput)
 	require.NoError(t, err)
-	wfConfig, err := values.NewMap(map[string]interface{}{
+	wfConfig, err := values.NewMap(map[string]any{
 		"timeoutMs": 1000,
 		"schedule":  webapi.SingleNode,
 	})
@@ -320,7 +320,7 @@ func TestCapability_Execute(t *testing.T) {
 		inputs, err := values.NewMap(targetInput)
 
 		require.NoError(t, err)
-		wfConfig, err := values.NewMap(map[string]interface{}{
+		wfConfig, err := values.NewMap(map[string]any{
 			"timeoutMs":    1000,
 			"deliveryMode": "invalid",
 		})

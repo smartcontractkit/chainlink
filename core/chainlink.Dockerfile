@@ -1,7 +1,7 @@
 ##
 # Build image: Chainlink binary with plugins.
 ##
-FROM golang:1.24-bullseye AS buildgo
+FROM golang:1.25.3-bookworm AS buildgo
 RUN go version
 RUN apt-get update && apt-get install -y jq && rm -rf /var/lib/apt/lists/*
 
@@ -27,8 +27,8 @@ ARG CL_INSTALL_TESTING_PLUGINS=false
 # Env vars needed for chainlink build
 ARG COMMIT_SHA
 ARG VERSION_TAG
-# Build chainlink bin with cover flag https://go.dev/doc/build-cover#FAQ
-ARG GO_COVER_FLAG=false
+# Flag to control whether this is a prod build (default: true)
+ARG CL_IS_PROD_BUILD=true
 
 ENV CL_LOOPINSTALL_OUTPUT_DIR=/tmp/loopinstall-output
 RUN --mount=type=secret,id=GIT_AUTH_TOKEN \
@@ -54,8 +54,8 @@ RUN --mount=type=cache,target=/go/pkg/mod \
 # Build chainlink.
 RUN --mount=type=cache,target=/go/pkg/mod \
     --mount=type=cache,target=/root/.cache/go-build \
-    if [ "$GO_COVER_FLAG" = "true" ]; then \
-          GOBIN=/gobins make install-chainlink-cover; \
+    if [ "$CL_IS_PROD_BUILD" = "false" ]; then \
+          GOBIN=/gobins make install-chainlink-dev; \
       else \
           GOBIN=/gobins make install-chainlink; \
       fi

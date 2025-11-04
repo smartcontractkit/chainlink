@@ -26,7 +26,7 @@ import (
 	"github.com/tidwall/gjson"
 
 	"github.com/smartcontractkit/chainlink-testing-framework/framework"
-	"github.com/smartcontractkit/chainlink/core/scripts/cre/environment/tracking"
+	"github.com/smartcontractkit/chainlink-testing-framework/framework/tracking"
 )
 
 var SetupCmd *cobra.Command
@@ -75,12 +75,12 @@ type config struct {
 	ChipIngress    chipIngressConfig    `toml:"chip_ingress"`
 	BillingService billingServiceConfig `toml:"billing_platform_service"`
 	Capabilities   capabilitiesConfig   `toml:"capabilities"`
+	Observability  observabilityConfig  `toml:"observability"`
 }
 
 type generalConfig struct {
 	AWSProfile      string `toml:"aws_profile"`
 	MinGHCLIVersion string `toml:"min_gh_cli_version"`
-	CTFVersion      string `toml:"ctf_version"`
 }
 
 type jobDistributorConfig struct {
@@ -101,6 +101,12 @@ type billingServiceConfig struct {
 type capabilitiesConfig struct {
 	TargetPath   string   `toml:"target_path"`
 	MakeCommands []string `toml:"make_commands"`
+}
+
+type observabilityConfig struct {
+	RepoURL    string `toml:"repository"`
+	Branch     string `toml:"branch"`
+	TargetPath string `toml:"target_path"`
 }
 
 var (
@@ -130,10 +136,20 @@ type BuildConfig struct {
 // setupRepo clones the repository if it's a remote URL or uses the local path if it's a directory.
 // It returns the working directory path, a boolean indicating if it's a local repo, and an error if any.
 // It will checkout the specified reference branch/tag and commit if provided.
-func setupRepo(ctx context.Context, logger zerolog.Logger, repo, reference, commit string) (string, bool, error) {
+func setupRepo(ctx context.Context, logger zerolog.Logger, repo, reference, commit, workingDir string) (string, bool, error) {
 	if repo == "" {
 		return "", false, errors.New("repository URL or path is empty")
 	}
+
+	// Expand ~ to home directory in workingDir if present
+	if workingDir != "" && strings.HasPrefix(workingDir, "~/") {
+		homeDir, err := os.UserHomeDir()
+		if err != nil {
+			return "", false, fmt.Errorf("failed to get user home directory: %w", err)
+		}
+		workingDir = filepath.Join(homeDir, workingDir[2:])
+	}
+
 	// Check if repo is a local directory
 	isLocalRepo := false
 	if _, err2 := os.Stat(repo); err2 == nil {
@@ -144,8 +160,6 @@ func setupRepo(ctx context.Context, logger zerolog.Logger, repo, reference, comm
 		}
 	}
 
-	var workingDir string
-
 	if isLocalRepo {
 		// Use the local repo path directly
 		workingDir = repo
@@ -153,16 +167,30 @@ func setupRepo(ctx context.Context, logger zerolog.Logger, repo, reference, comm
 		if reference == "" {
 			return "", false, errors.New("branch or tag reference is required for remote repositories")
 		}
-		// Create a temporary directory for cloning the remote repo
-		tempDir, err2 := os.MkdirTemp("", filepath.Base(repo)+"-*")
-		if err2 != nil {
-			return "", false, fmt.Errorf("failed to create temporary directory: %w", err2)
+
+		if workingDir == "" {
+			// Create a temporary directory for cloning the remote repo
+			tempDir, err2 := os.MkdirTemp("", filepath.Base(repo)+"-*")
+			if err2 != nil {
+				return "", false, fmt.Errorf("failed to create temporary directory: %w", err2)
+			}
+			workingDir = tempDir
+		} else {
+			// Clear or create the working directory
+			if _, err := os.Stat(workingDir); err == nil {
+				if err = os.RemoveAll(workingDir); err != nil {
+					return "", false, fmt.Errorf("failed to clear existing working directory: %w", err)
+				}
+			} else {
+				if err = os.MkdirAll(workingDir, 0o755); err != nil {
+					return "", false, fmt.Errorf("failed to create working directory: %w", err)
+				}
+			}
 		}
-		workingDir = tempDir
 
 		// Clone the repository
 		logger.Info().Msgf("Cloning repository from %s", repo)
-		cmd := exec.CommandContext(ctx, "git", "clone", "--depth", "1", "--branch", reference, "--single-branch", repo, tempDir)
+		cmd := exec.CommandContext(ctx, "git", "clone", "--depth", "1", "--branch", reference, "--single-branch", repo, workingDir)
 		cmd.Stdout = os.Stdout
 		cmd.Stderr = os.Stderr
 		if err2 := cmd.Run(); err2 != nil {
@@ -172,14 +200,14 @@ func setupRepo(ctx context.Context, logger zerolog.Logger, repo, reference, comm
 			// Checkout the specific commit if provided
 			logger.Info().Msgf("Checking out commit %s", commit)
 			cmd := exec.CommandContext(ctx, "git", "fetch", "--depth", "1", "origin", commit)
-			cmd.Dir = tempDir
+			cmd.Dir = workingDir
 			cmd.Stdout = os.Stdout
 			cmd.Stderr = os.Stderr
 			if err2 := cmd.Run(); err2 != nil {
 				return "", false, fmt.Errorf("failed to checkout commit %s: %w", commit, err2)
 			}
 			cmd = exec.CommandContext(ctx, "git", "checkout", commit)
-			cmd.Dir = tempDir
+			cmd.Dir = workingDir
 			cmd.Stdout = os.Stdout
 			cmd.Stderr = os.Stderr
 			if err2 := cmd.Run(); err2 != nil {
@@ -208,7 +236,7 @@ func (c BuildConfig) Build(ctx context.Context) (localImage string, err error) {
 		}
 	}
 
-	workingDir, isLocalRepo, err := setupRepo(ctx, logger, repo, tag, commit)
+	workingDir, isLocalRepo, err := setupRepo(ctx, logger, repo, tag, commit, "")
 	if err != nil {
 		return "", fmt.Errorf("failed to setup repository: %w", err)
 	}
@@ -361,9 +389,9 @@ func RunSetup(ctx context.Context, config SetupConfig, noPrompt, purge, withBill
 	defer func() {
 		var trackingErr error
 		if setupErr != nil {
-			trackingErr = localDXTracker.Track("cre.local.setup.result", map[string]any{"result": "failure", "no_prompt": noPrompt, "error": oneLineErrorMessage(setupErr)})
+			trackingErr = localDXTracker.Track(MetricSetupResult, map[string]any{"result": "failure", "no_prompt": noPrompt, "error": oneLineErrorMessage(setupErr)})
 		} else {
-			trackingErr = localDXTracker.Track("cre.local.setup.result", map[string]any{"result": "success", "no_prompt": noPrompt})
+			trackingErr = localDXTracker.Track(MetricSetupResult, map[string]any{"result": "success", "no_prompt": noPrompt})
 		}
 		if trackingErr != nil {
 			fmt.Fprintf(os.Stderr, "failed to track setup: %s\n", trackingErr)
@@ -423,7 +451,7 @@ func RunSetup(ctx context.Context, config SetupConfig, noPrompt, purge, withBill
 	// once we have GH CLI setup we can try to create the DX tracker
 	if ghCli {
 		var trackerErr error
-		localDXTracker, trackerErr = tracking.NewDxTracker()
+		localDXTracker, trackerErr = tracking.NewDxTracker(GetDXGitHubVariableName, GetDXProductName)
 		if trackerErr != nil {
 			fmt.Fprintf(os.Stderr, "failed to create DX tracker: %s\n", trackerErr)
 		}
@@ -466,9 +494,10 @@ func RunSetup(ctx context.Context, config SetupConfig, noPrompt, purge, withBill
 		}
 	}
 
-	ctfInstalled, ctfErr := checkCTF(ctx, cfg.General.CTFVersion, noPrompt, purge)
-	if ctfErr != nil {
-		setupErr = errors.Wrap(ctfErr, "failed to ensure CTF CLI")
+	observabilityRepoPath, _, err := setupRepo(ctx, logger, cfg.Observability.RepoURL, cfg.Observability.Branch,
+		"", cfg.Observability.TargetPath)
+	if err != nil {
+		setupErr = errors.Wrap(err, "failed to clone observability repo")
 		return
 	}
 
@@ -487,6 +516,7 @@ func RunSetup(ctx context.Context, config SetupConfig, noPrompt, purge, withBill
 	logger.Info().Msg("   ✓ Docker is installed and configured correctly")
 	logger.Info().Msgf("   ✓ Job Distributor image %s is available", jdLocalImage)
 	logger.Info().Msgf("   ✓ Atlas Chip Ingress image %s is available", chipLocalImage)
+	logger.Info().Msgf("   ✓ Observability repo cloned to %s", observabilityRepoPath)
 	if withBilling {
 		logger.Info().Msgf("   ✓ Billing Platform Service image %s is available", billingLocalImage)
 	}
@@ -494,11 +524,6 @@ func RunSetup(ctx context.Context, config SetupConfig, noPrompt, purge, withBill
 		logger.Info().Msg("   ✓ GitHub CLI is installed")
 	} else {
 		logger.Warn().Msg("   ✗ GitHub CLI is not installed")
-	}
-	if ctfInstalled {
-		logger.Info().Msg("   ✓ CTF CLI is installed")
-	} else {
-		logger.Warn().Msg("   ✗ CTF CLI is not installed")
 	}
 	if len(cfg.Capabilities.MakeCommands) > 0 {
 		logger.Info().Msg("   ✓ Capabilities binaries installed")
@@ -607,6 +632,7 @@ func makeCapabilities(capabilitiesConfig capabilitiesConfig, repoRootRelativePat
 		// Set GOBIN to the absolute path of the target path, so that binaries are placed there
 		cmd.Env = os.Environ()
 		cmd.Env = append(cmd.Env, "GOBIN="+tempDirAbsPath)
+		cmd.Env = append(cmd.Env, "CL_PLUGIN_GOFLAGS=")
 		cmd.Stdout = os.Stdout
 		cmd.Stderr = os.Stderr
 
@@ -704,6 +730,10 @@ func checkDockerConfiguration() error {
 		// Check settings
 		settings, err := os.ReadFile(configFile)
 		if err != nil {
+			if strings.Contains(err.Error(), "operation not permitted") {
+				logger.Warn().Msgf("  ! Could not check Docker settings due to restrictive TCC policies (can't read file). You need to manually verify the settings in the Docker Desktop UI.")
+				return nil
+			}
 			return fmt.Errorf("failed to read Docker settings: %w", err)
 		}
 
@@ -1015,99 +1045,4 @@ func logInToGithubWithGHCLI(ctx context.Context) error {
 
 	logger.Info().Msg("  ✓ GitHub CLI logged in successfully")
 	return nil
-}
-
-// checkCTF checks if the CTF CLI is installed prompts to install if not
-func checkCTF(ctx context.Context, requiredVersion string, noPrompt bool, purge bool) (installed bool, err error) {
-	logger := framework.L
-
-	if purge {
-		_ = os.Remove(filepath.Join(binDir, "ctf"))
-	}
-
-	ctfCmd := exec.Command("ctf")
-	if runErr := ctfCmd.Run(); runErr == nil {
-		logger.Info().Msg("✓ CTF CLI is already installed")
-		return true, nil
-	}
-
-	// Check for CTF CLI is in binDir
-	if _, statErr := os.Stat(filepath.Join(binDir, "ctf")); statErr == nil {
-		logger.Info().Msg("✓ CTF CLI is already installed")
-		return true, nil
-	}
-
-	logger.Info().Msg("✗ CTF CLI is not installed")
-	logger.Info().Msg("  Would you like to download and install the CTF CLI now? (y/n) [y]")
-
-	var input = "y" // Default to yes
-	if !noPrompt {
-		_, err = fmt.Scanln(&input)
-		if err != nil {
-			// If error is due to empty input (just pressing Enter), treat as 'y' (yes)
-			if err.Error() != "unexpected newline" {
-				return false, errors.Wrap(err, "failed to read input")
-			}
-		}
-	}
-	input = strings.TrimSpace(strings.ToLower(input))
-	if input != "y" && input != "n" {
-		logger.Warn().Msg("Invalid input. Please enter 'y' or 'n'.")
-		return false, fmt.Errorf("invalid input: %s", input)
-	}
-
-	if strings.ToLower(input) != "y" {
-		logger.Warn().Msg("  ! You will need to install CTF CLI manually")
-		return false, nil
-	}
-
-	logger.Info().Msgf("Installing CTF CLI v%s...", requiredVersion)
-	// change to temp directory and download and extract; change back to original directory on exit
-	tempDir, err := os.MkdirTemp("", "ctf-download")
-	if err != nil {
-		return false, fmt.Errorf("failed to create temp directory: %w", err)
-	}
-	defer os.RemoveAll(tempDir)
-	wd, _ := os.Getwd()
-	if err := os.Chdir(tempDir); err != nil {
-		return false, fmt.Errorf("failed to change directory: %w", err)
-	}
-	defer func() { _ = os.Chdir(wd) }()
-	// install ctf by pulling from GitHub releases https://github.com/smartcontractkit/chainlink-testing-framework/releases/tag/framework%2Fv0.10.3
-	// for MacOS users, it will be framework-vX.X.X-darwin-arm64.tar.gz
-	// for Linux users, it will be framework-vX.X.X-linux-amd64.tar.gz or framework-vX.X.X-linux-arm64.tar.gz
-	osType := runtime.GOOS
-	archType := runtime.GOARCH
-	archiveName := fmt.Sprintf("framework-v%s-%s-%s.tar.gz", requiredVersion, osType, archType)
-	// gh release download framework/v0.10.3 --repo smartcontractkit/chainlink-testing-framework --pattern framework-v0.10.3-darwin-arm64.tar.gz
-	cmd := exec.CommandContext(ctx, "gh", "release", "download", "framework/v"+requiredVersion, "--repo", "smartcontractkit/chainlink-testing-framework", "--pattern", archiveName) //nolint:gosec //G204: Subprocess launched with a potential tainted input or cmd arguments
-	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
-	if err2 := cmd.Run(); err2 != nil {
-		return false, fmt.Errorf("failed to download CTF CLI: %w", err2)
-	}
-
-	logger.Info().Msg("Extracting CTF CLI...")
-	cmd = exec.CommandContext(ctx, "tar", "-C", binDir, "-xf", archiveName)
-	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
-	if err2 := cmd.Run(); err2 != nil {
-		return false, fmt.Errorf("failed to extract CTF CLI: %w", err2)
-	}
-	// Remove archive
-	if err2 := os.Remove(archiveName); err2 != nil {
-		logger.Warn().Msgf("Failed to remove %s. Please remove it manually.", archiveName)
-	}
-
-	logger.Info().Msgf("  ✓ CTF CLI installed to %s/ctf", binDir)
-	logger.Warn().Msg("")
-	logger.Warn().Msgf("   * -------------------------- I M P O R T A N T -------------------------------------- *")
-	logger.Warn().Msgf("   *                                                                                     *")
-	logger.Warn().Msgf("   * Add this directory to your PATH or move the CTF binary to a directory in your PATH  *")
-	logger.Warn().Msgf("   *                                                                                     *")
-	logger.Warn().Msgf("   * ----------------------------------------------------------------------------------- *")
-	logger.Warn().Msg("")
-	logger.Warn().Msgf("   You can run: export PATH=\"%s:$PATH\"", binDir)
-	logger.Warn().Msg("")
-	return true, nil
 }

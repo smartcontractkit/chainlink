@@ -3,6 +3,7 @@ package changeset
 import (
 	"context"
 	"fmt"
+	"slices"
 	"strings"
 	"sync"
 
@@ -81,14 +82,10 @@ func isMCMSContract(contractType string) bool {
 		string(types.ProposerManyChainMultisig),
 		string(types.BypasserManyChainMultisig),
 		string(types.CancellerManyChainMultisig),
+		string(types.CallProxy),
 	}
 
-	for _, mcmsType := range mcmsTypes {
-		if contractType == mcmsType {
-			return true
-		}
-	}
-	return false
+	return slices.Contains(mcmsTypes, contractType)
 }
 
 var (
@@ -112,7 +109,6 @@ func DeployMCMSWithTimelockV2(
 	mu := sync.Mutex{}
 	allReports := make([]operations.Report[any, any], 0)
 	for chainSel, cfg := range cfgByChain {
-		chainSel, cfg := chainSel, cfg // capture range variable
 		eg.Go(func() error {
 			family, err := chain_selectors.GetSelectorFamily(chainSel)
 			if err != nil {

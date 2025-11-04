@@ -3,6 +3,7 @@ package src
 import (
 	"bytes"
 	"fmt"
+	"slices"
 	"text/template"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
@@ -24,13 +25,7 @@ func deployKeystoneWorkflowsTo(nodeSet NodeSet, reg kcr.CapabilitiesRegistryInte
 
 	// Check that the capabilities are registered
 	for _, c := range caps {
-		found := false
-		for _, expected := range expectedHashedCIDs {
-			if c.HashedId == expected {
-				found = true
-				break
-			}
-		}
+		found := slices.Contains(expectedHashedCIDs, c.HashedId)
 
 		if !found {
 			panic(fmt.Sprintf("Capability %s not found in registry", c.HashedId))

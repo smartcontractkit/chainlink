@@ -16,7 +16,7 @@ func TestDecimal(t *testing.T) {
 	big := big.NewInt(1)
 
 	var tt = []struct {
-		v           interface{}
+		v           any
 		expectedErr bool
 	}{
 		{"1.1", false},

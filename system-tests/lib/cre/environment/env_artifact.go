@@ -12,7 +12,6 @@ import (
 	capabilitiespb "github.com/smartcontractkit/chainlink-common/pkg/capabilities/pb"
 	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
 	cldf_deployment "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
-	cldf_offchain "github.com/smartcontractkit/chainlink-deployments-framework/offchain"
 	capabilities_registry "github.com/smartcontractkit/chainlink-evm/gethwrappers/keystone/generated/capabilities_registry_1_1_0"
 	"github.com/smartcontractkit/chainlink-testing-framework/framework"
 	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/jd"
@@ -20,7 +19,6 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment"
 	libc "github.com/smartcontractkit/chainlink/system-tests/lib/conversions"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre"
-	crenode "github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/node"
 	envconfig "github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/config"
 )
 
@@ -30,14 +28,17 @@ const (
 )
 
 type EnvArtifact struct {
-	AddressRefs   []datastore.AddressRef                               `json:"address_refs"`
-	AddressBook   map[uint64]map[string]cldf_deployment.TypeAndVersion `json:"address_book"`
-	JdConfig      jd.Output                                            `json:"jd_config"`
-	Nodes         map[string]NodesArtifact                             `json:"nodes"`
-	DONs          []DonArtifact                                        `json:"dons"`
-	Bootstrappers []BootstrapNodeArtifact                              `json:"bootstrappers"`
-	NOPs          []NOPArtifact                                        `json:"nops"`
-	Topology      cre.DonTopology                                      `json:"topology"`
+	RegistryChainSelector uint64                                               `json:"home_chain_selector"`
+	AddressRefs           []datastore.AddressRef                               `json:"address_refs"`
+	AddressBook           map[uint64]map[string]cldf_deployment.TypeAndVersion `json:"address_book"`
+	JdConfig              jd.Output                                            `json:"jd_config"`
+	Nodes                 map[string]NodesArtifact                             `json:"nodes"`
+	DONs                  []DonArtifact                                        `json:"dons"`
+	Bootstrappers         []BootstrapNodeArtifact                              `json:"bootstrappers"`
+	NOPs                  []NOPArtifact                                        `json:"nops"`
+	ContractVersions      map[string]string                                    `json:"contract_versions"`
+	CapabilityConfigs     map[cre.CapabilityFlag]cre.CapabilityConfig          `json:"capability_configs"`
+	GatewayConnectors     *cre.GatewayConnectors                               `json:"gateway_connectors,omitempty"`
 }
 
 type NodesArtifact struct {
@@ -195,15 +196,13 @@ type NOPArtifact struct {
 
 func DumpArtifact(
 	absPath string,
-	datastore datastore.AddressRefStore,
-	addressBook cldf_deployment.AddressBook,
+	dons cre.Dons,
+	creEnv *cre.Environment,
 	jdOutput jd.Output,
-	donTopology cre.DonTopology,
-	offchainClient cldf_offchain.Client,
+	nodeSets []*cre.NodeSet,
 	capabilityRegistryFns []cre.CapabilityRegistryConfigFn,
-	nodeSets []*cre.CapabilitiesAwareNodeSet,
 ) (string, error) {
-	artifact, err := GenerateArtifact(datastore, addressBook, jdOutput, donTopology, offchainClient, capabilityRegistryFns, nodeSets)
+	artifact, err := GenerateArtifact(dons, creEnv, jdOutput, nodeSets, capabilityRegistryFns)
 	if err != nil {
 		return "", pkgerrors.Wrap(err, "failed to generate environment artifact")
 	}
@@ -217,38 +216,39 @@ func DumpArtifact(
 }
 
 func GenerateArtifact(
-	ds datastore.AddressRefStore,
-	addressBook cldf_deployment.AddressBook,
+	dons cre.Dons,
+	creEnv *cre.Environment,
 	jdOutput jd.Output,
-	donTopology cre.DonTopology,
-	offchainClient cldf_offchain.Client,
+	nodeSets []*cre.NodeSet,
 	capabilityRegistryFns []cre.CapabilityRegistryConfigFn,
-	nodeSets []*cre.CapabilitiesAwareNodeSet,
 ) (*EnvArtifact, error) {
 	var err error
 
-	addresses, err := addressBook.Addresses()
+	addresses, err := creEnv.CldfEnvironment.ExistingAddresses.Addresses() //nolint:staticcheck //won't migrate now
 	if err != nil {
 		return nil, pkgerrors.Wrap(err, "failed to get addresses from address book")
 	}
 
-	addressRecords, err := ds.Fetch()
+	addressRecords, err := creEnv.CldfEnvironment.DataStore.Addresses().Fetch()
 	if err != nil {
 		return nil, pkgerrors.Wrap(err, "failed to fetch address records from datastore")
 	}
 
 	artifact := EnvArtifact{
-		JdConfig:      jdOutput,
-		AddressBook:   addresses,
-		AddressRefs:   addressRecords,
-		Nodes:         make(map[string]NodesArtifact),
-		DONs:          make([]DonArtifact, 0),
-		Bootstrappers: make([]BootstrapNodeArtifact, 0),
-		NOPs:          make([]NOPArtifact, 0),
-		Topology:      donTopology,
+		RegistryChainSelector: creEnv.RegistryChainSelector,
+		JdConfig:              jdOutput,
+		AddressBook:           addresses,
+		AddressRefs:           addressRecords,
+		Nodes:                 make(map[string]NodesArtifact),
+		DONs:                  make([]DonArtifact, 0),
+		Bootstrappers:         make([]BootstrapNodeArtifact, 0),
+		NOPs:                  make([]NOPArtifact, 0),
+		ContractVersions:      creEnv.ContractVersions,
+		CapabilityConfigs:     creEnv.CapabilityConfigs,
+		GatewayConnectors:     dons.GatewayConnectors,
 	}
 
-	for i, don := range donTopology.DonsWithMetadata {
+	for donIdx, don := range dons.List() {
 		donArtifact := DonArtifact{
 			DonName:        don.Name,
 			DonID:          don.ID,
@@ -258,14 +258,10 @@ func GenerateArtifact(
 			Capabilities:   make([]DONCapabilityArtifact, 0),
 		}
 
-		workerNodes, workerNodesErr := crenode.FindManyWithLabel(don.NodesMetadata, &cre.Label{
-			Key:   crenode.NodeTypeKey,
-			Value: cre.WorkerNode,
-		}, crenode.EqualLabels)
-		if workerNodesErr != nil {
-			return nil, pkgerrors.Wrap(workerNodesErr, "failed to find worker nodes")
+		workerNodes, wErr := don.Workers()
+		if wErr != nil {
+			return nil, pkgerrors.Wrap(wErr, "failed to find worker nodes")
 		}
-
 		donArtifact.F = libc.MustSafeUint8((len(workerNodes) - 1) / 3)
 
 		for _, capabilityFn := range capabilityRegistryFns {
@@ -273,7 +269,7 @@ func GenerateArtifact(
 				continue
 			}
 
-			capabilitiesFn, capabilitiesFnErr := capabilityFn(don.Flags, nodeSets[i])
+			capabilitiesFn, capabilitiesFnErr := capabilityFn(don.Flags, nodeSets[donIdx])
 			if capabilitiesFnErr != nil {
 				return nil, pkgerrors.Wrap(capabilitiesFnErr, "failed to get capabilities from capability registry function")
 			}
@@ -291,14 +287,14 @@ func GenerateArtifact(
 		}
 
 		nop := NOPArtifact{
-			ID:    i + 1, // NOP IDs start from 1
+			ID:    donIdx + 1, // NOP IDs start from 1
 			Name:  fmt.Sprintf("NOP for %s DON", don.Name),
-			Admin: fmt.Sprintf("%s%06d", NOPAdminPrefix, i+1),
+			Admin: fmt.Sprintf("%s%06d", NOPAdminPrefix, donIdx+1),
 		}
 
 		var nodeIDs []string
-		for _, node := range don.DON.Nodes {
-			nodeIDs = append(nodeIDs, node.NodeID)
+		for _, node := range dons.List()[donIdx].Nodes {
+			nodeIDs = append(nodeIDs, node.JobDistributorDetails.NodeID)
 		}
 
 		artifact.Nodes[don.Name] = NodesArtifact{
@@ -308,7 +304,7 @@ func GenerateArtifact(
 		artifact.NOPs = append(artifact.NOPs, nop)
 		artifact.DONs = append(artifact.DONs, donArtifact)
 
-		nodeInfo, nodeInfoErr := deployment.NodeInfo(nodeIDs, offchainClient)
+		nodeInfo, nodeInfoErr := deployment.NodeInfo(nodeIDs, creEnv.CldfEnvironment.Offchain)
 		if nodeInfoErr != nil {
 			if !strings.Contains(nodeInfoErr.Error(), "missing node metadata") {
 				return nil, pkgerrors.Wrapf(nodeInfoErr, "failed to get node info for DON %s", don.Name)

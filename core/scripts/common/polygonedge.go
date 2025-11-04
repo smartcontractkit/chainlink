@@ -140,7 +140,7 @@ func GetIbftExtraClean(extra []byte) (cleanedExtra []byte, err error) {
 		return nil, fmt.Errorf("invalid extra data in polygon-edge chain: %w", err)
 	}
 
-	var extraData []interface{}
+	var extraData []any
 	err = rlp.DecodeBytes(extra, &extraData)
 	if err != nil {
 		return nil, err
@@ -151,7 +151,7 @@ func GetIbftExtraClean(extra []byte) (cleanedExtra []byte, err error) {
 	// ignored when calculating the hash
 	// Reference: https://github.com/0xPolygon/polygon-edge/blob/develop/consensus/polybft/hash.go#L20-L27.
 	if len(extraData) > 3 {
-		extraData[2] = []interface{}{[]byte{}, []byte{}}
+		extraData[2] = []any{[]byte{}, []byte{}}
 	}
 
 	cleanedExtra, err = rlp.EncodeToBytes(extraData)

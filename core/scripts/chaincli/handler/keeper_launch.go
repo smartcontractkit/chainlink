@@ -221,7 +221,7 @@ func (k *Keeper) LaunchAndTest(ctx context.Context, withdraw, printLogs, force, 
 
 // cancelAndWithdrawActiveUpkeeps cancels all active upkeeps and withdraws funds for registry 1.2
 func (k *Keeper) cancelAndWithdrawActiveUpkeeps(ctx context.Context, activeUpkeepIds []*big.Int, canceller canceller) error {
-	for i := 0; i < len(activeUpkeepIds); i++ {
+	for i := range activeUpkeepIds {
 		upkeepId := activeUpkeepIds[i]
 		tx, err := canceller.CancelUpkeep(k.buildTxOpts(ctx), upkeepId)
 		if err != nil {

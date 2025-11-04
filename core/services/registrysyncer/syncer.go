@@ -13,10 +13,9 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/query/primitives"
 	kcr "github.com/smartcontractkit/chainlink-evm/gethwrappers/keystone/generated/capabilities_registry_1_1_0"
+	"github.com/smartcontractkit/chainlink-evm/pkg/config"
 
 	p2ptypes "github.com/smartcontractkit/libocr/ragep2p/types"
-
-	evmrelaytypes "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/types"
 )
 
 type Listener interface {
@@ -101,11 +100,11 @@ func New(
 // This is because Bind() makes an onchain call to verify that the contract address exists, and if
 // called during initialization, this results in a "no live nodes" error.
 func newReader(ctx context.Context, lggr logger.Logger, relayer ContractReaderFactory, capabilitiesContract types.BoundContract) (types.ContractReader, error) {
-	contractReaderConfig := evmrelaytypes.ChainReaderConfig{
-		Contracts: map[string]evmrelaytypes.ChainContractReader{
+	contractReaderConfig := config.ChainReaderConfig{
+		Contracts: map[string]config.ChainContractReader{
 			"CapabilitiesRegistry": {
 				ContractABI: kcr.CapabilitiesRegistryABI,
-				Configs: map[string]*evmrelaytypes.ChainReaderDefinition{
+				Configs: map[string]*config.ChainReaderDefinition{
 					"getDONs": {
 						ChainSpecificName: "getDONs",
 					},

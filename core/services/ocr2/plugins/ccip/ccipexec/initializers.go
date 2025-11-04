@@ -10,6 +10,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/beholder"
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
+	"github.com/smartcontractkit/chainlink-evm/pkg/statuschecker"
 
 	"github.com/Masterminds/semver/v3"
 
@@ -33,7 +34,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/oraclelib"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/tokendata"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/promwrapper"
-	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/statuschecker"
 )
 
 var (
@@ -136,19 +136,25 @@ func NewExecServices(ctx context.Context, lggr logger.Logger, jb job.Job, srcPro
 		}
 		tokenDataProviders[cciptypes.Address(pluginConfig.USDCConfig.SourceTokenAddress.String())] = usdcReader
 	}
-	// init lbtc token data provider
-	if pluginConfig.LBTCConfig.AttestationAPI != "" {
-		lggr.Infof("LBTC token data provider enabled")
-		err2 := pluginConfig.LBTCConfig.ValidateLBTCConfig()
-		if err2 != nil {
-			return nil, err2
-		}
 
-		lbtcReader, err2 := srcProvider.NewTokenDataReader(ctx, ccip.EvmAddrToGeneric(pluginConfig.LBTCConfig.SourceTokenAddress))
-		if err2 != nil {
-			return nil, fmt.Errorf("new lbtc reader: %w", err2)
+	lbtcConfigs := pluginConfig.GetLBTCConfigs()
+	err = ccipconfig.ValidateLBTCConfigs(lbtcConfigs)
+	if err != nil {
+		return nil, err
+	}
+	for _, lbtcConfig := range lbtcConfigs {
+		// init lbtc token data provider
+		if lbtcConfig.AttestationAPI != "" {
+			lggr.Infow("LBTC token data provider enabled",
+				"sourceTokenAddress", lbtcConfig.SourceTokenAddress.String(),
+				"attestationURI", lbtcConfig.AttestationAPI,
+			)
+			lbtcReader, err2 := srcProvider.NewTokenDataReader(ctx, ccip.EvmAddrToGeneric(lbtcConfig.SourceTokenAddress))
+			if err2 != nil {
+				return nil, fmt.Errorf("new lbtc reader: %w", err2)
+			}
+			tokenDataProviders[cciptypes.Address(lbtcConfig.SourceTokenAddress.String())] = lbtcReader
 		}
-		tokenDataProviders[cciptypes.Address(pluginConfig.LBTCConfig.SourceTokenAddress.String())] = lbtcReader
 	}
 
 	// Prom wrappers

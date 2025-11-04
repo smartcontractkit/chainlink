@@ -14,9 +14,9 @@ import (
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2/types"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
+	"github.com/smartcontractkit/chainlink-evm/pkg/config"
 
 	"github.com/smartcontractkit/chainlink-evm/pkg/logpoller"
-	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/types"
 )
 
 type FunctionsPluginType int
@@ -34,8 +34,8 @@ type configPoller struct {
 	pluginType         FunctionsPluginType
 }
 
-var _ types.ConfigPoller = &configPoller{}
-var _ types.RouteUpdateSubscriber = &configPoller{}
+var _ config.ConfigPoller = &configPoller{}
+var _ config.RouteUpdateSubscriber = &configPoller{}
 
 // ConfigSet Common to all OCR2 evm based contracts: https://github.com/smartcontractkit/libocr/blob/master/contract2/dev/OCR2Abstract.sol
 var ConfigSet common.Hash
@@ -75,7 +75,6 @@ func configFromLog(logData []byte, pluginType FunctionsPluginType) (ocrtypes.Con
 	}
 	var signers []ocrtypes.OnchainPublicKey
 	for _, addr := range unpacked.Signers {
-		addr := addr
 		signers = append(signers, addr[:])
 	}
 

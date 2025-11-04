@@ -9,6 +9,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	chain_selectors "github.com/smartcontractkit/chain-selectors"
 	"github.com/stretchr/testify/require"
+	"k8s.io/utils/ptr"
 
 	cldf_chain "github.com/smartcontractkit/chainlink-deployments-framework/chain"
 
@@ -22,7 +23,9 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/deployergroup"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
+	commonstate "github.com/smartcontractkit/chainlink/deployment/common/changeset/state"
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
+	commontypes "github.com/smartcontractkit/chainlink/deployment/common/types"
 )
 
 type mintConfig struct {
@@ -287,6 +290,91 @@ func TestDeployerGroupMCMS(t *testing.T) {
 			require.Equal(t, sumOfMints, amount)
 		})
 	}
+}
+
+func TestDeployerGroupWithTimelockAddressQualifier(t *testing.T) {
+	var err error
+	linktokenOwnerQualifier := "link-owner"
+	selectorIndex := uint64(0)
+	testCfg := dummyMultiChainDeployerGroupChangesetConfig{
+		address: common.HexToAddress("0x455E5AA18469bC6ccEF49594645666C587A3a71B"),
+		mints: []mintConfig{
+			{
+				selectorIndex: selectorIndex,
+				amount:        big.NewInt(1),
+			},
+			{
+				selectorIndex: selectorIndex,
+				amount:        big.NewInt(4),
+			},
+		},
+		MCMS: &proposalutils.TimelockConfig{
+			MinDelay: 0,
+			// we will set the qualifier below after we know the chain selector
+		},
+	}
+	e, _ := testhelpers.NewMemoryEnvironment(t, testhelpers.WithNumOfChains(2), testhelpers.WithPrerequisiteDeploymentOnly(nil))
+
+	mcmsCfg := make(map[uint64]commontypes.MCMSWithTimelockConfigV2)
+	chain := e.Env.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chain_selectors.FamilyEVM))[selectorIndex]
+
+	// update the test config to include the qualifier for the selected chain
+	testCfg.MCMS.TimelockQualifierPerChain = map[uint64]string{
+		chain: linktokenOwnerQualifier,
+	}
+	// Create a MCMS config for deployment with qualifier for the selected chain
+	cfg := proposalutils.SingleGroupTimelockConfigV2(t)
+	cfg.Qualifier = ptr.To(linktokenOwnerQualifier)
+	mcmsCfg[chain] = cfg
+
+	// Deploy a new MCMS with qualifier and transfer the ownership of the link token to it
+	e.Env, err = commonchangeset.Apply(t, e.Env, commonchangeset.Configure(
+		cldf.CreateLegacyChangeSet(commonchangeset.DeployMCMSWithTimelockV2), mcmsCfg))
+	require.NoError(t, err)
+
+	// Delete the newly deployed MCMS addresses from addressbook so that the state loader does not pick them up
+	// otherwise the mcms state will throw an error for duplicate MCMS contracts
+	addressBookToDelete := cldf.NewMemoryAddressBook()
+	addressesToDelete, err := commonstate.LoadAddressesFromDataStore(e.Env.DataStore, chain, linktokenOwnerQualifier)
+	require.NoError(t, err)
+	for addr, tv := range addressesToDelete {
+		require.NoError(t, addressBookToDelete.Save(chain, addr, tv))
+	}
+	require.NoError(t, e.Env.ExistingAddresses.Remove(addressBookToDelete))
+	t.Logf("deleted %v addresses from addressbook", addressBookToDelete)
+	state, err := stateview.LoadOnchainState(e.Env)
+	require.NoError(t, err)
+	token := state.MustGetEVMChainState(chain).LinkToken
+	contractsByChain := make(map[uint64][]common.Address)
+	contractsByChain[chain] = []common.Address{token.Address()}
+
+	e.Env, err = commonchangeset.Apply(t, e.Env,
+		commonchangeset.Configure(cldf.CreateLegacyChangeSet(commonchangeset.TransferToMCMSWithTimelockV2),
+			commonchangeset.TransferToMCMSWithTimelockConfig{
+				ContractsByChain: contractsByChain,
+				MCMSConfig:       *testCfg.MCMS,
+			},
+		),
+		commonchangeset.Configure(
+			cldf.CreateLegacyChangeSet(dummyDeployerGroupGrantMintMultiChainChangeset),
+			testCfg,
+		),
+		commonchangeset.Configure(
+			cldf.CreateLegacyChangeSet(dummyDeployerGroupMintMultiDeploymentContextChangeset),
+			testCfg,
+		),
+	)
+	require.NoError(t, err)
+
+	amount, err := token.BalanceOf(nil, testCfg.address)
+	require.NoError(t, err)
+
+	sumOfMints := big.NewInt(0)
+	for _, mint := range testCfg.mints {
+		sumOfMints = sumOfMints.Add(sumOfMints, mint.amount)
+	}
+
+	require.Equal(t, sumOfMints, amount)
 }
 
 func TestDeployerGroupGenerateMultipleProposals(t *testing.T) {

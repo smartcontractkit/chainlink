@@ -214,7 +214,6 @@ func TestCoreRelayerChainInteroperators(t *testing.T) {
 		},
 	}
 	for _, tt := range tests {
-		tt := tt
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 
@@ -262,6 +261,8 @@ func TestCoreRelayerChainInteroperators(t *testing.T) {
 					t.Skip("tron doesn't need a CoreRelayerChainInteroperator")
 				case relay.NetworkTON:
 					t.Skip("ton doesn't need a CoreRelayerChainInteroperator")
+				case relay.NetworkSui:
+					t.Skip("sui doesn't need a CoreRelayerChainInteroperator")
 
 				default:
 					require.Fail(t, "untested relay network", relayNetwork)

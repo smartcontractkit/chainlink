@@ -108,29 +108,29 @@ func (l *SingleFileLogger) Named(name string) corelogger.Logger {
 	return &SingleFileLogger{l.SugaredLogger.Named(name)}
 }
 
-func (l *SingleFileLogger) Trace(args ...interface{}) {
+func (l *SingleFileLogger) Trace(args ...any) {
 	// “Trace” in Chainlink’s interface is basically a debug-level call
 	l.Debug(args...)
 }
 
-func (l *SingleFileLogger) Tracef(format string, values ...interface{}) {
+func (l *SingleFileLogger) Tracef(format string, values ...any) {
 	l.Debugf(format, values...)
 }
 
-func (l *SingleFileLogger) Tracew(msg string, keysAndValues ...interface{}) {
+func (l *SingleFileLogger) Tracew(msg string, keysAndValues ...any) {
 	l.Debugw(msg, keysAndValues...)
 }
 
-func (l *SingleFileLogger) Critical(args ...interface{}) {
+func (l *SingleFileLogger) Critical(args ...any) {
 	// “Critical” is typically mapped to an error-level call or fatal if you prefer
 	l.Error(args...)
 }
 
-func (l *SingleFileLogger) Criticalf(format string, values ...interface{}) {
+func (l *SingleFileLogger) Criticalf(format string, values ...any) {
 	l.Errorf(format, values...)
 }
 
-func (l *SingleFileLogger) Criticalw(msg string, keysAndValues ...interface{}) {
+func (l *SingleFileLogger) Criticalw(msg string, keysAndValues ...any) {
 	l.Errorw(msg, keysAndValues...)
 }
 
@@ -139,7 +139,7 @@ func (l *SingleFileLogger) Helper(skip int) corelogger.Logger {
 	return &SingleFileLogger{l.SugaredLogger.Desugar().WithOptions(zap.AddCallerSkip(skip)).Sugar()}
 }
 
-func (l *SingleFileLogger) Recover(panicErr interface{}) {
+func (l *SingleFileLogger) Recover(panicErr any) {
 	// Called on panics, typically you might add custom logic or stacktrace
 	if panicErr != nil {
 		l.Errorf("Recovering from panic: %v", panicErr)
@@ -152,7 +152,7 @@ func (l *SingleFileLogger) SetLogLevel(zapLevel zapcore.Level) {
 	// If not, you can just do nothing or rebuild a new logger.
 }
 
-func (l *SingleFileLogger) With(args ...interface{}) corelogger.Logger {
+func (l *SingleFileLogger) With(args ...any) corelogger.Logger {
 	// Adds extra fields to the logger. Return a new instance with them.
 	return &SingleFileLogger{l.SugaredLogger.With(args...)}
 }
