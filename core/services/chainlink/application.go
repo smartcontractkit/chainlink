@@ -33,6 +33,7 @@ import (
 	"github.com/smartcontractkit/chainlink-ccv/integration/pkg/constructors"
 	"github.com/smartcontractkit/chainlink-ccv/protocol"
 	"github.com/smartcontractkit/chainlink-ccv/verifier"
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/hex"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/beholder"
 	"github.com/smartcontractkit/chainlink-common/pkg/billing"
@@ -1424,11 +1425,23 @@ func newCCVServices(
 	}
 
 	for _, vcfg := range ccvCfg.Verifiers {
-		// TODO: ccv secrets?
+		signer, err := keyStore.Eth().Get(ctx, vcfg.VerifierID)
+		if err != nil {
+			globalLogger.Errorf("Failed to get key for verifier(%s): %v", vcfg.VerifierID, err)
+			return nil, fmt.Errorf("failed to get key for CCV verifier %s: %w", vcfg.VerifierID, err)
+		}
+
+		addr, err := hex.DecodeString(vcfg.SignerAddress)
+		if err != nil {
+			globalLogger.Errorf("Failed to decode signer address: %v", err)
+			return nil, fmt.Errorf("failed to decode signer address for CCV verifier: %w", err)
+		}
+
 		vc, err := constructors.NewVerificationCoordinator(
 			globalLogger.With("service", "Verifier"),
 			vcfg,
-			constructors.VerifierSecrets{},
+			addr,
+			signer,
 			legacyRelayers,
 		)
 		if err != nil {
