@@ -251,6 +251,9 @@ func ConfirmCommitForAllWithExpectedSeqNums(
 					true,
 				))
 			case chainsel.FamilySui:
+				fmt.Println("OLD OFFRAMP: ", state.SuiChains[dstChain].OffRampAddress)
+				fmt.Println("NEW OFFRAMP: ", state.SuiChains[dstChain].OffRampMockV2PackageId)
+
 				offRampPackageID := state.SuiChains[dstChain].OffRampMockV2PackageId
 				if offRampPackageID == "" {
 					fmt.Println("offRamp v2 not set, using offRamp v1")

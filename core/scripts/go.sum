@@ -1660,10 +1660,10 @@ github.com/smartcontractkit/chainlink-protos/workflows/go v0.0.0-20251025021331-
 github.com/smartcontractkit/chainlink-protos/workflows/go v0.0.0-20251025021331-aa7746850cc4/go.mod h1:HIpGvF6nKCdtZ30xhdkKWGM9+4Z4CVqJH8ZBL1FTEiY=
 github.com/smartcontractkit/chainlink-solana v1.1.2-0.20251020193713-b63bc17bfeb1 h1:aQj7qbQpRUMqTpYqlMaSuY+iMUYV4bU5/Hs8ocrrF9k=
 github.com/smartcontractkit/chainlink-solana v1.1.2-0.20251020193713-b63bc17bfeb1/go.mod h1:BqK7sKZUfX4sVkDSEMnj1Vnagiqh+bt1nARpEFruP40=
-github.com/smartcontractkit/chainlink-sui v0.0.0-20251104085802-82db1bc4285a h1:a0h1/rCoWUr6XoaT/S8ZVAMInWMBDbw8GkiFzN2dv94=
-github.com/smartcontractkit/chainlink-sui v0.0.0-20251104085802-82db1bc4285a/go.mod h1:VlyZhVw+a93Sk8rVHOIH6tpiXrMzuWLZrjs1eTIExW8=
-github.com/smartcontractkit/chainlink-sui/deployment v0.0.0-20251104085802-82db1bc4285a h1:wivk5O9CIUH6EIJAJcvWURTpCQjYXNa212ng1b4YqGk=
-github.com/smartcontractkit/chainlink-sui/deployment v0.0.0-20251104085802-82db1bc4285a/go.mod h1:uDAtSOVjQh6/xDf4T5DOgCw6kb02ENkFt4MxjD17NoQ=
+github.com/smartcontractkit/chainlink-sui v0.0.0-20251104232000-c1aafe03e15e h1:vqzej0P5blS3MycjiHIWiydI3JOg7espK612Rym2DTQ=
+github.com/smartcontractkit/chainlink-sui v0.0.0-20251104232000-c1aafe03e15e/go.mod h1:ucXy/Qdv4PH5TIYXW7eINxcYVPew3y8i5pVIVtpPKh0=
+github.com/smartcontractkit/chainlink-sui/deployment v0.0.0-20251104232000-c1aafe03e15e h1:JMqpEwIi9JFuE3l+DmEOPYKKku4/a2Yl3RmaqjLN0fM=
+github.com/smartcontractkit/chainlink-sui/deployment v0.0.0-20251104232000-c1aafe03e15e/go.mod h1:uDAtSOVjQh6/xDf4T5DOgCw6kb02ENkFt4MxjD17NoQ=
 github.com/smartcontractkit/chainlink-testing-framework/framework v0.11.8 h1:0d7CVHUsG3Lt4LNIMt7/GQLjzrWMpA+KtUC/9gZFeAQ=
 github.com/smartcontractkit/chainlink-testing-framework/framework v0.11.8/go.mod h1:BTUmWJGbOQtMdDW8cy4fu0wLoj8tKFQiLR7SE+OyTXU=
 github.com/smartcontractkit/chainlink-testing-framework/framework/components/dockercompose v0.1.17 h1:rOYrH9lx2nXyqtvpuTq50RlW5VtplJFWtXD6cf7uEWc=
