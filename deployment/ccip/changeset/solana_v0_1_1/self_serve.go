@@ -6,7 +6,6 @@ import (
 	"fmt"
 
 	"github.com/gagliardetto/solana-go"
-
 	mcmsTypes "github.com/smartcontractkit/mcms/types"
 
 	lockrelease "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/v0_1_0/lockrelease_token_pool"
@@ -60,10 +59,17 @@ func (cfg OnboardTokenPoolsForSelfServeConfig) Validate(e cldf.Environment, chai
 		}
 		tokenMint := registerTokenConfig.TokenMint
 		mintStr := tokenMint.String()
+		if mintStr == "" {
+			return fmt.Errorf("TokenMint cannot be empty: %v", registerTokenConfig.TokenMint)
+		}
 		if firstIdx, dup := seen[mintStr]; dup {
 			return fmt.Errorf("duplicate token mint %s found at indexes %d and %d", mintStr, firstIdx, i)
 		}
 		seen[mintStr] = i
+		_, err := GetTokenProgramID(registerTokenConfig.TokenProgramName)
+		if err != nil {
+			return fmt.Errorf("TokenProgramName not found in registerTokenConfig: %v", registerTokenConfig.TokenProgramName)
+		}
 		if registerTokenConfig.ProposedOwner.IsZero() {
 			return errors.New("token admin registry admin is required")
 		}

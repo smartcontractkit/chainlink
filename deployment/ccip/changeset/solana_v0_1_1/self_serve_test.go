@@ -128,14 +128,16 @@ func doTestOnboardTokenPoolForSelfServe(t *testing.T, isMCMsOwner bool) {
 				ChainSelector: solChainSelector,
 				RegisterTokenConfigs: []ccipChangesetSolana.OnboardTokenPoolConfig{
 					{
-						TokenMint:     lnrTokenMint,
-						ProposedOwner: customerAdmin.PublicKey(),
-						PoolType:      shared.LockReleaseTokenPool,
+						TokenMint:        lnrTokenMint,
+						TokenProgramName: shared.SPLTokens,
+						ProposedOwner:    customerAdmin.PublicKey(),
+						PoolType:         shared.LockReleaseTokenPool,
 					},
 					{
-						TokenMint:     bnmTokenMint,
-						ProposedOwner: customerAdmin.PublicKey(),
-						PoolType:      shared.BurnMintTokenPool,
+						TokenMint:        bnmTokenMint,
+						TokenProgramName: shared.SPLTokens,
+						ProposedOwner:    customerAdmin.PublicKey(),
+						PoolType:         shared.BurnMintTokenPool,
 					},
 				},
 				MCMS: mcmsConfig,
@@ -178,10 +180,11 @@ func doTestOnboardTokenPoolForSelfServe(t *testing.T, isMCMsOwner bool) {
 				ChainSelector: solChainSelector,
 				RegisterTokenConfigs: []ccipChangesetSolana.OnboardTokenPoolConfig{
 					{
-						TokenMint:     lnrTokenMint,
-						ProposedOwner: anotherCustomerAdmin.PublicKey(),
-						PoolType:      shared.LockReleaseTokenPool,
-						Override:      true,
+						TokenMint:        lnrTokenMint,
+						TokenProgramName: shared.SPLTokens,
+						ProposedOwner:    anotherCustomerAdmin.PublicKey(),
+						PoolType:         shared.LockReleaseTokenPool,
+						Override:         true,
 					},
 				},
 				MCMS: mcmsConfig,
