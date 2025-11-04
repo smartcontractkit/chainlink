@@ -89,11 +89,11 @@ func (u ProposeJobSpec) Apply(e cldf.Environment, input ProposeJobSpecInput) (cl
 			job_ops.ProposeStandardCapabilityJob,
 			job_ops.ProposeStandardCapabilityJobDeps{Env: e},
 			job_ops.ProposeStandardCapabilityJobInput{
-				Job:     job,
-				Domain:  input.Domain,
-				DONName: input.DONName,
-
-				ExtraLabels: input.ExtraLabels,
+				Job:               job,
+				Domain:            input.Domain,
+				DONName:           input.DONName,
+				JobNodesSpecifier: input.NodesSpecifier,
+				ExtraLabels:       input.ExtraLabels,
 			},
 		)
 		if rErr != nil {
@@ -185,9 +185,8 @@ func (u ProposeJobSpec) Apply(e cldf.Environment, input ProposeJobSpecInput) (cl
 		report = r.ToGenericReport()
 	case job_types.Gateway:
 		typedInputs := job_ops.ProposeGatewayJobInput{
-			Domain:     input.Domain,
-			DONFilters: input.DONFilters,
-			JobLabels:  input.ExtraLabels,
+			Domain:    input.Domain,
+			JobLabels: input.ExtraLabels,
 		}
 		err := input.Inputs.UnmarshalTo(&typedInputs)
 		if err != nil {

@@ -140,16 +140,17 @@ var ProposeGatewayJob = operations.NewOperation[ProposeGatewayJobInput, ProposeG
 			return ProposeGatewayJobOutput{}, err
 		}
 
-		nodes, err := pkg.FetchNodesFromJD(b.GetContext(), deps.Env, pkg.NodesByLabelsRequest{
+		req := pkg.NodesByLabelsRequest{
 			Domain:  input.Domain,
-			Filters: input.DONFilters,
-		})
+			Filters: []offchain.NodeLabelFilter{},
+		}
+		nodes, err := offchain.FetchNodesFromJD(deps.Env.GetContext(), deps.Env.Offchain, req.Filter())
 		if err != nil {
 			return ProposeGatewayJobOutput{}, fmt.Errorf("failed to fetch nodes from JD: %w", err)
 		}
 
 		if len(nodes) == 0 {
-			return ProposeGatewayJobOutput{}, fmt.Errorf("no nodes found for domain %s with filters %+v", input.Domain, input.DONFilters)
+			return ProposeGatewayJobOutput{}, fmt.Errorf("no nodes found for domain %s with filters %+v", input.Domain, req.Filters)
 		}
 
 		labels := make([]*ptypes.Label, 0, len(input.JobLabels))

@@ -97,12 +97,12 @@ var ErrNoSpecifiedMethods = fmt.Errorf("no method specified to select nodes")
 var ErrMultipleSpecifiedMethods = fmt.Errorf("multiple methods specified to select nodes")
 
 func (s NodesSpecifier) Validate() error {
-	// one of don_filters, node_ids, or csa_keys
+	// one of label_filters, node_ids, or csa_keys
 	if len(s.LabelFilters) == 0 && len(s.NodeIDs) == 0 && len(s.CSAKeys) == 0 {
-		return fmt.Errorf("don_filters, node_ids, or csa_keys is required: %w", ErrNoSpecifiedMethods)
+		return fmt.Errorf("label_filters, node_ids, or csa_keys is required: %w", ErrNoSpecifiedMethods)
 	}
 	if len(s.NodeIDs) != 0 && (len(s.CSAKeys) != 0 || len(s.LabelFilters) != 0) {
-		return fmt.Errorf("only one of node_ids, csa_keys, or don_filters can be provided: %w", ErrMultipleSpecifiedMethods)
+		return fmt.Errorf("only one of node_ids, csa_keys, or label_filters can be provided: %w", ErrMultipleSpecifiedMethods)
 	}
 	return nil
 }

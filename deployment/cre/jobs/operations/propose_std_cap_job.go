@@ -74,12 +74,21 @@ var ProposeStandardCapabilityJob = operations.NewSequence[
 		if len(nodeInfos) == 0 {
 			return ProposeStandardCapabilityJobOutput{}, fmt.Errorf("no nodes info found for DON `%s` with filters %+v and node IDs %v", input.DONName, input.JobNodesSpecifier, nodeIDs)
 		}
+		// remove bootstrap nodes from the list
+		var nonBootstrapNodeInfos deployment.Nodes
+		for _, ni := range nodeInfos {
+			if ni.IsBootstrap {
+				deps.Env.Logger.Warnw("Skipping bootstrap node for standard capability job proposal", "node_id", ni.NodeID)
+				continue
+			}
+			nonBootstrapNodeInfos = append(nonBootstrapNodeInfos, ni)
+		}
 
 		generateOracleFactory := input.Job.GenerateOracleFactory && input.Job.OracleFactory == nil
 		if !generateOracleFactory {
 			specs := make(map[string][]string)
 
-			for _, ni := range nodeInfos {
+			for _, ni := range nonBootstrapNodeInfos {
 				spec, err := input.Job.Resolve()
 				if err != nil {
 					return ProposeStandardCapabilityJobOutput{}, fmt.Errorf("failed to resolve standard capability job for node %s: %w", ni.NodeID, err)
@@ -102,7 +111,7 @@ var ProposeStandardCapabilityJob = operations.NewSequence[
 					JobNodesSpecifier: specifier,
 				})
 				if err != nil {
-					return ProposeStandardCapabilityJobOutput{}, fmt.Errorf("failed to propose standard capability job: %w", err)
+					return ProposeStandardCapabilityJobOutput{}, fmt.Errorf("failed to propose standard capability job to node %s, %+v: %w", ni.NodeID, ni, err)
 				}
 
 				maps.Copy(specs, report.Output.Specs)
@@ -126,7 +135,7 @@ var ProposeStandardCapabilityJob = operations.NewSequence[
 
 		specs := make(map[string][]string)
 
-		for _, ni := range nodeInfos {
+		for _, ni := range nonBootstrapNodeInfos {
 			evmConfig, ok := ni.OCRConfigForChainSelector(uint64(input.Job.ChainSelectorEVM))
 			if !ok {
 				return ProposeStandardCapabilityJobOutput{}, fmt.Errorf("no evm ocr2 config for node %s", ni.NodeID)
