@@ -16,19 +16,18 @@ import (
 	"github.com/pkg/errors"
 	"github.com/spf13/cobra"
 
+	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
 	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/blockchain"
 	"github.com/smartcontractkit/chainlink-testing-framework/seth"
 
+	keystone_changeset "github.com/smartcontractkit/chainlink/deployment/keystone/changeset"
+	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/contracts"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment"
 	creconfig "github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/config"
 	creworkflow "github.com/smartcontractkit/chainlink/system-tests/lib/cre/workflow"
 )
 
 const (
-	// Might change if deployment sequence changes or if different config file than 'configs/workflow-don.toml' is used
-	DefaultWorkflowRegistryAddress     = "0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512"
-	DefaultCapabilitiesRegistryAddress = "0x5FbDB2315678afecb367f032d93F642f64180aa3"
-
 	DefaultWorkflowOwnerAddress = "0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266"
 )
 
@@ -59,7 +58,7 @@ func workflowCmds() *cobra.Command {
 	return workflowCmd
 }
 
-func deleteAllWorkflows(ctx context.Context, rpcURL, workflowRegistryAddress, contractsVersion string) error {
+func deleteAllWorkflows(ctx context.Context, rpcURL, workflowRegistryAddress string, contractsVersion *semver.Version) error {
 	if pkErr := environment.SetDefaultPrivateKeyIfEmpty(blockchain.DefaultAnvilPrivateKey); pkErr != nil {
 		return pkErr
 	}
@@ -75,8 +74,7 @@ func deleteAllWorkflows(ctx context.Context, rpcURL, workflowRegistryAddress, co
 
 	fmt.Printf("\n⚙️ Deleting all workflows from the workflow registry\n\n")
 
-	workflowRegistryTypeVersion := getWorkflowRegistryTypeVersion(contractsVersion)
-	deleteErr := creworkflow.DeleteAllWithContract(ctx, sethClient, common.HexToAddress(workflowRegistryAddress), workflowRegistryTypeVersion)
+	deleteErr := creworkflow.DeleteAllWithContract(ctx, sethClient, common.HexToAddress(workflowRegistryAddress), contractsVersion)
 	if deleteErr != nil {
 		return errors.Wrapf(deleteErr, "❌ failed to delete all workflows from the registry %s", workflowRegistryAddress)
 	}
@@ -175,7 +173,29 @@ func deployWorkflowCmd() *cobra.Command {
 				workflowFilePathFlag = compiledWorkflowPath
 			}
 
-			regErr = deployWorkflow(cmd.Context(), workflowFilePathFlag, workflowNameFlag, workflowOwnerAddressFlag, workflowRegistryAddressFlag, capabilitiesRegistryAddressFlag, containerNamePatternFlag, containerTargetDirFlag, configFilePathFlag, secretsFilePathFlag, secretsOutputFilePathFlag, rpcURLFlag, contractsVersionFlag, donIDFlag, deleteWorkflowFileFlag)
+			var workflowRegistryAddress string
+			if workflowRegistryAddressFlag != "" {
+				workflowRegistryAddress = workflowRegistryAddressFlag
+			} else {
+				addrRef, addrErr := addressRefFromStateFile(keystone_changeset.WorkflowRegistry.String())
+				if addrErr != nil {
+					return errors.Wrap(addrErr, "❌ failed to get workflow registry address from state file")
+				}
+				workflowRegistryAddress = addrRef.Address
+			}
+
+			var capabilitiesRegistryAddress string
+			if capabilitiesRegistryAddressFlag != "" {
+				capabilitiesRegistryAddress = capabilitiesRegistryAddressFlag
+			} else {
+				addrRef, addrErr := addressRefFromStateFile(keystone_changeset.CapabilitiesRegistry.String())
+				if addrErr != nil {
+					return errors.Wrap(addrErr, "❌ failed to get capabilities registry address from state file")
+				}
+				capabilitiesRegistryAddress = addrRef.Address
+			}
+
+			regErr = deployWorkflow(cmd.Context(), workflowFilePathFlag, workflowNameFlag, workflowOwnerAddressFlag, workflowRegistryAddress, capabilitiesRegistryAddress, containerNamePatternFlag, containerTargetDirFlag, configFilePathFlag, secretsFilePathFlag, secretsOutputFilePathFlag, rpcURLFlag, contractsVersionFlag, donIDFlag, deleteWorkflowFileFlag)
 
 			return regErr
 		},
@@ -189,8 +209,8 @@ func deployWorkflowCmd() *cobra.Command {
 	cmd.Flags().StringVarP(&containerNamePatternFlag, "container-name-pattern", "p", creworkflow.DefaultWorkflowNodePattern, "Pattern to match Docker containers workkflow DON containers (e.g. 'workflow-node')")
 	cmd.Flags().StringVarP(&rpcURLFlag, "rpc-url", "r", "http://localhost:8545", "RPC URL")
 	cmd.Flags().StringVarP(&workflowOwnerAddressFlag, "workflow-owner-address", "d", DefaultWorkflowOwnerAddress, "Workflow owner address")
-	cmd.Flags().StringVarP(&workflowRegistryAddressFlag, "workflow-registry-address", "a", DefaultWorkflowRegistryAddress, "Workflow registry address")
-	cmd.Flags().StringVarP(&capabilitiesRegistryAddressFlag, "capabilities-registry-address", "b", DefaultCapabilitiesRegistryAddress, "Capabilities registry address")
+	cmd.Flags().StringVarP(&workflowRegistryAddressFlag, "workflow-registry-address", "a", "", "Workflow registry address (if not provided, address from the state file will be used)")
+	cmd.Flags().StringVarP(&capabilitiesRegistryAddressFlag, "capabilities-registry-address", "b", "", "Capabilities registry address (if not provided, address from the state file will be used)")
 	cmd.Flags().Uint32VarP(&donIDFlag, "don-id", "e", 1, "donID used in the workflow registry contract (integer starting with 1)")
 	cmd.Flags().StringVarP(&workflowNameFlag, "name", "n", "", "Workflow name")
 	cmd.Flags().BoolVarP(&deleteWorkflowFileFlag, "delete-workflow-file", "l", false, "Deletes the workflow file after deployment")
@@ -241,8 +261,21 @@ func deleteWorkflowCmd() *cobra.Command {
 				return errors.Wrap(scErr, "failed to create Seth client")
 			}
 
-			workflowRegistryTypeVersion := getWorkflowRegistryTypeVersion(contractsVersionFlag)
-			workflowNames, workflowNamesErr := creworkflow.GetWorkflowNames(cmd.Context(), sethClient, common.HexToAddress(workflowRegistryAddressFlag), workflowRegistryTypeVersion)
+			var workflowRegistryAddress string
+			var contractsVersion *semver.Version
+			if workflowRegistryAddressFlag != "" && contractsVersionFlag != "" {
+				workflowRegistryAddress = workflowRegistryAddressFlag
+				contractsVersion = semver.MustParse(contractsVersionFlag)
+			} else {
+				addrRef, addrErr := addressRefFromStateFile(keystone_changeset.WorkflowRegistry.String())
+				if addrErr != nil {
+					return errors.Wrap(addrErr, "❌ failed to get workflow registry address from state file")
+				}
+				workflowRegistryAddress = addrRef.Address
+				contractsVersion = addrRef.Version
+			}
+
+			workflowNames, workflowNamesErr := creworkflow.GetWorkflowNames(cmd.Context(), sethClient, common.HexToAddress(workflowRegistryAddressFlag), contractsVersion)
 			if workflowNamesErr != nil {
 				return errors.Wrap(workflowNamesErr, "failed to get workflows from the registry")
 			}
@@ -253,9 +286,9 @@ func deleteWorkflowCmd() *cobra.Command {
 				return nil
 			}
 
-			deleteErr := creworkflow.DeleteWithContract(cmd.Context(), sethClient, common.HexToAddress(workflowRegistryAddressFlag), workflowRegistryTypeVersion, workflowNameFlag)
+			deleteErr := creworkflow.DeleteWithContract(cmd.Context(), sethClient, common.HexToAddress(workflowRegistryAddress), contractsVersion, workflowNameFlag)
 			if deleteErr != nil {
-				return errors.Wrapf(deleteErr, "❌ failed to delete workflow '%s' from the registry %s", workflowNameFlag, workflowRegistryAddressFlag)
+				return errors.Wrapf(deleteErr, "❌ failed to delete workflow '%s' from the registry %s", workflowNameFlag, workflowRegistryAddress)
 			}
 
 			fmt.Printf("\n✅ Workflow deleted from the workflow registry\n\n")
@@ -266,9 +299,9 @@ func deleteWorkflowCmd() *cobra.Command {
 
 	cmd.Flags().StringVarP(&rpcURLFlag, "rpc-url", "r", "http://localhost:8545", "RPC URL")
 	cmd.Flags().StringVarP(&workflowOwnerAddressFlag, "owner-address", "d", DefaultWorkflowOwnerAddress, "Workflow owner address")
-	cmd.Flags().StringVarP(&workflowRegistryAddressFlag, "workflow-registry-address", "a", DefaultWorkflowRegistryAddress, "Workflow registry address")
+	cmd.Flags().StringVarP(&workflowRegistryAddressFlag, "workflow-registry-address", "a", "", "Workflow registry address (if not provided, address from the state file will be used)")
 	cmd.Flags().StringVarP(&workflowNameFlag, "name", "n", "", "Workflow name")
-	cmd.Flags().StringVar(&contractsVersionFlag, "with-contracts-version", "v1", "Version of workflow and capabilities registry contracts to use (v1 or v2)")
+	cmd.Flags().StringVar(&contractsVersionFlag, "with-contracts-version", "v1", "Version of workflow registry contract to use (v1 or v2)")
 
 	if err := cmd.MarkFlagRequired("name"); err != nil {
 		panic(err)
@@ -309,10 +342,23 @@ func deleteAllWorkflowsCmd() *cobra.Command {
 				return errors.Wrap(scErr, "failed to create Seth client")
 			}
 
-			workflowRegistryTypeVersion := getWorkflowRegistryTypeVersion(contractsVersionFlag)
-			deleteErr := creworkflow.DeleteAllWithContract(cmd.Context(), sethClient, common.HexToAddress(workflowRegistryAddressFlag), workflowRegistryTypeVersion)
+			var workflowRegistryAddress string
+			var contractsVersion *semver.Version
+			if workflowRegistryAddressFlag != "" && contractsVersionFlag != "" {
+				workflowRegistryAddress = workflowRegistryAddressFlag
+				contractsVersion = semver.MustParse(contractsVersionFlag)
+			} else {
+				addrRef, addrErr := addressRefFromStateFile(keystone_changeset.WorkflowRegistry.String())
+				if addrErr != nil {
+					return errors.Wrap(addrErr, "❌ failed to get workflow registry address from state file")
+				}
+				workflowRegistryAddress = addrRef.Address
+				contractsVersion = addrRef.Version
+			}
+
+			deleteErr := creworkflow.DeleteAllWithContract(cmd.Context(), sethClient, common.HexToAddress(workflowRegistryAddress), contractsVersion)
 			if deleteErr != nil {
-				return errors.Wrapf(deleteErr, "❌ failed to delete all workflows from the registry %s", workflowRegistryAddressFlag)
+				return errors.Wrapf(deleteErr, "❌ failed to delete all workflows from the registry %s", workflowRegistryAddress)
 			}
 
 			fmt.Printf("\n✅ All workflows deleted from the workflow registry\n\n")
@@ -323,8 +369,8 @@ func deleteAllWorkflowsCmd() *cobra.Command {
 
 	cmd.Flags().StringVarP(&rpcURLFlag, "rpc-url", "r", "http://localhost:8545", "RPC URL")
 	cmd.Flags().StringVarP(&workflowOwnerAddressFlag, "owner-address", "d", DefaultWorkflowOwnerAddress, "Workflow owner address")
-	cmd.Flags().StringVarP(&workflowRegistryAddressFlag, "workflow-registry-address", "a", DefaultWorkflowRegistryAddress, "Workflow registry address")
-	cmd.Flags().StringVar(&contractsVersionFlag, "with-contracts-version", "v1", "Version of workflow and capabilities registry contracts to use (v1 or v2)")
+	cmd.Flags().StringVarP(&workflowRegistryAddressFlag, "workflow-registry-address", "a", "", "Workflow registry address (if not provided, address from the state file will be used)")
+	cmd.Flags().StringVar(&contractsVersionFlag, "with-contracts-version", "", "Version of workflow registry contract to use (v1 or v2)")
 
 	return cmd
 }
@@ -342,7 +388,7 @@ func compileWorkflow(workflowFilePathFlag, workflowNameFlag string) (string, err
 	return compressedWorkflowWasmPath, nil
 }
 
-func deployWorkflow(ctx context.Context, wasmWorkflowFilePathFlag, workflowNameFlag, workflowOwnerAddressFlag, workflowRegistryAddressFlag, capabilitiesRegistryAddressFlag, containerNamePatternFlag, containerTargetDirFlag, configFilePathFlag, secretsFilePathFlag, secretsOutputFilePathFlag, rpcURLFlag, contractsVersionFlag string, donIDFlag uint32, deleteWorkflowFile bool) error {
+func deployWorkflow(ctx context.Context, wasmWorkflowFilePathFlag, workflowNameFlag, workflowOwnerAddressFlag, workflowRegistryAddress, capabilitiesRegistryAddress, containerNamePatternFlag, containerTargetDirFlag, configFilePathFlag, secretsFilePathFlag, secretsOutputFilePathFlag, rpcURLFlag, contractsVersionFlag string, donIDFlag uint32, deleteWorkflowFile bool) error {
 	copyErr := creworkflow.CopyArtifactsToDockerContainers(containerTargetDirFlag, containerNamePatternFlag, wasmWorkflowFilePathFlag)
 	if copyErr != nil {
 		return errors.Wrap(copyErr, "❌ failed to copy workflow to Docker container")
@@ -387,7 +433,7 @@ func deployWorkflow(ctx context.Context, wasmWorkflowFilePathFlag, workflowNameF
 	if secretsFilePathFlag != "" {
 		fmt.Printf("\n⚙️ Loading and encrypting workflow secrets\n")
 
-		secretPathAbs, secretsErr := creworkflow.PrepareSecrets(sethClient, donIDFlag, common.HexToAddress(capabilitiesRegistryAddressFlag), common.HexToAddress(workflowOwnerAddressFlag), secretsFilePathFlag, secretsOutputFilePathFlag)
+		secretPathAbs, secretsErr := creworkflow.PrepareSecrets(sethClient, donIDFlag, common.HexToAddress(capabilitiesRegistryAddress), common.HexToAddress(workflowOwnerAddressFlag), secretsFilePathFlag, secretsOutputFilePathFlag)
 		if secretsErr != nil {
 			return errors.Wrap(secretsErr, "failed to prepare secrets")
 		}
@@ -413,17 +459,17 @@ func deployWorkflow(ctx context.Context, wasmWorkflowFilePathFlag, workflowNameF
 	fmt.Printf("\n⚙️ Deleting workflow '%s' from the workflow registry\n\n", workflowNameFlag)
 
 	workflowRegistryTypeVersion := getWorkflowRegistryTypeVersion(contractsVersionFlag)
-	workflowNames, workflowNamesErr := creworkflow.GetWorkflowNames(ctx, sethClient, common.HexToAddress(workflowRegistryAddressFlag), workflowRegistryTypeVersion)
+	workflowNames, workflowNamesErr := creworkflow.GetWorkflowNames(ctx, sethClient, common.HexToAddress(workflowRegistryAddress), workflowRegistryTypeVersion)
 	if workflowNamesErr != nil {
 		return errors.Wrap(workflowNamesErr, "failed to get workflows from the registry")
 	}
 
 	if !slices.Contains(workflowNames, workflowNameFlag) {
-		fmt.Printf("\n✅ Workflow '%s' not found in the registry %s. Skipping...\n\n", workflowNameFlag, workflowRegistryAddressFlag)
+		fmt.Printf("\n✅ Workflow '%s' not found in the registry %s. Skipping...\n\n", workflowNameFlag, workflowRegistryAddress)
 	} else {
-		deleteErr := creworkflow.DeleteWithContract(ctx, sethClient, common.HexToAddress(workflowRegistryAddressFlag), workflowRegistryTypeVersion, workflowNameFlag)
+		deleteErr := creworkflow.DeleteWithContract(ctx, sethClient, common.HexToAddress(workflowRegistryAddress), workflowRegistryTypeVersion, workflowNameFlag)
 		if deleteErr != nil {
-			return errors.Wrapf(deleteErr, "❌ failed to delete workflow '%s' from the registry %s", workflowNameFlag, workflowRegistryAddressFlag)
+			return errors.Wrapf(deleteErr, "❌ failed to delete workflow '%s' from the registry %s", workflowNameFlag, workflowRegistryAddress)
 		}
 
 		fmt.Printf("\n✅ Workflow '%s' deleted from the workflow registry\n\n", workflowNameFlag)
@@ -431,7 +477,7 @@ func deployWorkflow(ctx context.Context, wasmWorkflowFilePathFlag, workflowNameF
 
 	fmt.Printf("\n⚙️ Registering workflow '%s' with the workflow registry\n\n", workflowNameFlag)
 
-	workflowID, registerErr := creworkflow.RegisterWithContract(ctx, sethClient, common.HexToAddress(workflowRegistryAddressFlag), workflowRegistryTypeVersion, uint64(donIDFlag), workflowNameFlag, "file://"+wasmWorkflowFilePathFlag, configPath, secretsPath, &containerTargetDirFlag)
+	workflowID, registerErr := creworkflow.RegisterWithContract(ctx, sethClient, common.HexToAddress(workflowRegistryAddress), workflowRegistryTypeVersion, uint64(donIDFlag), workflowNameFlag, "file://"+wasmWorkflowFilePathFlag, configPath, secretsPath, &containerTargetDirFlag)
 	if registerErr != nil {
 		return errors.Wrapf(registerErr, "❌ failed to register workflow %s", workflowNameFlag)
 	}
@@ -447,13 +493,13 @@ func deployWorkflow(ctx context.Context, wasmWorkflowFilePathFlag, workflowNameF
 	return nil
 }
 
-func compileCopyAndRegisterWorkflow(ctx context.Context, workflowFilePathFlag, workflowNameFlag, workflowOwnerAddressFlag, workflowRegistryAddressFlag, capabilitiesRegistryAddressFlag, containerNamePatternFlag, containerTargetDirFlag, configFilePathFlag, secretsFilePathFlag, secretsOutputFilePathFlag, rpcURLFlag, contractsVersionFlag string, donIDFlag uint32) error {
+func compileCopyAndRegisterWorkflow(ctx context.Context, workflowFilePathFlag, workflowNameFlag, workflowOwnerAddressFlag, workflowRegistryAddress, capabilitiesRegistryAddress, containerNamePatternFlag, containerTargetDirFlag, configFilePathFlag, secretsFilePathFlag, secretsOutputFilePathFlag, rpcURLFlag, contractsVersionFlag string, donIDFlag uint32) error {
 	compressedWorkflowWasmPath, compileErr := compileWorkflow(workflowFilePathFlag, workflowNameFlag)
 	if compileErr != nil {
 		return errors.Wrap(compileErr, "❌ failed to compile workflow")
 	}
 
-	return deployWorkflow(ctx, compressedWorkflowWasmPath, workflowNameFlag, workflowOwnerAddressFlag, workflowRegistryAddressFlag, capabilitiesRegistryAddressFlag, containerNamePatternFlag, containerTargetDirFlag, configFilePathFlag, secretsFilePathFlag, secretsOutputFilePathFlag, rpcURLFlag, contractsVersionFlag, donIDFlag, true)
+	return deployWorkflow(ctx, compressedWorkflowWasmPath, workflowNameFlag, workflowOwnerAddressFlag, workflowRegistryAddress, capabilitiesRegistryAddress, containerNamePatternFlag, containerTargetDirFlag, configFilePathFlag, secretsFilePathFlag, secretsOutputFilePathFlag, rpcURLFlag, contractsVersionFlag, donIDFlag, true)
 }
 
 func isBase64File(filename string) error {
@@ -496,4 +542,26 @@ func isBase64Content(content string) bool {
 
 	_, err := base64.StdEncoding.DecodeString(content)
 	return err == nil
+}
+
+func addressRefFromStateFile(contractType string) (datastore.AddressRef, error) {
+	envArtifact, artErr := environment.ReadEnvArtifact(environment.MustEnvArtifactAbsPath(relativePathToRepoRoot))
+	if artErr != nil {
+		return datastore.AddressRef{}, errors.Wrap(artErr, "failed to read environment artifact")
+	}
+
+	ds := datastore.NewMemoryDataStore()
+	for _, addrRef := range envArtifact.AddressRefs {
+		addErr := ds.AddressRefStore.Add(addrRef)
+		if addErr != nil {
+			return datastore.AddressRef{}, fmt.Errorf("failed to add address ref to datastore %v: %w", addrRef, addErr)
+		}
+	}
+
+	contractVersion, ok := envArtifact.ContractVersions[contractType]
+	if !ok {
+		return datastore.AddressRef{}, fmt.Errorf("no contract version for contract type %s found in environment artifact", contractType)
+	}
+
+	return contracts.MustGetAddressRefFromDataStore(ds.Seal(), envArtifact.RegistryChainSelector, contractType, contractVersion, ""), nil
 }
