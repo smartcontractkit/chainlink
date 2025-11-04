@@ -678,15 +678,15 @@ func (e *Engine) finishExecution(ctx context.Context, cma custmsg.MessageEmitter
 	executionDuration := int64(execState.FinishedAt.Sub(*execState.CreatedAt).Seconds())
 	switch status {
 	case store.StatusCompleted:
-		e.metrics.UpdateWorkflowCompletedDurationHistogram(ctx, executionDuration)
+		e.metrics.With(platform.KeyWorkflowExecutionID, executionID).UpdateWorkflowCompletedDurationHistogram(ctx, executionDuration)
 	case store.StatusCompletedEarlyExit:
-		e.metrics.UpdateWorkflowEarlyExitDurationHistogram(ctx, executionDuration)
+		e.metrics.With(platform.KeyWorkflowExecutionID, executionID).UpdateWorkflowEarlyExitDurationHistogram(ctx, executionDuration)
 	case store.StatusErrored:
-		e.metrics.UpdateWorkflowErrorDurationHistogram(ctx, executionDuration)
+		e.metrics.With(platform.KeyWorkflowExecutionID, executionID).UpdateWorkflowErrorDurationHistogram(ctx, executionDuration)
 	case store.StatusTimeout:
 		// should expect the same values unless the timeout is adjusted.
 		// using histogram as it gives count of executions for free
-		e.metrics.UpdateWorkflowTimeoutDurationHistogram(ctx, executionDuration)
+		e.metrics.With(platform.KeyWorkflowExecutionID, executionID).UpdateWorkflowTimeoutDurationHistogram(ctx, executionDuration)
 	}
 
 	if executionDuration > fifteenMinutesSec {
@@ -801,7 +801,7 @@ func (e *Engine) workerForStepRequest(ctx context.Context, msg stepRequest) {
 
 	meteringReport, meteringOK := e.meterReports.Get(msg.state.ExecutionID)
 	if !meteringOK {
-		e.metrics.With(platform.KeyWorkflowID, e.workflow.id).IncrementWorkflowMissingMeteringReport(ctx)
+		e.metrics.With(platform.KeyWorkflowID, e.workflow.id, platform.KeyWorkflowExecutionID, msg.state.ExecutionID).IncrementWorkflowMissingMeteringReport(ctx)
 		// TODO: to be bumped to error if all capabilities must implement metering
 		l.Warnf("no metering report found for %v", msg.state.ExecutionID)
 	}
@@ -815,7 +815,7 @@ func (e *Engine) workerForStepRequest(ctx context.Context, msg stepRequest) {
 	inputs, response, sErr := e.executeStep(ctx, l, msg, meteringReport)
 	stepExecutionDuration := time.Since(stepExecutionStartTime).Seconds()
 
-	e.metrics.With(platform.KeyCapabilityID, curStepID).UpdateWorkflowStepDurationHistogram(ctx, int64(stepExecutionDuration))
+	e.metrics.With(platform.KeyCapabilityID, curStepID, platform.KeyWorkflowExecutionID, msg.state.ExecutionID).UpdateWorkflowStepDurationHistogram(ctx, int64(stepExecutionDuration))
 
 	var stepStatus string
 	switch {
