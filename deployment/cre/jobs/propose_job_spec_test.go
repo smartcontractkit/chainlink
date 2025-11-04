@@ -636,7 +636,9 @@ func TestProposeJobSpec_Apply(t *testing.T) {
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), "failed to propose bootstrap job")
 		assert.Contains(t, err.Error(), "no nodes found for DON `test-don`")
-		assert.Contains(t, err.Error(), `{key:"zone" value:"wrong-test-zone"}`)
+		// remove repeated whitespace for easier matching
+		err2 := strings.Join(strings.Fields(err.Error()), " ")
+		assert.Contains(t, err2, `{key:"zone" value:"wrong-test-zone"}`)
 	})
 
 	t.Run("failed ocr3 bootstrap job distribution", func(t *testing.T) {
