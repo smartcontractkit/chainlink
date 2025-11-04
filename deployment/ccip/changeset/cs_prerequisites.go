@@ -800,7 +800,7 @@ func deployTokenPools(
 						chain.Client,
 						string(shared.FactoryBurnMintERC20Symbol),
 						string(shared.FactoryBurnMintERC20Symbol),
-						uint8(18),
+						18,
 						big.NewInt(0),
 						big.NewInt(0),
 						chain.DeployerKey.From,
