@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"log"
 
 	"github.com/gagliardetto/solana-go"
 
@@ -29,11 +28,13 @@ import (
 var _ cldf.ChangeSet[OnboardTokenPoolsForSelfServeConfig] = OnboardTokenPoolsForSelfServe
 
 type OnboardTokenPoolConfig struct {
-	TokenMint     solana.PublicKey
-	ProposedOwner solana.PublicKey
-	PoolType      cldf.ContractType
-	Metadata      string
-	Override      bool
+	TokenMint        solana.PublicKey
+	TokenProgramName cldf.ContractType
+	TokenSymbol      string
+	ProposedOwner    solana.PublicKey
+	PoolType         cldf.ContractType
+	Metadata         string
+	Override         bool
 }
 
 type OnboardTokenPoolsForSelfServeConfig struct {
@@ -110,6 +111,12 @@ func OnboardTokenPoolsForSelfServe(e cldf.Environment, cfg OnboardTokenPoolsForS
 	mcmsTxs := []mcmsTypes.Transaction{}
 	instructions := [][]solana.Instruction{}
 	for _, registerTokenConfig := range cfg.RegisterTokenConfigs {
+		// Store in Address Book
+		newAddresses := cldf.NewMemoryAddressBook()
+		tv := cldf.NewTypeAndVersion(registerTokenConfig.TokenProgramName, deployment.Version1_0_0)
+		tv.AddLabel(registerTokenConfig.TokenSymbol)
+		err = newAddresses.Save(cfg.ChainSelector, registerTokenConfig.TokenMint.String(), tv)
+		// Propose Admin in Token Admin Registry
 		proposeTokenAdminRegistryAdminIx, err := generateProposeTokenAdminRegistryAdministratorIx(registerTokenConfig, routerState)
 		if err != nil {
 			return cldf.ChangesetOutput{}, err
@@ -121,12 +128,14 @@ func OnboardTokenPoolsForSelfServe(e cldf.Environment, cfg OnboardTokenPoolsForS
 		tokenInstructions := []solana.Instruction{proposeTokenAdminRegistryAdminIx}
 		var initializeTokenPoolIx solana.Instruction
 		if !registerTokenConfig.Override {
+			// Initialize Token Pool in CLL Program
 			initializeTokenPoolIx, err = generateInitializeCLLTokenPoolIx(registerTokenConfig, currentTokenPoolSolanaState)
 			if err != nil {
 				return cldf.ChangesetOutput{}, err
 			}
 			tokenInstructions = append(tokenInstructions, initializeTokenPoolIx)
 		}
+		// Propose new owner of the token pool
 		transferTokenPoolOwnershipIx, err := generateTransferTokenPoolOwnershipIx(registerTokenConfig, currentTokenPoolSolanaState)
 		if err != nil {
 			return cldf.ChangesetOutput{}, err
@@ -211,8 +220,6 @@ func generateProposeTokenAdminRegistryAdministratorIx(registerTokenConfig Onboar
 }
 
 func generateInitializeCLLTokenPoolIx(config OnboardTokenPoolConfig, state tokenPoolSolanaState) (solana.Instruction, error) {
-	log.Println("[AGUS] authority: ", state.upgradeAuthority)
-
 	switch config.PoolType {
 	case shared.BurnMintTokenPool:
 		solBurnMintTokenPool.SetProgramID(state.tokenPoolProgramID)

@@ -2,7 +2,6 @@ package solana_test
 
 import (
 	"fmt"
-	"log"
 	"testing"
 	"time"
 
@@ -76,8 +75,6 @@ func doTestOnboardTokenPoolForSelfServe(t *testing.T, isMCMsOwner bool) {
 			})
 
 		// Print out deployer key
-		log.Println("[AGUS] deployer Key: ", tenv.Env.BlockChains.SolanaChains()[solChainSelector].DeployerKey.PublicKey())
-		log.Println("[AGUS] timelockSignerPDA: ", timelockSignerPDA)
 		e, _, err = commonchangeset.ApplyChangesets(t, e, []commonchangeset.ConfiguredChangeSet{
 			commonchangeset.Configure(
 				cldf.CreateLegacyChangeSet(ccipChangesetSolana.SetUpgradeAuthorityChangeset),
