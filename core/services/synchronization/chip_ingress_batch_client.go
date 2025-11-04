@@ -2,50 +2,170 @@ package synchronization
 
 import (
 	"context"
+	"fmt"
+	"sync"
+	"time"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/chipingress"
+	"github.com/smartcontractkit/chainlink-common/pkg/chipingress/pb"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
-	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
+	"github.com/smartcontractkit/chainlink-common/pkg/timeutil"
 )
 
-// Verify interface implementation at compile time
-var (
-	_ ChipIngressService = (*chipIngressBatchClient)(nil)
-	_ services.Service   = (*chipIngressBatchClient)(nil)
-)
+// NoopChipIngressBatchClient is a no-op interface for ChipIngressBatchClient
+type NoopChipIngressBatchClient struct{}
 
-// chipIngressBatchClient is a stub implementation that wraps chipingress.Client
+// Start is a no-op
+func (NoopChipIngressBatchClient) Start(context.Context) error { return nil }
+
+// Close is a no-op
+func (NoopChipIngressBatchClient) Close() error { return nil }
+
+// Send is a no-op
+func (NoopChipIngressBatchClient) Send(context.Context, []byte, string, TelemetryType, uint64, string, string) {
+}
+
+func (NoopChipIngressBatchClient) HealthReport() map[string]error { return map[string]error{} }
+func (NoopChipIngressBatchClient) Name() string                   { return "NoopChipIngressBatchClient" }
+
+// Ready is a no-op
+func (NoopChipIngressBatchClient) Ready() error { return nil }
+
 type chipIngressBatchClient struct {
 	services.Service
 	eng *services.Engine
+
+	chipClient chipingress.Client
+
+	logging bool
+
+	telemBufferSize   uint
+	telemMaxBatchSize uint
+	telemSendInterval time.Duration
+	telemSendTimeout  time.Duration
+
+	workers      map[string]*chipIngressBatchWorker
+	workersMutex sync.RWMutex
+
+	healthMonitorCancel context.CancelFunc
 }
 
-// NewChipIngressBatchClient creates a new ChipIngressService that uses the chipingress.Client
-// This is a stub implementation for now
-func NewChipIngressBatchClient(endpoint interface{}, cfg interface{}, ks keystore.CSA, lggr logger.Logger, chipClient interface{}) ChipIngressService {
-	c := &chipIngressBatchClient{}
+// NewChipIngressBatchClient returns a client backed by chipingress.Client that
+// can send telemetry to the chip ingress server
+func NewChipIngressBatchClient(chipClient chipingress.Client, logging bool, lggr logger.Logger, telemBufferSize uint, telemMaxBatchSize uint, telemSendInterval time.Duration, telemSendTimeout time.Duration) ChipIngressService {
+	c := &chipIngressBatchClient{
+		telemBufferSize:   telemBufferSize,
+		telemMaxBatchSize: telemMaxBatchSize,
+		telemSendInterval: telemSendInterval,
+		telemSendTimeout:  telemSendTimeout,
+		chipClient:        chipClient,
+		logging:           logging,
+		workers:           make(map[string]*chipIngressBatchWorker),
+	}
 	c.Service, c.eng = services.Config{
 		Name:  "ChipIngressBatchClient",
 		Start: c.start,
 		Close: c.close,
 	}.NewServiceEngine(lggr)
+
 	return c
 }
 
-// start implements the start logic for the chip ingress batch client
-func (c *chipIngressBatchClient) start(ctx context.Context) error {
-	c.eng.Info("ChIP ingress batch client started")
+// start initializes the chip ingress batch client and starts health monitoring
+func (cc *chipIngressBatchClient) start(ctx context.Context) error {
+	cc.startHealthMonitoring(ctx, cc.chipClient)
 	return nil
 }
 
-// close implements the close logic for the chip ingress batch client
-func (c *chipIngressBatchClient) close() error {
-	c.eng.Info("ChIP ingress batch client closed")
+// close stops health monitoring and cleans up resources
+func (cc *chipIngressBatchClient) close() error {
+	if cc.healthMonitorCancel != nil {
+		cc.healthMonitorCancel()
+	}
 	return nil
 }
 
-// Send implements ChipIngressService
-func (c *chipIngressBatchClient) Send(ctx context.Context, telemetry []byte, contractID string, telemType TelemetryType, chainSelector uint64, domain string, entity string) {
-	// Stub implementation - logs that chip ingress is being used
-	c.eng.Debugw("ChIP ingress send (stub)", "contractID", contractID, "telemType", telemType, "chainSelector", chainSelector, "domain", domain, "entity", entity)
+// Send directs incoming telmetry messages to the worker responsible for pushing it to
+// the ingress server. If the worker telemetry buffer is full, messages are dropped
+// and a warning is logged.
+func (cc *chipIngressBatchClient) Send(ctx context.Context, telemData []byte, contractID string, telemType TelemetryType, chainSelector uint64, domain string, entity string) {
+	payload := TelemPayload{
+		Telemetry:     telemData,
+		TelemType:     telemType,
+		ContractID:    contractID,
+		ChainSelector: chainSelector,
+		Domain:        domain,
+		Entity:        entity,
+	}
+	worker := cc.findOrCreateWorker(payload)
+
+	select {
+	case worker.chTelemetry <- payload:
+		worker.dropMessageCount.Store(0)
+	case <-ctx.Done():
+		return
+	default:
+		worker.logBufferFullWithExpBackoff(payload)
+	}
+}
+
+// findOrCreateWorker finds a worker by ContractID or creates a new one if none exists
+func (cc *chipIngressBatchClient) findOrCreateWorker(payload TelemPayload) *chipIngressBatchWorker {
+	cc.workersMutex.Lock()
+	defer cc.workersMutex.Unlock()
+
+	workerKey := fmt.Sprintf("%s_%s", payload.ContractID, payload.TelemType)
+	worker, found := cc.workers[workerKey]
+
+	if !found {
+		worker = NewChipIngressBatchWorker(
+			cc.telemMaxBatchSize,
+			cc.telemSendTimeout,
+			cc.chipClient,
+			make(chan TelemPayload, cc.telemBufferSize),
+			payload.ContractID,
+			payload.TelemType,
+			cc.eng,
+			cc.logging,
+		)
+		cc.eng.GoTick(timeutil.NewTicker(func() time.Duration {
+			return cc.telemSendInterval
+		}), worker.Send)
+		cc.workers[workerKey] = worker
+
+		TelemetryClientWorkers.WithLabelValues(chipIngress, string(payload.TelemType)).Inc()
+	}
+
+	return worker
+}
+
+// startHealthMonitoring starts a goroutine to monitor the connection state and update other relevant metrics every 5 seconds
+func (cc *chipIngressBatchClient) startHealthMonitoring(ctx context.Context, chipClient chipingress.Client) {
+	_, cancel := context.WithCancel(ctx)
+	cc.healthMonitorCancel = cancel
+
+	cc.eng.Go(func(ctx context.Context) {
+		ticker := time.NewTicker(5 * time.Second)
+		defer ticker.Stop()
+
+		for {
+			select {
+			case <-ticker.C:
+				// Check the connection state
+				connected := float64(0)
+				pingCtx, pingCancel := context.WithTimeout(ctx, 2*time.Second)
+				_, err := chipClient.Ping(pingCtx, &pb.EmptyRequest{})
+				pingCancel()
+				if err == nil {
+					connected = float64(1)
+				} else {
+					cc.eng.EmitHealthErr(err)
+				}
+				TelemetryClientConnectionStatus.WithLabelValues(chipIngress).Set(connected)
+			case <-ctx.Done():
+				return
+			}
+		}
+	})
 }

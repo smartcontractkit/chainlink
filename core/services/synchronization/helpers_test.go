@@ -5,6 +5,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/chipingress"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
 	telemPb "github.com/smartcontractkit/chainlink/v2/core/services/synchronization/telem"
@@ -23,4 +24,9 @@ func NewTestTelemetryIngressBatchClient(t *testing.T, url *url.URL, serverPubKey
 	tc.(*telemetryIngressBatchClient).closeFn = func() error { return nil }
 	tc.(*telemetryIngressBatchClient).telemClient = telemClient
 	return tc
+}
+
+// NewTestChipIngressBatchClient calls NewChipIngressBatchClient and injects chipClient.
+func NewTestChipIngressBatchClient(t *testing.T, chipClient chipingress.Client, logging bool, sendInterval time.Duration) ChipIngressService {
+	return NewChipIngressBatchClient(chipClient, logging, logger.TestLogger(t), 100, 50, sendInterval, time.Second)
 }

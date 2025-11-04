@@ -18,6 +18,10 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/synchronization"
 )
 
+const (
+	chipIngress = "chip-ingress"
+)
+
 type Manager struct {
 	services.Service
 
@@ -159,8 +163,8 @@ func (m *Manager) newEndpoint(e config.TelemetryIngressEndpoint, lggr common.Log
 
 	if m.chipIngressClient != nil {
 		lggr.Infof("Using chip-ingress client for network %q chainID %q", e.Network(), e.ChainID())
-		// When ChIP ingress is enabled, we create a ChipIngressService using the stub
-		chipIngressService := synchronization.NewChipIngressBatchClient(e, cfg, m.ks, lggr, m.chipIngressClient)
+		// When ChIP ingress is enabled, we create a ChipIngressService
+		chipIngressService := synchronization.NewChipIngressBatchClient(m.chipIngressClient, cfg.Logging(), lggr, cfg.BufferSize(), cfg.MaxBatchSize(), cfg.SendInterval(), cfg.SendTimeout())
 		te := telemetryEndpoint{
 			Network:           strings.ToUpper(e.Network()),
 			ChainID:           strings.ToUpper(e.ChainID()),
