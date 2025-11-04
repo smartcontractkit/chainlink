@@ -13,7 +13,7 @@ import (
 	cldf_evm "github.com/smartcontractkit/chainlink-deployments-framework/chain/evm"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 
-	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
+	"github.com/smartcontractkit/chainlink/deployment/common/changeset/state"
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 	"github.com/smartcontractkit/chainlink/deployment/keystone/changeset"
 )
@@ -113,7 +113,7 @@ type MCMSTransactionV2 struct {
 	Description   string
 	Address       common.Address
 	ChainSel      uint64
-	MCMSContracts *commonchangeset.MCMSWithTimelockState
+	MCMSContracts *state.MCMSWithTimelockState
 	Env           cldf.Environment
 }
 
