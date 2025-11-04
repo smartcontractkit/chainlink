@@ -5,6 +5,8 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/smartcontractkit/quarantine"
+
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/blockchains"
 	t_helpers "github.com/smartcontractkit/chainlink/system-tests/tests/test-helpers"
 
@@ -136,6 +138,7 @@ func Test_CRE_V2_EVM_WriteReport_Invalid_Gas_Regression(t *testing.T) {
 }
 
 func Test_CRE_V2_HTTP_Action_CRUD_Regression(t *testing.T) {
+	quarantine.Flaky(t, "DX-2288")
 	for _, tCase := range httpActionFailureTests {
 		testName := "[v2] HTTP Action fails with " + tCase.name
 		t.Run(testName, func(t *testing.T) {
