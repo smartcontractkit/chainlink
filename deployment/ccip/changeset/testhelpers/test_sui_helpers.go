@@ -176,8 +176,8 @@ func SendSuiCCIPRequest(e cldf.Environment, cfg *ccipclient.CCIPSendReqConfig) (
 	// fmt.Println("VALIDATED FEE:", validatedFee)
 
 	if len(msg.TokenAmounts) > 0 {
-		bnmTokenPool, ok := state.SuiChains[cfg.SourceChain].BnMTokenPools[TokenSymbolLINK]
-		if !ok {
+		bnmTokenPool, exists := state.SuiChains[cfg.SourceChain].BnMTokenPools[TokenSymbolLINK]
+		if !exists {
 			return nil, fmt.Errorf("no BurnMintTokenPool found for token: %s", TokenSymbolLINK)
 		}
 		BurnMintTPPkgID := bnmTokenPool.PackageID

@@ -200,8 +200,8 @@ type SuiChainUpdate struct {
 	Type              cldf.ContractType
 }
 
-func (c SuiChainUpdate) GetSuiTokenAndTokenPool(state suistate.CCIPChainState) (string, string, error) {
-	var tokenPoolAddress string
+func (c SuiChainUpdate) GetSuiTokenAndTokenPool(state suistate.CCIPChainState) (tokenAddress string, tokenPoolAddress string, err error) {
+	var tpAddress string
 	if c.TokenAddress == "" {
 		return "", "", errors.New("token address must be defined")
 	}
@@ -212,14 +212,15 @@ func (c SuiChainUpdate) GetSuiTokenAndTokenPool(state suistate.CCIPChainState) (
 		if !ok {
 			return "", "", fmt.Errorf("no BnM token pool found for token: %s", c.TokenSymbol)
 		}
-		tokenPoolAddress = poolState.PackageID
+		tpAddress = poolState.PackageID
 	default:
 		return "", "", fmt.Errorf("unknown Aptos token pool type %s", c.Type)
 	}
-	if tokenPoolAddress == "" {
+	if tpAddress == "" {
 		return "", "", fmt.Errorf("no token pool found for token: %s", c.TokenAddress)
 	}
-	return c.TokenAddress, tokenPoolAddress, nil
+
+	return c.TokenAddress, tpAddress, nil
 }
 
 // TokenPoolConfig defines all the information required of the user to configure a token pool.
