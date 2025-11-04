@@ -260,6 +260,7 @@ func addBootstrapNodeConfig(
 			ListenAddresses:      ptr.Ptr([]string{"0.0.0.0:" + strconv.Itoa(ocrPeeringData.Port)}),
 			DefaultBootstrappers: ptr.Ptr([]commontypes.BootstrapperLocator{*ocrBoostrapperLocator}),
 		},
+		EnableExperimentalRageP2P: ptr.Ptr(true),
 	}
 
 	if commonInputs.provider.IsDocker() {
@@ -282,7 +283,6 @@ func addBootstrapNodeConfig(
 			V2: coretoml.P2PV2{
 				Enabled: ptr.Ptr(false),
 			},
-			EnableExperimentalRageP2P: ptr.Ptr(true),
 		},
 		SharedPeering: coretoml.SharedPeering{
 			Enabled: ptr.Ptr(true),
@@ -338,6 +338,7 @@ func addWorkerNodeConfig(
 			ListenAddresses:      ptr.Ptr([]string{"0.0.0.0:" + strconv.Itoa(ocrPeeringData.Port)}),
 			DefaultBootstrappers: ptr.Ptr([]commontypes.BootstrapperLocator{*ocrBoostrapperLocator}),
 		},
+		EnableExperimentalRageP2P: ptr.Ptr(true),
 	}
 
 	if commonInputs.provider.IsDocker() {
@@ -360,7 +361,6 @@ func addWorkerNodeConfig(
 			V2: coretoml.P2PV2{
 				Enabled: ptr.Ptr(false),
 			},
-			EnableExperimentalRageP2P: ptr.Ptr(true),
 		},
 		SharedPeering: coretoml.SharedPeering{
 			Enabled: ptr.Ptr(true),
