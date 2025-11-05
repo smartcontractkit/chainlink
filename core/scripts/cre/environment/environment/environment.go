@@ -314,7 +314,6 @@ func startCmd() *cobra.Command {
 			features := feature_set.New()
 			gatewayWhitelistConfig := gateway.WhitelistConfig{
 				ExtraAllowedPorts:   append(extraAllowedGatewayPorts, in.Fake.Port, in.FakeHTTP.Port),
-				ExtraAllowedIPs:     []string{},
 				ExtraAllowedIPsCIDR: []string{"0.0.0.0/0"},
 			}
 			output, startErr := StartCLIEnvironment(cmdContext, relativePathToRepoRoot, in, withPluginsDockerImage, nil, features, nil, envDependencies, gatewayWhitelistConfig)

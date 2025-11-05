@@ -19,8 +19,8 @@ var (
 )
 
 type WhitelistConfig struct {
-	ExtraAllowedPorts                    []int
-	ExtraAllowedIPs, ExtraAllowedIPsCIDR []string
+	ExtraAllowedPorts   []int
+	ExtraAllowedIPsCIDR []string
 }
 
 func CreateJobs(ctx context.Context, creEnv *cre.Environment, dons *cre.Dons, gatewayConfigs []cre.GatewayConfig, whitelistConfig WhitelistConfig) error {
