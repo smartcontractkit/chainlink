@@ -7,6 +7,7 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/Masterminds/semver/v3"
 	pkgerrors "github.com/pkg/errors"
 
 	capabilitiespb "github.com/smartcontractkit/chainlink-common/pkg/capabilities/pb"
@@ -34,7 +35,7 @@ type EnvArtifact struct {
 	DONs                  []DonArtifact                               `json:"dons"`
 	Bootstrappers         []BootstrapNodeArtifact                     `json:"bootstrappers"`
 	NOPs                  []NOPArtifact                               `json:"nops"`
-	ContractVersions      map[string]string                           `json:"contract_versions"`
+	ContractVersions      map[cre.ContractType]*semver.Version        `json:"contract_versions"`
 	CapabilityConfigs     map[cre.CapabilityFlag]cre.CapabilityConfig `json:"capability_configs"`
 	GatewayConnectors     *cre.GatewayConnectors                      `json:"gateway_connectors,omitempty"`
 }

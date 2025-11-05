@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"slices"
 
+	"github.com/Masterminds/semver/v3"
 	"github.com/pkg/errors"
 	"github.com/rs/zerolog"
 
@@ -21,7 +22,7 @@ import (
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/flags"
 )
 
-func DeployEVMForwarders(testLogger zerolog.Logger, cldfEnv *cldf.Environment, chainSelectors []uint64, contractVersions map[string]string) error {
+func DeployEVMForwarders(testLogger zerolog.Logger, cldfEnv *cldf.Environment, chainSelectors []uint64, contractVersions map[cre.ContractType]*semver.Version) error {
 	memoryDatastore, mErr := contracts.NewDataStoreFromExisting(cldfEnv.DataStore)
 	if mErr != nil {
 		return fmt.Errorf("failed to create memory datastore: %w", mErr)

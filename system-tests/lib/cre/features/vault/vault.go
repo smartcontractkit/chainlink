@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"strconv"
 
+	"github.com/Masterminds/semver/v3"
 	"github.com/cosmos/gogoproto/proto"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/google/uuid"
@@ -116,7 +117,7 @@ func (o *Vault) PreEnvStartup(
 	}, nil
 }
 
-func updateNodeConfig(workerNode *cre.NodeMetadata, currentConfig string, registryChainID uint64, workflowRegistryAddress common.Address, wfRegVersion string) (*string, error) {
+func updateNodeConfig(workerNode *cre.NodeMetadata, currentConfig string, registryChainID uint64, workflowRegistryAddress common.Address, wfRegVersion *semver.Version) (*string, error) {
 	var typedConfig corechainlink.Config
 	unmarshallErr := toml.Unmarshal([]byte(currentConfig), &typedConfig)
 	if unmarshallErr != nil {
@@ -129,7 +130,7 @@ func updateNodeConfig(workerNode *cre.NodeMetadata, currentConfig string, regist
 		NetworkID:       ptr.Ptr("evm"),
 		ChainID:         ptr.Ptr(strconv.FormatUint(registryChainID, 10)),
 		SyncStrategy:    ptr.Ptr("reconciliation"),
-		ContractVersion: ptr.Ptr(wfRegVersion),
+		ContractVersion: ptr.Ptr(wfRegVersion.String()),
 	}
 
 	stringifiedConfig, mErr := toml.Marshal(typedConfig)
@@ -273,7 +274,7 @@ func createJobs(
 	return jobs.Create(ctx, jdClient, dons, jobSpecs)
 }
 
-func deployVaultContracts(testLogger zerolog.Logger, qualifier string, registryChainSelector uint64, env *cldf.Environment, contractVersions map[string]string) (*common.Address, *common.Address, error) {
+func deployVaultContracts(testLogger zerolog.Logger, qualifier string, registryChainSelector uint64, env *cldf.Environment, contractVersions map[cre.ContractType]*semver.Version) (*common.Address, *common.Address, error) {
 	memoryDatastore, mErr := contracts.NewDataStoreFromExisting(env.DataStore)
 	if mErr != nil {
 		return nil, nil, fmt.Errorf("failed to create memory datastore: %w", mErr)

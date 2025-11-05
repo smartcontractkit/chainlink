@@ -36,7 +36,7 @@ const (
 func getWorkflowRegistryTypeVersion(contractsVersion string) *semver.Version {
 	switch strings.ToLower(contractsVersion) {
 	case "v2":
-		return semver.MustParse(creconfig.WorkflowRegistryV2Semver)
+		return creconfig.WorkflowRegistryV2Semver
 	default:
 		// Default to v1 for backward compatibility
 		return semver.MustParse("1.0.0")

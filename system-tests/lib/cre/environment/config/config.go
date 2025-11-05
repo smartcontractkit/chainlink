@@ -10,6 +10,7 @@ import (
 	"strings"
 	"sync"
 
+	"github.com/Masterminds/semver/v3"
 	"github.com/pelletier/go-toml/v2"
 	"github.com/pkg/errors"
 
@@ -89,25 +90,28 @@ func validateContractVersions(envDependencies cre.CLIEnvironmentDependencies) er
 			return fmt.Errorf("required contract %s not configured for deployment", k)
 		}
 
-		if version != v {
+		if !version.Equal(v) {
 			return fmt.Errorf("requested version %s for contract %s yet expected %s", version, k, v)
 		}
 	}
 	return nil
 }
 
-const (
-	WorkflowRegistryV2Semver   = "2.0.0"
-	CapabilityRegistryV2Semver = "2.0.0"
-	DefaultDONFamily           = "test-don-family"
+var (
+	WorkflowRegistryV2Semver   = semver.MustParse("2.0.0")
+	CapabilityRegistryV2Semver = semver.MustParse("2.0.0")
 )
 
-func DefaultContractSet(withV2Registries bool) map[string]string {
-	supportedSet := map[string]string{
-		keystone_changeset.OCR3Capability.String():       "1.0.0",
-		keystone_changeset.WorkflowRegistry.String():     "1.0.0",
-		keystone_changeset.CapabilitiesRegistry.String(): "1.1.0",
-		keystone_changeset.KeystoneForwarder.String():    "1.0.0",
+const (
+	DefaultDONFamily = "test-don-family"
+)
+
+func DefaultContractSet(withV2Registries bool) map[cre.ContractType]*semver.Version {
+	supportedSet := map[cre.ContractType]*semver.Version{
+		keystone_changeset.OCR3Capability.String():       semver.MustParse("1.0.0"),
+		keystone_changeset.WorkflowRegistry.String():     semver.MustParse("1.0.0"),
+		keystone_changeset.CapabilitiesRegistry.String(): semver.MustParse("1.1.0"),
+		keystone_changeset.KeystoneForwarder.String():    semver.MustParse("1.0.0"),
 	}
 
 	if withV2Registries {

@@ -8,6 +8,7 @@ import (
 	"strings"
 	"text/template"
 
+	"github.com/Masterminds/semver/v3"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/pelletier/go-toml/v2"
 	"github.com/pkg/errors"
@@ -157,7 +158,7 @@ func (o *EVM) PostEnvStartup(
 	return nil
 }
 
-func deployTronForwarders(testLogger zerolog.Logger, cldfEnv *cldf.Environment, chainSelectors []uint64, contractVersions map[string]string) error {
+func deployTronForwarders(testLogger zerolog.Logger, cldfEnv *cldf.Environment, chainSelectors []uint64, contractVersions map[cre.ContractType]*semver.Version) error {
 	memoryDatastore, mErr := contracts.NewDataStoreFromExisting(cldfEnv.DataStore)
 	if mErr != nil {
 		return fmt.Errorf("failed to create memory datastore: %w", mErr)

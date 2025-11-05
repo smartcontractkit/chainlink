@@ -7,6 +7,7 @@ package crecli
 import (
 	"os"
 
+	"github.com/Masterminds/semver/v3"
 	"github.com/google/uuid"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -18,6 +19,7 @@ import (
 	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/s3provider"
 	df_changeset "github.com/smartcontractkit/chainlink/deployment/data-feeds/changeset"
 	keystone_changeset "github.com/smartcontractkit/chainlink/deployment/keystone/changeset"
+	"github.com/smartcontractkit/chainlink/system-tests/lib/cre"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/contracts"
 )
 
@@ -119,7 +121,7 @@ func PrepareCRECLISettingsFile(
 	profile string,
 	workflowOwner common.Address,
 	datastore datastore.DataStore,
-	contractVersions map[string]string,
+	contractVersions map[cre.ContractType]*semver.Version,
 	donID uint64,
 	registryChainSelector uint64,
 	rpcs map[uint64]string,
@@ -187,7 +189,7 @@ func PrepareCRECLISettingsFile(
 	}
 
 	for _, chain := range chainMetadata {
-		dfAddr := contracts.MightGetAddressFromDataStore(datastore, chain.ChainSelector, "DataFeedsCache", "1.0.0", "")
+		dfAddr := contracts.MightGetAddressFromDataStore(datastore, chain.ChainSelector, "DataFeedsCache", semver.MustParse("1.0.0"), "")
 		if dfAddr == nil {
 			// not every chain has data feeds cache deployed
 			continue

@@ -45,11 +45,11 @@ func MergeAllDataStores(creEnvironment *cre.Environment, changesetOutputs ...cld
 	creEnvironment.CldfEnvironment.DataStore = baseDataStore.Seal()
 }
 
-func MustGetAddressFromMemoryDataStore(dataStore *datastore.MemoryDataStore, chainSel uint64, contractType string, version string, qualifier string) common.Address {
+func MustGetAddressFromMemoryDataStore(dataStore *datastore.MemoryDataStore, chainSel uint64, contractType string, version *semver.Version, qualifier string) common.Address {
 	key := datastore.NewAddressRefKey(
 		chainSel,
 		datastore.ContractType(contractType),
-		semver.MustParse(version),
+		version,
 		qualifier,
 	)
 	addrRef, err := dataStore.Addresses().Get(key)
@@ -59,11 +59,11 @@ func MustGetAddressFromMemoryDataStore(dataStore *datastore.MemoryDataStore, cha
 	return common.HexToAddress(addrRef.Address)
 }
 
-func MightGetAddressFromMemoryDataStore(dataStore *datastore.MemoryDataStore, chainSel uint64, contractType string, version string, qualifier string) *common.Address {
+func MightGetAddressFromMemoryDataStore(dataStore *datastore.MemoryDataStore, chainSel uint64, contractType string, version *semver.Version, qualifier string) *common.Address {
 	key := datastore.NewAddressRefKey(
 		chainSel,
 		datastore.ContractType(contractType),
-		semver.MustParse(version),
+		version,
 		qualifier,
 	)
 
@@ -75,11 +75,11 @@ func MightGetAddressFromMemoryDataStore(dataStore *datastore.MemoryDataStore, ch
 	return ptr.Ptr(common.HexToAddress(addrRef.Address))
 }
 
-func MightGetAddressFromDataStore(dataStore datastore.DataStore, chainSel uint64, contractType string, version string, qualifier string) *common.Address {
+func MightGetAddressFromDataStore(dataStore datastore.DataStore, chainSel uint64, contractType string, version *semver.Version, qualifier string) *common.Address {
 	key := datastore.NewAddressRefKey(
 		chainSel,
 		datastore.ContractType(contractType),
-		semver.MustParse(version),
+		version,
 		qualifier,
 	)
 
@@ -90,11 +90,11 @@ func MightGetAddressFromDataStore(dataStore datastore.DataStore, chainSel uint64
 	return ptr.Ptr(common.HexToAddress(addrRef.Address))
 }
 
-func MustGetAddressFromDataStore(dataStore datastore.DataStore, chainSel uint64, contractType string, version string, qualifier string) string {
+func MustGetAddressFromDataStore(dataStore datastore.DataStore, chainSel uint64, contractType string, version *semver.Version, qualifier string) string {
 	key := datastore.NewAddressRefKey(
 		chainSel,
 		datastore.ContractType(contractType),
-		semver.MustParse(version),
+		version,
 		qualifier,
 	)
 	addrRef, err := dataStore.Addresses().Get(key)
@@ -104,11 +104,11 @@ func MustGetAddressFromDataStore(dataStore datastore.DataStore, chainSel uint64,
 	return addrRef.Address
 }
 
-func MustGetAddressRefFromDataStore(dataStore datastore.DataStore, chainSel uint64, contractType string, version string, qualifier string) datastore.AddressRef {
+func MustGetAddressRefFromDataStore(dataStore datastore.DataStore, chainSel uint64, contractType string, version *semver.Version, qualifier string) datastore.AddressRef {
 	key := datastore.NewAddressRefKey(
 		chainSel,
 		datastore.ContractType(contractType),
-		semver.MustParse(version),
+		version,
 		qualifier,
 	)
 	addrRef, err := dataStore.Addresses().Get(key)
@@ -223,7 +223,7 @@ func DeployDataFeedsCacheContract(testLogger zerolog.Logger, chainSelector uint6
 		creEnvironment.CldfEnvironment.DataStore = memoryDatastore.Seal()
 	}
 
-	dataFeedsCacheAddress := MustGetAddressFromMemoryDataStore(memoryDatastore, chainSelector, "DataFeedsCache", "1.0.0", "")
+	dataFeedsCacheAddress := MustGetAddressFromMemoryDataStore(memoryDatastore, chainSelector, "DataFeedsCache", semver.MustParse("1.0.0"), "")
 	testLogger.Info().Msgf("Data Feeds Cache contract found on chain %d at address %s", chainSelector, dataFeedsCacheAddress)
 
 	return dataFeedsCacheAddress, nil
@@ -251,7 +251,7 @@ func DeployReadBalancesContract(testLogger zerolog.Logger, chainSelector uint64,
 		creEnvironment.CldfEnvironment.DataStore = memoryDatastore.Seal()
 	}
 
-	readBalancesAddress := MustGetAddressFromMemoryDataStore(memoryDatastore, chainSelector, "BalanceReader", "1.0.0", "")
+	readBalancesAddress := MustGetAddressFromMemoryDataStore(memoryDatastore, chainSelector, "BalanceReader", semver.MustParse("1.0.0"), "")
 	testLogger.Info().Msgf("Read Balances contract found on chain %d at address %s", chainSelector, readBalancesAddress)
 
 	return readBalancesAddress, nil

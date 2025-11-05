@@ -3,6 +3,7 @@ package contracts
 import (
 	"fmt"
 
+	"github.com/Masterminds/semver/v3"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/rs/zerolog"
 
@@ -11,9 +12,10 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/cre/ocr3"
 	keystone_changeset "github.com/smartcontractkit/chainlink/deployment/keystone/changeset"
 	ks_contracts_op "github.com/smartcontractkit/chainlink/deployment/keystone/changeset/operations/contracts"
+	"github.com/smartcontractkit/chainlink/system-tests/lib/cre"
 )
 
-func DeployOCR3Contract(logger zerolog.Logger, qualifier string, selector uint64, env *cldf.Environment, contractVersions map[string]string) (*ks_contracts_op.DeployOCR3ContractSequenceOutput, *common.Address, error) {
+func DeployOCR3Contract(logger zerolog.Logger, qualifier string, selector uint64, env *cldf.Environment, contractVersions map[cre.ContractType]*semver.Version) (*ks_contracts_op.DeployOCR3ContractSequenceOutput, *common.Address, error) {
 	memoryDatastore, mErr := NewDataStoreFromExisting(env.DataStore)
 	if mErr != nil {
 		return nil, nil, fmt.Errorf("failed to create memory datastore: %w", mErr)

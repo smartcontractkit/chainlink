@@ -7,7 +7,6 @@ import (
 	"html/template"
 	"strings"
 
-	"github.com/Masterminds/semver/v3"
 	"github.com/ethereum/go-ethereum/common"
 	solanago "github.com/gagliardetto/solana-go"
 	"github.com/pelletier/go-toml/v2"
@@ -121,7 +120,7 @@ func deployForwarder(testLogger zerolog.Logger, creEnv *cre.Environment, solChai
 	populateContracts := map[string]datastore.ContractType{
 		deployment.KeystoneForwarderProgramName: ks_sol.ForwarderContract,
 	}
-	version := semver.MustParse(creEnv.ContractVersions[ks_sol.ForwarderContract.String()])
+	version := creEnv.ContractVersions[ks_sol.ForwarderContract.String()]
 
 	// Forwarder for solana is predeployed on chain spin-up. We jus need to add it to memory datastore here
 	errp := memory.PopulateDatastore(memoryDatastore.AddressRefStore, populateContracts,
@@ -152,7 +151,7 @@ func deployForwarder(testLogger zerolog.Logger, creEnv *cre.Environment, solChai
 	err = memoryDatastore.AddressRefStore.Add(datastore.AddressRef{
 		Address:       out.Output.State.String(),
 		ChainSelector: solChain.ChainSelector(),
-		Version:       semver.MustParse(creEnv.ContractVersions[ks_sol.ForwarderState.String()]),
+		Version:       creEnv.ContractVersions[ks_sol.ForwarderState.String()],
 		Qualifier:     ks_sol.DefaultForwarderQualifier,
 		Type:          ks_sol.ForwarderState,
 	})
