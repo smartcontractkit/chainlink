@@ -395,6 +395,8 @@ type NodeConfigTransformerFn = func(input GenerateConfigsInput, existingConfigs 
 type (
 	HandlerTypeToConfig    = map[string]string
 	GatewayHandlerConfigFn = func(don *Don) (HandlerTypeToConfig, error)
+	ContractType           = string
+	ContractVersion        = string
 )
 
 type GenerateConfigsInput struct {
@@ -407,7 +409,7 @@ type GenerateConfigsInput struct {
 	OCRPeeringData          OCRPeeringData
 	NodeSet                 *NodeSet
 	CapabilityConfigs       CapabilityConfigs
-	ContractVersions        map[string]string
+	ContractVersions        map[ContractType]ContractVersion
 	GatewayConnectorOutput  *GatewayConnectors // optional, automatically set if some DON in the topology has the GatewayDON flag
 }
 

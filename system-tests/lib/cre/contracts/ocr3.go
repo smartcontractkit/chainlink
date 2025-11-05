@@ -6,7 +6,6 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/rs/zerolog"
 
-	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
 	"github.com/smartcontractkit/chainlink/deployment/cre/ocr3"
@@ -15,12 +14,9 @@ import (
 )
 
 func DeployOCR3Contract(logger zerolog.Logger, qualifier string, selector uint64, env *cldf.Environment, contractVersions map[string]string) (*ks_contracts_op.DeployOCR3ContractSequenceOutput, *common.Address, error) {
-	memoryDatastore := datastore.NewMemoryDataStore()
-
-	// load all existing addresses into memory datastore
-	mergeErr := memoryDatastore.Merge(env.DataStore)
-	if mergeErr != nil {
-		return nil, nil, fmt.Errorf("failed to merge existing datastore into memory datastore: %w", mergeErr)
+	memoryDatastore, mErr := NewDataStoreFromExisting(env.DataStore)
+	if mErr != nil {
+		return nil, nil, fmt.Errorf("failed to create memory datastore: %w", mErr)
 	}
 
 	ocr3DeployReport, err := operations.ExecuteSequence(

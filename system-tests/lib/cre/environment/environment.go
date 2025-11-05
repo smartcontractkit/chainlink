@@ -467,12 +467,11 @@ func appendOutputsToInput(input *SetupInput, nodeSetOutput []*cre.WrappedNodeOut
 }
 
 func newCldfEnvironment(ctx context.Context, singleFileLogger logger.Logger, cldfBlockchains cldf_chain.BlockChains) *cldf.Environment {
-	memoryDatastore := datastore.NewMemoryDataStore()
 	allChainsCLDEnvironment := &cldf.Environment{
 		Name:              "local CRE",
 		Logger:            singleFileLogger,
-		ExistingAddresses: cldf.NewMemoryAddressBook(),
-		DataStore:         memoryDatastore.Seal(),
+		ExistingAddresses: cldf.NewMemoryAddressBook(), // can't set it to nil, because some changesets save addresses both to the address book and datastore
+		DataStore:         datastore.NewMemoryDataStore().Seal(),
 		GetContext: func() context.Context {
 			return ctx
 		},

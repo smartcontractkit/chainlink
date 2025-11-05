@@ -187,13 +187,16 @@ func PrepareCRECLISettingsFile(
 	}
 
 	for _, chain := range chainMetadata {
-		dfAddr := contracts.MustGetAddressFromDataStore(datastore, chain.ChainSelector, "DataFeedsCache", "1.0.0", "")
+		dfAddr := contracts.MightGetAddressFromDataStore(datastore, chain.ChainSelector, "DataFeedsCache", "1.0.0", "")
+		if dfAddr == nil {
+			// not every chain has data feeds cache deployed
+			continue
+		}
 		profileSettings.Contracts.DataFeeds = append(profileSettings.Contracts.DataFeeds, ContractRegistry{
 			Name:          df_changeset.DataFeedsCache.String(),
-			Address:       dfAddr,
+			Address:       dfAddr.Hex(),
 			ChainSelector: chain.ChainSelector,
 		})
-		// it is okay if there's no data feeds cache address for a chain
 
 		forwaderAddr := contracts.MustGetAddressFromDataStore(datastore, chain.ChainSelector, keystone_changeset.KeystoneForwarder.String(), contractVersions[keystone_changeset.KeystoneForwarder.String()], "")
 		profileSettings.Contracts.Keystone = append(profileSettings.Contracts.Keystone, ContractRegistry{

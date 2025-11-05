@@ -113,11 +113,9 @@ func (o *Solana) PreEnvStartup(
 }
 
 func deployForwarder(testLogger zerolog.Logger, creEnv *cre.Environment, solChain *solana.Blockchain) (*string, *string, error) {
-	memoryDatastore := datastore.NewMemoryDataStore()
-	// load all existing addresses into memory datastore
-	mergeErr := memoryDatastore.Merge(creEnv.CldfEnvironment.DataStore)
-	if mergeErr != nil {
-		return nil, nil, fmt.Errorf("failed to merge existing datastore into memory datastore: %w", mergeErr)
+	memoryDatastore, mErr := contracts.NewDataStoreFromExisting(creEnv.CldfEnvironment.DataStore)
+	if mErr != nil {
+		return nil, nil, fmt.Errorf("failed to create memory datastore: %w", mErr)
 	}
 
 	populateContracts := map[string]datastore.ContractType{

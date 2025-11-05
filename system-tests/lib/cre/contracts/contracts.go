@@ -118,6 +118,17 @@ func MustGetAddressRefFromDataStore(dataStore datastore.DataStore, chainSel uint
 	return addrRef
 }
 
+func NewDataStoreFromExisting(existing datastore.DataStore) (*datastore.MemoryDataStore, error) {
+	memoryDatastore := datastore.NewMemoryDataStore()
+
+	mergeErr := memoryDatastore.Merge(existing)
+	if mergeErr != nil {
+		return nil, fmt.Errorf("failed to merge existing datastore into memory datastore: %w", mergeErr)
+	}
+
+	return memoryDatastore, nil
+}
+
 func ConfigureDataFeedsCache(testLogger zerolog.Logger, input *cre.ConfigureDataFeedsCacheInput) (*cre.ConfigureDataFeedsCacheOutput, error) {
 	if input == nil {
 		return nil, errors.New("input is nil")
@@ -200,13 +211,11 @@ func DeployDataFeedsCacheContract(testLogger zerolog.Logger, chainSelector uint6
 	}
 	testLogger.Info().Msgf("Data Feeds Cache contract deployed to %d", chainSelector)
 
-	memoryDatastore := datastore.NewMemoryDataStore()
+	memoryDatastore, mErr := NewDataStoreFromExisting(creEnvironment.CldfEnvironment.DataStore)
+	if mErr != nil {
+		return common.Address{}, fmt.Errorf("failed to create memory datastore: %w", mErr)
+	}
 	if dfOutput.DataStore != nil {
-		// load all existing addresses into memory datastore
-		mergeErr := memoryDatastore.Merge(creEnvironment.CldfEnvironment.DataStore)
-		if mergeErr != nil {
-			return common.Address{}, fmt.Errorf("failed to merge existing datastore into memory datastore: %w", mergeErr)
-		}
 		err := memoryDatastore.Merge(dfOutput.DataStore.Seal())
 		if err != nil {
 			return common.Address{}, fmt.Errorf("failed to merge updated datastore: %w", err)
@@ -229,13 +238,12 @@ func DeployReadBalancesContract(testLogger zerolog.Logger, chainSelector uint64,
 	}
 	testLogger.Info().Msgf("Read Balances contract deployed to %d", chainSelector)
 
-	memoryDatastore := datastore.NewMemoryDataStore()
+	memoryDatastore, mErr := NewDataStoreFromExisting(creEnvironment.CldfEnvironment.DataStore)
+	if mErr != nil {
+		return common.Address{}, fmt.Errorf("failed to create memory datastore: %w", mErr)
+	}
+
 	if rbOutput.DataStore != nil {
-		// load all existing addresses into memory datastore
-		mergeErr := memoryDatastore.Merge(creEnvironment.CldfEnvironment.DataStore)
-		if mergeErr != nil {
-			return common.Address{}, fmt.Errorf("failed to merge existing datastore into memory datastore: %w", mergeErr)
-		}
 		err := memoryDatastore.Merge(rbOutput.DataStore.Seal())
 		if err != nil {
 			return common.Address{}, fmt.Errorf("failed to merge updated datastore: %w", err)

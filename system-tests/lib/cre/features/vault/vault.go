@@ -25,7 +25,6 @@ import (
 	vaultprotos "github.com/smartcontractkit/chainlink-common/pkg/capabilities/actions/vault"
 	capabilitiespb "github.com/smartcontractkit/chainlink-common/pkg/capabilities/pb"
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
-	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	"github.com/smartcontractkit/chainlink-deployments-framework/offchain/jd"
 	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
@@ -275,12 +274,9 @@ func createJobs(
 }
 
 func deployVaultContracts(testLogger zerolog.Logger, qualifier string, registryChainSelector uint64, env *cldf.Environment, contractVersions map[string]string) (*common.Address, *common.Address, error) {
-	memoryDatastore := datastore.NewMemoryDataStore()
-
-	// load all existing addresses into memory datastore
-	mergeErr := memoryDatastore.Merge(env.DataStore)
-	if mergeErr != nil {
-		return nil, nil, fmt.Errorf("failed to merge existing datastore into memory datastore: %w", mergeErr)
+	memoryDatastore, mErr := contracts.NewDataStoreFromExisting(env.DataStore)
+	if mErr != nil {
+		return nil, nil, fmt.Errorf("failed to create memory datastore: %w", mErr)
 	}
 
 	report, err := operations.ExecuteSequence(
