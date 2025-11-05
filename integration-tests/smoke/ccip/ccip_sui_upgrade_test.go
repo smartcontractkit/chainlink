@@ -5,6 +5,7 @@ import (
 	"encoding/base64"
 	"encoding/hex"
 	"fmt"
+	"math/big"
 	"strings"
 	"testing"
 	"time"
@@ -22,9 +23,12 @@ import (
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/testcontext"
 	"github.com/stretchr/testify/require"
 
+	suideps "github.com/smartcontractkit/chainlink/deployment/ccip/changeset/sui"
+
 	"github.com/block-vision/sui-go-sdk/models"
 	"github.com/smartcontractkit/chainlink-deployments-framework/chain"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
 	suiBind "github.com/smartcontractkit/chainlink-sui/bindings/bind"
 	suiutil "github.com/smartcontractkit/chainlink-sui/bindings/utils"
 	sui_cs "github.com/smartcontractkit/chainlink-sui/deployment/changesets"
@@ -252,6 +256,42 @@ func Test_CCIP_Upgrade_EVM2Sui(t *testing.T) {
 	updatedState, err := stateview.LoadOnchainState(e.Env)
 	require.NoError(t, err)
 
+	// TO RUN FEEQUOTER UPDATE PRICE
+	suiChains := e.Env.BlockChains.SuiChains()
+	suiChain := suiChains[sourceChain]
+
+	deps := suideps.Deps{
+		SuiChain: sui_ops.OpTxDeps{
+			Client: suiChain.Client,
+			Signer: suiChain.Signer,
+			GetCallOpts: func() *suiBind.CallOpts {
+				b := uint64(400_000_000)
+				return &suiBind.CallOpts{
+					Signer:           suiChain.Signer,
+					WaitForExecution: true,
+					GasBudget:        &b,
+				}
+			},
+		},
+	}
+
+	bigIntSourceUsdPerToken, _ := new(big.Int).SetString("15377040000000000000000000000", 10) // 1e27 since sui is 1e9
+
+	bigIntGasUsdPerUnitGas, _ := new(big.Int).SetString("41946474500", 10) // optimism sep 4145822215
+
+	// Update Prices on FeeQuoter with minted LinkToken
+	_, err = operations.ExecuteOperation(e.Env.OperationsBundle, ccipops.FeeQuoterUpdatePricesWithOwnerCapOp, deps.SuiChain,
+		ccipops.FeeQuoterUpdatePricesWithOwnerCapInput{
+			CCIPPackageId:         state.SuiChains[destChain].CCIPMockV2PackageId,
+			CCIPObjectRef:         state.SuiChains[sourceChain].CCIPObjectRef,
+			OwnerCapObjectId:      state.SuiChains[sourceChain].CCIPOwnerCapObjectId,
+			SourceTokens:          []string{state.SuiChains[sourceChain].LinkTokenCoinMetadataId},
+			SourceUsdPerToken:     []*big.Int{bigIntSourceUsdPerToken},
+			GasDestChainSelectors: []uint64{destChain},
+			GasUsdPerUnitGas:      []*big.Int{bigIntGasUsdPerUnitGas},
+		})
+	require.NoError(t, err)
+
 	var (
 		nonce  uint64
 		sender = common.LeftPadBytes(e.Env.BlockChains.EVMChains()[sourceChain].DeployerKey.From.Bytes(), 32)
@@ -377,6 +417,42 @@ func Test_CCIP_Upgrade_EVM2Sui_Only_Common(t *testing.T) {
 			Version:          1,
 		}),
 	})
+	require.NoError(t, err)
+
+	// TO RUN FEEQUOTER UPDATE PRICE
+	suiChains := e.Env.BlockChains.SuiChains()
+	suiChain := suiChains[sourceChain]
+
+	deps := suideps.Deps{
+		SuiChain: sui_ops.OpTxDeps{
+			Client: suiChain.Client,
+			Signer: suiChain.Signer,
+			GetCallOpts: func() *suiBind.CallOpts {
+				b := uint64(400_000_000)
+				return &suiBind.CallOpts{
+					Signer:           suiChain.Signer,
+					WaitForExecution: true,
+					GasBudget:        &b,
+				}
+			},
+		},
+	}
+
+	bigIntSourceUsdPerToken, _ := new(big.Int).SetString("15377040000000000000000000000", 10) // 1e27 since sui is 1e9
+
+	bigIntGasUsdPerUnitGas, _ := new(big.Int).SetString("41946474500", 10) // optimism sep 4145822215
+
+	// Update Prices on FeeQuoter with minted LinkToken
+	_, err = operations.ExecuteOperation(e.Env.OperationsBundle, ccipops.FeeQuoterUpdatePricesWithOwnerCapOp, deps.SuiChain,
+		ccipops.FeeQuoterUpdatePricesWithOwnerCapInput{
+			CCIPPackageId:         state.SuiChains[destChain].CCIPMockV2PackageId,
+			CCIPObjectRef:         state.SuiChains[sourceChain].CCIPObjectRef,
+			OwnerCapObjectId:      state.SuiChains[sourceChain].CCIPOwnerCapObjectId,
+			SourceTokens:          []string{state.SuiChains[sourceChain].LinkTokenCoinMetadataId},
+			SourceUsdPerToken:     []*big.Int{bigIntSourceUsdPerToken},
+			GasDestChainSelectors: []uint64{destChain},
+			GasUsdPerUnitGas:      []*big.Int{bigIntGasUsdPerUnitGas},
+		})
 	require.NoError(t, err)
 
 	t.Run("CCIP FQ upgraded: Message to Sui - Should Succeed", func(t *testing.T) {
