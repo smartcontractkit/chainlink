@@ -164,7 +164,13 @@ func DeployUSDCTokenPoolContractsChangeset(env cldf.Environment, c DeployUSDCTok
 		}
 	}
 
+	ds, err := shared.PopulateDataStore(newAddresses)
+	if err != nil {
+		return cldf.ChangesetOutput{}, fmt.Errorf("failed to populate in-memory DataStore: %w", err)
+	}
+
 	return cldf.ChangesetOutput{
 		AddressBook: newAddresses,
+		DataStore:   ds,
 	}, nil
 }

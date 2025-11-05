@@ -22,7 +22,6 @@ import (
 	jobv1 "github.com/smartcontractkit/chainlink-protos/job-distributor/v1/job"
 	ks_sol "github.com/smartcontractkit/chainlink/deployment/keystone/changeset/solana"
 
-	cldf_jd "github.com/smartcontractkit/chainlink-deployments-framework/offchain/jd"
 	keystone_changeset "github.com/smartcontractkit/chainlink/deployment/keystone/changeset"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/secrets"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/blockchains"
@@ -33,6 +32,8 @@ import (
 	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/blockchain"
 	ns "github.com/smartcontractkit/chainlink-testing-framework/framework/components/simple_node_set"
 )
+
+const EnvironmentName = "local-cre"
 
 type CapabilityFlag = string
 
@@ -401,7 +402,7 @@ type GenerateConfigsInput struct {
 	Datastore               datastore.DataStore
 	DonMetadata             *DonMetadata
 	Blockchains             map[uint64]blockchains.Blockchain
-	HomeChainSelector       uint64
+	RegistryChainSelector   uint64
 	Flags                   []string
 	CapabilitiesPeeringData CapabilitiesPeeringData
 	OCRPeeringData          OCRPeeringData
@@ -418,7 +419,7 @@ func (g *GenerateConfigsInput) Validate() error {
 	if len(g.Blockchains) == 0 {
 		return errors.New("blockchain output not set")
 	}
-	if g.HomeChainSelector == 0 {
+	if g.RegistryChainSelector == 0 {
 		return errors.New("home chain selector not set")
 	}
 	if len(g.Flags) == 0 {
@@ -430,17 +431,17 @@ func (g *GenerateConfigsInput) Validate() error {
 	if g.OCRPeeringData == (OCRPeeringData{}) {
 		return errors.New("ocr peering data not set")
 	}
-	_, addrErr := g.AddressBook.AddressesForChain(g.HomeChainSelector)
+	_, addrErr := g.AddressBook.AddressesForChain(g.RegistryChainSelector)
 	if addrErr != nil {
-		return fmt.Errorf("failed to get addresses for chain %d: %w", g.HomeChainSelector, addrErr)
+		return fmt.Errorf("failed to get addresses for chain %d: %w", g.RegistryChainSelector, addrErr)
 	}
 	_, dsErr := g.Datastore.Addresses().Fetch()
 	if dsErr != nil {
 		return fmt.Errorf("failed to get addresses from datastore: %w", dsErr)
 	}
-	h := g.Datastore.Addresses().Filter(datastore.AddressRefByChainSelector(g.HomeChainSelector))
+	h := g.Datastore.Addresses().Filter(datastore.AddressRefByChainSelector(g.RegistryChainSelector))
 	if len(h) == 0 {
-		return fmt.Errorf("no addresses found for home chain %d in datastore", g.HomeChainSelector)
+		return fmt.Errorf("no addresses found for home chain %d in datastore", g.RegistryChainSelector)
 	}
 	// TODO check for required registry contracts by type and version
 	return nil
@@ -1173,7 +1174,6 @@ func NewNodeKeys(input NodeKeyInput) (*secrets.NodeKeys, error) {
 }
 
 type LinkDonsToJDInput struct {
-	JDClient        *cldf_jd.JobDistributor
 	Blockchains     []blockchains.Blockchain
 	Dons            *Dons
 	Topology        *Topology

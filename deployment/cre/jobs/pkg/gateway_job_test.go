@@ -34,6 +34,7 @@ HeartbeatIntervalSec = 20
 
 [[gatewayConfig.Dons]]
 DonId = 'workflow_1'
+F = 1
 
 [[gatewayConfig.Dons.Handlers]]
 Name = 'web-api-capabilities'
@@ -65,6 +66,7 @@ Name = 'Node 4'
 
 [[gatewayConfig.Dons]]
 DonId = 'workflow_2'
+F = 0
 
 [[gatewayConfig.Dons.Handlers]]
 Name = 'web-api-capabilities'
@@ -133,6 +135,7 @@ HeartbeatIntervalSec = 20
 
 [[gatewayConfig.Dons]]
 DonId = 'workflow_1'
+F = 1
 
 [[gatewayConfig.Dons.Handlers]]
 Name = 'web-api-capabilities'
@@ -177,6 +180,7 @@ Name = 'Node 4'
 
 [[gatewayConfig.Dons]]
 DonId = 'workflow_2'
+F = 0
 
 [[gatewayConfig.Dons.Handlers]]
 Name = 'web-api-capabilities'
@@ -245,13 +249,14 @@ HeartbeatIntervalSec = 20
 
 [[gatewayConfig.Dons]]
 DonId = 'workflow_1'
+F = 3
 
 [[gatewayConfig.Dons.Handlers]]
 Name = 'http-capabilities'
 ServiceName = 'workflows'
 
 [gatewayConfig.Dons.Handlers.Config]
-CleanUpPeriodMs = 300000
+CleanUpPeriodMs = 600000
 
 [gatewayConfig.Dons.Handlers.Config.NodeRateLimiter]
 globalBurst = 100
@@ -269,6 +274,7 @@ Name = 'Node 2'
 
 [[gatewayConfig.Dons]]
 DonId = 'workflow_2'
+F = 0
 
 [[gatewayConfig.Dons.Handlers]]
 Name = 'vault'
@@ -325,6 +331,7 @@ func TestGateway_Resolve(t *testing.T) {
 		TargetDONs: []TargetDON{
 			{
 				ID:       "workflow_1",
+				F:        1,
 				Handlers: []string{GatewayHandlerTypeWebAPICapabilities},
 				Members: []TargetDONMember{
 					{
@@ -384,6 +391,7 @@ func TestGateway_Resolve_WithVaultHandler(t *testing.T) {
 		TargetDONs: []TargetDON{
 			{
 				ID:       "workflow_1",
+				F:        1,
 				Handlers: []string{GatewayHandlerTypeWebAPICapabilities, GatewayHandlerTypeVault},
 				Members: []TargetDONMember{
 					{
@@ -405,7 +413,8 @@ func TestGateway_Resolve_WithVaultHandler(t *testing.T) {
 				},
 			},
 			{
-				ID:       "workflow_2",
+				ID: "workflow_2",
+
 				Handlers: []string{GatewayHandlerTypeWebAPICapabilities},
 				Members: []TargetDONMember{
 					{
@@ -444,6 +453,7 @@ func TestGateway_Resolve_WithHTTPCapabilitiesHandler(t *testing.T) {
 		TargetDONs: []TargetDON{
 			{
 				ID:       "workflow_1",
+				F:        3,
 				Handlers: []string{GatewayHandlerTypeHTTPCapabilities},
 				Members: []TargetDONMember{
 					{
@@ -458,6 +468,7 @@ func TestGateway_Resolve_WithHTTPCapabilitiesHandler(t *testing.T) {
 			},
 			{
 				ID:       "workflow_2",
+				F:        0,
 				Handlers: []string{GatewayHandlerTypeVault},
 				Members: []TargetDONMember{
 					{

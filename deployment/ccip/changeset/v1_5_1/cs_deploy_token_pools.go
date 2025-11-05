@@ -224,8 +224,14 @@ func DeployTokenPoolContractsChangeset(env cldf.Environment, c DeployTokenPoolCo
 			c.TokenSymbol, err)
 	}
 
+	ds, err := shared.PopulateDataStore(newAddresses)
+	if err != nil {
+		return cldf.ChangesetOutput{}, fmt.Errorf("failed to populate in-memory DataStore: %w", err)
+	}
+
 	return cldf.ChangesetOutput{
 		AddressBook: newAddresses,
+		DataStore:   ds,
 	}, nil
 }
 
@@ -249,7 +255,7 @@ func deployTokenPool(
 			var tpAddr common.Address
 			var tx *types.Transaction
 			var err error
-			var tokenPoolVersion = shared.CurrentTokenPoolVersion
+			tokenPoolVersion := shared.CurrentTokenPoolVersion
 			switch poolConfig.Type {
 			case shared.BurnMintTokenPool:
 				tpAddr, tx, _, err = burn_mint_token_pool.DeployBurnMintTokenPool(

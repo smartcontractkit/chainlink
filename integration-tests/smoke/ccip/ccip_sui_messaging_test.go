@@ -22,6 +22,7 @@ import (
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/testcontext"
 
 	"github.com/smartcontractkit/chainlink-deployments-framework/chain"
+	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
 
 	suiBind "github.com/smartcontractkit/chainlink-sui/bindings/bind"
 	suiutil "github.com/smartcontractkit/chainlink-sui/bindings/utils"
@@ -31,6 +32,7 @@ import (
 	ccipops "github.com/smartcontractkit/chainlink-sui/deployment/ops/ccip"
 	linkops "github.com/smartcontractkit/chainlink-sui/deployment/ops/link"
 
+	suideps "github.com/smartcontractkit/chainlink/deployment/ccip/changeset/sui"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers"
 	mlt "github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers/messagelimitationstest"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers/messagingtest"
@@ -356,6 +358,7 @@ func Test_CCIP_Messaging_EVM2Sui(t *testing.T) {
 	_, _, err = commoncs.ApplyChangesets(t, e.Env, []commoncs.ConfiguredChangeSet{
 		commoncs.Configure(sui_cs.RegisterDummyReceiver{}, sui_cs.RegisterDummyReceiverConfig{
 			SuiChainSelector:       destChain,
+			OwnerCapObjectId:       outputMap.Objects.OwnerCapObjectId,
 			CCIPObjectRefObjectId:  state.SuiChains[destChain].CCIPObjectRef,
 			DummyReceiverPackageId: outputMap.PackageId,
 		}),
@@ -378,6 +381,44 @@ func Test_CCIP_Messaging_EVM2Sui(t *testing.T) {
 
 	srcFeeQuoterDestChainConfig, err := state.Chains[sourceChain].FeeQuoter.GetDestChainConfig(&bind.CallOpts{Context: ctx}, destChain)
 	require.NoError(t, err, "Failed to get destination chain config")
+
+	bigIntSourceUsdPerToken, parsed := new(big.Int).SetString("15377040000000000000000000000", 10) // 1e27 since sui is 1e9
+	require.True(t, parsed)
+
+	bigIntGasUsdPerUnitGas, ok := new(big.Int).SetString("41946474500", 10) // optimism sep 4145822215
+	require.True(t, ok)
+
+	suiChains := e.Env.BlockChains.SuiChains()
+	suiChain := suiChains[destChain]
+
+	// TODO do this as
+	deps := suideps.Deps{
+		SuiChain: sui_ops.OpTxDeps{
+			Client: suiChain.Client,
+			Signer: suiChain.Signer,
+			GetCallOpts: func() *suiBind.CallOpts {
+				b := uint64(400_000_000)
+				return &suiBind.CallOpts{
+					Signer:           suiChain.Signer,
+					WaitForExecution: true,
+					GasBudget:        &b,
+				}
+			},
+		},
+	}
+
+	// Update Prices on FeeQuoter with minted LinkToken
+	_, err = operations.ExecuteOperation(e.Env.OperationsBundle, ccipops.FeeQuoterUpdatePricesWithOwnerCapOp, deps.SuiChain,
+		ccipops.FeeQuoterUpdatePricesWithOwnerCapInput{
+			CCIPPackageId:         state.SuiChains[destChain].CCIPAddress,
+			CCIPObjectRef:         state.SuiChains[destChain].CCIPObjectRef,
+			OwnerCapObjectId:      state.SuiChains[destChain].CCIPOwnerCapObjectId,
+			SourceTokens:          []string{state.SuiChains[destChain].LinkTokenCoinMetadataId},
+			SourceUsdPerToken:     []*big.Int{bigIntSourceUsdPerToken},
+			GasDestChainSelectors: []uint64{destChain},
+			GasUsdPerUnitGas:      []*big.Int{bigIntGasUsdPerUnitGas},
+		})
+	require.NoError(t, err)
 
 	t.Run("Message to Sui", func(t *testing.T) {
 		// ccipChainState := state.SuiChains[destChain]
@@ -614,6 +655,7 @@ func Test_CCIP_EVM2Sui_ExecPlugin_MessageVisibilityAndRetryBehavior(t *testing.T
 	_, _, err = commoncs.ApplyChangesets(t, e.Env, []commoncs.ConfiguredChangeSet{
 		commoncs.Configure(sui_cs.RegisterDummyReceiver{}, sui_cs.RegisterDummyReceiverConfig{
 			SuiChainSelector:       destChain,
+			OwnerCapObjectId:       outputMap.Objects.OwnerCapObjectId,
 			CCIPObjectRefObjectId:  state.SuiChains[destChain].CCIPObjectRef,
 			DummyReceiverPackageId: outputMap.PackageId,
 		}),
