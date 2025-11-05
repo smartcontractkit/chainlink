@@ -22,7 +22,6 @@ import (
 	jobv1 "github.com/smartcontractkit/chainlink-protos/job-distributor/v1/job"
 	ks_sol "github.com/smartcontractkit/chainlink/deployment/keystone/changeset/solana"
 
-	cldf_jd "github.com/smartcontractkit/chainlink-deployments-framework/offchain/jd"
 	keystone_changeset "github.com/smartcontractkit/chainlink/deployment/keystone/changeset"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/secrets"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/blockchains"
@@ -33,6 +32,8 @@ import (
 	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/blockchain"
 	ns "github.com/smartcontractkit/chainlink-testing-framework/framework/components/simple_node_set"
 )
+
+const EnvironmentName = "local-cre"
 
 type CapabilityFlag = string
 
@@ -1173,7 +1174,6 @@ func NewNodeKeys(input NodeKeyInput) (*secrets.NodeKeys, error) {
 }
 
 type LinkDonsToJDInput struct {
-	JDClient        *cldf_jd.JobDistributor
 	Blockchains     []blockchains.Blockchain
 	Dons            *Dons
 	Topology        *Topology

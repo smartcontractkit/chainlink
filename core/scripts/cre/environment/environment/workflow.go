@@ -48,6 +48,20 @@ func getWorkflowRegistryTypeVersion(contractsVersion string) deployment.TypeAndV
 	}
 }
 
+func getCapabilityRegistryTypeVersion(contractsVersion string) deployment.TypeAndVersion {
+	switch strings.ToLower(contractsVersion) {
+	case "v2":
+		return deployment.TypeAndVersion{
+			Version: *semver.MustParse(creconfig.CapabilityRegistryV2Semver),
+		}
+	default:
+		// Default to v1 for backward compatibility
+		return deployment.TypeAndVersion{
+			Version: *semver.MustParse("1.0.0"),
+		}
+	}
+}
+
 func workflowCmds() *cobra.Command {
 	workflowCmd := &cobra.Command{
 		Use:   "workflow",
@@ -347,7 +361,12 @@ func compileWorkflow(workflowFilePathFlag, workflowNameFlag string) (string, err
 	return compressedWorkflowWasmPath, nil
 }
 
-func deployWorkflow(ctx context.Context, wasmWorkflowFilePathFlag, workflowNameFlag, workflowOwnerAddressFlag, workflowRegistryAddressFlag, capabilitiesRegistryAddressFlag, containerNamePatternFlag, containerTargetDirFlag, configFilePathFlag, secretsFilePathFlag, secretsOutputFilePathFlag, rpcURLFlag, contractsVersionFlag string, donIDFlag uint32, deleteWorkflowFile bool) error {
+func deployWorkflow(
+	ctx context.Context,
+	wasmWorkflowFilePathFlag, workflowNameFlag, workflowOwnerAddressFlag, workflowRegistryAddressFlag, capabilitiesRegistryAddressFlag, containerNamePatternFlag, containerTargetDirFlag, configFilePathFlag, secretsFilePathFlag, secretsOutputFilePathFlag, rpcURLFlag, contractsVersionFlag string,
+	donIDFlag uint32,
+	deleteWorkflowFile bool,
+) error {
 	copyErr := creworkflow.CopyArtifactsToDockerContainers(containerTargetDirFlag, containerNamePatternFlag, wasmWorkflowFilePathFlag)
 	if copyErr != nil {
 		return errors.Wrap(copyErr, "❌ failed to copy workflow to Docker container")
@@ -392,7 +411,8 @@ func deployWorkflow(ctx context.Context, wasmWorkflowFilePathFlag, workflowNameF
 	if secretsFilePathFlag != "" {
 		fmt.Printf("\n⚙️ Loading and encrypting workflow secrets\n")
 
-		secretPathAbs, secretsErr := creworkflow.PrepareSecrets(sethClient, donIDFlag, common.HexToAddress(capabilitiesRegistryAddressFlag), common.HexToAddress(workflowOwnerAddressFlag), secretsFilePathFlag, secretsOutputFilePathFlag)
+		capRegTv := getCapabilityRegistryTypeVersion(contractsVersionFlag)
+		secretPathAbs, secretsErr := creworkflow.PrepareSecrets(sethClient, donIDFlag, common.HexToAddress(capabilitiesRegistryAddressFlag), common.HexToAddress(workflowOwnerAddressFlag), capRegTv, secretsFilePathFlag, secretsOutputFilePathFlag)
 		if secretsErr != nil {
 			return errors.Wrap(secretsErr, "failed to prepare secrets")
 		}

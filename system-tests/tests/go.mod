@@ -21,6 +21,8 @@ replace github.com/smartcontractkit/chainlink/core/scripts/cre/environment/examp
 
 replace github.com/smartcontractkit/chainlink/system-tests/tests/smoke/cre/evm/evmread => ./smoke/cre/evm/evmread
 
+replace github.com/smartcontractkit/chainlink/system-tests/tests/smoke/cre/evm/logtrigger => ./smoke/cre/evm/logtrigger
+
 replace github.com/smartcontractkit/chainlink/system-tests/tests/regression/cre/consensus => ./regression/cre/consensus
 
 replace github.com/smartcontractkit/chainlink/system-tests/tests/regression/cre/evm/evmread-negative => ./regression/cre/evm/evmread-negative
@@ -43,10 +45,10 @@ require (
 	github.com/prometheus/common v0.65.0
 	github.com/rs/zerolog v1.33.0
 	github.com/shopspring/decimal v1.4.0
-	github.com/smartcontractkit/chain-selectors v1.0.75
+	github.com/smartcontractkit/chain-selectors v1.0.77
 	github.com/smartcontractkit/chainlink-common v0.9.6-0.20251030115044-5d80c1c62afd
 	github.com/smartcontractkit/chainlink-data-streams v0.1.6
-	github.com/smartcontractkit/chainlink-deployments-framework v0.59.1
+	github.com/smartcontractkit/chainlink-deployments-framework v0.62.0
 	github.com/smartcontractkit/chainlink-evm/gethwrappers v0.0.0-20251022075638-49d961001d1b
 	github.com/smartcontractkit/chainlink-protos/cre/go v0.0.0-20251021010742-3f8d3dba17d8
 	github.com/smartcontractkit/chainlink-protos/job-distributor v0.17.0
@@ -67,6 +69,8 @@ require (
 	github.com/smartcontractkit/chainlink/system-tests/tests/regression/cre/evm/evmwrite-negative v0.0.0-20251008094352-f74459c46e8c
 	github.com/smartcontractkit/chainlink/system-tests/tests/regression/cre/http v0.0.0-20251008094352-f74459c46e8c
 	github.com/smartcontractkit/chainlink/system-tests/tests/smoke/cre/evm/evmread v0.0.0-20251008094352-f74459c46e8c
+	github.com/smartcontractkit/chainlink/system-tests/tests/smoke/cre/evm/logtrigger v0.0.0-00010101000000-000000000000
+	github.com/smartcontractkit/chainlink/system-tests/tests/smoke/cre/evmread v0.0.0-20250917232237-c4ecf802c6f8
 	github.com/smartcontractkit/libocr v0.0.0-20251031190958-7324c200a6b0
 	github.com/stretchr/testify v1.11.1
 	golang.org/x/sync v0.17.0

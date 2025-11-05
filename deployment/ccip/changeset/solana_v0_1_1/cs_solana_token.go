@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strings"
 
 	tokenMetadata "github.com/gagliardetto/metaplex-go/clients/token-metadata"
 	"github.com/gagliardetto/solana-go"
@@ -497,9 +498,9 @@ func UploadTokenMetadata(e cldf.Environment, cfg UploadTokenMetadataConfig) (cld
 		}
 		newUpdateAuthority := mintMetadata.UpdateAuthority
 		newData := tokenMetadata.DataV2{
-			Name:   mintMetadata.Data.Name,
-			Symbol: mintMetadata.Data.Symbol,
-			Uri:    mintMetadata.Data.Uri,
+			Name:   strings.ReplaceAll(mintMetadata.Data.Name, "\x00", ""),
+			Symbol: strings.ReplaceAll(mintMetadata.Data.Symbol, "\x00", ""),
+			Uri:    strings.ReplaceAll(mintMetadata.Data.Uri, "\x00", ""),
 		}
 		if !metadata.UpdateAuthority.IsZero() {
 			newUpdateAuthority = metadata.UpdateAuthority

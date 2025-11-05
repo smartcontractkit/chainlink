@@ -47,6 +47,7 @@ func onTrigger(cfg None, runtime cre.Runtime, _ *cron.Payload) (string, error) {
 	if string(resultBytes) == "stuff" {
 		runtime.Logger().Info("Successfully reached identical consensus on default value", "result", resultBytes)
 	} else {
+		runtime.Logger().Warn("Failed to reach consensus on default value")
 		return "failed", errors.New("Failed to reach consensus on default value")
 	}
 
@@ -57,7 +58,6 @@ func onTrigger(cfg None, runtime cre.Runtime, _ *cron.Payload) (string, error) {
 		return "", err
 	}
 	runtime.Logger().Info("Successfully fetched offchain value and reached consensus", "result", offchainValue)
-
 	runtime.Logger().Info("Successfully passed all consensus tests")
 
 	return "success", nil
