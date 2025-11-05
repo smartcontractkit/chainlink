@@ -322,17 +322,17 @@ func Test_CCIP_Messaging_EVM2Sui(t *testing.T) {
 	require.NoError(t, err)
 
 	var (
-		nonce  uint64
-		sender = common.LeftPadBytes(e.Env.BlockChains.EVMChains()[sourceChain].DeployerKey.From.Bytes(), 32)
-		setup  = messagingtest.NewTestSetupWithDeployedEnv(
-			t,
-			e,
-			state,
-			sourceChain,
-			destChain,
-			sender,
-			false, // test router
-		)
+		// nonce  uint64
+		// sender = common.LeftPadBytes(e.Env.BlockChains.EVMChains()[sourceChain].DeployerKey.From.Bytes(), 32)
+		// setup  = messagingtest.NewTestSetupWithDeployedEnv(
+		// 	t,
+		// 	e,
+		// 	state,
+		// 	sourceChain,
+		// 	destChain,
+		// 	sender,
+		// 	false, // test router
+		// )
 		nativeFeeToken = "0x0"
 	)
 
@@ -420,21 +420,78 @@ func Test_CCIP_Messaging_EVM2Sui(t *testing.T) {
 		})
 	require.NoError(t, err)
 
-	t.Run("Message to Sui", func(t *testing.T) {
-		// ccipChainState := state.SuiChains[destChain]
-		message := []byte("Hello Sui, from EVM!")
-		messagingtest.Run(t,
-			messagingtest.TestCase{
-				TestSetup:              setup,
-				Nonce:                  &nonce,
-				ValidationType:         messagingtest.ValidationTypeExec,
-				Receiver:               receiverByte,
-				MsgData:                message,
-				ExtraArgs:              testhelpers.MakeSuiExtraArgs(1000000, true, receiverObjectIDs, [32]byte{}),
-				ExpectedExecutionState: testhelpers.EXECUTION_STATE_SUCCESS,
-			},
-		)
-	})
+	// t.Run("Message to Sui", func(t *testing.T) {
+	// 	// ccipChainState := state.SuiChains[destChain]
+	// 	message := []byte("Hello Sui, from EVM!")
+	// 	messagingtest.Run(t,
+	// 		messagingtest.TestCase{
+	// 			TestSetup:              setup,
+	// 			Nonce:                  &nonce,
+	// 			ValidationType:         messagingtest.ValidationTypeExec,
+	// 			Receiver:               receiverByte,
+	// 			MsgData:                message,
+	// 			ExtraArgs:              testhelpers.MakeSuiExtraArgs(1000000, true, receiverObjectIDs, [32]byte{}),
+	// 			ExpectedExecutionState: testhelpers.EXECUTION_STATE_SUCCESS,
+	// 		},
+	// 	)
+	// })
+
+	// t.Run("Message to Sui with zero receiver", func(t *testing.T) {
+	// 	message := []byte("Hello Sui, from EVM!")
+	// 	messagingtest.Run(t,
+	// 		messagingtest.TestCase{
+	// 			TestSetup:              setup,
+	// 			Nonce:                  &nonce,
+	// 			ValidationType:         messagingtest.ValidationTypeExec,
+	// 			Receiver:               []byte{},
+	// 			MsgData:                message,
+	// 			ExtraArgs:              testhelpers.MakeSuiExtraArgs(0, true, [][32]byte{}, [32]byte{}),
+	// 			ExpectedExecutionState: testhelpers.EXECUTION_STATE_SUCCESS,
+	// 		},
+	// 	)
+	// })
+
+	tcs := []testhelpers.TestTransferRequest{
+		{
+			Name:           "Message to Sui (valid receiver)",
+			SourceChain:    sourceChain,
+			DestChain:      destChain,
+			Receiver:       receiverByte,
+			Data:           []byte("Hello Sui, from EVM!"),
+			ExtraArgs:      testhelpers.MakeSuiExtraArgs(1000000, true, receiverObjectIDs, [32]byte{}),
+			ExpectedStatus: testhelpers.EXECUTION_STATE_SUCCESS,
+		},
+		{
+			Name:           "Message to Sui (zero receiver)",
+			SourceChain:    sourceChain,
+			DestChain:      destChain,
+			Receiver:       []byte{},
+			Data:           []byte("Hello Sui, from EVM!"),
+			ExtraArgs:      testhelpers.MakeSuiExtraArgs(0, true, [][32]byte{}, [32]byte{}),
+			ExpectedStatus: testhelpers.EXECUTION_STATE_SUCCESS,
+		},
+	}
+
+	startBlocks, expectedSeqNums, expectedExecutionStates, _ := testhelpers.TransferMultiple(ctx, t, e.Env, state, tcs)
+
+	err = testhelpers.ConfirmMultipleCommits(
+		t,
+		e.Env,
+		state,
+		startBlocks,
+		false,
+		expectedSeqNums,
+	)
+	require.NoError(t, err)
+
+	execStates := testhelpers.ConfirmExecWithSeqNrsForAll(
+		t,
+		e.Env,
+		state,
+		testhelpers.SeqNumberRangeToSlice(expectedSeqNums),
+		startBlocks,
+	)
+	require.Equal(t, expectedExecutionStates, execStates)
 
 	// SUI MaxDataBytes won't exactly be srcFeeQuoterDestChainConfig.MaxDataBytes because we add following additional overhead;
 	//  suiExpandedDataLength +=
@@ -453,21 +510,6 @@ func Test_CCIP_Messaging_EVM2Sui(t *testing.T) {
 	// 		},
 	// 	)
 	// })
-
-	t.Run("Message to Sui with zero receiver", func(t *testing.T) {
-		message := []byte("Hello Sui, from EVM!")
-		messagingtest.Run(t,
-			messagingtest.TestCase{
-				TestSetup:              setup,
-				Nonce:                  &nonce,
-				ValidationType:         messagingtest.ValidationTypeExec,
-				Receiver:               []byte{},
-				MsgData:                message,
-				ExtraArgs:              testhelpers.MakeSuiExtraArgs(0, true, [][32]byte{}, [32]byte{}),
-				ExpectedExecutionState: testhelpers.EXECUTION_STATE_SUCCESS,
-			},
-		)
-	})
 
 	// REVERT CASES
 
