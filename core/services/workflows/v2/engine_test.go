@@ -1675,12 +1675,14 @@ func TestEngine_HandleNewDON(t *testing.T) {
 
 		// after initialization, signal a DON send to refetch local node
 		donCh <- capabilities.DON{}
-		require.Len(t,
+		require.NoError(t, engine.Close())
+
+		// assert that no log of the state was observed
+		require.Empty(t,
 			obs.FilterMessage("Setting local node state").All(),
 			0,
 			"logged local node state even though there was no change",
 		)
-		require.NoError(t, engine.Close())
 	})
 
 	t.Run("fail to subscribe", func(t *testing.T) {
