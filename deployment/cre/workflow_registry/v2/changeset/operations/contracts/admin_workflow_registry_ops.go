@@ -9,7 +9,7 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
-	mcmslib "github.com/smartcontractkit/mcms"
+	mcmstypes "github.com/smartcontractkit/mcms/types"
 
 	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
 
@@ -33,8 +33,9 @@ type AdminPauseWorkflowOpInput struct {
 }
 
 type AdminPauseWorkflowOpOutput struct {
-	Success   bool                       `json:"success"`
-	Proposals []mcmslib.TimelockProposal `json:"proposals,omitempty"`
+	Success         bool                      `json:"success"`
+	RegistryAddress common.Address            `json:"registryAddress"`
+	MCMSOperation   *mcmstypes.BatchOperation `json:"mcmsOperation"`
 }
 
 var AdminPauseWorkflowOp = operations.NewOperation(
@@ -66,7 +67,7 @@ var AdminPauseWorkflowOp = operations.NewOperation(
 		}
 
 		// Execute the transaction using the strategy
-		proposals, err := strategy.Apply(func(opts *bind.TransactOpts) (*types.Transaction, error) {
+		operation, err := strategy.BuildOperation(func(opts *bind.TransactOpts) (*types.Transaction, error) {
 			tx, err := registry.AdminPauseWorkflow(opts, input.WorkflowID)
 			if err != nil {
 				return nil, fmt.Errorf("failed to call AdminPauseWorkflow: %w", err)
@@ -84,8 +85,9 @@ var AdminPauseWorkflowOp = operations.NewOperation(
 		}
 
 		return AdminPauseWorkflowOpOutput{
-			Success:   true,
-			Proposals: proposals,
+			Success:         true,
+			MCMSOperation:   &operation,
+			RegistryAddress: registry.Address(),
 		}, nil
 	},
 )
@@ -99,8 +101,9 @@ type AdminBatchPauseWorkflowsOpInput struct {
 }
 
 type AdminBatchPauseWorkflowsOpOutput struct {
-	Success   bool                       `json:"success"`
-	Proposals []mcmslib.TimelockProposal `json:"proposals,omitempty"`
+	Success         bool                      `json:"success"`
+	RegistryAddress common.Address            `json:"registryAddress"`
+	MCMSOperation   *mcmstypes.BatchOperation `json:"mcmsOperation"`
 }
 
 var AdminBatchPauseWorkflowsOp = operations.NewOperation(
@@ -136,7 +139,7 @@ var AdminBatchPauseWorkflowsOp = operations.NewOperation(
 		}
 
 		// Execute the transaction using the strategy
-		proposals, err := strategy.Apply(func(opts *bind.TransactOpts) (*types.Transaction, error) {
+		operation, err := strategy.BuildOperation(func(opts *bind.TransactOpts) (*types.Transaction, error) {
 			tx, err := registry.AdminBatchPauseWorkflows(opts, input.WorkflowIDs)
 			if err != nil {
 				return nil, fmt.Errorf("failed to call AdminBatchPauseWorkflows: %w", err)
@@ -154,8 +157,9 @@ var AdminBatchPauseWorkflowsOp = operations.NewOperation(
 		}
 
 		return AdminBatchPauseWorkflowsOpOutput{
-			Success:   true,
-			Proposals: proposals,
+			Success:         true,
+			MCMSOperation:   &operation,
+			RegistryAddress: registry.Address(),
 		}, nil
 	},
 )
@@ -170,8 +174,9 @@ type AdminPauseAllByOwnerOpInput struct {
 }
 
 type AdminPauseAllByOwnerOpOutput struct {
-	Success   bool                       `json:"success"`
-	Proposals []mcmslib.TimelockProposal `json:"proposals,omitempty"`
+	Success         bool                      `json:"success"`
+	RegistryAddress common.Address            `json:"registryAddress"`
+	MCMSOperation   *mcmstypes.BatchOperation `json:"mcmsOperation"`
 }
 
 var AdminPauseAllByOwnerOp = operations.NewOperation(
@@ -203,7 +208,7 @@ var AdminPauseAllByOwnerOp = operations.NewOperation(
 		}
 
 		// Execute the transaction using the strategy
-		proposals, err := strategy.Apply(func(opts *bind.TransactOpts) (*types.Transaction, error) {
+		operation, err := strategy.BuildOperation(func(opts *bind.TransactOpts) (*types.Transaction, error) {
 			tx, err := registry.AdminPauseAllByOwner(opts, input.Owner, input.Limit)
 			if err != nil {
 				return nil, fmt.Errorf("failed to call AdminPauseAllByOwner: %w", err)
@@ -221,8 +226,9 @@ var AdminPauseAllByOwnerOp = operations.NewOperation(
 		}
 
 		return AdminPauseAllByOwnerOpOutput{
-			Success:   true,
-			Proposals: proposals,
+			Success:         true,
+			MCMSOperation:   &operation,
+			RegistryAddress: registry.Address(),
 		}, nil
 	},
 )
@@ -237,8 +243,9 @@ type AdminPauseAllByDONOpInput struct {
 }
 
 type AdminPauseAllByDONOpOutput struct {
-	Success   bool                       `json:"success"`
-	Proposals []mcmslib.TimelockProposal `json:"proposals,omitempty"`
+	Success         bool                      `json:"success"`
+	RegistryAddress common.Address            `json:"registryAddress"`
+	MCMSOperation   *mcmstypes.BatchOperation `json:"mcmsOperation"`
 }
 
 var AdminPauseAllByDONOp = operations.NewOperation(
@@ -270,7 +277,7 @@ var AdminPauseAllByDONOp = operations.NewOperation(
 		}
 
 		// Execute the transaction using the strategy
-		proposals, err := strategy.Apply(func(opts *bind.TransactOpts) (*types.Transaction, error) {
+		operation, err := strategy.BuildOperation(func(opts *bind.TransactOpts) (*types.Transaction, error) {
 			tx, err := registry.AdminPauseAllByDON(opts, input.DONFamily, input.Limit)
 			if err != nil {
 				return nil, fmt.Errorf("failed to call AdminPauseAllByDON: %w", err)
@@ -288,8 +295,9 @@ var AdminPauseAllByDONOp = operations.NewOperation(
 		}
 
 		return AdminPauseAllByDONOpOutput{
-			Success:   true,
-			Proposals: proposals,
+			Success:         true,
+			MCMSOperation:   &operation,
+			RegistryAddress: registry.Address(),
 		}, nil
 	},
 )

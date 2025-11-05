@@ -8,7 +8,7 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
-	mcmslib "github.com/smartcontractkit/mcms"
+	mcmstypes "github.com/smartcontractkit/mcms/types"
 
 	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
@@ -48,8 +48,9 @@ type SetConfigOpInput struct {
 }
 
 type SetConfigOpOutput struct {
-	Success   bool                       `json:"success"`
-	Proposals []mcmslib.TimelockProposal `json:"proposals,omitempty"`
+	Success         bool                      `json:"success"`
+	RegistryAddress common.Address            `json:"registryAddress"`
+	MCMSOperation   *mcmstypes.BatchOperation `json:"mcmsOperation"`
 }
 
 var SetConfigOp = operations.NewOperation(
@@ -81,7 +82,7 @@ var SetConfigOp = operations.NewOperation(
 		}
 
 		// Execute the transaction using the strategy
-		proposals, err := strategy.Apply(func(opts *bind.TransactOpts) (*types.Transaction, error) {
+		operation, err := strategy.BuildOperation(func(opts *bind.TransactOpts) (*types.Transaction, error) {
 			tx, err := registry.SetConfig(opts, input.NameLen, input.TagLen, input.URLLen, input.AttrLen, input.ExpiryLen)
 			if err != nil {
 				return nil, fmt.Errorf("failed to call SetConfig: %w", err)
@@ -99,8 +100,9 @@ var SetConfigOp = operations.NewOperation(
 		}
 
 		return SetConfigOpOutput{
-			Success:   true,
-			Proposals: proposals,
+			Success:         true,
+			MCMSOperation:   &operation,
+			RegistryAddress: registry.Address(),
 		}, nil
 	},
 )
@@ -115,8 +117,9 @@ type UpdateAllowedSignersOpInput struct {
 }
 
 type UpdateAllowedSignersOpOutput struct {
-	Success   bool                       `json:"success"`
-	Proposals []mcmslib.TimelockProposal `json:"proposals,omitempty"`
+	Success         bool                      `json:"success"`
+	MCMSOperation   *mcmstypes.BatchOperation `json:"mcmsOperation"`
+	RegistryAddress common.Address            `json:"registryAddress"`
 }
 
 var UpdateAllowedSignersOp = operations.NewOperation(
@@ -152,7 +155,7 @@ var UpdateAllowedSignersOp = operations.NewOperation(
 		}
 
 		// Execute the transaction using the strategy
-		proposals, err := strategy.Apply(func(opts *bind.TransactOpts) (*types.Transaction, error) {
+		operation, err := strategy.BuildOperation(func(opts *bind.TransactOpts) (*types.Transaction, error) {
 			tx, err := registry.UpdateAllowedSigners(opts, input.Signers, input.Allowed)
 			if err != nil {
 				return nil, fmt.Errorf("failed to call UpdateAllowedSigners: %w", err)
@@ -170,8 +173,9 @@ var UpdateAllowedSignersOp = operations.NewOperation(
 		}
 
 		return UpdateAllowedSignersOpOutput{
-			Success:   true,
-			Proposals: proposals,
+			Success:         true,
+			MCMSOperation:   &operation,
+			RegistryAddress: registry.Address(),
 		}, nil
 	},
 )
@@ -186,8 +190,9 @@ type SetWorkflowOwnerConfigOpInput struct {
 }
 
 type SetWorkflowOwnerConfigOpOutput struct {
-	Success   bool                       `json:"success"`
-	Proposals []mcmslib.TimelockProposal `json:"proposals,omitempty"`
+	Success         bool                      `json:"success"`
+	RegistryAddress common.Address            `json:"registryAddress"`
+	MCMSOperation   *mcmstypes.BatchOperation `json:"mcmsOperation"`
 }
 
 var SetWorkflowOwnerConfigOp = operations.NewOperation(
@@ -219,7 +224,7 @@ var SetWorkflowOwnerConfigOp = operations.NewOperation(
 		}
 
 		// Execute the transaction using the strategy
-		proposals, err := strategy.Apply(func(opts *bind.TransactOpts) (*types.Transaction, error) {
+		operation, err := strategy.BuildOperation(func(opts *bind.TransactOpts) (*types.Transaction, error) {
 			tx, err := registry.SetWorkflowOwnerConfig(opts, input.Owner, input.Config)
 			if err != nil {
 				return nil, fmt.Errorf("failed to call SetWorkflowOwnerConfig: %w", err)
@@ -237,8 +242,9 @@ var SetWorkflowOwnerConfigOp = operations.NewOperation(
 		}
 
 		return SetWorkflowOwnerConfigOpOutput{
-			Success:   true,
-			Proposals: proposals,
+			Success:         true,
+			MCMSOperation:   &operation,
+			RegistryAddress: registry.Address(),
 		}, nil
 	},
 )
@@ -254,8 +260,9 @@ type SetDONLimitOpInput struct {
 }
 
 type SetDONLimitOpOutput struct {
-	Success   bool                       `json:"success"`
-	Proposals []mcmslib.TimelockProposal `json:"proposals,omitempty"`
+	Success         bool                      `json:"success"`
+	RegistryAddress common.Address            `json:"registryAddress"`
+	MCMSOperation   *mcmstypes.BatchOperation `json:"mcmsOperation"`
 }
 
 var SetDONLimitOp = operations.NewOperation(
@@ -287,7 +294,7 @@ var SetDONLimitOp = operations.NewOperation(
 		}
 
 		// Execute the transaction using the strategy
-		proposals, err := strategy.Apply(func(opts *bind.TransactOpts) (*types.Transaction, error) {
+		operation, err := strategy.BuildOperation(func(opts *bind.TransactOpts) (*types.Transaction, error) {
 			tx, err := registry.SetDONLimit(opts, input.DONFamily, input.DONLimit, input.UserDefaultLimit)
 			if err != nil {
 				return nil, fmt.Errorf("failed to call SetDONLimit: %w", err)
@@ -305,8 +312,9 @@ var SetDONLimitOp = operations.NewOperation(
 		}
 
 		return SetDONLimitOpOutput{
-			Success:   true,
-			Proposals: proposals,
+			Success:         true,
+			MCMSOperation:   &operation,
+			RegistryAddress: registry.Address(),
 		}, nil
 	},
 )
@@ -323,8 +331,9 @@ type SetUserDONOverrideOpInput struct {
 }
 
 type SetUserDONOverrideOpOutput struct {
-	Success   bool                       `json:"success"`
-	Proposals []mcmslib.TimelockProposal `json:"proposals,omitempty"`
+	Success         bool                      `json:"success"`
+	RegistryAddress common.Address            `json:"registryAddress"`
+	MCMSOperation   *mcmstypes.BatchOperation `json:"mcmsOperation"`
 }
 
 var SetUserDONOverrideOp = operations.NewOperation(
@@ -356,7 +365,7 @@ var SetUserDONOverrideOp = operations.NewOperation(
 		}
 
 		// Execute the transaction using the strategy
-		proposals, err := strategy.Apply(func(opts *bind.TransactOpts) (*types.Transaction, error) {
+		operation, err := strategy.BuildOperation(func(opts *bind.TransactOpts) (*types.Transaction, error) {
 			tx, err := registry.SetUserDONOverride(opts, input.User, input.DONFamily, input.Limit, input.Enabled)
 			if err != nil {
 				return nil, fmt.Errorf("failed to call SetUserDONOverride: %w", err)
@@ -374,13 +383,14 @@ var SetUserDONOverrideOp = operations.NewOperation(
 		}
 
 		return SetUserDONOverrideOpOutput{
-			Success:   true,
-			Proposals: proposals,
+			Success:         true,
+			MCMSOperation:   &operation,
+			RegistryAddress: registry.Address(),
 		}, nil
 	},
 )
 
-// SetCapabilitiesRegistry Operation
+// SetCapabilitiesRegistry MCMSOperation
 type SetCapabilitiesRegistryOpInput struct {
 	ChainSelector    uint64                `json:"chainSelector"`
 	Qualifier        string                `json:"qualifier"` // Qualifier to identify the specific workflow registry
@@ -390,8 +400,9 @@ type SetCapabilitiesRegistryOpInput struct {
 }
 
 type SetCapabilitiesRegistryOpOutput struct {
-	Success   bool                       `json:"success"`
-	Proposals []mcmslib.TimelockProposal `json:"proposals,omitempty"`
+	Success         bool                      `json:"success"`
+	RegistryAddress common.Address            `json:"registryAddress"`
+	MCMSOperation   *mcmstypes.BatchOperation `json:"mcmsOperation"`
 }
 
 var SetCapabilitiesRegistryOp = operations.NewOperation(
@@ -423,7 +434,7 @@ var SetCapabilitiesRegistryOp = operations.NewOperation(
 		}
 
 		// Execute the transaction using the strategy
-		proposals, err := strategy.Apply(func(opts *bind.TransactOpts) (*types.Transaction, error) {
+		operation, err := strategy.BuildOperation(func(opts *bind.TransactOpts) (*types.Transaction, error) {
 			tx, err := registry.SetCapabilitiesRegistry(opts, input.Registry, input.ChainSelectorDON)
 			if err != nil {
 				return nil, fmt.Errorf("failed to call SetCapabilitiesRegistry: %w", err)
@@ -441,8 +452,9 @@ var SetCapabilitiesRegistryOp = operations.NewOperation(
 		}
 
 		return SetCapabilitiesRegistryOpOutput{
-			Success:   true,
-			Proposals: proposals,
+			Success:         true,
+			MCMSOperation:   &operation,
+			RegistryAddress: registry.Address(),
 		}, nil
 	},
 )

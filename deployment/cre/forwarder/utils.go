@@ -8,7 +8,6 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
-	"github.com/smartcontractkit/mcms"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 
@@ -18,6 +17,7 @@ import (
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 
 	"github.com/smartcontractkit/chainlink/deployment/cre/common/strategies"
+	mcmstypes "github.com/smartcontractkit/mcms/types"
 )
 
 // Config is the configuration to set on a Keystone Forwarder contract
@@ -33,7 +33,7 @@ type configureFowarderResponse struct {
 	DonID         uint32
 	Forwarder     common.Address
 
-	Proposal *mcms.TimelockProposal // if using MCMS, the proposal to propose the change
+	MCMSOperation *mcmstypes.BatchOperation // if using MCMS, the proposed operation for the config change
 }
 
 // configureForwarder sets the config for the forwarder contract on the chain for all Dons that accept workflows
@@ -54,7 +54,7 @@ func configureForwarder(
 	ver := cfg.ConfigVersion // note config count on the don info is the version on the forwarder
 	signers := cfg.Signers
 
-	proposals, err := strategy.Apply(func(txOpts *bind.TransactOpts) (*types.Transaction, error) {
+	operation, err := strategy.BuildOperation(func(txOpts *bind.TransactOpts) (*types.Transaction, error) {
 		tx, err := fwdr.SetConfig(txOpts, cfg.DonID, ver, cfg.F, signers)
 		if err != nil {
 			err = cldf.DecodeErr(kf.KeystoneForwarderABI, err)
@@ -84,7 +84,7 @@ func configureForwarder(
 			ChainSelector: chain.Selector,
 			DonID:         cfg.DonID,
 			Forwarder:     fwdr.Address(),
-			Proposal:      &proposals[0],
+			MCMSOperation: &operation,
 		}, nil
 	}
 

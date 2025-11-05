@@ -5,6 +5,8 @@ import (
 	"fmt"
 
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/smartcontractkit/mcms"
+	"github.com/smartcontractkit/mcms/types"
 
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
@@ -74,9 +76,23 @@ func (l SetConfig) Apply(e cldf.Environment, config SetConfigInput) (cldf.Change
 		return cldf.ChangesetOutput{}, err
 	}
 
+	if report.Output.MCMSOperation != nil {
+		proposal, mcmsErr := buildMCMSProposal(
+			e, config.ChainSelector, report.Output.RegistryAddress,
+			config.MCMSConfig, deps.MCMSContracts, report.Output.MCMSOperation,
+		)
+		if mcmsErr != nil {
+			return cldf.ChangesetOutput{}, fmt.Errorf("failed to build MCMS proposal: %w", mcmsErr)
+		}
+
+		return cldf.ChangesetOutput{
+			MCMSTimelockProposals: []mcms.TimelockProposal{proposal},
+			Reports:               []operations.Report[any, any]{report.ToGenericReport()},
+		}, nil
+	}
+
 	return cldf.ChangesetOutput{
-		Reports:               []operations.Report[any, any]{report.ToGenericReport()},
-		MCMSTimelockProposals: report.Output.Proposals,
+		Reports: []operations.Report[any, any]{report.ToGenericReport()},
 	}, nil
 }
 
@@ -134,9 +150,23 @@ func (l UpdateAllowedSigners) Apply(e cldf.Environment, config UpdateAllowedSign
 		return cldf.ChangesetOutput{}, err
 	}
 
+	if report.Output.MCMSOperation != nil {
+		proposal, mcmsErr := buildMCMSProposal(
+			e, config.ChainSelector, report.Output.RegistryAddress,
+			config.MCMSConfig, deps.MCMSContracts, report.Output.MCMSOperation,
+		)
+		if mcmsErr != nil {
+			return cldf.ChangesetOutput{}, fmt.Errorf("failed to build MCMS proposal: %w", mcmsErr)
+		}
+
+		return cldf.ChangesetOutput{
+			MCMSTimelockProposals: []mcms.TimelockProposal{proposal},
+			Reports:               []operations.Report[any, any]{report.ToGenericReport()},
+		}, nil
+	}
+
 	return cldf.ChangesetOutput{
-		Reports:               []operations.Report[any, any]{report.ToGenericReport()},
-		MCMSTimelockProposals: report.Output.Proposals,
+		Reports: []operations.Report[any, any]{report.ToGenericReport()},
 	}, nil
 }
 
@@ -186,9 +216,23 @@ func (l SetWorkflowOwnerConfig) Apply(e cldf.Environment, config SetWorkflowOwne
 		return cldf.ChangesetOutput{}, err
 	}
 
+	if report.Output.MCMSOperation != nil {
+		proposal, mcmsErr := buildMCMSProposal(
+			e, config.ChainSelector, report.Output.RegistryAddress,
+			config.MCMSConfig, deps.MCMSContracts, report.Output.MCMSOperation,
+		)
+		if mcmsErr != nil {
+			return cldf.ChangesetOutput{}, fmt.Errorf("failed to build MCMS proposal: %w", mcmsErr)
+		}
+
+		return cldf.ChangesetOutput{
+			MCMSTimelockProposals: []mcms.TimelockProposal{proposal},
+			Reports:               []operations.Report[any, any]{report.ToGenericReport()},
+		}, nil
+	}
+
 	return cldf.ChangesetOutput{
-		Reports:               []operations.Report[any, any]{report.ToGenericReport()},
-		MCMSTimelockProposals: report.Output.Proposals,
+		Reports: []operations.Report[any, any]{report.ToGenericReport()},
 	}, nil
 }
 
@@ -239,9 +283,23 @@ func (l SetDONLimit) Apply(e cldf.Environment, config SetDONLimitInput) (cldf.Ch
 		return cldf.ChangesetOutput{}, err
 	}
 
+	if report.Output.MCMSOperation != nil {
+		proposal, mcmsErr := buildMCMSProposal(
+			e, config.ChainSelector, report.Output.RegistryAddress,
+			config.MCMSConfig, deps.MCMSContracts, report.Output.MCMSOperation,
+		)
+		if mcmsErr != nil {
+			return cldf.ChangesetOutput{}, fmt.Errorf("failed to build MCMS proposal: %w", mcmsErr)
+		}
+
+		return cldf.ChangesetOutput{
+			MCMSTimelockProposals: []mcms.TimelockProposal{proposal},
+			Reports:               []operations.Report[any, any]{report.ToGenericReport()},
+		}, nil
+	}
+
 	return cldf.ChangesetOutput{
-		Reports:               []operations.Report[any, any]{report.ToGenericReport()},
-		MCMSTimelockProposals: report.Output.Proposals,
+		Reports: []operations.Report[any, any]{report.ToGenericReport()},
 	}, nil
 }
 
@@ -294,9 +352,23 @@ func (l SetUserDONOverride) Apply(e cldf.Environment, config SetUserDONOverrideI
 		return cldf.ChangesetOutput{}, err
 	}
 
+	if report.Output.MCMSOperation != nil {
+		proposal, mcmsErr := buildMCMSProposal(
+			e, config.ChainSelector, report.Output.RegistryAddress,
+			config.MCMSConfig, deps.MCMSContracts, report.Output.MCMSOperation,
+		)
+		if mcmsErr != nil {
+			return cldf.ChangesetOutput{}, fmt.Errorf("failed to build MCMS proposal: %w", mcmsErr)
+		}
+
+		return cldf.ChangesetOutput{
+			MCMSTimelockProposals: []mcms.TimelockProposal{proposal},
+			Reports:               []operations.Report[any, any]{report.ToGenericReport()},
+		}, nil
+	}
+
 	return cldf.ChangesetOutput{
-		Reports:               []operations.Report[any, any]{report.ToGenericReport()},
-		MCMSTimelockProposals: report.Output.Proposals,
+		Reports: []operations.Report[any, any]{report.ToGenericReport()},
 	}, nil
 }
 
@@ -345,8 +417,56 @@ func (l SetCapabilitiesRegistry) Apply(e cldf.Environment, config SetCapabilitie
 		return cldf.ChangesetOutput{}, err
 	}
 
+	if report.Output.MCMSOperation != nil {
+		proposal, mcmsErr := buildMCMSProposal(
+			e, config.ChainSelector, report.Output.RegistryAddress,
+			config.MCMSConfig, deps.MCMSContracts, report.Output.MCMSOperation,
+		)
+		if mcmsErr != nil {
+			return cldf.ChangesetOutput{}, fmt.Errorf("failed to build MCMS proposal: %w", mcmsErr)
+		}
+
+		return cldf.ChangesetOutput{
+			MCMSTimelockProposals: []mcms.TimelockProposal{proposal},
+			Reports:               []operations.Report[any, any]{report.ToGenericReport()},
+		}, nil
+	}
+
 	return cldf.ChangesetOutput{
-		Reports:               []operations.Report[any, any]{report.ToGenericReport()},
-		MCMSTimelockProposals: report.Output.Proposals,
+		Reports: []operations.Report[any, any]{report.ToGenericReport()},
 	}, nil
+}
+
+func buildMCMSProposal(
+	e cldf.Environment,
+	chainSelector uint64,
+	registryAddress common.Address,
+	mcmsConfig *crecontracts.MCMSConfig,
+	mcmsContracts *commonchangeset.MCMSWithTimelockState,
+	mcmsOperation *types.BatchOperation,
+) (mcms.TimelockProposal, error) {
+	chain, ok := e.BlockChains.EVMChains()[chainSelector]
+	if !ok {
+		return mcms.TimelockProposal{}, fmt.Errorf("chain with selector %d not found", chainSelector)
+	}
+
+	// Create the appropriate strategy
+	strategy, mcmsErr := strategies.CreateStrategy(
+		chain,
+		e,
+		mcmsConfig,
+		mcmsContracts,
+		registryAddress,
+		contracts.SetConfigDescription,
+	)
+	if mcmsErr != nil {
+		return mcms.TimelockProposal{}, fmt.Errorf("failed to create strategy: %w", mcmsErr)
+	}
+
+	proposal, mcmsErr := strategy.BuildProposal([]types.BatchOperation{*mcmsOperation})
+	if mcmsErr != nil {
+		return mcms.TimelockProposal{}, fmt.Errorf("failed to build MCMS proposal: %w", mcmsErr)
+	}
+
+	return proposal, nil
 }

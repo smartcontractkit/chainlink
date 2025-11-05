@@ -332,16 +332,16 @@ func TestSetCapabilitiesRegistry(t *testing.T) {
 
 			for j, op := range proposal.Operations {
 				require.NotEmpty(t, op.Transactions, "proposal %d operation %d should have transactions", i, j)
-				t.Logf("Proposal %d Operation %d: %d transactions", i, j, len(op.Transactions))
+				t.Logf("MCMSOperation %d MCMSOperation %d: %d transactions", i, j, len(op.Transactions))
 			}
 
-			t.Logf("Proposal %d: %d operations, delay: %v", i, len(proposal.Operations), proposal.Delay)
+			t.Logf("MCMSOperation %d: %d operations, delay: %v", i, len(proposal.Operations), proposal.Delay)
 		}
 
 		// Verify timelock addresses are set correctly
 		for i, proposal := range configureOutput.MCMSTimelockProposals {
 			require.NotEmpty(t, proposal.TimelockAddresses, "proposal %d should have timelock addresses", i)
-			t.Logf("Proposal %d timelock addresses: %v", i, proposal.TimelockAddresses)
+			t.Logf("MCMSOperation %d timelock addresses: %v", i, proposal.TimelockAddresses)
 		}
 
 		t.Logf("MCMS DON registry configuration test completed successfully")

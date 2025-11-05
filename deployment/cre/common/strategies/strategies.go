@@ -22,7 +22,8 @@ import (
 
 // TransactionStrategy interface for executing transactions with different strategies
 type TransactionStrategy interface {
-	Apply(callFn func(opts *bind.TransactOpts) (*types.Transaction, error)) ([]mcmslib.TimelockProposal, error)
+	BuildOperation(callFn func(opts *bind.TransactOpts) (*types.Transaction, error)) (mcmstypes.BatchOperation, error)
+	BuildProposal(operations []mcmstypes.BatchOperation) (mcmslib.TimelockProposal, error)
 }
 
 // SimpleTransaction executes a transaction directly without MCMS
@@ -30,14 +31,18 @@ type SimpleTransaction struct {
 	Chain cldf_evm.Chain
 }
 
-func (s *SimpleTransaction) Apply(callFn func(opts *bind.TransactOpts) (*types.Transaction, error)) ([]mcmslib.TimelockProposal, error) {
+func (s *SimpleTransaction) BuildOperation(callFn func(opts *bind.TransactOpts) (*types.Transaction, error)) (mcmstypes.BatchOperation, error) {
 	tx, err := callFn(s.Chain.DeployerKey)
 	if err != nil {
-		return nil, err
+		return mcmstypes.BatchOperation{}, err
 	}
 
 	_, err = s.Chain.Confirm(tx)
-	return []mcmslib.TimelockProposal{}, err
+	return mcmstypes.BatchOperation{}, err
+}
+
+func (s *SimpleTransaction) BuildProposal(_ []mcmstypes.BatchOperation) (mcmslib.TimelockProposal, error) {
+	return mcmslib.TimelockProposal{}, nil
 }
 
 // MCMSTransaction executes a transaction through MCMS timelock
@@ -50,21 +55,25 @@ type MCMSTransaction struct {
 	Env           cldf.Environment
 }
 
-func (m *MCMSTransaction) Apply(callFn func(opts *bind.TransactOpts) (*types.Transaction, error)) ([]mcmslib.TimelockProposal, error) {
+func (m *MCMSTransaction) BuildOperation(callFn func(opts *bind.TransactOpts) (*types.Transaction, error)) (mcmstypes.BatchOperation, error) {
 	opts := cldf.SimTransactOpts()
 
 	tx, err := callFn(opts)
 	if err != nil {
-		return nil, err
+		return mcmstypes.BatchOperation{}, err
 	}
 
 	op, err := proposalutils.BatchOperationForChain(m.ChainSel, m.Address.Hex(), tx.Data(), big.NewInt(0), "", nil)
 	if err != nil {
-		return nil, err
+		return mcmstypes.BatchOperation{}, err
 	}
 
+	return op, nil
+}
+
+func (m *MCMSTransaction) BuildProposal(operations []mcmstypes.BatchOperation) (mcmslib.TimelockProposal, error) {
 	if m.MCMSContracts.Timelock == nil || m.MCMSContracts.ProposerMcm == nil {
-		return nil, errors.New("MCMS contracts are not properly initialized, missing Timelock or Proposer")
+		return mcmslib.TimelockProposal{}, errors.New("MCMS contracts are not properly initialized, missing Timelock or Proposer")
 	}
 
 	timelocksPerChain := map[uint64]string{
@@ -75,7 +84,7 @@ func (m *MCMSTransaction) Apply(callFn func(opts *bind.TransactOpts) (*types.Tra
 	}
 	inspector, err := proposalutils.McmsInspectorForChain(m.Env, m.ChainSel)
 	if err != nil {
-		return nil, err
+		return mcmslib.TimelockProposal{}, err
 	}
 	inspectorPerChain := map[uint64]sdk.Inspector{
 		m.ChainSel: inspector,
@@ -86,15 +95,15 @@ func (m *MCMSTransaction) Apply(callFn func(opts *bind.TransactOpts) (*types.Tra
 		timelocksPerChain,
 		proposerMCMSes,
 		inspectorPerChain,
-		[]mcmstypes.BatchOperation{op},
+		operations,
 		m.Description,
 		proposalutils.TimelockConfig{MinDelay: m.Config.MinDuration},
 	)
 	if err != nil {
-		return nil, err
+		return mcmslib.TimelockProposal{}, err
 	}
 
-	return []mcmslib.TimelockProposal{*proposal}, nil
+	return *proposal, nil
 }
 
 // CreateStrategy is a factory function to create the appropriate strategy based on configuration

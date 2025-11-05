@@ -9,6 +9,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	chainsel "github.com/smartcontractkit/chain-selectors"
 	mcmslib "github.com/smartcontractkit/mcms"
+	mcmstypes "github.com/smartcontractkit/mcms/types"
 
 	"github.com/smartcontractkit/chainlink-deployments-framework/chain/evm"
 	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
@@ -79,8 +80,8 @@ var ConfigureSeq = operations.NewSequence[ConfigureSeqInput, ConfigureSeqOutput,
 	"Configure Keystone Forwarders",
 	func(b operations.Bundle, deps ConfigureSeqDeps, input ConfigureSeqInput) (ConfigureSeqOutput, error) {
 		evmChain := deps.Env.BlockChains.EVMChains()
-		proposalPerChain := make(map[uint64]*mcmslib.TimelockProposal)
-		forwarderContracts := make(map[uint64]*contracts.OwnedContract[*forwarder.KeystoneForwarder])
+		proposalsPerChain := make(map[uint64][]*mcmslib.TimelockProposal)
+		forwarderContracts := make(map[uint64][]*contracts.OwnedContract[*forwarder.KeystoneForwarder])
 
 		cfg, err := input.DON.ForwarderConfig("evm", deps.Env.Offchain)
 		out := ConfigureSeqOutput{
@@ -145,26 +146,36 @@ var ConfigureSeq = operations.NewSequence[ConfigureSeqInput, ConfigureSeqOutput,
 					return ConfigureSeqOutput{}, fmt.Errorf("configure-forwarders-seq failed for chain selector %d: %w", chain.Selector, err)
 				}
 
-				proposalPerChain[chain.Selector] = fwrReport.Output.Proposal
-				forwarderContracts[chain.Selector] = contract
+				proposal, err := strategy.BuildProposal([]mcmstypes.BatchOperation{*fwrReport.Output.MCMSOperation})
+				if err != nil {
+					return ConfigureSeqOutput{}, fmt.Errorf("configure-forwarders-seq failed to build proposal for chain selector %d: %w", chain.Selector, err)
+				}
+
+				proposalsPerChain[chain.Selector] = append(proposalsPerChain[chain.Selector], &proposal)
+				forwarderContracts[chain.Selector] = append(forwarderContracts[chain.Selector], contract)
 			}
 		}
 
 		if input.UseMCMS() {
-			if len(proposalPerChain) == 0 {
+			if len(proposalsPerChain) == 0 {
 				return out, errors.New("configure-forwarders-seq failed: no proposals generated for MCMS")
 			}
 
-			for chainSelector, proposal := range proposalPerChain {
-				fwr, ok := forwarderContracts[chainSelector]
+			for chainSelector, proposals := range proposalsPerChain {
+				fwrs, ok := forwarderContracts[chainSelector]
 				if !ok {
 					return out, fmt.Errorf("configure-forwarders-seq failed: expected configured forwarder address for chain selector %d", chainSelector)
 				}
-				if fwr.McmsContracts == nil {
-					return out, fmt.Errorf("configure-forwarders-seq failed: expected forwarder contract %s to be owned by MCMS for chain selector %d", fwr.Contract.Address(), chainSelector)
+				for _, fwr := range fwrs {
+					if fwr.McmsContracts == nil {
+						return out, fmt.Errorf("configure-forwarders-seq failed: expected forwarder contract %s to be owned by MCMS for chain selector %d", fwr.Contract.Address(), chainSelector)
+					}
 				}
 
-				out.MCMSTimelockProposals = append(out.MCMSTimelockProposals, *proposal)
+				for _, proposal := range proposals {
+					out.MCMSTimelockProposals = append(out.MCMSTimelockProposals, *proposal)
+				}
+
 			}
 		}
 
@@ -186,7 +197,7 @@ type ConfigureOpInput struct {
 }
 
 type ConfigureOpOutput struct {
-	Proposal *mcmslib.TimelockProposal // if using MCMS, the batch operation to propose the change
+	MCMSOperation *mcmstypes.BatchOperation // if using MCMS, the batch operation to propose the change
 
 	Forwarder common.Address
 	Config    Config
@@ -203,9 +214,9 @@ var ConfigureOp = operations.NewOperation[ConfigureOpInput, ConfigureOpOutput, C
 			return ConfigureOpOutput{}, fmt.Errorf("configure-forwarder-op failed: failed to configure forwarder for chain selector %d: %w", deps.Chain.Selector, err)
 		}
 		return ConfigureOpOutput{
-			Proposal:  r.Proposal,
-			Config:    input.Config,
-			Forwarder: deps.Contract.Address(),
+			MCMSOperation: r.MCMSOperation,
+			Config:        input.Config,
+			Forwarder:     deps.Contract.Address(),
 		}, nil
 	},
 )
