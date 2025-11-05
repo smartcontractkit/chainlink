@@ -90,11 +90,11 @@ func PrintFailedContainerLogs(logger zerolog.Logger, logLinesCount uint64) {
 //   - true if any panics were found in any container, false otherwise
 func CheckContainersForPanics(logger zerolog.Logger, maxLinesAfterPanic int) bool {
 	// Panic patterns to search for
-	panicPatterns := []*regexp.Regexp{
-		regexp.MustCompile(`(?i)panic:`),                // Go panic
-		regexp.MustCompile(`(?i)runtime error:`),        // Runtime errors
-		regexp.MustCompile(`(?i)fatal error:`),          // Fatal errors
-		regexp.MustCompile(`goroutine \d+ \[running\]`), // Stack trace indicator
+	panicPatterns := map[string]*regexp.Regexp{
+		"panic":         regexp.MustCompile(`(?i)panic:`),                // Go panic
+		"runtime error": regexp.MustCompile(`(?i)runtime error:`),        // Runtime errors
+		"fatal error":   regexp.MustCompile(`(?i)fatal error:`),          // Fatal errors
+		"stack trace":   regexp.MustCompile(`goroutine \d+ \[running\]`), // Stack trace indicator
 	}
 
 	// List only Chainlink node containers
@@ -156,7 +156,7 @@ func CheckContainersForPanics(logger zerolog.Logger, maxLinesAfterPanic int) boo
 
 // scanContainerForPanics scans a single container's log stream for panic patterns
 // It checks the context for cancellation to enable early termination when another goroutine finds a panic
-func scanContainerForPanics(ctx context.Context, logger zerolog.Logger, containerName string, reader io.Reader, patterns []*regexp.Regexp, maxLinesAfter int) bool {
+func scanContainerForPanics(ctx context.Context, logger zerolog.Logger, containerName string, reader io.Reader, patterns map[string]*regexp.Regexp, maxLinesAfter int) bool {
 	scanner := bufio.NewScanner(reader)
 	// Increase buffer size to handle large log lines
 	scanner.Buffer(make([]byte, 64*1024), 1024*1024)
@@ -164,6 +164,7 @@ func scanContainerForPanics(ctx context.Context, logger zerolog.Logger, containe
 	var logLines []string
 	lineNum := 0
 	panicLineNum := -1
+	patternNameFound := ""
 
 	// Read all lines and detect panic
 	for scanner.Scan() {
@@ -191,8 +192,9 @@ func scanContainerForPanics(ctx context.Context, logger zerolog.Logger, containe
 		logLines = append(logLines, line)
 
 		// Check if this line contains a panic pattern
-		for _, pattern := range patterns {
+		for patternName, pattern := range patterns {
 			if pattern.MatchString(line) {
+				patternNameFound = patternName
 				panicLineNum = lineNum - 1 // Store index (0-based)
 				break
 			}
@@ -209,7 +211,7 @@ func scanContainerForPanics(ctx context.Context, logger zerolog.Logger, containe
 		logger.Error().
 			Str("Container", containerName).
 			Int("PanicLineNumber", panicLineNum+1).
-			Msgf("🔥 PANIC DETECTED in container logs")
+			Msgf("🔥 %s DETECTED in container logs", strings.ToUpper(patternNameFound))
 
 		// Calculate range to display
 		startLine := panicLineNum
@@ -218,7 +220,7 @@ func scanContainerForPanics(ctx context.Context, logger zerolog.Logger, containe
 		// Build the output
 		var output strings.Builder
 		output.WriteString(fmt.Sprintf("\n%s\n", strings.Repeat("=", 80)))
-		output.WriteString(fmt.Sprintf("PANIC FOUND IN CONTAINER: %s (showing %d lines from panic)\n", containerName, endLine-startLine))
+		output.WriteString(fmt.Sprintf("%s FOUND IN CONTAINER: %s (showing %d lines from panic)\n", strings.ToUpper(patternNameFound), containerName, endLine-startLine))
 		output.WriteString(strings.Repeat("=", 80) + "\n")
 
 		for i := startLine; i < endLine; i++ {
