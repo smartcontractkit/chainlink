@@ -46,7 +46,7 @@ runs:
           echo "Toolchain version not found in ${{ inputs.go-version-file }}, using go directive instead."
         fi
         echo "Go Version: $version"
-        echo "version=$version" >> "$GITHUB_OUTPUT"
+        echo "version=$version" | tee -a "$GITHUB_OUTPUT"
 
     - name: Set up Go
       uses: actions/setup-go@v5
@@ -59,13 +59,21 @@ runs:
       shell: bash
       id: go-cache-dir
       run: |
-        echo "gomodcache=$(go env GOMODCACHE)" >> $GITHUB_OUTPUT
-        echo "gobuildcache=$(go env GOCACHE)" >> $GITHUB_OUTPUT
+        echo "gomodcache=$(go env GOMODCACHE)" | tee -a "$GITHUB_OUTPUT"
+        echo "gobuildcache=$(go env GOCACHE)" | tee -a "$GITHUB_OUTPUT"
 
-    - name: Set go module path
-      id: go-module-path
+    - name: Module Cache Key
+      id: mod-cache-keys
       shell: bash
-      run: echo "path=./${{ inputs.go-module-file }}" >> $GITHUB_OUTPUT
+      env:
+        INPUT_GO_MODULE_FILE: ${{ inputs.go-module-file }}
+        # The lifetime of go modules is much higher than the build outputs, so we increase cache efficiency
+        # here by not having the primary key contain the branch name
+        PRIMARY_KEY: ${{ runner.os }}-${{ runner.arch }}-gomod-${{ inputs.cache-version }}-${{ hashFiles(inputs.go-module-file) }}
+        SECONDARY_KEY: ${{ runner.os }}-${{ runner.arch }}-gomod-${{ inputs.cache-version }}-
+      run: |
+        echo "primary-key=${PRIMARY_KEY}" | tee -a "$GITHUB_OUTPUT"
+        echo "secondary-key=${SECONDARY_KEY}" | tee -a "$GITHUB_OUTPUT"
 
     # By default, restore the cache only.
     # If multiple jobs call actions/cache, then only one will get priority to create upon a cache miss.
@@ -78,11 +86,9 @@ runs:
       with:
         path: |
           ${{ steps.go-cache-dir.outputs.gomodcache }}
-        # The lifetime of go modules is much higher than the build outputs, so we increase cache efficiency
-        # here by not having the primary key contain the branch name
-        key: ${{ runner.os }}-gomod-${{ inputs.cache-version }}-${{ hashFiles(steps.go-module-path.outputs.path) }}
+        key: ${{ steps.mod-cache-keys.outputs.primary-key }}
         restore-keys: |
-          ${{ runner.os }}-gomod-${{ inputs.cache-version }}-
+          ${{ steps.mod-cache-keys.outputs.secondary-key }}
 
     # If this is called, then it will create the cache entry upon a cache miss.
     # The cache is created after a cache miss, and after job completes successfully.
@@ -93,9 +99,7 @@ runs:
       with:
         path: |
           ${{ steps.go-cache-dir.outputs.gomodcache }}
-        # The lifetime of go modules is much higher than the build outputs, so we increase cache efficiency
-        # here by not having the primary key contain the branch name
-        key: ${{ runner.os }}-gomod-${{ inputs.cache-version }}-${{ hashFiles(steps.go-module-path.outputs.path) }}
+        key: ${{ steps.mod-cache-keys.outputs.primary-key }}
 
     # BUILD CACHE LOGIC
     # ---
@@ -139,9 +143,10 @@ runs:
         CURRENT_BRANCH: ${{ steps.branch-name.outputs.current_branch }}
         DEFAULT_BRANCH: ${{ steps.branch-name.outputs.default_branch }}
         RUNNER_OS: ${{ runner.os }}
+        RUNNER_ARCH: ${{ runner.arch }}
       run: |
         SHORT_SHA=$(echo $GITHUB_SHA | cut -c1-7)
-        KEY_PREFIX="${RUNNER_OS}-gobuild-${CACHE_VERSION}"
+        KEY_PREFIX="${RUNNER_OS}-${RUNNER_ARCH}-gobuild-${CACHE_VERSION}"
 
         PRIMARY_KEY="${KEY_PREFIX}-${CURRENT_BRANCH}-${SHORT_SHA}"
         echo "primary-key=${PRIMARY_KEY}" >> $GITHUB_OUTPUT
@@ -151,7 +156,7 @@ runs:
         fi
 
         SECONDARY_KEY="${KEY_PREFIX}-${CURRENT_BRANCH}-"
-        DEVELOP_KEY="${RUNNER_OS}-gobuild-${CACHE_VERSION}-${DEFAULT_BRANCH}-"
+        DEVELOP_KEY="${RUNNER_OS}-${RUNNER_ARCH}-gobuild-${CACHE_VERSION}-${DEFAULT_BRANCH}-"
 
         echo "secondary-key=${SECONDARY_KEY}" >> $GITHUB_OUTPUT
         echo "develop-key=${DEVELOP_KEY}" >> $GITHUB_OUTPUT

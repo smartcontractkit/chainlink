@@ -40,11 +40,18 @@ jobs:
             suffix: "Deployment (Github-hosted)"
             go-mod-directory: "deployment/"
 
-          - runs-on: runs-on=${{ github.run_id }}/cpu=8/ram=16/family=c6id/spot=false/extras=s3-cache
+          - runs-on: runs-on=${{ github.run_id }}-core/cpu=8/ram=16/family=c6id/spot=false/extras=s3-cache
             suffix: "Core (Self-hosted)"
 
-          - runs-on: runs-on=${{ github.run_id }}/cpu=8/ram=16/family=c6id/spot=false/extras=s3-cache
+          - runs-on: runs-on=${{ github.run_id }}-deployment/cpu=8/ram=16/family=c6id/spot=false/extras=s3-cache
             suffix: "Deployment (Self-hosted)"
+            go-mod-directory: "deployment/"
+
+          - runs-on: runs-on=${{ github.run_id }}-core-arm/cpu=8/ram=16/family=c6gd/spot=false/extras=s3-cache
+            suffix: "Core (Self-hosted) (ARM)"
+
+          - runs-on: runs-on=${{ github.run_id }}-deployment-arm/cpu=8/ram=16/family=c6gd/spot=false/extras=s3-cache
+            suffix: "Deployment (Self-hosted) (ARM)"
             go-mod-directory: "deployment/"
 
     runs-on: ${{ matrix.runs-on }}
