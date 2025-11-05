@@ -257,8 +257,11 @@ func Test_CCIP_Upgrade_EVM2Sui(t *testing.T) {
 	require.NoError(t, err)
 
 	// TO RUN FEEQUOTER UPDATE PRICE
+	state, err = stateview.LoadOnchainState(e.Env)
+	require.NoError(t, err)
+
 	suiChains := e.Env.BlockChains.SuiChains()
-	suiChain := suiChains[sourceChain]
+	suiChain := suiChains[destChain]
 
 	deps := suideps.Deps{
 		SuiChain: sui_ops.OpTxDeps{
@@ -283,11 +286,11 @@ func Test_CCIP_Upgrade_EVM2Sui(t *testing.T) {
 	_, err = operations.ExecuteOperation(e.Env.OperationsBundle, ccipops.FeeQuoterUpdatePricesWithOwnerCapOp, deps.SuiChain,
 		ccipops.FeeQuoterUpdatePricesWithOwnerCapInput{
 			CCIPPackageId:         state.SuiChains[destChain].CCIPMockV2PackageId,
-			CCIPObjectRef:         state.SuiChains[sourceChain].CCIPObjectRef,
-			OwnerCapObjectId:      state.SuiChains[sourceChain].CCIPOwnerCapObjectId,
-			SourceTokens:          []string{state.SuiChains[sourceChain].LinkTokenCoinMetadataId},
+			CCIPObjectRef:         state.SuiChains[destChain].CCIPObjectRef,
+			OwnerCapObjectId:      state.SuiChains[destChain].CCIPOwnerCapObjectId,
+			SourceTokens:          []string{state.SuiChains[destChain].LinkTokenCoinMetadataId},
 			SourceUsdPerToken:     []*big.Int{bigIntSourceUsdPerToken},
-			GasDestChainSelectors: []uint64{destChain},
+			GasDestChainSelectors: []uint64{sourceChain},
 			GasUsdPerUnitGas:      []*big.Int{bigIntGasUsdPerUnitGas},
 		})
 	require.NoError(t, err)
@@ -420,8 +423,11 @@ func Test_CCIP_Upgrade_EVM2Sui_Only_Common(t *testing.T) {
 	require.NoError(t, err)
 
 	// TO RUN FEEQUOTER UPDATE PRICE
+	state, err = stateview.LoadOnchainState(e.Env)
+	require.NoError(t, err)
+
 	suiChains := e.Env.BlockChains.SuiChains()
-	suiChain := suiChains[sourceChain]
+	suiChain := suiChains[destChain]
 
 	deps := suideps.Deps{
 		SuiChain: sui_ops.OpTxDeps{
@@ -446,11 +452,11 @@ func Test_CCIP_Upgrade_EVM2Sui_Only_Common(t *testing.T) {
 	_, err = operations.ExecuteOperation(e.Env.OperationsBundle, ccipops.FeeQuoterUpdatePricesWithOwnerCapOp, deps.SuiChain,
 		ccipops.FeeQuoterUpdatePricesWithOwnerCapInput{
 			CCIPPackageId:         state.SuiChains[destChain].CCIPMockV2PackageId,
-			CCIPObjectRef:         state.SuiChains[sourceChain].CCIPObjectRef,
-			OwnerCapObjectId:      state.SuiChains[sourceChain].CCIPOwnerCapObjectId,
-			SourceTokens:          []string{state.SuiChains[sourceChain].LinkTokenCoinMetadataId},
+			CCIPObjectRef:         state.SuiChains[destChain].CCIPObjectRef,
+			OwnerCapObjectId:      state.SuiChains[destChain].CCIPOwnerCapObjectId,
+			SourceTokens:          []string{state.SuiChains[destChain].LinkTokenCoinMetadataId},
 			SourceUsdPerToken:     []*big.Int{bigIntSourceUsdPerToken},
-			GasDestChainSelectors: []uint64{destChain},
+			GasDestChainSelectors: []uint64{sourceChain},
 			GasUsdPerUnitGas:      []*big.Int{bigIntGasUsdPerUnitGas},
 		})
 	require.NoError(t, err)
