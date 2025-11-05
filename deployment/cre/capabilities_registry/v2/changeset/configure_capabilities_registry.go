@@ -14,7 +14,7 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/cre/capabilities_registry/v2/changeset/pkg"
 	"github.com/smartcontractkit/chainlink/deployment/cre/capabilities_registry/v2/changeset/sequences"
 	"github.com/smartcontractkit/chainlink/deployment/cre/common/strategies"
-	"github.com/smartcontractkit/chainlink/deployment/cre/mcms"
+	crecontracts "github.com/smartcontractkit/chainlink/deployment/cre/contracts"
 )
 
 var _ cldf.ChangeSetV2[ConfigureCapabilitiesRegistryInput] = ConfigureCapabilitiesRegistry{}
@@ -25,7 +25,7 @@ type ConfigureCapabilitiesRegistryInput struct {
 	// Deprecated: Use Qualifier instead
 	// TODO(PRODCRE-1030): Remove support for CapabilitiesRegistryAddress
 	CapabilitiesRegistryAddress string                             `json:"capabilitiesRegistryAddress" yaml:"capabilitiesRegistryAddress"`
-	MCMSConfig                  *mcms.Config                       `json:"mcmsConfig,omitempty" yaml:"mcmsConfig,omitempty"`
+	MCMSConfig                  *crecontracts.MCMSConfig           `json:"mcmsConfig,omitempty" yaml:"mcmsConfig,omitempty"`
 	Nops                        []CapabilitiesRegistryNodeOperator `json:"nops,omitempty" yaml:"nops,omitempty"`
 	Capabilities                []CapabilitiesRegistryCapability   `json:"capabilities,omitempty" yaml:"capabilities,omitempty"`
 	Nodes                       []CapabilitiesRegistryNodeParams   `json:"nodes,omitempty" yaml:"nodes,omitempty"`

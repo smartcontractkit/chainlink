@@ -16,7 +16,7 @@ import (
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset/state"
 	"github.com/smartcontractkit/chainlink/deployment/cre/capabilities_registry/v2/changeset/pkg"
 	"github.com/smartcontractkit/chainlink/deployment/cre/common/strategies"
-	"github.com/smartcontractkit/chainlink/deployment/cre/mcms"
+	"github.com/smartcontractkit/chainlink/deployment/cre/contracts"
 )
 
 type RegisterDonsDeps struct {
@@ -28,7 +28,7 @@ type RegisterDonsInput struct {
 	Address       string
 	ChainSelector uint64
 	DONs          []capabilities_registry_v2.CapabilitiesRegistryNewDONParams
-	MCMSConfig    *mcms.Config
+	MCMSConfig    *contracts.MCMSConfig
 }
 
 type RegisterDonsOutput struct {

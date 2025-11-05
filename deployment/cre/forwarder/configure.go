@@ -18,11 +18,10 @@ import (
 	forwarder "github.com/smartcontractkit/chainlink-evm/gethwrappers/keystone/generated/forwarder_1_0_0"
 
 	"github.com/smartcontractkit/chainlink/deployment"
-	mcmschangesetstate "github.com/smartcontractkit/chainlink/deployment/common/changeset/state"
-	contracts2 "github.com/smartcontractkit/chainlink/deployment/cre/capabilities_registry/v2/changeset/operations/contracts"
+	changesetstate "github.com/smartcontractkit/chainlink/deployment/common/changeset/state"
+	cap_reg_v2 "github.com/smartcontractkit/chainlink/deployment/cre/capabilities_registry/v2/changeset/operations/contracts"
 	"github.com/smartcontractkit/chainlink/deployment/cre/common/strategies"
 	"github.com/smartcontractkit/chainlink/deployment/cre/contracts"
-	"github.com/smartcontractkit/chainlink/deployment/cre/mcms"
 )
 
 type ConfigureSeqDeps struct {
@@ -57,7 +56,7 @@ type ConfigureSeqInput struct {
 	DON DonConfiguration // the DON to configuration for the forwarder to accept
 
 	// MCMSConfig is optional. If non-nil, the changes will be proposed using MCMS.
-	MCMSConfig *mcms.Config
+	MCMSConfig *contracts.MCMSConfig
 	// Chains is optional. Defines chains for which request will be executed. If empty, runs for all available chains.
 	Chains map[uint64]struct{}
 }
@@ -104,7 +103,7 @@ var ConfigureSeq = operations.NewSequence[ConfigureSeqInput, ConfigureSeqOutput,
 				return ConfigureSeqOutput{}, fmt.Errorf("configure-forwarders-seq failed: no KeystoneForwarder contract found for chain selector %d", chain.Selector)
 			}
 
-			var mcmsContracts *mcmschangesetstate.MCMSWithTimelockState
+			var mcmsContracts *changesetstate.MCMSWithTimelockState
 			if input.MCMSConfig != nil {
 				var mcmsErr error
 				mcmsContracts, mcmsErr = strategies.GetMCMSContracts(*deps.Env, chain.Selector, "")
@@ -121,7 +120,7 @@ var ConfigureSeq = operations.NewSequence[ConfigureSeqInput, ConfigureSeqOutput,
 					input.MCMSConfig,
 					mcmsContracts,
 					common.HexToAddress(addrRef.Address),
-					contracts2.ConfigureForwarderDescription,
+					cap_reg_v2.ConfigureForwarderDescription,
 				)
 				if err != nil {
 					return ConfigureSeqOutput{}, fmt.Errorf("failed to create strategy: %w", err)

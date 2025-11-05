@@ -29,7 +29,6 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/cre/common/strategies"
 	crecontracts "github.com/smartcontractkit/chainlink/deployment/cre/contracts"
 	creforwarder "github.com/smartcontractkit/chainlink/deployment/cre/forwarder"
-	"github.com/smartcontractkit/chainlink/deployment/cre/mcms"
 	"github.com/smartcontractkit/chainlink/deployment/keystone/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/keystone/changeset/internal"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/p2pkey"
@@ -58,7 +57,7 @@ type DeployConfigureForwardersSeqInput struct {
 	// capabilities registry chain selector
 	RegistryChainSel uint64
 	// MCMSConfig is optional. If non-nil, the changes will be proposed using MCMS.
-	MCMSConfig *mcms.Config
+	MCMSConfig *crecontracts.MCMSConfig
 }
 
 func (i DeployConfigureForwardersSeqInput) UseMCMS() bool {

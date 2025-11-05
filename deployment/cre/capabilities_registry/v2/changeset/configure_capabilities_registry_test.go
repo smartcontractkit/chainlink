@@ -29,7 +29,7 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/cre/capabilities_registry/v2/changeset/operations/contracts"
 	"github.com/smartcontractkit/chainlink/deployment/cre/capabilities_registry/v2/changeset/pkg"
 	"github.com/smartcontractkit/chainlink/deployment/cre/common/strategies"
-	"github.com/smartcontractkit/chainlink/deployment/cre/mcms"
+	crecontracts "github.com/smartcontractkit/chainlink/deployment/cre/contracts"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/p2pkey"
 )
 
@@ -185,7 +185,7 @@ func TestConfigureCapabilitiesRegistryInput_YAMLSerialization(t *testing.T) {
 	originalInput := ConfigureCapabilitiesRegistryInput{
 		ChainSelector:               123456789,
 		CapabilitiesRegistryAddress: "0x1234567890123456789012345678901234567890",
-		MCMSConfig: &mcms.Config{
+		MCMSConfig: &crecontracts.MCMSConfig{
 			MinDuration: 30 * time.Second,
 		},
 		Nops: []CapabilitiesRegistryNodeOperator{
@@ -574,7 +574,7 @@ func setupCapabilitiesRegistryWithMCMS(t *testing.T) *testFixture {
 	configureInput := ConfigureCapabilitiesRegistryInput{
 		ChainSelector:               selector,
 		CapabilitiesRegistryAddress: capabilitiesRegistryAddress,
-		MCMSConfig: &mcms.Config{
+		MCMSConfig: &crecontracts.MCMSConfig{
 			MinDuration: 30 * time.Second,
 		},
 		Nops:         nops,

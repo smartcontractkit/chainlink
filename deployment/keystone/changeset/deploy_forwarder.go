@@ -8,6 +8,7 @@ import (
 	"slices"
 
 	"github.com/ethereum/go-ethereum/common"
+	crecontracts "github.com/smartcontractkit/chainlink/deployment/cre/contracts"
 
 	cldf_evm "github.com/smartcontractkit/chainlink-deployments-framework/chain/evm"
 	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
@@ -15,7 +16,6 @@ import (
 	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
 
 	creforwarder "github.com/smartcontractkit/chainlink/deployment/cre/forwarder"
-	"github.com/smartcontractkit/chainlink/deployment/cre/mcms"
 	"github.com/smartcontractkit/chainlink/deployment/keystone/changeset/internal"
 )
 
@@ -102,7 +102,7 @@ type ConfigureForwardContractsRequest struct {
 	RegistryChainSel uint64
 
 	// MCMSConfig is optional. If non-nil, the changes will be proposed using MCMS.
-	MCMSConfig *mcms.Config
+	MCMSConfig *crecontracts.MCMSConfig
 	// Chains is optional. Defines chains for which request will be executed. If empty, runs for all available chains.
 	Chains map[uint64]struct{}
 }

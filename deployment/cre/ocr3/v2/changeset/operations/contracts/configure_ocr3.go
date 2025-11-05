@@ -20,7 +20,6 @@ import (
 
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 	"github.com/smartcontractkit/chainlink/deployment/cre/contracts"
-	"github.com/smartcontractkit/chainlink/deployment/cre/mcms"
 	"github.com/smartcontractkit/chainlink/deployment/cre/ocr3"
 )
 
@@ -38,7 +37,7 @@ type ConfigureOCR3Input struct {
 
 	ReportingPluginConfigOverride []byte
 
-	MCMSConfig *mcms.Config
+	MCMSConfig *contracts.MCMSConfig
 }
 
 func (i ConfigureOCR3Input) UseMCMS() bool {

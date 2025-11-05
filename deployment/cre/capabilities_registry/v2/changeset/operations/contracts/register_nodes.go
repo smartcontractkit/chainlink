@@ -19,7 +19,7 @@ import (
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset/state"
 	"github.com/smartcontractkit/chainlink/deployment/cre/capabilities_registry/v2/changeset/pkg"
 	"github.com/smartcontractkit/chainlink/deployment/cre/common/strategies"
-	"github.com/smartcontractkit/chainlink/deployment/cre/mcms"
+	"github.com/smartcontractkit/chainlink/deployment/cre/contracts"
 )
 
 type RegisterNodesDeps struct {
@@ -31,7 +31,7 @@ type RegisterNodesInput struct {
 	Address       string
 	ChainSelector uint64
 	Nodes         []NodesInput
-	MCMSConfig    *mcms.Config
+	MCMSConfig    *contracts.MCMSConfig
 }
 
 type NodesInput struct {

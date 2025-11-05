@@ -18,7 +18,7 @@ import (
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset/state"
 	"github.com/smartcontractkit/chainlink/deployment/cre/capabilities_registry/v2/changeset/pkg"
 	"github.com/smartcontractkit/chainlink/deployment/cre/common/strategies"
-	"github.com/smartcontractkit/chainlink/deployment/cre/mcms"
+	"github.com/smartcontractkit/chainlink/deployment/cre/contracts"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/p2pkey"
 )
 
@@ -42,7 +42,7 @@ type UpdateNodesInput struct {
 
 	// NodesUpdates is a map of p2p key to NodeConfig
 	NodesUpdates map[string]NodeConfig
-	MCMSConfig   *mcms.Config
+	MCMSConfig   *contracts.MCMSConfig
 }
 
 type UpdateNodesOutput struct {

@@ -12,8 +12,8 @@ import (
 	"github.com/smartcontractkit/chainlink-deployments-framework/operations/optest"
 
 	"github.com/smartcontractkit/chainlink/deployment/common/changeset"
+	"github.com/smartcontractkit/chainlink/deployment/cre/contracts"
 	"github.com/smartcontractkit/chainlink/deployment/cre/forwarder"
-	"github.com/smartcontractkit/chainlink/deployment/cre/mcms"
 	"github.com/smartcontractkit/chainlink/deployment/cre/test"
 	changeset3 "github.com/smartcontractkit/chainlink/deployment/keystone/changeset"
 )
@@ -69,7 +69,7 @@ func TestConfigureForwarders_WithMCMS(t *testing.T) {
 	t.Log("Starting configure changeset application with MCMS...")
 	changesetOutput, err := forwarder.ConfigureForwarders{}.Apply(*env, forwarder.ConfigureSeqInput{
 		DON: donConfig,
-		MCMSConfig: &mcms.Config{
+		MCMSConfig: &contracts.MCMSConfig{
 			MinDuration: 10 * time.Second,
 		},
 		Chains: map[uint64]struct{}{registryChainSel: {}},

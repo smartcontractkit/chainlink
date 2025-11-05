@@ -17,7 +17,7 @@ import (
 
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset/state"
 	"github.com/smartcontractkit/chainlink/deployment/cre/capabilities_registry/v2/changeset/operations/contracts"
-	"github.com/smartcontractkit/chainlink/deployment/cre/mcms"
+	crecontracts "github.com/smartcontractkit/chainlink/deployment/cre/contracts"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/p2pkey"
 )
 
@@ -37,7 +37,7 @@ type AddCapabilitiesInput struct {
 	Force bool
 
 	RegistryRef datastore.AddressRefKey
-	MCMSConfig  *mcms.Config
+	MCMSConfig  *crecontracts.MCMSConfig
 }
 
 func (i *AddCapabilitiesInput) Validate() error {

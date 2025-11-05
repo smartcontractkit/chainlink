@@ -17,7 +17,7 @@ import (
 
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset/state"
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
-	"github.com/smartcontractkit/chainlink/deployment/cre/mcms"
+	"github.com/smartcontractkit/chainlink/deployment/cre/contracts"
 )
 
 // TransactionStrategy interface for executing transactions with different strategies
@@ -42,7 +42,7 @@ func (s *SimpleTransaction) Apply(callFn func(opts *bind.TransactOpts) (*types.T
 
 // MCMSTransaction executes a transaction through MCMS timelock
 type MCMSTransaction struct {
-	Config        *mcms.Config
+	Config        *contracts.MCMSConfig
 	Description   string
 	Address       common.Address
 	ChainSel      uint64
@@ -101,7 +101,7 @@ func (m *MCMSTransaction) Apply(callFn func(opts *bind.TransactOpts) (*types.Tra
 func CreateStrategy(
 	chain cldf_evm.Chain,
 	env cldf.Environment,
-	mcmsConfig *mcms.Config,
+	mcmsConfig *contracts.MCMSConfig,
 	mcmsContracts *commonchangeset.MCMSWithTimelockState,
 	targetAddress common.Address,
 	description string,

@@ -7,7 +7,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/stretchr/testify/require"
 
-	"github.com/smartcontractkit/chainlink/deployment/cre/mcms"
+	"github.com/smartcontractkit/chainlink/deployment/cre/contracts"
 )
 
 func TestAdminBatchPauseWorkflows(t *testing.T) {
@@ -39,7 +39,7 @@ func TestAdminBatchPauseWorkflows(t *testing.T) {
 			ChainSelector:             fixture.selector,
 			WorkflowRegistryQualifier: "test-workflow-registry-v2",
 			WorkflowIDs:               [][32]byte{testWorkflowID1},
-			MCMSConfig: &mcms.Config{
+			MCMSConfig: &contracts.MCMSConfig{
 				MinDuration: 30 * time.Second,
 			},
 		})
@@ -76,7 +76,7 @@ func TestAdminPauseWorkflow(t *testing.T) {
 			ChainSelector:             fixture.selector,
 			WorkflowRegistryQualifier: "test-workflow-registry-v2",
 			WorkflowID:                testWorkflowID,
-			MCMSConfig: &mcms.Config{
+			MCMSConfig: &contracts.MCMSConfig{
 				MinDuration: 30 * time.Second,
 			},
 		})
@@ -113,7 +113,7 @@ func TestAdminPauseAllByOwner(t *testing.T) {
 			ChainSelector:             fixture.selector,
 			WorkflowRegistryQualifier: "test-workflow-registry-v2",
 			Owner:                     testOwner,
-			MCMSConfig: &mcms.Config{
+			MCMSConfig: &contracts.MCMSConfig{
 				MinDuration: 30 * time.Second,
 			},
 		})
@@ -150,7 +150,7 @@ func TestAdminPauseAllByDON(t *testing.T) {
 			ChainSelector:             fixture.selector,
 			WorkflowRegistryQualifier: "test-workflow-registry-v2",
 			DONFamily:                 testDONFamily,
-			MCMSConfig: &mcms.Config{
+			MCMSConfig: &contracts.MCMSConfig{
 				MinDuration: 30 * time.Second,
 			},
 		})

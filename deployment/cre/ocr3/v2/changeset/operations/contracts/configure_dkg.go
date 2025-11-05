@@ -20,7 +20,6 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 	"github.com/smartcontractkit/chainlink/deployment/cre/contracts"
-	"github.com/smartcontractkit/chainlink/deployment/cre/mcms"
 	"github.com/smartcontractkit/chainlink/deployment/cre/ocr3"
 )
 
@@ -36,7 +35,7 @@ type ConfigureDKGInput struct {
 	Config          *ocr3.V3_1OracleConfig
 	DryRun          bool
 
-	MCMSConfig            *mcms.Config
+	MCMSConfig            *contracts.MCMSConfig
 	ReportingPluginConfig dkgocrtypes.ReportingPluginConfig
 }
 

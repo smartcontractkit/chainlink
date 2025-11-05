@@ -13,8 +13,9 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/actions/vault"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
+
+	crecontracts "github.com/smartcontractkit/chainlink/deployment/cre/contracts"
 	"github.com/smartcontractkit/chainlink/deployment/cre/jobs/pkg"
-	"github.com/smartcontractkit/chainlink/deployment/cre/mcms"
 	"github.com/smartcontractkit/chainlink/deployment/cre/ocr3"
 	"github.com/smartcontractkit/chainlink/deployment/cre/ocr3/v2/changeset/operations/contracts"
 )
@@ -36,7 +37,7 @@ type ConfigureVaultPluginInput struct {
 	InstanceID            InstanceIDComponents         `json:"instanceID" yaml:"instanceID"`
 	ReportingPluginConfig *vault.ReportingPluginConfig `json:"reportingPluginConfig,omitempty" yaml:"reportingPluginConfig,omitempty"`
 
-	MCMSConfig *mcms.Config `json:"mcmsConfig" yaml:"mcmsConfig"`
+	MCMSConfig *crecontracts.MCMSConfig `json:"mcmsConfig" yaml:"mcmsConfig"`
 }
 
 type ConfigureVaultPlugin struct{}

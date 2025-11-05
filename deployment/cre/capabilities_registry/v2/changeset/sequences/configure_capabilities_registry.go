@@ -15,7 +15,7 @@ import (
 
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset/state"
 	"github.com/smartcontractkit/chainlink/deployment/cre/capabilities_registry/v2/changeset/operations/contracts"
-	"github.com/smartcontractkit/chainlink/deployment/cre/mcms"
+	crecontracts "github.com/smartcontractkit/chainlink/deployment/cre/contracts"
 )
 
 type ConfigureCapabilitiesRegistryDeps struct {
@@ -26,7 +26,7 @@ type ConfigureCapabilitiesRegistryDeps struct {
 type ConfigureCapabilitiesRegistryInput struct {
 	RegistryChainSel uint64
 	RegistryRef      datastore.AddressRefKey
-	MCMSConfig       *mcms.Config
+	MCMSConfig       *crecontracts.MCMSConfig
 	Description      string
 	// Deprecated: Use RegistryRef
 	// TODO(PRODCRE-1030): Remove support for ContractAddress

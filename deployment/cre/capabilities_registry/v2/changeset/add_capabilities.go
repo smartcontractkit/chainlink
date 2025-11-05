@@ -12,7 +12,7 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/cre/capabilities_registry/v2/changeset/pkg"
 	"github.com/smartcontractkit/chainlink/deployment/cre/capabilities_registry/v2/changeset/sequences"
 	"github.com/smartcontractkit/chainlink/deployment/cre/common/strategies"
-	"github.com/smartcontractkit/chainlink/deployment/cre/mcms"
+	crecontracts "github.com/smartcontractkit/chainlink/deployment/cre/contracts"
 )
 
 var _ cldf.ChangeSetV2[AddCapabilitiesInput] = AddCapabilities{}
@@ -24,7 +24,7 @@ type AddCapabilitiesInput struct {
 	RegistryChainSel  uint64 `json:"registryChainSel" yaml:"registryChainSel"`
 	RegistryQualifier string `json:"registryQualifier" yaml:"registryQualifier"`
 
-	MCMSConfig        *mcms.Config                 `json:"mcmsConfig" yaml:"mcmsConfig"`
+	MCMSConfig        *crecontracts.MCMSConfig     `json:"mcmsConfig" yaml:"mcmsConfig"`
 	DonName           string                       `json:"donName" yaml:"donName"`
 	CapabilityConfigs []contracts.CapabilityConfig `json:"capabilityConfigs" yaml:"capabilityConfigs"`
 
