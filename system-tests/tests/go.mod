@@ -4,7 +4,7 @@ go 1.25.3
 
 // Using a separate `require` here to avoid surrounding line changes
 // creating potential merge conflicts.
-require github.com/smartcontractkit/chainlink/v2 v2.0.0-20251020210257-0a6ec41648b4
+require github.com/smartcontractkit/chainlink/v2 v2.29.0
 
 // Make sure we're working with the latest chainlink libs
 replace github.com/smartcontractkit/chainlink/v2 => ../../
@@ -558,8 +558,8 @@ require (
 	github.com/smartcontractkit/chainlink-protos/rmn/v1.6/go v0.0.0-20250131130834-15e0d4cde2a6 // indirect
 	github.com/smartcontractkit/chainlink-protos/storage-service v0.3.0 // indirect
 	github.com/smartcontractkit/chainlink-protos/svr v1.1.0 // indirect
-	github.com/smartcontractkit/chainlink-sui v0.0.0-20251102155039-60906355b420 // indirect
-	github.com/smartcontractkit/chainlink-sui/deployment v0.0.0-20251102155039-60906355b420 // indirect
+	github.com/smartcontractkit/chainlink-sui v0.0.0-20251105020945-ae4b27a56a75 // indirect
+	github.com/smartcontractkit/chainlink-sui/deployment v0.0.0-20251105020945-ae4b27a56a75 // indirect
 	github.com/smartcontractkit/chainlink-testing-framework/framework/components/dockercompose v0.1.15 // indirect
 	github.com/smartcontractkit/chainlink-testing-framework/lib/grafana v1.50.0 // indirect
 	github.com/smartcontractkit/chainlink-testing-framework/parrot v0.6.2 // indirect

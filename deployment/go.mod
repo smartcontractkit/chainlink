@@ -7,7 +7,7 @@ replace github.com/smartcontractkit/chainlink/v2 => ../
 
 // Using a separate inline `require` here to avoid surrounding line changes
 // creating potential merge conflicts.
-require github.com/smartcontractkit/chainlink/v2 v2.0.0-20251020210257-0a6ec41648b4
+require github.com/smartcontractkit/chainlink/v2 v2.29.0
 
 require (
 	dario.cat/mergo v1.0.2
@@ -50,8 +50,8 @@ require (
 	github.com/smartcontractkit/chainlink-protos/job-distributor v0.17.0
 	github.com/smartcontractkit/chainlink-protos/orchestrator v0.10.0
 	github.com/smartcontractkit/chainlink-solana v1.1.2-0.20251020193713-b63bc17bfeb1
-	github.com/smartcontractkit/chainlink-sui v0.0.0-20251102155039-60906355b420
-	github.com/smartcontractkit/chainlink-sui/deployment v0.0.0-20251102155039-60906355b420
+	github.com/smartcontractkit/chainlink-sui v0.0.0-20251105020945-ae4b27a56a75
+	github.com/smartcontractkit/chainlink-sui/deployment v0.0.0-20251105020945-ae4b27a56a75
 	github.com/smartcontractkit/chainlink-testing-framework/framework v0.11.3
 	github.com/smartcontractkit/chainlink-testing-framework/lib v1.54.5
 	github.com/smartcontractkit/chainlink-ton v0.0.0-20251031142050-8d1f83814966
