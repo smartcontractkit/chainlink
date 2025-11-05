@@ -49,16 +49,19 @@ var ProposeGatewayJob = operations.NewOperation[ProposeGatewayJobInput, ProposeG
 	"Propose Gateway Job",
 	func(b operations.Bundle, deps ProposeGatewayJobDeps, input ProposeGatewayJobInput) (ProposeGatewayJobOutput, error) {
 		targetDONs := make([]pkg.TargetDON, 0)
+		filters := &nodev1.ListNodesRequest_Filter{}
+		for _, f := range input.DONFilters {
+			filters = offchain.TargetDONFilter{
+				Key:   f.Key,
+				Value: f.Value,
+			}.AddToFilter(filters)
+		}
+
 		for _, ad := range input.DONs {
-			filter := offchain.TargetDONFilter{
-				Key:   offchain.FilterKeyDONName,
-				Value: ad.Name,
-			}
-			reqChainCfgs := pkg.FetchNodesRequest{
+			nodes, err := pkg.FetchNodeChainConfigsFromJD(deps.Env.GetContext(), deps.Env, pkg.FetchNodesRequest{
 				Domain:  input.Domain,
-				Filters: []offchain.TargetDONFilter{filter},
-			}
-			nodes, err := pkg.FetchNodeChainConfigsFromJD(deps.Env.GetContext(), deps.Env, reqChainCfgs)
+				Filters: filters,
+			})
 			if err != nil {
 				return ProposeGatewayJobOutput{}, err
 			}
@@ -68,11 +71,10 @@ var ProposeGatewayJob = operations.NewOperation[ProposeGatewayJobInput, ProposeG
 				return ProposeGatewayJobOutput{}, err
 			}
 
-			reqNodes := pkg.FetchNodesRequest{
+			ns, err := pkg.FetchNodesFromJD(deps.Env.GetContext(), deps.Env, pkg.FetchNodesRequest{
 				Domain:  input.Domain,
-				Filters: []offchain.TargetDONFilter{filter},
-			}
-			ns, err := pkg.FetchNodesFromJD(deps.Env.GetContext(), deps.Env, reqNodes)
+				Filters: filters,
+			})
 			if err != nil {
 				return ProposeGatewayJobOutput{}, err
 			}
@@ -135,7 +137,7 @@ var ProposeGatewayJob = operations.NewOperation[ProposeGatewayJobInput, ProposeG
 
 		nodes, err := pkg.FetchNodesFromJD(b.GetContext(), deps.Env, pkg.FetchNodesRequest{
 			Domain:  input.Domain,
-			Filters: input.DONFilters,
+			Filters: filters,
 		})
 		if err != nil {
 			return ProposeGatewayJobOutput{}, fmt.Errorf("failed to fetch nodes from JD: %w", err)
