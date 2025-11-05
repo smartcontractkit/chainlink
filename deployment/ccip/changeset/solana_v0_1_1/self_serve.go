@@ -73,9 +73,6 @@ func (cfg OnboardTokenPoolsForSelfServeConfig) Validate(e cldf.Environment, chai
 		if registerTokenConfig.ProposedOwner.IsZero() {
 			return errors.New("token admin registry admin is required")
 		}
-		if err := chainState.CommonValidation(e, cfg.ChainSelector, tokenMint); err != nil {
-			return err
-		}
 		tokenAdminRegistryPDA, _, err := solState.FindTokenAdminRegistryPDA(tokenMint, routerProgramAddress)
 		if err != nil {
 			return fmt.Errorf("failed to find token admin registry pda (mint: %s, router: %s): %w",
