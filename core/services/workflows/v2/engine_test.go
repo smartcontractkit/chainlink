@@ -1680,7 +1680,6 @@ func TestEngine_HandleNewDON(t *testing.T) {
 		// assert that no log of the state was observed
 		require.Empty(t,
 			obs.FilterMessage("Setting local node state").All(),
-			0,
 			"logged local node state even though there was no change",
 		)
 	})
