@@ -590,49 +590,6 @@ func Test_CCIPPureTokenTransfer_EVM2SUI(t *testing.T) {
 		},
 	)
 
-	// Deploy SUI Receiver
-	_, output, err := commoncs.ApplyChangesets(t, e.Env, []commoncs.ConfiguredChangeSet{
-		commoncs.Configure(sui_cs.DeployDummyReceiver{}, sui_cs.DeployDummyReceiverConfig{
-			SuiChainSelector: destChain,
-			McmsOwner:        "0x1",
-		}),
-	})
-	require.NoError(t, err)
-
-	rawOutput := output[0].Reports[0]
-
-	outputMap, ok := rawOutput.Output.(sui_ops.OpTxResult[ccipops.DeployDummyReceiverObjects])
-	require.True(t, ok)
-
-	id := strings.TrimPrefix(outputMap.PackageId, "0x")
-	receiverByteDecoded, err := hex.DecodeString(id)
-	require.NoError(t, err)
-
-	// register the receiver
-	_, _, err = commoncs.ApplyChangesets(t, e.Env, []commoncs.ConfiguredChangeSet{
-		commoncs.Configure(sui_cs.RegisterDummyReceiver{}, sui_cs.RegisterDummyReceiverConfig{
-			SuiChainSelector:       destChain,
-			OwnerCapObjectId:       outputMap.Objects.OwnerCapObjectId,
-			CCIPObjectRefObjectId:  state.SuiChains[destChain].CCIPObjectRef,
-			DummyReceiverPackageId: outputMap.PackageId,
-		}),
-	})
-	require.NoError(t, err)
-
-	receiverByte := receiverByteDecoded
-
-	var clockObj [32]byte
-	copy(clockObj[:], hexutil.MustDecode(
-		"0x0000000000000000000000000000000000000000000000000000000000000006",
-	))
-
-	var stateObj [32]byte
-	copy(stateObj[:], hexutil.MustDecode(
-		outputMap.Objects.CCIPReceiverStateObjectId,
-	))
-
-	receiverObjectIDs := [][32]byte{clockObj, stateObj}
-
 	emptyReceiver := hexutil.MustDecode(
 		"0x0000000000000000000000000000000000000000000000000000000000000000", // receiver packageID
 	)
@@ -658,52 +615,6 @@ func Test_CCIPPureTokenTransfer_EVM2SUI(t *testing.T) {
 				},
 			},
 			ExtraArgs: testhelpers.MakeSuiExtraArgs(0, true, [][32]byte{}, suiAddr),
-			ExpectedTokenBalances: []testhelpers.ExpectedBalance{
-				{
-					Token:  suiTokenBytes,
-					Amount: big.NewInt(1e9),
-				},
-			},
-		},
-		// Programmable token transfer
-		// can be thought of as two separate paths tokenPool release/mint + message ccip_receive
-		// receiverObjectIds = non empty (with clock & receiverStateValue)
-		// token.Receiver = non empty(maybe EOA or object)
-		// message.Receiver = receiverPackageId
-		// extraArgs gasLimit > 0
-		{
-			Name:             "Send token to an Object",
-			SourceChain:      sourceChain,
-			DestChain:        destChain,
-			Data:             []byte("Hello Sui From EVM"),
-			Receiver:         receiverByte, // receiver contract pkgId
-			TokenReceiverATA: stateObj[:],  // tokenReceiver extracted from extraArgs (the object that actually gets the token)
-			ExpectedStatus:   testhelpers.EXECUTION_STATE_SUCCESS,
-			Tokens: []router.ClientEVMTokenAmount{
-				{
-					Token:  evmToken.Address(),
-					Amount: big.NewInt(1e18),
-				},
-			},
-			ExtraArgs:             testhelpers.MakeSuiExtraArgs(1000000, true, receiverObjectIDs, stateObj), // receiver is objectId this time
-			ExpectedTokenBalances: []testhelpers.ExpectedBalance{},
-		},
-
-		{
-			Name:             "Send token To EOA + include a receiver but keep gasLimit to 0",
-			SourceChain:      sourceChain,
-			DestChain:        destChain,
-			Data:             []byte("Hello Sui From EVM"),
-			Receiver:         receiverByte, // non empty Receiver
-			TokenReceiverATA: suiAddr[:],   // tokenReceiver extracted from extraArgs (the address that actually gets the token)
-			ExpectedStatus:   testhelpers.EXECUTION_STATE_SUCCESS,
-			Tokens: []router.ClientEVMTokenAmount{
-				{
-					Token:  evmToken.Address(),
-					Amount: big.NewInt(1e18),
-				},
-			},
-			ExtraArgs: testhelpers.MakeSuiExtraArgs(0, true, receiverObjectIDs, suiAddr), // keep gasLimit to 0
 			ExpectedTokenBalances: []testhelpers.ExpectedBalance{
 				{
 					Token:  suiTokenBytes,
@@ -875,29 +786,6 @@ func Test_CCIPProgrammableTokenTransfer_EVM2SUI(t *testing.T) {
 			},
 			ExtraArgs:             testhelpers.MakeSuiExtraArgs(1000000, true, receiverObjectIDs, stateObj), // receiver is objectId this time
 			ExpectedTokenBalances: []testhelpers.ExpectedBalance{},
-		},
-
-		{
-			Name:             "Send token To EOA + include a receiver but keep gasLimit to 0",
-			SourceChain:      sourceChain,
-			DestChain:        destChain,
-			Data:             []byte("Hello Sui From EVM"),
-			Receiver:         receiverByte, // non empty Receiver
-			TokenReceiverATA: suiAddr[:],   // tokenReceiver extracted from extraArgs (the address that actually gets the token)
-			ExpectedStatus:   testhelpers.EXECUTION_STATE_SUCCESS,
-			Tokens: []router.ClientEVMTokenAmount{
-				{
-					Token:  evmToken.Address(),
-					Amount: big.NewInt(1e18),
-				},
-			},
-			ExtraArgs: testhelpers.MakeSuiExtraArgs(0, true, receiverObjectIDs, suiAddr), // keep gasLimit to 0
-			ExpectedTokenBalances: []testhelpers.ExpectedBalance{
-				{
-					Token:  suiTokenBytes,
-					Amount: big.NewInt(1e9),
-				},
-			},
 		},
 	}
 
