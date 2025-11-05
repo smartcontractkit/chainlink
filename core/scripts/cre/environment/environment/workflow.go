@@ -275,13 +275,13 @@ func deleteWorkflowCmd() *cobra.Command {
 				contractsVersion = addrRef.Version
 			}
 
-			workflowNames, workflowNamesErr := creworkflow.GetWorkflowNames(cmd.Context(), sethClient, common.HexToAddress(workflowRegistryAddressFlag), contractsVersion)
+			workflowNames, workflowNamesErr := creworkflow.GetWorkflowNames(cmd.Context(), sethClient, common.HexToAddress(workflowRegistryAddress), contractsVersion)
 			if workflowNamesErr != nil {
 				return errors.Wrap(workflowNamesErr, "failed to get workflows from the registry")
 			}
 
 			if !slices.Contains(workflowNames, workflowNameFlag) {
-				fmt.Printf("\n✅ Workflow '%s' not found in the registry %s. Skipping...\n\n", workflowNameFlag, workflowRegistryAddressFlag)
+				fmt.Printf("\n✅ Workflow '%s' not found in the registry %s. Skipping...\n\n", workflowNameFlag, workflowRegistryAddress)
 
 				return nil
 			}
