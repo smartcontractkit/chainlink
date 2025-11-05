@@ -6,8 +6,10 @@ import (
 	"fmt"
 	"html/template"
 	"strconv"
+	"strings"
 	"time"
 
+	"dario.cat/mergo"
 	"github.com/Masterminds/semver/v3"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/pelletier/go-toml/v2"
@@ -21,6 +23,11 @@ import (
 	"github.com/smartcontractkit/chainlink-evm/pkg/types"
 	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/blockchain"
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/ptr"
+	cre_jobs "github.com/smartcontractkit/chainlink/deployment/cre/jobs"
+	cre_jobs_ops "github.com/smartcontractkit/chainlink/deployment/cre/jobs/operations"
+	cre_jobs_pkg "github.com/smartcontractkit/chainlink/deployment/cre/jobs/pkg"
+	job_types "github.com/smartcontractkit/chainlink/deployment/cre/jobs/types"
+	"github.com/smartcontractkit/chainlink/deployment/cre/pkg/offchain"
 	keystone_changeset "github.com/smartcontractkit/chainlink/deployment/keystone/changeset"
 	ks_contracts_op "github.com/smartcontractkit/chainlink/deployment/keystone/changeset/operations/contracts"
 	corechainlink "github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
@@ -33,16 +40,16 @@ import (
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/contracts"
 	credon "github.com/smartcontractkit/chainlink/system-tests/lib/cre/don"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/jobs"
-	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/jobs/ocr"
-	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/jobs/ocr/chainlevel"
+	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/jobs/standardcapability"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/blockchains"
+	envconfig "github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/config"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/features/evm"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/flags"
 )
 
 const (
 	flag                = cre.EVMCapability
-	configTemplate      = `'{"chainId":{{.ChainID}}, "network":"{{.NetworkFamily}}", "logTriggerPollInterval":{{.LogTriggerPollInterval}}, "creForwarderAddress":"{{.CreForwarderAddress}}", "receiverGasMinimum":{{.ReceiverGasMinimum}}, "nodeAddress":"{{.NodeAddress}}"{{with .LogTriggerSendChannelBufferSize}},"logTriggerSendChannelBufferSize":{{.}}{{end}}{{with .LogTriggerLimitQueryLogSize}},"logTriggerLimitQueryLogSize":{{.}}{{end}}}'`
+	configTemplate      = `{"chainId":{{.ChainID}}, "network":"{{.NetworkFamily}}", "logTriggerPollInterval":{{.LogTriggerPollInterval}}, "creForwarderAddress":"{{.CreForwarderAddress}}", "receiverGasMinimum":{{.ReceiverGasMinimum}}, "nodeAddress":"{{.NodeAddress}}"{{with .LogTriggerSendChannelBufferSize}},"logTriggerSendChannelBufferSize":{{.}}{{end}}{{with .LogTriggerLimitQueryLogSize}},"logTriggerLimitQueryLogSize":{{.}}{{end}}}`
 	registrationRefresh = 20 * time.Second
 	registrationExpiry  = 60 * time.Second
 	deltaStage          = 500*time.Millisecond + 1*time.Second // block time + 1 second delta
@@ -277,87 +284,384 @@ func createJobs(
 	dons *cre.Dons,
 	creEnv *cre.Environment,
 ) error {
-	generateJobSpec := func(logger zerolog.Logger, chainID uint64, nodeAddress string, mergedConfig map[string]any) (string, error) {
-		cs, ok := chainselectors.EvmChainIdToChainSelector()[chainID]
-		if !ok {
-			return "", fmt.Errorf("chain selector not found for chainID: %d", chainID)
-		}
+	specs := make(map[string][]string)
 
-		creForwarderKey := datastore.NewAddressRefKey(
-			cs,
-			datastore.ContractType(keystone_changeset.KeystoneForwarder.String()),
-			semver.MustParse("1.0.0"),
-			"",
-		)
-		creForwarderAddress, err := creEnv.CldfEnvironment.DataStore.Addresses().Get(creForwarderKey)
-		if err != nil {
-			return "", errors.Wrap(err, "failed to get CRE Forwarder address")
-		}
-
-		logger.Debug().Msgf("Found CRE Forwarder contract on chain %d at %s", chainID, creForwarderAddress.Address)
-
-		runtimeFallbacks := buildRuntimeValues(chainID, "evm", creForwarderAddress.Address, nodeAddress)
-
-		templateData, aErr := credon.ApplyRuntimeValues(mergedConfig, runtimeFallbacks)
-		if aErr != nil {
-			return "", errors.Wrap(aErr, "failed to apply runtime values")
-		}
-
-		tmpl, err := template.New("evmConfig").Parse(configTemplate)
-		if err != nil {
-			return "", errors.Wrapf(err, "failed to parse %s config template", flag)
-		}
-
-		var configBuffer bytes.Buffer
-		if err := tmpl.Execute(&configBuffer, templateData); err != nil {
-			return "", errors.Wrapf(err, "failed to execute %s config template", flag)
-		}
-
-		configStr := configBuffer.String()
-
-		if err := credon.ValidateTemplateSubstitution(configStr, flag); err != nil {
-			return "", errors.Wrapf(err, "%s template validation failed", flag)
-		}
-
-		return configStr, nil
+	capabilityConfig, ok := creEnv.CapabilityConfigs[flag]
+	if !ok {
+		return fmt.Errorf("%s config not found in capabilities config: %v", flag, creEnv.CapabilityConfigs)
 	}
 
-	dataStoreOCR3ContractKeyProvider := func(contractName string, _ uint64) datastore.AddressRefKey {
-		return datastore.NewAddressRefKey(
+	command, cErr := standardcapability.GetCommand(capabilityConfig.BinaryPath, creEnv.Provider)
+	if cErr != nil {
+		return errors.Wrap(cErr, "failed to get command for cron capability")
+	}
+
+	var nodeSet cre.NodeSetWithCapabilityConfigs
+	for _, ns := range dons.AsNodeSetWithChainCapabilities() {
+		if ns.GetName() == don.Name {
+			nodeSet = ns
+			break
+		}
+	}
+	if nodeSet == nil {
+		return fmt.Errorf("could not find node set for Don named '%s'", don.Name)
+	}
+
+	bootstrap, isBootstrap := dons.Bootstrap()
+	if !isBootstrap {
+		return errors.New("could not find bootstrap node in topology, exactly one bootstrap node is required")
+	}
+
+	workerNodes, wErr := don.Workers()
+	if wErr != nil {
+		return errors.Wrap(wErr, "failed to find worker nodes")
+	}
+
+	chainConfig, ok := nodeSet.GetChainCapabilityConfigs()[flag]
+	if !ok {
+		return fmt.Errorf("could not find capability config for capability %s in node set %s", flag, nodeSet.GetName())
+	}
+
+	for _, chainID := range chainConfig.EnabledChains {
+		chainSelector, selErr := chainselectors.SelectorFromChainId(chainID)
+		if selErr != nil {
+			return errors.Wrapf(selErr, "failed to get chain selector from chainID %d", chainID)
+		}
+		chainIDStr := strconv.FormatUint(chainID, 10)
+		qualifier := ks_contracts_op.CapabilityContractIdentifier(chainID)
+
+		ocr3Key := datastore.NewAddressRefKey(
 			// we have deployed OCR3 contract for each EVM chain on the registry chain to avoid a situation when more than 1 OCR contract (of any type) has the same address
 			// because that violates a DB constraint for offchain reporting jobs
 			// this can be removed once https://smartcontract-it.atlassian.net/browse/PRODCRE-804 is done and we can deploy OCR3 contract for each EVM chain on that chain
 			creEnv.RegistryChainSelector,
 			datastore.ContractType(keystone_changeset.OCR3Capability.String()),
 			semver.MustParse("1.0.0"),
-			contractName,
+			qualifier,
 		)
+		ocr3ConfigContractAddress, err := creEnv.CldfEnvironment.DataStore.Addresses().Get(ocr3Key)
+		if err != nil {
+			return errors.Wrapf(err, "failed contract address for key %s and chainID %d", ocr3Key, chainID)
+		}
+
+		bootInput := cre_jobs.ProposeJobSpecInput{
+			Domain:      offchain.ProductLabel,
+			Environment: cre.EnvironmentName,
+			DONName:     bootstrap.DON.Name,
+			JobName:     fmt.Sprintf("evm-v2-bootstrap-%d", chainID),
+			ExtraLabels: map[string]string{cre.CapabilityLabelKey: flag},
+			DONFilters: []offchain.TargetDONFilter{
+				{Key: offchain.FilterKeyDONName, Value: bootstrap.DON.Name},
+			},
+			Template: job_types.BootstrapOCR3,
+			Inputs: job_types.JobSpecInput{
+				"chainSelector":     chainSelector,
+				"contractQualifier": qualifier,
+			},
+		}
+
+		bootVerErr := cre_jobs.ProposeJobSpec{}.VerifyPreconditions(*creEnv.CldfEnvironment, bootInput)
+		if bootVerErr != nil {
+			return fmt.Errorf("precondition verification failed for EVM v2 bootstrap job for chainID %d: %w", chainID, bootVerErr)
+		}
+
+		bootReport, bootErr := cre_jobs.ProposeJobSpec{}.Apply(*creEnv.CldfEnvironment, bootInput)
+		if bootErr != nil {
+			return fmt.Errorf("failed to propose EVM v2 bootstrap job spec for chainID %d: %w", chainID, bootErr)
+		}
+
+		for _, r := range bootReport.Reports {
+			out, ok := r.Output.(cre_jobs_ops.ProposeOCR3BootstrapJobOutput)
+			if !ok {
+				return fmt.Errorf("unable to cast to ProposeOCR3BootstrapJobOutput, actual type: %T", r.Output)
+			}
+			mErr := mergo.Merge(&specs, out.Specs, mergo.WithAppendSlice)
+			if mErr != nil {
+				return fmt.Errorf("failed to merge bootstrap job specs: %w", mErr)
+			}
+		}
+
+		_, templateData, rErr := envconfig.ResolveCapabilityForChain(flag, nodeSet.GetChainCapabilityConfigs(), capabilityConfig.Config, chainID)
+		if rErr != nil {
+			return errors.Wrap(rErr, "failed to resolve capability config for chain")
+		}
+
+		for _, workerNode := range workerNodes {
+			evmKey, ok := workerNode.Keys.EVM[chainID]
+			if !ok {
+				return fmt.Errorf("failed to get EVM key (chainID %d, node index %d)", chainID, workerNode.Index)
+			}
+			nodeAddress := evmKey.PublicAddress.Hex()
+
+			creForwarderKey := datastore.NewAddressRefKey(
+				chainSelector,
+				datastore.ContractType(keystone_changeset.KeystoneForwarder.String()),
+				semver.MustParse("1.0.0"),
+				"",
+			)
+			creForwarderAddress, err := creEnv.CldfEnvironment.DataStore.Addresses().Get(creForwarderKey)
+			if err != nil {
+				return errors.Wrap(err, "failed to get CRE Forwarder address")
+			}
+
+			runtimeFallbacks := buildRuntimeValues(chainID, "evm", creForwarderAddress.Address, nodeAddress)
+			var aErr error
+			templateData, aErr = credon.ApplyRuntimeValues(templateData, runtimeFallbacks)
+			if aErr != nil {
+				return errors.Wrap(aErr, "failed to apply runtime values")
+			}
+
+			tmpl, err := template.New("evmConfig").Parse(configTemplate)
+			if err != nil {
+				return errors.Wrapf(err, "failed to parse %s config template", flag)
+			}
+
+			var configBuffer bytes.Buffer
+			if err := tmpl.Execute(&configBuffer, templateData); err != nil {
+				return errors.Wrapf(err, "failed to execute %s config template", flag)
+			}
+
+			configStr := configBuffer.String()
+
+			if err := credon.ValidateTemplateSubstitution(configStr, flag); err != nil {
+				return errors.Wrapf(err, "%s template validation failed", flag)
+			}
+
+			evmKeyBundle, ok := workerNode.Keys.OCR2BundleIDs[chainselectors.FamilyEVM] // we can always expect evm bundle key id present since evm is the registry chain
+			if !ok {
+				return errors.New("failed to get key bundle id for evm family")
+			}
+
+			bootstrapPeers := []string{fmt.Sprintf("%s@%s:%d", strings.TrimPrefix(bootstrap.Keys.PeerID(), "p2p_"), bootstrap.Host, cre.OCRPeeringPort)}
+
+			strategyName := "single-chain"
+			if len(workerNode.Keys.OCR2BundleIDs) > 1 {
+				strategyName = "multi-chain"
+			}
+
+			workerInput := cre_jobs.ProposeJobSpecInput{
+				Domain:      offchain.ProductLabel,
+				Environment: cre.EnvironmentName,
+				DONName:     don.Name,
+				JobName:     fmt.Sprintf("evm-v2-worker-%d", chainID),
+				ExtraLabels: map[string]string{cre.CapabilityLabelKey: flag},
+				DONFilters: []offchain.TargetDONFilter{
+					{Key: offchain.FilterKeyDONName, Value: don.Name},
+					{Key: "p2p_id", Value: workerNode.Keys.PeerID()}, // required since each node requires a different config (it contains its own from address)
+				},
+				Template: job_types.EVM,
+				Inputs: job_types.JobSpecInput{
+					"command": command,
+					"config":  configStr,
+					"oracleFactory": cre_jobs_pkg.OracleFactory{
+						Enabled:            true,
+						ChainID:            chainIDStr,
+						BootstrapPeers:     bootstrapPeers,
+						OCRContractAddress: ocr3ConfigContractAddress.Address,
+						OCRKeyBundleID:     evmKeyBundle,
+						TransmitterID:      nodeAddress,
+						OnchainSigningStrategy: cre_jobs_pkg.OnchainSigningStrategy{
+							StrategyName: strategyName,
+							Config:       workerNode.Keys.OCR2BundleIDs,
+						},
+					},
+				},
+			}
+
+			workerVerErr := cre_jobs.ProposeJobSpec{}.VerifyPreconditions(*creEnv.CldfEnvironment, workerInput)
+			if workerVerErr != nil {
+				return fmt.Errorf("precondition verification failed for EVM v2 worker job: %w", workerVerErr)
+			}
+
+			workerReport, workerErr := cre_jobs.ProposeJobSpec{}.Apply(*creEnv.CldfEnvironment, workerInput)
+			if workerErr != nil {
+				return fmt.Errorf("failed to propose EVM v2 worker job spec: %w", workerErr)
+			}
+
+			for _, r := range workerReport.Reports {
+				out, ok := r.Output.(cre_jobs_ops.ProposeStandardCapabilityJobOutput)
+				if !ok {
+					return fmt.Errorf("unable to cast to ProposeStandardCapabilityJobOutput, actual type: %T", r.Output)
+				}
+				mErr := mergo.Merge(&specs, out.Specs, mergo.WithAppendSlice)
+				if mErr != nil {
+					return fmt.Errorf("failed to merge worker job specs: %w", mErr)
+				}
+			}
+		}
 	}
 
-	jobSpecs, jErr := ocr.GenerateJobSpecsForStandardCapabilityWithOCR(
-		don,
-		dons,
-		creEnv,
-		flag,
-		ks_contracts_op.CapabilityContractIdentifier,
-		dataStoreOCR3ContractKeyProvider,
-		chainlevel.CapabilityEnabler,
-		chainlevel.EnabledChainsProvider,
-		generateJobSpec,
-		chainlevel.ConfigMerger,
-	)
-	if jErr != nil {
-		return errors.Wrap(jErr, "failed to generate EVM OCR3 job specs")
-	}
-
-	jobErr := jobs.Create(ctx, creEnv.CldfEnvironment.Offchain, dons, jobSpecs)
-
-	if jobErr != nil {
-		return fmt.Errorf("failed to create EVM OCR3 jobs for don %s: %w", don.Name, jobErr)
+	approveErr := jobs.Approve(ctx, creEnv.CldfEnvironment.Offchain, dons, specs)
+	if approveErr != nil {
+		return fmt.Errorf("failed to approve EVM v2 jobs: %w", approveErr)
 	}
 
 	return nil
 }
+
+// func createJobs(
+// 	ctx context.Context,
+// 	don *cre.Don,
+// 	dons *cre.Dons,
+// 	creEnv *cre.Environment,
+// ) error {
+// 	jobSpecs := []*jobv1.ProposeJobRequest{}
+
+// 	capabilityConfig, ok := creEnv.CapabilityConfigs[flag]
+// 	if !ok {
+// 		return fmt.Errorf("%s config not found in capabilities config: %v", flag, creEnv.CapabilityConfigs)
+// 	}
+
+// 	bootstrapNode, isBootstrap := dons.Bootstrap()
+// 	if !isBootstrap {
+// 		return errors.New("could not find bootstrap node in topology, exactly one bootstrap node is required")
+// 	}
+
+// 	workerNodes, wErr := don.Workers()
+// 	if wErr != nil {
+// 		return errors.Wrap(wErr, "failed to find worker nodes")
+// 	}
+
+// 	var nodeSet cre.NodeSetWithCapabilityConfigs
+// 	for _, ns := range dons.AsNodeSetWithChainCapabilities() {
+// 		if ns.GetName() == don.Name {
+// 			nodeSet = ns
+// 			break
+// 		}
+// 	}
+// 	if nodeSet == nil {
+// 		return fmt.Errorf("could not find node set for Don named '%s'", don.Name)
+// 	}
+
+// 	command, cErr := standardcapability.GetCommand(capabilityConfig.BinaryPath, creEnv.Provider)
+// 	if cErr != nil {
+// 		return errors.Wrap(cErr, "failed to get command for cron capability")
+// 	}
+
+// 	chainConfig, ok := nodeSet.GetChainCapabilityConfigs()[flag]
+// 	if !ok {
+// 		return fmt.Errorf("could not find capability config for capability %s in node set %s", flag, nodeSet.GetName())
+// 	}
+
+// 	for _, chainID := range chainConfig.EnabledChains {
+// 		chainIDStr := strconv.FormatUint(chainID, 10)
+// 		chain, ok := chainselectors.ChainByEvmChainID(chainID)
+// 		if !ok {
+// 			return fmt.Errorf("failed to get chain selector for chain ID %d", chainID)
+// 		}
+
+// 		_, templateData, rErr := envconfig.ResolveCapabilityForChain(flag, nodeSet.GetChainCapabilityConfigs(), capabilityConfig.Config, chainID)
+// 		if rErr != nil {
+// 			return errors.Wrap(rErr, "failed to resolve capability config for chain")
+// 		}
+
+// 		ocr3Key := datastore.NewAddressRefKey(
+// 			// we have deployed OCR3 contract for each EVM chain on the registry chain to avoid a situation when more than 1 OCR contract (of any type) has the same address
+// 			// because that violates a DB constraint for offchain reporting jobs
+// 			// this can be removed once https://smartcontract-it.atlassian.net/browse/PRODCRE-804 is done and we can deploy OCR3 contract for each EVM chain on that chain
+// 			creEnv.RegistryChainSelector,
+// 			datastore.ContractType(keystone_changeset.OCR3Capability.String()),
+// 			semver.MustParse("1.0.0"),
+// 			ks_contracts_op.CapabilityContractIdentifier(chainID),
+// 		)
+// 		ocr3ConfigContractAddress, err := creEnv.CldfEnvironment.DataStore.Addresses().Get(ocr3Key)
+// 		if err != nil {
+// 			return errors.Wrapf(err, "failed contract address for key %s and chainID %d", ocr3Key, chainID)
+// 		}
+
+// 		jobSpecs = append(jobSpecs, ocr.BootstrapJobSpec(bootstrapNode.JobDistributorDetails.NodeID, flag, ocr3ConfigContractAddress.Address, chainID))
+
+// 		for _, workerNode := range workerNodes {
+// 			evmKey, ok := workerNode.Keys.EVM[chainID]
+// 			if !ok {
+// 				return fmt.Errorf("failed to get EVM key (chainID %d, node index %d)", chainID, workerNode.Index)
+// 			}
+// 			nodeAddress := evmKey.PublicAddress.Hex()
+
+// 			evmKeyBundle, ok := workerNode.Keys.OCR2BundleIDs[chainselectors.FamilyEVM] // we can always expect evm bundle key id present since evm is the registry chain
+// 			if !ok {
+// 				return errors.New("failed to get key bundle id for evm family")
+// 			}
+
+// 			bootstrapPeers := []string{fmt.Sprintf("%s@%s:%d", strings.TrimPrefix(bootstrapNode.Keys.PeerID(), "p2p_"), bootstrapNode.Host, cre.OCRPeeringPort)}
+
+// 			strategyName := "single-chain"
+// 			if len(workerNode.Keys.OCR2BundleIDs) > 1 {
+// 				strategyName = "multi-chain"
+// 			}
+
+// 			oracleFactoryConfigInstance := job.OracleFactoryConfig{
+// 				Enabled:            true,
+// 				ChainID:            chainIDStr,
+// 				BootstrapPeers:     bootstrapPeers,
+// 				OCRContractAddress: ocr3ConfigContractAddress.Address,
+// 				OCRKeyBundleID:     evmKeyBundle,
+// 				TransmitterID:      nodeAddress,
+// 				OnchainSigning: job.OnchainSigningStrategy{
+// 					StrategyName: strategyName,
+// 					Config:       workerNode.Keys.OCR2BundleIDs,
+// 				},
+// 			}
+
+// 			type OracleFactoryConfigWrapper struct {
+// 				OracleFactory job.OracleFactoryConfig `toml:"oracle_factory"`
+// 			}
+// 			wrapper := OracleFactoryConfigWrapper{OracleFactory: oracleFactoryConfigInstance}
+
+// 			var oracleBuffer bytes.Buffer
+// 			if errEncoder := toml.NewEncoder(&oracleBuffer).Encode(wrapper); errEncoder != nil {
+// 				return errors.Wrap(errEncoder, "failed to encode oracle factory config to TOML")
+// 			}
+// 			oracleStr := strings.ReplaceAll(oracleBuffer.String(), "\n", "\n\t")
+
+// 			creForwarderKey := datastore.NewAddressRefKey(
+// 				chain.Selector,
+// 				datastore.ContractType(keystone_changeset.KeystoneForwarder.String()),
+// 				semver.MustParse("1.0.0"),
+// 				"",
+// 			)
+// 			creForwarderAddress, err := creEnv.CldfEnvironment.DataStore.Addresses().Get(creForwarderKey)
+// 			if err != nil {
+// 				return errors.Wrap(err, "failed to get CRE Forwarder address")
+// 			}
+
+// 			runtimeFallbacks := buildRuntimeValues(chainID, "evm", creForwarderAddress.Address, nodeAddress)
+// 			var aErr error
+// 			templateData, aErr = credon.ApplyRuntimeValues(templateData, runtimeFallbacks)
+// 			if aErr != nil {
+// 				return errors.Wrap(aErr, "failed to apply runtime values")
+// 			}
+
+// 			tmpl, err := template.New("evmConfig").Parse(configTemplate)
+// 			if err != nil {
+// 				return errors.Wrapf(err, "failed to parse %s config template", flag)
+// 			}
+
+// 			var configBuffer bytes.Buffer
+// 			if err := tmpl.Execute(&configBuffer, templateData); err != nil {
+// 				return errors.Wrapf(err, "failed to execute %s config template", flag)
+// 			}
+
+// 			configStr := configBuffer.String()
+
+// 			if err := credon.ValidateTemplateSubstitution(configStr, flag); err != nil {
+// 				return errors.Wrapf(err, "%s template validation failed", flag)
+// 			}
+
+// 			jobSpec := standardcapability.WorkerJobSpec(workerNode.JobDistributorDetails.NodeID, fmt.Sprintf("%s-%d", flag, chainID), command, configStr, oracleStr)
+// 			jobSpec.Labels = []*ptypes.Label{{Key: cre.CapabilityLabelKey, Value: ptr.Ptr(flag)}}
+// 			jobSpecs = append(jobSpecs, jobSpec)
+// 		}
+// 	}
+
+// 	jobErr := jobs.Create(ctx, creEnv.CldfEnvironment.Offchain, dons, jobSpecs)
+
+// 	if jobErr != nil {
+// 		return fmt.Errorf("failed to create EVM OCR3 jobs for don %s: %w", don.Name, jobErr)
+// 	}
+
+// 	return nil
+// }
 
 // buildRuntimeValues creates runtime-generated  values for any keys not specified in TOML
 func buildRuntimeValues(chainID uint64, networkFamily, creForwarderAddress, nodeAddress string) map[string]any {

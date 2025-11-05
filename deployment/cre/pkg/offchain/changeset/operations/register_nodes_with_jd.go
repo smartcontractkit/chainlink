@@ -21,13 +21,14 @@ type JDRegisterNodeOpDeps struct {
 	Env cldf.Environment
 }
 type JDRegisterNodeOpInput struct {
-	Domain  string            `json:"domain" yaml:"domain"`
-	Name    string            `json:"name" yaml:"name"`
-	CSAKey  string            `json:"csaKey" yaml:"csaKey"`
-	P2PID   string            `json:"p2pID" yaml:"p2pID"`
-	DONName string            `json:"donName" yaml:"don_name"`
-	Zone    string            `json:"zone" yaml:"zone"`
-	Labels  map[string]string `json:"labels" yaml:"labels"` // key-value pairs; use empty string for value-less labels
+	IsBootstrap bool              `json:"isBootstrap" yaml:"is_bootstrap"`
+	Domain      string            `json:"domain" yaml:"domain"`
+	Name        string            `json:"name" yaml:"name"`
+	CSAKey      string            `json:"csaKey" yaml:"csaKey"`
+	P2PID       string            `json:"p2pID" yaml:"p2pID"`
+	DONName     string            `json:"donName" yaml:"don_name"`
+	Zone        string            `json:"zone" yaml:"zone"`
+	Labels      map[string]string `json:"labels" yaml:"labels"` // key-value pairs; use empty string for value-less labels
 }
 
 type JDRegisterNodeOpOutput struct {
@@ -127,7 +128,7 @@ func registerNodeImpl(deps JDRegisterNodeOpDeps, input JDRegisterNodeOpInput) (*
 		deps.Env.Offchain,
 		input.Name,
 		input.CSAKey,
-		false,
+		input.IsBootstrap,
 		input.Domain,
 		deps.Env.Name,
 		labels,

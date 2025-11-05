@@ -24,6 +24,11 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 )
 
+var (
+	deployerFundAmount    = tlb.MustFromTON("1000")
+	transmitterFundAmount = tlb.MustFromTON("200")
+)
+
 func getTestTonChainSelectors() []uint64 {
 	return []uint64{chainsel.TON_LOCALNET.Selector}
 }
@@ -95,7 +100,7 @@ func generateChainsTon(t *testing.T, numChains int) []cldf_chain.BlockChain {
 		}
 
 		// memory environment doesn't block on funding so changesets can execute before the env is fully ready, manually call fund so we block here
-		utils.FundWallets(t, tonChain.Client, []*address.Address{tonChain.WalletAddress}, []tlb.Coins{tlb.MustFromTON("1000")})
+		utils.FundWallets(t, tonChain.Client, []*address.Address{tonChain.WalletAddress}, []tlb.Coins{deployerFundAmount})
 	}
 
 	return chains
@@ -125,7 +130,7 @@ func fundNodesTon(t *testing.T, tonChain cldf_ton.Chain, nodes []*Node) {
 		require.NoError(t, err)
 		require.Len(t, tonkeys, 1)
 		transmitter := tonkeys[0].PubkeyToAddress()
-		msg, err := tonChain.Wallet.BuildTransfer(transmitter, tlb.MustFromTON("1000"), false, "")
+		msg, err := tonChain.Wallet.BuildTransfer(transmitter, transmitterFundAmount, false, "")
 		require.NoError(t, err)
 		messages = append(messages, msg)
 	}

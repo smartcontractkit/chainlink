@@ -275,16 +275,16 @@ func SetupTestEnvironment(
 		return nil, pkgerrors.Wrap(donStartErr, "failed to start DONs")
 	}
 	dons := cre.NewDons(startedDONs.DONs(), topology.GatewayConnectors)
+	deployKeystoneContractsOutput.Env.Offchain = startedJD.Client
 
 	linkDonsToJDInput := &cre.LinkDonsToJDInput{
-		JDClient:        startedJD.Client,
 		Blockchains:     deployedBlockchains.Outputs,
 		CldfEnvironment: deployKeystoneContractsOutput.Env,
 		Topology:        topology,
 		Dons:            dons,
 	}
 
-	_, cldErr := cre.LinkToJobDistributor(ctx, linkDonsToJDInput)
+	cldErr := cre.LinkToJobDistributor(ctx, linkDonsToJDInput)
 	if cldErr != nil {
 		return nil, pkgerrors.Wrap(cldErr, "failed to link DONs to Job Distributor")
 	}
@@ -468,7 +468,7 @@ func appendOutputsToInput(input *SetupInput, nodeSetOutput []*cre.WrappedNodeOut
 
 func newCldfEnvironment(ctx context.Context, singleFileLogger logger.Logger, cldfBlockchains cldf_chain.BlockChains) *cldf.Environment {
 	allChainsCLDEnvironment := &cldf.Environment{
-		Name:              "local CRE",
+		Name:              cre.EnvironmentName,
 		Logger:            singleFileLogger,
 		ExistingAddresses: cldf.NewMemoryAddressBook(), // can't set it to nil, because some changesets save addresses both to the address book and datastore
 		DataStore:         datastore.NewMemoryDataStore().Seal(),
