@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/hex"
 	"errors"
+	"fmt"
 	"math/big"
 	"strconv"
 	"strings"
@@ -76,6 +77,8 @@ type CCIPMessageSent struct {
 	SequenceNumber    string             `json:"sequence_number"`
 	Message           Sui2AnyRampMessage `json:"message"`
 }
+
+const TokenSymbolLINK = "LINK"
 
 func SendSuiCCIPRequest(e cldf.Environment, cfg *ccipclient.CCIPSendReqConfig) (*ccipclient.AnyMsgSentEvent, error) {
 	ctx := e.GetContext()
@@ -173,8 +176,12 @@ func SendSuiCCIPRequest(e cldf.Environment, cfg *ccipclient.CCIPSendReqConfig) (
 	// fmt.Println("VALIDATED FEE:", validatedFee)
 
 	if len(msg.TokenAmounts) > 0 {
-		BurnMintTPPkgID := state.SuiChains[cfg.SourceChain].CCIPBurnMintTokenPool
-		BurnMintTPState := state.SuiChains[cfg.SourceChain].CCIPBurnMintTokenPoolState
+		bnmTokenPool, exists := state.SuiChains[cfg.SourceChain].BnMTokenPools[TokenSymbolLINK]
+		if !exists {
+			return nil, fmt.Errorf("no BurnMintTokenPool found for token: %s", TokenSymbolLINK)
+		}
+		BurnMintTPPkgID := bnmTokenPool.PackageID
+		BurnMintTPState := bnmTokenPool.StateObjectId
 
 		// 3 ptb calls
 		// 1. create_token_transfer_params
@@ -613,7 +620,13 @@ func HandleTokenAndPoolDeploymentForSUI(e cldf.Environment, suiChainSel, evmChai
 	if err != nil {
 		return cldf.Environment{}, nil, nil, errors.New("error while decoding suiToken")
 	}
-	suiPoolBytes, err := hex.DecodeString(strings.TrimPrefix(state.SuiChains[suiChainSel].CCIPBurnMintTokenPool, "0x"))
+
+	bnmTokenPool, ok := state.SuiChains[suiChainSel].BnMTokenPools[TokenSymbolLINK]
+	if !ok {
+		return cldf.Environment{}, nil, nil, fmt.Errorf("no BurnMintTokenPool found for token: %s", TokenSymbolLINK)
+	}
+
+	suiPoolBytes, err := hex.DecodeString(strings.TrimPrefix(bnmTokenPool.PackageID, "0x"))
 	if err != nil {
 		return cldf.Environment{}, nil, nil, errors.New("error while decoding suiPool")
 	}
