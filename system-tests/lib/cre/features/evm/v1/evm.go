@@ -8,6 +8,7 @@ import (
 	"strings"
 	"text/template"
 
+	"github.com/Masterminds/semver/v3"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/pelletier/go-toml/v2"
 	"github.com/pkg/errors"
@@ -16,7 +17,6 @@ import (
 	chain_selectors "github.com/smartcontractkit/chain-selectors"
 
 	cldf_tron "github.com/smartcontractkit/chainlink-deployments-framework/chain/tron"
-	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	evmworkflow "github.com/smartcontractkit/chainlink-evm/pkg/config/toml"
 	chainlinkbig "github.com/smartcontractkit/chainlink-evm/pkg/utils/big"
@@ -158,13 +158,10 @@ func (o *EVM) PostEnvStartup(
 	return nil
 }
 
-func deployTronForwarders(testLogger zerolog.Logger, cldfEnv *cldf.Environment, chainSelectors []uint64, contractVersions map[string]string) error {
-	memoryDatastore := datastore.NewMemoryDataStore()
-
-	// load all existing addresses into memory datastore
-	mergeErr := memoryDatastore.Merge(cldfEnv.DataStore)
-	if mergeErr != nil {
-		return fmt.Errorf("failed to merge existing datastore into memory datastore: %w", mergeErr)
+func deployTronForwarders(testLogger zerolog.Logger, cldfEnv *cldf.Environment, chainSelectors []uint64, contractVersions map[cre.ContractType]*semver.Version) error {
+	memoryDatastore, mErr := contracts.NewDataStoreFromExisting(cldfEnv.DataStore)
+	if mErr != nil {
+		return fmt.Errorf("failed to create memory datastore: %w", mErr)
 	}
 
 	deployOptions := cldf_tron.DefaultDeployOptions()
@@ -222,7 +219,7 @@ func configureTronForwarder(testLogger zerolog.Logger, creEnv *cre.Environment, 
 	}
 
 	capabilitiesRegistryAddress := contracts.MustGetAddressFromDataStore(creEnv.CldfEnvironment.DataStore, creEnv.RegistryChainSelector, keystone_changeset.CapabilitiesRegistry.String(), creEnv.ContractVersions[keystone_changeset.CapabilitiesRegistry.String()], "")
-	capRegInstance, capErr := kcr.NewCapabilitiesRegistry(common.HexToAddress(capabilitiesRegistryAddress), asEVM.SethClient.Client)
+	capReg, capErr := kcr.NewCapabilitiesRegistry(common.HexToAddress(capabilitiesRegistryAddress), asEVM.SethClient.Client)
 	if capErr != nil {
 		return fmt.Errorf("failed to create capabilities registry instance: %w", capErr)
 	}
@@ -233,7 +230,7 @@ func configureTronForwarder(testLogger zerolog.Logger, creEnv *cre.Environment, 
 		RegistryChainSel: creEnv.RegistryChainSelector,
 		Chains:           make(map[uint64]struct{}),
 		TriggerOptions:   triggerOptions,
-		Registry:         capRegInstance,
+		Registry:         capReg,
 	})
 
 	_, err := commonchangeset.Apply(nil, *creEnv.CldfEnvironment, configChangeset)
@@ -262,11 +259,6 @@ func updateNodeConfig(workerNode *cre.NodeMetadata, currentConfig string, chainC
 		}
 
 		evmData.ForwarderAddress = contracts.MustGetAddressFromDataStore(creEnv.CldfEnvironment.DataStore, chain.Selector, keystone_changeset.KeystoneForwarder.String(), creEnv.ContractVersions[keystone_changeset.KeystoneForwarder.String()], "")
-		// if fErr != nil {
-		// 	return nil, errors.Errorf("failed to find forwarder address for chain %d", chain.Selector)
-		// }
-		//  = forwarderAddress.Hex()
-
 		evmKey, ok := workerNode.Keys.EVM[chainID]
 		if !ok {
 			return nil, fmt.Errorf("failed to get EVM key (chainID %d, node index %d)", chainID, workerNode.Index)

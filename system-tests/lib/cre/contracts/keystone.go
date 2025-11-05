@@ -9,6 +9,7 @@ import (
 	"sort"
 	"strings"
 
+	"github.com/Masterminds/semver/v3"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind/v2"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/pkg/errors"
@@ -39,7 +40,7 @@ import (
 type DeployKeystoneContractsInput struct {
 	CldfEnvironment  *cldf.Environment
 	CtfBlockchains   []blockchains.Blockchain
-	ContractVersions map[string]string
+	ContractVersions map[cre.ContractType]*semver.Version
 	WithV2Registries bool
 }
 

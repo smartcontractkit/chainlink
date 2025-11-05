@@ -10,6 +10,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/Masterminds/semver/v3"
 	"github.com/pelletier/go-toml/v2"
 	"github.com/pkg/errors"
 	"go.uber.org/zap/zapcore"
@@ -100,7 +101,6 @@ func PrepareNodeTOMLs(
 		if configsFound == 0 {
 			config, configErr := generateNodeTomlConfig(
 				cre.GenerateConfigsInput{
-					// AddressBook:             creEnv.CldfEnvironment.ExistingAddresses, //nolint:staticcheck // won't migrate
 					Datastore:               creEnv.CldfEnvironment.DataStore,
 					ContractVersions:        creEnv.ContractVersions,
 					DonMetadata:             donMetadata,
@@ -279,7 +279,7 @@ func addBootstrapNodeConfig(
 		Address:         ptr.Ptr(commonInputs.capabilityRegistry.address),
 		NetworkID:       ptr.Ptr("evm"),
 		ChainID:         ptr.Ptr(strconv.FormatUint(commonInputs.registryChainID, 10)),
-		ContractVersion: ptr.Ptr(commonInputs.capabilityRegistry.version),
+		ContractVersion: ptr.Ptr(commonInputs.capabilityRegistry.version.String()),
 	}
 
 	return existingConfig, nil
@@ -341,7 +341,7 @@ func addWorkerNodeConfig(
 		Address:         ptr.Ptr(commonInputs.capabilityRegistry.address),
 		NetworkID:       ptr.Ptr("evm"),
 		ChainID:         ptr.Ptr(strconv.FormatUint(commonInputs.registryChainID, 10)),
-		ContractVersion: ptr.Ptr(commonInputs.capabilityRegistry.version),
+		ContractVersion: ptr.Ptr(commonInputs.capabilityRegistry.version.String()),
 	}
 
 	if donMetadata.HasFlag(cre.WorkflowDON) {
@@ -349,7 +349,7 @@ func addWorkerNodeConfig(
 			Address:         ptr.Ptr(commonInputs.workflowRegistry.address),
 			NetworkID:       ptr.Ptr("evm"),
 			ChainID:         ptr.Ptr(strconv.FormatUint(commonInputs.registryChainID, 10)),
-			ContractVersion: ptr.Ptr(commonInputs.workflowRegistry.version),
+			ContractVersion: ptr.Ptr(commonInputs.workflowRegistry.version.String()),
 			SyncStrategy:    ptr.Ptr("reconciliation"),
 		}
 	}
@@ -405,31 +405,31 @@ OUTER:
 		Address:         ptr.Ptr(commonInputs.capabilityRegistry.address),
 		NetworkID:       ptr.Ptr("evm"),
 		ChainID:         ptr.Ptr(strconv.FormatUint(commonInputs.registryChainID, 10)),
-		ContractVersion: ptr.Ptr(commonInputs.capabilityRegistry.version),
+		ContractVersion: ptr.Ptr(commonInputs.capabilityRegistry.version.String()),
 	}
 
 	existingConfig.Capabilities.WorkflowRegistry = coretoml.WorkflowRegistry{
 		Address:         ptr.Ptr(commonInputs.workflowRegistry.address),
 		NetworkID:       ptr.Ptr("evm"),
 		ChainID:         ptr.Ptr(strconv.FormatUint(commonInputs.registryChainID, 10)),
-		ContractVersion: ptr.Ptr(commonInputs.workflowRegistry.version),
+		ContractVersion: ptr.Ptr(commonInputs.workflowRegistry.version.String()),
 		SyncStrategy:    ptr.Ptr("reconciliation"),
 	}
 
 	return existingConfig, nil
 }
 
-type addressTypeVersion struct {
+type versionedAddress struct {
 	address string
-	version string
+	version *semver.Version
 }
 
 type commonInputs struct {
 	registryChainID       uint64
 	registryChainSelector uint64
 
-	workflowRegistry   addressTypeVersion
-	capabilityRegistry addressTypeVersion
+	workflowRegistry   versionedAddress
+	capabilityRegistry versionedAddress
 
 	evmChains   []*evmChain
 	solanaChain *solanaChain
@@ -453,13 +453,13 @@ func gatherCommonInputs(input cre.GenerateConfigsInput) (*commonInputs, error) {
 	return &commonInputs{
 		registryChainID:       registryChainID,
 		registryChainSelector: input.RegistryChainSelector,
-		workflowRegistry: addressTypeVersion{
+		workflowRegistry: versionedAddress{
 			address: workflowRegistryAddress,
 			version: input.ContractVersions[keystone_changeset.WorkflowRegistry.String()],
 		},
 		evmChains:   evmChains,
 		solanaChain: solanaChain,
-		capabilityRegistry: addressTypeVersion{
+		capabilityRegistry: versionedAddress{
 			address: capabilitiesRegistryAddress,
 			version: input.ContractVersions[keystone_changeset.CapabilitiesRegistry.String()],
 		},

@@ -56,7 +56,7 @@ type SetupInput struct {
 	BlockchainsInput       []*blockchain.Input
 	JdInput                *jd.Input
 	Provider               infra.Provider
-	ContractVersions       map[string]string
+	ContractVersions       map[cre.ContractType]*semver.Version
 	WithV2Registries       bool
 	OCR3Config             *keystone_changeset.OracleConfig
 	DONTimeConfig          *keystone_changeset.OracleConfig
@@ -275,16 +275,16 @@ func SetupTestEnvironment(
 		return nil, pkgerrors.Wrap(donStartErr, "failed to start DONs")
 	}
 	dons := cre.NewDons(startedDONs.DONs(), topology.GatewayConnectors)
+	deployKeystoneContractsOutput.Env.Offchain = startedJD.Client
 
 	linkDonsToJDInput := &cre.LinkDonsToJDInput{
-		JDClient:        startedJD.Client,
 		Blockchains:     deployedBlockchains.Outputs,
 		CldfEnvironment: deployKeystoneContractsOutput.Env,
 		Topology:        topology,
 		Dons:            dons,
 	}
 
-	_, cldErr := cre.LinkToJobDistributor(ctx, linkDonsToJDInput)
+	cldErr := cre.LinkToJobDistributor(ctx, linkDonsToJDInput)
 	if cldErr != nil {
 		return nil, pkgerrors.Wrap(cldErr, "failed to link DONs to Job Distributor")
 	}
@@ -342,14 +342,14 @@ func SetupTestEnvironment(
 	fmt.Print(libformat.PurpleText("%s", input.StageGen.WrapAndNext("Chainlink nodes funded in %.2f seconds", input.StageGen.Elapsed().Seconds())))
 
 	fmt.Print(libformat.PurpleText("%s", input.StageGen.Wrap("Configuring Workflow and Capability Registry contracts")))
-	wfRegVersion := *semver.MustParse(input.ContractVersions[keystone_changeset.WorkflowRegistry.String()])
+	wfRegVersion := input.ContractVersions[keystone_changeset.WorkflowRegistry.String()]
 	workflowRegistryConfigurationOutput, wfErr := workflow.ConfigureWorkflowRegistry(
 		ctx,
 		testLogger,
 		singleFileLogger,
 		&cre.WorkflowRegistryInput{
 			ContractAddress: common.HexToAddress(crecontracts.MustGetAddressFromDataStore(deployKeystoneContractsOutput.Env.DataStore, deployedBlockchains.RegistryChain().ChainSelector(), keystone_changeset.WorkflowRegistry.String(), input.ContractVersions[keystone_changeset.WorkflowRegistry.String()], "")),
-			ContractVersion: cldf.TypeAndVersion{Version: wfRegVersion},
+			ContractVersion: cldf.TypeAndVersion{Version: *wfRegVersion},
 			ChainSelector:   deployedBlockchains.RegistryChain().ChainSelector(),
 			CldEnv:          deployKeystoneContractsOutput.Env,
 			AllowedDonIDs:   []uint64{topology.WorkflowDONID},
@@ -467,12 +467,11 @@ func appendOutputsToInput(input *SetupInput, nodeSetOutput []*cre.WrappedNodeOut
 }
 
 func newCldfEnvironment(ctx context.Context, singleFileLogger logger.Logger, cldfBlockchains cldf_chain.BlockChains) *cldf.Environment {
-	memoryDatastore := datastore.NewMemoryDataStore()
 	allChainsCLDEnvironment := &cldf.Environment{
-		Name:              "local CRE",
+		Name:              cre.EnvironmentName,
 		Logger:            singleFileLogger,
-		ExistingAddresses: cldf.NewMemoryAddressBook(),
-		DataStore:         memoryDatastore.Seal(),
+		ExistingAddresses: cldf.NewMemoryAddressBook(), // can't set it to nil, because some changesets save addresses both to the address book and datastore
+		DataStore:         datastore.NewMemoryDataStore().Seal(),
 		GetContext: func() context.Context {
 			return ctx
 		},

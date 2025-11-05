@@ -45,11 +45,11 @@ func MergeAllDataStores(creEnvironment *cre.Environment, changesetOutputs ...cld
 	creEnvironment.CldfEnvironment.DataStore = baseDataStore.Seal()
 }
 
-func MustGetAddressFromMemoryDataStore(dataStore *datastore.MemoryDataStore, chainSel uint64, contractType string, version string, qualifier string) common.Address {
+func MustGetAddressFromMemoryDataStore(dataStore *datastore.MemoryDataStore, chainSel uint64, contractType string, version *semver.Version, qualifier string) common.Address {
 	key := datastore.NewAddressRefKey(
 		chainSel,
 		datastore.ContractType(contractType),
-		semver.MustParse(version),
+		version,
 		qualifier,
 	)
 	addrRef, err := dataStore.Addresses().Get(key)
@@ -59,11 +59,11 @@ func MustGetAddressFromMemoryDataStore(dataStore *datastore.MemoryDataStore, cha
 	return common.HexToAddress(addrRef.Address)
 }
 
-func MightGetAddressFromMemoryDataStore(dataStore *datastore.MemoryDataStore, chainSel uint64, contractType string, version string, qualifier string) *common.Address {
+func MightGetAddressFromMemoryDataStore(dataStore *datastore.MemoryDataStore, chainSel uint64, contractType string, version *semver.Version, qualifier string) *common.Address {
 	key := datastore.NewAddressRefKey(
 		chainSel,
 		datastore.ContractType(contractType),
-		semver.MustParse(version),
+		version,
 		qualifier,
 	)
 
@@ -75,11 +75,11 @@ func MightGetAddressFromMemoryDataStore(dataStore *datastore.MemoryDataStore, ch
 	return ptr.Ptr(common.HexToAddress(addrRef.Address))
 }
 
-func MightGetAddressFromDataStore(dataStore datastore.DataStore, chainSel uint64, contractType string, version string, qualifier string) *common.Address {
+func MightGetAddressFromDataStore(dataStore datastore.DataStore, chainSel uint64, contractType string, version *semver.Version, qualifier string) *common.Address {
 	key := datastore.NewAddressRefKey(
 		chainSel,
 		datastore.ContractType(contractType),
-		semver.MustParse(version),
+		version,
 		qualifier,
 	)
 
@@ -90,11 +90,11 @@ func MightGetAddressFromDataStore(dataStore datastore.DataStore, chainSel uint64
 	return ptr.Ptr(common.HexToAddress(addrRef.Address))
 }
 
-func MustGetAddressFromDataStore(dataStore datastore.DataStore, chainSel uint64, contractType string, version string, qualifier string) string {
+func MustGetAddressFromDataStore(dataStore datastore.DataStore, chainSel uint64, contractType string, version *semver.Version, qualifier string) string {
 	key := datastore.NewAddressRefKey(
 		chainSel,
 		datastore.ContractType(contractType),
-		semver.MustParse(version),
+		version,
 		qualifier,
 	)
 	addrRef, err := dataStore.Addresses().Get(key)
@@ -104,11 +104,11 @@ func MustGetAddressFromDataStore(dataStore datastore.DataStore, chainSel uint64,
 	return addrRef.Address
 }
 
-func MustGetAddressRefFromDataStore(dataStore datastore.DataStore, chainSel uint64, contractType string, version string, qualifier string) datastore.AddressRef {
+func MustGetAddressRefFromDataStore(dataStore datastore.DataStore, chainSel uint64, contractType string, version *semver.Version, qualifier string) datastore.AddressRef {
 	key := datastore.NewAddressRefKey(
 		chainSel,
 		datastore.ContractType(contractType),
-		semver.MustParse(version),
+		version,
 		qualifier,
 	)
 	addrRef, err := dataStore.Addresses().Get(key)
@@ -116,6 +116,17 @@ func MustGetAddressRefFromDataStore(dataStore datastore.DataStore, chainSel uint
 		panic(fmt.Sprintf("Failed to get %s %s (qualifier=%s) address for chain %d: %s", contractType, version, qualifier, chainSel, err.Error()))
 	}
 	return addrRef
+}
+
+func NewDataStoreFromExisting(existing datastore.DataStore) (*datastore.MemoryDataStore, error) {
+	memoryDatastore := datastore.NewMemoryDataStore()
+
+	mergeErr := memoryDatastore.Merge(existing)
+	if mergeErr != nil {
+		return nil, fmt.Errorf("failed to merge existing datastore into memory datastore: %w", mergeErr)
+	}
+
+	return memoryDatastore, nil
 }
 
 func ConfigureDataFeedsCache(testLogger zerolog.Logger, input *cre.ConfigureDataFeedsCacheInput) (*cre.ConfigureDataFeedsCacheOutput, error) {
@@ -200,13 +211,11 @@ func DeployDataFeedsCacheContract(testLogger zerolog.Logger, chainSelector uint6
 	}
 	testLogger.Info().Msgf("Data Feeds Cache contract deployed to %d", chainSelector)
 
-	memoryDatastore := datastore.NewMemoryDataStore()
+	memoryDatastore, mErr := NewDataStoreFromExisting(creEnvironment.CldfEnvironment.DataStore)
+	if mErr != nil {
+		return common.Address{}, fmt.Errorf("failed to create memory datastore: %w", mErr)
+	}
 	if dfOutput.DataStore != nil {
-		// load all existing addresses into memory datastore
-		mergeErr := memoryDatastore.Merge(creEnvironment.CldfEnvironment.DataStore)
-		if mergeErr != nil {
-			return common.Address{}, fmt.Errorf("failed to merge existing datastore into memory datastore: %w", mergeErr)
-		}
 		err := memoryDatastore.Merge(dfOutput.DataStore.Seal())
 		if err != nil {
 			return common.Address{}, fmt.Errorf("failed to merge updated datastore: %w", err)
@@ -214,7 +223,7 @@ func DeployDataFeedsCacheContract(testLogger zerolog.Logger, chainSelector uint6
 		creEnvironment.CldfEnvironment.DataStore = memoryDatastore.Seal()
 	}
 
-	dataFeedsCacheAddress := MustGetAddressFromMemoryDataStore(memoryDatastore, chainSelector, "DataFeedsCache", "1.0.0", "")
+	dataFeedsCacheAddress := MustGetAddressFromMemoryDataStore(memoryDatastore, chainSelector, "DataFeedsCache", semver.MustParse("1.0.0"), "")
 	testLogger.Info().Msgf("Data Feeds Cache contract found on chain %d at address %s", chainSelector, dataFeedsCacheAddress)
 
 	return dataFeedsCacheAddress, nil
@@ -229,13 +238,12 @@ func DeployReadBalancesContract(testLogger zerolog.Logger, chainSelector uint64,
 	}
 	testLogger.Info().Msgf("Read Balances contract deployed to %d", chainSelector)
 
-	memoryDatastore := datastore.NewMemoryDataStore()
+	memoryDatastore, mErr := NewDataStoreFromExisting(creEnvironment.CldfEnvironment.DataStore)
+	if mErr != nil {
+		return common.Address{}, fmt.Errorf("failed to create memory datastore: %w", mErr)
+	}
+
 	if rbOutput.DataStore != nil {
-		// load all existing addresses into memory datastore
-		mergeErr := memoryDatastore.Merge(creEnvironment.CldfEnvironment.DataStore)
-		if mergeErr != nil {
-			return common.Address{}, fmt.Errorf("failed to merge existing datastore into memory datastore: %w", mergeErr)
-		}
 		err := memoryDatastore.Merge(rbOutput.DataStore.Seal())
 		if err != nil {
 			return common.Address{}, fmt.Errorf("failed to merge updated datastore: %w", err)
@@ -243,7 +251,7 @@ func DeployReadBalancesContract(testLogger zerolog.Logger, chainSelector uint64,
 		creEnvironment.CldfEnvironment.DataStore = memoryDatastore.Seal()
 	}
 
-	readBalancesAddress := MustGetAddressFromMemoryDataStore(memoryDatastore, chainSelector, "BalanceReader", "1.0.0", "")
+	readBalancesAddress := MustGetAddressFromMemoryDataStore(memoryDatastore, chainSelector, "BalanceReader", semver.MustParse("1.0.0"), "")
 	testLogger.Info().Msgf("Read Balances contract found on chain %d at address %s", chainSelector, readBalancesAddress)
 
 	return readBalancesAddress, nil

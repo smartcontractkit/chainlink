@@ -4,12 +4,12 @@ import (
 	"fmt"
 	"slices"
 
+	"github.com/Masterminds/semver/v3"
 	"github.com/pkg/errors"
 	"github.com/rs/zerolog"
 
 	chainselectors "github.com/smartcontractkit/chain-selectors"
 
-	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
 	"github.com/smartcontractkit/chainlink/deployment/cre/forwarder"
@@ -22,13 +22,10 @@ import (
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/flags"
 )
 
-func DeployEVMForwarders(testLogger zerolog.Logger, cldfEnv *cldf.Environment, chainSelectors []uint64, contractVersions map[string]string) error {
-	memoryDatastore := datastore.NewMemoryDataStore()
-
-	// load all existing addresses into memory datastore
-	mergeErr := memoryDatastore.Merge(cldfEnv.DataStore)
-	if mergeErr != nil {
-		return fmt.Errorf("failed to merge existing datastore into memory datastore: %w", mergeErr)
+func DeployEVMForwarders(testLogger zerolog.Logger, cldfEnv *cldf.Environment, chainSelectors []uint64, contractVersions map[cre.ContractType]*semver.Version) error {
+	memoryDatastore, mErr := contracts.NewDataStoreFromExisting(cldfEnv.DataStore)
+	if mErr != nil {
+		return fmt.Errorf("failed to create memory datastore: %w", mErr)
 	}
 
 	evmForwardersReport, deployErr := operations.ExecuteSequence(

@@ -10,6 +10,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/Masterminds/semver/v3"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/gagliardetto/solana-go"
 	"github.com/google/uuid"
@@ -22,7 +23,6 @@ import (
 	jobv1 "github.com/smartcontractkit/chainlink-protos/job-distributor/v1/job"
 	ks_sol "github.com/smartcontractkit/chainlink/deployment/keystone/changeset/solana"
 
-	cldf_jd "github.com/smartcontractkit/chainlink-deployments-framework/offchain/jd"
 	keystone_changeset "github.com/smartcontractkit/chainlink/deployment/keystone/changeset"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/secrets"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/blockchains"
@@ -33,6 +33,8 @@ import (
 	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/blockchain"
 	ns "github.com/smartcontractkit/chainlink-testing-framework/framework/components/simple_node_set"
 )
+
+const EnvironmentName = "local-cre"
 
 type CapabilityFlag = string
 
@@ -93,28 +95,28 @@ func (cfp *cliFlagsProvider) WithV2Registries() bool {
 
 type ContractVersionsProvider interface {
 	// ContractVersions returns a map of contract name to semver
-	ContractVersions() map[string]string
+	ContractVersions() map[ContractType]*semver.Version
 }
 
 type contractVersionsProvider struct {
-	contracts map[string]string
+	contracts map[ContractType]*semver.Version
 }
 
-func (cvp *contractVersionsProvider) ContractVersions() map[string]string {
-	cv := make(map[string]string, 0)
+func (cvp *contractVersionsProvider) ContractVersions() map[ContractType]*semver.Version {
+	cv := make(map[ContractType]*semver.Version, 0)
 	maps.Copy(cv, cvp.contracts)
 	return cv
 }
 
-func NewContractVersionsProvider(overrides map[string]string) *contractVersionsProvider {
+func NewContractVersionsProvider(overrides map[ContractType]*semver.Version) *contractVersionsProvider {
 	cvp := &contractVersionsProvider{
-		contracts: map[string]string{
-			keystone_changeset.OCR3Capability.String():       "1.0.0",
-			keystone_changeset.WorkflowRegistry.String():     "1.0.0",
-			keystone_changeset.CapabilitiesRegistry.String(): "1.1.0",
-			keystone_changeset.KeystoneForwarder.String():    "1.0.0",
-			ks_sol.ForwarderContract.String():                "1.0.0",
-			ks_sol.ForwarderState.String():                   "1.0.0",
+		contracts: map[ContractType]*semver.Version{
+			keystone_changeset.OCR3Capability.String():       semver.MustParse("1.0.0"),
+			keystone_changeset.WorkflowRegistry.String():     semver.MustParse("1.0.0"),
+			keystone_changeset.CapabilitiesRegistry.String(): semver.MustParse("1.1.0"),
+			keystone_changeset.KeystoneForwarder.String():    semver.MustParse("1.0.0"),
+			ks_sol.ForwarderContract.String():                semver.MustParse("1.0.0"),
+			ks_sol.ForwarderState.String():                   semver.MustParse("1.0.0"),
 		},
 	}
 	maps.Copy(cvp.contracts, overrides)
@@ -149,7 +151,7 @@ func (e *envionmentDependencies) WithV2Registries() bool {
 	return e.cliFlagsProvider.WithV2Registries()
 }
 
-func (e *envionmentDependencies) ContractVersions() map[string]string {
+func (e *envionmentDependencies) ContractVersions() map[ContractType]*semver.Version {
 	return e.contractSetProvider.ContractVersions()
 }
 
@@ -395,6 +397,7 @@ type NodeConfigTransformerFn = func(input GenerateConfigsInput, existingConfigs 
 type (
 	HandlerTypeToConfig    = map[string]string
 	GatewayHandlerConfigFn = func(don *Don) (HandlerTypeToConfig, error)
+	ContractType           = string
 )
 
 type GenerateConfigsInput struct {
@@ -407,7 +410,7 @@ type GenerateConfigsInput struct {
 	OCRPeeringData          OCRPeeringData
 	NodeSet                 *NodeSet
 	CapabilityConfigs       CapabilityConfigs
-	ContractVersions        map[string]string
+	ContractVersions        map[ContractType]*semver.Version
 	GatewayConnectorOutput  *GatewayConnectors // optional, automatically set if some DON in the topology has the GatewayDON flag
 }
 
@@ -1169,7 +1172,6 @@ func NewNodeKeys(input NodeKeyInput) (*secrets.NodeKeys, error) {
 }
 
 type LinkDonsToJDInput struct {
-	JDClient        *cldf_jd.JobDistributor
 	Blockchains     []blockchains.Blockchain
 	Dons            *Dons
 	Topology        *Topology
@@ -1180,7 +1182,7 @@ type Environment struct {
 	CldfEnvironment       *cldf.Environment
 	RegistryChainSelector uint64
 	Blockchains           []blockchains.Blockchain
-	ContractVersions      map[string]string
+	ContractVersions      map[ContractType]*semver.Version
 	Provider              infra.Provider
 	CapabilityConfigs     map[CapabilityFlag]CapabilityConfig
 }

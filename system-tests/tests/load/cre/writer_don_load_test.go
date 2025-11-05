@@ -16,6 +16,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/Masterminds/semver/v3"
 	"github.com/ethereum/go-ethereum/common"
 	types2 "github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/crypto"
@@ -113,7 +114,7 @@ func setupLoadTestWriterEnvironment(
 	require.NoError(t, dfErr, "failed to deploy data feed cache contract")
 
 	libcontracts.MergeAllDataStores(universalSetupOutput.CreEnvironment, dfOutput)
-	dfCacheAddress := libcontracts.MustGetAddressFromDataStore(universalSetupOutput.CreEnvironment.CldfEnvironment.DataStore, universalSetupOutput.CreEnvironment.Blockchains[0].ChainSelector(), changeset.DataFeedsCache.String(), "1.0.0", "")
+	dfCacheAddress := libcontracts.MustGetAddressFromDataStore(universalSetupOutput.CreEnvironment.CldfEnvironment.DataStore, universalSetupOutput.CreEnvironment.Blockchains[0].ChainSelector(), changeset.DataFeedsCache.String(), semver.MustParse("1.0.0"), "")
 
 	// Config
 	_, configErr := libcontracts.ConfigureDataFeedsCache(testLogger, &cretypes.ConfigureDataFeedsCacheInput{
