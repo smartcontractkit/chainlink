@@ -562,7 +562,7 @@ func TestHttpTriggerHandler_ReapExpiredCallbacks(t *testing.T) {
 		// Manually set the callback's createdAt to the past to simulate expiration
 		handler.callbacksMu.Lock()
 		if cb, exists := handler.callbacks[requestID]; exists {
-			cb.createdAt = time.Now().Add(-time.Duration(cfg.MaxTriggerRequestDurationMs+1) * time.Millisecond)
+			cb.createdAt = time.Now().Add(-time.Duration(cfg.CleanUpPeriodMs+1) * time.Millisecond)
 			handler.callbacks[requestID] = cb
 		}
 		handler.callbacksMu.Unlock()

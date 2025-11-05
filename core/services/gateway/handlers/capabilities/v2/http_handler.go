@@ -70,21 +70,43 @@ type ResponseCache interface {
 }
 
 type ServiceConfig struct {
-	NodeRateLimiter               ratelimit.RateLimiterConfig `json:"nodeRateLimiter"`
-	MaxTriggerRequestDurationMs   int                         `json:"maxTriggerRequestDurationMs"`
-	RetryConfig                   RetryConfig                 `json:"retryConfig"`
-	CleanUpPeriodMs               int                         `json:"cleanUpPeriodMs"`
-	MetadataPullIntervalMs        int                         `json:"metadataPullIntervalMs"`
-	MetadataAggregationIntervalMs int                         `json:"metadataAggregationIntervalMs"`
-	MetadataPullRequestTimeoutMs  int                         `json:"metadataPullRequestTimeoutMs"`
-	OutboundRequestCacheTTLMs     int                         `json:"outboundRequestCacheTTLMs"`
-	JWTReplayPeriodMs             int                         `json:"jwtReplayPeriodMs"`
+	// NodeRateLimiter configures rate limiting for traffic coming from workflow DON nodes
+	NodeRateLimiter ratelimit.RateLimiterConfig `json:"nodeRateLimiter"`
+
+	// MaxTriggerRequestDurationMs is the maximum time allowed for each trigger broadcast request to a workflow node
+	MaxTriggerRequestDurationMs int `json:"maxTriggerRequestDurationMs"`
+
+	// RetryConfig defines retry behavior for trigger broadcast requests to workflow nodes
+	RetryConfig RetryConfig `json:"retryConfig"`
+
+	// CleanUpPeriodMs is the interval for cleaning up expired HTTP action cache entries, HTTP trigger request callbacks and stale workflow metadata data
+	CleanUpPeriodMs int `json:"cleanUpPeriodMs"`
+
+	// MetadataPullIntervalMs is how often to poll workflow nodes for metadata updates
+	MetadataPullIntervalMs int `json:"metadataPullIntervalMs"`
+
+	// MetadataAggregationIntervalMs is how often to sync local workflow metadata state with recent metadata updates
+	MetadataAggregationIntervalMs int `json:"metadataAggregationIntervalMs"`
+
+	// MetadataPullRequestTimeoutMs is the timeout for metadata pull requests to workflow nodes
+	MetadataPullRequestTimeoutMs int `json:"metadataPullRequestTimeoutMs"`
+
+	// OutboundRequestCacheTTLMs is how long to cache outbound HTTP action responses from external endpoints before they expire
+	OutboundRequestCacheTTLMs int `json:"outboundRequestCacheTTLMs"`
+
+	// JWTReplayPeriodMs is how long JWT IDs are cached to prevent replay attacks (in milliseconds)
+	JWTReplayPeriodMs int `json:"jwtReplayPeriodMs"`
 }
 
 type RetryConfig struct {
-	InitialIntervalMs int     `json:"initialIntervalMs"`
-	MaxIntervalTimeMs int     `json:"maxIntervalTimeMs"`
-	Multiplier        float64 `json:"multiplier"`
+	// InitialIntervalMs is the starting delay between retry attempts
+	InitialIntervalMs int `json:"initialIntervalMs"`
+
+	// MaxIntervalTimeMs is the maximum delay between retry attempts
+	MaxIntervalTimeMs int `json:"maxIntervalTimeMs"`
+
+	// Multiplier is the factor by which the retry interval increases after each failed attempt
+	Multiplier float64 `json:"multiplier"`
 }
 
 func NewGatewayHandler(handlerConfig json.RawMessage, donConfig *config.DONConfig, don handlers.DON, httpClient network.HTTPClient, lggr logger.Logger, lf limits.Factory) (*gatewayHandler, error) {
@@ -135,7 +157,7 @@ func WithDefaults(cfg ServiceConfig) ServiceConfig {
 		cfg.MetadataPullIntervalMs = defaultMetadataPullIntervalMs
 	}
 	if cfg.MetadataAggregationIntervalMs == 0 {
-		cfg.MetadataAggregationIntervalMs = defaultMetadataPullIntervalMs
+		cfg.MetadataAggregationIntervalMs = defaultMetadataAggregationIntervalMs
 	}
 	if cfg.MetadataPullRequestTimeoutMs == 0 {
 		cfg.MetadataPullRequestTimeoutMs = defaultMetadataPullRequestTimeoutMs

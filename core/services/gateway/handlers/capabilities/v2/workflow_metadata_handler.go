@@ -124,9 +124,11 @@ func (h *WorkflowMetadataHandler) syncMetadata() {
 		// workflow reference and workflow ID mapping in the gateway eventually becomes consistent
 		// with the mapping on-chain
 		if _, exists := workflowIDToRef[data.WorkflowSelector.WorkflowID]; exists {
+			h.lggr.Debug("Duplicate workflow ID found", "workflowID", data.WorkflowSelector.WorkflowID)
 			continue
 		}
 		if _, exists := workflowRefToID[workflowRef]; exists {
+			h.lggr.Debugw("Duplicate workflow reference found", "workflowRef", workflowRef, "workflowID", data.WorkflowSelector.WorkflowID)
 			continue
 		}
 		workflowIDToRef[data.WorkflowSelector.WorkflowID] = workflowRef
@@ -139,21 +141,16 @@ func (h *WorkflowMetadataHandler) syncMetadata() {
 	h.mu.Lock()
 	defer h.mu.Unlock()
 
-	for workflowID, workflowRef := range workflowIDToRef {
-		if _, exists := h.workflowIDToRef[workflowID]; !exists {
-			h.lggr.Infow("Workflow registered. Listening to requests",
-				"workflowID", workflowID,
-				"workflowOwner", workflowRef.workflowOwner,
-				"workflowName", workflowRef.workflowName,
-				"workflowTag", workflowRef.workflowTag,
-			)
-		}
-	}
-
 	if len(h.workflowIDToRef) == 0 && len(workflowIDToRef) > 0 {
 		latencyMs := time.Since(h.startTime).Milliseconds()
 		h.metrics.RecordMetadataSyncStartupLatency(context.Background(), latencyMs, h.lggr)
 	}
+	// Log all registered workflow IDs
+	workflowIDs := make([]string, 0, len(workflowIDToRef))
+	for workflowID := range workflowIDToRef {
+		workflowIDs = append(workflowIDs, workflowID)
+	}
+	h.lggr.Debugw("Synced workflow metadata", "workflowIDs", workflowIDs, "count", len(workflowIDs))
 
 	h.authorizedKeys = authorizedKeys
 	h.workflowRefToID = workflowRefToID

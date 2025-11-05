@@ -490,7 +490,7 @@ func (h *httpTriggerHandler) reapExpiredCallbacks(ctx context.Context) {
 	now := time.Now()
 	var expiredCount int
 	for reqID, callback := range h.callbacks {
-		if now.Sub(callback.createdAt) > time.Duration(h.config.MaxTriggerRequestDurationMs)*time.Millisecond {
+		if now.Sub(callback.createdAt) > time.Duration(h.config.CleanUpPeriodMs)*time.Millisecond {
 			h.metrics.IncrementRequestErrors(ctx, jsonrpc.ErrInternal, h.lggr)
 			h.cleanupCallback(reqID)
 			expiredCount++
