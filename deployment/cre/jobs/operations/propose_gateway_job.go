@@ -54,7 +54,11 @@ var ProposeGatewayJob = operations.NewOperation[ProposeGatewayJobInput, ProposeG
 				Key:   offchain.FilterKeyDONName,
 				Value: ad.Name,
 			}
-			nodes, err := pkg.FetchNodeChainConfigsFromJD(deps.Env.GetContext(), deps.Env, filter)
+			reqChainCfgs := pkg.FetchNodesRequest{
+				Domain:  input.Domain,
+				Filters: []offchain.TargetDONFilter{filter},
+			}
+			nodes, err := pkg.FetchNodeChainConfigsFromJD(deps.Env.GetContext(), deps.Env, reqChainCfgs)
 			if err != nil {
 				return ProposeGatewayJobOutput{}, err
 			}
@@ -64,11 +68,11 @@ var ProposeGatewayJob = operations.NewOperation[ProposeGatewayJobInput, ProposeG
 				return ProposeGatewayJobOutput{}, err
 			}
 
-			req := pkg.FetchNodesRequest{
+			reqNodes := pkg.FetchNodesRequest{
 				Domain:  input.Domain,
 				Filters: []offchain.TargetDONFilter{filter},
 			}
-			ns, err := pkg.FetchNodesFromJD(deps.Env.GetContext(), deps.Env, req)
+			ns, err := pkg.FetchNodesFromJD(deps.Env.GetContext(), deps.Env, reqNodes)
 			if err != nil {
 				return ProposeGatewayJobOutput{}, err
 			}
