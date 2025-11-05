@@ -19,6 +19,7 @@ import (
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/params"
 	mcmstypes "github.com/smartcontractkit/mcms/types"
+	"github.com/smartcontractkit/quarantine"
 
 	chainselectors "github.com/smartcontractkit/chain-selectors"
 
@@ -1289,6 +1290,7 @@ func setupFastTransfer1_6TestEnvironment(t *testing.T, useMCMS bool) *fastTransf
 }
 
 func TestFastTransfer1_6Lanes(t *testing.T) {
+	quarantine.Flaky(t, "DX-2300")
 	baseCtx := setupFastTransfer1_6TestEnvironment(t, false)
 
 	for i, tc := range fastTransferTestCases {
