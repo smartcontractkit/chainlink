@@ -49,6 +49,8 @@ var ProposeGatewayJob = operations.NewOperation[ProposeGatewayJobInput, ProposeG
 	"Propose Gateway Job",
 	func(b operations.Bundle, deps ProposeGatewayJobDeps, input ProposeGatewayJobInput) (ProposeGatewayJobOutput, error) {
 		targetDONs := make([]pkg.TargetDON, 0)
+
+		// Base filters
 		filters := &nodev1.ListNodesRequest_Filter{}
 		for _, f := range input.DONFilters {
 			filters = offchain.TargetDONFilter{
@@ -57,10 +59,17 @@ var ProposeGatewayJob = operations.NewOperation[ProposeGatewayJobInput, ProposeG
 			}.AddToFilter(filters)
 		}
 
+		// Build up target DONs
 		for _, ad := range input.DONs {
+			// Overwrite the DON name filter to query information about each target DON
+			filtersWithTargetDONName := offchain.TargetDONFilter{
+				Key:   offchain.FilterKeyDONName,
+				Value: ad.Name,
+			}.AddToFilter(filters)
+
 			nodes, err := pkg.FetchNodeChainConfigsFromJD(deps.Env.GetContext(), deps.Env, pkg.FetchNodesRequest{
 				Domain:  input.Domain,
-				Filters: filters,
+				Filters: filtersWithTargetDONName,
 			})
 			if err != nil {
 				return ProposeGatewayJobOutput{}, err
@@ -73,7 +82,7 @@ var ProposeGatewayJob = operations.NewOperation[ProposeGatewayJobInput, ProposeG
 
 			ns, err := pkg.FetchNodesFromJD(deps.Env.GetContext(), deps.Env, pkg.FetchNodesRequest{
 				Domain:  input.Domain,
-				Filters: filters,
+				Filters: filtersWithTargetDONName,
 			})
 			if err != nil {
 				return ProposeGatewayJobOutput{}, err
