@@ -5,7 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"maps"
-	"time"
+	"os"
 
 	"github.com/Masterminds/semver/v3"
 	"github.com/ethereum/go-ethereum/common"
@@ -40,12 +40,6 @@ import (
 	libformat "github.com/smartcontractkit/chainlink/system-tests/lib/format"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/infra"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/worker"
-)
-
-const (
-	GithubReadTokenEnvVarName          = "GITHUB_READ_TOKEN"
-	E2eJobDistributorImageEnvVarName   = "E2E_JD_IMAGE"
-	E2eJobDistributorVersionEnvVarName = "E2E_JD_VERSION"
 )
 
 type SetupOutput struct {
@@ -112,6 +106,15 @@ func SetupTestEnvironment(
 ) (*SetupOutput, error) {
 	if input == nil {
 		return nil, pkgerrors.New("input is nil")
+	}
+
+	//TODO: remove these checks in December 2025, when everyone has migrated
+	if val := os.Getenv("E2E_JD_IMAGE"); val != "" {
+		return nil, errors.New("E2E_JD_IMAGE and E2E_JD_VERSION are deprecated, please use CTF_JD_IMAGE instead to specify the Job Distributor image with tag")
+	}
+
+	if val := os.Getenv("E2E_TEST_CHAINLINK_IMAGE"); val != "" {
+		return nil, errors.New("E2E_TEST_CHAINLINK_IMAGE and E2E_TEST_CHAINLINK_VERSION are deprecated, please use CTF_CHAINLINK_IMAGE instead to specify the Chainlink Node image with tag")
 	}
 
 	if err := input.Validate(); err != nil {
@@ -272,21 +275,71 @@ func SetupTestEnvironment(
 		return nil, pkgerrors.Wrap(donStartErr, "failed to start DONs")
 	}
 	dons := cre.NewDons(startedDONs.DONs(), topology.GatewayConnectors)
+	deployKeystoneContractsOutput.Env.Offchain = startedJD.Client
 
 	linkDonsToJDInput := &cre.LinkDonsToJDInput{
-		JDClient:        startedJD.Client,
 		Blockchains:     deployedBlockchains.Outputs,
 		CldfEnvironment: deployKeystoneContractsOutput.Env,
 		Topology:        topology,
 		Dons:            dons,
 	}
 
-	_, cldErr := cre.LinkToJobDistributor(ctx, linkDonsToJDInput)
+	cldErr := cre.LinkToJobDistributor(ctx, linkDonsToJDInput)
 	if cldErr != nil {
 		return nil, pkgerrors.Wrap(cldErr, "failed to link DONs to Job Distributor")
 	}
 
 	fmt.Print(libformat.PurpleText("%s", input.StageGen.WrapAndNext("DONs and Job Distributor started and linked in %.2f seconds", input.StageGen.Elapsed().Seconds())))
+	fmt.Print(libformat.PurpleText("%s", input.StageGen.Wrap("Creating Jobs with Job Distributor")))
+
+	gJobErr := gateway.CreateJobs(ctx, startedJD.Client, dons, gatewayJobConfigs)
+	if gJobErr != nil {
+		return nil, pkgerrors.Wrap(gErr, "failed to create gateway jobs with Job Distributor")
+	}
+
+	// Deprecated: use Features instead. Support for InstallableCapability will be removed in the future.
+	jobSpecFactoryFunctions := make([]cre.JobSpecFn, 0)
+	for _, capability := range input.Capabilities {
+		jobSpecFactoryFunctions = append(jobSpecFactoryFunctions, capability.JobSpecFn())
+	}
+
+	// allow to pass custom job spec factories for extensibility
+	jobSpecFactoryFunctions = append(jobSpecFactoryFunctions, input.JobSpecFactoryFunctions...)
+	createJobsDeps := CreateJobsWithJdOpDeps{
+		Logger:                        testLogger,
+		SingleFileLogger:              singleFileLogger,
+		RegistryChainBlockchainOutput: deployedBlockchains.RegistryChain().CtfOutput(),
+		JobSpecFactoryFunctions:       jobSpecFactoryFunctions,
+		CreEnvironment:                creEnvironment,
+		Dons:                          dons,
+		NodeSets:                      input.NodeSets,
+		Capabilities:                  input.Capabilities,
+	}
+	_, createJobsErr := operations.ExecuteOperation(deployKeystoneContractsOutput.Env.OperationsBundle, CreateJobsWithJdOp, createJobsDeps, CreateJobsWithJdOpInput{})
+	if createJobsErr != nil {
+		return nil, pkgerrors.Wrap(createJobsErr, "failed to create jobs with Job Distributor")
+	}
+
+	fmt.Print(libformat.PurpleText("%s", input.StageGen.WrapAndNext("Jobs created in %.2f seconds", input.StageGen.Elapsed().Seconds())))
+	fmt.Print(libformat.PurpleText("%s", input.StageGen.Wrap("Funding Chainlink nodes")))
+
+	fundingPerChainFamilyForEachNode := map[string]uint64{
+		chainselectors.FamilyEVM:    10000000000000000, // 0.01 ETH
+		chainselectors.FamilySolana: 50_000_000_000,    // 50 SOL
+		chainselectors.FamilyTron:   100_000_000,       // 100 TRX in SUN
+	}
+
+	fErr := FundNodes(
+		ctx,
+		testLogger,
+		dons,
+		deployedBlockchains.Outputs,
+		fundingPerChainFamilyForEachNode,
+	)
+	if fErr != nil {
+		return nil, pkgerrors.Wrap(fErr, "failed to fund chainlink nodes")
+	}
+	fmt.Print(libformat.PurpleText("%s", input.StageGen.WrapAndNext("Chainlink nodes funded in %.2f seconds", input.StageGen.Elapsed().Seconds())))
 
 	fmt.Print(libformat.PurpleText("%s", input.StageGen.Wrap("Configuring Workflow and Capability Registry contracts")))
 	wfRegVersion := *semver.MustParse(input.ContractVersions[keystone_changeset.WorkflowRegistry.String()])
@@ -361,72 +414,6 @@ func SetupTestEnvironment(
 
 	fmt.Print(libformat.PurpleText("%s", input.StageGen.WrapAndNext("Workflow and Capability Registry contracts configured in %.2f seconds", input.StageGen.Elapsed().Seconds())))
 
-	fmt.Print(libformat.PurpleText("%s", input.StageGen.Wrap("Creating Jobs with Job Distributor")))
-
-	// Retry gateway job creation with delays to allow nodes to sync registry
-	const maxRetries = 10
-	const retryDelay = 10 * time.Second
-	var gJobErr error
-	for attempt := 0; attempt < maxRetries; attempt++ {
-		if attempt > 1 {
-			testLogger.Info().Msgf("Retrying gateway job creation (attempt %d/%d) after %v delay...", attempt, maxRetries, retryDelay)
-			time.Sleep(retryDelay)
-		}
-		gJobErr = gateway.CreateJobs(ctx, startedJD.Client, dons, gatewayJobConfigs)
-		if gJobErr == nil {
-			testLogger.Info().Msgf("Gateway jobs created successfully on attempt %d", attempt)
-			break
-		}
-		testLogger.Warn().Err(gJobErr).Msgf("Failed to create gateway jobs on attempt %d/%d", attempt, maxRetries)
-	}
-	if gJobErr != nil {
-		return nil, pkgerrors.Wrap(gJobErr, "failed to create gateway jobs with Job Distributor after retries")
-	}
-
-	// Deprecated: use Features instead. Support for InstallableCapability will be removed in the future.
-	jobSpecFactoryFunctions := make([]cre.JobSpecFn, 0)
-	for _, capability := range input.Capabilities {
-		jobSpecFactoryFunctions = append(jobSpecFactoryFunctions, capability.JobSpecFn())
-	}
-
-	// allow to pass custom job spec factories for extensibility
-	jobSpecFactoryFunctions = append(jobSpecFactoryFunctions, input.JobSpecFactoryFunctions...)
-	createJobsDeps := CreateJobsWithJdOpDeps{
-		Logger:                    testLogger,
-		SingleFileLogger:          singleFileLogger,
-		HomeChainBlockchainOutput: deployedBlockchains.RegistryChain().CtfOutput(),
-		JobSpecFactoryFunctions:   jobSpecFactoryFunctions,
-		CreEnvironment:            creEnvironment,
-		Dons:                      dons,
-		NodeSets:                  input.NodeSets,
-		Capabilities:              input.Capabilities,
-	}
-	_, createJobsErr := operations.ExecuteOperation(deployKeystoneContractsOutput.Env.OperationsBundle, CreateJobsWithJdOp, createJobsDeps, CreateJobsWithJdOpInput{})
-	if createJobsErr != nil {
-		return nil, pkgerrors.Wrap(createJobsErr, "failed to create jobs with Job Distributor")
-	}
-
-	fmt.Print(libformat.PurpleText("%s", input.StageGen.WrapAndNext("Jobs created in %.2f seconds", input.StageGen.Elapsed().Seconds())))
-	fmt.Print(libformat.PurpleText("%s", input.StageGen.Wrap("Funding Chainlink nodes")))
-
-	fundingPerChainFamilyForEachNode := map[string]uint64{
-		chainselectors.FamilyEVM:    10000000000000000, // 0.01 ETH
-		chainselectors.FamilySolana: 50_000_000_000,    // 50 SOL
-		chainselectors.FamilyTron:   100_000_000,       // 100 TRX in SUN
-	}
-
-	fErr := FundNodes(
-		ctx,
-		testLogger,
-		dons,
-		deployedBlockchains.Outputs,
-		fundingPerChainFamilyForEachNode,
-	)
-	if fErr != nil {
-		return nil, pkgerrors.Wrap(fErr, "failed to fund chainlink nodes")
-	}
-	fmt.Print(libformat.PurpleText("%s", input.StageGen.WrapAndNext("Chainlink nodes funded in %.2f seconds", input.StageGen.Elapsed().Seconds())))
-
 	fmt.Print(libformat.PurpleText("%s", input.StageGen.Wrap("Applying Features after environment startup")))
 	for _, feature := range input.Features.List() {
 		for _, don := range dons.DonsWithFlag(feature.Flag()) {
@@ -482,7 +469,7 @@ func appendOutputsToInput(input *SetupInput, nodeSetOutput []*cre.WrappedNodeOut
 func newCldfEnvironment(ctx context.Context, singleFileLogger logger.Logger, cldfBlockchains cldf_chain.BlockChains) *cldf.Environment {
 	memoryDatastore := datastore.NewMemoryDataStore()
 	allChainsCLDEnvironment := &cldf.Environment{
-		Name:              "local CRE",
+		Name:              cre.EnvironmentName,
 		Logger:            singleFileLogger,
 		ExistingAddresses: cldf.NewMemoryAddressBook(),
 		DataStore:         memoryDatastore.Seal(),

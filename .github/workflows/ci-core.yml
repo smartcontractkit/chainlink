@@ -187,6 +187,7 @@ jobs:
           - cmd: go_core_tests_integration
             os: ${{ needs.runner-config.outputs.core-tests-integration-runner }}
             should-run: ${{ needs.filter.outputs.should-run-core-tests }}
+            trunk-auto-quarantine: "true"
             setup-solana: "true"
             install-loopps: "true"
 

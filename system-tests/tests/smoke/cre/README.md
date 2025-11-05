@@ -185,9 +185,8 @@ Example `launch.json` entry:
 
 **CI behavior differs**: In CI, workflows and binaries are uploaded ahead of time, and images are injected via:
 
-- `E2E_JD_VERSION`
-- `E2E_TEST_CHAINLINK_IMAGE`
-- `E2E_TEST_CHAINLINK_VERSION`
+- `CTF_JD_IMAGE`
+- `CTF_CHAINLINK_IMAGE`
 
 ---
 

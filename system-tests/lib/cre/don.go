@@ -15,8 +15,10 @@ import (
 
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	"github.com/smartcontractkit/chainlink-deployments-framework/offchain/jd"
+	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
 	nodev1 "github.com/smartcontractkit/chainlink-protos/job-distributor/v1/node"
-	"github.com/smartcontractkit/chainlink-protos/job-distributor/v1/shared/ptypes"
+	cre_offchain "github.com/smartcontractkit/chainlink/deployment/cre/pkg/offchain"
+	offchain_ops "github.com/smartcontractkit/chainlink/deployment/cre/pkg/offchain/changeset/operations"
 	keystone_changeset "github.com/smartcontractkit/chainlink/deployment/keystone/changeset"
 	ks_contracts_op "github.com/smartcontractkit/chainlink/deployment/keystone/changeset/operations/contracts"
 
@@ -242,6 +244,7 @@ func NewDON(ctx context.Context, donMetadata *DonMetadata, ctfNodes []*clnode.Ou
 			if err != nil {
 				return fmt.Errorf("failed to create node %d: %w", idx, err)
 			}
+			node.DON = don
 
 			mu.Lock()
 			don.Nodes = append(don.Nodes, node)
@@ -269,14 +272,19 @@ func NewDON(ctx context.Context, donMetadata *DonMetadata, ctfNodes []*clnode.Ou
 	return don, nil
 }
 
-func RegisterWithJD(ctx context.Context, d *Don, supportedChains []blockchains.Blockchain, jd *jd.JobDistributor) error {
+func RegisterWithJD(ctx context.Context, d *Don, supportedChains []blockchains.Blockchain, cldfEnv *cldf.Environment) error {
 	mu := &sync.Mutex{}
+
+	jd, ok := cldfEnv.Offchain.(*jd.JobDistributor)
+	if !ok {
+		return fmt.Errorf("offchain environment is not a *.jd.JobDistributor, but %T", cldfEnv.Offchain)
+	}
 
 	errgroup := errgroup.Group{}
 	for idx, node := range d.Nodes {
 		errgroup.Go(func() error {
 			// Set up Job distributor in node and register node with the job distributor
-			setupErr := node.SetUpAndLinkJobDistributor(ctx, jd)
+			setupErr := node.SetUpAndLinkJobDistributor(ctx, cldfEnv)
 			if setupErr != nil {
 				return fmt.Errorf("failed to set up job distributor in node %s: %w", node.Name, setupErr)
 			}
@@ -320,7 +328,7 @@ type Node struct {
 	Roles                 Roles                  `toml:"roles" json:"roles"`
 
 	Clients NodeClients `toml:"-" json:"-"`
-	DON     Don         `toml:"-" json:"-"`
+	DON     *Don        `toml:"-" json:"-"`
 }
 
 func (n *Node) Metadata() *NodeMetadata {
@@ -595,7 +603,7 @@ func (n *Node) AcceptJob(ctx context.Context, spec string) error {
 
 // RegisterNodeToJobDistributor fetches the CSA public key of the node and registers the node with the job distributor
 // it sets the node id returned by JobDistributor as a result of registration in the node struct
-func (n *Node) RegisterNodeToJobDistributor(ctx context.Context, jd *jd.JobDistributor, labels []*ptypes.Label) error {
+func (n *Node) RegisterNodeToJobDistributor(ctx context.Context, cldfEnv *cldf.Environment) error {
 	// Get the public key of the node
 	if n.Keys.CSAKey == nil {
 		csaKeyRes, err := n.Clients.GQLClient.FetchCSAPublicKey(ctx)
@@ -611,64 +619,31 @@ func (n *Node) RegisterNodeToJobDistributor(ctx context.Context, jd *jd.JobDistr
 		}
 	}
 
-	labels = append(labels, &ptypes.Label{
-		Key:   LabelNodeP2PIDKey,
-		Value: ptr.Ptr(n.Keys.P2PKey.PeerID.String()),
-	})
+	labels := make(map[string]string)
+	labels[cre_offchain.FilterKeyDONName] = n.DON.Name
+
+	in := offchain_ops.JDRegisterNodeOpInput{
+		Domain:      cre_offchain.ProductLabel,
+		Name:        n.Name,
+		CSAKey:      strings.TrimPrefix(n.Keys.CSAKey.Key, "csa_"),
+		P2PID:       n.PeerID(),
+		DONName:     n.DON.Name,
+		Labels:      labels,
+		IsBootstrap: n.HasRole(RoleBootstrap),
+	}
+
+	regOut, regErr := operations.ExecuteOperation(cldfEnv.OperationsBundle, offchain_ops.JDUpsertNodeOp, offchain_ops.JDRegisterNodeOpDeps{
+		Env: *cldfEnv,
+	}, in)
+	if regErr != nil {
+		return fmt.Errorf("failed to register node in job distributor: %w", regErr)
+	}
 
 	if n.JobDistributorDetails == nil {
 		n.JobDistributorDetails = &JobDistributorDetails{}
 	}
 
-	var registerResponse *nodev1.RegisterNodeResponse
-
-	// register the node in the job distributor
-	err := retry.Do(ctx, retry.WithMaxRetries(4, retry.NewConstant(5*time.Second)), func(ctx context.Context) error {
-		var rErr error
-		registerResponse, rErr = jd.RegisterNode(ctx, &nodev1.RegisterNodeRequest{
-			PublicKey: strings.TrimPrefix(n.Keys.CSAKey.Key, "csa_"),
-			Labels:    labels,
-			Name:      n.Name,
-		})
-
-		if rErr != nil {
-			if strings.Contains(rErr.Error(), "AlreadyExists") {
-				return rErr
-			}
-			return retry.RetryableError(fmt.Errorf("failed to register node %s in JD, retrying..: %w", n.Name, rErr))
-		}
-		return nil
-	})
-
-	// node already registered, fetch it's id
-	if err != nil && strings.Contains(err.Error(), "AlreadyExists") {
-		nodesResponse, listErr := jd.ListNodes(ctx, &nodev1.ListNodesRequest{
-			Filter: &nodev1.ListNodesRequest_Filter{
-				Selectors: []*ptypes.Selector{
-					{
-						Key:   LabelNodeP2PIDKey,
-						Op:    ptypes.SelectorOp_EQ,
-						Value: ptr.Ptr(n.Keys.P2PKey.PeerID.String()),
-					},
-				},
-			},
-		})
-		if listErr != nil {
-			return listErr
-		}
-		nodes := nodesResponse.GetNodes()
-		if len(nodes) == 0 {
-			return fmt.Errorf("failed to find node: %v", n.Name)
-		}
-		n.JobDistributorDetails.NodeID = nodes[0].Id
-		return nil
-	} else if err != nil {
-		return fmt.Errorf("failed to register node %s: %w", n.Name, err)
-	}
-	if registerResponse.GetNode().GetId() == "" {
-		return fmt.Errorf("no node id returned from job distributor for node %s", n.Name)
-	}
-	n.JobDistributorDetails.NodeID = registerResponse.GetNode().GetId()
+	n.JobDistributorDetails.NodeID = regOut.Output.Node.ID
 
 	return nil
 }
@@ -702,33 +677,17 @@ func (n *Node) CreateJobDistributor(ctx context.Context, jd *jd.JobDistributor) 
 
 // SetUpAndLinkJobDistributor sets up the job distributor in the node and registers the node with the job distributor
 // it sets the job distributor id for node
-func (n *Node) SetUpAndLinkJobDistributor(ctx context.Context, jd *jd.JobDistributor) error {
-	labels := make([]*ptypes.Label, 0)
-
-	for _, role := range n.Roles {
-		switch role {
-		case RoleWorker:
-			labels = append(labels, &ptypes.Label{
-				Key:   LabelNodeTypeKey,
-				Value: ptr.Ptr(LabelNodeTypeValuePlugin),
-			})
-		case RoleBootstrap:
-			labels = append(labels, &ptypes.Label{
-				Key:   LabelNodeTypeKey,
-				Value: ptr.Ptr(LabelNodeTypeValueBootstrap),
-			})
-		case RoleGateway:
-			// no specific data to set for gateway nodes yet
-		default:
-			return fmt.Errorf("unknown node role: %s", role)
-		}
-	}
-
-	// register the node in the job distributor
-	err := n.RegisterNodeToJobDistributor(ctx, jd, labels)
+func (n *Node) SetUpAndLinkJobDistributor(ctx context.Context, cldfEnv *cldf.Environment) error {
+	err := n.RegisterNodeToJobDistributor(ctx, cldfEnv)
 	if err != nil {
 		return err
 	}
+
+	jd, ok := cldfEnv.Offchain.(*jd.JobDistributor)
+	if !ok {
+		return fmt.Errorf("offchain environment is not a *.jd.JobDistributor, but %T", cldfEnv.Offchain)
+	}
+
 	// now create the job distributor in the node
 	id, err := n.CreateJobDistributor(ctx, jd)
 	if err != nil &&
@@ -808,9 +767,9 @@ func (n *Node) ExportOCR2Keys(id string) (*clclient.ExportedOCR2Key, error) {
 	return keys, nil
 }
 
-func LinkToJobDistributor(ctx context.Context, input *LinkDonsToJDInput) (*cldf.Environment, error) {
+func LinkToJobDistributor(ctx context.Context, input *LinkDonsToJDInput) error {
 	if input == nil {
-		return nil, errors.New("input is nil")
+		return errors.New("input is nil")
 	}
 
 	var nodeIDs []string
@@ -818,19 +777,18 @@ func LinkToJobDistributor(ctx context.Context, input *LinkDonsToJDInput) (*cldf.
 	for idx, don := range input.Dons.List() {
 		supportedChains, schErr := FindDONsSupportedChains(input.Topology.DonsMetadata.List()[idx], input.Blockchains)
 		if schErr != nil {
-			return nil, errors.Wrap(schErr, "failed to find supported chains for DON")
+			return errors.Wrap(schErr, "failed to find supported chains for DON")
 		}
 
-		if err := RegisterWithJD(ctx, don, supportedChains, input.JDClient); err != nil {
-			return nil, fmt.Errorf("failed to register DON with JD: %w", err)
+		if err := RegisterWithJD(ctx, don, supportedChains, input.CldfEnvironment); err != nil {
+			return fmt.Errorf("failed to register DON with JD: %w", err)
 		}
 		nodeIDs = append(nodeIDs, don.JDNodeIDs()...)
 	}
 
-	input.CldfEnvironment.Offchain = input.JDClient
 	input.CldfEnvironment.NodeIDs = nodeIDs
 
-	return input.CldfEnvironment, nil
+	return nil
 }
 
 // copied from flags package to avoid circular dependency

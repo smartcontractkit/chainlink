@@ -126,14 +126,12 @@ func BuildFromSavedState(ctx context.Context, cldLogger logger.Logger, cachedInp
 
 	dons := cre.NewDons(donsSlice, envArtifact.GatewayConnectors)
 	linkDonsToJDInput := &cre.LinkDonsToJDInput{
-		JDClient:        offChain,
 		Blockchains:     deployedBlockchains.Outputs,
 		CldfEnvironment: cldEnv,
 		Topology:        topology,
 		Dons:            dons,
 	}
-	var linkErr error
-	cldEnv, linkErr = cre.LinkToJobDistributor(ctx, linkDonsToJDInput)
+	linkErr := cre.LinkToJobDistributor(ctx, linkDonsToJDInput)
 	if linkErr != nil {
 		return nil, nil, errors.Wrap(linkErr, "failed to link dons to JD")
 	}

@@ -19,13 +19,15 @@ func MakeBinariesExecutable(customBinariesPaths map[cre.CapabilityFlag]string) e
 		}
 
 		// Check if file exists
-		if _, err := os.Stat(binaryPath); os.IsNotExist(err) {
+		if s, err := os.Stat(binaryPath); os.IsNotExist(err) {
 			absPath, absErr := filepath.Abs(binaryPath)
 			if absErr != nil {
 				return errors.Wrapf(absErr, "failed to get absolute path for binary %s", binaryPath)
 			}
 
 			return fmt.Errorf("no binary file for capability %s not found at '%s'. Please make sure the path is correct, update it in the capabilities TOML config or copy the binary to the expected location", absPath, capabilityFlag)
+		} else if s.IsDir() {
+			return fmt.Errorf("expected a file for capability %s but found a directory at '%s'. Please make sure the path is correct and update it in the capabilities TOML config", binaryPath, capabilityFlag)
 		}
 
 		// Make the binary executable

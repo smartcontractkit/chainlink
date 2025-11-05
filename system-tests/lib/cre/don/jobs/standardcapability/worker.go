@@ -2,10 +2,14 @@ package standardcapability
 
 import (
 	"fmt"
+	"path/filepath"
 
 	"github.com/google/uuid"
+	"github.com/pkg/errors"
 
 	jobv1 "github.com/smartcontractkit/chainlink-protos/job-distributor/v1/job"
+	crecapabilities "github.com/smartcontractkit/chainlink/system-tests/lib/cre/capabilities"
+	"github.com/smartcontractkit/chainlink/system-tests/lib/infra"
 )
 
 const (
@@ -31,4 +35,13 @@ func WorkerJobSpec(nodeID, name, command, config, oracleFactoryConfig string) *j
 			config,
 			oracleFactoryConfig),
 	}
+}
+
+func GetCommand(binaryPathOnHost string, provider infra.Provider) (string, error) {
+	containerPath, pathErr := crecapabilities.DefaultContainerDirectory(provider.Type)
+	if pathErr != nil {
+		return "", errors.Wrapf(pathErr, "failed to get default container directory for infra type %s", provider.Type)
+	}
+
+	return filepath.Join(containerPath, filepath.Base(binaryPathOnHost)), nil
 }
