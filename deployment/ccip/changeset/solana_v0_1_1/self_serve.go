@@ -84,9 +84,9 @@ func (cfg OnboardTokenPoolsForSelfServeConfig) Validate(e cldf.Environment, chai
 				return fmt.Errorf("token admin registry already exists for (mint: %s, router: %s)", mintStr, routerProgramAddress.String())
 			}
 		}
-		tokenPoolProgramID := chainState.GetActiveTokenPool(registerTokenConfig.PoolType, registerTokenConfig.Metadata) // If Metadata is nil it returns the CLL Token Pool Program
+		tokenPoolProgramID := chainState.GetActiveTokenPool(registerTokenConfig.PoolType, shared.CLLMetadata) // This changeset is to register the token pool in the CLL Token Pool Program
 		if (tokenPoolProgramID == solana.PublicKey{}) {
-			return errors.New("token pool program ID not found")
+			return fmt.Errorf("token pool program ID not found fpr pool type: %s", registerTokenConfig.PoolType)
 		}
 		tokenPoolPDA, err := solTokenUtil.TokenPoolConfigAddress(tokenMint, tokenPoolProgramID)
 		if err != nil {
@@ -152,6 +152,7 @@ func OnboardTokenPoolsForSelfServe(e cldf.Environment, cfg OnboardTokenPoolsForS
 			return cldf.ChangesetOutput{}, err
 		}
 		tokenInstructions = append(tokenInstructions, transferTokenPoolOwnershipIx)
+		e.Logger.Infow("Onboarding Token in ", "TokenProgramID", currentTokenPoolSolanaState.tokenPoolProgramID.String())
 		// if the ccip admin is timelock, build mcms transaction
 		if cfg.MCMS != nil {
 			inputs := []MCMSTxParams{{
@@ -335,9 +336,9 @@ type tokenPoolSolanaState struct {
 }
 
 func loadTokenPoolSolanaState(cfg OnboardTokenPoolConfig, state globalState) (tokenPoolSolanaState, error) {
-	tokenPoolProgramID := state.chainState.GetActiveTokenPool(cfg.PoolType, cfg.Metadata) // If Metadata is nil it returns the CLL Token Pool Program
+	tokenPoolProgramID := state.chainState.GetActiveTokenPool(cfg.PoolType, shared.CLLMetadata) // This changeset is to set up the token pool in the CLL Program
 	if (tokenPoolProgramID == solana.PublicKey{}) {
-		return tokenPoolSolanaState{}, errors.New("token pool program ID not found")
+		return tokenPoolSolanaState{}, fmt.Errorf("token pool program ID not found fpr pool type: %s", cfg.PoolType)
 	}
 	poolConfigPDA, err := solTokenUtil.TokenPoolConfigAddress(cfg.TokenMint, tokenPoolProgramID)
 	if err != nil {
