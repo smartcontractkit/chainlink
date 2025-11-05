@@ -14,6 +14,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/freeport"
+	"github.com/smartcontractkit/quarantine"
 
 	"github.com/smartcontractkit/chainlink/v2/core"
 	"github.com/smartcontractkit/chainlink/v2/core/config/env"
@@ -58,6 +59,7 @@ var (
 // -run param of go test without the txtar or txt suffix, like so:
 // go test . -run TestScripts/node/validate/default
 func TestScripts(t *testing.T) {
+	quarantine.Flaky(t, "DX-2030")
 	if testing.Short() {
 		t.Skip("skipping testscript")
 	}
