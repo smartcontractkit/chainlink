@@ -18,6 +18,7 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/globals"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/internal"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/v1_6"
+	"github.com/smartcontractkit/chainlink/deployment/ccip/shared"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
 
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/types"
@@ -174,8 +175,14 @@ func (s SetOCR3Offramp) Apply(e cldf.Environment, config v1_6.SetOCR3OffRampConf
 		}
 	}
 
+	ds, err := shared.PopulateDataStore(ab)
+	if err != nil {
+		return cldf.ChangesetOutput{}, fmt.Errorf("failed to populate in-memory DataStore: %w", err)
+	}
+
 	return cldf.ChangesetOutput{
 		AddressBook: ab,
+		DataStore:   ds,
 	}, nil
 }
 

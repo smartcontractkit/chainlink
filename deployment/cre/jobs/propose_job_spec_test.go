@@ -475,10 +475,13 @@ func TestProposeJobSpec_Apply(t *testing.T) {
 		reqs, err := testEnv.TestJD.ListProposedJobRequests()
 		require.NoError(t, err)
 
-		for _, req := range reqs {
-			// log each spec in readable yaml format
+		filteredReqs := slices.DeleteFunc(reqs, func(s *job.ProposeJobRequest) bool {
+			return !strings.Contains(s.Spec, `name = "cron-cap-job"`)
+		})
+		assert.Len(t, filteredReqs, 4) // there are 4 plugin nodes
+
+		for _, req := range filteredReqs {
 			t.Logf("Job Spec:\n%s", req.Spec)
-			assert.Contains(t, req.Spec, `name = "cron-cap-job"`)
 			assert.Contains(t, req.Spec, `command = "cron"`)
 			assert.Contains(t, req.Spec, `config = """CRON_TZ=UTC * * * * *"""`)
 			assert.Contains(t, req.Spec, `externalJobID = "a-cron-job-id"`)
@@ -527,9 +530,12 @@ perSenderBurst = 100
 		reqs, err := testEnv.TestJD.ListProposedJobRequests()
 		require.NoError(t, err)
 
-		for _, req := range reqs {
-			// log each spec in readable yaml format
-			t.Logf("Job Spec:\n%s", req.Spec)
+		filteredReqs := slices.DeleteFunc(reqs, func(s *job.ProposeJobRequest) bool {
+			return !strings.Contains(s.Spec, `name = "custom-compute-cap-job"`)
+		})
+		assert.Len(t, filteredReqs, 4) // there are 4 plugin nodes
+
+		for _, req := range filteredReqs {
 			assert.Contains(t, req.Spec, `name = "custom-compute-cap-job"`)
 			assert.Contains(t, req.Spec, `command = "__builtin_custom-compute-action"`)
 			assert.Contains(t, req.Spec, `config = """NumWorkers = 2
@@ -578,10 +584,13 @@ perSenderBurst = 100
 		reqs, err := testEnv.TestJD.ListProposedJobRequests()
 		require.NoError(t, err)
 
-		for _, req := range reqs {
-			// log each spec in readable yaml format
+		filteredReqs := slices.DeleteFunc(reqs, func(s *job.ProposeJobRequest) bool {
+			return !strings.Contains(s.Spec, `name = "web-api-trigger-cap-job"`)
+		})
+		assert.Len(t, filteredReqs, 4) // there are 4 plugin nodes
+
+		for _, req := range filteredReqs {
 			t.Logf("Job Spec:\n%s", req.Spec)
-			assert.Contains(t, req.Spec, `name = "web-api-trigger-cap-job"`)
 			assert.Contains(t, req.Spec, `command = "__builtin_web-api-trigger"`)
 			assert.Contains(t, req.Spec, `externalJobID = "a-web-api-trigger-job-id"`)
 		}
@@ -628,10 +637,13 @@ PerSenderBurst = 100
 		reqs, err := testEnv.TestJD.ListProposedJobRequests()
 		require.NoError(t, err)
 
-		for _, req := range reqs {
-			// log each spec in readable yaml format
+		filteredReqs := slices.DeleteFunc(reqs, func(s *job.ProposeJobRequest) bool {
+			return !strings.Contains(s.Spec, `name = "web-api-target-cap-job"`)
+		})
+		assert.Len(t, filteredReqs, 4) // there are 4 plugin nodes
+
+		for _, req := range filteredReqs {
 			t.Logf("Job Spec:\n%s", req.Spec)
-			assert.Contains(t, req.Spec, `name = "web-api-target-cap-job"`)
 			assert.Contains(t, req.Spec, `command = "__builtin_web-api-target"`)
 			assert.Contains(t, req.Spec, `config = """[rateLimiter]
 GlobalRPS = 10
@@ -685,10 +697,12 @@ PerSenderBurst = 100
 		reqs, err := testEnv.TestJD.ListProposedJobRequests()
 		require.NoError(t, err)
 
-		for _, req := range reqs {
-			// log each spec in readable yaml format
-			t.Logf("Job Spec:\n%s", req.Spec)
-			assert.Contains(t, req.Spec, `name = "log-event-trigger-cap-job"`)
+		filteredReqs := slices.DeleteFunc(reqs, func(s *job.ProposeJobRequest) bool {
+			return !strings.Contains(s.Spec, `name = "log-event-trigger-cap-job"`)
+		})
+		assert.Len(t, filteredReqs, 4) // there are 4 plugin nodes
+
+		for _, req := range filteredReqs {
 			assert.Contains(t, req.Spec, `command = "/usr/bin/log-event-trigger"`)
 			assert.Contains(t, req.Spec, `config = """{
 	"chainId": "1337",
@@ -737,9 +751,12 @@ PerSenderBurst = 100
 		reqs, err := testEnv.TestJD.ListProposedJobRequests()
 		require.NoError(t, err)
 
-		for _, req := range reqs {
-			// log each spec in readable yaml format
-			t.Logf("Job Spec:\n%s", req.Spec)
+		filteredReqs := slices.DeleteFunc(reqs, func(s *job.ProposeJobRequest) bool {
+			return !strings.Contains(s.Spec, `name = "readcontract-cap-job"`)
+		})
+		assert.Len(t, filteredReqs, 4) // there are 4 plugin nodes
+
+		for _, req := range filteredReqs {
 			assert.Contains(t, req.Spec, `name = "readcontract-cap-job"`)
 			assert.Contains(t, req.Spec, `command = "/usr/bin/read-contract"`)
 			assert.Contains(t, req.Spec, `config = """{"chainId":1337,"network":"evm"}"""`)
@@ -898,7 +915,9 @@ PerSenderBurst = 100
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), "failed to propose bootstrap job")
 		assert.Contains(t, err.Error(), "no nodes found for DON `test-don`")
-		assert.Contains(t, err.Error(), `{key:"zone"  value:"wrong-test-zone"}`)
+		// remove repeated whitespace for easier matching
+		err2 := strings.Join(strings.Fields(err.Error()), " ")
+		assert.Contains(t, err2, `{key:"zone" value:"wrong-test-zone"}`)
 	})
 
 	t.Run("failed ocr3 bootstrap job distribution", func(t *testing.T) {

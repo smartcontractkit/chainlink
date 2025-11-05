@@ -3,7 +3,6 @@ package environment
 import (
 	"context"
 	"fmt"
-	"os"
 	"sync"
 	"time"
 
@@ -16,7 +15,6 @@ import (
 	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/blockchain"
 	ns "github.com/smartcontractkit/chainlink-testing-framework/framework/components/simple_node_set"
 
-	ctfconfig "github.com/smartcontractkit/chainlink-testing-framework/lib/config"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre"
 	crecapabilities "github.com/smartcontractkit/chainlink/system-tests/lib/cre/capabilities"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/crib"
@@ -69,7 +67,7 @@ func StartDONs(
 		}
 
 		var devspaceErr error
-		nodeSets, devspaceErr = crib.DeployDons(deployCribDonsInput)
+		nodeSets, devspaceErr = crib.DeployDons(ctx, deployCribDonsInput)
 		if devspaceErr != nil {
 			return nil, pkgerrors.Wrap(devspaceErr, "failed to deploy Dons with crib-sdk")
 		}
@@ -118,22 +116,6 @@ func StartDONs(
 		}
 	}
 
-	// Hack for CI that allows us to dynamically set the chainlink image and version
-	// CTFv2 currently doesn't support dynamic image and version setting
-	if os.Getenv("CI") == "true" {
-		// Due to how we pass custom env vars to reusable workflow we need to use placeholders, so first we need to resolve what's the name of the target environment variable
-		// that stores chainlink version and then we can use it to resolve the image name
-		for i := range nodeSets {
-			image := fmt.Sprintf("%s:%s", os.Getenv(ctfconfig.E2E_TEST_CHAINLINK_IMAGE_ENV), ctfconfig.MustReadEnvVar_String(ctfconfig.E2E_TEST_CHAINLINK_VERSION_ENV))
-			for j := range nodeSets[i].NodeSpecs {
-				nodeSets[i].NodeSpecs[j].Node.Image = image
-				// unset docker context and file path, so that we can use the image from the registry
-				nodeSets[i].NodeSpecs[j].Node.DockerContext = ""
-				nodeSets[i].NodeSpecs[j].Node.DockerFilePath = ""
-			}
-		}
-	}
-
 	errGroup, _ := errgroup.WithContext(ctx)
 	var resultMap sync.Map
 
@@ -141,7 +123,7 @@ func StartDONs(
 		errGroup.Go(func() error {
 			startTime := time.Now()
 			lggr.Info().Msgf("Starting DON named %s", nodeSet.Name)
-			nodeset, nodesetErr := ns.NewSharedDBNodeSet(nodeSet.Input, registryChainBlockchainOutput)
+			nodeset, nodesetErr := ns.NewSharedDBNodeSetWithContext(ctx, nodeSet.Input, registryChainBlockchainOutput)
 			if nodesetErr != nil {
 				return pkgerrors.Wrapf(nodesetErr, "failed to start nodeSet named %s", nodeSet.Name)
 			}

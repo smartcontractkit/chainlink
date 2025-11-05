@@ -43,6 +43,7 @@ MaxBatchSize = 50
 SendInterval = '500ms'
 SendTimeout = '10s'
 UseBatchSend = true
+ChipIngressEnabled = false
 
 [AuditLogger]
 Enabled = true
@@ -352,6 +353,11 @@ ChipIngressInsecureConnection = false
 HeartbeatInterval = '1s'
 LogLevel = 'info'
 LogStreamingEnabled = false
+LogBatchProcessor = true
+LogExportTimeout = '1s'
+LogExportMaxBatchSize = 512
+LogExportInterval = '1s'
+LogMaxQueueSize = 2048
 
 [Workflows]
 [Workflows.Limits]

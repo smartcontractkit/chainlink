@@ -271,6 +271,7 @@ MaxBatchSize = 50 # Default
 SendInterval = '500ms' # Default
 SendTimeout = '10s' # Default
 UseBatchSend = true # Default
+ChipIngressEnabled = false # Default
 ```
 
 
@@ -315,6 +316,12 @@ SendTimeout is the max duration to wait for the request to complete when sending
 UseBatchSend = true # Default
 ```
 UseBatchSend toggles sending telemetry to the ingress server using the batch client.
+
+### ChipIngressEnabled
+```toml
+ChipIngressEnabled = false # Default
+```
+ChipIngressEnabled enables sending telemetry to CHIP Ingress.
 
 ## TelemetryIngress.Endpoints
 ```toml
@@ -2328,6 +2335,11 @@ ChipIngressInsecureConnection = false # Default
 HeartbeatInterval = '1s' # Default
 LogLevel = "info" # Default
 LogStreamingEnabled = false # Default
+LogBatchProcessor = true # Default
+LogExportTimeout = '1s' # Default
+LogExportMaxBatchSize = 512 # Default
+LogExportInterval = '1s' # Default
+LogMaxQueueSize = 2048 # Default
 ```
 Telemetry holds OTEL settings.
 This data includes open telemetry metrics, traces, & logs.
@@ -2406,6 +2418,36 @@ LogLevel sets the log level for telemetry streaming (debug, info, warn, error, c
 LogStreamingEnabled = false # Default
 ```
 LogStreamingEnabled enables log streaming to the OTel log exporter
+
+### LogBatchProcessor
+```toml
+LogBatchProcessor = true # Default
+```
+LogBatchProcessor enables batching for telemetry logs
+
+### LogExportTimeout
+```toml
+LogExportTimeout = '1s' # Default
+```
+LogExportTimeout sets timeout for exporting telemetry logs
+
+### LogExportMaxBatchSize
+```toml
+LogExportMaxBatchSize = 512 # Default
+```
+LogExportMaxBatchSize sets the maximum batch size of every batch export
+
+### LogExportInterval
+```toml
+LogExportInterval = '1s' # Default
+```
+LogExportInterval sets the maximum duration between batched exports
+
+### LogMaxQueueSize
+```toml
+LogMaxQueueSize = 2048 # Default
+```
+LogMaxQueueSize sets the maximum queue size used by the batcher
 
 ## Telemetry.ResourceAttributes
 ```toml

@@ -17,6 +17,7 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/globals"
 	ccipops "github.com/smartcontractkit/chainlink/deployment/ccip/operation/evm/v1_6"
 	ccipseq "github.com/smartcontractkit/chainlink/deployment/ccip/sequence/evm/v1_6"
+	"github.com/smartcontractkit/chainlink/deployment/ccip/shared"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
 
 	commoncs "github.com/smartcontractkit/chainlink/deployment/common/changeset"
@@ -116,7 +117,7 @@ type AddCandidatesForNewChainConfig struct {
 func (c AddCandidatesForNewChainConfig) prerequisiteConfigForNewChain() changeset.DeployPrerequisiteConfig {
 	return changeset.DeployPrerequisiteConfig{
 		Configs: []changeset.DeployPrerequisiteConfigPerChain{
-			changeset.DeployPrerequisiteConfigPerChain{
+			{
 				ChainSelector: c.NewChain.Selector,
 				Opts: []changeset.PrerequisiteOpt{
 					changeset.WithTokenPoolFactoryEnabled(),
@@ -354,7 +355,7 @@ func addCandidatesForNewChainLogic(e cldf.Environment, c AddCandidatesForNewChai
 		}
 		_, err = UpdateFeeQuoterPricesChangeset(e, UpdateFeeQuoterPricesConfig{
 			PricesByChain: map[uint64]FeeQuoterPriceUpdatePerSource{
-				c.NewChain.Selector: FeeQuoterPriceUpdatePerSource{
+				c.NewChain.Selector: {
 					TokenPrices: c.NewChain.TokenPrices,
 					GasPrices:   gasPrices,
 				},
@@ -375,7 +376,6 @@ func addCandidatesForNewChainLogic(e cldf.Environment, c AddCandidatesForNewChai
 		_, err = commoncs.RunChangeset(DonIDClaimerOffSetChangeset, e, DonIDClaimerOffSetConfig{
 			OffSet: *c.DonIDOffSet,
 		})
-
 		if err != nil {
 			return cldf.ChangesetOutput{}, fmt.Errorf("failed to run DonIDClaimerOffSetChangeset on home chain: %w", err)
 		}
@@ -471,10 +471,19 @@ func addCandidatesForNewChainLogic(e cldf.Environment, c AddCandidatesForNewChai
 		return cldf.ChangesetOutput{}, fmt.Errorf("failed to build proposal: %w", err)
 	}
 
-	if proposal == nil {
-		return cldf.ChangesetOutput{AddressBook: newAddresses}, nil
+	ds, err := shared.PopulateDataStore(newAddresses)
+	if err != nil {
+		return cldf.ChangesetOutput{}, fmt.Errorf("failed to populate in-memory DataStore: %w", err)
 	}
-	return cldf.ChangesetOutput{AddressBook: newAddresses, MCMSTimelockProposals: []mcmslib.TimelockProposal{*proposal}}, nil
+
+	if proposal == nil {
+		return cldf.ChangesetOutput{AddressBook: newAddresses, DataStore: ds}, nil
+	}
+	return cldf.ChangesetOutput{
+		AddressBook:           newAddresses,
+		DataStore:             ds,
+		MCMSTimelockProposals: []mcmslib.TimelockProposal{*proposal},
+	}, nil
 }
 
 ///////////////////////////////////
@@ -531,7 +540,7 @@ func (c PromoteNewChainForConfig) setOCR3OffRampConfig() SetOCR3OffRampConfig {
 func (c PromoteNewChainForConfig) updateFeeQuoterDestsConfig(remoteChain ChainDefinition) UpdateFeeQuoterDestsConfig {
 	return UpdateFeeQuoterDestsConfig{
 		UpdatesByChain: map[uint64]map[uint64]fee_quoter.FeeQuoterDestChainConfig{
-			remoteChain.Selector: map[uint64]fee_quoter.FeeQuoterDestChainConfig{
+			remoteChain.Selector: {
 				c.NewChain.Selector: c.NewChain.FeeQuoterDestChainConfig,
 			},
 		},
@@ -542,7 +551,7 @@ func (c PromoteNewChainForConfig) updateFeeQuoterDestsConfig(remoteChain ChainDe
 func (c PromoteNewChainForConfig) updateFeeQuoterPricesConfig(remoteChain ChainDefinition) UpdateFeeQuoterPricesConfig {
 	return UpdateFeeQuoterPricesConfig{
 		PricesByChain: map[uint64]FeeQuoterPriceUpdatePerSource{
-			remoteChain.Selector: FeeQuoterPriceUpdatePerSource{
+			remoteChain.Selector: {
 				TokenPrices: remoteChain.TokenPrices,
 				GasPrices:   map[uint64]*big.Int{c.NewChain.Selector: c.NewChain.GasPrice},
 			},
@@ -943,7 +952,7 @@ func connectRampsAndRouters(
 	out, err = UpdateRouterRampsChangeset(e, UpdateRouterRampsConfig{
 		TestRouter: testRouter,
 		UpdatesByChain: map[uint64]RouterUpdates{
-			chainSelector: RouterUpdates{
+			chainSelector: {
 				OnRampUpdates:  onRampUpdates,
 				OffRampUpdates: offRampUpdates,
 			},

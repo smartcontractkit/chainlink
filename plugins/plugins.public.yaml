@@ -15,7 +15,7 @@ plugins:
 
   sui:
     - moduleURI: "github.com/smartcontractkit/chainlink-sui"
-      gitRef: "v0.0.0-20251012014843-5d44e7731854"
+      gitRef: "v0.0.0-20251102155039-60906355b420"
       installPath: "./relayer/cmd/chainlink-sui"
 
   cosmos:
@@ -50,7 +50,7 @@ plugins:
 
   ton:
     - moduleURI: "github.com/smartcontractkit/chainlink-ton"
-      gitRef: "v0.0.0-20251015181357-b635fc06e2ea"
+      gitRef: "v0.0.0-20251031142050-8d1f83814966"
       installPath: "./cmd/chainlink-ton"
 
   tron:

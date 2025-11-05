@@ -123,25 +123,14 @@ jobs:
         if: ${{ github.event_name == 'pull_request' }}
         run: echo "date=$(date +'%Y%m%d')" >> $GITHUB_OUTPUT
 
-      - name: Overwrite chainlink version in TOML config
-        shell: bash
-        run: |
-          cat > core/scripts/cre/environment/configs/ci-override.toml<< EOF
-          [jd]
-            csa_encryption_key = "d1093c0060d50a3c89c189b2e485da5a3ce57f3dcb38ab7e2c0d5f0bb2314a44"
-            image = "${{ secrets.AWS_ACCOUNT_ID_PROD }}.dkr.ecr.${{ secrets.QA_AWS_REGION }}.amazonaws.com/job-distributor:0.22.1"
-          EOF
-
       - name: Start the environment
         id: start-cli
         shell: bash
         working-directory: core/scripts/cre/environment
         env:
-          CTF_CONFIGS: "./configs/workflow-don.toml,./configs/ci-override.toml"
-          E2E_JD_IMAGE: "${{ secrets.AWS_ACCOUNT_ID_PROD }}.dkr.ecr.${{ secrets.QA_AWS_REGION }}.amazonaws.com/job-distributor"
-          E2E_JD_VERSION: "0.22.1"
-          E2E_TEST_CHAINLINK_IMAGE: "${{ secrets.QA_AWS_ACCOUNT_NUMBER }}.dkr.ecr.${{ secrets.QA_AWS_REGION }}.amazonaws.com/chainlink"
-          E2E_TEST_CHAINLINK_VERSION: ${{ github.event_name == 'pull_request' && format('nightly-{0}-plugins', steps.set-date.outputs.date) || inputs.chainlink_image_tag }}
+          CTF_CONFIGS: "./configs/workflow-don.toml"
+          CTF_JD_IMAGE: "${{ secrets.AWS_ACCOUNT_ID_PROD }}.dkr.ecr.${{ secrets.QA_AWS_REGION }}.amazonaws.com/job-distributor:0.22.1"
+          CTF_CHAINLINK_IMAGE: "${{ secrets.QA_AWS_ACCOUNT_NUMBER }}.dkr.ecr.${{ secrets.QA_AWS_REGION }}.amazonaws.com/chainlink:${{ github.event_name == 'pull_request' && format('nightly-{0}-plugins', steps.set-date.outputs.date) || inputs.chainlink_image_tag }}"
           DISABLE_DX_TRACKING: "true"
           CI: "true"
         run: |

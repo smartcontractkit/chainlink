@@ -46,6 +46,7 @@ func BuildFromSavedState(ctx context.Context, cldLogger logger.Logger, cachedInp
 
 	blockchainDeployers := blockchain_sets.NewDeployerSet(framework.L, cachedInput.Infra, infra.CribConfigsDir)
 	deployedBlockchains, startErr := blockchains.Start(
+		ctx,
 		framework.L,
 		cldLogger,
 		cachedInput.Blockchains,

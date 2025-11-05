@@ -24,7 +24,7 @@ import (
 	"github.com/smartcontractkit/chainlink/system-tests/lib/infra"
 )
 
-func Bootstrap(infraInput infra.Provider) error {
+func Bootstrap(ctx context.Context, infraInput infra.Provider) error {
 	plan := crib.NewPlan(
 		"namespace",
 		crib.Namespace(infraInput.CRIB.Namespace),
@@ -36,7 +36,7 @@ func Bootstrap(infraInput infra.Provider) error {
 			}),
 		),
 	)
-	_, err := plan.Apply(context.Background())
+	_, err := plan.Apply(ctx)
 	if err != nil {
 		return errors.Wrap(err, "failed to apply plan")
 	}
@@ -63,13 +63,11 @@ func (d *DeployCribBlockchainInput) Validate() error {
 	return nil
 }
 
-func DeployBlockchain(input *DeployCribBlockchainInput) (*blockchain.Output, error) {
+func DeployBlockchain(ctx context.Context, input *DeployCribBlockchainInput) (*blockchain.Output, error) {
 	err := input.Validate()
 	if err != nil {
 		return nil, errors.Wrapf(err, "invalid input for deploying blockchain")
 	}
-
-	ctx := context.Background()
 
 	anvil := anvilv1.Component(&anvilv1.Props{
 		Namespace: input.Namespace,
@@ -135,7 +133,7 @@ func (d *DeployCribDonsInput) Validate() error {
 	return nil
 }
 
-func DeployDons(input *DeployCribDonsInput) ([]*cre.NodeSet, error) {
+func DeployDons(ctx context.Context, input *DeployCribDonsInput) ([]*cre.NodeSet, error) {
 	if input == nil {
 		return nil, errors.New("DeployCribDonsInput is nil")
 	}
@@ -181,7 +179,7 @@ func DeployDons(input *DeployCribDonsInput) ([]*cre.NodeSet, error) {
 		),
 	)
 
-	planState, err := plan.Apply(context.Background())
+	planState, err := plan.Apply(ctx)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to apply plan")
 	}
@@ -342,7 +340,7 @@ func (d *DeployCribJdInput) Validate() error {
 	return nil
 }
 
-func DeployJd(input *DeployCribJdInput) (*jd.Output, error) {
+func DeployJd(ctx context.Context, input *DeployCribJdInput) (*jd.Output, error) {
 	if input == nil {
 		return nil, errors.New("DeployCribJdInput is nil")
 	}
@@ -368,7 +366,7 @@ func DeployJd(input *DeployCribJdInput) (*jd.Output, error) {
 		),
 	)
 
-	planState, err := plan.Apply(context.Background())
+	planState, err := plan.Apply(ctx)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to apply a plan")
 	}

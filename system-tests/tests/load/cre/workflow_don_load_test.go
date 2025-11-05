@@ -161,10 +161,10 @@ func setupLoadTestEnvironment(
 	// Create workflow jobs only after capability registry configuration is complete to avoid initialization failures
 	createJobsInput := creenv.CreateJobsWithJdOpInput{}
 	createJobsDeps := creenv.CreateJobsWithJdOpDeps{
-		Logger:                    testLogger,
-		SingleFileLogger:          singleFileLogger,
-		HomeChainBlockchainOutput: universalSetupOutput.CreEnvironment.Blockchains[0].CtfOutput(),
-		JobSpecFactoryFunctions:   []cretypes.JobSpecFn{workflowJobsFn},
+		Logger:                        testLogger,
+		SingleFileLogger:              singleFileLogger,
+		RegistryChainBlockchainOutput: universalSetupOutput.CreEnvironment.Blockchains[0].CtfOutput(),
+		JobSpecFactoryFunctions:       []cretypes.JobSpecFn{workflowJobsFn},
 		CreEnvironment: &cretypes.Environment{
 			CldfEnvironment: universalSetupOutput.CreEnvironment.CldfEnvironment,
 		},
@@ -322,9 +322,9 @@ func TestLoad_Workflow_Streams_MockCapabilities(t *testing.T) {
 		return capabilities, nil
 	}
 
-	homeChain := in.Blockchains[0]
-	homeChainIDUint64, homeChainErr := strconv.ParseUint(homeChain.ChainID, 10, 64)
-	require.NoError(t, homeChainErr, "failed to convert chain ID to int")
+	registryChain := in.Blockchains[0]
+	registryChainIDUint64, regChainErr := strconv.ParseUint(registryChain.ChainID, 10, 64)
+	require.NoError(t, regChainErr, "failed to convert chain ID to int")
 
 	setupOutput := setupLoadTestEnvironment(
 		t,
@@ -332,7 +332,7 @@ func TestLoad_Workflow_Streams_MockCapabilities(t *testing.T) {
 		in,
 		mustSetCapabilitiesFn,
 		[]cretypes.CapabilityRegistryConfigFn{WorkflowDONLoadTestCapabilitiesFactoryFn, registerEVMWithV1},
-		[]cretypes.JobSpecFn{mockJobSpecsFactoryFn, consensusJobSpec(homeChainIDUint64)},
+		[]cretypes.JobSpecFn{mockJobSpecsFactoryFn, consensusJobSpec(registryChainIDUint64)},
 		loadTestJobSpecsFactoryFn,
 	)
 

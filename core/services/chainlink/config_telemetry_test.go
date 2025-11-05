@@ -284,3 +284,97 @@ func TestTelemetryConfig_LogLevel(t *testing.T) {
 		})
 	}
 }
+
+func TestTelemetryConfig_LogBatchProcessor(t *testing.T) {
+	tests := []struct {
+		name      string
+		telemetry toml.Telemetry
+		expected  bool
+	}{
+		{"LogBatchProcessorTrue", toml.Telemetry{LogBatchProcessor: ptr(true)}, true},
+		{"LogBatchProcessorFalse", toml.Telemetry{LogBatchProcessor: ptr(false)}, false},
+		{"LogBatchProcessorNil", toml.Telemetry{LogBatchProcessor: nil}, true}, // Default value
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			tc := telemetryConfig{s: tt.telemetry}
+			assert.Equal(t, tt.expected, tc.LogBatchProcessor())
+		})
+	}
+}
+
+func TestTelemetryConfig_LogExportTimeout(t *testing.T) {
+	tests := []struct {
+		name      string
+		telemetry toml.Telemetry
+		expected  time.Duration
+	}{
+		{"LogExportTimeoutSet", toml.Telemetry{LogExportTimeout: ptrDuration(5 * time.Second)}, 5 * time.Second},
+		{"LogExportTimeoutNil", toml.Telemetry{LogExportTimeout: nil}, 1 * time.Second}, // Default value
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			tc := telemetryConfig{s: tt.telemetry}
+			assert.Equal(t, tt.expected, tc.LogExportTimeout())
+		})
+	}
+}
+func TestTelemetryConfig_LogExportMaxBatchSize(t *testing.T) {
+	tests := []struct {
+		name      string
+		telemetry toml.Telemetry
+		expected  int
+	}{
+		{"LogExportMaxBatchSizeSet", toml.Telemetry{LogExportMaxBatchSize: ptrInt(512)}, 512},
+		{"LogExportMaxBatchSizeNil", toml.Telemetry{LogExportMaxBatchSize: nil}, 512}, // Default value
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			tc := telemetryConfig{s: tt.telemetry}
+			assert.Equal(t, tt.expected, tc.LogExportMaxBatchSize())
+		})
+	}
+}
+
+func ptrInt(i int) *int {
+	return &i
+}
+
+func TestTelemetryConfig_LogExportInterval(t *testing.T) {
+	tests := []struct {
+		name      string
+		telemetry toml.Telemetry
+		expected  time.Duration
+	}{
+		{"LogExportIntervalSet", toml.Telemetry{LogExportInterval: ptrDuration(5 * time.Second)}, 5 * time.Second},
+		{"LogExportIntervalNil", toml.Telemetry{LogExportInterval: nil}, 1 * time.Second}, // Default value
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			tc := telemetryConfig{s: tt.telemetry}
+			assert.Equal(t, tt.expected, tc.LogExportInterval())
+		})
+	}
+}
+
+func TestTelemetryConfig_LogMaxQueueSize(t *testing.T) {
+	tests := []struct {
+		name      string
+		telemetry toml.Telemetry
+		expected  int
+	}{
+		{"LogMaxQueueSizeSet", toml.Telemetry{LogMaxQueueSize: ptrInt(2048)}, 2048},
+		{"LogMaxQueueSizeNil", toml.Telemetry{LogMaxQueueSize: nil}, 2048}, // Default value
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			tc := telemetryConfig{s: tt.telemetry}
+			assert.Equal(t, tt.expected, tc.LogMaxQueueSize())
+		})
+	}
+}

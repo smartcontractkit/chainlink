@@ -65,7 +65,7 @@ jobs:
 
       - name: Set date variable
         id: set-date
-        if:  ${{ github.event_name == 'pull_request' }}
+        if: ${{ github.event_name == 'pull_request' }}
         run: echo "date=$(date +'%Y%m%d')" >> $GITHUB_OUTPUT
 
       - name: Build Image
@@ -76,14 +76,14 @@ jobs:
           image-tag: ${{ format('PR-{0}-{1}',github.event.pull_request.number, github.sha ) }}
           dockerfile: core/chainlink.Dockerfile
           docker-registry-url: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}.dkr.ecr.${{ secrets.QA_AWS_REGION }}.amazonaws.com
-          docker-repository-name: 'chainlink'
+          docker-repository-name: "chainlink"
           docker-additional-build-args: |
             CL_INSTALL_PRIVATE_PLUGINS=true
             CL_INSTALL_TESTING_PLUGINS=true
           aws-account-number: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}
           aws-region: ${{ secrets.QA_AWS_REGION }}
           aws-role-arn: ${{ secrets.QA_AWS_ROLE_TO_ASSUME }}
-          gati-role-arn: ${{ secrets.AWS_OIDC_GLOBAL_READ_ONLY_TOKEN_ISSUER_ROLE_ARN }}
+          gati-role-arn: ${{ secrets.AWS_OIDC_CHAINLINK_READ_ONLY_TOKEN_ISSUER_ROLE_ARN }}
           gati-lambda-url: ${{ secrets.AWS_INFRA_RELENG_TOKEN_ISSUER_LAMBDA_URL }}
 
       - name: Set up cAdvisor
@@ -129,10 +129,8 @@ jobs:
       - name: Start the test
         shell: bash
         env:
-          E2E_JD_IMAGE: "${{ secrets.AWS_ACCOUNT_ID_PROD }}.dkr.ecr.${{ secrets.QA_AWS_REGION }}.amazonaws.com/job-distributor"
-          E2E_JD_VERSION: "0.9.0"
-          E2E_TEST_CHAINLINK_IMAGE: "${{ secrets.QA_AWS_ACCOUNT_NUMBER }}.dkr.ecr.${{ secrets.QA_AWS_REGION }}.amazonaws.com/chainlink"
-          E2E_TEST_CHAINLINK_VERSION: ${{ github.event_name == 'pull_request' && format('PR-{0}-{1}',github.event.pull_request.number, github.sha ) || inputs.chainlink_image_tag }}
+          CTF_JD_IMAGE: "${{ secrets.AWS_ACCOUNT_ID_PROD }}.dkr.ecr.${{ secrets.QA_AWS_REGION }}.amazonaws.com/job-distributor:0.22.1"
+          CTF_CHAINLINK_IMAGE: "${{ secrets.QA_AWS_ACCOUNT_NUMBER }}.dkr.ecr.${{ secrets.QA_AWS_REGION }}.amazonaws.com/chainlink:${{ github.event_name == 'pull_request' && format('PR-{0}-{1}',github.event.pull_request.number, github.sha ) || inputs.chainlink_image_tag }}"
           # Anvil developer key, not a secret
           PRIVATE_KEY: "ac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80"
           CTF_CONFIGS: "workflow-don-benchmark-ci.toml"
@@ -150,16 +148,16 @@ jobs:
         id: parse-regressions
         run: |
           cd system-tests/tests/load/cre
-          
+
           # Count the number of regressions - handle exit code properly
           if grep -c "PERFORMANCE REGRESSION:" test_output.log > /tmp/count.txt; then
             regression_count=$(cat /tmp/count.txt)
           else
             regression_count=0
           fi
-          
+
           echo "regression_count=${regression_count}" >> $GITHUB_OUTPUT
-          
+
           if [ $regression_count -gt 0 ]; then
             echo "::warning::$regression_count performance regressions detected"
             echo "See the regression_reports artifact for details"
@@ -199,7 +197,7 @@ jobs:
 
           # Read regression details
           REGRESSION_DETAILS=$(cat logs/regression_details.txt)
-          
+
           # Create JSON payload with properly escaped details
           cat > $GITHUB_WORKSPACE/slack_payload.json << EOF
           {

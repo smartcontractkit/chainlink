@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"maps"
+	"os"
 
 	"github.com/Masterminds/semver/v3"
 	"github.com/ethereum/go-ethereum/common"
@@ -39,12 +40,6 @@ import (
 	libformat "github.com/smartcontractkit/chainlink/system-tests/lib/format"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/infra"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/worker"
-)
-
-const (
-	GithubReadTokenEnvVarName          = "GITHUB_READ_TOKEN"
-	E2eJobDistributorImageEnvVarName   = "E2E_JD_IMAGE"
-	E2eJobDistributorVersionEnvVarName = "E2E_JD_VERSION"
 )
 
 type SetupOutput struct {
@@ -113,12 +108,21 @@ func SetupTestEnvironment(
 		return nil, pkgerrors.New("input is nil")
 	}
 
+	//TODO: remove these checks in December 2025, when everyone has migrated
+	if val := os.Getenv("E2E_JD_IMAGE"); val != "" {
+		return nil, errors.New("E2E_JD_IMAGE and E2E_JD_VERSION are deprecated, please use CTF_JD_IMAGE instead to specify the Job Distributor image with tag")
+	}
+
+	if val := os.Getenv("E2E_TEST_CHAINLINK_IMAGE"); val != "" {
+		return nil, errors.New("E2E_TEST_CHAINLINK_IMAGE and E2E_TEST_CHAINLINK_VERSION are deprecated, please use CTF_CHAINLINK_IMAGE instead to specify the Chainlink Node image with tag")
+	}
+
 	if err := input.Validate(); err != nil {
 		return nil, pkgerrors.Wrap(err, "input validation failed")
 	}
 
 	if input.Provider.Type == infra.CRIB {
-		cribErr := crib.Bootstrap(input.Provider)
+		cribErr := crib.Bootstrap(ctx, input.Provider)
 		if cribErr != nil {
 			return nil, pkgerrors.Wrap(cribErr, "failed to bootstrap CRIB")
 		}
@@ -132,6 +136,7 @@ func SetupTestEnvironment(
 	fmt.Print(libformat.PurpleText("%s", input.StageGen.Wrap("Starting %d blockchain(s)", len(input.BlockchainsInput))))
 
 	deployedBlockchains, startErr := blockchains.Start(
+		ctx,
 		testLogger,
 		singleFileLogger,
 		input.BlockchainsInput,
@@ -219,7 +224,7 @@ func SetupTestEnvironment(
 
 	jdStartedFuture := queue.SubmitAny(func(ctx context.Context) (any, error) {
 		// TODO: pass context after we update the CTF to accept context, when creating new JD instance
-		jdOutput, startJDErr := StartJD(testLogger, *input.JdInput, input.Provider)
+		jdOutput, startJDErr := StartJD(ctx, testLogger, *input.JdInput, input.Provider)
 		if startJDErr != nil {
 			return nil, pkgerrors.Wrap(startJDErr, "failed to start Job Distributor")
 		}
@@ -290,14 +295,14 @@ func SetupTestEnvironment(
 	// allow to pass custom job spec factories for extensibility
 	jobSpecFactoryFunctions = append(jobSpecFactoryFunctions, input.JobSpecFactoryFunctions...)
 	createJobsDeps := CreateJobsWithJdOpDeps{
-		Logger:                    testLogger,
-		SingleFileLogger:          singleFileLogger,
-		HomeChainBlockchainOutput: deployedBlockchains.RegistryChain().CtfOutput(),
-		JobSpecFactoryFunctions:   jobSpecFactoryFunctions,
-		CreEnvironment:            creEnvironment,
-		Dons:                      dons,
-		NodeSets:                  input.NodeSets,
-		Capabilities:              input.Capabilities,
+		Logger:                        testLogger,
+		SingleFileLogger:              singleFileLogger,
+		RegistryChainBlockchainOutput: deployedBlockchains.RegistryChain().CtfOutput(),
+		JobSpecFactoryFunctions:       jobSpecFactoryFunctions,
+		CreEnvironment:                creEnvironment,
+		Dons:                          dons,
+		NodeSets:                      input.NodeSets,
+		Capabilities:                  input.Capabilities,
 	}
 	_, createJobsErr := operations.ExecuteOperation(deployKeystoneContractsOutput.Env.OperationsBundle, CreateJobsWithJdOp, createJobsDeps, CreateJobsWithJdOpInput{})
 	if createJobsErr != nil {
