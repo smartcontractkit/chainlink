@@ -38,6 +38,8 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/ccipevm"
 )
 
+const TokenSymbolLINK = "LINK"
+
 type SuiSendRequest struct {
 	Receiver         []byte
 	Data             []byte
