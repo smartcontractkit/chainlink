@@ -80,8 +80,6 @@ type CCIPMessageSent struct {
 	Message           Sui2AnyRampMessage `json:"message"`
 }
 
-const TokenSymbolLINK = "LINK"
-
 func SendSuiCCIPRequest(e cldf.Environment, cfg *ccipclient.CCIPSendReqConfig) (*ccipclient.AnyMsgSentEvent, error) {
 	ctx := e.GetContext()
 	state, err := stateview.LoadOnchainState(e)
