@@ -11,18 +11,18 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/Masterminds/semver/v3"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/goccy/go-yaml"
 	"github.com/pkg/errors"
 
 	secretsUtils "github.com/smartcontractkit/chainlink-common/pkg/workflows/secrets"
-	"github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/keystone/generated/capabilities_registry"
 	capabilities_registry_v2 "github.com/smartcontractkit/chainlink-evm/gethwrappers/workflow/generated/capabilities_registry_wrapper_v2"
 	"github.com/smartcontractkit/chainlink-testing-framework/seth"
 )
 
-func PrepareSecrets(sethClient *seth.Client, donID uint32, capabilitiesRegistryAddress, workflowOwnerAddress common.Address, capRegTV deployment.TypeAndVersion, secretsFilePath, secretsOutFilePath string) (string, error) {
+func PrepareSecrets(sethClient *seth.Client, donID uint32, capabilitiesRegistryAddress common.Address, capRegVersion *semver.Version, workflowOwnerAddress common.Address, secretsFilePath, secretsOutFilePath string) (string, error) {
 	secretsConfig, secretsConfigErr := newSecretsConfig(secretsFilePath)
 	if secretsConfigErr != nil {
 		return "", errors.Wrap(secretsConfigErr, "failed to parse secrets config")
@@ -33,7 +33,7 @@ func PrepareSecrets(sethClient *seth.Client, donID uint32, capabilitiesRegistryA
 		return "", errors.Wrap(envSecretsErr, "failed to load secrets from environment")
 	}
 
-	encryptSecrets, encryptSecretsErr := encryptSecrets(sethClient, donID, capabilitiesRegistryAddress, workflowOwnerAddress, capRegTV, envSecrets, secretsConfig)
+	encryptSecrets, encryptSecretsErr := encryptSecrets(sethClient, donID, capabilitiesRegistryAddress, workflowOwnerAddress, capRegVersion, envSecrets, secretsConfig)
 	if encryptSecretsErr != nil {
 		return "", errors.Wrap(encryptSecretsErr, "failed to encrypt secrets")
 	}
@@ -95,25 +95,10 @@ func loadSecretsFromEnvironment(config *secretsUtils.SecretsConfig) (map[string]
 	return secrets, nil
 }
 
-func encryptSecrets(c *seth.Client, donID uint32, capabilitiesRegistry, workflowOwner common.Address, capRegTv deployment.TypeAndVersion, secrets map[string][]string, config *secretsUtils.SecretsConfig) (secretsUtils.EncryptedSecretsResult, error) {
-	// cr, err := capabilities_registry.NewCapabilitiesRegistry(capabilitiesRegistry, c.Client)
-	// if err != nil {
-	// 	return secretsUtils.EncryptedSecretsResult{}, fmt.Errorf("failed to attach to the Capabilities Registry contract: %w", err)
-	// }
-
-	// nodeInfos, err := cr.GetNodes(c.NewCallOpts())
-	// if err != nil {
-	// 	return secretsUtils.EncryptedSecretsResult{}, fmt.Errorf("failed to get node information from the Capabilities Registry contract: %w", err)
-	// }
-
-	// donInfo, err := cr.GetDON(c.NewCallOpts(), donID)
-	// if err != nil {
-	// 	return secretsUtils.EncryptedSecretsResult{}, fmt.Errorf("failed to get DON information from the Capabilities Registry contract: %w", err)
-	// }
-
+func encryptSecrets(c *seth.Client, donID uint32, capabilitiesRegistry, workflowOwner common.Address, capRegVersion *semver.Version, secrets map[string][]string, config *secretsUtils.SecretsConfig) (secretsUtils.EncryptedSecretsResult, error) {
 	encryptionPublicKeys := make(map[string][32]byte)
 
-	switch capRegTv.Version.Major() {
+	switch capRegVersion.Major() {
 	case 1:
 		cr, err := capabilities_registry.NewCapabilitiesRegistry(capabilitiesRegistry, c.Client)
 		if err != nil {
@@ -157,7 +142,7 @@ func encryptSecrets(c *seth.Client, donID uint32, capabilitiesRegistry, workflow
 			}
 		}
 	default:
-		return secretsUtils.EncryptedSecretsResult{}, fmt.Errorf("unsupported capabilities registry version: %s", capRegTv.Version.String())
+		return secretsUtils.EncryptedSecretsResult{}, fmt.Errorf("unsupported capabilities registry version: %s", capRegVersion.String())
 	}
 
 	if len(encryptionPublicKeys) == 0 {

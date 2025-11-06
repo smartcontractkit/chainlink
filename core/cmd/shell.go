@@ -34,12 +34,9 @@ import (
 	"golang.org/x/sync/errgroup"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/beholder"
-	"github.com/smartcontractkit/chainlink-common/pkg/loop"
-	"github.com/smartcontractkit/chainlink-common/pkg/settings/cresettings"
-	"github.com/smartcontractkit/chainlink-common/pkg/settings/limits"
-	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
-
 	clhttp "github.com/smartcontractkit/chainlink-common/pkg/http"
+	"github.com/smartcontractkit/chainlink-common/pkg/loop"
+	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 	"github.com/smartcontractkit/chainlink/v2/core/build"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities"
 	"github.com/smartcontractkit/chainlink/v2/core/config"
@@ -256,11 +253,6 @@ func (n ChainlinkAppFactory) NewApplication(ctx context.Context, cfg chainlink.G
 		MercuryPool:              mercuryPool,
 		RetirementReportCache:    retirement.NewRetirementReportCache(appLggr, ds),
 		LLOTransmissionReaper:    llo.NewTransmissionReaper(ds, appLggr, cfg.Mercury().Transmitter().ReaperFrequency(), cfg.Mercury().Transmitter().ReaperMaxAge()),
-		LimitsFactory: limits.Factory{
-			Meter:    beholder.GetMeter(),
-			Logger:   appLggr.Named("Limits"),
-			Settings: cresettings.DefaultGetter,
-		},
 	})
 }
 

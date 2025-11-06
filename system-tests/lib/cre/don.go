@@ -113,8 +113,6 @@ type Don struct {
 	Flags                     []CapabilityFlag `toml:"flags" json:"flags"` // capabilities and roles
 	chainCapabilityConfigs    map[string]*ChainCapabilityConfig
 	capabilityConfigOverrides map[string]map[string]any
-
-	gh GatewayHelper
 }
 
 func (d *Don) Metadata() *DonMetadata {
@@ -201,14 +199,6 @@ func (d *Don) JDNodeIDs() []string {
 	return nodeIDs
 }
 
-func (d *Don) RequiresGateway() bool {
-	return d.gh.RequiresGateway(d.Flags)
-}
-
-func (d *Don) RequiresWebAPI() bool {
-	return d.gh.RequiresWebAPI(d.Flags)
-}
-
 func (d *Don) GetChainCapabilityConfigs() map[string]*ChainCapabilityConfig {
 	return d.chainCapabilityConfigs
 }
@@ -272,7 +262,7 @@ func NewDON(ctx context.Context, donMetadata *DonMetadata, ctfNodes []*clnode.Ou
 	return don, nil
 }
 
-func RegisterWithJD(ctx context.Context, d *Don, supportedChains []blockchains.Blockchain, cldfEnv *cldf.Environment) error {
+func registerWithJD(ctx context.Context, d *Don, supportedChains []blockchains.Blockchain, cldfEnv *cldf.Environment) error {
 	mu := &sync.Mutex{}
 
 	jd, ok := cldfEnv.Offchain.(*jd.JobDistributor)
@@ -284,7 +274,7 @@ func RegisterWithJD(ctx context.Context, d *Don, supportedChains []blockchains.B
 	for idx, node := range d.Nodes {
 		errgroup.Go(func() error {
 			// Set up Job distributor in node and register node with the job distributor
-			setupErr := node.SetUpAndLinkJobDistributor(ctx, cldfEnv)
+			setupErr := node.setUpAndLinkJobDistributor(ctx, cldfEnv)
 			if setupErr != nil {
 				return fmt.Errorf("failed to set up job distributor in node %s: %w", node.Name, setupErr)
 			}
@@ -292,7 +282,7 @@ func RegisterWithJD(ctx context.Context, d *Don, supportedChains []blockchains.B
 			for _, role := range node.Roles {
 				switch role {
 				case RoleWorker, RoleBootstrap:
-					if err := CreateJDChainConfigs(ctx, node, supportedChains, jd); err != nil {
+					if err := createJDChainConfigs(ctx, node, supportedChains, jd); err != nil {
 						return fmt.Errorf("failed to create supported chains in node %s: %w", node.Name, err)
 					}
 				case RoleGateway:
@@ -450,7 +440,7 @@ type JDChainConfigInput struct {
 	ChainType string
 }
 
-func CreateJDChainConfigs(ctx context.Context, n *Node, supportedChains []blockchains.Blockchain, jd *jd.JobDistributor) error {
+func createJDChainConfigs(ctx context.Context, n *Node, supportedChains []blockchains.Blockchain, jd *jd.JobDistributor) error {
 	for _, chain := range supportedChains {
 		var account string
 		chainIDStr := strconv.FormatUint(chain.ChainID(), 10)
@@ -675,9 +665,9 @@ func (n *Node) CreateJobDistributor(ctx context.Context, jd *jd.JobDistributor) 
 	})
 }
 
-// SetUpAndLinkJobDistributor sets up the job distributor in the node and registers the node with the job distributor
+// setUpAndLinkJobDistributor sets up the job distributor in the node and registers the node with the job distributor
 // it sets the job distributor id for node
-func (n *Node) SetUpAndLinkJobDistributor(ctx context.Context, cldfEnv *cldf.Environment) error {
+func (n *Node) setUpAndLinkJobDistributor(ctx context.Context, cldfEnv *cldf.Environment) error {
 	err := n.RegisterNodeToJobDistributor(ctx, cldfEnv)
 	if err != nil {
 		return err
@@ -775,12 +765,12 @@ func LinkToJobDistributor(ctx context.Context, input *LinkDonsToJDInput) error {
 	var nodeIDs []string
 
 	for idx, don := range input.Dons.List() {
-		supportedChains, schErr := FindDONsSupportedChains(input.Topology.DonsMetadata.List()[idx], input.Blockchains)
+		supportedChains, schErr := findDonSupportedChains(input.Topology.DonsMetadata.List()[idx], input.Blockchains)
 		if schErr != nil {
 			return errors.Wrap(schErr, "failed to find supported chains for DON")
 		}
 
-		if err := RegisterWithJD(ctx, don, supportedChains, input.CldfEnvironment); err != nil {
+		if err := registerWithJD(ctx, don, supportedChains, input.CldfEnvironment); err != nil {
 			return fmt.Errorf("failed to register DON with JD: %w", err)
 		}
 		nodeIDs = append(nodeIDs, don.JDNodeIDs()...)
@@ -806,7 +796,7 @@ func HasFlag(values []string, capability string) bool {
 	return false
 }
 
-func FindDONsSupportedChains(donMetadata *DonMetadata, bcs []blockchains.Blockchain) ([]blockchains.Blockchain, error) {
+func findDonSupportedChains(donMetadata *DonMetadata, bcs []blockchains.Blockchain) ([]blockchains.Blockchain, error) {
 	chains := make([]blockchains.Blockchain, 0)
 
 	for _, bc := range bcs {

@@ -35,8 +35,9 @@ func TestWSConnectionWrapper_ClientReconnect(t *testing.T) {
 	t.Parallel()
 	lggr := logger.Test(t)
 	// server
-	ssl := &serverSideLogic{connWrapper: network.NewWSConnectionWrapper(lggr)}
-	servicetest.Run(t, ssl.connWrapper)
+	wsConn := network.NewWSConnectionWrapper(lggr)
+	servicetest.Run(t, wsConn)
+	ssl := &serverSideLogic{connWrapper: wsConn}
 	s := httptest.NewServer(http.HandlerFunc(ssl.wsHandler))
 	serverURL := "ws" + strings.TrimPrefix(s.URL, "http")
 	defer s.Close()

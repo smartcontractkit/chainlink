@@ -151,12 +151,7 @@ func setupLoadTestEnvironment(
 	in.WorkflowRegistryConfiguration = &cretypes.WorkflowRegistryInput{}
 	in.WorkflowRegistryConfiguration.Out = universalSetupOutput.WorkflowRegistryConfigurationOutput
 
-	forwarderAddress, _, forwarderErr := crecontracts.FindAddressesForChain(
-		universalSetupOutput.CreEnvironment.CldfEnvironment.ExistingAddresses, //nolint:staticcheck // deprecated but still used
-		universalSetupOutput.CreEnvironment.Blockchains[0].ChainSelector(),
-		keystone_changeset.KeystoneForwarder.String(),
-	)
-	require.NoError(t, forwarderErr, "failed to find forwarder address for chain %d", universalSetupOutput.CreEnvironment.Blockchains[0].ChainSelector())
+	forwarderAddress := crecontracts.MustGetAddressFromDataStore(universalSetupOutput.CreEnvironment.CldfEnvironment.DataStore, universalSetupOutput.CreEnvironment.Blockchains[0].ChainSelector(), keystone_changeset.KeystoneForwarder.String(), universalSetupOutput.CreEnvironment.ContractVersions[keystone_changeset.KeystoneForwarder.String()], "")
 
 	// Create workflow jobs only after capability registry configuration is complete to avoid initialization failures
 	createJobsInput := creenv.CreateJobsWithJdOpInput{}
@@ -175,7 +170,7 @@ func setupLoadTestEnvironment(
 	require.NoError(t, createJobsErr, "failed to create jobs with Job Distributor")
 
 	return &loadTestSetupOutput{
-		forwarderAddress: forwarderAddress,
+		forwarderAddress: common.HexToAddress(forwarderAddress),
 		blockchains:      universalSetupOutput.CreEnvironment.Blockchains,
 		dons:             universalSetupOutput.Dons,
 		nodeOutput:       universalSetupOutput.NodeOutput,

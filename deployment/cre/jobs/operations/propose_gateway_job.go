@@ -25,6 +25,10 @@ type ProposeGatewayJobInput struct {
 	DONFilters               []offchain.TargetDONFilter
 	DONs                     []DON             `yaml:"dons"`
 	GatewayRequestTimeoutSec int               `yaml:"gatewayRequestTimeoutSec"`
+	AllowedPorts             []int             `yaml:"allowedPorts"`
+	AllowedSchemes           []string          `yaml:"allowedSchemes"`
+	AllowedIPsCIDR           []string          `yaml:"allowedIPsCIDR"`
+	AuthGatewayID            string            `yaml:"authGatewayID"`
 	GatewayKeyChainSelector  pkg.ChainSelector `yaml:"gatewayKeyChainSelector"`
 	JobLabels                map[string]string
 }
@@ -122,6 +126,10 @@ var ProposeGatewayJob = operations.NewOperation[ProposeGatewayJobInput, ProposeG
 			JobName:           "CRE Gateway",
 			TargetDONs:        targetDONs,
 			RequestTimeoutSec: requestTimeoutSec,
+			AllowedPorts:      input.AllowedPorts,
+			AllowedSchemes:    input.AllowedSchemes,
+			AllowedIPsCIDR:    input.AllowedIPsCIDR,
+			AuthGatewayID:     input.AuthGatewayID,
 		}
 
 		err := gj.Validate()
