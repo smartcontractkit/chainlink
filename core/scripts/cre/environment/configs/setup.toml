@@ -1,5 +1,5 @@
 [general]
-aws_profile = "sdlc"
+aws_profile = "staging-default"
 min_gh_cli_version = "v2.50.0"
 ctf_version = "0.10.28"
 

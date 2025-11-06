@@ -191,17 +191,6 @@ func SetupTestEnvironment(
 	if topoErr != nil {
 		return nil, pkgerrors.Wrap(topoErr, "failed to build topology")
 	}
-
-	gatewayJobConfigs, gErr := gateway.JobConfigs(
-		deployedBlockchains.RegistryChain().CtfOutput(),
-		topology,
-		updatedNodeSets,
-		input.GatewayWhitelistConfig,
-	)
-	if gErr != nil {
-		return nil, pkgerrors.Wrap(gErr, "failed to build gateway job config")
-	}
-	topology.GatewayJobConfigs = gatewayJobConfigs
 	fmt.Print(libformat.PurpleText("%s", input.StageGen.WrapAndNext("DONs configuration prepared in %.2f seconds", input.StageGen.Elapsed().Seconds())))
 
 	fmt.Print(libformat.PurpleText("%s", input.StageGen.Wrap("Applying Features before environment startup")))
@@ -292,9 +281,9 @@ func SetupTestEnvironment(
 	fmt.Print(libformat.PurpleText("%s", input.StageGen.WrapAndNext("DONs and Job Distributor started and linked in %.2f seconds", input.StageGen.Elapsed().Seconds())))
 	fmt.Print(libformat.PurpleText("%s", input.StageGen.Wrap("Creating Jobs with Job Distributor")))
 
-	gJobErr := gateway.CreateJobs(ctx, startedJD.Client, dons, gatewayJobConfigs)
+	gJobErr := gateway.CreateJobs(ctx, creEnvironment, dons, topology.GatewayConfigs, input.GatewayWhitelistConfig)
 	if gJobErr != nil {
-		return nil, pkgerrors.Wrap(gErr, "failed to create gateway jobs with Job Distributor")
+		return nil, pkgerrors.Wrap(gJobErr, "failed to create gateway jobs with Job Distributor")
 	}
 
 	// Deprecated: use Features instead. Support for InstallableCapability will be removed in the future.
@@ -356,7 +345,6 @@ func SetupTestEnvironment(
 			WorkflowOwners:  []common.Address{deployedBlockchains.RegistryChain().(*evm.Blockchain).SethClient.MustGetRootKeyAddress()}, // registry chain is always EVM
 		},
 	)
-
 	if wfErr != nil {
 		return nil, pkgerrors.Wrap(wfErr, "failed to configure workflow registry")
 	}
@@ -402,9 +390,7 @@ func SetupTestEnvironment(
 		configFn := capability.CapabilityRegistryV1ConfigFn()
 		capRegInput.CapabilityRegistryConfigFns = append(capRegInput.CapabilityRegistryConfigFns, configFn)
 	}
-
 	capRegInput.CapabilityRegistryConfigFns = append(capRegInput.CapabilityRegistryConfigFns, input.CapabilitiesContractFactoryFunctions...)
-
 	maps.Copy(capRegInput.DONCapabilityWithConfigs, donsCapabilities)
 
 	_, capRegErr := crecontracts.ConfigureCapabilityRegistry(capRegInput)
@@ -413,8 +399,8 @@ func SetupTestEnvironment(
 	}
 
 	fmt.Print(libformat.PurpleText("%s", input.StageGen.WrapAndNext("Workflow and Capability Registry contracts configured in %.2f seconds", input.StageGen.Elapsed().Seconds())))
-
 	fmt.Print(libformat.PurpleText("%s", input.StageGen.Wrap("Applying Features after environment startup")))
+
 	for _, feature := range input.Features.List() {
 		for _, don := range dons.DonsWithFlag(feature.Flag()) {
 			testLogger.Info().Msgf("Executing PostEnvStartup for feature %s for don '%s'", feature.Flag(), don.Name)

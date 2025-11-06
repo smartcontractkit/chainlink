@@ -194,7 +194,6 @@ func TestLoad_Workflow_Streams_MockCapabilities(t *testing.T) {
 				// TODO quick hack, this needs to be removed after the migration to TOML
 				ComputedCapabilities: []string{cretypes.ConsensusCapability},
 				DONTypes:             []string{cretypes.WorkflowDON},
-				BootstrapNodeIndex:   0,
 			},
 			{
 				Input:        input[1],
@@ -202,7 +201,6 @@ func TestLoad_Workflow_Streams_MockCapabilities(t *testing.T) {
 				// TODO quick hack, this needs to be removed after the migration to TOML
 				ComputedCapabilities: []string{cretypes.MockCapability, cretypes.EVMCapability + "-1337"},
 				DONTypes:             []string{cretypes.CapabilitiesDON}, // <----- it's crucial to set the correct DON type
-				BootstrapNodeIndex:   -1,
 			},
 		}
 	}

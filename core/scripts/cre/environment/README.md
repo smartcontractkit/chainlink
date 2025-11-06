@@ -116,7 +116,7 @@ It will compile local CRE as `local_cre`. With it installed you will be able to 
 # e.g. AWS_ECR=<PROD_ACCOUNT_ID>.dkr.ecr.<REGION>.amazonaws.com
 AWS_ECR=<PROD_AWS_URL> go run . env start --auto-setup
 ```
-> You can find `PROD_ACCOUNT_ID` and `REGION` in the `[profile prod]` section of the [AWS CLI configuration guide](https://smartcontract-it.atlassian.net/wiki/spaces/INFRA/pages/1045495923/Configure+the+AWS+CLI#Configure).
+> You can find `PROD_ACCOUNT_ID` and `REGION` in the `[profile prod]` section of the [AWS CLI configuration guide](https://smartcontract-it.atlassian.net/wiki/spaces/INFRA/pages/1045495923/Configure+the+AWS+CLI#Configure). If for some reason you want to limit the AWS config to bare minimum, include only `staging-default` profile and `cl-secure-sso` session entries.
 
 If you are missing requirements, you may need to fix the errors and re-run.
 
@@ -124,7 +124,7 @@ Refer to [this document](https://docs.google.com/document/d/1HtVLv2ipx2jvU15WYOi
 
 ## Setup
 
-Environment can be setup by running `go run . env setup` inside `fdf` folder. Its configuration is defined in [configs/setup.toml](configs/setup.toml) file. It will make sure that:
+Environment can be setup by running `go run . env setup` inside `core/scripts/cre/evnrionment` folder. Its configuration is defined in [configs/setup.toml](configs/setup.toml) file. It will make sure that:
 - you have AWS CLI installed and configured
 - you have GH CLI installed and authenticated
 - you have required Job Distributor and Chip Ingress (Beholder) images
@@ -931,10 +931,6 @@ Each DON is defined as a `nodesets` entry in the TOML configuration:
   don_types = ["workflow"]     # DON type(s) for this nodeset
   override_mode = "all"        # "all" for uniform config, "each" for per-node
 
-  # Bootstrap and gateway node configuration
-  bootstrap_node_index = 0     # Index of bootstrap node (-1 if none)
-  gateway_node_index = -1      # Index of gateway node (-1 if none)
-
   # Capabilities configuration
   capabilities = ["ocr3", "custom-compute", "cron"]
 
@@ -958,10 +954,6 @@ Here's how to add a new capabilities DON to your configuration:
   override_mode = "all"
   http_port_range_start = 10400
 
-  # No bootstrap or gateway nodes in this DON
-  bootstrap_node_index = -1
-  gateway_node_index = -1
-
   # Enable DON-level capabilities (using hypothetical don-level capability)
   capabilities = ["llo-streams"]
 
@@ -972,6 +964,7 @@ Here's how to add a new capabilities DON to your configuration:
 
   # Node specifications
   [[nodesets.node_specs]]
+    roles = ["bootstrap"]         # explicitly indicate the roles for each node, i.e. plugin, bootstrap or gateway
     [nodesets.node_specs.node]
       docker_ctx = "../../../.."
       docker_file = "core/chainlink.Dockerfile"

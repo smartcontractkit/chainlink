@@ -29,7 +29,6 @@ var _ cldf.ChangeSet[OnboardTokenPoolsForSelfServeConfig] = OnboardTokenPoolsFor
 type OnboardTokenPoolConfig struct {
 	TokenMint        solana.PublicKey
 	TokenProgramName cldf.ContractType
-	TokenSymbol      string
 	ProposedOwner    solana.PublicKey
 	PoolType         cldf.ContractType
 	Metadata         string
@@ -54,6 +53,9 @@ func (cfg OnboardTokenPoolsForSelfServeConfig) Validate(e cldf.Environment, chai
 	// Duplicate mint detection
 	seen := make(map[string]int, len(cfg.RegisterTokenConfigs))
 	for i, registerTokenConfig := range cfg.RegisterTokenConfigs {
+		if registerTokenConfig.Metadata == "" {
+			return fmt.Errorf("RegisterTokenConfigs[%d].Metadata is required for token mint %s", i, registerTokenConfig.TokenMint.String())
+		}
 		if registerTokenConfig.PoolType != shared.BurnMintTokenPool && registerTokenConfig.PoolType != shared.LockReleaseTokenPool {
 			return fmt.Errorf("PoolType not supported: %v", registerTokenConfig.PoolType)
 		}
@@ -84,9 +86,9 @@ func (cfg OnboardTokenPoolsForSelfServeConfig) Validate(e cldf.Environment, chai
 				return fmt.Errorf("token admin registry already exists for (mint: %s, router: %s)", mintStr, routerProgramAddress.String())
 			}
 		}
-		tokenPoolProgramID := chainState.GetActiveTokenPool(registerTokenConfig.PoolType, registerTokenConfig.Metadata) // If Metadata is nil it returns the CLL Token Pool Program
+		tokenPoolProgramID := chainState.GetActiveTokenPool(registerTokenConfig.PoolType, shared.CLLMetadata) // This changeset is to register the token pool in the CLL Token Pool Program
 		if (tokenPoolProgramID == solana.PublicKey{}) {
-			return errors.New("token pool program ID not found")
+			return fmt.Errorf("token pool program ID not found for pool type: %s", registerTokenConfig.PoolType)
 		}
 		tokenPoolPDA, err := solTokenUtil.TokenPoolConfigAddress(tokenMint, tokenPoolProgramID)
 		if err != nil {
@@ -114,19 +116,6 @@ func OnboardTokenPoolsForSelfServe(e cldf.Environment, cfg OnboardTokenPoolsForS
 	mcmsTxs := []mcmsTypes.Transaction{}
 	instructions := [][]solana.Instruction{}
 	for _, registerTokenConfig := range cfg.RegisterTokenConfigs {
-		// Store in Address Book
-		newAddresses := cldf.NewMemoryAddressBook()
-		tv := cldf.NewTypeAndVersion(registerTokenConfig.TokenProgramName, deployment.Version1_0_0)
-		if registerTokenConfig.TokenSymbol != "" {
-			tv.AddLabel(registerTokenConfig.TokenSymbol)
-		}
-		if registerTokenConfig.Metadata != "" {
-			tv.AddLabel(registerTokenConfig.Metadata)
-		}
-		err = newAddresses.Save(cfg.ChainSelector, registerTokenConfig.TokenMint.String(), tv)
-		if err != nil {
-			return cldf.ChangesetOutput{}, err
-		}
 		// Propose Admin in Token Admin Registry
 		proposeTokenAdminRegistryAdminIx, err := generateProposeTokenAdminRegistryAdministratorIx(registerTokenConfig, routerState)
 		if err != nil {
@@ -152,6 +141,7 @@ func OnboardTokenPoolsForSelfServe(e cldf.Environment, cfg OnboardTokenPoolsForS
 			return cldf.ChangesetOutput{}, err
 		}
 		tokenInstructions = append(tokenInstructions, transferTokenPoolOwnershipIx)
+		e.Logger.Infow("Onboarding Token in ", "TokenProgramID", currentTokenPoolSolanaState.tokenPoolProgramID.String())
 		// if the ccip admin is timelock, build mcms transaction
 		if cfg.MCMS != nil {
 			inputs := []MCMSTxParams{{
@@ -180,6 +170,18 @@ func OnboardTokenPoolsForSelfServe(e cldf.Environment, cfg OnboardTokenPoolsForS
 		} else {
 			// the ccip admin will always be deployer key if done without mcms
 			instructions = append(instructions, tokenInstructions)
+		}
+		if !registerTokenConfig.Override {
+			// Store in Address Book only first time running this
+			newAddresses := cldf.NewMemoryAddressBook()
+			tv := cldf.NewTypeAndVersion(registerTokenConfig.TokenProgramName, deployment.Version1_0_0)
+			tv.AddLabel(registerTokenConfig.Metadata)                            // Customer Identifier
+			tv.AddLabel(registerTokenConfig.PoolType.String())                   // Pool Type
+			tv.AddLabel(currentTokenPoolSolanaState.tokenPoolProgramID.String()) // Token Pool Program ID
+			err = newAddresses.Save(cfg.ChainSelector, registerTokenConfig.TokenMint.String(), tv)
+			if err != nil {
+				return cldf.ChangesetOutput{}, err
+			}
 		}
 	}
 	return ExecuteInstructionsAndBuildProposals(e, ExecuteConfig{ChainSelector: cfg.ChainSelector, MCMS: cfg.MCMS, Chain: solChainState.chain}, instructions, mcmsTxs)
@@ -335,9 +337,9 @@ type tokenPoolSolanaState struct {
 }
 
 func loadTokenPoolSolanaState(cfg OnboardTokenPoolConfig, state globalState) (tokenPoolSolanaState, error) {
-	tokenPoolProgramID := state.chainState.GetActiveTokenPool(cfg.PoolType, cfg.Metadata) // If Metadata is nil it returns the CLL Token Pool Program
+	tokenPoolProgramID := state.chainState.GetActiveTokenPool(cfg.PoolType, shared.CLLMetadata) // This changeset is to set up the token pool in the CLL Program
 	if (tokenPoolProgramID == solana.PublicKey{}) {
-		return tokenPoolSolanaState{}, errors.New("token pool program ID not found")
+		return tokenPoolSolanaState{}, fmt.Errorf("token pool program ID not found for pool type: %s", cfg.PoolType)
 	}
 	poolConfigPDA, err := solTokenUtil.TokenPoolConfigAddress(cfg.TokenMint, tokenPoolProgramID)
 	if err != nil {
