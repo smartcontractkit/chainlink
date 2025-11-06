@@ -97,6 +97,7 @@ To execute tests with v2 contracts start the local CRE first:
  2. Execute the tests in `system-tests/tests/smoke/cre`: `go test -timeout 15m -run "^Test_CRE_V2"`.
 */
 func Test_CRE_V2_Suite(t *testing.T) {
+	quarantine.Flaky(t, "DX-2224")
 	topology := os.Getenv("TOPOLOGY_NAME")
 	t.Run("[v2] Proof Of Reserve - "+topology, func(t *testing.T) {
 		// TODO: Review why this test cannot run with two chains? (CRE-983)
