@@ -3,11 +3,11 @@ package contracts
 import (
 	"errors"
 	"fmt"
-	"time"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/smartcontractkit/chainlink/deployment/common/changeset/state"
+	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 
 	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
 
@@ -36,10 +36,7 @@ var (
 	ProposerManyChainMultiSig cldf.ContractType = "ProposerManyChainMultiSig" // no type and a version in contract https://github.com/smartcontractkit/ccip-owner-contracts/blob/main/src/ManyChainMultiSig.sol
 )
 
-// TODO: replace with proposalutils.MCMSConfig
-type MCMSConfig struct {
-	MinDuration time.Duration
-}
+type MCMSConfig = proposalutils.TimelockConfig
 
 // Ownable is an interface for contracts that have an owner.
 type Ownable interface {

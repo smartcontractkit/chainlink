@@ -40,7 +40,7 @@ func TestAdminBatchPauseWorkflows(t *testing.T) {
 			WorkflowRegistryQualifier: "test-workflow-registry-v2",
 			WorkflowIDs:               [][32]byte{testWorkflowID1},
 			MCMSConfig: &contracts.MCMSConfig{
-				MinDuration: 30 * time.Second,
+				MinDelay: 30 * time.Second,
 			},
 		})
 		require.NoError(t, err, "MCMS preconditions should pass")
@@ -77,7 +77,7 @@ func TestAdminPauseWorkflow(t *testing.T) {
 			WorkflowRegistryQualifier: "test-workflow-registry-v2",
 			WorkflowID:                testWorkflowID,
 			MCMSConfig: &contracts.MCMSConfig{
-				MinDuration: 30 * time.Second,
+				MinDelay: 30 * time.Second,
 			},
 		})
 		require.NoError(t, err, "MCMS preconditions should pass")
@@ -114,7 +114,7 @@ func TestAdminPauseAllByOwner(t *testing.T) {
 			WorkflowRegistryQualifier: "test-workflow-registry-v2",
 			Owner:                     testOwner,
 			MCMSConfig: &contracts.MCMSConfig{
-				MinDuration: 30 * time.Second,
+				MinDelay: 30 * time.Second,
 			},
 		})
 		require.NoError(t, err, "MCMS preconditions should pass")
@@ -151,7 +151,7 @@ func TestAdminPauseAllByDON(t *testing.T) {
 			WorkflowRegistryQualifier: "test-workflow-registry-v2",
 			DONFamily:                 testDONFamily,
 			MCMSConfig: &contracts.MCMSConfig{
-				MinDuration: 30 * time.Second,
+				MinDelay: 30 * time.Second,
 			},
 		})
 		require.NoError(t, err, "MCMS preconditions should pass")

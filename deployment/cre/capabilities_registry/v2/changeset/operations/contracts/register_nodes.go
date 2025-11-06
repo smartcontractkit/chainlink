@@ -44,7 +44,7 @@ type NodesInput struct {
 
 type RegisterNodesOutput struct {
 	Nodes     []*capabilities_registry_v2.CapabilitiesRegistryNodeAdded
-	Operation mcmstypes.BatchOperation
+	Operation *mcmstypes.BatchOperation
 }
 
 // RegisterNodes is an operation that registers nodes in the V2 Capabilities Registry contract.
@@ -131,54 +131,11 @@ var RegisterNodes = operations.NewOperation[RegisterNodesInput, RegisterNodesOut
 		var resultNodes []*capabilities_registry_v2.CapabilitiesRegistryNodeAdded
 
 		// Execute the transaction using the strategy
-		operation, err := deps.Strategy.Apply(func(opts *bind.TransactOpts) (*types.Transaction, error) {
-			tx, err := capReg.AddNodes(opts, nodes)
-			if err != nil {
-				err = cldf.DecodeErr(capabilities_registry_v2.CapabilitiesRegistryABI, err)
-				return nil, fmt.Errorf("failed to call AddNodes: %w", err)
-			}
-
-			// For direct execution, we can get the receipt and parse logs
-			if input.MCMSConfig == nil {
-				// Confirm transaction and get receipt
-				_, err = chain.Confirm(tx)
-				if err != nil {
-					return nil, fmt.Errorf("failed to confirm AddNodes transaction %s: %w", tx.Hash().String(), err)
-				}
-
-				ctx := b.GetContext()
-				receipt, err := bind.WaitMined(ctx, chain.Client, tx)
-				if err != nil {
-					return nil, fmt.Errorf("failed to mine AddNodes transaction %s: %w", tx.Hash().String(), err)
-				}
-
-				// Get the CapabilitiesRegistryFilterer contract for parsing logs
-				capabilityRegistryFilterer, err := capabilities_registry_v2.NewCapabilitiesRegistryFilterer(
-					common.HexToAddress(input.Address),
-					chain.Client,
-				)
-				if err != nil {
-					return nil, fmt.Errorf("failed to create CapabilitiesRegistryFilterer: %w", err)
-				}
-
-				// Parse the logs to get the added nodes
-				resultNodes = make([]*capabilities_registry_v2.CapabilitiesRegistryNodeAdded, 0, len(receipt.Logs))
-				for i, log := range receipt.Logs {
-					if log == nil {
-						continue
-					}
-
-					o, err := capabilityRegistryFilterer.ParseNodeAdded(*log)
-					if err != nil {
-						return nil, fmt.Errorf("failed to parse log %d for node added: %w", i, err)
-					}
-					resultNodes = append(resultNodes, o)
-				}
-			}
-
-			return tx, nil
+		operation, tx, err := deps.Strategy.Apply(func(opts *bind.TransactOpts) (*types.Transaction, error) {
+			return capReg.AddNodes(opts, nodes)
 		})
 		if err != nil {
+			err = cldf.DecodeErr(capabilities_registry_v2.CapabilitiesRegistryABI, err)
 			return RegisterNodesOutput{}, fmt.Errorf("failed to execute AddNodes: %w", err)
 		}
 
@@ -186,6 +143,35 @@ var RegisterNodes = operations.NewOperation[RegisterNodesInput, RegisterNodesOut
 			deps.Env.Logger.Infof("Created MCMS proposal for RegisterNodes on chain %d", input.ChainSelector)
 		} else {
 			deps.Env.Logger.Infof("Successfully registered %d nodes on chain %d", len(resultNodes), input.ChainSelector)
+
+			ctx := b.GetContext()
+			receipt, err := bind.WaitMined(ctx, chain.Client, tx)
+			if err != nil {
+				return RegisterNodesOutput{}, fmt.Errorf("failed to mine AddNodes transaction %s: %w", tx.Hash().String(), err)
+			}
+
+			// Get the CapabilitiesRegistryFilterer contract for parsing logs
+			capabilityRegistryFilterer, err := capabilities_registry_v2.NewCapabilitiesRegistryFilterer(
+				common.HexToAddress(input.Address),
+				chain.Client,
+			)
+			if err != nil {
+				return RegisterNodesOutput{}, fmt.Errorf("failed to create CapabilitiesRegistryFilterer: %w", err)
+			}
+
+			// Parse the logs to get the added nodes
+			resultNodes = make([]*capabilities_registry_v2.CapabilitiesRegistryNodeAdded, 0, len(receipt.Logs))
+			for i, log := range receipt.Logs {
+				if log == nil {
+					continue
+				}
+
+				o, err := capabilityRegistryFilterer.ParseNodeAdded(*log)
+				if err != nil {
+					return RegisterNodesOutput{}, fmt.Errorf("failed to parse log %d for node added: %w", i, err)
+				}
+				resultNodes = append(resultNodes, o)
+			}
 		}
 
 		return RegisterNodesOutput{

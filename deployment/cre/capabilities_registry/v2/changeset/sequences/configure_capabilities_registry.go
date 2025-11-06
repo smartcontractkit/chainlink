@@ -105,7 +105,9 @@ var ConfigureCapabilitiesRegistry = operations.NewSequence(
 		if err != nil {
 			return ConfigureCapabilitiesRegistryOutput{}, err
 		}
-		allOperations = append(allOperations, registerNopsReport.Output.Operation)
+		if registerNopsReport.Output.Operation != nil {
+			allOperations = append(allOperations, *registerNopsReport.Output.Operation)
+		}
 
 		// Register capabilities
 		registerCapabilitiesReport, err := operations.ExecuteOperation(b, contracts.RegisterCapabilities, contracts.RegisterCapabilitiesDeps{
@@ -120,7 +122,9 @@ var ConfigureCapabilitiesRegistry = operations.NewSequence(
 		if err != nil {
 			return ConfigureCapabilitiesRegistryOutput{}, err
 		}
-		allOperations = append(allOperations, registerCapabilitiesReport.Output.Operation)
+		if registerCapabilitiesReport.Output.Operation != nil {
+			allOperations = append(allOperations, *registerCapabilitiesReport.Output.Operation)
+		}
 
 		// Register Nodes
 		registerNodesReport, err := operations.ExecuteOperation(b, contracts.RegisterNodes, contracts.RegisterNodesDeps{
@@ -135,7 +139,9 @@ var ConfigureCapabilitiesRegistry = operations.NewSequence(
 		if err != nil {
 			return ConfigureCapabilitiesRegistryOutput{}, err
 		}
-		allOperations = append(allOperations, registerNodesReport.Output.Operation)
+		if registerNodesReport.Output.Operation != nil {
+			allOperations = append(allOperations, *registerNodesReport.Output.Operation)
+		}
 
 		// Register DONs
 		registerDONsReport, err := operations.ExecuteOperation(b, contracts.RegisterDons, contracts.RegisterDonsDeps{
@@ -150,28 +156,21 @@ var ConfigureCapabilitiesRegistry = operations.NewSequence(
 		if err != nil {
 			return ConfigureCapabilitiesRegistryOutput{}, err
 		}
-		allOperations = append(allOperations, registerDONsReport.Output.Operation)
+		if registerDONsReport.Output.Operation != nil {
+			allOperations = append(allOperations, *registerDONsReport.Output.Operation)
+		}
 
-		if input.MCMSConfig != nil {
-			proposal, mErr := strategy.BuildProposal(allOperations)
-			if mErr != nil {
-				return ConfigureCapabilitiesRegistryOutput{}, fmt.Errorf("failed to build MCMS proposal: %w", mErr)
-			}
-
-			return ConfigureCapabilitiesRegistryOutput{
-				Nops:                  registerNopsReport.Output.Nops,
-				Nodes:                 registerNodesReport.Output.Nodes,
-				Capabilities:          registerCapabilitiesReport.Output.Capabilities,
-				DONs:                  registerDONsReport.Output.DONs,
-				MCMSTimelockProposals: []mcmslib.TimelockProposal{proposal},
-			}, nil
+		proposal, mErr := strategy.BuildProposal(allOperations)
+		if mErr != nil {
+			return ConfigureCapabilitiesRegistryOutput{}, fmt.Errorf("failed to build MCMS proposal: %w", mErr)
 		}
 
 		return ConfigureCapabilitiesRegistryOutput{
-			Nops:         registerNopsReport.Output.Nops,
-			Nodes:        registerNodesReport.Output.Nodes,
-			Capabilities: registerCapabilitiesReport.Output.Capabilities,
-			DONs:         registerDONsReport.Output.DONs,
+			Nops:                  registerNopsReport.Output.Nops,
+			Nodes:                 registerNodesReport.Output.Nodes,
+			Capabilities:          registerCapabilitiesReport.Output.Capabilities,
+			DONs:                  registerDONsReport.Output.DONs,
+			MCMSTimelockProposals: []mcmslib.TimelockProposal{proposal},
 		}, nil
 	},
 )

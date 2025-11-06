@@ -70,7 +70,7 @@ func TestConfigureForwarders_WithMCMS(t *testing.T) {
 	changesetOutput, err := forwarder.ConfigureForwarders{}.Apply(*env, forwarder.ConfigureSeqInput{
 		DON: donConfig,
 		MCMSConfig: &contracts.MCMSConfig{
-			MinDuration: 10 * time.Second,
+			MinDelay: 10 * time.Second,
 		},
 		Chains: map[uint64]struct{}{registryChainSel: {}},
 	})

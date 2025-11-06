@@ -115,23 +115,19 @@ var SetDONsFamilies = operations.NewSequence[SetDONsFamiliesInput, SetDONsFamili
 			}
 
 			donsInfo = append(donsInfo, report.Output.DonInfo)
-			mcmsOperations = append(mcmsOperations, report.Output.Operation)
+			if report.Output.Operation != nil {
+				mcmsOperations = append(mcmsOperations, *report.Output.Operation)
+			}
 		}
 
-		if len(mcmsOperations) > 0 {
-			proposal, err := strategy.BuildProposal(mcmsOperations)
-			if err != nil {
-				return SetDONsFamiliesOutput{}, fmt.Errorf("failed to build MCMS proposal: %w", err)
-			}
-
-			return SetDONsFamiliesOutput{
-				DonsInfo:  donsInfo,
-				Proposals: []mcmslib.TimelockProposal{proposal},
-			}, nil
+		proposal, err := strategy.BuildProposal(mcmsOperations)
+		if err != nil {
+			return SetDONsFamiliesOutput{}, fmt.Errorf("failed to build MCMS proposal: %w", err)
 		}
 
 		return SetDONsFamiliesOutput{
-			DonsInfo: donsInfo,
+			DonsInfo:  donsInfo,
+			Proposals: []mcmslib.TimelockProposal{proposal},
 		}, nil
 	},
 )

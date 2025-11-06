@@ -32,7 +32,7 @@ type RegisterDonsInput struct {
 
 type RegisterDonsOutput struct {
 	DONs      []capabilities_registry_v2.CapabilitiesRegistryDONInfo
-	Operation mcmstypes.BatchOperation
+	Operation *mcmstypes.BatchOperation
 }
 
 // RegisterDons is an operation that registers DONs in the V2 Capabilities Registry contract.
@@ -59,42 +59,11 @@ var RegisterDons = operations.NewOperation[RegisterDonsInput, RegisterDonsOutput
 		var resultDONs []capabilities_registry_v2.CapabilitiesRegistryDONInfo
 
 		// Execute the transaction using the strategy
-		operation, err := deps.Strategy.Apply(func(opts *bind.TransactOpts) (*types.Transaction, error) {
-			tx, err := capReg.AddDONs(opts, input.DONs)
-			if err != nil {
-				err = cldf.DecodeErr(capabilities_registry_v2.CapabilitiesRegistryABI, err)
-				return nil, fmt.Errorf("failed to call AddDONs: %w", err)
-			}
-
-			// For direct execution, we can get the DONs info
-			if input.MCMSConfig == nil {
-				// Confirm transaction
-				_, err = chain.Confirm(tx)
-				if err != nil {
-					return nil, fmt.Errorf("failed to confirm AddDONs transaction %s: %w", tx.Hash().String(), err)
-				}
-
-				// Get the CapabilitiesRegistryCaller contract
-				capReg, err := capabilities_registry_v2.NewCapabilitiesRegistry(
-					common.HexToAddress(input.Address),
-					chain.Client,
-				)
-				if err != nil {
-					return nil, fmt.Errorf("failed to create CapabilitiesRegistryCaller: %w", err)
-				}
-
-				// Fetch all DONs via generic pagination helper
-				donsInfo, err := pkg.GetDONs(nil, capReg)
-				if err != nil {
-					return nil, fmt.Errorf("failed to call GetDONs: %w", err)
-				}
-
-				resultDONs = donsInfo
-			}
-
-			return tx, nil
+		operation, _, err := deps.Strategy.Apply(func(opts *bind.TransactOpts) (*types.Transaction, error) {
+			return capReg.AddDONs(opts, input.DONs)
 		})
 		if err != nil {
+			err = cldf.DecodeErr(capabilities_registry_v2.CapabilitiesRegistryABI, err)
 			return RegisterDonsOutput{}, fmt.Errorf("failed to execute AddDONs: %w", err)
 		}
 
@@ -102,6 +71,23 @@ var RegisterDons = operations.NewOperation[RegisterDonsInput, RegisterDonsOutput
 			deps.Env.Logger.Infof("Created MCMS proposal for RegisterDons on chain %d", input.ChainSelector)
 		} else {
 			deps.Env.Logger.Infof("Successfully registered %d DONs on chain %d", len(resultDONs), input.ChainSelector)
+
+			// Get the CapabilitiesRegistryCaller contract
+			capReg, err := capabilities_registry_v2.NewCapabilitiesRegistry(
+				common.HexToAddress(input.Address),
+				chain.Client,
+			)
+			if err != nil {
+				return RegisterDonsOutput{}, fmt.Errorf("failed to create CapabilitiesRegistryCaller: %w", err)
+			}
+
+			// Fetch all DONs via generic pagination helper
+			donsInfo, err := pkg.GetDONs(nil, capReg)
+			if err != nil {
+				return RegisterDonsOutput{}, fmt.Errorf("failed to call GetDONs: %w", err)
+			}
+
+			resultDONs = donsInfo
 		}
 
 		return RegisterDonsOutput{

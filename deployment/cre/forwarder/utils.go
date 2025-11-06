@@ -1,7 +1,6 @@
 package forwarder
 
 import (
-	"context"
 	"errors"
 	"fmt"
 
@@ -37,7 +36,6 @@ type configureFowarderResponse struct {
 // configureForwarder sets the config for the forwarder contract on the chain for all Dons that accept workflows
 // dons that don't accept workflows are not registered with the forwarder
 func configureForwarder(
-	ctx context.Context,
 	lggr logger.Logger,
 	chain cldf_evm.Chain,
 	fwdr *kf.KeystoneForwarder,
@@ -52,27 +50,12 @@ func configureForwarder(
 	ver := cfg.ConfigVersion // note config count on the don info is the version on the forwarder
 	signers := cfg.Signers
 
-	operation, err := strategy.Apply(func(txOpts *bind.TransactOpts) (*types.Transaction, error) {
-		tx, err := fwdr.SetConfig(txOpts, cfg.DonID, ver, cfg.F, signers)
-		if err != nil {
-			err = cldf.DecodeErr(kf.KeystoneForwarderABI, err)
-			return nil, fmt.Errorf("failed to call SetConfig for forwarder %s on chain %d: %w", fwdr.Address().String(), chain.Selector, err)
-		}
-
-		if useMCMS {
-			return tx, nil
-		}
-
-		_, err = chain.Confirm(tx)
-		if err != nil {
-			err = cldf.DecodeErr(kf.KeystoneForwarderABI, err)
-			return nil, fmt.Errorf("failed to confirm SetConfig for forwarder %s: %w", fwdr.Address().String(), err)
-		}
-
-		return tx, nil
+	operation, _, err := strategy.Apply(func(txOpts *bind.TransactOpts) (*types.Transaction, error) {
+		return fwdr.SetConfig(txOpts, cfg.DonID, ver, cfg.F, signers)
 	})
 	if err != nil {
-		return nil, fmt.Errorf("failed to set forwarder config on chain %d: %w", chain.Selector, err)
+		err = cldf.DecodeErr(kf.KeystoneForwarderABI, err)
+		return nil, fmt.Errorf("failed to call SetConfig for forwarder %s on chain %d: %w", fwdr.Address().String(), chain.Selector, err)
 	}
 
 	if useMCMS {
@@ -82,7 +65,7 @@ func configureForwarder(
 			ChainSelector: chain.Selector,
 			DonID:         cfg.DonID,
 			Forwarder:     fwdr.Address(),
-			MCMSOperation: &operation,
+			MCMSOperation: operation,
 		}, nil
 	}
 

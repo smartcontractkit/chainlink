@@ -45,7 +45,7 @@ func TestSetConfig(t *testing.T) {
 			AttrLen:                   256,
 			ExpiryLen:                 604800,
 			MCMSConfig: &crecontracts.MCMSConfig{
-				MinDuration: 30 * time.Second,
+				MinDelay: 30 * time.Second,
 			},
 		})
 		t.Logf("MCMS metadata config result: err=%v, output=%v", err, output)
@@ -91,7 +91,7 @@ func TestUpdateAllowedSigners(t *testing.T) {
 			},
 			Allowed: true,
 			MCMSConfig: &crecontracts.MCMSConfig{
-				MinDuration: 30 * time.Second,
+				MinDelay: 30 * time.Second,
 			},
 		})
 		t.Logf("MCMS update allowed signers result: err=%v, output=%v", err, output)
@@ -132,7 +132,7 @@ func TestSetWorkflowOwnerConfig(t *testing.T) {
 			Owner:                     common.HexToAddress("0x1234567890123456789012345678901234567890"),
 			Config:                    []byte("test config data"),
 			MCMSConfig: &crecontracts.MCMSConfig{
-				MinDuration: 30 * time.Second,
+				MinDelay: 30 * time.Second,
 			},
 		})
 		t.Logf("MCMS set workflow owner config result: err=%v, output=%v", err, output)
@@ -175,7 +175,7 @@ func TestSetDONLimit(t *testing.T) {
 			DONLimit:                  10,
 			UserDefaultLimit:          5,
 			MCMSConfig: &crecontracts.MCMSConfig{
-				MinDuration: 30 * time.Second,
+				MinDelay: 30 * time.Second,
 			},
 		})
 		t.Logf("MCMS set DON limit result: err=%v, output=%v", err, output)
@@ -242,7 +242,7 @@ func TestSetUserDONOverride(t *testing.T) {
 			Limit:                     5,
 			Enabled:                   true,
 			MCMSConfig: &crecontracts.MCMSConfig{
-				MinDuration: 30 * time.Second,
+				MinDelay: 30 * time.Second,
 			},
 		})
 		t.Logf("MCMS set user DON override result: err=%v, output=%v", err, output)
@@ -313,7 +313,7 @@ func TestSetCapabilitiesRegistry(t *testing.T) {
 			Registry:                  donRegistryAddress,
 			ChainSelectorDON:          donChainSelector,
 			MCMSConfig: &crecontracts.MCMSConfig{
-				MinDuration: 30 * time.Second,
+				MinDelay: 30 * time.Second,
 			},
 		})
 		t.Logf("MCMS DON registry configuration result: err=%v, output=%v", err, configureOutput)

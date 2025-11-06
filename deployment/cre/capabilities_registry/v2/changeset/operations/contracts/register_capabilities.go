@@ -33,7 +33,7 @@ type RegisterCapabilitiesInput struct {
 
 type RegisterCapabilitiesOutput struct {
 	Capabilities []*capabilities_registry_v2.CapabilitiesRegistryCapabilityConfigured
-	Operation    mcmstypes.BatchOperation
+	Operation    *mcmstypes.BatchOperation
 }
 
 // RegisterCapabilities is an operation that registers nodes in the V2 Capabilities Registry contract.
@@ -81,28 +81,23 @@ var RegisterCapabilities = operations.NewOperation[RegisterCapabilitiesInput, Re
 		var resultCapabilities []*capabilities_registry_v2.CapabilitiesRegistryCapabilityConfigured
 
 		// Execute the transaction using the strategy
-		operation, err := deps.Strategy.Apply(func(opts *bind.TransactOpts) (*types.Transaction, error) {
-			tx, err := capabilitiesRegistry.AddCapabilities(opts, capabilities)
-			if err != nil {
-				err = cldf.DecodeErr(capabilities_registry_v2.CapabilitiesRegistryABI, err)
-				return nil, fmt.Errorf("failed to call AddCapabilities: %w", err)
-			}
+		operation, tx, err := deps.Strategy.Apply(func(opts *bind.TransactOpts) (*types.Transaction, error) {
+			return capabilitiesRegistry.AddCapabilities(opts, capabilities)
+		})
+		if err != nil {
+			err = cldf.DecodeErr(capabilities_registry_v2.CapabilitiesRegistryABI, err)
+			return RegisterCapabilitiesOutput{}, fmt.Errorf("failed to execute AddCapabilities: %w", err)
+		}
 
-			if input.MCMSConfig != nil {
-				return tx, nil
-			}
-
-			// For direct execution, we can get the receipt and parse logs
-			// Confirm transaction and get receipt
-			_, err = chain.Confirm(tx)
-			if err != nil {
-				return nil, fmt.Errorf("failed to confirm AddCapabilities transaction %s: %w", tx.Hash().String(), err)
-			}
+		if input.MCMSConfig != nil {
+			deps.Env.Logger.Infof("Created MCMS proposal for RegisterCapabilities on chain %d", input.ChainSelector)
+		} else {
+			deps.Env.Logger.Infof("Successfully registered %d capabilities on chain %d", len(resultCapabilities), input.ChainSelector)
 
 			ctx := b.GetContext()
 			receipt, err := bind.WaitMined(ctx, chain.Client, tx)
 			if err != nil {
-				return nil, fmt.Errorf("failed to mine AddCapabilities transaction %s: %w", tx.Hash().String(), err)
+				return RegisterCapabilitiesOutput{}, fmt.Errorf("failed to mine AddCapabilities transaction %s: %w", tx.Hash().String(), err)
 			}
 
 			// Parse the logs to get the added capabilities
@@ -114,21 +109,10 @@ var RegisterCapabilities = operations.NewOperation[RegisterCapabilitiesInput, Re
 
 				o, err := capabilitiesRegistry.ParseCapabilityConfigured(*log)
 				if err != nil {
-					return nil, fmt.Errorf("failed to parse log %d for capability added: %w", i, err)
+					return RegisterCapabilitiesOutput{}, fmt.Errorf("failed to parse log %d for capability added: %w", i, err)
 				}
 				resultCapabilities = append(resultCapabilities, o)
 			}
-
-			return tx, nil
-		})
-		if err != nil {
-			return RegisterCapabilitiesOutput{}, fmt.Errorf("failed to execute AddCapabilities: %w", err)
-		}
-
-		if input.MCMSConfig != nil {
-			deps.Env.Logger.Infof("Created MCMS proposal for RegisterCapabilities on chain %d", input.ChainSelector)
-		} else {
-			deps.Env.Logger.Infof("Successfully registered %d capabilities on chain %d", len(resultCapabilities), input.ChainSelector)
 		}
 
 		return RegisterCapabilitiesOutput{

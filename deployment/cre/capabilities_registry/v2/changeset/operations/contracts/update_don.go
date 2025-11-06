@@ -64,7 +64,7 @@ func (r *UpdateDONInput) Validate() error {
 
 type UpdateDONOutput struct {
 	DonInfo   capabilities_registry_v2.CapabilitiesRegistryDONInfo
-	Operation mcmstypes.BatchOperation
+	Operation *mcmstypes.BatchOperation
 }
 
 // CapabilityConfig is a struct that holds a capability and its configuration
@@ -138,8 +138,8 @@ var UpdateDON = operations.NewOperation[UpdateDONInput, UpdateDONOutput, UpdateD
 		var resultDon capabilities_registry_v2.CapabilitiesRegistryDONInfo
 
 		// Execute the transaction using the strategy
-		operation, err := deps.Strategy.Apply(func(opts *bind.TransactOpts) (*types.Transaction, error) {
-			tx, err := registry.UpdateDONByName(opts, input.DonName, capabilities_registry_v2.CapabilitiesRegistryUpdateDONParams{
+		operation, tx, err := deps.Strategy.Apply(func(opts *bind.TransactOpts) (*types.Transaction, error) {
+			return registry.UpdateDONByName(opts, input.DonName, capabilities_registry_v2.CapabilitiesRegistryUpdateDONParams{
 				Name:                     name,
 				Nodes:                    pkg.PeerIDsToBytes(input.P2PIDs),
 				CapabilityConfigurations: cfgs,
@@ -147,36 +147,9 @@ var UpdateDON = operations.NewOperation[UpdateDONInput, UpdateDONOutput, UpdateD
 				F:                        f,
 				Config:                   don.Config,
 			})
-			if err != nil {
-				err = cldf.DecodeErr(capabilities_registry_v2.CapabilitiesRegistryABI, err)
-				return nil, fmt.Errorf("failed to call UpdateDONByName: %w", err)
-			}
-
-			// For direct execution, we can confirm and get the updated DON info
-			if input.MCMSConfig == nil {
-				// Confirm transaction
-				if _, err = chain.Confirm(tx); err != nil {
-					return nil, fmt.Errorf("failed to confirm UpdateDON transaction %s: %w", tx.Hash().String(), err)
-				}
-
-				ctx := b.GetContext()
-				if _, err = bind.WaitMined(ctx, chain.Client, tx); err != nil {
-					return nil, fmt.Errorf("failed to mine UpdateDON transaction %s: %w", tx.Hash().String(), err)
-				}
-
-				don, err := registry.GetDONByName(&bind.CallOpts{}, name)
-				if err != nil {
-					err = cldf.DecodeErr(capabilities_registry_v2.CapabilitiesRegistryABI, err)
-					return nil, fmt.Errorf("failed to call GetDONByName: %w", err)
-				}
-
-				// Get the updated DON info
-				resultDon = don
-			}
-
-			return tx, nil
 		})
 		if err != nil {
+			err = cldf.DecodeErr(capabilities_registry_v2.CapabilitiesRegistryABI, err)
 			return UpdateDONOutput{}, fmt.Errorf("failed to execute UpdateDON: %w", err)
 		}
 
@@ -184,6 +157,20 @@ var UpdateDON = operations.NewOperation[UpdateDONInput, UpdateDONOutput, UpdateD
 			deps.Env.Logger.Infof("Created MCMS proposal for UpdateDON '%s' on chain %d", input.DonName, input.ChainSelector)
 		} else {
 			deps.Env.Logger.Infof("Successfully updated DON '%s' on chain %d", input.DonName, input.ChainSelector)
+
+			ctx := b.GetContext()
+			if _, err = bind.WaitMined(ctx, chain.Client, tx); err != nil {
+				return UpdateDONOutput{}, fmt.Errorf("failed to mine UpdateDON transaction %s: %w", tx.Hash().String(), err)
+			}
+
+			don, err := registry.GetDONByName(&bind.CallOpts{}, name)
+			if err != nil {
+				err = cldf.DecodeErr(capabilities_registry_v2.CapabilitiesRegistryABI, err)
+				return UpdateDONOutput{}, fmt.Errorf("failed to call GetDONByName: %w", err)
+			}
+
+			// Get the updated DON info
+			resultDon = don
 		}
 
 		return UpdateDONOutput{

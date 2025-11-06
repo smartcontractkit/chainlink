@@ -11,7 +11,9 @@ import (
 	"github.com/ethereum/go-ethereum/core/types"
 	mcmstypes "github.com/smartcontractkit/mcms/types"
 
+	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
+	workflow_registry_v2 "github.com/smartcontractkit/chainlink-evm/gethwrappers/workflow/generated/workflow_registry_wrapper_v2"
 
 	"github.com/smartcontractkit/chainlink/deployment/cre/contracts"
 )
@@ -43,14 +45,11 @@ var AdminPauseWorkflowOp = operations.NewOperation(
 	"Admin Pause Workflow in WorkflowRegistry V2",
 	func(b operations.Bundle, deps WorkflowRegistryOpDeps, input AdminPauseWorkflowOpInput) (AdminPauseWorkflowOpOutput, error) {
 		// Execute the transaction using the strategy
-		operation, err := deps.Strategy.Apply(func(opts *bind.TransactOpts) (*types.Transaction, error) {
-			tx, err := deps.Registry.AdminPauseWorkflow(opts, input.WorkflowID)
-			if err != nil {
-				return nil, fmt.Errorf("failed to call AdminPauseWorkflow: %w", err)
-			}
-			return tx, nil
+		operation, _, err := deps.Strategy.Apply(func(opts *bind.TransactOpts) (*types.Transaction, error) {
+			return deps.Registry.AdminPauseWorkflow(opts, input.WorkflowID)
 		})
 		if err != nil {
+			err = cldf.DecodeErr(workflow_registry_v2.WorkflowRegistryABI, err)
 			return AdminPauseWorkflowOpOutput{}, fmt.Errorf("failed to execute AdminPauseWorkflow: %w", err)
 		}
 
@@ -62,7 +61,7 @@ var AdminPauseWorkflowOp = operations.NewOperation(
 
 		return AdminPauseWorkflowOpOutput{
 			Success:         true,
-			MCMSOperation:   &operation,
+			MCMSOperation:   operation,
 			RegistryAddress: deps.Registry.Address(),
 		}, nil
 	},
@@ -92,14 +91,11 @@ var AdminBatchPauseWorkflowsOp = operations.NewOperation(
 		}
 
 		// Execute the transaction using the strategy
-		operation, err := deps.Strategy.Apply(func(opts *bind.TransactOpts) (*types.Transaction, error) {
-			tx, err := deps.Registry.AdminBatchPauseWorkflows(opts, input.WorkflowIDs)
-			if err != nil {
-				return nil, fmt.Errorf("failed to call AdminBatchPauseWorkflows: %w", err)
-			}
-			return tx, nil
+		operation, _, err := deps.Strategy.Apply(func(opts *bind.TransactOpts) (*types.Transaction, error) {
+			return deps.Registry.AdminBatchPauseWorkflows(opts, input.WorkflowIDs)
 		})
 		if err != nil {
+			err = cldf.DecodeErr(workflow_registry_v2.WorkflowRegistryABI, err)
 			return AdminBatchPauseWorkflowsOpOutput{}, fmt.Errorf("failed to execute AdminBatchPauseWorkflows: %w", err)
 		}
 
@@ -111,7 +107,7 @@ var AdminBatchPauseWorkflowsOp = operations.NewOperation(
 
 		return AdminBatchPauseWorkflowsOpOutput{
 			Success:         true,
-			MCMSOperation:   &operation,
+			MCMSOperation:   operation,
 			RegistryAddress: deps.Registry.Address(),
 		}, nil
 	},
@@ -138,14 +134,11 @@ var AdminPauseAllByOwnerOp = operations.NewOperation(
 	"Admin Pause All By Owner in WorkflowRegistry V2",
 	func(b operations.Bundle, deps WorkflowRegistryOpDeps, input AdminPauseAllByOwnerOpInput) (AdminPauseAllByOwnerOpOutput, error) {
 		// Execute the transaction using the strategy
-		operation, err := deps.Strategy.Apply(func(opts *bind.TransactOpts) (*types.Transaction, error) {
-			tx, err := deps.Registry.AdminPauseAllByOwner(opts, input.Owner, input.Limit)
-			if err != nil {
-				return nil, fmt.Errorf("failed to call AdminPauseAllByOwner: %w", err)
-			}
-			return tx, nil
+		operation, _, err := deps.Strategy.Apply(func(opts *bind.TransactOpts) (*types.Transaction, error) {
+			return deps.Registry.AdminPauseAllByOwner(opts, input.Owner, input.Limit)
 		})
 		if err != nil {
+			err = cldf.DecodeErr(workflow_registry_v2.WorkflowRegistryABI, err)
 			return AdminPauseAllByOwnerOpOutput{}, fmt.Errorf("failed to execute AdminPauseAllByOwner: %w", err)
 		}
 
@@ -157,7 +150,7 @@ var AdminPauseAllByOwnerOp = operations.NewOperation(
 
 		return AdminPauseAllByOwnerOpOutput{
 			Success:         true,
-			MCMSOperation:   &operation,
+			MCMSOperation:   operation,
 			RegistryAddress: deps.Registry.Address(),
 		}, nil
 	},
@@ -184,14 +177,11 @@ var AdminPauseAllByDONOp = operations.NewOperation(
 	"Admin Pause All By DON in WorkflowRegistry V2",
 	func(b operations.Bundle, deps WorkflowRegistryOpDeps, input AdminPauseAllByDONOpInput) (AdminPauseAllByDONOpOutput, error) {
 		// Execute the transaction using the strategy
-		operation, err := deps.Strategy.Apply(func(opts *bind.TransactOpts) (*types.Transaction, error) {
-			tx, err := deps.Registry.AdminPauseAllByDON(opts, input.DONFamily, input.Limit)
-			if err != nil {
-				return nil, fmt.Errorf("failed to call AdminPauseAllByDON: %w", err)
-			}
-			return tx, nil
+		operation, _, err := deps.Strategy.Apply(func(opts *bind.TransactOpts) (*types.Transaction, error) {
+			return deps.Registry.AdminPauseAllByDON(opts, input.DONFamily, input.Limit)
 		})
 		if err != nil {
+			err = cldf.DecodeErr(workflow_registry_v2.WorkflowRegistryABI, err)
 			return AdminPauseAllByDONOpOutput{}, fmt.Errorf("failed to execute AdminPauseAllByDON: %w", err)
 		}
 
@@ -203,7 +193,7 @@ var AdminPauseAllByDONOp = operations.NewOperation(
 
 		return AdminPauseAllByDONOpOutput{
 			Success:         true,
-			MCMSOperation:   &operation,
+			MCMSOperation:   operation,
 			RegistryAddress: deps.Registry.Address(),
 		}, nil
 	},

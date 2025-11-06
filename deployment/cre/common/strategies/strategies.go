@@ -3,111 +3,31 @@ package strategies
 import (
 	"errors"
 	"fmt"
-	"math/big"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	mcmslib "github.com/smartcontractkit/mcms"
-	"github.com/smartcontractkit/mcms/sdk"
 	mcmstypes "github.com/smartcontractkit/mcms/types"
 
 	cldf_evm "github.com/smartcontractkit/chainlink-deployments-framework/chain/evm"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset/state"
-	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 	"github.com/smartcontractkit/chainlink/deployment/cre/contracts"
 )
 
 // TransactionStrategy interface for executing transactions with different strategies
 type TransactionStrategy interface {
-	Apply(callFn func(opts *bind.TransactOpts) (*types.Transaction, error)) (mcmstypes.BatchOperation, error)
+	// Apply executes the provided call function and returns the resulting MCMS batch operation if applicable.
+	// The callFn should accept transaction options and return a transaction or an error.
+	// If using MCMS, the returned BatchOperation can be used to build a proposal.
+	// If no MCMS is used, the returned BatchOperation will be nil, and the transaction will be confirmed.
+	Apply(callFn func(opts *bind.TransactOpts) (*types.Transaction, error)) (*mcmstypes.BatchOperation, *types.Transaction, error)
+
+	// BuildProposal constructs a TimelockProposal from the provided batch operations.
+	// This is only applicable when using MCMS; otherwise, it returns an empty proposal and an error.
 	BuildProposal(operations []mcmstypes.BatchOperation) (mcmslib.TimelockProposal, error)
-}
-
-// SimpleTransaction executes a transaction directly without MCMS
-type SimpleTransaction struct {
-	Chain cldf_evm.Chain
-}
-
-func (s *SimpleTransaction) Apply(callFn func(opts *bind.TransactOpts) (*types.Transaction, error)) (mcmstypes.BatchOperation, error) {
-	tx, err := callFn(s.Chain.DeployerKey)
-	if err != nil {
-		return mcmstypes.BatchOperation{}, err
-	}
-
-	_, err = s.Chain.Confirm(tx)
-	return mcmstypes.BatchOperation{}, err
-}
-
-func (s *SimpleTransaction) BuildProposal(_ []mcmstypes.BatchOperation) (mcmslib.TimelockProposal, error) {
-	return mcmslib.TimelockProposal{}, nil
-}
-
-// MCMSTransaction executes a transaction through MCMS timelock
-type MCMSTransaction struct {
-	Config        *contracts.MCMSConfig
-	Description   string
-	Address       common.Address
-	ChainSel      uint64
-	MCMSContracts *commonchangeset.MCMSWithTimelockState
-	Env           cldf.Environment
-}
-
-func (m *MCMSTransaction) Apply(callFn func(opts *bind.TransactOpts) (*types.Transaction, error)) (mcmstypes.BatchOperation, error) {
-	opts := cldf.SimTransactOpts()
-
-	tx, err := callFn(opts)
-	if err != nil {
-		return mcmstypes.BatchOperation{}, err
-	}
-
-	op, err := proposalutils.BatchOperationForChain(m.ChainSel, m.Address.Hex(), tx.Data(), big.NewInt(0), "", nil)
-	if err != nil {
-		return mcmstypes.BatchOperation{}, err
-	}
-
-	return op, nil
-}
-
-func (m *MCMSTransaction) BuildProposal(operations []mcmstypes.BatchOperation) (mcmslib.TimelockProposal, error) {
-	if m.Config == nil || m.MCMSContracts == nil {
-		return mcmslib.TimelockProposal{}, errors.New("MCMS configuration or contracts are not provided")
-	}
-
-	if m.MCMSContracts.Timelock == nil || m.MCMSContracts.ProposerMcm == nil {
-		return mcmslib.TimelockProposal{}, errors.New("MCMS contracts are not properly initialized, missing Timelock or Proposer")
-	}
-
-	timelocksPerChain := map[uint64]string{
-		m.ChainSel: m.MCMSContracts.Timelock.Address().Hex(),
-	}
-	proposerMCMSes := map[uint64]string{
-		m.ChainSel: m.MCMSContracts.ProposerMcm.Address().Hex(),
-	}
-	inspector, err := proposalutils.McmsInspectorForChain(m.Env, m.ChainSel)
-	if err != nil {
-		return mcmslib.TimelockProposal{}, err
-	}
-	inspectorPerChain := map[uint64]sdk.Inspector{
-		m.ChainSel: inspector,
-	}
-
-	proposal, err := proposalutils.BuildProposalFromBatchesV2(
-		m.Env,
-		timelocksPerChain,
-		proposerMCMSes,
-		inspectorPerChain,
-		operations,
-		m.Description,
-		proposalutils.TimelockConfig{MinDelay: m.Config.MinDuration},
-	)
-	if err != nil {
-		return mcmslib.TimelockProposal{}, err
-	}
-
-	return *proposal, nil
 }
 
 // CreateStrategy is a factory function to create the appropriate strategy based on configuration
@@ -123,6 +43,7 @@ func CreateStrategy(
 		if mcmsContracts == nil {
 			return nil, errors.New("MCMS contracts are required when mcmsConfig is not nil")
 		}
+
 		return &MCMSTransaction{
 			Config:        mcmsConfig,
 			Description:   description,

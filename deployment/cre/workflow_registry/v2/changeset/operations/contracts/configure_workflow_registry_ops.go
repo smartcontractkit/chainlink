@@ -62,14 +62,11 @@ var SetConfigOp = operations.NewOperation(
 	"Set Config in WorkflowRegistry V2",
 	func(b operations.Bundle, deps WorkflowRegistryOpDeps, input SetConfigOpInput) (SetConfigOpOutput, error) {
 		// Execute the transaction using the strategy
-		operation, err := deps.Strategy.Apply(func(opts *bind.TransactOpts) (*types.Transaction, error) {
-			tx, err := deps.Registry.SetConfig(opts, input.NameLen, input.TagLen, input.URLLen, input.AttrLen, input.ExpiryLen)
-			if err != nil {
-				return nil, fmt.Errorf("failed to call SetConfig: %w", err)
-			}
-			return tx, nil
+		operation, _, err := deps.Strategy.Apply(func(opts *bind.TransactOpts) (*types.Transaction, error) {
+			return deps.Registry.SetConfig(opts, input.NameLen, input.TagLen, input.URLLen, input.AttrLen, input.ExpiryLen)
 		})
 		if err != nil {
+			err = cldf.DecodeErr(workflow_registry_v2.WorkflowRegistryABI, err)
 			return SetConfigOpOutput{}, fmt.Errorf("failed to execute SetConfig: %w", err)
 		}
 
@@ -81,7 +78,7 @@ var SetConfigOp = operations.NewOperation(
 
 		return SetConfigOpOutput{
 			Success:         true,
-			MCMSOperation:   &operation,
+			MCMSOperation:   operation,
 			RegistryAddress: deps.Registry.Address(),
 		}, nil
 	},
@@ -115,14 +112,11 @@ var UpdateAllowedSignersOp = operations.NewOperation(
 		}
 
 		// Execute the transaction using the strategy
-		operation, err := deps.Strategy.Apply(func(opts *bind.TransactOpts) (*types.Transaction, error) {
-			tx, err := deps.Registry.UpdateAllowedSigners(opts, input.Signers, input.Allowed)
-			if err != nil {
-				return nil, fmt.Errorf("failed to call UpdateAllowedSigners: %w", err)
-			}
-			return tx, nil
+		operation, _, err := deps.Strategy.Apply(func(opts *bind.TransactOpts) (*types.Transaction, error) {
+			return deps.Registry.UpdateAllowedSigners(opts, input.Signers, input.Allowed)
 		})
 		if err != nil {
+			err = cldf.DecodeErr(workflow_registry_v2.WorkflowRegistryABI, err)
 			return UpdateAllowedSignersOpOutput{}, fmt.Errorf("failed to execute UpdateAllowedSigners: %w", err)
 		}
 
@@ -134,7 +128,7 @@ var UpdateAllowedSignersOp = operations.NewOperation(
 
 		return UpdateAllowedSignersOpOutput{
 			Success:         true,
-			MCMSOperation:   &operation,
+			MCMSOperation:   operation,
 			RegistryAddress: deps.Registry.Address(),
 		}, nil
 	},
@@ -164,14 +158,11 @@ var SetWorkflowOwnerConfigOp = operations.NewOperation(
 	"Set Workflow Owner Config in WorkflowRegistry V2",
 	func(b operations.Bundle, deps WorkflowRegistryOpDeps, input SetWorkflowOwnerConfigOpInput) (SetWorkflowOwnerConfigOpOutput, error) {
 		// Execute the transaction using the strategy
-		operation, err := deps.Strategy.Apply(func(opts *bind.TransactOpts) (*types.Transaction, error) {
-			tx, err := deps.Registry.SetWorkflowOwnerConfig(opts, input.Owner, input.Config)
-			if err != nil {
-				return nil, fmt.Errorf("failed to call SetWorkflowOwnerConfig: %w", err)
-			}
-			return tx, nil
+		operation, _, err := deps.Strategy.Apply(func(opts *bind.TransactOpts) (*types.Transaction, error) {
+			return deps.Registry.SetWorkflowOwnerConfig(opts, input.Owner, input.Config)
 		})
 		if err != nil {
+			err = cldf.DecodeErr(workflow_registry_v2.WorkflowRegistryABI, err)
 			return SetWorkflowOwnerConfigOpOutput{}, fmt.Errorf("failed to execute SetWorkflowOwnerConfig: %w", err)
 		}
 
@@ -183,7 +174,7 @@ var SetWorkflowOwnerConfigOp = operations.NewOperation(
 
 		return SetWorkflowOwnerConfigOpOutput{
 			Success:         true,
-			MCMSOperation:   &operation,
+			MCMSOperation:   operation,
 			RegistryAddress: deps.Registry.Address(),
 		}, nil
 	},
@@ -214,14 +205,11 @@ var SetDONLimitOp = operations.NewOperation(
 	"Set DON DONLimit in WorkflowRegistry V2",
 	func(b operations.Bundle, deps WorkflowRegistryOpDeps, input SetDONLimitOpInput) (SetDONLimitOpOutput, error) {
 		// Execute the transaction using the strategy
-		operation, err := deps.Strategy.Apply(func(opts *bind.TransactOpts) (*types.Transaction, error) {
-			tx, err := deps.Registry.SetDONLimit(opts, input.DONFamily, input.DONLimit, input.UserDefaultLimit)
-			if err != nil {
-				return nil, fmt.Errorf("failed to call SetDONLimit: %w", err)
-			}
-			return tx, nil
+		operation, _, err := deps.Strategy.Apply(func(opts *bind.TransactOpts) (*types.Transaction, error) {
+			return deps.Registry.SetDONLimit(opts, input.DONFamily, input.DONLimit, input.UserDefaultLimit)
 		})
 		if err != nil {
+			err = cldf.DecodeErr(workflow_registry_v2.WorkflowRegistryABI, err)
 			return SetDONLimitOpOutput{}, fmt.Errorf("failed to execute SetDONLimit: %w", err)
 		}
 
@@ -233,7 +221,7 @@ var SetDONLimitOp = operations.NewOperation(
 
 		return SetDONLimitOpOutput{
 			Success:         true,
-			MCMSOperation:   &operation,
+			MCMSOperation:   operation,
 			RegistryAddress: deps.Registry.Address(),
 		}, nil
 	},
@@ -265,14 +253,11 @@ var SetUserDONOverrideOp = operations.NewOperation(
 	"Set User DON Override in WorkflowRegistry V2",
 	func(b operations.Bundle, deps WorkflowRegistryOpDeps, input SetUserDONOverrideOpInput) (SetUserDONOverrideOpOutput, error) {
 		// Execute the transaction using the strategy
-		operation, err := deps.Strategy.Apply(func(opts *bind.TransactOpts) (*types.Transaction, error) {
-			tx, err := deps.Registry.SetUserDONOverride(opts, input.User, input.DONFamily, input.Limit, input.Enabled)
-			if err != nil {
-				return nil, fmt.Errorf("failed to call SetUserDONOverride: %w", err)
-			}
-			return tx, nil
+		operation, _, err := deps.Strategy.Apply(func(opts *bind.TransactOpts) (*types.Transaction, error) {
+			return deps.Registry.SetUserDONOverride(opts, input.User, input.DONFamily, input.Limit, input.Enabled)
 		})
 		if err != nil {
+			err = cldf.DecodeErr(workflow_registry_v2.WorkflowRegistryABI, err)
 			return SetUserDONOverrideOpOutput{}, fmt.Errorf("failed to execute SetUserDONOverride: %w", err)
 		}
 
@@ -284,7 +269,7 @@ var SetUserDONOverrideOp = operations.NewOperation(
 
 		return SetUserDONOverrideOpOutput{
 			Success:         true,
-			MCMSOperation:   &operation,
+			MCMSOperation:   operation,
 			RegistryAddress: deps.Registry.Address(),
 		}, nil
 	},
@@ -314,14 +299,11 @@ var SetCapabilitiesRegistryOp = operations.NewOperation(
 	"Set DON Registry in WorkflowRegistry V2",
 	func(b operations.Bundle, deps WorkflowRegistryOpDeps, input SetCapabilitiesRegistryOpInput) (SetCapabilitiesRegistryOpOutput, error) {
 		// Execute the transaction using the strategy
-		operation, err := deps.Strategy.Apply(func(opts *bind.TransactOpts) (*types.Transaction, error) {
-			tx, err := deps.Registry.SetCapabilitiesRegistry(opts, input.Registry, input.ChainSelectorDON)
-			if err != nil {
-				return nil, fmt.Errorf("failed to call SetCapabilitiesRegistry: %w", err)
-			}
-			return tx, nil
+		operation, _, err := deps.Strategy.Apply(func(opts *bind.TransactOpts) (*types.Transaction, error) {
+			return deps.Registry.SetCapabilitiesRegistry(opts, input.Registry, input.ChainSelectorDON)
 		})
 		if err != nil {
+			err = cldf.DecodeErr(workflow_registry_v2.WorkflowRegistryABI, err)
 			return SetCapabilitiesRegistryOpOutput{}, fmt.Errorf("failed to execute SetCapabilitiesRegistry: %w", err)
 		}
 
@@ -333,7 +315,7 @@ var SetCapabilitiesRegistryOp = operations.NewOperation(
 
 		return SetCapabilitiesRegistryOpOutput{
 			Success:         true,
-			MCMSOperation:   &operation,
+			MCMSOperation:   operation,
 			RegistryAddress: deps.Registry.Address(),
 		}, nil
 	},

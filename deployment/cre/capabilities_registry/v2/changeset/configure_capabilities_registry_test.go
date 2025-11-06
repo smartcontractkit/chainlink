@@ -189,7 +189,7 @@ func TestConfigureCapabilitiesRegistryInput_YAMLSerialization(t *testing.T) {
 		ChainSelector:               123456789,
 		CapabilitiesRegistryAddress: "0x1234567890123456789012345678901234567890",
 		MCMSConfig: &crecontracts.MCMSConfig{
-			MinDuration: 30 * time.Second,
+			MinDelay: 30 * time.Second,
 		},
 		Nops: []CapabilitiesRegistryNodeOperator{
 			{
@@ -578,7 +578,7 @@ func setupCapabilitiesRegistryWithMCMS(t *testing.T) *testFixture {
 		ChainSelector:               selector,
 		CapabilitiesRegistryAddress: capabilitiesRegistryAddress,
 		MCMSConfig: &crecontracts.MCMSConfig{
-			MinDuration: 30 * time.Second,
+			MinDelay: 30 * time.Second,
 		},
 		Nops:         nops,
 		Capabilities: capabilities,

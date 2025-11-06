@@ -47,7 +47,7 @@ func (i *SetDONFamiliesInput) Validate() error {
 
 type SetDONFamiliesOutput struct {
 	DonInfo   capabilities_registry_v2.CapabilitiesRegistryDONInfo
-	Operation mcmstypes.BatchOperation
+	Operation *mcmstypes.BatchOperation
 }
 
 var SetDONFamilies = operations.NewOperation[SetDONFamiliesInput, SetDONFamiliesOutput, SetDONFamiliesDeps](
@@ -74,40 +74,11 @@ var SetDONFamilies = operations.NewOperation[SetDONFamiliesInput, SetDONFamilies
 		var resultDon capabilities_registry_v2.CapabilitiesRegistryDONInfo
 
 		// Execute the transaction using the strategy
-		operation, err := deps.Strategy.Apply(func(opts *bind.TransactOpts) (*types.Transaction, error) {
-			tx, err := deps.CapabilitiesRegistry.SetDONFamilies(opts, don.Id, input.AddToFamilies, input.RemoveFromFamilies)
-			if err != nil {
-				err = cldf.DecodeErr(capabilities_registry_v2.CapabilitiesRegistryABI, err)
-				return nil, fmt.Errorf("failed to call SetDONFamilies: %w", err)
-			}
-
-			// For direct execution, we can confirm and get the updated DON info
-			if input.MCMSConfig == nil {
-				// Confirm transaction
-				_, err = chain.Confirm(tx)
-				if err != nil {
-					return nil, fmt.Errorf("failed to confirm SetDONFamilies transaction %s: %w", tx.Hash().String(), err)
-				}
-
-				ctx := b.GetContext()
-				_, err = bind.WaitMined(ctx, chain.Client, tx)
-				if err != nil {
-					return nil, fmt.Errorf("failed to mine SetDONFamilies transaction %s: %w", tx.Hash().String(), err)
-				}
-
-				latestDON, err := deps.CapabilitiesRegistry.GetDON(&bind.CallOpts{}, don.Id)
-				if err != nil {
-					err = cldf.DecodeErr(capabilities_registry_v2.CapabilitiesRegistryABI, err)
-					return nil, fmt.Errorf("failed to call GetDONByName: %w", err)
-				}
-
-				// Get the updated DON info
-				resultDon = latestDON
-			}
-
-			return tx, nil
+		operation, tx, err := deps.Strategy.Apply(func(opts *bind.TransactOpts) (*types.Transaction, error) {
+			return deps.CapabilitiesRegistry.SetDONFamilies(opts, don.Id, input.AddToFamilies, input.RemoveFromFamilies)
 		})
 		if err != nil {
+			err = cldf.DecodeErr(capabilities_registry_v2.CapabilitiesRegistryABI, err)
 			return SetDONFamiliesOutput{}, fmt.Errorf("failed to execute SetDONFamilies: %w", err)
 		}
 
@@ -115,6 +86,21 @@ var SetDONFamilies = operations.NewOperation[SetDONFamiliesInput, SetDONFamilies
 			deps.Env.Logger.Infof("Created MCMS proposal for SetDONFamilies '%s' on chain %d", input.DonName, input.RegistryChainSel)
 		} else {
 			deps.Env.Logger.Infof("Successfully set DON families '%s' on chain %d", input.DonName, input.RegistryChainSel)
+
+			ctx := b.GetContext()
+			_, err = bind.WaitMined(ctx, chain.Client, tx)
+			if err != nil {
+				return SetDONFamiliesOutput{}, fmt.Errorf("failed to mine SetDONFamilies transaction %s: %w", tx.Hash().String(), err)
+			}
+
+			latestDON, err := deps.CapabilitiesRegistry.GetDON(&bind.CallOpts{}, don.Id)
+			if err != nil {
+				err = cldf.DecodeErr(capabilities_registry_v2.CapabilitiesRegistryABI, err)
+				return SetDONFamiliesOutput{}, fmt.Errorf("failed to call GetDONByName: %w", err)
+			}
+
+			// Get the updated DON info
+			resultDon = latestDON
 		}
 
 		return SetDONFamiliesOutput{

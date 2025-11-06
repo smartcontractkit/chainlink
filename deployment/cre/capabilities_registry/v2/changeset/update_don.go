@@ -127,8 +127,8 @@ func (u UpdateDON) Apply(e cldf.Environment, config UpdateDONInput) (cldf.Change
 		return cldf.ChangesetOutput{}, fmt.Errorf("failed to update DON %s: %w", config.DONName, err)
 	}
 
-	if config.MCMSConfig != nil {
-		proposal, mcmsErr := strategy.BuildProposal([]types.BatchOperation{updateDonReport.Output.Operation})
+	if updateDonReport.Output.Operation != nil {
+		proposal, mcmsErr := strategy.BuildProposal([]types.BatchOperation{*updateDonReport.Output.Operation})
 		if mcmsErr != nil {
 			return cldf.ChangesetOutput{}, fmt.Errorf("failed to build MCMS proposal for UpdateDON on chain %d: %w", config.RegistryChainSel, mcmsErr)
 		}

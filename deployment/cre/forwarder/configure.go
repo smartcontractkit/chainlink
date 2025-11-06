@@ -212,7 +212,7 @@ var ConfigureOp = operations.NewOperation[ConfigureOpInput, ConfigureOpOutput, C
 	semver.MustParse("1.0.0"),
 	"Configure Keystone Forwarder",
 	func(b operations.Bundle, deps ConfigureOpDeps, input ConfigureOpInput) (ConfigureOpOutput, error) {
-		r, err := configureForwarder(b.GetContext(), b.Logger, *deps.Chain, deps.Contract, input.Config, input.UseMCMS, deps.Strategy)
+		r, err := configureForwarder(b.Logger, *deps.Chain, deps.Contract, input.Config, input.UseMCMS, deps.Strategy)
 		if err != nil {
 			return ConfigureOpOutput{}, fmt.Errorf("configure-forwarder-op failed: failed to configure forwarder for chain selector %d: %w", deps.Chain.Selector, err)
 		}

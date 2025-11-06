@@ -46,7 +46,7 @@ type UpdateNodesInput struct {
 
 type UpdateNodesOutput struct {
 	UpdatedNodes []*capabilities_registry_v2.CapabilitiesRegistryNodeUpdated
-	Operation    mcmstypes.BatchOperation
+	Operation    *mcmstypes.BatchOperation
 }
 
 var UpdateNodes = operations.NewOperation[UpdateNodesInput, UpdateNodesOutput, UpdateNodesDeps](
@@ -67,45 +67,11 @@ var UpdateNodes = operations.NewOperation[UpdateNodesInput, UpdateNodesOutput, U
 		var resultNodes []*capabilities_registry_v2.CapabilitiesRegistryNodeUpdated
 
 		// Execute the transaction using the strategy
-		operation, err := deps.Strategy.Apply(func(opts *bind.TransactOpts) (*types.Transaction, error) {
-			tx, err := deps.CapabilitiesRegistry.UpdateNodes(opts, nodeParams)
-			if err != nil {
-				err = cldf.DecodeErr(capabilities_registry_v2.CapabilitiesRegistryABI, err)
-				return nil, fmt.Errorf("failed to call UpdateNodes: %w", err)
-			}
-
-			// For direct execution, we can get the receipt and parse logs
-			if input.MCMSConfig == nil {
-				// Confirm transaction and get receipt
-				_, err = chain.Confirm(tx)
-				if err != nil {
-					return nil, fmt.Errorf("failed to confirm UpdateNodes transaction %s: %w", tx.Hash().String(), err)
-				}
-
-				ctx := b.GetContext()
-				receipt, err := bind.WaitMined(ctx, chain.Client, tx)
-				if err != nil {
-					return nil, fmt.Errorf("failed to mine UpdateNodes transaction %s: %w", tx.Hash().String(), err)
-				}
-
-				// Parse the logs to get the updated nodes
-				resultNodes = make([]*capabilities_registry_v2.CapabilitiesRegistryNodeUpdated, 0, len(receipt.Logs))
-				for i, log := range receipt.Logs {
-					if log == nil {
-						continue
-					}
-
-					o, err := deps.CapabilitiesRegistry.ParseNodeUpdated(*log)
-					if err != nil {
-						return nil, fmt.Errorf("failed to parse log %d for node updated: %w", i, err)
-					}
-					resultNodes = append(resultNodes, o)
-				}
-			}
-
-			return tx, nil
+		operation, tx, err := deps.Strategy.Apply(func(opts *bind.TransactOpts) (*types.Transaction, error) {
+			return deps.CapabilitiesRegistry.UpdateNodes(opts, nodeParams)
 		})
 		if err != nil {
+			err = cldf.DecodeErr(capabilities_registry_v2.CapabilitiesRegistryABI, err)
 			return UpdateNodesOutput{}, fmt.Errorf("failed to execute UpdateNodes: %w", err)
 		}
 
@@ -113,6 +79,26 @@ var UpdateNodes = operations.NewOperation[UpdateNodesInput, UpdateNodesOutput, U
 			deps.Env.Logger.Infof("Created MCMS proposal for UpdateNodes on chain %d", input.ChainSelector)
 		} else {
 			deps.Env.Logger.Infof("Successfully updated %d nodes on chain %d", len(resultNodes), input.ChainSelector)
+
+			ctx := b.GetContext()
+			receipt, err := bind.WaitMined(ctx, chain.Client, tx)
+			if err != nil {
+				return UpdateNodesOutput{}, fmt.Errorf("failed to mine UpdateNodes transaction %s: %w", tx.Hash().String(), err)
+			}
+
+			// Parse the logs to get the updated nodes
+			resultNodes = make([]*capabilities_registry_v2.CapabilitiesRegistryNodeUpdated, 0, len(receipt.Logs))
+			for i, log := range receipt.Logs {
+				if log == nil {
+					continue
+				}
+
+				o, err := deps.CapabilitiesRegistry.ParseNodeUpdated(*log)
+				if err != nil {
+					return UpdateNodesOutput{}, fmt.Errorf("failed to parse log %d for node updated: %w", i, err)
+				}
+				resultNodes = append(resultNodes, o)
+			}
 		}
 
 		return UpdateNodesOutput{
