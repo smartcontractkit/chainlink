@@ -5,6 +5,7 @@ import (
 	"encoding/base64"
 	"encoding/hex"
 	"fmt"
+	"math/big"
 	"strings"
 	"testing"
 
@@ -24,12 +25,14 @@ import (
 	"github.com/block-vision/sui-go-sdk/models"
 	"github.com/smartcontractkit/chainlink-deployments-framework/chain"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
 	suiBind "github.com/smartcontractkit/chainlink-sui/bindings/bind"
 	suiutil "github.com/smartcontractkit/chainlink-sui/bindings/utils"
 	sui_cs "github.com/smartcontractkit/chainlink-sui/deployment/changesets"
 	sui_ops "github.com/smartcontractkit/chainlink-sui/deployment/ops"
 	ccipops "github.com/smartcontractkit/chainlink-sui/deployment/ops/ccip"
 	linkops "github.com/smartcontractkit/chainlink-sui/deployment/ops/link"
+	suideps "github.com/smartcontractkit/chainlink/deployment/ccip/changeset/sui"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers/messagingtest"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
@@ -151,7 +154,7 @@ func Test_CCIP_Upgrade_Sui2EVM(t *testing.T) {
 
 func Test_CCIP_Upgrade_EVM2Sui(t *testing.T) {
 	lggr := logger.TestLogger(t)
-	// ctx := testcontext.Get(t)
+	ctx := testcontext.Get(t)
 	e, _, _ := testsetups.NewIntegrationEnvironment(
 		t,
 		testhelpers.WithNumOfChains(2),
@@ -215,73 +218,73 @@ func Test_CCIP_Upgrade_EVM2Sui(t *testing.T) {
 
 	receiverObjectIDs := [][32]byte{clockObj, stateObj}
 
-	// fmt.Println("Upgrading SUI contracts")
-	// upgradeCCIP(ctx, t, e, destChain, contracts.CCIP)
-	// upgradeSuiOffRamp(ctx, t, e, destChain, contracts.CCIPOfframp)
+	fmt.Println("Upgrading SUI contracts")
+	upgradeCCIP(ctx, t, e, destChain, contracts.CCIP)
+	upgradeSuiOffRamp(ctx, t, e, destChain, contracts.CCIPOfframp)
 
-	// // Block offramp v1
-	// _, _, err = commoncs.ApplyChangesets(t, e.Env, []commoncs.ConfiguredChangeSet{
-	// 	commoncs.Configure(sui_cs.BlockVersion{}, sui_cs.BlockVersionConfig{
-	// 		SuiChainSelector: destChain,
-	// 		CCIPPackageId:    state.SuiChains[destChain].CCIPAddress,
-	// 		StateObjectId:    state.SuiChains[destChain].CCIPObjectRef,
-	// 		OwnerCapObjectId: state.SuiChains[destChain].CCIPOwnerCapObjectId,
-	// 		ModuleName:       "offramp",
-	// 		Version:          1,
-	// 	}),
-	// })
-	// require.NoError(t, err)
+	// Block offramp v1
+	_, _, err = commoncs.ApplyChangesets(t, e.Env, []commoncs.ConfiguredChangeSet{
+		commoncs.Configure(sui_cs.BlockVersion{}, sui_cs.BlockVersionConfig{
+			SuiChainSelector: destChain,
+			CCIPPackageId:    state.SuiChains[destChain].CCIPAddress,
+			StateObjectId:    state.SuiChains[destChain].CCIPObjectRef,
+			OwnerCapObjectId: state.SuiChains[destChain].CCIPOwnerCapObjectId,
+			ModuleName:       "offramp",
+			Version:          1,
+		}),
+	})
+	require.NoError(t, err)
 
-	// // Block ccip v1 feequoter
-	// _, _, err = commoncs.ApplyChangesets(t, e.Env, []commoncs.ConfiguredChangeSet{
-	// 	commoncs.Configure(sui_cs.BlockVersion{}, sui_cs.BlockVersionConfig{
-	// 		SuiChainSelector: destChain,
-	// 		CCIPPackageId:    state.SuiChains[destChain].CCIPAddress,
-	// 		StateObjectId:    state.SuiChains[destChain].CCIPObjectRef,
-	// 		OwnerCapObjectId: state.SuiChains[destChain].CCIPOwnerCapObjectId,
-	// 		ModuleName:       "fee_quoter",
-	// 		Version:          1,
-	// 	}),
-	// })
-	// require.NoError(t, err)
+	// Block ccip v1 feequoter
+	_, _, err = commoncs.ApplyChangesets(t, e.Env, []commoncs.ConfiguredChangeSet{
+		commoncs.Configure(sui_cs.BlockVersion{}, sui_cs.BlockVersionConfig{
+			SuiChainSelector: destChain,
+			CCIPPackageId:    state.SuiChains[destChain].CCIPAddress,
+			StateObjectId:    state.SuiChains[destChain].CCIPObjectRef,
+			OwnerCapObjectId: state.SuiChains[destChain].CCIPOwnerCapObjectId,
+			ModuleName:       "fee_quoter",
+			Version:          1,
+		}),
+	})
+	require.NoError(t, err)
 
 	// TO RUN FEEQUOTER UPDATE PRICE
-	// state, err = stateview.LoadOnchainState(e.Env)
-	// require.NoError(t, err)
+	state, err = stateview.LoadOnchainState(e.Env)
+	require.NoError(t, err)
 
-	// suiChains := e.Env.BlockChains.SuiChains()
-	// suiChain := suiChains[destChain]
+	suiChains := e.Env.BlockChains.SuiChains()
+	suiChain := suiChains[destChain]
 
-	// deps := suideps.Deps{
-	// 	SuiChain: sui_ops.OpTxDeps{
-	// 		Client: suiChain.Client,
-	// 		Signer: suiChain.Signer,
-	// 		GetCallOpts: func() *suiBind.CallOpts {
-	// 			b := uint64(400_000_000)
-	// 			return &suiBind.CallOpts{
-	// 				Signer:           suiChain.Signer,
-	// 				WaitForExecution: true,
-	// 				GasBudget:        &b,
-	// 			}
-	// 		},
-	// 	},
-	// }
+	deps := suideps.Deps{
+		SuiChain: sui_ops.OpTxDeps{
+			Client: suiChain.Client,
+			Signer: suiChain.Signer,
+			GetCallOpts: func() *suiBind.CallOpts {
+				b := uint64(400_000_000)
+				return &suiBind.CallOpts{
+					Signer:           suiChain.Signer,
+					WaitForExecution: true,
+					GasBudget:        &b,
+				}
+			},
+		},
+	}
 
-	// bigIntSourceUsdPerToken, _ := new(big.Int).SetString("15377040000000000000000000000", 10) // 1e27 since sui is 1e9
-	// bigIntGasUsdPerUnitGas, _ := new(big.Int).SetString("41946474500", 10)                    // optimism sep 4145822215
+	bigIntSourceUsdPerToken, _ := new(big.Int).SetString("15377040000000000000000000000", 10) // 1e27 since sui is 1e9
+	bigIntGasUsdPerUnitGas, _ := new(big.Int).SetString("41946474500", 10)                    // optimism sep 4145822215
 
-	// // Update Prices on FeeQuoter with minted LinkToken
-	// _, err = operations.ExecuteOperation(e.Env.OperationsBundle, ccipops.FeeQuoterUpdatePricesWithOwnerCapOp, deps.SuiChain,
-	// 	ccipops.FeeQuoterUpdatePricesWithOwnerCapInput{
-	// 		CCIPPackageId:         state.SuiChains[destChain].CCIPMockV2PackageId,
-	// 		CCIPObjectRef:         state.SuiChains[destChain].CCIPObjectRef,
-	// 		OwnerCapObjectId:      state.SuiChains[destChain].CCIPOwnerCapObjectId,
-	// 		SourceTokens:          []string{state.SuiChains[destChain].LinkTokenCoinMetadataId},
-	// 		SourceUsdPerToken:     []*big.Int{bigIntSourceUsdPerToken},
-	// 		GasDestChainSelectors: []uint64{sourceChain},
-	// 		GasUsdPerUnitGas:      []*big.Int{bigIntGasUsdPerUnitGas},
-	// 	})
-	// require.NoError(t, err)
+	// Update Prices on FeeQuoter with minted LinkToken
+	_, err = operations.ExecuteOperation(e.Env.OperationsBundle, ccipops.FeeQuoterUpdatePricesWithOwnerCapOp, deps.SuiChain,
+		ccipops.FeeQuoterUpdatePricesWithOwnerCapInput{
+			CCIPPackageId:         state.SuiChains[destChain].CCIPMockV2PackageId,
+			CCIPObjectRef:         state.SuiChains[destChain].CCIPObjectRef,
+			OwnerCapObjectId:      state.SuiChains[destChain].CCIPOwnerCapObjectId,
+			SourceTokens:          []string{state.SuiChains[destChain].LinkTokenCoinMetadataId},
+			SourceUsdPerToken:     []*big.Int{bigIntSourceUsdPerToken},
+			GasDestChainSelectors: []uint64{sourceChain},
+			GasUsdPerUnitGas:      []*big.Int{bigIntGasUsdPerUnitGas},
+		})
+	require.NoError(t, err)
 
 	var (
 		nonce  uint64
