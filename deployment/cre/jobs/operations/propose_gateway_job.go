@@ -54,6 +54,11 @@ var ProposeGatewayJob = operations.NewOperation[ProposeGatewayJobInput, ProposeG
 	proposeGatewayJob,
 )
 
+// proposeGatewayJob builds a gateway job spec and then proposes it to the nodes of a DON.
+// It first fetches node information and chain configurations about the target DONs given in input.DONs to build the job spec.
+// Target DONs are the DONs that the Gateway allows communication with.
+// It then proposes this job spec to each node of the specific DON based on input filters and a chain selector.
+// All nodes must be connected to job distributor and have the proper chain declared.
 func proposeGatewayJob(b operations.Bundle, deps ProposeGatewayJobDeps, input ProposeGatewayJobInput) (ProposeGatewayJobOutput, error) {
 	targetDONs := make([]pkg.TargetDON, 0)
 
