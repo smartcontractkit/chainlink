@@ -2,7 +2,7 @@ package launcher
 
 import (
 	"bytes"
-	"fmt"
+	"errors"
 	"math/big"
 	"testing"
 
@@ -289,7 +289,7 @@ func Test_createDON_withFailures(t *testing.T) {
 		Create(mock.Anything, don.ID, mock.MatchedBy(func(cfg cctypes.OCR3ConfigWithMeta) bool {
 			return bytes.Equal(cfg.ConfigDigest[:], config1[:])
 		})).
-		Return(nil, fmt.Errorf("fail on first")).
+		Return(nil, errors.New("fail on first")).
 		Maybe()
 
 	oracleCreator.EXPECT().
