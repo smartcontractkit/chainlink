@@ -5,6 +5,7 @@ import (
 	"sync"
 	"testing"
 
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/grpc"
 	"google.golang.org/protobuf/types/known/timestamppb"
@@ -91,65 +92,113 @@ func (oc *mockOffchainClient) ProposeJob(ctx context.Context, in *jobv1.ProposeJ
 	return &jobv1.ProposeJobResponse{}, nil
 }
 
+var commonInput = ProposeGatewayJobInput{
+	Domain: "cre",
+	DONFilters: []offchain.TargetDONFilter{
+		{
+			Key:   "don_name",
+			Value: "gateway_1_zone-b",
+		},
+		{
+			Key:   "environment",
+			Value: "staging",
+		},
+		{
+			Key:   "product",
+			Value: "cre",
+		},
+		{
+			Key:   "zone",
+			Value: "zone-b",
+		},
+	},
+	DONs: []DON{
+		{
+			Name: "workflow_1_zone-b",
+			Handlers: []string{
+				"http-capabilities",
+				"web-api-capabilities",
+			},
+			F: 1,
+		},
+	},
+	GatewayKeyChainSelector:  10344971235874465080,
+	GatewayRequestTimeoutSec: 5,
+	JobLabels:                map[string]string{},
+}
+
 func TestProposeGatewayJob(t *testing.T) {
 	t.Parallel()
 
-	selector := uint64(909606746561742123) // chain_selectors.TEST_90000001.Selector
-
-	offchainClient := newOffchainClient(nodes, chainConfigs, nil, nil)
-
-	env, err := environment.New(t.Context(),
-		environment.WithEVMSimulated(t, []uint64{selector}),
-		environment.WithOffchainClient(offchainClient),
-	)
-	require.NoError(t, err)
-
-	input := ProposeGatewayJobInput{
-		Domain: "cre",
-		DONFilters: []offchain.TargetDONFilter{
-			{
-				Key:   "don_name",
-				Value: "gateway_1_zone-b",
+	testCases := []struct {
+		name                  string
+		input                 ProposeGatewayJobInput
+		offchainClientFactory func() *mockOffchainClient
+		expectError           bool
+		errorMsg              string
+		output                ProposeGatewayJobOutput
+	}{
+		{
+			name:  "success",
+			input: commonInput,
+			offchainClientFactory: func() *mockOffchainClient {
+				return newOffchainClient(nodes, chainConfigs, nil, nil)
 			},
-			{
-				Key:   "environment",
-				Value: "staging",
-			},
-			{
-				Key:   "product",
-				Value: "cre",
-			},
-			{
-				Key:   "zone",
-				Value: "zone-b",
-			},
-		},
-		DONs: []DON{
-			{
-				Name: "workflow_1_zone-b",
-				Handlers: []string{
-					"http-capabilities",
-					"web-api-capabilities",
+			expectError: false,
+			errorMsg:    "",
+			output: ProposeGatewayJobOutput{
+				Specs: map[string][]string{
+					"node_5": {
+						"type = 'gateway'\nschemaVersion = 1\nname = 'CRE Gateway'\nexternalJobID = 'cf8aa339-6349-5e5b-9289-5c2907711200'\nforwardingAllowed = false\n\n[gatewayConfig]\n[gatewayConfig.ConnectionManagerConfig]\nAuthChallengeLen = 10\nAuthGatewayId = 'gateway-node-0'\nAuthTimestampToleranceSec = 5\nHeartbeatIntervalSec = 20\n\n[[gatewayConfig.Dons]]\nDonId = 'workflow_1_zone-b'\nF = 1\n\n[[gatewayConfig.Dons.Handlers]]\nName = 'http-capabilities'\nServiceName = 'workflows'\n\n[gatewayConfig.Dons.Handlers.Config]\nCleanUpPeriodMs = 600000\n\n[gatewayConfig.Dons.Handlers.Config.NodeRateLimiter]\nglobalBurst = 100\nglobalRPS = 500\nperSenderBurst = 100\nperSenderRPS = 100\n\n[[gatewayConfig.Dons.Handlers]]\nName = 'web-api-capabilities'\n\n[gatewayConfig.Dons.Handlers.Config]\nmaxAllowedMessageAgeSec = 1000\n\n[gatewayConfig.Dons.Handlers.Config.NodeRateLimiter]\nglobalBurst = 10\nglobalRPS = 50\nperSenderBurst = 10\nperSenderRPS = 10\n\n[[gatewayConfig.Dons.Members]]\nAddress = '0x04'\nName = 'cl-cre-one-zone-b-0 (DON workflow_1_zone-b)'\n\n[gatewayConfig.HTTPClientConfig]\nMaxResponseBytes = 50000000\nAllowedPorts = [443]\nAllowedSchemes = ['https']\nAllowedIPsCIDR = []\n\n[gatewayConfig.NodeServerConfig]\nHandshakeTimeoutMillis = 1000\nMaxRequestBytes = 100000\nPath = '/'\nPort = 5003\nReadTimeoutMillis = 1000\nRequestTimeoutMillis = 5000\nWriteTimeoutMillis = 1000\n\n[gatewayConfig.UserServerConfig]\nContentTypeHeader = 'application/jsonrpc'\nMaxRequestBytes = 100000\nPath = '/'\nPort = 5002\nReadTimeoutMillis = 5000\nRequestTimeoutMillis = 5000\nWriteTimeoutMillis = 6000\n"},
 				},
-				F: 1,
 			},
 		},
-		GatewayKeyChainSelector:  10344971235874465080,
-		GatewayRequestTimeoutSec: 5,
-		JobLabels:                map[string]string{},
-	}
-
-	output, err := proposeGatewayJob(operations.Bundle{GetContext: func() context.Context { return t.Context() }}, ProposeGatewayJobDeps{Env: *env}, input)
-	require.NoError(t, err)
-	require.NotNil(t, output)
-
-	expectedOutput := ProposeGatewayJobOutput{
-		Specs: map[string][]string{
-			"node_5": {
-				"type = 'gateway'\nschemaVersion = 1\nname = 'CRE Gateway'\nexternalJobID = 'cf8aa339-6349-5e5b-9289-5c2907711200'\nforwardingAllowed = false\n\n[gatewayConfig]\n[gatewayConfig.ConnectionManagerConfig]\nAuthChallengeLen = 10\nAuthGatewayId = 'gateway-node-0'\nAuthTimestampToleranceSec = 5\nHeartbeatIntervalSec = 20\n\n[[gatewayConfig.Dons]]\nDonId = 'workflow_1_zone-b'\nF = 1\n\n[[gatewayConfig.Dons.Handlers]]\nName = 'http-capabilities'\nServiceName = 'workflows'\n\n[gatewayConfig.Dons.Handlers.Config]\nCleanUpPeriodMs = 600000\n\n[gatewayConfig.Dons.Handlers.Config.NodeRateLimiter]\nglobalBurst = 100\nglobalRPS = 500\nperSenderBurst = 100\nperSenderRPS = 100\n\n[[gatewayConfig.Dons.Handlers]]\nName = 'web-api-capabilities'\n\n[gatewayConfig.Dons.Handlers.Config]\nmaxAllowedMessageAgeSec = 1000\n\n[gatewayConfig.Dons.Handlers.Config.NodeRateLimiter]\nglobalBurst = 10\nglobalRPS = 50\nperSenderBurst = 10\nperSenderRPS = 10\n\n[[gatewayConfig.Dons.Members]]\nAddress = '0x04'\nName = 'cl-cre-one-zone-b-0 (DON workflow_1_zone-b)'\n\n[gatewayConfig.HTTPClientConfig]\nMaxResponseBytes = 50000000\nAllowedPorts = [443]\nAllowedSchemes = ['https']\nAllowedIPsCIDR = []\n\n[gatewayConfig.NodeServerConfig]\nHandshakeTimeoutMillis = 1000\nMaxRequestBytes = 100000\nPath = '/'\nPort = 5003\nReadTimeoutMillis = 1000\nRequestTimeoutMillis = 5000\nWriteTimeoutMillis = 1000\n\n[gatewayConfig.UserServerConfig]\nContentTypeHeader = 'application/jsonrpc'\nMaxRequestBytes = 100000\nPath = '/'\nPort = 5002\nReadTimeoutMillis = 5000\nRequestTimeoutMillis = 5000\nWriteTimeoutMillis = 6000\n"},
+		{
+			name:  "fail - no nodes found",
+			input: commonInput,
+			offchainClientFactory: func() *mockOffchainClient {
+				return newOffchainClient([]*nodev1.Node{}, chainConfigs, nil, nil)
+			},
+			expectError: true,
+			errorMsg:    "no nodes with filters",
+			output:      ProposeGatewayJobOutput{},
+		},
+		{
+			name:  "fail - no chain configs found",
+			input: commonInput,
+			offchainClientFactory: func() *mockOffchainClient {
+				return newOffchainClient(nodes, []*nodev1.ChainConfig{}, nil, nil)
+			},
+			expectError: true,
+			errorMsg:    "no chain configs with filters",
+			output:      ProposeGatewayJobOutput{},
 		},
 	}
-	require.Equal(t, expectedOutput, output)
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			selector := uint64(909606746561742123) // chain_selectors.TEST_90000001.Selector
+
+			env, err := environment.New(t.Context(),
+				environment.WithEVMSimulated(t, []uint64{selector}),
+				environment.WithOffchainClient(tc.offchainClientFactory()),
+			)
+			require.NoError(t, err)
+
+			output, err := proposeGatewayJob(operations.Bundle{GetContext: func() context.Context { return t.Context() }}, ProposeGatewayJobDeps{Env: *env}, tc.input)
+			if tc.expectError {
+				require.Error(t, err)
+				assert.Contains(t, err.Error(), tc.errorMsg)
+			} else {
+				require.NoError(t, err)
+				require.NotNil(t, output)
+			}
+
+			require.Equal(t, tc.output, output)
+		})
+	}
 }
 
 func createString(x string) *string {

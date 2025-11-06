@@ -74,6 +74,17 @@ func proposeGatewayJob(b operations.Bundle, deps ProposeGatewayJobDeps, input Pr
 			Value: ad.Name,
 		}.AddToFilter(filters)
 
+		ns, err := pkg.FetchNodesFromJD(deps.Env.GetContext(), deps.Env, pkg.FetchNodesRequest{
+			Domain:  input.Domain,
+			Filters: filtersWithTargetDONName,
+		})
+		if err != nil {
+			return ProposeGatewayJobOutput{}, err
+		}
+		if len(ns) == 0 {
+			return ProposeGatewayJobOutput{}, fmt.Errorf("no nodes with filters %+v", input.DONFilters)
+		}
+
 		nodes, err := pkg.FetchNodeChainConfigsFromJD(deps.Env.GetContext(), deps.Env, pkg.FetchNodesRequest{
 			Domain:  input.Domain,
 			Filters: filtersWithTargetDONName,
@@ -81,16 +92,11 @@ func proposeGatewayJob(b operations.Bundle, deps ProposeGatewayJobDeps, input Pr
 		if err != nil {
 			return ProposeGatewayJobOutput{}, err
 		}
-
-		fam, chainID, err := parseSelector(uint64(input.GatewayKeyChainSelector))
-		if err != nil {
-			return ProposeGatewayJobOutput{}, err
+		if len(nodes) == 0 {
+			return ProposeGatewayJobOutput{}, fmt.Errorf("no chain configs with filters %+v", input.DONFilters)
 		}
 
-		ns, err := pkg.FetchNodesFromJD(deps.Env.GetContext(), deps.Env, pkg.FetchNodesRequest{
-			Domain:  input.Domain,
-			Filters: filtersWithTargetDONName,
-		})
+		fam, chainID, err := parseSelector(uint64(input.GatewayKeyChainSelector))
 		if err != nil {
 			return ProposeGatewayJobOutput{}, err
 		}
