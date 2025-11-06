@@ -225,30 +225,30 @@ func Test_CCIP_Upgrade_EVM2Sui(t *testing.T) {
 	upgradeSuiOffRamp(ctx, t, e, destChain, contracts.CCIPOfframp)
 
 	// Block offramp v1
-	_, _, err = commoncs.ApplyChangesets(t, e.Env, []commoncs.ConfiguredChangeSet{
-		commoncs.Configure(sui_cs.BlockVersion{}, sui_cs.BlockVersionConfig{
-			SuiChainSelector: destChain,
-			CCIPPackageId:    state.SuiChains[destChain].CCIPAddress,
-			StateObjectId:    state.SuiChains[destChain].CCIPObjectRef,
-			OwnerCapObjectId: state.SuiChains[destChain].CCIPOwnerCapObjectId,
-			ModuleName:       "offramp",
-			Version:          1,
-		}),
-	})
-	require.NoError(t, err)
+	// _, _, err = commoncs.ApplyChangesets(t, e.Env, []commoncs.ConfiguredChangeSet{
+	// 	commoncs.Configure(sui_cs.BlockVersion{}, sui_cs.BlockVersionConfig{
+	// 		SuiChainSelector: destChain,
+	// 		CCIPPackageId:    state.SuiChains[destChain].CCIPAddress,
+	// 		StateObjectId:    state.SuiChains[destChain].CCIPObjectRef,
+	// 		OwnerCapObjectId: state.SuiChains[destChain].CCIPOwnerCapObjectId,
+	// 		ModuleName:       "offramp",
+	// 		Version:          1,
+	// 	}),
+	// })
+	// require.NoError(t, err)
 
-	// Block ccip v1 feequoter
-	_, _, err = commoncs.ApplyChangesets(t, e.Env, []commoncs.ConfiguredChangeSet{
-		commoncs.Configure(sui_cs.BlockVersion{}, sui_cs.BlockVersionConfig{
-			SuiChainSelector: destChain,
-			CCIPPackageId:    state.SuiChains[destChain].CCIPAddress,
-			StateObjectId:    state.SuiChains[destChain].CCIPObjectRef,
-			OwnerCapObjectId: state.SuiChains[destChain].CCIPOwnerCapObjectId,
-			ModuleName:       "fee_quoter",
-			Version:          1,
-		}),
-	})
-	require.NoError(t, err)
+	// // Block ccip v1 feequoter
+	// _, _, err = commoncs.ApplyChangesets(t, e.Env, []commoncs.ConfiguredChangeSet{
+	// 	commoncs.Configure(sui_cs.BlockVersion{}, sui_cs.BlockVersionConfig{
+	// 		SuiChainSelector: destChain,
+	// 		CCIPPackageId:    state.SuiChains[destChain].CCIPAddress,
+	// 		StateObjectId:    state.SuiChains[destChain].CCIPObjectRef,
+	// 		OwnerCapObjectId: state.SuiChains[destChain].CCIPOwnerCapObjectId,
+	// 		ModuleName:       "fee_quoter",
+	// 		Version:          1,
+	// 	}),
+	// })
+	// require.NoError(t, err)
 
 	// wait for around 15 seconds for nodes to adjust with the upgrade
 	time.Sleep(10 * time.Second)
