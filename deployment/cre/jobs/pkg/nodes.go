@@ -44,8 +44,13 @@ type FetchNodeChainConfigsResponse struct {
 	ChainConfigs []*nodev1.ChainConfig
 }
 
-func FetchNodeChainConfigsFromJD(ctx context.Context, e cldf.Environment, filter offchain.TargetDONFilter) ([]FetchNodeChainConfigsResponse, error) {
-	resp, err := e.Offchain.ListNodes(ctx, &nodev1.ListNodesRequest{Filter: filter.ToListFilter()})
+func FetchNodeChainConfigsFromJD(ctx context.Context, e cldf.Environment, filters []offchain.TargetDONFilter) ([]FetchNodeChainConfigsResponse, error) {
+	filter := &nodev1.ListNodesRequest_Filter{}
+	for _, f := range filters {
+		filter = f.AddToFilter(filter)
+	}
+
+	resp, err := e.Offchain.ListNodes(ctx, &nodev1.ListNodesRequest{Filter: filter})
 	if err != nil {
 		return nil, fmt.Errorf("failed to list nodes: %w", err)
 	}

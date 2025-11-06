@@ -11,6 +11,7 @@ import (
 const (
 	FilterKeyDONName      = "don_name"
 	FilterKeyCSAPublicKey = "csa_public_key"
+	FilterKeyType         = "type"
 )
 
 type TargetDONFilter struct {
@@ -58,11 +59,6 @@ func (f TargetDONFilter) AddToFilterIfNotPresent(filter *nodev1.ListNodesRequest
 			}
 		}
 	}
-	return f.AddToFilter(filter)
-}
-
-func (f TargetDONFilter) ToListFilter() *nodev1.ListNodesRequest_Filter {
-	filter := &nodev1.ListNodesRequest_Filter{}
 	return f.AddToFilter(filter)
 }
 

@@ -15,7 +15,7 @@ func NewGatewayConfig(p infra.Provider, id, gatewayNodeIdx int, isBootstrap bool
 	return &GatewayConfiguration{
 		NodeUUID: uuid,
 		Outgoing: Outgoing{
-			Path: "/node",
+			Path: "/",
 			Port: gatewayOutgoingPort,
 			Host: p.InternalGatewayHost(id, isBootstrap, donName),
 		},
@@ -25,7 +25,7 @@ func NewGatewayConfig(p infra.Provider, id, gatewayNodeIdx int, isBootstrap bool
 			InternalPort: gatewayIncomingPort,
 			ExternalPort: p.ExternalGatewayPort(gatewayIncomingPort),
 		},
-		AuthGatewayID: "gateway-node-" + strconv.Itoa(gatewayNodeIdx), // reflects what is done in deployment/cre/jobs/pkg/gateway_job.go
+		AuthGatewayID: "gateway-node-" + strconv.Itoa(gatewayNodeIdx), // reflects what is used in deployment/cre/jobs/pkg/gateway_job.go
 	}
 }
 

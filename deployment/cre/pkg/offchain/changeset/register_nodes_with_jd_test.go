@@ -189,7 +189,7 @@ func TestCsRegisterNodesWithJD_Apply(t *testing.T) {
 			if label.Key == "p2p_id" {
 				p2pID = *label.Value
 			}
-			if label.Key == "type" {
+			if label.Key == offchain.FilterKeyType {
 				typeLabel = *label.Value
 			}
 		}
@@ -214,7 +214,7 @@ func TestCsRegisterNodesWithJD_Apply(t *testing.T) {
 			if label.Key == "p2p_id" {
 				p2pID = *label.Value
 			}
-			if label.Key == "type" {
+			if label.Key == offchain.FilterKeyType {
 				typeLabel = *label.Value
 			}
 		}
@@ -294,7 +294,7 @@ func TestCsRegisterNodesWithJD_Apply(t *testing.T) {
 			if label.Key == "p2p_id" {
 				p2pID = *label.Value
 			}
-			if label.Key == "type" {
+			if label.Key == offchain.FilterKeyType {
 				typeLabel = *label.Value
 			}
 		}

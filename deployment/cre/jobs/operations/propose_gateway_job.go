@@ -54,11 +54,17 @@ var ProposeGatewayJob = operations.NewOperation[ProposeGatewayJobInput, ProposeG
 	func(b operations.Bundle, deps ProposeGatewayJobDeps, input ProposeGatewayJobInput) (ProposeGatewayJobOutput, error) {
 		targetDONs := make([]pkg.TargetDON, 0)
 		for _, ad := range input.DONs {
-			filter := offchain.TargetDONFilter{
-				Key:   offchain.FilterKeyDONName,
-				Value: ad.Name,
+			filters := []offchain.TargetDONFilter{
+				{
+					Key:   offchain.FilterKeyDONName,
+					Value: ad.Name,
+				},
+				{
+					Key:   offchain.FilterKeyType,
+					Value: PluginNodeType,
+				},
 			}
-			nodes, err := pkg.FetchNodeChainConfigsFromJD(deps.Env.GetContext(), deps.Env, filter)
+			nodes, err := pkg.FetchNodeChainConfigsFromJD(deps.Env.GetContext(), deps.Env, filters)
 			if err != nil {
 				return ProposeGatewayJobOutput{}, err
 			}
@@ -70,8 +76,9 @@ var ProposeGatewayJob = operations.NewOperation[ProposeGatewayJobInput, ProposeG
 
 			req := pkg.FetchNodesRequest{
 				Domain:  input.Domain,
-				Filters: []offchain.TargetDONFilter{filter},
+				Filters: filters,
 			}
+
 			ns, err := pkg.FetchNodesFromJD(deps.Env.GetContext(), deps.Env, req)
 			if err != nil {
 				return ProposeGatewayJobOutput{}, err
