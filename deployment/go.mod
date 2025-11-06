@@ -42,7 +42,7 @@ require (
 	github.com/smartcontractkit/ccip-owner-contracts v0.1.0
 	github.com/smartcontractkit/chain-selectors v1.0.78
 	github.com/smartcontractkit/chainlink-aptos v0.0.0-20251027153600-2b072ff3618e
-	github.com/smartcontractkit/chainlink-ccip v0.1.1-solana.0.20251027185542-babb09e5363e
+	github.com/smartcontractkit/chainlink-ccip v0.1.1-solana.0.20251105200616-e158f436aa95
 	github.com/smartcontractkit/chainlink-ccip/chains/solana v0.0.0-20250912190424-fd2e35d7deb5
 	github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings v0.0.0-20250912190424-fd2e35d7deb5
 	github.com/smartcontractkit/chainlink-common v0.9.6-0.20251104231304-6cbcde243424
@@ -54,8 +54,13 @@ require (
 	github.com/smartcontractkit/chainlink-protos/job-distributor v0.17.0
 	github.com/smartcontractkit/chainlink-protos/orchestrator v0.10.0
 	github.com/smartcontractkit/chainlink-solana v1.1.2-0.20251105160343-b77843a1daf4
+<<<<<<< HEAD
 	github.com/smartcontractkit/chainlink-sui v0.0.0-20251106022355-e99aa7e19a05
 	github.com/smartcontractkit/chainlink-sui/deployment v0.0.0-20251106022355-e99aa7e19a05
+=======
+	github.com/smartcontractkit/chainlink-sui v0.0.0-20251105220250-f8d7f06e3b8d
+	github.com/smartcontractkit/chainlink-sui/deployment v0.0.0-20251105220250-f8d7f06e3b8d
+>>>>>>> develop
 	github.com/smartcontractkit/chainlink-testing-framework/framework v0.11.7
 	github.com/smartcontractkit/chainlink-testing-framework/lib v1.54.5
 	github.com/smartcontractkit/chainlink-ton v0.0.0-20251031142050-8d1f83814966
