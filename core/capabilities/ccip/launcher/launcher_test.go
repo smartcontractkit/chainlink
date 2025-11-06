@@ -9,6 +9,7 @@ import (
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 
+	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 	ragep2ptypes "github.com/smartcontractkit/libocr/ragep2p/types"
 
 	ccipreaderpkg "github.com/smartcontractkit/chainlink-ccip/pkg/reader"
@@ -253,8 +254,9 @@ func Test_createDON_withFailures(t *testing.T) {
 	oracleCreator := mocks.NewOracleCreator(t)
 	homeChainReader := mocks.NewHomeChainReader(t)
 
-	config1 := utils.RandomBytes32()
-	config2 := utils.RandomBytes32()
+	var config1, config2 ocrtypes.ConfigDigest
+	config1 = utils.RandomBytes32()
+	config2 = utils.RandomBytes32()
 
 	homeChainReader.
 		On("GetOCRConfigs", mock.Anything, uint32(1), uint8(cctypes.PluginTypeCCIPCommit)).

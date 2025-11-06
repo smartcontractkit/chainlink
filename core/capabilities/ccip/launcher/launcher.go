@@ -338,7 +338,9 @@ func updateDON(
 }
 
 // createDON is a pure function that handles the case where a new DON is added to the capability registry.
-// It returns up to 4 plugins that are later started.
+// It returns up to 4 plugins that are later started. It can create a partial state in which some oracles are properly
+// created and stored in the map, while others failed to be created. The caller is responsible for deciding what to do
+// in that situation.
 func createDON(
 	ctx context.Context,
 	lggr logger.Logger,
@@ -351,21 +353,25 @@ func createDON(
 		lggr.Infow("Not a member of this DON and not a bootstrap node either, skipping", "donID", don.ID, "p2pID", p2pID.String())
 		return nil, nil
 	}
+	var aggErr error
 	p := make(pluginRegistry)
+
 	for _, config := range configs {
 		digest, err := ocrtypes.BytesToConfigDigest(config.ConfigDigest[:])
 		if err != nil {
-			return nil, fmt.Errorf("digest does not match type %w", err)
+			aggErr = errors.Join(aggErr, fmt.Errorf("digest does not match type %w", err))
+			continue
 		}
 
 		oracle, err := oracleCreator.Create(ctx, don.ID, cctypes.OCR3ConfigWithMeta(config))
 		if err != nil {
-			return nil, fmt.Errorf("failed to create CCIP oracle: %w for digest %x", err, digest)
+			aggErr = errors.Join(aggErr, fmt.Errorf("failed to create CCIP oracle: %w for digest %x", err, digest))
+			continue
 		}
 
 		p[digest] = oracle
 	}
-	return p, nil
+	return p, aggErr
 }
 
 func getConfigsForDon(
