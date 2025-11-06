@@ -1,5 +1,6 @@
 # Changelog Chainlink Core
 
+<<<<<<< HEAD
 ## 2.30.1 - 2025-11-18
 
 ### Patch Changes
@@ -59,6 +60,9 @@
 - [#19667](https://github.com/smartcontractkit/chainlink/pull/19667) [`535a014`](https://github.com/smartcontractkit/chainlink/commit/535a014bef3a6a007ecf7fe8c2d9f21907e4d127) - #added Add Workflow Registry Chain Selector to CRE v2 registry events.
 
 ## 2.30.0 - 2025-11-17
+=======
+## 2.30.0 (UNRELEASED)
+>>>>>>> ec74338ec7 (Bump version and update CHANGELOG for Core v2.30.0)
 
 ### Minor Changes
 
