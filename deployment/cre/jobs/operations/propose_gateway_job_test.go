@@ -5,21 +5,18 @@ import (
 	"sync"
 	"testing"
 
-	// "github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/grpc"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
 	chainselectors "github.com/smartcontractkit/chain-selectors"
-	"github.com/smartcontractkit/chainlink/deployment/cre/pkg/offchain"
-
 	"github.com/smartcontractkit/chainlink-deployments-framework/engine/test/environment"
 	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
-
 	csav1 "github.com/smartcontractkit/chainlink-protos/job-distributor/v1/csa"
 	jobv1 "github.com/smartcontractkit/chainlink-protos/job-distributor/v1/job"
 	nodev1 "github.com/smartcontractkit/chainlink-protos/job-distributor/v1/node"
 	"github.com/smartcontractkit/chainlink-protos/job-distributor/v1/shared/ptypes"
+	"github.com/smartcontractkit/chainlink/deployment/cre/pkg/offchain"
 )
 
 type mockOffchainClient struct {
@@ -154,7 +151,6 @@ func TestProposeGatewayJob(t *testing.T) {
 		},
 	}
 	require.Equal(t, expectedOutput, output)
-
 }
 
 func createString(x string) *string {
