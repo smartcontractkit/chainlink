@@ -175,20 +175,6 @@ func Test_CCIP_Upgrade_EVM2Sui(t *testing.T) {
 	err = testhelpers.AddLaneWithDefaultPricesAndFeeQuoterConfig(t, &e, state, sourceChain, destChain, false)
 	require.NoError(t, err)
 
-	var (
-		nonce  uint64
-		sender = common.LeftPadBytes(e.Env.BlockChains.EVMChains()[sourceChain].DeployerKey.From.Bytes(), 32)
-		setup  = messagingtest.NewTestSetupWithDeployedEnv(
-			t,
-			e,
-			state,
-			sourceChain,
-			destChain,
-			sender,
-			false, // test router
-		)
-	)
-
 	// Deploy SUI Receiver
 	_, output, err := commoncs.ApplyChangesets(t, e.Env, []commoncs.ConfiguredChangeSet{
 		commoncs.Configure(sui_cs.DeployDummyReceiver{}, sui_cs.DeployDummyReceiverConfig{
@@ -299,6 +285,20 @@ func Test_CCIP_Upgrade_EVM2Sui(t *testing.T) {
 			GasUsdPerUnitGas:      []*big.Int{bigIntGasUsdPerUnitGas},
 		})
 	require.NoError(t, err)
+
+	var (
+		nonce  uint64
+		sender = common.LeftPadBytes(e.Env.BlockChains.EVMChains()[sourceChain].DeployerKey.From.Bytes(), 32)
+		setup  = messagingtest.NewTestSetupWithDeployedEnv(
+			t,
+			e,
+			state,
+			sourceChain,
+			destChain,
+			sender,
+			false, // test router
+		)
+	)
 
 	t.Run("OffRamp, CCIP FQ upgraded: Message to Sui - Should Succeed", func(t *testing.T) {
 		// ccipChainState := state.SuiChains[destChain]
