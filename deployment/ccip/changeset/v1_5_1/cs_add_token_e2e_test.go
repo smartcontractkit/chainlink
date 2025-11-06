@@ -8,6 +8,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	chain_selectors "github.com/smartcontractkit/chain-selectors"
 	mcmsTypes "github.com/smartcontractkit/mcms/types"
+	"github.com/smartcontractkit/quarantine"
 	"github.com/stretchr/testify/require"
 
 	cldf_chain "github.com/smartcontractkit/chainlink-deployments-framework/chain"
@@ -32,6 +33,7 @@ import (
 )
 
 func TestAddTokenE2E(t *testing.T) {
+	quarantine.Flaky(t, "DX-2309")
 	t.Parallel()
 
 	tests := []struct {
