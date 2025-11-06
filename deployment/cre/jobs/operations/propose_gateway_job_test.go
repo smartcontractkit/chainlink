@@ -9,7 +9,7 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
-	chainselectors "github.com/smartcontractkit/chain-selectors"
+	chain_selectors "github.com/smartcontractkit/chain-selectors"
 	"github.com/smartcontractkit/chainlink-deployments-framework/engine/test/environment"
 	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
 	csav1 "github.com/smartcontractkit/chainlink-protos/job-distributor/v1/csa"
@@ -95,7 +95,7 @@ func (oc *mockOffchainClient) ProposeJob(ctx context.Context, in *jobv1.ProposeJ
 func TestProposeGatewayJob(t *testing.T) {
 	t.Parallel()
 
-	selector := chainselectors.TEST_90000001.Selector
+	selector := chain_selectors.TEST_90000001.Selector
 
 	offchainClient := newOffchainClient(nodes, chainConfigs, nil, nil)
 
