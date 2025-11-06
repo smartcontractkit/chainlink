@@ -201,8 +201,6 @@ jobs:
           }
           EOF
 
-          cat package.json
-
           # Install Bun packages
           bun install
 
