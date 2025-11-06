@@ -1418,6 +1418,11 @@ func AddLaneWithDefaultPricesAndFeeQuoterConfig(t *testing.T, e *DeployedEnv, st
 		fqCfg.MaxNumberOfTokensPerMsg = 1
 	}
 
+	// EVM -> TON
+	if toFamily == chainsel.FamilyTon {
+		fqCfg.MaxPerMsgGasLimit = 1_000_000_000 // 1 TON
+	}
+
 	err = AddLane(
 		t,
 		e,
