@@ -7,22 +7,21 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
-	mcmslib "github.com/smartcontractkit/mcms"
+	mcmstypes "github.com/smartcontractkit/mcms/types"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
 	capabilities_registry_v2 "github.com/smartcontractkit/chainlink-evm/gethwrappers/workflow/generated/capabilities_registry_wrapper_v2"
 
-	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset/state"
 	"github.com/smartcontractkit/chainlink/deployment/cre/capabilities_registry/v2/changeset/pkg"
 	"github.com/smartcontractkit/chainlink/deployment/cre/common/strategies"
 	"github.com/smartcontractkit/chainlink/deployment/cre/contracts"
 )
 
 type RegisterNopsDeps struct {
-	Env           *cldf.Environment
-	MCMSContracts *commonchangeset.MCMSWithTimelockState // Required if MCMSConfig is not nil
+	Env      *cldf.Environment
+	Strategy strategies.TransactionStrategy
 }
 
 type RegisterNopsInput struct {
@@ -34,7 +33,7 @@ type RegisterNopsInput struct {
 
 type RegisterNopsOutput struct {
 	Nops      []*capabilities_registry_v2.CapabilitiesRegistryNodeOperatorAdded
-	Proposals []mcmslib.TimelockProposal
+	Operation mcmstypes.BatchOperation
 }
 
 // RegisterNops is an operation that registers node operators in the V2 Capabilities Registry contract.
@@ -70,23 +69,10 @@ var RegisterNops = operations.NewOperation[RegisterNopsInput, RegisterNopsOutput
 			return RegisterNopsOutput{}, fmt.Errorf("failed to dedupe NOPs: %w", err)
 		}
 
-		// Create the appropriate strategy
-		strategy, err := strategies.CreateStrategy(
-			chain,
-			*deps.Env,
-			input.MCMSConfig,
-			deps.MCMSContracts,
-			common.HexToAddress(input.Address),
-			RegisterNopsDescription,
-		)
-		if err != nil {
-			return RegisterNopsOutput{}, fmt.Errorf("failed to create strategy: %w", err)
-		}
-
 		var resultNops []*capabilities_registry_v2.CapabilitiesRegistryNodeOperatorAdded
 
 		// Execute the transaction using the strategy
-		proposals, err := strategy.Apply(func(opts *bind.TransactOpts) (*types.Transaction, error) {
+		operation, err := deps.Strategy.Apply(func(opts *bind.TransactOpts) (*types.Transaction, error) {
 			tx, err := capReg.AddNodeOperators(opts, dedupedNOPs)
 			if err != nil {
 				err = cldf.DecodeErr(capabilities_registry_v2.CapabilitiesRegistryABI, err)
@@ -145,7 +131,7 @@ var RegisterNops = operations.NewOperation[RegisterNopsInput, RegisterNopsOutput
 
 		return RegisterNopsOutput{
 			Nops:      resultNops,
-			Proposals: proposals,
+			Operation: operation,
 		}, nil
 	},
 )

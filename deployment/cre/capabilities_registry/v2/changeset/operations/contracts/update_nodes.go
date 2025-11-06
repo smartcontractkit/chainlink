@@ -9,13 +9,12 @@ import (
 	"github.com/Masterminds/semver/v3"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/core/types"
-	mcmslib "github.com/smartcontractkit/mcms"
+	mcmstypes "github.com/smartcontractkit/mcms/types"
 
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
 	capabilities_registry_v2 "github.com/smartcontractkit/chainlink-evm/gethwrappers/workflow/generated/capabilities_registry_wrapper_v2"
 
-	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset/state"
 	"github.com/smartcontractkit/chainlink/deployment/cre/capabilities_registry/v2/changeset/pkg"
 	"github.com/smartcontractkit/chainlink/deployment/cre/common/strategies"
 	"github.com/smartcontractkit/chainlink/deployment/cre/contracts"
@@ -24,8 +23,8 @@ import (
 
 type UpdateNodesDeps struct {
 	Env                  *cldf.Environment
+	Strategy             strategies.TransactionStrategy
 	CapabilitiesRegistry *capabilities_registry_v2.CapabilitiesRegistry
-	MCMSContracts        *commonchangeset.MCMSWithTimelockState // Required if MCMSConfig is not nil
 }
 
 type NodeConfig struct {
@@ -47,7 +46,7 @@ type UpdateNodesInput struct {
 
 type UpdateNodesOutput struct {
 	UpdatedNodes []*capabilities_registry_v2.CapabilitiesRegistryNodeUpdated
-	Proposals    []mcmslib.TimelockProposal
+	Operation    mcmstypes.BatchOperation
 }
 
 var UpdateNodes = operations.NewOperation[UpdateNodesInput, UpdateNodesOutput, UpdateNodesDeps](
@@ -65,22 +64,10 @@ var UpdateNodes = operations.NewOperation[UpdateNodesInput, UpdateNodesOutput, U
 			return UpdateNodesOutput{}, fmt.Errorf("failed to make node params: %w", err)
 		}
 
-		strategy, err := strategies.CreateStrategy(
-			chain,
-			*deps.Env,
-			input.MCMSConfig,
-			deps.MCMSContracts,
-			deps.CapabilitiesRegistry.Address(),
-			UpdateNodesDescription,
-		)
-		if err != nil {
-			return UpdateNodesOutput{}, fmt.Errorf("failed to create strategy: %w", err)
-		}
-
 		var resultNodes []*capabilities_registry_v2.CapabilitiesRegistryNodeUpdated
 
 		// Execute the transaction using the strategy
-		proposals, err := strategy.Apply(func(opts *bind.TransactOpts) (*types.Transaction, error) {
+		operation, err := deps.Strategy.Apply(func(opts *bind.TransactOpts) (*types.Transaction, error) {
 			tx, err := deps.CapabilitiesRegistry.UpdateNodes(opts, nodeParams)
 			if err != nil {
 				err = cldf.DecodeErr(capabilities_registry_v2.CapabilitiesRegistryABI, err)
@@ -130,7 +117,7 @@ var UpdateNodes = operations.NewOperation[UpdateNodesInput, UpdateNodesOutput, U
 
 		return UpdateNodesOutput{
 			UpdatedNodes: resultNodes,
-			Proposals:    proposals,
+			Operation:    operation,
 		}, nil
 	},
 )

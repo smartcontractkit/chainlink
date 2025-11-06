@@ -156,25 +156,12 @@ func suite(t *testing.T, fixture *testFixture) {
 		require.NoError(t, err, "NOPs registration with MCMS should succeed")
 		require.NotNil(t, report, "operation report should not be nil")
 
-		// Verify proposal content
-		for i, proposal := range report.Output.Proposals {
-			require.NotEmpty(t, proposal.Operations, "proposal %d should have operations", i)
-			require.Greater(t, proposal.Delay.Seconds(), float64(0), "proposal %d should have a minimum delay", i)
+		// Verify operation content
+		require.NotZero(t, report.Output.Operation, "an operation should have been generated")
 
-			// Verify that proposals target the timelock
-			for j, op := range proposal.Operations {
-				require.NotEmpty(t, op.Transactions, "proposal %d operation %d should have transactions", i, j)
-				t.Logf("MCMSOperation %d MCMSOperation %d: %d transactions", i, j, len(op.Transactions))
-			}
-
-			t.Logf("MCMSOperation %d: %d operations, delay: %v", i, len(proposal.Operations), proposal.Delay)
-		}
-
-		// Verify timelock addresses are set correctly
-		for i, proposal := range report.Output.Proposals {
-			require.NotEmpty(t, proposal.TimelockAddresses, "proposal %d should have timelock addresses", i)
-			t.Logf("MCMSOperation %d timelock addresses: %v", i, proposal.TimelockAddresses)
-		}
+		// Verify that the operation targets the timelock
+		require.NotEmpty(t, report.Output.Operation.Transactions, "operation %d should have transactions")
+		t.Logf("MCMSOperation has %d transactions", len(report.Output.Operation.Transactions))
 
 		t.Logf("MCMS NOPs registration test completed successfully")
 		t.Logf("MCMS proposals created and ready for execution through governance")

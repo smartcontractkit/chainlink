@@ -6,6 +6,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/smartcontractkit/mcms"
+	"github.com/smartcontractkit/mcms/types"
 
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
@@ -50,10 +51,34 @@ func (l AdminPauseWorkflow) Apply(e cldf.Environment, config AdminPauseWorkflowI
 		}
 	}
 
+	chain, ok := e.BlockChains.EVMChains()[config.ChainSelector]
+	if !ok {
+		return cldf.ChangesetOutput{}, fmt.Errorf("chain with selector %d not found", config.ChainSelector)
+	}
+
+	registry, err := contracts.GetWorkflowRegistryV2FromDatastore(&e, config.ChainSelector, config.WorkflowRegistryQualifier)
+	if err != nil {
+		return cldf.ChangesetOutput{}, fmt.Errorf("failed to get workflow registry address from datastore: %w", err)
+	}
+
+	// Create the appropriate strategy
+	strategy, err := strategies.CreateStrategy(
+		chain,
+		e,
+		config.MCMSConfig,
+		mcmsContracts,
+		registry.Address(),
+		contracts.PauseWorkflowDescription,
+	)
+	if err != nil {
+		return cldf.ChangesetOutput{}, fmt.Errorf("failed to create strategy: %w", err)
+	}
+
 	// Execute operation
 	deps := contracts.WorkflowRegistryOpDeps{
-		Env:           &e,
-		MCMSContracts: mcmsContracts,
+		Env:      &e,
+		Strategy: strategy,
+		Registry: registry,
 	}
 	report, err := operations.ExecuteOperation(
 		e.OperationsBundle,
@@ -69,10 +94,7 @@ func (l AdminPauseWorkflow) Apply(e cldf.Environment, config AdminPauseWorkflowI
 	}
 
 	if report.Output.MCMSOperation != nil {
-		proposal, mcmsErr := buildMCMSProposal(
-			e, config.ChainSelector, report.Output.RegistryAddress,
-			config.MCMSConfig, deps.MCMSContracts, report.Output.MCMSOperation,
-		)
+		proposal, mcmsErr := strategy.BuildProposal([]types.BatchOperation{*report.Output.MCMSOperation})
 		if mcmsErr != nil {
 			return cldf.ChangesetOutput{}, fmt.Errorf("failed to build MCMS proposal: %w", mcmsErr)
 		}
@@ -120,10 +142,34 @@ func (l AdminBatchPauseWorkflows) Apply(e cldf.Environment, config AdminBatchPau
 		}
 	}
 
+	chain, ok := e.BlockChains.EVMChains()[config.ChainSelector]
+	if !ok {
+		return cldf.ChangesetOutput{}, fmt.Errorf("chain with selector %d not found", config.ChainSelector)
+	}
+
+	registry, err := contracts.GetWorkflowRegistryV2FromDatastore(&e, config.ChainSelector, config.WorkflowRegistryQualifier)
+	if err != nil {
+		return cldf.ChangesetOutput{}, fmt.Errorf("failed to get workflow registry address from datastore: %w", err)
+	}
+
+	// Create the appropriate strategy
+	strategy, err := strategies.CreateStrategy(
+		chain,
+		e,
+		config.MCMSConfig,
+		mcmsContracts,
+		registry.Address(),
+		contracts.PauseBatchWorkflowsDescription,
+	)
+	if err != nil {
+		return cldf.ChangesetOutput{}, fmt.Errorf("failed to create strategy: %w", err)
+	}
+
 	// Execute operation
 	deps := contracts.WorkflowRegistryOpDeps{
-		Env:           &e,
-		MCMSContracts: mcmsContracts,
+		Env:      &e,
+		Strategy: strategy,
+		Registry: registry,
 	}
 	report, err := operations.ExecuteOperation(
 		e.OperationsBundle,
@@ -139,10 +185,7 @@ func (l AdminBatchPauseWorkflows) Apply(e cldf.Environment, config AdminBatchPau
 	}
 
 	if report.Output.MCMSOperation != nil {
-		proposal, mcmsErr := buildMCMSProposal(
-			e, config.ChainSelector, report.Output.RegistryAddress,
-			config.MCMSConfig, deps.MCMSContracts, report.Output.MCMSOperation,
-		)
+		proposal, mcmsErr := strategy.BuildProposal([]types.BatchOperation{*report.Output.MCMSOperation})
 		if mcmsErr != nil {
 			return cldf.ChangesetOutput{}, fmt.Errorf("failed to build MCMS proposal: %w", mcmsErr)
 		}
@@ -183,10 +226,34 @@ func (l AdminPauseAllByOwner) Apply(e cldf.Environment, config AdminPauseAllByOw
 		}
 	}
 
+	chain, ok := e.BlockChains.EVMChains()[config.ChainSelector]
+	if !ok {
+		return cldf.ChangesetOutput{}, fmt.Errorf("chain with selector %d not found", config.ChainSelector)
+	}
+
+	registry, err := contracts.GetWorkflowRegistryV2FromDatastore(&e, config.ChainSelector, config.WorkflowRegistryQualifier)
+	if err != nil {
+		return cldf.ChangesetOutput{}, fmt.Errorf("failed to get workflow registry address from datastore: %w", err)
+	}
+
+	// Create the appropriate strategy
+	strategy, err := strategies.CreateStrategy(
+		chain,
+		e,
+		config.MCMSConfig,
+		mcmsContracts,
+		registry.Address(),
+		contracts.PauseAllByOwnerDescription,
+	)
+	if err != nil {
+		return cldf.ChangesetOutput{}, fmt.Errorf("failed to create strategy: %w", err)
+	}
+
 	// Execute operation
 	deps := contracts.WorkflowRegistryOpDeps{
-		Env:           &e,
-		MCMSContracts: mcmsContracts,
+		Env:      &e,
+		Strategy: strategy,
+		Registry: registry,
 	}
 	report, err := operations.ExecuteOperation(
 		e.OperationsBundle,
@@ -202,10 +269,7 @@ func (l AdminPauseAllByOwner) Apply(e cldf.Environment, config AdminPauseAllByOw
 	}
 
 	if report.Output.MCMSOperation != nil {
-		proposal, mcmsErr := buildMCMSProposal(
-			e, config.ChainSelector, report.Output.RegistryAddress,
-			config.MCMSConfig, deps.MCMSContracts, report.Output.MCMSOperation,
-		)
+		proposal, mcmsErr := strategy.BuildProposal([]types.BatchOperation{*report.Output.MCMSOperation})
 		if mcmsErr != nil {
 			return cldf.ChangesetOutput{}, fmt.Errorf("failed to build MCMS proposal: %w", mcmsErr)
 		}
@@ -246,10 +310,34 @@ func (l AdminPauseAllByDON) Apply(e cldf.Environment, config AdminPauseAllByDONI
 		}
 	}
 
+	chain, ok := e.BlockChains.EVMChains()[config.ChainSelector]
+	if !ok {
+		return cldf.ChangesetOutput{}, fmt.Errorf("chain with selector %d not found", config.ChainSelector)
+	}
+
+	registry, err := contracts.GetWorkflowRegistryV2FromDatastore(&e, config.ChainSelector, config.WorkflowRegistryQualifier)
+	if err != nil {
+		return cldf.ChangesetOutput{}, fmt.Errorf("failed to get workflow registry address from datastore: %w", err)
+	}
+
+	// Create the appropriate strategy
+	strategy, err := strategies.CreateStrategy(
+		chain,
+		e,
+		config.MCMSConfig,
+		mcmsContracts,
+		registry.Address(),
+		contracts.PauseAllByDONDescription,
+	)
+	if err != nil {
+		return cldf.ChangesetOutput{}, fmt.Errorf("failed to create strategy: %w", err)
+	}
+
 	// Execute operation
 	deps := contracts.WorkflowRegistryOpDeps{
-		Env:           &e,
-		MCMSContracts: mcmsContracts,
+		Env:      &e,
+		Strategy: strategy,
+		Registry: registry,
 	}
 	report, err := operations.ExecuteOperation(
 		e.OperationsBundle,
@@ -265,10 +353,7 @@ func (l AdminPauseAllByDON) Apply(e cldf.Environment, config AdminPauseAllByDONI
 	}
 
 	if report.Output.MCMSOperation != nil {
-		proposal, mcmsErr := buildMCMSProposal(
-			e, config.ChainSelector, report.Output.RegistryAddress,
-			config.MCMSConfig, deps.MCMSContracts, report.Output.MCMSOperation,
-		)
+		proposal, mcmsErr := strategy.BuildProposal([]types.BatchOperation{*report.Output.MCMSOperation})
 		if mcmsErr != nil {
 			return cldf.ChangesetOutput{}, fmt.Errorf("failed to build MCMS proposal: %w", mcmsErr)
 		}

@@ -22,7 +22,7 @@ import (
 
 // TransactionStrategy interface for executing transactions with different strategies
 type TransactionStrategy interface {
-	BuildOperation(callFn func(opts *bind.TransactOpts) (*types.Transaction, error)) (mcmstypes.BatchOperation, error)
+	Apply(callFn func(opts *bind.TransactOpts) (*types.Transaction, error)) (mcmstypes.BatchOperation, error)
 	BuildProposal(operations []mcmstypes.BatchOperation) (mcmslib.TimelockProposal, error)
 }
 
@@ -31,7 +31,7 @@ type SimpleTransaction struct {
 	Chain cldf_evm.Chain
 }
 
-func (s *SimpleTransaction) BuildOperation(callFn func(opts *bind.TransactOpts) (*types.Transaction, error)) (mcmstypes.BatchOperation, error) {
+func (s *SimpleTransaction) Apply(callFn func(opts *bind.TransactOpts) (*types.Transaction, error)) (mcmstypes.BatchOperation, error) {
 	tx, err := callFn(s.Chain.DeployerKey)
 	if err != nil {
 		return mcmstypes.BatchOperation{}, err
@@ -55,7 +55,7 @@ type MCMSTransaction struct {
 	Env           cldf.Environment
 }
 
-func (m *MCMSTransaction) BuildOperation(callFn func(opts *bind.TransactOpts) (*types.Transaction, error)) (mcmstypes.BatchOperation, error) {
+func (m *MCMSTransaction) Apply(callFn func(opts *bind.TransactOpts) (*types.Transaction, error)) (mcmstypes.BatchOperation, error) {
 	opts := cldf.SimTransactOpts()
 
 	tx, err := callFn(opts)
@@ -72,6 +72,10 @@ func (m *MCMSTransaction) BuildOperation(callFn func(opts *bind.TransactOpts) (*
 }
 
 func (m *MCMSTransaction) BuildProposal(operations []mcmstypes.BatchOperation) (mcmslib.TimelockProposal, error) {
+	if m.Config == nil || m.MCMSContracts == nil {
+		return mcmslib.TimelockProposal{}, errors.New("MCMS configuration or contracts are not provided")
+	}
+
 	if m.MCMSContracts.Timelock == nil || m.MCMSContracts.ProposerMcm == nil {
 		return mcmslib.TimelockProposal{}, errors.New("MCMS contracts are not properly initialized, missing Timelock or Proposer")
 	}

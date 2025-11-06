@@ -7,21 +7,20 @@ import (
 	"github.com/Masterminds/semver/v3"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/core/types"
-	mcmslib "github.com/smartcontractkit/mcms"
+	mcmstypes "github.com/smartcontractkit/mcms/types"
 
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
 	capabilities_registry_v2 "github.com/smartcontractkit/chainlink-evm/gethwrappers/workflow/generated/capabilities_registry_wrapper_v2"
 
-	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset/state"
 	"github.com/smartcontractkit/chainlink/deployment/cre/common/strategies"
 	"github.com/smartcontractkit/chainlink/deployment/cre/contracts"
 )
 
 type SetDONFamiliesDeps struct {
 	Env                  *cldf.Environment
+	Strategy             strategies.TransactionStrategy
 	CapabilitiesRegistry *capabilities_registry_v2.CapabilitiesRegistry
-	MCMSContracts        *commonchangeset.MCMSWithTimelockState // Required if MCMSConfig is not nil
 }
 
 type SetDONFamiliesInput struct {
@@ -48,7 +47,7 @@ func (i *SetDONFamiliesInput) Validate() error {
 
 type SetDONFamiliesOutput struct {
 	DonInfo   capabilities_registry_v2.CapabilitiesRegistryDONInfo
-	Proposals []mcmslib.TimelockProposal
+	Operation mcmstypes.BatchOperation
 }
 
 var SetDONFamilies = operations.NewOperation[SetDONFamiliesInput, SetDONFamiliesOutput, SetDONFamiliesDeps](
@@ -72,22 +71,10 @@ var SetDONFamilies = operations.NewOperation[SetDONFamiliesInput, SetDONFamilies
 			return SetDONFamiliesOutput{}, fmt.Errorf("failed to call GetDONByName: %w", err)
 		}
 
-		strategy, err := strategies.CreateStrategy(
-			chain,
-			*deps.Env,
-			input.MCMSConfig,
-			deps.MCMSContracts,
-			deps.CapabilitiesRegistry.Address(),
-			SetDONFamiliesDescription,
-		)
-		if err != nil {
-			return SetDONFamiliesOutput{}, fmt.Errorf("failed to create strategy: %w", err)
-		}
-
 		var resultDon capabilities_registry_v2.CapabilitiesRegistryDONInfo
 
 		// Execute the transaction using the strategy
-		proposals, err := strategy.Apply(func(opts *bind.TransactOpts) (*types.Transaction, error) {
+		operation, err := deps.Strategy.Apply(func(opts *bind.TransactOpts) (*types.Transaction, error) {
 			tx, err := deps.CapabilitiesRegistry.SetDONFamilies(opts, don.Id, input.AddToFamilies, input.RemoveFromFamilies)
 			if err != nil {
 				err = cldf.DecodeErr(capabilities_registry_v2.CapabilitiesRegistryABI, err)
@@ -132,7 +119,7 @@ var SetDONFamilies = operations.NewOperation[SetDONFamiliesInput, SetDONFamilies
 
 		return SetDONFamiliesOutput{
 			DonInfo:   resultDon,
-			Proposals: proposals,
+			Operation: operation,
 		}, nil
 	},
 )

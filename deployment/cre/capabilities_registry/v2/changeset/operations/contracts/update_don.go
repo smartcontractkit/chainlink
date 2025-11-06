@@ -8,14 +8,13 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
-	mcmslib "github.com/smartcontractkit/mcms"
+	mcmstypes "github.com/smartcontractkit/mcms/types"
 
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
 	capabilities_registry_v2 "github.com/smartcontractkit/chainlink-evm/gethwrappers/workflow/generated/capabilities_registry_wrapper_v2"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/p2pkey"
 
-	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset/state"
 	"github.com/smartcontractkit/chainlink/deployment/cre/capabilities_registry/v2/changeset/pkg"
 	"github.com/smartcontractkit/chainlink/deployment/cre/common/strategies"
 	"github.com/smartcontractkit/chainlink/deployment/cre/contracts"
@@ -23,8 +22,8 @@ import (
 
 type UpdateDONDeps struct {
 	Env                  *cldf.Environment
+	Strategy             strategies.TransactionStrategy
 	CapabilitiesRegistry *capabilities_registry_v2.CapabilitiesRegistry
-	MCMSContracts        *commonchangeset.MCMSWithTimelockState // Required if MCMSConfig is not nil
 }
 
 type UpdateDONInput struct {
@@ -65,7 +64,7 @@ func (r *UpdateDONInput) Validate() error {
 
 type UpdateDONOutput struct {
 	DonInfo   capabilities_registry_v2.CapabilitiesRegistryDONInfo
-	Proposals []mcmslib.TimelockProposal
+	Operation mcmstypes.BatchOperation
 }
 
 // CapabilityConfig is a struct that holds a capability and its configuration
@@ -136,22 +135,10 @@ var UpdateDON = operations.NewOperation[UpdateDONInput, UpdateDONOutput, UpdateD
 			name = input.NewDonName
 		}
 
-		strategy, err := strategies.CreateStrategy(
-			chain,
-			*deps.Env,
-			input.MCMSConfig,
-			deps.MCMSContracts,
-			deps.CapabilitiesRegistry.Address(),
-			UpdateDONDescription,
-		)
-		if err != nil {
-			return UpdateDONOutput{}, fmt.Errorf("failed to create strategy: %w", err)
-		}
-
 		var resultDon capabilities_registry_v2.CapabilitiesRegistryDONInfo
 
 		// Execute the transaction using the strategy
-		proposals, err := strategy.Apply(func(opts *bind.TransactOpts) (*types.Transaction, error) {
+		operation, err := deps.Strategy.Apply(func(opts *bind.TransactOpts) (*types.Transaction, error) {
 			tx, err := registry.UpdateDONByName(opts, input.DonName, capabilities_registry_v2.CapabilitiesRegistryUpdateDONParams{
 				Name:                     name,
 				Nodes:                    pkg.PeerIDsToBytes(input.P2PIDs),
@@ -201,7 +188,7 @@ var UpdateDON = operations.NewOperation[UpdateDONInput, UpdateDONOutput, UpdateD
 
 		return UpdateDONOutput{
 			DonInfo:   resultDon,
-			Proposals: proposals,
+			Operation: operation,
 		}, nil
 	},
 )

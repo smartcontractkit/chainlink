@@ -54,7 +54,7 @@ func configureForwarder(
 	ver := cfg.ConfigVersion // note config count on the don info is the version on the forwarder
 	signers := cfg.Signers
 
-	operation, err := strategy.BuildOperation(func(txOpts *bind.TransactOpts) (*types.Transaction, error) {
+	operation, err := strategy.Apply(func(txOpts *bind.TransactOpts) (*types.Transaction, error) {
 		tx, err := fwdr.SetConfig(txOpts, cfg.DonID, ver, cfg.F, signers)
 		if err != nil {
 			err = cldf.DecodeErr(kf.KeystoneForwarderABI, err)

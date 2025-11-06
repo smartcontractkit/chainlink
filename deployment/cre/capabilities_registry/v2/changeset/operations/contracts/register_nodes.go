@@ -9,22 +9,21 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
-	mcmslib "github.com/smartcontractkit/mcms"
+	mcmstypes "github.com/smartcontractkit/mcms/types"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
-
 	capabilities_registry_v2 "github.com/smartcontractkit/chainlink-evm/gethwrappers/workflow/generated/capabilities_registry_wrapper_v2"
-	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset/state"
+
 	"github.com/smartcontractkit/chainlink/deployment/cre/capabilities_registry/v2/changeset/pkg"
 	"github.com/smartcontractkit/chainlink/deployment/cre/common/strategies"
 	"github.com/smartcontractkit/chainlink/deployment/cre/contracts"
 )
 
 type RegisterNodesDeps struct {
-	Env           *cldf.Environment
-	MCMSContracts *commonchangeset.MCMSWithTimelockState // Required if MCMSConfig is not nil
+	Env      *cldf.Environment
+	Strategy strategies.TransactionStrategy
 }
 
 type RegisterNodesInput struct {
@@ -45,7 +44,7 @@ type NodesInput struct {
 
 type RegisterNodesOutput struct {
 	Nodes     []*capabilities_registry_v2.CapabilitiesRegistryNodeAdded
-	Proposals []mcmslib.TimelockProposal
+	Operation mcmstypes.BatchOperation
 }
 
 // RegisterNodes is an operation that registers nodes in the V2 Capabilities Registry contract.
@@ -129,23 +128,10 @@ var RegisterNodes = operations.NewOperation[RegisterNodesInput, RegisterNodesOut
 			return RegisterNodesOutput{}, fmt.Errorf("node validation failed: %w", err)
 		}
 
-		// Create the appropriate strategy
-		strategy, err := strategies.CreateStrategy(
-			chain,
-			*deps.Env,
-			input.MCMSConfig,
-			deps.MCMSContracts,
-			common.HexToAddress(input.Address),
-			RegisterNodesDescription,
-		)
-		if err != nil {
-			return RegisterNodesOutput{}, fmt.Errorf("failed to create strategy: %w", err)
-		}
-
 		var resultNodes []*capabilities_registry_v2.CapabilitiesRegistryNodeAdded
 
 		// Execute the transaction using the strategy
-		proposals, err := strategy.Apply(func(opts *bind.TransactOpts) (*types.Transaction, error) {
+		operation, err := deps.Strategy.Apply(func(opts *bind.TransactOpts) (*types.Transaction, error) {
 			tx, err := capReg.AddNodes(opts, nodes)
 			if err != nil {
 				err = cldf.DecodeErr(capabilities_registry_v2.CapabilitiesRegistryABI, err)
@@ -204,7 +190,7 @@ var RegisterNodes = operations.NewOperation[RegisterNodesInput, RegisterNodesOut
 
 		return RegisterNodesOutput{
 			Nodes:     resultNodes,
-			Proposals: proposals,
+			Operation: operation,
 		}, nil
 	},
 )

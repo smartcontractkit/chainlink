@@ -5,7 +5,9 @@ import (
 	"fmt"
 
 	"github.com/Masterminds/semver/v3"
+	"github.com/ethereum/go-ethereum/common"
 	mcmslib "github.com/smartcontractkit/mcms"
+	"github.com/smartcontractkit/mcms/types"
 
 	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
@@ -15,6 +17,7 @@ import (
 
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset/state"
 	"github.com/smartcontractkit/chainlink/deployment/cre/capabilities_registry/v2/changeset/operations/contracts"
+	"github.com/smartcontractkit/chainlink/deployment/cre/common/strategies"
 	crecontracts "github.com/smartcontractkit/chainlink/deployment/cre/contracts"
 )
 
@@ -60,7 +63,7 @@ var ConfigureCapabilitiesRegistry = operations.NewSequence(
 	semver.MustParse("1.0.0"),
 	"Configures the capabilities registry by registering node operators, nodes, dons and capabilities",
 	func(b operations.Bundle, deps ConfigureCapabilitiesRegistryDeps, input ConfigureCapabilitiesRegistryInput) (ConfigureCapabilitiesRegistryOutput, error) {
-		var allProposals []mcmslib.TimelockProposal
+		var allOperations []types.BatchOperation
 
 		addr := input.ContractAddress
 		if input.RegistryRef != nil {
@@ -71,10 +74,28 @@ var ConfigureCapabilitiesRegistry = operations.NewSequence(
 			addr = registryAddressRef.Address
 		}
 
+		chain, ok := deps.Env.BlockChains.EVMChains()[input.RegistryChainSel]
+		if !ok {
+			return ConfigureCapabilitiesRegistryOutput{}, fmt.Errorf("chain with selector %d not found", input.RegistryChainSel)
+		}
+
+		// Create the appropriate strategy
+		strategy, err := strategies.CreateStrategy(
+			chain,
+			*deps.Env,
+			input.MCMSConfig,
+			deps.MCMSContracts,
+			common.HexToAddress(addr),
+			contracts.ConfigureCapabilitiesRegistryDescription,
+		)
+		if err != nil {
+			return ConfigureCapabilitiesRegistryOutput{}, fmt.Errorf("failed to create strategy: %w", err)
+		}
+
 		// Register Node Operators
 		registerNopsReport, err := operations.ExecuteOperation(b, contracts.RegisterNops, contracts.RegisterNopsDeps{
-			Env:           deps.Env,
-			MCMSContracts: deps.MCMSContracts,
+			Env:      deps.Env,
+			Strategy: strategy,
 		}, contracts.RegisterNopsInput{
 			ChainSelector: input.RegistryChainSel,
 			Address:       addr,
@@ -84,12 +105,12 @@ var ConfigureCapabilitiesRegistry = operations.NewSequence(
 		if err != nil {
 			return ConfigureCapabilitiesRegistryOutput{}, err
 		}
-		allProposals = append(allProposals, registerNopsReport.Output.Proposals...)
+		allOperations = append(allOperations, registerNopsReport.Output.Operation)
 
 		// Register capabilities
 		registerCapabilitiesReport, err := operations.ExecuteOperation(b, contracts.RegisterCapabilities, contracts.RegisterCapabilitiesDeps{
-			Env:           deps.Env,
-			MCMSContracts: deps.MCMSContracts,
+			Env:      deps.Env,
+			Strategy: strategy,
 		}, contracts.RegisterCapabilitiesInput{
 			ChainSelector: input.RegistryChainSel,
 			Address:       addr,
@@ -99,12 +120,12 @@ var ConfigureCapabilitiesRegistry = operations.NewSequence(
 		if err != nil {
 			return ConfigureCapabilitiesRegistryOutput{}, err
 		}
-		allProposals = append(allProposals, registerCapabilitiesReport.Output.Proposals...)
+		allOperations = append(allOperations, registerCapabilitiesReport.Output.Operation)
 
 		// Register Nodes
 		registerNodesReport, err := operations.ExecuteOperation(b, contracts.RegisterNodes, contracts.RegisterNodesDeps{
-			Env:           deps.Env,
-			MCMSContracts: deps.MCMSContracts,
+			Env:      deps.Env,
+			Strategy: strategy,
 		}, contracts.RegisterNodesInput{
 			ChainSelector: input.RegistryChainSel,
 			Address:       addr,
@@ -114,12 +135,12 @@ var ConfigureCapabilitiesRegistry = operations.NewSequence(
 		if err != nil {
 			return ConfigureCapabilitiesRegistryOutput{}, err
 		}
-		allProposals = append(allProposals, registerNodesReport.Output.Proposals...)
+		allOperations = append(allOperations, registerNodesReport.Output.Operation)
 
 		// Register DONs
 		registerDONsReport, err := operations.ExecuteOperation(b, contracts.RegisterDons, contracts.RegisterDonsDeps{
-			Env:           deps.Env,
-			MCMSContracts: deps.MCMSContracts,
+			Env:      deps.Env,
+			Strategy: strategy,
 		}, contracts.RegisterDonsInput{
 			ChainSelector: input.RegistryChainSel,
 			Address:       addr,
@@ -129,14 +150,28 @@ var ConfigureCapabilitiesRegistry = operations.NewSequence(
 		if err != nil {
 			return ConfigureCapabilitiesRegistryOutput{}, err
 		}
-		allProposals = append(allProposals, registerDONsReport.Output.Proposals...)
+		allOperations = append(allOperations, registerDONsReport.Output.Operation)
+
+		if input.MCMSConfig != nil {
+			proposal, mErr := strategy.BuildProposal(allOperations)
+			if mErr != nil {
+				return ConfigureCapabilitiesRegistryOutput{}, fmt.Errorf("failed to build MCMS proposal: %w", mErr)
+			}
+
+			return ConfigureCapabilitiesRegistryOutput{
+				Nops:                  registerNopsReport.Output.Nops,
+				Nodes:                 registerNodesReport.Output.Nodes,
+				Capabilities:          registerCapabilitiesReport.Output.Capabilities,
+				DONs:                  registerDONsReport.Output.DONs,
+				MCMSTimelockProposals: []mcmslib.TimelockProposal{proposal},
+			}, nil
+		}
 
 		return ConfigureCapabilitiesRegistryOutput{
-			Nops:                  registerNopsReport.Output.Nops,
-			Nodes:                 registerNodesReport.Output.Nodes,
-			Capabilities:          registerCapabilitiesReport.Output.Capabilities,
-			DONs:                  registerDONsReport.Output.DONs,
-			MCMSTimelockProposals: allProposals,
+			Nops:         registerNopsReport.Output.Nops,
+			Nodes:        registerNodesReport.Output.Nodes,
+			Capabilities: registerCapabilitiesReport.Output.Capabilities,
+			DONs:         registerDONsReport.Output.DONs,
 		}, nil
 	},
 )
