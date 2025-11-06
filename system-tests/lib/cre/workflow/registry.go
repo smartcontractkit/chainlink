@@ -14,6 +14,9 @@ import (
 	"github.com/pkg/errors"
 	"github.com/rs/zerolog"
 	"github.com/scylladb/go-reflectx"
+	"github.com/smartcontractkit/chainlink-evm/gethwrappers/workflow/generated/workflow_registry_wrapper_v2"
+	cap_reg_v2 "github.com/smartcontractkit/chainlink/deployment/cre/capabilities_registry/v2/changeset/operations/contracts"
+	"github.com/smartcontractkit/chainlink/deployment/cre/common/strategies"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
@@ -148,11 +151,35 @@ func ConfigureWorkflowRegistry(
 
 	switch input.ContractVersion.Version.Major() {
 	case 2:
+		chain, ok := input.CldEnv.BlockChains.EVMChains()[input.ChainSelector]
+		if !ok {
+			return nil, fmt.Errorf("chain %d not found in environment", input.ChainSelector)
+		}
+		contract, err := workflow_registry_wrapper_v2.NewWorkflowRegistry(
+			input.ContractAddress, chain.Client,
+		)
+		if err != nil {
+			return nil, errors.Wrap(err, "failed to create WorkflowRegistry instance")
+		}
+		// Create the appropriate strategy
+		strategy, err := strategies.CreateStrategy(
+			chain,
+			*input.CldEnv,
+			nil,
+			nil,
+			contract.Address(),
+			cap_reg_v2.ConfigureForwarderDescription,
+		)
+		if err != nil {
+			return nil, errors.Wrap(err, "failed to create transaction strategy")
+		}
 		updateSignersReport, err := operations.ExecuteOperation(
 			input.CldEnv.OperationsBundle,
 			wf_reg_v2_op.UpdateAllowedSignersOp,
 			wf_reg_v2_op.WorkflowRegistryOpDeps{
-				Env: input.CldEnv,
+				Env:      input.CldEnv,
+				Registry: contract,
+				Strategy: strategy,
 			},
 			wf_reg_v2_op.UpdateAllowedSignersOpInput{
 				ChainSelector: input.ChainSelector,
@@ -168,7 +195,9 @@ func ConfigureWorkflowRegistry(
 			input.CldEnv.OperationsBundle,
 			wf_reg_v2_op.SetDONLimitOp,
 			wf_reg_v2_op.WorkflowRegistryOpDeps{
-				Env: input.CldEnv,
+				Env:      input.CldEnv,
+				Registry: contract,
+				Strategy: strategy,
 			},
 			wf_reg_v2_op.SetDONLimitOpInput{
 				ChainSelector:    input.ChainSelector,
