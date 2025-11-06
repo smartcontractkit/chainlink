@@ -256,7 +256,7 @@ jobs:
             echo "tests_result=✅ Tests passed" >> $GITHUB_OUTPUT
           fi
 
-      - name: Process and upload flaky Regression tests results (${{ steps.run-tests.outputs.tests_result }})
+      - name: Analyze and upload test results (${{ steps.run-tests.outputs.tests_result }})
         if: ${{ !cancelled() }}
         uses: smartcontractkit/.github/actions/branch-out-upload@branch-out-upload/v1
         with:
