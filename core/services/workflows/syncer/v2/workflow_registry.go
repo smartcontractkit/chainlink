@@ -183,8 +183,8 @@ func (w *workflowRegistry) Start(_ context.Context) error {
 
 		w.wg.Add(1)
 		go func() {
-			defer w.lggr.Debugw("Successfully set ContractReader")
 			defer w.wg.Done()
+			defer w.lggr.Debugw("Successfully set ContractReader")
 			defer close(initDoneCh)
 
 			ticker := w.getTicker(defaultTickInterval)
@@ -218,12 +218,12 @@ func (w *workflowRegistry) Start(_ context.Context) error {
 				return
 			}
 			w.lggr.Debugw("read from don received channel while waiting to start reconciliation sync")
-			don, err := w.workflowDonNotifier.WaitForDon(ctx)
+			_, err := w.workflowDonNotifier.WaitForDon(ctx)
 			if err != nil {
 				w.hooks.OnStartFailure(fmt.Errorf("failed to start workflow sync strategy: %w", err))
 				return
 			}
-			w.syncUsingReconciliationStrategy(ctx, don)
+			w.syncUsingReconciliationStrategy(ctx)
 		}()
 
 		w.wg.Add(1)
@@ -329,6 +329,7 @@ func (w *workflowRegistry) generateReconciliationEvents(_ context.Context, pendi
 						Data: toActivatedEvent,
 						Name: WorkflowActivated,
 						Head: localHead,
+						Info: fmt.Sprintf("[ID: %s, Name: %s, Owner: %s]", wfMeta.WorkflowID.Hex(), wfMeta.WorkflowName, hex.EncodeToString(wfMeta.Owner)),
 					},
 					signature: signature,
 					id:        id,
@@ -378,6 +379,7 @@ func (w *workflowRegistry) generateReconciliationEvents(_ context.Context, pendi
 								Data: toPausedEvent,
 								Name: WorkflowPaused,
 								Head: localHead,
+								Info: fmt.Sprintf("[ID: %s, Name: %s, Owner: %s]", wfMeta.WorkflowID.Hex(), wfMeta.WorkflowName, hex.EncodeToString(wfMeta.Owner)),
 							},
 							signature: signature,
 							id:        id,
@@ -416,6 +418,7 @@ func (w *workflowRegistry) generateReconciliationEvents(_ context.Context, pendi
 							Data: toDeletedEvent,
 							Name: WorkflowDeleted,
 							Head: localHead,
+							Info: fmt.Sprintf("[ID: %s]", id),
 						},
 						signature: signature,
 						id:        id,
@@ -487,7 +490,7 @@ func (w *workflowRegistry) syncAllowlistedRequests(ctx context.Context) {
 
 // syncUsingReconciliationStrategy syncs workflow registry contract state by polling the workflow metadata state and comparing to local state.
 // NOTE: In this mode paused states will be treated as a deleted workflow. Workflows will not be registered as paused.
-func (w *workflowRegistry) syncUsingReconciliationStrategy(ctx context.Context, don capabilities.DON) {
+func (w *workflowRegistry) syncUsingReconciliationStrategy(ctx context.Context) {
 	ticker := w.getTicker(defaultTickInterval)
 	pendingEvents := map[string]*reconciliationEvent{}
 	w.lggr.Debug("running readRegistryStateLoop")
@@ -497,14 +500,20 @@ func (w *workflowRegistry) syncUsingReconciliationStrategy(ctx context.Context, 
 			w.lggr.Debug("shutting down readRegistryStateLoop")
 			return
 		case <-ticker:
+			don, err := w.workflowDonNotifier.WaitForDon(ctx)
+			if err != nil {
+				w.lggr.Errorw("failed to get get don from notifier", "err", err)
+				continue
+			}
 			w.lggr.Debugw("fetching workflow registry metadata", "don", don.Families)
-			workflowMetadata, head, err := w.getWorkflowMetadata(ctx, don, w.contractReader)
+			allWorkflowsMetadata, head, err := w.getAllWorkflowsMetadata(ctx, don, w.contractReader)
 			if err != nil {
 				w.lggr.Errorw("failed to get registry state", "err", err)
 				continue
 			}
-			w.lggr.Debugw("preparing events to reconcile", "numWorkflowMetadata", len(workflowMetadata), "blockHeight", head.Height, "numPendingEvents", len(pendingEvents))
-			events, err := w.generateReconciliationEvents(ctx, pendingEvents, workflowMetadata, head)
+			w.metrics.recordFetchedWorkflows(ctx, len(allWorkflowsMetadata))
+			w.lggr.Debugw("preparing events to reconcile", "numWorkflows", len(allWorkflowsMetadata), "blockHeight", head.Height, "numPendingEvents", len(pendingEvents))
+			events, err := w.generateReconciliationEvents(ctx, pendingEvents, allWorkflowsMetadata, head)
 			if err != nil {
 				w.lggr.Errorw("failed to generate reconciliation events", "err", err)
 				continue
@@ -521,6 +530,7 @@ func (w *workflowRegistry) syncUsingReconciliationStrategy(ctx context.Context, 
 					w.lggr.Debug("readRegistryStateLoop stopped during processing")
 					return
 				default:
+					w.lggr.Debugw("processing event", "event", event.Name, "id", event.id, "signature", event.signature, "workflowInfo", event.Info)
 					reconcileReport.NumEventsByType[string(event.Name)]++
 
 					if event.retryCount == 0 || w.clock.Now().After(event.nextRetryAt) {
@@ -531,19 +541,23 @@ func (w *workflowRegistry) syncUsingReconciliationStrategy(ctx context.Context, 
 							pendingEvents[event.id] = event
 
 							reconcileReport.Backoffs[event.id] = event.nextRetryAt
-							w.lggr.Errorw("failed to handle event, backing off...", "err", err, "type", event.Name, "nextRetryAt", event.nextRetryAt, "retryCount", event.retryCount)
+							w.lggr.Errorw("failed to handle event, backing off...", "err", err, "type", event.Name, "nextRetryAt", event.nextRetryAt, "retryCount", event.retryCount, "workflowInfo", event.Info)
 						}
 					} else {
 						// It's not ready to execute yet, let's put it back on the pending queue.
 						pendingEvents[event.id] = event
 
 						reconcileReport.Backoffs[event.id] = event.nextRetryAt
-						w.lggr.Debugw("skipping event, still in backoff", "nextRetryAt", event.nextRetryAt, "event", event.Name, "id", event.id, "signature", event.signature)
+						w.lggr.Debugw("skipping event, still in backoff", "nextRetryAt", event.nextRetryAt, "event", event.Name, "id", event.id, "signature", event.signature, "workflowInfo", event.Info)
 					}
 				}
 			}
 
 			w.lggr.Debugw("reconciled events", "report", reconcileReport)
+
+			runningWorkflows := w.engineRegistry.GetAll()
+			w.metrics.recordRunningWorkflows(ctx, len(runningWorkflows))
+			w.metrics.incrementCompletedSyncs(ctx)
 		}
 	}
 }
@@ -644,8 +658,9 @@ func (w *workflowRegistry) newWorkflowRegistryContractReader(
 	return reader, nil
 }
 
-// getWorkflowMetadata uses contract reader to query the contract for all workflow metadata using the method getWorkflowListByDON
-func (w *workflowRegistry) getWorkflowMetadata(ctx context.Context, don capabilities.DON, contractReader types.ContractReader) ([]WorkflowMetadataView, *types.Head, error) {
+// getAllWorkflowsMetadata uses contract reader to query the WorkflowRegistry contract using the method getWorkflowListByDON.
+// It gets metadata for all workflows assigned to any of current DON's families.
+func (w *workflowRegistry) getAllWorkflowsMetadata(ctx context.Context, don capabilities.DON, contractReader types.ContractReader) ([]WorkflowMetadataView, *types.Head, error) {
 	if contractReader == nil {
 		return nil, nil, errors.New("cannot fetch workflow metadata: nil contract reader")
 	}

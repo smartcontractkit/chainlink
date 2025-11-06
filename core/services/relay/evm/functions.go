@@ -16,11 +16,12 @@ import (
 	"github.com/smartcontractkit/chainlink-evm/pkg/chains/legacyevm"
 	evmconfig "github.com/smartcontractkit/chainlink-evm/pkg/config"
 	"github.com/smartcontractkit/chainlink-evm/pkg/keys"
+	"github.com/smartcontractkit/chainlink-evm/pkg/transmitter"
 	txm "github.com/smartcontractkit/chainlink-evm/pkg/txmgr"
 	txmgrcommon "github.com/smartcontractkit/chainlink-framework/chains/txmgr"
+
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/functions/config"
 	functionsRelay "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/functions"
-	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/transmitter"
 )
 
 type functionsProvider struct {

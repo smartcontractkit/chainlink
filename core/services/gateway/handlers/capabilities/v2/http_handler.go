@@ -14,6 +14,8 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/ratelimit"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
+	"github.com/smartcontractkit/chainlink-common/pkg/settings/cresettings"
+	"github.com/smartcontractkit/chainlink-common/pkg/settings/limits"
 	gateway_common "github.com/smartcontractkit/chainlink-common/pkg/types/gateway"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/api"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/config"
@@ -35,18 +37,17 @@ const (
 	defaultMetadataAggregationIntervalMs = 1000 * 60 // 1 minute
 	defaultMetadataPullRequestTimeoutMs  = 1000 * 30 // 30 seconds
 	internalErrorMessage                 = "Internal server error occurred while processing the request"
-	defaultOutboundRequestCacheTTLMs     = 1000 * 60 * 10 // 10 minutes
+	defaultOutboundRequestCacheTTLMs     = 1000 * 60 * 10      // 10 minutes
+	defaultJWTReplayPeriodMs             = 1000 * 60 * 60 * 24 // 24 hours
 )
 
 type gatewayHandler struct {
 	services.StateMachine
 	config          ServiceConfig
 	don             handlers.DON
-	donConfig       *config.DONConfig
 	lggr            logger.Logger
 	httpClient      network.HTTPClient
 	nodeRateLimiter *ratelimit.RateLimiter // Rate limiter for node requests (e.g. outgoing HTTP requests, HTTP trigger response, auth metadata exchange)
-	userRateLimiter *ratelimit.RateLimiter // Rate limiter for user requests that trigger workflow executions
 	wg              sync.WaitGroup
 	stopCh          services.StopChan
 	responseCache   ResponseCache // Caches HTTP responses to avoid redundant requests for outbound HTTP actions
@@ -69,24 +70,46 @@ type ResponseCache interface {
 }
 
 type ServiceConfig struct {
-	NodeRateLimiter               ratelimit.RateLimiterConfig `json:"nodeRateLimiter"`
-	UserRateLimiter               ratelimit.RateLimiterConfig `json:"userRateLimiter"`
-	MaxTriggerRequestDurationMs   int                         `json:"maxTriggerRequestDurationMs"`
-	RetryConfig                   RetryConfig                 `json:"retryConfig"`
-	CleanUpPeriodMs               int                         `json:"cleanUpPeriodMs"`
-	MetadataPullIntervalMs        int                         `json:"metadataPullIntervalMs"`
-	MetadataAggregationIntervalMs int                         `json:"metadataAggregationIntervalMs"`
-	MetadataPullRequestTimeoutMs  int                         `json:"metadataPullRequestTimeoutMs"`
-	OutboundRequestCacheTTLMs     int                         `json:"outboundRequestCacheTTLMs"`
+	// NodeRateLimiter configures rate limiting for traffic coming from workflow DON nodes
+	NodeRateLimiter ratelimit.RateLimiterConfig `json:"nodeRateLimiter"`
+
+	// MaxTriggerRequestDurationMs is the maximum time allowed for each trigger broadcast request to a workflow node
+	MaxTriggerRequestDurationMs int `json:"maxTriggerRequestDurationMs"`
+
+	// RetryConfig defines retry behavior for trigger broadcast requests to workflow nodes
+	RetryConfig RetryConfig `json:"retryConfig"`
+
+	// CleanUpPeriodMs is the interval for cleaning up expired HTTP action cache entries, HTTP trigger request callbacks and stale workflow metadata data
+	CleanUpPeriodMs int `json:"cleanUpPeriodMs"`
+
+	// MetadataPullIntervalMs is how often to poll workflow nodes for metadata updates
+	MetadataPullIntervalMs int `json:"metadataPullIntervalMs"`
+
+	// MetadataAggregationIntervalMs is how often to sync local workflow metadata state with recent metadata updates
+	MetadataAggregationIntervalMs int `json:"metadataAggregationIntervalMs"`
+
+	// MetadataPullRequestTimeoutMs is the timeout for metadata pull requests to workflow nodes
+	MetadataPullRequestTimeoutMs int `json:"metadataPullRequestTimeoutMs"`
+
+	// OutboundRequestCacheTTLMs is how long to cache outbound HTTP action responses from external endpoints before they expire
+	OutboundRequestCacheTTLMs int `json:"outboundRequestCacheTTLMs"`
+
+	// JWTReplayPeriodMs is how long JWT IDs are cached to prevent replay attacks (in milliseconds)
+	JWTReplayPeriodMs int `json:"jwtReplayPeriodMs"`
 }
 
 type RetryConfig struct {
-	InitialIntervalMs int     `json:"initialIntervalMs"`
-	MaxIntervalTimeMs int     `json:"maxIntervalTimeMs"`
-	Multiplier        float64 `json:"multiplier"`
+	// InitialIntervalMs is the starting delay between retry attempts
+	InitialIntervalMs int `json:"initialIntervalMs"`
+
+	// MaxIntervalTimeMs is the maximum delay between retry attempts
+	MaxIntervalTimeMs int `json:"maxIntervalTimeMs"`
+
+	// Multiplier is the factor by which the retry interval increases after each failed attempt
+	Multiplier float64 `json:"multiplier"`
 }
 
-func NewGatewayHandler(handlerConfig json.RawMessage, donConfig *config.DONConfig, don handlers.DON, httpClient network.HTTPClient, lggr logger.Logger) (*gatewayHandler, error) {
+func NewGatewayHandler(handlerConfig json.RawMessage, donConfig *config.DONConfig, don handlers.DON, httpClient network.HTTPClient, lggr logger.Logger, lf limits.Factory) (*gatewayHandler, error) {
 	var cfg ServiceConfig
 	err := json.Unmarshal(handlerConfig, &cfg)
 	if err != nil {
@@ -97,12 +120,12 @@ func NewGatewayHandler(handlerConfig json.RawMessage, donConfig *config.DONConfi
 	if err != nil {
 		return nil, fmt.Errorf("failed to create node rate limiter: %w", err)
 	}
-	userRateLimiter, err := ratelimit.NewRateLimiter(cfg.UserRateLimiter)
+	userRateLimiter, err := lf.MakeRateLimiter(cresettings.Default.PerWorkflow.HTTPTrigger.RateLimit)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create user rate limiter: %w", err)
 	}
 
-	metrics, err := metrics.NewMetrics()
+	metrics, err := metrics.NewMetrics(donConfig)
 	if err != nil {
 		return nil, fmt.Errorf("failed to initialize metrics: %w", err)
 	}
@@ -112,11 +135,9 @@ func NewGatewayHandler(handlerConfig json.RawMessage, donConfig *config.DONConfi
 	return &gatewayHandler{
 		config:          cfg,
 		don:             don,
-		donConfig:       donConfig,
 		lggr:            logger.With(logger.Named(lggr, handlerName), "donId", donConfig.DonId),
 		httpClient:      httpClient,
 		nodeRateLimiter: nodeRateLimiter,
-		userRateLimiter: userRateLimiter,
 		stopCh:          make(services.StopChan),
 		responseCache:   newResponseCache(lggr, cfg.OutboundRequestCacheTTLMs, metrics),
 		triggerHandler:  triggerHandler,
@@ -126,19 +147,6 @@ func NewGatewayHandler(handlerConfig json.RawMessage, donConfig *config.DONConfi
 }
 
 func WithDefaults(cfg ServiceConfig) ServiceConfig {
-	// TODO: userRateLimiter defaults will be replaced by limits integration
-	if cfg.UserRateLimiter.GlobalBurst == 0 {
-		cfg.UserRateLimiter.GlobalBurst = 100
-	}
-	if cfg.UserRateLimiter.GlobalRPS == 0 {
-		cfg.UserRateLimiter.GlobalRPS = 100
-	}
-	if cfg.UserRateLimiter.PerSenderBurst == 0 {
-		cfg.UserRateLimiter.PerSenderBurst = 100
-	}
-	if cfg.UserRateLimiter.PerSenderRPS == 0 {
-		cfg.UserRateLimiter.PerSenderRPS = 100
-	}
 	if cfg.CleanUpPeriodMs == 0 {
 		cfg.CleanUpPeriodMs = defaultCleanUpPeriodMs
 	}
@@ -149,7 +157,7 @@ func WithDefaults(cfg ServiceConfig) ServiceConfig {
 		cfg.MetadataPullIntervalMs = defaultMetadataPullIntervalMs
 	}
 	if cfg.MetadataAggregationIntervalMs == 0 {
-		cfg.MetadataAggregationIntervalMs = defaultMetadataPullIntervalMs
+		cfg.MetadataAggregationIntervalMs = defaultMetadataAggregationIntervalMs
 	}
 	if cfg.MetadataPullRequestTimeoutMs == 0 {
 		cfg.MetadataPullRequestTimeoutMs = defaultMetadataPullRequestTimeoutMs
@@ -165,6 +173,9 @@ func WithDefaults(cfg ServiceConfig) ServiceConfig {
 	}
 	if cfg.OutboundRequestCacheTTLMs == 0 {
 		cfg.OutboundRequestCacheTTLMs = defaultOutboundRequestCacheTTLMs
+	}
+	if cfg.JWTReplayPeriodMs == 0 {
+		cfg.JWTReplayPeriodMs = defaultJWTReplayPeriodMs
 	}
 	return cfg
 }
@@ -185,11 +196,11 @@ func (h *gatewayHandler) HandleNodeMessage(ctx context.Context, resp *jsonrpc.Re
 	h.lggr.Debugw("handling incoming node message", "requestID", resp.ID, "nodeAddr", nodeAddr)
 	nodeAllow, globalAllow := h.nodeRateLimiter.AllowVerbose(nodeAddr)
 	if !nodeAllow {
-		h.metrics.Common.IncrementCapabilityNodeThrottled(ctx, nodeAddr, h.lggr)
+		h.metrics.IncrementCapabilityNodeThrottled(ctx, nodeAddr, h.lggr)
 		return fmt.Errorf("rate limit exceeded for node %s", nodeAddr)
 	}
 	if !globalAllow {
-		h.metrics.Common.IncrementGlobalThrottled(ctx, h.lggr)
+		h.metrics.IncrementGlobalThrottled(ctx, h.lggr)
 		return errors.New("global rate limit exceeded")
 	}
 	// Node messages follow the format "<methodName>/<workflowID>/<uuid>" or
@@ -206,25 +217,25 @@ func (h *gatewayHandler) HandleNodeMessage(ctx context.Context, resp *jsonrpc.Re
 		switch methodName {
 		case gateway_common.MethodHTTPAction:
 			start := time.Now()
-			h.metrics.Action.IncrementRequestCount(ctx, nodeAddr, h.lggr)
+			h.metrics.IncrementActionRequestCount(ctx, nodeAddr, h.lggr)
 			err := h.makeOutgoingRequest(ctx, resp, nodeAddr)
 			if err != nil {
-				h.metrics.Action.IncrementRequestFailures(ctx, nodeAddr, h.lggr)
+				h.metrics.IncrementActionRequestFailures(ctx, nodeAddr, h.lggr)
 			}
-			h.metrics.Action.RecordRequestLatency(ctx, time.Since(start).Milliseconds(), h.lggr)
+			h.metrics.RecordActionRequestLatency(ctx, time.Since(start).Milliseconds(), h.lggr)
 			return err
 		case gateway_common.MethodPushWorkflowMetadata:
-			h.metrics.Trigger.IncrementMetadataRequestCount(ctx, nodeAddr, gateway_common.MethodPushWorkflowMetadata, h.lggr)
+			h.metrics.IncrementMetadataRequestCount(ctx, nodeAddr, gateway_common.MethodPushWorkflowMetadata, h.lggr)
 			err := h.metadataHandler.OnMetadataPush(ctx, resp, nodeAddr)
 			if err != nil {
-				h.metrics.Trigger.IncrementMetadataProcessingFailures(ctx, nodeAddr, gateway_common.MethodPushWorkflowMetadata, h.lggr)
+				h.metrics.IncrementMetadataProcessingFailures(ctx, nodeAddr, gateway_common.MethodPushWorkflowMetadata, h.lggr)
 			}
 			return err
 		case gateway_common.MethodPullWorkflowMetadata:
-			h.metrics.Trigger.IncrementMetadataRequestCount(ctx, nodeAddr, gateway_common.MethodPullWorkflowMetadata, h.lggr)
+			h.metrics.IncrementMetadataRequestCount(ctx, nodeAddr, gateway_common.MethodPullWorkflowMetadata, h.lggr)
 			err := h.metadataHandler.OnMetadataPullResponse(ctx, resp, nodeAddr)
 			if err != nil {
-				h.metrics.Trigger.IncrementMetadataProcessingFailures(ctx, nodeAddr, gateway_common.MethodPullWorkflowMetadata, h.lggr)
+				h.metrics.IncrementMetadataProcessingFailures(ctx, nodeAddr, gateway_common.MethodPullWorkflowMetadata, h.lggr)
 			}
 			return err
 		default:
@@ -243,16 +254,34 @@ func (h *gatewayHandler) createHTTPRequestCallback(ctx context.Context, requestI
 		resp, err := h.httpClient.Send(ctx, httpReq)
 		externalEndpointLatency := time.Since(start)
 		if err != nil {
-			l.Errorw("error while sending HTTP request to external endpoint", "err", err)
-			isExternalEndpointError := errors.Is(err, network.ErrHTTPSend) || errors.Is(err, network.ErrHTTPRead)
+			isBlockedRequest := errors.Is(err, network.ErrBlockedRequest)
+			isHTTPSendError := errors.Is(err, network.ErrHTTPSend)
+			isHTTPReadError := errors.Is(err, network.ErrHTTPRead)
+			isExternalEndpointError := isHTTPSendError || isHTTPReadError
+
+			switch {
+			case isBlockedRequest:
+				l.Warnw("HTTP request blocked", "requestID", requestID, "err", err)
+				h.metrics.IncrementBlockedRequestCount(ctx, h.lggr)
+			case isHTTPSendError:
+				l.Warnw("error while sending HTTP request to external endpoint", "requestID", requestID, "err", err)
+				h.metrics.IncrementHTTPSendErrorCount(ctx, h.lggr)
+			case isHTTPReadError:
+				l.Warnw("error while reading HTTP response from external endpoint", "requestID", requestID, "err", err)
+				h.metrics.IncrementHTTPReadErrorCount(ctx, h.lggr)
+			default:
+				l.Errorw("error while sending HTTP request", "requestID", requestID, "err", err)
+			}
+
 			return gateway_common.OutboundHTTPResponse{
 				ErrorMessage:            err.Error(),
-				IsExternalEndpointError: isExternalEndpointError,
+				IsExternalEndpointError: isExternalEndpointError, // error while sending request to or reading response from external endpoint
+				IsValidationError:       isBlockedRequest,        // validation error before sending request to external endpoint
 				ExternalEndpointLatency: externalEndpointLatency,
 			}
 		}
-		h.metrics.Action.IncrementCustomerEndpointResponseCount(ctx, strconv.Itoa(resp.StatusCode), h.lggr)
-		h.metrics.Action.RecordCustomerEndpointRequestLatency(ctx, time.Since(start).Milliseconds(), h.lggr)
+		h.metrics.IncrementCustomerEndpointResponseCount(ctx, strconv.Itoa(resp.StatusCode), h.lggr)
+		h.metrics.RecordCustomerEndpointRequestLatency(ctx, time.Since(start).Milliseconds(), h.lggr)
 		return gateway_common.OutboundHTTPResponse{
 			StatusCode:              resp.StatusCode,
 			Headers:                 resp.Headers,
@@ -277,7 +306,7 @@ func (h *gatewayHandler) HandleLegacyUserMessage(context.Context, *api.Message, 
 }
 
 func (h *gatewayHandler) HandleJSONRPCUserMessage(ctx context.Context, req jsonrpc.Request[json.RawMessage], callback handlers.Callback) error {
-	h.metrics.Trigger.IncrementRequestCount(ctx, h.lggr)
+	h.metrics.IncrementTriggerRequestCount(ctx, h.lggr)
 	err := h.triggerHandler.HandleUserTriggerRequest(ctx, &req, callback, time.Now())
 	if err != nil {
 		h.lggr.Errorw("failed to handle user trigger request", "requestID",
@@ -290,7 +319,7 @@ func (h *gatewayHandler) HandleJSONRPCUserMessage(ctx context.Context, req jsonr
 
 func (h *gatewayHandler) makeOutgoingRequest(ctx context.Context, resp *jsonrpc.Response[json.RawMessage], nodeAddr string) error {
 	requestID := resp.ID
-	h.lggr.Debugw("handling webAPI outgoing message", "requestID", requestID, "nodeAddr", nodeAddr)
+	h.lggr.Debugw("handling outgoing message", "requestID", requestID, "nodeAddr", nodeAddr)
 	var req gateway_common.OutboundHTTPRequest
 	err := json.Unmarshal(*resp.Result, &req)
 	if err != nil {
@@ -319,7 +348,7 @@ func (h *gatewayHandler) makeOutgoingRequest(ctx context.Context, resp *jsonrpc.
 		var outboundResp gateway_common.OutboundHTTPResponse
 		callback := h.createHTTPRequestCallback(newCtx, requestID, httpReq, req)
 		if req.CacheSettings.MaxAgeMs > 0 {
-			h.metrics.Action.IncrementCacheReadCount(ctx, h.lggr)
+			h.metrics.IncrementCacheReadCount(ctx, h.lggr)
 			outboundResp = h.responseCache.Fetch(ctx, workflowID, req, callback, req.CacheSettings.Store)
 		} else {
 			outboundResp = callback()
@@ -327,11 +356,11 @@ func (h *gatewayHandler) makeOutgoingRequest(ctx context.Context, resp *jsonrpc.
 				h.responseCache.Set(workflowID, req, outboundResp)
 			}
 		}
-		h.metrics.Action.IncrementCapabilityRequestCount(ctx, nodeAddr, h.lggr)
+		h.metrics.IncrementActionCapabilityRequestCount(ctx, nodeAddr, h.lggr)
 		err := h.sendResponseToNode(newCtx, requestID, outboundResp, nodeAddr)
 		if err != nil {
 			l.Errorw("error sending response to node", "err", err, "nodeAddr", nodeAddr, "requestID", requestID)
-			h.metrics.Action.IncrementCapabilityFailures(ctx, nodeAddr, h.lggr)
+			h.metrics.IncrementActionCapabilityFailures(ctx, nodeAddr, h.lggr)
 		}
 	}()
 	return nil
@@ -356,7 +385,9 @@ func (h *gatewayHandler) Start(ctx context.Context) error {
 		if err != nil {
 			return fmt.Errorf("failed to start HTTP auth handler: %w", err)
 		}
+		h.wg.Add(1)
 		go func() {
+			defer h.wg.Done()
 			ticker := time.NewTicker(time.Duration(h.config.CleanUpPeriodMs) * time.Millisecond)
 			defer ticker.Stop()
 			for {

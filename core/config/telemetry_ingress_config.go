@@ -14,6 +14,7 @@ type TelemetryIngress interface {
 	SendTimeout() time.Duration
 	UseBatchSend() bool
 	Endpoints() []TelemetryIngressEndpoint
+	ChipIngressEnabled() bool
 }
 
 type TelemetryIngressEndpoint interface {

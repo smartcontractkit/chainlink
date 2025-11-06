@@ -6,6 +6,8 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 
+	chain_selectors "github.com/smartcontractkit/chain-selectors"
+
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	"github.com/smartcontractkit/chainlink-evm/pkg/utils"
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
@@ -49,8 +51,8 @@ type SetTokenTransferFeeArgs struct {
 // To avoid these types of situations, we use pointers for each config field in the struct below. If
 // a field is undefined or set to nil in the struct, then we will fallback to using any pre-existing
 // values from the chain before sending the transaction. Otherwise the user's input values are used.
-// If a token has no pre-existing config values on-chain (i.e. isEnabled == false), then every field
-// must be explicitly provided by the caller.
+// If a token has no pre-existing config values on-chain (i.e. isEnabled == false), then we use some
+// sensible defaults for the missing fields.
 type TokenTransferFeeArgs struct {
 	MinFeeUSDCents            *uint32
 	MaxFeeUSDCents            *uint32
@@ -60,13 +62,36 @@ type TokenTransferFeeArgs struct {
 	AggregateRateLimitEnabled *bool
 }
 
-func (args TokenTransferFeeArgs) HasMissingFields() bool {
-	return args.MinFeeUSDCents == nil ||
-		args.MaxFeeUSDCents == nil ||
-		args.DeciBps == nil ||
-		args.DestGasOverhead == nil ||
-		args.DestBytesOverhead == nil ||
-		args.AggregateRateLimitEnabled == nil
+func (args TokenTransferFeeArgs) FillMissingValues(srcSelector uint64, dstSelector uint64) TokenTransferFeeArgs {
+	// this config is dynamically adjusted (ethereum is very expensive)
+	minFeeUsdCentsVal := uint32(25)
+
+	// NOTE: we validate that src != dst so only one of these if statements will execute
+	if srcSelector == chain_selectors.ETHEREUM_MAINNET.Selector {
+		minFeeUsdCentsVal = 50
+	}
+	if dstSelector == chain_selectors.ETHEREUM_MAINNET.Selector {
+		minFeeUsdCentsVal = 150
+	}
+
+	// if the user has already provided the config values, then prefer those over sensible defaults
+	aggregateRateLimitEnabled := pointer.Coalesce(args.AggregateRateLimitEnabled, false)
+	minFeeUsdCents := pointer.Coalesce(args.MinFeeUSDCents, minFeeUsdCentsVal)
+	maxFeeUsdCents := pointer.Coalesce(args.MaxFeeUSDCents, uint32(4_294_967_295))
+	destGasOverhead := pointer.Coalesce(args.DestGasOverhead, uint32(90_000))
+	destBytesOverhead := pointer.Coalesce(args.DestBytesOverhead, uint32(32))
+	deciBps := pointer.Coalesce(args.DeciBps, uint16(0))
+
+	// modify the struct in-place
+	args.MinFeeUSDCents = &minFeeUsdCents
+	args.MaxFeeUSDCents = &maxFeeUsdCents
+	args.DeciBps = &deciBps
+	args.DestGasOverhead = &destGasOverhead
+	args.DestBytesOverhead = &destBytesOverhead
+	args.AggregateRateLimitEnabled = &aggregateRateLimitEnabled
+
+	// return the modified config
+	return args
 }
 
 func setTokenTransferFeeConfigPrecondition(env cldf.Environment, cfg SetTokenTransferFeeConfig) error {
@@ -96,6 +121,9 @@ func setTokenTransferFeeConfigPrecondition(env cldf.Environment, cfg SetTokenTra
 			}
 			if _, exists := chainState.EVM2EVMOnRamp[dstSelector]; !exists {
 				return fmt.Errorf("no EVM2EVMOnRamp exists (src = %d, dst = %d)", srcSelector, dstSelector)
+			}
+			if srcSelector == dstSelector {
+				return fmt.Errorf("destination chain cannot be the same as src chain (src = %d, dst = %d)", srcSelector, dstSelector)
 			}
 
 			tokensToReset := map[common.Address]bool{}
@@ -167,15 +195,21 @@ func setTokenTransferFeeConfigLogic(env cldf.Environment, cfg SetTokenTransferFe
 		}
 
 		for dstSelector, input := range inputs {
-			dstChain, exists := env.BlockChains.EVMChains()[dstSelector]
-			if !exists {
-				return cldf.ChangesetOutput{}, fmt.Errorf("could not find dst EVM chain in environment (src = %s, dst = %d)", srcChain.String(), dstSelector)
+			dstChain, err := env.BlockChains.GetBySelector(dstSelector)
+			if err != nil {
+				return cldf.ChangesetOutput{}, fmt.Errorf("could not find dst chain in environment (src = %s, dst = %d)", srcChain.String(), dstSelector)
 			}
 
 			onramp, exists := chainState.EVM2EVMOnRamp[dstSelector]
 			if !exists {
 				return cldf.ChangesetOutput{}, fmt.Errorf("no EVM2EVMOnRamp (src = %s, dst = %s)", srcChain.String(), dstChain.String())
 			}
+
+			env.Logger.Infof("found OnRamp on source chain (src = %s, dst = %s, onramp = %s)",
+				srcChain.String(),
+				dstChain.String(),
+				onramp.Address().Hex(),
+			)
 
 			tokenTransferFeeConfigArgs := []evm_2_evm_onramp.EVM2EVMOnRampTokenTransferFeeConfigArgs{}
 			for tokenAddress, args := range input.TokenTransferFeeConfigArgs {
@@ -186,13 +220,15 @@ func setTokenTransferFeeConfigLogic(env cldf.Environment, cfg SetTokenTransferFe
 					return cldf.ChangesetOutput{}, fmt.Errorf("failed to fetch token transfer fee config (src = %s, dst = %s, token = %s): %w", srcChain.String(), dstChain.String(), tokenAddress.Hex(), err)
 				}
 
-				// If no custom config already exists on-chain for the token, then we have no fallback values to use - in this case the caller must explicitly provide all fields
+				// If no custom config already exists on-chain for the token, then use sensible defaults for any missing fields
 				env.Logger.Infof("fetched token transfer fee config (src = %s, dst = %s, token = %s, cfg = %+v)", srcChain.String(), dstChain.String(), tokenAddress.Hex(), curConfig)
-				if !curConfig.IsEnabled && args.HasMissingFields() {
-					return cldf.ChangesetOutput{}, fmt.Errorf("invalid args - when enabling a new token, all fields must be provided (src = %s, dst = %s, token = %s)", srcChain.String(), dstChain.String(), tokenAddress.Hex())
+				if !curConfig.IsEnabled {
+					env.Logger.Infof("no token transfer fee config exists on chain - filling in missing values (src = %s, dst = %s, token = %s, input = %+v)", srcChain.String(), dstChain.String(), tokenAddress.Hex(), args)
+					args = args.FillMissingValues(srcSelector, dstSelector)
+					env.Logger.Infof("missing values have been filled in with sensible defaults (src = %s, dst = %s, token = %s, input = %+v)", srcChain.String(), dstChain.String(), tokenAddress.Hex(), args)
 				}
 
-				// At this point, we're either using fallback values from the chain or the caller has explicitly provided the inputs
+				// At this point, we're either using inputs from the user (highest precedence), fallback values from the chain, or pre-defined sensible defaults
 				newConfig := evm_2_evm_onramp.EVM2EVMOnRampTokenTransferFeeConfigArgs{
 					Token:                     tokenAddress,
 					MinFeeUSDCents:            pointer.Coalesce(args.MinFeeUSDCents, curConfig.MinFeeUSDCents),
@@ -203,16 +239,18 @@ func setTokenTransferFeeConfigLogic(env cldf.Environment, cfg SetTokenTransferFe
 					AggregateRateLimitEnabled: pointer.Coalesce(args.AggregateRateLimitEnabled, curConfig.AggregateRateLimitEnabled),
 				}
 
-				// Check if the new config is different from the on-chain config
-				isDifferent := !curConfig.IsEnabled
-				if curConfig.IsEnabled {
-					isDifferent = newConfig.MinFeeUSDCents != curConfig.MinFeeUSDCents ||
-						newConfig.MaxFeeUSDCents != curConfig.MaxFeeUSDCents ||
-						newConfig.DeciBps != curConfig.DeciBps ||
-						newConfig.DestGasOverhead != curConfig.DestGasOverhead ||
-						newConfig.DestBytesOverhead != curConfig.DestBytesOverhead ||
-						newConfig.AggregateRateLimitEnabled != curConfig.AggregateRateLimitEnabled
+				// Make sure that the config is still valid after merge
+				if newConfig.MinFeeUSDCents >= newConfig.MaxFeeUSDCents {
+					return cldf.ChangesetOutput{}, fmt.Errorf("min fee must be less than max fee (src = %s, dst = %s, token = %s)", srcChain.String(), dstChain.String(), tokenAddress.Hex())
 				}
+
+				// Check if the new config is different from the on-chain config
+				isDifferent := newConfig.MinFeeUSDCents != curConfig.MinFeeUSDCents ||
+					newConfig.MaxFeeUSDCents != curConfig.MaxFeeUSDCents ||
+					newConfig.DeciBps != curConfig.DeciBps ||
+					newConfig.DestGasOverhead != curConfig.DestGasOverhead ||
+					newConfig.DestBytesOverhead != curConfig.DestBytesOverhead ||
+					newConfig.AggregateRateLimitEnabled != curConfig.AggregateRateLimitEnabled
 
 				// Only perform an update if the new config is different from the on-chain config
 				env.Logger.Infof("constructed token transfer fee config (src = %s, dst = %s, token = %s, new_cfg = %+v)", srcChain.String(), dstChain.String(), tokenAddress.Hex(), newConfig)

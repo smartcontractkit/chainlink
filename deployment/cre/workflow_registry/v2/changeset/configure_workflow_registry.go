@@ -31,6 +31,7 @@ type SetConfigInput struct {
 	TagLen                    uint8            `json:"tagLen"`                    // Maximum length for workflow tags
 	URLLen                    uint8            `json:"urlLen"`                    // Maximum length for URLs
 	AttrLen                   uint16           `json:"attrLen"`                   // Maximum length for attributes
+	ExpiryLen                 uint32           `json:"expiryLen"`                 // Maximum expiry duration for allowlisted secret requests
 	MCMSConfig                *ocr3.MCMSConfig `json:"mcmsConfig,omitempty"`      // MCMS configuration
 }
 
@@ -65,6 +66,7 @@ func (l SetConfig) Apply(e cldf.Environment, config SetConfigInput) (cldf.Change
 			TagLen:        config.TagLen,
 			URLLen:        config.URLLen,
 			AttrLen:       config.AttrLen,
+			ExpiryLen:     config.ExpiryLen,
 			MCMSConfig:    config.MCMSConfig,
 		},
 	)

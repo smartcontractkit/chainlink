@@ -20,7 +20,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/scripts/cre/environment/examples/pkg/verify"
 	cronbasedtypes "github.com/smartcontractkit/chainlink/core/scripts/cre/environment/examples/workflows/v1/proof-of-reserve/cron-based/types"
 	webapitriggerbasedtypes "github.com/smartcontractkit/chainlink/core/scripts/cre/environment/examples/workflows/v1/proof-of-reserve/web-trigger-based/types"
-	creenv "github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment"
+	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment"
 	creworkflow "github.com/smartcontractkit/chainlink/system-tests/lib/cre/workflow"
 	libformat "github.com/smartcontractkit/chainlink/system-tests/lib/format"
 )
@@ -52,10 +52,10 @@ func deployAndVerifyExampleWorkflowCmd() *cobra.Command {
 
 	cmd.Flags().StringVarP(&rpcURLFlag, "rpc-url", "r", "http://localhost:8545", "RPC URL")
 	cmd.Flags().StringVarP(&exampleWorkflowTriggerFlag, "example-workflow-trigger", "y", "web-trigger", "Trigger for example workflow to deploy (web-trigger or cron)")
-	cmd.Flags().StringVarP(&exampleWorkflowTimeoutFlag, "example-workflow-timeout", "u", "5m", "Time to wait until example workflow succeeds")
+	cmd.Flags().StringVarP(&exampleWorkflowTimeoutFlag, "example-workflow-timeout", "u", "5m", "Time to wait until example workflow succeeds (e.g. 10s, 1m, 1h)")
 	cmd.Flags().StringVarP(&gatewayURLFlag, "gateway-url", "g", "http://localhost:5002", "Gateway URL (only for web API trigger-based workflow)")
-	cmd.Flags().Uint32VarP(&workflowDonIDFlag, "workflow-don-id", "d", 1, "DonID used in the workflow registry contract")
-	cmd.Flags().StringVarP(&gatewayDonIDFlag, "gateway-don-id", "o", "workflow", "DonID used in the gateway configuration")
+	cmd.Flags().Uint32VarP(&workflowDonIDFlag, "workflow-don-id", "d", 1, "DonID used in the workflow registry contract (integer starting with 1)")
+	cmd.Flags().StringVarP(&gatewayDonIDFlag, "gateway-don-id", "o", "workflow", "Name of the DON that is running web API trigger capability (only for web API trigger-based workflow)")
 	cmd.Flags().StringVarP(&workflowRegistryAddressFlag, "workflow-registry-address", "w", DefaultWorkflowRegistryAddress, "Workflow registry address")
 
 	return cmd
@@ -116,7 +116,7 @@ func deployAndVerifyExampleWorkflow(cmdContext context.Context, rpcURL, gatewayU
 	totalStart := time.Now()
 	start := time.Now()
 
-	if pkErr := creenv.SetDefaultPrivateKeyIfEmpty(blockchain.DefaultAnvilPrivateKey); pkErr != nil {
+	if pkErr := environment.SetDefaultPrivateKeyIfEmpty(blockchain.DefaultAnvilPrivateKey); pkErr != nil {
 		return pkErr
 	}
 
@@ -169,7 +169,7 @@ func deployAndVerifyExampleWorkflow(cmdContext context.Context, rpcURL, gatewayU
 		_ = os.Remove(configFilePath)
 	}()
 
-	deployErr := compileCopyAndRegisterWorkflow(cmdContext, workflowFilePath, workflowName, "", workflowRegistryAddress, "", creworkflow.DefaultWorkflowNodePattern, creworkflow.DefaultWorkflowTargetDir, configFilePath, "", rpcURL, "v1", workflowDonID)
+	deployErr := compileCopyAndRegisterWorkflow(cmdContext, workflowFilePath, workflowName, "", workflowRegistryAddress, "", creworkflow.DefaultWorkflowNodePattern, creworkflow.DefaultWorkflowTargetDir, configFilePath, "", "", rpcURL, "v1", workflowDonID)
 	if deployErr != nil {
 		return errors.Wrap(deployErr, "failed to deploy example workflow")
 	}
@@ -195,7 +195,7 @@ func deployAndVerifyExampleWorkflow(cmdContext context.Context, rpcURL, gatewayU
 	}
 	defer pauseWorkflow()
 
-	if pkErr := creenv.SetDefaultPrivateKeyIfEmpty(blockchain.DefaultAnvilPrivateKey); pkErr != nil {
+	if pkErr := environment.SetDefaultPrivateKeyIfEmpty(blockchain.DefaultAnvilPrivateKey); pkErr != nil {
 		return pkErr
 	}
 

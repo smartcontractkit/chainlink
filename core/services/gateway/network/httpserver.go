@@ -10,12 +10,16 @@ import (
 	"strings"
 	"time"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/config"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
+	"github.com/smartcontractkit/chainlink-common/pkg/settings/cresettings"
+	"github.com/smartcontractkit/chainlink-common/pkg/settings/limits"
+	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/monitoring"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 )
 
-type HttpServer interface {
+type HTTPServer interface {
 	job.ServiceCtx
 
 	// Not thread-safe. Should be called once, before Start() is called.
@@ -30,19 +34,29 @@ type HTTPRequestHandler interface {
 }
 
 type HTTPServerConfig struct {
-	Host                 string
-	Port                 uint16
-	TLSEnabled           bool
-	TLSCertPath          string
-	TLSKeyPath           string
-	Path                 string
-	ContentTypeHeader    string
-	ReadTimeoutMillis    uint32
-	WriteTimeoutMillis   uint32
-	RequestTimeoutMillis uint32
-	MaxRequestBytes      int64
-	CORSEnabled          bool
-	CORSAllowedOrigins   []string
+	Host                   string
+	Port                   uint16
+	TLSEnabled             bool
+	TLSCertPath            string
+	TLSKeyPath             string
+	Path                   string
+	ContentTypeHeader      string
+	ReadTimeoutMillis      uint32
+	WriteTimeoutMillis     uint32
+	RequestTimeoutMillis   uint32
+	MaxRequestBytes        int64
+	MaxRequestBytesLimiter limits.BoundLimiter[config.Size] // supersedes MaxRequestBytes, if set
+	CORSEnabled            bool
+	CORSAllowedOrigins     []string
+}
+
+func (c *HTTPServerConfig) ensureLimiters(lf limits.Factory) (err error) {
+	if c.MaxRequestBytesLimiter == nil {
+		limit := cresettings.Default.GatewayIncomingPayloadSizeLimit
+		limit.DefaultValue = config.Size(c.MaxRequestBytes)
+		c.MaxRequestBytesLimiter, err = limits.MakeBoundLimiter(lf, limit)
+	}
+	return
 }
 
 type httpServer struct {
@@ -53,6 +67,7 @@ type httpServer struct {
 	handler           HTTPRequestHandler
 	doneCh            chan struct{}
 	cancelBaseContext context.CancelFunc
+	hMetrics          *monitoring.HTTPServerMetrics
 	lggr              logger.Logger
 }
 
@@ -61,13 +76,21 @@ const (
 	HealthCheckResponse = "OK"
 )
 
-func NewHttpServer(config *HTTPServerConfig, lggr logger.Logger) HttpServer {
+func NewHTTPServer(config *HTTPServerConfig, lggr logger.Logger, lf limits.Factory) (HTTPServer, error) {
+	if err := config.ensureLimiters(lf); err != nil {
+		return nil, fmt.Errorf("failed to create limiters: %w", err)
+	}
+	hMetrics, err := monitoring.NewHTTPServerMetrics()
+	if err != nil {
+		return nil, fmt.Errorf("failed to create http server metrics: %w", err)
+	}
 	baseCtx, cancelBaseCtx := context.WithCancel(context.Background())
 	server := &httpServer{
 		config:            config,
 		doneCh:            make(chan struct{}),
 		cancelBaseContext: cancelBaseCtx,
-		lggr:              logger.Named(lggr, "WebSocketServer"),
+		hMetrics:          hMetrics,
+		lggr:              logger.Named(lggr, "HTTPServer"),
 	}
 	mux := http.NewServeMux()
 	var handler http.Handler
@@ -85,7 +108,7 @@ func NewHttpServer(config *HTTPServerConfig, lggr logger.Logger) HttpServer {
 		ReadHeaderTimeout: time.Duration(config.ReadTimeoutMillis) * time.Millisecond,
 		WriteTimeout:      time.Duration(config.WriteTimeoutMillis) * time.Millisecond,
 	}
-	return server
+	return server, nil
 }
 
 func (s *httpServer) handleHealthCheck(w http.ResponseWriter, r *http.Request) {
@@ -170,7 +193,14 @@ func (s *httpServer) handleRequest(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	source := http.MaxBytesReader(nil, r.Body, s.config.MaxRequestBytes)
+	maxRequestBytes, err := s.config.MaxRequestBytesLimiter.Limit(r.Context())
+	if err != nil {
+		msg := "Failed to get request size limit"
+		s.lggr.Errorw(msg, "err", err)
+		http.Error(w, msg, http.StatusInternalServerError)
+		return
+	}
+	source := http.MaxBytesReader(nil, r.Body, int64(maxRequestBytes))
 	rawMessage, err := io.ReadAll(source)
 	if err != nil {
 		s.lggr.Error("error reading request", err)
@@ -185,7 +215,11 @@ func (s *httpServer) handleRequest(w http.ResponseWriter, r *http.Request) {
 		jwtToken = strings.TrimPrefix(authHeader, "Bearer ")
 	}
 
+	startTime := time.Now()
 	rawResponse, httpStatusCode := s.handler.ProcessRequest(r.Context(), rawMessage, jwtToken)
+	duration := time.Since(startTime)
+	s.hMetrics.RecordRequestDuration(r.Context(), httpStatusCode, duration)
+	s.hMetrics.RecordRequestCount(r.Context(), httpStatusCode)
 
 	w.Header().Set("Content-Type", s.config.ContentTypeHeader)
 	w.WriteHeader(httpStatusCode)

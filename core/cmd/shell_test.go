@@ -16,9 +16,12 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/urfave/cli"
+	"google.golang.org/protobuf/proto"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/beholder/beholdertest"
 	commoncfg "github.com/smartcontractkit/chainlink-common/pkg/config"
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil/sqltest"
+	commonevents "github.com/smartcontractkit/chainlink-protos/workflows/go/common"
 	solcfg "github.com/smartcontractkit/chainlink-solana/pkg/solana/config"
 
 	"github.com/smartcontractkit/chainlink/v2/core/cmd"
@@ -33,6 +36,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/sessions"
 	"github.com/smartcontractkit/chainlink/v2/core/sessions/localauth"
+	"github.com/smartcontractkit/chainlink/v2/core/static"
 	"github.com/smartcontractkit/chainlink/v2/plugins"
 )
 
@@ -617,4 +621,46 @@ func recursiveFindFlagsWithName(actionFuncName string, command cli.Command, pare
 
 func getFuncName(i any) string {
 	return runtime.FuncForPC(reflect.ValueOf(i).Pointer()).Name()
+}
+
+func TestShell_emitNodeConfig(t *testing.T) {
+	// t.Parallel() // beholder tester uses t.SetEnv and cannot use t.Parallel
+
+	ctx := testutils.Context(t)
+	lggr := logger.TestLogger(t)
+
+	gcfg := configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
+		// use defaults
+	})
+
+	shell := &cmd.Shell{
+		Config: gcfg,
+		Logger: lggr,
+	}
+
+	beholderObserver := beholdertest.NewObserver(t)
+	shell.EmitNodeConfig(ctx)
+
+	// Verify that a BaseMessage was emitted
+	msgs := beholderObserver.Messages(t, "beholder_entity", "BaseMessage")
+	require.Len(t, msgs, 1, "Expected exactly one BaseMessage to be emitted")
+
+	// Verify the message content
+	msg := msgs[0]
+	require.Equal(t, "BaseMessage", msg.Attrs["beholder_entity"])
+
+	// Unmarshal the BaseMessage
+	var baseMsg commonevents.BaseMessage
+	require.NoError(t, proto.Unmarshal(msg.Body, &baseMsg))
+
+	// Verify the message contains TOML configuration
+	require.NotEmpty(t, baseMsg.Msg, "BaseMessage should contain configuration")
+	require.Contains(t, baseMsg.Msg, "[Log]", "Configuration should contain Log section")
+	require.Contains(t, baseMsg.Msg, "[Database]", "Configuration should contain Database section")
+	require.Contains(t, baseMsg.Msg, "[WebServer]", "Configuration should contain WebServer section")
+
+	// Verify labels are set correctly
+	require.Equal(t, "Application", baseMsg.Labels["system"])
+	require.Equal(t, static.Version, baseMsg.Labels["version"])
+	require.Equal(t, static.Sha, baseMsg.Labels["commit"])
 }

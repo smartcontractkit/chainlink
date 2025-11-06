@@ -9,14 +9,14 @@ import (
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/crypto"
+
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/ocr3types"
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
-
-	"github.com/ethereum/go-ethereum/crypto"
-
 	ocr3_capability "github.com/smartcontractkit/chainlink-evm/gethwrappers/keystone/generated/ocr3_capability_1_0_0"
+
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocrcommon"
 )
 

@@ -1,9 +1,9 @@
 package environment
 
 import (
+	"context"
 	"errors"
 	"fmt"
-	"os"
 	"strings"
 	"time"
 
@@ -15,9 +15,7 @@ import (
 	"google.golang.org/grpc/credentials/insecure"
 
 	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/jd"
-	ctfconfig "github.com/smartcontractkit/chainlink-testing-framework/lib/config"
 
-	"github.com/smartcontractkit/chainlink/system-tests/lib/cre"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/crib"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/infra"
 )
@@ -27,33 +25,36 @@ type StartedJD struct {
 	Client   *cldf_jd.JobDistributor
 }
 
-func StartJD(lggr zerolog.Logger, jdInput jd.Input, infraInput infra.Provider) (*StartedJD, error) {
+func StartJD(ctx context.Context, lggr zerolog.Logger, jdInput jd.Input, infraInput infra.Provider) (*StartedJD, error) {
 	startTime := time.Now()
 	lggr.Info().Msg("Starting Job Distributor")
 
 	if infraInput.Type == infra.CRIB {
-		deployCribJdInput := &cre.DeployCribJdInput{
+		deployCribJdInput := &crib.DeployCribJdInput{
 			JDInput:        jdInput,
-			CribConfigsDir: cribConfigsDir,
+			CribConfigsDir: infra.CribConfigsDir,
 			Namespace:      infraInput.CRIB.Namespace,
 		}
 
 		var jdErr error
-		jdInput.Out, jdErr = crib.DeployJd(deployCribJdInput)
+		jdInput.Out, jdErr = crib.DeployJd(ctx, deployCribJdInput)
 		if jdErr != nil {
 			return nil, pkgerrors.Wrap(jdErr, "failed to deploy JD with devspace")
 		}
 	}
 
-	if os.Getenv("CI") == "true" {
-		jdImage := ctfconfig.MustReadEnvVar_String(E2eJobDistributorImageEnvVarName)
-		jdVersion := os.Getenv(E2eJobDistributorVersionEnvVarName)
-		jdInput.Image = fmt.Sprintf("%s:%s", jdImage, jdVersion)
-	}
+	jdOutput, jdErr := jd.NewWithContext(ctx, &jdInput)
+	if jdErr != nil {
+		jdErr = fmt.Errorf("failed to start JD container for image %s: %w", jdInput.Image, jdErr)
 
-	jdOutput, err := jd.NewJD(&jdInput)
-	if err != nil {
-		return nil, pkgerrors.Wrap(err, "failed to create new job distributor")
+		// useful end user messages
+		if strings.Contains(jdErr.Error(), "pull access denied") || strings.Contains(jdErr.Error(), "may require 'docker login'") {
+			jdErr = errors.Join(jdErr, errors.New("ensure that you either you have built the local image or you are logged into AWS with a profile that can read it (`aws sso login --profile <foo>)`"))
+		}
+
+		infra.PrintFailedContainerLogs(lggr, 30)
+
+		return nil, jdErr
 	}
 
 	jdConfig := cldf_jd.JDConfig{
@@ -65,15 +66,6 @@ func StartJD(lggr zerolog.Logger, jdInput jd.Input, infraInput infra.Provider) (
 	jdClient, jdErr := cldf_jd.NewJDClient(jdConfig)
 	if jdErr != nil {
 		return nil, pkgerrors.Wrap(jdErr, "failed to create JD client")
-	}
-	if jdErr != nil {
-		jdErr = fmt.Errorf("failed to start JD container for image %s: %w", jdInput.Image, jdErr)
-
-		// useful end user messages
-		if strings.Contains(jdErr.Error(), "pull access denied") || strings.Contains(jdErr.Error(), "may require 'docker login'") {
-			jdErr = errors.Join(jdErr, errors.New("ensure that you either you have built the local image or you are logged into AWS with a profile that can read it (`aws sso login --profile <foo>)`"))
-		}
-		return nil, jdErr
 	}
 
 	lggr.Info().Msgf("Job Distributor started in %.2f seconds", time.Since(startTime).Seconds())

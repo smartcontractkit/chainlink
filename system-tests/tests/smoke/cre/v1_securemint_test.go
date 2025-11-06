@@ -15,12 +15,13 @@ import (
 	"time"
 
 	"github.com/Masterminds/semver/v3"
-	"github.com/gagliardetto/solana-go"
+	solanago "github.com/gagliardetto/solana-go"
 	"github.com/gagliardetto/solana-go/rpc"
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/require"
 	"golang.org/x/sync/errgroup"
 
+	chainselectors "github.com/smartcontractkit/chain-selectors"
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/ocr3types"
 	ocr2types "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 
@@ -33,7 +34,6 @@ import (
 	"github.com/smartcontractkit/chainlink-protos/job-distributor/v1/shared/ptypes"
 	writetarget "github.com/smartcontractkit/chainlink-solana/pkg/solana/write_target"
 	"github.com/smartcontractkit/chainlink-testing-framework/framework"
-	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/blockchain"
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/ptr"
 	"github.com/smartcontractkit/chainlink/deployment"
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
@@ -42,6 +42,7 @@ import (
 	ks_sol "github.com/smartcontractkit/chainlink/deployment/keystone/changeset/solana"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/jobs"
+	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/blockchains/solana"
 	envconfig "github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/config"
 	mock_capability "github.com/smartcontractkit/chainlink/system-tests/lib/cre/mock"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/mock/pb"
@@ -52,7 +53,7 @@ import (
 
 func ExecuteSecureMintTest(t *testing.T, tenv *ttypes.TestEnvironment) {
 	creEnvironment := tenv.CreEnvironment
-	wrappedBlockchainOutputs := tenv.WrappedBlockchainOutputs
+	bcs := tenv.CreEnvironment.Blockchains
 	ds := creEnvironment.CldfEnvironment.DataStore
 
 	// prevalidate environment
@@ -66,19 +67,20 @@ func ExecuteSecureMintTest(t *testing.T, tenv *ttypes.TestEnvironment) {
 	require.Len(t, forwarderStates, 1)
 
 	var s setup
-	var solChain *cre.WrappedBlockchainOutput
-	for _, w := range wrappedBlockchainOutputs {
-		if w.BlockchainOutput.Type != blockchain.FamilySolana {
+	var solChain *solana.Blockchain
+	for _, w := range bcs {
+		if !w.IsFamily(chainselectors.FamilySolana) {
 			continue
 		}
-		s.ForwarderProgramID = mustGetContract(t, ds, w.SolChain.ChainSelector, ks_sol.ForwarderContract)
-		s.ForwarderState = mustGetContract(t, ds, w.SolChain.ChainSelector, ks_sol.ForwarderState)
+		require.IsType(t, &solana.Blockchain{}, solChain, "expected Solana blockchain type")
+		solChain = w.(*solana.Blockchain)
+		s.ForwarderProgramID = mustGetContract(t, ds, solChain.ChainSelector(), ks_sol.ForwarderContract)
+		s.ForwarderState = mustGetContract(t, ds, solChain.ChainSelector(), ks_sol.ForwarderState)
 		// we assume we always have just 1 solana chain
-		solChain = w
 		break
 	}
 	require.False(t, s.ForwarderProgramID.IsZero(), "failed to receive forwarder program id from blockchains output")
-	s.Selector = solChain.SolChain.ChainSelector
+	s.Selector = solChain.ChainSelector()
 
 	// configure cache program
 	framework.L.Info().Msg("Deploy and configure data-feeds cache programs...")
@@ -88,11 +90,11 @@ func ExecuteSecureMintTest(t *testing.T, tenv *ttypes.TestEnvironment) {
 	// deploy workflow
 	framework.L.Info().Msg("Generate and propose secure mint job...")
 	jobSpec := createSecureMintWorkflowJobSpec(t, &s, solChain)
-	proposeSecureMintJob(t, creEnvironment.CldfEnvironment.Offchain, creEnvironment.DonTopology, jobSpec)
+	proposeSecureMintJob(t, creEnvironment.CldfEnvironment.Offchain, tenv.Dons, jobSpec)
 	framework.L.Info().Msgf("Secure mint job is successfully posted. Job spec:\n %v", jobSpec)
 
 	// trigger workflow
-	trigger := createFakeTrigger(t, &s, creEnvironment.DonTopology)
+	trigger := createFakeTrigger(t, &s, tenv.Dons)
 	ctx, cancel := context.WithCancel(t.Context())
 	eg := &errgroup.Group{}
 	eg.Go(func() error {
@@ -182,7 +184,7 @@ func parsePackedU128(le [16]byte) (amount *big.Int, block uint64, unused uint8) 
 	return
 }
 
-func getDecimalReportAccount(t *testing.T, s *setup) solana.PublicKey {
+func getDecimalReportAccount(t *testing.T, s *setup) solanago.PublicKey {
 	dataID, _ := new(big.Int).SetString(s.FeedID, 0)
 	var data [16]byte
 	copy(data[:], dataID.Bytes())
@@ -191,17 +193,17 @@ func getDecimalReportAccount(t *testing.T, s *setup) solana.PublicKey {
 		s.CacheState.Bytes(),
 		data[:],
 	}
-	decimalReportKey, _, err := solana.FindProgramAddress(decimalReportSeeds, s.CacheProgramID)
+	decimalReportKey, _, err := solanago.FindProgramAddress(decimalReportSeeds, s.CacheProgramID)
 	require.NoError(t, err, "failed to derive decimal report key")
 	return decimalReportKey
 }
 
 type setup struct {
 	Selector           uint64
-	ForwarderProgramID solana.PublicKey
-	ForwarderState     solana.PublicKey
-	CacheProgramID     solana.PublicKey
-	CacheState         solana.PublicKey
+	ForwarderProgramID solanago.PublicKey
+	ForwarderState     solanago.PublicKey
+	CacheProgramID     solanago.PublicKey
+	CacheState         solanago.PublicKey
 
 	FeedID       string
 	Descriptions [][32]byte
@@ -219,7 +221,7 @@ var (
 	Mintable      = big.NewInt(15)
 )
 
-func deployAndConfigureCache(t *testing.T, s *setup, env cldf.Environment, solChain *cre.WrappedBlockchainOutput) {
+func deployAndConfigureCache(t *testing.T, s *setup, env cldf.Environment, solChain *solana.Blockchain) {
 	var d [32]byte
 	copy(d[:], []byte(wFDescription))
 	s.Descriptions = append(s.Descriptions, d)
@@ -233,34 +235,34 @@ func deployAndConfigureCache(t *testing.T, s *setup, env cldf.Environment, solCh
 	populateContracts := map[string]datastore.ContractType{
 		deployment.DataFeedsCacheProgramName: df_sol.CacheContract,
 	}
-	err := memory.PopulateDatastore(ds.AddressRefStore, populateContracts, semver.MustParse("1.0.0"), ks_sol.DefaultForwarderQualifier, solChain.SolChain.ChainSelector)
+	err := memory.PopulateDatastore(ds.AddressRefStore, populateContracts, semver.MustParse("1.0.0"), ks_sol.DefaultForwarderQualifier, solChain.ChainSelector())
 	require.NoError(t, err, "failed to populate datastore")
 	env.DataStore = ds.Seal()
 
-	s.CacheProgramID = mustGetContract(t, env.DataStore, solChain.SolChain.ChainSelector, df_sol.CacheContract)
+	s.CacheProgramID = mustGetContract(t, env.DataStore, solChain.ChainSelector(), df_sol.CacheContract)
 	// deploy df cache
 	deployCS := commonchangeset.Configure(df_sol.DeployCache{}, &df_sol.DeployCacheRequest{
-		ChainSel:           solChain.SolChain.ChainSelector,
+		ChainSel:           solChain.ChainSelector(),
 		Qualifier:          ks_sol.DefaultForwarderQualifier,
 		Version:            "1.0.0",
-		FeedAdmins:         []solana.PublicKey{solChain.SolChain.PrivateKey.PublicKey()},
+		FeedAdmins:         []solanago.PublicKey{solChain.PrivateKey.PublicKey()},
 		ForwarderProgramID: s.ForwarderProgramID,
 	})
 
 	// init decimal report
 	initCS := commonchangeset.Configure(df_sol.InitCacheDecimalReport{},
 		&df_sol.InitCacheDecimalReportRequest{
-			ChainSel:  solChain.SolChain.ChainSelector,
+			ChainSel:  solChain.ChainSelector(),
 			Qualifier: ks_sol.DefaultForwarderQualifier,
 			Version:   "1.0.0",
-			FeedAdmin: solChain.SolChain.PrivateKey.PublicKey(),
+			FeedAdmin: solChain.PrivateKey.PublicKey(),
 			DataIDs:   []string{s.FeedID},
 		})
 
 	// configure decimal report
 	configureCS := commonchangeset.Configure(df_sol.ConfigureCacheDecimalReport{},
 		&df_sol.ConfigureCacheDecimalReportRequest{
-			ChainSel:  solChain.SolChain.ChainSelector,
+			ChainSel:  solChain.ChainSelector(),
 			Qualifier: ks_sol.DefaultForwarderQualifier,
 			Version:   "1.0.0",
 			SenderList: []df_sol.Sender{
@@ -269,7 +271,7 @@ func deployAndConfigureCache(t *testing.T, s *setup, env cldf.Environment, solCh
 					StateID:   s.ForwarderState,
 				},
 			},
-			FeedAdmin:            solChain.SolChain.PrivateKey.PublicKey(),
+			FeedAdmin:            solChain.PrivateKey.PublicKey(),
 			DataIDs:              []string{s.FeedID},
 			AllowedWorkflowOwner: [][20]byte{s.WFOwner},
 			AllowedWorkflowName:  [][10]byte{wfname},
@@ -277,8 +279,8 @@ func deployAndConfigureCache(t *testing.T, s *setup, env cldf.Environment, solCh
 		})
 	env, _, cacheErr := commonchangeset.ApplyChangesets(t, env, []commonchangeset.ConfiguredChangeSet{deployCS, initCS, configureCS})
 	require.NoError(t, cacheErr)
-	s.CacheProgramID = mustGetContract(t, env.DataStore, solChain.SolChain.ChainSelector, df_sol.CacheContract)
-	s.CacheState = mustGetContract(t, env.DataStore, solChain.SolChain.ChainSelector, df_sol.CacheState)
+	s.CacheProgramID = mustGetContract(t, env.DataStore, solChain.ChainSelector(), df_sol.CacheContract)
+	s.CacheState = mustGetContract(t, env.DataStore, solChain.ChainSelector(), df_sol.CacheState)
 }
 
 const reportSchema = `{
@@ -368,7 +370,7 @@ targets:
       schedule: oneAtATime
 `
 
-func createSecureMintWorkflowJobSpec(t *testing.T, s *setup, solChain *cre.WrappedBlockchainOutput) string {
+func createSecureMintWorkflowJobSpec(t *testing.T, s *setup, solChain *solana.Blockchain) string {
 	tmpl, err := texttmpl.New("secureMintWorkflow").Parse(secureMintWorkflowTemplate)
 	require.NoError(t, err)
 
@@ -406,7 +408,7 @@ func createSecureMintWorkflowJobSpec(t *testing.T, s *setup, solChain *cre.Wrapp
 	`, workflowJobSpec.Toml())
 }
 
-func proposeSecureMintJob(t *testing.T, offchain offchain.Client, donTopology *cre.DonTopology, jobSpec string) {
+func proposeSecureMintJob(t *testing.T, offchain offchain.Client, dons *cre.Dons, jobSpec string) {
 	workerNodes, err := offchain.ListNodes(t.Context(), &node.ListNodesRequest{
 		Filter: &node.ListNodesRequest_Filter{
 			Selectors: []*ptypes.Selector{{
@@ -425,7 +427,7 @@ func proposeSecureMintJob(t *testing.T, offchain offchain.Client, donTopology *c
 			NodeId: n.Id,
 		})
 	}
-	err = jobs.Create(t.Context(), offchain, donTopology, specs)
+	err = jobs.Create(t.Context(), offchain, dons, specs)
 	if err != nil && strings.Contains(err.Error(), "is already approved") {
 		return
 	}
@@ -522,7 +524,7 @@ func (f *fakeTrigger) createReport() (*values.Map, error) {
 	return event, nil
 }
 
-func createFakeTrigger(t *testing.T, s *setup, dons *cre.DonTopology) *fakeTrigger {
+func createFakeTrigger(t *testing.T, s *setup, dons *cre.Dons) *fakeTrigger {
 	client := createMockClient(t)
 	framework.L.Info().Msg("Successfully exported ocr2 keys")
 
@@ -556,7 +558,7 @@ func createMockClient(t *testing.T) *mock_capability.Controller {
 	return mocksClient
 }
 
-func mustGetContract(t *testing.T, ds datastore.DataStore, sel uint64, ctype datastore.ContractType) solana.PublicKey {
+func mustGetContract(t *testing.T, ds datastore.DataStore, sel uint64, ctype datastore.ContractType) solanago.PublicKey {
 	key := datastore.NewAddressRefKey(
 		sel,
 		ctype,
@@ -567,5 +569,5 @@ func mustGetContract(t *testing.T, ds datastore.DataStore, sel uint64, ctype dat
 
 	require.NoError(t, err)
 
-	return solana.MustPublicKeyFromBase58(contract.Address)
+	return solanago.MustPublicKeyFromBase58(contract.Address)
 }

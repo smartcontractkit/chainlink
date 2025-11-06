@@ -13,8 +13,8 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared"
 	"github.com/smartcontractkit/chainlink/deployment/common/types"
-	"github.com/smartcontractkit/chainlink/deployment/environment/memory"
 	ks_shared "github.com/smartcontractkit/chainlink/deployment/keystone/changeset/shared"
+	"github.com/smartcontractkit/chainlink/deployment/utils/solutils"
 
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 )
@@ -300,7 +300,7 @@ func buildLocally(e cldf.Environment, config BuildSolanaConfig, params DomainPar
 func BuildSolana(e cldf.Environment, config BuildSolanaConfig, params DomainParams) error {
 	if !config.LocalBuild.BuildLocally {
 		e.Logger.Debug("Downloading Solana CCIP program artifacts...")
-		err := memory.DownloadSolanaCCIPProgramArtifacts(e.GetContext(), config.DestinationDir, e.Logger, config.GitCommitSha)
+		err := solutils.DownloadChainlinkCCIPProgramArtifacts(e.GetContext(), config.DestinationDir, config.GitCommitSha, e.Logger)
 		if err != nil {
 			return fmt.Errorf("error downloading solana ccip program artifacts: %w", err)
 		}

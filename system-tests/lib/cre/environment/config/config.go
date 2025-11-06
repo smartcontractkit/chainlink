@@ -27,11 +27,12 @@ import (
 )
 
 type Config struct {
-	Blockchains       []blockchain.Input              `toml:"blockchains" validate:"required"`
-	NodeSets          []*cre.CapabilitiesAwareNodeSet `toml:"nodesets" validate:"required"`
+	Blockchains       []*blockchain.Input             `toml:"blockchains" validate:"required"`
+	NodeSets          []*cre.NodeSet                  `toml:"nodesets" validate:"required"`
 	JD                *jd.Input                       `toml:"jd" validate:"required"`
 	Infra             *infra.Provider                 `toml:"infra" validate:"required"`
 	Fake              *fake.Input                     `toml:"fake" validate:"required"`
+	FakeHTTP          *fake.Input                     `toml:"fake_http" validate:"required"`
 	S3ProviderInput   *s3provider.Input               `toml:"s3provider"`
 	CapabilityConfigs map[string]cre.CapabilityConfig `toml:"capability_configs"` // capability flag -> capability config
 
@@ -166,6 +167,11 @@ func (c *Config) Store(absPath string) error {
 		if nodeSet.OverrideMode == "all" {
 			c.NodeSets[idx].OverrideMode = "each"
 		}
+
+		// Clear the embedded Input.NodeSpecs to avoid storing duplicate node specs without roles.
+		// We only want to persist NodeSpecs (NodeSpecWithRole[]) which contains role information.
+		// The Input.NodeSpecs field is populated at runtime in dons.go for passing to the CTF library.
+		c.NodeSets[idx].Input.NodeSpecs = nil
 	}
 
 	framework.L.Info().Msgf("Storing local CRE state file: %s", absPath)
@@ -321,6 +327,22 @@ func storeLocalArtifact(artifact any, absPath string) error {
 	if mErr != nil {
 		return errors.Wrap(mErr, "failed to marshal environment artifact to TOML")
 	}
+
+	// WORKAROUND: Remove the empty "node_specs = []" line that gets marshaled from the embedded ns.Input
+	// This conflicts with our [[nodesets.node_specs]] array tables that include role information.
+	// We use regex to remove the problematic line while preserving the actual node_specs tables.
+	// TOML library we use doesn't support omitting empty slices nor custom (un)marshalling.
+	tomlStr := string(d)
+	lines := strings.Split(tomlStr, "\n")
+	filtered := make([]string, 0, len(lines))
+	for _, line := range lines {
+		// Skip the "node_specs = []" line but keep [[nodesets.node_specs]] sections
+		if strings.TrimSpace(line) == "node_specs = []" {
+			continue
+		}
+		filtered = append(filtered, line)
+	}
+	d = []byte(strings.Join(filtered, "\n"))
 
 	return os.WriteFile(absPath, d, 0o600)
 }

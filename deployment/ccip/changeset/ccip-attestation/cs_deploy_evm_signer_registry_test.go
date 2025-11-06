@@ -5,20 +5,18 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/stretchr/testify/require"
-	"go.uber.org/zap/zapcore"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-evm/pkg/utils"
 
-	cldf_chain "github.com/smartcontractkit/chainlink-deployments-framework/chain"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+	"github.com/smartcontractkit/chainlink-deployments-framework/engine/test/environment"
+	"github.com/smartcontractkit/chainlink-deployments-framework/engine/test/runtime"
 
 	"github.com/smartcontractkit/chainlink/deployment"
 	ccip_attestation "github.com/smartcontractkit/chainlink/deployment/ccip/changeset/ccip-attestation"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared"
 	signer_registry "github.com/smartcontractkit/chainlink/deployment/ccip/shared/bindings/signer_registry"
-	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
-	"github.com/smartcontractkit/chainlink/deployment/environment/memory"
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
 
 // Helper function to find signer registry address in address book
@@ -58,10 +56,10 @@ func TestEVMSignerRegistry_Preconditions(t *testing.T) {
 	t.Parallel()
 
 	// Create a minimal environment for precondition tests
-	lggr := logger.TestLogger(t)
-	e := memory.NewMemoryEnvironment(t, lggr, zapcore.InfoLevel, memory.MemoryEnvironmentConfig{
-		Chains: 1,
-	})
+	e, terr := environment.New(t.Context(),
+		environment.WithLogger(logger.Test(t)),
+	)
+	require.NoError(t, terr)
 
 	tests := []struct {
 		name        string
@@ -182,13 +180,14 @@ func TestEVMSignerRegistry_Preconditions(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			_, err := commonchangeset.Apply(t, e,
-				commonchangeset.Configure(ccip_attestation.EVMSignerRegistryDeploymentChangeset, tt.config))
+			t.Parallel()
+
+			terr = ccip_attestation.EVMSignerRegistryDeploymentChangeset.VerifyPreconditions(*e, tt.config)
 
 			if tt.expectedErr != "" {
-				require.ErrorContains(t, err, tt.expectedErr)
+				require.ErrorContains(t, terr, tt.expectedErr)
 			} else {
-				require.NoError(t, err)
+				require.NoError(t, terr)
 			}
 		})
 	}
@@ -198,10 +197,13 @@ func TestEVMSignerRegistry_DeploysOnlyOnBaseChains(t *testing.T) {
 	t.Parallel()
 
 	// Create environment with Base Mainnet and Base Sepolia chain IDs
-	lggr := logger.TestLogger(t)
-	evmChains := memory.NewMemoryChainsEVMWithChainIDs(t, []uint64{8453, 84532}, 1) // Base Mainnet: 8453, Base Sepolia: 84532
-	chains := cldf_chain.NewBlockChainsFromSlice(evmChains)
-	e := memory.NewMemoryEnvironmentFromChainsNodes(t.Context, lggr, chains, map[string]memory.Node{})
+	baseMainnetSelector := uint64(ccip_attestation.BaseMainnetSelector)
+	baseSepoliaSelector := uint64(ccip_attestation.BaseSepoliaSelector)
+	rt, err := runtime.New(t.Context(), runtime.WithEnvOpts(
+		environment.WithEVMSimulated(t, []uint64{baseMainnetSelector, baseSepoliaSelector}),
+		environment.WithLogger(logger.Test(t)),
+	))
+	require.NoError(t, err)
 
 	// Create config with test signers
 	signer1 := utils.RandomAddress()
@@ -215,22 +217,23 @@ func TestEVMSignerRegistry_DeploysOnlyOnBaseChains(t *testing.T) {
 	}
 
 	// Apply changeset - should deploy to both Base chains
-	e, err := commonchangeset.Apply(t, e,
-		commonchangeset.Configure(ccip_attestation.EVMSignerRegistryDeploymentChangeset, config))
+	err = rt.Exec(
+		runtime.ChangesetTask(ccip_attestation.EVMSignerRegistryDeploymentChangeset, config),
+	)
 	require.NoError(t, err)
 
 	// Verify deployment on Base Mainnet
-	baseMainnetAddr, found := findSignerRegistryAddress(e, ccip_attestation.BaseMainnetSelector)
+	baseMainnetAddr, found := findSignerRegistryAddress(rt.Environment(), baseMainnetSelector)
 	require.True(t, found, "signer registry should be deployed on Base Mainnet")
 	require.NotEqual(t, common.Address{}, baseMainnetAddr)
 
 	// Verify deployment on Base Sepolia
-	baseSepoliaAddr, found := findSignerRegistryAddress(e, ccip_attestation.BaseSepoliaSelector)
+	baseSepoliaAddr, found := findSignerRegistryAddress(rt.Environment(), baseSepoliaSelector)
 	require.True(t, found, "signer registry should be deployed on Base Sepolia")
 	require.NotEqual(t, common.Address{}, baseSepoliaAddr)
 
 	// Verify contract state on Base Mainnet
-	baseMainnetChain := e.BlockChains.EVMChains()[ccip_attestation.BaseMainnetSelector]
+	baseMainnetChain := rt.Environment().BlockChains.EVMChains()[baseMainnetSelector]
 	registry, err := signer_registry.NewSignerRegistry(baseMainnetAddr, baseMainnetChain.Client)
 	require.NoError(t, err)
 
@@ -254,10 +257,11 @@ func TestEVMSignerRegistry_SkipsNonBaseChains(t *testing.T) {
 	t.Parallel()
 
 	// Create environment with non-Base chains
-	lggr := logger.TestLogger(t)
-	e := memory.NewMemoryEnvironment(t, lggr, zapcore.InfoLevel, memory.MemoryEnvironmentConfig{
-		Chains: 2, // These will be test chains, not Base chains
-	})
+	rt, err := runtime.New(t.Context(), runtime.WithEnvOpts(
+		environment.WithEVMSimulatedN(t, 2),
+		environment.WithLogger(logger.Test(t)),
+	))
+	require.NoError(t, err)
 
 	config := ccip_attestation.SignerRegistryChangesetConfig{
 		MaxSigners: ccip_attestation.MaxSigners,
@@ -267,13 +271,14 @@ func TestEVMSignerRegistry_SkipsNonBaseChains(t *testing.T) {
 	}
 
 	// Apply changeset - should skip all non-Base chains
-	e, err := commonchangeset.Apply(t, e,
-		commonchangeset.Configure(ccip_attestation.EVMSignerRegistryDeploymentChangeset, config))
+	err = rt.Exec(
+		runtime.ChangesetTask(ccip_attestation.EVMSignerRegistryDeploymentChangeset, config),
+	)
 	require.NoError(t, err)
 
 	// Verify no deployment on any chain
-	for selector := range e.BlockChains.EVMChains() {
-		_, found := findSignerRegistryAddress(e, selector)
+	for selector := range rt.Environment().BlockChains.EVMChains() {
+		_, found := findSignerRegistryAddress(rt.Environment(), selector)
 		require.False(t, found, "signer registry should not be deployed on non-Base chain %d", selector)
 	}
 }

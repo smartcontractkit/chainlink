@@ -5,25 +5,28 @@ import (
 	"testing"
 
 	"github.com/ethereum/go-ethereum/common"
-
+	chainsel "github.com/smartcontractkit/chain-selectors"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"go.uber.org/zap/zapcore"
-
-	chain_selectors "github.com/smartcontractkit/chain-selectors"
 
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_5_0/rmn_contract"
-	cldf_chain "github.com/smartcontractkit/chainlink-deployments-framework/chain"
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 
-	"github.com/smartcontractkit/chainlink/deployment/environment/memory"
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
+	"github.com/smartcontractkit/chainlink-deployments-framework/engine/test/environment"
 )
 
 func TestGenerateRMNView(t *testing.T) {
-	e := memory.NewMemoryEnvironment(t, logger.TestLogger(t), zapcore.InfoLevel, memory.MemoryEnvironmentConfig{
-		Chains: 1,
-	})
-	chain := e.BlockChains.EVMChains()[e.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chain_selectors.FamilyEVM))[0]]
+	t.Parallel()
+
+	selector := chainsel.TEST_90000001.Selector
+	e, err := environment.New(t.Context(),
+		environment.WithEVMSimulated(t, []uint64{selector}),
+		environment.WithLogger(logger.Test(t)),
+	)
+	require.NoError(t, err)
+
+	chain := e.BlockChains.EVMChains()[selector]
+
 	cfg := rmn_contract.RMNConfig{
 		Voters: []rmn_contract.RMNVoter{
 			{

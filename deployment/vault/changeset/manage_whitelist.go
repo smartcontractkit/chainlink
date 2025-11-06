@@ -10,14 +10,18 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/vault/changeset/types"
 )
 
-var SetWhitelistChangeset = cldf.CreateChangeSet(setWhitelistLogic, setWhitelistPrecondition)
+var SetWhitelistChangeset cldf.ChangeSetV2[types.SetWhitelistConfig] = setWhitelistChangeset{}
 
-func setWhitelistPrecondition(e cldf.Environment, cfg types.SetWhitelistConfig) error {
+type setWhitelistChangeset struct{}
+
+func (s setWhitelistChangeset) VerifyPreconditions(e cldf.Environment, cfg types.SetWhitelistConfig) error {
 	return ValidateSetWhitelistConfig(e, cfg)
 }
 
-func setWhitelistLogic(e cldf.Environment, cfg types.SetWhitelistConfig) (cldf.ChangesetOutput, error) {
+func (s setWhitelistChangeset) Apply(e cldf.Environment, cfg types.SetWhitelistConfig) (cldf.ChangesetOutput, error) {
 	lggr := e.Logger
+
+	ds := datastore.NewMemoryDataStore()
 
 	totalAddresses := 0
 	for _, addresses := range cfg.WhitelistByChain {
@@ -27,13 +31,6 @@ func setWhitelistLogic(e cldf.Environment, cfg types.SetWhitelistConfig) (cldf.C
 	lggr.Infow("Setting whitelist state",
 		"chains", len(cfg.WhitelistByChain),
 		"total_addresses", totalAddresses)
-
-	ds := datastore.NewMemoryDataStore()
-	if e.DataStore != nil {
-		if err := ds.Merge(e.DataStore); err != nil {
-			return cldf.ChangesetOutput{}, fmt.Errorf("failed to merge existing datastore: %w", err)
-		}
-	}
 
 	for chainSelector, addresses := range cfg.WhitelistByChain {
 		lggr.Infow("Setting whitelist for chain",
@@ -76,7 +73,7 @@ func GetWhitelistedAddresses(e cldf.Environment, chainSelectors []uint64) (map[u
 	}
 
 	for _, chainSelector := range chainSelectors {
-		whitelistMetadata, err := GetChainWhitelist(e.DataStore, chainSelector)
+		whitelistMetadata, err := getChainWhitelist(e.DataStore, chainSelector)
 		if err != nil {
 			return nil, err
 		}
@@ -97,8 +94,8 @@ func GetWhitelistedAddresses(e cldf.Environment, chainSelectors []uint64) (map[u
 	return whitelist, nil
 }
 
-// ValidateWhitelist checks if all addresses in a transfer config are whitelisted
-func ValidateWhitelist(e cldf.Environment, cfg types.BatchNativeTransferConfig) ([]types.TransferValidationError, error) {
+// validateWhitelist checks if all addresses in a transfer config are whitelisted
+func validateWhitelist(e cldf.Environment, cfg types.BatchNativeTransferConfig) ([]types.TransferValidationError, error) {
 	var errors []types.TransferValidationError
 
 	chainSelectors := make([]uint64, 0, len(cfg.TransfersByChain))
@@ -131,7 +128,7 @@ func ValidateWhitelist(e cldf.Environment, cfg types.BatchNativeTransferConfig) 
 	return errors, nil
 }
 
-func GetChainWhitelist(dataStore datastore.DataStore, chainSelector uint64) (*types.WhitelistMetadata, error) {
+func getChainWhitelist(dataStore datastore.DataStore, chainSelector uint64) (*types.WhitelistMetadata, error) {
 	chainMetadataKey := datastore.NewChainMetadataKey(chainSelector)
 	chainMetadata, err := dataStore.ChainMetadata().Get(chainMetadataKey)
 	if err != nil {
@@ -149,7 +146,7 @@ func GetChainWhitelist(dataStore datastore.DataStore, chainSelector uint64) (*ty
 	return &whitelistMetadata, nil
 }
 
-func GetChainWhitelistMutable(dataStore datastore.MutableDataStore, chainSelector uint64) (*types.WhitelistMetadata, error) {
+func getChainWhitelistMutable(dataStore datastore.DataStore, chainSelector uint64) (*types.WhitelistMetadata, error) {
 	chainMetadataKey := datastore.NewChainMetadataKey(chainSelector)
 	chainMetadata, err := dataStore.ChainMetadata().Get(chainMetadataKey)
 	if err != nil {

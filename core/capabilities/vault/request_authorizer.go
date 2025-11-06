@@ -5,15 +5,13 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"errors"
-	"strconv"
-	"strings"
+	"fmt"
 	"sync"
 	"time"
 
 	jsonrpc "github.com/smartcontractkit/chainlink-common/pkg/jsonrpc2"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/workflow/generated/workflow_registry_wrapper_v2"
-	"github.com/smartcontractkit/chainlink/v2/core/capabilities/vault/vaultutils"
 	workflowsyncerv2 "github.com/smartcontractkit/chainlink/v2/core/services/workflows/syncer/v2"
 )
 
@@ -22,62 +20,69 @@ type RequestAuthorizer interface {
 }
 type requestAuthorizer struct {
 	workflowRegistrySyncer    workflowsyncerv2.WorkflowRegistrySyncer
-	alreadyAuthorizedRequests map[string]bool
+	alreadyAuthorizedRequests map[string]int64
 	alreadyAuthorizedMutex    sync.Mutex
 	lggr                      logger.Logger
 }
 
+// AuthorizeRequest authorizes a request based on the request digest and the allowlisted requests.
+// It does NOT check if the request method is allowed.
 func (r *requestAuthorizer) AuthorizeRequest(ctx context.Context, req jsonrpc.Request[json.RawMessage]) (isAuthorized bool, owner string, err error) {
 	defer r.clearExpiredAuthorizedRequests()
 	r.lggr.Infow("AuthorizeRequest", "method", req.Method, "requestID", req.ID)
-	digest, err := vaultutils.DigestForRequest(req)
+	requestDigest, err := req.Digest()
 	if err != nil {
 		r.lggr.Infow("AuthorizeRequest failed to create digest", "method", req.Method, "requestID", req.ID)
 		return false, "", err
 	}
+	requestDigestBytes, err := hex.DecodeString(requestDigest)
+	if err != nil {
+		r.lggr.Infow("AuthorizeRequest failed to decode digest", "method", req.Method, "requestID", req.ID)
+		return false, "", err
+	}
+	requestDigestBytes32 := [32]byte(requestDigestBytes)
 	if r.workflowRegistrySyncer == nil {
 		r.lggr.Errorw("AuthorizeRequest workflowRegistrySyncer is nil", "method", req.Method, "requestID", req.ID)
 		return false, "", errors.New("internal error: workflowRegistrySyncer is nil")
 	}
 	allowedRequests := r.workflowRegistrySyncer.GetAllowlistedRequests(ctx)
-	requestDigests := make([]string, 0, len(allowedRequests))
-	for _, allowedRequest := range allowedRequests {
-		requestDigests = append(requestDigests, hex.EncodeToString(allowedRequest.RequestDigest[:]))
+	allowedRequestsStrs := make([]string, 0, len(allowedRequests))
+	for _, rr := range allowedRequests {
+		allowedReqStr := fmt.Sprintf("Owner: %s, RequestDigest: %s, ExpiryTimestamp: %d", rr.Owner.Hex(), hex.EncodeToString(rr.RequestDigest[:]), rr.ExpiryTimestamp)
+		allowedRequestsStrs = append(allowedRequestsStrs, allowedReqStr)
 	}
-	r.lggr.Infow("AuthorizeRequest GetAllowlistedRequests", "method", req.Method, "requestID", req.ID, "allowedRequests", allowedRequests, "requestDigestHexStrs", requestDigests)
-	allowlistedRequest := r.fetchAllowlistedItem(allowedRequests, digest)
+	r.lggr.Infow("AuthorizeRequest GetAllowlistedRequests", "method", req.Method, "requestID", req.ID, "allowedRequests", allowedRequestsStrs)
+	allowlistedRequest := r.fetchAllowlistedItem(allowedRequests, requestDigestBytes32)
 	if allowlistedRequest == nil {
-		r.lggr.Infow("AuthorizeRequest fetchAllowlistedItem request not allowlisted", "method", req.Method, "requestID", req.ID, "digestHexStr", hex.EncodeToString(digest[:]), "allowedRequestDigestHexStrs", requestDigests)
+		r.lggr.Infow("AuthorizeRequest fetchAllowlistedItem request not allowlisted",
+			"method", req.Method,
+			"requestID", req.ID,
+			"digestHexStr", requestDigest,
+			"allowedRequestsStrs", allowedRequestsStrs)
 		return false, "", errors.New("request not allowlisted")
 	}
-	authorizedRequestStr := string(allowlistedRequest.RequestDigest[:]) + "-->" + strconv.FormatUint(uint64(allowlistedRequest.ExpiryTimestamp), 10)
+	authorizedRequestStr := string(allowlistedRequest.RequestDigest[:])
 
 	r.alreadyAuthorizedMutex.Lock()
 	defer r.alreadyAuthorizedMutex.Unlock()
-	if r.alreadyAuthorizedRequests[authorizedRequestStr] {
+	if r.alreadyAuthorizedRequests[authorizedRequestStr] > 0 {
 		r.lggr.Infow("AuthorizeRequest already authorized previously", "method", req.Method, "requestID", req.ID, "authorizedRequestStr", authorizedRequestStr)
 		return false, "", errors.New("request already authorized previously")
 	}
-	currentTimestamp := time.Now().UTC().Unix()
-	if currentTimestamp > int64(allowlistedRequest.ExpiryTimestamp) {
+	if time.Now().UTC().Unix() > int64(allowlistedRequest.ExpiryTimestamp) {
 		r.lggr.Infow("AuthorizeRequest expired authorization", "method", req.Method, "requestID", req.ID, "authorizedRequestStr", authorizedRequestStr)
 		return false, "", errors.New("request authorization expired")
 	}
 	r.lggr.Infow("AuthorizeRequest success in auth", "method", req.Method, "requestID", req.ID, "authorizedRequestStr", authorizedRequestStr)
-	r.alreadyAuthorizedRequests[authorizedRequestStr] = true
+	r.alreadyAuthorizedRequests[authorizedRequestStr] = int64(allowlistedRequest.ExpiryTimestamp)
 	return true, allowlistedRequest.Owner.Hex(), nil
 }
 
 func (r *requestAuthorizer) clearExpiredAuthorizedRequests() {
 	r.alreadyAuthorizedMutex.Lock()
 	defer r.alreadyAuthorizedMutex.Unlock()
-	for request := range r.alreadyAuthorizedRequests {
-		expiryStr := strings.Split(request, "-->")[1]
-		expiry, err := strconv.Atoi(expiryStr)
-		if err != nil {
-			panic("could not parse expiry timestamp: " + err.Error())
-		}
-		if time.Now().UTC().Unix() > int64(expiry) {
+	for request, expiry := range r.alreadyAuthorizedRequests {
+		if time.Now().UTC().Unix() > expiry {
 			delete(r.alreadyAuthorizedRequests, request)
 		}
 	}
@@ -96,6 +101,6 @@ func NewRequestAuthorizer(lggr logger.Logger, workflowRegistrySyncer workflowsyn
 	return &requestAuthorizer{
 		workflowRegistrySyncer:    workflowRegistrySyncer,
 		lggr:                      logger.Named(lggr, "VaultRequestAuthorizer"),
-		alreadyAuthorizedRequests: make(map[string]bool),
+		alreadyAuthorizedRequests: make(map[string]int64),
 	}
 }

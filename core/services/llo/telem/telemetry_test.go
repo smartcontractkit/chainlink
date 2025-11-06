@@ -430,12 +430,20 @@ func Test_Telemeter_outcomeTelemetry(t *testing.T) {
 		servicetest.Run(t, tm)
 		ch := tm.GetOutcomeTelemetryCh()
 		require.NotNil(t, ch)
+
 		t.Run("zero values", func(t *testing.T) {
 			opts := &mockOpts{}
 			cd := opts.ConfigDigest()
 			orig := &datastreamsllo.LLOOutcomeTelemetry{SeqNr: opts.SeqNr(), ConfigDigest: cd[:]}
 			ch <- orig
-			time.Sleep(5 * time.Millisecond)
+
+			// Wait until the telemetry is buffered.
+			testutils.RequireEventually(t, func() bool {
+				tm.telemetryBufferMu.Lock()
+				defer tm.telemetryBufferMu.Unlock()
+				return len(tm.telemetryBuffer[cd.Hex()][opts.SeqNr()]) > 0
+			})
+
 			tm.TrackSeqNr(opts.ConfigDigest(), opts.SeqNr())
 
 			tLog := <-m.chTypedLogs
@@ -451,6 +459,7 @@ func Test_Telemeter_outcomeTelemetry(t *testing.T) {
 			assert.Equal(t, cd[:], decoded.ConfigDigest)
 			assert.Zero(t, decoded.DonId)
 		})
+
 		t.Run("with values", func(t *testing.T) {
 			opts := &mockOpts{}
 			cd := opts.ConfigDigest()
@@ -487,7 +496,14 @@ func Test_Telemeter_outcomeTelemetry(t *testing.T) {
 				DonId:        10,
 			}
 			ch <- orig
-			time.Sleep(5 * time.Millisecond)
+
+			// Wait until the telemetry is buffered.
+			testutils.RequireEventually(t, func() bool {
+				tm.telemetryBufferMu.Lock()
+				defer tm.telemetryBufferMu.Unlock()
+				return len(tm.telemetryBuffer[cd.Hex()][opts.SeqNr()]) > 0
+			})
+
 			tm.TrackSeqNr(opts.ConfigDigest(), opts.SeqNr())
 
 			tLog := <-m.chTypedLogs
@@ -541,12 +557,20 @@ func Test_Telemeter_reportTelemetry(t *testing.T) {
 		servicetest.Run(t, tm)
 		ch := tm.GetReportTelemetryCh()
 		require.NotNil(t, ch)
+
 		t.Run("zero values", func(t *testing.T) {
 			opts := &mockOpts{}
 			cd := opts.ConfigDigest()
 			orig := &datastreamsllo.LLOReportTelemetry{SeqNr: opts.SeqNr(), ConfigDigest: cd[:]}
 			ch <- orig
-			time.Sleep(5 * time.Millisecond)
+
+			// Wait until the telemetry is buffered.
+			testutils.RequireEventually(t, func() bool {
+				tm.telemetryBufferMu.Lock()
+				defer tm.telemetryBufferMu.Unlock()
+				return len(tm.telemetryBuffer[cd.Hex()][opts.SeqNr()]) > 0
+			})
+
 			tm.TrackSeqNr(opts.ConfigDigest(), opts.SeqNr())
 
 			tLog := <-m.chTypedLogs
@@ -564,6 +588,7 @@ func Test_Telemeter_reportTelemetry(t *testing.T) {
 			assert.Equal(t, opts.SeqNr(), decoded.SeqNr)
 			assert.Equal(t, cd[:], decoded.ConfigDigest)
 		})
+
 		t.Run("with values", func(t *testing.T) {
 			opts := &mockOpts{}
 			cd := opts.ConfigDigest()
@@ -590,7 +615,14 @@ func Test_Telemeter_reportTelemetry(t *testing.T) {
 				ConfigDigest: cd[:],
 			}
 			ch <- orig
-			time.Sleep(5 * time.Millisecond)
+
+			// Wait until the telemetry is buffered.
+			testutils.RequireEventually(t, func() bool {
+				tm.telemetryBufferMu.Lock()
+				defer tm.telemetryBufferMu.Unlock()
+				return len(tm.telemetryBuffer[cd.Hex()][opts.SeqNr()]) > 0
+			})
+
 			tm.TrackSeqNr(opts.ConfigDigest(), opts.SeqNr())
 
 			tLog := <-m.chTypedLogs
