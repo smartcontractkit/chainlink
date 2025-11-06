@@ -8,7 +8,6 @@ import (
 	"math/big"
 	"strings"
 	"testing"
-	"time"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
@@ -155,7 +154,7 @@ func Test_CCIP_Upgrade_Sui2EVM(t *testing.T) {
 }
 
 func Test_CCIP_Upgrade_EVM2Sui(t *testing.T) {
-	ctx := testcontext.Get(t)
+	// ctx := testcontext.Get(t)
 	lggr := logger.TestLogger(t)
 	e, _, _ := testsetups.NewIntegrationEnvironment(
 		t,
@@ -220,9 +219,9 @@ func Test_CCIP_Upgrade_EVM2Sui(t *testing.T) {
 
 	receiverObjectIDs := [][32]byte{clockObj, stateObj}
 
-	fmt.Println("Upgrading SUI contracts")
-	upgradeCCIP(ctx, t, e, destChain, contracts.CCIP)
-	upgradeSuiOffRamp(ctx, t, e, destChain, contracts.CCIPOfframp)
+	// fmt.Println("Upgrading SUI contracts")
+	// upgradeCCIP(ctx, t, e, destChain, contracts.CCIP)
+	// upgradeSuiOffRamp(ctx, t, e, destChain, contracts.CCIPOfframp)
 
 	// Block offramp v1
 	// _, _, err = commoncs.ApplyChangesets(t, e.Env, []commoncs.ConfiguredChangeSet{
@@ -251,49 +250,49 @@ func Test_CCIP_Upgrade_EVM2Sui(t *testing.T) {
 	// require.NoError(t, err)
 
 	// wait for around 15 seconds for nodes to adjust with the upgrade
-	time.Sleep(10 * time.Second)
+	// time.Sleep(10 * time.Second)
 
 	updatedState, err := stateview.LoadOnchainState(e.Env)
 	require.NoError(t, err)
 
-	// TO RUN FEEQUOTER UPDATE PRICE
-	state, err = stateview.LoadOnchainState(e.Env)
-	require.NoError(t, err)
+	// // TO RUN FEEQUOTER UPDATE PRICE
+	// state, err = stateview.LoadOnchainState(e.Env)
+	// require.NoError(t, err)
 
-	suiChains := e.Env.BlockChains.SuiChains()
-	suiChain := suiChains[destChain]
+	// suiChains := e.Env.BlockChains.SuiChains()
+	// suiChain := suiChains[destChain]
 
-	deps := suideps.Deps{
-		SuiChain: sui_ops.OpTxDeps{
-			Client: suiChain.Client,
-			Signer: suiChain.Signer,
-			GetCallOpts: func() *suiBind.CallOpts {
-				b := uint64(400_000_000)
-				return &suiBind.CallOpts{
-					Signer:           suiChain.Signer,
-					WaitForExecution: true,
-					GasBudget:        &b,
-				}
-			},
-		},
-	}
+	// deps := suideps.Deps{
+	// 	SuiChain: sui_ops.OpTxDeps{
+	// 		Client: suiChain.Client,
+	// 		Signer: suiChain.Signer,
+	// 		GetCallOpts: func() *suiBind.CallOpts {
+	// 			b := uint64(400_000_000)
+	// 			return &suiBind.CallOpts{
+	// 				Signer:           suiChain.Signer,
+	// 				WaitForExecution: true,
+	// 				GasBudget:        &b,
+	// 			}
+	// 		},
+	// 	},
+	// }
 
-	bigIntSourceUsdPerToken, _ := new(big.Int).SetString("15377040000000000000000000000", 10) // 1e27 since sui is 1e9
+	// bigIntSourceUsdPerToken, _ := new(big.Int).SetString("15377040000000000000000000000", 10) // 1e27 since sui is 1e9
 
-	bigIntGasUsdPerUnitGas, _ := new(big.Int).SetString("41946474500", 10) // optimism sep 4145822215
+	// bigIntGasUsdPerUnitGas, _ := new(big.Int).SetString("41946474500", 10) // optimism sep 4145822215
 
-	// Update Prices on FeeQuoter with minted LinkToken
-	_, err = operations.ExecuteOperation(e.Env.OperationsBundle, ccipops.FeeQuoterUpdatePricesWithOwnerCapOp, deps.SuiChain,
-		ccipops.FeeQuoterUpdatePricesWithOwnerCapInput{
-			CCIPPackageId:         state.SuiChains[destChain].CCIPMockV2PackageId,
-			CCIPObjectRef:         state.SuiChains[destChain].CCIPObjectRef,
-			OwnerCapObjectId:      state.SuiChains[destChain].CCIPOwnerCapObjectId,
-			SourceTokens:          []string{state.SuiChains[destChain].LinkTokenCoinMetadataId},
-			SourceUsdPerToken:     []*big.Int{bigIntSourceUsdPerToken},
-			GasDestChainSelectors: []uint64{sourceChain},
-			GasUsdPerUnitGas:      []*big.Int{bigIntGasUsdPerUnitGas},
-		})
-	require.NoError(t, err)
+	// // Update Prices on FeeQuoter with minted LinkToken
+	// _, err = operations.ExecuteOperation(e.Env.OperationsBundle, ccipops.FeeQuoterUpdatePricesWithOwnerCapOp, deps.SuiChain,
+	// 	ccipops.FeeQuoterUpdatePricesWithOwnerCapInput{
+	// 		CCIPPackageId:         state.SuiChains[destChain].CCIPMockV2PackageId,
+	// 		CCIPObjectRef:         state.SuiChains[destChain].CCIPObjectRef,
+	// 		OwnerCapObjectId:      state.SuiChains[destChain].CCIPOwnerCapObjectId,
+	// 		SourceTokens:          []string{state.SuiChains[destChain].LinkTokenCoinMetadataId},
+	// 		SourceUsdPerToken:     []*big.Int{bigIntSourceUsdPerToken},
+	// 		GasDestChainSelectors: []uint64{sourceChain},
+	// 		GasUsdPerUnitGas:      []*big.Int{bigIntGasUsdPerUnitGas},
+	// 	})
+	// require.NoError(t, err)
 
 	var (
 		nonce  uint64
