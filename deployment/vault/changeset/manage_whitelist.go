@@ -10,15 +10,23 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/vault/changeset/types"
 )
 
-var SetWhitelistChangeset cldf.ChangeSetV2[types.SetWhitelistConfig] = setWhitelistChangeset{}
+var (
+	SetWhitelistChangeset       cldf.ChangeSetV2[types.SetWhitelistConfig] = whitelistChangeset{mode: "append", reducer: mergeWhitelistEntries}
+	OverwriteWhitelistChangeset cldf.ChangeSetV2[types.SetWhitelistConfig] = whitelistChangeset{mode: "overwrite", reducer: overwriteWhitelistEntries}
+)
 
-type setWhitelistChangeset struct{}
+type whitelistReducer func(existing, incoming []types.WhitelistAddress) []types.WhitelistAddress
 
-func (s setWhitelistChangeset) VerifyPreconditions(e cldf.Environment, cfg types.SetWhitelistConfig) error {
+type whitelistChangeset struct {
+	mode    string
+	reducer whitelistReducer
+}
+
+func (s whitelistChangeset) VerifyPreconditions(e cldf.Environment, cfg types.SetWhitelistConfig) error {
 	return ValidateSetWhitelistConfig(e, cfg)
 }
 
-func (s setWhitelistChangeset) Apply(e cldf.Environment, cfg types.SetWhitelistConfig) (cldf.ChangesetOutput, error) {
+func (s whitelistChangeset) Apply(e cldf.Environment, cfg types.SetWhitelistConfig) (cldf.ChangesetOutput, error) {
 	lggr := e.Logger
 
 	ds := datastore.NewMemoryDataStore()
@@ -35,19 +43,21 @@ func (s setWhitelistChangeset) Apply(e cldf.Environment, cfg types.SetWhitelistC
 
 	lggr.Infow("Setting whitelist state",
 		"chains", len(cfg.WhitelistByChain),
-		"total_addresses", totalAddresses)
+		"total_addresses", totalAddresses,
+		"mode", s.mode)
 
 	for chainSelector, addresses := range cfg.WhitelistByChain {
 		lggr.Infow("Setting whitelist for chain",
 			"chain", chainSelector,
-			"address_count", len(addresses))
+			"address_count", len(addresses),
+			"mode", s.mode)
 
-		existingMetadata, err := getChainWhitelistMutable(ds.Seal(), chainSelector)
+		existingMetadata, err := getChainWhitelist(ds.Seal(), chainSelector)
 		if err != nil {
 			return cldf.ChangesetOutput{}, fmt.Errorf("failed to load existing whitelist for chain %d: %w", chainSelector, err)
 		}
 
-		combined := mergeWhitelistEntries(existingMetadata.Addresses, addresses)
+		combined := s.reducer(existingMetadata.Addresses, addresses)
 
 		whitelistMetadata := types.WhitelistMetadata{
 			Addresses: combined,
@@ -95,6 +105,16 @@ func mergeWhitelistEntries(existing, incoming []types.WhitelistAddress) []types.
 		combined = append(combined, addr)
 	}
 
+	return combined
+}
+
+func overwriteWhitelistEntries(_ []types.WhitelistAddress, incoming []types.WhitelistAddress) []types.WhitelistAddress {
+	if len(incoming) == 0 {
+		return nil
+	}
+
+	combined := make([]types.WhitelistAddress, len(incoming))
+	copy(combined, incoming)
 	return combined
 }
 
