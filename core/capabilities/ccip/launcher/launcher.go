@@ -213,12 +213,13 @@ func (l *launcher) processUpdate(ctx context.Context, updated map[registrysyncer
 			prevPlugins,
 			don,
 			l.oracleCreator,
-			latestConfigs)
+			latestConfigs,
+		)
 		if err != nil {
-			return err
+			l.lggr.Errorw("Some oracles failed to be created", "donID", donID, "err", err)
 		}
 		if len(newPlugins) == 0 {
-			// not a member of this DON.
+			// not a member of this DON or no oracles could be created
 			continue
 		}
 

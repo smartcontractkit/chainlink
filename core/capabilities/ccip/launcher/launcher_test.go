@@ -792,6 +792,79 @@ func Test_launcher_processDiff(t *testing.T) {
 			},
 			false,
 		},
+		{
+			"single oracle fails to create without impacting others",
+			fields{
+				lggr:  logger.Test(t),
+				p2pID: p2pID1,
+				homeChainReader: newMock(t, func(t *testing.T) *mocks.HomeChainReader {
+					return mocks.NewHomeChainReader(t)
+				}, func(m *mocks.HomeChainReader) {
+					m.On("GetOCRConfigs", mock.Anything, uint32(1), uint8(cctypes.PluginTypeCCIPCommit)).
+						Return(ccipreaderpkg.ActiveAndCandidate{
+							ActiveConfig: ccipreaderpkg.OCR3ConfigWithMeta{},
+							CandidateConfig: ccipreaderpkg.OCR3ConfigWithMeta{
+								Config: ccipreaderpkg.OCR3Config{
+									PluginType: uint8(cctypes.PluginTypeCCIPCommit),
+									Nodes:      getOCR3Nodes(3, 4),
+								},
+								ConfigDigest: digest1,
+							},
+						}, nil)
+					m.On("GetOCRConfigs", mock.Anything, uint32(1), uint8(cctypes.PluginTypeCCIPExec)).
+						Return(ccipreaderpkg.ActiveAndCandidate{
+							ActiveConfig: ccipreaderpkg.OCR3ConfigWithMeta{},
+							CandidateConfig: ccipreaderpkg.OCR3ConfigWithMeta{
+								Config: ccipreaderpkg.OCR3Config{
+									PluginType: uint8(cctypes.PluginTypeCCIPExec),
+									Nodes:      getOCR3Nodes(3, 4),
+								},
+								ConfigDigest: digest2,
+							},
+						}, nil)
+				}),
+				oracleCreator: newMock(t, func(t *testing.T) *mocks.OracleCreator {
+					return mocks.NewOracleCreator(t)
+				}, func(m *mocks.OracleCreator) {
+					commitOracle := mocks.NewCCIPOracle(t)
+					commitOracle.On("Start").Return(nil).Maybe()
+					execOracle := mocks.NewCCIPOracle(t)
+					execOracle.On("Start").Return(nil).Maybe()
+					m.EXPECT().Create(mock.Anything, mock.Anything, mock.MatchedBy(func(cfg cctypes.OCR3ConfigWithMeta) bool {
+						return cfg.Config.PluginType == uint8(cctypes.PluginTypeCCIPCommit)
+					})).
+						Return(nil, errors.New("fail on commit"))
+					m.EXPECT().Create(mock.Anything, mock.Anything, mock.MatchedBy(func(cfg cctypes.OCR3ConfigWithMeta) bool {
+						return cfg.Config.PluginType == uint8(cctypes.PluginTypeCCIPExec)
+					})).
+						Return(execOracle, nil)
+				}),
+				instances: map[registrysyncer.DonID]pluginRegistry{},
+				regState: registrysyncer.LocalRegistry{
+					IDsToDONs: map[registrysyncer.DonID]registrysyncer.DON{},
+				},
+			},
+			args{
+				diff: diffResult{
+					added: map[registrysyncer.DonID]registrysyncer.DON{
+						1: defaultRegistryDon,
+					},
+				},
+			},
+			func(t *testing.T, l *launcher) {
+				require.Len(t, l.instances, 1)
+				pluginReg := l.instances[1]
+
+				var configDigest1, configDigest2 ocrtypes.ConfigDigest
+				configDigest1 = digest1
+				configDigest2 = digest2
+
+				require.NotContains(t, pluginReg, configDigest1)
+				require.Contains(t, pluginReg, configDigest2)
+				require.Len(t, l.regState.IDsToDONs, 1)
+			},
+			false,
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
