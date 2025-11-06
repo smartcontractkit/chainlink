@@ -1402,7 +1402,7 @@ func AddLaneWithDefaultPricesAndFeeQuoterConfig(t *testing.T, e *DeployedEnv, st
 		// TODO Need to double check this, LINK will have 9 decimals on TON like on Solana (not 18)
 		tonState := state.TonChains[from]
 		gasPrices[from] = big.NewInt(1e17)
-		gasPrices[to] = big.NewInt(1e17)
+		gasPrices[to] = big.NewInt(1e11) // temp value, ref: https://tonviewer.com/config
 		tokenPrices[tonState.LinkTokenAddress.String()] = deployment.EDecMult(20, 28)
 	case chainsel.FamilySui:
 		suiState := state.SuiChains[from]
