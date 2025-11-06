@@ -82,7 +82,7 @@ func proposeGatewayJob(b operations.Bundle, deps ProposeGatewayJobDeps, input Pr
 			return ProposeGatewayJobOutput{}, err
 		}
 		if len(ns) == 0 {
-			return ProposeGatewayJobOutput{}, fmt.Errorf("no nodes with filters %+v", input.DONFilters)
+			return ProposeGatewayJobOutput{}, fmt.Errorf("no nodes with filters %s", input.DONFilters)
 		}
 
 		nodes, err := pkg.FetchNodeChainConfigsFromJD(deps.Env.GetContext(), deps.Env, pkg.FetchNodesRequest{
@@ -93,7 +93,7 @@ func proposeGatewayJob(b operations.Bundle, deps ProposeGatewayJobDeps, input Pr
 			return ProposeGatewayJobOutput{}, err
 		}
 		if len(nodes) == 0 {
-			return ProposeGatewayJobOutput{}, fmt.Errorf("no chain configs with filters %+v", input.DONFilters)
+			return ProposeGatewayJobOutput{}, fmt.Errorf("no chain configs with filters %s", input.DONFilters)
 		}
 
 		fam, chainID, err := parseSelector(uint64(input.GatewayKeyChainSelector))
@@ -127,7 +127,7 @@ func proposeGatewayJob(b operations.Bundle, deps ProposeGatewayJobDeps, input Pr
 			}
 
 			if !found {
-				return ProposeGatewayJobOutput{}, fmt.Errorf("could not find key belonging to chain id %s", chainID)
+				return ProposeGatewayJobOutput{}, fmt.Errorf("could not find key belonging to chain id %s on node %s", chainID, n.NodeID)
 			}
 		}
 
@@ -175,7 +175,6 @@ func proposeGatewayJob(b operations.Bundle, deps ProposeGatewayJobDeps, input Pr
 	if err != nil {
 		return ProposeGatewayJobOutput{}, fmt.Errorf("failed to fetch nodes from JD: %w", err)
 	}
-
 	if len(nodes) == 0 {
 		return ProposeGatewayJobOutput{}, fmt.Errorf("no nodes found for domain %s with filters %+v", input.Domain, input.DONFilters)
 	}
