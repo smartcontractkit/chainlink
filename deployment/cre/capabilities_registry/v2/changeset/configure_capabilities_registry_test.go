@@ -125,9 +125,24 @@ func suite(t *testing.T, fixture *testFixture) {
 		require.NoError(t, err, "should be able to get MCMS contracts")
 		require.NotNil(t, mcmsContracts, "MCMS contracts should not be nil")
 
+		chain, ok := mcmsFixture.env.BlockChains.EVMChains()[mcmsFixture.chainSelector]
+		require.True(t, ok, "chain should be found for selector %d", mcmsFixture.chainSelector)
+
+		// Create the appropriate strategy
+		strategy, err := strategies.CreateStrategy(
+			chain,
+			mcmsFixture.env,
+			mcmsFixture.configureInput.MCMSConfig,
+			mcmsContracts,
+			common.HexToAddress(mcmsFixture.capabilitiesRegistryAddress),
+			"test NOPs registration with MCMS",
+		)
+		require.NoError(t, err, "should be able to create MCMS strategy")
+
 		// Create dependencies for the operation
 		deps := contracts.RegisterNopsDeps{
-			Env: &mcmsFixture.env,
+			Env:      &mcmsFixture.env,
+			Strategy: strategy,
 		}
 
 		// Create NOPs registration input with MCMS enabled
@@ -144,6 +159,7 @@ func suite(t *testing.T, fixture *testFixture) {
 					Name:  "test nop2",
 				},
 			},
+			MCMSConfig: mcmsFixture.configureInput.MCMSConfig,
 		}
 
 		// Execute the NOPs registration operation with MCMS

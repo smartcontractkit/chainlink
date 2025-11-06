@@ -146,12 +146,15 @@ var ConfigureSeq = operations.NewSequence[ConfigureSeqInput, ConfigureSeqOutput,
 					return ConfigureSeqOutput{}, fmt.Errorf("configure-forwarders-seq failed for chain selector %d: %w", chain.Selector, err)
 				}
 
-				proposal, err := strategy.BuildProposal([]mcmstypes.BatchOperation{*fwrReport.Output.MCMSOperation})
-				if err != nil {
-					return ConfigureSeqOutput{}, fmt.Errorf("configure-forwarders-seq failed to build proposal for chain selector %d: %w", chain.Selector, err)
+				if input.UseMCMS() {
+					proposal, err := strategy.BuildProposal([]mcmstypes.BatchOperation{*fwrReport.Output.MCMSOperation})
+					if err != nil {
+						return ConfigureSeqOutput{}, fmt.Errorf("configure-forwarders-seq failed to build proposal for chain selector %d: %w", chain.Selector, err)
+					}
+
+					proposalsPerChain[chain.Selector] = append(proposalsPerChain[chain.Selector], &proposal)
 				}
 
-				proposalsPerChain[chain.Selector] = append(proposalsPerChain[chain.Selector], &proposal)
 				forwarderContracts[chain.Selector] = append(forwarderContracts[chain.Selector], contract)
 			}
 		}
