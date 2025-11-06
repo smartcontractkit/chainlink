@@ -139,7 +139,7 @@ var ConfigureDKG = operations.NewOperation(
 				inspectorPerChain,
 				[]mcmstypes.BatchOperation{*resp.Ops},
 				"proposal to set DKG config",
-				proposalutils.TimelockConfig{MinDelay: input.MCMSConfig.MinDuration},
+				*input.MCMSConfig,
 			)
 			if err != nil {
 				return out, fmt.Errorf("failed to build proposal: %w", err)

@@ -77,7 +77,7 @@ func TestUpdateNodes(t *testing.T) {
 		cfg := changeset.UpdateNodesRequest{
 			RegistryChainSel: te.RegistrySelector,
 			P2pToUpdates:     updates,
-			MCMSConfig:       &changeset.MCMSConfig{MinDuration: 0},
+			MCMSConfig:       &changeset.MCMSConfig{MinDelay: 0},
 			RegistryRef:      te.CapabilityRegistryAddressRef(),
 		}
 
@@ -91,7 +91,7 @@ func TestUpdateNodes(t *testing.T) {
 			&changeset.UpdateNodesRequest{
 				RegistryChainSel: te.RegistrySelector,
 				P2pToUpdates:     updates,
-				MCMSConfig:       &changeset.MCMSConfig{MinDuration: 0},
+				MCMSConfig:       &changeset.MCMSConfig{MinDelay: 0},
 				RegistryRef:      te.CapabilityRegistryAddressRef(),
 			},
 		))

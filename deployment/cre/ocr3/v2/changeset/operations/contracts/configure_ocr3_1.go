@@ -140,7 +140,7 @@ var ConfigureOCR3_1 = operations.NewOperation[ConfigureOCR3_1Input, ConfigureOCR
 				inspectorPerChain,
 				[]mcmstypes.BatchOperation{*resp.Ops},
 				"proposal to set OCR3.1 config",
-				proposalutils.TimelockConfig{MinDelay: input.MCMSConfig.MinDuration},
+				*input.MCMSConfig,
 			)
 			if err != nil {
 				return out, fmt.Errorf("failed to build proposal: %w", err)
