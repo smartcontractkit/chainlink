@@ -376,7 +376,7 @@ func appendCapabilitiesOp(
 ) error {
 	var mcmsConfig *changeset.MCMSConfig
 	if input.MCMSConfig != nil {
-		cfg := changeset.MCMSConfig(*input.MCMSConfig)
+		cfg := *input.MCMSConfig
 		mcmsConfig = &cfg
 	}
 	appendCapabilitiesReport, err := operations.ExecuteOperation(b, AppendCapabilitiesOp, AppendCapabilitiesOpDeps{
@@ -409,7 +409,7 @@ func updateDonOp(
 	}
 	var mcmsConfig *changeset.MCMSConfig
 	if input.MCMSConfig != nil {
-		cfg := changeset.MCMSConfig(*input.MCMSConfig)
+		cfg := *input.MCMSConfig
 		mcmsConfig = &cfg
 	}
 	updateDonReport, err := operations.ExecuteOperation(b, UpdateDonOp, UpdateDonOpDeps{
