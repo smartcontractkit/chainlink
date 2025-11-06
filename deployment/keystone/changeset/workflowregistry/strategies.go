@@ -79,7 +79,7 @@ func (m *mcmsTransaction) Apply(callFn func(opts *bind.TransactOpts) (*types.Tra
 		inspectorPerChain,
 		[]mcmstypes.BatchOperation{op},
 		m.Description,
-		proposalutils.TimelockConfig{MinDelay: m.Config.MinDuration},
+		*m.Config,
 	)
 	if err != nil {
 		return cldf.ChangesetOutput{}, err
@@ -151,7 +151,7 @@ func (m *MCMSTransactionV2) Apply(callFn func(opts *bind.TransactOpts) (*types.T
 		inspectorPerChain,
 		[]mcmstypes.BatchOperation{op},
 		m.Description,
-		proposalutils.TimelockConfig{MinDelay: m.Config.MinDuration},
+		*m.Config,
 	)
 	if err != nil {
 		return nil, err
