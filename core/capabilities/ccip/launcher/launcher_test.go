@@ -1,6 +1,8 @@
 package launcher
 
 import (
+	"bytes"
+	"fmt"
 	"math/big"
 	"testing"
 
@@ -241,6 +243,70 @@ func Test_createDON(t *testing.T) {
 			}
 		})
 	}
+}
+
+func Test_createDON_withFailures(t *testing.T) {
+	lggr := logger.Test(t)
+	p2pID := p2pID1
+	ctx := testutils.Context(t)
+	don := defaultRegistryDon
+	oracleCreator := mocks.NewOracleCreator(t)
+	homeChainReader := mocks.NewHomeChainReader(t)
+
+	config1 := utils.RandomBytes32()
+	config2 := utils.RandomBytes32()
+
+	homeChainReader.
+		On("GetOCRConfigs", mock.Anything, uint32(1), uint8(cctypes.PluginTypeCCIPCommit)).
+		Return(ccipreaderpkg.ActiveAndCandidate{
+			ActiveConfig: ccipreaderpkg.OCR3ConfigWithMeta{},
+			CandidateConfig: ccipreaderpkg.OCR3ConfigWithMeta{
+				Config: ccipreaderpkg.OCR3Config{
+					PluginType: uint8(cctypes.PluginTypeCCIPCommit),
+					Nodes:      getOCR3Nodes(3, 4),
+				},
+				ConfigDigest: config1,
+			},
+		}, nil)
+
+	homeChainReader.
+		On("GetOCRConfigs", mock.Anything, uint32(1), uint8(cctypes.PluginTypeCCIPExec)).
+		Return(ccipreaderpkg.ActiveAndCandidate{
+			ActiveConfig: ccipreaderpkg.OCR3ConfigWithMeta{},
+			CandidateConfig: ccipreaderpkg.OCR3ConfigWithMeta{
+				Config: ccipreaderpkg.OCR3Config{
+					PluginType: uint8(cctypes.PluginTypeCCIPExec),
+					Nodes:      getOCR3Nodes(3, 4),
+				},
+				ConfigDigest: config2,
+			},
+		}, nil)
+
+	// First create fails, second succeeds
+	oracleCreator.EXPECT().
+		Create(mock.Anything, don.ID, mock.MatchedBy(func(cfg cctypes.OCR3ConfigWithMeta) bool {
+			return bytes.Equal(cfg.ConfigDigest[:], config1[:])
+		})).
+		Return(nil, fmt.Errorf("fail on first")).
+		Maybe()
+
+	oracleCreator.EXPECT().
+		Create(mock.Anything, don.ID, mock.MatchedBy(func(cfg cctypes.OCR3ConfigWithMeta) bool {
+			return bytes.Equal(cfg.ConfigDigest[:], config2[:])
+		})).
+		Return(mocks.NewCCIPOracle(t), nil).
+		Maybe()
+
+	latestConfigs, err := getConfigsForDon(ctx, homeChainReader, don)
+	require.NoError(t, err)
+
+	pluginReg, err := createDON(ctx, lggr, p2pID, don, oracleCreator, latestConfigs)
+	require.Error(t, err)
+
+	require.Len(t, pluginReg, 1)
+
+	require.NotContains(t, pluginReg, config1)
+	require.Contains(t, pluginReg, config2)
 }
 
 func Test_updateDON(t *testing.T) {
