@@ -1632,6 +1632,58 @@ func TestEngine_HandleNewDON(t *testing.T) {
 		require.NoError(t, engine.Close())
 	})
 
+	t.Run("only logs set if state is new", func(t *testing.T) {
+		var (
+			lggr, obs  = logger.TestObserved(t, zapcore.DebugLevel)
+			initDoneCh = make(chan error)
+			donCh      = make(chan capabilities.DON)
+		)
+
+		// module mocks
+		module := modulemocks.NewModuleV2(t)
+		module.EXPECT().Start().Once()
+		module.EXPECT().Execute(matches.AnyContext, mock.Anything, mock.Anything).Return(newTriggerSubs(0), nil).Once()
+		module.EXPECT().Close().Once()
+
+		// capabilities registry mocks
+		capreg := regmocks.NewCapabilitiesRegistry(t)
+		initialNode := newNode(t, func(n *capabilities.Node) {
+			n.WorkflowDON.ConfigVersion = 1
+		})
+		capreg.EXPECT().LocalNode(matches.AnyContext).Return(initialNode, nil).Twice()
+
+		subscriberMock := capmocks.NewDonSubscriber(t)
+		subscriberMock.EXPECT().Subscribe(matches.AnyContext).Return(donCh, func() {}, nil)
+
+		// modify config for test
+		cfg := defaultTestConfig(t, nil)
+		cfg.Lggr = lggr
+		cfg.DonSubscriber = subscriberMock
+		cfg.Module = module
+		cfg.CapRegistry = capreg
+		cfg.Hooks = v2.LifecycleHooks{
+			OnInitialized: func(err error) {
+				initDoneCh <- err
+			},
+		}
+
+		// instantiate and run the engine
+		engine, err := v2.NewEngine(cfg)
+		require.NoError(t, err)
+		require.NoError(t, engine.Start(t.Context()))
+		require.NoError(t, <-initDoneCh)
+
+		// after initialization, signal a DON send to refetch local node
+		donCh <- capabilities.DON{}
+		require.NoError(t, engine.Close())
+
+		// assert that no log of the state was observed
+		require.Empty(t,
+			obs.FilterMessage("Setting local node state").All(),
+			"logged local node state even though there was no change",
+		)
+	})
+
 	t.Run("fail to subscribe", func(t *testing.T) {
 		module := modulemocks.NewModuleV2(t)
 		module.EXPECT().Start().Once()

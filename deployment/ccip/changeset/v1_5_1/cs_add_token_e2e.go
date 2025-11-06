@@ -459,6 +459,13 @@ func addTokenE2ELogic(env cldf.Environment, config AddTokensE2EConfig) (cldf.Cha
 		}
 		finalCSOut.MCMSTimelockProposals = []mcms.TimelockProposal{*aggregatedProposals}
 	}
+
+	ds, err := shared.PopulateDataStore(finalCSOut.AddressBook) //nolint:staticcheck //SA1019 ignoring deprecated
+	if err != nil {
+		return cldf.ChangesetOutput{}, fmt.Errorf("failed to populate in-memory DataStore: %w", err)
+	}
+
+	finalCSOut.DataStore = ds
 	return *finalCSOut, nil
 }
 
@@ -525,7 +532,6 @@ func deployTokens(e cldf.Environment, tokenDeployCfg map[uint64]DeployTokenConfi
 					}
 				},
 			)
-
 			if err != nil {
 				return nil, ab, fmt.Errorf("failed to deploy ERC20 token %s on chain %d: %w", cfg.TokenName, selector, err)
 			}
@@ -738,7 +744,6 @@ func addMinterAndBurnerForBurnMintERC20TokenHelper(env cldf.Environment, selecto
 		env.Logger.Infow("Pool already has mint and burn role for token", "Token", token.Address().Hex(), "Selector", selector)
 	} else {
 		tx, err := token.GrantMintAndBurnRoles(deployerKey, poolAddress)
-
 		if err != nil {
 			return fmt.Errorf("failed to grant mint and burn role to %s on chain %d: %w", poolAddress.Hex(), selector, err)
 		}
@@ -792,7 +797,6 @@ func grantDefaultAdminRoleForBurnMintERC20Token(env cldf.Environment, selector u
 		env.Logger.Infow("Pool already has default admin role for token", "Token", token.Address().Hex(), "Pool", address, "Selector", selector)
 	} else {
 		tx, err := token.GrantRole(deployerKey, adminRole, address)
-
 		if err != nil {
 			return fmt.Errorf("failed to grant default admin role for token %s on chain %d: %w", token.Address().Hex(), selector, err)
 		}
@@ -812,7 +816,6 @@ func addMinterForERC677Token(env cldf.Environment, chain cldf_evm.Chain, tokenAd
 		ChainSelector: chain.Selector,
 		CallInput:     poolAddress,
 	})
-
 	if err != nil {
 		return fmt.Errorf("failed to grant mint and burn roles: %w", err)
 	}

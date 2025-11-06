@@ -4,7 +4,7 @@ go 1.25.3
 
 // Using a separate `require` here to avoid surrounding line changes
 // creating potential merge conflicts.
-require github.com/smartcontractkit/chainlink/v2 v2.0.0-20251020210257-0a6ec41648b4
+require github.com/smartcontractkit/chainlink/v2 v2.29.0
 
 // Make sure we're working with the latest chainlink libs
 replace github.com/smartcontractkit/chainlink/v2 => ../../
@@ -20,6 +20,8 @@ replace github.com/smartcontractkit/chainlink/core/scripts/cre/environment/examp
 replace github.com/smartcontractkit/chainlink/core/scripts/cre/environment/examples/workflows/v2/cron => ../../core/scripts/cre/environment/examples/workflows/v2/cron
 
 replace github.com/smartcontractkit/chainlink/system-tests/tests/smoke/cre/evm/evmread => ./smoke/cre/evm/evmread
+
+replace github.com/smartcontractkit/chainlink/system-tests/tests/smoke/cre/evm/logtrigger => ./smoke/cre/evm/logtrigger
 
 replace github.com/smartcontractkit/chainlink/system-tests/tests/regression/cre/consensus => ./regression/cre/consensus
 
@@ -41,18 +43,18 @@ require (
 	github.com/lib/pq v1.10.9
 	github.com/pkg/errors v0.9.1
 	github.com/prometheus/common v0.65.0
-	github.com/rs/zerolog v1.33.0
+	github.com/rs/zerolog v1.34.0
 	github.com/shopspring/decimal v1.4.0
-	github.com/smartcontractkit/chain-selectors v1.0.75
-	github.com/smartcontractkit/chainlink-common v0.9.6-0.20251030115044-5d80c1c62afd
+	github.com/smartcontractkit/chain-selectors v1.0.78
+	github.com/smartcontractkit/chainlink-common v0.9.6-0.20251104231304-6cbcde243424
 	github.com/smartcontractkit/chainlink-data-streams v0.1.6
-	github.com/smartcontractkit/chainlink-deployments-framework v0.59.1
+	github.com/smartcontractkit/chainlink-deployments-framework v0.62.0
 	github.com/smartcontractkit/chainlink-evm/gethwrappers v0.0.0-20251022075638-49d961001d1b
 	github.com/smartcontractkit/chainlink-protos/cre/go v0.0.0-20251021010742-3f8d3dba17d8
 	github.com/smartcontractkit/chainlink-protos/job-distributor v0.17.0
 	github.com/smartcontractkit/chainlink-protos/workflows/go v0.0.0-20251025021331-aa7746850cc4
-	github.com/smartcontractkit/chainlink-solana v1.1.2-0.20251020193713-b63bc17bfeb1
-	github.com/smartcontractkit/chainlink-testing-framework/framework v0.11.6
+	github.com/smartcontractkit/chainlink-solana v1.1.2-0.20251105160343-b77843a1daf4
+	github.com/smartcontractkit/chainlink-testing-framework/framework v0.11.8
 	github.com/smartcontractkit/chainlink-testing-framework/framework/components/fake v0.10.0
 	github.com/smartcontractkit/chainlink-testing-framework/havoc v1.50.7
 	github.com/smartcontractkit/chainlink-testing-framework/lib v1.54.5
@@ -67,7 +69,9 @@ require (
 	github.com/smartcontractkit/chainlink/system-tests/tests/regression/cre/evm/evmwrite-negative v0.0.0-20251008094352-f74459c46e8c
 	github.com/smartcontractkit/chainlink/system-tests/tests/regression/cre/http v0.0.0-20251008094352-f74459c46e8c
 	github.com/smartcontractkit/chainlink/system-tests/tests/smoke/cre/evm/evmread v0.0.0-20251008094352-f74459c46e8c
-	github.com/smartcontractkit/libocr v0.0.0-20251030123553-7ab819193353
+	github.com/smartcontractkit/chainlink/system-tests/tests/smoke/cre/evm/logtrigger v0.0.0-00010101000000-000000000000
+	github.com/smartcontractkit/chainlink/system-tests/tests/smoke/cre/evmread v0.0.0-20250917232237-c4ecf802c6f8
+	github.com/smartcontractkit/libocr v0.0.0-20251031190958-7324c200a6b0
 	github.com/stretchr/testify v1.11.1
 	golang.org/x/sync v0.17.0
 	google.golang.org/protobuf v1.36.10
@@ -231,17 +235,17 @@ require (
 	github.com/docker/cli-docs-tool v0.9.0 // indirect
 	github.com/docker/compose/v2 v2.35.0 // indirect
 	github.com/docker/distribution v2.8.3+incompatible // indirect
-	github.com/docker/docker v28.3.3+incompatible // indirect
+	github.com/docker/docker v28.5.1+incompatible // indirect
 	github.com/docker/docker-credential-helpers v0.8.2 // indirect
 	github.com/docker/go v1.5.1-1.0.20160303222718-d30aec9fd63c // indirect
-	github.com/docker/go-connections v0.5.0 // indirect
+	github.com/docker/go-connections v0.6.0 // indirect
 	github.com/docker/go-metrics v0.0.1 // indirect
 	github.com/docker/go-units v0.5.0 // indirect
 	github.com/dominikbraun/graph v0.23.0 // indirect
 	github.com/doyensec/safeurl v0.2.1 // indirect
 	github.com/dustin/go-humanize v1.0.1 // indirect
 	github.com/dvsekhvalnov/jose2go v1.7.0 // indirect
-	github.com/ebitengine/purego v0.8.4 // indirect
+	github.com/ebitengine/purego v0.9.0 // indirect
 	github.com/edsrzf/mmap-go v1.2.0 // indirect
 	github.com/eiannone/keyboard v0.0.0-20220611211555-0d226195f203 // indirect
 	github.com/emicklei/dot v1.6.2 // indirect
@@ -359,7 +363,7 @@ require (
 	github.com/hashicorp/go-metrics v0.5.4 // indirect
 	github.com/hashicorp/go-msgpack/v2 v2.1.2 // indirect
 	github.com/hashicorp/go-multierror v1.1.1 // indirect
-	github.com/hashicorp/go-plugin v1.6.3 // indirect
+	github.com/hashicorp/go-plugin v1.7.0 // indirect
 	github.com/hashicorp/go-retryablehttp v0.7.7 // indirect
 	github.com/hashicorp/go-rootcerts v1.0.2 // indirect
 	github.com/hashicorp/go-sockaddr v1.0.7 // indirect
@@ -417,7 +421,7 @@ require (
 	github.com/liggitt/tabwriter v0.0.0-20181228230101-89fcab3d43de // indirect
 	github.com/linxGnu/grocksdb v1.9.3 // indirect
 	github.com/logrusorgru/aurora v2.0.3+incompatible // indirect
-	github.com/lufia/plan9stats v0.0.0-20250317134145-8bc96cf8fc35 // indirect
+	github.com/lufia/plan9stats v0.0.0-20251013123823-9fd1530e3ec3 // indirect
 	github.com/magiconair/properties v1.8.10 // indirect
 	github.com/mailru/easyjson v0.9.0 // indirect
 	github.com/marcboeker/go-duckdb v1.8.5 // indirect
@@ -534,7 +538,7 @@ require (
 	github.com/shibumi/go-pathspec v1.3.0 // indirect
 	github.com/shirou/gopsutil v3.21.11+incompatible // indirect
 	github.com/shirou/gopsutil/v3 v3.24.3 // indirect
-	github.com/shirou/gopsutil/v4 v4.25.6 // indirect
+	github.com/shirou/gopsutil/v4 v4.25.9 // indirect
 	github.com/sigurn/crc16 v0.0.0-20211026045750-20ab5afb07e3 // indirect
 	github.com/sirupsen/logrus v1.9.3 // indirect
 	github.com/skratchdot/open-golang v0.0.0-20200116055534-eef842397966 // indirect
@@ -542,7 +546,7 @@ require (
 	github.com/smartcontractkit/ccip-owner-contracts v0.1.0 // indirect
 	github.com/smartcontractkit/chainlink-aptos v0.0.0-20251027153600-2b072ff3618e // indirect
 	github.com/smartcontractkit/chainlink-automation v0.8.1 // indirect
-	github.com/smartcontractkit/chainlink-ccip v0.1.1-solana.0.20251027185542-babb09e5363e // indirect
+	github.com/smartcontractkit/chainlink-ccip v0.1.1-solana.0.20251105200616-e158f436aa95 // indirect
 	github.com/smartcontractkit/chainlink-ccip/chains/solana v0.0.0-20250912190424-fd2e35d7deb5 // indirect
 	github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings v0.0.0-20250912190424-fd2e35d7deb5 // indirect
 	github.com/smartcontractkit/chainlink-common/pkg/chipingress v0.0.10 // indirect
@@ -558,20 +562,20 @@ require (
 	github.com/smartcontractkit/chainlink-protos/rmn/v1.6/go v0.0.0-20250131130834-15e0d4cde2a6 // indirect
 	github.com/smartcontractkit/chainlink-protos/storage-service v0.3.0 // indirect
 	github.com/smartcontractkit/chainlink-protos/svr v1.1.0 // indirect
-	github.com/smartcontractkit/chainlink-sui v0.0.0-20251029234211-ed9dc839af35 // indirect
-	github.com/smartcontractkit/chainlink-sui/deployment v0.0.0-20251029234211-ed9dc839af35 // indirect
+	github.com/smartcontractkit/chainlink-sui v0.0.0-20251105220250-f8d7f06e3b8d // indirect
+	github.com/smartcontractkit/chainlink-sui/deployment v0.0.0-20251105220250-f8d7f06e3b8d // indirect
 	github.com/smartcontractkit/chainlink-testing-framework/framework/components/dockercompose v0.1.15 // indirect
 	github.com/smartcontractkit/chainlink-testing-framework/lib/grafana v1.50.0 // indirect
 	github.com/smartcontractkit/chainlink-testing-framework/parrot v0.6.2 // indirect
-	github.com/smartcontractkit/chainlink-ton v0.0.0-20251030205558-a88be7413ce5 // indirect
-	github.com/smartcontractkit/chainlink-ton/deployment v0.0.0-20251030205558-a88be7413ce5 // indirect
+	github.com/smartcontractkit/chainlink-ton v0.0.0-20251031142050-8d1f83814966 // indirect
+	github.com/smartcontractkit/chainlink-ton/deployment v0.0.0-20251031142050-8d1f83814966 // indirect
 	github.com/smartcontractkit/chainlink-tron/relayer v0.0.11-0.20251014143056-a0c6328c91e9 // indirect
 	github.com/smartcontractkit/chainlink/system-tests/tests/regression/cre/httpaction-negative v0.0.0-20251015074515-1acc1d3fb4c0
 	github.com/smartcontractkit/chainlink/system-tests/tests/smoke/cre/httpaction v0.0.0-20251015074515-1acc1d3fb4c0
 	github.com/smartcontractkit/crib-sdk v0.4.0 // indirect
 	github.com/smartcontractkit/freeport v0.1.3-0.20250716200817-cb5dfd0e369e // indirect
 	github.com/smartcontractkit/grpc-proxy v0.0.0-20240830132753-a7e17fec5ab7 // indirect
-	github.com/smartcontractkit/mcms v0.29.0 // indirect
+	github.com/smartcontractkit/mcms v0.30.2-0.20251105142805-988f5319936f // indirect
 	github.com/smartcontractkit/smdkg v0.0.0-20251029093710-c38905e58aeb // indirect
 	github.com/smartcontractkit/tdh2/go/ocr2/decryptionplugin v0.0.0-20241009055228-33d0c0bf38de // indirect
 	github.com/smartcontractkit/tdh2/go/tdh2 v0.0.0-20250624150019-e49f7e125e6b // indirect
@@ -587,7 +591,7 @@ require (
 	github.com/supranational/blst v0.3.16-0.20250831170142-f48500c1fdbe // indirect
 	github.com/syndtr/goleveldb v1.0.1-0.20220721030215-126854af5e6d // indirect
 	github.com/tendermint/go-amino v0.16.0 // indirect
-	github.com/testcontainers/testcontainers-go v0.38.0 // indirect
+	github.com/testcontainers/testcontainers-go v0.39.0 // indirect
 	github.com/testcontainers/testcontainers-go/modules/compose v0.37.0 // indirect
 	github.com/theodesp/go-heaps v0.0.0-20190520121037-88e35354fe0a // indirect
 	github.com/theupdateframework/notary v0.7.0 // indirect
@@ -652,7 +656,7 @@ require (
 	go.opentelemetry.io/contrib/exporters/autoexport v0.61.0 // indirect
 	go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc v0.63.0 // indirect
 	go.opentelemetry.io/contrib/instrumentation/net/http/httptrace/otelhttptrace v0.61.0 // indirect
-	go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp v0.61.0 // indirect
+	go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp v0.63.0 // indirect
 	go.opentelemetry.io/contrib/propagators/jaeger v1.35.0 // indirect
 	go.opentelemetry.io/contrib/samplers/jaegerremote v0.30.0 // indirect
 	go.opentelemetry.io/otel v1.38.0 // indirect

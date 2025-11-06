@@ -174,7 +174,6 @@ func TestLoad_Writer_MockCapabilities(t *testing.T) {
 				// TODO quick hack, this needs to be removed after the migration to TOML
 				ComputedCapabilities: []string{cretypes.MockCapability, cretypes.ConsensusCapability, "write-evm-1337"},
 				DONTypes:             []string{cretypes.CapabilitiesDON, cretypes.WorkflowDON},
-				BootstrapNodeIndex:   0,
 			},
 		}
 	}
@@ -230,8 +229,8 @@ func TestLoad_Writer_MockCapabilities(t *testing.T) {
 	}
 
 	registryChain := in.Blockchains[0]
-	homeChainIDUint64, homeChainErr := strconv.ParseUint(registryChain.ChainID, 10, 64)
-	require.NoError(t, homeChainErr, "failed to convert chain ID to int")
+	registryChainIDUint64, regChainErr := strconv.ParseUint(registryChain.ChainID, 10, 64)
+	require.NoError(t, regChainErr, "failed to convert chain ID to int")
 
 	feedIDs := make([]string, 0)
 	for range in.WriterTest.NrOfFeeds {
@@ -245,7 +244,7 @@ func TestLoad_Writer_MockCapabilities(t *testing.T) {
 		in,
 		mustSetCapabilitiesFn,
 		[]cretypes.CapabilityRegistryConfigFn{WriterDONLoadTestCapabilitiesFactoryFn, registerEVMWithV1},
-		[]cretypes.JobSpecFn{loadTestJobSpecsFactoryFn, consensusJobSpec(homeChainIDUint64)},
+		[]cretypes.JobSpecFn{loadTestJobSpecsFactoryFn, consensusJobSpec(registryChainIDUint64)},
 		feedIDs,
 		[]string{in.WriterTest.WorkflowName},
 	)

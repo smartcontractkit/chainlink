@@ -22,7 +22,6 @@ import (
 	jobv1 "github.com/smartcontractkit/chainlink-protos/job-distributor/v1/job"
 	ks_sol "github.com/smartcontractkit/chainlink/deployment/keystone/changeset/solana"
 
-	cldf_jd "github.com/smartcontractkit/chainlink-deployments-framework/offchain/jd"
 	keystone_changeset "github.com/smartcontractkit/chainlink/deployment/keystone/changeset"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/secrets"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/blockchains"
@@ -31,8 +30,11 @@ import (
 
 	"github.com/smartcontractkit/chainlink-testing-framework/framework"
 	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/blockchain"
+	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/clnode"
 	ns "github.com/smartcontractkit/chainlink-testing-framework/framework/components/simple_node_set"
 )
+
+const EnvironmentName = "local-cre"
 
 type CapabilityFlag = string
 
@@ -401,7 +403,7 @@ type GenerateConfigsInput struct {
 	Datastore               datastore.DataStore
 	DonMetadata             *DonMetadata
 	Blockchains             map[uint64]blockchains.Blockchain
-	HomeChainSelector       uint64
+	RegistryChainSelector   uint64
 	Flags                   []string
 	CapabilitiesPeeringData CapabilitiesPeeringData
 	OCRPeeringData          OCRPeeringData
@@ -419,7 +421,7 @@ func (g *GenerateConfigsInput) Validate() error {
 	if len(g.Blockchains) == 0 {
 		return errors.New("blockchain output not set")
 	}
-	if g.HomeChainSelector == 0 {
+	if g.RegistryChainSelector == 0 {
 		return errors.New("home chain selector not set")
 	}
 	if len(g.Flags) == 0 {
@@ -431,17 +433,17 @@ func (g *GenerateConfigsInput) Validate() error {
 	if g.OCRPeeringData == (OCRPeeringData{}) {
 		return errors.New("ocr peering data not set")
 	}
-	_, addrErr := g.AddressBook.AddressesForChain(g.HomeChainSelector)
+	_, addrErr := g.AddressBook.AddressesForChain(g.RegistryChainSelector)
 	if addrErr != nil {
-		return fmt.Errorf("failed to get addresses for chain %d: %w", g.HomeChainSelector, addrErr)
+		return fmt.Errorf("failed to get addresses for chain %d: %w", g.RegistryChainSelector, addrErr)
 	}
 	_, dsErr := g.Datastore.Addresses().Fetch()
 	if dsErr != nil {
 		return fmt.Errorf("failed to get addresses from datastore: %w", dsErr)
 	}
-	h := g.Datastore.Addresses().Filter(datastore.AddressRefByChainSelector(g.HomeChainSelector))
+	h := g.Datastore.Addresses().Filter(datastore.AddressRefByChainSelector(g.RegistryChainSelector))
 	if len(h) == 0 {
-		return fmt.Errorf("no addresses found for home chain %d in datastore", g.HomeChainSelector)
+		return fmt.Errorf("no addresses found for home chain %d in datastore", g.RegistryChainSelector)
 	}
 	// TODO check for required registry contracts by type and version
 	return nil
@@ -460,11 +462,6 @@ type DonMetadata struct {
 func NewDonMetadata(c *NodeSet, id uint64, provider infra.Provider) (*DonMetadata, error) {
 	cfgs := make([]NodeMetadataConfig, len(c.NodeSpecs))
 	for i, nodeSpec := range c.NodeSpecs {
-		nodeType := WorkerNode
-		if c.BootstrapNodeIndex != -1 && i == c.BootstrapNodeIndex {
-			nodeType = BootstrapNode
-		}
-
 		cfg := NodeMetadataConfig{
 			Keys: NodeKeyInput{
 				EVMChainIDs:     c.EVMChains(),
@@ -472,15 +469,10 @@ func NewDonMetadata(c *NodeSet, id uint64, provider infra.Provider) (*DonMetadat
 				Password:        "dev-password",
 				ImportedSecrets: nodeSpec.Node.TestSecretsOverrides,
 			},
-			Host:  provider.InternalHost(i, nodeType == BootstrapNode, c.Name),
-			Roles: []string{nodeType},
+			Host:  provider.InternalHost(i, slices.Contains(nodeSpec.Roles, BootstrapNode), c.Name),
+			Roles: nodeSpec.Roles,
 			Index: i,
 		}
-
-		if slices.Contains(c.DONTypes, GatewayDON) && c.GatewayNodeIndex != -1 && i == c.GatewayNodeIndex {
-			cfg.Roles = append(cfg.Roles, GatewayNode)
-		}
-
 		cfgs[i] = cfg
 	}
 
@@ -743,7 +735,7 @@ func (m DonsMetadata) validate() error {
 	}
 
 	if m.RequiresGateway() && !m.GatewayEnabled() {
-		return errors.New("at least one DON requires gateway due to its capabilities, but no DON is configured with gateway")
+		return errors.New("at least one DON requires gateway due to its capabilities, but no DON had a node with role 'gateway'")
 	}
 
 	return nil
@@ -863,16 +855,22 @@ func newNodes(cfgs []NodeMetadataConfig) ([]*NodeMetadata, error) {
 	return nodes, nil
 }
 
+type NodeSpecWithRole struct {
+	*clnode.Input            // Embed the CTF Input
+	Roles         []NodeType `toml:"roles" validate:"required"` // e.g., "plugin", "bootstrap" or "gateway"
+}
+
 // NodeSet is the serialized form that declares nodesets (DON) in a topology
 type NodeSet struct {
 	*ns.Input
+
+	// Our role-aware node specs (shadows ns.Input.NodeSpecs)
+	NodeSpecs []*NodeSpecWithRole `toml:"node_specs" validate:"required"`
+
 	Capabilities []string `toml:"capabilities"` // global capabilities that have no chain-specific configuration (like cron, web-api-target, web-api-trigger, etc.)
 	DONTypes     []string `toml:"don_types"`    // workflow, capabilities, gateway
 	// SupportedEVMChains is filter. Use EVMChains() to get the actual list of chains supported by the nodeset.
-	SupportedEVMChains []uint64 `toml:"supported_evm_chains"` // chain IDs that the DON supports, empty means all chains
-	// TODO separate out bootstrap as a concept rather than index
-	BootstrapNodeIndex   int               `toml:"bootstrap_node_index"` // -1 -> no bootstrap, only used if the DON doesn't hae the GatewayDON flag
-	GatewayNodeIndex     int               `toml:"gateway_node_index"`   // -1 -> no gateway, only used if the DON has the GatewayDON flag
+	SupportedEVMChains   []uint64          `toml:"supported_evm_chains"` // chain IDs that the DON supports, empty means all chains
 	EnvVars              map[string]string `toml:"env_vars"`             // additional environment variables to be set on each node
 	RawChainCapabilities any               `toml:"chain_capabilities"`
 	// ChainCapabilities allows enabling capabilities per chain with optional per-chain overrides.
@@ -910,6 +908,14 @@ func (c *NodeSet) GetCapabilityFlags() []string {
 
 func (c *NodeSet) GetName() string {
 	return c.Name
+}
+
+func (c *NodeSet) ExtractCTFInputs() []*clnode.Input {
+	inputs := make([]*clnode.Input, len(c.NodeSpecs))
+	for i, spec := range c.NodeSpecs {
+		inputs[i] = spec.Input
+	}
+	return inputs
 }
 
 func ConvertToNodeSetWithChainCapabilities(nodeSets []*NodeSet) []NodeSetWithCapabilityConfigs {
@@ -1174,7 +1180,6 @@ func NewNodeKeys(input NodeKeyInput) (*secrets.NodeKeys, error) {
 }
 
 type LinkDonsToJDInput struct {
-	JDClient        *cldf_jd.JobDistributor
 	Blockchains     []blockchains.Blockchain
 	Dons            *Dons
 	Topology        *Topology

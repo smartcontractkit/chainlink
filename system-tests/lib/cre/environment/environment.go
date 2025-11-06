@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"maps"
+	"os"
 
 	"github.com/Masterminds/semver/v3"
 	"github.com/ethereum/go-ethereum/common"
@@ -39,12 +40,6 @@ import (
 	libformat "github.com/smartcontractkit/chainlink/system-tests/lib/format"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/infra"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/worker"
-)
-
-const (
-	GithubReadTokenEnvVarName          = "GITHUB_READ_TOKEN"
-	E2eJobDistributorImageEnvVarName   = "E2E_JD_IMAGE"
-	E2eJobDistributorVersionEnvVarName = "E2E_JD_VERSION"
 )
 
 type SetupOutput struct {
@@ -111,6 +106,15 @@ func SetupTestEnvironment(
 ) (*SetupOutput, error) {
 	if input == nil {
 		return nil, pkgerrors.New("input is nil")
+	}
+
+	//TODO: remove these checks in December 2025, when everyone has migrated
+	if val := os.Getenv("E2E_JD_IMAGE"); val != "" {
+		return nil, errors.New("E2E_JD_IMAGE and E2E_JD_VERSION are deprecated, please use CTF_JD_IMAGE instead to specify the Job Distributor image with tag")
+	}
+
+	if val := os.Getenv("E2E_TEST_CHAINLINK_IMAGE"); val != "" {
+		return nil, errors.New("E2E_TEST_CHAINLINK_IMAGE and E2E_TEST_CHAINLINK_VERSION are deprecated, please use CTF_CHAINLINK_IMAGE instead to specify the Chainlink Node image with tag")
 	}
 
 	if err := input.Validate(); err != nil {
@@ -271,16 +275,16 @@ func SetupTestEnvironment(
 		return nil, pkgerrors.Wrap(donStartErr, "failed to start DONs")
 	}
 	dons := cre.NewDons(startedDONs.DONs(), topology.GatewayConnectors)
+	deployKeystoneContractsOutput.Env.Offchain = startedJD.Client
 
 	linkDonsToJDInput := &cre.LinkDonsToJDInput{
-		JDClient:        startedJD.Client,
 		Blockchains:     deployedBlockchains.Outputs,
 		CldfEnvironment: deployKeystoneContractsOutput.Env,
 		Topology:        topology,
 		Dons:            dons,
 	}
 
-	_, cldErr := cre.LinkToJobDistributor(ctx, linkDonsToJDInput)
+	cldErr := cre.LinkToJobDistributor(ctx, linkDonsToJDInput)
 	if cldErr != nil {
 		return nil, pkgerrors.Wrap(cldErr, "failed to link DONs to Job Distributor")
 	}
@@ -302,14 +306,14 @@ func SetupTestEnvironment(
 	// allow to pass custom job spec factories for extensibility
 	jobSpecFactoryFunctions = append(jobSpecFactoryFunctions, input.JobSpecFactoryFunctions...)
 	createJobsDeps := CreateJobsWithJdOpDeps{
-		Logger:                    testLogger,
-		SingleFileLogger:          singleFileLogger,
-		HomeChainBlockchainOutput: deployedBlockchains.RegistryChain().CtfOutput(),
-		JobSpecFactoryFunctions:   jobSpecFactoryFunctions,
-		CreEnvironment:            creEnvironment,
-		Dons:                      dons,
-		NodeSets:                  input.NodeSets,
-		Capabilities:              input.Capabilities,
+		Logger:                        testLogger,
+		SingleFileLogger:              singleFileLogger,
+		RegistryChainBlockchainOutput: deployedBlockchains.RegistryChain().CtfOutput(),
+		JobSpecFactoryFunctions:       jobSpecFactoryFunctions,
+		CreEnvironment:                creEnvironment,
+		Dons:                          dons,
+		NodeSets:                      input.NodeSets,
+		Capabilities:                  input.Capabilities,
 	}
 	_, createJobsErr := operations.ExecuteOperation(deployKeystoneContractsOutput.Env.OperationsBundle, CreateJobsWithJdOp, createJobsDeps, CreateJobsWithJdOpInput{})
 	if createJobsErr != nil {
@@ -465,7 +469,7 @@ func appendOutputsToInput(input *SetupInput, nodeSetOutput []*cre.WrappedNodeOut
 func newCldfEnvironment(ctx context.Context, singleFileLogger logger.Logger, cldfBlockchains cldf_chain.BlockChains) *cldf.Environment {
 	memoryDatastore := datastore.NewMemoryDataStore()
 	allChainsCLDEnvironment := &cldf.Environment{
-		Name:              "local CRE",
+		Name:              cre.EnvironmentName,
 		Logger:            singleFileLogger,
 		ExistingAddresses: cldf.NewMemoryAddressBook(),
 		DataStore:         memoryDatastore.Seal(),

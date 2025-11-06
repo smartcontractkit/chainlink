@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"math/big"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -15,11 +16,13 @@ import (
 	"github.com/pkg/errors"
 
 	secretsUtils "github.com/smartcontractkit/chainlink-common/pkg/workflows/secrets"
+	"github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/keystone/generated/capabilities_registry"
+	capabilities_registry_v2 "github.com/smartcontractkit/chainlink-evm/gethwrappers/workflow/generated/capabilities_registry_wrapper_v2"
 	"github.com/smartcontractkit/chainlink-testing-framework/seth"
 )
 
-func PrepareSecrets(sethClient *seth.Client, donID uint32, capabilitiesRegistryAddress, workflowOwnerAddress common.Address, secretsFilePath, secretsOutFilePath string) (string, error) {
+func PrepareSecrets(sethClient *seth.Client, donID uint32, capabilitiesRegistryAddress, workflowOwnerAddress common.Address, capRegTV deployment.TypeAndVersion, secretsFilePath, secretsOutFilePath string) (string, error) {
 	secretsConfig, secretsConfigErr := newSecretsConfig(secretsFilePath)
 	if secretsConfigErr != nil {
 		return "", errors.Wrap(secretsConfigErr, "failed to parse secrets config")
@@ -30,7 +33,7 @@ func PrepareSecrets(sethClient *seth.Client, donID uint32, capabilitiesRegistryA
 		return "", errors.Wrap(envSecretsErr, "failed to load secrets from environment")
 	}
 
-	encryptSecrets, encryptSecretsErr := encryptSecrets(sethClient, donID, capabilitiesRegistryAddress, workflowOwnerAddress, envSecrets, secretsConfig)
+	encryptSecrets, encryptSecretsErr := encryptSecrets(sethClient, donID, capabilitiesRegistryAddress, workflowOwnerAddress, capRegTV, envSecrets, secretsConfig)
 	if encryptSecretsErr != nil {
 		return "", errors.Wrap(encryptSecretsErr, "failed to encrypt secrets")
 	}
@@ -92,28 +95,69 @@ func loadSecretsFromEnvironment(config *secretsUtils.SecretsConfig) (map[string]
 	return secrets, nil
 }
 
-func encryptSecrets(c *seth.Client, donID uint32, capabilitiesRegistry, workflowOwner common.Address, secrets map[string][]string, config *secretsUtils.SecretsConfig) (secretsUtils.EncryptedSecretsResult, error) {
-	cr, err := capabilities_registry.NewCapabilitiesRegistry(capabilitiesRegistry, c.Client)
-	if err != nil {
-		return secretsUtils.EncryptedSecretsResult{}, fmt.Errorf("failed to attach to the Capabilities Registry contract: %w", err)
-	}
+func encryptSecrets(c *seth.Client, donID uint32, capabilitiesRegistry, workflowOwner common.Address, capRegTv deployment.TypeAndVersion, secrets map[string][]string, config *secretsUtils.SecretsConfig) (secretsUtils.EncryptedSecretsResult, error) {
+	// cr, err := capabilities_registry.NewCapabilitiesRegistry(capabilitiesRegistry, c.Client)
+	// if err != nil {
+	// 	return secretsUtils.EncryptedSecretsResult{}, fmt.Errorf("failed to attach to the Capabilities Registry contract: %w", err)
+	// }
 
-	nodeInfos, err := cr.GetNodes(c.NewCallOpts())
-	if err != nil {
-		return secretsUtils.EncryptedSecretsResult{}, fmt.Errorf("failed to get node information from the Capabilities Registry contract: %w", err)
-	}
+	// nodeInfos, err := cr.GetNodes(c.NewCallOpts())
+	// if err != nil {
+	// 	return secretsUtils.EncryptedSecretsResult{}, fmt.Errorf("failed to get node information from the Capabilities Registry contract: %w", err)
+	// }
 
-	donInfo, err := cr.GetDON(c.NewCallOpts(), donID)
-	if err != nil {
-		return secretsUtils.EncryptedSecretsResult{}, fmt.Errorf("failed to get DON information from the Capabilities Registry contract: %w", err)
-	}
+	// donInfo, err := cr.GetDON(c.NewCallOpts(), donID)
+	// if err != nil {
+	// 	return secretsUtils.EncryptedSecretsResult{}, fmt.Errorf("failed to get DON information from the Capabilities Registry contract: %w", err)
+	// }
 
 	encryptionPublicKeys := make(map[string][32]byte)
-	for _, nodeInfo := range nodeInfos {
-		// Filter only the nodes that are part of the DON
-		if secretsUtils.ContainsP2pId(nodeInfo.P2pId, donInfo.NodeP2PIds) {
-			encryptionPublicKeys[hex.EncodeToString(nodeInfo.P2pId[:])] = nodeInfo.EncryptionPublicKey
+
+	switch capRegTv.Version.Major() {
+	case 1:
+		cr, err := capabilities_registry.NewCapabilitiesRegistry(capabilitiesRegistry, c.Client)
+		if err != nil {
+			return secretsUtils.EncryptedSecretsResult{}, fmt.Errorf("failed to attach to the Capabilities Registry contract: %w", err)
 		}
+
+		nodeInfos, err := cr.GetNodes(c.NewCallOpts())
+		if err != nil {
+			return secretsUtils.EncryptedSecretsResult{}, fmt.Errorf("failed to get node information from the Capabilities Registry contract: %w", err)
+		}
+
+		donInfo, err := cr.GetDON(c.NewCallOpts(), donID)
+		if err != nil {
+			return secretsUtils.EncryptedSecretsResult{}, fmt.Errorf("failed to get DON information from the Capabilities Registry contract: %w", err)
+		}
+		for _, nodeInfo := range nodeInfos {
+			// Filter only the nodes that are part of the DON
+			if secretsUtils.ContainsP2pId(nodeInfo.P2pId, donInfo.NodeP2PIds) {
+				encryptionPublicKeys[hex.EncodeToString(nodeInfo.P2pId[:])] = nodeInfo.EncryptionPublicKey
+			}
+		}
+	case 2:
+		cr, err := capabilities_registry_v2.NewCapabilitiesRegistry(capabilitiesRegistry, c.Client)
+		if err != nil {
+			return secretsUtils.EncryptedSecretsResult{}, fmt.Errorf("failed to attach to the Capabilities Registry V2 contract: %w", err)
+		}
+
+		nodeInfos, err := cr.GetNodes(c.NewCallOpts(), big.NewInt(0), big.NewInt(100))
+		if err != nil {
+			return secretsUtils.EncryptedSecretsResult{}, fmt.Errorf("failed to get node information from the Capabilities Registry V2 contract: %w", err)
+		}
+
+		donInfo, err := cr.GetDON(c.NewCallOpts(), donID)
+		if err != nil {
+			return secretsUtils.EncryptedSecretsResult{}, fmt.Errorf("failed to get DON information from the Capabilities Registry V2 contract: %w", err)
+		}
+		for _, nodeInfo := range nodeInfos {
+			// Filter only the nodes that are part of the DON
+			if secretsUtils.ContainsP2pId(nodeInfo.P2pId, donInfo.NodeP2PIds) {
+				encryptionPublicKeys[hex.EncodeToString(nodeInfo.P2pId[:])] = nodeInfo.EncryptionPublicKey
+			}
+		}
+	default:
+		return secretsUtils.EncryptedSecretsResult{}, fmt.Errorf("unsupported capabilities registry version: %s", capRegTv.Version.String())
 	}
 
 	if len(encryptionPublicKeys) == 0 {

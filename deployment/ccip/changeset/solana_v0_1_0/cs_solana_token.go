@@ -13,6 +13,7 @@ import (
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 
 	"github.com/smartcontractkit/chainlink/deployment"
+	"github.com/smartcontractkit/chainlink/deployment/ccip/shared"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
 
 	solToken "github.com/gagliardetto/solana-go/programs/token"
@@ -168,8 +169,14 @@ func DeploySolanaToken(e cldf.Environment, cfg DeploySolanaTokenConfig) (cldf.Ch
 
 	e.Logger.Infow("Deployed contract", "Contract", tv.String(), "addr", mint.String(), "chain", chain.String())
 
+	ds, err := shared.PopulateDataStore(newAddresses)
+	if err != nil {
+		return cldf.ChangesetOutput{}, fmt.Errorf("failed to populate in-memory DataStore: %w", err)
+	}
+
 	return cldf.ChangesetOutput{
 		AddressBook: newAddresses,
+		DataStore:   ds,
 	}, nil
 }
 

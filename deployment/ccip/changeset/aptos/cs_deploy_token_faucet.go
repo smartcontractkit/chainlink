@@ -13,6 +13,7 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/aptos/operation"
 	seq "github.com/smartcontractkit/chainlink/deployment/ccip/changeset/aptos/sequence"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/aptos/utils"
+	"github.com/smartcontractkit/chainlink/deployment/ccip/shared"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
 )
 
@@ -78,8 +79,14 @@ func (d DeployTokenFaucet) Apply(env cldf.Environment, cfg config.DeployTokenFau
 		return cldf.ChangesetOutput{}, fmt.Errorf("failed to generate MCMS proposal for Aptos chain %d: %w", cfg.ChainSelector, err)
 	}
 
+	ds, err := shared.PopulateDataStore(ab)
+	if err != nil {
+		return cldf.ChangesetOutput{}, fmt.Errorf("failed to populate in-memory DataStore: %w", err)
+	}
+
 	return cldf.ChangesetOutput{
 		AddressBook:           ab,
+		DataStore:             ds,
 		MCMSTimelockProposals: []mcms.TimelockProposal{*proposal},
 		Reports:               []operations.Report[any, any]{report.ToGenericReport()},
 	}, nil

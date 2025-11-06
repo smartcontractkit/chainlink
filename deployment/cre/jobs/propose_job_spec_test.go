@@ -475,13 +475,292 @@ func TestProposeJobSpec_Apply(t *testing.T) {
 		reqs, err := testEnv.TestJD.ListProposedJobRequests()
 		require.NoError(t, err)
 
-		for _, req := range reqs {
-			// log each spec in readable yaml format
+		filteredReqs := slices.DeleteFunc(reqs, func(s *job.ProposeJobRequest) bool {
+			return !strings.Contains(s.Spec, `name = "cron-cap-job"`)
+		})
+		assert.Len(t, filteredReqs, 4) // there are 4 plugin nodes
+
+		for _, req := range filteredReqs {
 			t.Logf("Job Spec:\n%s", req.Spec)
-			assert.Contains(t, req.Spec, `name = "cron-cap-job"`)
 			assert.Contains(t, req.Spec, `command = "cron"`)
 			assert.Contains(t, req.Spec, `config = """CRON_TZ=UTC * * * * *"""`)
 			assert.Contains(t, req.Spec, `externalJobID = "a-cron-job-id"`)
+		}
+	})
+
+	t.Run("successful custom-compute job distribution", func(t *testing.T) {
+		input := jobs.ProposeJobSpecInput{
+			Environment: "test",
+			Domain:      "cre",
+			JobName:     "custom-compute-cap-job",
+			DONName:     test.DONName,
+			Template:    job_types.CustomCompute,
+			DONFilters: []offchain.TargetDONFilter{
+				{Key: offchain.FilterKeyDONName, Value: test.DONName},
+				{Key: "environment", Value: "test"},
+				{Key: "product", Value: offchain.ProductLabel},
+			},
+			Inputs: job_types.JobSpecInput{
+				"command": "__builtin_custom-compute-action",
+				"config": `NumWorkers = 2
+[rateLimiter]
+globalRPS = 100
+globalBurst = 200
+perSenderRPS = 50
+perSenderBurst = 100
+`,
+				"externalJobID": "a-custom-compute-job-id",
+				"oracleFactory": pkg.OracleFactory{
+					Enabled: false,
+				},
+			},
+		}
+
+		allNodes, err := testEnv.TestJD.ListNodes(t.Context(), &node.ListNodesRequest{})
+		require.NoError(t, err)
+
+		for _, n := range allNodes.Nodes {
+			t.Logf("found node %s, with ID %v", n.Name, n.Id)
+		}
+
+		out, err := jobs.ProposeJobSpec{}.Apply(*env, input)
+		require.NoError(t, err)
+		assert.Len(t, out.Reports, 1)
+
+		reqs, err := testEnv.TestJD.ListProposedJobRequests()
+		require.NoError(t, err)
+
+		filteredReqs := slices.DeleteFunc(reqs, func(s *job.ProposeJobRequest) bool {
+			return !strings.Contains(s.Spec, `name = "custom-compute-cap-job"`)
+		})
+		assert.Len(t, filteredReqs, 4) // there are 4 plugin nodes
+
+		for _, req := range filteredReqs {
+			assert.Contains(t, req.Spec, `name = "custom-compute-cap-job"`)
+			assert.Contains(t, req.Spec, `command = "__builtin_custom-compute-action"`)
+			assert.Contains(t, req.Spec, `config = """NumWorkers = 2
+[rateLimiter]
+globalRPS = 100
+globalBurst = 200
+perSenderRPS = 50
+perSenderBurst = 100
+"""`)
+			assert.Contains(t, req.Spec, `externalJobID = "a-custom-compute-job-id"`)
+		}
+	})
+
+	t.Run("successful web-api-trigger job distribution", func(t *testing.T) {
+		input := jobs.ProposeJobSpecInput{
+			Environment: "test",
+			Domain:      "cre",
+			JobName:     "web-api-trigger-cap-job",
+			DONName:     test.DONName,
+			Template:    job_types.WebAPITrigger,
+			DONFilters: []offchain.TargetDONFilter{
+				{Key: offchain.FilterKeyDONName, Value: test.DONName},
+				{Key: "environment", Value: "test"},
+				{Key: "product", Value: offchain.ProductLabel},
+			},
+			Inputs: job_types.JobSpecInput{
+				"command":       "__builtin_web-api-trigger",
+				"externalJobID": "a-web-api-trigger-job-id",
+				"oracleFactory": pkg.OracleFactory{
+					Enabled: false,
+				},
+			},
+		}
+
+		allNodes, err := testEnv.TestJD.ListNodes(t.Context(), &node.ListNodesRequest{})
+		require.NoError(t, err)
+
+		for _, n := range allNodes.Nodes {
+			t.Logf("found node %s, with ID %v", n.Name, n.Id)
+		}
+
+		out, err := jobs.ProposeJobSpec{}.Apply(*env, input)
+		require.NoError(t, err)
+		assert.Len(t, out.Reports, 1)
+
+		reqs, err := testEnv.TestJD.ListProposedJobRequests()
+		require.NoError(t, err)
+
+		filteredReqs := slices.DeleteFunc(reqs, func(s *job.ProposeJobRequest) bool {
+			return !strings.Contains(s.Spec, `name = "web-api-trigger-cap-job"`)
+		})
+		assert.Len(t, filteredReqs, 4) // there are 4 plugin nodes
+
+		for _, req := range filteredReqs {
+			t.Logf("Job Spec:\n%s", req.Spec)
+			assert.Contains(t, req.Spec, `command = "__builtin_web-api-trigger"`)
+			assert.Contains(t, req.Spec, `externalJobID = "a-web-api-trigger-job-id"`)
+		}
+	})
+
+	t.Run("successful web-api-target job distribution", func(t *testing.T) {
+		input := jobs.ProposeJobSpecInput{
+			Environment: "test",
+			Domain:      "cre",
+			JobName:     "web-api-target-cap-job",
+			DONName:     test.DONName,
+			Template:    job_types.WebAPITarget,
+			DONFilters: []offchain.TargetDONFilter{
+				{Key: offchain.FilterKeyDONName, Value: test.DONName},
+				{Key: "environment", Value: "test"},
+				{Key: "product", Value: offchain.ProductLabel},
+			},
+			Inputs: job_types.JobSpecInput{
+				"command": "__builtin_web-api-target",
+				"config": `[rateLimiter]
+GlobalRPS = 10
+GlobalBurst = 200
+PerSenderRPS = 2
+PerSenderBurst = 100
+`,
+				"externalJobID": "a-web-api-target-job-id",
+				"oracleFactory": pkg.OracleFactory{
+					Enabled: false,
+				},
+			},
+		}
+
+		allNodes, err := testEnv.TestJD.ListNodes(t.Context(), &node.ListNodesRequest{})
+		require.NoError(t, err)
+
+		for _, n := range allNodes.Nodes {
+			t.Logf("found node %s, with ID %v", n.Name, n.Id)
+		}
+
+		out, err := jobs.ProposeJobSpec{}.Apply(*env, input)
+		require.NoError(t, err)
+		assert.Len(t, out.Reports, 1)
+
+		reqs, err := testEnv.TestJD.ListProposedJobRequests()
+		require.NoError(t, err)
+
+		filteredReqs := slices.DeleteFunc(reqs, func(s *job.ProposeJobRequest) bool {
+			return !strings.Contains(s.Spec, `name = "web-api-target-cap-job"`)
+		})
+		assert.Len(t, filteredReqs, 4) // there are 4 plugin nodes
+
+		for _, req := range filteredReqs {
+			t.Logf("Job Spec:\n%s", req.Spec)
+			assert.Contains(t, req.Spec, `command = "__builtin_web-api-target"`)
+			assert.Contains(t, req.Spec, `config = """[rateLimiter]
+GlobalRPS = 10
+GlobalBurst = 200
+PerSenderRPS = 2
+PerSenderBurst = 100
+"""`)
+			assert.Contains(t, req.Spec, `externalJobID = "a-web-api-target-job-id"`)
+		}
+	})
+
+	t.Run("successful log-event-trigger job distribution", func(t *testing.T) {
+		input := jobs.ProposeJobSpecInput{
+			Environment: "test",
+			Domain:      "cre",
+			JobName:     "log-event-trigger-cap-job",
+			DONName:     test.DONName,
+			Template:    job_types.LogEventTrigger,
+			DONFilters: []offchain.TargetDONFilter{
+				{Key: offchain.FilterKeyDONName, Value: test.DONName},
+				{Key: "environment", Value: "test"},
+				{Key: "product", Value: offchain.ProductLabel},
+			},
+			Inputs: job_types.JobSpecInput{
+				"command": "/usr/bin/log-event-trigger",
+				"config": `{
+	"chainId": "1337",
+	"network": "evm",
+	"lookbackBlocks": 10,
+	"pollPeriod": 1000
+}
+`,
+				"externalJobID": "a-log-event-trigger-job-id",
+				"oracleFactory": pkg.OracleFactory{
+					Enabled: false,
+				},
+			},
+		}
+
+		allNodes, err := testEnv.TestJD.ListNodes(t.Context(), &node.ListNodesRequest{})
+		require.NoError(t, err)
+
+		for _, n := range allNodes.Nodes {
+			t.Logf("found node %s, with ID %v", n.Name, n.Id)
+		}
+
+		out, err := jobs.ProposeJobSpec{}.Apply(*env, input)
+		require.NoError(t, err)
+		assert.Len(t, out.Reports, 1)
+
+		reqs, err := testEnv.TestJD.ListProposedJobRequests()
+		require.NoError(t, err)
+
+		filteredReqs := slices.DeleteFunc(reqs, func(s *job.ProposeJobRequest) bool {
+			return !strings.Contains(s.Spec, `name = "log-event-trigger-cap-job"`)
+		})
+		assert.Len(t, filteredReqs, 4) // there are 4 plugin nodes
+
+		for _, req := range filteredReqs {
+			assert.Contains(t, req.Spec, `command = "/usr/bin/log-event-trigger"`)
+			assert.Contains(t, req.Spec, `config = """{
+	"chainId": "1337",
+	"network": "evm",
+	"lookbackBlocks": 10,
+	"pollPeriod": 1000
+}
+"""`)
+			assert.Contains(t, req.Spec, `externalJobID = "a-log-event-trigger-job-id"`)
+		}
+	})
+
+	t.Run("successful readcontract job distribution", func(t *testing.T) {
+		input := jobs.ProposeJobSpecInput{
+			Environment: "test",
+			Domain:      "cre",
+			JobName:     "readcontract-cap-job",
+			DONName:     test.DONName,
+			Template:    job_types.ReadContract,
+			DONFilters: []offchain.TargetDONFilter{
+				{Key: offchain.FilterKeyDONName, Value: test.DONName},
+				{Key: "environment", Value: "test"},
+				{Key: "product", Value: offchain.ProductLabel},
+			},
+			Inputs: job_types.JobSpecInput{
+				"command":       "/usr/bin/read-contract",
+				"config":        `{"chainId":1337,"network":"evm"}`,
+				"externalJobID": "a-readcontract-job-id",
+				"oracleFactory": pkg.OracleFactory{
+					Enabled: false,
+				},
+			},
+		}
+
+		allNodes, err := testEnv.TestJD.ListNodes(t.Context(), &node.ListNodesRequest{})
+		require.NoError(t, err)
+
+		for _, n := range allNodes.Nodes {
+			t.Logf("found node %s, with ID %v", n.Name, n.Id)
+		}
+
+		out, err := jobs.ProposeJobSpec{}.Apply(*env, input)
+		require.NoError(t, err)
+		assert.Len(t, out.Reports, 1)
+
+		reqs, err := testEnv.TestJD.ListProposedJobRequests()
+		require.NoError(t, err)
+
+		filteredReqs := slices.DeleteFunc(reqs, func(s *job.ProposeJobRequest) bool {
+			return !strings.Contains(s.Spec, `name = "readcontract-cap-job"`)
+		})
+		assert.Len(t, filteredReqs, 4) // there are 4 plugin nodes
+
+		for _, req := range filteredReqs {
+			assert.Contains(t, req.Spec, `name = "readcontract-cap-job"`)
+			assert.Contains(t, req.Spec, `command = "/usr/bin/read-contract"`)
+			assert.Contains(t, req.Spec, `config = """{"chainId":1337,"network":"evm"}"""`)
+			assert.Contains(t, req.Spec, `externalJobID = "a-readcontract-job-id"`)
 		}
 	})
 
@@ -636,7 +915,9 @@ func TestProposeJobSpec_Apply(t *testing.T) {
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), "failed to propose bootstrap job")
 		assert.Contains(t, err.Error(), "no nodes found for DON `test-don`")
-		assert.Contains(t, err.Error(), `{key:"zone"  value:"wrong-test-zone"}`)
+		// remove repeated whitespace for easier matching
+		err2 := strings.Join(strings.Fields(err.Error()), " ")
+		assert.Contains(t, err2, `{key:"zone" value:"wrong-test-zone"}`)
 	})
 
 	t.Run("failed ocr3 bootstrap job distribution", func(t *testing.T) {

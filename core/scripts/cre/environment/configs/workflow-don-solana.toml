@@ -45,13 +45,8 @@
   don_types = ["workflow", "gateway"]
   override_mode = "each"
   http_port_range_start = 10100
+
   supported_evm_chains = [1337] # even though this nodeset has no capability that requires connection to this chain we need it since it is the registry chain
-
-  # index of node in the nodeset that will act as the bootsrap node (not required, but added for visiblity)
-  bootstrap_node_index = 0
-  # added for visiblity, required always, when don_types include "gateway"
-  gateway_node_index = 0
-
   env_vars = { CL_EVM_CMD = "" }
 
   capabilities = ["ocr3", "custom-compute", "mock", "write-solana", "don-time"]
@@ -72,6 +67,7 @@
     port = 13000
 
   [[nodesets.node_specs]]
+    roles = ["bootstrap", "gateway"]
     [nodesets.node_specs.node]
       docker_ctx = "../../../.."
       docker_file = "core/chainlink.Dockerfile"
@@ -82,6 +78,7 @@
       user_config_overrides = ""
 
   [[nodesets.node_specs]]
+    roles = ["plugin"]
     [nodesets.node_specs.node]
       docker_ctx = "../../../.."
       docker_file = "core/chainlink.Dockerfile"
@@ -90,6 +87,7 @@
       user_config_overrides = ""
 
   [[nodesets.node_specs]]
+    roles = ["plugin"]
     [nodesets.node_specs.node]
       docker_ctx = "../../../.."
       docker_file = "core/chainlink.Dockerfile"
@@ -98,6 +96,7 @@
       user_config_overrides = ""
 
   [[nodesets.node_specs]]
+    roles = ["plugin"]
     [nodesets.node_specs.node]
       docker_ctx = "../../../.."
       docker_file = "core/chainlink.Dockerfile"
@@ -106,6 +105,7 @@
       user_config_overrides = ""
 
   [[nodesets.node_specs]]
+    roles = ["plugin"]
     [nodesets.node_specs.node]
       docker_ctx = "../../../.."
       docker_file = "core/chainlink.Dockerfile"

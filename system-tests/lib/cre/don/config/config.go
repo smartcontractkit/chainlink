@@ -111,7 +111,7 @@ func PrepareNodeTOMLs(
 					Flags:                   donMetadata.Flags,
 					CapabilitiesPeeringData: capabilitiesPeeringData,
 					OCRPeeringData:          ocrPeeringData,
-					HomeChainSelector:       creEnv.RegistryChainSelector,
+					RegistryChainSelector:   creEnv.RegistryChainSelector,
 					GatewayConnectorOutput:  topology.GatewayConnectors,
 					NodeSet:                 localNodeSets[i],
 					CapabilityConfigs:       creEnv.CapabilityConfigs,
@@ -174,7 +174,7 @@ func generateNodeTomlConfig(input cre.GenerateConfigsInput, nodeConfigTransforme
 				}
 			case cre.GatewayNode:
 				var cErr error
-				nodeConfig, cErr = addGatewayNodeConfig(nodeConfig, commonInputs)
+				nodeConfig, cErr = addGatewayNodeConfig(nodeConfig, input.OCRPeeringData, commonInputs)
 				if cErr != nil {
 					return nil, errors.Wrapf(cErr, "failed to add gateway node config for node at index %d in DON %s", nodeIdx, input.DonMetadata.Name)
 				}
@@ -254,6 +254,12 @@ func addBootstrapNodeConfig(
 		return existingConfig, errors.Wrap(ocrBErr, "failed to create OCR bootstrapper locator")
 	}
 
+	existingConfig.OCR2 = coretoml.OCR2{
+		Enabled:              ptr.Ptr(true),
+		DatabaseTimeout:      commonconfig.MustNewDuration(1 * time.Second),
+		ContractPollInterval: commonconfig.MustNewDuration(1 * time.Second),
+	}
+
 	existingConfig.P2P = coretoml.P2P{
 		V2: coretoml.P2PV2{
 			Enabled:              ptr.Ptr(true),
@@ -330,6 +336,12 @@ func addWorkerNodeConfig(
 	ocrBoostrapperLocator, ocrBErr := commontypes.NewBootstrapperLocator(ocrPeeringData.OCRBootstraperPeerID, []string{ocrPeeringData.OCRBootstraperHost + ":" + strconv.Itoa(ocrPeeringData.Port)})
 	if ocrBErr != nil {
 		return existingConfig, errors.Wrap(ocrBErr, "failed to create OCR bootstrapper locator")
+	}
+
+	existingConfig.OCR2 = coretoml.OCR2{
+		Enabled:              ptr.Ptr(true),
+		DatabaseTimeout:      commonconfig.MustNewDuration(1 * time.Second),
+		ContractPollInterval: commonconfig.MustNewDuration(1 * time.Second),
 	}
 
 	existingConfig.P2P = coretoml.P2P{
@@ -438,8 +450,40 @@ func addWorkerNodeConfig(
 
 func addGatewayNodeConfig(
 	existingConfig corechainlink.Config,
+	ocrPeeringData cre.OCRPeeringData,
 	commonInputs *commonInputs,
 ) (corechainlink.Config, error) {
+	// TODO: remove this in the future?
+	// Unless node has Peering enabled it won't create capabilities registry syncer and all requests to vault handler will fail,
+	// because it won't be able to find the DON with vault capability. P2P also required OCR2 to be enabled due to code requirements.
+	// Having said that, this node will never receive any OCR2 or Peering traffic.
+	existingConfig.OCR2 = coretoml.OCR2{
+		Enabled:              ptr.Ptr(true),
+		DatabaseTimeout:      commonconfig.MustNewDuration(1 * time.Second),
+		ContractPollInterval: commonconfig.MustNewDuration(1 * time.Second),
+	}
+
+	existingConfig.P2P = coretoml.P2P{
+		V2: coretoml.P2PV2{
+			Enabled:         ptr.Ptr(true),
+			ListenAddresses: ptr.Ptr([]string{"0.0.0.0:" + strconv.Itoa(ocrPeeringData.Port)}),
+		},
+	}
+
+	existingConfig.Capabilities = coretoml.Capabilities{
+		Peering: coretoml.P2P{
+			V2: coretoml.P2PV2{
+				Enabled: ptr.Ptr(false),
+			},
+		},
+		SharedPeering: coretoml.SharedPeering{
+			Enabled: ptr.Ptr(true),
+		},
+		Dispatcher: coretoml.Dispatcher{
+			SendToSharedPeer: ptr.Ptr(true),
+		},
+	}
+
 OUTER:
 	for _, evmChain := range commonInputs.evmChains {
 		// add only unconfigured chains, since other roles might have already added some chains
@@ -488,7 +532,7 @@ type commonInputs struct {
 }
 
 func gatherCommonInputs(input cre.GenerateConfigsInput) (*commonInputs, error) {
-	registryChainID, homeErr := chain_selectors.ChainIdFromSelector(input.HomeChainSelector)
+	registryChainID, homeErr := chain_selectors.ChainIdFromSelector(input.RegistryChainSelector)
 	if homeErr != nil {
 		return nil, errors.Wrap(homeErr, "failed to get home chain ID")
 	}
@@ -501,19 +545,19 @@ func gatherCommonInputs(input cre.GenerateConfigsInput) (*commonInputs, error) {
 	}
 
 	// find contract addresses
-	capabilitiesRegistryAddress, capRegTypeVersion, capErr := crecontracts.FindAddressesForChain(input.AddressBook, input.HomeChainSelector, keystone_changeset.CapabilitiesRegistry.String())
+	capabilitiesRegistryAddress, capRegTypeVersion, capErr := crecontracts.FindAddressesForChain(input.AddressBook, input.RegistryChainSelector, keystone_changeset.CapabilitiesRegistry.String())
 	if capErr != nil {
 		return nil, errors.Wrap(capErr, "failed to find CapabilitiesRegistry address")
 	}
 
-	workflowRegistryAddress, wfRegTypeVersion, wfErr := crecontracts.FindAddressesForChain(input.AddressBook, input.HomeChainSelector, keystone_changeset.WorkflowRegistry.String())
+	workflowRegistryAddress, wfRegTypeVersion, wfErr := crecontracts.FindAddressesForChain(input.AddressBook, input.RegistryChainSelector, keystone_changeset.WorkflowRegistry.String())
 	if wfErr != nil {
 		return nil, errors.Wrap(wfErr, "failed to find WorkflowRegistry address")
 	}
 
 	return &commonInputs{
 		registryChainID:       registryChainID,
-		registryChainSelector: input.HomeChainSelector,
+		registryChainSelector: input.RegistryChainSelector,
 		workflowRegistry: addressTypeVersion{
 			address:     workflowRegistryAddress,
 			versionType: wfRegTypeVersion,
