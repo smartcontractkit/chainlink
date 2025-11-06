@@ -502,14 +502,6 @@ OUTER:
 		ContractVersion: ptr.Ptr(commonInputs.capabilityRegistry.versionType.Version.String()),
 	}
 
-	existingConfig.Capabilities.WorkflowRegistry = coretoml.WorkflowRegistry{
-		Address:         ptr.Ptr(commonInputs.workflowRegistry.address.Hex()),
-		NetworkID:       ptr.Ptr("evm"),
-		ChainID:         ptr.Ptr(strconv.FormatUint(commonInputs.registryChainID, 10)),
-		ContractVersion: ptr.Ptr(commonInputs.workflowRegistry.versionType.Version.String()),
-		SyncStrategy:    ptr.Ptr("reconciliation"),
-	}
-
 	return existingConfig, nil
 }
 
