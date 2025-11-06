@@ -356,7 +356,6 @@ func SetupTestEnvironment(
 			WorkflowOwners:  []common.Address{deployedBlockchains.RegistryChain().(*evm.Blockchain).SethClient.MustGetRootKeyAddress()}, // registry chain is always EVM
 		},
 	)
-
 	if wfErr != nil {
 		return nil, pkgerrors.Wrap(wfErr, "failed to configure workflow registry")
 	}
@@ -402,9 +401,7 @@ func SetupTestEnvironment(
 		configFn := capability.CapabilityRegistryV1ConfigFn()
 		capRegInput.CapabilityRegistryConfigFns = append(capRegInput.CapabilityRegistryConfigFns, configFn)
 	}
-
 	capRegInput.CapabilityRegistryConfigFns = append(capRegInput.CapabilityRegistryConfigFns, input.CapabilitiesContractFactoryFunctions...)
-
 	maps.Copy(capRegInput.DONCapabilityWithConfigs, donsCapabilities)
 
 	_, capRegErr := crecontracts.ConfigureCapabilityRegistry(capRegInput)
@@ -413,8 +410,8 @@ func SetupTestEnvironment(
 	}
 
 	fmt.Print(libformat.PurpleText("%s", input.StageGen.WrapAndNext("Workflow and Capability Registry contracts configured in %.2f seconds", input.StageGen.Elapsed().Seconds())))
-
 	fmt.Print(libformat.PurpleText("%s", input.StageGen.Wrap("Applying Features after environment startup")))
+
 	for _, feature := range input.Features.List() {
 		for _, don := range dons.DonsWithFlag(feature.Flag()) {
 			testLogger.Info().Msgf("Executing PostEnvStartup for feature %s for don '%s'", feature.Flag(), don.Name)
