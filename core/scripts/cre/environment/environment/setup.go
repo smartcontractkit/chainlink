@@ -470,7 +470,7 @@ func RunSetup(ctx context.Context, config SetupConfig, noPrompt, purge, withBill
 	}
 
 	if bun {
-		err := ensurePackageJson(".")
+		err := ensurePackageJSON(".")
 		if err != nil {
 			setupErr = errors.Wrap(err, "failed to ensure package.json")
 			return
@@ -1119,9 +1119,9 @@ func installBunPackages(ctx context.Context) error {
 	return nil
 }
 
-func ensurePackageJson(dir string) error {
-	packageJsonPath := filepath.Join(dir, "package.json")
-	if _, err := os.Stat(packageJsonPath); err == nil {
+func ensurePackageJSON(dir string) error {
+	packageJSONPath := filepath.Join(dir, "package.json")
+	if _, err := os.Stat(packageJSONPath); err == nil {
 		return nil
 	}
 
@@ -1144,7 +1144,7 @@ func ensurePackageJson(dir string) error {
   }
 }`
 
-	if err := os.WriteFile(packageJsonPath, []byte(content), 0644); err != nil {
+	if err := os.WriteFile(packageJSONPath, []byte(content), 0644); err != nil { //nolint:gosec //G306: Expect WriteFile permissions to be 0600 or less. We want broad read access here.
 		return errors.Wrap(err, "failed to create package.json")
 	}
 
