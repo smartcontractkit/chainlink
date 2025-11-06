@@ -178,6 +178,7 @@ jobs:
         id: run-regression-tests
         shell: bash
         working-directory: system-tests/tests
+        continue-on-error: ${{ env.ENABLE_AUTO_QUARANTINE == 'true' }}
         env:
           TEST_NAME: ${{ matrix.tests.test_name }}
           TEST_TIMEOUT: 30m
