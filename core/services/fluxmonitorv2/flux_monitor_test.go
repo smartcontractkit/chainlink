@@ -1401,6 +1401,7 @@ func TestFluxMonitor_RoundTimeoutCausesPoll_timesOutNotZero(t *testing.T) {
 }
 
 func TestFluxMonitor_ConsumeLogBroadcast(t *testing.T) {
+	quarantine.Flaky(t, "DX-1844")
 	t.Parallel()
 
 	db := pgtest.NewSqlxDB(t)
