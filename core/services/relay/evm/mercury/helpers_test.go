@@ -1,6 +1,7 @@
 package mercury
 
 import (
+	"encoding/base64"
 	"math/big"
 	"testing"
 	"time"
@@ -23,13 +24,10 @@ import (
 	evmclient "github.com/smartcontractkit/chainlink-evm/pkg/client"
 	"github.com/smartcontractkit/chainlink-evm/pkg/heads/headstest"
 	"github.com/smartcontractkit/chainlink-evm/pkg/logpoller"
-	"github.com/smartcontractkit/chainlink-evm/pkg/utils"
 
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/llo-feeds/generated/verifier"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/llo-feeds/generated/verifier_proxy"
-	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
-	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
-	reportcodecv1 "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury/v1/reportcodec"
+	"github.com/smartcontractkit/chainlink-evm/pkg/testutils"
 	reportcodecv2 "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury/v2/reportcodec"
 	reportcodecv3 "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury/v3/reportcodec"
 )
@@ -41,11 +39,10 @@ var sampleFeedID = [32]uint8{28, 145, 107, 74, 167, 229, 124, 167, 182, 138, 225
 var sampleReports [][]byte
 
 var (
-	sampleV1Report      = buildSampleV1Report(242)
 	sampleV2Report      = buildSampleV2Report(242)
 	sampleV3Report      = buildSampleV3Report(242)
-	sig2                = ocrtypes.AttributedOnchainSignature{Signature: testutils.MustDecodeBase64("kbeuRczizOJCxBzj7MUAFpz3yl2WRM6K/f0ieEBvA+oTFUaKslbQey10krumVjzAvlvKxMfyZo0WkOgNyfF6xwE="), Signer: 2}
-	sig3                = ocrtypes.AttributedOnchainSignature{Signature: testutils.MustDecodeBase64("9jz4b6Dh2WhXxQ97a6/S9UNjSfrEi9016XKTrfN0mLQFDiNuws23x7Z4n+6g0sqKH/hnxx1VukWUH/ohtw83/wE="), Signer: 3}
+	sig2                = ocrtypes.AttributedOnchainSignature{Signature: mustDecodeBase64("kbeuRczizOJCxBzj7MUAFpz3yl2WRM6K/f0ieEBvA+oTFUaKslbQey10krumVjzAvlvKxMfyZo0WkOgNyfF6xwE="), Signer: 2}
+	sig3                = ocrtypes.AttributedOnchainSignature{Signature: mustDecodeBase64("9jz4b6Dh2WhXxQ97a6/S9UNjSfrEi9016XKTrfN0mLQFDiNuws23x7Z4n+6g0sqKH/hnxx1VukWUH/ohtw83/wE="), Signer: 3}
 	sampleSigs          = []ocrtypes.AttributedOnchainSignature{sig2, sig3}
 	sampleReportContext = ocrtypes.ReportContext{
 		ReportTimestamp: ocrtypes.ReportTimestamp{
@@ -60,26 +57,8 @@ var (
 func init() {
 	sampleReports = make([][]byte, 4)
 	for i := 0; i < len(sampleReports); i++ {
-		sampleReports[i] = buildSampleV1Report(int64(i))
+		sampleReports[i] = buildSampleV2Report(int64(i))
 	}
-}
-
-func buildSampleV1Report(p int64) []byte {
-	feedID := sampleFeedID
-	timestamp := uint32(42)
-	bp := big.NewInt(p)
-	bid := big.NewInt(243)
-	ask := big.NewInt(244)
-	currentBlockNumber := uint64(143)
-	currentBlockHash := utils.NewHash()
-	currentBlockTimestamp := uint64(123)
-	validFromBlockNum := uint64(142)
-
-	b, err := reportcodecv1.ReportTypes.Pack(feedID, timestamp, bp, bid, ask, currentBlockNumber, currentBlockHash, currentBlockTimestamp, validFromBlockNum)
-	if err != nil {
-		panic(err)
-	}
-	return b
 }
 
 func buildSampleV2Report(ts int64) []byte {
@@ -165,7 +144,7 @@ func SetupTH(t *testing.T, feedID common.Hash) TestHarness {
 	require.NoError(t, err)
 	b.Commit()
 
-	db := pgtest.NewSqlxDB(t)
+	db := testutils.NewSqlxDB(t)
 	ethClient := evmclient.NewSimulatedBackendClient(t, b, big.NewInt(1337))
 	lggr := logger.Test(t)
 	lorm := logpoller.NewORM(big.NewInt(1337), db, lggr)
@@ -197,4 +176,13 @@ func SetupTH(t *testing.T, feedID common.Hash) TestHarness {
 		verifierContract: verifierContract,
 		logPoller:        lp,
 	}
+}
+
+func mustDecodeBase64(s string) (b []byte) {
+	var err error
+	b, err = base64.StdEncoding.DecodeString(s)
+	if err != nil {
+		panic(err)
+	}
+	return
 }

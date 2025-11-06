@@ -194,14 +194,6 @@ func ReadLanesFromExistingDeployment(contracts []byte) (*Lanes, error) {
 	return &lanes, nil
 }
 
-func CreateDeploymentJSON(path string) (*Lanes, error) {
-	existingLanes := Lanes{
-		LaneConfigs: make(map[string]*LaneConfig),
-	}
-	err := WriteLanesToJSON(path, &existingLanes)
-	return &existingLanes, err
-}
-
 func WriteLanesToJSON(path string, lanes *Lanes) error {
 	b, err := json.MarshalIndent(lanes, "", "  ")
 	if err != nil {

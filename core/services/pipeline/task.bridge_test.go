@@ -23,6 +23,7 @@ import (
 
 	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
 	"github.com/smartcontractkit/chainlink-common/pkg/services/servicetest"
+	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 
 	"github.com/smartcontractkit/chainlink/v2/core/bridges"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
@@ -104,7 +105,7 @@ func (pr *adapterResponse) Result() *decimal.Decimal {
 func dataWithResult(t *testing.T, result decimal.Decimal) adapterResponseData {
 	t.Helper()
 	var data adapterResponseData
-	body := []byte(fmt.Sprintf(`{"result":%v}`, result))
+	body := fmt.Appendf(nil, `{"result":%v}`, result)
 	require.NoError(t, json.Unmarshal(body, &data))
 	return data
 }
@@ -129,7 +130,7 @@ func NewMockHandler(payload string) http.HandlerFunc {
 	}
 }
 
-func fakePriceResponder(t *testing.T, requestData map[string]interface{}, result decimal.Decimal, inputKey string, expectedInput interface{}) http.Handler {
+func fakePriceResponder(t *testing.T, requestData map[string]any, result decimal.Decimal, inputKey string, expectedInput any) http.Handler {
 	t.Helper()
 
 	body, err := json.Marshal(requestData)
@@ -161,7 +162,7 @@ func fakePriceResponder(t *testing.T, requestData map[string]interface{}, result
 	})
 }
 
-func fakeIntermittentlyFailingPriceResponder(t *testing.T, requestData map[string]interface{}, result decimal.Decimal, inputKey string, expectedInput interface{}) http.Handler {
+func fakeIntermittentlyFailingPriceResponder(t *testing.T, requestData map[string]any, result decimal.Decimal, inputKey string, expectedInput any) http.Handler {
 	t.Helper()
 
 	body, err := json.Marshal(requestData)
@@ -214,7 +215,7 @@ func TestBridgeTask_Happy(t *testing.T) {
 
 	db := pgtest.NewSqlxDB(t)
 	cfg := configtest.NewTestGeneralConfig(t)
-	telemCh := make(chan interface{}, 1)
+	telemCh := make(chan any, 1)
 	ctx := pipeline.WithTelemetryCh(testutils.Context(t), telemCh)
 
 	s1 := httptest.NewServer(fakePriceResponder(t, utils.MustUnmarshalToMap(btcUSDPairing), decimal.NewFromInt(9700), "", nil))
@@ -233,7 +234,7 @@ func TestBridgeTask_Happy(t *testing.T) {
 	}
 	c := clhttptest.NewTestLocalOnlyHTTPClient()
 	trORM := pipeline.NewORM(db, logger.TestLogger(t), cfg.JobPipeline().MaxSuccessfulRuns())
-	specID, err := trORM.CreateSpec(ctx, pipeline.Pipeline{}, *models.NewInterval(5 * time.Minute))
+	specID, err := trORM.CreateSpec(ctx, pipeline.Pipeline{}, *sqlutil.NewInterval(5 * time.Minute))
 	require.NoError(t, err)
 	task.HelperSetDependencies(cfg.JobPipeline(), cfg.WebServer(), orm, specID, uuid.UUID{}, c)
 
@@ -291,14 +292,14 @@ func TestBridgeTask_HandlesIntermittentFailure(t *testing.T) {
 	}
 	c := clhttptest.NewTestLocalOnlyHTTPClient()
 	trORM := pipeline.NewORM(db, logger.TestLogger(t), cfg.JobPipeline().MaxSuccessfulRuns())
-	specID, err := trORM.CreateSpec(testutils.Context(t), pipeline.Pipeline{}, *models.NewInterval(5 * time.Minute))
+	specID, err := trORM.CreateSpec(testutils.Context(t), pipeline.Pipeline{}, *sqlutil.NewInterval(5 * time.Minute))
 	require.NoError(t, err)
 	task.HelperSetDependencies(cfg.JobPipeline(), cfg.WebServer(), orm, specID, uuid.UUID{}, c)
 	result, runInfo := task.Run(testutils.Context(t), logger.TestLogger(t),
 		pipeline.NewVarsFrom(
-			map[string]interface{}{
-				"jobRun": map[string]interface{}{
-					"meta": map[string]interface{}{
+			map[string]any{
+				"jobRun": map[string]any{
+					"meta": map[string]any{
 						"shouldFail": false,
 					},
 				},
@@ -313,9 +314,9 @@ func TestBridgeTask_HandlesIntermittentFailure(t *testing.T) {
 
 	result2, runInfo2 := task.Run(testutils.Context(t), logger.TestLogger(t),
 		pipeline.NewVarsFrom(
-			map[string]interface{}{
-				"jobRun": map[string]interface{}{
-					"meta": map[string]interface{}{
+			map[string]any{
+				"jobRun": map[string]any{
+					"meta": map[string]any{
 						"shouldFail": true,
 					},
 				},
@@ -355,7 +356,7 @@ func TestBridgeTask_DoesNotReturnStaleResults(t *testing.T) {
 	}
 	c := clhttptest.NewTestLocalOnlyHTTPClient()
 	trORM := pipeline.NewORM(db, logger.TestLogger(t), cfg.JobPipeline().MaxSuccessfulRuns())
-	specID, err := trORM.CreateSpec(testutils.Context(t), pipeline.Pipeline{}, *models.NewInterval(5 * time.Minute))
+	specID, err := trORM.CreateSpec(testutils.Context(t), pipeline.Pipeline{}, *sqlutil.NewInterval(5 * time.Minute))
 	require.NoError(t, err)
 	task.HelperSetDependencies(cfg.JobPipeline(), cfg.WebServer(), orm, specID, uuid.UUID{}, c)
 
@@ -367,9 +368,9 @@ func TestBridgeTask_DoesNotReturnStaleResults(t *testing.T) {
 
 	result2, _ := task.Run(testutils.Context(t), logger.TestLogger(t),
 		pipeline.NewVarsFrom(
-			map[string]interface{}{
-				"jobRun": map[string]interface{}{
-					"meta": map[string]interface{}{
+			map[string]any{
+				"jobRun": map[string]any{
+					"meta": map[string]any{
 						"shouldFail": true,
 					},
 				},
@@ -388,9 +389,9 @@ func TestBridgeTask_DoesNotReturnStaleResults(t *testing.T) {
 
 	result2, _ = task.Run(testutils.Context(t), logger.TestLogger(t),
 		pipeline.NewVarsFrom(
-			map[string]interface{}{
-				"jobRun": map[string]interface{}{
-					"meta": map[string]interface{}{
+			map[string]any{
+				"jobRun": map[string]any{
+					"meta": map[string]any{
 						"shouldFail": true,
 					},
 				},
@@ -409,9 +410,9 @@ func TestBridgeTask_DoesNotReturnStaleResults(t *testing.T) {
 	// Even though we have a cached value, this should fail since config now set to 0.
 	result2, _ = task.Run(testutils.Context(t), logger.TestLogger(t),
 		pipeline.NewVarsFrom(
-			map[string]interface{}{
-				"jobRun": map[string]interface{}{
-					"meta": map[string]interface{}{
+			map[string]any{
+				"jobRun": map[string]any{
+					"meta": map[string]any{
 						"shouldFail": true,
 					},
 				},
@@ -443,7 +444,7 @@ func TestBridgeTask_AsyncJobPendingState(t *testing.T) {
 		w.Header().Set("Content-Type", "application/json")
 
 		// w.Header().Set("X-Chainlink-Pending", "true")
-		response := map[string]interface{}{"pending": true}
+		response := map[string]any{"pending": true}
 		require.NoError(t, json.NewEncoder(w).Encode(response))
 	})
 
@@ -462,7 +463,7 @@ func TestBridgeTask_AsyncJobPendingState(t *testing.T) {
 	}
 	c := clhttptest.NewTestLocalOnlyHTTPClient()
 	trORM := pipeline.NewORM(db, logger.TestLogger(t), cfg.JobPipeline().MaxSuccessfulRuns())
-	specID, err := trORM.CreateSpec(testutils.Context(t), pipeline.Pipeline{}, *models.NewInterval(5 * time.Minute))
+	specID, err := trORM.CreateSpec(testutils.Context(t), pipeline.Pipeline{}, *sqlutil.NewInterval(5 * time.Minute))
 	require.NoError(t, err)
 	task.HelperSetDependencies(cfg.JobPipeline(), cfg.WebServer(), orm, specID, id, c)
 
@@ -477,7 +478,7 @@ func TestBridgeTask_AsyncJobPendingState(t *testing.T) {
 func TestBridgeTask_Variables(t *testing.T) {
 	t.Parallel()
 
-	validMeta := map[string]interface{}{"theMeta": "yes"}
+	validMeta := map[string]any{"theMeta": "yes"}
 
 	tests := []struct {
 		name                  string
@@ -485,7 +486,7 @@ func TestBridgeTask_Variables(t *testing.T) {
 		includeInputAtKey     string
 		inputs                []pipeline.Result
 		vars                  pipeline.Vars
-		expectedRequestData   map[string]interface{}
+		expectedRequestData   map[string]any
 		expectedErrorCause    error
 		expectedErrorContains string
 	}{
@@ -494,8 +495,8 @@ func TestBridgeTask_Variables(t *testing.T) {
 			``,
 			"input",
 			[]pipeline.Result{{Value: 123.45}},
-			pipeline.NewVarsFrom(map[string]interface{}{"some_data": map[string]interface{}{"foo": 543.21}}),
-			map[string]interface{}{
+			pipeline.NewVarsFrom(map[string]any{"some_data": map[string]any{"foo": 543.21}}),
+			map[string]any{
 				"input": 123.45,
 				"meta":  validMeta,
 			},
@@ -507,8 +508,8 @@ func TestBridgeTask_Variables(t *testing.T) {
 			`$(some_data)`,
 			"input",
 			[]pipeline.Result{{Value: 123.45}},
-			pipeline.NewVarsFrom(map[string]interface{}{"some_data": map[string]interface{}{"foo": 543.21}}),
-			map[string]interface{}{
+			pipeline.NewVarsFrom(map[string]any{"some_data": map[string]any{"foo": 543.21}}),
+			map[string]any{
 				"foo":   543.21,
 				"input": 123.45,
 				"meta":  validMeta,
@@ -521,8 +522,8 @@ func TestBridgeTask_Variables(t *testing.T) {
 			`$(some_data)`,
 			"input",
 			[]pipeline.Result{{Value: 123.45}},
-			pipeline.NewVarsFrom(map[string]interface{}{"some_data": map[string]interface{}{"foo": 543.21}}),
-			map[string]interface{}{
+			pipeline.NewVarsFrom(map[string]any{"some_data": map[string]any{"foo": 543.21}}),
+			map[string]any{
 				"foo":   543.21,
 				"input": 123.45,
 			},
@@ -534,8 +535,8 @@ func TestBridgeTask_Variables(t *testing.T) {
 			`$(some_data)`,
 			"",
 			[]pipeline.Result{{Value: 123.45}},
-			pipeline.NewVarsFrom(map[string]interface{}{"some_data": map[string]interface{}{"foo": 543.21}}),
-			map[string]interface{}{
+			pipeline.NewVarsFrom(map[string]any{"some_data": map[string]any{"foo": 543.21}}),
+			map[string]any{
 				"foo":  543.21,
 				"meta": validMeta,
 			},
@@ -547,7 +548,7 @@ func TestBridgeTask_Variables(t *testing.T) {
 			`$(some_data)`,
 			"input",
 			[]pipeline.Result{{Value: 123.45}},
-			pipeline.NewVarsFrom(map[string]interface{}{"not_some_data": map[string]interface{}{"foo": 543.21}}),
+			pipeline.NewVarsFrom(map[string]any{"not_some_data": map[string]any{"foo": 543.21}}),
 			nil,
 			pipeline.ErrKeypathNotFound,
 			"requestData",
@@ -557,7 +558,7 @@ func TestBridgeTask_Variables(t *testing.T) {
 			`$(some_data)`,
 			"input",
 			[]pipeline.Result{{Value: 123.45}},
-			pipeline.NewVarsFrom(map[string]interface{}{"some_data": 543.21}),
+			pipeline.NewVarsFrom(map[string]any{"some_data": 543.21}),
 			nil,
 			pipeline.ErrBadInput,
 			"requestData",
@@ -567,9 +568,9 @@ func TestBridgeTask_Variables(t *testing.T) {
 			`{"data":{"result":$(medianize)}}`,
 			"input",
 			[]pipeline.Result{{Value: 123.45}},
-			pipeline.NewVarsFrom(map[string]interface{}{"medianize": 543.21}),
-			map[string]interface{}{
-				"data":  map[string]interface{}{"result": 543.21},
+			pipeline.NewVarsFrom(map[string]any{"medianize": 543.21}),
+			map[string]any{
+				"data":  map[string]any{"result": 543.21},
 				"input": 123.45,
 				"meta":  validMeta,
 			},
@@ -581,9 +582,9 @@ func TestBridgeTask_Variables(t *testing.T) {
 			`{"data":{"result":$(medianize)}}`,
 			"input",
 			[]pipeline.Result{{Value: 123.45}},
-			pipeline.NewVarsFrom(map[string]interface{}{"medianize": 543.21}),
-			map[string]interface{}{
-				"data":  map[string]interface{}{"result": 543.21},
+			pipeline.NewVarsFrom(map[string]any{"medianize": 543.21}),
+			map[string]any{
+				"data":  map[string]any{"result": 543.21},
 				"input": 123.45,
 			},
 			nil,
@@ -594,9 +595,9 @@ func TestBridgeTask_Variables(t *testing.T) {
 			`{"data":{"result":$(medianize)}}`,
 			"",
 			[]pipeline.Result{{Value: 123.45}},
-			pipeline.NewVarsFrom(map[string]interface{}{"medianize": 543.21}),
-			map[string]interface{}{
-				"data": map[string]interface{}{"result": 543.21},
+			pipeline.NewVarsFrom(map[string]any{"medianize": 543.21}),
+			map[string]any{
+				"data": map[string]any{"result": 543.21},
 				"meta": validMeta,
 			},
 			nil,
@@ -607,7 +608,7 @@ func TestBridgeTask_Variables(t *testing.T) {
 			`{"data":{"result":$(medianize)}}`,
 			"input",
 			[]pipeline.Result{{Value: 123.45}},
-			pipeline.NewVarsFrom(map[string]interface{}{"nope": "foo bar"}),
+			pipeline.NewVarsFrom(map[string]any{"nope": "foo bar"}),
 			nil,
 			pipeline.ErrKeypathNotFound,
 			"requestData",
@@ -615,7 +616,6 @@ func TestBridgeTask_Variables(t *testing.T) {
 	}
 
 	for _, test := range tests {
-		test := test
 
 		t.Run(test.name, func(t *testing.T) {
 			t.Parallel()
@@ -640,7 +640,7 @@ func TestBridgeTask_Variables(t *testing.T) {
 			}
 			c := clhttptest.NewTestLocalOnlyHTTPClient()
 			trORM := pipeline.NewORM(db, logger.TestLogger(t), cfg.JobPipeline().MaxSuccessfulRuns())
-			specID, err := trORM.CreateSpec(testutils.Context(t), pipeline.Pipeline{}, *models.NewInterval(5 * time.Minute))
+			specID, err := trORM.CreateSpec(testutils.Context(t), pipeline.Pipeline{}, *sqlutil.NewInterval(5 * time.Minute))
 			require.NoError(t, err)
 			task.HelperSetDependencies(cfg.JobPipeline(), cfg.WebServer(), orm, specID, uuid.UUID{}, c)
 
@@ -708,12 +708,12 @@ func TestBridgeTask_Meta(t *testing.T) {
 	}
 	c := clhttptest.NewTestLocalOnlyHTTPClient()
 	trORM := pipeline.NewORM(db, logger.TestLogger(t), cfg.JobPipeline().MaxSuccessfulRuns())
-	specID, err := trORM.CreateSpec(testutils.Context(t), pipeline.Pipeline{}, *models.NewInterval(5 * time.Minute))
+	specID, err := trORM.CreateSpec(testutils.Context(t), pipeline.Pipeline{}, *sqlutil.NewInterval(5 * time.Minute))
 	require.NoError(t, err)
 	task.HelperSetDependencies(cfg.JobPipeline(), cfg.WebServer(), orm, specID, uuid.UUID{}, c)
 
-	mp := map[string]interface{}{"meta": metaDataForBridge}
-	res, _ := task.Run(testutils.Context(t), logger.TestLogger(t), pipeline.NewVarsFrom(map[string]interface{}{"jobRun": mp}), nil)
+	mp := map[string]any{"meta": metaDataForBridge}
+	res, _ := task.Run(testutils.Context(t), logger.TestLogger(t), pipeline.NewVarsFrom(map[string]any{"jobRun": mp}), nil)
 	assert.NoError(t, res.Error)
 
 	assert.True(t, httpCalled.Load())
@@ -728,7 +728,7 @@ func TestBridgeTask_IncludeInputAtKey(t *testing.T) {
 		name               string
 		inputs             []pipeline.Result
 		includeInputAtKey  string
-		expectedInput      interface{}
+		expectedInput      any
 		expectedErrorCause error
 	}{
 		{"no input, no includeInputAtKey", nil, "", nil, nil},
@@ -739,7 +739,6 @@ func TestBridgeTask_IncludeInputAtKey(t *testing.T) {
 	}
 
 	for _, test := range tests {
-		test := test
 
 		t.Run(test.name, func(t *testing.T) {
 			db := pgtest.NewSqlxDB(t)
@@ -762,7 +761,7 @@ func TestBridgeTask_IncludeInputAtKey(t *testing.T) {
 			}
 			c := clhttptest.NewTestLocalOnlyHTTPClient()
 			trORM := pipeline.NewORM(db, logger.TestLogger(t), cfg.JobPipeline().MaxSuccessfulRuns())
-			specID, err := trORM.CreateSpec(testutils.Context(t), pipeline.Pipeline{}, *models.NewInterval(5 * time.Minute))
+			specID, err := trORM.CreateSpec(testutils.Context(t), pipeline.Pipeline{}, *sqlutil.NewInterval(5 * time.Minute))
 			require.NoError(t, err)
 			task.HelperSetDependencies(cfg.JobPipeline(), cfg.WebServer(), orm, specID, uuid.UUID{}, c)
 
@@ -818,7 +817,7 @@ func TestBridgeTask_ErrorMessage(t *testing.T) {
 	}
 	c := clhttptest.NewTestLocalOnlyHTTPClient()
 	trORM := pipeline.NewORM(db, logger.TestLogger(t), cfg.JobPipeline().MaxSuccessfulRuns())
-	specID, err := trORM.CreateSpec(testutils.Context(t), pipeline.Pipeline{}, *models.NewInterval(5 * time.Minute))
+	specID, err := trORM.CreateSpec(testutils.Context(t), pipeline.Pipeline{}, *sqlutil.NewInterval(5 * time.Minute))
 	require.NoError(t, err)
 	task.HelperSetDependencies(cfg.JobPipeline(), cfg.WebServer(), orm, specID, uuid.UUID{}, c)
 
@@ -857,7 +856,7 @@ func TestBridgeTask_OnlyErrorMessage(t *testing.T) {
 	}
 	c := clhttptest.NewTestLocalOnlyHTTPClient()
 	trORM := pipeline.NewORM(db, logger.TestLogger(t), cfg.JobPipeline().MaxSuccessfulRuns())
-	specID, err := trORM.CreateSpec(testutils.Context(t), pipeline.Pipeline{}, *models.NewInterval(5 * time.Minute))
+	specID, err := trORM.CreateSpec(testutils.Context(t), pipeline.Pipeline{}, *sqlutil.NewInterval(5 * time.Minute))
 	require.NoError(t, err)
 	task.HelperSetDependencies(cfg.JobPipeline(), cfg.WebServer(), orm, specID, uuid.UUID{}, c)
 
@@ -882,7 +881,7 @@ func TestBridgeTask_ErrorIfBridgeMissing(t *testing.T) {
 	c := clhttptest.NewTestLocalOnlyHTTPClient()
 	orm := bridges.NewORM(db)
 	trORM := pipeline.NewORM(db, logger.TestLogger(t), cfg.JobPipeline().MaxSuccessfulRuns())
-	specID, err := trORM.CreateSpec(testutils.Context(t), pipeline.Pipeline{}, *models.NewInterval(5 * time.Minute))
+	specID, err := trORM.CreateSpec(testutils.Context(t), pipeline.Pipeline{}, *sqlutil.NewInterval(5 * time.Minute))
 	require.NoError(t, err)
 	task.HelperSetDependencies(cfg.JobPipeline(), cfg.WebServer(), orm, specID, uuid.UUID{}, c)
 
@@ -970,7 +969,7 @@ func TestBridgeTask_Headers(t *testing.T) {
 
 		c := clhttptest.NewTestLocalOnlyHTTPClient()
 		trORM := pipeline.NewORM(db, logger.TestLogger(t), cfg.JobPipeline().MaxSuccessfulRuns())
-		specID, err := trORM.CreateSpec(testutils.Context(t), pipeline.Pipeline{}, *models.NewInterval(5 * time.Minute))
+		specID, err := trORM.CreateSpec(testutils.Context(t), pipeline.Pipeline{}, *sqlutil.NewInterval(5 * time.Minute))
 		require.NoError(t, err)
 		task.HelperSetDependencies(cfg.JobPipeline(), cfg.WebServer(), orm, specID, uuid.UUID{}, c)
 
@@ -992,7 +991,7 @@ func TestBridgeTask_Headers(t *testing.T) {
 
 		c := clhttptest.NewTestLocalOnlyHTTPClient()
 		trORM := pipeline.NewORM(db, logger.TestLogger(t), cfg.JobPipeline().MaxSuccessfulRuns())
-		specID, err := trORM.CreateSpec(testutils.Context(t), pipeline.Pipeline{}, *models.NewInterval(5 * time.Minute))
+		specID, err := trORM.CreateSpec(testutils.Context(t), pipeline.Pipeline{}, *sqlutil.NewInterval(5 * time.Minute))
 		require.NoError(t, err)
 		task.HelperSetDependencies(cfg.JobPipeline(), cfg.WebServer(), orm, specID, uuid.UUID{}, c)
 
@@ -1013,7 +1012,7 @@ func TestBridgeTask_Headers(t *testing.T) {
 
 		c := clhttptest.NewTestLocalOnlyHTTPClient()
 		trORM := pipeline.NewORM(db, logger.TestLogger(t), cfg.JobPipeline().MaxSuccessfulRuns())
-		specID, err := trORM.CreateSpec(testutils.Context(t), pipeline.Pipeline{}, *models.NewInterval(5 * time.Minute))
+		specID, err := trORM.CreateSpec(testutils.Context(t), pipeline.Pipeline{}, *sqlutil.NewInterval(5 * time.Minute))
 		require.NoError(t, err)
 		task.HelperSetDependencies(cfg.JobPipeline(), cfg.WebServer(), orm, specID, uuid.UUID{}, c)
 
@@ -1063,14 +1062,14 @@ func TestBridgeTask_AdapterResponseStatusFailure(t *testing.T) {
 	}
 	c := clhttptest.NewTestLocalOnlyHTTPClient()
 	trORM := pipeline.NewORM(db, logger.TestLogger(t), cfg.JobPipeline().MaxSuccessfulRuns())
-	specID, err := trORM.CreateSpec(ctx, pipeline.Pipeline{}, *models.NewInterval(5 * time.Minute))
+	specID, err := trORM.CreateSpec(ctx, pipeline.Pipeline{}, *sqlutil.NewInterval(5 * time.Minute))
 	require.NoError(t, err)
 	task.HelperSetDependencies(cfg.JobPipeline(), cfg.WebServer(), orm, specID, uuid.UUID{}, c)
 
 	vars := pipeline.NewVarsFrom(
-		map[string]interface{}{
-			"jobRun": map[string]interface{}{
-				"meta": map[string]interface{}{
+		map[string]any{
+			"jobRun": map[string]any{
+				"meta": map[string]any{
 					"shouldFail": true,
 				},
 			},
@@ -1078,7 +1077,7 @@ func TestBridgeTask_AdapterResponseStatusFailure(t *testing.T) {
 	)
 
 	testAdapterResponse.SetStatusCode(http.StatusInternalServerError)
-	testAdapterResponse.Error = map[string]interface{}{
+	testAdapterResponse.Error = map[string]any{
 		"name":    "AdapterLWBAError",
 		"message": "bid ask violation detected",
 	}
@@ -1160,7 +1159,7 @@ func TestBridgeTask_AdapterTimeout(t *testing.T) {
 	}
 	c := clhttptest.NewTestLocalOnlyHTTPClient()
 	trORM := pipeline.NewORM(db, logger.TestLogger(t), cfg.JobPipeline().MaxSuccessfulRuns())
-	specID, err := trORM.CreateSpec(ctx, pipeline.Pipeline{}, *models.NewInterval(5 * time.Minute))
+	specID, err := trORM.CreateSpec(ctx, pipeline.Pipeline{}, *sqlutil.NewInterval(5 * time.Minute))
 	require.NoError(t, err)
 	task.HelperSetDependencies(cfg.JobPipeline(), cfg.WebServer(), orm, specID, uuid.UUID{}, c)
 
@@ -1171,9 +1170,9 @@ func TestBridgeTask_AdapterTimeout(t *testing.T) {
 	require.NoError(t, err)
 
 	vars := pipeline.NewVarsFrom(
-		map[string]interface{}{
-			"jobRun": map[string]interface{}{
-				"meta": map[string]interface{}{
+		map[string]any{
+			"jobRun": map[string]any{
+				"meta": map[string]any{
 					"shouldFail": true,
 				},
 			},

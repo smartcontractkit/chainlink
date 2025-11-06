@@ -1,0 +1,31 @@
+type = "offchainreporting2"
+schemaVersion = 1
+externalJobID = "{{ .ExternalJobID }}"
+name = "{{ .JobName }}"
+forwardingAllowed = false
+maxTaskDuration = "0s"
+contractID = "{{ .ContractID }}"
+relay = "evm"
+pluginType = "dontime"
+ocrKeyBundleID = "{{ .OCR2EVMKeyBundleID }}"
+p2pv2Bootstrappers = [
+{{ range .P2Pv2Bootstrappers }}  "{{ . }}",
+{{ end }}]
+transmitterID = "{{ .TransmitterID }}"
+
+[relayConfig]
+chainID = "{{ .ChainID }}"
+providerType = "dontime"
+
+[pluginConfig]
+pluginName = "dontime"
+ocrVersion = 3
+telemetryType = "plugin"
+
+[onchainSigningStrategy]
+strategyName = 'multi-chain'
+[onchainSigningStrategy.config]
+evm = "{{ .OCR2EVMKeyBundleID }}"
+{{- if .OCR2AptosKeyBundleID }}
+aptos = "{{ .OCR2AptosKeyBundleID }}"
+{{ end }}

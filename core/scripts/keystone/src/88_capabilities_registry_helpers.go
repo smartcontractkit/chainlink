@@ -21,10 +21,10 @@ import (
 	"google.golang.org/protobuf/types/known/durationpb"
 
 	capabilitiespb "github.com/smartcontractkit/chainlink-common/pkg/capabilities/pb"
-	"github.com/smartcontractkit/chainlink-common/pkg/values"
 	kcr "github.com/smartcontractkit/chainlink-evm/gethwrappers/keystone/generated/capabilities_registry_1_1_0"
 	evmclient "github.com/smartcontractkit/chainlink-evm/pkg/client"
 	evmtypes "github.com/smartcontractkit/chainlink-evm/pkg/types"
+	"github.com/smartcontractkit/chainlink-protos/cre/go/values"
 	helpers "github.com/smartcontractkit/chainlink/core/scripts/common"
 )
 
@@ -60,7 +60,7 @@ func extractRevertReason(errData string, a abi.ABI) (string, string, error) {
 	return "", "", errors.New("revert Reason could not be found for given abistring")
 }
 
-func (c *CapabilityRegistryProvisioner) testCallContract(method string, args ...interface{}) error {
+func (c *CapabilityRegistryProvisioner) testCallContract(method string, args ...any) error {
 	abi := evmtypes.MustGetABI(kcr.CapabilitiesRegistryABI)
 	data, err := abi.Pack(method, args...)
 	helpers.PanicErr(err)

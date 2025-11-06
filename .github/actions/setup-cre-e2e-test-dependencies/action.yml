@@ -33,7 +33,7 @@ runs:
       shell: bash
       env:
         DOWNLOAD_PATH: ${{ github.workspace }}/system-tests/binaries-deps
-        EXPECTED_PATH: ${{ github.workspace }}/system-tests/tests/smoke/cre
+        EXPECTED_PATH: ${{ github.workspace }}/core/scripts/cre/environment/binaries/
         CAPABILITY_NAMES: ${{ inputs.capability-names }}
         CAPABILITY_VERSION: ${{ inputs.capability-version }}
       run: |
@@ -97,6 +97,8 @@ runs:
 
         echo "Contents of ${DOWNLOAD_PATH}/ before moving:"
         ls -la ${DOWNLOAD_PATH}/
+
+        mkdir -p ${EXPECTED_PATH}/
 
         mv ${DOWNLOAD_PATH}/* ${EXPECTED_PATH}/
 

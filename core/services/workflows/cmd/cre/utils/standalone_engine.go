@@ -2,7 +2,9 @@ package utils
 
 import (
 	"context"
+	"errors"
 	"fmt"
+	"io"
 	"strings"
 	"time"
 
@@ -12,16 +14,16 @@ import (
 	"gopkg.in/yaml.v3"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/billing"
-	"github.com/smartcontractkit/chainlink-common/pkg/settings/limits"
-
+	commoncap "github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	httpserver "github.com/smartcontractkit/chainlink-common/pkg/capabilities/v2/actions/http/server"
 	consensusserver "github.com/smartcontractkit/chainlink-common/pkg/capabilities/v2/consensus/server"
+	"github.com/smartcontractkit/chainlink-common/pkg/contexts"
 	"github.com/smartcontractkit/chainlink-common/pkg/custmsg"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
-	"github.com/smartcontractkit/chainlink-common/pkg/workflows/dontime"
-	sdkpb "github.com/smartcontractkit/chainlink-common/pkg/workflows/sdk/v2/pb"
+	"github.com/smartcontractkit/chainlink-common/pkg/settings/limits"
 	"github.com/smartcontractkit/chainlink-common/pkg/workflows/wasm/host"
+	sdkpb "github.com/smartcontractkit/chainlink-protos/cre/go/sdk"
 
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/fakes"
@@ -44,9 +46,13 @@ const (
 	defaultName                      = "myworkflow"
 )
 
-var (
-	defaultTimeout = 10 * time.Minute
-)
+var defaultTimeout = 10 * time.Minute
+
+type mockSubscriber struct{}
+
+func (m mockSubscriber) Subscribe(_ context.Context) (<-chan commoncap.DON, func(), error) {
+	return make(<-chan commoncap.DON), func() {}, nil
+}
 
 func NewStandaloneEngine(
 	ctx context.Context,
@@ -57,6 +63,7 @@ func NewStandaloneEngine(
 	lifecycleHooks v2.LifecycleHooks,
 	workflowName string,
 ) (services.Service, []*sdkpb.TriggerSubscription, error) {
+	ctx = contexts.WithCRE(ctx, contexts.CRE{Owner: defaultOwner, Workflow: defaultWorkflowID})
 	labeler := custmsg.NewLabeler()
 	moduleConfig := &host.ModuleConfig{
 		Logger:                  lggr,
@@ -66,7 +73,7 @@ func NewStandaloneEngine(
 		Timeout:                 &defaultTimeout,
 	}
 
-	module, err := host.NewModule(moduleConfig, binary, host.WithDeterminism())
+	module, err := host.NewModule(ctx, moduleConfig, binary, host.WithDeterminism())
 	if err != nil {
 		return nil, nil, fmt.Errorf("unable to create module from config: %w", err)
 	}
@@ -81,6 +88,10 @@ func NewStandaloneEngine(
 	}
 
 	lf := limits.Factory{Logger: logger.Named(lggr, "Limits")}
+	limiters, err := v2.NewLimiters(lf, nil)
+	if err != nil {
+		return nil, nil, err
+	}
 	rl, err := ratelimiter.NewRateLimiter(ratelimiter.Config{
 		GlobalRPS:      defaultRPS,
 		GlobalBurst:    defaultBurst,
@@ -90,7 +101,6 @@ func NewStandaloneEngine(
 	if err != nil {
 		return nil, nil, err
 	}
-
 	workflowLimits, err := syncerlimiter.NewWorkflowLimits(lggr, syncerlimiter.Config{
 		Global:   1000000000,
 		PerOwner: 1000000000,
@@ -147,21 +157,23 @@ func NewStandaloneEngine(
 	}
 
 	cfg := &v2.EngineConfig{
-		Lggr:            lggr,
-		Module:          module,
-		WorkflowConfig:  config,
-		CapRegistry:     registry,
-		DonTimeStore:    dontime.NewStore(dontime.DefaultRequestTimeout),
-		ExecutionsStore: store.NewInMemoryStore(lggr, clockwork.NewRealClock()),
+		Lggr:                 lggr,
+		Module:               module,
+		WorkflowConfig:       config,
+		CapRegistry:          registry,
+		DonSubscriber:        mockSubscriber{},
+		UseLocalTimeProvider: true,
+		ExecutionsStore:      store.NewInMemoryStore(lggr, clockwork.NewRealClock()),
 
 		WorkflowID:    defaultWorkflowID,
 		WorkflowOwner: defaultOwner,
 		WorkflowName:  name,
 		WorkflowTag:   "workflowTag",
 
-		LocalLimits:          v2.EngineLimits{},
-		GlobalLimits:         workflowLimits,
-		ExecutionRateLimiter: rl,
+		LocalLimits:                       v2.EngineLimits{},
+		LocalLimiters:                     limiters,
+		GlobalExecutionConcurrencyLimiter: workflowLimits,
+		GlobalExecutionRateLimiter:        rl,
 
 		BeholderEmitter: custmsg.NewLabeler(),
 
@@ -177,9 +189,16 @@ func NewStandaloneEngine(
 		return nil, nil, err
 	}
 
+	moduleExecuteMaxResponseSizeBytes, err := cfg.LocalLimiters.ExecutionResponse.Limit(ctx)
+	if err != nil {
+		return nil, nil, err
+	}
+	if moduleExecuteMaxResponseSizeBytes < 0 {
+		return nil, nil, fmt.Errorf("invalid moduleExecuteMaxResponseSizeBytes; must not be negative: %d", moduleExecuteMaxResponseSizeBytes)
+	}
 	result, err := module.Execute(ctx, &sdkpb.ExecuteRequest{
 		Request:         &sdkpb.ExecuteRequest_Subscribe{},
-		MaxResponseSize: uint64(cfg.LocalLimits.ModuleExecuteMaxResponseSizeBytes),
+		MaxResponseSize: uint64(moduleExecuteMaxResponseSizeBytes), //nolint:gosec // G115
 		Config:          config,
 	}, v2.NewDisallowedExecutionHelper(lggr, nil, &types.LocalTimeProvider{}, secretsFetcher))
 	if err != nil {
@@ -190,7 +209,16 @@ func NewStandaloneEngine(
 	}
 	triggerSubscriptions := result.GetTriggerSubscriptions()
 
-	return engine, triggerSubscriptions.GetSubscriptions(), nil
+	return &serviceWithClosers{engine, []io.Closer{limiters, workflowLimits, rl}}, triggerSubscriptions.GetSubscriptions(), nil
+}
+
+type serviceWithClosers struct {
+	services.Service
+	closers []io.Closer
+}
+
+func (s *serviceWithClosers) Close() error {
+	return errors.Join(s.Service.Close(), services.MultiCloser(s.closers).Close())
 }
 
 // yamlConfig represents the structure of your secrets.yaml file.
@@ -233,7 +261,8 @@ func (f *fileBasedSecrets) GetSecrets(ctx context.Context, request *sdkpb.GetSec
 			responses = append(responses, &sdkpb.SecretResponse{
 				Response: &sdkpb.SecretResponse_Error{
 					Error: &sdkpb.SecretError{
-						Error: "secret found but no value associated"},
+						Error: "secret found but no value associated",
+					},
 				},
 			})
 			continue

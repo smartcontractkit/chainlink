@@ -1,16 +1,11 @@
 package example_test
 
 import (
-	"context"
 	"testing"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/stretchr/testify/require"
-
-	chain_selectors "github.com/smartcontractkit/chain-selectors"
-
-	cldf_chain "github.com/smartcontractkit/chainlink-deployments-framework/chain"
 
 	"github.com/smartcontractkit/chainlink/deployment/common/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/common/changeset/example"
@@ -19,13 +14,14 @@ import (
 // TestAddMintersBurnersLink tests the AddMintersBurnersLink changeset
 func TestAddMintersBurnersLink(t *testing.T) {
 	t.Parallel()
-	ctx := context.Background()
-	// Deploy Link Token and Timelock contracts and add addresses to environment
-	env := setupLinkTransferTestEnv(t)
 
-	chainSelector := env.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chain_selectors.FamilyEVM))[0]
-	chain := env.BlockChains.EVMChains()[chainSelector]
-	addrs, err := env.ExistingAddresses.AddressesForChain(chainSelector)
+	var (
+		ctx          = t.Context()
+		rt, selector = setupLinkTransferRuntime(t) // Deploy Link Token and Timelock contracts and add addresses to environment
+	)
+
+	chain := rt.Environment().BlockChains.EVMChains()[selector]
+	addrs, err := rt.State().AddressBook.AddressesForChain(selector)
 	require.NoError(t, err)
 	require.Len(t, addrs, 6)
 
@@ -37,8 +33,8 @@ func TestAddMintersBurnersLink(t *testing.T) {
 	timelockAddress := mcmsState.Timelock.Address()
 
 	// Mint some funds
-	_, err = example.AddMintersBurnersLink(env, &example.AddMintersBurnersLinkConfig{
-		ChainSelector: chainSelector,
+	_, err = example.AddMintersBurnersLink(rt.Environment(), &example.AddMintersBurnersLinkConfig{
+		ChainSelector: selector,
 		Minters:       []common.Address{timelockAddress},
 		Burners:       []common.Address{timelockAddress},
 	})

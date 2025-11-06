@@ -17,11 +17,13 @@ import (
 	chainselectors "github.com/smartcontractkit/chain-selectors"
 	libocr2 "github.com/smartcontractkit/libocr/offchainreporting2plus"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/beholder"
 	commonlogger "github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/loop"
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 	commontypes "github.com/smartcontractkit/chainlink-common/pkg/types"
 	cciptypes "github.com/smartcontractkit/chainlink-common/pkg/types/ccip"
+	"github.com/smartcontractkit/chainlink-evm/pkg/config"
 	"github.com/smartcontractkit/chainlink-evm/pkg/txmgr"
 
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
@@ -39,7 +41,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/pricegetter"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/promwrapper"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
-	evmrelaytypes "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/types"
 )
 
 var defaultNewReportingPluginRetryConfig = ccipdata.RetryConfig{
@@ -122,7 +123,7 @@ func NewCommitServices(
 	}
 	srcChain, ok := chainselectors.ChainByEvmChainID(uint64(sourceChainID))
 	if !ok {
-		return nil, fmt.Errorf("failed to get source chain by evm ID %d", destChainID)
+		return nil, fmt.Errorf("failed to get source chain by evm ID %d", sourceChainID)
 	}
 	dstChain, ok2 := chainselectors.ChainByEvmChainID(uint64(destChainID))
 	if !ok2 {
@@ -139,7 +140,12 @@ func NewCommitServices(
 	onRampReader = observability.NewObservedOnRampReader(onRampReader, sourceChainID, ccip.CommitPluginLabel)
 	commitStoreReader = observability.NewObservedCommitStoreReader(commitStoreReader, destChainID, ccip.CommitPluginLabel)
 	offRampReader = observability.NewObservedOffRampReader(offRampReader, destChainID, ccip.CommitPluginLabel)
-	metricsCollector := ccip.NewPluginMetricsCollector(ccip.CommitPluginLabel, sourceChainID, destChainID)
+
+	bhClient := beholder.GetClient().ForPackage("ccip-ocr2-commit")
+	metricsCollector, err := ccip.NewPluginMetricsCollector(ccip.CommitPluginLabel, bhClient, sourceChainID, destChainID, srcChain.Name, dstChain.Name)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create plugin metrics collector: %w", err)
+	}
 
 	chainHealthCheck := cache.NewObservedChainHealthCheck(
 		cache.NewChainHealthcheck(
@@ -300,11 +306,11 @@ func initCommitPriceGetter(
 				return nil, fmt.Errorf("get relay by id=%v: %w", relayID, err)
 			}
 
-			contractsConfig := make(map[string]evmrelaytypes.ChainContractReader, len(aggregatorContracts))
+			contractsConfig := make(map[string]config.ChainContractReader, len(aggregatorContracts))
 			for i := range aggregatorContracts {
-				contractsConfig[fmt.Sprintf("%v_%v", ccip.OffchainAggregator, i)] = evmrelaytypes.ChainContractReader{
+				contractsConfig[fmt.Sprintf("%v_%v", ccip.OffchainAggregator, i)] = config.ChainContractReader{
 					ContractABI: ccip.OffChainAggregatorABI,
-					Configs: map[string]*evmrelaytypes.ChainReaderDefinition{
+					Configs: map[string]*config.ChainReaderDefinition{
 						"decimals": { // CR consumers choose an alias
 							ChainSpecificName: "decimals",
 						},
@@ -314,7 +320,7 @@ func initCommitPriceGetter(
 					},
 				}
 			}
-			contractReaderConfig := evmrelaytypes.ChainReaderConfig{
+			contractReaderConfig := config.ChainReaderConfig{
 				Contracts: contractsConfig,
 			}
 

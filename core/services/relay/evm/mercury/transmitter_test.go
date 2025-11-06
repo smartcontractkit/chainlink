@@ -17,10 +17,9 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/triggers"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 
+	"github.com/smartcontractkit/chainlink-evm/pkg/testutils"
 	"github.com/smartcontractkit/chainlink-evm/pkg/utils"
 	"github.com/smartcontractkit/chainlink/v2/core/config"
-	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
-	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
 	mercurytypes "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury/types"
 	mercuryutils "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury/utils"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury/wsrpc"
@@ -44,10 +43,10 @@ func (m mockCfg) TransmitTimeout() time.Duration {
 
 func Test_MercuryTransmitter_Transmit(t *testing.T) {
 	lggr := logger.Test(t)
-	db := pgtest.NewSqlxDB(t)
+	db := testutils.NewSqlxDB(t)
 	var jobID int32
-	pgtest.MustExec(t, db, `SET CONSTRAINTS mercury_transmit_requests_job_id_fkey DEFERRED`)
-	pgtest.MustExec(t, db, `SET CONSTRAINTS feed_latest_reports_job_id_fkey DEFERRED`)
+	testutils.MustExec(t, db, `SET CONSTRAINTS mercury_transmit_requests_job_id_fkey DEFERRED`)
+	testutils.MustExec(t, db, `SET CONSTRAINTS feed_latest_reports_job_id_fkey DEFERRED`)
 	codec := new(mockCodec)
 	benchmarkPriceDecoder := func(ctx context.Context, feedID mercuryutils.FeedID, report ocrtypes.Report) (*big.Int, error) {
 		return codec.BenchmarkPriceFromReport(ctx, report)
@@ -56,20 +55,6 @@ func Test_MercuryTransmitter_Transmit(t *testing.T) {
 	clients := map[string]wsrpc.Client{}
 
 	t.Run("with one mercury server", func(t *testing.T) {
-		t.Run("v1 report transmission successfully enqueued", func(t *testing.T) {
-			report := sampleV1Report
-			c := &mocks.MockWSRPCClient{}
-			clients[sURL] = c
-			mt := NewTransmitter(lggr, mockCfg{}, clients, sampleClientPubKey, jobID, sampleFeedID, orm, codec, benchmarkPriceDecoder, nil)
-			// init the queue since we skipped starting transmitter
-			mt.servers[sURL].q.Init([]*Transmission{})
-			err := mt.Transmit(testutils.Context(t), sampleReportContext, report, sampleSigs)
-			require.NoError(t, err)
-
-			// ensure it was added to the queue
-			require.Equal(t, mt.servers[sURL].q.(*transmitQueue).pq.Len(), 1)
-			assert.Subset(t, mt.servers[sURL].q.(*transmitQueue).pq.Pop().(*Transmission).Req.Payload, report)
-		})
 		t.Run("v2 report transmission successfully enqueued", func(t *testing.T) {
 			report := sampleV2Report
 			c := &mocks.MockWSRPCClient{}
@@ -143,7 +128,7 @@ func Test_MercuryTransmitter_Transmit(t *testing.T) {
 func Test_MercuryTransmitter_LatestTimestamp(t *testing.T) {
 	t.Parallel()
 	lggr := logger.Test(t)
-	db := pgtest.NewSqlxDB(t)
+	db := testutils.NewSqlxDB(t)
 	var jobID int32
 	codec := new(mockCodec)
 	benchmarkPriceDecoder := func(ctx context.Context, feedID mercuryutils.FeedID, report ocrtypes.Report) (*big.Int, error) {
@@ -252,7 +237,7 @@ func (m *mockCodec) ObservationTimestampFromReport(ctx context.Context, report o
 func Test_MercuryTransmitter_LatestPrice(t *testing.T) {
 	t.Parallel()
 	lggr := logger.Test(t)
-	db := pgtest.NewSqlxDB(t)
+	db := testutils.NewSqlxDB(t)
 	var jobID int32
 
 	codec := new(mockCodec)
@@ -332,7 +317,7 @@ func Test_MercuryTransmitter_FetchInitialMaxFinalizedBlockNumber(t *testing.T) {
 	t.Parallel()
 
 	lggr := logger.Test(t)
-	db := pgtest.NewSqlxDB(t)
+	db := testutils.NewSqlxDB(t)
 	var jobID int32
 	codec := new(mockCodec)
 	benchmarkPriceDecoder := func(ctx context.Context, feedID mercuryutils.FeedID, report ocrtypes.Report) (*big.Int, error) {
@@ -466,7 +451,7 @@ func Test_MercuryTransmitter_runQueueLoop(t *testing.T) {
 	feedIDHex := utils.NewHash().Hex()
 	lggr := logger.Test(t)
 	c := &mocks.MockWSRPCClient{}
-	db := pgtest.NewSqlxDB(t)
+	db := testutils.NewSqlxDB(t)
 	orm := NewORM(db)
 	pm := NewPersistenceManager(lggr, sURL, orm, 0, 0, 0, 0)
 	cfg := mockCfg{}

@@ -2,13 +2,10 @@ package framework
 
 import (
 	"context"
-	"crypto/sha256"
 	"encoding/hex"
 	"errors"
 	"fmt"
 	"strings"
-
-	"github.com/mr-tron/base58"
 
 	kcr "github.com/smartcontractkit/chainlink-evm/gethwrappers/keystone/generated/capabilities_registry_1_1_0"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
@@ -44,7 +41,7 @@ func peerToNode(nopID uint32, p peerIDAndOCRSigner) (kcr.CapabilitiesRegistryNod
 func getKeyBundlesAndP2PKeys(donName string, numNodes int) ([]ocr2key.KeyBundle, []p2pkey.KeyV2, error) {
 	var keyBundles []ocr2key.KeyBundle
 	var donPeerKeys []p2pkey.KeyV2
-	for i := 0; i < numNodes; i++ {
+	for range numNodes {
 		key, err := p2pkey.NewV2()
 		if err != nil {
 			return nil, nil, fmt.Errorf("failed to create p2p key: %w", err)
@@ -140,18 +137,6 @@ func getSignerStringFromOCRKeyBundle(keyBundle ocr2key.KeyBundle) (string, error
 	}
 
 	return fmt.Sprintf("0x%x", keyBundle.PublicKey()), nil
-}
-
-func NewPeerID(donName string, nodeOrdinal int) string {
-	privKeyString := fmt.Sprintf("privatekey:%s:%d", donName, nodeOrdinal)
-	privKey := sha256.Sum256([]byte(privKeyString))
-	peerID := append(libp2pMagic(), privKey[:]...)
-
-	return base58.Encode(peerID)
-}
-
-func libp2pMagic() []byte {
-	return []byte{0x00, 0x24, 0x08, 0x01, 0x12, 0x20}
 }
 
 func ptr[T any](t T) *T { return &t }

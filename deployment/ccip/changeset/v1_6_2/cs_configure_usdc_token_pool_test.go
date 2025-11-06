@@ -1,12 +1,14 @@
 package v1_6_2_test
 
 import (
+	"maps"
 	"math/big"
+	"slices"
 	"testing"
 
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/gagliardetto/solana-go"
 	"github.com/stretchr/testify/require"
-	"go.uber.org/zap/zapcore"
 
 	chain_selectors "github.com/smartcontractkit/chain-selectors"
 
@@ -18,27 +20,26 @@ import (
 	cldf_chain "github.com/smartcontractkit/chainlink-deployments-framework/chain"
 	cldf_evm "github.com/smartcontractkit/chainlink-deployments-framework/chain/evm"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
-	"github.com/smartcontractkit/chainlink-evm/gethwrappers/shared/generated/burn_mint_erc677"
+	"github.com/smartcontractkit/chainlink-deployments-framework/engine/test/environment"
+	"github.com/smartcontractkit/chainlink-deployments-framework/engine/test/runtime"
+	"github.com/smartcontractkit/chainlink-evm/gethwrappers/shared/generated/initial/burn_mint_erc677"
+	"github.com/smartcontractkit/chainlink-evm/pkg/utils"
 
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
-	commoncs "github.com/smartcontractkit/chainlink/deployment/common/changeset"
-	"github.com/smartcontractkit/chainlink/deployment/environment/memory"
 )
 
-func setupUSDCTokenPoolsEnvironmentForConfigure(t *testing.T, withPrereqs bool) (cldf.Environment, []uint64) {
-	env := memory.NewMemoryEnvironment(t,
-		logger.Test(t),
-		zapcore.InfoLevel,
-		memory.MemoryEnvironmentConfig{
-			SolChains: 1,
-			Chains:    2,
-		},
-	)
+func setupUSDCTokenPoolsEnvironmentForConfigure(t *testing.T, withPrereqs bool) *runtime.Runtime {
+	rt, err := runtime.New(t.Context(), runtime.WithEnvOpts(
+		environment.WithEVMSimulatedN(t, 2),
+		environment.WithSolanaContainerN(t, 1, t.TempDir(), map[string]string{}),
+		environment.WithLogger(logger.Test(t)),
+	))
+	require.NoError(t, err)
 
-	selectors := env.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chain_selectors.FamilyEVM))
+	selectors := rt.Environment().BlockChains.ListChainSelectors(cldf_chain.WithFamily(chain_selectors.FamilyEVM))
 	if withPrereqs {
 		var err error
 
@@ -49,18 +50,15 @@ func setupUSDCTokenPoolsEnvironmentForConfigure(t *testing.T, withPrereqs bool) 
 			}
 		}
 
-		env, err = commoncs.Apply(t, env,
-			commoncs.Configure(
-				cldf.CreateLegacyChangeSet(changeset.DeployPrerequisitesChangeset),
-				changeset.DeployPrerequisiteConfig{
-					Configs: prereqCfg,
-				},
-			),
+		err = rt.Exec(
+			runtime.ChangesetTask(cldf.CreateLegacyChangeSet(changeset.DeployPrerequisitesChangeset), changeset.DeployPrerequisiteConfig{
+				Configs: prereqCfg,
+			}),
 		)
 		require.NoError(t, err)
 	}
 
-	return env, selectors
+	return rt
 }
 
 func setupUSDCTokenPoolsContractsForConfigure(
@@ -127,52 +125,41 @@ func setupUSDCTokenPoolsContractsForConfigure(
 func TestValidateConfigUSDCTokenPoolInput(t *testing.T) {
 	t.Parallel()
 
-	env, selectors := setupUSDCTokenPoolsEnvironmentForConfigure(t, true)
-	require.GreaterOrEqual(t, len(selectors), 1)
+	rt := setupUSDCTokenPoolsEnvironmentForConfigure(t, true)
 
-	solChainSelectors := env.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chain_selectors.FamilySolana))
-	require.GreaterOrEqual(t, len(solChainSelectors), 1)
+	solChains := rt.Environment().BlockChains.SolanaChains()
+	require.GreaterOrEqual(t, len(solChains), 1)
+	solChain := slices.Collect(maps.Values(solChains))[0]
 
-	evmChainSelectors := env.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chain_selectors.FamilyEVM))
-	require.GreaterOrEqual(t, len(evmChainSelectors), 1)
-
-	solChain := env.BlockChains.SolanaChains()[solChainSelectors[0]]
-	evmChain := env.BlockChains.EVMChains()[evmChainSelectors[0]]
+	evmChains := rt.Environment().BlockChains.EVMChains()
+	require.GreaterOrEqual(t, len(evmChains), 1)
+	evmChain := slices.Collect(maps.Values(evmChains))[0]
 
 	addressBook := cldf.NewMemoryAddressBook()
-	usdcToken, tokenMsngr := setupUSDCTokenPoolsContractsForConfigure(t, env.Logger, evmChain, addressBook)
+	usdcToken, tokenMsngr := setupUSDCTokenPoolsContractsForConfigure(t, rt.Environment().Logger, evmChain, addressBook)
 
-	env, err := commoncs.Apply(t, env,
-		commoncs.Configure(
-			v1_6_2.DeployCCTPMessageTransmitterProxyNew,
-			v1_6_2.DeployCCTPMessageTransmitterProxyContractConfig{
-				USDCProxies: map[uint64]v1_6_2.DeployCCTPMessageTransmitterProxyInput{
-					evmChain.Selector: {
-						TokenMessenger: tokenMsngr.Address,
-					},
+	err := rt.Exec(
+		runtime.ChangesetTask(v1_6_2.DeployCCTPMessageTransmitterProxyNew, v1_6_2.DeployCCTPMessageTransmitterProxyContractConfig{
+			USDCProxies: map[uint64]v1_6_2.DeployCCTPMessageTransmitterProxyInput{
+				evmChain.Selector: {
+					TokenMessenger: tokenMsngr.Address,
 				},
 			},
-		),
+		}),
+		runtime.ChangesetTask(v1_6_2.DeployUSDCTokenPoolNew, v1_6_2.DeployUSDCTokenPoolContractsConfig{
+			USDCPools: map[uint64]v1_6_2.DeployUSDCTokenPoolInput{
+				evmChain.Selector: {
+					PreviousPoolAddress: v1_6_2.USDCTokenPoolSentinelAddress,
+					TokenMessenger:      tokenMsngr.Address,
+					TokenAddress:        usdcToken.Address,
+					PoolType:            shared.USDCTokenPool,
+				},
+			},
+		}),
 	)
 	require.NoError(t, err)
 
-	env, err = commoncs.Apply(t, env,
-		commoncs.Configure(
-			v1_6_2.DeployUSDCTokenPoolNew,
-			v1_6_2.DeployUSDCTokenPoolContractsConfig{
-				USDCPools: map[uint64]v1_6_2.DeployUSDCTokenPoolInput{
-					evmChain.Selector: {
-						PreviousPoolAddress: v1_6_2.USDCTokenPoolSentinelAddress,
-						TokenMessenger:      tokenMsngr.Address,
-						TokenAddress:        usdcToken.Address,
-					},
-				},
-			},
-		),
-	)
-	require.NoError(t, err)
-
-	state, err := stateview.LoadOnchainState(env)
+	state, err := stateview.LoadOnchainState(rt.Environment())
 	require.NoError(t, err)
 
 	minterPrivKey, err := solana.NewRandomPrivateKey()
@@ -192,8 +179,8 @@ func TestValidateConfigUSDCTokenPoolInput(t *testing.T) {
 			Input: v1_6_2.ConfigUSDCTokenPoolInput{
 				DestinationUpdates: map[uint64]v1_6_2.DomainUpdateInput{
 					0: {
-						MintRecipient:    solana.PublicKey{},
-						AllowedCaller:    solana.PublicKey{},
+						MintRecipient:    "",
+						AllowedCaller:    "",
 						DomainIdentifier: dummyDomainID,
 						Enabled:          true,
 					},
@@ -202,12 +189,26 @@ func TestValidateConfigUSDCTokenPoolInput(t *testing.T) {
 			ErrStr: "invalid destination chain selector",
 		},
 		{
+			Msg: "Solana mint recipient cannot be empty string",
+			Input: v1_6_2.ConfigUSDCTokenPoolInput{
+				DestinationUpdates: map[uint64]v1_6_2.DomainUpdateInput{
+					solChain.Selector: {
+						MintRecipient:    "",
+						AllowedCaller:    callerPrivKey.PublicKey().String(),
+						DomainIdentifier: dummyDomainID,
+						Enabled:          true,
+					},
+				},
+			},
+			ErrStr: "invalid mint recipient format",
+		},
+		{
 			Msg: "Solana mint recipient cannot be zero address",
 			Input: v1_6_2.ConfigUSDCTokenPoolInput{
 				DestinationUpdates: map[uint64]v1_6_2.DomainUpdateInput{
 					solChain.Selector: {
-						MintRecipient:    solana.PublicKey{},
-						AllowedCaller:    callerPrivKey.PublicKey(),
+						MintRecipient:    solana.PublicKey{}.String(),
+						AllowedCaller:    callerPrivKey.PublicKey().String(),
 						DomainIdentifier: dummyDomainID,
 						Enabled:          true,
 					},
@@ -216,12 +217,26 @@ func TestValidateConfigUSDCTokenPoolInput(t *testing.T) {
 			ErrStr: "mint recipient must be defined for Solana destination chain selector",
 		},
 		{
+			Msg: "Solana allowed caller cannot be empty string",
+			Input: v1_6_2.ConfigUSDCTokenPoolInput{
+				DestinationUpdates: map[uint64]v1_6_2.DomainUpdateInput{
+					solChain.Selector: {
+						MintRecipient:    minterPrivKey.PublicKey().String(),
+						AllowedCaller:    "",
+						DomainIdentifier: dummyDomainID,
+						Enabled:          true,
+					},
+				},
+			},
+			ErrStr: "invalid allowed caller format",
+		},
+		{
 			Msg: "Solana allowed caller cannot be zero address",
 			Input: v1_6_2.ConfigUSDCTokenPoolInput{
 				DestinationUpdates: map[uint64]v1_6_2.DomainUpdateInput{
 					solChain.Selector: {
-						MintRecipient:    minterPrivKey.PublicKey(),
-						AllowedCaller:    solana.PublicKey{},
+						MintRecipient:    minterPrivKey.PublicKey().String(),
+						AllowedCaller:    solana.PublicKey{}.String(),
 						DomainIdentifier: dummyDomainID,
 						Enabled:          true,
 					},
@@ -229,12 +244,38 @@ func TestValidateConfigUSDCTokenPoolInput(t *testing.T) {
 			},
 			ErrStr: "allowed caller must be defined for Solana destination chain selector",
 		},
+		{
+			Msg: "EVM allowed caller cannot be empty string",
+			Input: v1_6_2.ConfigUSDCTokenPoolInput{
+				DestinationUpdates: map[uint64]v1_6_2.DomainUpdateInput{
+					evmChain.Selector: {
+						AllowedCaller:    "",
+						DomainIdentifier: dummyDomainID,
+						Enabled:          true,
+					},
+				},
+			},
+			ErrStr: "allowed caller must be defined for EVM destination chain selector",
+		},
+		{
+			Msg: "EVM allowed caller cannot be zero address",
+			Input: v1_6_2.ConfigUSDCTokenPoolInput{
+				DestinationUpdates: map[uint64]v1_6_2.DomainUpdateInput{
+					evmChain.Selector: {
+						AllowedCaller:    utils.ZeroAddress.String(),
+						DomainIdentifier: dummyDomainID,
+						Enabled:          true,
+					},
+				},
+			},
+			ErrStr: "allowed caller must be defined for EVM destination chain selector",
+		},
 	}
 
 	for _, test := range tests {
 		t.Run(test.Msg, func(t *testing.T) {
-			err := test.Input.Validate(env.GetContext(), evmChain, state.Chains[evmChain.Selector])
-			require.Contains(t, err.Error(), test.ErrStr)
+			err := test.Input.Validate(t.Context(), evmChain, state.Chains[evmChain.Selector])
+			require.ErrorContains(t, err, test.ErrStr)
 		})
 	}
 }
@@ -242,101 +283,120 @@ func TestValidateConfigUSDCTokenPoolInput(t *testing.T) {
 func TestConfigureUSDCTokenPools(t *testing.T) {
 	t.Parallel()
 
-	env, selectors := setupUSDCTokenPoolsEnvironmentForConfigure(t, true)
-	require.GreaterOrEqual(t, len(selectors), 1)
+	rt := setupUSDCTokenPoolsEnvironmentForConfigure(t, true)
 
-	solChainSelectors := env.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chain_selectors.FamilySolana))
-	require.GreaterOrEqual(t, len(solChainSelectors), 1)
+	solChains := slices.Collect(maps.Values(rt.Environment().BlockChains.SolanaChains()))
+	require.GreaterOrEqual(t, len(solChains), 1)
 
-	evmChainSelectors := env.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chain_selectors.FamilyEVM))
-	require.GreaterOrEqual(t, len(evmChainSelectors), 1)
+	evmChains := slices.Collect(maps.Values(rt.Environment().BlockChains.EVMChains()))
+	require.GreaterOrEqual(t, len(evmChains), 1)
 
-	newUSDCMsgProxies := make(map[uint64]v1_6_2.DeployCCTPMessageTransmitterProxyInput, len(selectors))
-	newUSDCTokenPools := make(map[uint64]v1_6_2.DeployUSDCTokenPoolInput, len(selectors))
-	newUSDCConfigs := make(map[uint64]v1_6_2.ConfigUSDCTokenPoolInput, len(selectors))
+	chainsLen := len(solChains) + len(evmChains)
+
+	newUSDCMsgProxies := make(map[uint64]v1_6_2.DeployCCTPMessageTransmitterProxyInput, chainsLen)
+	newUSDCTokenPools := make(map[uint64]v1_6_2.DeployUSDCTokenPoolInput, chainsLen)
+	newUSDCConfigs := make(map[uint64]v1_6_2.ConfigUSDCTokenPoolInput, chainsLen)
 	addrBook := cldf.NewMemoryAddressBook()
-	dummyDomainID := uint32(0)
-	for _, evmSelector := range evmChainSelectors {
+	dummySolDomainID := uint32(0)
+	dummyEVMDomainID := uint32(1)
+	for _, evmChain := range evmChains {
 		usdcToken, tokenMessenger := setupUSDCTokenPoolsContractsForConfigure(t,
-			env.Logger,
-			env.BlockChains.EVMChains()[evmSelector],
+			rt.Environment().Logger,
+			evmChain,
 			addrBook,
 		)
 
-		newUSDCMsgProxies[evmSelector] = v1_6_2.DeployCCTPMessageTransmitterProxyInput{
+		newUSDCMsgProxies[evmChain.Selector] = v1_6_2.DeployCCTPMessageTransmitterProxyInput{
 			TokenMessenger: tokenMessenger.Address,
 		}
 
-		newUSDCTokenPools[evmSelector] = v1_6_2.DeployUSDCTokenPoolInput{
+		newUSDCTokenPools[evmChain.Selector] = v1_6_2.DeployUSDCTokenPoolInput{
 			PreviousPoolAddress: v1_6_2.USDCTokenPoolSentinelAddress,
 			TokenMessenger:      tokenMessenger.Address,
 			TokenAddress:        usdcToken.Address,
+			PoolType:            shared.USDCTokenPool,
 		}
 
 		destUpdates := map[uint64]v1_6_2.DomainUpdateInput{}
-		for _, solSelector := range solChainSelectors {
+		for _, solChain := range solChains {
 			minterPrivKey, err := solana.NewRandomPrivateKey()
 			require.NoError(t, err)
 
 			callerPrivKey, err := solana.NewRandomPrivateKey()
 			require.NoError(t, err)
 
-			destUpdates[solSelector] = v1_6_2.DomainUpdateInput{
-				MintRecipient:    minterPrivKey.PublicKey(),
-				AllowedCaller:    callerPrivKey.PublicKey(),
-				DomainIdentifier: dummyDomainID,
+			destUpdates[solChain.Selector] = v1_6_2.DomainUpdateInput{
+				MintRecipient:    minterPrivKey.PublicKey().String(),
+				AllowedCaller:    callerPrivKey.PublicKey().String(),
+				DomainIdentifier: dummySolDomainID,
 				Enabled:          true,
 			}
 		}
 
-		newUSDCConfigs[evmSelector] = v1_6_2.ConfigUSDCTokenPoolInput{
+		for _, remoteEVMChain := range evmChains {
+			if remoteEVMChain.Selector == evmChain.Selector {
+				continue
+			}
+
+			// Add config for EVM to EVM domain update
+			destUpdates[remoteEVMChain.Selector] = v1_6_2.DomainUpdateInput{
+				AllowedCaller:    utils.RandomAddress().String(),
+				DomainIdentifier: dummyEVMDomainID,
+				Enabled:          true,
+			}
+		}
+
+		newUSDCConfigs[evmChain.Selector] = v1_6_2.ConfigUSDCTokenPoolInput{
 			DestinationUpdates: destUpdates,
 		}
 	}
 
-	env, err := commoncs.Apply(t, env,
-		commoncs.Configure(
-			v1_6_2.DeployCCTPMessageTransmitterProxyNew,
-			v1_6_2.DeployCCTPMessageTransmitterProxyContractConfig{
-				USDCProxies: newUSDCMsgProxies,
-			},
-		),
+	err := rt.Exec(
+		runtime.ChangesetTask(v1_6_2.DeployCCTPMessageTransmitterProxyNew, v1_6_2.DeployCCTPMessageTransmitterProxyContractConfig{
+			USDCProxies: newUSDCMsgProxies,
+		}),
+		runtime.ChangesetTask(v1_6_2.DeployUSDCTokenPoolNew, v1_6_2.DeployUSDCTokenPoolContractsConfig{
+			USDCPools: newUSDCTokenPools,
+		}),
+		runtime.ChangesetTask(v1_6_2.ConfigUSDCTokenPoolChangeSet, v1_6_2.ConfigUSDCTokenPoolConfig{
+			USDCPools: newUSDCConfigs,
+		}),
 	)
 	require.NoError(t, err)
 
-	env, err = commoncs.Apply(t, env,
-		commoncs.Configure(
-			v1_6_2.DeployUSDCTokenPoolNew,
-			v1_6_2.DeployUSDCTokenPoolContractsConfig{
-				USDCPools: newUSDCTokenPools,
-			},
-		),
-	)
+	state, err := stateview.LoadOnchainState(rt.Environment())
 	require.NoError(t, err)
-
-	env, err = commoncs.Apply(t, env,
-		commoncs.Configure(
-			v1_6_2.ConfigUSDCTokenPoolChangeSet,
-			v1_6_2.ConfigUSDCTokenPoolConfig{
-				USDCPools: newUSDCConfigs,
-			},
-		),
-	)
-	require.NoError(t, err)
-
-	state, err := stateview.LoadOnchainState(env)
-	require.NoError(t, err)
-	for _, evmSelector := range evmChainSelectors {
-		pools := state.Chains[evmSelector].USDCTokenPoolsV1_6
+	for _, evmChain := range evmChains {
+		pools := state.Chains[evmChain.Selector].USDCTokenPoolsV1_6
 		require.Len(t, pools, 1)
 
-		for _, solSelector := range solChainSelectors {
-			actualDomain, err := pools[deployment.Version1_6_2].GetDomain(nil, solSelector)
+		for _, solChain := range solChains {
+			actualDomain, err := pools[deployment.Version1_6_2].GetDomain(nil, solChain.Selector)
 			require.NoError(t, err)
 
-			expectedDomain := newUSDCConfigs[evmSelector].DestinationUpdates[solSelector]
-			require.Equal(t, expectedDomain.AllowedCaller.Bytes(), actualDomain.AllowedCaller[:])
-			require.Equal(t, expectedDomain.MintRecipient.Bytes(), actualDomain.MintRecipient[:])
+			expectedDomain := newUSDCConfigs[evmChain.Selector].DestinationUpdates[solChain.Selector]
+
+			allowedCallerAddr, err := solana.PublicKeyFromBase58(expectedDomain.AllowedCaller)
+			require.NoError(t, err)
+			mintRecipientAddr, err := solana.PublicKeyFromBase58(expectedDomain.MintRecipient)
+			require.NoError(t, err)
+			require.Equal(t, allowedCallerAddr.Bytes(), actualDomain.AllowedCaller[:])
+			require.Equal(t, mintRecipientAddr.Bytes(), actualDomain.MintRecipient[:])
+			require.Equal(t, expectedDomain.DomainIdentifier, actualDomain.DomainIdentifier)
+			require.Equal(t, expectedDomain.Enabled, actualDomain.Enabled)
+		}
+
+		for _, remoteEVMChain := range evmChains {
+			if remoteEVMChain.Selector == evmChain.Selector {
+				continue
+			}
+			actualDomain, err := pools[deployment.Version1_6_2].GetDomain(nil, remoteEVMChain.Selector)
+			require.NoError(t, err)
+
+			expectedDomain := newUSDCConfigs[evmChain.Selector].DestinationUpdates[remoteEVMChain.Selector]
+
+			allowedCallerAddr := common.LeftPadBytes(common.HexToAddress(expectedDomain.AllowedCaller).Bytes(), 32)
+			require.Equal(t, allowedCallerAddr, actualDomain.AllowedCaller[:])
 			require.Equal(t, expectedDomain.DomainIdentifier, actualDomain.DomainIdentifier)
 			require.Equal(t, expectedDomain.Enabled, actualDomain.Enabled)
 		}

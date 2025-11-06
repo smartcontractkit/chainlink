@@ -5,7 +5,9 @@ package mocks
 import (
 	context "context"
 
+	feedsmanager "github.com/smartcontractkit/chainlink-protos/orchestrator/feedsmanager"
 	feeds "github.com/smartcontractkit/chainlink/v2/core/services/feeds"
+
 	mock "github.com/stretchr/testify/mock"
 )
 
@@ -623,6 +625,65 @@ func (_c *Service_GetJobProposal_Call) Return(_a0 *feeds.JobProposal, _a1 error)
 }
 
 func (_c *Service_GetJobProposal_Call) RunAndReturn(run func(context.Context, int64) (*feeds.JobProposal, error)) *Service_GetJobProposal_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
+// GetJobRuns provides a mock function with given fields: ctx, args
+func (_m *Service) GetJobRuns(ctx context.Context, args *feeds.GetJobRunsArgs) ([]*feedsmanager.JobRunSummary, error) {
+	ret := _m.Called(ctx, args)
+
+	if len(ret) == 0 {
+		panic("no return value specified for GetJobRuns")
+	}
+
+	var r0 []*feedsmanager.JobRunSummary
+	var r1 error
+	if rf, ok := ret.Get(0).(func(context.Context, *feeds.GetJobRunsArgs) ([]*feedsmanager.JobRunSummary, error)); ok {
+		return rf(ctx, args)
+	}
+	if rf, ok := ret.Get(0).(func(context.Context, *feeds.GetJobRunsArgs) []*feedsmanager.JobRunSummary); ok {
+		r0 = rf(ctx, args)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).([]*feedsmanager.JobRunSummary)
+		}
+	}
+
+	if rf, ok := ret.Get(1).(func(context.Context, *feeds.GetJobRunsArgs) error); ok {
+		r1 = rf(ctx, args)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// Service_GetJobRuns_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'GetJobRuns'
+type Service_GetJobRuns_Call struct {
+	*mock.Call
+}
+
+// GetJobRuns is a helper method to define mock.On call
+//   - ctx context.Context
+//   - args *feeds.GetJobRunsArgs
+func (_e *Service_Expecter) GetJobRuns(ctx interface{}, args interface{}) *Service_GetJobRuns_Call {
+	return &Service_GetJobRuns_Call{Call: _e.mock.On("GetJobRuns", ctx, args)}
+}
+
+func (_c *Service_GetJobRuns_Call) Run(run func(ctx context.Context, args *feeds.GetJobRunsArgs)) *Service_GetJobRuns_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(context.Context), args[1].(*feeds.GetJobRunsArgs))
+	})
+	return _c
+}
+
+func (_c *Service_GetJobRuns_Call) Return(_a0 []*feedsmanager.JobRunSummary, _a1 error) *Service_GetJobRuns_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *Service_GetJobRuns_Call) RunAndReturn(run func(context.Context, *feeds.GetJobRunsArgs) ([]*feedsmanager.JobRunSummary, error)) *Service_GetJobRuns_Call {
 	_c.Call.Return(run)
 	return _c
 }

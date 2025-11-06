@@ -17,7 +17,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	capabilitiespb "github.com/smartcontractkit/chainlink-common/pkg/capabilities/pb"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
-	"github.com/smartcontractkit/chainlink-common/pkg/values"
+	"github.com/smartcontractkit/chainlink-protos/cre/go/values"
 
 	// "github.com/smartcontractkit/chainlink/common/pkg/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/remote/aggregation"
@@ -48,7 +48,7 @@ func TestSignedReportAggregator_Aggregate(t *testing.T) {
 	// Setup test data
 	eventID := "test-event-123"
 	configDigest := ocr2types.ConfigDigest{}
-	for i := 0; i < len(configDigest); i++ {
+	for i := range len(configDigest) {
 		configDigest[i] = byte(i)
 	}
 	seqNr := uint64(123)

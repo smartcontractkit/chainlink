@@ -7,6 +7,7 @@ on:
   push:
     branches:
       - develop
+      - release/**
   workflow_dispatch:
     inputs:
       git-ref:
@@ -14,7 +15,7 @@ on:
         required: true
 
 concurrency:
-  group: "docker-build-${{ github.ref_name }}"
+  group: "docker-build-${{ github.event_name }}-${{ github.ref_name }}"
   cancel-in-progress: true
 
 jobs:
@@ -33,6 +34,7 @@ jobs:
         }}
       runner-arm64: ${{ steps.runner-labels.outputs.runner-arm64 }}
       runner-amd64: ${{ steps.runner-labels.outputs.runner-amd64 }}
+      version-tag: ${{ steps.version-info.outputs.version-tag }}
     steps:
       - name: Get PR Labels
         id: pr-labels
@@ -59,13 +61,24 @@ jobs:
             echo "runner-amd64=${GH_RUNNER_LABEL_AMD64}" | tee -a "$GITHUB_OUTPUT"
           fi
 
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Version Info
+        id: version-info
+        run: |
+          version_tag=$( git describe --always )
+          echo "version-tag=${version_tag}" | tee -a "$GITHUB_OUTPUT"
+
   docker-core:
     needs: [init]
     if: ${{ needs.init.outputs.should-run == 'true' }}
     permissions:
       contents: read
       id-token: write
-    uses: smartcontractkit/.github/.github/workflows/reusable-docker-build-publish.yml@c8bc2e3e0b0ba91253d4cfcba830e31302dd1e4c # June 4, 2025
+    uses: smartcontractkit/.github/.github/workflows/reusable-docker-build-publish.yml@22d5fad58e04f71e0e45279b684f30f9237d4f46 # 2025-10-22
     with:
       aws-ecr-name: chainlink
       aws-region-ecr: us-west-2
@@ -75,6 +88,7 @@ jobs:
       docker-build-args: |
         CHAINLINK_USER=chainlink
         COMMIT_SHA=${{ github.sha }}
+        VERSION_TAG=${{ needs.init.outputs.version-tag }}
       docker-manifest-sign: true
       git-sha: ${{ inputs.git-ref || github.sha }}
       github-event-name: ${{ github.event_name }}
@@ -86,7 +100,7 @@ jobs:
     secrets:
       AWS_ACCOUNT_ID: ${{ secrets.AWS_ACCOUNT_ID_SDLC }}
       AWS_ROLE_PUBLISH_ARN: ${{ secrets.AWS_OIDC_IAM_ROLE_BUILD_PUBLISH_DEVELOP_PR }}
-      AWS_ROLE_GATI_ARN: ${{ secrets.AWS_OIDC_GLOBAL_READ_ONLY_TOKEN_ISSUER_ROLE_ARN }}
+      AWS_ROLE_GATI_ARN: ${{ secrets.AWS_OIDC_CHAINLINK_READ_ONLY_TOKEN_ISSUER_ROLE_ARN }}
       AWS_LAMBDA_GATI_URL: ${{ secrets.AWS_INFRA_RELENG_TOKEN_ISSUER_LAMBDA_URL }}
 
   docker-core-plugins:
@@ -95,7 +109,7 @@ jobs:
     permissions:
       contents: read
       id-token: write
-    uses: smartcontractkit/.github/.github/workflows/reusable-docker-build-publish.yml@c8bc2e3e0b0ba91253d4cfcba830e31302dd1e4c # June 4, 2025
+    uses: smartcontractkit/.github/.github/workflows/reusable-docker-build-publish.yml@22d5fad58e04f71e0e45279b684f30f9237d4f46 # 2025-10-22
     with:
       aws-ecr-name: chainlink
       aws-region-ecr: us-west-2
@@ -105,6 +119,7 @@ jobs:
       docker-build-args: |
         CHAINLINK_USER=chainlink
         COMMIT_SHA=${{ github.sha }}
+        VERSION_TAG=${{ needs.init.outputs.version-tag }}
         CL_INSTALL_PRIVATE_PLUGINS=true
       docker-manifest-sign: true
       docker-tag-custom-suffix: "-plugins"
@@ -118,7 +133,7 @@ jobs:
     secrets:
       AWS_ACCOUNT_ID: ${{ secrets.AWS_ACCOUNT_ID_SDLC }}
       AWS_ROLE_PUBLISH_ARN: ${{ secrets.AWS_OIDC_IAM_ROLE_BUILD_PUBLISH_DEVELOP_PR }}
-      AWS_ROLE_GATI_ARN: ${{ secrets.AWS_OIDC_GLOBAL_READ_ONLY_TOKEN_ISSUER_ROLE_ARN }}
+      AWS_ROLE_GATI_ARN: ${{ secrets.AWS_OIDC_CHAINLINK_READ_ONLY_TOKEN_ISSUER_ROLE_ARN }}
       AWS_LAMBDA_GATI_URL: ${{ secrets.AWS_INFRA_RELENG_TOKEN_ISSUER_LAMBDA_URL }}
 
   docker-core-plugins-testing:
@@ -127,7 +142,7 @@ jobs:
     permissions:
       contents: read
       id-token: write
-    uses: smartcontractkit/.github/.github/workflows/reusable-docker-build-publish.yml@4962346cc5ffc9f3840f48639e7b5fa179bcc2cc # 2025-05-28
+    uses: smartcontractkit/.github/.github/workflows/reusable-docker-build-publish.yml@22d5fad58e04f71e0e45279b684f30f9237d4f46 # 2025-10-22
     with:
       aws-ecr-name: chainlink
       aws-region-ecr: us-west-2
@@ -137,9 +152,9 @@ jobs:
       docker-build-args: |
         CHAINLINK_USER=chainlink
         COMMIT_SHA=${{ github.sha }}
+        VERSION_TAG=${{ needs.init.outputs.version-tag }}
         CL_INSTALL_PRIVATE_PLUGINS=true
         CL_INSTALL_TESTING_PLUGINS=true
-      docker-build-cache-disabled: "true"
       docker-manifest-sign: true
       docker-tag-custom-suffix: "-plugins-testing"
       git-sha: ${{ inputs.git-ref || github.sha }}
@@ -152,7 +167,7 @@ jobs:
     secrets:
       AWS_ACCOUNT_ID: ${{ secrets.AWS_ACCOUNT_ID_SDLC }}
       AWS_ROLE_PUBLISH_ARN: ${{ secrets.AWS_OIDC_IAM_ROLE_BUILD_PUBLISH_DEVELOP_PR }}
-      AWS_ROLE_GATI_ARN: ${{ secrets.AWS_OIDC_GLOBAL_READ_ONLY_TOKEN_ISSUER_ROLE_ARN }}
+      AWS_ROLE_GATI_ARN: ${{ secrets.AWS_OIDC_CHAINLINK_READ_ONLY_TOKEN_ISSUER_ROLE_ARN }}
       AWS_LAMBDA_GATI_URL: ${{ secrets.AWS_INFRA_RELENG_TOKEN_ISSUER_LAMBDA_URL }}
 
   docker-ccip:
@@ -161,7 +176,7 @@ jobs:
     permissions:
       contents: read
       id-token: write
-    uses: smartcontractkit/.github/.github/workflows/reusable-docker-build-publish.yml@c8bc2e3e0b0ba91253d4cfcba830e31302dd1e4c # June 4, 2025
+    uses: smartcontractkit/.github/.github/workflows/reusable-docker-build-publish.yml@22d5fad58e04f71e0e45279b684f30f9237d4f46 # 2025-10-22
     with:
       aws-ecr-name: ccip
       aws-region-ecr: us-west-2
@@ -171,6 +186,7 @@ jobs:
       docker-build-args: |
         CHAINLINK_USER=chainlink
         COMMIT_SHA=${{ github.sha }}
+        VERSION_TAG=${{ needs.init.outputs.version-tag }}
         CL_INSTALL_PRIVATE_PLUGINS=true
         CL_CHAIN_DEFAULTS=/ccip-config
         CL_SOLANA_CMD=
@@ -185,7 +201,7 @@ jobs:
     secrets:
       AWS_ACCOUNT_ID: ${{ secrets.AWS_ACCOUNT_ID_SDLC }}
       AWS_ROLE_PUBLISH_ARN: ${{ secrets.AWS_OIDC_IAM_ROLE_BUILD_PUBLISH_DEVELOP_PR }}
-      AWS_ROLE_GATI_ARN: ${{ secrets.AWS_OIDC_GLOBAL_READ_ONLY_TOKEN_ISSUER_ROLE_ARN }}
+      AWS_ROLE_GATI_ARN: ${{ secrets.AWS_OIDC_CHAINLINK_READ_ONLY_TOKEN_ISSUER_ROLE_ARN }}
       AWS_LAMBDA_GATI_URL: ${{ secrets.AWS_INFRA_RELENG_TOKEN_ISSUER_LAMBDA_URL }}
 
   docker-ccip-plugins:
@@ -194,7 +210,7 @@ jobs:
     permissions:
       contents: read
       id-token: write
-    uses: smartcontractkit/.github/.github/workflows/reusable-docker-build-publish.yml@c8bc2e3e0b0ba91253d4cfcba830e31302dd1e4c # June 4, 2025
+    uses: smartcontractkit/.github/.github/workflows/reusable-docker-build-publish.yml@22d5fad58e04f71e0e45279b684f30f9237d4f46 # 2025-10-22
     with:
       aws-ecr-name: ccip
       aws-region-ecr: us-west-2
@@ -204,6 +220,7 @@ jobs:
       docker-build-args: |
         CHAINLINK_USER=chainlink
         COMMIT_SHA=${{ github.sha }}
+        VERSION_TAG=${{ needs.init.outputs.version-tag }}
         CL_INSTALL_PRIVATE_PLUGINS=true
         CL_CHAIN_DEFAULTS=/ccip-config
       docker-manifest-sign: true
@@ -218,26 +235,74 @@ jobs:
     secrets:
       AWS_ACCOUNT_ID: ${{ secrets.AWS_ACCOUNT_ID_SDLC }}
       AWS_ROLE_PUBLISH_ARN: ${{ secrets.AWS_OIDC_IAM_ROLE_BUILD_PUBLISH_DEVELOP_PR }}
-      AWS_ROLE_GATI_ARN: ${{ secrets.AWS_OIDC_GLOBAL_READ_ONLY_TOKEN_ISSUER_ROLE_ARN }}
+      AWS_ROLE_GATI_ARN: ${{ secrets.AWS_OIDC_CHAINLINK_READ_ONLY_TOKEN_ISSUER_ROLE_ARN }}
       AWS_LAMBDA_GATI_URL: ${{ secrets.AWS_INFRA_RELENG_TOKEN_ISSUER_LAMBDA_URL }}
 
   call-cre-local-env-tests:
     if: ${{ github.event_name == 'schedule' || github.event_name == 'workflow_dispatch' }}
     needs: [docker-core-plugins]
-    uses: smartcontractkit/chainlink/.github/workflows/cre-local-env-tests.yaml@d25b74eaf40de22d96f0cfddcab7ff764278b469 # develop SHA from 7th July 2025
+    uses: ./.github/workflows/cre-local-env-tests.yaml
     with:
       chainlink_image_tag: ${{ needs.docker-core-plugins.outputs.docker-manifest-tag }}
       chainlink_version: ${{ github.ref_name != '' && github.ref_name || 'develop' }}
     secrets: inherit
 
   call-cre-workflow-don-benchmark:
-    if: ${{ github.event_name == 'schedule' || github.event_name == 'workflow_dispatch' }}
+    if: false
+    # temporarily disabled CRE-962
+    # if: ${{ github.event_name == 'schedule' || github.event_name == 'workflow_dispatch' }}
     needs: [docker-core-plugins-testing]
     permissions:
       contents: read
       id-token: write
-    uses: smartcontractkit/chainlink/.github/workflows/cre-workflow-don-benchmark.yaml@382b503b25a442ae5a592998039ead2429581a28 # develop SHA from 14th July 2025
+    uses: ./.github/workflows/cre-workflow-don-benchmark.yaml
     with:
       chainlink_image_tag: ${{ needs.docker-core-plugins-testing.outputs.docker-manifest-tag }}
       chainlink_version: ${{ github.ref_name != '' && github.ref_name || 'develop' }}
     secrets: inherit
+
+  deploy-nightly-core:
+    if: false
+    # temporarily disabled
+    # if: ${{ github.event_name == 'schedule' }}
+    needs: [docker-core]
+    permissions:
+      contents: read
+      id-token: write
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - name: Deploy
+        uses: ./.github/actions/deploy-image
+        with:
+          aws-role-arn: ${{ secrets.AWS_RELENG_PROD_GATI_WORKFLOW_INVOKE_ARN }}
+          aws-lambda-url: ${{ secrets.AWS_INFRA_RELENG_TOKEN_ISSUER_LAMBDA_URL }}
+          aws-region: ${{ secrets.AWS_REGION }}
+          repo-destination: ${{ secrets.REPO_K8S_DEPLOY }}
+          oci-image-tag: ${{ needs.docker-core.outputs.docker-manifest-tag }}
+          oci-repository-url: ${{ format('{0}.dkr.ecr.{1}.amazonaws.com/chainlink', secrets.AWS_ACCOUNT_ID_SDLC, secrets.AWS_REGION) }}
+          pr-close-enabled: false
+          products: |
+            cre
+
+  deploy-nightly-ccip:
+    if: ${{ github.event_name == 'schedule' }}
+    needs: [docker-ccip]
+    permissions:
+      contents: read
+      id-token: write
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - name: Deploy
+        uses: ./.github/actions/deploy-image
+        with:
+          aws-role-arn: ${{ secrets.AWS_RELENG_PROD_GATI_WORKFLOW_INVOKE_ARN }}
+          aws-lambda-url: ${{ secrets.AWS_INFRA_RELENG_TOKEN_ISSUER_LAMBDA_URL }}
+          aws-region: ${{ secrets.AWS_REGION }}
+          repo-destination: ${{ secrets.REPO_K8S_DEPLOY }}
+          oci-image-tag: ${{ needs.docker-ccip.outputs.docker-manifest-tag }}
+          oci-repository-url: ${{ format('{0}.dkr.ecr.{1}.amazonaws.com/ccip', secrets.AWS_ACCOUNT_ID_SDLC, secrets.AWS_REGION) }}
+          pr-close-enabled: false
+          products: |
+            ccip-nightlies

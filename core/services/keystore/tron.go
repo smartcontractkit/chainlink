@@ -6,7 +6,7 @@ import (
 
 	"github.com/pkg/errors"
 
-	"github.com/smartcontractkit/chainlink-common/pkg/loop"
+	"github.com/smartcontractkit/chainlink-common/pkg/types/core"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/tronkey"
 )
 
@@ -168,9 +168,10 @@ func (ks *tron) Sign(_ context.Context, id string, msg []byte) (signature []byte
 // handles signing for Tron messages.
 type TronLOOPSigner struct {
 	Tron
+	core.UnimplementedKeystore
 }
 
-var _ loop.Keystore = &TronLOOPSigner{}
+var _ core.Keystore = &TronLOOPSigner{}
 
 func (lk *TronLOOPSigner) Accounts(ctx context.Context) ([]string, error) {
 	keys, err := lk.GetAll()
@@ -184,4 +185,8 @@ func (lk *TronLOOPSigner) Accounts(ctx context.Context) ([]string, error) {
 	}
 
 	return accounts, nil
+}
+
+func (lk *TronLOOPSigner) Sign(ctx context.Context, id string, msg []byte) (signature []byte, err error) {
+	return lk.Tron.Sign(ctx, id, msg)
 }

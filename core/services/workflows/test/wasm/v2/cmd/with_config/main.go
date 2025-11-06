@@ -3,6 +3,8 @@
 package main
 
 import (
+	"log/slog"
+
 	"github.com/smartcontractkit/cre-sdk-go/cre"
 	"github.com/smartcontractkit/cre-sdk-go/cre/wasm"
 	"github.com/smartcontractkit/cre-sdk-go/internal_testing/capabilities/basictrigger"
@@ -14,8 +16,7 @@ type runtimeConfig struct {
 	Number int32  `yaml:"number"`
 }
 
-func CreateWorkflow(env *cre.Environment[*runtimeConfig]) (cre.Workflow[*runtimeConfig], error) {
-	runnerCfg := env.Config
+func CreateWorkflow(runnerCfg *runtimeConfig, _ *slog.Logger, _ cre.SecretsProvider) (cre.Workflow[*runtimeConfig], error) {
 	return cre.Workflow[*runtimeConfig]{
 		cre.Handler(
 			basictrigger.Trigger(&basictrigger.Config{
@@ -27,9 +28,9 @@ func CreateWorkflow(env *cre.Environment[*runtimeConfig]) (cre.Workflow[*runtime
 	}, nil
 }
 
-func onTrigger(env *cre.Environment[*runtimeConfig], _ cre.Runtime, _ *basictrigger.Outputs) (string, error) {
-	env.Logger.Info("onTrigger called")
-	b, err := yaml.Marshal(env.Config)
+func onTrigger(config *runtimeConfig, runtime cre.Runtime, _ *basictrigger.Outputs) (string, error) {
+	runtime.Logger().Info("onTrigger called")
+	b, err := yaml.Marshal(config)
 	if err != nil {
 		return "", err
 	}

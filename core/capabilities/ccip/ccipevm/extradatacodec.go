@@ -2,6 +2,10 @@ package ccipevm
 
 import (
 	"fmt"
+	"maps"
+	"math/big"
+
+	"github.com/pkg/errors"
 
 	cciptypes "github.com/smartcontractkit/chainlink-ccip/pkg/types/ccipocr3"
 	ccipcommon "github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/common"
@@ -9,6 +13,7 @@ import (
 
 const (
 	svmV1DecodeStructName = "decodeSVMExtraArgsStruct"
+	suiV1DecodeStructName = "decodeSuiExtraArgsStruct"
 	evmV1DecodeName       = "decodeEVMExtraArgsV1"
 	evmV2DecodeName       = "decodeEVMExtraArgsV2"
 	evmDestExecDataKey    = "destGasAmount"
@@ -18,13 +23,13 @@ const (
 type ExtraDataDecoder struct{}
 
 // DecodeDestExecDataToMap reformats bytes into a chain agnostic map[string]interface{} representation for dest exec data
-func (d ExtraDataDecoder) DecodeDestExecDataToMap(destExecData cciptypes.Bytes) (map[string]interface{}, error) {
+func (d ExtraDataDecoder) DecodeDestExecDataToMap(destExecData cciptypes.Bytes) (map[string]any, error) {
 	destGasAmount, err := abiDecodeUint32(destExecData)
 	if err != nil {
 		return nil, fmt.Errorf("decode dest gas amount: %w", err)
 	}
 
-	return map[string]interface{}{
+	return map[string]any{
 		evmDestExecDataKey: destGasAmount,
 	}, nil
 }
@@ -45,12 +50,14 @@ func (d ExtraDataDecoder) DecodeExtraArgsToMap(extraArgs cciptypes.Bytes) (map[s
 		method = evmV2DecodeName
 	case string(svmExtraArgsV1Tag):
 		method = svmV1DecodeStructName
+	case string(suiVMExtraArgsV1Tag):
+		method = suiV1DecodeStructName
 	default:
 		return nil, fmt.Errorf("unknown extra args tag: %x", extraArgs)
 	}
 
 	output := make(map[string]any)
-	args := make(map[string]interface{})
+	args := make(map[string]any)
 	err := messageHasherABI.Methods[method].Inputs.UnpackIntoMap(args, extraArgs[extraByteOffset:])
 	if err != nil {
 		return nil, fmt.Errorf("abi decode extra args %v: %w", method, err)
@@ -58,9 +65,7 @@ func (d ExtraDataDecoder) DecodeExtraArgsToMap(extraArgs cciptypes.Bytes) (map[s
 
 	switch method {
 	case evmV1DecodeName, evmV2DecodeName:
-		for k, val := range args {
-			output[k] = val
-		}
+		maps.Copy(output, args)
 	case svmV1DecodeStructName:
 		// NOTE: the cast only works with this particular struct definition, including the json tags
 		extraArgsStruct, ok := args["extraArgs"].(struct {
@@ -78,6 +83,23 @@ func (d ExtraDataDecoder) DecodeExtraArgsToMap(extraArgs cciptypes.Bytes) (map[s
 		output["allowOutOfOrderExecution"] = extraArgsStruct.AllowOutOfOrderExecution
 		output["tokenReceiver"] = extraArgsStruct.TokenReceiver
 		output["accounts"] = extraArgsStruct.Accounts
+	case suiV1DecodeStructName:
+		// NOTE: the cast only works with this exact struct layout and types, including the json tags
+		extraArgsStruct, ok := args["extraArgs"].(struct {
+			GasLimit                 *big.Int `json:"gasLimit"`
+			AllowOutOfOrderExecution bool     `json:"allowOutOfOrderExecution"`
+			TokenReceiver            [32]byte `json:"tokenReceiver"`
+			// revive:disable:var-naming
+			ReceiverObjectIds [][32]byte `json:"receiverObjectIds"`
+			// revive:enable:var-naming
+		})
+		if !ok {
+			return nil, errors.New("sui extra args struct is not the equivalent of message_hasher.ClientSuiExtraArgsV1")
+		}
+		output["gasLimit"] = extraArgsStruct.GasLimit
+		output["allowOutOfOrderExecution"] = extraArgsStruct.AllowOutOfOrderExecution
+		output["tokenReceiver"] = extraArgsStruct.TokenReceiver
+		output["receiverObjectIds"] = extraArgsStruct.ReceiverObjectIds
 	default:
 		return nil, fmt.Errorf("unknown extra args method: %s", method)
 	}

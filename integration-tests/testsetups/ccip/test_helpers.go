@@ -165,7 +165,6 @@ func (l *DeployedLocalDevEnvironment) MockLBTCAttestationServer(t *testing.T, is
 func (l *DeployedLocalDevEnvironment) RestartChainlinkNodes(t *testing.T) error {
 	errGrp := errgroup.Group{}
 	for _, n := range l.testEnv.ClCluster.Nodes {
-		n := n
 		errGrp.Go(func() error {
 			if err := n.Container.Terminate(testcontext.Get(t)); err != nil {
 				return err
@@ -333,7 +332,7 @@ func GenerateTestRMNConfig(t *testing.T, nRMNNodes int, tenv testhelpers.Deploye
 	}
 
 	rmnConfig := make(map[string]devenv.RMNConfig)
-	for i := 0; i < nRMNNodes; i++ {
+	for i := range nRMNNodes {
 		// Listen addresses _should_ be able to operator on the same port since
 		// they are inside the docker network.
 		proxyLocal := devenv.ProxyLocalConfig{
@@ -777,19 +776,4 @@ func SetNodeConfig(nets []blockchain.EVMNetwork, nodeConfig, commonChain string,
 	}
 	tomlStr, err := tomlCfg.TOMLString()
 	return tomlCfg, tomlStr, err
-}
-
-func GetSourceDestPairs(chains []uint64) []testhelpers.SourceDestPair {
-	var pairs []testhelpers.SourceDestPair
-	for i, src := range chains {
-		for j, dest := range chains {
-			if i != j {
-				pairs = append(pairs, testhelpers.SourceDestPair{
-					SourceChainSelector: src,
-					DestChainSelector:   dest,
-				})
-			}
-		}
-	}
-	return pairs
 }

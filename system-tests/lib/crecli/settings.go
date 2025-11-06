@@ -44,7 +44,7 @@ type Settings struct {
 }
 
 type DevPlatform struct {
-	DonID uint32 `yaml:"don-id,omitempty"`
+	DonID uint64 `yaml:"don-id,omitempty"`
 }
 
 type UserWorkflow struct {
@@ -119,8 +119,8 @@ func PrepareCRECLISettingsFile(
 	profile string,
 	workflowOwner common.Address,
 	addressBook cldf.AddressBook,
-	donID uint32,
-	homeChainSelector uint64,
+	donID uint64,
+	registryChainSelector uint64,
 	rpcs map[uint64]string,
 	s3ProviderOutput *s3provider.Output,
 ) (*os.File, error) {
@@ -129,14 +129,14 @@ func PrepareCRECLISettingsFile(
 		return nil, errors.Wrap(err, "failed to create CRE CLI settings file")
 	}
 
-	capRegAddr, capRegErr := contracts.FindAddressesForChain(addressBook, homeChainSelector, keystone_changeset.CapabilitiesRegistry.String())
+	capRegAddr, _, capRegErr := contracts.FindAddressesForChain(addressBook, registryChainSelector, keystone_changeset.CapabilitiesRegistry.String())
 	if capRegErr != nil {
-		return nil, errors.Wrapf(capRegErr, "failed to get capabilities registry address for chain %d", homeChainSelector)
+		return nil, errors.Wrapf(capRegErr, "failed to get capabilities registry address for chain %d", registryChainSelector)
 	}
 
-	workflowRegistryAddr, workflowRegistryErr := contracts.FindAddressesForChain(addressBook, homeChainSelector, keystone_changeset.WorkflowRegistry.String())
+	workflowRegistryAddr, _, workflowRegistryErr := contracts.FindAddressesForChain(addressBook, registryChainSelector, keystone_changeset.WorkflowRegistry.String())
 	if workflowRegistryErr != nil {
-		return nil, errors.Wrapf(workflowRegistryErr, "failed to get workflow registry address for chain %d", homeChainSelector)
+		return nil, errors.Wrapf(workflowRegistryErr, "failed to get workflow registry address for chain %d", registryChainSelector)
 	}
 
 	profileSettings := Settings{
@@ -155,12 +155,12 @@ func PrepareCRECLISettingsFile(
 				{
 					Name:          keystone_changeset.CapabilitiesRegistry.String(),
 					Address:       capRegAddr.Hex(),
-					ChainSelector: homeChainSelector,
+					ChainSelector: registryChainSelector,
 				},
 				{
 					Name:          keystone_changeset.WorkflowRegistry.String(),
 					Address:       workflowRegistryAddr.Hex(),
-					ChainSelector: homeChainSelector,
+					ChainSelector: registryChainSelector,
 				},
 			},
 		},
@@ -194,7 +194,7 @@ func PrepareCRECLISettingsFile(
 	}
 
 	for chainSelector := range addresses {
-		dfAddr, dfErr := contracts.FindAddressesForChain(addressBook, chainSelector, df_changeset.DataFeedsCache.String())
+		dfAddr, _, dfErr := contracts.FindAddressesForChain(addressBook, chainSelector, df_changeset.DataFeedsCache.String())
 		if dfErr == nil {
 			profileSettings.Contracts.DataFeeds = append(profileSettings.Contracts.DataFeeds, ContractRegistry{
 				Name:          df_changeset.DataFeedsCache.String(),
@@ -204,7 +204,7 @@ func PrepareCRECLISettingsFile(
 		}
 		// it is okay if there's no data feeds cache address for a chain
 
-		forwaderAddr, forwaderErr := contracts.FindAddressesForChain(addressBook, chainSelector, string(keystone_changeset.KeystoneForwarder))
+		forwaderAddr, _, forwaderErr := contracts.FindAddressesForChain(addressBook, chainSelector, string(keystone_changeset.KeystoneForwarder))
 		if forwaderErr == nil {
 			profileSettings.Contracts.Keystone = append(profileSettings.Contracts.Keystone, ContractRegistry{
 				Name:          keystone_changeset.KeystoneForwarder.String(),

@@ -6,8 +6,6 @@ import (
 	"fmt"
 	"time"
 
-	tc "github.com/smartcontractkit/chainlink/integration-tests/testconfig"
-
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/lib/pq"
 	"github.com/rs/zerolog"
@@ -19,13 +17,14 @@ import (
 
 	ocr2keepers20config "github.com/smartcontractkit/chainlink-automation/pkg/v2/config"
 	ocr2keepers30config "github.com/smartcontractkit/chainlink-automation/pkg/v3/config"
-
+	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 	"github.com/smartcontractkit/chainlink/deployment/environment/nodeclient"
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts/ethereum"
+	tc "github.com/smartcontractkit/chainlink/integration-tests/testconfig"
+
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/chaintype"
-	"github.com/smartcontractkit/chainlink/v2/core/store/models"
 )
 
 func ReadRegistryConfig(c tc.AutomationTestConfig) contracts.KeeperRegistrySettings {
@@ -265,10 +264,10 @@ func CreateOCRKeeperJobsLocal(
 		OCR2OracleSpec: job.OCR2OracleSpec{
 			ContractID: registryAddr,
 			Relay:      "evm",
-			RelayConfig: map[string]interface{}{
+			RelayConfig: map[string]any{
 				"chainID": int(chainID),
 			},
-			ContractConfigTrackerPollInterval: *models.NewInterval(time.Second * 15),
+			ContractConfigTrackerPollInterval: *sqlutil.NewInterval(time.Second * 15),
 		},
 	}
 	_, err = bootstrapNode.MustCreateJob(bootstrapSpec)
@@ -303,14 +302,14 @@ func CreateOCRKeeperJobsLocal(
 			OCR2OracleSpec: job.OCR2OracleSpec{
 				PluginType: "ocr2automation",
 				Relay:      "evm",
-				RelayConfig: map[string]interface{}{
+				RelayConfig: map[string]any{
 					"chainID": int(chainID),
 				},
-				PluginConfig: map[string]interface{}{
+				PluginConfig: map[string]any{
 					"mercuryCredentialName": "\"cred1\"",
 					"contractVersion":       "\"" + contractVersion + "\"",
 				},
-				ContractConfigTrackerPollInterval: *models.NewInterval(time.Second * 15),
+				ContractConfigTrackerPollInterval: *sqlutil.NewInterval(time.Second * 15),
 				ContractID:                        registryAddr,                                      // registryAddr
 				OCRKeyBundleID:                    null.StringFrom(nodeOCRKeyId[0]),                  // get node ocr2config.ID
 				TransmitterID:                     null.StringFrom(nodeTransmitterAddress[keyIndex]), // node addr

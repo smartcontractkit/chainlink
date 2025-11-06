@@ -18,6 +18,7 @@ import (
 	"github.com/pkg/errors"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
+	"google.golang.org/protobuf/types/known/timestamppb"
 	"gopkg.in/guregu/null.v4"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
@@ -39,6 +40,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr"
 	ocr2 "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/validate"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocrbootstrap"
+	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
 	"github.com/smartcontractkit/chainlink/v2/core/services/standardcapabilities"
 	"github.com/smartcontractkit/chainlink/v2/core/services/streams"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows"
@@ -140,6 +142,7 @@ type Service interface {
 	ProposeJob(ctx context.Context, args *ProposeJobArgs) (int64, error)
 	RevokeJob(ctx context.Context, args *RevokeJobArgs) (int64, error)
 	SyncNodeInfo(ctx context.Context, id int64) error
+	GetJobRuns(ctx context.Context, args *GetJobRunsArgs) ([]*pb.JobRunSummary, error)
 
 	CountJobProposalsByStatus(ctx context.Context) (*JobProposalCounts, error)
 	GetJobProposal(ctx context.Context, id int64) (*JobProposal, error)
@@ -583,6 +586,13 @@ func (s *service) ListJobProposalsByManagersIDs(ctx context.Context, ids []int64
 	return s.orm.ListJobProposalsByManagersIDs(ctx, ids)
 }
 
+// GetJobRunsArgs are the arguments to provide to the GetJobRuns method.
+type GetJobRunsArgs struct {
+	FeedsManagerID int64
+	RemoteUUID     uuid.UUID
+	Limit          uint32
+}
+
 // DeleteJobArgs are the arguments to provide to the DeleteJob method.
 type DeleteJobArgs struct {
 	FeedsManagerID int64
@@ -683,6 +693,64 @@ func (s *service) RevokeJob(ctx context.Context, args *RevokeJobArgs) (int64, er
 	}
 
 	return proposal.ID, nil
+}
+
+// GetJobRuns fetches recent job runs for a job by its remote UUID.
+func (s *service) GetJobRuns(ctx context.Context, args *GetJobRunsArgs) ([]*pb.JobRunSummary, error) {
+	s.lggr.Infow("FeedsService.GetJobRuns", "remoteUUID", args.RemoteUUID)
+
+	job, err := s.jobORM.FindJobByExternalJobID(ctx, args.RemoteUUID)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil, fmt.Errorf("job not found: %w", err)
+		}
+		return nil, fmt.Errorf("failed to find job: %w", err)
+	}
+
+	isManagedByFM, err := s.orm.IsJobManagedByFeedsManager(ctx, int64(job.ID), args.FeedsManagerID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to check if job is managed by feeds manager: %w", err)
+	}
+
+	if !isManagedByFM {
+		return nil, errors.New("job is not managed by the requesting feeds manager")
+	}
+
+	runs, _, err := s.jobORM.PipelineRuns(ctx, &job.ID, 0, int(args.Limit))
+	if err != nil {
+		return nil, fmt.Errorf("failed to fetch job runs: %w", err)
+	}
+
+	summaries := make([]*pb.JobRunSummary, 0, len(runs))
+	for _, run := range runs {
+		var finishedAt *timestamppb.Timestamp
+		if run.FinishedAt.Valid {
+			finishedAt = timestamppb.New(run.FinishedAt.Time)
+		}
+
+		summaries = append(summaries, &pb.JobRunSummary{
+			RunId:       run.ID,
+			State:       string(run.State),
+			CreatedAt:   timestamppb.New(run.CreatedAt),
+			FinishedAt:  finishedAt,
+			AllErrors:   ConvertPipelineRunErrors(run.AllErrors),
+			FatalErrors: ConvertPipelineRunErrors(run.FatalErrors),
+		})
+	}
+
+	s.lggr.Infow("Successfully retrieved job runs", "remoteUUID", args.RemoteUUID, "count", len(summaries))
+	return summaries, nil
+}
+
+// ConvertPipelineRunErrors converts pipeline.RunErrors to []string, filtering out zero values
+func ConvertPipelineRunErrors(errors pipeline.RunErrors) []string {
+	var result []string
+	for _, err := range errors {
+		if !err.IsZero() {
+			result = append(result, err.ValueOrZero())
+		}
+	}
+	return result
 }
 
 // ProposeJobArgs are the arguments to provide to the ProposeJob method.
@@ -1263,10 +1331,7 @@ func (s *service) connectFeedManager(mgr FeedsManager) {
 		URI:            mgr.URI,
 		CSASigner:      s.csaSigner,
 		Pubkey:         mgr.PublicKey,
-		Handlers: &RPCHandlers{
-			feedsManagerID: mgr.ID,
-			svc:            s,
-		},
+		Handlers:       NewRPCHandlers(s, mgr.ID, s.lggr),
 		OnConnect: func(pb.FeedsManagerClient) {
 			// Sync the node's information with FMS once connected
 			s.syncNodeInfoWithRetry(mgr.ID)
@@ -1301,8 +1366,6 @@ func (s *service) observeJobProposalCounts(ctx context.Context) error {
 		JobProposalStatusPending, JobProposalStatusApproved,
 		JobProposalStatusCancelled, JobProposalStatusRejected, JobProposalStatusDeleted, JobProposalStatusRevoked,
 	} {
-		status := status
-
 		promJobProposalCounts.With(prometheus.Labels{"status": string(status)}).Set(metrics[status])
 		promFeedsJobProposalCounts.With(prometheus.Labels{"status": string(status)}).Set(metrics[status])
 	}
@@ -1320,27 +1383,40 @@ func (s *service) Unsafe_SetConnectionsManager(connMgr ConnectionsManager) {
 	s.connMgr = connMgr
 }
 
+func parseChainIDFromJSONConfig(config job.JSONConfig) int64 {
+	if chainID, ok := config["chainID"].(int64); ok {
+		return chainID
+	}
+	return 0
+}
+
 // findExistingJobForOCR2 looks for existing job for OCR2
 func findExistingJobForOCR2(ctx context.Context, j *job.Job, tx job.ORM) (int32, error) {
 	var contractID string
 	var feedID *common.Hash
+	var relay string
+	var chainID int64
 
 	switch j.Type {
 	case job.OffchainReporting2:
 		contractID = j.OCR2OracleSpec.ContractID
 		feedID = j.OCR2OracleSpec.FeedID
+		relay = j.OCR2OracleSpec.Relay
+		chainID = parseChainIDFromJSONConfig(j.OCR2OracleSpec.RelayConfig)
 	case job.Bootstrap:
 		contractID = j.BootstrapSpec.ContractID
 		if j.BootstrapSpec.FeedID != nil {
 			feedID = j.BootstrapSpec.FeedID
 		}
+		relay = j.BootstrapSpec.Relay
+		chainID = parseChainIDFromJSONConfig(j.BootstrapSpec.RelayConfig)
 	case job.FluxMonitor, job.OffchainReporting:
 		return 0, errors.Errorf("contractID and feedID not applicable for job type: %s", j.Type)
 	default:
 		return 0, errors.Errorf("unsupported job type: %s", j.Type)
 	}
 
-	return tx.FindOCR2JobIDByAddress(ctx, contractID, feedID)
+	return tx.FindOCR2JobIDByAddress(ctx, relay, chainID, contractID, feedID)
 }
 
 // findExistingJobForOCRFlux looks for existing job for OCR or flux
@@ -1783,6 +1859,10 @@ func (ns NullService) DeleteJob(ctx context.Context, args *DeleteJobArgs) (int64
 
 func (ns NullService) RevokeJob(ctx context.Context, args *RevokeJobArgs) (int64, error) {
 	return 0, ErrFeedsManagerDisabled
+}
+
+func (ns NullService) GetJobRuns(ctx context.Context, args *GetJobRunsArgs) ([]*pb.JobRunSummary, error) {
+	return nil, ErrFeedsManagerDisabled
 }
 
 func (ns NullService) RegisterManager(ctx context.Context, params RegisterManagerParams) (int64, error) {

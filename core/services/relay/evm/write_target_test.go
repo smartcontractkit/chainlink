@@ -20,39 +20,34 @@ import (
 	chainselectors "github.com/smartcontractkit/chain-selectors"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
+	ocr3types "github.com/smartcontractkit/chainlink-common/pkg/capabilities/consensus/ocr3/types"
 	"github.com/smartcontractkit/chainlink-common/pkg/services/servicetest"
 	commontypes "github.com/smartcontractkit/chainlink-common/pkg/types"
 	commonevm "github.com/smartcontractkit/chainlink-common/pkg/types/chains/evm"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
-	"github.com/smartcontractkit/chainlink-common/pkg/values"
-
+	forwarder "github.com/smartcontractkit/chainlink-evm/gethwrappers/keystone/generated/forwarder_1_0_0"
 	"github.com/smartcontractkit/chainlink-evm/pkg/client/clienttest"
+	"github.com/smartcontractkit/chainlink-evm/pkg/config/configtest"
+	"github.com/smartcontractkit/chainlink-evm/pkg/config/toml"
 	gasmocks "github.com/smartcontractkit/chainlink-evm/pkg/gas/mocks"
 	"github.com/smartcontractkit/chainlink-evm/pkg/heads/headstest"
 	"github.com/smartcontractkit/chainlink-evm/pkg/keys"
 	"github.com/smartcontractkit/chainlink-evm/pkg/report/datafeeds"
 	df_processor "github.com/smartcontractkit/chainlink-evm/pkg/report/datafeeds/processor"
 	por_processor "github.com/smartcontractkit/chainlink-evm/pkg/report/por/processor"
+	"github.com/smartcontractkit/chainlink-evm/pkg/testutils"
 	"github.com/smartcontractkit/chainlink-evm/pkg/txmgr"
 	evmtypes "github.com/smartcontractkit/chainlink-evm/pkg/types"
-
 	"github.com/smartcontractkit/chainlink-framework/capabilities/writetarget/report/platform"
+	"github.com/smartcontractkit/chainlink-protos/cre/go/values"
 
-	ocr3types "github.com/smartcontractkit/chainlink-common/pkg/capabilities/consensus/ocr3/types"
-	forwarder "github.com/smartcontractkit/chainlink-evm/gethwrappers/keystone/generated/forwarder_1_0_0"
 	evmmocks "github.com/smartcontractkit/chainlink/v2/common/chains/mocks"
 	lpmocks "github.com/smartcontractkit/chainlink/v2/common/logpoller/mocks"
 	txmmocks "github.com/smartcontractkit/chainlink/v2/common/txmgr/mocks"
 	evmcapabilities "github.com/smartcontractkit/chainlink/v2/core/capabilities"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
-	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
-	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/configtest"
-	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/evmtest"
-	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
-	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
-
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm"
 )
 
@@ -132,24 +127,23 @@ func TestEvmWrite(t *testing.T) {
 
 	chain.On("Client").Return(evmClient)
 
-	cfg := configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
+	evmCfg := configtest.NewChainScopedConfig(t, func(c *toml.EVMConfig) {
 		a := testutils.NewAddress()
 		addr, err2 := evmtypes.NewEIP55Address(a.Hex())
 		require.NoError(t, err2)
-		c.EVM[0].Workflow.FromAddress = &addr
+		c.Workflow.FromAddress = &addr
 
 		forwarderA := testutils.NewAddress()
 		forwarderAddr, err2 := evmtypes.NewEIP55Address(forwarderA.Hex())
 		require.NoError(t, err2)
-		c.EVM[0].Workflow.ForwarderAddress = &forwarderAddr
+		c.Workflow.ForwarderAddress = &forwarderAddr
 	})
-	evmCfg := evmtest.NewChainScopedConfig(t, cfg)
 	ge := gasmocks.NewEvmFeeEstimator(t)
 
 	chain.On("Config").Return(evmCfg)
 	chain.On("GasEstimator").Return(ge)
 
-	db := pgtest.NewSqlxDB(t)
+	db := testutils.NewSqlxDB(t)
 	keyStore := cltest.NewKeyStore(t, db)
 
 	lggr := logger.TestLogger(t, zapcore.DebugLevel)
@@ -175,7 +169,7 @@ func TestEvmWrite(t *testing.T) {
 		DONID:            1,
 		DONConfigVersion: 1,
 		WorkflowID:       "1234567890123456789012345678901234567890123456789012345678901234",
-		WorkflowName:     "12345678901234567890",
+		WorkflowName:     "123456789",
 		WorkflowOwner:    "1234567890123456789012345678901234567890",
 		ReportID:         hex.EncodeToString(reportID[:]),
 	}
@@ -454,17 +448,17 @@ func TestEvmWrite(t *testing.T) {
 	t.Run("Relayer fails to start WriteTarget capability on missing config", func(t *testing.T) {
 		ctx := testutils.Context(t)
 		testChain := evmmocks.NewChain(t)
-		testCfg := configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
-			c.EVM[0].Workflow.FromAddress = nil
+		testCfg := configtest.NewChainScopedConfig(t, func(c *toml.EVMConfig) {
+			c.Workflow.FromAddress = nil
 			forwarderA := testutils.NewAddress()
 			forwarderAddr, err2 := evmtypes.NewEIP55Address(forwarderA.Hex())
 			require.NoError(t, err2)
-			c.EVM[0].Workflow.ForwarderAddress = &forwarderAddr
+			c.Workflow.ForwarderAddress = &forwarderAddr
 		})
 		testChain.On("Start", mock.Anything).Return(nil)
 		testChain.On("Close").Return(nil)
 		testChain.On("ID").Return(big.NewInt(11155111))
-		testChain.On("Config").Return(evmtest.NewChainScopedConfig(t, testCfg))
+		testChain.On("Config").Return(testCfg)
 		capabilityRegistry := evmcapabilities.NewRegistry(lggr)
 
 		relayer, err := evm.NewRelayer(lggr, testChain, evm.RelayerOpts{

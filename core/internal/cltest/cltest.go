@@ -38,8 +38,8 @@ import (
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting/types"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/settings/limits"
+	"github.com/smartcontractkit/chainlink/v2/core/config/env"
 	"github.com/smartcontractkit/chainlink/v2/core/services/llo/retirement"
-	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/artifacts"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/metering"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
@@ -81,6 +81,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/p2pkey"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/solkey"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/starkkey"
+	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/suikey"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/tonkey"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/tronkey"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/vrfkey"
@@ -92,6 +93,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury/wsrpc/cache"
 	"github.com/smartcontractkit/chainlink/v2/core/services/standardcapabilities"
 	"github.com/smartcontractkit/chainlink/v2/core/services/webhook"
+	wftypes "github.com/smartcontractkit/chainlink/v2/core/services/workflows/types"
 	clsessions "github.com/smartcontractkit/chainlink/v2/core/sessions"
 	"github.com/smartcontractkit/chainlink/v2/core/static"
 	"github.com/smartcontractkit/chainlink/v2/core/store/models"
@@ -138,6 +140,7 @@ var (
 	DefaultAptosKey    = aptoskey.MustNewInsecure(keystest.NewRandReaderFromSeed(KeyBigIntSeed))
 	DefaultTronKey     = tronkey.MustNewInsecure(keystest.NewRandReaderFromSeed(KeyBigIntSeed))
 	DefaultTONKey      = tonkey.MustNewInsecure(keystest.NewRandReaderFromSeed(KeyBigIntSeed))
+	DefaultSuiKey      = suikey.MustNewInsecure(keystest.NewRandReaderFromSeed(KeyBigIntSeed))
 	DefaultVRFKey      = vrfkey.MustNewV2XXXTestingOnly(big.NewInt(KeyBigIntSeed))
 )
 
@@ -233,7 +236,7 @@ func NewApplicationEVMDisabled(t *testing.T) *TestApplication {
 
 // NewApplication creates a New TestApplication along with a NewConfig
 // It mocks the keystore with no keys or accounts by default
-func NewApplication(t testing.TB, flagsAndDeps ...interface{}) *TestApplication {
+func NewApplication(t testing.TB, flagsAndDeps ...any) *TestApplication {
 	t.Helper()
 
 	c := configtest.NewGeneralConfig(t, nil)
@@ -243,7 +246,7 @@ func NewApplication(t testing.TB, flagsAndDeps ...interface{}) *TestApplication 
 
 // NewApplicationWithKey creates a new TestApplication along with a new config
 // It uses the native keystore and will load any keys that are in the database
-func NewApplicationWithKey(t *testing.T, flagsAndDeps ...interface{}) *TestApplication {
+func NewApplicationWithKey(t *testing.T, flagsAndDeps ...any) *TestApplication {
 	t.Helper()
 
 	config := configtest.NewGeneralConfig(t, nil)
@@ -252,7 +255,7 @@ func NewApplicationWithKey(t *testing.T, flagsAndDeps ...interface{}) *TestAppli
 
 // NewApplicationWithConfigAndKey creates a new TestApplication with the given testorm
 // it will also provide an unlocked account on the keystore
-func NewApplicationWithConfigAndKey(t testing.TB, c chainlink.GeneralConfig, flagsAndDeps ...interface{}) *TestApplication {
+func NewApplicationWithConfigAndKey(t testing.TB, c chainlink.GeneralConfig, flagsAndDeps ...any) *TestApplication {
 	ctx := testutils.Context(t)
 	app := NewApplicationWithConfig(t, c, flagsAndDeps...)
 
@@ -285,7 +288,7 @@ const (
 
 // NewApplicationWithConfig creates a New TestApplication with specified test config.
 // This should only be used in full integration tests. For controller tests, see NewApplicationEVMDisabled.
-func NewApplicationWithConfig(t testing.TB, cfg chainlink.GeneralConfig, flagsAndDeps ...interface{}) *TestApplication {
+func NewApplicationWithConfig(t testing.TB, cfg chainlink.GeneralConfig, flagsAndDeps ...any) *TestApplication {
 	t.Helper()
 	testutils.SkipShortDB(t)
 
@@ -342,9 +345,9 @@ func NewApplicationWithConfig(t testing.TB, cfg chainlink.GeneralConfig, flagsAn
 		}
 	}
 
-	var syncerFetcherFunc artifacts.FetcherFunc
+	var syncerFetcherFunc wftypes.FetcherFunc
 	for _, dep := range flagsAndDeps {
-		syncerFetcherFunc, _ = dep.(artifacts.FetcherFunc)
+		syncerFetcherFunc, _ = dep.(wftypes.FetcherFunc)
 		if syncerFetcherFunc != nil {
 			break
 		}
@@ -410,15 +413,15 @@ func NewApplicationWithConfig(t testing.TB, cfg chainlink.GeneralConfig, flagsAn
 
 	var evmFactoryConfigFn func(config *chainlink.EVMFactoryConfig)
 	// TODO BCF-2513 Stop injecting ethClient via override, instead use httptest.
-	if cfg.EVMEnabled() {
+	if cfg.EVMEnabled() && env.EVMPlugin.Cmd.Get() == "" {
 		if ethClient == nil {
 			ethClient = evmclient.NewNullClient(evmtest.MustGetDefaultChainID(t, cfg.EVMConfigs()), lggr)
 		}
-		chainId := ethClient.ConfiguredChainID()
+		chainID := ethClient.ConfiguredChainID()
 		evmFactoryConfigFn = func(fc *chainlink.EVMFactoryConfig) {
 			fc.GenEthClient = func(_ *big.Int) evmclient.Client {
-				if chainId.Cmp(evmtest.MustGetDefaultChainID(t, cfg.EVMConfigs())) != 0 {
-					t.Fatalf("expected eth client ChainID %d to match evm config chain id %d", chainId, evmtest.MustGetDefaultChainID(t, cfg.EVMConfigs()))
+				if chainID.Cmp(evmtest.MustGetDefaultChainID(t, cfg.EVMConfigs())) != 0 {
+					t.Fatalf("expected eth client ChainID %d to match evm config chain id %d", chainID, evmtest.MustGetDefaultChainID(t, cfg.EVMConfigs()))
 				}
 				return ethClient
 			}
@@ -447,6 +450,7 @@ func NewApplicationWithConfig(t testing.TB, cfg chainlink.GeneralConfig, flagsAn
 			FetcherFunc:             syncerFetcherFunc,
 			FetcherFactoryFn:        computeFetcherFactory,
 			BillingClient:           billingClient,
+			UseLocalTimeProvider:    cfg.CRE().UseLocalTimeProvider(),
 		},
 		Config:   cfg,
 		DS:       ds,
@@ -563,6 +567,12 @@ func logPubKeys(t testing.TB, kr keystore.Master) {
 	for _, tonKey := range tons {
 		tonIDs = append(tonIDs, tonKey.ID())
 	}
+	suies, err := kr.Sui().GetAll()
+	require.NoError(t, err)
+	suiIDs := make([]string, len(suies))
+	for _, suiKey := range suies {
+		suiIDs = append(suiIDs, suiKey.ID())
+	}
 	vrfs, err := kr.VRF().GetAll()
 	require.NoError(t, err)
 	vrfIDs := make([]string, len(vrfs))
@@ -610,6 +620,9 @@ func logPubKeys(t testing.TB, kr keystore.Master) {
 	}
 	if len(tonIDs) > 0 {
 		lggr.Infow(fmt.Sprintf("Unlocked %d TON keys", len(tonIDs)), "keys", tonIDs)
+	}
+	if len(suiIDs) > 0 {
+		lggr.Infow(fmt.Sprintf("Unlocked %d Sui keys", len(suiIDs)), "keys", suiIDs)
 	}
 	if len(vrfIDs) > 0 {
 		lggr.Infow(fmt.Sprintf("Unlocked %d VRF keys", len(vrfIDs)), "keys", vrfIDs)
@@ -912,7 +925,7 @@ func ParseResponseBody(t testing.TB, resp *http.Response) []byte {
 }
 
 // ParseJSONAPIResponse parses the response and returns the JSONAPI resource.
-func ParseJSONAPIResponse(t testing.TB, resp *http.Response, resource interface{}) {
+func ParseJSONAPIResponse(t testing.TB, resp *http.Response, resource any) {
 	t.Helper()
 
 	input := ParseResponseBody(t, resp)
@@ -1218,7 +1231,7 @@ func AssertServerResponse(t testing.TB, resp *http.Response, expectedStatusCode 
 }
 
 func DecodeSessionCookie(value string) (string, error) {
-	var decrypted map[interface{}]interface{}
+	var decrypted map[any]any
 	codecs := securecookie.CodecsFromPairs([]byte(SessionSecret))
 	err := securecookie.DecodeMulti(webauth.SessionName, value, &decrypted, codecs...)
 	if err != nil {
@@ -1232,7 +1245,7 @@ func DecodeSessionCookie(value string) (string, error) {
 }
 
 func MustGenerateSessionCookie(t testing.TB, value string) *http.Cookie {
-	decrypted := map[interface{}]interface{}{webauth.SessionIDKey: value}
+	decrypted := map[any]any{webauth.SessionIDKey: value}
 	codecs := securecookie.CodecsFromPairs([]byte(SessionSecret))
 	encoded, err := securecookie.EncodeMulti(webauth.SessionName, decrypted, codecs...)
 	if err != nil {
@@ -1350,7 +1363,7 @@ type EthereumLogIterator interface{ Next() bool }
 // It returns the logs as a slice of blank interface{}s, and if rv is non-nil,
 // it must be a pointer to a slice for elements of the same type as the logs,
 // in which case GetLogs will append the logs to it.
-func GetLogs(t *testing.T, rv interface{}, logs EthereumLogIterator) []interface{} {
+func GetLogs(t *testing.T, rv any, logs EthereumLogIterator) []any {
 	v := reflect.ValueOf(rv)
 	require.True(t, rv == nil ||
 		v.Kind() == reflect.Ptr && v.Elem().Kind() == reflect.Slice,
@@ -1359,7 +1372,7 @@ func GetLogs(t *testing.T, rv interface{}, logs EthereumLogIterator) []interface
 	if rv != nil {
 		e = v.Elem()
 	}
-	var irv []interface{}
+	var irv []any
 	for logs.Next() {
 		log := reflect.Indirect(reflect.ValueOf(logs)).FieldByName("Event")
 		if v.Kind() == reflect.Ptr {
@@ -1432,7 +1445,7 @@ func AssertCountStays(t testing.TB, ds sqlutil.DataSource, tableName string, wan
 	}, AssertNoActionTimeout, DBPollingInterval).Should(gomega.Equal(want))
 }
 
-func AssertRecordEventually(t *testing.T, ds sqlutil.DataSource, model interface{}, stmt string, check func() bool) {
+func AssertRecordEventually(t *testing.T, ds sqlutil.DataSource, model any, stmt string, check func() bool) {
 	t.Helper()
 	ctx := testutils.Context(t)
 	require.Eventually(t, func() bool {

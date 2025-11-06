@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"math/big"
+	"slices"
 	"time"
 
 	mapset "github.com/deckarep/golang-set/v2"
@@ -15,6 +16,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/merklemulti"
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
 	cciptypes "github.com/smartcontractkit/chainlink-common/pkg/types/ccip"
+	"github.com/smartcontractkit/chainlink-evm/pkg/statuschecker"
 
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip"
@@ -22,7 +24,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/ccipdata"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/prices"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/tokendata"
-	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/statuschecker"
 )
 
 // Batching strategies
@@ -149,13 +150,10 @@ func (bs ZKOverflowBatchingStrategy) BuildBatch(
 		} else {
 			// Status(es) found for message = check if any of them is final to decide if we should add it to the batch
 			hasFatalStatus := false
-			for _, s := range statuses {
-				if s == types.Fatal {
-					msgLggr.Infow("Skipping message - found a fatal TXM status", "message", msgId)
-					batchBuilder.skip(msg, TXMFatalStatus)
-					hasFatalStatus = true
-					break
-				}
+			if slices.Contains(statuses, types.Fatal) {
+				msgLggr.Infow("Skipping message - found a fatal TXM status", "message", msgId)
+				batchBuilder.skip(msg, TXMFatalStatus)
+				hasFatalStatus = true
 			}
 			if hasFatalStatus {
 				continue
@@ -404,7 +402,7 @@ func getInflightSeqNums(inflight []InflightInternalExecutionReport) mapset.Set[u
 
 func aggregateTokenValue(lggr logger.Logger, destTokenPricesUSD map[cciptypes.Address]*big.Int, sourceToDest map[cciptypes.Address]cciptypes.Address, tokensAndAmount []cciptypes.TokenAmount) (*big.Int, error) {
 	sum := big.NewInt(0)
-	for i := 0; i < len(tokensAndAmount); i++ {
+	for i := range tokensAndAmount {
 		price, ok := destTokenPricesUSD[sourceToDest[tokensAndAmount[i].Token]]
 		if !ok {
 			// If we don't have a price for the token, we will assume it's worth 0.

@@ -10,28 +10,24 @@ import (
 
 	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/common"
+	gethtypes "github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/rpc"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 
-	"github.com/smartcontractkit/chainlink-common/pkg/types/query/primitives"
-
-	gethtypes "github.com/ethereum/go-ethereum/core/types"
-
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	commontypes "github.com/smartcontractkit/chainlink-common/pkg/types"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/chains/evm"
+	"github.com/smartcontractkit/chainlink-common/pkg/types/query/primitives"
 	"github.com/smartcontractkit/chainlink-evm/pkg/client/clienttest"
 	configmocks "github.com/smartcontractkit/chainlink-evm/pkg/config/mocks"
 	"github.com/smartcontractkit/chainlink-evm/pkg/heads/headstest"
 	"github.com/smartcontractkit/chainlink-evm/pkg/logpoller"
 	"github.com/smartcontractkit/chainlink-evm/pkg/txmgr"
-
+	"github.com/smartcontractkit/chainlink-evm/pkg/types"
 	evmmocks "github.com/smartcontractkit/chainlink/v2/common/chains/mocks"
 	lpmocks "github.com/smartcontractkit/chainlink/v2/common/logpoller/mocks"
 	txmmocks "github.com/smartcontractkit/chainlink/v2/common/txmgr/mocks"
-
-	"github.com/smartcontractkit/chainlink-evm/pkg/types"
 )
 
 const ExpectedTxHash = "0xabcd"
@@ -132,6 +128,8 @@ func runSubmitTransactionTest(t *testing.T, tc SubmitTransactionTestCase) {
 		require.Contains(t, err.Error(), tc.ExpectedError)
 	} else {
 		require.NoError(t, err)
+		require.NotEmpty(t, result.TxIdempotencyKey)
+		result.TxIdempotencyKey = ""
 		require.Equal(t, tc.ExpectedResult, result)
 	}
 }
@@ -204,8 +202,8 @@ func TestEVMService(t *testing.T) {
 		data := []byte("kitties")
 
 		transaction := gethtypes.NewTransaction(nonce, to, amount, gasLimit, gasPrice, data)
-		mocks.EvmClient.On("TransactionByHash", ctx, hash).Return(transaction, nil)
-		tx, err := relayer.GetTransactionByHash(ctx, hash)
+		mocks.EvmClient.EXPECT().TransactionByHashWithOpts(ctx, hash, types.TransactionByHashOpts{}).Return(transaction, nil)
+		tx, err := relayer.GetTransactionByHash(ctx, evm.GetTransactionByHashRequest{Hash: hash})
 		require.NoError(t, err)
 		require.Equal(t, transaction.Hash().Bytes(), tx.Hash[:])
 		require.Equal(t, transaction.Nonce(), tx.Nonce)
@@ -559,6 +557,129 @@ func TestConverters(t *testing.T) {
 		require.Equal(t, tx.To().Bytes(), result.To[:])
 		require.Equal(t, tx.Data(), result.Data)
 	})
+}
+
+func TestEVMService_EstimateGas(t *testing.T) {
+	testCases := []struct {
+		Name           string
+		Request        *evm.CallMsg
+		ExpectedResult uint64
+		ExpectedError  string
+		PrepareMocks   func(m *Mocks)
+	}{
+		{
+			Name:    "Happy path",
+			Request: &evm.CallMsg{},
+			PrepareMocks: func(m *Mocks) {
+				m.EvmClient.EXPECT().EstimateGas(mock.Anything, ethereum.CallMsg{}).Return(uint64(42), nil).Once()
+			},
+			ExpectedResult: 42,
+		},
+		{
+			Name:          "Error on nil request",
+			Request:       nil,
+			ExpectedError: "call can not be nil",
+		},
+		{
+			Name:    "RPC Call failed",
+			Request: &evm.CallMsg{},
+			PrepareMocks: func(m *Mocks) {
+				m.EvmClient.EXPECT().EstimateGas(mock.Anything, ethereum.CallMsg{}).Return(0, errors.New("RPC failed")).Once()
+			},
+			ExpectedError: "RPC failed",
+		},
+	}
+	for _, tc := range testCases {
+		t.Run(tc.Name, func(t *testing.T) {
+			mocks, relayer := setupMocksAndRelayer(t)
+
+			if tc.PrepareMocks != nil {
+				tc.PrepareMocks(mocks)
+			}
+
+			result, err := relayer.EstimateGas(t.Context(), tc.Request)
+
+			if tc.ExpectedError != "" {
+				require.Error(t, err)
+				require.Contains(t, err.Error(), tc.ExpectedError)
+			} else {
+				require.NoError(t, err)
+				require.Equal(t, tc.ExpectedResult, result)
+			}
+		})
+	}
+}
+
+func TestEVMService_CallContract(t *testing.T) {
+	testCases := []struct {
+		Name           string
+		Request        evm.CallContractRequest
+		ExpectedResult *evm.CallContractReply
+		ExpectedError  string
+		PrepareMocks   func(m *Mocks)
+	}{
+		{
+			Name: "Happy path",
+			Request: evm.CallContractRequest{
+				Msg:             &evm.CallMsg{},
+				BlockNumber:     big.NewInt(42),
+				ConfidenceLevel: primitives.Finalized,
+				IsExternal:      true,
+			},
+			PrepareMocks: func(m *Mocks) {
+				m.EvmClient.EXPECT().CallContractWithOpts(mock.Anything, ethereum.CallMsg{}, big.NewInt(42), types.CallContractOpts{
+					ConfidenceLevel:   primitives.Finalized,
+					IsExternalRequest: true,
+				}).Return([]byte("success"), nil).Once()
+			},
+			ExpectedResult: &evm.CallContractReply{Data: []byte("success")},
+		},
+		{
+			Name: "Error on nil request.Msg",
+			Request: evm.CallContractRequest{
+				Msg:             nil,
+				BlockNumber:     big.NewInt(42),
+				ConfidenceLevel: primitives.Finalized,
+				IsExternal:      true,
+			},
+			ExpectedError: "request.Msg can not be nil",
+		},
+		{
+			Name: "RPC Call failed",
+			Request: evm.CallContractRequest{
+				Msg:             &evm.CallMsg{},
+				BlockNumber:     big.NewInt(42),
+				ConfidenceLevel: primitives.Finalized,
+				IsExternal:      true,
+			},
+			PrepareMocks: func(m *Mocks) {
+				m.EvmClient.EXPECT().CallContractWithOpts(mock.Anything, ethereum.CallMsg{}, big.NewInt(42), types.CallContractOpts{
+					ConfidenceLevel:   primitives.Finalized,
+					IsExternalRequest: true,
+				}).Return(nil, errors.New("RPC request failed")).Once()
+			},
+			ExpectedError: "RPC request failed",
+		},
+	}
+	for _, tc := range testCases {
+		t.Run(tc.Name, func(t *testing.T) {
+			mocks, relayer := setupMocksAndRelayer(t)
+
+			if tc.PrepareMocks != nil {
+				tc.PrepareMocks(mocks)
+			}
+
+			result, err := relayer.CallContract(t.Context(), tc.Request)
+
+			if tc.ExpectedError != "" {
+				require.Error(t, err)
+				require.Contains(t, err.Error(), tc.ExpectedError)
+			} else {
+				require.NoError(t, err)
+				require.Equal(t, tc.ExpectedResult, result)
+			}
+		})
+	}
 }
 
 func NewChainReceipt(txHash common.Hash, t *testing.T) txmgr.ChainReceipt {

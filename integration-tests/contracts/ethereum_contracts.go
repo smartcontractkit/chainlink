@@ -25,7 +25,7 @@ import (
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/counter"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/i_automation_registry_master_wrapper_2_3"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/mock_ethusd_aggregator_wrapper"
-	"github.com/smartcontractkit/chainlink-evm/gethwrappers/shared/generated/weth9"
+	"github.com/smartcontractkit/chainlink-evm/gethwrappers/shared/generated/initial/weth9"
 
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/functions/generated/functions_coordinator"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/functions/generated/functions_load_test_client"
@@ -1373,7 +1373,7 @@ func (e *EthereumFunctionsRouter) CreateSubscriptionWithConsumer(consumer string
 	for _, l := range tx.Receipt.Logs {
 		e.l.Info().Interface("Log", common.Bytes2Hex(l.Data)).Send()
 	}
-	topicsMap := map[string]interface{}{}
+	topicsMap := map[string]any{}
 
 	fabi, err := abi.JSON(strings.NewReader(functions_router.FunctionsRouterABI))
 	if err != nil {

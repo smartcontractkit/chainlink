@@ -1,0 +1,102 @@
+[[blockchains]]
+  chain_id = "1337"
+  docker_cmd_params = ["-b", "0.5", "--mixed-mining"]
+  type = "anvil"
+
+[infra]
+  type = "crib"
+
+  [infra.crib]
+    folder_location = "/your/absolute/path/to/crib/deployments/cre"
+    namespace = "crib-local"
+    provider = "kind"
+
+    # Fields below are required, check guidelines.md for details
+    # [infra.crib.team_input]
+    #  team = "your-team"
+    #  product = "product-name"
+    #  component = "crib"
+    #  cost_center = "crib"
+
+[jd]
+  csa_encryption_key = "d1093c0060d50a3c89c189b2e485da5a3ce57f3dcb38ab7e2c0d5f0bb2314a44"
+  image = "localhost:5001/job-distributor:0.22.1"
+
+[[nodesets]]
+  nodes = 5
+  name = "workflow"
+  don_types = ["workflow", "gateway"]
+  override_mode = "each"
+  http_port_range_start = 10100
+
+  env_vars = { CL_EVM_CMD = "" }
+  capabilities = ["ocr3", "custom-compute", "web-api-target", "web-api-trigger", "vault", "cron", "consensus", "don-time"]
+
+  [nodesets.chain_capabilities]
+    write-evm = ["1337"]
+    evm = ["1337"]
+    read-contract = ["1337"]
+
+  [nodesets.db]
+    image = "postgres:12.0"
+    port = 13000
+
+  [[nodesets.node_specs]]
+    roles = ["bootstrap"]
+    [nodesets.node_specs.node]
+      image = "localhost:5001/chainlink:nightly-20250624-plugins"
+      user_config_overrides = """
+      [Log]
+      Level = 'debug'
+      JSONConsole = true
+      """
+
+  [[nodesets.node_specs]]
+    roles = ["plugin"]
+    [nodesets.node_specs.node]
+      image = "localhost:5001/chainlink:nightly-20250624-plugins"
+      user_config_overrides = """
+      [Log]
+      Level = 'debug'
+      JSONConsole = true
+      """
+
+  [[nodesets.node_specs]]
+    roles = ["plugin"]
+    [nodesets.node_specs.node]
+      image = "localhost:5001/chainlink:nightly-20250624-plugins"
+      user_config_overrides = """
+      [Log]
+      Level = 'debug'
+      JSONConsole = true
+      """
+
+  [[nodesets.node_specs]]
+    roles = ["plugin"]
+    [nodesets.node_specs.node]
+      image = "localhost:5001/chainlink:nightly-20250624-plugins"
+      user_config_overrides = """
+      [Log]
+      Level = 'debug'
+      JSONConsole = true
+      """
+
+  [[nodesets.node_specs]]
+    roles = ["plugin"]
+    [nodesets.node_specs.node]
+      image = "localhost:5001/chainlink:nightly-20250624-plugins"
+      user_config_overrides = """
+      [Log]
+      Level = 'debug'
+      JSONConsole = true
+      """
+
+  [[nodesets.node_specs]]
+    roles = ["plugin"]
+    [nodesets.node_specs.node]
+      image = "localhost:5001/chainlink:nightly-20250624-plugins"
+      user_config_overrides = """
+      [Log]
+      Level = 'debug'
+      JSONConsole = true
+      """

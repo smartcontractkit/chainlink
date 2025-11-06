@@ -42,6 +42,13 @@ fj293fbBnlQ!f9vNs
 [Webserver]
 HTTPPort = $PORT
 
+[[Aptos]]
+ChainID = '42'
+
+[[Aptos.Nodes]]
+Name = 'primary'
+URL = 'http://aptos.blockchain'
+
 [[Cosmos]]
 ChainID = 'Foo'
 
@@ -71,7 +78,34 @@ ChainID = 'Baz'
 Name = 'primary'
 URL = 'http://stark.node'
 
+[[Sui]]
+ChainID = '67'
+NetworkName = 'foo'
+NetworkNameFull = 'foobar'
+
+[[Sui.Nodes]]
+Name = 'node'
+URL = 'https://sui.rpc'
+
+[[Ton]]
+ChainID = '99'
+
+[[Ton.Nodes]]
+Name = 'node'
+URL = 'https://ton.rpc'
+
+[[Tron]]
+ChainID = '1001'
+
+[[Tron.Nodes]]
+Name = 'example'
+URL = 'http://tron.org'
+SolidityURL = 'https://solidity.evm'
+
 -- out.txt --
+ok Aptos.42.RelayerService
+ok Aptos.42.RelayerService.PluginRelayerClient
+ok Aptos.42.RelayerService.PluginRelayerClient.PluginAptos
 ok BridgeStatusReporter
 ok Cosmos.Foo.RelayerService
 ok Cosmos.Foo.RelayerService.PluginRelayerClient
@@ -121,8 +155,26 @@ ok StarkNet.Baz.RelayerService.PluginRelayerClient.PluginStarknet
 ok StarkNet.Baz.RelayerService.PluginRelayerClient.PluginStarknet.Chain
 ok StarkNet.Baz.RelayerService.PluginRelayerClient.PluginStarknet.Chain.Txm
 ok StarkNet.Baz.RelayerService.PluginRelayerClient.PluginStarknet.Relayer
+ok Sui.67.RelayerService
+ok Sui.67.RelayerService.PluginRelayerClient
+ok Sui.67.RelayerService.PluginRelayerClient.PluginSui
+ok Sui.67.RelayerService.PluginRelayerClient.PluginSui.SuiRelayer.SuiTxm
+ok Sui.67.RelayerService.PluginRelayerClient.SuiRelayer
+ok TON.99.RelayerService
+ok TON.99.RelayerService.PluginRelayerClient
+ok TON.99.RelayerService.PluginRelayerClient.PluginTON
+ok TON.99.RelayerService.PluginRelayerClient.PluginTON.Chain
+ok TON.99.RelayerService.PluginRelayerClient.PluginTON.Relayer
+ok TON.99.RelayerService.PluginRelayerClient.PluginTON.Txm
 ok TelemetryManager
-ok WorkflowLimiter
+ok Tron.1001.RelayerService
+ok Tron.1001.RelayerService.PluginRelayerClient
+ok Tron.1001.RelayerService.PluginRelayerClient.PluginTron
+ok Tron.1001.RelayerService.PluginRelayerClient.PluginTron.TronRelayer
+ok Tron.1001.RelayerService.PluginRelayerClient.PluginTron.TronTxm
+ok WorkflowEngineLimiters
+ok WorkflowExecutionLimiter
+ok WorkflowRateLimiter
 ok WorkflowStore
 
 -- out-unhealthy.txt --
@@ -134,6 +186,33 @@ ok WorkflowStore
 -- out.json --
 {
   "data": [
+    {
+      "type": "checks",
+      "id": "Aptos.42.RelayerService",
+      "attributes": {
+        "name": "Aptos.42.RelayerService",
+        "status": "passing",
+        "output": ""
+      }
+    },
+    {
+      "type": "checks",
+      "id": "Aptos.42.RelayerService.PluginRelayerClient",
+      "attributes": {
+        "name": "Aptos.42.RelayerService.PluginRelayerClient",
+        "status": "passing",
+        "output": ""
+      }
+    },
+    {
+      "type": "checks",
+      "id": "Aptos.42.RelayerService.PluginRelayerClient.PluginAptos",
+      "attributes": {
+        "name": "Aptos.42.RelayerService.PluginRelayerClient.PluginAptos",
+        "status": "passing",
+        "output": ""
+      }
+    },
     {
       "type": "checks",
       "id": "BridgeStatusReporter",
@@ -559,6 +638,105 @@ ok WorkflowStore
     },
     {
       "type": "checks",
+      "id": "Sui.67.RelayerService",
+      "attributes": {
+        "name": "Sui.67.RelayerService",
+        "status": "passing",
+        "output": ""
+      }
+    },
+    {
+      "type": "checks",
+      "id": "Sui.67.RelayerService.PluginRelayerClient",
+      "attributes": {
+        "name": "Sui.67.RelayerService.PluginRelayerClient",
+        "status": "passing",
+        "output": ""
+      }
+    },
+    {
+      "type": "checks",
+      "id": "Sui.67.RelayerService.PluginRelayerClient.PluginSui",
+      "attributes": {
+        "name": "Sui.67.RelayerService.PluginRelayerClient.PluginSui",
+        "status": "passing",
+        "output": ""
+      }
+    },
+    {
+      "type": "checks",
+      "id": "Sui.67.RelayerService.PluginRelayerClient.PluginSui.SuiRelayer.SuiTxm",
+      "attributes": {
+        "name": "Sui.67.RelayerService.PluginRelayerClient.PluginSui.SuiRelayer.SuiTxm",
+        "status": "passing",
+        "output": ""
+      }
+    },
+    {
+      "type": "checks",
+      "id": "Sui.67.RelayerService.PluginRelayerClient.SuiRelayer",
+      "attributes": {
+        "name": "Sui.67.RelayerService.PluginRelayerClient.SuiRelayer",
+        "status": "passing",
+        "output": ""
+      }
+    },
+    {
+      "type": "checks",
+      "id": "TON.99.RelayerService",
+      "attributes": {
+        "name": "TON.99.RelayerService",
+        "status": "passing",
+        "output": ""
+      }
+    },
+    {
+      "type": "checks",
+      "id": "TON.99.RelayerService.PluginRelayerClient",
+      "attributes": {
+        "name": "TON.99.RelayerService.PluginRelayerClient",
+        "status": "passing",
+        "output": ""
+      }
+    },
+    {
+      "type": "checks",
+      "id": "TON.99.RelayerService.PluginRelayerClient.PluginTON",
+      "attributes": {
+        "name": "TON.99.RelayerService.PluginRelayerClient.PluginTON",
+        "status": "passing",
+        "output": ""
+      }
+    },
+    {
+      "type": "checks",
+      "id": "TON.99.RelayerService.PluginRelayerClient.PluginTON.Chain",
+      "attributes": {
+        "name": "TON.99.RelayerService.PluginRelayerClient.PluginTON.Chain",
+        "status": "passing",
+        "output": ""
+      }
+    },
+    {
+      "type": "checks",
+      "id": "TON.99.RelayerService.PluginRelayerClient.PluginTON.Relayer",
+      "attributes": {
+        "name": "TON.99.RelayerService.PluginRelayerClient.PluginTON.Relayer",
+        "status": "passing",
+        "output": ""
+      }
+    },
+    {
+      "type": "checks",
+      "id": "TON.99.RelayerService.PluginRelayerClient.PluginTON.Txm",
+      "attributes": {
+        "name": "TON.99.RelayerService.PluginRelayerClient.PluginTON.Txm",
+        "status": "passing",
+        "output": ""
+      }
+    },
+    {
+      "type": "checks",
       "id": "TelemetryManager",
       "attributes": {
         "name": "TelemetryManager",
@@ -568,9 +746,72 @@ ok WorkflowStore
     },
     {
       "type": "checks",
-      "id": "WorkflowLimiter",
+      "id": "Tron.1001.RelayerService",
       "attributes": {
-        "name": "WorkflowLimiter",
+        "name": "Tron.1001.RelayerService",
+        "status": "passing",
+        "output": ""
+      }
+    },
+    {
+      "type": "checks",
+      "id": "Tron.1001.RelayerService.PluginRelayerClient",
+      "attributes": {
+        "name": "Tron.1001.RelayerService.PluginRelayerClient",
+        "status": "passing",
+        "output": ""
+      }
+    },
+    {
+      "type": "checks",
+      "id": "Tron.1001.RelayerService.PluginRelayerClient.PluginTron",
+      "attributes": {
+        "name": "Tron.1001.RelayerService.PluginRelayerClient.PluginTron",
+        "status": "passing",
+        "output": ""
+      }
+    },
+    {
+      "type": "checks",
+      "id": "Tron.1001.RelayerService.PluginRelayerClient.PluginTron.TronRelayer",
+      "attributes": {
+        "name": "Tron.1001.RelayerService.PluginRelayerClient.PluginTron.TronRelayer",
+        "status": "passing",
+        "output": ""
+      }
+    },
+    {
+      "type": "checks",
+      "id": "Tron.1001.RelayerService.PluginRelayerClient.PluginTron.TronTxm",
+      "attributes": {
+        "name": "Tron.1001.RelayerService.PluginRelayerClient.PluginTron.TronTxm",
+        "status": "passing",
+        "output": ""
+      }
+    },
+    {
+      "type": "checks",
+      "id": "WorkflowEngineLimiters",
+      "attributes": {
+        "name": "WorkflowEngineLimiters",
+        "status": "passing",
+        "output": ""
+      }
+    },
+    {
+      "type": "checks",
+      "id": "WorkflowExecutionLimiter",
+      "attributes": {
+        "name": "WorkflowExecutionLimiter",
+        "status": "passing",
+        "output": ""
+      }
+    },
+    {
+      "type": "checks",
+      "id": "WorkflowRateLimiter",
+      "attributes": {
+        "name": "WorkflowRateLimiter",
         "status": "passing",
         "output": ""
       }

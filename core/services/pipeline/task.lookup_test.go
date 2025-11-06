@@ -13,7 +13,7 @@ import (
 
 func Test_LookupTask(t *testing.T) {
 	task := pipeline.LookupTask{}
-	m := map[string]interface{}{
+	m := map[string]any{
 		"foo": 42,
 		"bar": "baz",
 	}

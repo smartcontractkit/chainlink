@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"errors"
+	"fmt"
 	"io"
 	"net/http"
 	"strings"
@@ -33,14 +34,36 @@ type HTTPClientConfig struct {
 	AllowedSchemes     []string
 	AllowedIPs         []string
 	AllowedIPsCIDR     []string
+	AllowedMethods     []string
+	BlockedHeaders     []string
 }
 
 var (
-	defaultAllowedPorts       = []int{80, 443}
-	defaultAllowedSchemes     = []string{"http", "https"}
+	defaultAllowedPorts   = []int{80, 443}
+	defaultAllowedSchemes = []string{"http", "https"}
+	defaultAllowedMethods = []string{"GET", "POST", "PUT", "PATCH", "DELETE"}
+	defaultBlockedHeaders = []string{
+		"host",              // target host is set in the http client
+		"content-length",    // length is computed from actual body to ensure integrity
+		"transfer-encoding", // http client manages encoding based on actual content
+		"user-agent",        // gateway controls its own identification to backend services
+		"upgrade",           // prevents protocol upgrade attacks
+		"expect",            // prevents 100-continue exploitation
+		"connection",        // external developers cannot control connection behavior or persistence
+		"keep-alive",        // gateway manages its own connection pooling and timeouts
+		"te",                // blocks attempts to manipulate how request bodies are processed
+		"trailer",           // blocks delayed header injection after request body
+		"x-forwarded-for",   // prevents IP spoofing
+		"x-forwarded-host",  // prevents host header spoofing
+		"x-forwarded-proto", // prevents protocol spoofing
+		"x-real-ip",         // prevents IP address spoofing
+	}
 	defaultMaxResponseBytes   = uint32(26.4 * utils.KB)
 	defaultMaxRequestDuration = 60 * time.Second
 	defaultTimeout            = 5 * time.Second
+	ErrBlockedRequest         = errors.New("blocked request")
+	ErrHTTPSend               = errors.New("failed to send HTTP request")
+	ErrHTTPRead               = errors.New("failed to read HTTP response body")
 )
 
 func (c *HTTPClientConfig) ApplyDefaults() {
@@ -50,6 +73,14 @@ func (c *HTTPClientConfig) ApplyDefaults() {
 
 	if len(c.AllowedSchemes) == 0 {
 		c.AllowedSchemes = defaultAllowedSchemes
+	}
+
+	if len(c.AllowedMethods) == 0 {
+		c.AllowedMethods = defaultAllowedMethods
+	}
+
+	if len(c.BlockedHeaders) == 0 {
+		c.BlockedHeaders = defaultBlockedHeaders
 	}
 
 	if c.MaxResponseBytes == 0 {
@@ -116,10 +147,62 @@ func disableRedirects(req *http.Request, via []*http.Request) error {
 	return errors.New("redirects are not allowed")
 }
 
+// isBlockedRequest checks if an error is caused by blocked/invalid input (e.g., blocked IP, invalid scheme, blocked headers)
+// It checks for safeurl typed errors.
+func isBlockedRequest(err error) bool {
+	if err == nil {
+		return false
+	}
+
+	// Check safeurl typed errors - use errors.As for type checking
+	var (
+		ipv6Err        *safeurl.IPv6BlockedError
+		portErr        *safeurl.AllowedPortError
+		schemeErr      *safeurl.AllowedSchemeError
+		invalidHostErr *safeurl.InvalidHostError
+		ipErr          *safeurl.AllowedIPError
+	)
+
+	return errors.As(err, &ipv6Err) ||
+		errors.As(err, &portErr) ||
+		errors.As(err, &schemeErr) ||
+		errors.As(err, &invalidHostErr) ||
+		errors.As(err, &ipErr)
+}
+
+func (c *httpClient) validateMethod(method string) error {
+	methodUpper := strings.ToUpper(method)
+	for _, allowedMethod := range c.config.AllowedMethods {
+		if strings.ToUpper(allowedMethod) == methodUpper {
+			return nil
+		}
+	}
+	return fmt.Errorf("%w: HTTP method not allowed: %s", ErrBlockedRequest, method)
+}
+
+func (c *httpClient) validateHeaders(headers map[string]string) error {
+	for headerName := range headers {
+		headerNameLower := strings.ToLower(headerName)
+		for _, blockedHeader := range c.config.BlockedHeaders {
+			if strings.ToLower(blockedHeader) == headerNameLower {
+				return fmt.Errorf("%w: HTTP header not allowed: %s", ErrBlockedRequest, headerName)
+			}
+		}
+	}
+	return nil
+}
+
 // Send executes an http request that is always time limited by at least the
 // default timeout.  Override the default timeout with a non-zero duration by
 // passing a Timeout value on the request.
 func (c *httpClient) Send(ctx context.Context, req HTTPRequest) (*HTTPResponse, error) {
+	if err := c.validateMethod(req.Method); err != nil {
+		return nil, err
+	}
+	if err := c.validateHeaders(req.Headers); err != nil {
+		return nil, err
+	}
+
 	to := req.Timeout
 	if to == 0 {
 		to = c.config.DefaultTimeout
@@ -129,7 +212,7 @@ func (c *httpClient) Send(ctx context.Context, req HTTPRequest) (*HTTPResponse, 
 		to = c.config.maxRequestDuration
 	}
 
-	c.lggr.Debugw("sending HTTP request with timeout", "url", req.URL, "request timeout", to)
+	c.lggr.Debugw("sending HTTP request with timeout", "request timeout", to)
 
 	timeoutCtx, cancel := context.WithTimeout(ctx, to)
 	defer cancel()
@@ -145,8 +228,12 @@ func (c *httpClient) Send(ctx context.Context, req HTTPRequest) (*HTTPResponse, 
 
 	resp, err := c.client.Do(r)
 	if err != nil {
-		c.lggr.Errorw("failed to send HTTP request", "url", req.URL, "err", err)
-		return nil, err
+		if isBlockedRequest(err) {
+			c.lggr.Warnw("HTTP request blocked", "err", err)
+			return nil, fmt.Errorf("%w: %w", ErrBlockedRequest, err)
+		}
+		c.lggr.Errorw("failed to send HTTP request", "err", err)
+		return nil, errors.Join(err, ErrHTTPSend)
 	}
 	defer resp.Body.Close()
 
@@ -156,8 +243,8 @@ func (c *httpClient) Send(ctx context.Context, req HTTPRequest) (*HTTPResponse, 
 	reader := http.MaxBytesReader(nil, resp.Body, int64(n))
 	body, err := io.ReadAll(reader)
 	if err != nil {
-		c.lggr.Errorw("failed to read HTTP response body", "url", req.URL, "err", err)
-		return nil, err
+		c.lggr.Errorw("failed to read HTTP response body", "err", err)
+		return nil, errors.Join(err, ErrHTTPRead)
 	}
 	headers := make(map[string]string)
 	for k, v := range resp.Header {
@@ -165,7 +252,7 @@ func (c *httpClient) Send(ctx context.Context, req HTTPRequest) (*HTTPResponse, 
 		// joining them to a single string in case array size is greater than 1
 		headers[k] = strings.Join(v, ",")
 	}
-	c.lggr.Debugw("received HTTP response", "statusCode", resp.StatusCode, "url", req.URL, "headers", headers)
+	c.lggr.Debugw("received HTTP response", "statusCode", resp.StatusCode)
 
 	return &HTTPResponse{
 		Headers:    headers,

@@ -67,6 +67,51 @@ func (_c *TelemetryIngress_BufferSize_Call) RunAndReturn(run func() uint) *Telem
 	return _c
 }
 
+// ChipIngressEnabled provides a mock function with no fields
+func (_m *TelemetryIngress) ChipIngressEnabled() bool {
+	ret := _m.Called()
+
+	if len(ret) == 0 {
+		panic("no return value specified for ChipIngressEnabled")
+	}
+
+	var r0 bool
+	if rf, ok := ret.Get(0).(func() bool); ok {
+		r0 = rf()
+	} else {
+		r0 = ret.Get(0).(bool)
+	}
+
+	return r0
+}
+
+// TelemetryIngress_ChipIngressEnabled_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'ChipIngressEnabled'
+type TelemetryIngress_ChipIngressEnabled_Call struct {
+	*mock.Call
+}
+
+// ChipIngressEnabled is a helper method to define mock.On call
+func (_e *TelemetryIngress_Expecter) ChipIngressEnabled() *TelemetryIngress_ChipIngressEnabled_Call {
+	return &TelemetryIngress_ChipIngressEnabled_Call{Call: _e.mock.On("ChipIngressEnabled")}
+}
+
+func (_c *TelemetryIngress_ChipIngressEnabled_Call) Run(run func()) *TelemetryIngress_ChipIngressEnabled_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run()
+	})
+	return _c
+}
+
+func (_c *TelemetryIngress_ChipIngressEnabled_Call) Return(_a0 bool) *TelemetryIngress_ChipIngressEnabled_Call {
+	_c.Call.Return(_a0)
+	return _c
+}
+
+func (_c *TelemetryIngress_ChipIngressEnabled_Call) RunAndReturn(run func() bool) *TelemetryIngress_ChipIngressEnabled_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // Endpoints provides a mock function with no fields
 func (_m *TelemetryIngress) Endpoints() []config.TelemetryIngressEndpoint {
 	ret := _m.Called()

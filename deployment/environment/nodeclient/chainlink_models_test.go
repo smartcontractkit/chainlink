@@ -6,9 +6,9 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/codec"
+	"github.com/smartcontractkit/chainlink-evm/pkg/config"
 
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
-	evmtypes "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/types"
 )
 
 func TestOCR2TaskJobSpec_String(t *testing.T) {
@@ -21,11 +21,11 @@ func TestOCR2TaskJobSpec_String(t *testing.T) {
 			name: "chain-reader-codec",
 			spec: OCR2TaskJobSpec{
 				OCR2OracleSpec: job.OCR2OracleSpec{
-					RelayConfig: map[string]interface{}{
+					RelayConfig: map[string]any{
 						"chainID":   1337,
 						"fromBlock": 42,
-						"chainReader": evmtypes.ChainReaderConfig{
-							Contracts: map[string]evmtypes.ChainContractReader{
+						"chainReader": config.ChainReaderConfig{
+							Contracts: map[string]config.ChainContractReader{
 								"median": {
 									ContractABI: `[
   {
@@ -43,7 +43,7 @@ func TestOCR2TaskJobSpec_String(t *testing.T) {
   }
 ]
 `,
-									Configs: map[string]*evmtypes.ChainReaderDefinition{
+									Configs: map[string]*config.ChainReaderDefinition{
 										"LatestTransmissionDetails": {
 											ChainSpecificName: "latestTransmissionDetails",
 											OutputModifications: codec.ModifiersConfig{
@@ -60,14 +60,14 @@ func TestOCR2TaskJobSpec_String(t *testing.T) {
 										},
 										"LatestRoundRequested": {
 											ChainSpecificName: "RoundRequested",
-											ReadType:          evmtypes.Event,
+											ReadType:          config.Event,
 										},
 									},
 								},
 							},
 						},
-						"codec": evmtypes.CodecConfig{
-							Configs: map[string]evmtypes.ChainCodecConfig{
+						"codec": config.CodecConfig{
+							Configs: map[string]config.ChainCodecConfig{
 								"MedianReport": {
 									TypeABI: `[
   {
@@ -80,7 +80,7 @@ func TestOCR2TaskJobSpec_String(t *testing.T) {
 							},
 						},
 					},
-					PluginConfig: map[string]interface{}{"juelsPerFeeCoinSource": `		// data source 1
+					PluginConfig: map[string]any{"juelsPerFeeCoinSource": `		// data source 1
 		ds1          [type=bridge name="%s"];
 		ds1_parse    [type=jsonparse path="data"];
 		ds1_multiply [type=multiply times=2];

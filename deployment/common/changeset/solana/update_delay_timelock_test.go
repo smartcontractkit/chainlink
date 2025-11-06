@@ -1,161 +1,115 @@
-package solana_test
+package solana
 
 import (
+	"fmt"
 	"testing"
 	"time"
 
 	"github.com/gagliardetto/solana-go"
+	chainselectors "github.com/smartcontractkit/chain-selectors"
+	mcmsSolana "github.com/smartcontractkit/mcms/sdk/solana"
 	"github.com/stretchr/testify/require"
-	"go.uber.org/zap/zapcore"
-
-	cldf_solana "github.com/smartcontractkit/chainlink-deployments-framework/chain/solana"
-
-	cldf_chain "github.com/smartcontractkit/chainlink-deployments-framework/chain"
 
 	timelockBindings "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/v0_1_1/timelock"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 
-	chainselectors "github.com/smartcontractkit/chain-selectors"
-	mcmsSolana "github.com/smartcontractkit/mcms/sdk/solana"
-
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+	"github.com/smartcontractkit/chainlink-deployments-framework/engine/test/environment"
+	"github.com/smartcontractkit/chainlink-deployments-framework/engine/test/runtime"
 
 	"github.com/smartcontractkit/chainlink/deployment"
-	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers"
-
-	"github.com/smartcontractkit/chainlink/deployment/common/changeset"
-	commonSolana "github.com/smartcontractkit/chainlink/deployment/common/changeset/solana"
 	"github.com/smartcontractkit/chainlink/deployment/common/changeset/state"
-	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 	"github.com/smartcontractkit/chainlink/deployment/common/types"
-	"github.com/smartcontractkit/chainlink/deployment/environment/memory"
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
-
-// setupUpdateDelayTestEnv deploys all required contracts for set \delay test
-func setupUpdateDelayTestEnv(t *testing.T) cldf.Environment {
-	lggr := logger.TestLogger(t)
-	cfg := memory.MemoryEnvironmentConfig{
-		SolChains: 1,
-	}
-	env := memory.NewMemoryEnvironment(t, lggr, zapcore.DebugLevel, cfg)
-	chainSelector := env.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chainselectors.FamilySolana))[0]
-
-	config := proposalutils.SingleGroupTimelockConfigV2(t)
-	err := testhelpers.SavePreloadedSolAddresses(env, chainSelector)
-	require.NoError(t, err)
-	// Initialize the address book with a dummy address to avoid deploy precondition errors.
-
-	err = env.ExistingAddresses.Save(chainSelector, "dummyAddress", cldf.TypeAndVersion{Type: "dummy", Version: deployment.Version1_0_0})
-	require.NoError(t, err)
-
-	// Deploy MCMS and Timelock
-	env, err = changeset.Apply(t, env,
-		changeset.Configure(
-			cldf.CreateLegacyChangeSet(changeset.DeployMCMSWithTimelockV2),
-			map[uint64]types.MCMSWithTimelockConfigV2{
-				chainSelector: config,
-			},
-		),
-	)
-	require.NoError(t, err)
-
-	return env
-}
 
 func TestUpdateTimelockDelaySolana_VerifyPreconditions(t *testing.T) {
 	t.Parallel()
-	lggr := logger.TestLogger(t)
-	validEnv := memory.NewMemoryEnvironment(t, lggr, zapcore.InfoLevel, memory.MemoryEnvironmentConfig{SolChains: 1})
-	validSolChainSelector := validEnv.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chainselectors.FamilySolana))[0]
 
+	selector1 := chainselectors.TEST_22222222222222222222222222222222222222222222.Selector
+	selector2 := chainselectors.TEST_33333333333333333333333333333333333333333333.Selector
+
+	env, err := environment.New(t.Context(),
+		environment.WithSolanaContainer(t, []uint64{selector1, selector2}, t.TempDir(), map[string]string{}),
+	)
+	require.NoError(t, err)
+
+	// Setup selector1 to have a chain where the timelock program has been deployed.
 	timelockID := mcmsSolana.ContractAddress(
 		solana.NewWallet().PublicKey(),
 		[32]byte{'t', 'e', 's', 't'},
 	)
-	mcmDummyProgram := solana.NewWallet().PublicKey()
 
-	err := validEnv.ExistingAddresses.Save(validSolChainSelector, timelockID, cldf.TypeAndVersion{
+	err = env.ExistingAddresses.Save(selector1, timelockID, cldf.TypeAndVersion{
 		Type:    types.RBACTimelock,
 		Version: deployment.Version1_0_0,
 	})
 	require.NoError(t, err)
+
+	// Setup selector2 to have a chain where the timelock program has not been deployed.
+	// e.g. missing the required addresses so that the state loader returns empty seeds.
+	mcmDummyProgram := solana.NewWallet().PublicKey()
 	mcmsProposerIDEmpty := mcmsSolana.ContractAddress(
 		mcmDummyProgram,
 		[32]byte{},
 	)
 
-	// Create an environment that simulates a chain where the timelock program has not been deployed,
-	// e.g. missing the required addresses so that the state loader returns empty seeds.
-	noTimelockEnv := memory.NewMemoryEnvironment(t, lggr, zapcore.InfoLevel, memory.MemoryEnvironmentConfig{})
-	noTimelockEnv.BlockChains = cldf_chain.NewBlockChains(map[uint64]cldf_chain.BlockChain{
-		chainselectors.SOLANA_DEVNET.Selector: cldf_solana.Chain{},
-	})
-
-	err = noTimelockEnv.ExistingAddresses.Save(chainselectors.SOLANA_DEVNET.Selector, mcmsProposerIDEmpty, cldf.TypeAndVersion{
+	err = env.ExistingAddresses.Save(selector2, mcmsProposerIDEmpty, cldf.TypeAndVersion{
 		Type:    types.BypasserManyChainMultisig,
 		Version: deployment.Version1_0_0,
 	})
 	require.NoError(t, err)
 
-	// Create an environment with a Solana chain that has an invalid (zero) underlying chain.
-	invalidSolChainEnv := memory.NewMemoryEnvironment(t, lggr, zapcore.InfoLevel, memory.MemoryEnvironmentConfig{})
-	invalidSolChainEnv.BlockChains = cldf_chain.NewBlockChains(map[uint64]cldf_chain.BlockChain{
-		validSolChainSelector: cldf_solana.Chain{},
-	})
+	// Create an environment with no solana chains
+	emptyEnv, err := environment.New(t.Context())
+	require.NoError(t, err)
 
 	tests := []struct {
 		name          string
 		env           cldf.Environment
-		config        commonSolana.UpdateTimelockDelaySolanaCfg
+		config        UpdateTimelockDelaySolanaCfg
 		expectedError string
 	}{
 		{
 			name: "All preconditions satisfied",
-			env:  validEnv,
-			config: commonSolana.UpdateTimelockDelaySolanaCfg{
-				DelayPerChain: map[uint64]time.Duration{validSolChainSelector: 5 * time.Minute},
+			env:  *env,
+			config: UpdateTimelockDelaySolanaCfg{
+				DelayPerChain: map[uint64]time.Duration{selector1: 5 * time.Minute},
 			},
 			expectedError: "",
 		},
 		{
 			name: "No Solana chains found in environment",
-			env: memory.NewMemoryEnvironment(t, lggr, zapcore.InfoLevel, memory.MemoryEnvironmentConfig{
-				Bootstraps: 1,
-				Chains:     1,
-				SolChains:  0,
-				Nodes:      1,
-			}),
-			config: commonSolana.UpdateTimelockDelaySolanaCfg{
-				DelayPerChain: map[uint64]time.Duration{validSolChainSelector: 5 * time.Minute},
+			env:  *emptyEnv,
+			config: UpdateTimelockDelaySolanaCfg{
+				DelayPerChain: map[uint64]time.Duration{selector1: 5 * time.Minute},
 			},
 			expectedError: "no solana chains provided",
 		},
 		{
 			name: "Chain selector not found in environment",
-			env:  validEnv,
-			config: commonSolana.UpdateTimelockDelaySolanaCfg{
+			env:  *env,
+			config: UpdateTimelockDelaySolanaCfg{
 				DelayPerChain: map[uint64]time.Duration{9999: 5 * time.Minute},
 			},
 			expectedError: "solana chain not found for selector 9999",
 		},
 		{
 			name: "Timelock not deployed (empty seeds)",
-			env:  noTimelockEnv,
-			config: commonSolana.UpdateTimelockDelaySolanaCfg{
-				DelayPerChain: map[uint64]time.Duration{chainselectors.SOLANA_DEVNET.Selector: 5 * time.Minute},
+			env:  *env,
+			config: UpdateTimelockDelaySolanaCfg{
+				DelayPerChain: map[uint64]time.Duration{selector2: 5 * time.Minute},
 			},
-			expectedError: "timelock program not deployed for chain 16423721717087811551",
+			expectedError: fmt.Sprintf("timelock program not deployed for chain %d", selector2),
 		},
 		{
 			name:          "empty config provided",
-			env:           invalidSolChainEnv,
-			config:        commonSolana.UpdateTimelockDelaySolanaCfg{},
+			env:           *env,
+			config:        UpdateTimelockDelaySolanaCfg{},
 			expectedError: "no delay configs provided",
 		},
 	}
 
-	cs := commonSolana.UpdateTimelockDelaySolana{}
+	cs := UpdateTimelockDelaySolana{}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -173,35 +127,35 @@ func TestUpdateTimelockDelaySolana_VerifyPreconditions(t *testing.T) {
 func TestUpdateTimelockDelaySolana_Apply(t *testing.T) {
 	tests.SkipFlakey(t, "https://smartcontract-it.atlassian.net/browse/DX-762")
 	t.Parallel()
-	env := setupUpdateDelayTestEnv(t)
+
+	rt, selector := setupTest(t)
+	require.Len(t, rt.Environment().BlockChains.SolanaChains(), 1)
+
 	newDelayDuration := 5 * time.Minute
-	solChainSel := env.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chainselectors.FamilySolana))[0]
-	config := commonSolana.UpdateTimelockDelaySolanaCfg{
-		DelayPerChain: map[uint64]time.Duration{
-			solChainSel: newDelayDuration,
-		},
-	}
 
-	changesetInstance := commonSolana.UpdateTimelockDelaySolana{}
-
-	env, _, err := changeset.ApplyChangesets(t, env, []changeset.ConfiguredChangeSet{
-		changeset.Configure(changesetInstance, config),
-	})
+	// Run the UpdateTimelockDelaySolana changeset
+	err := rt.Exec(
+		runtime.ChangesetTask(UpdateTimelockDelaySolana{}, UpdateTimelockDelaySolanaCfg{
+			DelayPerChain: map[uint64]time.Duration{
+				selector: newDelayDuration,
+			},
+		}),
+	)
 	require.NoError(t, err)
 
-	chainSelector := env.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chainselectors.FamilySolana))[0]
-	solChain := env.BlockChains.SolanaChains()[chainSelector]
-
-	addresses, err := env.ExistingAddresses.AddressesForChain(chainSelector)
+	addresses, err := rt.State().AddressBook.AddressesForChain(selector)
 	require.NoError(t, err)
+
+	chain := rt.Environment().BlockChains.SolanaChains()[selector]
 
 	// Check new delay config value
-	mcmState, err := state.MaybeLoadMCMSWithTimelockChainStateSolana(solChain, addresses)
+	mcmState, err := state.MaybeLoadMCMSWithTimelockChainStateSolana(chain, addresses)
 	require.NoError(t, err)
 
 	timelockConfigPDA := state.GetTimelockConfigPDA(mcmState.TimelockProgram, mcmState.TimelockSeed)
+
 	var timelockConfig timelockBindings.Config
-	err = solChain.GetAccountDataBorshInto(env.GetContext(), timelockConfigPDA, &timelockConfig)
+	err = chain.GetAccountDataBorshInto(t.Context(), timelockConfigPDA, &timelockConfig)
 	require.NoError(t, err)
 	require.Equal(t, timelockConfig.MinDelay, uint64(newDelayDuration.Seconds()))
 }

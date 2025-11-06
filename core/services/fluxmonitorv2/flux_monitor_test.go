@@ -18,6 +18,8 @@ import (
 	"github.com/stretchr/testify/require"
 	"gopkg.in/guregu/null.v4"
 
+	"github.com/smartcontractkit/quarantine"
+
 	"github.com/smartcontractkit/chainlink-common/pkg/assets"
 	"github.com/smartcontractkit/chainlink-common/pkg/services/servicetest"
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
@@ -352,7 +354,6 @@ func TestFluxMonitor_PollIfEligible(t *testing.T) {
 	)
 
 	for _, tc := range testCases {
-		tc := tc
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 
@@ -439,14 +440,14 @@ func TestFluxMonitor_PollIfEligible(t *testing.T) {
 				}, nil)
 				tm.pipelineRunner.
 					On("ExecuteRun", mock.Anything, pipelineSpec, pipeline.NewVarsFrom(
-						map[string]interface{}{
-							"jobRun": map[string]interface{}{
-								"meta": map[string]interface{}{
+						map[string]any{
+							"jobRun": map[string]any{
+								"meta": map[string]any{
 									"latestAnswer": float64(10),
 									"updatedAt":    float64(100),
 								},
 							},
-							"jobSpec": map[string]interface{}{
+							"jobSpec": map[string]any{
 								"databaseID":    int32(0),
 								"externalJobID": uuid.UUID{},
 								"name":          "",
@@ -749,7 +750,6 @@ func TestFluxMonitor_TriggerIdleTimeThreshold(t *testing.T) {
 	oracles := []common.Address{nodeAddr, testutils.NewAddress()}
 
 	for _, tc := range testCases {
-		tc := tc
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 
@@ -909,6 +909,7 @@ func TestFluxMonitor_HibernationTickerFiresMultipleTimes(t *testing.T) {
 }
 
 func TestFluxMonitor_HibernationIsEnteredAndRetryTickerStopped(t *testing.T) {
+	quarantine.Flaky(t, "DX-1806")
 	t.Parallel()
 	db, nodeAddr := setupFullDBWithKey(t)
 	oracles := []common.Address{nodeAddr, testutils.NewAddress()}
@@ -1028,6 +1029,7 @@ func TestFluxMonitor_HibernationIsEnteredAndRetryTickerStopped(t *testing.T) {
 }
 
 func TestFluxMonitor_IdleTimerResetsOnNewRound(t *testing.T) {
+	quarantine.Flaky(t, "DX-1857")
 	t.Parallel()
 
 	g := gomega.NewWithT(t)
@@ -1179,6 +1181,7 @@ func TestFluxMonitor_RoundTimeoutCausesPoll_timesOutAtZero(t *testing.T) {
 }
 
 func TestFluxMonitor_UsesPreviousRoundStateOnStartup_RoundTimeout(t *testing.T) {
+	quarantine.Flaky(t, "DX-1845")
 	t.Parallel()
 	g := gomega.NewWithT(t)
 
@@ -1196,7 +1199,6 @@ func TestFluxMonitor_UsesPreviousRoundStateOnStartup_RoundTimeout(t *testing.T) 
 	}
 
 	for _, test := range tests {
-		test := test
 		t.Run(test.name, func(t *testing.T) {
 			t.Parallel()
 
@@ -1263,7 +1265,6 @@ func TestFluxMonitor_UsesPreviousRoundStateOnStartup_IdleTimer(t *testing.T) {
 	}
 
 	for _, tc := range testCases {
-		tc := tc
 		t.Run(tc.name, func(t *testing.T) {
 			orm := newORM(t, db, nil)
 
@@ -1426,7 +1427,6 @@ func TestFluxMonitor_ConsumeLogBroadcast_Error(t *testing.T) {
 
 	db := pgtest.NewSqlxDB(t)
 	for _, tc := range testCases {
-		tc := tc
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 
@@ -1872,14 +1872,14 @@ func TestFluxMonitor_DrumbeatTicker(t *testing.T) {
 
 		tm.pipelineRunner.
 			On("ExecuteRun", mock.Anything, pipelineSpec, pipeline.NewVarsFrom(
-				map[string]interface{}{
-					"jobRun": map[string]interface{}{
-						"meta": map[string]interface{}{
+				map[string]any{
+					"jobRun": map[string]any{
+						"meta": map[string]any{
 							"latestAnswer": float64(fetchedAnswer),
 							"updatedAt":    float64(100),
 						},
 					},
-					"jobSpec": map[string]interface{}{
+					"jobSpec": map[string]any{
 						"databaseID":    int32(0),
 						"externalJobID": uuid.UUID{},
 						"name":          "",
@@ -1942,9 +1942,9 @@ type testifyExpectationsAsserter interface {
 
 type fakeT struct{}
 
-func (ft fakeT) Logf(format string, args ...interface{})   {}
-func (ft fakeT) Errorf(format string, args ...interface{}) {}
-func (ft fakeT) FailNow()                                  {}
+func (ft fakeT) Logf(format string, args ...any)   {}
+func (ft fakeT) Errorf(format string, args ...any) {}
+func (ft fakeT) FailNow()                          {}
 
 func eventuallyExpectationsMet(t *testing.T, mock testifyExpectationsAsserter, timeout time.Duration, interval time.Duration) {
 	t.Helper()

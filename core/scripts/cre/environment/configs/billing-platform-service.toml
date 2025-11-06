@@ -1,0 +1,3 @@
+# billing service
+[billing_platform_service]
+  compose_file='https://raw.githubusercontent.com/smartcontractkit/chainlink-testing-framework/a9e72b8e30ff96ef455d9682aba000214baad891/framework/components/dockercompose/billing_platform_service/docker-compose.yml'

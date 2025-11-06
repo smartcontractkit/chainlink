@@ -2,6 +2,7 @@ package evm
 
 import (
 	"math/big"
+	"slices"
 	"sync"
 
 	"github.com/smartcontractkit/chainlink-automation/pkg/v3/types"
@@ -102,11 +103,8 @@ func (al *activeList) View(upkeepTypes ...types.UpkeepType) []*big.Int {
 			continue
 		}
 		currentType := core.GetUpkeepType(*id)
-		for _, t := range upkeepTypes {
-			if currentType == t {
-				keys = append(keys, bint)
-				break
-			}
+		if slices.Contains(upkeepTypes, currentType) {
+			keys = append(keys, bint)
 		}
 	}
 	return keys

@@ -38,10 +38,10 @@ var (
 		"Update destination chain configurations on BurnMint fast transfer token pool contract",
 		burn_mint_external.BurnMintWithExternalMinterFastTransferTokenPoolABI,
 		shared.BurnMintFastTransferTokenPool,
-		func(address common.Address, backend bind.ContractBackend) (interface{}, error) {
+		func(address common.Address, backend bind.ContractBackend) (any, error) {
 			return bindings.NewFastTransferTokenPoolWrapper(address, backend, shared.BurnMintFastTransferTokenPool)
 		},
-		func(pool interface{}, opts *bind.TransactOpts, input UpdateDestChainConfigInput) (*types.Transaction, error) {
+		func(pool any, opts *bind.TransactOpts, input UpdateDestChainConfigInput) (*types.Transaction, error) {
 			wrapper := pool.(*bindings.FastTransferTokenPoolWrapper)
 			return wrapper.UpdateDestChainConfig(opts, input.Updates)
 		},
@@ -53,10 +53,10 @@ var (
 		"Update filler allowlist on BurnMint fast transfer token pool contract",
 		burn_mint_external.BurnMintWithExternalMinterFastTransferTokenPoolABI,
 		shared.BurnMintFastTransferTokenPool,
-		func(address common.Address, backend bind.ContractBackend) (interface{}, error) {
+		func(address common.Address, backend bind.ContractBackend) (any, error) {
 			return bindings.NewFastTransferTokenPoolWrapper(address, backend, shared.BurnMintFastTransferTokenPool)
 		},
-		func(pool interface{}, opts *bind.TransactOpts, input UpdateFillerAllowlistInput) (*types.Transaction, error) {
+		func(pool any, opts *bind.TransactOpts, input UpdateFillerAllowlistInput) (*types.Transaction, error) {
 			wrapper := pool.(*bindings.FastTransferTokenPoolWrapper)
 			return wrapper.UpdateFillerAllowList(opts, input.AddFillers, input.RemoveFillers)
 		},
@@ -69,10 +69,10 @@ var (
 		"Update destination chain configurations on BurnMintWithExternalMinter fast transfer token pool contract",
 		burn_mint_external.BurnMintWithExternalMinterFastTransferTokenPoolABI,
 		shared.BurnMintWithExternalMinterFastTransferTokenPool,
-		func(address common.Address, backend bind.ContractBackend) (interface{}, error) {
+		func(address common.Address, backend bind.ContractBackend) (any, error) {
 			return bindings.NewFastTransferTokenPoolWrapper(address, backend, shared.BurnMintWithExternalMinterFastTransferTokenPool)
 		},
-		func(pool interface{}, opts *bind.TransactOpts, input UpdateDestChainConfigInput) (*types.Transaction, error) {
+		func(pool any, opts *bind.TransactOpts, input UpdateDestChainConfigInput) (*types.Transaction, error) {
 			wrapper := pool.(*bindings.FastTransferTokenPoolWrapper)
 			return wrapper.UpdateDestChainConfig(opts, input.Updates)
 		},
@@ -84,10 +84,10 @@ var (
 		"Update filler allowlist on BurnMintWithExternalMinter fast transfer token pool contract",
 		burn_mint_external.BurnMintWithExternalMinterFastTransferTokenPoolABI,
 		shared.BurnMintWithExternalMinterFastTransferTokenPool,
-		func(address common.Address, backend bind.ContractBackend) (interface{}, error) {
+		func(address common.Address, backend bind.ContractBackend) (any, error) {
 			return bindings.NewFastTransferTokenPoolWrapper(address, backend, shared.BurnMintWithExternalMinterFastTransferTokenPool)
 		},
-		func(pool interface{}, opts *bind.TransactOpts, input UpdateFillerAllowlistInput) (*types.Transaction, error) {
+		func(pool any, opts *bind.TransactOpts, input UpdateFillerAllowlistInput) (*types.Transaction, error) {
 			wrapper := pool.(*bindings.FastTransferTokenPoolWrapper)
 			return wrapper.UpdateFillerAllowList(opts, input.AddFillers, input.RemoveFillers)
 		},
@@ -100,10 +100,10 @@ var (
 		"Withdraw pool fees from BurnMint fast transfer token pool contract",
 		burn_mint_external.BurnMintWithExternalMinterFastTransferTokenPoolABI,
 		shared.BurnMintFastTransferTokenPool,
-		func(address common.Address, backend bind.ContractBackend) (interface{}, error) {
+		func(address common.Address, backend bind.ContractBackend) (any, error) {
 			return bindings.NewFastTransferTokenPoolWrapper(address, backend, shared.BurnMintFastTransferTokenPool)
 		},
-		func(pool interface{}, opts *bind.TransactOpts, input WithdrawPoolFeesInput) (*types.Transaction, error) {
+		func(pool any, opts *bind.TransactOpts, input WithdrawPoolFeesInput) (*types.Transaction, error) {
 			wrapper := pool.(*bindings.FastTransferTokenPoolWrapper)
 			return wrapper.WithdrawPoolFees(opts, input.Recipient)
 		},
@@ -116,10 +116,10 @@ var (
 		"Withdraw pool fees from BurnMintWithExternalMinter fast transfer token pool contract",
 		burn_mint_external.BurnMintWithExternalMinterFastTransferTokenPoolABI,
 		shared.BurnMintWithExternalMinterFastTransferTokenPool,
-		func(address common.Address, backend bind.ContractBackend) (interface{}, error) {
+		func(address common.Address, backend bind.ContractBackend) (any, error) {
 			return bindings.NewFastTransferTokenPoolWrapper(address, backend, shared.BurnMintWithExternalMinterFastTransferTokenPool)
 		},
-		func(pool interface{}, opts *bind.TransactOpts, input WithdrawPoolFeesInput) (*types.Transaction, error) {
+		func(pool any, opts *bind.TransactOpts, input WithdrawPoolFeesInput) (*types.Transaction, error) {
 			wrapper := pool.(*bindings.FastTransferTokenPoolWrapper)
 			return wrapper.WithdrawPoolFees(opts, input.Recipient)
 		},
@@ -132,10 +132,10 @@ var (
 		"Update destination chain configurations on HybridWithExternalMinter fast transfer token pool contract",
 		hybrid_external.HybridWithExternalMinterFastTransferTokenPoolABI,
 		shared.HybridWithExternalMinterFastTransferTokenPool,
-		func(address common.Address, backend bind.ContractBackend) (interface{}, error) {
+		func(address common.Address, backend bind.ContractBackend) (any, error) {
 			return bindings.NewFastTransferTokenPoolWrapper(address, backend, shared.HybridWithExternalMinterFastTransferTokenPool)
 		},
-		func(pool interface{}, opts *bind.TransactOpts, input UpdateDestChainConfigInput) (*types.Transaction, error) {
+		func(pool any, opts *bind.TransactOpts, input UpdateDestChainConfigInput) (*types.Transaction, error) {
 			wrapper := pool.(*bindings.FastTransferTokenPoolWrapper)
 			return wrapper.UpdateDestChainConfig(opts, input.Updates)
 		},
@@ -147,10 +147,10 @@ var (
 		"Update filler allowlist on HybridWithExternalMinter fast transfer token pool contract",
 		hybrid_external.HybridWithExternalMinterFastTransferTokenPoolABI,
 		shared.HybridWithExternalMinterFastTransferTokenPool,
-		func(address common.Address, backend bind.ContractBackend) (interface{}, error) {
+		func(address common.Address, backend bind.ContractBackend) (any, error) {
 			return bindings.NewFastTransferTokenPoolWrapper(address, backend, shared.HybridWithExternalMinterFastTransferTokenPool)
 		},
-		func(pool interface{}, opts *bind.TransactOpts, input UpdateFillerAllowlistInput) (*types.Transaction, error) {
+		func(pool any, opts *bind.TransactOpts, input UpdateFillerAllowlistInput) (*types.Transaction, error) {
 			wrapper := pool.(*bindings.FastTransferTokenPoolWrapper)
 			return wrapper.UpdateFillerAllowList(opts, input.AddFillers, input.RemoveFillers)
 		},
@@ -162,10 +162,10 @@ var (
 		"Withdraw pool fees from HybridWithExternalMinter fast transfer token pool contract",
 		hybrid_external.HybridWithExternalMinterFastTransferTokenPoolABI,
 		shared.HybridWithExternalMinterFastTransferTokenPool,
-		func(address common.Address, backend bind.ContractBackend) (interface{}, error) {
+		func(address common.Address, backend bind.ContractBackend) (any, error) {
 			return bindings.NewFastTransferTokenPoolWrapper(address, backend, shared.HybridWithExternalMinterFastTransferTokenPool)
 		},
-		func(pool interface{}, opts *bind.TransactOpts, input WithdrawPoolFeesInput) (*types.Transaction, error) {
+		func(pool any, opts *bind.TransactOpts, input WithdrawPoolFeesInput) (*types.Transaction, error) {
 			wrapper := pool.(*bindings.FastTransferTokenPoolWrapper)
 			return wrapper.WithdrawPoolFees(opts, input.Recipient)
 		},

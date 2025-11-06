@@ -10,7 +10,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink-testing-framework/seth"
 
-	"github.com/smartcontractkit/chainlink-evm/gethwrappers/shared/generated/log_emitter"
+	"github.com/smartcontractkit/chainlink-evm/gethwrappers/shared/generated/initial/log_emitter"
 
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
 )
@@ -84,10 +84,7 @@ func (m *LogTriggerGun) Call(_ *wasp.Generator) *wasp.Response {
 	d := m.data
 	chunkSize := 100
 	for i := 0; i < len(d); i += chunkSize {
-		end := i + chunkSize
-		if end > len(d) {
-			end = len(d)
-		}
+		end := min(i+chunkSize, len(d))
 		dividedData = append(dividedData, d[i:end])
 	}
 

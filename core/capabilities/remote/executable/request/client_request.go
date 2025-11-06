@@ -54,9 +54,11 @@ type ClientRequest struct {
 	wg       *sync.WaitGroup
 }
 
+// TransmissionConfig has to be set only for V2 capabilities. V1 capabilities read transmission schedule from every request.
 func NewClientExecuteRequest(ctx context.Context, lggr logger.Logger, req commoncap.CapabilityRequest,
 	remoteCapabilityInfo commoncap.CapabilityInfo, localDonInfo commoncap.DON, dispatcher types.Dispatcher,
-	requestTimeout time.Duration) (*ClientRequest, error) {
+	requestTimeout time.Duration, transmissionConfig *transmission.TransmissionConfig, capMethodName string,
+) (*ClientRequest, error) {
 	rawRequest, err := proto.MarshalOptions{Deterministic: true}.Marshal(pb.CapabilityRequestToProto(req))
 	if err != nil {
 		return nil, fmt.Errorf("failed to marshal capability request: %w", err)
@@ -71,22 +73,26 @@ func NewClientExecuteRequest(ctx context.Context, lggr logger.Logger, req common
 	// to ensure that it supports parallel step execution
 	requestID := types.MethodExecute + ":" + workflowExecutionID + ":" + req.Metadata.ReferenceID
 
-	tc, err := transmission.ExtractTransmissionConfig(req.Config)
-	if err != nil {
-		return nil, fmt.Errorf("failed to extract transmission config from request: %w", err)
+	var tc transmission.TransmissionConfig
+	if transmissionConfig != nil { // global setting used by V2 Capabilities
+		tc = *transmissionConfig
+	} else { // per-workflow setting used by V1 Capabilities
+		tc, err = transmission.ExtractTransmissionConfig(req.Config)
+		if err != nil {
+			return nil, fmt.Errorf("failed to extract transmission config from request: %w", err)
+		}
 	}
 
-	lggr = logger.With(lggr, "requestId", requestID, "capabilityID", remoteCapabilityInfo.ID)
-	return newClientRequest(ctx, lggr, requestID, remoteCapabilityInfo, localDonInfo, dispatcher, requestTimeout, tc, types.MethodExecute, rawRequest, workflowExecutionID, req.Metadata.ReferenceID)
+	lggr = logger.With(lggr, "requestId", requestID) // cap ID and method name included in the parent logger
+	return newClientRequest(ctx, lggr, requestID, remoteCapabilityInfo, localDonInfo, dispatcher, requestTimeout, tc, types.MethodExecute, rawRequest, workflowExecutionID, req.Metadata.ReferenceID, capMethodName)
 }
 
-var (
-	defaultDelayMargin = 10 * time.Second
-)
+var defaultDelayMargin = 10 * time.Second
 
 func newClientRequest(ctx context.Context, lggr logger.Logger, requestID string, remoteCapabilityInfo commoncap.CapabilityInfo,
 	localDonInfo commoncap.DON, dispatcher types.Dispatcher, requestTimeout time.Duration,
-	tc transmission.TransmissionConfig, methodType string, rawRequest []byte, workflowExecutionID string, stepRef string) (*ClientRequest, error) {
+	tc transmission.TransmissionConfig, methodType string, rawRequest []byte, workflowExecutionID string, stepRef string, capMethodName string,
+) (*ClientRequest, error) {
 	remoteCapabilityDonInfo := remoteCapabilityInfo.DON
 	if remoteCapabilityDonInfo == nil {
 		return nil, errors.New("remote capability info missing DON")
@@ -135,10 +141,7 @@ func newClientRequest(ctx context.Context, lggr logger.Logger, requestID string,
 	if ok {
 		originalTimeout = time.Until(dl)
 	}
-	effectiveTimeout := originalTimeout
-	if originalTimeout < maxDelayDuration {
-		effectiveTimeout = maxDelayDuration
-	}
+	effectiveTimeout := max(originalTimeout, maxDelayDuration)
 
 	// Now let's create a new context based on the adjusted timeout value.
 	// By calling WithoutCancel, we ensure that this context can only be cancelled in
@@ -157,12 +160,13 @@ func newClientRequest(ctx context.Context, lggr logger.Logger, requestID string,
 		go func(innerCtx context.Context, peerID ragep2ptypes.PeerID, delay time.Duration) {
 			defer wg.Done()
 			message := &types.MessageBody{
-				CapabilityId:    remoteCapabilityInfo.ID,
-				CapabilityDonId: remoteCapabilityDonInfo.ID,
-				CallerDonId:     localDonInfo.ID,
-				Method:          methodType,
-				Payload:         rawRequest,
-				MessageId:       []byte(requestID),
+				CapabilityId:     remoteCapabilityInfo.ID,
+				CapabilityDonId:  remoteCapabilityDonInfo.ID,
+				CallerDonId:      localDonInfo.ID,
+				Method:           methodType,
+				Payload:          rawRequest,
+				MessageId:        []byte(requestID),
+				CapabilityMethod: capMethodName,
 			}
 
 			select {
@@ -323,7 +327,7 @@ func (c *ClientRequest) OnMessage(_ context.Context, msg *types.MessageBody) err
 		c.meteringResponses[responseID] = nodeReports
 
 		if len(c.responseIDCount) > 1 {
-			lggr.Warn("received multiple different responses for the same request, number of different responses received: %d", len(c.responseIDCount))
+			lggr.Warnw("received multiple unique responses for the same request", "count for responseID", len(c.responseIDCount))
 		}
 
 		if c.responseIDCount[responseID] == c.requiredIdenticalResponses {
@@ -360,7 +364,7 @@ func (c *ClientRequest) sendResponse(response clientResponse) {
 		c.lggr.Warnw("received error response", "error", remote.SanitizeLogString(response.Err.Error()))
 		return
 	}
-	c.lggr.Debugw("received OK response", "count", c.requiredIdenticalResponses)
+	c.lggr.Debugw("received OK response")
 }
 
 func (c *ClientRequest) getMessageHashAndMetadata(msg *types.MessageBody) ([32]byte, commoncap.ResponseMetadata, error) {

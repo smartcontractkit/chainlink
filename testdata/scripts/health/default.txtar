@@ -44,7 +44,9 @@ ok PipelineRunner
 ok PipelineRunner.BridgeCache
 ok RetirementReportCache
 ok TelemetryManager
-ok WorkflowLimiter
+ok WorkflowEngineLimiters
+ok WorkflowExecutionLimiter
+ok WorkflowRateLimiter
 ok WorkflowStore
 
 -- out.json --
@@ -169,9 +171,27 @@ ok WorkflowStore
     },
     {
       "type": "checks",
-      "id": "WorkflowLimiter",
+      "id": "WorkflowEngineLimiters",
       "attributes": {
-        "name": "WorkflowLimiter",
+        "name": "WorkflowEngineLimiters",
+        "status": "passing",
+        "output": ""
+      }
+    },
+    {
+      "type": "checks",
+      "id": "WorkflowExecutionLimiter",
+      "attributes": {
+        "name": "WorkflowExecutionLimiter",
+        "status": "passing",
+        "output": ""
+      }
+    },
+    {
+      "type": "checks",
+      "id": "WorkflowRateLimiter",
+      "attributes": {
+        "name": "WorkflowRateLimiter",
         "status": "passing",
         "output": ""
       }

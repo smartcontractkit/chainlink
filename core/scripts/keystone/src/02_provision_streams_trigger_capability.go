@@ -37,7 +37,7 @@ import (
 
 	helpers "github.com/smartcontractkit/chainlink/core/scripts/common"
 
-	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+	focr "github.com/smartcontractkit/chainlink-deployments-framework/offchain/ocr"
 	"github.com/smartcontractkit/chainlink/v2/core/bridges"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury"
@@ -467,7 +467,7 @@ func generateMercuryOCR2Config(nca []NodeKeys) MercuryOCR2Config {
 		})
 	}
 
-	secrets := cldf.XXXGenerateTestOCRSecrets()
+	secrets := focr.XXXGenerateTestOCRSecrets()
 	// Values were taken from Data Streams 250ms feeds, given by @austinborn
 	signers, _, _, onchainConfig, offchainConfigVersion, offchainConfig, err := ocr3confighelper.ContractSetConfigArgsDeterministic(
 		secrets.EphemeralSk,

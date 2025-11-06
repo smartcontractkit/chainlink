@@ -47,7 +47,7 @@ func (g ChainRWProvider) GetChainWriter(ctx context.Context, pararms ccipcommon.
 func (g ChainRWProvider) GetChainReader(ctx context.Context, params ccipcommon.ChainReaderProviderOpts) (types.ContractReader, error) {
 	var err error
 	var cfg config.ContractReader
-	if params.ChainID == params.DestChainID {
+	if params.ChainID == params.DestChainID && params.ChainFamily == params.DestChainFamily {
 		cfg, err = solanaconfig.DestContractReaderConfig()
 		if err != nil {
 			return nil, fmt.Errorf("failed to get Solana dest contract reader config: %w", err)

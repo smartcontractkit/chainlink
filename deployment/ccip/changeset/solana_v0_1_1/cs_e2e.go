@@ -283,7 +283,6 @@ func E2ETokenPoolv2(env cldf.Environment, cfg E2ETokenPoolConfigv2) (cldf.Change
 			Metadata:    tokenCfg.Metadata,
 			// registering in the same changeset so skip registry check
 			SkipRegistryCheck: true,
-			WritableIndexes:   []uint8{3, 4, 7},
 		})
 		// setup evm remote pool on solana
 		if len(tokenCfg.SolanaToEVMRemoteConfigs) > 0 {
@@ -329,10 +328,14 @@ func E2ETokenPoolv2(env cldf.Environment, cfg E2ETokenPoolConfigv2) (cldf.Change
 	for _, tokenCfg := range uniquePoolTypeConfigs {
 		output, err := InitGlobalConfigTokenPoolProgram(e, TokenPoolConfigWithMCM{
 			ChainSelector: cfg.ChainSelector,
-			PoolType:      tokenCfg.PoolType,
-			TokenPubKey:   tokenCfg.TokenPubKey,
-			Metadata:      tokenCfg.Metadata,
-			MCMS:          cfg.MCMS,
+			TokenPoolConfigs: []TokenPoolConfig{
+				{
+					PoolType:    tokenCfg.PoolType,
+					TokenPubKey: tokenCfg.TokenPubKey,
+					Metadata:    tokenCfg.Metadata,
+				},
+			},
+			MCMS: cfg.MCMS,
 		})
 		if err != nil {
 			return cldf.ChangesetOutput{}, fmt.Errorf("failed to initialize global config for token pool: %w", err)
@@ -414,5 +417,11 @@ func E2ETokenPoolv2(env cldf.Environment, cfg E2ETokenPoolConfigv2) (cldf.Change
 		}
 	}
 
+	ds, err := shared.PopulateDataStore(finalCSOut.AddressBook) //nolint:staticcheck //SA1019 ignoring deprecated
+	if err != nil {
+		return cldf.ChangesetOutput{}, fmt.Errorf("failed to populate in-memory DataStore: %w", err)
+	}
+
+	finalCSOut.DataStore = ds
 	return *finalCSOut, nil
 }

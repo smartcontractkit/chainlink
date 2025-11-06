@@ -58,7 +58,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink-evm/pkg/utils"
 
-	"github.com/smartcontractkit/chainlink-evm/gethwrappers/shared/generated/burn_mint_erc677"
+	"github.com/smartcontractkit/chainlink-evm/gethwrappers/shared/generated/initial/burn_mint_erc677"
 
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/ccipexec"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/config"
@@ -75,7 +75,7 @@ import (
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_5_0/evm_2_evm_onramp"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_5_0/mock_rmn_contract"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_5_0/rmn_contract"
-	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_0/fee_quoter"
+	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_3/fee_quoter"
 )
 
 const (
@@ -189,6 +189,7 @@ type CCIPCommon struct {
 	USDCMockDeployment            *bool
 	LBTCMockDeployment            *bool
 	LBTCDestPoolDataAs32Bytes     *bool
+	LBTCNoOfTokens                int
 	TokenMessenger                *common.Address
 	TokenTransmitter              *contracts.TokenTransmitter
 	IsConnectionRestoredRecently  *atomic.Bool
@@ -945,7 +946,7 @@ func (ccipModule *CCIPCommon) DeployContracts(
 					if err != nil {
 						return fmt.Errorf("granting minter role to token transmitter shouldn't fail %w", err)
 					}
-				} else if ccipModule.IsLBTCDeployment() && i == 0 {
+				} else if ccipModule.IsLBTCDeployment() && i < ccipModule.LBTCNoOfTokens {
 					// if it's LBTC deployment, we deploy the burn mint token 677 with decimal 8 and cast it to ERC20Token
 					lbtcToken, err := ccipModule.tokenDeployer.DeployCustomBurnMintERC677Token("Lombard LBTC", "LBTC", uint8(8), new(big.Int).Mul(big.NewInt(1e6), big.NewInt(1e18)))
 					if err != nil {
@@ -1019,7 +1020,7 @@ func (ccipModule *CCIPCommon) DeployContracts(
 				}
 
 				ccipModule.BridgeTokenPools = append(ccipModule.BridgeTokenPools, usdcPool)
-			} else if ccipModule.IsLBTCDeployment() && i == 0 {
+			} else if ccipModule.IsLBTCDeployment() && i < ccipModule.LBTCNoOfTokens {
 				if ccipModule.RMNContract == nil {
 					return errors.New("RMNContract is not initialized")
 				}
@@ -1372,6 +1373,7 @@ func DefaultCCIPModule(
 		USDCMockDeployment:            testGroupConf.USDCMockDeployment,
 		LBTCMockDeployment:            testGroupConf.LBTCMockDeployment,
 		LBTCDestPoolDataAs32Bytes:     testGroupConf.LBTCDestPoolDataAs32Bytes,
+		LBTCNoOfTokens:                testGroupConf.LBTCNoOfTokens,
 		NoOfTokensNeedingDynamicPrice: pointer.GetInt(testGroupConf.TokenConfig.NoOfTokensWithDynamicPrice),
 		poolFunds:                     testhelpers.Link(5),
 		gasUpdateWatcherMu:            &sync.Mutex{},
@@ -2072,10 +2074,7 @@ func (destCCIP *DestCCIPModule) SyncTokensAndPools(srcTokens []*contracts.ERC20T
 	// otherwise the tx gets too large and we will get out of gas error
 	if len(sourceTokens) > 10 {
 		for i := 0; i < len(sourceTokens); i += 10 {
-			end := i + 10
-			if end > len(sourceTokens) {
-				end = len(sourceTokens)
-			}
+			end := min(i+10, len(sourceTokens))
 			err := destCCIP.OffRamp.SyncTokensAndPools(sourceTokens[i:end], pools[i:end])
 			if err != nil {
 				return err
@@ -2110,10 +2109,7 @@ func (destCCIP *DestCCIPModule) AddRateLimitTokens(srcTokens, destTokens []*cont
 	// otherwise the tx gets too large and we will get out of gas error
 	if len(sourceTokenAddresses) > 10 {
 		for i := 0; i < len(sourceTokenAddresses); i += 10 {
-			end := i + 10
-			if end > len(sourceTokenAddresses) {
-				end = len(sourceTokenAddresses)
-			}
+			end := min(i+10, len(sourceTokenAddresses))
 			err := destCCIP.OffRamp.AddRateLimitTokens(sourceTokenAddresses[i:end], destTokenAddresses[i:end])
 			if err != nil {
 				return err
@@ -3048,7 +3044,7 @@ func (lane *CCIPLane) Multicall(noOfRequests int, multiSendAddr common.Address) 
 	for i := 1; i <= noOfRequests; i++ {
 		// form the message for transfer
 		msg := genericMsg
-		msg.Data = []byte(fmt.Sprintf("msg %d", i))
+		msg.Data = fmt.Appendf(nil, "msg %d", i)
 		sendData := contracts.CCIPMsgData{
 			Msg:           msg,
 			RouterAddr:    lane.Source.Common.Router.EthAddress,
@@ -3296,13 +3292,6 @@ type ValidationOptionFunc func(opts *validationOptions)
 
 // PhaseSpecificValidationOptionFunc can specify how exactly you want a phase to fail
 type PhaseSpecificValidationOptionFunc func(*validationOptions)
-
-// WithErrorMessage specifies the expected error message for the phase that is expected to fail.
-func WithErrorMessage(expectedErrorMessage string) PhaseSpecificValidationOptionFunc {
-	return func(opts *validationOptions) {
-		opts.expectedErrorMessage = expectedErrorMessage
-	}
-}
 
 // WithTimeout specifies a custom timeout for validating that the phase failed.
 func WithTimeout(timeout time.Duration) PhaseSpecificValidationOptionFunc {
@@ -4158,11 +4147,18 @@ func (lane *CCIPLane) DeployNewCCIPLane(
 		}
 	}
 	if !lane.Source.Common.ExistingDeployment && lane.Source.Common.IsLBTCDeployment() {
-		// Only one LBTC allowed per chain
-		jobParams.LBTCConfig = &config.LBTCConfig{
-			SourceTokenAddress:           common.HexToAddress(lane.Source.Common.BridgeTokens[0].Address()),
-			AttestationAPI:               mockAdapterURL,
-			AttestationAPITimeoutSeconds: 5,
+		jobParams.LBTCConfigs = make([]config.LBTCConfig, testConf.LBTCNoOfTokens)
+		for i := 0; i < testConf.LBTCNoOfTokens; i++ {
+			token := common.HexToAddress(lane.Source.Common.BridgeTokens[i].Address())
+			lane.Logger.Info().Str("attestationAPI", mockAdapterURL).
+				Str("token", token.String()).
+				Int("i", i).
+				Msg("Setting lbtc config")
+			jobParams.LBTCConfigs[i] = config.LBTCConfig{
+				SourceTokenAddress:           token,
+				AttestationAPI:               mockAdapterURL,
+				AttestationAPITimeoutSeconds: 5,
+			}
 		}
 	}
 	if !bootstrapAdded.Load() {
@@ -4388,8 +4384,6 @@ func CreateOCR2CCIPCommitJobs(
 		OCR2OracleSpec: ocr2SpecCommit.OCR2OracleSpec,
 	}
 	for i, node := range commitNodes {
-		node := node
-		i := i
 		group.Go(func() error {
 			return createJob(i, node, testSpec, mutexes[i])
 		})
@@ -4423,8 +4417,6 @@ func CreateOCR2CCIPExecutionJobs(
 	}
 	if ocr2SpecExec != nil {
 		for i, node := range execNodes {
-			node := node
-			i := i
 			group.Go(func() error {
 				return createJob(i, node, nodeclient.OCR2TaskJobSpec{
 					Name:              ocr2SpecExec.Name,
@@ -4553,7 +4545,7 @@ func (c *CCIPTestEnv) ConnectToExistingNodes(envConfig *testconfig.Common) error
 	noOfNodes := pointer.GetInt(envConfig.ExistingCLCluster.NoOfNodes)
 	namespace := pointer.GetString(envConfig.ExistingCLCluster.Name)
 
-	for i := 0; i < noOfNodes; i++ {
+	for i := range noOfNodes {
 		cfg := envConfig.ExistingCLCluster.NodeConfigs[i]
 		if cfg == nil {
 			return fmt.Errorf("node %d config is nil", i+1)
@@ -4679,7 +4671,6 @@ func (c *CCIPTestEnv) SetUpNodeKeysAndFund(
 		}
 	}
 	for _, chain := range chains {
-		chain := chain
 		grp.Go(func() error {
 			return fund(chain)
 		})
@@ -4899,40 +4890,6 @@ func SetMockServerWithLBTCAttestation(mockAdapter *ctftestenv.Parrot, isFaulty b
 		return fmt.Errorf("failed to set mock adapter route: %w", err)
 	}
 	return nil
-}
-
-// SetMockserverWithTokenPriceValue sets the mock responses in mockserver that are read by chainlink nodes
-// to simulate different price feed value.
-// it keeps updating the response every 15 seconds to simulate price feed updates
-func SetMockserverWithTokenPriceValue(mockServer *ctftestenv.Parrot) {
-	wg := &sync.WaitGroup{}
-	path := "token_contract_"
-	wg.Add(1)
-	go func() {
-		set := true
-		// keep updating token value every 15 second
-		for {
-			tokenValue := big.NewInt(time.Now().UnixNano()).String()
-			route := &parrot.Route{
-				Method:             http.MethodGet,
-				Path:               path + "/*",
-				ResponseBody:       tokenValue,
-				ResponseStatusCode: http.StatusOK,
-			}
-			err := mockServer.SetAdapterRoute(route)
-			if err != nil {
-				log.Fatal().Err(err).Msg("failed to set mockserver route")
-				return
-			}
-			if set {
-				set = false
-				wg.Done()
-			}
-			time.Sleep(15 * time.Second)
-		}
-	}()
-	// wait for the first value to be set
-	wg.Wait()
 }
 
 // TokenPricePipelineURLs returns the mockserver urls for the token price pipeline

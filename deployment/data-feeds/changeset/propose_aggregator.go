@@ -61,7 +61,7 @@ func proposeAggregatorPrecondition(env cldf.Environment, c types.ProposeConfirmA
 	}
 
 	if c.McmsConfig != nil {
-		if err := ValidateMCMSAddresses(env.ExistingAddresses, c.ChainSelector); err != nil {
+		if err := ValidateMCMSAddresses(env.DataStore.Addresses(), c.ChainSelector); err != nil {
 			return err
 		}
 	}

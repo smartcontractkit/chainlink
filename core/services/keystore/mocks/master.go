@@ -163,6 +163,53 @@ func (_c *Master_Cosmos_Call) RunAndReturn(run func() keystore.Cosmos) *Master_C
 	return _c
 }
 
+// DKGRecipient provides a mock function with no fields
+func (_m *Master) DKGRecipient() keystore.DKGRecipient {
+	ret := _m.Called()
+
+	if len(ret) == 0 {
+		panic("no return value specified for DKGRecipient")
+	}
+
+	var r0 keystore.DKGRecipient
+	if rf, ok := ret.Get(0).(func() keystore.DKGRecipient); ok {
+		r0 = rf()
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(keystore.DKGRecipient)
+		}
+	}
+
+	return r0
+}
+
+// Master_DKGRecipient_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'DKGRecipient'
+type Master_DKGRecipient_Call struct {
+	*mock.Call
+}
+
+// DKGRecipient is a helper method to define mock.On call
+func (_e *Master_Expecter) DKGRecipient() *Master_DKGRecipient_Call {
+	return &Master_DKGRecipient_Call{Call: _e.mock.On("DKGRecipient")}
+}
+
+func (_c *Master_DKGRecipient_Call) Run(run func()) *Master_DKGRecipient_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run()
+	})
+	return _c
+}
+
+func (_c *Master_DKGRecipient_Call) Return(_a0 keystore.DKGRecipient) *Master_DKGRecipient_Call {
+	_c.Call.Return(_a0)
+	return _c
+}
+
+func (_c *Master_DKGRecipient_Call) RunAndReturn(run func() keystore.DKGRecipient) *Master_DKGRecipient_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // Eth provides a mock function with no fields
 func (_m *Master) Eth() keystore.Eth {
 	ret := _m.Called()
@@ -497,6 +544,53 @@ func (_c *Master_StarkNet_Call) Return(_a0 keystore.StarkNet) *Master_StarkNet_C
 }
 
 func (_c *Master_StarkNet_Call) RunAndReturn(run func() keystore.StarkNet) *Master_StarkNet_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
+// Sui provides a mock function with no fields
+func (_m *Master) Sui() keystore.Sui {
+	ret := _m.Called()
+
+	if len(ret) == 0 {
+		panic("no return value specified for Sui")
+	}
+
+	var r0 keystore.Sui
+	if rf, ok := ret.Get(0).(func() keystore.Sui); ok {
+		r0 = rf()
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(keystore.Sui)
+		}
+	}
+
+	return r0
+}
+
+// Master_Sui_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'Sui'
+type Master_Sui_Call struct {
+	*mock.Call
+}
+
+// Sui is a helper method to define mock.On call
+func (_e *Master_Expecter) Sui() *Master_Sui_Call {
+	return &Master_Sui_Call{Call: _e.mock.On("Sui")}
+}
+
+func (_c *Master_Sui_Call) Run(run func()) *Master_Sui_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run()
+	})
+	return _c
+}
+
+func (_c *Master_Sui_Call) Return(_a0 keystore.Sui) *Master_Sui_Call {
+	_c.Call.Return(_a0)
+	return _c
+}
+
+func (_c *Master_Sui_Call) RunAndReturn(run func() keystore.Sui) *Master_Sui_Call {
 	_c.Call.Return(run)
 	return _c
 }

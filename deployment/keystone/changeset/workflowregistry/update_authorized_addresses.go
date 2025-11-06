@@ -34,23 +34,6 @@ func (r *UpdateAuthorizedAddressesRequest) Validate() error {
 	return nil
 }
 
-func getWorkflowRegistry(env cldf.Environment, chainSel uint64) (*workflow_registry.WorkflowRegistry, error) {
-	resp, err := changeset.GetContractSets(env.Logger, &changeset.GetContractSetsRequest{
-		Chains:      env.BlockChains.EVMChains(),
-		AddressBook: env.ExistingAddresses,
-	})
-	if err != nil {
-		return nil, fmt.Errorf("failed to get contract sets: %w", err)
-	}
-
-	cs := resp.ContractSets[chainSel]
-	if cs.WorkflowRegistry == nil {
-		return nil, errors.New("could not find workflow registry")
-	}
-
-	return cs.WorkflowRegistry, nil
-}
-
 // UpdateAuthorizedAddresses updates the list of DONs that workflows can be sent to.
 func UpdateAuthorizedAddresses(env cldf.Environment, req *UpdateAuthorizedAddressesRequest) (cldf.ChangesetOutput, error) {
 	if err := req.Validate(); err != nil {

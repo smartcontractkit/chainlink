@@ -2,17 +2,19 @@ package test
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"sync"
 
 	"google.golang.org/grpc"
+
+	"github.com/google/uuid"
 
 	csav1 "github.com/smartcontractkit/chainlink-protos/job-distributor/v1/csa"
 	jobv1 "github.com/smartcontractkit/chainlink-protos/job-distributor/v1/job"
 	nodev1 "github.com/smartcontractkit/chainlink-protos/job-distributor/v1/node"
 
 	"github.com/smartcontractkit/chainlink/deployment"
-	//	"github.com/smartcontractkit/chainlink/deployment/environment/memory"
 
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/p2pkey"
 )
@@ -32,7 +34,6 @@ type JDNodeService struct {
 
 func NewJDService(nodes []deployment.Node) *JDNodeService {
 	return &JDNodeService{
-		//store: wrapAll(nodes),
 		store: newStore(nodes),
 	}
 }
@@ -55,10 +56,22 @@ func NewJDServiceFromListNodes(resp *nodev1.ListNodesResponse) (*JDNodeService, 
 func (s *JDNodeService) GetNode(ctx context.Context, req *nodev1.GetNodeRequest, opts ...grpc.CallOption) (*nodev1.GetNodeResponse, error) {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
+	if req.Id == "" && req.PublicKey == nil {
+		return nil, errors.New("either Id or PublicKey must be provided")
+	}
 
-	w, err := s.store.getNode(req.Id)
-	if err != nil {
-		return nil, err
+	w := &wrappedNode{}
+	var err error
+	if req.PublicKey != nil {
+		w, err = s.store.getNodeByCSA(*req.PublicKey)
+		if err != nil {
+			return nil, err
+		}
+	} else {
+		w, err = s.store.getNode(req.Id)
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	return &nodev1.GetNodeResponse{
@@ -129,7 +142,7 @@ func (s *JDNodeService) RegisterNode(ctx context.Context, req *nodev1.RegisterNo
 	}
 	s.store.put(w)
 
-	return &nodev1.RegisterNodeResponse{}, nil
+	return &nodev1.RegisterNodeResponse{Node: w.toJDNode()}, nil
 }
 
 func (s *JDNodeService) ListNodeChainConfigs(ctx context.Context, req *nodev1.ListNodeChainConfigsRequest, opts ...grpc.CallOption) (*nodev1.ListNodeChainConfigsResponse, error) {
@@ -159,16 +172,35 @@ func (s *JDNodeService) ListNodeChainConfigs(ctx context.Context, req *nodev1.Li
 }
 
 func newWrapperFromRegister(req *nodev1.RegisterNodeRequest) (*wrappedNode, error) {
-	return nil, nil
+	return &wrappedNode{
+		Node: deployment.Node{
+			NodeID: uuid.New().String(),
+			Name:   req.Name,
+			CSAKey: req.PublicKey,
+			Labels: req.Labels,
+		},
+		enabled: true,
+	}, nil
 }
 
 func (s *JDNodeService) UpdateNode(ctx context.Context, req *nodev1.UpdateNodeRequest, opts ...grpc.CallOption) (*nodev1.UpdateNodeResponse, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	_, err := s.store.getNodeByP2P(p2pKey(req.Id))
-	if err != nil {
-		return nil, fmt.Errorf("node not found for p2p %s", req.Id)
+	if req.Id == "" && req.PublicKey == "" {
+		return nil, errors.New("either Id or PublicKey must be provided")
+	}
+
+	if req.PublicKey != "" {
+		_, err := s.store.getNodeByCSA(req.PublicKey)
+		if err != nil {
+			return nil, err
+		}
+	} else {
+		_, err := s.store.getNode(req.Id)
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	w, err := newWrapperFromUpdate(req)
@@ -177,11 +209,45 @@ func (s *JDNodeService) UpdateNode(ctx context.Context, req *nodev1.UpdateNodeRe
 	}
 
 	s.store.put(w)
-	return &nodev1.UpdateNodeResponse{}, nil
+	return &nodev1.UpdateNodeResponse{Node: w.toJDNode()}, nil
+}
+
+func (s *JDNodeService) ProposeJob(ctx context.Context, in *jobv1.ProposeJobRequest, opts ...grpc.CallOption) (*jobv1.ProposeJobResponse, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	_, err := s.store.getNode(in.NodeId)
+	if err != nil {
+		return nil, fmt.Errorf("node not found for id %s", in.NodeId)
+	}
+
+	s.store.addProposedJob(in)
+
+	return &jobv1.ProposeJobResponse{}, nil
+}
+
+func (s *JDNodeService) ListProposedJobRequests() ([]*jobv1.ProposeJobRequest, error) {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+
+	var out []*jobv1.ProposeJobRequest
+	for _, reqs := range s.store.nodeIDToProposedJobs {
+		out = append(out, reqs...)
+	}
+
+	return out, nil
 }
 
 func newWrapperFromUpdate(req *nodev1.UpdateNodeRequest) (*wrappedNode, error) {
-	return nil, nil
+	return &wrappedNode{
+		Node: deployment.Node{
+			NodeID: req.Id,
+			Name:   req.Name,
+			CSAKey: req.PublicKey,
+			Labels: req.Labels,
+		},
+		enabled: true,
+	}, nil
 }
 
 func newJDNode(n deployment.Node) *nodev1.Node {
@@ -251,13 +317,16 @@ type store struct {
 
 	p2pToID map[p2pKey]string
 	csaToID map[csaKey]string
+
+	nodeIDToProposedJobs map[string][]*jobv1.ProposeJobRequest
 }
 
 func newStore(node []deployment.Node) *store {
 	s := &store{
-		db2:     make(map[string]*wrappedNode),
-		csaToID: make(map[csaKey]string),
-		p2pToID: make(map[p2pKey]string),
+		db2:                  make(map[string]*wrappedNode),
+		csaToID:              make(map[csaKey]string),
+		p2pToID:              make(map[p2pKey]string),
+		nodeIDToProposedJobs: make(map[string][]*jobv1.ProposeJobRequest),
 	}
 	for _, v := range node {
 		w := newWrapper(v)
@@ -314,6 +383,15 @@ func (s *store) put(n *wrappedNode) {
 	s.db2[n.Node.NodeID] = n
 	s.csaToID[n.Node.CSAKey] = n.NodeID
 	s.p2pToID[p2pKey(n.Node.PeerID.String())] = n.NodeID
+}
+
+func (s *store) addProposedJob(req *jobv1.ProposeJobRequest) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if _, ok := s.nodeIDToProposedJobs[req.NodeId]; !ok {
+		s.nodeIDToProposedJobs[req.NodeId] = make([]*jobv1.ProposeJobRequest, 0)
+	}
+	s.nodeIDToProposedJobs[req.NodeId] = append(s.nodeIDToProposedJobs[req.NodeId], req)
 }
 
 type UnimplementedJobServiceClient struct{}

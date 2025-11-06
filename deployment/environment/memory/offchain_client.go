@@ -11,11 +11,12 @@ import (
 	nodev1 "github.com/smartcontractkit/chainlink-protos/job-distributor/v1/node"
 	"github.com/smartcontractkit/chainlink-protos/job-distributor/v1/shared/ptypes"
 
-	"github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+	cldf_offchain "github.com/smartcontractkit/chainlink-deployments-framework/offchain"
+
 	"github.com/smartcontractkit/chainlink/deployment/environment/test"
 )
 
-var _ deployment.OffchainClient = &JobClient{}
+var _ cldf_offchain.Client = &JobClient{}
 
 type JobClient struct {
 	RegisteredNodes map[string]Node

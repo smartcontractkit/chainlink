@@ -33,12 +33,12 @@ type Argument interface {
 
 // Analyzer is an extension point of proposal decoding.
 // You can implement your own Analyzer which returns your own Argument instance.
-type Analyzer func(argName string, argAbi *abi.Type, argVal interface{}, analyzers []Analyzer) Argument
+type Analyzer func(argName string, argAbi *abi.Type, argVal any, analyzers []Analyzer) Argument
 
 // ArgumentContext is a storage for context that may need to Argument during its description.
 // Refer to BytesAndAddressAnalyzer and ChainSelectorAnalyzer for usage examples
 type ArgumentContext struct {
-	Ctx map[string]interface{}
+	Ctx map[string]any
 }
 
 func ContextGet[T any](ctx *ArgumentContext, key string) (T, error) {
@@ -55,7 +55,7 @@ func ContextGet[T any](ctx *ArgumentContext, key string) (T, error) {
 
 func NewArgumentContext(addresses cldf.AddressesByChain) *ArgumentContext {
 	return &ArgumentContext{
-		Ctx: map[string]interface{}{
+		Ctx: map[string]any{
 			"AddressesByChain": addresses,
 		},
 	}
@@ -167,11 +167,11 @@ type AddressArgument struct {
 	Value string
 }
 
-func (a AddressArgument) Describe(ctx *ArgumentContext) string {
-	description := a.Value + " (address of <type unknown> from <chain unknown>)"
+// Annotation returns only the annotation if known, otherwise "".
+func (a AddressArgument) Annotation(ctx *ArgumentContext) string {
 	addresses, err := ContextGet[cldf.AddressesByChain](ctx, "AddressesByChain")
 	if err != nil {
-		return description
+		return ""
 	}
 	for chainSel, addresses := range addresses {
 		chainName, err := GetChainNameBySelector(chainSel)
@@ -180,10 +180,14 @@ func (a AddressArgument) Describe(ctx *ArgumentContext) string {
 		}
 		typeAndVersion, ok := addresses[a.Value]
 		if ok {
-			return fmt.Sprintf("%s (address of %s from %s)", a.Value, typeAndVersion.String(), chainName)
+			return fmt.Sprintf("address of %s from %s", typeAndVersion.String(), chainName)
 		}
 	}
-	return description
+	return ""
+}
+
+func (a AddressArgument) Describe(_ *ArgumentContext) string {
+	return a.Value
 }
 
 type DecodedCall struct {
@@ -194,29 +198,62 @@ type DecodedCall struct {
 }
 
 func (d *DecodedCall) Describe(context *ArgumentContext) string {
-	description := strings.Builder{}
-	description.WriteString(fmt.Sprintf("Address: %s\n", AddressArgument{Value: d.Address}.Describe(context)))
-	description.WriteString(fmt.Sprintf("Method: %s\n", d.Method))
-	describedInputs := d.describeArguments(d.Inputs, context)
-	if len(describedInputs) > 0 {
-		description.WriteString(fmt.Sprintf("Inputs:\n%s\n", indentString(describedInputs)))
+	var description strings.Builder
+	addrAnn := AddressArgument{Value: d.Address}.Annotation(context)
+	description.WriteString(fmt.Sprintf("**Address:** `%s`", d.Address))
+	if addrAnn != "" {
+		description.WriteString(fmt.Sprintf(" <sub><i>%s</i></sub>", addrAnn))
 	}
-	describedOutputs := d.describeArguments(d.Outputs, context)
+	description.WriteString("\n")
+	description.WriteString(fmt.Sprintf("**Method:** `%s`\n\n", d.Method))
+	describedInputs := d.describeArguments(d.Inputs, context, "Inputs")
+	if len(describedInputs) > 0 {
+		description.WriteString(describedInputs)
+	}
+	describedOutputs := d.describeArguments(d.Outputs, context, "Outputs")
 	if len(describedOutputs) > 0 {
-		description.WriteString(fmt.Sprintf("Outputs:\n%s\n", indentString(describedOutputs)))
+		description.WriteString(describedOutputs)
 	}
 	return description.String()
 }
 
-func (d *DecodedCall) describeArguments(arguments []NamedArgument, context *ArgumentContext) string {
-	description := strings.Builder{}
+func (d *DecodedCall) describeArguments(arguments []NamedArgument, context *ArgumentContext, label string) string {
+	if len(arguments) == 0 {
+		return ""
+	}
+	var description strings.Builder
+	description.WriteString(fmt.Sprintf("**%s:**\n\n", label))
+	// Table header
+	description.WriteString("| Name | Value | Annotation |\n")
+	description.WriteString("|------|-------|------------|\n")
+
+	var multiLineDetails []string
+
 	for _, argument := range arguments {
-		describedContent := argument.Describe(context)
-		description.WriteString(describedContent)
-		if describedContent[len(describedContent)-1] != '\n' {
-			description.WriteRune('\n')
+		val := argument.Value.Describe(context)
+		annot := ""
+		if addr, ok := argument.Value.(AddressArgument); ok {
+			a := addr.Annotation(context)
+			annot = a // may be ""
+		}
+		val = strings.ReplaceAll(val, "|", "\\|")
+		annot = strings.ReplaceAll(annot, "|", "\\|")
+
+		if strings.Contains(val, "\n") {
+			ref := fmt.Sprintf("See below: `%s`", argument.Name)
+			description.WriteString(fmt.Sprintf("| `%s` | %s | %s |\n", argument.Name, ref, annot))
+			multiLineDetails = append(multiLineDetails, fmt.Sprintf("<details><summary>%s</summary>\n\n```\n%s\n```\n</details>\n", argument.Name, val))
+		} else {
+			description.WriteString(fmt.Sprintf("| `%s` | `%s` | %s |\n", argument.Name, val, annot))
 		}
 	}
+	description.WriteString("\n") // Blank line after table for spacing
+
+	for _, detail := range multiLineDetails {
+		description.WriteString(detail)
+		description.WriteString("\n")
+	}
+
 	return description.String()
 }
 
@@ -241,12 +278,12 @@ func (p *TxCallDecoder) Analyze(address string, abi *abi.ABI, data []byte) (*Dec
 	if err != nil {
 		return nil, err
 	}
-	outs := make(map[string]interface{})
+	outs := make(map[string]any)
 	err = method.Outputs.UnpackIntoMap(outs, methodData)
 	if err != nil {
 		return nil, err
 	}
-	args := make(map[string]interface{})
+	args := make(map[string]any)
 	err = method.Inputs.UnpackIntoMap(args, methodData)
 	if err != nil {
 		return nil, err
@@ -254,7 +291,7 @@ func (p *TxCallDecoder) Analyze(address string, abi *abi.ABI, data []byte) (*Dec
 	return p.analyzeMethodCall(address, method, args, outs)
 }
 
-func (p *TxCallDecoder) analyzeMethodCall(address string, method *abi.Method, args map[string]interface{}, outs map[string]interface{}) (*DecodedCall, error) {
+func (p *TxCallDecoder) analyzeMethodCall(address string, method *abi.Method, args map[string]any, outs map[string]any) (*DecodedCall, error) {
 	inputs := make([]NamedArgument, len(method.Inputs))
 	for i, input := range method.Inputs {
 		arg, ok := args[input.Name]
@@ -285,7 +322,7 @@ func (p *TxCallDecoder) analyzeMethodCall(address string, method *abi.Method, ar
 	}, nil
 }
 
-func (p *TxCallDecoder) analyzeArg(argName string, argAbi *abi.Type, argVal interface{}) Argument {
+func (p *TxCallDecoder) analyzeArg(argName string, argAbi *abi.Type, argVal any) Argument {
 	if len(p.Analyzers) > 0 {
 		for _, analyzer := range p.Analyzers {
 			arg := analyzer(argName, argAbi, argVal, p.Analyzers)
@@ -306,7 +343,7 @@ func (p *TxCallDecoder) analyzeArg(argName string, argAbi *abi.Type, argVal inte
 	return SimpleArgument{Value: fmt.Sprintf("%v", argVal)}
 }
 
-func (p *TxCallDecoder) analyzeStruct(argAbi *abi.Type, argVal interface{}) StructArgument {
+func (p *TxCallDecoder) analyzeStruct(argAbi *abi.Type, argVal any) StructArgument {
 	argTyp := argAbi.GetType()
 	fields := make([]NamedArgument, argTyp.NumField())
 	for i := 0; i < argTyp.NumField(); i++ {
@@ -327,7 +364,7 @@ func (p *TxCallDecoder) analyzeStruct(argAbi *abi.Type, argVal interface{}) Stru
 	}
 }
 
-func (p *TxCallDecoder) analyzeArray(argName string, argAbi *abi.Type, argVal interface{}) ArrayArgument {
+func (p *TxCallDecoder) analyzeArray(argName string, argAbi *abi.Type, argVal any) ArrayArgument {
 	argTyp := reflect.ValueOf(argVal)
 	elements := make([]Argument, argTyp.Len())
 	for i := 0; i < argTyp.Len(); i++ {
@@ -340,7 +377,7 @@ func (p *TxCallDecoder) analyzeArray(argName string, argAbi *abi.Type, argVal in
 	}
 }
 
-func BytesAndAddressAnalyzer(_ string, argAbi *abi.Type, argVal interface{}, _ []Analyzer) Argument {
+func BytesAndAddressAnalyzer(_ string, argAbi *abi.Type, argVal any, _ []Analyzer) Argument {
 	if argAbi.T == abi.FixedBytesTy || argAbi.T == abi.BytesTy || argAbi.T == abi.AddressTy {
 		argArrTyp := reflect.ValueOf(argVal)
 		argArr := make([]byte, argArrTyp.Len())
@@ -355,7 +392,7 @@ func BytesAndAddressAnalyzer(_ string, argAbi *abi.Type, argVal interface{}, _ [
 	return nil
 }
 
-func ChainSelectorAnalyzer(argName string, argAbi *abi.Type, argVal interface{}, _ []Analyzer) Argument {
+func ChainSelectorAnalyzer(argName string, argAbi *abi.Type, argVal any, _ []Analyzer) Argument {
 	if argAbi.GetType().Kind() == reflect.Uint64 && chainSelectorRegex.MatchString(argName) {
 		return ChainSelectorArgument{Value: argVal.(uint64)}
 	}
@@ -395,22 +432,6 @@ func GetChainNameBySelector(selector uint64) (string, error) {
 	return chainInfo.ChainName, nil
 }
 
-func DescribeProposal(proposal *mcmslib.Proposal, describedOperations []string) string {
-	var describedProposal strings.Builder
-	for opIdx, opDesc := range describedOperations {
-		chainSelector := uint64(proposal.Operations[opIdx].ChainSelector)
-		chainName, err := GetChainNameBySelector(chainSelector)
-		if err != nil || chainName == "" {
-			chainName = "<chain unknown>"
-		}
-		describedProposal.WriteString("Operation #" + strconv.Itoa(opIdx))
-		describedProposal.WriteString(fmt.Sprintf("Chain selector: %v (%s)\n", chainSelector, chainName))
-		describedProposal.WriteString(indentString(opDesc))
-		describedProposal.WriteString("\n")
-	}
-	return describedProposal.String()
-}
-
 func DescribeTimelockProposal(proposal *mcmslib.TimelockProposal, describedBatches [][]string) string {
 	var describedProposal strings.Builder
 	for batchIdx, describedOperations := range describedBatches {
@@ -419,14 +440,14 @@ func DescribeTimelockProposal(proposal *mcmslib.TimelockProposal, describedBatch
 		if err != nil || chainName == "" {
 			chainName = "<chain unknown>"
 		}
-		describedProposal.WriteString(fmt.Sprintf("Batch #%v\n", batchIdx))
-		describedProposal.WriteString(fmt.Sprintf("Chain selector: %v (%s)\n", chainSelector, chainName))
+		describedProposal.WriteString(fmt.Sprintf("### Batch %d\n", batchIdx))
+		describedProposal.WriteString(fmt.Sprintf("**Chain selector:** `%d` (`%s`)\n\n", chainSelector, chainName))
 		for opIdx, opDesc := range describedOperations {
-			describedProposal.WriteString(indentString("Operation #" + strconv.Itoa(opIdx)))
-			describedProposal.WriteString("\n")
-			describedProposal.WriteString(indentStringWith(opDesc, DoubleIndent))
-			describedProposal.WriteString("\n")
+			describedProposal.WriteString(fmt.Sprintf("#### Operation %d\n", opIdx))
+			describedProposal.WriteString(opDesc)
+			describedProposal.WriteString("\n\n")
 		}
+		describedProposal.WriteString("---\n\n")
 	}
 	return describedProposal.String()
 }

@@ -10,6 +10,9 @@ import (
 	"time"
 
 	gethtypes "github.com/ethereum/go-ethereum/core/types"
+	"github.com/smartcontractkit/freeport"
+
+	"github.com/smartcontractkit/quarantine"
 
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_2_0/router"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
@@ -29,6 +32,7 @@ import (
 )
 
 func TestIntegration_CCIP(t *testing.T) {
+	quarantine.Flaky(t, "DX-1902")
 	t.Parallel()
 	// Run tke batches of tests for both pipeline and dynamic price getter setups.
 	// We will remove the pipeline batch once the feature is deleted from the code.
@@ -108,7 +112,9 @@ func TestIntegration_CCIP(t *testing.T) {
 				require.NoError(t, err)
 				priceGetterConfigJson = string(priceGetterConfigBytes)
 			}
-			jobParams := ccipTH.SetUpNodesAndJobs(t, tokenPricesUSDPipeline, priceGetterConfigJson, "")
+			bootstrapNode, _, configBlock := ccipTH.SetupAndStartNodes(t.Context(), t, int64(freeport.GetOne(t)))
+			jobParams := ccipTH.NewCCIPJobSpecParams(tokenPricesUSDPipeline, priceGetterConfigJson, configBlock)
+			ccipTH.SetUpJobs(t, bootstrapNode, configBlock, jobParams)
 
 			// track sequence number and nonce separately since nonce doesn't bump for messages with allowOutOfOrderExecution == true,
 			// but sequence number always bumps.
@@ -261,7 +267,7 @@ func TestIntegration_CCIP(t *testing.T) {
 				// a single tx. This means that when batching is turned off, and we simply include
 				// all txs without checking gas, this also fails.
 				n := 15
-				for i := 0; i < n; i++ {
+				for i := range n {
 					txGasLimit := new(big.Int).Mul(gasLimit, big.NewInt(int64(i+1)))
 
 					// interleave ordered and non-ordered messages.
@@ -302,7 +308,7 @@ func TestIntegration_CCIP(t *testing.T) {
 
 				// Send a batch of requests in a single block
 				testhelpers.ConfirmTxs(t, txs, ccipTH.Source.Chain)
-				for i := 0; i < n; i++ {
+				for i := range n {
 					ccipTH.AllNodesHaveReqSeqNum(t, currentSeqNum+i)
 				}
 				// Should see a report with the full range
@@ -393,7 +399,7 @@ func TestIntegration_CCIP(t *testing.T) {
 				ccipTH.Dest.Chain.Commit()
 
 				// create new jobs
-				jobParams = ccipTH.NewCCIPJobSpecParams(tokenPricesUSDPipeline, priceGetterConfigJson, newConfigBlock, "")
+				jobParams = ccipTH.NewCCIPJobSpecParams(tokenPricesUSDPipeline, priceGetterConfigJson, newConfigBlock)
 				jobParams.Version = "v2"
 				jobParams.SourceStartBlock = srcStartBlock
 				ccipTH.AddAllJobs(t, jobParams)
@@ -696,8 +702,9 @@ func TestReorg(t *testing.T) {
 	}
 	priceGetterConfigBytes, err := json.MarshalIndent(priceGetterConfig, "", " ")
 	require.NoError(t, err)
-	priceGetterConfigJSON := string(priceGetterConfigBytes)
-	ccipTH.SetUpNodesAndJobs(t, "", priceGetterConfigJSON, "")
+	bootstrapNode, _, configBlock := ccipTH.SetupAndStartNodes(t.Context(), t, int64(freeport.GetOne(t)))
+	jobParams := ccipTH.NewCCIPJobSpecParams("", string(priceGetterConfigBytes), configBlock)
+	ccipTH.SetUpJobs(t, bootstrapNode, configBlock, jobParams)
 
 	gasLimit := big.NewInt(200_00)
 	tokenAmount := big.NewInt(1)

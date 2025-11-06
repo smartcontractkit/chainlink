@@ -265,7 +265,7 @@ func DeployKeeperRegistrar(
 
 func RegisterUpkeepContracts(t *testing.T, client *seth.Client, linkToken contracts.LinkToken, fundsForEachUpkeep *big.Int, upkeepGasLimit uint32, registry contracts.KeeperRegistry, registrar contracts.KeeperRegistrar, numberOfContracts int, upkeepAddresses []string, isLogTrigger bool, isMercury bool, isBillingTokenNative bool, wethToken contracts.WETHToken) []*big.Int {
 	checkData := make([][]byte, 0)
-	for i := 0; i < numberOfContracts; i++ {
+	for range numberOfContracts {
 		checkData = append(checkData, []byte("0"))
 	}
 	return RegisterUpkeepContractsWithCheckData(
@@ -297,7 +297,7 @@ func RegisterUpkeepContractsWithCheckData(t *testing.T, client *seth.Client, lin
 	executor := ctf_concurrency.NewConcurrentExecutor[UpkeepId, upkeepRegistrationResult, upkeepConfig](l)
 
 	configs := make([]upkeepConfig, 0)
-	for i := 0; i < len(upkeepAddresses); i++ {
+	for i := range upkeepAddresses {
 		configs = append(configs, upkeepConfig{address: upkeepAddresses[i], data: checkData[i]})
 	}
 
@@ -470,7 +470,7 @@ func SetupKeeperConsumers(t *testing.T, client *seth.Client, numberOfContracts i
 		require.Equal(t, numberOfContracts, len(contractsLoaded), "Incorrect number of Keeper Consumer Contracts loaded")
 		l.Info().Int("Number of Contracts", numberOfContracts).Msg("Loading upkeep contracts from config")
 		// Load existing contracts
-		for i := 0; i < numberOfContracts; i++ {
+		for i := range numberOfContracts {
 			require.NoError(t, err, "Failed to get upkeep contract addresses")
 			contract, err := contracts.LoadKeeperConsumer(client, contractsLoaded[i])
 			require.NoError(t, err, "Failed to load keeper consumer contract")
@@ -498,7 +498,7 @@ func DeployKeeperConsumersPerformance(
 	l := logging.GetTestLogger(t)
 	upkeeps := make([]contracts.KeeperConsumerPerformance, 0)
 
-	for contractCount := 0; contractCount < numberOfContracts; contractCount++ {
+	for contractCount := range numberOfContracts {
 		// Deploy consumer
 		keeperConsumerInstance, err := contracts.DeployKeeperConsumerPerformance(
 			client,
@@ -532,7 +532,7 @@ func DeployPerformDataChecker(
 	l := logging.GetTestLogger(t)
 	upkeeps := make([]contracts.KeeperPerformDataChecker, 0)
 
-	for contractCount := 0; contractCount < numberOfContracts; contractCount++ {
+	for contractCount := range numberOfContracts {
 		performDataCheckerInstance, err := contracts.DeployKeeperPerformDataChecker(client, expectedData)
 		require.NoError(t, err, "Deploying KeeperPerformDataChecker instance %d shouldn't fail", contractCount+1)
 		upkeeps = append(upkeeps, performDataCheckerInstance)
@@ -559,7 +559,7 @@ func DeployUpkeepCounters(
 	l := logging.GetTestLogger(t)
 	upkeepCounters := make([]contracts.UpkeepCounter, 0)
 
-	for contractCount := 0; contractCount < numberOfContracts; contractCount++ {
+	for contractCount := range numberOfContracts {
 		// Deploy consumer
 		upkeepCounter, err := contracts.DeployUpkeepCounter(client, testRange, interval)
 		require.NoError(t, err, "Deploying KeeperConsumer instance %d shouldn't fail", contractCount+1)
@@ -587,7 +587,7 @@ func DeployUpkeepPerformCounterRestrictive(
 	l := logging.GetTestLogger(t)
 	upkeepCounters := make([]contracts.UpkeepPerformCounterRestrictive, 0)
 
-	for contractCount := 0; contractCount < numberOfContracts; contractCount++ {
+	for contractCount := range numberOfContracts {
 		// Deploy consumer
 		upkeepCounter, err := contracts.DeployUpkeepPerformCounterRestrictive(client, testRange, averageEligibilityCadence)
 		require.NoError(t, err, "Deploying KeeperConsumer instance %d shouldn't fail", contractCount+1)

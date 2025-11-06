@@ -13,6 +13,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"gopkg.in/guregu/null.v4"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
 
 	evmcfg "github.com/smartcontractkit/chainlink-evm/pkg/config/toml"
@@ -26,25 +27,24 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
 	"github.com/smartcontractkit/chainlink/v2/core/store/migrate"
-	"github.com/smartcontractkit/chainlink/v2/core/store/models"
 	"github.com/smartcontractkit/chainlink/v2/core/utils/testutils/heavyweight"
 )
 
 type OffchainReporting2OracleSpec100 struct {
-	ID                                int32           `toml:"-"`
-	ContractID                        string          `toml:"contractID"`
-	Relay                             string          `toml:"relay"` // RelayID.Network
-	RelayConfig                       job.JSONConfig  `toml:"relayConfig"`
-	P2PBootstrapPeers                 pq.StringArray  `toml:"p2pBootstrapPeers"`
-	OCRKeyBundleID                    null.String     `toml:"ocrKeyBundleID"`
-	MonitoringEndpoint                null.String     `toml:"monitoringEndpoint"`
-	TransmitterID                     null.String     `toml:"transmitterID"`
-	BlockchainTimeout                 models.Interval `toml:"blockchainTimeout"`
-	ContractConfigTrackerPollInterval models.Interval `toml:"contractConfigTrackerPollInterval"`
-	ContractConfigConfirmations       uint16          `toml:"contractConfigConfirmations"`
-	JuelsPerFeeCoinPipeline           string          `toml:"juelsPerFeeCoinSource"`
-	CreatedAt                         time.Time       `toml:"-"`
-	UpdatedAt                         time.Time       `toml:"-"`
+	ID                                int32            `toml:"-"`
+	ContractID                        string           `toml:"contractID"`
+	Relay                             string           `toml:"relay"` // RelayID.Network
+	RelayConfig                       job.JSONConfig   `toml:"relayConfig"`
+	P2PBootstrapPeers                 pq.StringArray   `toml:"p2pBootstrapPeers"`
+	OCRKeyBundleID                    null.String      `toml:"ocrKeyBundleID"`
+	MonitoringEndpoint                null.String      `toml:"monitoringEndpoint"`
+	TransmitterID                     null.String      `toml:"transmitterID"`
+	BlockchainTimeout                 sqlutil.Interval `toml:"blockchainTimeout"`
+	ContractConfigTrackerPollInterval sqlutil.Interval `toml:"contractConfigTrackerPollInterval"`
+	ContractConfigConfirmations       uint16           `toml:"contractConfigConfirmations"`
+	JuelsPerFeeCoinPipeline           string           `toml:"juelsPerFeeCoinSource"`
+	CreatedAt                         time.Time        `toml:"-"`
+	UpdatedAt                         time.Time        `toml:"-"`
 }
 
 func getOCR2Spec100() OffchainReporting2OracleSpec100 {
@@ -52,7 +52,7 @@ func getOCR2Spec100() OffchainReporting2OracleSpec100 {
 		ID:                                100,
 		ContractID:                        "terra_187246hr3781h9fd198fh391g8f924",
 		Relay:                             "terra",
-		RelayConfig:                       map[string]interface{}{"chainID": float64(1337)},
+		RelayConfig:                       map[string]any{"chainID": float64(1337)},
 		P2PBootstrapPeers:                 pq.StringArray{""},
 		OCRKeyBundleID:                    null.String{},
 		MonitoringEndpoint:                null.StringFrom("endpoint:chainlink.monitor"),
@@ -451,27 +451,15 @@ func TestSetMigrationENVVars(t *testing.T) {
 
 func TestNoTriggers(t *testing.T) {
 	_, db := heavyweight.FullTestDBEmptyV2(t, nil)
-
-	assert_num_triggers := func(expected int) {
-		row := db.DB.QueryRow("select count(*) from information_schema.triggers")
-		var count int
-		err := row.Scan(&count)
-
-		require.NoError(t, err)
-		require.Equal(t, expected, count)
-	}
-
-	// if you find yourself here and are tempted to add a trigger, something has gone wrong
-	// and you should talk to the foundations team before proceeding
-	assert_num_triggers(0)
-
-	// version prior to removal of all triggers
-	v := int64(217)
 	p, err := migrate.NewProvider(testutils.Context(t), db.DB)
 	require.NoError(t, err)
-	_, err = p.UpTo(testutils.Context(t), v)
+	_, err = p.Up(testutils.Context(t))
 	require.NoError(t, err)
-	assert_num_triggers(1)
+	row := db.QueryRow("select count(*) from information_schema.triggers")
+	var count int
+	err = row.Scan(&count)
+	require.NoError(t, err)
+	require.Equal(t, 0, count)
 }
 
 func BenchmarkBackfillingRecordsWithMigration202(b *testing.B) {
@@ -491,10 +479,10 @@ func BenchmarkBackfillingRecordsWithMigration202(b *testing.B) {
 	require.NoError(b, err)
 	assert.Len(b, results, int(previousMigration))
 
-	for j := 0; j < chainCount; j++ {
+	for j := range chainCount {
 		// Insert 100_000 block to database, can't do all at once, so batching by 10k
 		var blocks []logpoller.Block
-		for i := 0; i < maxLogsSize; i++ {
+		for i := range maxLogsSize {
 			blocks = append(blocks, logpoller.Block{
 				EVMChainID:           ubig.NewI(int64(j + 1)),
 				BlockHash:            testutils.Random32Byte(),
@@ -519,13 +507,11 @@ func BenchmarkBackfillingRecordsWithMigration202(b *testing.B) {
 		}
 	}
 
-	b.ResetTimer()
-
 	// 1. Measure time of migration 200
 	// 2. Goose down to 199
 	// 3. Reset last_finalized_block_number to 0
 	// Repeat 1-3
-	for i := 0; i < b.N; i++ {
+	for b.Loop() {
 		b.StartTimer()
 		_, err = p.UpTo(ctx, backfillMigration)
 		require.NoError(b, err)

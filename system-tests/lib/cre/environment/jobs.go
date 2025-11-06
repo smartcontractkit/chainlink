@@ -1,6 +1,7 @@
 package environment
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"strings"
@@ -8,39 +9,41 @@ import (
 
 	pkgerrors "github.com/pkg/errors"
 	"github.com/rs/zerolog"
-	"golang.org/x/sync/errgroup"
 
-	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/blockchain"
+	cldf_jd "github.com/smartcontractkit/chainlink-deployments-framework/offchain/jd"
+
+	"google.golang.org/grpc/credentials/insecure"
+
 	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/jd"
 
-	"github.com/smartcontractkit/chainlink/system-tests/lib/cre"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/crib"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/infra"
-	"github.com/smartcontractkit/chainlink/system-tests/lib/nix"
 )
 
-func StartJD(lggr zerolog.Logger, nixShell *nix.Shell, jdInput jd.Input, infraInput infra.Input) (*jd.Output, error) {
+type StartedJD struct {
+	JDOutput *jd.Output
+	Client   *cldf_jd.JobDistributor
+}
+
+func StartJD(ctx context.Context, lggr zerolog.Logger, jdInput jd.Input, infraInput infra.Provider) (*StartedJD, error) {
 	startTime := time.Now()
 	lggr.Info().Msg("Starting Job Distributor")
 
-	var jdOutput *jd.Output
 	if infraInput.Type == infra.CRIB {
-		deployCribJdInput := &cre.DeployCribJdInput{
-			JDInput:        &jdInput,
-			NixShell:       nixShell,
-			CribConfigsDir: cribConfigsDir,
+		deployCribJdInput := &crib.DeployCribJdInput{
+			JDInput:        jdInput,
+			CribConfigsDir: infra.CribConfigsDir,
 			Namespace:      infraInput.CRIB.Namespace,
 		}
 
 		var jdErr error
-		jdInput.Out, jdErr = crib.DeployJd(deployCribJdInput)
+		jdInput.Out, jdErr = crib.DeployJd(ctx, deployCribJdInput)
 		if jdErr != nil {
 			return nil, pkgerrors.Wrap(jdErr, "failed to deploy JD with devspace")
 		}
 	}
 
-	var jdErr error
-	jdOutput, jdErr = CreateJobDistributor(&jdInput)
+	jdOutput, jdErr := jd.NewWithContext(ctx, &jdInput)
 	if jdErr != nil {
 		jdErr = fmt.Errorf("failed to start JD container for image %s: %w", jdInput.Image, jdErr)
 
@@ -48,43 +51,27 @@ func StartJD(lggr zerolog.Logger, nixShell *nix.Shell, jdInput jd.Input, infraIn
 		if strings.Contains(jdErr.Error(), "pull access denied") || strings.Contains(jdErr.Error(), "may require 'docker login'") {
 			jdErr = errors.Join(jdErr, errors.New("ensure that you either you have built the local image or you are logged into AWS with a profile that can read it (`aws sso login --profile <foo>)`"))
 		}
+
+		infra.PrintFailedContainerLogs(lggr, 30)
+
 		return nil, jdErr
+	}
+
+	jdConfig := cldf_jd.JDConfig{
+		GRPC:  jdOutput.ExternalGRPCUrl,
+		WSRPC: jdOutput.InternalWSRPCUrl,
+		Creds: insecure.NewCredentials(),
+	}
+
+	jdClient, jdErr := cldf_jd.NewJDClient(jdConfig)
+	if jdErr != nil {
+		return nil, pkgerrors.Wrap(jdErr, "failed to create JD client")
 	}
 
 	lggr.Info().Msgf("Job Distributor started in %.2f seconds", time.Since(startTime).Seconds())
 
-	return jdOutput, nil
-}
-
-func SetupJobs(lggr zerolog.Logger, jdInput jd.Input, nixShell *nix.Shell, registryChainBlockchainOutput *blockchain.Output, topology *cre.Topology, infraInput infra.Input, capabilitiesAwareNodeSets []*cre.CapabilitiesAwareNodeSet) (*jd.Output, []*cre.WrappedNodeOutput, error) {
-	var jdOutput *jd.Output
-	jdAndDonsErrGroup := &errgroup.Group{}
-
-	jdAndDonsErrGroup.Go(func() error {
-		var startJDErr error
-		jdOutput, startJDErr = StartJD(lggr, nixShell, jdInput, infraInput)
-		if startJDErr != nil {
-			return pkgerrors.Wrap(startJDErr, "failed to start Job Distributor")
-		}
-
-		return nil
-	})
-
-	nodeSetOutput := make([]*cre.WrappedNodeOutput, 0, len(capabilitiesAwareNodeSets))
-
-	jdAndDonsErrGroup.Go(func() error {
-		var startDonsErr error
-		nodeSetOutput, startDonsErr = StartDONs(lggr, nixShell, topology, infraInput, registryChainBlockchainOutput, capabilitiesAwareNodeSets)
-		if startDonsErr != nil {
-			return pkgerrors.Wrap(startDonsErr, "failed to start DONs")
-		}
-
-		return nil
-	})
-
-	if jdAndDonErr := jdAndDonsErrGroup.Wait(); jdAndDonErr != nil {
-		return nil, nil, pkgerrors.Wrap(jdAndDonErr, "failed to start Job Distributor or DONs")
-	}
-
-	return jdOutput, nodeSetOutput, nil
+	return &StartedJD{
+		JDOutput: jdOutput,
+		Client:   jdClient,
+	}, nil
 }

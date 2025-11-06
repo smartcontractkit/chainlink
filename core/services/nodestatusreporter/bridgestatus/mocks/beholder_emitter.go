@@ -11,6 +11,8 @@ type BeholderEmitter struct {
 	mock.Mock
 }
 
+func (m *BeholderEmitter) Close() error { return nil }
+
 func (m *BeholderEmitter) Emit(ctx context.Context, body []byte, attrKVs ...any) error {
 	args := m.Called(ctx, body, attrKVs)
 	return args.Error(0)

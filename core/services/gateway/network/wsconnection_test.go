@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"github.com/gorilla/websocket"
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
@@ -34,8 +35,9 @@ func TestWSConnectionWrapper_ClientReconnect(t *testing.T) {
 	t.Parallel()
 	lggr := logger.Test(t)
 	// server
-	ssl := &serverSideLogic{connWrapper: network.NewWSConnectionWrapper(lggr)}
-	servicetest.Run(t, ssl.connWrapper)
+	wsConn := network.NewWSConnectionWrapper(lggr)
+	servicetest.Run(t, wsConn)
+	ssl := &serverSideLogic{connWrapper: wsConn}
 	s := httptest.NewServer(http.HandlerFunc(ssl.wsHandler))
 	serverURL := "ws" + strings.TrimPrefix(s.URL, "http")
 	defer s.Close()
@@ -47,22 +49,24 @@ func TestWSConnectionWrapper_ClientReconnect(t *testing.T) {
 	// connect, write a message, disconnect
 	conn, _, err := websocket.DefaultDialer.Dial(serverURL, nil)
 	require.NoError(t, err)
-	clientConnWrapper.Reset(conn)
-	writeErr := clientConnWrapper.Write(testutils.Context(t), websocket.TextMessage, []byte("hello"))
-	require.NoError(t, writeErr)
-	<-ssl.connWrapper.ReadChannel() // consumed by server
-	conn.Close()
+	func() {
+		defer func() { assert.NoError(t, conn.Close()) }()
+		clientConnWrapper.Reset(conn)
+		writeErr := clientConnWrapper.Write(testutils.Context(t), websocket.TextMessage, []byte("hello"))
+		require.NoError(t, writeErr)
+		<-ssl.connWrapper.ReadChannel() // consumed by server
+	}()
 
 	// try to write without a connection
-	writeErr = clientConnWrapper.Write(testutils.Context(t), websocket.TextMessage, []byte("failed send"))
+	writeErr := clientConnWrapper.Write(testutils.Context(t), websocket.TextMessage, []byte("failed send"))
 	require.Error(t, writeErr)
 
 	// re-connect, write another message, disconnect
 	conn, _, err = websocket.DefaultDialer.Dial(serverURL, nil)
 	require.NoError(t, err)
+	t.Cleanup(func() { assert.NoError(t, conn.Close()) })
 	clientConnWrapper.Reset(conn)
 	writeErr = clientConnWrapper.Write(testutils.Context(t), websocket.TextMessage, []byte("hello again"))
 	require.NoError(t, writeErr)
 	<-ssl.connWrapper.ReadChannel() // consumed by server
-	conn.Close()
 }

@@ -7,7 +7,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
-	"github.com/smartcontractkit/chainlink-common/pkg/workflows/sdk/v2/pb"
+	"github.com/smartcontractkit/chainlink-protos/cre/go/sdk"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities"
 	v2 "github.com/smartcontractkit/chainlink/v2/core/services/workflows/v2"
 )
@@ -28,7 +28,7 @@ type RunnerHooks struct {
 	// Initialize hook sets up resources used by the Runner
 	Initialize func(context.Context, RunnerConfig) (*capabilities.Registry, []services.Service)
 	// BeforeStart hook is a testing hook that can be used to check that resources were set up
-	BeforeStart func(context.Context, RunnerConfig, *capabilities.Registry, []services.Service, []*pb.TriggerSubscription)
+	BeforeStart func(context.Context, RunnerConfig, *capabilities.Registry, []services.Service, []*sdk.TriggerSubscription)
 	// Wait hook handles blocking for the runner to keep the standalone engine running
 	Wait func(context.Context, RunnerConfig, *capabilities.Registry, []services.Service)
 	// AfterRun hook is a testing hook that can be used for checking engine and capability state directly after waiting
@@ -40,7 +40,7 @@ type RunnerHooks struct {
 }
 
 var emptyHook = func(context.Context, RunnerConfig, *capabilities.Registry, []services.Service) {}
-var emptyBeforeStart = func(context.Context, RunnerConfig, *capabilities.Registry, []services.Service, []*pb.TriggerSubscription) {
+var emptyBeforeStart = func(context.Context, RunnerConfig, *capabilities.Registry, []services.Service, []*sdk.TriggerSubscription) {
 }
 
 var defaultInitialize = func(ctx context.Context, cfg RunnerConfig) (*capabilities.Registry, []services.Service) {
@@ -163,6 +163,11 @@ func (r *Runner) Run(
 		fmt.Printf("Failed to start engine: %v\n", err)
 		os.Exit(1)
 	}
+	defer func() {
+		if err2 := engine.Close(); err2 != nil {
+			fmt.Printf("Failed to close engine: %v\n", err2)
+		}
+	}()
 
 	r.hooks.Wait(ctx, cfg, registry, services)
 

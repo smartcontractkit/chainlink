@@ -540,12 +540,6 @@ type CCIPIntegrationTestHarness struct {
 	Bootstrap Node
 }
 
-func SetupCCIPIntegrationTH(t *testing.T, sourceChainID, sourceChainSelector, destChainId, destChainSelector uint64) CCIPIntegrationTestHarness {
-	return CCIPIntegrationTestHarness{
-		CCIPContracts: SetupCCIPContracts(t, sourceChainID, sourceChainSelector, destChainId, destChainSelector),
-	}
-}
-
 //nolint:testifylint //require is used for assertions in handlers
 func (c *CCIPIntegrationTestHarness) CreatePricesPipeline(t *testing.T) (string, *httptest.Server, *httptest.Server) {
 	linkUSD := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
@@ -888,7 +882,7 @@ func (c *CCIPIntegrationTestHarness) SetupAndStartNodes(ctx context.Context, t *
 		KeyBundle:   bootstrapKb,
 	}
 	// Set up the minimum 4 oracles all funded with destination ETH
-	for i := int64(0); i < 4; i++ {
+	for i := range int64(4) {
 		app, peerID, transmitter, kb := setupNodeCCIP(
 			t,
 			c.Dest.User,

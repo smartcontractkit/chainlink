@@ -27,18 +27,32 @@ type Heartbeat struct {
 }
 
 type HeartbeatConfig struct {
-	Beat  time.Duration
-	Lggr  logger.Logger
-	P2P   string
-	AppID string
+	Beat         time.Duration
+	Lggr         logger.Logger
+	P2P          string
+	AppID        string
+	CSAPublicKey string
 }
 
 func NewHeartbeatConfig(cfg ApplicationOpts) HeartbeatConfig {
+	csaKey := ""
+	csaKeys, err := cfg.KeyStore.CSA().GetAll()
+	if err != nil {
+		cfg.Logger.Errorw("failed to get CSA keys", "err", err)
+	}
+
+	if len(csaKeys) > 0 {
+		csaKey = csaKeys[0].PublicKeyString()
+	} else {
+		cfg.Logger.Warn("no CSA key found for heartbeat")
+	}
+
 	return HeartbeatConfig{
-		Beat:  cfg.Config.Telemetry().HeartbeatInterval(),
-		Lggr:  cfg.Logger,
-		P2P:   cfg.Config.P2P().PeerID().String(),
-		AppID: cfg.Config.AppID().String(),
+		Beat:         cfg.Config.Telemetry().HeartbeatInterval(),
+		Lggr:         cfg.Logger,
+		P2P:          cfg.Config.P2P().PeerID().String(),
+		AppID:        cfg.Config.AppID().String(),
+		CSAPublicKey: csaKey,
 	}
 }
 
@@ -53,12 +67,15 @@ func NewHeartbeat(cfg HeartbeatConfig, opts ...HeartbeatOpt) Heartbeat {
 	if cfg.AppID != "" {
 		labels["appID"] = cfg.AppID
 	}
+	if cfg.CSAPublicKey != "" {
+		labels["csa_key"] = cfg.CSAPublicKey
+	}
 
 	cme.WithMapLabels(labels)
 	h := Heartbeat{
 		beat:    cfg.Beat,
 		opts:    cfg,
-		emitter: cme,
+		emitter: cme.WithMapLabels(labels),
 		meter:   beholder.GetMeter(),
 	}
 

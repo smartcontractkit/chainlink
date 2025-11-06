@@ -13,8 +13,6 @@ import (
 	"github.com/gagliardetto/solana-go"
 	"golang.org/x/exp/maps"
 
-	"github.com/smartcontractkit/chainlink-common/pkg/logger"
-
 	chain_selectors "github.com/smartcontractkit/chain-selectors"
 
 	mcmslib "github.com/smartcontractkit/mcms"
@@ -965,7 +963,7 @@ func RevokeCandidateChangeset(e cldf.Environment, cfg RevokeCandidateChangesetCo
 	inspectors := map[uint64]mcmssdk.Inspector{cfg.HomeChainSelector: mcmsevmsdk.NewInspector(e.BlockChains.EVMChains()[cfg.HomeChainSelector].Client)}
 	batches := []mcmstypes.BatchOperation{{ChainSelector: mcmstypes.ChainSelector(cfg.HomeChainSelector), Transactions: ops}}
 
-	mcmsContractByChain, err := deployergroup.BuildMcmAddressesPerChainByAction(e, state, cfg.MCMS)
+	mcmsContractByChain, err := deployergroup.BuildMcmAddressesPerChainByAction(e, state, cfg.MCMS, nil)
 	if err != nil {
 		return cldf.ChangesetOutput{}, fmt.Errorf("failed to build mcm addresses per chain: %w", err)
 	}
@@ -1187,68 +1185,6 @@ func isChainConfigEqual(a, b ccip_home.CCIPHomeChainConfig) bool {
 		a.FChain == b.FChain
 }
 
-// ValidateCCIPHomeConfigSetUp checks that the commit and exec active and candidate configs are set up correctly
-// TODO: Utilize this
-func ValidateCCIPHomeConfigSetUp(
-	lggr logger.Logger,
-	capReg *capabilities_registry.CapabilitiesRegistry,
-	ccipHome *ccip_home.CCIPHome,
-	chainSel uint64,
-) error {
-	// fetch DONID
-	donID, err := internal.DonIDForChain(capReg, ccipHome, chainSel)
-	if err != nil {
-		return fmt.Errorf("fetch don id for chain: %w", err)
-	}
-	if donID == 0 {
-		return fmt.Errorf("don id for chain (%d) does not exist", chainSel)
-	}
-
-	// final sanity checks on configs.
-	commitConfigs, err := ccipHome.GetAllConfigs(&bind.CallOpts{
-		// Pending: true,
-	}, donID, uint8(types.PluginTypeCCIPCommit))
-	if err != nil {
-		return fmt.Errorf("get all commit configs: %w", err)
-	}
-	commitActiveDigest, err := ccipHome.GetActiveDigest(nil, donID, uint8(types.PluginTypeCCIPCommit))
-	if err != nil {
-		return fmt.Errorf("get active commit digest: %w", err)
-	}
-	lggr.Debugw("Fetched active commit digest", "commitActiveDigest", hex.EncodeToString(commitActiveDigest[:]))
-	commitCandidateDigest, err := ccipHome.GetCandidateDigest(nil, donID, uint8(types.PluginTypeCCIPCommit))
-	if err != nil {
-		return fmt.Errorf("get commit candidate digest: %w", err)
-	}
-	lggr.Debugw("Fetched candidate commit digest", "commitCandidateDigest", hex.EncodeToString(commitCandidateDigest[:]))
-	if commitConfigs.ActiveConfig.ConfigDigest == [32]byte{} {
-		return fmt.Errorf(
-			"active config digest is empty for commit, expected nonempty, donID: %d, cfg: %+v, config digest from GetActiveDigest call: %x, config digest from GetCandidateDigest call: %x",
-			donID, commitConfigs.ActiveConfig, commitActiveDigest, commitCandidateDigest)
-	}
-	if commitConfigs.CandidateConfig.ConfigDigest != [32]byte{} {
-		return fmt.Errorf(
-			"candidate config digest is nonempty for commit, expected empty, donID: %d, cfg: %+v, config digest from GetCandidateDigest call: %x, config digest from GetActiveDigest call: %x",
-			donID, commitConfigs.CandidateConfig, commitCandidateDigest, commitActiveDigest)
-	}
-
-	execConfigs, err := ccipHome.GetAllConfigs(nil, donID, uint8(types.PluginTypeCCIPExec))
-	if err != nil {
-		return fmt.Errorf("get all exec configs: %w", err)
-	}
-	lggr.Debugw("Fetched exec configs",
-		"ActiveConfig.ConfigDigest", hex.EncodeToString(execConfigs.ActiveConfig.ConfigDigest[:]),
-		"CandidateConfig.ConfigDigest", hex.EncodeToString(execConfigs.CandidateConfig.ConfigDigest[:]),
-	)
-	if execConfigs.ActiveConfig.ConfigDigest == [32]byte{} {
-		return fmt.Errorf("active config digest is empty for exec, expected nonempty, cfg: %v", execConfigs.ActiveConfig)
-	}
-	if execConfigs.CandidateConfig.ConfigDigest != [32]byte{} {
-		return fmt.Errorf("candidate config digest is nonempty for exec, expected empty, cfg: %v", execConfigs.CandidateConfig)
-	}
-	return nil
-}
-
 type DeployDonIDClaimerConfig struct{}
 
 func deployDonIDClaimerChangesetLogic(e cldf.Environment, _ DeployDonIDClaimerConfig) (cldf.ChangesetOutput, error) {
@@ -1268,12 +1204,26 @@ func deployDonIDClaimerChangesetLogic(e cldf.Environment, _ DeployDonIDClaimerCo
 	err = deployDonIDClaimerContract(e, ab, state, chain)
 	if err != nil {
 		e.Logger.Errorw("Failed to deploy donIDClaimer contract", "err", err, "addressBook", ab)
+
+		ds, err2 := shared.PopulateDataStore(ab)
+		if err2 != nil {
+			err2 = fmt.Errorf("failed to populate in-memory DataStore: %w", err2)
+		}
+
 		return cldf.ChangesetOutput{
 			AddressBook: ab,
-		}, fmt.Errorf("failed to deploy donIDClaimer contract: %w", err)
+			DataStore:   ds,
+		}, fmt.Errorf("failed to deploy donIDClaimer contract: %w", errors.Join(err, err2))
 	}
+
+	ds, err := shared.PopulateDataStore(ab)
+	if err != nil {
+		return cldf.ChangesetOutput{}, fmt.Errorf("failed to populate in-memory DataStore: %w", err)
+	}
+
 	return cldf.ChangesetOutput{
 		AddressBook: ab,
+		DataStore:   ds,
 	}, nil
 }
 

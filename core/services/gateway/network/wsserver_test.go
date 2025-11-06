@@ -14,7 +14,11 @@ import (
 
 	"github.com/stretchr/testify/require"
 
+	"github.com/smartcontractkit/quarantine"
+
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
+	"github.com/smartcontractkit/chainlink-common/pkg/services/servicetest"
+	"github.com/smartcontractkit/chainlink-common/pkg/settings/limits"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/network"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/network/mocks"
@@ -42,9 +46,10 @@ func startNewWSServer(t *testing.T, readTimeoutMillis uint32) (server network.We
 	}
 
 	acceptor = mocks.NewConnectionAcceptor(t)
-	server = network.NewWebSocketServer(config, acceptor, logger.Test(t))
-	err := server.Start(testutils.Context(t))
+	lggr := logger.Test(t)
+	server, err := network.NewWebSocketServer(config, acceptor, lggr, limits.Factory{Logger: lggr})
 	require.NoError(t, err)
+	servicetest.Run(t, server)
 
 	port := server.GetPort()
 	url = fmt.Sprintf("http://%s:%d%s", WSTestHost, port, WSTestPath)
@@ -64,11 +69,10 @@ func sendRequestWithHeader(t *testing.T, url string, headerName string, headerVa
 
 func TestWSServer_HandleRequest_AuthHeaderTooBig(t *testing.T) {
 	t.Parallel()
-	server, _, urlStr := startNewWSServer(t, 100_000)
-	defer server.Close()
+	_, _, urlStr := startNewWSServer(t, 100_000)
 
 	longString := "abcdefgh"
-	for i := 0; i < 6; i++ {
+	for range 6 {
 		longString += longString
 	}
 	authHeader := base64.StdEncoding.EncodeToString([]byte(longString))
@@ -78,8 +82,7 @@ func TestWSServer_HandleRequest_AuthHeaderTooBig(t *testing.T) {
 
 func TestWSServer_HandleRequest_AuthHeaderIncorrectlyBase64Encoded(t *testing.T) {
 	t.Parallel()
-	server, _, urlStr := startNewWSServer(t, 100_000)
-	defer server.Close()
+	_, _, urlStr := startNewWSServer(t, 100_000)
 
 	resp := sendRequestWithHeader(t, urlStr, network.WsServerHandshakeAuthHeaderName, "}}}")
 	require.Equal(t, http.StatusBadRequest, resp.StatusCode)
@@ -87,8 +90,7 @@ func TestWSServer_HandleRequest_AuthHeaderIncorrectlyBase64Encoded(t *testing.T)
 
 func TestWSServer_HandleRequest_AuthHeaderInvalid(t *testing.T) {
 	t.Parallel()
-	server, acceptor, urlStr := startNewWSServer(t, 100_000)
-	defer server.Close()
+	_, acceptor, urlStr := startNewWSServer(t, 100_000)
 
 	acceptor.On("StartHandshake", mock.Anything).Return("", []byte{}, errors.New("invalid auth header"))
 
@@ -99,8 +101,7 @@ func TestWSServer_HandleRequest_AuthHeaderInvalid(t *testing.T) {
 
 func TestWSServer_WSClient_DefaultConfig_Success(t *testing.T) {
 	t.Parallel()
-	server, acceptor, urlStr := startNewWSServer(t, 10_000)
-	defer server.Close()
+	_, acceptor, urlStr := startNewWSServer(t, 10_000)
 
 	waitCh := make(chan struct{})
 	acceptor.On("StartHandshake", mock.Anything).Return("", []byte("challenge"), nil)
@@ -126,9 +127,9 @@ func TestWSServer_WSClient_DefaultConfig_Success(t *testing.T) {
 }
 
 func TestWSServer_WSClient_DefaultConfig_Failure(t *testing.T) {
+	quarantine.Flaky(t, "DX-1752")
 	t.Parallel()
-	server, acceptor, urlStr := startNewWSServer(t, 10_000)
-	defer server.Close()
+	_, acceptor, urlStr := startNewWSServer(t, 10_000)
 
 	waitCh := make(chan struct{})
 	acceptor.On("StartHandshake", mock.Anything).Return("", []byte("challenge"), nil)

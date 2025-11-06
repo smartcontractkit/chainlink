@@ -110,6 +110,13 @@ var (
 )
 
 func TestHealthController_Health_body(t *testing.T) {
+	bodyJSON = strings.ReplaceAll(bodyJSON, "1399100", testutils.FixtureChainID.String())
+	bodyHTML = strings.ReplaceAll(bodyHTML, "1399100", testutils.FixtureChainID.String())
+	bodyTXT = strings.ReplaceAll(bodyTXT, "1399100", testutils.FixtureChainID.String())
+	bodyJSONFailing = strings.ReplaceAll(bodyJSONFailing, "1399100", testutils.FixtureChainID.String())
+	bodyHTMLFailing = strings.ReplaceAll(bodyHTMLFailing, "1399100", testutils.FixtureChainID.String())
+	bodyTXTFailing = strings.ReplaceAll(bodyTXTFailing, "1399100", testutils.FixtureChainID.String())
+
 	for _, tc := range []struct {
 		name    string
 		path    string
@@ -130,12 +137,12 @@ func TestHealthController_Health_body(t *testing.T) {
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			cfg := configtest.NewGeneralConfig(t, func(cfg *chainlink.Config, secrets *chainlink.Secrets) {
-				cfg.Solana = append(cfg.Solana, &solcfg.TOMLConfig{
+				cfg.Solana = []*solcfg.TOMLConfig{{
 					ChainID: ptr("Bar"),
 					Nodes: solcfg.Nodes{
 						{Name: ptr("primary"), URL: config.MustParseURL("http://solana.web")},
 					},
-				})
+				}}
 				cfg.Solana[0].SetDefaults()
 			})
 			app := cltest.NewApplicationWithConfigAndKey(t, cfg)

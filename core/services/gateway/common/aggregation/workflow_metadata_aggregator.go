@@ -4,12 +4,14 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"sort"
 	"sync"
 	"time"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	gateway_common "github.com/smartcontractkit/chainlink-common/pkg/types/gateway"
+	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers/capabilities/v2/metrics"
 )
 
 type WorkflowMetadataAggregator struct {
@@ -25,9 +27,12 @@ type WorkflowMetadataAggregator struct {
 	// This is used to clean up old observations that are no longer relevant.
 	observedAt      map[string]map[string]time.Time
 	cleanupInterval time.Duration
+	metrics         *metrics.Metrics
+	// sequenceCounter is incremented for each new observation to establish ordering
+	sequenceCounter uint64
 }
 
-func NewWorkflowMetadataAggregator(lggr logger.Logger, threshold int, cleanupInterval time.Duration) *WorkflowMetadataAggregator {
+func NewWorkflowMetadataAggregator(lggr logger.Logger, threshold int, cleanupInterval time.Duration, metrics *metrics.Metrics) *WorkflowMetadataAggregator {
 	if threshold <= 0 {
 		panic(fmt.Sprintf("threshold must be greater than 0, got %d", threshold))
 	}
@@ -38,10 +43,11 @@ func NewWorkflowMetadataAggregator(lggr logger.Logger, threshold int, cleanupInt
 		observedAt:      make(map[string]map[string]time.Time),
 		stopCh:          make(services.StopChan),
 		cleanupInterval: cleanupInterval,
+		metrics:         metrics,
 	}
 }
 
-func (agg *WorkflowMetadataAggregator) reapObservations() {
+func (agg *WorkflowMetadataAggregator) reapObservations(ctx context.Context) {
 	agg.mu.Lock()
 	defer agg.mu.Unlock()
 	now := time.Now()
@@ -67,11 +73,13 @@ func (agg *WorkflowMetadataAggregator) reapObservations() {
 		}
 	}
 	if expiredCount > 0 {
+		agg.metrics.IncrementMetadataObservationsCleanUpCount(ctx, int64(expiredCount), agg.lggr)
 		agg.lggr.Debugw("Removed expired callbacks", "count", expiredCount)
 	}
+	agg.metrics.RecordMetadataObservationsCount(ctx, int64(len(agg.observations)), agg.lggr)
 }
 
-func (agg *WorkflowMetadataAggregator) Start(context.Context) error {
+func (agg *WorkflowMetadataAggregator) Start(ctx context.Context) error {
 	return agg.StartOnce("WorkflowMetadataAggregator", func() error {
 		agg.lggr.Info("Starting WorkflowMetadataAggregator")
 		go func() {
@@ -80,7 +88,7 @@ func (agg *WorkflowMetadataAggregator) Start(context.Context) error {
 			for {
 				select {
 				case <-ticker.C:
-					agg.reapObservations()
+					agg.reapObservations(ctx)
 				case <-agg.stopCh:
 					return
 				}
@@ -121,9 +129,11 @@ func (agg *WorkflowMetadataAggregator) Collect(obs *gateway_common.WorkflowMetad
 
 	_, ok = agg.observations[digest]
 	if !ok {
+		agg.sequenceCounter++
 		agg.observations[digest] = &NodeObservations{
 			observation: obs,
 			nodes:       make(StringSet),
+			sequence:    agg.sequenceCounter,
 		}
 	}
 	agg.observations[digest].nodes.Add(nodeAddress)
@@ -131,20 +141,43 @@ func (agg *WorkflowMetadataAggregator) Collect(obs *gateway_common.WorkflowMetad
 }
 
 // Aggregate returns the aggregated workflow metadata for workflows that have reached the threshold.
+// Results are sorted chronologically by sequence number (newest first, oldest last).
 func (agg *WorkflowMetadataAggregator) Aggregate() ([]gateway_common.WorkflowMetadata, error) {
 	agg.mu.RLock()
 	defer agg.mu.RUnlock()
 
-	var aggregated []gateway_common.WorkflowMetadata
+	type aggregatedObs struct {
+		metadata gateway_common.WorkflowMetadata
+		sequence uint64
+	}
+
+	var toSort []aggregatedObs
 	for _, nodeObs := range agg.observations {
 		if len(nodeObs.nodes) >= agg.threshold {
-			aggregated = append(aggregated, *nodeObs.observation)
+			toSort = append(toSort, aggregatedObs{
+				metadata: *nodeObs.observation,
+				sequence: nodeObs.sequence,
+			})
 		}
 	}
+
+	// Sort chronologically (newest first) so that workflows that were registered most recently
+	// takes precedence
+	sort.Slice(toSort, func(i, j int) bool {
+		return toSort[i].sequence > toSort[j].sequence
+	})
+
+	// Extract just the metadata
+	aggregated := make([]gateway_common.WorkflowMetadata, len(toSort))
+	for i, obs := range toSort {
+		aggregated[i] = obs.metadata
+	}
+
 	return aggregated, nil
 }
 
 type NodeObservations struct {
 	observation *gateway_common.WorkflowMetadata
 	nodes       StringSet
+	sequence    uint64 // sequence number for ordering (higher = newer)
 }

@@ -45,6 +45,7 @@ ChainID = '1'
 FinalityDepth = 26
 SafeDepth = 0
 FinalityTagEnabled = true
+SafeTagSupported = true
 FinalizedBlockOffset = 12
 
 [[EVM.Nodes]]

@@ -5,17 +5,20 @@ import (
 	"crypto/ecdsa"
 	"encoding/base64"
 	"errors"
+	"fmt"
 	"strings"
 	"time"
 
 	gethcommon "github.com/ethereum/go-ethereum/common"
 	"github.com/golang-jwt/jwt/v5"
+	"github.com/google/uuid"
 
 	jsonrpc "github.com/smartcontractkit/chainlink-common/pkg/jsonrpc2"
 )
 
 const (
-	defaultJWTExpiryDuration = time.Hour
+	maxJWTExpiryDuration     = 5 * time.Minute // Maximum allowed expiry duration
+	defaultIssuedAtTolerance = 5 * time.Minute // Default tolerance for issuedAt validation to handle clock drift
 )
 
 // Option is a function type that allows configuring CreateRequestJWT.
@@ -26,6 +29,14 @@ type jwtOptions struct {
 	issuer         *string  // New field for optional issuer
 	audience       []string // New field for optional audience
 	subject        *string  // New field for optional subject
+}
+
+// VerifyOption is a function type that allows configuring VerifyRequestJWT.
+type VerifyOption func(*verifyOptions)
+
+type verifyOptions struct {
+	maxExpiryDuration *time.Duration
+	issuedAtTolerance *time.Duration
 }
 
 func WithExpiry(d time.Duration) Option {
@@ -52,14 +63,28 @@ func WithSubject(subject string) Option {
 	}
 }
 
+func WithMaxExpiryDuration(d time.Duration) VerifyOption {
+	return func(opts *verifyOptions) {
+		opts.maxExpiryDuration = &d
+	}
+}
+
+// WithIssuedAtTolerance sets the tolerance for issuedAt validation to handle clock skew.
+// This allows tokens with issuedAt times slightly in the future (within the tolerance) to be accepted
+func WithIssuedAtTolerance(d time.Duration) VerifyOption {
+	return func(opts *verifyOptions) {
+		opts.issuedAtTolerance = &d
+	}
+}
+
 type SigningMethodEth struct{}
 
-var signingMethodETH = &SigningMethodEth{}
+var EthereumSigningMethod = &SigningMethodEth{}
 
 func init() {
 	// registering a custom implementation of the ETH signing method here
-	jwt.RegisterSigningMethod(signingMethodETH.Alg(), func() jwt.SigningMethod {
-		return signingMethodETH
+	jwt.RegisterSigningMethod(EthereumSigningMethod.Alg(), func() jwt.SigningMethod {
+		return EthereumSigningMethod
 	})
 }
 
@@ -70,7 +95,7 @@ func (m *SigningMethodEth) Alg() string {
 // Sign signs the given signing string using the given key
 // key is expected to be an *ecdsa.PrivateKey
 // returns the signature as a 65-byte array (r, s, v) with v being 0 or 1
-func (m *SigningMethodEth) Sign(signingString string, key interface{}) ([]byte, error) {
+func (m *SigningMethodEth) Sign(signingString string, key any) ([]byte, error) {
 	var ecdsaKey *ecdsa.PrivateKey
 	switch k := key.(type) {
 	case *ecdsa.PrivateKey:
@@ -87,7 +112,7 @@ func (m *SigningMethodEth) Sign(signingString string, key interface{}) ([]byte, 
 
 // Verify verifies the given signature for the given signing string using the given public key
 // key is expected to be a gethcommon.Address
-func (m *SigningMethodEth) Verify(signingString string, signature []byte, key interface{}) error {
+func (m *SigningMethodEth) Verify(signingString string, signature []byte, key any) error {
 	var ethAddr gethcommon.Address
 	switch k := key.(type) {
 	case gethcommon.Address:
@@ -123,6 +148,7 @@ type JWTClaims struct {
 //
 //	{
 //		digest: "<request-digest>",      // 32 byte hex string with "0x" prefix
+//		jti: "<unique-id>",              // JWT ID (UUID) for replay protection (REQUIRED)
 //		iss: "ethereum-address",         // Ethereum address of the issuer
 //		exp: <timestamp>,                // expiration time (Unix timestamp)
 //		iat: <timestamp>                 // issued at time (Unix timestamp)
@@ -132,8 +158,9 @@ type JWTClaims struct {
 //
 //	{
 //	  "digest": "0x4a1f2b3c4d5e6f7a8b9c0d1e2f3a4b5c6d7e8f9a0b1c2d3e4f5a6b7c8d9e0f1a",
+//	  "jti": "550e8400-e29b-41d4-a716-446655440000",
 //	  "iss": "0xc40B35B10c5003C182e300a9a34F6ff559eB746d",
-//	  "exp": 1717600000,
+//	  "exp": 1717596700,
 //	  "iat": 1717596400
 //	}
 //
@@ -145,8 +172,7 @@ func CreateRequestJWT[T any](req jsonrpc.Request[T], opts ...Option) (*jwt.Token
 		opt(options)
 	}
 
-	// Set defaults if not provided
-	expiryDuration := defaultJWTExpiryDuration
+	expiryDuration := maxJWTExpiryDuration
 	if options.expiryDuration != nil {
 		expiryDuration = *options.expiryDuration
 	}
@@ -172,9 +198,12 @@ func CreateRequestJWT[T any](req jsonrpc.Request[T], opts ...Option) (*jwt.Token
 	}
 
 	now := time.Now()
+	jti := uuid.New().String()
+
 	claims := JWTClaims{
 		Digest: "0x" + digest,
 		RegisteredClaims: jwt.RegisteredClaims{
+			ID:        jti,
 			Issuer:    issuer,
 			Subject:   subject,
 			Audience:  jwt.ClaimStrings(audience),
@@ -199,22 +228,36 @@ func splitToken(tokenString string) (string, string, error) {
 // VerifyRequestJWT verifies a signed JWT for a JSON-RPC request
 // It recovers and returns the public key used to sign the JWT, checks the issuer, validates the digest,
 // and performs all validations done by jwt.ParseWithClaims() including expiration checks.
-func VerifyRequestJWT[T any](tokenString string, req jsonrpc.Request[T]) (*JWTClaims, gethcommon.Address, error) {
+func VerifyRequestJWT[T any](tokenString string, req jsonrpc.Request[T], opts ...VerifyOption) (*JWTClaims, gethcommon.Address, error) {
+	options := &verifyOptions{}
+	for _, opt := range opts {
+		opt(options)
+	}
+
+	maxExpiryDuration := maxJWTExpiryDuration
+	if options.maxExpiryDuration != nil {
+		maxExpiryDuration = *options.maxExpiryDuration
+	}
+
+	issuedAtTolerance := defaultIssuedAtTolerance
+	if options.issuedAtTolerance != nil {
+		issuedAtTolerance = *options.issuedAtTolerance
+	}
 	signedString, signature, err := splitToken(tokenString)
 	if err != nil {
 		return nil, gethcommon.Address{}, err
 	}
 	decodedSignature, err := base64.RawURLEncoding.DecodeString(signature)
 	if err != nil {
-		return nil, gethcommon.Address{}, err
+		return nil, gethcommon.Address{}, fmt.Errorf("signature segment is not valid base64url: %w", err)
 	}
 	pubKey, err := GetSignersEthAddress([]byte(signedString), decodedSignature)
 	if err != nil {
 		return nil, gethcommon.Address{}, err
 	}
-	verifiedToken, err := jwt.ParseWithClaims(tokenString, &JWTClaims{}, func(token *jwt.Token) (interface{}, error) {
-		if token.Method.Alg() != signingMethodETH.Alg() {
-			return nil, jwt.ErrSignatureInvalid
+	verifiedToken, err := jwt.ParseWithClaims(tokenString, &JWTClaims{}, func(token *jwt.Token) (any, error) {
+		if token.Method.Alg() != EthereumSigningMethod.Alg() {
+			return nil, fmt.Errorf("unsupported JWT 'alg': '%s'. Expected '%s'", token.Method.Alg(), EthereumSigningMethod.Alg())
 		}
 		if _, ok := token.Method.(*SigningMethodEth); !ok {
 			return nil, jwt.ErrSignatureInvalid
@@ -226,17 +269,36 @@ func VerifyRequestJWT[T any](tokenString string, req jsonrpc.Request[T]) (*JWTCl
 	}
 	verifiedClaims, ok := verifiedToken.Claims.(*JWTClaims)
 	if !ok {
-		return nil, gethcommon.Address{}, jwt.ErrTokenInvalidClaims
+		return nil, gethcommon.Address{}, errors.New("claims payload is not in the expected format")
 	}
 	if !verifiedToken.Valid {
-		return nil, gethcommon.Address{}, jwt.ErrTokenInvalidClaims
+		return nil, gethcommon.Address{}, errors.New("signature or claims validation failed")
 	}
 	reqDigest, err := req.Digest()
 	if err != nil {
 		return nil, gethcommon.Address{}, err
 	}
-	if verifiedClaims.Digest != "0x"+reqDigest {
-		return nil, gethcommon.Address{}, errors.New("JWT digest does not match request digest")
+	if verifiedClaims.ID == "" {
+		return nil, gethcommon.Address{}, errors.New("JWT ID (jti) is required but missing")
 	}
+	if verifiedClaims.ExpiresAt == nil {
+		return nil, gethcommon.Address{}, errors.New("expiredAt (exp) is required but missing")
+	}
+	if verifiedClaims.IssuedAt == nil {
+		return nil, gethcommon.Address{}, errors.New("issuedAt (iat) is required but missing")
+	}
+	now := time.Now()
+	issuedAt := verifiedClaims.IssuedAt
+	if issuedAt.After(now.Add(issuedAtTolerance)) {
+		return nil, gethcommon.Address{}, fmt.Errorf("issuedAt (iat) is too far in the future (beyond tolerance of %.0f seconds)", issuedAtTolerance.Seconds())
+	}
+	duration := verifiedClaims.ExpiresAt.Sub(verifiedClaims.IssuedAt.Time)
+	if duration > maxExpiryDuration {
+		return nil, gethcommon.Address{}, fmt.Errorf("token lifetime %.0f sec exceeds the maximum allowed %.0f sec. Reduce the gap between 'iat' and 'exp'", duration.Seconds(), maxExpiryDuration.Seconds())
+	}
+	if verifiedClaims.Digest != "0x"+reqDigest {
+		return nil, gethcommon.Address{}, fmt.Errorf("claim digest '%s' does not match calculated request digest '0x%s'", verifiedClaims.Digest, reqDigest)
+	}
+
 	return verifiedClaims, pubKey, nil
 }

@@ -201,8 +201,8 @@ func Test_CreateFeedsManager(t *testing.T) {
 					}
 				}
 			}`
-		variables = map[string]interface{}{
-			"input": map[string]interface{}{
+		variables = map[string]any{
+			"input": map[string]any{
 				"name":            name,
 				"uri":             uri,
 				"publicKey":       pubKeyHex,
@@ -310,8 +310,8 @@ func Test_CreateFeedsManager(t *testing.T) {
 			name:          "invalid input public key",
 			authenticated: true,
 			query:         mutation,
-			variables: map[string]interface{}{
-				"input": map[string]interface{}{
+			variables: map[string]any{
+				"input": map[string]any{
 					"name":      name,
 					"uri":       uri,
 					"publicKey": "zzzzz",
@@ -366,9 +366,9 @@ func Test_UpdateFeedsManager(t *testing.T) {
 					}
 				}
 			}`
-		variables = map[string]interface{}{
+		variables = map[string]any{
 			"id": "1",
-			"input": map[string]interface{}{
+			"input": map[string]any{
 				"name":      name,
 				"uri":       uri,
 				"publicKey": pubKeyHex,
@@ -438,9 +438,9 @@ func Test_UpdateFeedsManager(t *testing.T) {
 			name:          "invalid input public key",
 			authenticated: true,
 			query:         mutation,
-			variables: map[string]interface{}{
+			variables: map[string]any{
 				"id": "1",
-				"input": map[string]interface{}{
+				"input": map[string]any{
 					"name":      name,
 					"uri":       uri,
 					"publicKey": "zzzzz",
@@ -489,7 +489,7 @@ func Test_EnableFeedsManager(t *testing.T) {
 					}
 				}
 			}`
-		variables = map[string]interface{}{
+		variables = map[string]any{
 			"id": "1",
 		}
 	)
@@ -596,7 +596,7 @@ func Test_DisableFeedsManager(t *testing.T) {
 					}
 				}
 			}`
-		variables = map[string]interface{}{
+		variables = map[string]any{
 			"id": "1",
 		}
 	)

@@ -6,24 +6,19 @@ import (
 	"time"
 
 	"github.com/jmoiron/sqlx"
+	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"go.uber.org/zap/zapcore"
-	"go.uber.org/zap/zaptest/observer"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
-	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
-
-	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
-	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
+	"github.com/smartcontractkit/chainlink-evm/pkg/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury/wsrpc/pb"
 )
 
-func bootstrapPersistenceManager(t *testing.T, jobID int32, db *sqlx.DB) (*PersistenceManager, *observer.ObservedLogs) {
+func bootstrapPersistenceManager(t *testing.T, jobID int32, db *sqlx.DB) *PersistenceManager {
 	t.Helper()
-	lggr, observedLogs := logger.TestObserved(t, zapcore.DebugLevel)
 	orm := NewORM(db)
-	return NewPersistenceManager(lggr, "mercuryserver.example", orm, jobID, 2, 5*time.Millisecond, 5*time.Millisecond), observedLogs
+	return NewPersistenceManager(logger.Test(t), "mercuryserver.example", orm, jobID, 2, 5*time.Millisecond, 5*time.Millisecond)
 }
 
 func TestPersistenceManager(t *testing.T) {
@@ -31,10 +26,10 @@ func TestPersistenceManager(t *testing.T) {
 	jobID2 := jobID1 + 1
 
 	ctx := testutils.Context(t)
-	db := pgtest.NewSqlxDB(t)
-	pgtest.MustExec(t, db, `SET CONSTRAINTS mercury_transmit_requests_job_id_fkey DEFERRED`)
-	pgtest.MustExec(t, db, `SET CONSTRAINTS feed_latest_reports_job_id_fkey DEFERRED`)
-	pm, _ := bootstrapPersistenceManager(t, jobID1, db)
+	db := testutils.NewSqlxDB(t)
+	testutils.MustExec(t, db, `SET CONSTRAINTS mercury_transmit_requests_job_id_fkey DEFERRED`)
+	testutils.MustExec(t, db, `SET CONSTRAINTS feed_latest_reports_job_id_fkey DEFERRED`)
+	pm := bootstrapPersistenceManager(t, jobID1, db)
 
 	reports := sampleReports
 
@@ -60,7 +55,7 @@ func TestPersistenceManager(t *testing.T) {
 	}, transmissions)
 
 	t.Run("scopes load to only transmissions with matching job ID", func(t *testing.T) {
-		pm2, _ := bootstrapPersistenceManager(t, jobID2, db)
+		pm2 := bootstrapPersistenceManager(t, jobID2, db)
 		transmissions, err = pm2.Load(ctx)
 		require.NoError(t, err)
 
@@ -71,10 +66,10 @@ func TestPersistenceManager(t *testing.T) {
 func TestPersistenceManagerAsyncDelete(t *testing.T) {
 	ctx := testutils.Context(t)
 	jobID := rand.Int32()
-	db := pgtest.NewSqlxDB(t)
-	pgtest.MustExec(t, db, `SET CONSTRAINTS mercury_transmit_requests_job_id_fkey DEFERRED`)
-	pgtest.MustExec(t, db, `SET CONSTRAINTS feed_latest_reports_job_id_fkey DEFERRED`)
-	pm, observedLogs := bootstrapPersistenceManager(t, jobID, db)
+	db := testutils.NewSqlxDB(t)
+	testutils.MustExec(t, db, `SET CONSTRAINTS mercury_transmit_requests_job_id_fkey DEFERRED`)
+	testutils.MustExec(t, db, `SET CONSTRAINTS feed_latest_reports_job_id_fkey DEFERRED`)
+	pm := bootstrapPersistenceManager(t, jobID, db)
 
 	reports := sampleReports
 
@@ -89,8 +84,11 @@ func TestPersistenceManagerAsyncDelete(t *testing.T) {
 	pm.AsyncDelete(&pb.TransmitRequest{Payload: reports[0]})
 
 	// Wait for next poll.
-	observedLogs.TakeAll()
-	testutils.WaitForLogMessage(t, observedLogs, "Deleted queued transmit requests")
+	testutils.RequireEventually(t, func() bool {
+		pm.deleteMu.Lock()
+		defer pm.deleteMu.Unlock()
+		return len(pm.deleteQueue) == 0
+	})
 
 	transmissions, err := pm.Load(ctx)
 	require.NoError(t, err)
@@ -116,24 +114,24 @@ func TestPersistenceManagerAsyncDelete(t *testing.T) {
 func TestPersistenceManagerPrune(t *testing.T) {
 	jobID1 := rand.Int32()
 	jobID2 := jobID1 + 1
-	db := pgtest.NewSqlxDB(t)
-	pgtest.MustExec(t, db, `SET CONSTRAINTS mercury_transmit_requests_job_id_fkey DEFERRED`)
-	pgtest.MustExec(t, db, `SET CONSTRAINTS feed_latest_reports_job_id_fkey DEFERRED`)
+	db := testutils.NewSqlxDB(t)
+	testutils.MustExec(t, db, `SET CONSTRAINTS mercury_transmit_requests_job_id_fkey DEFERRED`)
+	testutils.MustExec(t, db, `SET CONSTRAINTS feed_latest_reports_job_id_fkey DEFERRED`)
 
 	ctx := testutils.Context(t)
 
 	reports := make([][]byte, 25)
-	for i := 0; i < 25; i++ {
-		reports[i] = buildSampleV1Report(int64(i))
+	for i := range 25 {
+		reports[i] = buildSampleV2Report(int64(i))
 	}
 
-	pm2, _ := bootstrapPersistenceManager(t, jobID2, db)
-	for i := 0; i < 20; i++ {
+	pm2 := bootstrapPersistenceManager(t, jobID2, db)
+	for i := range 20 {
 		err := pm2.Insert(ctx, &pb.TransmitRequest{Payload: reports[i]}, ocrtypes.ReportContext{ReportTimestamp: ocrtypes.ReportTimestamp{Epoch: uint32(i)}}) //nolint:gosec // G115
 		require.NoError(t, err)
 	}
 
-	pm, observedLogs := bootstrapPersistenceManager(t, jobID1, db)
+	pm := bootstrapPersistenceManager(t, jobID1, db)
 
 	err := pm.Insert(ctx, &pb.TransmitRequest{Payload: reports[21]}, ocrtypes.ReportContext{ReportTimestamp: ocrtypes.ReportTimestamp{Epoch: 21}})
 	require.NoError(t, err)
@@ -145,9 +143,11 @@ func TestPersistenceManagerPrune(t *testing.T) {
 	err = pm.Start(ctx)
 	require.NoError(t, err)
 
-	// Wait for next poll.
-	observedLogs.TakeAll()
-	testutils.WaitForLogMessage(t, observedLogs, "Pruned transmit requests table")
+	testutils.RequireEventually(t, func() bool {
+		requests, err2 := pm.Load(testutils.Context(t))
+		require.NoError(t, err2)
+		return len(requests) == pm.maxTransmitQueueSize
+	})
 
 	transmissions, err := pm.Load(ctx)
 	require.NoError(t, err)

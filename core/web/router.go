@@ -299,6 +299,11 @@ func v2Routes(app chainlink.Application, r *gin.RouterGroup) {
 		lcaC := LCAController{app}
 		authv2.GET("/find_lca", auth.RequiresRunRole(lcaC.FindLCA))
 
+		if build.IsDev() {
+			capContr := CapabilityController{app}
+			authv2.POST("/execute_capability", auth.RequiresRunRole(capContr.ExecuteCapability))
+		}
+
 		csakc := CSAKeysController{app}
 		authv2.GET("/keys/csa", csakc.Index)
 		authv2.POST("/keys/csa", auth.RequiresEditRole(csakc.Create))
@@ -357,6 +362,7 @@ func v2Routes(app chainlink.Application, r *gin.RouterGroup) {
 			{"starknet", NewStarkNetKeysController(app)},
 			{"aptos", NewAptosKeysController(app)},
 			{"tron", NewTronKeysController(app)},
+			{"sui", NewSuiKeysController(app)},
 			{"ton", NewTONKeysController(app)},
 		} {
 			authv2.GET("/keys/"+keys.path, keys.kc.Index)
@@ -375,6 +381,9 @@ func v2Routes(app chainlink.Application, r *gin.RouterGroup) {
 
 		wfkc := WorkflowKeysController{app}
 		authv2.GET("/keys/workflow", wfkc.Index)
+
+		dkrkc := DKGRecipientKeysController{app}
+		authv2.GET("/keys/dkgrecipient", dkrkc.Index)
 
 		jc := JobsController{app}
 		authv2.GET("/jobs", paginatedRequest(jc.Index))
@@ -590,13 +599,13 @@ func readBody(reader io.Reader, lggr logger.Logger) string {
 }
 
 func readSanitizedJSON(buf *bytes.Buffer) (string, error) {
-	var dst map[string]interface{}
+	var dst map[string]any
 	err := json.Unmarshal(buf.Bytes(), &dst)
 	if err != nil {
 		return "", err
 	}
 
-	cleaned := map[string]interface{}{}
+	cleaned := map[string]any{}
 	for k, v := range dst {
 		if isBlacklisted(k) {
 			cleaned[k] = "*REDACTED*"

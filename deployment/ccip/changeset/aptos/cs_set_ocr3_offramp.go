@@ -52,6 +52,7 @@ func (cs SetOCR3Offramp) Apply(env cldf.Environment, config v1_6.SetOCR3OffRampC
 		in := seq.SetOCR3OfframpSeqInput{
 			HomeChainSelector: config.HomeChainSel,
 			ChainSelector:     remoteSelector,
+			ConfigType:        config.CCIPHomeConfigType,
 		}
 		setOCR3SeqReport, err := operations.ExecuteSequence(env.OperationsBundle, seq.SetOCR3OfframpSequence, deps, in)
 		if err != nil {

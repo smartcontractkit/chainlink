@@ -34,7 +34,7 @@ func CompileWorkflow(workflowFilePath, workflowName string) (string, error) {
 	buffer := bytes.Buffer{}
 	compileCmd := exec.Command("go", "build", "-o", workflowWasmPath, filepath.Base(workflowFilePath)) // #nosec G204 -- we control the value of the cmd so the lint/sec error is a false positive
 	compileCmd.Dir = filepath.Dir(workflowFilePath)
-	compileCmd.Env = append(os.Environ(), "GOOS=wasip1", "GOARCH=wasm")
+	compileCmd.Env = append(os.Environ(), "CGO_ENABLED=0", "GOOS=wasip1", "GOARCH=wasm")
 	compileCmd.Stdout = &buffer
 	compileCmd.Stderr = &buffer
 	if err := compileCmd.Run(); err != nil {

@@ -31,7 +31,7 @@ jobs:
         run: |
           echo "other_tags=${ECR_TAG}" >> $GITHUB_OUTPUT
       - name: Build Image
-        uses: smartcontractkit/.github/actions/ctf-build-test-image@dd5152d28fa15158d0bdf0354cb08ec455ff308b # ctf-build-test-image@1.1.0
+        uses: smartcontractkit/.github/actions/ctf-build-test-image@ctf-build-test-image/0.3.0 
         with:
           other_tags: ${{ steps.tags.outputs.other_tags }}
           suites: 'chaos migration reorg smoke soak load benchmark ccip-tests/load ccip-tests/smoke ccip-tests/chaos'

@@ -1,6 +1,6 @@
 type                = "directrequest"
 schemaVersion       = 1
-evmChainID          = "0"
+evmChainID          = "%s"
 name                = "%s"
 contractAddress     = "0x613a38AC1659769640aaE063C651F48E0250454C"
 externalJobID       = "%s"

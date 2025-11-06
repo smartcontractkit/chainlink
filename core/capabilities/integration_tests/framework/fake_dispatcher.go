@@ -5,6 +5,7 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
+	"maps"
 	"sync"
 	"testing"
 	"time"
@@ -108,9 +109,7 @@ func (a *FakeRageP2PNetwork) GetCapabilityRegistrations() map[CapabilityRegistra
 	defer a.mux.Unlock()
 
 	copiedRegistrations := make(map[CapabilityRegistration]bool)
-	for k, v := range a.capabilityRegistrations {
-		copiedRegistrations[k] = v
-	}
+	maps.Copy(copiedRegistrations, a.capabilityRegistrations)
 	return copiedRegistrations
 }
 
@@ -252,6 +251,12 @@ func (t *brokerDispatcher) SetReceiver(capabilityId string, donId uint32, receiv
 	return nil
 }
 func (t *brokerDispatcher) RemoveReceiver(capabilityId string, donId uint32) {}
+
+func (t *brokerDispatcher) SetReceiverForMethod(capabilityID string, donID uint32, method string, receiver remotetypes.Receiver) error {
+	return errors.New("not implemented")
+}
+func (t *brokerDispatcher) RemoveReceiverForMethod(capabilityID string, donID uint32, method string) {
+}
 
 func (t *brokerDispatcher) Start(context.Context) error { return nil }
 

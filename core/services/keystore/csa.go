@@ -8,7 +8,7 @@ import (
 
 	"github.com/pkg/errors"
 
-	"github.com/smartcontractkit/chainlink-common/pkg/loop"
+	"github.com/smartcontractkit/chainlink-common/pkg/types/core"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/csakey"
 )
 
@@ -26,10 +26,11 @@ type CSA interface {
 	EnsureKey(ctx context.Context) error
 }
 
-var _ loop.Keystore = &CSASigner{}
+var _ core.Keystore = &CSASigner{}
 
 type CSASigner struct {
 	CSA
+	core.UnimplementedKeystore
 }
 
 func (c CSASigner) Accounts(ctx context.Context) (accounts []string, err error) {

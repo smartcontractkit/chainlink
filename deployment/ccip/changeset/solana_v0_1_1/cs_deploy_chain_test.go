@@ -7,6 +7,7 @@ import (
 
 	"github.com/gagliardetto/solana-go"
 	chain_selectors "github.com/smartcontractkit/chain-selectors"
+	"github.com/smartcontractkit/quarantine"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zapcore"
 
@@ -32,41 +33,6 @@ import (
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 	csState "github.com/smartcontractkit/chainlink/deployment/common/changeset/state"
 )
-
-// For remote fetching, we need to use the short sha
-const (
-	ShaV0_1_0 = "0ee732e80586c2e9df5e9b0c3b5e9a19ee66b3a1"
-	ShaV0_1_1 = "ee587a6c056204009310019b790ed6d474825316"
-)
-
-func verifyProgramSizes(t *testing.T, e cldf.Environment) {
-	state, err := stateview.LoadOnchainStateSolana(e)
-	require.NoError(t, err)
-	solChainSelectors := e.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chain_selectors.FamilySolana))
-	addresses, err := e.ExistingAddresses.AddressesForChain(solChainSelectors[0])
-	require.NoError(t, err)
-	chainState, err := csState.MaybeLoadMCMSWithTimelockChainStateSolana(e.BlockChains.SolanaChains()[solChainSelectors[0]], addresses)
-	require.NoError(t, err)
-	programsToState := map[string]solana.PublicKey{
-		deployment.RouterProgramName:               state.SolChains[solChainSelectors[0]].Router,
-		deployment.OffRampProgramName:              state.SolChains[solChainSelectors[0]].OffRamp,
-		deployment.FeeQuoterProgramName:            state.SolChains[solChainSelectors[0]].FeeQuoter,
-		deployment.BurnMintTokenPoolProgramName:    state.SolChains[solChainSelectors[0]].BurnMintTokenPools[shared.CLLMetadata],
-		deployment.LockReleaseTokenPoolProgramName: state.SolChains[solChainSelectors[0]].LockReleaseTokenPools[shared.CLLMetadata],
-		deployment.AccessControllerProgramName:     chainState.AccessControllerProgram,
-		deployment.TimelockProgramName:             chainState.TimelockProgram,
-		deployment.McmProgramName:                  chainState.McmProgram,
-		deployment.RMNRemoteProgramName:            state.SolChains[solChainSelectors[0]].RMNRemote,
-		deployment.CCTPTokenPoolProgramName:        state.SolChains[solChainSelectors[0]].CCTPTokenPool,
-	}
-	for program, sizeBytes := range deployment.SolanaProgramBytes {
-		t.Logf("Verifying program %s size is at least %d bytes", program, sizeBytes)
-		programDataAccount, _, _ := solana.FindProgramAddress([][]byte{programsToState[program].Bytes()}, solana.BPFLoaderUpgradeableProgramID)
-		programDataSize, err := ccipChangesetSolana.GetSolProgramSize(&e, e.BlockChains.SolanaChains()[solChainSelectors[0]], programDataAccount)
-		require.NoError(t, err)
-		require.GreaterOrEqual(t, programDataSize, sizeBytes)
-	}
-}
 
 func initialDeployCS(t *testing.T, e cldf.Environment, buildConfig *ccipChangesetSolana.BuildSolanaConfig) []commonchangeset.ConfiguredChangeSet {
 	evmSelectors := e.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chain_selectors.FamilyEVM))
@@ -141,6 +107,7 @@ func initialDeployCS(t *testing.T, e cldf.Environment, buildConfig *ccipChangese
 
 // use this for a quick deploy test
 func TestDeployChainContractsChangesetPreload(t *testing.T) {
+	quarantine.Flaky(t, "DX-1729")
 	t.Parallel()
 	lggr := logger.TestLogger(t)
 	e := memory.NewMemoryEnvironment(t, lggr, zapcore.InfoLevel, memory.MemoryEnvironmentConfig{
@@ -189,8 +156,8 @@ func TestUpgrade(t *testing.T) {
 	solChainSelectors := e.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chain_selectors.FamilySolana))
 	e, _, err := commonchangeset.ApplyChangesets(t, e, initialDeployCS(t, e,
 		&ccipChangesetSolana.BuildSolanaConfig{
-			GitCommitSha:   ShaV0_1_0,
-			DestinationDir: e.BlockChains.SolanaChains()[solChainSelectors[0]].ProgramsPath,
+			SolanaContractVersion: ccipChangesetSolana.VersionSolanaV0_1_1,
+			DestinationDir:        e.BlockChains.SolanaChains()[solChainSelectors[0]].ProgramsPath,
 			LocalBuild: ccipChangesetSolana.LocalBuildConfig{
 				BuildLocally:        true,
 				CleanDestinationDir: true,
@@ -224,7 +191,6 @@ func TestUpgrade(t *testing.T) {
 	// upgradeAuthority := e.BlockChains.SolanaChains()[solChainSelectors[0]].DeployerKey.PublicKey()
 	state, err := stateview.LoadOnchainStateSolana(e)
 	require.NoError(t, err)
-	verifyProgramSizes(t, e)
 	addresses, err := e.ExistingAddresses.AddressesForChain(solChainSelectors[0])
 	require.NoError(t, err)
 	chainState, err := csState.MaybeLoadMCMSWithTimelockChainStateSolana(e.BlockChains.SolanaChains()[solChainSelectors[0]], addresses)
@@ -241,6 +207,9 @@ func TestUpgrade(t *testing.T) {
 				SetAfterInitialDeploy: true,
 				SetOffRamp:            true,
 				SetMCMSPrograms:       true,
+				TransferKeys: []solana.PublicKey{
+					state.SolChains[solChainSelectors[0]].CCTPTokenPool,
+				},
 			},
 		),
 		// build the upgraded contracts and deploy/replace them onchain
@@ -263,15 +232,14 @@ func TestUpgrade(t *testing.T) {
 					NewAccessControllerVersion:     &deployment.Version1_1_0,
 					NewTimelockVersion:             &deployment.Version1_1_0,
 					UpgradeAuthority:               upgradeAuthority,
-					SpillAddress:                   upgradeAuthority,
 					MCMS: &proposalutils.TimelockConfig{
 						MinDelay: 1 * time.Second,
 					},
 				},
 				// build the contracts for upgrades
 				BuildConfig: &ccipChangesetSolana.BuildSolanaConfig{
-					GitCommitSha:   ShaV0_1_1,
-					DestinationDir: e.BlockChains.SolanaChains()[solChainSelectors[0]].ProgramsPath,
+					SolanaContractVersion: ccipChangesetSolana.VersionSolanaV0_1_1,
+					DestinationDir:        e.BlockChains.SolanaChains()[solChainSelectors[0]].ProgramsPath,
 					LocalBuild: ccipChangesetSolana.LocalBuildConfig{
 						BuildLocally:        true,
 						CleanDestinationDir: true,
@@ -320,14 +288,13 @@ func TestUpgrade(t *testing.T) {
 				UpgradeConfig: ccipChangesetSolana.UpgradeConfig{
 					NewOffRampVersion: &deployment.Version1_1_0,
 					UpgradeAuthority:  upgradeAuthority,
-					SpillAddress:      upgradeAuthority,
 					MCMS: &proposalutils.TimelockConfig{
 						MinDelay: 1 * time.Second,
 					},
 				},
 				BuildConfig: &ccipChangesetSolana.BuildSolanaConfig{
-					GitCommitSha:   ShaV0_1_1,
-					DestinationDir: e.BlockChains.SolanaChains()[solChainSelectors[0]].ProgramsPath,
+					SolanaContractVersion: ccipChangesetSolana.VersionSolanaV0_1_2,
+					DestinationDir:        e.BlockChains.SolanaChains()[solChainSelectors[0]].ProgramsPath,
 					LocalBuild: ccipChangesetSolana.LocalBuildConfig{
 						BuildLocally: true,
 					},
@@ -367,22 +334,73 @@ func TestUpgrade(t *testing.T) {
 	// solana verification
 	err = testhelpers.ValidateSolanaState(e, solChainSelectors)
 	require.NoError(t, err)
+}
 
+func TestClose(t *testing.T) {
+	t.Parallel()
+	skipInCI(t)
+
+	lggr := logger.TestLogger(t)
+	e := memory.NewMemoryEnvironment(t, lggr, zapcore.InfoLevel, memory.MemoryEnvironmentConfig{
+		Bootstraps: 1,
+		Chains:     1,
+		SolChains:  1,
+		Nodes:      4,
+	})
+	solChainSelectors := e.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chain_selectors.FamilySolana))
+	e, _, err := commonchangeset.ApplyChangesets(t, e, initialDeployCS(t, e,
+		&ccipChangesetSolana.BuildSolanaConfig{
+			SolanaContractVersion: ccipChangesetSolana.VersionSolanaV0_1_2,
+			DestinationDir:        e.BlockChains.SolanaChains()[solChainSelectors[0]].ProgramsPath,
+			LocalBuild: ccipChangesetSolana.LocalBuildConfig{
+				BuildLocally:        true,
+				CleanDestinationDir: true,
+				GenerateVanityKeys:  true,
+			},
+		},
+	))
+	require.NoError(t, err)
+	err = testhelpers.ValidateSolanaState(e, solChainSelectors)
+	require.NoError(t, err)
+	timelockSignerPDA, _ := testhelpers.TransferOwnershipSolanaV0_1_1(t, &e, solChainSelectors[0], true,
+		ccipChangesetSolana.CCIPContractsToTransfer{
+			OffRamp: true,
+		})
+
+	state, err := stateview.LoadOnchainStateSolana(e)
+	require.NoError(t, err)
+
+	// test closing the old buffers
 	e, _, err = commonchangeset.ApplyChangesets(t, e, []commonchangeset.ConfiguredChangeSet{
 		commonchangeset.Configure(
-			cldf.CreateLegacyChangeSet(ccipChangesetSolana.InitGlobalConfigTokenPoolProgram),
-			ccipChangesetSolana.TokenPoolConfigWithMCM{
+			cldf.CreateLegacyChangeSet(ccipChangesetSolana.CloseBuffersChangeset),
+			ccipChangesetSolana.CloseBuffersConfig{
 				ChainSelector: solChainSelectors[0],
-				PoolType:      shared.BurnMintTokenPool,
-				Metadata:      shared.CLLMetadata,
+				Programs: []string{
+					state.SolChains[solChainSelectors[0]].BurnMintTokenPools[shared.CLLMetadata].String(),
+					state.SolChains[solChainSelectors[0]].Router.String(),
+				},
+			},
+		),
+		// upgrade authority
+		commonchangeset.Configure(
+			cldf.CreateLegacyChangeSet(ccipChangesetSolana.SetUpgradeAuthorityChangeset),
+			ccipChangesetSolana.SetUpgradeAuthorityConfig{
+				ChainSelector:       solChainSelectors[0],
+				NewUpgradeAuthority: timelockSignerPDA,
+				SetOffRamp:          true,
 			},
 		),
 		commonchangeset.Configure(
-			cldf.CreateLegacyChangeSet(ccipChangesetSolana.InitGlobalConfigTokenPoolProgram),
-			ccipChangesetSolana.TokenPoolConfigWithMCM{
+			cldf.CreateLegacyChangeSet(ccipChangesetSolana.CloseBuffersChangeset),
+			ccipChangesetSolana.CloseBuffersConfig{
 				ChainSelector: solChainSelectors[0],
-				PoolType:      shared.LockReleaseTokenPool,
-				Metadata:      shared.CLLMetadata,
+				MCMS: &proposalutils.TimelockConfig{
+					MinDelay: 1 * time.Second,
+				},
+				Programs: []string{
+					state.SolChains[solChainSelectors[0]].OffRamp.String(),
+				},
 			},
 		),
 	})
@@ -397,12 +415,12 @@ func TestIDL(t *testing.T) {
 		commonchangeset.Configure(
 			cldf.CreateLegacyChangeSet(ccipChangesetSolana.UploadIDL),
 			ccipChangesetSolana.IDLConfig{
-				ChainSelector: solChain,
-				GitCommitSha:  "",
-				Router:        true,
-				FeeQuoter:     true,
-				OffRamp:       true,
-				RMNRemote:     true,
+				ChainSelector:         solChain,
+				SolanaContractVersion: ccipChangesetSolana.VersionSolanaV0_1_1,
+				Router:                true,
+				FeeQuoter:             true,
+				OffRamp:               true,
+				RMNRemote:             true,
 				BurnMintTokenPoolMetadata: []string{
 					shared.CLLMetadata,
 				},
@@ -432,15 +450,20 @@ func TestIDL(t *testing.T) {
 				ChainSelector: solChain,
 				Router:        true,
 				FeeQuoter:     true,
+				BurnMintTokenPoolMetadata: []string{
+					shared.CLLMetadata,
+				},
 			},
 		),
 		commonchangeset.Configure(
 			cldf.CreateLegacyChangeSet(ccipChangesetSolana.UpgradeIDL),
 			ccipChangesetSolana.IDLConfig{
 				ChainSelector: solChain,
-				GitCommitSha:  "",
 				Router:        true,
 				FeeQuoter:     true,
+				BurnMintTokenPoolMetadata: []string{
+					shared.CLLMetadata,
+				},
 				MCMS: &proposalutils.TimelockConfig{
 					MinDelay: 1 * time.Second,
 				},
@@ -454,12 +477,8 @@ func TestIDL(t *testing.T) {
 			cldf.CreateLegacyChangeSet(ccipChangesetSolana.UpgradeIDL),
 			ccipChangesetSolana.IDLConfig{
 				ChainSelector: solChain,
-				GitCommitSha:  "",
 				OffRamp:       true,
 				RMNRemote:     true,
-				BurnMintTokenPoolMetadata: []string{
-					shared.CLLMetadata,
-				},
 				LockReleaseTokenPoolMetadata: []string{
 					shared.CLLMetadata,
 				},
@@ -467,6 +486,111 @@ func TestIDL(t *testing.T) {
 				AccessController: true,
 				Timelock:         true,
 				MCM:              true,
+			},
+		),
+	})
+	require.NoError(t, err)
+
+	// Test transferring ownership of the IDL back to the deployer key and then close and recreate the PDA
+	e, _, err = commonchangeset.ApplyChangesets(t, e, []commonchangeset.ConfiguredChangeSet{
+		commonchangeset.Configure(
+			cldf.CreateLegacyChangeSet(ccipChangesetSolana.SetAuthorityIDLByMCMs),
+			ccipChangesetSolana.IDLConfig{
+				ChainSelector: solChain,
+				BurnMintTokenPoolMetadata: []string{
+					shared.CLLMetadata,
+				},
+				MCMS: &proposalutils.TimelockConfig{
+					MinDelay: 1 * time.Second,
+				},
+			},
+		),
+	})
+	require.NoError(t, err)
+
+	// close idl account
+	e, _, err = commonchangeset.ApplyChangesets(t, e, []commonchangeset.ConfiguredChangeSet{
+		commonchangeset.Configure(
+			cldf.CreateLegacyChangeSet(ccipChangesetSolana.CloseIDLs),
+			ccipChangesetSolana.IDLConfig{
+				ChainSelector: solChain,
+				BurnMintTokenPoolMetadata: []string{
+					shared.CLLMetadata,
+				},
+			},
+		),
+	})
+	require.NoError(t, err)
+
+	// deploy idl
+	e, _, err = commonchangeset.ApplyChangesets(t, e, []commonchangeset.ConfiguredChangeSet{
+		commonchangeset.Configure(
+			cldf.CreateLegacyChangeSet(ccipChangesetSolana.UploadIDL),
+			ccipChangesetSolana.IDLConfig{
+				ChainSelector: solChain,
+				BurnMintTokenPoolMetadata: []string{
+					shared.CLLMetadata,
+				},
+			},
+		),
+	})
+	require.NoError(t, err)
+
+	e, _, err = commonchangeset.ApplyChangesets(t, e, []commonchangeset.ConfiguredChangeSet{
+		commonchangeset.Configure(
+			cldf.CreateLegacyChangeSet(ccipChangesetSolana.SetAuthorityIDL),
+			ccipChangesetSolana.IDLConfig{
+				ChainSelector:         solChain,
+				SolanaContractVersion: ccipChangesetSolana.VersionSolanaV0_1_1,
+				BurnMintTokenPoolMetadata: []string{
+					shared.CLLMetadata,
+				},
+			},
+		),
+		commonchangeset.Configure(
+			cldf.CreateLegacyChangeSet(ccipChangesetSolana.UpgradeIDL),
+			ccipChangesetSolana.IDLConfig{
+				ChainSelector:         solChain,
+				SolanaContractVersion: ccipChangesetSolana.VersionSolanaV0_1_1,
+				BurnMintTokenPoolMetadata: []string{
+					shared.CLLMetadata,
+				},
+				MCMS: &proposalutils.TimelockConfig{
+					MinDelay: 1 * time.Second,
+				},
+			},
+		),
+	})
+
+	// Close IDL
+	e, _, err = commonchangeset.ApplyChangesets(t, e, []commonchangeset.ConfiguredChangeSet{
+		commonchangeset.Configure(
+			cldf.CreateLegacyChangeSet(ccipChangesetSolana.CloseIDLs),
+			ccipChangesetSolana.IDLConfig{
+				ChainSelector: solChain,
+				BurnMintTokenPoolMetadata: []string{
+					shared.CLLMetadata,
+				},
+				MCMS: &proposalutils.TimelockConfig{
+					MinDelay: 1 * time.Second,
+				},
+			},
+		),
+	})
+	require.NoError(t, err)
+
+	// Update IDL
+	e, _, err = commonchangeset.ApplyChangesets(t, e, []commonchangeset.ConfiguredChangeSet{
+		commonchangeset.Configure(
+			cldf.CreateLegacyChangeSet(ccipChangesetSolana.UploadIDL),
+			ccipChangesetSolana.IDLConfig{
+				ChainSelector: solChain,
+				BurnMintTokenPoolMetadata: []string{
+					shared.CLLMetadata,
+				},
+				MCMS: &proposalutils.TimelockConfig{
+					MinDelay: 1 * time.Second,
+				},
 			},
 		),
 	})

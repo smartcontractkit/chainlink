@@ -15,6 +15,7 @@ import (
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/ocr3types"
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 
+	"github.com/smartcontractkit/chainlink-ccip/pkg/contractreader"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/loop"
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
@@ -102,15 +103,16 @@ func TestCreateFactoryAndTransmitter_PeerWrapperNotStarted(t *testing.T) {
 		cfg,
 		types.NewRelayID(chainsel.FamilyEVM, "1"),
 		map[cciptypes.ChainSelector]cciptypes.ChainAccessor{},
-		map[cciptypes.ChainSelector]types.ContractReader{},
+		map[cciptypes.ChainSelector]contractreader.Extended{},
 		map[cciptypes.ChainSelector]types.ContractWriter{},
 		/* destChainWriter */ nil,
 		/* destFromAccounts */ nil,
 		ocr3confighelper.PublicConfig{},
 		"evm",
 		"1",
-		ccipcommon.PluginConfig{},
+		ccipcommon.PluginServices{},
 		"",
+		map[cciptypes.ChainSelector]ocr3types.ContractTransmitter[[]byte]{},
 	)
 
 	require.Error(t, err, "expected error when peer wrapper not started")
@@ -136,8 +138,9 @@ func TestCreateFactoryAndTransmitter_NilDestChainWriter(t *testing.T) {
 	donID := uint32(1)
 	relayID := types.NewRelayID(chainsel.FamilyEVM, "1")
 	chainAccessors := map[cciptypes.ChainSelector]cciptypes.ChainAccessor{}
-	contractReaders := map[cciptypes.ChainSelector]types.ContractReader{}
+	contractReaders := map[cciptypes.ChainSelector]contractreader.Extended{}
 	chainWriters := map[cciptypes.ChainSelector]types.ContractWriter{}
+	contractTransmitters := map[cciptypes.ChainSelector]ocr3types.ContractTransmitter[[]byte]{}
 	fakeTransmitAccount := ocrtypes.Account("blahblah")
 	publicCfg := ocr3confighelper.PublicConfig{
 		OracleIdentities: []confighelper.OracleIdentity{
@@ -154,6 +157,9 @@ func TestCreateFactoryAndTransmitter_NilDestChainWriter(t *testing.T) {
 		// This isn't strictly necessary for this specific test path if we only check for NoOpTransmitter type,
 		// but good for completeness if we were to test the non-nil path.
 		ContractTransmitterFactory: &mocks.ContractTransmitterFactory{},
+	}
+	pluginServices := ccipcommon.PluginServices{
+		PluginConfig: pluginCfg,
 	}
 	offrampAddrStr := "0x123"
 
@@ -192,8 +198,9 @@ func TestCreateFactoryAndTransmitter_NilDestChainWriter(t *testing.T) {
 				publicCfg,
 				destChainFamily,
 				destChainID,
-				pluginCfg,
+				pluginServices,
 				offrampAddrStr,
+				contractTransmitters,
 			)
 
 			require.NoError(t, err)

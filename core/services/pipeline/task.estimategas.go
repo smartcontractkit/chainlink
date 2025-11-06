@@ -92,7 +92,7 @@ func (t *EstimateGasLimitTask) Run(ctx context.Context, lggr logger.Logger, vars
 	maximumGasLimit := SelectGasLimit(legacyChain.Config().EVM().GasEstimator(), t.jobType, t.specGasLimit)
 	to := common.Address(toAddr)
 	var gasLimit hexutil.Uint64
-	args := map[string]interface{}{
+	args := map[string]any{
 		"from":  common.Address(fromAddr),
 		"to":    &to,
 		"input": hexutil.Bytes([]byte(data)),

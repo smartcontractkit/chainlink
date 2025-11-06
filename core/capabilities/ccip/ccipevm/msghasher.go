@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"math"
 	"math/big"
 	"strings"
 
@@ -11,13 +12,13 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	chainsel "github.com/smartcontractkit/chain-selectors"
-	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_0/message_hasher"
+	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_3/message_hasher"
 	"github.com/smartcontractkit/chainlink-ccip/pkg/logutil"
 	cciptypes "github.com/smartcontractkit/chainlink-ccip/pkg/types/ccipocr3"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
+	"github.com/smartcontractkit/chainlink-common/pkg/types/ccipocr3"
 	"github.com/smartcontractkit/chainlink-evm/pkg/types"
 	"github.com/smartcontractkit/chainlink-evm/pkg/utils"
-	ccipcommon "github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/common"
 )
 
 var (
@@ -37,6 +38,9 @@ var (
 
 	// bytes4 public constant SVM_EXTRA_EXTRA_ARGS_V1_TAG = 0x1f3b3aba
 	svmExtraArgsV1Tag = hexutil.MustDecode("0x1f3b3aba")
+
+	// bytes4 public constant SUI_EXTRA_ARGS_V1_TAG = 0x21ea4ca9
+	suiVMExtraArgsV1Tag = hexutil.MustDecode("0x21ea4ca9")
 )
 
 // MessageHasherV1 implements the MessageHasher interface.
@@ -44,10 +48,10 @@ var (
 // - "OnRamp 1.6.0"
 type MessageHasherV1 struct {
 	lggr           logger.Logger
-	extraDataCodec ccipcommon.ExtraDataCodec
+	extraDataCodec ccipocr3.ExtraDataCodecBundle
 }
 
-func NewMessageHasherV1(lggr logger.Logger, extraDataCodec ccipcommon.ExtraDataCodec) *MessageHasherV1 {
+func NewMessageHasherV1(lggr logger.Logger, extraDataCodec ccipocr3.ExtraDataCodecBundle) *MessageHasherV1 {
 	return &MessageHasherV1{
 		lggr:           lggr,
 		extraDataCodec: extraDataCodec,
@@ -292,11 +296,16 @@ func extractDestGasAmountFromMap(input map[string]any) (uint32, error) {
 		lowercase := strings.ToLower(fieldName)
 		switch lowercase {
 		case "destgasamount":
-			// Expect uint32
-			if val, ok := fieldValue.(uint32); ok {
-				return val, nil
-			} else {
-				return 0, errors.New("invalid type for destgasamount, expected uint32")
+			switch v := fieldValue.(type) {
+			case uint32:
+				return v, nil
+			case int64: // LOOP converts expected uint32 to int64
+				if v > math.MaxUint32 {
+					return 0, fmt.Errorf("destGasAmount exceeds uint32 max, got %d", v)
+				}
+				return uint32(v), nil //nolint:gosec // G115: validated to be within uint32 max above
+			default:
+				return 0, errors.New("invalid type for destgasamount, expected uint32 or int64")
 			}
 		default:
 		}
@@ -320,6 +329,10 @@ func SerializeClientGenericExtraArgsV2(data message_hasher.ClientGenericExtraArg
 
 func SerializeClientSVMExtraArgsV1(data message_hasher.ClientSVMExtraArgsV1) ([]byte, error) {
 	return SerializeExtraArgs(svmExtraArgsV1Tag, "encodeSVMExtraArgsV1", data)
+}
+
+func SerializeClientSUIExtraArgsV1(data message_hasher.ClientSuiExtraArgsV1) ([]byte, error) {
+	return SerializeExtraArgs(suiVMExtraArgsV1Tag, "encodeSUIExtraArgsV1", data)
 }
 
 // Interface compliance check

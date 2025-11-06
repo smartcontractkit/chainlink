@@ -10,16 +10,14 @@ import (
 	"time"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
-	"github.com/ethereum/go-ethereum/common"
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/datastreams"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
-	"github.com/smartcontractkit/chainlink-common/pkg/values"
 	feeds_consumer "github.com/smartcontractkit/chainlink-evm/gethwrappers/keystone/generated/feeds_consumer_1_0_0"
-	fwd "github.com/smartcontractkit/chainlink-evm/gethwrappers/keystone/generated/forwarder_1_0_0"
+	"github.com/smartcontractkit/chainlink-protos/cre/go/values"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/integration_tests/framework"
 	reporttypes "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury/v3/types"
 )
@@ -46,12 +44,12 @@ func testTransmissionSchedule(t *testing.T, deltaStage string, schedule string) 
 
 	// mercury-style reports
 	triggerSink := framework.NewTriggerSink(t, "streams-trigger", "1.0.0")
-	workflowDon, consumer, _ := setupKeystoneDons(ctx, t, lggr, workflowDonConfiguration, triggerDonConfiguration,
+	workflowDon, consumer := setupKeystoneDons(ctx, t, lggr, workflowDonConfiguration, triggerDonConfiguration,
 		targetDonConfiguration, triggerSink)
 
 	feedCount := 3
 	var feedIDs []string
-	for i := 0; i < feedCount; i++ {
+	for range feedCount {
 		feedIDs = append(feedIDs, newFeedID(t))
 	}
 
@@ -121,43 +119,6 @@ func waitForConsumerReports(t *testing.T, consumer *feeds_consumer.KeystoneFeeds
 			}
 		}
 	}
-}
-
-// trackErrorsOnForwarder watches the forwarder contract for report processed events and fails the test if the report is not forwarded to the consumer
-func trackErrorsOnForwarder(t *testing.T, forwarder *fwd.KeystoneForwarder, consumerAddress common.Address) {
-	t.Helper()
-
-	reportsProcessed := make(chan *fwd.KeystoneForwarderReportProcessed, 1000)
-	reportsSub, err := forwarder.WatchReportProcessed(nil, reportsProcessed, nil, nil, nil)
-	require.NoError(t, err)
-
-	ctx, cancel := context.WithCancel(t.Context())
-	done := make(chan struct{})
-	closeFunc := func() {
-		cancel()
-		<-done
-	}
-	t.Cleanup(closeFunc)
-
-	go func() {
-		defer close(done)
-		for {
-			select {
-			case <-ctx.Done():
-				return
-			case err := <-reportsSub.Err():
-				assert.NoError(t, err)
-				return
-			case report := <-reportsProcessed:
-				t.Logf("Forwarder received report: %+v", report)
-				if !report.Result { // if the report is not forwarded to the consumer, we need to get the transmission info to see why
-					transmissionInfo, err := forwarder.GetTransmissionInfo(nil, consumerAddress, report.WorkflowExecutionId, report.ReportId)
-					assert.NoError(t, err)
-					t.Errorf("Report not forwarded to consumer: %+v", transmissionInfo)
-				}
-			}
-		}
-	}()
 }
 
 type streamsV1Handler struct {

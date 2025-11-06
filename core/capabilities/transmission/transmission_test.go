@@ -9,15 +9,15 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
-	"github.com/smartcontractkit/chainlink-common/pkg/values"
+	"github.com/smartcontractkit/chainlink-protos/cre/go/values"
 	p2ptypes "github.com/smartcontractkit/chainlink/v2/core/services/p2p/types"
 )
 
 func Test_GetPeerIDToTransmissionDelay(t *testing.T) {
-	peer1 := [32]byte([]byte(fmt.Sprintf("%-32s", "one")))
-	peer2 := [32]byte([]byte(fmt.Sprintf("%-32s", "two")))
-	peer3 := [32]byte([]byte(fmt.Sprintf("%-32s", "three")))
-	peer4 := [32]byte([]byte(fmt.Sprintf("%-32s", "four")))
+	peer1 := [32]byte(fmt.Appendf(nil, "%-32s", "one"))
+	peer2 := [32]byte(fmt.Appendf(nil, "%-32s", "two"))
+	peer3 := [32]byte(fmt.Appendf(nil, "%-32s", "three"))
+	peer4 := [32]byte(fmt.Appendf(nil, "%-32s", "four"))
 
 	ids := []p2ptypes.PeerID{
 		peer1, peer2, peer3, peer4,

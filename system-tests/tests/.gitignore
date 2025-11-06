@@ -3,6 +3,7 @@
 # compiled cron capabilities, they should be downloaded by the test
 amd64_cron
 cron
+mock
 # workflow registration artifact, it's created anew every time the workflow is registered
 abcdefgasd*.yaml
 porfeed*.yaml
@@ -22,6 +23,5 @@ compose/
 
 logs/
 
-cre.yaml
-*.state.yaml
+*.yaml
 env_artifact/

@@ -17,6 +17,51 @@ func (_m *Signer) EXPECT() *Signer_Expecter {
 	return &Signer_Expecter{mock: &_m.Mock}
 }
 
+// Initialize provides a mock function with no fields
+func (_m *Signer) Initialize() error {
+	ret := _m.Called()
+
+	if len(ret) == 0 {
+		panic("no return value specified for Initialize")
+	}
+
+	var r0 error
+	if rf, ok := ret.Get(0).(func() error); ok {
+		r0 = rf()
+	} else {
+		r0 = ret.Error(0)
+	}
+
+	return r0
+}
+
+// Signer_Initialize_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'Initialize'
+type Signer_Initialize_Call struct {
+	*mock.Call
+}
+
+// Initialize is a helper method to define mock.On call
+func (_e *Signer_Expecter) Initialize() *Signer_Initialize_Call {
+	return &Signer_Initialize_Call{Call: _e.mock.On("Initialize")}
+}
+
+func (_c *Signer_Initialize_Call) Run(run func()) *Signer_Initialize_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run()
+	})
+	return _c
+}
+
+func (_c *Signer_Initialize_Call) Return(_a0 error) *Signer_Initialize_Call {
+	_c.Call.Return(_a0)
+	return _c
+}
+
+func (_c *Signer_Initialize_Call) RunAndReturn(run func() error) *Signer_Initialize_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // Sign provides a mock function with given fields: data
 func (_m *Signer) Sign(data []byte) ([]byte, error) {
 	ret := _m.Called(data)

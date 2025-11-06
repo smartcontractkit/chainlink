@@ -3,9 +3,11 @@ package v1_5_1
 import (
 	"bytes"
 	"context"
+	"encoding/hex"
 	"errors"
 	"fmt"
 	"math/big"
+	"strings"
 
 	"github.com/Masterminds/semver/v3"
 	"github.com/aptos-labs/aptos-go-sdk"
@@ -14,12 +16,15 @@ import (
 	"github.com/gagliardetto/solana-go"
 	"github.com/smartcontractkit/mcms"
 
+	suistate "github.com/smartcontractkit/chainlink-sui/deployment"
+
 	cldf_evm "github.com/smartcontractkit/chainlink-deployments-framework/chain/evm"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/deployergroup"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
+
 	aptosstate "github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview/aptos"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview/evm"
 	solanastateview "github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview/solana"
@@ -172,6 +177,8 @@ func (c AptosChainUpdate) GetAptosTokenAndTokenPool(state aptosstate.CCIPChainSt
 	switch c.Type {
 	case shared.AptosManagedTokenPoolType:
 		tokenPoolAddress = state.AptosManagedTokenPools[token]
+	case shared.AptosRegulatedTokenPoolType:
+		tokenPoolAddress = state.RegulatedTokenPools[token]
 	case shared.BurnMintTokenPool:
 		tokenPoolAddress = state.BurnMintTokenPools[token]
 	case shared.LockReleaseTokenPool:
@@ -185,6 +192,37 @@ func (c AptosChainUpdate) GetAptosTokenAndTokenPool(state aptosstate.CCIPChainSt
 	return token, tokenPoolAddress, nil
 }
 
+// SuiChainUpdate defines the rate limits and token address for an Sui chain.
+type SuiChainUpdate struct {
+	RateLimiterConfig RateLimiterConfig
+	TokenAddress      string
+	TokenSymbol       string
+	Type              cldf.ContractType
+}
+
+func (c SuiChainUpdate) GetSuiTokenAndTokenPool(state suistate.CCIPChainState) (tokenAddress string, tokenPoolAddress string, err error) {
+	var tpAddress string
+	if c.TokenAddress == "" {
+		return "", "", errors.New("token address must be defined")
+	}
+
+	switch c.Type {
+	case suistate.SuiBnMTokenPoolType:
+		poolState, ok := state.BnMTokenPools[c.TokenSymbol]
+		if !ok {
+			return "", "", fmt.Errorf("no BnM token pool found for token: %s", c.TokenSymbol)
+		}
+		tpAddress = poolState.PackageID
+	default:
+		return "", "", fmt.Errorf("unknown Aptos token pool type %s", c.Type)
+	}
+	if tpAddress == "" {
+		return "", "", fmt.Errorf("no token pool found for token: %s", c.TokenAddress)
+	}
+
+	return c.TokenAddress, tpAddress, nil
+}
+
 // TokenPoolConfig defines all the information required of the user to configure a token pool.
 type TokenPoolConfig struct {
 	// ChainUpdates defines the chains and corresponding rate limits that should be defined on the token pool.
@@ -195,6 +233,9 @@ type TokenPoolConfig struct {
 
 	// AptosChainUpdates defines the Aptos chains and corresponding rate limits that should be defined on the token pool.
 	AptosChainUpdates map[uint64]AptosChainUpdate
+
+	// SuiChainUpdate defines the Sui chains and corresponding rate limits that should be defined on the token pool.
+	SuiChainUpdates map[uint64]SuiChainUpdate
 
 	// Type is the type of the token pool.
 	Type cldf.ContractType `json:"type"`
@@ -272,6 +313,9 @@ type ConfigureTokenPoolContractsConfig struct {
 	PoolUpdates map[uint64]TokenPoolConfig
 	// Symbol is the symbol of the token of interest.
 	TokenSymbol shared.TokenSymbol
+	// Unidirectional indicates whether the rate limit applies in only one direction.
+	// If false (default), validation enforces bidirectional limits.
+	Unidirectional bool
 }
 
 func (c ConfigureTokenPoolContractsConfig) Validate(env cldf.Environment) error {
@@ -295,17 +339,19 @@ func (c ConfigureTokenPoolContractsConfig) Validate(env cldf.Environment) error 
 		if !ok {
 			return fmt.Errorf("%s does not exist in state", chain.String())
 		}
-		for remoteChainSelector := range poolUpdate.ChainUpdates {
-			remotePoolUpdate, ok := c.PoolUpdates[remoteChainSelector]
-			if !ok {
-				return fmt.Errorf("%s is expecting a pool update to be defined for chain with selector %d", chain.String(), remoteChainSelector)
-			}
-			missingErr := fmt.Errorf("%s is expecting pool update on chain with selector %d to define a chain config pointing back to it", chain.String(), remoteChainSelector)
-			if remotePoolUpdate.ChainUpdates == nil {
-				return missingErr
-			}
-			if _, ok := remotePoolUpdate.ChainUpdates[chainSelector]; !ok {
-				return missingErr
+		if !c.Unidirectional {
+			for remoteChainSelector := range poolUpdate.ChainUpdates {
+				remotePoolUpdate, ok := c.PoolUpdates[remoteChainSelector]
+				if !ok {
+					return fmt.Errorf("%s is expecting a pool update to be defined for chain with selector %d", chain.String(), remoteChainSelector)
+				}
+				missingErr := fmt.Errorf("%s is expecting pool update on chain with selector %d to define a chain config pointing back to it", chain.String(), remoteChainSelector)
+				if remotePoolUpdate.ChainUpdates == nil {
+					return missingErr
+				}
+				if _, ok := remotePoolUpdate.ChainUpdates[chainSelector]; !ok {
+					return missingErr
+				}
 			}
 		}
 		if tokenAdminRegistry := chainState.TokenAdminRegistry; tokenAdminRegistry == nil {
@@ -486,6 +532,59 @@ func configureTokenPool(
 				OutboundRateLimiterConfig: chainUpdate.RateLimiterConfig.Outbound,
 				RemoteTokenAddress:        common.LeftPadBytes(remoteTokenAddress[:], 32),
 				RemotePoolAddresses:       [][]byte{common.LeftPadBytes(remotePoolAddress[:], 32)},
+			})
+		}
+	}
+
+	for remoteChainSelector, chainUpdate := range poolUpdate.SuiChainUpdates {
+		remoteTokenAddressStr, remotePoolAddressStr, err := chainUpdate.GetSuiTokenAndTokenPool(state.SuiChains[remoteChainSelector])
+		if err != nil {
+			return fmt.Errorf("failed to get Sui token and token pool for chain with selector %d: %w", remoteChainSelector, err)
+		}
+
+		remoteTokenAddress, err := hex.DecodeString(strings.TrimPrefix(remoteTokenAddressStr, "0x"))
+		if err != nil {
+			return errors.New("failed to convert sui remoteTokenAddress to bytes")
+		}
+
+		remotePoolAddress, err := hex.DecodeString(strings.TrimPrefix(remotePoolAddressStr, "0x"))
+		if err != nil {
+			return errors.New("failed to convert sui remotePoolAddressStr to bytes")
+		}
+
+		isSupportedChain, err := tokenPool.IsSupportedChain(&bind.CallOpts{Context: ctx}, remoteChainSelector)
+		if err != nil {
+			return fmt.Errorf("failed to check if %d is supported on pool with address %s on %s: %w", remoteChainSelector, tokenPool.Address(), chain.String(), err)
+		}
+		if isSupportedChain {
+			// Just update the rate limits if the chain is already supported
+			remoteChainSelectorsToUpdate = append(remoteChainSelectorsToUpdate, remoteChainSelector)
+			updatedOutboundConfigs = append(updatedOutboundConfigs, chainUpdate.RateLimiterConfig.Outbound)
+			updatedInboundConfigs = append(updatedInboundConfigs, chainUpdate.RateLimiterConfig.Inbound)
+
+			// Also, add a new remote pool if the token pool on the remote chain is being updated
+			configuredRemotePools, err := tokenPool.GetRemotePools(&bind.CallOpts{Context: ctx}, remoteChainSelector)
+			if err != nil {
+				return fmt.Errorf("failed to get remote pools for chain with selector %d: %w", remoteChainSelector, err)
+			}
+			var isRemotePoolSupported bool
+			for _, address := range configuredRemotePools {
+				if bytes.Equal(address, remotePoolAddress) {
+					isRemotePoolSupported = true
+					break
+				}
+			}
+			// Check if the remote pool to-be-set is non-empty and not already configured on the token pool
+			if len(remotePoolAddress) == 0 && !isRemotePoolSupported {
+				remotePoolAddressAdditions[remoteChainSelector] = common.LeftPadBytes(remotePoolAddress, 32)
+			}
+		} else {
+			chainAdditions = append(chainAdditions, token_pool.TokenPoolChainUpdate{
+				RemoteChainSelector:       remoteChainSelector,
+				InboundRateLimiterConfig:  chainUpdate.RateLimiterConfig.Inbound,
+				OutboundRateLimiterConfig: chainUpdate.RateLimiterConfig.Outbound,
+				RemoteTokenAddress:        common.LeftPadBytes(remoteTokenAddress, 32),
+				RemotePoolAddresses:       [][]byte{common.LeftPadBytes(remotePoolAddress, 32)},
 			})
 		}
 	}

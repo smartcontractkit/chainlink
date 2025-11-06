@@ -3,6 +3,7 @@ package test
 import (
 	"errors"
 	"fmt"
+	"maps"
 	"math"
 	"testing"
 
@@ -16,12 +17,17 @@ import (
 	cldf_evm "github.com/smartcontractkit/chainlink-deployments-framework/chain/evm"
 	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+	"github.com/smartcontractkit/chainlink-deployments-framework/engine/test/environment"
+	"github.com/smartcontractkit/chainlink-deployments-framework/engine/test/onchain"
+	focr "github.com/smartcontractkit/chainlink-deployments-framework/offchain/ocr"
 
 	"github.com/smartcontractkit/chainlink/deployment"
 
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 	commontypes "github.com/smartcontractkit/chainlink/deployment/common/types"
+	"github.com/smartcontractkit/chainlink/deployment/cre/contracts"
+	"github.com/smartcontractkit/chainlink/deployment/cre/ocr3"
 	"github.com/smartcontractkit/chainlink/deployment/environment/memory"
 	envtest "github.com/smartcontractkit/chainlink/deployment/environment/test"
 	"github.com/smartcontractkit/chainlink/deployment/keystone/changeset"
@@ -127,15 +133,15 @@ func (te EnvWrapper) CapabilityInfos() []kcr.CapabilitiesRegistryCapabilityInfo 
 	return caps
 }
 
-func (te EnvWrapper) OwnedCapabilityRegistry() *changeset.OwnedContract[*kcr.CapabilitiesRegistry] {
+func (te EnvWrapper) OwnedCapabilityRegistry() *contracts.OwnedContract[*kcr.CapabilitiesRegistry] {
 	return loadOneContract[*kcr.CapabilitiesRegistry](te.t, te.Env, te.Env.BlockChains.EVMChains()[te.RegistrySelector], registryQualifier)
 }
 
-func loadOneContract[T changeset.Ownable](t *testing.T, env cldf.Environment, chain cldf_evm.Chain, qualifier string) *changeset.OwnedContract[T] {
+func loadOneContract[T contracts.Ownable](t *testing.T, env cldf.Environment, chain cldf_evm.Chain, qualifier string) *contracts.OwnedContract[T] {
 	t.Helper()
 	addrs := env.DataStore.Addresses().Filter(datastore.AddressRefByQualifier(qualifier))
 	require.Len(t, addrs, 1)
-	c, err := changeset.GetOwnedContractV2[T](env.DataStore.Addresses(), chain, addrs[0].Address)
+	c, err := contracts.GetOwnedContractV2[T](env.DataStore.Addresses(), chain, addrs[0].Address)
 	require.NoError(t, err)
 	require.NotNil(t, c)
 	return c
@@ -157,12 +163,12 @@ func (te EnvWrapper) ForwarderAddressRefs() []datastore.AddressRefKey {
 	return out
 }
 
-func (te EnvWrapper) OwnedForwarders() map[uint64][]*changeset.OwnedContract[*forwarder.KeystoneForwarder] { // chain selector -> forwarders
+func (te EnvWrapper) OwnedForwarders() map[uint64][]*contracts.OwnedContract[*forwarder.KeystoneForwarder] { // chain selector -> forwarders
 	addrs := te.Env.DataStore.Addresses().Filter(datastore.AddressRefByQualifier(forwarderQualifier))
 	require.NotEmpty(te.t, addrs)
-	out := make(map[uint64][]*changeset.OwnedContract[*forwarder.KeystoneForwarder])
+	out := make(map[uint64][]*contracts.OwnedContract[*forwarder.KeystoneForwarder])
 	for _, addr := range addrs {
-		c, err := changeset.GetOwnedContractV2[*forwarder.KeystoneForwarder](te.Env.DataStore.Addresses(), te.Env.BlockChains.EVMChains()[addr.ChainSelector], addr.Address)
+		c, err := contracts.GetOwnedContractV2[*forwarder.KeystoneForwarder](te.Env.DataStore.Addresses(), te.Env.BlockChains.EVMChains()[addr.ChainSelector], addr.Address)
 		require.NoError(te.t, err)
 		require.NotNil(te.t, c)
 		out[addr.ChainSelector] = append(out[addr.ChainSelector], c)
@@ -190,25 +196,23 @@ func (te EnvWrapper) GetP2PIDs(donName string) P2PIDs {
 	return te.dons.Get(donName).GetP2PIDs()
 }
 
-func initEnv(t *testing.T, nChains int) (registryChainSel uint64, env cldf.Environment) {
-	chains := cldf_chain.NewBlockChainsFromSlice(memory.NewMemoryChainsEVM(t, nChains, 1))
-	registryChainSel = registryChain(t, chains.EVMChains())
+func initEnv(t *testing.T, nChains int) (uint64, cldf.Environment) {
+	env, err := environment.New(t.Context(),
+		environment.WithEVMSimulatedWithConfigN(t, nChains, onchain.EVMSimLoaderConfig{
+			NumAdditionalAccounts: 1,
+		}),
+	)
+	require.NoError(t, err)
+
+	registryChainSel := registryChain(t, env.BlockChains.EVMChains())
 
 	// note that all the nodes require TOML configuration of the cap registry address
 	// and writers need forwarder address as TOML config
 	// we choose to use changesets to deploy the initial contracts because that's how it's done in the real world
 	// this requires a initial environment to house the address book
-	env = cldf.Environment{
-		GetContext:        t.Context,
-		Logger:            logger.Test(t),
-		ExistingAddresses: cldf.NewMemoryAddressBook(),
-		DataStore:         datastore.NewMemoryDataStore().Seal(),
-		BlockChains:       chains,
-	}
-
 	forwarderChangesets := make([]commonchangeset.ConfiguredChangeSet, nChains)
 	i := 0
-	for _, c := range chains.EVMChains() {
+	for _, c := range env.BlockChains.EVMChains() {
 		forwarderChangesets[i] = commonchangeset.Configure(
 			cldf.CreateLegacyChangeSet(changeset.DeployForwarderV2),
 			&changeset.DeployRequestV2{
@@ -246,12 +250,12 @@ func initEnv(t *testing.T, nChains int) (registryChainSel uint64, env cldf.Envir
 		),
 	}
 	changes = append(changes, forwarderChangesets...)
-	env, _, err := commonchangeset.ApplyChangesets(t, env, changes)
+	updatedEnv, _, err := commonchangeset.ApplyChangesets(t, *env, changes)
 	require.NoError(t, err)
 	require.NotNil(t, env)
 	require.Len(t, env.BlockChains.EVMChains(), nChains)
-	validateInitialChainState(t, env, registryChainSel)
-	return registryChainSel, env
+	validateInitialChainState(t, updatedEnv, registryChainSel)
+	return registryChainSel, updatedEnv
 }
 
 // SetupContractTestEnv sets up a keystone test environment for contract testing with the given configuration
@@ -333,7 +337,7 @@ func setupTestEnv(t *testing.T, c EnvWrapperConfig) EnvWrapper {
 		},
 	}
 
-	var ocr3Config = internal.OracleConfig{
+	var ocr3Config = ocr3.OracleConfig{
 		MaxFaultyOracles:     dons.Get(c.WFDonConfig.Name).F(),
 		TransmissionSchedule: []int{dons.Get(c.WFDonConfig.Name).N()},
 	}
@@ -426,9 +430,7 @@ func setupViewOnlyNodeTest(t *testing.T, registryChainSel uint64, chains map[uin
 				"don": donCfg.Name,
 			}
 			if donCfg.Labels != nil {
-				for k, v := range donCfg.Labels {
-					labels[k] = v
-				}
+				maps.Copy(labels, donCfg.Labels)
 			}
 			cfg := envtest.NodeConfig{
 				ChainSelectors: []uint64{registryChainSel},
@@ -456,7 +458,7 @@ func setupViewOnlyNodeTest(t *testing.T, registryChainSel uint64, chains map[uin
 		dons.NodeList().IDs(),
 		envtest.NewJDService(dons.NodeList()),
 		t.Context,
-		cldf.XXXGenerateTestOCRSecrets(),
+		focr.XXXGenerateTestOCRSecrets(),
 		cldf_chain.NewBlockChains(blockChains),
 	)
 

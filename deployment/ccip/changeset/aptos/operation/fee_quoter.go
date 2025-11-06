@@ -8,14 +8,14 @@ import (
 	mcmstypes "github.com/smartcontractkit/mcms/types"
 
 	"github.com/smartcontractkit/chainlink-aptos/bindings/ccip"
-	aptos_fee_quoter "github.com/smartcontractkit/chainlink-aptos/bindings/ccip/fee_quoter"
+	fee_quoter "github.com/smartcontractkit/chainlink-aptos/bindings/ccip/fee_quoter"
 	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/aptos/utils"
 )
 
 // UpdateFeeQuoterDestsInput contains configuration for updating FeeQuoter destination configs
 type UpdateFeeQuoterDestsInput struct {
-	Updates map[uint64]aptos_fee_quoter.DestChainConfig
+	Updates map[uint64]fee_quoter.DestChainConfig
 }
 
 // UpdateFeeQuoterDestsOp operation to update FeeQuoter destination configurations
@@ -210,6 +210,76 @@ func applyPremiumMultiplier(b operations.Bundle, deps AptosDeps, in ApplyPremium
 		"tokenCount", len(sourceTokens),
 		"multiplierCount", len(multiplier),
 	)
+
+	return txs, nil
+}
+
+// ApplyTokenTransferFeeCfgInput contains configuration for updating FeeQuoter price configs
+type ApplyTokenTransferFeeCfgInput struct {
+	DestChainSelector uint64
+	ConfigsByToken    map[string]fee_quoter.TokenTransferFeeConfig // token address (string) -> config
+	RemoveTokens      []aptos.AccountAddress
+}
+
+// ApplyTokenTransferFeeCfgOp operation to apply token transfer fee configuration updates
+var ApplyTokenTransferFeeCfgOp = operations.NewOperation(
+	"apply-token-transfer-fee-cfg-op",
+	Version1_0_0,
+	"Applies token transfer fee configuration updates to FeeQuoter prices",
+	applyTokenTransferFeeCfg,
+)
+
+func applyTokenTransferFeeCfg(b operations.Bundle, deps AptosDeps, in ApplyTokenTransferFeeCfgInput) ([]mcmstypes.Transaction, error) {
+	var txs []mcmstypes.Transaction
+
+	// Bind CCIP Package
+	ccipAddress := deps.CCIPOnChainState.AptosChains[deps.AptosChain.Selector].CCIPAddress
+	ccipBind := ccip.Bind(ccipAddress, deps.AptosChain.Client)
+
+	var addTokens []aptos.AccountAddress
+	var addMinFeeUsdCents []uint32
+	var addMaxFeeUsdCents []uint32
+	var addDeciBps []uint16
+	var addDestGasOverhead []uint32
+	var addDestBytesOverhead []uint32
+	var addIsEnabled []bool
+
+	for token, config := range in.ConfigsByToken {
+		tokenAddress := aptos.AccountAddress{}
+		err := tokenAddress.ParseStringRelaxed(token)
+		if err != nil {
+			return nil, fmt.Errorf("failed to parse Aptos token address %s: %w", token, err)
+		}
+		addTokens = append(addTokens, tokenAddress)
+		addMinFeeUsdCents = append(addMinFeeUsdCents, config.MinFeeUsdCents)
+		addMaxFeeUsdCents = append(addMaxFeeUsdCents, config.MaxFeeUsdCents)
+		addDeciBps = append(addDeciBps, config.DeciBps)
+		addDestGasOverhead = append(addDestGasOverhead, config.DestGasOverhead)
+		addDestBytesOverhead = append(addDestBytesOverhead, config.DestBytesOverhead)
+		addIsEnabled = append(addIsEnabled, config.IsEnabled)
+	}
+
+	// Encode the update tx
+	moduleInfo, function, _, args, err := ccipBind.FeeQuoter().Encoder().ApplyTokenTransferFeeConfigUpdates(
+		in.DestChainSelector,
+		addTokens,
+		addMinFeeUsdCents,
+		addMaxFeeUsdCents,
+		addDeciBps,
+		addDestGasOverhead,
+		addDestBytesOverhead,
+		addIsEnabled,
+		in.RemoveTokens,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("failed to encode ApplyTokenTransferFeeConfigUpdates: %w", err)
+	}
+
+	tx, err := utils.GenerateMCMSTx(ccipAddress, moduleInfo, function, args)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create transaction: %w", err)
+	}
+	txs = append(txs, tx)
 
 	return txs, nil
 }

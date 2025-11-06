@@ -9,6 +9,7 @@ import (
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/types/core"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
@@ -115,7 +116,10 @@ func TestStarknetSigner(t *testing.T) {
 	starkKey, err := starkkey.New()
 	require.NoError(t, err)
 
-	lk := &keystore.StarknetLooppSigner{baseKs}
+	lk := &keystore.StarknetLooppSigner{
+		baseKs,
+		core.UnimplementedKeystore{},
+	}
 	// test that we implementw the loopp spec. signing nil data should not error
 	// on existing sender id
 	t.Run("key exists", func(t *testing.T) {

@@ -3,8 +3,8 @@ package mockcapability
 import (
 	"google.golang.org/protobuf/proto"
 
-	"github.com/smartcontractkit/chainlink-common/pkg/values"
-	pb2 "github.com/smartcontractkit/chainlink-common/pkg/values/pb"
+	"github.com/smartcontractkit/chainlink-protos/cre/go/values"
+	pb2 "github.com/smartcontractkit/chainlink-protos/cre/go/values/pb"
 )
 
 func MapToBytes(m *values.Map) ([]byte, error) {

@@ -62,7 +62,7 @@ func removeFeedFeedProxyMappingPrecondition(env cldf.Environment, c types.Remove
 		return errors.New("proxy addresses must not be empty")
 	}
 	if c.McmsConfig != nil {
-		if err := ValidateMCMSAddresses(env.ExistingAddresses, c.ChainSelector); err != nil {
+		if err := ValidateMCMSAddresses(env.DataStore.Addresses(), c.ChainSelector); err != nil {
 			return err
 		}
 	}

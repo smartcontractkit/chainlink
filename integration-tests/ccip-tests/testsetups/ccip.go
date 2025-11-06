@@ -54,12 +54,12 @@ import (
 )
 
 var (
-	GethResourceProfile = map[string]interface{}{
-		"requests": map[string]interface{}{
+	GethResourceProfile = map[string]any{
+		"requests": map[string]any{
 			"cpu":    "4",
 			"memory": "6Gi",
 		},
-		"limits": map[string]interface{}{
+		"limits": map[string]any{
 			"cpu":    "4",
 			"memory": "6Gi",
 		},
@@ -93,7 +93,7 @@ type CCIPTestConfig struct {
 	SelectedNetworks    []blockchain.EVMNetwork
 	NetworkPairs        []NetworkPair
 	LeaderLanes         []LeaderLane
-	GethResourceProfile map[string]interface{}
+	GethResourceProfile map[string]any
 }
 
 func (c *CCIPTestConfig) useExistingDeployment() bool {
@@ -464,27 +464,11 @@ func (c *CCIPTestConfig) SetOCRParams() error {
 // This is logged at the beginning of the test run.
 type TestConfigOverrideOption func(*CCIPTestConfig) string
 
-// UseCCIPOwnerTokens defines whether all tokens are deployed by the same address as the CCIP owner
-func UseCCIPOwnerTokens(yes bool) TestConfigOverrideOption {
-	return func(c *CCIPTestConfig) string {
-		c.TestGroupInput.TokenConfig.CCIPOwnerTokens = pointer.ToBool(yes)
-		return fmt.Sprintf("CCIPOwnerTokens set to %t", yes)
-	}
-}
-
 // WithTokensPerChain sets the number of tokens to deploy on each chain
 func WithTokensPerChain(count int) TestConfigOverrideOption {
 	return func(c *CCIPTestConfig) string {
 		c.TestGroupInput.TokenConfig.NoOfTokensPerChain = pointer.ToInt(count)
 		return fmt.Sprintf("NoOfTokensPerChain set to %d", count)
-	}
-}
-
-// WithMsgDetails sets the message details for the test
-func WithMsgDetails(details *testconfig.MsgDetails) TestConfigOverrideOption {
-	return func(c *CCIPTestConfig) string {
-		c.TestGroupInput.MsgDetails = details
-		return "Message set"
 	}
 }
 
@@ -907,7 +891,6 @@ func (o *CCIPTestSetUpOutputs) WaitForPriceUpdates() {
 	t := o.Cfg.Test
 	priceUpdateGrp, _ := errgroup.WithContext(o.SetUpContext)
 	for _, lanes := range o.ReadLanes() {
-		lanes := lanes
 		forwardLane := lanes.ForwardLane
 		reverseLane := lanes.ReverseLane
 		waitForUpdate := func(lane *actions.CCIPLane) error {

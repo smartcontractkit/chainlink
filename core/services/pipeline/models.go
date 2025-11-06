@@ -14,18 +14,17 @@ import (
 	"github.com/shopspring/decimal"
 	"gopkg.in/guregu/null.v4"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/jsonserializable"
-
-	"github.com/smartcontractkit/chainlink/v2/core/store/models"
 )
 
 type Spec struct {
 	ID                int32
-	DotDagSource      string          `json:"dotDagSource"`
-	CreatedAt         time.Time       `json:"-"`
-	MaxTaskDuration   models.Interval `json:"-"`
-	GasLimit          *uint32         `json:"-"`
-	ForwardingAllowed bool            `json:"-"`
+	DotDagSource      string           `json:"dotDagSource"`
+	CreatedAt         time.Time        `json:"-"`
+	MaxTaskDuration   sqlutil.Interval `json:"-"`
+	GasLimit          *uint32          `json:"-"`
+	ForwardingAllowed bool             `json:"-"`
 
 	JobID   int32  `json:"-"`
 	JobName string `json:"-"`
@@ -126,7 +125,7 @@ func (r *Run) StringOutputs() ([]*string, error) {
 	var outputs []*string
 	// Note for async jobs, Outputs can be nil/invalid
 	if r.Outputs.Valid {
-		outs, ok := r.Outputs.Val.([]interface{})
+		outs, ok := r.Outputs.Val.([]any)
 		if !ok {
 			return nil, fmt.Errorf("unable to process output type %T", r.Outputs.Val)
 		}
@@ -137,7 +136,7 @@ func (r *Run) StringOutputs() ([]*string, error) {
 				case string:
 					s := v
 					outputs = append(outputs, &s)
-				case map[string]interface{}:
+				case map[string]any:
 					b, _ := json.Marshal(v)
 					bs := string(b)
 					outputs = append(outputs, &bs)
@@ -203,7 +202,7 @@ func (r *Run) StringAllErrors() []*string {
 
 type RunErrors []null.String
 
-func (re *RunErrors) Scan(value interface{}) error {
+func (re *RunErrors) Scan(value any) error {
 	if value == nil {
 		return nil
 	}

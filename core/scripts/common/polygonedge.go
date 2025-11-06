@@ -3,7 +3,6 @@ package common
 import (
 	"encoding/hex"
 	"fmt"
-	"math/big"
 	"reflect"
 	"strings"
 
@@ -11,7 +10,6 @@ import (
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/rlp"
-	"github.com/ethereum/go-ethereum/rpc"
 	"github.com/umbracle/fastrlp"
 )
 
@@ -68,25 +66,6 @@ type PolygonEdgeHeader struct {
 	// BaseFee was added by EIP-1559 and is ignored in legacy headers.
 	BaseFee    hexutil.Uint64 `json:"baseFeePerGas"`
 	BaseFeeAlt hexutil.Uint64 `json:"baseFee,omitempty"`
-}
-
-func GetPolygonEdgeRLPHeader(jsonRPCClient *rpc.Client, blockNum *big.Int) (rlpHeader []byte, hash string, err error) {
-	var h PolygonEdgeHeader
-	err = jsonRPCClient.Call(&h, "eth_getBlockByNumber", "0x"+blockNum.Text(16), true)
-	if err != nil {
-		return nil, "", fmt.Errorf("failed to get poloygon-edge header: %w", err)
-	}
-
-	ar := &fastrlp.Arena{}
-	val, err := MarshalRLPWith(ar, &h)
-	if err != nil {
-		return nil, "", err
-	}
-
-	dst := make([]byte, 0)
-	dst = val.MarshalTo(dst)
-
-	return dst, h.Hash.String(), err
 }
 
 // MarshalRLPWith marshals the header to RLP with a specific fastrlp.Arena
@@ -161,7 +140,7 @@ func GetIbftExtraClean(extra []byte) (cleanedExtra []byte, err error) {
 		return nil, fmt.Errorf("invalid extra data in polygon-edge chain: %w", err)
 	}
 
-	var extraData []interface{}
+	var extraData []any
 	err = rlp.DecodeBytes(extra, &extraData)
 	if err != nil {
 		return nil, err
@@ -172,7 +151,7 @@ func GetIbftExtraClean(extra []byte) (cleanedExtra []byte, err error) {
 	// ignored when calculating the hash
 	// Reference: https://github.com/0xPolygon/polygon-edge/blob/develop/consensus/polybft/hash.go#L20-L27.
 	if len(extraData) > 3 {
-		extraData[2] = []interface{}{[]byte{}, []byte{}}
+		extraData[2] = []any{[]byte{}, []byte{}}
 	}
 
 	cleanedExtra, err = rlp.EncodeToBytes(extraData)

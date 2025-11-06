@@ -6,6 +6,7 @@ import (
 
 	"github.com/aptos-labs/aptos-go-sdk"
 
+	"github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared"
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 )
@@ -51,4 +52,49 @@ type MintTokenInput struct {
 	TokenCodeObjectAddress aptos.AccountAddress
 	MCMSConfig             *proposalutils.TimelockConfig
 	TokenMint
+}
+
+// ###################
+// # Token Ownership #
+// ###################
+
+type TokenTransferInput struct {
+	TokenCodeObjectAddress aptos.AccountAddress
+	TokenType              deployment.ContractType
+	To                     aptos.AccountAddress
+}
+
+type TransferTokenOwnershipInput struct {
+	ChainSelector uint64
+	Transfers     []TokenTransferInput
+	MCMSConfig    *proposalutils.TimelockConfig
+}
+
+type TokenAcceptInput struct {
+	TokenCodeObjectAddress aptos.AccountAddress
+	TokenType              deployment.ContractType
+}
+
+type AcceptTokenOwnershipInput struct {
+	ChainSelector uint64
+	Accepts       []TokenAcceptInput
+	MCMSConfig    *proposalutils.TimelockConfig
+}
+
+type ExecuteTokenOwnershipTransferInput struct {
+	ChainSelector uint64
+	Transfers     []TokenTransferInput
+	MCMSConfig    *proposalutils.TimelockConfig
+}
+
+type TransferTokenAdminInput struct {
+	ChainSelector uint64
+	Transfers     []TokenTransferInput
+	MCMSConfig    *proposalutils.TimelockConfig
+}
+
+type AcceptTokenAdminInput struct {
+	ChainSelector uint64
+	Accepts       []TokenAcceptInput
+	MCMSConfig    *proposalutils.TimelockConfig
 }

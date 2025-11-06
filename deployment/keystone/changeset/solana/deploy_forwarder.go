@@ -28,8 +28,9 @@ import (
 )
 
 const (
-	ForwarderContract datastore.ContractType = "Forwarder"
-	ForwarderState    datastore.ContractType = "ForwarderState"
+	ForwarderContract         datastore.ContractType = "SolanaForwarder"
+	ForwarderState            datastore.ContractType = "SolanaForwarderState"
+	DefaultForwarderQualifier                        = "ks_solana_forwarder"
 )
 
 var _ cldf.ChangeSetV2[*DeployForwarderRequest] = DeployForwarder{}
@@ -76,6 +77,9 @@ func (cs DeployForwarder) Apply(env cldf.Environment, req *DeployForwarderReques
 		ChainSel:     req.ChainSel,
 		ProgramName:  deployment.KeystoneForwarderProgramName,
 		Overallocate: true,
+		ContractType: ForwarderContract,
+		Qualifier:    req.Qualifier,
+		Version:      version,
 	}
 
 	deps := operation.Deps{
@@ -354,7 +358,6 @@ func configureForwarders(env cldf.Environment, req *ConfigureForwarderRequest,
 			Chain:     chain,
 		}
 		signers := toSolSigners(wfdon.Signers(chainsel.FamilySolana))
-
 		opOut, err := operations.ExecuteOperation(env.OperationsBundle, operation.ConfigureForwarderOp, deps, operation.ConfigureForwarderInput{
 			ProgramID:      solana.MustPublicKeyFromBase58(forwarderProgramID.Address),
 			MCMS:           req.MCMS,

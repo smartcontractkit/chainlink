@@ -1,18 +1,17 @@
 package ccipnoop
 
 import (
-	"github.com/smartcontractkit/chainlink-ccip/pkg/types/ccipocr3"
-	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/common"
+	"github.com/smartcontractkit/chainlink-common/pkg/types/ccipocr3"
 )
 
-func NewGasEstimateProvider(codec common.ExtraDataCodec) ccipocr3.EstimateProvider {
+func NewGasEstimateProvider(codec ccipocr3.ExtraDataCodecBundle) ccipocr3.EstimateProvider {
 	return estimateProvider{
 		extraDataCodec: codec,
 	}
 }
 
 type estimateProvider struct {
-	extraDataCodec common.ExtraDataCodec
+	extraDataCodec ccipocr3.ExtraDataCodecBundle
 }
 
 // CalculateMerkleTreeGas is not implemented

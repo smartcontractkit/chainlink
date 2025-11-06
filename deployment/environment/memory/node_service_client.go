@@ -9,6 +9,7 @@ import (
 
 	nodev1 "github.com/smartcontractkit/chainlink-protos/job-distributor/v1/node"
 	"github.com/smartcontractkit/chainlink-protos/job-distributor/v1/shared/ptypes"
+	"github.com/smartcontractkit/chainlink/deployment/helpers/pointer"
 )
 
 func (j JobClient) EnableNode(ctx context.Context, in *nodev1.EnableNodeRequest, opts ...grpc.CallOption) (*nodev1.EnableNodeResponse, error) {
@@ -107,7 +108,7 @@ func (j JobClient) ListNodes(ctx context.Context, in *nodev1.ListNodesRequest, o
 	for id, n := range j.nodeStore.asMap() {
 		p2pIDLabel := &ptypes.Label{
 			Key:   "p2p_id",
-			Value: ptr(n.Keys.PeerID.String()),
+			Value: pointer.To(n.Keys.PeerID.String()),
 		}
 		node := &nodev1.Node{
 			Id:          id,

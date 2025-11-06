@@ -62,7 +62,7 @@ externalJobID = '00000000-0000-0000-0000-000000000001'
 contractID = '0x0000000000000000000000000000000000000006'
 transmitterID = '%s'
 feedID = '%s'
-relay = 'evm'
+relay = '%s'
 pluginType = 'mercury'
 observationSource = """
 	ds          [type=http method=GET url="https://chain.link/ETH-USD"];
@@ -72,7 +72,7 @@ observationSource = """
 """
 
 [relayConfig]
-chainID = 1
+chainID = %d
 fromBlock = 1000
 
 [onchainSigningStrategy]
@@ -889,20 +889,20 @@ func TestORM_CreateJob_OCR2_DuplicatedContractAddress(t *testing.T) {
 
 	jb2.Name = null.StringFrom("Job with same chain id & contract address")
 	jb2.OCR2OracleSpec.TransmitterID = null.StringFrom(address.String())
-	jb.OCR2OracleSpec.PluginConfig["juelsPerFeeCoinSource"] = juelsPerFeeCoinSource
+	jb2.OCR2OracleSpec.PluginConfig["juelsPerFeeCoinSource"] = juelsPerFeeCoinSource
 
 	err = jobORM.CreateJob(ctx, &jb2)
-	require.Error(t, err)
+	require.NoError(t, err)
 
 	jb3, err := ocr2validate.ValidatedOracleSpecToml(testutils.Context(t), config.OCR2(), config.Insecure(), testspecs.GetOCR2EVMSpecMinimal(), nil)
 	require.NoError(t, err)
 	jb3.Name = null.StringFrom("Job with different chain id & same contract address")
 	jb3.OCR2OracleSpec.TransmitterID = null.StringFrom(address.String())
 	jb3.OCR2OracleSpec.RelayConfig["chainID"] = customChainID.Int64()
-	jb.OCR2OracleSpec.PluginConfig["juelsPerFeeCoinSource"] = juelsPerFeeCoinSource
+	jb3.OCR2OracleSpec.PluginConfig["juelsPerFeeCoinSource"] = juelsPerFeeCoinSource
 
 	err = jobORM.CreateJob(ctx, &jb3)
-	require.Error(t, err)
+	require.NoError(t, err)
 }
 
 func TestORM_CreateJob_OCR2_Sending_Keys_Transmitter_Keys_Validations(t *testing.T) {
@@ -942,17 +942,17 @@ func TestORM_CreateJob_OCR2_Sending_Keys_Transmitter_Keys_Validations(t *testing
 		ctx := testutils.Context(t)
 		jb.OCR2OracleSpec.TransmitterID = null.String{}
 		_, address2 := cltest.MustInsertRandomKey(t, keyStore.Eth())
-		jb.OCR2OracleSpec.RelayConfig["sendingKeys"] = interface{}([]any{address.String(), address2.String(), common.HexToAddress("0X0").String()})
+		jb.OCR2OracleSpec.RelayConfig["sendingKeys"] = any([]any{address.String(), address2.String(), common.HexToAddress("0X0").String()})
 		assert.Equal(t, "CreateJobFailed: no EVM key matching: \"0x0000000000000000000000000000000000000000\": no such sending key exists", jobORM.CreateJob(ctx, &jb).Error())
 
-		jb.OCR2OracleSpec.RelayConfig["sendingKeys"] = interface{}([]any{1, 2, 3})
+		jb.OCR2OracleSpec.RelayConfig["sendingKeys"] = any([]any{1, 2, 3})
 		assert.Equal(t, "CreateJobFailed: sending keys are of wrong type", jobORM.CreateJob(ctx, &jb).Error())
 	})
 
 	t.Run("sending keys and transmitter ID can't both be defined", func(t *testing.T) {
 		ctx := testutils.Context(t)
 		jb.OCR2OracleSpec.TransmitterID = null.StringFrom(address.String())
-		jb.OCR2OracleSpec.RelayConfig["sendingKeys"] = interface{}([]any{address.String()})
+		jb.OCR2OracleSpec.RelayConfig["sendingKeys"] = any([]any{address.String()})
 		assert.Equal(t, "CreateJobFailed: sending keys and transmitter ID can't both be defined", jobORM.CreateJob(ctx, &jb).Error())
 	})
 
@@ -1153,15 +1153,24 @@ func Test_FindJobs(t *testing.T) {
 func Test_FindJob(t *testing.T) {
 	t.Parallel()
 	ctx := testutils.Context(t)
+	evmRelay := "evm"
+	chainID1 := int64(1337)
+	chainID2 := int64(2337)
 
 	// Create a config with multiple EVM chains. The test fixtures already load 1337
 	// Additional chains will need additional fixture statements to add a chain to evm_chains.
 	config := configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
-		chainID := big.NewI(1337)
+		chainID1Big := big.NewI(chainID1)
+		chainID2Big := big.NewI(chainID2)
 		enabled := true
 		c.EVM = append(c.EVM, &configtoml.EVMConfig{
-			ChainID: chainID,
-			Chain:   configtoml.Defaults(chainID),
+			ChainID: chainID1Big,
+			Chain:   configtoml.Defaults(chainID1Big),
+			Enabled: &enabled,
+			Nodes:   configtoml.EVMNodes{{}},
+		}, &configtoml.EVMConfig{
+			ChainID: chainID2Big,
+			Chain:   configtoml.Defaults(chainID2Big),
 			Enabled: &enabled,
 			Nodes:   configtoml.EVMNodes{{}},
 		})
@@ -1209,7 +1218,7 @@ func Test_FindJob(t *testing.T) {
 			JobID:              uuid.New().String(),
 			TransmitterAddress: address.Hex(),
 			Name:               "ocr spec dup addr",
-			EVMChainID:         "1337",
+			EVMChainID:         big.NewI(chainID1).String(),
 			DS1BridgeName:      bridge.Name.String(),
 			DS2BridgeName:      bridge2.Name.String(),
 		}).Toml(),
@@ -1227,6 +1236,19 @@ func Test_FindJob(t *testing.T) {
 	ds -> ds_parse -> ds_multiply;`
 
 	jobOCR2.OCR2OracleSpec.PluginConfig["juelsPerFeeCoinSource"] = juelsPerFeeCoinSource
+	jobOCR2.OCR2OracleSpec.RelayConfig["chainID"] = chainID1
+
+	jobOCR2SameContractIDChainID2_1, err := ocr2validate.ValidatedOracleSpecToml(testutils.Context(t), config.OCR2(), config.Insecure(), testspecs.GetOCR2EVMSpecMinimal(), nil)
+	require.NoError(t, err)
+	jobOCR2SameContractIDChainID2_1.OCR2OracleSpec.TransmitterID = null.StringFrom(address.String())
+	jobOCR2SameContractIDChainID2_1.OCR2OracleSpec.PluginConfig["juelsPerFeeCoinSource"] = juelsPerFeeCoinSource
+	jobOCR2SameContractIDChainID2_1.OCR2OracleSpec.RelayConfig["chainID"] = chainID2
+
+	jobOCR2SameContractIDChainID2_2, err := ocr2validate.ValidatedOracleSpecToml(testutils.Context(t), config.OCR2(), config.Insecure(), testspecs.GetOCR2EVMSpecMinimal(), nil)
+	require.NoError(t, err)
+	jobOCR2SameContractIDChainID2_2.OCR2OracleSpec.TransmitterID = null.StringFrom(address.String())
+	jobOCR2SameContractIDChainID2_2.OCR2OracleSpec.PluginConfig["juelsPerFeeCoinSource"] = juelsPerFeeCoinSource
+	jobOCR2SameContractIDChainID2_2.OCR2OracleSpec.RelayConfig["chainID"] = chainID2
 
 	ocr2WithFeedID1 := "0x0001000000000000000000000000000000000000000000000000000000000001"
 	ocr2WithFeedID2 := "0x0001000000000000000000000000000000000000000000000000000000000002"
@@ -1234,7 +1256,7 @@ func Test_FindJob(t *testing.T) {
 		testutils.Context(t),
 		config.OCR2(),
 		config.Insecure(),
-		fmt.Sprintf(mercuryOracleTOML, cltest.DefaultCSAKey.PublicKeyString(), ocr2WithFeedID1),
+		fmt.Sprintf(mercuryOracleTOML, cltest.DefaultCSAKey.PublicKeyString(), ocr2WithFeedID1, evmRelay, chainID1),
 		nil,
 	)
 	require.NoError(t, err)
@@ -1243,7 +1265,7 @@ func Test_FindJob(t *testing.T) {
 		testutils.Context(t),
 		config.OCR2(),
 		config.Insecure(),
-		fmt.Sprintf(mercuryOracleTOML, cltest.DefaultCSAKey.PublicKeyString(), ocr2WithFeedID2),
+		fmt.Sprintf(mercuryOracleTOML, cltest.DefaultCSAKey.PublicKeyString(), ocr2WithFeedID2, evmRelay, chainID1),
 		nil,
 	)
 	jobOCR2WithFeedID2.ExternalJobID = uuid.New()
@@ -1257,6 +1279,12 @@ func Test_FindJob(t *testing.T) {
 	require.NoError(t, err)
 
 	err = orm.CreateJob(ctx, &jobOCR2)
+	require.NoError(t, err)
+
+	err = orm.CreateJob(ctx, &jobOCR2SameContractIDChainID2_1)
+	require.NoError(t, err)
+
+	err = orm.CreateJob(ctx, &jobOCR2SameContractIDChainID2_2)
 	require.NoError(t, err)
 
 	err = orm.CreateJob(ctx, &jobOCR2WithFeedID1)
@@ -1324,12 +1352,12 @@ func Test_FindJob(t *testing.T) {
 		assert.Equal(t, job.ID, jbID)
 	})
 
-	t.Run("by contract id without feed id", func(t *testing.T) {
+	t.Run("by contract id without feed id (with duplicate contract ids on different chain ids)", func(t *testing.T) {
 		ctx := testutils.Context(t)
 		contractID := "0x613a38AC1659769640aaE063C651F48E0250454C"
 
 		// Find job ID for ocr2 job without feedID.
-		jbID, err2 := orm.FindOCR2JobIDByAddress(ctx, contractID, nil)
+		jbID, err2 := orm.FindOCR2JobIDByAddress(ctx, evmRelay, chainID1, contractID, nil)
 		require.NoError(t, err2)
 
 		assert.Equal(t, jobOCR2.ID, jbID)
@@ -1341,7 +1369,7 @@ func Test_FindJob(t *testing.T) {
 		feedID := common.HexToHash(ocr2WithFeedID1)
 
 		// Find job ID for ocr2 job with feed ID
-		jbID, err2 := orm.FindOCR2JobIDByAddress(ctx, contractID, &feedID)
+		jbID, err2 := orm.FindOCR2JobIDByAddress(ctx, evmRelay, chainID1, contractID, &feedID)
 		require.NoError(t, err2)
 
 		assert.Equal(t, jobOCR2WithFeedID1.ID, jbID)
@@ -1353,10 +1381,17 @@ func Test_FindJob(t *testing.T) {
 		feedID := common.HexToHash(ocr2WithFeedID2)
 
 		// Find job ID for ocr2 job with feed ID
-		jbID, err2 := orm.FindOCR2JobIDByAddress(ctx, contractID, &feedID)
+		jbID, err2 := orm.FindOCR2JobIDByAddress(ctx, evmRelay, chainID1, contractID, &feedID)
 		require.NoError(t, err2)
 
 		assert.Equal(t, jobOCR2WithFeedID2.ID, jbID)
+	})
+
+	t.Run("with duplicate contract id and the same chain id", func(t *testing.T) {
+		ctx := testutils.Context(t)
+		contractID := "0x613a38AC1659769640aaE063C651F48E0250454C"
+		_, err2 := orm.FindOCR2JobIDByAddress(ctx, evmRelay, chainID2, contractID, nil)
+		assert.ErrorContains(t, err2, "find returned > 1 job results")
 	})
 }
 
@@ -1575,7 +1610,7 @@ func Test_FindPipelineRunIDsByJobID(t *testing.T) {
 	_, address := cltest.MustInsertRandomKey(t, keyStore.Eth())
 
 	jobs := make([]job.Job, 11)
-	for j := 0; j < len(jobs); j++ {
+	for j := range jobs {
 		_, bridge := cltest.MustCreateBridge(t, db, cltest.BridgeOpts{})
 		_, bridge2 := cltest.MustCreateBridge(t, db, cltest.BridgeOpts{})
 		jobID := uuid.New().String()
@@ -1645,7 +1680,7 @@ func Test_FindPipelineRunIDsByJobID(t *testing.T) {
 		assert.Equal(t, int64(67*(len(jobs)-1)), runIDs[12]-runIDs[79])
 	})
 
-	for i := 0; i < 2100; i++ {
+	for range 2100 {
 		mustInsertPipelineRun(t, pipelineORM, jb)
 	}
 
@@ -2056,7 +2091,7 @@ func Test_ORM_FindJobByWorkflow_Multiple(t *testing.T) {
 		secretsORM := artifacts.NewWorkflowRegistryDS(db, logger.TestLogger(t))
 
 		var sids []int64
-		for i := 0; i < 3; i++ {
+		for i := range 3 {
 			sid, err := secretsORM.Create(ctx, "some-url.com", fmt.Sprintf("some-hash-%d", i), "some-contentz")
 			require.NoError(t, err)
 			sids = append(sids, sid)
@@ -2351,7 +2386,7 @@ func Test_FindGatewayJobID(t *testing.T) {
 	// find only by auth gateway id
 	gatewayJobSpec := job.GatewaySpec{
 		GatewayConfig: job.JSONConfig{
-			"ConnectionManagerConfig": map[string]interface{}{
+			"ConnectionManagerConfig": map[string]any{
 				"AuthGatewayId": "gateway",
 			},
 		},
@@ -2388,7 +2423,7 @@ func Test_FindGatewayJobID_NoMatch(t *testing.T) {
 	// different auth gateway id
 	gatewayJobSpec := job.GatewaySpec{
 		GatewayConfig: job.JSONConfig{
-			"ConnectionManagerConfig": map[string]interface{}{
+			"ConnectionManagerConfig": map[string]any{
 				"AuthGatewayId": "another_gateway",
 			},
 		},

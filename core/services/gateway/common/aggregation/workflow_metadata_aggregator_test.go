@@ -1,6 +1,7 @@
 package aggregation
 
 import (
+	"context"
 	"testing"
 	"time"
 
@@ -10,11 +11,19 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	gateway_common "github.com/smartcontractkit/chainlink-common/pkg/types/gateway"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
+	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers/capabilities/v2/metrics"
 )
+
+func createTestMetrics(t *testing.T) *metrics.Metrics {
+	m, err := metrics.NewMetrics(nil)
+	require.NoError(t, err)
+	return m
+}
 
 func TestWorkflowMetadataAggregator_StartStop(t *testing.T) {
 	lggr := logger.Test(t)
-	agg := NewWorkflowMetadataAggregator(lggr, 2, 100*time.Millisecond)
+	testMetrics := createTestMetrics(t)
+	agg := NewWorkflowMetadataAggregator(lggr, 2, 100*time.Millisecond, testMetrics)
 
 	ctx := testutils.Context(t)
 
@@ -56,7 +65,8 @@ func createTestWorkflowMetadata(workflowID, workflowName, workflowOwner, workflo
 
 func TestWorkflowMetadataAggregator_Collect(t *testing.T) {
 	lggr := logger.Test(t)
-	agg := NewWorkflowMetadataAggregator(lggr, 2, 10*time.Second)
+	testMetrics := createTestMetrics(t)
+	agg := NewWorkflowMetadataAggregator(lggr, 2, 10*time.Second, testMetrics)
 
 	authorizedKey := gateway_common.AuthorizedKey{
 		KeyType:   gateway_common.KeyTypeECDSAEVM,
@@ -113,7 +123,8 @@ func TestWorkflowMetadataAggregator_Collect(t *testing.T) {
 
 func TestWorkflowMetadataAggregator_CollectDifferentObservations(t *testing.T) {
 	lggr := logger.Test(t)
-	agg := NewWorkflowMetadataAggregator(lggr, 2, 10*time.Second)
+	testMetrics := createTestMetrics(t)
+	agg := NewWorkflowMetadataAggregator(lggr, 2, 10*time.Second, testMetrics)
 
 	authorizedKey1 := gateway_common.AuthorizedKey{
 		KeyType:   gateway_common.KeyTypeECDSAEVM,
@@ -157,7 +168,8 @@ func TestWorkflowMetadataAggregator_CollectDifferentObservations(t *testing.T) {
 func TestWorkflowMetadataAggregator_Aggregate(t *testing.T) {
 	lggr := logger.Test(t)
 	threshold := 2
-	agg := NewWorkflowMetadataAggregator(lggr, threshold, 10*time.Second)
+	testMetrics := createTestMetrics(t)
+	agg := NewWorkflowMetadataAggregator(lggr, threshold, 10*time.Second, testMetrics)
 
 	publicKey1 := getRandomECDSAPublicKey(t)
 	publicKey2 := getRandomECDSAPublicKey(t)
@@ -218,10 +230,130 @@ func TestWorkflowMetadataAggregator_Aggregate(t *testing.T) {
 	require.Len(t, result, 3) // observation3 reaches threshold
 }
 
+func TestWorkflowMetadataAggregator_Aggregate_ChronologicalOrder(t *testing.T) {
+	lggr := logger.Test(t)
+	threshold := 2
+	testMetrics := createTestMetrics(t)
+	agg := NewWorkflowMetadataAggregator(lggr, threshold, 10*time.Second, testMetrics)
+
+	observation1 := createTestWorkflowMetadata("workflowID1", "workflowName1", "workflowOwner1", "workflowTag1", []gateway_common.AuthorizedKey{
+		{KeyType: gateway_common.KeyTypeECDSAEVM, PublicKey: getRandomECDSAPublicKey(t)},
+	})
+	observation2 := createTestWorkflowMetadata("workflowID2", "workflowName2", "workflowOwner2", "workflowTag2", []gateway_common.AuthorizedKey{
+		{KeyType: gateway_common.KeyTypeECDSAEVM, PublicKey: getRandomECDSAPublicKey(t)},
+	})
+	observation3 := createTestWorkflowMetadata("workflowID3", "workflowName3", "workflowOwner3", "workflowTag3", []gateway_common.AuthorizedKey{
+		{KeyType: gateway_common.KeyTypeECDSAEVM, PublicKey: getRandomECDSAPublicKey(t)},
+	})
+
+	// Collect observation1 first
+	err := agg.Collect(observation1, "node1")
+	require.NoError(t, err)
+	err = agg.Collect(observation1, "node2")
+	require.NoError(t, err)
+
+	// Collect observation2 second
+	time.Sleep(10 * time.Millisecond)
+	err = agg.Collect(observation2, "node1")
+	require.NoError(t, err)
+	err = agg.Collect(observation2, "node2")
+	require.NoError(t, err)
+
+	// Collect observation3 third (most recent)
+	time.Sleep(10 * time.Millisecond)
+	err = agg.Collect(observation3, "node1")
+	require.NoError(t, err)
+	err = agg.Collect(observation3, "node2")
+	require.NoError(t, err)
+
+	// All observations should reach threshold
+	result, err := agg.Aggregate()
+	require.NoError(t, err)
+	require.Len(t, result, 3)
+
+	// Verify chronological order
+	require.Equal(t, "workflowID3", result[0].WorkflowSelector.WorkflowID)
+	require.Equal(t, "workflowName3", result[0].WorkflowSelector.WorkflowName)
+
+	require.Equal(t, "workflowID2", result[1].WorkflowSelector.WorkflowID)
+	require.Equal(t, "workflowName2", result[1].WorkflowSelector.WorkflowName)
+
+	require.Equal(t, "workflowID1", result[2].WorkflowSelector.WorkflowID)
+	require.Equal(t, "workflowName1", result[2].WorkflowSelector.WorkflowName)
+}
+
+func TestWorkflowMetadataAggregator_Aggregate_ChronologicalOrder_SameWorkflowNameOwnerTag(t *testing.T) {
+	lggr := logger.Test(t)
+	threshold := 2
+	testMetrics := createTestMetrics(t)
+	agg := NewWorkflowMetadataAggregator(lggr, threshold, 10*time.Second, testMetrics)
+
+	// Create four observations
+	observation1 := createTestWorkflowMetadata("workflowID1", "workflowName1", "workflowOwner1", "workflowTag1", []gateway_common.AuthorizedKey{
+		{KeyType: gateway_common.KeyTypeECDSAEVM, PublicKey: getRandomECDSAPublicKey(t)},
+	})
+	observation2 := createTestWorkflowMetadata("workflowID2", "workflowName1", "workflowOwner1", "workflowTag1", []gateway_common.AuthorizedKey{
+		{KeyType: gateway_common.KeyTypeECDSAEVM, PublicKey: getRandomECDSAPublicKey(t)},
+	})
+	observation3 := createTestWorkflowMetadata("workflowID3", "workflowName1", "workflowOwner1", "workflowTag1", []gateway_common.AuthorizedKey{
+		{KeyType: gateway_common.KeyTypeECDSAEVM, PublicKey: getRandomECDSAPublicKey(t)},
+	})
+	observation4 := createTestWorkflowMetadata("workflowID4", "workflowName1", "workflowOwner1", "workflowTag1", []gateway_common.AuthorizedKey{
+		{KeyType: gateway_common.KeyTypeECDSAEVM, PublicKey: getRandomECDSAPublicKey(t)},
+	})
+
+	// Collect observation1 (oldest, reaches threshold)
+	err := agg.Collect(observation1, "node1")
+	require.NoError(t, err)
+	err = agg.Collect(observation1, "node2")
+	require.NoError(t, err)
+
+	// Collect observation2 (doesn't reach threshold initially)
+	time.Sleep(10 * time.Millisecond)
+	err = agg.Collect(observation2, "node1")
+	require.NoError(t, err)
+
+	// Collect observation3 (reaches threshold)
+	time.Sleep(10 * time.Millisecond)
+	err = agg.Collect(observation3, "node1")
+	require.NoError(t, err)
+	err = agg.Collect(observation3, "node2")
+	require.NoError(t, err)
+
+	// Collect observation4 (most recent, doesn't reach threshold)
+	time.Sleep(10 * time.Millisecond)
+	err = agg.Collect(observation4, "node1")
+	require.NoError(t, err)
+
+	// Only observations that reached threshold should be returned
+	result, err := agg.Aggregate()
+	require.NoError(t, err)
+	require.Len(t, result, 2)
+
+	// Verify order: observation3 (newer) before observation1 (older)
+	require.Equal(t, "workflowID3", result[0].WorkflowSelector.WorkflowID)
+	require.Equal(t, "workflowID1", result[1].WorkflowSelector.WorkflowID)
+
+	// Now make observation2 reach threshold (it was collected before observation3)
+	time.Sleep(10 * time.Millisecond)
+	err = agg.Collect(observation2, "node2")
+	require.NoError(t, err)
+
+	result, err = agg.Aggregate()
+	require.NoError(t, err)
+	require.Len(t, result, 3)
+
+	// Verify order: observation3 (newest), observation2 (middle), observation1 (oldest)
+	require.Equal(t, "workflowID3", result[0].WorkflowSelector.WorkflowID)
+	require.Equal(t, "workflowID2", result[1].WorkflowSelector.WorkflowID)
+	require.Equal(t, "workflowID1", result[2].WorkflowSelector.WorkflowID)
+}
+
 func TestWorkflowMetadataAggregator_ReapObservations(t *testing.T) {
 	lggr := logger.Test(t)
 	cleanupInterval := 1 * time.Second
-	agg := NewWorkflowMetadataAggregator(lggr, 2, cleanupInterval)
+	testMetrics := createTestMetrics(t)
+	agg := NewWorkflowMetadataAggregator(lggr, 2, cleanupInterval, testMetrics)
 
 	authorizedKey1 := gateway_common.AuthorizedKey{
 		KeyType:   gateway_common.KeyTypeECDSAEVM,
@@ -255,7 +387,8 @@ func TestWorkflowMetadataAggregator_ReapObservations(t *testing.T) {
 func TestWorkflowMetadataAggregator_ReapObservations_UnexpiredObservation(t *testing.T) {
 	lggr := logger.Test(t)
 	cleanupInterval := 1 * time.Second
-	agg := NewWorkflowMetadataAggregator(lggr, 2, cleanupInterval)
+	testMetrics := createTestMetrics(t)
+	agg := NewWorkflowMetadataAggregator(lggr, 2, cleanupInterval, testMetrics)
 
 	authorizedKey := gateway_common.AuthorizedKey{
 		KeyType:   gateway_common.KeyTypeECDSAEVM,
@@ -277,7 +410,7 @@ func TestWorkflowMetadataAggregator_ReapObservations_UnexpiredObservation(t *tes
 	err = agg.Collect(observation, "node3")
 	require.NoError(t, err)
 	// Manually trigger cleanup
-	agg.reapObservations()
+	agg.reapObservations(context.Background())
 
 	require.Len(t, agg.observations, 1)
 	digest, err := observation.Digest()
@@ -292,7 +425,8 @@ func TestWorkflowMetadataAggregator_Collect_EdgeCases(t *testing.T) {
 	lggr := logger.Test(t)
 
 	t.Run("empty workflow ID", func(t *testing.T) {
-		agg := NewWorkflowMetadataAggregator(lggr, 1, 10*time.Second)
+		testMetrics := createTestMetrics(t)
+		agg := NewWorkflowMetadataAggregator(lggr, 1, 10*time.Second, testMetrics)
 
 		authorizedKey := gateway_common.AuthorizedKey{
 			KeyType:   gateway_common.KeyTypeECDSAEVM,
@@ -306,7 +440,8 @@ func TestWorkflowMetadataAggregator_Collect_EdgeCases(t *testing.T) {
 	})
 
 	t.Run("empty workflow name", func(t *testing.T) {
-		agg := NewWorkflowMetadataAggregator(lggr, 1, 10*time.Second)
+		testMetrics := createTestMetrics(t)
+		agg := NewWorkflowMetadataAggregator(lggr, 1, 10*time.Second, testMetrics)
 
 		authorizedKey := gateway_common.AuthorizedKey{
 			KeyType:   gateway_common.KeyTypeECDSAEVM,
@@ -320,7 +455,8 @@ func TestWorkflowMetadataAggregator_Collect_EdgeCases(t *testing.T) {
 	})
 
 	t.Run("empty workflow owner", func(t *testing.T) {
-		agg := NewWorkflowMetadataAggregator(lggr, 1, 10*time.Second)
+		testMetrics := createTestMetrics(t)
+		agg := NewWorkflowMetadataAggregator(lggr, 1, 10*time.Second, testMetrics)
 
 		authorizedKey := gateway_common.AuthorizedKey{
 			KeyType:   gateway_common.KeyTypeECDSAEVM,
@@ -334,7 +470,8 @@ func TestWorkflowMetadataAggregator_Collect_EdgeCases(t *testing.T) {
 	})
 
 	t.Run("empty workflow tag", func(t *testing.T) {
-		agg := NewWorkflowMetadataAggregator(lggr, 1, 10*time.Second)
+		testMetrics := createTestMetrics(t)
+		agg := NewWorkflowMetadataAggregator(lggr, 1, 10*time.Second, testMetrics)
 
 		authorizedKey := gateway_common.AuthorizedKey{
 			KeyType:   gateway_common.KeyTypeECDSAEVM,
@@ -348,7 +485,8 @@ func TestWorkflowMetadataAggregator_Collect_EdgeCases(t *testing.T) {
 	})
 
 	t.Run("empty node address", func(t *testing.T) {
-		agg := NewWorkflowMetadataAggregator(lggr, 1, 10*time.Second)
+		testMetrics := createTestMetrics(t)
+		agg := NewWorkflowMetadataAggregator(lggr, 1, 10*time.Second, testMetrics)
 
 		authorizedKey := gateway_common.AuthorizedKey{
 			KeyType:   gateway_common.KeyTypeECDSAEVM,

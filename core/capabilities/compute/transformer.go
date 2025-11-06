@@ -3,13 +3,14 @@ package compute
 import (
 	"errors"
 	"fmt"
+	"maps"
 	"time"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	"github.com/smartcontractkit/chainlink-common/pkg/custmsg"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
-	"github.com/smartcontractkit/chainlink-common/pkg/values"
 	"github.com/smartcontractkit/chainlink-common/pkg/workflows/wasm/host"
+	"github.com/smartcontractkit/chainlink-protos/cre/go/values"
 )
 
 // ParsedConfig is a struct that contains the binary and config for a wasm module, as well as the module config.
@@ -32,9 +33,7 @@ type transformer struct {
 func shallowCopy(m *values.Map) *values.Map {
 	to := values.EmptyMap()
 
-	for k, v := range m.Underlying {
-		to.Underlying[k] = v
-	}
+	maps.Copy(to.Underlying, m.Underlying)
 
 	return to
 }

@@ -1,7 +1,7 @@
 package example_test
 
 import (
-	"context"
+	"crypto/ecdsa"
 	"math/big"
 	"testing"
 	"time"
@@ -10,71 +10,73 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	chain_selectors "github.com/smartcontractkit/chain-selectors"
 
-	cldf_chain "github.com/smartcontractkit/chainlink-deployments-framework/chain"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+	"github.com/smartcontractkit/chainlink-deployments-framework/engine/test/environment"
+	"github.com/smartcontractkit/chainlink-deployments-framework/engine/test/runtime"
 
 	"github.com/smartcontractkit/chainlink/deployment/common/changeset/example"
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
 
 	"github.com/stretchr/testify/require"
-	"go.uber.org/zap/zapcore"
 
 	"github.com/smartcontractkit/chainlink/deployment/common/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/common/types"
-	"github.com/smartcontractkit/chainlink/deployment/environment/memory"
 )
 
-// setupLinkTransferContracts deploys all required contracts for the link transfer tests and returns the updated env.
-func setupLinkTransferTestEnv(t *testing.T) cldf.Environment {
-	lggr := logger.TestLogger(t)
-	cfg := memory.MemoryEnvironmentConfig{
-		Nodes:  1,
-		Chains: 2,
-	}
-	env := memory.NewMemoryEnvironment(t, lggr, zapcore.DebugLevel, cfg)
-	chainSelector := env.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chain_selectors.FamilyEVM))[0]
-	config := proposalutils.SingleGroupMCMSV2(t)
+// setupLinkTransferRuntime deploys all required contracts on a simulated chain to run tests which
+// operate on the link token and MCMS contracts.
+//
+// Returns the test runtime and the chain selector.
+func setupLinkTransferRuntime(t *testing.T) (*runtime.Runtime, uint64) {
+	t.Helper()
+
+	selector := chain_selectors.TEST_90000001.Selector
+	rt, err := runtime.New(t.Context(), runtime.WithEnvOpts(
+		environment.WithEVMSimulated(t, []uint64{selector}),
+	))
+	require.NoError(t, err)
 
 	// Deploy MCMS and Timelock
-	env, err := changeset.Apply(t, env, changeset.Configure(
-		cldf.CreateLegacyChangeSet(changeset.DeployLinkToken),
-		[]uint64{chainSelector},
-	), changeset.Configure(
-		cldf.CreateLegacyChangeSet(changeset.DeployMCMSWithTimelockV2),
-		map[uint64]types.MCMSWithTimelockConfigV2{
-			chainSelector: {
+	config := proposalutils.SingleGroupMCMSV2(t)
+	err = rt.Exec(
+		runtime.ChangesetTask(cldf.CreateLegacyChangeSet(changeset.DeployLinkToken), []uint64{selector}),
+		runtime.ChangesetTask(cldf.CreateLegacyChangeSet(changeset.DeployMCMSWithTimelockV2), map[uint64]types.MCMSWithTimelockConfigV2{
+			selector: {
 				Canceller:        config,
 				Bypasser:         config,
 				Proposer:         config,
 				TimelockMinDelay: big.NewInt(0),
 			},
-		},
-	))
+		}),
+	)
 	require.NoError(t, err)
-	return env
+
+	return rt, selector
 }
 
 func TestValidate(t *testing.T) {
-	env := setupLinkTransferTestEnv(t)
-	chainSelector := env.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chain_selectors.FamilyEVM))[0]
-	chain := env.BlockChains.EVMChains()[chainSelector]
-	addrs, err := env.ExistingAddresses.AddressesForChain(chainSelector)
+	rt, selector := setupLinkTransferRuntime(t)
+
+	chain := rt.Environment().BlockChains.EVMChains()[selector]
+	addrs, err := rt.State().AddressBook.AddressesForChain(selector)
 	require.NoError(t, err)
 	require.Len(t, addrs, 6)
+
 	mcmsState, err := changeset.MaybeLoadMCMSWithTimelockChainState(chain, addrs)
 	require.NoError(t, err)
 	linkState, err := changeset.MaybeLoadLinkTokenChainState(chain, addrs)
 	require.NoError(t, err)
+
 	tx, err := linkState.LinkToken.GrantMintRole(chain.DeployerKey, chain.DeployerKey.From)
 	require.NoError(t, err)
 	_, err = cldf.ConfirmIfNoError(chain, tx, err)
 	require.NoError(t, err)
+
 	tx, err = linkState.LinkToken.Mint(chain.DeployerKey, chain.DeployerKey.From, big.NewInt(750))
 	require.NoError(t, err)
 	_, err = cldf.ConfirmIfNoError(chain, tx, err)
-
 	require.NoError(t, err)
+
 	tests := []struct {
 		name     string
 		cfg      example.LinkTransferConfig
@@ -84,7 +86,7 @@ func TestValidate(t *testing.T) {
 			name: "valid config",
 			cfg: example.LinkTransferConfig{
 				Transfers: map[uint64][]example.TransferConfig{
-					chainSelector: {{To: mcmsState.Timelock.Address(), Value: big.NewInt(100)}}},
+					selector: {{To: mcmsState.Timelock.Address(), Value: big.NewInt(100)}}},
 				From: chain.DeployerKey.From,
 				McmsConfig: &proposalutils.TimelockConfig{
 					MinDelay: time.Hour,
@@ -95,7 +97,7 @@ func TestValidate(t *testing.T) {
 			name: "valid non mcms config",
 			cfg: example.LinkTransferConfig{
 				Transfers: map[uint64][]example.TransferConfig{
-					chainSelector: {{To: mcmsState.Timelock.Address(), Value: big.NewInt(100)}}},
+					selector: {{To: mcmsState.Timelock.Address(), Value: big.NewInt(100)}}},
 				From: chain.DeployerKey.From,
 			},
 		},
@@ -103,7 +105,7 @@ func TestValidate(t *testing.T) {
 			name: "insufficient funds",
 			cfg: example.LinkTransferConfig{
 				Transfers: map[uint64][]example.TransferConfig{
-					chainSelector: {
+					selector: {
 						{To: chain.DeployerKey.From, Value: big.NewInt(100)},
 						{To: chain.DeployerKey.From, Value: big.NewInt(500)},
 						{To: chain.DeployerKey.From, Value: big.NewInt(1250)},
@@ -141,7 +143,7 @@ func TestValidate(t *testing.T) {
 			name: "empty transfer list",
 			cfg: example.LinkTransferConfig{
 				Transfers: map[uint64][]example.TransferConfig{
-					chainSelector: {},
+					selector: {},
 				},
 			},
 			errorMsg: "transfers for chainSel 909606746561742123 must have at least one LinkTransfer",
@@ -150,7 +152,7 @@ func TestValidate(t *testing.T) {
 			name: "empty value",
 			cfg: example.LinkTransferConfig{
 				Transfers: map[uint64][]example.TransferConfig{
-					chainSelector: {
+					selector: {
 						{To: chain.DeployerKey.From, Value: nil},
 					},
 				},
@@ -161,7 +163,7 @@ func TestValidate(t *testing.T) {
 			name: "zero value",
 			cfg: example.LinkTransferConfig{
 				Transfers: map[uint64][]example.TransferConfig{
-					chainSelector: {
+					selector: {
 						{To: chain.DeployerKey.From, Value: big.NewInt(0)},
 					},
 				},
@@ -172,7 +174,7 @@ func TestValidate(t *testing.T) {
 			name: "negative value",
 			cfg: example.LinkTransferConfig{
 				Transfers: map[uint64][]example.TransferConfig{
-					chainSelector: {
+					selector: {
 						{To: chain.DeployerKey.From, Value: big.NewInt(-5)},
 					},
 				},
@@ -192,7 +194,7 @@ func TestValidate(t *testing.T) {
 			name: "delay greater than max allowed",
 			cfg: example.LinkTransferConfig{
 				Transfers: map[uint64][]example.TransferConfig{
-					chainSelector: {{To: mcmsState.Timelock.Address(), Value: big.NewInt(100)}}},
+					selector: {{To: mcmsState.Timelock.Address(), Value: big.NewInt(100)}}},
 				From: chain.DeployerKey.From,
 				McmsConfig: &proposalutils.TimelockConfig{
 					MinDelay: time.Hour * 24 * 10,
@@ -204,7 +206,7 @@ func TestValidate(t *testing.T) {
 			name: "invalid config: transfer to address missing",
 			cfg: example.LinkTransferConfig{
 				Transfers: map[uint64][]example.TransferConfig{
-					chainSelector: {{To: common.Address{}, Value: big.NewInt(100)}}},
+					selector: {{To: common.Address{}, Value: big.NewInt(100)}}},
 			},
 			errorMsg: "'to' address for transfers must be set",
 		},
@@ -212,7 +214,7 @@ func TestValidate(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			err := tt.cfg.Validate(env)
+			err := tt.cfg.Validate(rt.Environment())
 			if tt.errorMsg != "" {
 				require.Error(t, err)
 				require.Contains(t, err.Error(), tt.errorMsg)
@@ -225,12 +227,14 @@ func TestValidate(t *testing.T) {
 
 func TestLinkTransferMCMSV2(t *testing.T) {
 	t.Parallel()
-	ctx := context.Background()
 
-	env := setupLinkTransferTestEnv(t)
-	chainSelector := env.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chain_selectors.FamilyEVM))[0]
-	chain := env.BlockChains.EVMChains()[chainSelector]
-	addrs, err := env.ExistingAddresses.AddressesForChain(chainSelector)
+	var (
+		ctx          = t.Context()
+		rt, selector = setupLinkTransferRuntime(t)
+	)
+
+	chain := rt.Environment().BlockChains.EVMChains()[selector]
+	addrs, err := rt.State().AddressBook.AddressesForChain(selector)
 	require.NoError(t, err)
 	require.Len(t, addrs, 6)
 
@@ -253,27 +257,18 @@ func TestLinkTransferMCMSV2(t *testing.T) {
 	require.NoError(t, err)
 
 	// Apply the changeset
-	_, err = changeset.Apply(t, env,
-		// the changeset produces proposals, ApplyChangesets will sign & execute them.
-		// in practice, signing and executing are separated processes.
-		changeset.Configure(
-			cldf.CreateLegacyChangeSet(example.LinkTransferV2),
-			&example.LinkTransferConfig{
-				From: timelockAddress,
-				Transfers: map[uint64][]example.TransferConfig{
-					chainSelector: {
-						{
-							To:    chain.DeployerKey.From,
-							Value: big.NewInt(500),
-						},
-					},
-				},
-				McmsConfig: &proposalutils.TimelockConfig{
-					MinDelay:     0,
-					OverrideRoot: true,
-				},
+	err = rt.Exec(
+		runtime.ChangesetTask(cldf.CreateLegacyChangeSet(example.LinkTransferV2), &example.LinkTransferConfig{
+			From: timelockAddress,
+			Transfers: map[uint64][]example.TransferConfig{
+				selector: {{To: chain.DeployerKey.From, Value: big.NewInt(500)}},
 			},
-		),
+			McmsConfig: &proposalutils.TimelockConfig{
+				MinDelay:     0,
+				OverrideRoot: true,
+			},
+		}),
+		runtime.SignAndExecuteProposalsTask([]*ecdsa.PrivateKey{proposalutils.TestXXXMCMSSigner}),
 	)
 	require.NoError(t, err)
 

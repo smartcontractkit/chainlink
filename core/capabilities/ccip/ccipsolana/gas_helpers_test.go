@@ -5,12 +5,12 @@ import (
 	"testing"
 
 	chainsel "github.com/smartcontractkit/chain-selectors"
-	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/ccipevm"
-	ccipcommon "github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/common"
 	"github.com/stretchr/testify/assert"
 
+	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/ccipevm"
+
 	"github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/latest/fee_quoter"
-	"github.com/smartcontractkit/chainlink-ccip/pkg/types/ccipocr3"
+	"github.com/smartcontractkit/chainlink-common/pkg/types/ccipocr3"
 )
 
 func Test_calculateMessageMaxGas(t *testing.T) {
@@ -56,7 +56,7 @@ func Test_calculateMessageMaxGas(t *testing.T) {
 			}
 			// Set the source chain selector to be EVM for now
 			msg.Header.SourceChainSelector = ccipocr3.ChainSelector(chainsel.SOLANA_TESTNET.Selector)
-			edc := ccipcommon.ExtraDataCodec(map[string]ccipcommon.SourceChainExtraDataCodec{
+			edc := ccipocr3.ExtraDataCodecMap(map[string]ccipocr3.SourceChainExtraDataCodec{
 				chainsel.FamilyEVM:    ccipevm.ExtraDataDecoder{},
 				chainsel.FamilySolana: ExtraDataDecoder{},
 			})
@@ -100,7 +100,7 @@ func TestCalculateMaxGas(t *testing.T) {
 			}
 
 			msg.Header.SourceChainSelector = ccipocr3.ChainSelector(chainsel.SOLANA_TESTNET.Selector)
-			edc := ccipcommon.ExtraDataCodec(map[string]ccipcommon.SourceChainExtraDataCodec{
+			edc := ccipocr3.ExtraDataCodecMap(map[string]ccipocr3.SourceChainExtraDataCodec{
 				chainsel.FamilyEVM:    ccipevm.ExtraDataDecoder{},
 				chainsel.FamilySolana: ExtraDataDecoder{},
 			})

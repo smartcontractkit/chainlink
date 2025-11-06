@@ -25,7 +25,6 @@ import (
 	kvdb "github.com/smartcontractkit/libocr/offchainreporting2plus/keyvaluedatabase"
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/ocr3types"
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
-	"github.com/smartcontractkit/tdh2/go/tdh2/tdh2easy"
 
 	ocr2keepers20 "github.com/smartcontractkit/chainlink-automation/pkg/v2"
 	ocr2keepers20config "github.com/smartcontractkit/chainlink-automation/pkg/v2/config"
@@ -34,6 +33,12 @@ import (
 	ocr2keepers20runner "github.com/smartcontractkit/chainlink-automation/pkg/v2/runner"
 	ocr2keepers21config "github.com/smartcontractkit/chainlink-automation/pkg/v3/config"
 	ocr2keepers21 "github.com/smartcontractkit/chainlink-automation/pkg/v3/plugin"
+	evmconfig "github.com/smartcontractkit/chainlink-evm/pkg/config"
+	"github.com/smartcontractkit/chainlink/v2/core/capabilities/vault/vaulttypes"
+	"github.com/smartcontractkit/chainlink/v2/core/config/env"
+	syncerV2 "github.com/smartcontractkit/chainlink/v2/core/services/workflows/syncer/v2"
+
+	"github.com/smartcontractkit/smdkg/dkgocr/oracleargs"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/consensus/requests"
 	"github.com/smartcontractkit/chainlink-common/pkg/loop"
@@ -52,14 +57,13 @@ import (
 
 	"github.com/smartcontractkit/chainlink/v2/core/bridges"
 	gatewayconnector "github.com/smartcontractkit/chainlink/v2/core/capabilities/gateway_connector"
+	vaultcap "github.com/smartcontractkit/chainlink/v2/core/capabilities/vault"
 	coreconfig "github.com/smartcontractkit/chainlink/v2/core/config"
-	"github.com/smartcontractkit/chainlink/v2/core/config/env"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/chaintype"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ocr2key"
-	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/workflowkey"
 	"github.com/smartcontractkit/chainlink/v2/core/services/llo"
 	"github.com/smartcontractkit/chainlink/v2/core/services/llo/retirement"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/ccipcommit"
@@ -74,7 +78,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evmregistry/v21/autotelemetry21"
 	ocr2keeper21core "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evmregistry/v21/core"
-	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/vault"
+	vaultocrplugin "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/vault"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/validate"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocrcommon"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
@@ -83,7 +87,6 @@ import (
 	functionsRelay "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/functions"
 	evmmercury "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury"
 	mercuryutils "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury/utils"
-	evmrelaytypes "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/types"
 	"github.com/smartcontractkit/chainlink/v2/core/services/streams"
 	"github.com/smartcontractkit/chainlink/v2/core/services/synchronization"
 	"github.com/smartcontractkit/chainlink/v2/core/services/telemetry"
@@ -132,6 +135,7 @@ type Delegate struct {
 	ks                    keystore.OCR2
 	ethKs                 keystore.Eth
 	workflowKs            keystore.Workflow
+	dkgRecipientKs        keystore.DKGRecipient
 	RelayGetter
 	isNewlyCreatedJob     bool // Set to true if this is a new job freshly added, false if job was present already on node boot.
 	mailMon               *mailbox.Monitor
@@ -141,6 +145,7 @@ type Delegate struct {
 	capabilitiesRegistry           core.CapabilitiesRegistry
 	dontimeStore                   *dontime.Store
 	gatewayConnectorServiceWrapper *gatewayconnector.ServiceWrapper
+	WorkflowRegistrySyncer         syncerV2.WorkflowRegistrySyncer
 }
 
 type DelegateConfig interface {
@@ -252,12 +257,17 @@ type DelegateOpts struct {
 	RetirementReportCache          retirement.RetirementReportCache
 	GatewayConnectorServiceWrapper *gatewayconnector.ServiceWrapper
 	WorkflowKs                     keystore.Workflow
+	DKGRecipientKs                 keystore.DKGRecipient
+	WorkflowRegistrySyncer         syncerV2.WorkflowRegistrySyncer
 }
 
 func NewDelegate(
 	opts DelegateOpts,
 	cfg DelegateConfig,
 ) *Delegate {
+	if cfg == nil {
+		return nil
+	}
 	return &Delegate{
 		ds:                             opts.Ds,
 		jobORM:                         opts.JobORM,
@@ -273,6 +283,7 @@ func NewDelegate(
 		ks:                             opts.Ks,
 		ethKs:                          opts.EthKs,
 		workflowKs:                     opts.WorkflowKs,
+		dkgRecipientKs:                 opts.DKGRecipientKs,
 		RelayGetter:                    opts.Relayers,
 		isNewlyCreatedJob:              false,
 		mailMon:                        opts.MailMon,
@@ -280,6 +291,7 @@ func NewDelegate(
 		dontimeStore:                   opts.DonTimeStore,
 		retirementReportCache:          opts.RetirementReportCache,
 		gatewayConnectorServiceWrapper: opts.GatewayConnectorServiceWrapper,
+		WorkflowRegistrySyncer:         opts.WorkflowRegistrySyncer,
 	}
 }
 
@@ -496,6 +508,9 @@ func (d *Delegate) ServicesForSpec(ctx context.Context, jb job.Job) ([]job.Servi
 		return nil, errors.New("peerWrapper is not started. OCR2 jobs require a started and running p2p v2 peer")
 	}
 
+	if d.cfg == nil {
+		return nil, errors.New("cannot setup OCR2 job service, delegate config was missing")
+	}
 	lc, err := validate.ToLocalConfig(d.cfg.OCR2(), d.cfg.Insecure(), *spec)
 	if err != nil {
 		return nil, err
@@ -564,9 +579,8 @@ func (d *Delegate) ServicesForSpec(ctx context.Context, jb job.Job) ([]job.Servi
 		return d.newServicesCCIPCommit(ctx, lggr, jb, bootstrapPeers, kb, ocrDB, lc, transmitterID)
 	case types.CCIPExecution:
 		return d.newServicesCCIPExecution(ctx, lggr, jb, bootstrapPeers, kb, ocrDB, lc, transmitterID)
-
 	case types.VaultPlugin:
-		return d.newServicesVaultPlugin(ctx, lggr, jb, bootstrapPeers, kb, ocrDB, lc, d.capabilitiesRegistry, d.gatewayConnectorServiceWrapper)
+		return d.newServicesVaultPlugin(ctx, lggr, jb, bootstrapPeers, kb, ocrDB, lc, d.capabilitiesRegistry, d.gatewayConnectorServiceWrapper, d.WorkflowRegistrySyncer)
 
 	case types.DonTimePlugin:
 		return d.newDonTimePlugin(ctx, lggr, jb, bootstrapPeers, kb, ocrDB, lc)
@@ -622,39 +636,6 @@ type connProvider interface {
 	ClientConn() grpc.ClientConnInterface
 }
 
-func dkgKeys(key workflowkey.Key, dkgConfig *vault.DKGConfig) (*tdh2easy.PublicKey, *tdh2easy.PrivateShare, error) {
-	masterPublicKeyHex := dkgConfig.MasterPublicKey
-	masterPublicKey, err := hex.DecodeString(masterPublicKeyHex)
-	if err != nil {
-		return nil, nil, fmt.Errorf("failed to decode master public key hex: %w", err)
-	}
-
-	pk := &tdh2easy.PublicKey{}
-	err = pk.Unmarshal(masterPublicKey)
-	if err != nil {
-		return nil, nil, fmt.Errorf("failed to unmarshal master public key: %w", err)
-	}
-
-	encryptedPrivateKeyShareHex := dkgConfig.EncryptedPrivateKeyShare
-	encryptedPrivateKeyShare, err := hex.DecodeString(encryptedPrivateKeyShareHex)
-	if err != nil {
-		return nil, nil, fmt.Errorf("failed to decode encrypted private key share hex: %w", err)
-	}
-
-	plaintextPrivateKeyShare, err := key.Decrypt(encryptedPrivateKeyShare)
-	if err != nil {
-		return nil, nil, fmt.Errorf("failed to decrypt private key share: %w", err)
-	}
-
-	pks := &tdh2easy.PrivateShare{}
-	err = pks.Unmarshal(plaintextPrivateKeyShare)
-	if err != nil {
-		return nil, nil, fmt.Errorf("failed to unmarshal insecure private share: %w", err)
-	}
-
-	return pk, pks, nil
-}
-
 func (d *Delegate) newServicesVaultPlugin(
 	ctx context.Context,
 	lggr logger.SugaredLogger,
@@ -665,10 +646,11 @@ func (d *Delegate) newServicesVaultPlugin(
 	lc ocrtypes.LocalConfig,
 	capabilitiesRegistry core.CapabilitiesRegistry,
 	wrapper *gatewayconnector.ServiceWrapper,
+	syncer syncerV2.WorkflowRegistrySyncer,
 ) (srvs []job.ServiceCtx, err error) {
 	spec := jb.OCR2OracleSpec
 
-	cfg := &vault.Config{}
+	cfg := &vaultocrplugin.Config{}
 	err = json.Unmarshal(spec.PluginConfig.Bytes(), cfg)
 	if err != nil {
 		return nil, fmt.Errorf("failed to instantiate vault plugin: failed to unmarshal plugin config: %w", err)
@@ -678,37 +660,33 @@ func (d *Delegate) newServicesVaultPlugin(
 		return nil, errors.New("failed to instantiate vault plugin: gateway service wrapper is not configured")
 	}
 
+	dkgRecipientKeys, err := d.dkgRecipientKs.GetAll()
+	if err != nil {
+		return nil, fmt.Errorf("failed to get DKG recipient keys: %w", err)
+	}
+	if len(dkgRecipientKeys) == 0 {
+		return nil, errors.New("failed to instantiate vault plugin: no DKG recipient keys found")
+	}
+	dkgRecipientKey := dkgRecipientKeys[0]
+
 	gwconnector := wrapper.GetGatewayConnector()
 	if gwconnector == nil {
 		return nil, errors.New("failed to instantiate vault plugin: gateway connector is not set")
 	}
 
-	store := requests.NewStore[*vault.Request]()
-	service := vault.NewService(
-		lggr,
-		store,
-		clockwork.NewRealClock(),
-		cfg.RequestExpiryDuration.Duration(),
-	)
-	srvs = append(srvs, service)
+	requestStore := requests.NewStore[*vaulttypes.Request]()
+	clock := clockwork.NewRealClock()
+	expiryDuration := cfg.RequestExpiryDuration.Duration()
+	requestStoreHandler := requests.NewHandler(lggr, requestStore, clock, expiryDuration)
+	lpk := vaultcap.NewLazyPublicKey()
+	vaultCapability := vaultcap.NewCapability(lggr, clock, expiryDuration, requestStoreHandler, vaultcap.NewRequestAuthorizer(lggr, syncer), capabilitiesRegistry, lpk)
+	srvs = append(srvs, vaultCapability)
 
-	err = capabilitiesRegistry.Add(ctx, service)
-	if err != nil {
-		return nil, fmt.Errorf("failed to instantiate vault plugin: failed to register vault capability: %w", err)
-	}
-
-	handler, err := vault.NewHandler(service, gwconnector, d.lggr)
+	handler, err := vaultcap.NewGatewayHandler(capabilitiesRegistry, vaultCapability, gwconnector, d.lggr)
 	if err != nil {
 		return nil, fmt.Errorf("failed to instantiate vault plugin: failed to create vault handler: %w", err)
 	}
-	if err = handler.Start(ctx); err != nil {
-		return nil, fmt.Errorf("failed to instantiate vault plugin: failed to start vault handler: %w", err)
-	}
 	srvs = append(srvs, handler)
-
-	if err := gwconnector.AddHandler(ctx, []string{vault.ConnectorMethod}, handler); err != nil {
-		return nil, fmt.Errorf("failed to instantiate vault plugin: failed to add vault handler to connector: %w", err)
-	}
 
 	rid, err := spec.RelayID()
 	if err != nil {
@@ -754,7 +732,7 @@ func (d *Delegate) newServicesVaultPlugin(
 	if err != nil {
 		return nil, fmt.Errorf("failed to create key value store directory: %w", err)
 	}
-	kvFactory := kvdb.NewBadgerKeyValueDatabaseFactory(fullPath)
+	kvFactory := kvdb.NewPebbleKeyValueDatabaseFactory(fullPath)
 
 	keyBundles := map[string]ocr2key.KeyBundle{
 		string(chaintype.EVM): kb,
@@ -768,10 +746,10 @@ func (d *Delegate) newServicesVaultPlugin(
 		BinaryNetworkEndpointFactory: d.peerWrapper.Peer3_1,
 		V2Bootstrappers:              bootstrapPeers,
 		ContractConfigTracker:        provider.ContractConfigTracker(),
-		ContractTransmitter: vault.NewTransmitter(
+		ContractTransmitter: vaultocrplugin.NewTransmitter(
 			lggr,
 			ocrtypes.Account(spec.TransmitterID.String),
-			store,
+			requestStoreHandler,
 		),
 		Database:                ocrDB,
 		KeyValueDatabaseFactory: kvFactory,
@@ -783,15 +761,13 @@ func (d *Delegate) newServicesVaultPlugin(
 		OnchainKeyring:          onchainKeyringAdapter,
 		MetricsRegisterer:       prometheus.WrapRegistererWith(map[string]string{"job_name": jb.Name.ValueOrZero()}, prometheus.DefaultRegisterer),
 	}
-	workflowKey, err := keystore.GetDefault(ctx, d.workflowKs)
-	if err != nil {
-		return nil, fmt.Errorf("failed to instantiate vault plugin: failed to get workflow key: %w", err)
-	}
-	pk, secKeyShare, err := dkgKeys(workflowKey, cfg.DKG)
-	if err != nil {
-		return nil, fmt.Errorf("failed to instantiate vault plugin: failed to get DKG keys: %w", err)
-	}
-	rpf, err := vault.NewReportingPluginFactory(lggr, store, pk, secKeyShare)
+	rpf, err := vaultocrplugin.NewReportingPluginFactory(
+		lggr,
+		requestStore,
+		vaultocrplugin.NewVaultORM(d.ds),
+		&dkgRecipientKey,
+		lpk,
+	)
 	if err != nil {
 		return nil, fmt.Errorf("failed to instantiate vault plugin: failed to create reporting plugin factory: %w", err)
 	}
@@ -803,8 +779,67 @@ func (d *Delegate) newServicesVaultPlugin(
 	}
 	srvs = append(srvs, job.NewServiceAdapter(oracle))
 
+	// Add a DKG oracle in-parallel to populate key shares.
+	dkgLogger := logger.Sugared(lggr.With("vaultDependency", "dkg", "dkgContractID", cfg.DKG.ContractID))
+	dkgOcrLogger := ocrcommon.NewOCRWrapper(dkgLogger, d.cfg.OCR2().TraceLogging(), func(ctx context.Context, msg string) {
+		dkgLogger.ErrorIf(d.jobORM.RecordError(ctx, jb.ID, msg), "unable to record error")
+	})
+	srvs = append(srvs, dkgOcrLogger)
+
+	dkgProvider, err := relayer.NewPluginProvider(ctx, types.RelayArgs{
+		ExternalJobID: jb.ExternalJobID,
+		JobID:         jb.ID,
+		OracleSpecID:  spec.ID,
+		ContractID:    cfg.DKG.ContractID,
+		New:           d.isNewlyCreatedJob,
+		RelayConfig:   spec.RelayConfig.Bytes(),
+		ProviderType:  string(types.OCR3Capability),
+	}, types.PluginArgs{
+		TransmitterID: spec.TransmitterID.String,
+		PluginConfig:  []byte{},
+	})
+	if err != nil {
+		return nil, err
+	}
+	srvs = append(srvs, dkgProvider)
+
+	fullPathDKG := filepath.Join(d.cfg.OCR2().KeyValueStoreRootDir(), jb.ExternalJobID.String(), "_dkg")
+	err = utils.EnsureDirAndMaxPerms(fullPathDKG, os.FileMode(0700))
+	if err != nil {
+		return nil, fmt.Errorf("failed to create key value store directory: %w", err)
+	}
+	dkgOracleEndpoint := d.monitoringEndpointGen.GenMonitoringEndpoint(
+		rid.Network,
+		rid.ChainID,
+		cfg.DKG.ContractID,
+		synchronization.TelemetryType(types.DKG),
+	)
+
+	dkgOracleArgs := oracleargs.OCR3_1OracleArgsForSanMarinoDKG(
+		d.peerWrapper.Peer3_1,
+		bootstrapPeers,
+		dkgProvider.ContractConfigTracker(),
+		ocrDB,
+		kvdb.NewPebbleKeyValueDatabaseFactory(fullPathDKG),
+		lc,
+		dkgOcrLogger,
+		prometheus.WrapRegistererWith(map[string]string{"job_name": string(types.DKG)}, prometheus.DefaultRegisterer),
+		dkgOracleEndpoint,
+		dkgProvider.OffchainConfigDigester(),
+		kb,
+		dkgRecipientKey,
+		vaultocrplugin.NewVaultORM(d.ds),
+		common.HexToAddress(cfg.DKG.ContractID),
+	)
+	dkgOracle, err := libocr2.NewOracle(dkgOracleArgs)
+	if err != nil {
+		return nil, err
+	}
+	srvs = append(srvs, job.NewServiceAdapter(dkgOracle))
+
 	return srvs, nil
 }
+
 func (d *Delegate) newDonTimePlugin(
 	ctx context.Context,
 	lggr logger.SugaredLogger,
@@ -1223,7 +1258,7 @@ func (d *Delegate) newServicesMercury(
 		lggr.ErrorIf(d.jobORM.RecordError(ctx, jb.ID, msg), "unable to record error")
 	})
 
-	var relayConfig evmrelaytypes.RelayConfig
+	var relayConfig evmconfig.RelayConfig
 	err = json.Unmarshal(jb.OCR2OracleSpec.RelayConfig.Bytes(), &relayConfig)
 	if err != nil {
 		return nil, fmt.Errorf("error while unmarshalling relay config: %w", err)
@@ -1825,7 +1860,7 @@ func (d *Delegate) newServicesOCR2Functions(
 	}
 	cid := chain.ID()
 	ks := keys.NewChainStore(keystore.NewEthSigner(d.ethKs, cid), cid)
-	createPluginProvider := func(pluginType functionsRelay.FunctionsPluginType, relayerName string) (evmrelaytypes.FunctionsProvider, error) {
+	createPluginProvider := func(pluginType functionsRelay.FunctionsPluginType, relayerName string) (evmconfig.FunctionsProvider, error) {
 		return evmrelay.NewFunctionsProvider(
 			ctx,
 			chain,
@@ -1917,6 +1952,9 @@ func (d *Delegate) newServicesOCR2Functions(
 		MetricsRegisterer:      prometheus.WrapRegistererWith(map[string]string{"job_name": jb.Name.ValueOrZero()}, prometheus.DefaultRegisterer),
 	}
 
+	if d.cfg == nil || d.cfg.Threshold() == nil {
+		return nil, errors.New("threshold config not found")
+	}
 	encryptedThresholdKeyShare := d.cfg.Threshold().ThresholdKeyShare()
 	var thresholdKeyShare []byte
 	if len(encryptedThresholdKeyShare) > 0 {
@@ -2210,7 +2248,7 @@ func (d *Delegate) ccipExecGetDstProvider(ctx context.Context, jb job.Job, plugi
 
 	// PROVIDER BASED ARG CONSTRUCTION
 	// Write PluginConfig bytes to send source/dest relayer provider + info outside of top level rargs/pargs over the wire
-	dstConfigBytes, err := newExecPluginConfig(false, pluginJobSpecConfig.SourceStartBlock, pluginJobSpecConfig.DestStartBlock, pluginJobSpecConfig.USDCConfig, pluginJobSpecConfig.LBTCConfig, string(jb.ID)).Encode()
+	dstConfigBytes, err := newExecPluginConfig(false, pluginJobSpecConfig.SourceStartBlock, pluginJobSpecConfig.DestStartBlock, pluginJobSpecConfig.USDCConfig, pluginJobSpecConfig.GetLBTCConfigs(), string(jb.ID)).Encode()
 	if err != nil {
 		return nil, err
 	}
@@ -2243,7 +2281,7 @@ func (d *Delegate) ccipExecGetDstProvider(ctx context.Context, jb job.Job, plugi
 
 func (d *Delegate) ccipExecGetSrcProvider(ctx context.Context, jb job.Job, pluginJobSpecConfig ccipconfig.ExecPluginJobSpecConfig, transmitterID string, dstProvider types.CCIPExecProvider) (srcProvider types.CCIPExecProvider, srcChainID uint64, err error) {
 	spec := jb.OCR2OracleSpec
-	srcConfigBytes, err := newExecPluginConfig(true, pluginJobSpecConfig.SourceStartBlock, pluginJobSpecConfig.DestStartBlock, pluginJobSpecConfig.USDCConfig, pluginJobSpecConfig.LBTCConfig, string(jb.ID)).Encode()
+	srcConfigBytes, err := newExecPluginConfig(true, pluginJobSpecConfig.SourceStartBlock, pluginJobSpecConfig.DestStartBlock, pluginJobSpecConfig.USDCConfig, pluginJobSpecConfig.GetLBTCConfigs(), string(jb.ID)).Encode()
 	if err != nil {
 		return nil, 0, err
 	}
@@ -2292,13 +2330,13 @@ func (d *Delegate) ccipExecGetSrcProvider(ctx context.Context, jb job.Job, plugi
 	return
 }
 
-func newExecPluginConfig(isSourceProvider bool, srcStartBlock uint64, dstStartBlock uint64, usdcConfig ccipconfig.USDCConfig, lbtcConfig ccipconfig.LBTCConfig, jobID string) config.ExecPluginConfig {
+func newExecPluginConfig(isSourceProvider bool, srcStartBlock uint64, dstStartBlock uint64, usdcConfig ccipconfig.USDCConfig, lbtcConfigs []ccipconfig.LBTCConfig, jobID string) config.ExecPluginConfig {
 	return config.ExecPluginConfig{
 		IsSourceProvider: isSourceProvider,
 		SourceStartBlock: srcStartBlock,
 		DestStartBlock:   dstStartBlock,
 		USDCConfig:       usdcConfig,
-		LBTCConfig:       lbtcConfig,
+		LBTCConfigs:      lbtcConfigs,
 		JobID:            jobID,
 	}
 }

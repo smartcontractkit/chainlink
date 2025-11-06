@@ -23,6 +23,8 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"github.com/smartcontractkit/quarantine"
+
 	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
@@ -410,7 +412,7 @@ func assertPipelineRunCreated(t *testing.T, ds sqlutil.DataSource, roundID int64
 	// Verify the pipeline run data
 	run := pipeline.Run{}
 	require.NoError(t, ds.GetContext(ctx, &run, `SELECT * FROM pipeline_runs WHERE id = $1`, stats.PipelineRunID.Int64), "runID %v", stats.PipelineRunID)
-	assert.Equal(t, []interface{}{result}, run.Outputs.Val)
+	assert.Equal(t, []any{result}, run.Outputs.Val)
 	return run
 }
 
@@ -434,6 +436,7 @@ func checkLogWasConsumed(t *testing.T, fa fluxAggregatorUniverse, ds sqlutil.Dat
 }
 
 func TestFluxMonitor_Deviation(t *testing.T) {
+	quarantine.Flaky(t, "DX-1763")
 	tests := []struct {
 		name    string
 		eip1559 bool
@@ -618,6 +621,7 @@ func TestFluxMonitor_Deviation(t *testing.T) {
 }
 
 func TestFluxMonitor_NewRound(t *testing.T) {
+	quarantine.Flaky(t, "DX-1865")
 	g := gomega.NewWithT(t)
 	fa := setupFluxAggregatorUniverse(t)
 

@@ -7,16 +7,20 @@ import (
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/core/types"
+
 	"github.com/smartcontractkit/freeport"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zapcore"
 
+	"github.com/smartcontractkit/chainlink/deployment"
+
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
+
 	cldf_chain "github.com/smartcontractkit/chainlink-deployments-framework/chain"
 	cldf_evm "github.com/smartcontractkit/chainlink-deployments-framework/chain/evm"
 	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
-	"github.com/smartcontractkit/chainlink/deployment"
+	focr "github.com/smartcontractkit/chainlink-deployments-framework/offchain/ocr"
 )
 
 const (
@@ -27,8 +31,10 @@ type MemoryEnvironmentConfig struct {
 	Chains             int
 	SolChains          int
 	AptosChains        int
+	SuiChains          int
 	ZkChains           int
 	TonChains          int
+	TronChains         int
 	NumOfUsersPerChain int
 	Nodes              int
 	Bootstraps         int
@@ -51,7 +57,7 @@ const (
 
 var ContractVersionShortSha = map[CCIPSolanaContractVersion]string{
 	SolanaContractV0_1_0: "0ee732e80586",
-	SolanaContractV0_1_1: "ee587a6c0562",
+	SolanaContractV0_1_1: "7f8a0f403c3a",
 }
 
 type NewNodesConfig struct {
@@ -99,12 +105,20 @@ func NewMemoryChainsAptos(t *testing.T, numChains int) []cldf_chain.BlockChain {
 	return generateChainsAptos(t, numChains)
 }
 
+func NewMemoryChainsSui(t *testing.T, numChains int) []cldf_chain.BlockChain {
+	return GenerateChainsSui(t, numChains)
+}
+
 func NewMemoryChainsZk(t *testing.T, numChains int) []cldf_chain.BlockChain {
 	return GenerateChainsZk(t, numChains)
 }
 
 func NewMemoryChainsTon(t *testing.T, numChains int) []cldf_chain.BlockChain {
 	return generateChainsTon(t, numChains)
+}
+
+func NewMemoryChainsTron(t *testing.T, numChains int) []cldf_chain.BlockChain {
+	return generateChainsTron(t, numChains)
 }
 
 func NewNodes(
@@ -136,6 +150,7 @@ func NewNodes(
 		nodesByPeerID[node.Keys.PeerID.String()] = *node
 		// Note in real env, this ID is allocated by JD.
 	}
+	var nodes []*Node
 	for i := range cfg.NumNodes {
 		c := NewNodeConfig{
 			Port:           ports[cfg.NumBootstraps+i],
@@ -149,7 +164,21 @@ func NewNodes(
 		node := NewNode(t, c, configOpts...)
 		nodesByPeerID[node.Keys.PeerID.String()] = *node
 		// Note in real env, this ID is allocated by JD.
+
+		nodes = append(nodes, node)
 	}
+
+	// Funding (only non-bootstrap nodes)
+	for _, tonChain := range cfg.BlockChains.TonChains() {
+		fundNodesTon(t, tonChain, nodes)
+	}
+	for _, aptosChain := range cfg.BlockChains.AptosChains() {
+		fundNodesAptos(t, aptosChain, nodes)
+	}
+	for _, solChain := range cfg.BlockChains.SolanaChains() {
+		fundNodesSol(t, solChain, nodes)
+	}
+
 	return nodesByPeerID
 }
 
@@ -162,7 +191,6 @@ func NewMemoryEnvironmentFromChainsNodes(
 	var nodeIDs []string
 	for id := range nodes {
 		nodeIDs = append(nodeIDs, id)
-
 	}
 
 	return *cldf.NewEnvironment(
@@ -173,7 +201,7 @@ func NewMemoryEnvironmentFromChainsNodes(
 		nodeIDs, // Note these have the p2p_ prefix.
 		NewMemoryJobClient(nodes),
 		ctx,
-		cldf.XXXGenerateTestOCRSecrets(),
+		focr.XXXGenerateTestOCRSecrets(),
 		blockchains,
 	)
 }
@@ -196,11 +224,13 @@ func NewMemoryEnvironment(
 	}
 	solChains := NewMemoryChainsSol(t, config.SolChains, solanaCommitSha)
 	aptosChains := NewMemoryChainsAptos(t, config.AptosChains)
+	suiChains := NewMemoryChainsSui(t, config.SuiChains)
 	zkChains := NewMemoryChainsZk(t, config.ZkChains)
 	tonChains := NewMemoryChainsTon(t, config.TonChains)
+	tronChains := NewMemoryChainsTron(t, config.TronChains)
 
 	chains := cldf_chain.NewBlockChainsFromSlice(
-		slices.Concat(evmChains, solChains, aptosChains, zkChains, tonChains),
+		slices.Concat(evmChains, solChains, aptosChains, zkChains, suiChains, tonChains, tronChains),
 	)
 
 	c := NewNodesConfig{
@@ -229,7 +259,7 @@ func NewMemoryEnvironment(
 		nodeIDs,
 		NewMemoryJobClient(nodes),
 		t.Context,
-		cldf.XXXGenerateTestOCRSecrets(),
+		focr.XXXGenerateTestOCRSecrets(),
 		chains,
 	)
 }

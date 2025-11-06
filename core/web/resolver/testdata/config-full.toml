@@ -43,6 +43,7 @@ MaxBatchSize = 4321
 SendInterval = '1m0s'
 SendTimeout = '5s'
 UseBatchSend = true
+ChipIngressEnabled = false
 
 [[TelemetryIngress.Endpoints]]
 Network = 'EVM'
@@ -187,6 +188,7 @@ IncomingMessageBufferSize = 13
 OutgoingMessageBufferSize = 17
 PeerID = '12D3KooWMoejJznyDuEk5aX6GvbjaG12UzeornPCBNzMRqdwrFJw'
 TraceLogging = true
+EnableExperimentalRageP2P = true
 
 [P2P.V2]
 Enabled = false
@@ -284,6 +286,7 @@ IncomingMessageBufferSize = 13
 OutgoingMessageBufferSize = 17
 PeerID = '12D3KooWMoejJznyDuEk5aX6GvbjaG12UzeornPCBNzMRqdwrFJw'
 TraceLogging = true
+EnableExperimentalRageP2P = true
 
 [Capabilities.Peering.V2]
 Enabled = false
@@ -293,9 +296,23 @@ DeltaDial = '1m0s'
 DeltaReconcile = '2s'
 ListenAddresses = ['foo', 'bar']
 
+[Capabilities.SharedPeering]
+Enabled = false
+Bootstrappers = ['12D3KooWMoejJznyDuEk5aX6GvbjaG12UzeornPCBNzMRqdwrFJw@foo:42/bar:10', '12D3KooWMoejJznyDuEk5aX6GvbjaG12UzeornPCBNzMRqdwrFJw@test:99']
+
+[Capabilities.SharedPeering.StreamConfig]
+IncomingMessageBufferSize = 500
+OutgoingMessageBufferSize = 500
+MaxMessageLenBytes = 500000
+MessageRateLimiterRate = 100.0
+MessageRateLimiterCapacity = 500
+BytesRateLimiterRate = 5000000.0
+BytesRateLimiterCapacity = 10000000
+
 [Capabilities.Dispatcher]
 SupportedVersion = 1
 ReceiverBufferSize = 10000
+SendToSharedPeer = false
 
 [Capabilities.Dispatcher.RateLimit]
 GlobalRPS = 800.0
@@ -319,6 +336,11 @@ MaxEncryptedSecretsSize = '26.40kb'
 MaxConfigSize = '50.00kb'
 SyncStrategy = 'event'
 
+[Capabilities.WorkflowRegistry.WorkflowStorage]
+ArtifactStorageHost = ''
+URL = ''
+TLSEnabled = true
+
 [Capabilities.GatewayConnector]
 ChainIDForNodeKey = '11155111'
 NodeAddress = '0x68902d681c28119f9b2531473a417088bf008e59'
@@ -340,7 +362,15 @@ TraceSampleRatio = 0.01
 EmitterBatchProcessor = true
 EmitterExportTimeout = '1s'
 ChipIngressEndpoint = 'example.com/chip-ingress'
+ChipIngressInsecureConnection = false
 HeartbeatInterval = '1s'
+LogLevel = 'info'
+LogStreamingEnabled = false
+LogBatchProcessor = true
+LogExportTimeout = '1s'
+LogExportMaxBatchSize = 512
+LogExportInterval = '1s'
+LogMaxQueueSize = 2048
 
 [Telemetry.ResourceAttributes]
 Baz = 'test'
@@ -352,12 +382,19 @@ Global = 200
 PerOwner = 200
 
 [CRE]
+UseLocalTimeProvider = true
+EnableDKGRecipient = false
+
 [CRE.Streams]
 WsURL = 'streams.url'
 RestURL = 'streams.url'
 
 [CRE.WorkflowFetcher]
 URL = 'https://workflow.fetcher.url'
+
+[CRE.Linking]
+URL = ''
+TLSEnabled = true
 
 [Billing]
 URL = 'localhost:4319'
@@ -380,6 +417,7 @@ ChainType = 'Optimism'
 FinalityDepth = 42
 SafeDepth = 0
 FinalityTagEnabled = true
+SafeTagSupported = true
 FlagsContractAddress = '0xae4E781a6218A8031764928E88d457937A954fC3'
 LinkContractAddress = '0x538aAaB4ea120b2bC2fe5D296852D948F07D849e'
 LogBackfillBatchSize = 17
@@ -481,6 +519,7 @@ EnforceRepeatableRead = true
 DeathDeclarationDelay = '1m0s'
 NewHeadsPollInterval = '0s'
 VerifyChainID = true
+ExternalRequestMaxResponseSize = 50000
 
 [EVM.NodePool.Errors]
 NonceTooLow = '(: |^)nonce too low'
@@ -535,7 +574,7 @@ SendOnly = true
 
 [[Solana]]
 ChainID = 'mainnet'
-Enabled = false
+Enabled = true
 BlockTime = '500ms'
 BalancePollPeriod = '1m0s'
 ConfirmPollPeriod = '1s'
@@ -561,6 +600,16 @@ ComputeUnitLimitDefault = 200000
 EstimateComputeUnitLimit = false
 LogPollerStartingLookback = '24h0m0s'
 
+[Solana.Workflow]
+AcceptanceTimeout = '45s'
+ForwarderAddress = '14grJpemFaf88c8tiVb77W7TYg2W3ir6pfkKz3YjhhZ5'
+ForwarderState = '14grJpemFaf88c8tiVb77W7TYg2W3ir6pfkKz3YjhhZ5'
+FromAddress = '4BJXYkfvg37zEmBbsacZjeQDpTNx91KppxFJxRqrz48e'
+GasLimitDefault = 0
+Local = true
+PollPeriod = '3s'
+TxAcceptanceState = 3
+
 [Solana.MultiNode]
 Enabled = false
 PollFailureThreshold = 5
@@ -569,6 +618,7 @@ SelectionMode = 'HighestHead'
 SyncThreshold = 5
 NodeIsSyncingEnabled = false
 LeaseDuration = '1m0s'
+NewHeadsPollInterval = '5s'
 FinalizedBlockPollInterval = '1s'
 EnforceRepeatableRead = true
 DeathDeclarationDelay = '1m0s'

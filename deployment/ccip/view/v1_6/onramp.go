@@ -16,11 +16,10 @@ import (
 
 type OnRampView struct {
 	types.ContractMetaData
-	DynamicConfig                          onramp.OnRampDynamicConfig        `json:"dynamicConfig"`
-	StaticConfig                           onramp.OnRampStaticConfig         `json:"staticConfig"`
-	SourceTokenToPool                      map[common.Address]common.Address `json:"sourceTokenToPool"`
-	DestChainSpecificData                  map[uint64]DestChainSpecificData  `json:"destChainSpecificData"`
-	DestChainSpecificDataBasedOnTestRouter map[uint64]DestChainSpecificData  `json:"destChainSpecificDataBasedOnTestRouter"`
+	DynamicConfig                          onramp.OnRampDynamicConfig       `json:"dynamicConfig"`
+	StaticConfig                           onramp.OnRampStaticConfig        `json:"staticConfig"`
+	DestChainSpecificData                  map[uint64]DestChainSpecificData `json:"destChainSpecificData"`
+	DestChainSpecificDataBasedOnTestRouter map[uint64]DestChainSpecificData `json:"destChainSpecificDataBasedOnTestRouter"`
 }
 
 type DestChainSpecificData struct {
@@ -47,20 +46,6 @@ func GenerateOnRampView(
 	if err != nil {
 		return OnRampView{}, fmt.Errorf("failed to get static config: %w", err)
 	}
-
-	// populate sourceTokens from token admin registry contract
-	sourceTokens, err := taContract.GetAllConfiguredTokens(nil, 0, 10)
-	if err != nil {
-		return OnRampView{}, fmt.Errorf("failed to get all configured tokens: %w", err)
-	}
-	sourceTokenToPool := make(map[common.Address]common.Address)
-	for _, sourceToken := range sourceTokens {
-		pool, err := onRampContract.GetPoolBySourceToken(nil, 0, sourceToken)
-		if err != nil {
-			return OnRampView{}, fmt.Errorf("failed to get pool by source token: %w", err)
-		}
-		sourceTokenToPool[sourceToken] = pool
-	}
 	destChainSpecificData, err := generateDestChainSpecificData(onRampContract, routerContract)
 	if err != nil {
 		return OnRampView{}, fmt.Errorf("failed to generate destination chain specific data: %w", err)
@@ -76,7 +61,6 @@ func GenerateOnRampView(
 		ContractMetaData:                       tv,
 		DynamicConfig:                          dynamicConfig,
 		StaticConfig:                           staticConfig,
-		SourceTokenToPool:                      sourceTokenToPool,
 		DestChainSpecificData:                  destChainSpecificData,
 		DestChainSpecificDataBasedOnTestRouter: destChainSpecificDataBasedOnTestRouter,
 	}, nil

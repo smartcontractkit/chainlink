@@ -4,8 +4,11 @@ import (
 	"errors"
 	"fmt"
 
+	"github.com/Masterminds/semver/v3"
 	"github.com/ethereum/go-ethereum/common"
 	mcmslib "github.com/smartcontractkit/mcms"
+
+	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
 
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 
@@ -19,14 +22,14 @@ import (
 // 2. Creates an MCMS proposal to transfer the ownership of AggregatorProxy contracts to timelock
 // 3. Creates a proposal to set a feed configs on DataFeedsCache contract
 // 4. Creates a proposal to set a feed proxy mappings on DataFeedsCache contract
-// Returns a new addressbook with the new AggregatorProxy contracts address and MCMS proposal
+// Returns a new datastore with the new AggregatorProxy contracts address and MCMS proposal
 var NewFeedWithProxyChangeset = cldf.CreateChangeSet(newFeedWithProxyLogic, newFeedWithProxyPrecondition)
 
 func newFeedWithProxyLogic(env cldf.Environment, c types.NewFeedWithProxyConfig) (cldf.ChangesetOutput, error) {
 	chain := env.BlockChains.EVMChains()[c.ChainSelector]
 	state, _ := LoadOnchainState(env)
 	chainState := state.Chains[c.ChainSelector]
-	ab := cldf.NewMemoryAddressBook()
+	ds := datastore.NewMemoryDataStore()
 
 	dataFeedsCacheAddress := GetDataFeedsCacheAddress(env.ExistingAddresses, env.DataStore.Addresses(), c.ChainSelector, nil)
 	if dataFeedsCacheAddress == "" {
@@ -49,16 +52,24 @@ func newFeedWithProxyLogic(env cldf.Environment, c types.NewFeedWithProxyConfig)
 			ChainsToDeploy:   []uint64{c.ChainSelector},
 			AccessController: []common.Address{c.AccessController},
 			Labels:           append([]string{c.Descriptions[index]}, c.Labels...),
+			Qualifier:        c.Qualifiers[index],
 		}
 		newEnv, err := changeset.RunChangeset(DeployAggregatorProxyChangeset, env, proxyConfig)
 
 		if err != nil {
 			return cldf.ChangesetOutput{}, fmt.Errorf("failed to execute DeployAggregatorProxyChangeset: %w", err)
 		}
-		proxyAddress, err := cldf.SearchAddressBook(newEnv.AddressBook, c.ChainSelector, "AggregatorProxy")
+
+		record, err := newEnv.DataStore.Addresses().Get(datastore.NewAddressRefKey(
+			c.ChainSelector,
+			"AggregatorProxy",
+			semver.MustParse("1.0.0"),
+			c.Qualifiers[index],
+		))
 		if err != nil {
-			return cldf.ChangesetOutput{}, fmt.Errorf("AggregatorProxy not present in addressbook: %w", err)
+			return cldf.ChangesetOutput{}, fmt.Errorf("AggregatorProxy not present in datastore: %w", err)
 		}
+		proxyAddress := record.Address
 
 		// Create an MCMS proposal to transfer the ownership of AggregatorProxy contract to timelock and set the feed configs
 		// We don't use the existing changesets so that we can batch the transactions into a single MCMS proposal
@@ -74,9 +85,9 @@ func newFeedWithProxyLogic(env cldf.Environment, c types.NewFeedWithProxyConfig)
 			return cldf.ChangesetOutput{}, fmt.Errorf("failed to confirm transaction: %s, %w", tx.Hash().String(), err)
 		}
 
-		err = ab.Merge(newEnv.AddressBook)
+		err = ds.Merge(newEnv.DataStore.Seal())
 		if err != nil {
-			return cldf.ChangesetOutput{}, fmt.Errorf("failed to merge addressbooks: %w", err)
+			return cldf.ChangesetOutput{}, fmt.Errorf("failed to merge data store: %w", err)
 		}
 
 		// accept proxy ownership proposal
@@ -125,7 +136,7 @@ func newFeedWithProxyLogic(env cldf.Environment, c types.NewFeedWithProxyConfig)
 		return cldf.ChangesetOutput{}, fmt.Errorf("failed to build proposal: %w", err)
 	}
 
-	return cldf.ChangesetOutput{AddressBook: ab, MCMSTimelockProposals: []mcmslib.TimelockProposal{*proposals}}, nil
+	return cldf.ChangesetOutput{MCMSTimelockProposals: []mcmslib.TimelockProposal{*proposals}, DataStore: ds}, nil
 }
 
 func newFeedWithProxyPrecondition(env cldf.Environment, c types.NewFeedWithProxyConfig) error {
@@ -145,5 +156,5 @@ func newFeedWithProxyPrecondition(env cldf.Environment, c types.NewFeedWithProxy
 		return fmt.Errorf("chain not found in env %d", c.ChainSelector)
 	}
 
-	return ValidateMCMSAddresses(env.ExistingAddresses, c.ChainSelector)
+	return ValidateMCMSAddresses(env.DataStore.Addresses(), c.ChainSelector)
 }

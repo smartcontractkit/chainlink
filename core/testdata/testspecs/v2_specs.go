@@ -63,7 +63,7 @@ type                = "directrequest"
 schemaVersion       = 1
 name                = "%s"
 contractAddress     = "0x613a38AC1659769640aaE063C651F48E0250454C"
-evmChainID 			= "0"
+evmChainID 			= "%s"
 observationSource   = """
     ds1          [type=http method=GET url="http://example.com" allowunrestrictednetworkaccess="true"];
     ds1_parse    [type=jsonparse path="USD"];
@@ -77,7 +77,7 @@ schemaVersion       = 1
 name                = "%s"
 contractAddress     = "0x613a38AC1659769640aaE063C651F48E0250454C"
 externalJobID       = "%s"
-evmChainID 			= "0"
+evmChainID 			= "%s"
 observationSource   = """
     ds1          [type=http method=GET url="http://example.com" allowunrestrictednetworkaccess="true"];
     ds1_parse    [type=jsonparse path="USD"];
@@ -93,7 +93,7 @@ minContractPaymentLinkJuels  = "1000000000000000000000"
 name                         = "%s"
 contractAddress              = "0x613a38AC1659769640aaE063C651F48E0250454C"
 externalJobID                = "%s"
-evmChainID                   = 0
+evmChainID                   = "%s"
 observationSource            = """
     ds1          [type=http method=GET url="http://example.com" allowunrestrictednetworkaccess="true"];
     ds1_parse    [type=jsonparse path="USD"];
@@ -107,7 +107,7 @@ schemaVersion       = 1
 name                = "%s"
 contractAddress     = "0x3cCad4715152693fE3BC4460591e3D3Fbd071b42"
 externalJobID       =  "%s"
-evmChainID          = 0
+evmChainID          =  "%s"
 threshold = 0.5
 absoluteThreshold = 0.0 # optional
 
@@ -148,7 +148,7 @@ observationSource = """
 	ds -> ds_parse -> ds_multiply;
 """
 [relayConfig]
-chainID = 0
+chainID = "%s"
 [pluginConfig]
 `
 	WebhookSpecNoBodyTemplate = `
@@ -273,11 +273,11 @@ func GetDirectRequestSpec() string {
 }
 
 func GetDirectRequestSpecWithUUID(u uuid.UUID) string {
-	return fmt.Sprintf(DirectRequestSpecTemplate, u, u)
+	return fmt.Sprintf(DirectRequestSpecTemplate, u, u, testutils.FixtureChainID.String())
 }
 
 func GetOCR2EVMSpecMinimal() string {
-	return fmt.Sprintf(OCR2EVMSpecMinimalTemplate, uuid.New())
+	return fmt.Sprintf(OCR2EVMSpecMinimalTemplate, uuid.New(), testutils.FixtureChainID.String())
 }
 
 func GetWebhookSpecNoBody(u uuid.UUID, fetchBridge, submitBridge string) string {
@@ -597,7 +597,7 @@ func GenerateOCRSpec(params OCRSpecParams) OCRSpec {
 		ds2BridgeName = params.DS2BridgeName
 	}
 
-	evmChainID := "0"
+	evmChainID := testutils.FixtureChainID.String()
 	if params.EVMChainID != "" {
 		evmChainID = params.EVMChainID
 	}

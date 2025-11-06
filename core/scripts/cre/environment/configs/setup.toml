@@ -1,0 +1,54 @@
+[general]
+aws_profile = "staging-default"
+min_gh_cli_version = "v2.50.0"
+ctf_version = "0.10.28"
+
+[job_distributor.build_config]
+repository = "https://github.com/smartcontractkit/job-distributor"
+branch = "v0.22.1"
+dockerfile = "e2e/Dockerfile.e2e"
+docker_ctx = "."
+local_image = "job-distributor:0.22.1"
+
+[job_distributor.pull_config]
+local_image = "job-distributor:0.22.1"
+ecr_image = "{{.ECR}}/job-distributor:0.22.1"
+
+[chip_ingress.build_config]
+repository = "https://github.com/smartcontractkit/atlas"
+branch = "master"
+commit = "bbac3c825b061546980fa9d7dc0f3e8c34347bcf"
+dockerfile = "chip-ingress/Dockerfile"
+docker_ctx = "chip-ingress"
+local_image = "chip-ingress:local-cre"
+pre_run = "pushd chip-ingress && go mod vendor && popd"
+
+[chip_ingress.pull_config]
+local_image = "chip-ingress:local-cre"
+ecr_image = "{{.ECR}}/atlas-chip-ingress:bbac3c825b061546980fa9d7dc0f3e8c34347bcf"
+
+[billing_platform_service.build_config]
+repository = "https://github.com/smartcontractkit/billing-platform-service"
+branch = "main"
+require_github_token = true
+dockerfile = "./Dockerfile"
+docker_ctx = "."
+local_image = "billing-platform-service:local-cre"
+
+[billing_platform_service.pull_config]
+local_image = "billing-platform-service:local-cre"
+ecr_image = "{{.ECR}}/billing-platform-service:1.36.1"
+
+[capabilities]
+target_path = "./binaries"
+
+[[capabilities.repositories]]
+repository = "https://github.com/smartcontractkit/capabilities"
+branch = "main"
+build_command = "pnpm install && ./nx run-many -t build"
+artifacts_dirs = ["./bin/amd64", "./chain_capabilities/bin/amd64"]
+
+[observability]
+repository = "https://github.com/smartcontractkit/chainlink-observability"
+branch = "main"
+target_path = "~/.local/share/observability"

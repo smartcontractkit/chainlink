@@ -28,6 +28,7 @@ var (
 	CapabilitiesRegistry deployment.ContractType = "CapabilitiesRegistry"
 	DonIDClaimer         deployment.ContractType = "DonIDClaimer"
 	PriceFeed            deployment.ContractType = "PriceFeed"
+	TokenGovernor        deployment.ContractType = "TokenGovernor"
 
 	// Test contracts. Note test router maps to a regular router contract.
 	TestRouter             deployment.ContractType = "TestRouter"
@@ -55,6 +56,8 @@ var (
 	CCTPMessageTransmitterProxy                     deployment.ContractType = "CCTPMessageTransmitterProxy"
 	HybridLockReleaseUSDCTokenPool                  deployment.ContractType = "HybridLockReleaseUSDCTokenPool"
 	HybridWithExternalMinterFastTransferTokenPool   deployment.ContractType = "HybridWithExternalMinterFastTransferTokenPool"
+	BurnMintWithExternalMinterTokenPool             deployment.ContractType = "BurnMintWithExternalMinterTokenPool"
+	HybridWithExternalMinterTokenPool               deployment.ContractType = "HybridWithExternalMinterTokenPool"
 
 	// Firedrill
 	FiredrillEntrypointType deployment.ContractType = "FiredrillEntrypoint"
@@ -72,17 +75,25 @@ var (
 	RemoteDest           deployment.ContractType = "RemoteDest"
 	TokenPoolLookupTable deployment.ContractType = "TokenPoolLookupTable"
 	CCTPTokenPool        deployment.ContractType = "CCTPTokenPool"
+	BPFUpgradeable       deployment.ContractType = "BPFUpgradeable"
+	SVMSignerRegistry    deployment.ContractType = "SVMSignerRegistry"
 	// CLL Identifier
 	CLLMetadata = "CLL"
 
 	// Aptos
-	AptosMCMSType             deployment.ContractType = "AptosManyChainMultisig"
-	AptosCCIPType             deployment.ContractType = "AptosCCIP"
-	AptosReceiverType         deployment.ContractType = "AptosReceiver"
-	AptosManagedTokenPoolType deployment.ContractType = "AptosManagedTokenPool"
-	AptosManagedTokenType     deployment.ContractType = "AptosManagedTokenType"
+	AptosMCMSType               deployment.ContractType = "AptosManyChainMultisig"
+	AptosCCIPType               deployment.ContractType = "AptosCCIP"
+	AptosReceiverType           deployment.ContractType = "AptosReceiver"
+	AptosManagedTokenPoolType   deployment.ContractType = "AptosManagedTokenPool"
+	AptosRegulatedTokenPoolType deployment.ContractType = "AptosRegulatedTokenPool"
+	AptosManagedTokenType       deployment.ContractType = "AptosManagedTokenType"
+	AptosRegulatedTokenType     deployment.ContractType = "AptosRegulatedTokenType"
+	AptosTestTokenType          deployment.ContractType = "AptosTestToken"
 
 	// TON, [NONEVM-1938] currently added necessary contract for unblocking e2e env setup
 	TonCCIP     deployment.ContractType = "TonCCIP"
 	TonReceiver deployment.ContractType = "TonReceiver"
+
+	// Attestation Service
+	EVMSignerRegistry deployment.ContractType = "SignerRegistry"
 )

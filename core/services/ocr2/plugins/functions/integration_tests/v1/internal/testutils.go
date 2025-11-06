@@ -64,7 +64,7 @@ var allowListPrivateKey = "0xae78c8b502571dba876742437f8bc78b689cf8518356c092139
 
 func SetOracleConfig(t *testing.T, b evmtypes.Backend, owner *bind.TransactOpts, coordinatorContract *functions_coordinator.FunctionsCoordinator, oracles []confighelper2.OracleIdentityExtra, batchSize int, functionsPluginConfig *functionsConfig.ReportingPluginConfig) {
 	S := make([]int, len(oracles))
-	for i := 0; i < len(S); i++ {
+	for i := range S {
 		S[i] = 1
 	}
 
@@ -141,7 +141,7 @@ func CreateAndFundSubscriptions(t *testing.T, b evmtypes.Backend, owner *bind.Tr
 	subscriptionID = uint64(1)
 
 	numContracts := len(clientContracts)
-	for i := 0; i < numContracts; i++ {
+	for i := range numContracts {
 		_, err = routerContract.AddConsumer(owner, subscriptionID, clientContracts[i].Address)
 		require.NoError(t, err)
 		b.Commit()
@@ -252,7 +252,7 @@ func StartNewChainWithContracts(t *testing.T, nClients int) (*bind.TransactOpts,
 
 	// Deploy Client contracts
 	clientContracts := []deployedClientContract{}
-	for i := 0; i < nClients; i++ {
+	for i := range nClients {
 		clientContractAddress, _, clientContract, err := functions_client_example.DeployFunctionsClientExample(owner, b.Client(), routerAddress)
 		require.NoError(t, err)
 		b.Commit()
@@ -512,27 +512,27 @@ func mockEALambdaExecutionResponse(t *testing.T, request map[string]any) []byte 
 		require.Equal(t, functions.LocationRemote, int(data["secretsLocation"].(float64)))
 		require.JSONEq(t, fmt.Sprintf(`{"0x0":"%s"}`, DefaultSecretsBase64), request["nodeProvidedSecrets"].(string))
 	}
-	args := data["args"].([]interface{})
+	args := data["args"].([]any)
 	require.Len(t, args, 2)
 	require.Equal(t, DefaultArg1, args[0].(string))
 	require.Equal(t, DefaultArg2, args[1].(string))
 	source := data["source"].(string)
 	// prepend "0xab" to source and return as result
-	return []byte(fmt.Sprintf(`{"result": "success", "statusCode": 200, "data": {"result": "0xab%s", "error": ""}}`, source))
+	return fmt.Appendf(nil, `{"result": "success", "statusCode": 200, "data": {"result": "0xab%s", "error": ""}}`, source)
 }
 
 func mockEASecretsFetchResponse(t *testing.T, request map[string]any) []byte {
 	data := request["data"].(map[string]any)
 	require.Equal(t, "fetchThresholdEncryptedSecrets", data["requestType"])
 	require.Equal(t, DefaultSecretsUrlsBase64, data["encryptedSecretsUrls"])
-	return []byte(fmt.Sprintf(`{"result": "success", "statusCode": 200, "data": {"result": "%s", "error": ""}}`, DefaultThresholdSecretsHex))
+	return fmt.Appendf(nil, `{"result": "success", "statusCode": 200, "data": {"result": "%s", "error": ""}}`, DefaultThresholdSecretsHex)
 }
 
 // Mock EA prepends 0xab to source and user contract crops the answer to first 32 bytes
 func GetExpectedResponse(source []byte) [32]byte {
 	var resp [32]byte
 	resp[0] = 0xab
-	for j := 0; j < 31; j++ {
+	for j := range 31 {
 		if j >= len(source) {
 			break
 		}
@@ -569,7 +569,7 @@ func CreateFunctionsNodes(
 
 	// oracle nodes with jobs, bridges and mock EAs
 	ports := freeport.GetN(t, nOracleNodes)
-	for i := 0; i < nOracleNodes; i++ {
+	for i := range nOracleNodes {
 		var thresholdKeyShare string
 		if len(thresholdKeyShares) == 0 {
 			thresholdKeyShare = ""
@@ -606,7 +606,7 @@ func ClientTestRequests(t *testing.T, owner *bind.TransactOpts, b evmtypes.Backe
 	rnd := rand.New(rand.NewSource(666))
 	for i, client := range clientContracts {
 		requestSources[i] = make([]byte, requestLenBytes)
-		for j := 0; j < requestLenBytes; j++ {
+		for j := range requestLenBytes {
 			requestSources[i][j] = byte(rnd.Uint32() % 256)
 		}
 		_, err := client.Contract.SendRequest(
@@ -623,7 +623,7 @@ func ClientTestRequests(t *testing.T, owner *bind.TransactOpts, b evmtypes.Backe
 
 	// validate that all client contracts got correct responses to their requests
 	var wg sync.WaitGroup
-	for i := 0; i < len(clientContracts); i++ {
+	for i := range clientContracts {
 		ic := i
 		wg.Add(1)
 		go func() {

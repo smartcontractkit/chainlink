@@ -42,7 +42,7 @@ func DeployMCMSWithTimelockProgramsSolana(
 
 	// access controller
 	err = deployAccessControllerProgram(e, chainState, chain, addressBook)
-	err = waitForProgramDeployment(e.GetContext(), chain.Client, chainState.AccessControllerProgram, 10*time.Second)
+	err = waitForProgramDeployment(e.GetContext(), chain.Client, chainState.AccessControllerProgram, 30*time.Second)
 	if err != nil {
 		return nil, fmt.Errorf("access controller program not ready: %w", err)
 	}
@@ -68,7 +68,7 @@ func DeployMCMSWithTimelockProgramsSolana(
 
 	// mcm
 	err = deployMCMProgram(e, chainState, chain, addressBook)
-	err = waitForProgramDeployment(e.GetContext(), chain.Client, chainState.AccessControllerProgram, 10*time.Second)
+	err = waitForProgramDeployment(e.GetContext(), chain.Client, chainState.AccessControllerProgram, 30*time.Second)
 	if err != nil {
 		return nil, fmt.Errorf("access controller program not ready: %w", err)
 	}
@@ -90,7 +90,7 @@ func DeployMCMSWithTimelockProgramsSolana(
 
 	// timelock
 	err = deployTimelockProgram(e, chainState, chain, addressBook)
-	err = waitForProgramDeployment(e.GetContext(), chain.Client, chainState.AccessControllerProgram, 10*time.Second)
+	err = waitForProgramDeployment(e.GetContext(), chain.Client, chainState.AccessControllerProgram, 30*time.Second)
 	if err != nil {
 		return nil, fmt.Errorf("access controller program not ready: %w", err)
 	}

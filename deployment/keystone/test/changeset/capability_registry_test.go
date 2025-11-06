@@ -6,13 +6,11 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
-	"go.uber.org/zap/zapcore"
 
 	chainsel "github.com/smartcontractkit/chain-selectors"
+	"github.com/smartcontractkit/chainlink-deployments-framework/engine/test/environment"
 
 	"github.com/smartcontractkit/chainlink/deployment/common/view/v1_0"
-	"github.com/smartcontractkit/chainlink/deployment/environment/memory"
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
 
 func TestHydrateCapabilityRegistry(t *testing.T) {
@@ -22,14 +20,14 @@ func TestHydrateCapabilityRegistry(t *testing.T) {
 	var capabilityRegistryView v1_0.CapabilityRegistryView
 	require.NoError(t, json.Unmarshal(b, &capabilityRegistryView))
 
-	chainID := chainsel.TEST_90000001.EvmChainID
-	cfg := HydrateConfig{ChainID: chainID}
-	env := memory.NewMemoryEnvironment(t, logger.TestLogger(t), zapcore.InfoLevel, memory.MemoryEnvironmentConfig{
-		Bootstraps: 1,
-		Chains:     1,
-		Nodes:      4,
-	})
-	hydrated, err := HydrateCapabilityRegistry(t, capabilityRegistryView, env, cfg)
+	chainSelector := chainsel.TEST_90000001.Selector
+	env, err := environment.New(t.Context(),
+		environment.WithEVMSimulated(t, []uint64{chainSelector}),
+	)
+	require.NoError(t, err)
+
+	cfg := HydrateConfig{ChainSelector: chainSelector}
+	hydrated, err := HydrateCapabilityRegistry(t, capabilityRegistryView, *env, cfg)
 	require.NoError(t, err)
 	require.NotNil(t, hydrated)
 	hydratedCapView, err := v1_0.GenerateCapabilityRegistryView(hydrated)

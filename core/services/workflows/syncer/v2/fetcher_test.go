@@ -22,6 +22,7 @@ import (
 	jsonrpc "github.com/smartcontractkit/chainlink-common/pkg/jsonrpc2"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/types/gateway"
+	storage_service "github.com/smartcontractkit/chainlink-protos/storage-service/go"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/api"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/common"
@@ -29,6 +30,7 @@ import (
 	gcmocks "github.com/smartcontractkit/chainlink/v2/core/services/gateway/connector/mocks"
 	ghcapabilities "github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers/capabilities"
 	hc "github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers/common"
+	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/syncer/v2/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 	"github.com/smartcontractkit/chainlink/v2/core/utils/matches"
 )
@@ -50,6 +52,7 @@ func (w *wrapper) GetGatewayConnector() connector.GatewayConnector {
 func TestNewFetcherService(t *testing.T) {
 	ctx := context.Background()
 	lggr := logger.TestLogger(t)
+	storageService := mocks.NewWorkflowClient(t)
 	connector := gcmocks.NewGatewayConnector(t)
 	wrapper := &wrapper{c: connector}
 	signature := []byte("signature")
@@ -64,7 +67,7 @@ func TestNewFetcherService(t *testing.T) {
 		connector.EXPECT().AddHandler(matches.AnyContext, []string{ghcapabilities.MethodWorkflowSyncer}, mock.Anything).Return(nil)
 		connector.EXPECT().GatewayIDs(matches.AnyContext).Return([]string{"gateway1", "gateway2"}, nil)
 
-		fetcher := NewFetcherService(lggr, wrapper, gateway.WithFixedStart())
+		fetcher := NewFetcherService(lggr, wrapper, storageService, gateway.WithFixedStart())
 		require.NoError(t, fetcher.Start(ctx))
 		defer fetcher.Close()
 
@@ -90,10 +93,44 @@ func TestNewFetcherService(t *testing.T) {
 		require.Equal(t, expectedPayload, payload)
 	})
 
+	t.Run("OK-retrieve-url", func(t *testing.T) {
+		connector.EXPECT().AddHandler(matches.AnyContext, []string{ghcapabilities.MethodWorkflowSyncer}, mock.Anything).Return(nil)
+
+		fetcher := NewFetcherService(lggr, wrapper, storageService, gateway.WithFixedStart())
+		require.NoError(t, fetcher.Start(ctx))
+		defer fetcher.Close()
+
+		expectedURL := "some-url"
+		response := storage_service.DownloadArtifactResponse{
+			Url: expectedURL,
+		}
+		storageService.EXPECT().DownloadArtifact(mock.Anything, mock.Anything).Return(&response, nil).Once()
+
+		req := storage_service.DownloadArtifactRequest{
+			Id:   "artifact-id",
+			Type: storage_service.ArtifactType_ARTIFACT_TYPE_UNSPECIFIED,
+		}
+		payload, err := fetcher.RetrieveURL(ctx, &req)
+		require.NoError(t, err)
+
+		require.Equal(t, expectedURL, payload)
+	})
+
+	t.Run("NOK-retrieve-url-empty-req", func(t *testing.T) {
+		connector.EXPECT().AddHandler(matches.AnyContext, []string{ghcapabilities.MethodWorkflowSyncer}, mock.Anything).Return(nil)
+
+		fetcher := NewFetcherService(lggr, wrapper, storageService, gateway.WithFixedStart())
+		require.NoError(t, fetcher.Start(ctx))
+		defer fetcher.Close()
+
+		_, err := fetcher.RetrieveURL(ctx, nil)
+		require.ErrorIs(t, err, ErrEmptyStorageRequest)
+	})
+
 	t.Run("fails with invalid payload response", func(t *testing.T) {
 		connector.EXPECT().AddHandler(matches.AnyContext, []string{ghcapabilities.MethodWorkflowSyncer}, mock.Anything).Return(nil)
 
-		fetcher := NewFetcherService(lggr, wrapper, gateway.WithFixedStart())
+		fetcher := NewFetcherService(lggr, wrapper, storageService, gateway.WithFixedStart())
 		require.NoError(t, fetcher.Start(ctx))
 		defer fetcher.Close()
 
@@ -120,7 +157,7 @@ func TestNewFetcherService(t *testing.T) {
 	t.Run("fails due to invalid gateway response", func(t *testing.T) {
 		connector.EXPECT().AddHandler(matches.AnyContext, []string{ghcapabilities.MethodWorkflowSyncer}, mock.Anything).Return(nil)
 
-		fetcher := NewFetcherService(lggr, wrapper, gateway.WithFixedStart())
+		fetcher := NewFetcherService(lggr, wrapper, storageService, gateway.WithFixedStart())
 		require.NoError(t, fetcher.Start(ctx))
 		defer fetcher.Close()
 
@@ -180,7 +217,7 @@ func TestNewFetcherService(t *testing.T) {
 			Params:  &rawPayload,
 		}
 		connector.EXPECT().AddHandler(matches.AnyContext, []string{ghcapabilities.MethodWorkflowSyncer}, mock.Anything).Return(nil)
-		fetcher := NewFetcherService(lggr, wrapper, gateway.WithFixedStart())
+		fetcher := NewFetcherService(lggr, wrapper, storageService, gateway.WithFixedStart())
 		require.NoError(t, fetcher.Start(ctx))
 		defer fetcher.Close()
 
@@ -207,7 +244,7 @@ func TestNewFetcherService(t *testing.T) {
 		connector.EXPECT().AddHandler(matches.AnyContext, []string{ghcapabilities.MethodWorkflowSyncer}, mock.Anything).Return(nil)
 		connector.EXPECT().GatewayIDs(matches.AnyContext).Return([]string{"gateway1", "gateway2"}, nil)
 
-		fetcher := NewFetcherService(lggr, wrapper, gateway.WithFixedStart())
+		fetcher := NewFetcherService(lggr, wrapper, storageService, gateway.WithFixedStart())
 		require.NoError(t, fetcher.Start(ctx))
 		defer fetcher.Close()
 
@@ -240,7 +277,7 @@ func TestNewFetcherService(t *testing.T) {
 		connector.EXPECT().AddHandler(matches.AnyContext, []string{ghcapabilities.MethodWorkflowSyncer}, mock.Anything).Return(nil)
 		connector.EXPECT().GatewayIDs(matches.AnyContext).Return([]string{"gateway1", "gateway2"}, nil)
 
-		fetcher := NewFetcherService(lggr, wrapper, gateway.WithFixedStart())
+		fetcher := NewFetcherService(lggr, wrapper, storageService, gateway.WithFixedStart())
 		require.NoError(t, fetcher.Start(ctx))
 		defer fetcher.Close()
 
@@ -268,7 +305,7 @@ func TestNewFetcherService(t *testing.T) {
 		connector.EXPECT().AddHandler(matches.AnyContext, []string{ghcapabilities.MethodWorkflowSyncer}, mock.Anything).Return(nil)
 		connector.EXPECT().GatewayIDs(matches.AnyContext).Return([]string{"gateway1", "gateway2"}, nil)
 
-		fetcher := NewFetcherService(lggr, wrapper, gateway.WithFixedStart())
+		fetcher := NewFetcherService(lggr, wrapper, storageService, gateway.WithFixedStart())
 		require.NoError(t, fetcher.Start(ctx))
 		defer fetcher.Close()
 
@@ -294,6 +331,18 @@ func TestNewFetcherService(t *testing.T) {
 
 		expectedPayload := []byte("response body")
 		require.Equal(t, expectedPayload, payload)
+	})
+
+	t.Run("NOK-no-gateway-connector", func(t *testing.T) {
+		fetcher := NewFetcherService(lggr, nil, storageService, gateway.WithFixedStart())
+		require.ErrorIs(t, fetcher.Start(ctx), ErrNoGatewayConnector)
+		defer fetcher.Close()
+	})
+
+	t.Run("NOK-no-storage-client", func(t *testing.T) {
+		fetcher := NewFetcherService(lggr, wrapper, nil, gateway.WithFixedStart())
+		require.ErrorIs(t, fetcher.Start(ctx), ErrNoStorageClient)
+		defer fetcher.Close()
 	})
 }
 

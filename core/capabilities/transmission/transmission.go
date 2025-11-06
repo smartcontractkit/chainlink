@@ -9,7 +9,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/validation"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
-	"github.com/smartcontractkit/chainlink-common/pkg/values"
+	"github.com/smartcontractkit/chainlink-protos/cre/go/values"
 	"github.com/smartcontractkit/chainlink/v2/core/services/p2p/types"
 
 	"golang.org/x/crypto/sha3"
@@ -25,6 +25,10 @@ var (
 type TransmissionConfig struct {
 	Schedule   string
 	DeltaStage time.Duration
+}
+
+func (tc *TransmissionConfig) String() string {
+	return fmt.Sprintf("[Schedule: %s, DeltaStage: %s]", tc.Schedule, tc.DeltaStage)
 }
 
 func ExtractTransmissionConfig(config *values.Map) (TransmissionConfig, error) {
@@ -54,6 +58,17 @@ func ExtractTransmissionConfig(config *values.Map) (TransmissionConfig, error) {
 		Schedule:   tc.Schedule,
 		DeltaStage: duration,
 	}, nil
+}
+
+func EnumToString(t capabilities.TransmissionSchedule) string {
+	switch t {
+	case capabilities.Schedule_AllAtOnce:
+		return Schedule_AllAtOnce
+	case capabilities.Schedule_OneAtATime:
+		return Schedule_OneAtATime
+	default:
+		return "unknown"
+	}
 }
 
 // GetPeerIDToTransmissionDelay returns a map of PeerID to the time.Duration that the node with that PeerID should wait
@@ -111,7 +126,7 @@ func createTransmissionSchedule(scheduleType string, N int) ([]int, error) {
 		return []int{N}, nil
 	case Schedule_OneAtATime:
 		sch := []int{}
-		for i := 0; i < N; i++ {
+		for range N {
 			sch = append(sch, 1)
 		}
 		return sch, nil

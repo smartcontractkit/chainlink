@@ -7,13 +7,18 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/contexts"
 	"github.com/smartcontractkit/chainlink-common/pkg/custmsg"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
+	"github.com/smartcontractkit/chainlink-common/pkg/services/orgresolver"
 	"github.com/smartcontractkit/chainlink-common/pkg/settings/limits"
+	commontypes "github.com/smartcontractkit/chainlink-common/pkg/types"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/core"
 	pkgworkflows "github.com/smartcontractkit/chainlink-common/pkg/workflows"
+	"github.com/smartcontractkit/chainlink-common/pkg/workflows/dontime"
 	"github.com/smartcontractkit/chainlink-common/pkg/workflows/wasm/host"
 
+	"github.com/smartcontractkit/chainlink/v2/core/capabilities"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/platform"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
@@ -40,14 +45,19 @@ type eventHandler struct {
 
 	workflowStore          store.Store
 	capRegistry            core.CapabilitiesRegistry
+	donTimeStore           *dontime.Store
+	useLocalTimeProvider   bool
 	engineRegistry         *EngineRegistry
 	emitter                custmsg.MessageEmitter
 	engineFactory          engineFactoryFn
+	engineLimiters         *v2.EngineLimiters
 	ratelimiter            limits.RateLimiter
 	workflowLimits         limits.ResourceLimiter[int]
 	workflowArtifactsStore WorkflowArtifactsStore
 	workflowEncryptionKey  workflowkey.Key
+	workflowDonSubscriber  capabilities.DonSubscriber
 	billingClient          metering.BillingClient
+	orgResolver            orgresolver.OrgResolver
 
 	// WorkflowRegistryAddress is the address of the workflow registry contract
 	workflowRegistryAddress string
@@ -88,8 +98,14 @@ func WithWorkflowRegistry(address, chainSelector string) func(*eventHandler) {
 	}
 }
 
+func WithOrgResolver(orgResolver orgresolver.OrgResolver) func(*eventHandler) {
+	return func(e *eventHandler) {
+		e.orgResolver = orgResolver
+	}
+}
+
 type WorkflowArtifactsStore interface {
-	FetchWorkflowArtifacts(ctx context.Context, workflowID, binaryURL, configURL string) ([]byte, []byte, error)
+	FetchWorkflowArtifacts(ctx context.Context, workflowID, binaryIdentifier, configIdentifier string) ([]byte, []byte, error)
 	GetWorkflowSpec(ctx context.Context, workflowID string) (*job.WorkflowSpec, error)
 	UpsertWorkflowSpec(ctx context.Context, spec *job.WorkflowSpec) (int64, error)
 	DeleteWorkflowArtifacts(ctx context.Context, workflowID string) error
@@ -99,13 +115,17 @@ type WorkflowArtifactsStore interface {
 func NewEventHandler(
 	lggr logger.Logger,
 	workflowStore store.Store,
+	donTimeStore *dontime.Store,
+	useLocalTimeProvider bool,
 	capRegistry core.CapabilitiesRegistry,
 	engineRegistry *EngineRegistry,
 	emitter custmsg.MessageEmitter,
+	engineLimiters *v2.EngineLimiters,
 	ratelimiter limits.RateLimiter,
 	workflowLimits limits.ResourceLimiter[int],
 	workflowArtifacts WorkflowArtifactsStore,
 	workflowEncryptionKey workflowkey.Key,
+	workflowDonSubscriber capabilities.DonSubscriber,
 	opts ...func(*eventHandler),
 ) (*eventHandler, error) {
 	if workflowStore == nil {
@@ -117,17 +137,24 @@ func NewEventHandler(
 	if engineRegistry == nil {
 		return nil, errors.New("engine registry must be provided")
 	}
+	if donTimeStore == nil && !useLocalTimeProvider {
+		return nil, errors.New("donTimeStore must be provided")
+	}
 
 	eh := &eventHandler{
 		lggr:                   lggr,
 		workflowStore:          workflowStore,
 		capRegistry:            capRegistry,
+		donTimeStore:           donTimeStore,
+		useLocalTimeProvider:   useLocalTimeProvider,
 		engineRegistry:         engineRegistry,
 		emitter:                emitter,
+		engineLimiters:         engineLimiters,
 		ratelimiter:            ratelimiter,
 		workflowLimits:         workflowLimits,
 		workflowArtifactsStore: workflowArtifacts,
 		workflowEncryptionKey:  workflowEncryptionKey,
+		workflowDonSubscriber:  workflowDonSubscriber,
 	}
 	eh.engineFactory = eh.engineFactoryFn
 	for _, o := range opts {
@@ -142,34 +169,94 @@ func (h *eventHandler) Close() error {
 	return services.MultiCloser(es).Close()
 }
 
+// toCommonHead converts our local Head struct back to chainlink-common Head
+func toCommonHead(localHead Head) *commontypes.Head {
+	return &commontypes.Head{
+		Hash:      []byte(localHead.Hash),
+		Height:    localHead.Height,
+		Timestamp: localHead.Timestamp,
+	}
+}
+
 func (h *eventHandler) Handle(ctx context.Context, event Event) error {
 	switch event.Name {
-	case WorkflowRegistered:
-		payload, ok := event.Data.(WorkflowRegisteredEvent)
+	case WorkflowActivated:
+		payload, ok := event.Data.(WorkflowActivatedEvent)
 		if !ok {
 			return newHandlerTypeError(event.Data)
 		}
 
 		wfID := payload.WorkflowID.Hex()
+		wfOwner := hex.EncodeToString(payload.WorkflowOwner)
+		orgID, ferr := h.fetchOrganizationID(ctx, wfOwner)
+		if ferr != nil {
+			h.lggr.Warnw("Failed to get organization from linking service", "workflowOwner", wfOwner, "error", ferr)
+		}
+		ctx = contexts.WithCRE(ctx, contexts.CRE{Org: orgID, Owner: wfOwner, Workflow: wfID})
+
+		cma := h.emitter.With(
+			platform.KeyWorkflowID, wfID,
+			platform.KeyWorkflowName, payload.WorkflowName,
+			platform.KeyWorkflowOwner, wfOwner,
+			platform.KeyWorkflowTag, payload.WorkflowTag,
+			platform.KeyOrganizationID, orgID,
+			platform.WorkflowRegistryAddress, h.workflowRegistryAddress,
+			platform.WorkflowRegistryChainSelector, h.workflowRegistryChainSelector,
+		)
+
+		var err error
+		defer func() {
+			if err2 := events.EmitWorkflowStatusChangedEventV2(ctx, cma.Labels(), toCommonHead(event.Head), string(event.Name), payload.BinaryURL, payload.ConfigURL, err); err2 != nil {
+				h.lggr.Errorf("failed to emit status changed event: %+v", err2)
+			}
+		}()
+		err = h.workflowActivatedEvent(ctx, payload)
+		if err != nil {
+			logCustMsg(ctx, cma, fmt.Sprintf("failed to handle workflow activated event: %v", err), h.lggr)
+			return err
+		}
+
+		h.lggr.Debugw("handled event (WorkflowActivated)", "workflowID", wfID, "workflowName", payload.WorkflowName, "workflowOwner", hex.EncodeToString(payload.WorkflowOwner),
+			"workflowTag", payload.WorkflowTag, "type", event.Name)
+		return nil
+	case WorkflowPaused:
+		payload, ok := event.Data.(WorkflowPausedEvent)
+		if !ok {
+			return newHandlerTypeError(event.Data)
+		}
+
+		wfID := payload.WorkflowID.Hex()
+		wfOwner := hex.EncodeToString(payload.WorkflowOwner)
+		orgID, ferr := h.fetchOrganizationID(ctx, wfOwner)
+		if ferr != nil {
+			h.lggr.Warnw("Failed to get organization from linking service", "workflowOwner", wfOwner, "error", ferr)
+		}
+		ctx = contexts.WithCRE(ctx, contexts.CRE{Org: orgID, Owner: wfOwner, Workflow: wfID})
 
 		cma := h.emitter.With(
 			platform.KeyWorkflowID, wfID,
 			platform.KeyWorkflowName, payload.WorkflowName,
 			platform.KeyWorkflowOwner, hex.EncodeToString(payload.WorkflowOwner),
-			platform.KeyWorkflowTag, payload.WorkflowTag,
+			platform.KeyWorkflowTag, payload.Tag,
+			platform.KeyOrganizationID, orgID,
+			platform.WorkflowRegistryAddress, h.workflowRegistryAddress,
+			platform.WorkflowRegistryChainSelector, h.workflowRegistryChainSelector,
 		)
 
-		if err := h.workflowRegisteredEvent(ctx, payload); err != nil {
-			logCustMsg(ctx, cma, fmt.Sprintf("failed to handle workflow registered event: %v", err), h.lggr)
+		var err error
+		defer func() {
+			if err2 := events.EmitWorkflowStatusChangedEventV2(ctx, cma.Labels(), toCommonHead(event.Head), string(event.Name), payload.BinaryURL, payload.ConfigURL, err); err2 != nil {
+				h.lggr.Errorf("failed to emit status changed event: %+v", err2)
+			}
+		}()
+
+		if err := h.workflowPausedEvent(ctx, payload); err != nil {
+			logCustMsg(ctx, cma, fmt.Sprintf("failed to handle workflow paused event: %v", err), h.lggr)
 			return err
 		}
 
-		if err := events.EmitWorkflowStatusChangedEvent(ctx, h.emitter.Labels(), string(event.Name)); err != nil {
-			h.lggr.Errorf("failed to emit status changed event: %+v", err)
-		}
-
-		h.lggr.Debugw("handled event", "workflowID", wfID, "workflowName", payload.WorkflowName, "workflowOwner", hex.EncodeToString(payload.WorkflowOwner),
-			"workflowTag", payload.WorkflowTag, "type", event.Name)
+		h.lggr.Debugw("handled event (WorkflowPaused)", "workflowID", wfID, "workflowName", payload.WorkflowName, "workflowOwner", hex.EncodeToString(payload.WorkflowOwner),
+			"workflowTag", payload.Tag, "type", event.Name)
 		return nil
 	case WorkflowDeleted:
 		payload, ok := event.Data.(WorkflowDeletedEvent)
@@ -179,24 +266,62 @@ func (h *eventHandler) Handle(ctx context.Context, event Event) error {
 
 		wfID := payload.WorkflowID.Hex()
 
+		// Get workflow spec from database to get owner and name info for organization lookup
+		// Alternative: wire through workflowOwner into the Event, but that requires a lot more surgery
+		spec, err := h.workflowArtifactsStore.GetWorkflowSpec(ctx, wfID)
+		var wfOwner, wfName, orgID string
+		if err != nil {
+			// Workflow spec not found, proceed with deletion but without event metadata
+			h.lggr.Warnw("Workflow spec not found during deletion, proceeding without org info", "workflowID", wfID, "error", err)
+		} else {
+			wfOwner = spec.WorkflowOwner
+			wfName = spec.WorkflowName
+			if wfOwner != "" {
+				orgID, err = h.fetchOrganizationID(ctx, wfOwner)
+				if err != nil {
+					h.lggr.Warnw("Failed to get organization from linking service", "workflowOwner", wfOwner, "error", err)
+				}
+			}
+		}
+		ctx = contexts.WithCRE(ctx, contexts.CRE{Org: orgID, Owner: wfOwner, Workflow: wfID})
+
 		cma := h.emitter.With(
 			platform.KeyWorkflowID, wfID,
+			platform.KeyWorkflowName, wfName,
+			platform.KeyWorkflowOwner, wfOwner,
+			platform.KeyOrganizationID, orgID,
+			platform.WorkflowRegistryAddress, h.workflowRegistryAddress,
+			platform.WorkflowRegistryChainSelector, h.workflowRegistryChainSelector,
 		)
 
-		if err := h.workflowDeletedEvent(ctx, payload); err != nil {
-			logCustMsg(ctx, cma, fmt.Sprintf("failed to handle workflow deleted event: %v", err), h.lggr)
-			return err
+		var herr error
+		defer func() {
+			if err2 := events.EmitWorkflowStatusChangedEventV2(ctx, cma.Labels(), toCommonHead(event.Head), string(event.Name), "", "", herr); err2 != nil {
+				h.lggr.Errorf("failed to emit status changed event: %+v", err2)
+			}
+		}()
+
+		if herr := h.workflowDeletedEvent(ctx, payload); herr != nil {
+			logCustMsg(ctx, cma, fmt.Sprintf("failed to handle workflow deleted event: %v", herr), h.lggr)
+			return herr
 		}
 
-		if err := events.EmitWorkflowStatusChangedEvent(ctx, h.emitter.Labels(), string(event.Name)); err != nil {
-			h.lggr.Errorf("failed to emit status changed event: %+v", err)
-		}
-
-		h.lggr.Debugw("handled event", "workflowID", wfID, "type", event.Name)
+		h.lggr.Debugw("handled event (WorkflowDeleted)", "workflowID", wfID, "workflowName", wfName, "workflowOwner", wfOwner, "organizationID", orgID, "type", event.Name)
 		return nil
 	default:
 		return fmt.Errorf("event type unsupported: %v", event.Name)
 	}
+}
+
+// workflowActivatedEvent handles the WorkflowActivatedEvent event type.
+// This method redirects to workflowRegisteredEvent since they have identical processing logic.
+func (h *eventHandler) workflowActivatedEvent(
+	ctx context.Context,
+	payload WorkflowActivatedEvent,
+) error {
+	// Convert WorkflowActivatedEvent to WorkflowRegisteredEvent since they have identical fields
+	registeredPayload := WorkflowRegisteredEvent(payload)
+	return h.workflowRegisteredEvent(ctx, registeredPayload)
 }
 
 // workflowRegisteredEvent handles the WorkflowRegisteredEvent event type.
@@ -281,6 +406,9 @@ func (h *eventHandler) createWorkflowSpec(ctx context.Context, payload WorkflowR
 	wfID := payload.WorkflowID.Hex()
 	owner := hex.EncodeToString(payload.WorkflowOwner)
 
+	ctx = contexts.WithCRE(ctx, contexts.CRE{Owner: owner, Workflow: wfID})
+
+	// With Workflow Registry contract v2 the BinaryURL and ConfigURL are expected to be identifiers that put through the Storage Service.
 	decodedBinary, config, err := h.workflowArtifactsStore.FetchWorkflowArtifacts(ctx, wfID, payload.BinaryURL, payload.ConfigURL)
 	if err != nil {
 		return nil, err
@@ -288,7 +416,7 @@ func (h *eventHandler) createWorkflowSpec(ctx context.Context, payload WorkflowR
 
 	status := toSpecStatus(payload.Status)
 
-	// Create a new entry in the workflow_spec table corresponding for the new workflow, with the contents of the binaryURL + configURL in the table
+	// Create a new entry in the workflow_specs_v2 table corresponding for the new workflow, with the contents of the binaryIdentifier + configIdentifier in the table
 	entry := &job.WorkflowSpec{
 		Workflow:      hex.EncodeToString(decodedBinary),
 		Config:        string(config),
@@ -309,11 +437,41 @@ func (h *eventHandler) createWorkflowSpec(ctx context.Context, payload WorkflowR
 	return entry, nil
 }
 
+// fetchOrganizationID fetches the organization ID for the given workflow owner using the OrgResolver
+func (h *eventHandler) fetchOrganizationID(ctx context.Context, workflowOwner string) (string, error) {
+	if h.orgResolver == nil {
+		return "", errors.New("org resolver is not available")
+	}
+
+	organizationID, err := h.orgResolver.Get(ctx, workflowOwner)
+	if err != nil {
+		h.lggr.Warnw("Failed to get organization ID from org resolver", "workflowOwner", workflowOwner, "error", err)
+		return "", err
+	}
+
+	if organizationID == "" {
+		h.lggr.Warnw("No organization ID returned from org resolver", "workflowOwner", workflowOwner)
+		return "", errors.New("no organization ID returned from org resolver")
+	}
+
+	h.lggr.Debugw("Successfully retrieved organization ID from org resolver", "workflowOwner", workflowOwner, "organizationId", organizationID)
+	return organizationID, nil
+}
+
 func (h *eventHandler) engineFactoryFn(ctx context.Context, workflowID string, owner string, name types.WorkflowName, tag string, config []byte, binary []byte) (services.Service, error) {
-	moduleConfig := &host.ModuleConfig{Logger: h.lggr, Labeler: h.emitter}
+	lggr := h.lggr.Named("WorkflowEngine.Module").With("workflowID", workflowID, "workflowName", name, "workflowOwner", owner)
+	moduleConfig := &host.ModuleConfig{
+		Logger:                       lggr,
+		Labeler:                      h.emitter,
+		MemoryLimiter:                h.engineLimiters.WASMMemorySize,
+		MaxCompressedBinaryLimiter:   h.engineLimiters.WASMCompressedBinarySize,
+		MaxDecompressedBinaryLimiter: h.engineLimiters.WASMBinarySize,
+		MaxResponseSizeLimiter:       h.engineLimiters.ExecutionResponse,
+	}
 
 	h.lggr.Debugf("Creating module for workflowID %s", workflowID)
-	module, err := host.NewModule(moduleConfig, binary, host.WithDeterminism())
+
+	module, err := host.NewModule(ctx, moduleConfig, binary, host.WithDeterminism())
 	if err != nil {
 		return nil, fmt.Errorf("could not instantiate module: %w", err)
 	}
@@ -343,36 +501,49 @@ func (h *eventHandler) engineFactoryFn(ctx context.Context, workflowID string, o
 			SecretsFetcher: emptySecretsFetcher,
 			RateLimiter:    h.ratelimiter,
 			WorkflowLimits: h.workflowLimits,
-			BillingClient:  h.billingClient,
+
+			BillingClient: h.billingClient,
 		}
 		return workflows.NewEngine(ctx, cfg)
 	}
 
 	// V2 aka "NoDAG"
 	cfg := &v2.EngineConfig{
-		Lggr:            h.lggr,
-		Module:          module,
-		WorkflowConfig:  config,
-		CapRegistry:     h.capRegistry,
-		ExecutionsStore: h.workflowStore,
-
+		Lggr:                  h.lggr,
+		Module:                module,
+		WorkflowConfig:        config,
+		CapRegistry:           h.capRegistry,
+		DonSubscriber:         h.workflowDonSubscriber,
+		UseLocalTimeProvider:  h.useLocalTimeProvider,
+		DonTimeStore:          h.donTimeStore,
+		ExecutionsStore:       h.workflowStore,
 		WorkflowID:            workflowID,
 		WorkflowOwner:         owner,
 		WorkflowName:          name,
 		WorkflowTag:           tag,
 		WorkflowEncryptionKey: h.workflowEncryptionKey,
 
-		LocalLimits:          v2.EngineLimits{}, // all defaults
-		GlobalLimits:         h.workflowLimits,
-		ExecutionRateLimiter: h.ratelimiter,
+		LocalLimits:                       v2.EngineLimits{}, // all defaults
+		LocalLimiters:                     h.engineLimiters,
+		GlobalExecutionConcurrencyLimiter: h.workflowLimits,
+		GlobalExecutionRateLimiter:        h.ratelimiter,
 
 		BeholderEmitter: h.emitter,
 		BillingClient:   h.billingClient,
 
 		WorkflowRegistryAddress:       h.workflowRegistryAddress,
 		WorkflowRegistryChainSelector: h.workflowRegistryChainSelector,
+		OrgResolver:                   h.orgResolver,
 	}
 	return v2.NewEngine(cfg)
+}
+
+// workflowPausedEvent handles the WorkflowPausedEvent event type. This method must remain idempotent.
+func (h *eventHandler) workflowPausedEvent(
+	ctx context.Context,
+	payload WorkflowPausedEvent,
+) error {
+	return h.workflowDeletedEvent(ctx, WorkflowDeletedEvent{WorkflowID: payload.WorkflowID})
 }
 
 // workflowDeletedEvent handles the WorkflowDeletedEvent event type. This method must remain idempotent.

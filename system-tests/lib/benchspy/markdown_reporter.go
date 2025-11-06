@@ -24,8 +24,8 @@ type report struct {
 	TestStartTimestamp time.Time `json:"test_start_timestamp"`
 	TestEndTimestamp   time.Time `json:"test_end_timestamp"`
 	QueryExecutors     []struct {
-		Kind         string                 `json:"kind"`
-		QueryResults map[string]interface{} `json:"query_results"`
+		Kind         string         `json:"kind"`
+		QueryResults map[string]any `json:"query_results"`
 	} `json:"query_executors"`
 }
 
@@ -143,7 +143,7 @@ func createMultiSeriesBarChart(
 	b.WriteString("\n")
 
 	// Add data rows
-	for i := 0; i < len(dates); i++ {
+	for i := range dates {
 		b.WriteString(fmt.Sprintf("| %s |", dates[i].Format("2006-01-02 15:04:05")))
 
 		for j := range metricNames {
@@ -215,7 +215,7 @@ func extractMetrics(runs []report) ([]map[string]float64, map[string]float64) {
 }
 
 // processDirectMetric processes a direct query metric
-func processDirectMetric(metrics map[string]float64, metricName string, metricValue interface{}) {
+func processDirectMetric(metrics map[string]float64, metricName string, metricValue any) {
 	if strValue, ok := metricValue.(string); ok {
 		floatValue, err := strconv.ParseFloat(strValue, 64)
 		if err == nil {
@@ -231,11 +231,11 @@ func processDirectMetric(metrics map[string]float64, metricName string, metricVa
 }
 
 // processPrometheusMetric processes a prometheus query metric
-func processPrometheusMetric(metrics map[string]float64, metricName string, metricValue interface{}) {
-	if metricMap, ok := metricValue.(map[string]interface{}); ok {
-		if valueSlice, ok := metricMap["value"].([]interface{}); ok && len(valueSlice) > 0 {
-			if valueMap, ok := valueSlice[0].(map[string]interface{}); ok {
-				if innerValue, ok := valueMap["value"].([]interface{}); ok && len(innerValue) > 1 {
+func processPrometheusMetric(metrics map[string]float64, metricName string, metricValue any) {
+	if metricMap, ok := metricValue.(map[string]any); ok {
+		if valueSlice, ok := metricMap["value"].([]any); ok && len(valueSlice) > 0 {
+			if valueMap, ok := valueSlice[0].(map[string]any); ok {
+				if innerValue, ok := valueMap["value"].([]any); ok && len(innerValue) > 1 {
 					if strValue, ok := innerValue[1].(string); ok {
 						floatValue, err := strconv.ParseFloat(strValue, 64)
 						if err == nil {

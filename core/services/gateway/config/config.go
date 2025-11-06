@@ -32,8 +32,9 @@ type DONConfig struct {
 }
 
 type Handler struct {
-	Name   string
-	Config json.RawMessage
+	Name        string
+	ServiceName string
+	Config      json.RawMessage
 }
 
 type NodeConfig struct {

@@ -56,7 +56,7 @@ func Test_ReportsGeneratedGauge(t *testing.T) {
 	require.NoError(t, err)
 	require.Len(t, r1, 2)
 
-	for i := 0; i < 10; i++ {
+	for range 10 {
 		r2, err1 := plugin2.Reports(t.Context(), 1, nil)
 		require.NoError(t, err1)
 		require.Len(t, r2, 10)
@@ -100,7 +100,7 @@ func Test_ReportsGeneratedGauge(t *testing.T) {
 	require.Equal(t, 0, int(pluginHealth))
 
 	iterations := 10
-	for i := 0; i < iterations; i++ {
+	for range iterations {
 		_, err1 := plugin2.Outcome(t.Context(), ocr3types.OutcomeContext{}, nil, nil)
 		require.NoError(t, err1)
 	}
@@ -133,7 +133,7 @@ func Test_DurationHistograms(t *testing.T) {
 
 	for _, p := range []*reportingPlugin[uint]{plugin1, plugin2, plugin3} {
 		_, _ = p.Query(t.Context(), ocr3types.OutcomeContext{})
-		for i := 0; i < 2; i++ {
+		for range 2 {
 			_, _ = p.Observation(t.Context(), ocr3types.OutcomeContext{}, nil)
 		}
 		_ = p.ValidateObservation(t.Context(), ocr3types.OutcomeContext{}, nil, ocrtypes.AttributedObservation{})

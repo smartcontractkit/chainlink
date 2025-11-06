@@ -27,6 +27,9 @@ var _ cldf.ChangeSet[RegisterTokenAdminRegistryConfig] = RegisterTokenAdminRegis
 var _ cldf.ChangeSet[TransferAdminRoleTokenAdminRegistryConfig] = TransferAdminRoleTokenAdminRegistry
 var _ cldf.ChangeSet[AcceptAdminRoleTokenAdminRegistryConfig] = AcceptAdminRoleTokenAdminRegistry
 
+// use this changeset to upgrade token admin registry from v0.1.0 to v0.1.1
+var _ cldf.ChangeSet[UpgradeTokenAdminRegistryConfig] = UpgradeTokenAdminRegistry
+
 // use this changeset to set pool on token admin registry
 var _ cldf.ChangeSet[SetPoolConfig] = SetPool
 
@@ -252,7 +255,7 @@ func RegisterTokenAdminRegistry(e cldf.Environment, cfg RegisterTokenAdminRegist
 	return cldf.ChangesetOutput{}, nil
 }
 
-type TrasnferTokenAdminConfig struct {
+type TransferTokenAdminConfig struct {
 	TokenPubKey               solana.PublicKey
 	NewRegistryAdminPublicKey solana.PublicKey
 }
@@ -260,7 +263,7 @@ type TrasnferTokenAdminConfig struct {
 // TRANSFER AND ACCEPT TOKEN ADMIN REGISTRY
 type TransferAdminRoleTokenAdminRegistryConfig struct {
 	ChainSelector             uint64
-	TransferTokenAdminConfigs []TrasnferTokenAdminConfig
+	TransferTokenAdminConfigs []TransferTokenAdminConfig
 	MCMS                      *proposalutils.TimelockConfig
 }
 
@@ -538,6 +541,65 @@ func AcceptAdminRoleTokenAdminRegistry(e cldf.Environment, cfg AcceptAdminRoleTo
 	return cldf.ChangesetOutput{}, nil
 }
 
+type UpgradeTokenAdminRegistryConfig struct {
+	ChainSelector uint64
+	TokenPubKeys  []solana.PublicKey
+}
+
+func (cfg UpgradeTokenAdminRegistryConfig) Validate(e cldf.Environment, chainState solanastateview.CCIPChainState) error {
+	chain := e.BlockChains.SolanaChains()[cfg.ChainSelector]
+	if err := chainState.ValidateRouterConfig(chain); err != nil {
+		return err
+	}
+
+	for _, tokenPubKey := range cfg.TokenPubKeys {
+		if err := chainState.CommonValidation(e, cfg.ChainSelector, tokenPubKey); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+func UpgradeTokenAdminRegistry(e cldf.Environment, cfg UpgradeTokenAdminRegistryConfig) (cldf.ChangesetOutput, error) {
+	e.Logger.Infow("UpgradeTokenAdminRegistry", "cfg", cfg)
+	state, err := stateview.LoadOnchainState(e)
+	if err != nil {
+		return cldf.ChangesetOutput{}, err
+	}
+	chainState, ok := state.SolChains[cfg.ChainSelector]
+	if !ok {
+		return cldf.ChangesetOutput{}, fmt.Errorf("chain %d not found in environment", cfg.ChainSelector)
+	}
+	if err := cfg.Validate(e, chainState); err != nil {
+		return cldf.ChangesetOutput{}, err
+	}
+	chain := e.BlockChains.SolanaChains()[cfg.ChainSelector]
+	routerProgramAddress, routerConfigPDA, _ := chainState.GetRouterInfo()
+	solRouter.SetProgramID(routerProgramAddress)
+
+	for _, tokenPubKey := range cfg.TokenPubKeys {
+		tokenAdminRegistryPDA, _, _ := solState.FindTokenAdminRegistryPDA(tokenPubKey, routerProgramAddress)
+
+		// this call is permissionless so anyone can call it. We'll just call it from the deployer key
+		instruction, err := solRouter.NewUpgradeTokenAdminRegistryFromV1Instruction(
+			routerConfigPDA,
+			tokenAdminRegistryPDA,
+			tokenPubKey,
+			chain.DeployerKey.PublicKey(),
+			solana.SystemProgramID,
+		).ValidateAndBuild()
+		if err != nil {
+			return cldf.ChangesetOutput{}, fmt.Errorf("failed to generate instructions: %w", err)
+		}
+		if err := chain.Confirm([]solana.Instruction{instruction}); err != nil {
+			return cldf.ChangesetOutput{}, fmt.Errorf("failed to confirm instructions: %w", err)
+		}
+	}
+
+	return cldf.ChangesetOutput{}, nil
+}
+
 // SET POOL
 
 type SetPoolTokenConfig struct {
@@ -545,7 +607,6 @@ type SetPoolTokenConfig struct {
 	PoolType          cldf.ContractType
 	Metadata          string
 	SkipRegistryCheck bool // set to true when you want to register and set pool in the same proposal
-	WritableIndexes   []uint8
 }
 
 type SetPoolConfig struct {
@@ -637,6 +698,10 @@ func SetPool(e cldf.Environment, cfg SetPoolConfig) (cldf.ChangesetOutput, error
 		tokenAdminRegistryPDA, _, _ := solState.FindTokenAdminRegistryPDA(tokenPubKey, routerProgramAddress)
 		lookupTablePubKey := chainState.TokenPoolLookupTable[tokenPubKey][tokenConfig.PoolType][tokenConfig.Metadata]
 
+		writableIndexes := []uint8{3, 4, 7}
+		if tokenConfig.PoolType == shared.CCTPTokenPool {
+			writableIndexes = []uint8{4, 5, 7, 10, 16}
+		}
 		var currentAdmin solana.PublicKey
 		// if skip registry check is true, then we are registering and setting pool in the same batch, so while generating the instruction, we will use the timelock signer as the current admin
 		if tokenConfig.SkipRegistryCheck {
@@ -649,7 +714,7 @@ func SetPool(e cldf.Environment, cfg SetPoolConfig) (cldf.ChangesetOutput, error
 			currentAdmin = tokenAdminRegistryAccount.Administrator
 		}
 		base := solRouter.NewSetPoolInstruction(
-			tokenConfig.WritableIndexes,
+			writableIndexes,
 			routerConfigPDA,
 			tokenAdminRegistryPDA,
 			tokenPubKey,
@@ -700,6 +765,7 @@ type SetTokenPoolSupportAutoDerivationConfig struct {
 	TokenPubKey            solana.PublicKey
 	SupportsAutoDerivation bool
 	MCMS                   *proposalutils.TimelockConfig
+	SkipRegistryCheck      bool // set to true when you want to register, set pool, and set auto derivation flag in the same proposal
 }
 
 func (cfg SetTokenPoolSupportAutoDerivationConfig) Validate(e cldf.Environment, chainState solanastateview.CCIPChainState) error {
@@ -725,25 +791,6 @@ func SetTokenPoolSupportAutoDerivation(e cldf.Environment, cfg SetTokenPoolSuppo
 
 	chain := e.BlockChains.SolanaChains()[cfg.SolChainSelector]
 
-	var ix solana.Instruction
-	tokenPool := chainState.GetActiveTokenPool(shared.CCTPTokenPool, shared.CLLMetadata)
-	tokenPoolUsingMcms := solanastateview.IsSolanaProgramOwnedByTimelock(
-		&e,
-		chain,
-		chainState,
-		shared.CCTPTokenPool,
-		cfg.TokenPubKey,
-		shared.CLLMetadata,
-	)
-	authority := GetAuthorityForIxn(
-		&e,
-		chain,
-		chainState,
-		shared.CCTPTokenPool,
-		cfg.TokenPubKey,
-		shared.CLLMetadata,
-	)
-
 	routerProgramAddress, routerConfigPDA, err := chainState.GetRouterInfo()
 	if err != nil {
 		return cldf.ChangesetOutput{}, fmt.Errorf("failed to fetch router info from state: %w", err)
@@ -754,13 +801,31 @@ func SetTokenPoolSupportAutoDerivation(e cldf.Environment, cfg SetTokenPoolSuppo
 		return cldf.ChangesetOutput{}, fmt.Errorf("failed to calculate token admin registry PDA: %w", err)
 	}
 
-	ix, err = solRouter.NewSetPoolSupportsAutoDerivationInstruction(cfg.TokenPubKey, cfg.SupportsAutoDerivation, routerConfigPDA, tokenAdminRegistryPDA, authority).ValidateAndBuild()
+	timelockSignerPDA, err := FetchTimelockSigner(e, cfg.SolChainSelector)
+	if err != nil {
+		return cldf.ChangesetOutput{}, fmt.Errorf("failed to fetch timelock signer: %w", err)
+	}
+
+	var ix solana.Instruction
+	var currentAdmin solana.PublicKey
+	// if skip registry check is true, then we are registering and setting pool in the same batch, so while generating the instruction, we will use the timelock signer as the current admin
+	if cfg.SkipRegistryCheck {
+		currentAdmin = timelockSignerPDA
+	} else {
+		var tokenAdminRegistryAccount solCommon.TokenAdminRegistry
+		if err := chain.GetAccountDataBorshInto(e.GetContext(), tokenAdminRegistryPDA, &tokenAdminRegistryAccount); err != nil {
+			return cldf.ChangesetOutput{}, fmt.Errorf("token admin registry not found for (mint: %s, router: %s), cannot set pool auto derivation", cfg.TokenPubKey.String(), routerProgramAddress.String())
+		}
+		currentAdmin = tokenAdminRegistryAccount.Administrator
+	}
+
+	ix, err = solRouter.NewSetPoolSupportsAutoDerivationInstruction(cfg.TokenPubKey, cfg.SupportsAutoDerivation, routerConfigPDA, tokenAdminRegistryPDA, currentAdmin).ValidateAndBuild()
 	if err != nil {
 		return cldf.ChangesetOutput{}, fmt.Errorf("failed to generate instructions: %w", err)
 	}
 
-	if tokenPoolUsingMcms {
-		tx, err := BuildMCMSTxn(ix, tokenPool.String(), shared.CCTPTokenPool)
+	if currentAdmin.Equals(timelockSignerPDA) {
+		tx, err := BuildMCMSTxn(ix, routerProgramAddress.String(), shared.Router)
 		if err != nil {
 			return cldf.ChangesetOutput{}, fmt.Errorf("failed to create transaction: %w", err)
 		}

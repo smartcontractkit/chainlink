@@ -203,7 +203,7 @@ type testRenderer struct {
 	presenters []cmd.AdminUsersPresenter
 }
 
-func (t *testRenderer) Render(i interface{}, s ...string) error {
+func (t *testRenderer) Render(i any, s ...string) error {
 	adminPresenters := i.(*cmd.AdminUsersPresenters)
 	t.presenters = *adminPresenters
 	return nil

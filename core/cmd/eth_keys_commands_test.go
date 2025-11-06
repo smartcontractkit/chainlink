@@ -160,7 +160,7 @@ func TestShell_ListETHKeys_Disabled(t *testing.T) {
 	assert.Nil(t, balances[0].LinkBalance)
 	assert.Nil(t, balances[0].MaxGasPriceWei)
 	assert.Equal(t, []string{
-		k.Address.String(), "0", "Unknown", "Unknown", "false",
+		k.Address.String(), testutils.FixtureChainID.String(), "Unknown", "Unknown", "false",
 		balances[0].UpdatedAt.String(), balances[0].CreatedAt.String(), "None",
 	}, balances[0].ToRow())
 }
@@ -189,7 +189,7 @@ func TestShell_CreateETHKey(t *testing.T) {
 	require.NoError(t, err)
 	require.Len(t, keys, 1)
 
-	id := big.NewInt(0)
+	id := testutils.FixtureChainID
 
 	set := flag.NewFlagSet("test", 0)
 	flagSetApplyFromAction(client.CreateETHKey, set, "")

@@ -3,11 +3,13 @@
 package main
 
 import (
+	"log/slog"
+
 	"github.com/smartcontractkit/cre-sdk-go/cre"
 	"github.com/smartcontractkit/cre-sdk-go/cre/wasm"
 )
 
-func RunEmptyWorkflow(_ *cre.Environment[struct{}]) (cre.Workflow[struct{}], error) {
+func RunEmptyWorkflow(_ struct{}, _ *slog.Logger, _ cre.SecretsProvider) (cre.Workflow[struct{}], error) {
 	return cre.Workflow[struct{}]{}, nil
 }
 

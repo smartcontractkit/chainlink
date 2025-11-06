@@ -95,6 +95,7 @@ func commonEnv(t testing.TB) func(*testscript.Env) error {
 
 		te.Setenv("HOME", "$WORK/home")
 		te.Setenv("VERSION", static.Version)
+		te.Setenv("VERSION_TAG", static.VersionTag)
 		te.Setenv("COMMIT_SHA", static.Sha)
 
 		b, err := os.ReadFile(filepath.Join(te.WorkDir, testPortName))
