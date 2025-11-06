@@ -179,7 +179,7 @@ func TestConfigureForwarders(t *testing.T) {
 					WFDonName:        "test-wf-don",
 					WFNodeIDs:        wfNodes,
 					RegistryChainSel: te.RegistrySelector,
-					MCMSConfig:       &crecontracts.MCMSConfig{MinDuration: 0},
+					MCMSConfig:       &crecontracts.MCMSConfig{MinDelay: 0},
 				}
 
 				var chainToExclude uint64
