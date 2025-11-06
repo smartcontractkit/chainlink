@@ -220,6 +220,16 @@ jobs:
             exit $exit_code
           fi
 
+      - name: Setup GitHub token using GATI
+        id: github-token
+        uses: smartcontractkit/.github/actions/setup-github-token@setup-github-token/1.0.0
+        with:
+          aws-role-arn: ${{ secrets.AWS_OIDC_CHAINLINK_READ_ONLY_TOKEN_ISSUER_ROLE_ARN }}
+          aws-lambda-url: ${{ secrets.AWS_INFRA_RELENG_TOKEN_ISSUER_LAMBDA_URL }}
+          aws-region: us-west-2
+          aws-role-duration-seconds: "1800"
+          set-git-config: "true"
+
       - name: Run CRE${{ matrix.tests.cre_version }} Smoke system tests
         id: run-tests
         shell: bash
@@ -230,6 +240,7 @@ jobs:
           TEST_TIMEOUT: 30m
           RUN_QUARANTINED_TESTS: "true" # always run quarantined tests in CI
           TOPOLOGY_NAME: ${{ matrix.tests.topology }}
+          GITHUB_TOKEN: ${{ steps.github-token.outputs.access-token || '' }} # to avoid rate limiting when downloading protobuf files from GitHub
         run: |
           echo "Starting test: '${TEST_NAME}'"
           gotestsum \

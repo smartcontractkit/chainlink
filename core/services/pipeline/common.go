@@ -29,6 +29,7 @@ const (
 	BlockHeaderFeederJobType       string = "blockheaderfeeder"
 	BlockhashStoreJobType          string = "blockhashstore"
 	BootstrapJobType               string = "bootstrap"
+	CRESettings                    string = "cresettings"
 	CronJobType                    string = "cron"
 	CCIPJobType                    string = "ccip"
 	DirectRequestJobType           string = "directrequest"

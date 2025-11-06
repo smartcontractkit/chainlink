@@ -8,6 +8,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/Masterminds/semver/v3"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/pkg/errors"
 	"github.com/spf13/cobra"
@@ -34,6 +35,7 @@ func deployAndVerifyExampleWorkflowCmd() *cobra.Command {
 		exampleWorkflowTriggerFlag  string
 		exampleWorkflowTimeoutFlag  string
 		workflowRegistryAddressFlag string
+		contractsVersionFlag        string
 	)
 	cmd := &cobra.Command{
 		Use:              "run-por-example",
@@ -46,7 +48,7 @@ func deployAndVerifyExampleWorkflowCmd() *cobra.Command {
 				return errors.Wrapf(timeoutErr, "failed to parse %s to time.Duration", exampleWorkflowTimeoutFlag)
 			}
 
-			return deployAndVerifyExampleWorkflow(cmd.Context(), rpcURLFlag, gatewayURLFlag, gatewayDonIDFlag, workflowDonIDFlag, timeout, exampleWorkflowTriggerFlag, workflowRegistryAddressFlag)
+			return deployAndVerifyExampleWorkflow(cmd.Context(), rpcURLFlag, gatewayURLFlag, gatewayDonIDFlag, workflowDonIDFlag, timeout, exampleWorkflowTriggerFlag, workflowRegistryAddressFlag, semver.MustParse(contractsVersionFlag))
 		},
 	}
 
@@ -57,6 +59,7 @@ func deployAndVerifyExampleWorkflowCmd() *cobra.Command {
 	cmd.Flags().Uint32VarP(&workflowDonIDFlag, "workflow-don-id", "d", 1, "DonID used in the workflow registry contract (integer starting with 1)")
 	cmd.Flags().StringVarP(&gatewayDonIDFlag, "gateway-don-id", "o", "workflow", "Name of the DON that is running web API trigger capability (only for web API trigger-based workflow)")
 	cmd.Flags().StringVarP(&workflowRegistryAddressFlag, "workflow-registry-address", "w", DefaultWorkflowRegistryAddress, "Workflow registry address")
+	cmd.Flags().StringVar(&contractsVersionFlag, "with-contracts-version", "v1", "Version of workflow and capabilities registry contracts to use (v1 or v2)")
 
 	return cmd
 }
@@ -112,7 +115,7 @@ func executeCronBasedWorkflow(cmdContext context.Context, rpcURL, _, _, privateK
 	return nil
 }
 
-func deployAndVerifyExampleWorkflow(cmdContext context.Context, rpcURL, gatewayURL, gatewayDonID string, workflowDonID uint32, timeout time.Duration, exampleWorkflowTrigger, workflowRegistryAddress string) error {
+func deployAndVerifyExampleWorkflow(cmdContext context.Context, rpcURL, gatewayURL, gatewayDonID string, workflowDonID uint32, timeout time.Duration, exampleWorkflowTrigger, workflowRegistryAddress string, workflowRegistryVersion *semver.Version) error {
 	totalStart := time.Now()
 	start := time.Now()
 
@@ -169,7 +172,7 @@ func deployAndVerifyExampleWorkflow(cmdContext context.Context, rpcURL, gatewayU
 		_ = os.Remove(configFilePath)
 	}()
 
-	deployErr := compileCopyAndRegisterWorkflow(cmdContext, workflowFilePath, workflowName, "", workflowRegistryAddress, "", creworkflow.DefaultWorkflowNodePattern, creworkflow.DefaultWorkflowTargetDir, configFilePath, "", "", rpcURL, "v1", workflowDonID)
+	deployErr := compileCopyAndRegisterWorkflow(cmdContext, workflowFilePath, workflowName, "", workflowRegistryAddress, "", creworkflow.DefaultWorkflowNodePattern, creworkflow.DefaultWorkflowTargetDir, configFilePath, "", "", rpcURL, workflowRegistryVersion, nil, workflowDonID)
 	if deployErr != nil {
 		return errors.Wrap(deployErr, "failed to deploy example workflow")
 	}

@@ -39,16 +39,10 @@
   nodes = 5
   name = "workflow"
   don_types = ["workflow"]
-  override_mode = "all"
+  override_mode = "each"
   http_port_range_start = 10100
 
-  # index of node in the nodeset that will act as the bootsrap node (not required, but added for visiblity)
-  bootstrap_node_index = 0
-  # added for visiblity, required always, when don_types include "gateway"
-  gateway_node_index = -1
-
   env_vars = { CL_EVM_CMD = "" }
-
   capabilities = ["ocr3", "custom-compute", "web-api-trigger", "cron", "http-action", "http-trigger", "consensus", "don-time"]
 
   [nodesets.chain_capabilities]
@@ -63,6 +57,155 @@
     port = 13000
 
   [[nodesets.node_specs]]
+    roles = ["bootstrap"]
+    [nodesets.node_specs.node]
+      docker_ctx = "../../../.."
+      docker_file = "core/chainlink.Dockerfile"
+      docker_build_args = { "CL_IS_PROD_BUILD" = "false" }
+      # image = "chainlink-tmp:latest"
+      user_config_overrides = """
+      [Log]
+      Level = 'debug'
+      JSONConsole = true
+
+      [P2P]
+      EnableExperimentalRageP2P = true
+
+      [Telemetry]
+      Enabled = true
+      Endpoint = 'host.docker.internal:4317'
+      ChipIngressEndpoint = 'chip-ingress:50051'
+      ChipIngressInsecureConnection = true
+      InsecureConnection = true
+      TraceSampleRatio = 1
+      HeartbeatInterval = '30s'
+
+      [CRE]
+      EnableDKGRecipient = true
+      UseLocalTimeProvider = false
+
+      # Remove this bit to allow downloading workflows from remote sources
+      [CRE.WorkflowFetcher]
+      URL = "file:///home/chainlink/workflows"
+
+      [Billing]
+      URL = "billing-platform-service:2223"
+      TLSEnabled = false
+      """
+
+ [[nodesets.node_specs]]
+    roles = ["plugin"]
+    [nodesets.node_specs.node]
+      docker_ctx = "../../../.."
+      docker_file = "core/chainlink.Dockerfile"
+      docker_build_args = { "CL_IS_PROD_BUILD" = "false" }
+      # image = "chainlink-tmp:latest"
+      user_config_overrides = """
+      [Log]
+      Level = 'debug'
+      JSONConsole = true
+
+      [P2P]
+      EnableExperimentalRageP2P = true
+
+      [Telemetry]
+      Enabled = true
+      Endpoint = 'host.docker.internal:4317'
+      ChipIngressEndpoint = 'chip-ingress:50051'
+      ChipIngressInsecureConnection = true
+      InsecureConnection = true
+      TraceSampleRatio = 1
+      HeartbeatInterval = '30s'
+
+      [CRE]
+      EnableDKGRecipient = true
+      UseLocalTimeProvider = false
+
+      # Remove this bit to allow downloading workflows from remote sources
+      [CRE.WorkflowFetcher]
+      URL = "file:///home/chainlink/workflows"
+
+      [Billing]
+      URL = "billing-platform-service:2223"
+      TLSEnabled = false
+      """
+
+ [[nodesets.node_specs]]
+    roles = ["plugin"]
+    [nodesets.node_specs.node]
+      docker_ctx = "../../../.."
+      docker_file = "core/chainlink.Dockerfile"
+      docker_build_args = { "CL_IS_PROD_BUILD" = "false" }
+      # image = "chainlink-tmp:latest"
+      user_config_overrides = """
+      [Log]
+      Level = 'debug'
+      JSONConsole = true
+
+      [P2P]
+      EnableExperimentalRageP2P = true
+
+      [Telemetry]
+      Enabled = true
+      Endpoint = 'host.docker.internal:4317'
+      ChipIngressEndpoint = 'chip-ingress:50051'
+      ChipIngressInsecureConnection = true
+      InsecureConnection = true
+      TraceSampleRatio = 1
+      HeartbeatInterval = '30s'
+
+      [CRE]
+      EnableDKGRecipient = true
+      UseLocalTimeProvider = false
+
+      # Remove this bit to allow downloading workflows from remote sources
+      [CRE.WorkflowFetcher]
+      URL = "file:///home/chainlink/workflows"
+
+      [Billing]
+      URL = "billing-platform-service:2223"
+      TLSEnabled = false
+      """
+
+ [[nodesets.node_specs]]
+    roles = ["plugin"]
+    [nodesets.node_specs.node]
+      docker_ctx = "../../../.."
+      docker_file = "core/chainlink.Dockerfile"
+      docker_build_args = { "CL_IS_PROD_BUILD" = "false" }
+      # image = "chainlink-tmp:latest"
+      user_config_overrides = """
+      [Log]
+      Level = 'debug'
+      JSONConsole = true
+
+      [P2P]
+      EnableExperimentalRageP2P = true
+
+      [Telemetry]
+      Enabled = true
+      Endpoint = 'host.docker.internal:4317'
+      ChipIngressEndpoint = 'chip-ingress:50051'
+      ChipIngressInsecureConnection = true
+      InsecureConnection = true
+      TraceSampleRatio = 1
+      HeartbeatInterval = '30s'
+
+      [CRE]
+      EnableDKGRecipient = true
+      UseLocalTimeProvider = false
+
+      # Remove this bit to allow downloading workflows from remote sources
+      [CRE.WorkflowFetcher]
+      URL = "file:///home/chainlink/workflows"
+
+      [Billing]
+      URL = "billing-platform-service:2223"
+      TLSEnabled = false
+      """
+
+ [[nodesets.node_specs]]
+    roles = ["plugin"]
     [nodesets.node_specs.node]
       docker_ctx = "../../../.."
       docker_file = "core/chainlink.Dockerfile"
@@ -106,11 +249,6 @@
   http_port_range_start = 10200
 
   env_vars = { CL_EVM_CMD = "" }
-
-  # there's no bootstrap node in this nodeset
-  bootstrap_node_index = -1
-  gateway_node_index = -1
-
   capabilities = ["web-api-target","vault"]
 
   [nodesets.chain_capabilities]
@@ -123,6 +261,7 @@
     port = 13100
 
   [[nodesets.node_specs]]
+    roles = ["plugin"]
     [nodesets.node_specs.node]
       docker_ctx = "../../../.."
       docker_file = "core/chainlink.Dockerfile"
@@ -165,10 +304,6 @@
   override_mode = "each"
   http_port_range_start = 10300
 
-  # there's no bootstrap node in this nodeset
-  bootstrap_node_index = -1
-  gateway_node_index = 0
-
   env_vars = { CL_EVM_CMD = "" }
 
   [nodesets.db]
@@ -176,6 +311,7 @@
     port = 13200
 
   [[nodesets.node_specs]]
+    roles = ["gateway"]
     [nodesets.node_specs.node]
       docker_ctx = "../../../.."
       docker_file = "core/chainlink.Dockerfile"
@@ -191,7 +327,7 @@
 
       [P2P]
       EnableExperimentalRageP2P = true
-      
+
       [Telemetry]
       Enabled = true
       Endpoint = 'host.docker.internal:4317'
