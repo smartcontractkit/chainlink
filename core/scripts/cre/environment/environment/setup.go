@@ -463,6 +463,25 @@ func RunSetup(ctx context.Context, config SetupConfig, noPrompt, purge, withBill
 		}
 	}
 
+	bun, bunErr := checkBun(ctx, noPrompt)
+	if bunErr != nil {
+		setupErr = errors.Wrap(bunErr, "failed to ensure Bun")
+		return
+	}
+
+	if bun {
+		err := ensurePackageJson(".")
+		if err != nil {
+			setupErr = errors.Wrap(err, "failed to ensure package.json")
+			return
+		}
+
+		if err := installBunPackages(ctx); err != nil {
+			setupErr = errors.Wrap(err, "failed to install Bun packages")
+			return
+		}
+	}
+
 	jdConfig := ImageConfig{
 		BuildConfig: cfg.JobDistributor.BuildConfig,
 		PullConfig:  cfg.JobDistributor.PullConfig,
@@ -527,6 +546,11 @@ func RunSetup(ctx context.Context, config SetupConfig, noPrompt, purge, withBill
 		logger.Info().Msg("   ✓ GitHub CLI is installed")
 	} else {
 		logger.Warn().Msg("   ✗ GitHub CLI is not installed")
+	}
+	if bun {
+		logger.Info().Msg("   ✓ Bun is installed")
+	} else {
+		logger.Warn().Msg("   ✗ Bun is not installed")
 	}
 	if len(cfg.Capabilities.Repositories) > 0 {
 		logger.Info().Msg("   ✓ Capabilities binaries built")
@@ -1017,5 +1041,112 @@ func logInToGithubWithGHCLI(ctx context.Context) error {
 	}
 
 	logger.Info().Msg("  ✓ GitHub CLI logged in successfully")
+	return nil
+}
+
+func checkBun(ctx context.Context, noPrompt bool) (installed bool, err error) {
+	installed, installErr := checkIfBunIsInstalled(ctx, noPrompt)
+	if installErr != nil {
+		return false, errors.Wrap(installErr, "failed to check if Bun is installed")
+	}
+
+	return installed, nil
+}
+
+func checkIfBunIsInstalled(ctx context.Context, noPrompt bool) (installed bool, err error) {
+	logger := framework.L
+
+	if isCommandAvailable("bun") {
+		logger.Info().Msg("✓ Bun is already installed")
+
+		return true, nil
+	}
+
+	logger.Info().Msg("Would you like to install Bun now? (y/n) [y]")
+
+	var input = "y" // Default to yes
+	if !noPrompt {
+		_, err = fmt.Scanln(&input)
+		if err != nil {
+			// If error is due to empty input (just pressing Enter), treat as 'y' (yes)
+			if err.Error() != "unexpected newline" {
+				return false, errors.Wrap(err, "failed to read input")
+			}
+		}
+	}
+	// check that input is valid
+	input = strings.TrimSpace(strings.ToLower(input))
+	if input != "y" && input != "n" {
+		logger.Warn().Msg("Invalid input. Please enter 'y' or 'n'.")
+		return false, fmt.Errorf("invalid input: %s", input)
+	}
+
+	if strings.ToLower(input) != "y" {
+		logger.Warn().Msg("  ! You will need to install Bun manually")
+		return false, nil
+	}
+
+	logger.Info().Msg("Installing Bun...")
+	tapCmd := exec.CommandContext(ctx, "brew", "tap", "oven-sh/bun")
+	tapCmd.Stdout = os.Stdout
+	tapCmd.Stderr = os.Stderr
+	if err := tapCmd.Run(); err != nil {
+		return false, errors.Wrap(err, "failed to tap Bun repository")
+	}
+
+	installCmd := exec.CommandContext(ctx, "brew", "install", "bun")
+	installCmd.Stdout = os.Stdout
+	installCmd.Stderr = os.Stderr
+	if err := installCmd.Run(); err != nil {
+		return false, errors.Wrap(err, "failed to install Bun")
+	}
+
+	return true, nil
+}
+
+func installBunPackages(ctx context.Context) error {
+	logger := framework.L
+	logger.Info().Msg("Installing Bun packages...")
+
+	installCmd := exec.CommandContext(ctx, "bun", "install")
+	installCmd.Stdout = os.Stdout
+	installCmd.Stderr = os.Stderr
+	if err := installCmd.Run(); err != nil {
+		return errors.Wrap(err, "failed to install Bun packages")
+	}
+
+	logger.Info().Msg("  ✓ Bun packages installed successfully")
+	return nil
+}
+
+func ensurePackageJson(dir string) error {
+	packageJsonPath := filepath.Join(dir, "package.json")
+	if _, err := os.Stat(packageJsonPath); err == nil {
+		return nil
+	}
+
+	content := `{
+  "name": "typescript-cre-workflow",
+  "version": "1.0.0",
+  "main": "dist/main.js",
+  "private": true,
+  "scripts": {
+    "postinstall": "bunx cre-setup"
+  },
+  "license": "UNLICENSED",
+  "dependencies": {
+    "@chainlink/cre-sdk": "^1.0.0",
+    "viem": "2.34.0",
+    "zod": "3.25.76"
+  },
+  "devDependencies": {
+    "@types/bun": "1.2.21"
+  }
+}`
+
+	if err := os.WriteFile(packageJsonPath, []byte(content), 0644); err != nil {
+		return errors.Wrap(err, "failed to create package.json")
+	}
+
 	return nil
 }

@@ -13,6 +13,13 @@ import (
 	"github.com/pkg/errors"
 )
 
+type Language = string
+
+const (
+	LanguageGo Language = "go"
+	LanguageTS Language = "typescript"
+)
+
 // CompileWorkflow compiles a workflow from a file path (absolute or relative) and returns the path to the compiled workflow.
 // workflowFilePath is the path to the workflow file.
 // workflowName is the name of the workflow.
@@ -23,6 +30,72 @@ func CompileWorkflow(workflowFilePath, workflowName string) (string, error) {
 	if len(workflowName) < 10 {
 		return "", errors.New("workflow name must be at least 10 characters long")
 	}
+
+	language, lErr := delectLanguage(workflowFilePath)
+	if lErr != nil {
+		return "", errors.Wrap(lErr, "failed to detect workflow language")
+	}
+
+	var workflowWasmAbsPath string
+	var err error
+	switch language {
+	case LanguageGo:
+		workflowWasmAbsPath, err = compileGoWorkflow(workflowFilePath, workflowName)
+	case LanguageTS:
+		workflowWasmAbsPath, err = compileTSWorkflow(workflowFilePath, workflowName)
+	default:
+		return "", fmt.Errorf("unsupported workflow language: %s", language)
+	}
+
+	if err != nil {
+		return "", fmt.Errorf("failed to compile %s workflow: %w", language, err)
+	}
+
+	compressedWorkflowWasmPath, compressedWorkflowWasmPathErr := compressWorkflow(workflowWasmAbsPath)
+	if compressedWorkflowWasmPathErr != nil {
+		return "", errors.Wrap(compressedWorkflowWasmPathErr, "failed to compress workflow")
+	}
+
+	defer func() {
+		_ = os.Remove(workflowWasmAbsPath)
+	}()
+
+	return compressedWorkflowWasmPath, nil
+}
+
+func delectLanguage(workflowFilePath string) (Language, error) {
+	ext := strings.ToLower(filepath.Ext(workflowFilePath))
+	switch ext {
+	case ".ts", ".tsx":
+		return LanguageTS, nil
+	case ".go":
+		return LanguageGo, nil
+	default:
+		return "", fmt.Errorf("unsupported workflow file extension: %s", ext)
+	}
+}
+
+func compileTSWorkflow(workflowFilePath, workflowName string) (string, error) {
+	workflowWasmPath := workflowName + ".wasm"
+
+	buffer := bytes.Buffer{}
+	compileCmd := exec.Command("bun", "cre-compile", workflowFilePath, filepath.Join(filepath.Dir(workflowFilePath), workflowWasmPath)) // #nosec G204 -- we control the value of the cmd so the lint/sec error is a false positive
+	compileCmd.Stdout = &buffer
+	compileCmd.Stderr = &buffer
+	if err := compileCmd.Run(); err != nil {
+		fmt.Fprint(os.Stderr, buffer.String())
+		return "", errors.Wrap(err, "failed to compile workflow")
+	}
+
+	workflowWasmAbsPath, workflowWasmAbsPathErr := filepath.Abs(filepath.Join(filepath.Dir(workflowFilePath), workflowWasmPath))
+	if workflowWasmAbsPathErr != nil {
+		return "", errors.Wrap(workflowWasmAbsPathErr, "failed to get absolute path of the workflow WASM file")
+	}
+
+	return workflowWasmAbsPath, nil
+}
+
+func compileGoWorkflow(workflowFilePath, workflowName string) (string, error) {
 	workflowWasmPath := workflowName + ".wasm"
 
 	goModTidyCmd := exec.Command("go", "mod", "tidy")
@@ -47,16 +120,7 @@ func CompileWorkflow(workflowFilePath, workflowName string) (string, error) {
 		return "", errors.Wrap(workflowWasmAbsPathErr, "failed to get absolute path of the workflow WASM file")
 	}
 
-	compressedWorkflowWasmPath, compressedWorkflowWasmPathErr := compressWorkflow(workflowWasmAbsPath)
-	if compressedWorkflowWasmPathErr != nil {
-		return "", errors.Wrap(compressedWorkflowWasmPathErr, "failed to compress workflow")
-	}
-
-	defer func() {
-		_ = os.Remove(workflowWasmAbsPath)
-	}()
-
-	return compressedWorkflowWasmPath, nil
+	return workflowWasmAbsPath, nil
 }
 
 func compressWorkflow(workflowWasmPath string) (string, error) {
