@@ -147,9 +147,7 @@ var DeployConfigureForwardersSeq = operations.NewSequence[DeployConfigureForward
 			proposal, err := proposalutils.BuildProposalFromBatchesV2(
 				*deps.Env,
 				timelockAddressByChain, proposerAddressByChain, inspectorPerChain,
-				batches, "Transfer ownership to timelock", proposalutils.TimelockConfig{
-					MinDelay: input.MCMSConfig.MinDuration,
-				})
+				batches, "Transfer ownership to timelock", *input.MCMSConfig)
 			if err != nil {
 				return DeployConfigureForwardersSeqOutput{AddressBook: ab, Addresses: as.Addresses()}, fmt.Errorf("failed to build proposal for transfer ownership to timelock: %w", err)
 			}
