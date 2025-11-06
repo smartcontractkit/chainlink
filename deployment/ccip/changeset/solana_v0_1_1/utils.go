@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/gagliardetto/solana-go"
+
 	"github.com/smartcontractkit/mcms"
 	"github.com/smartcontractkit/mcms/sdk"
 	mcmsSolana "github.com/smartcontractkit/mcms/sdk/solana"
@@ -151,6 +152,24 @@ func BuildProposalsForBatches(
 	return buildProposalCommon(e, chainSelector, description, minDelay, batches)
 }
 
+type MCMSTxParams struct {
+	Ix           solana.Instruction
+	ProgramID    string
+	ContractType cldf.ContractType
+}
+
+func BuildManyMCMSTxsFrom(input []MCMSTxParams) ([]*mcmsTypes.Transaction, error) {
+	mcmsTxs := []*mcmsTypes.Transaction{}
+	for _, params := range input {
+		tx, err := BuildMCMSTxn(params.Ix, params.ProgramID, params.ContractType)
+		if err != nil {
+			return []*mcmsTypes.Transaction{}, fmt.Errorf("failed to create transaction: %w", err)
+		}
+		mcmsTxs = append(mcmsTxs, tx)
+	}
+	return mcmsTxs, nil
+}
+
 func BuildMCMSTxn(ixn solana.Instruction, programID string, contractType cldf.ContractType) (*mcmsTypes.Transaction, error) {
 	data, err := ixn.Data()
 	if err != nil {
@@ -237,5 +256,31 @@ func generateProposalIfMCMS(e cldf.Environment, chainSelector uint64, mcmsCfg *p
 		}, nil
 	}
 
+	return cldf.ChangesetOutput{}, nil
+}
+
+type ExecuteConfig struct {
+	ChainSelector uint64
+	MCMS          *proposalutils.TimelockConfig
+	Chain         cldf_solana.Chain
+}
+
+func ExecuteInstructionsAndBuildProposals(e cldf.Environment, cfg ExecuteConfig, instructions [][]solana.Instruction, mcmsTxs []mcmsTypes.Transaction) (cldf.ChangesetOutput, error) {
+	for _, instructionSet := range instructions {
+		if err := cfg.Chain.Confirm(instructionSet); err != nil {
+			return cldf.ChangesetOutput{}, fmt.Errorf("failed to confirm instructions: %w", err)
+		}
+	}
+
+	if len(mcmsTxs) > 0 {
+		proposal, err := BuildProposalsForTxns(
+			e, cfg.ChainSelector, "proposal in Solana", cfg.MCMS.MinDelay, mcmsTxs)
+		if err != nil {
+			return cldf.ChangesetOutput{}, fmt.Errorf("failed to build proposal: %w", err)
+		}
+		return cldf.ChangesetOutput{
+			MCMSTimelockProposals: []mcms.TimelockProposal{*proposal},
+		}, nil
+	}
 	return cldf.ChangesetOutput{}, nil
 }

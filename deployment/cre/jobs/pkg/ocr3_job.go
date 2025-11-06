@@ -25,6 +25,7 @@ type OCR3JobConfigInput struct {
 	ContractQualifier    string        `yaml:"contractQualifier"`
 	ChainSelectorEVM     ChainSelector `yaml:"chainSelectorEVM"`
 	ChainSelectorAptos   ChainSelector `yaml:"chainSelectorAptos"`
+	ChainSelectorSolana  ChainSelector `yaml:"chainSelectorSolana"` // used to fetch OCR Solana configs from nodes - optional
 	BootstrapperOCR3Urls []string      `yaml:"bootstrapperOCR3Urls"`
 
 	// Optionals: specific to the worker vault OCR3 Job spec
@@ -33,16 +34,17 @@ type OCR3JobConfigInput struct {
 }
 
 type OCR3JobConfig struct {
-	JobName              string
-	ChainID              string
-	P2PID                string
-	OCR2EVMKeyBundleID   string
-	TransmitterID        string
-	OCR2AptosKeyBundleID string
-	ContractID           string // contract ID of the ocr3 contract
-	P2Pv2Bootstrappers   []string
-	ExternalJobID        string
-	TemplateName         string
+	JobName               string
+	ChainID               string
+	P2PID                 string
+	OCR2EVMKeyBundleID    string
+	TransmitterID         string
+	OCR2AptosKeyBundleID  string
+	OCR2SolanaKeyBundleID string
+	ContractID            string // contract ID of the ocr3 contract
+	P2Pv2Bootstrappers    []string
+	ExternalJobID         string
+	TemplateName          string
 
 	DKGContractAddress         string
 	VaultRequestExpiryDuration string
@@ -61,8 +63,8 @@ func (c OCR3JobConfig) Validate() error {
 	if c.P2PID == "" {
 		return errors.New("P2PID is empty")
 	}
-	if c.OCR2EVMKeyBundleID == "" && c.OCR2AptosKeyBundleID == "" {
-		return errors.New("OCR2EVMKeyBundleID and OCR2AptosKeyBundleID are empty, one must be set")
+	if c.OCR2EVMKeyBundleID == "" && c.OCR2AptosKeyBundleID == "" && c.OCR2SolanaKeyBundleID == "" {
+		return errors.New("OCR2EVMKeyBundleID and OCR2AptosKeyBundleID and OCR2SolanaKeyBundleID are empty, one must be set")
 	}
 	if c.TransmitterID == "" {
 		return errors.New("TransmitterID is empty")
@@ -117,7 +119,7 @@ func BuildOCR3JobConfigSpecs(
 	client deployment.NodeChainConfigsLister,
 	lggr logger.Logger,
 	contractID string,
-	evmChainSel, aptosChainSel uint64,
+	evmChainSel, aptosChainSel, solanaChainSel uint64,
 	nodes []*nodev1.Node,
 	btURLs []string,
 	donName, jobName, templateName string,
@@ -166,6 +168,12 @@ func BuildOCR3JobConfigSpecs(
 			aptosKeyBundleID = aptosConfig.KeyBundleID
 		}
 
+		solanaKeyBundleID := ""
+		solanaConfig, ok := node.OCRConfigForChainSelector(solanaChainSel)
+		if ok {
+			solanaKeyBundleID = solanaConfig.KeyBundleID
+		}
+
 		jbName := "OCR3 Multichain Capability (" + node.Name + ")"
 		if jobName != "" {
 			jbName = jobName + " (" + node.Name + ")"
@@ -176,6 +184,7 @@ func BuildOCR3JobConfigSpecs(
 			P2PID:                      node.PeerID.String(),
 			OCR2EVMKeyBundleID:         evmConfig.KeyBundleID,
 			OCR2AptosKeyBundleID:       aptosKeyBundleID,
+			OCR2SolanaKeyBundleID:      solanaKeyBundleID,
 			ContractID:                 contractID,
 			TransmitterID:              string(evmConfig.TransmitAccount),
 			P2Pv2Bootstrappers:         btURLs,

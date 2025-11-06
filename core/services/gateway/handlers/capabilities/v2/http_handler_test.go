@@ -42,7 +42,6 @@ func TestNewGatewayHandler(t *testing.T) {
 		handler, err := NewGatewayHandler(configBytes, donConfig, mockDon, mockHTTPClient, lggr, limits.Factory{Logger: lggr})
 		require.NoError(t, err)
 		require.NotNil(t, handler)
-		require.Equal(t, "test-don", handler.donConfig.DonId)
 		require.NotNil(t, handler.responseCache)
 		require.NotNil(t, handler.triggerHandler)
 		require.NotNil(t, handler.metadataHandler)

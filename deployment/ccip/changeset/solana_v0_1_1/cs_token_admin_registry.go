@@ -255,7 +255,7 @@ func RegisterTokenAdminRegistry(e cldf.Environment, cfg RegisterTokenAdminRegist
 	return cldf.ChangesetOutput{}, nil
 }
 
-type TrasnferTokenAdminConfig struct {
+type TransferTokenAdminConfig struct {
 	TokenPubKey               solana.PublicKey
 	NewRegistryAdminPublicKey solana.PublicKey
 }
@@ -263,7 +263,7 @@ type TrasnferTokenAdminConfig struct {
 // TRANSFER AND ACCEPT TOKEN ADMIN REGISTRY
 type TransferAdminRoleTokenAdminRegistryConfig struct {
 	ChainSelector             uint64
-	TransferTokenAdminConfigs []TrasnferTokenAdminConfig
+	TransferTokenAdminConfigs []TransferTokenAdminConfig
 	MCMS                      *proposalutils.TimelockConfig
 }
 

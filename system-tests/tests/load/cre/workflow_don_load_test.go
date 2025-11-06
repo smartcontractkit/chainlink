@@ -1169,7 +1169,7 @@ func consensusJobSpec(chainID uint64) cretypes.JobSpecFn {
 		bootstrapNodeID := strings.TrimPrefix(bootstrapNode.Keys.PeerID(), "p2p_")
 
 		// create job specs for the bootstrap node
-		jobSpecs = append(jobSpecs, ocr.BootstrapOCR3(bootstrapNodeID, "ocr3-capability", ocr3CapabilityAddress.Address, chainID))
+		jobSpecs = append(jobSpecs, ocr.BootstrapJobSpec(bootstrapNodeID, "ocr3-capability", ocr3CapabilityAddress.Address, chainID))
 
 		ocrPeeringData := cretypes.OCRPeeringData{
 			OCRBootstraperPeerID: bootstrapNodeID,
@@ -1189,10 +1189,105 @@ func consensusJobSpec(chainID uint64) cretypes.JobSpecFn {
 				return nil, fmt.Errorf("node %s does not have OCR2 key bundle for EVM", workerNode.Name)
 			}
 
-			jobSpecs = append(jobSpecs, consensus_v1_feature.WorkerJobSpec(workerNode.JobDistributorDetails.NodeID, ocr3CapabilityAddress.Address, evmKey.PublicAddress.Hex(), evmOCR2KeyBundle, workerNode.Keys.OCR2BundleIDs, ocrPeeringData, chainID))
-			jobSpecs = append(jobSpecs, don_time_feature.WorkerJobSpec(workerNode.JobDistributorDetails.NodeID, donTimeAddress.Address, evmKey.PublicAddress.Hex(), evmOCR2KeyBundle, ocrPeeringData, chainID))
+			jobSpecs = append(jobSpecs, WorkerOCR3JobSpec(workerNode.JobDistributorDetails.NodeID, ocr3CapabilityAddress.Address, evmKey.PublicAddress.Hex(), evmOCR2KeyBundle, workerNode.Keys.OCR2BundleIDs, ocrPeeringData, chainID))
+			jobSpecs = append(jobSpecs, WorkerDonTimeJobSpec(workerNode.JobDistributorDetails.NodeID, donTimeAddress.Address, evmKey.PublicAddress.Hex(), evmOCR2KeyBundle, ocrPeeringData, chainID))
 		}
 
 		return jobSpecs, nil
+	}
+}
+
+func WorkerOCR3JobSpec(nodeID string, ocr3CapabilityAddress, nodeEthAddress, offchainBundleID string, ocr2KeyBundles map[string]string, ocrPeeringData cretypes.OCRPeeringData, chainID uint64) *jobv1.ProposeJobRequest {
+	uuid := uuid.NewString()
+
+	spec := fmt.Sprintf(`
+	type = "offchainreporting2"
+	schemaVersion = 1
+	externalJobID = "%s"
+	name = "%s"
+	contractID = "%s"
+	ocrKeyBundleID = "%s"
+	p2pv2Bootstrappers = [
+		"%s@%s",
+	]
+	relay = "evm"
+	pluginType = "plugin"
+	transmitterID = "%s"
+	[relayConfig]
+	chainID = "%d"
+	[pluginConfig]
+	command = "/usr/local/bin/chainlink-ocr3-capability"
+	ocrVersion = 3
+	pluginName = "ocr-capability"
+	providerType = "ocr3-capability"
+	telemetryType = "plugin"
+	[onchainSigningStrategy]
+	strategyName = "multi-chain"
+	[onchainSigningStrategy.config]
+`,
+		uuid,
+		cretypes.ConsensusCapability,
+		ocr3CapabilityAddress,
+		offchainBundleID,
+		ocrPeeringData.OCRBootstraperPeerID,
+		fmt.Sprintf("%s:%d", ocrPeeringData.OCRBootstraperHost, ocrPeeringData.Port),
+		nodeEthAddress,
+		chainID,
+	)
+	for family, key := range ocr2KeyBundles {
+		spec += fmt.Sprintf(`
+        %s = "%s"`, family, key)
+		spec += "\n"
+	}
+
+	return &jobv1.ProposeJobRequest{
+		NodeId: nodeID,
+		Spec:   spec,
+	}
+}
+
+func WorkerDonTimeJobSpec(nodeID string, ocr3CapabilityAddress, nodeEthAddress, ocr2KeyBundleID string, ocrPeeringData cretypes.OCRPeeringData, chainID uint64) *jobv1.ProposeJobRequest {
+	uuid := uuid.NewString()
+	return &jobv1.ProposeJobRequest{
+		NodeId: nodeID,
+		Spec: fmt.Sprintf(`
+	type = "offchainreporting2"
+	schemaVersion = 1
+	externalJobID = "%s"
+	name = "dontime"
+	forwardingAllowed = false
+	maxTaskDuration = "0s"
+	contractID = "%s"
+	relay = "evm"
+	pluginType = "dontime"
+	ocrKeyBundleID = "%s"
+	p2pv2Bootstrappers = [
+		"%s@%s",
+	]
+	transmitterID = "%s"
+
+	[relayConfig]
+	chainID = "%d"
+	providerType = "dontime"
+
+	[pluginConfig]
+	pluginName = "dontime"
+	ocrVersion = 3
+	telemetryType = "plugin"
+
+	[onchainSigningStrategy]
+	strategyName = 'multi-chain'
+	[onchainSigningStrategy.config]
+	evm = "%s"
+`,
+			uuid,
+			ocr3CapabilityAddress, // re-use OCR3Capability contract
+			ocr2KeyBundleID,
+			ocrPeeringData.OCRBootstraperPeerID,
+			fmt.Sprintf("%s:%d", ocrPeeringData.OCRBootstraperHost, ocrPeeringData.Port),
+			nodeEthAddress, // transmitterID (although this shouldn't be used for this plugin?)
+			chainID,
+			ocr2KeyBundleID,
+		),
 	}
 }

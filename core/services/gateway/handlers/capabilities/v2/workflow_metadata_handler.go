@@ -50,6 +50,7 @@ type WorkflowMetadataHandler struct {
 	metrics         *metrics.Metrics
 	jwtCache        *jwtReplayCache // JWT replay protection cache
 	wg              sync.WaitGroup
+	startTime       time.Time // time when Start() was called
 }
 
 // NewWorkflowMetadataHandler creates a new WorkflowMetadataHandler.
@@ -67,7 +68,7 @@ func NewWorkflowMetadataHandler(lggr logger.Logger, cfg ServiceConfig, don handl
 		config:          cfg,
 		stopCh:          make(services.StopChan),
 		metrics:         metrics,
-		jwtCache:        newJWTReplayCache(time.Duration(cfg.CleanUpPeriodMs) * time.Millisecond),
+		jwtCache:        newJWTReplayCache(time.Duration(cfg.JWTReplayPeriodMs) * time.Millisecond),
 	}
 }
 
@@ -127,7 +128,7 @@ func (h *WorkflowMetadataHandler) syncMetadata() {
 			continue
 		}
 		if _, exists := workflowRefToID[workflowRef]; exists {
-			h.lggr.Debug("Duplicate workflow reference found", "workflowRef", workflowRef)
+			h.lggr.Debugw("Duplicate workflow reference found", "workflowRef", workflowRef, "workflowID", data.WorkflowSelector.WorkflowID)
 			continue
 		}
 		workflowIDToRef[data.WorkflowSelector.WorkflowID] = workflowRef
@@ -139,9 +140,22 @@ func (h *WorkflowMetadataHandler) syncMetadata() {
 	}
 	h.mu.Lock()
 	defer h.mu.Unlock()
+
+	if len(h.workflowIDToRef) == 0 && len(workflowIDToRef) > 0 {
+		latencyMs := time.Since(h.startTime).Milliseconds()
+		h.metrics.RecordMetadataSyncStartupLatency(context.Background(), latencyMs, h.lggr)
+	}
+	// Log all registered workflow IDs
+	workflowIDs := make([]string, 0, len(workflowIDToRef))
+	for workflowID := range workflowIDToRef {
+		workflowIDs = append(workflowIDs, workflowID)
+	}
+	h.lggr.Debugw("Synced workflow metadata", "workflowIDs", workflowIDs, "count", len(workflowIDs))
+
 	h.authorizedKeys = authorizedKeys
 	h.workflowRefToID = workflowRefToID
 	h.workflowIDToRef = workflowIDToRef
+	h.metrics.RecordLoadedMetadataSize(context.Background(), int64(len(h.workflowIDToRef)), h.lggr)
 }
 
 // sendMetadataPullRequest sends a request to all nodes in the DON to pull the latest metadata.
@@ -158,10 +172,10 @@ func (h *WorkflowMetadataHandler) sendMetadataPullRequest() error {
 	}
 	var combinedErr error
 	for _, member := range h.donConfig.Members {
-		h.metrics.Trigger.IncrementCapabilityRequestCount(ctx, member.Address, gateway.MethodPullWorkflowMetadata, h.lggr)
+		h.metrics.IncrementTriggerCapabilityRequestCount(ctx, member.Address, gateway.MethodPullWorkflowMetadata, h.lggr)
 		err := h.don.SendToNode(ctx, member.Address, req)
 		if err != nil {
-			h.metrics.Trigger.IncrementCapabilityRequestFailures(ctx, member.Address, gateway.MethodPullWorkflowMetadata, h.lggr)
+			h.metrics.IncrementTriggerCapabilityRequestFailures(ctx, member.Address, gateway.MethodPullWorkflowMetadata, h.lggr)
 			combinedErr = errors.Join(combinedErr, fmt.Errorf("failed to send pull request to node %s: %w", member.Address, err))
 		}
 	}
@@ -212,6 +226,7 @@ func (h *WorkflowMetadataHandler) OnMetadataPullResponse(ctx context.Context, re
 func (h *WorkflowMetadataHandler) Start(ctx context.Context) error {
 	return h.StartOnce("WorkflowMetadataHandler", func() error {
 		h.lggr.Info("Starting HTTP Trigger Metadata Handler")
+		h.startTime = time.Now()
 		err := h.agg.Start(ctx)
 		if err != nil {
 			return err
@@ -227,8 +242,8 @@ func (h *WorkflowMetadataHandler) Start(ctx context.Context) error {
 		h.runTicker(h.jwtCache.cleanupPeriod, func() {
 			now := time.Now()
 			expiredCount := h.jwtCache.cleanupOldEntries(now.Add(-h.jwtCache.cleanupPeriod))
-			h.metrics.Trigger.IncrementJwtCacheCleanUpCount(context.Background(), int64(expiredCount), h.lggr)
-			h.metrics.Trigger.RecordJwtCacheSize(context.Background(), int64(len(h.jwtCache.cache)), h.lggr)
+			h.metrics.IncrementJwtCacheCleanUpCount(context.Background(), int64(expiredCount), h.lggr)
+			h.metrics.RecordJwtCacheSize(context.Background(), int64(len(h.jwtCache.cache)), h.lggr)
 			h.lggr.Debugw("Workflow execution cache cleanup completed", "expired_entries", expiredCount, "remaining_entries", len(h.jwtCache.cache))
 		})
 		return nil
