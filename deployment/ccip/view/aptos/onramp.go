@@ -110,7 +110,7 @@ func GenerateOnRampView(
 		if err != nil {
 			return OnRampView{}, fmt.Errorf("failed to get expected nextSequenceNumber for selector %d of onRamp %s: %w", selector, onRampAddress.StringLong(), err)
 		}
-		sequenceNumber, allowlistEnabled, routerAddr, routerStateAddr, err := boundOnRamp.Onramp().GetDestChainConfig(nil, selector)
+		sequenceNumber, allowlistEnabled, routerAddr, routerStateAddr, err := boundOnRamp.Onramp().GetDestChainConfigV2(nil, selector)
 		if err != nil {
 			return OnRampView{}, fmt.Errorf("failed to get destChainConfig for selector %d of onRamp %s: %w", selector, onRampAddress.StringLong(), err)
 		}
