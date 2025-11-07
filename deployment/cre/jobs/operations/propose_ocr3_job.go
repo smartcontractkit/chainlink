@@ -7,6 +7,7 @@ import (
 
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
+	nodev1 "github.com/smartcontractkit/chainlink-protos/job-distributor/v1/node"
 
 	"github.com/smartcontractkit/chainlink/deployment/cre/jobs/pkg"
 	"github.com/smartcontractkit/chainlink/deployment/cre/pkg/offchain"
@@ -49,14 +50,21 @@ var ProposeOCR3Job = operations.NewSequence[ProposeOCR3JobInput, ProposeOCR3JobO
 	semver.MustParse("1.0.0"),
 	"Propose OCR3 Job",
 	func(b operations.Bundle, deps ProposeOCR3JobDeps, input ProposeOCR3JobInput) (ProposeOCR3JobOutput, error) {
+		filters := &nodev1.ListNodesRequest_Filter{}
+		for _, f := range input.DONFilters {
+			filters = offchain.TargetDONFilter{
+				Key:   f.Key,
+				Value: f.Value,
+			}.AddToFilter(filters)
+		}
 		// We only want to target plugin nodes for OCR3 jobs.
-		input.DONFilters = append(input.DONFilters, offchain.TargetDONFilter{
+		filters = offchain.TargetDONFilter{
 			Key:   "type",
 			Value: "plugin",
-		})
+		}.AddToFilter(filters)
 		nodes, err := pkg.FetchNodesFromJD(b.GetContext(), deps.Env, pkg.FetchNodesRequest{
 			Domain:  input.Domain,
-			Filters: input.DONFilters,
+			Filters: filters,
 		})
 		if err != nil {
 			return ProposeOCR3JobOutput{}, fmt.Errorf("failed to fetch nodes from JD: %w", err)
