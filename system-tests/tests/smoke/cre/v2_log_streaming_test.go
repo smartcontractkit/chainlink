@@ -71,7 +71,7 @@ func queryLoki(lokiBaseURL, query string, lastNSeconds int) (int, error) {
 	q.Set("query", query)
 	q.Set("start", startNano)
 	q.Set("end", endNano)
-	q.Set("limit", "1000")
+	q.Set("limit", "10")
 	u.RawQuery = q.Encode()
 
 	req, err := http.NewRequestWithContext(context.Background(), http.MethodGet, u.String(), nil)
