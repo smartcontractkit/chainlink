@@ -253,7 +253,17 @@ remove_test_execution_artefacts:
 # <image_registry> | secure-sdlc@smartcontract.com
 .PHONY: build-ccip-test-image
 build-ccip-test-image:
+	@if [ -z "$(base-image-registry)" ]; then echo "Error: base-image-registry variable is not set. Please provide it with 'make push base-image-registry=...'. See README.md explaining where to get it."; exit 1; fi
 	REGISTRY=$(base-image-registry) ./ccip-test-image-build.sh
+
+	
+# base-image-registry: AWS registry (only secure-sdlc account works)
+# check AWS Portal and search for
+# <image_registry> | secure-sdlc@smartcontract.com
+.PHONY: push-ccip-test-image
+push-ccip-test-image:
+	@if [ -z "$(base-image-registry)" ]; then echo "Error: base-image-registry variable is not set. Please provide it with 'make push base-image-registry=...'. See README.md explaining where to get it."; exit 1; fi
+	aws ecr get-login-password --region us-west-2 | docker login --username AWS --password-stdin $(registry).dkr.ecr.us-west-2.amazonaws.com
 	docker tag chainlink-tests:latest $(base-image-registry).dkr.ecr.us-west-2.amazonaws.com/chainlink-tests:latest
 	docker push $(base-image-registry).dkr.ecr.us-west-2.amazonaws.com/chainlink-tests:latest
 
