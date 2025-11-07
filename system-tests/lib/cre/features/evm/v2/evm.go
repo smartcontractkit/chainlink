@@ -203,7 +203,7 @@ func (o *EVM) PostEnvStartup(
 		qualifier := ks_contracts_op.CapabilityContractIdentifier(uint64(chainID))
 		// we have deployed OCR3 contract for each EVM chain on the registry chain to avoid a situation when more than 1 OCR contract (of any type) has the same address
 		// because in past that violeted a DB constraint for offchain reporting jobs. Now there is no such limitation, but still it's better to have unique addresses to avoid confusion.
-		evmOCR3Addr := contracts.MustGetAddressFromDataStore(creEnv.CldfEnvironment.DataStore, creEnv.RegistryChainSelector, keystone_changeset.OCR3Capability.String(), "1.0.0", qualifier)
+		evmOCR3Addr := contracts.MustGetAddressFromDataStore(creEnv.CldfEnvironment.DataStore, creEnv.RegistryChainSelector, keystone_changeset.OCR3Capability.String(), semver.MustParse("1.0.0"), qualifier)
 		var evmDON *cre.Don
 		for _, don := range dons.DonsWithFlag(cre.EVMCapability) {
 			if flags.HasFlagForChain(don.Flags, cre.EVMCapability, uint64(chainID)) {

@@ -58,7 +58,6 @@ func StartDONs(
 	nodeSets []*cre.NodeSet,
 ) (*StartedDONs, error) {
 	if infraInput.Type == infra.CRIB {
-		lggr.Info().Msg("Saving node configs and secret overrides")
 		deployCribDonsInput := &crib.DeployCribDonsInput{
 			Topology:       topology,
 			NodeSet:        nodeSets,
