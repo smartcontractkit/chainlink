@@ -79,12 +79,9 @@ func delectLanguage(workflowFilePath string) (Language, error) {
 func compileTSWorkflow(ctx context.Context, workflowFilePath, workflowName string) (string, error) {
 	workflowWasmPath := workflowName + ".wasm"
 
-	buffer := bytes.Buffer{}
 	compileCmd := exec.CommandContext(ctx, "bun", "cre-compile", workflowFilePath, filepath.Join(filepath.Dir(workflowFilePath), workflowWasmPath)) // #nosec G204 -- we control the value of the cmd so the lint/sec error is a false positive
-	compileCmd.Stdout = &buffer
-	compileCmd.Stderr = &buffer
-	if err := compileCmd.Run(); err != nil {
-		fmt.Fprint(os.Stderr, buffer.String())
+	if output, err := compileCmd.CombinedOutput(); err != nil {
+		fmt.Fprint(os.Stderr, output)
 		return "", errors.Wrap(err, "failed to compile workflow")
 	}
 
@@ -105,14 +102,11 @@ func compileGoWorkflow(ctx context.Context, workflowFilePath, workflowName strin
 		return "", errors.Wrap(err, "failed to run go mod tidy")
 	}
 
-	buffer := bytes.Buffer{}
 	compileCmd := exec.CommandContext(ctx, "go", "build", "-o", workflowWasmPath, filepath.Base(workflowFilePath)) // #nosec G204 -- we control the value of the cmd so the lint/sec error is a false positive
 	compileCmd.Dir = filepath.Dir(workflowFilePath)
 	compileCmd.Env = append(os.Environ(), "CGO_ENABLED=0", "GOOS=wasip1", "GOARCH=wasm")
-	compileCmd.Stdout = &buffer
-	compileCmd.Stderr = &buffer
-	if err := compileCmd.Run(); err != nil {
-		fmt.Fprint(os.Stderr, buffer.String())
+	if output, err := compileCmd.CombinedOutput(); err != nil {
+		fmt.Fprint(os.Stderr, output)
 		return "", errors.Wrap(err, "failed to compile workflow")
 	}
 
