@@ -122,6 +122,7 @@ func startBillingStackIfIsNotRunning(t *testing.T, relativePathToRepoRoot, envir
 		os.Setenv("STREAMS_API_KEY", "cannot be empty")
 		os.Setenv("STREAMS_API_SECRET", "cannot be empty")
 		os.Setenv("TEST_OWNERS", strings.Join(cache.WorkflowOwnersStrings(), ","))
+		os.Setenv("ETH_FEED_ID", "0x000359843a543ee2fe414dc14c7e7920ef10f4372990b79d6361cdc0dd1ba782")
 
 		// Select the appropriate chain for billing service from available chains in the environment.
 		// otherwise, if RPCURL is defined, billing service can be used standalone

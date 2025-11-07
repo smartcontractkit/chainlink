@@ -54,6 +54,8 @@ var (
 	ErrInvalidRatios         = errors.New("invalid spending type ratios")
 	ErrDeductOptionRequired  = errors.New("deduct option required")
 	ErrEmptyRateCard         = errors.New("empty rate card")
+
+	rateAliases = map[billing.ResourceType][]string{billing.ResourceType_RESOURCE_TYPE_RPC_EVM: []string{"RPC_EVM"}}
 )
 
 type BillingClient interface {
@@ -806,6 +808,15 @@ func toRateCard(resp *billing.GetWorkflowExecutionRatesResponse) (map[string]dec
 		}
 
 		rateCard[fmt.Sprintf("GAS.%d", chainSelector)] = conversionDeci
+	}
+
+	// allows alias overrides for resource types
+	for key, aliases := range rateAliases {
+		if value, ok := rateCard[key.String()]; ok {
+			for _, alias := range aliases {
+				rateCard[alias] = value
+			}
+		}
 	}
 
 	return rateCard, nil
