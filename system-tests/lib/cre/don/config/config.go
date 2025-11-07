@@ -234,9 +234,8 @@ func baseNodeConfig(commonInputs *commonInputs) corechainlink.Config {
 
 	if commonInputs.provider.IsDocker() {
 		c.Telemetry = coretoml.Telemetry{
-			Enabled:  ptr.Ptr(true),
-			Endpoint: ptr.Ptr(strings.TrimPrefix(framework.HostDockerInternal(), "http://") + ":4317"),
-			// Endpoint:           ptr.Ptr("host.docker.internal:4317"),
+			Enabled:             ptr.Ptr(true),
+			Endpoint:            ptr.Ptr(strings.TrimPrefix(framework.HostDockerInternal(), "http://") + ":4317"),
 			InsecureConnection:  ptr.Ptr(true),
 			LogStreamingEnabled: ptr.Ptr(true),
 		}
