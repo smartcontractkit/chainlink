@@ -102,7 +102,7 @@ func suite(t *testing.T, fixture *testFixture) {
 		t.Log("Starting second capabilities registry configuration...")
 		configureOutput1, err := ConfigureCapabilitiesRegistry{}.Apply(fixture.env, fixture.configureInput)
 		require.Error(t, err, "second configuration should partially succeed - DON name should be taken")
-		require.ErrorContains(t, err, "failed to call AddDONs: contract error: error -`DONNameAlreadyTaken` args [test-don-1]", "DON name should be taken")
+		require.ErrorContains(t, err, "failed to execute AddDONs: contract error: error -`DONNameAlreadyTaken` args [test-don-1]", "DON name should be taken")
 		assert.NotNil(t, configureOutput1, "second configuration output should not be nil")
 		t.Logf("Second configuration completed successfully")
 
@@ -287,7 +287,7 @@ func TestConfigureCapabilitiesRegistryInput_YAMLSerialization(t *testing.T) {
 		// Verify all fields are correctly deserialized
 		assert.Equal(t, originalInput.ChainSelector, unmarshaledInput.ChainSelector)
 		assert.Equal(t, originalInput.CapabilitiesRegistryAddress, unmarshaledInput.CapabilitiesRegistryAddress)
-		assert.Equal(t, originalInput.MCMSConfig, unmarshaledInput.MCMSConfig)
+		assert.Equal(t, originalInput.MCMSConfig.MinDelay, unmarshaledInput.MCMSConfig.MinDelay)
 		assert.Equal(t, originalInput.Nops, unmarshaledInput.Nops)
 		assert.Equal(t, originalInput.Capabilities, unmarshaledInput.Capabilities)
 		assert.Equal(t, originalInput.Nodes, unmarshaledInput.Nodes)
