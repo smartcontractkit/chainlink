@@ -25,6 +25,7 @@ type NodeConfig struct {
 	ChainSelectors []uint64
 	Name           string
 	Labels         map[string]string
+	IsBootstrap    bool
 }
 
 func NewNode(t *testing.T, c NodeConfig) *deployment.Node {
@@ -49,6 +50,7 @@ func NewNode(t *testing.T, c NodeConfig) *deployment.Node {
 		AdminAddr:      gethcommon.BigToAddress(k).Hex(),
 		Labels:         labelsConversion(c.Labels),
 		SelToOCRConfig: ocrConfigs,
+		IsBootstrap:    c.IsBootstrap,
 	}
 }
 

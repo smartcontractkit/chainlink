@@ -39,8 +39,14 @@ type ProposeGatewayJobDeps struct {
 	Env cldf.Environment
 }
 
+type ProposedSpec struct {
+	NodeID   string
+	Proposal *jobv1.Proposal
+	Spec     string
+}
 type ProposeGatewayJobOutput struct {
-	Specs map[string][]string
+	// jd node ID -> list of proposed job specs
+	ProposedSpecs map[string]ProposedSpec
 }
 
 var ProposeGatewayJob = operations.NewOperation[ProposeGatewayJobInput, ProposeGatewayJobOutput, ProposeGatewayJobDeps](
@@ -56,12 +62,12 @@ var ProposeGatewayJob = operations.NewOperation[ProposeGatewayJobInput, ProposeG
 			}
 			nodes, err := pkg.FetchNodeChainConfigsFromJD(deps.Env.GetContext(), deps.Env, filter)
 			if err != nil {
-				return ProposeGatewayJobOutput{}, err
+				return ProposeGatewayJobOutput{}, fmt.Errorf("failed to fetch chain configs for DON %s filter %+v: %w", ad.Name, filter, err)
 			}
 
 			fam, chainID, err := parseSelector(uint64(input.GatewayKeyChainSelector))
 			if err != nil {
-				return ProposeGatewayJobOutput{}, err
+				return ProposeGatewayJobOutput{}, fmt.Errorf("failed to parse chain selector %d: %w", input.GatewayKeyChainSelector, err)
 			}
 
 			req := pkg.FetchNodesRequest{
@@ -70,7 +76,7 @@ var ProposeGatewayJob = operations.NewOperation[ProposeGatewayJobInput, ProposeG
 			}
 			ns, err := pkg.FetchNodesFromJD(deps.Env.GetContext(), deps.Env, req)
 			if err != nil {
-				return ProposeGatewayJobOutput{}, err
+				return ProposeGatewayJobOutput{}, fmt.Errorf("failed to fetch nodes from JD req %+v: %w", req, err)
 			}
 
 			// make map of node id to node
@@ -136,7 +142,6 @@ var ProposeGatewayJob = operations.NewOperation[ProposeGatewayJobInput, ProposeG
 		if err != nil {
 			return ProposeGatewayJobOutput{}, fmt.Errorf("failed to fetch nodes from JD: %w", err)
 		}
-
 		if len(nodes) == 0 {
 			return ProposeGatewayJobOutput{}, fmt.Errorf("no nodes found for domain %s with filters %+v", input.Domain, input.DONFilters)
 		}
@@ -151,15 +156,15 @@ var ProposeGatewayJob = operations.NewOperation[ProposeGatewayJobInput, ProposeG
 		}
 
 		output := ProposeGatewayJobOutput{
-			Specs: make(map[string][]string),
+			ProposedSpecs: make(map[string]ProposedSpec),
 		}
 		for nodeIdx, n := range nodes {
 			spec, err := gj.Resolve(nodeIdx)
 			if err != nil {
-				return ProposeGatewayJobOutput{}, err
+				return ProposeGatewayJobOutput{}, fmt.Errorf("failed to resolve gateway job spec for node %s: %w", n.GetId(), err)
 			}
 
-			_, err = deps.Env.Offchain.ProposeJob(b.GetContext(), &jobv1.ProposeJobRequest{
+			r, err := deps.Env.Offchain.ProposeJob(b.GetContext(), &jobv1.ProposeJobRequest{
 				NodeId: n.GetId(),
 				Spec:   spec,
 				Labels: labels,
@@ -168,9 +173,13 @@ var ProposeGatewayJob = operations.NewOperation[ProposeGatewayJobInput, ProposeG
 				return ProposeGatewayJobOutput{}, fmt.Errorf("error proposing job to node %s spec %s : %w", n.GetId(), spec, err)
 			}
 
-			output.Specs[n.GetId()] = append(output.Specs[n.GetId()], spec)
+			output.ProposedSpecs[n.GetId()] = ProposedSpec{
+				NodeID:   n.GetId(),
+				Proposal: r.Proposal,
+				Spec:     spec,
+			}
 		}
-		if len(output.Specs) == 0 {
+		if len(output.ProposedSpecs) == 0 {
 			return ProposeGatewayJobOutput{}, errors.New("no gateway jobs were proposed")
 		}
 
@@ -181,7 +190,7 @@ var ProposeGatewayJob = operations.NewOperation[ProposeGatewayJobInput, ProposeG
 func parseSelector(sel uint64) (nodev1.ChainType, string, error) {
 	fam, err := chainsel.GetSelectorFamily(sel)
 	if err != nil {
-		return nodev1.ChainType_CHAIN_TYPE_UNSPECIFIED, "", err
+		return nodev1.ChainType_CHAIN_TYPE_UNSPECIFIED, "", fmt.Errorf("failed to get selector family: %w", err)
 	}
 
 	var ct nodev1.ChainType
@@ -200,7 +209,7 @@ func parseSelector(sel uint64) (nodev1.ChainType, string, error) {
 
 	chainID, err := chainsel.GetChainIDFromSelector(sel)
 	if err != nil {
-		return nodev1.ChainType_CHAIN_TYPE_UNSPECIFIED, "", err
+		return nodev1.ChainType_CHAIN_TYPE_UNSPECIFIED, "", fmt.Errorf("failed to get chain ID from selector %d: %w", sel, err)
 	}
 
 	return ct, chainID, nil

@@ -283,6 +283,7 @@ func setupViewOnlyNodeTest(t *testing.T, registryChainSel, aptosChainSel uint64,
 		ChainSelectors: []uint64{registryChainSel, aptosChainSel},
 		Name:           donCfg.Name + "-bootstrap",
 		Labels:         btLabels,
+		IsBootstrap:    true,
 	})
 
 	n := envtest.NewNodes(t, nodesCfg)
