@@ -191,7 +191,12 @@ func (n Node) OCRConfigForChainSelector(chainSel uint64) (OCRConfig, bool) {
 		want.ChainName = strconv.FormatUint(want.ChainSelector, 10)
 	}
 
-	c, ok := n.SelToOCRConfig[want]
+	chainIdToConfig := make(map[uint64]OCRConfig, len(n.SelToOCRConfig))
+	for details, config := range n.SelToOCRConfig {
+		chainIdToConfig[details.ChainSelector] = config
+	}
+
+	c, ok := chainIdToConfig[want.ChainSelector]
 	return c, ok
 }
 
