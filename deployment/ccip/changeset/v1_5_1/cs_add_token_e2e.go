@@ -8,6 +8,7 @@ import (
 	"github.com/Masterminds/semver/v3"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/smartcontractkit/chainlink-evm/gethwrappers/shared/generated/1_5_0/burn_mint_erc20_transparent"
 	"github.com/smartcontractkit/mcms"
 	"golang.org/x/exp/maps"
 
@@ -637,6 +638,33 @@ func deployTokens(e cldf.Environment, tokenDeployCfg map[uint64]DeployTokenConfi
 					cfg.TokenName, selector, err)
 			}
 
+			tokenAddresses[selector] = token.Address
+		case shared.BurnMintERC20TransparentToken:
+			token, err := cldf.DeployContract(e.Logger, e.BlockChains.EVMChains()[selector], ab,
+				func(chain cldf_evm.Chain) cldf.ContractDeploy[*burn_mint_erc20_transparent.BurnMintERC20Transparent] {
+					if cfg.MaxSupply == nil {
+						cfg.MaxSupply = big.NewInt(0)
+					}
+					if cfg.PreMint == nil {
+						cfg.PreMint = big.NewInt(0)
+					}
+					tokenAddress, tx, token, err := burn_mint_erc20_transparent.DeployBurnMintERC20Transparent(
+						e.BlockChains.EVMChains()[selector].DeployerKey,
+						e.BlockChains.EVMChains()[selector].Client,
+					)
+					return cldf.ContractDeploy[*burn_mint_erc20_transparent.BurnMintERC20Transparent]{
+						Address:  tokenAddress,
+						Contract: token,
+						Tv:       cldf.NewTypeAndVersion(shared.BurnMintERC20TransparentToken, deployment.Version1_0_0),
+						Tx:       tx,
+						Err:      err,
+					}
+				},
+			)
+			if err != nil {
+				return nil, ab, fmt.Errorf("failed to deploy BurnMintERC20TransparentToken "+
+					"%s on chain %d: %w", cfg.TokenName, selector, err)
+			}
 			tokenAddresses[selector] = token.Address
 		default:
 			return nil, ab, fmt.Errorf("unsupported token %s type %s for deployment on chain %d", cfg.TokenName, cfg.Type, selector)

@@ -16,6 +16,7 @@ import (
 	"github.com/smartcontractkit/ccip-contract-examples/chains/evm/gobindings/generated/latest/token_governor"
 	"github.com/smartcontractkit/ccip-owner-contracts/pkg/gethwrappers"
 	chain_selectors "github.com/smartcontractkit/chain-selectors"
+	"github.com/smartcontractkit/chainlink-evm/gethwrappers/shared/generated/1_5_0/burn_mint_erc20_transparent"
 	"golang.org/x/exp/maps"
 	"golang.org/x/sync/errgroup"
 
@@ -1477,6 +1478,20 @@ func LoadChainState(ctx context.Context, chain cldf_evm.Chain, addresses map[str
 
 			state.SignerRegistry = signerRegistry
 			state.ABIByAddress[address] = signer_registry.SignerRegistryABI
+		case cldf.NewTypeAndVersion(ccipshared.BurnMintERC20TransparentToken, deployment.Version1_0_0).String():
+			tok, err := burn_mint_erc20_transparent.NewBurnMintERC20Transparent(common.HexToAddress(address), chain.Client)
+			if err != nil {
+				return state, err
+			}
+			if state.BurnMintERC20Transparent == nil {
+				state.BurnMintERC20Transparent = make(map[ccipshared.TokenSymbol]*burn_mint_erc20_transparent.BurnMintERC20Transparent)
+			}
+			symbol, err := tok.Symbol(nil)
+			if err != nil {
+				return state, fmt.Errorf("failed to get token symbol of token at %s: %w", address, err)
+			}
+			state.BurnMintERC20Transparent[ccipshared.TokenSymbol(symbol)] = tok
+			state.ABIByAddress[address] = burn_mint_erc20_transparent.BurnMintERC20TransparentABI
 		default:
 			// ManyChainMultiSig 1.0.0 can have any of these labels, it can have either 1,2 or 3 of these -
 			// bypasser, proposer and canceller

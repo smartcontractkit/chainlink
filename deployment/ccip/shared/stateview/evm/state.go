@@ -11,6 +11,7 @@ import (
 	"github.com/smartcontractkit/ccip-contract-examples/chains/evm/gobindings/generated/latest/burn_mint_with_external_minter_token_pool"
 	"github.com/smartcontractkit/ccip-contract-examples/chains/evm/gobindings/generated/latest/hybrid_with_external_minter_token_pool"
 	"github.com/smartcontractkit/ccip-contract-examples/chains/evm/gobindings/generated/latest/token_governor"
+	"github.com/smartcontractkit/chainlink-evm/gethwrappers/shared/generated/1_5_0/burn_mint_erc20_transparent"
 	"golang.org/x/sync/errgroup"
 
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/latest/don_id_claimer"
@@ -111,6 +112,7 @@ type CCIPChainState struct {
 	ERC677Tokens                   map[shared.TokenSymbol]*erc677.ERC677
 	BurnMintTokens677              map[shared.TokenSymbol]*burn_mint_erc677.BurnMintERC677
 	BurnMintERC20                  map[shared.TokenSymbol]*burn_mint_erc20.BurnMintERC20
+	BurnMintERC20Transparent       map[shared.TokenSymbol]*burn_mint_erc20_transparent.BurnMintERC20Transparent
 	BurnMintERC20WithDrip          map[shared.TokenSymbol]*burn_mint_erc20_with_drip.BurnMintERC20WithDrip
 	TokenGovernor                  map[shared.TokenSymbol]*token_governor.TokenGovernor
 
