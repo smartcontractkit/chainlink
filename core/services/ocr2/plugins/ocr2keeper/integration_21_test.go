@@ -26,6 +26,7 @@ import (
 	"github.com/umbracle/ethgo/abi"
 
 	"github.com/smartcontractkit/freeport"
+	"github.com/smartcontractkit/quarantine"
 
 	"github.com/smartcontractkit/libocr/commontypes"
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/confighelper"
@@ -90,6 +91,7 @@ func TestFilterNamesFromSpec21(t *testing.T) {
 }
 
 func TestIntegration_KeeperPluginConditionalUpkeep(t *testing.T) {
+	quarantine.Flaky(t, "DX-2137")
 	g := gomega.NewWithT(t)
 	lggr := logger.TestLogger(t)
 
