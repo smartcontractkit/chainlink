@@ -61,7 +61,7 @@ func (rc *responseCache) Fetch(ctx context.Context, workflowID string, req gatew
 	cacheMaxAge := time.Duration(req.CacheSettings.MaxAgeMs) * time.Millisecond
 	cachedResp, exists := rc.cache[req.Hash()]
 	if exists && cachedResp.storedAt.Add(cacheMaxAge).After(time.Now()) {
-		rc.metrics.Action.IncrementCacheHitCount(ctx, rc.lggr)
+		rc.metrics.IncrementCacheHitCount(ctx, rc.lggr)
 		return cachedResp.response
 	}
 	response := fetchFn()
@@ -98,7 +98,7 @@ func (rc *responseCache) DeleteExpired(ctx context.Context) int {
 		}
 	}
 	rc.lggr.Debugw("Removed expired cached HTTP responses", "count", expiredCount, "remaining", len(rc.cache))
-	rc.metrics.Action.IncrementCacheCleanUpCount(ctx, int64(expiredCount), rc.lggr)
-	rc.metrics.Action.RecordCacheSize(ctx, int64(len(rc.cache)), rc.lggr)
+	rc.metrics.IncrementCacheCleanUpCount(ctx, int64(expiredCount), rc.lggr)
+	rc.metrics.RecordCacheSize(ctx, int64(len(rc.cache)), rc.lggr)
 	return expiredCount
 }

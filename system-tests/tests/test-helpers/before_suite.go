@@ -19,6 +19,7 @@ import (
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/blockchains"
 	envconfig "github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/config"
+	"github.com/smartcontractkit/chainlink/system-tests/lib/infra"
 	ttypes "github.com/smartcontractkit/chainlink/system-tests/tests/test-helpers/configuration"
 )
 
@@ -51,6 +52,18 @@ func SetupTestEnvironmentWithConfig(t *testing.T, tconf *ttypes.TestConfig, flag
 	envArtifact := getEnvironmentArtifact(t, tconf.RelativePathToRepoRoot)
 	creEnvironment, dons, err := environment.BuildFromSavedState(t.Context(), cldlogger.NewSingleFileLogger(t), in, envArtifact)
 	require.NoError(t, err, "failed to load environment")
+
+	t.Cleanup(func() {
+		if t.Failed() {
+			framework.L.Warn().Msg("Test failed - checking for panics in Docker containers...")
+			foundPanics := infra.CheckContainersForPanics(framework.L, 100)
+			if !foundPanics {
+				var lastLines uint64 = 30
+				framework.L.Warn().Msgf("No panic patterns detected in Docker container logs. Displaying last %d lines of logs for debugging:", lastLines)
+				infra.PrintFailedContainerLogs(framework.L, lastLines)
+			}
+		}
+	})
 
 	return &ttypes.TestEnvironment{
 		Config:         in,

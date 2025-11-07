@@ -58,7 +58,6 @@ func StartDONs(
 	nodeSets []*cre.NodeSet,
 ) (*StartedDONs, error) {
 	if infraInput.Type == infra.CRIB {
-		lggr.Info().Msg("Saving node configs and secret overrides")
 		deployCribDonsInput := &crib.DeployCribDonsInput{
 			Topology:       topology,
 			NodeSet:        nodeSets,
@@ -123,6 +122,7 @@ func StartDONs(
 		errGroup.Go(func() error {
 			startTime := time.Now()
 			lggr.Info().Msgf("Starting DON named %s", nodeSet.Name)
+			nodeSet.Input.NodeSpecs = nodeSet.ExtractCTFInputs()
 			nodeset, nodesetErr := ns.NewSharedDBNodeSetWithContext(ctx, nodeSet.Input, registryChainBlockchainOutput)
 			if nodesetErr != nil {
 				return pkgerrors.Wrapf(nodesetErr, "failed to start nodeSet named %s", nodeSet.Name)

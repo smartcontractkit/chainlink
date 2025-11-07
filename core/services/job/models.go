@@ -40,6 +40,7 @@ const (
 	BlockHeaderFeeder       Type = (Type)(pipeline.BlockHeaderFeederJobType)
 	BlockhashStore          Type = (Type)(pipeline.BlockhashStoreJobType)
 	Bootstrap               Type = (Type)(pipeline.BootstrapJobType)
+	CRESettings             Type = (Type)(pipeline.CRESettings)
 	Cron                    Type = (Type)(pipeline.CronJobType)
 	CCIP                    Type = (Type)(pipeline.CCIPJobType)
 	DirectRequest           Type = (Type)(pipeline.DirectRequestJobType)
@@ -81,6 +82,7 @@ var (
 		BlockHeaderFeeder:       false,
 		BlockhashStore:          false,
 		Bootstrap:               false,
+		CRESettings:             false,
 		Cron:                    true,
 		CCIP:                    false,
 		DirectRequest:           true,
@@ -101,6 +103,7 @@ var (
 		BlockHeaderFeeder:       false,
 		BlockhashStore:          false,
 		Bootstrap:               false,
+		CRESettings:             false,
 		Cron:                    true,
 		CCIP:                    false,
 		DirectRequest:           true,
@@ -121,6 +124,7 @@ var (
 		BlockHeaderFeeder:       1,
 		BlockhashStore:          1,
 		Bootstrap:               1,
+		CRESettings:             1,
 		Cron:                    1,
 		CCIP:                    1,
 		DirectRequest:           1,
@@ -185,6 +189,8 @@ type Job struct {
 	CCIPSpecID                    *int32
 	CCIPSpec                      *CCIPSpec
 	CCIPBootstrapSpecID           *int32
+	CRESettingsSpecID             *int32
+	CRESettingsSpec               *CRESettingsSpec
 	JobSpecErrors                 []SpecError
 	Type                          Type          `toml:"type"`
 	SchemaVersion                 uint32        `toml:"schemaVersion"`
@@ -1115,4 +1121,13 @@ type CCIPSpec struct {
 	// PluginConfig contains plugin-specific config, like token price pipelines
 	// and RMN network info for offchain blessing.
 	PluginConfig JSONConfig `toml:"pluginConfig"`
+}
+
+type CRESettingsSpec struct {
+	ID        int32
+	CreatedAt time.Time `toml:"-"`
+	UpdatedAt time.Time `toml:"-"`
+
+	Settings string
+	Hash     string
 }

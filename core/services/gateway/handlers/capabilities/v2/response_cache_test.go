@@ -12,7 +12,7 @@ import (
 )
 
 func createCacheTestMetrics(t *testing.T) *metrics.Metrics {
-	m, err := metrics.NewMetrics()
+	m, err := metrics.NewMetrics(nil)
 	require.NoError(t, err)
 	return m
 }

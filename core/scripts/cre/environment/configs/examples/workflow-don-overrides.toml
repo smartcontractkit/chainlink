@@ -28,11 +28,7 @@
   override_mode = "all"
   http_port_range_start = 10100
 
-  bootstrap_node_index = 0
-  gateway_node_index = 0
-
   env_vars = { CL_EVM_CMD = "" }
-
   capabilities = ["ocr3", "custom-compute", "web-api-target", "web-api-trigger", "vault"]
 
   # Enable capabilities per chain with optional per-chain overrides
@@ -76,6 +72,7 @@
     port = 13000
 
   [[nodesets.node_specs]]
+    roles = ["plugin"]            # all nodes in the DON will have 'plugin' role, because "override_mode" = "all"
     [nodesets.node_specs.node]
       #docker_ctx = "../../../.."
       #docker_file = "core/chainlink.Dockerfile"

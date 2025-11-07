@@ -156,17 +156,56 @@ jobs:
           total_seconds=$(echo "$minutes * 60 + $seconds" | bc)
           echo "execution_time=$total_seconds" >> $GITHUB_OUTPUT
 
-      - name: Deploy v2 Cron workflow
+      - name: Deploy v2 Cron workflow (Go)
         shell: bash
         working-directory: core/scripts/cre/environment
         run: |
           go run . env workflow deploy --compile --workflow-file-path ./examples/workflows/v2/cron/main.go --name cronv2workflow
 
-      - name: Delete v2 Cron workflow
+      - name: Delete v2 Cron workflow (Go)
         shell: bash
         working-directory: core/scripts/cre/environment
         run: |
           go run . env workflow delete --name cronv2workflow
+
+      - name: Deploy v2 Cron workflow (TypeScript)
+        shell: bash
+        working-directory: core/scripts/cre/environment
+        run: |
+          # Install Bun
+          curl -fsSL https://bun.sh/install | bash
+
+          # Add Bun to PATH
+          export BUN_INSTALL="$HOME/.bun"
+          export PATH="$BUN_INSTALL/bin:$PATH"
+
+          # Create package.json
+          cat > package.json << 'EOF'
+          {
+            "name": "typescript-por-template",
+            "version": "1.0.0",
+            "main": "dist/main.js",
+            "private": true,
+            "scripts": {
+              "postinstall": "bunx cre-setup"
+            },
+            "license": "UNLICENSED",
+            "dependencies": {
+              "@chainlink/cre-sdk": "^1.0.0",
+              "viem": "2.34.0",
+              "zod": "3.25.76"
+            },
+            "devDependencies": {
+              "@types/bun": "1.2.21"
+            }
+          }
+          EOF
+
+          # Install Bun packages
+          bun install
+
+          # Compile and deploy TS workflow
+          go run . env workflow deploy --compile -n tsworkflow -w examples/workflows/ts/cron/index.ts -c examples/workflows/ts/cron/config.json
 
       - name: Execute example PoR workflow
         shell: bash
