@@ -86,9 +86,9 @@ func queryLoki(lokiBaseURL, query string, lastNSeconds int) (int, error) {
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
-		body, err := io.ReadAll(resp.Body)
-		if err != nil {
-			return 0, fmt.Errorf("Failed to read response body: %w", err)
+		body, readErr := io.ReadAll(resp.Body)
+		if readErr != nil {
+			return 0, fmt.Errorf("Failed to read response body: %w", readErr)
 		}
 		return 0, fmt.Errorf("Loki query failed with status %d: %s", resp.StatusCode, string(body))
 	}
