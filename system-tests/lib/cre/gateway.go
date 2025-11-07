@@ -1,13 +1,17 @@
 package cre
 
-import "github.com/smartcontractkit/chainlink/system-tests/lib/infra"
+import (
+	"strconv"
+
+	"github.com/smartcontractkit/chainlink/system-tests/lib/infra"
+)
 
 const (
 	gatewayIncomingPort = 5002
 	gatewayOutgoingPort = 5003
 )
 
-func NewGatewayConfig(p infra.Provider, id int, isBootstrap bool, uuid, donName string) *GatewayConfiguration {
+func NewGatewayConfig(p infra.Provider, id, gatewayNodeIdx int, isBootstrap bool, uuid, donName string) *GatewayConfiguration {
 	return &GatewayConfiguration{
 		NodeUUID: uuid,
 		Outgoing: Outgoing{
@@ -21,7 +25,7 @@ func NewGatewayConfig(p infra.Provider, id int, isBootstrap bool, uuid, donName 
 			InternalPort: gatewayIncomingPort,
 			ExternalPort: p.ExternalGatewayPort(gatewayIncomingPort),
 		},
-		AuthGatewayID: "cre-gateway",
+		AuthGatewayID: "gateway-node-" + strconv.Itoa(gatewayNodeIdx), // reflects what is done in deployment/cre/jobs/pkg/gateway_job.go
 	}
 }
 
@@ -44,21 +48,4 @@ type Incoming struct {
 	Path         string `toml:"path" json:"path"`
 	InternalPort int    `toml:"internal_port" json:"internal_port"`
 	ExternalPort int    `toml:"external_port" json:"external_port"`
-}
-
-type GatewayHelper struct{}
-
-func (g *GatewayHelper) RequiresGateway(flags []CapabilityFlag) bool {
-	return HasFlag(flags, CustomComputeCapability) ||
-		HasFlag(flags, WebAPITriggerCapability) ||
-		HasFlag(flags, WebAPITargetCapability) ||
-		HasFlag(flags, VaultCapability) ||
-		HasFlag(flags, HTTPActionCapability) ||
-		HasFlag(flags, HTTPTriggerCapability)
-}
-
-func (g *GatewayHelper) RequiresWebAPI(flags []CapabilityFlag) bool {
-	return HasFlag(flags, CustomComputeCapability) ||
-		HasFlag(flags, WebAPITriggerCapability) ||
-		HasFlag(flags, WebAPITargetCapability)
 }

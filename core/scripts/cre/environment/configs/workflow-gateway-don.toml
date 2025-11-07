@@ -222,6 +222,10 @@
 
   env_vars = { CL_EVM_CMD = "" }
 
+  # required so that EVM keys are generated and we can add gateway connecter
+  # remove once connector is not required by Workflow Registry Syncer
+  supported_evm_chains = [1337]
+
   [nodesets.db]
     image = "postgres:12.0"
     port = 13200

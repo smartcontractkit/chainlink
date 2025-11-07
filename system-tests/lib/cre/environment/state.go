@@ -56,7 +56,6 @@ func BuildFromSavedState(ctx context.Context, cldLogger logger.Logger, cachedInp
 		return nil, nil, errors.Wrap(startErr, "failed to start blockchains")
 	}
 
-	addressBook := cldf.NewMemoryAddressBookFromMap(envArtifact.AddressBook)
 	datastore := datastore.NewMemoryDataStore()
 	for _, addrRef := range envArtifact.AddressRefs {
 		addErr := datastore.AddressRefStore.Add(addrRef)
@@ -113,7 +112,7 @@ func BuildFromSavedState(ctx context.Context, cldLogger logger.Logger, cachedInp
 	cldEnv := cldf.NewEnvironment(
 		"cre",
 		cldLogger,
-		addressBook,
+		cldf.NewMemoryAddressBook(),
 		datastore.Seal(),
 		allNodeIDs,
 		offChain,

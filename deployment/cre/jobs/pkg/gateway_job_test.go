@@ -100,6 +100,7 @@ Name = 'Node 4'
 MaxResponseBytes = 50000000
 AllowedPorts = [443]
 AllowedSchemes = ['https']
+AllowedIPsCIDR = []
 
 [gatewayConfig.NodeServerConfig]
 HandshakeTimeoutMillis = 1000
@@ -214,6 +215,7 @@ Name = 'Node 4'
 MaxResponseBytes = 50000000
 AllowedPorts = [443]
 AllowedSchemes = ['https']
+AllowedIPsCIDR = []
 
 [gatewayConfig.NodeServerConfig]
 HandshakeTimeoutMillis = 1000
@@ -301,6 +303,7 @@ Name = 'Node 4'
 MaxResponseBytes = 50000000
 AllowedPorts = [443]
 AllowedSchemes = ['https']
+AllowedIPsCIDR = []
 
 [gatewayConfig.NodeServerConfig]
 HandshakeTimeoutMillis = 1000

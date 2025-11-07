@@ -29,6 +29,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/Masterminds/semver/v3"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/pkg/errors"
 	"github.com/rs/zerolog"
@@ -36,7 +37,6 @@ import (
 	"google.golang.org/protobuf/proto"
 	"gopkg.in/yaml.v3"
 
-	"github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	commonevents "github.com/smartcontractkit/chainlink-protos/workflows/go/common"
 	workflowevents "github.com/smartcontractkit/chainlink-protos/workflows/go/events"
 
@@ -300,17 +300,17 @@ type HTTPWorkflowConfig struct {
 
 // WorkflowRegistrationConfig holds configuration for workflow registration
 type WorkflowRegistrationConfig struct {
-	WorkflowName                string
-	WorkflowLocation            string
-	ConfigFilePath              string
-	CompressedWasmPath          string
-	SecretsURL                  string
-	WorkflowRegistryAddr        common.Address
-	WorkflowRegistryTypeVersion deployment.TypeAndVersion
-	ChainID                     uint64
-	DonID                       uint64
-	ContainerTargetDir          string
-	Blockchains                 []blockchains.Blockchain
+	WorkflowName            string
+	WorkflowLocation        string
+	ConfigFilePath          string
+	CompressedWasmPath      string
+	SecretsURL              string
+	WorkflowRegistryAddr    common.Address
+	WorkflowRegistryVersion *semver.Version
+	ChainID                 uint64
+	DonID                   uint64
+	ContainerTargetDir      string
+	Blockchains             []blockchains.Blockchain
 }
 
 /*
@@ -542,7 +542,7 @@ func registerWorkflow(ctx context.Context, t *testing.T,
 	t.Cleanup(func() {
 		deleteWorkflows(t, wfRegCfg.WorkflowName, wfRegCfg.ConfigFilePath,
 			wfRegCfg.CompressedWasmPath, wfRegCfg.Blockchains,
-			wfRegCfg.WorkflowRegistryAddr, wfRegCfg.WorkflowRegistryTypeVersion,
+			wfRegCfg.WorkflowRegistryAddr, wfRegCfg.WorkflowRegistryVersion,
 		)
 	})
 
@@ -560,7 +560,7 @@ func registerWorkflow(ctx context.Context, t *testing.T,
 		ctx,
 		sethClient,
 		wfRegCfg.WorkflowRegistryAddr,
-		wfRegCfg.WorkflowRegistryTypeVersion,
+		wfRegCfg.WorkflowRegistryVersion,
 		donID,
 		workflowName,
 		binaryURL,
@@ -580,11 +580,14 @@ Deletes workflows from:
 Recommendation:
 Use it at the end of your test to `t.Cleanup()` the env after test run
 */
-func deleteWorkflows(t *testing.T, uniqueWorkflowName string,
-	workflowConfigFilePath string, compressedWorkflowWasmPath string,
+func deleteWorkflows(
+	t *testing.T,
+	uniqueWorkflowName string,
+	workflowConfigFilePath string,
+	compressedWorkflowWasmPath string,
 	blockchains []blockchains.Blockchain,
 	workflowRegistryAddress common.Address,
-	tv deployment.TypeAndVersion,
+	version *semver.Version,
 ) {
 	t.Helper()
 
@@ -594,7 +597,7 @@ func deleteWorkflows(t *testing.T, uniqueWorkflowName string,
 	require.NoError(t, localEnvErr, "failed to remove workflow artifacts from local environment")
 
 	require.IsType(t, &evm.Blockchain{}, blockchains[0], "expected EVM blockchain type")
-	deleteErr := creworkflow.DeleteWithContract(t.Context(), blockchains[0].(*evm.Blockchain).SethClient, workflowRegistryAddress, tv, uniqueWorkflowName)
+	deleteErr := creworkflow.DeleteWithContract(t.Context(), blockchains[0].(*evm.Blockchain).SethClient, workflowRegistryAddress, version, uniqueWorkflowName)
 	require.NoError(t, deleteErr, "failed to delete workflow '%s'. Please delete/unregister it manually.", uniqueWorkflowName)
 	testLogger.Info().Msgf("Workflow '%s' deleted successfully from the registry.", uniqueWorkflowName)
 }
@@ -618,25 +621,19 @@ func CompileAndDeployWorkflow[T WorkflowConfig](t *testing.T,
 	require.NotEmpty(t, workflowDOName, "failed to find workflow DON in the topology")
 
 	compressedWorkflowWasmPath, workflowConfigPath := createWorkflowArtifacts(t, testLogger, workflowName, workflowDOName, workflowConfig, workflowFileLocation)
-
-	// Ignoring the deprecation warning as the suggest solution is not working in CI
-	//lint:ignore SA1019 ignoring deprecation warning for this usage
-	workflowRegistryAddress, tv, workflowRegistryErr := crecontracts.FindAddressesForChain(
-		testEnv.CreEnvironment.CldfEnvironment.ExistingAddresses, //nolint:staticcheck // SA1019 ignoring deprecation warning for this usage
-		registryChainSelector, keystone_changeset.WorkflowRegistry.String())
-	require.NoError(t, workflowRegistryErr, "failed to find workflow registry address for chain %d", testEnv.CreEnvironment.Blockchains[0].ChainID)
+	workflowRegistryAddress := crecontracts.MustGetAddressRefFromDataStore(testEnv.CreEnvironment.CldfEnvironment.DataStore, testEnv.CreEnvironment.Blockchains[0].ChainSelector(), keystone_changeset.WorkflowRegistry.String(), testEnv.CreEnvironment.ContractVersions[keystone_changeset.WorkflowRegistry.String()], "")
 
 	workflowRegConfig := &WorkflowRegistrationConfig{
-		WorkflowName:                workflowName,
-		WorkflowLocation:            workflowFileLocation,
-		ConfigFilePath:              workflowConfigPath,
-		CompressedWasmPath:          compressedWorkflowWasmPath,
-		WorkflowRegistryAddr:        workflowRegistryAddress,
-		WorkflowRegistryTypeVersion: tv,
-		ChainID:                     registryChainSelector,
-		DonID:                       testEnv.Dons.List()[0].ID,
-		ContainerTargetDir:          creworkflow.DefaultWorkflowTargetDir,
-		Blockchains:                 testEnv.CreEnvironment.Blockchains,
+		WorkflowName:            workflowName,
+		WorkflowLocation:        workflowFileLocation,
+		ConfigFilePath:          workflowConfigPath,
+		CompressedWasmPath:      compressedWorkflowWasmPath,
+		WorkflowRegistryAddr:    common.HexToAddress(workflowRegistryAddress.Address),
+		WorkflowRegistryVersion: workflowRegistryAddress.Version,
+		ChainID:                 registryChainSelector,
+		DonID:                   testEnv.Dons.List()[0].ID,
+		ContainerTargetDir:      creworkflow.DefaultWorkflowTargetDir,
+		Blockchains:             testEnv.CreEnvironment.Blockchains,
 	}
 	require.IsType(t, &evm.Blockchain{}, testEnv.CreEnvironment.Blockchains[0], "expected EVM blockchain type")
 	registerWorkflow(t.Context(), t, workflowRegConfig, testEnv.CreEnvironment.Blockchains[0].(*evm.Blockchain).SethClient, testLogger)
