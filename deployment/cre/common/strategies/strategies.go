@@ -26,7 +26,7 @@ type TransactionStrategy interface {
 	Apply(callFn func(opts *bind.TransactOpts) (*types.Transaction, error)) (*mcmstypes.BatchOperation, *types.Transaction, error)
 
 	// BuildProposal constructs a TimelockProposal from the provided batch operations.
-	// This is only applicable when using MCMS; otherwise, it returns an empty proposal and an error.
+	// This is only applicable when using MCMS; otherwise, it returns an empty proposal.
 	BuildProposal(operations []mcmstypes.BatchOperation) (mcmslib.TimelockProposal, error)
 }
 

@@ -1,8 +1,6 @@
 package strategies
 
 import (
-	"errors"
-
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/core/types"
 	mcmslib "github.com/smartcontractkit/mcms"
@@ -27,5 +25,5 @@ func (s *SimpleTransaction) Apply(callFn func(opts *bind.TransactOpts) (*types.T
 }
 
 func (s *SimpleTransaction) BuildProposal(_ []mcmstypes.BatchOperation) (mcmslib.TimelockProposal, error) {
-	return mcmslib.TimelockProposal{}, errors.New("using SimpleTransaction, cannot build proposal since MCMS is not being used")
+	return mcmslib.TimelockProposal{}, nil
 }
