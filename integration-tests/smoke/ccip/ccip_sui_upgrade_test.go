@@ -245,6 +245,9 @@ func Test_CCIP_Upgrade_EVM2Sui(t *testing.T) {
 	})
 	require.NoError(t, err)
 
+	state, err = stateview.LoadOnchainState(e.Env)
+	require.NoError(t, err)
+
 	var (
 		nonce  uint64
 		sender = common.LeftPadBytes(e.Env.BlockChains.EVMChains()[sourceChain].DeployerKey.From.Bytes(), 32)
