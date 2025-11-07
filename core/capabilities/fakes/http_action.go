@@ -3,6 +3,7 @@ package fakes
 import (
 	"bytes"
 	"context"
+	"errors"
 	"io"
 	"net/http"
 	"strings"
@@ -61,10 +62,10 @@ func (fh *DirectHTTPAction) SendRequest(ctx context.Context, metadata commonCap.
 		Timeout: timeout,
 	}
 
-	// Determine HTTP method (default to GET if not specified)
-	method := input.GetMethod()
+	// Return an error if no HTTP method is provided
+	method := strings.TrimSpace(input.GetMethod())
 	if method == "" {
-		method = "GET"
+		return nil, errors.New("http method cannot be empty")
 	}
 	method = strings.ToUpper(method)
 

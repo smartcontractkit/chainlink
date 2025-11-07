@@ -6,8 +6,10 @@ import (
 	"encoding/json"
 	"fmt"
 	"log/slog"
+	"time"
 
 	"github.com/smartcontractkit/cre-sdk-go/cre"
+	"google.golang.org/protobuf/types/known/durationpb"
 
 	"github.com/smartcontractkit/cre-sdk-go/capabilities/networking/http"
 	"github.com/smartcontractkit/cre-sdk-go/cre/wasm"
@@ -78,8 +80,8 @@ func orderPizza(sendReqester *http.SendRequester, inputs []byte, customer string
 
 	if orderRequest.Dedup {
 		req.CacheSettings = &http.CacheSettings{
-			ReadFromCache: true,
-			MaxAgeMs:      10000,
+			Store:  true,
+			MaxAge: durationpb.New(10 * time.Minute),
 		}
 	}
 
@@ -108,7 +110,7 @@ func onTrigger(config None, runtime cre.Runtime, trigger *http.Payload) (string,
 	logger.Info("Processing pizza order with inputs", "inputs", string(trigger.Input))
 
 	customer := "default"
-    // this demonstrates that workflows can have custom logic based on the identity that invoked HTTP trigger
+	// this demonstrates that workflows can have custom logic based on the identity that invoked HTTP trigger
 	if trigger.Key != nil && trigger.Key.PublicKey == "0x4b8d44a7a1302011fbc119407f8ce3baee6ea2ff" {
 		customer = "Bob"
 	}

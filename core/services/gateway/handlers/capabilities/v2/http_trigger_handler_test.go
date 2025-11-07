@@ -32,8 +32,8 @@ const workflowID = "0x1234567890abcdef1234567890abcdef12345678901234567890abcdef
 const workflowOwner = "0x1234567890abcdef1234567890abcdef12345678"
 const requestID = "test-request-id"
 
-func createTestMetrics(t *testing.T) *metrics.Metrics {
-	m, err := metrics.NewMetrics()
+func createTestMetrics(t *testing.T, donConfig *config.DONConfig) *metrics.Metrics {
+	m, err := metrics.NewMetrics(donConfig)
 	require.NoError(t, err)
 	return m
 }
@@ -562,7 +562,7 @@ func TestHttpTriggerHandler_ReapExpiredCallbacks(t *testing.T) {
 		// Manually set the callback's createdAt to the past to simulate expiration
 		handler.callbacksMu.Lock()
 		if cb, exists := handler.callbacks[requestID]; exists {
-			cb.createdAt = time.Now().Add(-time.Duration(cfg.MaxTriggerRequestDurationMs+1) * time.Millisecond)
+			cb.createdAt = time.Now().Add(-time.Duration(cfg.CleanUpPeriodMs+1) * time.Millisecond)
 			handler.callbacks[requestID] = cb
 		}
 		handler.callbacksMu.Unlock()
@@ -670,7 +670,7 @@ func TestHttpTriggerHandler_HandleUserTriggerRequest_Retries(t *testing.T) {
 	mockDon := handlermocks.NewDON(t)
 	metadataHandler := createTestMetadataHandler(t)
 	userRateLimiter := createTestUserRateLimiter()
-	testMetrics := createTestMetrics(t)
+	testMetrics := createTestMetrics(t, donConfig)
 	handler := NewHTTPTriggerHandler(lggr, cfg, donConfig, mockDon, metadataHandler, userRateLimiter, testMetrics)
 	privateKey := createTestPrivateKey(t)
 	registerWorkflow(t, handler, workflowID, privateKey)
@@ -1536,7 +1536,7 @@ func createTestMetadataHandler(t *testing.T) *WorkflowMetadataHandler {
 		},
 	}
 	cfg := WithDefaults(ServiceConfig{})
-	testMetrics := createTestMetrics(t)
+	testMetrics := createTestMetrics(t, donConfig)
 	return NewWorkflowMetadataHandler(lggr, cfg, mockDon, donConfig, testMetrics)
 }
 
@@ -1566,7 +1566,7 @@ func createTestTriggerHandlerWithConfig(t *testing.T, cfg ServiceConfig) (*httpT
 	lggr := logger.Test(t)
 	metadataHandler := createTestMetadataHandler(t)
 	userRateLimiter := createTestUserRateLimiter()
-	testMetrics := createTestMetrics(t)
+	testMetrics := createTestMetrics(t, donConfig)
 
 	handler := NewHTTPTriggerHandler(lggr, cfg, donConfig, mockDon, metadataHandler, userRateLimiter, testMetrics)
 	return handler, mockDon
@@ -1591,7 +1591,7 @@ func TestHttpTriggerHandler_HandleUserTriggerRequest_RateLimiting(t *testing.T) 
 	mockDon := handlermocks.NewDON(t)
 	lggr := logger.Test(t)
 	metadataHandler := createTestMetadataHandler(t)
-	testMetrics := createTestMetrics(t)
+	testMetrics := createTestMetrics(t, donConfig)
 
 	t.Run("successful rate limit check with CRE context", func(t *testing.T) {
 		userRateLimiter := createTestUserRateLimiter() // Unlimited
@@ -1704,7 +1704,7 @@ func TestHttpTriggerHandler_HandleUserTriggerRequest_StopsRetriesOnQuorum(t *tes
 	mockDon := handlermocks.NewDON(t)
 	metadataHandler := createTestMetadataHandler(t)
 	userRateLimiter := createTestUserRateLimiter()
-	testMetrics := createTestMetrics(t)
+	testMetrics := createTestMetrics(t, donConfig)
 	handler := NewHTTPTriggerHandler(lggr, cfg, donConfig, mockDon, metadataHandler, userRateLimiter, testMetrics)
 	privateKey := createTestPrivateKey(t)
 	registerWorkflow(t, handler, workflowID, privateKey)

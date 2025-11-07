@@ -26,16 +26,10 @@
   nodes = 5
   name = "workflow"
   don_types = ["workflow", "gateway"]
-  override_mode = "all"
+  override_mode = "each"
   http_port_range_start = 10100
 
-  # index of node in the nodeset that will act as the bootsrap node (not required, but added for visiblity)
-  bootstrap_node_index = 0
-  # added for visiblity, required always, when don_types include "gateway"
-  gateway_node_index = -1
-
   env_vars = { CL_EVM_CMD = "" }
-
   capabilities = ["ocr3", "custom-compute", "web-api-target", "web-api-trigger", "vault", "cron", "consensus", "don-time"]
 
   [nodesets.chain_capabilities]
@@ -48,7 +42,57 @@
     port = 13000
 
   [[nodesets.node_specs]]
+    roles = ["bootstrap"]
+    [nodesets.node_specs.node]
+      image = "localhost:5001/chainlink:nightly-20250624-plugins"
+      user_config_overrides = """
+      [Log]
+      Level = 'debug'
+      JSONConsole = true
+      """
 
+  [[nodesets.node_specs]]
+    roles = ["plugin"]
+    [nodesets.node_specs.node]
+      image = "localhost:5001/chainlink:nightly-20250624-plugins"
+      user_config_overrides = """
+      [Log]
+      Level = 'debug'
+      JSONConsole = true
+      """
+
+  [[nodesets.node_specs]]
+    roles = ["plugin"]
+    [nodesets.node_specs.node]
+      image = "localhost:5001/chainlink:nightly-20250624-plugins"
+      user_config_overrides = """
+      [Log]
+      Level = 'debug'
+      JSONConsole = true
+      """
+
+  [[nodesets.node_specs]]
+    roles = ["plugin"]
+    [nodesets.node_specs.node]
+      image = "localhost:5001/chainlink:nightly-20250624-plugins"
+      user_config_overrides = """
+      [Log]
+      Level = 'debug'
+      JSONConsole = true
+      """
+
+  [[nodesets.node_specs]]
+    roles = ["plugin"]
+    [nodesets.node_specs.node]
+      image = "localhost:5001/chainlink:nightly-20250624-plugins"
+      user_config_overrides = """
+      [Log]
+      Level = 'debug'
+      JSONConsole = true
+      """
+
+  [[nodesets.node_specs]]
+    roles = ["plugin"]
     [nodesets.node_specs.node]
       image = "localhost:5001/chainlink:nightly-20250624-plugins"
       user_config_overrides = """
