@@ -221,7 +221,7 @@ func swapCapability(ctx context.Context, capabilityFlag, binaryPath string, forc
 			framework.L.Info().Msgf("Waiting for all nodes to be up")
 			for _, node := range nodeSet.Out.CLNodes {
 				errg.Go(func() error {
-					return waitForURL(context, node.Node.ExternalURL+"/sessions", 100*time.Millisecond)
+					return waitForURL(context, node.Node.ExternalURL+"/sessions", 200*time.Millisecond, 3)
 				})
 			}
 			if err := errg.Wait(); err != nil {
@@ -256,7 +256,7 @@ func swapCapability(ctx context.Context, capabilityFlag, binaryPath string, forc
 	return config.Store(envconfig.MustLocalCREStateFileAbsPath(relativePathToRepoRoot))
 }
 
-func waitForURL(ctx context.Context, url string, interval time.Duration) error {
+func waitForURL(ctx context.Context, url string, interval time.Duration, successThreshold int) error {
 	ticker := time.NewTicker(interval)
 	defer ticker.Stop()
 
@@ -269,6 +269,7 @@ func waitForURL(ctx context.Context, url string, interval time.Duration) error {
 		return errors.Wrapf(err, "failed to parse URL %s", url)
 	}
 
+	success := 0
 	for {
 		select {
 		case <-ctx.Done():
@@ -279,9 +280,14 @@ func waitForURL(ctx context.Context, url string, interval time.Duration) error {
 				URL:    parsed,
 			})
 			if err == nil {
-				defer resp.Body.Close()    //nolint: revive // we want to defer in the loop
-				if resp.StatusCode < 500 { // service responds (even 404 means it's up)
-					return nil
+				defer resp.Body.Close()                              //nolint: revive // we want to defer in the loop
+				if resp.StatusCode >= 200 && resp.StatusCode < 500 { // we want the server to be up
+					success++
+					if success >= successThreshold {
+						return nil
+					}
+				} else {
+					success = 0
 				}
 			}
 		}
@@ -385,6 +391,7 @@ func swapNodes(ctx context.Context, forceFlag bool, waitTime time.Duration) erro
 			framework.L.Info().Msgf("Starting new Docker containers for DON %s", nodeSet.Name)
 			nodeSet.Out = nil
 			var nodesetErr error
+			nodeSet.Input.NodeSpecs = nodeSet.ExtractCTFInputs()
 			nodeSet.Out, nodesetErr = ns.NewSharedDBNodeSet(nodeSet.Input, config.Blockchains[0].Out)
 			if nodesetErr != nil {
 				framework.L.Error().Msgf("Failed to create node set named %s: %s", nodeSet.Name, nodesetErr)
