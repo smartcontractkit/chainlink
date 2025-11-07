@@ -81,7 +81,7 @@ func compileTSWorkflow(ctx context.Context, workflowFilePath, workflowName strin
 
 	compileCmd := exec.CommandContext(ctx, "bun", "cre-compile", workflowFilePath, filepath.Join(filepath.Dir(workflowFilePath), workflowWasmPath)) // #nosec G204 -- we control the value of the cmd so the lint/sec error is a false positive
 	if output, err := compileCmd.CombinedOutput(); err != nil {
-		fmt.Fprint(os.Stderr, output)
+		fmt.Fprint(os.Stderr, string(output))
 		return "", errors.Wrap(err, "failed to compile workflow")
 	}
 
@@ -106,7 +106,7 @@ func compileGoWorkflow(ctx context.Context, workflowFilePath, workflowName strin
 	compileCmd.Dir = filepath.Dir(workflowFilePath)
 	compileCmd.Env = append(os.Environ(), "CGO_ENABLED=0", "GOOS=wasip1", "GOARCH=wasm")
 	if output, err := compileCmd.CombinedOutput(); err != nil {
-		fmt.Fprint(os.Stderr, output)
+		fmt.Fprint(os.Stderr, string(output))
 		return "", errors.Wrap(err, "failed to compile workflow")
 	}
 
