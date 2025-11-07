@@ -165,7 +165,19 @@ Such tests as Soak, Performance, Benchmark, and Chaos Tests remain bound to a Ku
 
 We run CCIP 1.5 on release in `main.stage` cluster, build the image from branch you need and run them.
 
-### Authorizing in K8s
+### Building CCIP 1.5 K8s Tests
+
+Build and push test image to the SDLC registry, you can find `<base_image_registry>` [here](https://sso.smartcontract.com/app/UserHome) -> AWS SSO -> secure-sdlc -> <base_image_registry> | staging@smartcontract.com
+
+Copy creds for any role with push access, for example `PowerUserAccess`
+
+```bash
+make build-ccip-test-image base-image-registry=<base_image_registry>
+make push-ccip-test-image base-image-registry=<base_image_registry>
+```
+In case you need to rebuild the base image read this [guide](https://github.com/smartcontractkit/chainlink-testing-framework/tree/main/lib/k8s#building-base-image-for-k8s-tests)
+
+### Running CCIP 1.5 K8s Tests
 Add this to `staging-ccip-tester` profile to `~/.aws/config`
 ```bash
 [profile staging-ccip-tester]
@@ -183,15 +195,6 @@ aws eks update-kubeconfig --name main-stage-cluster --alias main-stage-cluster-c
 
 kubectl config use-context main-stage-cluster-ccip-tester
 ```
-
-### Building and Running Tests
-
-Build and push test image to the SDLC registry, you can find `<base_image_registry>` [here](https://sso.smartcontract.com/app/UserHome) -> AWS SSO -> secure-sdlc -> <base_image_registry> | staging@smartcontract.com
-```bash
-make build-ccip-test-image base-image-registry=<base_image_registry>
-make push-ccip-test-image base-image-registry=<base_image_registry>
-```
-In case you need to rebuild the base image read this [guide](https://github.com/smartcontractkit/chainlink-testing-framework/tree/main/lib/k8s#building-base-image-for-k8s-tests)
 
 Run the tests, read more about `.testsecrets` above.
 ```bash
