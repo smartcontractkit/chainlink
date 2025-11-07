@@ -1402,7 +1402,7 @@ func AddLaneWithDefaultPricesAndFeeQuoterConfig(t *testing.T, e *DeployedEnv, st
 		// TODO Need to double check this, LINK will have 9 decimals on TON like on Solana (not 18)
 		tonState := state.TonChains[from]
 		gasPrices[from] = big.NewInt(1e17)
-		gasPrices[to] = big.NewInt(1e11) // temp value, ref: https://tonviewer.com/config
+		gasPrices[to] = big.NewInt(7.76e11) // 1 CU = $0.000000776 (≈ $7.76e-7), which is 0.0000776 cents expressed in 18 decimals = 7.76e10−7e18=7.76e11
 		tokenPrices[tonState.LinkTokenAddress.String()] = deployment.EDecMult(20, 28)
 	case chainsel.FamilySui:
 		suiState := state.SuiChains[from]
@@ -1420,7 +1420,8 @@ func AddLaneWithDefaultPricesAndFeeQuoterConfig(t *testing.T, e *DeployedEnv, st
 
 	// EVM -> TON
 	if toFamily == chainsel.FamilyTon {
-		fqCfg.MaxPerMsgGasLimit = 1_000_000_000 // 1 TON
+		fqCfg.MaxPerMsgGasLimit = 1_000_000_000 // ~400 TON ~$776 USD
+		gasPrices[to] = big.NewInt(7.76e11)     // 1 CU = $0.000000776 (≈ $7.76e-7), which is 0.0000776 cents expressed in 18 decimals = 7.76e10−7e18=7.76e11
 	}
 
 	err = AddLane(
