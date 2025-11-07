@@ -27,7 +27,7 @@ type TransactionStrategy interface {
 
 	// BuildProposal constructs a TimelockProposal from the provided batch operations.
 	// This is only applicable when using MCMS; otherwise, it returns an empty proposal.
-	BuildProposal(operations []mcmstypes.BatchOperation) (mcmslib.TimelockProposal, error)
+	BuildProposal(operations []mcmstypes.BatchOperation) (*mcmslib.TimelockProposal, error)
 }
 
 // CreateStrategy is a factory function to create the appropriate strategy based on configuration

@@ -194,18 +194,24 @@ var AddCapabilities = operations.NewSequence[AddCapabilitiesInput, AddCapabiliti
 			return AddCapabilitiesOutput{}, fmt.Errorf("failed to update don: %w", err)
 		}
 
-		proposal, mcmsErr := strategy.BuildProposal([]types.BatchOperation{
-			*regCapsReport.Output.Operation, *updateNodesReport.Output.Operation, *updateDonReport.Output.Operation,
-		})
-		if mcmsErr != nil {
-			return AddCapabilitiesOutput{}, fmt.Errorf("failed to build MCMS proposal: %w", mcmsErr)
+		var proposals []mcmslib.TimelockProposal
+
+		if input.MCMSConfig != nil {
+			proposal, mcmsErr := strategy.BuildProposal([]types.BatchOperation{
+				*regCapsReport.Output.Operation, *updateNodesReport.Output.Operation, *updateDonReport.Output.Operation,
+			})
+			if mcmsErr != nil {
+				return AddCapabilitiesOutput{}, fmt.Errorf("failed to build MCMS proposal: %w", mcmsErr)
+			}
+
+			proposals = append(proposals, *proposal)
 		}
 
 		return AddCapabilitiesOutput{
 			DonInfo:           updateDonReport.Output.DonInfo,
 			UpdatedNodes:      updateNodesReport.Output.UpdatedNodes,
 			AddedCapabilities: regCapsReport.Output.Capabilities,
-			Proposals:         []mcmslib.TimelockProposal{proposal},
+			Proposals:         proposals,
 		}, nil
 	},
 )

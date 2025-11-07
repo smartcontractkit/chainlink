@@ -107,7 +107,7 @@ func (l SetConfig) Apply(e cldf.Environment, config SetConfigInput) (cldf.Change
 		}
 
 		return cldf.ChangesetOutput{
-			MCMSTimelockProposals: []mcms.TimelockProposal{proposal},
+			MCMSTimelockProposals: []mcms.TimelockProposal{*proposal},
 			Reports:               []operations.Report[any, any]{report.ToGenericReport()},
 		}, nil
 	}
@@ -202,7 +202,7 @@ func (l UpdateAllowedSigners) Apply(e cldf.Environment, config UpdateAllowedSign
 		}
 
 		return cldf.ChangesetOutput{
-			MCMSTimelockProposals: []mcms.TimelockProposal{proposal},
+			MCMSTimelockProposals: []mcms.TimelockProposal{*proposal},
 			Reports:               []operations.Report[any, any]{report.ToGenericReport()},
 		}, nil
 	}
@@ -289,7 +289,7 @@ func (l SetWorkflowOwnerConfig) Apply(e cldf.Environment, config SetWorkflowOwne
 		}
 
 		return cldf.ChangesetOutput{
-			MCMSTimelockProposals: []mcms.TimelockProposal{proposal},
+			MCMSTimelockProposals: []mcms.TimelockProposal{*proposal},
 			Reports:               []operations.Report[any, any]{report.ToGenericReport()},
 		}, nil
 	}
@@ -377,7 +377,7 @@ func (l SetDONLimit) Apply(e cldf.Environment, config SetDONLimitInput) (cldf.Ch
 		}
 
 		return cldf.ChangesetOutput{
-			MCMSTimelockProposals: []mcms.TimelockProposal{proposal},
+			MCMSTimelockProposals: []mcms.TimelockProposal{*proposal},
 			Reports:               []operations.Report[any, any]{report.ToGenericReport()},
 		}, nil
 	}
@@ -467,7 +467,7 @@ func (l SetUserDONOverride) Apply(e cldf.Environment, config SetUserDONOverrideI
 		}
 
 		return cldf.ChangesetOutput{
-			MCMSTimelockProposals: []mcms.TimelockProposal{proposal},
+			MCMSTimelockProposals: []mcms.TimelockProposal{*proposal},
 			Reports:               []operations.Report[any, any]{report.ToGenericReport()},
 		}, nil
 	}
@@ -553,7 +553,7 @@ func (l SetCapabilitiesRegistry) Apply(e cldf.Environment, config SetCapabilitie
 		}
 
 		return cldf.ChangesetOutput{
-			MCMSTimelockProposals: []mcms.TimelockProposal{proposal},
+			MCMSTimelockProposals: []mcms.TimelockProposal{*proposal},
 			Reports:               []operations.Report[any, any]{report.ToGenericReport()},
 		}, nil
 	}

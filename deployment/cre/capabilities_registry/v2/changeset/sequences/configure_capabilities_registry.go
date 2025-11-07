@@ -160,9 +160,15 @@ var ConfigureCapabilitiesRegistry = operations.NewSequence(
 			allOperations = append(allOperations, *registerDONsReport.Output.Operation)
 		}
 
-		proposal, mErr := strategy.BuildProposal(allOperations)
-		if mErr != nil {
-			return ConfigureCapabilitiesRegistryOutput{}, fmt.Errorf("failed to build MCMS proposal: %w", mErr)
+		var proposals []mcmslib.TimelockProposal
+
+		if len(allOperations) > 0 {
+			proposal, mErr := strategy.BuildProposal(allOperations)
+			if mErr != nil {
+				return ConfigureCapabilitiesRegistryOutput{}, fmt.Errorf("failed to build MCMS proposal: %w", mErr)
+			}
+
+			proposals = append(proposals, *proposal)
 		}
 
 		return ConfigureCapabilitiesRegistryOutput{
@@ -170,7 +176,7 @@ var ConfigureCapabilitiesRegistry = operations.NewSequence(
 			Nodes:                 registerNodesReport.Output.Nodes,
 			Capabilities:          registerCapabilitiesReport.Output.Capabilities,
 			DONs:                  registerDONsReport.Output.DONs,
-			MCMSTimelockProposals: []mcmslib.TimelockProposal{proposal},
+			MCMSTimelockProposals: proposals,
 		}, nil
 	},
 )

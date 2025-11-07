@@ -44,17 +44,17 @@ func (m *MCMSTransaction) Apply(callFn func(opts *bind.TransactOpts) (*types.Tra
 	return &op, tx, nil
 }
 
-func (m *MCMSTransaction) BuildProposal(operations []mcmstypes.BatchOperation) (mcmslib.TimelockProposal, error) {
+func (m *MCMSTransaction) BuildProposal(operations []mcmstypes.BatchOperation) (*mcmslib.TimelockProposal, error) {
 	if m.Config == nil || m.MCMSContracts == nil {
-		return mcmslib.TimelockProposal{}, errors.New("MCMS configuration or contracts are not provided")
+		return nil, errors.New("MCMS configuration or contracts are not provided")
 	}
 
 	if m.MCMSContracts.Timelock == nil || m.MCMSContracts.ProposerMcm == nil {
-		return mcmslib.TimelockProposal{}, errors.New("MCMS contracts are not properly initialized, missing Timelock or Proposer")
+		return nil, errors.New("MCMS contracts are not properly initialized, missing Timelock or Proposer")
 	}
 
 	if len(operations) == 0 {
-		return mcmslib.TimelockProposal{}, errors.New("no operations provided to build proposal")
+		return nil, errors.New("no operations provided to build proposal")
 	}
 
 	timelocksPerChain := map[uint64]string{
@@ -65,7 +65,7 @@ func (m *MCMSTransaction) BuildProposal(operations []mcmstypes.BatchOperation) (
 	}
 	inspector, err := proposalutils.McmsInspectorForChain(m.Env, m.ChainSel)
 	if err != nil {
-		return mcmslib.TimelockProposal{}, err
+		return nil, err
 	}
 	inspectorPerChain := map[uint64]sdk.Inspector{
 		m.ChainSel: inspector,
@@ -81,8 +81,8 @@ func (m *MCMSTransaction) BuildProposal(operations []mcmstypes.BatchOperation) (
 		*m.Config,
 	)
 	if err != nil {
-		return mcmslib.TimelockProposal{}, err
+		return nil, err
 	}
 
-	return *proposal, nil
+	return proposal, nil
 }

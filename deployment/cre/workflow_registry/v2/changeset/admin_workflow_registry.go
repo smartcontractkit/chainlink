@@ -100,7 +100,7 @@ func (l AdminPauseWorkflow) Apply(e cldf.Environment, config AdminPauseWorkflowI
 		}
 
 		return cldf.ChangesetOutput{
-			MCMSTimelockProposals: []mcms.TimelockProposal{proposal},
+			MCMSTimelockProposals: []mcms.TimelockProposal{*proposal},
 			Reports:               []operations.Report[any, any]{report.ToGenericReport()},
 		}, nil
 	}
@@ -191,7 +191,7 @@ func (l AdminBatchPauseWorkflows) Apply(e cldf.Environment, config AdminBatchPau
 		}
 
 		return cldf.ChangesetOutput{
-			MCMSTimelockProposals: []mcms.TimelockProposal{proposal},
+			MCMSTimelockProposals: []mcms.TimelockProposal{*proposal},
 			Reports:               []operations.Report[any, any]{report.ToGenericReport()},
 		}, nil
 	}
@@ -275,7 +275,7 @@ func (l AdminPauseAllByOwner) Apply(e cldf.Environment, config AdminPauseAllByOw
 		}
 
 		return cldf.ChangesetOutput{
-			MCMSTimelockProposals: []mcms.TimelockProposal{proposal},
+			MCMSTimelockProposals: []mcms.TimelockProposal{*proposal},
 			Reports:               []operations.Report[any, any]{report.ToGenericReport()},
 		}, nil
 	}
@@ -359,7 +359,7 @@ func (l AdminPauseAllByDON) Apply(e cldf.Environment, config AdminPauseAllByDONI
 		}
 
 		return cldf.ChangesetOutput{
-			MCMSTimelockProposals: []mcms.TimelockProposal{proposal},
+			MCMSTimelockProposals: []mcms.TimelockProposal{*proposal},
 			Reports:               []operations.Report[any, any]{report.ToGenericReport()},
 		}, nil
 	}

@@ -24,6 +24,6 @@ func (s *SimpleTransaction) Apply(callFn func(opts *bind.TransactOpts) (*types.T
 	return nil, tx, err
 }
 
-func (s *SimpleTransaction) BuildProposal(_ []mcmstypes.BatchOperation) (mcmslib.TimelockProposal, error) {
-	return mcmslib.TimelockProposal{}, nil
+func (s *SimpleTransaction) BuildProposal(_ []mcmstypes.BatchOperation) (*mcmslib.TimelockProposal, error) {
+	return nil, nil
 }

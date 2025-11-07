@@ -127,19 +127,19 @@ func (u UpdateDON) Apply(e cldf.Environment, config UpdateDONInput) (cldf.Change
 		return cldf.ChangesetOutput{}, fmt.Errorf("failed to update DON %s: %w", config.DONName, err)
 	}
 
+	var proposals []mcmslib.TimelockProposal
+
 	if updateDonReport.Output.Operation != nil {
 		proposal, mcmsErr := strategy.BuildProposal([]types.BatchOperation{*updateDonReport.Output.Operation})
 		if mcmsErr != nil {
 			return cldf.ChangesetOutput{}, fmt.Errorf("failed to build MCMS proposal for UpdateDON on chain %d: %w", config.RegistryChainSel, mcmsErr)
 		}
 
-		return cldf.ChangesetOutput{
-			Reports:               []operations.Report[any, any]{updateDonReport.ToGenericReport()},
-			MCMSTimelockProposals: []mcmslib.TimelockProposal{proposal},
-		}, nil
+		proposals = append(proposals, *proposal)
 	}
 
 	return cldf.ChangesetOutput{
-		Reports: []operations.Report[any, any]{updateDonReport.ToGenericReport()},
+		Reports:               []operations.Report[any, any]{updateDonReport.ToGenericReport()},
+		MCMSTimelockProposals: proposals,
 	}, nil
 }

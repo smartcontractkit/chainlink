@@ -152,7 +152,7 @@ var ConfigureSeq = operations.NewSequence[ConfigureSeqInput, ConfigureSeqOutput,
 						return ConfigureSeqOutput{}, fmt.Errorf("configure-forwarders-seq failed to build proposal for chain selector %d: %w", chain.Selector, err)
 					}
 
-					proposalsPerChain[chain.Selector] = append(proposalsPerChain[chain.Selector], &proposal)
+					proposalsPerChain[chain.Selector] = append(proposalsPerChain[chain.Selector], proposal)
 				}
 
 				forwarderContracts[chain.Selector] = append(forwarderContracts[chain.Selector], contract)
