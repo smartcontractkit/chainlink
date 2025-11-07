@@ -247,3 +247,13 @@ run_test_with_local_image: build_docker_image
 # before making any changes lists all file locations and awaits user confirmation
 remove_test_execution_artefacts:
 	./scripts/search_and_delete.sh .run.id
+
+# base-image-registry: AWS registry (only secure-sdlc account works)
+# check AWS Portal and search for
+# <image_registry> | secure-sdlc@smartcontract.com
+.PHONY: build-ccip-test-image
+build-ccip-test-image:
+	REGISTRY=$(base-image-registry) ./ccip-test-image-build.sh
+	docker tag chainlink-tests:latest $(base-image-registry).dkr.ecr.us-west-2.amazonaws.com/chainlink-tests:latest
+	docker push $(base-image-registry).dkr.ecr.us-west-2.amazonaws.com/chainlink-tests:latest
+

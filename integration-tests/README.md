@@ -160,3 +160,16 @@ Such tests as Soak, Performance, Benchmark, and Chaos Tests remain bound to a Ku
 1. Ensure all necessary configurations are provided (see [Test and node configuration](#test-and-node-configuration)).
 2. Follow instructions provided in [E2E Tests on GitHub CI](../.github/E2E_TESTS_ON_GITHUB_CI.md).
 3. Refer [Tests Run Books](./run-books/) to get more details on how to run specific per-product tests.
+
+## CCIP 1.5 K8s Tests
+
+We run CCIP 1.5 on release in `main.stage` cluster, build the image from branch you need and run them.
+```bash
+make build-ccip-test-image base-image-registry=<base_image_registry>
+```
+In case you need to rebuild the base image read this [guide](https://github.com/smartcontractkit/chainlink-testing-framework/tree/main/lib/k8s#building-base-image-for-k8s-tests)
+
+Run the tests, read more about `.testsecrets` above.
+```bash
+make test_smoke_ccip testimage=<base_image_registry>.dkr.ecr.us-west-2.amazonaws.com/chainlink-tests:latest override_toml=./ccip-tests/testconfig/tomls/prod-testnet/smoke-release-testing_token_transfer_native.toml testname=TestSmokeCCIPForBidirectionalLane
+```
