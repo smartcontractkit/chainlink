@@ -25,8 +25,8 @@ var (
 			EVMBytecode:      common.FromHex(nonce_manager.NonceManagerBin),
 			ZkSyncVMBytecode: nonce_manager.ZkBytecode,
 		},
-		func(input []common.Address) []interface{} {
-			return []interface{}{input}
+		func(input []common.Address) []any {
+			return []any{input}
 		},
 	)
 

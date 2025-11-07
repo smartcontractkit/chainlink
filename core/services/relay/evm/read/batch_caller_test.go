@@ -14,11 +14,11 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-evm/pkg/client/clienttest"
+	"github.com/smartcontractkit/chainlink-evm/pkg/codec"
+	"github.com/smartcontractkit/chainlink-evm/pkg/config"
 	"github.com/smartcontractkit/chainlink-evm/pkg/testutils"
-	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/codec"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/read"
-	evmtypes "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/types"
 )
 
 func TestDefaultEvmBatchCaller_BatchCallDynamicLimit(t *testing.T) {
@@ -125,7 +125,7 @@ func TestDefaultEvmBatchCaller_batchCallLimit(t *testing.T) {
 	}
 	paramABI := `[{"type":"uint64","name":"A"}]`
 	returnABI := `[{"type":"uint64","name":"B"}]`
-	codecConfig := evmtypes.CodecConfig{Configs: map[string]evmtypes.ChainCodecConfig{}}
+	codecConfig := config.CodecConfig{Configs: map[string]config.ChainCodecConfig{}}
 
 	for i, tc := range testCases {
 		t.Run(fmt.Sprintf("%v", tc), func(t *testing.T) {
@@ -134,8 +134,8 @@ func TestDefaultEvmBatchCaller_batchCallLimit(t *testing.T) {
 			for j := range calls {
 				contractName := fmt.Sprintf("testCase_%d", i)
 				methodName := fmt.Sprintf("method_%d", j)
-				codecConfig.Configs[fmt.Sprintf("params.%s.%s", contractName, methodName)] = evmtypes.ChainCodecConfig{TypeABI: paramABI}
-				codecConfig.Configs[fmt.Sprintf("return.%s.%s", contractName, methodName)] = evmtypes.ChainCodecConfig{TypeABI: returnABI}
+				codecConfig.Configs[fmt.Sprintf("params.%s.%s", contractName, methodName)] = config.ChainCodecConfig{TypeABI: paramABI}
+				codecConfig.Configs[fmt.Sprintf("return.%s.%s", contractName, methodName)] = config.ChainCodecConfig{TypeABI: returnABI}
 
 				params := MethodParam{A: uint64(j)}
 				var returnVal MethodReturn
@@ -151,7 +151,7 @@ func TestDefaultEvmBatchCaller_batchCallLimit(t *testing.T) {
 				Run(func(args mock.Arguments) {
 					evmCalls := args.Get(1).([]rpc.BatchElem)
 					for i := range evmCalls {
-						arg := evmCalls[i].Args[0].(map[string]interface{})["data"].(hexutil.Bytes)
+						arg := evmCalls[i].Args[0].(map[string]any)["data"].(hexutil.Bytes)
 						str, isOk := evmCalls[i].Result.(*string)
 						require.True(t, isOk)
 						*str = fmt.Sprintf("0x%064x", new(big.Int).SetBytes(arg[24:]).Uint64())

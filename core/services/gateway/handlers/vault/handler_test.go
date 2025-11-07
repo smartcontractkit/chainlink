@@ -70,7 +70,7 @@ type mockAggregator struct {
 	err error
 }
 
-func (m *mockAggregator) Aggregate(_ context.Context, _ logger.Logger, _ map[string]*jsonrpc.Response[json.RawMessage], currResp *jsonrpc.Response[json.RawMessage]) (*jsonrpc.Response[json.RawMessage], error) {
+func (m *mockAggregator) Aggregate(_ context.Context, _ logger.Logger, _ map[string]jsonrpc.Response[json.RawMessage], currResp *jsonrpc.Response[json.RawMessage]) (*jsonrpc.Response[json.RawMessage], error) {
 	if m.err != nil {
 		return nil, m.err
 	}
@@ -162,7 +162,7 @@ func TestVaultHandler_HandleJSONRPCUserMessage(t *testing.T) {
 		}
 		resultBytes, err := json.Marshal(responseData)
 		require.NoError(t, err)
-		expectedRequestID := owner + "::" + requestID
+		expectedRequestID := owner + vaulttypes.RequestIDSeparator + requestID
 		response := jsonrpc.Response[json.RawMessage]{
 			ID:     expectedRequestID,
 			Result: (*json.RawMessage)(&resultBytes),
@@ -185,6 +185,83 @@ func TestVaultHandler_HandleJSONRPCUserMessage(t *testing.T) {
 		require.NoError(t, err)
 
 		err = h.HandleNodeMessage(t.Context(), &response, NodeOne.Address)
+		require.NoError(t, err)
+		wg.Wait()
+	})
+
+	t.Run("nil EncryptedSecrets inside CreateSecrets body", func(t *testing.T) {
+		var wg sync.WaitGroup
+		h, callback, _, _ := setupHandler(t)
+		emptyCreateSecretsRequest := &vaultcommon.CreateSecretsRequest{
+			RequestId: "test_request_id",
+			EncryptedSecrets: []*vaultcommon.EncryptedSecret{
+				nil,
+				{
+					EncryptedValue: "abc123", // should be a valid hex string
+				},
+			},
+		}
+		emptyParams, err := json.Marshal(emptyCreateSecretsRequest)
+		require.NoError(t, err)
+
+		requestID := "1"
+		validJSONRequest := jsonrpc.Request[json.RawMessage]{
+			ID:     requestID,
+			Method: vaulttypes.MethodSecretsCreate,
+			Params: (*json.RawMessage)(&emptyParams),
+		}
+
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			resp, err2 := callback.Wait(t.Context())
+			assert.NoError(t, err2)
+			var secretsResponse jsonrpc.Response[vaultcommon.CreateSecretsResponse]
+			err2 = json.Unmarshal(resp.RawResponse, &secretsResponse)
+			assert.NoError(t, err2)
+			assert.Equal(t, validJSONRequest.ID, secretsResponse.ID, "Request ID should match")
+			assert.ErrorContains(t, secretsResponse.Error, "encrypted secret must not be nil")
+		}()
+
+		err = h.HandleJSONRPCUserMessage(t.Context(), validJSONRequest, callback)
+		require.NoError(t, err)
+		wg.Wait()
+	})
+
+	t.Run("no id inside CreateSecrets.EncryptedSecrets body", func(t *testing.T) {
+		var wg sync.WaitGroup
+		h, callback, _, _ := setupHandler(t)
+		emptyCreateSecretsRequest := &vaultcommon.CreateSecretsRequest{
+			RequestId: "test_request_id",
+			EncryptedSecrets: []*vaultcommon.EncryptedSecret{
+				{
+					EncryptedValue: "abc123", // should be a valid hex string
+				},
+			},
+		}
+		emptyParams, err := json.Marshal(emptyCreateSecretsRequest)
+		require.NoError(t, err)
+
+		requestID := "1"
+		validJSONRequest := jsonrpc.Request[json.RawMessage]{
+			ID:     requestID,
+			Method: vaulttypes.MethodSecretsCreate,
+			Params: (*json.RawMessage)(&emptyParams),
+		}
+
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			resp, err2 := callback.Wait(t.Context())
+			assert.NoError(t, err2)
+			var secretsResponse jsonrpc.Response[vaultcommon.CreateSecretsResponse]
+			err2 = json.Unmarshal(resp.RawResponse, &secretsResponse)
+			assert.NoError(t, err2)
+			assert.Equal(t, validJSONRequest.ID, secretsResponse.ID, "Request ID should match")
+			assert.ErrorContains(t, secretsResponse.Error, "secret ID must not be nil")
+		}()
+
+		err = h.HandleJSONRPCUserMessage(t.Context(), validJSONRequest, callback)
 		require.NoError(t, err)
 		wg.Wait()
 	})
@@ -224,7 +301,7 @@ func TestVaultHandler_HandleJSONRPCUserMessage(t *testing.T) {
 		}
 		resultBytes, err := json.Marshal(responseData)
 		require.NoError(t, err)
-		expectedRequestID := owner + "::" + requestID
+		expectedRequestID := owner + vaulttypes.RequestIDSeparator + requestID
 		response := jsonrpc.Response[json.RawMessage]{
 			ID:     expectedRequestID,
 			Result: (*json.RawMessage)(&resultBytes),
@@ -243,6 +320,70 @@ func TestVaultHandler_HandleJSONRPCUserMessage(t *testing.T) {
 			assert.NoError(t, err2)
 			assert.Equal(t, validJSONRequest.ID, secretsResponse.ID, "Request ID should match")
 			assert.True(t, proto.Equal(secretsResponse.Result, responseData), "Response data should match")
+		}()
+
+		err = h.HandleJSONRPCUserMessage(t.Context(), validJSONRequest, callback)
+		require.NoError(t, err)
+
+		err = h.HandleNodeMessage(t.Context(), &response, NodeOne.Address)
+		require.NoError(t, err)
+		wg.Wait()
+	})
+
+	t.Run("nil id in delete secrets", func(t *testing.T) {
+		var wg sync.WaitGroup
+		h, callback, _, _ := setupHandler(t)
+
+		id := &vaultcommon.SecretIdentifier{
+			Key:       "foo",
+			Namespace: "default",
+			Owner:     owner,
+		}
+		reqData := &vaultcommon.DeleteSecretsRequest{
+			RequestId: "id",
+			Ids: []*vaultcommon.SecretIdentifier{
+				nil,
+				id,
+			},
+		}
+		reqDataBytes, err := json.Marshal(reqData)
+		require.NoError(t, err)
+		requestID := "1"
+		validJSONRequest := jsonrpc.Request[json.RawMessage]{
+			ID:     requestID,
+			Method: vaulttypes.MethodSecretsDelete,
+			Params: (*json.RawMessage)(&reqDataBytes),
+		}
+
+		responseData := &vaultcommon.DeleteSecretsResponse{
+			Responses: []*vaultcommon.DeleteSecretResponse{
+				{
+					Id:      id,
+					Success: true,
+				},
+			},
+		}
+		resultBytes, err := json.Marshal(responseData)
+		require.NoError(t, err)
+		expectedRequestID := owner + vaulttypes.RequestIDSeparator + requestID
+		response := jsonrpc.Response[json.RawMessage]{
+			ID:     expectedRequestID,
+			Result: (*json.RawMessage)(&resultBytes),
+			Method: vaulttypes.MethodSecretsDelete,
+		}
+		resultBytes, err = json.Marshal(responseData)
+		require.NoError(t, err)
+
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			resp, err2 := callback.Wait(t.Context())
+			assert.NoError(t, err2)
+			var secretsResponse jsonrpc.Response[vaultcommon.DeleteSecretsResponse]
+			err2 = json.Unmarshal(resp.RawResponse, &secretsResponse)
+			assert.NoError(t, err2)
+			assert.Equal(t, validJSONRequest.ID, secretsResponse.ID, "Request ID should match")
+			assert.ErrorContains(t, secretsResponse.Error, "secret ID must not be nil")
 		}()
 
 		err = h.HandleJSONRPCUserMessage(t.Context(), validJSONRequest, callback)
@@ -283,7 +424,7 @@ func TestVaultHandler_HandleJSONRPCUserMessage(t *testing.T) {
 		}
 		resultBytes, err := json.Marshal(responseData)
 		require.NoError(t, err)
-		expectedRequestID := owner + "::" + requestID
+		expectedRequestID := owner + vaulttypes.RequestIDSeparator + requestID
 		response := jsonrpc.Response[json.RawMessage]{
 			ID:     expectedRequestID,
 			Result: (*json.RawMessage)(&resultBytes),
@@ -312,6 +453,69 @@ func TestVaultHandler_HandleJSONRPCUserMessage(t *testing.T) {
 		wg.Wait()
 	})
 
+	t.Run("unhappy path - duplicate requestId", func(t *testing.T) {
+		var wg sync.WaitGroup
+		h, callback, don, _ := setupHandler(t)
+		don.On("SendToNode", mock.Anything, mock.Anything, mock.Anything).Return(nil)
+
+		requestID := "1"
+		reqData := &vaultcommon.ListSecretIdentifiersRequest{
+			RequestId: requestID,
+			Owner:     owner,
+		}
+		reqDataBytes, err := json.Marshal(reqData)
+		require.NoError(t, err)
+
+		validJSONRequest := jsonrpc.Request[json.RawMessage]{
+			ID:     requestID,
+			Method: vaulttypes.MethodSecretsList,
+			Params: (*json.RawMessage)(&reqDataBytes),
+		}
+
+		responseData := &vaultcommon.ListSecretIdentifiersResponse{
+			Identifiers: []*vaultcommon.SecretIdentifier{
+				{
+					Key:       "foo",
+					Owner:     owner,
+					Namespace: "default",
+				},
+			},
+		}
+		resultBytes, err := json.Marshal(responseData)
+		require.NoError(t, err)
+		expectedRequestID := owner + vaulttypes.RequestIDSeparator + requestID
+		response := jsonrpc.Response[json.RawMessage]{
+			ID:     expectedRequestID,
+			Result: (*json.RawMessage)(&resultBytes),
+			Method: vaulttypes.MethodSecretsList,
+		}
+		resultBytes, err = json.Marshal(responseData)
+		require.NoError(t, err)
+
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			resp, err2 := callback.Wait(t.Context())
+			assert.NoError(t, err2)
+			var secretsResponse jsonrpc.Response[vaultcommon.ListSecretIdentifiersResponse]
+			err2 = json.Unmarshal(resp.RawResponse, &secretsResponse)
+			assert.NoError(t, err2)
+			assert.Equal(t, validJSONRequest.ID, secretsResponse.ID, "Request ID should match")
+			assert.True(t, proto.Equal(secretsResponse.Result, responseData), "Response data should match")
+		}()
+
+		err = h.HandleJSONRPCUserMessage(t.Context(), validJSONRequest, callback)
+		require.NoError(t, err)
+
+		// send duplicate request
+		err = h.HandleJSONRPCUserMessage(t.Context(), validJSONRequest, callback)
+		require.ErrorContains(t, err, "request ID already exists")
+
+		err = h.HandleNodeMessage(t.Context(), &response, NodeOne.Address)
+		require.NoError(t, err)
+		wg.Wait()
+	})
+
 	t.Run("unhappy path - quorum unobtainable", func(t *testing.T) {
 		var wg sync.WaitGroup
 		h, callback, don, _ := setupHandler(t)
@@ -333,7 +537,7 @@ func TestVaultHandler_HandleJSONRPCUserMessage(t *testing.T) {
 			Params: (*json.RawMessage)(&reqDataBytes),
 		}
 
-		expectedRequestID := owner + "::" + requestID
+		expectedRequestID := owner + vaulttypes.RequestIDSeparator + requestID
 		response := jsonrpc.Response[json.RawMessage]{
 			ID:     expectedRequestID,
 			Method: vaulttypes.MethodSecretsList,
@@ -531,7 +735,7 @@ func TestVaultHandler_HandleJSONRPCUserMessage(t *testing.T) {
 }
 
 func TestVaultHandler_PublicKeyGet(t *testing.T) {
-	h, callback, don, clock := setupHandler(t)
+	h, callback, don, _ := setupHandler(t)
 	signers := []string{
 		"d6da96fe596705b32bc3a0e11cdefad77feaad79000000000000000000000000",
 		"327aa349c9718cd36c877d1e90458fe1929768ad000000000000000000000000",
@@ -601,41 +805,4 @@ func TestVaultHandler_PublicKeyGet(t *testing.T) {
 
 	assert.Equal(t, jsonRequest.ID, publicKeyResponse.ID, "request ID should match")
 	assert.Equal(t, publicKey, publicKeyResponse.Result.PublicKey, "public key should match")
-
-	// Now the value has expired, so we'll fetch it again.
-	clock.Advance(10 * time.Minute)
-
-	callback = common.NewCallback()
-	jsonRequest = jsonrpc.Request[json.RawMessage]{
-		ID:     "another_request_id_2",
-		Method: vaulttypes.MethodPublicKeyGet,
-		Params: nil,
-	}
-	err = h.HandleJSONRPCUserMessage(t.Context(), jsonRequest, callback)
-	require.NoError(t, err)
-
-	newPublicKey := "new_test_public_key"
-	responseData = &vaultcommon.GetPublicKeyResponse{
-		PublicKey: newPublicKey,
-	}
-	resultBytes, err = json.Marshal(responseData)
-	require.NoError(t, err)
-	response = jsonrpc.Response[json.RawMessage]{
-		ID:     "another_request_id_2",
-		Method: vaulttypes.MethodPublicKeyGet,
-		Result: (*json.RawMessage)(&resultBytes),
-	}
-	for n := range 2*mcr.F + 1 {
-		err = h.HandleNodeMessage(t.Context(), &response, fmt.Sprintf("0xnode%d", n))
-		require.NoError(t, err)
-	}
-
-	resp, err = callback.Wait(t.Context())
-	require.NoError(t, err)
-	publicKeyResponse = jsonrpc.Response[vaultcommon.GetPublicKeyResponse]{}
-	ierr := json.Unmarshal(resp.RawResponse, &publicKeyResponse)
-	require.NoError(t, ierr)
-
-	assert.Equal(t, jsonRequest.ID, publicKeyResponse.ID, "request ID should match")
-	assert.Equal(t, newPublicKey, publicKeyResponse.Result.PublicKey, "public key should match")
 }

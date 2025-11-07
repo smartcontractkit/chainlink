@@ -19,6 +19,7 @@ import (
 	v3 "github.com/smartcontractkit/chainlink-common/pkg/types/mercury/v3"
 	v4 "github.com/smartcontractkit/chainlink-common/pkg/types/mercury/v4"
 	"github.com/smartcontractkit/chainlink-data-streams/mercury"
+	evmconfig "github.com/smartcontractkit/chainlink-evm/pkg/config"
 	"github.com/smartcontractkit/chainlink-evm/pkg/heads"
 
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/mercury/config"
@@ -28,7 +29,6 @@ import (
 	reportcodecv3 "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury/v3/reportcodec"
 	reportcodecv4 "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury/v4/reportcodec"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury/wsrpc"
-	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/types"
 )
 
 var _ commontypes.MercuryProvider = (*mercuryProvider)(nil)
@@ -49,7 +49,7 @@ type mercuryProvider struct {
 func NewMercuryProvider(
 	ctx context.Context,
 	jobID int32,
-	relayConfig types.RelayConfig,
+	relayConfig evmconfig.RelayConfig,
 	cfg config.PluginConfig,
 	transmitterCfg evmmercury.TransmitterConfig,
 	cp commontypes.ConfigProvider,
@@ -214,7 +214,7 @@ func (r *mercuryChainReader) LatestHeads(ctx context.Context, k int) ([]mercuryt
 	}
 
 	blocks := make([]mercurytypes.Head, len(evmBlocks))
-	for x := 0; x < len(evmBlocks); x++ {
+	for x := range evmBlocks {
 		blocks[x] = mercurytypes.Head{
 			Number:    uint64(evmBlocks[x].BlockNumber()),
 			Hash:      evmBlocks[x].Hash.Bytes(),

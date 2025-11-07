@@ -14,12 +14,10 @@ import (
 
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_5_0/token_admin_registry"
 
-	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/latest/factory_burn_mint_erc20"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/latest/maybe_revert_message_receiver"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/latest/mock_lbtc_token_pool"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/latest/mock_usdc_token_messenger"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/latest/mock_usdc_token_transmitter"
-	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/latest/token_pool_factory"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_0_0/rmn_proxy_contract"
 	price_registry_1_2_0 "github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_2_0/price_registry"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_2_0/router"
@@ -29,8 +27,10 @@ import (
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_5_1/burn_mint_token_pool"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_5_1/burn_with_from_mint_token_pool"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_5_1/lock_release_token_pool"
+	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_5_1/token_pool_factory"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_5_1/usdc_token_pool"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_0/registry_module_owner_custom"
+	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_2/factory_burn_mint_erc20"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/shared/generated/initial/burn_mint_erc677"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/shared/generated/initial/multicall3"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/shared/generated/initial/weth9"
@@ -38,15 +38,16 @@ import (
 
 	cldf_evm "github.com/smartcontractkit/chainlink-deployments-framework/chain/evm"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
 
 	"github.com/smartcontractkit/chainlink/deployment"
+	ccipopsv1_5_1 "github.com/smartcontractkit/chainlink/deployment/ccip/operation/evm/v1_5_1"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
+	opsutil "github.com/smartcontractkit/chainlink/deployment/common/opsutils"
 )
 
-var (
-	_ cldf.ChangeSet[DeployPrerequisiteConfig] = DeployPrerequisitesChangeset
-)
+var _ cldf.ChangeSet[DeployPrerequisiteConfig] = DeployPrerequisitesChangeset
 
 // DeployPrerequisitesChangeset deploys the pre-requisite contracts for CCIP
 // pre-requisite contracts are the contracts which can be reused from previous versions of CCIP
@@ -61,12 +62,26 @@ func DeployPrerequisitesChangeset(env cldf.Environment, cfg DeployPrerequisiteCo
 	err = deployPrerequisiteChainContracts(env, ab, cfg)
 	if err != nil {
 		env.Logger.Errorw("Failed to deploy prerequisite contracts", "err", err, "addressBook", ab)
+
+		ds, err := shared.PopulateDataStore(ab)
+		if err != nil {
+			return cldf.ChangesetOutput{}, fmt.Errorf("failed to populate in-memory DataStore: %w", err)
+		}
+
 		return cldf.ChangesetOutput{
 			AddressBook: ab,
+			DataStore:   ds,
 		}, fmt.Errorf("failed to deploy prerequisite contracts: %w", err)
 	}
+
+	ds, err := shared.PopulateDataStore(ab)
+	if err != nil {
+		return cldf.ChangesetOutput{}, fmt.Errorf("failed to populate in-memory DataStore: %w", err)
+	}
+
 	return cldf.ChangesetOutput{
 		AddressBook: ab,
+		DataStore:   ds,
 	}, nil
 }
 
@@ -560,15 +575,40 @@ func deployPrerequisiteContracts(e cldf.Environment, ab cldf.AddressBook, state 
 	}
 	if deployOpts.TokenPoolFactoryEnabled {
 		var err error
-		tokenPoolFactory, factoryBurnMintERC20, burnMintTokenPool, burnFromMintTokenPool, burnWithFromMintTokenPool, lockReleaseTokenPool, err =
-			deployTokenPoolFactory(e.Logger, chain, ab, rmnProxy.Address(), r.Address(), tokenAdminReg.Address(),
-				regAddresses, tokenPoolFactory, factoryBurnMintERC20, burnMintTokenPool, burnFromMintTokenPool, burnWithFromMintTokenPool, lockReleaseTokenPool)
+		var tokenPoolFactoryAddr common.Address
+		if tokenPoolFactory == nil {
+			tpfReport, err := operations.ExecuteOperation(e.OperationsBundle, ccipopsv1_5_1.DeployTokenPoolFactoryOp, chain, opsutil.EVMDeployInput[ccipopsv1_5_1.DeployTokenPoolFactoryInput]{
+				ChainSelector: chain.ChainSelector(),
+				DeployInput: ccipopsv1_5_1.DeployTokenPoolFactoryInput{
+					ChainSelector:              chain.ChainSelector(),
+					TokenAdminRegistry:         tokenAdminReg.Address(),
+					RegistryModule1_6Addresses: regAddresses[0],
+					RMNProxy:                   rmnProxy.Address(),
+					Router:                     r.Address(),
+				},
+			})
+			if err != nil {
+				lggr.Errorw("Failed to deploy token pool factory", "chain", chain.String(), "err", err)
+				return err
+			}
+			tokenPoolFactoryAddr = tpfReport.Output.Address
+			err = ab.Save(chain.ChainSelector(), tpfReport.Output.Address.Hex(), cldf.MustTypeAndVersionFromString(tpfReport.Output.TypeAndVersion))
+			if err != nil {
+				return fmt.Errorf("failed to save address %s for chain %d: %w", tpfReport.Output.Address.Hex(), chain.ChainSelector(), err)
+			}
+		} else {
+			lggr.Infow("Token pool factory already deployed", "chain", chain.String(), "addr", tokenPoolFactory.Address)
+			tokenPoolFactoryAddr = tokenPoolFactory.Address()
+		}
+
+		factoryBurnMintERC20, burnMintTokenPool, burnFromMintTokenPool, burnWithFromMintTokenPool, lockReleaseTokenPool, err = deployTokenPools(e.Logger, chain, ab, rmnProxy.Address(), r.Address(),
+			factoryBurnMintERC20, burnMintTokenPool, burnFromMintTokenPool, burnWithFromMintTokenPool, lockReleaseTokenPool)
 		if err != nil {
 			return err
 		}
 		e.Logger.Infow("Deployed TokenPoolFactory Contracts",
 			"chain", chain.String(),
-			"tokenPoolFactory", tokenPoolFactory.Address(),
+			"tokenPoolFactory", tokenPoolFactoryAddr,
 			"factoryBurnMintERC20", factoryBurnMintERC20.Address(),
 			"burnMintTokenPool", burnMintTokenPool.Address(),
 			"burnFromMintTokenPool", burnFromMintTokenPool.Address(),
@@ -718,26 +758,21 @@ func deployPrerequisiteContracts(e cldf.Environment, ab cldf.AddressBook, state 
 	return nil
 }
 
-// deployTokenPoolFactory deploys the TokenPoolFactory contract and other associated contracts
-// These are contracts are deployed by the TokenPoolFactory. These contracts are FactoryBurnMintERC20,
-// BurnMintTokenPool, BurnFronMintTokenPool, BurnWithFromMintTokenPool & LockReleaseTokenPool
+// deployTokenPools deploys contracts are deployed by the TokenPoolFactory. These contracts are
+// FactoryBurnMintERC20, BurnMintTokenPool, BurnFronMintTokenPool, BurnWithFromMintTokenPool & LockReleaseTokenPool
 // We deploy them here so that we can verify them. All subsequent user deployments would then be verified.
-func deployTokenPoolFactory(
+func deployTokenPools(
 	lggr logger.Logger,
 	chain cldf_evm.Chain,
 	addresses cldf.AddressBook,
 	rmnProxy common.Address,
 	router common.Address,
-	tokenAdminRegistry common.Address,
-	registryAddresses []common.Address,
-	tokenPoolFactory *token_pool_factory.TokenPoolFactory,
 	factoryBurnMintERC20 *factory_burn_mint_erc20.FactoryBurnMintERC20,
 	burnMintTokenPool *burn_mint_token_pool.BurnMintTokenPool,
 	burnFromMintTokenPool *burn_from_mint_token_pool.BurnFromMintTokenPool,
 	burnWithFromMintTokenPool *burn_with_from_mint_token_pool.BurnWithFromMintTokenPool,
 	lockReleaseTokenPool *lock_release_token_pool.LockReleaseTokenPool,
 ) (
-	*token_pool_factory.TokenPoolFactory,
 	*factory_burn_mint_erc20.FactoryBurnMintERC20,
 	*burn_mint_token_pool.BurnMintTokenPool,
 	*burn_from_mint_token_pool.BurnFromMintTokenPool,
@@ -745,54 +780,6 @@ func deployTokenPoolFactory(
 	*lock_release_token_pool.LockReleaseTokenPool,
 	error,
 ) {
-	if tokenPoolFactory == nil {
-		tokenPoolFactoryContractDeploy, err := cldf.DeployContract(lggr, chain, addresses,
-			func(chain cldf_evm.Chain) cldf.ContractDeploy[*token_pool_factory.TokenPoolFactory] {
-				var (
-					tpfAddr  common.Address
-					tx2      *types.Transaction
-					contract *token_pool_factory.TokenPoolFactory
-					err2     error
-				)
-				if chain.IsZkSyncVM {
-					tpfAddr, _, contract, err2 = token_pool_factory.DeployTokenPoolFactoryZk(
-						nil,
-						chain.ClientZkSyncVM,
-						chain.DeployerKeyZkSyncVM,
-						chain.Client,
-						tokenAdminRegistry,
-						registryAddresses[0],
-						rmnProxy,
-						router,
-					)
-				} else {
-					tpfAddr, tx2, contract, err2 = token_pool_factory.DeployTokenPoolFactory(
-						chain.DeployerKey,
-						chain.Client,
-						tokenAdminRegistry,
-						// There will always be at least one registry module deployed at this point.
-						// We just use the first one here. If a different RegistryModule is desired,
-						// users can run DeployTokenPoolFactoryChangeset with the desired address.
-						registryAddresses[0],
-						rmnProxy,
-						router,
-					)
-				}
-				return cldf.ContractDeploy[*token_pool_factory.TokenPoolFactory]{
-					Address: tpfAddr, Contract: contract, Tx: tx2, Tv: cldf.NewTypeAndVersion(shared.TokenPoolFactory, deployment.Version1_5_1), Err: err2,
-				}
-			},
-		)
-		if err != nil {
-			lggr.Errorw("Failed to deploy token pool factory", "chain", chain.String(), "err", err)
-			return nil, nil, nil, nil, nil, nil, err
-		}
-
-		tokenPoolFactory = tokenPoolFactoryContractDeploy.Contract
-	} else {
-		lggr.Infow("Token pool factory already deployed", "chain", chain.String(), "addr", tokenPoolFactory.Address)
-	}
-
 	// FactoryBurnMintERC20, BurnMintTokenPool, BurnFromMintTokenPool, BurnWithFromMintTokenPool & LockReleaseTokenPool
 	// are contracts that get deployed by the TokenPoolFactory.
 	// We deploy them here so that we can verify them. All subsequent user deployments would then be verified.
@@ -813,7 +800,7 @@ func deployTokenPoolFactory(
 						chain.Client,
 						string(shared.FactoryBurnMintERC20Symbol),
 						string(shared.FactoryBurnMintERC20Symbol),
-						uint8(18),
+						18,
 						big.NewInt(0),
 						big.NewInt(0),
 						chain.DeployerKey.From,
@@ -831,13 +818,13 @@ func deployTokenPoolFactory(
 					)
 				}
 				return cldf.ContractDeploy[*factory_burn_mint_erc20.FactoryBurnMintERC20]{
-					Address: factoryBurnMintERC20Addr, Contract: contract, Tx: tx2, Tv: cldf.NewTypeAndVersion(shared.FactoryBurnMintERC20Token, deployment.Version1_0_0), Err: err2,
+					Address: factoryBurnMintERC20Addr, Contract: contract, Tx: tx2, Tv: cldf.NewTypeAndVersion(shared.FactoryBurnMintERC20Token, deployment.Version1_6_2), Err: err2,
 				}
 			},
 		)
 		if err != nil {
 			lggr.Errorw("Failed to deploy factory burn mint erc20", "chain", chain.String(), "err", err)
-			return nil, nil, nil, nil, nil, nil, err
+			return nil, nil, nil, nil, nil, err
 		}
 
 		factoryBurnMintERC20 = factoryBurnMintERC20ContractDeploy.Contract // set this here so that the address can be referenced later
@@ -883,7 +870,7 @@ func deployTokenPoolFactory(
 		)
 		if err != nil {
 			lggr.Errorw("Failed to deploy burn mint token pool", "chain", chain.String(), "err", err)
-			return nil, nil, nil, nil, nil, nil, err
+			return nil, nil, nil, nil, nil, err
 		}
 
 		burnMintTokenPool = burnMintTokenPoolContractDeploy.Contract
@@ -929,7 +916,7 @@ func deployTokenPoolFactory(
 		)
 		if err != nil {
 			lggr.Errorw("Failed to deploy burn from mint token pool", "chain", chain.String(), "err", err)
-			return nil, nil, nil, nil, nil, nil, err
+			return nil, nil, nil, nil, nil, err
 		}
 
 		burnFromMintTokenPool = burnFromMintTokenPoolContractDeploy.Contract
@@ -974,7 +961,7 @@ func deployTokenPoolFactory(
 		)
 		if err != nil {
 			lggr.Errorw("Failed to deploy burn with from mint token pool", "chain", chain.String(), "err", err)
-			return nil, nil, nil, nil, nil, nil, err
+			return nil, nil, nil, nil, nil, err
 		}
 
 		burnWithFromMintTokenPool = burnWithFromMintTokenPoolContractDeploy.Contract
@@ -1022,7 +1009,7 @@ func deployTokenPoolFactory(
 		)
 		if err != nil {
 			lggr.Errorw("Failed to deploy lock release token pool", "chain", chain.String(), "err", err)
-			return nil, nil, nil, nil, nil, nil, err
+			return nil, nil, nil, nil, nil, err
 		}
 
 		lockReleaseTokenPool = lockReleaseTokenPoolContractDeploy.Contract
@@ -1030,7 +1017,7 @@ func deployTokenPoolFactory(
 		lggr.Infow("lock release token pool already deployed", "chain", chain.String(), "addr", factoryBurnMintERC20.Address)
 	}
 
-	return tokenPoolFactory, factoryBurnMintERC20, burnMintTokenPool, burnFromMintTokenPool, burnWithFromMintTokenPool, lockReleaseTokenPool, nil
+	return factoryBurnMintERC20, burnMintTokenPool, burnFromMintTokenPool, burnWithFromMintTokenPool, lockReleaseTokenPool, nil
 }
 
 func deployUSDC(

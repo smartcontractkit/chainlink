@@ -10,8 +10,8 @@ import (
 )
 
 func TestDigString(t *testing.T) {
-	in := map[string]interface{}{
-		"pull_request": map[string]interface{}{
+	in := map[string]any{
+		"pull_request": map[string]any{
 			"url": "some-url",
 		},
 	}

@@ -25,7 +25,7 @@ func TestMultiplyTask_Happy(t *testing.T) {
 
 	tests := []struct {
 		name  string
-		input interface{}
+		input any
 		times string
 		want  decimal.Decimal
 	}{
@@ -131,9 +131,9 @@ func TestMultiplyTask_Happy(t *testing.T) {
 				assertOK(task.Run(testutils.Context(t), logger.TestLogger(t), vars, []pipeline.Result{}))
 			})
 			t.Run("with vars", func(t *testing.T) {
-				vars := pipeline.NewVarsFrom(map[string]interface{}{
-					"foo":   map[string]interface{}{"bar": test.input},
-					"chain": map[string]interface{}{"link": test.times},
+				vars := pipeline.NewVarsFrom(map[string]any{
+					"foo":   map[string]any{"bar": test.input},
+					"chain": map[string]any{"link": test.times},
 				})
 				task := pipeline.MultiplyTask{
 					BaseTask: pipeline.NewBaseTask(0, "task", nil, nil, 0),
@@ -158,10 +158,10 @@ func TestMultiplyTask_Unhappy(t *testing.T) {
 		wantErrorCause    error
 		wantErrorContains string
 	}{
-		{"map as input from inputs", "100", "", []pipeline.Result{{Value: map[string]interface{}{"chain": "link"}}}, pipeline.NewVarsFrom(nil), pipeline.ErrBadInput, "input"},
-		{"map as input from var", "100", "$(foo)", nil, pipeline.NewVarsFrom(map[string]interface{}{"foo": map[string]interface{}{"chain": "link"}}), pipeline.ErrBadInput, "input"},
-		{"slice as input from inputs", "100", "", []pipeline.Result{{Value: []interface{}{"chain", "link"}}}, pipeline.NewVarsFrom(nil), pipeline.ErrBadInput, "input"},
-		{"slice as input from var", "100", "$(foo)", nil, pipeline.NewVarsFrom(map[string]interface{}{"foo": []interface{}{"chain", "link"}}), pipeline.ErrBadInput, "input"},
+		{"map as input from inputs", "100", "", []pipeline.Result{{Value: map[string]any{"chain": "link"}}}, pipeline.NewVarsFrom(nil), pipeline.ErrBadInput, "input"},
+		{"map as input from var", "100", "$(foo)", nil, pipeline.NewVarsFrom(map[string]any{"foo": map[string]any{"chain": "link"}}), pipeline.ErrBadInput, "input"},
+		{"slice as input from inputs", "100", "", []pipeline.Result{{Value: []any{"chain", "link"}}}, pipeline.NewVarsFrom(nil), pipeline.ErrBadInput, "input"},
+		{"slice as input from var", "100", "$(foo)", nil, pipeline.NewVarsFrom(map[string]any{"foo": []any{"chain", "link"}}), pipeline.ErrBadInput, "input"},
 		{"input as missing var", "100", "$(foo)", nil, pipeline.NewVarsFrom(nil), pipeline.ErrKeypathNotFound, "input"},
 		{"times as missing var", "$(foo)", "", []pipeline.Result{{Value: "123"}}, pipeline.NewVarsFrom(nil), pipeline.ErrKeypathNotFound, "times"},
 	}
@@ -198,7 +198,7 @@ func TestMultiplyTask_Overflow(t *testing.T) {
 		Times:    "$(b)",
 	}
 
-	vars := pipeline.NewVarsFrom(map[string]interface{}{
+	vars := pipeline.NewVarsFrom(map[string]any{
 		"a": d1,
 		"b": d2,
 	})

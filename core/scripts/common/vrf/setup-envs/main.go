@@ -176,7 +176,6 @@ func main() {
 
 	output := &bytes.Buffer{}
 	for key, node := range nodesMap {
-		node := node
 		client, app := connectToNode(&node.URL, output, node.CredsFile)
 
 		// assumption that we are dealing with VRF nodes
@@ -321,7 +320,6 @@ func main() {
 		}
 
 		for key, node := range nodesMap {
-			node := node
 			client, app := connectToNode(&node.URL, output, node.CredsFile)
 
 			// GET ALL JOBS
@@ -536,7 +534,7 @@ func createVRFKeyIfNeeded(client *clcmd.Shell, app *cli.App, output *bytes.Buffe
 		fmt.Println(xEmoji, "found only", len(vrfKeys), "vrf keys on", nodeURL, ", creating",
 			*numVRFKeys-len(vrfKeys), "more")
 		toCreate := *numVRFKeys - len(vrfKeys)
-		for i := 0; i < toCreate; i++ {
+		for range toCreate {
 			output.Reset()
 			newKey := createVRFKey(client, app, output)
 			newKeys = append(newKeys, newKey)
@@ -581,7 +579,7 @@ func createETHKeysIfNeeded(client *clcmd.Shell, app *cli.App, output *bytes.Buff
 		fmt.Println(xEmoji, "found only", len(ethKeys), "eth keys on", *nodeURL,
 			"; creating", *numEthKeys-len(ethKeys), "more")
 		toCreate := *numEthKeys - len(ethKeys)
-		for i := 0; i < toCreate; i++ {
+		for range toCreate {
 			output.Reset()
 			var newKey presenters.ETHKeyResource
 

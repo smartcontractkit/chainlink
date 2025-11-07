@@ -94,7 +94,7 @@ var ocr2UpkeepReportHistoryCmd = &cobra.Command{
 			}
 
 			hashes = make([]string, len(rec))
-			for i := 0; i < len(rec); i++ {
+			for i := range rec {
 				hashes[i] = rec[i][0]
 			}
 		} else {

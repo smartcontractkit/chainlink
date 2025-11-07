@@ -21,10 +21,11 @@ func TestRateLimiter(t *testing.T) {
 	}
 	rl, err := NewRateLimiter(config, limits.Factory{Logger: logger.Test(t)})
 	require.NoError(t, err)
-	ctx1 := contexts.WithCRE(t.Context(), contexts.CRE{Owner: "user1"})
+	ctx1 := contexts.WithCRE(t.Context(), contexts.CRE{Owner: "user1", Workflow: "wf-1"})
 	require.True(t, rl.Allow(ctx1))
-	require.True(t, rl.Allow(contexts.WithCRE(t.Context(), contexts.CRE{Owner: "user2"})))
+	require.True(t, rl.Allow(contexts.WithCRE(t.Context(), contexts.CRE{Owner: "user2", Workflow: "wf-2"})))
 	require.True(t, rl.Allow(ctx1))
 	require.False(t, rl.Allow(ctx1))
-	require.False(t, rl.Allow(contexts.WithCRE(t.Context(), contexts.CRE{Owner: "user3"})))
+	require.False(t, rl.Allow(contexts.WithCRE(t.Context(), contexts.CRE{Owner: "user3", Workflow: "wf-3"})))
+
 }

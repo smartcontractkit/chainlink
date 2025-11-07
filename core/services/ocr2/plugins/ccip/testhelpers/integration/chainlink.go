@@ -34,7 +34,6 @@ import (
 	types4 "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/config"
-	"github.com/smartcontractkit/chainlink-common/pkg/settings/limits"
 	cciptypes "github.com/smartcontractkit/chainlink-common/pkg/types/ccip"
 	"github.com/smartcontractkit/chainlink-evm/pkg/chains/legacyevm"
 	pb "github.com/smartcontractkit/chainlink-protos/orchestrator/feedsmanager"
@@ -470,7 +469,6 @@ func setupNodeCCIP(
 		UnrestrictedHTTPClient:   &http.Client{},
 		RestrictedHTTPClient:     &http.Client{},
 		AuditLogger:              audit.NoopLogger,
-		LimitsFactory:            limits.Factory{Logger: lggr.Named("Limits")},
 	})
 	require.NoError(t, err)
 	require.NoError(t, app.GetKeyStore().Unlock(ctx, "password"))
@@ -929,7 +927,7 @@ func (c *CCIPIntegrationTestHarness) SetupAndStartNodes(ctx context.Context, t *
 		KeyBundle:   bootstrapKb,
 	}
 	// Set up the minimum 4 oracles all funded with destination ETH
-	for i := int64(0); i < 4; i++ {
+	for i := range int64(4) {
 		app, peerID, transmitter, kb := setupNodeCCIP(
 			t,
 			c.Dest.User,
@@ -979,13 +977,7 @@ func (c *CCIPIntegrationTestHarness) SetupAndStartNodes(ctx context.Context, t *
 	return bootstrapNode, nodes, uint64(configBlock)
 }
 
-// setup Jobs
-func (c *CCIPIntegrationTestHarness) SetUpNodesAndJobs(t *testing.T, pricePipeline string, priceGetterConfig string, usdcAttestationAPI string) CCIPJobSpecParams {
-	// Starts nodes and configures them in the OCR contracts.
-	bootstrapNode, _, configBlock := c.SetupAndStartNodes(t.Context(), t, int64(freeport.GetOne(t)))
-
-	jobParams := c.NewCCIPJobSpecParams(pricePipeline, priceGetterConfig, configBlock, usdcAttestationAPI)
-
+func (c *CCIPIntegrationTestHarness) SetUpJobs(t *testing.T, bootstrapNode Node, configBlock uint64, jobParams CCIPJobSpecParams) {
 	// Add the bootstrap job
 	c.Bootstrap.AddBootstrapJob(t, jobParams.BootstrapJob(c.Dest.CommitStore.Address().Hex()))
 	c.AddAllJobs(t, jobParams)
@@ -998,9 +990,8 @@ func (c *CCIPIntegrationTestHarness) SetUpNodesAndJobs(t *testing.T, pricePipeli
 	require.True(t, ok)
 	require.NoError(t, bc.LogPoller().Replay(t.Context(), int64(configBlock))) //nolint:gosec // G115 false positive
 	c.Dest.Chain.Commit()
-
-	return jobParams
 }
+
 func DecodeCommitOnChainConfig(encoded []byte) (ccipdata.CommitOnchainConfig, error) {
 	var onchainConfig ccipdata.CommitOnchainConfig
 	unpacked, err := abihelpers.DecodeOCR2Config(encoded)

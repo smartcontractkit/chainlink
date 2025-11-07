@@ -2,6 +2,7 @@ package v2
 
 import (
 	"context"
+	"crypto/sha256"
 	"encoding/hex"
 	"errors"
 	"fmt"
@@ -11,6 +12,7 @@ import (
 
 	"google.golang.org/protobuf/types/known/anypb"
 
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/smartcontractkit/tdh2/go/tdh2/tdh2easy"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
@@ -20,6 +22,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/settings/limits"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/core"
 	sdkpb "github.com/smartcontractkit/chainlink-protos/cre/go/sdk"
+	"github.com/smartcontractkit/chainlink/v2/core/capabilities/vault/vaulttypes"
 
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/workflowkey"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/monitoring"
@@ -37,6 +40,8 @@ type secretsFetcher struct {
 
 	workflowOwner         string
 	workflowName          string
+	workflowID            string
+	phaseID               string
 	workflowEncryptionKey workflowkey.Key
 
 	metrics *monitoring.WorkflowsMetricLabeler
@@ -49,14 +54,19 @@ func NewSecretsFetcher(
 	semaphore limits.ResourcePoolLimiter[int],
 	workflowOwner string,
 	workflowName string,
+	workflowID string,
+	phaseID string,
 	workflowEncryptionKey workflowkey.Key,
 ) *secretsFetcher {
+	lggr = logger.Named(lggr, "WorkflowEngine.SecretsFetcher")
+	lggr = logger.With(lggr, "workflowID", workflowID, "workflowName", workflowName, "workflowOwner", workflowOwner, "phaseID", phaseID)
 	return &secretsFetcher{
 		capRegistry:           capRegistry,
-		lggr:                  logger.Named(lggr, "SecretsFetcher"),
+		lggr:                  lggr,
 		semaphore:             semaphore,
 		workflowOwner:         workflowOwner,
 		workflowName:          workflowName,
+		phaseID:               phaseID,
 		workflowEncryptionKey: workflowEncryptionKey,
 		metrics:               metrics,
 	}
@@ -88,6 +98,26 @@ func (s *secretsFetcher) GetSecrets(ctx context.Context, request *sdkpb.GetSecre
 	).RecordGetSecretsDuration(ctx, time.Since(start).Milliseconds())
 
 	return resp, err
+}
+
+func sha(strs ...string) string {
+	h := sha256.New()
+	for _, s := range strs {
+		h.Write([]byte(s))
+	}
+	return hex.EncodeToString(h.Sum(nil))
+}
+
+func normalizeOwner(owner string) (string, error) {
+	if len(owner) < 40 {
+		return "", errors.New("invalid owner address: too short")
+	}
+
+	if owner[:2] != "0x" {
+		owner = "0x" + owner
+	}
+
+	return common.HexToAddress(owner).Hex(), nil
 }
 
 func (s *secretsFetcher) getSecretsForBatch(ctx context.Context, request *sdkpb.GetSecretsRequest) ([]*sdkpb.SecretResponse, error) {
@@ -134,14 +164,23 @@ func (s *secretsFetcher) getSecretsForBatch(ctx context.Context, request *sdkpb.
 		Requests: make([]*vault.SecretRequest, 0),
 	}
 
+	owner, err := normalizeOwner(s.workflowOwner)
+	if err != nil {
+		return nil, fmt.Errorf("could not normalize workflowOwner: %w", err)
+	}
+
 	logKeys := make([]string, 0, len(request.Requests))
 	for _, r := range request.Requests {
-		logKeys = append(logKeys, keyFor(s.workflowOwner, r.Namespace, r.Id))
+		namespace := r.Namespace
+		if namespace == "" {
+			namespace = vaulttypes.DefaultNamespace
+		}
+		logKeys = append(logKeys, keyFor(owner, namespace, r.Id))
 		vp.Requests = append(vp.Requests, &vault.SecretRequest{
 			Id: &vault.SecretIdentifier{
 				Key:       r.Id,
-				Namespace: r.Namespace,
-				Owner:     s.workflowOwner,
+				Namespace: namespace,
+				Owner:     owner,
 			},
 			EncryptionKeys: encryptionKeys,
 		})
@@ -152,7 +191,7 @@ func (s *secretsFetcher) getSecretsForBatch(ctx context.Context, request *sdkpb.
 		return nil, fmt.Errorf("failed to convert vault request to any: %w", err)
 	}
 
-	lggr := logger.With(s.lggr, "requestedKeys", logKeys, "owner", s.workflowOwner, "workflow", s.workflowName)
+	lggr := logger.With(s.lggr, "requestedKeys", logKeys)
 	lggr.Debug("fetching secrets...")
 
 	capabilityResponse, err := vaultCap.Execute(ctx, capabilities.CapabilityRequest{
@@ -160,8 +199,11 @@ func (s *secretsFetcher) getSecretsForBatch(ctx context.Context, request *sdkpb.
 		Method:       vault.MethodGetSecrets,
 		CapabilityId: vault.CapabilityID,
 		Metadata: capabilities.RequestMetadata{
-			WorkflowOwner: s.workflowOwner,
-			WorkflowName:  s.workflowName,
+			WorkflowID:          s.workflowID,
+			WorkflowOwner:       s.workflowOwner,
+			WorkflowName:        s.workflowName,
+			WorkflowExecutionID: sha(s.phaseID, strconv.FormatInt(int64(request.CallbackId), 10)),
+			ReferenceID:         strconv.FormatInt(int64(request.CallbackId), 10),
 		},
 	})
 	if err != nil {
@@ -186,22 +228,25 @@ func (s *secretsFetcher) getSecretsForBatch(ctx context.Context, request *sdkpb.
 
 	sdkResp := make([]*sdkpb.SecretResponse, 0, len(request.Requests))
 	for _, r := range request.Requests {
-		key := keyFor(s.workflowOwner, r.Namespace, r.Id)
+		namespace := r.Namespace
+		if namespace == "" {
+			namespace = vaulttypes.DefaultNamespace
+		}
+		key := keyFor(owner, namespace, r.Id)
 		resp, ok := m[key]
 		if !ok {
 			errorMessage := "could not find response for the request: " + key
-			errorResponse := s.wrapErrorResponse(lggr, r.Id, r.Namespace, s.workflowOwner, errorMessage)
+			errorResponse := s.wrapErrorResponse(lggr, r.Id, namespace, owner, errorMessage)
 			sdkResp = append(sdkResp, &errorResponse)
 			continue
 		}
-		response := s.getSecretForSingleRequest(logger.With(lggr, "key", key), r.Id, r.Namespace, cfg, resp)
+		response := s.getSecretForSingleRequest(logger.With(lggr, "key", key), r.Id, owner, namespace, cfg, resp)
 		sdkResp = append(sdkResp, &response)
 	}
 	return sdkResp, nil
 }
 
-func (s *secretsFetcher) getSecretForSingleRequest(lggr logger.Logger, id, namespace string, cfg *vaultConfig, response *vault.SecretResponse) sdkpb.SecretResponse {
-	owner := s.workflowOwner
+func (s *secretsFetcher) getSecretForSingleRequest(lggr logger.Logger, id, owner, namespace string, cfg *vaultConfig, response *vault.SecretResponse) sdkpb.SecretResponse {
 	if response.GetId() != nil {
 		if response.GetId().GetKey() != "" {
 			id = response.GetId().GetKey()

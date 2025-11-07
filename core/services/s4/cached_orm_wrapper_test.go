@@ -267,7 +267,7 @@ func generateTestSnapshotRows(t *testing.T, n int) []*s4.SnapshotRow {
 	t.Helper()
 
 	rows := make([]*s4.SnapshotRow, n)
-	for i := 0; i < n; i++ {
+	for i := range n {
 		row := &s4.SnapshotRow{
 			Address:     big.New(testutils.NewAddress().Big()),
 			SlotId:      1,

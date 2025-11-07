@@ -40,6 +40,7 @@ const (
 	BlockHeaderFeeder       Type = (Type)(pipeline.BlockHeaderFeederJobType)
 	BlockhashStore          Type = (Type)(pipeline.BlockhashStoreJobType)
 	Bootstrap               Type = (Type)(pipeline.BootstrapJobType)
+	CRESettings             Type = (Type)(pipeline.CRESettings)
 	Cron                    Type = (Type)(pipeline.CronJobType)
 	CCIP                    Type = (Type)(pipeline.CCIPJobType)
 	DirectRequest           Type = (Type)(pipeline.DirectRequestJobType)
@@ -81,6 +82,7 @@ var (
 		BlockHeaderFeeder:       false,
 		BlockhashStore:          false,
 		Bootstrap:               false,
+		CRESettings:             false,
 		Cron:                    true,
 		CCIP:                    false,
 		DirectRequest:           true,
@@ -101,6 +103,7 @@ var (
 		BlockHeaderFeeder:       false,
 		BlockhashStore:          false,
 		Bootstrap:               false,
+		CRESettings:             false,
 		Cron:                    true,
 		CCIP:                    false,
 		DirectRequest:           true,
@@ -121,6 +124,7 @@ var (
 		BlockHeaderFeeder:       1,
 		BlockhashStore:          1,
 		Bootstrap:               1,
+		CRESettings:             1,
 		Cron:                    1,
 		CCIP:                    1,
 		DirectRequest:           1,
@@ -185,6 +189,8 @@ type Job struct {
 	CCIPSpecID                    *int32
 	CCIPSpec                      *CCIPSpec
 	CCIPBootstrapSpecID           *int32
+	CRESettingsSpecID             *int32
+	CRESettingsSpec               *CRESettingsSpec
 	JobSpecErrors                 []SpecError
 	Type                          Type          `toml:"type"`
 	SchemaVersion                 uint32        `toml:"schemaVersion"`
@@ -311,7 +317,7 @@ func (s *OCROracleSpec) SetID(value string) error {
 
 // JSONConfig is a map for config properties which are encoded as JSON in the database by implementing
 // sql.Scanner and driver.Valuer.
-type JSONConfig map[string]interface{}
+type JSONConfig map[string]any
 
 // Bytes returns the raw bytes
 func (r JSONConfig) Bytes() []byte {
@@ -325,7 +331,7 @@ func (r JSONConfig) Value() (driver.Value, error) {
 }
 
 // Scan reads the database value and returns an instance.
-func (r *JSONConfig) Scan(value interface{}) error {
+func (r *JSONConfig) Scan(value any) error {
 	b, ok := value.([]byte)
 	if !ok {
 		return errors.Errorf("expected bytes got %T", b)
@@ -831,7 +837,7 @@ func (s *GatewaySpec) SetID(value string) error {
 func (s *GatewaySpec) AuthGatewayID() string {
 	// not using config.GatewayConfig directly to avoid import cycle
 	if nsc, ok := s.GatewayConfig["ConnectionManagerConfig"]; ok {
-		if nscMap, ok := nsc.(map[string]interface{}); ok {
+		if nscMap, ok := nsc.(map[string]any); ok {
 			if authGatewayID, ok := nscMap["AuthGatewayId"]; ok {
 				if authGatewayIDStr, ok := authGatewayID.(string); ok {
 					return authGatewayIDStr
@@ -1033,7 +1039,7 @@ func (ofc OracleFactoryConfig) Value() (driver.Value, error) {
 }
 
 // Scan reads the database value and returns an instance.
-func (ofc *OracleFactoryConfig) Scan(value interface{}) error {
+func (ofc *OracleFactoryConfig) Scan(value any) error {
 	if value == nil {
 		return nil // field is nullable
 	}
@@ -1115,4 +1121,13 @@ type CCIPSpec struct {
 	// PluginConfig contains plugin-specific config, like token price pipelines
 	// and RMN network info for offchain blessing.
 	PluginConfig JSONConfig `toml:"pluginConfig"`
+}
+
+type CRESettingsSpec struct {
+	ID        int32
+	CreatedAt time.Time `toml:"-"`
+	UpdatedAt time.Time `toml:"-"`
+
+	Settings string
+	Hash     string
 }

@@ -5,65 +5,54 @@ import (
 
 	"github.com/Masterminds/semver/v3"
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/stretchr/testify/require"
-	"go.uber.org/zap/zapcore"
-
-	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
-
-	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
-
 	chain_selectors "github.com/smartcontractkit/chain-selectors"
-
-	cldf_chain "github.com/smartcontractkit/chainlink-deployments-framework/chain"
-	commonChangesets "github.com/smartcontractkit/chainlink/deployment/common/changeset"
+	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 
 	cache "github.com/smartcontractkit/chainlink-evm/gethwrappers/data-feeds/generated/data_feeds_cache"
 
+	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
+	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+	"github.com/smartcontractkit/chainlink-deployments-framework/engine/test/environment"
+	"github.com/smartcontractkit/chainlink-deployments-framework/engine/test/runtime"
+
 	"github.com/smartcontractkit/chainlink/deployment/data-feeds/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/data-feeds/changeset/types"
-	"github.com/smartcontractkit/chainlink/deployment/environment/memory"
 )
 
 func TestMigrateFeeds(t *testing.T) {
 	t.Parallel()
-	lggr := logger.Test(t)
-	cfg := memory.MemoryEnvironmentConfig{
-		Chains: 1,
-	}
-	env := memory.NewMemoryEnvironment(t, lggr, zapcore.DebugLevel, cfg)
 
-	chainSelector := env.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chain_selectors.FamilyEVM))[0]
+	selector := chain_selectors.TEST_90000001.Selector
+	rt, err := runtime.New(t.Context(), runtime.WithEnvOpts(
+		environment.WithEVMSimulated(t, []uint64{selector}),
+		environment.WithLogger(logger.Test(t)),
+	))
+	require.NoError(t, err)
 
-	newEnv, err := commonChangesets.Apply(t, env,
-		commonChangesets.Configure(
-			changeset.DeployCacheChangeset,
-			types.DeployConfig{
-				ChainsToDeploy: []uint64{chainSelector},
-				Labels:         []string{"data-feeds"},
-				Qualifier:      "data-feeds",
-			},
-		),
+	err = rt.Exec(
+		runtime.ChangesetTask(changeset.DeployCacheChangeset, types.DeployConfig{
+			ChainsToDeploy: []uint64{selector},
+			Labels:         []string{"data-feeds"},
+			Qualifier:      "data-feeds",
+		}),
 	)
 	require.NoError(t, err)
 
-	records := newEnv.DataStore.Addresses().Filter(datastore.AddressRefByType("DataFeedsCache"))
+	records := rt.State().DataStore.Addresses().Filter(datastore.AddressRefByType("DataFeedsCache"))
 	require.Len(t, records, 1)
 	cacheAddress := records[0].Address
 
-	resp, err := commonChangesets.Apply(t, newEnv, commonChangesets.Configure(
-		changeset.SetFeedAdminChangeset,
-		types.SetFeedAdminConfig{
-			ChainSelector: chainSelector,
+	err = rt.Exec(
+		runtime.ChangesetTask(changeset.SetFeedAdminChangeset, types.SetFeedAdminConfig{
+			ChainSelector: selector,
 			CacheAddress:  common.HexToAddress(cacheAddress),
-			AdminAddress:  common.HexToAddress(env.BlockChains.EVMChains()[chainSelector].DeployerKey.From.Hex()),
+			AdminAddress:  common.HexToAddress(rt.Environment().BlockChains.EVMChains()[selector].DeployerKey.From.Hex()),
 			IsAdmin:       true,
-		},
-	), commonChangesets.Configure(
-		changeset.MigrateFeedsChangeset,
-		types.MigrationConfig{
-			ChainSelector: chainSelector,
+		}),
+		runtime.ChangesetTask(changeset.MigrateFeedsChangeset, types.MigrationConfig{
+			ChainSelector: selector,
 			CacheAddress:  common.HexToAddress(cacheAddress),
 			Proxies: []*types.MigrationSchema{
 				{
@@ -92,11 +81,11 @@ func TestMigrateFeeds(t *testing.T) {
 					AllowedWorkflowName:  changeset.HashedWorkflowName("test"),
 				},
 			},
-		},
-	))
+		}),
+	)
 	require.NoError(t, err)
-	require.NotNil(t, resp)
-	addresses, err := resp.DataStore.Addresses().Fetch()
+
+	addresses, err := rt.State().DataStore.Addresses().Fetch()
 	require.NoError(t, err)
 	require.Len(t, addresses, 3) // DataFeedsCache and two migrated proxies
 }

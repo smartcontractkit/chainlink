@@ -20,6 +20,7 @@ import (
 	ccipreaderpkg "github.com/smartcontractkit/chainlink-ccip/pkg/reader"
 	cciptypes "github.com/smartcontractkit/chainlink-ccip/pkg/types/ccipocr3"
 	ccipocr3common "github.com/smartcontractkit/chainlink-common/pkg/types/ccipocr3"
+	"github.com/smartcontractkit/chainlink-evm/pkg/config"
 
 	writer_mocks "github.com/smartcontractkit/chainlink-ccip/mocks/chainlink_common/types"
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
@@ -36,7 +37,6 @@ import (
 	evmconfig "github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/configs/evm"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm"
-	evmtypes "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/types"
 	"github.com/smartcontractkit/chainlink/v2/core/utils/testutils/heavyweight"
 )
 
@@ -110,7 +110,7 @@ func Benchmark_CCIPReader_CCIPMessageSent(b *testing.B) {
 		)
 
 		b.Run("MsgsBetweenSeqNums "+tt.name, func(b *testing.B) {
-			for i := 0; i < b.N; i++ {
+			for b.Loop() {
 				msgs, err := reader.MsgsBetweenSeqNums(
 					b.Context(),
 					chainS1,
@@ -122,7 +122,7 @@ func Benchmark_CCIPReader_CCIPMessageSent(b *testing.B) {
 		})
 
 		b.Run("LatestMsgSeqNum "+tt.name, func(b *testing.B) {
-			for i := 0; i < b.N; i++ {
+			for b.Loop() {
 				latest, err := reader.LatestMsgSeqNum(
 					b.Context(),
 					chainS1,
@@ -173,7 +173,7 @@ func Benchmark_CCIPReader_CommitReportsGTETimestamp(b *testing.B) {
 		)
 
 		b.Run(tt.name, func(b *testing.B) {
-			for i := 0; i < b.N; i++ {
+			for b.Loop() {
 				reports, err := reader.CommitReportsGTETimestamp(
 					b.Context(),
 					time.Now().Add(-10*time.Minute),
@@ -253,7 +253,7 @@ func Benchmark_CCIPReader_ExecutedMessages(b *testing.B) {
 		}
 
 		b.Run(tt.name, func(b *testing.B) {
-			for i := 0; i < b.N; i++ {
+			for b.Loop() {
 				executedRanges, err := reader.ExecutedMessages(
 					b.Context(),
 					filters,
@@ -284,7 +284,7 @@ func prepareCommitReportsEventsInDb(
 		ContractNameToBind: consts.ContractNameOffRamp,
 	})
 
-	for j := 0; j < numberOfChains; j++ {
+	for j := range numberOfChains {
 		// #nosec G115
 		orm := logpoller.NewORM(big.NewInt(0).SetUint64(uint64(j+1)), s.dbs, logger.TestLogger(b))
 		// #nosec G115
@@ -342,7 +342,7 @@ func populateDatabaseForCommitReportAccepted(
 		timestamp = time.Now()
 	}
 
-	for i := 0; i < numOfReports; i++ {
+	for i := range numOfReports {
 		// Calculate unique BlockNumber and LogIndex
 		blockNumber := int64(offset + i + 1) // Offset ensures unique block numbers
 		logIndex := int64(offset + i + 1)    // Offset ensures unique log indices
@@ -422,7 +422,7 @@ func prepareMessageSentEventsInDb(b *testing.B, logsInserted int, sourceChainsCo
 	})
 
 	if logsInserted > 0 {
-		for j := 0; j < sourceChainsCount; j++ {
+		for j := range sourceChainsCount {
 			// #nosec G115
 			orm := logpoller.NewORM(big.NewInt(0).SetUint64(uint64(j+1)), s.dbs, logger.TestLogger(b))
 
@@ -455,7 +455,7 @@ func populateDatabaseForMessageSent(
 	_, err := rand.Read(largePayload)
 	require.NoError(b, err)
 
-	for i := 0; i < numOfEvents; i++ {
+	for i := range numOfEvents {
 		// Calculate unique BlockNumber and LogIndex
 		blockNumber := int64(offset + i + 1) // Offset ensures unique block numbers
 		logIndex := int64(offset + i + 1)    // Offset ensures unique log indices
@@ -573,7 +573,7 @@ func prepareExecutedStateChangesEventsInDb(
 	})
 
 	if logsInsertedPerChain > 0 {
-		for j := 0; j < destChainsCount; j++ {
+		for j := range destChainsCount {
 			// #nosec G115
 			orm := logpoller.NewORM(big.NewInt(0).SetUint64(uint64(j+1)), s.dbs, logger.TestLogger(b))
 
@@ -611,7 +611,7 @@ func populateDatabaseForExecutionStateChanged(
 	executionStateEventSig := executionStateEvent.ID
 	executionStateEventAddress := testEnv.contractAddr
 
-	for i := 0; i < numOfEvents; i++ {
+	for i := range numOfEvents {
 		// Calculate unique BlockNumber and LogIndex
 		blockNumber := int64(offset + i + 1) // Offset ensures unique block numbers
 		logIndex := int64(offset + i + 1)    // Offset ensures unique log indices
@@ -770,7 +770,7 @@ func benchSetup(
 type benchSetupParams struct {
 	ReaderChain        cciptypes.ChainSelector
 	DestChain          cciptypes.ChainSelector
-	Cfg                evmtypes.ChainReaderConfig
+	Cfg                config.ChainReaderConfig
 	ContractNameToBind string
 	FinalityDepth      int64
 }

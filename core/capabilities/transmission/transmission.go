@@ -27,6 +27,10 @@ type TransmissionConfig struct {
 	DeltaStage time.Duration
 }
 
+func (tc *TransmissionConfig) String() string {
+	return fmt.Sprintf("[Schedule: %s, DeltaStage: %s]", tc.Schedule, tc.DeltaStage)
+}
+
 func ExtractTransmissionConfig(config *values.Map) (TransmissionConfig, error) {
 	var tc struct {
 		DeltaStage string
@@ -122,7 +126,7 @@ func createTransmissionSchedule(scheduleType string, N int) ([]int, error) {
 		return []int{N}, nil
 	case Schedule_OneAtATime:
 		sch := []int{}
-		for i := 0; i < N; i++ {
+		for range N {
 			sch = append(sch, 1)
 		}
 		return sch, nil

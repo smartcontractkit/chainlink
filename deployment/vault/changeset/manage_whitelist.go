@@ -10,23 +10,24 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/vault/changeset/types"
 )
 
-var SetWhitelistChangeset = cldf.CreateChangeSet(setWhitelistLogic, setWhitelistPrecondition)
+var (
+	SetWhitelistChangeset       cldf.ChangeSetV2[types.SetWhitelistConfig] = whitelistChangeset{mode: "append", reducer: mergeWhitelistEntries}
+	OverwriteWhitelistChangeset cldf.ChangeSetV2[types.SetWhitelistConfig] = whitelistChangeset{mode: "overwrite", reducer: overwriteWhitelistEntries}
+)
 
-func setWhitelistPrecondition(e cldf.Environment, cfg types.SetWhitelistConfig) error {
+type whitelistReducer func(existing, incoming []types.WhitelistAddress) []types.WhitelistAddress
+
+type whitelistChangeset struct {
+	mode    string
+	reducer whitelistReducer
+}
+
+func (s whitelistChangeset) VerifyPreconditions(e cldf.Environment, cfg types.SetWhitelistConfig) error {
 	return ValidateSetWhitelistConfig(e, cfg)
 }
 
-func setWhitelistLogic(e cldf.Environment, cfg types.SetWhitelistConfig) (cldf.ChangesetOutput, error) {
+func (s whitelistChangeset) Apply(e cldf.Environment, cfg types.SetWhitelistConfig) (cldf.ChangesetOutput, error) {
 	lggr := e.Logger
-
-	totalAddresses := 0
-	for _, addresses := range cfg.WhitelistByChain {
-		totalAddresses += len(addresses)
-	}
-
-	lggr.Infow("Setting whitelist state",
-		"chains", len(cfg.WhitelistByChain),
-		"total_addresses", totalAddresses)
 
 	ds := datastore.NewMemoryDataStore()
 	if e.DataStore != nil {
@@ -35,23 +36,34 @@ func setWhitelistLogic(e cldf.Environment, cfg types.SetWhitelistConfig) (cldf.C
 		}
 	}
 
+	totalAddresses := 0
+	for _, addresses := range cfg.WhitelistByChain {
+		totalAddresses += len(addresses)
+	}
+
+	lggr.Infow("Setting whitelist state",
+		"chains", len(cfg.WhitelistByChain),
+		"total_addresses", totalAddresses,
+		"mode", s.mode)
+
 	for chainSelector, addresses := range cfg.WhitelistByChain {
 		lggr.Infow("Setting whitelist for chain",
 			"chain", chainSelector,
-			"address_count", len(addresses))
+			"address_count", len(addresses),
+			"mode", s.mode)
 
-		for _, addr := range addresses {
-			lggr.Infow("Whitelist address",
-				"chain", chainSelector,
-				"address", addr.Address,
-				"description", addr.Description)
+		existingMetadata, err := getChainWhitelist(ds.Seal(), chainSelector)
+		if err != nil {
+			return cldf.ChangesetOutput{}, fmt.Errorf("failed to load existing whitelist for chain %d: %w", chainSelector, err)
 		}
+
+		combined := s.reducer(existingMetadata.Addresses, addresses)
 
 		whitelistMetadata := types.WhitelistMetadata{
-			Addresses: addresses,
+			Addresses: combined,
 		}
 
-		err := ds.ChainMetadata().Upsert(datastore.ChainMetadata{
+		err = ds.ChainMetadata().Upsert(datastore.ChainMetadata{
 			ChainSelector: chainSelector,
 			Metadata:      whitelistMetadata,
 		})
@@ -67,6 +79,45 @@ func setWhitelistLogic(e cldf.Environment, cfg types.SetWhitelistConfig) (cldf.C
 	}, nil
 }
 
+func mergeWhitelistEntries(existing, incoming []types.WhitelistAddress) []types.WhitelistAddress {
+	if len(existing) == 0 && len(incoming) == 0 {
+		return nil
+	}
+
+	combined := make([]types.WhitelistAddress, len(existing))
+	copy(combined, existing)
+
+	addressIndex := make(map[string]int, len(combined))
+	for idx, addr := range combined {
+		addressIndex[addr.Address] = idx
+	}
+
+	for _, addr := range incoming {
+		if existingIdx, ok := addressIndex[addr.Address]; ok {
+			combined[existingIdx].Description = addr.Description
+			if len(addr.Labels) > 0 {
+				combined[existingIdx].Labels = addr.Labels
+			}
+			continue
+		}
+
+		addressIndex[addr.Address] = len(combined)
+		combined = append(combined, addr)
+	}
+
+	return combined
+}
+
+func overwriteWhitelistEntries(_ []types.WhitelistAddress, incoming []types.WhitelistAddress) []types.WhitelistAddress {
+	if len(incoming) == 0 {
+		return nil
+	}
+
+	combined := make([]types.WhitelistAddress, len(incoming))
+	copy(combined, incoming)
+	return combined
+}
+
 // GetWhitelistedAddresses retrieves all whitelisted addresses for given chains from chain metadata
 func GetWhitelistedAddresses(e cldf.Environment, chainSelectors []uint64) (map[uint64][]WhitelistEntry, error) {
 	whitelist := make(map[uint64][]WhitelistEntry)
@@ -76,7 +127,7 @@ func GetWhitelistedAddresses(e cldf.Environment, chainSelectors []uint64) (map[u
 	}
 
 	for _, chainSelector := range chainSelectors {
-		whitelistMetadata, err := GetChainWhitelist(e.DataStore, chainSelector)
+		whitelistMetadata, err := getChainWhitelist(e.DataStore, chainSelector)
 		if err != nil {
 			return nil, err
 		}
@@ -97,8 +148,8 @@ func GetWhitelistedAddresses(e cldf.Environment, chainSelectors []uint64) (map[u
 	return whitelist, nil
 }
 
-// ValidateWhitelist checks if all addresses in a transfer config are whitelisted
-func ValidateWhitelist(e cldf.Environment, cfg types.BatchNativeTransferConfig) ([]types.TransferValidationError, error) {
+// validateWhitelist checks if all addresses in a transfer config are whitelisted
+func validateWhitelist(e cldf.Environment, cfg types.BatchNativeTransferConfig) ([]types.TransferValidationError, error) {
 	var errors []types.TransferValidationError
 
 	chainSelectors := make([]uint64, 0, len(cfg.TransfersByChain))
@@ -131,7 +182,7 @@ func ValidateWhitelist(e cldf.Environment, cfg types.BatchNativeTransferConfig) 
 	return errors, nil
 }
 
-func GetChainWhitelist(dataStore datastore.DataStore, chainSelector uint64) (*types.WhitelistMetadata, error) {
+func getChainWhitelist(dataStore datastore.DataStore, chainSelector uint64) (*types.WhitelistMetadata, error) {
 	chainMetadataKey := datastore.NewChainMetadataKey(chainSelector)
 	chainMetadata, err := dataStore.ChainMetadata().Get(chainMetadataKey)
 	if err != nil {
@@ -149,7 +200,7 @@ func GetChainWhitelist(dataStore datastore.DataStore, chainSelector uint64) (*ty
 	return &whitelistMetadata, nil
 }
 
-func GetChainWhitelistMutable(dataStore datastore.MutableDataStore, chainSelector uint64) (*types.WhitelistMetadata, error) {
+func getChainWhitelistMutable(dataStore datastore.DataStore, chainSelector uint64) (*types.WhitelistMetadata, error) {
 	chainMetadataKey := datastore.NewChainMetadataKey(chainSelector)
 	chainMetadata, err := dataStore.ChainMetadata().Get(chainMetadataKey)
 	if err != nil {

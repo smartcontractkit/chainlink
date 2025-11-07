@@ -42,6 +42,7 @@ import (
 	"github.com/smartcontractkit/chainlink-evm/pkg/txmgr"
 	evmtypes "github.com/smartcontractkit/chainlink-evm/pkg/types"
 	"github.com/smartcontractkit/chainlink-evm/pkg/utils"
+	"github.com/smartcontractkit/chainlink-evm/pkg/writer"
 	_ "github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/ccipevm"    // Register EVM plugin config factories
 	_ "github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/ccipsolana" // Register Solana plugin config factories
 	_ "github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/ccipton"    // Register Ton plugin config factories
@@ -52,8 +53,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
 	kschaintype "github.com/smartcontractkit/chainlink/v2/core/services/keystore/chaintype"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ocr2key"
-	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm"
-	evmrelaytypes "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/types"
 )
 
 func Test_ContractTransmitter_TransmitWithoutSignatures(t *testing.T) {
@@ -379,7 +378,7 @@ func newTestUniverse(t *testing.T, ks *keyringsAndSigners[[]byte]) *testUniverse
 	// setOCR3Config to pass.
 	chainStore := keys.NewChainStore(keyStore, big.NewInt(1337))
 	var transmitters []common.Address
-	for i := 0; i < 4; i++ {
+	for range 4 {
 		addr, err := keyStore.Create()
 		require.NoError(t, err, "failed to create key")
 		transmitters = append(transmitters, addr)
@@ -410,7 +409,7 @@ func newTestUniverse(t *testing.T, ks *keyringsAndSigners[[]byte]) *testUniverse
 		keyrings = ks.keyrings
 		signers = ks.signers
 	} else {
-		for i := 0; i < 4; i++ {
+		for range 4 {
 			kb, err2 := ocr2key.New(kschaintype.EVM)
 			require.NoError(t, err2, "failed to create key")
 			kr := ocrimpls.NewOnchainKeyring[[]byte](kb, logger.Test(t))
@@ -469,7 +468,7 @@ func newTestUniverse(t *testing.T, ks *keyringsAndSigners[[]byte]) *testUniverse
 	require.NoError(t, txm.Start(testutils.Context(t)), "failed to start tx manager")
 	t.Cleanup(func() { require.NoError(t, txm.Close()) })
 
-	chainWriter, err := evm.NewChainWriterService(
+	chainWriter, err := writer.NewChainWriterService(
 		logger.Test(t),
 		simClient,
 		txm,
@@ -557,12 +556,12 @@ const (
 	methodTransmitWithoutSignatures = "TransmitWithoutSignatures"
 )
 
-func chainWriterConfigRaw(fromAddress common.Address, maxGasPrice *assets.Wei) evmrelaytypes.ChainWriterConfig {
-	return evmrelaytypes.ChainWriterConfig{
-		Contracts: map[string]*evmrelaytypes.ContractConfig{
+func chainWriterConfigRaw(fromAddress common.Address, maxGasPrice *assets.Wei) evmconfig.ChainWriterConfig {
+	return evmconfig.ChainWriterConfig{
+		Contracts: map[string]*evmconfig.ContractConfig{
 			contractName: {
 				ContractABI: multi_ocr3_helper.MultiOCR3HelperABI,
-				Configs: map[string]*evmrelaytypes.ChainWriterDefinition{
+				Configs: map[string]*evmconfig.ChainWriterDefinition{
 					methodTransmitWithSignatures: {
 						ChainSpecificName: "transmitWithSignatures",
 						GasLimit:          1e6,

@@ -3,21 +3,30 @@ package changeset
 import (
 	"testing"
 
+	chainselectors "github.com/smartcontractkit/chain-selectors"
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
+
 	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
-	"github.com/smartcontractkit/chainlink/deployment/cre"
+	"github.com/smartcontractkit/chainlink-deployments-framework/engine/test/environment"
 )
 
 func TestDeployCapabilitiesRegistry(t *testing.T) {
-	lggr := logger.Test(t)
-	env, chainSelector := cre.BuildMinimalEnvironment(t, lggr)
+	t.Parallel()
+
+	selector := chainselectors.TEST_90000001.Selector
+	env, err := environment.New(t.Context(),
+		environment.WithEVMSimulated(t, []uint64{selector}),
+		environment.WithLogger(logger.Test(t)),
+	)
+	require.NoError(t, err)
 
 	// Apply the changeset to deploy the V2 capabilities registry
 	t.Log("Starting changeset application...")
-	changesetOutput, err := DeployCapabilitiesRegistry{}.Apply(env, DeployCapabilitiesRegistryInput{
-		ChainSelector: chainSelector,
+
+	changesetOutput, err := DeployCapabilitiesRegistry{}.Apply(*env, DeployCapabilitiesRegistryInput{
+		ChainSelector: selector,
 		Qualifier:     "test-capabilities-registry-v2",
 	})
 	t.Logf("Changeset result: err=%v, output=%v", err, changesetOutput)
@@ -36,7 +45,7 @@ func TestDeployCapabilitiesRegistry(t *testing.T) {
 
 	// Verify the address is for the correct chain
 	deployedAddress := addresses[0]
-	require.Equal(t, chainSelector, deployedAddress.ChainSelector, "deployed contract should be on the correct chain")
+	require.Equal(t, selector, deployedAddress.ChainSelector, "deployed contract should be on the correct chain")
 	require.NotEmpty(t, deployedAddress.Address, "deployed contract address should not be empty")
 
 	// Verify the contract type is correct

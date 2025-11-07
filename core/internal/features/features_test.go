@@ -99,12 +99,12 @@ func TestIntegration_ExternalInitiatorV2(t *testing.T) {
 
 	var (
 		eiName    = "substrate-ei"
-		eiSpec    = map[string]interface{}{"foo": "bar"}
-		eiRequest = map[string]interface{}{"result": 42}
+		eiSpec    = map[string]any{"foo": "bar"}
+		eiRequest = map[string]any{"result": 42}
 
 		jobUUID = uuid.MustParse("0EEC7E1D-D0D2-476C-A1A8-72DFB6633F46")
 
-		expectedCreateJobRequest = map[string]interface{}{
+		expectedCreateJobRequest = map[string]any{
 			"jobId":  jobUUID.String(),
 			"type":   eiName,
 			"params": eiSpec,
@@ -123,7 +123,7 @@ func TestIntegration_ExternalInitiatorV2(t *testing.T) {
 				eiNotifiedOfCreate = true
 				defer r.Body.Close()
 
-				var gotCreateJobRequest map[string]interface{}
+				var gotCreateJobRequest map[string]any
 				err := json.NewDecoder(r.Body).Decode(&gotCreateJobRequest)
 				require.NoError(t, err)
 
@@ -165,11 +165,11 @@ func TestIntegration_ExternalInitiatorV2(t *testing.T) {
 			bridgeCalled = true
 			defer r.Body.Close()
 
-			var gotBridgeRequest map[string]interface{}
+			var gotBridgeRequest map[string]any
 			err := json.NewDecoder(r.Body).Decode(&gotBridgeRequest)
 			require.NoError(t, err)
 
-			expectedBridgeRequest := map[string]interface{}{
+			expectedBridgeRequest := map[string]any{
 				"value": float64(42),
 			}
 			require.Equal(t, expectedBridgeRequest, gotBridgeRequest)
@@ -501,6 +501,7 @@ func setupAppForEthTx(t *testing.T, operatorContracts OperatorContracts) (app *c
 }
 
 func TestIntegration_AsyncEthTx(t *testing.T) {
+	quarantine.Flaky(t, "DX-1767")
 	t.Parallel()
 	operatorContracts := setupOperatorContracts(t)
 	b := operatorContracts.sim
@@ -547,10 +548,10 @@ observationSource   = """
 		pipelineRun := pipelineRuns[0]
 		assertPipelineTaskRunsSuccessful(t, pipelineRun.PipelineTaskRuns)
 
-		outputs := pipelineRun.Outputs.Val.([]interface{})
+		outputs := pipelineRun.Outputs.Val.([]any)
 		require.Len(t, outputs, 1)
 		output := outputs[0]
-		receipt := output.(map[string]interface{})
+		receipt := output.(map[string]any)
 		assert.Equal(t, "0x7", receipt["blockNumber"])
 		assert.Equal(t, "0x538f", receipt["gasUsed"])
 		assert.Equal(t, "0x0", receipt["status"]) // success
@@ -641,10 +642,10 @@ observationSource   = """
 		pipelineRun := pipelineRuns[0]
 		assertPipelineTaskRunsSuccessful(t, pipelineRun.PipelineTaskRuns)
 
-		outputs := pipelineRun.Outputs.Val.([]interface{})
+		outputs := pipelineRun.Outputs.Val.([]any)
 		require.Len(t, outputs, 1)
 		output := outputs[0]
-		receipt := output.(map[string]interface{})
+		receipt := output.(map[string]any)
 		assert.Equal(t, "0x19", receipt["blockNumber"])
 		assert.Equal(t, "0x7a120", receipt["gasUsed"])
 		assert.Equal(t, "0x0", receipt["status"])
@@ -833,7 +834,7 @@ func TestIntegration_OCR(t *testing.T) {
 				apps         []*cltest.TestApplication
 			)
 			ports := freeport.GetN(t, numOracles)
-			for i := 0; i < numOracles; i++ {
+			for i := range numOracles {
 				app, peerID, transmitter, key := setupNode(t, owner, ports[i], b, func(c *chainlink.Config, s *chainlink.Secrets) {
 					c.EVM[0].FlagsContractAddress = ptr(types.EIP55AddressFromAddress(flagsContractAddress))
 					c.EVM[0].GasEstimator.EIP1559DynamicFees = ptr(test.eip1559)
@@ -921,7 +922,7 @@ isBootstrapPeer    = true
 			expectedMeta := map[string]struct{}{
 				"0": {}, "10": {}, "20": {}, "30": {},
 			}
-			for i := 0; i < numOracles; i++ {
+			for i := range numOracles {
 				err = apps[i].Start(testutils.Context(t))
 				require.NoError(t, err)
 
@@ -994,13 +995,13 @@ observationSource = """
 			}
 
 			// Assert that all the OCR jobs get a run with valid values eventually.
-			for i := 0; i < numOracles; i++ {
+			for i := range numOracles {
 				// Want at least 2 runs so we see all the metadata.
 				pr := cltest.WaitForPipelineComplete(t, i, jids[i],
 					2, 7, apps[i].JobORM(), time.Minute, time.Second)
 				jb, err := pr[0].Outputs.MarshalJSON()
 				require.NoError(t, err)
-				assert.Equal(t, []byte(fmt.Sprintf("[\"%d\"]", 10*i)), jb, "pr[0] %+v pr[1] %+v", pr[0], pr[1])
+				assert.Equal(t, fmt.Appendf(nil, "[\"%d\"]", 10*i), jb, "pr[0] %+v pr[1] %+v", pr[0], pr[1])
 				require.NoError(t, err)
 			}
 
@@ -1056,7 +1057,7 @@ func TestIntegration_OCR_ForwarderFlow(t *testing.T) {
 			apps                []*cltest.TestApplication
 		)
 		ports := freeport.GetN(t, numOracles)
-		for i := 0; i < numOracles; i++ {
+		for i := range numOracles {
 			app, peerID, transmitter, forwarder, key := setupForwarderEnabledNode(t, owner, ports[i], b, func(c *chainlink.Config, s *chainlink.Secrets) {
 				c.Feature.LogPoller = ptr(true)
 				c.EVM[0].FlagsContractAddress = ptr(types.EIP55AddressFromAddress(flagsContractAddress))
@@ -1149,7 +1150,7 @@ isBootstrapPeer    = true
 		expectedMeta := map[string]struct{}{
 			"0": {}, "10": {}, "20": {}, "30": {},
 		}
-		for i := 0; i < numOracles; i++ {
+		for i := range numOracles {
 			err = apps[i].Start(testutils.Context(t))
 			require.NoError(t, err)
 
@@ -1224,13 +1225,13 @@ observationSource = """
 		}
 
 		// Assert that all the OCR jobs get a run with valid values eventually.
-		for i := 0; i < numOracles; i++ {
+		for i := range numOracles {
 			// Want at least 2 runs so we see all the metadata.
 			pr := cltest.WaitForPipelineComplete(t, i, jids[i],
 				2, 7, apps[i].JobORM(), time.Minute, time.Second)
 			jb, err := pr[0].Outputs.MarshalJSON()
 			require.NoError(t, err)
-			assert.Equal(t, []byte(fmt.Sprintf("[\"%d\"]", 10*i)), jb, "pr[0] %+v pr[1] %+v", pr[0], pr[1])
+			assert.Equal(t, fmt.Appendf(nil, "[\"%d\"]", 10*i), jb, "pr[0] %+v pr[1] %+v", pr[0], pr[1])
 			require.NoError(t, err)
 		}
 

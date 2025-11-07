@@ -22,7 +22,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/ccipcalc"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/prices"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/tokendata"
-	mockstatuschecker "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/statuschecker/mocks"
+	mockstatuschecker "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mocks/statuschecker"
 )
 
 type testCase struct {
@@ -815,7 +815,6 @@ func runBatchingStrategyTests(t *testing.T, strategy BatchingStrategy, available
 	destNative := ccipcalc.HexToAddress("0xb")
 
 	for _, tc := range testCases {
-		tc := tc
 		t.Run(tc.name, func(t *testing.T) {
 			lggr := logger.TestLogger(t)
 

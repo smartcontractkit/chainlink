@@ -11,9 +11,28 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
-  cache-go-modules:
-    name: Cache Go Module Dependencies
-    runs-on: ubuntu-latest
+  go-cache:
+    name: Go Cache ${{ matrix.suffix }}
+
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runs-on: ubuntu-latest
+            suffix: "Core (GitHub-hosted)"
+
+          - runs-on: ubuntu-latest
+            suffix: "Deployment (GitHub-hosted)"
+            go-mod-directory: "deployment/"
+
+          - runs-on: runs-on=${{ github.run_id }}/cpu=8/ram=16/family=c6id/spot=false/extras=s3-cache
+            suffix: "Core (Self-hosted)"
+
+          - runs-on: runs-on=${{ github.run_id }}/cpu=8/ram=16/family=c6id/spot=false/extras=s3-cache
+            suffix: "Deployment (Self-hosted)"
+            go-mod-directory: "deployment/"
+
+    runs-on: ${{ matrix.runs-on }}
 
     steps:
       - name: Checkout repository
@@ -24,28 +43,37 @@ jobs:
         with:
           go-version: '1.21'
 
-<- name: Cache Go modules
-  uses: actions/cache@v4
-  with:
-    path: |
-      ~/.cache/go-build
-      ~/go/pkg/mod
-    key: go-mod-${{ runner.os }}-${{ hashFiles('**/go.sum') }}
-    restore-keys: |
-      go-mod-${{ runner.os }}-
+      - name: Cache Go modules
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cache/go-build
+            ~/go/pkg/mod
+          key: go-mod-${{ runner.os }}-${{ hashFiles(format('{0}**/go.sum', matrix.go-mod-directory || '')) }}
+          restore-keys: |
+            go-mod-${{ runner.os }}-
 
-- name: Install Dependencies
-  if: ${{ steps.setup-go.outputs.primary-cache-hit-modules != 'true' }}
-  shell: bash
-  run: |
-    echo "::group::go mod download"
-    go mod download
-    echo "::endgroup::"
+      - name: Download dependencies
+        if: ${{ steps.cache.outputs.cache-hit != 'true' }}
+        shell: bash
+        working-directory: ${{ matrix.go-mod-directory || '.' }}
+        run: |
+          echo "::group::go mod download"
+          go mod download
+          echo "::endgroup::"
 
-    echo "::group::Install LOOP plugins"
-    make install-plugins-public
-    echo "::endgroup::"
+      - name: Install LOOP plugins
+        if: ${{ steps.cache.outputs.cache-hit != 'true' }}
+        shell: bash
+        run: |
+          echo "::group::Install LOOP plugins"
+          make install-plugins-public
+          echo "::endgroup::"
 
-    echo "::group::Install testing tools"
-    go install gotest.tools/gotestsum@v1.12.3
-    echo "::endgroup::"
+      - name: Install testing tools
+        if: ${{ steps.cache.outputs.cache-hit != 'true' }}
+        shell: bash
+        run: |
+          echo "::group::Install testing tools"
+          go install gotest.tools/gotestsum@v1.12.3
+          echo "::endgroup::"

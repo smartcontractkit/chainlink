@@ -1,8 +1,11 @@
 package memory
 
 import (
+	"errors"
 	"fmt"
 	"os"
+	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 
@@ -19,6 +22,11 @@ import (
 	cldf_ton_provider "github.com/smartcontractkit/chainlink-deployments-framework/chain/ton/provider"
 	"github.com/smartcontractkit/chainlink-ton/deployment/utils"
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
+)
+
+var (
+	deployerFundAmount    = tlb.MustFromTON("1000")
+	transmitterFundAmount = tlb.MustFromTON("200")
 )
 
 func getTestTonChainSelectors() []uint64 {
@@ -92,7 +100,7 @@ func generateChainsTon(t *testing.T, numChains int) []cldf_chain.BlockChain {
 		}
 
 		// memory environment doesn't block on funding so changesets can execute before the env is fully ready, manually call fund so we block here
-		utils.FundWallets(t, tonChain.Client, []*address.Address{tonChain.WalletAddress}, []tlb.Coins{tlb.MustFromTON("1000")})
+		utils.FundWallets(t, tonChain.Client, []*address.Address{tonChain.WalletAddress}, []tlb.Coins{deployerFundAmount})
 	}
 
 	return chains
@@ -122,10 +130,27 @@ func fundNodesTon(t *testing.T, tonChain cldf_ton.Chain, nodes []*Node) {
 		require.NoError(t, err)
 		require.Len(t, tonkeys, 1)
 		transmitter := tonkeys[0].PubkeyToAddress()
-		msg, err := tonChain.Wallet.BuildTransfer(transmitter, tlb.MustFromTON("1000"), false, "")
+		msg, err := tonChain.Wallet.BuildTransfer(transmitter, transmitterFundAmount, false, "")
 		require.NoError(t, err)
 		messages = append(messages, msg)
 	}
 	_, _, err := tonChain.Wallet.SendManyWaitTransaction(t.Context(), messages)
 	require.NoError(t, err)
+}
+
+func getModFilePath() (string, error) {
+	_, currentFile, _, _ := runtime.Caller(0)
+	// Get the root directory by walking up from current file until we find go.mod
+	rootDir := filepath.Dir(currentFile)
+	for {
+		if _, err := os.Stat(filepath.Join(rootDir, "go.mod")); err == nil {
+			break
+		}
+		parent := filepath.Dir(rootDir)
+		if parent == rootDir {
+			return "", errors.New("could not find project root directory containing go.mod")
+		}
+		rootDir = parent
+	}
+	return filepath.Join(rootDir, "go.mod"), nil
 }

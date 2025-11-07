@@ -9,11 +9,13 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
-	mcmslib "github.com/smartcontractkit/mcms"
+	mcmstypes "github.com/smartcontractkit/mcms/types"
 
+	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
-	"github.com/smartcontractkit/chainlink/deployment/cre/common/strategies"
-	"github.com/smartcontractkit/chainlink/deployment/cre/ocr3"
+	workflow_registry_v2 "github.com/smartcontractkit/chainlink-evm/gethwrappers/workflow/generated/workflow_registry_wrapper_v2"
+
+	"github.com/smartcontractkit/chainlink/deployment/cre/contracts"
 )
 
 const (
@@ -25,15 +27,16 @@ const (
 
 // AdminPauseWorkflow Operation
 type AdminPauseWorkflowOpInput struct {
-	ChainSelector uint64           `json:"chainSelector"`
-	Qualifier     string           `json:"qualifier"` // Qualifier to identify the specific workflow registry
-	WorkflowID    [32]byte         `json:"workflowID"`
-	MCMSConfig    *ocr3.MCMSConfig `json:"mcmsConfig,omitempty"`
+	ChainSelector uint64                `json:"chainSelector"`
+	Qualifier     string                `json:"qualifier"` // Qualifier to identify the specific workflow registry
+	WorkflowID    [32]byte              `json:"workflowID"`
+	MCMSConfig    *contracts.MCMSConfig `json:"mcmsConfig,omitempty"`
 }
 
 type AdminPauseWorkflowOpOutput struct {
-	Success   bool                       `json:"success"`
-	Proposals []mcmslib.TimelockProposal `json:"proposals,omitempty"`
+	Success         bool                      `json:"success"`
+	RegistryAddress common.Address            `json:"registryAddress"`
+	MCMSOperation   *mcmstypes.BatchOperation `json:"mcmsOperation"`
 }
 
 var AdminPauseWorkflowOp = operations.NewOperation(
@@ -41,38 +44,12 @@ var AdminPauseWorkflowOp = operations.NewOperation(
 	semver.MustParse("1.0.0"),
 	"Admin Pause Workflow in WorkflowRegistry V2",
 	func(b operations.Bundle, deps WorkflowRegistryOpDeps, input AdminPauseWorkflowOpInput) (AdminPauseWorkflowOpOutput, error) {
-		chain, ok := deps.Env.BlockChains.EVMChains()[input.ChainSelector]
-		if !ok {
-			return AdminPauseWorkflowOpOutput{}, fmt.Errorf("chain with selector %d not found", input.ChainSelector)
-		}
-
-		registry, err := getWorkflowRegistryV2FromDatastore(deps.Env, input.ChainSelector, input.Qualifier)
-		if err != nil {
-			return AdminPauseWorkflowOpOutput{}, fmt.Errorf("failed to get workflow registry: %w", err)
-		}
-
-		// Create the appropriate strategy
-		strategy, err := strategies.CreateStrategy(
-			chain,
-			*deps.Env,
-			input.MCMSConfig,
-			deps.MCMSContracts,
-			registry.Address(),
-			PauseWorkflowDescription,
-		)
-		if err != nil {
-			return AdminPauseWorkflowOpOutput{}, fmt.Errorf("failed to create strategy: %w", err)
-		}
-
 		// Execute the transaction using the strategy
-		proposals, err := strategy.Apply(func(opts *bind.TransactOpts) (*types.Transaction, error) {
-			tx, err := registry.AdminPauseWorkflow(opts, input.WorkflowID)
-			if err != nil {
-				return nil, fmt.Errorf("failed to call AdminPauseWorkflow: %w", err)
-			}
-			return tx, nil
+		operation, _, err := deps.Strategy.Apply(func(opts *bind.TransactOpts) (*types.Transaction, error) {
+			return deps.Registry.AdminPauseWorkflow(opts, input.WorkflowID)
 		})
 		if err != nil {
+			err = cldf.DecodeErr(workflow_registry_v2.WorkflowRegistryABI, err)
 			return AdminPauseWorkflowOpOutput{}, fmt.Errorf("failed to execute AdminPauseWorkflow: %w", err)
 		}
 
@@ -83,23 +60,25 @@ var AdminPauseWorkflowOp = operations.NewOperation(
 		}
 
 		return AdminPauseWorkflowOpOutput{
-			Success:   true,
-			Proposals: proposals,
+			Success:         true,
+			MCMSOperation:   operation,
+			RegistryAddress: deps.Registry.Address(),
 		}, nil
 	},
 )
 
 // AdminBatchPauseWorkflows Operation
 type AdminBatchPauseWorkflowsOpInput struct {
-	ChainSelector uint64           `json:"chainSelector"`
-	Qualifier     string           `json:"qualifier"` // Qualifier to identify the specific workflow registry
-	WorkflowIDs   [][32]byte       `json:"workflowIDs"`
-	MCMSConfig    *ocr3.MCMSConfig `json:"mcmsConfig,omitempty"`
+	ChainSelector uint64                `json:"chainSelector"`
+	Qualifier     string                `json:"qualifier"` // Qualifier to identify the specific workflow registry
+	WorkflowIDs   [][32]byte            `json:"workflowIDs"`
+	MCMSConfig    *contracts.MCMSConfig `json:"mcmsConfig,omitempty"`
 }
 
 type AdminBatchPauseWorkflowsOpOutput struct {
-	Success   bool                       `json:"success"`
-	Proposals []mcmslib.TimelockProposal `json:"proposals,omitempty"`
+	Success         bool                      `json:"success"`
+	RegistryAddress common.Address            `json:"registryAddress"`
+	MCMSOperation   *mcmstypes.BatchOperation `json:"mcmsOperation"`
 }
 
 var AdminBatchPauseWorkflowsOp = operations.NewOperation(
@@ -111,38 +90,12 @@ var AdminBatchPauseWorkflowsOp = operations.NewOperation(
 			return AdminBatchPauseWorkflowsOpOutput{}, errors.New("must provide at least one workflow ID")
 		}
 
-		chain, ok := deps.Env.BlockChains.EVMChains()[input.ChainSelector]
-		if !ok {
-			return AdminBatchPauseWorkflowsOpOutput{}, fmt.Errorf("chain with selector %d not found", input.ChainSelector)
-		}
-
-		registry, err := getWorkflowRegistryV2FromDatastore(deps.Env, input.ChainSelector, input.Qualifier)
-		if err != nil {
-			return AdminBatchPauseWorkflowsOpOutput{}, fmt.Errorf("failed to get workflow registry: %w", err)
-		}
-
-		// Create the appropriate strategy
-		strategy, err := strategies.CreateStrategy(
-			chain,
-			*deps.Env,
-			input.MCMSConfig,
-			deps.MCMSContracts,
-			registry.Address(),
-			PauseBatchWorkflowsDescription,
-		)
-		if err != nil {
-			return AdminBatchPauseWorkflowsOpOutput{}, fmt.Errorf("failed to create strategy: %w", err)
-		}
-
 		// Execute the transaction using the strategy
-		proposals, err := strategy.Apply(func(opts *bind.TransactOpts) (*types.Transaction, error) {
-			tx, err := registry.AdminBatchPauseWorkflows(opts, input.WorkflowIDs)
-			if err != nil {
-				return nil, fmt.Errorf("failed to call AdminBatchPauseWorkflows: %w", err)
-			}
-			return tx, nil
+		operation, _, err := deps.Strategy.Apply(func(opts *bind.TransactOpts) (*types.Transaction, error) {
+			return deps.Registry.AdminBatchPauseWorkflows(opts, input.WorkflowIDs)
 		})
 		if err != nil {
+			err = cldf.DecodeErr(workflow_registry_v2.WorkflowRegistryABI, err)
 			return AdminBatchPauseWorkflowsOpOutput{}, fmt.Errorf("failed to execute AdminBatchPauseWorkflows: %w", err)
 		}
 
@@ -153,24 +106,26 @@ var AdminBatchPauseWorkflowsOp = operations.NewOperation(
 		}
 
 		return AdminBatchPauseWorkflowsOpOutput{
-			Success:   true,
-			Proposals: proposals,
+			Success:         true,
+			MCMSOperation:   operation,
+			RegistryAddress: deps.Registry.Address(),
 		}, nil
 	},
 )
 
 // AdminPauseAllByOwner Operation
 type AdminPauseAllByOwnerOpInput struct {
-	ChainSelector uint64           `json:"chainSelector"`
-	Qualifier     string           `json:"qualifier"` // Qualifier to identify the specific workflow registry
-	Owner         common.Address   `json:"owner"`
-	Limit         *big.Int         `json:"limit"`
-	MCMSConfig    *ocr3.MCMSConfig `json:"mcmsConfig,omitempty"`
+	ChainSelector uint64                `json:"chainSelector"`
+	Qualifier     string                `json:"qualifier"` // Qualifier to identify the specific workflow registry
+	Owner         common.Address        `json:"owner"`
+	Limit         *big.Int              `json:"limit"`
+	MCMSConfig    *contracts.MCMSConfig `json:"mcmsConfig,omitempty"`
 }
 
 type AdminPauseAllByOwnerOpOutput struct {
-	Success   bool                       `json:"success"`
-	Proposals []mcmslib.TimelockProposal `json:"proposals,omitempty"`
+	Success         bool                      `json:"success"`
+	RegistryAddress common.Address            `json:"registryAddress"`
+	MCMSOperation   *mcmstypes.BatchOperation `json:"mcmsOperation"`
 }
 
 var AdminPauseAllByOwnerOp = operations.NewOperation(
@@ -178,38 +133,12 @@ var AdminPauseAllByOwnerOp = operations.NewOperation(
 	semver.MustParse("1.0.0"),
 	"Admin Pause All By Owner in WorkflowRegistry V2",
 	func(b operations.Bundle, deps WorkflowRegistryOpDeps, input AdminPauseAllByOwnerOpInput) (AdminPauseAllByOwnerOpOutput, error) {
-		chain, ok := deps.Env.BlockChains.EVMChains()[input.ChainSelector]
-		if !ok {
-			return AdminPauseAllByOwnerOpOutput{}, fmt.Errorf("chain with selector %d not found", input.ChainSelector)
-		}
-
-		registry, err := getWorkflowRegistryV2FromDatastore(deps.Env, input.ChainSelector, input.Qualifier)
-		if err != nil {
-			return AdminPauseAllByOwnerOpOutput{}, fmt.Errorf("failed to get workflow registry: %w", err)
-		}
-
-		// Create the appropriate strategy
-		strategy, err := strategies.CreateStrategy(
-			chain,
-			*deps.Env,
-			input.MCMSConfig,
-			deps.MCMSContracts,
-			registry.Address(),
-			PauseAllByOwnerDescription,
-		)
-		if err != nil {
-			return AdminPauseAllByOwnerOpOutput{}, fmt.Errorf("failed to create strategy: %w", err)
-		}
-
 		// Execute the transaction using the strategy
-		proposals, err := strategy.Apply(func(opts *bind.TransactOpts) (*types.Transaction, error) {
-			tx, err := registry.AdminPauseAllByOwner(opts, input.Owner, input.Limit)
-			if err != nil {
-				return nil, fmt.Errorf("failed to call AdminPauseAllByOwner: %w", err)
-			}
-			return tx, nil
+		operation, _, err := deps.Strategy.Apply(func(opts *bind.TransactOpts) (*types.Transaction, error) {
+			return deps.Registry.AdminPauseAllByOwner(opts, input.Owner, input.Limit)
 		})
 		if err != nil {
+			err = cldf.DecodeErr(workflow_registry_v2.WorkflowRegistryABI, err)
 			return AdminPauseAllByOwnerOpOutput{}, fmt.Errorf("failed to execute AdminPauseAllByOwner: %w", err)
 		}
 
@@ -220,24 +149,26 @@ var AdminPauseAllByOwnerOp = operations.NewOperation(
 		}
 
 		return AdminPauseAllByOwnerOpOutput{
-			Success:   true,
-			Proposals: proposals,
+			Success:         true,
+			MCMSOperation:   operation,
+			RegistryAddress: deps.Registry.Address(),
 		}, nil
 	},
 )
 
 // AdminPauseAllByDON Operation
 type AdminPauseAllByDONOpInput struct {
-	ChainSelector uint64           `json:"chainSelector"`
-	Qualifier     string           `json:"qualifier"` // Qualifier to identify the specific workflow registry
-	DONFamily     string           `json:"donFamily"`
-	Limit         *big.Int         `json:"limit"`
-	MCMSConfig    *ocr3.MCMSConfig `json:"mcmsConfig,omitempty"`
+	ChainSelector uint64                `json:"chainSelector"`
+	Qualifier     string                `json:"qualifier"` // Qualifier to identify the specific workflow registry
+	DONFamily     string                `json:"donFamily"`
+	Limit         *big.Int              `json:"limit"`
+	MCMSConfig    *contracts.MCMSConfig `json:"mcmsConfig,omitempty"`
 }
 
 type AdminPauseAllByDONOpOutput struct {
-	Success   bool                       `json:"success"`
-	Proposals []mcmslib.TimelockProposal `json:"proposals,omitempty"`
+	Success         bool                      `json:"success"`
+	RegistryAddress common.Address            `json:"registryAddress"`
+	MCMSOperation   *mcmstypes.BatchOperation `json:"mcmsOperation"`
 }
 
 var AdminPauseAllByDONOp = operations.NewOperation(
@@ -245,38 +176,12 @@ var AdminPauseAllByDONOp = operations.NewOperation(
 	semver.MustParse("1.0.0"),
 	"Admin Pause All By DON in WorkflowRegistry V2",
 	func(b operations.Bundle, deps WorkflowRegistryOpDeps, input AdminPauseAllByDONOpInput) (AdminPauseAllByDONOpOutput, error) {
-		chain, ok := deps.Env.BlockChains.EVMChains()[input.ChainSelector]
-		if !ok {
-			return AdminPauseAllByDONOpOutput{}, fmt.Errorf("chain with selector %d not found", input.ChainSelector)
-		}
-
-		registry, err := getWorkflowRegistryV2FromDatastore(deps.Env, input.ChainSelector, input.Qualifier)
-		if err != nil {
-			return AdminPauseAllByDONOpOutput{}, fmt.Errorf("failed to get workflow registry: %w", err)
-		}
-
-		// Create the appropriate strategy
-		strategy, err := strategies.CreateStrategy(
-			chain,
-			*deps.Env,
-			input.MCMSConfig,
-			deps.MCMSContracts,
-			registry.Address(),
-			PauseAllByDONDescription,
-		)
-		if err != nil {
-			return AdminPauseAllByDONOpOutput{}, fmt.Errorf("failed to create strategy: %w", err)
-		}
-
 		// Execute the transaction using the strategy
-		proposals, err := strategy.Apply(func(opts *bind.TransactOpts) (*types.Transaction, error) {
-			tx, err := registry.AdminPauseAllByDON(opts, input.DONFamily, input.Limit)
-			if err != nil {
-				return nil, fmt.Errorf("failed to call AdminPauseAllByDON: %w", err)
-			}
-			return tx, nil
+		operation, _, err := deps.Strategy.Apply(func(opts *bind.TransactOpts) (*types.Transaction, error) {
+			return deps.Registry.AdminPauseAllByDON(opts, input.DONFamily, input.Limit)
 		})
 		if err != nil {
+			err = cldf.DecodeErr(workflow_registry_v2.WorkflowRegistryABI, err)
 			return AdminPauseAllByDONOpOutput{}, fmt.Errorf("failed to execute AdminPauseAllByDON: %w", err)
 		}
 
@@ -287,8 +192,9 @@ var AdminPauseAllByDONOp = operations.NewOperation(
 		}
 
 		return AdminPauseAllByDONOpOutput{
-			Success:   true,
-			Proposals: proposals,
+			Success:         true,
+			MCMSOperation:   operation,
+			RegistryAddress: deps.Registry.Address(),
 		}, nil
 	},
 )

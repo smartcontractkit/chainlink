@@ -31,6 +31,10 @@ const (
 	MethodSecretsList   = "vault.secrets.list"
 	MethodPublicKeyGet  = "vault.publicKey.get"
 
+	// RequestIDSeparator is used to separate parts(owner, user-provided-requestId) of the request ID.
+	RequestIDSeparator = "::"
+
+	// MaxBatchSize is the maximum number of secrets that can be created/updated/deleted in a single request.
 	MaxBatchSize = 10
 )
 
@@ -48,8 +52,7 @@ var (
 
 func GetSupportedMethods(lggr logger.Logger) []string {
 	methods := slices.Clone(Methods)
-	forceDevMode := true
-	if !build.IsProd() || forceDevMode {
+	if build.IsDev() {
 		// Allow secrets get in non-prod environments for testing purposes
 		// This should never be enabled in production
 		methods = append(methods, MethodSecretsGet)

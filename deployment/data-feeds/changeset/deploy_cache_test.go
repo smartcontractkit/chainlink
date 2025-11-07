@@ -5,41 +5,34 @@ import (
 
 	chain_selectors "github.com/smartcontractkit/chain-selectors"
 	"github.com/stretchr/testify/require"
-	"go.uber.org/zap/zapcore"
-
-	cldf_chain "github.com/smartcontractkit/chainlink-deployments-framework/chain"
-
-	commonChangesets "github.com/smartcontractkit/chainlink/deployment/common/changeset"
-	"github.com/smartcontractkit/chainlink/deployment/data-feeds/changeset"
-	"github.com/smartcontractkit/chainlink/deployment/data-feeds/changeset/types"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 
-	"github.com/smartcontractkit/chainlink/deployment/environment/memory"
+	"github.com/smartcontractkit/chainlink-deployments-framework/engine/test/environment"
+	"github.com/smartcontractkit/chainlink-deployments-framework/engine/test/runtime"
+
+	"github.com/smartcontractkit/chainlink/deployment/data-feeds/changeset"
+	"github.com/smartcontractkit/chainlink/deployment/data-feeds/changeset/types"
 )
 
 func TestDeployCache(t *testing.T) {
 	t.Parallel()
-	lggr := logger.Test(t)
-	cfg := memory.MemoryEnvironmentConfig{
-		Chains: 2,
-	}
-	env := memory.NewMemoryEnvironment(t, lggr, zapcore.DebugLevel, cfg)
 
-	chainSelector := env.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chain_selectors.FamilyEVM))[0]
+	selector := chain_selectors.TEST_90000001.Selector
+	rt, err := runtime.New(t.Context(), runtime.WithEnvOpts(
+		environment.WithEVMSimulated(t, []uint64{selector}),
+		environment.WithLogger(logger.Test(t)),
+	))
+	require.NoError(t, err)
 
-	resp, err := commonChangesets.Apply(t, env,
-		commonChangesets.Configure(
-			changeset.DeployCacheChangeset,
-			types.DeployConfig{
-				ChainsToDeploy: []uint64{chainSelector},
-			},
-		),
+	err = rt.Exec(
+		runtime.ChangesetTask(changeset.DeployCacheChangeset, types.DeployConfig{
+			ChainsToDeploy: []uint64{selector},
+		}),
 	)
 	require.NoError(t, err)
-	require.NotNil(t, resp)
 
-	addrs, err := resp.DataStore.Addresses().Fetch()
+	addrs, err := rt.State().DataStore.Addresses().Fetch()
 	require.NoError(t, err)
 	require.Len(t, addrs, 1)
 }

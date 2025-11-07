@@ -1,6 +1,7 @@
 package operations
 
 import (
+	"errors"
 	"fmt"
 
 	"github.com/Masterminds/semver/v3"
@@ -17,16 +18,24 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/cre/pkg/offchain"
 )
 
+const defaultGatewayRequestTimeoutSec = 12
+
 type ProposeGatewayJobInput struct {
-	Domain                  string
-	DONFilters              []offchain.TargetDONFilter
-	DONs                    []DON             `yaml:"dons"`
-	GatewayKeyChainSelector pkg.ChainSelector `yaml:"gateway_key_chain_selector"`
-	JobLabels               map[string]string
+	Domain                   string
+	DONFilters               []offchain.TargetDONFilter
+	DONs                     []DON             `yaml:"dons"`
+	GatewayRequestTimeoutSec int               `yaml:"gatewayRequestTimeoutSec"`
+	AllowedPorts             []int             `yaml:"allowedPorts"`
+	AllowedSchemes           []string          `yaml:"allowedSchemes"`
+	AllowedIPsCIDR           []string          `yaml:"allowedIPsCIDR"`
+	AuthGatewayID            string            `yaml:"authGatewayID"`
+	GatewayKeyChainSelector  pkg.ChainSelector `yaml:"gatewayKeyChainSelector"`
+	JobLabels                map[string]string
 }
 
 type DON struct {
 	Name     string
+	F        int
 	Handlers []string
 }
 
@@ -42,107 +51,174 @@ var ProposeGatewayJob = operations.NewOperation[ProposeGatewayJobInput, ProposeG
 	"propose-gateway-job-op",
 	semver.MustParse("1.0.0"),
 	"Propose Gateway Job",
-	func(b operations.Bundle, deps ProposeGatewayJobDeps, input ProposeGatewayJobInput) (ProposeGatewayJobOutput, error) {
-		targetDONs := make([]pkg.TargetDON, 0)
-		for _, ad := range input.DONs {
-			filter := offchain.TargetDONFilter{
-				Key:   offchain.FilterKeyDONName,
-				Value: ad.Name,
+	proposeGatewayJob,
+)
+
+// proposeGatewayJob builds a gateway job spec and then proposes it to the nodes of a DON.
+// It first fetches node information and chain configurations about the target DONs given in input.DONs to build the job spec.
+// Target DONs are the DONs that the Gateway allows communication with.
+// It then proposes this job spec to each node of the specific DON based on input filters and a chain selector.
+// All nodes must be connected to job distributor and have the proper chain declared.
+func proposeGatewayJob(b operations.Bundle, deps ProposeGatewayJobDeps, input ProposeGatewayJobInput) (ProposeGatewayJobOutput, error) {
+	targetDONs := make([]pkg.TargetDON, 0)
+
+	for _, ad := range input.DONs {
+		// Use filters from input, except the DON name which needs to be the target DON
+		filters := &nodev1.ListNodesRequest_Filter{}
+		for _, f := range input.DONFilters {
+			if f.Key == offchain.FilterKeyDONName {
+				continue
 			}
-			nodes, err := pkg.FetchNodeChainConfigsFromJD(deps.Env.GetContext(), deps.Env, filter)
-			if err != nil {
-				return ProposeGatewayJobOutput{}, err
-			}
+			filters = offchain.TargetDONFilter{
+				Key:   f.Key,
+				Value: f.Value,
+			}.AddToFilter(filters)
+		}
+		filtersWithTargetDONName := offchain.TargetDONFilter{
+			Key:   offchain.FilterKeyDONName,
+			Value: ad.Name,
+		}.AddToFilter(filters)
 
-			fam, chainID, err := parseSelector(uint64(input.GatewayKeyChainSelector))
-			if err != nil {
-				return ProposeGatewayJobOutput{}, err
-			}
-
-			var members []pkg.TargetDONMember
-			for _, n := range nodes {
-				var found bool
-				for _, cc := range n.ChainConfigs {
-					if cc.Chain.Id == chainID && cc.Chain.Type == fam {
-						members = append(members, pkg.TargetDONMember{
-							Address: cc.AccountAddress,
-							Name:    fmt.Sprintf("DON %s - Node %s", ad.Name, n.NodeID),
-						})
-						found = true
-
-						break
-					}
-				}
-
-				if !found {
-					return ProposeGatewayJobOutput{}, fmt.Errorf("could not find key belonging to chain id %s", chainID)
-				}
-			}
-
-			td := pkg.TargetDON{
-				ID:       ad.Name,
-				Members:  members,
-				Handlers: ad.Handlers,
-			}
-
-			targetDONs = append(targetDONs, td)
+		ns, err := pkg.FetchNodesFromJD(deps.Env.GetContext(), deps.Env, pkg.FetchNodesRequest{
+			Domain:  input.Domain,
+			Filters: filtersWithTargetDONName,
+		})
+		if err != nil {
+			return ProposeGatewayJobOutput{}, err
+		}
+		if len(ns) == 0 {
+			return ProposeGatewayJobOutput{}, fmt.Errorf("no nodes with filters %s", input.DONFilters)
 		}
 
-		gj := pkg.GatewayJob{
-			JobName:    "CRE Gateway",
-			TargetDONs: targetDONs,
+		nodes, err := pkg.FetchNodeChainConfigsFromJD(deps.Env.GetContext(), deps.Env, pkg.FetchNodesRequest{
+			Domain:  input.Domain,
+			Filters: filtersWithTargetDONName,
+		})
+		if err != nil {
+			return ProposeGatewayJobOutput{}, err
+		}
+		if len(nodes) == 0 {
+			return ProposeGatewayJobOutput{}, fmt.Errorf("no chain configs with filters %s", input.DONFilters)
 		}
 
-		err := gj.Validate()
+		fam, chainID, err := parseSelector(uint64(input.GatewayKeyChainSelector))
 		if err != nil {
 			return ProposeGatewayJobOutput{}, err
 		}
 
-		nodes, err := pkg.FetchNodesFromJD(b.GetContext(), deps.Env, pkg.FetchNodesRequest{
-			Domain:  input.Domain,
-			Filters: input.DONFilters,
+		// make map of node id to node
+		m := make(map[string]*nodev1.Node, len(ns))
+		for _, n := range ns {
+			m[n.Id] = n
+		}
+
+		var members []pkg.TargetDONMember
+		for _, n := range nodes {
+			var found bool
+			for _, cc := range n.ChainConfigs {
+				if cc.Chain.Id == chainID && cc.Chain.Type == fam {
+					nodeName := n.NodeID
+					if matched, ok := m[n.NodeID]; ok {
+						nodeName = matched.Name
+					}
+					members = append(members, pkg.TargetDONMember{
+						Address: cc.AccountAddress,
+						Name:    fmt.Sprintf("%s (DON %s)", nodeName, ad.Name),
+					})
+					found = true
+
+					break
+				}
+			}
+
+			if !found {
+				return ProposeGatewayJobOutput{}, fmt.Errorf("could not find key belonging to chain id %s on node %s", chainID, n.NodeID)
+			}
+		}
+
+		td := pkg.TargetDON{
+			ID:       ad.Name,
+			F:        ad.F,
+			Members:  members,
+			Handlers: ad.Handlers,
+		}
+		targetDONs = append(targetDONs, td)
+	}
+
+	requestTimeoutSec := input.GatewayRequestTimeoutSec
+	if requestTimeoutSec == 0 {
+		requestTimeoutSec = defaultGatewayRequestTimeoutSec
+	}
+
+	gj := pkg.GatewayJob{
+		JobName:           "CRE Gateway",
+		TargetDONs:        targetDONs,
+		RequestTimeoutSec: requestTimeoutSec,
+		AllowedPorts:      input.AllowedPorts,
+		AllowedSchemes:    input.AllowedSchemes,
+		AllowedIPsCIDR:    input.AllowedIPsCIDR,
+		AuthGatewayID:     input.AuthGatewayID,
+	}
+
+	err := gj.Validate()
+	if err != nil {
+		return ProposeGatewayJobOutput{}, err
+	}
+
+	filters := &nodev1.ListNodesRequest_Filter{}
+	for _, f := range input.DONFilters {
+		filters = offchain.TargetDONFilter{
+			Key:   f.Key,
+			Value: f.Value,
+		}.AddToFilter(filters)
+	}
+
+	nodes, err := pkg.FetchNodesFromJD(b.GetContext(), deps.Env, pkg.FetchNodesRequest{
+		Domain:  input.Domain,
+		Filters: filters,
+	})
+	if err != nil {
+		return ProposeGatewayJobOutput{}, fmt.Errorf("failed to fetch nodes from JD: %w", err)
+	}
+	if len(nodes) == 0 {
+		return ProposeGatewayJobOutput{}, fmt.Errorf("no nodes found for domain %s with filters %+v", input.Domain, input.DONFilters)
+	}
+
+	labels := make([]*ptypes.Label, 0, len(input.JobLabels))
+	for k, v := range input.JobLabels {
+		newVal := v
+		labels = append(labels, &ptypes.Label{
+			Key:   k,
+			Value: &newVal,
+		})
+	}
+
+	output := ProposeGatewayJobOutput{
+		Specs: make(map[string][]string),
+	}
+	for nodeIdx, n := range nodes {
+		spec, err := gj.Resolve(nodeIdx)
+		if err != nil {
+			return ProposeGatewayJobOutput{}, err
+		}
+
+		_, err = deps.Env.Offchain.ProposeJob(b.GetContext(), &jobv1.ProposeJobRequest{
+			NodeId: n.GetId(),
+			Spec:   spec,
+			Labels: labels,
 		})
 		if err != nil {
-			return ProposeGatewayJobOutput{}, fmt.Errorf("failed to fetch nodes from JD: %w", err)
+			return ProposeGatewayJobOutput{}, fmt.Errorf("error proposing job to node %s spec %s : %w", n.GetId(), spec, err)
 		}
 
-		if len(nodes) == 0 {
-			return ProposeGatewayJobOutput{}, fmt.Errorf("no nodes found for domain %s with filters %+v", input.Domain, input.DONFilters)
-		}
+		output.Specs[n.GetId()] = append(output.Specs[n.GetId()], spec)
+	}
+	if len(output.Specs) == 0 {
+		return ProposeGatewayJobOutput{}, errors.New("no gateway jobs were proposed")
+	}
 
-		labels := make([]*ptypes.Label, 0, len(input.JobLabels))
-		for k, v := range input.JobLabels {
-			newVal := v
-			labels = append(labels, &ptypes.Label{
-				Key:   k,
-				Value: &newVal,
-			})
-		}
-
-		output := ProposeGatewayJobOutput{
-			Specs: make(map[string][]string),
-		}
-		for nodeIdx, n := range nodes {
-			spec, err := gj.Resolve(nodeIdx)
-			if err != nil {
-				return ProposeGatewayJobOutput{}, err
-			}
-
-			_, err = deps.Env.Offchain.ProposeJob(b.GetContext(), &jobv1.ProposeJobRequest{
-				NodeId: n.GetId(),
-				Spec:   spec,
-				Labels: labels,
-			})
-			if err != nil {
-				return ProposeGatewayJobOutput{}, fmt.Errorf("error proposing job to node %s spec %s : %w", n.GetId(), spec, err)
-			}
-
-			output.Specs[n.GetId()] = append(output.Specs[n.GetId()], spec)
-		}
-
-		return output, nil
-	},
-)
+	return output, nil
+}
 
 func parseSelector(sel uint64) (nodev1.ChainType, string, error) {
 	fam, err := chainsel.GetSelectorFamily(sel)

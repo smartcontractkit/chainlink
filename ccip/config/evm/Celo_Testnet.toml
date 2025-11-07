@@ -4,6 +4,7 @@ ChainType = 'celo'
 # We expect to be able to rely only on FinalityTagEnabled=true in the short future.
 # https://chainlink-core.slack.com/archives/C05CS33N08N/p1715102940763339?thread_ts=1715102478.537529&cid=C05CS33N08N
 FinalityTagEnabled = true
+SafeTagSupported = true
 FinalityDepth = 2750 # mean finality time of ~37 minutes + 500 block buffer
 LogPollInterval = '1s' # 1 sec block rate
 NoNewHeadsThreshold = '1m'

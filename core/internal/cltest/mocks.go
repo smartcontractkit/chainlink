@@ -11,12 +11,12 @@ import (
 	"time"
 
 	gethTypes "github.com/ethereum/go-ethereum/core/types"
-	"github.com/jmoiron/sqlx"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/robfig/cron/v3"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
 	evmclient "github.com/smartcontractkit/chainlink-evm/pkg/client"
 	"github.com/smartcontractkit/chainlink-evm/pkg/config/toml"
@@ -30,6 +30,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/evmtest"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
+	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
 	"github.com/smartcontractkit/chainlink/v2/core/sessions"
 	"github.com/smartcontractkit/chainlink/v2/core/web"
 )
@@ -38,7 +39,7 @@ import (
 type MockSubscription struct {
 	t            testing.TB
 	mut          sync.Mutex
-	channel      interface{}
+	channel      any
 	unsubscribed bool
 	Errors       chan error
 }
@@ -75,27 +76,13 @@ func (mes *MockSubscription) Unsubscribe() {
 
 // RendererMock a mock renderer
 type RendererMock struct {
-	Renders []interface{}
+	Renders []any
 }
 
 // Render appends values to renderer mock
-func (rm *RendererMock) Render(v interface{}, headers ...string) error {
+func (rm *RendererMock) Render(v any, headers ...string) error {
 	rm.Renders = append(rm.Renders, v)
 	return nil
-}
-
-type InstanceAppFactoryWithKeystoreMock struct {
-	App chainlink.Application
-}
-
-// NewApplication creates a new application with specified config and calls the authenticate function of the keystore
-func (f InstanceAppFactoryWithKeystoreMock) NewApplication(ctx context.Context, cfg chainlink.GeneralConfig, lggr logger.Logger, registerer prometheus.Registerer, db *sqlx.DB, ks cmd.TerminalKeyStoreAuthenticator) (chainlink.Application, error) {
-	keyStore := f.App.GetKeyStore()
-	err := ks.Authenticate(ctx, keyStore, cfg.Password())
-	if err != nil {
-		return nil, fmt.Errorf("error authenticating keystore: %w", err)
-	}
-	return f.App, nil
 }
 
 // InstanceAppFactory is an InstanceAppFactory
@@ -104,7 +91,7 @@ type InstanceAppFactory struct {
 }
 
 // NewApplication creates a new application with specified config
-func (f InstanceAppFactory) NewApplication(context.Context, chainlink.GeneralConfig, logger.Logger, prometheus.Registerer, *sqlx.DB, cmd.TerminalKeyStoreAuthenticator) (chainlink.Application, error) {
+func (f InstanceAppFactory) NewApplication(context.Context, chainlink.GeneralConfig, logger.Logger, prometheus.Registerer, sqlutil.DataSource, keystore.Master) (chainlink.Application, error) {
 	return f.App, nil
 }
 
@@ -112,7 +99,7 @@ type seededAppFactory struct {
 	Application chainlink.Application
 }
 
-func (s seededAppFactory) NewApplication(context.Context, chainlink.GeneralConfig, logger.Logger, prometheus.Registerer, *sqlx.DB, cmd.TerminalKeyStoreAuthenticator) (chainlink.Application, error) {
+func (s seededAppFactory) NewApplication(context.Context, chainlink.GeneralConfig, logger.Logger, prometheus.Registerer, sqlutil.DataSource, keystore.Master) (chainlink.Application, error) {
 	return noopStopApplication{s.Application}, nil
 }
 

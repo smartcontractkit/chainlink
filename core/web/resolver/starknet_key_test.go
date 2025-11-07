@@ -63,7 +63,7 @@ func TestResolver_StarkNetKeys(t *testing.T) {
 				{
 					Extensions:    nil,
 					ResolverError: gError,
-					Path:          []interface{}{"starknetKeys"},
+					Path:          []any{"starknetKeys"},
 					Message:       gError.Error(),
 				},
 			},

@@ -33,7 +33,7 @@ func (k EncryptedPrivateKey) Decrypt(passphrase string) (privkey []byte, err err
 	return privkey, nil
 }
 
-func (k *EncryptedPrivateKey) Scan(value interface{}) error {
+func (k *EncryptedPrivateKey) Scan(value any) error {
 	b, ok := value.([]byte)
 	if !ok {
 		return errors.New("type assertion to []byte failed")

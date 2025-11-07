@@ -43,7 +43,7 @@ func TestAddNodes(t *testing.T) {
 
 	var mcCases = []mcmsCase{
 		{name: "no mcms", mcmsConfig: nil},
-		{name: "with mcms", mcmsConfig: &changeset.MCMSConfig{MinDuration: 0}},
+		{name: "with mcms", mcmsConfig: &changeset.MCMSConfig{MinDelay: 0}},
 	}
 	for _, mcCase := range mcCases {
 		mcmsConfig := mcCase.mcmsConfig
@@ -241,7 +241,6 @@ func TestAddNodes(t *testing.T) {
 			}
 
 			for _, tc := range cases {
-				tc := tc
 				t.Run(tc.name, func(t *testing.T) {
 					req := &changeset.AddNodesRequest{
 						RegistryChainSel:   tc.input.te.RegistrySelector,

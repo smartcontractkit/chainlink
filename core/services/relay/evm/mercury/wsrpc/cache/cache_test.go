@@ -42,7 +42,7 @@ func Test_Cache(t *testing.T) {
 		c := newMemCache(lggr, client, cfg)
 
 		req := &pb.LatestReportRequest{}
-		for i := 0; i < 5; i++ {
+		for i := range 5 {
 			client.resp = &pb.LatestReportResponse{Report: &pb.Report{Price: []byte(strconv.Itoa(i))}}
 
 			resp, err := c.LatestReport(ctx, req)
@@ -76,7 +76,7 @@ func Test_Cache(t *testing.T) {
 
 		t.Run("returns cached value for key", func(t *testing.T) {
 			var firstResp *pb.LatestReportResponse
-			for i := 0; i < 5; i++ {
+			for i := range 5 {
 				client.resp = &pb.LatestReportResponse{Report: &pb.Report{Price: []byte(strconv.Itoa(i))}}
 				if firstResp == nil {
 					firstResp = client.resp

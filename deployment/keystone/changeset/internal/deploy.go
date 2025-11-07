@@ -8,6 +8,7 @@ import (
 	"errors"
 	"fmt"
 	"math/big"
+	"slices"
 	"sort"
 	"strings"
 	"time"
@@ -330,12 +331,15 @@ func ConfigureOCR3Contract(env *cldf.Environment, chainSel uint64, dons []Regist
 			return fmt.Errorf("failed to get OCR3 contract: %w", err)
 		}
 
+		config, err := ocr3.GenerateOCR3ConfigFromNodes(*cfg, don.Nodes, chainSel, env.OCRSecrets, nil)
+		if err != nil {
+			return err
+		}
+
 		_, err = ocr3.ConfigureOCR3contract(ocr3.ConfigureOCR3Request{
-			Cfg:        cfg,
-			Chain:      registryChain,
-			Contract:   contract,
-			Nodes:      don.Nodes,
-			OcrSecrets: env.OCRSecrets,
+			Config:   config,
+			Chain:    registryChain,
+			Contract: contract,
 		})
 		if err != nil {
 			return fmt.Errorf("failed to configure OCR3 contract for don %s: %w", don.Name, err)
@@ -575,11 +579,8 @@ func RegisterNodes(lggr logger.Logger, req *RegisterNodesRequest) (*RegisterNode
 				var newCapIDs [][32]byte
 				for _, proposedCapID := range hashedCapabilityIDs {
 					shouldAdd := true
-					for _, existingCapID := range params.HashedCapabilityIds {
-						if existingCapID == proposedCapID {
-							shouldAdd = false
-							break
-						}
+					if slices.Contains(params.HashedCapabilityIds, proposedCapID) {
+						shouldAdd = false
 					}
 					if shouldAdd {
 						newCapIDs = append(newCapIDs, proposedCapID)
@@ -920,7 +921,7 @@ func RegisterDons(lggr logger.Logger, req RegisterDonsRequest) (*RegisterDonsRes
 	// occasionally the registry does not return the expected number of DONS immediately after the txns above
 	// so we retry a few times. while crude, it is effective
 	foundAll := false
-	for i := 0; i < 10; i++ {
+	for i := range 10 {
 		lggr.Debugw("attempting to get DONs from registry", "attempt#", i)
 		donInfos, err = registry.GetDONs(&bind.CallOpts{})
 		if !containsAllDONs(donInfos, p2pIdsToDon) {

@@ -14,6 +14,7 @@ import (
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 
 	"github.com/smartcontractkit/chainlink/deployment"
+	"github.com/smartcontractkit/chainlink/deployment/common/changeset/state"
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 	"github.com/smartcontractkit/chainlink/deployment/common/types"
 	"github.com/smartcontractkit/chainlink/deployment/common/view/v1_0"
@@ -289,4 +290,23 @@ func MaybeLoadStaticLinkTokenState(chain cldf_evm.Chain, addresses map[string]cl
 		}
 	}
 	return &state, nil
+}
+
+// SearchAddress searches for a contract address in both AddressBook and DataStore
+// Returns the address if found in either source
+func SearchAddress(e cldf.Environment, chainSelector uint64, address string) (bool, error) {
+	// Use the merged address loading from the EVM state function
+	addressesChain, err := state.AddressesForChain(e, chainSelector, "")
+	if err != nil {
+		return false, fmt.Errorf("failed to load addresses: %w", err)
+	}
+
+	// Search through merged addresses for the contract type
+	for addr := range addressesChain {
+		if addr == address {
+			return true, nil
+		}
+	}
+
+	return false, fmt.Errorf("%s not found", address)
 }

@@ -16,7 +16,7 @@ import (
 	"go.uber.org/zap"
 )
 
-var levelColors = map[string]func(...interface{}) string{
+var levelColors = map[string]func(...any) string{
 	"default": color.New(color.FgWhite).SprintFunc(),
 	"debug":   color.New(color.FgGreen).SprintFunc(),
 	"info":    color.New(color.FgWhite).SprintFunc(),
@@ -46,7 +46,7 @@ func (pc PrettyConsole) Write(b []byte) (int, error) {
 	js := gjson.ParseBytes(b)
 	headline := generateHeadline(js)
 	details := generateDetails(js)
-	return pc.Sink.Write([]byte(fmt.Sprintln(headline, details)))
+	return pc.Sink.Write(fmt.Appendln(nil, headline, details))
 }
 
 // Close is overridden to prevent accidental closure of stderr/stdout
@@ -70,7 +70,7 @@ func generateHeadline(js gjson.Result) string {
 		// assume already formatted
 		tsStr = ts.Str
 	}
-	headline := []interface{}{
+	headline := []any{
 		tsStr,
 		" ",
 		coloredLevel(js.Get("level")),

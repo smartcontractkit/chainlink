@@ -16,7 +16,6 @@ import (
 	mcmsTypes "github.com/smartcontractkit/mcms/types"
 
 	cldf_solana "github.com/smartcontractkit/chainlink-deployments-framework/chain/solana"
-
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 
 	"github.com/smartcontractkit/chainlink/deployment"
@@ -25,7 +24,7 @@ import (
 	commonstate "github.com/smartcontractkit/chainlink/deployment/common/changeset/state"
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 	"github.com/smartcontractkit/chainlink/deployment/common/types"
-	"github.com/smartcontractkit/chainlink/deployment/environment/memory"
+	"github.com/smartcontractkit/chainlink/deployment/utils/solutils"
 )
 
 // use this changeset to upload the IDL for a program
@@ -58,8 +57,8 @@ type IDLConfig struct {
 // parse anchor version from running anchor --version
 func parseAnchorVersion(output string) (string, error) {
 	const prefix = "anchor-cli "
-	if strings.HasPrefix(output, prefix) {
-		return strings.TrimSpace(strings.TrimPrefix(output, prefix)), nil
+	if after, ok := strings.CutPrefix(output, prefix); ok {
+		return strings.TrimSpace(after), nil
 	}
 	return "", fmt.Errorf("unexpected version output: %q", output)
 }
@@ -67,7 +66,7 @@ func parseAnchorVersion(output string) (string, error) {
 // create Anchor.toml file to simulate anchor workspace
 func writeAnchorToml(e cldf.Environment, filename, anchorVersion, cluster, wallet string) error {
 	e.Logger.Debugw("Writing Anchor.toml", "filename", filename, "anchorVersion", anchorVersion, "cluster", cluster, "wallet", wallet)
-	config := map[string]interface{}{
+	config := map[string]any{
 		"toolchain": map[string]string{
 			"anchor_version": anchorVersion,
 		},
@@ -99,7 +98,7 @@ func writeAnchorToml(e cldf.Environment, filename, anchorVersion, cluster, walle
 // resolve artifacts based on sha and write anchor.toml file to simulate anchor workspace
 func repoSetup(e cldf.Environment, chain cldf_solana.Chain, gitCommitSha string) error {
 	e.Logger.Debug("Downloading Solana CCIP program artifacts...")
-	err := memory.DownloadSolanaCCIPProgramArtifacts(e.GetContext(), chain.ProgramsPath, e.Logger, gitCommitSha)
+	err := solutils.DownloadChainlinkCCIPProgramArtifacts(e.GetContext(), chain.ProgramsPath, gitCommitSha, e.Logger)
 	if err != nil {
 		return fmt.Errorf("error downloading solana ccip program artifacts: %w", err)
 	}
@@ -131,12 +130,12 @@ func updateIDL(e cldf.Environment, idlFile string, programID string) error {
 		return fmt.Errorf("failed to read IDL: %w", err)
 	}
 	e.Logger.Debug("Parsing IDL")
-	var idl map[string]interface{}
+	var idl map[string]any
 	if err := json.Unmarshal(idlBytes, &idl); err != nil {
 		return fmt.Errorf("failed to parse legacy IDL: %w", err)
 	}
 	e.Logger.Debugw("Updating IDL with programID", "programID", programID)
-	idl["metadata"] = map[string]interface{}{
+	idl["metadata"] = map[string]any{
 		"address": programID,
 	}
 	// Marshal updated IDL back to JSON
@@ -213,9 +212,9 @@ func getIDLAddress(e cldf.Environment, programID solana.PublicKey) (solana.Publi
 // parse IDL buffer from `anchor idl write-buffer` output
 func parseIdlBuffer(output string) (string, error) {
 	const prefix = "Idl buffer created: "
-	for _, line := range strings.Split(output, "\n") {
-		if strings.HasPrefix(line, prefix) {
-			return strings.TrimSpace(strings.TrimPrefix(line, prefix)), nil
+	for line := range strings.SplitSeq(output, "\n") {
+		if after, ok := strings.CutPrefix(line, prefix); ok {
+			return strings.TrimSpace(after), nil
 		}
 	}
 	return "", errors.New("failed to find IDL buffer in output")

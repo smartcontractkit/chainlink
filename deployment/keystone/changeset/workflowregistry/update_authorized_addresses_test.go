@@ -89,7 +89,7 @@ func Test_UpdateAuthorizedAddresses_WithMCMS(t *testing.T) {
 		RegistryChainSel: te.RegistrySelector,
 		Addresses:        []string{addr},
 		Allowed:          true,
-		MCMSConfig:       &changeset.MCMSConfig{MinDuration: 0},
+		MCMSConfig:       &changeset.MCMSConfig{MinDelay: 0},
 	}
 
 	out, err := workflowregistry.UpdateAuthorizedAddresses(te.Env, req)

@@ -15,14 +15,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/p2pkey"
 )
 
-type CapabilityRegistryViewV2 struct {
-	types.ContractMetaData
-	Capabilities []CapabilityView `json:"capabilities,omitempty"`
-	Nodes        []NodeView       `json:"nodes,omitempty"`
-	Nops         []NopView        `json:"nops,omitempty"`
-	Dons         []DonView        `json:"dons,omitempty"`
-}
-
 // CapabilityRegistryView is a high-fidelity view of the capabilities registry contract.
 type CapabilityRegistryView struct {
 	types.ContractMetaData

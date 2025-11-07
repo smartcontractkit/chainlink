@@ -37,7 +37,7 @@ func TestMercuryConfigPoller(t *testing.T) {
 	// Create minimum number of nodes.
 	n := 4
 	var oracles []confighelper2.OracleIdentityExtra
-	for i := 0; i < n; i++ {
+	for range n {
 		oracles = append(oracles, confighelper2.OracleIdentityExtra{
 			OracleIdentity: confighelper2.OracleIdentity{
 				OnchainPublicKey:  evmutils.RandomAddress().Bytes(),
@@ -51,7 +51,7 @@ func TestMercuryConfigPoller(t *testing.T) {
 	f := uint8(1)
 	// Setup config on contract
 	configType := abi.MustNewType("tuple()")
-	onchainConfigVal, err := abi.Encode(map[string]interface{}{}, configType)
+	onchainConfigVal, err := abi.Encode(map[string]any{}, configType)
 	require.NoError(t, err)
 	signers, _, threshold, onchainConfig, offchainConfigVersion, offchainConfig, err := confighelper2.ContractSetConfigArgsForTests(
 		2*time.Second,        // DeltaProgress
@@ -77,7 +77,7 @@ func TestMercuryConfigPoller(t *testing.T) {
 	require.NoError(t, err)
 	offchainTransmitters := make([][32]byte, n)
 	encodedTransmitter := make([]ocrtypes2.Account, n)
-	for i := 0; i < n; i++ {
+	for i := range n {
 		offchainTransmitters[i] = oracles[i].OffchainPublicKey
 		encodedTransmitter[i] = ocrtypes2.Account(fmt.Sprintf("%x", oracles[i].OffchainPublicKey[:]))
 	}

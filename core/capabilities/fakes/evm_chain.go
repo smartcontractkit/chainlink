@@ -3,6 +3,8 @@ package fakes
 import (
 	"context"
 	"crypto/ecdsa"
+	"errors"
+	"fmt"
 	"math/big"
 	"strings"
 
@@ -12,6 +14,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/ethclient"
+	"github.com/ethereum/go-ethereum/rpc"
 
 	commonCap "github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	evmcappb "github.com/smartcontractkit/chainlink-common/pkg/capabilities/v2/chain-capabilities/evm"
@@ -85,14 +88,7 @@ func NewFakeEvmChain(
 	return fc
 }
 
-func (fc *FakeEVMChain) Initialise(ctx context.Context, config string, _ core.TelemetryService,
-	_ core.KeyValueStore,
-	_ core.ErrorLog,
-	_ core.PipelineRunnerService,
-	_ core.RelayerSet,
-	_ core.OracleFactory,
-	_ core.GatewayConnector,
-	_ core.Keystore) error {
+func (fc *FakeEVMChain) Initialise(ctx context.Context, dependencies core.StandardCapabilitiesDependencies) error {
 	// TODO: do validation of config here
 
 	err := fc.Start(ctx)
@@ -305,12 +301,18 @@ func (fc *FakeEVMChain) FilterLogs(ctx context.Context, metadata commonCap.Reque
 func (fc *FakeEVMChain) BalanceAt(ctx context.Context, metadata commonCap.RequestMetadata, input *evmcappb.BalanceAtRequest) (*commonCap.ResponseAndMetadata[*evmcappb.BalanceAtReply], error) {
 	fc.eng.Infow("EVM Chain BalanceAt Started", "input", input)
 
+	if input == nil {
+		return nil, errors.New("BalanceAtRequest is nil")
+	}
+
 	// Prepare balance at request
 	address := common.Address(input.Account)
-	blockNumber := new(big.Int).SetBytes(input.BlockNumber.AbsVal)
+
+	// Convert proto big-int to *big.Int; nil ⇒ latest (handled by geth toBlockNumArg)
+	blockArg := pb.NewIntFromBigInt(input.BlockNumber)
 
 	// Get balance at block number
-	balance, err := fc.gethClient.BalanceAt(ctx, address, blockNumber)
+	balance, err := fc.gethClient.BalanceAt(ctx, address, blockArg)
 	if err != nil {
 		return nil, err
 	}
@@ -432,13 +434,49 @@ func (fc *FakeEVMChain) GetTransactionReceipt(ctx context.Context, metadata comm
 func (fc *FakeEVMChain) HeaderByNumber(ctx context.Context, metadata commonCap.RequestMetadata, input *evmcappb.HeaderByNumberRequest) (*commonCap.ResponseAndMetadata[*evmcappb.HeaderByNumberReply], error) {
 	fc.eng.Infow("EVM Chain HeaderByNumber Started", "input", input)
 
-	// Prepare header by number request
-	blockNumber := new(big.Int).SetBytes(input.BlockNumber.AbsVal)
+	var (
+		header *types.Header
+		err    error
+	)
 
-	// Get header by number
-	header, err := fc.gethClient.HeaderByNumber(ctx, blockNumber)
+	// Convert the request block number preserving sign.
+	var reqNum *big.Int
+	if input != nil {
+		reqNum = pb.NewIntFromBigInt(input.BlockNumber)
+	}
+
+	// Enforce int64 constraint
+	if reqNum != nil && !reqNum.IsInt64() {
+		return nil, fmt.Errorf("block number %s is larger than int64: %w", reqNum.String(), ethereum.NotFound)
+	}
+
+	switch {
+	// latest block (nil or explicit "latest"): nil or -2
+	case reqNum == nil || reqNum.Int64() == rpc.LatestBlockNumber.Int64():
+		header, err = fc.gethClient.HeaderByNumber(ctx, nil)
+
+	// non-special, non-negative block number (including 0): >=0
+	case reqNum.Sign() >= 0:
+		header, err = fc.gethClient.HeaderByNumber(ctx, reqNum)
+
+	// finalized tag: -3
+	case reqNum.Int64() == rpc.FinalizedBlockNumber.Int64():
+		header, err = fc.gethClient.HeaderByNumber(ctx, big.NewInt(rpc.FinalizedBlockNumber.Int64()))
+
+	// safe tag: -4
+	case reqNum.Int64() == rpc.SafeBlockNumber.Int64():
+		header, err = fc.gethClient.HeaderByNumber(ctx, big.NewInt(rpc.SafeBlockNumber.Int64()))
+
+	// any other negative is unexpected
+	default:
+		return nil, fmt.Errorf("unexpected block number %s: %w", reqNum.String(), ethereum.NotFound)
+	}
+
 	if err != nil {
 		return nil, err
+	}
+	if header == nil {
+		return nil, ethereum.NotFound
 	}
 
 	// Convert header to protobuf

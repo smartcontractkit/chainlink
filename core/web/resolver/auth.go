@@ -60,8 +60,8 @@ func (e unauthorizedError) Error() string {
 	return "Unauthorized"
 }
 
-func (e unauthorizedError) Extensions() map[string]interface{} {
-	return map[string]interface{}{
+func (e unauthorizedError) Extensions() map[string]any {
+	return map[string]any{
 		"code": "UNAUTHORIZED",
 	}
 }

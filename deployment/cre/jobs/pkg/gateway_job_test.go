@@ -34,6 +34,7 @@ HeartbeatIntervalSec = 20
 
 [[gatewayConfig.Dons]]
 DonId = 'workflow_1'
+F = 1
 
 [[gatewayConfig.Dons.Handlers]]
 Name = 'web-api-capabilities'
@@ -65,6 +66,7 @@ Name = 'Node 4'
 
 [[gatewayConfig.Dons]]
 DonId = 'workflow_2'
+F = 0
 
 [[gatewayConfig.Dons.Handlers]]
 Name = 'web-api-capabilities'
@@ -96,6 +98,9 @@ Name = 'Node 4'
 
 [gatewayConfig.HTTPClientConfig]
 MaxResponseBytes = 50000000
+AllowedPorts = [443]
+AllowedSchemes = ['https']
+AllowedIPsCIDR = []
 
 [gatewayConfig.NodeServerConfig]
 HandshakeTimeoutMillis = 1000
@@ -103,7 +108,7 @@ MaxRequestBytes = 100000
 Path = '/'
 Port = 5003
 ReadTimeoutMillis = 1000
-RequestTimeoutMillis = 10000
+RequestTimeoutMillis = 15000
 WriteTimeoutMillis = 1000
 
 [gatewayConfig.UserServerConfig]
@@ -111,9 +116,9 @@ ContentTypeHeader = 'application/jsonrpc'
 MaxRequestBytes = 100000
 Path = '/'
 Port = 5002
-ReadTimeoutMillis = 80000
-RequestTimeoutMillis = 80000
-WriteTimeoutMillis = 80000
+ReadTimeoutMillis = 15000
+RequestTimeoutMillis = 15000
+WriteTimeoutMillis = 16000
 `
 
 	expectedWithVault = `type = 'gateway'
@@ -131,6 +136,7 @@ HeartbeatIntervalSec = 20
 
 [[gatewayConfig.Dons]]
 DonId = 'workflow_1'
+F = 1
 
 [[gatewayConfig.Dons.Handlers]]
 Name = 'web-api-capabilities'
@@ -149,7 +155,7 @@ Name = 'vault'
 ServiceName = 'vault'
 
 [gatewayConfig.Dons.Handlers.Config]
-requestTimeoutSec = 70
+requestTimeoutSec = 14
 
 [gatewayConfig.Dons.Handlers.Config.NodeRateLimiter]
 globalBurst = 10
@@ -175,6 +181,7 @@ Name = 'Node 4'
 
 [[gatewayConfig.Dons]]
 DonId = 'workflow_2'
+F = 0
 
 [[gatewayConfig.Dons.Handlers]]
 Name = 'web-api-capabilities'
@@ -206,6 +213,9 @@ Name = 'Node 4'
 
 [gatewayConfig.HTTPClientConfig]
 MaxResponseBytes = 50000000
+AllowedPorts = [443]
+AllowedSchemes = ['https']
+AllowedIPsCIDR = []
 
 [gatewayConfig.NodeServerConfig]
 HandshakeTimeoutMillis = 1000
@@ -213,7 +223,7 @@ MaxRequestBytes = 100000
 Path = '/'
 Port = 5003
 ReadTimeoutMillis = 1000
-RequestTimeoutMillis = 10000
+RequestTimeoutMillis = 15000
 WriteTimeoutMillis = 1000
 
 [gatewayConfig.UserServerConfig]
@@ -221,9 +231,9 @@ ContentTypeHeader = 'application/jsonrpc'
 MaxRequestBytes = 100000
 Path = '/'
 Port = 5002
-ReadTimeoutMillis = 80000
-RequestTimeoutMillis = 80000
-WriteTimeoutMillis = 80000
+ReadTimeoutMillis = 15000
+RequestTimeoutMillis = 15000
+WriteTimeoutMillis = 16000
 `
 
 	expectedWithHTTPCapabilities = `type = 'gateway'
@@ -241,19 +251,20 @@ HeartbeatIntervalSec = 20
 
 [[gatewayConfig.Dons]]
 DonId = 'workflow_1'
+F = 3
 
 [[gatewayConfig.Dons.Handlers]]
 Name = 'http-capabilities'
 ServiceName = 'workflows'
 
 [gatewayConfig.Dons.Handlers.Config]
-CleanUpPeriodMs = 86400000
+CleanUpPeriodMs = 600000
 
 [gatewayConfig.Dons.Handlers.Config.NodeRateLimiter]
-globalBurst = 10
-globalRPS = 50
-perSenderBurst = 10
-perSenderRPS = 10
+globalBurst = 100
+globalRPS = 500
+perSenderBurst = 100
+perSenderRPS = 100
 
 [[gatewayConfig.Dons.Members]]
 Address = '0xabc'
@@ -265,13 +276,14 @@ Name = 'Node 2'
 
 [[gatewayConfig.Dons]]
 DonId = 'workflow_2'
+F = 0
 
 [[gatewayConfig.Dons.Handlers]]
 Name = 'vault'
 ServiceName = 'vault'
 
 [gatewayConfig.Dons.Handlers.Config]
-requestTimeoutSec = 70
+requestTimeoutSec = 14
 
 [gatewayConfig.Dons.Handlers.Config.NodeRateLimiter]
 globalBurst = 10
@@ -289,6 +301,9 @@ Name = 'Node 4'
 
 [gatewayConfig.HTTPClientConfig]
 MaxResponseBytes = 50000000
+AllowedPorts = [443]
+AllowedSchemes = ['https']
+AllowedIPsCIDR = []
 
 [gatewayConfig.NodeServerConfig]
 HandshakeTimeoutMillis = 1000
@@ -296,7 +311,7 @@ MaxRequestBytes = 100000
 Path = '/'
 Port = 5003
 ReadTimeoutMillis = 1000
-RequestTimeoutMillis = 10000
+RequestTimeoutMillis = 15000
 WriteTimeoutMillis = 1000
 
 [gatewayConfig.UserServerConfig]
@@ -304,9 +319,9 @@ ContentTypeHeader = 'application/jsonrpc'
 MaxRequestBytes = 100000
 Path = '/'
 Port = 5002
-ReadTimeoutMillis = 80000
-RequestTimeoutMillis = 80000
-WriteTimeoutMillis = 80000
+ReadTimeoutMillis = 15000
+RequestTimeoutMillis = 15000
+WriteTimeoutMillis = 16000
 `
 )
 
@@ -314,10 +329,12 @@ func TestGateway_Resolve(t *testing.T) {
 	t.Parallel()
 
 	g := GatewayJob{
-		JobName: "Gateway1",
+		JobName:           "Gateway1",
+		RequestTimeoutSec: 15,
 		TargetDONs: []TargetDON{
 			{
 				ID:       "workflow_1",
+				F:        1,
 				Handlers: []string{GatewayHandlerTypeWebAPICapabilities},
 				Members: []TargetDONMember{
 					{
@@ -372,10 +389,12 @@ func TestGateway_Resolve_WithVaultHandler(t *testing.T) {
 	t.Parallel()
 
 	g := GatewayJob{
-		JobName: "Gateway1",
+		JobName:           "Gateway1",
+		RequestTimeoutSec: 15,
 		TargetDONs: []TargetDON{
 			{
 				ID:       "workflow_1",
+				F:        1,
 				Handlers: []string{GatewayHandlerTypeWebAPICapabilities, GatewayHandlerTypeVault},
 				Members: []TargetDONMember{
 					{
@@ -397,7 +416,8 @@ func TestGateway_Resolve_WithVaultHandler(t *testing.T) {
 				},
 			},
 			{
-				ID:       "workflow_2",
+				ID: "workflow_2",
+
 				Handlers: []string{GatewayHandlerTypeWebAPICapabilities},
 				Members: []TargetDONMember{
 					{
@@ -431,10 +451,12 @@ func TestGateway_Resolve_WithHTTPCapabilitiesHandler(t *testing.T) {
 	t.Parallel()
 
 	g := GatewayJob{
-		JobName: "Gateway1",
+		JobName:           "Gateway1",
+		RequestTimeoutSec: 15,
 		TargetDONs: []TargetDON{
 			{
 				ID:       "workflow_1",
+				F:        3,
 				Handlers: []string{GatewayHandlerTypeHTTPCapabilities},
 				Members: []TargetDONMember{
 					{
@@ -449,6 +471,7 @@ func TestGateway_Resolve_WithHTTPCapabilitiesHandler(t *testing.T) {
 			},
 			{
 				ID:       "workflow_2",
+				F:        0,
 				Handlers: []string{GatewayHandlerTypeVault},
 				Members: []TargetDONMember{
 					{

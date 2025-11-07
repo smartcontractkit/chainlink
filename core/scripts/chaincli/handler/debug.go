@@ -650,7 +650,7 @@ func tenderlySimLink(ctx context.Context, cfg *config.Config, chainID int64, blo
 		warning("tenderly credentials not properly configured - this is optional but helpful")
 		return errResult
 	}
-	values := map[string]interface{}{
+	values := map[string]any{
 		"network_id": strconv.FormatInt(chainID, 10),
 		"from":       "0x0000000000000000000000000000000000000000",
 		"input":      hexutil.Encode(input),

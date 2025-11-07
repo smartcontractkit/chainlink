@@ -14,15 +14,17 @@ import (
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/rpc"
 	"github.com/google/go-cmp/cmp"
-	sdkpb "github.com/smartcontractkit/chainlink-protos/cre/go/sdk"
-	"github.com/smartcontractkit/chainlink-protos/cre/go/values/pb"
+	"github.com/stretchr/testify/require"
+	"google.golang.org/protobuf/testing/protocmp"
+	"gopkg.in/yaml.v3"
+
 	"github.com/smartcontractkit/cre-sdk-go/capabilities/blockchain/evm"
 	"github.com/smartcontractkit/cre-sdk-go/capabilities/scheduler/cron"
 	sdk "github.com/smartcontractkit/cre-sdk-go/cre"
 	"github.com/smartcontractkit/cre-sdk-go/cre/wasm"
-	"github.com/stretchr/testify/require"
-	"google.golang.org/protobuf/testing/protocmp"
-	"gopkg.in/yaml.v3"
+
+	sdkpb "github.com/smartcontractkit/chainlink-protos/cre/go/sdk"
+	"github.com/smartcontractkit/chainlink-protos/cre/go/values/pb"
 
 	"github.com/smartcontractkit/chainlink/system-tests/tests/smoke/cre/evmread/config"
 	"github.com/smartcontractkit/chainlink/system-tests/tests/smoke/cre/evmread/contracts"
@@ -211,7 +213,7 @@ func sendTx(t *T, runtime sdk.Runtime, cfg config.Config, client evm.Client, msg
 	reportReply, err := client.WriteReport(runtime, &evm.WriteCreReportRequest{
 		Receiver:  cfg.ContractAddress,
 		Report:    report,
-		GasConfig: &evm.GasConfig{GasLimit: 1e6},
+		GasConfig: &evm.GasConfig{GasLimit: 500_000},
 	}).Await()
 	require.NoError(t, err, "failed to write report")
 	require.NotNil(t, reportReply)
