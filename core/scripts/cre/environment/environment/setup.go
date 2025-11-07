@@ -520,11 +520,11 @@ func RunSetup(ctx context.Context, config SetupConfig, noPrompt, purge, withBill
 		return
 	}
 
-	if err := runGHSetupGit(); err != nil {
+	if err := runGHSetupGit(ctx); err != nil {
 		return errors.Wrap(err, "failed to run 'gh auth setup-git'")
 	}
 
-	installedCapabilities, capErr := makeCapabilities(cfg.Capabilities, relativePathToRepoRoot)
+	installedCapabilities, capErr := makeCapabilities(ctx, cfg.Capabilities, relativePathToRepoRoot)
 	if capErr != nil {
 		return errors.Wrap(capErr, "failed to install capabilities")
 	}
@@ -577,11 +577,11 @@ func BuildCapabilities(ctx context.Context, config SetupConfig, noPrompt bool) e
 		return errors.Wrap(ghCliErr, "failed to ensure GitHub CLI")
 	}
 
-	if err := runGHSetupGit(); err != nil {
+	if err := runGHSetupGit(ctx); err != nil {
 		return errors.Wrap(err, "failed to run 'gh auth setup-git'")
 	}
 
-	installedCapabilities, capErr := makeCapabilities(cfg.Capabilities, relativePathToRepoRoot)
+	installedCapabilities, capErr := makeCapabilities(ctx, cfg.Capabilities, relativePathToRepoRoot)
 	if capErr != nil {
 		return errors.Wrap(capErr, "failed to install capabilities")
 	}
@@ -597,10 +597,10 @@ func BuildCapabilities(ctx context.Context, config SetupConfig, noPrompt bool) e
 	return nil
 }
 
-func runGHSetupGit() error {
+func runGHSetupGit(ctx context.Context) error {
 	logger := framework.L
 	logger.Info().Msg("🔍 Checking if GitHub CLI authentication is set up for Git...")
-	cmd := exec.Command("bash", "-c", `printf "protocol=https\nhost=github.com\n\n" | git credential fill | sed -n 's/^password=//p' | head -n1`)
+	cmd := exec.CommandContext(ctx, "bash", "-c", `printf "protocol=https\nhost=github.com\n\n" | git credential fill | sed -n 's/^password=//p' | head -n1`)
 	var out bytes.Buffer
 
 	cmd.Stdout = &out
@@ -611,7 +611,7 @@ func runGHSetupGit() error {
 
 	if out.String() == "" {
 		logger.Info().Msg("  GitHub CLI authentication is not set up for Git. Running 'gh auth setup-git'...")
-		setupCmd := exec.Command("gh", "auth", "setup-git")
+		setupCmd := exec.CommandContext(ctx, "gh", "auth", "setup-git")
 		setupCmd.Stdout = os.Stdout
 		setupCmd.Stderr = os.Stderr
 		if err := setupCmd.Run(); err != nil {
@@ -625,7 +625,7 @@ func runGHSetupGit() error {
 	return nil
 }
 
-func makeCapabilities(capabilitiesConfig capabilitiesConfig, repoRootRelativePath string) ([]string, error) {
+func makeCapabilities(ctx context.Context, capabilitiesConfig capabilitiesConfig, repoRootRelativePath string) ([]string, error) {
 	if len(capabilitiesConfig.MakeCommands) == 0 {
 		framework.L.Info().Msg("No make commands specified for capabilities. Skipping capabilities build.")
 		return nil, nil
@@ -649,7 +649,7 @@ func makeCapabilities(capabilitiesConfig capabilitiesConfig, repoRootRelativePat
 	}()
 
 	for _, makeCommand := range capabilitiesConfig.MakeCommands {
-		cmd := exec.Command("make", makeCommand)
+		cmd := exec.CommandContext(ctx, "make", makeCommand)
 		cmd.Dir = repoRootRelativePath
 		// Set GOBIN to the absolute path of the target path, so that binaries are placed there
 		cmd.Env = os.Environ()
@@ -677,7 +677,7 @@ func makeCapabilities(capabilitiesConfig capabilitiesConfig, repoRootRelativePat
 		return nil, fmt.Errorf("failed to create target path: %w", err)
 	}
 
-	cmd := exec.Command("cp", "-R", tempDirAbsPath+string(os.PathSeparator)+".", absPath) //nolint:gosec //G204: Subprocess launched with a potential tainted input or cmd arguments
+	cmd := exec.CommandContext(ctx, "cp", "-R", tempDirAbsPath+string(os.PathSeparator)+".", absPath) //nolint:gosec //G204: Subprocess launched with a potential tainted input or cmd arguments
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 
