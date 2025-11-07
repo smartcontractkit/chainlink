@@ -211,35 +211,7 @@
       docker_file = "core/chainlink.Dockerfile"
       docker_build_args = { "CL_IS_PROD_BUILD" = "false" }
       # image = "chainlink-tmp:latest"
-      user_config_overrides = """
-      [Log]
-      Level = 'debug'
-      JSONConsole = true
-
-      [P2P]
-      EnableExperimentalRageP2P = true
-
-      [Telemetry]
-      Enabled = true
-      Endpoint = 'host.docker.internal:4317'
-      ChipIngressEndpoint = 'chip-ingress:50051'
-      ChipIngressInsecureConnection = true
-      InsecureConnection = true
-      TraceSampleRatio = 1
-      HeartbeatInterval = '30s'
-
-      [CRE]
-      EnableDKGRecipient = true
-      UseLocalTimeProvider = false
-
-      # Remove this bit to allow downloading workflows from remote sources
-      [CRE.WorkflowFetcher]
-      URL = "file:///home/chainlink/workflows"
-
-      [Billing]
-      URL = "billing-platform-service:2223"
-      TLSEnabled = false
-      """
+      user_config_overrides = ""
 
 [[nodesets]]
   nodes = 4
@@ -267,35 +239,7 @@
       docker_file = "core/chainlink.Dockerfile"
       docker_build_args = { "CL_IS_PROD_BUILD" = "false" }
       # image = "chainlink-tmp:latest"
-      user_config_overrides = """
-      [Log]
-      Level = 'debug'
-      JSONConsole = true
-
-      [P2P]
-      EnableExperimentalRageP2P = true
-
-      [Telemetry]
-      Enabled = true
-      Endpoint = 'host.docker.internal:4317'
-      ChipIngressEndpoint = 'chip-ingress:50051'
-      ChipIngressInsecureConnection = true
-      InsecureConnection = true
-      TraceSampleRatio = 1
-      HeartbeatInterval = '30s'
-
-      [CRE]
-      EnableDKGRecipient = true
-      UseLocalTimeProvider = false
-
-      # Remove this bit to allow downloading workflows from remote sources
-      [CRE.WorkflowFetcher]
-      URL = "file:///home/chainlink/workflows"
-
-      [Billing]
-      URL = "billing-platform-service:2223"
-      TLSEnabled = false
-      """
+      user_config_overrides = ""
 
 [[nodesets]]
   nodes = 1
@@ -305,6 +249,10 @@
   http_port_range_start = 10300
 
   env_vars = { CL_EVM_CMD = "" }
+
+  # required so that EVM keys are generated and we can add gateway connecter
+  # remove once connector is not required by Workflow Registry Syncer
+  supported_evm_chains = [1337]
 
   [nodesets.db]
     image = "postgres:12.0"
@@ -320,28 +268,4 @@
       # 5002 is the web API capabilities port for incoming requests
       # 15002 is the vault port for incoming requests
       custom_ports = ["5002:5002","15002:15002"]
-      user_config_overrides = """
-      [Log]
-      Level = 'debug'
-      JSONConsole = true
-
-      [P2P]
-      EnableExperimentalRageP2P = true
-
-      [Telemetry]
-      Enabled = true
-      Endpoint = 'host.docker.internal:4317'
-      ChipIngressEndpoint = 'chip-ingress:50051'
-      ChipIngressInsecureConnection = true
-      InsecureConnection = true
-      TraceSampleRatio = 1
-      HeartbeatInterval = '30s'
-
-      [CRE]
-      EnableDKGRecipient = true
-      UseLocalTimeProvider = false
-
-      # Remove this bit to allow downloading workflows from remote sources
-      [CRE.WorkflowFetcher]
-      URL = "file:///home/chainlink/workflows"
-      """
+      user_config_overrides = ""

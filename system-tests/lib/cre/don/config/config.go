@@ -34,6 +34,7 @@ import (
 	crecontracts "github.com/smartcontractkit/chainlink/system-tests/lib/cre/contracts"
 	creblockchains "github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/blockchains"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/blockchains/solana"
+	"github.com/smartcontractkit/chainlink/system-tests/lib/infra"
 )
 
 const TronEVMChainID = 3360022319
@@ -112,6 +113,7 @@ func PrepareNodeTOMLs(
 					GatewayConnectorOutput:  topology.GatewayConnectors,
 					NodeSet:                 localNodeSets[i],
 					CapabilityConfigs:       creEnv.CapabilityConfigs,
+					Provider:                creEnv.Provider,
 				},
 				configFactoryFunctions,
 			)
@@ -153,7 +155,7 @@ func generateNodeTomlConfig(input cre.GenerateConfigsInput, nodeConfigTransforme
 	}
 
 	for nodeIdx, nodeMetadata := range input.DonMetadata.NodesMetadata {
-		nodeConfig := baseNodeConfig()
+		nodeConfig := baseNodeConfig(commonInputs)
 		for _, role := range nodeMetadata.Roles {
 			switch role {
 			case cre.BootstrapNode:
@@ -170,7 +172,7 @@ func generateNodeTomlConfig(input cre.GenerateConfigsInput, nodeConfigTransforme
 				}
 			case cre.GatewayNode:
 				var cErr error
-				nodeConfig, cErr = addGatewayNodeConfig(nodeConfig, input.OCRPeeringData, commonInputs)
+				nodeConfig, cErr = addGatewayNodeConfig(nodeConfig, input.OCRPeeringData, commonInputs, nodeMetadata)
 				if cErr != nil {
 					return nil, errors.Wrapf(cErr, "failed to add gateway node config for node at index %d in DON %s", nodeIdx, input.DonMetadata.Name)
 				}
@@ -207,8 +209,8 @@ func generateNodeTomlConfig(input cre.GenerateConfigsInput, nodeConfigTransforme
 	return configOverrides, nil
 }
 
-func baseNodeConfig() corechainlink.Config {
-	return corechainlink.Config{
+func baseNodeConfig(commonInputs *commonInputs) corechainlink.Config {
+	c := corechainlink.Config{
 		Core: coretoml.Core{
 			Feature: coretoml.Feature{
 				LogPoller: ptr.Ptr(true),
@@ -217,8 +219,27 @@ func baseNodeConfig() corechainlink.Config {
 				JSONConsole: ptr.Ptr(true),
 				Level:       ptr.Ptr(coretoml.LogLevel(zapcore.DebugLevel)),
 			},
+			OCR2: coretoml.OCR2{
+				Enabled:              ptr.Ptr(true),
+				DatabaseTimeout:      commonconfig.MustNewDuration(1 * time.Second),
+				ContractPollInterval: commonconfig.MustNewDuration(1 * time.Second),
+			},
+			CRE: coretoml.CreConfig{
+				EnableDKGRecipient:   ptr.Ptr(true),
+				UseLocalTimeProvider: ptr.Ptr(false),
+			},
 		},
 	}
+
+	if commonInputs.provider.IsDocker() {
+		c.Telemetry = coretoml.Telemetry{
+			Enabled:            ptr.Ptr(true),
+			Endpoint:           ptr.Ptr("host.docker.internal:4317"),
+			InsecureConnection: ptr.Ptr(true),
+		}
+	}
+
+	return c
 }
 
 func addBootstrapNodeConfig(
@@ -243,6 +264,22 @@ func addBootstrapNodeConfig(
 			ListenAddresses:      ptr.Ptr([]string{"0.0.0.0:" + strconv.Itoa(ocrPeeringData.Port)}),
 			DefaultBootstrappers: ptr.Ptr([]commontypes.BootstrapperLocator{*ocrBoostrapperLocator}),
 		},
+		EnableExperimentalRageP2P: ptr.Ptr(true),
+	}
+
+	if commonInputs.provider.IsDocker() {
+		existingConfig.CRE.WorkflowFetcher = &coretoml.WorkflowFetcherConfig{
+			URL: ptr.Ptr("file:///home/chainlink/workflows"),
+		}
+
+		existingConfig.Telemetry.ChipIngressEndpoint = ptr.Ptr("chip-ingress:50051")
+		existingConfig.Telemetry.ChipIngressInsecureConnection = ptr.Ptr(true)
+		existingConfig.Telemetry.HeartbeatInterval = commonconfig.MustNewDuration(30 * time.Second)
+
+		existingConfig.Billing = coretoml.Billing{
+			URL:        ptr.Ptr("billing-platform-service:2223"),
+			TLSEnabled: ptr.Ptr(false),
+		}
 	}
 
 	existingConfig.Capabilities = coretoml.Capabilities{
@@ -311,6 +348,22 @@ func addWorkerNodeConfig(
 			ListenAddresses:      ptr.Ptr([]string{"0.0.0.0:" + strconv.Itoa(ocrPeeringData.Port)}),
 			DefaultBootstrappers: ptr.Ptr([]commontypes.BootstrapperLocator{*ocrBoostrapperLocator}),
 		},
+		EnableExperimentalRageP2P: ptr.Ptr(true),
+	}
+
+	if commonInputs.provider.IsDocker() {
+		existingConfig.CRE.WorkflowFetcher = &coretoml.WorkflowFetcherConfig{
+			URL: ptr.Ptr("file:///home/chainlink/workflows"),
+		}
+
+		existingConfig.Telemetry.ChipIngressEndpoint = ptr.Ptr("chip-ingress:50051")
+		existingConfig.Telemetry.ChipIngressInsecureConnection = ptr.Ptr(true)
+		existingConfig.Telemetry.HeartbeatInterval = commonconfig.MustNewDuration(30 * time.Second)
+
+		existingConfig.Billing = coretoml.Billing{
+			URL:        ptr.Ptr("billing-platform-service:2223"),
+			TLSEnabled: ptr.Ptr(false),
+		}
 	}
 
 	existingConfig.Capabilities = coretoml.Capabilities{
@@ -397,6 +450,7 @@ func addGatewayNodeConfig(
 	existingConfig corechainlink.Config,
 	ocrPeeringData cre.OCRPeeringData,
 	commonInputs *commonInputs,
+	m *cre.NodeMetadata,
 ) (corechainlink.Config, error) {
 	// TODO: remove this in the future?
 	// Unless node has Peering enabled it won't create capabilities registry syncer and all requests to vault handler will fail,
@@ -453,6 +507,25 @@ OUTER:
 		ChainID:         ptr.Ptr(strconv.FormatUint(commonInputs.registryChainID, 10)),
 		ContractVersion: ptr.Ptr(commonInputs.workflowRegistry.version.String()),
 		SyncStrategy:    ptr.Ptr("reconciliation"),
+		// TODO remove WorkflowStorage once it is not required on a gateway node
+		WorkflowStorage: coretoml.WorkflowStorage{
+			URL:                 ptr.Ptr("localhost"),
+			TLSEnabled:          ptr.Ptr(false),
+			ArtifactStorageHost: ptr.Ptr("localhost"),
+		},
+	}
+
+	// TODO: remove once gateway connector is not required by workflow registry syncer
+	evmKey, ok := m.Keys.EVM[commonInputs.registryChainID]
+	if !ok {
+		return existingConfig, fmt.Errorf("failed to get EVM key (chainID %d, node index %d)", commonInputs.registryChainID, m.Index)
+	}
+	if len(existingConfig.Capabilities.GatewayConnector.Gateways) == 0 {
+		existingConfig.Capabilities.GatewayConnector = coretoml.GatewayConnector{
+			DonID:             ptr.Ptr("doesn't-matter-for-gateway-node"),
+			ChainIDForNodeKey: ptr.Ptr(strconv.FormatUint(commonInputs.registryChainID, 10)),
+			NodeAddress:       ptr.Ptr(evmKey.PublicAddress.Hex()),
+		}
 	}
 
 	return existingConfig, nil
@@ -472,6 +545,8 @@ type commonInputs struct {
 
 	evmChains   []*evmChain
 	solanaChain *solanaChain
+
+	provider infra.Provider
 }
 
 func gatherCommonInputs(input cre.GenerateConfigsInput) (*commonInputs, error) {
@@ -502,6 +577,7 @@ func gatherCommonInputs(input cre.GenerateConfigsInput) (*commonInputs, error) {
 			address: capabilitiesRegistryAddress,
 			version: input.ContractVersions[keystone_changeset.CapabilitiesRegistry.String()],
 		},
+		provider: input.Provider,
 	}, nil
 }
 

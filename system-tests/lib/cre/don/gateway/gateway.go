@@ -39,7 +39,6 @@ func CreateJobs(ctx context.Context, creEnv *cre.Environment, dons *cre.Dons, ga
 			JobName:     "gateway-worker",
 			DONFilters: []offchain.TargetDONFilter{
 				{Key: offchain.FilterKeyDONName, Value: gatewayNode.DON.Name},
-				{Key: "p2p_id", Value: gatewayNode.Keys.PeerID()},
 			},
 			Template: job_types.Gateway,
 			Inputs: job_types.JobSpecInput{
