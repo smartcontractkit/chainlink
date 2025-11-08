@@ -19,6 +19,7 @@ import (
 	testoffchainaggregator2 "github.com/smartcontractkit/libocr/gethwrappers2/testocr2aggregator"
 	confighelper2 "github.com/smartcontractkit/libocr/offchainreporting2plus/confighelper"
 	ocrtypes2 "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
+	"github.com/smartcontractkit/quarantine"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/services/servicetest"
@@ -38,6 +39,7 @@ import (
 )
 
 func TestFunctionsConfigPoller(t *testing.T) {
+	quarantine.Flaky(t, "DX-2253")
 	t.Run("FunctionsPlugin", func(t *testing.T) {
 		runTest(t, functions.FunctionsPlugin, functions.FunctionsDigestPrefix)
 	})
