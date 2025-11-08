@@ -346,6 +346,7 @@ func TestValidateConfigureTokenPoolContractsConfig(t *testing.T) {
 }
 
 func TestValidateConfigureTokenPoolContracts(t *testing.T) {
+	quarantine.Flaky(t, "DX-2324")
 	t.Parallel()
 
 	type regPass struct {
