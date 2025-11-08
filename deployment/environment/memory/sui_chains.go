@@ -11,7 +11,6 @@ import (
 	"time"
 
 	"github.com/block-vision/sui-go-sdk/models"
-	"github.com/block-vision/sui-go-sdk/sui"
 	"github.com/stretchr/testify/require"
 
 	chainsel "github.com/smartcontractkit/chain-selectors"
@@ -88,24 +87,7 @@ func createSuiChainConfig(chainID string, chain cldf_sui.Chain) chainlink.RawCon
 	return chainConfig
 }
 
-// func FundSuiAccount(faucetURL string, rpcURL, address string) error {
-// 	r := resty.New().SetBaseURL(faucetURL)
-// 	b := &models.FaucetRequest{
-// 		FixedAmountRequest: &models.FaucetFixedAmountRequest{
-// 			Recipient: address,
-// 		},
-// 	}
-// 	resp, err := r.R().SetBody(b).SetHeader("Content-Type", "application/json").Post("/gas")
-// 	if err != nil {
-// 		return err
-// 	}
-// 	framework.L.Info().Any("Resp", resp).Msg("Address is funded!")
-
-// 	return nil
-// }
-
 func fundSuiNodes(t *testing.T, suiChain cldf_sui.Chain, nodes []*Node) {
-
 	ctx := t.Context()
 	signer := suiChain.Signer
 	client := suiChain.Client
@@ -124,46 +106,41 @@ func fundSuiNodes(t *testing.T, suiChain cldf_sui.Chain, nodes []*Node) {
 		require.Len(t, suiKeys, 1)
 
 		transmitter := suiKeys[0]
-		FundSuiAccount(t, suiChain.Signer, "0x"+transmitter.Account(), suiChain.Client, coins[i])
+		coin := coins[i]
+		to := "0x" + transmitter.Account()
+		client := suiChain.Client
+
+		balance, _ := strconv.ParseUint(coin.Balance, 10, 64)
+		gas := uint64(100_000_000)
+		if balance <= gas {
+			t.Logf("Skipping coin %s (too small: %d)", coin.CoinObjectId, balance)
+			return
+		}
+
+		transferAmount := balance - gas
+
+		t.Logf("Transferring coin %s to %s (amount=%d)...", coin.CoinObjectId, to, transferAmount)
+
+		unsignedReq := models.TransferSuiRequest{
+			Signer:      signerAddr,
+			SuiObjectId: coin.CoinObjectId,
+			GasBudget:   fmt.Sprintf("%d", gas),
+			Recipient:   to,
+			Amount:      fmt.Sprintf("%d", transferAmount),
+		}
+
+		txnMeta, err := client.TransferSui(ctx, unsignedReq)
+		require.NoError(t, err, "failed to create unsigned transfer txn for %s", coin.CoinObjectId)
+
+		decodedTx, err := base64.StdEncoding.DecodeString(txnMeta.TxBytes)
+		require.NoError(t, err, "failed to decode tx bytes for %s", coin.CoinObjectId)
+
+		tx, err := sui_common.SignAndSendTx(ctx, signer, client, decodedTx, true)
+		require.NoError(t, err, "failed to execute transfer for coin %s", coin.CoinObjectId)
+
+		t.Logf("Transferred coin %s to %s, Digest: %s, Status: %s",
+			coin.CoinObjectId, to, tx.Digest, tx.Effects.Status.Status)
+
+		time.Sleep(300 * time.Millisecond)
 	}
-}
-
-func FundSuiAccount(t *testing.T, signer cldf_sui.SuiSigner, to string, client sui.ISuiAPI, coin models.CoinData) {
-	ctx := t.Context()
-
-	signerAddrStr, err := signer.GetAddress()
-	require.NoError(t, err)
-
-	balance, _ := strconv.ParseUint(coin.Balance, 10, 64)
-	gas := uint64(100_000_000)
-	if balance <= gas {
-		t.Logf("Skipping coin %s (too small: %d)", coin.CoinObjectId, balance)
-		return
-	}
-
-	transferAmount := balance - gas
-
-	t.Logf("Transferring coin %s to %s (amount=%d)...", coin.CoinObjectId, to, transferAmount)
-
-	unsignedReq := models.TransferSuiRequest{
-		Signer:      signerAddrStr,
-		SuiObjectId: coin.CoinObjectId,
-		GasBudget:   fmt.Sprintf("%d", gas),
-		Recipient:   to,
-		Amount:      fmt.Sprintf("%d", transferAmount),
-	}
-
-	txnMeta, err := client.TransferSui(ctx, unsignedReq)
-	require.NoError(t, err, "failed to create unsigned transfer txn for %s", coin.CoinObjectId)
-
-	decodedTx, err := base64.StdEncoding.DecodeString(txnMeta.TxBytes)
-	require.NoError(t, err, "failed to decode tx bytes for %s", coin.CoinObjectId)
-
-	tx, err := sui_common.SignAndSendTx(ctx, signer, client, decodedTx, true)
-	require.NoError(t, err, "failed to execute transfer for coin %s", coin.CoinObjectId)
-
-	t.Logf("Transferred coin %s to %s, Digest: %s, Status: %s",
-		coin.CoinObjectId, to, tx.Digest, tx.Effects.Status.Status)
-
-	time.Sleep(300 * time.Millisecond)
 }

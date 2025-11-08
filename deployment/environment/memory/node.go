@@ -672,21 +672,17 @@ func CreateKeys(t *testing.T,
 		require.NoError(t, err)
 		require.Len(t, keys, 1)
 		keybundle := keys[0]
-
 		keybundles[ctype] = keybundle
 
-		for sel, _ := range suichains {
-			keystore := app.GetKeyStore().Sui()
-			err = keystore.EnsureKey(ctx)
-			require.NoError(t, err, "failed to create key for sui")
+		err = app.GetKeyStore().Sui().EnsureKey(ctx)
+		require.NoError(t, err, "failed to create key for Sui")
 
-			keys, err := keystore.GetAll()
-			require.NoError(t, err)
-			require.Len(t, keys, 1)
-
-			transmitter := keys[0]
-			transmitters[sel] = transmitter.ID()
-			t.Logf("Created Sui Key: ID %v, Account %v", transmitter.ID(), transmitter.Account())
+		suiKeys, err := app.GetKeyStore().Sui().GetAll()
+		require.NoError(t, err)
+		require.Len(t, suiKeys, 1)
+		transmitter := suiKeys[0]
+		for chainSelector := range suichains {
+			transmitters[chainSelector] = transmitter.ID()
 		}
 	}
 

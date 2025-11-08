@@ -251,19 +251,11 @@ func ConfirmCommitForAllWithExpectedSeqNums(
 					true,
 				))
 			case chainsel.FamilySui:
-				fmt.Println("OLD OFFRAMP: ", state.SuiChains[dstChain].OffRampAddress)
-				fmt.Println("NEW OFFRAMP: ", state.SuiChains[dstChain].OffRampMockV2PackageId)
-
-				offRampPackageID := state.SuiChains[dstChain].OffRampMockV2PackageId
-				if offRampPackageID == "" {
-					fmt.Println("offRamp v2 not set, using offRamp v1")
-					offRampPackageID = state.SuiChains[dstChain].OffRampAddress
-				}
 				return commonutils.JustError(ConfirmCommitWithExpectedSeqNumRangeSui(
 					t,
 					srcChain,
 					e.BlockChains.SuiChains()[dstChain],
-					offRampPackageID,
+					state.SuiChains[dstChain].OffRampAddress,
 					startBlock,
 					expectedSeqNum,
 					true,
@@ -876,16 +868,11 @@ func ConfirmExecWithSeqNrsForAll(
 					return err
 				}
 			case chainsel.FamilySui:
-				offRampPackageID := state.SuiChains[dstChain].OffRampMockV2PackageId
-				if offRampPackageID == "" {
-					fmt.Println("offRamp v2 not set, using offRamp v1")
-					offRampPackageID = state.SuiChains[dstChain].OffRampAddress
-				}
 				innerExecutionStates, err = ConfirmExecWithExpectedSeqNrsSui(
 					t,
 					srcChain,
 					e.BlockChains.SuiChains()[dstChain],
-					offRampPackageID,
+					state.SuiChains[dstChain].OffRampAddress,
 					startBlock,
 					seqRange,
 				)

@@ -105,32 +105,6 @@ func Test_CCIP_Upgrade_Sui2EVM(t *testing.T) {
 	upgradeCCIP(ctx, t, e, sourceChain, contracts.CCIP)
 	upgradeSuiOnRamp(ctx, t, e, sourceChain, contracts.CCIPOnramp)
 
-	// block ccip v1 FQ
-	_, _, err = commoncs.ApplyChangesets(t, e.Env, []commoncs.ConfiguredChangeSet{
-		commoncs.Configure(sui_cs.BlockVersion{}, sui_cs.BlockVersionConfig{
-			SuiChainSelector: sourceChain,
-			CCIPPackageId:    state.SuiChains[sourceChain].CCIPAddress,
-			StateObjectId:    state.SuiChains[sourceChain].CCIPObjectRef,
-			OwnerCapObjectId: state.SuiChains[sourceChain].CCIPOwnerCapObjectId,
-			ModuleName:       "fee_quoter",
-			Version:          1,
-		}),
-	})
-	require.NoError(t, err)
-
-	// Block onRamp v1
-	_, _, err = commoncs.ApplyChangesets(t, e.Env, []commoncs.ConfiguredChangeSet{
-		commoncs.Configure(sui_cs.BlockVersion{}, sui_cs.BlockVersionConfig{
-			SuiChainSelector: sourceChain,
-			CCIPPackageId:    state.SuiChains[sourceChain].CCIPAddress,
-			StateObjectId:    state.SuiChains[sourceChain].CCIPObjectRef,
-			OwnerCapObjectId: state.SuiChains[sourceChain].CCIPOwnerCapObjectId,
-			ModuleName:       "onramp",
-			Version:          1,
-		}),
-	})
-	require.NoError(t, err)
-
 	t.Run("Sui OnRamp, CCIP FQ Upgraded: Message to EVM - Should Succeed", func(t *testing.T) {
 		out = messagingtest.Run(t,
 			messagingtest.TestCase{
@@ -262,7 +236,7 @@ func Test_CCIP_Upgrade_EVM2Sui(t *testing.T) {
 		)
 	)
 
-	t.Run("OffRamp, CCIP FQ upgraded: Message to Sui - Should Succeed", func(t *testing.T) {
+	t.Run("OffRamp, CCIP FQ upgraded and blocked v1: Message to Sui - Should Succeed", func(t *testing.T) {
 		message := []byte("Hello Sui, from EVM!")
 		messagingtest.Run(t,
 			messagingtest.TestCase{
@@ -278,157 +252,221 @@ func Test_CCIP_Upgrade_EVM2Sui(t *testing.T) {
 	})
 }
 
-// func Test_CCIP_Upgrade_EVM2Sui_Only_Common(t *testing.T) {
-// 	ctx := testcontext.Get(t)
-// 	lggr := logger.TestLogger(t)
-// 	e, _, _ := testsetups.NewIntegrationEnvironment(
-// 		t,
-// 		testhelpers.WithNumOfChains(2),
-// 		testhelpers.WithSuiChains(1),
-// 	)
+func Test_CCIP_Upgrade_NoBlock_EVM2Sui(t *testing.T) {
+	lggr := logger.TestLogger(t)
+	ctx := testcontext.Get(t)
+	e, _, _ := testsetups.NewIntegrationEnvironment(
+		t,
+		testhelpers.WithNumOfChains(2),
+		testhelpers.WithSuiChains(1),
+	)
 
-// 	evmChainSelectors := e.Env.BlockChains.ListChainSelectors(chain.WithFamily(chain_selectors.FamilyEVM))
-// 	suiChainSelectors := e.Env.BlockChains.ListChainSelectors(chain.WithFamily(chain_selectors.FamilySui))
+	evmChainSelectors := e.Env.BlockChains.ListChainSelectors(chain.WithFamily(chain_selectors.FamilyEVM))
+	suiChainSelectors := e.Env.BlockChains.ListChainSelectors(chain.WithFamily(chain_selectors.FamilySui))
 
-// 	state, err := stateview.LoadOnchainState(e.Env)
-// 	require.NoError(t, err)
+	state, err := stateview.LoadOnchainState(e.Env)
+	require.NoError(t, err)
 
-// 	sourceChain := evmChainSelectors[0]
-// 	destChain := suiChainSelectors[0]
+	sourceChain := evmChainSelectors[0]
+	destChain := suiChainSelectors[0]
 
-// 	lggr.Debug("Source chain (EVM): ", sourceChain, "Dest chain (Sui): ", destChain)
+	lggr.Debug("Source chain (EVM): ", sourceChain, "Dest chain (Sui): ", destChain)
 
-// 	err = testhelpers.AddLaneWithDefaultPricesAndFeeQuoterConfig(t, &e, state, sourceChain, destChain, false)
-// 	require.NoError(t, err)
+	err = testhelpers.AddLaneWithDefaultPricesAndFeeQuoterConfig(t, &e, state, sourceChain, destChain, false)
+	require.NoError(t, err)
 
-// 	var (
-// 		nonce  uint64
-// 		sender = common.LeftPadBytes(e.Env.BlockChains.EVMChains()[sourceChain].DeployerKey.From.Bytes(), 32)
-// 		setup  = messagingtest.NewTestSetupWithDeployedEnv(
-// 			t,
-// 			e,
-// 			state,
-// 			sourceChain,
-// 			destChain,
-// 			sender,
-// 			false, // test router
-// 		)
-// 	)
+	// Deploy SUI Receiver
+	_, output, err := commoncs.ApplyChangesets(t, e.Env, []commoncs.ConfiguredChangeSet{
+		commoncs.Configure(sui_cs.DeployDummyReceiver{}, sui_cs.DeployDummyReceiverConfig{
+			SuiChainSelector: destChain,
+			McmsOwner:        "0x1",
+		}),
+	})
+	require.NoError(t, err)
 
-// 	// Deploy SUI Receiver
-// 	_, output, err := commoncs.ApplyChangesets(t, e.Env, []commoncs.ConfiguredChangeSet{
-// 		commoncs.Configure(sui_cs.DeployDummyReceiver{}, sui_cs.DeployDummyReceiverConfig{
-// 			SuiChainSelector: destChain,
-// 			McmsOwner:        "0x1",
-// 		}),
-// 	})
-// 	require.NoError(t, err)
+	rawOutput := output[0].Reports[0]
 
-// 	rawOutput := output[0].Reports[0]
+	outputMap, ok := rawOutput.Output.(sui_ops.OpTxResult[ccipops.DeployDummyReceiverObjects])
+	require.True(t, ok)
 
-// 	outputMap, ok := rawOutput.Output.(sui_ops.OpTxResult[ccipops.DeployDummyReceiverObjects])
-// 	require.True(t, ok)
+	id := strings.TrimPrefix(outputMap.PackageId, "0x")
+	receiverByteDecoded, err := hex.DecodeString(id)
+	require.NoError(t, err)
 
-// 	id := strings.TrimPrefix(outputMap.PackageId, "0x")
-// 	receiverByteDecoded, err := hex.DecodeString(id)
-// 	require.NoError(t, err)
+	// register the receiver
+	_, _, err = commoncs.ApplyChangesets(t, e.Env, []commoncs.ConfiguredChangeSet{
+		commoncs.Configure(sui_cs.RegisterDummyReceiver{}, sui_cs.RegisterDummyReceiverConfig{
+			SuiChainSelector:       destChain,
+			OwnerCapObjectId:       outputMap.Objects.OwnerCapObjectId,
+			CCIPObjectRefObjectId:  state.SuiChains[destChain].CCIPObjectRef,
+			DummyReceiverPackageId: outputMap.PackageId,
+		}),
+	})
+	require.NoError(t, err)
 
-// 	// register the receiver
-// 	_, _, err = commoncs.ApplyChangesets(t, e.Env, []commoncs.ConfiguredChangeSet{
-// 		commoncs.Configure(sui_cs.RegisterDummyReceiver{}, sui_cs.RegisterDummyReceiverConfig{
-// 			SuiChainSelector:       destChain,
-// 			OwnerCapObjectId:       outputMap.Objects.OwnerCapObjectId,
-// 			CCIPObjectRefObjectId:  state.SuiChains[destChain].CCIPObjectRef,
-// 			DummyReceiverPackageId: outputMap.PackageId,
-// 		}),
-// 	})
-// 	require.NoError(t, err)
+	receiverByte := receiverByteDecoded
 
-// 	receiverByte := receiverByteDecoded
+	var clockObj [32]byte
+	copy(clockObj[:], hexutil.MustDecode(
+		"0x0000000000000000000000000000000000000000000000000000000000000006",
+	))
 
-// 	var clockObj [32]byte
-// 	copy(clockObj[:], hexutil.MustDecode(
-// 		"0x0000000000000000000000000000000000000000000000000000000000000006",
-// 	))
+	var stateObj [32]byte
+	copy(stateObj[:], hexutil.MustDecode(
+		outputMap.Objects.CCIPReceiverStateObjectId,
+	))
 
-// 	var stateObj [32]byte
-// 	copy(stateObj[:], hexutil.MustDecode(
-// 		outputMap.Objects.CCIPReceiverStateObjectId,
-// 	))
+	receiverObjectIDs := [][32]byte{clockObj, stateObj}
 
-// 	receiverObjectIDs := [][32]byte{clockObj, stateObj}
+	fmt.Println("Upgrading SUI contracts")
+	upgradeCCIP(ctx, t, e, destChain, contracts.CCIP)
+	upgradeSuiOffRamp(ctx, t, e, destChain, contracts.CCIPOfframp)
 
-// 	fmt.Println("Upgrading SUI contracts")
-// 	upgradeCCIP(ctx, t, e, destChain, contracts.CCIP)
+	state, err = stateview.LoadOnchainState(e.Env)
+	require.NoError(t, err)
 
-// 	// Block ccip v1 FQ
-// 	_, _, err = commoncs.ApplyChangesets(t, e.Env, []commoncs.ConfiguredChangeSet{
-// 		commoncs.Configure(sui_cs.BlockVersion{}, sui_cs.BlockVersionConfig{
-// 			SuiChainSelector: destChain,
-// 			CCIPPackageId:    state.SuiChains[destChain].CCIPAddress,
-// 			StateObjectId:    state.SuiChains[destChain].CCIPObjectRef,
-// 			OwnerCapObjectId: state.SuiChains[destChain].CCIPOwnerCapObjectId,
-// 			ModuleName:       "fee_quoter",
-// 			Version:          1,
-// 		}),
-// 	})
-// 	require.NoError(t, err)
+	var (
+		nonce  uint64
+		sender = common.LeftPadBytes(e.Env.BlockChains.EVMChains()[sourceChain].DeployerKey.From.Bytes(), 32)
+		setup  = messagingtest.NewTestSetupWithDeployedEnv(
+			t,
+			e,
+			state,
+			sourceChain,
+			destChain,
+			sender,
+			false, // test router
+		)
+	)
 
-// 	// TO RUN FEEQUOTER UPDATE PRICE
-// 	state, err = stateview.LoadOnchainState(e.Env)
-// 	require.NoError(t, err)
+	t.Run("OffRamp, CCIP FQ upgraded NoBlock: Message to Sui - Should Succeed", func(t *testing.T) {
+		message := []byte("Hello Sui, from EVM!")
+		messagingtest.Run(t,
+			messagingtest.TestCase{
+				TestSetup:              setup,
+				Nonce:                  &nonce,
+				ValidationType:         messagingtest.ValidationTypeExec,
+				Receiver:               receiverByte,
+				MsgData:                message,
+				ExtraArgs:              testhelpers.MakeSuiExtraArgs(1000000, true, receiverObjectIDs, [32]byte{}),
+				ExpectedExecutionState: testhelpers.EXECUTION_STATE_SUCCESS,
+			},
+		)
+	})
+}
 
-// 	suiChains := e.Env.BlockChains.SuiChains()
-// 	suiChain := suiChains[destChain]
+func Test_CCIP_Upgrade_CommonPkg_EVM2Sui(t *testing.T) {
+	ctx := testcontext.Get(t)
+	lggr := logger.TestLogger(t)
+	e, _, _ := testsetups.NewIntegrationEnvironment(
+		t,
+		testhelpers.WithNumOfChains(2),
+		testhelpers.WithSuiChains(1),
+	)
 
-// 	deps := suideps.Deps{
-// 		SuiChain: sui_ops.OpTxDeps{
-// 			Client: suiChain.Client,
-// 			Signer: suiChain.Signer,
-// 			GetCallOpts: func() *suiBind.CallOpts {
-// 				b := uint64(400_000_000)
-// 				return &suiBind.CallOpts{
-// 					Signer:           suiChain.Signer,
-// 					WaitForExecution: true,
-// 					GasBudget:        &b,
-// 				}
-// 			},
-// 		},
-// 	}
+	evmChainSelectors := e.Env.BlockChains.ListChainSelectors(chain.WithFamily(chain_selectors.FamilyEVM))
+	suiChainSelectors := e.Env.BlockChains.ListChainSelectors(chain.WithFamily(chain_selectors.FamilySui))
 
-// 	bigIntSourceUsdPerToken, _ := new(big.Int).SetString("15377040000000000000000000000", 10) // 1e27 since sui is 1e9
+	state, err := stateview.LoadOnchainState(e.Env)
+	require.NoError(t, err)
 
-// 	bigIntGasUsdPerUnitGas, _ := new(big.Int).SetString("41946474500", 10) // optimism sep 4145822215
+	sourceChain := evmChainSelectors[0]
+	destChain := suiChainSelectors[0]
 
-// 	// Update Prices on FeeQuoter with minted LinkToken
-// 	_, err = operations.ExecuteOperation(e.Env.OperationsBundle, ccipops.FeeQuoterUpdatePricesWithOwnerCapOp, deps.SuiChain,
-// 		ccipops.FeeQuoterUpdatePricesWithOwnerCapInput{
-// 			CCIPPackageId:         state.SuiChains[destChain].CCIPMockV2PackageId,
-// 			CCIPObjectRef:         state.SuiChains[destChain].CCIPObjectRef,
-// 			OwnerCapObjectId:      state.SuiChains[destChain].CCIPOwnerCapObjectId,
-// 			SourceTokens:          []string{state.SuiChains[destChain].LinkTokenCoinMetadataId},
-// 			SourceUsdPerToken:     []*big.Int{bigIntSourceUsdPerToken},
-// 			GasDestChainSelectors: []uint64{sourceChain},
-// 			GasUsdPerUnitGas:      []*big.Int{bigIntGasUsdPerUnitGas},
-// 		})
-// 	require.NoError(t, err)
+	lggr.Debug("Source chain (EVM): ", sourceChain, "Dest chain (Sui): ", destChain)
 
-// 	t.Run("CCIP FQ upgraded: Message to Sui - Should Succeed", func(t *testing.T) {
-// 		// ccipChainState := state.SuiChains[destChain]
-// 		message := []byte("Hello Sui, from EVM!")
-// 		messagingtest.Run(t,
-// 			messagingtest.TestCase{
-// 				TestSetup:              setup,
-// 				Nonce:                  &nonce,
-// 				ValidationType:         messagingtest.ValidationTypeExec,
-// 				Receiver:               receiverByte,
-// 				MsgData:                message,
-// 				ExtraArgs:              testhelpers.MakeSuiExtraArgs(1000000, true, receiverObjectIDs, [32]byte{}),
-// 				ExpectedExecutionState: testhelpers.EXECUTION_STATE_SUCCESS,
-// 			},
-// 		)
-// 	})
-// }
+	err = testhelpers.AddLaneWithDefaultPricesAndFeeQuoterConfig(t, &e, state, sourceChain, destChain, false)
+	require.NoError(t, err)
+
+	var (
+		nonce  uint64
+		sender = common.LeftPadBytes(e.Env.BlockChains.EVMChains()[sourceChain].DeployerKey.From.Bytes(), 32)
+		setup  = messagingtest.NewTestSetupWithDeployedEnv(
+			t,
+			e,
+			state,
+			sourceChain,
+			destChain,
+			sender,
+			false, // test router
+		)
+	)
+
+	// Deploy SUI Receiver
+	_, output, err := commoncs.ApplyChangesets(t, e.Env, []commoncs.ConfiguredChangeSet{
+		commoncs.Configure(sui_cs.DeployDummyReceiver{}, sui_cs.DeployDummyReceiverConfig{
+			SuiChainSelector: destChain,
+			McmsOwner:        "0x1",
+		}),
+	})
+	require.NoError(t, err)
+
+	rawOutput := output[0].Reports[0]
+
+	outputMap, ok := rawOutput.Output.(sui_ops.OpTxResult[ccipops.DeployDummyReceiverObjects])
+	require.True(t, ok)
+
+	id := strings.TrimPrefix(outputMap.PackageId, "0x")
+	receiverByteDecoded, err := hex.DecodeString(id)
+	require.NoError(t, err)
+
+	// register the receiver
+	_, _, err = commoncs.ApplyChangesets(t, e.Env, []commoncs.ConfiguredChangeSet{
+		commoncs.Configure(sui_cs.RegisterDummyReceiver{}, sui_cs.RegisterDummyReceiverConfig{
+			SuiChainSelector:       destChain,
+			OwnerCapObjectId:       outputMap.Objects.OwnerCapObjectId,
+			CCIPObjectRefObjectId:  state.SuiChains[destChain].CCIPObjectRef,
+			DummyReceiverPackageId: outputMap.PackageId,
+		}),
+	})
+	require.NoError(t, err)
+
+	receiverByte := receiverByteDecoded
+
+	var clockObj [32]byte
+	copy(clockObj[:], hexutil.MustDecode(
+		"0x0000000000000000000000000000000000000000000000000000000000000006",
+	))
+
+	var stateObj [32]byte
+	copy(stateObj[:], hexutil.MustDecode(
+		outputMap.Objects.CCIPReceiverStateObjectId,
+	))
+
+	receiverObjectIDs := [][32]byte{clockObj, stateObj}
+
+	fmt.Println("Upgrading SUI contracts")
+	upgradeCCIP(ctx, t, e, destChain, contracts.CCIP)
+
+	// Block ccip v1 FQ
+	_, _, err = commoncs.ApplyChangesets(t, e.Env, []commoncs.ConfiguredChangeSet{
+		commoncs.Configure(sui_cs.BlockVersion{}, sui_cs.BlockVersionConfig{
+			SuiChainSelector: destChain,
+			CCIPPackageId:    state.SuiChains[destChain].CCIPAddress,
+			StateObjectId:    state.SuiChains[destChain].CCIPObjectRef,
+			OwnerCapObjectId: state.SuiChains[destChain].CCIPOwnerCapObjectId,
+			ModuleName:       "fee_quoter",
+			Version:          1,
+		}),
+	})
+	require.NoError(t, err)
+
+	t.Run("CCIP FQ upgraded blocked v1: Message to Sui - Should Succeed", func(t *testing.T) {
+		// ccipChainState := state.SuiChains[destChain]
+		message := []byte("Hello Sui, from EVM!")
+		messagingtest.Run(t,
+			messagingtest.TestCase{
+				TestSetup:              setup,
+				Nonce:                  &nonce,
+				ValidationType:         messagingtest.ValidationTypeExec,
+				Receiver:               receiverByte,
+				MsgData:                message,
+				ExtraArgs:              testhelpers.MakeSuiExtraArgs(1000000, true, receiverObjectIDs, [32]byte{}),
+				ExpectedExecutionState: testhelpers.EXECUTION_STATE_SUCCESS,
+			},
+		)
+	})
+}
 
 func upgradeSuiOnRamp(ctx context.Context, t *testing.T, e testhelpers.DeployedEnv, sourceChain uint64, version contracts.Package) {
 	state, err := stateview.LoadOnchainState(e.Env)

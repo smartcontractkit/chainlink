@@ -2086,6 +2086,8 @@ func TransferMultiple(
 
 				tokens = tt.Tokens
 
+				// TODO: handle this for all chains
+
 				// Approve router to spend tokens
 				if tt.RouterAddress != (common.Address{}) {
 					for _, ta := range tt.Tokens {

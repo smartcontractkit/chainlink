@@ -1,7 +1,6 @@
 package messagingtest
 
 import (
-	"fmt"
 	"math/rand"
 	"testing"
 	"time"
@@ -343,8 +342,6 @@ func Run(t *testing.T, tc TestCase) (out TestCaseOutput) {
 	switch tc.ValidationType {
 	case ValidationTypeCommit:
 		commitStart := time.Now()
-		// SUI onchainState
-		fmt.Println("OFFRAMP MOCK ADDR: ", tc.OnchainState.SuiChains[tc.DestChain].OffRampMockV2PackageId)
 		testhelpers.ConfirmCommitForAllWithExpectedSeqNums(tc.T, tc.Env, tc.OnchainState, expectedSeqNumRange, startBlocks)
 		tc.T.Logf("confirmed commit of seq nums %+v in %s", expectedSeqNumRange, time.Since(commitStart).String())
 		// Explicitly log that only commit was validated if only Commit was requested
