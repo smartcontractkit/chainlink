@@ -16,6 +16,7 @@ import (
 	"github.com/smartcontractkit/chainlink-deployments-framework/engine/test/runtime"
 
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
+	crecontracts "github.com/smartcontractkit/chainlink/deployment/cre/contracts"
 	creforwarder "github.com/smartcontractkit/chainlink/deployment/cre/forwarder"
 	"github.com/smartcontractkit/chainlink/deployment/keystone/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/keystone/changeset/test"
@@ -178,7 +179,7 @@ func TestConfigureForwarders(t *testing.T) {
 					WFDonName:        "test-wf-don",
 					WFNodeIDs:        wfNodes,
 					RegistryChainSel: te.RegistrySelector,
-					MCMSConfig:       &changeset.MCMSConfig{MinDuration: 0},
+					MCMSConfig:       &crecontracts.MCMSConfig{MinDelay: 0},
 				}
 
 				var chainToExclude uint64

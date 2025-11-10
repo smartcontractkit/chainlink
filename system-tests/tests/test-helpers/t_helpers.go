@@ -327,7 +327,7 @@ func createWorkflowArtifacts[T WorkflowConfig](t *testing.T, testLogger zerolog.
 	t.Helper()
 
 	workflowConfigFilePath := workflowConfigFactory(t, testLogger, workflowName, workflowConfig)
-	compressedWorkflowWasmPath, compileErr := creworkflow.CompileWorkflow(workflowFileLocation, workflowName)
+	compressedWorkflowWasmPath, compileErr := creworkflow.CompileWorkflow(t.Context(), workflowFileLocation, workflowName)
 	require.NoError(t, compileErr, "failed to compile workflow '%s'", workflowFileLocation)
 	testLogger.Info().Msg("Workflow compiled successfully.")
 

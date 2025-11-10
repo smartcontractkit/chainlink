@@ -148,7 +148,7 @@ func AddCapabilities(env cldf.Environment, req *AddCapabilitiesRequest) (cldf.Ch
 			inspectorPerChain,
 			[]mcmstypes.BatchOperation{*ops},
 			"proposal to add capabilities",
-			proposalutils.TimelockConfig{MinDelay: req.MCMSConfig.MinDuration},
+			*req.MCMSConfig,
 		)
 		if err != nil {
 			return out, fmt.Errorf("failed to build proposal: %w", err)

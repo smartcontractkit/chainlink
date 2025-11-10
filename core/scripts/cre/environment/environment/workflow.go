@@ -84,7 +84,7 @@ func compileWorkflowCmd() *cobra.Command {
 		Long:             `Compiles, compresses with Brotli and encodes with base64 a workflow`,
 		PersistentPreRun: globalPreRunFunc,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			_, compileErr := compileWorkflow(workflowFilePathFlag, workflowNameFlag)
+			_, compileErr := compileWorkflow(cmd.Context(), workflowFilePathFlag, workflowNameFlag)
 			if compileErr != nil {
 				return errors.Wrap(compileErr, "❌ failed to compile workflow")
 			}
@@ -153,7 +153,7 @@ func deployWorkflowCmd() *cobra.Command {
 			}
 
 			if compileWorkflowFlag {
-				compiledWorkflowPath, compileErr := compileWorkflow(workflowFilePathFlag, workflowNameFlag)
+				compiledWorkflowPath, compileErr := compileWorkflow(cmd.Context(), workflowFilePathFlag, workflowNameFlag)
 				if compileErr != nil {
 					return errors.Wrap(compileErr, "❌ failed to compile workflow")
 				}
@@ -367,10 +367,10 @@ func deleteAllWorkflowsCmd() *cobra.Command {
 	return cmd
 }
 
-func compileWorkflow(workflowFilePathFlag, workflowNameFlag string) (string, error) {
+func compileWorkflow(ctx context.Context, workflowFilePathFlag, workflowNameFlag string) (string, error) {
 	fmt.Printf("\n⚙️ Compiling workflow from %s\n", workflowFilePathFlag)
 
-	compressedWorkflowWasmPath, compileErr := creworkflow.CompileWorkflow(workflowFilePathFlag, workflowNameFlag)
+	compressedWorkflowWasmPath, compileErr := creworkflow.CompileWorkflow(ctx, workflowFilePathFlag, workflowNameFlag)
 	if compileErr != nil {
 		return "", errors.Wrap(compileErr, "❌ failed to compile workflow")
 	}
@@ -491,7 +491,7 @@ func deployWorkflow(
 }
 
 func compileCopyAndRegisterWorkflow(ctx context.Context, workflowFilePathFlag, workflowNameFlag, workflowOwnerAddressFlag, workflowRegistryAddress, capabilitiesRegistryAddress, containerNamePatternFlag, containerTargetDirFlag, configFilePathFlag, secretsFilePathFlag, secretsOutputFilePathFlag, rpcURLFlag string, workflowRegistryVersion, capabilitiesRegistryVersion *semver.Version, donIDFlag uint32) error {
-	compressedWorkflowWasmPath, compileErr := compileWorkflow(workflowFilePathFlag, workflowNameFlag)
+	compressedWorkflowWasmPath, compileErr := compileWorkflow(ctx, workflowFilePathFlag, workflowNameFlag)
 	if compileErr != nil {
 		return errors.Wrap(compileErr, "❌ failed to compile workflow")
 	}

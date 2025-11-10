@@ -7,7 +7,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/stretchr/testify/require"
 
-	"github.com/smartcontractkit/chainlink/deployment/cre/ocr3"
+	crecontracts "github.com/smartcontractkit/chainlink/deployment/cre/contracts"
 )
 
 func TestSetConfig(t *testing.T) {
@@ -44,8 +44,8 @@ func TestSetConfig(t *testing.T) {
 			URLLen:                    128,
 			AttrLen:                   256,
 			ExpiryLen:                 604800,
-			MCMSConfig: &ocr3.MCMSConfig{
-				MinDuration: 30 * time.Second,
+			MCMSConfig: &crecontracts.MCMSConfig{
+				MinDelay: 30 * time.Second,
 			},
 		})
 		t.Logf("MCMS metadata config result: err=%v, output=%v", err, output)
@@ -90,8 +90,8 @@ func TestUpdateAllowedSigners(t *testing.T) {
 				common.HexToAddress("0x1234567890123456789012345678901234567890"),
 			},
 			Allowed: true,
-			MCMSConfig: &ocr3.MCMSConfig{
-				MinDuration: 30 * time.Second,
+			MCMSConfig: &crecontracts.MCMSConfig{
+				MinDelay: 30 * time.Second,
 			},
 		})
 		t.Logf("MCMS update allowed signers result: err=%v, output=%v", err, output)
@@ -131,8 +131,8 @@ func TestSetWorkflowOwnerConfig(t *testing.T) {
 			WorkflowRegistryQualifier: fixture.workflowRegistryQualifier,
 			Owner:                     common.HexToAddress("0x1234567890123456789012345678901234567890"),
 			Config:                    []byte("test config data"),
-			MCMSConfig: &ocr3.MCMSConfig{
-				MinDuration: 30 * time.Second,
+			MCMSConfig: &crecontracts.MCMSConfig{
+				MinDelay: 30 * time.Second,
 			},
 		})
 		t.Logf("MCMS set workflow owner config result: err=%v, output=%v", err, output)
@@ -174,8 +174,8 @@ func TestSetDONLimit(t *testing.T) {
 			DONFamily:                 "test-don-family",
 			DONLimit:                  10,
 			UserDefaultLimit:          5,
-			MCMSConfig: &ocr3.MCMSConfig{
-				MinDuration: 30 * time.Second,
+			MCMSConfig: &crecontracts.MCMSConfig{
+				MinDelay: 30 * time.Second,
 			},
 		})
 		t.Logf("MCMS set DON limit result: err=%v, output=%v", err, output)
@@ -241,8 +241,8 @@ func TestSetUserDONOverride(t *testing.T) {
 			DONFamily:                 "test-don-family",
 			Limit:                     5,
 			Enabled:                   true,
-			MCMSConfig: &ocr3.MCMSConfig{
-				MinDuration: 30 * time.Second,
+			MCMSConfig: &crecontracts.MCMSConfig{
+				MinDelay: 30 * time.Second,
 			},
 		})
 		t.Logf("MCMS set user DON override result: err=%v, output=%v", err, output)
@@ -312,8 +312,8 @@ func TestSetCapabilitiesRegistry(t *testing.T) {
 			WorkflowRegistryQualifier: fixture.workflowRegistryQualifier,
 			Registry:                  donRegistryAddress,
 			ChainSelectorDON:          donChainSelector,
-			MCMSConfig: &ocr3.MCMSConfig{
-				MinDuration: 30 * time.Second,
+			MCMSConfig: &crecontracts.MCMSConfig{
+				MinDelay: 30 * time.Second,
 			},
 		})
 		t.Logf("MCMS DON registry configuration result: err=%v, output=%v", err, configureOutput)
@@ -332,16 +332,16 @@ func TestSetCapabilitiesRegistry(t *testing.T) {
 
 			for j, op := range proposal.Operations {
 				require.NotEmpty(t, op.Transactions, "proposal %d operation %d should have transactions", i, j)
-				t.Logf("Proposal %d Operation %d: %d transactions", i, j, len(op.Transactions))
+				t.Logf("MCMSOperation %d MCMSOperation %d: %d transactions", i, j, len(op.Transactions))
 			}
 
-			t.Logf("Proposal %d: %d operations, delay: %v", i, len(proposal.Operations), proposal.Delay)
+			t.Logf("MCMSOperation %d: %d operations, delay: %v", i, len(proposal.Operations), proposal.Delay)
 		}
 
 		// Verify timelock addresses are set correctly
 		for i, proposal := range configureOutput.MCMSTimelockProposals {
 			require.NotEmpty(t, proposal.TimelockAddresses, "proposal %d should have timelock addresses", i)
-			t.Logf("Proposal %d timelock addresses: %v", i, proposal.TimelockAddresses)
+			t.Logf("MCMSOperation %d timelock addresses: %v", i, proposal.TimelockAddresses)
 		}
 
 		t.Logf("MCMS DON registry configuration test completed successfully")

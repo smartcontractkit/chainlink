@@ -1,7 +1,7 @@
 [general]
 aws_profile = "staging-default"
 min_gh_cli_version = "v2.50.0"
-ctf_version = "0.10.28"
+ctf_version = "0.10.30"
 
 [job_distributor.build_config]
 repository = "https://github.com/smartcontractkit/job-distributor"
@@ -41,12 +41,8 @@ ecr_image = "{{.ECR}}/billing-platform-service:1.36.1"
 
 [capabilities]
 target_path = "./binaries"
-
-[[capabilities.repositories]]
-repository = "https://github.com/smartcontractkit/capabilities"
-branch = "main"
-build_command = "pnpm install && ./nx run-many -t build"
-artifacts_dirs = ["./bin/amd64", "./chain_capabilities/bin/amd64"]
+# add "install-plugins-public" to also locally compile and copy public plugins (be aware chainlink-cosmos might fail due to issues with cross-compile)
+make_commands = ["install-plugins-private", "install-plugins-local"]
 
 [observability]
 repository = "https://github.com/smartcontractkit/chainlink-observability"
