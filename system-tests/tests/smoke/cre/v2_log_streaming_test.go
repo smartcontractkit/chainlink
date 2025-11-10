@@ -35,16 +35,22 @@ func ExecuteLogStreamingTest(t *testing.T, testEnv *ttypes.TestEnvironment) {
 	testLogger := framework.L
 	testLogger.Info().Msg("Starting Log Streaming Test")
 
-	testLogger.Info().Msg("Waiting for logs to accumulate...")
-	time.Sleep(60 * time.Second)
-
 	lokiURL := "http://localhost:3030"
 
-	beholderLogsCount, err := queryLokiForBeholderLogs(t.Context(), lokiURL, 120)
-	require.NoError(t, err, "Failed to query Loki")
-	testLogger.Info().Int("beholderLogsCount", beholderLogsCount).Msg("Found logs with beholder_data_type")
-	require.Positive(t, beholderLogsCount, "Expected to find logs with beholder_data_type=zap_log_message in Loki, but found none")
+	testLogger.Info().Msg("Waiting for Beholder logs to appear in Loki...")
 
+	var beholderLogsCount int
+	require.Eventually(t, func() bool {
+		var err error
+		beholderLogsCount, err = queryLokiForBeholderLogs(t.Context(), lokiURL, 120)
+		if err != nil {
+			testLogger.Debug().Err(err).Msg("Error querying Loki")
+			return false
+		}
+		return beholderLogsCount > 0
+	}, 5*time.Minute, 5*time.Second, "Expected to find logs with beholder_data_type=zap_log_message in Loki within timeout")
+
+	testLogger.Info().Int("beholderLogsCount", beholderLogsCount).Msg("Found logs with beholder_data_type")
 	testLogger.Info().Msg("✅ Log Streaming Test PASSED: beholder_data_type logs are flowing to Loki")
 }
 
