@@ -1236,7 +1236,7 @@ func (r *ReportingPlugin) stateTransitionCreateSecretsRequest(ctx context.Contex
 	}
 
 	ctx = contexts.WithCRE(ctx, contexts.CRE{Owner: req.Id.Owner})
-	if err := r.cfg.MaxSecretsPerOwner.Check(ctx, count+1); err != nil {
+	if r.cfg.MaxSecretsPerOwner.Check(ctx, count+1) != nil {
 		return nil, newUserError(fmt.Sprintf("could not write to key value store: owner %s has reached maximum number of secrets (limit=%s)", req.Id.Owner, maybeGetLimit(ctx, r.cfg.MaxSecretsPerOwner)))
 	}
 

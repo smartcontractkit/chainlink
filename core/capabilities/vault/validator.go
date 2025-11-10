@@ -32,7 +32,7 @@ func maybeGetLimit(ctx context.Context, limiter limits.BoundLimiter[int]) string
 		return "UNKNOWN"
 	}
 
-	return fmt.Sprintf("%d", l)
+	return strconv.Itoa(l)
 }
 
 // validateWriteRequest performs common validation for CreateSecrets and UpdateSecrets requests

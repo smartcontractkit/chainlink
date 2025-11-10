@@ -263,7 +263,7 @@ func AddNodes(env cldf.Environment, req *AddNodesRequest) (cldf.ChangesetOutput,
 			inspectorPerChain,
 			[]types.BatchOperation{*resp.Ops},
 			"proposal to add nodes",
-			proposalutils.TimelockConfig{MinDelay: req.MCMSConfig.MinDuration},
+			*req.MCMSConfig,
 		)
 		if err != nil {
 			return out, fmt.Errorf("failed to build proposal: %w", err)

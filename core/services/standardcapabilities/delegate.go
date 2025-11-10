@@ -229,7 +229,7 @@ func (d *Delegate) ServicesForSpec(ctx context.Context, spec job.Job) ([]job.Ser
 
 	// NOTE: special cases for built-in capabilities (to be moved into LOOPPs in the future)
 	if spec.StandardCapabilitiesSpec.Command == commandOverrideForWebAPITrigger {
-		if d.gatewayConnectorWrapper == nil {
+		if d.gatewayConnectorWrapper == nil || connector == nil {
 			return nil, errors.New("gateway connector is required for web API Trigger capability")
 		}
 		triggerSrvc, err := trigger.NewTrigger(spec.StandardCapabilitiesSpec.Config, d.registry, connector, log)
@@ -240,7 +240,7 @@ func (d *Delegate) ServicesForSpec(ctx context.Context, spec job.Job) ([]job.Ser
 	}
 
 	if spec.StandardCapabilitiesSpec.Command == commandOverrideForWebAPITarget {
-		if d.gatewayConnectorWrapper == nil {
+		if d.gatewayConnectorWrapper == nil || connector == nil {
 			return nil, errors.New("gateway connector is required for web API Target capability")
 		}
 		if len(spec.StandardCapabilitiesSpec.Config) == 0 {
@@ -276,7 +276,7 @@ func (d *Delegate) ServicesForSpec(ctx context.Context, spec job.Job) ([]job.Ser
 		if d.computeFetcherFactoryFn != nil {
 			fetcherFactoryFn = d.computeFetcherFactoryFn
 		} else {
-			if d.gatewayConnectorWrapper == nil {
+			if d.gatewayConnectorWrapper == nil || connector == nil {
 				return nil, errors.New("gateway connector is required for custom compute capability")
 			}
 
@@ -337,7 +337,7 @@ func (d *Delegate) BeforeJobDeleted(job job.Job) {}
 func (d *Delegate) OnDeleteJob(ctx context.Context, jb job.Job) error { return nil }
 
 func ValidatedStandardCapabilitiesSpec(tomlString string) (job.Job, error) {
-	var jb = job.Job{ExternalJobID: uuid.New()}
+	jb := job.Job{ExternalJobID: uuid.New()}
 
 	tree, err := toml.Load(tomlString)
 	if err != nil {
