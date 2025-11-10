@@ -15,6 +15,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink-testing-framework/framework"
 
+	testutils "github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	ttypes "github.com/smartcontractkit/chainlink/system-tests/tests/test-helpers/configuration"
 )
 
@@ -48,7 +49,7 @@ func ExecuteLogStreamingTest(t *testing.T, testEnv *ttypes.TestEnvironment) {
 			return false
 		}
 		return beholderLogsCount > 0
-	}, 5*time.Minute, 5*time.Second, "Expected to find logs with beholder_data_type=zap_log_message in Loki within timeout")
+	}, testutils.WaitTimeout(t), 5*time.Second, "Expected to find logs with beholder_data_type=zap_log_message in Loki within timeout")
 
 	testLogger.Info().Int("beholderLogsCount", beholderLogsCount).Msg("Found logs with beholder_data_type")
 	testLogger.Info().Msg("✅ Log Streaming Test PASSED: beholder_data_type logs are flowing to Loki")
