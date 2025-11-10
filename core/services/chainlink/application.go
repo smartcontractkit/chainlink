@@ -33,8 +33,6 @@ import (
 	"github.com/smartcontractkit/chainlink-ccv/integration/pkg/constructors"
 	"github.com/smartcontractkit/chainlink-ccv/protocol"
 	"github.com/smartcontractkit/chainlink-ccv/verifier"
-	"github.com/smartcontractkit/chainlink-common/pkg/utils/hex"
-
 	"github.com/smartcontractkit/chainlink-common/pkg/beholder"
 	"github.com/smartcontractkit/chainlink-common/pkg/billing"
 	"github.com/smartcontractkit/chainlink-common/pkg/custmsg"
@@ -49,6 +47,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/storage"
 	commontypes "github.com/smartcontractkit/chainlink-common/pkg/types"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils"
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/hex"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/jsonserializable"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/mailbox"
 	"github.com/smartcontractkit/chainlink-common/pkg/workflows/dontime"
@@ -1407,64 +1406,77 @@ func newCCVServices(
 	cfg GeneralConfig,
 	relayerChainInterops *CoreRelayerChainInteroperators,
 ) (*CCVServices, error) {
-	var services []services.ServiceCtx
-	globalLogger = globalLogger.Named("CCV")
+	// Run CCV services in a separate goroutine. There is a chicken and egg problem for importing keys, so we wait here
+	// until the keys are available
+	go func() {
+		var services []services.ServiceCtx
+		globalLogger = globalLogger.Named("CCV")
 
-	// TODO: move config from hardCodedCCVConfig into general config.
-	waiting := 100
-	for waiting > 0 {
-		fmt.Printf("Waiting %d seconds, use debugger to continue...\n", waiting)
-		waiting--
-		time.Sleep(1 * time.Second)
-	}
-
-	legacyRelayers := getLegacyChains(globalLogger, relayerChainInterops)
-	ccvCfg, err := ccvConfig(1)
-	if err != nil {
-		globalLogger.Errorf("Failed to get CCV config: %v", err)
-	}
-
-	for _, vcfg := range ccvCfg.Verifiers {
-		signer, err := keyStore.Eth().Get(ctx, vcfg.VerifierID)
-		if err != nil {
-			globalLogger.Errorf("Failed to get key for verifier(%s): %v", vcfg.VerifierID, err)
-			return nil, fmt.Errorf("failed to get key for CCV verifier %s: %w", vcfg.VerifierID, err)
+		// TODO: move config from hardCodedCCVConfig into general config.
+		waiting := true
+		for waiting {
+			globalLogger.Infof("Waiting, use debugger to continue...")
+			time.Sleep(1 * time.Second)
+			waiting = waiting
 		}
 
-		addr, err := hex.DecodeString(vcfg.SignerAddress)
+		legacyRelayers := getLegacyChains(globalLogger, relayerChainInterops)
+		ccvCfg, err := ccvConfig(1)
 		if err != nil {
-			globalLogger.Errorf("Failed to decode signer address: %v", err)
-			return nil, fmt.Errorf("failed to decode signer address for CCV verifier: %w", err)
+			globalLogger.Errorf("Failed to get CCV config: %v", err)
 		}
 
-		vc, err := constructors.NewVerificationCoordinator(
-			globalLogger.With("service", "Verifier"),
-			vcfg,
-			addr,
-			signer,
+		for _, vcfg := range ccvCfg.Verifiers {
+			signer, err := keyStore.Eth().Get(ctx, vcfg.VerifierID)
+			for err != nil {
+				globalLogger.Infof("Error getting key (%s): %s", vcfg.VerifierID, err)
+				time.Sleep(5 * time.Second)
+				signer, err = keyStore.Eth().Get(ctx, vcfg.VerifierID)
+			}
+
+			if err != nil {
+				globalLogger.Errorf("Failed to get key for verifier(%s): %v", vcfg.VerifierID, err)
+				//return nil, fmt.Errorf("failed to get key for CCV verifier %s: %w", vcfg.VerifierID, err)
+			}
+
+			addr, err := hex.DecodeString(vcfg.SignerAddress)
+			if err != nil {
+				globalLogger.Errorf("Failed to decode signer address: %v", err)
+				//return nil, fmt.Errorf("failed to decode signer address for CCV verifier: %w", err)
+			}
+
+			vc, err := constructors.NewVerificationCoordinator(
+				globalLogger.With("service", "Verifier"),
+				vcfg,
+				addr,
+				signer,
+				legacyRelayers,
+			)
+			if err != nil {
+				globalLogger.Errorf("Failed to create verifier coordinator: %v", err)
+				//return nil, fmt.Errorf("failed to create CCV VerificationCoordinator: %w", err)
+			}
+
+			services = append(services, vc)
+		}
+
+		ec, err := constructors.NewExecutorCoordinator(
+			globalLogger.With("service", "Executor"),
+			ccvCfg.Executor,
 			legacyRelayers,
+			nil, // TODO: add round robin thing
+			nil, // TODO: add this thing also
 		)
 		if err != nil {
-			globalLogger.Errorf("Failed to create verifier coordinator: %v", err)
-			return nil, fmt.Errorf("failed to create CCV VerificationCoordinator: %w", err)
+			globalLogger.Errorf("Failed to create executor coordinator: %v", err)
+			//return nil, fmt.Errorf("failed to create CCV ExecutorCoordinator: %w", err)
 		}
+		services = append(services, ec)
 
-		services = append(services, vc)
-	}
-
-	ec, err := constructors.NewExecutorCoordinator(
-		globalLogger.With("service", "Executor"),
-		ccvCfg.Executor,
-		legacyRelayers,
-	)
-	if err != nil {
-		globalLogger.Errorf("Failed to create executor coordinator: %v", err)
-		return nil, fmt.Errorf("failed to create CCV ExecutorCoordinator: %w", err)
-	}
-	services = append(services, ec)
-
-	// Return services for the node to start.
-	return &CCVServices{srvs: services}, nil
+		// Return services for the node to start.
+		//return &CCVServices{srvs: services}, nil
+	}()
+	return nil, nil
 }
 
 func (app *ChainlinkApplication) SetLogLevel(lvl zapcore.Level) error {
