@@ -372,6 +372,12 @@ func (o *orm) CreateJob(ctx context.Context, jb *Job) error {
 				return fmt.Errorf("failed to create KeeperSpec for jobSpec: %w", err)
 			}
 			jb.KeeperSpecID = &specID
+		case CRESettings:
+			specID, err := tx.insertCRESettingsSpec(ctx, jb.CRESettingsSpec)
+			if err != nil {
+				return fmt.Errorf("failed to create CRESettingsSpec for jobSpec: %w", err)
+			}
+			jb.CRESettingsSpecID = &specID
 		case Cron:
 			specID, err := tx.insertCronSpec(ctx, jb.CronSpec)
 			if err != nil {
@@ -580,6 +586,10 @@ func (o *orm) insertKeeperSpec(ctx context.Context, spec *KeeperSpec) (specID in
 			RETURNING id;`, spec)
 }
 
+func (o *orm) insertCRESettingsSpec(ctx context.Context, spec *CRESettingsSpec) (specID int32, err error) {
+	return o.prepareQuerySpecID(ctx, `INSERT INTO cre_settings_specs (settings, hash, created_at, updated_at) VALUES (:settings, :hash, NOW(), NOW()) RETURNING id;`, spec)
+}
+
 func (o *orm) insertCronSpec(ctx context.Context, spec *CronSpec) (specID int32, err error) {
 	return o.prepareQuerySpecID(ctx, `INSERT INTO cron_specs (cron_schedule, evm_chain_id, created_at, updated_at)
 			VALUES (:cron_schedule, :evm_chain_id, NOW(), NOW())
@@ -779,6 +789,7 @@ func (o *orm) DeleteJob(ctx context.Context, id int32, jobType Type) error {
 		OffchainReporting:    `DELETE FROM ocr_oracle_specs WHERE id IN (SELECT ocr_oracle_spec_id FROM deleted_jobs)`,
 		OffchainReporting2:   `DELETE FROM ocr2_oracle_specs WHERE id IN (SELECT ocr2_oracle_spec_id FROM deleted_jobs)`,
 		Keeper:               `DELETE FROM keeper_specs WHERE id IN (SELECT keeper_spec_id FROM deleted_jobs)`,
+		CRESettings:          `DELETE FROM cre_settings_specs WHERE id IN (SELECT cre_settings_specs_id FROM deleted_jobs)`,
 		Cron:                 `DELETE FROM cron_specs WHERE id IN (SELECT cron_spec_id FROM deleted_jobs)`,
 		VRF:                  `DELETE FROM vrf_specs WHERE id IN (SELECT vrf_spec_id FROM deleted_jobs)`,
 		Webhook:              `DELETE FROM webhook_specs WHERE id IN (SELECT webhook_spec_id FROM deleted_jobs)`,
@@ -807,6 +818,7 @@ func (o *orm) DeleteJob(ctx context.Context, id int32, jobType Type) error {
 				ocr_oracle_spec_id,
 				ocr2_oracle_spec_id,
 				keeper_spec_id,
+				cre_settings_spec_id,
 				cron_spec_id,
 				flux_monitor_spec_id,
 				vrf_spec_id,

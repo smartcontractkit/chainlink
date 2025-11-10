@@ -7,34 +7,33 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
-	mcmslib "github.com/smartcontractkit/mcms"
+	mcmstypes "github.com/smartcontractkit/mcms/types"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
-
 	capabilities_registry_v2 "github.com/smartcontractkit/chainlink-evm/gethwrappers/workflow/generated/capabilities_registry_wrapper_v2"
-	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset/state"
+
 	"github.com/smartcontractkit/chainlink/deployment/cre/capabilities_registry/v2/changeset/pkg"
 	"github.com/smartcontractkit/chainlink/deployment/cre/common/strategies"
-	"github.com/smartcontractkit/chainlink/deployment/cre/ocr3"
+	"github.com/smartcontractkit/chainlink/deployment/cre/contracts"
 )
 
 type RegisterNopsDeps struct {
-	Env           *cldf.Environment
-	MCMSContracts *commonchangeset.MCMSWithTimelockState // Required if MCMSConfig is not nil
+	Env      *cldf.Environment
+	Strategy strategies.TransactionStrategy
 }
 
 type RegisterNopsInput struct {
 	Address       string
 	ChainSelector uint64
 	Nops          []capabilities_registry_v2.CapabilitiesRegistryNodeOperatorParams
-	MCMSConfig    *ocr3.MCMSConfig
+	MCMSConfig    *contracts.MCMSConfig
 }
 
 type RegisterNopsOutput struct {
 	Nops      []*capabilities_registry_v2.CapabilitiesRegistryNodeOperatorAdded
-	Proposals []mcmslib.TimelockProposal
+	Operation *mcmstypes.BatchOperation
 }
 
 // RegisterNops is an operation that registers node operators in the V2 Capabilities Registry contract.
@@ -70,70 +69,14 @@ var RegisterNops = operations.NewOperation[RegisterNopsInput, RegisterNopsOutput
 			return RegisterNopsOutput{}, fmt.Errorf("failed to dedupe NOPs: %w", err)
 		}
 
-		// Create the appropriate strategy
-		strategy, err := strategies.CreateStrategy(
-			chain,
-			*deps.Env,
-			input.MCMSConfig,
-			deps.MCMSContracts,
-			common.HexToAddress(input.Address),
-			RegisterNopsDescription,
-		)
-		if err != nil {
-			return RegisterNopsOutput{}, fmt.Errorf("failed to create strategy: %w", err)
-		}
-
 		var resultNops []*capabilities_registry_v2.CapabilitiesRegistryNodeOperatorAdded
 
 		// Execute the transaction using the strategy
-		proposals, err := strategy.Apply(func(opts *bind.TransactOpts) (*types.Transaction, error) {
-			tx, err := capReg.AddNodeOperators(opts, dedupedNOPs)
-			if err != nil {
-				err = cldf.DecodeErr(capabilities_registry_v2.CapabilitiesRegistryABI, err)
-				return nil, fmt.Errorf("failed to call AddNodeOperators: %w", err)
-			}
-
-			// For direct execution, we can get the receipt and parse logs
-			if input.MCMSConfig == nil {
-				// Confirm transaction and get receipt
-				_, err = chain.Confirm(tx)
-				if err != nil {
-					return nil, fmt.Errorf("failed to confirm AddNodeOperators transaction %s: %w", tx.Hash().String(), err)
-				}
-
-				ctx := b.GetContext()
-				receipt, err := bind.WaitMined(ctx, chain.Client, tx)
-				if err != nil {
-					return nil, fmt.Errorf("failed to mine AddNodeOperators transaction %s: %w", tx.Hash().String(), err)
-				}
-
-				// Get the CapabilitiesRegistryFilterer contract for parsing logs
-				capabilityRegistryFilterer, err := capabilities_registry_v2.NewCapabilitiesRegistryFilterer(
-					common.HexToAddress(input.Address),
-					chain.Client,
-				)
-				if err != nil {
-					return nil, fmt.Errorf("failed to create CapabilitiesRegistryFilterer: %w", err)
-				}
-
-				// Parse the logs to get the added node operators
-				resultNops = make([]*capabilities_registry_v2.CapabilitiesRegistryNodeOperatorAdded, 0, len(receipt.Logs))
-				for i, log := range receipt.Logs {
-					if log == nil {
-						continue
-					}
-
-					o, err := capabilityRegistryFilterer.ParseNodeOperatorAdded(*log)
-					if err != nil {
-						return nil, fmt.Errorf("failed to parse log %d for operator added: %w", i, err)
-					}
-					resultNops = append(resultNops, o)
-				}
-			}
-
-			return tx, nil
+		operation, tx, err := deps.Strategy.Apply(func(opts *bind.TransactOpts) (*types.Transaction, error) {
+			return capReg.AddNodeOperators(opts, dedupedNOPs)
 		})
 		if err != nil {
+			err = cldf.DecodeErr(capabilities_registry_v2.CapabilitiesRegistryABI, err)
 			return RegisterNopsOutput{}, fmt.Errorf("failed to execute AddNodeOperators: %w", err)
 		}
 
@@ -141,11 +84,40 @@ var RegisterNops = operations.NewOperation[RegisterNopsInput, RegisterNopsOutput
 			deps.Env.Logger.Infof("Created MCMS proposal for RegisterNops on chain %d", input.ChainSelector)
 		} else {
 			deps.Env.Logger.Infof("Successfully registered %d node operators on chain %d", len(resultNops), input.ChainSelector)
+
+			ctx := b.GetContext()
+			receipt, err := bind.WaitMined(ctx, chain.Client, tx)
+			if err != nil {
+				return RegisterNopsOutput{}, fmt.Errorf("failed to mine AddNodeOperators transaction %s: %w", tx.Hash().String(), err)
+			}
+
+			// Get the CapabilitiesRegistryFilterer contract for parsing logs
+			capabilityRegistryFilterer, err := capabilities_registry_v2.NewCapabilitiesRegistryFilterer(
+				common.HexToAddress(input.Address),
+				chain.Client,
+			)
+			if err != nil {
+				return RegisterNopsOutput{}, fmt.Errorf("failed to create CapabilitiesRegistryFilterer: %w", err)
+			}
+
+			// Parse the logs to get the added node operators
+			resultNops = make([]*capabilities_registry_v2.CapabilitiesRegistryNodeOperatorAdded, 0, len(receipt.Logs))
+			for i, log := range receipt.Logs {
+				if log == nil {
+					continue
+				}
+
+				o, err := capabilityRegistryFilterer.ParseNodeOperatorAdded(*log)
+				if err != nil {
+					return RegisterNopsOutput{}, fmt.Errorf("failed to parse log %d for operator added: %w", i, err)
+				}
+				resultNops = append(resultNops, o)
+			}
 		}
 
 		return RegisterNopsOutput{
 			Nops:      resultNops,
-			Proposals: proposals,
+			Operation: operation,
 		}, nil
 	},
 )

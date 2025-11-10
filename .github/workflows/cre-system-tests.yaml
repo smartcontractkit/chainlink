@@ -192,28 +192,77 @@ jobs:
           go install gotest.tools/gotestsum@v1.12.3
           echo "::endgroup::"
 
+      - name: Install CTF binary
+        shell: bash
+        working-directory: core/scripts/cre/environment
+        run: |
+          echo "::startgroup::Install CTF binary"
+          mkdir -p bin
+          curl -L https://github.com/smartcontractkit/chainlink-testing-framework/releases/download/framework%2Fv0.11.9/framework-v0.11.9-linux-amd64.tar.gz | tar -xz
+          mv ctf bin/ctf
+          chmod +x bin/ctf
+          echo "::endgroup::"
+
       - name: Start local CRE${{ matrix.tests.cre_version }}
         shell: bash
         id: start-local-cre
         env:
-          E2E_JD_IMAGE: "${{ secrets.AWS_ACCOUNT_ID_PROD }}.dkr.ecr.${{ secrets.QA_AWS_REGION }}.amazonaws.com/job-distributor"
-          E2E_JD_VERSION: "0.22.1"
-          E2E_TEST_CHAINLINK_IMAGE: "${{ secrets.QA_AWS_ACCOUNT_NUMBER }}.dkr.ecr.${{ secrets.QA_AWS_REGION }}.amazonaws.com/${{ inputs.ecr_name }}"
-          E2E_TEST_CHAINLINK_VERSION: ${{ inputs.chainlink_image_tag != '' && inputs.chainlink_image_tag || inputs.chainlink_version }}
+          CTF_JD_IMAGE: "${{ secrets.AWS_ACCOUNT_ID_PROD }}.dkr.ecr.${{ secrets.QA_AWS_REGION }}.amazonaws.com/job-distributor:0.22.1"
+          CTF_CHAINLINK_IMAGE: "${{ secrets.QA_AWS_ACCOUNT_NUMBER }}.dkr.ecr.${{ secrets.QA_AWS_REGION }}.amazonaws.com/${{ inputs.ecr_name }}:${{ inputs.chainlink_image_tag != '' && inputs.chainlink_image_tag || inputs.chainlink_version }}"
           CTF_CONFIGS: ${{ matrix.tests.configs }}
           CRE_VERSION: ${{ matrix.tests.cre_version }}
           TEST_NAME: ${{ matrix.tests.test_name }}
         run: |
           cd core/scripts/cre/environment
 
+          # Check if test requires observability stack
+          if [[ "${TEST_NAME}" == *"Beholder_Suite" ]]; then
+            echo "::group::Starting Observability Stack"
+            echo "Test requires observability stack, starting..."
+            
+            # Start observability stack
+            ./bin/ctf obs up -f
+            
+            echo "::endgroup::"
+            echo "::group::Validating Observability Stack"
+            
+            # Wait for Loki to be available
+            echo "Waiting for Loki to be available at http://localhost:3030..."
+            loki_ready=false
+            for i in {1..30}; do
+              if curl -s http://localhost:3030/ready >/dev/null 2>&1; then
+                echo "✅ Loki is ready at http://localhost:3030"
+                loki_ready=true
+                break
+              fi
+              sleep 1
+            done
+            
+            if [[ "$loki_ready" == "false" ]]; then
+              echo "❌ ERROR: Loki failed to become ready after 30 seconds"
+              exit 1
+            fi
+            
+            # Validate OTel collector is running and accessible
+            echo "Validating OTel collector on port 4317..."
+            if docker ps --filter "name=otel-collector" --format "{{.Names}}" | grep -q "otel-collector"; then
+              echo "✅ OTel collector container is running"
+            else
+              echo "❌ ERROR: OTel collector container not found"
+              docker ps -a
+              exit 1
+            fi
+            echo "::endgroup::"
+          fi
+
           # Start CRE with the appropriate contracts version (i.e. Workflow/CapabilityRegistry)
           # Do not remove Docker containers on error to allow log collection
           if [[ "${CRE_VERSION}" == "v1" ]]; then
             echo "Starting CRE with v1 contracts for test: '${TEST_NAME}'"
-            go run . env start --with-plugins-docker-image "${E2E_TEST_CHAINLINK_IMAGE}:${E2E_TEST_CHAINLINK_VERSION}" --cleanup-on-error=false
+            go run . env start --with-plugins-docker-image "${CTF_CHAINLINK_IMAGE}" --cleanup-on-error=false
           else
             echo "Starting CRE with v2 contracts for test: '${TEST_NAME}'"
-            go run . env start --with-plugins-docker-image "${E2E_TEST_CHAINLINK_IMAGE}:${E2E_TEST_CHAINLINK_VERSION}" --with-contracts-version v2 --cleanup-on-error=false
+            go run . env start --with-plugins-docker-image "${CTF_CHAINLINK_IMAGE}" --with-contracts-version v2 --cleanup-on-error=false
           fi
 
           exit_code=$?
@@ -222,6 +271,16 @@ jobs:
             exit $exit_code
           fi
 
+      - name: Setup GitHub token using GATI
+        id: github-token
+        uses: smartcontractkit/.github/actions/setup-github-token@setup-github-token/1.0.0
+        with:
+          aws-role-arn: ${{ secrets.AWS_OIDC_CHAINLINK_READ_ONLY_TOKEN_ISSUER_ROLE_ARN }}
+          aws-lambda-url: ${{ secrets.AWS_INFRA_RELENG_TOKEN_ISSUER_LAMBDA_URL }}
+          aws-region: us-west-2
+          aws-role-duration-seconds: "1800"
+          set-git-config: "true"
+          
       - name: Run CRE${{ matrix.tests.cre_version }} Smoke system tests
         id: run-tests
         shell: bash
@@ -232,6 +291,7 @@ jobs:
           TEST_TIMEOUT: 30m
           RUN_QUARANTINED_TESTS: "true" # always run quarantined tests in CI
           TOPOLOGY_NAME: ${{ matrix.tests.topology }}
+          GITHUB_TOKEN: ${{ steps.github-token.outputs.access-token || '' }} # to avoid rate limiting when downloading protobuf files from GitHub
         run: |
           echo "Starting test: '${TEST_NAME}'"
           gotestsum \
@@ -247,7 +307,7 @@ jobs:
             echo "tests_result=✅ Tests passed" >> $GITHUB_OUTPUT
           fi
 
-      - name: Process and upload flaky Regression tests results (${{ steps.run-tests.outputs.tests_result }})
+      - name: Analyze and upload test results (${{ steps.run-tests.outputs.tests_result }})
         if: ${{ !cancelled() }}
         uses: smartcontractkit/.github/actions/branch-out-upload@branch-out-upload/v1
         with:

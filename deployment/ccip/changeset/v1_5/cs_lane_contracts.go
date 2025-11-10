@@ -1,6 +1,7 @@
 package v1_5
 
 import (
+	"errors"
 	"fmt"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -121,13 +122,25 @@ func DeployLanesChangeset(env cldf.Environment, c DeployLanesConfig) (cldf.Chang
 	newAddresses := cldf.NewMemoryAddressBook()
 	for _, cfg := range c.Configs {
 		if err := deployLane(env, state, newAddresses, cfg); err != nil {
+			ds, err2 := shared.PopulateDataStore(newAddresses)
+			if err2 != nil {
+				err2 = fmt.Errorf("failed to populate in-memory DataStore: %w", err2)
+			}
+
 			return cldf.ChangesetOutput{
 				AddressBook: newAddresses,
-			}, err
+				DataStore:   ds,
+			}, errors.Join(err, err2)
 		}
 	}
+	ds, err := shared.PopulateDataStore(newAddresses)
+	if err != nil {
+		return cldf.ChangesetOutput{}, fmt.Errorf("failed to populate in-memory DataStore: %w", err)
+	}
+
 	return cldf.ChangesetOutput{
 		AddressBook: newAddresses,
+		DataStore:   ds,
 	}, nil
 }
 

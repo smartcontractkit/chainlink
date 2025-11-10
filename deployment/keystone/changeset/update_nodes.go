@@ -115,7 +115,7 @@ func UpdateNodes(env cldf.Environment, req *UpdateNodesRequest) (cldf.ChangesetO
 			inspectorPerChain,
 			[]types.BatchOperation{*resp.Ops},
 			"proposal to set update nodes",
-			proposalutils.TimelockConfig{MinDelay: req.MCMSConfig.MinDuration},
+			*req.MCMSConfig,
 		)
 		if err != nil {
 			return out, fmt.Errorf("failed to build proposal: %w", err)

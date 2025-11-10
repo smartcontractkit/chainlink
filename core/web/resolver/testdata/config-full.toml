@@ -366,6 +366,11 @@ ChipIngressInsecureConnection = false
 HeartbeatInterval = '1s'
 LogLevel = 'info'
 LogStreamingEnabled = false
+LogBatchProcessor = true
+LogExportTimeout = '1s'
+LogExportMaxBatchSize = 512
+LogExportInterval = '1s'
+LogMaxQueueSize = 2048
 
 [Telemetry.ResourceAttributes]
 Baz = 'test'

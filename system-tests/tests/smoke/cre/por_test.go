@@ -9,6 +9,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/Masterminds/semver/v3"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/fbsobreira/gotron-sdk/pkg/address"
 	"github.com/google/uuid"
@@ -114,18 +115,17 @@ func ExecutePoRTest(t *testing.T, testEnv *ttypes.TestEnvironment, priceProvider
 		var dataFeedsCacheAddress common.Address
 		var readBalancesAddress common.Address
 
-		uniqueWorkflowName := cfg.WorkflowName + "-" + bcOutput.CtfOutput().ChainID + "-" + uuid.New().String()[0:4]                                                                            // e.g. 'por-workflow-1337-5f37_config'
-		forwarderAddress, _, forwarderErr := crecontracts.FindAddressesForChain(creEnvironment.CldfEnvironment.ExistingAddresses, chainSelector, keystone_changeset.KeystoneForwarder.String()) //nolint:staticcheck,nolintlint // SA1019: deprecated but we don't want to migrate now
-		require.NoError(t, forwarderErr, "failed to find Forwarder address for chain %d", chainSelector)
+		uniqueWorkflowName := cfg.WorkflowName + "-" + bcOutput.CtfOutput().ChainID + "-" + uuid.New().String()[0:4] // e.g. 'por-workflow-1337-5f37_config'
+		forwarderAddress := crecontracts.MustGetAddressFromDataStore(creEnvironment.CldfEnvironment.DataStore, chainSelector, keystone_changeset.KeystoneForwarder.String(), creEnvironment.ContractVersions[keystone_changeset.KeystoneForwarder.String()], "")
 
 		switch chainFamily {
 		case blockchain.FamilyTron:
-			dataFeedsCacheAddress, readBalancesAddress = deployAndConfigureTronContracts(t, testLogger, chainSelector, creEnvironment, workflowOwner, uniqueWorkflowName, feedID, forwarderAddress)
+			dataFeedsCacheAddress, readBalancesAddress = deployAndConfigureTronContracts(t, testLogger, chainSelector, creEnvironment, workflowOwner, uniqueWorkflowName, feedID, common.HexToAddress(forwarderAddress))
 			chainFamily = blockchain.FamilyEVM
 		default:
 			require.IsType(t, &evm.Blockchain{}, bcOutput, "expected EVM blockchain type")
 			workflowOwner = bcOutput.(*evm.Blockchain).SethClient.MustGetRootKeyAddress()
-			dataFeedsCacheAddress, readBalancesAddress = deployAndConfigureEVMContracts(t, testLogger, chainSelector, chainID, creEnvironment, workflowOwner, uniqueWorkflowName, feedID, forwarderAddress)
+			dataFeedsCacheAddress, readBalancesAddress = deployAndConfigureEVMContracts(t, testLogger, chainSelector, chainID, creEnvironment, workflowOwner, uniqueWorkflowName, feedID, common.HexToAddress(forwarderAddress))
 		}
 
 		// reset to avoid incrementing on each iteration
@@ -173,17 +173,13 @@ func ExecutePoRTest(t *testing.T, testEnv *ttypes.TestEnvironment, priceProvider
 
 func deployAndConfigureEVMContracts(t *testing.T, testLogger zerolog.Logger, chainSelector uint64, chainID uint64, creEnvironment *cre.Environment, workflowOwner common.Address, uniqueWorkflowName string, feedID string, forwarderAddress common.Address) (common.Address, common.Address) {
 	testLogger.Info().Msgf("Deploying additional contracts to chain %d (%d)", chainID, chainSelector)
-	dfAddress, dfOutput, dfErr := crecontracts.DeployDataFeedsCacheContract(testLogger, chainSelector, creEnvironment)
+	dfAddress, dfErr := crecontracts.DeployDataFeedsCacheContract(testLogger, chainSelector, creEnvironment)
 	require.NoError(t, dfErr, "failed to deploy Data Feeds Cache contract on chain %d", chainSelector)
 
-	rbAddress, rbOutput, rbErr := crecontracts.DeployReadBalancesContract(testLogger, chainSelector, creEnvironment)
-
+	rbAddress, rbErr := crecontracts.DeployReadBalancesContract(testLogger, chainSelector, creEnvironment)
 	require.NoError(t, rbErr, "failed to deploy Read Balances contract on chain %d", chainSelector)
 
-	crecontracts.MergeAllDataStores(creEnvironment, dfOutput, rbOutput)
-
 	testLogger.Info().Msgf("Configuring Data Feeds Cache contract...")
-
 	configInput := &cre.ConfigureDataFeedsCacheInput{
 		CldEnv:                creEnvironment.CldfEnvironment,
 		ChainSelector:         chainSelector,
@@ -429,16 +425,8 @@ func validatePoRPrices(t *testing.T, testEnv *ttypes.TestEnvironment, priceProvi
 }
 
 func validateEVMPrices(t *testing.T, testEnv *ttypes.TestEnvironment, blockchain *evm.Blockchain, feedID string, priceProvider PriceProvider, startTime time.Time, waitFor time.Duration, tick time.Duration) error {
-	dataFeedsCacheAddresses, _, dataFeedsCacheErr := crecontracts.FindAddressesForChain(
-		testEnv.CreEnvironment.CldfEnvironment.ExistingAddresses, //nolint:staticcheck,nolintlint // SA1019: deprecated but we don't want to migrate now
-		blockchain.ChainSelector(),
-		df_changeset.DataFeedsCache.String(),
-	)
-	if dataFeedsCacheErr != nil {
-		return fmt.Errorf("failed to find Data Feeds Cache address for chain %d: %w", blockchain.ChainID(), dataFeedsCacheErr)
-	}
-
-	dataFeedsCacheInstance, instanceErr := data_feeds_cache.NewDataFeedsCache(dataFeedsCacheAddresses, blockchain.SethClient.Client)
+	dataFeedsCacheAddress := crecontracts.MustGetAddressFromDataStore(testEnv.CreEnvironment.CldfEnvironment.DataStore, blockchain.ChainSelector(), "DataFeedsCache", semver.MustParse("1.0.0"), "")
+	dataFeedsCacheInstance, instanceErr := data_feeds_cache.NewDataFeedsCache(common.HexToAddress(dataFeedsCacheAddress), blockchain.SethClient.Client)
 	if instanceErr != nil {
 		return fmt.Errorf("failed to create Data Feeds Cache instance: %w", instanceErr)
 	}

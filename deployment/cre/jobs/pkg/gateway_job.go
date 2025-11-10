@@ -2,6 +2,7 @@ package pkg
 
 import (
 	"errors"
+	"net"
 	"strconv"
 	"time"
 
@@ -24,6 +25,7 @@ type TargetDONMember struct {
 
 type TargetDON struct {
 	ID       string
+	F        int
 	Members  []TargetDONMember
 	Handlers []string
 }
@@ -32,6 +34,10 @@ type GatewayJob struct {
 	TargetDONs        []TargetDON
 	JobName           string
 	RequestTimeoutSec int
+	AllowedPorts      []int
+	AllowedSchemes    []string
+	AllowedIPsCIDR    []string
+	AuthGatewayID     string
 	ExternalJobID     string
 }
 
@@ -48,6 +54,26 @@ func (g GatewayJob) Validate() error {
 	// including Read/WriteTimeoutMillis, and handler-specific timeouts like the vault handler timeout.
 	if g.RequestTimeoutSec < minimumRequestTimeoutSec {
 		return errors.New("request timeout must be at least" + strconv.Itoa(minimumRequestTimeoutSec) + " seconds")
+	}
+
+	for _, port := range g.AllowedPorts {
+		if port < 1 || port > 65535 {
+			return errors.New("allowed port out of range: " + strconv.Itoa(port))
+		}
+	}
+
+	for _, scheme := range g.AllowedSchemes {
+		if scheme != "http" && scheme != "https" {
+			return errors.New("allowed scheme must be either http or https: " + scheme)
+		}
+	}
+
+	if len(g.AllowedIPsCIDR) > 0 {
+		for _, cidr := range g.AllowedIPsCIDR {
+			if _, _, err := net.ParseCIDR(cidr); err != nil {
+				return errors.New("invalid CIDR format: " + cidr)
+			}
+		}
 	}
 
 	return nil
@@ -82,6 +108,7 @@ func (g GatewayJob) Resolve(gatewayNodeIdx int) (string, error) {
 
 		d := don{
 			DonID:    targetDON.ID,
+			F:        targetDON.F,
 			Members:  ms,
 			Handlers: hs,
 		}
@@ -120,6 +147,22 @@ func (g GatewayJob) Resolve(gatewayNodeIdx int) (string, error) {
 			AllowedSchemes:   []string{"https"},
 		},
 		Dons: dons,
+	}
+
+	if len(g.AllowedPorts) > 0 {
+		config.HTTPClientConfig.AllowedPorts = g.AllowedPorts
+	}
+
+	if len(g.AllowedSchemes) > 0 {
+		config.HTTPClientConfig.AllowedSchemes = g.AllowedSchemes
+	}
+
+	if len(g.AllowedIPsCIDR) > 0 {
+		config.HTTPClientConfig.AllowedIPsCIDR = g.AllowedIPsCIDR
+	}
+
+	if g.AuthGatewayID != "" {
+		config.ConnectionManagerConfig.AuthGatewayID = g.AuthGatewayID
 	}
 
 	spec := &gatewaySpec{
@@ -207,6 +250,7 @@ type connectionManagerConfig struct {
 
 type don struct {
 	DonID    string    `toml:"DonId"`
+	F        int       `toml:"F"`
 	Handlers []handler `toml:"Handlers"`
 	Members  []member  `toml:"Members"`
 }
@@ -226,6 +270,7 @@ type httpClientConfig struct {
 	MaxResponseBytes int      `toml:"MaxResponseBytes"`
 	AllowedPorts     []int    `toml:"AllowedPorts"`
 	AllowedSchemes   []string `toml:"AllowedSchemes"`
+	AllowedIPsCIDR   []string `toml:"AllowedIPsCIDR"`
 }
 
 type nodeServerConfig struct {
@@ -271,7 +316,7 @@ func newDefaultHTTPCapabilitiesHandler() handler {
 				PerSenderBurst: 100,
 				PerSenderRPS:   100,
 			},
-			CleanUpPeriodMs: 86400000, // 24 hours
+			CleanUpPeriodMs: 10 * 60 * 1000, // 10 minutes
 		},
 	}
 }

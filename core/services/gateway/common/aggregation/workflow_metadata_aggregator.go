@@ -73,10 +73,10 @@ func (agg *WorkflowMetadataAggregator) reapObservations(ctx context.Context) {
 		}
 	}
 	if expiredCount > 0 {
-		agg.metrics.Trigger.IncrementMetadataObservationsCleanUpCount(ctx, int64(expiredCount), agg.lggr)
+		agg.metrics.IncrementMetadataObservationsCleanUpCount(ctx, int64(expiredCount), agg.lggr)
 		agg.lggr.Debugw("Removed expired callbacks", "count", expiredCount)
 	}
-	agg.metrics.Trigger.RecordMetadataObservationsCount(ctx, int64(len(agg.observations)), agg.lggr)
+	agg.metrics.RecordMetadataObservationsCount(ctx, int64(len(agg.observations)), agg.lggr)
 }
 
 func (agg *WorkflowMetadataAggregator) Start(ctx context.Context) error {

@@ -185,9 +185,8 @@ Example `launch.json` entry:
 
 **CI behavior differs**: In CI, workflows and binaries are uploaded ahead of time, and images are injected via:
 
-- `E2E_JD_VERSION`
-- `E2E_TEST_CHAINLINK_IMAGE`
-- `E2E_TEST_CHAINLINK_VERSION`
+- `CTF_JD_IMAGE`
+- `CTF_CHAINLINK_IMAGE`
 
 ---
 
@@ -519,7 +518,7 @@ workflowFileLocation := "path/to/your/workflow/main.go"
 workflowName := "my-workflow-" + uuid.New().String()[0:4]
 
 // Compile workflow to compressed WASM
-compressedWorkflowWasmPath, compileErr := creworkflow.CompileWorkflow(workflowFileLocation, workflowName)
+compressedWorkflowWasmPath, compileErr := creworkflow.CompileWorkflow(ctx, workflowFileLocation, workflowName)
 require.NoError(t, compileErr, "failed to compile workflow")
 
 // Cleanup temporary files
@@ -533,9 +532,16 @@ t.Cleanup(func() {
 
 #### Compilation Requirements
 
+Go workflows:
 - **Workflow Name**: Must be at least 10 characters long
 - **Go Environment**: Requires `go mod tidy` to be run in the workflow directory
 - **Target Platform**: Compiles for `GOOS=wasip1` and `GOARCH=wasm`
+- **Output Format**: Produces `.wasm.br.b64` files (compressed and base64 encoded)
+
+TypeScript workflows:
+- **Workflow Name**: Must be at least 10 characters long
+- **Bun installed**: Requires `Bun`  (automatically installed by `go run . env setup`)
+- **package.json**: Correct `package.json` must exist in `core/scripts/cre/environment` (automatically created by `go run . env setup`)
 - **Output Format**: Produces `.wasm.br.b64` files (compressed and base64 encoded)
 
 ### Workflow Configuration

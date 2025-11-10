@@ -187,6 +187,7 @@ jobs:
           - cmd: go_core_tests_integration
             os: ${{ needs.runner-config.outputs.core-tests-integration-runner }}
             should-run: ${{ needs.filter.outputs.should-run-core-tests }}
+            trunk-auto-quarantine: "true"
             setup-solana: "true"
             install-loopps: "true"
 
@@ -310,7 +311,7 @@ jobs:
           GODEBUG=goindex=0 ./tools/bin/${{ matrix.type.cmd }} ./...
           # See: https://github.com/golang/go/issues/69179
 
-      - name: Run branch-out-upload
+      - name: Analyze and upload test results
         if: ${{ matrix.type.should-run == 'true' && matrix.type.trunk-auto-quarantine == 'true' && !cancelled() }}
         uses: smartcontractkit/.github/actions/branch-out-upload@branch-out-upload/v1
         with:

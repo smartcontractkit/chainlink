@@ -9,7 +9,7 @@ import (
 	"github.com/Masterminds/semver/v3"
 	"github.com/ethereum/go-ethereum/common"
 
-	"github.com/smartcontractkit/mcms"
+	mcmslib "github.com/smartcontractkit/mcms"
 	"github.com/smartcontractkit/mcms/sdk"
 
 	mcmstypes "github.com/smartcontractkit/mcms/types"
@@ -38,7 +38,7 @@ type ConfigureOCR3_1Input struct {
 
 	ReportingPluginConfigOverride []byte
 
-	MCMSConfig *ocr3.MCMSConfig
+	MCMSConfig *contracts.MCMSConfig
 }
 
 func (i ConfigureOCR3_1Input) UseMCMS() bool {
@@ -46,7 +46,7 @@ func (i ConfigureOCR3_1Input) UseMCMS() bool {
 }
 
 type ConfigureOCR3_1OpOutput struct {
-	MCMSTimelockProposals []mcms.TimelockProposal
+	MCMSTimelockProposals []mcmslib.TimelockProposal
 }
 
 var ConfigureOCR3_1 = operations.NewOperation[ConfigureOCR3_1Input, ConfigureOCR3_1OpOutput, ConfigureOCR3_1Deps](
@@ -140,12 +140,12 @@ var ConfigureOCR3_1 = operations.NewOperation[ConfigureOCR3_1Input, ConfigureOCR
 				inspectorPerChain,
 				[]mcmstypes.BatchOperation{*resp.Ops},
 				"proposal to set OCR3.1 config",
-				proposalutils.TimelockConfig{MinDelay: input.MCMSConfig.MinDuration},
+				*input.MCMSConfig,
 			)
 			if err != nil {
 				return out, fmt.Errorf("failed to build proposal: %w", err)
 			}
-			out.MCMSTimelockProposals = []mcms.TimelockProposal{*proposal}
+			out.MCMSTimelockProposals = []mcmslib.TimelockProposal{*proposal}
 		}
 		return out, nil
 	},
