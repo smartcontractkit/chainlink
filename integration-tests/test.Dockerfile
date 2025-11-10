@@ -20,16 +20,24 @@ RUN /go/testdir/integration-tests/scripts/buildTests "${SUITES}"
 
 FROM ${BASE_IMAGE}:${IMAGE_VERSION}
 
-RUN mkdir -p /go/testdir/integration-tests/scripts
+RUN useradd -u 1001 -m -d /home/user1001 user1001
+
+# Copy files as root first, then change ownership
 COPY --from=build-env /go/testdir/integration-tests/*.test /go/testdir/integration-tests/
 COPY --from=build-env /go/testdir/integration-tests/ccip-tests/*.test /go/testdir/integration-tests/
 COPY --from=build-env /go/testdir/integration-tests/scripts /go/testdir/integration-tests/scripts/
 COPY --from=build-env /go/testdir/sha.txt /go/testdir/sha.txt
+
+# Change ownership of copied files to user1001
+RUN chown -R user1001:user1001 /go/testdir
 
 RUN echo "chainlink SHA used:"
 RUN cat /go/testdir/sha.txt
 
 RUN echo "All tests"
 RUN ls -l /go/testdir/integration-tests/*.test
+
+# Switch to non-root user
+USER 1001
 
 ENTRYPOINT ["/go/testdir/integration-tests/scripts/entrypoint"]

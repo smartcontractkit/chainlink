@@ -8,6 +8,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/Masterminds/semver/v3"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/pkg/errors"
 	"github.com/spf13/cobra"
@@ -20,6 +21,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/scripts/cre/environment/examples/pkg/verify"
 	cronbasedtypes "github.com/smartcontractkit/chainlink/core/scripts/cre/environment/examples/workflows/v1/proof-of-reserve/cron-based/types"
 	webapitriggerbasedtypes "github.com/smartcontractkit/chainlink/core/scripts/cre/environment/examples/workflows/v1/proof-of-reserve/web-trigger-based/types"
+	keystone_changeset "github.com/smartcontractkit/chainlink/deployment/keystone/changeset"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment"
 	creworkflow "github.com/smartcontractkit/chainlink/system-tests/lib/cre/workflow"
 	libformat "github.com/smartcontractkit/chainlink/system-tests/lib/format"
@@ -34,6 +36,7 @@ func deployAndVerifyExampleWorkflowCmd() *cobra.Command {
 		exampleWorkflowTriggerFlag  string
 		exampleWorkflowTimeoutFlag  string
 		workflowRegistryAddressFlag string
+		contractsVersionFlag        string
 	)
 	cmd := &cobra.Command{
 		Use:              "run-por-example",
@@ -46,7 +49,21 @@ func deployAndVerifyExampleWorkflowCmd() *cobra.Command {
 				return errors.Wrapf(timeoutErr, "failed to parse %s to time.Duration", exampleWorkflowTimeoutFlag)
 			}
 
-			return deployAndVerifyExampleWorkflow(cmd.Context(), rpcURLFlag, gatewayURLFlag, gatewayDonIDFlag, workflowDonIDFlag, timeout, exampleWorkflowTriggerFlag, workflowRegistryAddressFlag)
+			var workflowRegistryAddress string
+			var contractsVersion *semver.Version
+			if workflowRegistryAddressFlag != "" && contractsVersionFlag != "" {
+				workflowRegistryAddress = workflowRegistryAddressFlag
+				contractsVersion = semver.MustParse(contractsVersionFlag)
+			} else {
+				addrRef, addrErr := addressRefFromStateFile(keystone_changeset.WorkflowRegistry.String())
+				if addrErr != nil {
+					return errors.Wrap(addrErr, "❌ failed to get workflow registry address from state file")
+				}
+				workflowRegistryAddress = addrRef.Address
+				contractsVersion = addrRef.Version
+			}
+
+			return deployAndVerifyExampleWorkflow(cmd.Context(), rpcURLFlag, gatewayURLFlag, gatewayDonIDFlag, workflowDonIDFlag, timeout, exampleWorkflowTriggerFlag, workflowRegistryAddress, contractsVersion)
 		},
 	}
 
@@ -56,7 +73,8 @@ func deployAndVerifyExampleWorkflowCmd() *cobra.Command {
 	cmd.Flags().StringVarP(&gatewayURLFlag, "gateway-url", "g", "http://localhost:5002", "Gateway URL (only for web API trigger-based workflow)")
 	cmd.Flags().Uint32VarP(&workflowDonIDFlag, "workflow-don-id", "d", 1, "DonID used in the workflow registry contract (integer starting with 1)")
 	cmd.Flags().StringVarP(&gatewayDonIDFlag, "gateway-don-id", "o", "workflow", "Name of the DON that is running web API trigger capability (only for web API trigger-based workflow)")
-	cmd.Flags().StringVarP(&workflowRegistryAddressFlag, "workflow-registry-address", "w", DefaultWorkflowRegistryAddress, "Workflow registry address")
+	cmd.Flags().StringVarP(&workflowRegistryAddressFlag, "workflow-registry-address", "w", "", "Workflow registry address (if not provided, address from the state file will be used)")
+	cmd.Flags().StringVar(&contractsVersionFlag, "with-contracts-version", "", "Version of workflow registry contract to use (v1 or v2)")
 
 	return cmd
 }
@@ -112,7 +130,7 @@ func executeCronBasedWorkflow(cmdContext context.Context, rpcURL, _, _, privateK
 	return nil
 }
 
-func deployAndVerifyExampleWorkflow(cmdContext context.Context, rpcURL, gatewayURL, gatewayDonID string, workflowDonID uint32, timeout time.Duration, exampleWorkflowTrigger, workflowRegistryAddress string) error {
+func deployAndVerifyExampleWorkflow(cmdContext context.Context, rpcURL, gatewayURL, gatewayDonID string, workflowDonID uint32, timeout time.Duration, exampleWorkflowTrigger, workflowRegistryAddress string, contractsVersion *semver.Version) error {
 	totalStart := time.Now()
 	start := time.Now()
 
@@ -169,7 +187,7 @@ func deployAndVerifyExampleWorkflow(cmdContext context.Context, rpcURL, gatewayU
 		_ = os.Remove(configFilePath)
 	}()
 
-	deployErr := compileCopyAndRegisterWorkflow(cmdContext, workflowFilePath, workflowName, "", workflowRegistryAddress, "", creworkflow.DefaultWorkflowNodePattern, creworkflow.DefaultWorkflowTargetDir, configFilePath, "", "", rpcURL, "v1", workflowDonID)
+	deployErr := compileCopyAndRegisterWorkflow(cmdContext, workflowFilePath, workflowName, "", workflowRegistryAddress, "", creworkflow.DefaultWorkflowNodePattern, creworkflow.DefaultWorkflowTargetDir, configFilePath, "", "", rpcURL, contractsVersion, contractsVersion, workflowDonID)
 	if deployErr != nil {
 		return errors.Wrap(deployErr, "failed to deploy example workflow")
 	}
@@ -186,7 +204,7 @@ func deployAndVerifyExampleWorkflow(cmdContext context.Context, rpcURL, gatewayU
 		fmt.Print(libformat.PurpleText("\n[Stage 4/4] Example workflow executed in %.2f seconds\n", time.Since(totalStart).Seconds()))
 		start = time.Now()
 		fmt.Print(libformat.PurpleText("\n[CLEANUP] Deleting example workflow\n\n"))
-		deleteErr := deleteAllWorkflows(cmdContext, rpcURL, workflowRegistryAddress, "v1")
+		deleteErr := deleteAllWorkflows(cmdContext, rpcURL, workflowRegistryAddress, contractsVersion)
 		if deleteErr != nil {
 			fmt.Printf("Failed to delete example workflow: %s\nPlease delete it manually\n", deleteErr)
 		}

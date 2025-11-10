@@ -40,10 +40,6 @@ type TopLevelConfigSource struct {
 	OracleConfig OracleConfig
 }
 
-type MCMSConfig struct {
-	MinDuration time.Duration
-}
-
 type NodeKeys struct {
 	EthAddress             string `json:"EthAddress"`
 	AptosAccount           string `json:"AptosAccount"`

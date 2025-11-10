@@ -196,24 +196,31 @@ func (c AptosChainUpdate) GetAptosTokenAndTokenPool(state aptosstate.CCIPChainSt
 type SuiChainUpdate struct {
 	RateLimiterConfig RateLimiterConfig
 	TokenAddress      string
+	TokenSymbol       string
 	Type              cldf.ContractType
 }
 
-func (c SuiChainUpdate) GetSuiTokenAndTokenPool(state suistate.CCIPChainState) (token string, tokenPoolAddress string, err error) {
+func (c SuiChainUpdate) GetSuiTokenAndTokenPool(state suistate.CCIPChainState) (tokenAddress string, tokenPoolAddress string, err error) {
+	var tpAddress string
 	if c.TokenAddress == "" {
 		return "", "", errors.New("token address must be defined")
 	}
 
 	switch c.Type {
 	case suistate.SuiBnMTokenPoolType:
-		tokenPoolAddress = state.CCIPBurnMintTokenPool
+		poolState, ok := state.BnMTokenPools[c.TokenSymbol]
+		if !ok {
+			return "", "", fmt.Errorf("no BnM token pool found for token: %s", c.TokenSymbol)
+		}
+		tpAddress = poolState.PackageID
 	default:
 		return "", "", fmt.Errorf("unknown Aptos token pool type %s", c.Type)
 	}
-	if tokenPoolAddress == "" {
-		return "", "", fmt.Errorf("no token pool found for token: %s", token)
+	if tpAddress == "" {
+		return "", "", fmt.Errorf("no token pool found for token: %s", c.TokenAddress)
 	}
-	return token, tokenPoolAddress, nil
+
+	return c.TokenAddress, tpAddress, nil
 }
 
 // TokenPoolConfig defines all the information required of the user to configure a token pool.

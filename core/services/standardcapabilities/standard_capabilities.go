@@ -38,6 +38,7 @@ type StandardCapabilities struct {
 	oracleFactory        core.OracleFactory
 	gatewayConnector     core.GatewayConnector
 	orgResolver          orgresolver.OrgResolver
+	creSettings          core.SettingsBroadcaster
 
 	capabilitiesLoop *loop.StandardCapabilitiesService
 
@@ -67,6 +68,7 @@ func NewStandardCapabilities(
 		gatewayConnector:     dependencies.GatewayConnector,
 		keystore:             dependencies.P2PKeystore,
 		orgResolver:          dependencies.OrgResolver,
+		creSettings:          dependencies.CRESettings,
 		stopChan:             make(chan struct{}),
 		readyChan:            make(chan struct{}),
 	}
@@ -119,6 +121,7 @@ func (s *StandardCapabilities) Start(ctx context.Context) error {
 				GatewayConnector:   s.gatewayConnector,
 				P2PKeystore:        s.keystore,
 				OrgResolver:        s.orgResolver,
+				CRESettings:        s.creSettings,
 			}
 			if err = s.capabilitiesLoop.Service.Initialise(cctx, dependencies); err != nil {
 				s.log.Errorf("error initialising standard capabilities service: %v", err)

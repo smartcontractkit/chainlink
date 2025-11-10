@@ -3,112 +3,47 @@ package strategies
 import (
 	"errors"
 	"fmt"
-	"math/big"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	mcmslib "github.com/smartcontractkit/mcms"
-	"github.com/smartcontractkit/mcms/sdk"
 	mcmstypes "github.com/smartcontractkit/mcms/types"
 
 	cldf_evm "github.com/smartcontractkit/chainlink-deployments-framework/chain/evm"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset/state"
-	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
-	"github.com/smartcontractkit/chainlink/deployment/cre/ocr3"
+	"github.com/smartcontractkit/chainlink/deployment/cre/contracts"
 )
 
 // TransactionStrategy interface for executing transactions with different strategies
 type TransactionStrategy interface {
-	Apply(callFn func(opts *bind.TransactOpts) (*types.Transaction, error)) ([]mcmslib.TimelockProposal, error)
-}
+	// Apply executes the provided call function and returns the resulting MCMS batch operation if applicable.
+	// The callFn should accept transaction options and return a transaction or an error.
+	// If using MCMS, the returned BatchOperation can be used to build a proposal.
+	// If no MCMS is used, the returned BatchOperation will be nil, and the transaction will be confirmed.
+	Apply(callFn func(opts *bind.TransactOpts) (*types.Transaction, error)) (*mcmstypes.BatchOperation, *types.Transaction, error)
 
-// SimpleTransaction executes a transaction directly without MCMS
-type SimpleTransaction struct {
-	Chain cldf_evm.Chain
-}
-
-func (s *SimpleTransaction) Apply(callFn func(opts *bind.TransactOpts) (*types.Transaction, error)) ([]mcmslib.TimelockProposal, error) {
-	tx, err := callFn(s.Chain.DeployerKey)
-	if err != nil {
-		return nil, err
-	}
-
-	_, err = s.Chain.Confirm(tx)
-	return []mcmslib.TimelockProposal{}, err
-}
-
-// MCMSTransaction executes a transaction through MCMS timelock
-type MCMSTransaction struct {
-	Config        *ocr3.MCMSConfig
-	Description   string
-	Address       common.Address
-	ChainSel      uint64
-	MCMSContracts *commonchangeset.MCMSWithTimelockState
-	Env           cldf.Environment
-}
-
-func (m *MCMSTransaction) Apply(callFn func(opts *bind.TransactOpts) (*types.Transaction, error)) ([]mcmslib.TimelockProposal, error) {
-	opts := cldf.SimTransactOpts()
-
-	tx, err := callFn(opts)
-	if err != nil {
-		return nil, err
-	}
-
-	op, err := proposalutils.BatchOperationForChain(m.ChainSel, m.Address.Hex(), tx.Data(), big.NewInt(0), "", nil)
-	if err != nil {
-		return nil, err
-	}
-
-	timelocksPerChain := map[uint64]string{
-		m.ChainSel: m.MCMSContracts.Timelock.Address().Hex(),
-	}
-	proposerMCMSes := map[uint64]string{
-		m.ChainSel: m.MCMSContracts.ProposerMcm.Address().Hex(),
-	}
-	inspector, err := proposalutils.McmsInspectorForChain(m.Env, m.ChainSel)
-	if err != nil {
-		return nil, err
-	}
-	inspectorPerChain := map[uint64]sdk.Inspector{
-		m.ChainSel: inspector,
-	}
-
-	proposal, err := proposalutils.BuildProposalFromBatchesV2(
-		m.Env,
-		timelocksPerChain,
-		proposerMCMSes,
-		inspectorPerChain,
-		[]mcmstypes.BatchOperation{op},
-		m.Description,
-		proposalutils.TimelockConfig{MinDelay: m.Config.MinDuration},
-	)
-	if err != nil {
-		return nil, err
-	}
-
-	return []mcmslib.TimelockProposal{*proposal}, nil
+	// BuildProposal constructs a TimelockProposal from the provided batch operations.
+	// This is only applicable when using MCMS; otherwise, it returns an empty proposal.
+	BuildProposal(operations []mcmstypes.BatchOperation) (*mcmslib.TimelockProposal, error)
 }
 
 // CreateStrategy is a factory function to create the appropriate strategy based on configuration
 func CreateStrategy(
 	chain cldf_evm.Chain,
 	env cldf.Environment,
-	mcmsConfig *ocr3.MCMSConfig,
+	mcmsConfig *contracts.MCMSConfig,
 	mcmsContracts *commonchangeset.MCMSWithTimelockState,
 	targetAddress common.Address,
 	description string,
 ) (TransactionStrategy, error) {
 	if mcmsConfig != nil {
-		if mcmsConfig == nil {
-			return nil, errors.New("MCMS config is required when mcmsConfig is not nil")
-		}
 		if mcmsContracts == nil {
 			return nil, errors.New("MCMS contracts are required when mcmsConfig is not nil")
 		}
+
 		return &MCMSTransaction{
 			Config:        mcmsConfig,
 			Description:   description,

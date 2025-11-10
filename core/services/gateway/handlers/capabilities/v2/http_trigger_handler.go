@@ -112,8 +112,8 @@ func (h *httpTriggerHandler) HandleUserTriggerRequest(ctx context.Context, req *
 
 	reqWithKey, err := reqWithAuthorizedKey(triggerReq, *key)
 	if err != nil {
-		h.handleUserError(ctx, req.ID, jsonrpc.ErrInvalidRequest, "Auth failure", callback)
-		return errors.Join(errors.New("auth failure"), err)
+		h.handleUserError(ctx, req.ID, jsonrpc.ErrInternal, internalErrorMessage, callback)
+		return errors.New("error marshaling trigger request: " + err.Error())
 	}
 
 	doneCh, err := h.setupCallback(ctx, req.ID, callback, requestStartTime)
@@ -367,7 +367,7 @@ func (h *httpTriggerHandler) checkRateLimit(ctx context.Context, workflowID, req
 			switch errLimited.Scope {
 			case settings.ScopeWorkflow:
 				lggr.Errorf("failed to start execution: per workflow rate limit exceeded")
-				h.metrics.Trigger.IncrementWorkflowThrottled(ctx, h.lggr)
+				h.metrics.IncrementWorkflowThrottled(ctx, h.lggr)
 			default:
 				lggr.Errorf("failed to start execution: unexpected rate limit for scope %s", errLimited.Scope)
 			}
@@ -448,7 +448,8 @@ func (h *httpTriggerHandler) HandleNodeTriggerResponse(ctx context.Context, resp
 	// Only after successfully sending the response, clean up the callback
 	h.cleanupCallback(resp.ID)
 	latencyMs := time.Since(saved.requestStartTime).Milliseconds()
-	h.metrics.Trigger.RecordRequestHandlerLatency(ctx, latencyMs, h.lggr)
+	h.metrics.RecordRequestHandlerLatency(ctx, latencyMs, h.lggr)
+	h.metrics.IncrementRequestSuccess(ctx, h.lggr)
 	return nil
 }
 
@@ -489,17 +490,17 @@ func (h *httpTriggerHandler) reapExpiredCallbacks(ctx context.Context) {
 	now := time.Now()
 	var expiredCount int
 	for reqID, callback := range h.callbacks {
-		if now.Sub(callback.createdAt) > time.Duration(h.config.MaxTriggerRequestDurationMs)*time.Millisecond {
-			h.metrics.Trigger.IncrementRequestErrors(ctx, jsonrpc.ErrInternal, h.lggr)
+		if now.Sub(callback.createdAt) > time.Duration(h.config.CleanUpPeriodMs)*time.Millisecond {
+			h.metrics.IncrementRequestErrors(ctx, jsonrpc.ErrInternal, h.lggr)
 			h.cleanupCallback(reqID)
 			expiredCount++
 		}
 	}
 	if expiredCount > 0 {
-		h.metrics.Trigger.IncrementPendingRequestsCleanUpCount(ctx, int64(expiredCount), h.lggr)
+		h.metrics.IncrementPendingRequestsCleanUpCount(ctx, int64(expiredCount), h.lggr)
 		h.lggr.Infow("Removed expired callbacks", "count", expiredCount, "remaining", len(h.callbacks))
 	}
-	h.metrics.Trigger.RecordPendingRequestsCount(ctx, int64(len(h.callbacks)), h.lggr)
+	h.metrics.RecordPendingRequestsCount(ctx, int64(len(h.callbacks)), h.lggr)
 }
 
 func isValidJSON(data []byte) bool {
@@ -531,7 +532,7 @@ func (h *httpTriggerHandler) handleUserError(ctx context.Context, requestID stri
 		return
 	}
 	errorCode := api.FromJSONRPCErrorCode(code)
-	h.metrics.Trigger.IncrementRequestErrors(ctx, code, h.lggr)
+	h.metrics.IncrementRequestErrors(ctx, code, h.lggr)
 	err = callback.SendResponse(handlers.UserCallbackPayload{
 		RawResponse: rawResp,
 		ErrorCode:   errorCode,
@@ -572,11 +573,11 @@ func (h *httpTriggerHandler) sendWithRetries(ctx context.Context, executionID st
 			if successfulNodes[member.Address] {
 				continue
 			}
-			h.metrics.Trigger.IncrementCapabilityRequestCount(ctx, member.Address, gateway_common.MethodWorkflowExecute, h.lggr)
+			h.metrics.IncrementTriggerCapabilityRequestCount(ctx, member.Address, gateway_common.MethodWorkflowExecute, h.lggr)
 			err := h.don.SendToNode(ctxWithTimeout, member.Address, req)
 			if err != nil {
 				allNodesSucceeded = false
-				h.metrics.Trigger.IncrementCapabilityRequestFailures(ctx, member.Address, gateway_common.MethodWorkflowExecute, h.lggr)
+				h.metrics.IncrementTriggerCapabilityRequestFailures(ctx, member.Address, gateway_common.MethodWorkflowExecute, h.lggr)
 				err = errors.Join(combinedErr, err)
 				h.lggr.Debugw("Failed to send trigger request to node, will retry",
 					"node", member.Address,

@@ -65,6 +65,7 @@ type CapabilityJobSpecFactory struct {
 // NewCapabilityJobSpecFactory creates a job spec factory for capabilities that operate
 // at the DON level without chain-specific configuration (e.g., cron, mock, custom-compute, web-api-*).
 // These capabilities use the home chain selector and can have per-DON configuration overrides.
+// Deprecated: do not use, factory introduced too much complexity. Build the jobspec on your own instead.
 func NewCapabilityJobSpecFactory(
 	registryChainSelector uint64,
 	capabilityEnabler CapabilityEnabler,
@@ -94,6 +95,7 @@ func NewCapabilityJobSpecFactory(
 	}, nil
 }
 
+// Deprecated: do not use, factory introduced too much complexity. Build the jobspec on your own instead.
 func (f *CapabilityJobSpecFactory) BuildJobSpec(
 	capabilityFlag cre.CapabilityFlag,
 	configTemplate string,

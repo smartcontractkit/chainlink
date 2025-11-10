@@ -4,16 +4,15 @@ import (
 	"errors"
 	"fmt"
 
-	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset/state"
-	"github.com/smartcontractkit/chainlink/deployment/cre/capabilities_registry/v2/changeset/pkg"
-	"github.com/smartcontractkit/chainlink/deployment/cre/common/strategies"
-	"github.com/smartcontractkit/chainlink/deployment/cre/ocr3"
-
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
 
+	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset/state"
 	"github.com/smartcontractkit/chainlink/deployment/cre/capabilities_registry/v2/changeset/operations/contracts"
+	"github.com/smartcontractkit/chainlink/deployment/cre/capabilities_registry/v2/changeset/pkg"
 	"github.com/smartcontractkit/chainlink/deployment/cre/capabilities_registry/v2/changeset/sequences"
+	"github.com/smartcontractkit/chainlink/deployment/cre/common/strategies"
+	crecontracts "github.com/smartcontractkit/chainlink/deployment/cre/contracts"
 )
 
 var _ cldf.ChangeSetV2[AddCapabilitiesInput] = AddCapabilities{}
@@ -25,7 +24,7 @@ type AddCapabilitiesInput struct {
 	RegistryChainSel  uint64 `json:"registryChainSel" yaml:"registryChainSel"`
 	RegistryQualifier string `json:"registryQualifier" yaml:"registryQualifier"`
 
-	MCMSConfig        *ocr3.MCMSConfig             `json:"mcmsConfig" yaml:"mcmsConfig"`
+	MCMSConfig        *crecontracts.MCMSConfig     `json:"mcmsConfig" yaml:"mcmsConfig"`
 	DonName           string                       `json:"donName" yaml:"donName"`
 	CapabilityConfigs []contracts.CapabilityConfig `json:"capabilityConfigs" yaml:"capabilityConfigs"`
 

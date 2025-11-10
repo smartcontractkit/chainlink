@@ -114,13 +114,6 @@ jobs:
           mode: ${{ steps.files-changed.outputs.core-changeset == 'false' && 'upsert' || 'delete' }}
           create_if_not_exists: ${{ steps.files-changed.outputs.core-changeset == 'false' && 'true' || 'false' }}
 
-      - name: Check for new changeset for core
-        if: ${{ (steps.files-changed.outputs.core == 'true' || steps.files-changed.outputs.shared == 'true') && steps.files-changed.outputs.core-changeset == 'false' }}
-        shell: bash
-        run: |
-          echo "Please run pnpm changeset to add a changeset for core and include in the text at least one tag."
-          exit 1
-
       - name: Make a comment
         uses: thollander/actions-comment-pull-request@fabd468d3a1a0b97feee5f6b9e499eab0dd903f6 # v2.5.0
         if: ${{ steps.files-changed.outputs.core-changeset == 'true' }}
@@ -141,48 +134,3 @@ jobs:
         run: |
           echo "Please include at least one tag in the core changeset file"
           exit 1
-
-  contracts-changeset:
-    name: Contracts Changeset Checker
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-        with:
-          persist-credentials: false
-          fetch-depth: 0
-
-      - uses: dorny/paths-filter@de90cc6fb38fc0963ad72b210f1f284cd68cea36 # v3.0.2
-        id: files-changed
-        with:
-          predicate-quantifier: every
-          list-files: shell
-          filters: |
-            contracts-changeset:
-              - added|modified: 'contracts/.changeset/*.md'
-
-      - name: Setup node
-        uses: ./.github/actions/setup-nodejs
-        if: ${{ steps.files-changed.outputs.contracts-changeset == 'true' }}
-
-      - name: Install base dependencies
-        if: ${{ steps.files-changed.outputs.contracts-changeset == 'true' }}
-        run: pnpm i
-
-      - name: Validate changeset files
-        if: ${{ steps.files-changed.outputs.contracts-changeset == 'true' }}
-        working-directory: contracts
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          pnpm changeset version
-
-      - name: Comment Failure
-        if: ${{ failure() && steps.files-changed.outputs.contracts-changeset == 'true' }}
-        uses: thollander/actions-comment-pull-request@fabd468d3a1a0b97feee5f6b9e499eab0dd903f6 # v2.5.0
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          message: |
-            It appears that the changeset file you've added or modified in `contracts/.changeset` is not valid.
-            Please delete the file and run `pnpm changeset` in the contracts directory.

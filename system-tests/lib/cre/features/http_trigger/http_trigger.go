@@ -1,9 +1,12 @@
 package httptrigger
 
 import (
+	"bytes"
 	"context"
 	"fmt"
+	"html/template"
 
+	"dario.cat/mergo"
 	"github.com/pkg/errors"
 	"github.com/rs/zerolog"
 
@@ -11,16 +14,18 @@ import (
 
 	capabilitiespb "github.com/smartcontractkit/chainlink-common/pkg/capabilities/pb"
 	kcr "github.com/smartcontractkit/chainlink-evm/gethwrappers/keystone/generated/capabilities_registry_1_1_0"
-	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/blockchain"
+	cre_jobs "github.com/smartcontractkit/chainlink/deployment/cre/jobs"
+	cre_jobs_ops "github.com/smartcontractkit/chainlink/deployment/cre/jobs/operations"
+	"github.com/smartcontractkit/chainlink/deployment/cre/jobs/pkg"
+	job_types "github.com/smartcontractkit/chainlink/deployment/cre/jobs/types"
+	"github.com/smartcontractkit/chainlink/deployment/cre/pkg/offchain"
 	keystone_changeset "github.com/smartcontractkit/chainlink/deployment/keystone/changeset"
-	coregateway "github.com/smartcontractkit/chainlink/v2/core/services/gateway"
 
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre"
-	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/gateway"
+	credon "github.com/smartcontractkit/chainlink/system-tests/lib/cre/don"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/jobs"
-	factory "github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/jobs/standardcapability"
-	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/jobs/standardcapability/donlevel"
-	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/config"
+	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/jobs/standardcapability"
+	envconfig "github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/config"
 )
 
 const flag = cre.HTTPTriggerCapability
@@ -44,18 +49,14 @@ func (o *HTTPTrigger) PreEnvStartup(
 		return nil, errors.Wrapf(chErr, "failed to get chain ID from selector %d", creEnv.RegistryChainSelector)
 	}
 
-	// add 'http-capabilities' handler to gateway config (future jobspec)
+	// add 'http-capabilities' handler to gateway config
 	// add gateway connector to to node TOML config, so that node can route http trigger requests to the gateway
-	handlerConfig, confErr := gateway.HandlerConfig(coregateway.HTTPCapabilityType)
-	if confErr != nil {
-		return nil, errors.Wrapf(confErr, "failed to get %s handler config for don %s", coregateway.HTTPCapabilityType, don.Name)
-	}
-	hErr := gateway.AddHandlers(*don, registryChainID, topology.GatewayJobConfigs, []config.Handler{handlerConfig})
+	hErr := topology.AddGatewayHandlers(*don, []string{pkg.GatewayHandlerTypeHTTPCapabilities})
 	if hErr != nil {
-		return nil, errors.Wrapf(hErr, "failed to add gateway handlers to gateway config (jobspec) for don %s ", don.Name)
+		return nil, errors.Wrapf(hErr, "failed to add gateway handlers to gateway config for don %s ", don.Name)
 	}
 
-	cErr := gateway.AddConnectors(don, registryChainID, *topology.GatewayConnectors)
+	cErr := don.ConfigureForGatewayAccess(registryChainID, *topology.GatewayConnectors)
 	if cErr != nil {
 		return nil, errors.Wrapf(cErr, "failed to add gateway connectors to node's TOML config in for don %s", don.Name)
 	}
@@ -74,7 +75,7 @@ func (o *HTTPTrigger) PreEnvStartup(
 	}, nil
 }
 
-const configTemplate = `"""
+const configTemplate = `
 {
 	"incomingRateLimiter": {
 		"globalBurst": {{.IncomingGlobalBurst}},
@@ -89,7 +90,7 @@ const configTemplate = `"""
 		"perSenderRPS": {{.OutgoingPerSenderRPS}}
 	}
 }
-"""`
+`
 
 func (o *HTTPTrigger) PostEnvStartup(
 	ctx context.Context,
@@ -98,20 +99,14 @@ func (o *HTTPTrigger) PostEnvStartup(
 	dons *cre.Dons,
 	creEnv *cre.Environment,
 ) error {
-	perDonJobSpecFactory, fErr := factory.NewCapabilityJobSpecFactory(
-		creEnv.RegistryChainSelector,
-		donlevel.CapabilityEnabler,
-		donlevel.EnabledChainsProvider,
-		donlevel.ConfigResolver,
-		donlevel.JobNamer,
-	)
-	if fErr != nil {
-		return errors.Wrap(fErr, "failed to create capability job spec factory")
+	capabilityConfig, ok := creEnv.CapabilityConfigs[flag]
+	if !ok {
+		return errors.Errorf("%s config not found in capabilities config. Make sure you have set it in the TOML config", flag)
 	}
 
-	bcOuts := make([]*blockchain.Output, len(creEnv.Blockchains))
-	for i, b := range creEnv.Blockchains {
-		bcOuts[i] = b.CtfOutput()
+	command, cErr := standardcapability.GetCommand(capabilityConfig.BinaryPath, creEnv.Provider)
+	if cErr != nil {
+		return errors.Wrap(cErr, "failed to get command for HTTP Trigger capability")
 	}
 
 	var nodeSet cre.NodeSetWithCapabilityConfigs
@@ -125,27 +120,63 @@ func (o *HTTPTrigger) PostEnvStartup(
 		return fmt.Errorf("could not find node set for Don named '%s'", don.Name)
 	}
 
-	jobSpecs, specErr := perDonJobSpecFactory.BuildJobSpec(
-		flag,
-		configTemplate,
-		factory.NoOpExtractor,
-		factory.BinaryPathBuilder,
-	)(&cre.JobSpecInput{
-		CreEnvironment: creEnv,
-		Don:            don,
-		NodeSet:        nodeSet,
-	})
-	if specErr != nil {
-		return fmt.Errorf("failed to build job spec for http action capability: %w", specErr)
-	}
-	if len(jobSpecs) == 0 {
-		return fmt.Errorf("no job specs created for '%s' capability, even though it is enabled", flag)
+	templateData := envconfig.ResolveCapabilityConfigForDON(flag, capabilityConfig.Config, nodeSet.GetCapabilityConfigOverrides())
+	tmpl, tmplErr := template.New(flag + "-config").Parse(configTemplate)
+	if tmplErr != nil {
+		return errors.Wrapf(tmplErr, "failed to parse %s config template", flag)
 	}
 
-	// pass all dons, since some jobs might need to be created on multiple ones
-	jobErr := jobs.Create(ctx, creEnv.CldfEnvironment.Offchain, dons, jobSpecs)
-	if jobErr != nil {
-		return fmt.Errorf("failed to create http action jobs for don %s: %w", don.Name, jobErr)
+	var configBuffer bytes.Buffer
+	if err := tmpl.Execute(&configBuffer, templateData); err != nil {
+		return errors.Wrapf(err, "failed to execute %s config template", flag)
+	}
+	configStr := configBuffer.String()
+
+	if err := credon.ValidateTemplateSubstitution(configStr, flag); err != nil {
+		return errors.Wrapf(err, "%s template validation failed", flag)
+	}
+
+	workerInput := cre_jobs.ProposeJobSpecInput{
+		Domain:      offchain.ProductLabel,
+		Environment: cre.EnvironmentName,
+		DONName:     don.Name,
+		JobName:     "http-trigger-worker",
+		ExtraLabels: map[string]string{cre.CapabilityLabelKey: flag},
+		DONFilters: []offchain.TargetDONFilter{
+			{Key: offchain.FilterKeyDONName, Value: don.Name},
+		},
+		Template: job_types.Cron,
+		Inputs: job_types.JobSpecInput{
+			"command": command,
+			"config":  configStr,
+		},
+	}
+
+	workerVerErr := cre_jobs.ProposeJobSpec{}.VerifyPreconditions(*creEnv.CldfEnvironment, workerInput)
+	if workerVerErr != nil {
+		return fmt.Errorf("precondition verification failed for HTTP Trigger worker job: %w", workerVerErr)
+	}
+
+	workerReport, workerErr := cre_jobs.ProposeJobSpec{}.Apply(*creEnv.CldfEnvironment, workerInput)
+	if workerErr != nil {
+		return fmt.Errorf("failed to propose HTTP Trigger worker job spec: %w", workerErr)
+	}
+
+	specs := make(map[string][]string)
+	for _, r := range workerReport.Reports {
+		out, ok := r.Output.(cre_jobs_ops.ProposeStandardCapabilityJobOutput)
+		if !ok {
+			return fmt.Errorf("unable to cast to ProposeStandardCapabilityJobOutput, actual type: %T", r.Output)
+		}
+		mErr := mergo.Merge(&specs, out.Specs, mergo.WithAppendSlice)
+		if mErr != nil {
+			return fmt.Errorf("failed to merge worker job specs: %w", mErr)
+		}
+	}
+
+	approveErr := jobs.Approve(ctx, creEnv.CldfEnvironment.Offchain, dons, specs)
+	if approveErr != nil {
+		return fmt.Errorf("failed to approve HTTP Trigger jobs: %w", approveErr)
 	}
 
 	return nil
