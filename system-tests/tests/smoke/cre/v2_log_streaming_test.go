@@ -40,7 +40,7 @@ func ExecuteLogStreamingTest(t *testing.T, testEnv *ttypes.TestEnvironment) {
 
 	lokiURL := "http://localhost:3030"
 
-	beholderLogsCount, err := queryLokiForBeholderLogs(lokiURL, 120)
+	beholderLogsCount, err := queryLokiForBeholderLogs(t.Context(), lokiURL, 120)
 	require.NoError(t, err, "Failed to query Loki")
 	testLogger.Info().Int("beholderLogsCount", beholderLogsCount).Msg("Found logs with beholder_data_type")
 	require.Positive(t, beholderLogsCount, "Expected to find logs with beholder_data_type=zap_log_message in Loki, but found none")
@@ -48,12 +48,12 @@ func ExecuteLogStreamingTest(t *testing.T, testEnv *ttypes.TestEnvironment) {
 	testLogger.Info().Msg("✅ Log Streaming Test PASSED: beholder_data_type logs are flowing to Loki")
 }
 
-func queryLokiForBeholderLogs(lokiBaseURL string, lastNSeconds int) (int, error) {
-	return queryLoki(lokiBaseURL, `{service_name=~".*chainlink.*"} | json | beholder_data_type="zap_log_message"`, lastNSeconds)
+func queryLokiForBeholderLogs(ctx context.Context, lokiBaseURL string, lastNSeconds int) (int, error) {
+	return queryLoki(ctx, lokiBaseURL, `{service_name=~".*chainlink.*"} | json | beholder_data_type="zap_log_message"`, lastNSeconds)
 }
 
 // queryLoki is a generic function to query Loki with any query
-func queryLoki(lokiBaseURL, query string, lastNSeconds int) (int, error) {
+func queryLoki(ctx context.Context, lokiBaseURL, query string, lastNSeconds int) (int, error) {
 	end := time.Now()
 	start := end.Add(-time.Duration(lastNSeconds) * time.Second)
 
@@ -74,7 +74,7 @@ func queryLoki(lokiBaseURL, query string, lastNSeconds int) (int, error) {
 	q.Set("limit", "10")
 	u.RawQuery = q.Encode()
 
-	req, err := http.NewRequestWithContext(context.Background(), http.MethodGet, u.String(), nil)
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, u.String(), nil)
 	if err != nil {
 		return 0, fmt.Errorf("failed to build Loki request: %w", err)
 	}
