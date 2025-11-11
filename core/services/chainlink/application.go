@@ -1420,7 +1420,25 @@ func newCCVServices(
 			globalLogger.Errorf("[CCVSTARTUP] Failed to get CCV config: %v", err)
 		}
 
+		// hacky way to get all the signer keys from all the verifier configs.
+		// this won't be needed when we switch to the ocr2 keystore.
 		var allSignerKeys []ethkey.KeyV2
+		for _, i := range []int{1, 2, 3} {
+			ccvCfg, err := ccvConfig(i)
+			if err != nil {
+				panic(fmt.Sprintf("failed to get CCV config for node %d: %v", i, err))
+			}
+			for _, vcfg := range ccvCfg.Verifiers {
+				signer, err := keyStore.Eth().Get(ctx, vcfg.SignerAddress)
+				for err != nil {
+					globalLogger.Infof("[CCVSTARTUP] Error getting key (%s): %s", vcfg.SignerAddress, err)
+					time.Sleep(5 * time.Second)
+					signer, err = keyStore.Eth().Get(ctx, vcfg.SignerAddress)
+				}
+				allSignerKeys = append(allSignerKeys, signer)
+			}
+		}
+
 		for _, vcfg := range ccvCfg.Verifiers {
 			signer, err := keyStore.Eth().Get(ctx, vcfg.SignerAddress)
 			for err != nil {
@@ -1428,8 +1446,6 @@ func newCCVServices(
 				time.Sleep(5 * time.Second)
 				signer, err = keyStore.Eth().Get(ctx, vcfg.SignerAddress)
 			}
-
-			allSignerKeys = append(allSignerKeys, signer)
 
 			globalLogger.Infof("[CCVSTARTUP] Got key for verifier %s", vcfg.SignerAddress)
 
@@ -1468,7 +1484,7 @@ func newCCVServices(
 				panic(fmt.Errorf("failed to convert chain ID (%s) to big.Int: %w", id, err))
 			}
 			chainSelector := protocol.ChainSelector(chainSel)
-			roundRobins[chainSelector] = NewRoundRobin(keyStore.Eth(), chainID, allSignerKeys)
+			roundRobins[chainSelector] = NewRoundRobin(globalLogger.With("component", "RoundRobin"), keyStore.Eth(), chainID, allSignerKeys)
 			fromAddresses[chainSelector] = []common.Address{common.HexToAddress(ccvCfg.Executor.OffRampAddresses[chainSelectorString])}
 		}
 
@@ -1486,22 +1502,36 @@ func newCCVServices(
 		services = append(services, ec)
 
 		globalLogger.Infow("[CCVSTARTUP] CCV services created", "services", len(services))
-		// Return services for the node to start.
-		//return &CCVServices{srvs: services}, nil
+
+		// wait for all the chains to start
+		time.Sleep(10 * time.Second)
+
+		// start up the services
+		for _, service := range services {
+			if err := service.Start(ctx); err != nil {
+				globalLogger.Errorf("[CCVSTARTUP] Failed to start service: %v", err)
+				panic(fmt.Errorf("failed to start CCV service: %w", err))
+			}
+		}
+
+		globalLogger.Infow("[CCVSTARTUP] CCV services started", "services", len(services))
 	}()
 	return nil, nil
 }
 
 // TODO: this is evm specific, shouldn't be.
 type roundRobin struct {
+	lggr    logger.Logger
 	ks      keystore.Eth
 	chainID *big.Int
 	// key to filter out of the round robin
+	// TODO: when we switch to OCR keystore this won't be needed.
 	signerKeys []ethkey.KeyV2
 }
 
-func NewRoundRobin(ks keystore.Eth, chainID *big.Int, signerKeys []ethkey.KeyV2) *roundRobin {
+func NewRoundRobin(lggr logger.Logger, ks keystore.Eth, chainID *big.Int, signerKeys []ethkey.KeyV2) *roundRobin {
 	return &roundRobin{
+		lggr:       lggr,
 		ks:         ks,
 		chainID:    chainID,
 		signerKeys: signerKeys,
@@ -1517,11 +1547,16 @@ func (r *roundRobin) GetNextAddress(ctx context.Context, _ ...common.Address) (c
 	// filter out signing keys so we don't use them to execute messages.
 	var addresses []common.Address
 	for _, key := range allKeys {
-		if slices.ContainsFunc(r.signerKeys, func(k ethkey.KeyV2) bool { return bytes.Equal(k.Address.Bytes(), key.Address.Bytes()) }) {
+		if slices.ContainsFunc(r.signerKeys, func(k ethkey.KeyV2) bool {
+			return bytes.Equal(k.Address.Bytes(), key.Address.Bytes())
+		}) {
+			r.lggr.Infow("skipping signing key from round robin", "address", key.Address)
 			continue
 		}
 		addresses = append(addresses, key.Address)
 	}
+
+	r.lggr.Infow("getting next address from round robin", "addresses", addresses)
 
 	return r.ks.GetRoundRobinAddress(ctx, r.chainID, addresses...)
 }

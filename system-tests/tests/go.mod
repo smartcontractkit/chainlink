@@ -83,7 +83,7 @@ require (
 	github.com/ethereum/go-bigmodexpfix v0.0.0-20250911101455-f9e208c548ab // indirect
 	github.com/hashicorp/golang-lru/v2 v2.0.7 // indirect
 	github.com/smartcontractkit/chainlink-ccip/ccv/chains/evm v0.0.0-20251107170647-25947f0bb4cb // indirect
-	github.com/smartcontractkit/chainlink-ccv v0.0.0-20251111170440-c4fdbad46959 // indirect
+	github.com/smartcontractkit/chainlink-ccv v0.0.0-20251111212333-055de6a07df4 // indirect
 	github.com/smartcontractkit/chainlink-protos/chainlink-ccv/go v0.0.0-20251104012510-cde8b0310846 // indirect
 )
 
