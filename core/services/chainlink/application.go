@@ -9,6 +9,7 @@ import (
 	"math"
 	"math/big"
 	"net/http"
+	"slices"
 	"strconv"
 	"sync"
 	"time"
@@ -47,7 +48,6 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/storage"
 	commontypes "github.com/smartcontractkit/chainlink-common/pkg/types"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils"
-	"github.com/smartcontractkit/chainlink-common/pkg/utils/hex"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/jsonserializable"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/mailbox"
 	"github.com/smartcontractkit/chainlink-common/pkg/workflows/dontime"
@@ -57,6 +57,7 @@ import (
 	"github.com/smartcontractkit/chainlink-evm/pkg/txmgr"
 	evmutils "github.com/smartcontractkit/chainlink-evm/pkg/utils"
 	"github.com/smartcontractkit/chainlink/v2/core/services/cresettings"
+	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ethkey"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/services/orgresolver"
 	"github.com/smartcontractkit/chainlink/v2/core/bridges"
@@ -421,6 +422,7 @@ func NewApplication(ctx context.Context, opts ApplicationOpts) (Application, err
 	}
 	srvcs = append(srvcs, creServices.srvs...)
 
+	// TODO: move to a job spec
 	ccvServices, err := newCCVServices(ctx, globalLogger, keyStore, cfg, relayChainInterops)
 	if err != nil {
 		return nil, fmt.Errorf("failed to initialize CCV: %w", err)
@@ -1412,71 +1414,116 @@ func newCCVServices(
 		var services []services.ServiceCtx
 		globalLogger = globalLogger.Named("CCV")
 
-		// TODO: move config from hardCodedCCVConfig into general config.
-		waiting := true
-		for waiting {
-			globalLogger.Infof("Waiting, use debugger to continue...")
-			time.Sleep(1 * time.Second)
-			waiting = waiting
-		}
-
 		legacyRelayers := getLegacyChains(globalLogger, relayerChainInterops)
 		ccvCfg, err := ccvConfig(1)
 		if err != nil {
-			globalLogger.Errorf("Failed to get CCV config: %v", err)
+			globalLogger.Errorf("[CCVSTARTUP] Failed to get CCV config: %v", err)
 		}
 
+		var allSignerKeys []ethkey.KeyV2
 		for _, vcfg := range ccvCfg.Verifiers {
-			signer, err := keyStore.Eth().Get(ctx, vcfg.VerifierID)
+			signer, err := keyStore.Eth().Get(ctx, vcfg.SignerAddress)
 			for err != nil {
-				globalLogger.Infof("Error getting key (%s): %s", vcfg.VerifierID, err)
+				globalLogger.Infof("[CCVSTARTUP] Error getting key (%s): %s", vcfg.SignerAddress, err)
 				time.Sleep(5 * time.Second)
-				signer, err = keyStore.Eth().Get(ctx, vcfg.VerifierID)
+				signer, err = keyStore.Eth().Get(ctx, vcfg.SignerAddress)
 			}
 
-			if err != nil {
-				globalLogger.Errorf("Failed to get key for verifier(%s): %v", vcfg.VerifierID, err)
-				//return nil, fmt.Errorf("failed to get key for CCV verifier %s: %w", vcfg.VerifierID, err)
-			}
+			allSignerKeys = append(allSignerKeys, signer)
 
-			addr, err := hex.DecodeString(vcfg.SignerAddress)
-			if err != nil {
-				globalLogger.Errorf("Failed to decode signer address: %v", err)
-				//return nil, fmt.Errorf("failed to decode signer address for CCV verifier: %w", err)
-			}
+			globalLogger.Infof("[CCVSTARTUP] Got key for verifier %s", vcfg.SignerAddress)
 
 			vc, err := constructors.NewVerificationCoordinator(
 				globalLogger.With("service", "Verifier"),
 				vcfg,
-				addr,
+				common.HexToAddress(vcfg.SignerAddress).Bytes(),
 				signer,
 				legacyRelayers,
 			)
 			if err != nil {
-				globalLogger.Errorf("Failed to create verifier coordinator: %v", err)
-				//return nil, fmt.Errorf("failed to create CCV VerificationCoordinator: %w", err)
+				globalLogger.Errorf("[CCVSTARTUP] Failed to create verifier coordinator: %v", err)
+				panic(fmt.Errorf("failed to create CCV VerificationCoordinator: %w", err))
 			}
 
 			services = append(services, vc)
+		}
+
+		var roundRobins = make(map[protocol.ChainSelector]keys.RoundRobin)
+		var fromAddresses = make(map[protocol.ChainSelector][]common.Address)
+
+		for chainSelectorString := range ccvCfg.Executor.OffRampAddresses {
+			chainSel, err := strconv.ParseUint(chainSelectorString, 10, 64)
+			if err != nil {
+				globalLogger.Errorf("[CCVSTARTUP] Failed to parse chain selector: %v", err)
+				panic(fmt.Errorf("failed to parse chain selector from executor config (%s): %w", chainSelectorString, err))
+			}
+			id, err := chainselectors.GetChainIDFromSelector(chainSel)
+			if err != nil {
+				globalLogger.Errorf("[CCVSTARTUP] Failed to get chain ID from selector: %v", err)
+				panic(fmt.Errorf("failed to get chain ID from selector (%s): %w", chainSelectorString, err))
+			}
+			chainID, ok := new(big.Int).SetString(id, 10)
+			if !ok {
+				globalLogger.Errorf("[CCVSTARTUP] Failed to set chain ID: %v", err)
+				panic(fmt.Errorf("failed to convert chain ID (%s) to big.Int: %w", id, err))
+			}
+			chainSelector := protocol.ChainSelector(chainSel)
+			roundRobins[chainSelector] = NewRoundRobin(keyStore.Eth(), chainID, allSignerKeys)
+			fromAddresses[chainSelector] = []common.Address{common.HexToAddress(ccvCfg.Executor.OffRampAddresses[chainSelectorString])}
 		}
 
 		ec, err := constructors.NewExecutorCoordinator(
 			globalLogger.With("service", "Executor"),
 			ccvCfg.Executor,
 			legacyRelayers,
-			nil, // TODO: add round robin thing
-			nil, // TODO: add this thing also
+			roundRobins,
+			fromAddresses,
 		)
 		if err != nil {
-			globalLogger.Errorf("Failed to create executor coordinator: %v", err)
-			//return nil, fmt.Errorf("failed to create CCV ExecutorCoordinator: %w", err)
+			globalLogger.Errorf("[CCVSTARTUP] Failed to create executor coordinator: %v", err)
+			panic(fmt.Errorf("failed to create CCV ExecutorCoordinator: %w", err))
 		}
 		services = append(services, ec)
 
+		globalLogger.Infow("[CCVSTARTUP] CCV services created", "services", len(services))
 		// Return services for the node to start.
 		//return &CCVServices{srvs: services}, nil
 	}()
 	return nil, nil
+}
+
+// TODO: this is evm specific, shouldn't be.
+type roundRobin struct {
+	ks      keystore.Eth
+	chainID *big.Int
+	// key to filter out of the round robin
+	signerKeys []ethkey.KeyV2
+}
+
+func NewRoundRobin(ks keystore.Eth, chainID *big.Int, signerKeys []ethkey.KeyV2) *roundRobin {
+	return &roundRobin{
+		ks:         ks,
+		chainID:    chainID,
+		signerKeys: signerKeys,
+	}
+}
+
+func (r *roundRobin) GetNextAddress(ctx context.Context, _ ...common.Address) (common.Address, error) {
+	allKeys, err := r.ks.GetAll(ctx)
+	if err != nil {
+		return common.Address{}, err
+	}
+
+	// filter out signing keys so we don't use them to execute messages.
+	var addresses []common.Address
+	for _, key := range allKeys {
+		if slices.ContainsFunc(r.signerKeys, func(k ethkey.KeyV2) bool { return bytes.Equal(k.Address.Bytes(), key.Address.Bytes()) }) {
+			continue
+		}
+		addresses = append(addresses, key.Address)
+	}
+
+	return r.ks.GetRoundRobinAddress(ctx, r.chainID, addresses...)
 }
 
 func (app *ChainlinkApplication) SetLogLevel(lvl zapcore.Level) error {
