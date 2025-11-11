@@ -7,7 +7,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/stretchr/testify/require"
 
-	"github.com/smartcontractkit/chainlink/deployment/cre/ocr3"
+	"github.com/smartcontractkit/chainlink/deployment/cre/contracts"
 )
 
 func TestAdminBatchPauseWorkflows(t *testing.T) {
@@ -39,8 +39,8 @@ func TestAdminBatchPauseWorkflows(t *testing.T) {
 			ChainSelector:             fixture.selector,
 			WorkflowRegistryQualifier: "test-workflow-registry-v2",
 			WorkflowIDs:               [][32]byte{testWorkflowID1},
-			MCMSConfig: &ocr3.MCMSConfig{
-				MinDuration: 30 * time.Second,
+			MCMSConfig: &contracts.MCMSConfig{
+				MinDelay: 30 * time.Second,
 			},
 		})
 		require.NoError(t, err, "MCMS preconditions should pass")
@@ -76,8 +76,8 @@ func TestAdminPauseWorkflow(t *testing.T) {
 			ChainSelector:             fixture.selector,
 			WorkflowRegistryQualifier: "test-workflow-registry-v2",
 			WorkflowID:                testWorkflowID,
-			MCMSConfig: &ocr3.MCMSConfig{
-				MinDuration: 30 * time.Second,
+			MCMSConfig: &contracts.MCMSConfig{
+				MinDelay: 30 * time.Second,
 			},
 		})
 		require.NoError(t, err, "MCMS preconditions should pass")
@@ -113,8 +113,8 @@ func TestAdminPauseAllByOwner(t *testing.T) {
 			ChainSelector:             fixture.selector,
 			WorkflowRegistryQualifier: "test-workflow-registry-v2",
 			Owner:                     testOwner,
-			MCMSConfig: &ocr3.MCMSConfig{
-				MinDuration: 30 * time.Second,
+			MCMSConfig: &contracts.MCMSConfig{
+				MinDelay: 30 * time.Second,
 			},
 		})
 		require.NoError(t, err, "MCMS preconditions should pass")
@@ -150,8 +150,8 @@ func TestAdminPauseAllByDON(t *testing.T) {
 			ChainSelector:             fixture.selector,
 			WorkflowRegistryQualifier: "test-workflow-registry-v2",
 			DONFamily:                 testDONFamily,
-			MCMSConfig: &ocr3.MCMSConfig{
-				MinDuration: 30 * time.Second,
+			MCMSConfig: &contracts.MCMSConfig{
+				MinDelay: 30 * time.Second,
 			},
 		})
 		require.NoError(t, err, "MCMS preconditions should pass")

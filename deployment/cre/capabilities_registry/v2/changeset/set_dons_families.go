@@ -11,7 +11,7 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/cre/capabilities_registry/v2/changeset/pkg"
 	"github.com/smartcontractkit/chainlink/deployment/cre/capabilities_registry/v2/changeset/sequences"
 	"github.com/smartcontractkit/chainlink/deployment/cre/common/strategies"
-	"github.com/smartcontractkit/chainlink/deployment/cre/ocr3"
+	crecontracts "github.com/smartcontractkit/chainlink/deployment/cre/contracts"
 )
 
 var _ cldf.ChangeSetV2[SetDONsFamiliesInput] = SetDONsFamilies{}
@@ -22,7 +22,7 @@ type SetDONsFamiliesInput struct {
 
 	DONsFamiliesChanges []sequences.DONFamiliesChange `json:"donsFamiliesChanges" yaml:"donsFamiliesChanges"`
 
-	MCMSConfig *ocr3.MCMSConfig `json:"mcmsConfig,omitempty" yaml:"mcmsConfig,omitempty"`
+	MCMSConfig *crecontracts.MCMSConfig `json:"mcmsConfig,omitempty" yaml:"mcmsConfig,omitempty"`
 }
 
 type SetDONsFamilies struct{}
@@ -41,12 +41,12 @@ func (l SetDONsFamilies) VerifyPreconditions(e cldf.Environment, config SetDONsF
 }
 
 func (l SetDONsFamilies) Apply(e cldf.Environment, config SetDONsFamiliesInput) (cldf.ChangesetOutput, error) {
-	var mcmsContracts *commonchangeset.MCMSWithTimelockState
+	var mcmscrecontracts *commonchangeset.MCMSWithTimelockState
 	if config.MCMSConfig != nil {
 		var err error
-		mcmsContracts, err = strategies.GetMCMSContracts(e, config.RegistrySelector, emptyQualifier)
+		mcmscrecontracts, err = strategies.GetMCMSContracts(e, config.RegistrySelector, emptyQualifier)
 		if err != nil {
-			return cldf.ChangesetOutput{}, fmt.Errorf("failed to get MCMS contracts: %w", err)
+			return cldf.ChangesetOutput{}, fmt.Errorf("failed to get MCMS crecontracts: %w", err)
 		}
 	}
 
@@ -57,7 +57,7 @@ func (l SetDONsFamilies) Apply(e cldf.Environment, config SetDONsFamiliesInput) 
 		sequences.SetDONsFamilies,
 		sequences.SetDONsFamiliesDeps{
 			Env:           &e,
-			MCMSContracts: mcmsContracts,
+			MCMSContracts: mcmscrecontracts,
 		},
 		sequences.SetDONsFamiliesInput{
 			RegistryRef: registryRef,
