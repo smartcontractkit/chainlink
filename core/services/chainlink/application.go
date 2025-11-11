@@ -341,6 +341,13 @@ func NewApplication(ctx context.Context, opts ApplicationOpts) (Application, err
 		return nil, fmt.Errorf("failed to initialize relayer chain interoperators: %w", err)
 	}
 
+	// Validate that all configured chains have valid chain selectors
+	// This ensures the node crashes early if TOML configs contain chains that aren't
+	// recognized by the chain-selectors library, preventing silent failures in CCIP and other capabilities
+	if err := validateChainSelectorsForConfiguredChains(globalLogger, relayChainInterops); err != nil {
+		return nil, fmt.Errorf("FATAL: Chain configuration validation failed: %w", err)
+	}
+
 	var billingClient metering.BillingClient
 
 	signer, CSAPubKey, err := keystore.BuildNodeAuth(ctx, csaKeystore)
@@ -1722,3 +1729,61 @@ func (c closerService) Ready() error { return nil }
 func (c closerService) HealthReport() map[string]error { return map[string]error{c.Name(): nil} }
 
 func (c closerService) Name() string { return c.name }
+
+// This function ensures that all chains configured in TOML files have valid chain selectors at runtime.
+// We should never really have a case where a chain is in TOML config but not in chain-selectors.
+// This prevents silent failures later when CCIP plugins or other capabilities try to use chain selectors that don't exist.
+// This validation makes such misconfigurations fail fast at startup and it only affects node bootup
+func validateChainSelectorsForConfiguredChains(
+	lggr logger.Logger,
+	relayChainInterops *CoreRelayerChainInteroperators,
+) error {
+	lggr.Info("Validating chain selector mappings for all configured chains...")
+
+	allRelayers := relayChainInterops.GetIDToRelayerMap()
+	if len(allRelayers) == 0 {
+		lggr.Warn("No relayers configured - skipping chain selector validation")
+		return nil
+	}
+
+	validatedCount := 0
+
+	for relayID := range allRelayers {
+		if relayID.Network == "dummy" {
+			continue
+		}
+
+		chainDetails, err := chainselectors.GetChainDetailsByChainIDAndFamily(
+			relayID.ChainID,
+			relayID.Network,
+		)
+
+		if err != nil {
+			return fmt.Errorf(
+				"invalid chain configuration for %s (network=%s, chainID=%s): "+
+					"chain not recognized by chain-selectors library. "+
+					"Please verify: (1) ChainID in TOML is correct, "+
+					"(2) chain is supported in github.com/smartcontractkit/chain-selectors, "+
+					"(3) you're using a compatible version of chain-selectors. "+
+					"Error: %w",
+				relayID.Name(),
+				relayID.Network,
+				relayID.ChainID,
+				err,
+			)
+		}
+
+		lggr.Debugw("Validated chain configuration",
+			"network", relayID.Network,
+			"chainID", relayID.ChainID,
+			"chainSelector", chainDetails.ChainSelector,
+			"chainName", chainDetails.ChainName,
+		)
+		validatedCount++
+	}
+
+	lggr.Infow("Successfully validated chain selector mappings",
+		"validatedChains", validatedCount,
+	)
+	return nil
+}
