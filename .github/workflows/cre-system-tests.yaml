@@ -192,6 +192,17 @@ jobs:
           go install gotest.tools/gotestsum@v1.12.3
           echo "::endgroup::"
 
+      - name: Install CTF binary
+        shell: bash
+        working-directory: core/scripts/cre/environment
+        run: |
+          echo "::startgroup::Install CTF binary"
+          mkdir -p bin
+          curl -L https://github.com/smartcontractkit/chainlink-testing-framework/releases/download/framework%2Fv0.11.9/framework-v0.11.9-linux-amd64.tar.gz | tar -xz
+          mv ctf bin/ctf
+          chmod +x bin/ctf
+          echo "::endgroup::"
+
       - name: Start local CRE${{ matrix.tests.cre_version }}
         shell: bash
         id: start-local-cre
@@ -203,6 +214,46 @@ jobs:
           TEST_NAME: ${{ matrix.tests.test_name }}
         run: |
           cd core/scripts/cre/environment
+
+          # Check if test requires observability stack
+          if [[ "${TEST_NAME}" == *"Beholder_Suite" ]]; then
+            echo "::group::Starting Observability Stack"
+            echo "Test requires observability stack, starting..."
+            
+            # Start observability stack
+            ./bin/ctf obs up -f
+            
+            echo "::endgroup::"
+            echo "::group::Validating Observability Stack"
+            
+            # Wait for Loki to be available
+            echo "Waiting for Loki to be available at http://localhost:3030..."
+            loki_ready=false
+            for i in {1..30}; do
+              if curl -s http://localhost:3030/ready >/dev/null 2>&1; then
+                echo "✅ Loki is ready at http://localhost:3030"
+                loki_ready=true
+                break
+              fi
+              sleep 1
+            done
+            
+            if [[ "$loki_ready" == "false" ]]; then
+              echo "❌ ERROR: Loki failed to become ready after 30 seconds"
+              exit 1
+            fi
+            
+            # Validate OTel collector is running and accessible
+            echo "Validating OTel collector on port 4317..."
+            if docker ps --filter "name=otel-collector" --format "{{.Names}}" | grep -q "otel-collector"; then
+              echo "✅ OTel collector container is running"
+            else
+              echo "❌ ERROR: OTel collector container not found"
+              docker ps -a
+              exit 1
+            fi
+            echo "::endgroup::"
+          fi
 
           # Start CRE with the appropriate contracts version (i.e. Workflow/CapabilityRegistry)
           # Do not remove Docker containers on error to allow log collection
@@ -229,7 +280,7 @@ jobs:
           aws-region: us-west-2
           aws-role-duration-seconds: "1800"
           set-git-config: "true"
-
+          
       - name: Run CRE${{ matrix.tests.cre_version }} Smoke system tests
         id: run-tests
         shell: bash

@@ -172,3 +172,9 @@ func Test_CRE_V2_HTTP_Action_Suite(t *testing.T) {
 
 	ExecuteHTTPActionCRUDSuccessTest(t, testEnv)
 }
+
+func Test_CRE_V2_Beholder_Suite(t *testing.T) {
+	testEnv := t_helpers.SetupTestEnvironmentWithConfig(t, t_helpers.GetDefaultTestConfig(t), append(v2RegistriesFlags, "--with-dashboards")...)
+
+	ExecuteLogStreamingTest(t, testEnv)
+}

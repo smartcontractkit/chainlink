@@ -23,6 +23,7 @@ import (
 	evmconfigtoml "github.com/smartcontractkit/chainlink-evm/pkg/config/toml"
 	chainlinkbig "github.com/smartcontractkit/chainlink-evm/pkg/utils/big"
 	solcfg "github.com/smartcontractkit/chainlink-solana/pkg/solana/config"
+	"github.com/smartcontractkit/chainlink-testing-framework/framework"
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/ptr"
 
 	keystone_changeset "github.com/smartcontractkit/chainlink/deployment/keystone/changeset"
@@ -233,9 +234,10 @@ func baseNodeConfig(commonInputs *commonInputs) corechainlink.Config {
 
 	if commonInputs.provider.IsDocker() {
 		c.Telemetry = coretoml.Telemetry{
-			Enabled:            ptr.Ptr(true),
-			Endpoint:           ptr.Ptr("host.docker.internal:4317"),
-			InsecureConnection: ptr.Ptr(true),
+			Enabled:             ptr.Ptr(true),
+			Endpoint:            ptr.Ptr(strings.TrimPrefix(framework.HostDockerInternal(), "http://") + ":4317"),
+			InsecureConnection:  ptr.Ptr(true),
+			LogStreamingEnabled: ptr.Ptr(true),
 		}
 	}
 
