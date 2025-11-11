@@ -7,6 +7,7 @@ import (
 	"strconv"
 
 	"dario.cat/mergo"
+	"github.com/Masterminds/semver/v3"
 	"github.com/cosmos/gogoproto/proto"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/pelletier/go-toml/v2"
@@ -23,27 +24,24 @@ import (
 
 	vaultprotos "github.com/smartcontractkit/chainlink-common/pkg/capabilities/actions/vault"
 	capabilitiespb "github.com/smartcontractkit/chainlink-common/pkg/capabilities/pb"
-	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
 	kcr "github.com/smartcontractkit/chainlink-evm/gethwrappers/keystone/generated/capabilities_registry_1_1_0"
 	ocr3_capability "github.com/smartcontractkit/chainlink-evm/gethwrappers/keystone/generated/ocr3_capability_1_0_0"
 	cre_jobs "github.com/smartcontractkit/chainlink/deployment/cre/jobs"
 	cre_jobs_ops "github.com/smartcontractkit/chainlink/deployment/cre/jobs/operations"
+	"github.com/smartcontractkit/chainlink/deployment/cre/jobs/pkg"
 	cre_jobs_seq "github.com/smartcontractkit/chainlink/deployment/cre/jobs/sequences"
 	job_types "github.com/smartcontractkit/chainlink/deployment/cre/jobs/types"
 	creseq "github.com/smartcontractkit/chainlink/deployment/cre/ocr3/v2/changeset/sequences"
 	"github.com/smartcontractkit/chainlink/deployment/cre/pkg/offchain"
 	keystone_changeset "github.com/smartcontractkit/chainlink/deployment/keystone/changeset"
 	ks_contracts_op "github.com/smartcontractkit/chainlink/deployment/keystone/changeset/operations/contracts"
-	coregateway "github.com/smartcontractkit/chainlink/v2/core/services/gateway"
 
 	depcontracts "github.com/smartcontractkit/chainlink/deployment/cre/ocr3/v2/changeset/operations/contracts"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/contracts"
-	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/gateway"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/jobs"
-	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/config"
 )
 
 const flag = cre.VaultCapability
@@ -71,30 +69,19 @@ func (o *Vault) PreEnvStartup(
 		return nil, errors.Wrapf(chErr, "failed to get chain ID from selector %d", creEnv.RegistryChainSelector)
 	}
 
-	// add 'vault' handler to gateway config (future jobspec)
+	// add 'vault' handler to gateway config
 	// add gateway connector to to node TOML config, so that node can route vault requests to the gateway
-	handlerConfig, confErr := gateway.HandlerConfig(coregateway.VaultHandlerType)
-	if confErr != nil {
-		return nil, errors.Wrapf(confErr, "failed to get %s handler config for don %s", coregateway.VaultHandlerType, don.Name)
-	}
-	hErr := gateway.AddHandlers(*don, registryChainID, topology.GatewayJobConfigs, []config.Handler{handlerConfig})
+	hErr := topology.AddGatewayHandlers(*don, []string{pkg.GatewayHandlerTypeVault})
 	if hErr != nil {
-		return nil, errors.Wrapf(hErr, "failed to add gateway handlers to gateway config (jobspec) for don %s ", don.Name)
+		return nil, errors.Wrapf(hErr, "failed to add gateway handlers to gateway config for don %s ", don.Name)
 	}
 
-	cErr := gateway.AddConnectors(don, registryChainID, *topology.GatewayConnectors)
+	cErr := don.ConfigureForGatewayAccess(registryChainID, *topology.GatewayConnectors)
 	if cErr != nil {
 		return nil, errors.Wrapf(cErr, "failed to add gateway connectors to node's TOML config in for don %s", don.Name)
 	}
 
-	workflowRegistryAddress, wfRegTypeVersion, wfErr := contracts.FindAddressesForChain(
-		creEnv.CldfEnvironment.ExistingAddresses, //nolint:staticcheck // won't migrate
-		creEnv.RegistryChainSelector,
-		keystone_changeset.WorkflowRegistry.String(),
-	)
-	if wfErr != nil {
-		return nil, errors.Wrap(wfErr, "failed to find WorkflowRegistry address")
-	}
+	workflowRegistryAddress := contracts.MustGetAddressFromDataStore(creEnv.CldfEnvironment.DataStore, creEnv.RegistryChainSelector, keystone_changeset.WorkflowRegistry.String(), creEnv.ContractVersions[keystone_changeset.WorkflowRegistry.String()], "")
 
 	// enable workflow registry syncer in node's TOML config
 	workerNodes, wErr := don.Workers()
@@ -104,7 +91,7 @@ func (o *Vault) PreEnvStartup(
 
 	for _, workerNode := range workerNodes {
 		currentConfig := don.NodeSets().NodeSpecs[workerNode.Index].Node.TestConfigOverrides
-		updatedConfig, uErr := updateNodeConfig(workerNode, currentConfig, registryChainID, workflowRegistryAddress, wfRegTypeVersion)
+		updatedConfig, uErr := updateNodeConfig(workerNode, currentConfig, registryChainID, common.HexToAddress(workflowRegistryAddress), creEnv.ContractVersions[keystone_changeset.WorkflowRegistry.String()])
 		if uErr != nil {
 			return nil, errors.Wrapf(uErr, "failed to update node config for node index %d", workerNode.Index)
 		}
@@ -125,7 +112,7 @@ func (o *Vault) PreEnvStartup(
 	}, nil
 }
 
-func updateNodeConfig(workerNode *cre.NodeMetadata, currentConfig string, registryChainID uint64, workflowRegistryAddress common.Address, wfRegTypeVersion cldf.TypeAndVersion) (*string, error) {
+func updateNodeConfig(workerNode *cre.NodeMetadata, currentConfig string, registryChainID uint64, workflowRegistryAddress common.Address, wfRegVersion *semver.Version) (*string, error) {
 	var typedConfig corechainlink.Config
 	unmarshallErr := toml.Unmarshal([]byte(currentConfig), &typedConfig)
 	if unmarshallErr != nil {
@@ -138,7 +125,7 @@ func updateNodeConfig(workerNode *cre.NodeMetadata, currentConfig string, regist
 		NetworkID:       ptr.Ptr("evm"),
 		ChainID:         ptr.Ptr(strconv.FormatUint(registryChainID, 10)),
 		SyncStrategy:    ptr.Ptr("reconciliation"),
-		ContractVersion: ptr.Ptr(wfRegTypeVersion.Version.String()),
+		ContractVersion: ptr.Ptr(wfRegVersion.String()),
 	}
 
 	stringifiedConfig, mErr := toml.Marshal(typedConfig)
@@ -329,13 +316,10 @@ func createJobs(
 	return nil
 }
 
-func deployVaultContracts(testLogger zerolog.Logger, qualifier string, registryChainSelector uint64, env *cldf.Environment, contractVersions map[string]string) (*common.Address, *common.Address, error) {
-	memoryDatastore := datastore.NewMemoryDataStore()
-
-	// load all existing addresses into memory datastore
-	mergeErr := memoryDatastore.Merge(env.DataStore)
-	if mergeErr != nil {
-		return nil, nil, fmt.Errorf("failed to merge existing datastore into memory datastore: %w", mergeErr)
+func deployVaultContracts(testLogger zerolog.Logger, qualifier string, registryChainSelector uint64, env *cldf.Environment, contractVersions map[cre.ContractType]*semver.Version) (*common.Address, *common.Address, error) {
+	memoryDatastore, mErr := contracts.NewDataStoreFromExisting(env.DataStore)
+	if mErr != nil {
+		return nil, nil, fmt.Errorf("failed to create memory datastore: %w", mErr)
 	}
 
 	report, err := operations.ExecuteSequence(

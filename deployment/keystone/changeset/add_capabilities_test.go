@@ -64,7 +64,7 @@ func TestAddCapabilities(t *testing.T) {
 		req := &changeset.AddCapabilitiesRequest{
 			RegistryChainSel: te.RegistrySelector,
 			Capabilities:     capabilitiesToAdd,
-			MCMSConfig:       &changeset.MCMSConfig{MinDuration: 0},
+			MCMSConfig:       &changeset.MCMSConfig{MinDelay: 0},
 			RegistryRef:      te.CapabilityRegistryAddressRef(),
 		}
 		csOut, err := changeset.AddCapabilities(te.Env, req)

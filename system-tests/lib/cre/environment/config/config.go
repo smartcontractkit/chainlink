@@ -10,6 +10,7 @@ import (
 	"strings"
 	"sync"
 
+	"github.com/Masterminds/semver/v3"
 	"github.com/pelletier/go-toml/v2"
 	"github.com/pkg/errors"
 
@@ -89,25 +90,28 @@ func validateContractVersions(envDependencies cre.CLIEnvironmentDependencies) er
 			return fmt.Errorf("required contract %s not configured for deployment", k)
 		}
 
-		if version != v {
+		if !version.Equal(v) {
 			return fmt.Errorf("requested version %s for contract %s yet expected %s", version, k, v)
 		}
 	}
 	return nil
 }
 
-const (
-	WorkflowRegistryV2Semver   = "2.0.0"
-	CapabilityRegistryV2Semver = "2.0.0"
-	DefaultDONFamily           = "test-don-family"
+var (
+	WorkflowRegistryV2Semver   = semver.MustParse("2.0.0")
+	CapabilityRegistryV2Semver = semver.MustParse("2.0.0")
 )
 
-func DefaultContractSet(withV2Registries bool) map[string]string {
-	supportedSet := map[string]string{
-		keystone_changeset.OCR3Capability.String():       "1.0.0",
-		keystone_changeset.WorkflowRegistry.String():     "1.0.0",
-		keystone_changeset.CapabilitiesRegistry.String(): "1.1.0",
-		keystone_changeset.KeystoneForwarder.String():    "1.0.0",
+const (
+	DefaultDONFamily = "test-don-family"
+)
+
+func DefaultContractSet(withV2Registries bool) map[cre.ContractType]*semver.Version {
+	supportedSet := map[cre.ContractType]*semver.Version{
+		keystone_changeset.OCR3Capability.String():       semver.MustParse("1.0.0"),
+		keystone_changeset.WorkflowRegistry.String():     semver.MustParse("1.0.0"),
+		keystone_changeset.CapabilitiesRegistry.String(): semver.MustParse("1.1.0"),
+		keystone_changeset.KeystoneForwarder.String():    semver.MustParse("1.0.0"),
 	}
 
 	if withV2Registries {
@@ -167,6 +171,11 @@ func (c *Config) Store(absPath string) error {
 		if nodeSet.OverrideMode == "all" {
 			c.NodeSets[idx].OverrideMode = "each"
 		}
+
+		// Clear the embedded Input.NodeSpecs to avoid storing duplicate node specs without roles.
+		// We only want to persist NodeSpecs (NodeSpecWithRole[]) which contains role information.
+		// The Input.NodeSpecs field is populated at runtime in dons.go for passing to the CTF library.
+		c.NodeSets[idx].Input.NodeSpecs = nil
 	}
 
 	framework.L.Info().Msgf("Storing local CRE state file: %s", absPath)
@@ -322,6 +331,22 @@ func storeLocalArtifact(artifact any, absPath string) error {
 	if mErr != nil {
 		return errors.Wrap(mErr, "failed to marshal environment artifact to TOML")
 	}
+
+	// WORKAROUND: Remove the empty "node_specs = []" line that gets marshaled from the embedded ns.Input
+	// This conflicts with our [[nodesets.node_specs]] array tables that include role information.
+	// We use regex to remove the problematic line while preserving the actual node_specs tables.
+	// TOML library we use doesn't support omitting empty slices nor custom (un)marshalling.
+	tomlStr := string(d)
+	lines := strings.Split(tomlStr, "\n")
+	filtered := make([]string, 0, len(lines))
+	for _, line := range lines {
+		// Skip the "node_specs = []" line but keep [[nodesets.node_specs]] sections
+		if strings.TrimSpace(line) == "node_specs = []" {
+			continue
+		}
+		filtered = append(filtered, line)
+	}
+	d = []byte(strings.Join(filtered, "\n"))
 
 	return os.WriteFile(absPath, d, 0o600)
 }

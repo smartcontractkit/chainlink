@@ -21,7 +21,6 @@ import (
 	chainsel "github.com/smartcontractkit/chain-selectors"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/config"
-	"github.com/smartcontractkit/chainlink-common/pkg/settings/limits"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/core"
 	cldf_chain "github.com/smartcontractkit/chainlink-deployments-framework/chain"
 	cldf_aptos "github.com/smartcontractkit/chainlink-deployments-framework/chain/aptos"
@@ -456,7 +455,6 @@ func NewNode(
 		RestrictedHTTPClient:     &http.Client{},
 		AuditLogger:              audit.NoopLogger,
 		RetirementReportCache:    retirement.NewRetirementReportCache(lggr, db),
-		LimitsFactory:            limits.Factory{Logger: lggr.Named("Limits")},
 	})
 	require.NoError(t, err)
 	keys := CreateKeys(t, app,

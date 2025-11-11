@@ -63,7 +63,7 @@ func AppendNodeCapabilities(env cldf.Environment, req *AppendNodeCapabilitiesReq
 			inspectorPerChain,
 			[]types.BatchOperation{*r.Ops},
 			"proposal to set update node capabilities",
-			proposalutils.TimelockConfig{MinDelay: req.MCMSConfig.MinDuration},
+			*req.MCMSConfig,
 		)
 		if err != nil {
 			return out, fmt.Errorf("failed to build proposal: %w", err)
