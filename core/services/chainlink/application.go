@@ -36,6 +36,7 @@ import (
 	commonsrv "github.com/smartcontractkit/chainlink-common/pkg/services"
 	"github.com/smartcontractkit/chainlink-common/pkg/services/otelhealth"
 	"github.com/smartcontractkit/chainlink-common/pkg/services/promhealth"
+	commoncresettings "github.com/smartcontractkit/chainlink-common/pkg/settings/cresettings"
 	"github.com/smartcontractkit/chainlink-common/pkg/settings/limits"
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 	"github.com/smartcontractkit/chainlink-common/pkg/storage"
@@ -49,6 +50,7 @@ import (
 	"github.com/smartcontractkit/chainlink-evm/pkg/logpoller"
 	"github.com/smartcontractkit/chainlink-evm/pkg/txmgr"
 	evmutils "github.com/smartcontractkit/chainlink-evm/pkg/utils"
+	"github.com/smartcontractkit/chainlink/v2/core/services/cresettings"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/services/orgresolver"
 	"github.com/smartcontractkit/chainlink/v2/core/bridges"
@@ -230,7 +232,6 @@ type ApplicationOpts struct {
 	NewOracleFactoryFn       standardcapabilities.NewOracleFactoryFn
 	EVMFactoryConfigFn       func(*EVMFactoryConfig)
 	DonTimeStore             *dontime.Store
-	LimitsFactory            limits.Factory
 }
 
 // NewApplication initializes a new store if one is not already
@@ -261,6 +262,12 @@ func NewApplication(ctx context.Context, opts ApplicationOpts) (Application, err
 
 	if opts.DonTimeStore == nil {
 		opts.DonTimeStore = dontime.NewStore(dontime.DefaultRequestTimeout)
+	}
+	atomicSettings := loop.NewAtomicSettings(commoncresettings.DefaultGetter)
+	limitsFactory := limits.Factory{
+		Meter:    beholder.GetMeter(),
+		Logger:   globalLogger.Named("Limits"),
+		Settings: atomicSettings,
 	}
 
 	csaKeystore := &keystore.CSASigner{CSA: keyStore.CSA()}
@@ -402,7 +409,7 @@ func NewApplication(ctx context.Context, opts ApplicationOpts) (Application, err
 		StorageClient:           storageClient,
 		UseLocalTimeProvider:    opts.UseLocalTimeProvider,
 		JWTGenerator:            jwtGenerator,
-	}, opts.DonTimeStore, opts.LimitsFactory, peerWrapper)
+	}, opts.DonTimeStore, limitsFactory, peerWrapper)
 	if err != nil {
 		return nil, fmt.Errorf("failed to initilize CRE: %w", err)
 	}
@@ -599,7 +606,7 @@ func NewApplication(ctx context.Context, opts ApplicationOpts) (Application, err
 				opts.CapabilitiesRegistry,
 				creServices.workflowRegistrySyncer,
 				globalLogger,
-				opts.LimitsFactory,
+				limitsFactory,
 			),
 			job.Stream: streams.NewDelegate(
 				globalLogger,
@@ -638,6 +645,8 @@ func NewApplication(ctx context.Context, opts ApplicationOpts) (Application, err
 		)
 	}
 
+	delegates[job.CRESettings] = cresettings.NewDelegate(globalLogger, atomicSettings)
+
 	// If peer wrapper is initialized, Oracle Factory dependency will be available to standard capabilities
 	delegates[job.StandardCapabilities] = standardcapabilities.NewDelegate(
 		globalLogger,
@@ -654,6 +663,7 @@ func NewApplication(ctx context.Context, opts ApplicationOpts) (Application, err
 		opts.NewOracleFactoryFn,
 		opts.FetcherFactoryFn,
 		creServices.orgResolver,
+		atomicSettings,
 	)
 
 	if cfg.OCR().Enabled() {
@@ -702,6 +712,7 @@ func NewApplication(ctx context.Context, opts ApplicationOpts) (Application, err
 				RetirementReportCache:          opts.RetirementReportCache,
 				GatewayConnectorServiceWrapper: creServices.gatewayConnectorWrapper,
 				WorkflowRegistrySyncer:         creServices.workflowRegistrySyncer,
+				LimitsFactory:                  limitsFactory,
 			},
 			ocr2DelegateConfig,
 		)
@@ -854,18 +865,6 @@ type CREOpts struct {
 	UseLocalTimeProvider bool // Set this to true if the DON Time Plugin is not running
 
 	JWTGenerator nodeauthjwt.JWTGenerator // JWT generator for authenticated services
-}
-
-// creServiceConfig contains the configuration required to create the CRE services
-type creServiceConfig struct {
-	CREOpts
-
-	capabilityCfg        config.Capabilities
-	workflowsCfg         config.Workflows
-	keystore             creKeystore
-	logger               logger.Logger
-	relayerChainInterops *CoreRelayerChainInteroperators
-	DS                   sqlutil.DataSource
 }
 
 type CREServices struct {
@@ -1186,6 +1185,7 @@ func newCREServices(
 						workflowLimits,
 						artifactsStore,
 						key,
+						workflowDonNotifier,
 						syncerV1.WithBillingClient(opts.BillingClient),
 						syncerV1.WithWorkflowRegistry(capCfg.WorkflowRegistry().Address(), strconv.FormatUint(wrChainDetails.ChainSelector, 10)),
 					)
@@ -1263,6 +1263,7 @@ func newCREServices(
 						workflowLimits,
 						artifactsStore,
 						key,
+						workflowDonNotifier,
 						syncerV2.WithBillingClient(opts.BillingClient),
 						syncerV2.WithWorkflowRegistry(capCfg.WorkflowRegistry().Address(), strconv.FormatUint(wrChainDetails.ChainSelector, 10)),
 						syncerV2.WithOrgResolver(orgResolver),
@@ -1379,6 +1380,7 @@ func (app *ChainlinkApplication) StopIfStarted() error {
 func (app *ChainlinkApplication) GetLoopRegistry() *plugins.LoopRegistry {
 	return app.loopRegistry
 }
+
 func (app *ChainlinkApplication) GetLoopRegistrarConfig() plugins.RegistrarConfig {
 	return app.loopRegistrarConfig
 }
@@ -1550,7 +1552,8 @@ func (app *ChainlinkApplication) RunJobV2(
 					common.BigToHash(big.NewInt(42)).Bytes(), // seed
 					evmutils.NewHash().Bytes(),               // sender
 					evmutils.NewHash().Bytes(),               // fee
-					evmutils.NewHash().Bytes()},              // requestID
+					evmutils.NewHash().Bytes(),
+				}, // requestID
 					[]byte{}),
 				Topics:      []common.Hash{{}, jb.ExternalIDEncodeBytesToTopic()}, // jobID BYTES
 				TxHash:      evmutils.NewHash(),

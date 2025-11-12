@@ -16,9 +16,7 @@ import (
 	signer_registry "github.com/smartcontractkit/chainlink/deployment/ccip/shared/bindings/signer_registry"
 )
 
-var (
-	EVMSignerRegistryDeploymentChangeset = cldf.CreateChangeSet(signerRegistryDeploymentLogic, signerRegistryDeploymentPrecondition)
-)
+var EVMSignerRegistryDeploymentChangeset = cldf.CreateChangeSet(signerRegistryDeploymentLogic, signerRegistryDeploymentPrecondition)
 
 const (
 	MaxSigners          = 20
@@ -103,5 +101,10 @@ func signerRegistryDeploymentLogic(e cldf.Environment, config SignerRegistryChan
 		e.Logger.Infof("Successfully deployed signer registry %s on %s", signerRegistry.Address.String(), chain.String())
 	}
 
-	return cldf.ChangesetOutput{AddressBook: addressBook}, nil
+	ds, err := shared.PopulateDataStore(addressBook)
+	if err != nil {
+		return cldf.ChangesetOutput{}, fmt.Errorf("failed to populate in-memory DataStore: %w", err)
+	}
+
+	return cldf.ChangesetOutput{AddressBook: addressBook, DataStore: ds}, nil
 }

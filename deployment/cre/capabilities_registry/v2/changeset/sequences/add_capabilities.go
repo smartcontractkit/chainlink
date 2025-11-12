@@ -9,14 +9,17 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi/bind/v2"
 	"github.com/ethereum/go-ethereum/common"
 	mcmslib "github.com/smartcontractkit/mcms"
+	"github.com/smartcontractkit/mcms/types"
 
 	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
 	capabilities_registry_v2 "github.com/smartcontractkit/chainlink-evm/gethwrappers/workflow/generated/capabilities_registry_wrapper_v2"
+
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset/state"
 	"github.com/smartcontractkit/chainlink/deployment/cre/capabilities_registry/v2/changeset/operations/contracts"
-	"github.com/smartcontractkit/chainlink/deployment/cre/ocr3"
+	"github.com/smartcontractkit/chainlink/deployment/cre/common/strategies"
+	crecontracts "github.com/smartcontractkit/chainlink/deployment/cre/contracts"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/p2pkey"
 )
 
@@ -36,7 +39,7 @@ type AddCapabilitiesInput struct {
 	Force bool
 
 	RegistryRef datastore.AddressRefKey
-	MCMSConfig  *ocr3.MCMSConfig
+	MCMSConfig  *crecontracts.MCMSConfig
 }
 
 func (i *AddCapabilitiesInput) Validate() error {
@@ -66,7 +69,6 @@ var AddCapabilities = operations.NewSequence[AddCapabilitiesInput, AddCapabiliti
 		}
 
 		chainSel := input.RegistryRef.ChainSelector()
-
 		chain, ok := deps.Env.BlockChains.EVMChains()[chainSel]
 		if !ok {
 			return AddCapabilitiesOutput{}, fmt.Errorf("chain not found for selector %d", chainSel)
@@ -120,14 +122,31 @@ var AddCapabilities = operations.NewSequence[AddCapabilitiesInput, AddCapabiliti
 			}
 		}
 
+		// Create the appropriate strategy
+		strategy, err := strategies.CreateStrategy(
+			chain,
+			*deps.Env,
+			input.MCMSConfig,
+			deps.MCMSContracts,
+			common.HexToAddress(registryAddressRef.Address),
+			contracts.AddCapabilitiesDescription,
+		)
+		if err != nil {
+			return AddCapabilitiesOutput{}, fmt.Errorf("failed to create strategy: %w", err)
+		}
+
 		regCapsReport, err := operations.ExecuteOperation(
 			b,
 			contracts.RegisterCapabilities,
-			contracts.RegisterCapabilitiesDeps(deps),
+			contracts.RegisterCapabilitiesDeps{
+				Env:      deps.Env,
+				Strategy: strategy,
+			},
 			contracts.RegisterCapabilitiesInput{
 				Address:       registryAddressRef.Address,
 				ChainSelector: chainSel,
 				Capabilities:  capabilities,
+				MCMSConfig:    input.MCMSConfig,
 			},
 		)
 		if err != nil {
@@ -140,10 +159,12 @@ var AddCapabilities = operations.NewSequence[AddCapabilitiesInput, AddCapabiliti
 			contracts.UpdateNodesDeps{
 				Env:                  deps.Env,
 				CapabilitiesRegistry: capReg,
+				Strategy:             strategy,
 			},
 			contracts.UpdateNodesInput{
 				ChainSelector: chainSel,
 				NodesUpdates:  nodeUpdates,
+				MCMSConfig:    input.MCMSConfig,
 			},
 		)
 		if err != nil {
@@ -156,6 +177,7 @@ var AddCapabilities = operations.NewSequence[AddCapabilitiesInput, AddCapabiliti
 			contracts.UpdateDONDeps{
 				Env:                  deps.Env,
 				CapabilitiesRegistry: capReg,
+				Strategy:             strategy,
 			},
 			contracts.UpdateDONInput{
 				ChainSelector:     chainSel,
@@ -165,17 +187,31 @@ var AddCapabilities = operations.NewSequence[AddCapabilitiesInput, AddCapabiliti
 				F:                 don.F,
 				IsPrivate:         !don.IsPublic,
 				Force:             input.Force,
+				MCMSConfig:        input.MCMSConfig,
 			},
 		)
 		if err != nil {
 			return AddCapabilitiesOutput{}, fmt.Errorf("failed to update don: %w", err)
 		}
 
+		var proposals []mcmslib.TimelockProposal
+
+		if input.MCMSConfig != nil {
+			proposal, mcmsErr := strategy.BuildProposal([]types.BatchOperation{
+				*regCapsReport.Output.Operation, *updateNodesReport.Output.Operation, *updateDonReport.Output.Operation,
+			})
+			if mcmsErr != nil {
+				return AddCapabilitiesOutput{}, fmt.Errorf("failed to build MCMS proposal: %w", mcmsErr)
+			}
+
+			proposals = append(proposals, *proposal)
+		}
+
 		return AddCapabilitiesOutput{
 			DonInfo:           updateDonReport.Output.DonInfo,
 			UpdatedNodes:      updateNodesReport.Output.UpdatedNodes,
 			AddedCapabilities: regCapsReport.Output.Capabilities,
-			Proposals:         regCapsReport.Output.Proposals,
+			Proposals:         proposals,
 		}, nil
 	},
 )

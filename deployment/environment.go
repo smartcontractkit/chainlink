@@ -172,26 +172,12 @@ func (n Node) AllOCRConfigs() map[chain_selectors.ChainDetails]OCRConfig {
 }
 
 func (n Node) OCRConfigForChainSelector(chainSel uint64) (OCRConfig, bool) {
-	fam, err := chain_selectors.GetSelectorFamily(chainSel)
-	if err != nil {
-		return OCRConfig{}, false
+	chainSelToConfig := make(map[uint64]OCRConfig, len(n.SelToOCRConfig))
+	for details, config := range n.SelToOCRConfig {
+		chainSelToConfig[details.ChainSelector] = config
 	}
 
-	id, err := chain_selectors.GetChainIDFromSelector(chainSel)
-	if err != nil {
-		return OCRConfig{}, false
-	}
-
-	want, err := chain_selectors.GetChainDetailsByChainIDAndFamily(id, fam)
-	if err != nil {
-		return OCRConfig{}, false
-	}
-	// only applicable for test related simulated chains, the chains don't have a name
-	if want.ChainName == "" {
-		want.ChainName = strconv.FormatUint(want.ChainSelector, 10)
-	}
-
-	c, ok := n.SelToOCRConfig[want]
+	c, ok := chainSelToConfig[chainSel]
 	return c, ok
 }
 
@@ -408,11 +394,21 @@ func ChainConfigsToOCRConfig(chainConfigs []*nodev1.ChainConfig) (map[chain_sele
 			return nil, err
 		}
 
+		transmitAccount := chainConfig.AccountAddress
+		chainFamily, err := chain_selectors.GetSelectorFamily(details.ChainSelector)
+		if err != nil {
+			return nil, fmt.Errorf("failed to get chain family for selector %d: %w", details.ChainSelector, err)
+		}
+		// For Aptos and Sui, the transmit account must be set to the public key, which is submitted to and retrieved from JD
+		if chainConfig.AccountAddressPublicKey != nil && (chainFamily == chain_selectors.FamilyAptos || chainFamily == chain_selectors.FamilySui) {
+			transmitAccount = *chainConfig.AccountAddressPublicKey
+		}
+
 		selToOCRConfig[details] = OCRConfig{
 			OffchainPublicKey:         opk,
 			OnchainPublicKey:          pubkey,
 			PeerID:                    MustPeerIDFromString(chainConfig.Ocr2Config.P2PKeyBundle.PeerId),
-			TransmitAccount:           types2.Account(chainConfig.AccountAddress),
+			TransmitAccount:           types2.Account(transmitAccount),
 			ConfigEncryptionPublicKey: cpk,
 			KeyBundleID:               chainConfig.Ocr2Config.OcrKeyBundle.BundleId,
 		}

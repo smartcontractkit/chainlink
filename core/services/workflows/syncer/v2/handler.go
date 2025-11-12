@@ -18,6 +18,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/workflows/dontime"
 	"github.com/smartcontractkit/chainlink-common/pkg/workflows/wasm/host"
 
+	"github.com/smartcontractkit/chainlink/v2/core/capabilities"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/platform"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
@@ -54,6 +55,7 @@ type eventHandler struct {
 	workflowLimits         limits.ResourceLimiter[int]
 	workflowArtifactsStore WorkflowArtifactsStore
 	workflowEncryptionKey  workflowkey.Key
+	workflowDonSubscriber  capabilities.DonSubscriber
 	billingClient          metering.BillingClient
 	orgResolver            orgresolver.OrgResolver
 
@@ -123,6 +125,7 @@ func NewEventHandler(
 	workflowLimits limits.ResourceLimiter[int],
 	workflowArtifacts WorkflowArtifactsStore,
 	workflowEncryptionKey workflowkey.Key,
+	workflowDonSubscriber capabilities.DonSubscriber,
 	opts ...func(*eventHandler),
 ) (*eventHandler, error) {
 	if workflowStore == nil {
@@ -151,6 +154,7 @@ func NewEventHandler(
 		workflowLimits:         workflowLimits,
 		workflowArtifactsStore: workflowArtifacts,
 		workflowEncryptionKey:  workflowEncryptionKey,
+		workflowDonSubscriber:  workflowDonSubscriber,
 	}
 	eh.engineFactory = eh.engineFactoryFn
 	for _, o := range opts {
@@ -207,13 +211,12 @@ func (h *eventHandler) Handle(ctx context.Context, event Event) error {
 			}
 		}()
 		err = h.workflowActivatedEvent(ctx, payload)
-
 		if err != nil {
 			logCustMsg(ctx, cma, fmt.Sprintf("failed to handle workflow activated event: %v", err), h.lggr)
 			return err
 		}
 
-		h.lggr.Debugw("handled event", "workflowID", wfID, "workflowName", payload.WorkflowName, "workflowOwner", hex.EncodeToString(payload.WorkflowOwner),
+		h.lggr.Debugw("handled event (WorkflowActivated)", "workflowID", wfID, "workflowName", payload.WorkflowName, "workflowOwner", hex.EncodeToString(payload.WorkflowOwner),
 			"workflowTag", payload.WorkflowTag, "type", event.Name)
 		return nil
 	case WorkflowPaused:
@@ -252,7 +255,7 @@ func (h *eventHandler) Handle(ctx context.Context, event Event) error {
 			return err
 		}
 
-		h.lggr.Debugw("handled event", "workflowID", wfID, "workflowName", payload.WorkflowName, "workflowOwner", hex.EncodeToString(payload.WorkflowOwner),
+		h.lggr.Debugw("handled event (WorkflowPaused)", "workflowID", wfID, "workflowName", payload.WorkflowName, "workflowOwner", hex.EncodeToString(payload.WorkflowOwner),
 			"workflowTag", payload.Tag, "type", event.Name)
 		return nil
 	case WorkflowDeleted:
@@ -303,7 +306,7 @@ func (h *eventHandler) Handle(ctx context.Context, event Event) error {
 			return herr
 		}
 
-		h.lggr.Debugw("handled event", "workflowID", wfID, "workflowName", wfName, "workflowOwner", wfOwner, "organizationID", orgID, "type", event.Name)
+		h.lggr.Debugw("handled event (WorkflowDeleted)", "workflowID", wfID, "workflowName", wfName, "workflowOwner", wfOwner, "organizationID", orgID, "type", event.Name)
 		return nil
 	default:
 		return fmt.Errorf("event type unsupported: %v", event.Name)
@@ -463,7 +466,7 @@ func (h *eventHandler) engineFactoryFn(ctx context.Context, workflowID string, o
 		MemoryLimiter:                h.engineLimiters.WASMMemorySize,
 		MaxCompressedBinaryLimiter:   h.engineLimiters.WASMCompressedBinarySize,
 		MaxDecompressedBinaryLimiter: h.engineLimiters.WASMBinarySize,
-		MaxResponseSizeLimiter:       h.engineLimiters.WASMResponseSize,
+		MaxResponseSizeLimiter:       h.engineLimiters.ExecutionResponse,
 	}
 
 	h.lggr.Debugf("Creating module for workflowID %s", workflowID)
@@ -510,6 +513,7 @@ func (h *eventHandler) engineFactoryFn(ctx context.Context, workflowID string, o
 		Module:                module,
 		WorkflowConfig:        config,
 		CapRegistry:           h.capRegistry,
+		DonSubscriber:         h.workflowDonSubscriber,
 		UseLocalTimeProvider:  h.useLocalTimeProvider,
 		DonTimeStore:          h.donTimeStore,
 		ExecutionsStore:       h.workflowStore,

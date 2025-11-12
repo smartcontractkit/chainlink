@@ -2,8 +2,10 @@ package environment
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"maps"
+	"os"
 
 	"github.com/Masterminds/semver/v3"
 	"github.com/ethereum/go-ethereum/common"
@@ -40,12 +42,6 @@ import (
 	"github.com/smartcontractkit/chainlink/system-tests/lib/worker"
 )
 
-const (
-	GithubReadTokenEnvVarName          = "GITHUB_READ_TOKEN"
-	E2eJobDistributorImageEnvVarName   = "E2E_JD_IMAGE"
-	E2eJobDistributorVersionEnvVarName = "E2E_JD_VERSION"
-)
-
 type SetupOutput struct {
 	WorkflowRegistryConfigurationOutput *cre.WorkflowRegistryOutput
 	CreEnvironment                      *cre.Environment
@@ -56,22 +52,22 @@ type SetupOutput struct {
 }
 
 type SetupInput struct {
-	CapabilitiesAwareNodeSets []*cre.CapabilitiesAwareNodeSet
-	BlockchainsInput          []*blockchain.Input
-	JdInput                   *jd.Input
-	Provider                  infra.Provider
-	ContractVersions          map[string]string
-	WithV2Registries          bool
-	OCR3Config                *keystone_changeset.OracleConfig
-	DONTimeConfig             *keystone_changeset.OracleConfig
-	VaultOCR3Config           *keystone_changeset.OracleConfig
-	S3ProviderInput           *s3provider.Input
-	CapabilityConfigs         cre.CapabilityConfigs
-	CopyCapabilityBinaries    bool // if true, copy capability binaries to the containers (if false, we assume that the plugins image already has them)
-	Capabilities              []cre.InstallableCapability
-	Features                  cre.Features
-	GatewayWhitelistConfig    gateway.WhitelistConfig
-	BlockchainDeployers       map[blockchain.ChainFamily]blockchains.Deployer
+	NodeSets               []*cre.NodeSet
+	BlockchainsInput       []*blockchain.Input
+	JdInput                *jd.Input
+	Provider               infra.Provider
+	ContractVersions       map[cre.ContractType]*semver.Version
+	WithV2Registries       bool
+	OCR3Config             *keystone_changeset.OracleConfig
+	DONTimeConfig          *keystone_changeset.OracleConfig
+	VaultOCR3Config        *keystone_changeset.OracleConfig
+	S3ProviderInput        *s3provider.Input
+	CapabilityConfigs      cre.CapabilityConfigs
+	CopyCapabilityBinaries bool // if true, copy capability binaries to the containers (if false, we assume that the plugins image already has them)
+	Capabilities           []cre.InstallableCapability
+	Features               cre.Features
+	GatewayWhitelistConfig gateway.WhitelistConfig
+	BlockchainDeployers    map[blockchain.ChainFamily]blockchains.Deployer
 
 	// allow to pass custom transformers for extensibility
 	ConfigFactoryFunctions               []cre.NodeConfigTransformerFn
@@ -86,7 +82,7 @@ func (s *SetupInput) Validate() error {
 		return pkgerrors.New("input is nil")
 	}
 
-	if len(s.CapabilitiesAwareNodeSets) == 0 {
+	if len(s.NodeSets) == 0 {
 		return pkgerrors.New("at least one nodeSet is required")
 	}
 
@@ -112,12 +108,21 @@ func SetupTestEnvironment(
 		return nil, pkgerrors.New("input is nil")
 	}
 
+	//TODO: remove these checks in December 2025, when everyone has migrated
+	if val := os.Getenv("E2E_JD_IMAGE"); val != "" {
+		return nil, errors.New("E2E_JD_IMAGE and E2E_JD_VERSION are deprecated, please use CTF_JD_IMAGE instead to specify the Job Distributor image with tag")
+	}
+
+	if val := os.Getenv("E2E_TEST_CHAINLINK_IMAGE"); val != "" {
+		return nil, errors.New("E2E_TEST_CHAINLINK_IMAGE and E2E_TEST_CHAINLINK_VERSION are deprecated, please use CTF_CHAINLINK_IMAGE instead to specify the Chainlink Node image with tag")
+	}
+
 	if err := input.Validate(); err != nil {
 		return nil, pkgerrors.Wrap(err, "input validation failed")
 	}
 
 	if input.Provider.Type == infra.CRIB {
-		cribErr := crib.Bootstrap(input.Provider)
+		cribErr := crib.Bootstrap(ctx, input.Provider)
 		if cribErr != nil {
 			return nil, pkgerrors.Wrap(cribErr, "failed to bootstrap CRIB")
 		}
@@ -131,6 +136,7 @@ func SetupTestEnvironment(
 	fmt.Print(libformat.PurpleText("%s", input.StageGen.Wrap("Starting %d blockchain(s)", len(input.BlockchainsInput))))
 
 	deployedBlockchains, startErr := blockchains.Start(
+		ctx,
 		testLogger,
 		singleFileLogger,
 		input.BlockchainsInput,
@@ -170,7 +176,7 @@ func SetupTestEnvironment(
 	fmt.Print(libformat.PurpleText("%s", input.StageGen.WrapAndNext("Workflow and Capability Registry contracts deployed in %.2f seconds", input.StageGen.Elapsed().Seconds())))
 	fmt.Print(libformat.PurpleText("%s", input.StageGen.Wrap("Preparing DONs configuration")))
 
-	topology, tErr := cre.NewTopology(input.CapabilitiesAwareNodeSets, creEnvironment.Provider)
+	topology, tErr := cre.NewTopology(input.NodeSets, creEnvironment.Provider)
 	if tErr != nil {
 		return nil, pkgerrors.Wrap(tErr, "failed to create topology")
 	}
@@ -178,24 +184,13 @@ func SetupTestEnvironment(
 	updatedNodeSets, topoErr := donconfig.PrepareNodeTOMLs(
 		topology,
 		creEnvironment,
-		input.CapabilitiesAwareNodeSets,
+		input.NodeSets,
 		input.Capabilities,
 		input.ConfigFactoryFunctions,
 	)
 	if topoErr != nil {
 		return nil, pkgerrors.Wrap(topoErr, "failed to build topology")
 	}
-
-	gatewayJobConfigs, gErr := gateway.JobConfigs(
-		deployedBlockchains.RegistryChain().CtfOutput(),
-		topology,
-		updatedNodeSets,
-		input.GatewayWhitelistConfig,
-	)
-	if gErr != nil {
-		return nil, pkgerrors.Wrap(gErr, "failed to build gateway job config")
-	}
-	topology.GatewayJobConfigs = gatewayJobConfigs
 	fmt.Print(libformat.PurpleText("%s", input.StageGen.WrapAndNext("DONs configuration prepared in %.2f seconds", input.StageGen.Elapsed().Seconds())))
 
 	fmt.Print(libformat.PurpleText("%s", input.StageGen.Wrap("Applying Features before environment startup")))
@@ -224,16 +219,19 @@ func SetupTestEnvironment(
 	}
 	fmt.Print(libformat.PurpleText("%s", input.StageGen.WrapAndNext("Applied Features in %.2f seconds", input.StageGen.Elapsed().Seconds())))
 
-	queue := worker.New(10)
-	jdStartedFuture := queue.SubmitAny(func() (any, error) {
-		jdOutput, startJDErr := StartJD(testLogger, *input.JdInput, input.Provider)
+	queue := worker.New(ctx, 10)
+	defer queue.StopAndWait() // Ensure cleanup on any exit path
+
+	jdStartedFuture := queue.SubmitAny(func(ctx context.Context) (any, error) {
+		// TODO: pass context after we update the CTF to accept context, when creating new JD instance
+		jdOutput, startJDErr := StartJD(ctx, testLogger, *input.JdInput, input.Provider)
 		if startJDErr != nil {
 			return nil, pkgerrors.Wrap(startJDErr, "failed to start Job Distributor")
 		}
 		return jdOutput, nil
 	})
 
-	donsStartedFuture := queue.SubmitAny(func() (any, error) {
+	donsStartedFuture := queue.SubmitAny(func(ctx context.Context) (any, error) {
 		nodeSetOutput, startDonsErr := StartDONs(ctx, testLogger, topology, input.Provider, deployedBlockchains.RegistryChain().CtfOutput(), input.CapabilityConfigs, input.CopyCapabilityBinaries, updatedNodeSets)
 		if startDonsErr != nil {
 			return nil, pkgerrors.Wrap(startDonsErr, "failed to start DONs")
@@ -242,27 +240,40 @@ func SetupTestEnvironment(
 		return nodeSetOutput, nil
 	})
 
-	// First wait for JD to start, because it will be faster than DONs
+	// Await both futures to ensure proper cleanup even if one fails
 	startedJD, jdStartErr := worker.AwaitAs[*StartedJD](ctx, jdStartedFuture)
+	startedDONs, donStartErr := worker.AwaitAs[*StartedDONs](ctx, donsStartedFuture)
+
+	// Check errors after both awaits complete
+	// If both failed, prefer the non-context-cancelled error as it's likely the root cause
+	if jdStartErr != nil && donStartErr != nil {
+		// If one is context.Canceled, it was likely caused by the other task's error
+		if pkgerrors.Is(jdStartErr, context.Canceled) && !pkgerrors.Is(donStartErr, context.Canceled) {
+			return nil, pkgerrors.Wrap(donStartErr, "failed to start DONs")
+		}
+		if pkgerrors.Is(donStartErr, context.Canceled) && !pkgerrors.Is(jdStartErr, context.Canceled) {
+			return nil, pkgerrors.Wrap(jdStartErr, "failed to start Job Distributor")
+		}
+		// Both real errors
+		return nil, pkgerrors.Wrap(errors.Join(fmt.Errorf("JD failed to start: %w", jdStartErr), fmt.Errorf("DONs failed to start: %w", donStartErr)), "failed to start Job Distributor AND Dons")
+	}
 	if jdStartErr != nil {
 		return nil, pkgerrors.Wrap(jdStartErr, "failed to start Job Distributor")
 	}
-
-	startedDONs, donStartErr := worker.AwaitAs[*StartedDONs](ctx, donsStartedFuture)
 	if donStartErr != nil {
 		return nil, pkgerrors.Wrap(donStartErr, "failed to start DONs")
 	}
 	dons := cre.NewDons(startedDONs.DONs(), topology.GatewayConnectors)
+	deployKeystoneContractsOutput.Env.Offchain = startedJD.Client
 
 	linkDonsToJDInput := &cre.LinkDonsToJDInput{
-		JDClient:        startedJD.Client,
 		Blockchains:     deployedBlockchains.Outputs,
 		CldfEnvironment: deployKeystoneContractsOutput.Env,
 		Topology:        topology,
 		Dons:            dons,
 	}
 
-	_, cldErr := cre.LinkToJobDistributor(ctx, linkDonsToJDInput)
+	cldErr := cre.LinkToJobDistributor(ctx, linkDonsToJDInput)
 	if cldErr != nil {
 		return nil, pkgerrors.Wrap(cldErr, "failed to link DONs to Job Distributor")
 	}
@@ -270,9 +281,9 @@ func SetupTestEnvironment(
 	fmt.Print(libformat.PurpleText("%s", input.StageGen.WrapAndNext("DONs and Job Distributor started and linked in %.2f seconds", input.StageGen.Elapsed().Seconds())))
 	fmt.Print(libformat.PurpleText("%s", input.StageGen.Wrap("Creating Jobs with Job Distributor")))
 
-	gJobErr := gateway.CreateJobs(ctx, startedJD.Client, dons, gatewayJobConfigs)
+	gJobErr := gateway.CreateJobs(ctx, creEnvironment, dons, topology.GatewayConfigs, input.GatewayWhitelistConfig)
 	if gJobErr != nil {
-		return nil, pkgerrors.Wrap(gErr, "failed to create gateway jobs with Job Distributor")
+		return nil, pkgerrors.Wrap(gJobErr, "failed to create gateway jobs with Job Distributor")
 	}
 
 	// Deprecated: use Features instead. Support for InstallableCapability will be removed in the future.
@@ -284,14 +295,14 @@ func SetupTestEnvironment(
 	// allow to pass custom job spec factories for extensibility
 	jobSpecFactoryFunctions = append(jobSpecFactoryFunctions, input.JobSpecFactoryFunctions...)
 	createJobsDeps := CreateJobsWithJdOpDeps{
-		Logger:                    testLogger,
-		SingleFileLogger:          singleFileLogger,
-		HomeChainBlockchainOutput: deployedBlockchains.RegistryChain().CtfOutput(),
-		JobSpecFactoryFunctions:   jobSpecFactoryFunctions,
-		CreEnvironment:            creEnvironment,
-		Dons:                      dons,
-		CapabilitiesAwareNodeSets: input.CapabilitiesAwareNodeSets,
-		Capabilities:              input.Capabilities,
+		Logger:                        testLogger,
+		SingleFileLogger:              singleFileLogger,
+		RegistryChainBlockchainOutput: deployedBlockchains.RegistryChain().CtfOutput(),
+		JobSpecFactoryFunctions:       jobSpecFactoryFunctions,
+		CreEnvironment:                creEnvironment,
+		Dons:                          dons,
+		NodeSets:                      input.NodeSets,
+		Capabilities:                  input.Capabilities,
 	}
 	_, createJobsErr := operations.ExecuteOperation(deployKeystoneContractsOutput.Env.OperationsBundle, CreateJobsWithJdOp, createJobsDeps, CreateJobsWithJdOpInput{})
 	if createJobsErr != nil {
@@ -320,26 +331,31 @@ func SetupTestEnvironment(
 	fmt.Print(libformat.PurpleText("%s", input.StageGen.WrapAndNext("Chainlink nodes funded in %.2f seconds", input.StageGen.Elapsed().Seconds())))
 
 	fmt.Print(libformat.PurpleText("%s", input.StageGen.Wrap("Configuring Workflow and Capability Registry contracts")))
-	wfRegVersion := *semver.MustParse(input.ContractVersions[keystone_changeset.WorkflowRegistry.String()])
+	wfRegVersion := input.ContractVersions[keystone_changeset.WorkflowRegistry.String()]
 	workflowRegistryConfigurationOutput, wfErr := workflow.ConfigureWorkflowRegistry(
 		ctx,
 		testLogger,
 		singleFileLogger,
 		&cre.WorkflowRegistryInput{
 			ContractAddress: common.HexToAddress(crecontracts.MustGetAddressFromDataStore(deployKeystoneContractsOutput.Env.DataStore, deployedBlockchains.RegistryChain().ChainSelector(), keystone_changeset.WorkflowRegistry.String(), input.ContractVersions[keystone_changeset.WorkflowRegistry.String()], "")),
-			ContractVersion: cldf.TypeAndVersion{Version: wfRegVersion},
+			ContractVersion: cldf.TypeAndVersion{Version: *wfRegVersion},
 			ChainSelector:   deployedBlockchains.RegistryChain().ChainSelector(),
 			CldEnv:          deployKeystoneContractsOutput.Env,
 			AllowedDonIDs:   []uint64{topology.WorkflowDONID},
 			WorkflowOwners:  []common.Address{deployedBlockchains.RegistryChain().(*evm.Blockchain).SethClient.MustGetRootKeyAddress()}, // registry chain is always EVM
 		},
 	)
-
 	if wfErr != nil {
 		return nil, pkgerrors.Wrap(wfErr, "failed to configure workflow registry")
 	}
 
-	wfFiltersFuture := queue.SubmitErr(func() error {
+	wfFiltersFuture := queue.SubmitErr(func(ctx context.Context) error {
+		// we currently have no way of checking if filters were registered, when code runs in CRIB
+		// as we don't have a way to get its database connection string
+		if input.Provider.Type == infra.CRIB {
+			return nil
+		}
+
 		fmt.Print(libformat.PurpleText("\n---> [BACKGROUND] Waiting for Workflow Registry filters registration\n\n"))
 		defer fmt.Print(libformat.PurpleText("\n---> [BACKGROUND] Finished waiting for Workflow Registry filters registration\n\n"))
 
@@ -349,7 +365,7 @@ func SetupTestEnvironment(
 			// There are no filters registered with the V2 WF Registry Syncer
 			return nil
 		default:
-			return workflow.WaitForWorkflowRegistryFiltersRegistration(testLogger, singleFileLogger, input.Provider.Type, deployedBlockchains.RegistryChain().ChainID(), dons, updatedNodeSets)
+			return workflow.WaitForAllNodesToHaveExpectedFiltersRegistered(ctx, singleFileLogger, testLogger, deployedBlockchains.RegistryChain().ChainID(), dons, updatedNodeSets)
 		}
 	})
 
@@ -365,7 +381,7 @@ func SetupTestEnvironment(
 			input.ContractVersions[keystone_changeset.CapabilitiesRegistry.String()],
 			""),
 		),
-		NodeSets:                 input.CapabilitiesAwareNodeSets,
+		NodeSets:                 input.NodeSets,
 		WithV2Registries:         input.WithV2Registries,
 		DONCapabilityWithConfigs: make(map[uint64][]keystone_changeset.DONCapabilityWithConfig),
 	}
@@ -374,9 +390,7 @@ func SetupTestEnvironment(
 		configFn := capability.CapabilityRegistryV1ConfigFn()
 		capRegInput.CapabilityRegistryConfigFns = append(capRegInput.CapabilityRegistryConfigFns, configFn)
 	}
-
 	capRegInput.CapabilityRegistryConfigFns = append(capRegInput.CapabilityRegistryConfigFns, input.CapabilitiesContractFactoryFunctions...)
-
 	maps.Copy(capRegInput.DONCapabilityWithConfigs, donsCapabilities)
 
 	_, capRegErr := crecontracts.ConfigureCapabilityRegistry(capRegInput)
@@ -385,8 +399,8 @@ func SetupTestEnvironment(
 	}
 
 	fmt.Print(libformat.PurpleText("%s", input.StageGen.WrapAndNext("Workflow and Capability Registry contracts configured in %.2f seconds", input.StageGen.Elapsed().Seconds())))
-
 	fmt.Print(libformat.PurpleText("%s", input.StageGen.Wrap("Applying Features after environment startup")))
+
 	for _, feature := range input.Features.List() {
 		for _, don := range dons.DonsWithFlag(feature.Flag()) {
 			testLogger.Info().Msgf("Executing PostEnvStartup for feature %s for don '%s'", feature.Flag(), don.Name)
@@ -407,7 +421,6 @@ func SetupTestEnvironment(
 	if err := worker.AwaitErr(ctx, wfFiltersFuture); err != nil {
 		return nil, pkgerrors.Wrap(err, "failed while waiting for workflow registry filters registration")
 	}
-	queue.StopAndWait()
 
 	appendOutputsToInput(input, startedDONs.NodeOutputs(), deployedBlockchains.Outputs, startedJD.JDOutput)
 
@@ -428,7 +441,7 @@ func SetupTestEnvironment(
 func appendOutputsToInput(input *SetupInput, nodeSetOutput []*cre.WrappedNodeOutput, blockchains []blockchains.Blockchain, jdOutput *jd.Output) {
 	// append the nodeset output, so that later it can be stored in the cached output, so that we can use the environment again without running setup
 	for idx, nsOut := range nodeSetOutput {
-		input.CapabilitiesAwareNodeSets[idx].Out = nsOut.Output
+		input.NodeSets[idx].Out = nsOut.Output
 	}
 
 	for idx, blockchain := range blockchains {
@@ -440,12 +453,11 @@ func appendOutputsToInput(input *SetupInput, nodeSetOutput []*cre.WrappedNodeOut
 }
 
 func newCldfEnvironment(ctx context.Context, singleFileLogger logger.Logger, cldfBlockchains cldf_chain.BlockChains) *cldf.Environment {
-	memoryDatastore := datastore.NewMemoryDataStore()
 	allChainsCLDEnvironment := &cldf.Environment{
-		Name:              "local CRE",
+		Name:              cre.EnvironmentName,
 		Logger:            singleFileLogger,
-		ExistingAddresses: cldf.NewMemoryAddressBook(),
-		DataStore:         memoryDatastore.Seal(),
+		ExistingAddresses: cldf.NewMemoryAddressBook(), // can't set it to nil, because some changesets save addresses both to the address book and datastore
+		DataStore:         datastore.NewMemoryDataStore().Seal(),
 		GetContext: func() context.Context {
 			return ctx
 		},

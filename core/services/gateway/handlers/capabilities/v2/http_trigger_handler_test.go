@@ -32,8 +32,8 @@ const workflowID = "0x1234567890abcdef1234567890abcdef12345678901234567890abcdef
 const workflowOwner = "0x1234567890abcdef1234567890abcdef12345678"
 const requestID = "test-request-id"
 
-func createTestMetrics(t *testing.T) *metrics.Metrics {
-	m, err := metrics.NewMetrics()
+func createTestMetrics(t *testing.T, donConfig *config.DONConfig) *metrics.Metrics {
+	m, err := metrics.NewMetrics(donConfig)
 	require.NoError(t, err)
 	return m
 }
@@ -562,7 +562,7 @@ func TestHttpTriggerHandler_ReapExpiredCallbacks(t *testing.T) {
 		// Manually set the callback's createdAt to the past to simulate expiration
 		handler.callbacksMu.Lock()
 		if cb, exists := handler.callbacks[requestID]; exists {
-			cb.createdAt = time.Now().Add(-time.Duration(cfg.MaxTriggerRequestDurationMs+1) * time.Millisecond)
+			cb.createdAt = time.Now().Add(-time.Duration(cfg.CleanUpPeriodMs+1) * time.Millisecond)
 			handler.callbacks[requestID] = cb
 		}
 		handler.callbacksMu.Unlock()
@@ -670,7 +670,7 @@ func TestHttpTriggerHandler_HandleUserTriggerRequest_Retries(t *testing.T) {
 	mockDon := handlermocks.NewDON(t)
 	metadataHandler := createTestMetadataHandler(t)
 	userRateLimiter := createTestUserRateLimiter()
-	testMetrics := createTestMetrics(t)
+	testMetrics := createTestMetrics(t, donConfig)
 	handler := NewHTTPTriggerHandler(lggr, cfg, donConfig, mockDon, metadataHandler, userRateLimiter, testMetrics)
 	privateKey := createTestPrivateKey(t)
 	registerWorkflow(t, handler, workflowID, privateKey)
@@ -1536,7 +1536,7 @@ func createTestMetadataHandler(t *testing.T) *WorkflowMetadataHandler {
 		},
 	}
 	cfg := WithDefaults(ServiceConfig{})
-	testMetrics := createTestMetrics(t)
+	testMetrics := createTestMetrics(t, donConfig)
 	return NewWorkflowMetadataHandler(lggr, cfg, mockDon, donConfig, testMetrics)
 }
 
@@ -1566,7 +1566,7 @@ func createTestTriggerHandlerWithConfig(t *testing.T, cfg ServiceConfig) (*httpT
 	lggr := logger.Test(t)
 	metadataHandler := createTestMetadataHandler(t)
 	userRateLimiter := createTestUserRateLimiter()
-	testMetrics := createTestMetrics(t)
+	testMetrics := createTestMetrics(t, donConfig)
 
 	handler := NewHTTPTriggerHandler(lggr, cfg, donConfig, mockDon, metadataHandler, userRateLimiter, testMetrics)
 	return handler, mockDon
@@ -1591,7 +1591,7 @@ func TestHttpTriggerHandler_HandleUserTriggerRequest_RateLimiting(t *testing.T) 
 	mockDon := handlermocks.NewDON(t)
 	lggr := logger.Test(t)
 	metadataHandler := createTestMetadataHandler(t)
-	testMetrics := createTestMetrics(t)
+	testMetrics := createTestMetrics(t, donConfig)
 
 	t.Run("successful rate limit check with CRE context", func(t *testing.T) {
 		userRateLimiter := createTestUserRateLimiter() // Unlimited
@@ -1681,5 +1681,123 @@ func TestHttpTriggerHandler_HandleUserTriggerRequest_RateLimiting(t *testing.T) 
 		r, err := callback.Wait(t.Context())
 		require.NoError(t, err)
 		requireUserErrorSent(t, r, jsonrpc.ErrLimitExceeded)
+	})
+}
+
+func TestHttpTriggerHandler_HandleUserTriggerRequest_StopsRetriesOnQuorum(t *testing.T) {
+	lggr := logger.Test(t)
+	cfg := WithDefaults(ServiceConfig{})
+
+	// 4 nodes, 1 faulty node, so (N+F)//2+1=(4+1)//2+1=3 for threshold
+	// Quorum is reached when 3 nodes respond.
+	donConfig := &config.DONConfig{
+		DonId: "test-don",
+		F:     1,
+		Members: []config.NodeConfig{
+			{Address: "node1"},
+			{Address: "node2"},
+			{Address: "node3"},
+			{Address: "node4"},
+		},
+	}
+
+	mockDon := handlermocks.NewDON(t)
+	metadataHandler := createTestMetadataHandler(t)
+	userRateLimiter := createTestUserRateLimiter()
+	testMetrics := createTestMetrics(t, donConfig)
+	handler := NewHTTPTriggerHandler(lggr, cfg, donConfig, mockDon, metadataHandler, userRateLimiter, testMetrics)
+	privateKey := createTestPrivateKey(t)
+	registerWorkflow(t, handler, workflowID, privateKey)
+
+	t.Run("stops retries when quorum is reached and callback is responded", func(t *testing.T) {
+		rawParams := json.RawMessage(`{"input":{},"workflow":{"workflowID":"0x1234567890abcdef1234567890abcdef12345678901234567890abcdef123456"}}`)
+		req := &jsonrpc.Request[json.RawMessage]{
+			ID:      "test-request-quorum-stop",
+			Method:  gateway_common.MethodWorkflowExecute,
+			Params:  &rawParams,
+			Version: "2.0",
+		}
+		req.Auth = createTestJWTToken(t, req, privateKey)
+		callback := hc.NewCallback()
+
+		// Use channel to signal when initial broadcast is complete
+		broadcastComplete := make(chan struct{})
+		callCount := 0
+
+		// Setup: node1, node2, node3 succeed, node4 fails indefinitely
+		mockDon.On("SendToNode", mock.Anything, "node1", mock.Anything).Return(nil).Run(func(args mock.Arguments) {
+			callCount++
+			if callCount == 3 {
+				close(broadcastComplete)
+			}
+		}).Once()
+		mockDon.On("SendToNode", mock.Anything, "node2", mock.Anything).Return(nil).Run(func(args mock.Arguments) {
+			callCount++
+			if callCount == 3 {
+				close(broadcastComplete)
+			}
+		}).Once()
+		mockDon.On("SendToNode", mock.Anything, "node3", mock.Anything).Return(nil).Run(func(args mock.Arguments) {
+			callCount++
+			if callCount == 3 {
+				close(broadcastComplete)
+			}
+		}).Once()
+		mockDon.On("SendToNode", mock.Anything, "node4", mock.Anything).Return(errors.New("connection error"))
+
+		err := handler.Start(testutils.Context(t))
+		require.NoError(t, err)
+
+		// Start the trigger request in a goroutine
+		errCh := make(chan error, 1)
+		go func() {
+			errCh <- handler.HandleUserTriggerRequest(testutils.Context(t), req, callback, time.Now())
+		}()
+
+		// Wait for initial broadcast
+		select {
+		case <-broadcastComplete:
+		case <-testutils.Context(t).Done():
+			t.Fatal("Context cancelled waiting for initial broadcast to complete")
+		}
+
+		rawRes := json.RawMessage(`{"result":"ACCEPTED"}`)
+		nodeResp := &jsonrpc.Response[json.RawMessage]{
+			Version: "2.0",
+			ID:      req.ID,
+			Result:  &rawRes,
+		}
+
+		// Send responses from node1 and node2 to reach threshold (need 3 for quorum with F=1).
+		// Node4 is not included in the quorum since it failed to connect.
+		err = handler.HandleNodeTriggerResponse(testutils.Context(t), nodeResp, "node1")
+		require.NoError(t, err)
+
+		err = handler.HandleNodeTriggerResponse(testutils.Context(t), nodeResp, "node2")
+		require.NoError(t, err)
+
+		err = handler.HandleNodeTriggerResponse(testutils.Context(t), nodeResp, "node3")
+		require.NoError(t, err)
+
+		payload, err := callback.Wait(testutils.Context(t))
+		require.NoError(t, err)
+		require.NotEmpty(t, payload.RawResponse)
+		require.Equal(t, api.NoError, payload.ErrorCode)
+
+		select {
+		case err = <-errCh:
+			require.NoError(t, err)
+		case <-testutils.Context(t).Done():
+			t.Fatal("Context cancelled waiting for HandleUserTriggerRequest to complete")
+		}
+
+		handler.callbacksMu.Lock()
+		_, exists := handler.callbacks[req.ID]
+		handler.callbacksMu.Unlock()
+		require.False(t, exists, "callback should be removed after response is sent")
+
+		err = handler.Close()
+		require.NoError(t, err)
+		mockDon.AssertExpectations(t)
 	})
 }

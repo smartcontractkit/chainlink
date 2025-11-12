@@ -11,6 +11,7 @@ import (
 	"regexp"
 	"slices"
 	"sort"
+	"strconv"
 
 	"golang.org/x/crypto/curve25519"
 	"golang.org/x/crypto/nacl/box"
@@ -28,6 +29,11 @@ import (
 
 	vaultcommon "github.com/smartcontractkit/chainlink-common/pkg/capabilities/actions/vault"
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/consensus/requests"
+	pkgconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
+	"github.com/smartcontractkit/chainlink-common/pkg/contexts"
+	"github.com/smartcontractkit/chainlink-common/pkg/settings"
+	"github.com/smartcontractkit/chainlink-common/pkg/settings/cresettings"
+	"github.com/smartcontractkit/chainlink-common/pkg/settings/limits"
 	vaultcap "github.com/smartcontractkit/chainlink/v2/core/capabilities/vault"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/vault/vaulttypes"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/vault/vaultutils"
@@ -36,8 +42,6 @@ import (
 )
 
 const (
-	defaultBatchSize                         = 20
-	defaultMaxSecretsPerOwner                = 100
 	defaultMaxCiphertextLengthBytes          = 2 * 1024 // 2KB
 	defaultMaxIdentifierKeyLengthBytes       = 64
 	defaultMaxIdentifierOwnerLengthBytes     = 64
@@ -50,12 +54,15 @@ const (
 	// - A request can contain 2KB of ciphertext, 192 bytes of metadata (key, owner, namespace),
 	// a UUID (16 bytes) plus some overhead = ~2.5KB per request
 	// There can be 10 such items in a request, and 20 per batch, so 2.5KB * 10 * 20 = 500KB
-	defaultLimitsMaxObservationLength                    = 500 * 1024 // 500KB
-	defaultLimitsMaxReportsPlusPrecursorLength           = 500 * 1024 // 500KB
-	defaultLimitsMaxReportLength                         = 500 * 1024 // 500KB
-	defaultLimitsMaxReportCount                          = 20
-	defaultLimitsMaxKeyValueModifiedKeysPlusValuesLength = 1024 * 1024 // 1MB
-	defaultLimitsMaxBlobPayloadLength                    = 1024 * 1024 // 1MB
+	defaultLimitsMaxObservationLength                            = 500 * 1024 // 500KB
+	defaultLimitsMaxReportsPlusPrecursorLength                   = 500 * 1024 // 500KB
+	defaultLimitsMaxReportLength                                 = 500 * 1024 // 500KB
+	defaultLimitsMaxReportCount                                  = 20
+	defaultLimitsMaxKeyValueModifiedKeysPlusValuesLength         = 1024 * 1024       // 1MB
+	defaultLimitsMaxKeyValueModifiedKeys                         = 500               // BatchSize (20) * ItemsPerBatch (10) * 2 keys (secret + metadata) + buffer (100)
+	defaultLimitsMaxBlobPayloadLength                            = 1024 * 1024       // 1MB
+	defaultLimitsMaxPerOracleUnexpiredBlobCumulativePayloadBytes = 100 * 1024 * 1024 // 100MB
+	defaultLimitsMaxPerOracleUnexpiredBlobCount                  = 100
 )
 
 var (
@@ -69,12 +76,12 @@ type ReportingPluginConfig struct {
 	PrivateKeyShare *tdh2easy.PrivateShare
 
 	// Sourced from the offchain config
-	BatchSize                         int
-	MaxSecretsPerOwner                int
-	MaxCiphertextLengthBytes          int
-	MaxIdentifierKeyLengthBytes       int
-	MaxIdentifierOwnerLengthBytes     int
-	MaxIdentifierNamespaceLengthBytes int
+	BatchSize                         settings.Setting[int]
+	MaxSecretsPerOwner                limits.BoundLimiter[int]
+	MaxCiphertextLengthBytes          limits.BoundLimiter[pkgconfig.Size]
+	MaxIdentifierKeyLengthBytes       limits.BoundLimiter[pkgconfig.Size]
+	MaxIdentifierOwnerLengthBytes     limits.BoundLimiter[pkgconfig.Size]
+	MaxIdentifierNamespaceLengthBytes limits.BoundLimiter[pkgconfig.Size]
 }
 
 func NewReportingPluginFactory(
@@ -83,6 +90,7 @@ func NewReportingPluginFactory(
 	db dkgocrtypes.ResultPackageDatabase,
 	recipientKey *dkgrecipientkey.Key,
 	lazyPublicKey *vaultcap.LazyPublicKey,
+	limitsFactory limits.Factory,
 ) (*ReportingPluginFactory, error) {
 	if db == nil {
 		return nil, errors.New("result package db cannot be nil")
@@ -95,21 +103,24 @@ func NewReportingPluginFactory(
 	cfg := &ReportingPluginConfig{
 		LazyPublicKey: lazyPublicKey,
 	}
+
 	return &ReportingPluginFactory{
-		lggr:         lggr.Named("VaultReportingPluginFactory"),
-		store:        store,
-		cfg:          cfg,
-		db:           db,
-		recipientKey: recipientKey,
+		lggr:          lggr.Named("VaultReportingPluginFactory"),
+		store:         store,
+		cfg:           cfg,
+		db:            db,
+		recipientKey:  recipientKey,
+		limitsFactory: limitsFactory,
 	}, nil
 }
 
 type ReportingPluginFactory struct {
-	lggr         logger.Logger
-	store        *requests.Store[*vaulttypes.Request]
-	cfg          *ReportingPluginConfig
-	db           dkgocrtypes.ResultPackageDatabase
-	recipientKey *dkgrecipientkey.Key
+	lggr          logger.Logger
+	store         *requests.Store[*vaulttypes.Request]
+	cfg           *ReportingPluginConfig
+	db            dkgocrtypes.ResultPackageDatabase
+	recipientKey  *dkgrecipientkey.Key
+	limitsFactory limits.Factory
 }
 
 func (r *ReportingPluginFactory) getKeyMaterial(ctx context.Context, instanceID string) (publicKey *tdh2easy.PublicKey, privateKeyShare *tdh2easy.PrivateShare, err error) {
@@ -147,34 +158,55 @@ func (r *ReportingPluginFactory) getKeyMaterial(ctx context.Context, instanceID 
 	return publicKey, privateKeyShare, nil
 }
 
+func (r *ReportingPluginFactory) makeSizeLimiter(defaultSize settings.Setting[pkgconfig.Size], configSize int32) (limits.BoundLimiter[pkgconfig.Size], error) {
+	if configSize != 0 {
+		defaultSize.DefaultValue = pkgconfig.Size(configSize) * pkgconfig.Byte
+	}
+
+	return limits.MakeBoundLimiter[pkgconfig.Size](r.limitsFactory, defaultSize)
+}
+
 func (r *ReportingPluginFactory) NewReportingPlugin(ctx context.Context, config ocr3types.ReportingPluginConfig, fetcher ocr3_1types.BlobBroadcastFetcher) (ocr3_1types.ReportingPlugin[[]byte], ocr3_1types.ReportingPluginInfo, error) {
 	var configProto vaultcommon.ReportingPluginConfig
 	if err := proto.Unmarshal(config.OffchainConfig, &configProto); err != nil {
-		return nil, ocr3_1types.ReportingPluginInfo{}, fmt.Errorf("could not unmarshal reporting plugin config: %w", err)
+		return nil, ocr3_1types.ReportingPluginInfo1{}, fmt.Errorf("could not unmarshal reporting plugin config: %w", err)
 	}
 
-	if configProto.BatchSize == 0 {
-		configProto.BatchSize = defaultBatchSize
+	maxSecretsPerOwnerLimit := cresettings.Default.PerOwner.VaultSecretsLimit
+	if configProto.MaxSecretsPerOwner != 0 {
+		maxSecretsPerOwnerLimit.DefaultValue = int(configProto.MaxSecretsPerOwner)
 	}
 
-	if configProto.MaxSecretsPerOwner == 0 {
-		configProto.MaxSecretsPerOwner = defaultMaxSecretsPerOwner
+	r.lggr.Debugw("maxSecretsPerOwner", "value", maxSecretsPerOwnerLimit)
+
+	maxSecretsPerOwnerLimiter, err := limits.MakeBoundLimiter(r.limitsFactory, maxSecretsPerOwnerLimit)
+	if err != nil {
+		return nil, ocr3_1types.ReportingPluginInfo1{}, fmt.Errorf("could not create max secrets per owner limiter: %w", err)
 	}
 
-	if configProto.MaxCiphertextLengthBytes == 0 {
-		configProto.MaxCiphertextLengthBytes = defaultMaxCiphertextLengthBytes
+	batchSize := cresettings.Default.VaultPluginBatchSizeLimit
+	if configProto.BatchSize != 0 {
+		batchSize.DefaultValue = int(configProto.BatchSize)
 	}
 
-	if configProto.MaxIdentifierKeyLengthBytes == 0 {
-		configProto.MaxIdentifierKeyLengthBytes = defaultMaxIdentifierKeyLengthBytes
+	maxCiphertextLengthBytesLimiter, err := r.makeSizeLimiter(cresettings.Default.VaultCiphertextSizeLimit, configProto.MaxCiphertextLengthBytes)
+	if err != nil {
+		return nil, ocr3_1types.ReportingPluginInfo1{}, fmt.Errorf("could not create default max ciphertext length limiter: %w", err)
 	}
 
-	if configProto.MaxIdentifierOwnerLengthBytes == 0 {
-		configProto.MaxIdentifierOwnerLengthBytes = defaultMaxIdentifierOwnerLengthBytes
+	maxIdentifierKeyLengthBytesLimiter, err := r.makeSizeLimiter(cresettings.Default.VaultIdentifierKeySizeLimit, configProto.MaxIdentifierKeyLengthBytes)
+	if err != nil {
+		return nil, ocr3_1types.ReportingPluginInfo1{}, fmt.Errorf("could not create default max identifier key length limiter: %w", err)
 	}
 
-	if configProto.MaxIdentifierNamespaceLengthBytes == 0 {
-		configProto.MaxIdentifierNamespaceLengthBytes = defaultMaxIdentifierNamespaceLengthBytes
+	maxIdentifierOwnerLengthBytesLimiter, err := r.makeSizeLimiter(cresettings.Default.VaultIdentifierOwnerSizeLimit, configProto.MaxIdentifierOwnerLengthBytes)
+	if err != nil {
+		return nil, ocr3_1types.ReportingPluginInfo1{}, fmt.Errorf("could not create default max identifier owner length limiter: %w", err)
+	}
+
+	maxIdentifierNamespaceLengthBytesLimiter, err := r.makeSizeLimiter(cresettings.Default.VaultIdentifierNamespaceSizeLimit, configProto.MaxIdentifierNamespaceLengthBytes)
+	if err != nil {
+		return nil, ocr3_1types.ReportingPluginInfo1{}, fmt.Errorf("could not create default max identifier namespace length limiter: %w", err)
 	}
 
 	if configProto.LimitsMaxQueryLength == 0 {
@@ -206,12 +238,12 @@ func (r *ReportingPluginFactory) NewReportingPlugin(ctx context.Context, config 
 	}
 
 	if configProto.DKGInstanceID == nil {
-		return nil, ocr3_1types.ReportingPluginInfo{}, errors.New("DKG instance ID cannot be nil")
+		return nil, ocr3_1types.ReportingPluginInfo1{}, errors.New("DKG instance ID cannot be nil")
 	}
 
 	publicKey, privateKeyShare, err := r.getKeyMaterial(ctx, *configProto.DKGInstanceID)
 	if err != nil {
-		return nil, ocr3_1types.ReportingPluginInfo{}, fmt.Errorf("could not get key material from DB: %w", err)
+		return nil, ocr3_1types.ReportingPluginInfo1{}, fmt.Errorf("could not get key material from DB: %w", err)
 	}
 
 	r.cfg.LazyPublicKey.Set(publicKey)
@@ -219,28 +251,32 @@ func (r *ReportingPluginFactory) NewReportingPlugin(ctx context.Context, config 
 	cfg := &ReportingPluginConfig{
 		PublicKey:                         publicKey,
 		PrivateKeyShare:                   privateKeyShare,
-		BatchSize:                         int(configProto.BatchSize),
-		MaxSecretsPerOwner:                int(configProto.MaxSecretsPerOwner),
-		MaxCiphertextLengthBytes:          int(configProto.MaxCiphertextLengthBytes),
-		MaxIdentifierKeyLengthBytes:       int(configProto.MaxIdentifierKeyLengthBytes),
-		MaxIdentifierOwnerLengthBytes:     int(configProto.MaxIdentifierOwnerLengthBytes),
-		MaxIdentifierNamespaceLengthBytes: int(configProto.MaxIdentifierNamespaceLengthBytes),
+		BatchSize:                         batchSize,
+		MaxSecretsPerOwner:                maxSecretsPerOwnerLimiter,
+		MaxCiphertextLengthBytes:          maxCiphertextLengthBytesLimiter,
+		MaxIdentifierKeyLengthBytes:       maxIdentifierKeyLengthBytesLimiter,
+		MaxIdentifierOwnerLengthBytes:     maxIdentifierOwnerLengthBytesLimiter,
+		MaxIdentifierNamespaceLengthBytes: maxIdentifierNamespaceLengthBytesLimiter,
 	}
+
 	return &ReportingPlugin{
 			lggr:       r.lggr.Named("VaultReportingPlugin"),
 			store:      r.store,
 			cfg:        cfg,
 			onchainCfg: config,
-		}, ocr3_1types.ReportingPluginInfo{
+		}, ocr3_1types.ReportingPluginInfo1{
 			Name: "VaultReportingPlugin",
 			Limits: ocr3_1types.ReportingPluginLimits{
-				MaxQueryLength:                          int(configProto.LimitsMaxQueryLength),
-				MaxObservationLength:                    int(configProto.LimitsMaxObservationLength),
-				MaxReportsPlusPrecursorLength:           int(configProto.LimitsMaxReportsPlusPrecursorLength),
-				MaxReportLength:                         int(configProto.LimitsMaxReportLength),
-				MaxReportCount:                          int(configProto.LimitsMaxReportCount),
-				MaxKeyValueModifiedKeysPlusValuesLength: int(configProto.LimitsMaxKeyValueModifiedKeysPlusValuesLength),
-				MaxBlobPayloadLength:                    int(configProto.LimitsMaxBlobPayloadLength),
+				MaxQueryBytes:                                   int(configProto.LimitsMaxQueryLength),
+				MaxObservationBytes:                             int(configProto.LimitsMaxObservationLength),
+				MaxReportsPlusPrecursorBytes:                    int(configProto.LimitsMaxReportsPlusPrecursorLength),
+				MaxReportBytes:                                  int(configProto.LimitsMaxReportLength),
+				MaxReportCount:                                  int(configProto.LimitsMaxReportCount),
+				MaxKeyValueModifiedKeysPlusValuesBytes:          int(configProto.LimitsMaxKeyValueModifiedKeysPlusValuesLength),
+				MaxKeyValueModifiedKeys:                         defaultLimitsMaxKeyValueModifiedKeys,
+				MaxBlobPayloadBytes:                             int(configProto.LimitsMaxBlobPayloadLength),
+				MaxPerOracleUnexpiredBlobCumulativePayloadBytes: defaultLimitsMaxPerOracleUnexpiredBlobCumulativePayloadBytes,
+				MaxPerOracleUnexpiredBlobCount:                  defaultLimitsMaxPerOracleUnexpiredBlobCount,
 			},
 		}, nil
 }
@@ -260,7 +296,7 @@ func (r *ReportingPlugin) Observation(ctx context.Context, seqNr uint64, aq type
 	// Note: this could mean that we end up processing more than `batchSize` requests
 	// in the aggregate, since all nodes will fetch `batchSize` requests and they aren't
 	// guaranteed to fetch the same requests.
-	batch, err := r.store.FirstN(r.cfg.BatchSize)
+	batch, err := r.store.FirstN(r.cfg.BatchSize.DefaultValue)
 	if err != nil {
 		return nil, fmt.Errorf("could not fetch batch of requests: %w", err)
 	}
@@ -345,7 +381,7 @@ func (r *ReportingPlugin) observeGetSecrets(ctx context.Context, reader ReadKVSt
 }
 
 func (r *ReportingPlugin) observeGetSecretsRequest(ctx context.Context, reader ReadKVStore, secretRequest *vaultcommon.SecretRequest) (*vaultcommon.SecretResponse, error) {
-	id, err := r.validateSecretIdentifier(secretRequest.Id)
+	id, err := r.validateSecretIdentifier(ctx, secretRequest.Id)
 	if err != nil {
 		return nil, err
 	}
@@ -466,8 +502,24 @@ func (r *ReportingPlugin) observeCreateSecrets(ctx context.Context, reader ReadK
 	}
 }
 
+func maybeGetLimit[N limits.Number](ctx context.Context, limiter limits.BoundLimiter[N]) string {
+	l, err := limiter.Limit(ctx)
+	if err != nil {
+		return "UNKNOWN"
+	}
+
+	switch tl := any(l).(type) {
+	case int:
+		return strconv.Itoa(tl)
+	case pkgconfig.Size:
+		return strconv.Itoa(int(tl))
+	}
+
+	return "UNKNOWN"
+}
+
 func (r *ReportingPlugin) observeCreateSecretRequest(ctx context.Context, reader ReadKVStore, secretRequest *vaultcommon.EncryptedSecret, requestsCountForID map[string]int) (*vaultcommon.SecretIdentifier, error) {
-	id, err := r.validateSecretIdentifier(secretRequest.Id)
+	id, err := r.validateSecretIdentifier(ctx, secretRequest.Id)
 	if err != nil {
 		return id, err
 	}
@@ -482,8 +534,9 @@ func (r *ReportingPlugin) observeCreateSecretRequest(ctx context.Context, reader
 		return id, newUserError("invalid hex encoding for ciphertext: " + err.Error())
 	}
 
-	if len(rawCiphertextB) > r.cfg.MaxCiphertextLengthBytes {
-		return id, newUserError(fmt.Sprintf("ciphertext size exceeds maximum allowed size: %d bytes", r.cfg.MaxCiphertextLengthBytes))
+	ctx = contexts.WithCRE(ctx, contexts.CRE{Owner: secretRequest.Id.Owner})
+	if r.cfg.MaxCiphertextLengthBytes.Check(ctx, pkgconfig.Size(len(rawCiphertextB))*pkgconfig.Byte) != nil {
+		return id, newUserError(fmt.Sprintf("ciphertext size exceeds maximum allowed size: %s bytes", maybeGetLimit(ctx, r.cfg.MaxCiphertextLengthBytes)))
 	}
 
 	ct := &tdh2easy.Ciphertext{}
@@ -685,7 +738,7 @@ func (r *ReportingPlugin) observeDeleteSecrets(ctx context.Context, reader ReadK
 }
 
 func (r *ReportingPlugin) observeDeleteSecretRequest(ctx context.Context, reader ReadKVStore, identifier *vaultcommon.SecretIdentifier, requestsCountForID map[string]int) (*vaultcommon.SecretIdentifier, error) {
-	id, err := r.validateSecretIdentifier(identifier)
+	id, err := r.validateSecretIdentifier(ctx, identifier)
 	if err != nil {
 		return id, err
 	}
@@ -706,7 +759,7 @@ func (r *ReportingPlugin) observeDeleteSecretRequest(ctx context.Context, reader
 	return id, nil
 }
 
-func (r *ReportingPlugin) validateSecretIdentifier(id *vaultcommon.SecretIdentifier) (*vaultcommon.SecretIdentifier, error) {
+func (r *ReportingPlugin) validateSecretIdentifier(ctx context.Context, id *vaultcommon.SecretIdentifier) (*vaultcommon.SecretIdentifier, error) {
 	if id == nil {
 		return nil, newUserError("invalid secret identifier: cannot be nil")
 	}
@@ -734,16 +787,17 @@ func (r *ReportingPlugin) validateSecretIdentifier(id *vaultcommon.SecretIdentif
 		Namespace: namespace,
 	}
 
-	if len(id.Owner) > r.cfg.MaxIdentifierOwnerLengthBytes {
-		return nil, newUserError(fmt.Sprintf("invalid secret identifier: owner exceeds maximum length of %d bytes", r.cfg.MaxIdentifierOwnerLengthBytes))
+	ctx = contexts.WithCRE(ctx, contexts.CRE{Owner: id.Owner})
+	if err := r.cfg.MaxIdentifierOwnerLengthBytes.Check(ctx, pkgconfig.Size(len(id.Owner))); err != nil {
+		return nil, newUserError(fmt.Sprintf("invalid secret identifier: owner exceeds maximum length of %s bytes", maybeGetLimit(ctx, r.cfg.MaxIdentifierOwnerLengthBytes)))
 	}
 
-	if len(id.Namespace) > r.cfg.MaxIdentifierNamespaceLengthBytes {
-		return nil, newUserError(fmt.Sprintf("invalid secret identifier: namespace exceeds maximum length of %d bytes", r.cfg.MaxIdentifierNamespaceLengthBytes))
+	if r.cfg.MaxIdentifierNamespaceLengthBytes.Check(ctx, pkgconfig.Size(len(id.Namespace))) != nil {
+		return nil, newUserError(fmt.Sprintf("invalid secret identifier: namespace exceeds maximum length of %s bytes", maybeGetLimit(ctx, r.cfg.MaxIdentifierNamespaceLengthBytes)))
 	}
 
-	if len(id.Key) > r.cfg.MaxIdentifierKeyLengthBytes {
-		return nil, newUserError(fmt.Sprintf("invalid secret identifier: key exceeds maximum length of %d bytes", r.cfg.MaxIdentifierKeyLengthBytes))
+	if r.cfg.MaxIdentifierKeyLengthBytes.Check(ctx, pkgconfig.Size(len(id.Key))) != nil {
+		return nil, newUserError(fmt.Sprintf("invalid secret identifier: key exceeds maximum length of %s bytes", maybeGetLimit(ctx, r.cfg.MaxIdentifierKeyLengthBytes)))
 	}
 	return newID, nil
 }
@@ -908,6 +962,7 @@ func (r *ReportingPlugin) StateTransition(ctx context.Context, seqNr uint64, aq 
 	store := NewWriteStore(keyValueReadWriter)
 
 	obsMap := map[string][]*vaultcommon.Observation{}
+	oidsToReqIDs := map[uint8][]string{}
 	for _, ao := range aos {
 		obs := &vaultcommon.Observations{}
 		if err := proto.Unmarshal([]byte(ao.Observation), obs); err != nil {
@@ -921,13 +976,22 @@ func (r *ReportingPlugin) StateTransition(ctx context.Context, seqNr uint64, aq 
 				obsMap[o.Id] = []*vaultcommon.Observation{}
 			}
 			obsMap[o.Id] = append(obsMap[o.Id], o)
+
+			if _, ok := oidsToReqIDs[uint8(ao.Observer)]; !ok {
+				oidsToReqIDs[uint8(ao.Observer)] = []string{}
+			}
+			oidsToReqIDs[uint8(ao.Observer)] = append(oidsToReqIDs[uint8(ao.Observer)], o.Id)
 		}
 	}
+
+	r.lggr.Debugw("stateTransition started", "oracleIDsToRequestIDs", oidsToReqIDs)
 
 	os := &vaultcommon.Outcomes{
 		Outcomes: []*vaultcommon.Outcome{},
 	}
-	for id, obs := range obsMap {
+
+	for _, id := range slices.Sorted(maps.Keys(obsMap)) {
+		obs := obsMap[id]
 		// For each observation we've received for a given Id,
 		// we'll sha it and store it in `shaToObs`.
 		// This means that each entry in `shaToObs` will contain a list of all
@@ -957,7 +1021,7 @@ func (r *ReportingPlugin) StateTransition(ctx context.Context, seqNr uint64, aq 
 		}
 
 		if len(chosen) == 0 {
-			r.lggr.Warnw("insufficient observations found for id", "id", id, "threshold", threshold)
+			r.lggr.Warnw("insufficient observations found for id", "id", id, "threshold", threshold, "shaToObs", shaToObs)
 			continue
 		}
 
@@ -1181,8 +1245,9 @@ func (r *ReportingPlugin) stateTransitionCreateSecretsRequest(ctx context.Contex
 		return nil, fmt.Errorf("failed to read secret identifiers count for owner: %w", err)
 	}
 
-	if count+1 > r.cfg.MaxSecretsPerOwner {
-		return nil, newUserError(fmt.Sprintf("could not write to key value store: owner %s has reached maximum number of secrets (%d)", req.Id.Owner, r.cfg.MaxSecretsPerOwner))
+	ctx = contexts.WithCRE(ctx, contexts.CRE{Owner: req.Id.Owner})
+	if r.cfg.MaxSecretsPerOwner.Check(ctx, count+1) != nil {
+		return nil, newUserError(fmt.Sprintf("could not write to key value store: owner %s has reached maximum number of secrets (limit=%s)", req.Id.Owner, maybeGetLimit(ctx, r.cfg.MaxSecretsPerOwner)))
 	}
 
 	err = store.WriteSecret(req.Id, &vaultcommon.StoredSecret{

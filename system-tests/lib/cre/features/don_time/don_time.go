@@ -3,18 +3,17 @@ package dontime
 import (
 	"context"
 	"fmt"
+	"strconv"
 
-	"github.com/ethereum/go-ethereum/common"
-	"github.com/google/uuid"
+	"dario.cat/mergo"
 	"github.com/pkg/errors"
 	"github.com/rs/zerolog"
 
-	chainselectors "github.com/smartcontractkit/chain-selectors"
-
-	jobv1 "github.com/smartcontractkit/chainlink-protos/job-distributor/v1/job"
-
-	"github.com/smartcontractkit/chainlink-deployments-framework/offchain/jd"
 	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
+	cre_jobs "github.com/smartcontractkit/chainlink/deployment/cre/jobs"
+	cre_jobs_ops "github.com/smartcontractkit/chainlink/deployment/cre/jobs/operations"
+	job_types "github.com/smartcontractkit/chainlink/deployment/cre/jobs/types"
+	"github.com/smartcontractkit/chainlink/deployment/cre/pkg/offchain"
 	ks_contracts_op "github.com/smartcontractkit/chainlink/deployment/keystone/changeset/operations/contracts"
 
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre"
@@ -42,7 +41,7 @@ func (o *DONTime) PreEnvStartup(
 }
 
 const (
-	ContractQualifier = "capability_dontime"
+	ContractQualifier = "dontime"
 )
 
 func (o *DONTime) PostEnvStartup(
@@ -57,15 +56,9 @@ func (o *DONTime) PostEnvStartup(
 		return fmt.Errorf("failed to deploy DONTime contract %w", timeErr)
 	}
 
-	chainID, chErr := chainselectors.ChainIdFromSelector(creEnv.RegistryChainSelector)
-	if chErr != nil {
-		return errors.Wrapf(chErr, "failed to get chain ID from chain selector %d", creEnv.RegistryChainSelector)
-	}
 	jobErr := createJobs(
 		ctx,
-		chainID,
-		donTimeContractAddr,
-		creEnv.CldfEnvironment.Offchain.(*jd.JobDistributor),
+		creEnv,
 		don,
 		dons,
 	)
@@ -101,20 +94,15 @@ func (o *DONTime) PostEnvStartup(
 
 func createJobs(
 	ctx context.Context,
-	chainID uint64,
-	donTimeAddress *common.Address,
-	jdClient *jd.JobDistributor,
-	donTimeDON *cre.Don,
+	creEnv *cre.Environment,
+	don *cre.Don,
 	dons *cre.Dons,
 ) error {
+	specs := make(map[string][]string)
+
 	bootstrap, isBootstrap := dons.Bootstrap()
 	if !isBootstrap {
 		return errors.New("could not find bootstrap node in topology, exactly one bootstrap node is required")
-	}
-
-	workerNodes, wErr := donTimeDON.Workers()
-	if wErr != nil {
-		return errors.Wrap(wErr, "failed to find worker nodes")
 	}
 
 	_, ocrPeeringCfg, err := cre.PeeringCfgs(bootstrap)
@@ -122,69 +110,49 @@ func createJobs(
 		return errors.Wrap(err, "failed to get peering configs")
 	}
 
-	jobSpecs := []*jobv1.ProposeJobRequest{}
-	for _, workerNode := range workerNodes {
-		evmKey, ok := workerNode.Keys.EVM[chainID]
-		if !ok {
-			return fmt.Errorf("failed to get EVM key (chainID %d, node index %d)", chainID, workerNode.Index)
-		}
-
-		// we need the OCR2 key bundle for the EVM chain, because OCR jobs currently run only on EVM chains
-		evmOCR2KeyBundle, ok := workerNode.Keys.OCR2BundleIDs[chainselectors.FamilyEVM]
-		if !ok {
-			return fmt.Errorf("node %s does not have OCR2 key bundle for evm", workerNode.Name)
-		}
-
-		// we pass here bundles for all chains to enable multi-chain signing
-		jobSpecs = append(jobSpecs, WorkerJobSpec(workerNode.JobDistributorDetails.NodeID, donTimeAddress.Hex(), evmKey.PublicAddress.Hex(), evmOCR2KeyBundle, ocrPeeringCfg, chainID))
+	workerInput := cre_jobs.ProposeJobSpecInput{
+		Domain:      offchain.ProductLabel,
+		Environment: cre.EnvironmentName,
+		DONName:     don.Name,
+		JobName:     "don-time-worker",
+		ExtraLabels: map[string]string{cre.CapabilityLabelKey: flag},
+		DONFilters: []offchain.TargetDONFilter{
+			{Key: offchain.FilterKeyDONName, Value: don.Name},
+		},
+		Template: job_types.OCR3,
+		Inputs: job_types.JobSpecInput{
+			"chainSelectorEVM":     creEnv.RegistryChainSelector,
+			"contractQualifier":    ContractQualifier,
+			"templateName":         "don-time",
+			"bootstrapperOCR3Urls": []string{ocrPeeringCfg.OCRBootstraperPeerID + "@" + ocrPeeringCfg.OCRBootstraperHost + ":" + strconv.Itoa(ocrPeeringCfg.Port)},
+		},
 	}
 
-	// pass whole topology, since some jobs might need to be created on multiple DONs
-	return jobs.Create(ctx, jdClient, dons, jobSpecs)
-}
-
-func WorkerJobSpec(nodeID string, ocr3CapabilityAddress, nodeEthAddress, ocr2KeyBundleID string, ocrPeeringData cre.OCRPeeringData, chainID uint64) *jobv1.ProposeJobRequest {
-	uuid := uuid.NewString()
-	return &jobv1.ProposeJobRequest{
-		NodeId: nodeID,
-		Spec: fmt.Sprintf(`
-	type = "offchainreporting2"
-	schemaVersion = 1
-	externalJobID = "%s"
-	name = "dontime"
-	forwardingAllowed = false
-	maxTaskDuration = "0s"
-	contractID = "%s"
-	relay = "evm"
-	pluginType = "dontime"
-	ocrKeyBundleID = "%s"
-	p2pv2Bootstrappers = [
-		"%s@%s",
-	]
-	transmitterID = "%s"
-
-	[relayConfig]
-	chainID = "%d"
-	providerType = "dontime"
-
-	[pluginConfig]
-	pluginName = "dontime"
-	ocrVersion = 3
-	telemetryType = "plugin"
-
-	[onchainSigningStrategy]
-	strategyName = 'multi-chain'
-	[onchainSigningStrategy.config]
-	evm = "%s"
-`,
-			uuid,
-			ocr3CapabilityAddress, // re-use OCR3Capability contract
-			ocr2KeyBundleID,
-			ocrPeeringData.OCRBootstraperPeerID,
-			fmt.Sprintf("%s:%d", ocrPeeringData.OCRBootstraperHost, ocrPeeringData.Port),
-			nodeEthAddress, // transmitterID (although this shouldn't be used for this plugin?)
-			chainID,
-			ocr2KeyBundleID,
-		),
+	workerVerErr := cre_jobs.ProposeJobSpec{}.VerifyPreconditions(*creEnv.CldfEnvironment, workerInput)
+	if workerVerErr != nil {
+		return fmt.Errorf("precondition verification failed for Don Time worker job: %w", workerVerErr)
 	}
+
+	workerReport, workerErr := cre_jobs.ProposeJobSpec{}.Apply(*creEnv.CldfEnvironment, workerInput)
+	if workerErr != nil {
+		return fmt.Errorf("failed to propose Don Time worker job spec: %w", workerErr)
+	}
+
+	for _, r := range workerReport.Reports {
+		out, ok := r.Output.(cre_jobs_ops.ProposeOCR3JobOutput)
+		if !ok {
+			return fmt.Errorf("unable to cast to ProposeOCR3JobOutput, actual type: %T", r.Output)
+		}
+		mErr := mergo.Merge(&specs, out.Specs, mergo.WithAppendSlice)
+		if mErr != nil {
+			return fmt.Errorf("failed to merge worker job specs: %w", mErr)
+		}
+	}
+
+	approveErr := jobs.Approve(ctx, creEnv.CldfEnvironment.Offchain, dons, specs)
+	if approveErr != nil {
+		return fmt.Errorf("failed to approve Don Time jobs: %w", approveErr)
+	}
+
+	return nil
 }

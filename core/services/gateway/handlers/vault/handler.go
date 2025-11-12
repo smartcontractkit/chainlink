@@ -25,6 +25,8 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/ratelimit"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
+	"github.com/smartcontractkit/chainlink-common/pkg/settings/cresettings"
+	"github.com/smartcontractkit/chainlink-common/pkg/settings/limits"
 	vaultcap "github.com/smartcontractkit/chainlink/v2/core/capabilities/vault"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/vault/vaulttypes"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/api"
@@ -94,11 +96,25 @@ func (ar *activeRequest) addResponseForNode(nodeAddr string, resp *jsonrpc.Respo
 	return true
 }
 
-func (ar *activeRequest) copiedResponses() map[string]*jsonrpc.Response[json.RawMessage] {
+func (ar *activeRequest) copiedResponses() map[string]jsonrpc.Response[json.RawMessage] {
 	ar.mu.Lock()
 	defer ar.mu.Unlock()
-	copied := make(map[string]*jsonrpc.Response[json.RawMessage], len(ar.responses))
-	maps.Copy(copied, ar.responses)
+	copied := make(map[string]jsonrpc.Response[json.RawMessage], len(ar.responses))
+	for k, response := range ar.responses {
+		var copiedResponse jsonrpc.Response[json.RawMessage]
+		if response != nil {
+			copiedResponse = *response
+			if response.Result != nil {
+				copiedResult := *response.Result
+				copiedResponse.Result = &copiedResult
+			}
+			if response.Error != nil {
+				copiedError := *response.Error
+				copiedResponse.Error = &copiedError
+			}
+		}
+		copied[k] = copiedResponse
+	}
 	return copied
 }
 
@@ -107,7 +123,7 @@ type capabilitiesRegistry interface {
 }
 
 type aggregator interface {
-	Aggregate(ctx context.Context, l logger.Logger, resps map[string]*jsonrpc.Response[json.RawMessage], currResp *jsonrpc.Response[json.RawMessage]) (*jsonrpc.Response[json.RawMessage], error)
+	Aggregate(ctx context.Context, l logger.Logger, resps map[string]jsonrpc.Response[json.RawMessage], currResp *jsonrpc.Response[json.RawMessage]) (*jsonrpc.Response[json.RawMessage], error)
 }
 
 type handler struct {
@@ -120,6 +136,7 @@ type handler struct {
 	mu                sync.RWMutex
 	stopCh            services.StopChan
 	requestAuthorizer vaultcap.RequestAuthorizer
+	*vaultcap.RequestValidator
 
 	nodeRateLimiter *ratelimit.RateLimiter
 	requestTimeout  time.Duration
@@ -154,7 +171,7 @@ type Config struct {
 	RequestTimeoutSec int                         `json:"requestTimeoutSec"`
 }
 
-func NewHandler(methodConfig json.RawMessage, donConfig *config.DONConfig, don gwhandlers.DON, capabilitiesRegistry capabilitiesRegistry, requestAuthorizer vaultcap.RequestAuthorizer, lggr logger.Logger, clock clockwork.Clock) (*handler, error) {
+func NewHandler(methodConfig json.RawMessage, donConfig *config.DONConfig, don gwhandlers.DON, capabilitiesRegistry capabilitiesRegistry, requestAuthorizer vaultcap.RequestAuthorizer, lggr logger.Logger, clock clockwork.Clock, limitsFactory limits.Factory) (*handler, error) {
 	var cfg Config
 	if err := json.Unmarshal(methodConfig, &cfg); err != nil {
 		return nil, fmt.Errorf("failed to unmarshal method config: %w", err)
@@ -174,6 +191,11 @@ func NewHandler(methodConfig json.RawMessage, donConfig *config.DONConfig, don g
 		return nil, fmt.Errorf("failed to create metrics: %w", err)
 	}
 
+	limiter, err := limits.MakeBoundLimiter(limitsFactory, cresettings.Default.VaultRequestBatchSizeLimit)
+	if err != nil {
+		return nil, fmt.Errorf("could not create request batch size limiter: %w", err)
+	}
+
 	return &handler{
 		methodConfig:      cfg,
 		donConfig:         donConfig,
@@ -188,6 +210,7 @@ func NewHandler(methodConfig json.RawMessage, donConfig *config.DONConfig, don g
 		metrics:           metrics,
 		aggregator:        &baseAggregator{capabilitiesRegistry: capabilitiesRegistry},
 		clock:             clock,
+		RequestValidator:  vaultcap.NewRequestValidator(limiter),
 	}, nil
 }
 
@@ -399,7 +422,8 @@ func (h *handler) HandleNodeMessage(ctx context.Context, resp *jsonrpc.Response[
 		return nil
 	}
 
-	resp, err := h.aggregator.Aggregate(ctx, l, ar.copiedResponses(), resp)
+	copiedResponses := ar.copiedResponses()
+	resp, err := h.aggregator.Aggregate(ctx, l, copiedResponses, resp)
 	switch {
 	case errors.Is(err, errInsufficientResponsesForQuorum):
 		l.Debugw("aggregating responses, waiting for other nodes...", "error", err)
@@ -497,7 +521,7 @@ func (h *handler) handleSecretsCreate(ctx context.Context, ar *activeRequest) er
 		}
 	}
 	_, cachedPublicKey, _ := h.getCachedPublicKey()
-	err := vaultcap.ValidateCreateSecretsRequest(cachedPublicKey, createSecretsRequest)
+	err := h.ValidateCreateSecretsRequest(cachedPublicKey, createSecretsRequest)
 	if err != nil {
 		l.Warnw("failed to validate create secrets request", "error", err)
 		return h.sendResponse(ctx, ar, h.errorResponse(ar.req, api.InvalidParamsError, fmt.Errorf("failed to validate create secrets request: %w", err), nil))
@@ -529,7 +553,7 @@ func (h *handler) handleSecretsUpdate(ctx context.Context, ar *activeRequest) er
 		}
 	}
 	_, cachedPublicKey, _ := h.getCachedPublicKey()
-	vaultCapErr := vaultcap.ValidateUpdateSecretsRequest(cachedPublicKey, updateSecretsRequest)
+	vaultCapErr := h.ValidateUpdateSecretsRequest(cachedPublicKey, updateSecretsRequest)
 	if vaultCapErr != nil {
 		l.Warnw("failed to validate update secrets request", "error", vaultCapErr)
 		return h.sendResponse(ctx, ar, h.errorResponse(ar.req, api.InvalidParamsError, fmt.Errorf("failed to validate update secrets request: %w", vaultCapErr), nil))
@@ -559,7 +583,7 @@ func (h *handler) handleSecretsDelete(ctx context.Context, ar *activeRequest) er
 			id.Namespace = vaulttypes.DefaultNamespace
 		}
 	}
-	err := vaultcap.ValidateDeleteSecretsRequest(deleteSecretsRequest)
+	err := h.ValidateDeleteSecretsRequest(deleteSecretsRequest)
 	if err != nil {
 		l.Warnw("failed to validate delete secrets request", "error", err)
 		return h.sendResponse(ctx, ar, h.errorResponse(ar.req, api.InvalidParamsError, fmt.Errorf("failed to validate delete secrets request: %w", err), nil))
@@ -587,7 +611,7 @@ func (h *handler) handleSecretsGet(ctx context.Context, ar *activeRequest) error
 			getRequest.Id.Namespace = vaulttypes.DefaultNamespace
 		}
 	}
-	err := vaultcap.ValidateGetSecretsRequest(secretsGetRequest)
+	err := h.ValidateGetSecretsRequest(secretsGetRequest)
 	if err != nil {
 		l.Warnw("failed to validate get secrets request", "error", err)
 		return h.sendResponse(ctx, ar, h.errorResponse(ar.req, api.InvalidParamsError, fmt.Errorf("failed to validate get secrets request: %w", err), nil))
@@ -608,7 +632,7 @@ func (h *handler) handleSecretsList(ctx context.Context, ar *activeRequest) erro
 	if req.Namespace == "" {
 		req.Namespace = vaulttypes.DefaultNamespace
 	}
-	err := vaultcap.ValidateListSecretIdentifiersRequest(req)
+	err := h.ValidateListSecretIdentifiersRequest(req)
 	if err != nil {
 		l.Warnw("failed to validate list secret identifiers request", "error", err)
 		return h.sendResponse(ctx, ar, h.errorResponse(ar.req, api.InvalidParamsError, fmt.Errorf("failed to validate list secret identifiers request: %w", err), nil))

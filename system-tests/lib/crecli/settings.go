@@ -7,17 +7,19 @@ package crecli
 import (
 	"os"
 
+	"github.com/Masterminds/semver/v3"
 	"github.com/google/uuid"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/pkg/errors"
 	"gopkg.in/yaml.v3"
 
-	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
 
 	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/s3provider"
 	df_changeset "github.com/smartcontractkit/chainlink/deployment/data-feeds/changeset"
 	keystone_changeset "github.com/smartcontractkit/chainlink/deployment/keystone/changeset"
+	"github.com/smartcontractkit/chainlink/system-tests/lib/cre"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/contracts"
 )
 
@@ -118,9 +120,10 @@ func setProfile(profile string, settings Settings) (Profiles, error) {
 func PrepareCRECLISettingsFile(
 	profile string,
 	workflowOwner common.Address,
-	addressBook cldf.AddressBook,
+	datastore datastore.DataStore,
+	contractVersions map[cre.ContractType]*semver.Version,
 	donID uint64,
-	homeChainSelector uint64,
+	registryChainSelector uint64,
 	rpcs map[uint64]string,
 	s3ProviderOutput *s3provider.Output,
 ) (*os.File, error) {
@@ -129,15 +132,8 @@ func PrepareCRECLISettingsFile(
 		return nil, errors.Wrap(err, "failed to create CRE CLI settings file")
 	}
 
-	capRegAddr, _, capRegErr := contracts.FindAddressesForChain(addressBook, homeChainSelector, keystone_changeset.CapabilitiesRegistry.String())
-	if capRegErr != nil {
-		return nil, errors.Wrapf(capRegErr, "failed to get capabilities registry address for chain %d", homeChainSelector)
-	}
-
-	workflowRegistryAddr, _, workflowRegistryErr := contracts.FindAddressesForChain(addressBook, homeChainSelector, keystone_changeset.WorkflowRegistry.String())
-	if workflowRegistryErr != nil {
-		return nil, errors.Wrapf(workflowRegistryErr, "failed to get workflow registry address for chain %d", homeChainSelector)
-	}
+	capabilitiesRegistryAddress := contracts.MustGetAddressFromDataStore(datastore, registryChainSelector, keystone_changeset.CapabilitiesRegistry.String(), contractVersions[keystone_changeset.CapabilitiesRegistry.String()], "")
+	workflowRegistryAddress := contracts.MustGetAddressFromDataStore(datastore, registryChainSelector, keystone_changeset.WorkflowRegistry.String(), contractVersions[keystone_changeset.WorkflowRegistry.String()], "")
 
 	profileSettings := Settings{
 		DevPlatform: DevPlatform{
@@ -154,13 +150,13 @@ func PrepareCRECLISettingsFile(
 			ContractRegistry: []ContractRegistry{
 				{
 					Name:          keystone_changeset.CapabilitiesRegistry.String(),
-					Address:       capRegAddr.Hex(),
-					ChainSelector: homeChainSelector,
+					Address:       capabilitiesRegistryAddress,
+					ChainSelector: registryChainSelector,
 				},
 				{
 					Name:          keystone_changeset.WorkflowRegistry.String(),
-					Address:       workflowRegistryAddr.Hex(),
-					ChainSelector: homeChainSelector,
+					Address:       workflowRegistryAddress,
+					ChainSelector: registryChainSelector,
 				},
 			},
 		},
@@ -187,32 +183,29 @@ func PrepareCRECLISettingsFile(
 			URL:           rpc,
 		})
 	}
-
-	addresses, addrErr := addressBook.Addresses()
-	if addrErr != nil {
-		return nil, errors.Wrap(addrErr, "failed to get address book addresses")
+	chainMetadata, cErr := datastore.ChainMetadata().Fetch()
+	if cErr != nil {
+		return nil, errors.Wrap(cErr, "failed to get chain metadata from datastore")
 	}
 
-	for chainSelector := range addresses {
-		dfAddr, _, dfErr := contracts.FindAddressesForChain(addressBook, chainSelector, df_changeset.DataFeedsCache.String())
-		if dfErr == nil {
-			profileSettings.Contracts.DataFeeds = append(profileSettings.Contracts.DataFeeds, ContractRegistry{
-				Name:          df_changeset.DataFeedsCache.String(),
-				Address:       dfAddr.Hex(),
-				ChainSelector: chainSelector,
-			})
+	for _, chain := range chainMetadata {
+		dfAddr := contracts.MightGetAddressFromDataStore(datastore, chain.ChainSelector, "DataFeedsCache", semver.MustParse("1.0.0"), "")
+		if dfAddr == nil {
+			// not every chain has data feeds cache deployed
+			continue
 		}
-		// it is okay if there's no data feeds cache address for a chain
+		profileSettings.Contracts.DataFeeds = append(profileSettings.Contracts.DataFeeds, ContractRegistry{
+			Name:          df_changeset.DataFeedsCache.String(),
+			Address:       dfAddr.Hex(),
+			ChainSelector: chain.ChainSelector,
+		})
 
-		forwaderAddr, _, forwaderErr := contracts.FindAddressesForChain(addressBook, chainSelector, string(keystone_changeset.KeystoneForwarder))
-		if forwaderErr == nil {
-			profileSettings.Contracts.Keystone = append(profileSettings.Contracts.Keystone, ContractRegistry{
-				Name:          keystone_changeset.KeystoneForwarder.String(),
-				Address:       forwaderAddr.Hex(),
-				ChainSelector: chainSelector,
-			})
-		}
-		// it is okay if there's no keystone forwarder address for a chain
+		forwaderAddr := contracts.MustGetAddressFromDataStore(datastore, chain.ChainSelector, keystone_changeset.KeystoneForwarder.String(), contractVersions[keystone_changeset.KeystoneForwarder.String()], "")
+		profileSettings.Contracts.Keystone = append(profileSettings.Contracts.Keystone, ContractRegistry{
+			Name:          keystone_changeset.KeystoneForwarder.String(),
+			Address:       forwaderAddr,
+			ChainSelector: chain.ChainSelector,
+		})
 	}
 
 	settings, settingsErr := setProfile(profile, profileSettings)

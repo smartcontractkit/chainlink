@@ -236,17 +236,28 @@ func AddTokenPoolAndLookupTable(e cldf.Environment, cfg AddTokenPoolAndLookupTab
 		poolConfigPDA, _ := solTokenUtil.TokenPoolConfigAddress(tokenPubKey, tokenPool)
 		poolSigner, _ := solTokenUtil.TokenPoolSignerAddress(tokenPubKey, tokenPool)
 
+		var instructions []solana.Instruction
+
 		// ata for token pool
-		createI, tokenPoolATA, err := solTokenUtil.CreateAssociatedTokenAccount(
-			tokenprogramID,
-			tokenPubKey,
-			poolSigner,
-			chain.DeployerKey.PublicKey(),
-		)
+		tokenPoolATA, _, err := solTokenUtil.FindAssociatedTokenAddress(tokenprogramID, tokenPubKey, poolSigner)
 		if err != nil {
-			return cldf.ChangesetOutput{}, fmt.Errorf("failed to create associated token account for tokenpool (mint: %s, pool: %s): %w", tokenPubKey.String(), tokenPool.String(), err)
+			return cldf.ChangesetOutput{}, err
 		}
-		instructions := []solana.Instruction{createI}
+
+		// Check if the ATA is already initialized
+		_, err = chain.Client.GetAccountInfo(context.Background(), tokenPoolATA)
+		if err != nil { // it means that the ATA does not exist
+			createI, _, err := solTokenUtil.CreateAssociatedTokenAccount(
+				tokenprogramID,
+				tokenPubKey,
+				poolSigner,
+				chain.DeployerKey.PublicKey(),
+			)
+			if err != nil {
+				return cldf.ChangesetOutput{}, fmt.Errorf("failed to create the instruction to create associated token account for tokenpool (mint: %s, pool: %s): %w", tokenPubKey.String(), tokenPool.String(), err)
+			}
+			instructions = append(instructions, createI)
+		}
 
 		var configPDA solana.PublicKey
 		// Global Configuration
@@ -354,10 +365,12 @@ func AddTokenPoolAndLookupTable(e cldf.Environment, cfg AddTokenPoolAndLookupTab
 		}
 
 		// confirm instructions
-		if err := chain.Confirm(instructions); err != nil {
-			return cldf.ChangesetOutput{}, fmt.Errorf("failed to confirm instructions: %w", err)
+		if len(instructions) > 0 {
+			if err := chain.Confirm(instructions); err != nil {
+				return cldf.ChangesetOutput{}, fmt.Errorf("failed to confirm instructions: %w", err)
+			}
+			e.Logger.Infow("Created new token pool config", "token_pool_ata", tokenPoolATA.String(), "pool_config", poolConfigPDA.String(), "pool_signer", poolSigner.String())
 		}
-		e.Logger.Infow("Created new token pool config", "token_pool_ata", tokenPoolATA.String(), "pool_config", poolConfigPDA.String(), "pool_signer", poolSigner.String())
 
 		// add token pool lookup table
 		csOutput, err := AddTokenPoolLookupTable(e, TokenPoolLookupTableConfig{
@@ -383,14 +396,25 @@ func AddTokenPoolAndLookupTable(e cldf.Environment, cfg AddTokenPoolAndLookupTab
 		if err != nil {
 			return cldf.ChangesetOutput{}, fmt.Errorf("failed to build proposal: %w", err)
 		}
+		ds, err := shared.PopulateDataStore(addressBook)
+		if err != nil {
+			return cldf.ChangesetOutput{}, fmt.Errorf("failed to populate in-memory DataStore: %w", err)
+		}
 		return cldf.ChangesetOutput{
 			AddressBook:           addressBook,
+			DataStore:             ds,
 			MCMSTimelockProposals: []mcms.TimelockProposal{*proposal},
 		}, nil
 	}
 
+	ds, err := shared.PopulateDataStore(addressBook)
+	if err != nil {
+		return cldf.ChangesetOutput{}, fmt.Errorf("failed to populate in-memory DataStore: %w", err)
+	}
+
 	return cldf.ChangesetOutput{
 		AddressBook: addressBook,
+		DataStore:   ds,
 	}, nil
 }
 
@@ -1730,8 +1754,14 @@ func AddTokenPoolLookupTable(e cldf.Environment, cfg TokenPoolLookupTableConfig)
 	}
 	e.Logger.Infow("Added token pool lookup table", "token_pubkey", tokenPubKey.String())
 
+	ds, err := shared.PopulateDataStore(newAddressBook)
+	if err != nil {
+		return cldf.ChangesetOutput{}, fmt.Errorf("failed to populate in-memory DataStore: %w", err)
+	}
+
 	return cldf.ChangesetOutput{
 		AddressBook: newAddressBook,
+		DataStore:   ds,
 	}, nil
 }
 
@@ -2629,7 +2659,7 @@ func (cfg ExtendTokenPoolLookupTableConfig) Validate(e cldf.Environment, chainSt
 	}
 
 	if cfg.TokenPubKey.IsZero() {
-		return errors.New("required field 'TokenPubKey' is empty or the zero address")
+		return errors.New("required field 'TokenMint' is empty or the zero address")
 	}
 
 	if cfg.PoolType == "" {

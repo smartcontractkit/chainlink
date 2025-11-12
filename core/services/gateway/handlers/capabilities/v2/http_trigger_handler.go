@@ -45,6 +45,7 @@ type savedCallback struct {
 	requestStartTime   time.Time
 	createdAt          time.Time
 	responseAggregator *aggregation.IdenticalNodeResponseAggregator
+	doneCh             chan struct{} // closed when callback is responded to. signals sendWithRetries to stop retrying
 }
 
 type httpTriggerHandler struct {
@@ -111,15 +112,16 @@ func (h *httpTriggerHandler) HandleUserTriggerRequest(ctx context.Context, req *
 
 	reqWithKey, err := reqWithAuthorizedKey(triggerReq, *key)
 	if err != nil {
-		h.handleUserError(ctx, req.ID, jsonrpc.ErrInvalidRequest, "Auth failure", callback)
-		return errors.Join(errors.New("auth failure"), err)
+		h.handleUserError(ctx, req.ID, jsonrpc.ErrInternal, internalErrorMessage, callback)
+		return errors.New("error marshaling trigger request: " + err.Error())
 	}
 
-	if err := h.setupCallback(ctx, req.ID, callback, requestStartTime); err != nil {
+	doneCh, err := h.setupCallback(ctx, req.ID, callback, requestStartTime)
+	if err != nil {
 		return err
 	}
 
-	return h.sendWithRetries(ctx, executionID, reqWithKey)
+	return h.sendWithRetries(ctx, executionID, reqWithKey, doneCh)
 }
 
 func (h *httpTriggerHandler) validatedTriggerRequest(ctx context.Context, req *jsonrpc.Request[json.RawMessage], callback handlers.Callback) (*jsonrpc.Request[gateway_common.HTTPTriggerRequest], error) {
@@ -365,7 +367,7 @@ func (h *httpTriggerHandler) checkRateLimit(ctx context.Context, workflowID, req
 			switch errLimited.Scope {
 			case settings.ScopeWorkflow:
 				lggr.Errorf("failed to start execution: per workflow rate limit exceeded")
-				h.metrics.Trigger.IncrementWorkflowThrottled(ctx, h.lggr)
+				h.metrics.IncrementWorkflowThrottled(ctx, h.lggr)
 			default:
 				lggr.Errorf("failed to start execution: unexpected rate limit for scope %s", errLimited.Scope)
 			}
@@ -376,29 +378,42 @@ func (h *httpTriggerHandler) checkRateLimit(ctx context.Context, workflowID, req
 	return nil
 }
 
-func (h *httpTriggerHandler) setupCallback(ctx context.Context, requestID string, callback handlers.Callback, requestStartTime time.Time) error {
+func (h *httpTriggerHandler) setupCallback(ctx context.Context, requestID string, callback handlers.Callback, requestStartTime time.Time) (<-chan struct{}, error) {
 	h.callbacksMu.Lock()
 	defer h.callbacksMu.Unlock()
 
 	if _, found := h.callbacks[requestID]; found {
 		h.handleUserError(ctx, requestID, jsonrpc.ErrConflict, fmt.Sprintf("requestID: %s has already been used. Ensure the requestID is unique for each request.", requestID), callback)
-		return fmt.Errorf("in-flight request ID: %s", requestID)
+		return nil, fmt.Errorf("in-flight request ID: %s", requestID)
 	}
 
 	// (N+F)//2 + 1 threshold where N = number of nodes, F = number of faulty nodes
 	threshold := (len(h.donConfig.Members)+h.donConfig.F)/2 + 1
 	agg, err := aggregation.NewIdenticalNodeResponseAggregator(threshold)
 	if err != nil {
-		return errors.New("failed to create response aggregator: " + err.Error())
+		return nil, errors.New("failed to create response aggregator: " + err.Error())
 	}
 
+	doneCh := make(chan struct{})
 	h.callbacks[requestID] = savedCallback{
 		Callback:           callback,
 		requestStartTime:   requestStartTime,
 		createdAt:          time.Now(),
 		responseAggregator: agg,
+		doneCh:             doneCh,
 	}
-	return nil
+	return doneCh, nil
+}
+
+// cleanupCallback removes a callback and signals sendWithRetries to stop.
+// Must be called while holding callbacksMu lock.
+func (h *httpTriggerHandler) cleanupCallback(requestID string) {
+	saved, exists := h.callbacks[requestID]
+	if !exists {
+		return
+	}
+	close(saved.doneCh)
+	delete(h.callbacks, requestID)
 }
 
 func (h *httpTriggerHandler) HandleNodeTriggerResponse(ctx context.Context, resp *jsonrpc.Response[json.RawMessage], nodeAddr string) error {
@@ -429,9 +444,12 @@ func (h *httpTriggerHandler) HandleNodeTriggerResponse(ctx context.Context, resp
 	if err != nil {
 		return err
 	}
-	delete(h.callbacks, resp.ID)
+
+	// Only after successfully sending the response, clean up the callback
+	h.cleanupCallback(resp.ID)
 	latencyMs := time.Since(saved.requestStartTime).Milliseconds()
-	h.metrics.Trigger.RecordRequestHandlerLatency(ctx, latencyMs, h.lggr)
+	h.metrics.RecordRequestHandlerLatency(ctx, latencyMs, h.lggr)
+	h.metrics.IncrementRequestSuccess(ctx, h.lggr)
 	return nil
 }
 
@@ -472,17 +490,17 @@ func (h *httpTriggerHandler) reapExpiredCallbacks(ctx context.Context) {
 	now := time.Now()
 	var expiredCount int
 	for reqID, callback := range h.callbacks {
-		if now.Sub(callback.createdAt) > time.Duration(h.config.MaxTriggerRequestDurationMs)*time.Millisecond {
-			h.metrics.Trigger.IncrementRequestErrors(ctx, jsonrpc.ErrInternal, h.lggr)
-			delete(h.callbacks, reqID)
+		if now.Sub(callback.createdAt) > time.Duration(h.config.CleanUpPeriodMs)*time.Millisecond {
+			h.metrics.IncrementRequestErrors(ctx, jsonrpc.ErrInternal, h.lggr)
+			h.cleanupCallback(reqID)
 			expiredCount++
 		}
 	}
 	if expiredCount > 0 {
-		h.metrics.Trigger.IncrementPendingRequestsCleanUpCount(ctx, int64(expiredCount), h.lggr)
+		h.metrics.IncrementPendingRequestsCleanUpCount(ctx, int64(expiredCount), h.lggr)
 		h.lggr.Infow("Removed expired callbacks", "count", expiredCount, "remaining", len(h.callbacks))
 	}
-	h.metrics.Trigger.RecordPendingRequestsCount(ctx, int64(len(h.callbacks)), h.lggr)
+	h.metrics.RecordPendingRequestsCount(ctx, int64(len(h.callbacks)), h.lggr)
 }
 
 func isValidJSON(data []byte) bool {
@@ -514,7 +532,7 @@ func (h *httpTriggerHandler) handleUserError(ctx context.Context, requestID stri
 		return
 	}
 	errorCode := api.FromJSONRPCErrorCode(code)
-	h.metrics.Trigger.IncrementRequestErrors(ctx, code, h.lggr)
+	h.metrics.IncrementRequestErrors(ctx, code, h.lggr)
 	err = callback.SendResponse(handlers.UserCallbackPayload{
 		RawResponse: rawResp,
 		ErrorCode:   errorCode,
@@ -527,7 +545,12 @@ func (h *httpTriggerHandler) handleUserError(ctx context.Context, requestID stri
 
 // sendWithRetries attempts to send the request to all DON members,
 // retrying failed nodes until either all succeed or the max trigger request duration is reached.
-func (h *httpTriggerHandler) sendWithRetries(ctx context.Context, executionID string, req *jsonrpc.Request[json.RawMessage]) error {
+// doneCh is closed when the callback has been responded to (quorum reached), allowing immediate termination.
+func (h *httpTriggerHandler) sendWithRetries(ctx context.Context, executionID string, req *jsonrpc.Request[json.RawMessage], doneCh <-chan struct{}) error {
+	if doneCh == nil {
+		return errors.New("doneCh cannot be nil")
+	}
+
 	// Create a context that will be cancelled when the max request duration is reached
 	maxDuration := time.Duration(h.config.MaxTriggerRequestDurationMs) * time.Millisecond
 	ctxWithTimeout, cancel := context.WithTimeout(ctx, maxDuration)
@@ -550,11 +573,11 @@ func (h *httpTriggerHandler) sendWithRetries(ctx context.Context, executionID st
 			if successfulNodes[member.Address] {
 				continue
 			}
-			h.metrics.Trigger.IncrementCapabilityRequestCount(ctx, member.Address, gateway_common.MethodWorkflowExecute, h.lggr)
+			h.metrics.IncrementTriggerCapabilityRequestCount(ctx, member.Address, gateway_common.MethodWorkflowExecute, h.lggr)
 			err := h.don.SendToNode(ctxWithTimeout, member.Address, req)
 			if err != nil {
 				allNodesSucceeded = false
-				h.metrics.Trigger.IncrementCapabilityRequestFailures(ctx, member.Address, gateway_common.MethodWorkflowExecute, h.lggr)
+				h.metrics.IncrementTriggerCapabilityRequestFailures(ctx, member.Address, gateway_common.MethodWorkflowExecute, h.lggr)
 				err = errors.Join(combinedErr, err)
 				h.lggr.Debugw("Failed to send trigger request to node, will retry",
 					"node", member.Address,
@@ -580,6 +603,13 @@ func (h *httpTriggerHandler) sendWithRetries(ctx context.Context, executionID st
 			"errors", combinedErr)
 
 		select {
+		case <-doneCh:
+			h.lggr.Infow("Callback already responded to, stopping retries",
+				"executionID", executionID,
+				"requestID", req.ID,
+				"successNodes", len(successfulNodes),
+				"totalNodes", len(h.donConfig.Members))
+			return nil
 		case <-time.After(b.Duration()):
 			continue
 		case <-ctxWithTimeout.Done():

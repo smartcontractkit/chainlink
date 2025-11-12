@@ -2,19 +2,22 @@ package jobs_test
 
 import (
 	"fmt"
+	"slices"
 	"strconv"
 	"strings"
 	"testing"
 
 	"github.com/Masterminds/semver/v3"
 	chainsel "github.com/smartcontractkit/chain-selectors"
-	"github.com/smartcontractkit/quarantine"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+	"github.com/smartcontractkit/chainlink-protos/job-distributor/v1/job"
+	"github.com/smartcontractkit/chainlink-protos/job-distributor/v1/node"
 	"github.com/smartcontractkit/chainlink/deployment/cre/jobs"
+	"github.com/smartcontractkit/chainlink/deployment/cre/jobs/operations"
 	"github.com/smartcontractkit/chainlink/deployment/cre/jobs/pkg"
 	"github.com/smartcontractkit/chainlink/deployment/cre/jobs/sequences"
 	job_types "github.com/smartcontractkit/chainlink/deployment/cre/jobs/types"
@@ -433,7 +436,6 @@ func TestProposeJobSpec_VerifyPreconditions_EVM(t *testing.T) {
 }
 
 func TestProposeJobSpec_Apply(t *testing.T) {
-	quarantine.Flaky(t, "DX-1893")
 	testEnv := test.SetupEnvV2(t, false)
 	env := testEnv.Env
 
@@ -459,6 +461,13 @@ func TestProposeJobSpec_Apply(t *testing.T) {
 			},
 		}
 
+		allNodes, err := testEnv.TestJD.ListNodes(t.Context(), &node.ListNodesRequest{})
+		require.NoError(t, err)
+
+		for _, n := range allNodes.Nodes {
+			t.Logf("found node %s, with ID %v", n.Name, n.Id)
+		}
+
 		out, err := jobs.ProposeJobSpec{}.Apply(*env, input)
 		require.NoError(t, err)
 		assert.Len(t, out.Reports, 1)
@@ -466,13 +475,292 @@ func TestProposeJobSpec_Apply(t *testing.T) {
 		reqs, err := testEnv.TestJD.ListProposedJobRequests()
 		require.NoError(t, err)
 
-		for _, req := range reqs {
-			// log each spec in readable yaml format
+		filteredReqs := slices.DeleteFunc(reqs, func(s *job.ProposeJobRequest) bool {
+			return !strings.Contains(s.Spec, `name = "cron-cap-job"`)
+		})
+		assert.Len(t, filteredReqs, 4) // there are 4 plugin nodes
+
+		for _, req := range filteredReqs {
 			t.Logf("Job Spec:\n%s", req.Spec)
-			assert.Contains(t, req.Spec, `name = "cron-cap-job"`)
 			assert.Contains(t, req.Spec, `command = "cron"`)
 			assert.Contains(t, req.Spec, `config = """CRON_TZ=UTC * * * * *"""`)
 			assert.Contains(t, req.Spec, `externalJobID = "a-cron-job-id"`)
+		}
+	})
+
+	t.Run("successful custom-compute job distribution", func(t *testing.T) {
+		input := jobs.ProposeJobSpecInput{
+			Environment: "test",
+			Domain:      "cre",
+			JobName:     "custom-compute-cap-job",
+			DONName:     test.DONName,
+			Template:    job_types.CustomCompute,
+			DONFilters: []offchain.TargetDONFilter{
+				{Key: offchain.FilterKeyDONName, Value: test.DONName},
+				{Key: "environment", Value: "test"},
+				{Key: "product", Value: offchain.ProductLabel},
+			},
+			Inputs: job_types.JobSpecInput{
+				"command": "__builtin_custom-compute-action",
+				"config": `NumWorkers = 2
+[rateLimiter]
+globalRPS = 100
+globalBurst = 200
+perSenderRPS = 50
+perSenderBurst = 100
+`,
+				"externalJobID": "a-custom-compute-job-id",
+				"oracleFactory": pkg.OracleFactory{
+					Enabled: false,
+				},
+			},
+		}
+
+		allNodes, err := testEnv.TestJD.ListNodes(t.Context(), &node.ListNodesRequest{})
+		require.NoError(t, err)
+
+		for _, n := range allNodes.Nodes {
+			t.Logf("found node %s, with ID %v", n.Name, n.Id)
+		}
+
+		out, err := jobs.ProposeJobSpec{}.Apply(*env, input)
+		require.NoError(t, err)
+		assert.Len(t, out.Reports, 1)
+
+		reqs, err := testEnv.TestJD.ListProposedJobRequests()
+		require.NoError(t, err)
+
+		filteredReqs := slices.DeleteFunc(reqs, func(s *job.ProposeJobRequest) bool {
+			return !strings.Contains(s.Spec, `name = "custom-compute-cap-job"`)
+		})
+		assert.Len(t, filteredReqs, 4) // there are 4 plugin nodes
+
+		for _, req := range filteredReqs {
+			assert.Contains(t, req.Spec, `name = "custom-compute-cap-job"`)
+			assert.Contains(t, req.Spec, `command = "__builtin_custom-compute-action"`)
+			assert.Contains(t, req.Spec, `config = """NumWorkers = 2
+[rateLimiter]
+globalRPS = 100
+globalBurst = 200
+perSenderRPS = 50
+perSenderBurst = 100
+"""`)
+			assert.Contains(t, req.Spec, `externalJobID = "a-custom-compute-job-id"`)
+		}
+	})
+
+	t.Run("successful web-api-trigger job distribution", func(t *testing.T) {
+		input := jobs.ProposeJobSpecInput{
+			Environment: "test",
+			Domain:      "cre",
+			JobName:     "web-api-trigger-cap-job",
+			DONName:     test.DONName,
+			Template:    job_types.WebAPITrigger,
+			DONFilters: []offchain.TargetDONFilter{
+				{Key: offchain.FilterKeyDONName, Value: test.DONName},
+				{Key: "environment", Value: "test"},
+				{Key: "product", Value: offchain.ProductLabel},
+			},
+			Inputs: job_types.JobSpecInput{
+				"command":       "__builtin_web-api-trigger",
+				"externalJobID": "a-web-api-trigger-job-id",
+				"oracleFactory": pkg.OracleFactory{
+					Enabled: false,
+				},
+			},
+		}
+
+		allNodes, err := testEnv.TestJD.ListNodes(t.Context(), &node.ListNodesRequest{})
+		require.NoError(t, err)
+
+		for _, n := range allNodes.Nodes {
+			t.Logf("found node %s, with ID %v", n.Name, n.Id)
+		}
+
+		out, err := jobs.ProposeJobSpec{}.Apply(*env, input)
+		require.NoError(t, err)
+		assert.Len(t, out.Reports, 1)
+
+		reqs, err := testEnv.TestJD.ListProposedJobRequests()
+		require.NoError(t, err)
+
+		filteredReqs := slices.DeleteFunc(reqs, func(s *job.ProposeJobRequest) bool {
+			return !strings.Contains(s.Spec, `name = "web-api-trigger-cap-job"`)
+		})
+		assert.Len(t, filteredReqs, 4) // there are 4 plugin nodes
+
+		for _, req := range filteredReqs {
+			t.Logf("Job Spec:\n%s", req.Spec)
+			assert.Contains(t, req.Spec, `command = "__builtin_web-api-trigger"`)
+			assert.Contains(t, req.Spec, `externalJobID = "a-web-api-trigger-job-id"`)
+		}
+	})
+
+	t.Run("successful web-api-target job distribution", func(t *testing.T) {
+		input := jobs.ProposeJobSpecInput{
+			Environment: "test",
+			Domain:      "cre",
+			JobName:     "web-api-target-cap-job",
+			DONName:     test.DONName,
+			Template:    job_types.WebAPITarget,
+			DONFilters: []offchain.TargetDONFilter{
+				{Key: offchain.FilterKeyDONName, Value: test.DONName},
+				{Key: "environment", Value: "test"},
+				{Key: "product", Value: offchain.ProductLabel},
+			},
+			Inputs: job_types.JobSpecInput{
+				"command": "__builtin_web-api-target",
+				"config": `[rateLimiter]
+GlobalRPS = 10
+GlobalBurst = 200
+PerSenderRPS = 2
+PerSenderBurst = 100
+`,
+				"externalJobID": "a-web-api-target-job-id",
+				"oracleFactory": pkg.OracleFactory{
+					Enabled: false,
+				},
+			},
+		}
+
+		allNodes, err := testEnv.TestJD.ListNodes(t.Context(), &node.ListNodesRequest{})
+		require.NoError(t, err)
+
+		for _, n := range allNodes.Nodes {
+			t.Logf("found node %s, with ID %v", n.Name, n.Id)
+		}
+
+		out, err := jobs.ProposeJobSpec{}.Apply(*env, input)
+		require.NoError(t, err)
+		assert.Len(t, out.Reports, 1)
+
+		reqs, err := testEnv.TestJD.ListProposedJobRequests()
+		require.NoError(t, err)
+
+		filteredReqs := slices.DeleteFunc(reqs, func(s *job.ProposeJobRequest) bool {
+			return !strings.Contains(s.Spec, `name = "web-api-target-cap-job"`)
+		})
+		assert.Len(t, filteredReqs, 4) // there are 4 plugin nodes
+
+		for _, req := range filteredReqs {
+			t.Logf("Job Spec:\n%s", req.Spec)
+			assert.Contains(t, req.Spec, `command = "__builtin_web-api-target"`)
+			assert.Contains(t, req.Spec, `config = """[rateLimiter]
+GlobalRPS = 10
+GlobalBurst = 200
+PerSenderRPS = 2
+PerSenderBurst = 100
+"""`)
+			assert.Contains(t, req.Spec, `externalJobID = "a-web-api-target-job-id"`)
+		}
+	})
+
+	t.Run("successful log-event-trigger job distribution", func(t *testing.T) {
+		input := jobs.ProposeJobSpecInput{
+			Environment: "test",
+			Domain:      "cre",
+			JobName:     "log-event-trigger-cap-job",
+			DONName:     test.DONName,
+			Template:    job_types.LogEventTrigger,
+			DONFilters: []offchain.TargetDONFilter{
+				{Key: offchain.FilterKeyDONName, Value: test.DONName},
+				{Key: "environment", Value: "test"},
+				{Key: "product", Value: offchain.ProductLabel},
+			},
+			Inputs: job_types.JobSpecInput{
+				"command": "/usr/bin/log-event-trigger",
+				"config": `{
+	"chainId": "1337",
+	"network": "evm",
+	"lookbackBlocks": 10,
+	"pollPeriod": 1000
+}
+`,
+				"externalJobID": "a-log-event-trigger-job-id",
+				"oracleFactory": pkg.OracleFactory{
+					Enabled: false,
+				},
+			},
+		}
+
+		allNodes, err := testEnv.TestJD.ListNodes(t.Context(), &node.ListNodesRequest{})
+		require.NoError(t, err)
+
+		for _, n := range allNodes.Nodes {
+			t.Logf("found node %s, with ID %v", n.Name, n.Id)
+		}
+
+		out, err := jobs.ProposeJobSpec{}.Apply(*env, input)
+		require.NoError(t, err)
+		assert.Len(t, out.Reports, 1)
+
+		reqs, err := testEnv.TestJD.ListProposedJobRequests()
+		require.NoError(t, err)
+
+		filteredReqs := slices.DeleteFunc(reqs, func(s *job.ProposeJobRequest) bool {
+			return !strings.Contains(s.Spec, `name = "log-event-trigger-cap-job"`)
+		})
+		assert.Len(t, filteredReqs, 4) // there are 4 plugin nodes
+
+		for _, req := range filteredReqs {
+			assert.Contains(t, req.Spec, `command = "/usr/bin/log-event-trigger"`)
+			assert.Contains(t, req.Spec, `config = """{
+	"chainId": "1337",
+	"network": "evm",
+	"lookbackBlocks": 10,
+	"pollPeriod": 1000
+}
+"""`)
+			assert.Contains(t, req.Spec, `externalJobID = "a-log-event-trigger-job-id"`)
+		}
+	})
+
+	t.Run("successful readcontract job distribution", func(t *testing.T) {
+		input := jobs.ProposeJobSpecInput{
+			Environment: "test",
+			Domain:      "cre",
+			JobName:     "readcontract-cap-job",
+			DONName:     test.DONName,
+			Template:    job_types.ReadContract,
+			DONFilters: []offchain.TargetDONFilter{
+				{Key: offchain.FilterKeyDONName, Value: test.DONName},
+				{Key: "environment", Value: "test"},
+				{Key: "product", Value: offchain.ProductLabel},
+			},
+			Inputs: job_types.JobSpecInput{
+				"command":       "/usr/bin/read-contract",
+				"config":        `{"chainId":1337,"network":"evm"}`,
+				"externalJobID": "a-readcontract-job-id",
+				"oracleFactory": pkg.OracleFactory{
+					Enabled: false,
+				},
+			},
+		}
+
+		allNodes, err := testEnv.TestJD.ListNodes(t.Context(), &node.ListNodesRequest{})
+		require.NoError(t, err)
+
+		for _, n := range allNodes.Nodes {
+			t.Logf("found node %s, with ID %v", n.Name, n.Id)
+		}
+
+		out, err := jobs.ProposeJobSpec{}.Apply(*env, input)
+		require.NoError(t, err)
+		assert.Len(t, out.Reports, 1)
+
+		reqs, err := testEnv.TestJD.ListProposedJobRequests()
+		require.NoError(t, err)
+
+		filteredReqs := slices.DeleteFunc(reqs, func(s *job.ProposeJobRequest) bool {
+			return !strings.Contains(s.Spec, `name = "readcontract-cap-job"`)
+		})
+		assert.Len(t, filteredReqs, 4) // there are 4 plugin nodes
+
+		for _, req := range filteredReqs {
+			assert.Contains(t, req.Spec, `name = "readcontract-cap-job"`)
+			assert.Contains(t, req.Spec, `command = "/usr/bin/read-contract"`)
+			assert.Contains(t, req.Spec, `config = """{"chainId":1337,"network":"evm"}"""`)
+			assert.Contains(t, req.Spec, `externalJobID = "a-readcontract-job-id"`)
 		}
 	})
 
@@ -503,6 +791,34 @@ func TestProposeJobSpec_Apply(t *testing.T) {
 		assert.Contains(t, err.Error(), "command is required and must be a string")
 	})
 
+	t.Run("failed cron job distribution due to not finding nodes", func(t *testing.T) {
+		input := jobs.ProposeJobSpecInput{
+			Environment: "test",
+			Domain:      "cre",
+			JobName:     "cron-cap-job",
+			DONName:     "wrong-don-name",
+			Template:    job_types.Cron,
+			DONFilters: []offchain.TargetDONFilter{
+				{Key: offchain.FilterKeyDONName, Value: "wrong-don-name"},
+				{Key: "environment", Value: "test-failure"}, // no nodes with this env
+				{Key: "product", Value: offchain.ProductLabel},
+			},
+			Inputs: job_types.JobSpecInput{
+				"command":       "cron",
+				"config":        "CRON_TZ=UTC * * * * *",
+				"externalJobID": "a-cron-job-id",
+				"oracleFactory": pkg.OracleFactory{
+					Enabled: false,
+				},
+			},
+		}
+
+		_, err := jobs.ProposeJobSpec{}.Apply(*env, input)
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "failed to propose standard capability job")
+		assert.Contains(t, err.Error(), "no nodes found on JD for DON `wrong-don-name`")
+	})
+
 	t.Run("successful ocr3 bootstrap job distribution", func(t *testing.T) {
 		chainSelector := chainsel.ETHEREUM_TESTNET_SEPOLIA.Selector
 		ds := datastore.NewMemoryDataStore()
@@ -521,13 +837,14 @@ func TestProposeJobSpec_Apply(t *testing.T) {
 		input := jobs.ProposeJobSpecInput{
 			Environment: "test",
 			Domain:      "cre",
-			JobName:     "ocr3-bootstrap-job",
+			JobName:     "ocr3-bootstrap-job-success",
 			DONName:     test.DONName,
 			Template:    job_types.BootstrapOCR3,
 			DONFilters: []offchain.TargetDONFilter{
 				{Key: offchain.FilterKeyDONName, Value: test.DONName},
 				{Key: "environment", Value: "test"},
 				{Key: "product", Value: offchain.ProductLabel},
+				{Key: "zone", Value: test.Zone},
 			},
 			Inputs: job_types.JobSpecInput{
 				"contractQualifier": "ocr3-contract-qualifier",
@@ -539,21 +856,68 @@ func TestProposeJobSpec_Apply(t *testing.T) {
 		require.NoError(t, err)
 		assert.Len(t, out.Reports, 1)
 
+		bootstrapOut, ok := out.Reports[0].Output.(operations.ProposeOCR3BootstrapJobOutput)
+		require.True(t, ok)
+		assert.Len(t, bootstrapOut.Specs, 1)
+
 		reqs, err := testEnv.TestJD.ListProposedJobRequests()
 		require.NoError(t, err)
 
 		expectedChainID := chainsel.ETHEREUM_TESTNET_SEPOLIA.EvmChainID
 
-		for _, req := range reqs {
-			if !strings.Contains(req.Spec, `type = "bootstrap"`) {
-				continue
-			}
-			// log each spec in readable yaml format
-			t.Logf("Job Spec:\n%s", req.Spec)
-			assert.Contains(t, req.Spec, `name = "ocr3-bootstrap-job`)
-			assert.Contains(t, req.Spec, `contractID = "0xAb5801a7D398351b8bE11C439e05C5B3259aeC9B"`)
-			assert.Contains(t, req.Spec, fmt.Sprintf("chainID = %d", expectedChainID))
+		filteredReqs := slices.DeleteFunc(reqs, func(s *job.ProposeJobRequest) bool {
+			return !strings.Contains(s.Spec, `name = "ocr3-bootstrap-job-success"`)
+		})
+		assert.Len(t, filteredReqs, 1) // there's only 1 bootstrap node
+
+		req := filteredReqs[0]
+		t.Logf("Job Spec:\n%s", req.Spec)
+		assert.Contains(t, req.Spec, `name = "ocr3-bootstrap-job-success`)
+		assert.Contains(t, req.Spec, `type = "bootstrap`)
+		assert.Contains(t, req.Spec, `contractID = "0xAb5801a7D398351b8bE11C439e05C5B3259aeC9B"`)
+		assert.Contains(t, req.Spec, fmt.Sprintf("chainID = %d", expectedChainID))
+	})
+
+	t.Run("fails ocr3 bootstrap job distribution w/ wrong zone", func(t *testing.T) {
+		chainSelector := chainsel.ETHEREUM_TESTNET_SEPOLIA.Selector
+		ds := datastore.NewMemoryDataStore()
+
+		err := ds.Addresses().Add(datastore.AddressRef{
+			ChainSelector: chainSelector,
+			Type:          datastore.ContractType(ocr3.OCR3Capability),
+			Version:       semver.MustParse("1.0.0"),
+			Address:       "0xAb5801a7D398351b8bE11C439e05C5B3259aeC9B",
+			Qualifier:     "ocr3-contract-qualifier",
+		})
+		require.NoError(t, err)
+
+		env.DataStore = ds.Seal()
+
+		input := jobs.ProposeJobSpecInput{
+			Environment: "test",
+			Domain:      "cre",
+			JobName:     "ocr3-bootstrap-job-wrong-zone",
+			DONName:     test.DONName,
+			Template:    job_types.BootstrapOCR3,
+			DONFilters: []offchain.TargetDONFilter{
+				{Key: offchain.FilterKeyDONName, Value: test.DONName},
+				{Key: "environment", Value: "test"},
+				{Key: "product", Value: offchain.ProductLabel},
+				{Key: "zone", Value: "wrong-test-zone"},
+			},
+			Inputs: job_types.JobSpecInput{
+				"contractQualifier": "ocr3-contract-qualifier",
+				"chainSelector":     strconv.FormatUint(chainSelector, 10),
+			},
 		}
+
+		_, err = jobs.ProposeJobSpec{}.Apply(*env, input)
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "failed to propose bootstrap job")
+		assert.Contains(t, err.Error(), "no nodes found for DON `test-don`")
+		// remove repeated whitespace for easier matching
+		err2 := strings.Join(strings.Fields(err.Error()), " ")
+		assert.Contains(t, err2, `{key:"zone" value:"wrong-test-zone"}`)
 	})
 
 	t.Run("failed ocr3 bootstrap job distribution", func(t *testing.T) {
@@ -1111,10 +1475,11 @@ func TestProposeJobSpec_Apply(t *testing.T) {
 				{Key: "product", Value: offchain.ProductLabel},
 			},
 			Inputs: job_types.JobSpecInput{
-				"templateName":         "worker-vault",
-				"contractQualifier":    "vault_1_plugin",
-				"dkgContractQualifier": "vault_1_dkg",
-				"chainSelectorEVM":     strconv.FormatUint(chainSelector, 10),
+				"templateName":               "worker-vault",
+				"contractQualifier":          "vault_1_plugin",
+				"dkgContractQualifier":       "vault_1_dkg",
+				"vaultRequestExpiryDuration": "10s",
+				"chainSelectorEVM":           strconv.FormatUint(chainSelector, 10),
 				"bootstrapperOCR3Urls": []string{
 					"12D3KooWHfYFQ8hGttAYbMCevQVESEQhzJAqFZokMVtom8bNxwGq@127.0.0.1:5001",
 				},

@@ -28,6 +28,8 @@
 [capability_configs.log-event-trigger.config]
   LookbackBlocks = 2000        # Default lookback blocks
   PollPeriod = 1500            # Default poll period in milliseconds
+  NetworkFamily = "evm"        # EVM is the only supported family
+  #ChainID = 1337              # Provided dynamically for each chain
 
 [capability_configs.evm]
   # Defaults for the EVM capability
@@ -45,6 +47,10 @@
 
 [capability_configs.read-contract]
   binary_path = "./binaries/readcontract"
+
+[capability_configs.read-contract.config]
+  NetworkFamily = "evm"        # EVM is the only supported family
+  #ChainID = 1337              # Provided dynamically for each chain
 
 #[capability_configs.web-api-target]
 #  no binary path for web API target, it's built-in

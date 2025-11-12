@@ -29,7 +29,7 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/cre/capabilities_registry/v2/changeset/operations/contracts"
 	"github.com/smartcontractkit/chainlink/deployment/cre/capabilities_registry/v2/changeset/pkg"
 	"github.com/smartcontractkit/chainlink/deployment/cre/common/strategies"
-	"github.com/smartcontractkit/chainlink/deployment/cre/ocr3"
+	crecontracts "github.com/smartcontractkit/chainlink/deployment/cre/contracts"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/p2pkey"
 )
 
@@ -79,35 +79,41 @@ func TestConfigureCapabilitiesRegistry(t *testing.T) {
 
 func suite(t *testing.T, fixture *testFixture) {
 	t.Run("single configuration", func(t *testing.T) {
+		// Resetting the bundle to avoid carrying on previous operations reports
+		fixture.env.OperationsBundle = operations.NewBundle(fixture.env.GetContext, fixture.env.Logger, operations.NewMemoryReporter())
+
 		t.Log("Starting capabilities registry configuration...")
 		configureOutput, err := ConfigureCapabilitiesRegistry{}.Apply(fixture.env, fixture.configureInput)
 		t.Logf("Configuration result: err=%v, output=%v", err, configureOutput)
 		require.NoError(t, err, "configuration should succeed")
-		require.NotNil(t, configureOutput, "configuration output should not be nil")
+		assert.NotNil(t, configureOutput, "configuration output should not be nil")
 		t.Logf("Capabilities registry configured successfully")
 
 		// Verify the configuration
 		verifyCapabilitiesRegistryConfiguration(t, fixture)
 	})
 
-	t.Run("idempotency test - double configuration", func(t *testing.T) {
-		t.Log("Starting first capabilities registry configuration...")
-		configureOutput1, err := ConfigureCapabilitiesRegistry{}.Apply(fixture.env, fixture.configureInput)
-		require.NoError(t, err, "first configuration should succeed")
-		require.NotNil(t, configureOutput1, "first configuration output should not be nil")
-		t.Logf("First configuration completed successfully")
+	t.Run("idempotency test - a second configuration with the same values", func(t *testing.T) {
+		// Resetting the bundle to avoid carrying on previous operations reports
+		fixture.env.OperationsBundle = operations.NewBundle(fixture.env.GetContext, fixture.env.Logger, operations.NewMemoryReporter())
 
-		t.Log("Starting second capabilities registry configuration (idempotency test)...")
-		configureOutput2, err := ConfigureCapabilitiesRegistry{}.Apply(fixture.env, fixture.configureInput)
-		require.NoError(t, err, "second configuration should succeed (idempotent)")
-		require.NotNil(t, configureOutput2, "second configuration output should not be nil")
-		t.Logf("Second configuration completed successfully - idempotency verified")
+		// This test shares the same contract as the one configured in the previous test
+		// No need to configure more than once here to test idempotency
+		t.Log("Starting second capabilities registry configuration...")
+		configureOutput1, err := ConfigureCapabilitiesRegistry{}.Apply(fixture.env, fixture.configureInput)
+		require.Error(t, err, "second configuration should partially succeed - DON name should be taken")
+		require.ErrorContains(t, err, "failed to execute AddDONs: contract error: error -`DONNameAlreadyTaken` args [test-don-1]", "DON name should be taken")
+		assert.NotNil(t, configureOutput1, "second configuration output should not be nil")
+		t.Logf("Second configuration completed successfully")
 
 		// Verify that the final state is still correct
 		verifyCapabilitiesRegistryConfiguration(t, fixture)
 	})
 
 	t.Run("MCMS configuration", func(t *testing.T) {
+		// Resetting the bundle to avoid carrying on previous operations reports
+		fixture.env.OperationsBundle = operations.NewBundle(fixture.env.GetContext, fixture.env.Logger, operations.NewMemoryReporter())
+
 		// Set up MCMS infrastructure
 		mcmsFixture := setupCapabilitiesRegistryWithMCMS(t)
 
@@ -119,9 +125,24 @@ func suite(t *testing.T, fixture *testFixture) {
 		require.NoError(t, err, "should be able to get MCMS contracts")
 		require.NotNil(t, mcmsContracts, "MCMS contracts should not be nil")
 
+		chain, ok := mcmsFixture.env.BlockChains.EVMChains()[mcmsFixture.chainSelector]
+		require.True(t, ok, "chain should be found for selector %d", mcmsFixture.chainSelector)
+
+		// Create the appropriate strategy
+		strategy, err := strategies.CreateStrategy(
+			chain,
+			mcmsFixture.env,
+			mcmsFixture.configureInput.MCMSConfig,
+			mcmsContracts,
+			common.HexToAddress(mcmsFixture.capabilitiesRegistryAddress),
+			"test NOPs registration with MCMS",
+		)
+		require.NoError(t, err, "should be able to create MCMS strategy")
+
 		// Create dependencies for the operation
 		deps := contracts.RegisterNopsDeps{
-			Env: &mcmsFixture.env,
+			Env:      &mcmsFixture.env,
+			Strategy: strategy,
 		}
 
 		// Create NOPs registration input with MCMS enabled
@@ -138,6 +159,7 @@ func suite(t *testing.T, fixture *testFixture) {
 					Name:  "test nop2",
 				},
 			},
+			MCMSConfig: mcmsFixture.configureInput.MCMSConfig,
 		}
 
 		// Execute the NOPs registration operation with MCMS
@@ -150,25 +172,12 @@ func suite(t *testing.T, fixture *testFixture) {
 		require.NoError(t, err, "NOPs registration with MCMS should succeed")
 		require.NotNil(t, report, "operation report should not be nil")
 
-		// Verify proposal content
-		for i, proposal := range report.Output.Proposals {
-			require.NotEmpty(t, proposal.Operations, "proposal %d should have operations", i)
-			require.Greater(t, proposal.Delay.Seconds(), float64(0), "proposal %d should have a minimum delay", i)
+		// Verify operation content
+		require.NotZero(t, report.Output.Operation, "an operation should have been generated")
 
-			// Verify that proposals target the timelock
-			for j, op := range proposal.Operations {
-				require.NotEmpty(t, op.Transactions, "proposal %d operation %d should have transactions", i, j)
-				t.Logf("Proposal %d Operation %d: %d transactions", i, j, len(op.Transactions))
-			}
-
-			t.Logf("Proposal %d: %d operations, delay: %v", i, len(proposal.Operations), proposal.Delay)
-		}
-
-		// Verify timelock addresses are set correctly
-		for i, proposal := range report.Output.Proposals {
-			require.NotEmpty(t, proposal.TimelockAddresses, "proposal %d should have timelock addresses", i)
-			t.Logf("Proposal %d timelock addresses: %v", i, proposal.TimelockAddresses)
-		}
+		// Verify that the operation targets the timelock
+		require.NotEmpty(t, report.Output.Operation.Transactions, "operation %d should have transactions")
+		t.Logf("MCMSOperation has %d transactions", len(report.Output.Operation.Transactions))
 
 		t.Logf("MCMS NOPs registration test completed successfully")
 		t.Logf("MCMS proposals created and ready for execution through governance")
@@ -179,8 +188,8 @@ func TestConfigureCapabilitiesRegistryInput_YAMLSerialization(t *testing.T) {
 	originalInput := ConfigureCapabilitiesRegistryInput{
 		ChainSelector:               123456789,
 		CapabilitiesRegistryAddress: "0x1234567890123456789012345678901234567890",
-		MCMSConfig: &ocr3.MCMSConfig{
-			MinDuration: 30 * time.Second,
+		MCMSConfig: &crecontracts.MCMSConfig{
+			MinDelay: 30 * time.Second,
 		},
 		Nops: []CapabilitiesRegistryNodeOperator{
 			{
@@ -225,8 +234,7 @@ func TestConfigureCapabilitiesRegistryInput_YAMLSerialization(t *testing.T) {
 				Name:        "workflow-don-1",
 				DonFamilies: []string{"workflow", "test"},
 				Config: map[string]any{
-					"consensus": "basic",
-					"timeout":   "30s",
+					"defaultConfig": map[string]any{},
 				},
 				CapabilityConfigurations: []CapabilitiesRegistryCapabilityConfiguration{
 					{
@@ -279,7 +287,7 @@ func TestConfigureCapabilitiesRegistryInput_YAMLSerialization(t *testing.T) {
 		// Verify all fields are correctly deserialized
 		assert.Equal(t, originalInput.ChainSelector, unmarshaledInput.ChainSelector)
 		assert.Equal(t, originalInput.CapabilitiesRegistryAddress, unmarshaledInput.CapabilitiesRegistryAddress)
-		assert.Equal(t, originalInput.MCMSConfig, unmarshaledInput.MCMSConfig)
+		assert.Equal(t, originalInput.MCMSConfig.MinDelay, unmarshaledInput.MCMSConfig.MinDelay)
 		assert.Equal(t, originalInput.Nops, unmarshaledInput.Nops)
 		assert.Equal(t, originalInput.Capabilities, unmarshaledInput.Capabilities)
 		assert.Equal(t, originalInput.Nodes, unmarshaledInput.Nodes)
@@ -358,7 +366,7 @@ dons:
   - name: "workflow-don-production"
     donFamilies: ["workflow", "production"]
     config:
-      consensus: "basic"
+      defaultConfig: {}
     capabilityConfigurations:
       - capabilityID: "write-chain@1.0.0"
         config:
@@ -412,7 +420,7 @@ dons:
 
 	// Verify config is decoded properly
 	expectedConfig := map[string]any{
-		"consensus": "basic",
+		"defaultConfig": map[string]any{},
 	}
 	assert.Equal(t, expectedConfig, input.DONs[0].Config)
 
@@ -550,8 +558,7 @@ func setupCapabilitiesRegistryWithMCMS(t *testing.T) *testFixture {
 			Name:        "test-don-mcms-1",
 			DonFamilies: []string{"don-family-mcms-1"},
 			Config: map[string]any{
-				"name": "test-don-mcms-config",
-				"type": "workflow",
+				"defaultConfig": map[string]any{},
 			},
 			CapabilityConfigurations: []CapabilitiesRegistryCapabilityConfiguration{
 				{
@@ -570,8 +577,8 @@ func setupCapabilitiesRegistryWithMCMS(t *testing.T) *testFixture {
 	configureInput := ConfigureCapabilitiesRegistryInput{
 		ChainSelector:               selector,
 		CapabilitiesRegistryAddress: capabilitiesRegistryAddress,
-		MCMSConfig: &ocr3.MCMSConfig{
-			MinDuration: 30 * time.Second,
+		MCMSConfig: &crecontracts.MCMSConfig{
+			MinDelay: 30 * time.Second,
 		},
 		Nops:         nops,
 		Capabilities: capabilities,
@@ -699,8 +706,7 @@ func setupCapabilitiesRegistryTest(t *testing.T) *testFixture {
 			Name:        "test-don-1",
 			DonFamilies: []string{"don-family-1"},
 			Config: map[string]any{
-				"name": "test-don-v2-config",
-				"type": "workflow",
+				"defaultConfig": map[string]any{},
 			},
 			CapabilityConfigurations: []CapabilitiesRegistryCapabilityConfiguration{
 				{
@@ -717,8 +723,7 @@ func setupCapabilitiesRegistryTest(t *testing.T) *testFixture {
 			Name:        "test-don-2",
 			DonFamilies: []string{"don-family-2"},
 			Config: map[string]any{
-				"name": "test-don-v2-config",
-				"type": "trigger",
+				"defaultConfig": map[string]any{},
 			},
 			CapabilityConfigurations: []CapabilitiesRegistryCapabilityConfiguration{
 				{

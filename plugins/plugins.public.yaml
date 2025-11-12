@@ -10,12 +10,12 @@ defaults:
 plugins:
   aptos:
     - moduleURI: "github.com/smartcontractkit/chainlink-aptos"
-      gitRef: "v0.0.0-20251013133428-62ab1091a563"
+      gitRef: "v0.0.0-20251027153600-2b072ff3618e"
       installPath: "./cmd/chainlink-aptos"
 
   sui:
     - moduleURI: "github.com/smartcontractkit/chainlink-sui"
-      gitRef: "v0.0.0-20251012014843-5d44e7731854"
+      gitRef: "v0.0.0-20251105220250-f8d7f06e3b8d"
       installPath: "./relayer/cmd/chainlink-sui"
 
   cosmos:
@@ -35,7 +35,7 @@ plugins:
 
   solana:
     - moduleURI: "github.com/smartcontractkit/chainlink-solana"
-      gitRef: "v1.1.2-0.20251020193713-b63bc17bfeb1"
+      gitRef: "v1.1.2-0.20251105160343-b77843a1daf4"
       installPath: "./pkg/solana/cmd/chainlink-solana"
 
   starknet:
@@ -50,7 +50,7 @@ plugins:
 
   ton:
     - moduleURI: "github.com/smartcontractkit/chainlink-ton"
-      gitRef: "v0.0.0-20251015181357-b635fc06e2ea"
+      gitRef: "v0.0.0-20251110201449-c2452b839d51"
       installPath: "./cmd/chainlink-ton"
 
   tron:

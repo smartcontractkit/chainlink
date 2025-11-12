@@ -315,13 +315,14 @@ func TestConfig_Marshal(t *testing.T) {
 		},
 	}
 	full.TelemetryIngress = toml.TelemetryIngress{
-		UniConn:      ptr(false),
-		Logging:      ptr(true),
-		BufferSize:   ptr[uint16](1234),
-		MaxBatchSize: ptr[uint16](4321),
-		SendInterval: commoncfg.MustNewDuration(time.Minute),
-		SendTimeout:  commoncfg.MustNewDuration(5 * time.Second),
-		UseBatchSend: ptr(true),
+		UniConn:            ptr(false),
+		Logging:            ptr(true),
+		BufferSize:         ptr[uint16](1234),
+		MaxBatchSize:       ptr[uint16](4321),
+		SendInterval:       commoncfg.MustNewDuration(time.Minute),
+		SendTimeout:        commoncfg.MustNewDuration(5 * time.Second),
+		UseBatchSend:       ptr(true),
+		ChipIngressEnabled: ptr(false),
 		Endpoints: []toml.TelemetryIngressEndpoint{{
 			Network:      ptr("EVM"),
 			ChainID:      ptr("1"),
@@ -458,6 +459,7 @@ func TestConfig_Marshal(t *testing.T) {
 		OutgoingMessageBufferSize: ptr[int64](17),
 		PeerID:                    mustPeerID("12D3KooWMoejJznyDuEk5aX6GvbjaG12UzeornPCBNzMRqdwrFJw"),
 		TraceLogging:              ptr(true),
+		EnableExperimentalRageP2P: ptr(true),
 		V2: toml.P2PV2{
 			Enabled:           ptr(false),
 			AnnounceAddresses: &[]string{"a", "b", "c"},
@@ -483,6 +485,7 @@ func TestConfig_Marshal(t *testing.T) {
 			OutgoingMessageBufferSize: ptr[int64](17),
 			PeerID:                    mustPeerID("12D3KooWMoejJznyDuEk5aX6GvbjaG12UzeornPCBNzMRqdwrFJw"),
 			TraceLogging:              ptr(true),
+			EnableExperimentalRageP2P: ptr(true),
 			V2: toml.P2PV2{
 				Enabled:           ptr(false),
 				AnnounceAddresses: &[]string{"a", "b", "c"},
@@ -615,6 +618,11 @@ func TestConfig_Marshal(t *testing.T) {
 		HeartbeatInterval:             commoncfg.MustNewDuration(1 * time.Second),
 		LogStreamingEnabled:           ptr(false),
 		LogLevel:                      ptr("info"),
+		LogBatchProcessor:             ptr(true),
+		LogExportTimeout:              commoncfg.MustNewDuration(1 * time.Second),
+		LogExportMaxBatchSize:         ptr[int](512),
+		LogExportInterval:             ptrDuration(1 * time.Second),
+		LogMaxQueueSize:               ptrInt(2048),
 	}
 	full.CRE = toml.CreConfig{
 		UseLocalTimeProvider: ptr(true),
@@ -991,6 +999,7 @@ MaxBatchSize = 4321
 SendInterval = '1m0s'
 SendTimeout = '5s'
 UseBatchSend = true
+ChipIngressEnabled = false
 
 [[TelemetryIngress.Endpoints]]
 Network = 'EVM'
@@ -1130,6 +1139,7 @@ IncomingMessageBufferSize = 13
 OutgoingMessageBufferSize = 17
 PeerID = '12D3KooWMoejJznyDuEk5aX6GvbjaG12UzeornPCBNzMRqdwrFJw'
 TraceLogging = true
+EnableExperimentalRageP2P = true
 
 [P2P.V2]
 Enabled = false

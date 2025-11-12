@@ -1580,6 +1580,205 @@ func TestSecretsFetcher_Integration(t *testing.T) {
 	require.NoError(t, engine.Close())
 }
 
+func TestEngine_HandleNewDON(t *testing.T) {
+	t.Parallel()
+
+	t.Run("subscribe and update successfully", func(t *testing.T) {
+		module := modulemocks.NewModuleV2(t)
+		capreg := regmocks.NewCapabilitiesRegistry(t)
+		capreg.EXPECT().LocalNode(matches.AnyContext).Return(newNode(t), nil).Once()
+
+		// create a new updated node
+		updatedNode := newNode(t, func(n *capabilities.Node) {
+			n.WorkflowDON.ConfigVersion = 2
+		})
+		capreg.EXPECT().LocalNode(matches.AnyContext).Return(updatedNode, nil).Once()
+
+		initDoneCh := make(chan error)
+		donCh := make(chan capabilities.DON)
+		localNodeCh := make(chan capabilities.Node, 1)
+		subscriberMock := capmocks.NewDonSubscriber(t)
+		subscriberMock.EXPECT().Subscribe(matches.AnyContext).Return(donCh, func() {}, nil)
+
+		cfg := defaultTestConfig(t, nil)
+		cfg.DonSubscriber = subscriberMock
+		cfg.Module = module
+		cfg.CapRegistry = capreg
+		cfg.Hooks = v2.LifecycleHooks{
+			OnInitialized: func(err error) {
+				initDoneCh <- err
+			},
+			OnNodeSynced: func(node capabilities.Node, err error) {
+				require.NoError(t, err)
+				localNodeCh <- node
+			},
+		}
+
+		engine, err := v2.NewEngine(cfg)
+		require.NoError(t, err)
+
+		module.EXPECT().Start().Once()
+		module.EXPECT().Execute(matches.AnyContext, mock.Anything, mock.Anything).Return(newTriggerSubs(0), nil).Once()
+		require.NoError(t, engine.Start(t.Context()))
+
+		require.NoError(t, <-initDoneCh)
+
+		module.EXPECT().Close().Once()
+
+		// signal a DON send to refetch local node
+		donCh <- capabilities.DON{}
+		gotNode := <-localNodeCh
+		require.Equal(t, uint32(2), gotNode.WorkflowDON.ConfigVersion)
+		require.NoError(t, engine.Close())
+	})
+
+	t.Run("only logs set if state is new", func(t *testing.T) {
+		var (
+			lggr, obs  = logger.TestObserved(t, zapcore.DebugLevel)
+			initDoneCh = make(chan error)
+			donCh      = make(chan capabilities.DON)
+		)
+
+		// module mocks
+		module := modulemocks.NewModuleV2(t)
+		module.EXPECT().Start().Once()
+		module.EXPECT().Execute(matches.AnyContext, mock.Anything, mock.Anything).Return(newTriggerSubs(0), nil).Once()
+		module.EXPECT().Close().Once()
+
+		// capabilities registry mocks
+		capreg := regmocks.NewCapabilitiesRegistry(t)
+		initialNode := newNode(t, func(n *capabilities.Node) {
+			n.WorkflowDON.ConfigVersion = 1
+		})
+		capreg.EXPECT().LocalNode(matches.AnyContext).Return(initialNode, nil).Twice()
+
+		subscriberMock := capmocks.NewDonSubscriber(t)
+		subscriberMock.EXPECT().Subscribe(matches.AnyContext).Return(donCh, func() {}, nil)
+
+		// modify config for test
+		cfg := defaultTestConfig(t, nil)
+		cfg.Lggr = lggr
+		cfg.DonSubscriber = subscriberMock
+		cfg.Module = module
+		cfg.CapRegistry = capreg
+		cfg.Hooks = v2.LifecycleHooks{
+			OnInitialized: func(err error) {
+				initDoneCh <- err
+			},
+		}
+
+		// instantiate and run the engine
+		engine, err := v2.NewEngine(cfg)
+		require.NoError(t, err)
+		require.NoError(t, engine.Start(t.Context()))
+		require.NoError(t, <-initDoneCh)
+
+		// after initialization, signal a DON send to refetch local node
+		donCh <- capabilities.DON{}
+		require.NoError(t, engine.Close())
+
+		// assert that no log of the state was observed
+		require.Empty(t,
+			obs.FilterMessage("Setting local node state").All(),
+			"logged local node state even though there was no change",
+		)
+	})
+
+	t.Run("fail to subscribe", func(t *testing.T) {
+		module := modulemocks.NewModuleV2(t)
+		module.EXPECT().Start().Once()
+		module.EXPECT().Close().Once()
+
+		capreg := regmocks.NewCapabilitiesRegistry(t)
+		capreg.EXPECT().LocalNode(matches.AnyContext).Return(newNode(t), nil).Once()
+
+		subscriberMock := capmocks.NewDonSubscriber(t)
+		subscriberMock.EXPECT().Subscribe(matches.AnyContext).Return(nil, func() {}, assert.AnError)
+
+		initDoneCh := make(chan error)
+
+		cfg := defaultTestConfig(t, nil)
+		cfg.DonSubscriber = subscriberMock
+		cfg.Module = module
+		cfg.CapRegistry = capreg
+		cfg.Hooks = v2.LifecycleHooks{
+			OnInitialized: func(err error) {
+				initDoneCh <- err
+			},
+		}
+
+		engine, err := v2.NewEngine(cfg)
+		require.NoError(t, err)
+
+		require.NoError(t, engine.Start(t.Context()))
+
+		// await initialization error caused by failure to subscribe
+		require.Error(t, <-initDoneCh)
+
+		require.NoError(t, engine.Close())
+	})
+
+	t.Run("fail to fetch local node then success", func(t *testing.T) {
+		initDoneCh := make(chan error)
+		donCh := make(chan capabilities.DON)
+		errsCh := make(chan error, 1)
+		localNodeCh := make(chan capabilities.Node, 1)
+
+		module := modulemocks.NewModuleV2(t)
+		module.EXPECT().Start().Once()
+		module.EXPECT().Execute(matches.AnyContext, mock.Anything, mock.Anything).Return(newTriggerSubs(0), nil).Once()
+		module.EXPECT().Close().Once()
+
+		capreg := regmocks.NewCapabilitiesRegistry(t)
+		initialNode := newNode(t, func(n *capabilities.Node) {
+			n.WorkflowDON.ConfigVersion = 1
+		})
+		updatedNode := newNode(t, func(n *capabilities.Node) {
+			n.WorkflowDON.ConfigVersion = 2
+		})
+		capreg.EXPECT().LocalNode(matches.AnyContext).Return(initialNode, nil).Once()
+		capreg.EXPECT().LocalNode(matches.AnyContext).Return(capabilities.Node{}, assert.AnError).Once()
+		capreg.EXPECT().LocalNode(matches.AnyContext).Return(updatedNode, nil).Once()
+
+		subscriberMock := capmocks.NewDonSubscriber(t)
+		subscriberMock.EXPECT().Subscribe(matches.AnyContext).Return(donCh, func() {}, nil)
+
+		cfg := defaultTestConfig(t, nil)
+		cfg.DonSubscriber = subscriberMock
+		cfg.Module = module
+		cfg.CapRegistry = capreg
+		cfg.Hooks = v2.LifecycleHooks{
+			OnInitialized: func(err error) {
+				initDoneCh <- err
+			},
+			OnNodeSynced: func(node capabilities.Node, err error) {
+				if err == nil {
+					localNodeCh <- node
+				} else {
+					errsCh <- err
+				}
+			},
+		}
+
+		engine, err := v2.NewEngine(cfg)
+		require.NoError(t, err)
+
+		require.NoError(t, engine.Start(t.Context()))
+
+		require.NoError(t, <-initDoneCh)
+
+		// signal a DON send to refetch local node but expect an error
+		donCh <- capabilities.DON{}
+		require.Error(t, <-errsCh)
+
+		// signal a DON send to refetch local node with success
+		donCh <- capabilities.DON{}
+		gotNode := <-localNodeCh
+		require.Equal(t, uint32(2), gotNode.WorkflowDON.ConfigVersion)
+		require.NoError(t, engine.Close())
+	})
+}
+
 // setupMockBillingClient creates a mock billing client with default expectations.
 func setupMockBillingClient(t *testing.T) *metmocks.BillingClient {
 	billingClient := metmocks.NewBillingClient(t)
@@ -1649,25 +1848,24 @@ func requireEventsLabels(t *testing.T, beholderObserver beholdertest.Observer, w
 	}
 }
 
+// requireEventsMessages checks that all expected messages are present in the beholder observer.
+// It does not check the order of messages.
 func requireEventsMessages(t *testing.T, beholderObserver beholdertest.Observer, expected []string) {
 	msgs := beholderObserver.Messages(t)
-	nextToFind := 0
+	// map to handle presence of out-of-order messages
+	want := map[string]struct{}{}
+	for _, e := range expected {
+		want[e] = struct{}{}
+	}
+
 	for _, msg := range msgs {
 		if msg.Attrs["beholder_entity"] == "BaseMessage" {
 			var payload beholderpb.BaseMessage
 			require.NoError(t, proto.Unmarshal(msg.Body, &payload))
-			if nextToFind >= len(expected) {
-				return
-			}
-			if payload.Msg == expected[nextToFind] {
-				nextToFind++
-			}
+			delete(want, payload.Msg)
 		}
 	}
-
-	if nextToFind < len(expected) {
-		t.Errorf("log message not found: %s", expected[nextToFind])
-	}
+	assert.Empty(t, want, "not all expected messages were found missing %v", want)
 }
 
 func requireUserLogs(t *testing.T, beholderObserver beholdertest.Observer, expectedSubstrings []string) {
@@ -1693,14 +1891,18 @@ func requireUserLogs(t *testing.T, beholderObserver beholdertest.Observer, expec
 	}
 }
 
-func newNode(t *testing.T) capabilities.Node {
+func newNode(t *testing.T, opts ...func(*capabilities.Node)) capabilities.Node {
 	_, privKey, err := ed25519.GenerateKey(rand.Reader)
 	require.NoError(t, err)
 	peerID, err := ragetypes.PeerIDFromPrivateKey(privKey)
 	require.NoError(t, err)
-	return capabilities.Node{
+	n := &capabilities.Node{
 		PeerID: &peerID,
 	}
+	for _, opt := range opts {
+		opt(n)
+	}
+	return *n
 }
 
 type MockCapabilityWrapper struct {

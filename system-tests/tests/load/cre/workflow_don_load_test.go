@@ -127,13 +127,13 @@ func setupLoadTestEnvironment(
 	t *testing.T,
 	testLogger zerolog.Logger,
 	in *TestConfigLoadTest,
-	mustSetCapabilitiesFn func(input []*ns.Input) []*cretypes.CapabilitiesAwareNodeSet,
+	mustSetCapabilitiesFn func(input []*ns.Input) []*cretypes.NodeSet,
 	capabilityFactoryFns []cretypes.CapabilityRegistryConfigFn,
 	jobSpecFactoryFns []cretypes.JobSpecFn,
 	workflowJobsFn cretypes.JobSpecFn,
 ) *loadTestSetupOutput {
 	universalSetupInput := creenv.SetupInput{
-		CapabilitiesAwareNodeSets:            mustSetCapabilitiesFn(in.NodeSets),
+		NodeSets:                             mustSetCapabilitiesFn(in.NodeSets),
 		CapabilitiesContractFactoryFunctions: capabilityFactoryFns,
 		BlockchainsInput:                     in.Blockchains,
 		JdInput:                              in.JD,
@@ -151,20 +151,15 @@ func setupLoadTestEnvironment(
 	in.WorkflowRegistryConfiguration = &cretypes.WorkflowRegistryInput{}
 	in.WorkflowRegistryConfiguration.Out = universalSetupOutput.WorkflowRegistryConfigurationOutput
 
-	forwarderAddress, _, forwarderErr := crecontracts.FindAddressesForChain(
-		universalSetupOutput.CreEnvironment.CldfEnvironment.ExistingAddresses, //nolint:staticcheck // deprecated but still used
-		universalSetupOutput.CreEnvironment.Blockchains[0].ChainSelector(),
-		keystone_changeset.KeystoneForwarder.String(),
-	)
-	require.NoError(t, forwarderErr, "failed to find forwarder address for chain %d", universalSetupOutput.CreEnvironment.Blockchains[0].ChainSelector())
+	forwarderAddress := crecontracts.MustGetAddressFromDataStore(universalSetupOutput.CreEnvironment.CldfEnvironment.DataStore, universalSetupOutput.CreEnvironment.Blockchains[0].ChainSelector(), keystone_changeset.KeystoneForwarder.String(), universalSetupOutput.CreEnvironment.ContractVersions[keystone_changeset.KeystoneForwarder.String()], "")
 
 	// Create workflow jobs only after capability registry configuration is complete to avoid initialization failures
 	createJobsInput := creenv.CreateJobsWithJdOpInput{}
 	createJobsDeps := creenv.CreateJobsWithJdOpDeps{
-		Logger:                    testLogger,
-		SingleFileLogger:          singleFileLogger,
-		HomeChainBlockchainOutput: universalSetupOutput.CreEnvironment.Blockchains[0].CtfOutput(),
-		JobSpecFactoryFunctions:   []cretypes.JobSpecFn{workflowJobsFn},
+		Logger:                        testLogger,
+		SingleFileLogger:              singleFileLogger,
+		RegistryChainBlockchainOutput: universalSetupOutput.CreEnvironment.Blockchains[0].CtfOutput(),
+		JobSpecFactoryFunctions:       []cretypes.JobSpecFn{workflowJobsFn},
 		CreEnvironment: &cretypes.Environment{
 			CldfEnvironment: universalSetupOutput.CreEnvironment.CldfEnvironment,
 		},
@@ -175,7 +170,7 @@ func setupLoadTestEnvironment(
 	require.NoError(t, createJobsErr, "failed to create jobs with Job Distributor")
 
 	return &loadTestSetupOutput{
-		forwarderAddress: forwarderAddress,
+		forwarderAddress: common.HexToAddress(forwarderAddress),
 		blockchains:      universalSetupOutput.CreEnvironment.Blockchains,
 		dons:             universalSetupOutput.Dons,
 		nodeOutput:       universalSetupOutput.NodeOutput,
@@ -191,15 +186,14 @@ func TestLoad_Workflow_Streams_MockCapabilities(t *testing.T) {
 	require.Len(t, in.NodeSets, 2, "expected 2 node sets in the test config")
 	require.NotEmpty(t, os.Getenv("PROMETHEUS_URL"), "PROMETHEUS_URL must be set")
 
-	mustSetCapabilitiesFn := func(input []*ns.Input) []*cretypes.CapabilitiesAwareNodeSet {
-		return []*cretypes.CapabilitiesAwareNodeSet{
+	mustSetCapabilitiesFn := func(input []*ns.Input) []*cretypes.NodeSet {
+		return []*cretypes.NodeSet{
 			{
 				Input:        input[0],
 				Capabilities: []string{cretypes.ConsensusCapability},
 				// TODO quick hack, this needs to be removed after the migration to TOML
 				ComputedCapabilities: []string{cretypes.ConsensusCapability},
 				DONTypes:             []string{cretypes.WorkflowDON},
-				BootstrapNodeIndex:   0,
 			},
 			{
 				Input:        input[1],
@@ -207,7 +201,6 @@ func TestLoad_Workflow_Streams_MockCapabilities(t *testing.T) {
 				// TODO quick hack, this needs to be removed after the migration to TOML
 				ComputedCapabilities: []string{cretypes.MockCapability, cretypes.EVMCapability + "-1337"},
 				DONTypes:             []string{cretypes.CapabilitiesDON}, // <----- it's crucial to set the correct DON type
-				BootstrapNodeIndex:   -1,
 			},
 		}
 	}
@@ -280,7 +273,7 @@ func TestLoad_Workflow_Streams_MockCapabilities(t *testing.T) {
 		return jobSpecs, nil
 	}
 
-	WorkflowDONLoadTestCapabilitiesFactoryFn := func(donFlags []string, _ *cretypes.CapabilitiesAwareNodeSet) ([]keystone_changeset.DONCapabilityWithConfig, error) {
+	WorkflowDONLoadTestCapabilitiesFactoryFn := func(donFlags []string, _ *cretypes.NodeSet) ([]keystone_changeset.DONCapabilityWithConfig, error) {
 		var capabilities []keystone_changeset.DONCapabilityWithConfig
 
 		if flags.HasFlag(donFlags, cretypes.MockCapability) {
@@ -322,9 +315,9 @@ func TestLoad_Workflow_Streams_MockCapabilities(t *testing.T) {
 		return capabilities, nil
 	}
 
-	homeChain := in.Blockchains[0]
-	homeChainIDUint64, homeChainErr := strconv.ParseUint(homeChain.ChainID, 10, 64)
-	require.NoError(t, homeChainErr, "failed to convert chain ID to int")
+	registryChain := in.Blockchains[0]
+	registryChainIDUint64, regChainErr := strconv.ParseUint(registryChain.ChainID, 10, 64)
+	require.NoError(t, regChainErr, "failed to convert chain ID to int")
 
 	setupOutput := setupLoadTestEnvironment(
 		t,
@@ -332,7 +325,7 @@ func TestLoad_Workflow_Streams_MockCapabilities(t *testing.T) {
 		in,
 		mustSetCapabilitiesFn,
 		[]cretypes.CapabilityRegistryConfigFn{WorkflowDONLoadTestCapabilitiesFactoryFn, registerEVMWithV1},
-		[]cretypes.JobSpecFn{mockJobSpecsFactoryFn, consensusJobSpec(homeChainIDUint64)},
+		[]cretypes.JobSpecFn{mockJobSpecsFactoryFn, consensusJobSpec(registryChainIDUint64)},
 		loadTestJobSpecsFactoryFn,
 	)
 
@@ -1090,23 +1083,23 @@ func compareBenchmarkReports(t *testing.T, baselineReport, currentReport *benchs
 }
 
 // Deprecated: remove this once load tests have been migrated
-func registerEVMWithV1(_ []string, nodeSetInput *cretypes.CapabilitiesAwareNodeSet) ([]keystone_changeset.DONCapabilityWithConfig, error) {
+func registerEVMWithV1(_ []string, nodeSet *cretypes.NodeSet) ([]keystone_changeset.DONCapabilityWithConfig, error) {
 	capabilities := make([]keystone_changeset.DONCapabilityWithConfig, 0)
 
-	if nodeSetInput == nil {
+	if nodeSet == nil {
 		return nil, errors.New("node set input is nil")
 	}
 
 	// it's fine if there are no chain capabilities
-	if nodeSetInput.ChainCapabilities == nil {
+	if nodeSet.ChainCapabilities == nil {
 		return nil, nil
 	}
 
-	if _, ok := nodeSetInput.ChainCapabilities[cretypes.WriteEVMCapability]; !ok {
+	if _, ok := nodeSet.ChainCapabilities[cretypes.WriteEVMCapability]; !ok {
 		return nil, nil
 	}
 
-	for _, chainID := range nodeSetInput.ChainCapabilities[cretypes.WriteEVMCapability].EnabledChains {
+	for _, chainID := range nodeSet.ChainCapabilities[cretypes.WriteEVMCapability].EnabledChains {
 		fullName := evm.GenerateWriteTargetName(chainID)
 		splitName := strings.Split(fullName, "@")
 
@@ -1169,7 +1162,7 @@ func consensusJobSpec(chainID uint64) cretypes.JobSpecFn {
 		bootstrapNodeID := strings.TrimPrefix(bootstrapNode.Keys.PeerID(), "p2p_")
 
 		// create job specs for the bootstrap node
-		jobSpecs = append(jobSpecs, ocr.BootstrapOCR3(bootstrapNodeID, "ocr3-capability", ocr3CapabilityAddress.Address, chainID))
+		jobSpecs = append(jobSpecs, ocr.BootstrapJobSpec(bootstrapNodeID, "ocr3-capability", ocr3CapabilityAddress.Address, chainID))
 
 		ocrPeeringData := cretypes.OCRPeeringData{
 			OCRBootstraperPeerID: bootstrapNodeID,
@@ -1189,10 +1182,105 @@ func consensusJobSpec(chainID uint64) cretypes.JobSpecFn {
 				return nil, fmt.Errorf("node %s does not have OCR2 key bundle for EVM", workerNode.Name)
 			}
 
-			jobSpecs = append(jobSpecs, consensus_v1_feature.WorkerJobSpec(workerNode.JobDistributorDetails.NodeID, ocr3CapabilityAddress.Address, evmKey.PublicAddress.Hex(), evmOCR2KeyBundle, workerNode.Keys.OCR2BundleIDs, ocrPeeringData, chainID))
-			jobSpecs = append(jobSpecs, don_time_feature.WorkerJobSpec(workerNode.JobDistributorDetails.NodeID, donTimeAddress.Address, evmKey.PublicAddress.Hex(), evmOCR2KeyBundle, ocrPeeringData, chainID))
+			jobSpecs = append(jobSpecs, WorkerOCR3JobSpec(workerNode.JobDistributorDetails.NodeID, ocr3CapabilityAddress.Address, evmKey.PublicAddress.Hex(), evmOCR2KeyBundle, workerNode.Keys.OCR2BundleIDs, ocrPeeringData, chainID))
+			jobSpecs = append(jobSpecs, WorkerDonTimeJobSpec(workerNode.JobDistributorDetails.NodeID, donTimeAddress.Address, evmKey.PublicAddress.Hex(), evmOCR2KeyBundle, ocrPeeringData, chainID))
 		}
 
 		return jobSpecs, nil
+	}
+}
+
+func WorkerOCR3JobSpec(nodeID string, ocr3CapabilityAddress, nodeEthAddress, offchainBundleID string, ocr2KeyBundles map[string]string, ocrPeeringData cretypes.OCRPeeringData, chainID uint64) *jobv1.ProposeJobRequest {
+	uuid := uuid.NewString()
+
+	spec := fmt.Sprintf(`
+	type = "offchainreporting2"
+	schemaVersion = 1
+	externalJobID = "%s"
+	name = "%s"
+	contractID = "%s"
+	ocrKeyBundleID = "%s"
+	p2pv2Bootstrappers = [
+		"%s@%s",
+	]
+	relay = "evm"
+	pluginType = "plugin"
+	transmitterID = "%s"
+	[relayConfig]
+	chainID = "%d"
+	[pluginConfig]
+	command = "/usr/local/bin/chainlink-ocr3-capability"
+	ocrVersion = 3
+	pluginName = "ocr-capability"
+	providerType = "ocr3-capability"
+	telemetryType = "plugin"
+	[onchainSigningStrategy]
+	strategyName = "multi-chain"
+	[onchainSigningStrategy.config]
+`,
+		uuid,
+		cretypes.ConsensusCapability,
+		ocr3CapabilityAddress,
+		offchainBundleID,
+		ocrPeeringData.OCRBootstraperPeerID,
+		fmt.Sprintf("%s:%d", ocrPeeringData.OCRBootstraperHost, ocrPeeringData.Port),
+		nodeEthAddress,
+		chainID,
+	)
+	for family, key := range ocr2KeyBundles {
+		spec += fmt.Sprintf(`
+        %s = "%s"`, family, key)
+		spec += "\n"
+	}
+
+	return &jobv1.ProposeJobRequest{
+		NodeId: nodeID,
+		Spec:   spec,
+	}
+}
+
+func WorkerDonTimeJobSpec(nodeID string, ocr3CapabilityAddress, nodeEthAddress, ocr2KeyBundleID string, ocrPeeringData cretypes.OCRPeeringData, chainID uint64) *jobv1.ProposeJobRequest {
+	uuid := uuid.NewString()
+	return &jobv1.ProposeJobRequest{
+		NodeId: nodeID,
+		Spec: fmt.Sprintf(`
+	type = "offchainreporting2"
+	schemaVersion = 1
+	externalJobID = "%s"
+	name = "dontime"
+	forwardingAllowed = false
+	maxTaskDuration = "0s"
+	contractID = "%s"
+	relay = "evm"
+	pluginType = "dontime"
+	ocrKeyBundleID = "%s"
+	p2pv2Bootstrappers = [
+		"%s@%s",
+	]
+	transmitterID = "%s"
+
+	[relayConfig]
+	chainID = "%d"
+	providerType = "dontime"
+
+	[pluginConfig]
+	pluginName = "dontime"
+	ocrVersion = 3
+	telemetryType = "plugin"
+
+	[onchainSigningStrategy]
+	strategyName = 'multi-chain'
+	[onchainSigningStrategy.config]
+	evm = "%s"
+`,
+			uuid,
+			ocr3CapabilityAddress, // re-use OCR3Capability contract
+			ocr2KeyBundleID,
+			ocrPeeringData.OCRBootstraperPeerID,
+			fmt.Sprintf("%s:%d", ocrPeeringData.OCRBootstraperHost, ocrPeeringData.Port),
+			nodeEthAddress, // transmitterID (although this shouldn't be used for this plugin?)
+			chainID,
+			ocr2KeyBundleID,
+		),
 	}
 }

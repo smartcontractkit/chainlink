@@ -53,6 +53,7 @@ import (
 
 	aptoscs "github.com/smartcontractkit/chainlink/deployment/ccip/changeset/aptos"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/aptos/config"
+	"github.com/smartcontractkit/chainlink/deployment/utils/solutils"
 
 	ccipChangeSetSolanaV0_1_0 "github.com/smartcontractkit/chainlink/deployment/ccip/changeset/solana_v0_1_0"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/v1_6"
@@ -436,7 +437,6 @@ func retryCcipSendUntilNativeFeeIsSufficient(
 	msg := cfg.Message.(router.ClientEVM2AnyMessage)
 	var retryCount int
 	for {
-		fmt.Println("ABOUT TO SEND THIS MSG: ", msg, cfg.DestChain)
 		fee, err := r.GetFee(&bind.CallOpts{Context: context.Background()}, cfg.DestChain, msg)
 		if err != nil {
 			return nil, 0, fmt.Errorf("failed to get EVM fee: %w", cldf.MaybeDataErr(err))
@@ -1002,8 +1002,6 @@ func AddLane(
 			}))
 	}
 
-	// changesets = append(changesets, AddEVMDestChangesets(e, 909606746561742123, 18395503381733958356, false)...)
-
 	switch toFamily {
 	case chainsel.FamilyEVM:
 		changesets = append(changesets, AddEVMDestChangesets(e, to, from, isTestRouter)...)
@@ -1024,11 +1022,8 @@ func AddLane(
 			}))
 	}
 
-	fmt.Println("ADDLANE CHANGESETS: ", changesets)
-
 	e.Env, _, err = commoncs.ApplyChangesets(t, e.Env, changesets)
 	if err != nil {
-		fmt.Println("ERROR APPLYING CHANGESET", err)
 		return err
 	}
 	return nil
@@ -1388,6 +1383,9 @@ func AddLaneWithDefaultPricesAndFeeQuoterConfig(t *testing.T, e *DeployedEnv, st
 	fromFamily, err := chainsel.GetSelectorFamily(from)
 	require.NoError(t, err)
 
+	toFamily, err := chainsel.GetSelectorFamily(to)
+	require.NoError(t, err)
+
 	// Maps token address => price
 	// Uses string to be re-usable across chains
 	tokenPrices := make(map[string]*big.Int)
@@ -1403,8 +1401,7 @@ func AddLaneWithDefaultPricesAndFeeQuoterConfig(t *testing.T, e *DeployedEnv, st
 	case chainsel.FamilyTon:
 		// TODO Need to double check this, LINK will have 9 decimals on TON like on Solana (not 18)
 		tonState := state.TonChains[from]
-		gasPrices[from] = big.NewInt(1e17)
-		gasPrices[to] = big.NewInt(1e17)
+		gasPrices[from] = big.NewInt(1e15)
 		tokenPrices[tonState.LinkTokenAddress.String()] = deployment.EDecMult(20, 28)
 	case chainsel.FamilySui:
 		suiState := state.SuiChains[from]
@@ -1413,6 +1410,18 @@ func AddLaneWithDefaultPricesAndFeeQuoterConfig(t *testing.T, e *DeployedEnv, st
 		tokenPrices[suiState.LinkTokenCoinMetadataId] = deployment.EDecMult(20, 28)
 	}
 	fqCfg := v1_6.DefaultFeeQuoterDestChainConfig(true, to)
+
+	// EVM -> SUI
+	if toFamily == chainsel.FamilySui {
+		fqCfg.EnforceOutOfOrder = true
+		fqCfg.MaxNumberOfTokensPerMsg = 1
+	}
+
+	// EVM -> TON
+	if toFamily == chainsel.FamilyTon {
+		fqCfg.MaxPerMsgGasLimit = 4_200_000_000 // 4_200_000_000 nano TON = 4.2 TON
+		gasPrices[to] = big.NewInt(2.12e9)      // 1 TON ~2.13 USD -> 1 nanoTON = 2.13e−9 USD -> 1 nanoTON expressed in 1e18 (1 USD) = 2.13e9
+	}
 
 	err = AddLane(
 		t,
@@ -2532,7 +2541,7 @@ func DeploySolanaCcipReceiver(t *testing.T, e cldf.Environment) {
 func TransferOwnershipSolanaV0_1_0(
 	t *testing.T,
 	e *cldf.Environment,
-	solChain uint64,
+	solSelector uint64,
 	needTimelockDeployed bool,
 	contractsToTransfer ccipChangeSetSolanaV0_1_0.CCIPContractsToTransfer,
 ) (timelockSignerPDA solana.PublicKey, mcmSignerPDA solana.PublicKey) {
@@ -2542,7 +2551,7 @@ func TransferOwnershipSolanaV0_1_0(
 			commoncs.Configure(
 				cldf.CreateLegacyChangeSet(commoncs.DeployMCMSWithTimelockV2),
 				map[uint64]commontypes.MCMSWithTimelockConfigV2{
-					solChain: {
+					solSelector: {
 						Canceller:        proposalutils.SingleGroupMCMSV2(t),
 						Proposer:         proposalutils.SingleGroupMCMSV2(t),
 						Bypasser:         proposalutils.SingleGroupMCMSV2(t),
@@ -2554,17 +2563,20 @@ func TransferOwnershipSolanaV0_1_0(
 		require.NoError(t, err)
 	}
 
-	addresses, err := e.ExistingAddresses.AddressesForChain(solChain)
+	chain := e.BlockChains.SolanaChains()[solSelector]
+
+	addresses, err := e.ExistingAddresses.AddressesForChain(solSelector)
 	require.NoError(t, err)
-	mcmState, err := state.MaybeLoadMCMSWithTimelockChainStateSolana(e.BlockChains.SolanaChains()[solChain], addresses)
+	mcmState, err := state.MaybeLoadMCMSWithTimelockChainStateSolana(chain, addresses)
 	require.NoError(t, err)
 
 	// Fund signer PDAs for timelock and mcm
 	// If we don't fund, execute() calls will fail with "no funds" errors.
 	timelockSignerPDA = state.GetTimelockSignerPDA(mcmState.TimelockProgram, mcmState.TimelockSeed)
 	mcmSignerPDA = state.GetMCMSignerPDA(mcmState.McmProgram, mcmState.ProposerMcmSeed)
-	err = memory.FundSolanaAccounts(e.GetContext(), []solana.PublicKey{timelockSignerPDA, mcmSignerPDA},
-		100, e.BlockChains.SolanaChains()[solChain].Client)
+	err = solutils.FundAccounts(
+		e.GetContext(), chain.Client, []solana.PublicKey{timelockSignerPDA, mcmSignerPDA}, 100,
+	)
 	require.NoError(t, err)
 	t.Logf("funded timelock signer PDA: %s", timelockSignerPDA.String())
 	t.Logf("funded mcm signer PDA: %s", mcmSignerPDA.String())
@@ -2575,7 +2587,7 @@ func TransferOwnershipSolanaV0_1_0(
 			ccipChangeSetSolanaV0_1_0.TransferCCIPToMCMSWithTimelockSolanaConfig{
 				MCMSCfg: proposalutils.TimelockConfig{MinDelay: 1 * time.Second},
 				ContractsByChain: map[uint64]ccipChangeSetSolanaV0_1_0.CCIPContractsToTransfer{
-					solChain: contractsToTransfer,
+					solSelector: contractsToTransfer,
 				},
 			},
 		),

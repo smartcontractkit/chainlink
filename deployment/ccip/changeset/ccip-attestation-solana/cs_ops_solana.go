@@ -416,7 +416,7 @@ func SetUpgradeAuthorityChangeset(
 	}
 	e.Logger.Infow("Setting upgrade authority", "newUpgradeAuthority", config.NewUpgradeAuthority.String())
 
-	ixn := cs_solana.SetUpgradeAuthority(&e, &chain, signer_registry.ProgramID, currentAuthority, config.NewUpgradeAuthority, false)
+	ixn := cs_solana.SetUpgradeAuthority(&e, signer_registry.ProgramID, currentAuthority, config.NewUpgradeAuthority, false)
 
 	return executeOrBuildMCMSProposal(
 		e,

@@ -730,14 +730,15 @@ func (d *DatabaseBackup) setFrom(f *DatabaseBackup) {
 }
 
 type TelemetryIngress struct {
-	UniConn      *bool
-	Logging      *bool
-	BufferSize   *uint16
-	MaxBatchSize *uint16
-	SendInterval *commonconfig.Duration
-	SendTimeout  *commonconfig.Duration
-	UseBatchSend *bool
-	Endpoints    []TelemetryIngressEndpoint `toml:",omitempty"`
+	UniConn            *bool
+	Logging            *bool
+	BufferSize         *uint16
+	MaxBatchSize       *uint16
+	SendInterval       *commonconfig.Duration
+	SendTimeout        *commonconfig.Duration
+	UseBatchSend       *bool
+	Endpoints          []TelemetryIngressEndpoint `toml:",omitempty"`
+	ChipIngressEnabled *bool
 }
 
 type TelemetryIngressEndpoint struct {
@@ -771,6 +772,9 @@ func (t *TelemetryIngress) setFrom(f *TelemetryIngress) {
 	}
 	if v := f.Endpoints; v != nil {
 		t.Endpoints = v
+	}
+	if v := f.ChipIngressEnabled; v != nil {
+		t.ChipIngressEnabled = v
 	}
 }
 
@@ -1455,6 +1459,7 @@ type P2P struct {
 	OutgoingMessageBufferSize *int64
 	PeerID                    *p2pkey.PeerID
 	TraceLogging              *bool
+	EnableExperimentalRageP2P *bool
 
 	V2 P2PV2 `toml:",omitempty"`
 }
@@ -1471,6 +1476,9 @@ func (p *P2P) setFrom(f *P2P) {
 	}
 	if v := f.TraceLogging; v != nil {
 		p.TraceLogging = v
+	}
+	if v := f.EnableExperimentalRageP2P; v != nil {
+		p.EnableExperimentalRageP2P = v
 	}
 
 	p.V2.setFrom(&f.V2)
@@ -2437,6 +2445,11 @@ type Telemetry struct {
 	HeartbeatInterval             *commonconfig.Duration
 	LogLevel                      *string
 	LogStreamingEnabled           *bool
+	LogBatchProcessor             *bool
+	LogExportTimeout              *commonconfig.Duration
+	LogExportMaxBatchSize         *int
+	LogExportInterval             *commonconfig.Duration
+	LogMaxQueueSize               *int
 }
 
 func (b *Telemetry) setFrom(f *Telemetry) {
@@ -2481,6 +2494,21 @@ func (b *Telemetry) setFrom(f *Telemetry) {
 	}
 	if v := f.LogLevel; v != nil {
 		b.LogLevel = v
+	}
+	if v := f.LogBatchProcessor; v != nil {
+		b.LogBatchProcessor = v
+	}
+	if v := f.LogExportTimeout; v != nil {
+		b.LogExportTimeout = v
+	}
+	if v := f.LogExportMaxBatchSize; v != nil {
+		b.LogExportMaxBatchSize = v
+	}
+	if v := f.LogExportInterval; v != nil {
+		b.LogExportInterval = v
+	}
+	if v := f.LogMaxQueueSize; v != nil {
+		b.LogMaxQueueSize = v
 	}
 }
 

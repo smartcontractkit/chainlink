@@ -34,12 +34,9 @@ import (
 	"golang.org/x/sync/errgroup"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/beholder"
-	"github.com/smartcontractkit/chainlink-common/pkg/loop"
-	"github.com/smartcontractkit/chainlink-common/pkg/settings/cresettings"
-	"github.com/smartcontractkit/chainlink-common/pkg/settings/limits"
-	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
-
 	clhttp "github.com/smartcontractkit/chainlink-common/pkg/http"
+	"github.com/smartcontractkit/chainlink-common/pkg/loop"
+	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 	"github.com/smartcontractkit/chainlink/v2/core/build"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities"
 	"github.com/smartcontractkit/chainlink/v2/core/config"
@@ -118,6 +115,11 @@ func initGlobals(cfgProm config.Prometheus, cfgTracing config.Tracing, cfgTeleme
 				ChipIngressInsecureConnection:  cfgTelemetry.ChipIngressInsecureConnection(),
 				LogStreamingEnabled:            cfgTelemetry.LogStreamingEnabled(),
 				LogLevel:                       cfgTelemetry.LogLevel(),
+				LogBatchProcessor:              cfgTelemetry.LogBatchProcessor(),
+				LogExportTimeout:               cfgTelemetry.LogExportTimeout(),
+				LogExportMaxBatchSize:          cfgTelemetry.LogExportMaxBatchSize(),
+				LogExportInterval:              cfgTelemetry.LogExportInterval(),
+				LogMaxQueueSize:                cfgTelemetry.LogMaxQueueSize(),
 			}
 			// note: due to the OTEL specification, all histogram buckets
 			// must be defined when the beholder client is created
@@ -153,7 +155,7 @@ type Shell struct {
 	Logger                         logger.Logger           // initialized in Before
 	Registerer                     prometheus.Registerer   // initialized in Before
 	CloseLogger                    func() error            // called in After
-	SetOtelCore                    func(*zapcore.Core)     // reference to AtomicCore.Store
+	SetOtelCore                    func(zapcore.Core)      // reference to AtomicCore.Store
 	AppFactory                     AppFactory
 	KeyStoreAuthenticator          TerminalKeyStoreAuthenticator
 	FallbackAPIInitializer         APIInitializer
@@ -252,11 +254,6 @@ func (n ChainlinkAppFactory) NewApplication(ctx context.Context, cfg chainlink.G
 		MercuryPool:              mercuryPool,
 		RetirementReportCache:    retirement.NewRetirementReportCache(appLggr, ds),
 		LLOTransmissionReaper:    llo.NewTransmissionReaper(ds, appLggr, cfg.Mercury().Transmitter().ReaperFrequency(), cfg.Mercury().Transmitter().ReaperMaxAge()),
-		LimitsFactory: limits.Factory{
-			Meter:    beholder.GetMeter(),
-			Logger:   appLggr.Named("Limits"),
-			Settings: cresettings.DefaultGetter,
-		},
 	})
 }
 
