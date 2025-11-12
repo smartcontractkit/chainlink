@@ -5,7 +5,6 @@ on:
     branches:
       - develop
       - release/*
-  merge_group:
   pull_request:
   schedule:
     - cron: "22 22 * * 2"
@@ -13,7 +12,7 @@ on:
 jobs:
   analyze:
     name: Analyze (${{ matrix.language }})
-    needs: [ runner-config ]
+    needs: [runner-config]
     runs-on: ${{ matrix.runs-on || 'ubuntu-latest' }}
     permissions:
       # required for all workflows
@@ -78,7 +77,7 @@ jobs:
       - name: Build go code manually
         if: matrix.language == 'go'
         run: |
-          echo "::group::Builing all go code (go build ./...)"
+          echo "::group::Building all go code (go build ./...)"
           go build ./...
           echo "::endgroup::"
 
