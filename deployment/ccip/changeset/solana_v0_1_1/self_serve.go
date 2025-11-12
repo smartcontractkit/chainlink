@@ -86,11 +86,11 @@ func OnboardTokenPoolsForSelfServe(e cldf.Environment, cfg OnboardTokenPoolsForS
 	if err != nil {
 		return cldf.ChangesetOutput{}, err
 	}
-	mcmsTxs := []mcmsTypes.Transaction{}
-	instructions := [][]solana.Instruction{}
+	var mcmsTxs []mcmsTypes.Transaction
+	var instructions [][]solana.Instruction
 	for _, registerTokenConfig := range cfg.RegisterTokenConfigs {
 		currentTokenPoolSolanaState, err := loadTokenPoolSolanaState(registerTokenConfig, solChainState)
-		tokenInstructions := []solana.Instruction{}
+		var tokenInstructions []solana.Instruction
 		if err != nil {
 			return cldf.ChangesetOutput{}, err
 		}
@@ -120,7 +120,7 @@ func OnboardTokenPoolsForSelfServe(e cldf.Environment, cfg OnboardTokenPoolsForS
 		e.Logger.Infow("Onboarding Token in ", "TokenProgramID", currentTokenPoolSolanaState.tokenPoolProgramID.String())
 		// if the ccip admin is timelock, build mcms transaction
 		if cfg.MCMS != nil {
-			inputs := []MCMSTxParams{{}}
+			var inputs []MCMSTxParams
 			if proposeTokenAdminRegistryAdminIx != nil {
 				inputs = append(inputs, MCMSTxParams{
 					Ix:           proposeTokenAdminRegistryAdminIx,
@@ -183,8 +183,6 @@ func generateProposeTokenAdminRegistryAdministratorIx(e cldf.Environment, regist
 			return nil, nil
 		}
 	}
-
-	var instruction solana.Instruction
 	// the ccip admin signs and makes tokenAdminRegistryAdmin the pending authority of the tokenAdminRegistry PDA, then they need to accept the role
 	if !tokenAdminRegistryExists {
 		e.Logger.Infow("Running NewCcipAdminProposeAdministratorInstruction")
@@ -203,7 +201,7 @@ func generateProposeTokenAdminRegistryAdministratorIx(e cldf.Environment, regist
 		if err != nil {
 			return nil, fmt.Errorf("failed to extract data payload from ccip admin propose admin instruction: %w", err)
 		}
-		instruction = solana.NewInstruction(routerState.routerProgramID, tempIx.Accounts(), ixData)
+		return solana.NewInstruction(routerState.routerProgramID, tempIx.Accounts(), ixData), nil
 	} else {
 		e.Logger.Infow("Running NewCcipAdminOverridePendingAdministratorInstruction")
 		// Use this if the proposed token admin registry admin set was incorrect
@@ -222,9 +220,8 @@ func generateProposeTokenAdminRegistryAdministratorIx(e cldf.Environment, regist
 		if err != nil {
 			return nil, fmt.Errorf("failed to extract data payload from ccip admin override pending admin instruction: %w", err)
 		}
-		instruction = solana.NewInstruction(routerState.routerProgramID, overridePendingAdministratorIx.Accounts(), ixData)
+		return solana.NewInstruction(routerState.routerProgramID, overridePendingAdministratorIx.Accounts(), ixData), nil
 	}
-	return instruction, nil
 }
 
 func generateInitializeCLLTokenPoolIx(e cldf.Environment, config OnboardTokenPoolConfig, state tokenPoolSolanaState, solChainState globalState) (solana.Instruction, error) {
