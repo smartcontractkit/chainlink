@@ -112,7 +112,7 @@ func OnboardTokenPoolsForSelfServe(e cldf.Environment, cfg OnboardTokenPoolsForS
 			tokenInstructions = append(tokenInstructions, initializeTokenPoolIx)
 		}
 		// Propose new owner of the token pool
-		transferTokenPoolOwnershipIx, err := generateTransferTokenPoolOwnershipIx(registerTokenConfig, currentTokenPoolSolanaState)
+		transferTokenPoolOwnershipIx, err := generateTransferTokenPoolOwnershipIx(e, registerTokenConfig, currentTokenPoolSolanaState)
 		if err != nil {
 			return cldf.ChangesetOutput{}, err
 		}
