@@ -1854,7 +1854,7 @@ func TestEngine_DonVersionLabelUpdate(t *testing.T) {
 	)
 
 	localRegistry := &updatableRegistry{
-		LocalRegistry: &lr,
+		localRegistry: &lr,
 	}
 
 	// Set initial DON in the notifier
@@ -1865,7 +1865,7 @@ func TestEngine_DonVersionLabelUpdate(t *testing.T) {
 	capRegistry.SetLocalRegistry(localRegistry)
 
 	// Create a real engine configuration
-	engine, cfg := createTestEngineForDonVersionTest(t, ctx, lggr, capRegistry, donNotifier, trackingEmitter)
+	engine, cfg := createTestEngineForDonVersionTest(t, lggr, capRegistry, donNotifier, trackingEmitter)
 
 	// Start the engine - this will subscribe to DON updates
 	err := engine.Start(ctx)
@@ -2147,31 +2147,51 @@ func (c *TriggerCapabilityWrapper) Info(ctx context.Context) (capabilities.Capab
 // updatableRegistry wraps LocalRegistry to allow thread-safe updates during testing
 // and implements the full CapabilitiesRegistry interface
 type updatableRegistry struct {
-	*registrysyncer.LocalRegistry
-	mu sync.RWMutex
+	localRegistry *registrysyncer.LocalRegistry
+	mu            sync.RWMutex
 }
 
 func (r *updatableRegistry) LocalNode(ctx context.Context) (capabilities.Node, error) {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
-	return r.LocalRegistry.LocalNode(ctx)
+	return r.localRegistry.LocalNode(ctx)
 }
 
 func (r *updatableRegistry) UpdateDON(donID registrysyncer.DonID, don registrysyncer.DON) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
-	r.LocalRegistry.IDsToDONs[donID] = don
+	r.localRegistry.IDsToDONs[donID] = don
 }
 
 // Add implements the CapabilitiesRegistry interface (not used in this test)
-func (r *updatableRegistry) Add(ctx context.Context, cap capabilities.BaseCapability) error {
+func (r *updatableRegistry) Add(ctx context.Context, capability capabilities.BaseCapability) error {
 	return nil
+}
+
+// ConfigForCapability implements the CapabilitiesRegistryMetadata interface
+func (r *updatableRegistry) ConfigForCapability(ctx context.Context, capabilityID string, donID uint32) (capabilities.CapabilityConfiguration, error) {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	return r.localRegistry.ConfigForCapability(ctx, capabilityID, donID)
+}
+
+// DONsForCapability implements the CapabilitiesRegistryMetadata interface
+func (r *updatableRegistry) DONsForCapability(ctx context.Context, capabilityID string) ([]capabilities.DONWithNodes, error) {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	return r.localRegistry.DONsForCapability(ctx, capabilityID)
+}
+
+// NodeByPeerID implements the CapabilitiesRegistryMetadata interface
+func (r *updatableRegistry) NodeByPeerID(ctx context.Context, peerID ragetypes.PeerID) (capabilities.Node, error) {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	return r.localRegistry.NodeByPeerID(ctx, peerID)
 }
 
 // createTestEngineForDonVersionTest creates a real V2 engine for testing DON version updates
 func createTestEngineForDonVersionTest(
 	t *testing.T,
-	_ context.Context,
 	lggr logger.Logger,
 	registry *coreCap.Registry,
 	donNotifier coreCap.DonNotifyWaitSubscriber,
