@@ -32,7 +32,7 @@ func TestAdminBatchPauseWorkflows(t *testing.T) {
 		t.Log("Admin batch pause workflows preconditions passed")
 	})
 
-	t.Run("batch pause with MCMS - preconditions only", func(t *testing.T) {
+	t.Run("batch pause with MCMS", func(t *testing.T) {
 		fixture := setupTestWithMCMS(t)
 
 		t.Log("Testing admin batch pause workflows with MCMS preconditions...")
@@ -42,11 +42,24 @@ func TestAdminBatchPauseWorkflows(t *testing.T) {
 			WorkflowRegistryQualifier: "test-workflow-registry-v2",
 			WorkflowIDs:               [][32]byte{testWorkflowID1},
 			MCMSConfig: &contracts.MCMSConfig{
-				MinDelay: 30 * time.Second,
+				MinDelay: 1 * time.Second,
 			},
 		})
 		require.NoError(t, err, "MCMS preconditions should pass")
 		t.Log("Admin batch pause workflows with MCMS preconditions passed")
+
+		csOutput, err := changeset.Apply(fixture.rt.Environment(), AdminBatchPauseWorkflowsInput{
+			ChainSelector:             fixture.selector,
+			WorkflowRegistryQualifier: "test-workflow-registry-v2",
+			WorkflowIDs:               [][32]byte{testWorkflowID1},
+			MCMSConfig: &contracts.MCMSConfig{
+				MinDelay: 1 * time.Second,
+			},
+		})
+		require.NoError(t, err, "admin batch pause apply should pass")
+		assert.NotNil(t, csOutput, "admin batch pause apply should pass")
+		assert.NotNil(t, csOutput.Reports, "admin batch pause apply should have reports")
+		assert.Len(t, csOutput.Reports, 1, "expected one report from admin batch pause")
 	})
 }
 
@@ -69,7 +82,7 @@ func TestAdminPauseWorkflow(t *testing.T) {
 		t.Log("Admin pause single workflow preconditions passed")
 	})
 
-	t.Run("pause single workflow with MCMS - preconditions only", func(t *testing.T) {
+	t.Run("pause single workflow with MCMS", func(t *testing.T) {
 		fixture := setupTestWithMCMS(t)
 
 		t.Log("Testing admin pause single workflow with MCMS preconditions...")
@@ -79,11 +92,24 @@ func TestAdminPauseWorkflow(t *testing.T) {
 			WorkflowRegistryQualifier: "test-workflow-registry-v2",
 			WorkflowID:                testWorkflowID,
 			MCMSConfig: &contracts.MCMSConfig{
-				MinDelay: 30 * time.Second,
+				MinDelay: 1 * time.Second,
 			},
 		})
 		require.NoError(t, err, "MCMS preconditions should pass")
 		t.Log("Admin pause single workflow with MCMS preconditions passed")
+
+		csOutput, err := changeset.Apply(fixture.rt.Environment(), AdminPauseWorkflowInput{
+			ChainSelector:             fixture.selector,
+			WorkflowRegistryQualifier: "test-workflow-registry-v2",
+			WorkflowID:                testWorkflowID,
+			MCMSConfig: &contracts.MCMSConfig{
+				MinDelay: 1 * time.Second,
+			},
+		})
+		require.NoError(t, err, "admin pause workflow apply should pass")
+		assert.NotNil(t, csOutput, "admin pause workflow apply should pass")
+		assert.NotNil(t, csOutput.Reports, "admin pause workflow apply should have reports")
+		assert.Len(t, csOutput.Reports, 1, "expected one report from admin pause workflow")
 	})
 }
 
@@ -117,7 +143,7 @@ func TestAdminPauseAllByOwner(t *testing.T) {
 		assert.Len(t, csOutput.Reports, 1, "expected one report from admin pause all by owner")
 	})
 
-	t.Run("pause all by owner with MCMS - preconditions only", func(t *testing.T) {
+	t.Run("pause all by owner with MCMS", func(t *testing.T) {
 		fixture := setupTestWithMCMS(t)
 
 		t.Log("Testing admin pause all by owner with MCMS preconditions...")
