@@ -562,7 +562,7 @@ func upgradeSuiOnRamp(ctx context.Context, t *testing.T, e testhelpers.DeployedE
 
 	// save the new pkgId to addressbook
 	typeAndVersionOnRampMockV2 := cldf.NewTypeAndVersion(deployment.SuiOnRampMockV2, deployment.Version1_0_0)
-	//nolint // ignoring until we migrate everything on sui to datastore.
+	//nolint:errcheck
 	err = e.Env.ExistingAddresses.Save(sourceChain, newOnRampPkgID, typeAndVersionOnRampMockV2)
 	require.NoError(t, err)
 
@@ -653,7 +653,7 @@ func upgradeSuiOffRamp(ctx context.Context, t *testing.T, e testhelpers.Deployed
 
 	// save the new pkgId to addressbook
 	typeAndVersionOffRampMockV2 := cldf.NewTypeAndVersion(deployment.SuiOffRampMockV2, deployment.Version1_0_0)
-	//nolint // ignoring until we migrate everything on sui to datastore.
+	//nolint:errcheck
 	err = e.Env.ExistingAddresses.Save(sourceChain, newOffRampPkgID, typeAndVersionOffRampMockV2)
 	require.NoError(t, err)
 
@@ -748,7 +748,7 @@ func upgradeCCIP(ctx context.Context, t *testing.T, e testhelpers.DeployedEnv, s
 	fmt.Println("NEW CCIPPKGID: ", newCCIPPkgID, "OLD: ", state.SuiChains[sourceChain].CCIPAddress)
 	// save the new pkgId to addressbook
 	typeAndVersionCCIPMockV2 := cldf.NewTypeAndVersion(deployment.SuiCCIPMockV2, deployment.Version1_0_0)
-	//nolint // ignoring until we migrate everything on sui to datastore.
+	//nolint:errcheck
 	err = e.Env.ExistingAddresses.Save(sourceChain, newCCIPPkgID, typeAndVersionCCIPMockV2)
 	require.NoError(t, err)
 
