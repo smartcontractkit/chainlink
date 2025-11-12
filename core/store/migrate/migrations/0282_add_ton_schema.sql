@@ -7,7 +7,7 @@ CREATE TABLE IF NOT EXISTS ton.log_poller_filters (
   chain_id TEXT NOT NULL,
 
   name VARCHAR(255) NOT NULL,
-  address TEXT NOT NULL, -- TON address in user-friendly format. TODO: consider use BYTEA for address field
+  address BYTEA NOT NULL CHECK (octet_length(address) = 36), -- TON address in raw format (4 bytes workchain + 32 bytes data)
   msg_type VARCHAR(20) NOT NULL,
   event_sig BYTEA NOT NULL CHECK (octet_length(event_sig) = 4), -- CRC32 hash as 4-byte binary
 
@@ -28,7 +28,7 @@ CREATE TABLE IF NOT EXISTS ton.log_poller_logs (
   filter_id BIGINT NOT NULL,
   chain_id TEXT NOT NULL,
 
-  address TEXT NOT NULL, -- TON address in user-friendly format. TODO: consider use BYTEA for address field
+  address BYTEA NOT NULL CHECK (octet_length(address) = 36), -- TON address in raw format (4 bytes workchain + 32 bytes data)
   event_sig BYTEA NOT NULL CHECK (octet_length(event_sig) = 4), -- CRC32 hash as 4-byte binary
   data_header BYTEA NOT NULL, -- BOC header (variable size: magic + flags + metadata)
   data_payload BYTEA NOT NULL, -- BOC payload starting with 2-byte cell descriptor
