@@ -169,9 +169,6 @@ func OnboardTokenPoolsForSelfServe(e cldf.Environment, cfg OnboardTokenPoolsForS
 
 func generateProposeTokenAdminRegistryAdministratorIx(e cldf.Environment, registerTokenConfig OnboardTokenPoolConfig, routerState routerSolanaState, solChainState globalState) (solana.Instruction, error) {
 	tokenMint := registerTokenConfig.TokenMint
-	tokenAdminRegistryPDA, _, _ := solState.FindTokenAdminRegistryPDA(tokenMint, routerState.routerProgramID)
-	tokenAdminRegistryAdmin := registerTokenConfig.ProposedOwner
-
 	tokenAdminRegistryPDA, _, err := solState.FindTokenAdminRegistryPDA(tokenMint, routerState.routerProgramID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to find token admin registry pda (mint: %s, router: %s): %w",
@@ -192,7 +189,7 @@ func generateProposeTokenAdminRegistryAdministratorIx(e cldf.Environment, regist
 	if !tokenAdminRegistryExists {
 		e.Logger.Infow("Running NewCcipAdminProposeAdministratorInstruction")
 		tempIx, err := solRouter.NewCcipAdminProposeAdministratorInstruction(
-			tokenAdminRegistryAdmin, // customer's admin of the tokenAdminRegistry PDA in the Router
+			registerTokenConfig.ProposedOwner, // customer's admin of the tokenAdminRegistry PDA in the Router
 			routerState.routerConfigPDA,
 			tokenAdminRegistryPDA, // If invoking the first time, this PDA is created
 			tokenMint,
@@ -211,7 +208,7 @@ func generateProposeTokenAdminRegistryAdministratorIx(e cldf.Environment, regist
 		e.Logger.Infow("Running NewCcipAdminOverridePendingAdministratorInstruction")
 		// Use this if the proposed token admin registry admin set was incorrect
 		overridePendingAdministratorIx, err := solRouter.NewCcipAdminOverridePendingAdministratorInstruction(
-			tokenAdminRegistryAdmin, // customer's admin of the tokenAdminRegistry PDA in the Router
+			registerTokenConfig.ProposedOwner, // customer's admin of the tokenAdminRegistry PDA in the Router
 			routerState.routerConfigPDA,
 			tokenAdminRegistryPDA,
 			tokenMint,
