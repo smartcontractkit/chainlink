@@ -1,3 +1,5 @@
+> Note: In OCR2, update cadence depends on deviation thresholds and heartbeat parameters. 
+> DON membership or reconfiguration events may temporarily impact observed intervals.
 <br/>
 <p align="center">
 <a href="https://chain.link" target="_blank">
