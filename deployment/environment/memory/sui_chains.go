@@ -124,9 +124,9 @@ func fundSuiNodes(t *testing.T, suiChain cldf_sui.Chain, nodes []*Node) {
 		unsignedReq := models.TransferSuiRequest{
 			Signer:      signerAddr,
 			SuiObjectId: coin.CoinObjectId,
-			GasBudget:   fmt.Sprintf("%d", gas),
+			GasBudget:   strconv.FormatUint(gas, 10),
 			Recipient:   to,
-			Amount:      fmt.Sprintf("%d", transferAmount),
+			Amount:      strconv.FormatUint(transferAmount, 10),
 		}
 
 		txnMeta, err := client.TransferSui(ctx, unsignedReq)

@@ -8,33 +8,40 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/block-vision/sui-go-sdk/models"
+	"github.com/stretchr/testify/require"
+
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
+
 	chain_selectors "github.com/smartcontractkit/chain-selectors"
-	"github.com/smartcontractkit/chainlink-sui/bindings/bind"
+
 	module_fee_quoter "github.com/smartcontractkit/chainlink-sui/bindings/generated/ccip/ccip/fee_quoter"
 	module_state_object "github.com/smartcontractkit/chainlink-sui/bindings/generated/ccip/ccip/state_object"
 	module_offramp "github.com/smartcontractkit/chainlink-sui/bindings/generated/ccip/ccip_offramp/offramp"
 	module_onramp "github.com/smartcontractkit/chainlink-sui/bindings/generated/ccip/ccip_onramp/onramp"
-	suiutil "github.com/smartcontractkit/chainlink-sui/bindings/utils"
 	"github.com/smartcontractkit/chainlink-sui/contracts"
-	"github.com/smartcontractkit/chainlink-sui/deployment"
-	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/testcontext"
-	"github.com/stretchr/testify/require"
 
-	"github.com/block-vision/sui-go-sdk/models"
+	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/testcontext"
+
 	"github.com/smartcontractkit/chainlink-deployments-framework/chain"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+
 	suiBind "github.com/smartcontractkit/chainlink-sui/bindings/bind"
+	suiutil "github.com/smartcontractkit/chainlink-sui/bindings/utils"
+	"github.com/smartcontractkit/chainlink-sui/deployment"
 	sui_cs "github.com/smartcontractkit/chainlink-sui/deployment/changesets"
 	sui_ops "github.com/smartcontractkit/chainlink-sui/deployment/ops"
 	ccipops "github.com/smartcontractkit/chainlink-sui/deployment/ops/ccip"
 	linkops "github.com/smartcontractkit/chainlink-sui/deployment/ops/link"
+
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers/messagingtest"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
 	commoncs "github.com/smartcontractkit/chainlink/deployment/common/changeset"
+
 	testsetups "github.com/smartcontractkit/chainlink/integration-tests/testsetups/ccip"
+
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
 
@@ -61,7 +68,8 @@ func Test_CCIP_Upgrade_Sui2EVM(t *testing.T) {
 
 	t.Log("Source chain (Sui): ", sourceChain, "Dest chain (EVM): ", destChain)
 
-	testhelpers.AddLaneWithDefaultPricesAndFeeQuoterConfig(t, &e, state, sourceChain, destChain, false)
+	err = testhelpers.AddLaneWithDefaultPricesAndFeeQuoterConfig(t, &e, state, sourceChain, destChain, false)
+	require.NoError(t, err)
 
 	suiSenderAddr, err := e.Env.BlockChains.SuiChains()[sourceChain].Signer.GetAddress()
 	require.NoError(t, err)
@@ -525,7 +533,7 @@ func upgradeSuiOnRamp(ctx context.Context, t *testing.T, e testhelpers.DeployedE
 	)
 	require.NoError(t, err)
 
-	newOnRampPkgId, err := bind.FindPackageIdFromPublishTx(*resp)
+	newOnRampPkgID, err := suiBind.FindPackageIdFromPublishTx(*resp)
 	require.NoError(t, err)
 
 	// Add new PackageID
@@ -537,10 +545,10 @@ func upgradeSuiOnRamp(ctx context.Context, t *testing.T, e testhelpers.DeployedE
 		Signer:           e.Env.BlockChains.SuiChains()[sourceChain].Signer,
 		WaitForExecution: true,
 		GasBudget:        &b,
-	}, suiBind.Object{Id: state.SuiChains[sourceChain].OnRampStateObjectId}, suiBind.Object{Id: state.SuiChains[sourceChain].OnRampOwnerCapObjectId}, newOnRampPkgId)
+	}, suiBind.Object{Id: state.SuiChains[sourceChain].OnRampStateObjectId}, suiBind.Object{Id: state.SuiChains[sourceChain].OnRampOwnerCapObjectId}, newOnRampPkgID)
 	require.NoError(t, err)
 
-	newOnRamp, err := module_onramp.NewOnramp(newOnRampPkgId, e.Env.BlockChains.SuiChains()[sourceChain].Client)
+	newOnRamp, err := module_onramp.NewOnramp(newOnRampPkgID, e.Env.BlockChains.SuiChains()[sourceChain].Client)
 	require.NoError(t, err)
 
 	typeAndVersion, err := newOnRamp.DevInspect().TypeAndVersion(ctx, &suiBind.CallOpts{
@@ -554,7 +562,8 @@ func upgradeSuiOnRamp(ctx context.Context, t *testing.T, e testhelpers.DeployedE
 
 	// save the new pkgId to addressbook
 	typeAndVersionOnRampMockV2 := cldf.NewTypeAndVersion(deployment.SuiOnRampMockV2, deployment.Version1_0_0)
-	err = e.Env.ExistingAddresses.Save(sourceChain, newOnRampPkgId, typeAndVersionOnRampMockV2)
+	//nolint directive.
+	err = e.Env.ExistingAddresses.Save(sourceChain, newOnRampPkgID, typeAndVersionOnRampMockV2)
 	require.NoError(t, err)
 
 	fmt.Println("Upgraded SUI onRamp")
@@ -615,7 +624,7 @@ func upgradeSuiOffRamp(ctx context.Context, t *testing.T, e testhelpers.Deployed
 	)
 	require.NoError(t, err)
 
-	newOffRampPkgId, err := bind.FindPackageIdFromPublishTx(*resp)
+	newOffRampPkgID, err := suiBind.FindPackageIdFromPublishTx(*resp)
 	require.NoError(t, err)
 
 	// Add new PackageID
@@ -627,10 +636,10 @@ func upgradeSuiOffRamp(ctx context.Context, t *testing.T, e testhelpers.Deployed
 		Signer:           e.Env.BlockChains.SuiChains()[sourceChain].Signer,
 		WaitForExecution: true,
 		GasBudget:        &b,
-	}, suiBind.Object{Id: state.SuiChains[sourceChain].OffRampStateObjectId}, suiBind.Object{Id: state.SuiChains[sourceChain].OffRampOwnerCapId}, newOffRampPkgId)
+	}, suiBind.Object{Id: state.SuiChains[sourceChain].OffRampStateObjectId}, suiBind.Object{Id: state.SuiChains[sourceChain].OffRampOwnerCapId}, newOffRampPkgID)
 	require.NoError(t, err)
 
-	newOffRamp, err := module_offramp.NewOfframp(newOffRampPkgId, e.Env.BlockChains.SuiChains()[sourceChain].Client)
+	newOffRamp, err := module_offramp.NewOfframp(newOffRampPkgID, e.Env.BlockChains.SuiChains()[sourceChain].Client)
 	require.NoError(t, err)
 
 	typeAndVersion, err := newOffRamp.DevInspect().TypeAndVersion(ctx, &suiBind.CallOpts{
@@ -644,7 +653,8 @@ func upgradeSuiOffRamp(ctx context.Context, t *testing.T, e testhelpers.Deployed
 
 	// save the new pkgId to addressbook
 	typeAndVersionOffRampMockV2 := cldf.NewTypeAndVersion(deployment.SuiOffRampMockV2, deployment.Version1_0_0)
-	err = e.Env.ExistingAddresses.Save(sourceChain, newOffRampPkgId, typeAndVersionOffRampMockV2)
+	//nolint directive.
+	err = e.Env.ExistingAddresses.Save(sourceChain, newOffRampPkgID, typeAndVersionOffRampMockV2)
 	require.NoError(t, err)
 
 	fmt.Println("Upgraded SUI offRamp")
@@ -708,11 +718,11 @@ func upgradeCCIP(ctx context.Context, t *testing.T, e testhelpers.DeployedEnv, s
 	)
 	require.NoError(t, err)
 
-	newCCIPPkgId, err := bind.FindPackageIdFromPublishTx(*resp)
+	newCCIPPkgID, err := suiBind.FindPackageIdFromPublishTx(*resp)
 	require.NoError(t, err)
 
 	// Add new PackageID
-	ccipStateObject, err := module_state_object.NewStateObject(newCCIPPkgId, e.Env.BlockChains.SuiChains()[sourceChain].Client)
+	ccipStateObject, err := module_state_object.NewStateObject(newCCIPPkgID, e.Env.BlockChains.SuiChains()[sourceChain].Client)
 	require.NoError(t, err)
 
 	// add new pkgId to state
@@ -720,10 +730,10 @@ func upgradeCCIP(ctx context.Context, t *testing.T, e testhelpers.DeployedEnv, s
 		Signer:           e.Env.BlockChains.SuiChains()[sourceChain].Signer,
 		WaitForExecution: true,
 		GasBudget:        &b,
-	}, suiBind.Object{Id: state.SuiChains[sourceChain].CCIPObjectRef}, suiBind.Object{Id: state.SuiChains[sourceChain].CCIPOwnerCapObjectId}, newCCIPPkgId)
+	}, suiBind.Object{Id: state.SuiChains[sourceChain].CCIPObjectRef}, suiBind.Object{Id: state.SuiChains[sourceChain].CCIPOwnerCapObjectId}, newCCIPPkgID)
 	require.NoError(t, err)
 
-	newFQ, err := module_fee_quoter.NewFeeQuoter(newCCIPPkgId, e.Env.BlockChains.SuiChains()[sourceChain].Client)
+	newFQ, err := module_fee_quoter.NewFeeQuoter(newCCIPPkgID, e.Env.BlockChains.SuiChains()[sourceChain].Client)
 	require.NoError(t, err)
 
 	typeAndVersion, err := newFQ.DevInspect().TypeAndVersion(ctx, &suiBind.CallOpts{
@@ -735,16 +745,17 @@ func upgradeCCIP(ctx context.Context, t *testing.T, e testhelpers.DeployedEnv, s
 
 	require.Equal(t, "FeeQuoter 1.6.1", typeAndVersion)
 
-	fmt.Println("NEW CCIPPKGID: ", newCCIPPkgId, "OLD: ", state.SuiChains[sourceChain].CCIPAddress)
+	fmt.Println("NEW CCIPPKGID: ", newCCIPPkgID, "OLD: ", state.SuiChains[sourceChain].CCIPAddress)
 	// save the new pkgId to addressbook
 	typeAndVersionCCIPMockV2 := cldf.NewTypeAndVersion(deployment.SuiCCIPMockV2, deployment.Version1_0_0)
-	err = e.Env.ExistingAddresses.Save(sourceChain, newCCIPPkgId, typeAndVersionCCIPMockV2)
+	//nolint directive.
+	err = e.Env.ExistingAddresses.Save(sourceChain, newCCIPPkgID, typeAndVersionCCIPMockV2)
 	require.NoError(t, err)
 
-	newPkgId := newFQ.Bound().GetPackageID()
-	fmt.Println("FQ NEW PKG ID: ", newPkgId)
+	newPkgID := newFQ.Bound().GetPackageID()
+	fmt.Println("FQ NEW PKG ID: ", newPkgID)
 
 	fmt.Println("Upgraded SUI CCIP")
 
-	return newCCIPPkgId
+	return newCCIPPkgID
 }

@@ -731,7 +731,7 @@ func UpgradeContractDirect(
 
 	paramValues := []any{
 		suiBind.Object{Id: upgradeCapID},
-		uint8(policy),
+		policy,
 		digest,
 	}
 
