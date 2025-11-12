@@ -62,6 +62,7 @@ type AppConfig interface {
 	Tracing() Tracing
 	Telemetry() Telemetry
 	CRE() CRE
+	CCV() CCV
 	Billing() Billing
 	BridgeStatusReporter() BridgeStatusReporter
 }
