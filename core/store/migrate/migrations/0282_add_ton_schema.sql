@@ -19,7 +19,7 @@ CREATE TABLE IF NOT EXISTS ton.log_poller_filters (
   CONSTRAINT check_msg_type CHECK (msg_type IN ('INTERNAL', 'EXTERNAL_IN', 'EXTERNAL_OUT'))
 );
 
-CREATE UNIQUE INDEX IF NOT EXISTS ton_log_poller_filter_name ON ton.log_poller_filters (chain_id, name) WHERE NOT is_deleted;
+CREATE UNIQUE INDEX IF NOT EXISTS idx_filters_name ON ton.log_poller_filters (chain_id, name) WHERE NOT is_deleted;
 CREATE INDEX IF NOT EXISTS idx_filters_address_msgtype ON ton.log_poller_filters(address, msg_type);
 
 -- Create logs table
@@ -55,21 +55,24 @@ CREATE TABLE IF NOT EXISTS ton.log_poller_logs (
 -- Unique constraint to prevent duplicate log entries
 CREATE UNIQUE INDEX IF NOT EXISTS idx_logs_unique ON ton.log_poller_logs (tx_hash, tx_lt, msg_index);
 
--- Index for address-scoped message ordering
-CREATE INDEX IF NOT EXISTS idx_logs_address_msglt ON ton.log_poller_logs(address, msg_lt);
-CREATE INDEX IF NOT EXISTS idx_logs_address_event ON ton.log_poller_logs(address, event_sig);
+-- Generic filtering index: base filter for all log queries
+CREATE INDEX IF NOT EXISTS idx_logs_filter ON ton.log_poller_logs(chain_id, address, event_sig);
 
--- Index first 64 bytes of BOC payload for byte-level filtering, covers most common filtering patterns
-CREATE INDEX IF NOT EXISTS idx_logs_data_payload_prefix64 ON ton.log_poller_logs (address, event_sig, SUBSTRING(data_payload, 1, 64));
+-- Generic chronological index: time-ordered queries (supports both tx_lt and tx_timestamp)
+-- Covers: message ordering, sequence queries, time-based sorting (both logical time and timestamp)
+CREATE INDEX IF NOT EXISTS idx_logs_chrono ON ton.log_poller_logs(chain_id, address, event_sig, tx_lt, tx_timestamp);
+
+-- Generic pagination index: cursor-based result pagination
+CREATE INDEX IF NOT EXISTS idx_logs_page ON ton.log_poller_logs(chain_id, address, msg_lt);
 
 -- +goose Down
-DROP INDEX IF EXISTS idx_logs_data_payload_prefix64;
-DROP INDEX IF EXISTS idx_logs_address_event;
-DROP INDEX IF EXISTS idx_logs_address_msglt;
-DROP INDEX IF EXISTS idx_logs_unique;
+DROP INDEX IF EXISTS ton.idx_logs_page;
+DROP INDEX IF EXISTS ton.idx_logs_chrono;
+DROP INDEX IF EXISTS ton.idx_logs_filter;
+DROP INDEX IF EXISTS ton.idx_logs_unique;
 DROP TABLE IF EXISTS ton.log_poller_logs;
-DROP INDEX IF EXISTS idx_filters_address_msgtype;
-DROP INDEX IF EXISTS ton_log_poller_filter_name;
+DROP INDEX IF EXISTS ton.idx_filters_address_msgtype;
+DROP INDEX IF EXISTS ton.idx_filters_name;
 DROP TABLE IF EXISTS ton.log_poller_filters;
 DROP SCHEMA IF EXISTS ton;
 
