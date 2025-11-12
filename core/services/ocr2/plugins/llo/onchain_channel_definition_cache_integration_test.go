@@ -5,7 +5,6 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"errors"
-	"fmt"
 	"io"
 	"math/rand"
 	"net/http"
@@ -37,6 +36,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/llo"
 	"github.com/smartcontractkit/chainlink/v2/core/services/llo/channeldefinitions"
+	llotypes2 "github.com/smartcontractkit/chainlink/v2/core/services/llo/types"
 )
 
 type mockHTTPClient struct {
@@ -104,6 +104,8 @@ func Test_ChannelDefinitionCache_Integration(t *testing.T) {
 						Aggregator: llotypes.AggregatorMode,
 					},
 				},
+				Tombstone: false,
+				Source:    channeldefinitions.SourceOwner,
 			},
 			2: {
 				ReportFormat: llotypes.ReportFormatEVMPremiumLegacy,
@@ -121,7 +123,9 @@ func Test_ChannelDefinitionCache_Integration(t *testing.T) {
 						Aggregator: llotypes.AggregatorQuote,
 					},
 				},
-				Opts: llotypes.ChannelOpts([]byte(`{"baseUSDFee":"0.1","expirationWindow":86400,"feedId":"0x0003aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa","multiplier":"1000000000000000000"}`)),
+				Opts:      llotypes.ChannelOpts([]byte(`{"baseUSDFee":"0.1","expirationWindow":86400,"feedId":"0x0003aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa","multiplier":"1000000000000000000"}`)),
+				Tombstone: false,
+				Source:    channeldefinitions.SourceOwner,
 			},
 		}
 	)
@@ -169,101 +173,103 @@ func Test_ChannelDefinitionCache_Integration(t *testing.T) {
 		assert.Empty(t, cdc.Definitions())
 	})
 
-	{
-		rc := NewMockReadCloser(invalidDefinitions)
-		client.SetResponse(&http.Response{
-			StatusCode: 200,
-			Body:       rc,
-		}, nil)
-
-		url := "http://example.com/foo"
-		require.NoError(t, utils.JustError(configStoreContract.SetChannelDefinitions(steve, donID, url, sampleDefinitionsSHA)))
-
-		backend.Commit()
-	}
-
 	t.Run("with sha mismatch, should not update", func(t *testing.T) {
 		// clear the log messages
 		t.Cleanup(func() { observedLogs.TakeAll() })
 
-		testutils.WaitForLogMessage(t, observedLogs, "Got new channel definitions from chain")
-		le := testutils.WaitForLogMessage(t, observedLogs, "Error while fetching channel definitions")
-		fields := le.ContextMap()
-		assert.Contains(t, fields, "err")
-		assert.Equal(t, fmt.Sprintf("SHA3 mismatch: expected %x, got %x", sampleDefinitionsSHA, invalidDefinitionsSHA), fields["err"])
+		{
+			rc := NewMockReadCloser(invalidDefinitions)
+			client.SetResponse(&http.Response{
+				StatusCode: 200,
+				Body:       rc,
+			}, nil)
+
+			url := "http://example.com/foo"
+			require.NoError(t, utils.JustError(configStoreContract.SetChannelDefinitions(steve, donID, url, sampleDefinitionsSHA)))
+
+			backend.Commit()
+		}
+
+		testutils.WaitForLogMessageWithField(t, observedLogs,
+			"Error while fetching channel definitions",
+			"err", "SHA3 mismatch for channel definitions")
 
 		assert.Empty(t, cdc.Definitions())
 	})
-
-	{
-		rc := NewMockReadCloser(invalidDefinitions)
-		client.SetResponse(&http.Response{
-			StatusCode: 200,
-			Body:       rc,
-		}, nil)
-
-		url := "http://example.com/foo"
-		require.NoError(t, utils.JustError(configStoreContract.SetChannelDefinitions(steve, donID, url, invalidDefinitionsSHA)))
-		backend.Commit()
-	}
 
 	t.Run("after correcting sha with new channel definitions set on-chain, but with invalid JSON at url, should not update", func(t *testing.T) {
-		// clear the log messages
-		t.Cleanup(func() { observedLogs.TakeAll() })
+		// clear the log messages before waiting for new ones
+		observedLogs.TakeAll()
 
-		testutils.WaitForLogMessage(t, observedLogs, "Got new channel definitions from chain")
-		testutils.WaitForLogMessageWithField(t, observedLogs, "Error while fetching channel definitions", "err", "failed to decode JSON: invalid character '{' looking for beginning of object key string")
+		{
+			rc := NewMockReadCloser(invalidDefinitions)
+			client.SetResponse(&http.Response{
+				StatusCode: 200,
+				Body:       rc,
+			}, nil)
 
+			url := "http://example.com/foo"
+			require.NoError(t, utils.JustError(configStoreContract.SetChannelDefinitions(steve, donID, url, invalidDefinitionsSHA)))
+			backend.Commit()
+		}
+
+		testutils.WaitForLogMessageWithField(t, observedLogs,
+			"Error while fetching channel definitions",
+			"err", "invalid character '{' looking for beginning of object key string")
 		assert.Empty(t, cdc.Definitions())
 	})
 
-	{
-		rc := NewMockReadCloser([]byte("not found"))
-		client.SetResponse(&http.Response{
-			StatusCode: 404,
-			Body:       rc,
-		}, nil)
-
-		url := "http://example.com/foo3"
-		require.NoError(t, utils.JustError(configStoreContract.SetChannelDefinitions(steve, donID, url, sampleDefinitionsSHA)))
-		backend.Commit()
-	}
-
 	t.Run("if server returns 404, should not update", func(t *testing.T) {
-		// clear the log messages
-		t.Cleanup(func() { observedLogs.TakeAll() })
+		// clear the log messages before waiting for new ones
+		observedLogs.TakeAll()
 
-		testutils.WaitForLogMessageWithField(t, observedLogs, "Error while fetching channel definitions", "err", "got error from http://example.com/foo3: (status code: 404, response body: not found)")
+		{
+			rc := NewMockReadCloser([]byte("not found"))
+			client.SetResponse(&http.Response{
+				StatusCode: 404,
+				Body:       rc,
+			}, nil)
+
+			url := "http://example.com/foo3"
+			require.NoError(t, utils.JustError(configStoreContract.SetChannelDefinitions(steve, donID, url, sampleDefinitionsSHA)))
+			backend.Commit()
+		}
+
+		testutils.WaitForLogMessageWithField(t, observedLogs,
+			"Error while fetching channel definitions",
+			"err", "(status 404): not found")
 	})
-
-	{
-		rc := NewMockReadCloser([]byte{})
-		client.SetResponse(&http.Response{
-			StatusCode: 200,
-			Body:       rc,
-		}, nil)
-	}
 
 	t.Run("if server starts returning empty body, still does not update", func(t *testing.T) {
-		// clear the log messages
-		t.Cleanup(func() { observedLogs.TakeAll() })
+		// clear the log messages before waiting for new ones
+		observedLogs.TakeAll()
 
-		testutils.WaitForLogMessageWithField(t, observedLogs, "Error while fetching channel definitions", "err", fmt.Sprintf("SHA3 mismatch: expected %x, got %x", sampleDefinitionsSHA, sha3.Sum256([]byte{})))
+		{
+			rc := NewMockReadCloser([]byte{})
+			client.SetResponse(&http.Response{
+				StatusCode: 200,
+				Body:       rc,
+			}, nil)
+		}
+
+		testutils.WaitForLogMessageWithField(t, observedLogs,
+			"Error while fetching channel definitions", "err", "failed to fetch channel definitions: SHA3 mismatch for channel definitions")
 	})
 
-	{
-		rc := NewMockReadCloser(sampleDefinitionsJSON)
-		client.SetResponse(&http.Response{
-			StatusCode: 200,
-			Body:       rc,
-		}, nil)
-	}
-
 	t.Run("when URL starts returning valid JSON, updates even without needing new logs", func(t *testing.T) {
-		// clear the log messages
-		t.Cleanup(func() { observedLogs.TakeAll() })
+		// clear the log messages before waiting for new ones
+		observedLogs.TakeAll()
 
-		le := testutils.WaitForLogMessage(t, observedLogs, "Set new channel definitions")
+		{
+			rc := NewMockReadCloser(sampleDefinitionsJSON)
+			client.SetResponse(&http.Response{
+				StatusCode: 200,
+				Body:       rc,
+			}, nil)
+		}
+
+		le := testutils.WaitForLogMessageWithField(t, observedLogs, "Set channel definitions",
+			"url", "http://example.com/foo3")
 		fields := le.ContextMap()
 		assert.Contains(t, fields, "version")
 		assert.Contains(t, fields, "url")
@@ -290,63 +296,59 @@ func Test_ChannelDefinitionCache_Integration(t *testing.T) {
 
 		t.Run("new cdc with same config should load from DB", func(t *testing.T) {
 			// fromBlock far in the future to ensure logs are not used
-			cdc2 := channeldefinitions.NewChannelDefinitionCache(lggr, orm, client, lp, configStoreAddress, donID, 1000)
+			cdc2 := channeldefinitions.NewChannelDefinitionCache(logger.NullLogger, orm, client, lp, configStoreAddress, donID, 1000)
 			servicetest.Run(t, cdc2)
-
-			assert.Equal(t, sampleDefinitions, cdc.Definitions())
+			assert.Equal(t, sampleDefinitions, cdc2.Definitions())
 		})
 	})
 
-	{
-		url := "not a real URL"
-		require.NoError(t, utils.JustError(configStoreContract.SetChannelDefinitions(steve, donID, url, sampleDefinitionsSHA)))
-
-		backend.Commit()
-
-		client.SetResponse(nil, errors.New("failed; not a real URL"))
-	}
-
 	t.Run("new log with invalid channel definitions URL does not affect old channel definitions", func(t *testing.T) {
 		// clear the log messages
-		t.Cleanup(func() { observedLogs.TakeAll() })
+		observedLogs.TakeAll()
+		{
+			url := "not a real URL"
+			require.NoError(t, utils.JustError(configStoreContract.SetChannelDefinitions(steve, donID, url, sampleDefinitionsSHA)))
+			client.SetResponse(nil, errors.New("failed; not a real URL"))
+			backend.Commit()
+		}
 
-		le := testutils.WaitForLogMessage(t, observedLogs, "Error while fetching channel definitions")
-		fields := le.ContextMap()
-		assert.Contains(t, fields, "err")
-		assert.Equal(t, "error making http request: failed; not a real URL", fields["err"])
+		testutils.WaitForLogMessageWithField(t, observedLogs, "Error while fetching channel definitions", "err", "invalid URI for request")
 	})
 
-	{
-		// add a new definition, it should get loaded
-		sampleDefinitions[3] = llotypes.ChannelDefinition{
-			ReportFormat: llotypes.ReportFormatJSON,
-			Streams: []llotypes.Stream{
-				{
-					StreamID:   6,
-					Aggregator: llotypes.AggregatorMedian,
+	t.Run("new valid definitions set on-chain, should update", func(t *testing.T) {
+		// clear the log messages before waiting for new ones
+		observedLogs.TakeAll()
+
+		{
+			// add a new definition, it should get loaded
+			sampleDefinitions[3] = llotypes.ChannelDefinition{
+				ReportFormat: llotypes.ReportFormatJSON,
+				Streams: []llotypes.Stream{
+					{
+						StreamID:   6,
+						Aggregator: llotypes.AggregatorMedian,
+					},
 				},
-			},
+				Source:    channeldefinitions.SourceOwner,
+				Tombstone: false,
+			}
+			var err error
+			sampleDefinitionsJSON, err = json.MarshalIndent(sampleDefinitions, "", "  ")
+			require.NoError(t, err)
+			sampleDefinitionsSHA = sha3.Sum256(sampleDefinitionsJSON)
+			rc := NewMockReadCloser(sampleDefinitionsJSON)
+			client.SetResponse(&http.Response{
+				StatusCode: 200,
+				Body:       rc,
+			}, nil)
+
+			url := "http://example.com/foo5"
+			require.NoError(t, utils.JustError(configStoreContract.SetChannelDefinitions(steve, donID, url, sampleDefinitionsSHA)))
+
+			backend.Commit()
 		}
-		var err error
-		sampleDefinitionsJSON, err = json.MarshalIndent(sampleDefinitions, "", "  ")
-		require.NoError(t, err)
-		sampleDefinitionsSHA = sha3.Sum256(sampleDefinitionsJSON)
-		rc := NewMockReadCloser(sampleDefinitionsJSON)
-		client.SetResponse(&http.Response{
-			StatusCode: 200,
-			Body:       rc,
-		}, nil)
 
-		url := "http://example.com/foo5"
-		require.NoError(t, utils.JustError(configStoreContract.SetChannelDefinitions(steve, donID, url, sampleDefinitionsSHA)))
-
-		backend.Commit()
-	}
-
-	t.Run("successfully updates to new channel definitions with new log", func(t *testing.T) {
-		t.Cleanup(func() { observedLogs.TakeAll() })
-
-		le := testutils.WaitForLogMessage(t, observedLogs, "Set new channel definitions")
+		le := testutils.WaitForLogMessage(t, observedLogs, "Set channel definitions")
 		fields := le.ContextMap()
 		assert.Contains(t, fields, "version")
 		assert.Contains(t, fields, "url")
@@ -363,8 +365,20 @@ func Test_ChannelDefinitionCache_Integration(t *testing.T) {
 	})
 
 	t.Run("latest channel definitions are persisted and overwrite previous value", func(t *testing.T) {
-		pd, err := orm.LoadChannelDefinitions(testutils.Context(t), configStoreAddress, donID)
-		require.NoError(t, err)
+		// Wait for persistence to complete with retries
+		var pd *llotypes2.PersistedDefinitions
+		require.Eventually(t, func() bool {
+			loaded, err := orm.LoadChannelDefinitions(testutils.Context(t), configStoreAddress, donID)
+			if err != nil || loaded == nil {
+				return false
+			}
+			if loaded.Version != uint32(5) {
+				return false
+			}
+			pd = loaded
+			return true
+		}, 5*time.Second, 100*time.Millisecond, "channel definitions should be persisted")
+		require.NotNil(t, pd)
 		assert.Equal(t, ETHMainnetChainSelector, pd.ChainSelector)
 		assert.Equal(t, configStoreAddress, pd.Address)
 		assert.Equal(t, sampleDefinitions, pd.Definitions)

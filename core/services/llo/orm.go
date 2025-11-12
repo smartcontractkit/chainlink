@@ -42,14 +42,15 @@ func (o *chainScopedORM) LoadChannelDefinitions(ctx context.Context, addr common
 }
 
 // StoreChannelDefinitions will store a ChannelDefinitions list for a given chain_selector, addr, don_id
-// It only updates if the new version is greater than the existing record
+// It updates if the new version is greater than the existing record OR if the block number has changed
+// (indicating definitions were updated even if version hasn't progressed)
 func (o *chainScopedORM) StoreChannelDefinitions(ctx context.Context, addr common.Address, donID, version uint32, dfns llotypes.ChannelDefinitions, blockNum int64) error {
 	_, err := o.ds.ExecContext(ctx, `
 INSERT INTO channel_definitions (chain_selector, addr, don_id, definitions, block_num, version, updated_at)
 VALUES ($1, $2, $3, $4, $5, $6, NOW())
 ON CONFLICT (chain_selector, addr, don_id) DO UPDATE
 SET definitions = $4, block_num = $5, version = $6, updated_at = NOW()
-WHERE EXCLUDED.version > channel_definitions.version
+WHERE EXCLUDED.version > channel_definitions.version OR EXCLUDED.block_num > channel_definitions.block_num
 `, o.chainSelector, addr, donID, dfns, blockNum, version)
 	if err != nil {
 		return fmt.Errorf("StoreChannelDefinitions failed: %w", err)

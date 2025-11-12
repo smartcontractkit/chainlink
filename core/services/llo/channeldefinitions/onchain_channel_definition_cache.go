@@ -12,6 +12,8 @@ import (
 	"maps"
 	"math/big"
 	"net/http"
+	"net/url"
+	"sort"
 	"strconv"
 	"strings"
 	"sync"
@@ -44,14 +46,18 @@ const (
 	// How often we check for failed persistence and attempt to save again
 	dbPersistLoopInterval = 1 * time.Second
 
-	newChannelDefinitionEventName = "NewChannelDefinition"
+	newChannelDefinitionEventName   = "NewChannelDefinition"
+	channelDefinitionAddedEventName = "ChannelDefinitionAdded"
+
+	SourceUndefined uint32 = 0
+	SourceOwner     uint32 = 1
 )
 
 var (
-	channelConfigStoreABI abi.ABI
-	NewChannelDefinition  = (channel_config_store.ChannelConfigStoreNewChannelDefinition{}).Topic()
-
-	NoLimitSortAsc = query.NewLimitAndSort(query.Limit{}, query.NewSortBySequence(query.Asc))
+	channelConfigStoreABI  abi.ABI
+	NewChannelDefinition   = (channel_config_store.ChannelConfigStoreNewChannelDefinition{}).Topic()
+	ChannelDefinitionAdded = (channel_config_store.ChannelConfigStoreChannelDefinitionAdded{}).Topic()
+	NoLimitSortAsc         = query.NewLimitAndSort(query.Limit{}, query.NewSortBySequence(query.Asc))
 )
 
 func init() {
@@ -85,6 +91,14 @@ func WithLogPollInterval(d time.Duration) Option {
 	}
 }
 
+type fetchTrigger struct {
+	source   uint32
+	url      string
+	sha      [32]byte
+	blockNum int64
+	version  uint32
+}
+
 type channelDefinitionCache struct {
 	services.StateMachine
 
@@ -92,27 +106,27 @@ type channelDefinitionCache struct {
 	client    HTTPClient
 	httpLimit int64
 
-	filterName      string
-	lp              LogPoller
-	logPollInterval time.Duration
-	addr            common.Address
-	donID           uint32
-	donIDTopic      common.Hash
-	filterExprs     []query.Expression
-	lggr            logger.SugaredLogger
-	initialBlockNum int64
+	filterName       string
+	lp               LogPoller
+	logPollInterval  time.Duration
+	addr             common.Address
+	donID            uint32
+	donIDTopic       common.Hash
+	ownerFilterExprs []query.Expression
+	adderFilterExprs []query.Expression
+	lggr             logger.SugaredLogger
+	initialBlockNum  int64
 
-	newLogMu sync.RWMutex
-	newLog   *channel_config_store.ChannelConfigStoreNewChannelDefinition
-	newLogCh chan *channel_config_store.ChannelConfigStoreNewChannelDefinition
+	fetchMutex     sync.Mutex
+	fetchTriggerCh chan fetchTrigger
 
 	definitionsMu       sync.RWMutex
 	definitions         llotypes.ChannelDefinitions
-	definitionsVersion  uint32
 	definitionsBlockNum int64
+	definitionsVersion  uint32
 
-	persistMu        sync.RWMutex
-	persistedVersion uint32
+	persistMu         sync.RWMutex
+	persistedBlockNum int64
 
 	wg     sync.WaitGroup
 	chStop services.StopChan
@@ -123,37 +137,45 @@ type HTTPClient interface {
 }
 
 func NewChannelDefinitionCache(lggr logger.Logger, orm ChannelDefinitionCacheORM, client HTTPClient, lp logpoller.LogPoller, addr common.Address, donID uint32, fromBlock int64, options ...Option) llotypes.ChannelDefinitionCache {
-	filterName := types.ChannelDefinitionCacheFilterName(addr, donID)
-	donIDTopic := common.BigToHash(big.NewInt(int64(donID)))
-
-	exprs := []query.Expression{
-		logpoller.NewAddressFilter(addr),
-		logpoller.NewEventSigFilter(NewChannelDefinition),
-		logpoller.NewEventByTopicFilter(1, []logpoller.HashedValueComparator{
-			{Values: []common.Hash{donIDTopic}, Operator: primitives.Eq},
-		}),
-		// NOTE: Optimize for fast pickup of new channel definitions. On
-		// Arbitrum, finalization can take tens of minutes
-		// (https://grafana.ops.prod.cldev.sh/d/e0453cc9-4b4a-41e1-9f01-7c21de805b39/blockchain-finality-and-gas?orgId=1&var-env=All&var-network_name=ethereum-testnet-sepolia-arbitrum-1&var-network_name=ethereum-mainnet-arbitrum-1&from=1732460992641&to=1732547392641)
-		query.Confidence(primitives.Unconfirmed),
-	}
 
 	cdc := &channelDefinitionCache{
 		orm:             orm,
 		client:          client,
 		httpLimit:       MaxChannelDefinitionsFileSize,
-		filterName:      filterName,
+		filterName:      types.ChannelDefinitionCacheFilterName(addr, donID),
 		lp:              lp,
 		logPollInterval: defaultLogPollInterval,
 		addr:            addr,
 		donID:           donID,
-		donIDTopic:      donIDTopic,
-		filterExprs:     exprs,
+		donIDTopic:      common.BigToHash(big.NewInt(int64(donID))),
 		lggr:            logger.Sugared(lggr).Named("ChannelDefinitionCache").With("addr", addr, "fromBlock", fromBlock),
-		newLogCh:        make(chan *channel_config_store.ChannelConfigStoreNewChannelDefinition, 1),
+		fetchTriggerCh:  make(chan fetchTrigger, 1),
 		initialBlockNum: fromBlock,
 		chStop:          make(chan struct{}),
 	}
+
+	cdc.ownerFilterExprs = []query.Expression{
+		logpoller.NewAddressFilter(addr),
+		logpoller.NewEventSigFilter(NewChannelDefinition),
+		logpoller.NewEventByTopicFilter(1, []logpoller.HashedValueComparator{
+			{Values: []common.Hash{cdc.donIDTopic}, Operator: primitives.Eq},
+		}),
+		// Optimize for fast pickup of new channel definitions.
+		// On Arbitrum, finalization can take a long time.
+		query.Confidence(primitives.Unconfirmed),
+	}
+
+	cdc.adderFilterExprs = []query.Expression{
+		logpoller.NewAddressFilter(addr),
+		logpoller.NewEventSigFilter(ChannelDefinitionAdded),
+		logpoller.NewEventByTopicFilter(1, []logpoller.HashedValueComparator{
+			{Values: []common.Hash{cdc.donIDTopic}, Operator: primitives.Eq},
+		}),
+		// Optimize for fast pickup of new channel definitions.
+		// On Arbitrum, finalization can take a long time.
+		query.Confidence(primitives.Unconfirmed),
+	}
+
 	for _, option := range options {
 		option(cdc)
 	}
@@ -163,23 +185,33 @@ func NewChannelDefinitionCache(lggr logger.Logger, orm ChannelDefinitionCacheORM
 func (c *channelDefinitionCache) Start(ctx context.Context) error {
 	// Initial load from DB, then async poll from chain thereafter
 	return c.StartOnce("ChannelDefinitionCache", func() (err error) {
-		err = c.lp.RegisterFilter(ctx, logpoller.Filter{Name: c.filterName, EventSigs: []common.Hash{NewChannelDefinition}, Topic2: []common.Hash{c.donIDTopic}, Addresses: []common.Address{c.addr}})
+		err = c.lp.RegisterFilter(ctx, logpoller.Filter{
+			Name:      c.filterName,
+			EventSigs: []common.Hash{NewChannelDefinition, ChannelDefinitionAdded},
+			Topic2:    []common.Hash{c.donIDTopic},
+			Addresses: []common.Address{c.addr},
+		})
+
 		if err != nil {
 			return err
 		}
+
 		if pd, err := c.orm.LoadChannelDefinitions(ctx, c.addr, c.donID); err != nil {
 			return err
 		} else if pd != nil {
 			c.definitions = pd.Definitions
-			c.definitionsVersion = uint32(pd.Version)
+			c.definitionsVersion = pd.Version
+			c.definitionsBlockNum = pd.BlockNum
+			c.persistedBlockNum = pd.BlockNum
 			if pd.BlockNum+1 > c.initialBlockNum {
-				c.initialBlockNum = pd.BlockNum + 1
+				c.initialBlockNum = pd.BlockNum
 			}
 		} else {
 			// ensure non-nil map ready for assignment later
 			c.definitions = make(llotypes.ChannelDefinitions)
 			// leave c.initialBlockNum as provided fromBlock argument
 		}
+
 		c.wg.Add(3)
 		// We have three concurrent loops
 		// 1. Poll chain for new logs
@@ -192,9 +224,81 @@ func (c *channelDefinitionCache) Start(ctx context.Context) error {
 	})
 }
 
-////////////////////////////////////////////////////////////////////
-// Log Polling
-////////////////////////////////////////////////////////////////////
+// blockNumFromUint64 converts a uint64 block number to int64
+// This is safe as block numbers are well within int64 range
+func blockNumFromUint64(blockNum uint64) int64 {
+	//nolint:gosec // disable G115
+	return int64(blockNum)
+}
+
+// unpackOwnerLog unpacks and validates an owner log from logpoller
+// Returns the unpacked log and an error if unpacking or validation fails
+func (c *channelDefinitionCache) unpackOwnerLog(log logpoller.Log) (*channel_config_store.ChannelConfigStoreNewChannelDefinition, error) {
+	if log.EventSig != NewChannelDefinition {
+		return nil, fmt.Errorf("log event signature mismatch: expected %x, got %x", NewChannelDefinition, log.EventSig)
+	}
+
+	unpacked := new(channel_config_store.ChannelConfigStoreNewChannelDefinition)
+	err := channelConfigStoreABI.UnpackIntoInterface(unpacked, newChannelDefinitionEventName, log.Data)
+	if err != nil {
+		return nil, fmt.Errorf("failed to unpack log data: %w", err)
+	}
+
+	if len(log.Topics) < 2 {
+		return nil, fmt.Errorf("log missing expected topics: got %d, expected at least 2", len(log.Topics))
+	}
+
+	unpacked.DonId = new(big.Int).SetBytes(log.Topics[1])
+	//nolint:gosec // disable G115
+	unpacked.Raw.BlockNumber = uint64(log.BlockNumber)
+
+	// Validate donID matches
+	if unpacked.DonId.Cmp(big.NewInt(int64(c.donID))) != 0 {
+		return nil, fmt.Errorf("donID mismatch: expected %d, got %s", c.donID, unpacked.DonId.String())
+	}
+
+	return unpacked, nil
+}
+
+// unpackAdderLog unpacks and validates an adder log from logpoller
+// Returns the unpacked log and an error if unpacking or validation fails
+func (c *channelDefinitionCache) unpackAdderLog(log logpoller.Log) (*channel_config_store.ChannelConfigStoreChannelDefinitionAdded, error) {
+	if log.EventSig != ChannelDefinitionAdded {
+		return nil, fmt.Errorf("log event signature mismatch: expected %x, got %x", ChannelDefinitionAdded, log.EventSig)
+	}
+
+	unpacked := new(channel_config_store.ChannelConfigStoreChannelDefinitionAdded)
+	err := channelConfigStoreABI.UnpackIntoInterface(unpacked, channelDefinitionAddedEventName, log.Data)
+	if err != nil {
+		return nil, fmt.Errorf("failed to unpack adder log data: %w", err)
+	}
+
+	if len(log.Topics) < 2 {
+		return nil, fmt.Errorf("adder log missing expected topics: got %d, expected at least 2", len(log.Topics))
+	}
+
+	unpacked.DonId = new(big.Int).SetBytes(log.Topics[1])
+	//nolint:gosec // disable G115
+	unpacked.Raw.BlockNumber = uint64(log.BlockNumber)
+
+	// Validate donID matches
+	if unpacked.DonId.Cmp(big.NewInt(int64(c.donID))) != 0 {
+		return nil, fmt.Errorf("donID mismatch: expected %d, got %s", c.donID, unpacked.DonId.String())
+	}
+
+	return unpacked, nil
+}
+
+// buildFilterExprs builds filter expressions by appending block range filters to base expressions
+func buildFilterExprs(baseExprs []query.Expression, fromBlock, toBlock int64) []query.Expression {
+	exprs := make([]query.Expression, 0, len(baseExprs)+2)
+	exprs = append(exprs, baseExprs...)
+	exprs = append(exprs,
+		query.Block(strconv.FormatInt(fromBlock, 10), primitives.Gte),
+		query.Block(strconv.FormatInt(toBlock, 10), primitives.Lte),
+	)
+	return exprs
+}
 
 // pollChainLoop periodically checks logpoller for new logs
 func (c *channelDefinitionCache) pollChainLoop() {
@@ -228,155 +332,205 @@ func (c *channelDefinitionCache) readLogs(ctx context.Context) (err error) {
 	} else if err != nil {
 		return err
 	}
+
 	toBlock := latestBlock.BlockNumber
-
 	fromBlock := c.scanFromBlockNum()
-
 	if toBlock <= fromBlock {
 		return nil
 	}
 
-	exprs := make([]query.Expression, 0, len(c.filterExprs)+2)
-	exprs = append(exprs, c.filterExprs...)
-	exprs = append(exprs,
-		query.Block(strconv.FormatInt(fromBlock, 10), primitives.Gte),
-		query.Block(strconv.FormatInt(toBlock, 10), primitives.Lte),
-	)
+	logsToProcess := make([]logpoller.Log, 0)
 
-	logs, err := c.lp.FilteredLogs(ctx, exprs, NoLimitSortAsc, "ChannelDefinitionCachePoller - NewChannelDefinition")
+	exprs := buildFilterExprs(c.adderFilterExprs, fromBlock, toBlock)
+	logs, err := c.lp.FilteredLogs(ctx, exprs, NoLimitSortAsc, "ChannelDefinitionCachePoller - NewAdderChannelDefinition")
 	if err != nil {
 		return err
 	}
+	logsToProcess = append(logsToProcess, logs...)
 
-	for _, log := range logs {
-		if log.EventSig != NewChannelDefinition {
-			// ignore unrecognized logs
-			continue
-		}
-		unpacked := new(channel_config_store.ChannelConfigStoreNewChannelDefinition)
-
-		err := channelConfigStoreABI.UnpackIntoInterface(unpacked, newChannelDefinitionEventName, log.Data)
-		if err != nil {
-			return fmt.Errorf("failed to unpack log data: %w", err)
-		}
-		if len(log.Topics) < 2 {
-			// should never happen but must guard against unexpected panics
-			c.lggr.Warnw("Log missing expected topics", "log", log)
-			continue
-		}
-		unpacked.DonId = new(big.Int).SetBytes(log.Topics[1])
-
-		//nolint:gosec // disable G115
-		unpacked.Raw.BlockNumber = uint64(log.BlockNumber)
-
-		if unpacked.DonId.Cmp(big.NewInt(int64(c.donID))) != 0 {
-			// skip logs for other donIDs, shouldn't happen given the
-			// FilterLogs call, but belts and braces
-			continue
-		}
-
-		c.newLogMu.Lock()
-		if c.newLog == nil || unpacked.Version > c.newLog.Version {
-			c.lggr.Infow("Got new channel definitions from chain", "version", unpacked.Version, "blockNumber", log.BlockNumber, "sha", fmt.Sprintf("%x", unpacked.Sha), "url", unpacked.Url)
-			c.newLog = unpacked
-			c.newLogCh <- unpacked
-		}
-		c.newLogMu.Unlock()
+	exprs = buildFilterExprs(c.ownerFilterExprs, fromBlock, toBlock)
+	logs, err = c.lp.FilteredLogs(ctx, exprs, NoLimitSortAsc, "ChannelDefinitionCachePoller - NewOwnerChannelDefinition")
+	if err != nil {
+		return err
 	}
+	logsToProcess = append(logsToProcess, logs...)
+
+	sort.Slice(logsToProcess, func(i, j int) bool {
+		return logsToProcess[i].BlockNumber < logsToProcess[j].BlockNumber
+	})
+
+	c.processLogs(logsToProcess)
 
 	return nil
 }
 
+// scanFromBlockNum returns the block number to scan from
+// Uses the maximum of persistedBlockNum and definitionsBlockNum+1 to ensure we don't skip
+// any blocks that have been processed in memory but not yet persisted
 func (c *channelDefinitionCache) scanFromBlockNum() int64 {
-	c.newLogMu.RLock()
-	defer c.newLogMu.RUnlock()
-	if c.newLog != nil {
-		//nolint:gosec // disable G115
-		return int64(c.newLog.Raw.BlockNumber)
+	c.definitionsMu.RLock()
+	blockNum := c.definitionsBlockNum
+	c.definitionsMu.RUnlock()
+
+	if blockNum > c.initialBlockNum {
+		return blockNum
 	}
+
 	return c.initialBlockNum
 }
 
-////////////////////////////////////////////////////////////////////
-// Fetch channel definitions from URL based on latest log
-////////////////////////////////////////////////////////////////////
+func (c *channelDefinitionCache) processLogs(logs []logpoller.Log) {
+	for _, log := range logs {
+		var trigger fetchTrigger
+		switch log.EventSig {
+		case NewChannelDefinition:
+			unpacked, err := c.unpackOwnerLog(log)
+			if err != nil {
+				// Log warning but continue processing other logs
+				c.lggr.Warnw("Failed to unpack owner log", "err", err, "blockNumber", log.BlockNumber)
+				continue
+			}
+			trigger = fetchTrigger{
+				source:   SourceOwner,
+				url:      unpacked.Url,
+				sha:      unpacked.Sha,
+				blockNum: blockNumFromUint64(unpacked.Raw.BlockNumber),
+				version:  unpacked.Version,
+			}
+		case ChannelDefinitionAdded:
+			unpacked, err := c.unpackAdderLog(log)
+			if err != nil {
+				// Log warning but continue processing other logs
+				c.lggr.Warnw("Failed to unpack adder log", "err", err, "blockNumber", log.BlockNumber)
+				continue
+			}
+			trigger = fetchTrigger{
+				source:   unpacked.AdderId,
+				url:      unpacked.Url,
+				sha:      unpacked.Sha,
+				blockNum: blockNumFromUint64(unpacked.Raw.BlockNumber),
+			}
+		default:
+			c.lggr.Warnw("Unknown log event signature",
+				"blockNumber", log.BlockNumber, "eventSig", log.EventSig, "logHash", log.TxHash.Hex())
+			continue
+		}
+		c.lggr.Infow("Got new logs", "source", trigger.source, "url", trigger.url, "sha", hex.EncodeToString(trigger.sha[:]), "blockNum", trigger.blockNum)
+		c.fetchTriggerCh <- trigger
+	}
+}
 
-// fetchLatestLoop waits for new logs and tries on a loop to fetch the channel definitions from the specified url
+func (c *channelDefinitionCache) mergeDefinitions(currentDefinitions llotypes.ChannelDefinitions, newDefinitions llotypes.ChannelDefinitions) llotypes.ChannelDefinitions {
+	for channelID, def := range newDefinitions {
+		switch def.Source {
+		case SourceOwner:
+			if def.Tombstone {
+				delete(currentDefinitions, channelID)
+				continue
+			}
+			currentDefinitions[channelID] = def
+		default:
+			if def.Tombstone {
+				c.lggr.Warnw("invalid channel tombstone, cannot be added by adders",
+					"channelID", channelID, "adderID", def.Source)
+				continue
+			}
+			if existing, exists := currentDefinitions[channelID]; exists {
+				if existing.Source != def.Source {
+					c.lggr.Warnw("channel adder conflict, skipping definition",
+						"channelID", channelID, "existingSourceID", existing.Source, "newSourceID", def.Source)
+				}
+				continue
+			}
+			currentDefinitions[channelID] = def
+		}
+	}
+	return currentDefinitions
+}
+
 func (c *channelDefinitionCache) fetchLatestLoop() {
 	defer c.wg.Done()
 
 	var cancel context.CancelFunc = func() {}
-
+	var trigger fetchTrigger
 	for {
 		select {
-		case latest := <-c.newLogCh:
-			// kill the old retry loop if any
+		case trigger = <-c.fetchTriggerCh:
+			if trigger.source == SourceUndefined {
+				c.lggr.Warnw("Undefined source to fetch", "url", trigger.url, "source", trigger.source)
+				continue
+			}
 			cancel()
 
 			var ctx context.Context
-			ctx, cancel = context.WithCancel(context.Background())
+			ctx, cancel = c.chStop.NewCtx()
 
-			c.wg.Add(1)
-			go c.fetchLoop(ctx, latest)
+			if err := c.fetchAndSetChannelDefinitions(ctx, trigger); err != nil {
+				c.lggr.Warnw("Error while fetching channel definitions", "donID", c.donID, "err", err, "source", trigger.source)
+				c.wg.Add(1)
+				go c.fetchLoop(ctx, trigger)
+			}
 
 		case <-c.chStop:
-			// kill the old retry loop if any
 			cancel()
 			return
 		}
 	}
 }
 
-func (c *channelDefinitionCache) fetchLoop(ctx context.Context, log *channel_config_store.ChannelConfigStoreNewChannelDefinition) {
+func (c *channelDefinitionCache) fetchLoop(ctx context.Context, trigger fetchTrigger) {
 	defer c.wg.Done()
+
 	b := utils.NewHTTPFetchBackoff()
-	var attemptCnt int
-
-	err := c.fetchAndSetChannelDefinitions(ctx, log)
-	if err == nil {
-		c.lggr.Debugw("Set new channel definitions", "donID", c.donID, "version", log.Version, "url", log.Url, "sha", fmt.Sprintf("%x", log.Sha))
-		return
-	}
-	c.lggr.Warnw("Error while fetching channel definitions", "donID", c.donID, "version", log.Version, "url", log.Url, "sha", fmt.Sprintf("%x", log.Sha), "err", err, "attempt", attemptCnt)
-
 	for {
 		select {
 		case <-ctx.Done():
 			return
 		case <-time.After(b.Duration()):
-			attemptCnt++
-			err := c.fetchAndSetChannelDefinitions(ctx, log)
-			if err != nil {
-				c.lggr.Warnw("Error while fetching channel definitions", "version", log.Version, "url", log.Url, "sha", fmt.Sprintf("%x", log.Sha), "err", err, "attempt", attemptCnt)
+			if err := c.fetchAndSetChannelDefinitions(ctx, trigger); err != nil {
+				c.lggr.Warnw("Error while fetching channel definitions", "donID", c.donID, "err", err, "source", trigger.source, "attempt", b.Attempt())
 				continue
 			}
-			c.lggr.Debugw("Set new channel definitions", "donID", c.donID, "version", log.Version, "url", log.Url, "sha", fmt.Sprintf("%x", log.Sha))
 			return
 		}
 	}
 }
 
-func (c *channelDefinitionCache) fetchAndSetChannelDefinitions(ctx context.Context, log *channel_config_store.ChannelConfigStoreNewChannelDefinition) error {
+func (c *channelDefinitionCache) fetchAndSetChannelDefinitions(ctx context.Context, trigger fetchTrigger) error {
+	c.fetchMutex.Lock()
+	defer c.fetchMutex.Unlock()
+
 	c.definitionsMu.RLock()
-	if log.Version <= c.definitionsVersion {
-		c.definitionsMu.RUnlock()
-		return nil
-	}
+	currentBlockNum := c.definitionsBlockNum
+	currentDefinitions := maps.Clone(c.definitions)
 	c.definitionsMu.RUnlock()
 
-	cd, err := c.fetchChannelDefinitions(ctx, log.Url, log.Sha)
-	if err != nil {
-		return err
-	}
-	c.definitionsMu.Lock()
-	if log.Version <= c.definitionsVersion {
-		c.definitionsMu.Unlock()
+	if trigger.blockNum <= currentBlockNum {
 		return nil
 	}
-	c.definitions = cd
-	c.definitionsBlockNum = int64(log.Raw.BlockNumber)
-	c.definitionsVersion = log.Version
+
+	defs, err := c.fetchChannelDefinitions(ctx, trigger)
+	if err != nil {
+		return fmt.Errorf("failed to fetch channel definitions: %w", err)
+	}
+
+	mergedDefinitions := c.mergeDefinitions(currentDefinitions, defs)
+
+	// Update definitions with the merged result
+	c.definitionsMu.Lock()
+
+	c.definitions = mergedDefinitions
+	c.definitionsBlockNum = trigger.blockNum
+
+	// Use owner version if available, otherwise keep current version (adders don't increment version)
+	if trigger.source == SourceOwner {
+		c.definitionsVersion = trigger.version
+	}
 	c.definitionsMu.Unlock()
+
+	c.lggr.Infow("Set channel definitions",
+		"donID", c.donID, "version", trigger.version, "sha", hex.EncodeToString(trigger.sha[:]),
+		"blockNum", trigger.blockNum, "url", trigger.url, "source", trigger.source)
 
 	if memoryVersion, persistedVersion, err := c.persist(ctx); err != nil {
 		// If this fails, the failedPersistLoop will try again
@@ -386,10 +540,15 @@ func (c *channelDefinitionCache) fetchAndSetChannelDefinitions(ctx context.Conte
 	return nil
 }
 
-func (c *channelDefinitionCache) fetchChannelDefinitions(ctx context.Context, url string, expectedSha [32]byte) (llotypes.ChannelDefinitions, error) {
-	request, err := http.NewRequestWithContext(ctx, "GET", url, nil)
+func (c *channelDefinitionCache) fetchChannelDefinitions(ctx context.Context, trigger fetchTrigger) (llotypes.ChannelDefinitions, error) {
+	u, err := url.ParseRequestURI(trigger.url)
 	if err != nil {
-		return nil, fmt.Errorf("failed to create http.Request; %w", err)
+		return nil, fmt.Errorf("failed to parse URL %s: %w", trigger.url, err)
+	}
+
+	request, err := http.NewRequestWithContext(ctx, "GET", u.String(), nil)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create HTTP request for channel definitions URL %s: %w", trigger.url, err)
 	}
 	request.Header.Set("Content-Type", "application/json")
 
@@ -397,12 +556,12 @@ func (c *channelDefinitionCache) fetchChannelDefinitions(ctx context.Context, ur
 		Client:  c.client,
 		Request: request,
 		Config:  clhttp.RequestConfig{SizeLimit: c.httpLimit},
-		Logger:  c.lggr.Named("HTTPRequest").With("url", url, "expectedSHA", hex.EncodeToString(expectedSha[:])),
+		Logger:  c.lggr.Named("HTTPRequest").With("url", trigger.url, "expectedSHA", hex.EncodeToString(trigger.sha[:])),
 	}
 
 	reader, statusCode, _, err := httpRequest.SendRequestReader()
 	if err != nil {
-		return nil, fmt.Errorf("error making http request: %w", err)
+		return nil, fmt.Errorf("failed to make HTTP request to channel definitions URL %s: %w", trigger.url, err)
 	}
 	defer reader.Close()
 
@@ -413,9 +572,9 @@ func (c *channelDefinitionCache) fetchChannelDefinitions(ctx context.Context, ur
 		defer body.Close()
 		bodyBytes, err := io.ReadAll(body)
 		if err != nil {
-			return nil, fmt.Errorf("got error from %s: (status code: %d, error reading response body: %w, response body: %s)", url, statusCode, err, bodyBytes)
+			return nil, fmt.Errorf("HTTP error from channel definitions URL %s (status %d): failed to read response body: %w (partial body: %s)", trigger.url, statusCode, err, bodyBytes)
 		}
-		return nil, fmt.Errorf("got error from %s: (status code: %d, response body: %s)", url, statusCode, string(bodyBytes))
+		return nil, fmt.Errorf("HTTP error from channel definitions URL %s (status %d): %s", trigger.url, statusCode, string(bodyBytes))
 	}
 
 	var buf bytes.Buffer
@@ -425,58 +584,54 @@ func (c *channelDefinitionCache) fetchChannelDefinitions(ctx context.Context, ur
 	hash := sha3.New256()
 	// Stream the data directly into the hash and copy to buf as we go
 	if _, err := io.Copy(hash, teeReader); err != nil {
-		return nil, fmt.Errorf("failed to read from body: %w", err)
+		return nil, fmt.Errorf("failed to read channel definitions response body from %s: %w", trigger.url, err)
 	}
 
 	actualSha := hash.Sum(nil)
-	if !bytes.Equal(expectedSha[:], actualSha) {
-		return nil, fmt.Errorf("SHA3 mismatch: expected %x, got %x", expectedSha, actualSha)
+	if !bytes.Equal(trigger.sha[:], actualSha) {
+		return nil, fmt.Errorf("SHA3 mismatch for channel definitions from %s: expected %x, got %x", trigger.url, trigger.sha, actualSha)
 	}
 
 	var cd llotypes.ChannelDefinitions
 	decoder := json.NewDecoder(&buf)
 	if err := decoder.Decode(&cd); err != nil {
-		return nil, fmt.Errorf("failed to decode JSON: %w", err)
+		return nil, fmt.Errorf("failed to decode channel definitions JSON from %s: %w", trigger.url, err)
+	}
+
+	// apply source to the definitions
+	for channelID, def := range cd {
+		def.Source = trigger.source
+		cd[channelID] = def
 	}
 
 	return cd, nil
 }
 
-////////////////////////////////////////////////////////////////////
-// Persistence
-////////////////////////////////////////////////////////////////////
-
-func (c *channelDefinitionCache) persist(ctx context.Context) (memoryVersion, persistedVersion uint32, err error) {
-	c.persistMu.RLock()
-	persistedVersion = c.persistedVersion
-	c.persistMu.RUnlock()
-
-	c.definitionsMu.RLock()
-	memoryVersion = c.definitionsVersion
-	dfns := c.definitions
-	blockNum := c.definitionsBlockNum
-	c.definitionsMu.RUnlock()
-
-	if memoryVersion <= persistedVersion {
-		return
-	}
-
-	if err = c.orm.StoreChannelDefinitions(ctx, c.addr, c.donID, memoryVersion, dfns, blockNum); err != nil {
-		return
-	}
-
+func (c *channelDefinitionCache) persist(ctx context.Context) (memoryBlockNum, persistedBlockNum int64, err error) {
 	c.persistMu.Lock()
 	defer c.persistMu.Unlock()
-	if memoryVersion > c.persistedVersion {
-		persistedVersion = memoryVersion
-		c.persistedVersion = persistedVersion
+
+	c.definitionsMu.RLock()
+	definitionsVersion := c.definitionsVersion
+	definitions := c.definitions
+	definitionsBlockNum := c.definitionsBlockNum
+	c.definitionsMu.RUnlock()
+
+	if c.persistedBlockNum >= definitionsBlockNum {
+		return definitionsBlockNum, c.persistedBlockNum, nil
 	}
+
+	if err = c.orm.StoreChannelDefinitions(ctx, c.addr, c.donID, definitionsVersion, definitions, definitionsBlockNum); err != nil {
+		return definitionsBlockNum, c.persistedBlockNum, err
+	}
+
+	c.persistedBlockNum = definitionsBlockNum
 
 	// NOTE: We could, in theory, delete the old logs from logpoller here since
 	// they are no longer needed. But logpoller does not currently support
 	// that, and in any case, the number is likely to be small so not worth
 	// worrying about.
-	return
+	return definitionsBlockNum, c.persistedBlockNum, nil
 }
 
 // Checks persisted version and tries to save if necessary on a periodic timer
