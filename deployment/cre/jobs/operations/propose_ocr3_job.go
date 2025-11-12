@@ -7,10 +7,13 @@ import (
 
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
+	nodev1 "github.com/smartcontractkit/chainlink-protos/job-distributor/v1/node"
 
 	"github.com/smartcontractkit/chainlink/deployment/cre/jobs/pkg"
 	"github.com/smartcontractkit/chainlink/deployment/cre/pkg/offchain"
 )
+
+const defaultVaultRequestExpiryDuration = "10s"
 
 type ProposeOCR3JobDeps struct {
 	Env cldf.Environment
@@ -27,9 +30,12 @@ type ProposeOCR3JobInput struct {
 	ContractAddress      string
 	ChainSelectorEVM     uint64
 	ChainSelectorAptos   uint64
+	ChainSelectorSolana  uint64
 	BootstrapperOCR3Urls []string
+
 	// Optionals: specific to the worker vault OCR3 Job spec
-	DKGContractAddress string
+	DKGContractAddress         string
+	VaultRequestExpiryDuration string
 
 	DONFilters  []offchain.TargetDONFilter
 	ExtraLabels map[string]string
@@ -44,14 +50,21 @@ var ProposeOCR3Job = operations.NewSequence[ProposeOCR3JobInput, ProposeOCR3JobO
 	semver.MustParse("1.0.0"),
 	"Propose OCR3 Job",
 	func(b operations.Bundle, deps ProposeOCR3JobDeps, input ProposeOCR3JobInput) (ProposeOCR3JobOutput, error) {
+		filters := &nodev1.ListNodesRequest_Filter{}
+		for _, f := range input.DONFilters {
+			filters = offchain.TargetDONFilter{
+				Key:   f.Key,
+				Value: f.Value,
+			}.AddToFilter(filters)
+		}
 		// We only want to target plugin nodes for OCR3 jobs.
-		input.DONFilters = append(input.DONFilters, offchain.TargetDONFilter{
+		filters = offchain.TargetDONFilter{
 			Key:   "type",
 			Value: "plugin",
-		})
+		}.AddToFilter(filters)
 		nodes, err := pkg.FetchNodesFromJD(b.GetContext(), deps.Env, pkg.FetchNodesRequest{
 			Domain:  input.Domain,
-			Filters: input.DONFilters,
+			Filters: filters,
 		})
 		if err != nil {
 			return ProposeOCR3JobOutput{}, fmt.Errorf("failed to fetch nodes from JD: %w", err)
@@ -61,10 +74,14 @@ var ProposeOCR3Job = operations.NewSequence[ProposeOCR3JobInput, ProposeOCR3JobO
 		for _, n := range nodes {
 			nodeToCSAKey[n.Id] = n.GetPublicKey()
 		}
+		vaultReqExpiry := input.VaultRequestExpiryDuration
+		if vaultReqExpiry == "" {
+			vaultReqExpiry = defaultVaultRequestExpiryDuration
+		}
 
 		specs, err := pkg.BuildOCR3JobConfigSpecs(
 			deps.Env.Offchain, deps.Env.Logger, input.ContractAddress, input.ChainSelectorEVM,
-			input.ChainSelectorAptos, nodes, input.BootstrapperOCR3Urls, input.DONName, input.JobName, input.TemplateName, input.DKGContractAddress,
+			input.ChainSelectorAptos, input.ChainSelectorSolana, nodes, input.BootstrapperOCR3Urls, input.DONName, input.JobName, input.TemplateName, input.DKGContractAddress, vaultReqExpiry,
 		)
 		if err != nil {
 			return ProposeOCR3JobOutput{}, fmt.Errorf("failed to build OCR3 job config specs: %w", err)
@@ -91,7 +108,7 @@ var ProposeOCR3Job = operations.NewSequence[ProposeOCR3JobInput, ProposeOCR3JobO
 			})
 			if opErr != nil {
 				// Do not fail the sequence if a single proposal fails, make it through all proposals.
-				mergedErrs = fmt.Errorf("error proposing job to node %s spec %s: %w", spec.NodeID, spec.Spec, opErr)
+				mergedErrs = fmt.Errorf("error proposing OCR3 job to node %s spec %s: %w", spec.NodeID, spec.Spec, opErr)
 				continue
 			}
 

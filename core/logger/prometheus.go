@@ -10,18 +10,22 @@ var warnCounter = promauto.NewCounter(prometheus.CounterOpts{
 	Name: "log_warn_count",
 	Help: "Number of warning messages in log",
 })
+
 var errorCounter = promauto.NewCounter(prometheus.CounterOpts{
 	Name: "log_error_count",
 	Help: "Number of error messages in log",
 })
+
 var criticalCounter = promauto.NewCounter(prometheus.CounterOpts{
 	Name: "log_critical_count",
 	Help: "Number of critical messages in log",
 })
+
 var panicCounter = promauto.NewCounter(prometheus.CounterOpts{
 	Name: "log_panic_count",
 	Help: "Number of panic messages in log",
 })
+
 var fatalCounter = promauto.NewCounter(prometheus.CounterOpts{
 	Name: "log_fatal_count",
 	Help: "Number of fatal messages in log",
@@ -42,7 +46,8 @@ func newPrometheusLoggerWithCounters(
 	errorCounter prometheus.Counter,
 	criticalCounter prometheus.Counter,
 	panicCounter prometheus.Counter,
-	fatalCounter prometheus.Counter) Logger {
+	fatalCounter prometheus.Counter,
+) Logger {
 	return &prometheusLogger{
 		h:           l.Helper(1),
 		warnCnt:     warnCounter,
@@ -57,7 +62,7 @@ func newPrometheusLogger(l Logger) Logger {
 	return newPrometheusLoggerWithCounters(l, warnCounter, errorCounter, criticalCounter, panicCounter, fatalCounter)
 }
 
-func (s *prometheusLogger) With(args ...interface{}) Logger {
+func (s *prometheusLogger) With(args ...any) Logger {
 	return &prometheusLogger{
 		h:           s.h.With(args...),
 		warnCnt:     s.warnCnt,
@@ -87,113 +92,113 @@ func (s *prometheusLogger) SetLogLevel(level zapcore.Level) {
 	s.h.SetLogLevel(level)
 }
 
-func (s *prometheusLogger) Trace(args ...interface{}) {
+func (s *prometheusLogger) Trace(args ...any) {
 	s.h.Trace(args...)
 }
 
-func (s *prometheusLogger) Debug(args ...interface{}) {
+func (s *prometheusLogger) Debug(args ...any) {
 	s.h.Debug(args...)
 }
 
-func (s *prometheusLogger) Info(args ...interface{}) {
+func (s *prometheusLogger) Info(args ...any) {
 	s.h.Info(args...)
 }
 
-func (s *prometheusLogger) Warn(args ...interface{}) {
+func (s *prometheusLogger) Warn(args ...any) {
 	s.warnCnt.Inc()
 	s.h.Warn(args...)
 }
 
-func (s *prometheusLogger) Error(args ...interface{}) {
+func (s *prometheusLogger) Error(args ...any) {
 	s.errorCnt.Inc()
 	s.h.Error(args...)
 }
 
-func (s *prometheusLogger) Critical(args ...interface{}) {
+func (s *prometheusLogger) Critical(args ...any) {
 	s.criticalCnt.Inc()
 	s.h.Critical(args...)
 }
 
-func (s *prometheusLogger) Panic(args ...interface{}) {
+func (s *prometheusLogger) Panic(args ...any) {
 	s.panicCnt.Inc()
 	s.h.Panic(args...)
 }
 
-func (s *prometheusLogger) Fatal(args ...interface{}) {
+func (s *prometheusLogger) Fatal(args ...any) {
 	s.fatalCnt.Inc()
 	s.h.Fatal(args...)
 }
 
-func (s *prometheusLogger) Tracef(format string, values ...interface{}) {
+func (s *prometheusLogger) Tracef(format string, values ...any) {
 	s.h.Tracef(format, values...)
 }
 
-func (s *prometheusLogger) Debugf(format string, values ...interface{}) {
+func (s *prometheusLogger) Debugf(format string, values ...any) {
 	s.h.Debugf(format, values...)
 }
 
-func (s *prometheusLogger) Infof(format string, values ...interface{}) {
+func (s *prometheusLogger) Infof(format string, values ...any) {
 	s.h.Infof(format, values...)
 }
 
-func (s *prometheusLogger) Warnf(format string, values ...interface{}) {
+func (s *prometheusLogger) Warnf(format string, values ...any) {
 	s.warnCnt.Inc()
 	s.h.Warnf(format, values...)
 }
 
-func (s *prometheusLogger) Errorf(format string, values ...interface{}) {
+func (s *prometheusLogger) Errorf(format string, values ...any) {
 	s.errorCnt.Inc()
 	s.h.Errorf(format, values...)
 }
 
-func (s *prometheusLogger) Criticalf(format string, values ...interface{}) {
+func (s *prometheusLogger) Criticalf(format string, values ...any) {
 	s.criticalCnt.Inc()
 	s.h.Criticalf(format, values...)
 }
 
-func (s *prometheusLogger) Panicf(format string, values ...interface{}) {
+func (s *prometheusLogger) Panicf(format string, values ...any) {
 	s.panicCnt.Inc()
 	s.h.Panicf(format, values...)
 }
 
-func (s *prometheusLogger) Fatalf(format string, values ...interface{}) {
+func (s *prometheusLogger) Fatalf(format string, values ...any) {
 	s.fatalCnt.Inc()
 	s.h.Fatalf(format, values...)
 }
 
-func (s *prometheusLogger) Tracew(msg string, keysAndValues ...interface{}) {
+func (s *prometheusLogger) Tracew(msg string, keysAndValues ...any) {
 	s.h.Tracew(msg, keysAndValues...)
 }
 
-func (s *prometheusLogger) Debugw(msg string, keysAndValues ...interface{}) {
+func (s *prometheusLogger) Debugw(msg string, keysAndValues ...any) {
 	s.h.Debugw(msg, keysAndValues...)
 }
 
-func (s *prometheusLogger) Infow(msg string, keysAndValues ...interface{}) {
+func (s *prometheusLogger) Infow(msg string, keysAndValues ...any) {
 	s.h.Infow(msg, keysAndValues...)
 }
 
-func (s *prometheusLogger) Warnw(msg string, keysAndValues ...interface{}) {
+func (s *prometheusLogger) Warnw(msg string, keysAndValues ...any) {
 	s.warnCnt.Inc()
 	s.h.Warnw(msg, keysAndValues...)
 }
 
-func (s *prometheusLogger) Errorw(msg string, keysAndValues ...interface{}) {
+func (s *prometheusLogger) Errorw(msg string, keysAndValues ...any) {
 	s.errorCnt.Inc()
 	s.h.Errorw(msg, keysAndValues...)
 }
 
-func (s *prometheusLogger) Criticalw(msg string, keysAndValues ...interface{}) {
+func (s *prometheusLogger) Criticalw(msg string, keysAndValues ...any) {
 	s.criticalCnt.Inc()
 	s.h.Criticalw(msg, keysAndValues...)
 }
 
-func (s *prometheusLogger) Panicw(msg string, keysAndValues ...interface{}) {
+func (s *prometheusLogger) Panicw(msg string, keysAndValues ...any) {
 	s.panicCnt.Inc()
 	s.h.Panicw(msg, keysAndValues...)
 }
 
-func (s *prometheusLogger) Fatalw(msg string, keysAndValues ...interface{}) {
+func (s *prometheusLogger) Fatalw(msg string, keysAndValues ...any) {
 	s.fatalCnt.Inc()
 	s.h.Fatalw(msg, keysAndValues...)
 }
@@ -213,7 +218,7 @@ func (s *prometheusLogger) Helper(add int) Logger {
 	}
 }
 
-func (s *prometheusLogger) Recover(panicErr interface{}) {
+func (s *prometheusLogger) Recover(panicErr any) {
 	s.panicCnt.Inc()
 	s.h.Recover(panicErr)
 }

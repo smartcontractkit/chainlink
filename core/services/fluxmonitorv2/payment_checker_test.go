@@ -31,7 +31,6 @@ func TestPaymentChecker_SufficientFunds(t *testing.T) {
 	}
 
 	for _, tc := range testCases {
-		tc := tc
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 
@@ -56,7 +55,7 @@ func TestPaymentChecker_SufficientPayment(t *testing.T) {
 	testCases := []struct {
 		name               string
 		minContractPayment int64
-		minJobPayment      interface{} // nil or int64
+		minJobPayment      any // nil or int64
 		want               bool
 	}{
 		{"payment above min contract payment, no min job payment", lt, nil, true},
@@ -77,7 +76,6 @@ func TestPaymentChecker_SufficientPayment(t *testing.T) {
 	}
 
 	for _, tc := range testCases {
-		tc := tc
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 

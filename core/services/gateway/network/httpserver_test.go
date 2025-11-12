@@ -12,6 +12,8 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
+	"github.com/smartcontractkit/chainlink-common/pkg/services/servicetest"
+	"github.com/smartcontractkit/chainlink-common/pkg/settings/limits"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/network"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/network/mocks"
@@ -22,7 +24,7 @@ const (
 	HTTPTestPath = "/test_path"
 )
 
-func startNewServer(t *testing.T, maxRequestBytes int64, readTimeoutMillis uint32, enabledCORS bool, allowedOrigins []string) (server network.HttpServer, handler *mocks.HTTPRequestHandler, url string) {
+func startNewServer(t *testing.T, maxRequestBytes int64, readTimeoutMillis uint32, enabledCORS bool, allowedOrigins []string) (server network.HTTPServer, handler *mocks.HTTPRequestHandler, url string) {
 	config := &network.HTTPServerConfig{
 		Host:                 HTTPTestHost,
 		Port:                 0,
@@ -38,10 +40,11 @@ func startNewServer(t *testing.T, maxRequestBytes int64, readTimeoutMillis uint3
 	}
 
 	handler = mocks.NewHTTPRequestHandler(t)
-	server = network.NewHttpServer(config, logger.Test(t))
-	server.SetHTTPRequestHandler(handler)
-	err := server.Start(testutils.Context(t))
+	lggr := logger.Test(t)
+	server, err := network.NewHTTPServer(config, lggr, limits.Factory{Logger: lggr})
 	require.NoError(t, err)
+	server.SetHTTPRequestHandler(handler)
+	servicetest.Run(t, server)
 
 	port := server.GetPort()
 	url = fmt.Sprintf("http://%s:%d%s", HTTPTestHost, port, HTTPTestPath)
@@ -62,8 +65,7 @@ func sendRequest(t *testing.T, url string, body []byte, httpMethod string, origi
 
 func TestHTTPServer_HandleRequest_Correct(t *testing.T) {
 	t.Parallel()
-	server, handler, url := startNewServer(t, 100_000, 100_000, false, nil)
-	defer server.Close()
+	_, handler, url := startNewServer(t, 100_000, 100_000, false, nil)
 
 	handler.On("ProcessRequest", mock.Anything, mock.Anything, mock.Anything).Return([]byte("response"), 200)
 
@@ -76,8 +78,7 @@ func TestHTTPServer_HandleRequest_Correct(t *testing.T) {
 
 func TestHTTPServer_HandleRequest_RequestBodyTooBig(t *testing.T) {
 	t.Parallel()
-	server, _, url := startNewServer(t, 5, 100_000, false, nil)
-	defer server.Close()
+	_, _, url := startNewServer(t, 5, 100_000, false, nil)
 
 	resp := sendRequest(t, url, []byte("0123456789"), http.MethodPost, nil)
 	require.Equal(t, http.StatusBadRequest, resp.StatusCode)
@@ -85,8 +86,7 @@ func TestHTTPServer_HandleRequest_RequestBodyTooBig(t *testing.T) {
 
 func TestHTTPServer_HandleHealthCheck(t *testing.T) {
 	t.Parallel()
-	server, _, url := startNewServer(t, 100_000, 100_000, false, nil)
-	defer server.Close()
+	_, _, url := startNewServer(t, 100_000, 100_000, false, nil)
 
 	url = strings.Replace(url, HTTPTestPath, network.HealthCheckPath, 1)
 	resp := sendRequest(t, url, []byte{}, http.MethodPost, nil)
@@ -98,9 +98,8 @@ func TestHTTPServer_HandleHealthCheck(t *testing.T) {
 
 func TestHTTPServer_HandleRequest_CORSEnabled_FromAllowedOrigin(t *testing.T) {
 	t.Parallel()
-	server, handler, url := startNewServer(t, 100_000, 100_000, true,
+	_, handler, url := startNewServer(t, 100_000, 100_000, true,
 		[]string{"https://remix.ethereum.org", "https://another.valid.origin.com"})
-	defer server.Close()
 
 	handler.On("ProcessRequest", mock.Anything, mock.Anything, mock.Anything).Return([]byte("response"), 200)
 
@@ -117,9 +116,8 @@ func TestHTTPServer_HandleRequest_CORSEnabled_FromAllowedOrigin(t *testing.T) {
 
 func TestHTTPServer_HandleRequest_CORSEnabled_FromAllowedOriginWildcards(t *testing.T) {
 	t.Parallel()
-	server, handler, url := startNewServer(t, 100_000, 100_000, true,
+	_, handler, url := startNewServer(t, 100_000, 100_000, true,
 		[]string{"https://*.ethereum.org", "https://*.valid.domain.com", "http://*.gov"})
-	defer server.Close()
 
 	handler.On("ProcessRequest", mock.Anything, mock.Anything, mock.Anything).Return([]byte("response"), 200)
 
@@ -160,9 +158,8 @@ func TestHTTPServer_HandleRequest_CORSEnabled_FromAllowedOriginWildcards(t *test
 
 func TestHTTPServer_HandleRequest_CORSEnabled_FromAllowedOrigin_PreflightRequest(t *testing.T) {
 	t.Parallel()
-	server, _, url := startNewServer(t, 100_000, 100_000, true,
+	_, _, url := startNewServer(t, 100_000, 100_000, true,
 		[]string{"https://remix.ethereum.org", "https://another.valid.origin.com"})
-	defer server.Close()
 
 	origin := "https://remix.ethereum.org"
 	resp := sendRequest(t, url, []byte("0123456789"), http.MethodOptions, &origin)
@@ -177,9 +174,8 @@ func TestHTTPServer_HandleRequest_CORSEnabled_FromAllowedOrigin_PreflightRequest
 
 func TestHTTPServer_HandleRequest_CORSEnabled_FromNotAllowedOrigin(t *testing.T) {
 	t.Parallel()
-	server, handler, url := startNewServer(t, 100_000, 100_000, true,
+	_, handler, url := startNewServer(t, 100_000, 100_000, true,
 		[]string{"https://remix.ethereum.org", "https://another.valid.origin.com"})
-	defer server.Close()
 
 	handler.On("ProcessRequest", mock.Anything, mock.Anything, mock.Anything).Return([]byte("response"), 200)
 
@@ -196,9 +192,8 @@ func TestHTTPServer_HandleRequest_CORSEnabled_FromNotAllowedOrigin(t *testing.T)
 
 func TestHTTPServer_HandleRequest_CORSEnabled_FromNotAllowedOriginWildcards(t *testing.T) {
 	t.Parallel()
-	server, handler, url := startNewServer(t, 100_000, 100_000, true,
+	_, handler, url := startNewServer(t, 100_000, 100_000, true,
 		[]string{"https://*.ethereum.org", "https://*.valid.domain.com", "http://example.gov:8080"})
-	defer server.Close()
 
 	handler.On("ProcessRequest", mock.Anything, mock.Anything, mock.Anything).Return([]byte("response"), 200)
 

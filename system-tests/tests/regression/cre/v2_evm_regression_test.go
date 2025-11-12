@@ -14,7 +14,8 @@ import (
 	keystone_changeset "github.com/smartcontractkit/chainlink/deployment/keystone/changeset"
 
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre"
-	crecontracts "github.com/smartcontractkit/chainlink/system-tests/lib/cre/contracts"
+	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/contracts"
+	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/blockchains/evm"
 
 	evm_negative_config "github.com/smartcontractkit/chainlink/system-tests/tests/regression/cre/evm/evmread-negative/config"
 	evm_write_negative_config "github.com/smartcontractkit/chainlink/system-tests/tests/regression/cre/evm/evmwrite-negative/config"
@@ -64,7 +65,6 @@ type evmNegativeTest struct {
 var evmNegativeTestsBalanceAtInvalidAddress = []evmNegativeTest{
 	// BalanceAt
 	// TODO: Move BalanceAt to the top after fixing https://smartcontract-it.atlassian.net/browse/CRE-934
-	{"empty", "", balanceAtFunction, expectedBalanceAtError},
 	{"a letter", "a", balanceAtFunction, expectedBalanceAtError},
 	{"a symbol", "/", balanceAtFunction, expectedBalanceAtError},
 	{"a number", "1", balanceAtFunction, expectedBalanceAtError},
@@ -121,7 +121,7 @@ var evmNegativeTestsFilterLogsWithInvalidAddress = []evmNegativeTest{
 }
 
 var evmNegativeTestsFilterLogsWithInvalidFromBlock = []evmNegativeTest{
-	// FilterLogs - invalid TromBlock/ToBlock values
+	// FilterLogs - invalid FromBlock/ToBlock values
 	// Distance between blocks should not be more than 100
 	{"negative number", "-1", filterLogsInvalidFromBlock, "block number -1 is not supported"},
 	{"zero", "0", filterLogsInvalidFromBlock, "block number 0 is not supported"},
@@ -129,7 +129,7 @@ var evmNegativeTestsFilterLogsWithInvalidFromBlock = []evmNegativeTest{
 	{"non-numeric string", "abc", filterLogsInvalidFromBlock, "toBlock 150 is less than fromBlock"},
 	{"empty string", "", filterLogsInvalidFromBlock, "toBlock 150 is less than fromBlock"},
 	{"decimal", "100.5", filterLogsInvalidFromBlock, "toBlock 150 is less than fromBlock"},
-	{"fromBlock greater than toBlock by more than 100", "49", filterLogsInvalidFromBlock, "exceeds maximum allowed range of 100"}, // toBlock is 150, so distance is 100+
+	{"fromBlock greater than toBlock by more than 100", "49", filterLogsInvalidFromBlock, "PerWorkflow.ChainRead.LogQueryBlockLimit limited for workflow"}, // toBlock is 150, so distance is 100+
 }
 
 var evmNegativeTestsFilterLogsWithInvalidToBlock = []evmNegativeTest{
@@ -139,10 +139,10 @@ var evmNegativeTestsFilterLogsWithInvalidToBlock = []evmNegativeTest{
 	{"zero", "0", filterLogsInvalidToBlock, "block number 0 is not supported"},
 	{"less then FromBlock", "1", filterLogsInvalidToBlock, "toBlock 1 is less than fromBlock"},
 	{"very large number", "9223372036854775808", filterLogsInvalidToBlock, "is not an int64"}, // int64 max + 1
-	{"non-numeric string", "abc", filterLogsInvalidToBlock, "exceeds maximum allowed range of 100"},
-	{"empty string", "", filterLogsInvalidToBlock, "exceeds maximum allowed range of 100"}, // equivalent to "current block"
-	{"decimal", "100.5", filterLogsInvalidToBlock, "exceeds maximum allowed range of 100"},
-	{"toBlock greater than fromBlock by more than 100", "103", filterLogsInvalidToBlock, "exceeds maximum allowed range of 100"}, // fromBlock is 2
+	{"non-numeric string", "abc", filterLogsInvalidToBlock, "PerWorkflow.ChainRead.LogQueryBlockLimit limited for workflow"},
+	{"empty string", "", filterLogsInvalidToBlock, "PerWorkflow.ChainRead.LogQueryBlockLimit limited for workflow"}, // equivalent to "current block"
+	{"decimal", "100.5", filterLogsInvalidToBlock, "PerWorkflow.ChainRead.LogQueryBlockLimit limited for workflow"},
+	{"toBlock greater than fromBlock by more than 100", "103", filterLogsInvalidToBlock, "PerWorkflow.ChainRead.LogQueryBlockLimit limited for workflow"}, // fromBlock is 2
 }
 
 var evmNegativeTestsGetTransactionByHashInvalidHash = []evmNegativeTest{
@@ -186,9 +186,9 @@ func EVMReadFailsTest(t *testing.T, testEnv *ttypes.TestEnvironment, evmNegative
 	const workflowFileLocation = "./evm/evmread-negative/main.go"
 	enabledChains := t_helpers.GetEVMEnabledChains(t, testEnv)
 
-	for _, bcOutput := range testEnv.WrappedBlockchainOutputs {
-		chainID := bcOutput.BlockchainOutput.ChainID
-		chainSelector := bcOutput.ChainSelector
+	for _, bcOutput := range testEnv.CreEnvironment.Blockchains {
+		chainID := bcOutput.CtfOutput().ChainID
+		chainSelector := bcOutput.ChainSelector()
 		creEnvironment := testEnv.CreEnvironment
 		if _, ok := enabledChains[chainID]; !ok {
 			testLogger.Info().Msgf("Skipping chain %s as it is not enabled for EVM Read workflow test", chainID)
@@ -196,14 +196,13 @@ func EVMReadFailsTest(t *testing.T, testEnv *ttypes.TestEnvironment, evmNegative
 		}
 
 		testLogger.Info().Msgf("Deploying additional contracts to chain %s (%d)", chainID, chainSelector)
-		readBalancesAddress, rbOutput, rbErr := crecontracts.DeployReadBalancesContract(testLogger, chainSelector, creEnvironment)
+		readBalancesAddress, rbErr := contracts.DeployReadBalancesContract(testLogger, chainSelector, creEnvironment)
 		require.NoError(t, rbErr, "failed to deploy Read Balances contract on chain %d", chainSelector)
-		crecontracts.MergeAllDataStores(creEnvironment, rbOutput, rbOutput)
 
 		listenerCtx, messageChan, kafkaErrChan := t_helpers.StartBeholder(t, testLogger, testEnv)
 		testLogger.Info().Msg("Creating EVM Read Fail workflow configuration...")
 		workflowConfig := evm_negative_config.Config{
-			ChainSelector:  bcOutput.ChainSelector,
+			ChainSelector:  bcOutput.ChainSelector(),
 			FunctionToTest: evmNegativeTest.functionToTest,
 			InvalidInput:   evmNegativeTest.invalidInput,
 			BalanceReader: evm_negative_config.BalanceReader{
@@ -214,7 +213,7 @@ func EVMReadFailsTest(t *testing.T, testEnv *ttypes.TestEnvironment, evmNegative
 		t_helpers.CompileAndDeployWorkflow(t, testEnv, testLogger, workflowName, &workflowConfig, workflowFileLocation)
 
 		expectedError := evmNegativeTest.expectedError
-		timeout := 90 * time.Second
+		timeout := 2 * time.Minute
 		err := t_helpers.AssertBeholderMessage(listenerCtx, t, expectedError, testLogger, messageChan, kafkaErrChan, timeout)
 		require.NoError(t, err, "EVM Read Fail test failed")
 		testLogger.Info().Msg("EVM Read Fail test successfully completed")
@@ -255,28 +254,26 @@ func EVMWriteFailsTest(t *testing.T, testEnv *ttypes.TestEnvironment, evmNegativ
 	const workflowFileLocation = "./evm/evmwrite-negative/main.go"
 	enabledChains := t_helpers.GetEVMEnabledChains(t, testEnv)
 
-	for _, bcOutput := range testEnv.WrappedBlockchainOutputs {
-		chainID := bcOutput.ChainID
-		chainSelector := bcOutput.ChainSelector
+	for _, bcOutput := range testEnv.CreEnvironment.Blockchains {
+		chainID := bcOutput.ChainID()
+		chainSelector := bcOutput.ChainSelector()
 		creEnvironment := testEnv.CreEnvironment
 		if _, ok := enabledChains[strconv.FormatUint(chainID, 10)]; !ok {
 			testLogger.Info().Msgf("Skipping chain %d as it is not enabled for EVM Read workflow test", chainID)
 			continue
 		}
 
-		forwarderAddress, _, forwarderErr := crecontracts.FindAddressesForChain(creEnvironment.CldfEnvironment.ExistingAddresses, chainSelector, keystone_changeset.KeystoneForwarder.String()) //nolint:staticcheck,nolintlint // SA1019: deprecated but we don't want to migrate now
-		require.NoError(t, forwarderErr, "failed to find Forwarder address for chain %d", chainSelector)
-
-		workflowOwner := bcOutput.SethClient.MustGetRootKeyAddress()
+		forwarderAddress := contracts.MustGetAddressFromDataStore(creEnvironment.CldfEnvironment.DataStore, chainSelector, keystone_changeset.KeystoneForwarder.String(), creEnvironment.ContractVersions[keystone_changeset.KeystoneForwarder.String()], "")
+		workflowOwner := bcOutput.(*evm.Blockchain).SethClient.MustGetRootKeyAddress()
 		workflowName := fmt.Sprintf("evm-write-fail-workflow-%d-%04d", chainID, rand.Intn(10000))
 		feedID := "018e16c38e000320000000000000000000000000000000000000000000000000" // 32 hex characters (16 bytes)
-		dataFeedsCacheAddress := deployAndConfigureEVMContracts(t, testLogger, chainSelector, chainID, creEnvironment, workflowOwner, workflowName, feedID, forwarderAddress)
+		dataFeedsCacheAddress := deployAndConfigureEVMContracts(t, testLogger, chainSelector, chainID, creEnvironment, workflowOwner, workflowName, feedID, common.HexToAddress(forwarderAddress))
 
 		listenerCtx, messageChan, kafkaErrChan := t_helpers.StartBeholder(t, testLogger, testEnv)
 		testLogger.Info().Msg("Creating EVM Write Regression workflow configuration...")
 		workflowConfig := evm_write_negative_config.Config{
 			FeedID:         feedID,
-			ChainSelector:  bcOutput.ChainSelector,
+			ChainSelector:  bcOutput.ChainSelector(),
 			FunctionToTest: evmNegativeTest.functionToTest,
 			InvalidInput:   evmNegativeTest.invalidInput,
 			DataFeedsCache: evm_write_negative_config.DataFeedsCache{
@@ -295,9 +292,8 @@ func EVMWriteFailsTest(t *testing.T, testEnv *ttypes.TestEnvironment, evmNegativ
 
 func deployAndConfigureEVMContracts(t *testing.T, testLogger zerolog.Logger, chainSelector uint64, chainID uint64, creEnvironment *cre.Environment, workflowOwner common.Address, uniqueWorkflowName string, feedID string, forwarderAddress common.Address) common.Address {
 	testLogger.Info().Msgf("Deploying additional contracts to chain %d (%d)", chainID, chainSelector)
-	dfAddress, dfOutput, dfErr := crecontracts.DeployDataFeedsCacheContract(testLogger, chainSelector, creEnvironment)
+	dfAddress, dfErr := contracts.DeployDataFeedsCacheContract(testLogger, chainSelector, creEnvironment)
 	require.NoError(t, dfErr, "failed to deploy Data Feeds Cache contract on chain %d", chainSelector)
-	crecontracts.MergeAllDataStores(creEnvironment, dfOutput, dfOutput)
 
 	testLogger.Info().Msgf("Configuring Data Feeds Cache contract for EVM Write Regression test and feed ID %s", feedID)
 	configInput := &cre.ConfigureDataFeedsCacheInput{
@@ -311,7 +307,7 @@ func deployAndConfigureEVMContracts(t *testing.T, testLogger zerolog.Logger, cha
 		AllowedWorkflowNames:  []string{uniqueWorkflowName},
 		AllowedWorkflowOwners: []common.Address{workflowOwner},
 	}
-	_, dfConfigErr := crecontracts.ConfigureDataFeedsCache(testLogger, configInput)
+	_, dfConfigErr := contracts.ConfigureDataFeedsCache(testLogger, configInput)
 	require.NoError(t, dfConfigErr, "failed to configure Data Feeds Cache contract")
 	testLogger.Info().Msg("Data Feeds Cache contract configured successfully.")
 

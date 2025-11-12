@@ -3,6 +3,7 @@ package state
 import (
 	"errors"
 	"fmt"
+	"maps"
 
 	"github.com/ethereum/go-ethereum/common"
 	bindings "github.com/smartcontractkit/ccip-owner-contracts/pkg/gethwrappers"
@@ -129,14 +130,10 @@ func AddressesForChain(env cldf.Environment, chainSelector uint64, qualifier str
 	mergedAddresses := make(map[string]cldf.TypeAndVersion)
 
 	// First add all AddressBook addresses
-	for addr, tv := range addressBookAddresses {
-		mergedAddresses[addr] = tv
-	}
+	maps.Copy(mergedAddresses, addressBookAddresses)
 
 	// Then add DataStore addresses (overwriting any conflicts)
-	for addr, tv := range dataStoreAddresses {
-		mergedAddresses[addr] = tv
-	}
+	maps.Copy(mergedAddresses, dataStoreAddresses)
 
 	return mergedAddresses, nil
 }

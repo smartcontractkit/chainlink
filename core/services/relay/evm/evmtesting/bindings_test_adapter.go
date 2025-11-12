@@ -17,9 +17,9 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/types/interfacetests"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/query/primitives"
 	"github.com/smartcontractkit/chainlink-evm/pkg/assets"
-	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/bindings"
-	evmcodec "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/codec"
-	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/types"
+	"github.com/smartcontractkit/chainlink-evm/pkg/bindings"
+	evmcodec "github.com/smartcontractkit/chainlink-evm/pkg/codec"
+	"github.com/smartcontractkit/chainlink-evm/pkg/config"
 )
 
 const contractName = "ChainReaderTester"
@@ -43,10 +43,10 @@ func WrapContractReaderTesterWithBindings(t *testing.T, wrapped *EVMChainCompone
 		// TODO BCFR-1073 - Fix flaky tests
 		interfacetests.ContractReaderGetLatestValueBasedOnConfidenceLevel,
 	})
-	wrapped.SetChainReaderConfigSupplier(func(t *testing.T) types.ChainReaderConfig {
+	wrapped.SetChainReaderConfigSupplier(func(t *testing.T) config.ChainReaderConfig {
 		return getChainReaderConfig(wrapped)
 	})
-	wrapped.SetChainWriterConfigSupplier(func(t *testing.T) types.ChainWriterConfig {
+	wrapped.SetChainWriterConfigSupplier(func(t *testing.T) config.ChainWriterConfig {
 		return getChainWriterConfig(t, wrapped)
 	})
 	return newBindingClientTester(wrapped)
@@ -95,10 +95,10 @@ func newBindingsMapping() bindingsMapping {
 	return bm
 }
 
-func getChainReaderConfig(wrapped *EVMChainComponentsInterfaceTester[*testing.T]) types.ChainReaderConfig {
+func getChainReaderConfig(wrapped *EVMChainComponentsInterfaceTester[*testing.T]) config.ChainReaderConfig {
 	testStruct := interfacetests.CreateTestStruct[*testing.T](0, wrapped)
 	chainReaderConfig := bindings.NewChainReaderConfig()
-	chainReaderConfig.Contracts["ChainReaderTester"].Configs["ReturnSeen"] = &types.ChainReaderDefinition{
+	chainReaderConfig.Contracts["ChainReaderTester"].Configs["ReturnSeen"] = &config.ChainReaderDefinition{
 		CacheEnabled:      false,
 		ChainSpecificName: "returnSeen",
 		ReadType:          0,
@@ -117,7 +117,7 @@ func getChainReaderConfig(wrapped *EVMChainComponentsInterfaceTester[*testing.T]
 	return chainReaderConfig
 }
 
-func getChainWriterConfig(t *testing.T, wrapped *EVMChainComponentsInterfaceTester[*testing.T]) types.ChainWriterConfig {
+func getChainWriterConfig(t *testing.T, wrapped *EVMChainComponentsInterfaceTester[*testing.T]) config.ChainWriterConfig {
 	return bindings.NewChainWriterConfig(*assets.NewWei(big.NewInt(1000000000000000000)), 2_000_000, wrapped.Helper.Accounts(t)[1].From)
 }
 
@@ -519,7 +519,7 @@ func createDecoder(dst any) (*mapstructure.Decoder, error) {
 	return decoder, err
 }
 
-func stringToByteArrayHook(from reflect.Type, to reflect.Type, data interface{}) (interface{}, error) {
+func stringToByteArrayHook(from reflect.Type, to reflect.Type, data any) (any, error) {
 	if from.Kind() == reflect.String && to == reflect.TypeOf([]byte{}) {
 		return evmcodec.EVMAddressModifier{}.DecodeAddress(data.(string))
 	}

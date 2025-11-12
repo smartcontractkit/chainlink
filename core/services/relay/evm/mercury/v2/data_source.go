@@ -180,7 +180,7 @@ func (ds *datasource) Observe(ctx context.Context, repts ocrtypes.ReportTimestam
 	return obs, nil
 }
 
-func toBigInt(val interface{}) (*big.Int, error) {
+func toBigInt(val any) (*big.Int, error) {
 	dec, err := utils.ToDecimal(val)
 	if err != nil {
 		return nil, err
@@ -224,8 +224,8 @@ func setBenchmarkPrice(o *parseOutput, res pipeline.Result) error {
 // The context passed in here has a timeout of (ObservationTimeout + ObservationGracePeriod).
 // Upon context cancellation, its expected that we return any usable values within ObservationGracePeriod.
 func (ds *datasource) executeRun(ctx context.Context) (*pipeline.Run, pipeline.TaskRunResults, error) {
-	vars := pipeline.NewVarsFrom(map[string]interface{}{
-		"jb": map[string]interface{}{
+	vars := pipeline.NewVarsFrom(map[string]any{
+		"jb": map[string]any{
 			"databaseID":    ds.jb.ID,
 			"externalJobID": ds.jb.ExternalJobID,
 			"name":          ds.jb.Name.ValueOrZero(),

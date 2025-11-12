@@ -88,6 +88,7 @@ core/scripts/gateway @smartcontractkit/dev-services
 /deployment/common @smartcontractkit/devex-tooling
 /deployment/ccip @smartcontractkit/ccip-tooling @smartcontractkit/ccip-offchain @smartcontractkit/core @smartcontractkit/cld-team
 /deployment/ccip/changeset/globals @smartcontractkit/ccip-offchain
+/deployment/crib @smartcontractkit/ccip-offchain
 /deployment/ccip/changeset/ton @smartcontractkit/bix-build @smartcontractkit/core @smartcontractkit/cld-team
 /deployment/keystone @smartcontractkit/keystone @smartcontractkit/core @smartcontractkit/cld-team
 /deployment/data-feeds @smartcontractkit/data-feeds-engineers @smartcontractkit/core @smartcontractkit/cld-team

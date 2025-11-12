@@ -9,17 +9,15 @@ import (
 	"github.com/Masterminds/semver/v3"
 	"github.com/ethereum/go-ethereum/common"
 
-	"github.com/smartcontractkit/mcms"
+	mcmslib "github.com/smartcontractkit/mcms"
 	"github.com/smartcontractkit/mcms/sdk"
-	"github.com/smartcontractkit/smdkg/dkgocr/dkgocrtypes"
-
-	ocr3_capability "github.com/smartcontractkit/chainlink-evm/gethwrappers/keystone/generated/ocr3_capability_1_0_0"
-
 	mcmstypes "github.com/smartcontractkit/mcms/types"
+	"github.com/smartcontractkit/smdkg/dkgocr/dkgocrtypes"
 
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
-
+	ocr3_capability "github.com/smartcontractkit/chainlink-evm/gethwrappers/keystone/generated/ocr3_capability_1_0_0"
+	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 	"github.com/smartcontractkit/chainlink/deployment/cre/contracts"
 	"github.com/smartcontractkit/chainlink/deployment/cre/ocr3"
@@ -34,10 +32,10 @@ type ConfigureDKGInput struct {
 	ContractAddress *common.Address
 	ChainSelector   uint64
 	DON             DonNodeSet
-	Config          *ocr3.OracleConfig
+	Config          *ocr3.V3_1OracleConfig
 	DryRun          bool
 
-	MCMSConfig            *ocr3.MCMSConfig
+	MCMSConfig            *contracts.MCMSConfig
 	ReportingPluginConfig dkgocrtypes.ReportingPluginConfig
 }
 
@@ -46,10 +44,10 @@ func (i ConfigureDKGInput) UseMCMS() bool {
 }
 
 type ConfigureDKGOpOutput struct {
-	MCMSTimelockProposals []mcms.TimelockProposal
+	MCMSTimelockProposals []mcmslib.TimelockProposal
 }
 
-var ConfigureDKG = operations.NewOperation[ConfigureDKGInput, ConfigureDKGOpOutput, ConfigureDKGDeps](
+var ConfigureDKG = operations.NewOperation(
 	"configure-dkg-op",
 	semver.MustParse("1.0.0"),
 	"Configure DKG Contract",
@@ -68,20 +66,34 @@ var ConfigureDKG = operations.NewOperation[ConfigureDKGInput, ConfigureDKGOpOutp
 			return ConfigureDKGOpOutput{}, fmt.Errorf("failed to get DKG contract: %w", err)
 		}
 
-		resp, err := ocr3.ConfigureDKGContractFromJD(deps.Env, ocr3.ConfigureDKGConfig{
-			ChainSel:              input.ChainSelector,
-			NodeIDs:               input.DON.NodeIDs,
-			OCR3Config:            input.Config,
-			Contract:              contract.Contract,
-			DryRun:                input.DryRun,
-			UseMCMS:               input.UseMCMS(),
-			ReportingPluginConfig: input.ReportingPluginConfig,
+		nodes, err := deployment.NodeInfo(input.DON.NodeIDs, deps.Env.Offchain)
+		if err != nil {
+			return ConfigureDKGOpOutput{}, err
+		}
+
+		config, err := ocr3.GenerateDKGConfigFromNodes(
+			*input.Config,
+			nodes,
+			input.ChainSelector,
+			deps.Env.OCRSecrets,
+			input.ReportingPluginConfig,
+		)
+		if err != nil {
+			return ConfigureDKGOpOutput{}, fmt.Errorf("failed to generate DKG config: %w", err)
+		}
+
+		resp, err := ocr3.ConfigureOCR3contract(ocr3.ConfigureOCR3Request{
+			Config:   config,
+			Chain:    chain,
+			Contract: contract.Contract,
+			DryRun:   input.DryRun,
+			UseMCMS:  input.UseMCMS(),
 		})
 		if err != nil {
-			return ConfigureDKGOpOutput{}, fmt.Errorf("failed to configure DKG: %w", err)
+			return ConfigureDKGOpOutput{}, err
 		}
 		if w := deps.WriteGeneratedConfig; w != nil {
-			b, err := json.MarshalIndent(&resp.OCR2OracleConfig, "", "  ")
+			b, err := json.MarshalIndent(&resp.OcrConfig, "", "  ")
 			if err != nil {
 				return ConfigureDKGOpOutput{}, fmt.Errorf("failed to marshal response output: %w", err)
 			}
@@ -127,12 +139,12 @@ var ConfigureDKG = operations.NewOperation[ConfigureDKGInput, ConfigureDKGOpOutp
 				inspectorPerChain,
 				[]mcmstypes.BatchOperation{*resp.Ops},
 				"proposal to set DKG config",
-				proposalutils.TimelockConfig{MinDelay: input.MCMSConfig.MinDuration},
+				*input.MCMSConfig,
 			)
 			if err != nil {
 				return out, fmt.Errorf("failed to build proposal: %w", err)
 			}
-			out.MCMSTimelockProposals = []mcms.TimelockProposal{*proposal}
+			out.MCMSTimelockProposals = []mcmslib.TimelockProposal{*proposal}
 		}
 		return out, nil
 	},

@@ -125,7 +125,7 @@ func BenchmarkIsSourceCursedWithCache(b *testing.B) {
 	onRamp, err := NewOnRamp(logger.TestLogger(b), 1, destChainSelector, onRampAddress, mocks.NewLogPoller(b), bc)
 	require.NoError(b, err)
 
-	for i := 0; i < b.N; i++ {
+	for b.Loop() {
 		_, _ = onRamp.IsSourceCursed(ctx)
 	}
 }

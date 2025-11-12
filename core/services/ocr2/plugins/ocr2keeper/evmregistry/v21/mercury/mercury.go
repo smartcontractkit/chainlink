@@ -82,10 +82,10 @@ type MercuryData struct {
 
 type MercuryConfigProvider interface {
 	Credentials() *types.MercuryCredentials
-	IsUpkeepAllowed(string) (interface{}, bool)
-	SetUpkeepAllowed(string, interface{}, time.Duration)
-	GetPluginRetry(string) (interface{}, bool)
-	SetPluginRetry(string, interface{}, time.Duration)
+	IsUpkeepAllowed(string) (any, bool)
+	SetUpkeepAllowed(string, any, time.Duration)
+	GetPluginRetry(string) (any, bool)
+	SetPluginRetry(string, any, time.Duration)
 }
 
 type HttpClient interface {
@@ -154,7 +154,7 @@ func (p *abiPacker) DecodeStreamsLookupRequest(data []byte) (*StreamsLookupError
 	if err != nil {
 		return nil, fmt.Errorf("unpack error: %w", err)
 	}
-	errorParameters := unpack.([]interface{})
+	errorParameters := unpack.([]any)
 
 	return &StreamsLookupError{
 		FeedParamKey: *abi.ConvertType(errorParameters[0], new(string)).(*string),

@@ -60,7 +60,7 @@ func extractRevertReason(errData string, a abi.ABI) (string, string, error) {
 	return "", "", errors.New("revert Reason could not be found for given abistring")
 }
 
-func (c *CapabilityRegistryProvisioner) testCallContract(method string, args ...interface{}) error {
+func (c *CapabilityRegistryProvisioner) testCallContract(method string, args ...any) error {
 	abi := evmtypes.MustGetABI(kcr.CapabilitiesRegistryABI)
 	data, err := abi.Pack(method, args...)
 	helpers.PanicErr(err)

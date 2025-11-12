@@ -75,10 +75,7 @@ func (s *performedEventsScanner) ScanWorkIDs(ctx context.Context, workID ...stri
 	}
 	logs := make([]logpoller.Log, 0)
 	for i := 0; i < len(ids); i += workIDsBatchSize {
-		end := i + workIDsBatchSize
-		if end > len(ids) {
-			end = len(ids)
-		}
+		end := min(i+workIDsBatchSize, len(ids))
 		batch := ids[i:end]
 
 		batchLogs, err := s.poller.IndexedLogs(ctx, ac.IAutomationV21PlusCommonDedupKeyAdded{}.Topic(), s.registryAddress, 1, batch, evmtypes.Confirmations(s.finalityDepth))

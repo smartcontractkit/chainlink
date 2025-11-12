@@ -30,7 +30,6 @@ import (
 	"github.com/smartcontractkit/chainlink-evm/pkg/testutils"
 	evmutils "github.com/smartcontractkit/chainlink-evm/pkg/utils"
 
-	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
 	functionsConfig "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/functions/config"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/testhelpers"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm"
@@ -76,7 +75,7 @@ func runTest(t *testing.T, pluginType functions.FunctionsPluginType, expectedDig
 	)
 	require.NoError(t, err)
 	b.Commit()
-	db := pgtest.NewSqlxDB(t)
+	db := testutils.NewSqlxDB(t)
 	defer db.Close()
 	ethClient := evmclient.NewSimulatedBackendClient(t, b, big.NewInt(1337))
 	defer ethClient.Close()
@@ -166,7 +165,7 @@ func runTest(t *testing.T, pluginType functions.FunctionsPluginType, expectedDig
 func setFunctionsConfig(t *testing.T, pluginConfig *functionsConfig.ReportingPluginConfigWrapper, ocrContract *ocr2aggregator.OCR2Aggregator, user *bind.TransactOpts) ocrtypes2.ContractConfig {
 	// Create minimum number of nodes.
 	var oracles []confighelper2.OracleIdentityExtra
-	for i := 0; i < 4; i++ {
+	for range 4 {
 		oracles = append(oracles, confighelper2.OracleIdentityExtra{
 			OracleIdentity: confighelper2.OracleIdentity{
 				OnchainPublicKey:  evmutils.RandomAddress().Bytes(),

@@ -23,6 +23,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/services/servicetest"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/mailbox/mailboxtest"
 	"github.com/smartcontractkit/chainlink-evm/pkg/chains/legacyevm"
+	evmconfig "github.com/smartcontractkit/chainlink-evm/pkg/config"
 
 	"github.com/smartcontractkit/chainlink-evm/pkg/client/clienttest"
 	log_mocks "github.com/smartcontractkit/chainlink/v2/common/log/mocks"
@@ -39,7 +40,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/functions/config"
 	threshold_mocks "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/threshold/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
-	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/types"
 	evmrelay_mocks "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/types/mocks"
 	s4_mocks "github.com/smartcontractkit/chainlink/v2/core/services/s4/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/services/synchronization"
@@ -111,7 +111,7 @@ func NewFunctionsListenerUniverse(t *testing.T, timeoutSec int, pruneFrequencySe
 		"requestTimeoutBatchLookupSize":   1,
 		"listenerEventHandlerTimeoutSec":  1,
 		"pruneCheckFrequencySec":          pruneFrequencySec,
-		"decryptionQueueConfig": map[string]interface{}{
+		"decryptionQueueConfig": map[string]any{
 			"decryptRequestTimeoutSec": 100,
 		},
 		"contractVersion":                    1,
@@ -171,7 +171,7 @@ func TestFunctionsListener_HandleOracleRequestV1_Success(t *testing.T) {
 	uni := NewFunctionsListenerUniverse(t, 0, 1_000_000)
 	doneCh := make(chan struct{})
 
-	request := types.OracleRequest{
+	request := evmconfig.OracleRequest{
 		RequestId:         RequestID,
 		SubscriptionId:    SubscriptionID,
 		SubscriptionOwner: SubscriptionOwner,
@@ -179,7 +179,7 @@ func TestFunctionsListener_HandleOracleRequestV1_Success(t *testing.T) {
 		Data:              make([]byte, 12),
 	}
 
-	uni.logPollerWrapper.On("LatestEvents", mock.Anything).Return([]types.OracleRequest{request}, nil, nil).Once()
+	uni.logPollerWrapper.On("LatestEvents", mock.Anything).Return([]evmconfig.OracleRequest{request}, nil, nil).Once()
 	uni.logPollerWrapper.On("LatestEvents", mock.Anything).Return(nil, nil, nil)
 	uni.pluginORM.On("CreateRequest", mock.Anything, mock.Anything).Return(nil)
 	uni.bridgeAccessor.On("NewExternalAdapterClient", mock.Anything).Return(uni.eaClient, nil)
@@ -265,7 +265,7 @@ func TestFunctionsListener_HandleOracleRequestV1_ComputationError(t *testing.T) 
 	uni := NewFunctionsListenerUniverse(t, 0, 1_000_000)
 	doneCh := make(chan struct{})
 
-	request := types.OracleRequest{
+	request := evmconfig.OracleRequest{
 		RequestId:         RequestID,
 		SubscriptionId:    SubscriptionID,
 		SubscriptionOwner: SubscriptionOwner,
@@ -273,7 +273,7 @@ func TestFunctionsListener_HandleOracleRequestV1_ComputationError(t *testing.T) 
 		Data:              make([]byte, 12),
 	}
 
-	uni.logPollerWrapper.On("LatestEvents", mock.Anything).Return([]types.OracleRequest{request}, nil, nil).Once()
+	uni.logPollerWrapper.On("LatestEvents", mock.Anything).Return([]evmconfig.OracleRequest{request}, nil, nil).Once()
 	uni.logPollerWrapper.On("LatestEvents", mock.Anything).Return(nil, nil, nil)
 	uni.pluginORM.On("CreateRequest", mock.Anything, mock.Anything).Return(nil)
 	uni.bridgeAccessor.On("NewExternalAdapterClient", mock.Anything).Return(uni.eaClient, nil)
@@ -301,7 +301,7 @@ func TestFunctionsListener_HandleOracleRequestV1_ThresholdDecryptedSecrets(t *te
 	require.NoError(t, err)
 	// Remove first byte (map header) to make it "diet" CBOR
 	cborBytes = cborBytes[1:]
-	request := types.OracleRequest{
+	request := evmconfig.OracleRequest{
 		RequestId:         RequestID,
 		SubscriptionId:    SubscriptionID,
 		SubscriptionOwner: SubscriptionOwner,
@@ -312,7 +312,7 @@ func TestFunctionsListener_HandleOracleRequestV1_ThresholdDecryptedSecrets(t *te
 	uni := NewFunctionsListenerUniverse(t, 0, 1_000_000)
 	doneCh := make(chan struct{})
 
-	uni.logPollerWrapper.On("LatestEvents", mock.Anything).Return([]types.OracleRequest{request}, nil, nil).Once()
+	uni.logPollerWrapper.On("LatestEvents", mock.Anything).Return([]evmconfig.OracleRequest{request}, nil, nil).Once()
 	uni.logPollerWrapper.On("LatestEvents", mock.Anything).Return(nil, nil, nil)
 	uni.pluginORM.On("CreateRequest", mock.Anything, mock.Anything).Return(nil)
 	uni.bridgeAccessor.On("NewExternalAdapterClient", mock.Anything).Return(uni.eaClient, nil)
@@ -334,7 +334,7 @@ func TestFunctionsListener_HandleOracleRequestV1_CBORTooBig(t *testing.T) {
 	uni := NewFunctionsListenerUniverse(t, 0, 1_000_000)
 	doneCh := make(chan struct{})
 
-	request := types.OracleRequest{
+	request := evmconfig.OracleRequest{
 		RequestId:         RequestID,
 		SubscriptionId:    SubscriptionID,
 		SubscriptionOwner: SubscriptionOwner,
@@ -342,7 +342,7 @@ func TestFunctionsListener_HandleOracleRequestV1_CBORTooBig(t *testing.T) {
 		Data:              make([]byte, 20),
 	}
 
-	uni.logPollerWrapper.On("LatestEvents", mock.Anything).Return([]types.OracleRequest{request}, nil, nil).Once()
+	uni.logPollerWrapper.On("LatestEvents", mock.Anything).Return([]evmconfig.OracleRequest{request}, nil, nil).Once()
 	uni.logPollerWrapper.On("LatestEvents", mock.Anything).Return(nil, nil, nil)
 	uni.pluginORM.On("CreateRequest", mock.Anything, mock.Anything).Return(nil)
 	uni.pluginORM.On("SetError", mock.Anything, RequestID, functions_service.USER_ERROR, []byte("request too big (max 10 bytes)"), mock.Anything, mock.Anything, mock.Anything).Run(func(args mock.Arguments) {
@@ -360,7 +360,7 @@ func TestFunctionsListener_ReportSourceCodeDomains(t *testing.T) {
 	uni := NewFunctionsListenerUniverse(t, 0, 1_000_000)
 	doneCh := make(chan struct{})
 
-	request := types.OracleRequest{
+	request := evmconfig.OracleRequest{
 		RequestId:         RequestID,
 		SubscriptionId:    SubscriptionID,
 		SubscriptionOwner: SubscriptionOwner,
@@ -368,7 +368,7 @@ func TestFunctionsListener_ReportSourceCodeDomains(t *testing.T) {
 		Data:              make([]byte, 12),
 	}
 
-	uni.logPollerWrapper.On("LatestEvents", mock.Anything).Return([]types.OracleRequest{request}, nil, nil).Once()
+	uni.logPollerWrapper.On("LatestEvents", mock.Anything).Return([]evmconfig.OracleRequest{request}, nil, nil).Once()
 	uni.logPollerWrapper.On("LatestEvents", mock.Anything).Return(nil, nil, nil)
 	uni.pluginORM.On("CreateRequest", mock.Anything, mock.Anything).Return(nil)
 	uni.bridgeAccessor.On("NewExternalAdapterClient", mock.Anything).Return(uni.eaClient, nil)
@@ -430,9 +430,9 @@ func TestFunctionsListener_ORMDoesNotFreezeHandlersForever(t *testing.T) {
 	var ormCallExited sync.WaitGroup
 	ormCallExited.Add(1)
 	uni := NewFunctionsListenerUniverse(t, 0, 0)
-	request := types.OracleRequest{}
+	request := evmconfig.OracleRequest{}
 
-	uni.logPollerWrapper.On("LatestEvents", mock.Anything).Return([]types.OracleRequest{request}, nil, nil).Once()
+	uni.logPollerWrapper.On("LatestEvents", mock.Anything).Return([]evmconfig.OracleRequest{request}, nil, nil).Once()
 	uni.logPollerWrapper.On("LatestEvents", mock.Anything).Return(nil, nil, nil)
 	uni.pluginORM.On("CreateRequest", mock.Anything, mock.Anything).Run(func(args mock.Arguments) {
 		<-args.Get(0).(context.Context).Done()

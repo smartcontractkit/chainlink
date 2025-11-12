@@ -1,5 +1,6 @@
 ChainID = '5000'
 FinalityTagEnabled = true
+SafeTagSupported = true
 FinalityDepth = 1200
 ChainType = 'optimismBedrock'
 LogPollInterval = '2s'

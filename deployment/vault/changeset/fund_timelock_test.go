@@ -171,7 +171,7 @@ func TestCalculateFundingRequirements(t *testing.T) {
 			},
 		}
 
-		requirements, err := CalculateFundingRequirements(rt.Environment(), config)
+		requirements, err := calculateFundingRequirements(rt.Environment(), config)
 		require.NoError(t, err)
 		require.Len(t, requirements, 2)
 
@@ -196,7 +196,7 @@ func TestCalculateFundingRequirements(t *testing.T) {
 			TransfersByChain: map[uint64][]types.NativeTransfer{},
 		}
 
-		requirements, err := CalculateFundingRequirements(rt.Environment(), config)
+		requirements, err := calculateFundingRequirements(rt.Environment(), config)
 		require.NoError(t, err)
 		require.Empty(t, requirements)
 	})
@@ -210,7 +210,7 @@ func TestCalculateFundingRequirements(t *testing.T) {
 			},
 		}
 
-		requirements, err := CalculateFundingRequirements(rt.Environment(), config)
+		requirements, err := calculateFundingRequirements(rt.Environment(), config)
 		require.NoError(t, err)
 		require.Len(t, requirements, 1)
 

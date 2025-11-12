@@ -53,10 +53,7 @@ func NewOptions(finalityDepth int64, chainID *big.Int) LogTriggersOptions {
 // NOTE: o.LookbackBlocks should be set only from within tests
 func (o *LogTriggersOptions) Defaults(finalityDepth int64) {
 	if o.LookbackBlocks == 0 {
-		lookbackBlocks := int64(100)
-		if lookbackBlocks < finalityDepth {
-			lookbackBlocks = finalityDepth
-		}
+		lookbackBlocks := max(int64(100), finalityDepth)
 		o.LookbackBlocks = lookbackBlocks
 	}
 	if o.ReadInterval == 0 {

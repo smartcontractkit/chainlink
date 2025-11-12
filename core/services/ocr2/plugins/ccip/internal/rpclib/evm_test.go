@@ -141,7 +141,7 @@ func TestDefaultEvmBatchCaller_batchCallLimit(t *testing.T) {
 				Run(func(args mock.Arguments) {
 					evmCalls := args.Get(1).([]rpc.BatchElem)
 					for i := range evmCalls {
-						arg := evmCalls[i].Args[0].(map[string]interface{})["data"].(hexutil.Bytes)
+						arg := evmCalls[i].Args[0].(map[string]any)["data"].(hexutil.Bytes)
 						arg = arg[len(arg)-10:]
 						evmCalls[i].Error = fmt.Errorf("%s", arg)
 					}

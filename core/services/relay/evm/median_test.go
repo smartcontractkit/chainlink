@@ -9,11 +9,11 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	commontypes "github.com/smartcontractkit/chainlink-common/pkg/types"
-
+	"github.com/smartcontractkit/chainlink-evm/pkg/config"
 	"github.com/smartcontractkit/chainlink-evm/pkg/testutils"
 	"github.com/smartcontractkit/chainlink-evm/pkg/utils/big"
+
 	"github.com/smartcontractkit/chainlink/v2/common/chains/mocks"
-	evmtypes "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/types"
 )
 
 func TestNewMedianProvider(t *testing.T) {
@@ -28,7 +28,7 @@ func TestNewMedianProvider(t *testing.T) {
 	pargs := commontypes.PluginArgs{}
 
 	t.Run("wrong chainID", func(t *testing.T) {
-		relayConfigBadChainID := evmtypes.RelayConfig{}
+		relayConfigBadChainID := config.RelayConfig{}
 		rc, err2 := json.Marshal(&relayConfigBadChainID)
 		rargs2 := commontypes.RelayArgs{ContractID: contractID.String(), RelayConfig: rc}
 		require.NoError(t, err2)
@@ -37,7 +37,7 @@ func TestNewMedianProvider(t *testing.T) {
 	})
 
 	t.Run("invalid contractID", func(t *testing.T) {
-		relayConfig := evmtypes.RelayConfig{ChainID: big.New(chainID)}
+		relayConfig := config.RelayConfig{ChainID: big.New(chainID)}
 		rc, err2 := json.Marshal(&relayConfig)
 		require.NoError(t, err2)
 		rargsBadContractID := commontypes.RelayArgs{ContractID: "NotAContractID", RelayConfig: rc}

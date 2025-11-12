@@ -185,9 +185,8 @@ Example `launch.json` entry:
 
 **CI behavior differs**: In CI, workflows and binaries are uploaded ahead of time, and images are injected via:
 
-- `E2E_JD_VERSION`
-- `E2E_TEST_CHAINLINK_IMAGE`
-- `E2E_TEST_CHAINLINK_VERSION`
+- `CTF_JD_IMAGE`
+- `CTF_CHAINLINK_IMAGE`
 
 ---
 
@@ -312,7 +311,7 @@ If you're working with AWS you will need to set the JD image URL in the `overrid
 
 ```toml
 [jd]
-  image = "<PROD_ECR_REGISTRY_URL>/job-distributor:0.12.7"
+  image = "<PROD_ECR_REGISTRY_URL>/job-distributor:0.22.1"
 ```
 
 Replace `<PROD_ECR_REGISTRY_URL>` placeholder with the actual value.
@@ -322,16 +321,16 @@ Replace `<PROD_ECR_REGISTRY_URL>` placeholder with the actual value.
 When working with kind provider, it will require pulling and pushing an image to local registry, similar as with CL node explained before.
 
 ```shell
-docker pull <PROD_ECR_REGISTRY_URL>/job-distributor:0.12.7
-docker tag <PROD_ECR_REGISTRY_URL>/job-distributor:0.12.7 localhost:5001/job-distributor:0.12.7
-docker push localhost:5001/job-distributor:0.12.7
+docker pull <PROD_ECR_REGISTRY_URL>/job-distributor:0.22.1
+docker tag <PROD_ECR_REGISTRY_URL>/job-distributor:0.22.1 localhost:5001/job-distributor:0.22.1
+docker push localhost:5001/job-distributor:0.22.1
 ```
 
 Now, you can set:
 
 ```toml
 [jd]
-  image = "localhost:5001/job-distributor:0.12.7"
+  image = "localhost:5001/job-distributor:0.22.1"
 ```
 
 ---
@@ -519,7 +518,7 @@ workflowFileLocation := "path/to/your/workflow/main.go"
 workflowName := "my-workflow-" + uuid.New().String()[0:4]
 
 // Compile workflow to compressed WASM
-compressedWorkflowWasmPath, compileErr := creworkflow.CompileWorkflow(workflowFileLocation, workflowName)
+compressedWorkflowWasmPath, compileErr := creworkflow.CompileWorkflow(ctx, workflowFileLocation, workflowName)
 require.NoError(t, compileErr, "failed to compile workflow")
 
 // Cleanup temporary files
@@ -533,9 +532,16 @@ t.Cleanup(func() {
 
 #### Compilation Requirements
 
+Go workflows:
 - **Workflow Name**: Must be at least 10 characters long
 - **Go Environment**: Requires `go mod tidy` to be run in the workflow directory
 - **Target Platform**: Compiles for `GOOS=wasip1` and `GOARCH=wasm`
+- **Output Format**: Produces `.wasm.br.b64` files (compressed and base64 encoded)
+
+TypeScript workflows:
+- **Workflow Name**: Must be at least 10 characters long
+- **Bun installed**: Requires `Bun`  (automatically installed by `go run . env setup`)
+- **package.json**: Correct `package.json` must exist in `core/scripts/cre/environment` (automatically created by `go run . env setup`)
 - **Output Format**: Produces `.wasm.br.b64` files (compressed and base64 encoded)
 
 ### Workflow Configuration

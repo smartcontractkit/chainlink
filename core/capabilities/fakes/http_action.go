@@ -3,6 +3,7 @@ package fakes
 import (
 	"bytes"
 	"context"
+	"errors"
 	"io"
 	"net/http"
 	"strings"
@@ -61,10 +62,10 @@ func (fh *DirectHTTPAction) SendRequest(ctx context.Context, metadata commonCap.
 		Timeout: timeout,
 	}
 
-	// Determine HTTP method (default to GET if not specified)
-	method := input.GetMethod()
+	// Return an error if no HTTP method is provided
+	method := strings.TrimSpace(input.GetMethod())
 	if method == "" {
-		method = "GET"
+		return nil, errors.New("http method cannot be empty")
 	}
 	method = strings.ToUpper(method)
 
@@ -147,14 +148,7 @@ func (fh *DirectHTTPAction) Description() string {
 	return directHTTPActionInfo.Description
 }
 
-func (fh *DirectHTTPAction) Initialise(ctx context.Context, config string, _ core.TelemetryService,
-	_ core.KeyValueStore,
-	_ core.ErrorLog,
-	_ core.PipelineRunnerService,
-	_ core.RelayerSet,
-	_ core.OracleFactory,
-	_ core.GatewayConnector,
-	_ core.Keystore) error {
+func (fh *DirectHTTPAction) Initialise(ctx context.Context, dependencies core.StandardCapabilitiesDependencies) error {
 	// TODO: do validation of config here
 
 	err := fh.Start(ctx)

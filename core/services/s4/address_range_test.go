@@ -74,7 +74,7 @@ func TestAddressRange_NewInitialAddressRangeForIntervals(t *testing.T) {
 		assert.Equal(t, "0x200000000000000000000000000000000000000", r.MinAddress.Hex())
 		assert.Equal(t, "0x2ffffffffffffffffffffffffffffffffffffff", r.MaxAddress.Hex())
 
-		for i := 0; i < 253; i++ {
+		for range 253 {
 			r.Advance()
 		}
 		assert.Equal(t, "0xff00000000000000000000000000000000000000", r.MinAddress.Hex())

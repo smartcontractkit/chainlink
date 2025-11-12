@@ -108,7 +108,7 @@ func RemoveDONs(env cldf.Environment, req *RemoveDONsRequest) (cldf.ChangesetOut
 			inspectorPerChain,
 			[]types.BatchOperation{*resp.Ops},
 			"proposal to remove dons",
-			proposalutils.TimelockConfig{MinDelay: req.MCMSConfig.MinDuration},
+			*req.MCMSConfig,
 		)
 		if err != nil {
 			return out, fmt.Errorf("failed to build proposal: %w", err)

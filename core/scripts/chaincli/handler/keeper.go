@@ -608,7 +608,7 @@ func (k *Keeper) deployUpkeeps(ctx context.Context, registryAddr common.Address,
 				log.Fatal(i, ": Deploy Upkeep failed - ", err)
 			}
 			logTriggerConfigType := abi.MustNewType("tuple(address contractAddress, uint8 filterSelector, bytes32 topic0, bytes32 topic1, bytes32 topic2, bytes32 topic3)")
-			logTriggerConfig, err := abi.Encode(map[string]interface{}{
+			logTriggerConfig, err := abi.Encode(map[string]any{
 				"contractAddress": upkeepAddr,
 				"filterSelector":  0,                                                                    // no indexed topics filtered
 				"topic0":          "0x3d53a39550e04688065827f3bb86584cb007ab9ebca7ebd528e7301c9c31eb5d", // event sig for Trigger()

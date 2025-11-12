@@ -177,7 +177,7 @@ func (ea *externalAdapterClient) FetchEncryptedSecrets(ctx context.Context, encr
 
 func (ea *externalAdapterClient) request(
 	ctx context.Context,
-	payload interface{},
+	payload any,
 	requestId string,
 	jobName string,
 	label string,

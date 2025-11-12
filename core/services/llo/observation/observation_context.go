@@ -133,7 +133,7 @@ func (oc *observationContext) Observe(ctx context.Context, streamID streams.Stre
 	return
 }
 
-func resultToStreamValue(val interface{}) (llo.StreamValue, error) {
+func resultToStreamValue(val any) (llo.StreamValue, error) {
 	switch v := val.(type) {
 	case decimal.Decimal:
 		return llo.ToDecimal(v), nil
@@ -148,7 +148,7 @@ func resultToStreamValue(val interface{}) (llo.StreamValue, error) {
 		default:
 			return nil, fmt.Errorf("don't know how to convert pipeline.ObjectParam with type %d to llo.StreamValue", v.Type)
 		}
-	case map[string]interface{}:
+	case map[string]any:
 		sv, err := resultMapToStreamValue(v)
 		if err != nil {
 			return nil, fmt.Errorf("don't know how to convert map to StreamValue: %w; got: %v", err, v)
@@ -160,7 +160,7 @@ func resultToStreamValue(val interface{}) (llo.StreamValue, error) {
 }
 
 // Converts arbitrary JSON (parsed to map) to a StreamValue
-func resultMapToStreamValue(m map[string]interface{}) (llo.StreamValue, error) {
+func resultMapToStreamValue(m map[string]any) (llo.StreamValue, error) {
 	var streamValueType llo.LLOStreamValue_Type
 	{
 		raw, exists := m["streamValueType"]
@@ -197,8 +197,8 @@ func resultMapToStreamValue(m map[string]interface{}) (llo.StreamValue, error) {
 //	  },
 //	  "result": "123.456"
 //	}
-func resultMapToTimestampedStreamValue(m map[string]interface{}) (*llo.TimestampedStreamValue, error) {
-	ts, ok := m["timestamps"].(map[string]interface{})
+func resultMapToTimestampedStreamValue(m map[string]any) (*llo.TimestampedStreamValue, error) {
+	ts, ok := m["timestamps"].(map[string]any)
 	if !ok {
 		return nil, errors.New("expected a key labeled 'timestamps' as map[string]interface{}")
 	}
@@ -236,7 +236,7 @@ func resultMapToTimestampedStreamValue(m map[string]interface{}) (*llo.Timestamp
 	}, nil
 }
 
-func toUint64(v interface{}) (uint64, error) {
+func toUint64(v any) (uint64, error) {
 	switch v := v.(type) {
 	case float64:
 		if v < 0 {
@@ -315,7 +315,7 @@ func extractFinalResultAsStreamValue(trrs pipeline.TaskRunResults) (llo.StreamVa
 	}
 }
 
-func toDecimal(val interface{}) (decimal.Decimal, error) {
+func toDecimal(val any) (decimal.Decimal, error) {
 	return utils.ToDecimal(val)
 }
 

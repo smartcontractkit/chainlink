@@ -44,7 +44,6 @@ func (d *ocr2AggregatorLogDecoder) Decode(rawLog []byte) (ocrtypes.ContractConfi
 	}
 	var signers []ocrtypes.OnchainPublicKey
 	for _, addr := range unpacked.Signers {
-		addr := addr
 		signers = append(signers, addr[:])
 	}
 

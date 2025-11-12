@@ -15,7 +15,6 @@ import (
 	"github.com/smartcontractkit/chainlink-testing-framework/framework"
 	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/blockchain"
 	billingplatformservice "github.com/smartcontractkit/chainlink-testing-framework/framework/components/dockercompose/billing_platform_service"
-	"github.com/smartcontractkit/chainlink/core/scripts/cre/environment/tracking"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment"
 	envconfig "github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/config"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/stagegen"
@@ -57,7 +56,7 @@ func startBillingCmds() *cobra.Command {
 					metaData["result"] = "success"
 				}
 
-				trackingErr := dxTracker.Track(tracking.MetricBillingStart, metaData)
+				trackingErr := dxTracker.Track(MetricBillingStart, metaData)
 				if trackingErr != nil {
 					fmt.Fprintf(os.Stderr, "failed to track billing start: %s\n", trackingErr)
 				}
@@ -120,7 +119,7 @@ func removeBillingStateFiles(relativePathToRepoRoot string) error {
 	return os.Remove(absPath)
 }
 
-func startBilling(_ context.Context, cleanupWait time.Duration, setupOutput *environment.SetupOutput) (startupErr error) {
+func startBilling(ctx context.Context, cleanupWait time.Duration, setupOutput *environment.SetupOutput) (startupErr error) {
 	// just in case, remove the stack if it exists
 	_ = framework.RemoveTestStack(billingplatformservice.DEFAULT_BILLING_PLATFORM_SERVICE_SERVICE_NAME)
 
@@ -177,7 +176,7 @@ func startBilling(_ context.Context, cleanupWait time.Duration, setupOutput *env
 
 	if setupOutput != nil {
 		in.BillingService.ChainSelector = setupOutput.WorkflowRegistryConfigurationOutput.ChainSelector
-		addressRefs, err := setupOutput.CldEnvironment.DataStore.Addresses().Fetch()
+		addressRefs, err := setupOutput.CreEnvironment.CldfEnvironment.DataStore.Addresses().Fetch()
 		if err != nil {
 			return errors.Wrap(err, "failed to fetch address references")
 		}
@@ -200,12 +199,12 @@ func startBilling(_ context.Context, cleanupWait time.Duration, setupOutput *env
 
 		// Select the appropriate chain for billing service from available chains in the environment.
 		// otherwise, if RPCURL is defined, billing service can be used standalone
-		if len(setupOutput.BlockchainOutput) != 0 {
+		if len(setupOutput.CreEnvironment.Blockchains) != 0 {
 			var selectedChain *blockchain.Output
 
-			for _, chain := range setupOutput.BlockchainOutput {
-				if chain.ChainSelector == in.BillingService.ChainSelector {
-					selectedChain = chain.BlockchainOutput
+			for _, chain := range setupOutput.CreEnvironment.Blockchains {
+				if chain.ChainSelector() == in.BillingService.ChainSelector {
+					selectedChain = chain.CtfOutput()
 				}
 			}
 
@@ -222,7 +221,7 @@ func startBilling(_ context.Context, cleanupWait time.Duration, setupOutput *env
 		}
 	}
 
-	out, startErr := billingplatformservice.New(in.BillingService)
+	out, startErr := billingplatformservice.NewWithContext(ctx, in.BillingService)
 	if startErr != nil {
 		return errors.Wrap(startErr, "failed to create Billing Platform Service")
 	}

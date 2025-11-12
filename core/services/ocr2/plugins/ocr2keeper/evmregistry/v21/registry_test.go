@@ -441,7 +441,7 @@ func TestRegistry_refreshLogTriggerUpkeeps(t *testing.T) {
 			name: "log trigger upkeeps are refreshed in batch without error",
 			ids: func() []*big.Int {
 				res := []*big.Int{}
-				for i := 0; i < logTriggerRefreshBatchSize*3; i++ {
+				for i := range logTriggerRefreshBatchSize * 3 {
 					res = append(res, core.GenUpkeepID(autotypes.LogTrigger, strconv.Itoa(i)).BigInt())
 				}
 				return res
@@ -493,7 +493,7 @@ func TestRegistry_refreshLogTriggerUpkeeps(t *testing.T) {
 			name: "log trigger upkeeps are refreshed in batch, with a partial batch without error",
 			ids: func() []*big.Int {
 				res := []*big.Int{}
-				for i := 0; i < logTriggerRefreshBatchSize+3; i++ {
+				for i := range logTriggerRefreshBatchSize + 3 {
 					res = append(res, core.GenUpkeepID(autotypes.LogTrigger, strconv.Itoa(i)).BigInt())
 				}
 				return res

@@ -149,7 +149,7 @@ func UpdateNodeCapabilities(env cldf.Environment, req *UpdateNodeCapabilitiesReq
 			inspectorPerChain,
 			[]types.BatchOperation{*r.Ops},
 			"proposal to set update node capabilities",
-			proposalutils.TimelockConfig{MinDelay: req.MCMSConfig.MinDuration},
+			*req.MCMSConfig,
 		)
 		if err != nil {
 			return out, fmt.Errorf("failed to build proposal: %w", err)

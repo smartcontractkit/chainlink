@@ -19,15 +19,14 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
 	"github.com/smartcontractkit/chainlink-evm/pkg/assets"
 	evmclient "github.com/smartcontractkit/chainlink-evm/pkg/client"
+	"github.com/smartcontractkit/chainlink-evm/pkg/config"
 	"github.com/smartcontractkit/chainlink-evm/pkg/heads/headstest"
 	"github.com/smartcontractkit/chainlink-evm/pkg/keys"
 	"github.com/smartcontractkit/chainlink-evm/pkg/keys/keystest"
 	"github.com/smartcontractkit/chainlink-evm/pkg/logpoller"
 	"github.com/smartcontractkit/chainlink-evm/pkg/testutils"
 	evmtypes "github.com/smartcontractkit/chainlink-evm/pkg/types"
-	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm"
-	evmrelaytypes "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/types"
 )
 
 // Test harness with EVM backend and chainlink core services like
@@ -100,7 +99,7 @@ func NewEVMBackendTH(t *testing.T) *EVMBackendTH {
 
 // Setup core services like log poller and head tracker for the simulated backend
 func (th *EVMBackendTH) SetupCoreServices(t *testing.T) (logpoller.HeadTracker, logpoller.LogPoller) {
-	db := pgtest.NewSqlxDB(t)
+	db := testutils.NewSqlxDB(t)
 	const finalityDepth = 2
 	ht := headstest.NewSimulatedHeadTracker(th.EVMClient, false, finalityDepth)
 	lp := logpoller.NewLogPoller(
@@ -126,7 +125,7 @@ func (th *EVMBackendTH) SetupCoreServices(t *testing.T) (logpoller.HeadTracker, 
 }
 
 func (th *EVMBackendTH) NewContractReader(ctx context.Context, t *testing.T, cfg []byte) (types.ContractReader, error) {
-	crCfg := &evmrelaytypes.ChainReaderConfig{}
+	crCfg := &config.ChainReaderConfig{}
 	if err := json.Unmarshal(cfg, crCfg); err != nil {
 		return nil, err
 	}

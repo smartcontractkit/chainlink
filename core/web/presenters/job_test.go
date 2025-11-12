@@ -132,6 +132,7 @@ func TestJob(t *testing.T) {
 						"gatewaySpec": null,
 						"standardCapabilitiesSpec": null,
 						"ccipSpec": null,
+						"creSettingsSpec": null,
 						"errors": []
 					}
 				}
@@ -211,6 +212,7 @@ func TestJob(t *testing.T) {
 						"gatewaySpec": null,
 						"standardCapabilitiesSpec": null,
 						"ccipSpec": null,
+						"creSettingsSpec": null,
 						"errors": []
 					}
 				}
@@ -300,6 +302,7 @@ func TestJob(t *testing.T) {
 						"gatewaySpec": null,
 						"standardCapabilitiesSpec": null,
 						"ccipSpec": null,
+						"creSettingsSpec": null,
 						"errors": []
 					}
 				}
@@ -366,6 +369,7 @@ func TestJob(t *testing.T) {
 						"gatewaySpec": null,
 						"standardCapabilitiesSpec": null,
 						"ccipSpec": null,
+						"creSettingsSpec": null,
 						"errors": []
 					}
 				}
@@ -429,6 +433,7 @@ func TestJob(t *testing.T) {
 						"gatewaySpec": null,
 						"standardCapabilitiesSpec": null,
 						"ccipSpec": null,
+						"creSettingsSpec": null,
                         "errors": []
                     }
                 }
@@ -488,6 +493,7 @@ func TestJob(t *testing.T) {
 						"gatewaySpec": null,
 						"standardCapabilitiesSpec": null,
 						"ccipSpec": null,
+						"creSettingsSpec": null,
 						"errors": []
 					}
 				}
@@ -576,6 +582,7 @@ func TestJob(t *testing.T) {
 						"standardCapabilitiesSpec": null,
 						"standardCapabilitiesSpec": null,
 						"ccipSpec": null,
+						"creSettingsSpec": null,
 						"errors": []
 					}
 				}
@@ -659,6 +666,7 @@ func TestJob(t *testing.T) {
 						"gatewaySpec": null,
 						"standardCapabilitiesSpec": null,
 						"ccipSpec": null,
+						"creSettingsSpec": null,
 						"errors": []
 					}
 				}
@@ -742,6 +750,7 @@ func TestJob(t *testing.T) {
 						"gatewaySpec": null,
 						"standardCapabilitiesSpec": null,
 						"ccipSpec": null,
+						"creSettingsSpec": null,
 						"errors": []
 					}
 				}
@@ -755,7 +764,7 @@ func TestJob(t *testing.T) {
 					ID:          1,
 					ContractID:  "0x16988483b46e695f6c8D58e6e1461DC703e008e1",
 					Relay:       "evm",
-					RelayConfig: map[string]interface{}{"chainID": 1337},
+					RelayConfig: map[string]any{"chainID": 1337},
 				},
 				PipelineSpec: &pipeline.Spec{
 					ID:           1,
@@ -809,6 +818,7 @@ func TestJob(t *testing.T) {
 						"gatewaySpec": null,
 						"standardCapabilitiesSpec": null,
 						"ccipSpec": null,
+						"creSettingsSpec": null,
 						"errors": []
 					}
 				}
@@ -820,8 +830,8 @@ func TestJob(t *testing.T) {
 				ID: 1,
 				GatewaySpec: &job.GatewaySpec{
 					ID: 3,
-					GatewayConfig: map[string]interface{}{
-						"NodeServerConfig": map[string]interface{}{},
+					GatewayConfig: map[string]any{
+						"NodeServerConfig": map[string]any{},
 					},
 				},
 				PipelineSpec: &pipeline.Spec{
@@ -868,6 +878,7 @@ func TestJob(t *testing.T) {
 						},
 						"standardCapabilitiesSpec": null,
 						"ccipSpec": null,
+						"creSettingsSpec": null,
 						"pipelineSpec": {
 							"id": 1,
 							"jobID": 0,
@@ -933,6 +944,7 @@ func TestJob(t *testing.T) {
 						"gatewaySpec": null,
 						"standardCapabilitiesSpec": null,
 						"ccipSpec": null,
+						"creSettingsSpec": null,
 						"pipelineSpec": {
 							"id": 1,
 							"jobID": 0,
@@ -994,6 +1006,7 @@ func TestJob(t *testing.T) {
 							"updatedAt":"0001-01-01T00:00:00Z"
 						},
 						"ccipSpec": null,
+						"creSettingsSpec": null,
 						"pipelineSpec": {
 							"id": 1,
 							"jobID": 0,
@@ -1059,12 +1072,76 @@ func TestJob(t *testing.T) {
 							"createdAt":"2000-01-01T00:00:00Z",
 							"updatedAt":"2000-01-01T00:00:00Z"
 						},
+						"creSettingsSpec": null,
 						"pipelineSpec": {
 							"id": 1,
 							"jobID": 0,
 							"dotDagSource": ""
 						},
 						"errors": []
+					}
+				}
+			}`,
+		},
+		{
+			name: "cresettings spec",
+			job: job.Job{
+				ID: 1,
+				CRESettingsSpec: &job.CRESettingsSpec{
+					ID:        4,
+					CreatedAt: timestamp,
+					UpdatedAt: timestamp,
+					Settings:  `Foo = 'Bar'`,
+					Hash:      `ASDF`,
+				},
+				PipelineSpec: &pipeline.Spec{
+					ID:           1,
+					DotDagSource: "",
+				},
+				Type:          job.CRESettings,
+				SchemaVersion: 1,
+				Name:          null.StringFrom("cresettings test"),
+			},
+			want: `
+			{
+				"data": {	
+					"type": "jobs",
+					"id": "1",
+					"attributes": {
+						"name": "cresettings test",
+						"type": "cresettings",
+						"schemaVersion": 1,
+						"maxTaskDuration": "0s",
+						"directRequestSpec": null,
+						"externalJobID": "00000000-0000-0000-0000-000000000000",
+						"fluxMonitorSpec": null,
+						"gasLimit": null,
+						"forwardingAllowed": false,
+						"creSettingsSpec": {
+							"createdAt":"2000-01-01T00:00:00Z",
+							"updatedAt":"2000-01-01T00:00:00Z",
+							"settings": "Foo = 'Bar'",
+							"hash": "ASDF"
+						},
+						"cronSpec": null,
+						"offChainReportingOracleSpec": null,
+						"offChainReporting2OracleSpec": null,
+						"keeperSpec": null,
+						"vrfSpec": null,
+						"webhookSpec": null,
+						"workflowSpec": null,
+						"blockhashStoreSpec": null,
+						"blockHeaderFeederSpec": null,
+						"bootstrapSpec": null,
+						"gatewaySpec": null,
+						"standardCapabilitiesSpec": null,
+						"ccipSpec": null,
+						"pipelineSpec": {
+							"id": 1,
+							"jobID": 0,
+							"dotDagSource": ""
+						},
+						"errors": []						
 					}
 				}
 			}`,
@@ -1126,6 +1203,7 @@ func TestJob(t *testing.T) {
 						"fluxMonitorSpec": null,
 						"gasLimit": null,
 						"forwardingAllowed": false,
+						"creSettingsSpec": null,
 						"directRequestSpec": null,
 						"cronSpec": null,
 						"webhookSpec": null,
@@ -1153,7 +1231,6 @@ func TestJob(t *testing.T) {
 	}
 
 	for _, tc := range testCases {
-		tc := tc
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 

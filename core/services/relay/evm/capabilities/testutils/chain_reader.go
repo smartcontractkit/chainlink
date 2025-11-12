@@ -14,10 +14,10 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	commontypes "github.com/smartcontractkit/chainlink-common/pkg/types"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/shared/generated/initial/log_emitter"
+	"github.com/smartcontractkit/chainlink-evm/pkg/config"
 	coretestutils "github.com/smartcontractkit/chainlink-evm/pkg/testutils"
 	commonvalues "github.com/smartcontractkit/chainlink-protos/cre/go/values"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/triggers/logevent/logeventcap"
-	evmtypes "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/types"
 )
 
 // Test harness with EVM backend and chainlink core services like
@@ -50,17 +50,17 @@ func NewContractReaderTH(t *testing.T) *ContractReaderTH {
 		ContractAddress:   logEmitterAddress.Hex(),
 		ContractEventName: "Log1",
 	}
-	contractReaderCfg := evmtypes.ChainReaderConfig{
-		Contracts: map[string]evmtypes.ChainContractReader{
+	contractReaderCfg := config.ChainReaderConfig{
+		Contracts: map[string]config.ChainContractReader{
 			reqConfig.ContractName: {
-				ContractPollingFilter: evmtypes.ContractPollingFilter{
+				ContractPollingFilter: config.ContractPollingFilter{
 					GenericEventNames: []string{reqConfig.ContractEventName},
 				},
 				ContractABI: log_emitter.LogEmitterABI,
-				Configs: map[string]*evmtypes.ChainReaderDefinition{
+				Configs: map[string]*config.ChainReaderDefinition{
 					reqConfig.ContractEventName: {
 						ChainSpecificName: reqConfig.ContractEventName,
-						ReadType:          evmtypes.Event,
+						ReadType:          config.Event,
 					},
 				},
 			},

@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 	"time"
 
@@ -272,11 +273,8 @@ func getTargetSchedule(targetSchedule string) string {
 func getFeedsByWorkflow(allFeeds *[]v1_0.Feed, workflowHash string) *[]v1_0.Feed {
 	var result []v1_0.Feed
 	for _, feed := range *allFeeds {
-		for _, workflow := range feed.Workflows {
-			if workflow == workflowHash {
-				result = append(result, feed)
-				break
-			}
+		if slices.Contains(feed.Workflows, workflowHash) {
+			result = append(result, feed)
 		}
 	}
 

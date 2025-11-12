@@ -26,7 +26,7 @@ func setupORM(t *testing.T) (allowlist.ORM, error) {
 func seedAllowedSenders(t *testing.T, orm allowlist.ORM, amount int) []common.Address {
 	ctx := testutils.Context(t)
 	storedAllowedSenders := make([]common.Address, amount)
-	for i := 0; i < amount; i++ {
+	for i := range amount {
 		address := testutils.NewAddress()
 		storedAllowedSenders[i] = address
 	}

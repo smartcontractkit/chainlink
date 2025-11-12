@@ -6,7 +6,6 @@ import (
 	"math/big"
 	"math/rand"
 	"slices"
-	"sort"
 	"testing"
 	"time"
 
@@ -417,9 +416,7 @@ func TestCommitReportingPlugin_Report(t *testing.T) {
 			for tk := range tc.tokenDecimals {
 				destTokens = append(destTokens, tk)
 			}
-			sort.Slice(destTokens, func(i, j int) bool {
-				return destTokens[i] < destTokens[j]
-			})
+			slices.Sort(destTokens)
 			var destDecimals []uint8
 			for _, token := range destTokens {
 				destDecimals = append(destDecimals, tc.tokenDecimals[token])

@@ -44,7 +44,7 @@ func Test_PublicKey_UnmarshalJSON(t *testing.T) {
 	hexKey := hex.EncodeToString(pubKey)
 
 	actual := &PublicKey{}
-	err = actual.UnmarshalJSON([]byte(fmt.Sprintf(`"%s"`, hexKey)))
+	err = actual.UnmarshalJSON(fmt.Appendf(nil, `"%s"`, hexKey))
 	require.NoError(t, err)
 
 	assert.Equal(t, PublicKey(pubKey), *actual)

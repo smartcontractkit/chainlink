@@ -13,6 +13,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
 	pkgworkflows "github.com/smartcontractkit/chainlink-common/pkg/workflows"
+	"github.com/smartcontractkit/chainlink-evm/pkg/config"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay"
@@ -20,8 +21,6 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"gopkg.in/guregu/null.v4"
-
-	evmtypes "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/types"
 )
 
 func TestStandardCapabilitiesSpec_Deserialization(t *testing.T) {
@@ -108,7 +107,6 @@ func TestOCR2OracleSpec_RelayIdentifier(t *testing.T) {
 		},
 	}
 	for _, tt := range tests {
-		tt := tt
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 
@@ -145,11 +143,11 @@ func TestOCR2OracleSpec(t *testing.T) {
 		TransmitterID:                     null.StringFrom("baz"),
 		ContractConfigConfirmations:       1,
 		ContractConfigTrackerPollInterval: *sqlutil.NewInterval(time.Second),
-		RelayConfig: map[string]interface{}{
+		RelayConfig: map[string]any{
 			"chainID":   1337,
 			"fromBlock": 42,
-			"chainReader": evmtypes.ChainReaderConfig{
-				Contracts: map[string]evmtypes.ChainContractReader{
+			"chainReader": config.ChainReaderConfig{
+				Contracts: map[string]config.ChainContractReader{
 					"median": {
 						ContractABI: `[
   {
@@ -218,7 +216,7 @@ func TestOCR2OracleSpec(t *testing.T) {
   }
 ]
 `,
-						Configs: map[string]*evmtypes.ChainReaderDefinition{
+						Configs: map[string]*config.ChainReaderDefinition{
 							"LatestTransmissionDetails": {
 								ChainSpecificName: "latestTransmissionDetails",
 								OutputModifications: codec.ModifiersConfig{
@@ -235,14 +233,14 @@ func TestOCR2OracleSpec(t *testing.T) {
 							},
 							"LatestRoundRequested": {
 								ChainSpecificName: "RoundRequested",
-								ReadType:          evmtypes.Event,
+								ReadType:          config.Event,
 							},
 						},
 					},
 				},
 			},
-			"codec": evmtypes.CodecConfig{
-				Configs: map[string]evmtypes.ChainCodecConfig{
+			"codec": config.CodecConfig{
+				Configs: map[string]config.ChainCodecConfig{
 					"MedianReport": {
 						TypeABI: `[
   {
@@ -267,14 +265,14 @@ func TestOCR2OracleSpec(t *testing.T) {
 				},
 			},
 		},
-		OnchainSigningStrategy: map[string]interface{}{
+		OnchainSigningStrategy: map[string]any{
 			"strategyName": "single-chain",
-			"config": map[string]interface{}{
+			"config": map[string]any{
 				"evm":       "",
 				"publicKey": "0xdeadbeef",
 			},
 		},
-		PluginConfig: map[string]interface{}{"juelsPerFeeCoinSource": `  // data source 1
+		PluginConfig: map[string]any{"juelsPerFeeCoinSource": `  // data source 1
   ds1          [type=bridge name="%s"];
   ds1_parse    [type=jsonparse path="data"];
   ds1_multiply [type=multiply times=2];

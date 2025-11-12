@@ -35,10 +35,6 @@ func GetChainReaderConfig(pubKeyStr string) (map[string]any, error) {
 	}
 	fromAddress = "0x" + fromAddress
 
-	offRampStatePointer := "_::offramp::OffRampStatePointer::off_ramp_state_id"
-	onRampStatePointer := "_::onramp::OnRampStatePointer::on_ramp_state_id"
-	ccipObjectRefStatePointer := "_::state_object::CCIPObjectRefPointer::object_ref_id"
-
 	return map[string]any{
 		"IsLoopPlugin": true,
 		"EventsIndexer": map[string]any{
@@ -63,10 +59,15 @@ func GetChainReaderConfig(pubKeyStr string) (map[string]any, error) {
 						SignerAddress: fromAddress,
 						Params: []codec.SuiFunctionParam{
 							{
-								Name:       "object_ref_id",
-								Type:       "object_id",
-								PointerTag: &ccipObjectRefStatePointer,
-								Required:   true,
+								Name: "object_ref_id",
+								Type: "object_id",
+								PointerTag: &codec.PointerTag{
+									Module:        "state_object",
+									PointerName:   "CCIPObjectRefPointer",
+									FieldName:     "object_ref_id",
+									DerivationKey: "CCIPObjectRef",
+								},
+								Required: true,
 							},
 						},
 						// ref: https://github.com/smartcontractkit/chainlink-ccip/blob/bee7c32c71cf0aec594c051fef328b4a7281a1fc/pkg/reader/ccip.go#L1440
@@ -77,10 +78,15 @@ func GetChainReaderConfig(pubKeyStr string) (map[string]any, error) {
 						SignerAddress: fromAddress,
 						Params: []codec.SuiFunctionParam{
 							{
-								Name:       "object_ref_id",
-								Type:       "object_id",
-								PointerTag: &ccipObjectRefStatePointer,
-								Required:   true,
+								Name: "object_ref_id",
+								Type: "object_id",
+								PointerTag: &codec.PointerTag{
+									Module:        "state_object",
+									PointerName:   "CCIPObjectRefPointer",
+									FieldName:     "object_ref_id",
+									DerivationKey: "CCIPObjectRef",
+								},
+								Required: true,
 							},
 						},
 					},
@@ -103,10 +109,15 @@ func GetChainReaderConfig(pubKeyStr string) (map[string]any, error) {
 						SignerAddress: fromAddress,
 						Params: []codec.SuiFunctionParam{
 							{
-								Name:       "object_ref_id",
-								Type:       "object_id",
-								PointerTag: &ccipObjectRefStatePointer,
-								Required:   true,
+								Name: "object_ref_id",
+								Type: "object_id",
+								PointerTag: &codec.PointerTag{
+									Module:        "state_object",
+									PointerName:   "CCIPObjectRefPointer",
+									FieldName:     "object_ref_id",
+									DerivationKey: "CCIPObjectRef",
+								},
+								Required: true,
 							},
 							{
 								Name:     "token",
@@ -120,10 +131,15 @@ func GetChainReaderConfig(pubKeyStr string) (map[string]any, error) {
 						SignerAddress: fromAddress,
 						Params: []codec.SuiFunctionParam{
 							{
-								Name:       "object_ref_id",
-								Type:       "object_id",
-								PointerTag: &ccipObjectRefStatePointer,
-								Required:   true,
+								Name: "object_ref_id",
+								Type: "object_id",
+								PointerTag: &codec.PointerTag{
+									Module:        "state_object",
+									PointerName:   "CCIPObjectRefPointer",
+									FieldName:     "object_ref_id",
+									DerivationKey: "CCIPObjectRef",
+								},
+								Required: true,
 							},
 							{
 								Name:     "tokens",
@@ -137,22 +153,33 @@ func GetChainReaderConfig(pubKeyStr string) (map[string]any, error) {
 						SignerAddress: fromAddress,
 						Params: []codec.SuiFunctionParam{
 							{
-								Name:       "object_ref_id",
-								Type:       "object_id",
-								PointerTag: &ccipObjectRefStatePointer,
-								Required:   true,
+								Name: "object_ref_id",
+								Type: "object_id",
+								PointerTag: &codec.PointerTag{
+									Module:        "state_object",
+									PointerName:   "CCIPObjectRefPointer",
+									FieldName:     "object_ref_id",
+									DerivationKey: "CCIPObjectRef",
+								},
+								Required: true,
 							},
 						},
+						ResultTupleToStruct: []string{"max_fee_juels_per_msg, link_token, token_price_staleness_threshold"},
 					},
 					"GetDestinationChainGasPrice": {
 						Name:          "get_dest_chain_gas_price",
 						SignerAddress: fromAddress,
 						Params: []codec.SuiFunctionParam{
 							{
-								Name:       "object_ref_id",
-								Type:       "object_id",
-								PointerTag: &ccipObjectRefStatePointer,
-								Required:   true,
+								Name: "object_ref_id",
+								Type: "object_id",
+								PointerTag: &codec.PointerTag{
+									Module:        "state_object",
+									PointerName:   "CCIPObjectRefPointer",
+									FieldName:     "object_ref_id",
+									DerivationKey: "CCIPObjectRef",
+								},
+								Required: true,
 							},
 							{
 								Name:     "destChainSelector",
@@ -171,10 +198,15 @@ func GetChainReaderConfig(pubKeyStr string) (map[string]any, error) {
 						SignerAddress: fromAddress,
 						Params: []codec.SuiFunctionParam{
 							{
-								Name:       "off_ramp_state_id",
-								PointerTag: &offRampStatePointer,
-								Type:       "object_id",
-								Required:   true,
+								Name: "off_ramp_state_id",
+								PointerTag: &codec.PointerTag{
+									Module:        "offramp",
+									PointerName:   "OffRampStatePointer",
+									FieldName:     "off_ramp_state_id",
+									DerivationKey: "OffRampState",
+								},
+								Type:     "object_id",
+								Required: true,
 							},
 							{
 								Name:     "ocrPluginType",
@@ -189,10 +221,15 @@ func GetChainReaderConfig(pubKeyStr string) (map[string]any, error) {
 						SignerAddress: fromAddress,
 						Params: []codec.SuiFunctionParam{
 							{
-								Name:       "off_ramp_state_id",
-								PointerTag: &offRampStatePointer,
-								Type:       "object_id",
-								Required:   true,
+								Name: "off_ramp_state_id",
+								PointerTag: &codec.PointerTag{
+									Module:        "offramp",
+									PointerName:   "OffRampStatePointer",
+									FieldName:     "off_ramp_state_id",
+									DerivationKey: "OffRampState",
+								},
+								Type:     "object_id",
+								Required: true,
 							},
 						},
 					},
@@ -202,16 +239,26 @@ func GetChainReaderConfig(pubKeyStr string) (map[string]any, error) {
 						SignerAddress: fromAddress,
 						Params: []codec.SuiFunctionParam{
 							{
-								Name:       "object_ref_id",
-								Type:       "object_id",
-								PointerTag: &ccipObjectRefStatePointer,
-								Required:   true,
+								Name: "object_ref_id",
+								Type: "object_id",
+								PointerTag: &codec.PointerTag{
+									Module:        "state_object",
+									PointerName:   "CCIPObjectRefPointer",
+									FieldName:     "object_ref_id",
+									DerivationKey: "CCIPObjectRef",
+								},
+								Required: true,
 							},
 							{
-								Name:       "off_ramp_state_id",
-								PointerTag: &offRampStatePointer,
-								Type:       "object_id",
-								Required:   true,
+								Name: "off_ramp_state_id",
+								PointerTag: &codec.PointerTag{
+									Module:        "offramp",
+									PointerName:   "OffRampStatePointer",
+									FieldName:     "off_ramp_state_id",
+									DerivationKey: "OffRampState",
+								},
+								Type:     "object_id",
+								Required: true,
 							},
 						},
 					},
@@ -220,16 +267,26 @@ func GetChainReaderConfig(pubKeyStr string) (map[string]any, error) {
 						SignerAddress: fromAddress,
 						Params: []codec.SuiFunctionParam{
 							{
-								Name:       "object_ref_id",
-								Type:       "object_id",
-								PointerTag: &ccipObjectRefStatePointer,
-								Required:   true,
+								Name: "object_ref_id",
+								Type: "object_id",
+								PointerTag: &codec.PointerTag{
+									Module:        "state_object",
+									PointerName:   "CCIPObjectRefPointer",
+									FieldName:     "object_ref_id",
+									DerivationKey: "CCIPObjectRef",
+								},
+								Required: true,
 							},
 							{
-								Name:       "off_ramp_state_id",
-								PointerTag: &offRampStatePointer,
-								Type:       "object_id",
-								Required:   true,
+								Name: "off_ramp_state_id",
+								PointerTag: &codec.PointerTag{
+									Module:        "offramp",
+									PointerName:   "OffRampStatePointer",
+									FieldName:     "off_ramp_state_id",
+									DerivationKey: "OffRampState",
+								},
+								Type:     "object_id",
+								Required: true,
 							},
 						},
 					},
@@ -238,16 +295,26 @@ func GetChainReaderConfig(pubKeyStr string) (map[string]any, error) {
 						SignerAddress: fromAddress,
 						Params: []codec.SuiFunctionParam{
 							{
-								Name:       "object_ref_id",
-								Type:       "object_id",
-								PointerTag: &ccipObjectRefStatePointer,
-								Required:   true,
+								Name: "object_ref_id",
+								Type: "object_id",
+								PointerTag: &codec.PointerTag{
+									Module:        "state_object",
+									PointerName:   "CCIPObjectRefPointer",
+									FieldName:     "object_ref_id",
+									DerivationKey: "CCIPObjectRef",
+								},
+								Required: true,
 							},
 							{
-								Name:       "off_ramp_state_id",
-								PointerTag: &offRampStatePointer,
-								Type:       "object_id",
-								Required:   true,
+								Name: "off_ramp_state_id",
+								PointerTag: &codec.PointerTag{
+									Module:        "offramp",
+									PointerName:   "OffRampStatePointer",
+									FieldName:     "off_ramp_state_id",
+									DerivationKey: "OffRampState",
+								},
+								Type:     "object_id",
+								Required: true,
 							},
 							{
 								Name:     "sourceChainSelector",
@@ -256,31 +323,6 @@ func GetChainReaderConfig(pubKeyStr string) (map[string]any, error) {
 							},
 						},
 					},
-					// consts.MethodNameGetExecutionState:{
-					// 	"Name": "get_execution_state",
-					// 	"Params": []map[string]any{
-					// 		{
-					// 			"Name":     "sourceChainSelector",
-					// 			"Type":     "u64",
-					// 			"Required": true,
-					// 		},
-					// 		{
-					// 			"Name":     "sequenceNumber",
-					// 			"Type":     "u64",
-					// 			"Required": true,
-					// 		},
-					// 	},
-					// },
-					// consts.MethodNameGetMerkleRoot: map[string]any{
-					// 	"Name": "get_merkle_root",
-					// 	"Params": []map[string]any{
-					// 		{
-					// 			"Name":     "root",
-					// 			"Type":     "vector<u8>",
-					// 			"Required": true,
-					// 		},
-					// 	},
-					// },
 				},
 				"Events": map[string]*chainreaderConfig.ChainReaderEvent{
 					"ExecutionStateChanged": {
@@ -330,10 +372,15 @@ func GetChainReaderConfig(pubKeyStr string) (map[string]any, error) {
 						SignerAddress: fromAddress,
 						Params: []codec.SuiFunctionParam{
 							{
-								Name:       "on_ramp_state_id",
-								Type:       "object_id",
-								PointerTag: &onRampStatePointer,
-								Required:   true,
+								Name: "on_ramp_state_id",
+								Type: "object_id",
+								PointerTag: &codec.PointerTag{
+									Module:        "onramp",
+									PointerName:   "OnRampStatePointer",
+									FieldName:     "on_ramp_state_id",
+									DerivationKey: "OnRampState",
+								},
+								Required: true,
 							},
 						},
 					},
@@ -342,10 +389,15 @@ func GetChainReaderConfig(pubKeyStr string) (map[string]any, error) {
 						SignerAddress: fromAddress,
 						Params: []codec.SuiFunctionParam{
 							{
-								Name:       "on_ramp_state_id",
-								Type:       "object_id",
-								PointerTag: &onRampStatePointer,
-								Required:   true,
+								Name: "on_ramp_state_id",
+								Type: "object_id",
+								PointerTag: &codec.PointerTag{
+									Module:        "onramp",
+									PointerName:   "OnRampStatePointer",
+									FieldName:     "on_ramp_state_id",
+									DerivationKey: "OnRampState",
+								},
+								Required: true,
 							},
 						},
 					},
@@ -354,10 +406,15 @@ func GetChainReaderConfig(pubKeyStr string) (map[string]any, error) {
 						SignerAddress: fromAddress,
 						Params: []codec.SuiFunctionParam{
 							{
-								Name:       "on_ramp_state_id",
-								Type:       "object_id",
-								PointerTag: &onRampStatePointer,
-								Required:   true,
+								Name: "on_ramp_state_id",
+								Type: "object_id",
+								PointerTag: &codec.PointerTag{
+									Module:        "onramp",
+									PointerName:   "OnRampStatePointer",
+									FieldName:     "on_ramp_state_id",
+									DerivationKey: "OnRampState",
+								},
+								Required: true,
 							},
 							{
 								Name:     "destChainSelector",
@@ -365,17 +422,22 @@ func GetChainReaderConfig(pubKeyStr string) (map[string]any, error) {
 								Required: true,
 							},
 						},
-						ResultTupleToStruct: []string{"isEnabled", "sequenceNumber", "allowListEnabled", "allowedSenders"},
+						ResultTupleToStruct: []string{"sequenceNumber", "allowListEnabled", "router"},
 					},
 					"GetExpectedNextSequenceNumber": {
 						Name:          "get_expected_next_sequence_number",
 						SignerAddress: fromAddress,
 						Params: []codec.SuiFunctionParam{
 							{
-								Name:       "on_ramp_state_id",
-								Type:       "object_id",
-								PointerTag: &onRampStatePointer,
-								Required:   true,
+								Name: "on_ramp_state_id",
+								Type: "object_id",
+								PointerTag: &codec.PointerTag{
+									Module:        "onramp",
+									PointerName:   "OnRampStatePointer",
+									FieldName:     "on_ramp_state_id",
+									DerivationKey: "OnRampState",
+								},
+								Required: true,
 							},
 							{
 								Name:     "destChainSelector",

@@ -14,12 +14,14 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	commontypes "github.com/smartcontractkit/chainlink-common/pkg/types"
 	"github.com/smartcontractkit/chainlink-evm/pkg/chains/legacyevm"
+	evmconfig "github.com/smartcontractkit/chainlink-evm/pkg/config"
 	"github.com/smartcontractkit/chainlink-evm/pkg/keys"
+	"github.com/smartcontractkit/chainlink-evm/pkg/transmitter"
 	txm "github.com/smartcontractkit/chainlink-evm/pkg/txmgr"
 	txmgrcommon "github.com/smartcontractkit/chainlink-framework/chains/txmgr"
+
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/functions/config"
 	functionsRelay "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/functions"
-	evmRelayTypes "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/types"
 )
 
 type functionsProvider struct {
@@ -27,11 +29,11 @@ type functionsProvider struct {
 	eng *services.Engine
 
 	configWatcher       *configWatcher
-	contractTransmitter ContractTransmitter
-	logPollerWrapper    evmRelayTypes.LogPollerWrapper
+	contractTransmitter transmitter.ContractTransmitter
+	logPollerWrapper    evmconfig.LogPollerWrapper
 }
 
-func newFunctionsProvider(lggr logger.Logger, cw *configWatcher, ct ContractTransmitter, lpw evmRelayTypes.LogPollerWrapper) *functionsProvider {
+func newFunctionsProvider(lggr logger.Logger, cw *configWatcher, ct transmitter.ContractTransmitter, lpw evmconfig.LogPollerWrapper) *functionsProvider {
 	p := &functionsProvider{
 		configWatcher:       cw,
 		contractTransmitter: ct,
@@ -46,13 +48,13 @@ func newFunctionsProvider(lggr logger.Logger, cw *configWatcher, ct ContractTran
 	return p
 }
 
-var _ evmRelayTypes.FunctionsProvider = (*functionsProvider)(nil)
+var _ evmconfig.FunctionsProvider = (*functionsProvider)(nil)
 
 func (p *functionsProvider) ContractTransmitter() ocrtypes.ContractTransmitter {
 	return p.contractTransmitter
 }
 
-func (p *functionsProvider) LogPollerWrapper() evmRelayTypes.LogPollerWrapper {
+func (p *functionsProvider) LogPollerWrapper() evmconfig.LogPollerWrapper {
 	return p.logPollerWrapper
 }
 
@@ -78,8 +80,8 @@ func (p *functionsProvider) Codec() commontypes.Codec {
 	return nil
 }
 
-func NewFunctionsProvider(ctx context.Context, chain legacyevm.Chain, rargs commontypes.RelayArgs, pargs commontypes.PluginArgs, lggr logger.Logger, ethKeystore keys.Store, pluginType functionsRelay.FunctionsPluginType) (evmRelayTypes.FunctionsProvider, error) {
-	relayOpts := evmRelayTypes.NewRelayOpts(rargs)
+func NewFunctionsProvider(ctx context.Context, chain legacyevm.Chain, rargs commontypes.RelayArgs, pargs commontypes.PluginArgs, lggr logger.Logger, ethKeystore keys.Store, pluginType functionsRelay.FunctionsPluginType) (evmconfig.FunctionsProvider, error) {
+	relayOpts := evmconfig.NewRelayOpts(rargs)
 	relayConfig, err := relayOpts.RelayConfig()
 	if err != nil {
 		return nil, err
@@ -107,7 +109,7 @@ func NewFunctionsProvider(ctx context.Context, chain legacyevm.Chain, rargs comm
 	if err != nil {
 		return nil, err
 	}
-	var contractTransmitter ContractTransmitter
+	var contractTransmitter transmitter.ContractTransmitter
 	if relayConfig.SendingKeys != nil {
 		contractTransmitter, err = newFunctionsContractTransmitter(ctx, pluginConfig.ContractVersion, rargs, pargs.TransmitterID, configWatcher, ethKeystore, logPollerWrapper, lggr)
 		if err != nil {
@@ -119,7 +121,7 @@ func NewFunctionsProvider(ctx context.Context, chain legacyevm.Chain, rargs comm
 	return newFunctionsProvider(lggr, configWatcher, contractTransmitter, logPollerWrapper), nil
 }
 
-func newFunctionsConfigProvider(ctx context.Context, pluginType functionsRelay.FunctionsPluginType, chain legacyevm.Chain, args commontypes.RelayArgs, fromBlock uint64, logPollerWrapper evmRelayTypes.LogPollerWrapper, lggr logger.Logger) (*configWatcher, error) {
+func newFunctionsConfigProvider(ctx context.Context, pluginType functionsRelay.FunctionsPluginType, chain legacyevm.Chain, args commontypes.RelayArgs, fromBlock uint64, logPollerWrapper evmconfig.LogPollerWrapper, lggr logger.Logger) (*configWatcher, error) {
 	if !common.IsHexAddress(args.ContractID) {
 		return nil, errors.Errorf("invalid contractID, expected hex address")
 	}
@@ -138,8 +140,8 @@ func newFunctionsConfigProvider(ctx context.Context, pluginType functionsRelay.F
 	return newConfigWatcher(lggr, routerContractAddress, offchainConfigDigester, cp, chain, fromBlock, args.New), nil
 }
 
-func newFunctionsContractTransmitter(ctx context.Context, contractVersion uint32, rargs commontypes.RelayArgs, transmitterID string, configWatcher *configWatcher, ethKeystore keys.Store, logPollerWrapper evmRelayTypes.LogPollerWrapper, lggr logger.Logger) (ContractTransmitter, error) {
-	var relayConfig evmRelayTypes.RelayConfig
+func newFunctionsContractTransmitter(ctx context.Context, contractVersion uint32, rargs commontypes.RelayArgs, transmitterID string, configWatcher *configWatcher, ethKeystore keys.Store, logPollerWrapper evmconfig.LogPollerWrapper, lggr logger.Logger) (transmitter.ContractTransmitter, error) {
+	var relayConfig evmconfig.RelayConfig
 	if err := json.Unmarshal(rargs.RelayConfig, &relayConfig); err != nil {
 		return nil, err
 	}

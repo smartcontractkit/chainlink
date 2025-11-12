@@ -48,7 +48,7 @@ var (
 
 type startOptions struct {
 	// Use to set up mocks on the app
-	FlagsAndDeps []interface{}
+	FlagsAndDeps []any
 	// Add a key on start up
 	WithKey bool
 }
@@ -57,7 +57,7 @@ func startNewApplicationV2(t *testing.T, overrideFn func(c *chainlink.Config, s 
 	t.Helper()
 
 	sopts := &startOptions{
-		FlagsAndDeps: []interface{}{},
+		FlagsAndDeps: []any{},
 	}
 	for _, fn := range setup {
 		fn(sopts)
@@ -80,7 +80,7 @@ func startNewApplicationV2(t *testing.T, overrideFn func(c *chainlink.Config, s 
 	return app
 }
 
-func withMocks(mks ...interface{}) func(opts *startOptions) {
+func withMocks(mks ...any) func(opts *startOptions) {
 	return func(opts *startOptions) {
 		opts.FlagsAndDeps = mks
 	}

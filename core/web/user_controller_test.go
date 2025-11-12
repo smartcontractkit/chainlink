@@ -70,7 +70,6 @@ func TestUserController_UpdatePassword(t *testing.T) {
 	}
 
 	for _, tc := range testCases {
-		tc := tc
 		t.Run(tc.name, func(t *testing.T) {
 			resp, cleanup := client.Patch("/v2/user/password", bytes.NewBufferString(tc.reqBody))
 			t.Cleanup(cleanup)
@@ -165,7 +164,6 @@ func TestUserController_CreateUser(t *testing.T) {
 	}
 
 	for _, tc := range testCases {
-		tc := tc
 		t.Run(tc.name, func(t *testing.T) {
 			resp, cleanup := client.Post("/v2/users", bytes.NewBufferString(tc.reqBody))
 			t.Cleanup(cleanup)
@@ -213,7 +211,6 @@ func TestUserController_UpdateRole(t *testing.T) {
 	}
 
 	for _, tc := range testCases {
-		tc := tc
 		t.Run(tc.name, func(t *testing.T) {
 			resp, cleanup := client.Patch("/v2/users", bytes.NewBufferString(tc.reqBody))
 			t.Cleanup(cleanup)

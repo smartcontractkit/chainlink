@@ -65,7 +65,7 @@ func TestResolver_AptosKeys(t *testing.T) {
 				{
 					Extensions:    nil,
 					ResolverError: gError,
-					Path:          []interface{}{"aptosKeys"},
+					Path:          []any{"aptosKeys"},
 					Message:       gError.Error(),
 				},
 			},

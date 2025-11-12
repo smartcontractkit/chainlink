@@ -93,6 +93,15 @@ install-plugins-private: ## Build & install private remote LOOPP binaries (plugi
 		GOPRIVATE=github.com/smartcontractkit/* go tool loopinstall --concurrency 5 $(LOOPINSTALL_TESTING_ARGS) ./plugins/plugins.private.yaml; \
 	fi
 
+.PHONY: install-plugins-testing
+install-plugins-testing: ## Build & install testing only LOOPP binaries (plugins).
+	if [ -n "$(CL_LOOPINSTALL_OUTPUT_DIR)" ]; then \
+		GOPRIVATE=github.com/smartcontractkit/* go tool loopinstall --concurrency 5 $(LOOPINSTALL_TESTING_ARGS) --output-installation-artifacts $(CL_LOOPINSTALL_OUTPUT_DIR)/testing.json ./plugins/plugins.testing.yaml; \
+	else \
+		GOPRIVATE=github.com/smartcontractkit/* go tool loopinstall --concurrency 5 $(LOOPINSTALL_TESTING_ARGS) ./plugins/plugins.testing.yaml; \
+	fi
+
+
 .PHONY: install-plugins-local
 install-plugins-local: ## Build & install local plugins
 	go install $(GOFLAGS) ./plugins/cmd/chainlink-evm
@@ -234,7 +243,7 @@ config-docs: ## Generate core node configuration documentation
 .PHONY: golangci-lint
 golangci-lint: ## Run golangci-lint for all issues.
 	[ -d "./golangci-lint" ] || mkdir ./golangci-lint && \
-	docker run --rm -v $(shell pwd):/app -w /app golangci/golangci-lint:v2.2.1 golangci-lint run --max-issues-per-linter 0 --max-same-issues 0 | tee ./golangci-lint/$(shell date +%Y-%m-%d_%H:%M:%S).txt
+	docker run --rm -v $(shell pwd):/app -w /app golangci/golangci-lint:v2.5.0 golangci-lint run --max-issues-per-linter 0 --max-same-issues 0 | tee ./golangci-lint/$(shell date +%Y-%m-%d_%H:%M:%S).txt
 
 .PHONY: modgraph
 modgraph:

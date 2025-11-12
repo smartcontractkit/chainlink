@@ -265,7 +265,7 @@ ResendAfterThreshold = '1h0m0s'
 		{
 			name:          "should return aptos chain if network is aptos",
 			authenticated: true,
-			variables: map[string]interface{}{
+			variables: map[string]any{
 				"network": relay.NetworkAptos,
 			},
 			before: func(ctx context.Context, f *gqlTestFramework) {

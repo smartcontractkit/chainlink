@@ -328,6 +328,13 @@ type TransferDataFeedsAptosOwnershipConfig struct {
 	TransferRouter   bool   `json:"transferRouter" yaml:"transferRouter"`
 }
 
+type AcceptDataFeedsAptosOwnershipConfig struct {
+	ChainSelector  uint64 `json:"chainSelector" yaml:"chainSelector"`
+	Address        string `json:"address" yaml:"address"`
+	AcceptRegistry bool   `json:"acceptRegistry" yaml:"acceptRegistry"`
+	AcceptRouter   bool   `json:"acceptRouter" yaml:"acceptRouter"`
+}
+
 type DeployDataFeedsResponse struct {
 	Address  aptos.AccountAddress
 	Tx       api.Hash

@@ -2,6 +2,7 @@ package workflow
 
 import (
 	"bytes"
+	"context"
 	"encoding/base64"
 	"fmt"
 	"os"
@@ -13,38 +14,42 @@ import (
 	"github.com/pkg/errors"
 )
 
+type Language = string
+
+const (
+	LanguageGo Language = "go"
+	LanguageTS Language = "typescript"
+)
+
 // CompileWorkflow compiles a workflow from a file path (absolute or relative) and returns the path to the compiled workflow.
 // workflowFilePath is the path to the workflow file.
 // workflowName is the name of the workflow.
 // It will return the path to the compiled workflow.
 // It will return an error if the workflow name is less than 10 characters long.
 // It will return an error if the workflow file path is not a valid file path.
-func CompileWorkflow(workflowFilePath, workflowName string) (string, error) {
+func CompileWorkflow(ctx context.Context, workflowFilePath, workflowName string) (string, error) {
 	if len(workflowName) < 10 {
 		return "", errors.New("workflow name must be at least 10 characters long")
 	}
-	workflowWasmPath := workflowName + ".wasm"
 
-	goModTidyCmd := exec.Command("go", "mod", "tidy")
-	goModTidyCmd.Dir = filepath.Dir(workflowFilePath)
-	if err := goModTidyCmd.Run(); err != nil {
-		return "", errors.Wrap(err, "failed to run go mod tidy")
+	language, lErr := delectLanguage(workflowFilePath)
+	if lErr != nil {
+		return "", errors.Wrap(lErr, "failed to detect workflow language")
 	}
 
-	buffer := bytes.Buffer{}
-	compileCmd := exec.Command("go", "build", "-o", workflowWasmPath, filepath.Base(workflowFilePath)) // #nosec G204 -- we control the value of the cmd so the lint/sec error is a false positive
-	compileCmd.Dir = filepath.Dir(workflowFilePath)
-	compileCmd.Env = append(os.Environ(), "CGO_ENABLED=0", "GOOS=wasip1", "GOARCH=wasm")
-	compileCmd.Stdout = &buffer
-	compileCmd.Stderr = &buffer
-	if err := compileCmd.Run(); err != nil {
-		fmt.Fprint(os.Stderr, buffer.String())
-		return "", errors.Wrap(err, "failed to compile workflow")
+	var workflowWasmAbsPath string
+	var err error
+	switch language {
+	case LanguageGo:
+		workflowWasmAbsPath, err = compileGoWorkflow(ctx, workflowFilePath, workflowName)
+	case LanguageTS:
+		workflowWasmAbsPath, err = compileTSWorkflow(ctx, workflowFilePath, workflowName)
+	default:
+		return "", fmt.Errorf("unsupported workflow language: %s", language)
 	}
 
-	workflowWasmAbsPath, workflowWasmAbsPathErr := filepath.Abs(filepath.Join(filepath.Dir(workflowFilePath), workflowWasmPath))
-	if workflowWasmAbsPathErr != nil {
-		return "", errors.Wrap(workflowWasmAbsPathErr, "failed to get absolute path of the workflow WASM file")
+	if err != nil {
+		return "", fmt.Errorf("failed to compile %s workflow: %w", language, err)
 	}
 
 	compressedWorkflowWasmPath, compressedWorkflowWasmPathErr := compressWorkflow(workflowWasmAbsPath)
@@ -57,6 +62,60 @@ func CompileWorkflow(workflowFilePath, workflowName string) (string, error) {
 	}()
 
 	return compressedWorkflowWasmPath, nil
+}
+
+func delectLanguage(workflowFilePath string) (Language, error) {
+	ext := strings.ToLower(filepath.Ext(workflowFilePath))
+	switch ext {
+	case ".ts", ".tsx":
+		return LanguageTS, nil
+	case ".go":
+		return LanguageGo, nil
+	default:
+		return "", fmt.Errorf("unsupported workflow file extension: %s", ext)
+	}
+}
+
+func compileTSWorkflow(ctx context.Context, workflowFilePath, workflowName string) (string, error) {
+	workflowWasmPath := workflowName + ".wasm"
+
+	compileCmd := exec.CommandContext(ctx, "bun", "cre-compile", workflowFilePath, filepath.Join(filepath.Dir(workflowFilePath), workflowWasmPath)) // #nosec G204 -- we control the value of the cmd so the lint/sec error is a false positive
+	if output, err := compileCmd.CombinedOutput(); err != nil {
+		fmt.Fprint(os.Stderr, string(output))
+		return "", errors.Wrap(err, "failed to compile workflow")
+	}
+
+	workflowWasmAbsPath, workflowWasmAbsPathErr := filepath.Abs(filepath.Join(filepath.Dir(workflowFilePath), workflowWasmPath))
+	if workflowWasmAbsPathErr != nil {
+		return "", errors.Wrap(workflowWasmAbsPathErr, "failed to get absolute path of the workflow WASM file")
+	}
+
+	return workflowWasmAbsPath, nil
+}
+
+func compileGoWorkflow(ctx context.Context, workflowFilePath, workflowName string) (string, error) {
+	workflowWasmPath := workflowName + ".wasm"
+
+	goModTidyCmd := exec.CommandContext(ctx, "go", "mod", "tidy")
+	goModTidyCmd.Dir = filepath.Dir(workflowFilePath)
+	if err := goModTidyCmd.Run(); err != nil {
+		return "", errors.Wrap(err, "failed to run go mod tidy")
+	}
+
+	compileCmd := exec.CommandContext(ctx, "go", "build", "-o", workflowWasmPath, filepath.Base(workflowFilePath)) // #nosec G204 -- we control the value of the cmd so the lint/sec error is a false positive
+	compileCmd.Dir = filepath.Dir(workflowFilePath)
+	compileCmd.Env = append(os.Environ(), "CGO_ENABLED=0", "GOOS=wasip1", "GOARCH=wasm")
+	if output, err := compileCmd.CombinedOutput(); err != nil {
+		fmt.Fprint(os.Stderr, string(output))
+		return "", errors.Wrap(err, "failed to compile workflow")
+	}
+
+	workflowWasmAbsPath, workflowWasmAbsPathErr := filepath.Abs(filepath.Join(filepath.Dir(workflowFilePath), workflowWasmPath))
+	if workflowWasmAbsPathErr != nil {
+		return "", errors.Wrap(workflowWasmAbsPathErr, "failed to get absolute path of the workflow WASM file")
+	}
+
+	return workflowWasmAbsPath, nil
 }
 
 func compressWorkflow(workflowWasmPath string) (string, error) {

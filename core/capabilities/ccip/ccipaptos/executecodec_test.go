@@ -26,14 +26,14 @@ var randomExecuteReport = func(t *testing.T, chainSelector uint64, gasLimit *big
 	const numTokensPerMsg = 3
 
 	chainReports := make([]cciptypes.ExecutePluginReportSingleChain, numChainReports)
-	for i := 0; i < numChainReports; i++ {
+	for i := range numChainReports {
 		reportMessages := make([]cciptypes.Message, msgsPerReport)
-		for j := 0; j < msgsPerReport; j++ {
+		for j := range msgsPerReport {
 			data, err := cciptypes.NewBytesFromString(utils.RandomAddress().String())
 			require.NoError(t, err)
 
 			tokenAmounts := make([]cciptypes.RampTokenAmount, numTokensPerMsg)
-			for z := 0; z < numTokensPerMsg; z++ {
+			for z := range numTokensPerMsg {
 				// Use BCS to pack destGasAmount
 				encodedDestExecData, err2 := bcs.SerializeU32(destGasAmount)
 				require.NoError(t, err2)
@@ -75,7 +75,7 @@ var randomExecuteReport = func(t *testing.T, chainSelector uint64, gasLimit *big
 		}
 
 		tokenData := make([][][]byte, msgsPerReport)
-		for j := 0; j < msgsPerReport; j++ {
+		for j := range msgsPerReport {
 			tokenData[j] = [][]byte{{0x1}, {0x2, 0x3}}
 		}
 

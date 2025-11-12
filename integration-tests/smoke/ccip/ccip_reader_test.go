@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/hex"
 	"fmt"
+	"maps"
 	"math/big"
 	"sort"
 	"strings"
@@ -33,6 +34,8 @@ import (
 	cldf_chain "github.com/smartcontractkit/chainlink-deployments-framework/chain"
 	cldf_evm_provider "github.com/smartcontractkit/chainlink-deployments-framework/chain/evm/provider"
 	"github.com/smartcontractkit/chainlink-evm/pkg/assets"
+	"github.com/smartcontractkit/chainlink-evm/pkg/config"
+	"github.com/smartcontractkit/chainlink-evm/pkg/writer"
 
 	readermocks "github.com/smartcontractkit/chainlink-ccip/mocks/pkg/contractreader"
 	typepkgmock "github.com/smartcontractkit/chainlink-ccip/mocks/pkg/types/ccipocr3"
@@ -47,10 +50,10 @@ import (
 
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_0_0/rmn_proxy_contract"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_0/ccip_reader_tester"
-	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_0/fee_quoter"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_0/offramp"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_0/onramp"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_0/rmn_remote"
+	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_3/fee_quoter"
 	"github.com/smartcontractkit/chainlink-evm/pkg/client"
 	"github.com/smartcontractkit/chainlink-evm/pkg/heads/headstest"
 	"github.com/smartcontractkit/chainlink-evm/pkg/logpoller"
@@ -59,7 +62,6 @@ import (
 	evmconfig "github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/configs/evm"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm"
-	evmtypes "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/types"
 )
 
 // This file contains e2e tests for CCIPReader methods, goal of these tests is to cover entire flow of
@@ -163,12 +165,12 @@ func TestCCIPReader_GetRMNRemoteConfig(t *testing.T) {
 
 	// Create dummy contract writers
 	contractWriters := make(map[cciptypes.ChainSelector]types.ContractWriter)
-	chainWriter, err := evm.NewChainWriterService(
+	chainWriter, err := writer.NewChainWriterService(
 		logger.TestLogger(t),
 		cl,
 		nil,
 		nil,
-		evmtypes.ChainWriterConfig{
+		config.ChainWriterConfig{
 			MaxGasPrice: assets.GWei(1),
 		},
 		nil,
@@ -315,12 +317,12 @@ func TestCCIPReader_GetOffRampConfigDigest(t *testing.T) {
 
 	// Create dummy contract writers
 	contractWriters := make(map[cciptypes.ChainSelector]types.ContractWriter)
-	chainWriter, err := evm.NewChainWriterService(
+	chainWriter, err := writer.NewChainWriterService(
 		logger.TestLogger(t),
 		cl,
 		nil,
 		nil,
-		evmtypes.ChainWriterConfig{
+		config.ChainWriterConfig{
 			MaxGasPrice: assets.GWei(1),
 		},
 		nil,
@@ -717,14 +719,14 @@ func TestCCIPReader_Nonces(t *testing.T) {
 		},
 	}
 
-	cfg := evmtypes.ChainReaderConfig{
-		Contracts: map[string]evmtypes.ChainContractReader{
+	cfg := config.ChainReaderConfig{
+		Contracts: map[string]config.ChainContractReader{
 			consts.ContractNameNonceManager: {
 				ContractABI: ccip_reader_tester.CCIPReaderTesterABI,
-				Configs: map[string]*evmtypes.ChainReaderDefinition{
+				Configs: map[string]*config.ChainReaderDefinition{
 					consts.MethodNameGetInboundNonce: {
 						ChainSpecificName: "getInboundNonce",
-						ReadType:          evmtypes.Method,
+						ReadType:          config.Method,
 					},
 				},
 			},
@@ -888,12 +890,12 @@ func TestCCIPReader_DiscoverContracts(t *testing.T) {
 	contractReaders[chainD] = extendedCrD
 
 	contractWriters := make(map[cciptypes.ChainSelector]types.ContractWriter)
-	chainWriter, err := evm.NewChainWriterService(
+	chainWriter, err := writer.NewChainWriterService(
 		logger.TestLogger(t),
 		clD,
 		nil,
 		nil,
-		evmtypes.ChainWriterConfig{
+		config.ChainWriterConfig{
 			MaxGasPrice: assets.GWei(1),
 		},
 		nil,
@@ -941,6 +943,7 @@ func TestCCIPReader_DiscoverContracts(t *testing.T) {
 		[]cciptypes.ChainSelector{chainS1, chainD},
 		[]cciptypes.ChainSelector{chainS1, chainD},
 	)
+
 	require.NoError(t, err)
 
 	require.Equal(t, contractAddresses[consts.ContractNameOnRamp][chainS1], cciptypes.UnknownAddress(common.LeftPadBytes(onRampS1Addr.Bytes(), 32)))
@@ -1205,7 +1208,7 @@ func requireEqualRoots(
 	ccipReaderRoots []cciptypes.MerkleRootChain,
 ) {
 	require.Len(t, ccipReaderRoots, len(onchainRoots))
-	for i := 0; i < len(onchainRoots); i++ {
+	for i := range onchainRoots {
 		require.Equal(t,
 			onchainRoots[i].SourceChainSelector,
 			uint64(ccipReaderRoots[i].ChainSel),
@@ -1305,7 +1308,7 @@ func testSetupRealContracts(
 		)
 		require.NoError(t, lp.Start(ctx))
 
-		var cfg evmtypes.ChainReaderConfig
+		var cfg config.ChainReaderConfig
 		if chainSelector == cs(destChain) {
 			cfg = evmconfig.DestReaderConfig
 		} else {
@@ -1322,12 +1325,12 @@ func testSetupRealContracts(
 		err = cr.Start(ctx)
 		require.NoError(t, err)
 
-		chainWriter, err := evm.NewChainWriterService(
+		chainWriter, err := writer.NewChainWriterService(
 			logger.TestLogger(t),
 			cl,
 			nil,
 			nil,
-			evmtypes.ChainWriterConfig{
+			config.ChainWriterConfig{
 				MaxGasPrice: assets.GWei(1),
 			},
 			nil,
@@ -1437,12 +1440,12 @@ func testSetup(
 	require.NoError(t, err)
 
 	contractWriters := make(map[cciptypes.ChainSelector]types.ContractWriter)
-	chainWriter, err := evm.NewChainWriterService(
+	chainWriter, err := writer.NewChainWriterService(
 		logger.TestLogger(t),
 		cl,
 		nil,
 		nil,
-		evmtypes.ChainWriterConfig{
+		config.ChainWriterConfig{
 			MaxGasPrice: assets.GWei(1),
 		},
 		nil,
@@ -1516,9 +1519,7 @@ func testSetup(
 	require.NoError(t, err)
 
 	contractReaders := map[cciptypes.ChainSelector]contractreader.Extended{params.ReaderChain: extendedCrReaderChain}
-	for chain, cr := range otherCrs {
-		contractReaders[chain] = cr
-	}
+	maps.Copy(contractReaders, otherCrs)
 
 	mokAddrCodec := newMockAddressCodec(t)
 	reader := ccipreaderpkg.NewCCIPReaderWithExtendedContractReaders(
@@ -1719,7 +1720,7 @@ type testSetupParams struct {
 	ReaderChain        cciptypes.ChainSelector
 	DestChain          cciptypes.ChainSelector
 	OnChainSeqNums     map[cciptypes.ChainSelector]cciptypes.SeqNum
-	Cfg                evmtypes.ChainReaderConfig
+	Cfg                config.ChainReaderConfig
 	ToBindContracts    map[cciptypes.ChainSelector][]types.BoundContract
 	ToMockBindings     map[cciptypes.ChainSelector][]types.BoundContract
 	BindTester         bool

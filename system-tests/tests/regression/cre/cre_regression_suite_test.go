@@ -5,7 +5,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/smartcontractkit/chainlink/system-tests/lib/cre"
+	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/blockchains"
 	t_helpers "github.com/smartcontractkit/chainlink/system-tests/tests/test-helpers"
 
 	"github.com/smartcontractkit/chainlink-testing-framework/framework"
@@ -22,8 +22,8 @@ Inside `core/scripts/cre/environment` directory
  2. Identify the appropriate topology that you want to test
  3. Stop and clear any existing environment: `go run . env stop -a`
  4. Run: `CTF_CONFIGS=<path-to-your-topology-config> go run . env start && ./bin/ctf obs up` to start env + observability
- 5. Optionally run blockscout `./bin/ctf bs up`
- 6. Execute the tests in `system-tests/tests/regression/cre`: `go test -timeout 15m -run "^Test_CRE_V2"`.
+ 5. Optionally run the Blockscout (chain explorer) `./bin/ctf bs up`
+ 6. Execute the tests in `system-tests/tests/regression/cre`: `go test -timeout 15m -run "^Test_CRE_V2"`
 */
 func Test_CRE_V2_Consensus_Regression(t *testing.T) {
 	// a template for Consensus negative tests names to avoid duplication
@@ -50,11 +50,10 @@ func Test_CRE_V2_Cron_Regression(t *testing.T) {
 }
 
 func Test_CRE_V2_HTTP_Regression(t *testing.T) {
-	testEnv := t_helpers.SetupTestEnvironmentWithConfig(t, t_helpers.GetDefaultTestConfig(t), v2RegistriesFlags...)
-
 	for _, tCase := range httpNegativeTests {
 		testName := "[v2] HTTP Trigger fails with " + tCase.name
 		t.Run(testName, func(t *testing.T) {
+			testEnv := t_helpers.SetupTestEnvironmentWithConfig(t, t_helpers.GetDefaultTestConfig(t), v2RegistriesFlags...)
 			HTTPTriggerFailsTest(t, testEnv, tCase)
 		})
 	}
@@ -70,7 +69,7 @@ func runEVMNegativeTestSuite(t *testing.T, testCases []evmNegativeTest) {
 		t.Run(testName, func(t *testing.T) {
 			testEnv := t_helpers.SetupTestEnvironmentWithConfig(t, t_helpers.GetDefaultTestConfig(t), v2RegistriesFlags...)
 			// TODO remove this when OCR works properly with multiple chains in Local CRE
-			testEnv.WrappedBlockchainOutputs = []*cre.WrappedBlockchainOutput{testEnv.WrappedBlockchainOutputs[0]}
+			testEnv.CreEnvironment.Blockchains = []blockchains.Blockchain{testEnv.CreEnvironment.Blockchains[0]}
 
 			// Check if test name contains "write" to determine which test function to run
 			if strings.Contains(strings.ToLower(testName), "writereport") {
@@ -134,4 +133,17 @@ func Test_CRE_V2_EVM_WriteReport_Corrupt_Receiver_Address_Regression(t *testing.
 
 func Test_CRE_V2_EVM_WriteReport_Invalid_Gas_Regression(t *testing.T) {
 	runEVMNegativeTestSuite(t, evmNegativeTestsWriteReportInvalidGas)
+}
+
+func Test_CRE_V2_HTTP_Action_CRUD_Regression(t *testing.T) {
+	for _, tCase := range httpActionFailureTests {
+		testName := "[v2] HTTP Action fails with " + tCase.name
+		t.Run(testName, func(t *testing.T) {
+			testEnv := t_helpers.SetupTestEnvironmentWithConfig(t, t_helpers.GetDefaultTestConfig(t), v2RegistriesFlags...)
+			// TODO remove this when OCR works properly with multiple chains in Local CRE
+			testEnv.CreEnvironment.Blockchains = []blockchains.Blockchain{testEnv.CreEnvironment.Blockchains[0]}
+
+			HTTPActionFailureTest(t, testEnv, tCase)
+		})
+	}
 }

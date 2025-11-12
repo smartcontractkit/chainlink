@@ -2,7 +2,10 @@ package chainlink
 
 import (
 	"fmt"
+	"maps"
 	"time"
+
+	"go.uber.org/zap/zapcore"
 
 	"github.com/smartcontractkit/chainlink/v2/core/config/toml"
 	"github.com/smartcontractkit/chainlink/v2/core/static"
@@ -54,9 +57,7 @@ func (b *telemetryConfig) ResourceAttributes() map[string]string {
 		"service.shortversion": fmt.Sprintf("%s@%s", ver, sha),
 	}
 
-	for k, v := range b.s.ResourceAttributes {
-		defaults[k] = v
-	}
+	maps.Copy(defaults, b.s.ResourceAttributes)
 
 	return defaults
 }
@@ -108,4 +109,51 @@ func (b *telemetryConfig) LogStreamingEnabled() bool {
 		return false
 	}
 	return *b.s.LogStreamingEnabled
+}
+
+func (b *telemetryConfig) LogLevel() zapcore.Level {
+	if b.s.LogLevel == nil {
+		return zapcore.InfoLevel // Default log level
+	}
+
+	var level zapcore.Level
+	if err := level.Set(*b.s.LogLevel); err != nil {
+		return zapcore.InfoLevel // Fallback to info level on invalid input
+	}
+	return level
+}
+
+func (b *telemetryConfig) LogBatchProcessor() bool {
+	if b.s.LogBatchProcessor == nil {
+		return true
+	}
+	return *b.s.LogBatchProcessor
+}
+
+func (b *telemetryConfig) LogExportTimeout() time.Duration {
+	if b.s.LogExportTimeout == nil {
+		return 1 * time.Second
+	}
+	return b.s.LogExportTimeout.Duration()
+}
+
+func (b *telemetryConfig) LogExportMaxBatchSize() int {
+	if b.s.LogExportMaxBatchSize == nil {
+		return 512
+	}
+	return *b.s.LogExportMaxBatchSize
+}
+
+func (b *telemetryConfig) LogExportInterval() time.Duration {
+	if b.s.LogExportInterval == nil {
+		return 1 * time.Second
+	}
+	return b.s.LogExportInterval.Duration()
+}
+
+func (b *telemetryConfig) LogMaxQueueSize() int {
+	if b.s.LogMaxQueueSize == nil {
+		return 2048
+	}
+	return *b.s.LogMaxQueueSize
 }

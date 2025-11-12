@@ -9,9 +9,9 @@ import (
 	commoncodec "github.com/smartcontractkit/chainlink-common/pkg/codec"
 	commontypes "github.com/smartcontractkit/chainlink-common/pkg/types"
 	"github.com/smartcontractkit/chainlink-evm/pkg/abi"
+	"github.com/smartcontractkit/chainlink-evm/pkg/codec"
+	"github.com/smartcontractkit/chainlink-evm/pkg/config"
 	"github.com/smartcontractkit/chainlink-protos/cre/go/values"
-	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/codec"
-	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/types"
 )
 
 const (
@@ -26,9 +26,9 @@ type capEncoder struct {
 
 var _ consensustypes.Encoder = (*capEncoder)(nil)
 
-func NewEVMEncoder(config *values.Map) (consensustypes.Encoder, error) {
+func NewEVMEncoder(m *values.Map) (consensustypes.Encoder, error) {
 	// parse the "inner" encoder config - user-defined fields
-	abiConfig, ok := config.Underlying[abiConfigFieldName]
+	abiConfig, ok := m.Underlying[abiConfigFieldName]
 	if !ok {
 		return nil, fmt.Errorf("required field %s is missing", abiConfigFieldName)
 	}
@@ -49,12 +49,12 @@ func NewEVMEncoder(config *values.Map) (consensustypes.Encoder, error) {
 		return nil, err
 	}
 
-	chainCodecConfig := types.ChainCodecConfig{
+	chainCodecConfig := config.ChainCodecConfig{
 		TypeABI: string(jsonSelector),
 	}
 
 	var subabi map[string]string
-	subabiConfig, ok := config.Underlying[subabiConfigFieldName]
+	subabiConfig, ok := m.Underlying[subabiConfigFieldName]
 	if ok {
 		err2 := subabiConfig.UnwrapTo(&subabi)
 		if err2 != nil {
@@ -72,7 +72,7 @@ func NewEVMEncoder(config *values.Map) (consensustypes.Encoder, error) {
 		}
 	}
 
-	codecConfig := types.CodecConfig{Configs: map[string]types.ChainCodecConfig{
+	codecConfig := config.CodecConfig{Configs: map[string]config.ChainCodecConfig{
 		encoderName: chainCodecConfig,
 	}}
 
@@ -96,7 +96,7 @@ func makePreCodecModifierCodecs(subabi map[string]string) (map[string]commontype
 			return nil, err
 		}
 		emptyName := ""
-		codecConfig := types.CodecConfig{Configs: map[string]types.ChainCodecConfig{
+		codecConfig := config.CodecConfig{Configs: map[string]config.ChainCodecConfig{
 			emptyName: {
 				TypeABI: string(jsonSelector),
 			},

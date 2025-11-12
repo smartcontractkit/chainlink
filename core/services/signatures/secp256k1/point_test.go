@@ -25,7 +25,7 @@ func TestPoint_String(t *testing.T) {
 
 func TestPoint_CloneAndEqual(t *testing.T) {
 	f := newPoint()
-	for i := 0; i < numPointSamples; i++ {
+	for range numPointSamples {
 		g := f.Clone()
 		f.Pick(randomStreamPoint)
 		assert.NotEqual(t, f, g,
@@ -40,7 +40,7 @@ func TestPoint_CloneAndEqual(t *testing.T) {
 
 func TestPoint_NullAndAdd(t *testing.T) {
 	f, g := newPoint(), newPoint()
-	for i := 0; i < numPointSamples; i++ {
+	for range numPointSamples {
 		g.Null()
 		f.Pick(randomStreamPoint)
 		g.Add(f, g)
@@ -58,7 +58,7 @@ func TestPoint_Set(t *testing.T) {
 
 func TestPoint_Embed(t *testing.T) {
 	p := newPoint()
-	for i := 0; i < numPointSamples; i++ {
+	for range numPointSamples {
 		data := make([]byte, p.EmbedLen())
 		_, err := rand.Read(data)
 		require.NoError(t, err)
@@ -95,7 +95,7 @@ func TestPoint_Embed(t *testing.T) {
 func TestPoint_AddSubAndNeg(t *testing.T) {
 	zero := newPoint().Null()
 	p := newPoint()
-	for i := 0; i < numPointSamples; i++ {
+	for range numPointSamples {
 		p.Pick(randomStreamPoint)
 		q := p.Clone()
 		p.Sub(p, q)
@@ -149,7 +149,7 @@ func TestPoint_Mul(t *testing.T) {
 
 func TestPoint_Marshal(t *testing.T) {
 	p := newPoint()
-	for i := 0; i < numPointSamples; i++ {
+	for range numPointSamples {
 		p.Pick(randomStreamPoint)
 		serialized, err := p.MarshalBinary()
 		require.NoError(t, err)
