@@ -735,6 +735,12 @@ func (d *Delegate) newServicesVaultPlugin(
 	})
 	srvs = append(srvs, ocrLogger)
 
+	dm, err := vaultocrplugin.NewDiskMonitor(lggr, d.cfg.OCR2().KeyValueStoreRootDir())
+	if err != nil {
+		return nil, fmt.Errorf("failed to instantiate vault plugin: failed to create disk monitor: %w", err)
+	}
+	srvs = append(srvs, dm)
+
 	fullPath := filepath.Join(d.cfg.OCR2().KeyValueStoreRootDir(), jb.ExternalJobID.String())
 	err = utils.EnsureDirAndMaxPerms(fullPath, os.FileMode(0700))
 	if err != nil {

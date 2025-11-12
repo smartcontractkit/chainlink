@@ -11,6 +11,7 @@ import (
 	"regexp"
 	"slices"
 	"sort"
+	"strconv"
 
 	"golang.org/x/crypto/curve25519"
 	"golang.org/x/crypto/nacl/box"
@@ -501,6 +502,22 @@ func (r *ReportingPlugin) observeCreateSecrets(ctx context.Context, reader ReadK
 	}
 }
 
+func maybeGetLimit[N limits.Number](ctx context.Context, limiter limits.BoundLimiter[N]) string {
+	l, err := limiter.Limit(ctx)
+	if err != nil {
+		return "UNKNOWN"
+	}
+
+	switch tl := any(l).(type) {
+	case int:
+		return strconv.Itoa(tl)
+	case pkgconfig.Size:
+		return strconv.Itoa(int(tl))
+	}
+
+	return "UNKNOWN"
+}
+
 func (r *ReportingPlugin) observeCreateSecretRequest(ctx context.Context, reader ReadKVStore, secretRequest *vaultcommon.EncryptedSecret, requestsCountForID map[string]int) (*vaultcommon.SecretIdentifier, error) {
 	id, err := r.validateSecretIdentifier(ctx, secretRequest.Id)
 	if err != nil {
@@ -518,12 +535,12 @@ func (r *ReportingPlugin) observeCreateSecretRequest(ctx context.Context, reader
 	}
 
 	ctx = contexts.WithCRE(ctx, contexts.CRE{Owner: secretRequest.Id.Owner})
-	if err := r.cfg.MaxCiphertextLengthBytes.Check(ctx, pkgconfig.Size(len(rawCiphertextB))*pkgconfig.Byte); err != nil {
+	if ierr := r.cfg.MaxCiphertextLengthBytes.Check(ctx, pkgconfig.Size(len(rawCiphertextB))*pkgconfig.Byte); ierr != nil {
 		var errBoundLimited limits.ErrorBoundLimited[pkgconfig.Size]
-		if errors.As(err, &errBoundLimited) {
+		if errors.As(ierr, &errBoundLimited) {
 			return id, newUserError(fmt.Sprintf("ciphertext size exceeds maximum allowed size: %s", errBoundLimited.Limit))
 		}
-		return id, newUserError("failed to check ciphertext size limit: " + err.Error())
+		return id, newUserError("failed to check ciphertext size limit: " + ierr.Error())
 	}
 
 	ct := &tdh2easy.Ciphertext{}
@@ -1235,12 +1252,12 @@ func (r *ReportingPlugin) stateTransitionCreateSecretsRequest(ctx context.Contex
 	}
 
 	ctx = contexts.WithCRE(ctx, contexts.CRE{Owner: req.Id.Owner})
-	if err := r.cfg.MaxSecretsPerOwner.Check(ctx, count+1); err != nil {
+	if ierr := r.cfg.MaxSecretsPerOwner.Check(ctx, count+1); ierr != nil {
 		var errBoundLimited limits.ErrorBoundLimited[int]
-		if errors.As(err, &errBoundLimited) {
+		if errors.As(ierr, &errBoundLimited) {
 			return nil, newUserError(fmt.Sprintf("could not write to key value store: owner %s has reached maximum number of secrets (limit=%d)", req.Id.Owner, errBoundLimited.Limit))
 		}
-		return nil, fmt.Errorf("failed to check max secrets per owner limit: %w", err)
+		return nil, fmt.Errorf("failed to check max secrets per owner limit: %w", ierr)
 	}
 
 	err = store.WriteSecret(req.Id, &vaultcommon.StoredSecret{
