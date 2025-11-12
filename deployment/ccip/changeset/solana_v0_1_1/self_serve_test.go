@@ -187,7 +187,6 @@ func doTestOnboardTokenPoolForSelfServe(t *testing.T, isMCMsOwner bool) {
 						ProposedOwner:    anotherCustomerAdmin.PublicKey(),
 						Metadata:         anotherCustomerAdmin.PublicKey().String(),
 						PoolType:         shared.LockReleaseTokenPool,
-						Override:         true,
 					},
 				},
 				MCMS: mcmsConfig,
