@@ -73,6 +73,29 @@ type enqueuedTriggerEvent struct {
 	event        capabilities.TriggerResponse
 }
 
+// buildLabels creates the label slice for the beholder logger based on config and localNode state.
+// This is used both during engine creation and when updating labels after a DON configuration change.
+func (e *Engine) buildLabels(localNode *capabilities.Node) []any {
+	return []any{
+		platform.KeyWorkflowID, e.cfg.WorkflowID,
+		platform.KeyWorkflowOwner, e.cfg.WorkflowOwner,
+		platform.KeyWorkflowName, e.cfg.WorkflowName.String(),
+		platform.KeyWorkflowVersion, platform.ValueWorkflowVersionV2,
+		platform.KeyDonID, strconv.Itoa(int(localNode.WorkflowDON.ID)),
+		platform.KeyDonF, strconv.Itoa(int(localNode.WorkflowDON.F)),
+		platform.KeyDonN, strconv.Itoa(len(localNode.WorkflowDON.Members)),
+		platform.KeyDonQ, strconv.Itoa(aggregation.ByzantineQuorum(
+			len(localNode.WorkflowDON.Members),
+			int(localNode.WorkflowDON.F),
+		)),
+		platform.KeyP2PID, localNode.PeerID.String(),
+		platform.WorkflowRegistryAddress, e.cfg.WorkflowRegistryAddress,
+		platform.WorkflowRegistryChainSelector, e.cfg.WorkflowRegistryChainSelector,
+		platform.EngineVersion, platform.ValueWorkflowVersionV2,
+		platform.DonVersion, strconv.FormatUint(uint64(localNode.WorkflowDON.ConfigVersion), 10),
+	}
+}
+
 func NewEngine(cfg *EngineConfig) (*Engine, error) {
 	err := cfg.Validate()
 	if err != nil {
@@ -92,24 +115,17 @@ func NewEngine(cfg *EngineConfig) (*Engine, error) {
 		return nil, fmt.Errorf("could not get local node state: %w", err)
 	}
 
-	labels := []any{
-		platform.KeyWorkflowID, cfg.WorkflowID,
-		platform.KeyWorkflowOwner, cfg.WorkflowOwner,
-		platform.KeyWorkflowName, cfg.WorkflowName.String(),
-		platform.KeyWorkflowVersion, platform.ValueWorkflowVersionV2,
-		platform.KeyDonID, strconv.Itoa(int(localNode.WorkflowDON.ID)),
-		platform.KeyDonF, strconv.Itoa(int(localNode.WorkflowDON.F)),
-		platform.KeyDonN, strconv.Itoa(len(localNode.WorkflowDON.Members)),
-		platform.KeyDonQ, strconv.Itoa(aggregation.ByzantineQuorum(
-			len(localNode.WorkflowDON.Members),
-			int(localNode.WorkflowDON.F),
-		)),
-		platform.KeyP2PID, localNode.PeerID.String(),
-		platform.WorkflowRegistryAddress, cfg.WorkflowRegistryAddress,
-		platform.WorkflowRegistryChainSelector, cfg.WorkflowRegistryChainSelector,
-		platform.EngineVersion, platform.ValueWorkflowVersionV2,
-		platform.DonVersion, strconv.FormatUint(uint64(localNode.WorkflowDON.ConfigVersion), 10),
+	// Create engine first so we can use the buildLabels method
+	engine := &Engine{
+		cfg:                     cfg,
+		triggers:                make(map[string]*triggerCapability),
+		allTriggerEventsQueueCh: cfg.LocalLimiters.TriggerEventQueue,
+		executionsSemaphore:     cfg.LocalLimiters.ExecutionConcurrency,
+		capCallsSemaphore:       cfg.LocalLimiters.CapabilityConcurrency,
 	}
+
+	// Build labels using the helper method
+	labels := engine.buildLabels(&localNode)
 
 	beholderLogger := logger.Sugared(custmsg.NewBeholderLogger(cfg.Lggr, cfg.BeholderEmitter).Named("WorkflowEngine").With(labels...))
 	metricsLabeler := monitoring.NewWorkflowsMetricLabeler(metrics.NewLabeler(), em).With(
@@ -125,16 +141,10 @@ func NewEngine(cfg *EngineConfig) (*Engine, error) {
 		beholderLogger.Errorw("WARNING: Debug mode is enabled, this is not suitable for production")
 	}
 
-	engine := &Engine{
-		cfg:                     cfg,
-		lggr:                    beholderLogger,
-		triggers:                make(map[string]*triggerCapability),
-		allTriggerEventsQueueCh: cfg.LocalLimiters.TriggerEventQueue,
-		executionsSemaphore:     cfg.LocalLimiters.ExecutionConcurrency,
-		capCallsSemaphore:       cfg.LocalLimiters.CapabilityConcurrency,
-		meterReports:            metering.NewReports(cfg.BillingClient, cfg.WorkflowOwner, cfg.WorkflowID, beholderLogger, labelsMap, metricsLabeler, cfg.WorkflowRegistryAddress, cfg.WorkflowRegistryChainSelector, metering.EngineVersionV2),
-		metrics:                 metricsLabeler,
-	}
+	// Store logger and other fields
+	engine.lggr = beholderLogger
+	engine.meterReports = metering.NewReports(cfg.BillingClient, cfg.WorkflowOwner, cfg.WorkflowID, beholderLogger, labelsMap, metricsLabeler, cfg.WorkflowRegistryAddress, cfg.WorkflowRegistryChainSelector, metering.EngineVersionV2)
+	engine.metrics = metricsLabeler
 	engine.loggerLabels.Store(&labelsMap)
 	engine.localNode.Store(&localNode)
 	engine.Service, engine.srvcEng = services.Config{
@@ -239,6 +249,23 @@ func (e *Engine) localNodeSync(ctx context.Context) {
 		"Workflow DON Families", localNode.WorkflowDON.Families,
 		"Workflow DON Config Version", localNode.WorkflowDON.ConfigVersion,
 	)
+
+	// Recreate the beholder logger with updated labels to reflect the new DON version
+	labels := e.buildLabels(&localNode)
+	newLogger := logger.Sugared(
+		custmsg.NewBeholderLogger(e.cfg.Lggr, e.cfg.BeholderEmitter).
+			Named("WorkflowEngine").
+			With(labels...),
+	)
+	e.lggr = newLogger
+
+	// Update loggerLabels map for metrics
+	labelsMap := make(map[string]string, len(labels)/2)
+	for i := 0; i < len(labels); i += 2 {
+		labelsMap[labels[i].(string)] = labels[i+1].(string)
+	}
+	e.loggerLabels.Store(&labelsMap)
+
 	e.cfg.Hooks.OnNodeSynced(localNode, nil)
 	e.localNode.Store(&localNode)
 }
