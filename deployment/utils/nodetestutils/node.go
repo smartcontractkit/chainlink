@@ -1,4 +1,4 @@
-package memory
+package nodetestutils
 
 import (
 	"context"
@@ -13,24 +13,17 @@ import (
 	"testing"
 	"time"
 
+	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/ethclient/simulated"
+	"github.com/hashicorp/consul/sdk/freeport"
+	chainsel "github.com/smartcontractkit/chain-selectors"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zapcore"
 
-	chainsel "github.com/smartcontractkit/chain-selectors"
-
 	"github.com/smartcontractkit/chainlink-common/pkg/config"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/core"
-	cldf_chain "github.com/smartcontractkit/chainlink-deployments-framework/chain"
-	cldf_aptos "github.com/smartcontractkit/chainlink-deployments-framework/chain/aptos"
-	cldf_evm "github.com/smartcontractkit/chainlink-deployments-framework/chain/evm"
-	cldf_evm_provider "github.com/smartcontractkit/chainlink-deployments-framework/chain/evm/provider"
-	cldf_solana "github.com/smartcontractkit/chainlink-deployments-framework/chain/solana"
-	cldf_sui "github.com/smartcontractkit/chainlink-deployments-framework/chain/sui"
-	cldf_ton "github.com/smartcontractkit/chainlink-deployments-framework/chain/ton"
-	cldf_tron "github.com/smartcontractkit/chainlink-deployments-framework/chain/tron"
-
 	"github.com/smartcontractkit/chainlink-evm/pkg/assets"
 	"github.com/smartcontractkit/chainlink-evm/pkg/client"
 	v2toml "github.com/smartcontractkit/chainlink-evm/pkg/config/toml"
@@ -47,6 +40,8 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/environment/devenv"
 	"github.com/smartcontractkit/chainlink/deployment/helpers/pointer"
+	"github.com/smartcontractkit/chainlink/deployment/internal/evmtestutils"
+	"github.com/smartcontractkit/chainlink/deployment/internal/suitestutils"
 	"github.com/smartcontractkit/chainlink/deployment/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities"
 	configv2 "github.com/smartcontractkit/chainlink/v2/core/config/toml"
@@ -65,7 +60,94 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 	"github.com/smartcontractkit/chainlink/v2/core/utils/crypto"
 	"github.com/smartcontractkit/chainlink/v2/core/utils/testutils/heavyweight"
+
+	cldfchain "github.com/smartcontractkit/chainlink-deployments-framework/chain"
+	cldf_aptos "github.com/smartcontractkit/chainlink-deployments-framework/chain/aptos"
+	cldf_evm "github.com/smartcontractkit/chainlink-deployments-framework/chain/evm"
+	cldf_evm_provider "github.com/smartcontractkit/chainlink-deployments-framework/chain/evm/provider"
+	cldf_solana "github.com/smartcontractkit/chainlink-deployments-framework/chain/solana"
+	cldf_sui "github.com/smartcontractkit/chainlink-deployments-framework/chain/sui"
+	cldf_ton "github.com/smartcontractkit/chainlink-deployments-framework/chain/ton"
+	cldf_tron "github.com/smartcontractkit/chainlink-deployments-framework/chain/tron"
 )
+
+type EVMChain struct {
+	Backend     *simulated.Backend
+	DeployerKey *bind.TransactOpts
+	Users       []*bind.TransactOpts
+}
+
+type NewNodesConfig struct {
+	LogLevel zapcore.Level
+	// BlockChains to be configured
+	BlockChains    cldfchain.BlockChains
+	NumNodes       int
+	NumBootstraps  int
+	RegistryConfig deployment.CapabilityRegistryConfig
+	// SQL queries to run after DB creation, typically used for setting up testing state. Optional.
+	CustomDBSetup []string
+}
+
+func NewNodes(
+	t *testing.T,
+	cfg NewNodesConfig,
+	configOpts ...ConfigOpt,
+) map[string]Node {
+	nodesByPeerID := make(map[string]Node)
+	if cfg.NumNodes+cfg.NumBootstraps == 0 {
+		return nodesByPeerID
+	}
+	ports := freeport.GetN(t, cfg.NumNodes+cfg.NumBootstraps)
+	// bootstrap nodes must be separate nodes from plugin nodes,
+	// since we won't run a bootstrapper and a plugin oracle on the same
+	// chainlink node in production.
+	for i := 0; i < cfg.NumBootstraps; i++ {
+		// TODO: bootstrap nodes don't have to support anything other than the home chain.
+		// We should remove all non-home chains from the config below and make sure things
+		// run smoothly.
+		c := NewNodeConfig{
+			Port:           ports[i],
+			BlockChains:    cfg.BlockChains,
+			LogLevel:       cfg.LogLevel,
+			Bootstrap:      true,
+			RegistryConfig: cfg.RegistryConfig,
+			CustomDBSetup:  cfg.CustomDBSetup,
+		}
+		node := NewNode(t, c, configOpts...)
+		nodesByPeerID[node.Keys.PeerID.String()] = *node
+		// Note in real env, this ID is allocated by JD.
+	}
+	var nodes []*Node
+	for i := range cfg.NumNodes {
+		c := NewNodeConfig{
+			Port:           ports[cfg.NumBootstraps+i],
+			BlockChains:    cfg.BlockChains,
+			LogLevel:       cfg.LogLevel,
+			Bootstrap:      false,
+			RegistryConfig: cfg.RegistryConfig,
+			CustomDBSetup:  cfg.CustomDBSetup,
+		}
+		// grab port offset by numBootstraps, since above loop also takes some ports.
+		node := NewNode(t, c, configOpts...)
+		nodesByPeerID[node.Keys.PeerID.String()] = *node
+		// Note in real env, this ID is allocated by JD.
+
+		nodes = append(nodes, node)
+	}
+
+	// Funding (only non-bootstrap nodes)
+	for _, tonChain := range cfg.BlockChains.TonChains() {
+		fundNodesTon(t, tonChain, nodes)
+	}
+	for _, aptosChain := range cfg.BlockChains.AptosChains() {
+		fundNodesAptos(t, aptosChain, nodes)
+	}
+	for _, solChain := range cfg.BlockChains.SolanaChains() {
+		fundNodesSol(t, solChain, nodes)
+	}
+
+	return nodesByPeerID
+}
 
 type Node struct {
 	ID     string
@@ -196,7 +278,7 @@ func (n Node) JDChainConfigs() ([]*nodev1.ChainConfig, error) {
 		case chainsel.FamilyTron:
 			ocrtype = chaintype.Tron
 		default:
-			return nil, fmt.Errorf("Unsupported chain family %v", family)
+			return nil, fmt.Errorf("unsupported chain family %v", family)
 		}
 
 		bundle := n.Keys.OCRKeyBundles[ocrtype]
@@ -278,7 +360,7 @@ type NewNodeConfig struct {
 	// Port for the P2P V2 listener.
 	Port int
 	// BlockChains to be configured.
-	BlockChains    cldf_chain.BlockChains
+	BlockChains    cldfchain.BlockChains
 	LogLevel       zapcore.Level
 	Bootstrap      bool
 	RegistryConfig deployment.CapabilityRegistryConfig
@@ -562,9 +644,9 @@ func CreateKeys(t *testing.T,
 
 		simClient, ok := chain.Client.(*cldf_evm_provider.SimClient)
 		if ok {
-			fundAddress(t, chain.DeployerKey, transmitter, assets.Ether(1000).ToInt(), simClient.Backend())
+			evmtestutils.FundAddress(t, chain.DeployerKey, transmitter, assets.Ether(1000).ToInt(), simClient.Backend())
 			// need to look more into it, but it seems like with sim chains nodes are sending txs with 0x from address
-			fundAddress(t, chain.DeployerKey, common.Address{}, assets.Ether(1000).ToInt(), simClient.Backend())
+			evmtestutils.FundAddress(t, chain.DeployerKey, common.Address{}, assets.Ether(1000).ToInt(), simClient.Backend())
 		}
 	}
 
@@ -686,7 +768,7 @@ func CreateKeys(t *testing.T,
 			transmitters[sel] = transmitter.ID()
 			t.Logf("Created Sui Key: ID %v, Account %v", transmitter.ID(), transmitter.Account())
 
-			err = FundSuiAccount(chain.FaucetURL, "0x"+transmitter.Account())
+			err = suitestutils.FundAccount(chain.FaucetURL, "0x"+transmitter.Account())
 			require.NoError(t, err)
 		}
 	}
