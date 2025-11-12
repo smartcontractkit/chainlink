@@ -11,7 +11,7 @@ CREATE TABLE IF NOT EXISTS ton.log_poller_filters (
   msg_type VARCHAR(20) NOT NULL,
   event_sig BYTEA NOT NULL CHECK (octet_length(event_sig) = 4), -- CRC32 hash as 4-byte binary
 
-  starting_seq_no INTEGER NOT NULL, -- TODO: BIGINT
+  starting_seq_no BIGINT NOT NULL,
 
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   is_deleted BOOLEAN NOT NULL DEFAULT FALSE,
