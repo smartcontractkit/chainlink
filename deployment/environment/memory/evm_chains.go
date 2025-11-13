@@ -1,28 +1,16 @@
 package memory
 
 import (
-	"math/big"
 	"strconv"
 	"testing"
 
 	"github.com/stretchr/testify/require"
-
-	"github.com/ethereum/go-ethereum/accounts/abi/bind"
-	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/core/types"
-	"github.com/ethereum/go-ethereum/ethclient/simulated"
 
 	chain_selectors "github.com/smartcontractkit/chain-selectors"
 
 	cldf_chain "github.com/smartcontractkit/chainlink-deployments-framework/chain"
 	cldf_evm_provider "github.com/smartcontractkit/chainlink-deployments-framework/chain/evm/provider"
 )
-
-type EVMChain struct {
-	Backend     *simulated.Backend
-	DeployerKey *bind.TransactOpts
-	Users       []*bind.TransactOpts
-}
 
 // evmTestChainSelectors returns the selectors for the test EVM chains. We arbitrarily
 // start this from the EVM test selector TEST_90000001 and limit the number of chains you can load
@@ -85,25 +73,4 @@ func generateChainsEVMWithIDs(t *testing.T, chainIDs []uint64, numUsers int) []c
 	}
 
 	return chains
-}
-
-// funcAddress funds to an EVM address using a given transaction options.
-func fundAddress(t *testing.T, from *bind.TransactOpts, to common.Address, amount *big.Int, backend *simulated.Backend) {
-	ctx := t.Context()
-	nonce, err := backend.Client().PendingNonceAt(ctx, from.From)
-	require.NoError(t, err)
-	gp, err := backend.Client().SuggestGasPrice(ctx)
-	require.NoError(t, err)
-	rawTx := types.NewTx(&types.LegacyTx{
-		Nonce:    nonce,
-		GasPrice: gp,
-		Gas:      21000,
-		To:       &to,
-		Value:    amount,
-	})
-	signedTx, err := from.Signer(from.From, rawTx)
-	require.NoError(t, err)
-	err = backend.Client().SendTransaction(ctx, signedTx)
-	require.NoError(t, err)
-	backend.Commit()
 }

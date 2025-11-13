@@ -19,7 +19,6 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 
 	cldf_chain "github.com/smartcontractkit/chainlink-deployments-framework/chain"
-	cldf_solana "github.com/smartcontractkit/chainlink-deployments-framework/chain/solana"
 	cldf_solana_provider "github.com/smartcontractkit/chainlink-deployments-framework/chain/solana/provider"
 	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
 
@@ -243,18 +242,6 @@ func generateChainsSol(t *testing.T, numChains int, commitSha string) []cldf_cha
 	}
 
 	return chains
-}
-
-func fundNodesSol(t *testing.T, solChain cldf_solana.Chain, nodes []*Node) {
-	for _, node := range nodes {
-		solkeys, err := node.App.GetKeyStore().Solana().GetAll()
-		require.NoError(t, err)
-		require.Len(t, solkeys, 1)
-		transmitter := solkeys[0]
-		_, err = solChain.Client.RequestAirdrop(t.Context(), transmitter.PublicKey(), 1000*solana.LAMPORTS_PER_SOL, solRpc.CommitmentConfirmed)
-		require.NoError(t, err)
-		// we don't wait for confirmation so we don't block the tests, it'll take a while before nodes start transmitting
-	}
 }
 
 // chainlink-ccip has dynamic resolution which does not work across repos
