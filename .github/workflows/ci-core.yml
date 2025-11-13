@@ -1,13 +1,27 @@
+name: CI-Core with AWS Deployment
+
+on:
+  push:
+    branches:
+      - develop
+  pull_request:
+    branches:
+      - develop
+
+jobs:
+  detect-changes:
+    runs-on: ubuntu-latest
+    outputs:
+      deployment-changed: ${{ steps.match-some.outputs.deployment }}
+    steps:
       - name: Checkout the repo
         uses: actions/checkout@v4
         with:
           persist-credentials: false
-          repository: smartcontractkit/chainlink
-          fetch-depth: 0 # ensure full history for commit comparison
+          fetch-depth: 0
 
       - name: Ensure develop branch is fetched
-        run: |
-          git fetch origin develop:origin/develop || echo "develop already up-to-date"
+        run: git fetch origin develop:origin/develop || echo "develop already up-to-date"
 
       - name: Detect Changed Paths (match-some)
         id: match-some
@@ -23,30 +37,31 @@
               - '.github/workflows/ci-core.yml'
               - '.github/actions/**'
 
-      - name: Detect Changed Paths (match-every)
-        id: match-every
-        uses: dorny/paths-filter@v3.0.2
+  deploy:
+    needs: detect-changes
+    if: needs.detect-changes.outputs.deployment-changed == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout the repo
+        uses: actions/checkout@v4
         with:
-          token: ${{ secrets.GITHUB_TOKEN }}
-          ref: ${{ github.sha }}
-          base: origin/develop
-          list-files: json
-          filters: |
-            core-non-ignored:
-              - '**'
-              - '!deployment/**'
-              - '!integration-tests/**'
-              - '!tools/secrets/**'
-              - '!tools/docker/**'
-              - '!tools/benchmark/**'
-              - '!**/README.md'
-              - '!**/CHANGELOG.md'
-              - '!*.nix'
-              - '!sonar-project.properties'
-              - '!nix.conf'
-              - '!nix-darwin-shell-hook.sh'
-              - '!LICENSE'
-              - '!.github/**'
-              - '!core/scripts/cre/environment/examples/workflows/**'
-            all:
-              - '**'
+          fetch-depth: 0
+
+      # ===== AWS Configuration =====
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v2
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: us-east-1  # replace with your region
+
+      # Optional: debug AWS connection
+      - name: Debug AWS CLI
+        run: aws sts get-caller-identity
+
+      # ===== Deployment Steps =====
+      - name: Run Deployment Scripts
+        run: |
+          echo "Running deployment..."
+          # Example: deploy to S3
+          aws s3 sync deployment/ s3://your-bucket-name --delete
