@@ -77,9 +77,9 @@ func TestSetConfigMCMSV2EVM(t *testing.T) {
 						commonchangeset.MCMSConfigV2{
 							ConfigsPerChain: map[uint64]commonchangeset.ConfigPerRoleV2{
 								chainSel: {
-									Proposer:  cfgProp,
-									Canceller: cfgCancel,
-									Bypasser:  cfgBypass,
+									Proposer:  &cfgProp,
+									Canceller: &cfgCancel,
+									Bypasser:  &cfgBypass,
 								},
 							},
 						},
@@ -107,9 +107,9 @@ func TestSetConfigMCMSV2EVM(t *testing.T) {
 							},
 							ConfigsPerChain: map[uint64]commonchangeset.ConfigPerRoleV2{
 								chainSel: {
-									Proposer:  cfgProp,
-									Canceller: cfgCancel,
-									Bypasser:  cfgBypass,
+									Proposer:  &cfgProp,
+									Canceller: &cfgCancel,
+									Bypasser:  &cfgBypass,
 								},
 							},
 						},
@@ -238,9 +238,9 @@ func TestSetConfigMCMSV2Solana(t *testing.T) {
 				chainSelectorSolana,
 				map[uint64]commonchangeset.ConfigPerRoleV2{
 					chainSelectorSolana: {
-						Proposer:  newCfgProposer,
-						Canceller: newCfgCanceller,
-						Bypasser:  newCfgBypasser,
+						Proposer:  &newCfgProposer,
+						Canceller: &newCfgCanceller,
+						Bypasser:  &newCfgBypasser,
 					},
 				})
 			_, _, err = commonchangeset.ApplyChangesets(t, env, changesetsToApply)
@@ -292,14 +292,14 @@ func TestValidateV2(t *testing.T) {
 				},
 				ConfigsPerChain: map[uint64]commonchangeset.ConfigPerRoleV2{
 					chainSelector: {
-						Proposer:  cfg,
-						Canceller: cfg,
-						Bypasser:  cfg,
+						Proposer:  &cfg,
+						Canceller: &cfg,
+						Bypasser:  &cfg,
 					},
 					chainSelectorSolana: {
-						Proposer:  cfg,
-						Canceller: cfg,
-						Bypasser:  cfg,
+						Proposer:  &cfg,
+						Canceller: &cfg,
+						Bypasser:  &cfg,
 					},
 				},
 			},
@@ -309,14 +309,14 @@ func TestValidateV2(t *testing.T) {
 			cfg: commonchangeset.MCMSConfigV2{
 				ConfigsPerChain: map[uint64]commonchangeset.ConfigPerRoleV2{
 					chainSelector: {
-						Proposer:  cfg,
-						Canceller: cfg,
-						Bypasser:  cfg,
+						Proposer:  &cfg,
+						Canceller: &cfg,
+						Bypasser:  &cfg,
 					},
 					chainSelectorSolana: {
-						Proposer:  cfg,
-						Canceller: cfg,
-						Bypasser:  cfg,
+						Proposer:  &cfg,
+						Canceller: &cfg,
+						Bypasser:  &cfg,
 					},
 				},
 			},
@@ -333,9 +333,9 @@ func TestValidateV2(t *testing.T) {
 			cfg: commonchangeset.MCMSConfigV2{
 				ConfigsPerChain: map[uint64]commonchangeset.ConfigPerRoleV2{
 					123: {
-						Proposer:  cfg,
-						Canceller: cfg,
-						Bypasser:  cfg,
+						Proposer:  &cfg,
+						Canceller: &cfg,
+						Bypasser:  &cfg,
 					},
 				},
 			},
@@ -349,14 +349,14 @@ func TestValidateV2(t *testing.T) {
 				},
 				ConfigsPerChain: map[uint64]commonchangeset.ConfigPerRoleV2{
 					chainSelector: {
-						Proposer:  cfgInvalid,
-						Canceller: cfg,
-						Bypasser:  cfg,
+						Proposer:  &cfgInvalid,
+						Canceller: &cfg,
+						Bypasser:  &cfg,
 					},
 					chainSelectorSolana: {
-						Proposer:  cfg,
-						Canceller: cfg,
-						Bypasser:  cfg,
+						Proposer:  &cfg,
+						Canceller: &cfg,
+						Bypasser:  &cfg,
 					},
 				},
 			},
@@ -370,14 +370,14 @@ func TestValidateV2(t *testing.T) {
 				},
 				ConfigsPerChain: map[uint64]commonchangeset.ConfigPerRoleV2{
 					chainSelector: {
-						Proposer:  cfg,
-						Canceller: cfgInvalid,
-						Bypasser:  cfg,
+						Proposer:  &cfg,
+						Canceller: &cfgInvalid,
+						Bypasser:  &cfg,
 					},
 					chainSelectorSolana: {
-						Proposer:  cfg,
-						Canceller: cfg,
-						Bypasser:  cfg,
+						Proposer:  &cfg,
+						Canceller: &cfg,
+						Bypasser:  &cfg,
 					},
 				},
 			},
@@ -391,18 +391,55 @@ func TestValidateV2(t *testing.T) {
 				},
 				ConfigsPerChain: map[uint64]commonchangeset.ConfigPerRoleV2{
 					chainSelector: {
-						Proposer:  cfg,
-						Canceller: cfg,
-						Bypasser:  cfgInvalid,
+						Proposer:  &cfg,
+						Canceller: &cfg,
+						Bypasser:  &cfgInvalid,
 					},
 					chainSelectorSolana: {
-						Proposer:  cfg,
-						Canceller: cfg,
-						Bypasser:  cfg,
+						Proposer:  &cfg,
+						Canceller: &cfg,
+						Bypasser:  &cfg,
 					},
 				},
 			},
 			errorMsg: "invalid MCMS config: Quorum must be greater than 0",
+		},
+		{
+			name: "valid partial config - only proposer",
+			cfg: commonchangeset.MCMSConfigV2{
+				ConfigsPerChain: map[uint64]commonchangeset.ConfigPerRoleV2{
+					chainSelector: {
+						Proposer: &cfg,
+					},
+					chainSelectorSolana: {
+						Proposer: &cfg,
+					},
+				},
+			},
+		},
+		{
+			name: "valid partial config - only canceller and bypasser",
+			cfg: commonchangeset.MCMSConfigV2{
+				ConfigsPerChain: map[uint64]commonchangeset.ConfigPerRoleV2{
+					chainSelector: {
+						Canceller: &cfg,
+						Bypasser:  &cfg,
+					},
+					chainSelectorSolana: {
+						Canceller: &cfg,
+						Bypasser:  &cfg,
+					},
+				},
+			},
+		},
+		{
+			name: "invalid - no configs provided",
+			cfg: commonchangeset.MCMSConfigV2{
+				ConfigsPerChain: map[uint64]commonchangeset.ConfigPerRoleV2{
+					chainSelector: {},
+				},
+			},
+			errorMsg: "at least one config (Proposer, Canceller, or Bypasser) must be provided",
 		},
 	}
 
@@ -419,6 +456,60 @@ func TestValidateV2(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestSetConfigMCMSV2Partial(t *testing.T) {
+	t.Parallel()
+	env := setupSetConfigTestEnv(t)
+	chainSelector := env.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chain_selectors.FamilyEVM))[0]
+	chain := env.BlockChains.EVMChains()[chainSelector]
+	addrs, err := env.ExistingAddresses.AddressesForChain(chainSelector)
+	require.NoError(t, err)
+
+	mcmsState, err := commonchangeset.MaybeLoadMCMSWithTimelockChainState(chain, addrs)
+	require.NoError(t, err)
+
+	// Test setting only the proposer config
+	cfgProposer := proposalutils.SingleGroupMCMSV2(t)
+	cfgProposer.Signers = append(cfgProposer.Signers, mcmsState.Timelock.Address())
+	cfgProposer.Quorum = 2
+
+	_, _, err = commonchangeset.ApplyChangesets(t, env, []commonchangeset.ConfiguredChangeSet{
+		commonchangeset.Configure(
+			cldf.CreateLegacyChangeSet(commonchangeset.SetConfigMCMSV2),
+			commonchangeset.MCMSConfigV2{
+				ConfigsPerChain: map[uint64]commonchangeset.ConfigPerRoleV2{
+					chainSelector: {
+						Proposer: &cfgProposer, // Only setting proposer
+					},
+				},
+			},
+		),
+	})
+	require.NoError(t, err)
+
+	// Verify only the proposer config was changed
+	ctx := t.Context()
+	inspector := evm.NewInspector(chain.Client)
+
+	// Check proposer config was updated
+	newConf, err := inspector.GetConfig(ctx, mcmsState.ProposerMcm.Address().Hex())
+	require.NoError(t, err)
+	require.ElementsMatch(t, cfgProposer.Signers, newConf.Signers)
+	require.Equal(t, cfgProposer.Quorum, newConf.Quorum)
+
+	// Check canceller and bypasser configs were not changed (should still be original)
+	originalCfg := proposalutils.SingleGroupMCMSV2(t)
+
+	cancellerConf, err := inspector.GetConfig(ctx, mcmsState.CancellerMcm.Address().Hex())
+	require.NoError(t, err)
+	require.ElementsMatch(t, originalCfg.Signers, cancellerConf.Signers)
+	require.Equal(t, originalCfg.Quorum, cancellerConf.Quorum)
+
+	bypasserConf, err := inspector.GetConfig(ctx, mcmsState.BypasserMcm.Address().Hex())
+	require.NoError(t, err)
+	require.ElementsMatch(t, originalCfg.Signers, bypasserConf.Signers)
+	require.Equal(t, originalCfg.Quorum, bypasserConf.Quorum)
 }
 
 func fundSignerPDAs(

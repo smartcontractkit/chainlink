@@ -28,9 +28,9 @@ import (
 )
 
 type ConfigPerRoleV2 struct {
-	Proposer  mcmstypes.Config
-	Canceller mcmstypes.Config
-	Bypasser  mcmstypes.Config
+	Proposer  *mcmstypes.Config
+	Canceller *mcmstypes.Config
+	Bypasser  *mcmstypes.Config
 }
 
 type MCMSConfigV2 struct {
@@ -52,6 +52,11 @@ func (cfg MCMSConfigV2) Validate(e cldf.Environment, selectors []uint64) error {
 	}
 
 	for chainSelector, c := range cfg.ConfigsPerChain {
+		// Ensure at least one config is provided
+		if c.Proposer == nil && c.Canceller == nil && c.Bypasser == nil {
+			return fmt.Errorf("at least one config (Proposer, Canceller, or Bypasser) must be provided for chain %d", chainSelector)
+		}
+
 		family, err := chain_selectors.GetSelectorFamily(chainSelector)
 		if err != nil {
 			return err
@@ -84,14 +89,20 @@ func (cfg MCMSConfigV2) Validate(e cldf.Environment, selectors []uint64) error {
 			}
 		}
 
-		if err := c.Proposer.Validate(); err != nil {
-			return err
+		if c.Proposer != nil {
+			if err := c.Proposer.Validate(); err != nil {
+				return err
+			}
 		}
-		if err := c.Canceller.Validate(); err != nil {
-			return err
+		if c.Canceller != nil {
+			if err := c.Canceller.Validate(); err != nil {
+				return err
+			}
 		}
-		if err := c.Bypasser.Validate(); err != nil {
-			return err
+		if c.Bypasser != nil {
+			if err := c.Bypasser.Validate(); err != nil {
+				return err
+			}
 		}
 	}
 	return nil
@@ -130,20 +141,31 @@ type setConfigTxs struct {
 
 // setConfigPerRoleV2 sets the configuration for each of the MCMS contract roles on the mcmsState.
 func setConfigPerRoleV2(ctx context.Context, lggr logger.Logger, chain cldf_evm.Chain, cfg ConfigPerRoleV2, mcmsState *commonState.MCMSWithTimelockState, useMCMS bool) (setConfigTxs, error) {
-	// Proposer set config
-	proposerTx, err := setConfigOrTxDataV2(ctx, lggr, chain, cfg.Proposer, mcmsState.ProposerMcm, useMCMS)
-	if err != nil {
-		return setConfigTxs{}, err
+	var proposerTx, cancellerTx, bypasserTx *types.Transaction
+	var err error
+
+	// Proposer set config (only if provided)
+	if cfg.Proposer != nil {
+		proposerTx, err = setConfigOrTxDataV2(ctx, lggr, chain, *cfg.Proposer, mcmsState.ProposerMcm, useMCMS)
+		if err != nil {
+			return setConfigTxs{}, err
+		}
 	}
-	// Canceller set config
-	cancellerTx, err := setConfigOrTxDataV2(ctx, lggr, chain, cfg.Canceller, mcmsState.CancellerMcm, useMCMS)
-	if err != nil {
-		return setConfigTxs{}, err
+
+	// Canceller set config (only if provided)
+	if cfg.Canceller != nil {
+		cancellerTx, err = setConfigOrTxDataV2(ctx, lggr, chain, *cfg.Canceller, mcmsState.CancellerMcm, useMCMS)
+		if err != nil {
+			return setConfigTxs{}, err
+		}
 	}
-	// Bypasser set config
-	bypasserTx, err := setConfigOrTxDataV2(ctx, lggr, chain, cfg.Bypasser, mcmsState.BypasserMcm, useMCMS)
-	if err != nil {
-		return setConfigTxs{}, err
+
+	// Bypasser set config (only if provided)
+	if cfg.Bypasser != nil {
+		bypasserTx, err = setConfigOrTxDataV2(ctx, lggr, chain, *cfg.Bypasser, mcmsState.BypasserMcm, useMCMS)
+		if err != nil {
+			return setConfigTxs{}, err
+		}
 	}
 
 	return setConfigTxs{
@@ -236,16 +258,24 @@ func addTxsToProposalBatchV2(setConfigTxsChain setConfigTxs, chainSelector uint6
 		Transactions:  []mcmstypes.Transaction{},
 	}
 
-	result.Transactions = append(result.Transactions,
-		evm.NewTransaction(state.ProposerMcm.Address(),
-			setConfigTxsChain.proposerTx.Data(), big.NewInt(0), string(commontypes.ProposerManyChainMultisig), nil))
+	// Only add transactions for configs that were actually set
+	if setConfigTxsChain.proposerTx != nil {
+		result.Transactions = append(result.Transactions,
+			evm.NewTransaction(state.ProposerMcm.Address(),
+				setConfigTxsChain.proposerTx.Data(), big.NewInt(0), string(commontypes.ProposerManyChainMultisig), nil))
+	}
 
-	result.Transactions = append(result.Transactions, evm.NewTransaction(state.CancellerMcm.Address(),
-		setConfigTxsChain.cancellerTx.Data(), big.NewInt(0), string(commontypes.CancellerManyChainMultisig), nil))
+	if setConfigTxsChain.cancellerTx != nil {
+		result.Transactions = append(result.Transactions, evm.NewTransaction(state.CancellerMcm.Address(),
+			setConfigTxsChain.cancellerTx.Data(), big.NewInt(0), string(commontypes.CancellerManyChainMultisig), nil))
+	}
 
-	result.Transactions = append(result.Transactions,
-		evm.NewTransaction(state.BypasserMcm.Address(),
-			setConfigTxsChain.bypasserTx.Data(), big.NewInt(0), string(commontypes.BypasserManyChainMultisig), nil))
+	if setConfigTxsChain.bypasserTx != nil {
+		result.Transactions = append(result.Transactions,
+			evm.NewTransaction(state.BypasserMcm.Address(),
+				setConfigTxsChain.bypasserTx.Data(), big.NewInt(0), string(commontypes.BypasserManyChainMultisig), nil))
+	}
+
 	return result
 }
 
@@ -272,22 +302,31 @@ func setConfigSolana(
 
 	batches := []mcmstypes.BatchOperation{}
 	// broken into single batch per role (total 3 batches) due to size constraints on solana when all instructions were in the same single batch
-	proposerOps, err := setConfigForRole(e, chain, cfg.Proposer, proposerAddress, string(commontypes.ProposerManyChainMultisig), useMCMS, timelockSignerPDA)
-	if err != nil {
-		return nil, err
-	}
-	batches = append(batches, proposerOps)
 
-	cancellerOps, err := setConfigForRole(e, chain, cfg.Canceller, cancellerAddress, string(commontypes.CancellerManyChainMultisig), useMCMS, timelockSignerPDA)
-	if err != nil {
-		return nil, err
+	// Only set configs that are provided (non-nil)
+	if cfg.Proposer != nil {
+		proposerOps, err := setConfigForRole(e, chain, *cfg.Proposer, proposerAddress, string(commontypes.ProposerManyChainMultisig), useMCMS, timelockSignerPDA)
+		if err != nil {
+			return nil, err
+		}
+		batches = append(batches, proposerOps)
 	}
-	batches = append(batches, cancellerOps)
-	bypasserOps, err := setConfigForRole(e, chain, cfg.Bypasser, bypasserAddress, string(commontypes.BypasserManyChainMultisig), useMCMS, timelockSignerPDA)
-	if err != nil {
-		return nil, err
+
+	if cfg.Canceller != nil {
+		cancellerOps, err := setConfigForRole(e, chain, *cfg.Canceller, cancellerAddress, string(commontypes.CancellerManyChainMultisig), useMCMS, timelockSignerPDA)
+		if err != nil {
+			return nil, err
+		}
+		batches = append(batches, cancellerOps)
 	}
-	batches = append(batches, bypasserOps)
+
+	if cfg.Bypasser != nil {
+		bypasserOps, err := setConfigForRole(e, chain, *cfg.Bypasser, bypasserAddress, string(commontypes.BypasserManyChainMultisig), useMCMS, timelockSignerPDA)
+		if err != nil {
+			return nil, err
+		}
+		batches = append(batches, bypasserOps)
+	}
 
 	return batches, nil
 }
