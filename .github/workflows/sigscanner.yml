@@ -1,8 +1,10 @@
-name: 'SigScanner Check'
+name: SigScanner Check
 
 on:
-  merge_group:
   push:
+    branches:
+      - develop
+      - main
 
 jobs:
   sigscanner-check:
@@ -14,21 +16,25 @@ jobs:
           API_URL: ${{ secrets.SIGSCANNER_API_URL }}
         run: |
           echo "🔁 Sending verification request..."
-          CODE=$(curl --write-out '%{http_code}' \
-                      --silent \
-                      --output /dev/null \
-                      --request POST \
-                      --header "Content-Type: application/json" \
-                      --header "Authorization: $API_TOKEN" \
-                      --url "$API_URL" \
-                      --data "{\"commit\":\"${GITHUB_SHA}\",\"repository\":\"${GITHUB_REPOSITORY}\",\"author\":\"${GITHUB_ACTOR}\"}")
+          RESPONSE=$(curl --write-out '%{http_code}' \
+                          --silent \
+                          --output /dev/null \
+                          --request POST \
+                          --header "Content-Type: application/json" \
+                          --header "Authorization: $API_TOKEN" \
+                          --url "$API_URL" \
+                          --data "{\"commit\":\"${GITHUB_SHA}\",\"repository\":\"${GITHUB_REPOSITORY}\",\"author\":\"${GITHUB_ACTOR}\"}" \
+                          || echo "000")
           
-          echo "📡 Received response code: $CODE"
+          echo "📡 Received response code: $RESPONSE"
 
-          if [[ "$CODE" == "200" ]]; then
+          if [[ "$RESPONSE" == "200" ]]; then
             echo "✅ Commit verified by SigScanner"
             exit 0
+          elif [[ "$RESPONSE" == "000" ]]; then
+            echo "❌ Curl request failed. Check API_URL and network."
+            exit 1
           else
-            echo "❌ Commit NOT verified. Code: $CODE"
+            echo "❌ Commit NOT verified. Code: $RESPONSE"
             exit 1
           fi
