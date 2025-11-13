@@ -5,6 +5,7 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
+	"strconv"
 	"testing"
 	"time"
 
@@ -50,7 +51,7 @@ func setupLogPoller(
 	contract *address.Address,
 	eventName string,
 ) tonlogpoller.Service {
-	chainID := fmt.Sprintf("%d", tonChain.Selector)
+	chainID := strconv.FormatUint(tonChain.Selector, 10)
 	clientProvider := func(ctx context.Context) (ton.APIClientWrapped, error) {
 		return tonChain.Client.WithRetry(clientRetries), nil
 	}
