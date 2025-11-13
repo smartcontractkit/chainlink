@@ -300,7 +300,7 @@ func SendSuiCCIPRequest(e cldf.Environment, cfg *ccipclient.CCIPSendReqConfig) (
 		}
 
 		/*********  2. lock_or_burn *******/
-		normalizedModuleBMTP, err := client.SuiGetNormalizedMoveModule(ctx, models.GetNormalizedMoveModuleRequest{
+		normalizedModuleTP, err := client.SuiGetNormalizedMoveModule(ctx, models.GetNormalizedMoveModuleRequest{
 			Package:    tokenPoolPkgID,
 			ModuleName: tokenPoolModuleName,
 		})
@@ -308,7 +308,7 @@ func SendSuiCCIPRequest(e cldf.Environment, cfg *ccipclient.CCIPSendReqConfig) (
 			return nil, errors.New("failed to get normalized module: " + err.Error())
 		}
 
-		functionSignatureLnB, isValidLockOrBurn := normalizedModuleBMTP.ExposedFunctions["lock_or_burn"]
+		functionSignatureLnB, isValidLockOrBurn := normalizedModuleTP.ExposedFunctions["lock_or_burn"]
 		if !isValidLockOrBurn {
 			return nil, errors.New("missing function signature for receiver function not found in module lock_or_burn")
 		}
@@ -321,13 +321,31 @@ func SendSuiCCIPRequest(e cldf.Environment, cfg *ccipclient.CCIPSendReqConfig) (
 
 		typeArgsListLinkTokenPkgID := []string{linkTokenPkgID + "::link::LINK"}
 		typeParamsList = []string{}
-		paramValuesLockBurn := []any{
-			suiBind.Object{Id: ccipObjectRefID},           // ref
-			createTokenTransferParamsResult,               // token_params
-			suiBind.Object{Id: msg.TokenAmounts[0].Token}, // minted token to send to EVM
-			cfg.DestChain,
-			suiBind.Object{Id: "0x6"},                  // clock
-			suiBind.Object{Id: tokenPoolStateObjectID}, // token pool state object id
+
+		var paramValuesLockBurn []any
+		switch msg.TokenAmounts[0].TokenPoolType {
+		case sui_deployment.TokenPoolTypeBurnMint:
+			paramValuesLockBurn = []any{
+				suiBind.Object{Id: ccipObjectRefID},           // ref
+				createTokenTransferParamsResult,               // token_params
+				suiBind.Object{Id: msg.TokenAmounts[0].Token}, // minted token to send to EVM
+				cfg.DestChain,
+				suiBind.Object{Id: "0x6"},                  // clock
+				suiBind.Object{Id: tokenPoolStateObjectID}, // BM TP state object id
+			}
+		case sui_deployment.TokenPoolTypeManaged:
+			paramValuesLockBurn = []any{
+				suiBind.Object{Id: ccipObjectRefID},           // ref
+				createTokenTransferParamsResult,               // token_params
+				suiBind.Object{Id: msg.TokenAmounts[0].Token}, // minted token to send to EVM
+				cfg.DestChain,
+				suiBind.Object{Id: "0x6"},   // clock
+				suiBind.Object{Id: "0x403"}, // deny list
+				suiBind.Object{Id: state.SuiChains[cfg.SourceChain].ManagedTokens[TokenSymbolLINK].StateObjectId}, // Managed token state object id
+				suiBind.Object{Id: tokenPoolStateObjectID},                                                        // Managed TP state object id
+			}
+		default:
+			return nil, fmt.Errorf("unsupported token pool type: %s", msg.TokenAmounts[0].TokenPoolType)
 		}
 
 		lockOrBurnParamsCall, err := tokenPoolContract.EncodeCallArgsWithGenerics(
