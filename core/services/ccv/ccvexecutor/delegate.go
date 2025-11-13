@@ -83,15 +83,11 @@ func (d *Delegate) ServicesForSpec(ctx context.Context, spec job.Job) (services 
 		}
 		chainSelector := protocol.ChainSelector(chainSel)
 		roundRobins[chainSelector] = NewRoundRobin(d.ethKs, chainID)
-		keysForChain, err := d.ethKs.EnabledKeysForChain(ctx, chainID)
+		addressesForChain, err := d.ethKs.EnabledAddressesForChain(ctx, chainID)
 		if err != nil {
-			return nil, fmt.Errorf("failed to get all keys from eth keystore: %w", err)
+			return nil, fmt.Errorf("failed to get all addresses for chain %s from eth keystore: %w", chainID.String(), err)
 		}
-		var addresses []common.Address
-		for _, k := range keysForChain {
-			addresses = append(addresses, k.Address)
-		}
-		fromAddresses[chainSelector] = addresses
+		fromAddresses[chainSelector] = addressesForChain
 	}
 
 	// TODO: pass secrets as a separate param in the constructor.

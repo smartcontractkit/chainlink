@@ -79,7 +79,13 @@ require (
 	gopkg.in/yaml.v3 v3.0.1
 )
 
-require github.com/ethereum/go-bigmodexpfix v0.0.0-20250911101455-f9e208c548ab // indirect
+require (
+	github.com/ethereum/go-bigmodexpfix v0.0.0-20250911101455-f9e208c548ab // indirect
+	github.com/hashicorp/golang-lru/v2 v2.0.7 // indirect
+	github.com/smartcontractkit/chainlink-ccip/ccv/chains/evm v0.0.0-20251107170647-25947f0bb4cb // indirect
+	github.com/smartcontractkit/chainlink-ccv v0.0.0-20251113121617-671c5e973ce4 // indirect
+	github.com/smartcontractkit/chainlink-protos/chainlink-ccv/go v0.0.0-20251110113103-29ff7c1d872a // indirect
+)
 
 require (
 	cloud.google.com/go/auth v0.16.2 // indirect
