@@ -818,7 +818,7 @@ func (cfg TokenTransferFeeForRemoteChainConfigV2) buildOrchestrateChangesetsConf
 				env.Logger.Infof("current config = %+v", curConfig)
 				if !curConfig.TokenTransferConfig.IsEnabled {
 					// only use sensible defaults to fill in missing fields - do not overwrite anything that the user provided
-					minFeeUsdCents := pointer.Coalesce(feeConfig.MinFeeUsdcents, uint32(175_000))
+					minFeeUsdCents := pointer.Coalesce(feeConfig.MinFeeUsdcents, uint32(25))
 					maxFeeUsdCents := pointer.Coalesce(feeConfig.MaxFeeUsdcents, math.MaxUint32)
 					destGasOverhead := pointer.Coalesce(feeConfig.DestGasOverhead, uint32(90_000))
 					destBytesOverhead := pointer.Coalesce(feeConfig.DestBytesOverhead, uint32(32))
