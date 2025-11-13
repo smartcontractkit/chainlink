@@ -2,4 +2,4 @@
 "chainlink": patch
 ---
 
-add an e2e test for managed token pool for Sui
+#added add an e2e test for managed token pool for Sui
