@@ -50,10 +50,17 @@ func (d *Delegate) BeforeJobCreated(spec job.Job) {
 }
 
 func (d *Delegate) ServicesForSpec(ctx context.Context, spec job.Job) (services []job.ServiceCtx, err error) {
+	d.lggr.Infow("Creating services for CCV executor job", "jobID", spec.ID)
+
 	var decodedCfg executor.Configuration
 	err = toml.Unmarshal([]byte(spec.CCVExecutorSpec.ExecutorConfig), &decodedCfg)
 	if err != nil {
 		return nil, fmt.Errorf("failed to unmarshal executorConfig into the executor config struct: %w", err)
+	}
+
+	err = decodedCfg.Validate()
+	if err != nil {
+		return nil, fmt.Errorf("failed to validate executor config: %w", err)
 	}
 
 	legacyChains := ccvcommon.GetLegacyChains(d.lggr, d.chainServices)

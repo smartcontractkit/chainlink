@@ -48,6 +48,8 @@ func (d *Delegate) BeforeJobCreated(spec job.Job) {
 }
 
 func (d *Delegate) ServicesForSpec(ctx context.Context, spec job.Job) (services []job.ServiceCtx, err error) {
+	d.lggr.Infow("Creating services for CCV committee verifier job", "jobID", spec.ID)
+
 	var decodedCfg verifier.Config
 	err = toml.Unmarshal([]byte(spec.CCVCommitteeVerifierSpec.CommitteeVerifierConfig), &decodedCfg)
 	if err != nil {
@@ -87,7 +89,6 @@ func (d *Delegate) ServicesForSpec(ctx context.Context, spec job.Job) (services 
 		return nil, fmt.Errorf("failed to get aggregator secrets: %w", err)
 	}
 
-	// TODO: pass secrets as a separate param in the constructor.
 	vc, err := constructors.NewVerificationCoordinator(
 		d.lggr.Named("CCVCommitteeVerificationCoordinator"),
 		decodedCfg,

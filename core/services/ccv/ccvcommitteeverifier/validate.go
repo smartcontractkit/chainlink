@@ -40,5 +40,10 @@ func ValidatedCCVCommitteeVerifierSpec(tomlString string) (jb job.Job, err error
 		return job.Job{}, fmt.Errorf("failed to unmarshal committeeVerifierConfig into the verifier config struct: %w", err)
 	}
 
+	err = cfg.Validate()
+	if err != nil {
+		return job.Job{}, fmt.Errorf("failed to validate committee verifier config: %w", err)
+	}
+
 	return jb, nil
 }

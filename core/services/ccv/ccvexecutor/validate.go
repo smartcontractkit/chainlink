@@ -36,5 +36,10 @@ func ValidatedCCVExecutorSpec(tomlString string) (jb job.Job, err error) {
 		return job.Job{}, fmt.Errorf("failed to unmarshal executorConfig into the executor config struct: %w", err)
 	}
 
+	err = cfg.Validate()
+	if err != nil {
+		return job.Job{}, fmt.Errorf("failed to validate executor config: %w", err)
+	}
+
 	return jb, nil
 }

@@ -31,6 +31,8 @@ import (
 	"github.com/smartcontractkit/chainlink-evm/pkg/utils/big"
 	ccip "github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/validate"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
+	"github.com/smartcontractkit/chainlink/v2/core/services/ccv/ccvcommitteeverifier"
+	"github.com/smartcontractkit/chainlink/v2/core/services/ccv/ccvexecutor"
 	"github.com/smartcontractkit/chainlink/v2/core/services/fluxmonitorv2"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
@@ -1470,6 +1472,10 @@ func (s *service) generateJob(ctx context.Context, spec string) (*job.Job, error
 		js, err = workflows.ValidatedWorkflowJobSpec(ctx, spec)
 	case job.CCIP:
 		js, err = ccip.ValidatedCCIPSpec(spec)
+	case job.CCVCommitteeVerifier:
+		js, err = ccvcommitteeverifier.ValidatedCCVCommitteeVerifierSpec(spec)
+	case job.CCVExecutor:
+		js, err = ccvexecutor.ValidatedCCVExecutorSpec(spec)
 	case job.Stream:
 		js, err = streams.ValidatedStreamSpec(spec)
 	case job.Gateway:
