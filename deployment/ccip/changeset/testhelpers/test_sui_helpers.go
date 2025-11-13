@@ -653,6 +653,10 @@ func HandleTokenAndBurnMintTokenPoolDeploymentForSUI(e cldf.Environment, suiChai
 func HandleTokenAndManagedTokenPoolDeploymentForSUI(e cldf.Environment, suiChainSel, evmChainSel uint64) (cldf.Environment, *burn_mint_erc677.BurnMintERC677, *burn_mint_token_pool.BurnMintTokenPool, error) {
 	evmChain := e.BlockChains.EVMChains()[evmChainSel]
 	suiChain := e.BlockChains.SuiChains()[suiChainSel]
+	deployerAddr, err := suiChain.Signer.GetAddress()
+	if err != nil {
+		return cldf.Environment{}, nil, nil, errors.New("failed to get deployer address " + err.Error())
+	}
 
 	// Deploy Transferrable TOKEN on ETH
 	// EVM
@@ -672,6 +676,9 @@ func HandleTokenAndManagedTokenPoolDeploymentForSUI(e cldf.Environment, suiChain
 			DeployAndInitManagedTokenInput: managedtokenops.DeployAndInitManagedTokenInput{
 				CoinObjectTypeArg:   linkTokenPkgID + "::link::LINK",
 				TreasuryCapObjectId: linkTokenTreasuryCapID,
+				MinterAddress:       deployerAddr,
+				Allowance:           0,
+				IsUnlimited:         true,
 			},
 			ChainSelector: suiChainSel,
 		}),
