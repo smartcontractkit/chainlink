@@ -145,6 +145,7 @@ type Secrets struct {
 	DKGRecipientKey DKGRecipientKey `toml:",omitempty"`
 
 	CRE CreSecrets `toml:",omitempty"`
+	CCV CCVSecrets `toml:",omitempty"`
 }
 
 type SolKeys struct {
@@ -1960,6 +1961,55 @@ func (l *LinkingConfig) ValidateConfig() error {
 		l.TLSEnabled = &val
 	}
 	return nil
+}
+
+// CCVSecrets holds the secrets required for the CCV jobs.
+type CCVSecrets struct {
+	AggregatorSecrets []AggregatorSecret `toml:",omitempty"`
+	// TODO: indexer secrets?
+}
+
+// AggregatorSecret is the shared secret between the chainlink node and the
+// CCV aggregator.
+// A node can potentially write to multiple aggregators, so the CommitteeID
+// is used to identify the committee that the node is part of.
+type AggregatorSecret struct {
+	// CommitteeID is the ID of the committee that the node is part of.
+	// This is used to identify the committee that the node is part of.
+	CommitteeID string `toml:",omitempty"`
+	// APIKey is the API key for the CCV aggregator.
+	// This is used to authenticate the node to the CCV aggregator.
+	APIKey *commonconfig.SecretString `toml:",omitempty"`
+	// APISecret is the API secret for the CCV aggregator.
+	// This is used to authenticate the node to the CCV aggregator.
+	APISecret *commonconfig.SecretString `toml:",omitempty"`
+}
+
+func (a *CCVSecrets) SetFrom(f *CCVSecrets) (err error) {
+	err = a.validateMerge(f)
+	if err != nil {
+		return err
+	}
+
+	if f.AggregatorSecrets != nil {
+		a.AggregatorSecrets = make([]AggregatorSecret, len(f.AggregatorSecrets))
+		copy(a.AggregatorSecrets, f.AggregatorSecrets)
+	}
+
+	return nil
+}
+
+func (a *CCVSecrets) validateMerge(f *CCVSecrets) (err error) {
+	if a.AggregatorSecrets != nil && f.AggregatorSecrets != nil {
+		for _, aggregatorSecret := range a.AggregatorSecrets {
+			for _, fAggregatorSecret := range f.AggregatorSecrets {
+				if aggregatorSecret.CommitteeID == fAggregatorSecret.CommitteeID {
+					err = errors.Join(err, configutils.ErrOverride{Name: "CCV.AggregatorSecrets.CommitteeID"})
+				}
+			}
+		}
+	}
+	return err
 }
 
 type StreamsSecretConfig struct {
