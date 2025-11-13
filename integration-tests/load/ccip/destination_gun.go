@@ -57,7 +57,8 @@ type DestinationGun struct {
 	solanaSourceKeys map[uint64]*solana.PrivateKey
 	suiSourceKeys    map[uint64]cldf_sui.Chain
 	metricPipe       chan messageData
-	availableSources []uint64 // Cache of available source chains for this destination
+	availableSources []uint64                 // Cache of available source chains for this destination
+	suiTokenPools    map[uint64]*SuiTokenPool // Token pools for Sui source chains (chainSelector -> pool)
 }
 
 func NewDestinationGun(
@@ -72,6 +73,7 @@ func NewDestinationGun(
 	suiSourceKeys map[uint64]cldf_sui.Chain,
 	metricPipe chan messageData,
 	availableSources []uint64,
+	suiTokenPools map[uint64]*SuiTokenPool,
 ) (*DestinationGun, error) {
 	if len(availableSources) == 0 {
 		return nil, fmt.Errorf("no source chains available for destination %d", chainSelector)
@@ -95,6 +97,7 @@ func NewDestinationGun(
 		suiSourceKeys:    suiSourceKeys,
 		metricPipe:       metricPipe,
 		availableSources: availableSources,
+		suiTokenPools:    suiTokenPools,
 	}
 
 	return &dg, nil
@@ -362,10 +365,27 @@ func (m *DestinationGun) GetEVMMessage(src uint64) (router.ClientEVM2AnyMessage,
 			return router.ClientEVM2AnyMessage{}, 0, fmt.Errorf("no state available for source chain %d", src)
 		}
 
+		// Default to Link token for token transfers
+		tokenAddress := srcChainState.LinkToken.Address()
+		tokenAmount := big.NewInt(1) // 1 wei for very small amounts
+
+		// Only use BnM token if we're running on testnet/staging AND BnM is configured for this chain
+		if m.testConfig.TestnetConfig != nil &&
+			m.testConfig.TestnetConfig.Testnet != nil &&
+			*m.testConfig.TestnetConfig.Testnet {
+			if bnmAddr, exists := TestnetBnMTokenAddress[src]; exists && bnmAddr != (common.Address{}) {
+				tokenAddress = bnmAddr
+				m.l.Debugw("Using BnM token for token transfer on testnet",
+					"srcChain", src,
+					"dstChain", m.chainSelector,
+					"bnmToken", bnmAddr.Hex())
+			}
+		}
+
 		message.TokenAmounts = []router.ClientEVMTokenAmount{
 			{
-				Token:  srcChainState.LinkToken.Address(),
-				Amount: big.NewInt(1),
+				Token:  tokenAddress,
+				Amount: tokenAmount,
 			},
 		}
 
@@ -390,7 +410,82 @@ func (m *DestinationGun) GetEVMMessage(src uint64) (router.ClientEVM2AnyMessage,
 			if !exists {
 				return router.ClientEVM2AnyMessage{}, 0, fmt.Errorf("no Sui state available for destination chain %d", m.chainSelector)
 			}
-			m.l.Debugw("Token transfer to Sui destination configured", "dstChain", m.chainSelector, "linkToken", dstChainState.LinkTokenAddress)
+
+			m.l.Debugw("Token transfer to Sui destination configured",
+				"dstChain", m.chainSelector,
+				"linkToken", dstChainState.LinkTokenAddress,
+				"amount", message.TokenAmounts[0].Amount)
+
+			// Get deployer address as tokenReceiver for ALL token transfers to Sui
+			suiAddr, err := m.env.BlockChains.SuiChains()[m.chainSelector].Signer.GetAddress()
+			if err != nil {
+				return router.ClientEVM2AnyMessage{}, 0, fmt.Errorf("failed to get Sui address: %w", err)
+			}
+
+			var tokenReceiverAddr [32]byte
+			suiAddrStr := strings.TrimPrefix(suiAddr, "0x")
+			addrBytes, err := hexutil.Decode("0x" + suiAddrStr)
+			if err != nil {
+				return router.ClientEVM2AnyMessage{}, 0, fmt.Errorf("failed to decode Sui address: %w", err)
+			}
+			copy(tokenReceiverAddr[:], addrBytes)
+
+			// For pure token transfer (non-programmable), set receiver to empty
+			if selectedMsgDetails.IsTokenOnlyTransfer() {
+				// Pure token transfer: message.Receiver = 0x00..00
+				emptyReceiver := hexutil.MustDecode("0x0000000000000000000000000000000000000000000000000000000000000000")
+				message.Receiver = emptyReceiver
+
+				// Build extraArgs for pure token transfer: gasLimit=0, empty receiverObjectIds
+				extraArgs, err = GetEVMExtraArgsV2SUI_TokenOnly(tokenReceiverAddr)
+				if err != nil {
+					return router.ClientEVM2AnyMessage{}, 0, fmt.Errorf("failed to create Sui token transfer extra args: %w", err)
+				}
+				message.ExtraArgs = extraArgs
+
+				m.l.Debugw("Pure token transfer to Sui configured",
+					"tokenReceiver", suiAddr)
+			} else {
+				// Programmable token transfer: include tokenReceiver in extraArgs
+				// Get receiver object IDs from config
+				receiverObjectIds := [][32]byte{}
+
+				// Add clock object (0x6)
+				var clockObj [32]byte
+				copy(clockObj[:], hexutil.MustDecode("0x0000000000000000000000000000000000000000000000000000000000000006"))
+				receiverObjectIds = append(receiverObjectIds, clockObj)
+
+				// Add receiver state object if configured
+				if m.testConfig.TestnetConfig != nil &&
+					m.testConfig.TestnetConfig.SuiConfig.SuiStateReceiverStateObjectId != nil {
+					var receiverObjId [32]byte
+					receiverObjIdStr := strings.TrimPrefix(*m.testConfig.TestnetConfig.SuiConfig.SuiStateReceiverStateObjectId, "0x")
+					objIdBytes, err := hexutil.Decode("0x" + receiverObjIdStr)
+					if err != nil {
+						return router.ClientEVM2AnyMessage{}, 0, fmt.Errorf("failed to decode receiver object ID: %w", err)
+					}
+					copy(receiverObjId[:], objIdBytes)
+					receiverObjectIds = append(receiverObjectIds, receiverObjId)
+				}
+
+				// Get gasLimit from message details
+				msgGasLimit := int64(1000000) // default
+				if selectedMsgDetails.DestGasLimit != nil {
+					msgGasLimit = *selectedMsgDetails.DestGasLimit
+				}
+
+				// Build extraArgs with tokenReceiver for programmable transfer
+				extraArgs, err = GetEVMExtraArgsV2SUIWithTokenReceiver(msgGasLimit, tokenReceiverAddr, receiverObjectIds)
+				if err != nil {
+					return router.ClientEVM2AnyMessage{}, 0, fmt.Errorf("failed to create Sui programmable token transfer extra args: %w", err)
+				}
+				message.ExtraArgs = extraArgs
+
+				m.l.Debugw("Programmable token transfer to Sui configured",
+					"tokenReceiver", suiAddr,
+					"gasLimit", msgGasLimit,
+					"receiverObjectIds", len(receiverObjectIds))
+			}
 		}
 	}
 
@@ -419,6 +514,27 @@ func GetEVMExtraArgsV2(gasLimit *big.Int, allowOutOfOrder bool) ([]byte, error) 
 	}
 
 	return append(EVMV2Tag, encodedArgs...), nil
+}
+
+// GetEVMExtraArgsV2SUIWithTokenReceiver creates extraArgs for Sui with tokenReceiver
+func GetEVMExtraArgsV2SUIWithTokenReceiver(gasLimit int64, tokenReceiver [32]byte, receiverObjectIds [][32]byte) ([]byte, error) {
+	// Tag prefix for Sui
+	SUITag := hexutil.MustDecode("0x21ea4ca9")
+
+	suiExtraArgsData := message_hasher.ClientSuiExtraArgsV1{
+		GasLimit:                 big.NewInt(gasLimit),
+		AllowOutOfOrderExecution: true,
+		TokenReceiver:            tokenReceiver,
+		ReceiverObjectIds:        receiverObjectIds,
+	}
+
+	return ccipevm.SerializeExtraArgs(SUITag, "encodeSUIExtraArgsV1", suiExtraArgsData)
+}
+
+// GetEVMExtraArgsV2SUI_TokenOnly creates extraArgs for pure token transfer to Sui (no message data)
+// Pure token transfer requires: gasLimit=0, empty receiverObjectIds, tokenReceiver set
+func GetEVMExtraArgsV2SUI_TokenOnly(tokenReceiver [32]byte) ([]byte, error) {
+	return GetEVMExtraArgsV2SUIWithTokenReceiver(0, tokenReceiver, [][32]byte{})
 }
 
 func (m *DestinationGun) sendSOLSourceMessage(src uint64) error {
@@ -557,10 +673,14 @@ func (m *DestinationGun) getSuiMessage() (testhelpers.SuiSendRequest, error) {
 	}
 
 	m.l.Infow("Selected message type", "msgType", *selectedMsgDetails.MsgType)
+
+	// Get fee token object ID
+	feeTokenObjectId := strings.TrimPrefix(*m.testConfig.TestnetConfig.SuiConfig.SuiFeeTokenObjectId, "0x")
+
 	message := testhelpers.SuiSendRequest{
 		Receiver:  common.LeftPadBytes(m.receiver, 32),
 		ExtraArgs: []byte{24, 29, 207, 16, 64, 13, 3, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1},
-		FeeToken:  strings.TrimPrefix(*m.testConfig.TestnetConfig.SuiConfig.SuiFeeTokenObjectId, "0x"),
+		FeeToken:  feeTokenObjectId,
 	}
 
 	switch {
@@ -573,13 +693,47 @@ func (m *DestinationGun) getSuiMessage() (testhelpers.SuiSendRequest, error) {
 		message.Data = data
 
 	case selectedMsgDetails.IsTokenTransfer():
+		// Get token object from pool - NEVER fall back to fee token as that would drain gas
+		srcChainSelector, err := m.mustSourceChain()
+		if err != nil {
+			return testhelpers.SuiSendRequest{}, fmt.Errorf("failed to determine source chain for token transfer: %w", err)
+		}
+
+		pool, exists := m.suiTokenPools[srcChainSelector]
+		if !exists || pool == nil {
+			return testhelpers.SuiSendRequest{}, fmt.Errorf("no token pool available for Sui source chain %d - token transfers require pre-minted tokens", srcChainSelector)
+		}
+
+		tokenObjectId, err := pool.GetNextToken()
+		if err != nil {
+			return testhelpers.SuiSendRequest{}, fmt.Errorf("failed to get token from pool for chain %d: %w", srcChainSelector, err)
+		}
+
+		m.l.Debugw("Using token from pool",
+			"srcChain", srcChainSelector,
+			"tokenObjectId", tokenObjectId,
+			"poolSize", pool.Size())
+
+		// For pure token transfer (TokenTransfer type), set gasLimit to 0
+		// Note: For Sui-to-EVM, message.Receiver must be a valid EVM address (not 0x00...00)
+		// The fee_quoter validates this. The tokens will be sent to this address.
+		if selectedMsgDetails.IsTokenOnlyTransfer() {
+			// Pure token transfer: gasLimit should be 0 in extraArgs (no contract execution)
+			message.ExtraArgs = testhelpers.MakeBCSEVMExtraArgsV2(big.NewInt(0), false)
+
+			m.l.Debugw("Configuring pure token transfer from Sui to EVM",
+				"receiver", fmt.Sprintf("0x%x", message.Receiver),
+				"tokenObjectId", tokenObjectId)
+		}
+
 		message.TokenAmounts = []testhelpers.SuiTokenAmount{
 			{
-				Token:  strings.TrimPrefix(*m.testConfig.TestnetConfig.SuiConfig.SuiFeeTokenObjectId, "0x"),
-				Amount: 1,
+				Token:  tokenObjectId,
+				Amount: 1, // Amount field for Sui tokens (entire object is sent regardless)
 			},
 		}
 	}
+
 	if message.Data == nil {
 		message.Data = []byte{}
 	}

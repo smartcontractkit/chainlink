@@ -7,10 +7,15 @@ import (
 	"fmt"
 	"math"
 	"math/big"
+	"strings"
 	"sync"
 	"testing"
 	"time"
 
+	"github.com/block-vision/sui-go-sdk/models"
+	"github.com/block-vision/sui-go-sdk/signer"
+	sui "github.com/block-vision/sui-go-sdk/sui"
+	suitx "github.com/block-vision/sui-go-sdk/transaction"
 	"github.com/btcsuite/btcutil/bech32"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/jmoiron/sqlx"
@@ -31,7 +36,9 @@ import (
 	"github.com/smartcontractkit/chainlink-sui/relayer/chainreader/reader"
 	"github.com/smartcontractkit/chainlink-sui/relayer/client"
 	"github.com/smartcontractkit/chainlink-sui/relayer/testutils"
+
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers"
+	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/ccipevm"
 )
 
@@ -151,7 +158,7 @@ func subscribeSuiTransmitEvents(
 
 			limitAndSort := query.LimitAndSort{
 				Limit: query.Limit{
-					Count:  100,
+					Count:  10000,
 					Cursor: "",
 				},
 			}
@@ -313,7 +320,7 @@ func subscribeSuiCommitEvents(
 
 			limitAndSort := query.LimitAndSort{
 				Limit: query.Limit{
-					Count:  100,
+					Count:  10000,
 					Cursor: "",
 				},
 			}
@@ -490,7 +497,7 @@ func subscribeSuiExecutionEvents(
 
 			limitAndSort := query.LimitAndSort{
 				Limit: query.Limit{
-					Count:  100,
+					Count:  10000,
 					Cursor: "",
 				},
 			}
@@ -716,7 +723,7 @@ func GetEVMExtraArgsV2SUI(receiverStateObjectId string) ([]byte, error) {
 		"0x0000000000000000000000000000000000000000000000000000000000000006",
 	))
 
-	fmt.Printf("Receiver state object id: %s", receiverStateObjectId)
+	fmt.Printf("Receiver state object id: %s\n", receiverStateObjectId)
 	var stateObj [32]byte
 	copy(stateObj[:], hexutil.MustDecode(
 		receiverStateObjectId,
@@ -733,6 +740,279 @@ func GetEVMExtraArgsV2SUI(receiverStateObjectId string) ([]byte, error) {
 
 	return ccipevm.SerializeExtraArgs(SUITag, "encodeSUIExtraArgsV1", suiExtraArgsData)
 
+}
+
+// SuiTokenPool manages a pool of Sui token objects for load testing
+// It cycles through available token objects in a thread-safe manner
+type SuiTokenPool struct {
+	mu             sync.Mutex
+	tokenObjectIds []string
+	currentIndex   int
+	lggr           logger.Logger
+}
+
+// NewSuiTokenPool creates a new token pool
+func NewSuiTokenPool(lggr logger.Logger, tokenObjectIds []string) *SuiTokenPool {
+	return &SuiTokenPool{
+		tokenObjectIds: tokenObjectIds,
+		currentIndex:   0,
+		lggr:           lggr,
+	}
+}
+
+// GetNextToken returns the next token object ID from the pool
+// It cycles through the available tokens in a round-robin fashion
+func (p *SuiTokenPool) GetNextToken() (string, error) {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+
+	if len(p.tokenObjectIds) == 0 {
+		return "", fmt.Errorf("token pool is empty")
+	}
+
+	token := p.tokenObjectIds[p.currentIndex]
+	p.currentIndex = (p.currentIndex + 1) % len(p.tokenObjectIds)
+
+	return token, nil
+}
+
+// Size returns the number of tokens in the pool
+func (p *SuiTokenPool) Size() int {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	return len(p.tokenObjectIds)
+}
+
+// splitSuiTokens splits existing Link tokens owned by the deployer into multiple small objects
+// Returns a list of token object IDs that can be used for load testing
+func splitSuiTokens(
+	ctx context.Context,
+	t *testing.T,
+	lggr logger.Logger,
+	env cldf.Environment,
+	state *stateview.CCIPOnChainState,
+	chainSelector uint64,
+	numTokenObjects int,
+	amountPerObject uint64, // amount in smallest unit (e.g., 1e4 for 0.00001 Link)
+	privateKeyHex string, // Sui private key in hex format (without 0x prefix)
+) ([]string, error) {
+	suiChain := env.BlockChains.SuiChains()[chainSelector]
+
+	// Get Link token package ID from state
+	linkTokenPkgID := state.SuiChains[chainSelector].LinkTokenAddress
+	if linkTokenPkgID == "" {
+		return nil, fmt.Errorf("link token not configured for chain %d", chainSelector)
+	}
+
+	// Get deployer address from signer
+	deployerAddr, err := suiChain.Signer.GetAddress()
+	if err != nil {
+		return nil, fmt.Errorf("failed to get deployer address: %w", err)
+	}
+	// Add 0x prefix if not present
+	if !strings.HasPrefix(deployerAddr, "0x") {
+		deployerAddr = "0x" + deployerAddr
+	}
+
+	lggr.Infow("Splitting Link tokens for load test",
+		"chainSelector", chainSelector,
+		"deployerAddr", deployerAddr,
+		"numObjects", numTokenObjects,
+		"amountPerObject", amountPerObject,
+		"linkTokenPkg", linkTokenPkgID)
+
+	// Create Sui client
+	client := sui.NewSuiClient(suiChain.URL)
+
+	// Query for owned Link token objects
+	coinType := fmt.Sprintf("%s::link::LINK", linkTokenPkgID)
+	ownedCoins, err := client.SuiXGetCoins(ctx, models.SuiXGetCoinsRequest{
+		Owner:    deployerAddr,
+		CoinType: coinType,
+		Limit:    10,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("failed to query owned Link tokens: %w", err)
+	}
+
+	if len(ownedCoins.Data) == 0 {
+		return nil, fmt.Errorf("deployer account has no Link tokens to split")
+	}
+
+	lggr.Infow("Found Link token objects owned by deployer",
+		"count", len(ownedCoins.Data),
+		"firstCoinID", ownedCoins.Data[0].CoinObjectId,
+		"firstCoinBalance", ownedCoins.Data[0].Balance)
+
+	// Use the first coin object to split from
+	sourceCoinID := ownedCoins.Data[0].CoinObjectId
+	sourceBalanceStr := ownedCoins.Data[0].Balance
+	sourceBalance, ok := new(big.Int).SetString(sourceBalanceStr, 10)
+	if !ok {
+		return nil, fmt.Errorf("failed to parse source coin balance: %s", sourceBalanceStr)
+	}
+
+	// Calculate total amount needed
+	totalNeeded := new(big.Int).Mul(big.NewInt(int64(numTokenObjects)), big.NewInt(int64(amountPerObject)))
+	if sourceBalance.Cmp(totalNeeded) < 0 {
+		return nil, fmt.Errorf("insufficient balance: have %s, need %s", sourceBalance.String(), totalNeeded.String())
+	}
+
+	lggr.Infow("Splitting source coin into smaller objects",
+		"sourceCoinID", sourceCoinID,
+		"sourceBalance", sourceBalance.String(),
+		"totalNeeded", totalNeeded.String())
+
+	// Create SDK signer using the provided private key (32-byte seed in hex format)
+	// Decode the hex string to get the raw seed bytes
+	seedBytes, err := hex.DecodeString(privateKeyHex)
+	if err != nil {
+		return nil, fmt.Errorf("failed to decode private key hex: %w", err)
+	}
+	if len(seedBytes) != 32 {
+		return nil, fmt.Errorf("invalid seed length: expected 32 bytes, got %d", len(seedBytes))
+	}
+
+	suiSDKSigner := signer.NewSigner(seedBytes)
+
+	// Query for SUI gas coins owned by the deployer
+	gasCoinType := "0x2::sui::SUI"
+	gasCoins, err := client.SuiXGetCoins(ctx, models.SuiXGetCoinsRequest{
+		Owner:    deployerAddr,
+		CoinType: gasCoinType,
+		Limit:    5,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("failed to query gas coins: %w", err)
+	}
+	if len(gasCoins.Data) == 0 {
+		return nil, fmt.Errorf("deployer account has no SUI for gas")
+	}
+
+	lggr.Infow("Found gas coins for transaction",
+		"count", len(gasCoins.Data),
+		"firstGasCoinID", gasCoins.Data[0].CoinObjectId,
+		"firstGasCoinBalance", gasCoins.Data[0].Balance)
+
+	// Build PTB to split the coin into multiple objects
+	tokenObjectIds := make([]string, 0, numTokenObjects)
+
+	// Split in batches to avoid gas limits
+	batchSize := 10
+	for batch := 0; batch < numTokenObjects; batch += batchSize {
+		remaining := numTokenObjects - batch
+		if remaining > batchSize {
+			remaining = batchSize
+		}
+
+		// Build transaction
+		tx := suitx.NewTransaction()
+		tx.SetSigner(suiSDKSigner)
+		tx.SetSuiClient(client.(*sui.Client))
+		tx.SetSender(models.SuiAddress(deployerAddr))
+
+		// Set gas payment - use the first gas coin
+		gasObjRef, err := suitx.NewSuiObjectRef(
+			models.SuiAddress(gasCoins.Data[0].CoinObjectId),
+			gasCoins.Data[0].Version,
+			models.ObjectDigest(gasCoins.Data[0].Digest),
+		)
+		if err != nil {
+			return nil, fmt.Errorf("failed to create gas object ref: %w", err)
+		}
+		tx.SetGasPayment([]suitx.SuiObjectRef{*gasObjRef})
+		tx.SetGasBudget(100000000) // 0.1 SUI gas budget
+
+		// Reference the source coin as an owned object
+		// Need to create proper object reference with version and digest
+		sourceCoinRef, err := suitx.NewSuiObjectRef(
+			models.SuiAddress(sourceCoinID),
+			ownedCoins.Data[0].Version,
+			models.ObjectDigest(ownedCoins.Data[0].Digest),
+		)
+		if err != nil {
+			return nil, fmt.Errorf("failed to create source coin ref: %w", err)
+		}
+
+		// Create CallArg for the owned coin
+		coinCallArg := suitx.CallArg{
+			Object: &suitx.ObjectArg{
+				ImmOrOwnedObject: sourceCoinRef,
+			},
+		}
+		coinArg := tx.Object(coinCallArg)
+
+		// Split the coins one at a time to get individual coin objects
+		// This ensures each split creates a distinct coin object we can track
+		splitCoins := make([]suitx.Argument, 0, remaining)
+		for i := 0; i < remaining; i++ {
+			// Split one coin at a time
+			splitCoin := tx.SplitCoins(coinArg, []suitx.Argument{tx.Pure(amountPerObject)})
+			splitCoins = append(splitCoins, splitCoin)
+		}
+
+		// Transfer all split coins to the deployer (finalizes their creation as distinct objects)
+		if len(splitCoins) > 0 {
+			tx.TransferObjects(splitCoins, tx.Pure(deployerAddr))
+		}
+
+		// Execute the transaction
+		resp, err := tx.Execute(ctx, models.SuiTransactionBlockOptions{
+			ShowEffects:       true,
+			ShowObjectChanges: true,
+		}, "WaitForLocalExecution")
+		if err != nil {
+			return nil, fmt.Errorf("failed to execute split transaction batch %d: %w", batch, err)
+		}
+
+		// After successful execution, update object references for next batch
+		// Both gas coin and source coin versions change after each transaction
+		for _, change := range resp.ObjectChanges {
+			if change.Type == "mutated" {
+				if change.ObjectId == gasCoins.Data[0].CoinObjectId {
+					// Update gas coin version and digest for next batch
+					gasCoins.Data[0].Version = change.Version
+					gasCoins.Data[0].Digest = change.Digest
+					lggr.Debugw("Updated gas coin reference",
+						"newVersion", change.Version,
+						"newDigest", change.Digest)
+				} else if change.ObjectId == sourceCoinID {
+					// Update source coin version and digest for next batch
+					ownedCoins.Data[0].Version = change.Version
+					ownedCoins.Data[0].Digest = change.Digest
+					lggr.Debugw("Updated source coin reference",
+						"newVersion", change.Version,
+						"newDigest", change.Digest)
+				}
+			}
+		}
+
+		// Extract new coin object IDs from object changes
+		if len(resp.ObjectChanges) > 0 {
+			for _, change := range resp.ObjectChanges {
+				if change.Type == "created" && change.ObjectType != "" {
+					// Check if it's a Link coin
+					if strings.Contains(change.ObjectType, "::link::LINK") {
+						tokenObjectIds = append(tokenObjectIds, change.ObjectId)
+						lggr.Debugw("Split token object created",
+							"objectId", change.ObjectId,
+							"batch", batch)
+					}
+				}
+			}
+		}
+
+		lggr.Infow("Completed split batch",
+			"batch", batch,
+			"totalCreated", len(tokenObjectIds))
+	}
+
+	lggr.Infow("Successfully split token objects for load test",
+		"chainSelector", chainSelector,
+		"numObjects", len(tokenObjectIds),
+		"amountPerObject", amountPerObject)
+
+	return tokenObjectIds, nil
 }
 
 // cleanupSuiDatabase cleans up Sui events and transactions tables before test runs
