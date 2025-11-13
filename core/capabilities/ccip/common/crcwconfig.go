@@ -32,7 +32,6 @@ type ChainWriterProviderOpts struct {
 	ExecBatchGasLimit              uint64
 	ChainFamily                    string
 	OfframpProgramAddress          []byte
-	SolanaChainWriterConfigVersion *string
 }
 
 // ChainRWProvider is an interface that defines the methods to get a ContractReader and a ContractWriter.
