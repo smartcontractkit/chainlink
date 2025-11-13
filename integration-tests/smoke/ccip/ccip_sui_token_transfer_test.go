@@ -208,7 +208,7 @@ func Test_CCIPTokenTransfer_Sui2EVM_ManagedTokenPool(t *testing.T) {
 	testhelpers.WaitForTokenBalances(ctx, t, updatedEnv, expectedTokenBalances)
 }
 
-func Test_CCIPTokenTransfer_Sui2EVM(t *testing.T) {
+func Test_CCIPTokenTransfer_Sui2EVM_BurnMintTokenPool(t *testing.T) {
 	ctx := testhelpers.Context(t)
 	e, _, _ := testsetups.NewIntegrationEnvironment(
 		t,
@@ -439,7 +439,7 @@ func Test_CCIPTokenTransfer_Sui2EVM(t *testing.T) {
 
 }
 
-func Test_CCIPTokenTransfer_EVM2SUI(t *testing.T) {
+func Test_CCIPTokenTransfer_EVM2SUI_BurnMintTokenPool(t *testing.T) {
 	ctx := testhelpers.Context(t)
 	e, _, _ := testsetups.NewIntegrationEnvironment(
 		t,
@@ -688,7 +688,7 @@ func Test_CCIPTokenTransfer_EVM2SUI(t *testing.T) {
 	})
 }
 
-func Test_CCIPPureTokenTransfer_EVM2SUI(t *testing.T) {
+func Test_CCIPPureTokenTransfer_EVM2SUI_BurnMintTokenPool(t *testing.T) {
 	ctx := testhelpers.Context(t)
 	e, _, _ := testsetups.NewIntegrationEnvironment(
 		t,
@@ -818,7 +818,7 @@ func Test_CCIPPureTokenTransfer_EVM2SUI(t *testing.T) {
 	testhelpers.WaitForTokenBalances(ctx, t, e.Env, expectedTokenBalances)
 }
 
-func Test_CCIPProgrammableTokenTransfer_EVM2SUI(t *testing.T) {
+func Test_CCIPProgrammableTokenTransfer_EVM2SUI_BurnMintTokenPool(t *testing.T) {
 	ctx := testhelpers.Context(t)
 	e, _, _ := testsetups.NewIntegrationEnvironment(
 		t,
@@ -983,7 +983,7 @@ func Test_CCIPProgrammableTokenTransfer_EVM2SUI(t *testing.T) {
 	testhelpers.WaitForTokenBalances(ctx, t, e.Env, expectedTokenBalances)
 }
 
-func Test_CCIPZeroGasLimitTokenTransfer_EVM2SUI(t *testing.T) {
+func Test_CCIPZeroGasLimitTokenTransfer_EVM2SUI_BurnMintTokenPool(t *testing.T) {
 	ctx := testhelpers.Context(t)
 	e, _, _ := testsetups.NewIntegrationEnvironment(
 		t,
