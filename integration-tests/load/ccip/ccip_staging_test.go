@@ -308,9 +308,57 @@ func TestCCIPLoad_RPS_Staging(t *testing.T) {
 	hasTokenTransfer := false
 
 	for _, src := range *config.CCIP.Load.MessageDetails {
-		if src.MsgType != nil && *src.MsgType == "TokenTransfer" && *src.Ratio > 0 {
+		if src.MsgType != nil && (*src.MsgType == "TokenTransfer" || *src.MsgType == "ProgrammableTokenTransfer") && *src.Ratio > 0 {
 			hasTokenTransfer = true
 			break
+		}
+	}
+
+	// Prepare Sui token pools if token transfers are enabled
+	suiTokenPools := make(map[uint64]*SuiTokenPool)
+	if hasTokenTransfer && *userOverrides.TestnetConfig.Testnet && len(suiChains) > 0 {
+		for _, suiChain := range suiChains {
+			// Calculate number of tokens needed: estimate based on load duration and request frequency
+			loadDuration := userOverrides.GetLoadDuration()
+			requestFreq, _ := time.ParseDuration(*userOverrides.RequestFrequency)
+			estimatedTxCount := int(loadDuration / requestFreq)
+
+			// Add 20% buffer
+			numTokens := int(float64(estimatedTxCount) * 1.2)
+			if numTokens < 10 {
+				numTokens = 10 // Minimum 10 tokens
+			}
+			if numTokens > 100 {
+				numTokens = 100 // Cap at 100 to avoid long minting time
+			}
+
+			lggr.Infow("Splitting Sui tokens for load test",
+				"chainSelector", suiChain,
+				"numTokens", numTokens,
+				"amountPerToken", "1e4 (0.00001 Link)",
+				"estimatedTxCount", estimatedTxCount)
+
+			tokenObjectIds, err := splitSuiTokens(
+				ctx,
+				t,
+				lggr,
+				*env,
+				&state,
+				suiChain,
+				numTokens,
+				1e4,        // 0.00001 Link per token object (10000 smallest units)
+				suiTestKey, // Pass the private key already extracted at the top
+			)
+			if err != nil {
+				lggr.Errorw("Failed to split Sui tokens, token transfers will fail for this chain",
+					"chainSelector", suiChain,
+					"error", err)
+			} else {
+				suiTokenPools[suiChain] = NewSuiTokenPool(lggr, tokenObjectIds)
+				lggr.Infow("Created Sui token pool",
+					"chainSelector", suiChain,
+					"poolSize", len(tokenObjectIds))
+			}
 		}
 	}
 
@@ -373,6 +421,7 @@ func TestCCIPLoad_RPS_Staging(t *testing.T) {
 				suiSourceKeys,
 				mm.InputChan,
 				srcChains,
+				suiTokenPools,
 			)
 			if err != nil {
 				lggr.Errorw("Failed to initialize DestinationGun for", "chainSelector", cs, "error", err)
@@ -428,6 +477,7 @@ func TestCCIPLoad_RPS_Staging(t *testing.T) {
 				suiSourceKeys,
 				mm.InputChan,
 				srcChains,
+				suiTokenPools,
 			)
 			if err != nil {
 				lggr.Errorw("Failed to initialize DestinationGun for", "chainSelector", cs, "error", err)
@@ -476,6 +526,7 @@ func TestCCIPLoad_RPS_Staging(t *testing.T) {
 				suiSourceKeys,
 				mm.InputChan,
 				srcChains,
+				suiTokenPools,
 			)
 			if err != nil {
 				lggr.Errorw("Failed to initialize DestinationGun for", "chainSelector", cs, "error", err)

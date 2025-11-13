@@ -20,6 +20,7 @@ require (
 require (
 	github.com/K-Phoen/grabana v0.22.2
 	github.com/aptos-labs/aptos-go-sdk v1.11.0
+	github.com/block-vision/sui-go-sdk v1.1.2
 	github.com/btcsuite/btcutil v1.0.3-0.20201208143702-a53e38424cce
 	github.com/ethereum/go-ethereum v1.16.2
 	github.com/gagliardetto/solana-go v1.13.0
@@ -131,7 +132,6 @@ require (
 	github.com/bits-and-blooms/bitset v1.21.0 // indirect
 	github.com/blang/semver/v4 v4.0.0 // indirect
 	github.com/blendle/zapdriver v1.3.1 // indirect
-	github.com/block-vision/sui-go-sdk v1.1.2 // indirect
 	github.com/btcsuite/btcd v0.24.2 // indirect
 	github.com/btcsuite/btcd/btcec/v2 v2.3.4 // indirect
 	github.com/btcsuite/btcd/btcutil v1.1.6 // indirect
