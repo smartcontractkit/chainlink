@@ -247,8 +247,6 @@ func ExecuteEVMLogTriggerTest(t *testing.T, testEnv *ttypes.TestEnvironment) {
 
 		message := "Data for log trigger"
 		_ = emitEvent(t, lggr, chainID, bcOutput, msgEmitter, message, workflowConfig)
-		// evmChain := bcOutput.(*evm.Blockchain)
-		// validateWorkflowExecution(t, lggr, testEnv, evmChain, workflowName, common.HexToAddress(workflowConfig.Addresses[0]), startBlock)
 		expectedUserLog := "OnTrigger decoded message: message:" + message
 		err = t_helpers.AssertBeholderMessage(listenerCtx, t, expectedUserLog, lggr, messageChan, kafkaErrChan, 4*time.Minute)
 		require.NoError(t, err, "Expected user log test failed")
