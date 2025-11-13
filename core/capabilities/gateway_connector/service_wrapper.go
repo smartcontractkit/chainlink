@@ -2,6 +2,7 @@ package gatewayconnector
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/jonboulle/clockwork"
@@ -67,7 +68,7 @@ func (e *ServiceWrapper) Start(ctx context.Context) error {
 		configuredNodeAddress := common.HexToAddress(nodeAddress)
 		err := e.keystore.CheckEnabled(ctx, configuredNodeAddress)
 		if err != nil {
-			return err
+			return fmt.Errorf("failed to start GatewayConnectorServiceWrapper: %w (node address: %s)", err, configuredNodeAddress)
 		}
 
 		translated := translateConfigs(conf)
