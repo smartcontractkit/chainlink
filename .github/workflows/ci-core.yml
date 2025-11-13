@@ -12,7 +12,7 @@ on:
       - develop
       - "release/*"
   merge_group:
-  # pull_request:
+  pull_request:
   schedule:
     - cron: "0 0,6,12,18 * * *"
   workflow_dispatch:

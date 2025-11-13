@@ -29,7 +29,6 @@ Inside `core/scripts/cre/environment` directory
  6. Execute the tests in `system-tests/tests/smoke/cre`: `go test -timeout 15m -run "^Test_CRE_V2"`.
 */
 func Test_CRE_V1_Proof_Of_Reserve(t *testing.T) {
-	return
 	testEnv := t_helpers.SetupTestEnvironmentWithConfig(t, t_helpers.GetDefaultTestConfig(t))
 	// WARNING: currently we can't run these tests in parallel, because each test rebuilds environment structs and that includes
 	// logging into CL node with GraphQL API, which allows only 1 session per user at a time.
@@ -40,7 +39,6 @@ func Test_CRE_V1_Proof_Of_Reserve(t *testing.T) {
 }
 
 func Test_CRE_V1_Tron(t *testing.T) {
-	return
 	testEnv := t_helpers.SetupTestEnvironmentWithConfig(t, t_helpers.GetTestConfig(t, "/configs/workflow-don-tron.toml"))
 
 	priceProvider, porWfCfg := beforePoRTest(t, testEnv, "por-workflowV1", PoRWFV1Location)
@@ -48,7 +46,6 @@ func Test_CRE_V1_Tron(t *testing.T) {
 }
 
 func Test_CRE_V1_SecureMint(t *testing.T) {
-	return
 	testEnv := t_helpers.SetupTestEnvironmentWithConfig(t, t_helpers.GetTestConfig(t, "/configs/workflow-don-solana.toml"))
 
 	ExecuteSecureMintTest(t, testEnv)
@@ -76,7 +73,6 @@ func Test_CRE_V1_Billing_EVM_Write(t *testing.T) {
 */
 
 func Test_CRE_V1_Billing_Cron_Beholder(t *testing.T) {
-	return
 	testEnv := t_helpers.SetupTestEnvironmentWithConfig(t, t_helpers.GetDefaultTestConfig(t))
 
 	// TODO remove this when OCR works properly with multiple chains in Local CRE
@@ -98,7 +94,6 @@ To execute tests with v2 contracts start the local CRE first:
  2. Execute the tests in `system-tests/tests/smoke/cre`: `go test -timeout 15m -run "^Test_CRE_V2"`.
 */
 func Test_CRE_V2_Suite(t *testing.T) {
-	return
 	topology := os.Getenv("TOPOLOGY_NAME")
 	t.Run("[v2] Proof Of Reserve - "+topology, func(t *testing.T) {
 		// TODO: Review why this test cannot run with two chains? (CRE-983)
@@ -154,15 +149,15 @@ func Test_CRE_V2_EVM_Suite(t *testing.T) {
 	// TODO: remove this when OCR works properly with multiple chains in Local CRE
 	testEnv.CreEnvironment.Blockchains = []blockchains.Blockchain{testEnv.CreEnvironment.Blockchains[0]}
 
-	// t.Run("[v2] EVM Write - "+topology, func(t *testing.T) {
-	// 	priceProvider, porWfCfg := beforePoRTest(t, testEnv, "por-workflowV2", PoRWFV2Location)
-	// 	porWfCfg.FeedIDs = []string{porWfCfg.FeedIDs[0]}
-	// 	ExecutePoRTest(t, testEnv, priceProvider, porWfCfg, false)
-	// })
+	t.Run("[v2] EVM Write - "+topology, func(t *testing.T) {
+		priceProvider, porWfCfg := beforePoRTest(t, testEnv, "por-workflowV2", PoRWFV2Location)
+		porWfCfg.FeedIDs = []string{porWfCfg.FeedIDs[0]}
+		ExecutePoRTest(t, testEnv, priceProvider, porWfCfg, false)
+	})
 
-	// t.Run("[v2] EVM Read - "+topology, func(t *testing.T) {
-	// 	ExecuteEVMReadTest(t, testEnv)
-	// })
+	t.Run("[v2] EVM Read - "+topology, func(t *testing.T) {
+		ExecuteEVMReadTest(t, testEnv)
+	})
 
 	t.Run("[v2] EVM LogTrigger - "+topology, func(t *testing.T) {
 		// quarantine.Flaky(t, "PLEX-1894")
@@ -171,14 +166,12 @@ func Test_CRE_V2_EVM_Suite(t *testing.T) {
 }
 
 func Test_CRE_V2_HTTP_Action_Suite(t *testing.T) {
-	return
 	testEnv := t_helpers.SetupTestEnvironmentWithConfig(t, t_helpers.GetDefaultTestConfig(t), v2RegistriesFlags...)
 
 	ExecuteHTTPActionCRUDSuccessTest(t, testEnv)
 }
 
 func Test_CRE_V2_Beholder_Suite(t *testing.T) {
-	return
 	testEnv := t_helpers.SetupTestEnvironmentWithConfig(t, t_helpers.GetDefaultTestConfig(t), append(v2RegistriesFlags, "--with-dashboards")...)
 
 	ExecuteLogStreamingTest(t, testEnv)
