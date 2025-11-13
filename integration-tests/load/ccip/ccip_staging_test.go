@@ -348,6 +348,7 @@ func TestCCIPLoad_RPS_Staging(t *testing.T) {
 				numTokens,
 				1e4,        // 0.00001 Link per token object (10000 smallest units)
 				suiTestKey, // Pass the private key already extracted at the top
+				*userOverrides.TestnetConfig.SuiConfig.TokenToTransferPkgID,
 			)
 			if err != nil {
 				lggr.Errorw("Failed to split Sui tokens, token transfers will fail for this chain",

@@ -8,7 +8,7 @@ import (
 
 var TestnetBnMTokenAddress = map[uint64]common.Address{
 	chainsel.ETHEREUM_TESTNET_SEPOLIA.Selector:              common.HexToAddress("0xFd57b4ddBf88a4e07fF4e34C487b99af2Fe82a05"),
-	chainsel.BINANCE_SMART_CHAIN_TESTNET.Selector:           common.HexToAddress("0xbFA2ACd33ED6EEc0ed3Cc06bF1ac38d22b36B9e9"),
+	chainsel.BINANCE_SMART_CHAIN_TESTNET.Selector:           common.HexToAddress("0x0A3c837dF81fd77956784E90245aa527A024690d"),
 	chainsel.ETHEREUM_TESTNET_SEPOLIA_ARBITRUM_1.Selector:   common.HexToAddress("0xA8C0c11bf64AF62CDCA6f93D3769B88BdD7cb93D"),
 	chainsel.AVALANCHE_TESTNET_FUJI.Selector:                common.HexToAddress("0xD21341536c5cF5EB1bcb58f6723cE26e8D8E90e4"),
 	chainsel.ETHEREUM_TESTNET_SEPOLIA_OPTIMISM_1.Selector:   common.HexToAddress("0x8aF4204e30565DF93352fE8E1De78925F6664dA7"),

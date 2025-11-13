@@ -231,7 +231,7 @@ func SendSuiCCIPRequest(e cldf.Environment, cfg *ccipclient.CCIPSendReqConfig) (
 
 		// For SUI -> EVM BurnMint Pool token Transfer, we can use msg.Receiver as tokenReceiver, this field is only used in usdc token pool
 		// bc we need to check the recipient with Circle's packages from the onramp side before sending USDC. and it's not used anyway else.
-		decodedTokenReceiver, _ := hex.DecodeString("0000000000000000000000000000000000000000000000000000000000000000")
+		decodedTokenReceiver := msg.Receiver
 		var tokenReceiver [32]byte
 		copy(tokenReceiver[:], decodedTokenReceiver)
 
@@ -287,9 +287,13 @@ func SendSuiCCIPRequest(e cldf.Environment, cfg *ccipclient.CCIPSendReqConfig) (
 			suiBind.Object{Id: BurnMintTPState}, // BurnMintstate
 		}
 
+		// TODO move this to overrides or read from addressbook
+		// THIS IS THE PKGID OF THE MINTED TOKEN
+		typeArgsListMINTEDTOKENTOSENDPkgID := []string{"0x406964d837bc10f14e26a40b4462c58cce0b9e57fc5265a6272dd2aba57e15a4" + "::link::LINK"}
+
 		lockOrBurnParamsCall, err := BurnMintTPContract.EncodeCallArgsWithGenerics(
 			"lock_or_burn",
-			typeArgsListLinkTokenPkgID,
+			typeArgsListMINTEDTOKENTOSENDPkgID,
 			typeParamsList,
 			paramTypesLockBurn,
 			paramValuesLockBurn,
