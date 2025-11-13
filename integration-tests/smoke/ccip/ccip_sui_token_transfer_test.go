@@ -149,8 +149,9 @@ func Test_CCIPTokenTransfer_Sui2EVM_ManagedTokenPool(t *testing.T) {
 			FeeToken:       outputMap.Objects.MintedLinkTokenObjectId,
 			SuiTokens: []testhelpers.SuiTokenAmount{
 				{
-					Token:  outputMapTransferToken.Objects.MintedLinkTokenObjectId,
-					Amount: 1000000000, // Send 1Link to EVM
+					TokenPoolType: sui_deployment.TokenPoolTypeManaged,
+					Token:         outputMapTransferToken.Objects.MintedLinkTokenObjectId,
+					Amount:        1000000000, // Send 1Link to EVM
 				},
 			},
 			ExpectedTokenBalances: []testhelpers.ExpectedBalance{
@@ -168,8 +169,9 @@ func Test_CCIPTokenTransfer_Sui2EVM_ManagedTokenPool(t *testing.T) {
 			ExpectedStatus: testhelpers.EXECUTION_STATE_SUCCESS,
 			SuiTokens: []testhelpers.SuiTokenAmount{
 				{
-					Token:  outputMapTransferToken1.Objects.MintedLinkTokenObjectId,
-					Amount: 2000000000, // Send 1Link to EVM
+					TokenPoolType: sui_deployment.TokenPoolTypeManaged,
+					Token:         outputMapTransferToken1.Objects.MintedLinkTokenObjectId,
+					Amount:        2000000000, // Send 1Link to EVM
 				},
 			},
 			FeeToken: outputMap.Objects.MintedLinkTokenObjectId,
@@ -313,8 +315,9 @@ func Test_CCIPTokenTransfer_Sui2EVM(t *testing.T) {
 			FeeToken:       outputMap.Objects.MintedLinkTokenObjectId,
 			SuiTokens: []testhelpers.SuiTokenAmount{
 				{
-					Token:  outputMapTransferToken.Objects.MintedLinkTokenObjectId,
-					Amount: 1000000000, // Send 1Link to EVM
+					TokenPoolType: sui_deployment.TokenPoolTypeBurnMint,
+					Token:         outputMapTransferToken.Objects.MintedLinkTokenObjectId,
+					Amount:        1000000000, // Send 1Link to EVM
 				},
 			},
 			ExpectedTokenBalances: []testhelpers.ExpectedBalance{
@@ -332,8 +335,9 @@ func Test_CCIPTokenTransfer_Sui2EVM(t *testing.T) {
 			ExpectedStatus: testhelpers.EXECUTION_STATE_SUCCESS,
 			SuiTokens: []testhelpers.SuiTokenAmount{
 				{
-					Token:  outputMapTransferToken1.Objects.MintedLinkTokenObjectId,
-					Amount: 2000000000, // Send 1Link to EVM
+					TokenPoolType: sui_deployment.TokenPoolTypeBurnMint,
+					Token:         outputMapTransferToken1.Objects.MintedLinkTokenObjectId,
+					Amount:        2000000000, // Send 1Link to EVM
 				},
 			},
 			FeeToken: outputMap.Objects.MintedLinkTokenObjectId,
@@ -389,8 +393,9 @@ func Test_CCIPTokenTransfer_Sui2EVM(t *testing.T) {
 			ExtraArgs: testhelpers.MakeBCSEVMExtraArgsV2(big.NewInt(int64(suiFeeQuoterDestChainConfig.MaxPerMsgGasLimit)), false),
 			TokenAmounts: []testhelpers.SuiTokenAmount{
 				{
-					Token:  "0x0",
-					Amount: 1e9,
+					TokenPoolType: sui_deployment.TokenPoolTypeBurnMint,
+					Token:         "0x0",
+					Amount:        1e9,
 				},
 			}}
 
@@ -414,8 +419,9 @@ func Test_CCIPTokenTransfer_Sui2EVM(t *testing.T) {
 			ExtraArgs: testhelpers.MakeBCSEVMExtraArgsV2(big.NewInt(int64(suiFeeQuoterDestChainConfig.MaxPerMsgGasLimit+10)), false),
 			TokenAmounts: []testhelpers.SuiTokenAmount{
 				{
-					Token:  outputMapTransferToken2.Objects.MintedLinkTokenObjectId,
-					Amount: 1500000000,
+					TokenPoolType: sui_deployment.TokenPoolTypeBurnMint,
+					Token:         outputMapTransferToken2.Objects.MintedLinkTokenObjectId,
+					Amount:        1500000000,
 				},
 			}}
 
