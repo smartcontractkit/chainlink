@@ -73,10 +73,10 @@ func (d *Delegate) ServicesForSpec(ctx context.Context, spec job.Job) (services 
 	}
 
 	// Chains in the committee verifier configuration should dictate what we end up verifying for.
-	var chainsInConfig []protocol.ChainSelector
+	var chainsInConfig = make([]protocol.ChainSelector, 0, len(decodedCfg.CommitteeVerifierAddresses))
 	for chainSelStr := range decodedCfg.CommitteeVerifierAddresses {
-		parsed, err := strconv.ParseUint(chainSelStr, 10, 64)
-		if err != nil {
+		parsed, err2 := strconv.ParseUint(chainSelStr, 10, 64)
+		if err2 != nil {
 			return nil, fmt.Errorf("failed to parse chain selector string from committee verifier config (%s): %w", chainSelStr, err)
 		}
 		chainsInConfig = append(chainsInConfig, protocol.ChainSelector(parsed))
@@ -98,8 +98,8 @@ func (d *Delegate) ServicesForSpec(ctx context.Context, spec job.Job) (services 
 		// fall back to the keys current set in the TOML config
 		// TODO: this is a temporary solution to allow the node to run the verifier job but needs
 		// to be fixed.
-		apiKey = decodedCfg.AggregatorAPIKey       //nolint:staticcheck
-		apiSecret = decodedCfg.AggregatorSecretKey //nolint:staticcheck
+		apiKey = decodedCfg.AggregatorAPIKey       //nolint:staticcheck // will be fixed in follow ups
+		apiSecret = decodedCfg.AggregatorSecretKey //nolint:staticcheck // will be fixed in follow ups
 		d.lggr.Warnw("no aggregator secrets found for verifier ID, using keys current set in the TOML config",
 			"verifierID", decodedCfg.VerifierID)
 	}
@@ -116,7 +116,6 @@ func (d *Delegate) ServicesForSpec(ctx context.Context, spec job.Job) (services 
 		legacyChains,
 	)
 	if err != nil {
-		d.lggr.Errorw("failed to create verification coordinator", "error", err)
 		return nil, fmt.Errorf("failed to create verification coordinator: %w", err)
 	}
 

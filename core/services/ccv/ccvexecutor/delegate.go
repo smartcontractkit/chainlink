@@ -70,10 +70,10 @@ func (d *Delegate) ServicesForSpec(ctx context.Context, spec job.Job) (services 
 	}
 
 	// Chains in the executor configuration should dictate what we end up verifying for.
-	var chainsInConfig []protocol.ChainSelector
+	var chainsInConfig = make([]protocol.ChainSelector, 0, len(decodedCfg.OffRampAddresses))
 	for chainSelStr := range decodedCfg.OffRampAddresses {
-		parsed, err := strconv.ParseUint(chainSelStr, 10, 64)
-		if err != nil {
+		parsed, err2 := strconv.ParseUint(chainSelStr, 10, 64)
+		if err2 != nil {
 			return nil, fmt.Errorf("failed to parse chain selector string from executor offramp addresses config (%s): %w", chainSelStr, err)
 		}
 		chainsInConfig = append(chainsInConfig, protocol.ChainSelector(parsed))
@@ -87,23 +87,23 @@ func (d *Delegate) ServicesForSpec(ctx context.Context, spec job.Job) (services 
 	var fromAddresses = make(map[protocol.ChainSelector][]common.Address)
 
 	for chainSelectorString := range decodedCfg.OffRampAddresses {
-		chainSel, err := strconv.ParseUint(chainSelectorString, 10, 64)
-		if err != nil {
-			return nil, fmt.Errorf("failed to parse chain selector from executor config (%s): %w", chainSelectorString, err)
+		chainSel, err3 := strconv.ParseUint(chainSelectorString, 10, 64)
+		if err3 != nil {
+			return nil, fmt.Errorf("failed to parse chain selector from executor config (%s): %w", chainSelectorString, err3)
 		}
-		id, err := chainselectors.GetChainIDFromSelector(chainSel)
-		if err != nil {
-			return nil, fmt.Errorf("failed to get chain ID from selector (%s): %w", chainSelectorString, err)
+		id, err3 := chainselectors.GetChainIDFromSelector(chainSel)
+		if err3 != nil {
+			return nil, fmt.Errorf("failed to get chain ID from selector (%s): %w", chainSelectorString, err3)
 		}
 		chainID, ok := new(big.Int).SetString(id, 10)
 		if !ok {
-			return nil, fmt.Errorf("failed to convert chain ID (%s) to big.Int: %w", id, err)
+			return nil, fmt.Errorf("failed to convert chain ID (%s) to big.Int: %w", id, err3)
 		}
 		chainSelector := protocol.ChainSelector(chainSel)
 		roundRobins[chainSelector] = NewRoundRobin(d.ethKs, chainID)
-		addressesForChain, err := d.ethKs.EnabledAddressesForChain(ctx, chainID)
-		if err != nil {
-			return nil, fmt.Errorf("failed to get all addresses for chain %s from eth keystore: %w", chainID.String(), err)
+		addressesForChain, err3 := d.ethKs.EnabledAddressesForChain(ctx, chainID)
+		if err3 != nil {
+			return nil, fmt.Errorf("failed to get all addresses for chain %s from eth keystore: %w", chainID.String(), err3)
 		}
 		fromAddresses[chainSelector] = addressesForChain
 	}
