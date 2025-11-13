@@ -701,7 +701,7 @@ func HandleTokenAndManagedTokenPoolDeploymentForSUI(e cldf.Environment, suiChain
 	e, _, err = commoncs.ApplyChangesets(&testing.T{}, e, []commoncs.ConfiguredChangeSet{
 		commoncs.Configure(sui_cs.DeployTPAndConfigure{}, sui_cs.DeployTPAndConfigureConfig{
 			SuiChainSelector: suiChainSel,
-			TokenPoolTypes:   []string{"bnm"},
+			TokenPoolTypes:   []string{"managed"},
 			ManagedTPInput: managedtokenpoolops.DeployAndInitManagedTokenPoolInput{
 				CoinObjectTypeArg:         linkTokenPkgID + "::link::LINK",
 				CoinMetadataObjectId:      linkTokenObjectMetadataID,
