@@ -705,7 +705,7 @@ func HandleTokenAndManagedTokenPoolDeploymentForSUI(e cldf.Environment, suiChain
 			ManagedTPInput: managedtokenpoolops.DeployAndInitManagedTokenPoolInput{
 				CoinObjectTypeArg:         linkTokenPkgID + "::link::LINK",
 				CoinMetadataObjectId:      linkTokenObjectMetadataID,
-				MintCapObjectId:           state.SuiChains[suiChainSel].ManagedTokens[TokenSymbolLINK].MinterCapObjectId[0],
+				MintCapObjectId:           state.SuiChains[suiChainSel].ManagedTokens[TokenSymbolLINK].MinterCapObjectIds[0],
 				ManagedTokenStateObjectId: state.SuiChains[suiChainSel].ManagedTokens[TokenSymbolLINK].StateObjectId,
 				ManagedTokenOwnerCapId:    state.SuiChains[suiChainSel].ManagedTokens[TokenSymbolLINK].OwnerCapObjectId,
 				// apply dest chain updates
