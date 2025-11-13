@@ -1,0 +1,127 @@
+name: CI Pipeline
+
+on:
+  push:
+    branches:
+      - develop
+  pull_request:
+    branches:
+      - develop
+  workflow_dispatch:
+
+concurrency:
+  group: ci-pipeline-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  detect-changes:
+    runs-on: ubuntu-latest
+    outputs:
+      deployment-changed: ${{ steps.match-some.outputs.deployment }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Ensure develop branch is fetched
+        run: git fetch origin develop:origin/develop || echo "develop already up-to-date"
+
+      - name: Detect Changed Paths
+        id: match-some
+        uses: dorny/paths-filter@v3.0.2
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          ref: ${{ github.sha }}
+          base: origin/develop
+          filters: |
+            deployment:
+              - 'deployment/**'
+            workflow:
+              - '.github/workflows/**'
+
+  go-cache:
+    needs: detect-changes
+    runs-on: ${{ matrix.runs-on }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runs-on: ubuntu-latest
+            suffix: "Core (GitHub-hosted)"
+            go-mod-directory: "."
+          - runs-on: ubuntu-latest
+            suffix: "Deployment (GitHub-hosted)"
+            go-mod-directory: "deployment/"
+          - runs-on: [self-hosted, c6id]
+            suffix: "Core (Self-hosted)"
+            go-mod-directory: "."
+          - runs-on: [self-hosted, c6id]
+            suffix: "Deployment (Self-hosted)"
+            go-mod-directory: "deployment/"
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.21'
+
+      - name: Cache Go modules
+        id: cache
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cache/go-build
+            ~/go/pkg/mod
+          key: go-mod-${{ runner.os }}-${{ hashFiles(format('{0}/**/go.sum', matrix.go-mod-directory)) }}
+          restore-keys: |
+            go-mod-${{ runner.os }}-
+
+      - name: Download dependencies
+        if: ${{ steps.cache.outputs.cache-hit != 'true' }}
+        working-directory: ${{ matrix.go-mod-directory }}
+        run: |
+          echo "::group::go mod download"
+          go mod download
+          echo "::endgroup::"
+
+      - name: Install LOOP plugins
+        if: ${{ steps.cache.outputs.cache-hit != 'true' }}
+        run: |
+          echo "::group::Install LOOP plugins"
+          make install-plugins-public
+          echo "::endgroup::"
+
+      - name: Install testing tools
+        if: ${{ steps.cache.outputs.cache-hit != 'true' }}
+        run: |
+          echo "::group::Install testing tools"
+          go install gotest.tools/gotestsum@v1.12.3
+          echo "::endgroup::"
+
+  deploy:
+    needs: [detect-changes, go-cache]
+    if: needs.detect-changes.outputs.deployment-changed == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v2
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: us-east-1
+
+      - name: Debug AWS CLI
+        run: aws sts get-caller-identity
+
+      - name: Run Deployment Scripts
+        run: |
+          echo "Running deployment..."
+          aws s3 sync deployment/ s3://your-bucket-name --delete
+          # Add other deployment commands here
