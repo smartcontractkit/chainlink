@@ -217,9 +217,10 @@ func (l *launcher) processUpdate(ctx context.Context, updated map[registrysyncer
 		)
 		if err != nil {
 			l.lggr.Errorw("Some oracles failed to be created", "donID", donID, "err", err)
+			continue
 		}
 		if len(newPlugins) == 0 {
-			// not a member of this DON or no oracles could be created
+			// not a member of this DON.
 			continue
 		}
 
@@ -256,9 +257,10 @@ func (l *launcher) processAdded(ctx context.Context, added map[registrysyncer.Do
 		)
 		if err != nil {
 			l.lggr.Errorw("Some oracles failed to be created", "donID", donID, "err", err)
+			continue
 		}
 		if len(newPlugins) == 0 {
-			// not a member of this DON or no oracles could be created
+			// not a member of this DON.
 			continue
 		}
 
@@ -326,7 +328,7 @@ func updateDON(
 		if _, ok := prevPlugins[digest]; !ok {
 			oracle, err := oracleCreator.Create(ctx, don.ID, cctypes.OCR3ConfigWithMeta(c))
 			if err != nil {
-				return nil, fmt.Errorf("failed to create CCIP oracle: %w for digest %x", err, digest)
+				return nil, fmt.Errorf("failed to create CCIP oracle: %w for digest %x", err, digest[:])
 			}
 
 			newP[digest] = oracle
@@ -339,9 +341,7 @@ func updateDON(
 }
 
 // createDON is a pure function that handles the case where a new DON is added to the capability registry.
-// It returns up to 4 plugins that are later started. It can create a partial state in which some oracles are properly
-// created and stored in the map, while others failed to be created. The caller is responsible for deciding what to do
-// in that situation.
+// It returns up to 4 plugins that are later started.
 func createDON(
 	ctx context.Context,
 	lggr logger.Logger,
@@ -354,25 +354,21 @@ func createDON(
 		lggr.Infow("Not a member of this DON and not a bootstrap node either, skipping", "donID", don.ID, "p2pID", p2pID.String())
 		return nil, nil
 	}
-	var aggErr error
 	p := make(pluginRegistry)
-
 	for _, config := range configs {
 		digest, err := ocrtypes.BytesToConfigDigest(config.ConfigDigest[:])
 		if err != nil {
-			aggErr = errors.Join(aggErr, fmt.Errorf("digest does not match type %w", err))
-			continue
+			return nil, fmt.Errorf("digest does not match type %w", err)
 		}
 
 		oracle, err := oracleCreator.Create(ctx, don.ID, cctypes.OCR3ConfigWithMeta(config))
 		if err != nil {
-			aggErr = errors.Join(aggErr, fmt.Errorf("failed to create CCIP oracle: %w for digest %x", err, digest))
-			continue
+			return nil, fmt.Errorf("failed to create CCIP oracle: %w for digest %x", err, digest[:])
 		}
 
 		p[digest] = oracle
 	}
-	return p, aggErr
+	return p, nil
 }
 
 func getConfigsForDon(
