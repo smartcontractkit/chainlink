@@ -941,7 +941,7 @@ func newCREServices(
 	srvcs = append(srvcs, closerService{name: "WorkflowExecutionLimiter", Closer: workflowLimits})
 
 	var gatewayConnectorWrapper *gatewayconnector.ServiceWrapper
-	if capCfg.GatewayConnector().DonID() != "" {
+	if capCfg.GatewayConnector().Valid() {
 		globalLogger.Debugw("Creating GatewayConnector wrapper", "donID", capCfg.GatewayConnector().DonID())
 		chainID, ok := new(big.Int).SetString(capCfg.GatewayConnector().ChainIDForNodeKey(), 0)
 		if !ok {

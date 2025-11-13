@@ -49,6 +49,7 @@ type GatewayConnector interface {
 	WSHandshakeTimeoutMillis() uint32
 	AuthMinChallengeLen() int
 	AuthTimestampToleranceSec() uint32
+	Valid() bool
 }
 
 type ConnectorGateway interface {

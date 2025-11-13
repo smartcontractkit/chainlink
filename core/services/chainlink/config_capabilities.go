@@ -255,12 +255,17 @@ type gatewayConnector struct {
 func (c *gatewayConnector) ChainIDForNodeKey() string {
 	return *c.c.ChainIDForNodeKey
 }
+
 func (c *gatewayConnector) NodeAddress() string {
 	return *c.c.NodeAddress
 }
 
 func (c *gatewayConnector) DonID() string {
 	return *c.c.DonID
+}
+
+func (c *gatewayConnector) Valid() bool {
+	return c.ChainIDForNodeKey() != "" && c.NodeAddress() != "" && c.DonID() != ""
 }
 
 func (c *gatewayConnector) Gateways() []config.ConnectorGateway {
