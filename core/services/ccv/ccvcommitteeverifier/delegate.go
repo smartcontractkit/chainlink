@@ -3,10 +3,12 @@ package ccvcommitteeverifier
 import (
 	"context"
 	"fmt"
+	"strconv"
 
 	burntsushitoml "github.com/BurntSushi/toml"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/smartcontractkit/chainlink-ccv/integration/pkg/constructors"
+	"github.com/smartcontractkit/chainlink-ccv/protocol"
 	"github.com/smartcontractkit/chainlink-ccv/verifier"
 	commontypes "github.com/smartcontractkit/chainlink-common/pkg/types"
 	"github.com/smartcontractkit/chainlink/v2/core/config"
@@ -66,10 +68,22 @@ func (d *Delegate) ServicesForSpec(ctx context.Context, spec job.Job) (services 
 
 	err = decodedCfg.Monitoring.Validate()
 	if err != nil {
-		return nil, fmt.Errorf("failed to validate monitoring config: %w", err)
+		return nil, fmt.Errorf("failed to validate committee verifier monitoring config: %w", err)
 	}
 
-	legacyChains := ccvcommon.GetLegacyChains(d.lggr, d.chainServices)
+	// Chains in the committee verifier configuration should dictate what we end up verifying for.
+	var chainsInConfig []protocol.ChainSelector
+	for chainSelStr := range decodedCfg.CommitteeVerifierAddresses {
+		parsed, err := strconv.ParseUint(chainSelStr, 10, 64)
+		if err != nil {
+			return nil, fmt.Errorf("failed to parse chain selector string from committee verifier config (%s): %w", chainSelStr, err)
+		}
+		chainsInConfig = append(chainsInConfig, protocol.ChainSelector(parsed))
+	}
+	legacyChains, err := ccvcommon.GetLegacyChains(d.lggr, d.chainServices, chainsInConfig)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get legacy chains: %w", err)
+	}
 
 	signingKey, err := d.ethKs.Get(ctx, decodedCfg.SignerAddress)
 	if err != nil {
@@ -86,7 +100,7 @@ func (d *Delegate) ServicesForSpec(ctx context.Context, spec job.Job) (services 
 		apiKey = decodedCfg.AggregatorAPIKey
 		apiSecret = decodedCfg.AggregatorSecretKey
 		d.lggr.Warnw("no aggregator secrets found for verifier ID, using keys current set in the TOML config",
-			"verifierID", decodedCfg.VerifierID, "apiKey", apiKey, "apiSecret", apiSecret)
+			"verifierID", decodedCfg.VerifierID)
 	}
 
 	vc, err := constructors.NewVerificationCoordinator(

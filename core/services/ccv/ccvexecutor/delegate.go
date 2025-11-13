@@ -63,7 +63,24 @@ func (d *Delegate) ServicesForSpec(ctx context.Context, spec job.Job) (services 
 		return nil, fmt.Errorf("failed to validate executor config: %w", err)
 	}
 
-	legacyChains := ccvcommon.GetLegacyChains(d.lggr, d.chainServices)
+	err = decodedCfg.Monitoring.Validate()
+	if err != nil {
+		return nil, fmt.Errorf("failed to validate executor monitoring config: %w", err)
+	}
+
+	// Chains in the executor configuration should dictate what we end up verifying for.
+	var chainsInConfig []protocol.ChainSelector
+	for chainSelStr := range decodedCfg.OffRampAddresses {
+		parsed, err := strconv.ParseUint(chainSelStr, 10, 64)
+		if err != nil {
+			return nil, fmt.Errorf("failed to parse chain selector string from executor offramp addresses config (%s): %w", chainSelStr, err)
+		}
+		chainsInConfig = append(chainsInConfig, protocol.ChainSelector(parsed))
+	}
+	legacyChains, err := ccvcommon.GetLegacyChains(d.lggr, d.chainServices, chainsInConfig)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get legacy chains: %w", err)
+	}
 
 	var roundRobins = make(map[protocol.ChainSelector]keys.RoundRobin)
 	var fromAddresses = make(map[protocol.ChainSelector][]common.Address)
