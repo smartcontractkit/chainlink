@@ -861,9 +861,9 @@ jobs:
         with:
           repository: chainlink-solana-tests
           tag: ${{ needs.get-solana-sha.outputs.sha }}
-          AWS_REGION: ${{ secrets.QA_AWS_REGION }}
-          AWS_ROLE_TO_ASSUME: ${{ secrets.QA_AWS_ROLE_TO_ASSUME }}
-
+          aws-region: ${{ secrets.QA_AWS_REGION }}
+          aws-role-to-assume: ${{ secrets.QA_AWS_ROLE_TO_ASSUME }}
+          
   solana-build-contracts:
     name: Solana Build Artifacts
     if: needs.solana-smoke-tests-setup.outputs.should-run-solana-tests == 'true'
