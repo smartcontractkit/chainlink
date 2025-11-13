@@ -16,7 +16,6 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	chainsel "github.com/smartcontractkit/chain-selectors"
-	"github.com/smartcontractkit/chainlink/deployment/cre/common/strategies"
 	mcmstypes "github.com/smartcontractkit/mcms/types"
 	"golang.org/x/exp/maps"
 	"google.golang.org/protobuf/proto"
@@ -32,8 +31,8 @@ import (
 	cldf_offchain "github.com/smartcontractkit/chainlink-deployments-framework/offchain"
 
 	"github.com/smartcontractkit/chainlink/deployment"
-
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
+	"github.com/smartcontractkit/chainlink/deployment/cre/common/strategies"
 	"github.com/smartcontractkit/chainlink/deployment/cre/ocr3"
 )
 
