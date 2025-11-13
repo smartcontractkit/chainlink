@@ -14,8 +14,6 @@ import (
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
 	workflow_registry_v2 "github.com/smartcontractkit/chainlink-evm/gethwrappers/workflow/generated/workflow_registry_wrapper_v2"
-
-	"github.com/smartcontractkit/chainlink/deployment/cre/contracts"
 )
 
 const (
@@ -27,10 +25,9 @@ const (
 
 // AdminPauseWorkflow Operation
 type AdminPauseWorkflowOpInput struct {
-	ChainSelector uint64                `json:"chainSelector"`
-	Qualifier     string                `json:"qualifier"` // Qualifier to identify the specific workflow registry
-	WorkflowID    [32]byte              `json:"workflowID"`
-	MCMSConfig    *contracts.MCMSConfig `json:"mcmsConfig,omitempty"`
+	ChainSelector uint64   `json:"chainSelector"`
+	Qualifier     string   `json:"qualifier"` // Qualifier to identify the specific workflow registry
+	WorkflowID    [32]byte `json:"workflowID"`
 }
 
 type AdminPauseWorkflowOpOutput struct {
@@ -53,7 +50,7 @@ var AdminPauseWorkflowOp = operations.NewOperation(
 			return AdminPauseWorkflowOpOutput{}, fmt.Errorf("failed to execute AdminPauseWorkflow: %w", err)
 		}
 
-		if input.MCMSConfig != nil {
+		if operation != nil {
 			deps.Env.Logger.Infof("Created MCMS proposal for AdminPauseWorkflow %x on chain %d", input.WorkflowID, input.ChainSelector)
 		} else {
 			deps.Env.Logger.Infof("Successfully admin paused workflow %x on chain %d", input.WorkflowID, input.ChainSelector)
@@ -69,10 +66,9 @@ var AdminPauseWorkflowOp = operations.NewOperation(
 
 // AdminBatchPauseWorkflows Operation
 type AdminBatchPauseWorkflowsOpInput struct {
-	ChainSelector uint64                `json:"chainSelector"`
-	Qualifier     string                `json:"qualifier"` // Qualifier to identify the specific workflow registry
-	WorkflowIDs   [][32]byte            `json:"workflowIDs"`
-	MCMSConfig    *contracts.MCMSConfig `json:"mcmsConfig,omitempty"`
+	ChainSelector uint64     `json:"chainSelector"`
+	Qualifier     string     `json:"qualifier"` // Qualifier to identify the specific workflow registry
+	WorkflowIDs   [][32]byte `json:"workflowIDs"`
 }
 
 type AdminBatchPauseWorkflowsOpOutput struct {
@@ -99,7 +95,7 @@ var AdminBatchPauseWorkflowsOp = operations.NewOperation(
 			return AdminBatchPauseWorkflowsOpOutput{}, fmt.Errorf("failed to execute AdminBatchPauseWorkflows: %w", err)
 		}
 
-		if input.MCMSConfig != nil {
+		if operation != nil {
 			deps.Env.Logger.Infof("Created MCMS proposal for AdminBatchPauseWorkflows (%d workflows) on chain %d", len(input.WorkflowIDs), input.ChainSelector)
 		} else {
 			deps.Env.Logger.Infof("Successfully admin batch paused %d workflows on chain %d", len(input.WorkflowIDs), input.ChainSelector)
@@ -115,11 +111,10 @@ var AdminBatchPauseWorkflowsOp = operations.NewOperation(
 
 // AdminPauseAllByOwner Operation
 type AdminPauseAllByOwnerOpInput struct {
-	ChainSelector uint64                `json:"chainSelector"`
-	Qualifier     string                `json:"qualifier"` // Qualifier to identify the specific workflow registry
-	Owner         common.Address        `json:"owner"`
-	Limit         *big.Int              `json:"limit"`
-	MCMSConfig    *contracts.MCMSConfig `json:"mcmsConfig,omitempty"`
+	ChainSelector uint64         `json:"chainSelector"`
+	Qualifier     string         `json:"qualifier"` // Qualifier to identify the specific workflow registry
+	Owner         common.Address `json:"owner"`
+	Limit         *big.Int       `json:"limit"`
 }
 
 type AdminPauseAllByOwnerOpOutput struct {
@@ -142,7 +137,7 @@ var AdminPauseAllByOwnerOp = operations.NewOperation(
 			return AdminPauseAllByOwnerOpOutput{}, fmt.Errorf("failed to execute AdminPauseAllByOwner: %w", err)
 		}
 
-		if input.MCMSConfig != nil {
+		if operation != nil {
 			deps.Env.Logger.Infof("Created MCMS proposal for AdminPauseAllByOwner (%s) on chain %d", input.Owner.String(), input.ChainSelector)
 		} else {
 			deps.Env.Logger.Infof("Successfully admin paused all workflows for owner %s on chain %d", input.Owner.String(), input.ChainSelector)
@@ -158,11 +153,10 @@ var AdminPauseAllByOwnerOp = operations.NewOperation(
 
 // AdminPauseAllByDON Operation
 type AdminPauseAllByDONOpInput struct {
-	ChainSelector uint64                `json:"chainSelector"`
-	Qualifier     string                `json:"qualifier"` // Qualifier to identify the specific workflow registry
-	DONFamily     string                `json:"donFamily"`
-	Limit         *big.Int              `json:"limit"`
-	MCMSConfig    *contracts.MCMSConfig `json:"mcmsConfig,omitempty"`
+	ChainSelector uint64   `json:"chainSelector"`
+	Qualifier     string   `json:"qualifier"` // Qualifier to identify the specific workflow registry
+	DONFamily     string   `json:"donFamily"`
+	Limit         *big.Int `json:"limit"`
 }
 
 type AdminPauseAllByDONOpOutput struct {
@@ -185,7 +179,7 @@ var AdminPauseAllByDONOp = operations.NewOperation(
 			return AdminPauseAllByDONOpOutput{}, fmt.Errorf("failed to execute AdminPauseAllByDON: %w", err)
 		}
 
-		if input.MCMSConfig != nil {
+		if operation != nil {
 			deps.Env.Logger.Infof("Created MCMS proposal for AdminPauseAllByDON (%s) on chain %d", input.DONFamily, input.ChainSelector)
 		} else {
 			deps.Env.Logger.Infof("Successfully admin paused all workflows for DON family %s on chain %d", input.DONFamily, input.ChainSelector)

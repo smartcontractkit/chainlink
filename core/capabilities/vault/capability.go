@@ -11,7 +11,6 @@ import (
 	"time"
 
 	"github.com/jonboulle/clockwork"
-	"github.com/smartcontractkit/tdh2/go/tdh2/tdh2easy"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/anypb"
 
@@ -20,6 +19,8 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/consensus/requests"
 	jsonrpc "github.com/smartcontractkit/chainlink-common/pkg/jsonrpc2"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
+	"github.com/smartcontractkit/chainlink-common/pkg/settings/cresettings"
+	"github.com/smartcontractkit/chainlink-common/pkg/settings/limits"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/core"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/vault/vaulttypes"
 )
@@ -34,6 +35,7 @@ type Capability struct {
 	requestAuthorizer    RequestAuthorizer
 	capabilitiesRegistry core.CapabilitiesRegistry
 	publicKey            *LazyPublicKey
+	*RequestValidator
 }
 
 func (s *Capability) Start(ctx context.Context) error {
@@ -143,68 +145,9 @@ func (s *Capability) Execute(ctx context.Context, request capabilities.Capabilit
 	}, nil
 }
 
-func ValidateCreateSecretsRequest(publicKey *tdh2easy.PublicKey, request *vaultcommon.CreateSecretsRequest) error {
-	return validateWriteRequest(publicKey, request.RequestId, request.EncryptedSecrets)
-}
-
-// validateWriteRequest performs common validation for CreateSecrets and UpdateSecrets requests
-// It treats publicKey as optional, since it can be nil if the gateway nodes don't have the public key cached yet
-func validateWriteRequest(publicKey *tdh2easy.PublicKey, id string, encryptedSecrets []*vaultcommon.EncryptedSecret) error {
-	if id == "" {
-		return errors.New("request ID must not be empty")
-	}
-	if len(encryptedSecrets) >= vaulttypes.MaxBatchSize {
-		return errors.New("request batch size exceeds maximum of " + strconv.Itoa(vaulttypes.MaxBatchSize))
-	}
-	if len(encryptedSecrets) == 0 {
-		return errors.New("request batch must contain at least 1 item")
-	}
-
-	uniqueIDs := map[string]bool{}
-	cipherText := &tdh2easy.Ciphertext{}
-	for idx, req := range encryptedSecrets {
-		if req == nil {
-			return errors.New("encrypted secret must not be nil at index " + strconv.Itoa(idx))
-		}
-		if req.Id == nil {
-			return errors.New("secret ID must not be nil at index " + strconv.Itoa(idx))
-		}
-
-		if req.Id.Key == "" || req.Id.Namespace == "" || req.Id.Owner == "" {
-			return errors.New("secret ID must have key, namespace and owner set at index " + strconv.Itoa(idx) + ":" + req.Id.String())
-		}
-
-		if req.EncryptedValue == "" {
-			return errors.New("secret must have encrypted value set at index " + strconv.Itoa(idx) + ":" + req.Id.String())
-		}
-
-		// Validate that the encrypted value was indeed encrypted by the Vault public key
-		cipherBytes, err := hex.DecodeString(req.EncryptedValue)
-		if err != nil {
-			return errors.New("failed to decode encrypted value at index " + strconv.Itoa(idx) + ":" + err.Error())
-		}
-		if publicKey != nil { // Public key can be nil if gateway cache isn't populated yet
-			err = cipherText.UnmarshalVerify(cipherBytes, publicKey)
-			if err != nil {
-				return errors.New("failed to verify encrypted value at index " + strconv.Itoa(idx) + ":" + err.Error())
-			}
-		}
-
-		_, ok := uniqueIDs[vaulttypes.KeyFor(req.Id)]
-		if ok {
-			return errors.New("duplicate secret ID found at index " + strconv.Itoa(idx) + ": " + req.Id.String())
-		}
-
-		uniqueIDs[vaulttypes.KeyFor(req.Id)] = true
-	}
-
-	// TODO(https://smartcontract-it.atlassian.net/browse/PRIV-155): encryptedSecrets should be encrypted by the right public key
-	return nil
-}
-
 func (s *Capability) CreateSecrets(ctx context.Context, request *vaultcommon.CreateSecretsRequest) (*vaulttypes.Response, error) {
 	s.lggr.Infof("Received Request: %s", request.String())
-	err := ValidateCreateSecretsRequest(s.publicKey.Get(), request)
+	err := s.ValidateCreateSecretsRequest(s.publicKey.Get(), request)
 	if err != nil {
 		s.lggr.Infof("RequestId: [%s] failed validation checks: %s", request.RequestId, err.Error())
 		return nil, err
@@ -230,13 +173,9 @@ func (s *Capability) CreateSecrets(ctx context.Context, request *vaultcommon.Cre
 	return s.handleRequest(ctx, request.RequestId, request)
 }
 
-func ValidateUpdateSecretsRequest(publicKey *tdh2easy.PublicKey, request *vaultcommon.UpdateSecretsRequest) error {
-	return validateWriteRequest(publicKey, request.RequestId, request.EncryptedSecrets)
-}
-
 func (s *Capability) UpdateSecrets(ctx context.Context, request *vaultcommon.UpdateSecretsRequest) (*vaulttypes.Response, error) {
 	s.lggr.Infof("Received Request: %s", request.String())
-	err := ValidateUpdateSecretsRequest(s.publicKey.Get(), request)
+	err := s.ValidateUpdateSecretsRequest(s.publicKey.Get(), request)
 	if err != nil {
 		s.lggr.Infof("RequestId: [%s] failed validation checks: %s", request.RequestId, err.Error())
 		return nil, err
@@ -262,36 +201,9 @@ func (s *Capability) UpdateSecrets(ctx context.Context, request *vaultcommon.Upd
 	return s.handleRequest(ctx, request.RequestId, request)
 }
 
-func ValidateDeleteSecretsRequest(request *vaultcommon.DeleteSecretsRequest) error {
-	if request.RequestId == "" {
-		return errors.New("request ID must not be empty")
-	}
-	if len(request.Ids) >= vaulttypes.MaxBatchSize {
-		return errors.New("request batch size exceeds maximum of " + strconv.Itoa(vaulttypes.MaxBatchSize))
-	}
-
-	uniqueIDs := map[string]bool{}
-	for idx, id := range request.Ids {
-		if id == nil {
-			return errors.New("secret ID must not be nil at index " + strconv.Itoa(idx))
-		}
-		if id.Key == "" || id.Namespace == "" || id.Owner == "" {
-			return errors.New("secret ID must have key, namespace and owner set at index " + strconv.Itoa(idx) + ": " + id.String())
-		}
-
-		_, ok := uniqueIDs[vaulttypes.KeyFor(id)]
-		if ok {
-			return errors.New("duplicate secret ID found at index " + strconv.Itoa(idx) + ": " + id.String())
-		}
-
-		uniqueIDs[vaulttypes.KeyFor(id)] = true
-	}
-	return nil
-}
-
 func (s *Capability) DeleteSecrets(ctx context.Context, request *vaultcommon.DeleteSecretsRequest) (*vaulttypes.Response, error) {
 	s.lggr.Infof("Received Request: %s", request.String())
-	err := ValidateDeleteSecretsRequest(request)
+	err := s.ValidateDeleteSecretsRequest(request)
 	if err != nil {
 		s.lggr.Infof("Request: [%s] failed validation checks: %s", request.String(), err.Error())
 		return nil, err
@@ -318,29 +230,9 @@ func (s *Capability) DeleteSecrets(ctx context.Context, request *vaultcommon.Del
 	return s.handleRequest(ctx, request.RequestId, request)
 }
 
-func ValidateGetSecretsRequest(request *vaultcommon.GetSecretsRequest) error {
-	if len(request.Requests) == 0 {
-		return errors.New("no GetSecret request specified in request")
-	}
-	if len(request.Requests) >= vaulttypes.MaxBatchSize {
-		return fmt.Errorf("request batch size exceeds maximum of %d", vaulttypes.MaxBatchSize)
-	}
-
-	for idx, req := range request.Requests {
-		if req.Id == nil {
-			return errors.New("secret ID must have id set at index " + strconv.Itoa(idx))
-		}
-		if req.Id.Key == "" {
-			return errors.New("secret ID must have key set at index " + strconv.Itoa(idx) + ": " + req.Id.String())
-		}
-	}
-
-	return nil
-}
-
 func (s *Capability) GetSecrets(ctx context.Context, requestID string, request *vaultcommon.GetSecretsRequest) (*vaulttypes.Response, error) {
 	s.lggr.Infof("Received Request: %s", request.String())
-	if err := ValidateGetSecretsRequest(request); err != nil {
+	if err := s.ValidateGetSecretsRequest(request); err != nil {
 		s.lggr.Infof("Request: [%s] failed validation checks: %s", request.String(), err.Error())
 		return nil, err
 	}
@@ -349,16 +241,9 @@ func (s *Capability) GetSecrets(ctx context.Context, requestID string, request *
 	return s.handleRequest(ctx, requestID, request)
 }
 
-func ValidateListSecretIdentifiersRequest(request *vaultcommon.ListSecretIdentifiersRequest) error {
-	if request.RequestId == "" || request.Owner == "" || request.Namespace == "" {
-		return errors.New("requestID, owner or namespace must not be empty")
-	}
-	return nil
-}
-
 func (s *Capability) ListSecretIdentifiers(ctx context.Context, request *vaultcommon.ListSecretIdentifiersRequest) (*vaulttypes.Response, error) {
 	s.lggr.Infof("Received Request: %s", request.String())
-	err := ValidateListSecretIdentifiersRequest(request)
+	err := s.ValidateListSecretIdentifiersRequest(request)
 	if err != nil {
 		s.lggr.Infof("Request: [%s] failed validation checks: %s", request.String(), err.Error())
 		return nil, err
@@ -502,7 +387,12 @@ func NewCapability(
 	requestAuthorizer RequestAuthorizer,
 	capabilitiesRegistry core.CapabilitiesRegistry,
 	publicKey *LazyPublicKey,
-) *Capability {
+	limitsFactory limits.Factory,
+) (*Capability, error) {
+	limiter, err := limits.MakeBoundLimiter(limitsFactory, cresettings.Default.VaultRequestBatchSizeLimit)
+	if err != nil {
+		return nil, fmt.Errorf("could not create request batch size limiter: %w", err)
+	}
 	return &Capability{
 		lggr:                 logger.Named(lggr, "VaultCapability"),
 		clock:                clock,
@@ -511,5 +401,6 @@ func NewCapability(
 		requestAuthorizer:    requestAuthorizer,
 		capabilitiesRegistry: capabilitiesRegistry,
 		publicKey:            publicKey,
-	}
+		RequestValidator:     NewRequestValidator(limiter),
+	}, nil
 }
