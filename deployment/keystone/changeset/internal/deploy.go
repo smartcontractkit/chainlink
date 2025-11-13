@@ -16,6 +16,7 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	chainsel "github.com/smartcontractkit/chain-selectors"
+	"github.com/smartcontractkit/chainlink/deployment/cre/common/strategies"
 	mcmstypes "github.com/smartcontractkit/mcms/types"
 	"golang.org/x/exp/maps"
 	"google.golang.org/protobuf/proto"
@@ -336,10 +337,23 @@ func ConfigureOCR3Contract(env *cldf.Environment, chainSel uint64, dons []Regist
 			return err
 		}
 
+		strategy, err := strategies.CreateStrategy(
+			registryChain,
+			*env,
+			nil,
+			nil,
+			contract.Address(),
+			"ConfigureOCR3Contract",
+		)
+		if err != nil {
+			return fmt.Errorf("failed to create strategy: %w", err)
+		}
+
 		_, err = ocr3.ConfigureOCR3contract(ocr3.ConfigureOCR3Request{
 			Config:   config,
 			Chain:    registryChain,
 			Contract: contract,
+			Strategy: strategy,
 		})
 		if err != nil {
 			return fmt.Errorf("failed to configure OCR3 contract for don %s: %w", don.Name, err)
