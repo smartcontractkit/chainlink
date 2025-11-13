@@ -190,7 +190,8 @@ func (o *Vault) PostEnvStartup(
 		creEnv.CldfEnvironment.OperationsBundle,
 		ks_contracts_op.ConfigureDKGOp,
 		ks_contracts_op.ConfigureDKGOpDeps{
-			Env: creEnv.CldfEnvironment,
+			Env:      creEnv.CldfEnvironment,
+			Strategy: strategy,
 		},
 		ks_contracts_op.ConfigureDKGOpInput{
 			ContractAddress:       vaultDKGOCR3Addr,
