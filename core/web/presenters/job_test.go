@@ -132,6 +132,8 @@ func TestJob(t *testing.T) {
 						"gatewaySpec": null,
 						"standardCapabilitiesSpec": null,
 						"ccipSpec": null,
+						"ccvCommitteeVerifierSpec": null,
+						"ccvExecutorSpec": null,
 						"creSettingsSpec": null,
 						"errors": []
 					}
@@ -1030,6 +1032,7 @@ func TestJob(t *testing.T) {
 						"ccipSpec": null,
 						"creSettingsSpec": null,
 						"ccvCommitteeVerifierSpec": null,
+						"ccvExecutorSpec": null,
 						"pipelineSpec": {
 							"id": 1,
 							"jobID": 0,

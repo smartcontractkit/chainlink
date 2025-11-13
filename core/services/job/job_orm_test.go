@@ -457,6 +457,11 @@ committeeVerifierConfig = "Foo = 'Bar'"
 		err = jobORM.CreateJob(ctx, &jb)
 		require.NoError(t, err)
 		cltest.AssertCount(t, db, "ccv_committee_verifier_specs", 1)
+
+		err = jobORM.DeleteJob(ctx, jb.ID, jb.Type)
+		require.NoError(t, err)
+		cltest.AssertCount(t, db, "ccv_committee_verifier_specs", 0)
+		cltest.AssertCount(t, db, "jobs", 0)
 	})
 
 	t.Run("it creates and deletes records for ccv executor jobs", func(t *testing.T) {
@@ -472,6 +477,11 @@ executorConfig = "Foo = 'Bar'"
 		err = jobORM.CreateJob(ctx, &jb)
 		require.NoError(t, err)
 		cltest.AssertCount(t, db, "ccv_executor_specs", 1)
+
+		err = jobORM.DeleteJob(ctx, jb.ID, jb.Type)
+		require.NoError(t, err)
+		cltest.AssertCount(t, db, "ccv_executor_specs", 0)
+		cltest.AssertCount(t, db, "jobs", 0)
 	})
 
 	t.Run("it deletes records for webhook jobs", func(t *testing.T) {

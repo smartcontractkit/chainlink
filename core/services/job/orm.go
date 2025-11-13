@@ -818,6 +818,8 @@ func (o *orm) DeleteJob(ctx context.Context, id int32, jobType Type) error {
 		Workflow:             `DELETE FROM workflow_specs WHERE id in (SELECT workflow_spec_id FROM deleted_jobs)`,
 		StandardCapabilities: `DELETE FROM standardcapabilities_specs WHERE id in (SELECT standard_capabilities_spec_id FROM deleted_jobs)`,
 		CCIP:                 `DELETE FROM ccip_specs WHERE id in (SELECT ccip_spec_id FROM deleted_jobs)`,
+		CCVCommitteeVerifier: `DELETE FROM ccv_committee_verifier_specs WHERE id IN (SELECT ccv_committee_verifier_spec_id FROM deleted_jobs)`,
+		CCVExecutor:          `DELETE FROM ccv_executor_specs WHERE id IN (SELECT ccv_executor_spec_id FROM deleted_jobs)`,
 		Stream:               ``,
 	}
 	q, ok := queries[jobType]
@@ -849,6 +851,8 @@ func (o *orm) DeleteJob(ctx context.Context, id int32, jobType Type) error {
 				workflow_spec_id,
 				standard_capabilities_spec_id,
 				ccip_spec_id,
+				ccv_committee_verifier_spec_id,
+				ccv_executor_spec_id,
 				stream_id
 		),`
 	if len(q) > 0 {
