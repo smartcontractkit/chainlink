@@ -6,7 +6,7 @@ name: Integration In-Memory Tests
 run-name: Integration In-Memory Tests
 on:
   merge_group:
-  pull_request:
+  # pull_request:
   push:
     tags:
       - "*"
