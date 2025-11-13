@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	"github.com/pelletier/go-toml"
+
 	"github.com/smartcontractkit/chainlink-ccv/verifier"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 )

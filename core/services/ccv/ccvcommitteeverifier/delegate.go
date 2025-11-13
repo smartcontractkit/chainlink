@@ -7,6 +7,7 @@ import (
 
 	burntsushitoml "github.com/BurntSushi/toml"
 	"github.com/ethereum/go-ethereum/common"
+
 	"github.com/smartcontractkit/chainlink-ccv/integration/pkg/constructors"
 	"github.com/smartcontractkit/chainlink-ccv/protocol"
 	"github.com/smartcontractkit/chainlink-ccv/verifier"
@@ -97,8 +98,8 @@ func (d *Delegate) ServicesForSpec(ctx context.Context, spec job.Job) (services 
 		// fall back to the keys current set in the TOML config
 		// TODO: this is a temporary solution to allow the node to run the verifier job but needs
 		// to be fixed.
-		apiKey = decodedCfg.AggregatorAPIKey
-		apiSecret = decodedCfg.AggregatorSecretKey
+		apiKey = decodedCfg.AggregatorAPIKey       //nolint:staticcheck
+		apiSecret = decodedCfg.AggregatorSecretKey //nolint:staticcheck
 		d.lggr.Warnw("no aggregator secrets found for verifier ID, using keys current set in the TOML config",
 			"verifierID", decodedCfg.VerifierID)
 	}
