@@ -1810,52 +1810,24 @@ func TestEngine_DonVersionLabelUpdate(t *testing.T) {
 	// Create a real DON notifier (this is what the engine uses)
 	donNotifier := coreCap.NewDonNotifier()
 
+	// Note: CreateLocalRegistry creates a DON with ConfigVersion=2 by default, but we need to start at 1
+	lr := v2.CreateLocalRegistry(t, peerID)
+
 	donID := uint32(1)
-	workflowDonNodes := []ragetypes.PeerID{peerID}
 
-	// Create initial DON with ConfigVersion = 1
-	don1 := capabilities.DON{
-		ID:               donID,
-		ConfigVersion:    1, // Initial version
-		F:                uint8(1),
-		IsPublic:         true,
-		AcceptsWorkflows: true,
-		Members:          workflowDonNodes,
-	}
+	// Update the DON to have ConfigVersion = 1 (initial state for this test)
+	don := lr.IDsToDONs[registrysyncer.DonID(donID)]
+	don.ConfigVersion = 1 // Start at version 1 so we can test the update to version 2
+	lr.IDsToDONs[registrysyncer.DonID(donID)] = don
 
-	// Create a real LocalRegistry with initial DON ConfigVersion = 1
-	dummyCapID := "test-capability"
-	dummyCap := registrysyncer.Capability{
-		ID:             dummyCapID,
-		CapabilityType: capabilities.CapabilityTypeTrigger,
-	}
-
-	lr := registrysyncer.NewLocalRegistry(
-		lggr,
-		func() (ragetypes.PeerID, error) { return peerID, nil },
-		map[registrysyncer.DonID]registrysyncer.DON{
-			registrysyncer.DonID(donID): {
-				DON:                      don1,
-				CapabilityConfigurations: map[string]registrysyncer.CapabilityConfiguration{},
-			},
-		},
-		map[ragetypes.PeerID]registrysyncer.NodeInfo{
-			peerID: {
-				NodeOperatorID:      1,
-				WorkflowDONId:       donID,
-				Signer:              coreCap.RandomUTF8BytesWord(),
-				P2pID:               peerID,
-				EncryptionPublicKey: coreCap.RandomUTF8BytesWord(),
-			},
-		},
-		map[string]registrysyncer.Capability{
-			dummyCapID: dummyCap,
-		},
-	)
-
+	// Wrap in updatableRegistry to allow thread-safe updates during testing
 	localRegistry := &updatableRegistry{
-		localRegistry: &lr,
+		localRegistry: lr,
 	}
+
+	// Create initial DON object for the notifier
+	don1 := don.DON
+	workflowDonNodes := don1.Members
 
 	// Set initial DON in the notifier
 	donNotifier.NotifyDonSet(don1)
