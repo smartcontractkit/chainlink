@@ -323,10 +323,6 @@ func (m *DestinationGun) GetEVMMessage(src uint64) (router.ClientEVM2AnyMessage,
 		return message, int64(2_500_000), nil
 	}
 
-	if dstSelFamily == selectors.FamilySui {
-		return message, int64(2_500_000), nil
-	}
-
 	// Set data length if it's a data transfer
 	if selectedMsgDetails.IsDataTransfer() {
 		dataLength := *selectedMsgDetails.DataLengthBytes
@@ -360,14 +356,15 @@ func (m *DestinationGun) GetEVMMessage(src uint64) (router.ClientEVM2AnyMessage,
 
 	// Set token amounts if it's a token transfer
 	if selectedMsgDetails.IsTokenTransfer() {
-		srcChainState, exists := m.state.Chains[src]
-		if !exists {
-			return router.ClientEVM2AnyMessage{}, 0, fmt.Errorf("no state available for source chain %d", src)
-		}
+		// srcChainState, exists := m.state.Chains[src]
+		// if !exists {
+		// 	return router.ClientEVM2AnyMessage{}, 0, fmt.Errorf("no state available for source chain %d", src)
+		// }
 
+		// TODO: read from testnetDefaults.go
 		// Default to Link token for token transfers
-		tokenAddress := srcChainState.LinkToken.Address()
-		tokenAmount := big.NewInt(1) // 1 wei for very small amounts
+		tokenAddress := common.HexToAddress("0x0A3c837dF81fd77956784E90245aa527A024690d")
+		tokenAmount := big.NewInt(1) //  1 wei for very small amounts
 
 		// Only use BnM token if we're running on testnet/staging AND BnM is configured for this chain
 		if m.testConfig.TestnetConfig != nil &&
@@ -406,6 +403,8 @@ func (m *DestinationGun) GetEVMMessage(src uint64) (router.ClientEVM2AnyMessage,
 		}
 
 		if dstSelFamily == selectors.FamilySui {
+			// message.TokenAmounts[0].Token = common.HexToAddress("0x0A3c837dF81fd77956784E90245aa527A024690d")
+
 			dstChainState, exists := m.state.SuiChains[m.chainSelector]
 			if !exists {
 				return router.ClientEVM2AnyMessage{}, 0, fmt.Errorf("no Sui state available for destination chain %d", m.chainSelector)
@@ -738,5 +737,6 @@ func (m *DestinationGun) getSuiMessage() (testhelpers.SuiSendRequest, error) {
 		message.Data = []byte{}
 	}
 
+	fmt.Println("ABOUT TO SEND THIS MSG: ", message)
 	return message, nil
 }

@@ -53,6 +53,7 @@ type SuiConfig struct {
 	SuiFeeTokenObjectId           *string
 	SuiTestReceiverAddress        *string
 	SuiStateReceiverStateObjectId *string
+	TokenToTransferPkgID          *string
 }
 
 const (

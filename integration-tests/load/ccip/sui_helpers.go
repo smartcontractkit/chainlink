@@ -795,11 +795,12 @@ func splitSuiTokens(
 	numTokenObjects int,
 	amountPerObject uint64, // amount in smallest unit (e.g., 1e4 for 0.00001 Link)
 	privateKeyHex string, // Sui private key in hex format (without 0x prefix)
+	tokenToTransferPkdID string,
 ) ([]string, error) {
 	suiChain := env.BlockChains.SuiChains()[chainSelector]
 
 	// Get Link token package ID from state
-	linkTokenPkgID := state.SuiChains[chainSelector].LinkTokenAddress
+	linkTokenPkgID := tokenToTransferPkdID
 	if linkTokenPkgID == "" {
 		return nil, fmt.Errorf("link token not configured for chain %d", chainSelector)
 	}
