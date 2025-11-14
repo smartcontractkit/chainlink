@@ -2,4 +2,4 @@
 "chainlink": patch
 ---
 
-#add more managed token pool e2e tests
+#added more managed token pool e2e tests
