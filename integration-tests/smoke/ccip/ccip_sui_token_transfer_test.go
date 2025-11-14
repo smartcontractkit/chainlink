@@ -117,20 +117,6 @@ func Test_CCIPTokenTransfer_Sui2EVM_ManagedTokenPool(t *testing.T) {
 	outputMapTransferToken1, ok := rawOutputTransferToken1.Output.(sui_ops.OpTxResult[linkops.MintLinkTokenOutput])
 	require.True(t, ok)
 
-	// _, transferTokenOutput2, err := commoncs.ApplyChangesets(t, e.Env, []commoncs.ConfiguredChangeSet{
-	// 	commoncs.Configure(sui_cs.MintLinkToken{}, sui_cs.MintLinkTokenConfig{
-	// 		ChainSelector:  sourceChain,
-	// 		TokenPackageId: state.SuiChains[sourceChain].LinkTokenAddress,
-	// 		TreasuryCapId:  state.SuiChains[sourceChain].LinkTokenTreasuryCapId,
-	// 		Amount:         1500000000, // 1.5Link with 1e9
-	// 	}),
-	// })
-	// require.NoError(t, err)
-
-	// rawOutputTransferToken2 := transferTokenOutput2[0].Reports[0]
-	// outputMapTransferToken2, ok := rawOutputTransferToken2.Output.(sui_ops.OpTxResult[linkops.MintLinkTokenOutput])
-	// require.True(t, ok)
-
 	// Receiver Address
 	ccipReceiverAddress := state.Chains[destChain].Receiver.Address()
 
