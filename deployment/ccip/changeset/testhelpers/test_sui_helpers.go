@@ -553,8 +553,14 @@ func SendSuiCCIPRequest(e cldf.Environment, cfg *ccipclient.CCIPSendReqConfig) (
 
 	suiEvent := executeCCIPSend.Events[0].ParsedJson
 
-	seqStr, _ := suiEvent["sequence_number"].(string)
-	seq, _ := strconv.ParseUint(seqStr, 10, 64)
+	seqStr, ok := suiEvent["sequence_number"].(string)
+	if !ok {
+		return nil, fmt.Errorf("failed to extract sequence_number from Sui event: %+v", suiEvent)
+	}
+	seq, err := strconv.ParseUint(seqStr, 10, 64)
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse sequence number '%s': %w", seqStr, err)
+	}
 
 	return &ccipclient.AnyMsgSentEvent{
 		SequenceNumber: seq,
