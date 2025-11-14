@@ -187,7 +187,6 @@ func doTestOnboardTokenPoolForSelfServe(t *testing.T, isMCMsOwner bool) {
 						ProposedOwner:    anotherCustomerAdmin.PublicKey(),
 						Metadata:         anotherCustomerAdmin.PublicKey().String(),
 						PoolType:         shared.LockReleaseTokenPool,
-						Override:         true,
 					},
 				},
 				MCMS: mcmsConfig,
@@ -209,6 +208,41 @@ func doTestOnboardTokenPoolForSelfServe(t *testing.T, isMCMsOwner bool) {
 	err = e.BlockChains.SolanaChains()[solChainSelector].GetAccountDataBorshInto(ctx, tokenPoolPDA, &tokenPoolAccount2)
 	require.NoError(t, err)
 	require.Equal(t, anotherCustomerAdmin.PublicKey(), tokenPoolAccount2.Config.ProposedOwner)
+
+	// Test running again with no changes
+	e, _, err = commonchangeset.ApplyChangesets(t, e, []commonchangeset.ConfiguredChangeSet{
+		commonchangeset.Configure(
+			cldf.CreateLegacyChangeSet(ccipChangesetSolana.OnboardTokenPoolsForSelfServe),
+			ccipChangesetSolana.OnboardTokenPoolsForSelfServeConfig{
+				ChainSelector: solChainSelector,
+				RegisterTokenConfigs: []ccipChangesetSolana.OnboardTokenPoolConfig{
+					{
+						TokenMint:        lnrTokenMint,
+						TokenProgramName: shared.SPLTokens,
+						ProposedOwner:    anotherCustomerAdmin.PublicKey(),
+						Metadata:         anotherCustomerAdmin.PublicKey().String(),
+						PoolType:         shared.LockReleaseTokenPool,
+					},
+				},
+				MCMS: mcmsConfig,
+			},
+		),
+	},
+	)
+	require.NoError(t, err)
+	tenv.Env = e
+
+	var tokenAdminRegistryAccount3 solCommon.TokenAdminRegistry
+	// Verify that the proposed admin in the token admin registry has not changed
+	err = e.BlockChains.SolanaChains()[solChainSelector].GetAccountDataBorshInto(ctx, tokenAdminRegistryPDA, &tokenAdminRegistryAccount3)
+	require.NoError(t, err)
+	require.Equal(t, anotherCustomerAdmin.PublicKey(), tokenAdminRegistryAccount3.PendingAdministrator)
+
+	var tokenPoolAccount3 lockrelease.State
+	// Verify the proposed owner has not changed
+	err = e.BlockChains.SolanaChains()[solChainSelector].GetAccountDataBorshInto(ctx, tokenPoolPDA, &tokenPoolAccount3)
+	require.NoError(t, err)
+	require.Equal(t, anotherCustomerAdmin.PublicKey(), tokenPoolAccount3.Config.ProposedOwner)
 }
 
 func modifyMintAuthority(state cldfsolana.Chain, deployerKey solana.PublicKey, mint solana.PublicKey, newAuthority solana.PublicKey) error {

@@ -218,14 +218,13 @@ func WaitForEventFilterRegistration(t *testing.T, oc cldf_offchain.Client, chain
 		return fmt.Errorf("failed to find event with name %s in onramp or offramp ABIs", eventName)
 	case chainsel.FamilySolana:
 		eventID = eventName
+	case chainsel.FamilyTon:
+		eventID = eventName
 	case chainsel.FamilyAptos:
 		// Aptos is not using LogPoller
 		return nil
 	case chainsel.FamilySui:
 		// Sui is not using LogPoller
-	case chainsel.FamilyTon:
-		// TODO: TON is not using LogPoller
-		return nil
 	default:
 		return fmt.Errorf("unsupported chain family; %v", family)
 	}
