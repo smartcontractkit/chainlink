@@ -770,14 +770,13 @@ func PrintCRELogo() {
 	blue := "\033[38;5;33m"
 	reset := "\033[0m"
 
-	fmt.Println()
-	fmt.Println(blue + "	db       .d88b.   .o88b.  .d8b.  db            .o88b. d8888b. d88888b" + reset)
-	fmt.Println(blue + "	88      .8P  Y8. d8P  Y8 d8' `8b 88           d8P  Y8 88  `8D 88'" + reset)
-	fmt.Println(blue + "	88      88    88 8P      88ooo88 88           8P      88oobY' 88ooooo" + reset)
-	fmt.Println(blue + "	88      88    88 8b      88~~~88 88           8b      88`8b   88~~~~~" + reset)
-	fmt.Println(blue + "	88booo. `8b  d8' Y8b  d8 88   88 88booo.      Y8b  d8 88 `88. 88." + reset)
-	fmt.Println(blue + "	Y88888P  `Y88P'   `Y88P' YP   YP Y88888P       `Y88P' 88   YD Y88888P" + reset)
-	fmt.Println()
+	fmt.Println("\n" +
+		blue + "	db       .d88b.   .o88b.  .d8b.  db            .o88b. d8888b. d88888b" + reset + "\n" +
+		blue + "	88      .8P  Y8. d8P  Y8 d8' `8b 88           d8P  Y8 88  `8D 88'" + reset + "\n" +
+		blue + "	88      88    88 8P      88ooo88 88           8P      88oobY' 88ooooo" + reset + "\n" +
+		blue + "	88      88    88 8b      88~~~88 88           8b      88`8b   88~~~~~" + reset + "\n" +
+		blue + "	88booo. `8b  d8' Y8b  d8 88   88 88booo.      Y8b  d8 88 `88. 88." + reset + "\n" +
+		blue + "	Y88888P  `Y88P'   `Y88P' YP   YP Y88888P       `Y88P' 88   YD Y88888P" + reset + "\n")
 }
 
 func setDefaultCtfConfigs() error {
