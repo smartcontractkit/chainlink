@@ -15,7 +15,9 @@ import (
 	"github.com/smartcontractkit/mcms/sdk"
 	mcmstypes "github.com/smartcontractkit/mcms/types"
 
+	changesetstate "github.com/smartcontractkit/chainlink/deployment/common/changeset/state"
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
+	"github.com/smartcontractkit/chainlink/deployment/cre/common/strategies"
 	"github.com/smartcontractkit/chainlink/deployment/cre/contracts"
 	"github.com/smartcontractkit/chainlink/deployment/cre/ocr3"
 	"github.com/smartcontractkit/chainlink/deployment/keystone/changeset/internal"
@@ -68,6 +70,27 @@ func ConfigureOCR3Contract(env cldf.Environment, cfg ConfigureOCR3Config) (cldf.
 		return cldf.ChangesetOutput{}, fmt.Errorf("failed to get OCR3 contract: %w", err)
 	}
 
+	var mcmsContracts *changesetstate.MCMSWithTimelockState
+	if cfg.UseMCMS() {
+		var mcmsErr error
+		mcmsContracts, mcmsErr = strategies.GetMCMSContracts(env, cfg.ChainSel, "")
+		if mcmsErr != nil {
+			return cldf.ChangesetOutput{}, fmt.Errorf("failed to get MCMS contracts: %w", mcmsErr)
+		}
+	}
+
+	strategy, err := strategies.CreateStrategy(
+		chain,
+		env,
+		cfg.MCMSConfig,
+		mcmsContracts,
+		contract.Contract.Address(),
+		"Configure OCR3 contract",
+	)
+	if err != nil {
+		return cldf.ChangesetOutput{}, fmt.Errorf("failed to create strategy: %w", err)
+	}
+
 	resp, err := ocr3.ConfigureOCR3ContractFromJD(&env, ocr3.ConfigureOCR3Config{
 		ChainSel:   cfg.ChainSel,
 		NodeIDs:    cfg.NodeIDs,
@@ -75,6 +98,7 @@ func ConfigureOCR3Contract(env cldf.Environment, cfg ConfigureOCR3Config) (cldf.
 		Contract:   contract.Contract,
 		DryRun:     cfg.DryRun,
 		UseMCMS:    cfg.UseMCMS(),
+		Strategy:   strategy,
 	})
 	if err != nil {
 		return cldf.ChangesetOutput{}, fmt.Errorf("failed to configure OCR3Capability: %w", err)
