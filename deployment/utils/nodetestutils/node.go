@@ -37,6 +37,7 @@ import (
 	pb "github.com/smartcontractkit/chainlink-protos/orchestrator/feedsmanager"
 	solcfg "github.com/smartcontractkit/chainlink-solana/pkg/solana/config"
 	sollptesting "github.com/smartcontractkit/chainlink-solana/pkg/solana/logpoller/testing"
+	tonlptesting "github.com/smartcontractkit/chainlink-ton/pkg/logpoller/store/postgres/testing"
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/environment/devenv"
 	"github.com/smartcontractkit/chainlink/deployment/helpers/pointer"
@@ -205,6 +206,9 @@ func (n Node) IsLogFilterRegistered(ctx context.Context, chainSel uint64, eventN
 		exists, err = orm.HasFilterByEventSig(ctx, chainID, common.HexToHash(eventName), address)
 	case chainsel.FamilySolana:
 		orm := sollptesting.NewTestORM(n.App.GetDB())
+		exists, err = orm.HasFilterByEventName(ctx, chainID, eventName, address)
+	case chainsel.FamilyTon:
+		orm := tonlptesting.NewTestORM(n.App.GetDB())
 		exists, err = orm.HasFilterByEventName(ctx, chainID, eventName, address)
 	default:
 		return false, fmt.Errorf("unsupported chain family; %v", family)
