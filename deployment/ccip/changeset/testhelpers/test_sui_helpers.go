@@ -550,6 +550,14 @@ func SendSuiCCIPRequest(e cldf.Environment, cfg *ccipclient.CCIPSendReqConfig) (
 	if len(executeCCIPSend.Events) == 0 {
 		return nil, errors.New("no events returned from Sui CCIPSend")
 	}
+	e.Logger.Warnf("Sui CCIPSend has %d events", len(executeCCIPSend.Events))
+	for _, event := range executeCCIPSend.Events {
+		e.Logger.Warnf("Sui CCIPSend event parsedJson: %+v", event.ParsedJson)
+		e.Logger.Warnf("Sui CCIPSend event type: %+v", event.Type)
+		e.Logger.Warnf("Sui CCIPSend event packageId: %+v", event.PackageId)
+		e.Logger.Warnf("Sui CCIPSend event transactionModule: %+v", event.TransactionModule)
+		e.Logger.Warnf("Sui CCIPSend event sender: %+v", event.Sender)
+	}
 
 	suiEvent := executeCCIPSend.Events[0].ParsedJson
 
