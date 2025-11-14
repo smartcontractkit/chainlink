@@ -28,6 +28,7 @@ import (
 
 	chainselectors "github.com/smartcontractkit/chain-selectors"
 
+	"github.com/smartcontractkit/chainlink-ccip/ccv/chains/evm/gobindings/generated/latest/onramp"
 	"github.com/smartcontractkit/chainlink-common/pkg/beholder"
 	"github.com/smartcontractkit/chainlink-common/pkg/billing"
 	"github.com/smartcontractkit/chainlink-common/pkg/custmsg"
@@ -240,6 +241,7 @@ type ApplicationOpts struct {
 // be used by the node.
 // TODO: Inject more dependencies here to save booting up useless stuff in tests
 func NewApplication(ctx context.Context, opts ApplicationOpts) (Application, error) {
+	fmt.Println("test", onramp.OnRampCCIPMessageSent{}.Topic().Hex())
 	var srvcs []services.ServiceCtx
 
 	heartbeat := NewHeartbeat(NewHeartbeatConfig(opts))
