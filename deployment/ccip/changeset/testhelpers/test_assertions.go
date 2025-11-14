@@ -228,7 +228,6 @@ func ConfirmCommitForAllWithExpectedSeqNums(
 			}
 			switch family {
 			case chainsel.FamilyEVM:
-				t.Logf("going to confirm commit for source chain %d and dest chain %d", srcChain, dstChain)
 				return commonutils.JustError(ConfirmCommitWithExpectedSeqNumRange(
 					t,
 					srcChain,
