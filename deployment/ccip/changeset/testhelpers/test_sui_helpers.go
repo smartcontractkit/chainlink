@@ -420,16 +420,20 @@ func SendSuiCCIPRequest(e cldf.Environment, cfg *ccipclient.CCIPSendReqConfig) (
 			return nil, errors.New("failed to execute ccip_send with err: " + err.Error())
 		}
 
-		e.Logger.Warnf("Sui CCIPSend has %d events", len(executeCCIPSend.Events))
+		var suiEventResp models.SuiEventResponse
+		var found bool
 		for _, event := range executeCCIPSend.Events {
-			e.Logger.Warnf("Sui CCIPSend event id: %+v", event.Id)
-			e.Logger.Warnf("Sui CCIPSend event ParsedJson: %+v", event.ParsedJson)
-			e.Logger.Warnf("Sui CCIPSend event type: %+v", event.Type)
-			e.Logger.Warnf("Sui CCIPSend event packageId: %+v", event.PackageId)
-			e.Logger.Warnf("Sui CCIPSend event transactionModule: %+v", event.TransactionModule)
-			e.Logger.Warnf("Sui CCIPSend event sender: %+v", event.Sender)
+			// find the CCIPMessageSent event emitted by the onramp package
+			if event.PackageId == onRampPackageID && strings.HasSuffix(event.Type, "CCIPMessageSent") {
+				suiEventResp = event
+				found = true
+				break
+			}
 		}
-		suiEvent := executeCCIPSend.Events[2].ParsedJson // why 2?
+		if !found {
+			return nil, errors.New("no CCIPMessageSent event found")
+		}
+		suiEvent := suiEventResp.ParsedJson
 
 		seqStr, _ := suiEvent["sequence_number"].(string)
 		seq, _ := strconv.ParseUint(seqStr, 10, 64)
@@ -556,19 +560,20 @@ func SendSuiCCIPRequest(e cldf.Environment, cfg *ccipclient.CCIPSendReqConfig) (
 		return nil, errors.New("failed to execute ccip_send with err: " + err.Error())
 	}
 
-	if len(executeCCIPSend.Events) == 0 { // why 0?
-		return nil, errors.New("no events returned from Sui CCIPSend")
-	}
-	e.Logger.Warnf("Sui CCIPSend has %d events", len(executeCCIPSend.Events))
+	var suiEventResp models.SuiEventResponse
+	var found bool
 	for _, event := range executeCCIPSend.Events {
-		e.Logger.Warnf("Sui CCIPSend event parsedJson: %+v", event.ParsedJson)
-		e.Logger.Warnf("Sui CCIPSend event type: %+v", event.Type)
-		e.Logger.Warnf("Sui CCIPSend event packageId: %+v", event.PackageId)
-		e.Logger.Warnf("Sui CCIPSend event transactionModule: %+v", event.TransactionModule)
-		e.Logger.Warnf("Sui CCIPSend event sender: %+v", event.Sender)
+		// find the CCIPMessageSent event emitted by the onramp package
+		if event.PackageId == onRampPackageID && strings.HasSuffix(event.Type, "CCIPMessageSent") {
+			suiEventResp = event
+			found = true
+			break
+		}
 	}
-
-	suiEvent := executeCCIPSend.Events[0].ParsedJson
+	if !found {
+		return nil, errors.New("no CCIPMessageSent event found")
+	}
+	suiEvent := suiEventResp.ParsedJson
 
 	seqStr, ok := suiEvent["sequence_number"].(string)
 	if !ok {
