@@ -1,4 +1,4 @@
-package memory
+package nodetestutils
 
 import (
 	"maps"
@@ -10,14 +10,22 @@ import (
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zapcore"
 
-	cldf_chain "github.com/smartcontractkit/chainlink-deployments-framework/chain"
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay"
+
+	cldf_chain "github.com/smartcontractkit/chainlink-deployments-framework/chain"
+	"github.com/smartcontractkit/chainlink-deployments-framework/engine/test/onchain"
 )
 
 func TestNode(t *testing.T) {
-	blockchains := cldf_chain.NewBlockChainsFromSlice(NewMemoryChainsEVM(t, 3, 5))
+	evmchains, err := onchain.NewEVMSimLoaderWithConfig(onchain.EVMSimLoaderConfig{
+		NumAdditionalAccounts: 5,
+	}).LoadN(t, 3)
+	require.NoError(t, err)
+
+	blockchains := cldf_chain.NewBlockChainsFromSlice(evmchains)
+
 	ports := freeport.GetN(t, 1)
 	c := NewNodeConfig{
 		Port:           ports[0],
@@ -33,8 +41,8 @@ func TestNode(t *testing.T) {
 	require.NoError(t, err)
 	require.Len(t, keys, 3)
 	// We expect 3 chains supported
-	evmChains := node.App.GetRelayers().List(chainlink.FilterRelayersByType(relay.NetworkEVM)).Slice()
-	require.Len(t, evmChains, 3)
+	relayers := node.App.GetRelayers().List(chainlink.FilterRelayersByType(relay.NetworkEVM)).Slice()
+	require.Len(t, relayers, 3)
 
 	t.Run("DeploymentNode", func(t *testing.T) {
 		dn, err := node.DeploymentNode()

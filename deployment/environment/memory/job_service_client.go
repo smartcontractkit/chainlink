@@ -8,6 +8,7 @@ import (
 	"sync"
 
 	"github.com/smartcontractkit/chainlink/deployment/environment/test"
+	"github.com/smartcontractkit/chainlink/deployment/utils/nodetestutils"
 	"github.com/smartcontractkit/chainlink/v2/core/services/feeds"
 )
 
@@ -16,7 +17,7 @@ type JobApprover interface {
 }
 
 type autoApprovalNode struct {
-	*Node
+	*nodetestutils.Node
 }
 
 var _ JobApprover = &autoApprovalNode{}
@@ -62,10 +63,10 @@ var errNoExist = errors.New("does not exist")
 
 // nodeStore is an interface for storing nodes.
 type nodeStore interface {
-	put(nodeID string, node *Node) error
-	get(nodeID string) (*Node, error)
-	list() []*Node
-	asMap() map[string]*Node
+	put(nodeID string, node *nodetestutils.Node) error
+	get(nodeID string) (*nodetestutils.Node, error)
+	list() []*nodetestutils.Node
+	asMap() map[string]*nodetestutils.Node
 	delete(nodeID string) error
 }
 
@@ -73,24 +74,24 @@ var _ nodeStore = &mapNodeStore{}
 
 type mapNodeStore struct {
 	mu    sync.Mutex
-	nodes map[string]*Node
+	nodes map[string]*nodetestutils.Node
 }
 
-func newMapNodeStore(n map[string]*Node) *mapNodeStore {
+func newMapNodeStore(n map[string]*nodetestutils.Node) *mapNodeStore {
 	return &mapNodeStore{
 		nodes: n,
 	}
 }
-func (m *mapNodeStore) put(nodeID string, node *Node) error {
+func (m *mapNodeStore) put(nodeID string, node *nodetestutils.Node) error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	if m.nodes == nil {
-		m.nodes = make(map[string]*Node)
+		m.nodes = make(map[string]*nodetestutils.Node)
 	}
 	m.nodes[nodeID] = node
 	return nil
 }
-func (m *mapNodeStore) get(nodeID string) (*Node, error) {
+func (m *mapNodeStore) get(nodeID string) (*nodetestutils.Node, error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	if m.nodes == nil {
@@ -102,13 +103,13 @@ func (m *mapNodeStore) get(nodeID string) (*Node, error) {
 	}
 	return node, nil
 }
-func (m *mapNodeStore) list() []*Node {
+func (m *mapNodeStore) list() []*nodetestutils.Node {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	if m.nodes == nil {
 		return nil
 	}
-	nodes := make([]*Node, 0)
+	nodes := make([]*nodetestutils.Node, 0)
 	for _, node := range m.nodes {
 		nodes = append(nodes, node)
 	}
@@ -128,13 +129,13 @@ func (m *mapNodeStore) delete(nodeID string) error {
 	return nil
 }
 
-func (m *mapNodeStore) asMap() map[string]*Node {
+func (m *mapNodeStore) asMap() map[string]*nodetestutils.Node {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	if m.nodes == nil {
 		return nil
 	}
-	nodes := make(map[string]*Node)
+	nodes := make(map[string]*nodetestutils.Node)
 	maps.Copy(nodes, m.nodes)
 	return nodes
 }
