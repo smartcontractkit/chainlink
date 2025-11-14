@@ -2128,12 +2128,10 @@ func TransferMultiple(
 				expectedSeqNums[pairId] = cciptypes.NewSeqNumRange(
 					seqNr.Start(), cciptypes.SeqNum(msg.SequenceNumber),
 				)
-				t.Logf("Updated sequence range for %s: [%d -> %d]", tt.Name, seqNr.Start(), msg.SequenceNumber)
 			} else {
 				expectedSeqNums[pairId] = cciptypes.NewSeqNumRange(
 					cciptypes.SeqNum(msg.SequenceNumber), cciptypes.SeqNum(msg.SequenceNumber),
 				)
-				t.Logf("Created new sequence range for %s: [%d -> %d]", tt.Name, msg.SequenceNumber, msg.SequenceNumber)
 			}
 		})
 	}
