@@ -1966,7 +1966,18 @@ func (l *LinkingConfig) ValidateConfig() error {
 // CCVSecrets holds the secrets required for the CCV jobs.
 type CCVSecrets struct {
 	AggregatorSecrets []AggregatorSecret `toml:",omitempty"`
-	// TODO: indexer secrets?
+	IndexerSecret     *IndexerSecret     `toml:",omitempty"`
+}
+
+// IndexerSecret is the shared secret between the chainlink node and
+// the CCV indexer.
+type IndexerSecret struct {
+	// APIKey is the API key for the CCV indexer.
+	// This is used to authenticate the node to the CCV indexer.
+	APIKey *commonconfig.SecretString `toml:",omitempty"`
+	// APISecret is the API secret for the CCV indexer.
+	// This is used to authenticate the node to the CCV indexer.
+	APISecret *commonconfig.SecretString `toml:",omitempty"`
 }
 
 // AggregatorSecret is the shared secret between the chainlink node and the
@@ -1996,6 +2007,18 @@ func (a *CCVSecrets) SetFrom(f *CCVSecrets) (err error) {
 		copy(a.AggregatorSecrets, f.AggregatorSecrets)
 	}
 
+	if f.IndexerSecret != nil {
+		if a.IndexerSecret == nil {
+			a.IndexerSecret = &IndexerSecret{}
+		}
+		if v := f.IndexerSecret.APIKey; v != nil {
+			a.IndexerSecret.APIKey = v
+		}
+		if v := f.IndexerSecret.APISecret; v != nil {
+			a.IndexerSecret.APISecret = v
+		}
+	}
+
 	return nil
 }
 
@@ -2007,6 +2030,14 @@ func (a *CCVSecrets) validateMerge(f *CCVSecrets) (err error) {
 					err = errors.Join(err, configutils.ErrOverride{Name: "CCV.AggregatorSecrets.CommitteeID"})
 				}
 			}
+		}
+	}
+	if a.IndexerSecret != nil && f.IndexerSecret != nil {
+		if a.IndexerSecret.APIKey != nil && f.IndexerSecret.APIKey != nil {
+			err = errors.Join(err, configutils.ErrOverride{Name: "CCV.IndexerSecret.APIKey"})
+		}
+		if a.IndexerSecret.APISecret != nil && f.IndexerSecret.APISecret != nil {
+			err = errors.Join(err, configutils.ErrOverride{Name: "CCV.IndexerSecret.APISecret"})
 		}
 	}
 	return err

@@ -21,6 +21,26 @@ func (c *ccvConfig) AggregatorSecrets() []config.AggregatorSecret {
 	return secrets
 }
 
+func (c *ccvConfig) IndexerSecret() config.IndexerSecret {
+	return &indexerSecretConfig{
+		apiKey:    string(*c.s.IndexerSecret.APIKey),
+		apiSecret: string(*c.s.IndexerSecret.APISecret),
+	}
+}
+
+type indexerSecretConfig struct {
+	apiKey    string
+	apiSecret string
+}
+
+func (i *indexerSecretConfig) APIKey() string {
+	return i.apiKey
+}
+
+func (i *indexerSecretConfig) APISecret() string {
+	return i.apiSecret
+}
+
 type aggregatorSecretConfig struct {
 	committeeID string
 	apiKey      string
