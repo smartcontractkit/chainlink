@@ -305,6 +305,7 @@ func Run(t *testing.T, tc TestCase) (out TestCaseOutput) {
 		}
 	} else {
 		// Send sequentially
+		tc.T.Logf("SENDING %d messages sequentially", tc.NumberOfMessages)
 		for i := 0; i < tc.NumberOfMessages; i++ {
 			msgSentEventLocal := testhelpers.TestSendRequest(
 				tc.T,
@@ -316,13 +317,18 @@ func Run(t *testing.T, tc TestCase) (out TestCaseOutput) {
 				msg)
 
 			_, ok := expectedSeqNumRange[sourceDest]
+
+			// does this make sense? the !ok branch is never used
 			if !ok {
 				expectedSeqNumRange[sourceDest] = ccipocr3.SeqNumRange{ccipocr3.SeqNum(msgSentEventLocal.SequenceNumber)}
+				tc.T.Logf("CREATED seq num range for source dest %v is %v", sourceDest, expectedSeqNumRange[sourceDest])
 			}
 			expectedSeqNumRange[sourceDest] = ccipocr3.SeqNumRange{expectedSeqNumRange[sourceDest].Start(),
 				ccipocr3.SeqNum(msgSentEventLocal.SequenceNumber)}
+			tc.T.Logf("UPDATED seq num range for source dest %v is %v", sourceDest, expectedSeqNumRange[sourceDest])
 
 			expectedSeqNumExec[sourceDest] = append(expectedSeqNumExec[sourceDest], msgSentEventLocal.SequenceNumber)
+			tc.T.Logf("UPDATED exec seq nums for source dest %v is %v", sourceDest, expectedSeqNumExec[sourceDest])
 			// TODO: If this feature is needed more we can refactor the function to return a slice of events
 			// return only last msg event
 			out.MsgSentEvent = msgSentEventLocal
@@ -333,6 +339,7 @@ func Run(t *testing.T, tc TestCase) (out TestCaseOutput) {
 	// HACK: if the node booted or the logpoller filters got registered after ccipSend,
 	// we need to replay missed logs
 	if !tc.Replayed {
+		tc.T.Logf("replaying missed logs for source chain %d and dest chain %d", tc.SourceChain, tc.DestChain)
 		require.NotNil(tc.T, tc.DeployedEnv)
 		testhelpers.SleepAndReplay(tc.T, tc.DeployedEnv.Env, 30*time.Second, tc.SourceChain, tc.DestChain)
 		out.Replayed = true
@@ -341,6 +348,7 @@ func Run(t *testing.T, tc TestCase) (out TestCaseOutput) {
 	// Perform validation based on ValidationType
 	switch tc.ValidationType {
 	case ValidationTypeCommit:
+		tc.T.Logf("validating commit for source chain %d and dest chain %d type %d", tc.SourceChain, tc.DestChain, tc.ValidationType)
 		commitStart := time.Now()
 		testhelpers.ConfirmCommitForAllWithExpectedSeqNums(tc.T, tc.Env, tc.OnchainState, expectedSeqNumRange, startBlocks)
 		tc.T.Logf("confirmed commit of seq nums %+v in %s", expectedSeqNumRange, time.Since(commitStart).String())
@@ -348,6 +356,7 @@ func Run(t *testing.T, tc TestCase) (out TestCaseOutput) {
 		tc.T.Logf("only commit validation was performed")
 	case ValidationTypeExec: // will validate both commit and exec
 		// First, validate commit
+		tc.T.Logf("validating commit for source chain %d and dest chain %d type %d", tc.SourceChain, tc.DestChain, tc.ValidationType)
 		commitStart := time.Now()
 		testhelpers.ConfirmCommitForAllWithExpectedSeqNums(tc.T, tc.Env, tc.OnchainState, expectedSeqNumRange, startBlocks)
 		tc.T.Logf("confirmed commit of seq nums %+v in %s", expectedSeqNumRange, time.Since(commitStart).String())

@@ -213,6 +213,7 @@ func ConfirmCommitForAllWithExpectedSeqNums(
 		srcChain := sourceDest.SourceChainSelector
 		dstChain := sourceDest.DestChainSelector
 		if expectedSeqNum.Start() == 0 {
+			t.Logf("skipping commit for source chain %d and dest chain %d because expected sequence number is 0", srcChain, dstChain)
 			continue
 		}
 		wg.Go(func() error {
@@ -227,6 +228,7 @@ func ConfirmCommitForAllWithExpectedSeqNums(
 			}
 			switch family {
 			case chainsel.FamilyEVM:
+				t.Logf("going to confirm commit for source chain %d and dest chain %d", srcChain, dstChain)
 				return commonutils.JustError(ConfirmCommitWithExpectedSeqNumRange(
 					t,
 					srcChain,
