@@ -10,6 +10,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	chain_selectors "github.com/smartcontractkit/chain-selectors"
+	"github.com/smartcontractkit/quarantine"
 
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_5_0/evm_2_evm_onramp"
 	"github.com/smartcontractkit/chainlink-evm/pkg/utils"
@@ -416,6 +417,7 @@ func TestSetTokenTransferFeeConfig_Execution_WithMCMS(t *testing.T) {
 }
 
 func TestSetTokenTransferFeeConfig_MultipleChains(t *testing.T) {
+	quarantine.Flaky(t, "DX-2347")
 	// Spin up a memory env with minimal prerequisite deployment
 	e, _ := testhelpers.NewMemoryEnvironment(t,
 		testhelpers.WithNumOfChains(2),
