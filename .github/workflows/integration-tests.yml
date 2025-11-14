@@ -449,7 +449,7 @@ jobs:
       id-token: write
       contents: read
     if: needs.run-core-e2e-tests-setup.outputs.should-run == 'true'
-    uses: smartcontractkit/.github/.github/workflows/run-e2e-tests.yml@a1273177bb5fc9577ec88364df09e95e102e87d1 # 2025-10-06
+    uses: smartcontractkit/.github/.github/workflows/run-e2e-tests.yml@fix/dockerhub-credentials # todo
     with:
       workflow_name: ${{ needs.run-core-e2e-tests-setup.outputs.workflow-name }}
       chainlink_version: ${{ inputs.evm-ref || inputs.cl_ref || github.sha }}
@@ -482,6 +482,8 @@ jobs:
       OPTIONAL_GATI_AWS_ROLE_ARN: ${{ secrets.AWS_OIDC_CHAINLINK_READ_ONLY_TOKEN_ISSUER_ROLE_ARN }}
       OPTIONAL_GATI_LAMBDA_URL: ${{  secrets.AWS_INFRA_RELENG_TOKEN_ISSUER_LAMBDA_URL}}
       TRUNK_API_KEY: ${{ secrets.TRUNK_API_KEY }}
+      OPTIONAL_DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_READONLY_USERNAME }}
+      OPTIONAL_DOCKERHUB_PASSWORD: ${{ secrets.DOCKERHUB_READONLY_PASSWORD }}
 
   run-ccip-e2e-tests-setup:
     name: Run CCIP E2E Tests Setup
@@ -548,7 +550,7 @@ jobs:
       contents: read
     needs: [build-chainlink, run-ccip-e2e-tests-setup, changes, labels]
     if: needs.run-ccip-e2e-tests-setup.outputs.should-run == 'true'
-    uses: smartcontractkit/.github/.github/workflows/run-e2e-tests.yml@a1273177bb5fc9577ec88364df09e95e102e87d1 # 2025-10-06
+    uses: smartcontractkit/.github/.github/workflows/run-e2e-tests.yml@fix/dockerhub-credentials # todo
     with:
       workflow_name: ${{ needs.run-ccip-e2e-tests-setup.outputs.workflow-name }}
       chainlink_version: ${{ inputs.evm-ref || inputs.cl_ref || github.sha }}
@@ -584,6 +586,8 @@ jobs:
       OPTIONAL_GATI_AWS_ROLE_ARN: ${{ secrets.AWS_OIDC_CHAINLINK_READ_ONLY_TOKEN_ISSUER_ROLE_ARN }}
       OPTIONAL_GATI_LAMBDA_URL: ${{  secrets.AWS_INFRA_RELENG_TOKEN_ISSUER_LAMBDA_URL}}
       TRUNK_API_KEY: ${{ secrets.TRUNK_API_KEY }}
+      OPTIONAL_DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_READONLY_USERNAME }}
+      OPTIONAL_DOCKERHUB_PASSWORD: ${{ secrets.DOCKERHUB_READONLY_PASSWORD }}
 
   check-e2e-test-results:
     if: always()
