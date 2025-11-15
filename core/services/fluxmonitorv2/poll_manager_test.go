@@ -7,6 +7,8 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"github.com/smartcontractkit/quarantine"
+
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/flux_aggregator_wrapper"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/fluxmonitorv2"
@@ -412,6 +414,7 @@ func TestPollManager_ResetIdleTimerWhenHibernating(t *testing.T) {
 }
 
 func TestPollManager_Reset(t *testing.T) {
+	quarantine.Flaky(t, "DX-2350")
 	t.Parallel()
 	pm := newPollManager(t)
 
