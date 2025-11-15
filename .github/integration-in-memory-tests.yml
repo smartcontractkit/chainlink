@@ -733,11 +733,22 @@ runner-test-matrix:
   - id: smoke/ccip/ccip_sui_messaging_test.go:Test_CCIP_Messaging_Sui2EVM
     path: integration-tests/smoke/ccip/ccip_sui_messaging_test.go
     test_env_type: in-memory
-    runs_on_self_hosted: runs-on/cpu=8/ram=32/family=m6i+m5.*/spot=false/image=ubuntu24-full-x64/extras=s3-cache+tmpfs
+    runs_on: ubuntu-latest
+    # runs_on_self_hosted: runs-on/cpu=8/ram=32/family=m6i+m5.*/spot=false/image=ubuntu24-full-x64/extras=s3-cache+tmpfs
     triggers:
       - PR Integration CCIP Tests
       - Nightly Integration CCIP Tests
-    test_cmd: go test ./smoke/ccip -run "Test_CCIP_Messaging_Sui2EVM" -timeout 10m -test.parallel=1 -count=1 -json
+    test_cmd: |
+      echo "🧹 Freeing up disk space before CCIP Sui test..."
+      df -h
+      sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc /usr/local/.ghcup /usr/share/swift /usr/local/lib/node_modules || true
+      sudo apt-get autoremove -y && sudo apt-get autoclean -y && sudo apt-get clean || true
+      sudo apt-get remove -y '^aspnetcore-.*' '^dotnet-.*' azure-cli google-cloud-sdk hhvm google-chrome-stable firefox powershell mono-devel || true
+      docker system prune -af --volumes || true
+      echo "✅ Cleanup completed. Available space:"
+      df -h
+      echo "🚀 Starting CCIP Sui2EVM test..."
+      go test ./smoke/ccip -run "Test_CCIP_Messaging_Sui2EVM" -timeout 10m -test.parallel=1 -count=1 -json
     test_go_project_path: integration-tests
     sui_cli_version: mainnet-1.60.1
     install_plugins_public: true
@@ -745,11 +756,22 @@ runner-test-matrix:
   - id: smoke/ccip/ccip_sui_messaging_test.go:Test_CCIP_Messaging_EVM2Sui
     path: integration-tests/smoke/ccip/ccip_sui_messaging_test.go
     test_env_type: in-memory
-    runs_on_self_hosted: runs-on/cpu=8/ram=32/family=m6i+m5.*/spot=false/image=ubuntu24-full-x64/extras=s3-cache+tmpfs
+    runs_on: ubuntu-latest
+    # runs_on_self_hosted: runs-on/cpu=8/ram=32/family=m6i+m5.*/spot=false/image=ubuntu24-full-x64/extras=s3-cache+tmpfs
     triggers:
       - PR Integration CCIP Tests
       - Nightly Integration CCIP Tests
-    test_cmd: go test ./smoke/ccip -run "Test_CCIP_Messaging_EVM2Sui" -timeout 10m -test.parallel=1 -count=1 -json
+    test_cmd: |
+      echo "🧹 Freeing up disk space before CCIP Sui test..."
+      df -h
+      sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc /usr/local/.ghcup /usr/share/swift /usr/local/lib/node_modules || true
+      sudo apt-get autoremove -y && sudo apt-get autoclean -y && sudo apt-get clean || true
+      sudo apt-get remove -y '^aspnetcore-.*' '^dotnet-.*' azure-cli google-cloud-sdk hhvm google-chrome-stable firefox powershell mono-devel || true
+      docker system prune -af --volumes || true
+      echo "✅ Cleanup completed. Available space:"
+      df -h
+      echo "🚀 Starting CCIP EVM2Sui test..."
+      go test ./smoke/ccip -run "Test_CCIP_Messaging_EVM2Sui" -timeout 10m -test.parallel=1 -count=1 -json
     test_go_project_path: integration-tests
     sui_cli_version: mainnet-1.60.1
     install_plugins_public: true
