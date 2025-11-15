@@ -791,11 +791,22 @@ runner-test-matrix:
   - id: smoke/ccip/ccip_sui_token_transfer_test.go:Test_CCIPTokenTransfer_Sui2EVM_BurnMintTokenPool
     path: integration-tests/smoke/ccip/ccip_sui_token_transfer_test.go
     test_env_type: in-memory
-    runs_on_self_hosted: runs-on/cpu=8/ram=32/family=m6i+m5.*/spot=false/image=ubuntu24-full-x64/extras=s3-cache+tmpfs
+    runs_on: ubuntu-latest
+    # runs_on_self_hosted: runs-on/cpu=8/ram=32/family=m6i+m5.*/spot=false/image=ubuntu24-full-x64/extras=s3-cache+tmpfs
     triggers:
       - PR Integration CCIP Tests
       - Nightly Integration CCIP Tests
-    test_cmd: go test ./smoke/ccip -run "Test_CCIPTokenTransfer_Sui2EVM_BurnMintTokenPool" -timeout 10m -test.parallel=1 -count=1 -json
+    test_cmd: |
+      echo "🧹 Freeing up disk space before CCIP Sui token transfer test..."
+      df -h
+      sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc /usr/local/.ghcup /usr/share/swift /usr/local/lib/node_modules || true
+      sudo apt-get autoremove -y && sudo apt-get autoclean -y && sudo apt-get clean || true
+      sudo apt-get remove -y '^aspnetcore-.*' '^dotnet-.*' azure-cli google-cloud-sdk hhvm google-chrome-stable firefox powershell mono-devel || true
+      docker system prune -af --volumes || true
+      echo "✅ Cleanup completed. Available space:"
+      df -h
+      echo "🚀 Starting CCIP Sui2EVM BurnMint token transfer test..."
+      go test ./smoke/ccip -run "Test_CCIPTokenTransfer_Sui2EVM_BurnMintTokenPool" -timeout 10m -test.parallel=1 -count=1 -json
     test_go_project_path: integration-tests
     sui_cli_version: mainnet-1.60.1
     install_plugins_public: true
@@ -803,11 +814,22 @@ runner-test-matrix:
   - id: smoke/ccip/ccip_sui_token_transfer_test.go:Test_CCIPTokenTransfer_Sui2EVM_ManagedTokenPool
     path: integration-tests/smoke/ccip/ccip_sui_token_transfer_test.go
     test_env_type: in-memory
-    runs_on_self_hosted: runs-on/cpu=8/ram=32/family=m6i+m5.*/spot=false/image=ubuntu24-full-x64/extras=s3-cache+tmpfs
+    runs_on: ubuntu-latest
+    # runs_on_self_hosted: runs-on/cpu=8/ram=32/family=m6i+m5.*/spot=false/image=ubuntu24-full-x64/extras=s3-cache+tmpfs
     triggers:
       - PR Integration CCIP Tests
       - Nightly Integration CCIP Tests
-    test_cmd: go test ./smoke/ccip -run "Test_CCIPTokenTransfer_Sui2EVM_ManagedTokenPool" -timeout 10m -test.parallel=1 -count=1 -json
+    test_cmd: |
+      echo "🧹 Freeing up disk space before CCIP Sui managed token pool test..."
+      df -h
+      sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc /usr/local/.ghcup /usr/share/swift /usr/local/lib/node_modules || true
+      sudo apt-get autoremove -y && sudo apt-get autoclean -y && sudo apt-get clean || true
+      sudo apt-get remove -y '^aspnetcore-.*' '^dotnet-.*' azure-cli google-cloud-sdk hhvm google-chrome-stable firefox powershell mono-devel || true
+      docker system prune -af --volumes || true
+      echo "✅ Cleanup completed. Available space:"
+      df -h
+      echo "🚀 Starting CCIP Sui2EVM ManagedTokenPool test..."
+      go test ./smoke/ccip -run "Test_CCIPTokenTransfer_Sui2EVM_ManagedTokenPool" -timeout 10m -test.parallel=1 -count=1 -json
     test_go_project_path: integration-tests
     sui_cli_version: mainnet-1.60.1
     install_plugins_public: true
