@@ -182,8 +182,13 @@ func NewChannelDefinitionCache(lggr logger.Logger, orm ChannelDefinitionCacheORM
 	return cdc
 }
 
+// Start initializes the channel definition cache by loading persisted state from the database,
+// registering logpoller filters, and launching three concurrent asynchronous loops:
+// 1. pollChainLoop: Periodically queries logpoller for new channel definition events
+// 2. fetchLatestLoop: Receives fetch triggers and coordinates fetching definitions from URLs
+// 3. failedPersistLoop: Periodically retries failed database persistence operations
+// All loops run until the cache is stopped via Close().
 func (c *channelDefinitionCache) Start(ctx context.Context) error {
-	// Initial load from DB, then async poll from chain thereafter
 	return c.StartOnce("ChannelDefinitionCache", func() (err error) {
 		err = c.lp.RegisterFilter(ctx, logpoller.Filter{
 			Name:      c.filterName,
@@ -300,7 +305,11 @@ func buildFilterExprs(baseExprs []query.Expression, fromBlock, toBlock int64) []
 	return exprs
 }
 
-// pollChainLoop periodically checks logpoller for new logs
+// pollChainLoop is an asynchronous goroutine that periodically polls logpoller for new channel
+// definition events (both owner and adder events). It processes logs sequentially by block number,
+// unpacks them into fetch triggers, and sends triggers to the fetch channel for asynchronous
+// processing. The loop runs until the cache is stopped, with failures logged and retried on
+// the next polling interval.
 func (c *channelDefinitionCache) pollChainLoop() {
 	defer c.wg.Done()
 
@@ -324,6 +333,11 @@ func (c *channelDefinitionCache) pollChainLoop() {
 	}
 }
 
+// readLogs queries logpoller for new channel definition events within the block range from
+// the last processed block to the latest available block. It fetches both owner events
+// (NewChannelDefinition) and adder events (ChannelDefinitionAdded), sorts all logs by block
+// number to ensure sequential processing, and passes them to processLogs for unpacking and
+// trigger generation.
 func (c *channelDefinitionCache) readLogs(ctx context.Context) (err error) {
 	latestBlock, err := c.lp.LatestBlock(ctx)
 	if errors.Is(err, sql.ErrNoRows) {
@@ -364,9 +378,9 @@ func (c *channelDefinitionCache) readLogs(ctx context.Context) (err error) {
 	return nil
 }
 
-// scanFromBlockNum returns the block number to scan from
-// Uses the maximum of persistedBlockNum and definitionsBlockNum+1 to ensure we don't skip
-// any blocks that have been processed in memory but not yet persisted
+// scanFromBlockNum returns the next block number to scan from, ensuring no gaps between
+// persisted and in-memory state. It uses the maximum of the in-memory definitions block number
+// and the initial block number to prevent re-scanning blocks that have already been processed.
 func (c *channelDefinitionCache) scanFromBlockNum() int64 {
 	c.definitionsMu.RLock()
 	blockNum := c.definitionsBlockNum
@@ -379,6 +393,10 @@ func (c *channelDefinitionCache) scanFromBlockNum() int64 {
 	return c.initialBlockNum
 }
 
+// processLogs unpacks channel definition logs into fetch triggers by extracting URL, SHA hash,
+// block number, and source information. It validates logs and handles unpacking errors gracefully,
+// continuing to process remaining logs even if individual logs fail. Valid triggers are sent to
+// the fetch channel for asynchronous processing by fetchLatestLoop.
 func (c *channelDefinitionCache) processLogs(logs []logpoller.Log) {
 	for _, log := range logs {
 		var trigger fetchTrigger
@@ -420,9 +438,17 @@ func (c *channelDefinitionCache) processLogs(logs []logpoller.Log) {
 	}
 }
 
+// mergeDefinitions reconciles new channel definitions with the current set according to source
+// authority rules. Owner definitions (SourceOwner) have full authority: they can add, update, or
+// tombstone (delete) channels. Adder definitions (non-owner sources) have limited authority: they
+// can only add new channels and cannot overwrite or tombstone existing ones.
 func (c *channelDefinitionCache) mergeDefinitions(currentDefinitions llotypes.ChannelDefinitions, newDefinitions llotypes.ChannelDefinitions) llotypes.ChannelDefinitions {
 	for channelID, def := range newDefinitions {
 		switch def.Source {
+		case SourceUndefined:
+			c.lggr.Warnw("undefined source, skipping definition",
+				"channelID", channelID, "source", def.Source)
+			continue
 		case SourceOwner:
 			if def.Tombstone {
 				delete(currentDefinitions, channelID)
@@ -448,6 +474,11 @@ func (c *channelDefinitionCache) mergeDefinitions(currentDefinitions llotypes.Ch
 	return currentDefinitions
 }
 
+// fetchLatestLoop is an asynchronous goroutine that receives fetch triggers from the poll chain
+// loop via a channel. It coordinates fetching channel definitions from URLs, verifying SHA hashes,
+// and updating the in-memory cache. If an initial fetch fails, it spawns a separate retry goroutine
+// (fetchLoop) with exponential backoff. The loop manages context cancellation to ensure proper
+// cleanup when the cache is stopped, canceling any in-flight fetch operations.
 func (c *channelDefinitionCache) fetchLatestLoop() {
 	defer c.wg.Done()
 
@@ -478,6 +509,11 @@ func (c *channelDefinitionCache) fetchLatestLoop() {
 	}
 }
 
+// fetchLoop is a retry goroutine spawned when an initial fetch attempt fails in fetchLatestLoop.
+// It uses exponential backoff to retry fetching channel definitions until either the fetch succeeds
+// or the context is canceled (e.g., during cache shutdown). This isolates retry logic from the
+// main fetch loop, allowing it to continue processing new triggers while retries occur in the
+// background.
 func (c *channelDefinitionCache) fetchLoop(ctx context.Context, trigger fetchTrigger) {
 	defer c.wg.Done()
 
@@ -496,6 +532,12 @@ func (c *channelDefinitionCache) fetchLoop(ctx context.Context, trigger fetchTri
 	}
 }
 
+// fetchAndSetChannelDefinitions orchestrates the complete fetch-merge-update cycle for channel
+// definitions. It checks that the trigger block number is newer than the current state to avoid
+// processing stale events, fetches definitions from the URL and verifies the SHA hash, merges
+// the new definitions with the current in-memory state using reconciliation rules, atomically
+// updates the cache with the merged result and new block number, and triggers persistence to
+// the database. The function is protected by fetchMutex to serialize fetch operations.
 func (c *channelDefinitionCache) fetchAndSetChannelDefinitions(ctx context.Context, trigger fetchTrigger) error {
 	c.fetchMutex.Lock()
 	defer c.fetchMutex.Unlock()
@@ -540,6 +582,11 @@ func (c *channelDefinitionCache) fetchAndSetChannelDefinitions(ctx context.Conte
 	return nil
 }
 
+// fetchChannelDefinitions fetches channel definitions from the URL specified in the trigger,
+// verifies the response SHA3 hash matches the expected hash from the on-chain event, decodes
+// the JSON response, and annotates each definition with its source identifier. Returns an
+// error if the URL is invalid, the HTTP request fails, the hash verification fails, or the
+// JSON cannot be decoded.
 func (c *channelDefinitionCache) fetchChannelDefinitions(ctx context.Context, trigger fetchTrigger) (llotypes.ChannelDefinitions, error) {
 	u, err := url.ParseRequestURI(trigger.url)
 	if err != nil {
@@ -607,6 +654,11 @@ func (c *channelDefinitionCache) fetchChannelDefinitions(ctx context.Context, tr
 	return cd, nil
 }
 
+// persist atomically writes the in-memory channel definitions to the database if they are newer
+// than the currently persisted state. It uses persistMu to prevent concurrent write operations
+// and only performs the database write if definitionsBlockNum is greater than persistedBlockNum.
+// Returns the memory and persisted block numbers along with any error that occurred during
+// persistence.
 func (c *channelDefinitionCache) persist(ctx context.Context) (memoryBlockNum, persistedBlockNum int64, err error) {
 	c.persistMu.Lock()
 	defer c.persistMu.Unlock()
@@ -634,8 +686,11 @@ func (c *channelDefinitionCache) persist(ctx context.Context) (memoryBlockNum, p
 	return definitionsBlockNum, c.persistedBlockNum, nil
 }
 
-// Checks persisted version and tries to save if necessary on a periodic timer
-// Simple backup in case database persistence fails
+// failedPersistLoop is an asynchronous goroutine that periodically checks if in-memory channel
+// definitions need to be persisted to the database and retries any failed persistence operations.
+// It runs on a fixed interval and attempts to catch up any definitions that failed to persist
+// during normal operation. On shutdown, it attempts one final persist operation with a timeout
+// to ensure data is not lost when the cache stops.
 func (c *channelDefinitionCache) failedPersistLoop() {
 	defer c.wg.Done()
 
