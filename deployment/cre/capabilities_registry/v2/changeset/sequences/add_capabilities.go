@@ -53,9 +53,9 @@ func (i *AddCapabilitiesInput) Validate() error {
 }
 
 type AddCapabilitiesOutput struct {
-	DonInfo           capabilities_registry_v2.CapabilitiesRegistryDONInfo
-	UpdatedNodes      []*capabilities_registry_v2.CapabilitiesRegistryNodeUpdated
-	AddedCapabilities []*capabilities_registry_v2.CapabilitiesRegistryCapabilityConfigured
+	AddedCapabilities []string
+	DonInfo           capabilities_registry_v2.CapabilitiesRegistryUpdateDONParams
+	UpdatedNodes      []capabilities_registry_v2.CapabilitiesRegistryNodeParams
 	Proposals         []mcmslib.TimelockProposal
 }
 
@@ -210,7 +210,7 @@ var AddCapabilities = operations.NewSequence[AddCapabilitiesInput, AddCapabiliti
 		return AddCapabilitiesOutput{
 			DonInfo:           updateDonReport.Output.DonInfo,
 			UpdatedNodes:      updateNodesReport.Output.UpdatedNodes,
-			AddedCapabilities: regCapsReport.Output.Capabilities,
+			AddedCapabilities: regCapsReport.Output.CapabilitiesIDs,
 			Proposals:         proposals,
 		}, nil
 	},

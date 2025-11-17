@@ -51,10 +51,10 @@ func (c ConfigureCapabilitiesRegistryInput) Validate() error {
 }
 
 type ConfigureCapabilitiesRegistryOutput struct {
-	Nops                  []*capabilities_registry_v2.CapabilitiesRegistryNodeOperatorAdded
-	Nodes                 []*capabilities_registry_v2.CapabilitiesRegistryNodeAdded
-	Capabilities          []*capabilities_registry_v2.CapabilitiesRegistryCapabilityConfigured
-	DONs                  []capabilities_registry_v2.CapabilitiesRegistryDONInfo
+	Capabilities          []string
+	Nops                  []capabilities_registry_v2.CapabilitiesRegistryNodeOperatorParams
+	Nodes                 []capabilities_registry_v2.CapabilitiesRegistryNodeParams
+	DONs                  []capabilities_registry_v2.CapabilitiesRegistryNewDONParams
 	MCMSTimelockProposals []mcmslib.TimelockProposal
 }
 
@@ -174,7 +174,7 @@ var ConfigureCapabilitiesRegistry = operations.NewSequence(
 		return ConfigureCapabilitiesRegistryOutput{
 			Nops:                  registerNopsReport.Output.Nops,
 			Nodes:                 registerNodesReport.Output.Nodes,
-			Capabilities:          registerCapabilitiesReport.Output.Capabilities,
+			Capabilities:          registerCapabilitiesReport.Output.CapabilitiesIDs,
 			DONs:                  registerDONsReport.Output.DONs,
 			MCMSTimelockProposals: proposals,
 		}, nil

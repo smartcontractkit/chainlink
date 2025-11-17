@@ -32,8 +32,8 @@ type RegisterCapabilitiesInput struct {
 }
 
 type RegisterCapabilitiesOutput struct {
-	Capabilities []*capabilities_registry_v2.CapabilitiesRegistryCapabilityConfigured
-	Operation    *mcmstypes.BatchOperation
+	CapabilitiesIDs []string
+	Operation       *mcmstypes.BatchOperation
 }
 
 // RegisterCapabilities is an operation that registers nodes in the V2 Capabilities Registry contract.
@@ -45,7 +45,7 @@ var RegisterCapabilities = operations.NewOperation[RegisterCapabilitiesInput, Re
 		if len(input.Capabilities) == 0 {
 			b.Logger.Info("no capabilities provided, skipping operation")
 			return RegisterCapabilitiesOutput{
-				Capabilities: []*capabilities_registry_v2.CapabilitiesRegistryCapabilityConfigured{},
+				CapabilitiesIDs: []string{},
 			}, nil
 		}
 
@@ -74,14 +74,17 @@ var RegisterCapabilities = operations.NewOperation[RegisterCapabilitiesInput, Re
 			b.Logger.Info("no new capabilities to register after deduplication, skipping operation")
 
 			return RegisterCapabilitiesOutput{
-				Capabilities: []*capabilities_registry_v2.CapabilitiesRegistryCapabilityConfigured{},
+				CapabilitiesIDs: []string{},
 			}, nil
 		}
 
-		var resultCapabilities []*capabilities_registry_v2.CapabilitiesRegistryCapabilityConfigured
+		capsIDs := make([]string, len(capabilities))
+		for i, cp := range capabilities {
+			capsIDs[i] = cp.CapabilityId
+		}
 
 		// Execute the transaction using the strategy
-		operation, tx, err := deps.Strategy.Apply(func(opts *bind.TransactOpts) (*types.Transaction, error) {
+		operation, _, err := deps.Strategy.Apply(func(opts *bind.TransactOpts) (*types.Transaction, error) {
 			return capabilitiesRegistry.AddCapabilities(opts, capabilities)
 		})
 		if err != nil {
@@ -92,32 +95,12 @@ var RegisterCapabilities = operations.NewOperation[RegisterCapabilitiesInput, Re
 		if input.MCMSConfig != nil {
 			deps.Env.Logger.Infof("Created MCMS proposal for RegisterCapabilities on chain %d", input.ChainSelector)
 		} else {
-			deps.Env.Logger.Infof("Successfully registered %d capabilities on chain %d", len(resultCapabilities), input.ChainSelector)
-
-			ctx := b.GetContext()
-			receipt, err := bind.WaitMined(ctx, chain.Client, tx)
-			if err != nil {
-				return RegisterCapabilitiesOutput{}, fmt.Errorf("failed to mine AddCapabilities transaction %s: %w", tx.Hash().String(), err)
-			}
-
-			// Parse the logs to get the added capabilities
-			resultCapabilities = make([]*capabilities_registry_v2.CapabilitiesRegistryCapabilityConfigured, 0, len(receipt.Logs))
-			for i, log := range receipt.Logs {
-				if log == nil {
-					continue
-				}
-
-				o, err := capabilitiesRegistry.ParseCapabilityConfigured(*log)
-				if err != nil {
-					return RegisterCapabilitiesOutput{}, fmt.Errorf("failed to parse log %d for capability added: %w", i, err)
-				}
-				resultCapabilities = append(resultCapabilities, o)
-			}
+			deps.Env.Logger.Infof("Successfully registered %d capabilities on chain %d", len(capabilities), input.ChainSelector)
 		}
 
 		return RegisterCapabilitiesOutput{
-			Capabilities: resultCapabilities,
-			Operation:    operation,
+			Operation:       operation,
+			CapabilitiesIDs: capsIDs,
 		}, nil
 	},
 )
