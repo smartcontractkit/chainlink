@@ -494,7 +494,7 @@ func upgradeSuiOnRamp(ctx context.Context, t *testing.T, e testhelpers.DeployedE
 		"original_onramp_pkg": state.SuiChains[sourceChain].OnRampAddress,
 		"upgrade_cap":         state.SuiChains[sourceChain].OnRampUpgradeCapId,
 		"signer":              signerAddr,
-	}, true)
+	}, true, "")
 	require.NoError(t, err)
 
 	fmt.Println("ONRAMP COMPILED PKG: ", len(compiledPackage.Dependencies), len(compiledPackage.Modules))
@@ -587,7 +587,7 @@ func upgradeSuiOffRamp(ctx context.Context, t *testing.T, e testhelpers.Deployed
 		"original_offramp_pkg": state.SuiChains[sourceChain].OffRampAddress,
 		"upgrade_cap":          state.SuiChains[sourceChain].OffRampUpgradeCapId,
 		"signer":               signerAddr,
-	}, true)
+	}, true, "")
 	require.NoError(t, err)
 
 	// decode modules from base64 -> [][]byte
@@ -677,7 +677,7 @@ func upgradeCCIP(ctx context.Context, t *testing.T, e testhelpers.DeployedEnv, s
 		"original_ccip_pkg": state.SuiChains[sourceChain].CCIPAddress,
 		"upgrade_cap":       state.SuiChains[sourceChain].CCIPUpgradeCapObjectId,
 		"signer":            signerAddr,
-	}, true)
+	}, true, "")
 	require.NoError(t, err)
 
 	fmt.Println("CCIP COMPILED PKG: ", len(compiledPackage.Dependencies), len(compiledPackage.Modules))
