@@ -84,7 +84,7 @@ func Test_CCIPMessaging_TON2EVM(t *testing.T) {
 		out = mt.Run(
 			t,
 			mt.TestCase{
-				Replayed:               true,
+				Replayed:               false,
 				ValidationType:         mt.ValidationTypeExec,
 				TestSetup:              setup,
 				Nonce:                  nil, // TON nonce check is skipped
@@ -165,6 +165,7 @@ func Test_CCIPMessaging_EVM2TON(t *testing.T) {
 		out = mt.Run(
 			t,
 			mt.TestCase{
+				Replayed:               false,
 				ValidationType:         mt.ValidationTypeExec,
 				TestSetup:              setup,
 				Nonce:                  nil, // TON nonce check is skipped

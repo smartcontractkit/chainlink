@@ -14,6 +14,8 @@ import (
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
 
+	changesetstate "github.com/smartcontractkit/chainlink/deployment/common/changeset/state"
+	"github.com/smartcontractkit/chainlink/deployment/cre/common/strategies"
 	crecontracts "github.com/smartcontractkit/chainlink/deployment/cre/contracts"
 	"github.com/smartcontractkit/chainlink/deployment/cre/jobs/pkg"
 	"github.com/smartcontractkit/chainlink/deployment/cre/ocr3"
@@ -77,12 +79,38 @@ func (l ConfigureVaultPlugin) VerifyPreconditions(_ cldf.Environment, input Conf
 func (l ConfigureVaultPlugin) Apply(e cldf.Environment, input ConfigureVaultPluginInput) (cldf.ChangesetOutput, error) {
 	e.Logger.Infow("Configuring VaultPlugin contract with DON", "donName", input.DON.Name, "nodes", input.DON.NodeIDs, "dryRun", input.DryRun)
 
+	var mcmsContracts *changesetstate.MCMSWithTimelockState
+	if input.MCMSConfig != nil {
+		var mcmsErr error
+		mcmsContracts, mcmsErr = strategies.GetMCMSContracts(e, input.ContractChainSelector, "")
+		if mcmsErr != nil {
+			return cldf.ChangesetOutput{}, fmt.Errorf("failed to get MCMS contracts: %w", mcmsErr)
+		}
+	}
+
+	chain, ok := e.BlockChains.EVMChains()[input.ContractChainSelector]
+	if !ok {
+		return cldf.ChangesetOutput{}, fmt.Errorf("chain with selector %d not found in environment", input.ContractChainSelector)
+	}
+
 	contractRefKey := pkg.GetOCR3CapabilityAddressRefKey(input.ContractChainSelector, input.ContractQualifier)
 	contractAddrRef, err := e.DataStore.Addresses().Get(contractRefKey)
 	if err != nil {
 		return cldf.ChangesetOutput{}, fmt.Errorf("failed to get VaultPlugin contract address for chain selector %d and qualifier %s: %w", input.ContractChainSelector, input.ContractQualifier, err)
 	}
 	contractAddr := common.HexToAddress(contractAddrRef.Address)
+
+	strategy, err := strategies.CreateStrategy(
+		chain,
+		e,
+		input.MCMSConfig,
+		mcmsContracts,
+		common.HexToAddress(contractAddrRef.Address),
+		ConfigureOCR3Description,
+	)
+	if err != nil {
+		return cldf.ChangesetOutput{}, fmt.Errorf("failed to create strategy: %w", err)
+	}
 
 	dkgRefKey := pkg.GetOCR3CapabilityAddressRefKey(input.ContractChainSelector, input.InstanceID.DKGContractQualifier)
 	dkgAddrRef, err := e.DataStore.Addresses().Get(dkgRefKey)
@@ -104,7 +132,8 @@ func (l ConfigureVaultPlugin) Apply(e cldf.Environment, input ConfigureVaultPlug
 	}
 
 	report, err := operations.ExecuteOperation(e.OperationsBundle, contracts.ConfigureOCR3_1, contracts.ConfigureOCR3_1Deps{
-		Env: &e,
+		Env:      &e,
+		Strategy: strategy,
 	}, contracts.ConfigureOCR3_1Input{
 		ContractAddress:               &contractAddr,
 		ChainSelector:                 input.ContractChainSelector,

@@ -10,6 +10,7 @@ import (
 	nodev1 "github.com/smartcontractkit/chainlink-protos/job-distributor/v1/node"
 	"github.com/smartcontractkit/chainlink-protos/job-distributor/v1/shared/ptypes"
 	"github.com/smartcontractkit/chainlink/deployment/helpers/pointer"
+	"github.com/smartcontractkit/chainlink/deployment/utils/nodetestutils"
 )
 
 func (j JobClient) EnableNode(ctx context.Context, in *nodev1.EnableNodeRequest, opts ...grpc.CallOption) (*nodev1.EnableNodeResponse, error) {
@@ -31,7 +32,7 @@ func (j *JobClient) RegisterNode(ctx context.Context, in *nodev1.RegisterNodeReq
 		return nil, fmt.Errorf("node with Public Key %s is already registered", in.GetPublicKey())
 	}
 
-	var foundNode *Node
+	var foundNode *nodetestutils.Node
 	for _, node := range j.nodeStore.list() {
 		if node.Keys.CSA.ID() == in.GetPublicKey() {
 			foundNode = node

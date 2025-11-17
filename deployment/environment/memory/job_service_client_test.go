@@ -17,6 +17,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/helpers/pointer"
+	"github.com/smartcontractkit/chainlink/deployment/utils/nodetestutils"
 )
 
 func TestJobClientProposeJob(t *testing.T) {
@@ -28,7 +29,7 @@ func TestJobClientProposeJob(t *testing.T) {
 
 	blockchains := cldf_chain.NewBlockChainsFromSlice(bc)
 	ports := freeport.GetN(t, 1)
-	c := NewNodeConfig{
+	c := nodetestutils.NewNodeConfig{
 		Port:           ports[0],
 		BlockChains:    blockchains,
 		LogLevel:       zapcore.DebugLevel,
@@ -36,11 +37,11 @@ func TestJobClientProposeJob(t *testing.T) {
 		RegistryConfig: deployment.CapabilityRegistryConfig{},
 		CustomDBSetup:  nil,
 	}
-	testNode := NewNode(t, c)
+	testNode := nodetestutils.NewNode(t, c)
 
 	// Set up the JobClient with a mock node
 	nodeID := "node-1"
-	nodes := map[string]Node{
+	nodes := map[string]nodetestutils.Node{
 		nodeID: *testNode,
 	}
 	jobClient := NewMemoryJobClient(nodes)
@@ -133,7 +134,7 @@ func TestJobClientJobAPI(t *testing.T) {
 
 	blockchains := cldf_chain.NewBlockChainsFromSlice(bc)
 	ports := freeport.GetN(t, 1)
-	c := NewNodeConfig{
+	c := nodetestutils.NewNodeConfig{
 		Port:           ports[0],
 		BlockChains:    blockchains,
 		LogLevel:       zapcore.DebugLevel,
@@ -141,14 +142,14 @@ func TestJobClientJobAPI(t *testing.T) {
 		RegistryConfig: deployment.CapabilityRegistryConfig{},
 		CustomDBSetup:  nil,
 	}
-	testNode := NewNode(t, c)
+	testNode := nodetestutils.NewNode(t, c)
 
 	// Set up the JobClient with a mock node
 	nodeID := "node-1"
 	externalJobID := "f1ac5211-ab79-4c31-ba1c-0997b72db466"
 
 	jobSpecToml := testJobProposalTOML(t, externalJobID)
-	nodes := map[string]Node{
+	nodes := map[string]nodetestutils.Node{
 		nodeID: *testNode,
 	}
 	jobClient := NewMemoryJobClient(nodes)

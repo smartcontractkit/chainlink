@@ -479,7 +479,7 @@ func (c CCIPOnChainState) EnforceMCMSUsageIfProd(ctx context.Context, mcmsConfig
 // ValidateOwnershipOfChain validates the ownership of every CCIP contract on a chain.
 // If mcmsConfig is nil, the expected owner of each contract is the chain's deployer key.
 // If provided, the expected owner is the Timelock contract.
-func (c CCIPOnChainState) ValidateOwnershipOfChain(e cldf.Environment, chainSel uint64, mcmsConfig *proposalutils.TimelockConfig) error {
+func (c CCIPOnChainState) ValidateOwnershipOfChain(e cldf.Environment, chainSel uint64, mcmsConfig *proposalutils.TimelockConfig, ownedContracts map[string]commoncs.Ownable) error {
 	chain, ok := e.BlockChains.EVMChains()[chainSel]
 	if !ok {
 		return fmt.Errorf("chain with selector %d not found in the environment", chainSel)
@@ -493,16 +493,6 @@ func (c CCIPOnChainState) ValidateOwnershipOfChain(e cldf.Environment, chainSel 
 		return fmt.Errorf("timelock not found on %s", chain)
 	}
 
-	ownedContracts := map[string]commoncs.Ownable{
-		"router":             chainState.Router,
-		"feeQuoter":          chainState.FeeQuoter,
-		"offRamp":            chainState.OffRamp,
-		"onRamp":             chainState.OnRamp,
-		"nonceManager":       chainState.NonceManager,
-		"rmnRemote":          chainState.RMNRemote,
-		"rmnProxy":           chainState.RMNProxy,
-		"tokenAdminRegistry": chainState.TokenAdminRegistry,
-	}
 	var wg sync.WaitGroup
 	errs := make(chan error, len(ownedContracts))
 	for contractName, contract := range ownedContracts {

@@ -14,25 +14,26 @@ import (
 	cldf_offchain "github.com/smartcontractkit/chainlink-deployments-framework/offchain"
 
 	"github.com/smartcontractkit/chainlink/deployment/environment/test"
+	"github.com/smartcontractkit/chainlink/deployment/utils/nodetestutils"
 )
 
 var _ cldf_offchain.Client = &JobClient{}
 
 type JobClient struct {
-	RegisteredNodes map[string]Node
+	RegisteredNodes map[string]nodetestutils.Node
 	nodeStore
 	*test.JobServiceClient
 }
 
-func NewMemoryJobClient(nodesByPeerID map[string]Node) *JobClient {
-	m := make(map[string]*Node)
+func NewMemoryJobClient(nodesByPeerID map[string]nodetestutils.Node) *JobClient {
+	m := make(map[string]*nodetestutils.Node)
 	for id, node := range nodesByPeerID {
 		m[id] = &node
 	}
 	ns := newMapNodeStore(m)
 	jg := &jobApproverGetter{s: ns}
 	return &JobClient{
-		RegisteredNodes:  make(map[string]Node),
+		RegisteredNodes:  make(map[string]nodetestutils.Node),
 		JobServiceClient: test.NewJobServiceClient(jg),
 		nodeStore:        ns,
 	}

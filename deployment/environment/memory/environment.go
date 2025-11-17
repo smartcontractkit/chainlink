@@ -8,11 +8,11 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/core/types"
 
-	"github.com/smartcontractkit/freeport"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zapcore"
 
 	"github.com/smartcontractkit/chainlink/deployment"
+	"github.com/smartcontractkit/chainlink/deployment/utils/nodetestutils"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 
@@ -58,17 +58,6 @@ const (
 var ContractVersionShortSha = map[CCIPSolanaContractVersion]string{
 	SolanaContractV0_1_0: "0ee732e80586",
 	SolanaContractV0_1_1: "7f8a0f403c3a",
-}
-
-type NewNodesConfig struct {
-	LogLevel zapcore.Level
-	// BlockChains to be configured
-	BlockChains    cldf_chain.BlockChains
-	NumNodes       int
-	NumBootstraps  int
-	RegistryConfig deployment.CapabilityRegistryConfig
-	// SQL queries to run after DB creation, typically used for setting up testing state. Optional.
-	CustomDBSetup []string
 }
 
 // For placeholders like aptos
@@ -190,7 +179,7 @@ func NewMemoryEnvironmentFromChainsNodes(
 	ctx func() context.Context,
 	lggr logger.Logger,
 	blockchains cldf_chain.BlockChains,
-	nodes map[string]Node,
+	nodes map[string]nodetestutils.Node,
 ) cldf.Environment {
 	var nodeIDs []string
 	for id := range nodes {
@@ -237,7 +226,7 @@ func NewMemoryEnvironment(
 		slices.Concat(evmChains, solChains, aptosChains, zkChains, suiChains, tonChains, tronChains),
 	)
 
-	c := NewNodesConfig{
+	c := nodetestutils.NewNodesConfig{
 		LogLevel:       logLevel,
 		BlockChains:    chains,
 		NumNodes:       config.Nodes,
@@ -245,7 +234,7 @@ func NewMemoryEnvironment(
 		RegistryConfig: config.RegistryConfig,
 		CustomDBSetup:  config.CustomDBSetup,
 	}
-	nodes := NewNodes(t, c)
+	nodes := nodetestutils.NewNodes(t, c)
 	var nodeIDs []string
 	for id, node := range nodes {
 		require.NoError(t, node.App.Start(t.Context()))
