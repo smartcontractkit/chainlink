@@ -3,6 +3,7 @@ package changeset_test
 import (
 	"encoding/json"
 	"testing"
+	"time"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/stretchr/testify/assert"
@@ -21,6 +22,7 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/cre/capabilities_registry/v2/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/cre/capabilities_registry/v2/changeset/operations/contracts"
 	"github.com/smartcontractkit/chainlink/deployment/cre/capabilities_registry/v2/changeset/pkg"
+	crecontracts "github.com/smartcontractkit/chainlink/deployment/cre/contracts"
 )
 
 // Local constants (same values used in existing tests)
@@ -211,6 +213,43 @@ func TestUpdateDONChangeset_ByName_Direct_Succeeds(t *testing.T) {
 	require.Len(t, got.CapabilityConfigurations, 1)
 	assert.Equal(t, fx.capIDs[0], got.CapabilityConfigurations[0].CapabilityId)
 	assert.Equal(t, wantProto, got.CapabilityConfigurations[0].Config)
+}
+
+func TestUpdateDONChangeset_ByName_Direct_Succeeds_MCMS(t *testing.T) {
+	t.Parallel()
+	fx := setupRegistryForUpdateDON(t /*isWorkflow=*/, false)
+
+	// New config to apply
+	newCfg := map[string]any{
+		"defaultConfig": map[string]any{},
+		"remoteTriggerConfig": map[string]any{
+			"registrationRefresh":     "25s", // changed value to detect update
+			"registrationExpiry":      "60s",
+			"minResponsesToAggregate": 2,
+			"messageExpiry":           "120s",
+		},
+	}
+
+	newName := fx.donName + "-renamed"
+
+	out, err := changeset.UpdateDON{}.Apply(fx.env, changeset.UpdateDONInput{
+		RegistryQualifier: fx.qualifier,
+		RegistryChainSel:  fx.selector,
+		DONName:           fx.donName, // required current name
+		NewDonName:        newName,    // rename the DON
+		CapabilityConfigs: []contracts.CapabilityConfig{
+			{Capability: contracts.Capability{CapabilityID: fx.capIDs[0]}, Config: newCfg},
+		},
+		Force: false,
+		MCMSConfig: &crecontracts.MCMSConfig{
+			MinDelay: 1 * time.Second,
+		},
+	})
+	require.NoError(t, err)
+
+	assert.NotNil(t, out)
+	assert.NotEmpty(t, out.Reports)
+	assert.NotEmpty(t, out.MCMSTimelockProposals, "MCMS → proposals must not be empty")
 }
 
 // Safety gate: workflow DON should refuse without Force=true (changeset passes Force through to operation).
