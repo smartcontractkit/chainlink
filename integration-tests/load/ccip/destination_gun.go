@@ -275,7 +275,7 @@ func (m *DestinationGun) GetEVMMessage(src uint64) (router.ClientEVM2AnyMessage,
 			m.l.Error("Error encoding receiver address")
 			return router.ClientEVM2AnyMessage{}, 0, err
 		}
-		extraArgs, err = GetEVMExtraArgsV2(big.NewInt(0), *m.testConfig.OOOExecution)
+		extraArgs, err = GetEVMExtraArgsV2(big.NewInt(1000000), *m.testConfig.OOOExecution)
 		if err != nil {
 			m.l.Error("Error encoding extra args for evm dest")
 			return router.ClientEVM2AnyMessage{}, 0, err
