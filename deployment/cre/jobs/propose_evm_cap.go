@@ -29,7 +29,7 @@ const (
 )
 
 type OverrideDefaultCfg struct {
-	ChainID                         uint64 `json:"chainID,omitempty" yaml:"chainID,omitempty"`
+	ChainID                         uint64 `json:"chainId,omitempty" yaml:"chainId,omitempty"`
 	Network                         string `json:"network,omitempty" yaml:"network,omitempty"`
 	LogTriggerPollInterval          uint64 `json:"logTriggerPollInterval,omitempty" yaml:"logTriggerPollInterval,omitempty"`
 	LogTriggerSendChannelBufferSize uint64 `json:"logTriggerSendChannelBufferSize,omitempty" yaml:"logTriggerSendChannelBufferSize,omitempty"`
@@ -212,7 +212,7 @@ func (u ProposeEVMCapJobSpec) Apply(e cldf.Environment, input ProposeEVMCapJobSp
 			return cldf.ChangesetOutput{}, fmt.Errorf("failed to get node info for node %s: %w", evmCapInput.NodeID, err)
 		}
 
-		evmOCRConfig, ok := nodeInfos[0].OCRConfigForChainSelector(input.OCRChainSelector)
+		evmOCRConfig, ok := nodeInfos[0].OCRConfigForChainSelector(input.ChainSelector)
 		if !ok {
 			return cldf.ChangesetOutput{}, fmt.Errorf("no evm ocr config for node %s and chain selector %d", evmCapInput.NodeID, input.OCRChainSelector)
 		}
