@@ -124,6 +124,7 @@ type CCIPStateView struct {
 	SolChains   map[string]view.SolChainView
 	AptosChains map[string]view.AptosChainView
 	TONChains   map[string]tonstate.TONChainView
+	SuiChains   map[string]suistate.SuiChainView
 }
 
 func (c CCIPOnChainState) EVMChains() []uint64 {
@@ -527,6 +528,7 @@ func (c CCIPOnChainState) View(e *cldf.Environment, chains []uint64) (CCIPStateV
 	sm := sync.Map{}
 	am := sync.Map{}
 	tm := sync.Map{}
+	suiMap := sync.Map{}
 
 	// Create worker pool with fixed number of goroutines
 	const numWorkers = 8
@@ -603,6 +605,16 @@ func (c CCIPOnChainState) View(e *cldf.Environment, chains []uint64) (CCIPStateV
 						return err
 					}
 					tm.Store(name, chainView)
+				case chain_selectors.FamilySui:
+					if _, ok := c.SuiChains[chainSelector]; !ok {
+						return fmt.Errorf("%s %d", chainNotSupportedErr, chainSelector)
+					}
+					chainState := c.SuiChains[chainSelector]
+					chainView, err := chainState.GenerateView(e, chainSelector, name)
+					if err != nil {
+						return err
+					}
+					suiMap.Store(name, chainView)
 				default:
 					return fmt.Errorf("unsupported chain family %s", family)
 				}
@@ -625,6 +637,7 @@ func (c CCIPOnChainState) View(e *cldf.Environment, chains []uint64) (CCIPStateV
 		SolChains:   make(map[string]view.SolChainView),
 		AptosChains: make(map[string]view.AptosChainView),
 		TONChains:   make(map[string]tonstate.TONChainView),
+		SuiChains:   make(map[string]suistate.SuiChainView),
 	}
 	m.Range(func(key, value any) bool {
 		stateView.Chains[key.(string)] = value.(view.ChainView)
@@ -640,6 +653,10 @@ func (c CCIPOnChainState) View(e *cldf.Environment, chains []uint64) (CCIPStateV
 	})
 	tm.Range(func(key, value any) bool {
 		stateView.TONChains[key.(string)] = value.(tonstate.TONChainView)
+		return true
+	})
+	suiMap.Range(func(key, value any) bool {
+		stateView.SuiChains[key.(string)] = value.(suistate.SuiChainView)
 		return true
 	})
 	return stateView, grp.Wait()
