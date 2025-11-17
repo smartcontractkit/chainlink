@@ -42,7 +42,6 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/environment/devenv"
 	"github.com/smartcontractkit/chainlink/deployment/helpers/pointer"
 	"github.com/smartcontractkit/chainlink/deployment/internal/evmtestutils"
-	"github.com/smartcontractkit/chainlink/deployment/internal/suitestutils"
 	"github.com/smartcontractkit/chainlink/deployment/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities"
 	configv2 "github.com/smartcontractkit/chainlink/v2/core/config/toml"
@@ -145,6 +144,10 @@ func NewNodes(
 	}
 	for _, solChain := range cfg.BlockChains.SolanaChains() {
 		fundNodesSol(t, solChain, nodes)
+	}
+
+	for _, suiChain := range cfg.BlockChains.SuiChains() {
+		fundNodesSui(t, suiChain, nodes)
 	}
 
 	return nodesByPeerID
@@ -756,24 +759,17 @@ func CreateKeys(t *testing.T,
 		require.NoError(t, err)
 		require.Len(t, keys, 1)
 		keybundle := keys[0]
-
 		keybundles[ctype] = keybundle
 
-		for sel, chain := range suichains {
-			keystore := app.GetKeyStore().Sui()
-			err = keystore.EnsureKey(ctx)
-			require.NoError(t, err, "failed to create key for sui")
+		err = app.GetKeyStore().Sui().EnsureKey(ctx)
+		require.NoError(t, err, "failed to create key for Sui")
 
-			keys, err := keystore.GetAll()
-			require.NoError(t, err)
-			require.Len(t, keys, 1)
-
-			transmitter := keys[0]
-			transmitters[sel] = transmitter.ID()
-			t.Logf("Created Sui Key: ID %v, Account %v", transmitter.ID(), transmitter.Account())
-
-			err = suitestutils.FundAccount(chain.FaucetURL, "0x"+transmitter.Account())
-			require.NoError(t, err)
+		suiKeys, err := app.GetKeyStore().Sui().GetAll()
+		require.NoError(t, err)
+		require.Len(t, suiKeys, 1)
+		transmitter := suiKeys[0]
+		for chainSelector := range suichains {
+			transmitters[chainSelector] = transmitter.ID()
 		}
 	}
 

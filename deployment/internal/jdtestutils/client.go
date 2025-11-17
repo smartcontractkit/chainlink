@@ -1,17 +1,129 @@
-package memory
+package jdtestutils
 
 import (
 	"context"
 	"errors"
 	"fmt"
+	"slices"
+	"strings"
 
 	"google.golang.org/grpc"
 
+	csav1 "github.com/smartcontractkit/chainlink-protos/job-distributor/v1/csa"
 	nodev1 "github.com/smartcontractkit/chainlink-protos/job-distributor/v1/node"
 	"github.com/smartcontractkit/chainlink-protos/job-distributor/v1/shared/ptypes"
+
+	cldf_offchain "github.com/smartcontractkit/chainlink-deployments-framework/offchain"
+
+	"github.com/smartcontractkit/chainlink/deployment/environment/test"
 	"github.com/smartcontractkit/chainlink/deployment/helpers/pointer"
 	"github.com/smartcontractkit/chainlink/deployment/utils/nodetestutils"
+	"github.com/smartcontractkit/chainlink/v2/core/services/feeds"
 )
+
+var _ cldf_offchain.Client = &JobClient{}
+
+type JobClient struct {
+	RegisteredNodes map[string]nodetestutils.Node
+	nodeStore
+	*test.JobServiceClient
+}
+
+func NewMemoryJobClient(nodesByPeerID map[string]nodetestutils.Node) *JobClient {
+	m := make(map[string]*nodetestutils.Node)
+	for id, node := range nodesByPeerID {
+		m[id] = &node
+	}
+	ns := newMapNodeStore(m)
+	jg := &jobApproverGetter{s: ns}
+	return &JobClient{
+		RegisteredNodes:  make(map[string]nodetestutils.Node),
+		JobServiceClient: test.NewJobServiceClient(jg),
+		nodeStore:        ns,
+	}
+}
+
+func (j JobClient) GetKeypair(ctx context.Context, in *csav1.GetKeypairRequest, opts ...grpc.CallOption) (*csav1.GetKeypairResponse, error) {
+	// TODO implement me
+	panic("implement me")
+}
+
+func (j JobClient) ListKeypairs(ctx context.Context, in *csav1.ListKeypairsRequest, opts ...grpc.CallOption) (*csav1.ListKeypairsResponse, error) {
+	// TODO CCIP-3108 implement me
+	panic("implement me")
+}
+
+func (j JobClient) ReplayLogs(ctx context.Context, selectorToBlock map[uint64]uint64) error {
+	for _, node := range j.list() {
+		if err := node.ReplayLogs(ctx, selectorToBlock); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// Checks if a filter exists in DB for event name in all nodes
+func (j JobClient) IsLogFilterRegistered(ctx context.Context, chainSel uint64, eventName string, address []byte) (bool, error) {
+	for _, node := range j.list() {
+		if node.IsBoostrap {
+			continue
+		}
+		registered, err := node.IsLogFilterRegistered(ctx, chainSel, eventName, address)
+		if err != nil || !registered {
+			return false, err
+		}
+	}
+	return true, nil
+}
+
+func ApplyNodeFilter(filter *nodev1.ListNodesRequest_Filter, node *nodev1.Node) bool {
+	if filter == nil {
+		return true
+	}
+	if len(filter.Ids) > 0 {
+		idx := slices.IndexFunc(filter.Ids, func(id string) bool {
+			return node.Id == id
+		})
+		if idx < 0 {
+			return false
+		}
+	}
+	if len(filter.PublicKeys) > 0 {
+		idx := slices.IndexFunc(filter.PublicKeys, func(pk string) bool {
+			return node.PublicKey == pk
+		})
+		if idx < 0 {
+			return false
+		}
+	}
+	for _, selector := range filter.Selectors {
+		idx := slices.IndexFunc(node.Labels, func(label *ptypes.Label) bool {
+			return label.Key == selector.Key
+		})
+		if idx < 0 {
+			return false
+		}
+		label := node.Labels[idx]
+
+		switch selector.Op {
+		case ptypes.SelectorOp_IN:
+			values := strings.Split(*selector.Value, ",")
+			found := slices.Contains(values, *label.Value)
+			if !found {
+				return false
+			}
+		case ptypes.SelectorOp_EQ:
+			if *label.Value != *selector.Value {
+				return false
+			}
+		case ptypes.SelectorOp_EXIST:
+			// do nothing
+		default:
+			panic("unimplemented selector")
+		}
+	}
+	return true
+}
 
 func (j JobClient) EnableNode(ctx context.Context, in *nodev1.EnableNodeRequest, opts ...grpc.CallOption) (*nodev1.EnableNodeResponse, error) {
 	// TODO CCIP-3108 implement me
@@ -147,4 +259,47 @@ func (j JobClient) ListNodeChainConfigs(ctx context.Context, in *nodev1.ListNode
 	return &nodev1.ListNodeChainConfigsResponse{
 		ChainConfigs: chainConfigs,
 	}, nil
+}
+
+type JobApprover interface {
+	AutoApproveJob(ctx context.Context, p *feeds.ProposeJobArgs) error
+}
+
+type autoApprovalNode struct {
+	*nodetestutils.Node
+}
+
+var _ JobApprover = &autoApprovalNode{}
+
+func (q *autoApprovalNode) AutoApproveJob(ctx context.Context, p *feeds.ProposeJobArgs) error {
+	appProposalID, err := q.App.GetFeedsService().ProposeJob(ctx, p)
+	if err != nil {
+		return fmt.Errorf("failed to propose job: %w", err)
+	}
+	// auto approve
+	proposedSpec, err := q.App.GetFeedsService().ListSpecsByJobProposalIDs(ctx, []int64{appProposalID})
+	if err != nil {
+		return fmt.Errorf("failed to list specs: %w", err)
+	}
+	// possible to have multiple specs for the same job proposal id; take the last one
+	if len(proposedSpec) == 0 {
+		return fmt.Errorf("no specs found for job proposal id: %d", appProposalID)
+	}
+	err = q.App.GetFeedsService().ApproveSpec(ctx, proposedSpec[len(proposedSpec)-1].ID, true)
+	if err != nil {
+		return fmt.Errorf("failed to approve job: %w", err)
+	}
+	return nil
+}
+
+type jobApproverGetter struct {
+	s nodeStore
+}
+
+func (w *jobApproverGetter) Get(nodeID string) (test.JobApprover, error) {
+	node, err := w.s.get(nodeID)
+	if err != nil {
+		return nil, err
+	}
+	return &autoApprovalNode{node}, nil
 }

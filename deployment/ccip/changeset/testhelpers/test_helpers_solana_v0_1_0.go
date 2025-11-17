@@ -53,6 +53,7 @@ import (
 
 	aptoscs "github.com/smartcontractkit/chainlink/deployment/ccip/changeset/aptos"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/aptos/config"
+	"github.com/smartcontractkit/chainlink/deployment/internal/jdtestutils"
 	"github.com/smartcontractkit/chainlink/deployment/utils/solutils"
 
 	ccipChangeSetSolanaV0_1_0 "github.com/smartcontractkit/chainlink/deployment/ccip/changeset/solana_v0_1_0"
@@ -177,7 +178,7 @@ func ReplayLogs(t *testing.T, oc cldf_offchain.Client, replayBlocks map[uint64]u
 	var err error
 
 	switch oc := oc.(type) {
-	case *memory.JobClient:
+	case *jdtestutils.JobClient:
 		err = oc.ReplayLogs(t.Context(), replayBlocks)
 	case *devenv.JobDistributor:
 		err = oc.ReplayLogs(replayBlocks)
@@ -242,7 +243,7 @@ func isLogFilterRegistered(t *testing.T, oc cldf_offchain.Client, chainSel uint6
 	var registered bool
 	var err error
 	switch oc := oc.(type) {
-	case *memory.JobClient:
+	case *jdtestutils.JobClient:
 		registered, err = oc.IsLogFilterRegistered(t.Context(), chainSel, eventName, address)
 	default:
 		return false, fmt.Errorf("unsupported offchain client type %T", oc)

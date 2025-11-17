@@ -1348,11 +1348,16 @@ func AddCCIPContractsToEnvironment(t *testing.T, allChains []uint64, tEnv TestEn
 		ocrOverride := func(params v1_6.CCIPOCRParams) v1_6.CCIPOCRParams {
 			// Commit
 			params.CommitOffChainConfig.RMNEnabled = false
+
 			// Execute
 			params.ExecuteOffChainConfig.MultipleReportsEnabled = false
 			params.ExecuteOffChainConfig.MaxReportMessages = 1
 			params.ExecuteOffChainConfig.MaxSingleChainReports = 1
 			params.ExecuteOffChainConfig.MaxCommitReportsToFetch = 1
+
+			params.OCRParameters.MaxDurationShouldAcceptAttestedReport = 15 * time.Second
+			params.OCRParameters.MaxDurationShouldTransmitAcceptedReport = 15 * time.Second
+
 			if tc.OCRConfigOverride != nil {
 				tc.OCRConfigOverride(params)
 			}

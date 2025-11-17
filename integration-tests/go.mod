@@ -22,6 +22,7 @@ require (
 	github.com/avast/retry-go v3.0.0+incompatible
 	github.com/avast/retry-go/v4 v4.6.1
 	github.com/barkimedes/go-deepcopy v0.0.0-20220514131651-17c30cfc62df
+	github.com/block-vision/sui-go-sdk v1.1.2
 	github.com/chaos-mesh/chaos-mesh/api v0.0.0-20240821051457-da69c6d9617a
 	github.com/cli/go-gh/v2 v2.11.2
 	github.com/deckarep/golang-set/v2 v2.6.0
@@ -155,7 +156,6 @@ require (
 	github.com/bits-and-blooms/bitset v1.20.0 // indirect
 	github.com/blang/semver/v4 v4.0.0 // indirect
 	github.com/blendle/zapdriver v1.3.1 // indirect
-	github.com/block-vision/sui-go-sdk v1.1.2 // indirect
 	github.com/btcsuite/btcd v0.24.2 // indirect
 	github.com/btcsuite/btcd/btcec/v2 v2.3.4 // indirect
 	github.com/btcsuite/btcd/btcutil v1.1.6 // indirect
