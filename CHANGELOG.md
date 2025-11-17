@@ -1,6 +1,6 @@
 # Changelog Chainlink Core
 
-## 2.30.0 (UNRELEASED)
+## 2.30.0 - 2025-11-17
 
 ### Minor Changes
 
