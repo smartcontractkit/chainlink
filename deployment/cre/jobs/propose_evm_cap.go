@@ -82,7 +82,14 @@ func (u ProposeEVMCapJobSpec) VerifyPreconditions(e cldf.Environment, input Prop
 	if input.ChainSelector == 0 {
 		return errors.New("chain selector is required")
 	}
-
+	if len(input.EVMCapabilityInputs) == 0 {
+		return errors.New("at least one evm capability input is required")
+	}
+	for i, evmCapInput := range input.EVMCapabilityInputs {
+		if evmCapInput.NodeID == "" {
+			return fmt.Errorf("nodeID is required for evm capability input at index %d", i)
+		}
+	}
 	if len(input.BootstrapperOCR3Urls) == 0 {
 		return errors.New("at least one bootstrapper OCR3 URL is required")
 	}
@@ -172,6 +179,7 @@ func (u ProposeEVMCapJobSpec) Apply(e cldf.Environment, input ProposeEVMCapJobSp
 		Command:               "/usr/local/bin/evm",
 		GenerateOracleFactory: true,
 		ContractQualifier:     input.OCRContractQualifier,
+		OCRSigningStrategy:    "single-chain",
 		OCRChainSelector:      pkg.ChainSelector(input.OCRChainSelector),
 		ChainSelectorEVM:      pkg.ChainSelector(input.ChainSelector),
 		BootstrapPeers:        input.BootstrapperOCR3Urls,
@@ -222,6 +230,7 @@ func (u ProposeEVMCapJobSpec) Apply(e cldf.Environment, input ProposeEVMCapJobSp
 			NodeIDToConfig: nodeIDToConfig,
 			Domain:         input.Domain,
 			DONName:        input.DONName,
+
 			DONFilters: []offchain.TargetDONFilter{
 				{Key: "product", Value: offchain.ProductLabel},
 				{Key: "environment", Value: input.Environment},

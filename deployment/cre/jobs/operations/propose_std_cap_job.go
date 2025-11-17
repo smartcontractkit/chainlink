@@ -235,6 +235,10 @@ func generateOracleFactory(cldEnv cldf.Environment, nodeInfo deployment.Node, jo
 		return &pkg.OracleFactory{}, fmt.Errorf("no evm ocr2 config for node %s", nodeInfo.NodeID)
 	}
 
+	if job.OCRSigningStrategy == "" {
+		job.OCRSigningStrategy = "multi-chain"
+	}
+
 	oracleFactory := &pkg.OracleFactory{
 		Enabled:            true,
 		BootstrapPeers:     job.BootstrapPeers,
@@ -243,7 +247,7 @@ func generateOracleFactory(cldEnv cldf.Environment, nodeInfo deployment.Node, jo
 		ChainID:            contractChainID,
 		TransmitterID:      string(evmOCRConfig.TransmitAccount),
 		OnchainSigningStrategy: pkg.OnchainSigningStrategy{
-			StrategyName: "multi-chain",
+			StrategyName: job.OCRSigningStrategy,
 			Config:       map[string]string{"evm": evmOCRConfig.KeyBundleID},
 		},
 	}
