@@ -46,6 +46,15 @@ const (
 	// How often we check for failed persistence and attempt to save again
 	dbPersistLoopInterval = 1 * time.Second
 
+	// MaxChannelsPerAdder is the maximum number of channels allowed in a single adder definition
+	// file. This limit is enforced on the total number of channels in the definition file before
+	// any processing occurs.
+	MaxChannelsPerAdder = 100
+	// MaxAdderAdditionsPerDefinition is the maximum number of new channels an adder can add in a
+	// single definition update. Only channels that don't already exist in the current definitions
+	// are counted toward this limit.
+	MaxAdderAdditionsPerDefinition = 10
+
 	newChannelDefinitionEventName   = "NewChannelDefinition"
 	channelDefinitionAddedEventName = "ChannelDefinitionAdded"
 
@@ -58,6 +67,9 @@ var (
 	NewChannelDefinition   = (channel_config_store.ChannelConfigStoreNewChannelDefinition{}).Topic()
 	ChannelDefinitionAdded = (channel_config_store.ChannelConfigStoreChannelDefinitionAdded{}).Topic()
 	NoLimitSortAsc         = query.NewLimitAndSort(query.Limit{}, query.NewSortBySequence(query.Asc))
+
+	errAdderAdditionsLimitExceeded   = errors.New("adder additions per definition limit exceeded")
+	errChannelsPerAdderLimitExceeded = errors.New("channels per adder limit exceeded")
 )
 
 func init() {
@@ -278,11 +290,12 @@ func (c *channelDefinitionCache) unpackAdderLog(log logpoller.Log) (*channel_con
 		return nil, fmt.Errorf("failed to unpack adder log data: %w", err)
 	}
 
-	if len(log.Topics) < 2 {
-		return nil, fmt.Errorf("adder log missing expected topics: got %d, expected at least 2", len(log.Topics))
+	if len(log.Topics) < 3 {
+		return nil, fmt.Errorf("adder log missing expected topics: got %d, expected at least 3", len(log.Topics))
 	}
 
 	unpacked.DonId = new(big.Int).SetBytes(log.Topics[1])
+	unpacked.ChannelAdderId = uint32(new(big.Int).SetBytes(log.Topics[2]).Uint64())
 	//nolint:gosec // disable G115
 	unpacked.Raw.BlockNumber = uint64(log.BlockNumber)
 
@@ -442,20 +455,36 @@ func (c *channelDefinitionCache) processLogs(logs []logpoller.Log) {
 // authority rules. Owner definitions (SourceOwner) have full authority: they can add, update, or
 // tombstone (delete) channels. Adder definitions (non-owner sources) have limited authority: they
 // can only add new channels and cannot overwrite or tombstone existing ones.
-func (c *channelDefinitionCache) mergeDefinitions(currentDefinitions llotypes.ChannelDefinitions, newDefinitions llotypes.ChannelDefinitions) llotypes.ChannelDefinitions {
+//
+// Adder limits are enforced:
+//   - MaxChannelsPerAdder: The total number of channels in a single adder definition file cannot
+//     exceed this limit. This is checked before processing any channels.
+//   - MaxAdderAdditionsPerDefinition: The number of new channels an adder can add in a single
+//     definition is limited. Only channels that don't already exist are counted toward this limit.
+//     Existing channels from the same adder are skipped and not counted.
+//
+// Returns an error if adder limits are exceeded. The error will be one of:
+//   - errChannelsPerAdderLimitExceeded: When the definition file contains too many channels
+//   - errAdderAdditionsLimitExceeded: When the adder tries to add too many new channels
+func (c *channelDefinitionCache) mergeDefinitions(source uint32, currentDefinitions llotypes.ChannelDefinitions, newDefinitions llotypes.ChannelDefinitions) (llotypes.ChannelDefinitions, error) {
+	if source > SourceOwner {
+		if len(newDefinitions) > MaxChannelsPerAdder {
+			return nil, fmt.Errorf("%w: %d, max %d",
+				errChannelsPerAdderLimitExceeded, len(newDefinitions), MaxChannelsPerAdder)
+		}
+	}
+
+	var adderAdditions int
 	for channelID, def := range newDefinitions {
 		switch def.Source {
-		case SourceUndefined:
-			c.lggr.Warnw("undefined source, skipping definition",
-				"channelID", channelID, "source", def.Source)
-			continue
 		case SourceOwner:
 			if def.Tombstone {
 				delete(currentDefinitions, channelID)
 				continue
 			}
 			currentDefinitions[channelID] = def
-		default:
+
+		case source:
 			if def.Tombstone {
 				c.lggr.Warnw("invalid channel tombstone, cannot be added by adders",
 					"channelID", channelID, "adderID", def.Source)
@@ -466,12 +495,24 @@ func (c *channelDefinitionCache) mergeDefinitions(currentDefinitions llotypes.Ch
 					c.lggr.Warnw("channel adder conflict, skipping definition",
 						"channelID", channelID, "existingSourceID", existing.Source, "newSourceID", def.Source)
 				}
+				// Adders do not overwrite existing definitions, they can only add new ones
 				continue
 			}
+			adderAdditions++
 			currentDefinitions[channelID] = def
+
+		default:
+			c.lggr.Warnw("undefined source, skipping definition",
+				"channelID", channelID, "source", def.Source, "triggerSource", source)
+			continue
 		}
 	}
-	return currentDefinitions
+
+	if source > SourceOwner && adderAdditions > MaxAdderAdditionsPerDefinition {
+		return nil, fmt.Errorf("%w: %d, max %d",
+			errAdderAdditionsLimitExceeded, adderAdditions, MaxAdderAdditionsPerDefinition)
+	}
+	return currentDefinitions, nil
 }
 
 // fetchLatestLoop is an asynchronous goroutine that receives fetch triggers from the poll chain
@@ -514,17 +555,47 @@ func (c *channelDefinitionCache) fetchLatestLoop() {
 // or the context is canceled (e.g., during cache shutdown). This isolates retry logic from the
 // main fetch loop, allowing it to continue processing new triggers while retries occur in the
 // background.
+//
+// Special handling for adder limit errors: If the error is due to adder limits being exceeded
+// (errAdderAdditionsLimitExceeded or errChannelsPerAdderLimitExceeded), retries are stopped
+// immediately and the block number is updated to prevent reprocessing the same trigger. These
+// errors indicate a permanent configuration issue that won't be resolved by retrying but
+// by submitting a new definition file.
 func (c *channelDefinitionCache) fetchLoop(ctx context.Context, trigger fetchTrigger) {
 	defer c.wg.Done()
-
+	var err error
 	b := utils.NewHTTPFetchBackoff()
+
+	if err = c.fetchAndSetChannelDefinitions(ctx, trigger); err == nil {
+		return
+	}
+
+	if errors.Is(err, errAdderAdditionsLimitExceeded) || errors.Is(err, errChannelsPerAdderLimitExceeded) {
+		c.lggr.Errorw("Error while fetching channel definitions due to limits exceeded, stopping retries",
+			"donID", c.donID, "err", err, "source", trigger.source)
+
+		c.definitionsMu.Lock()
+		c.definitionsBlockNum = trigger.blockNum
+		c.definitionsMu.Unlock()
+		return
+	}
+
+	c.lggr.Warnw("Error while fetching channel definitions", "donID",
+		c.donID, "err", err, "source", trigger.source, "attempt", b.Attempt())
+
 	for {
 		select {
 		case <-ctx.Done():
 			return
 		case <-time.After(b.Duration()):
 			if err := c.fetchAndSetChannelDefinitions(ctx, trigger); err != nil {
-				c.lggr.Warnw("Error while fetching channel definitions", "donID", c.donID, "err", err, "source", trigger.source, "attempt", b.Attempt())
+				if errors.Is(err, errAdderAdditionsLimitExceeded) || errors.Is(err, errChannelsPerAdderLimitExceeded) {
+					c.lggr.Errorw("Error while fetching channel definitions due to limits exceeded, stopping retries",
+						"donID", c.donID, "err", err, "source", trigger.source)
+					return
+				}
+				c.lggr.Warnw("Error while fetching channel definitions", "donID",
+					c.donID, "err", err, "source", trigger.source, "attempt", b.Attempt())
 				continue
 			}
 			return
@@ -535,9 +606,13 @@ func (c *channelDefinitionCache) fetchLoop(ctx context.Context, trigger fetchTri
 // fetchAndSetChannelDefinitions orchestrates the complete fetch-merge-update cycle for channel
 // definitions. It checks that the trigger block number is newer than the current state to avoid
 // processing stale events, fetches definitions from the URL and verifies the SHA hash, merges
-// the new definitions with the current in-memory state using reconciliation rules, atomically
-// updates the cache with the merged result and new block number, and triggers persistence to
-// the database. The function is protected by fetchMutex to serialize fetch operations.
+// the new definitions with the current in-memory state using reconciliation rules (which may
+// enforce adder limits), atomically updates the cache with the merged result and new block number,
+// and triggers persistence to the database.
+//
+// Returns an error if fetching, SHA verification, JSON decoding, or merging fails. Merge errors
+// include adder limit violations (errAdderAdditionsLimitExceeded, errChannelsPerAdderLimitExceeded)
+// which should not be retried as they indicate permanent configuration issues.
 func (c *channelDefinitionCache) fetchAndSetChannelDefinitions(ctx context.Context, trigger fetchTrigger) error {
 	c.fetchMutex.Lock()
 	defer c.fetchMutex.Unlock()
@@ -556,7 +631,10 @@ func (c *channelDefinitionCache) fetchAndSetChannelDefinitions(ctx context.Conte
 		return fmt.Errorf("failed to fetch channel definitions: %w", err)
 	}
 
-	mergedDefinitions := c.mergeDefinitions(currentDefinitions, defs)
+	mergedDefinitions, err := c.mergeDefinitions(trigger.source, currentDefinitions, defs)
+	if err != nil {
+		return err
+	}
 
 	// Update definitions with the merged result
 	c.definitionsMu.Lock()

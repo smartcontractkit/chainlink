@@ -10,10 +10,10 @@ import (
 	"math/big"
 	"math/rand"
 	"net/http"
+	"strconv"
 	"testing"
 
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
@@ -102,14 +102,14 @@ func makeLogData(t *testing.T, donID, version uint32, url string, sha [32]byte) 
 
 func makeAdderLog(t *testing.T, donID, adderID uint32, url string, sha [32]byte, blockNumber int64) logpoller.Log {
 	data := makeAdderLogData(t, donID, adderID, url, sha)
-	return logpoller.Log{EventSig: ChannelDefinitionAdded, Topics: [][]byte{ChannelDefinitionAdded[:], makeDonIDTopic(donID)}, Data: data, BlockNumber: blockNumber}
+	return logpoller.Log{EventSig: ChannelDefinitionAdded, Topics: [][]byte{ChannelDefinitionAdded[:], makeDonIDTopic(donID), makeDonIDTopic(adderID)}, Data: data, BlockNumber: blockNumber}
 }
 
 func makeAdderLogData(t *testing.T, donID, adderID uint32, url string, sha [32]byte) []byte {
 	event := channelConfigStoreABI.Events[channelDefinitionAddedEventName]
-	// donID is indexed
-	// adderId, url, sha
-	data, err := event.Inputs.NonIndexed().Pack(adderID, url, sha)
+	// donID and adderID are indexed (in Topics)
+	// url, sha are non-indexed (in Data)
+	data, err := event.Inputs.NonIndexed().Pack(url, sha)
 	require.NoError(t, err)
 	return data
 }
@@ -143,6 +143,23 @@ func collectTriggers(ch chan fetchTrigger, maxCount int) []fetchTrigger {
 	return triggers
 }
 
+// makeChannelDefinition creates a simple channel definition for testing
+func makeChannelDefinition(channelID uint32, source uint32) llotypes.ChannelDefinition {
+	return llotypes.ChannelDefinition{
+		ReportFormat: llotypes.ReportFormatJSON,
+		Streams:      []llotypes.Stream{{StreamID: channelID, Aggregator: llotypes.AggregatorMedian}},
+		Source:       source,
+		Tombstone:    false,
+	}
+}
+
+// addChannelDefinitions adds channel definitions to the given map for a range of channel IDs
+func addChannelDefinitions(defs llotypes.ChannelDefinitions, startID, endID uint32, source uint32) {
+	for i := startID; i <= endID; i++ {
+		defs[i] = makeChannelDefinition(i, source)
+	}
+}
+
 func Test_ChannelDefinitionCache(t *testing.T) {
 	donID := rand.Uint32()
 
@@ -158,7 +175,7 @@ func Test_ChannelDefinitionCache(t *testing.T) {
 
 		cdc := &channelDefinitionCache{definitions: dfns}
 
-		assert.Equal(t, dfns, cdc.Definitions())
+		require.Equal(t, dfns, cdc.Definitions())
 	})
 
 	t.Run("readLogs", func(t *testing.T) {
@@ -174,14 +191,14 @@ func Test_ChannelDefinitionCache(t *testing.T) {
 		t.Run("skips if logpoller has no blocks", func(t *testing.T) {
 			ctx := t.Context()
 			err := cdc.readLogs(ctx)
-			assert.NoError(t, err)
+			require.NoError(t, err)
 		})
 		t.Run("returns error on LatestBlock failure", func(t *testing.T) {
 			ctx := t.Context()
 			lp.latestBlockErr = errors.New("test error")
 
 			err := cdc.readLogs(ctx)
-			assert.EqualError(t, err, "test error")
+			require.EqualError(t, err, "test error")
 		})
 		t.Run("does nothing if LatestBlock older or the same as current channel definitions block", func(t *testing.T) {
 			ctx := t.Context()
@@ -190,7 +207,7 @@ func Test_ChannelDefinitionCache(t *testing.T) {
 			cdc.definitionsBlockNum = 43
 
 			err := cdc.readLogs(ctx)
-			assert.NoError(t, err)
+			require.NoError(t, err)
 		})
 		t.Run("returns error if FilteredLogs fails", func(t *testing.T) {
 			ctx := t.Context()
@@ -198,7 +215,7 @@ func Test_ChannelDefinitionCache(t *testing.T) {
 			lp.filteredLogsErr = errors.New("test error 2")
 
 			err := cdc.readLogs(ctx)
-			assert.EqualError(t, err, "test error 2")
+			require.EqualError(t, err, "test error 2")
 		})
 		t.Run("ignores logs with different topic", func(t *testing.T) {
 			ctx := t.Context()
@@ -206,7 +223,7 @@ func Test_ChannelDefinitionCache(t *testing.T) {
 			lp.filteredLogs = []logpoller.Log{{EventSig: common.Hash{1, 2, 3, 4}}}
 
 			err := cdc.readLogs(ctx)
-			assert.NoError(t, err)
+			require.NoError(t, err)
 		})
 		t.Run("logs warning and continues if log is malformed", func(t *testing.T) {
 			ctx := t.Context()
@@ -246,10 +263,10 @@ func Test_ChannelDefinitionCache(t *testing.T) {
 			// Check that fetch trigger was sent
 			select {
 			case trigger := <-fetchTriggerCh:
-				assert.Equal(t, SourceOwner, trigger.source)
-				assert.Equal(t, uint32(43), trigger.version)
-				assert.Equal(t, "http://example.com/xxx.json", trigger.url)
-				assert.Equal(t, [32]byte{1, 2, 3, 4}, trigger.sha)
+				require.Equal(t, SourceOwner, trigger.source)
+				require.Equal(t, uint32(43), trigger.version)
+				require.Equal(t, "http://example.com/xxx.json", trigger.url)
+				require.Equal(t, [32]byte{1, 2, 3, 4}, trigger.sha)
 			default:
 				t.Fatal("expected fetch trigger signal in channel")
 			}
@@ -281,7 +298,7 @@ func Test_ChannelDefinitionCache(t *testing.T) {
 					break
 				}
 			}
-			assert.True(t, found43, "expected trigger with version 43")
+			require.True(t, found43, "expected trigger with version 43")
 		})
 		t.Run("in case of multiple logs, sends triggers for all", func(t *testing.T) {
 			ctx := t.Context()
@@ -314,8 +331,8 @@ func Test_ChannelDefinitionCache(t *testing.T) {
 				}
 			}
 			require.NotNil(t, latestTrigger, "expected trigger with version 45")
-			assert.Equal(t, "http://example.com/xxx2.json", latestTrigger.url)
-			assert.Equal(t, [32]byte{2, 2, 3, 4}, latestTrigger.sha)
+			require.Equal(t, "http://example.com/xxx2.json", latestTrigger.url)
+			require.Equal(t, [32]byte{2, 2, 3, 4}, latestTrigger.sha)
 		})
 		t.Run("ignores logs with incorrect don ID", func(t *testing.T) {
 			ctx := t.Context()
@@ -380,14 +397,14 @@ func Test_ChannelDefinitionCache(t *testing.T) {
 			require.Len(t, triggers, 2, "expected 2 triggers")
 			// Verify adder triggers
 			for _, trigger := range triggers {
-				assert.NotEqual(t, SourceOwner, trigger.source, "should not be owner")
-				assert.True(t, trigger.source == adderID1 || trigger.source == adderID2, "should be one of the adder IDs")
+				require.NotEqual(t, SourceOwner, trigger.source, "should not be owner")
+				require.True(t, trigger.source == adderID1 || trigger.source == adderID2, "should be one of the adder IDs")
 				if trigger.source == adderID1 {
-					assert.Equal(t, "http://example.com/adder1.json", trigger.url)
-					assert.Equal(t, [32]byte{1, 1, 1, 1}, trigger.sha)
+					require.Equal(t, "http://example.com/adder1.json", trigger.url)
+					require.Equal(t, [32]byte{1, 1, 1, 1}, trigger.sha)
 				} else {
-					assert.Equal(t, "http://example.com/adder2.json", trigger.url)
-					assert.Equal(t, [32]byte{2, 2, 2, 2}, trigger.sha)
+					require.Equal(t, "http://example.com/adder2.json", trigger.url)
+					require.Equal(t, [32]byte{2, 2, 2, 2}, trigger.sha)
 				}
 			}
 		})
@@ -414,9 +431,9 @@ func Test_ChannelDefinitionCache(t *testing.T) {
 			// Should have at least one trigger (owner log)
 			select {
 			case trigger := <-fetchTriggerCh:
-				assert.Equal(t, SourceOwner, trigger.source)
-				assert.Equal(t, uint32(50), trigger.version)
-				assert.Equal(t, "http://example.com/owner.json", trigger.url)
+				require.Equal(t, SourceOwner, trigger.source)
+				require.Equal(t, uint32(50), trigger.version)
+				require.Equal(t, "http://example.com/owner.json", trigger.url)
 			default:
 				t.Fatal("expected owner trigger")
 			}
@@ -471,7 +488,7 @@ func Test_ChannelDefinitionCache(t *testing.T) {
 			}
 			_, err := cdc.fetchChannelDefinitions(ctx, trigger)
 			// The error could be from URL parsing or HTTP client - both are acceptable
-			assert.Error(t, err)
+			require.Error(t, err)
 		})
 
 		t.Run("networking error while making request returns error", func(t *testing.T) {
@@ -487,8 +504,8 @@ func Test_ChannelDefinitionCache(t *testing.T) {
 				version:  0,
 			}
 			_, err := cdc.fetchChannelDefinitions(ctx, trigger)
-			assert.Contains(t, err.Error(), "failed to make HTTP request to channel definitions URL")
-			assert.Contains(t, err.Error(), "http request failed")
+			require.Contains(t, err.Error(), "failed to make HTTP request to channel definitions URL")
+			require.Contains(t, err.Error(), "http request failed")
 		})
 
 		t.Run("server returns 500 returns error", func(t *testing.T) {
@@ -504,8 +521,8 @@ func Test_ChannelDefinitionCache(t *testing.T) {
 				version:  0,
 			}
 			_, err := cdc.fetchChannelDefinitions(ctx, trigger)
-			assert.Contains(t, err.Error(), "HTTP error from channel definitions URL http://example.com/definitions.json (status 500)")
-			assert.Contains(t, err.Error(), "\x01\x02\x03")
+			require.Contains(t, err.Error(), "HTTP error from channel definitions URL http://example.com/definitions.json (status 500)")
+			require.Contains(t, err.Error(), "\x01\x02\x03")
 		})
 
 		var largeBody = make([]byte, 2048)
@@ -526,9 +543,9 @@ func Test_ChannelDefinitionCache(t *testing.T) {
 				version:  0,
 			}
 			_, err := cdc.fetchChannelDefinitions(ctx, trigger)
-			assert.Contains(t, err.Error(), "HTTP error from channel definitions URL http://example.com/definitions.json (status 404)")
-			assert.Contains(t, err.Error(), "failed to read response body")
-			assert.Contains(t, err.Error(), "http: request body too large")
+			require.Contains(t, err.Error(), "HTTP error from channel definitions URL http://example.com/definitions.json (status 404)")
+			require.Contains(t, err.Error(), "failed to read response body")
+			require.Contains(t, err.Error(), "http: request body too large")
 		})
 
 		var hugeBody = make([]byte, 8096)
@@ -547,8 +564,8 @@ func Test_ChannelDefinitionCache(t *testing.T) {
 				version:  0,
 			}
 			_, err := cdc.fetchChannelDefinitions(ctx, trigger)
-			assert.Contains(t, err.Error(), "failed to read channel definitions response body from")
-			assert.Contains(t, err.Error(), "http: request body too large")
+			require.Contains(t, err.Error(), "failed to read channel definitions response body from")
+			require.Contains(t, err.Error(), "http: request body too large")
 		})
 
 		t.Run("server returns invalid JSON returns error", func(t *testing.T) {
@@ -565,8 +582,8 @@ func Test_ChannelDefinitionCache(t *testing.T) {
 				version:  0,
 			}
 			_, err := cdc.fetchChannelDefinitions(ctx, trigger)
-			assert.Contains(t, err.Error(), "failed to decode channel definitions JSON from")
-			assert.Contains(t, err.Error(), "invalid character '\\x01' looking for beginning of value")
+			require.Contains(t, err.Error(), "failed to decode channel definitions JSON from")
+			require.Contains(t, err.Error(), "invalid character '\\x01' looking for beginning of value")
 		})
 
 		t.Run("SHA mismatch returns error", func(t *testing.T) {
@@ -582,9 +599,9 @@ func Test_ChannelDefinitionCache(t *testing.T) {
 				version:  0,
 			}
 			_, err := cdc.fetchChannelDefinitions(ctx, trigger)
-			assert.Contains(t, err.Error(), "SHA3 mismatch for channel definitions from")
-			assert.Contains(t, err.Error(), "expected 0000000000000000000000000000000000000000000000000000000000000000")
-			assert.Contains(t, err.Error(), "got 4d3304d0d87c27a031cbb6bdf95da79b7b4552c3d0bef2e5a94f50810121e1e0")
+			require.Contains(t, err.Error(), "SHA3 mismatch for channel definitions from")
+			require.Contains(t, err.Error(), "expected 0000000000000000000000000000000000000000000000000000000000000000")
+			require.Contains(t, err.Error(), "got 4d3304d0d87c27a031cbb6bdf95da79b7b4552c3d0bef2e5a94f50810121e1e0")
 		})
 
 		t.Run("valid JSON matching SHA returns channel definitions", func(t *testing.T) {
@@ -621,14 +638,14 @@ func Test_ChannelDefinitionCache(t *testing.T) {
 				version:  0,
 			}
 			cd, err := cdc.fetchChannelDefinitions(ctx, trigger)
-			assert.NoError(t, err)
+			require.NoError(t, err)
 			expectedDef := llotypes.ChannelDefinition{
 				ReportFormat: 0x1,
 				Streams:      []llotypes.Stream{{StreamID: 0x34, Aggregator: 0x1}, {StreamID: 0x35, Aggregator: 0x1}, {StreamID: 0x37, Aggregator: 0x3}},
 				Opts:         llotypes.ChannelOpts{0x7b, 0x22, 0x62, 0x61, 0x73, 0x65, 0x55, 0x53, 0x44, 0x46, 0x65, 0x65, 0x22, 0x3a, 0x22, 0x31, 0x30, 0x22, 0x2c, 0x22, 0x65, 0x78, 0x70, 0x69, 0x72, 0x61, 0x74, 0x69, 0x6f, 0x6e, 0x57, 0x69, 0x6e, 0x64, 0x6f, 0x77, 0x22, 0x3a, 0x33, 0x36, 0x30, 0x30, 0x2c, 0x22, 0x66, 0x65, 0x65, 0x64, 0x49, 0x64, 0x22, 0x3a, 0x22, 0x30, 0x78, 0x30, 0x30, 0x30, 0x33, 0x36, 0x62, 0x34, 0x61, 0x61, 0x37, 0x65, 0x35, 0x37, 0x63, 0x61, 0x37, 0x62, 0x36, 0x38, 0x61, 0x65, 0x31, 0x62, 0x66, 0x34, 0x35, 0x36, 0x35, 0x33, 0x66, 0x35, 0x36, 0x62, 0x36, 0x35, 0x36, 0x66, 0x64, 0x33, 0x61, 0x61, 0x33, 0x33, 0x35, 0x65, 0x66, 0x37, 0x66, 0x61, 0x65, 0x36, 0x39, 0x36, 0x62, 0x36, 0x36, 0x33, 0x66, 0x31, 0x62, 0x38, 0x34, 0x37, 0x32, 0x22, 0x2c, 0x22, 0x6d, 0x75, 0x6c, 0x74, 0x69, 0x70, 0x6c, 0x69, 0x65, 0x72, 0x22, 0x3a, 0x22, 0x31, 0x30, 0x30, 0x30, 0x30, 0x30, 0x30, 0x30, 0x30, 0x30, 0x30, 0x30, 0x30, 0x30, 0x30, 0x30, 0x30, 0x30, 0x30, 0x22, 0x7d},
 				Source:       SourceOwner,
 			}
-			assert.Equal(t, llotypes.ChannelDefinitions{0x2a: expectedDef}, cd)
+			require.Equal(t, llotypes.ChannelDefinitions{0x2a: expectedDef}, cd)
 		})
 	})
 
@@ -654,10 +671,10 @@ func Test_ChannelDefinitionCache(t *testing.T) {
 			cdc.persistedBlockNum = 142 // Match definitionsBlockNum
 
 			memoryBlockNum, persistedBlockNum, err := cdc.persist(ctx)
-			assert.NoError(t, err)
-			assert.Equal(t, int64(142), memoryBlockNum)
-			assert.Equal(t, int64(142), persistedBlockNum)
-			assert.Equal(t, int64(142), cdc.persistedBlockNum)
+			require.NoError(t, err)
+			require.Equal(t, int64(142), memoryBlockNum)
+			require.Equal(t, int64(142), persistedBlockNum)
+			require.Equal(t, int64(142), cdc.persistedBlockNum)
 		})
 
 		orm := &mockCDCORM{}
@@ -671,10 +688,10 @@ func Test_ChannelDefinitionCache(t *testing.T) {
 			orm.err = errors.New("test error")
 
 			memoryBlockNum, persistedBlockNum, err := cdc.persist(ctx)
-			assert.EqualError(t, err, "test error")
-			assert.Equal(t, int64(143), memoryBlockNum)
-			assert.Equal(t, int64(141), persistedBlockNum)
-			assert.Equal(t, int64(141), cdc.persistedBlockNum)
+			require.EqualError(t, err, "test error")
+			require.Equal(t, int64(143), memoryBlockNum)
+			require.Equal(t, int64(141), persistedBlockNum)
+			require.Equal(t, int64(141), cdc.persistedBlockNum)
 		})
 
 		t.Run("updates persisted block number on success", func(t *testing.T) {
@@ -685,21 +702,154 @@ func Test_ChannelDefinitionCache(t *testing.T) {
 			orm.err = nil
 
 			memoryBlockNum, persistedBlockNum, err := cdc.persist(ctx)
-			assert.NoError(t, err)
-			assert.Equal(t, int64(143), memoryBlockNum)
-			assert.Equal(t, int64(143), persistedBlockNum)
-			assert.Equal(t, int64(143), cdc.persistedBlockNum)
+			require.NoError(t, err)
+			require.Equal(t, int64(143), memoryBlockNum)
+			require.Equal(t, int64(143), persistedBlockNum)
+			require.Equal(t, int64(143), cdc.persistedBlockNum)
 
-			assert.Equal(t, cdc.addr, orm.lastPersistedAddr)
-			assert.Equal(t, cdc.donID, orm.lastPersistedDonID)
-			assert.Equal(t, cdc.definitionsVersion, orm.lastPersistedVersion)
-			assert.Equal(t, cdc.definitions, orm.lastPersistedDfns)
-			assert.Equal(t, cdc.definitionsBlockNum, orm.lastPersistedBlockNum)
+			require.Equal(t, cdc.addr, orm.lastPersistedAddr)
+			require.Equal(t, cdc.donID, orm.lastPersistedDonID)
+			require.Equal(t, cdc.definitionsVersion, orm.lastPersistedVersion)
+			require.Equal(t, cdc.definitions, orm.lastPersistedDfns)
+			require.Equal(t, cdc.definitionsBlockNum, orm.lastPersistedBlockNum)
+		})
+	})
+
+	t.Run("adder limits", func(t *testing.T) {
+		cdc := &channelDefinitionCache{
+			lggr: logger.TestSugared(t),
+		}
+
+		adderID := uint32(100)
+
+		t.Run("rejects adder definition with more than MaxAdderAdditionsPerDefinition new channels", func(t *testing.T) {
+			currentDefinitions := make(llotypes.ChannelDefinitions)
+			newDefinitions := make(llotypes.ChannelDefinitions)
+
+			// Create MaxAdderAdditionsPerDefinition + 1 new channels
+			addChannelDefinitions(newDefinitions, 1, uint32(MaxAdderAdditionsPerDefinition+1), adderID)
+
+			_, err := cdc.mergeDefinitions(adderID, currentDefinitions, newDefinitions)
+			require.Error(t, err)
+			require.Contains(t, err.Error(), errAdderAdditionsLimitExceeded.Error())
+			require.Contains(t, err.Error(), strconv.Itoa(MaxAdderAdditionsPerDefinition+1))
+			require.Contains(t, err.Error(), strconv.Itoa(MaxAdderAdditionsPerDefinition))
+		})
+
+		t.Run("allows adder definition with exactly MaxAdderAdditionsPerDefinition new channels", func(t *testing.T) {
+			currentDefinitions := make(llotypes.ChannelDefinitions)
+			newDefinitions := make(llotypes.ChannelDefinitions)
+
+			// Create exactly MaxAdderAdditionsPerDefinition new channels
+			addChannelDefinitions(newDefinitions, 1, uint32(MaxAdderAdditionsPerDefinition), adderID)
+
+			result, err := cdc.mergeDefinitions(adderID, currentDefinitions, newDefinitions)
+			require.NoError(t, err)
+			require.Len(t, result, MaxAdderAdditionsPerDefinition)
+		})
+
+		t.Run("rejects adder definition file with more than MaxChannelsPerAdder channels", func(t *testing.T) {
+			currentDefinitions := make(llotypes.ChannelDefinitions)
+			newDefinitions := make(llotypes.ChannelDefinitions)
+
+			// Create a new definition file with MaxChannelsPerAdder + 1 channels
+			// This should fail because the limit is on the total number of channels in the definition file
+			addChannelDefinitions(newDefinitions, 1, uint32(MaxChannelsPerAdder+1), adderID)
+
+			_, err := cdc.mergeDefinitions(adderID, currentDefinitions, newDefinitions)
+			require.Error(t, err)
+			require.Contains(t, err.Error(), errChannelsPerAdderLimitExceeded.Error())
+			require.Contains(t, err.Error(), strconv.Itoa(MaxChannelsPerAdder+1))
+			require.Contains(t, err.Error(), strconv.Itoa(MaxChannelsPerAdder))
+		})
+
+		t.Run("allows adder definition file with exactly MaxChannelsPerAdder channels when most are existing", func(t *testing.T) {
+			currentDefinitions := make(llotypes.ChannelDefinitions)
+			newDefinitions := make(llotypes.ChannelDefinitions)
+
+			// Pre-populate with MaxChannelsPerAdder - MaxAdderAdditionsPerDefinition existing channels
+			// This way we can test MaxChannelsPerAdder without hitting MaxAdderAdditionsPerDefinition
+			existingEnd := uint32(MaxChannelsPerAdder - MaxAdderAdditionsPerDefinition)
+			addChannelDefinitions(currentDefinitions, 1, existingEnd, adderID)
+			// Include these existing channels in the new definition file (they'll be skipped)
+			addChannelDefinitions(newDefinitions, 1, existingEnd, adderID)
+
+			// Add MaxAdderAdditionsPerDefinition new channels to reach exactly MaxChannelsPerAdder total in the file
+			addChannelDefinitions(newDefinitions, existingEnd+1, uint32(MaxChannelsPerAdder), adderID)
+
+			result, err := cdc.mergeDefinitions(adderID, currentDefinitions, newDefinitions)
+			require.NoError(t, err)
+			// Should have (MaxChannelsPerAdder - MaxAdderAdditionsPerDefinition) existing + MaxAdderAdditionsPerDefinition new = MaxChannelsPerAdder
+			require.Len(t, result, MaxChannelsPerAdder)
+		})
+
+		t.Run("counts only new channels for MaxAdderAdditionsPerDefinition limit", func(t *testing.T) {
+			currentDefinitions := make(llotypes.ChannelDefinitions)
+
+			// Pre-populate with some channels from this adder
+			addChannelDefinitions(currentDefinitions, 1, 5, adderID)
+
+			newDefinitions := make(llotypes.ChannelDefinitions)
+
+			// Include existing channels (should be skipped) + MaxAdderAdditionsPerDefinition new ones
+			// First, include an existing channel (should be skipped, not counted)
+			newDefinitions[llotypes.ChannelID(1)] = makeChannelDefinition(1, adderID)
+
+			// Then add MaxAdderAdditionsPerDefinition new channels
+			addChannelDefinitions(newDefinitions, 6, uint32(5+MaxAdderAdditionsPerDefinition), adderID)
+
+			result, err := cdc.mergeDefinitions(adderID, currentDefinitions, newDefinitions)
+			require.NoError(t, err)
+			// Should have 5 existing + MaxAdderAdditionsPerDefinition new = 5 + 10 = 15
+			require.Len(t, result, 5+MaxAdderAdditionsPerDefinition)
+		})
+
+		t.Run("rejects when trying to add more than MaxAdderAdditionsPerDefinition new channels", func(t *testing.T) {
+			currentDefinitions := make(llotypes.ChannelDefinitions)
+
+			// Pre-populate with some channels from this adder
+			addChannelDefinitions(currentDefinitions, 1, 5, adderID)
+
+			newDefinitions := make(llotypes.ChannelDefinitions)
+
+			// Add MaxAdderAdditionsPerDefinition + 1 new channels
+			// This should fail because we're trying to add 11 new channels when the limit is 10
+			addChannelDefinitions(newDefinitions, 6, uint32(5+MaxAdderAdditionsPerDefinition+1), adderID)
+
+			_, err := cdc.mergeDefinitions(adderID, currentDefinitions, newDefinitions)
+			require.Error(t, err)
+			require.Contains(t, err.Error(), errAdderAdditionsLimitExceeded.Error())
+			// Should fail because we're trying to add MaxAdderAdditionsPerDefinition + 1 new channels
+			require.Contains(t, err.Error(), strconv.Itoa(MaxAdderAdditionsPerDefinition+1))
+		})
+
+		t.Run("owner definitions are not subject to adder limits", func(t *testing.T) {
+			currentDefinitions := make(llotypes.ChannelDefinitions)
+			newDefinitions := make(llotypes.ChannelDefinitions)
+
+			// Owner can add more than MaxAdderAdditionsPerDefinition channels
+			addChannelDefinitions(newDefinitions, 1, uint32(MaxAdderAdditionsPerDefinition+10), SourceOwner)
+
+			result, err := cdc.mergeDefinitions(SourceOwner, currentDefinitions, newDefinitions)
+			require.NoError(t, err)
+			require.Len(t, result, MaxAdderAdditionsPerDefinition+10)
+		})
+
+		t.Run("owner can have more than MaxChannelsPerAdder channels", func(t *testing.T) {
+			currentDefinitions := make(llotypes.ChannelDefinitions)
+			newDefinitions := make(llotypes.ChannelDefinitions)
+
+			// Owner can have more than MaxChannelsPerAdder channels
+			addChannelDefinitions(newDefinitions, 1, uint32(MaxChannelsPerAdder+10), SourceOwner)
+
+			result, err := cdc.mergeDefinitions(SourceOwner, currentDefinitions, newDefinitions)
+			require.NoError(t, err)
+			require.Len(t, result, MaxChannelsPerAdder+10)
 		})
 	})
 }
 
 func Test_filterName(t *testing.T) {
 	s := types.ChannelDefinitionCacheFilterName(common.Address{1, 2, 3}, 654)
-	assert.Equal(t, "OCR3 LLO ChannelDefinitionCachePoller - 0x0102030000000000000000000000000000000000:654", s)
+	require.Equal(t, "OCR3 LLO ChannelDefinitionCachePoller - 0x0102030000000000000000000000000000000000:654", s)
 }
