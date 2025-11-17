@@ -1,65 +1,17 @@
-package memory
+package jdtestutils
 
 import (
-	"context"
 	"errors"
 	"fmt"
 	"maps"
 	"sync"
 
-	"github.com/smartcontractkit/chainlink/deployment/environment/test"
 	"github.com/smartcontractkit/chainlink/deployment/utils/nodetestutils"
-	"github.com/smartcontractkit/chainlink/v2/core/services/feeds"
 )
 
-type JobApprover interface {
-	AutoApproveJob(ctx context.Context, p *feeds.ProposeJobArgs) error
-}
-
-type autoApprovalNode struct {
-	*nodetestutils.Node
-}
-
-var _ JobApprover = &autoApprovalNode{}
-
-func (q *autoApprovalNode) AutoApproveJob(ctx context.Context, p *feeds.ProposeJobArgs) error {
-	appProposalID, err := q.App.GetFeedsService().ProposeJob(ctx, p)
-	if err != nil {
-		return fmt.Errorf("failed to propose job: %w", err)
-	}
-	// auto approve
-	proposedSpec, err := q.App.GetFeedsService().ListSpecsByJobProposalIDs(ctx, []int64{appProposalID})
-	if err != nil {
-		return fmt.Errorf("failed to list specs: %w", err)
-	}
-	// possible to have multiple specs for the same job proposal id; take the last one
-	if len(proposedSpec) == 0 {
-		return fmt.Errorf("no specs found for job proposal id: %d", appProposalID)
-	}
-	err = q.App.GetFeedsService().ApproveSpec(ctx, proposedSpec[len(proposedSpec)-1].ID, true)
-	if err != nil {
-		return fmt.Errorf("failed to approve job: %w", err)
-	}
-	return nil
-}
-
-type jobApproverGetter struct {
-	s nodeStore
-}
-
-func (w *jobApproverGetter) Get(nodeID string) (test.JobApprover, error) {
-	node, err := w.s.get(nodeID)
-	if err != nil {
-		return nil, err
-	}
-	return &autoApprovalNode{node}, nil
-}
-
-type ExternalJobIDExtractor struct {
-	ExternalJobID string `toml:"externalJobID"`
-}
-
-var errNoExist = errors.New("does not exist")
+var (
+	errNoExist = errors.New("does not exist")
+)
 
 // nodeStore is an interface for storing nodes.
 type nodeStore interface {
@@ -82,6 +34,7 @@ func newMapNodeStore(n map[string]*nodetestutils.Node) *mapNodeStore {
 		nodes: n,
 	}
 }
+
 func (m *mapNodeStore) put(nodeID string, node *nodetestutils.Node) error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
@@ -91,6 +44,7 @@ func (m *mapNodeStore) put(nodeID string, node *nodetestutils.Node) error {
 	m.nodes[nodeID] = node
 	return nil
 }
+
 func (m *mapNodeStore) get(nodeID string) (*nodetestutils.Node, error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
@@ -103,6 +57,7 @@ func (m *mapNodeStore) get(nodeID string) (*nodetestutils.Node, error) {
 	}
 	return node, nil
 }
+
 func (m *mapNodeStore) list() []*nodetestutils.Node {
 	m.mu.Lock()
 	defer m.mu.Unlock()
@@ -115,6 +70,7 @@ func (m *mapNodeStore) list() []*nodetestutils.Node {
 	}
 	return nodes
 }
+
 func (m *mapNodeStore) delete(nodeID string) error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
