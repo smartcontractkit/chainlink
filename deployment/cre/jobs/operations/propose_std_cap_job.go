@@ -215,17 +215,22 @@ func resolveJob(job pkg.StandardCapabilityJob, setPerNodeCfg bool, nodeID string
 }
 
 func generateOracleFactory(cldEnv cldf.Environment, nodeInfo deployment.Node, job pkg.StandardCapabilityJob) (*pkg.OracleFactory, error) {
-	addrRefKey := pkg.GetOCR3CapabilityAddressRefKey(uint64(job.ChainSelectorEVM), job.ContractQualifier)
+	contractChainSelector := job.ChainSelectorEVM
+	if job.OCRChainSelector != 0 {
+		contractChainSelector = job.OCRChainSelector
+	}
+
+	addrRefKey := pkg.GetOCR3CapabilityAddressRefKey(uint64(contractChainSelector), job.ContractQualifier)
 	contractAddrRef, err := cldEnv.DataStore.Addresses().Get(addrRefKey)
 	if err != nil {
-		return &pkg.OracleFactory{}, fmt.Errorf("failed to get OCR3 contract address for chain selector %d and qualifier %s: %w", job.ChainSelectorEVM, job.ContractQualifier, err)
+		return &pkg.OracleFactory{}, fmt.Errorf("failed to get OCR3 contract address for chain selector %d and qualifier %s: %w", contractChainSelector, job.ContractQualifier, err)
 	}
 	contractChainID, err := chainsel.GetChainIDFromSelector(addrRefKey.ChainSelector())
 	if err != nil {
-		return &pkg.OracleFactory{}, fmt.Errorf("failed to get chainID for chain selector %d and qualifier %s: %w", job.ChainSelectorEVM, job.ContractQualifier, err)
+		return &pkg.OracleFactory{}, fmt.Errorf("failed to get chainID for chain selector %d and qualifier %s: %w", contractChainSelector, job.ContractQualifier, err)
 	}
 
-	evmOCRConfig, ok := nodeInfo.OCRConfigForChainSelector(uint64(job.ChainSelectorEVM))
+	evmOCRConfig, ok := nodeInfo.OCRConfigForChainSelector(uint64(contractChainSelector))
 	if !ok {
 		return &pkg.OracleFactory{}, fmt.Errorf("no evm ocr2 config for node %s", nodeInfo.NodeID)
 	}

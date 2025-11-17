@@ -59,6 +59,7 @@ type ProposeEVMCapJobSpecInput struct {
 	ChainSelector        uint64               `json:"chainSelector" yaml:"chainSelector"`
 	BootstrapperOCR3Urls []string             `json:"bootstrapperOCR3Urls" yaml:"bootstrapperOCR3Urls"`
 	OCRContractQualifier string               `json:"ocrContractQualifier" yaml:"ocrContractQualifier"`
+	OCRChainSelector     uint64               `json:"ocrChainSelector" yaml:"ocrChainSelector"`
 	ForwardersQualifier  string               `json:"forwardersContractQualifier" yaml:"forwardersContractQualifier"`
 	EVMCapabilityInputs  []EVMCapabilityInput `json:"evmCapabilityInputs" yaml:"evmCapabilityInputs"`
 }
@@ -103,7 +104,7 @@ func (u ProposeEVMCapJobSpec) VerifyPreconditions(e cldf.Environment, input Prop
 		return fmt.Errorf("failed to get chainID from selector: %w", err)
 	}
 
-	ocrAddrRefKey := pkg.GetOCR3CapabilityAddressRefKey(input.ChainSelector, input.OCRContractQualifier)
+	ocrAddrRefKey := pkg.GetOCR3CapabilityAddressRefKey(input.OCRChainSelector, input.OCRContractQualifier)
 	if _, err := e.DataStore.Addresses().Get(ocrAddrRefKey); err != nil {
 		return fmt.Errorf("failed to get OCR contract address for ref key %s: %w", ocrAddrRefKey, err)
 	}
@@ -176,6 +177,7 @@ func (u ProposeEVMCapJobSpec) Apply(e cldf.Environment, input ProposeEVMCapJobSp
 		Command:               "/usr/local/bin/evm",
 		GenerateOracleFactory: true,
 		ContractQualifier:     input.OCRContractQualifier,
+		OCRChainSelector:      pkg.ChainSelector(input.OCRChainSelector),
 		ChainSelectorEVM:      pkg.ChainSelector(input.ChainSelector),
 		BootstrapPeers:        input.BootstrapperOCR3Urls,
 	}
