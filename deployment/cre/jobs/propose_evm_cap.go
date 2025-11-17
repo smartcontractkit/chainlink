@@ -165,12 +165,7 @@ func (u ProposeEVMCapJobSpec) Apply(e cldf.Environment, input ProposeEVMCapJobSp
 		return cldf.ChangesetOutput{}, fmt.Errorf("failed to get chain name from selector: %w", err)
 	}
 
-	networkEnv, err := chainselectors.ExtractNetworkEnvName(chainName)
-	if err != nil && input.ChainSelector != chainselectors.TEST_90000001.Selector {
-		return cldf.ChangesetOutput{}, fmt.Errorf("failed to extract network env from chain name %q: %w", chainName, err)
-	}
-
-	jobName := fmt.Sprintf("evm-capabilities-v2-%s-%s-%s", chainName, networkEnv, input.Zone)
+	jobName := fmt.Sprintf("evm-capabilities-v2-%s-%s", chainName, input.Zone)
 
 	job := pkg.StandardCapabilityJob{
 		JobName:               jobName,
