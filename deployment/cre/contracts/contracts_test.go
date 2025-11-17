@@ -335,7 +335,8 @@ func TestGetOwnedContractV2(t *testing.T) {
 
 	chain := rt.Environment().BlockChains.EVMChains()[selector]
 
-	addrs, err := rt.State().DataStore.Addresses().Fetch()
+	addrStore := rt.State().DataStore.Addresses()
+	addrs, err := addrStore.Fetch()
 	require.NoError(t, err)
 	require.Len(t, addrs, 1)
 	targetAddrStr := addrs[0].Address
@@ -343,19 +344,7 @@ func TestGetOwnedContractV2(t *testing.T) {
 	t.Run("successfully creates owned contract", func(t *testing.T) {
 		t.Parallel()
 
-		// Create datastore and save registry
-		ds := datastore.NewMemoryDataStore()
-		v1 := semver.MustParse("1.1.0")
-		registryAddrRef := datastore.AddressRef{
-			ChainSelector: chain.Selector,
-			Address:       targetAddrStr,
-			Type:          datastore.ContractType(contracts.CapabilitiesRegistry),
-			Version:       v1,
-		}
-		err = ds.AddressRefStore.Add(registryAddrRef)
-		require.NoError(t, err)
-
-		ownedContract, err := contracts.GetOwnedContractV2[*capabilities_registry.CapabilitiesRegistry](ds.Addresses(), chain, targetAddrStr)
+		ownedContract, err := contracts.GetOwnedContractV2[*capabilities_registry.CapabilitiesRegistry](addrStore, chain, targetAddrStr)
 		require.NoError(t, err)
 		assert.NotNil(t, ownedContract)
 		assert.NotNil(t, ownedContract.Contract)
@@ -366,12 +355,10 @@ func TestGetOwnedContractV2(t *testing.T) {
 	t.Run("errors when address not found in datastore", func(t *testing.T) {
 		t.Parallel()
 
-		// Create empty datastore
-		ds := datastore.NewMemoryDataStore()
 		nonExistentAddr := testutils.NewAddress().String()
 
-		_, err := contracts.GetOwnedContractV2[*capabilities_registry.CapabilitiesRegistry](ds.Addresses(), chain, nonExistentAddr)
+		_, err := contracts.GetOwnedContractV2[*capabilities_registry.CapabilitiesRegistry](addrStore, chain, nonExistentAddr)
 		require.Error(t, err)
-		assert.Contains(t, err.Error(), "not found in datastore")
+		assert.Contains(t, err.Error(), "not found in address ref store")
 	})
 }
