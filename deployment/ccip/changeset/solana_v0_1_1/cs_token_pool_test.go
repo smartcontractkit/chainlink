@@ -614,14 +614,16 @@ func TestPartnerTokenPools(t *testing.T) {
 func TestCreatingMultisig(t *testing.T) {
 	tenv, _ := testhelpers.NewMemoryEnvironment(t, testhelpers.WithSolChains(1), testhelpers.WithCCIPSolanaContractVersion(ccipChangesetSolana.SolanaContractV0_1_1))
 	solChain := tenv.Env.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chain_selectors.FamilySolana))[0]
-
+	deployerKey := tenv.Env.BlockChains.SolanaChains()[solChain].DeployerKey.PublicKey()
+	e, newTokenAddress, err := deployTokenAndMint(t, tenv.Env, solChain, []string{deployerKey.String()}, "TEST_TOKEN")
+	require.NoError(t, err)
 	burnMintTokenPoolType := solTestTokenPool.BurnAndMint_PoolType
-	_, _, err := commonchangeset.ApplyChangesets(t, tenv.Env, []commonchangeset.ConfiguredChangeSet{
+	_, _, err = commonchangeset.ApplyChangesets(t, e, []commonchangeset.ConfiguredChangeSet{
 		commonchangeset.Configure(
 			cldf.CreateLegacyChangeSet(ccipChangesetSolana.CreateTokenMultisig),
 			ccipChangesetSolana.CreateTokenMultisigConfig{
 				ChainSelector:           solChain,
-				TokenMint:               solana.MustPublicKeyFromBase58("DzBixyQHeQHCBqCTqe1tW5hz8AJUGbfWHxuzUp8T8Dhr"),
+				TokenMint:               newTokenAddress,
 				PoolType:                &burnMintTokenPoolType,
 				Metadata:                shared.CLLMetadata,
 				CustomerMintAuthorities: []solana.PublicKey{solana.MustPublicKeyFromBase58("9o9vS5dHHQLaZLv8gHuNu6k6J5HjisF9ravgRZigiDkb")},

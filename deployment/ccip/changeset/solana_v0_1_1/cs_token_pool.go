@@ -5,6 +5,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"regexp"
 
 	"github.com/Masterminds/semver/v3"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
@@ -679,8 +680,22 @@ func CreateTokenMultisig(e cldf.Environment, cfg CreateTokenMultisigConfig) (cld
 		return cldf.ChangesetOutput{}, err
 	}
 	newMultisig, err := createMultisig(e, tokenPoolSignerPDA, cfg.CustomerMintAuthorities, tokenProgramId)
-	e.Logger.Info("created multisig", "newMultisig", newMultisig)
-	return cldf.ChangesetOutput{}, nil
+	if err != nil {
+		return cldf.ChangesetOutput{}, err
+	}
+	newAddresses := cldf.NewMemoryAddressBook()
+	tv := cldf.NewTypeAndVersion("TokenMultisig", deployment.Version1_0_0)
+	tv.AddLabel(cfg.Metadata)
+	tv.AddLabel(cfg.TokenMint.String())
+	err = newAddresses.Save(cfg.ChainSelector, newMultisig.String(), tv)
+	if err != nil {
+		e.Logger.Errorw("Failed to save new token multisig", "chain", solChainState, "err", err)
+		return cldf.ChangesetOutput{}, err
+	}
+	e.Logger.Infow("Created multisig", "TokenMultisigAddress", newMultisig, "TokenMint", cfg.TokenMint, "Signers 1 of", tokenPoolSignerPDA, cfg.CustomerMintAuthorities)
+	return cldf.ChangesetOutput{
+		AddressBook: newAddresses,
+	}, nil
 }
 
 func createMultisig(e cldf.Environment, tokenPoolSignerPDA solana.PublicKey, customerMintAuthorities []solana.PublicKey, tokenProgramId solana.PublicKey) (solana.PublicKey, error) {
@@ -698,9 +713,25 @@ func createMultisig(e cldf.Environment, tokenPoolSignerPDA solana.PublicKey, cus
 		e.Logger.Debugw("spl-token create-multisig error", "error", err)
 		return solana.PublicKey{}, fmt.Errorf("error spl-token create-multisig: %w", err)
 	}
+	multisigAddress, err := parseMultisigAddress(output)
+	if err != nil {
+		e.Logger.Debugw("spl-token create-multisig error", "error", err)
+	}
 	e.Logger.Infow("Created Token Multisig ", "tokenProgramId", tokenProgramId)
-	// TODO: return output, nil
-	return solana.PublicKey{}, nil
+	return solana.MustPublicKeyFromBase58(multisigAddress), nil
+}
+
+// ParseMultisigAddress extracts the created multisig address from either a JSON blob
+// with an "output" field or from raw text. It returns the first match it finds.
+func parseMultisigAddress(text string) (string, error) {
+	// Regex: captures a Solana base58 address between "multisig" and "under program".
+	// Solana addresses are base58 (no 0, O, I, l) and typically 32–44 chars.
+	re := regexp.MustCompile(`(?i)Creating\s+\d+/\d+\s+multisig\s+([1-9A-HJ-NP-Za-km-z]{32,44})\s+under\s+program`)
+	m := re.FindStringSubmatch(text)
+	if len(m) < 2 {
+		return "", errors.New("multisig address not found")
+	}
+	return m[1], nil
 }
 
 func ModifyMintAuthority(e cldf.Environment, cfg NewMintTokenPoolConfig) (cldf.ChangesetOutput, error) {
