@@ -50,75 +50,70 @@ type EVMCapabilityInput struct {
 	OverrideDefaultCfg OverrideDefaultCfg `json:"overrideDefaultCfg" yaml:"overrideDefaultCfg"`
 }
 
-type RequiredInput struct {
+type ProposeEVMCapJobSpecInput struct {
 	Environment string `json:"environment" yaml:"environment"`
 	Zone        string `json:"zone" yaml:"zone"`
 	Domain      string `json:"domain" yaml:"domain"`
 	DONName     string `json:"donName" yaml:"donName"`
 
-	ChainSelector        uint64   `json:"chainSelector" yaml:"chainSelector"`
-	BootstrapperOCR3Urls []string `json:"bootstrapperOCR3Urls" yaml:"bootstrapperOCR3Urls"`
-	OCRContractQualifier string   `json:"ocrContractQualifier" yaml:"ocrContractQualifier"`
-	ForwardersQualifier  string   `json:"forwardersContractQualifier" yaml:"forwardersContractQualifier"`
-}
-
-type ProposeEVMCapJobSpecInput struct {
-	RequiredDonInput    RequiredInput        `json:"requiredDonInput" yaml:"requiredDonInput"`
-	EVMCapabilityInputs []EVMCapabilityInput `json:"evmCapabilityInputs" yaml:"evmCapabilityInputs"`
+	ChainSelector        uint64               `json:"chainSelector" yaml:"chainSelector"`
+	BootstrapperOCR3Urls []string             `json:"bootstrapperOCR3Urls" yaml:"bootstrapperOCR3Urls"`
+	OCRContractQualifier string               `json:"ocrContractQualifier" yaml:"ocrContractQualifier"`
+	ForwardersQualifier  string               `json:"forwardersContractQualifier" yaml:"forwardersContractQualifier"`
+	EVMCapabilityInputs  []EVMCapabilityInput `json:"evmCapabilityInputs" yaml:"evmCapabilityInputs"`
 }
 
 type ProposeEVMCapJobSpec struct{}
 
 func (u ProposeEVMCapJobSpec) VerifyPreconditions(e cldf.Environment, input ProposeEVMCapJobSpecInput) error {
-	required := input.RequiredDonInput
-	if required.Environment == "" {
+	if input.Environment == "" {
 		return errors.New("environment is required")
 	}
-	if required.Domain == "" {
+	if input.Domain == "" {
 		return errors.New("domain is required")
 	}
-	if required.Zone == "" {
+	if input.Zone == "" {
 		return errors.New("zone is required")
 	}
-	if required.DONName == "" {
+	if input.DONName == "" {
 		return errors.New("donName is required")
 	}
-	if required.ChainSelector == 0 {
+	if input.ChainSelector == 0 {
 		return errors.New("chain selector is required")
 	}
 	if len(input.EVMCapabilityInputs) == 0 {
 		return errors.New("at least one evm capability input is required")
 	}
-	if len(required.BootstrapperOCR3Urls) == 0 {
+	if len(input.BootstrapperOCR3Urls) == 0 {
 		return errors.New("at least one bootstrapper OCR3 URL is required")
 	}
-	for i, u := range required.BootstrapperOCR3Urls {
+	for i, u := range input.BootstrapperOCR3Urls {
 		if u == "" {
 			return fmt.Errorf("bootstrapper OCR3 URL at index %d is empty", i)
 		}
 	}
 
-	if required.OCRContractQualifier == "" {
+	if input.OCRContractQualifier == "" {
 		return errors.New("ocr contract qualifier is required")
 	}
-	if required.ForwardersQualifier == "" {
+	if input.ForwardersQualifier == "" {
 		return errors.New("cre forwarder qualifier is required")
 	}
 
-	chainIDStr, err := chainselectors.GetChainIDFromSelector(required.ChainSelector)
+	chainIDStr, err := chainselectors.GetChainIDFromSelector(input.ChainSelector)
 	if err != nil {
 		return fmt.Errorf("failed to get chainID from selector: %w", err)
 	}
 
-	ocrAddrRefKey := pkg.GetOCR3CapabilityAddressRefKey(required.ChainSelector, required.OCRContractQualifier)
+	ocrAddrRefKey := pkg.GetOCR3CapabilityAddressRefKey(input.ChainSelector, input.OCRContractQualifier)
 	if _, err := e.DataStore.Addresses().Get(ocrAddrRefKey); err != nil {
 		return fmt.Errorf("failed to get OCR contract address for ref key %s: %w", ocrAddrRefKey, err)
 	}
 
-	fwdAddrRefKey := pkg.GetKeystoneForwarderCapabilityAddressRefKey(required.ChainSelector, required.ForwardersQualifier)
+	fwdAddrRefKey := pkg.GetKeystoneForwarderCapabilityAddressRefKey(input.ChainSelector, input.ForwardersQualifier)
 	fwdAddress, err := e.DataStore.Addresses().Get(fwdAddrRefKey)
 	if err != nil {
-		return fmt.Errorf("failed to get CRE forwarder address for chain selector %d and qualifier %s: %w", required.ChainSelector, required.ForwardersQualifier, err)
+		return fmt.Errorf("failed to get CRE forwarder address for chain selector %d and qualifier %s: %w", input.ChainSelector, input.ForwardersQualifier, err)
 	}
 
 	for _, evmCapInput := range input.EVMCapabilityInputs {
@@ -168,9 +163,7 @@ func (u ProposeEVMCapJobSpec) VerifyPreconditions(e cldf.Environment, input Prop
 }
 
 func (u ProposeEVMCapJobSpec) Apply(e cldf.Environment, input ProposeEVMCapJobSpecInput) (cldf.ChangesetOutput, error) {
-	required := input.RequiredDonInput
-
-	chainName, err := chainselectors.GetChainNameFromSelector(required.ChainSelector)
+	chainName, err := chainselectors.GetChainNameFromSelector(input.ChainSelector)
 	if err != nil {
 		return cldf.ChangesetOutput{}, fmt.Errorf("failed to get chain name from selector: %w", err)
 	}
@@ -180,21 +173,21 @@ func (u ProposeEVMCapJobSpec) Apply(e cldf.Environment, input ProposeEVMCapJobSp
 		return cldf.ChangesetOutput{}, fmt.Errorf("failed to extract network env from chain name: %w", err)
 	}
 
-	jobName := fmt.Sprintf("evm-capabilities-v2-%s-%s-%s", chainName, networkEnv, required.Zone)
+	jobName := fmt.Sprintf("evm-capabilities-v2-%s-%s-%s", chainName, networkEnv, input.Zone)
 
 	job := pkg.StandardCapabilityJob{
 		JobName:               jobName,
 		Command:               "/usr/local/bin/evm",
 		GenerateOracleFactory: true,
-		ContractQualifier:     required.OCRContractQualifier,
-		ChainSelectorEVM:      pkg.ChainSelector(required.ChainSelector),
-		BootstrapPeers:        required.BootstrapperOCR3Urls,
+		ContractQualifier:     input.OCRContractQualifier,
+		ChainSelectorEVM:      pkg.ChainSelector(input.ChainSelector),
+		BootstrapPeers:        input.BootstrapperOCR3Urls,
 	}
 
-	fwdAddrRefKey := pkg.GetKeystoneForwarderCapabilityAddressRefKey(required.ChainSelector, required.ForwardersQualifier)
+	fwdAddrRefKey := pkg.GetKeystoneForwarderCapabilityAddressRefKey(input.ChainSelector, input.ForwardersQualifier)
 	fwdAddress, err := e.DataStore.Addresses().Get(fwdAddrRefKey)
 	if err != nil {
-		return cldf.ChangesetOutput{}, fmt.Errorf("failed to get CRE forwarder address for chain selector %d and qualifier %s: %w", required.ChainSelector, required.ForwardersQualifier, err)
+		return cldf.ChangesetOutput{}, fmt.Errorf("failed to get CRE forwarder address for chain selector %d and qualifier %s: %w", input.ChainSelector, input.ForwardersQualifier, err)
 	}
 
 	nodeIDToConfig := make(map[string]string, len(input.EVMCapabilityInputs))
@@ -235,14 +228,14 @@ func (u ProposeEVMCapJobSpec) Apply(e cldf.Environment, input ProposeEVMCapJobSp
 		operations2.ProposeStandardCapabilityJobInput{
 			Job:            job,
 			NodeIDToConfig: nodeIDToConfig,
-			Domain:         required.Domain,
-			DONName:        required.DONName,
+			Domain:         input.Domain,
+			DONName:        input.DONName,
 			DONFilters: []offchain.TargetDONFilter{
 				{Key: "product", Value: offchain.ProductLabel},
-				{Key: "environment", Value: required.Environment},
-				{Key: "zone", Value: required.Zone},
+				{Key: "environment", Value: input.Environment},
+				{Key: "zone", Value: input.Zone},
 				// Preserved: sequence may handle this specially.
-				{Key: required.DONName, Value: ""},
+				{Key: input.DONName, Value: ""},
 			},
 		},
 	)
