@@ -209,7 +209,7 @@ func resolveJob(job pkg.StandardCapabilityJob, setPerNodeCfg bool, nodeID string
 
 	spec, err := job.Resolve()
 	if err != nil {
-		return " ProposeStandardCapabilityJobOutput{}", fmt.Errorf("failed to resolve standard capability job for node %s: %w", nodeID, err)
+		return "", fmt.Errorf("failed to resolve standard capability job for node %s: %w", nodeID, err)
 	}
 
 	return spec, nil
@@ -231,7 +231,6 @@ func generateOracleFactory(cldEnv cldf.Environment, nodeInfo deployment.Node, jo
 		return &pkg.OracleFactory{}, fmt.Errorf("no evm ocr2 config for node %s", nodeInfo.NodeID)
 	}
 
-	addrRefKey.ChainSelector()
 	oracleFactory := &pkg.OracleFactory{
 		Enabled:            true,
 		BootstrapPeers:     job.BootstrapPeers,
