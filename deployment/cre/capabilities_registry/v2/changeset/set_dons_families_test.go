@@ -108,7 +108,9 @@ func TestSetDONsFamilies_Apply(t *testing.T) {
 	})
 
 	t.Run("set families for existing DON - MCMS", func(t *testing.T) {
-		csOut, testErr := cs.Apply(*env.Env, changeset.SetDONsFamiliesInput{
+		mcmsEnv := test.SetupEnvV2(t, true)
+
+		csOut, testErr := cs.Apply(*mcmsEnv.Env, changeset.SetDONsFamiliesInput{
 			RegistrySelector:  chainSelector,
 			RegistryQualifier: test.RegistryQualifier,
 			DONsFamiliesChanges: []sequences.DONFamiliesChange{
