@@ -112,7 +112,7 @@ var ProposeStandardCapabilityJob = operations.NewSequence[
 		setPerNodeCfg := false
 		if input.NodeIDToConfig != nil && len(input.NodeIDToConfig) > 0 {
 			if len(input.NodeIDToConfig) != len(nodeInfos) {
-				return ProposeStandardCapabilityJobOutput{}, fmt.Errorf("number of nodes found (%d) does not match number of configs provided (%d)", len(nodes), len(input.NodeIDToConfig))
+				return ProposeStandardCapabilityJobOutput{}, fmt.Errorf("number of nodes found (%d) does not match number of configs provided (%d)", len(nodeInfos), len(input.NodeIDToConfig))
 			}
 			for _, n := range nodeInfos {
 				if _, ok := input.NodeIDToConfig[n.NodeID]; !ok {
