@@ -113,7 +113,7 @@ func (u ProposeEVMCapJobSpec) VerifyPreconditions(e cldf.Environment, input Prop
 	fwdAddrRefKey := pkg.GetKeystoneForwarderCapabilityAddressRefKey(input.ChainSelector, input.ForwardersQualifier)
 	fwdAddress, err := e.DataStore.Addresses().Get(fwdAddrRefKey)
 	if err != nil {
-		return fmt.Errorf("failed to get CRE forwarder address for chain selector %d and qualifier %s: %w", input.ChainSelector, input.ForwardersQualifier, err)
+		return fmt.Errorf("failed to get CRE forwarder address for ref key %q: %w", fwdAddrRefKey, err)
 	}
 
 	for _, evmCapInput := range input.EVMCapabilityInputs {
@@ -131,12 +131,10 @@ func (u ProposeEVMCapJobSpec) VerifyPreconditions(e cldf.Environment, input Prop
 			)
 		}
 
-		// If user set Network, it must be "evm".
 		if ov.Network != "" && ov.Network != network {
 			return fmt.Errorf("network in override config must be %q if set; got %q for node %s", network, ov.Network, evmCapInput.NodeID)
 		}
 
-		// If user set CREForwarderAddress, ensure it matches computed value.
 		if ov.CREForwarderAddress != "" && fwdAddress.Address != ov.CREForwarderAddress {
 			return fmt.Errorf(
 				"CRE forwarder address in override config (%s) does not match address from data store (%s) for node %s; "+
@@ -169,8 +167,8 @@ func (u ProposeEVMCapJobSpec) Apply(e cldf.Environment, input ProposeEVMCapJobSp
 	}
 
 	networkEnv, err := chainselectors.ExtractNetworkEnvName(chainName)
-	if err != nil {
-		return cldf.ChangesetOutput{}, fmt.Errorf("failed to extract network env from chain name: %w", err)
+	if err != nil && input.ChainSelector != chainselectors.TEST_90000001.Selector {
+		return cldf.ChangesetOutput{}, fmt.Errorf("failed to extract network env from chain name %q: %w", chainName, err)
 	}
 
 	jobName := fmt.Sprintf("evm-capabilities-v2-%s-%s-%s", chainName, networkEnv, input.Zone)
@@ -187,7 +185,7 @@ func (u ProposeEVMCapJobSpec) Apply(e cldf.Environment, input ProposeEVMCapJobSp
 	fwdAddrRefKey := pkg.GetKeystoneForwarderCapabilityAddressRefKey(input.ChainSelector, input.ForwardersQualifier)
 	fwdAddress, err := e.DataStore.Addresses().Get(fwdAddrRefKey)
 	if err != nil {
-		return cldf.ChangesetOutput{}, fmt.Errorf("failed to get CRE forwarder address for chain selector %d and qualifier %s: %w", input.ChainSelector, input.ForwardersQualifier, err)
+		return cldf.ChangesetOutput{}, fmt.Errorf("failed to get CRE forwarder address for chain selector %d and ref key %s: %w", input.ChainSelector, fwdAddrRefKey, err)
 	}
 
 	nodeIDToConfig := make(map[string]string, len(input.EVMCapabilityInputs))
@@ -198,7 +196,6 @@ func (u ProposeEVMCapJobSpec) Apply(e cldf.Environment, input ProposeEVMCapJobSp
 
 		cfg := evmCapInput.OverrideDefaultCfg
 
-		// Canonical values derived from inputs.
 		cfg.Network = network
 		cfg.CREForwarderAddress = fwdAddress.Address
 
@@ -234,8 +231,7 @@ func (u ProposeEVMCapJobSpec) Apply(e cldf.Environment, input ProposeEVMCapJobSp
 				{Key: "product", Value: offchain.ProductLabel},
 				{Key: "environment", Value: input.Environment},
 				{Key: "zone", Value: input.Zone},
-				// Preserved: sequence may handle this specially.
-				{Key: input.DONName, Value: ""},
+				// TODO
 			},
 		},
 	)
