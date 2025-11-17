@@ -12,9 +12,7 @@ import (
 	chainsel "github.com/smartcontractkit/chain-selectors"
 
 	cldf_chain "github.com/smartcontractkit/chainlink-deployments-framework/chain"
-	cldf_sui "github.com/smartcontractkit/chainlink-deployments-framework/chain/sui"
 	cldf_sui_provider "github.com/smartcontractkit/chainlink-deployments-framework/chain/sui/provider"
-	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 )
 
 func getTestSuiChainSelectors() []uint64 {
@@ -63,21 +61,4 @@ func GenerateChainsSui(t *testing.T, numChains int) []cldf_chain.BlockChain {
 
 	t.Logf("Created %d Sui chains: %+v", len(chains), chains)
 	return chains
-}
-
-func createSuiChainConfig(chainID string, chain cldf_sui.Chain) chainlink.RawConfig {
-	chainConfig := chainlink.RawConfig{}
-
-	chainConfig["Enabled"] = true
-	chainConfig["ChainID"] = chainID
-	chainConfig["NetworkName"] = "sui-localnet"
-	chainConfig["NetworkNameFull"] = "sui-localnet"
-	chainConfig["Nodes"] = []any{
-		map[string]any{
-			"Name": "primary",
-			"URL":  chain.URL,
-		},
-	}
-
-	return chainConfig
 }
