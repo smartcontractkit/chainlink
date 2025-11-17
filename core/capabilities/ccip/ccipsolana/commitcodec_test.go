@@ -12,7 +12,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/ccip_offramp"
+	"github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/latest/ccip_offramp"
 
 	cciptypes "github.com/smartcontractkit/chainlink-ccip/pkg/types/ccipocr3"
 	"github.com/smartcontractkit/chainlink-evm/pkg/utils"
@@ -166,7 +166,7 @@ func BenchmarkCommitPluginCodecV1_Encode(b *testing.B) {
 	ctx := testutils.Context(b)
 
 	rep := randomBlessedCommitReport()
-	for i := 0; i < b.N; i++ {
+	for b.Loop() {
 		_, err := commitCodec.Encode(ctx, rep)
 		require.NoError(b, err)
 	}
@@ -178,7 +178,7 @@ func BenchmarkCommitPluginCodecV1_Decode(b *testing.B) {
 	encodedReport, err := commitCodec.Encode(ctx, randomBlessedCommitReport())
 	require.NoError(b, err)
 
-	for i := 0; i < b.N; i++ {
+	for b.Loop() {
 		_, err := commitCodec.Decode(ctx, encodedReport)
 		require.NoError(b, err)
 	}
@@ -189,7 +189,7 @@ func BenchmarkCommitPluginCodecV1_Encode_Decode(b *testing.B) {
 	ctx := testutils.Context(b)
 
 	rep := randomBlessedCommitReport()
-	for i := 0; i < b.N; i++ {
+	for b.Loop() {
 		encodedReport, err := commitCodec.Encode(ctx, rep)
 		require.NoError(b, err)
 		decodedReport, err := commitCodec.Decode(ctx, encodedReport)

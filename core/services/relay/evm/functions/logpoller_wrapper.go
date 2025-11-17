@@ -12,13 +12,13 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
+	evmconfig "github.com/smartcontractkit/chainlink-evm/pkg/config"
 
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/functions/generated/functions_coordinator"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/functions/generated/functions_router"
 	"github.com/smartcontractkit/chainlink-evm/pkg/client"
 	"github.com/smartcontractkit/chainlink-evm/pkg/logpoller"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/functions/config"
-	evmRelayTypes "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/types"
 )
 
 type logPollerWrapper struct {
@@ -29,7 +29,7 @@ type logPollerWrapper struct {
 	pluginConfig              config.PluginConfig
 	client                    client.Client
 	logPoller                 logpoller.LogPoller
-	subscribers               map[string]evmRelayTypes.RouteUpdateSubscriber
+	subscribers               map[string]evmconfig.RouteUpdateSubscriber
 	activeCoordinator         common.Address
 	proposedCoordinator       common.Address
 	requestBlockOffset        int64
@@ -55,9 +55,9 @@ const logPollerCacheDurationSecDefault = 300
 const pastBlocksToPollDefault = 50
 const maxLogsToProcess = 1000
 
-var _ evmRelayTypes.LogPollerWrapper = &logPollerWrapper{}
+var _ evmconfig.LogPollerWrapper = &logPollerWrapper{}
 
-func NewLogPollerWrapper(routerContractAddress common.Address, pluginConfig config.PluginConfig, client client.Client, logPoller logpoller.LogPoller, lggr logger.Logger) (evmRelayTypes.LogPollerWrapper, error) {
+func NewLogPollerWrapper(routerContractAddress common.Address, pluginConfig config.PluginConfig, client client.Client, logPoller logpoller.LogPoller, lggr logger.Logger) (evmconfig.LogPollerWrapper, error) {
 	routerContract, err := functions_router.NewFunctionsRouter(routerContractAddress, client)
 	if err != nil {
 		return nil, err
@@ -103,7 +103,7 @@ func NewLogPollerWrapper(routerContractAddress common.Address, pluginConfig conf
 		detectedResponses:         detectedEvents{isPreviouslyDetected: make(map[[32]byte]struct{})},
 		logPoller:                 logPoller,
 		client:                    client,
-		subscribers:               make(map[string]evmRelayTypes.RouteUpdateSubscriber),
+		subscribers:               make(map[string]evmconfig.RouteUpdateSubscriber),
 	}
 	w.Service, w.eng = services.Config{
 		Name:  "LoggPollerWrapper",
@@ -124,7 +124,7 @@ func (l *logPollerWrapper) start(context.Context) error {
 }
 
 // methods of LogPollerWrapper
-func (l *logPollerWrapper) LatestEvents(ctx context.Context) ([]evmRelayTypes.OracleRequest, []evmRelayTypes.OracleResponse, error) {
+func (l *logPollerWrapper) LatestEvents(ctx context.Context) ([]evmconfig.OracleRequest, []evmconfig.OracleResponse, error) {
 	l.mu.Lock()
 	coordinators := []common.Address{}
 	if l.activeCoordinator != (common.Address{}) {
@@ -139,15 +139,12 @@ func (l *logPollerWrapper) LatestEvents(ctx context.Context) ([]evmRelayTypes.Or
 		return nil, nil, err
 	}
 	latestBlockNum := latest.BlockNumber
-	startBlockNum := latestBlockNum - l.pastBlocksToPoll
-	if startBlockNum < 0 {
-		startBlockNum = 0
-	}
+	startBlockNum := max(latestBlockNum-l.pastBlocksToPoll, 0)
 	l.mu.Unlock()
 
 	// outside of the lock
-	resultsReq := []evmRelayTypes.OracleRequest{}
-	resultsResp := []evmRelayTypes.OracleResponse{}
+	resultsReq := []evmconfig.OracleRequest{}
+	resultsResp := []evmconfig.OracleResponse{}
 	if len(coordinators) == 0 {
 		l.eng.Debug("LatestEvents: no non-zero coordinators to check")
 		return resultsReq, resultsResp, errors.New("no non-zero coordinators to check")
@@ -230,7 +227,7 @@ func (l *logPollerWrapper) LatestEvents(ctx context.Context) ([]evmRelayTypes.Or
 				l.eng.Errorw("LatestEvents: failed to pack commitment bytes, skipping", "err", err)
 			}
 
-			resultsReq = append(resultsReq, evmRelayTypes.OracleRequest{
+			resultsReq = append(resultsReq, evmconfig.OracleRequest{
 				RequestId:           oracleRequest.RequestId,
 				RequestingContract:  oracleRequest.RequestingContract,
 				RequestInitiator:    oracleRequest.RequestInitiator,
@@ -252,7 +249,7 @@ func (l *logPollerWrapper) LatestEvents(ctx context.Context) ([]evmRelayTypes.Or
 				l.eng.Errorw("LatestEvents: failed to parse a response log, skipping")
 				continue
 			}
-			resultsResp = append(resultsResp, evmRelayTypes.OracleResponse{
+			resultsResp = append(resultsResp, evmconfig.OracleResponse{
 				RequestId: oracleResponse.RequestId,
 			})
 		}
@@ -298,7 +295,7 @@ func (l *logPollerWrapper) filterPreviouslyDetectedEvents(logs []logpoller.Log, 
 }
 
 // "internal" method called only by EVM relayer components
-func (l *logPollerWrapper) SubscribeToUpdates(ctx context.Context, subscriberName string, subscriber evmRelayTypes.RouteUpdateSubscriber) {
+func (l *logPollerWrapper) SubscribeToUpdates(ctx context.Context, subscriberName string, subscriber evmconfig.RouteUpdateSubscriber) {
 	if l.pluginConfig.ContractVersion == 0 {
 		// in V0, immediately set contract address to Oracle contract and never update again
 		if err := subscriber.UpdateRoutes(ctx, l.routerContract.Address(), l.routerContract.Address()); err != nil {

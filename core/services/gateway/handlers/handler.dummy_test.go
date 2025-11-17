@@ -67,8 +67,8 @@ func TestDummyHandler_BasicFlow(t *testing.T) {
 	require.NoError(t, err)
 	err = msg.Validate()
 	require.NoError(t, err)
-	callbackCh := make(chan handlers.UserCallbackPayload, 1)
-	require.NoError(t, handler.HandleLegacyUserMessage(ctx, &msg, callbackCh))
+	cb := hc.NewCallback()
+	require.NoError(t, handler.HandleLegacyUserMessage(ctx, &msg, cb))
 	require.Equal(t, 2, connMgr.sendCounter)
 
 	// Responses from both nodes
@@ -76,7 +76,8 @@ func TestDummyHandler_BasicFlow(t *testing.T) {
 	require.NoError(t, err)
 	require.NoError(t, handler.HandleNodeMessage(ctx, resp, msg.Body.Sender))
 	require.NoError(t, handler.HandleNodeMessage(ctx, resp, msg.Body.Sender))
-	response := <-callbackCh
+	response, err := cb.Wait(t.Context())
+	require.NoError(t, err)
 	codec := api.JsonRPCCodec{}
 	responseMsg, err := codec.DecodeLegacyResponse(response.RawResponse)
 	require.NoError(t, err)

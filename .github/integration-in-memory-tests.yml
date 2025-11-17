@@ -21,7 +21,7 @@ runner-test-matrix:
     path: integration-tests/smoke/ccip/ccip_fees_test.go
     test_env_type: in-memory
     runs_on: ubuntu-latest
-    runs_on_self_hosted: runs-on/cpu=8/ram=32/family=m6i/spot=false/image=ubuntu24-full-x64/extras=s3-cache+tmpfs
+    runs_on_self_hosted: runs-on/cpu=8/ram=32/family=m6i+m5.*/spot=false/image=ubuntu24-full-x64/extras=s3-cache+tmpfs
     triggers:
       - PR Integration CCIP Tests
       - Nightly Integration CCIP Tests
@@ -32,7 +32,7 @@ runner-test-matrix:
     path: integration-tests/smoke/ccip/ccip_messaging_test.go
     test_env_type: in-memory
     runs_on: ubuntu-latest
-    runs_on_self_hosted: runs-on/cpu=8/ram=32/family=m6i/spot=false/image=ubuntu24-full-x64/extras=s3-cache+tmpfs
+    runs_on_self_hosted: runs-on/cpu=8/ram=32/family=m6i+m5.*/spot=false/image=ubuntu24-full-x64/extras=s3-cache+tmpfs
     triggers:
       - PR Integration CCIP Tests
       - Nightly Integration CCIP Tests
@@ -43,29 +43,57 @@ runner-test-matrix:
     path: integration-tests/smoke/ccip/ccip_messaging_test.go
     test_env_type: in-memory
     runs_on: ubuntu-latest
-    runs_on_self_hosted: runs-on/cpu=8/ram=32/family=m6i/spot=false/image=ubuntu24-full-x64/extras=s3-cache+tmpfs
+    runs_on_self_hosted: runs-on/cpu=8/ram=32/family=m6i+m5.*/spot=false/image=ubuntu24-full-x64/extras=s3-cache+tmpfs
     triggers:
       - PR Integration CCIP Tests
       - Nightly Integration CCIP Tests
     test_cmd: cd smoke/ccip && go test -run "Test_CCIPMessaging_EVM2Solana" -timeout 18m -test.parallel=4 -count=1 -json
     test_go_project_path: integration-tests
 
+  - id: smoke/ccip/ccip_messaging_test.go:Test_CCIPMessaging_EVM2Solana_LOOPP
+    path: integration-tests/smoke/ccip/ccip_messaging_test.go
+    test_env_type: in-memory
+    runs_on: ubuntu-latest
+    runs_on_self_hosted: runs-on/cpu=8/ram=32/family=m6i+m5.*/spot=false/image=ubuntu24-full-x64/extras=s3-cache+tmpfs
+    triggers:
+      - PR Integration CCIP Tests
+      - Nightly Integration CCIP Tests
+    test_cmd: cd smoke/ccip && go test -run "Test_CCIPMessaging_EVM2Solana" -timeout 18m -test.parallel=4 -count=1 -json
+    test_go_project_path: integration-tests
+    install_plugins_public: true
+    test_env_vars:
+      CL_SOLANA_CMD: chainlink-solana
+
   - id: smoke/ccip/ccip_messaging_test.go:Test_CCIPMessaging_Solana2EVM
     path: integration-tests/smoke/ccip/ccip_messaging_test.go
     test_env_type: in-memory
     runs_on: ubuntu-latest
-    runs_on_self_hosted: runs-on/cpu=8/ram=32/family=m6i/spot=false/image=ubuntu24-full-x64/extras=s3-cache+tmpfs
+    runs_on_self_hosted: runs-on/cpu=8/ram=32/family=m6i+m5.*/spot=false/image=ubuntu24-full-x64/extras=s3-cache+tmpfs
     triggers:
       - PR Integration CCIP Tests
       - Nightly Integration CCIP Tests
     test_cmd: cd smoke/ccip && go test -run "Test_CCIPMessaging_Solana2EVM" -timeout 18m -test.parallel=4 -count=1 -json
     test_go_project_path: integration-tests
 
+  - id: smoke/ccip/ccip_messaging_test.go:Test_CCIPMessaging_Solana2EVM_LOOPP
+    path: integration-tests/smoke/ccip/ccip_messaging_test.go
+    test_env_type: in-memory
+    runs_on: ubuntu-latest
+    runs_on_self_hosted: runs-on/cpu=8/ram=32/family=m6i+m5.*/spot=false/image=ubuntu24-full-x64/extras=s3-cache+tmpfs
+    triggers:
+      - PR Integration CCIP Tests
+      - Nightly Integration CCIP Tests
+    test_cmd: cd smoke/ccip && go test -run "Test_CCIPMessaging_Solana2EVM" -timeout 18m -test.parallel=4 -count=1 -json
+    test_go_project_path: integration-tests
+    install_plugins_public: true
+    test_env_vars:
+      CL_SOLANA_CMD: chainlink-solana
+
   - id: smoke/ccip/ccip_messaging_test.go:Test_CCIPMessaging_MultiExecReports_EVM2Solana
     path: integration-tests/smoke/ccip/ccip_messaging_test.go
     test_env_type: in-memory
     runs_on: ubuntu-latest
-    runs_on_self_hosted: runs-on/cpu=8/ram=32/family=m6i/spot=false/image=ubuntu24-full-x64/extras=s3-cache+tmpfs
+    runs_on_self_hosted: runs-on/cpu=8/ram=32/family=m6i+m5.*/spot=false/image=ubuntu24-full-x64/extras=s3-cache+tmpfs
     triggers:
       - PR Integration CCIP Tests
       - Nightly Integration CCIP Tests
@@ -216,12 +244,26 @@ runner-test-matrix:
     path: integration-tests/smoke/ccip/ccip_token_transfer_test.go
     test_env_type: in-memory
     runs_on: ubuntu-latest
-    runs_on_self_hosted: runs-on/cpu=8/ram=32/family=m6i/spot=false/image=ubuntu24-full-x64/extras=s3-cache+tmpfs
+    runs_on_self_hosted: runs-on/cpu=8/ram=32/family=m6i+m5.*/spot=false/image=ubuntu24-full-x64/extras=s3-cache+tmpfs
     triggers:
       - PR Integration CCIP Tests
       - Nightly Integration CCIP Tests
     test_cmd: go test smoke/ccip/ccip_token_transfer_test.go -timeout 16m -test.parallel=2 -count=1 -json
     test_go_project_path: integration-tests
+
+  - id: smoke/ccip/ccip_token_transfer_test.go:*_LOOPP
+    path: integration-tests/smoke/ccip/ccip_token_transfer_test.go
+    test_env_type: in-memory
+    runs_on: ubuntu-latest
+    runs_on_self_hosted: runs-on/cpu=8/ram=32/family=m6i+m5.*/spot=false/image=ubuntu24-full-x64/extras=s3-cache+tmpfs
+    triggers:
+      - PR Integration CCIP Tests
+      - Nightly Integration CCIP Tests
+    test_cmd: go test smoke/ccip/ccip_token_transfer_test.go -timeout 16m -test.parallel=2 -count=1 -json
+    test_go_project_path: integration-tests
+    install_plugins_public: true
+    test_env_vars:
+      CL_SOLANA_CMD: chainlink-solana
 
   - id: smoke/ccip/ccip_cs_update_rmn_config_test.go:*
     path: integration-tests/smoke/ccip/ccip_cs_update_rmn_config_test.go
@@ -237,7 +279,7 @@ runner-test-matrix:
     path: integration-tests/smoke/ccip/ccip_cs_rmn_curse_uncurse_test.go
     test_env_type: in-memory
     runs_on: ubuntu-latest
-    runs_on_self_hosted: runs-on/cpu=8/ram=32/family=m6i/spot=false/image=ubuntu24-full-x64/extras=s3-cache+tmpfs
+    runs_on_self_hosted: runs-on/cpu=8/ram=32/family=m6i+m5.*/spot=false/image=ubuntu24-full-x64/extras=s3-cache+tmpfs
     triggers:
       - PR Integration CCIP Tests
       - Nightly Integration CCIP Tests
@@ -248,19 +290,19 @@ runner-test-matrix:
     path: integration-tests/smoke/ccip/ccip_cs_rmn_curse_uncurse_test.go
     test_env_type: in-memory
     runs_on: ubuntu-latest
-    runs_on_self_hosted: runs-on/cpu=8/ram=32/family=m6i/spot=false/image=ubuntu24-full-x64/extras=s3-cache+tmpfs
+    runs_on_self_hosted: runs-on/cpu=8/ram=32/family=m6i+m5.*/spot=false/image=ubuntu24-full-x64/extras=s3-cache+tmpfs
     triggers:
       - PR Integration CCIP Tests
       - Nightly Integration CCIP Tests
     test_cmd: go test smoke/ccip/ccip_cs_rmn_curse_uncurse_test.go -run "^TestRMNCurseUncurseAptos$" -timeout 20m -test.parallel=4 -count=1 -json
     test_go_project_path: integration-tests
-    aptos_cli_version: 7.2.0
+    aptos_cli_version: 7.10.0
 
   - id: smoke/ccip/ccip_cs_rmn_curse_uncurse_test.go:TestRMNCurseMCMS
     path: integration-tests/smoke/ccip/ccip_cs_rmn_curse_uncurse_test.go
     test_env_type: in-memory
     runs_on: ubuntu-latest
-    runs_on_self_hosted: runs-on/cpu=16/ram=64/family=m6i/spot=false/image=ubuntu24-full-x64/extras=s3-cache+tmpfs
+    runs_on_self_hosted: runs-on/cpu=16/ram=64/family=m6i+m5.*/spot=false/image=ubuntu24-full-x64/extras=s3-cache+tmpfs
     triggers:
       - PR Integration CCIP Tests
       - Nightly Integration CCIP Tests
@@ -271,7 +313,7 @@ runner-test-matrix:
     path: integration-tests/smoke/ccip/ccip_cs_rmn_curse_uncurse_test.go
     test_env_type: in-memory
     runs_on: ubuntu-latest
-    runs_on_self_hosted: runs-on/cpu=16/ram=64/family=m6i/spot=false/image=ubuntu24-full-x64/extras=s3-cache+tmpfs
+    runs_on_self_hosted: runs-on/cpu=16/ram=64/family=m6i+m5.*/spot=false/image=ubuntu24-full-x64/extras=s3-cache+tmpfs
     triggers:
       - PR Integration CCIP Tests
       - Nightly Integration CCIP Tests
@@ -302,7 +344,7 @@ runner-test-matrix:
     path: integration-tests/smoke/ccip/ccip_cs_rmn_curse_uncurse_test.go
     test_env_type: in-memory
     runs_on: ubuntu-latest
-    runs_on_self_hosted: runs-on/cpu=8/ram=32/family=m6i/spot=false/image=ubuntu24-full-x64/extras=s3-cache+tmpfs
+    runs_on_self_hosted: runs-on/cpu=8/ram=32/family=m6i+m5.*/spot=false/image=ubuntu24-full-x64/extras=s3-cache+tmpfs
     triggers:
       - PR Integration CCIP Tests
       - Nightly Integration CCIP Tests
@@ -313,7 +355,7 @@ runner-test-matrix:
     path: integration-tests/smoke/ccip/ccip_cs_rmn_curse_uncurse_test.go
     test_env_type: in-memory
     runs_on: ubuntu-latest
-    runs_on_self_hosted: runs-on/cpu=16/ram=64/family=m6i/spot=false/image=ubuntu24-full-x64/extras=s3-cache+tmpfs
+    runs_on_self_hosted: runs-on/cpu=16/ram=64/family=m6i+m5.*/spot=false/image=ubuntu24-full-x64/extras=s3-cache+tmpfs
     triggers:
       - PR Integration CCIP Tests
       - Nightly Integration CCIP Tests
@@ -324,7 +366,7 @@ runner-test-matrix:
     path: integration-tests/smoke/ccip/ccip_cs_rmn_curse_uncurse_test.go
     test_env_type: in-memory
     runs_on: ubuntu-latest
-    runs_on_self_hosted: runs-on/cpu=16/ram=64/family=m6i/spot=false/image=ubuntu24-full-x64/extras=s3-cache+tmpfs
+    runs_on_self_hosted: runs-on/cpu=16/ram=64/family=m6i+m5.*/spot=false/image=ubuntu24-full-x64/extras=s3-cache+tmpfs
     triggers:
       - PR Integration CCIP Tests
       - Nightly Integration CCIP Tests
@@ -335,7 +377,7 @@ runner-test-matrix:
     path: integration-tests/smoke/ccip/ccip_cs_rmn_curse_uncurse_test.go
     test_env_type: in-memory
     runs_on: ubuntu-latest
-    runs_on_self_hosted: runs-on/cpu=8/ram=32/family=m6i/spot=false/image=ubuntu24-full-x64/extras=s3-cache+tmpfs
+    runs_on_self_hosted: runs-on/cpu=8/ram=32/family=m6i+m5.*/spot=false/image=ubuntu24-full-x64/extras=s3-cache+tmpfs
     triggers:
       - PR Integration CCIP Tests
       - Nightly Integration CCIP Tests
@@ -396,7 +438,7 @@ runner-test-matrix:
     path: integration-tests/smoke/ccip/ccip_cs_rmn_curse_uncurse_test.go
     test_env_type: in-memory
     runs_on: ubuntu-latest
-    runs_on_self_hosted: runs-on/cpu=16/ram=64/family=m6i/spot=false/image=ubuntu24-full-x64/extras=s3-cache+tmpfs
+    runs_on_self_hosted: runs-on/cpu=16/ram=64/family=m6i+m5.*/spot=false/image=ubuntu24-full-x64/extras=s3-cache+tmpfs
     triggers:
       - PR Integration CCIP Tests
       - Nightly Integration CCIP Tests
@@ -417,7 +459,7 @@ runner-test-matrix:
     path: integration-tests/smoke/ccip/ccip_topologies_test.go
     test_env_type: in-memory
     runs_on: ubuntu-latest
-    runs_on_self_hosted: runs-on/cpu=8/ram=32/family=m6i/spot=false/image=ubuntu24-full-x64/extras=s3-cache+tmpfs
+    runs_on_self_hosted: runs-on/cpu=8/ram=32/family=m6i+m5.*/spot=false/image=ubuntu24-full-x64/extras=s3-cache+tmpfs
     triggers:
       - PR Integration CCIP Tests
       - Nightly Integration CCIP Tests
@@ -428,7 +470,7 @@ runner-test-matrix:
     path: integration-tests/smoke/ccip/ccip_topologies_test.go
     test_env_type: in-memory
     runs_on: ubuntu-latest
-    runs_on_self_hosted: runs-on/cpu=8/ram=32/family=m6i/spot=false/image=ubuntu24-full-x64/extras=s3-cache+tmpfs
+    runs_on_self_hosted: runs-on/cpu=8/ram=32/family=m6i+m5.*/spot=false/image=ubuntu24-full-x64/extras=s3-cache+tmpfs
     triggers:
       - PR Integration CCIP Tests
       - Nightly Integration CCIP Tests
@@ -439,71 +481,409 @@ runner-test-matrix:
   - id: smoke/ccip/ccip_aptos_messaging_test.go:Test_CCIP_Messaging_EVM2Aptos
     path: integration-tests/smoke/ccip/ccip_aptos_messaging_test.go
     test_env_type: in-memory
-    runs_on: ubuntu-latest
+    runs_on_self_hosted: runs-on/cpu=8/ram=32/family=m6i+m5.*/spot=false/image=ubuntu24-full-x64/extras=s3-cache+tmpfs
     triggers:
       - PR Integration CCIP Tests
       - Nightly Integration CCIP Tests
-    test_cmd: cd smoke/ccip && go test ccip_aptos_messaging_test.go -run "Test_CCIP_Messaging_EVM2Aptos" -timeout 20m -test.parallel=1 -count=1 -json
+    test_cmd: go test ./smoke/ccip -run "Test_CCIP_Messaging_EVM2Aptos" -timeout 20m -test.parallel=1 -count=1 -json
     test_go_project_path: integration-tests
-    aptos_cli_version: 7.2.0
+    aptos_cli_version: 7.10.0
     install_plugins_public: true
 
   - id: smoke/ccip/ccip_aptos_messaging_test.go:Test_CCIP_Messaging_Aptos2EVM
     path: integration-tests/smoke/ccip/ccip_aptos_messaging_test.go
     test_env_type: in-memory
-    runs_on: ubuntu-latest
+    runs_on_self_hosted: runs-on/cpu=8/ram=32/family=m6i+m5.*/spot=false/image=ubuntu24-full-x64/extras=s3-cache+tmpfs
     triggers:
       - PR Integration CCIP Tests
       - Nightly Integration CCIP Tests
-    test_cmd: cd smoke/ccip && go test ccip_aptos_messaging_test.go -run "Test_CCIP_Messaging_Aptos2EVM" -timeout 20m -test.parallel=1 -count=1 -json
+    test_cmd: go test ./smoke/ccip -run "Test_CCIP_Messaging_Aptos2EVM" -timeout 20m -test.parallel=1 -count=1 -json
     test_go_project_path: integration-tests
-    aptos_cli_version: 7.2.0
+    aptos_cli_version: 7.10.0
     install_plugins_public: true
 
   - id: smoke/ccip/ccip_aptos_token_transfer_test.go:Test_CCIP_TokenTransfer_Aptos2EVM
     path: integration-tests/smoke/ccip/ccip_aptos_token_transfer_test.go
     test_env_type: in-memory
-    runs_on: ubuntu-latest
+    runs_on_self_hosted: runs-on/cpu=8/ram=32/family=m6i+m5.*/spot=false/image=ubuntu24-full-x64/extras=s3-cache+tmpfs
     triggers:
       - PR Integration CCIP Tests
       - Nightly Integration CCIP Tests
-    test_cmd: cd smoke/ccip && go test ccip_aptos_token_transfer_test.go -run "Test_CCIP_TokenTransfer_Aptos2EVM" -timeout 20m -test.parallel=1 -count=1 -json
+    test_cmd: go test ./smoke/ccip -run "Test_CCIP_TokenTransfer_Aptos2EVM" -timeout 20m -test.parallel=1 -count=1 -json
     test_go_project_path: integration-tests
-    aptos_cli_version: 7.2.0
+    aptos_cli_version: 7.10.0
     install_plugins_public: true
 
   - id: smoke/ccip/ccip_aptos_token_transfer_test.go:Test_CCIP_TokenTransfer_EVM2Aptos
     path: integration-tests/smoke/ccip/ccip_aptos_token_transfer_test.go
     test_env_type: in-memory
-    runs_on: ubuntu-latest
+    runs_on_self_hosted: runs-on/cpu=8/ram=32/family=m6i+m5.*/spot=false/image=ubuntu24-full-x64/extras=s3-cache+tmpfs
     triggers:
       - PR Integration CCIP Tests
       - Nightly Integration CCIP Tests
-    test_cmd: cd smoke/ccip && go test ccip_aptos_token_transfer_test.go -run "Test_CCIP_TokenTransfer_EVM2Aptos" -timeout 20m -test.parallel=1 -count=1 -json
+    test_cmd: go test ./smoke/ccip -run "Test_CCIP_TokenTransfer_EVM2Aptos" -timeout 20m -test.parallel=1 -count=1 -json
     test_go_project_path: integration-tests
-    aptos_cli_version: 7.2.0
+    aptos_cli_version: 7.10.0
+    install_plugins_public: true
+
+  - id: smoke/ccip/ccip_aptos_token_transfer_test.go:Test_CCIP_TokenTransfer_BnM_Aptos2EVM
+    path: integration-tests/smoke/ccip/ccip_aptos_token_transfer_test.go
+    test_env_type: in-memory
+    runs_on_self_hosted: runs-on/cpu=8/ram=32/family=m6i+m5.*/spot=false/image=ubuntu24-full-x64/extras=s3-cache+tmpfs
+    triggers:
+      - PR Integration CCIP Tests
+      - Nightly Integration CCIP Tests
+    test_cmd: go test ./smoke/ccip -run "Test_CCIP_TokenTransfer_BnM_Aptos2EVM" -timeout 20m -test.parallel=1 -count=1 -json
+    test_go_project_path: integration-tests
+    aptos_cli_version: 7.10.0
+    install_plugins_public: true
+
+  - id: smoke/ccip/ccip_aptos_token_transfer_test.go:Test_CCIP_TokenTransfer_BnM_EVM2Aptos
+    path: integration-tests/smoke/ccip/ccip_aptos_token_transfer_test.go
+    test_env_type: in-memory
+    runs_on_self_hosted: runs-on/cpu=8/ram=32/family=m6i+m5.*/spot=false/image=ubuntu24-full-x64/extras=s3-cache+tmpfs
+    triggers:
+      - PR Integration CCIP Tests
+      - Nightly Integration CCIP Tests
+    test_cmd: go test ./smoke/ccip -run "Test_CCIP_TokenTransfer_BnM_EVM2Aptos" -timeout 20m -test.parallel=1 -count=1 -json
+    test_go_project_path: integration-tests
+    aptos_cli_version: 7.10.0
+    install_plugins_public: true
+
+  - id: smoke/ccip/ccip_aptos_token_transfer_test.go:Test_CCIP_TokenTransfer_LnR_Aptos2EVM
+    path: integration-tests/smoke/ccip/ccip_aptos_token_transfer_test.go
+    test_env_type: in-memory
+    runs_on_self_hosted: runs-on/cpu=8/ram=32/family=m6i+m5.*/spot=false/image=ubuntu24-full-x64/extras=s3-cache+tmpfs
+    triggers:
+      - PR Integration CCIP Tests
+      - Nightly Integration CCIP Tests
+    test_cmd: go test ./smoke/ccip -run "Test_CCIP_TokenTransfer_LnR_Aptos2EVM" -timeout 20m -test.parallel=1 -count=1 -json
+    test_go_project_path: integration-tests
+    aptos_cli_version: 7.10.0
+    install_plugins_public: true
+
+  - id: smoke/ccip/ccip_aptos_token_transfer_test.go:Test_CCIP_TokenTransfer_LnR_EVM2Aptos
+    path: integration-tests/smoke/ccip/ccip_aptos_token_transfer_test.go
+    test_env_type: in-memory
+    runs_on_self_hosted: runs-on/cpu=8/ram=32/family=m6i+m5.*/spot=false/image=ubuntu24-full-x64/extras=s3-cache+tmpfs
+    triggers:
+      - PR Integration CCIP Tests
+      - Nightly Integration CCIP Tests
+    test_cmd: go test ./smoke/ccip -run "Test_CCIP_TokenTransfer_LnR_EVM2Aptos" -timeout 20m -test.parallel=1 -count=1 -json
+    test_go_project_path: integration-tests
+    aptos_cli_version: 7.10.0
+    install_plugins_public: true
+
+  - id: smoke/ccip/ccip_aptos_token_transfer_test.go:Test_CCIP_TokenTransfer_LnR_without_TransferRef_EVM2Aptos
+    path: integration-tests/smoke/ccip/ccip_aptos_token_transfer_test.go
+    test_env_type: in-memory
+    runs_on_self_hosted: runs-on/cpu=8/ram=32/family=m6i+m5.*/spot=false/image=ubuntu24-full-x64/extras=s3-cache+tmpfs
+    triggers:
+      - PR Integration CCIP Tests
+      - Nightly Integration CCIP Tests
+    test_cmd: go test ./smoke/ccip -run "Test_CCIP_TokenTransfer_LnR_without_TransferRef_EVM2Aptos" -timeout 20m -test.parallel=1 -count=1 -json
+    test_go_project_path: integration-tests
+    aptos_cli_version: 7.10.0
+    install_plugins_public: true
+
+  - id: smoke/ccip/ccip_aptos_token_transfer_test.go:Test_CCIP_TokenTransfer_LnR_without_TransferRef_Aptos2EVM
+    path: integration-tests/smoke/ccip/ccip_aptos_token_transfer_test.go
+    test_env_type: in-memory
+    runs_on_self_hosted: runs-on/cpu=8/ram=32/family=m6i+m5.*/spot=false/image=ubuntu24-full-x64/extras=s3-cache+tmpfs
+    triggers:
+      - PR Integration CCIP Tests
+      - Nightly Integration CCIP Tests
+    test_cmd: go test ./smoke/ccip -run "Test_CCIP_TokenTransfer_LnR_without_TransferRef_Aptos2EVM" -timeout 20m -test.parallel=1 -count=1 -json
+    test_go_project_path: integration-tests
+    aptos_cli_version: 7.10.0
     install_plugins_public: true
 
   - id: smoke/ccip/ccip_aptos_msghasher_test.go:*
     path: integration-tests/smoke/ccip/ccip_aptos_msghasher_test.go
     test_env_type: in-memory
-    runs_on: ubuntu-latest
+    runs_on_self_hosted: runs-on/cpu=8/ram=32/family=m6i+m5.*/spot=false/image=ubuntu24-full-x64/extras=s3-cache+tmpfs
     triggers:
       - PR Integration CCIP Tests
       - Nightly Integration CCIP Tests
-    test_cmd: cd smoke/ccip && go test ccip_aptos_msghasher_test.go -run "Test_CCIP_AptosMessageHasher_OnChainVerification" -timeout 20m -test.parallel=1 -count=1 -json
+    test_cmd: go test ./smoke/ccip -run "Test_CCIP_AptosMessageHasher" -timeout 20m -test.parallel=1 -count=1 -json
     test_go_project_path: integration-tests
-    aptos_cli_version: 7.2.0
+    aptos_cli_version: 7.10.0
+    install_plugins_public: true
+
+  - id: smoke/ccip/ccip_aptos_regulated_token_transfer_test.go:Test_CCIP_RegulatedTokenTransfer_EVM2Aptos
+    path: integration-tests/smoke/ccip/ccip_aptos_regulated_token_transfer_test.go
+    test_env_type: in-memory
+    runs_on_self_hosted: runs-on/cpu=8/ram=32/family=m6i+m5.*/spot=false/image=ubuntu24-full-x64/extras=s3-cache+tmpfs
+    triggers:
+      - PR Integration CCIP Tests
+      - Nightly Integration CCIP Tests
+    test_cmd: go test ./smoke/ccip -run "Test_CCIP_RegulatedTokenTransfer_EVM2Aptos" -timeout 20m -test.parallel=1 -count=1 -json
+    test_go_project_path: integration-tests
+    aptos_cli_version: 7.10.0
+    install_plugins_public: true
+
+  - id: smoke/ccip/ccip_aptos_regulated_token_transfer_test.go:Test_CCIP_RegulatedTokenTransfer_Aptos2EVM
+    path: integration-tests/smoke/ccip/ccip_aptos_regulated_token_transfer_test.go
+    test_env_type: in-memory
+    runs_on_self_hosted: runs-on/cpu=8/ram=32/family=m6i+m5.*/spot=false/image=ubuntu24-full-x64/extras=s3-cache+tmpfs
+    triggers:
+      - PR Integration CCIP Tests
+      - Nightly Integration CCIP Tests
+    test_cmd: go test ./smoke/ccip -run "Test_CCIP_RegulatedTokenTransfer_Aptos2EVM" -timeout 20m -test.parallel=1 -count=1 -json
+    test_go_project_path: integration-tests
+    aptos_cli_version: 7.10.0
+    install_plugins_public: true
+
+  - id: smoke/ccip/ccip_aptos_token_transfer_test.go:Test_CCIP_TokenTransfer_BnM_Aptos2EVM
+    path: integration-tests/smoke/ccip/ccip_aptos_token_transfer_test.go
+    test_env_type: in-memory
+    runs_on_self_hosted: runs-on/cpu=8/ram=32/family=m6i+m5.*/spot=false/image=ubuntu24-full-x64/extras=s3-cache+tmpfs
+    triggers:
+      - PR Integration CCIP Tests
+      - Nightly Integration CCIP Tests
+    test_cmd: go test ./smoke/ccip -run "Test_CCIP_TokenTransfer_BnM_Aptos2EVM" -timeout 20m -test.parallel=1 -count=1 -json
+    test_go_project_path: integration-tests
+    aptos_cli_version: 7.10.0
+    install_plugins_public: true
+
+  - id: smoke/ccip/ccip_aptos_token_transfer_test.go:Test_CCIP_TokenTransfer_BnM_EVM2Aptos
+    path: integration-tests/smoke/ccip/ccip_aptos_token_transfer_test.go
+    test_env_type: in-memory
+    runs_on_self_hosted: runs-on/cpu=8/ram=32/family=m6i+m5.*/spot=false/image=ubuntu24-full-x64/extras=s3-cache+tmpfs
+    triggers:
+      - PR Integration CCIP Tests
+      - Nightly Integration CCIP Tests
+    test_cmd: go test ./smoke/ccip -run "Test_CCIP_TokenTransfer_BnM_EVM2Aptos" -timeout 20m -test.parallel=1 -count=1 -json
+    test_go_project_path: integration-tests
+    aptos_cli_version: 7.10.0
+    install_plugins_public: true
+
+  - id: smoke/ccip/ccip_aptos_token_transfer_test.go:Test_CCIP_TokenTransfer_LnR_Aptos2EVM
+    path: integration-tests/smoke/ccip/ccip_aptos_token_transfer_test.go
+    test_env_type: in-memory
+    runs_on_self_hosted: runs-on/cpu=8/ram=32/family=m6i+m5.*/spot=false/image=ubuntu24-full-x64/extras=s3-cache+tmpfs
+    triggers:
+      - PR Integration CCIP Tests
+      - Nightly Integration CCIP Tests
+    test_cmd: go test ./smoke/ccip -run "Test_CCIP_TokenTransfer_LnR_Aptos2EVM" -timeout 20m -test.parallel=1 -count=1 -json
+    test_go_project_path: integration-tests
+    aptos_cli_version: 7.10.0
+    install_plugins_public: true
+
+  - id: smoke/ccip/ccip_aptos_token_transfer_test.go:Test_CCIP_TokenTransfer_LnR_EVM2Aptos
+    path: integration-tests/smoke/ccip/ccip_aptos_token_transfer_test.go
+    test_env_type: in-memory
+    runs_on_self_hosted: runs-on/cpu=8/ram=32/family=m6i+m5.*/spot=false/image=ubuntu24-full-x64/extras=s3-cache+tmpfs
+    triggers:
+      - PR Integration CCIP Tests
+      - Nightly Integration CCIP Tests
+    test_cmd: go test ./smoke/ccip -run "Test_CCIP_TokenTransfer_LnR_EVM2Aptos" -timeout 20m -test.parallel=1 -count=1 -json
+    test_go_project_path: integration-tests
+    aptos_cli_version: 7.10.0
+    install_plugins_public: true
+
+  - id: smoke/ccip/ccip_aptos_token_transfer_test.go:Test_CCIP_TokenTransfer_LnR_without_TransferRef_EVM2Aptos
+    path: integration-tests/smoke/ccip/ccip_aptos_token_transfer_test.go
+    test_env_type: in-memory
+    runs_on_self_hosted: runs-on/cpu=8/ram=32/family=m6i+m5.*/spot=false/image=ubuntu24-full-x64/extras=s3-cache+tmpfs
+    triggers:
+      - PR Integration CCIP Tests
+      - Nightly Integration CCIP Tests
+    test_cmd: go test ./smoke/ccip -run "Test_CCIP_TokenTransfer_LnR_without_TransferRef_EVM2Aptos" -timeout 20m -test.parallel=1 -count=1 -json
+    test_go_project_path: integration-tests
+    aptos_cli_version: 7.10.0
+    install_plugins_public: true
+
+  - id: smoke/ccip/ccip_aptos_token_transfer_test.go:Test_CCIP_TokenTransfer_LnR_without_TransferRef_Aptos2EVM
+    path: integration-tests/smoke/ccip/ccip_aptos_token_transfer_test.go
+    test_env_type: in-memory
+    runs_on_self_hosted: runs-on/cpu=8/ram=32/family=m6i+m5.*/spot=false/image=ubuntu24-full-x64/extras=s3-cache+tmpfs
+    triggers:
+      - PR Integration CCIP Tests
+      - Nightly Integration CCIP Tests
+    test_cmd: go test ./smoke/ccip -run "Test_CCIP_TokenTransfer_LnR_without_TransferRef_Aptos2EVM" -timeout 20m -test.parallel=1 -count=1 -json
+    test_go_project_path: integration-tests
+    aptos_cli_version: 7.10.0
     install_plugins_public: true
 
   # TON tests
-  - id: smoke/ccip/ccip_ton_messaging_test.go:*
+  - id: smoke/ccip/ccip_ton_messaging_test.go:Test_CCIPMessaging_TON2EVM
     path: integration-tests/smoke/ccip/ccip_ton_messaging_test.go
     test_env_type: in-memory
-    runs_on: ubuntu-latest
+    runs_on_self_hosted: runs-on/cpu=8/ram=32/family=m6i+m5.*/spot=false/image=ubuntu24-full-x64/extras=s3-cache+tmpfs
     triggers:
       - PR Integration CCIP Tests
       - Nightly Integration CCIP Tests
-    test_cmd: cd smoke/ccip && go test ccip_ton_messaging_test.go -timeout 20m -test.parallel=1 -count=1 -json
+    test_cmd: go test ./smoke/ccip -run "Test_CCIPMessaging_TON2EVM" -timeout 20m -test.parallel=1 -count=1 -json
     test_go_project_path: integration-tests
+    install_plugins_public: true
+
+  - id: smoke/ccip/ccip_ton_messaging_test.go:Test_CCIPMessaging_EVM2TON
+    path: integration-tests/smoke/ccip/ccip_ton_messaging_test.go
+    test_env_type: in-memory
+    runs_on_self_hosted: runs-on/cpu=8/ram=32/family=m6i+m5.*/spot=false/image=ubuntu24-full-x64/extras=s3-cache+tmpfs
+    triggers:
+      - PR Integration CCIP Tests
+      - Nightly Integration CCIP Tests
+    test_cmd: go test ./smoke/ccip -run "Test_CCIPMessaging_EVM2TON" -timeout 20m -test.parallel=1 -count=1 -json
+    test_go_project_path: integration-tests
+    install_plugins_public: true
+
+  # Sui tests
+  - id: smoke/ccip/ccip_sui_messaging_test.go:Test_CCIP_Messaging_Sui2EVM
+    path: integration-tests/smoke/ccip/ccip_sui_messaging_test.go
+    test_env_type: in-memory
+    runs_on_self_hosted: runs-on/cpu=8/ram=32/family=m6i+m5.*/spot=false/image=ubuntu24-full-x64/extras=s3-cache+tmpfs
+    triggers:
+      - PR Integration CCIP Tests
+      - Nightly Integration CCIP Tests
+    test_cmd: go test ./smoke/ccip -run "Test_CCIP_Messaging_Sui2EVM" -timeout 10m -test.parallel=1 -count=1 -json
+    test_go_project_path: integration-tests
+    sui_cli_version: mainnet-1.57.2
+    install_plugins_public: true
+
+  - id: smoke/ccip/ccip_sui_messaging_test.go:Test_CCIP_Messaging_EVM2Sui
+    path: integration-tests/smoke/ccip/ccip_sui_messaging_test.go
+    test_env_type: in-memory
+    runs_on_self_hosted: runs-on/cpu=8/ram=32/family=m6i+m5.*/spot=false/image=ubuntu24-full-x64/extras=s3-cache+tmpfs
+    triggers:
+      - PR Integration CCIP Tests
+      - Nightly Integration CCIP Tests
+    test_cmd: go test ./smoke/ccip -run "Test_CCIP_Messaging_EVM2Sui" -timeout 10m -test.parallel=1 -count=1 -json
+    test_go_project_path: integration-tests
+    sui_cli_version: mainnet-1.57.2
+    install_plugins_public: true
+
+  - id: smoke/ccip/ccip_sui_messaging_test.go:Test_CCIP_EVM2Sui_ZeroReceiver
+    path: integration-tests/smoke/ccip/ccip_sui_messaging_test.go
+    test_env_type: in-memory
+    runs_on_self_hosted: runs-on/cpu=8/ram=32/family=m6i+m5.*/spot=false/image=ubuntu24-full-x64/extras=s3-cache+tmpfs
+    triggers:
+      - PR Integration CCIP Tests
+      - Nightly Integration CCIP Tests
+    test_cmd: go test ./smoke/ccip -run "Test_CCIP_EVM2Sui_ZeroReceiver" -timeout 10m -test.parallel=1 -count=1 -json
+    test_go_project_path: integration-tests
+    sui_cli_version: mainnet-1.57.2
+    install_plugins_public: true
+
+  - id: smoke/ccip/ccip_sui_token_transfer_test.go:Test_CCIPTokenTransfer_Sui2EVM_BurnMintTokenPool
+    path: integration-tests/smoke/ccip/ccip_sui_token_transfer_test.go
+    test_env_type: in-memory
+    runs_on_self_hosted: runs-on/cpu=8/ram=32/family=m6i+m5.*/spot=false/image=ubuntu24-full-x64/extras=s3-cache+tmpfs
+    triggers:
+      - PR Integration CCIP Tests
+      - Nightly Integration CCIP Tests
+    test_cmd: go test ./smoke/ccip -run "Test_CCIPTokenTransfer_Sui2EVM_BurnMintTokenPool" -timeout 10m -test.parallel=1 -count=1 -json
+    test_go_project_path: integration-tests
+    sui_cli_version: mainnet-1.57.2
+    install_plugins_public: true
+
+  - id: smoke/ccip/ccip_sui_token_transfer_test.go:Test_CCIPTokenTransfer_Sui2EVM_ManagedTokenPool
+    path: integration-tests/smoke/ccip/ccip_sui_token_transfer_test.go
+    test_env_type: in-memory
+    runs_on_self_hosted: runs-on/cpu=8/ram=32/family=m6i+m5.*/spot=false/image=ubuntu24-full-x64/extras=s3-cache+tmpfs
+    triggers:
+      - PR Integration CCIP Tests
+      - Nightly Integration CCIP Tests
+    test_cmd: go test ./smoke/ccip -run "Test_CCIPTokenTransfer_Sui2EVM_ManagedTokenPool" -timeout 10m -test.parallel=1 -count=1 -json
+    test_go_project_path: integration-tests
+    sui_cli_version: mainnet-1.60.1
+    install_plugins_public: true
+
+  - id: smoke/ccip/ccip_sui_upgrade_test.go:Test_CCIP_Upgrade_Sui2EVM
+    path: integration-tests/smoke/ccip/ccip_sui_upgrade_test.go
+    test_env_type: in-memory
+    runs_on_self_hosted: runs-on/cpu=8/ram=32/family=m6i+m5.*/spot=false/image=ubuntu24-full-x64/extras=s3-cache+tmpfs
+    triggers:
+      - PR Integration CCIP Tests
+      - Nightly Integration CCIP Tests
+    test_cmd: go test ./smoke/ccip -run "Test_CCIP_Upgrade_Sui2EVM" -timeout 15m -test.parallel=1 -count=1 -json
+    test_go_project_path: integration-tests
+    sui_cli_version: mainnet-1.57.2
+    install_plugins_public: true
+
+  - id: smoke/ccip/ccip_sui_upgrade_test.go:Test_CCIP_Upgrade_EVM2Sui
+    path: integration-tests/smoke/ccip/ccip_sui_upgrade_test.go
+    test_env_type: in-memory
+    runs_on_self_hosted: runs-on/cpu=8/ram=32/family=m6i+m5.*/spot=false/image=ubuntu24-full-x64/extras=s3-cache+tmpfs
+    triggers:
+      - PR Integration CCIP Tests
+      - Nightly Integration CCIP Tests
+    test_cmd: go test ./smoke/ccip -run "Test_CCIP_Upgrade_EVM2Sui" -timeout 15m -test.parallel=1 -count=1 -json
+    test_go_project_path: integration-tests
+    sui_cli_version: mainnet-1.57.2
+    install_plugins_public: true
+ 
+  - id: smoke/ccip/ccip_sui_upgrade_test.go:Test_CCIP_Upgrade_CommonPkg_EVM2Sui
+    path: integration-tests/smoke/ccip/ccip_sui_upgrade_test.go
+    test_env_type: in-memory
+    runs_on_self_hosted: runs-on/cpu=8/ram=32/family=m6i+m5.*/spot=false/image=ubuntu24-full-x64/extras=s3-cache+tmpfs
+    triggers:
+      - PR Integration CCIP Tests
+      - Nightly Integration CCIP Tests
+    test_cmd: go test ./smoke/ccip -run "Test_CCIP_Upgrade_CommonPkg_EVM2Sui" -timeout 15m -test.parallel=1 -count=1 -json
+    test_go_project_path: integration-tests
+    sui_cli_version: mainnet-1.57.2
+    install_plugins_public: true
+
+  - id: smoke/ccip/ccip_sui_upgrade_test.go:Test_CCIP_Upgrade_NoBlock_EVM2Sui
+    path: integration-tests/smoke/ccip/ccip_sui_upgrade_test.go
+    test_env_type: in-memory
+    runs_on_self_hosted: runs-on/cpu=8/ram=32/family=m6i+m5.*/spot=false/image=ubuntu24-full-x64/extras=s3-cache+tmpfs
+    triggers:
+      - PR Integration CCIP Tests
+      - Nightly Integration CCIP Tests
+    test_cmd: go test ./smoke/ccip -run "Test_CCIP_Upgrade_NoBlock_EVM2Sui" -timeout 15m -test.parallel=1 -count=1 -json
+    test_go_project_path: integration-tests
+    sui_cli_version: mainnet-1.57.2
+    install_plugins_public: true
+
+  # - id: smoke/ccip/ccip_sui_token_transfer_test.go:Test_CCIPPureTokenTransfer_EVM2SUI_BurnMintTokenPool
+  #   path: integration-tests/smoke/ccip/ccip_sui_token_transfer_test.go
+  #   test_env_type: in-memory
+  #  runs_on_self_hosted: runs-on/cpu=8/ram=32/family=m6i+m5.*/spot=false/image=ubuntu24-full-x64/extras=s3-cache+tmpfs
+  #   triggers:
+  #     - PR Integration CCIP Tests
+  #     - Nightly Integration CCIP Tests
+  #   test_cmd: go test ./smoke/ccip -run "Test_CCIPPureTokenTransfer_EVM2SUI_BurnMintTokenPool" -timeout 15m -test.parallel=1 -count=1 -json
+  #   test_go_project_path: integration-tests
+  #   sui_cli_version: mainnet-1.57.2
+  #   install_plugins_public: true
+
+  # - id: smoke/ccip/ccip_sui_token_transfer_test.go:Test_CCIPProgrammableTokenTransfer_EVM2SUI_BurnMintTokenPool
+  #   path: integration-tests/smoke/ccip/ccip_sui_token_transfer_test.go
+  #   test_env_type: in-memory
+  #   runs_on_self_hosted: runs-on/cpu=8/ram=32/family=m6i+m5.*/spot=false/image=ubuntu24-full-x64/extras=s3-cache+tmpfs
+  #   triggers:
+  #     - PR Integration CCIP Tests
+  #     - Nightly Integration CCIP Tests
+  #   test_cmd: go test ./smoke/ccip -run "Test_CCIPProgrammableTokenTransfer_EVM2SUI_BurnMintTokenPool" -timeout 15m -test.parallel=1 -count=1 -json
+  #   test_go_project_path: integration-tests
+  #   sui_cli_version: mainnet-1.57.2
+  #   install_plugins_public: true
+
+  # - id: smoke/ccip/ccip_sui_token_transfer_test.go:Test_CCIPZeroGasLimitTokenTransfer_EVM2SUI_BurnMintTokenPool
+  #   path: integration-tests/smoke/ccip/ccip_sui_token_transfer_test.go
+  #   test_env_type: in-memory
+  #  runs_on_self_hosted: runs-on/cpu=8/ram=32/family=m6i+m5.*/spot=false/image=ubuntu24-full-x64/extras=s3-cache+tmpfs
+  #   triggers:
+  #     - PR Integration CCIP Tests
+  #     - Nightly Integration CCIP Tests
+  #   test_cmd: go test ./smoke/ccip -run "Test_CCIPZeroGasLimitTokenTransfer_EVM2SUI_BurnMintTokenPool" -timeout 15m -test.parallel=1 -count=1 -json
+  #   test_go_project_path: integration-tests
+  #   sui_cli_version: mainnet-1.57.2
+  #   install_plugins_public: true
+
+  # - id: smoke/ccip/ccip_sui_token_transfer_test.go:Test_CCIPTokenTransfer_EVM2SUI_BurnMintTokenPool
+  #   path: integration-tests/smoke/ccip/ccip_sui_token_transfer_test.go
+  #   test_env_type: in-memory
+  #  runs_on_self_hosted: runs-on/cpu=8/ram=32/family=m6i+m5.*/spot=false/image=ubuntu24-full-x64/extras=s3-cache+tmpfs
+  #   triggers:
+  #     - PR Integration CCIP Tests
+  #     - Nightly Integration CCIP Tests
+  #   test_cmd: go test ./smoke/ccip -run "Test_CCIPTokenTransfer_EVM2SUI_BurnMintTokenPool" -timeout 15m -test.parallel=1 -count=1 -json
+  #   test_go_project_path: integration-tests
+  #   sui_cli_version: mainnet-1.57.2
+  #   install_plugins_public: true
+
   # END: CCIP tests

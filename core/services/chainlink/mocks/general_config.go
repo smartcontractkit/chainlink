@@ -833,20 +833,67 @@ func (_c *GeneralConfig_FluxMonitor_Call) RunAndReturn(run func() config.FluxMon
 	return _c
 }
 
+// ImportedDKGRecipientKey provides a mock function with no fields
+func (_m *GeneralConfig) ImportedDKGRecipientKey() config.ImportableKey {
+	ret := _m.Called()
+
+	if len(ret) == 0 {
+		panic("no return value specified for ImportedDKGRecipientKey")
+	}
+
+	var r0 config.ImportableKey
+	if rf, ok := ret.Get(0).(func() config.ImportableKey); ok {
+		r0 = rf()
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(config.ImportableKey)
+		}
+	}
+
+	return r0
+}
+
+// GeneralConfig_ImportedDKGRecipientKey_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'ImportedDKGRecipientKey'
+type GeneralConfig_ImportedDKGRecipientKey_Call struct {
+	*mock.Call
+}
+
+// ImportedDKGRecipientKey is a helper method to define mock.On call
+func (_e *GeneralConfig_Expecter) ImportedDKGRecipientKey() *GeneralConfig_ImportedDKGRecipientKey_Call {
+	return &GeneralConfig_ImportedDKGRecipientKey_Call{Call: _e.mock.On("ImportedDKGRecipientKey")}
+}
+
+func (_c *GeneralConfig_ImportedDKGRecipientKey_Call) Run(run func()) *GeneralConfig_ImportedDKGRecipientKey_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run()
+	})
+	return _c
+}
+
+func (_c *GeneralConfig_ImportedDKGRecipientKey_Call) Return(_a0 config.ImportableKey) *GeneralConfig_ImportedDKGRecipientKey_Call {
+	_c.Call.Return(_a0)
+	return _c
+}
+
+func (_c *GeneralConfig_ImportedDKGRecipientKey_Call) RunAndReturn(run func() config.ImportableKey) *GeneralConfig_ImportedDKGRecipientKey_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // ImportedEthKeys provides a mock function with no fields
-func (_m *GeneralConfig) ImportedEthKeys() config.ImportableEthKeyLister {
+func (_m *GeneralConfig) ImportedEthKeys() config.ImportableChainKeyLister {
 	ret := _m.Called()
 
 	if len(ret) == 0 {
 		panic("no return value specified for ImportedEthKeys")
 	}
 
-	var r0 config.ImportableEthKeyLister
-	if rf, ok := ret.Get(0).(func() config.ImportableEthKeyLister); ok {
+	var r0 config.ImportableChainKeyLister
+	if rf, ok := ret.Get(0).(func() config.ImportableChainKeyLister); ok {
 		r0 = rf()
 	} else {
 		if ret.Get(0) != nil {
-			r0 = ret.Get(0).(config.ImportableEthKeyLister)
+			r0 = ret.Get(0).(config.ImportableChainKeyLister)
 		}
 	}
 
@@ -870,12 +917,12 @@ func (_c *GeneralConfig_ImportedEthKeys_Call) Run(run func()) *GeneralConfig_Imp
 	return _c
 }
 
-func (_c *GeneralConfig_ImportedEthKeys_Call) Return(_a0 config.ImportableEthKeyLister) *GeneralConfig_ImportedEthKeys_Call {
+func (_c *GeneralConfig_ImportedEthKeys_Call) Return(_a0 config.ImportableChainKeyLister) *GeneralConfig_ImportedEthKeys_Call {
 	_c.Call.Return(_a0)
 	return _c
 }
 
-func (_c *GeneralConfig_ImportedEthKeys_Call) RunAndReturn(run func() config.ImportableEthKeyLister) *GeneralConfig_ImportedEthKeys_Call {
+func (_c *GeneralConfig_ImportedEthKeys_Call) RunAndReturn(run func() config.ImportableChainKeyLister) *GeneralConfig_ImportedEthKeys_Call {
 	_c.Call.Return(run)
 	return _c
 }
@@ -923,6 +970,53 @@ func (_c *GeneralConfig_ImportedP2PKey_Call) Return(_a0 config.ImportableKey) *G
 }
 
 func (_c *GeneralConfig_ImportedP2PKey_Call) RunAndReturn(run func() config.ImportableKey) *GeneralConfig_ImportedP2PKey_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
+// ImportedSolKeys provides a mock function with no fields
+func (_m *GeneralConfig) ImportedSolKeys() config.ImportableChainKeyLister {
+	ret := _m.Called()
+
+	if len(ret) == 0 {
+		panic("no return value specified for ImportedSolKeys")
+	}
+
+	var r0 config.ImportableChainKeyLister
+	if rf, ok := ret.Get(0).(func() config.ImportableChainKeyLister); ok {
+		r0 = rf()
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(config.ImportableChainKeyLister)
+		}
+	}
+
+	return r0
+}
+
+// GeneralConfig_ImportedSolKeys_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'ImportedSolKeys'
+type GeneralConfig_ImportedSolKeys_Call struct {
+	*mock.Call
+}
+
+// ImportedSolKeys is a helper method to define mock.On call
+func (_e *GeneralConfig_Expecter) ImportedSolKeys() *GeneralConfig_ImportedSolKeys_Call {
+	return &GeneralConfig_ImportedSolKeys_Call{Call: _e.mock.On("ImportedSolKeys")}
+}
+
+func (_c *GeneralConfig_ImportedSolKeys_Call) Run(run func()) *GeneralConfig_ImportedSolKeys_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run()
+	})
+	return _c
+}
+
+func (_c *GeneralConfig_ImportedSolKeys_Call) Return(_a0 config.ImportableChainKeyLister) *GeneralConfig_ImportedSolKeys_Call {
+	_c.Call.Return(_a0)
+	return _c
+}
+
+func (_c *GeneralConfig_ImportedSolKeys_Call) RunAndReturn(run func() config.ImportableChainKeyLister) *GeneralConfig_ImportedSolKeys_Call {
 	_c.Call.Return(run)
 	return _c
 }
@@ -2045,6 +2139,98 @@ func (_c *GeneralConfig_StarknetConfigs_Call) Return(_a0 chainlink.RawConfigs) *
 }
 
 func (_c *GeneralConfig_StarknetConfigs_Call) RunAndReturn(run func() chainlink.RawConfigs) *GeneralConfig_StarknetConfigs_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
+// SuiConfigs provides a mock function with no fields
+func (_m *GeneralConfig) SuiConfigs() chainlink.RawConfigs {
+	ret := _m.Called()
+
+	if len(ret) == 0 {
+		panic("no return value specified for SuiConfigs")
+	}
+
+	var r0 chainlink.RawConfigs
+	if rf, ok := ret.Get(0).(func() chainlink.RawConfigs); ok {
+		r0 = rf()
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(chainlink.RawConfigs)
+		}
+	}
+
+	return r0
+}
+
+// GeneralConfig_SuiConfigs_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'SuiConfigs'
+type GeneralConfig_SuiConfigs_Call struct {
+	*mock.Call
+}
+
+// SuiConfigs is a helper method to define mock.On call
+func (_e *GeneralConfig_Expecter) SuiConfigs() *GeneralConfig_SuiConfigs_Call {
+	return &GeneralConfig_SuiConfigs_Call{Call: _e.mock.On("SuiConfigs")}
+}
+
+func (_c *GeneralConfig_SuiConfigs_Call) Run(run func()) *GeneralConfig_SuiConfigs_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run()
+	})
+	return _c
+}
+
+func (_c *GeneralConfig_SuiConfigs_Call) Return(_a0 chainlink.RawConfigs) *GeneralConfig_SuiConfigs_Call {
+	_c.Call.Return(_a0)
+	return _c
+}
+
+func (_c *GeneralConfig_SuiConfigs_Call) RunAndReturn(run func() chainlink.RawConfigs) *GeneralConfig_SuiConfigs_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
+// SuiEnabled provides a mock function with no fields
+func (_m *GeneralConfig) SuiEnabled() bool {
+	ret := _m.Called()
+
+	if len(ret) == 0 {
+		panic("no return value specified for SuiEnabled")
+	}
+
+	var r0 bool
+	if rf, ok := ret.Get(0).(func() bool); ok {
+		r0 = rf()
+	} else {
+		r0 = ret.Get(0).(bool)
+	}
+
+	return r0
+}
+
+// GeneralConfig_SuiEnabled_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'SuiEnabled'
+type GeneralConfig_SuiEnabled_Call struct {
+	*mock.Call
+}
+
+// SuiEnabled is a helper method to define mock.On call
+func (_e *GeneralConfig_Expecter) SuiEnabled() *GeneralConfig_SuiEnabled_Call {
+	return &GeneralConfig_SuiEnabled_Call{Call: _e.mock.On("SuiEnabled")}
+}
+
+func (_c *GeneralConfig_SuiEnabled_Call) Run(run func()) *GeneralConfig_SuiEnabled_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run()
+	})
+	return _c
+}
+
+func (_c *GeneralConfig_SuiEnabled_Call) Return(_a0 bool) *GeneralConfig_SuiEnabled_Call {
+	_c.Call.Return(_a0)
+	return _c
+}
+
+func (_c *GeneralConfig_SuiEnabled_Call) RunAndReturn(run func() bool) *GeneralConfig_SuiEnabled_Call {
 	_c.Call.Return(run)
 	return _c
 }

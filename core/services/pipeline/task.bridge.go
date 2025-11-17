@@ -3,19 +3,19 @@ package pipeline
 import (
 	"context"
 	"database/sql"
-	"encoding/json"
 	stderrors "errors"
+	"maps"
 	"net/http"
 	"net/url"
 	"path"
 	"time"
 
+	"github.com/goccy/go-json"
 	"github.com/pkg/errors"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
-
 	"github.com/smartcontractkit/chainlink/v2/core/bridges"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline/eautils"
 )
@@ -134,7 +134,7 @@ func (t *BridgeTask) Run(ctx context.Context, lggr logger.Logger, vars Vars, inp
 
 	meta, _ := vars.Get("jobRun.meta")
 	switch v := meta.(type) {
-	case map[string]interface{}:
+	case map[string]any:
 		metaMap = MapParam(v)
 	case nil:
 	default:
@@ -315,9 +315,7 @@ func (t *BridgeTask) getBridgeURLFromName(ctx context.Context, name StringParam)
 
 func withRunInfo(request MapParam, meta MapParam) MapParam {
 	output := make(MapParam)
-	for k, v := range request {
-		output[k] = v
-	}
+	maps.Copy(output, request)
 	if meta != nil {
 		output["meta"] = meta
 	}

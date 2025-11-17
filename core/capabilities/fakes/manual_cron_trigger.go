@@ -14,6 +14,8 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/core"
+
+	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/events"
 )
 
 var _ services.Service = (*ManualCronTriggerService)(nil)
@@ -39,6 +41,7 @@ type ManualCronTriggerService struct {
 	lggr             logger.Logger
 	callbackCh       map[string]chan capabilities.TriggerAndId[*crontypedapi.Payload]
 	legacyCallbackCh chan capabilities.TriggerAndId[*crontypedapi.LegacyPayload] //nolint:staticcheck // LegacyPayload intentionally used for backward compatibility
+	workflowIDs      map[string]string                                           // triggerID -> workflowID mapping
 }
 
 func NewManualCronTriggerService(parentLggr logger.Logger) *ManualCronTriggerService {
@@ -50,24 +53,18 @@ func NewManualCronTriggerService(parentLggr logger.Logger) *ManualCronTriggerSer
 		lggr:             lggr,
 		callbackCh:       make(map[string]chan capabilities.TriggerAndId[*crontypedapi.Payload]),
 		legacyCallbackCh: make(chan capabilities.TriggerAndId[*crontypedapi.LegacyPayload]), //nolint:staticcheck // LegacyPayload intentionally used for backward compatibility
+		workflowIDs:      make(map[string]string),
 	}
 }
 
-func (f *ManualCronTriggerService) Initialise(ctx context.Context, config string, _ core.TelemetryService,
-	_ core.KeyValueStore,
-	_ core.ErrorLog,
-	_ core.PipelineRunnerService,
-	_ core.RelayerSet,
-	_ core.OracleFactory,
-	_ core.GatewayConnector,
-	_ core.Keystore) error {
+func (f *ManualCronTriggerService) Initialise(ctx context.Context, dependencies core.StandardCapabilitiesDependencies) error {
 	f.lggr.Debugf("Initialising %s", ServiceName)
 
 	var cronConfig ManualCronConfig
-	if len(config) > 0 {
-		err := json.Unmarshal([]byte(config), &cronConfig)
+	if len(dependencies.Config) > 0 {
+		err := json.Unmarshal([]byte(dependencies.Config), &cronConfig)
 		if err != nil {
-			return fmt.Errorf("failed to unmarshal config: %s %w", config, err)
+			return fmt.Errorf("failed to unmarshal config: %s %w", dependencies.Config, err)
 		}
 	}
 
@@ -87,6 +84,7 @@ func (f *ManualCronTriggerService) Initialise(ctx context.Context, config string
 
 func (f *ManualCronTriggerService) RegisterTrigger(ctx context.Context, triggerID string, metadata capabilities.RequestMetadata, input *crontypedapi.Config) (<-chan capabilities.TriggerAndId[*crontypedapi.Payload], error) {
 	f.callbackCh[triggerID] = make(chan capabilities.TriggerAndId[*crontypedapi.Payload])
+	f.workflowIDs[triggerID] = metadata.WorkflowID
 	return f.callbackCh[triggerID], nil
 }
 
@@ -105,9 +103,29 @@ func (f *ManualCronTriggerService) UnregisterLegacyTrigger(ctx context.Context, 
 func (f *ManualCronTriggerService) ManualTrigger(ctx context.Context, triggerID string, scheduledExecutionTime time.Time) error {
 	f.lggr.Debugf("ManualTrigger: %s", scheduledExecutionTime.Format(time.RFC3339Nano))
 
+	triggerEvent := f.createManualTriggerEvent(scheduledExecutionTime)
+
+	// Get the workflowID for this trigger
+	workflowID, exists := f.workflowIDs[triggerID]
+	if !exists {
+		f.lggr.Errorw("workflowID not found for triggerID", "triggerID", triggerID)
+		workflowID = "unknownWorkflow"
+	}
+
+	// Emit trigger execution started event with real workflowExecutionID
+	workflowExecutionID, err := events.GenerateExecutionID(workflowID, triggerEvent.Id)
+	if err != nil {
+		f.lggr.Errorw("failed to generate execution ID", "err", err)
+		workflowExecutionID = ""
+	}
+	err = events.EmitTriggerExecutionStarted(ctx, map[string]string{}, triggerEvent.Id, workflowExecutionID)
+	if err != nil {
+		f.lggr.Errorw("failed to emit trigger execution started event", "err", err)
+	}
+
 	go func() {
 		select {
-		case f.callbackCh[triggerID] <- f.createManualTriggerEvent(scheduledExecutionTime):
+		case f.callbackCh[triggerID] <- triggerEvent:
 			// Successfully sent trigger response
 		case <-ctx.Done():
 			// Context cancelled, cleanup goroutine

@@ -7,6 +7,8 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/stretchr/testify/require"
 
+	ccipclient "github.com/smartcontractkit/chainlink/deployment/ccip/shared/client"
+
 	"github.com/smartcontractkit/chainlink-evm/pkg/utils"
 
 	chainselectors "github.com/smartcontractkit/chain-selectors"
@@ -48,7 +50,7 @@ func TestE2ELegacy(t *testing.T) {
 		}),
 		testhelpers.WithNumOfChains(3),
 		testhelpers.WithChainIDs([]uint64{chainselectors.GETH_TESTNET.EvmChainID}))
-	state, err := stateview.LoadOnchainState(e.Env)
+	state, err := stateview.LoadOnchainState(e.Env, stateview.WithLoadLegacyContracts(true))
 	require.NoError(t, err)
 	allChains := e.Env.BlockChains.ListChainSelectors(
 		cldf_chain.WithFamily(chainselectors.FamilyEVM),
@@ -83,13 +85,13 @@ func TestE2ELegacy(t *testing.T) {
 	)
 	require.NoError(t, err)
 	// reload state after adding lanes
-	state, err = stateview.LoadOnchainState(e.Env)
+	state, err = stateview.LoadOnchainState(e.Env, stateview.WithLoadLegacyContracts(true))
 	require.NoError(t, err)
 	sentEvent, err := v1_5.SendRequest(t, e.Env, state,
-		testhelpers.WithSourceChain(src),
-		testhelpers.WithDestChain(dest),
-		testhelpers.WithTestRouter(false),
-		testhelpers.WithEvm2AnyMessage(router.ClientEVM2AnyMessage{
+		ccipclient.WithSourceChain(src),
+		ccipclient.WithDestChain(dest),
+		ccipclient.WithTestRouter(false),
+		ccipclient.WithMessage(router.ClientEVM2AnyMessage{
 			Receiver:     common.LeftPadBytes(state.MustGetEVMChainState(dest).Receiver.Address().Bytes(), 32),
 			Data:         []byte("hello"),
 			TokenAmounts: nil,

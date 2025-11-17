@@ -6,7 +6,7 @@ import (
 	"flag"
 	"fmt"
 	"os"
-	"path"
+	"path/filepath"
 
 	"github.com/smartcontractkit/chainlink/v2/core/config/docs"
 )
@@ -26,11 +26,11 @@ func main() {
 		fmt.Fprintf(os.Stderr, "invalid secrets docs: %v\n", err)
 		os.Exit(1)
 	}
-	if err = os.WriteFile(path.Join(*outDir, "CONFIG.md"), []byte(c), 0600); err != nil {
+	if err = os.WriteFile(filepath.Join(*outDir, "CONFIG.md"), []byte(c), 0600); err != nil {
 		fmt.Fprintf(os.Stderr, "failed to write config docs: %v\n", err)
 		os.Exit(1)
 	}
-	if err = os.WriteFile(path.Join(*outDir, "SECRETS.md"), []byte(s), 0600); err != nil {
+	if err = os.WriteFile(filepath.Join(*outDir, "SECRETS.md"), []byte(s), 0600); err != nil {
 		fmt.Fprintf(os.Stderr, "failed to write secrets docs: %v\n", err)
 		os.Exit(1)
 	}

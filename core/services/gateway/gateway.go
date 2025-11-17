@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"strings"
+	"time"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/jonboulle/clockwork"
@@ -16,10 +17,13 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/jsonrpc2"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
+	"github.com/smartcontractkit/chainlink-common/pkg/settings/limits"
 
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/api"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/config"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers"
+	handlerscommon "github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers/common"
+	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/monitoring"
 	gw_net "github.com/smartcontractkit/chainlink/v2/core/services/gateway/network"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 )
@@ -46,25 +50,34 @@ type HandlerFactory interface {
 type gateway struct {
 	services.StateMachine
 
-	codec      api.Codec
-	httpServer gw_net.HttpServer
-	handlers   map[string]handlers.Handler
-	connMgr    ConnectionManager
-	lggr       logger.Logger
+	codec              api.Codec
+	httpServer         gw_net.HTTPServer
+	handlers           map[string]handlers.Handler
+	serviceNameToDonID map[string]string
+	connMgr            ConnectionManager
+	gMetrics           *monitoring.GatewayMetrics
+	lggr               logger.Logger
 }
 
-func NewGatewayFromConfig(config *config.GatewayConfig, handlerFactory HandlerFactory, lggr logger.Logger) (Gateway, error) {
+func NewGatewayFromConfig(cfg *config.GatewayConfig, handlerFactory HandlerFactory, lggr logger.Logger, lf limits.Factory) (Gateway, error) {
 	codec := &api.JsonRPCCodec{}
-	httpServer := gw_net.NewHttpServer(&config.UserServerConfig, lggr)
-	connMgr, err := NewConnectionManager(config, clockwork.NewRealClock(), lggr)
+	gMetrics, err := monitoring.NewGatewayMetrics()
+	if err != nil {
+		return nil, fmt.Errorf("error creating gateway metrics: %w", err)
+	}
+	httpServer, err := gw_net.NewHTTPServer(&cfg.UserServerConfig, lggr, lf)
+	if err != nil {
+		return nil, err
+	}
+	connMgr, err := NewConnectionManager(cfg, clockwork.NewRealClock(), gMetrics, lggr, lf)
 	if err != nil {
 		return nil, err
 	}
 
 	handlerMap := make(map[string]handlers.Handler)
+	serviceNameToDonID := make(map[string]string)
 
-	for _, donConfig := range config.Dons {
-		donConfig := donConfig
+	for _, donConfig := range cfg.Dons {
 		_, ok := handlerMap[donConfig.DonId]
 		if ok {
 			return nil, fmt.Errorf("duplicate DON ID %s", donConfig.DonId)
@@ -79,23 +92,49 @@ func NewGatewayFromConfig(config *config.GatewayConfig, handlerFactory HandlerFa
 				return nil, fmt.Errorf("invalid node address %s", nodeConfig.Address)
 			}
 		}
-		handler, err := handlerFactory.NewHandler(donConfig.HandlerName, donConfig.HandlerConfig, &donConfig, donConnMgr)
-		if err != nil {
-			return nil, err
+
+		// Convert old-style handler config to the new style.
+		var handlers []config.Handler
+		if donConfig.HandlerName != "" {
+			handlers = append(handlers, config.Handler{
+				Name:   donConfig.HandlerName,
+				Config: donConfig.HandlerConfig,
+			})
 		}
+
+		handlers = append(handlers, donConfig.Handlers...)
+		handler, err := NewMultiHandler(handlerFactory, handlers, &donConfig, donConnMgr)
+		if err != nil {
+			return nil, fmt.Errorf("failed to create multi-handler for DON %s: %w", donConfig.DonId, err)
+		}
+
 		handlerMap[donConfig.DonId] = handler
+
+		for _, h := range handlers {
+			if h.ServiceName != "" {
+				_, ok := serviceNameToDonID[h.ServiceName]
+				if ok {
+					return nil, fmt.Errorf("duplicate service name %s for DON ID %s", h.ServiceName, donConfig.DonId)
+				}
+
+				serviceNameToDonID[h.ServiceName] = donConfig.DonId
+			}
+		}
+
 		donConnMgr.SetHandler(handler)
 	}
-	return NewGateway(codec, httpServer, handlerMap, connMgr, lggr), nil
+	return NewGateway(codec, httpServer, handlerMap, serviceNameToDonID, connMgr, gMetrics, lggr), nil
 }
 
-func NewGateway(codec api.Codec, httpServer gw_net.HttpServer, handlers map[string]handlers.Handler, connMgr ConnectionManager, lggr logger.Logger) Gateway {
+func NewGateway(codec api.Codec, httpServer gw_net.HTTPServer, handlers map[string]handlers.Handler, serviceNameToDonID map[string]string, connMgr ConnectionManager, gMetrics *monitoring.GatewayMetrics, lggr logger.Logger) Gateway {
 	gw := &gateway{
-		codec:      codec,
-		httpServer: httpServer,
-		handlers:   handlers,
-		connMgr:    connMgr,
-		lggr:       logger.Named(lggr, "Gateway"),
+		codec:              codec,
+		httpServer:         httpServer,
+		handlers:           handlers,
+		serviceNameToDonID: serviceNameToDonID,
+		connMgr:            connMgr,
+		gMetrics:           gMetrics,
+		lggr:               logger.Named(lggr, "Gateway"),
 	}
 	httpServer.SetHTTPRequestHandler(gw)
 	return gw
@@ -143,7 +182,12 @@ func (g *gateway) ProcessRequest(ctx context.Context, rawRequest []byte, auth st
 	var handlerKey string
 	if msg == nil || msg.Body.DonId == "" {
 		// if no DON ID is specified, it is a new JsonRPC request. Use the service name as handler key
-		handlerKey = jsonRequest.ServiceName()
+		// Let's map the service name to the DON ID and find the handler
+		hk, ok := g.serviceNameToDonID[jsonRequest.ServiceName()]
+		if !ok {
+			return newError(jsonRequest.ID, api.HandlerError, "Service name not found: "+jsonRequest.ServiceName())
+		}
+		handlerKey = hk
 	} else {
 		// Means legacy request. Proceed to validate it and fetch DonId
 		isLegacyRequest = true
@@ -157,23 +201,32 @@ func (g *gateway) ProcessRequest(ctx context.Context, rawRequest []byte, auth st
 		return newError(jsonRequest.ID, api.UnsupportedDONIdError, "Unsupported DON ID or Handler: "+handlerKey)
 	}
 	// send to the right handler
-	responseCh := make(chan handlers.UserCallbackPayload, 1)
+	startTime := time.Now()
+	var method string
+	callback := handlerscommon.NewCallback()
 	if isLegacyRequest {
-		err = h.HandleLegacyUserMessage(ctx, msg, responseCh)
+		method = msg.Body.Method
+		err = h.HandleLegacyUserMessage(ctx, msg, callback)
 	} else {
-		err = h.HandleJSONRPCUserMessage(ctx, jsonRequest, responseCh)
+		method = jsonRequest.Method
+		err = h.HandleJSONRPCUserMessage(ctx, jsonRequest, callback)
 	}
 	if err != nil {
 		return newError(jsonRequest.ID, api.HandlerError, err.Error())
 	}
 	// await response
-	var response handlers.UserCallbackPayload
-	select {
-	case <-ctx.Done():
-		return newError(jsonRequest.ID, api.RequestTimeoutError, "handler timeout")
-	case response = <-responseCh:
-		break
+	response, err := callback.Wait(ctx)
+	duration := time.Since(startTime)
+	if err != nil {
+		response := api.RequestTimeoutError
+		g.gMetrics.RecordUserMsgHandlerDuration(ctx, method, response.String(), duration)
+		g.gMetrics.RecordUserMsgHandlerInvocation(ctx, method, response.String())
+		return newError(jsonRequest.ID, response, "handler timeout: "+err.Error())
 	}
+	g.gMetrics.RecordUserMsgHandlerDuration(ctx, method, response.ErrorCode.String(), duration)
+	g.gMetrics.RecordUserMsgHandlerInvocation(ctx, method, response.ErrorCode.String())
+
+	g.lggr.Debugw("received response from handler", "handler", handlerKey, "response", response, "requestID", jsonRequest.ID)
 	promRequest.WithLabelValues(response.ErrorCode.String()).Inc()
 	return response.RawResponse, api.ToHttpErrorCode(response.ErrorCode)
 }

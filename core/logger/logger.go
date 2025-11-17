@@ -28,9 +28,11 @@ type stderrWriter struct{}
 func (sw stderrWriter) Write(p []byte) (n int, err error) {
 	return os.Stderr.Write(p)
 }
+
 func (sw stderrWriter) Close() error {
 	return nil // never close stderr
 }
+
 func (sw stderrWriter) Sync() error {
 	return os.Stderr.Sync()
 }
@@ -74,7 +76,7 @@ var _ common.Logger = (Logger)(nil)
 // Deprecated: use [common.Logger] & [common.SugaredLogger]
 type Logger interface {
 	// With creates a new Logger with the given arguments
-	With(args ...interface{}) Logger
+	With(args ...any) Logger
 	// Named creates a new Logger sub-scoped with name.
 	// Names are inherited and dot-separated.
 	//   a := l.Named("A") // logger=A
@@ -85,35 +87,35 @@ type Logger interface {
 	// SetLogLevel changes the log level for this and all connected Loggers.
 	SetLogLevel(zapcore.Level)
 
-	Trace(args ...interface{})
-	Debug(args ...interface{})
-	Info(args ...interface{})
-	Warn(args ...interface{})
-	Error(args ...interface{})
-	Critical(args ...interface{})
-	Panic(args ...interface{})
+	Trace(args ...any)
+	Debug(args ...any)
+	Info(args ...any)
+	Warn(args ...any)
+	Error(args ...any)
+	Critical(args ...any)
+	Panic(args ...any)
 	// Fatal logs and then calls os.Exit(1)
 	// Be careful about using this since it does NOT unwind the stack and may
 	// exit uncleanly
-	Fatal(args ...interface{})
+	Fatal(args ...any)
 
-	Tracef(format string, values ...interface{})
-	Debugf(format string, values ...interface{})
-	Infof(format string, values ...interface{})
-	Warnf(format string, values ...interface{})
-	Errorf(format string, values ...interface{})
-	Criticalf(format string, values ...interface{})
-	Panicf(format string, values ...interface{})
-	Fatalf(format string, values ...interface{})
+	Tracef(format string, values ...any)
+	Debugf(format string, values ...any)
+	Infof(format string, values ...any)
+	Warnf(format string, values ...any)
+	Errorf(format string, values ...any)
+	Criticalf(format string, values ...any)
+	Panicf(format string, values ...any)
+	Fatalf(format string, values ...any)
 
-	Tracew(msg string, keysAndValues ...interface{})
-	Debugw(msg string, keysAndValues ...interface{})
-	Infow(msg string, keysAndValues ...interface{})
-	Warnw(msg string, keysAndValues ...interface{})
-	Errorw(msg string, keysAndValues ...interface{})
-	Criticalw(msg string, keysAndValues ...interface{})
-	Panicw(msg string, keysAndValues ...interface{})
-	Fatalw(msg string, keysAndValues ...interface{})
+	Tracew(msg string, keysAndValues ...any)
+	Debugw(msg string, keysAndValues ...any)
+	Infow(msg string, keysAndValues ...any)
+	Warnw(msg string, keysAndValues ...any)
+	Errorw(msg string, keysAndValues ...any)
+	Criticalw(msg string, keysAndValues ...any)
+	Panicw(msg string, keysAndValues ...any)
+	Fatalw(msg string, keysAndValues ...any)
 
 	// Sync flushes any buffered log entries.
 	// Some insignificant errors are suppressed.
@@ -128,7 +130,7 @@ type Logger interface {
 
 	// Recover reports recovered panics; this is useful because it avoids
 	// double-reporting to sentry
-	Recover(panicErr interface{})
+	Recover(panicErr any)
 }
 
 // newZapConfigProd returns a new production zap.Config.
@@ -174,6 +176,11 @@ type Config struct {
 // New returns a new Logger with pretty printing to stdout, prometheus counters, and sentry forwarding.
 // Tests should use TestLogger.
 func (c *Config) New() (Logger, func() error) {
+	return c.NewWithCores()
+}
+
+// NewWithCores is like New, but includes additional zapcore.Cores.
+func (c *Config) NewWithCores(cores ...zapcore.Core) (Logger, func() error) {
 	if c.diskSpaceAvailableFn == nil {
 		c.diskSpaceAvailableFn = diskSpaceAvailable
 	}
@@ -189,9 +196,9 @@ func (c *Config) New() (Logger, func() error) {
 		err         error
 	)
 	if !c.DebugLogsToDisk() {
-		l, closeLogger, err = newDefaultLogger(cfg, c.UnixTS)
+		l, closeLogger, err = newDefaultLogger(cfg, c.UnixTS, cores...)
 	} else {
-		l, closeLogger, err = newRotatingFileLogger(cfg, *c)
+		l, closeLogger, err = newRotatingFileLogger(cfg, *c, cores...)
 	}
 	if err != nil {
 		log.Fatal(err)
@@ -241,10 +248,14 @@ func newZapConfigBase() zap.Config {
 	return cfg
 }
 
-func newDefaultLogger(zcfg zap.Config, unixTS bool) (Logger, func() error, error) {
+func newDefaultLogger(zcfg zap.Config, unixTS bool, cores ...zapcore.Core) (Logger, func() error, error) {
 	core, coreCloseFn, err := newDefaultLoggingCore(zcfg, unixTS)
 	if err != nil {
 		return nil, nil, err
+	}
+
+	if len(cores) > 0 {
+		core = zapcore.NewTee(append([]zapcore.Core{core}, cores...)...)
 	}
 
 	l, loggerCloseFn, err := newLoggerForCore(zcfg, core)

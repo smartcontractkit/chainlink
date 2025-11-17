@@ -15,7 +15,9 @@ import (
 	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
 	"github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	capabilities_registry "github.com/smartcontractkit/chainlink-evm/gethwrappers/keystone/generated/capabilities_registry_1_1_0"
+	"github.com/smartcontractkit/chainlink/deployment/cre/ocr3"
 
+	"github.com/smartcontractkit/chainlink/deployment/cre/contracts"
 	"github.com/smartcontractkit/chainlink/deployment/keystone/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/keystone/changeset/internal"
 	"github.com/smartcontractkit/chainlink/deployment/keystone/changeset/test"
@@ -37,15 +39,17 @@ var oracleConfig = changeset.OracleConfig{
 	MaxDurationShouldAcceptMillis:     1000,
 	MaxDurationShouldTransmitMillis:   1000,
 	MaxFaultyOracles:                  1,
-	MaxQueryLengthBytes:               1000000,
-	MaxObservationLengthBytes:         1000000,
-	MaxReportLengthBytes:              1000000,
-	MaxOutcomeLengthBytes:             1000000,
-	MaxReportCount:                    20,
-	MaxBatchSize:                      20,
-	OutcomePruningThreshold:           3600,
-	UniqueReports:                     true,
-	RequestTimeout:                    30 * time.Second,
+	ConsensusCapOffchainConfig: &ocr3.ConsensusCapOffchainConfig{
+		MaxQueryLengthBytes:       1000000,
+		MaxObservationLengthBytes: 1000000,
+		MaxReportLengthBytes:      1000000,
+		MaxOutcomeLengthBytes:     1000000,
+		MaxReportCount:            20,
+		MaxBatchSize:              20,
+		OutcomePruningThreshold:   3600,
+		RequestTimeout:            30 * time.Second,
+	},
+	UniqueReports: true,
 }
 
 func TestKeystoneView(t *testing.T) {
@@ -240,7 +244,7 @@ func TestKeystoneView(t *testing.T) {
 				},
 			}
 			var allDons = []internal.DonCapabilities{wfDonCapabilities}
-			cr, err := changeset.GetOwnedContractV2[*capabilities_registry.CapabilitiesRegistry](
+			cr, err := contracts.GetOwnedContractV2[*capabilities_registry.CapabilitiesRegistry](
 				env.Env.DataStore.Addresses(), env.Env.BlockChains.EVMChains()[env.RegistrySelector], capabilityRegistryAddr,
 			)
 			require.NoError(t, err)
@@ -301,7 +305,7 @@ func TestKeystoneView(t *testing.T) {
 
 	t.Run("generates a partial view of the keystone state with OCR3 not configured", func(t *testing.T) {
 		// Deploy a new OCR3 contract
-		resp, err := changeset.DeployOCR3(env.Env, env.RegistrySelector)
+		resp, err := changeset.DeployOCR3V2(env.Env, &changeset.DeployRequestV2{ChainSel: env.RegistrySelector})
 		require.NoError(t, err)
 		require.NotNil(t, resp)
 		require.NoError(t, env.Env.ExistingAddresses.Merge(resp.AddressBook))

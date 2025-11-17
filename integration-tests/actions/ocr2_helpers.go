@@ -21,15 +21,14 @@ import (
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/confighelper"
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 	ctfClient "github.com/smartcontractkit/chainlink-testing-framework/lib/client"
+	"github.com/smartcontractkit/chainlink/deployment/environment/nodeclient"
+	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
 
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/chaintype"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/testhelpers"
-	"github.com/smartcontractkit/chainlink/v2/core/store/models"
-
-	"github.com/smartcontractkit/chainlink/deployment/environment/nodeclient"
-	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
 )
 
 // BuildMedianOCR2Config builds a default OCRv2 config for the given chainlink nodes for a standard median aggregation job
@@ -90,7 +89,7 @@ func BuildMedianOCR2Config(
 		F:                     f_,
 		OnchainConfig:         onchainConfig,
 		OffchainConfigVersion: offchainConfigVersion,
-		OffchainConfig:        []byte(fmt.Sprintf("0x%s", offchainConfig)),
+		OffchainConfig:        fmt.Appendf(nil, "0x%s", offchainConfig),
 	}, err
 }
 
@@ -232,11 +231,11 @@ func CreateOCRv2Jobs(
 			OCR2OracleSpec: job.OCR2OracleSpec{
 				ContractID: ocrInstance.Address(),
 				Relay:      "evm",
-				RelayConfig: map[string]interface{}{
+				RelayConfig: map[string]any{
 					"chainID": chainId,
 				},
 				MonitoringEndpoint:                null.StringFrom(fmt.Sprintf("%s/%s", mockserver.Config.ClusterURL, "ocr2")),
-				ContractConfigTrackerPollInterval: *models.NewInterval(15 * time.Second),
+				ContractConfigTrackerPollInterval: *sqlutil.NewInterval(15 * time.Second),
 			},
 		}
 		_, err := bootstrapNode.MustCreateJob(bootstrapSpec)
@@ -278,13 +277,13 @@ func CreateOCRv2Jobs(
 				OCR2OracleSpec: job.OCR2OracleSpec{
 					PluginType: "median",
 					Relay:      "evm",
-					RelayConfig: map[string]interface{}{
+					RelayConfig: map[string]any{
 						"chainID": chainId,
 					},
 					PluginConfig: map[string]any{
 						"juelsPerFeeCoinSource": fmt.Sprintf("\"\"\"%s\"\"\"", nodeclient.ObservationSourceSpecBridge(juelsBridge)),
 					},
-					ContractConfigTrackerPollInterval: *models.NewInterval(15 * time.Second),
+					ContractConfigTrackerPollInterval: *sqlutil.NewInterval(15 * time.Second),
 					ContractID:                        ocrInstance.Address(),                   // registryAddr
 					OCRKeyBundleID:                    null.StringFrom(nodeOCRKeyId),           // get node ocr2config.ID
 					TransmitterID:                     null.StringFrom(nodeTransmitterAddress), // node addr

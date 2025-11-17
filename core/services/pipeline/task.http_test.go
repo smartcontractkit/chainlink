@@ -15,6 +15,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	clhttp "github.com/smartcontractkit/chainlink-common/pkg/http"
+	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/jsonserializable"
 	"github.com/smartcontractkit/chainlink/v2/core/bridges"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
@@ -25,7 +26,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
-	"github.com/smartcontractkit/chainlink/v2/core/store/models"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
@@ -67,7 +67,7 @@ func TestHTTPTask_Happy(t *testing.T) {
 func TestHTTPTask_Variables(t *testing.T) {
 	t.Parallel()
 
-	validMeta := map[string]interface{}{"theMeta": "yes"}
+	validMeta := map[string]any{"theMeta": "yes"}
 
 	tests := []struct {
 		name                  string
@@ -75,7 +75,7 @@ func TestHTTPTask_Variables(t *testing.T) {
 		meta                  jsonserializable.JSONSerializable
 		inputs                []pipeline.Result
 		vars                  pipeline.Vars
-		expectedRequestData   map[string]interface{}
+		expectedRequestData   map[string]any
 		expectedErrorCause    error
 		expectedErrorContains string
 	}{
@@ -84,8 +84,8 @@ func TestHTTPTask_Variables(t *testing.T) {
 			``,
 			jsonserializable.JSONSerializable{Val: validMeta, Valid: true},
 			[]pipeline.Result{{Value: 123.45}},
-			pipeline.NewVarsFrom(map[string]interface{}{"some_data": map[string]interface{}{"foo": 543.21}}),
-			map[string]interface{}{},
+			pipeline.NewVarsFrom(map[string]any{"some_data": map[string]any{"foo": 543.21}}),
+			map[string]any{},
 			nil,
 			"",
 		},
@@ -94,8 +94,8 @@ func TestHTTPTask_Variables(t *testing.T) {
 			`$(some_data)`,
 			jsonserializable.JSONSerializable{Val: validMeta, Valid: true},
 			[]pipeline.Result{{Value: 123.45}},
-			pipeline.NewVarsFrom(map[string]interface{}{"some_data": map[string]interface{}{"foo": 543.21}}),
-			map[string]interface{}{"foo": 543.21},
+			pipeline.NewVarsFrom(map[string]any{"some_data": map[string]any{"foo": 543.21}}),
+			map[string]any{"foo": 543.21},
 			nil,
 			"",
 		},
@@ -104,8 +104,8 @@ func TestHTTPTask_Variables(t *testing.T) {
 			`$(some_data)`,
 			jsonserializable.JSONSerializable{Val: nil, Valid: false},
 			[]pipeline.Result{{Value: 123.45}},
-			pipeline.NewVarsFrom(map[string]interface{}{"some_data": map[string]interface{}{"foo": 543.21}}),
-			map[string]interface{}{"foo": 543.21},
+			pipeline.NewVarsFrom(map[string]any{"some_data": map[string]any{"foo": 543.21}}),
+			map[string]any{"foo": 543.21},
 			nil,
 			"",
 		},
@@ -114,7 +114,7 @@ func TestHTTPTask_Variables(t *testing.T) {
 			`$(some_data)`,
 			jsonserializable.JSONSerializable{Val: validMeta, Valid: true},
 			[]pipeline.Result{{Value: 123.45}},
-			pipeline.NewVarsFrom(map[string]interface{}{"not_some_data": map[string]interface{}{"foo": 543.21}}),
+			pipeline.NewVarsFrom(map[string]any{"not_some_data": map[string]any{"foo": 543.21}}),
 			nil,
 			pipeline.ErrKeypathNotFound,
 			"requestData",
@@ -124,7 +124,7 @@ func TestHTTPTask_Variables(t *testing.T) {
 			`$(some_data)`,
 			jsonserializable.JSONSerializable{Val: validMeta, Valid: true},
 			[]pipeline.Result{{Value: 123.45}},
-			pipeline.NewVarsFrom(map[string]interface{}{"some_data": 543.21}),
+			pipeline.NewVarsFrom(map[string]any{"some_data": 543.21}),
 			nil,
 			pipeline.ErrBadInput,
 			"requestData",
@@ -134,8 +134,8 @@ func TestHTTPTask_Variables(t *testing.T) {
 			`{"data":{"result":$(medianize)}}`,
 			jsonserializable.JSONSerializable{Val: validMeta, Valid: true},
 			[]pipeline.Result{{Value: 123.45}},
-			pipeline.NewVarsFrom(map[string]interface{}{"medianize": 543.21}),
-			map[string]interface{}{"data": map[string]interface{}{"result": 543.21}},
+			pipeline.NewVarsFrom(map[string]any{"medianize": 543.21}),
+			map[string]any{"data": map[string]any{"result": 543.21}},
 			nil,
 			"",
 		},
@@ -144,7 +144,7 @@ func TestHTTPTask_Variables(t *testing.T) {
 			`{"data":{"result":$(medianize)}}`,
 			jsonserializable.JSONSerializable{Val: validMeta, Valid: true},
 			[]pipeline.Result{{Value: 123.45}},
-			pipeline.NewVarsFrom(map[string]interface{}{"nope": "foo bar"}),
+			pipeline.NewVarsFrom(map[string]any{"nope": "foo bar"}),
 			nil,
 			pipeline.ErrKeypathNotFound,
 			"requestData",
@@ -152,7 +152,6 @@ func TestHTTPTask_Variables(t *testing.T) {
 	}
 
 	for _, test := range tests {
-		test := test
 
 		t.Run(test.name, func(t *testing.T) {
 			t.Parallel()
@@ -176,7 +175,7 @@ func TestHTTPTask_Variables(t *testing.T) {
 			}
 			c := clhttptest.NewTestLocalOnlyHTTPClient()
 			trORM := pipeline.NewORM(db, logger.TestLogger(t), cfg.JobPipeline().MaxSuccessfulRuns())
-			specID, err := trORM.CreateSpec(testutils.Context(t), pipeline.Pipeline{}, *models.NewInterval(5 * time.Minute))
+			specID, err := trORM.CreateSpec(testutils.Context(t), pipeline.Pipeline{}, *sqlutil.NewInterval(5 * time.Minute))
 			require.NoError(t, err)
 			task.HelperSetDependencies(cfg.JobPipeline(), cfg.WebServer(), orm, specID, uuid.UUID{}, c)
 
@@ -238,7 +237,7 @@ func TestHTTPTask_OverrideURLSafe(t *testing.T) {
 
 	task.URL = "$(url)"
 
-	vars := pipeline.NewVarsFrom(map[string]interface{}{"url": server.URL})
+	vars := pipeline.NewVarsFrom(map[string]any{"url": server.URL})
 	result, runInfo = task.Run(testutils.Context(t), logger.TestLogger(t), vars, nil)
 	assert.False(t, runInfo.IsPending)
 	assert.True(t, runInfo.IsRetryable)

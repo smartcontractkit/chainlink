@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"github.com/stretchr/testify/assert"
+	"go.uber.org/zap/zapcore"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/config"
 	"github.com/smartcontractkit/chainlink/v2/core/config/toml"
@@ -199,6 +200,24 @@ func TestTelemetryConfig_ChipIngressEndpoint(t *testing.T) {
 	}
 }
 
+func TestTelemetryConfig_ChipIngressInsecureConnection(t *testing.T) {
+	tests := []struct {
+		name      string
+		telemetry toml.Telemetry
+		expected  bool
+	}{
+		{"ChipIngressInsecureConnectionTrue", toml.Telemetry{ChipIngressInsecureConnection: ptr(true)}, true},
+		{"ChipIngressInsecureConnectionFalse", toml.Telemetry{ChipIngressInsecureConnection: ptr(false)}, false},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			tc := telemetryConfig{s: tt.telemetry}
+			assert.Equal(t, tt.expected, tc.ChipIngressInsecureConnection())
+		})
+	}
+}
+
 func ptrDuration(d time.Duration) *config.Duration {
 	return config.MustNewDuration(d)
 }
@@ -222,6 +241,140 @@ func TestTelemetryConfig_HeartbeatInterval(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			tc := telemetryConfig{s: tt.telemetry}
 			assert.Equal(t, tt.expected, tc.HeartbeatInterval())
+		})
+	}
+}
+
+func TestTelemetryConfig_LogStreamingEnabled(t *testing.T) {
+	tests := []struct {
+		name      string
+		telemetry toml.Telemetry
+		expected  bool
+	}{
+		{"LogStreamingEnabledTrue", toml.Telemetry{LogStreamingEnabled: ptr(true)}, true},
+		{"LogStreamingEnabledFalse", toml.Telemetry{LogStreamingEnabled: ptr(false)}, false},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			tc := telemetryConfig{s: tt.telemetry}
+			assert.Equal(t, tt.expected, tc.LogStreamingEnabled())
+		})
+	}
+}
+
+func TestTelemetryConfig_LogLevel(t *testing.T) {
+	tests := []struct {
+		name      string
+		telemetry toml.Telemetry
+		expected  zapcore.Level
+	}{
+		{"LogLevelSet", toml.Telemetry{LogLevel: ptr("debug")}, zapcore.DebugLevel},
+		{"LogLevelInfo", toml.Telemetry{LogLevel: ptr("info")}, zapcore.InfoLevel},
+		{"LogLevelWarn", toml.Telemetry{LogLevel: ptr("warn")}, zapcore.WarnLevel},
+		{"LogLevelError", toml.Telemetry{LogLevel: ptr("error")}, zapcore.ErrorLevel},
+		{"LogLevelNil", toml.Telemetry{LogLevel: nil}, zapcore.InfoLevel},
+		{"LogLevelInvalid", toml.Telemetry{LogLevel: ptr("invalid")}, zapcore.InfoLevel},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			tc := telemetryConfig{s: tt.telemetry}
+			assert.Equal(t, tt.expected, tc.LogLevel())
+		})
+	}
+}
+
+func TestTelemetryConfig_LogBatchProcessor(t *testing.T) {
+	tests := []struct {
+		name      string
+		telemetry toml.Telemetry
+		expected  bool
+	}{
+		{"LogBatchProcessorTrue", toml.Telemetry{LogBatchProcessor: ptr(true)}, true},
+		{"LogBatchProcessorFalse", toml.Telemetry{LogBatchProcessor: ptr(false)}, false},
+		{"LogBatchProcessorNil", toml.Telemetry{LogBatchProcessor: nil}, true}, // Default value
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			tc := telemetryConfig{s: tt.telemetry}
+			assert.Equal(t, tt.expected, tc.LogBatchProcessor())
+		})
+	}
+}
+
+func TestTelemetryConfig_LogExportTimeout(t *testing.T) {
+	tests := []struct {
+		name      string
+		telemetry toml.Telemetry
+		expected  time.Duration
+	}{
+		{"LogExportTimeoutSet", toml.Telemetry{LogExportTimeout: ptrDuration(5 * time.Second)}, 5 * time.Second},
+		{"LogExportTimeoutNil", toml.Telemetry{LogExportTimeout: nil}, 1 * time.Second}, // Default value
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			tc := telemetryConfig{s: tt.telemetry}
+			assert.Equal(t, tt.expected, tc.LogExportTimeout())
+		})
+	}
+}
+func TestTelemetryConfig_LogExportMaxBatchSize(t *testing.T) {
+	tests := []struct {
+		name      string
+		telemetry toml.Telemetry
+		expected  int
+	}{
+		{"LogExportMaxBatchSizeSet", toml.Telemetry{LogExportMaxBatchSize: ptrInt(512)}, 512},
+		{"LogExportMaxBatchSizeNil", toml.Telemetry{LogExportMaxBatchSize: nil}, 512}, // Default value
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			tc := telemetryConfig{s: tt.telemetry}
+			assert.Equal(t, tt.expected, tc.LogExportMaxBatchSize())
+		})
+	}
+}
+
+func ptrInt(i int) *int {
+	return &i
+}
+
+func TestTelemetryConfig_LogExportInterval(t *testing.T) {
+	tests := []struct {
+		name      string
+		telemetry toml.Telemetry
+		expected  time.Duration
+	}{
+		{"LogExportIntervalSet", toml.Telemetry{LogExportInterval: ptrDuration(5 * time.Second)}, 5 * time.Second},
+		{"LogExportIntervalNil", toml.Telemetry{LogExportInterval: nil}, 1 * time.Second}, // Default value
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			tc := telemetryConfig{s: tt.telemetry}
+			assert.Equal(t, tt.expected, tc.LogExportInterval())
+		})
+	}
+}
+
+func TestTelemetryConfig_LogMaxQueueSize(t *testing.T) {
+	tests := []struct {
+		name      string
+		telemetry toml.Telemetry
+		expected  int
+	}{
+		{"LogMaxQueueSizeSet", toml.Telemetry{LogMaxQueueSize: ptrInt(2048)}, 2048},
+		{"LogMaxQueueSizeNil", toml.Telemetry{LogMaxQueueSize: nil}, 2048}, // Default value
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			tc := telemetryConfig{s: tt.telemetry}
+			assert.Equal(t, tt.expected, tc.LogMaxQueueSize())
 		})
 	}
 }

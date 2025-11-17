@@ -5,23 +5,26 @@ import (
 	"errors"
 	"fmt"
 	"math/rand"
+	"slices"
 	"sort"
 
-	"github.com/smartcontractkit/chainlink-common/pkg/logger"
-
 	"github.com/AlekSi/pointer"
+	mapset "github.com/deckarep/golang-set/v2"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	solrpc "github.com/gagliardetto/solana-go/rpc"
 	selectors "github.com/smartcontractkit/chain-selectors"
+	"github.com/smartcontractkit/chainlink-aptos/bindings/ccip_onramp"
 
-	solRouter "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/ccip_router"
+	solRouter "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/v0_1_1/ccip_router"
 	solCommonUtil "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/common"
 	ccipSolState "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/state"
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	cldf_chain "github.com/smartcontractkit/chainlink-deployments-framework/chain"
 	cldf_solana "github.com/smartcontractkit/chainlink-deployments-framework/chain/solana"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
+	aptosState "github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview/aptos"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview/evm"
 	solState "github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview/solana"
 )
@@ -37,6 +40,7 @@ type LaneConfiguration struct {
 	// Mode determines how lanes are configured
 	// "any-to-any" - traditional full mesh (default)
 	// "random-lanes" - generate random lanes based on count
+	// "tiered-lanes" - generate lanes with priority to higher tiered chains
 	Mode *string `toml:",omitempty"`
 
 	// NumLanes - number of random lanes to generate when Mode is "random-lanes"
@@ -44,11 +48,15 @@ type LaneConfiguration struct {
 
 	// Internal fields for caching
 	generatedLanes []LaneConfig
+
+	HighTierChainCount *int `toml:",omitempty"` // Optional, used for tiered lanes to specify how many chains are in the high tier
+	LowTierChainCount  *int `toml:",omitempty"` // Optional, used for tiered lanes to specify how many chains are in the low tier
 }
 
 const (
 	LaneModeAnyToAny    = "any-to-any"
 	LaneModeRandomLanes = "random-lanes"
+	LaneModeChainTiers  = "tiered-lanes"
 )
 
 // Validate checks the lane configuration for correctness, ensuring that
@@ -67,7 +75,15 @@ func (lc *LaneConfiguration) Validate(chainCount int) error {
 	case LaneModeAnyToAny:
 		// No additional validation needed
 		return nil
+	case LaneModeChainTiers:
+		if lc.HighTierChainCount == nil || lc.LowTierChainCount == nil {
+			return errors.New("HighTierChainCount and LowTierChainCount must be provided when Mode is 'tiered-lanes'")
+		}
 
+		if *lc.HighTierChainCount+*lc.LowTierChainCount != chainCount {
+			return fmt.Errorf("HighTierChainCount (%d) + LowTierChainCount (%d) must equal total chain count (%d)",
+				*lc.HighTierChainCount, *lc.LowTierChainCount, chainCount)
+		}
 	case LaneModeRandomLanes:
 		if lc.NumLanes == nil || *lc.NumLanes <= 0 {
 			return errors.New("NumLanes must be provided and greater than 0 when Mode is 'random-lanes'")
@@ -88,8 +104,8 @@ func (lc *LaneConfiguration) Validate(chainCount int) error {
 		}
 
 	default:
-		return fmt.Errorf("invalid Mode: %s. Must be one of: %s, %s",
-			mode, LaneModeAnyToAny, LaneModeRandomLanes)
+		return fmt.Errorf("invalid Mode: %s. Must be one of: %s, %s, %s",
+			mode, LaneModeAnyToAny, LaneModeRandomLanes, LaneModeChainTiers)
 	}
 
 	return nil
@@ -125,7 +141,9 @@ func (lc *LaneConfiguration) GenerateLanes(chains []uint64) []LaneConfig {
 	case LaneModeAnyToAny:
 		lc.generatedLanes = generateAnyToAnyLanes(chains)
 		return lc.generatedLanes
-
+	case LaneModeChainTiers:
+		lc.generatedLanes = generateChainTierLanes(chains, *lc.HighTierChainCount, *lc.LowTierChainCount)
+		return lc.generatedLanes
 	case LaneModeRandomLanes:
 		if lc.NumLanes == nil {
 			return []LaneConfig{}
@@ -140,6 +158,29 @@ func (lc *LaneConfiguration) GenerateLanes(chains []uint64) []LaneConfig {
 		lc.generatedLanes = generateAnyToAnyLanes(chains)
 		return lc.generatedLanes
 	}
+}
+
+// generateChainTierLanes generates lanes where chains of a 'high' tier are connected to all chains
+// chains of a 'low' tier are only connected to chains of a 'high' tier.
+func generateChainTierLanes(chains []uint64, highTierCount, lowtierCount int) []LaneConfig {
+	uniqueLanes := mapset.NewSet[LaneConfig]()
+	highTierSels, _ := getTierChainSelectors(chains, highTierCount, lowtierCount)
+	for _, src := range highTierSels {
+		for _, dst := range chains {
+			if src != dst {
+				// make lanes bidirectional
+				uniqueLanes.Add(LaneConfig{
+					SourceChain:      src,
+					DestinationChain: dst,
+				})
+				uniqueLanes.Add(LaneConfig{
+					SourceChain:      dst,
+					DestinationChain: src,
+				})
+			}
+		}
+	}
+	return uniqueLanes.ToSlice()
 }
 
 // Helper functions for lane generation
@@ -178,7 +219,7 @@ func generateBidirectionalRandomLanesWithMinConnectivity(chains []uint64, numLan
 	})
 
 	// Create minimum connectivity: each chain as source and destination bidirectionally
-	for i := 0; i < len(shuffledChains); i++ {
+	for i := range shuffledChains {
 		// First cycle - connect to next chain
 		src := shuffledChains[i]
 		dst := shuffledChains[(i+1)%len(shuffledChains)]
@@ -275,9 +316,7 @@ func (lc *LaneConfiguration) GetConnectedChains() []uint64 {
 	}
 
 	// Sort for deterministic order
-	sort.Slice(connectedChains, func(i, j int) bool {
-		return connectedChains[i] < connectedChains[j]
-	})
+	slices.Sort(connectedChains)
 
 	return connectedChains
 }
@@ -288,8 +327,10 @@ func (lc *LaneConfiguration) DiscoverLanesFromDeployedState(env cldf.Environment
 
 	evmChains := env.BlockChains.ListChainSelectors(cldf_chain.WithFamily(selectors.FamilyEVM))
 	solChains := env.BlockChains.ListChainSelectors(cldf_chain.WithFamily(selectors.FamilySolana))
+	aptosChains := env.BlockChains.ListChainSelectors(cldf_chain.WithFamily(selectors.FamilyAptos))
 	//nolint: gocritic // append is fine here
 	allChains := append(evmChains, solChains...)
+	allChains = append(allChains, aptosChains...)
 
 	// Discover EVM to EVM lanes
 	for _, srcChain := range evmChains {
@@ -323,6 +364,27 @@ func (lc *LaneConfiguration) DiscoverLanesFromDeployedState(env cldf.Environment
 		destinations, err := lc.getEnabledDestinationsFromSolanaRouter(env, srcChain, srcChainState, allChains)
 		if err != nil {
 			return fmt.Errorf("failed to get enabled EVM destinations for Solana chain %d: %w", srcChain, err)
+		}
+
+		for _, dstChain := range destinations {
+			discoveredLanes = append(discoveredLanes, LaneConfig{
+				SourceChain:      srcChain,
+				DestinationChain: dstChain,
+			})
+		}
+	}
+
+	// Discover Aptos to EVM lanes
+	for _, srcChain := range aptosChains {
+		srcChainState, exists := state.AptosChains[srcChain]
+		if !exists {
+			continue
+		}
+
+		// Check which EVM destination chains are configured on the Aptos Router
+		destinations, err := lc.getEnabledDestinationsFromAptosRouter(env, srcChain, srcChainState, allChains)
+		if err != nil {
+			return fmt.Errorf("failed to get enabled EVM destinations for Aptos chain %d: %w", srcChain, err)
 		}
 
 		for _, dstChain := range destinations {
@@ -391,6 +453,24 @@ func (lc *LaneConfiguration) getEnabledDestinationsFromSolanaRouter(env cldf.Env
 	return enabledDestinations, nil
 }
 
+func (lc *LaneConfiguration) getEnabledDestinationsFromAptosRouter(env cldf.Environment, selector uint64, chainState aptosState.CCIPChainState, candidateDestinations []uint64) ([]uint64, error) {
+	var enabledDestinations []uint64
+
+	// For each candidate destination, check if it's enabled on the Aptos Router
+	for _, dstChain := range candidateDestinations {
+		if dstChain == selector {
+			continue
+		}
+		// we don't verify against error because if the destination is not configured, it will return an error
+		isEnabled, _ := lc.isDestinationEnabledOnAptosRouter(env, selector, chainState, dstChain)
+		if isEnabled {
+			enabledDestinations = append(enabledDestinations, dstChain)
+		}
+	}
+
+	return enabledDestinations, nil
+}
+
 // isDestinationEnabledOnOnRamp checks if a destination is enabled on the EVM OnRamp
 func (lc *LaneConfiguration) isDestinationEnabledOnOnRamp(chainState evm.CCIPChainState, destinationChain uint64) (bool, error) {
 	destConfig, err := chainState.OnRamp.GetDestChainConfig(&bind.CallOpts{}, destinationChain)
@@ -415,6 +495,24 @@ func (lc *LaneConfiguration) isDestinationEnabledOnSolanaRouter(ctx context.Cont
 	return true, nil
 }
 
+// isDestinationEnabledOnAptosRouter checks if a destination is enabled on the Aptos Router
+func (lc *LaneConfiguration) isDestinationEnabledOnAptosRouter(env cldf.Environment, aptosChainSelector uint64, chainState aptosState.CCIPChainState, destinationChain uint64) (bool, error) {
+	// Get the client from the environment
+	client := env.BlockChains.AptosChains()[aptosChainSelector].Client
+
+	// Bind to the OnRamp contract
+	boundOnRamp := ccip_onramp.Bind(chainState.CCIPAddress, client)
+
+	// Use IsChainSupported directly for the specific destination
+	isSupported, err := boundOnRamp.Onramp().IsChainSupported(nil, destinationChain)
+	if err != nil {
+		// If we can't check support, assume it's not enabled
+		return false, fmt.Errorf("failed to check if destination chain is supported on Aptos onRamp: %w", err)
+	}
+
+	return isSupported, nil
+}
+
 // GetSourceChainsForDestination returns all source chains that can send to a specific destination
 func (lc *LaneConfiguration) GetSourceChainsForDestination(destination uint64) []uint64 {
 	if lc == nil {
@@ -429,9 +527,7 @@ func (lc *LaneConfiguration) GetSourceChainsForDestination(destination uint64) [
 	}
 
 	// Sort for deterministic order
-	sort.Slice(sources, func(i, j int) bool {
-		return sources[i] < sources[j]
-	})
+	slices.Sort(sources)
 
 	return sources
 }
@@ -450,9 +546,7 @@ func (lc *LaneConfiguration) GetDestinationChainsForSource(source uint64) []uint
 	}
 
 	// Sort for deterministic order
-	sort.Slice(destinations, func(i, j int) bool {
-		return destinations[i] < destinations[j]
-	})
+	slices.Sort(destinations)
 
 	return destinations
 }

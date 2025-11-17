@@ -1,10 +1,11 @@
 package test
 
 import (
+	"maps"
 	"sort"
 
 	"github.com/smartcontractkit/chainlink/deployment"
-	"github.com/smartcontractkit/chainlink/deployment/environment/memory"
+	"github.com/smartcontractkit/chainlink/deployment/utils/nodetestutils"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/p2pkey"
 )
 
@@ -21,10 +22,10 @@ var _ testDon = (*memoryDon)(nil)
 // memoryDon is backed by in-memory nodes running the full chainlink Application
 type memoryDon struct {
 	name string
-	m    map[string]memory.Node
+	m    map[string]nodetestutils.Node
 }
 
-func newMemoryDon(name string, m map[string]memory.Node) *memoryDon {
+func newMemoryDon(name string, m map[string]nodetestutils.Node) *memoryDon {
 	return &memoryDon{name: name, m: m}
 }
 
@@ -132,12 +133,10 @@ func (d *memoryDons) P2PIDs() P2PIDs {
 	return out.Unique()
 }
 
-func (d *memoryDons) AllNodes() map[string]memory.Node {
-	out := make(map[string]memory.Node)
+func (d *memoryDons) AllNodes() map[string]nodetestutils.Node {
+	out := make(map[string]nodetestutils.Node)
 	for _, d := range d.dons {
-		for k, v := range d.m {
-			out[k] = v
-		}
+		maps.Copy(out, d.m)
 	}
 	return out
 }
@@ -184,9 +183,7 @@ func (d *viewOnlyDons) P2PIDs() P2PIDs {
 func (d *viewOnlyDons) AllNodes() map[string]*deployment.Node {
 	out := make(map[string]*deployment.Node)
 	for _, d := range d.dons {
-		for k, v := range d.m {
-			out[k] = v
-		}
+		maps.Copy(out, d.m)
 	}
 	return out
 }

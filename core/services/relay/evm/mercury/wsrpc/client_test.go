@@ -12,7 +12,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/services/servicetest"
-	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
+	"github.com/smartcontractkit/chainlink-evm/pkg/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/csakey"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury/wsrpc/cache"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury/wsrpc/mocks"
@@ -119,7 +119,7 @@ func Test_Client_Transmit(t *testing.T) {
 		t.Run("doesn't block in case channel is full", func(t *testing.T) {
 			transmitErr = context.DeadlineExceeded
 			c.chResetTransport = nil // simulate full channel
-			for i := 0; i < MaxConsecutiveRequestFailures; i++ {
+			for range MaxConsecutiveRequestFailures {
 				_, err := c.Transmit(ctx, req)
 				require.EqualError(t, err, "context deadline exceeded")
 			}
@@ -176,7 +176,7 @@ func Test_Client_LatestReport(t *testing.T) {
 			servicetest.Run(t, cacheSet)
 			simulateStart(ctx, t, c)
 
-			for i := 0; i < cacheReads; i++ {
+			for range cacheReads {
 				r, err := c.LatestReport(ctx, req)
 
 				require.NoError(t, err)

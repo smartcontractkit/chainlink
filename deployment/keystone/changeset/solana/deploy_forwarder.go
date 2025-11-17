@@ -18,6 +18,7 @@ import (
 	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
+	capabilities_registry "github.com/smartcontractkit/chainlink-evm/gethwrappers/keystone/generated/capabilities_registry_1_1_0"
 	"github.com/smartcontractkit/chainlink/deployment"
 	commonstate "github.com/smartcontractkit/chainlink/deployment/common/changeset/state"
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
@@ -28,8 +29,9 @@ import (
 )
 
 const (
-	ForwarderContract datastore.ContractType = "Forwarder"
-	ForwarderState    datastore.ContractType = "ForwarderState"
+	ForwarderContract         datastore.ContractType = "SolanaForwarder"
+	ForwarderState            datastore.ContractType = "SolanaForwarderState"
+	DefaultForwarderQualifier                        = "ks_solana_forwarder"
 )
 
 var _ cldf.ChangeSetV2[*DeployForwarderRequest] = DeployForwarder{}
@@ -76,6 +78,9 @@ func (cs DeployForwarder) Apply(env cldf.Environment, req *DeployForwarderReques
 		ChainSel:     req.ChainSel,
 		ProgramName:  deployment.KeystoneForwarderProgramName,
 		Overallocate: true,
+		ContractType: ForwarderContract,
+		Qualifier:    req.Qualifier,
+		Version:      version,
 	}
 
 	deps := operation.Deps{
@@ -206,6 +211,7 @@ type ConfigureForwarderRequest struct {
 	// workflow don node ids in the offchain client. Used to fetch and derive the signer keys
 	WFNodeIDs        []string
 	RegistryChainSel uint64
+	Registry         *capabilities_registry.CapabilitiesRegistry
 
 	MCMS *proposalutils.TimelockConfig // if set, assumes current ownership is the timelock
 
@@ -248,7 +254,9 @@ func (cs ConfigureForwarders) VerifyPreconditions(env cldf.Environment, req *Con
 	if _, err := internal.NewRegisteredDon(env, internal.RegisteredDonConfig{
 		NodeIDs:          req.WFNodeIDs,
 		Name:             req.WFDonName,
-		RegistryChainSel: req.RegistryChainSel}); err != nil {
+		RegistryChainSel: req.RegistryChainSel,
+		Registry:         req.Registry,
+	}); err != nil {
 		return fmt.Errorf("failed to create registered don: %w", err)
 	}
 
@@ -262,6 +270,7 @@ func (cs ConfigureForwarders) Apply(env cldf.Environment, req *ConfigureForwarde
 		NodeIDs:          req.WFNodeIDs,
 		Name:             req.WFDonName,
 		RegistryChainSel: req.RegistryChainSel,
+		Registry:         req.Registry,
 	})
 	if err != nil {
 		return out, fmt.Errorf("failed to create registered don: %w", err)
@@ -354,7 +363,6 @@ func configureForwarders(env cldf.Environment, req *ConfigureForwarderRequest,
 			Chain:     chain,
 		}
 		signers := toSolSigners(wfdon.Signers(chainsel.FamilySolana))
-
 		opOut, err := operations.ExecuteOperation(env.OperationsBundle, operation.ConfigureForwarderOp, deps, operation.ConfigureForwarderInput{
 			ProgramID:      solana.MustPublicKeyFromBase58(forwarderProgramID.Address),
 			MCMS:           req.MCMS,

@@ -17,11 +17,11 @@ import (
 type CCIPView struct {
 	aptosCommon.ContractMetaData
 
-	FeeQuoter          FeeQuoterView          `json:"feeQuoter,omitempty"`
-	RMNRemote          RMNRemoteView          `json:"rmnRemote,omitempty"`
-	TokenAdminRegistry TokenAdminRegistryView `json:"tokenAdminRegistry,omitempty"`
-	NonceManager       NonceManagerView       `json:"nonceManager,omitempty"`
-	ReceiverRegistry   ReceiverRegistryView   `json:"receiverRegistry,omitempty"`
+	FeeQuoter          FeeQuoterView          `json:"feeQuoter"`
+	RMNRemote          RMNRemoteView          `json:"rmnRemote"`
+	TokenAdminRegistry TokenAdminRegistryView `json:"tokenAdminRegistry"`
+	NonceManager       NonceManagerView       `json:"nonceManager"`
+	ReceiverRegistry   ReceiverRegistryView   `json:"receiverRegistry"`
 }
 
 type FeeQuoterView struct {

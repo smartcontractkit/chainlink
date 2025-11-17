@@ -46,6 +46,8 @@ type Config struct {
 	Tron RawConfigs `toml:",omitempty"`
 
 	TON RawConfigs `toml:",omitempty"`
+
+	Sui RawConfigs `toml:",omitempty"`
 }
 
 // RawConfigs is a list of RawConfig.
@@ -336,7 +338,7 @@ func (c *Config) setDefaults() {
 		if c.Solana[i] == nil {
 			c.Solana[i] = new(solcfg.TOMLConfig)
 		}
-		c.Solana[i].Chain.SetDefaults()
+		c.Solana[i].SetDefaults()
 	}
 
 	c.Starknet.SetDefaults()
@@ -344,6 +346,8 @@ func (c *Config) setDefaults() {
 	c.Tron.SetDefaults()
 
 	c.TON.SetDefaults()
+
+	c.Sui.SetDefaults()
 }
 
 func (c *Config) SetFrom(f *Config) (err error) {
@@ -362,6 +366,7 @@ func (c *Config) SetFrom(f *Config) (err error) {
 	appendErr(c.Aptos.SetFrom(f.Aptos), "Aptos")
 	appendErr(c.Tron.SetFrom(f.Tron), "Tron")
 	appendErr(c.TON.SetFrom(f.TON), "TON")
+	appendErr(c.Sui.SetFrom(f.Sui), "Sui")
 
 	_, err = commonconfig.MultiErrorList(err)
 	return err
@@ -406,6 +411,14 @@ func (s *Secrets) SetFrom(f *Secrets) (err error) {
 
 	if err2 := s.P2PKey.SetFrom(&f.P2PKey); err2 != nil {
 		err = errors.Join(err, commonconfig.NamedMultiErrorList(err2, "P2PKey"))
+	}
+
+	if err2 := s.Solana.SetFrom(&f.Solana); err2 != nil {
+		err = errors.Join(err, commonconfig.NamedMultiErrorList(err2, "Solana"))
+	}
+
+	if err2 := s.DKGRecipientKey.SetFrom(&f.DKGRecipientKey); err2 != nil {
+		err = errors.Join(err, commonconfig.NamedMultiErrorList(err2, "DKGRecipientKey"))
 	}
 
 	if err2 := s.CRE.SetFrom(&f.CRE); err2 != nil {

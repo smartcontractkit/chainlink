@@ -26,7 +26,7 @@ func TestReorgAboveFinality_FinalityTagDisabled(t *testing.T) {
 	require.NoError(t, err)
 
 	// Get values from the node config
-	configMap := make(map[string]interface{})
+	configMap := make(map[string]any)
 	err = toml.Unmarshal([]byte(config.NodeConfig.CommonChainConfigTOML), &configMap)
 	require.NoError(t, err, "Error unmarshaling TOML")
 	nodeFinalityDepthInt, isFinalityDepthSet := configMap["FinalityDepth"].(int64)

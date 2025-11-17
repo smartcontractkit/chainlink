@@ -3,13 +3,9 @@ package registrysyncer
 import (
 	"context"
 	"encoding/json"
-	"errors"
 	"fmt"
-	"math/big"
 	"sync"
 	"time"
-
-	"github.com/Masterminds/semver/v3"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
@@ -17,11 +13,9 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/query/primitives"
 	kcr "github.com/smartcontractkit/chainlink-evm/gethwrappers/keystone/generated/capabilities_registry_1_1_0"
+	"github.com/smartcontractkit/chainlink-evm/pkg/config"
 
 	p2ptypes "github.com/smartcontractkit/libocr/ragep2p/types"
-
-	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/capabilities/versioning"
-	evmrelaytypes "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/types"
 )
 
 type Listener interface {
@@ -53,7 +47,7 @@ type registrySyncer struct {
 	stopCh               services.StopChan
 	listeners            []Listener
 	reader               types.ContractReader
-	initReader           func(ctx context.Context, lggr logger.Logger, relayer ContractReaderFactory, capabilitiesContract types.BoundContract, capabilitiesRegistryVersion semver.Version) (types.ContractReader, error)
+	initReader           func(ctx context.Context, lggr logger.Logger, relayer ContractReaderFactory, capabilitiesContract types.BoundContract) (types.ContractReader, error)
 	relayer              ContractReaderFactory
 	capabilitiesContract types.BoundContract
 	getPeerID            func() (p2ptypes.PeerID, error)
@@ -62,14 +56,10 @@ type registrySyncer struct {
 
 	updateChan chan *LocalRegistry
 
-	capabilitiesRegistryVersion semver.Version
-
 	wg   sync.WaitGroup
 	lggr logger.Logger
 	mu   sync.RWMutex
 }
-
-const capabilitiesRegistryContractName = "CapabilitiesRegistry"
 
 var _ services.Service = &registrySyncer{}
 
@@ -109,13 +99,24 @@ func New(
 // NOTE: this can't be called while initializing the syncer and needs to be called in the sync loop.
 // This is because Bind() makes an onchain call to verify that the contract address exists, and if
 // called during initialization, this results in a "no live nodes" error.
-func newReader(ctx context.Context, lggr logger.Logger, relayer ContractReaderFactory, capabilitiesContract types.BoundContract, capabilitiesRegistryVersion semver.Version) (types.ContractReader, error) {
-	var contractReaderConfig evmrelaytypes.ChainReaderConfig
-	switch capabilitiesRegistryVersion.Major() {
-	case 1:
-		contractReaderConfig = buildV1ContractReaderConfig()
-	default:
-		return nil, errors.New("unsupported version " + capabilitiesRegistryVersion.String())
+func newReader(ctx context.Context, lggr logger.Logger, relayer ContractReaderFactory, capabilitiesContract types.BoundContract) (types.ContractReader, error) {
+	contractReaderConfig := config.ChainReaderConfig{
+		Contracts: map[string]config.ChainContractReader{
+			"CapabilitiesRegistry": {
+				ContractABI: kcr.CapabilitiesRegistryABI,
+				Configs: map[string]*config.ChainReaderDefinition{
+					"getDONs": {
+						ChainSpecificName: "getDONs",
+					},
+					"getCapabilities": {
+						ChainSpecificName: "getCapabilities",
+					},
+					"getNodes": {
+						ChainSpecificName: "getNodes",
+					},
+				},
+			},
+		},
 	}
 
 	contractReaderConfigEncoded, err := json.Marshal(contractReaderConfig)
@@ -131,27 +132,6 @@ func newReader(ctx context.Context, lggr logger.Logger, relayer ContractReaderFa
 	err = cr.Bind(ctx, []types.BoundContract{capabilitiesContract})
 
 	return cr, err
-}
-
-func buildV1ContractReaderConfig() evmrelaytypes.ChainReaderConfig {
-	return evmrelaytypes.ChainReaderConfig{
-		Contracts: map[string]evmrelaytypes.ChainContractReader{
-			"CapabilitiesRegistry": {
-				ContractABI: kcr.CapabilitiesRegistryABI,
-				Configs: map[string]*evmrelaytypes.ChainReaderDefinition{
-					"getDONs": {
-						ChainSpecificName: "getDONs",
-					},
-					"getCapabilities": {
-						ChainSpecificName: "getCapabilities",
-					},
-					"getNodes": {
-						ChainSpecificName: "getNodes",
-					},
-				},
-			},
-		},
-	}
 }
 
 func (s *registrySyncer) Start(ctx context.Context) error {
@@ -222,15 +202,6 @@ func (s *registrySyncer) updateStateLoop() {
 	}
 }
 
-func (s *registrySyncer) getContractTypeAndVersion(ctx context.Context) error {
-	version, err := versioning.VerifyTypeAndVersion(ctx, s.capabilitiesContract.Address, s.relayer.NewContractReader, versioning.ContractType(capabilitiesRegistryContractName))
-	if err != nil {
-		return err
-	}
-	s.capabilitiesRegistryVersion = version
-	return nil
-}
-
 func (s *registrySyncer) importOnchainRegistry(ctx context.Context) (*LocalRegistry, error) {
 	caps := []kcr.CapabilitiesRegistryCapabilityInfo{}
 
@@ -285,14 +256,37 @@ func (s *registrySyncer) importOnchainRegistry(ctx context.Context) (*LocalRegis
 		return nil, err
 	}
 
-	idsToNodes := map[p2ptypes.PeerID]kcr.INodeInfoProviderNodeInfo{}
+	idsToNodes := map[p2ptypes.PeerID]NodeInfo{}
 	for _, node := range nodes {
-		idsToNodes[node.P2pId] = node
+		nodeInfo := NodeInfo{
+			NodeOperatorID:      node.NodeOperatorId,
+			ConfigCount:         node.ConfigCount,
+			WorkflowDONId:       node.WorkflowDONId,
+			Signer:              node.Signer,
+			P2pID:               node.P2pId,
+			EncryptionPublicKey: node.EncryptionPublicKey,
+			CapabilitiesDONIds:  node.CapabilitiesDONIds,
+			HashedCapabilityIDs: make([][32]byte, len(node.HashedCapabilityIds)),
+			CapabilityIDs:       make([]string, len(node.HashedCapabilityIds)),
+		}
+		copy(nodeInfo.HashedCapabilityIDs, node.HashedCapabilityIds)
+
+		// Backfill capability IDs
+		for i, hashedCapID := range node.HashedCapabilityIds {
+			capabilityID, ok := hashedIDsToCapabilityIDs[hashedCapID]
+			if !ok {
+				s.lggr.Warnw("failed to find capability ID for hashed ID, skipping", "hashedID", hashedCapID)
+				continue
+			}
+			nodeInfo.CapabilityIDs[i] = capabilityID
+		}
+
+		idsToNodes[node.P2pId] = nodeInfo
 	}
 
 	return &LocalRegistry{
-		lggr:              s.lggr,
-		getPeerID:         s.getPeerID,
+		Logger:            s.lggr,
+		GetPeerID:         s.getPeerID,
 		IDsToDONs:         idsToDONs,
 		IDsToCapabilities: idsToCapabilities,
 		IDsToNodes:        idsToNodes,
@@ -309,13 +303,7 @@ func (s *registrySyncer) Sync(ctx context.Context, isInitialSync bool) error {
 	}
 
 	if s.reader == nil {
-		err := s.getContractTypeAndVersion(ctx)
-		if err != nil {
-			s.lggr.Errorf("unable to get CapabilitiesRegistry contract version: %s", err)
-			return err
-		}
-
-		reader, err := s.initReader(ctx, s.lggr, s.relayer, s.capabilitiesContract, s.capabilitiesRegistryVersion)
+		reader, err := s.initReader(ctx, s.lggr, s.relayer, s.capabilitiesContract)
 		if err != nil {
 			return err
 		}
@@ -332,8 +320,8 @@ func (s *registrySyncer) Sync(ctx context.Context, isInitialSync bool) error {
 		if err != nil {
 			s.lggr.Warnw("failed to sync with local registry, using remote registry instead", "error", err)
 		} else {
-			latestRegistry.lggr = s.lggr
-			latestRegistry.getPeerID = s.getPeerID
+			latestRegistry.Logger = s.lggr
+			latestRegistry.GetPeerID = s.getPeerID
 		}
 	}
 
@@ -359,7 +347,7 @@ func (s *registrySyncer) Sync(ctx context.Context, isInitialSync bool) error {
 	}
 
 	for _, listener := range s.listeners {
-		lrCopy := deepCopyLocalRegistry(latestRegistry)
+		lrCopy := DeepCopyLocalRegistry(latestRegistry)
 		if err := listener.OnNewRegistry(ctx, &lrCopy); err != nil {
 			s.lggr.Errorf("error calling launcher: %s", err)
 			s.metrics.incrementLauncherFailureCounter(ctx)
@@ -367,59 +355,6 @@ func (s *registrySyncer) Sync(ctx context.Context, isInitialSync bool) error {
 	}
 
 	return nil
-}
-
-func deepCopyLocalRegistry(lr *LocalRegistry) LocalRegistry {
-	var lrCopy LocalRegistry
-	lrCopy.lggr = lr.lggr
-	lrCopy.getPeerID = lr.getPeerID
-	lrCopy.IDsToDONs = make(map[DonID]DON, len(lr.IDsToDONs))
-	for id, don := range lr.IDsToDONs {
-		d := capabilities.DON{
-			ID:               don.ID,
-			ConfigVersion:    don.ConfigVersion,
-			Members:          make([]p2ptypes.PeerID, len(don.Members)),
-			F:                don.F,
-			IsPublic:         don.IsPublic,
-			AcceptsWorkflows: don.AcceptsWorkflows,
-		}
-		copy(d.Members, don.Members)
-		capCfgs := make(map[string]CapabilityConfiguration, len(don.CapabilityConfigurations))
-		for capID, capCfg := range don.CapabilityConfigurations {
-			capCfgs[capID] = CapabilityConfiguration{
-				Config: capCfg.Config,
-			}
-		}
-		lrCopy.IDsToDONs[id] = DON{
-			DON:                      d,
-			CapabilityConfigurations: capCfgs,
-		}
-	}
-
-	lrCopy.IDsToCapabilities = make(map[string]Capability, len(lr.IDsToCapabilities))
-	for id, capability := range lr.IDsToCapabilities {
-		cp := capability
-		lrCopy.IDsToCapabilities[id] = cp
-	}
-
-	lrCopy.IDsToNodes = make(map[p2ptypes.PeerID]kcr.INodeInfoProviderNodeInfo, len(lr.IDsToNodes))
-	for id, node := range lr.IDsToNodes {
-		nodeInfo := kcr.INodeInfoProviderNodeInfo{
-			NodeOperatorId:      node.NodeOperatorId,
-			ConfigCount:         node.ConfigCount,
-			WorkflowDONId:       node.WorkflowDONId,
-			Signer:              node.Signer,
-			P2pId:               node.P2pId,
-			EncryptionPublicKey: node.EncryptionPublicKey,
-			HashedCapabilityIds: make([][32]byte, len(node.HashedCapabilityIds)),
-			CapabilitiesDONIds:  make([]*big.Int, len(node.CapabilitiesDONIds)),
-		}
-		copy(nodeInfo.HashedCapabilityIds, node.HashedCapabilityIds)
-		copy(nodeInfo.CapabilitiesDONIds, node.CapabilitiesDONIds)
-		lrCopy.IDsToNodes[id] = nodeInfo
-	}
-
-	return lrCopy
 }
 
 type ContractCapabilityType uint8

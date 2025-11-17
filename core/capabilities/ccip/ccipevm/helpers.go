@@ -9,13 +9,12 @@ import (
 
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_0/offramp"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_0/onramp"
-	"github.com/smartcontractkit/chainlink-ccip/pkg/types/ccipocr3"
-	ccipcommon "github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/common"
+	"github.com/smartcontractkit/chainlink-common/pkg/types/ccipocr3"
 )
 
 // abiEncodeMethodInputs encodes the inputs for a method call.
 // example abi: `[{ "name" : "method", "type": "function", "inputs": [{"name": "a", "type": "uint256"}]}]`
-func abiEncodeMethodInputs(abiDef abi.ABI, inputs ...interface{}) ([]byte, error) {
+func abiEncodeMethodInputs(abiDef abi.ABI, inputs ...any) ([]byte, error) {
 	packed, err := abiDef.Pack("method", inputs...)
 	if err != nil {
 		return nil, err
@@ -33,7 +32,7 @@ func ABITypeOrPanic(t string) abi.Type {
 
 // CCIPMsgToAny2EVMMessage converts a ccipocr3.Message object to an offramp.InternalAny2EVMRampMessage object.
 // These are typically used to create the execution report for EVM.
-func CCIPMsgToAny2EVMMessage(msg ccipocr3.Message, codec ccipcommon.ExtraDataCodec) (offramp.InternalAny2EVMRampMessage, error) {
+func CCIPMsgToAny2EVMMessage(msg ccipocr3.Message, codec ccipocr3.ExtraDataCodecBundle) (offramp.InternalAny2EVMRampMessage, error) {
 	var tokenAmounts []offramp.InternalAny2EVMTokenTransfer
 	for _, rta := range msg.TokenAmounts {
 		decodedMap, err := codec.DecodeTokenAmountDestExecData(rta.DestExecData, msg.Header.SourceChainSelector)
@@ -119,7 +118,7 @@ func EVM2AnyToCCIPMsg(
 // BoolsToBitFlags transforms a list of boolean flags to a *big.Int encoded number.
 func BoolsToBitFlags(bools []bool) *big.Int {
 	encodedFlags := big.NewInt(0)
-	for i := 0; i < len(bools); i++ {
+	for i := range bools {
 		if bools[i] {
 			encodedFlags.SetBit(encodedFlags, i, 1)
 		}

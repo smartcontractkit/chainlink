@@ -182,12 +182,14 @@ jobs:
           - cmd: go_core_tests
             os: ${{ needs.runner-config.outputs.core-tests-runner }}
             should-run: ${{ needs.filter.outputs.should-run-core-tests }}
-            use-trunk: "true"
+            trunk-auto-quarantine: "true"
 
           - cmd: go_core_tests_integration
             os: ${{ needs.runner-config.outputs.core-tests-integration-runner }}
             should-run: ${{ needs.filter.outputs.should-run-core-tests }}
+            trunk-auto-quarantine: "true"
             setup-solana: "true"
+            install-loopps: "true"
 
           - cmd: go_core_fuzz
             os: ${{ needs.runner-config.outputs.core-fuzz-tests-runner }}
@@ -200,11 +202,14 @@ jobs:
           - cmd: go_core_ccip_deployment_tests
             os: ${{ needs.runner-config.outputs.deployment-tests-runner }}
             should-run: ${{ needs.filter.outputs.should-run-deployment-tests }}
+            trunk-auto-quarantine: "true"
+            go-mod-directory: "deployment/"
             setup-solana: "true"
             setup-aptos: "true"
-            use-trunk: "true"
+            install-loopps: "true"
+            setup-sui: "true"
 
-    name: Core Tests (${{ matrix.type.cmd }})
+    name: Core Tests (${{ matrix.type.cmd }}) # Be careful modifying the job name, as it is used to fetch the job URL
     # We don't directly merge dependabot PRs, so let's not waste the resources
     if: ${{ github.actor != 'dependabot[bot]' }}
     needs: [filter, run-frequency, runner-config]
@@ -233,6 +238,8 @@ jobs:
           # race/fuzz tests don't benefit repeated caching, so restore from develop's build cache
           restore-build-cache-only: ${{ matrix.type.cmd == 'go_core_fuzz' || matrix.type.cmd == 'go_core_race_tests' }}
           build-cache-version: ${{ matrix.type.cmd }}
+          go-version-file: ${{ matrix.type.go-mod-directory }}go.mod
+          go-module-file: ${{ matrix.type.go-mod-directory }}go.sum
 
       - name: Setup Solana
         if: ${{ matrix.type.should-run == 'true' && matrix.type.setup-solana == 'true' }}
@@ -242,7 +249,13 @@ jobs:
         if: ${{ matrix.type.should-run == 'true' && matrix.type.setup-aptos == 'true' }}
         uses: aptos-labs/actions/install-aptos-cli@63740b290d839b87ecfafbcf75ed03a36a54a29f # jan 15, 2025
         with:
-          CLI_VERSION: 7.2.0
+          CLI_VERSION: 7.10.0
+
+      - name: Setup Sui CLI v1.57.2
+        if: ${{ matrix.type.should-run == 'true' && matrix.type.setup-sui == 'true' }}
+        uses: ./.github/actions/setup-sui
+        with:
+          version: mainnet-1.57.2
 
       - name: Setup wasmd
         if: ${{ matrix.type.should-run == 'true' }}
@@ -250,9 +263,10 @@ jobs:
 
       - name: Setup Postgres
         if: ${{ matrix.type.should-run == 'true' }}
-        uses: smartcontractkit/.github/actions/setup-postgres@setup-postgres/0.2.0
+        uses: smartcontractkit/.github/actions/setup-postgres@setup-postgres/v1
         with:
           tmpfs: "true"
+          image-tag: "16-alpine"
 
       - name: Touching core/web/assets/index.html
         if: ${{ matrix.type.should-run == 'true' }}
@@ -269,7 +283,7 @@ jobs:
           CL_DATABASE_URL: ${{ env.DB_URL }}
 
       - name: Install LOOP Plugins
-        if: ${{ matrix.type.should-run == 'true' }}
+        if: ${{ matrix.type.should-run == 'true' && matrix.type.install-loopps == 'true' }}
         run: make install-plugins
 
       - name: Increase Timeouts for Fuzz/Race
@@ -283,25 +297,31 @@ jobs:
       - name: Run tests
         if: ${{ matrix.type.should-run == 'true' }}
         timeout-minutes: ${{ github.event_name == 'schedule' && 37 || 22 }} # leave time for remaining steps
+        continue-on-error: ${{ matrix.type.trunk-auto-quarantine == 'true' }}
         id: run-tests
         shell: bash
         env:
           CL_DATABASE_URL: ${{ env.DB_URL }}
           OUTPUT_FILE: ./output.txt
-          PRODUCE_JUNIT_XML: ${{ matrix.type.use-trunk }}
+          PRODUCE_JUNIT_XML: ${{ matrix.type.trunk-auto-quarantine }}
+          TRUNK_AUTO_QUARANTINE: ${{ matrix.type.trunk-auto-quarantine }}
+          RUN_QUARANTINED_TESTS: "true" # always run quarantined tests in CI
+          JUNIT_FILE: ${{ github.workspace }}/junit.xml
         run: |
           GODEBUG=goindex=0 ./tools/bin/${{ matrix.type.cmd }} ./...
           # See: https://github.com/golang/go/issues/69179
 
-      - name: Upload Test Results to Trunk.io
-        if: ${{ matrix.type.should-run == 'true' && matrix.type.use-trunk == 'true' && !cancelled() }}
-        uses: trunk-io/analytics-uploader@f2631c653f9675d391e6e68cc877370db927c64c # v2.0.0
-        continue-on-error: true # TODO: Remove this once ready
+      - name: Analyze and upload test results
+        if: ${{ matrix.type.should-run == 'true' && matrix.type.trunk-auto-quarantine == 'true' && !cancelled() }}
+        uses: smartcontractkit/.github/actions/branch-out-upload@branch-out-upload/v1
         with:
-          junit-paths: "./junit.xml,*/junit.xml"
-          org-slug: chainlink
-          token: ${{ secrets.TRUNK_API_KEY }}
-          previous-step-outcome: ${{ steps.run-tests.outcome }}
+          junit-file-path: "./junit.xml"
+          trunk-org-slug: chainlink
+          trunk-token: ${{ secrets.TRUNK_API_KEY }}
+          trunk-previous-step-outcome: ${{ steps.run-tests.outcome }}
+          trunk-job-url: ${{ format('https://github.com/{0}/actions/runs/{1}/job/{2}/attempts/{3}', github.repository, github.run_id, job.check_run_id, github.run_attempt) }}
+          # when auto-quarantine is enabled, allow this to determine test failures
+          trunk-upload-only: ${{ matrix.type.trunk-auto-quarantine != 'true' }}
 
       - name: Print Races
         id: print-races
@@ -311,22 +331,19 @@ jobs:
           GH_RUN_ID: ${{ github.run_id }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          run_url=$(gh run --repo "$GH_REPO" view "$GH_RUN_ID" --json jobs --jq '.jobs[] | select(.name | contains("${{ matrix.type.cmd }}")) | .url')
-          echo "run_url=$run_url" >> $GITHUB_OUTPUT
-
           find race.* | xargs cat > race.txt
           if [[ -s race.txt ]]; then
             cat race.txt
-            echo "post_to_slack=true" >> $GITHUB_OUTPUT
+            echo "post_to_slack=true" | tee -a "$GITHUB_OUTPUT"
           else
-            echo "post_to_slack=false" >> $GITHUB_OUTPUT
+            echo "post_to_slack=false" | tee -a "$GITHUB_OUTPUT"
           fi
           echo "github.event_name: ${{ github.event_name }}"
           echo "github.ref: ${{ github.ref }}"
 
       - name: Print postgres logs
         if: ${{ always() &&  matrix.type.should-run == 'true' }}
-        uses: smartcontractkit/.github/actions/setup-postgres@7aa7ce23687ba493e9ba9c6ad47a063e60ae3433 # setup-postgres@0.1.0
+        uses: smartcontractkit/.github/actions/setup-postgres@setup-postgres/v1
         with:
           print-logs: "true"
 
@@ -358,7 +375,7 @@ jobs:
           token: ${{ secrets.QA_SLACK_API_KEY }}
           payload: |
             channel: ${{ secrets.SLACK_TOPIC_DATA_RACES_CHANNEL_ID}}
-            text: "Race Tests Failed: <${{ steps.print-races.outputs.run_url }}|Run>"
+            text: "Race Tests Failed: <${{ format('https://github.com/{0}/actions/runs/{1}/job/{2}', github.repository, github.run_id, job.check_run_id) }}|Run>"
 
   core-scripts-tests:
     name: test-scripts
@@ -518,7 +535,7 @@ jobs:
       - name: Ensure clean after generate
         run: |
           git add --all
-          git diff --stat --cached --exit-code
+          git diff --minimal --cached --exit-code
       - run: make gomodtidy
       - name: Ensure clean after tidy
         run: |
@@ -560,11 +577,12 @@ jobs:
     needs: [filter]
     runs-on: ubuntu-latest
     env:
-      SH_TEST_RUNNER: runs-on=${{ github.run_id }}/cpu=48/ram=96/family=c6i/spot=false/extras=s3-cache+tmpfs
-      SH_DEPLOYMENT_TEST_RUNNER: runs-on=${{ github.run_id }}/cpu=48/ram=96/family=c6id/spot=false/extras=s3-cache
-      SH_FUZZ_RUNNER: runs-on=${{ github.run_id}}/cpu=8+16/ram=32+64/family=c6id+m6id+m6idn/spot=false/extras=s3-cache
-      SH_RACE_TEST_RUNNER: runs-on=${{ github.run_id}}/cpu=64+128/ram=128+128/family=c7+m7/disk=large/spot=false/extras=s3-cache
-      SH_LINT_RUNNER: runs-on=${{ github.run_id }}/cpu=16/ram=32/family=c6gd/spot=false/image=ubuntu24-full-arm64/extras=s3-cache
+      # include unique label (core/deployment/etc...) to ensure jobs are not competing for the same runner
+      SH_TEST_RUNNER: runs-on=${{ github.run_id }}-core/cpu=48/ram=96/family=c6i/spot=false/image=ubuntu24-full-x64/extras=s3-cache+tmpfs
+      SH_DEPLOYMENT_TEST_RUNNER: runs-on=${{ github.run_id }}-deployment/cpu=48/ram=96/family=c6id/spot=false/image=ubuntu24-full-x64/extras=s3-cache
+      SH_FUZZ_RUNNER: runs-on=${{ github.run_id}}-fuzz/cpu=8+16/ram=32+64/family=c6id+m6id+m6idn/spot=false/image=ubuntu24-full-x64/extras=s3-cache
+      SH_RACE_TEST_RUNNER: runs-on=${{ github.run_id}}-race/cpu=64+128/ram=128+128/family=c7+m7/disk=large/spot=false/image=ubuntu24-full-x64/extras=s3-cache
+      SH_LINT_RUNNER: runs-on=${{ github.run_id }}-lint/cpu=16/ram=32/family=c6gd/spot=false/image=ubuntu24-full-arm64/extras=s3-cache
       GH_TEST_RUNNER: ubuntu22.04-32cores-128GB
       GH_FUZZ_RUNNER: ubuntu22.04-8cores-32GB
       GH_BASE_RUNNER: ubuntu-latest
@@ -665,7 +683,8 @@ jobs:
       - uses: actions/checkout@v4
         with:
           persist-credentials: false
-      - uses: ./.github/actions/setup-go
+      - name: Setup go
+        uses: ./.github/actions/setup-go
       ##
       # Plugins (LOOPPs) are defined in ./plugins/plugins.*.yaml files.
       # Some plugins such as chainlink-data-streams, chainlink-feeds,
@@ -682,7 +701,4 @@ jobs:
           echo "Check for out of sync plugins"
           go run ./tools/plugout/ \
             --go-mod ./go.mod \
-            --plugin-file ./plugins/plugins.public.yaml \
-            --module github.com/smartcontractkit/chainlink-data-streams \
-            --module github.com/smartcontractkit/chainlink-feeds \
-            --module github.com/smartcontractkit/chainlink-solana
+            --plugin-file ./plugins/plugins.public.yaml

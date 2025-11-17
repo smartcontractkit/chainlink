@@ -50,6 +50,8 @@ type GatewayConnectorHandler interface {
 }
 
 type gatewayConnector struct {
+	core.UnimplementedGatewayConnector
+
 	services.StateMachine
 
 	config      *ConnectorConfig
@@ -122,7 +124,6 @@ func NewGatewayConnector(config *ConnectorConfig, signer Signer, clock clockwork
 	gateways := make(map[string]*gatewayState)
 	urlToId := make(map[string]string)
 	for _, gw := range config.Gateways {
-		gw := gw
 		if _, exists := gateways[gw.Id]; exists {
 			return nil, fmt.Errorf("duplicate Gateway ID %s", gw.Id)
 		}
@@ -161,6 +162,21 @@ func (c *gatewayConnector) AddHandler(ctx context.Context, methods []string, han
 	// add all or nothing
 	for _, method := range methods {
 		c.handlers[method] = handler
+	}
+	return nil
+}
+
+func (c *gatewayConnector) RemoveHandler(ctx context.Context, methods []string) error {
+	for _, method := range methods {
+		_, exists := c.handlers[method]
+		if !exists {
+			return fmt.Errorf("handler for method %s does not exist", method)
+		}
+	}
+
+	// remove all or nothing
+	for _, method := range methods {
+		delete(c.handlers, method)
 	}
 	return nil
 }
@@ -220,7 +236,7 @@ func (c *gatewayConnector) readLoop(gatewayState *gatewayState) {
 				c.lggr.Errorw("parse error when reading from Gateway", "id", gatewayState.config.Id, "err", err)
 				break
 			}
-			handler, exists := c.handlers[req.ServiceName()]
+			handler, exists := c.handlers[req.Method]
 			if !exists {
 				c.lggr.Errorw("no handler for method", "id", gatewayState.config.Id, "method", req.Method)
 				break
@@ -228,7 +244,9 @@ func (c *gatewayConnector) readLoop(gatewayState *gatewayState) {
 			// do not break on error. HandleGatewayMessage handles errors
 			// by sending a response back to the Gateway.
 			err = handler.HandleGatewayMessage(ctx, gatewayState.config.Id, &req)
-			c.lggr.Warnw("failed to handle message from Gateway", "id", gatewayState.config.Id, "method", req.Method, "err", err)
+			if err != nil {
+				c.lggr.Warnw("failed to handle message from Gateway", "id", gatewayState.config.Id, "method", req.Method, "err", err)
+			}
 		}
 	}
 }
@@ -246,7 +264,9 @@ func (c *gatewayConnector) reconnectLoop(gatewayState *gatewayState) {
 			c.lggr.Infow("connected successfully", "url", gatewayState.url)
 			closeCh := gatewayState.conn.Reset(conn)
 			gatewayState.signal()
-			<-closeCh
+			if closeCh != nil { // nil means already closed
+				<-closeCh
+			}
 			c.lggr.Infow("connection closed", "url", gatewayState.url)
 
 			// reset backoff
@@ -269,7 +289,6 @@ func (c *gatewayConnector) Start(ctx context.Context) error {
 	return c.StartOnce("GatewayConnector", func() error {
 		c.lggr.Info("starting gateway connector")
 		for _, gatewayState := range c.gateways {
-			gatewayState := gatewayState
 			if err := gatewayState.conn.Start(ctx); err != nil {
 				return err
 			}

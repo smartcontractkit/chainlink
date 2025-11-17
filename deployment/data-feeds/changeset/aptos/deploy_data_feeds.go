@@ -19,7 +19,6 @@ var DeployDataFeedsChangeset = cldf.CreateChangeSet(deployDataFeedsLogic, deploy
 
 func deployDataFeedsLogic(env cldf.Environment, c types.DeployAptosConfig) (cldf.ChangesetOutput, error) {
 	lggr := env.Logger
-	ab := cldf.NewMemoryAddressBook()
 	dataStore := datastore.NewMemoryDataStore()
 
 	for _, chainSelector := range c.ChainsToDeploy {
@@ -47,11 +46,6 @@ func deployDataFeedsLogic(env cldf.Environment, c types.DeployAptosConfig) (cldf
 		}
 		lggr.Infof("Deployed %s chain selector %d addr %s", dataFeedsResponse.Tv.String(), chain.Selector, dataFeedsResponse.Address.String())
 
-		err = ab.Save(chain.Selector, dataFeedsResponse.Address.String(), dataFeedsResponse.Tv)
-		if err != nil {
-			return cldf.ChangesetOutput{}, fmt.Errorf("failed to save ChainlinkDataFeeds: %w", err)
-		}
-
 		if err = dataStore.Addresses().Add(
 			datastore.AddressRef{
 				ChainSelector: chainSelector,
@@ -66,7 +60,7 @@ func deployDataFeedsLogic(env cldf.Environment, c types.DeployAptosConfig) (cldf
 		}
 	}
 
-	return cldf.ChangesetOutput{AddressBook: ab, DataStore: dataStore}, nil
+	return cldf.ChangesetOutput{DataStore: dataStore}, nil
 }
 
 func deployDataFeedsPrecondition(env cldf.Environment, c types.DeployAptosConfig) error {

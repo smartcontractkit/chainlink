@@ -26,6 +26,8 @@ import (
 
 const (
 	// NOTE: more methods will go here. HTTP trigger/action/target; etc.
+	// Any changes to this list of methods should be reflected in the
+	// handler's Methods() function.
 	MethodWebAPITarget   = "web_api_target"
 	MethodWebAPITrigger  = "web_api_trigger"
 	MethodComputeAction  = "compute_action"
@@ -55,8 +57,8 @@ type HandlerConfig struct {
 }
 
 type savedCallback struct {
-	id         string
-	callbackCh chan<- handlers.UserCallbackPayload
+	id string
+	handlers.Callback
 }
 
 var _ handlers.Handler = (*handler)(nil)
@@ -130,8 +132,7 @@ func (h *handler) handleWebAPITriggerMessage(ctx context.Context, msg *api.Messa
 		// TODO: in practice, we should wait for at least 2F+1 nodes to respond and then return an aggregated response
 		// back to the user.
 		codec := api.JsonRPCCodec{}
-		savedCb.callbackCh <- handlers.UserCallbackPayload{RawResponse: codec.EncodeLegacyResponse(msg), ErrorCode: api.NoError}
-		close(savedCb.callbackCh)
+		return savedCb.SendResponse(handlers.UserCallbackPayload{RawResponse: codec.EncodeLegacyResponse(msg), ErrorCode: api.NoError})
 	}
 	return nil
 }
@@ -213,6 +214,15 @@ func (h *handler) handleWebAPIOutgoingMessage(ctx context.Context, msg *api.Mess
 	return nil
 }
 
+func (h *handler) Methods() []string {
+	return []string{
+		MethodWebAPITrigger,
+		MethodWebAPITarget,
+		MethodComputeAction,
+		MethodWorkflowSyncer,
+	}
+}
+
 func (h *handler) HandleNodeMessage(ctx context.Context, resp *jsonrpc.Response[json.RawMessage], nodeAddr string) error {
 	msg, err := common.ValidatedMessageFromResp(resp)
 	if err != nil {
@@ -243,13 +253,13 @@ func (h *handler) Close() error {
 	return nil
 }
 
-func (h *handler) HandleJSONRPCUserMessage(_ context.Context, _ jsonrpc.Request[json.RawMessage], _ chan<- handlers.UserCallbackPayload) error {
+func (h *handler) HandleJSONRPCUserMessage(_ context.Context, _ jsonrpc.Request[json.RawMessage], _ handlers.Callback) error {
 	return errors.New("capabilities handler does not support JSON-RPC user messages")
 }
 
-func (h *handler) HandleLegacyUserMessage(ctx context.Context, msg *api.Message, callbackCh chan<- handlers.UserCallbackPayload) error {
+func (h *handler) HandleLegacyUserMessage(ctx context.Context, msg *api.Message, callback handlers.Callback) error {
 	h.mu.Lock()
-	h.savedCallbacks[msg.Body.MessageId] = &savedCallback{msg.Body.MessageId, callbackCh}
+	h.savedCallbacks[msg.Body.MessageId] = &savedCallback{msg.Body.MessageId, callback}
 	don := h.don
 	h.mu.Unlock()
 	body := msg.Body
@@ -258,7 +268,7 @@ func (h *handler) HandleLegacyUserMessage(ctx context.Context, msg *api.Message,
 	err := json.Unmarshal(body.Payload, &payload)
 	if err != nil {
 		h.lggr.Errorw(ErrDecodingPayload, "err", err)
-		callbackCh <- handlers.UserCallbackPayload{
+		return callback.SendResponse(handlers.UserCallbackPayload{
 			RawResponse: codec.EncodeNewErrorResponse(
 				msg.Body.MessageId,
 				api.ToJSONRPCErrorCode(api.UserMessageParseError),
@@ -266,14 +276,12 @@ func (h *handler) HandleLegacyUserMessage(ctx context.Context, msg *api.Message,
 				nil,
 			),
 			ErrorCode: api.UserMessageParseError,
-		}
-		close(callbackCh)
-		return nil
+		})
 	}
 
 	if payload.Timestamp == 0 {
 		h.lggr.Errorw(ErrDecodingPayload)
-		callbackCh <- handlers.UserCallbackPayload{
+		return callback.SendResponse(handlers.UserCallbackPayload{
 			RawResponse: codec.EncodeNewErrorResponse(
 				msg.Body.MessageId,
 				api.ToJSONRPCErrorCode(api.UserMessageParseError),
@@ -281,14 +289,12 @@ func (h *handler) HandleLegacyUserMessage(ctx context.Context, msg *api.Message,
 				nil,
 			),
 			ErrorCode: api.UserMessageParseError,
-		}
-		close(callbackCh)
-		return nil
+		})
 	}
 
 	if uint(time.Now().Unix())-h.config.MaxAllowedMessageAgeSec > uint(payload.Timestamp) {
 		h.lggr.Errorw("stale message")
-		callbackCh <- handlers.UserCallbackPayload{
+		return callback.SendResponse(handlers.UserCallbackPayload{
 			RawResponse: codec.EncodeNewErrorResponse(
 				msg.Body.MessageId,
 				api.ToJSONRPCErrorCode(api.HandlerError),
@@ -296,14 +302,12 @@ func (h *handler) HandleLegacyUserMessage(ctx context.Context, msg *api.Message,
 				nil,
 			),
 			ErrorCode: api.HandlerError,
-		}
-		close(callbackCh)
-		return nil
+		})
 	}
 	// TODO: apply allowlist and rate-limiting here
 	if msg.Body.Method != MethodWebAPITrigger {
 		h.lggr.Errorw("unsupported method", "method", body.Method)
-		callbackCh <- handlers.UserCallbackPayload{
+		return callback.SendResponse(handlers.UserCallbackPayload{
 			RawResponse: codec.EncodeNewErrorResponse(
 				msg.Body.MessageId,
 				api.ToJSONRPCErrorCode(api.UnsupportedMethodError),
@@ -311,14 +315,12 @@ func (h *handler) HandleLegacyUserMessage(ctx context.Context, msg *api.Message,
 				nil,
 			),
 			ErrorCode: api.UnsupportedMethodError,
-		}
-		close(callbackCh)
-		return nil
+		})
 	}
 	req, err := common.ValidatedRequestFromMessage(msg)
 	if err != nil {
 		h.lggr.Errorw(ErrTransformingMessageToRequest)
-		callbackCh <- handlers.UserCallbackPayload{
+		return callback.SendResponse(handlers.UserCallbackPayload{
 			RawResponse: codec.EncodeNewErrorResponse(
 				msg.Body.MessageId,
 				api.ToJSONRPCErrorCode(api.UserMessageParseError),
@@ -326,9 +328,7 @@ func (h *handler) HandleLegacyUserMessage(ctx context.Context, msg *api.Message,
 				nil,
 			),
 			ErrorCode: api.UserMessageParseError,
-		}
-		close(callbackCh)
-		return nil
+		})
 	}
 	// Send original request to all nodes
 	for _, member := range h.donConfig.Members {

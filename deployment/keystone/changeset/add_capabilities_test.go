@@ -64,7 +64,7 @@ func TestAddCapabilities(t *testing.T) {
 		req := &changeset.AddCapabilitiesRequest{
 			RegistryChainSel: te.RegistrySelector,
 			Capabilities:     capabilitiesToAdd,
-			MCMSConfig:       &changeset.MCMSConfig{MinDuration: 0},
+			MCMSConfig:       &changeset.MCMSConfig{MinDelay: 0},
 			RegistryRef:      te.CapabilityRegistryAddressRef(),
 		}
 		csOut, err := changeset.AddCapabilities(te.Env, req)
@@ -138,6 +138,50 @@ func TestAddCapabilitiesRequest_Validate_WriterCapability(t *testing.T) {
 					RegistryChainSel: te.RegistrySelector,
 					Capabilities:     []kcr.CapabilitiesRegistryCapability{{LabelledName: fmt.Sprintf("%s%s", changeset.CapabilityTypeTargetNamePrefix2, chainName), Version: "1.0.0", CapabilityType: changeset.CapabilityTypeTarget}},
 					RegistryRef:      te.CapabilityRegistryAddressRef(),
+				}, nil
+			},
+			expectedError: nil,
+		},
+		{
+			name: "valid request with suffix like `:region` on capability name",
+			req: func(te test.EnvWrapper) (*changeset.AddCapabilitiesRequest, error) {
+				return &changeset.AddCapabilitiesRequest{
+					RegistryChainSel: te.RegistrySelector,
+					Capabilities:     []kcr.CapabilitiesRegistryCapability{{LabelledName: changeset.CapabilityTypeTargetNamePrefix1 + "family:region", Version: "1.0.0", CapabilityType: 3}},
+					RegistryRef:      te.CapabilityRegistryAddressRef(),
+				}, nil
+			},
+			expectedError: nil,
+		},
+		{
+			name: "valid request with multiple capabilities with different nomenclatures",
+			req: func(te test.EnvWrapper) (*changeset.AddCapabilitiesRequest, error) {
+				return &changeset.AddCapabilitiesRequest{
+					RegistryChainSel: te.RegistrySelector,
+					Capabilities: []kcr.CapabilitiesRegistryCapability{
+						{LabelledName: "write_aptos-mainnet", Version: "1.0.0", CapabilityType: 3},
+						{LabelledName: "write_aptos-testnet:region_secondary", Version: "1.0.0", CapabilityType: 3},
+						{LabelledName: "write_aptos-testnet", Version: "1.0.0", CapabilityType: 3},
+						{LabelledName: "write_avalanche-mainnet", Version: "1.0.0", CapabilityType: 3},
+						{LabelledName: "write_avalanche-testnet-fuji", Version: "1.0.0", CapabilityType: 3},
+						{LabelledName: "write_binance_smart_chain-mainnet", Version: "1.0.0", CapabilityType: 3},
+						{LabelledName: "write_binance_smart_chain-testnet", Version: "1.0.0", CapabilityType: 3},
+						{LabelledName: "write_bsc-testnet", Version: "1.0.0", CapabilityType: 3},
+						{LabelledName: "write_celo-testnet-alfajores", Version: "1.0.0", CapabilityType: 3},
+						{LabelledName: "write_ethereum-mainnet-arbitrum-1", Version: "1.0.0", CapabilityType: 3},
+						{LabelledName: "write_ethereum-mainnet-base-1", Version: "1.0.0", CapabilityType: 3},
+						{LabelledName: "write_ethereum-mainnet-optimism-1", Version: "1.0.0", CapabilityType: 3},
+						{LabelledName: "write_ethereum-mainnet", Version: "1.0.0", CapabilityType: 3},
+						{LabelledName: "write_ethereum-testnet-sepolia-arbitrum-1", Version: "1.0.0", CapabilityType: 3},
+						{LabelledName: "write_ethereum-testnet-sepolia-base-1", Version: "1.0.0", CapabilityType: 3},
+						{LabelledName: "write_ethereum-testnet-sepolia-linea-1", Version: "1.0.0", CapabilityType: 3},
+						{LabelledName: "write_ethereum-testnet-sepolia-optimism-1", Version: "1.0.0", CapabilityType: 3},
+						{LabelledName: "write_ethereum-testnet-sepolia", Version: "1.0.0", CapabilityType: 3},
+						{LabelledName: "write_polygon-mainnet", Version: "1.0.0", CapabilityType: 3},
+						{LabelledName: "write_polygon-testnet-amoy", Version: "1.0.0", CapabilityType: 3},
+						{LabelledName: "write-evm-celo-testnet-44787", Version: "1.0.0", CapabilityType: 3},
+					},
+					RegistryRef: te.CapabilityRegistryAddressRef(),
 				}, nil
 			},
 			expectedError: nil,

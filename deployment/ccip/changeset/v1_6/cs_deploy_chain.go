@@ -51,9 +51,14 @@ func DeployChainContractsChangeset(env cldf.Environment, c ccipseq.DeployChainCo
 			}
 		}
 	}
+	ds, err := shared.PopulateDataStore(addressBook)
+	if err != nil {
+		return cldf.ChangesetOutput{}, fmt.Errorf("failed to populate in-memory DataStore: %w", err)
+	}
 	return cldf.ChangesetOutput{
 		Reports:     report.ExecutionReports,
 		AddressBook: addressBook,
+		DataStore:   ds,
 	}, nil
 }
 
@@ -112,11 +117,21 @@ func deployChainContractsForChains(
 	}
 
 	addresses := make(map[uint64]ccipseq.CCIPAddresses)
-	for chainSel := range c.ContractParamsPerChain {
+	for chainSel, params := range c.ContractParamsPerChain {
 		linkToken, err := existingState.Chains[chainSel].LinkTokenAddress()
 		if err != nil {
 			return operations.SequenceReport[ccipseq.DeployChainContractsSeqConfig, map[uint64]map[string]string]{}, err
 		}
+
+		fq := existingState.Chains[chainSel].FeeQuoter
+		fqVersion := existingState.Chains[chainSel].FeeQuoterVersion
+		if fq != nil && fqVersion != nil &&
+			params.FeeQuoterOpts != nil &&
+			params.FeeQuoterOpts.Version != nil &&
+			params.FeeQuoterOpts.Version.GreaterThan(fqVersion) {
+			fq = nil // Deploy a new FeeQuoter if the version in params is greater than existing version
+		}
+
 		addresses[chainSel] = ccipseq.CCIPAddresses{
 			LegacyRMNAddress:          getAddressSafely(existingState.Chains[chainSel].RMN),
 			RMNProxyAddress:           getAddressSafely(existingState.Chains[chainSel].RMNProxy),
@@ -129,7 +144,7 @@ func deployChainContractsForChains(
 			TestRouterAddress:         getAddressSafely(existingState.Chains[chainSel].TestRouter),
 			OffRampAddress:            getAddressSafely(existingState.Chains[chainSel].OffRamp),
 			NonceManagerAddress:       getAddressSafely(existingState.Chains[chainSel].NonceManager),
-			FeeQuoterAddress:          getAddressSafely(existingState.Chains[chainSel].FeeQuoter),
+			FeeQuoterAddress:          getAddressSafely(fq),
 			RMNRemoteAddress:          getAddressSafely(existingState.Chains[chainSel].RMNRemote),
 		}
 	}

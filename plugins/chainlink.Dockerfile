@@ -3,7 +3,7 @@
 # XXX: Experimental -- not to be used to build images for production use.
 # See: ../core/chainlink.Dockerfile for the production Dockerfile.
 ##
-FROM golang:1.24-bullseye AS buildgo
+FROM golang:1.25.3-bookworm AS buildgo
 RUN go version
 RUN apt-get update && apt-get install -y jq && rm -rf /var/lib/apt/lists/*
 
@@ -26,10 +26,13 @@ RUN --mount=type=cache,target=/go/pkg/mod \
 ARG CL_INSTALL_PRIVATE_PLUGINS=false
 # Flag to control installation of testing plugins (default: false).
 ARG CL_INSTALL_TESTING_PLUGINS=false
+# Flag to control whether this is a prod build (default: true)
+ARG CL_IS_PROD_BUILD=true
 # Flags for Go Delve debugger
 ARG GO_GCFLAGS
 # Env vars needed for chainlink build
 ARG COMMIT_SHA
+ARG VERSION_TAG
 
 ENV CL_LOOPINSTALL_OUTPUT_DIR=/tmp/loopinstall-output
 RUN --mount=type=secret,id=GIT_AUTH_TOKEN \
@@ -37,7 +40,6 @@ RUN --mount=type=secret,id=GIT_AUTH_TOKEN \
     --mount=type=cache,target=/root/.cache/go-build \
     ./plugins/scripts/setup_git_auth.sh && \
     mkdir -p /gobins && mkdir -p "${CL_LOOPINSTALL_OUTPUT_DIR}" && \
-    GOBIN=/go/bin make install-loopinstall && \
     GOBIN=/gobins CL_LOOPINSTALL_OUTPUT_DIR=${CL_LOOPINSTALL_OUTPUT_DIR} make install-plugins-local install-plugins-public && \
     if [ "${CL_INSTALL_PRIVATE_PLUGINS}" = "true" ]; then \
         GOBIN=/gobins CL_LOOPINSTALL_OUTPUT_DIR=${CL_LOOPINSTALL_OUTPUT_DIR} make install-plugins-private; \
@@ -56,7 +58,11 @@ RUN --mount=type=cache,target=/go/pkg/mod \
 # Build chainlink.
 RUN --mount=type=cache,target=/go/pkg/mod \
     --mount=type=cache,target=/root/.cache/go-build \
-    GOBIN=/gobins make GO_GCFLAGS="${GO_GCFLAGS}" install-chainlink
+    if [ "$CL_IS_PROD_BUILD" = "false" ]; then \
+          GOBIN=/gobins make install-chainlink-dev; \
+      else \
+          GOBIN=/gobins make install-chainlink; \
+      fi
 
 ##
 # Final Image

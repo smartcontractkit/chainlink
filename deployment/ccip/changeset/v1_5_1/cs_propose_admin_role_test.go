@@ -299,3 +299,528 @@ func TestProposeAdminRoleChangeset_ExecutionWithExternalAdmin(t *testing.T) {
 		})
 	}
 }
+
+func TestProposeAdminRoleChangesetV2_Validations(t *testing.T) {
+	t.Parallel()
+
+	e, _, selectorB, _ := testhelpers.SetupTwoChainEnvironmentWithTokens(t, logger.TestLogger(t), true)
+
+	mcmsConfig := &proposalutils.TimelockConfig{MinDelay: 0 * time.Second}
+	tokenAddress := utils.RandomAddress()
+
+	tests := []struct {
+		Config v1_5_1.ProposeAdminRoleConfig
+		ErrStr string
+		Msg    string
+	}{
+		{
+			Msg: "Empty ProposeAdminByChain map",
+			Config: v1_5_1.ProposeAdminRoleConfig{
+				ProposeAdminByChain: map[uint64][]v1_5_1.TokenAdminInfo{},
+			},
+			ErrStr: "at least one chain with token admin info must be specified",
+		},
+
+		{
+			Msg: "Duplicate token addresses on same chain",
+			Config: v1_5_1.ProposeAdminRoleConfig{
+				MCMS: mcmsConfig,
+				ProposeAdminByChain: map[uint64][]v1_5_1.TokenAdminInfo{
+					selectorB: {
+						{
+							TokenAddress: tokenAddress,
+							AdminAddress: utils.RandomAddress(),
+						},
+						{
+							TokenAddress: tokenAddress, // Same token address
+							AdminAddress: utils.RandomAddress(),
+						},
+					},
+				},
+			},
+			ErrStr: "duplicate token address",
+		},
+		{
+			Msg: "Admin address same as token address",
+			Config: v1_5_1.ProposeAdminRoleConfig{
+				MCMS: mcmsConfig,
+				ProposeAdminByChain: map[uint64][]v1_5_1.TokenAdminInfo{
+					selectorB: {
+						{
+							TokenAddress: tokenAddress,
+							AdminAddress: tokenAddress, // Same as token address
+						},
+					},
+				},
+			},
+			ErrStr: "admin address cannot be the same as token address",
+		},
+		{
+			Msg: "Chain selector is invalid",
+			Config: v1_5_1.ProposeAdminRoleConfig{
+				ProposeAdminByChain: map[uint64][]v1_5_1.TokenAdminInfo{
+					0: {
+						{
+							TokenAddress: tokenAddress,
+							AdminAddress: utils.RandomAddress(),
+						},
+					},
+				},
+			},
+			ErrStr: "does not exist in state",
+		},
+		{
+			Msg: "Chain selector doesn't exist in environment",
+			Config: v1_5_1.ProposeAdminRoleConfig{
+				ProposeAdminByChain: map[uint64][]v1_5_1.TokenAdminInfo{
+					5009297550715157269: {
+						{
+							TokenAddress: tokenAddress,
+							AdminAddress: utils.RandomAddress(),
+						},
+					},
+				},
+			},
+			ErrStr: "does not exist in state",
+		},
+		{
+			Msg: "Empty token admin info array",
+			Config: v1_5_1.ProposeAdminRoleConfig{
+				MCMS: mcmsConfig,
+				ProposeAdminByChain: map[uint64][]v1_5_1.TokenAdminInfo{
+					selectorB: {},
+				},
+			},
+			ErrStr: "no token admin info provided for chain selector",
+		},
+		{
+			Msg: "Zero token address",
+			Config: v1_5_1.ProposeAdminRoleConfig{
+				MCMS: mcmsConfig,
+				ProposeAdminByChain: map[uint64][]v1_5_1.TokenAdminInfo{
+					selectorB: {
+						{
+							TokenAddress: utils.ZeroAddress,
+							AdminAddress: utils.RandomAddress(),
+						},
+					},
+				},
+			},
+			ErrStr: "token address cannot be zero for propose admin role",
+		},
+		{
+			Msg: "Zero admin address",
+			Config: v1_5_1.ProposeAdminRoleConfig{
+				MCMS: mcmsConfig,
+				ProposeAdminByChain: map[uint64][]v1_5_1.TokenAdminInfo{
+					selectorB: {
+						{
+							TokenAddress: tokenAddress,
+							AdminAddress: utils.ZeroAddress,
+						},
+					},
+				},
+			},
+			ErrStr: "admin address cannot be zero for propose admin role",
+		},
+		{
+			Msg: "Ownership validation failure without MCMS",
+			Config: v1_5_1.ProposeAdminRoleConfig{
+				ProposeAdminByChain: map[uint64][]v1_5_1.TokenAdminInfo{
+					selectorB: {
+						{
+							TokenAddress: tokenAddress,
+							AdminAddress: utils.RandomAddress(),
+						},
+					},
+				},
+			},
+			ErrStr: "token admin registry failed ownership validation",
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.Msg, func(t *testing.T) {
+			_, err := commonchangeset.Apply(t, e,
+				commonchangeset.Configure(
+					v1_5_1.ProposeAdminRoleChangesetV2,
+					test.Config,
+				),
+			)
+			require.Error(t, err)
+			require.ErrorContains(t, err, test.ErrStr)
+		})
+	}
+}
+
+func TestProposeAdminRoleChangesetV2_ExecutionWithMCMS(t *testing.T) {
+	t.Parallel()
+
+	mcmsConfig := &proposalutils.TimelockConfig{MinDelay: 0 * time.Second}
+	e, selectorA, selectorB, _ := testhelpers.SetupTwoChainEnvironmentWithTokens(t, logger.TestLogger(t), true)
+
+	// Use random addresses - no need to deploy actual tokens
+	tokenAddressA := utils.RandomAddress()
+	tokenAddressB := utils.RandomAddress()
+	adminAddressA := utils.RandomAddress()
+	adminAddressB := utils.RandomAddress()
+
+	e, err := commonchangeset.Apply(t, e,
+		commonchangeset.Configure(
+			v1_5_1.ProposeAdminRoleChangesetV2,
+			v1_5_1.ProposeAdminRoleConfig{
+				MCMS: mcmsConfig,
+				ProposeAdminByChain: map[uint64][]v1_5_1.TokenAdminInfo{
+					selectorA: {
+						{
+							TokenAddress: tokenAddressA,
+							AdminAddress: adminAddressA,
+						},
+					},
+					selectorB: {
+						{
+							TokenAddress: tokenAddressB,
+							AdminAddress: adminAddressB,
+						},
+					},
+				},
+			},
+		),
+	)
+	require.NoError(t, err)
+
+	// Verify that the admin proposals were created correctly
+	state, err := stateview.LoadOnchainState(e)
+	require.NoError(t, err)
+
+	registryOnA := state.Chains[selectorA].TokenAdminRegistry
+	registryOnB := state.Chains[selectorB].TokenAdminRegistry
+
+	configOnA, err := registryOnA.GetTokenConfig(nil, tokenAddressA)
+	require.NoError(t, err)
+	require.Equal(t, adminAddressA, configOnA.PendingAdministrator)
+
+	configOnB, err := registryOnB.GetTokenConfig(nil, tokenAddressB)
+	require.NoError(t, err)
+	require.Equal(t, adminAddressB, configOnB.PendingAdministrator)
+}
+
+func TestProposeAdminRoleChangesetV2_ExecutionWithoutMCMS(t *testing.T) {
+	t.Parallel()
+
+	e, selectorA, selectorB, _ := testhelpers.SetupTwoChainEnvironmentWithTokens(t, logger.TestLogger(t), false)
+
+	// Use random addresses - no need to deploy actual tokens
+	tokenAddressA := utils.RandomAddress()
+	tokenAddressB := utils.RandomAddress()
+	adminAddressA := utils.RandomAddress()
+	adminAddressB := utils.RandomAddress()
+
+	e, err := commonchangeset.Apply(t, e,
+		commonchangeset.Configure(
+			v1_5_1.ProposeAdminRoleChangesetV2,
+			v1_5_1.ProposeAdminRoleConfig{
+				ProposeAdminByChain: map[uint64][]v1_5_1.TokenAdminInfo{
+					selectorA: {
+						{
+							TokenAddress: tokenAddressA,
+							AdminAddress: adminAddressA,
+						},
+					},
+					selectorB: {
+						{
+							TokenAddress: tokenAddressB,
+							AdminAddress: adminAddressB,
+						},
+					},
+				},
+			},
+		),
+	)
+	require.NoError(t, err)
+
+	// Verify that the admin proposals were created correctly
+	state, err := stateview.LoadOnchainState(e)
+	require.NoError(t, err)
+
+	registryOnA := state.Chains[selectorA].TokenAdminRegistry
+	registryOnB := state.Chains[selectorB].TokenAdminRegistry
+
+	configOnA, err := registryOnA.GetTokenConfig(nil, tokenAddressA)
+	require.NoError(t, err)
+	require.Equal(t, adminAddressA, configOnA.PendingAdministrator)
+
+	configOnB, err := registryOnB.GetTokenConfig(nil, tokenAddressB)
+	require.NoError(t, err)
+	require.Equal(t, adminAddressB, configOnB.PendingAdministrator)
+}
+
+func TestProposeAdminRoleChangesetV2_MultipleTokensPerChain(t *testing.T) {
+	t.Parallel()
+
+	mcmsConfig := &proposalutils.TimelockConfig{MinDelay: 0 * time.Second}
+	e, selectorA, _, _ := testhelpers.SetupTwoChainEnvironmentWithTokens(t, logger.TestLogger(t), true)
+
+	// Use random addresses for multiple tokens - no need to deploy actual tokens
+	tokenAddress1 := utils.RandomAddress()
+	tokenAddress2 := utils.RandomAddress()
+	tokenAddress3 := utils.RandomAddress()
+	adminAddress1 := utils.RandomAddress()
+	adminAddress2 := utils.RandomAddress()
+	adminAddress3 := utils.RandomAddress()
+
+	e, err := commonchangeset.Apply(t, e,
+		commonchangeset.Configure(
+			v1_5_1.ProposeAdminRoleChangesetV2,
+			v1_5_1.ProposeAdminRoleConfig{
+				MCMS: mcmsConfig,
+				ProposeAdminByChain: map[uint64][]v1_5_1.TokenAdminInfo{
+					selectorA: {
+						{
+							TokenAddress: tokenAddress1,
+							AdminAddress: adminAddress1,
+						},
+						{
+							TokenAddress: tokenAddress2,
+							AdminAddress: adminAddress2,
+						},
+						{
+							TokenAddress: tokenAddress3,
+							AdminAddress: adminAddress3,
+						},
+					},
+				},
+			},
+		),
+	)
+	require.NoError(t, err)
+
+	// Verify that all admin proposals were created correctly
+	state, err := stateview.LoadOnchainState(e)
+	require.NoError(t, err)
+
+	registryOnA := state.Chains[selectorA].TokenAdminRegistry
+
+	config1, err := registryOnA.GetTokenConfig(nil, tokenAddress1)
+	require.NoError(t, err)
+	require.Equal(t, adminAddress1, config1.PendingAdministrator)
+
+	config2, err := registryOnA.GetTokenConfig(nil, tokenAddress2)
+	require.NoError(t, err)
+	require.Equal(t, adminAddress2, config2.PendingAdministrator)
+
+	config3, err := registryOnA.GetTokenConfig(nil, tokenAddress3)
+	require.NoError(t, err)
+	require.Equal(t, adminAddress3, config3.PendingAdministrator)
+}
+
+func TestProposeAdminRoleChangesetV2_EmptyConfigReturnsError(t *testing.T) {
+	t.Parallel()
+
+	e, _, _, _ := testhelpers.SetupTwoChainEnvironmentWithTokens(t, logger.TestLogger(t), true)
+
+	// Test that empty config returns error as expected by the validation logic
+	_, err := commonchangeset.Apply(t, e,
+		commonchangeset.Configure(
+			v1_5_1.ProposeAdminRoleChangesetV2,
+			v1_5_1.ProposeAdminRoleConfig{
+				ProposeAdminByChain: map[uint64][]v1_5_1.TokenAdminInfo{},
+			},
+		),
+	)
+	require.Error(t, err)
+	require.ErrorContains(t, err, "at least one chain with token admin info must be specified")
+}
+
+func TestProposeAdminRoleChangesetV2_PendingAdminValidation(t *testing.T) {
+	t.Parallel()
+
+	mcmsConfig := &proposalutils.TimelockConfig{MinDelay: 0 * time.Second}
+	e, selectorA, _, _ := testhelpers.SetupTwoChainEnvironmentWithTokens(t, logger.TestLogger(t), true)
+
+	tokenAddress := utils.RandomAddress()
+	adminAddress1 := utils.RandomAddress()
+	adminAddress2 := utils.RandomAddress()
+
+	// First, propose an admin for the token
+	e, err := commonchangeset.Apply(t, e,
+		commonchangeset.Configure(
+			v1_5_1.ProposeAdminRoleChangesetV2,
+			v1_5_1.ProposeAdminRoleConfig{
+				MCMS: mcmsConfig,
+				ProposeAdminByChain: map[uint64][]v1_5_1.TokenAdminInfo{
+					selectorA: {
+						{
+							TokenAddress: tokenAddress,
+							AdminAddress: adminAddress1,
+						},
+					},
+				},
+			},
+		),
+	)
+	require.NoError(t, err)
+
+	// Now try to propose another admin for the same token without override - this should fail
+	_, err = commonchangeset.Apply(t, e,
+		commonchangeset.Configure(
+			v1_5_1.ProposeAdminRoleChangesetV2,
+			v1_5_1.ProposeAdminRoleConfig{
+				MCMS: mcmsConfig,
+				ProposeAdminByChain: map[uint64][]v1_5_1.TokenAdminInfo{
+					selectorA: {
+						{
+							TokenAddress: tokenAddress,
+							AdminAddress: adminAddress2,
+						},
+					},
+				},
+			},
+		),
+	)
+	require.Error(t, err)
+	require.ErrorContains(t, err, "already has a pending administrator")
+	require.ErrorContains(t, err, "Set OverridePendingAdmin=true to override")
+
+	// Now try with override enabled - this should succeed
+	e, err = commonchangeset.Apply(t, e,
+		commonchangeset.Configure(
+			v1_5_1.ProposeAdminRoleChangesetV2,
+			v1_5_1.ProposeAdminRoleConfig{
+				MCMS:                 mcmsConfig,
+				OverridePendingAdmin: true, // Enable override
+				ProposeAdminByChain: map[uint64][]v1_5_1.TokenAdminInfo{
+					selectorA: {
+						{
+							TokenAddress: tokenAddress,
+							AdminAddress: adminAddress2,
+						},
+					},
+				},
+			},
+		),
+	)
+	require.NoError(t, err)
+
+	// Verify that the pending admin was actually changed
+	state, err := stateview.LoadOnchainState(e)
+	require.NoError(t, err)
+
+	registryOnA := state.Chains[selectorA].TokenAdminRegistry
+	config, err := registryOnA.GetTokenConfig(nil, tokenAddress)
+	require.NoError(t, err)
+	require.Equal(t, adminAddress2, config.PendingAdministrator, "Pending administrator should be updated to the new admin address")
+}
+
+func TestProposeAdminRoleChangesetV2_OverrideFunctionality(t *testing.T) {
+	t.Parallel()
+
+	mcmsConfig := &proposalutils.TimelockConfig{MinDelay: 0 * time.Second}
+	e, selectorA, _, _ := testhelpers.SetupTwoChainEnvironmentWithTokens(t, logger.TestLogger(t), true)
+
+	// Test case 1: Override with same admin address should fail
+	tokenAddress1 := utils.RandomAddress()
+	adminAddress := utils.RandomAddress()
+
+	// First, propose an admin
+	e, err := commonchangeset.Apply(t, e,
+		commonchangeset.Configure(
+			v1_5_1.ProposeAdminRoleChangesetV2,
+			v1_5_1.ProposeAdminRoleConfig{
+				MCMS: mcmsConfig,
+				ProposeAdminByChain: map[uint64][]v1_5_1.TokenAdminInfo{
+					selectorA: {
+						{
+							TokenAddress: tokenAddress1,
+							AdminAddress: adminAddress,
+						},
+					},
+				},
+			},
+		),
+	)
+	require.NoError(t, err)
+
+	// Try to override with the same admin address - should fail
+	_, err = commonchangeset.Apply(t, e,
+		commonchangeset.Configure(
+			v1_5_1.ProposeAdminRoleChangesetV2,
+			v1_5_1.ProposeAdminRoleConfig{
+				MCMS:                 mcmsConfig,
+				OverridePendingAdmin: true,
+				ProposeAdminByChain: map[uint64][]v1_5_1.TokenAdminInfo{
+					selectorA: {
+						{
+							TokenAddress: tokenAddress1,
+							AdminAddress: adminAddress, // Same admin address
+						},
+					},
+				},
+			},
+		),
+	)
+	require.Error(t, err)
+	require.ErrorContains(t, err, "is already the pending administrator")
+
+	// Test case 2: Multiple tokens, some with pending admins, some without
+	tokenAddress2 := utils.RandomAddress() // New token, no pending admin
+	tokenAddress3 := utils.RandomAddress() // Will have pending admin
+	newAdminAddress := utils.RandomAddress()
+
+	// Set up a pending admin for tokenAddress3
+	e, err = commonchangeset.Apply(t, e,
+		commonchangeset.Configure(
+			v1_5_1.ProposeAdminRoleChangesetV2,
+			v1_5_1.ProposeAdminRoleConfig{
+				MCMS: mcmsConfig,
+				ProposeAdminByChain: map[uint64][]v1_5_1.TokenAdminInfo{
+					selectorA: {
+						{
+							TokenAddress: tokenAddress3,
+							AdminAddress: utils.RandomAddress(),
+						},
+					},
+				},
+			},
+		),
+	)
+	require.NoError(t, err)
+
+	// Now propose admins for multiple tokens: one new, one with override
+	e, err = commonchangeset.Apply(t, e,
+		commonchangeset.Configure(
+			v1_5_1.ProposeAdminRoleChangesetV2,
+			v1_5_1.ProposeAdminRoleConfig{
+				MCMS:                 mcmsConfig,
+				OverridePendingAdmin: true,
+				ProposeAdminByChain: map[uint64][]v1_5_1.TokenAdminInfo{
+					selectorA: {
+						{
+							TokenAddress: tokenAddress2, // New token
+							AdminAddress: newAdminAddress,
+						},
+						{
+							TokenAddress: tokenAddress3, // Override existing pending admin
+							AdminAddress: newAdminAddress,
+						},
+					},
+				},
+			},
+		),
+	)
+	require.NoError(t, err)
+
+	// Verify both tokens have the correct pending admin
+	state, err := stateview.LoadOnchainState(e)
+	require.NoError(t, err)
+
+	registry := state.Chains[selectorA].TokenAdminRegistry
+
+	config2, err := registry.GetTokenConfig(nil, tokenAddress2)
+	require.NoError(t, err)
+	require.Equal(t, newAdminAddress, config2.PendingAdministrator)
+
+	config3, err := registry.GetTokenConfig(nil, tokenAddress3)
+	require.NoError(t, err)
+	require.Equal(t, newAdminAddress, config3.PendingAdministrator)
+}

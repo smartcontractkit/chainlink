@@ -19,9 +19,23 @@ var _ cldf.ChangeSet[*UpdateDonRequest] = UpdateDon
 type CapabilityConfig = internal.CapabilityConfig
 
 type UpdateDonRequest struct {
-	RegistryChainSel  uint64
-	P2PIDs            []p2pkey.PeerID    // this is the unique identifier for the don
+	RegistryChainSel uint64
+	// P2PIDs are the peer ids that compose the don
+	P2PIDs            []p2pkey.PeerID
 	CapabilityConfigs []CapabilityConfig // if Config subfield is nil, a default config is used
+
+	// DonID to update
+	// If omitted, the don will be inferred from the P2P keys
+	// If the update request intended to change the nodes in the don, the DonID must be specified
+	DonID int
+
+	// F is the fault tolerance level
+	// if omitted, the existing value fetched from the registry is used
+	F uint8
+
+	// IsPrivate indicates whether the DON is public or private
+	// If omitted, the existing value fetched from the registry is used
+	IsPrivate bool
 
 	// MCMSConfig is optional. If non-nil, the changes will be proposed using MCMS.
 	MCMSConfig *MCMSConfig
@@ -122,5 +136,8 @@ func updateDonRequest(env cldf.Environment, r *UpdateDonRequest) (*internal.Upda
 		P2PIDs:               r.P2PIDs,
 		CapabilityConfigs:    r.CapabilityConfigs,
 		UseMCMS:              r.UseMCMS(),
+		DonID:                r.DonID,
+		F:                    r.F,
+		IsPrivate:            r.IsPrivate,
 	}, nil
 }

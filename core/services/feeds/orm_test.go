@@ -292,7 +292,7 @@ func Test_ORM_CreateChainConfig(t *testing.T) {
 	actual, err := orm.GetChainConfig(ctx, id)
 	require.NoError(t, err)
 
-	assertChainConfigEqual(t, map[string]interface{}{
+	assertChainConfigEqual(t, map[string]any{
 		"feedsManagerID":          cfg1.FeedsManagerID,
 		"chainID":                 cfg1.ChainID,
 		"chainType":               cfg1.ChainType,
@@ -337,7 +337,7 @@ func Test_ORM_CreateBatchChainConfig(t *testing.T) {
 	actual, err := orm.GetChainConfig(ctx, ids[0])
 	require.NoError(t, err)
 
-	assertChainConfigEqual(t, map[string]interface{}{
+	assertChainConfigEqual(t, map[string]any{
 		"feedsManagerID":          cfg1.FeedsManagerID,
 		"chainID":                 cfg1.ChainID,
 		"chainType":               cfg1.ChainType,
@@ -352,7 +352,7 @@ func Test_ORM_CreateBatchChainConfig(t *testing.T) {
 	actual, err = orm.GetChainConfig(ctx, ids[1])
 	require.NoError(t, err)
 
-	assertChainConfigEqual(t, map[string]interface{}{
+	assertChainConfigEqual(t, map[string]any{
 		"feedsManagerID":    cfg2.FeedsManagerID,
 		"chainID":           cfg2.ChainID,
 		"chainType":         cfg2.ChainType,
@@ -437,7 +437,7 @@ func Test_ORM_ListChainConfigsByManagerIDs(t *testing.T) {
 	require.NoError(t, err)
 	require.Len(t, actual, 1)
 
-	assertChainConfigEqual(t, map[string]interface{}{
+	assertChainConfigEqual(t, map[string]any{
 		"feedsManagerID":          cfg1.FeedsManagerID,
 		"chainID":                 cfg1.ChainID,
 		"chainType":               cfg1.ChainType,
@@ -498,7 +498,7 @@ func Test_ORM_UpdateChainConfig(t *testing.T) {
 	actual, err := orm.GetChainConfig(ctx, id)
 	require.NoError(t, err)
 
-	assertChainConfigEqual(t, map[string]interface{}{
+	assertChainConfigEqual(t, map[string]any{
 		"feedsManagerID":          cfg1.FeedsManagerID,
 		"chainID":                 cfg1.ChainID,
 		"chainType":               cfg1.ChainType,
@@ -791,8 +791,6 @@ func Test_ORM_CountJobProposalsByStatus(t *testing.T) {
 	}
 
 	for _, tc := range testCases {
-		tc := tc
-
 		t.Run(tc.name, func(t *testing.T) {
 			orm := setupORM(t)
 
@@ -1067,8 +1065,6 @@ func Test_ORM_CancelSpec(t *testing.T) {
 	}
 
 	for _, tc := range testCases {
-		tc := tc
-
 		t.Run(tc.name, func(t *testing.T) {
 			ctx := testutils.Context(t)
 			orm := setupORM(t)
@@ -1229,8 +1225,6 @@ func Test_ORM_DeleteProposal(t *testing.T) {
 	}
 
 	for _, tc := range testCases {
-		tc := tc
-
 		t.Run(tc.name, func(t *testing.T) {
 			ctx := testutils.Context(t)
 			orm := setupORM(t)
@@ -1348,8 +1342,6 @@ func Test_ORM_RevokeSpec(t *testing.T) {
 	}
 
 	for _, tc := range testCases {
-		tc := tc
-
 		t.Run(tc.name, func(t *testing.T) {
 			ctx := testutils.Context(t)
 			orm := setupORM(t)
@@ -1597,8 +1589,6 @@ func Test_ORM_RejectSpec(t *testing.T) {
 	}
 
 	for _, tc := range testCases {
-		tc := tc
-
 		t.Run(tc.name, func(t *testing.T) {
 			ctx := testutils.Context(t)
 			orm := setupORM(t)
@@ -1693,9 +1683,91 @@ func Test_ORM_IsJobManaged(t *testing.T) {
 	assert.False(t, isManaged)
 }
 
+func Test_ORM_IsJobManagedByFeedsManager(t *testing.T) {
+	t.Parallel()
+	ctx := testutils.Context(t)
+
+	var (
+		orm   = setupORM(t)
+		fmID1 = createFeedsManager(t, orm)
+	)
+
+	mgr2 := &feeds.FeedsManager{
+		URI:       "http://192.168.0.2",
+		Name:      "Chainlink FMS 2",
+		PublicKey: crypto.PublicKey([]byte("22222222222222222222222222222222")),
+	}
+	fmID2, err := orm.CreateManager(ctx, mgr2)
+	require.NoError(t, err)
+
+	var (
+		jpID1          = createJobProposal(t, orm, feeds.JobProposalStatusPending, fmID1)
+		jpID2          = createJobProposal(t, orm, feeds.JobProposalStatusPending, fmID2)
+		specID1        = createJobSpec(t, orm, jpID1)
+		specID2        = createJobSpec(t, orm, jpID2)
+		externalJobID1 = uuid.NullUUID{UUID: uuid.New(), Valid: true}
+		externalJobID2 = uuid.NullUUID{UUID: uuid.New(), Valid: true}
+	)
+
+	j1 := createJob(t, orm.db, externalJobID1.UUID)
+	j2 := createJob(t, orm.db, externalJobID2.UUID)
+
+	isManaged, err := orm.IsJobManagedByFeedsManager(ctx, int64(j1.ID), fmID1)
+	require.NoError(t, err)
+	assert.False(t, isManaged)
+
+	isManaged, err = orm.IsJobManagedByFeedsManager(ctx, int64(j1.ID), fmID2)
+	require.NoError(t, err)
+	assert.False(t, isManaged)
+
+	err = orm.ApproveSpec(ctx, specID1, externalJobID1.UUID)
+	require.NoError(t, err)
+
+	isManaged, err = orm.IsJobManagedByFeedsManager(ctx, int64(j1.ID), fmID1)
+	require.NoError(t, err)
+	assert.True(t, isManaged)
+
+	isManaged, err = orm.IsJobManagedByFeedsManager(ctx, int64(j1.ID), fmID2)
+	require.NoError(t, err)
+	assert.False(t, isManaged)
+
+	err = orm.ApproveSpec(ctx, specID2, externalJobID2.UUID)
+	require.NoError(t, err)
+
+	isManaged, err = orm.IsJobManagedByFeedsManager(ctx, int64(j2.ID), fmID2)
+	require.NoError(t, err)
+	assert.True(t, isManaged)
+
+	isManaged, err = orm.IsJobManagedByFeedsManager(ctx, int64(j2.ID), fmID1)
+	require.NoError(t, err)
+	assert.False(t, isManaged)
+
+	nonExistentJobID := int64(99998)
+	nonExistentFeedsManagerID := int64(99999)
+
+	isManaged, err = orm.IsJobManagedByFeedsManager(ctx, nonExistentJobID, fmID1)
+	require.NoError(t, err)
+	assert.False(t, isManaged)
+
+	isManaged, err = orm.IsJobManagedByFeedsManager(ctx, int64(j1.ID), nonExistentFeedsManagerID)
+	require.NoError(t, err)
+	assert.False(t, isManaged)
+
+	err = orm.DeleteProposal(ctx, jpID1)
+	require.NoError(t, err)
+
+	isManaged, err = orm.IsJobManagedByFeedsManager(ctx, int64(j1.ID), fmID1)
+	require.NoError(t, err)
+	assert.False(t, isManaged)
+
+	isManaged, err = orm.IsJobManagedByFeedsManager(ctx, int64(j2.ID), fmID2)
+	require.NoError(t, err)
+	assert.True(t, isManaged)
+}
+
 // Helpers
 
-func assertChainConfigEqual(t *testing.T, want map[string]interface{}, actual feeds.ChainConfig) {
+func assertChainConfigEqual(t *testing.T, want map[string]any, actual feeds.ChainConfig) {
 	t.Helper()
 
 	assert.Equal(t, want["feedsManagerID"], actual.FeedsManagerID)
@@ -1758,6 +1830,7 @@ func createJob(t *testing.T, db *sqlx.DB, externalJobID uuid.UUID) *job.Job {
 		testspecs.GenerateOCRSpec(testspecs.OCRSpecParams{
 			JobID:              externalJobID.String(),
 			TransmitterAddress: address.Hex(),
+			ContractAddress:    testutils.NewAddress().Hex(),
 			DS1BridgeName:      bridge.Name.String(),
 			DS2BridgeName:      bridge2.Name.String(),
 		}).Toml(),

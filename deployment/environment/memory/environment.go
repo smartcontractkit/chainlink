@@ -7,16 +7,21 @@ import (
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/core/types"
-	"github.com/smartcontractkit/freeport"
+
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zapcore"
 
+	"github.com/smartcontractkit/chainlink/deployment"
+	"github.com/smartcontractkit/chainlink/deployment/internal/jdtestutils"
+	"github.com/smartcontractkit/chainlink/deployment/utils/nodetestutils"
+
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
+
 	cldf_chain "github.com/smartcontractkit/chainlink-deployments-framework/chain"
 	cldf_evm "github.com/smartcontractkit/chainlink-deployments-framework/chain/evm"
 	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
-	"github.com/smartcontractkit/chainlink/deployment"
+	focr "github.com/smartcontractkit/chainlink-deployments-framework/offchain/ocr"
 )
 
 const (
@@ -27,8 +32,10 @@ type MemoryEnvironmentConfig struct {
 	Chains             int
 	SolChains          int
 	AptosChains        int
+	SuiChains          int
 	ZkChains           int
 	TonChains          int
+	TronChains         int
 	NumOfUsersPerChain int
 	Nodes              int
 	Bootstraps         int
@@ -51,18 +58,7 @@ const (
 
 var ContractVersionShortSha = map[CCIPSolanaContractVersion]string{
 	SolanaContractV0_1_0: "0ee732e80586",
-	SolanaContractV0_1_1: "ee587a6c0562",
-}
-
-type NewNodesConfig struct {
-	LogLevel zapcore.Level
-	// BlockChains to be configured
-	BlockChains    cldf_chain.BlockChains
-	NumNodes       int
-	NumBootstraps  int
-	RegistryConfig deployment.CapabilityRegistryConfig
-	// SQL queries to run after DB creation, typically used for setting up testing state. Optional.
-	CustomDBSetup []string
+	SolanaContractV0_1_1: "7f8a0f403c3a",
 }
 
 // For placeholders like aptos
@@ -99,6 +95,10 @@ func NewMemoryChainsAptos(t *testing.T, numChains int) []cldf_chain.BlockChain {
 	return generateChainsAptos(t, numChains)
 }
 
+func NewMemoryChainsSui(t *testing.T, numChains int) []cldf_chain.BlockChain {
+	return GenerateChainsSui(t, numChains)
+}
+
 func NewMemoryChainsZk(t *testing.T, numChains int) []cldf_chain.BlockChain {
 	return GenerateChainsZk(t, numChains)
 }
@@ -107,62 +107,19 @@ func NewMemoryChainsTon(t *testing.T, numChains int) []cldf_chain.BlockChain {
 	return generateChainsTon(t, numChains)
 }
 
-func NewNodes(
-	t *testing.T,
-	cfg NewNodesConfig,
-	configOpts ...ConfigOpt,
-) map[string]Node {
-	nodesByPeerID := make(map[string]Node)
-	if cfg.NumNodes+cfg.NumBootstraps == 0 {
-		return nodesByPeerID
-	}
-	ports := freeport.GetN(t, cfg.NumNodes+cfg.NumBootstraps)
-	// bootstrap nodes must be separate nodes from plugin nodes,
-	// since we won't run a bootstrapper and a plugin oracle on the same
-	// chainlink node in production.
-	for i := 0; i < cfg.NumBootstraps; i++ {
-		// TODO: bootstrap nodes don't have to support anything other than the home chain.
-		// We should remove all non-home chains from the config below and make sure things
-		// run smoothly.
-		c := NewNodeConfig{
-			Port:           ports[i],
-			BlockChains:    cfg.BlockChains,
-			LogLevel:       cfg.LogLevel,
-			Bootstrap:      true,
-			RegistryConfig: cfg.RegistryConfig,
-			CustomDBSetup:  cfg.CustomDBSetup,
-		}
-		node := NewNode(t, c, configOpts...)
-		nodesByPeerID[node.Keys.PeerID.String()] = *node
-		// Note in real env, this ID is allocated by JD.
-	}
-	for i := range cfg.NumNodes {
-		c := NewNodeConfig{
-			Port:           ports[cfg.NumBootstraps+i],
-			BlockChains:    cfg.BlockChains,
-			LogLevel:       cfg.LogLevel,
-			Bootstrap:      false,
-			RegistryConfig: cfg.RegistryConfig,
-			CustomDBSetup:  cfg.CustomDBSetup,
-		}
-		// grab port offset by numBootstraps, since above loop also takes some ports.
-		node := NewNode(t, c, configOpts...)
-		nodesByPeerID[node.Keys.PeerID.String()] = *node
-		// Note in real env, this ID is allocated by JD.
-	}
-	return nodesByPeerID
+func NewMemoryChainsTron(t *testing.T, numChains int) []cldf_chain.BlockChain {
+	return generateChainsTron(t, numChains)
 }
 
 func NewMemoryEnvironmentFromChainsNodes(
 	ctx func() context.Context,
 	lggr logger.Logger,
 	blockchains cldf_chain.BlockChains,
-	nodes map[string]Node,
+	nodes map[string]nodetestutils.Node,
 ) cldf.Environment {
 	var nodeIDs []string
 	for id := range nodes {
 		nodeIDs = append(nodeIDs, id)
-
 	}
 
 	return *cldf.NewEnvironment(
@@ -171,9 +128,9 @@ func NewMemoryEnvironmentFromChainsNodes(
 		cldf.NewMemoryAddressBook(),
 		datastore.NewMemoryDataStore().Seal(),
 		nodeIDs, // Note these have the p2p_ prefix.
-		NewMemoryJobClient(nodes),
+		jdtestutils.NewMemoryJobClient(nodes),
 		ctx,
-		cldf.XXXGenerateTestOCRSecrets(),
+		focr.XXXGenerateTestOCRSecrets(),
 		blockchains,
 	)
 }
@@ -196,14 +153,16 @@ func NewMemoryEnvironment(
 	}
 	solChains := NewMemoryChainsSol(t, config.SolChains, solanaCommitSha)
 	aptosChains := NewMemoryChainsAptos(t, config.AptosChains)
+	suiChains := NewMemoryChainsSui(t, config.SuiChains)
 	zkChains := NewMemoryChainsZk(t, config.ZkChains)
 	tonChains := NewMemoryChainsTon(t, config.TonChains)
+	tronChains := NewMemoryChainsTron(t, config.TronChains)
 
 	chains := cldf_chain.NewBlockChainsFromSlice(
-		slices.Concat(evmChains, solChains, aptosChains, zkChains, tonChains),
+		slices.Concat(evmChains, solChains, aptosChains, zkChains, suiChains, tonChains, tronChains),
 	)
 
-	c := NewNodesConfig{
+	c := nodetestutils.NewNodesConfig{
 		LogLevel:       logLevel,
 		BlockChains:    chains,
 		NumNodes:       config.Nodes,
@@ -211,7 +170,7 @@ func NewMemoryEnvironment(
 		RegistryConfig: config.RegistryConfig,
 		CustomDBSetup:  config.CustomDBSetup,
 	}
-	nodes := NewNodes(t, c)
+	nodes := nodetestutils.NewNodes(t, c)
 	var nodeIDs []string
 	for id, node := range nodes {
 		require.NoError(t, node.App.Start(t.Context()))
@@ -227,9 +186,9 @@ func NewMemoryEnvironment(
 		cldf.NewMemoryAddressBook(),
 		datastore.NewMemoryDataStore().Seal(),
 		nodeIDs,
-		NewMemoryJobClient(nodes),
+		jdtestutils.NewMemoryJobClient(nodes),
 		t.Context,
-		cldf.XXXGenerateTestOCRSecrets(),
+		focr.XXXGenerateTestOCRSecrets(),
 		chains,
 	)
 }

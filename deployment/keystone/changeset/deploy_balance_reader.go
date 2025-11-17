@@ -15,6 +15,7 @@ import (
 var _ cldf.ChangeSet[DeployBalanceReaderRequest] = DeployBalanceReader
 
 type DeployBalanceReaderRequest struct {
+	Qualifier      string
 	ChainSelectors []uint64 // filter to only deploy to these chains; if empty, deploy to all chains
 }
 
@@ -33,8 +34,9 @@ func DeployBalanceReader(env cldf.Environment, cfg DeployBalanceReaderRequest) (
 	}
 	for _, sel := range selectors {
 		req := &DeployRequestV2{
-			ChainSel: sel,
-			deployFn: internal.DeployBalanceReader,
+			ChainSel:  sel,
+			Qualifier: cfg.Qualifier,
+			deployFn:  internal.DeployBalanceReader,
 		}
 		csOut, err := DeployBalanceReaderV2(env, req)
 		if err != nil {

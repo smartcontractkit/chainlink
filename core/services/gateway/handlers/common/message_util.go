@@ -75,6 +75,7 @@ func ValidatedResponseFromMessage(msg *api.Message) (*jsonrpc.Response[json.RawM
 		Version: "2.0",
 		ID:      msg.Body.MessageId,
 		Result:  &rawResult,
+		Method:  msg.Body.Method,
 	}
 	return resp, nil
 }

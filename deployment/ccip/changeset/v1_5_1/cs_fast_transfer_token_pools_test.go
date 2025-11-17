@@ -73,7 +73,6 @@ func TestFastTransferUpdateLaneConfigChangeset_ValidationErrors(t *testing.T) {
 	}
 
 	for _, tc := range testCases {
-		tc := tc
 		t.Run(tc.name, func(t *testing.T) {
 			config := v1_5_1.FastTransferUpdateLaneConfigConfig{
 				TokenSymbol:     testhelpers.TestTokenSymbol,
@@ -236,7 +235,6 @@ func TestFastTransferFillerAllowlistChangeset_RemoveFillers(t *testing.T) {
 	}
 
 	for _, tc := range testCases {
-		tc := tc
 		t.Run(tc.name, func(t *testing.T) {
 			addConfig := v1_5_1.FastTransferFillerAllowlistConfig{
 				TokenSymbol:     testhelpers.TestTokenSymbol,
@@ -380,7 +378,6 @@ func TestFastTransferFillerAllowlistChangeset_AddAndRemoveSimultaneously(t *test
 	}
 
 	for _, tc := range testCases {
-		tc := tc
 		t.Run(tc.name, func(t *testing.T) {
 			if len(tc.initialFillers) > 0 {
 				addConfig := v1_5_1.FastTransferFillerAllowlistConfig{
@@ -749,7 +746,6 @@ func TestFastTransferUpdateLaneConfigChangeset_EdgeCases(t *testing.T) {
 	}
 
 	for _, tc := range testCases {
-		tc := tc
 		t.Run(tc.name, func(t *testing.T) {
 			updates := make(map[uint64]map[uint64]v1_5_1.UpdateLaneConfig)
 			updates[selectorA] = map[uint64]v1_5_1.UpdateLaneConfig{selectorB: tc.update}
@@ -951,7 +947,6 @@ func TestFastTransferUpdateLaneConfigChangeset_SettlementOverheadGasAndCustomExt
 	}
 
 	for _, tc := range testCases {
-		tc := tc
 		t.Run(tc.name, func(t *testing.T) {
 			config := v1_5_1.FastTransferUpdateLaneConfigConfig{
 				TokenSymbol:     testhelpers.TestTokenSymbol,
@@ -1068,7 +1063,6 @@ func TestFastTransferUpdateLaneConfigChangeset_DestinationPoolTypeAndVersion(t *
 	}
 
 	for _, tc := range testCases {
-		tc := tc
 		t.Run(tc.name, func(t *testing.T) {
 			update := v1_5_1.UpdateLaneConfig{
 				FastTransferFillerFeeBps:   100,
@@ -1184,7 +1178,6 @@ func TestFastTransferUpdateLaneConfigChangeset_ValidationErrors_DestinationField
 	}
 
 	for _, tc := range testCases {
-		tc := tc
 		t.Run(tc.name, func(t *testing.T) {
 			config := v1_5_1.FastTransferUpdateLaneConfigConfig{
 				TokenSymbol:     testhelpers.TestTokenSymbol,

@@ -22,7 +22,9 @@ type balanceStore struct {
 	balance decimal.Decimal
 	// Conversion rates of resource dimensions to number of units per credit
 	conversions map[string]decimal.Decimal // TODO flip this
-	mu          sync.RWMutex
+	// Total credits spent during execution
+	spent decimal.Decimal
+	mu    sync.RWMutex
 }
 
 func NewBalanceStore(
@@ -50,6 +52,16 @@ func (bs *balanceStore) convertToBalance(fromResourceType string, amount decimal
 		return amount, ErrResourceTypeNotFound
 	}
 
+	// Special case for gas as gas token conversions are provided in amount per credit.
+	// Other rates are provided as the inverse.
+	if isGasSpendType(fromResourceType) {
+		if rate.IsZero() {
+			return decimal.Zero, nil
+		}
+
+		return amount.Div(rate).Round(defaultDecimalPrecision), nil
+	}
+
 	return amount.Mul(rate), nil
 }
 
@@ -69,6 +81,16 @@ func (bs *balanceStore) convertFromBalance(toResourceType string, amount decimal
 		return amount, ErrResourceTypeNotFound
 	}
 
+	// Special case for gas as gas token conversions are provided in amount per credit.
+	// Other rates are provided as the inverse.
+	if isGasSpendType(toResourceType) {
+		return amount.Mul(rate).Round(0), nil
+	}
+
+	if rate.IsZero() {
+		return decimal.Zero, nil
+	}
+
 	return amount.Div(rate), nil
 }
 
@@ -78,6 +100,15 @@ func (bs *balanceStore) ConvertFromBalance(toResourceType string, amount decimal
 	defer bs.mu.RUnlock()
 
 	return bs.convertFromBalance(toResourceType, amount)
+}
+
+// Set sets the current balance to the provided amount and resets spend.
+func (bs *balanceStore) Set(amount decimal.Decimal) {
+	bs.mu.Lock()
+	defer bs.mu.Unlock()
+
+	bs.balance = amount
+	bs.spent = decimal.Zero
 }
 
 // Get returns the current credit balance
@@ -168,4 +199,20 @@ func (bs *balanceStore) AddAs(resourceType string, amount decimal.Decimal) error
 	bs.balance = bs.balance.Add(bal)
 
 	return nil
+}
+
+func (bs *balanceStore) AddSpent(amount decimal.Decimal) {
+	bs.mu.Lock()
+	defer bs.mu.Unlock()
+
+	bs.spent = bs.spent.Add(amount)
+}
+
+// GetSpent returns the total credits spent during execution.
+// TODO: This should eventually be removed in favor of computing the spent amount from the metering report.
+func (bs *balanceStore) GetSpent() decimal.Decimal {
+	bs.mu.RLock()
+	defer bs.mu.RUnlock()
+
+	return bs.spent
 }

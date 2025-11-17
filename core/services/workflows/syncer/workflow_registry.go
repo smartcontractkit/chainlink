@@ -13,7 +13,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/Masterminds/semver/v3"
 	"github.com/jonboulle/clockwork"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/metric"
@@ -24,12 +23,12 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/query"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/query/primitives"
-	"github.com/smartcontractkit/chainlink-common/pkg/values"
 	workflow_registry_wrapper "github.com/smartcontractkit/chainlink-evm/gethwrappers/workflow/generated/workflow_registry_wrapper_v1"
+	"github.com/smartcontractkit/chainlink-evm/pkg/config"
+	"github.com/smartcontractkit/chainlink-protos/cre/go/values"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	ghcapabilities "github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers/capabilities"
-	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/capabilities/versioning"
-	evmtypes "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/types"
+	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/syncer/versioning"
 	wftypes "github.com/smartcontractkit/chainlink/v2/core/services/workflows/types"
 )
 
@@ -126,7 +125,6 @@ type workflowRegistry struct {
 
 	lggr                    logger.Logger
 	workflowRegistryAddress string
-	workflowRegistryVersion semver.Version
 
 	contractReaderFn versioning.ContractReaderFactory
 
@@ -233,12 +231,6 @@ func (w *workflowRegistry) Start(_ context.Context) error {
 			don, err := w.workflowDonNotifier.WaitForDon(ctx)
 			if err != nil {
 				w.lggr.Errorw("failed to wait for don", "err", err)
-				return
-			}
-
-			err = w.getContractTypeAndVersion(ctx)
-			if err != nil {
-				w.lggr.Criticalf("unable to get WorkflowRegistry contract version: %s", err)
 				return
 			}
 
@@ -602,14 +594,37 @@ func (w *workflowRegistry) generateReconciliationEvents(ctx context.Context, pen
 				DonID:         donID,
 				WorkflowName:  engine.WorkflowName,
 			}
-			events = append(events, &reconciliationEvent{
-				Event: Event{
-					Data:      toDeletedEvent,
-					EventType: WorkflowDeletedEvent,
+			events = append(
+				[]*reconciliationEvent{
+					{
+						Event: Event{
+							Data:      toDeletedEvent,
+							EventType: WorkflowDeletedEvent,
+						},
+						signature: signature,
+						id:        id,
+					},
 				},
-				signature: signature,
-				id:        id,
-			})
+				events...,
+			)
+		}
+	}
+
+	// Clean up create events which no longer need to be attempted because
+	// the workflow no longer exists in the workflow registry contract
+
+	for id, event := range pendingEvents {
+		if event.EventType == WorkflowRegisteredEvent {
+			existsInMetadata := false
+			for _, wfMeta := range workflowMetadata {
+				if wfMeta.WorkflowID.Hex() == event.Data.(WorkflowRegisteredV1).WorkflowID.Hex() {
+					existsInMetadata = true
+					break
+				}
+			}
+			if !existsInMetadata {
+				delete(pendingEvents, id)
+			}
 		}
 	}
 
@@ -727,71 +742,54 @@ type sequenceWithEventType struct {
 	EventType WorkflowRegistryEventType
 }
 
-func (w *workflowRegistry) getContractTypeAndVersion(ctx context.Context) error {
-	version, err := versioning.VerifyTypeAndVersion(ctx, w.workflowRegistryAddress, w.contractReaderFn, versioning.ContractType(WorkflowRegistryContractName))
-	if err != nil {
-		return err
-	}
-	w.workflowRegistryVersion = version
-	return nil
-}
-
 func (w *workflowRegistry) newWorkflowRegistryContractReader(
 	ctx context.Context,
 ) (types.ContractReader, error) {
-	var contractReaderCfg evmtypes.ChainReaderConfig
-	switch w.workflowRegistryVersion.Major() {
-	case 1:
-		contractReaderCfg = evmtypes.ChainReaderConfig{
-			Contracts: map[string]evmtypes.ChainContractReader{
-				WorkflowRegistryContractName: {
-					ContractPollingFilter: evmtypes.ContractPollingFilter{
-						GenericEventNames: []string{
-							string(ForceUpdateSecretsEvent),
-							string(WorkflowActivatedEvent),
-							string(WorkflowDeletedEvent),
-							string(WorkflowPausedEvent),
-							string(WorkflowRegisteredEvent),
-							string(WorkflowUpdatedEvent),
-						},
+	contractReaderCfg := config.ChainReaderConfig{
+		Contracts: map[string]config.ChainContractReader{
+			WorkflowRegistryContractName: {
+				ContractPollingFilter: config.ContractPollingFilter{
+					GenericEventNames: []string{
+						string(ForceUpdateSecretsEvent),
+						string(WorkflowActivatedEvent),
+						string(WorkflowDeletedEvent),
+						string(WorkflowPausedEvent),
+						string(WorkflowRegisteredEvent),
+						string(WorkflowUpdatedEvent),
 					},
-					ContractABI: workflow_registry_wrapper.WorkflowRegistryABI,
-					Configs: map[string]*evmtypes.ChainReaderDefinition{
-						GetWorkflowMetadataListByDONMethodName: {
-							ChainSpecificName: GetWorkflowMetadataListByDONMethodName,
-						},
-						string(ForceUpdateSecretsEvent): {
-							ChainSpecificName: string(ForceUpdateSecretsEvent),
-							ReadType:          evmtypes.Event,
-						},
-						string(WorkflowActivatedEvent): {
-							ChainSpecificName: string(WorkflowActivatedEvent),
-							ReadType:          evmtypes.Event,
-						},
-						string(WorkflowDeletedEvent): {
-							ChainSpecificName: string(WorkflowDeletedEvent),
-							ReadType:          evmtypes.Event,
-						},
-						string(WorkflowPausedEvent): {
-							ChainSpecificName: string(WorkflowPausedEvent),
-							ReadType:          evmtypes.Event,
-						},
-						string(WorkflowRegisteredEvent): {
-							ChainSpecificName: string(WorkflowRegisteredEvent),
-							ReadType:          evmtypes.Event,
-						},
-						string(WorkflowUpdatedEvent): {
-							ChainSpecificName: string(WorkflowUpdatedEvent),
-							ReadType:          evmtypes.Event,
-						},
+				},
+				ContractABI: workflow_registry_wrapper.WorkflowRegistryABI,
+				Configs: map[string]*config.ChainReaderDefinition{
+					GetWorkflowMetadataListByDONMethodName: {
+						ChainSpecificName: GetWorkflowMetadataListByDONMethodName,
+					},
+					string(ForceUpdateSecretsEvent): {
+						ChainSpecificName: string(ForceUpdateSecretsEvent),
+						ReadType:          config.Event,
+					},
+					string(WorkflowActivatedEvent): {
+						ChainSpecificName: string(WorkflowActivatedEvent),
+						ReadType:          config.Event,
+					},
+					string(WorkflowDeletedEvent): {
+						ChainSpecificName: string(WorkflowDeletedEvent),
+						ReadType:          config.Event,
+					},
+					string(WorkflowPausedEvent): {
+						ChainSpecificName: string(WorkflowPausedEvent),
+						ReadType:          config.Event,
+					},
+					string(WorkflowRegisteredEvent): {
+						ChainSpecificName: string(WorkflowRegisteredEvent),
+						ReadType:          config.Event,
+					},
+					string(WorkflowUpdatedEvent): {
+						ChainSpecificName: string(WorkflowUpdatedEvent),
+						ReadType:          config.Event,
 					},
 				},
 			},
-		}
-	// case 2:
-	// TODO CAPPL-1000
-	default:
-		return nil, errors.New("unsupported version " + w.workflowRegistryVersion.String())
+		},
 	}
 
 	marshalledCfg, err := json.Marshal(contractReaderCfg)
@@ -936,13 +934,8 @@ type metrics struct {
 }
 
 func (m *metrics) recordHandleDuration(ctx context.Context, d time.Duration, event string, success bool) {
-	// Beholder doesn't support non-string attributes
-	successStr := "false"
-	if success {
-		successStr = "true"
-	}
 	m.handleDuration.Record(ctx, d.Milliseconds(), metric.WithAttributes(
-		attribute.String("success", successStr),
+		attribute.String("success", strconv.FormatBool(success)),
 		attribute.String("eventType", event),
 	))
 }

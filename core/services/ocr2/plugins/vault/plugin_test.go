@@ -2,11 +2,16 @@ package vault
 
 import (
 	"crypto/rand"
-	"encoding/base64"
+	"encoding/hex"
 	"testing"
 
+	"github.com/smartcontractkit/libocr/offchainreporting2plus/ocr3_1types"
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/ocr3types"
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/types"
+	"github.com/smartcontractkit/smdkg/dkgocr/dkgocrtypes"
+	"github.com/smartcontractkit/smdkg/dkgocr/tdh2shim"
+	"github.com/smartcontractkit/smdkg/dummydkg"
+	"github.com/smartcontractkit/tdh2/go/tdh2/tdh2"
 	"github.com/smartcontractkit/tdh2/go/tdh2/tdh2easy"
 	"go.uber.org/zap/zapcore"
 	"golang.org/x/crypto/nacl/box"
@@ -15,27 +20,266 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/actions/vault"
+	vaultcommon "github.com/smartcontractkit/chainlink-common/pkg/capabilities/actions/vault"
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/consensus/requests"
+	pkgconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
+	"github.com/smartcontractkit/chainlink-common/pkg/contexts"
+	"github.com/smartcontractkit/chainlink-common/pkg/settings"
+	"github.com/smartcontractkit/chainlink-common/pkg/settings/cresettings"
+	"github.com/smartcontractkit/chainlink-common/pkg/settings/limits"
+	vaultcap "github.com/smartcontractkit/chainlink/v2/core/capabilities/vault"
+	"github.com/smartcontractkit/chainlink/v2/core/capabilities/vault/vaulttypes"
+	"github.com/smartcontractkit/chainlink/v2/core/capabilities/vault/vaultutils"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
+	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/dkgrecipientkey"
 )
+
+func writeDKGPackage(t *testing.T, orm dkgocrtypes.ResultPackageDatabase, key dkgocrtypes.P256Keyring, instanceID string) dkgocrtypes.ResultPackage {
+	pkg, err := dummydkg.NewResultPackage(dkgocrtypes.InstanceID(instanceID), dkgocrtypes.ReportingPluginConfig{
+		DealerPublicKeys:    []dkgocrtypes.P256ParticipantPublicKey{key.PublicKey()},
+		RecipientPublicKeys: []dkgocrtypes.P256ParticipantPublicKey{key.PublicKey()},
+		T:                   1,
+	}, []dkgocrtypes.P256Keyring{key})
+	require.NoError(t, err)
+
+	pkgBin, err := pkg.MarshalBinary()
+	require.NoError(t, err)
+	require.NoError(t, orm.WriteResultPackage(t.Context(), dkgocrtypes.InstanceID(instanceID), dkgocrtypes.ResultPackageDatabaseValue{
+		ConfigDigest:            [32]byte{0x1, 0x2, 0x3, 0x4},
+		SeqNr:                   1,
+		ReportWithResultPackage: pkgBin,
+		Signatures: []types.AttributedOnchainSignature{
+			{
+				Signature: []byte{0x5, 0x6, 0x7, 0x8},
+				Signer:    1,
+			},
+		},
+	}))
+
+	return pkg
+}
+
+func assertLimit[N limits.Number](t *testing.T, expected int, limiter limits.BoundLimiter[N]) {
+	ctx := contexts.WithCRE(t.Context(), contexts.CRE{Owner: "foo"})
+	l, err := limiter.Limit(ctx)
+	require.NoError(t, err)
+
+	assert.Equal(t, expected, int(l))
+}
+
+func TestPlugin_ReportingPluginFactory_UsesDefaultsIfNotProvidedInOffchainConfig(t *testing.T) {
+	lggr := logger.TestLogger(t)
+	store := requests.NewStore[*vaulttypes.Request]()
+
+	_, orm := setupORM(t)
+	dkgrecipientKey, err := dkgrecipientkey.New()
+	require.NoError(t, err)
+	instanceID := "instanceID"
+	_ = writeDKGPackage(t, orm, dkgrecipientKey, instanceID)
+
+	lpk := vaultcap.NewLazyPublicKey()
+	rpf, err := NewReportingPluginFactory(lggr, store, orm, &dkgrecipientKey, lpk, limits.Factory{Settings: cresettings.DefaultGetter})
+	require.NoError(t, err)
+
+	cfg := vaultcommon.ReportingPluginConfig{
+		DKGInstanceID: &instanceID,
+	}
+	cfgb, err := proto.Marshal(&cfg)
+	require.NoError(t, err)
+	rp, info, err := rpf.NewReportingPlugin(t.Context(), ocr3types.ReportingPluginConfig{OffchainConfig: cfgb}, nil)
+	require.NoError(t, err)
+
+	typedRP := rp.(*ReportingPlugin)
+	assert.Equal(t, 20, typedRP.cfg.BatchSize.DefaultValue)
+	assert.NotNil(t, typedRP.cfg.PublicKey)
+	assert.NotNil(t, typedRP.cfg.PrivateKeyShare)
+	assertLimit(t, 100, typedRP.cfg.MaxSecretsPerOwner)
+	assertLimit(t, 2000, typedRP.cfg.MaxCiphertextLengthBytes)
+	assertLimit(t, 64, typedRP.cfg.MaxIdentifierOwnerLengthBytes)
+	assertLimit(t, 64, typedRP.cfg.MaxIdentifierNamespaceLengthBytes)
+	assertLimit(t, 64, typedRP.cfg.MaxIdentifierKeyLengthBytes)
+
+	infoObject, ok := info.(ocr3_1types.ReportingPluginInfo1)
+	assert.True(t, ok, "ReportingPluginInfo not of type ReportingPluginInfo1")
+	assert.Equal(t, "VaultReportingPlugin", infoObject.Name)
+	assert.Equal(t, 100, infoObject.Limits.MaxQueryBytes)
+	assert.Equal(t, 512000, infoObject.Limits.MaxObservationBytes)
+	assert.Equal(t, 512000, infoObject.Limits.MaxReportsPlusPrecursorBytes)
+	assert.Equal(t, 512000, infoObject.Limits.MaxReportBytes)
+	assert.Equal(t, 20, infoObject.Limits.MaxReportCount)
+	assert.Equal(t, 1024*1024, infoObject.Limits.MaxKeyValueModifiedKeysPlusValuesBytes)
+	assert.Equal(t, 1024*1024, infoObject.Limits.MaxBlobPayloadBytes)
+
+	cfg = vaultcommon.ReportingPluginConfig{
+		BatchSize:                                     2,
+		MaxSecretsPerOwner:                            2,
+		MaxCiphertextLengthBytes:                      2,
+		MaxIdentifierOwnerLengthBytes:                 2,
+		MaxIdentifierNamespaceLengthBytes:             2,
+		MaxIdentifierKeyLengthBytes:                   2,
+		LimitsMaxQueryLength:                          2,
+		LimitsMaxObservationLength:                    2,
+		LimitsMaxReportsPlusPrecursorLength:           2,
+		LimitsMaxReportLength:                         2,
+		LimitsMaxReportCount:                          2,
+		LimitsMaxKeyValueModifiedKeysPlusValuesLength: 2,
+		LimitsMaxBlobPayloadLength:                    2,
+		DKGInstanceID:                                 &instanceID,
+	}
+	cfgb, err = proto.Marshal(&cfg)
+	require.NoError(t, err)
+
+	rp, info, err = rpf.NewReportingPlugin(t.Context(), ocr3types.ReportingPluginConfig{OffchainConfig: cfgb}, nil)
+	require.NoError(t, err)
+
+	typedRP = rp.(*ReportingPlugin)
+	assert.Equal(t, 2, typedRP.cfg.BatchSize.DefaultValue)
+	assertLimit(t, 2, typedRP.cfg.MaxSecretsPerOwner)
+	assertLimit(t, 2, typedRP.cfg.MaxCiphertextLengthBytes)
+	assertLimit(t, 2, typedRP.cfg.MaxCiphertextLengthBytes)
+	assertLimit(t, 2, typedRP.cfg.MaxIdentifierOwnerLengthBytes)
+	assertLimit(t, 2, typedRP.cfg.MaxIdentifierNamespaceLengthBytes)
+	assertLimit(t, 2, typedRP.cfg.MaxIdentifierKeyLengthBytes)
+
+	infoObject, ok = info.(ocr3_1types.ReportingPluginInfo1)
+	assert.True(t, ok, "ReportingPluginInfo not of type ReportingPluginInfo1")
+	assert.Equal(t, "VaultReportingPlugin", infoObject.Name)
+	assert.Equal(t, 2, infoObject.Limits.MaxQueryBytes)
+	assert.Equal(t, 2, infoObject.Limits.MaxObservationBytes)
+	assert.Equal(t, 2, infoObject.Limits.MaxReportsPlusPrecursorBytes)
+	assert.Equal(t, 2, infoObject.Limits.MaxReportBytes)
+	assert.Equal(t, 2, infoObject.Limits.MaxReportCount)
+	assert.Equal(t, 2, infoObject.Limits.MaxKeyValueModifiedKeysPlusValuesBytes)
+	assert.Equal(t, 2, infoObject.Limits.MaxBlobPayloadBytes)
+}
+
+func TestPlugin_ReportingPluginFactory_UseDKGResult(t *testing.T) {
+	lggr := logger.TestLogger(t)
+	store := requests.NewStore[*vaulttypes.Request]()
+
+	// Simulate DKG for a single recipient.
+	_, orm := setupORM(t)
+	dkgrecipientKey, err := dkgrecipientkey.New()
+	require.NoError(t, err)
+
+	instanceID := "instanceID"
+	pkg := writeDKGPackage(t, orm, dkgrecipientKey, "instanceID")
+
+	expectedTDH2MasterPublicKey, err := tdh2shim.TDH2PublicKeyFromDKGResult(pkg)
+	require.NoError(t, err)
+	expectedKeyShare, err := tdh2shim.TDH2PrivateShareFromDKGResult(pkg, dkgrecipientKey)
+	require.NoError(t, err)
+
+	lpk := vaultcap.NewLazyPublicKey()
+	rpf, err := NewReportingPluginFactory(lggr, store, orm, &dkgrecipientKey, lpk, limits.Factory{Settings: cresettings.DefaultGetter})
+	require.NoError(t, err)
+
+	instanceIDString := string(instanceID)
+	rpCfg := vaultcommon.ReportingPluginConfig{
+		DKGInstanceID: &instanceIDString,
+	}
+	cfgBytes, err := proto.Marshal(&rpCfg)
+	require.NoError(t, err)
+	rp, info, err := rpf.NewReportingPlugin(t.Context(), ocr3types.ReportingPluginConfig{OffchainConfig: cfgBytes}, nil)
+	require.NoError(t, err)
+
+	typedRP := rp.(*ReportingPlugin)
+	assert.Equal(t, 20, typedRP.cfg.BatchSize.DefaultValue)
+
+	pkBytes, err := typedRP.cfg.PublicKey.Marshal()
+	require.NoError(t, err)
+	pk := &tdh2.PublicKey{}
+	err = pk.Unmarshal(pkBytes)
+	require.NoError(t, err)
+	assert.True(t, pk.Equal(expectedTDH2MasterPublicKey))
+
+	ksBytes, err := typedRP.cfg.PrivateKeyShare.Marshal()
+	require.NoError(t, err)
+	ks := &tdh2.PrivateShare{}
+	err = ks.Unmarshal(ksBytes)
+	require.NoError(t, err)
+	assert.Equal(t, expectedKeyShare, ks)
+
+	infoObject, ok := info.(ocr3_1types.ReportingPluginInfo1)
+	assert.True(t, ok, "ReportingPluginInfo not of type ReportingPluginInfo1")
+	assert.Equal(t, "VaultReportingPlugin", infoObject.Name)
+
+	key, err := lpk.Get().Marshal()
+	require.NoError(t, err)
+	assert.Equal(t, pkBytes, key)
+}
+
+func TestPlugin_ReportingPluginFactory_InvalidParams(t *testing.T) {
+	lggr := logger.TestLogger(t)
+	store := requests.NewStore[*vaulttypes.Request]()
+
+	lpk := vaultcap.NewLazyPublicKey()
+
+	_, orm := setupORM(t)
+	_, err := NewReportingPluginFactory(lggr, store, orm, nil, lpk, limits.Factory{Settings: cresettings.DefaultGetter})
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "DKG recipient key cannot be nil when using result package db")
+
+	_, err = NewReportingPluginFactory(lggr, store, nil, nil, lpk, limits.Factory{Settings: cresettings.DefaultGetter})
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "result package db cannot be nil")
+}
+
+func makeReportingPluginConfig(
+	t *testing.T,
+	batchSize int,
+	publicKey *tdh2easy.PublicKey,
+	privateKeyShare *tdh2easy.PrivateShare,
+	maxSecretsPerOwner int,
+	maxCipherTextLengthBytes int,
+	maxIdentifierOwnerLengthBytes int,
+	maxIdentifierNamespaceOwnerLengthBytes int,
+	maxIdentifierKeyLengthBytes int,
+) *ReportingPluginConfig {
+	msl, err := limits.MakeBoundLimiter(limits.Factory{Settings: cresettings.DefaultGetter}, settings.Int(maxSecretsPerOwner))
+	require.NoError(t, err)
+
+	cipherTextLimiter, err := limits.MakeBoundLimiter(limits.Factory{Settings: cresettings.DefaultGetter}, settings.Size(pkgconfig.Size(maxCipherTextLengthBytes)*pkgconfig.Byte))
+	require.NoError(t, err)
+
+	ownerLimiter, err := limits.MakeBoundLimiter(limits.Factory{Settings: cresettings.DefaultGetter}, settings.Size(pkgconfig.Size(maxIdentifierOwnerLengthBytes)*pkgconfig.Byte))
+	require.NoError(t, err)
+
+	namespaceOwnerLimiter, err := limits.MakeBoundLimiter(limits.Factory{Settings: cresettings.DefaultGetter}, settings.Size(pkgconfig.Size(maxIdentifierNamespaceOwnerLengthBytes)*pkgconfig.Byte))
+	require.NoError(t, err)
+
+	keyLimiter, err := limits.MakeBoundLimiter(limits.Factory{Settings: cresettings.DefaultGetter}, settings.Size(pkgconfig.Size(maxIdentifierKeyLengthBytes)*pkgconfig.Byte))
+	require.NoError(t, err)
+
+	return &ReportingPluginConfig{
+		BatchSize:                         settings.Int(batchSize),
+		PublicKey:                         publicKey,
+		PrivateKeyShare:                   privateKeyShare,
+		MaxSecretsPerOwner:                msl,
+		MaxCiphertextLengthBytes:          cipherTextLimiter,
+		MaxIdentifierOwnerLengthBytes:     ownerLimiter,
+		MaxIdentifierNamespaceLengthBytes: namespaceOwnerLimiter,
+		MaxIdentifierKeyLengthBytes:       keyLimiter,
+	}
+}
 
 func TestPlugin_Observation_NothingInBatch(t *testing.T) {
 	lggr := logger.TestLogger(t)
-	store := requests.NewStore[*Request]()
+	store := requests.NewStore[*vaulttypes.Request]()
 	r := &ReportingPlugin{
 		lggr:  lggr,
 		store: store,
-		cfg: &ReportingPluginConfig{
-			BatchSize:                      10,
-			PublicKey:                      nil,
-			PrivateKeyShare:                nil,
-			MaxSecretsPerOwner:             1,
-			MaxCiphertextLenBytes:          1024,
-			MaxIdentifierOwnerLenBytes:     100,
-			MaxIdentifierNamespaceLenBytes: 100,
-			MaxIdentifierKeyLenBytes:       100,
-		},
+		cfg: makeReportingPluginConfig(
+			t,
+			10,
+			nil,
+			nil,
+			1,
+			1024,
+			100,
+			100,
+			100,
+		),
 	}
 
 	seqNr := uint64(1)
@@ -45,7 +289,7 @@ func TestPlugin_Observation_NothingInBatch(t *testing.T) {
 	data, err := r.Observation(t.Context(), seqNr, types.AttributedQuery{}, rdr, nil)
 	require.NoError(t, err)
 
-	obs := &vault.Observations{}
+	obs := &vaultcommon.Observations{}
 	err = proto.Unmarshal(data, obs)
 	require.NoError(t, err)
 
@@ -55,7 +299,7 @@ func TestPlugin_Observation_NothingInBatch(t *testing.T) {
 func TestPlugin_Observation_GetSecretsRequest_SecretIdentifierInvalid(t *testing.T) {
 	tcs := []struct {
 		name     string
-		id       *vault.SecretIdentifier
+		id       *vaultcommon.SecretIdentifier
 		maxIDLen int
 		err      string
 	}{
@@ -66,12 +310,12 @@ func TestPlugin_Observation_GetSecretsRequest_SecretIdentifierInvalid(t *testing
 		},
 		{
 			name: "empty id",
-			id:   &vault.SecretIdentifier{},
+			id:   &vaultcommon.SecretIdentifier{},
 			err:  "invalid secret identifier: key cannot be empty",
 		},
 		{
 			name: "empty id",
-			id: &vault.SecretIdentifier{
+			id: &vaultcommon.SecretIdentifier{
 				Key:       "hello",
 				Namespace: "world",
 			},
@@ -80,7 +324,7 @@ func TestPlugin_Observation_GetSecretsRequest_SecretIdentifierInvalid(t *testing
 		{
 			name:     "id is too long",
 			maxIDLen: 10,
-			id: &vault.SecretIdentifier{
+			id: &vaultcommon.SecretIdentifier{
 				Owner:     "owner",
 				Key:       "hello",
 				Namespace: "world",
@@ -91,7 +335,7 @@ func TestPlugin_Observation_GetSecretsRequest_SecretIdentifierInvalid(t *testing
 
 	for _, tc := range tcs {
 		lggr := logger.TestLogger(t)
-		store := requests.NewStore[*Request]()
+		store := requests.NewStore[*vaulttypes.Request]()
 		maxIDLen := 256
 		if tc.maxIDLen > 0 {
 			maxIDLen = tc.maxIDLen
@@ -99,43 +343,43 @@ func TestPlugin_Observation_GetSecretsRequest_SecretIdentifierInvalid(t *testing
 		r := &ReportingPlugin{
 			lggr:  lggr,
 			store: store,
-			cfg: &ReportingPluginConfig{
-				BatchSize:                      10,
-				PublicKey:                      nil,
-				PrivateKeyShare:                nil,
-				MaxSecretsPerOwner:             1,
-				MaxCiphertextLenBytes:          1024,
-				MaxIdentifierOwnerLenBytes:     maxIDLen / 3,
-				MaxIdentifierNamespaceLenBytes: maxIDLen / 3,
-				MaxIdentifierKeyLenBytes:       maxIDLen / 3,
-			},
+			cfg: makeReportingPluginConfig(
+				t,
+				10,
+				nil,
+				nil,
+				1,
+				maxIDLen/3,
+				maxIDLen/3,
+				maxIDLen/3,
+				maxIDLen/3,
+			),
 		}
-
 		seqNr := uint64(1)
 		rdr := &kv{
 			m: make(map[string]response),
 		}
-		p := &vault.GetSecretsRequest{
-			Requests: []*vault.SecretRequest{
+		p := &vaultcommon.GetSecretsRequest{
+			Requests: []*vaultcommon.SecretRequest{
 				{
 					Id:             tc.id,
 					EncryptionKeys: []string{"foo"},
 				},
 			},
 		}
-		err := store.Add(&Request{Payload: p})
+		err := store.Add(&vaulttypes.Request{Payload: p})
 		require.NoError(t, err)
 		data, err := r.Observation(t.Context(), seqNr, types.AttributedQuery{}, rdr, nil)
 		require.NoError(t, err)
 
-		obs := &vault.Observations{}
+		obs := &vaultcommon.Observations{}
 		err = proto.Unmarshal(data, obs)
 		require.NoError(t, err)
 
 		assert.Len(t, obs.Observations, 1)
 		o := obs.Observations[0]
 
-		assert.Equal(t, vault.RequestType_GET_SECRETS, o.RequestType)
+		assert.Equal(t, vaultcommon.RequestType_GET_SECRETS, o.RequestType)
 		assert.True(t, proto.Equal(o.GetGetSecretsRequest(), p))
 
 		batchResp := o.GetGetSecretsResponse()
@@ -150,25 +394,25 @@ func TestPlugin_Observation_GetSecretsRequest_SecretIdentifierInvalid(t *testing
 
 func TestPlugin_Observation_GetSecretsRequest_FillsInNamespace(t *testing.T) {
 	lggr, _ := logger.TestLoggerObserved(t, zapcore.DebugLevel)
-	store := requests.NewStore[*Request]()
+	store := requests.NewStore[*vaulttypes.Request]()
 	_, pk, shares, err := tdh2easy.GenerateKeys(1, 3)
 	require.NoError(t, err)
 	r := &ReportingPlugin{
 		lggr:  lggr,
 		store: store,
-		cfg: &ReportingPluginConfig{
-			BatchSize:                      10,
-			PublicKey:                      pk,
-			PrivateKeyShare:                shares[0],
-			MaxSecretsPerOwner:             1,
-			MaxCiphertextLenBytes:          1024,
-			MaxIdentifierOwnerLenBytes:     100,
-			MaxIdentifierNamespaceLenBytes: 100,
-			MaxIdentifierKeyLenBytes:       100,
-		},
+		cfg: makeReportingPluginConfig(
+			t,
+			10,
+			pk,
+			shares[0],
+			1,
+			1024,
+			100,
+			100,
+			100,
+		),
 	}
-
-	id := &vault.SecretIdentifier{
+	id := &vaultcommon.SecretIdentifier{
 		Owner:     "owner",
 		Namespace: "",
 		Key:       "my_secret",
@@ -183,12 +427,12 @@ func TestPlugin_Observation_GetSecretsRequest_FillsInNamespace(t *testing.T) {
 	ciphertextBytes, err := ciphertext.Marshal()
 	require.NoError(t, err)
 
-	createdID := &vault.SecretIdentifier{
+	createdID := &vaultcommon.SecretIdentifier{
 		Owner:     "owner",
 		Namespace: "main",
 		Key:       "my_secret",
 	}
-	err = NewWriteStore(rdr).WriteSecret(createdID, &vault.StoredSecret{
+	err = NewWriteStore(rdr).WriteSecret(createdID, &vaultcommon.StoredSecret{
 		EncryptedSecret: ciphertextBytes,
 	})
 	require.NoError(t, err)
@@ -196,30 +440,30 @@ func TestPlugin_Observation_GetSecretsRequest_FillsInNamespace(t *testing.T) {
 	pubK, _, err := box.GenerateKey(rand.Reader)
 	require.NoError(t, err)
 
-	pks := base64.StdEncoding.EncodeToString(pubK[:])
+	pks := hex.EncodeToString(pubK[:])
 
-	p := &vault.GetSecretsRequest{
-		Requests: []*vault.SecretRequest{
+	p := &vaultcommon.GetSecretsRequest{
+		Requests: []*vaultcommon.SecretRequest{
 			{
 				Id:             id,
 				EncryptionKeys: []string{pks},
 			},
 		},
 	}
-	err = store.Add(&Request{Payload: p})
+	err = store.Add(&vaulttypes.Request{Payload: p})
 	require.NoError(t, err)
 	seqNr := uint64(1)
 	data, err := r.Observation(t.Context(), seqNr, types.AttributedQuery{}, rdr, nil)
 	require.NoError(t, err)
 
-	obs := &vault.Observations{}
+	obs := &vaultcommon.Observations{}
 	err = proto.Unmarshal(data, obs)
 	require.NoError(t, err)
 
 	assert.Len(t, obs.Observations, 1)
 	o := obs.Observations[0]
 
-	assert.Equal(t, vault.RequestType_GET_SECRETS, o.RequestType)
+	assert.Equal(t, vaultcommon.RequestType_GET_SECRETS, o.RequestType)
 	assert.True(t, proto.Equal(o.GetGetSecretsRequest(), p))
 
 	batchResp := o.GetGetSecretsResponse()
@@ -231,52 +475,53 @@ func TestPlugin_Observation_GetSecretsRequest_FillsInNamespace(t *testing.T) {
 
 func TestPlugin_Observation_GetSecretsRequest_SecretDoesNotExist(t *testing.T) {
 	lggr := logger.TestLogger(t)
-	store := requests.NewStore[*Request]()
+	store := requests.NewStore[*vaulttypes.Request]()
 	r := &ReportingPlugin{
 		lggr:  lggr,
 		store: store,
-		cfg: &ReportingPluginConfig{
-			BatchSize:                      10,
-			PublicKey:                      nil,
-			PrivateKeyShare:                nil,
-			MaxSecretsPerOwner:             1,
-			MaxCiphertextLenBytes:          1024,
-			MaxIdentifierOwnerLenBytes:     100,
-			MaxIdentifierNamespaceLenBytes: 100,
-			MaxIdentifierKeyLenBytes:       100,
-		},
+		cfg: makeReportingPluginConfig(
+			t,
+			10,
+			nil,
+			nil,
+			1,
+			1024,
+			100,
+			100,
+			100,
+		),
 	}
 
 	seqNr := uint64(1)
 	rdr := &kv{
 		m: make(map[string]response),
 	}
-	id := &vault.SecretIdentifier{
+	id := &vaultcommon.SecretIdentifier{
 		Owner:     "owner",
 		Namespace: "main",
 		Key:       "my_secret",
 	}
-	p := &vault.GetSecretsRequest{
-		Requests: []*vault.SecretRequest{
+	p := &vaultcommon.GetSecretsRequest{
+		Requests: []*vaultcommon.SecretRequest{
 			{
 				Id:             id,
 				EncryptionKeys: []string{"foo"},
 			},
 		},
 	}
-	err := store.Add(&Request{Payload: p})
+	err := store.Add(&vaulttypes.Request{Payload: p})
 	require.NoError(t, err)
 	data, err := r.Observation(t.Context(), seqNr, types.AttributedQuery{}, rdr, nil)
 	require.NoError(t, err)
 
-	obs := &vault.Observations{}
+	obs := &vaultcommon.Observations{}
 	err = proto.Unmarshal(data, obs)
 	require.NoError(t, err)
 
 	assert.Len(t, obs.Observations, 1)
 	o := obs.Observations[0]
 
-	assert.Equal(t, vault.RequestType_GET_SECRETS, o.RequestType)
+	assert.Equal(t, vaultcommon.RequestType_GET_SECRETS, o.RequestType)
 	assert.True(t, proto.Equal(o.GetGetSecretsRequest(), p))
 
 	batchResp := o.GetGetSecretsResponse()
@@ -290,25 +535,26 @@ func TestPlugin_Observation_GetSecretsRequest_SecretDoesNotExist(t *testing.T) {
 
 func TestPlugin_Observation_GetSecretsRequest_SecretExistsButIsIncorrect(t *testing.T) {
 	lggr, observed := logger.TestLoggerObserved(t, zapcore.DebugLevel)
-	store := requests.NewStore[*Request]()
+	store := requests.NewStore[*vaulttypes.Request]()
 	_, pk, shares, err := tdh2easy.GenerateKeys(1, 3)
 	require.NoError(t, err)
 	r := &ReportingPlugin{
 		lggr:  lggr,
 		store: store,
-		cfg: &ReportingPluginConfig{
-			BatchSize:                      10,
-			PublicKey:                      pk,
-			PrivateKeyShare:                shares[0],
-			MaxSecretsPerOwner:             1,
-			MaxCiphertextLenBytes:          1024,
-			MaxIdentifierOwnerLenBytes:     100,
-			MaxIdentifierNamespaceLenBytes: 100,
-			MaxIdentifierKeyLenBytes:       100,
-		},
+		cfg: makeReportingPluginConfig(
+			t,
+			10,
+			pk,
+			shares[0],
+			1,
+			1024,
+			100,
+			100,
+			100,
+		),
 	}
 
-	id := &vault.SecretIdentifier{
+	id := &vaultcommon.SecretIdentifier{
 		Owner:     "owner",
 		Namespace: "main",
 		Key:       "my_secret",
@@ -317,33 +563,33 @@ func TestPlugin_Observation_GetSecretsRequest_SecretExistsButIsIncorrect(t *test
 		m: make(map[string]response),
 	}
 
-	err = NewWriteStore(rdr).WriteSecret(id, &vault.StoredSecret{
+	err = NewWriteStore(rdr).WriteSecret(id, &vaultcommon.StoredSecret{
 		EncryptedSecret: []byte("invalid-ciphertext"),
 	})
 	require.NoError(t, err)
 
-	p := &vault.GetSecretsRequest{
-		Requests: []*vault.SecretRequest{
+	p := &vaultcommon.GetSecretsRequest{
+		Requests: []*vaultcommon.SecretRequest{
 			{
 				Id:             id,
 				EncryptionKeys: []string{"foo"},
 			},
 		},
 	}
-	err = store.Add(&Request{Payload: p})
+	err = store.Add(&vaulttypes.Request{Payload: p})
 	require.NoError(t, err)
 	seqNr := uint64(1)
 	data, err := r.Observation(t.Context(), seqNr, types.AttributedQuery{}, rdr, nil)
 	require.NoError(t, err)
 
-	obs := &vault.Observations{}
+	obs := &vaultcommon.Observations{}
 	err = proto.Unmarshal(data, obs)
 	require.NoError(t, err)
 
 	assert.Len(t, obs.Observations, 1)
 	o := obs.Observations[0]
 
-	assert.Equal(t, vault.RequestType_GET_SECRETS, o.RequestType)
+	assert.Equal(t, vaultcommon.RequestType_GET_SECRETS, o.RequestType)
 	assert.True(t, proto.Equal(o.GetGetSecretsRequest(), p))
 
 	batchResp := o.GetGetSecretsResponse()
@@ -357,7 +603,7 @@ func TestPlugin_Observation_GetSecretsRequest_SecretExistsButIsIncorrect(t *test
 	assert.Contains(t, resp.GetError(), "failed to handle get secret request")
 
 	// Inspect logs to get true source of error
-	logs := observed.FilterMessage("failed to handle get secret request")
+	logs := observed.FilterMessage("failed to observe get secret request item")
 	assert.Equal(t, 1, logs.Len())
 	fields := logs.All()[0].ContextMap()
 	errString := fields["error"]
@@ -366,25 +612,26 @@ func TestPlugin_Observation_GetSecretsRequest_SecretExistsButIsIncorrect(t *test
 
 func TestPlugin_Observation_GetSecretsRequest_PublicKeyIsInvalid(t *testing.T) {
 	lggr, _ := logger.TestLoggerObserved(t, zapcore.DebugLevel)
-	store := requests.NewStore[*Request]()
+	store := requests.NewStore[*vaulttypes.Request]()
 	_, pk, shares, err := tdh2easy.GenerateKeys(1, 3)
 	require.NoError(t, err)
 	r := &ReportingPlugin{
 		lggr:  lggr,
 		store: store,
-		cfg: &ReportingPluginConfig{
-			BatchSize:                      10,
-			PublicKey:                      pk,
-			PrivateKeyShare:                shares[0],
-			MaxSecretsPerOwner:             1,
-			MaxCiphertextLenBytes:          1024,
-			MaxIdentifierOwnerLenBytes:     100,
-			MaxIdentifierNamespaceLenBytes: 100,
-			MaxIdentifierKeyLenBytes:       100,
-		},
+		cfg: makeReportingPluginConfig(
+			t,
+			10,
+			pk,
+			shares[0],
+			1,
+			1024,
+			100,
+			100,
+			100,
+		),
 	}
 
-	id := &vault.SecretIdentifier{
+	id := &vaultcommon.SecretIdentifier{
 		Owner:     "owner",
 		Namespace: "main",
 		Key:       "my_secret",
@@ -399,33 +646,33 @@ func TestPlugin_Observation_GetSecretsRequest_PublicKeyIsInvalid(t *testing.T) {
 	ciphertextBytes, err := ciphertext.Marshal()
 	require.NoError(t, err)
 
-	err = NewWriteStore(rdr).WriteSecret(id, &vault.StoredSecret{
+	err = NewWriteStore(rdr).WriteSecret(id, &vaultcommon.StoredSecret{
 		EncryptedSecret: ciphertextBytes,
 	})
 	require.NoError(t, err)
 
-	p := &vault.GetSecretsRequest{
-		Requests: []*vault.SecretRequest{
+	p := &vaultcommon.GetSecretsRequest{
+		Requests: []*vaultcommon.SecretRequest{
 			{
 				Id:             id,
 				EncryptionKeys: []string{"foo"},
 			},
 		},
 	}
-	err = store.Add(&Request{Payload: p})
+	err = store.Add(&vaulttypes.Request{Payload: p})
 	require.NoError(t, err)
 	seqNr := uint64(1)
 	data, err := r.Observation(t.Context(), seqNr, types.AttributedQuery{}, rdr, nil)
 	require.NoError(t, err)
 
-	obs := &vault.Observations{}
+	obs := &vaultcommon.Observations{}
 	err = proto.Unmarshal(data, obs)
 	require.NoError(t, err)
 
 	assert.Len(t, obs.Observations, 1)
 	o := obs.Observations[0]
 
-	assert.Equal(t, vault.RequestType_GET_SECRETS, o.RequestType)
+	assert.Equal(t, vaultcommon.RequestType_GET_SECRETS, o.RequestType)
 	assert.True(t, proto.Equal(o.GetGetSecretsRequest(), p))
 
 	batchResp := o.GetGetSecretsResponse()
@@ -440,25 +687,26 @@ func TestPlugin_Observation_GetSecretsRequest_PublicKeyIsInvalid(t *testing.T) {
 
 func TestPlugin_Observation_GetSecretsRequest_Success(t *testing.T) {
 	lggr, _ := logger.TestLoggerObserved(t, zapcore.DebugLevel)
-	store := requests.NewStore[*Request]()
+	store := requests.NewStore[*vaulttypes.Request]()
 	_, pk, shares, err := tdh2easy.GenerateKeys(1, 3)
 	require.NoError(t, err)
 	r := &ReportingPlugin{
 		lggr:  lggr,
 		store: store,
-		cfg: &ReportingPluginConfig{
-			BatchSize:                      10,
-			PublicKey:                      pk,
-			PrivateKeyShare:                shares[0],
-			MaxSecretsPerOwner:             1,
-			MaxCiphertextLenBytes:          1024,
-			MaxIdentifierOwnerLenBytes:     100,
-			MaxIdentifierNamespaceLenBytes: 100,
-			MaxIdentifierKeyLenBytes:       100,
-		},
+		cfg: makeReportingPluginConfig(
+			t,
+			10,
+			pk,
+			shares[0],
+			1,
+			1024,
+			100,
+			100,
+			100,
+		),
 	}
 
-	id := &vault.SecretIdentifier{
+	id := &vaultcommon.SecretIdentifier{
 		Owner:     "owner",
 		Namespace: "main",
 		Key:       "my_secret",
@@ -473,7 +721,7 @@ func TestPlugin_Observation_GetSecretsRequest_Success(t *testing.T) {
 	ciphertextBytes, err := ciphertext.Marshal()
 	require.NoError(t, err)
 
-	err = NewWriteStore(rdr).WriteSecret(id, &vault.StoredSecret{
+	err = NewWriteStore(rdr).WriteSecret(id, &vaultcommon.StoredSecret{
 		EncryptedSecret: ciphertextBytes,
 	})
 	require.NoError(t, err)
@@ -481,30 +729,30 @@ func TestPlugin_Observation_GetSecretsRequest_Success(t *testing.T) {
 	pubK, privK, err := box.GenerateKey(rand.Reader)
 	require.NoError(t, err)
 
-	pks := base64.StdEncoding.EncodeToString(pubK[:])
+	pks := hex.EncodeToString(pubK[:])
 
-	p := &vault.GetSecretsRequest{
-		Requests: []*vault.SecretRequest{
+	p := &vaultcommon.GetSecretsRequest{
+		Requests: []*vaultcommon.SecretRequest{
 			{
 				Id:             id,
 				EncryptionKeys: []string{pks},
 			},
 		},
 	}
-	err = store.Add(&Request{Payload: p})
+	err = store.Add(&vaulttypes.Request{Payload: p})
 	require.NoError(t, err)
 	seqNr := uint64(1)
 	data, err := r.Observation(t.Context(), seqNr, types.AttributedQuery{}, rdr, nil)
 	require.NoError(t, err)
 
-	obs := &vault.Observations{}
+	obs := &vaultcommon.Observations{}
 	err = proto.Unmarshal(data, obs)
 	require.NoError(t, err)
 
 	assert.Len(t, obs.Observations, 1)
 	o := obs.Observations[0]
 
-	assert.Equal(t, vault.RequestType_GET_SECRETS, o.RequestType)
+	assert.Equal(t, vaultcommon.RequestType_GET_SECRETS, o.RequestType)
 	assert.True(t, proto.Equal(o.GetGetSecretsRequest(), p))
 
 	batchResp := o.GetGetSecretsResponse()
@@ -516,12 +764,12 @@ func TestPlugin_Observation_GetSecretsRequest_Success(t *testing.T) {
 
 	assert.Empty(t, resp.GetError())
 
-	assert.Equal(t, base64.StdEncoding.EncodeToString(ciphertextBytes), resp.GetData().EncryptedValue)
+	assert.Equal(t, hex.EncodeToString(ciphertextBytes), resp.GetData().EncryptedValue)
 
 	assert.Len(t, resp.GetData().EncryptedDecryptionKeyShares, 1)
 	shareString := resp.GetData().EncryptedDecryptionKeyShares[0].Shares[0]
 
-	share, err := base64.StdEncoding.DecodeString(shareString)
+	share, err := hex.DecodeString(shareString)
 	require.NoError(t, err)
 	msg, ok := box.OpenAnonymous(nil, share, pubK, privK)
 	assert.True(t, ok)
@@ -531,7 +779,7 @@ func TestPlugin_Observation_GetSecretsRequest_Success(t *testing.T) {
 	require.NoError(t, err)
 
 	ct := &tdh2easy.Ciphertext{}
-	ctb, err := base64.StdEncoding.DecodeString(resp.GetData().EncryptedValue)
+	ctb, err := hex.DecodeString(resp.GetData().EncryptedValue)
 	require.NoError(t, err)
 	err = ct.UnmarshalVerify(ctb, pk)
 	require.NoError(t, err)
@@ -545,7 +793,7 @@ func TestPlugin_Observation_GetSecretsRequest_Success(t *testing.T) {
 func TestPlugin_Observation_CreateSecretsRequest_SecretIdentifierInvalid(t *testing.T) {
 	tcs := []struct {
 		name     string
-		id       *vault.SecretIdentifier
+		id       *vaultcommon.SecretIdentifier
 		maxIDLen int
 		err      string
 	}{
@@ -556,12 +804,12 @@ func TestPlugin_Observation_CreateSecretsRequest_SecretIdentifierInvalid(t *test
 		},
 		{
 			name: "empty id",
-			id:   &vault.SecretIdentifier{},
+			id:   &vaultcommon.SecretIdentifier{},
 			err:  "invalid secret identifier: key cannot be empty",
 		},
 		{
 			name: "empty id",
-			id: &vault.SecretIdentifier{
+			id: &vaultcommon.SecretIdentifier{
 				Key:       "hello",
 				Namespace: "world",
 			},
@@ -570,7 +818,7 @@ func TestPlugin_Observation_CreateSecretsRequest_SecretIdentifierInvalid(t *test
 		{
 			name:     "id is too long",
 			maxIDLen: 10,
-			id: &vault.SecretIdentifier{
+			id: &vaultcommon.SecretIdentifier{
 				Owner:     "owner",
 				Key:       "hello",
 				Namespace: "world",
@@ -581,7 +829,7 @@ func TestPlugin_Observation_CreateSecretsRequest_SecretIdentifierInvalid(t *test
 
 	for _, tc := range tcs {
 		lggr := logger.TestLogger(t)
-		store := requests.NewStore[*Request]()
+		store := requests.NewStore[*vaulttypes.Request]()
 		maxIDLen := 256
 		if tc.maxIDLen > 0 {
 			maxIDLen = tc.maxIDLen
@@ -589,43 +837,44 @@ func TestPlugin_Observation_CreateSecretsRequest_SecretIdentifierInvalid(t *test
 		r := &ReportingPlugin{
 			lggr:  lggr,
 			store: store,
-			cfg: &ReportingPluginConfig{
-				BatchSize:                      10,
-				PublicKey:                      nil,
-				PrivateKeyShare:                nil,
-				MaxSecretsPerOwner:             1,
-				MaxCiphertextLenBytes:          1024,
-				MaxIdentifierOwnerLenBytes:     maxIDLen / 3,
-				MaxIdentifierNamespaceLenBytes: maxIDLen / 3,
-				MaxIdentifierKeyLenBytes:       maxIDLen / 3,
-			},
+			cfg: makeReportingPluginConfig(
+				t,
+				10,
+				nil,
+				nil,
+				1,
+				1024,
+				maxIDLen/3,
+				maxIDLen/3,
+				maxIDLen/3,
+			),
 		}
 
 		seqNr := uint64(1)
 		rdr := &kv{
 			m: make(map[string]response),
 		}
-		p := &vault.CreateSecretsRequest{
-			EncryptedSecrets: []*vault.EncryptedSecret{
+		p := &vaultcommon.CreateSecretsRequest{
+			EncryptedSecrets: []*vaultcommon.EncryptedSecret{
 				{
 					Id:             tc.id,
 					EncryptedValue: "foo",
 				},
 			},
 		}
-		err := store.Add(&Request{Payload: p})
+		err := store.Add(&vaulttypes.Request{Payload: p})
 		require.NoError(t, err)
 		data, err := r.Observation(t.Context(), seqNr, types.AttributedQuery{}, rdr, nil)
 		require.NoError(t, err)
 
-		obs := &vault.Observations{}
+		obs := &vaultcommon.Observations{}
 		err = proto.Unmarshal(data, obs)
 		require.NoError(t, err)
 
 		assert.Len(t, obs.Observations, 1)
 		o := obs.Observations[0]
 
-		assert.Equal(t, vault.RequestType_CREATE_SECRETS, o.RequestType)
+		assert.Equal(t, vaultcommon.RequestType_CREATE_SECRETS, o.RequestType)
 		assert.True(t, proto.Equal(o.GetCreateSecretsRequest(), p))
 
 		batchResp := o.GetCreateSecretsResponse()
@@ -640,33 +889,34 @@ func TestPlugin_Observation_CreateSecretsRequest_SecretIdentifierInvalid(t *test
 
 func TestPlugin_Observation_CreateSecretsRequest_DisallowsDuplicateRequests(t *testing.T) {
 	lggr := logger.TestLogger(t)
-	store := requests.NewStore[*Request]()
+	store := requests.NewStore[*vaulttypes.Request]()
 	r := &ReportingPlugin{
 		lggr:  lggr,
 		store: store,
-		cfg: &ReportingPluginConfig{
-			BatchSize:                      10,
-			PublicKey:                      nil,
-			PrivateKeyShare:                nil,
-			MaxSecretsPerOwner:             1,
-			MaxCiphertextLenBytes:          1024,
-			MaxIdentifierOwnerLenBytes:     30,
-			MaxIdentifierNamespaceLenBytes: 30,
-			MaxIdentifierKeyLenBytes:       30,
-		},
+		cfg: makeReportingPluginConfig(
+			t,
+			10,
+			nil,
+			nil,
+			1,
+			1024,
+			30,
+			30,
+			30,
+		),
 	}
 
 	seqNr := uint64(1)
 	rdr := &kv{
 		m: make(map[string]response),
 	}
-	id := &vault.SecretIdentifier{
+	id := &vaultcommon.SecretIdentifier{
 		Owner:     "owner",
 		Namespace: "main",
 		Key:       "my_secret",
 	}
-	p := &vault.CreateSecretsRequest{
-		EncryptedSecrets: []*vault.EncryptedSecret{
+	p := &vaultcommon.CreateSecretsRequest{
+		EncryptedSecrets: []*vaultcommon.EncryptedSecret{
 			{
 				Id:             id,
 				EncryptedValue: "foo",
@@ -677,19 +927,19 @@ func TestPlugin_Observation_CreateSecretsRequest_DisallowsDuplicateRequests(t *t
 			},
 		},
 	}
-	err := store.Add(&Request{Payload: p})
+	err := store.Add(&vaulttypes.Request{Payload: p})
 	require.NoError(t, err)
 	data, err := r.Observation(t.Context(), seqNr, types.AttributedQuery{}, rdr, nil)
 	require.NoError(t, err)
 
-	obs := &vault.Observations{}
+	obs := &vaultcommon.Observations{}
 	err = proto.Unmarshal(data, obs)
 	require.NoError(t, err)
 
 	assert.Len(t, obs.Observations, 1)
 	o := obs.Observations[0]
 
-	assert.Equal(t, vault.RequestType_CREATE_SECRETS, o.RequestType)
+	assert.Equal(t, vaultcommon.RequestType_CREATE_SECRETS, o.RequestType)
 	assert.True(t, proto.Equal(o.GetCreateSecretsRequest(), p))
 
 	batchResp := o.GetCreateSecretsResponse()
@@ -698,31 +948,32 @@ func TestPlugin_Observation_CreateSecretsRequest_DisallowsDuplicateRequests(t *t
 
 	assert.True(t, proto.Equal(p.EncryptedSecrets[0].Id, batchResp.Responses[0].Id))
 	resp := batchResp.Responses[0]
-	assert.Contains(t, resp.GetError(), "duplicate create request for secret identifier")
+	assert.Contains(t, resp.GetError(), "duplicate request for secret identifier")
 
 	assert.True(t, proto.Equal(p.EncryptedSecrets[1].Id, batchResp.Responses[1].Id))
 	resp = batchResp.Responses[1]
-	assert.Contains(t, resp.GetError(), "duplicate create request for secret identifier")
+	assert.Contains(t, resp.GetError(), "duplicate request for secret identifier")
 }
 
 func TestPlugin_StateTransition_CreateSecretsRequest_CorrectlyTracksLimits(t *testing.T) {
 	lggr := logger.TestLogger(t)
-	store := requests.NewStore[*Request]()
+	store := requests.NewStore[*vaulttypes.Request]()
 	_, pk, shares, err := tdh2easy.GenerateKeys(1, 3)
 	require.NoError(t, err)
 	r := &ReportingPlugin{
 		lggr:  lggr,
 		store: store,
-		cfg: &ReportingPluginConfig{
-			BatchSize:                      10,
-			PublicKey:                      pk,
-			PrivateKeyShare:                shares[0],
-			MaxSecretsPerOwner:             1,
-			MaxCiphertextLenBytes:          1024,
-			MaxIdentifierOwnerLenBytes:     30,
-			MaxIdentifierNamespaceLenBytes: 30,
-			MaxIdentifierKeyLenBytes:       30,
-		},
+		cfg: makeReportingPluginConfig(
+			t,
+			10,
+			pk,
+			shares[0],
+			1,
+			1024,
+			30,
+			30,
+			30,
+		),
 	}
 
 	seqNr := uint64(1)
@@ -736,22 +987,22 @@ func TestPlugin_StateTransition_CreateSecretsRequest_CorrectlyTracksLimits(t *te
 	ciphertextBytes, err := ct.Marshal()
 	require.NoError(t, err)
 
-	id1 := &vault.SecretIdentifier{
+	id1 := &vaultcommon.SecretIdentifier{
 		Owner:     "owner",
 		Namespace: "main",
 		Key:       "my_secret",
 	}
-	req1 := &vault.CreateSecretsRequest{
+	req1 := &vaultcommon.CreateSecretsRequest{
 		RequestId: "req1",
-		EncryptedSecrets: []*vault.EncryptedSecret{
+		EncryptedSecrets: []*vaultcommon.EncryptedSecret{
 			{
 				Id:             id1,
-				EncryptedValue: base64.StdEncoding.EncodeToString(ciphertextBytes),
+				EncryptedValue: hex.EncodeToString(ciphertextBytes),
 			},
 		},
 	}
-	resp1 := &vault.CreateSecretsResponse{
-		Responses: []*vault.CreateSecretResponse{
+	resp1 := &vaultcommon.CreateSecretsResponse{
+		Responses: []*vaultcommon.CreateSecretResponse{
 			{
 				Id:      id1,
 				Success: false,
@@ -759,22 +1010,22 @@ func TestPlugin_StateTransition_CreateSecretsRequest_CorrectlyTracksLimits(t *te
 		},
 	}
 
-	id2 := &vault.SecretIdentifier{
+	id2 := &vaultcommon.SecretIdentifier{
 		Owner:     "owner",
 		Namespace: "main",
 		Key:       "my_secret2",
 	}
-	req2 := &vault.CreateSecretsRequest{
+	req2 := &vaultcommon.CreateSecretsRequest{
 		RequestId: "req2",
-		EncryptedSecrets: []*vault.EncryptedSecret{
+		EncryptedSecrets: []*vaultcommon.EncryptedSecret{
 			{
 				Id:             id2,
-				EncryptedValue: base64.StdEncoding.EncodeToString(ciphertextBytes),
+				EncryptedValue: hex.EncodeToString(ciphertextBytes),
 			},
 		},
 	}
-	resp2 := &vault.CreateSecretsResponse{
-		Responses: []*vault.CreateSecretResponse{
+	resp2 := &vaultcommon.CreateSecretsResponse{
+		Responses: []*vaultcommon.CreateSecretResponse{
 			{
 				Id:      id2,
 				Success: false,
@@ -798,20 +1049,20 @@ func TestPlugin_StateTransition_CreateSecretsRequest_CorrectlyTracksLimits(t *te
 	)
 	require.NoError(t, err)
 
-	os := &vault.Outcomes{}
+	os := &vaultcommon.Outcomes{}
 	err = proto.Unmarshal(reportPrecursor, os)
 	require.NoError(t, err)
 
 	assert.Len(t, os.Outcomes, 2)
 
 	o1 := os.Outcomes[0]
-	assert.Equal(t, vault.RequestType_CREATE_SECRETS, o1.RequestType)
+	assert.Equal(t, vaultcommon.RequestType_CREATE_SECRETS, o1.RequestType)
 	assert.Len(t, o1.GetCreateSecretsResponse().Responses, 1)
 	r1 := o1.GetCreateSecretsResponse().Responses[0]
 	assert.True(t, r1.Success)
 
 	o2 := os.Outcomes[1]
-	assert.Equal(t, vault.RequestType_CREATE_SECRETS, o2.RequestType)
+	assert.Equal(t, vaultcommon.RequestType_CREATE_SECRETS, o2.RequestType)
 	assert.Len(t, o2.GetCreateSecretsResponse().Responses, 1)
 	r2 := o2.GetCreateSecretsResponse().Responses[0]
 	assert.False(t, r2.Success)
@@ -820,20 +1071,21 @@ func TestPlugin_StateTransition_CreateSecretsRequest_CorrectlyTracksLimits(t *te
 
 func TestPlugin_Observation_CreateSecretsRequest_InvalidCiphertext(t *testing.T) {
 	lggr := logger.TestLogger(t)
-	store := requests.NewStore[*Request]()
+	store := requests.NewStore[*vaulttypes.Request]()
 	r := &ReportingPlugin{
 		lggr:  lggr,
 		store: store,
-		cfg: &ReportingPluginConfig{
-			BatchSize:                      10,
-			PublicKey:                      nil,
-			PrivateKeyShare:                nil,
-			MaxSecretsPerOwner:             1,
-			MaxCiphertextLenBytes:          1024,
-			MaxIdentifierOwnerLenBytes:     100,
-			MaxIdentifierNamespaceLenBytes: 100,
-			MaxIdentifierKeyLenBytes:       100,
-		},
+		cfg: makeReportingPluginConfig(
+			t,
+			10,
+			nil,
+			nil,
+			1,
+			1024,
+			100,
+			100,
+			30,
+		),
 	}
 
 	seqNr := uint64(1)
@@ -841,32 +1093,32 @@ func TestPlugin_Observation_CreateSecretsRequest_InvalidCiphertext(t *testing.T)
 		m: make(map[string]response),
 	}
 
-	id := &vault.SecretIdentifier{
+	id := &vaultcommon.SecretIdentifier{
 		Owner:     "owner",
 		Namespace: "main",
 		Key:       "secret",
 	}
-	p := &vault.CreateSecretsRequest{
-		EncryptedSecrets: []*vault.EncryptedSecret{
+	p := &vaultcommon.CreateSecretsRequest{
+		EncryptedSecrets: []*vaultcommon.EncryptedSecret{
 			{
 				Id:             id,
 				EncryptedValue: "foo",
 			},
 		},
 	}
-	err := store.Add(&Request{Payload: p})
+	err := store.Add(&vaulttypes.Request{Payload: p})
 	require.NoError(t, err)
 	data, err := r.Observation(t.Context(), seqNr, types.AttributedQuery{}, rdr, nil)
 	require.NoError(t, err)
 
-	obs := &vault.Observations{}
+	obs := &vaultcommon.Observations{}
 	err = proto.Unmarshal(data, obs)
 	require.NoError(t, err)
 
 	assert.Len(t, obs.Observations, 1)
 	o := obs.Observations[0]
 
-	assert.Equal(t, vault.RequestType_CREATE_SECRETS, o.RequestType)
+	assert.Equal(t, vaultcommon.RequestType_CREATE_SECRETS, o.RequestType)
 	assert.True(t, proto.Equal(o.GetCreateSecretsRequest(), p))
 
 	batchResp := o.GetCreateSecretsResponse()
@@ -875,25 +1127,26 @@ func TestPlugin_Observation_CreateSecretsRequest_InvalidCiphertext(t *testing.T)
 
 	assert.True(t, proto.Equal(p.EncryptedSecrets[0].Id, batchResp.Responses[0].Id))
 	resp := batchResp.Responses[0]
-	assert.Contains(t, resp.GetError(), "invalid base64 encoding for ciphertext")
+	assert.Contains(t, resp.GetError(), "invalid hex encoding for ciphertext")
 }
 
 func TestPlugin_Observation_CreateSecretsRequest_InvalidCiphertext_TooLong(t *testing.T) {
 	lggr := logger.TestLogger(t)
-	store := requests.NewStore[*Request]()
+	store := requests.NewStore[*vaulttypes.Request]()
 	r := &ReportingPlugin{
 		lggr:  lggr,
 		store: store,
-		cfg: &ReportingPluginConfig{
-			BatchSize:                      10,
-			PublicKey:                      nil,
-			PrivateKeyShare:                nil,
-			MaxSecretsPerOwner:             1,
-			MaxCiphertextLenBytes:          10,
-			MaxIdentifierOwnerLenBytes:     100,
-			MaxIdentifierNamespaceLenBytes: 100,
-			MaxIdentifierKeyLenBytes:       100,
-		},
+		cfg: makeReportingPluginConfig(
+			t,
+			10,
+			nil,
+			nil,
+			1,
+			10,
+			100,
+			100,
+			100,
+		),
 	}
 
 	seqNr := uint64(1)
@@ -901,33 +1154,33 @@ func TestPlugin_Observation_CreateSecretsRequest_InvalidCiphertext_TooLong(t *te
 		m: make(map[string]response),
 	}
 
-	id := &vault.SecretIdentifier{
+	id := &vaultcommon.SecretIdentifier{
 		Owner:     "owner",
 		Namespace: "main",
 		Key:       "secret",
 	}
 	ciphertext := []byte("a quick brown fox jumps over the lazy dog")
-	p := &vault.CreateSecretsRequest{
-		EncryptedSecrets: []*vault.EncryptedSecret{
+	p := &vaultcommon.CreateSecretsRequest{
+		EncryptedSecrets: []*vaultcommon.EncryptedSecret{
 			{
 				Id:             id,
-				EncryptedValue: base64.StdEncoding.EncodeToString(ciphertext),
+				EncryptedValue: hex.EncodeToString(ciphertext),
 			},
 		},
 	}
-	err := store.Add(&Request{Payload: p})
+	err := store.Add(&vaulttypes.Request{Payload: p})
 	require.NoError(t, err)
 	data, err := r.Observation(t.Context(), seqNr, types.AttributedQuery{}, rdr, nil)
 	require.NoError(t, err)
 
-	obs := &vault.Observations{}
+	obs := &vaultcommon.Observations{}
 	err = proto.Unmarshal(data, obs)
 	require.NoError(t, err)
 
 	assert.Len(t, obs.Observations, 1)
 	o := obs.Observations[0]
 
-	assert.Equal(t, vault.RequestType_CREATE_SECRETS, o.RequestType)
+	assert.Equal(t, vaultcommon.RequestType_CREATE_SECRETS, o.RequestType)
 	assert.True(t, proto.Equal(o.GetCreateSecretsRequest(), p))
 
 	batchResp := o.GetCreateSecretsResponse()
@@ -941,7 +1194,7 @@ func TestPlugin_Observation_CreateSecretsRequest_InvalidCiphertext_TooLong(t *te
 
 func TestPlugin_Observation_CreateSecretsRequest_InvalidCiphertext_EncryptedWithWrongPublicKey(t *testing.T) {
 	lggr := logger.TestLogger(t)
-	store := requests.NewStore[*Request]()
+	store := requests.NewStore[*vaulttypes.Request]()
 	// Wrong key
 	_, wrongPublicKey, _, err := tdh2easy.GenerateKeys(1, 3)
 	require.NoError(t, err)
@@ -951,16 +1204,17 @@ func TestPlugin_Observation_CreateSecretsRequest_InvalidCiphertext_EncryptedWith
 	r := &ReportingPlugin{
 		lggr:  lggr,
 		store: store,
-		cfg: &ReportingPluginConfig{
-			BatchSize:                      10,
-			PublicKey:                      pk,
-			PrivateKeyShare:                shares[0],
-			MaxSecretsPerOwner:             1,
-			MaxCiphertextLenBytes:          1024,
-			MaxIdentifierOwnerLenBytes:     100,
-			MaxIdentifierNamespaceLenBytes: 100,
-			MaxIdentifierKeyLenBytes:       100,
-		},
+		cfg: makeReportingPluginConfig(
+			t,
+			10,
+			pk,
+			shares[0],
+			1,
+			1024,
+			100,
+			100,
+			100,
+		),
 	}
 
 	seqNr := uint64(1)
@@ -968,7 +1222,7 @@ func TestPlugin_Observation_CreateSecretsRequest_InvalidCiphertext_EncryptedWith
 		m: make(map[string]response),
 	}
 
-	id := &vault.SecretIdentifier{
+	id := &vaultcommon.SecretIdentifier{
 		Owner:     "owner",
 		Namespace: "main",
 		Key:       "secret",
@@ -979,27 +1233,27 @@ func TestPlugin_Observation_CreateSecretsRequest_InvalidCiphertext_EncryptedWith
 	ciphertextBytes, err := ct.Marshal()
 	require.NoError(t, err)
 
-	p := &vault.CreateSecretsRequest{
-		EncryptedSecrets: []*vault.EncryptedSecret{
+	p := &vaultcommon.CreateSecretsRequest{
+		EncryptedSecrets: []*vaultcommon.EncryptedSecret{
 			{
 				Id:             id,
-				EncryptedValue: base64.StdEncoding.EncodeToString(ciphertextBytes),
+				EncryptedValue: hex.EncodeToString(ciphertextBytes),
 			},
 		},
 	}
-	err = store.Add(&Request{Payload: p})
+	err = store.Add(&vaulttypes.Request{Payload: p})
 	require.NoError(t, err)
 	data, err := r.Observation(t.Context(), seqNr, types.AttributedQuery{}, rdr, nil)
 	require.NoError(t, err)
 
-	obs := &vault.Observations{}
+	obs := &vaultcommon.Observations{}
 	err = proto.Unmarshal(data, obs)
 	require.NoError(t, err)
 
 	assert.Len(t, obs.Observations, 1)
 	o := obs.Observations[0]
 
-	assert.Equal(t, vault.RequestType_CREATE_SECRETS, o.RequestType)
+	assert.Equal(t, vaultcommon.RequestType_CREATE_SECRETS, o.RequestType)
 	assert.True(t, proto.Equal(o.GetCreateSecretsRequest(), p))
 
 	batchResp := o.GetCreateSecretsResponse()
@@ -1013,36 +1267,37 @@ func TestPlugin_Observation_CreateSecretsRequest_InvalidCiphertext_EncryptedWith
 
 func TestPlugin_StateTransition_CreateSecretsRequest_TooManySecretsForOwner(t *testing.T) {
 	lggr := logger.TestLogger(t)
-	store := requests.NewStore[*Request]()
+	store := requests.NewStore[*vaulttypes.Request]()
 	_, pk, shares, err := tdh2easy.GenerateKeys(1, 3)
 	require.NoError(t, err)
 	r := &ReportingPlugin{
 		lggr:  lggr,
 		store: store,
-		cfg: &ReportingPluginConfig{
-			BatchSize:                      10,
-			PublicKey:                      pk,
-			PrivateKeyShare:                shares[0],
-			MaxSecretsPerOwner:             1,
-			MaxCiphertextLenBytes:          1024,
-			MaxIdentifierOwnerLenBytes:     100,
-			MaxIdentifierNamespaceLenBytes: 100,
-			MaxIdentifierKeyLenBytes:       100,
-		},
+		cfg: makeReportingPluginConfig(
+			t,
+			10,
+			pk,
+			shares[0],
+			1,
+			1024,
+			100,
+			100,
+			100,
+		),
 	}
 
 	seqNr := uint64(1)
 	rdr := &kv{
 		m: make(map[string]response),
 	}
-	id := &vault.SecretIdentifier{
+	id := &vaultcommon.SecretIdentifier{
 		Owner:     "owner",
 		Namespace: "main",
 		Key:       "secret",
 	}
 	kvstore := NewWriteStore(rdr)
-	err = kvstore.WriteMetadata(id.Owner, &vault.StoredMetadata{
-		SecretIdentifiers: []*vault.SecretIdentifier{
+	err = kvstore.WriteMetadata(id.Owner, &vaultcommon.StoredMetadata{
+		SecretIdentifiers: []*vaultcommon.SecretIdentifier{
 			{
 				Owner:     "owner",
 				Namespace: "main",
@@ -1058,16 +1313,16 @@ func TestPlugin_StateTransition_CreateSecretsRequest_TooManySecretsForOwner(t *t
 	ciphertextBytes, err := ct.Marshal()
 	require.NoError(t, err)
 
-	req := &vault.CreateSecretsRequest{
-		EncryptedSecrets: []*vault.EncryptedSecret{
+	req := &vaultcommon.CreateSecretsRequest{
+		EncryptedSecrets: []*vaultcommon.EncryptedSecret{
 			{
 				Id:             id,
-				EncryptedValue: base64.StdEncoding.EncodeToString(ciphertextBytes),
+				EncryptedValue: hex.EncodeToString(ciphertextBytes),
 			},
 		},
 	}
-	resp := &vault.CreateSecretsResponse{
-		Responses: []*vault.CreateSecretResponse{
+	resp := &vaultcommon.CreateSecretsResponse{
+		Responses: []*vaultcommon.CreateSecretResponse{
 			{
 				Id:      id,
 				Success: false,
@@ -1088,7 +1343,7 @@ func TestPlugin_StateTransition_CreateSecretsRequest_TooManySecretsForOwner(t *t
 	)
 	require.NoError(t, err)
 
-	os := &vault.Outcomes{}
+	os := &vaultcommon.Outcomes{}
 	err = proto.Unmarshal(data, os)
 	require.NoError(t, err)
 
@@ -1101,35 +1356,36 @@ func TestPlugin_StateTransition_CreateSecretsRequest_TooManySecretsForOwner(t *t
 
 func TestPlugin_StateTransition_CreateSecretsRequest_SecretExistsForKey(t *testing.T) {
 	lggr := logger.TestLogger(t)
-	store := requests.NewStore[*Request]()
+	store := requests.NewStore[*vaulttypes.Request]()
 	_, pk, shares, err := tdh2easy.GenerateKeys(1, 3)
 	require.NoError(t, err)
 	r := &ReportingPlugin{
 		lggr:  lggr,
 		store: store,
-		cfg: &ReportingPluginConfig{
-			BatchSize:                      10,
-			PublicKey:                      pk,
-			PrivateKeyShare:                shares[0],
-			MaxSecretsPerOwner:             1,
-			MaxCiphertextLenBytes:          1024,
-			MaxIdentifierOwnerLenBytes:     100,
-			MaxIdentifierNamespaceLenBytes: 100,
-			MaxIdentifierKeyLenBytes:       100,
-		},
+		cfg: makeReportingPluginConfig(
+			t,
+			10,
+			pk,
+			shares[0],
+			1,
+			1024,
+			100,
+			100,
+			100,
+		),
 	}
 
 	seqNr := uint64(1)
 	rdr := &kv{
 		m: make(map[string]response),
 	}
-	id := &vault.SecretIdentifier{
+	id := &vaultcommon.SecretIdentifier{
 		Owner:     "owner",
 		Namespace: "main",
 		Key:       "secret",
 	}
 	kvstore := NewWriteStore(rdr)
-	err = kvstore.WriteSecret(id, &vault.StoredSecret{
+	err = kvstore.WriteSecret(id, &vaultcommon.StoredSecret{
 		EncryptedSecret: []byte("some-ciphertext"),
 	})
 	require.NoError(t, err)
@@ -1140,16 +1396,16 @@ func TestPlugin_StateTransition_CreateSecretsRequest_SecretExistsForKey(t *testi
 	ciphertextBytes, err := ct.Marshal()
 	require.NoError(t, err)
 
-	req := &vault.CreateSecretsRequest{
-		EncryptedSecrets: []*vault.EncryptedSecret{
+	req := &vaultcommon.CreateSecretsRequest{
+		EncryptedSecrets: []*vaultcommon.EncryptedSecret{
 			{
 				Id:             id,
-				EncryptedValue: base64.StdEncoding.EncodeToString(ciphertextBytes),
+				EncryptedValue: hex.EncodeToString(ciphertextBytes),
 			},
 		},
 	}
-	resp := &vault.CreateSecretsResponse{
-		Responses: []*vault.CreateSecretResponse{
+	resp := &vaultcommon.CreateSecretsResponse{
+		Responses: []*vaultcommon.CreateSecretResponse{
 			{
 				Id:      id,
 				Success: false,
@@ -1170,7 +1426,7 @@ func TestPlugin_StateTransition_CreateSecretsRequest_SecretExistsForKey(t *testi
 	)
 	require.NoError(t, err)
 
-	os := &vault.Outcomes{}
+	os := &vaultcommon.Outcomes{}
 	err = proto.Unmarshal(data, os)
 	require.NoError(t, err)
 
@@ -1183,29 +1439,30 @@ func TestPlugin_StateTransition_CreateSecretsRequest_SecretExistsForKey(t *testi
 
 func TestPlugin_Observation_CreateSecretsRequest_Success(t *testing.T) {
 	lggr := logger.TestLogger(t)
-	store := requests.NewStore[*Request]()
+	store := requests.NewStore[*vaulttypes.Request]()
 	_, pk, shares, err := tdh2easy.GenerateKeys(1, 3)
 	require.NoError(t, err)
 	r := &ReportingPlugin{
 		lggr:  lggr,
 		store: store,
-		cfg: &ReportingPluginConfig{
-			BatchSize:                      10,
-			PublicKey:                      pk,
-			PrivateKeyShare:                shares[0],
-			MaxSecretsPerOwner:             1,
-			MaxCiphertextLenBytes:          1024,
-			MaxIdentifierOwnerLenBytes:     100,
-			MaxIdentifierNamespaceLenBytes: 100,
-			MaxIdentifierKeyLenBytes:       100,
-		},
+		cfg: makeReportingPluginConfig(
+			t,
+			10,
+			pk,
+			shares[0],
+			1,
+			1024,
+			100,
+			100,
+			100,
+		),
 	}
 
 	seqNr := uint64(1)
 	rdr := &kv{
 		m: make(map[string]response),
 	}
-	id := &vault.SecretIdentifier{
+	id := &vaultcommon.SecretIdentifier{
 		Owner:     "owner",
 		Namespace: "main",
 		Key:       "secret",
@@ -1216,27 +1473,27 @@ func TestPlugin_Observation_CreateSecretsRequest_Success(t *testing.T) {
 	ciphertextBytes, err := ct.Marshal()
 	require.NoError(t, err)
 
-	p := &vault.CreateSecretsRequest{
-		EncryptedSecrets: []*vault.EncryptedSecret{
+	p := &vaultcommon.CreateSecretsRequest{
+		EncryptedSecrets: []*vaultcommon.EncryptedSecret{
 			{
 				Id:             id,
-				EncryptedValue: base64.StdEncoding.EncodeToString(ciphertextBytes),
+				EncryptedValue: hex.EncodeToString(ciphertextBytes),
 			},
 		},
 	}
-	err = store.Add(&Request{Payload: p})
+	err = store.Add(&vaulttypes.Request{Payload: p})
 	require.NoError(t, err)
 	data, err := r.Observation(t.Context(), seqNr, types.AttributedQuery{}, rdr, nil)
 	require.NoError(t, err)
 
-	obs := &vault.Observations{}
+	obs := &vaultcommon.Observations{}
 	err = proto.Unmarshal(data, obs)
 	require.NoError(t, err)
 
 	assert.Len(t, obs.Observations, 1)
 	o := obs.Observations[0]
 
-	assert.Equal(t, vault.RequestType_CREATE_SECRETS, o.RequestType)
+	assert.Equal(t, vaultcommon.RequestType_CREATE_SECRETS, o.RequestType)
 	assert.True(t, proto.Equal(o.GetCreateSecretsRequest(), p))
 
 	batchResp := o.GetCreateSecretsResponse()
@@ -1250,40 +1507,68 @@ func TestPlugin_Observation_CreateSecretsRequest_Success(t *testing.T) {
 }
 
 type observation struct {
-	id   *vault.SecretIdentifier
+	id   *vaultcommon.SecretIdentifier
 	req  proto.Message
 	resp proto.Message
 }
 
 func marshalObservations(t *testing.T, observations ...observation) []byte {
-	obs := &vault.Observations{
-		Observations: []*vault.Observation{},
+	obs := &vaultcommon.Observations{
+		Observations: []*vaultcommon.Observation{},
 	}
 	for _, ob := range observations {
-		o := &vault.Observation{
-			Id: keyFor(ob.id),
+		o := &vaultcommon.Observation{
+			Id: vaulttypes.KeyFor(ob.id),
 		}
 		switch tr := ob.req.(type) {
-		case *vault.GetSecretsRequest:
-			o.RequestType = vault.RequestType_GET_SECRETS
-			o.Request = &vault.Observation_GetSecretsRequest{
+		case *vaultcommon.GetSecretsRequest:
+			o.RequestType = vaultcommon.RequestType_GET_SECRETS
+			o.Request = &vaultcommon.Observation_GetSecretsRequest{
 				GetSecretsRequest: tr,
 			}
-		case *vault.CreateSecretsRequest:
-			o.RequestType = vault.RequestType_CREATE_SECRETS
-			o.Request = &vault.Observation_CreateSecretsRequest{
+		case *vaultcommon.CreateSecretsRequest:
+			o.RequestType = vaultcommon.RequestType_CREATE_SECRETS
+			o.Request = &vaultcommon.Observation_CreateSecretsRequest{
 				CreateSecretsRequest: tr,
+			}
+		case *vaultcommon.UpdateSecretsRequest:
+			o.RequestType = vaultcommon.RequestType_UPDATE_SECRETS
+			o.Request = &vaultcommon.Observation_UpdateSecretsRequest{
+				UpdateSecretsRequest: tr,
+			}
+		case *vaultcommon.DeleteSecretsRequest:
+			o.RequestType = vaultcommon.RequestType_DELETE_SECRETS
+			o.Request = &vaultcommon.Observation_DeleteSecretsRequest{
+				DeleteSecretsRequest: tr,
+			}
+		case *vaultcommon.ListSecretIdentifiersRequest:
+			o.RequestType = vaultcommon.RequestType_DELETE_SECRETS
+			o.Request = &vaultcommon.Observation_ListSecretIdentifiersRequest{
+				ListSecretIdentifiersRequest: tr,
 			}
 		}
 
 		switch tr := ob.resp.(type) {
-		case *vault.GetSecretsResponse:
-			o.Response = &vault.Observation_GetSecretsResponse{
+		case *vaultcommon.GetSecretsResponse:
+			o.Response = &vaultcommon.Observation_GetSecretsResponse{
 				GetSecretsResponse: tr,
 			}
-		case *vault.CreateSecretsResponse:
-			o.Response = &vault.Observation_CreateSecretsResponse{
+		case *vaultcommon.CreateSecretsResponse:
+			o.Response = &vaultcommon.Observation_CreateSecretsResponse{
 				CreateSecretsResponse: tr,
+			}
+		case *vaultcommon.UpdateSecretsResponse:
+			o.Response = &vaultcommon.Observation_UpdateSecretsResponse{
+				UpdateSecretsResponse: tr,
+			}
+		case *vaultcommon.DeleteSecretsResponse:
+			o.Response = &vaultcommon.Observation_DeleteSecretsResponse{
+				DeleteSecretsResponse: tr,
+			}
+		case *vaultcommon.ListSecretIdentifiersResponse:
+			o.RequestType = vaultcommon.RequestType_LIST_SECRET_IDENTIFIERS
+			o.Response = &vaultcommon.Observation_ListSecretIdentifiersResponse{
+				ListSecretIdentifiersResponse: tr,
 			}
 		}
 
@@ -1297,7 +1582,7 @@ func marshalObservations(t *testing.T, observations ...observation) []byte {
 
 func TestPlugin_StateTransition_InsufficientObservations(t *testing.T) {
 	lggr, observed := logger.TestLoggerObserved(t, zapcore.DebugLevel)
-	store := requests.NewStore[*Request]()
+	store := requests.NewStore[*vaulttypes.Request]()
 	_, pk, shares, err := tdh2easy.GenerateKeys(1, 3)
 	require.NoError(t, err)
 	r := &ReportingPlugin{
@@ -1307,16 +1592,17 @@ func TestPlugin_StateTransition_InsufficientObservations(t *testing.T) {
 			F: 1,
 		},
 		store: store,
-		cfg: &ReportingPluginConfig{
-			BatchSize:                      10,
-			PublicKey:                      pk,
-			PrivateKeyShare:                shares[0],
-			MaxSecretsPerOwner:             1,
-			MaxCiphertextLenBytes:          1024,
-			MaxIdentifierOwnerLenBytes:     100,
-			MaxIdentifierNamespaceLenBytes: 100,
-			MaxIdentifierKeyLenBytes:       100,
-		},
+		cfg: makeReportingPluginConfig(
+			t,
+			10,
+			pk,
+			shares[0],
+			1,
+			1024,
+			100,
+			100,
+			100,
+		),
 	}
 
 	seqNr := uint64(1)
@@ -1324,23 +1610,23 @@ func TestPlugin_StateTransition_InsufficientObservations(t *testing.T) {
 		m: make(map[string]response),
 	}
 
-	id1 := &vault.SecretIdentifier{
+	id1 := &vaultcommon.SecretIdentifier{
 		Owner:     "owner",
 		Namespace: "main",
 		Key:       "secret",
 	}
-	req := &vault.GetSecretsRequest{
-		Requests: []*vault.SecretRequest{
+	req := &vaultcommon.GetSecretsRequest{
+		Requests: []*vaultcommon.SecretRequest{
 			{
 				Id: id1,
 			},
 		},
 	}
-	resp := &vault.GetSecretsResponse{
-		Responses: []*vault.SecretResponse{
+	resp := &vaultcommon.GetSecretsResponse{
+		Responses: []*vaultcommon.SecretResponse{
 			{
 				Id: id1,
-				Result: &vault.SecretResponse_Error{
+				Result: &vaultcommon.SecretResponse_Error{
 					Error: "key does not exist",
 				},
 			},
@@ -1358,7 +1644,7 @@ func TestPlugin_StateTransition_InsufficientObservations(t *testing.T) {
 		}, kv, nil)
 	require.NoError(t, err)
 
-	os := &vault.Outcomes{}
+	os := &vaultcommon.Outcomes{}
 	err = proto.Unmarshal(reportPrecursor, os)
 	require.NoError(t, err)
 
@@ -1369,7 +1655,7 @@ func TestPlugin_StateTransition_InsufficientObservations(t *testing.T) {
 
 func TestPlugin_ValidateObservations_InvalidObservations(t *testing.T) {
 	lggr, _ := logger.TestLoggerObserved(t, zapcore.DebugLevel)
-	store := requests.NewStore[*Request]()
+	store := requests.NewStore[*vaulttypes.Request]()
 	_, pk, shares, err := tdh2easy.GenerateKeys(1, 3)
 	require.NoError(t, err)
 	r := &ReportingPlugin{
@@ -1379,16 +1665,17 @@ func TestPlugin_ValidateObservations_InvalidObservations(t *testing.T) {
 			F: 1,
 		},
 		store: store,
-		cfg: &ReportingPluginConfig{
-			BatchSize:                      10,
-			PublicKey:                      pk,
-			PrivateKeyShare:                shares[0],
-			MaxSecretsPerOwner:             1,
-			MaxCiphertextLenBytes:          1024,
-			MaxIdentifierOwnerLenBytes:     100,
-			MaxIdentifierNamespaceLenBytes: 100,
-			MaxIdentifierKeyLenBytes:       100,
-		},
+		cfg: makeReportingPluginConfig(
+			t,
+			10,
+			pk,
+			shares[0],
+			1,
+			1024,
+			100,
+			100,
+			100,
+		),
 	}
 
 	seqNr := uint64(1)
@@ -1396,19 +1683,19 @@ func TestPlugin_ValidateObservations_InvalidObservations(t *testing.T) {
 		m: make(map[string]response),
 	}
 
-	id1 := &vault.SecretIdentifier{
+	id1 := &vaultcommon.SecretIdentifier{
 		Owner:     "owner",
 		Namespace: "main",
 		Key:       "secret",
 	}
-	req := &vault.GetSecretsRequest{
-		Requests: []*vault.SecretRequest{
+	req := &vaultcommon.GetSecretsRequest{
+		Requests: []*vaultcommon.SecretRequest{
 			{
 				Id: id1,
 			},
 		},
 	}
-	resp := &vault.CreateSecretsResponse{}
+	resp := &vaultcommon.CreateSecretsResponse{}
 
 	// Request and response don't match
 	obsb := marshalObservations(t, observation{id1, req, resp})
@@ -1435,8 +1722,8 @@ func TestPlugin_ValidateObservations_InvalidObservations(t *testing.T) {
 	require.ErrorContains(t, err, "failed to unmarshal observations")
 
 	// Invalid observation -- a single observation set has observations for multiple request ids
-	correctResp := &vault.GetSecretsResponse{
-		Responses: []*vault.SecretResponse{
+	correctResp := &vaultcommon.GetSecretsResponse{
+		Responses: []*vaultcommon.SecretResponse{
 			{
 				Id: id1,
 			},
@@ -1456,7 +1743,7 @@ func TestPlugin_ValidateObservations_InvalidObservations(t *testing.T) {
 
 func TestPlugin_StateTransition_ShasDontMatch(t *testing.T) {
 	lggr, observed := logger.TestLoggerObserved(t, zapcore.DebugLevel)
-	store := requests.NewStore[*Request]()
+	store := requests.NewStore[*vaulttypes.Request]()
 	_, pk, shares, err := tdh2easy.GenerateKeys(1, 3)
 	require.NoError(t, err)
 	r := &ReportingPlugin{
@@ -1466,16 +1753,17 @@ func TestPlugin_StateTransition_ShasDontMatch(t *testing.T) {
 			F: 1,
 		},
 		store: store,
-		cfg: &ReportingPluginConfig{
-			BatchSize:                      10,
-			PublicKey:                      pk,
-			PrivateKeyShare:                shares[0],
-			MaxSecretsPerOwner:             1,
-			MaxCiphertextLenBytes:          1024,
-			MaxIdentifierOwnerLenBytes:     100,
-			MaxIdentifierNamespaceLenBytes: 100,
-			MaxIdentifierKeyLenBytes:       100,
-		},
+		cfg: makeReportingPluginConfig(
+			t,
+			10,
+			pk,
+			shares[0],
+			1,
+			1024,
+			100,
+			100,
+			100,
+		),
 	}
 
 	seqNr := uint64(1)
@@ -1483,33 +1771,33 @@ func TestPlugin_StateTransition_ShasDontMatch(t *testing.T) {
 		m: make(map[string]response),
 	}
 
-	id := &vault.SecretIdentifier{
+	id := &vaultcommon.SecretIdentifier{
 		Owner:     "owner",
 		Namespace: "main",
 		Key:       "secret",
 	}
-	req := &vault.GetSecretsRequest{
-		Requests: []*vault.SecretRequest{
+	req := &vaultcommon.GetSecretsRequest{
+		Requests: []*vaultcommon.SecretRequest{
 			{
 				Id: id,
 			},
 		},
 	}
-	resp1 := &vault.GetSecretsResponse{
-		Responses: []*vault.SecretResponse{
+	resp1 := &vaultcommon.GetSecretsResponse{
+		Responses: []*vaultcommon.SecretResponse{
 			{
 				Id: id,
-				Result: &vault.SecretResponse_Error{
+				Result: &vaultcommon.SecretResponse_Error{
 					Error: "key does not exist",
 				},
 			},
 		},
 	}
-	resp2 := &vault.GetSecretsResponse{
-		Responses: []*vault.SecretResponse{
+	resp2 := &vaultcommon.GetSecretsResponse{
+		Responses: []*vaultcommon.SecretResponse{
 			{
 				Id: id,
-				Result: &vault.SecretResponse_Error{
+				Result: &vaultcommon.SecretResponse_Error{
 					Error: "something else",
 				},
 			},
@@ -1526,7 +1814,7 @@ func TestPlugin_StateTransition_ShasDontMatch(t *testing.T) {
 		}, kv, nil)
 	require.NoError(t, err)
 
-	os := &vault.Outcomes{}
+	os := &vaultcommon.Outcomes{}
 	err = proto.Unmarshal(reportPrecursor, os)
 	require.NoError(t, err)
 
@@ -1537,7 +1825,7 @@ func TestPlugin_StateTransition_ShasDontMatch(t *testing.T) {
 
 func TestPlugin_StateTransition_AggregatesValidationErrors(t *testing.T) {
 	lggr, observed := logger.TestLoggerObserved(t, zapcore.DebugLevel)
-	store := requests.NewStore[*Request]()
+	store := requests.NewStore[*vaulttypes.Request]()
 	_, pk, shares, err := tdh2easy.GenerateKeys(1, 3)
 	require.NoError(t, err)
 	r := &ReportingPlugin{
@@ -1547,16 +1835,17 @@ func TestPlugin_StateTransition_AggregatesValidationErrors(t *testing.T) {
 			F: 1,
 		},
 		store: store,
-		cfg: &ReportingPluginConfig{
-			BatchSize:                      10,
-			PublicKey:                      pk,
-			PrivateKeyShare:                shares[0],
-			MaxSecretsPerOwner:             1,
-			MaxCiphertextLenBytes:          1024,
-			MaxIdentifierOwnerLenBytes:     100,
-			MaxIdentifierNamespaceLenBytes: 100,
-			MaxIdentifierKeyLenBytes:       100,
-		},
+		cfg: makeReportingPluginConfig(
+			t,
+			10,
+			pk,
+			shares[0],
+			1,
+			1024,
+			100,
+			100,
+			100,
+		),
 	}
 
 	seqNr := uint64(1)
@@ -1564,23 +1853,23 @@ func TestPlugin_StateTransition_AggregatesValidationErrors(t *testing.T) {
 		m: make(map[string]response),
 	}
 
-	id := &vault.SecretIdentifier{
+	id := &vaultcommon.SecretIdentifier{
 		Owner:     "owner",
 		Namespace: "main",
 		Key:       "secret",
 	}
-	req := &vault.GetSecretsRequest{
-		Requests: []*vault.SecretRequest{
+	req := &vaultcommon.GetSecretsRequest{
+		Requests: []*vaultcommon.SecretRequest{
 			{
 				Id: id,
 			},
 		},
 	}
-	resp := &vault.GetSecretsResponse{
-		Responses: []*vault.SecretResponse{
+	resp := &vaultcommon.GetSecretsResponse{
+		Responses: []*vaultcommon.SecretResponse{
 			{
 				Id: id,
-				Result: &vault.SecretResponse_Error{
+				Result: &vaultcommon.SecretResponse_Error{
 					Error: "key does not exist",
 				},
 			},
@@ -1599,7 +1888,7 @@ func TestPlugin_StateTransition_AggregatesValidationErrors(t *testing.T) {
 		}, kv, nil)
 	require.NoError(t, err)
 
-	os := &vault.Outcomes{}
+	os := &vaultcommon.Outcomes{}
 	err = proto.Unmarshal(reportPrecursor, os)
 	require.NoError(t, err)
 
@@ -1614,7 +1903,7 @@ func TestPlugin_StateTransition_AggregatesValidationErrors(t *testing.T) {
 
 func TestPlugin_StateTransition_GetSecretsRequest_CombinesShares(t *testing.T) {
 	lggr, observed := logger.TestLoggerObserved(t, zapcore.DebugLevel)
-	store := requests.NewStore[*Request]()
+	store := requests.NewStore[*vaulttypes.Request]()
 	_, pk, shares, err := tdh2easy.GenerateKeys(1, 3)
 	require.NoError(t, err)
 	r := &ReportingPlugin{
@@ -1624,16 +1913,17 @@ func TestPlugin_StateTransition_GetSecretsRequest_CombinesShares(t *testing.T) {
 			F: 1,
 		},
 		store: store,
-		cfg: &ReportingPluginConfig{
-			BatchSize:                      10,
-			PublicKey:                      pk,
-			PrivateKeyShare:                shares[0],
-			MaxSecretsPerOwner:             1,
-			MaxCiphertextLenBytes:          1024,
-			MaxIdentifierOwnerLenBytes:     100,
-			MaxIdentifierNamespaceLenBytes: 100,
-			MaxIdentifierKeyLenBytes:       100,
-		},
+		cfg: makeReportingPluginConfig(
+			t,
+			10,
+			pk,
+			shares[0],
+			1,
+			1024,
+			100,
+			100,
+			100,
+		),
 	}
 
 	seqNr := uint64(1)
@@ -1641,26 +1931,26 @@ func TestPlugin_StateTransition_GetSecretsRequest_CombinesShares(t *testing.T) {
 		m: make(map[string]response),
 	}
 
-	id := &vault.SecretIdentifier{
+	id := &vaultcommon.SecretIdentifier{
 		Owner:     "owner",
 		Namespace: "main",
 		Key:       "secret",
 	}
-	req := &vault.GetSecretsRequest{
-		Requests: []*vault.SecretRequest{
+	req := &vaultcommon.GetSecretsRequest{
+		Requests: []*vaultcommon.SecretRequest{
 			{
 				Id: id,
 			},
 		},
 	}
-	resp1 := &vault.GetSecretsResponse{
-		Responses: []*vault.SecretResponse{
+	resp1 := &vaultcommon.GetSecretsResponse{
+		Responses: []*vaultcommon.SecretResponse{
 			{
 				Id: id,
-				Result: &vault.SecretResponse_Data{
-					Data: &vault.SecretData{
+				Result: &vaultcommon.SecretResponse_Data{
+					Data: &vaultcommon.SecretData{
 						EncryptedValue: "encrypted-value",
-						EncryptedDecryptionKeyShares: []*vault.EncryptedShares{
+						EncryptedDecryptionKeyShares: []*vaultcommon.EncryptedShares{
 							{
 								EncryptionKey: "my-encryption-key",
 								Shares:        []string{"encrypted-share-1"},
@@ -1671,14 +1961,14 @@ func TestPlugin_StateTransition_GetSecretsRequest_CombinesShares(t *testing.T) {
 			},
 		},
 	}
-	resp2 := &vault.GetSecretsResponse{
-		Responses: []*vault.SecretResponse{
+	resp2 := &vaultcommon.GetSecretsResponse{
+		Responses: []*vaultcommon.SecretResponse{
 			{
 				Id: id,
-				Result: &vault.SecretResponse_Data{
-					Data: &vault.SecretData{
+				Result: &vaultcommon.SecretResponse_Data{
+					Data: &vaultcommon.SecretData{
 						EncryptedValue: "encrypted-value",
-						EncryptedDecryptionKeyShares: []*vault.EncryptedShares{
+						EncryptedDecryptionKeyShares: []*vaultcommon.EncryptedShares{
 							{
 								EncryptionKey: "my-encryption-key",
 								Shares:        []string{"encrypted-share-2"},
@@ -1689,14 +1979,14 @@ func TestPlugin_StateTransition_GetSecretsRequest_CombinesShares(t *testing.T) {
 			},
 		},
 	}
-	resp3 := &vault.GetSecretsResponse{
-		Responses: []*vault.SecretResponse{
+	resp3 := &vaultcommon.GetSecretsResponse{
+		Responses: []*vaultcommon.SecretResponse{
 			{
 				Id: id,
-				Result: &vault.SecretResponse_Data{
-					Data: &vault.SecretData{
+				Result: &vaultcommon.SecretResponse_Data{
+					Data: &vaultcommon.SecretData{
 						EncryptedValue: "encrypted-value",
-						EncryptedDecryptionKeyShares: []*vault.EncryptedShares{
+						EncryptedDecryptionKeyShares: []*vaultcommon.EncryptedShares{
 							{
 								EncryptionKey: "my-encryption-key",
 								Shares:        []string{"encrypted-share-3"},
@@ -1722,7 +2012,7 @@ func TestPlugin_StateTransition_GetSecretsRequest_CombinesShares(t *testing.T) {
 		}, kv, nil)
 	require.NoError(t, err)
 
-	os := &vault.Outcomes{}
+	os := &vaultcommon.Outcomes{}
 	err = proto.Unmarshal(reportPrecursor, os)
 	require.NoError(t, err)
 
@@ -1731,14 +2021,14 @@ func TestPlugin_StateTransition_GetSecretsRequest_CombinesShares(t *testing.T) {
 	o := os.Outcomes[0]
 	assert.True(t, proto.Equal(req, o.GetGetSecretsRequest()))
 
-	expectedResp := &vault.GetSecretsResponse{
-		Responses: []*vault.SecretResponse{
+	expectedResp := &vaultcommon.GetSecretsResponse{
+		Responses: []*vaultcommon.SecretResponse{
 			{
 				Id: id,
-				Result: &vault.SecretResponse_Data{
-					Data: &vault.SecretData{
+				Result: &vaultcommon.SecretResponse_Data{
+					Data: &vaultcommon.SecretData{
 						EncryptedValue: "encrypted-value",
-						EncryptedDecryptionKeyShares: []*vault.EncryptedShares{
+						EncryptedDecryptionKeyShares: []*vaultcommon.EncryptedShares{
 							{
 								EncryptionKey: "my-encryption-key",
 								Shares:        []string{"encrypted-share-1", "encrypted-share-2", "encrypted-share-3"},
@@ -1756,7 +2046,7 @@ func TestPlugin_StateTransition_GetSecretsRequest_CombinesShares(t *testing.T) {
 
 func TestPlugin_StateTransition_CreateSecretsRequest_WritesSecrets(t *testing.T) {
 	lggr, observed := logger.TestLoggerObserved(t, zapcore.DebugLevel)
-	store := requests.NewStore[*Request]()
+	store := requests.NewStore[*vaulttypes.Request]()
 	_, pk, shares, err := tdh2easy.GenerateKeys(1, 3)
 	require.NoError(t, err)
 	r := &ReportingPlugin{
@@ -1766,16 +2056,17 @@ func TestPlugin_StateTransition_CreateSecretsRequest_WritesSecrets(t *testing.T)
 			F: 1,
 		},
 		store: store,
-		cfg: &ReportingPluginConfig{
-			BatchSize:                      10,
-			PublicKey:                      pk,
-			PrivateKeyShare:                shares[0],
-			MaxSecretsPerOwner:             1,
-			MaxCiphertextLenBytes:          1024,
-			MaxIdentifierOwnerLenBytes:     100,
-			MaxIdentifierNamespaceLenBytes: 100,
-			MaxIdentifierKeyLenBytes:       100,
-		},
+		cfg: makeReportingPluginConfig(
+			t,
+			10,
+			pk,
+			shares[0],
+			1,
+			1024,
+			100,
+			100,
+			100,
+		),
 	}
 
 	seqNr := uint64(1)
@@ -1784,23 +2075,23 @@ func TestPlugin_StateTransition_CreateSecretsRequest_WritesSecrets(t *testing.T)
 	}
 	rs := NewReadStore(kv)
 
-	id := &vault.SecretIdentifier{
+	id := &vaultcommon.SecretIdentifier{
 		Owner:     "owner",
 		Namespace: "main",
 		Key:       "secret",
 	}
 	value := []byte("encrypted-value")
-	enc := base64.StdEncoding.EncodeToString(value)
-	req := &vault.CreateSecretsRequest{
-		EncryptedSecrets: []*vault.EncryptedSecret{
+	enc := hex.EncodeToString(value)
+	req := &vaultcommon.CreateSecretsRequest{
+		EncryptedSecrets: []*vaultcommon.EncryptedSecret{
 			{
 				Id:             id,
 				EncryptedValue: enc,
 			},
 		},
 	}
-	resp := &vault.CreateSecretsResponse{
-		Responses: []*vault.CreateSecretResponse{
+	resp := &vaultcommon.CreateSecretsResponse{
+		Responses: []*vaultcommon.CreateSecretResponse{
 			{
 				Id:      id,
 				Success: false,
@@ -1821,7 +2112,7 @@ func TestPlugin_StateTransition_CreateSecretsRequest_WritesSecrets(t *testing.T)
 		}, kv, nil)
 	require.NoError(t, err)
 
-	os := &vault.Outcomes{}
+	os := &vaultcommon.Outcomes{}
 	err = proto.Unmarshal(reportPrecursor, os)
 	require.NoError(t, err)
 
@@ -1830,8 +2121,8 @@ func TestPlugin_StateTransition_CreateSecretsRequest_WritesSecrets(t *testing.T)
 	o := os.Outcomes[0]
 	assert.True(t, proto.Equal(req, o.GetCreateSecretsRequest()))
 
-	expectedResp := &vault.CreateSecretsResponse{
-		Responses: []*vault.CreateSecretResponse{
+	expectedResp := &vaultcommon.CreateSecretsResponse{
+		Responses: []*vaultcommon.CreateSecretResponse{
 			{
 				Id:      id,
 				Success: true,
@@ -1851,21 +2142,21 @@ func TestPlugin_StateTransition_CreateSecretsRequest_WritesSecrets(t *testing.T)
 
 func TestPlugin_Reports(t *testing.T) {
 	value := "encrypted-value"
-	id := &vault.SecretIdentifier{
+	id := &vaultcommon.SecretIdentifier{
 		Owner:     "owner",
 		Namespace: "main",
 		Key:       "secret",
 	}
-	req := &vault.CreateSecretsRequest{
-		EncryptedSecrets: []*vault.EncryptedSecret{
+	req := &vaultcommon.CreateSecretsRequest{
+		EncryptedSecrets: []*vaultcommon.EncryptedSecret{
 			{
 				Id:             id,
 				EncryptedValue: value,
 			},
 		},
 	}
-	resp := &vault.CreateSecretsResponse{
-		Responses: []*vault.CreateSecretResponse{
+	resp := &vaultcommon.CreateSecretsResponse{
+		Responses: []*vaultcommon.CreateSecretResponse{
 			{
 				Id:      id,
 				Success: true,
@@ -1873,49 +2164,49 @@ func TestPlugin_Reports(t *testing.T) {
 			},
 		},
 	}
-	expectedOutcome1 := &vault.Outcome{
-		Id:          keyFor(id),
-		RequestType: vault.RequestType_CREATE_SECRETS,
-		Request: &vault.Outcome_CreateSecretsRequest{
+	expectedOutcome1 := &vaultcommon.Outcome{
+		Id:          vaulttypes.KeyFor(id),
+		RequestType: vaultcommon.RequestType_CREATE_SECRETS,
+		Request: &vaultcommon.Outcome_CreateSecretsRequest{
 			CreateSecretsRequest: req,
 		},
-		Response: &vault.Outcome_CreateSecretsResponse{
+		Response: &vaultcommon.Outcome_CreateSecretsResponse{
 			CreateSecretsResponse: resp,
 		},
 	}
 
-	id2 := &vault.SecretIdentifier{
+	id2 := &vaultcommon.SecretIdentifier{
 		Owner:     "owner",
 		Namespace: "main",
 		Key:       "secret2",
 	}
-	req2 := &vault.GetSecretsRequest{
-		Requests: []*vault.SecretRequest{
+	req2 := &vaultcommon.GetSecretsRequest{
+		Requests: []*vaultcommon.SecretRequest{
 			{
 				Id: id2,
 			},
 		},
 	}
-	resp2 := &vault.GetSecretsResponse{
-		Responses: []*vault.SecretResponse{
+	resp2 := &vaultcommon.GetSecretsResponse{
+		Responses: []*vaultcommon.SecretResponse{
 			{
 				Id:     id2,
-				Result: &vault.SecretResponse_Data{Data: &vault.SecretData{EncryptedValue: value}},
+				Result: &vaultcommon.SecretResponse_Data{Data: &vaultcommon.SecretData{EncryptedValue: value}},
 			},
 		},
 	}
-	expectedOutcome2 := &vault.Outcome{
-		Id:          keyFor(id2),
-		RequestType: vault.RequestType_GET_SECRETS,
-		Request: &vault.Outcome_GetSecretsRequest{
+	expectedOutcome2 := &vaultcommon.Outcome{
+		Id:          vaulttypes.KeyFor(id2),
+		RequestType: vaultcommon.RequestType_GET_SECRETS,
+		Request: &vaultcommon.Outcome_GetSecretsRequest{
 			GetSecretsRequest: req2,
 		},
-		Response: &vault.Outcome_GetSecretsResponse{
+		Response: &vaultcommon.Outcome_GetSecretsResponse{
 			GetSecretsResponse: resp2,
 		},
 	}
-	os := &vault.Outcomes{
-		Outcomes: []*vault.Outcome{
+	os := &vaultcommon.Outcomes{
+		Outcomes: []*vaultcommon.Outcome{
 			expectedOutcome1,
 			expectedOutcome2,
 		},
@@ -1925,7 +2216,7 @@ func TestPlugin_Reports(t *testing.T) {
 	require.NoError(t, err)
 
 	lggr, _ := logger.TestLoggerObserved(t, zapcore.DebugLevel)
-	store := requests.NewStore[*Request]()
+	store := requests.NewStore[*vaulttypes.Request]()
 	_, pk, shares, err := tdh2easy.GenerateKeys(1, 3)
 	require.NoError(t, err)
 	r := &ReportingPlugin{
@@ -1935,16 +2226,17 @@ func TestPlugin_Reports(t *testing.T) {
 			F: 1,
 		},
 		store: store,
-		cfg: &ReportingPluginConfig{
-			BatchSize:                      10,
-			PublicKey:                      pk,
-			PrivateKeyShare:                shares[0],
-			MaxSecretsPerOwner:             1,
-			MaxCiphertextLenBytes:          1024,
-			MaxIdentifierOwnerLenBytes:     100,
-			MaxIdentifierNamespaceLenBytes: 100,
-			MaxIdentifierKeyLenBytes:       100,
-		},
+		cfg: makeReportingPluginConfig(
+			t,
+			10,
+			pk,
+			shares[0],
+			1,
+			1024,
+			100,
+			100,
+			100,
+		),
 	}
 
 	rs, err := r.Reports(t.Context(), uint64(1), osb)
@@ -1953,31 +2245,1556 @@ func TestPlugin_Reports(t *testing.T) {
 	assert.Len(t, rs, 2)
 
 	o1 := rs[0]
-	info1 := &vault.ReportInfo{}
-	err = proto.Unmarshal(o1.ReportWithInfo.Info, info1)
+	info1, err := extractReportInfo(o1.ReportWithInfo)
 	require.NoError(t, err)
-	assert.True(t, proto.Equal(&vault.ReportInfo{
-		Id:          keyFor(id),
-		Format:      vault.ReportFormat_REPORT_FORMAT_JSON,
-		RequestType: vault.RequestType_CREATE_SECRETS,
+
+	assert.True(t, proto.Equal(&vaultcommon.ReportInfo{
+		Id:          vaulttypes.KeyFor(id),
+		Format:      vaultcommon.ReportFormat_REPORT_FORMAT_JSON,
+		RequestType: vaultcommon.RequestType_CREATE_SECRETS,
 	}, info1))
 
-	expectedBytes, err := ToCanonicalJSON(resp)
+	expectedBytes, err := vaultutils.ToCanonicalJSON(resp)
 	require.NoError(t, err)
 	assert.Equal(t, expectedBytes, []byte(o1.ReportWithInfo.Report))
 
 	o2 := rs[1]
-	info2 := &vault.ReportInfo{}
-	err = proto.Unmarshal(o2.ReportWithInfo.Info, info2)
+	info2, err := extractReportInfo(o2.ReportWithInfo)
 	require.NoError(t, err)
-	assert.True(t, proto.Equal(&vault.ReportInfo{
-		Id:          keyFor(id2),
-		Format:      vault.ReportFormat_REPORT_FORMAT_PROTOBUF,
-		RequestType: vault.RequestType_GET_SECRETS,
+	assert.True(t, proto.Equal(&vaultcommon.ReportInfo{
+		Id:          vaulttypes.KeyFor(id2),
+		Format:      vaultcommon.ReportFormat_REPORT_FORMAT_PROTOBUF,
+		RequestType: vaultcommon.RequestType_GET_SECRETS,
 	}, info2))
 
-	o2r := &vault.GetSecretsResponse{}
+	o2r := &vaultcommon.GetSecretsResponse{}
 	err = proto.Unmarshal(o2.ReportWithInfo.Report, o2r)
 	require.NoError(t, err)
 	assert.True(t, proto.Equal(resp2, o2r))
+}
+
+func TestPlugin_Observation_UpdateSecretsRequest_SecretIdentifierInvalid(t *testing.T) {
+	tcs := []struct {
+		name     string
+		id       *vaultcommon.SecretIdentifier
+		maxIDLen int
+		err      string
+	}{
+		{
+			name: "nil id",
+			id:   nil,
+			err:  "invalid secret identifier: cannot be nil",
+		},
+		{
+			name: "empty id",
+			id:   &vaultcommon.SecretIdentifier{},
+			err:  "invalid secret identifier: key cannot be empty",
+		},
+		{
+			name: "empty id",
+			id: &vaultcommon.SecretIdentifier{
+				Key:       "hello",
+				Namespace: "world",
+			},
+			err: "invalid secret identifier: owner cannot be empty",
+		},
+		{
+			name:     "id is too long",
+			maxIDLen: 10,
+			id: &vaultcommon.SecretIdentifier{
+				Owner:     "owner",
+				Key:       "hello",
+				Namespace: "world",
+			},
+			err: "invalid secret identifier: owner exceeds maximum length of 3 bytes",
+		},
+	}
+
+	for _, tc := range tcs {
+		lggr := logger.TestLogger(t)
+		store := requests.NewStore[*vaulttypes.Request]()
+		maxIDLen := 256
+		if tc.maxIDLen > 0 {
+			maxIDLen = tc.maxIDLen
+		}
+		r := &ReportingPlugin{
+			lggr:  lggr,
+			store: store,
+			cfg: makeReportingPluginConfig(
+				t,
+				10,
+				nil,
+				nil,
+				1,
+				1024,
+				maxIDLen/3,
+				maxIDLen/3,
+				maxIDLen/3,
+			),
+		}
+
+		seqNr := uint64(1)
+		rdr := &kv{
+			m: make(map[string]response),
+		}
+		p := &vaultcommon.UpdateSecretsRequest{
+			EncryptedSecrets: []*vaultcommon.EncryptedSecret{
+				{
+					Id:             tc.id,
+					EncryptedValue: "foo",
+				},
+			},
+		}
+		err := store.Add(&vaulttypes.Request{Payload: p})
+		require.NoError(t, err)
+		data, err := r.Observation(t.Context(), seqNr, types.AttributedQuery{}, rdr, nil)
+		require.NoError(t, err)
+
+		obs := &vaultcommon.Observations{}
+		err = proto.Unmarshal(data, obs)
+		require.NoError(t, err)
+
+		assert.Len(t, obs.Observations, 1)
+		o := obs.Observations[0]
+
+		assert.Equal(t, vaultcommon.RequestType_UPDATE_SECRETS, o.RequestType)
+		assert.True(t, proto.Equal(o.GetUpdateSecretsRequest(), p))
+
+		batchResp := o.GetUpdateSecretsResponse()
+		assert.Len(t, p.EncryptedSecrets, 1)
+		assert.Len(t, p.EncryptedSecrets, len(batchResp.Responses))
+
+		assert.True(t, proto.Equal(p.EncryptedSecrets[0].Id, batchResp.Responses[0].Id))
+		resp := batchResp.Responses[0]
+		assert.Contains(t, resp.GetError(), tc.err)
+	}
+}
+
+func TestPlugin_Observation_UpdateSecretsRequest_DisallowsDuplicateRequests(t *testing.T) {
+	lggr := logger.TestLogger(t)
+	store := requests.NewStore[*vaulttypes.Request]()
+	r := &ReportingPlugin{
+		lggr:  lggr,
+		store: store,
+		cfg: makeReportingPluginConfig(
+			t,
+			10,
+			nil,
+			nil,
+			1,
+			1024,
+			30,
+			30,
+			30,
+		),
+	}
+
+	seqNr := uint64(1)
+	rdr := &kv{
+		m: make(map[string]response),
+	}
+	id := &vaultcommon.SecretIdentifier{
+		Owner:     "owner",
+		Namespace: "main",
+		Key:       "my_secret",
+	}
+	p := &vaultcommon.UpdateSecretsRequest{
+		EncryptedSecrets: []*vaultcommon.EncryptedSecret{
+			{
+				Id:             id,
+				EncryptedValue: "foo",
+			},
+			{
+				Id:             id,
+				EncryptedValue: "bla",
+			},
+		},
+	}
+	err := store.Add(&vaulttypes.Request{Payload: p})
+	require.NoError(t, err)
+	data, err := r.Observation(t.Context(), seqNr, types.AttributedQuery{}, rdr, nil)
+	require.NoError(t, err)
+
+	obs := &vaultcommon.Observations{}
+	err = proto.Unmarshal(data, obs)
+	require.NoError(t, err)
+
+	assert.Len(t, obs.Observations, 1)
+	o := obs.Observations[0]
+
+	assert.Equal(t, vaultcommon.RequestType_UPDATE_SECRETS, o.RequestType)
+	assert.True(t, proto.Equal(o.GetUpdateSecretsRequest(), p))
+
+	batchResp := o.GetUpdateSecretsResponse()
+	assert.Len(t, p.EncryptedSecrets, 2)
+	assert.Len(t, p.EncryptedSecrets, len(batchResp.Responses))
+
+	assert.True(t, proto.Equal(p.EncryptedSecrets[0].Id, batchResp.Responses[0].Id))
+	resp := batchResp.Responses[0]
+	assert.Contains(t, resp.GetError(), "duplicate request for secret identifier")
+
+	assert.True(t, proto.Equal(p.EncryptedSecrets[1].Id, batchResp.Responses[1].Id))
+	resp = batchResp.Responses[1]
+	assert.Contains(t, resp.GetError(), "duplicate request for secret identifier")
+}
+
+func TestPlugin_Observation_UpdateSecretsRequest_InvalidCiphertext(t *testing.T) {
+	lggr := logger.TestLogger(t)
+	store := requests.NewStore[*vaulttypes.Request]()
+	r := &ReportingPlugin{
+		lggr:  lggr,
+		store: store,
+		cfg: makeReportingPluginConfig(
+			t,
+			10,
+			nil,
+			nil,
+			1,
+			1024,
+			100,
+			100,
+			100,
+		),
+	}
+
+	seqNr := uint64(1)
+	rdr := &kv{
+		m: make(map[string]response),
+	}
+
+	id := &vaultcommon.SecretIdentifier{
+		Owner:     "owner",
+		Namespace: "main",
+		Key:       "secret",
+	}
+	p := &vaultcommon.UpdateSecretsRequest{
+		EncryptedSecrets: []*vaultcommon.EncryptedSecret{
+			{
+				Id:             id,
+				EncryptedValue: "foo",
+			},
+		},
+	}
+	err := store.Add(&vaulttypes.Request{Payload: p})
+	require.NoError(t, err)
+	data, err := r.Observation(t.Context(), seqNr, types.AttributedQuery{}, rdr, nil)
+	require.NoError(t, err)
+
+	obs := &vaultcommon.Observations{}
+	err = proto.Unmarshal(data, obs)
+	require.NoError(t, err)
+
+	assert.Len(t, obs.Observations, 1)
+	o := obs.Observations[0]
+
+	assert.Equal(t, vaultcommon.RequestType_UPDATE_SECRETS, o.RequestType)
+	assert.True(t, proto.Equal(o.GetUpdateSecretsRequest(), p))
+
+	batchResp := o.GetUpdateSecretsResponse()
+	assert.Len(t, p.EncryptedSecrets, 1)
+	assert.Len(t, p.EncryptedSecrets, len(batchResp.Responses))
+
+	assert.True(t, proto.Equal(p.EncryptedSecrets[0].Id, batchResp.Responses[0].Id))
+	resp := batchResp.Responses[0]
+	assert.Contains(t, resp.GetError(), "invalid hex encoding for ciphertext")
+}
+
+func TestPlugin_Observation_UpdateSecretsRequest_InvalidCiphertext_TooLong(t *testing.T) {
+	lggr := logger.TestLogger(t)
+	store := requests.NewStore[*vaulttypes.Request]()
+	r := &ReportingPlugin{
+		lggr:  lggr,
+		store: store,
+		cfg: makeReportingPluginConfig(
+			t,
+			10,
+			nil,
+			nil,
+			1,
+			10,
+			100,
+			100,
+			100,
+		),
+	}
+
+	seqNr := uint64(1)
+	rdr := &kv{
+		m: make(map[string]response),
+	}
+
+	id := &vaultcommon.SecretIdentifier{
+		Owner:     "owner",
+		Namespace: "main",
+		Key:       "secret",
+	}
+	ciphertext := []byte("a quick brown fox jumps over the lazy dog")
+	p := &vaultcommon.UpdateSecretsRequest{
+		EncryptedSecrets: []*vaultcommon.EncryptedSecret{
+			{
+				Id:             id,
+				EncryptedValue: hex.EncodeToString(ciphertext),
+			},
+		},
+	}
+	err := store.Add(&vaulttypes.Request{Payload: p})
+	require.NoError(t, err)
+	data, err := r.Observation(t.Context(), seqNr, types.AttributedQuery{}, rdr, nil)
+	require.NoError(t, err)
+
+	obs := &vaultcommon.Observations{}
+	err = proto.Unmarshal(data, obs)
+	require.NoError(t, err)
+
+	assert.Len(t, obs.Observations, 1)
+	o := obs.Observations[0]
+
+	assert.Equal(t, vaultcommon.RequestType_UPDATE_SECRETS, o.RequestType)
+	assert.True(t, proto.Equal(o.GetUpdateSecretsRequest(), p))
+
+	batchResp := o.GetUpdateSecretsResponse()
+	assert.Len(t, p.EncryptedSecrets, 1)
+	assert.Len(t, p.EncryptedSecrets, len(batchResp.Responses))
+
+	assert.True(t, proto.Equal(p.EncryptedSecrets[0].Id, batchResp.Responses[0].Id))
+	resp := batchResp.Responses[0]
+	assert.Contains(t, resp.GetError(), "ciphertext size exceeds maximum allowed size: 10 bytes")
+}
+
+func TestPlugin_Observation_UpdateSecretsRequest_InvalidCiphertext_EncryptedWithWrongPublicKey(t *testing.T) {
+	lggr := logger.TestLogger(t)
+	store := requests.NewStore[*vaulttypes.Request]()
+	// Wrong key
+	_, wrongPublicKey, _, err := tdh2easy.GenerateKeys(1, 3)
+	require.NoError(t, err)
+	// Right key
+	_, pk, shares, err := tdh2easy.GenerateKeys(1, 3)
+	require.NoError(t, err)
+	r := &ReportingPlugin{
+		lggr:  lggr,
+		store: store,
+		cfg: makeReportingPluginConfig(
+			t,
+			10,
+			pk,
+			shares[0],
+			1,
+			1024,
+			100,
+			100,
+			100,
+		),
+	}
+
+	seqNr := uint64(1)
+	rdr := &kv{
+		m: make(map[string]response),
+	}
+
+	id := &vaultcommon.SecretIdentifier{
+		Owner:     "owner",
+		Namespace: "main",
+		Key:       "secret",
+	}
+	ct, err := tdh2easy.Encrypt(wrongPublicKey, []byte("my secret value"))
+	require.NoError(t, err)
+
+	ciphertextBytes, err := ct.Marshal()
+	require.NoError(t, err)
+
+	p := &vaultcommon.UpdateSecretsRequest{
+		EncryptedSecrets: []*vaultcommon.EncryptedSecret{
+			{
+				Id:             id,
+				EncryptedValue: hex.EncodeToString(ciphertextBytes),
+			},
+		},
+	}
+	err = store.Add(&vaulttypes.Request{Payload: p})
+	require.NoError(t, err)
+	data, err := r.Observation(t.Context(), seqNr, types.AttributedQuery{}, rdr, nil)
+	require.NoError(t, err)
+
+	obs := &vaultcommon.Observations{}
+	err = proto.Unmarshal(data, obs)
+	require.NoError(t, err)
+
+	assert.Len(t, obs.Observations, 1)
+	o := obs.Observations[0]
+
+	assert.Equal(t, vaultcommon.RequestType_UPDATE_SECRETS, o.RequestType)
+	assert.True(t, proto.Equal(o.GetUpdateSecretsRequest(), p))
+
+	batchResp := o.GetUpdateSecretsResponse()
+	assert.Len(t, p.EncryptedSecrets, 1)
+	assert.Len(t, p.EncryptedSecrets, len(batchResp.Responses))
+
+	assert.True(t, proto.Equal(p.EncryptedSecrets[0].Id, batchResp.Responses[0].Id))
+	resp := batchResp.Responses[0]
+	assert.Contains(t, resp.GetError(), "failed to verify ciphertext")
+}
+
+func TestPlugin_StateTransition_UpdateSecretsRequest_SecretDoesntExist(t *testing.T) {
+	lggr, observed := logger.TestLoggerObserved(t, zapcore.DebugLevel)
+	store := requests.NewStore[*vaulttypes.Request]()
+	_, pk, shares, err := tdh2easy.GenerateKeys(1, 3)
+	require.NoError(t, err)
+	r := &ReportingPlugin{
+		lggr: lggr,
+		onchainCfg: ocr3types.ReportingPluginConfig{
+			N: 4,
+			F: 1,
+		},
+		store: store,
+		cfg: makeReportingPluginConfig(
+			t,
+			10,
+			pk,
+			shares[0],
+			1,
+			1024,
+			100,
+			100,
+			100,
+		),
+	}
+
+	seqNr := uint64(1)
+	kv := &kv{
+		m: make(map[string]response),
+	}
+	rs := NewReadStore(kv)
+
+	id := &vaultcommon.SecretIdentifier{
+		Owner:     "owner",
+		Namespace: "main",
+		Key:       "secret",
+	}
+	value := []byte("encrypted-value")
+	enc := hex.EncodeToString(value)
+	req := &vaultcommon.UpdateSecretsRequest{
+		EncryptedSecrets: []*vaultcommon.EncryptedSecret{
+			{
+				Id:             id,
+				EncryptedValue: enc,
+			},
+		},
+	}
+	resp := &vaultcommon.UpdateSecretsResponse{
+		Responses: []*vaultcommon.UpdateSecretResponse{
+			{
+				Id:      id,
+				Success: false,
+				Error:   "",
+			},
+		},
+	}
+
+	obsb := marshalObservations(t, observation{id, req, resp})
+	reportPrecursor, err := r.StateTransition(
+		t.Context(),
+		seqNr,
+		types.AttributedQuery{},
+		[]types.AttributedObservation{
+			{Observation: types.Observation(obsb)},
+			{Observation: types.Observation(obsb)},
+			{Observation: types.Observation(obsb)},
+		}, kv, nil)
+	require.NoError(t, err)
+
+	os := &vaultcommon.Outcomes{}
+	err = proto.Unmarshal(reportPrecursor, os)
+	require.NoError(t, err)
+
+	assert.Len(t, os.Outcomes, 1)
+
+	o := os.Outcomes[0]
+	assert.True(t, proto.Equal(req, o.GetUpdateSecretsRequest()))
+
+	expectedResp := &vaultcommon.UpdateSecretsResponse{
+		Responses: []*vaultcommon.UpdateSecretResponse{
+			{
+				Id:      id,
+				Success: false,
+				Error:   "could not write update to key value store: key does not exist",
+			},
+		},
+	}
+	assert.True(t, proto.Equal(expectedResp, o.GetUpdateSecretsResponse()), o.GetUpdateSecretsResponse())
+
+	ss, err := rs.GetSecret(id)
+	require.NoError(t, err)
+	require.Nil(t, ss)
+
+	assert.Equal(t, 1, observed.FilterMessage("sufficient observations for sha").Len())
+}
+
+func TestPlugin_StateTransition_UpdateSecretsRequest_WritesSecrets(t *testing.T) {
+	lggr, observed := logger.TestLoggerObserved(t, zapcore.DebugLevel)
+	store := requests.NewStore[*vaulttypes.Request]()
+	_, pk, shares, err := tdh2easy.GenerateKeys(1, 3)
+	require.NoError(t, err)
+	r := &ReportingPlugin{
+		lggr: lggr,
+		onchainCfg: ocr3types.ReportingPluginConfig{
+			N: 4,
+			F: 1,
+		},
+		store: store,
+		cfg: makeReportingPluginConfig(
+			t,
+			10,
+			pk,
+			shares[0],
+			1,
+			1024,
+			100,
+			100,
+			100,
+		),
+	}
+
+	id := &vaultcommon.SecretIdentifier{
+		Owner:     "owner",
+		Namespace: "main",
+		Key:       "secret",
+	}
+	secret, err := proto.Marshal(&vaultcommon.StoredSecret{
+		EncryptedSecret: []byte("old-encrypted-value"),
+	})
+	require.NoError(t, err)
+	metadata, err := proto.Marshal(&vaultcommon.StoredMetadata{
+		SecretIdentifiers: []*vaultcommon.SecretIdentifier{id},
+	})
+	require.NoError(t, err)
+	kv := &kv{
+		m: map[string]response{
+			keyPrefix + vaulttypes.KeyFor(id): {
+				data: secret,
+			},
+			metadataPrefix + "owner": {
+				data: metadata,
+			},
+		},
+	}
+	rs := NewReadStore(kv)
+
+	value := []byte("encrypted-value")
+	enc := hex.EncodeToString(value)
+	req := &vaultcommon.UpdateSecretsRequest{
+		EncryptedSecrets: []*vaultcommon.EncryptedSecret{
+			{
+				Id:             id,
+				EncryptedValue: enc,
+			},
+		},
+	}
+	resp := &vaultcommon.UpdateSecretsResponse{
+		Responses: []*vaultcommon.UpdateSecretResponse{
+			{
+				Id:      id,
+				Success: false,
+				Error:   "",
+			},
+		},
+	}
+
+	seqNr := uint64(1)
+	obsb := marshalObservations(t, observation{id, req, resp})
+	reportPrecursor, err := r.StateTransition(
+		t.Context(),
+		seqNr,
+		types.AttributedQuery{},
+		[]types.AttributedObservation{
+			{Observation: types.Observation(obsb)},
+			{Observation: types.Observation(obsb)},
+			{Observation: types.Observation(obsb)},
+		}, kv, nil)
+	require.NoError(t, err)
+
+	os := &vaultcommon.Outcomes{}
+	err = proto.Unmarshal(reportPrecursor, os)
+	require.NoError(t, err)
+
+	assert.Len(t, os.Outcomes, 1)
+
+	o := os.Outcomes[0]
+	assert.True(t, proto.Equal(req, o.GetUpdateSecretsRequest()))
+
+	expectedResp := &vaultcommon.UpdateSecretsResponse{
+		Responses: []*vaultcommon.UpdateSecretResponse{
+			{
+				Id:      id,
+				Success: true,
+				Error:   "",
+			},
+		},
+	}
+	assert.True(t, proto.Equal(expectedResp, o.GetUpdateSecretsResponse()), o.GetUpdateSecretsResponse())
+
+	ss, err := rs.GetSecret(id)
+	require.NoError(t, err)
+	require.NotNil(t, ss)
+
+	assert.Equal(t, ss.EncryptedSecret, []byte("encrypted-value"))
+
+	assert.Equal(t, 1, observed.FilterMessage("sufficient observations for sha").Len())
+}
+
+func TestPlugin_Reports_UpdateSecretsRequest(t *testing.T) {
+	value := "encrypted-value"
+	id := &vaultcommon.SecretIdentifier{
+		Owner:     "owner",
+		Namespace: "main",
+		Key:       "secret",
+	}
+	req := &vaultcommon.UpdateSecretsRequest{
+		EncryptedSecrets: []*vaultcommon.EncryptedSecret{
+			{
+				Id:             id,
+				EncryptedValue: value,
+			},
+		},
+	}
+	resp := &vaultcommon.UpdateSecretsResponse{
+		Responses: []*vaultcommon.UpdateSecretResponse{
+			{
+				Id:      id,
+				Success: true,
+				Error:   "",
+			},
+		},
+	}
+	expectedOutcome := &vaultcommon.Outcome{
+		Id:          vaulttypes.KeyFor(id),
+		RequestType: vaultcommon.RequestType_UPDATE_SECRETS,
+		Request: &vaultcommon.Outcome_UpdateSecretsRequest{
+			UpdateSecretsRequest: req,
+		},
+		Response: &vaultcommon.Outcome_UpdateSecretsResponse{
+			UpdateSecretsResponse: resp,
+		},
+	}
+
+	os := &vaultcommon.Outcomes{
+		Outcomes: []*vaultcommon.Outcome{
+			expectedOutcome,
+		},
+	}
+
+	osb, err := proto.Marshal(os)
+	require.NoError(t, err)
+
+	lggr, _ := logger.TestLoggerObserved(t, zapcore.DebugLevel)
+	store := requests.NewStore[*vaulttypes.Request]()
+	_, pk, shares, err := tdh2easy.GenerateKeys(1, 3)
+	require.NoError(t, err)
+	r := &ReportingPlugin{
+		lggr: lggr,
+		onchainCfg: ocr3types.ReportingPluginConfig{
+			N: 4,
+			F: 1,
+		},
+		store: store,
+		cfg: makeReportingPluginConfig(
+			t,
+			10,
+			pk,
+			shares[0],
+			1,
+			1024,
+			100,
+			100,
+			100,
+		),
+	}
+
+	rs, err := r.Reports(t.Context(), uint64(1), osb)
+	require.NoError(t, err)
+
+	assert.Len(t, rs, 1)
+
+	o := rs[0]
+	info1, err := extractReportInfo(o.ReportWithInfo)
+	require.NoError(t, err)
+
+	assert.True(t, proto.Equal(&vaultcommon.ReportInfo{
+		Id:          vaulttypes.KeyFor(id),
+		Format:      vaultcommon.ReportFormat_REPORT_FORMAT_JSON,
+		RequestType: vaultcommon.RequestType_UPDATE_SECRETS,
+	}, info1))
+
+	expectedBytes, err := vaultutils.ToCanonicalJSON(resp)
+	require.NoError(t, err)
+	assert.Equal(t, expectedBytes, []byte(o.ReportWithInfo.Report))
+}
+
+func TestPlugin_Observation_DeleteSecrets(t *testing.T) {
+	lggr := logger.TestLogger(t)
+	store := requests.NewStore[*vaulttypes.Request]()
+	r := &ReportingPlugin{
+		lggr:  lggr,
+		store: store,
+		cfg: makeReportingPluginConfig(
+			t,
+			10,
+			nil,
+			nil,
+			1,
+			1024,
+			30,
+			30,
+			30,
+		),
+	}
+
+	id := &vaultcommon.SecretIdentifier{
+		Owner:     "foo",
+		Namespace: "main",
+		Key:       "item4",
+	}
+	md := &vaultcommon.StoredMetadata{
+		SecretIdentifiers: []*vaultcommon.SecretIdentifier{
+			id,
+		},
+	}
+	mdb, err := proto.Marshal(md)
+	require.NoError(t, err)
+
+	ss := &vaultcommon.StoredSecret{
+		EncryptedSecret: []byte("encrypted-value"),
+	}
+	ssb, err := proto.Marshal(ss)
+	require.NoError(t, err)
+
+	seqNr := uint64(1)
+	rdr := &kv{
+		m: map[string]response{
+			metadataPrefix + "foo": response{
+				data: mdb,
+			},
+			keyPrefix + vaulttypes.KeyFor(id): response{
+				data: ssb,
+			},
+		},
+	}
+	p := &vaultcommon.DeleteSecretsRequest{
+		RequestId: "request-id",
+		Ids: []*vaultcommon.SecretIdentifier{
+			id,
+		},
+	}
+	err = store.Add(&vaulttypes.Request{Payload: p})
+	require.NoError(t, err)
+	data, err := r.Observation(t.Context(), seqNr, types.AttributedQuery{}, rdr, nil)
+	require.NoError(t, err)
+
+	obs := &vaultcommon.Observations{}
+	err = proto.Unmarshal(data, obs)
+	require.NoError(t, err)
+
+	assert.Len(t, obs.Observations, 1)
+	o := obs.Observations[0]
+
+	assert.Equal(t, vaultcommon.RequestType_DELETE_SECRETS, o.RequestType)
+	assert.True(t, proto.Equal(o.GetDeleteSecretsRequest(), p))
+
+	resp := o.GetDeleteSecretsResponse()
+	assert.Len(t, resp.Responses, 1)
+	assert.True(t, proto.Equal(id, resp.Responses[0].Id))
+	assert.False(t, resp.Responses[0].Success, resp.Responses[0].GetError()) // false because it hasn't actually been deleted yet.
+	assert.Empty(t, resp.Responses[0].GetError())
+}
+
+func TestPlugin_Observation_DeleteSecrets_IdDoesntExist(t *testing.T) {
+	lggr := logger.TestLogger(t)
+	store := requests.NewStore[*vaulttypes.Request]()
+	r := &ReportingPlugin{
+		lggr:  lggr,
+		store: store,
+		cfg: makeReportingPluginConfig(
+			t,
+			10,
+			nil,
+			nil,
+			1,
+			1024,
+			30,
+			30,
+			30,
+		),
+	}
+
+	seqNr := uint64(1)
+	rdr := &kv{
+		m: map[string]response{},
+	}
+	id := &vaultcommon.SecretIdentifier{
+		Owner:     "foo",
+		Namespace: "main",
+		Key:       "item4",
+	}
+	p := &vaultcommon.DeleteSecretsRequest{
+		RequestId: "request-id",
+		Ids: []*vaultcommon.SecretIdentifier{
+			id,
+		},
+	}
+	err := store.Add(&vaulttypes.Request{Payload: p})
+	require.NoError(t, err)
+	data, err := r.Observation(t.Context(), seqNr, types.AttributedQuery{}, rdr, nil)
+	require.NoError(t, err)
+
+	obs := &vaultcommon.Observations{}
+	err = proto.Unmarshal(data, obs)
+	require.NoError(t, err)
+
+	assert.Len(t, obs.Observations, 1)
+	o := obs.Observations[0]
+
+	assert.Equal(t, vaultcommon.RequestType_DELETE_SECRETS, o.RequestType)
+	assert.True(t, proto.Equal(o.GetDeleteSecretsRequest(), p))
+
+	resp := o.GetDeleteSecretsResponse()
+	assert.Len(t, resp.Responses, 1)
+	assert.True(t, proto.Equal(id, resp.Responses[0].Id))
+	assert.False(t, resp.Responses[0].Success, resp.Responses[0].GetError())
+	assert.Contains(t, resp.Responses[0].GetError(), "key does not exist")
+}
+
+func TestPlugin_Observation_DeleteSecrets_InvalidRequestDuplicateIds(t *testing.T) {
+	lggr := logger.TestLogger(t)
+	store := requests.NewStore[*vaulttypes.Request]()
+	r := &ReportingPlugin{
+		lggr:  lggr,
+		store: store,
+		cfg: makeReportingPluginConfig(
+			t,
+			10,
+			nil,
+			nil,
+			1,
+			1024,
+			30,
+			30,
+			30,
+		),
+	}
+
+	seqNr := uint64(1)
+	rdr := &kv{
+		m: map[string]response{},
+	}
+	id := &vaultcommon.SecretIdentifier{
+		Owner:     "foo",
+		Namespace: "main",
+		Key:       "item4",
+	}
+	p := &vaultcommon.DeleteSecretsRequest{
+		RequestId: "request-id",
+		Ids: []*vaultcommon.SecretIdentifier{
+			id,
+			id,
+		},
+	}
+	err := store.Add(&vaulttypes.Request{Payload: p})
+	require.NoError(t, err)
+	data, err := r.Observation(t.Context(), seqNr, types.AttributedQuery{}, rdr, nil)
+	require.NoError(t, err)
+
+	obs := &vaultcommon.Observations{}
+	err = proto.Unmarshal(data, obs)
+	require.NoError(t, err)
+
+	assert.Len(t, obs.Observations, 1)
+	o := obs.Observations[0]
+
+	assert.Equal(t, vaultcommon.RequestType_DELETE_SECRETS, o.RequestType)
+	assert.True(t, proto.Equal(o.GetDeleteSecretsRequest(), p))
+
+	resp := o.GetDeleteSecretsResponse()
+	assert.Len(t, resp.Responses, 2)
+	assert.True(t, proto.Equal(id, resp.Responses[0].Id))
+	assert.False(t, resp.Responses[0].Success, resp.Responses[0].GetError())
+	assert.Contains(t, resp.Responses[0].GetError(), "duplicate request for secret identifier")
+
+	assert.True(t, proto.Equal(id, resp.Responses[1].Id))
+	assert.False(t, resp.Responses[1].Success, resp.Responses[1].GetError())
+	assert.Contains(t, resp.Responses[1].GetError(), "duplicate request for secret identifier")
+}
+
+func TestPlugin_StateTransition_DeleteSecretsRequest(t *testing.T) {
+	lggr, observed := logger.TestLoggerObserved(t, zapcore.DebugLevel)
+	store := requests.NewStore[*vaulttypes.Request]()
+	_, pk, shares, err := tdh2easy.GenerateKeys(1, 3)
+	require.NoError(t, err)
+	r := &ReportingPlugin{
+		lggr: lggr,
+		onchainCfg: ocr3types.ReportingPluginConfig{
+			N: 4,
+			F: 1,
+		},
+		store: store,
+		cfg: makeReportingPluginConfig(
+			t,
+			10,
+			pk,
+			shares[0],
+			1,
+			1024,
+			100,
+			100,
+			100,
+		),
+	}
+
+	id := &vaultcommon.SecretIdentifier{
+		Owner:     "foo",
+		Namespace: "main",
+		Key:       "item4",
+	}
+	md := &vaultcommon.StoredMetadata{
+		SecretIdentifiers: []*vaultcommon.SecretIdentifier{
+			id,
+		},
+	}
+	mdb, err := proto.Marshal(md)
+	require.NoError(t, err)
+
+	ss := &vaultcommon.StoredSecret{
+		EncryptedSecret: []byte("encrypted-value"),
+	}
+	ssb, err := proto.Marshal(ss)
+	require.NoError(t, err)
+
+	seqNr := uint64(1)
+	rdr := &kv{
+		m: map[string]response{
+			metadataPrefix + "foo": response{
+				data: mdb,
+			},
+			keyPrefix + vaulttypes.KeyFor(id): response{
+				data: ssb,
+			},
+		},
+	}
+	rs := NewReadStore(rdr)
+
+	req := &vaultcommon.DeleteSecretsRequest{
+		RequestId: "request-id",
+		Ids:       []*vaultcommon.SecretIdentifier{id},
+	}
+	resp := &vaultcommon.DeleteSecretsResponse{
+		Responses: []*vaultcommon.DeleteSecretResponse{
+			{
+				Id:      id,
+				Success: false,
+				Error:   "",
+			},
+		},
+	}
+
+	obsb := marshalObservations(t, observation{id, req, resp})
+	reportPrecursor, err := r.StateTransition(
+		t.Context(),
+		seqNr,
+		types.AttributedQuery{},
+		[]types.AttributedObservation{
+			{Observation: types.Observation(obsb)},
+			{Observation: types.Observation(obsb)},
+			{Observation: types.Observation(obsb)},
+		}, rdr, nil)
+	require.NoError(t, err)
+
+	os := &vaultcommon.Outcomes{}
+	err = proto.Unmarshal(reportPrecursor, os)
+	require.NoError(t, err)
+
+	assert.Len(t, os.Outcomes, 1)
+
+	o := os.Outcomes[0]
+	assert.True(t, proto.Equal(req, o.GetDeleteSecretsRequest()), o.GetDeleteSecretsRequest())
+	expectedResp := &vaultcommon.DeleteSecretsResponse{
+		Responses: []*vaultcommon.DeleteSecretResponse{
+			{
+				Id:      id,
+				Success: true,
+				Error:   "",
+			},
+		},
+	}
+	assert.True(t, proto.Equal(expectedResp, o.GetDeleteSecretsResponse()))
+
+	ss, err = rs.GetSecret(id)
+	require.NoError(t, err)
+	require.Nil(t, ss)
+
+	assert.Equal(t, 1, observed.FilterMessage("sufficient observations for sha").Len())
+}
+
+func TestPlugin_StateTransition_DeleteSecretsRequest_SecretDoesNotExist(t *testing.T) {
+	lggr, observed := logger.TestLoggerObserved(t, zapcore.DebugLevel)
+	store := requests.NewStore[*vaulttypes.Request]()
+	_, pk, shares, err := tdh2easy.GenerateKeys(1, 3)
+	require.NoError(t, err)
+	r := &ReportingPlugin{
+		lggr: lggr,
+		onchainCfg: ocr3types.ReportingPluginConfig{
+			N: 4,
+			F: 1,
+		},
+		store: store,
+		cfg: makeReportingPluginConfig(
+			t,
+			10,
+			pk,
+			shares[0],
+			1,
+			1024,
+			100,
+			100,
+			100,
+		),
+	}
+
+	id := &vaultcommon.SecretIdentifier{
+		Owner:     "foo",
+		Namespace: "main",
+		Key:       "item4",
+	}
+	md := &vaultcommon.StoredMetadata{
+		SecretIdentifiers: []*vaultcommon.SecretIdentifier{},
+	}
+	mdb, err := proto.Marshal(md)
+	require.NoError(t, err)
+
+	seqNr := uint64(1)
+	rdr := &kv{
+		m: map[string]response{
+			metadataPrefix + "foo": response{
+				data: mdb,
+			},
+		},
+	}
+	rs := NewReadStore(rdr)
+
+	req := &vaultcommon.DeleteSecretsRequest{
+		RequestId: "request-id",
+		Ids:       []*vaultcommon.SecretIdentifier{id},
+	}
+	resp := &vaultcommon.DeleteSecretsResponse{
+		Responses: []*vaultcommon.DeleteSecretResponse{
+			{
+				Id:      id,
+				Success: false,
+				Error:   "",
+			},
+		},
+	}
+
+	obsb := marshalObservations(t, observation{id, req, resp})
+	reportPrecursor, err := r.StateTransition(
+		t.Context(),
+		seqNr,
+		types.AttributedQuery{},
+		[]types.AttributedObservation{
+			{Observation: types.Observation(obsb)},
+			{Observation: types.Observation(obsb)},
+			{Observation: types.Observation(obsb)},
+		}, rdr, nil)
+	require.NoError(t, err)
+
+	os := &vaultcommon.Outcomes{}
+	err = proto.Unmarshal(reportPrecursor, os)
+	require.NoError(t, err)
+
+	assert.Len(t, os.Outcomes, 1)
+
+	o := os.Outcomes[0]
+	assert.True(t, proto.Equal(req, o.GetDeleteSecretsRequest()), o.GetDeleteSecretsRequest())
+	expectedResp := &vaultcommon.DeleteSecretsResponse{
+		Responses: []*vaultcommon.DeleteSecretResponse{
+			{
+				Id:      id,
+				Success: false,
+				Error:   "failed to handle delete secret request",
+			},
+		},
+	}
+	assert.True(t, proto.Equal(expectedResp, o.GetDeleteSecretsResponse()), o.GetDeleteSecretsResponse())
+
+	ss, err := rs.GetSecret(id)
+	require.NoError(t, err)
+	require.Nil(t, ss)
+
+	assert.Equal(t, 1, observed.FilterMessage("sufficient observations for sha").Len())
+}
+
+func TestPlugin_Reports_DeleteSecretsRequest(t *testing.T) {
+	id := &vaultcommon.SecretIdentifier{
+		Owner:     "owner",
+		Namespace: "main",
+		Key:       "secret",
+	}
+	req := &vaultcommon.DeleteSecretsRequest{
+		RequestId: "request-id",
+		Ids:       []*vaultcommon.SecretIdentifier{id},
+	}
+	resp := &vaultcommon.DeleteSecretsResponse{
+		Responses: []*vaultcommon.DeleteSecretResponse{
+			{
+				Id:      id,
+				Success: true,
+				Error:   "",
+			},
+		},
+	}
+	expectedOutcome := &vaultcommon.Outcome{
+		Id:          vaulttypes.KeyFor(id),
+		RequestType: vaultcommon.RequestType_DELETE_SECRETS,
+		Request: &vaultcommon.Outcome_DeleteSecretsRequest{
+			DeleteSecretsRequest: req,
+		},
+		Response: &vaultcommon.Outcome_DeleteSecretsResponse{
+			DeleteSecretsResponse: resp,
+		},
+	}
+
+	os := &vaultcommon.Outcomes{
+		Outcomes: []*vaultcommon.Outcome{
+			expectedOutcome,
+		},
+	}
+
+	osb, err := proto.Marshal(os)
+	require.NoError(t, err)
+
+	lggr, _ := logger.TestLoggerObserved(t, zapcore.DebugLevel)
+	store := requests.NewStore[*vaulttypes.Request]()
+	_, pk, shares, err := tdh2easy.GenerateKeys(1, 3)
+	require.NoError(t, err)
+	r := &ReportingPlugin{
+		lggr: lggr,
+		onchainCfg: ocr3types.ReportingPluginConfig{
+			N: 4,
+			F: 1,
+		},
+		store: store,
+		cfg: makeReportingPluginConfig(
+			t,
+			10,
+			pk,
+			shares[0],
+			1,
+			1024,
+			100,
+			100,
+			100,
+		),
+	}
+
+	rs, err := r.Reports(t.Context(), uint64(1), osb)
+	require.NoError(t, err)
+
+	assert.Len(t, rs, 1)
+
+	o := rs[0]
+	info1, err := extractReportInfo(o.ReportWithInfo)
+	require.NoError(t, err)
+
+	assert.True(t, proto.Equal(&vaultcommon.ReportInfo{
+		Id:          vaulttypes.KeyFor(id),
+		Format:      vaultcommon.ReportFormat_REPORT_FORMAT_JSON,
+		RequestType: vaultcommon.RequestType_DELETE_SECRETS,
+	}, info1))
+
+	expectedBytes, err := vaultutils.ToCanonicalJSON(resp)
+	require.NoError(t, err)
+	assert.Equal(t, expectedBytes, []byte(o.ReportWithInfo.Report))
+}
+
+func TestPlugin_Observation_ListSecretIdentifiers_OwnerRequired(t *testing.T) {
+	lggr := logger.TestLogger(t)
+	store := requests.NewStore[*vaulttypes.Request]()
+	r := &ReportingPlugin{
+		lggr:  lggr,
+		store: store,
+		cfg: makeReportingPluginConfig(
+			t,
+			10,
+			nil,
+			nil,
+			1,
+			1024,
+			30,
+			30,
+			30,
+		),
+	}
+
+	seqNr := uint64(1)
+	rdr := &kv{
+		m: make(map[string]response),
+	}
+	p := &vaultcommon.ListSecretIdentifiersRequest{
+		RequestId: "request-id",
+		Owner:     "",
+	}
+	err := store.Add(&vaulttypes.Request{Payload: p})
+	require.NoError(t, err)
+	data, err := r.Observation(t.Context(), seqNr, types.AttributedQuery{}, rdr, nil)
+	require.NoError(t, err)
+
+	obs := &vaultcommon.Observations{}
+	err = proto.Unmarshal(data, obs)
+	require.NoError(t, err)
+
+	assert.Len(t, obs.Observations, 1)
+	o := obs.Observations[0]
+
+	assert.Equal(t, vaultcommon.RequestType_LIST_SECRET_IDENTIFIERS, o.RequestType)
+	assert.True(t, proto.Equal(o.GetListSecretIdentifiersRequest(), p))
+
+	resp := o.GetListSecretIdentifiersResponse()
+	assert.Empty(t, resp.Identifiers)
+	assert.False(t, resp.Success)
+	assert.Contains(t, resp.GetError(), "owner cannot be empty")
+}
+
+func TestPlugin_Observation_ListSecretIdentifiers_NoNamespaceProvided(t *testing.T) {
+	lggr := logger.TestLogger(t)
+	store := requests.NewStore[*vaulttypes.Request]()
+	r := &ReportingPlugin{
+		lggr:  lggr,
+		store: store,
+		cfg: makeReportingPluginConfig(
+			t,
+			10,
+			nil,
+			nil,
+			1,
+			1024,
+			30,
+			30,
+			30,
+		),
+	}
+
+	md := &vaultcommon.StoredMetadata{
+		SecretIdentifiers: []*vaultcommon.SecretIdentifier{
+			{
+				Owner:     "foo",
+				Namespace: "main",
+				Key:       "item4",
+			},
+			{
+				Owner:     "foo",
+				Namespace: "secondary",
+				Key:       "item2",
+			},
+			{
+				Owner:     "foo",
+				Namespace: "main",
+				Key:       "item3",
+			},
+		},
+	}
+	mdb, err := proto.Marshal(md)
+	require.NoError(t, err)
+
+	seqNr := uint64(1)
+	rdr := &kv{
+		m: map[string]response{
+			metadataPrefix + "foo": response{
+				data: mdb,
+			},
+		},
+	}
+	p := &vaultcommon.ListSecretIdentifiersRequest{
+		RequestId: "request-id",
+		Owner:     "foo",
+	}
+	err = store.Add(&vaulttypes.Request{Payload: p})
+	require.NoError(t, err)
+	data, err := r.Observation(t.Context(), seqNr, types.AttributedQuery{}, rdr, nil)
+	require.NoError(t, err)
+
+	obs := &vaultcommon.Observations{}
+	err = proto.Unmarshal(data, obs)
+	require.NoError(t, err)
+
+	assert.Len(t, obs.Observations, 1)
+	o := obs.Observations[0]
+
+	assert.Equal(t, vaultcommon.RequestType_LIST_SECRET_IDENTIFIERS, o.RequestType)
+	assert.True(t, proto.Equal(o.GetListSecretIdentifiersRequest(), p))
+
+	resp := o.GetListSecretIdentifiersResponse()
+	expectedIdentifiers := []*vaultcommon.SecretIdentifier{
+		{
+			Owner:     "foo",
+			Namespace: "main",
+			Key:       "item3",
+		},
+		{
+			Owner:     "foo",
+			Namespace: "main",
+			Key:       "item4",
+		},
+		{
+			Owner:     "foo",
+			Namespace: "secondary",
+			Key:       "item2",
+		},
+	}
+	for i, id := range resp.Identifiers {
+		assert.True(t, proto.Equal(expectedIdentifiers[i], id))
+	}
+	assert.Len(t, resp.Identifiers, 3)
+	assert.True(t, resp.Success)
+	assert.Empty(t, resp.GetError())
+}
+
+func TestPlugin_Observation_ListSecretIdentifiers_FilterByNamespace(t *testing.T) {
+	lggr := logger.TestLogger(t)
+	store := requests.NewStore[*vaulttypes.Request]()
+	r := &ReportingPlugin{
+		lggr:  lggr,
+		store: store,
+		cfg: makeReportingPluginConfig(
+			t,
+			10,
+			nil,
+			nil,
+			1,
+			1024,
+			30,
+			30,
+			30,
+		),
+	}
+
+	md := &vaultcommon.StoredMetadata{
+		SecretIdentifiers: []*vaultcommon.SecretIdentifier{
+			{
+				Owner:     "foo",
+				Namespace: "main",
+				Key:       "item4",
+			},
+			{
+				Owner:     "foo",
+				Namespace: "secondary",
+				Key:       "item2",
+			},
+			{
+				Owner:     "foo",
+				Namespace: "main",
+				Key:       "item3",
+			},
+		},
+	}
+	mdb, err := proto.Marshal(md)
+	require.NoError(t, err)
+
+	seqNr := uint64(1)
+	rdr := &kv{
+		m: map[string]response{
+			metadataPrefix + "foo": response{
+				data: mdb,
+			},
+		},
+	}
+	p := &vaultcommon.ListSecretIdentifiersRequest{
+		RequestId: "request-id",
+		Owner:     "foo",
+		Namespace: "main",
+	}
+	err = store.Add(&vaulttypes.Request{Payload: p})
+	require.NoError(t, err)
+	data, err := r.Observation(t.Context(), seqNr, types.AttributedQuery{}, rdr, nil)
+	require.NoError(t, err)
+
+	obs := &vaultcommon.Observations{}
+	err = proto.Unmarshal(data, obs)
+	require.NoError(t, err)
+
+	assert.Len(t, obs.Observations, 1)
+	o := obs.Observations[0]
+
+	assert.Equal(t, vaultcommon.RequestType_LIST_SECRET_IDENTIFIERS, o.RequestType)
+	assert.True(t, proto.Equal(o.GetListSecretIdentifiersRequest(), p))
+
+	resp := o.GetListSecretIdentifiersResponse()
+	expectedIdentifiers := []*vaultcommon.SecretIdentifier{
+		{
+			Owner:     "foo",
+			Namespace: "main",
+			Key:       "item3",
+		},
+		{
+			Owner:     "foo",
+			Namespace: "main",
+			Key:       "item4",
+		},
+	}
+	for i, id := range resp.Identifiers {
+		assert.True(t, proto.Equal(expectedIdentifiers[i], id))
+	}
+	assert.Len(t, resp.Identifiers, 2)
+	assert.True(t, resp.Success)
+	assert.Empty(t, resp.GetError())
+}
+
+func TestPlugin_Reports_ListSecretIdentifiersRequest(t *testing.T) {
+	id := &vaultcommon.SecretIdentifier{
+		Owner:     "owner",
+		Namespace: "main",
+		Key:       "secret",
+	}
+	req := &vaultcommon.ListSecretIdentifiersRequest{
+		RequestId: "request-id",
+		Owner:     "owner",
+	}
+	resp := &vaultcommon.ListSecretIdentifiersResponse{
+		Identifiers: []*vaultcommon.SecretIdentifier{
+			id,
+		},
+	}
+	expectedOutcome := &vaultcommon.Outcome{
+		Id:          vaulttypes.KeyFor(id),
+		RequestType: vaultcommon.RequestType_LIST_SECRET_IDENTIFIERS,
+		Request: &vaultcommon.Outcome_ListSecretIdentifiersRequest{
+			ListSecretIdentifiersRequest: req,
+		},
+		Response: &vaultcommon.Outcome_ListSecretIdentifiersResponse{
+			ListSecretIdentifiersResponse: resp,
+		},
+	}
+
+	os := &vaultcommon.Outcomes{
+		Outcomes: []*vaultcommon.Outcome{
+			expectedOutcome,
+		},
+	}
+
+	osb, err := proto.Marshal(os)
+	require.NoError(t, err)
+
+	lggr, _ := logger.TestLoggerObserved(t, zapcore.DebugLevel)
+	store := requests.NewStore[*vaulttypes.Request]()
+	_, pk, shares, err := tdh2easy.GenerateKeys(1, 3)
+	require.NoError(t, err)
+	r := &ReportingPlugin{
+		lggr: lggr,
+		onchainCfg: ocr3types.ReportingPluginConfig{
+			N: 4,
+			F: 1,
+		},
+		store: store,
+		cfg: makeReportingPluginConfig(
+			t,
+			10,
+			pk,
+			shares[0],
+			1,
+			1024,
+			100,
+			100,
+			100,
+		),
+	}
+
+	rs, err := r.Reports(t.Context(), uint64(1), osb)
+	require.NoError(t, err)
+
+	assert.Len(t, rs, 1)
+
+	o := rs[0]
+	info1, err := extractReportInfo(o.ReportWithInfo)
+	require.NoError(t, err)
+
+	assert.True(t, proto.Equal(&vaultcommon.ReportInfo{
+		Id:          vaulttypes.KeyFor(id),
+		Format:      vaultcommon.ReportFormat_REPORT_FORMAT_JSON,
+		RequestType: vaultcommon.RequestType_LIST_SECRET_IDENTIFIERS,
+	}, info1))
+
+	expectedBytes, err := vaultutils.ToCanonicalJSON(resp)
+	require.NoError(t, err)
+	assert.Equal(t, expectedBytes, []byte(o.ReportWithInfo.Report))
+}
+
+func TestPlugin_StateTransition_ListSecretIdentifiers(t *testing.T) {
+	lggr, observed := logger.TestLoggerObserved(t, zapcore.DebugLevel)
+	store := requests.NewStore[*vaulttypes.Request]()
+	_, pk, shares, err := tdh2easy.GenerateKeys(1, 3)
+	require.NoError(t, err)
+	r := &ReportingPlugin{
+		lggr: lggr,
+		onchainCfg: ocr3types.ReportingPluginConfig{
+			N: 4,
+			F: 1,
+		},
+		store: store,
+		cfg: makeReportingPluginConfig(
+			t,
+			10,
+			pk,
+			shares[0],
+			1,
+			1024,
+			100,
+			100,
+			100,
+		),
+	}
+
+	seqNr := uint64(1)
+	kv := &kv{
+		m: make(map[string]response),
+	}
+	rs := NewReadStore(kv)
+
+	id := &vaultcommon.SecretIdentifier{
+		Owner:     "owner",
+		Namespace: "main",
+		Key:       "secret",
+	}
+	req := &vaultcommon.ListSecretIdentifiersRequest{
+		Owner:     "owner",
+		Namespace: "main",
+		RequestId: "request-id",
+	}
+	resp := &vaultcommon.ListSecretIdentifiersResponse{
+		Identifiers: []*vaultcommon.SecretIdentifier{id},
+	}
+
+	obsb := marshalObservations(t, observation{id, req, resp})
+	reportPrecursor, err := r.StateTransition(
+		t.Context(),
+		seqNr,
+		types.AttributedQuery{},
+		[]types.AttributedObservation{
+			{Observation: types.Observation(obsb)},
+			{Observation: types.Observation(obsb)},
+			{Observation: types.Observation(obsb)},
+		}, kv, nil)
+	require.NoError(t, err)
+
+	os := &vaultcommon.Outcomes{}
+	err = proto.Unmarshal(reportPrecursor, os)
+	require.NoError(t, err)
+
+	assert.Len(t, os.Outcomes, 1)
+
+	o := os.Outcomes[0]
+	assert.True(t, proto.Equal(req, o.GetListSecretIdentifiersRequest()))
+
+	assert.True(t, proto.Equal(resp, o.GetListSecretIdentifiersResponse()))
+
+	ss, err := rs.GetSecret(id)
+	require.NoError(t, err)
+	require.Nil(t, ss)
+
+	assert.Equal(t, 1, observed.FilterMessage("sufficient observations for sha").Len())
 }

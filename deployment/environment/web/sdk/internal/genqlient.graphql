@@ -57,6 +57,12 @@ query FetchKeys {
             account
         }
     }
+    suiKeys {
+        results {
+            id
+            account
+        }
+    }
 }
 
 #####################
@@ -679,4 +685,19 @@ mutation UpdateJobProposalSpecDefinition(
             code
         }
     }
+}
+
+# Create a new OCR2 key bundle
+mutation CreateOCR2KeyBundle($chainType: OCR2ChainType!) {
+  createOCR2KeyBundle(chainType: $chainType) {
+    ... on CreateOCR2KeyBundleSuccess {
+      bundle {
+        id
+        chainType
+        configPublicKey
+        onChainPublicKey
+        offChainPublicKey
+      }
+    }
+  }
 }

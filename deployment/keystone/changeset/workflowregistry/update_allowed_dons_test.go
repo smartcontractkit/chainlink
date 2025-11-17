@@ -86,7 +86,7 @@ func Test_UpdateAllowedDons_WithMCMS(t *testing.T) {
 		RegistryChainSel: te.RegistrySelector,
 		DonIDs:           []uint32{1},
 		Allowed:          true,
-		MCMSConfig:       &changeset.MCMSConfig{MinDuration: 0},
+		MCMSConfig:       &changeset.MCMSConfig{MinDelay: 0},
 	}
 
 	out, err := workflowregistry.UpdateAllowedDons(te.Env, req)

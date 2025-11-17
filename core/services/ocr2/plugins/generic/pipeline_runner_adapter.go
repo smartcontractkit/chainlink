@@ -4,12 +4,12 @@ import (
 	"context"
 	"time"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/core"
 
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
-	"github.com/smartcontractkit/chainlink/v2/core/store/models"
 )
 
 var _ core.PipelineRunnerService = (*PipelineRunnerAdapter)(nil)
@@ -28,14 +28,14 @@ func (p *PipelineRunnerAdapter) ExecuteRun(ctx context.Context, spec string, var
 	s := pipeline.Spec{
 		DotDagSource:    spec,
 		CreatedAt:       time.Now(),
-		MaxTaskDuration: models.Interval(options.MaxTaskDuration),
+		MaxTaskDuration: sqlutil.Interval(options.MaxTaskDuration),
 		JobID:           p.job.ID,
 		JobName:         p.job.Name.ValueOrZero(),
 		JobType:         string(p.job.Type),
 	}
 
-	defaultVars := map[string]interface{}{
-		"jb": map[string]interface{}{
+	defaultVars := map[string]any{
+		"jb": map[string]any{
 			"databaseID":    p.job.ID,
 			"externalJobID": p.job.ExternalJobID,
 			"name":          p.job.Name.ValueOrZero(),
@@ -75,14 +75,14 @@ func NewPipelineRunnerAdapter(logger logger.Logger, job job.Job, runner pipeline
 }
 
 // merge merges mapTwo into mapOne, modifying mapOne in the process.
-func merge(mapOne, mapTwo map[string]interface{}) {
+func merge(mapOne, mapTwo map[string]any) {
 	for k, v := range mapTwo {
 		// if `mapOne` doesn't have `k`, then nothing to do, just assign v to `mapOne`.
 		if _, ok := mapOne[k]; !ok {
 			mapOne[k] = v
 		} else {
-			vAsMap, vOK := v.(map[string]interface{})
-			mapOneVAsMap, moOK := mapOne[k].(map[string]interface{})
+			vAsMap, vOK := v.(map[string]any)
+			mapOneVAsMap, moOK := mapOne[k].(map[string]any)
 			if vOK && moOK {
 				merge(mapOneVAsMap, vAsMap)
 			} else {

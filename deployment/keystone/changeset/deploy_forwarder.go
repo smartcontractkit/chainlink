@@ -1,61 +1,35 @@
 package changeset
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"maps"
 	"slices"
 
-	mcmssdk "github.com/smartcontractkit/mcms/sdk"
-	mcmstypes "github.com/smartcontractkit/mcms/types"
+	"github.com/ethereum/go-ethereum/common"
+	crecontracts "github.com/smartcontractkit/chainlink/deployment/cre/contracts"
 
+	cldf_evm "github.com/smartcontractkit/chainlink-deployments-framework/chain/evm"
 	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
-	forwarder "github.com/smartcontractkit/chainlink-evm/gethwrappers/keystone/generated/forwarder_1_0_0"
+	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
 
-	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
+	creforwarder "github.com/smartcontractkit/chainlink/deployment/cre/forwarder"
 	"github.com/smartcontractkit/chainlink/deployment/keystone/changeset/internal"
 )
 
 var _ cldf.ChangeSet[DeployForwarderRequest] = DeployForwarder
 
 type DeployForwarderRequest struct {
+	Qualifier      string
 	ChainSelectors []uint64 // filter to only deploy to these chains; if empty, deploy to all chains
-}
-
-// DeployForwarder deploys the KeystoneForwarder contract to all chains in the environment
-// callers must merge the output addressbook with the existing one
-// TODO: add selectors to deploy only to specific chains
-// Deprecated: use DeployForwarderV2 instead
-func DeployForwarderX(env cldf.Environment, cfg DeployForwarderRequest) (cldf.ChangesetOutput, error) {
-	lggr := env.Logger
-	ab := cldf.NewMemoryAddressBook()
-	selectors := cfg.ChainSelectors
-	evmChains := env.BlockChains.EVMChains()
-
-	if len(selectors) == 0 {
-		selectors = slices.Collect(maps.Keys(evmChains))
-	}
-	for _, sel := range selectors {
-		chain, ok := evmChains[sel]
-		if !ok {
-			return cldf.ChangesetOutput{}, fmt.Errorf("chain with selector %d not found", sel)
-		}
-		lggr.Infow("deploying forwarder", "chainSelector", chain.Selector)
-		forwarderResp, err := internal.DeployForwarder(env.GetContext(), chain, ab)
-		if err != nil {
-			return cldf.ChangesetOutput{}, fmt.Errorf("failed to deploy KeystoneForwarder to chain selector %d: %w", chain.Selector, err)
-		}
-		lggr.Infof("Deployed %s chain selector %d addr %s", forwarderResp.Tv.String(), chain.Selector, forwarderResp.Address.String())
-	}
-	// convert all the addresses to t
-	return cldf.ChangesetOutput{AddressBook: ab}, nil
 }
 
 func DeployForwarder(env cldf.Environment, cfg DeployForwarderRequest) (cldf.ChangesetOutput, error) {
 	var out cldf.ChangesetOutput
-	out.AddressBook = cldf.NewMemoryAddressBook() //nolint:staticcheck // TODO CRE-400
 	out.DataStore = datastore.NewMemoryDataStore()
+	out.AddressBook = cldf.NewMemoryAddressBook() //nolint:staticcheck // keeping the address book since not everything has been migrated to datastore
 
 	selectors := cfg.ChainSelectors
 	if len(selectors) == 0 {
@@ -63,28 +37,59 @@ func DeployForwarder(env cldf.Environment, cfg DeployForwarderRequest) (cldf.Cha
 	}
 
 	for _, sel := range selectors {
-		req := &DeployRequestV2{
-			ChainSel: sel,
-			deployFn: internal.DeployForwarder,
-		}
-		csOut, err := deploy(env, req)
+		report, err := operations.ExecuteOperation(
+			env.OperationsBundle,
+			creforwarder.DeployOp,
+			creforwarder.DeployOpDeps{Env: &env}, creforwarder.DeployOpInput{
+				ChainSelector: sel,
+				Qualifier:     cfg.Qualifier,
+			})
 		if err != nil {
 			return cldf.ChangesetOutput{}, fmt.Errorf("failed to deploy KeystoneForwarder to chain selector %d: %w", sel, err)
 		}
-		if err := out.AddressBook.Merge(csOut.AddressBook); err != nil { //nolint:staticcheck // TODO CRE-400
-			return cldf.ChangesetOutput{}, fmt.Errorf("failed to merge address book for chain selector %d: %w", sel, err)
-		}
-		if err := out.DataStore.Merge(csOut.DataStore.Seal()); err != nil {
+		out.Reports = append(out.Reports, report.ToGenericReport())
+		// merge the datastore outputs
+		if err := out.DataStore.Addresses().Add(report.Output.AddressRef); err != nil {
 			return cldf.ChangesetOutput{}, fmt.Errorf("failed to merge datastore for chain selector %d: %w", sel, err)
 		}
+		// merge the address book outputs
+		if err := out.AddressBook.Merge(report.Output.AddressBook); err != nil { //nolint:staticcheck // keeping the address book since not everything has been migrated to datastore
+			return cldf.ChangesetOutput{}, fmt.Errorf("failed to merge address book for chain selector %d: %w", sel, err)
+		}
 	}
-	// convert all the addresses to t
+
 	return out, nil
 }
 
 // DeployForwarderV2 deploys the KeystoneForwarder contract to the specified chain
 func DeployForwarderV2(env cldf.Environment, req *DeployRequestV2) (cldf.ChangesetOutput, error) {
-	req.deployFn = internal.DeployForwarder
+	d := func(ctx context.Context, chain cldf_evm.Chain, ab cldf.AddressBook) (*internal.DeployResponse, error) {
+		report, err := operations.ExecuteOperation(
+			env.OperationsBundle,
+			creforwarder.DeployOp,
+			creforwarder.DeployOpDeps{Env: &env}, creforwarder.DeployOpInput{
+				ChainSelector: req.ChainSel,
+				Qualifier:     req.Qualifier,
+			})
+		if err != nil {
+			return nil, fmt.Errorf("failed to deploy KeystoneForwarder to chain selector %d: %w", req.ChainSel, err)
+		}
+		tv := cldf.TypeAndVersion{
+			Type:    cldf.ContractType(report.Output.AddressRef.Type),
+			Version: *report.Output.AddressRef.Version,
+			Labels:  cldf.NewLabelSet(report.Output.AddressRef.Labels.List()...),
+		}
+		err = ab.Save(chain.Selector, report.Output.AddressRef.Address, tv)
+		if err != nil {
+			return nil, fmt.Errorf("failed to save KeystoneForwarder: %w", err)
+		}
+
+		return &internal.DeployResponse{
+			Address: common.HexToAddress(report.Output.AddressRef.Address),
+			Tv:      tv,
+		}, nil
+	}
+	req.deployFn = d
 	return deploy(env, req)
 }
 
@@ -97,7 +102,7 @@ type ConfigureForwardContractsRequest struct {
 	RegistryChainSel uint64
 
 	// MCMSConfig is optional. If non-nil, the changes will be proposed using MCMS.
-	MCMSConfig *MCMSConfig
+	MCMSConfig *crecontracts.MCMSConfig
 	// Chains is optional. Defines chains for which request will be executed. If empty, runs for all available chains.
 	Chains map[uint64]struct{}
 }
@@ -113,71 +118,38 @@ func (r ConfigureForwardContractsRequest) UseMCMS() bool {
 	return r.MCMSConfig != nil
 }
 
+// TODO: use crefowarder.ConfigureOP instead of internal.ConfigureForwardContracts
 func ConfigureForwardContracts(env cldf.Environment, req ConfigureForwardContractsRequest) (cldf.ChangesetOutput, error) {
 	wfDon, err := internal.NewRegisteredDon(env, internal.RegisteredDonConfig{
 		NodeIDs:          req.WFNodeIDs,
 		Name:             req.WFDonName,
 		RegistryChainSel: req.RegistryChainSel,
 	})
-	if err != nil {
-		return cldf.ChangesetOutput{}, fmt.Errorf("failed to create registered don: %w", err)
-	}
-	r, err := internal.ConfigureForwardContracts(&env, internal.ConfigureForwarderContractsRequest{
-		Dons:    []internal.RegisteredDon{*wfDon},
-		UseMCMS: req.UseMCMS(),
-		Chains:  req.Chains,
-	})
-	if err != nil {
-		return cldf.ChangesetOutput{}, fmt.Errorf("failed to configure forward contracts: %w", err)
+	cfg := creforwarder.DonConfiguration{
+		Name: req.WFDonName,
+		ID:   wfDon.Info.Id,
+		F:    wfDon.Info.F,
+		// use the next config version since we are going to update the config
+		Version: wfDon.Info.ConfigCount,
+		NodeIDs: req.WFNodeIDs,
 	}
 
-	var out cldf.ChangesetOutput
-	if req.UseMCMS() {
-		if len(r.OpsPerChain) == 0 {
-			return out, errors.New("expected MCMS operation to be non-nil")
-		}
-		for chainSelector, op := range r.OpsPerChain {
-			fwrAddr, ok := r.ForwarderAddresses[chainSelector]
-			if !ok {
-				return out, fmt.Errorf("expected configured forwarder address for chain selector %d", chainSelector)
-			}
-			fwr, err := GetOwnedContractV2[*forwarder.KeystoneForwarder](env.DataStore.Addresses(), env.BlockChains.EVMChains()[chainSelector], fwrAddr.String())
-			if err != nil {
-				return out, fmt.Errorf("failed to get forwarder contract for chain selector %d: %w", chainSelector, err)
-			}
-			if fwr.McmsContracts == nil {
-				return out, fmt.Errorf("expected forwarder contract %s to be owned by MCMS for chain selector %d", fwrAddr.String(), chainSelector)
-			}
-			timelocksPerChain := map[uint64]string{
-				chainSelector: fwr.McmsContracts.Timelock.Address().Hex(),
-			}
-			proposerMCMSes := map[uint64]string{
-				chainSelector: fwr.McmsContracts.ProposerMcm.Address().Hex(),
-			}
-			inspector, err := proposalutils.McmsInspectorForChain(env, chainSelector)
-			if err != nil {
-				return cldf.ChangesetOutput{}, err
-			}
-			inspectorPerChain := map[uint64]mcmssdk.Inspector{
-				chainSelector: inspector,
-			}
-
-			proposal, err := proposalutils.BuildProposalFromBatchesV2(
-				env,
-				timelocksPerChain,
-				proposerMCMSes,
-				inspectorPerChain,
-				[]mcmstypes.BatchOperation{op},
-				"proposal to set forwarder config",
-				proposalutils.TimelockConfig{
-					MinDelay: req.MCMSConfig.MinDuration,
-				},
-			)
-			if err != nil {
-				return out, fmt.Errorf("failed to build proposal: %w", err)
-			}
-			out.MCMSTimelockProposals = append(out.MCMSTimelockProposals, *proposal)
-		}
+	seqReport, err := operations.ExecuteSequence(
+		env.OperationsBundle,
+		creforwarder.ConfigureSeq,
+		creforwarder.ConfigureSeqDeps{Env: &env},
+		creforwarder.ConfigureSeqInput{
+			DON:        cfg,
+			MCMSConfig: req.MCMSConfig,
+			Chains:     req.Chains,
+		},
+	)
+	if err != nil {
+		return cldf.ChangesetOutput{}, fmt.Errorf("failed to execute configure forwarder sequence: %w", err)
 	}
-	return out, nil
+
+	return cldf.ChangesetOutput{
+		Reports:               seqReport.ExecutionReports,
+		MCMSTimelockProposals: seqReport.Output.MCMSTimelockProposals,
+	}, nil
 }

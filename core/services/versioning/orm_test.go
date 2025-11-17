@@ -53,7 +53,7 @@ func TestORM_NodeVersion_UpsertNodeVersion(t *testing.T) {
 		// invalid semver returns error
 		err = orm.UpsertNodeVersion(ctx, NewNodeVersion("random_12345"))
 		require.Error(t, err)
-		assert.Contains(t, err.Error(), "\"random_12345\" is not valid semver: Invalid Semantic Version")
+		assert.Contains(t, err.Error(), "\"random_12345\" is not valid semver")
 
 		ver, err = orm.FindLatestNodeVersion(ctx)
 		require.NoError(t, err)

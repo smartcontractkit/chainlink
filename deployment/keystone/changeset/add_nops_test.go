@@ -71,7 +71,7 @@ func TestAddNops(t *testing.T) {
 		req := &changeset.AddNopsRequest{
 			RegistryChainSel: te.RegistrySelector,
 			Nops:             nops,
-			MCMSConfig:       &changeset.MCMSConfig{MinDuration: 0},
+			MCMSConfig:       &changeset.MCMSConfig{MinDelay: 0},
 			RegistryRef:      te.CapabilityRegistryAddressRef(),
 		}
 		csOut, err := changeset.AddNops(te.Env, req)

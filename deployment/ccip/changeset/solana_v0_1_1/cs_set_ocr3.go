@@ -25,6 +25,7 @@ import (
 	solanastateview "github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview/solana"
 	csState "github.com/smartcontractkit/chainlink/deployment/common/changeset/state"
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
+	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/types"
 )
 
 const (
@@ -70,6 +71,12 @@ func SetOCR3ConfigSolana(e cldf.Environment, cfg v1_6.SetOCR3OffRampConfig) (cld
 		}
 	}
 
+	pluginTypes := cfg.PluginTypes
+	// Default to both plugins if specific types are not provided
+	if len(pluginTypes) == 0 {
+		pluginTypes = []types.PluginType{types.PluginTypeCCIPCommit, types.PluginTypeCCIPExec}
+	}
+
 	timelocks := map[uint64]string{}
 	proposers := map[uint64]string{}
 	inspectors := map[uint64]sdk.Inspector{}
@@ -82,7 +89,7 @@ func SetOCR3ConfigSolana(e cldf.Environment, cfg v1_6.SetOCR3OffRampConfig) (cld
 		if err != nil {
 			return cldf.ChangesetOutput{}, fmt.Errorf("failed to get don id for chain %d: %w", remote, err)
 		}
-		args, err := internal.BuildSetOCR3ConfigArgsSolana(donID, state.MustGetEVMChainState(cfg.HomeChainSel).CCIPHome, remote, cfg.CCIPHomeConfigType)
+		args, err := internal.BuildSetOCR3ConfigArgsSolana(donID, state.MustGetEVMChainState(cfg.HomeChainSel).CCIPHome, remote, cfg.CCIPHomeConfigType, pluginTypes)
 		if err != nil {
 			return cldf.ChangesetOutput{}, fmt.Errorf("failed to build set ocr3 config args: %w", err)
 		}
@@ -210,7 +217,7 @@ func isOCR3ConfigSetOnOffRampSolana(
 				e.Logger.Infof("OCR3 config signers length mismatch")
 				return false, nil
 			}
-			for i := 0; i < len(existingState.Signers); i++ {
+			for i := range len(existingState.Signers) {
 				if existingState.Signers[i] != newState.Signers[i] {
 					e.Logger.Infof("OCR3 config signers mismatch")
 					return false, nil
@@ -221,7 +228,7 @@ func isOCR3ConfigSetOnOffRampSolana(
 			e.Logger.Infof("OCR3 config transmitters length mismatch")
 			return false, nil
 		}
-		for i := 0; i < len(existingState.Transmitters); i++ {
+		for i := range len(existingState.Transmitters) {
 			if existingState.Transmitters[i] != newState.Transmitters[i] {
 				e.Logger.Infof("OCR3 config transmitters mismatch")
 				return false, nil

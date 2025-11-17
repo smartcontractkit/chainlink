@@ -36,7 +36,7 @@ on:
 
 jobs:
   define-test-matrix:
-    runs-on: runs-on=${{ github.run_id }}/cpu=8/ram=32/family=m6i/spot=false/image=ubuntu24-full-x64/extras=s3-cache+tmpfs
+    runs-on: runs-on=${{ github.run_id }}/cpu=8/ram=32/family=m6i+m5.*/spot=false/image=ubuntu24-full-x64/extras=s3-cache+tmpfs
     outputs:
       matrix: ${{ steps.define-matrix.outputs.matrix }}
     permissions:
@@ -63,12 +63,69 @@ jobs:
       - name: Define test matrix
         id: define-matrix
         shell: bash
-        working-directory: system-tests/tests/smoke/cre
+        working-directory: system-tests/tests
         run: |
-          # Get the list of tests and convert to JSON format
-          tests=$(go test github.com/smartcontractkit/chainlink/system-tests/tests/smoke/cre -list . | grep -v "ok" | grep -v "^$" | jq -R -s 'split("\n")[:-1] | map({"test_name": .})')
-          tests=$(echo $tests | jq -c .)
+          # Get the list of tests, for each test add each of supported DON topologies and create JSON array to form a job matrix.
+          # - This only needs to be updated if we want to run all tests on a new DON topology.
+          # - Otherwise tests are auto-discovered and run on all topologies.
+          PER_TEST_MODE='replace'
+          TOPOLOGIES_JSON='[
+            {"topology":"workflow","configs":"configs/workflow-don.toml"},
+            {"topology":"workflow-gateway","configs":"configs/workflow-gateway-don.toml"},
+            {"topology":"workflow-gateway-capabilities","configs":"configs/workflow-gateway-capabilities-don.toml"}
+          ]'
 
+          # Add list of tests with certain topologies
+          PER_TEST_TOPOLOGIES_JSON=${PER_TEST_TOPOLOGIES_JSON:-'{
+            "Test_CRE_V1_SecureMint": [
+               {"topology":"workflow","configs":"configs/workflow-don-solana.toml"}
+             ],
+            "Test_CRE_V1_Tron": [
+               {"topology":"workflow","configs":"configs/workflow-don-tron.toml"}
+             ]
+              }'}
+          PER_TEST_MODE=${PER_TEST_MODE:-append}
+
+          test_names=$(go test github.com/smartcontractkit/chainlink/system-tests/tests/smoke/cre -list . | grep -v 'ok' | grep -v '^$')
+
+          tests=$(echo "$test_names" | jq -R -s \
+            --argjson tops "$TOPOLOGIES_JSON" \
+            --argjson per  "$PER_TEST_TOPOLOGIES_JSON" \
+            --arg mode "$PER_TEST_MODE" '
+            # Parse names into an array
+            (split("\n") | map(select(length>0))) as $names
+
+            # Base cartesian product: names x base topologies
+            | [ $names[] as $name | $tops[] | {test_name:$name} + . ] as $baseAll
+
+            # If mode == replace, drop base combos for tests that have per-test topologies
+            | (if $mode == "replace"
+                 then $baseAll | map(select(.test_name as $n | ($per[$n] | type) == "array" | not))
+                 else $baseAll
+               end) as $base
+
+            # Build per-test combos from the override map
+            | [ $per | to_entries[] as $e
+                | $e.value[] | {test_name: $e.key} + .
+              ] as $extra
+
+            # Combine and add test_id and CRE version
+            | ($base + $extra)
+            | to_entries
+            | map(
+                .value + {
+                  test_id: .key,
+                  # Add CRE version based on test name pattern
+                  cre_version: (
+                    if (.value.test_name | test("V2")) then "v2"
+                    else "v1"
+                    end
+                  )
+                }
+              )
+          ')
+
+          tests=$(echo "$tests" | jq -c .)
           echo "matrix=$tests" | tee -a "${GITHUB_OUTPUT}"
 
   run-system-tests:
@@ -80,9 +137,18 @@ jobs:
       matrix:
         tests: ${{fromJson(needs.define-test-matrix.outputs.matrix)}}
     needs: [define-test-matrix]
-    runs-on: runs-on=${{ github.run_id }}/cpu=16/ram=64/family=m6i/spot=false/image=ubuntu24-full-x64/extras=s3-cache+tmpfs
+    # we need a `test_id` and `run_attempt` here to stop runner stealing
+    # see: https://runs-on.com/guides/troubleshoot/#runner-stealing-and-matrix-jobs
+    runs-on: runs-on=${{ github.run_id }}-${{ matrix.tests.test_id }}-${{ github.run_attempt }}/cpu=16/ram=64/family=m6i+m5.*/spot=false/image=ubuntu24-full-x64/extras=s3-cache+tmpfs
     environment: "integration"
-    timeout-minutes: 30
+    timeout-minutes: 60
+    env:
+      ENABLE_AUTO_QUARANTINE: "true"
+      # override chip ingress image to use remote image. We have added this env var here, instead of the "Start local CRE" step, because
+      # Beholder stack will be started only for the Beholder tests
+      CHIP_INGRESS_IMAGE: ${{ secrets.AWS_ACCOUNT_ID_PROD }}.dkr.ecr.${{ secrets.QA_AWS_REGION }}.amazonaws.com/atlas-chip-ingress:bbac3c825b061546980fa9d7dc0f3e8c34347bcf
+      BILLING_PLATFORM_SERVICE_IMAGE: ${{ secrets.AWS_ACCOUNT_ID_PROD }}.dkr.ecr.${{ secrets.QA_AWS_REGION }}.amazonaws.com/billing-platform-service:v1.57.1
+
     steps:
       - name: Enable S3 Cache for Self-Hosted Runners
         # these env vars are set (and exposed) when it is a self-hosted runner with extras=s3-cache
@@ -93,6 +159,7 @@ jobs:
         uses: actions/checkout@v4
         with:
           ref: ${{ inputs.chainlink_version }}
+          persist-credentials: false
 
       - name: Set up Go
         id: setup-go
@@ -101,12 +168,12 @@ jobs:
           go-version-file: system-tests/tests/go.mod
           cache: true
 
-      # We need to login to ECR to allow the test to pull the Job Distributor and Chainlink images
+      # We need to login to ECR to allow the test to pull the Job Distributor (main), Chip Ingress (main) and Chainlink (sdlc) images
       - name: Configure AWS Credentials
         uses: aws-actions/configure-aws-credentials@010d0da01d0b5a38af31e9c3470dbfdabdecca3a # v4.0.1
         with:
           aws-region: ${{ secrets.QA_AWS_REGION }}
-          role-to-assume: ${{ secrets.QA_AWS_ROLE_TO_ASSUME }}
+          role-to-assume: ${{ secrets.AWS_CTF_READ_ACCESS_ROLE_ARN }}
           role-duration-seconds: 1800
           mask-aws-account-id: true
 
@@ -118,46 +185,165 @@ jobs:
         env:
           AWS_REGION: ${{ secrets.QA_AWS_REGION }}
 
-      # gotestloghelper gives us pretty test output
-      - name: Set Up gotestloghelper
+      - name: Set up gotestsum
         shell: bash
-        run:
-          go install
-          github.com/smartcontractkit/chainlink-testing-framework/tools/gotestloghelper@v1.1.1
+        run: |
+          echo "::startgroup::Install gotestsum"
+          go install gotest.tools/gotestsum@v1.12.3
+          echo "::endgroup::"
 
-      - name: Download test dependencies
-        uses: ./.github/actions/setup-cre-e2e-test-dependencies
-        with:
-          capability-version: "v1.0.2-alpha"
-          capability-names: "cron"
-          gati-role-arn: ${{ secrets.AWS_OIDC_GLOBAL_READ_ONLY_TOKEN_ISSUER_ROLE_ARN }}
-          gati-lambda-url: ${{ secrets.AWS_INFRA_RELENG_TOKEN_ISSUER_LAMBDA_URL }}
-          gati-region: ${{ secrets.AWS_REGION }}
-
-      # TODO
-      # Add Flakeguard support
-
-      - name: Run CRE system tests
+      - name: Install CTF binary
         shell: bash
-        working-directory: system-tests/tests
+        working-directory: core/scripts/cre/environment
+        run: |
+          echo "::startgroup::Install CTF binary"
+          mkdir -p bin
+          curl -L https://github.com/smartcontractkit/chainlink-testing-framework/releases/download/framework%2Fv0.11.9/framework-v0.11.9-linux-amd64.tar.gz | tar -xz
+          mv ctf bin/ctf
+          chmod +x bin/ctf
+          echo "::endgroup::"
+
+      - name: Start local CRE${{ matrix.tests.cre_version }}
+        shell: bash
+        id: start-local-cre
         env:
-          E2E_JD_IMAGE: "${{ secrets.AWS_ACCOUNT_ID_PROD }}.dkr.ecr.${{ secrets.QA_AWS_REGION }}.amazonaws.com/job-distributor"
-          E2E_JD_VERSION: "0.12.7"
-          E2E_TEST_CHAINLINK_IMAGE: "${{ secrets.QA_AWS_ACCOUNT_NUMBER }}.dkr.ecr.${{ secrets.QA_AWS_REGION }}.amazonaws.com/${{ inputs.ecr_name }}"
-          E2E_TEST_CHAINLINK_VERSION: ${{ inputs.chainlink_image_tag != '' && inputs.chainlink_image_tag || inputs.chainlink_version }}
+          CTF_JD_IMAGE: "${{ secrets.AWS_ACCOUNT_ID_PROD }}.dkr.ecr.${{ secrets.QA_AWS_REGION }}.amazonaws.com/job-distributor:0.22.1"
+          CTF_CHAINLINK_IMAGE: "${{ secrets.QA_AWS_ACCOUNT_NUMBER }}.dkr.ecr.${{ secrets.QA_AWS_REGION }}.amazonaws.com/${{ inputs.ecr_name }}:${{ inputs.chainlink_image_tag != '' && inputs.chainlink_image_tag || inputs.chainlink_version }}"
+          CTF_CONFIGS: ${{ matrix.tests.configs }}
+          CRE_VERSION: ${{ matrix.tests.cre_version }}
           TEST_NAME: ${{ matrix.tests.test_name }}
         run: |
-          # Sleep to allow testcontainers to stop
-          # Before running it with flakeguard add this bit back: { go test... -json; exit_code=$?; ../../tools/ci/wait-for-containers-to-stop.sh 30; exit $exit_code; }
-          go test github.com/smartcontractkit/chainlink/system-tests/tests/smoke/cre -v -run "^(${TEST_NAME})$" -timeout 30m -count=1 -test.parallel=1 -json 2>&1 | tee /tmp/gotest.log | gotestloghelper -ci -singlepackage -hidepassingtests=false
+          cd core/scripts/cre/environment
+
+          # Check if test requires observability stack
+          if [[ "${TEST_NAME}" == *"Beholder_Suite" ]]; then
+            echo "::group::Starting Observability Stack"
+            echo "Test requires observability stack, starting..."
+            
+            # Start observability stack
+            ./bin/ctf obs up -f
+            
+            echo "::endgroup::"
+            echo "::group::Validating Observability Stack"
+            
+            # Wait for Loki to be available
+            echo "Waiting for Loki to be available at http://localhost:3030..."
+            loki_ready=false
+            for i in {1..30}; do
+              if curl -s http://localhost:3030/ready >/dev/null 2>&1; then
+                echo "✅ Loki is ready at http://localhost:3030"
+                loki_ready=true
+                break
+              fi
+              sleep 1
+            done
+            
+            if [[ "$loki_ready" == "false" ]]; then
+              echo "❌ ERROR: Loki failed to become ready after 30 seconds"
+              exit 1
+            fi
+            
+            # Validate OTel collector is running and accessible
+            echo "Validating OTel collector on port 4317..."
+            if docker ps --filter "name=otel-collector" --format "{{.Names}}" | grep -q "otel-collector"; then
+              echo "✅ OTel collector container is running"
+            else
+              echo "❌ ERROR: OTel collector container not found"
+              docker ps -a
+              exit 1
+            fi
+            echo "::endgroup::"
+          fi
+
+          # Start CRE with the appropriate contracts version (i.e. Workflow/CapabilityRegistry)
+          # Do not remove Docker containers on error to allow log collection
+          if [[ "${CRE_VERSION}" == "v1" ]]; then
+            echo "Starting CRE with v1 contracts for test: '${TEST_NAME}'"
+            go run . env start --with-plugins-docker-image "${CTF_CHAINLINK_IMAGE}" --cleanup-on-error=false
+          else
+            echo "Starting CRE with v2 contracts for test: '${TEST_NAME}'"
+            go run . env start --with-plugins-docker-image "${CTF_CHAINLINK_IMAGE}" --with-contracts-version v2 --cleanup-on-error=false
+          fi
+
+          exit_code=$?
+          if [ $exit_code -ne 0 ]; then
+            echo "Error: failed to start local CRE ${CRE_VERSION}, exit code $exit_code"
+            exit $exit_code
+          fi
+
+      - name: Setup GitHub token using GATI
+        id: github-token
+        uses: smartcontractkit/.github/actions/setup-github-token@setup-github-token/1.0.0
+        with:
+          aws-role-arn: ${{ secrets.AWS_OIDC_CHAINLINK_READ_ONLY_TOKEN_ISSUER_ROLE_ARN }}
+          aws-lambda-url: ${{ secrets.AWS_INFRA_RELENG_TOKEN_ISSUER_LAMBDA_URL }}
+          aws-region: us-west-2
+          aws-role-duration-seconds: "1800"
+          set-git-config: "true"
+          
+      - name: Run CRE${{ matrix.tests.cre_version }} Smoke system tests
+        id: run-tests
+        shell: bash
+        working-directory: system-tests/tests
+        continue-on-error: ${{ env.ENABLE_AUTO_QUARANTINE == 'true' }}
+        env:
+          TEST_NAME: ${{ matrix.tests.test_name }}
+          TEST_TIMEOUT: 30m
+          RUN_QUARANTINED_TESTS: "true" # always run quarantined tests in CI
+          TOPOLOGY_NAME: ${{ matrix.tests.topology }}
+          GITHUB_TOKEN: ${{ steps.github-token.outputs.access-token || '' }} # to avoid rate limiting when downloading protobuf files from GitHub
+        run: |
+          echo "Starting test: '${TEST_NAME}'"
+          gotestsum \
+            --jsonfile=/tmp/gotest.log \
+            --junitfile=/tmp/junit-report.xml \
+            --format=github-actions \
+            -- \
+            -v -run "^(${TEST_NAME})$" -timeout "${TEST_TIMEOUT}" -count=1 -parallel=1 \
+            github.com/smartcontractkit/chainlink/system-tests/tests/smoke/cre
+
+          exit_code=$?
+          if [ $exit_code -eq 0 ]; then
+            echo "tests_result=✅ Tests passed" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Analyze and upload test results (${{ steps.run-tests.outputs.tests_result }})
+        if: ${{ !cancelled() }}
+        uses: smartcontractkit/.github/actions/branch-out-upload@branch-out-upload/v1
+        with:
+          junit-file-path: "/tmp/junit-report.xml"
+          trunk-org-slug: chainlink
+          trunk-token: ${{ secrets.TRUNK_API_KEY }}
+          trunk-previous-step-outcome: ${{ steps.run-tests.outcome }}
+          trunk-job-url: ${{ format('https://github.com/{0}/actions/runs/{1}/job/{2}/attempts/{3}', github.repository, github.run_id, job.check_run_id, github.run_attempt) }}
+          # when auto-quarantine is enabled, allow this to determine test failures
+          trunk-upload-only: ${{ env.ENABLE_AUTO_QUARANTINE != 'true' }}
+
+      - name: Show Docker containers status
+        if: failure()
+        shell: bash
+        run: docker ps -a
+
+      - name: Save Smoke tests Docker logs
+        if: failure()
+        shell: bash
+        working-directory: system-tests/tests/smoke/cre
+        run: |
+          mkdir -p logs
+          for c in $(docker ps -a --format '{{.Names}}'); do
+            docker logs "$c" > "logs/${c}.log" 2>&1
+          done
+          for c in $(docker ps -a --filter "label=com.docker.compose.service=billing-platform-service" --format '{{.Names}}'); do
+            docker logs "$c" > "logs/${c}.log" 2>&1
+          done
 
       - name: Upload all artifacts as single package
         if: failure()
         uses: actions/upload-artifact@v4.6.2
         with:
-          name:
-            test-logs-${{ matrix.tests.test_name }}
+          name: test-logs-${{ matrix.tests.test_name }}-${{ matrix.tests.topology }}
           path: |
             ./system-tests/tests/smoke/cre/logs/
             ./system-tests/tests/load/cre/logs/
             /tmp/gotest.log
+            /tmp/junit-report.xml

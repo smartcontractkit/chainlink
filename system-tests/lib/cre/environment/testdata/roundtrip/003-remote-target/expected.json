@@ -1,0 +1,11 @@
+{
+  "config": {
+    "RemoteConfig": {
+      "RemoteTargetConfig": {
+        "requestHashExcludedAttributes": [
+          "data1"
+        ]
+      }
+    }
+  }
+}

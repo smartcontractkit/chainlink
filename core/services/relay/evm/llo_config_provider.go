@@ -12,8 +12,8 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	commontypes "github.com/smartcontractkit/chainlink-common/pkg/types"
 	"github.com/smartcontractkit/chainlink-evm/pkg/chains/legacyevm"
-	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/llo"
-	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/types"
+	"github.com/smartcontractkit/chainlink-evm/pkg/config"
+	"github.com/smartcontractkit/chainlink-evm/pkg/llo"
 )
 
 // This is only used for the bootstrap job
@@ -48,7 +48,7 @@ func newLLOConfigProvider(
 	lggr logger.Logger,
 	chain legacyevm.Chain,
 	cc llo.ConfigCache,
-	opts *types.RelayOpts,
+	opts *config.RelayOpts,
 ) (commontypes.ConfigProvider, error) {
 	if !common.IsHexAddress(opts.ContractID) {
 		return nil, errors.New("invalid contractID, expected hex address")

@@ -5,6 +5,7 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
+	"maps"
 	"strconv"
 	"testing"
 	"time"
@@ -22,7 +23,8 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	"github.com/smartcontractkit/chainlink-common/pkg/services/servicetest"
 	coretypes "github.com/smartcontractkit/chainlink-common/pkg/types/core"
-	"github.com/smartcontractkit/chainlink-common/pkg/values"
+	"github.com/smartcontractkit/chainlink-protos/cre/go/values"
+	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/workflowkey"
 
 	kcr "github.com/smartcontractkit/chainlink-evm/gethwrappers/keystone/generated/capabilities_registry_1_1_0"
 	"github.com/smartcontractkit/chainlink-evm/pkg/assets"
@@ -42,8 +44,8 @@ import (
 	p2ptypes "github.com/smartcontractkit/chainlink/v2/core/services/p2p/types"
 	"github.com/smartcontractkit/chainlink/v2/core/services/registrysyncer"
 	"github.com/smartcontractkit/chainlink/v2/core/services/standardcapabilities"
-	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/artifacts"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/syncer"
+	wftypes "github.com/smartcontractkit/chainlink/v2/core/services/workflows/types"
 	"github.com/smartcontractkit/chainlink/v2/core/utils/testutils/heavyweight"
 )
 
@@ -52,7 +54,7 @@ type DonContext struct {
 	p2pNetwork            *FakeRageP2PNetwork
 	capabilityRegistry    *CapabilitiesRegistry
 	workflowRegistry      *WorkflowRegistry
-	syncerFetcherFunc     artifacts.FetcherFunc
+	syncerFetcherFunc     wftypes.FetcherFunc
 	computeFetcherFactory compute.FetcherFactory
 }
 
@@ -66,7 +68,7 @@ func CreateDonContext(ctx context.Context, t *testing.T) DonContext {
 	return DonContext{EthBlockchain: ethBlockchain, p2pNetwork: rageP2PNetwork, capabilityRegistry: capabilitiesRegistry}
 }
 
-func CreateDonContextWithWorkflowRegistry(ctx context.Context, t *testing.T, syncerFetcherFunc artifacts.FetcherFunc,
+func CreateDonContextWithWorkflowRegistry(ctx context.Context, t *testing.T, syncerFetcherFunc wftypes.FetcherFunc,
 	computeFetcherFactory compute.FetcherFactory) DonContext {
 	donContext := CreateDonContext(ctx, t)
 	workflowRegistry := NewWorkflowRegistry(ctx, t, donContext.EthBlockchain)
@@ -81,9 +83,7 @@ func (c DonContext) WaitForCapabilitiesToBeExposed(t *testing.T, dons ...*DON) {
 	for _, don := range dons {
 		caps, err := don.GetExternalCapabilities()
 		require.NoError(t, err)
-		for k, v := range caps {
-			allExpectedCapabilities[k] = v
-		}
+		maps.Copy(allExpectedCapabilities, caps)
 	}
 
 	require.Eventually(t, func() bool {
@@ -111,11 +111,12 @@ func (c DonContext) WaitForWorkflowRegistryMetadata(t *testing.T, workflowName s
 
 type capabilityNode struct {
 	*cltest.TestApplication
-	registry  *capabilities.Registry
-	key       ethkey.KeyV2
-	KeyBundle ocr2key.KeyBundle
-	peer      peerIDAndOCRSigner
-	start     func()
+	registry    *capabilities.Registry
+	key         ethkey.KeyV2
+	KeyBundle   ocr2key.KeyBundle
+	peer        peerIDAndOCRSigner
+	workflowKey *workflowkey.Key
+	start       func()
 }
 
 type DON struct {
@@ -147,7 +148,6 @@ func NewDON(ctx context.Context, t *testing.T, lggr logger.Logger, donConfig Don
 	don := &DON{t: t, lggr: logger.Named(lggr, donConfig.name), config: donConfig, capabilitiesRegistry: donContext.capabilityRegistry,
 		workflowRegistry: donContext.workflowRegistry}
 
-	var newOracleFactoryFn standardcapabilities.NewOracleFactoryFn
 	if supportsOCR {
 		// This is required to support the non standard OCR3 capability - will be removed when required OCR3 behaviour is implemented as standard capabilities
 		don.fakeLibOcr = NewFakeLibOCR(t, lggr, donConfig.F, protocolRoundInterval)
@@ -174,6 +174,7 @@ func NewDON(ctx context.Context, t *testing.T, lggr logger.Logger, donConfig Don
 		}
 		don.nodes = append(don.nodes, cn)
 
+		var newOracleFactoryFn standardcapabilities.NewOracleFactoryFn
 		if supportsOCR {
 			factory := newFakeOracleFactoryFactory(t, lggr, donConfig.KeyBundles[i], len(donConfig.Members), donConfig.F,
 				protocolRoundInterval)
@@ -190,6 +191,14 @@ func NewDON(ctx context.Context, t *testing.T, lggr logger.Logger, donConfig Don
 					}
 				}, donContext.syncerFetcherFunc, donContext.computeFetcherFactory)
 			require.NoError(t, node.KeyStore.P2P().Add(ctx, donConfig.p2pKeys[i]))
+			workflowKeys, err := node.KeyStore.Workflow().GetAll()
+			require.NoError(t, err)
+
+			// Workflow nodes should only have at most 1 workflow key.
+			require.LessOrEqual(t, len(workflowKeys), 1)
+			if len(workflowKeys) == 1 {
+				cn.workflowKey = &workflowKeys[0]
+			}
 			require.NoError(t, node.Start(testutils.Context(t)))
 			cn.TestApplication = node
 		}
@@ -258,6 +267,17 @@ func (d *DON) GetPeerIDsAndOCRSigners() []peerIDAndOCRSigner {
 		peers = append(peers, node.peer)
 	}
 	return peers
+}
+
+func (d *DON) GetWorkflowPublicKeys() []*[32]byte {
+	keys := make([]*[32]byte, 0, len(d.nodes))
+	for _, node := range d.nodes {
+		if node.workflowKey != nil {
+			pubKey := node.workflowKey.PublicKey()
+			keys = append(keys, &pubKey)
+		}
+	}
+	return keys
 }
 
 func (d *DON) Start(ctx context.Context) error {
@@ -379,6 +399,30 @@ func (d *DON) AddExternalTriggerCapability(triggerFactory TriggerFactory) {
 	d.publishedCapabilities = append(d.publishedCapabilities, triggerCapability)
 }
 
+func (d *DON) AddExternalTargetCapability(targetFactory TargetFactory, defaultTargetCapabilityConfig *pb.CapabilityConfig) {
+	d.targetFactories = append(d.targetFactories, targetFactory)
+
+	if defaultTargetCapabilityConfig == nil {
+		defaultTargetCapabilityConfig = newCapabilityConfig()
+	}
+	defaultTargetCapabilityConfig.RemoteConfig = &pb.CapabilityConfig_RemoteTargetConfig{
+		RemoteTargetConfig: &pb.RemoteTargetConfig{
+			RequestHashExcludedAttributes: []string{},
+		},
+	}
+
+	targetCapability := capability{
+		donCapabilityConfig: defaultTargetCapabilityConfig,
+		registryConfig: kcr.CapabilitiesRegistryCapability{
+			LabelledName:   targetFactory.GetTargetName(),
+			Version:        targetFactory.GetTargetVersion(),
+			CapabilityType: uint8(registrysyncer.ContractCapabilityTypeTarget),
+		},
+	}
+
+	d.publishedCapabilities = append(d.publishedCapabilities, targetCapability)
+}
+
 func (d *DON) AddJob(ctx context.Context, j *job.Job) error {
 	for _, node := range d.nodes {
 		err := node.AddJobV2(ctx, j)
@@ -445,7 +489,7 @@ func startNewNode(ctx context.Context,
 	newOracleFactoryFn standardcapabilities.NewOracleFactoryFn,
 	keyV2 ethkey.KeyV2,
 	setupCfg func(c *chainlink.Config),
-	fetcherFunc artifacts.FetcherFunc,
+	fetcherFunc wftypes.FetcherFunc,
 	fetcherFactoryFunc compute.FetcherFactory,
 ) *cltest.TestApplication {
 	config, _ := heavyweight.FullTestDBV2(t, func(c *chainlink.Config, s *chainlink.Secrets) {
@@ -455,6 +499,8 @@ func startNewNode(ctx context.Context,
 		c.Capabilities.WorkflowRegistry.SyncStrategy = ptr(syncer.SyncStrategyReconciliation)
 		c.Feature.FeedsManager = ptr(false)
 		c.Feature.LogPoller = ptr(true)
+		c.CRE.UseLocalTimeProvider = ptr(true)
+		c.CRE.EnableDKGRecipient = ptr(true)
 
 		if setupCfg != nil {
 			setupCfg(c)

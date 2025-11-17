@@ -3,12 +3,12 @@
 package main
 
 import (
+	"log/slog"
+
 	"github.com/smartcontractkit/cre-sdk-go/cre"
 	"github.com/smartcontractkit/cre-sdk-go/cre/wasm"
 	"github.com/smartcontractkit/cre-sdk-go/internal_testing/capabilities/basictrigger"
 	"gopkg.in/yaml.v3"
-
-	"github.com/smartcontractkit/chainlink-common/pkg/workflows/sdk/v2/pb"
 )
 
 type runtimeConfig struct {
@@ -16,8 +16,7 @@ type runtimeConfig struct {
 	Number int32  `yaml:"number"`
 }
 
-func CreateWorkflow(env *cre.Environment[*runtimeConfig]) (cre.Workflow[*runtimeConfig], error) {
-	runnerCfg := env.Config
+func CreateWorkflow(runnerCfg *runtimeConfig, _ *slog.Logger, _ cre.SecretsProvider) (cre.Workflow[*runtimeConfig], error) {
 	return cre.Workflow[*runtimeConfig]{
 		cre.Handler(
 			basictrigger.Trigger(&basictrigger.Config{
@@ -29,8 +28,8 @@ func CreateWorkflow(env *cre.Environment[*runtimeConfig]) (cre.Workflow[*runtime
 	}, nil
 }
 
-func onTrigger(env *cre.Environment[*runtimeConfig], _ cre.Runtime, _ *basictrigger.Outputs) (string, error) {
-	secret, err := env.GetSecret(&pb.SecretRequest{Namespace: "Default", Id: "Foo"}).Await()
+func onTrigger(_ *runtimeConfig, runtime cre.Runtime, _ *basictrigger.Outputs) (string, error) {
+	secret, err := runtime.GetSecret(&cre.SecretRequest{Namespace: "Default", Id: "Foo"}).Await()
 	if err != nil {
 		return "", err
 	}

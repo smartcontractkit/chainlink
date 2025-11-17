@@ -194,14 +194,6 @@ func ReadLanesFromExistingDeployment(contracts []byte) (*Lanes, error) {
 	return &lanes, nil
 }
 
-func CreateDeploymentJSON(path string) (*Lanes, error) {
-	existingLanes := Lanes{
-		LaneConfigs: make(map[string]*LaneConfig),
-	}
-	err := WriteLanesToJSON(path, &existingLanes)
-	return &existingLanes, err
-}
-
 func WriteLanesToJSON(path string, lanes *Lanes) error {
 	b, err := json.MarshalIndent(lanes, "", "  ")
 	if err != nil {
@@ -212,7 +204,7 @@ func WriteLanesToJSON(path string, lanes *Lanes) error {
 	// Check if the directory exists.
 	if _, err := os.Stat(dir); os.IsNotExist(err) {
 		// The directory does not exist, create it.
-		if err := os.MkdirAll(dir, 0755); err != nil {
+		if err := os.MkdirAll(dir, 0o777); err != nil {
 			return fmt.Errorf("failed to create directory: %w", err)
 		}
 	}

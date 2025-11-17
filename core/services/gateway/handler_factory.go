@@ -4,10 +4,15 @@ import (
 	"encoding/json"
 	"fmt"
 
+	"github.com/jonboulle/clockwork"
+
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
+	"github.com/smartcontractkit/chainlink-common/pkg/settings/limits"
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
+	"github.com/smartcontractkit/chainlink-common/pkg/types/core"
 	"github.com/smartcontractkit/chainlink-evm/pkg/chains/legacyevm"
 
+	vaultcap "github.com/smartcontractkit/chainlink/v2/core/capabilities/vault"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/config"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers/capabilities"
@@ -15,6 +20,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers/functions"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers/vault"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/network"
+	workflowsyncerv2 "github.com/smartcontractkit/chainlink/v2/core/services/workflows/syncer/v2"
 )
 
 const (
@@ -26,20 +32,26 @@ const (
 )
 
 type handlerFactory struct {
-	legacyChains legacyevm.LegacyChainContainer
-	ds           sqlutil.DataSource
-	lggr         logger.Logger
-	httpClient   network.HTTPClient
+	legacyChains           legacyevm.LegacyChainContainer
+	ds                     sqlutil.DataSource
+	lggr                   logger.Logger
+	httpClient             network.HTTPClient
+	capabilitiesRegistry   core.CapabilitiesRegistry
+	workflowRegistrySyncer workflowsyncerv2.WorkflowRegistrySyncer
+	lf                     limits.Factory
 }
 
 var _ HandlerFactory = (*handlerFactory)(nil)
 
-func NewHandlerFactory(legacyChains legacyevm.LegacyChainContainer, ds sqlutil.DataSource, httpClient network.HTTPClient, lggr logger.Logger) HandlerFactory {
+func NewHandlerFactory(legacyChains legacyevm.LegacyChainContainer, ds sqlutil.DataSource, httpClient network.HTTPClient, capabilitiesRegistry core.CapabilitiesRegistry, workflowRegistrySyncer workflowsyncerv2.WorkflowRegistrySyncer, lggr logger.Logger, lf limits.Factory) HandlerFactory {
 	return &handlerFactory{
 		legacyChains,
 		ds,
 		lggr,
 		httpClient,
+		capabilitiesRegistry,
+		workflowRegistrySyncer,
+		lf,
 	}
 }
 
@@ -52,9 +64,10 @@ func (hf *handlerFactory) NewHandler(handlerType HandlerType, handlerConfig json
 	case WebAPICapabilitiesType:
 		return capabilities.NewHandler(handlerConfig, donConfig, don, hf.httpClient, hf.lggr)
 	case HTTPCapabilityType:
-		return v2.NewGatewayHandler(handlerConfig, donConfig, don, hf.httpClient, hf.lggr)
+		return v2.NewGatewayHandler(handlerConfig, donConfig, don, hf.httpClient, hf.lggr, hf.lf)
 	case VaultHandlerType:
-		return vault.NewHandler(donConfig.HandlerConfig, donConfig, don, hf.lggr)
+		requestAuthorizer := vaultcap.NewRequestAuthorizer(hf.lggr, hf.workflowRegistrySyncer)
+		return vault.NewHandler(handlerConfig, donConfig, don, hf.capabilitiesRegistry, requestAuthorizer, hf.lggr, clockwork.NewRealClock(), hf.lf)
 	default:
 		return nil, fmt.Errorf("unsupported handler type %s", handlerType)
 	}

@@ -222,6 +222,10 @@ func (g *generalConfig) TONConfigs() RawConfigs {
 	return g.c.TON
 }
 
+func (g *generalConfig) SuiConfigs() RawConfigs {
+	return g.c.Sui
+}
+
 func (g *generalConfig) Validate() error {
 	return g.validate(g.secrets.Validate)
 }
@@ -252,7 +256,7 @@ func validateEnv() (err error) {
 			err = fmt.Errorf("invalid environment: %w", err)
 		}
 	}()
-	for _, kv := range strings.Split(emptyStringsEnv, "\n") {
+	for kv := range strings.SplitSeq(emptyStringsEnv, "\n") {
 		if strings.TrimSpace(kv) == "" {
 			continue
 		}
@@ -362,6 +366,15 @@ func (g *generalConfig) TronEnabled() bool {
 
 func (g *generalConfig) TONEnabled() bool {
 	for _, c := range g.c.TON {
+		if c.IsEnabled() {
+			return true
+		}
+	}
+	return false
+}
+
+func (g *generalConfig) SuiEnabled() bool {
+	for _, c := range g.c.Sui {
 		if c.IsEnabled() {
 			return true
 		}
@@ -544,9 +557,18 @@ func (g *generalConfig) Threshold() coreconfig.Threshold {
 	return &thresholdConfig{s: g.secrets.Threshold}
 }
 
-func (g *generalConfig) ImportedEthKeys() coreconfig.ImportableEthKeyLister {
+func (g *generalConfig) ImportedEthKeys() coreconfig.ImportableChainKeyLister {
 	return &importedEthKeyConfigs{s: g.secrets.EVM}
 }
+
+func (g *generalConfig) ImportedSolKeys() coreconfig.ImportableChainKeyLister {
+	return &importedSolKeyConfigs{s: g.secrets.Solana}
+}
+
+func (g *generalConfig) ImportedDKGRecipientKey() coreconfig.ImportableKey {
+	return &importedDKGRecipientKeyConfig{s: g.secrets.DKGRecipientKey}
+}
+
 func (g *generalConfig) ImportedP2PKey() coreconfig.ImportableKey {
 	return &importedP2PKeyConfig{s: g.secrets.P2PKey}
 }

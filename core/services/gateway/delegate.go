@@ -9,29 +9,38 @@ import (
 	"github.com/pkg/errors"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
+	"github.com/smartcontractkit/chainlink-common/pkg/settings/limits"
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
+	"github.com/smartcontractkit/chainlink-common/pkg/types/core"
 	"github.com/smartcontractkit/chainlink-evm/pkg/chains/legacyevm"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/config"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/network"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
+	workflowsyncerv2 "github.com/smartcontractkit/chainlink/v2/core/services/workflows/syncer/v2"
 )
 
 type Delegate struct {
-	legacyChains legacyevm.LegacyChainContainer
-	ks           keystore.Eth
-	ds           sqlutil.DataSource
-	lggr         logger.Logger
+	legacyChains           legacyevm.LegacyChainContainer
+	ks                     keystore.Eth
+	ds                     sqlutil.DataSource
+	lggr                   logger.Logger
+	capabilitiesRegistry   core.CapabilitiesRegistry
+	workflowRegistrySyncer workflowsyncerv2.WorkflowRegistrySyncer
+	lf                     limits.Factory
 }
 
 var _ job.Delegate = (*Delegate)(nil)
 
-func NewDelegate(legacyChains legacyevm.LegacyChainContainer, ks keystore.Eth, ds sqlutil.DataSource, lggr logger.Logger) *Delegate {
+func NewDelegate(legacyChains legacyevm.LegacyChainContainer, ks keystore.Eth, ds sqlutil.DataSource, capabilitiesRegistry core.CapabilitiesRegistry, workflowRegistrySyncer workflowsyncerv2.WorkflowRegistrySyncer, lggr logger.Logger, lf limits.Factory) *Delegate {
 	return &Delegate{
-		legacyChains: legacyChains,
-		ks:           ks,
-		ds:           ds,
-		lggr:         lggr,
+		legacyChains:           legacyChains,
+		ks:                     ks,
+		ds:                     ds,
+		capabilitiesRegistry:   capabilitiesRegistry,
+		lggr:                   lggr,
+		workflowRegistrySyncer: workflowRegistrySyncer,
+		lf:                     lf,
 	}
 }
 
@@ -59,8 +68,8 @@ func (d *Delegate) ServicesForSpec(ctx context.Context, spec job.Job) (services 
 	if err != nil {
 		return nil, err
 	}
-	handlerFactory := NewHandlerFactory(d.legacyChains, d.ds, httpClient, d.lggr)
-	gateway, err := NewGatewayFromConfig(&gatewayConfig, handlerFactory, d.lggr)
+	handlerFactory := NewHandlerFactory(d.legacyChains, d.ds, httpClient, d.capabilitiesRegistry, d.workflowRegistrySyncer, d.lggr, d.lf)
+	gateway, err := NewGatewayFromConfig(&gatewayConfig, handlerFactory, d.lggr, d.lf)
 	if err != nil {
 		return nil, err
 	}

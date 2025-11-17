@@ -42,8 +42,8 @@ import (
 	lock_release_token_pool_1_4_0 "github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_4_0/lock_release_token_pool"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_5_0/mock_rmn_contract"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/link_token_interface"
-	"github.com/smartcontractkit/chainlink-evm/gethwrappers/shared/generated/burn_mint_erc677"
-	"github.com/smartcontractkit/chainlink-evm/gethwrappers/shared/generated/weth9"
+	"github.com/smartcontractkit/chainlink-evm/gethwrappers/shared/generated/initial/burn_mint_erc677"
+	"github.com/smartcontractkit/chainlink-evm/gethwrappers/shared/generated/initial/weth9"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/abihelpers"
 	ccipconfig "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/config"
@@ -763,27 +763,6 @@ func (c *CCIPContracts) SendMessage(t *testing.T, gasLimit, tokenAmount *big.Int
 	c.SendRequest(t, msg)
 }
 
-func GetBalances(t *testing.T, brs []BalanceReq) (map[string]*big.Int, error) {
-	m := make(map[string]*big.Int)
-	for _, br := range brs {
-		m[br.Name] = br.Getter(t, br.Addr)
-		if m[br.Name] == nil {
-			return nil, fmt.Errorf("%v getter return nil", br.Name)
-		}
-	}
-	return m, nil
-}
-
-func MustAddBigInt(a *big.Int, b string) *big.Int {
-	bi, _ := big.NewInt(0).SetString(b, 10)
-	return big.NewInt(0).Add(a, bi)
-}
-
-func MustSubBigInt(a *big.Int, b string) *big.Int {
-	bi, _ := big.NewInt(0).SetString(b, 10)
-	return big.NewInt(0).Sub(a, bi)
-}
-
 func MustEncodeAddress(t *testing.T, address common.Address) []byte {
 	bts, err := utils.ABIEncode(`[{"type":"address"}]`, address)
 	require.NoError(t, err)
@@ -1194,7 +1173,7 @@ func SetupCCIPContracts(t *testing.T, sourceChainID, sourceChainSelector, destCh
 	destChain.Commit()
 
 	// Ensure we have at least finality blocks.
-	for i := 0; i < 50; i++ {
+	for range 50 {
 		sourceChain.Commit()
 		destChain.Commit()
 	}

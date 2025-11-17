@@ -120,7 +120,7 @@ func (c *defaultEvmBatchCaller) batchCall(ctx context.Context, blockNumber uint6
 		rpcBatchCalls[i] = rpc.BatchElem{
 			Method: "eth_call",
 			Args: []any{
-				map[string]interface{}{
+				map[string]any{
 					"from": common.Address{},
 					"to":   call.contractAddress,
 					"data": hexutil.Bytes(packedInputs),
@@ -171,11 +171,8 @@ func (c *defaultEvmBatchCaller) batchCall(ctx context.Context, blockNumber uint6
 }
 
 func (c *defaultEvmBatchCaller) batchCallDynamicLimitRetries(ctx context.Context, blockNumber uint64, calls []EvmCall) ([]DataAndErr, error) {
-	lim := c.batchSizeLimit
 	// Limit the batch size to the number of calls
-	if uint(len(calls)) < lim {
-		lim = uint(len(calls))
-	}
+	lim := min(uint(len(calls)), c.batchSizeLimit)
 	for {
 		results, err := c.batchCallLimit(ctx, blockNumber, calls, lim)
 		if err == nil {
@@ -210,10 +207,7 @@ func (c *defaultEvmBatchCaller) batchCallLimit(ctx context.Context, blockNumber 
 	jobs := make([]job, 0)
 	for i := 0; i < len(calls); i += int(batchSizeLimit) {
 		idxFrom := i
-		idxTo := idxFrom + int(batchSizeLimit)
-		if idxTo > len(calls) {
-			idxTo = len(calls)
-		}
+		idxTo := min(idxFrom+int(batchSizeLimit), len(calls))
 		jobs = append(jobs, job{blockNumber: blockNumber, calls: calls[idxFrom:idxTo], results: nil})
 	}
 
@@ -221,7 +215,6 @@ func (c *defaultEvmBatchCaller) batchCallLimit(ctx context.Context, blockNumber 
 		eg := new(errgroup.Group)
 		eg.SetLimit(int(c.parallelRpcCallsLimit))
 		for jobIdx := range jobs {
-			jobIdx := jobIdx
 			eg.Go(func() error {
 				res, err := c.batchCall(ctx, jobs[jobIdx].blockNumber, jobs[jobIdx].calls)
 				if err != nil {
@@ -252,8 +245,8 @@ func (c *defaultEvmBatchCaller) batchCallLimit(ctx context.Context, blockNumber 
 }
 
 type AbiPackerUnpacker interface {
-	Pack(name string, args ...interface{}) ([]byte, error)
-	Unpack(name string, data []byte) ([]interface{}, error)
+	Pack(name string, args ...any) ([]byte, error)
+	Unpack(name string, data []byte) ([]any, error)
 }
 
 type EvmCall struct {

@@ -16,12 +16,12 @@ import (
 	"github.com/smartcontractkit/freeport"
 
 	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
+	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 	"github.com/smartcontractkit/chainlink/v2/core/cmd"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
-	"github.com/smartcontractkit/chainlink/v2/core/store/models"
 	"github.com/smartcontractkit/chainlink/v2/core/web/presenters"
 )
 
@@ -33,7 +33,7 @@ func TestJobPresenter_RenderTable(t *testing.T) {
 		name            = "Job 1"
 		jobSpecType     = "fluxmonitor"
 		schemaVersion   = uint32(1)
-		maxTaskDuration = models.Interval(1 * time.Second)
+		maxTaskDuration = sqlutil.Interval(1 * time.Second)
 
 		createdAt = time.Now()
 		updatedAt = time.Now().Add(time.Second)
@@ -304,7 +304,7 @@ func TestJob_ToRows(t *testing.T) {
 var directRequestSpecTemplate string
 
 func getDirectRequestSpec() string {
-	return fmt.Sprintf(directRequestSpecTemplate, uuid.New(), uuid.New())
+	return fmt.Sprintf(directRequestSpecTemplate, testutils.FixtureChainID.String(), uuid.New(), uuid.New())
 }
 
 func TestShell_ListFindJobs(t *testing.T) {
@@ -390,7 +390,7 @@ func TestShell_CreateJobV2(t *testing.T) {
 	flagSetApplyFromAction(client.CreateJob, fs, "")
 
 	nameAndExternalJobID := uuid.New()
-	spec := fmt.Sprintf(ocrBootstrapSpec, nameAndExternalJobID, nameAndExternalJobID)
+	spec := fmt.Sprintf(ocrBootstrapSpec, nameAndExternalJobID, nameAndExternalJobID, testutils.FixtureChainID.String())
 	require.NoError(t, fs.Parse([]string{spec}))
 
 	err := client.CreateJob(cli.NewContext(nil, fs, nil))

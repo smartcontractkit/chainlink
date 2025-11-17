@@ -16,13 +16,14 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/ratelimit"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/core"
-	"github.com/smartcontractkit/chainlink-common/pkg/values"
+	"github.com/smartcontractkit/chainlink-protos/cre/go/values"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/api"
 
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/webapi/webapicap"
 	gw_common "github.com/smartcontractkit/chainlink/v2/core/services/gateway/common"
 	ghcapabilities "github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers/capabilities"
 	hc "github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers/common"
+	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/events"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
@@ -37,6 +38,7 @@ var webapiTriggerInfo = capabilities.MustNewCapabilityInfo(
 )
 
 type webapiTrigger struct {
+	workflowID     string
 	allowedSenders map[string]bool
 	allowedTopics  map[string]bool
 	ch             chan<- capabilities.TriggerResponse
@@ -108,6 +110,18 @@ func (h *triggerConnectorHandler) processTrigger(ctx context.Context, gatewayID 
 				}
 				fullyMatchedWorkflows++
 				TriggerEventID := body.Sender + payload.TriggerEventId
+
+				// Emit trigger execution started event
+				workflowExecutionID, genErr := events.GenerateExecutionID(trigger.workflowID, TriggerEventID)
+				if genErr != nil {
+					h.lggr.Errorw("failed to generate execution ID", "err", genErr)
+					workflowExecutionID = ""
+				}
+				emitErr := events.EmitTriggerExecutionStarted(ctx, map[string]string{}, TriggerEventID, workflowExecutionID)
+				if emitErr != nil {
+					h.lggr.Errorw("failed to emit trigger execution started event", "err", emitErr)
+				}
+
 				tr := capabilities.TriggerResponse{
 					Event: capabilities.TriggerEvent{
 						TriggerType: TriggerType,
@@ -228,6 +242,7 @@ func (h *triggerConnectorHandler) RegisterTrigger(ctx context.Context, req capab
 	ch := make(chan capabilities.TriggerResponse, defaultSendChannelBufferSize)
 
 	h.registeredWorkflows[req.TriggerID] = webapiTrigger{
+		workflowID:     req.Metadata.WorkflowID,
 		allowedTopics:  allowedTopicsMap,
 		allowedSenders: allowedSendersMap,
 		ch:             ch,

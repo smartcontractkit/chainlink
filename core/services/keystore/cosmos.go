@@ -6,7 +6,7 @@ import (
 
 	"github.com/pkg/errors"
 
-	"github.com/smartcontractkit/chainlink-common/pkg/loop"
+	"github.com/smartcontractkit/chainlink-common/pkg/types/core"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/cosmoskey"
 )
 
@@ -132,7 +132,7 @@ func (ks *cosmos) EnsureKey(ctx context.Context) error {
 
 	key := cosmoskey.New()
 
-	ks.logger.Infof("Created Cosmos key with ID %s", key.ID())
+	ks.announce(key)
 
 	return ks.safeAddKey(ctx, key)
 }
@@ -149,9 +149,10 @@ func (ks *cosmos) getByID(id string) (cosmoskey.Key, error) {
 // handles signing for Cosmos messages.
 type CosmosLoopSigner struct {
 	Cosmos
+	core.UnimplementedKeystore
 }
 
-var _ loop.Keystore = &CosmosLoopSigner{}
+var _ core.Keystore = &CosmosLoopSigner{}
 
 func (lk *CosmosLoopSigner) Sign(ctx context.Context, id string, hash []byte) ([]byte, error) {
 	k, err := lk.Get(id)

@@ -56,5 +56,5 @@ func acceptOwnershipPrecondition(env cldf.Environment, c types.AcceptOwnershipCo
 		return errors.New("mcms config is required")
 	}
 
-	return ValidateMCMSAddresses(env.ExistingAddresses, c.ChainSelector)
+	return ValidateMCMSAddresses(env.DataStore.Addresses(), c.ChainSelector)
 }

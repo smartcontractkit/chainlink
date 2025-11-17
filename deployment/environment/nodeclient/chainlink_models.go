@@ -30,7 +30,7 @@ type ChainlinkConfig struct {
 
 // ResponseSlice is the generic model that can be used for all Chainlink API responses that are an slice
 type ResponseSlice struct {
-	Data []map[string]interface{}
+	Data []map[string]any
 }
 
 // HealthCheck corresponds to presenters.Check.
@@ -54,7 +54,7 @@ type HealthResponse struct {
 
 // Response is the generic model that can be used for all Chainlink API responses
 type Response struct {
-	Data map[string]interface{}
+	Data map[string]any
 }
 
 // JobRunsResponse job runs
@@ -72,12 +72,12 @@ type RunsResponseData struct {
 
 // RunsAttributesResponse runs attributes
 type RunsAttributesResponse struct {
-	Meta       interface{}   `json:"meta"`
-	Errors     []interface{} `json:"errors"`
-	Inputs     RunInputs     `json:"inputs"`
-	TaskRuns   []TaskRun     `json:"taskRuns"`
-	CreatedAt  time.Time     `json:"createdAt"`
-	FinishedAt time.Time     `json:"finishedAt"`
+	Meta       any       `json:"meta"`
+	Errors     []any     `json:"errors"`
+	Inputs     RunInputs `json:"inputs"`
+	TaskRuns   []TaskRun `json:"taskRuns"`
+	CreatedAt  time.Time `json:"createdAt"`
+	FinishedAt time.Time `json:"finishedAt"`
 }
 
 // DecodeLogTaskRun is "ethabidecodelog" task run info,
@@ -92,12 +92,12 @@ type DecodeLogTaskRun struct {
 
 // TaskRun is pipeline task run info
 type TaskRun struct {
-	Type       string      `json:"type"`
-	CreatedAt  time.Time   `json:"createdAt"`
-	FinishedAt time.Time   `json:"finishedAt"`
-	Output     string      `json:"output"`
-	Error      interface{} `json:"error"`
-	DotID      string      `json:"dotId"`
+	Type       string    `json:"type"`
+	CreatedAt  time.Time `json:"createdAt"`
+	FinishedAt time.Time `json:"finishedAt"`
+	Output     string    `json:"output"`
+	Error      any       `json:"error"`
+	DotID      string    `json:"dotId"`
 }
 
 type NodeKeysBundle struct {
@@ -196,12 +196,12 @@ type VRFExportKey struct {
 
 // VRFKeyAttributes is the model that represents the created VRF key attributes when read
 type VRFKeyAttributes struct {
-	Compressed   string      `json:"compressed"`
-	Uncompressed string      `json:"uncompressed"`
-	Hash         string      `json:"hash"`
-	CreatedAt    time.Time   `json:"createdAt"`
-	UpdatedAt    time.Time   `json:"updatedAt"`
-	DeletedAt    interface{} `json:"deletedAt"`
+	Compressed   string    `json:"compressed"`
+	Uncompressed string    `json:"uncompressed"`
+	Hash         string    `json:"hash"`
+	CreatedAt    time.Time `json:"createdAt"`
+	UpdatedAt    time.Time `json:"updatedAt"`
+	DeletedAt    any       `json:"deletedAt"`
 }
 
 // VRFKeyData is the model that represents the created VRF key's data when read
@@ -396,6 +396,31 @@ type EIKeyCreate struct {
 // EIKey is the model that represents the EI configs when read
 type EIKey struct {
 	Attributes EIAttributes `json:"attributes"`
+}
+
+// AptosKey represents an Aptos key response
+type AptosKey struct {
+	Data AptosKeyData `json:"data"`
+}
+
+// AptosKeyData contains the Aptos key attributes
+type AptosKeyData struct {
+	Type       string             `json:"type"`
+	ID         string             `json:"id"`
+	Attributes AptosKeyAttributes `json:"attributes"`
+}
+
+// AptosKeys represents multiple Aptos keys
+type AptosKeys struct {
+	Data []AptosKeyData `json:"data"`
+}
+
+// AptosKeyAttributes contains the actual Aptos key information
+type AptosKeyAttributes struct {
+	Account   string `json:"account"`
+	PublicKey string `json:"publicKey"`
+	CreatedAt string `json:"createdAt"`
+	UpdatedAt string `json:"updatedAt"`
 }
 
 type CosmosChainConfig struct {
@@ -1097,7 +1122,7 @@ func (o *OCR2TaskJobSpec) String() (string, error) {
 		Relay                    string
 		PluginType               string
 		RelayConfig              string
-		PluginConfig             map[string]interface{}
+		PluginConfig             map[string]any
 		P2PV2Bootstrappers       []string
 		OCRKeyBundleID           string
 		MonitoringEndpoint       string
@@ -1417,14 +1442,6 @@ observationSource = """
 	return MarshallTemplate(w, "Webhook Job", webHookTemplateString)
 }
 
-// ObservationSourceSpecHTTP creates a http GET task spec for json data
-func ObservationSourceSpecHTTP(url string) string {
-	return fmt.Sprintf(`
-		fetch [type=http method=GET url="%s"];
-		parse [type=jsonparse path="data,result"];
-		fetch -> parse;`, url)
-}
-
 // ObservationSourceSpecBridge creates a bridge task spec for json data
 func ObservationSourceSpecBridge(bta *BridgeTypeAttributes) string {
 	return fmt.Sprintf(`
@@ -1434,7 +1451,7 @@ func ObservationSourceSpecBridge(bta *BridgeTypeAttributes) string {
 }
 
 // marshallTemplate Helper to marshall templates
-func MarshallTemplate(jobSpec interface{}, name, templateString string) (string, error) {
+func MarshallTemplate(jobSpec any, name, templateString string) (string, error) {
 	var buf bytes.Buffer
 	tmpl, err := template.New(name).Parse(templateString)
 	if err != nil {

@@ -12,7 +12,6 @@ Ensure GOBIN is set in your shell. The asdf tool manager does not currently work
 Install the capability binaries you need in a workflow via the core node make file scripts:
 
 ```bash
-make install-loopinstall
 make install-plugins-private
 ```
 Run `$GOBIN/cron -h` to confirm the installation.

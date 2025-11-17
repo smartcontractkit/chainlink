@@ -9,8 +9,8 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/custmsg"
 	"github.com/smartcontractkit/chainlink-common/pkg/settings/limits"
-
 	"github.com/smartcontractkit/chainlink-common/pkg/types/core"
+	"github.com/smartcontractkit/chainlink-common/pkg/workflows/dontime"
 
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/platform"
@@ -25,10 +25,10 @@ func WithBillingClient(client metering.BillingClient) func(*Delegate) {
 	}
 }
 
-func WithWorkflowRegistry(address, chainID string) func(*Delegate) {
+func WithWorkflowRegistry(address, chainSelector string) func(*Delegate) {
 	return func(e *Delegate) {
 		e.workflowRegistryAddress = address
-		e.workflowRegistryChainID = chainID
+		e.workflowRegistryChainSelector = chainSelector
 	}
 }
 
@@ -40,11 +40,12 @@ type Delegate struct {
 	ratelimiter    limits.RateLimiter
 	workflowLimits limits.ResourceLimiter[int]
 	billingClient  metering.BillingClient
+	dontimeStore   *dontime.Store
 
 	// WorkflowRegistryAddress is the address of the workflow registry contract
 	workflowRegistryAddress string
-	// WorkflowRegistryChainID is the chain ID for the workflow registry
-	workflowRegistryChainID string
+	// WorkflowRegistryChainSelector is the chain selector for the workflow registry
+	workflowRegistryChainSelector string
 }
 
 var _ job.Delegate = (*Delegate)(nil)
@@ -83,21 +84,21 @@ func (d *Delegate) ServicesForSpec(ctx context.Context, spec job.Job) ([]job.Ser
 	}
 
 	cfg := Config{
-		Lggr:                    d.logger,
-		Workflow:                sdkSpec,
-		WorkflowID:              spec.WorkflowSpec.WorkflowID,
-		WorkflowOwner:           spec.WorkflowSpec.WorkflowOwner,
-		WorkflowName:            NewLegacyWorkflowName(spec.WorkflowSpec.WorkflowName),
-		Registry:                d.registry,
-		Store:                   d.store,
-		Config:                  config,
-		Binary:                  binary,
-		SecretsFetcher:          d.secretsFetcher,
-		RateLimiter:             d.ratelimiter,
-		WorkflowLimits:          d.workflowLimits,
-		BillingClient:           d.billingClient,
-		WorkflowRegistryAddress: d.workflowRegistryAddress,
-		WorkflowRegistryChainID: d.workflowRegistryChainID,
+		Lggr:                          d.logger,
+		Workflow:                      sdkSpec,
+		WorkflowID:                    spec.WorkflowSpec.WorkflowID,
+		WorkflowOwner:                 spec.WorkflowSpec.WorkflowOwner,
+		WorkflowName:                  NewLegacyWorkflowName(spec.WorkflowSpec.WorkflowName),
+		Registry:                      d.registry,
+		Store:                         d.store,
+		Config:                        config,
+		Binary:                        binary,
+		SecretsFetcher:                d.secretsFetcher,
+		RateLimiter:                   d.ratelimiter,
+		WorkflowLimits:                d.workflowLimits,
+		BillingClient:                 d.billingClient,
+		WorkflowRegistryAddress:       d.workflowRegistryAddress,
+		WorkflowRegistryChainSelector: d.workflowRegistryChainSelector,
 	}
 	engine, err := NewEngine(ctx, cfg)
 	if err != nil {
@@ -110,6 +111,7 @@ func (d *Delegate) ServicesForSpec(ctx context.Context, spec job.Job) ([]job.Ser
 func NewDelegate(
 	logger logger.Logger,
 	registry core.CapabilitiesRegistry,
+	dontimeStore *dontime.Store,
 	store store.Store,
 	ratelimiter limits.RateLimiter,
 	workflowLimits limits.ResourceLimiter[int],
@@ -124,6 +126,7 @@ func NewDelegate(
 		store:          store,
 		ratelimiter:    ratelimiter,
 		workflowLimits: workflowLimits,
+		dontimeStore:   dontimeStore,
 	}
 
 	for _, opt := range opts {

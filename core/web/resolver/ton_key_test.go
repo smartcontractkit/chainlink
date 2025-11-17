@@ -67,7 +67,7 @@ func TestResolver_TONKeys(t *testing.T) {
 				{
 					Extensions:    nil,
 					ResolverError: gError,
-					Path:          []interface{}{"tonKeys"},
+					Path:          []any{"tonKeys"},
 					Message:       gError.Error(),
 				},
 			},

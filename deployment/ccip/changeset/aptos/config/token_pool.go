@@ -52,3 +52,36 @@ type RateLimiterConfig struct {
 	InboundCapacity     uint64
 	InboundRate         uint64
 }
+
+// ########################
+// # Token Pool Ownership #
+// ########################
+
+type TokenPoolTransfer struct {
+	TokenPoolAddress aptos.AccountAddress
+	To               aptos.AccountAddress
+	TokenPoolType    cldf.ContractType
+}
+
+type TransferTokenPoolOwnershipInput struct {
+	ChainSelector uint64
+	Transfers     []TokenPoolTransfer
+	MCMSConfig    *proposalutils.TimelockConfig
+}
+
+type TokenPoolAccept struct {
+	TokenPoolAddress aptos.AccountAddress
+	TokenPoolType    cldf.ContractType
+}
+
+type AcceptTokenPoolOwnershipInput struct {
+	ChainSelector uint64
+	Accepts       []TokenPoolAccept
+	MCMSConfig    *proposalutils.TimelockConfig
+}
+
+type ExecuteTokenPoolOwnershipTransferInput struct {
+	ChainSelector uint64
+	Transfers     []TokenPoolTransfer
+	MCMSConfig    *proposalutils.TimelockConfig
+}

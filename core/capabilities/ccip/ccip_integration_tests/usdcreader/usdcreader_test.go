@@ -19,7 +19,10 @@ import (
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 
+	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/latest/usdc_reader_tester"
 	typepkgmock "github.com/smartcontractkit/chainlink-ccip/mocks/pkg/types/ccipocr3"
+	ccipocr3common "github.com/smartcontractkit/chainlink-common/pkg/types/ccipocr3"
+	"github.com/smartcontractkit/chainlink-evm/pkg/config"
 
 	sel "github.com/smartcontractkit/chain-selectors"
 
@@ -27,20 +30,16 @@ import (
 	"github.com/smartcontractkit/chainlink-ccip/pkg/reader"
 	cciptypes "github.com/smartcontractkit/chainlink-ccip/pkg/types/ccipocr3"
 	"github.com/smartcontractkit/chainlink-ccip/pluginconfig"
-
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-evm/pkg/client"
 	"github.com/smartcontractkit/chainlink-evm/pkg/heads/headstest"
 	"github.com/smartcontractkit/chainlink-evm/pkg/logpoller"
 	"github.com/smartcontractkit/chainlink-evm/pkg/utils"
 	ubig "github.com/smartcontractkit/chainlink-evm/pkg/utils/big"
-
-	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/latest/usdc_reader_tester"
-	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	evmconfig "github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/configs/evm"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm"
-	evmtypes "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/types"
 	"github.com/smartcontractkit/chainlink/v2/core/utils/testutils/heavyweight"
 )
 
@@ -80,6 +79,8 @@ func Test_USDCReader_MessageHashes(t *testing.T) {
 				SourceMessageTransmitterAddr: ts.contractAddr.String(),
 			},
 		},
+		nil,
+		nil,
 		map[cciptypes.ChainSelector]contractreader.Extended{
 			ethereumChain: ts.reader,
 		}, mokAddrCodec)
@@ -92,7 +93,7 @@ func Test_USDCReader_MessageHashes(t *testing.T) {
 	emitMessageSent(t, ts, ethereumDomainCCTP, polygonDomainCCTP, 31)
 	emitMessageSent(t, ts, ethereumDomainCCTP, polygonDomainCCTP, 41)
 	// Finalize events
-	for i := 0; i < finalityDepth; i++ {
+	for range finalityDepth {
 		ts.sb.Commit()
 	}
 	emitMessageSent(t, ts, ethereumDomainCCTP, avalancheDomainCCTP, 51)
@@ -280,6 +281,8 @@ func Benchmark_MessageHashes(b *testing.B) {
 						SourceMessageTransmitterAddr: ts.contractAddr.String(),
 					},
 				},
+				nil,
+				nil,
 				map[cciptypes.ChainSelector]contractreader.Extended{
 					sourceChain: ts.reader,
 				}, mokAddrCodec)
@@ -299,7 +302,7 @@ func Benchmark_MessageHashes(b *testing.B) {
 
 			b.ResetTimer()
 
-			for i := 0; i < b.N; i++ {
+			for b.Loop() {
 				hashes, err := usdcReader.MessagesByTokenID(ctx, sourceChain, destChain, tokens)
 				require.NoError(b, err)
 				require.Len(b, hashes, tc.tokenCount) // Ensure the number of matches is as expected
@@ -326,7 +329,7 @@ func populateDatabase(b *testing.B,
 	require.NoError(b, err)
 	messageTransmitterAddress := testEnv.contractAddr
 
-	for i := 0; i < numOfMessages; i++ {
+	for i := range numOfMessages {
 		// Create topics array with just the event signature
 		topics := [][]byte{
 			messageSentEventSig[:], // Topic[0] is event signature
@@ -403,7 +406,7 @@ func emitMessageSent(t *testing.T, testEnv *testSetupData, source, dest uint32, 
 	testEnv.sb.Commit()
 }
 
-func testSetup(ctx context.Context, t testing.TB, readerChain cciptypes.ChainSelector, cfg evmtypes.ChainReaderConfig, depth int, useHeavyDB bool) *testSetupData {
+func testSetup(ctx context.Context, t testing.TB, readerChain ccipocr3common.ChainSelector, cfg config.ChainReaderConfig, depth int, useHeavyDB bool) *testSetupData {
 	// Generate a new key pair for the simulated account
 	privateKey, err := crypto.GenerateKey()
 	require.NoError(t, err)

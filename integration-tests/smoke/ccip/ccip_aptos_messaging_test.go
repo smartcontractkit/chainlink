@@ -2,39 +2,32 @@ package ccip
 
 import (
 	"context"
+	"encoding/hex"
 	"math/big"
 	"strings"
 	"testing"
 
+	"github.com/aptos-labs/aptos-go-sdk"
+	aptosapi "github.com/aptos-labs/aptos-go-sdk/api"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind/v2"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/common/math"
 	chain_selectors "github.com/smartcontractkit/chain-selectors"
 	"github.com/stretchr/testify/require"
 
 	aptos_call_opts "github.com/smartcontractkit/chainlink-aptos/bindings/bind"
-
 	aptos_feequoter "github.com/smartcontractkit/chainlink-aptos/bindings/ccip/fee_quoter"
-	"github.com/smartcontractkit/chainlink-deployments-framework/chain"
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
-
-	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers"
-	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers/messagingtest"
-	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
-	testsetups "github.com/smartcontractkit/chainlink/integration-tests/testsetups/ccip"
-
-	"encoding/hex"
-
-	"github.com/aptos-labs/aptos-go-sdk"
-	aptosapi "github.com/aptos-labs/aptos-go-sdk/api"
-
-	"github.com/ethereum/go-ethereum/common/math"
-
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_2_0/router"
+	"github.com/smartcontractkit/chainlink-deployments-framework/chain"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/testcontext"
 	"github.com/smartcontractkit/chainlink/deployment"
-
+	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers"
 	mlt "github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers/messagelimitationstest"
+	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers/messagingtest"
+	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
+	testsetups "github.com/smartcontractkit/chainlink/integration-tests/testsetups/ccip"
+	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
 
 func Test_CCIP_Messaging_EVM2Aptos(t *testing.T) {

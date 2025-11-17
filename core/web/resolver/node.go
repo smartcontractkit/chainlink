@@ -7,6 +7,8 @@ import (
 	"github.com/graph-gophers/graphql-go"
 	"github.com/pelletier/go-toml/v2"
 
+	chainsel "github.com/smartcontractkit/chain-selectors"
+
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
 
 	evmtoml "github.com/smartcontractkit/chainlink-evm/pkg/config/toml"
@@ -88,7 +90,8 @@ func (r *NodeResolver) Order() *int32 {
 
 // Chain resolves the node's chain object field.
 func (r *NodeResolver) Chain(ctx context.Context) (*ChainResolver, error) {
-	chain, err := loader.GetChainByID(ctx, r.status.ChainID)
+	relayID := types.NewRelayID(chainsel.FamilyEVM, r.status.ChainID)
+	chain, err := loader.GetChainByRelayID(ctx, relayID.Name())
 	if err != nil {
 		return nil, err
 	}

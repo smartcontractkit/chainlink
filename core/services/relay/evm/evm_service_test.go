@@ -2,43 +2,46 @@ package evm
 
 import (
 	"errors"
+	"math"
 	"math/big"
 	"slices"
 	"testing"
 	"time"
 
+	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/common"
+	gethtypes "github.com/ethereum/go-ethereum/core/types"
+	"github.com/ethereum/go-ethereum/rpc"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 
-	gethtypes "github.com/ethereum/go-ethereum/core/types"
-
-	logger "github.com/smartcontractkit/chainlink-common/pkg/logger"
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	commontypes "github.com/smartcontractkit/chainlink-common/pkg/types"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/chains/evm"
+	"github.com/smartcontractkit/chainlink-common/pkg/types/query/primitives"
 	"github.com/smartcontractkit/chainlink-evm/pkg/client/clienttest"
 	configmocks "github.com/smartcontractkit/chainlink-evm/pkg/config/mocks"
 	"github.com/smartcontractkit/chainlink-evm/pkg/heads/headstest"
 	"github.com/smartcontractkit/chainlink-evm/pkg/logpoller"
 	"github.com/smartcontractkit/chainlink-evm/pkg/txmgr"
+	"github.com/smartcontractkit/chainlink-evm/pkg/types"
 	evmmocks "github.com/smartcontractkit/chainlink/v2/common/chains/mocks"
 	lpmocks "github.com/smartcontractkit/chainlink/v2/common/logpoller/mocks"
 	txmmocks "github.com/smartcontractkit/chainlink/v2/common/txmgr/mocks"
-
-	"github.com/smartcontractkit/chainlink-evm/pkg/types"
 )
 
 const ExpectedTxHash = "0xabcd"
 
 type Mocks struct {
-	Chain     *evmmocks.Chain
-	TxManager *txmmocks.MockEvmTxManager
-	Config    *configmocks.ChainScopedConfig
-	EVM       *configmocks.EVM
-	Workflow  *configmocks.Workflow
-	EvmClient *clienttest.Client
-	Poller    *lpmocks.LogPoller
-	Relayer   *Relayer
+	Chain         *evmmocks.Chain
+	TxManager     *txmmocks.MockEvmTxManager
+	Config        *configmocks.ChainScopedConfig
+	EVM           *configmocks.EVM
+	Workflow      *configmocks.Workflow
+	EvmClient     *clienttest.Client
+	Poller        *lpmocks.LogPoller
+	HeaderTracker *headstest.Tracker[*types.Head, common.Hash]
+	Relayer       *Relayer
 }
 
 type returnedStatusAndReceipts struct {
@@ -82,13 +85,14 @@ func setupMocksAndRelayer(t *testing.T) (*Mocks, *Relayer) {
 	}
 
 	return &Mocks{
-		Chain:     chain,
-		TxManager: txManager,
-		Config:    mockConfig,
-		EVM:       mockEVM,
-		Workflow:  mockWorkflow,
-		EvmClient: evmClient,
-		Poller:    poller,
+		Chain:         chain,
+		TxManager:     txManager,
+		Config:        mockConfig,
+		EVM:           mockEVM,
+		Workflow:      mockWorkflow,
+		EvmClient:     evmClient,
+		Poller:        poller,
+		HeaderTracker: ht,
 	}, relayer
 }
 
@@ -124,6 +128,8 @@ func runSubmitTransactionTest(t *testing.T, tc SubmitTransactionTestCase) {
 		require.Contains(t, err.Error(), tc.ExpectedError)
 	} else {
 		require.NoError(t, err)
+		require.NotEmpty(t, result.TxIdempotencyKey)
+		result.TxIdempotencyKey = ""
 		require.Equal(t, tc.ExpectedResult, result)
 	}
 }
@@ -196,8 +202,8 @@ func TestEVMService(t *testing.T) {
 		data := []byte("kitties")
 
 		transaction := gethtypes.NewTransaction(nonce, to, amount, gasLimit, gasPrice, data)
-		mocks.EvmClient.On("TransactionByHash", ctx, hash).Return(transaction, nil)
-		tx, err := relayer.GetTransactionByHash(ctx, hash)
+		mocks.EvmClient.EXPECT().TransactionByHashWithOpts(ctx, hash, types.TransactionByHashOpts{}).Return(transaction, nil)
+		tx, err := relayer.GetTransactionByHash(ctx, evm.GetTransactionByHashRequest{Hash: hash})
 		require.NoError(t, err)
 		require.Equal(t, transaction.Hash().Bytes(), tx.Hash[:])
 		require.Equal(t, transaction.Nonce(), tx.Nonce)
@@ -347,6 +353,166 @@ func TestEVMService(t *testing.T) {
 	}
 }
 
+func TestEVMService_HeaderByNumber(t *testing.T) {
+	testCases := []struct {
+		Name           string
+		Request        evm.HeaderByNumberRequest
+		ExpectedResult evm.HeaderByNumberReply
+		PrepareMocks   func(m *Mocks)
+		ExpectedError  string
+	}{
+		{
+			Name: "Explicit Latest header",
+			Request: evm.HeaderByNumberRequest{
+				Number: big.NewInt(rpc.LatestBlockNumber.Int64()),
+			},
+			PrepareMocks: func(m *Mocks) {
+				m.HeaderTracker.EXPECT().LatestAndFinalizedBlock(mock.Anything).Return(&types.Head{Number: 10}, &types.Head{Number: 8}, nil).Once()
+			},
+			ExpectedResult: evm.HeaderByNumberReply{Header: &evm.Header{Number: big.NewInt(10)}},
+		},
+		{
+			Name: "Nil BlockNumber - should return latest header",
+			Request: evm.HeaderByNumberRequest{
+				Number: nil,
+			},
+			PrepareMocks: func(m *Mocks) {
+				m.HeaderTracker.EXPECT().LatestAndFinalizedBlock(mock.Anything).Return(&types.Head{Number: 10}, &types.Head{Number: 8}, nil).Once()
+			},
+			ExpectedResult: evm.HeaderByNumberReply{Header: &evm.Header{Number: big.NewInt(10)}},
+		},
+		{
+			Name: "Finalized",
+			Request: evm.HeaderByNumberRequest{
+				Number: big.NewInt(rpc.FinalizedBlockNumber.Int64()),
+			},
+			PrepareMocks: func(m *Mocks) {
+				m.HeaderTracker.EXPECT().LatestAndFinalizedBlock(mock.Anything).Return(&types.Head{Number: 10}, &types.Head{Number: 8}, nil).Once()
+			},
+			ExpectedResult: evm.HeaderByNumberReply{Header: &evm.Header{Number: big.NewInt(8)}},
+		},
+		{
+			Name: "Safe",
+			Request: evm.HeaderByNumberRequest{
+				Number: big.NewInt(rpc.SafeBlockNumber.Int64()),
+			},
+			PrepareMocks: func(m *Mocks) {
+				m.HeaderTracker.EXPECT().LatestSafeBlock(mock.Anything).Return(&types.Head{Number: 9}, nil).Once()
+			},
+			ExpectedResult: evm.HeaderByNumberReply{Header: &evm.Header{Number: big.NewInt(9)}},
+		},
+		{
+			Name: "Unknown special block number",
+			Request: evm.HeaderByNumberRequest{
+				Number: big.NewInt(-42),
+			},
+			ExpectedError: "unexpected block number -42",
+		},
+		{
+			Name: "Non-special block number",
+			Request: evm.HeaderByNumberRequest{
+				Number:          big.NewInt(42),
+				ConfidenceLevel: primitives.Finalized,
+			},
+			PrepareMocks: func(m *Mocks) {
+				m.EvmClient.EXPECT().HeaderByNumberWithOpts(
+					mock.Anything,
+					big.NewInt(42),
+					types.HeaderByNumberOpts{ConfidenceLevel: primitives.Finalized},
+				).Return(&types.Header{Number: 42}, nil).Once()
+			},
+			ExpectedResult: evm.HeaderByNumberReply{Header: &evm.Header{Number: big.NewInt(42)}},
+		},
+		{
+			Name: "Large block number",
+			Request: evm.HeaderByNumberRequest{
+				Number:          big.NewInt(0).SetUint64(math.MaxInt64 + 1),
+				ConfidenceLevel: primitives.Finalized,
+			},
+			ExpectedError: "block number 9223372036854775808 is larger than int64: not found",
+		},
+		{
+			Name: "Failed to get latest",
+			Request: evm.HeaderByNumberRequest{
+				Number: big.NewInt(rpc.LatestBlockNumber.Int64()),
+			},
+			PrepareMocks: func(m *Mocks) {
+				m.HeaderTracker.EXPECT().LatestAndFinalizedBlock(mock.Anything).Return(nil, nil, errors.New("failed to get latest")).Once()
+			},
+			ExpectedError: "failed to get latest",
+		},
+		{
+			Name: "Failed to get finalized",
+			Request: evm.HeaderByNumberRequest{
+				Number: big.NewInt(rpc.FinalizedBlockNumber.Int64()),
+			},
+			PrepareMocks: func(m *Mocks) {
+				m.HeaderTracker.EXPECT().LatestAndFinalizedBlock(mock.Anything).Return(nil, nil, errors.New("failed to get finalized")).Once()
+			},
+			ExpectedError: "failed to get finalized",
+		},
+		{
+			Name: "Safe",
+			Request: evm.HeaderByNumberRequest{
+				Number: big.NewInt(rpc.SafeBlockNumber.Int64()),
+			},
+			PrepareMocks: func(m *Mocks) {
+				m.HeaderTracker.EXPECT().LatestSafeBlock(mock.Anything).Return(nil, errors.New("failed to get safe")).Once()
+			},
+			ExpectedError: "failed to get safe",
+		},
+		{
+			Name: "Failed to get non-special block number",
+			Request: evm.HeaderByNumberRequest{
+				Number:          big.NewInt(42),
+				ConfidenceLevel: primitives.Finalized,
+			},
+			PrepareMocks: func(m *Mocks) {
+				m.EvmClient.EXPECT().HeaderByNumberWithOpts(
+					mock.Anything,
+					big.NewInt(42),
+					types.HeaderByNumberOpts{ConfidenceLevel: primitives.Finalized},
+				).Return(nil, errors.New("failed to get block 42")).Once()
+			},
+			ExpectedError: "failed to get block 42",
+		},
+		{
+			Name: "Block not found",
+			Request: evm.HeaderByNumberRequest{
+				Number:          big.NewInt(404),
+				ConfidenceLevel: primitives.Finalized,
+			},
+			PrepareMocks: func(m *Mocks) {
+				m.EvmClient.EXPECT().HeaderByNumberWithOpts(
+					mock.Anything,
+					big.NewInt(404),
+					types.HeaderByNumberOpts{ConfidenceLevel: primitives.Finalized},
+				).Return(nil, nil).Once()
+			},
+			ExpectedError: ethereum.NotFound.Error(),
+		},
+	}
+	for _, tc := range testCases {
+		t.Run(tc.Name, func(t *testing.T) {
+			mocks, relayer := setupMocksAndRelayer(t)
+
+			if tc.PrepareMocks != nil {
+				tc.PrepareMocks(mocks)
+			}
+
+			result, err := relayer.HeaderByNumber(t.Context(), tc.Request)
+
+			if tc.ExpectedError != "" {
+				require.Error(t, err)
+				require.Contains(t, err.Error(), tc.ExpectedError)
+			} else {
+				require.NoError(t, err)
+				require.Equal(t, tc.ExpectedResult.Header.Number, result.Header.Number)
+			}
+		})
+	}
+}
+
 func runSubmitTxGettingDifferentStatusAndReceipts(m *Mocks, ctx any, expectedReturns returnedStatusAndReceipts) {
 	expectedTx := txmgr.Tx{}
 	m.TxManager.EXPECT().CreateTransaction(ctx, mock.Anything).Return(expectedTx, nil)
@@ -391,6 +557,129 @@ func TestConverters(t *testing.T) {
 		require.Equal(t, tx.To().Bytes(), result.To[:])
 		require.Equal(t, tx.Data(), result.Data)
 	})
+}
+
+func TestEVMService_EstimateGas(t *testing.T) {
+	testCases := []struct {
+		Name           string
+		Request        *evm.CallMsg
+		ExpectedResult uint64
+		ExpectedError  string
+		PrepareMocks   func(m *Mocks)
+	}{
+		{
+			Name:    "Happy path",
+			Request: &evm.CallMsg{},
+			PrepareMocks: func(m *Mocks) {
+				m.EvmClient.EXPECT().EstimateGas(mock.Anything, ethereum.CallMsg{}).Return(uint64(42), nil).Once()
+			},
+			ExpectedResult: 42,
+		},
+		{
+			Name:          "Error on nil request",
+			Request:       nil,
+			ExpectedError: "call can not be nil",
+		},
+		{
+			Name:    "RPC Call failed",
+			Request: &evm.CallMsg{},
+			PrepareMocks: func(m *Mocks) {
+				m.EvmClient.EXPECT().EstimateGas(mock.Anything, ethereum.CallMsg{}).Return(0, errors.New("RPC failed")).Once()
+			},
+			ExpectedError: "RPC failed",
+		},
+	}
+	for _, tc := range testCases {
+		t.Run(tc.Name, func(t *testing.T) {
+			mocks, relayer := setupMocksAndRelayer(t)
+
+			if tc.PrepareMocks != nil {
+				tc.PrepareMocks(mocks)
+			}
+
+			result, err := relayer.EstimateGas(t.Context(), tc.Request)
+
+			if tc.ExpectedError != "" {
+				require.Error(t, err)
+				require.Contains(t, err.Error(), tc.ExpectedError)
+			} else {
+				require.NoError(t, err)
+				require.Equal(t, tc.ExpectedResult, result)
+			}
+		})
+	}
+}
+
+func TestEVMService_CallContract(t *testing.T) {
+	testCases := []struct {
+		Name           string
+		Request        evm.CallContractRequest
+		ExpectedResult *evm.CallContractReply
+		ExpectedError  string
+		PrepareMocks   func(m *Mocks)
+	}{
+		{
+			Name: "Happy path",
+			Request: evm.CallContractRequest{
+				Msg:             &evm.CallMsg{},
+				BlockNumber:     big.NewInt(42),
+				ConfidenceLevel: primitives.Finalized,
+				IsExternal:      true,
+			},
+			PrepareMocks: func(m *Mocks) {
+				m.EvmClient.EXPECT().CallContractWithOpts(mock.Anything, ethereum.CallMsg{}, big.NewInt(42), types.CallContractOpts{
+					ConfidenceLevel:   primitives.Finalized,
+					IsExternalRequest: true,
+				}).Return([]byte("success"), nil).Once()
+			},
+			ExpectedResult: &evm.CallContractReply{Data: []byte("success")},
+		},
+		{
+			Name: "Error on nil request.Msg",
+			Request: evm.CallContractRequest{
+				Msg:             nil,
+				BlockNumber:     big.NewInt(42),
+				ConfidenceLevel: primitives.Finalized,
+				IsExternal:      true,
+			},
+			ExpectedError: "request.Msg can not be nil",
+		},
+		{
+			Name: "RPC Call failed",
+			Request: evm.CallContractRequest{
+				Msg:             &evm.CallMsg{},
+				BlockNumber:     big.NewInt(42),
+				ConfidenceLevel: primitives.Finalized,
+				IsExternal:      true,
+			},
+			PrepareMocks: func(m *Mocks) {
+				m.EvmClient.EXPECT().CallContractWithOpts(mock.Anything, ethereum.CallMsg{}, big.NewInt(42), types.CallContractOpts{
+					ConfidenceLevel:   primitives.Finalized,
+					IsExternalRequest: true,
+				}).Return(nil, errors.New("RPC request failed")).Once()
+			},
+			ExpectedError: "RPC request failed",
+		},
+	}
+	for _, tc := range testCases {
+		t.Run(tc.Name, func(t *testing.T) {
+			mocks, relayer := setupMocksAndRelayer(t)
+
+			if tc.PrepareMocks != nil {
+				tc.PrepareMocks(mocks)
+			}
+
+			result, err := relayer.CallContract(t.Context(), tc.Request)
+
+			if tc.ExpectedError != "" {
+				require.Error(t, err)
+				require.Contains(t, err.Error(), tc.ExpectedError)
+			} else {
+				require.NoError(t, err)
+				require.Equal(t, tc.ExpectedResult, result)
+			}
+		})
+	}
 }
 
 func NewChainReceipt(txHash common.Hash, t *testing.T) txmgr.ChainReceipt {

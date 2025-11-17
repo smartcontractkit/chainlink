@@ -325,10 +325,7 @@ func (r *EvmRegistry) initialize(ctx context.Context) error {
 
 	var offset int
 	for offset < len(ids) {
-		batch := FetchUpkeepConfigBatchSize
-		if len(ids)-offset < batch {
-			batch = len(ids) - offset
-		}
+		batch := min(len(ids)-offset, FetchUpkeepConfigBatchSize)
 
 		actives, err := r.getUpkeepConfigs(startupCtx, ids[offset:offset+batch])
 		if err != nil {
@@ -594,8 +591,8 @@ func (r *EvmRegistry) checkUpkeeps(ctx context.Context, keys []ocr2keepers.Upkee
 			return nil, err
 		}
 
-		args := []interface{}{
-			map[string]interface{}{
+		args := []any{
+			map[string]any{
 				"to":   r.addr.Hex(),
 				"data": hexutil.Bytes(payload),
 			},
@@ -665,8 +662,8 @@ func (r *EvmRegistry) simulatePerformUpkeeps(ctx context.Context, checkResults [
 			return nil, err
 		}
 
-		args := []interface{}{
-			map[string]interface{}{
+		args := []any{
+			map[string]any{
 				"to":   r.addr.Hex(),
 				"data": hexutil.Bytes(payload),
 			},
@@ -736,8 +733,8 @@ func (r *EvmRegistry) getUpkeepConfigs(ctx context.Context, ids []*big.Int) ([]a
 			return nil, fmt.Errorf("failed to pack id with abi: %w", err)
 		}
 
-		args := []interface{}{
-			map[string]interface{}{
+		args := []any{
+			map[string]any{
 				"to":   r.addr.Hex(),
 				"data": hexutil.Bytes(payload),
 			},

@@ -23,7 +23,7 @@ func EmitBridgeStatusEvent(ctx context.Context, emitter beholder.Emitter, event 
 
 	err = emitter.Emit(ctx, eventBytes,
 		"beholder_data_schema", SchemaBridgeStatus,
-		"beholder_domain", "platform",
+		"beholder_domain", "data-feeds",
 		"beholder_entity", fmt.Sprintf("%s.%s", ProtoPkg, BridgeStatusEventEntity),
 	)
 	if err != nil {

@@ -44,7 +44,7 @@ import (
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_5_0/token_admin_registry"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_5_1/lock_release_token_pool"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/link_token_interface"
-	"github.com/smartcontractkit/chainlink-evm/gethwrappers/shared/generated/weth9"
+	"github.com/smartcontractkit/chainlink-evm/gethwrappers/shared/generated/initial/weth9"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/abihelpers"
 	ccipconfig "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/config"
@@ -1207,7 +1207,7 @@ func SetupCCIPContracts(t *testing.T, sourceChainID, sourceChainSelector, destCh
 	destChain.Commit()
 
 	// Ensure we have at least finality blocks.
-	for i := 0; i < 50; i++ {
+	for range 50 {
 		sourceChain.Commit()
 		destChain.Commit()
 	}

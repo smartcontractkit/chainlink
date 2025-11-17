@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/stretchr/testify/require"
+	"go.uber.org/zap/zapcore"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/beholder"
 	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
@@ -66,9 +67,19 @@ func (m mockCfgTelemetry) EmitterExportTimeout() time.Duration { return 1 * time
 
 func (m mockCfgTelemetry) ChipIngressEndpoint() string { return "example.com/chip-ingress" }
 
+func (m mockCfgTelemetry) ChipIngressInsecureConnection() bool { return false }
+
 func (m mockCfgTelemetry) HeartbeatInterval() time.Duration {
 	return 5 * time.Second
 }
+
+func (m mockCfgTelemetry) LogStreamingEnabled() bool        { return false }
+func (m mockCfgTelemetry) LogLevel() zapcore.Level          { return zapcore.InfoLevel }
+func (m mockCfgTelemetry) LogBatchProcessor() bool          { return false }
+func (m mockCfgTelemetry) LogExportTimeout() time.Duration  { return 2 * time.Second }
+func (m mockCfgTelemetry) LogExportMaxBatchSize() int       { return 512 }
+func (m mockCfgTelemetry) LogExportInterval() time.Duration { return 5 * time.Second }
+func (m mockCfgTelemetry) LogMaxQueueSize() int             { return 2048 }
 
 type mockCfgDatabase struct{}
 
@@ -215,6 +226,13 @@ func TestLoopRegistry_Register(t *testing.T) {
 	require.Equal(t, 0.42, envCfg.TelemetryTraceSampleRatio)
 	require.True(t, envCfg.TelemetryEmitterBatchProcessor)
 	require.Equal(t, 1*time.Second, envCfg.TelemetryEmitterExportTimeout)
+	require.False(t, envCfg.TelemetryLogStreamingEnabled)
+	require.Equal(t, zapcore.InfoLevel, envCfg.TelemetryLogLevel)
+	require.False(t, envCfg.TelemetryLogBatchProcessor)
+	require.Equal(t, 2*time.Second, envCfg.TelemetryLogExportTimeout)
+	require.Equal(t, 512, envCfg.TelemetryLogExportMaxBatchSize)
+	require.Equal(t, 5*time.Second, envCfg.TelemetryLogExportInterval)
+	require.Equal(t, 2048, envCfg.TelemetryLogMaxQueueSize)
 
 	require.Equal(t, "example.com/chip-ingress", envCfg.ChipIngressEndpoint)
 }

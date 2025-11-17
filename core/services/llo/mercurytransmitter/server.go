@@ -161,7 +161,7 @@ func (s *server) transmitThreadBusyCountDec() {
 func (s *server) spawnTransmitLoops(stopCh services.StopChan, wg *sync.WaitGroup, donID uint32, n int) {
 	donIDStr := strconv.FormatUint(uint64(donID), 10)
 	wg.Add(n)
-	for i := 0; i < n; i++ {
+	for range n {
 		go s.spawnTransmitLoop(stopCh, wg, donIDStr)
 	}
 }
@@ -187,6 +187,11 @@ func (s *server) spawnTransmitLoop(stopCh services.StopChan, wg *sync.WaitGroup,
 			if t == nil {
 				// queue was closed
 				return false
+			}
+			if t.Report.Info.ReportFormat == llotypes.ReportFormatCapabilityTrigger {
+				// `capability_trigger` reports are Data Feeds product specific and aren't sent to the Mercury servers
+				s.pm.AsyncDelete(t.Hash())
+				return true
 			}
 
 			s.transmitThreadBusyCountInc()

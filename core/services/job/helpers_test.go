@@ -17,7 +17,9 @@ import (
 
 	"github.com/jmoiron/sqlx"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 	"github.com/smartcontractkit/chainlink-evm/pkg/client/clienttest"
+	chainlinkevmbig "github.com/smartcontractkit/chainlink-evm/pkg/utils/big"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/evmtest"
@@ -26,7 +28,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/chaintype"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr"
-	"github.com/smartcontractkit/chainlink/v2/core/store/models"
 )
 
 const (
@@ -34,7 +35,7 @@ const (
 type               = "offchainreporting"
 schemaVersion      = 1
 contractAddress    = "%s"
-evmChainID		   = "0"
+evmChainID		   = "%s"
 p2pv2Bootstrappers = ["12D3KooWHfYFQ8hGttAYbMCevQVESEQhzJAqFZokMVtom8bNxwGq@127.0.0.1:5001"]
 isBootstrapPeer    = false
 keyBundleID        = "%s"
@@ -107,7 +108,7 @@ ds1 -> ds1_parse -> ds1_multiply;
 		transmitterAddress = "%s"
 		keyBundleID = "%s"
 		observationTimeout = "10s"
-		evmChainID		   = "0"
+		evmChainID		   = "%s"
 		observationSource = """
 ds1          [type=http method=GET url="%s" allowunrestrictednetworkaccess="true" %s];
 ds1_parse    [type=jsonparse path="USD" lax=true];
@@ -118,14 +119,14 @@ ds1 -> ds1_parse;
 		type               = "offchainreporting"
 		schemaVersion      = 1
 		contractAddress    = "%s"
-		evmChainID		   = "0"
+		evmChainID		   = "%s"
 		isBootstrapPeer    = true
 `
 	ocrJobSpecText = `
 type               = "offchainreporting"
 schemaVersion      = 1
 contractAddress    = "%s"
-evmChainID		   = "0"
+evmChainID		   = "%s"
 p2pPeerID          = "%s"
 p2pv2Bootstrappers = ["12D3KooWHfYFQ8hGttAYbMCevQVESEQhzJAqFZokMVtom8bNxwGq@127.0.0.1:5001"]
 isBootstrapPeer    = false
@@ -162,7 +163,7 @@ func makeOCRJobSpec(t *testing.T, transmitterAddress common.Address, b1, b2 stri
 
 	peerID := cltest.DefaultP2PPeerID
 	ocrKeyID := cltest.DefaultOCRKeyBundleID
-	jobSpecText := fmt.Sprintf(ocrJobSpecText, testutils.NewAddress().Hex(), peerID, ocrKeyID, transmitterAddress.Hex(), b1, b2)
+	jobSpecText := fmt.Sprintf(ocrJobSpecText, testutils.NewAddress().Hex(), testutils.FixtureChainID.String(), peerID, ocrKeyID, transmitterAddress.Hex(), b1, b2)
 
 	dbSpec := job.Job{
 		ExternalJobID: uuid.New(),
@@ -198,11 +199,12 @@ func compareOCRJobSpecs(t *testing.T, expected, actual job.Job) {
 func makeMinimalHTTPOracleSpec(t *testing.T, db *sqlx.DB, cfg chainlink.GeneralConfig, contractAddress, transmitterAddress, keyBundle, fetchUrl, timeout string) *job.Job {
 	var ocrSpec = job.OCROracleSpec{
 		P2PV2Bootstrappers:                     pq.StringArray{},
-		ObservationTimeout:                     models.Interval(10 * time.Second),
-		BlockchainTimeout:                      models.Interval(20 * time.Second),
-		ContractConfigTrackerSubscribeInterval: models.Interval(2 * time.Minute),
-		ContractConfigTrackerPollInterval:      models.Interval(1 * time.Minute),
+		ObservationTimeout:                     sqlutil.Interval(10 * time.Second),
+		BlockchainTimeout:                      sqlutil.Interval(20 * time.Second),
+		ContractConfigTrackerSubscribeInterval: sqlutil.Interval(2 * time.Minute),
+		ContractConfigTrackerPollInterval:      sqlutil.Interval(1 * time.Minute),
 		ContractConfigConfirmations:            uint16(3),
+		EVMChainID:                             chainlinkevmbig.New(testutils.FixtureChainID),
 	}
 	var os = job.Job{
 		Name:          null.NewString("a job", true),
@@ -210,7 +212,7 @@ func makeMinimalHTTPOracleSpec(t *testing.T, db *sqlx.DB, cfg chainlink.GeneralC
 		SchemaVersion: 1,
 		ExternalJobID: uuid.New(),
 	}
-	s := fmt.Sprintf(minimalNonBootstrapTemplate, contractAddress, transmitterAddress, keyBundle, fetchUrl, timeout)
+	s := fmt.Sprintf(minimalNonBootstrapTemplate, contractAddress, transmitterAddress, keyBundle, testutils.FixtureChainID.String(), fetchUrl, timeout)
 	keyStore := cltest.NewKeyStore(t, db)
 	legacyChains := evmtest.NewLegacyChains(t, evmtest.TestChainOpts{
 		ChainConfigs:   cfg.EVMConfigs(),
@@ -240,7 +242,7 @@ func MakeVoterTurnoutOCRJobSpecWithHTTPURL(t *testing.T, transmitterAddress comm
 	t.Helper()
 	ocrKeyID := cltest.DefaultOCRKeyBundleID
 	ds := fmt.Sprintf(voterTurnoutDataSourceTemplate, b1, httpURL, b2)
-	voterTurnoutJobSpec := fmt.Sprintf(ocrJobSpecTemplate, testutils.NewAddress().Hex(), ocrKeyID, transmitterAddress.Hex(), ds)
+	voterTurnoutJobSpec := fmt.Sprintf(ocrJobSpecTemplate, testutils.NewAddress().Hex(), testutils.FixtureChainID.String(), ocrKeyID, transmitterAddress.Hex(), ds)
 	return makeOCRJobSpecFromToml(t, voterTurnoutJobSpec)
 }
 
@@ -248,7 +250,7 @@ func makeSimpleFetchOCRJobSpecWithHTTPURL(t *testing.T, transmitterAddress commo
 	t.Helper()
 	ocrKeyID := cltest.DefaultOCRKeyBundleID
 	ds := fmt.Sprintf(simpleFetchDataSourceTemplate, httpURL, lax)
-	simpleFetchJobSpec := fmt.Sprintf(ocrJobSpecTemplate, testutils.NewAddress().Hex(), ocrKeyID, transmitterAddress.Hex(), ds)
+	simpleFetchJobSpec := fmt.Sprintf(ocrJobSpecTemplate, testutils.NewAddress().Hex(), testutils.FixtureChainID.String(), ocrKeyID, transmitterAddress.Hex(), ds)
 	return makeOCRJobSpecFromToml(t, simpleFetchJobSpec)
 }
 

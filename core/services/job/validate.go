@@ -15,6 +15,7 @@ var (
 		BlockHeaderFeeder:       {},
 		BlockhashStore:          {},
 		Bootstrap:               {},
+		CRESettings:             {},
 		Cron:                    {},
 		DirectRequest:           {},
 		FluxMonitor:             {},

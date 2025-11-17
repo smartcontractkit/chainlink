@@ -1,0 +1,15 @@
+{
+  "config": {
+    "RemoteConfig": {
+      "RemoteTriggerConfig": {
+        "minResponsesToAggregate": 2,
+        "registrationExpiry": {
+          "seconds": 60
+        },
+        "registrationRefresh": {
+          "seconds": 20
+        }
+      }
+    }
+  }
+}

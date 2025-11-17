@@ -66,7 +66,7 @@ func (p Plugins) Value() (driver.Value, error) {
 	return json.Marshal(p)
 }
 
-func (p *Plugins) Scan(value interface{}) error {
+func (p *Plugins) Scan(value any) error {
 	b, ok := value.(string)
 	if !ok {
 		return errors.New("type assertion to []byte failed")
@@ -85,6 +85,7 @@ const (
 	ChainTypeStarknet ChainType = "STARKNET"
 	ChainTypeTron     ChainType = "TRON"
 	ChainTypeTON      ChainType = "TON"
+	ChainTypeSui      ChainType = "SUI"
 )
 
 func NewChainType(s string) (ChainType, error) {
@@ -101,6 +102,8 @@ func NewChainType(s string) (ChainType, error) {
 		return ChainTypeTron, nil
 	case "TON":
 		return ChainTypeTON, nil
+	case "SUI":
+		return ChainTypeSui, nil
 	default:
 		return ChainTypeUnknown, errors.New("invalid chain type")
 	}
@@ -153,7 +156,7 @@ func (c FluxMonitorConfig) Value() (driver.Value, error) {
 	return json.Marshal(c)
 }
 
-func (c *FluxMonitorConfig) Scan(value interface{}) error {
+func (c *FluxMonitorConfig) Scan(value any) error {
 	b, ok := value.([]byte)
 	if !ok {
 		return errors.New("type assertion to []byte failed")
@@ -175,7 +178,7 @@ func (c OCR1Config) Value() (driver.Value, error) {
 	return json.Marshal(c)
 }
 
-func (c *OCR1Config) Scan(value interface{}) error {
+func (c *OCR1Config) Scan(value any) error {
 	b, ok := value.([]byte)
 	if !ok {
 		return errors.New("type assertion to []byte failed")
@@ -199,7 +202,7 @@ func (c OCR2ConfigModel) Value() (driver.Value, error) {
 	return json.Marshal(c)
 }
 
-func (c *OCR2ConfigModel) Scan(value interface{}) error {
+func (c *OCR2ConfigModel) Scan(value any) error {
 	b, ok := value.([]byte)
 	if !ok {
 		return errors.New("type assertion to []byte failed")

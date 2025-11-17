@@ -12,11 +12,14 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/settings/limits"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/core"
 	pkgworkflows "github.com/smartcontractkit/chainlink-common/pkg/workflows"
+	"github.com/smartcontractkit/chainlink-common/pkg/workflows/dontime"
 	"github.com/smartcontractkit/chainlink-common/pkg/workflows/wasm/host"
 
+	"github.com/smartcontractkit/chainlink/v2/core/capabilities"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/platform"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
+	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/workflowkey"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/artifacts"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/events"
@@ -116,12 +119,17 @@ type eventHandler struct {
 
 	workflowStore          store.Store
 	capRegistry            core.CapabilitiesRegistry
+	dontimeStore           *dontime.Store
+	useLocalTimeProvider   bool
 	engineRegistry         *EngineRegistry
 	emitter                custmsg.MessageEmitter
 	engineFactory          engineFactoryFn
+	engineLimiters         *v2.EngineLimiters
 	ratelimiter            limits.RateLimiter
 	workflowLimits         limits.ResourceLimiter[int]
 	workflowArtifactsStore WorkflowArtifactsStore
+	workflowEncryptionKey  workflowkey.Key
+	workflowDonSubscriber  capabilities.DonSubscriber
 	billingClient          metering.BillingClient
 
 	// WorkflowRegistryAddress is the address of the workflow registry contract
@@ -190,11 +198,16 @@ func NewEventHandler(
 	lggr logger.Logger,
 	workflowStore store.Store,
 	capRegistry core.CapabilitiesRegistry,
+	dontimeStore *dontime.Store,
+	useLocalTimeProvider bool,
 	engineRegistry *EngineRegistry,
 	emitter custmsg.MessageEmitter,
+	engineLimiters *v2.EngineLimiters,
 	ratelimiter limits.RateLimiter,
 	workflowLimits limits.ResourceLimiter[int],
 	workflowArtifacts WorkflowArtifactsStore,
+	workflowEncryptionKey workflowkey.Key,
+	workflowDonSubscriber capabilities.DonSubscriber,
 	opts ...func(*eventHandler),
 ) (*eventHandler, error) {
 	if workflowStore == nil {
@@ -211,11 +224,16 @@ func NewEventHandler(
 		lggr:                   lggr,
 		workflowStore:          workflowStore,
 		capRegistry:            capRegistry,
+		dontimeStore:           dontimeStore,
+		useLocalTimeProvider:   useLocalTimeProvider,
 		engineRegistry:         engineRegistry,
 		emitter:                emitter,
+		engineLimiters:         engineLimiters,
 		ratelimiter:            ratelimiter,
 		workflowLimits:         workflowLimits,
 		workflowArtifactsStore: workflowArtifacts,
+		workflowEncryptionKey:  workflowEncryptionKey,
+		workflowDonSubscriber:  workflowDonSubscriber,
 	}
 	eh.engineFactory = eh.engineFactoryFn
 	for _, o := range opts {
@@ -511,7 +529,7 @@ func (h *eventHandler) engineFactoryFn(ctx context.Context, workflowID string, o
 	moduleConfig := &host.ModuleConfig{Logger: h.lggr, Labeler: h.emitter}
 
 	h.lggr.Debugf("Creating module for workflowID %s", workflowID)
-	module, err := host.NewModule(moduleConfig, binary, host.WithDeterminism())
+	module, err := host.NewModule(ctx, moduleConfig, binary, host.WithDeterminism())
 	if err != nil {
 		return nil, fmt.Errorf("could not instantiate module: %w", err)
 	}
@@ -524,38 +542,46 @@ func (h *eventHandler) engineFactoryFn(ctx context.Context, workflowID string, o
 		}
 
 		cfg := workflows.Config{
-			Lggr:           h.lggr,
-			Workflow:       *sdkSpec,
-			WorkflowID:     workflowID,
-			WorkflowOwner:  owner, // this gets hex encoded in the engine.
-			WorkflowName:   name,
-			Registry:       h.capRegistry,
-			Store:          h.workflowStore,
-			Config:         config,
-			Binary:         binary,
-			SecretsFetcher: h.workflowArtifactsStore.SecretsFor,
-			RateLimiter:    h.ratelimiter,
-			WorkflowLimits: h.workflowLimits,
-			BillingClient:  h.billingClient,
+			Lggr:                          h.lggr,
+			Workflow:                      *sdkSpec,
+			WorkflowID:                    workflowID,
+			WorkflowOwner:                 owner, // this gets hex encoded in the engine.
+			WorkflowName:                  name,
+			Registry:                      h.capRegistry,
+			Store:                         h.workflowStore,
+			Config:                        config,
+			Binary:                        binary,
+			SecretsFetcher:                h.workflowArtifactsStore.SecretsFor,
+			RateLimiter:                   h.ratelimiter,
+			WorkflowLimits:                h.workflowLimits,
+			BillingClient:                 h.billingClient,
+			WorkflowRegistryAddress:       h.workflowRegistryAddress,
+			WorkflowRegistryChainSelector: h.workflowRegistryChainSelector,
 		}
 		return workflows.NewEngine(ctx, cfg)
 	}
 
 	// V2 aka "NoDAG"
 	cfg := &v2.EngineConfig{
-		Lggr:            h.lggr,
-		Module:          module,
-		WorkflowConfig:  config,
-		CapRegistry:     h.capRegistry,
-		ExecutionsStore: h.workflowStore,
+		Lggr:                 h.lggr,
+		Module:               module,
+		WorkflowConfig:       config,
+		CapRegistry:          h.capRegistry,
+		DonTimeStore:         h.dontimeStore,
+		DonSubscriber:        h.workflowDonSubscriber,
+		UseLocalTimeProvider: h.useLocalTimeProvider,
+		ExecutionsStore:      h.workflowStore,
 
-		WorkflowID:    workflowID,
-		WorkflowOwner: owner,
-		WorkflowName:  name,
+		WorkflowID:            workflowID,
+		WorkflowOwner:         owner,
+		WorkflowName:          name,
+		WorkflowTag:           "", // V1 workflows don't have tags, so set empty string
+		WorkflowEncryptionKey: h.workflowEncryptionKey,
 
-		LocalLimits:          v2.EngineLimits{}, // all defaults
-		GlobalLimits:         h.workflowLimits,
-		ExecutionRateLimiter: h.ratelimiter,
+		LocalLimits:                       v2.EngineLimits{}, // all defaults
+		LocalLimiters:                     h.engineLimiters,
+		GlobalExecutionConcurrencyLimiter: h.workflowLimits,
+		GlobalExecutionRateLimiter:        h.ratelimiter,
 
 		BeholderEmitter: h.emitter,
 		BillingClient:   h.billingClient,

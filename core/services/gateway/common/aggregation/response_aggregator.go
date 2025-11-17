@@ -13,7 +13,7 @@ import (
 // NOT thread-safe.
 type IdenticalNodeResponseAggregator struct {
 	// responses is a map from response digest to a set of node addresses
-	responses map[string]stringSet
+	responses map[string]StringSet
 	// nodeToResponse tracks which response key each node address is currently associated with
 	nodeToResponse map[string]string
 	threshold      int
@@ -24,34 +24,10 @@ func NewIdenticalNodeResponseAggregator(threshold int) (*IdenticalNodeResponseAg
 		return nil, fmt.Errorf("threshold must be greater than 0, got %d", threshold)
 	}
 	return &IdenticalNodeResponseAggregator{
-		responses:      make(map[string]stringSet),
+		responses:      make(map[string]StringSet),
 		nodeToResponse: make(map[string]string),
 		threshold:      threshold,
 	}, nil
-}
-
-// stringSet is a simple set implementation for strings.
-type stringSet map[string]struct{}
-
-func (s stringSet) Add(val string) {
-	s[val] = struct{}{}
-}
-
-func (s stringSet) Contains(val string) bool {
-	_, exists := s[val]
-	return exists
-}
-
-func (s stringSet) Remove(val string) {
-	delete(s, val)
-}
-
-func (s stringSet) Values() []string {
-	values := make([]string, 0, len(s))
-	for k := range s {
-		values = append(values, k)
-	}
-	return values
 }
 
 // CollectAndAggregate tracks responses by response content (hash) and node address.
@@ -86,7 +62,7 @@ func (agg *IdenticalNodeResponseAggregator) CollectAndAggregate(
 	}
 
 	if _, ok := agg.responses[key]; !ok {
-		agg.responses[key] = make(stringSet)
+		agg.responses[key] = make(StringSet)
 	}
 	agg.responses[key].Add(nodeAddress)
 	agg.nodeToResponse[nodeAddress] = key

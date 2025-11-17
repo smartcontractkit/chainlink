@@ -28,7 +28,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
-	"github.com/smartcontractkit/chainlink/v2/core/store/models"
 	"github.com/smartcontractkit/chainlink/v2/core/utils/testutils/heavyweight"
 )
 
@@ -90,7 +89,7 @@ func Test_PipelineORM_CreateSpec(t *testing.T) {
 
 	var (
 		source          = ""
-		maxTaskDuration = models.Interval(1 * time.Minute)
+		maxTaskDuration = sqlutil.Interval(1 * time.Minute)
 	)
 
 	p := pipeline.Pipeline{
@@ -156,7 +155,7 @@ answer2 [type=bridge name=election_winner index=1];
 	jb := job.Job{
 		Type:            job.DirectRequest,
 		SchemaVersion:   1,
-		MaxTaskDuration: models.Interval(1 * time.Minute),
+		MaxTaskDuration: sqlutil.Interval(1 * time.Minute),
 		DirectRequestSpec: &job.DirectRequestSpec{
 			ContractAddress: cltest.NewEIP55Address(),
 			EVMChainID:      (*big.Big)(&cltest.FixtureChainID),
@@ -193,7 +192,7 @@ func TestInsertFinishedRuns(t *testing.T) {
 	ps := mustInsertPipelineSpec(t, db)
 
 	var runs []*pipeline.Run
-	for i := 0; i < 3; i++ {
+	for range 3 {
 		now := time.Now()
 		r := pipeline.Run{
 			PipelineSpecID: ps.ID,
@@ -258,7 +257,7 @@ answer2 [type=bridge name=election_winner index=1];
 	jb := job.Job{
 		Type:            job.DirectRequest,
 		SchemaVersion:   1,
-		MaxTaskDuration: models.Interval(1 * time.Minute),
+		MaxTaskDuration: sqlutil.Interval(1 * time.Minute),
 		DirectRequestSpec: &job.DirectRequestSpec{
 			ContractAddress: cltest.NewEIP55Address(),
 			EVMChainID:      (*big.Big)(&cltest.FixtureChainID),
@@ -272,13 +271,13 @@ answer2 [type=bridge name=election_winner index=1];
 	spec := pipeline.Spec{
 		DotDagSource:    s,
 		CreatedAt:       time.Now(),
-		MaxTaskDuration: models.Interval(1 * time.Minute),
+		MaxTaskDuration: sqlutil.Interval(1 * time.Minute),
 		JobID:           jb.ID,
 		JobName:         jb.Name.ValueOrZero(),
 		JobType:         string(jb.Type),
 	}
-	defaultVars := map[string]interface{}{
-		"jb": map[string]interface{}{
+	defaultVars := map[string]any{
+		"jb": map[string]any{
 			"databaseID":    jb.ID,
 			"externalJobID": jb.ExternalJobID,
 			"name":          jb.Name.ValueOrZero(),
@@ -483,7 +482,7 @@ func Test_PipelineORM_StoreRun_UpdateTaskRunResult(t *testing.T) {
 	now := time.Now()
 	address, err := hex.DecodeString("0x8bd112d3f8f92e41c861939545ad387307af9703")
 	require.NoError(t, err)
-	cborOutput := map[string]interface{}{
+	cborOutput := map[string]any{
 		"blockNum":        "0x13babbd",
 		"confirmations":   int64(10),
 		"contractAddress": address,
@@ -678,7 +677,7 @@ func Test_GetUnfinishedRuns_Keepers(t *testing.T) {
 		Type:            job.Keeper,
 		SchemaVersion:   1,
 		Name:            null.StringFrom("test"),
-		MaxTaskDuration: models.Interval(1 * time.Minute),
+		MaxTaskDuration: sqlutil.Interval(1 * time.Minute),
 	}
 
 	err := jorm.CreateJob(ctx, &keeperJob)
@@ -780,7 +779,7 @@ func Test_GetUnfinishedRuns_DirectRequest(t *testing.T) {
 		Type:            job.DirectRequest,
 		SchemaVersion:   1,
 		Name:            null.StringFrom("test"),
-		MaxTaskDuration: models.Interval(1 * time.Minute),
+		MaxTaskDuration: sqlutil.Interval(1 * time.Minute),
 	}
 
 	err := jorm.CreateJob(ctx, &drJob)
@@ -875,7 +874,7 @@ func Test_Prune(t *testing.T) {
 
 	// ps1 has:
 	// - 20 completed runs
-	for i := 0; i < 20; i++ {
+	for range 20 {
 		mustInsertPipelineRunWithStatus(t, db, ps1.ID, pipeline.RunStatusCompleted, jobID)
 	}
 
@@ -887,16 +886,16 @@ func Test_Prune(t *testing.T) {
 	// - 3 errored runs
 	// - 3 running runs
 	// - 3 suspended run
-	for i := 0; i < 12; i++ {
+	for range 12 {
 		mustInsertPipelineRunWithStatus(t, db, ps2.ID, pipeline.RunStatusCompleted, jobID2)
 	}
-	for i := 0; i < 3; i++ {
+	for range 3 {
 		mustInsertPipelineRunWithStatus(t, db, ps2.ID, pipeline.RunStatusErrored, jobID2)
 	}
-	for i := 0; i < 3; i++ {
+	for range 3 {
 		mustInsertPipelineRunWithStatus(t, db, ps2.ID, pipeline.RunStatusRunning, jobID2)
 	}
-	for i := 0; i < 3; i++ {
+	for range 3 {
 		mustInsertPipelineRunWithStatus(t, db, ps2.ID, pipeline.RunStatusSuspended, jobID2)
 	}
 

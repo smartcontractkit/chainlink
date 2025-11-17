@@ -1,21 +1,22 @@
 package messagelimitationstest
 
 import (
+	"strings"
 	"testing"
 
 	"github.com/ethereum/go-ethereum/common"
+	chain_selectors "github.com/smartcontractkit/chain-selectors"
 	"github.com/stretchr/testify/require"
 
-	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_2_0/router"
-	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_0/fee_quoter"
-	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_0/onramp"
-
-	chain_selectors "github.com/smartcontractkit/chain-selectors"
-
 	aptos_feequoter "github.com/smartcontractkit/chainlink-aptos/bindings/ccip/fee_quoter"
+	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_2_0/router"
+	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_0/onramp"
+	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_3/fee_quoter"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
-
+	module_fee_quoter "github.com/smartcontractkit/chainlink-sui/bindings/generated/ccip/ccip/fee_quoter"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers"
+
+	ccipclient "github.com/smartcontractkit/chainlink/deployment/ccip/shared/client"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
 )
 
@@ -58,6 +59,10 @@ func NewTestSetup(
 		aptosFeeQuoterDestChainConfig, ok := ts.SrcFeeQuoterDestChainConfig.(aptos_feequoter.DestChainConfig)
 		require.True(ts.T, ok, "expected Aptos Fee quoter destination chain config type")
 		ts.SrcFeeQuoterDestChainConfig = aptosFeeQuoterDestChainConfig
+	case chain_selectors.FamilySui:
+		suiFeeQuoterDestChainConfig, ok := ts.SrcFeeQuoterDestChainConfig.(module_fee_quoter.DestChainConfig)
+		require.True(ts.T, ok, "expected Sui Fee quoter destination chain config type")
+		ts.SrcFeeQuoterDestChainConfig = suiFeeQuoterDestChainConfig
 	default:
 		ts.T.Fatalf("unsupported source chain family %v", family)
 	}
@@ -118,7 +123,7 @@ func Run(tc TestCase) TestCaseOutput {
 		require.NoError(tc.T, err)
 	}
 
-	var msgOpt testhelpers.SendReqOpts
+	var msgOpt ccipclient.SendReqOpts
 
 	family, err := chain_selectors.GetSelectorFamily(tc.SrcChain)
 	require.NoError(tc.T, err)
@@ -127,20 +132,24 @@ func Run(tc TestCase) TestCaseOutput {
 	case chain_selectors.FamilyEVM:
 		evmMsg, ok := tc.Msg.(router.ClientEVM2AnyMessage)
 		require.True(tc.T, ok, "expected EVM message type")
-		msgOpt = testhelpers.WithEvm2AnyMessage(evmMsg)
+		msgOpt = ccipclient.WithMessage(evmMsg)
 	case chain_selectors.FamilyAptos:
 		aptosMsg, ok := tc.Msg.(testhelpers.AptosSendRequest)
 		require.True(tc.T, ok, "expected Aptos message type")
-		msgOpt = testhelpers.WithMessage(aptosMsg)
+		msgOpt = ccipclient.WithMessage(aptosMsg)
+	case chain_selectors.FamilySui:
+		suiMsg, ok := tc.Msg.(testhelpers.SuiSendRequest)
+		require.True(tc.T, ok, "expected Sui message type")
+		msgOpt = ccipclient.WithMessage(suiMsg)
 	default:
 		tc.T.Fatalf("unsupported source chain family %v", family)
 	}
 
 	out, err := testhelpers.SendRequest(
 		tc.Env, tc.OnchainState,
-		testhelpers.WithSourceChain(tc.SrcChain),
-		testhelpers.WithDestChain(tc.DestChain),
-		testhelpers.WithTestRouter(tc.TestRouter),
+		ccipclient.WithSourceChain(tc.SrcChain),
+		ccipclient.WithDestChain(tc.DestChain),
+		ccipclient.WithTestRouter(tc.TestRouter),
 		msgOpt)
 
 	var errorMsg string
@@ -151,13 +160,25 @@ func Run(tc TestCase) TestCaseOutput {
 			errorMsg = "execution reverted"
 		case chain_selectors.FamilyAptos:
 			errorMsg = "transaction reverted:"
+		case chain_selectors.FamilySui:
+			errorMsg = "sui" // dummy placeholder, handled below
 		default:
 			tc.T.Fatalf("unsupported source chain family %v", family)
 		}
 
 		tc.T.Logf("Message reverted as expected")
 		require.Error(tc.T, err)
-		require.Contains(tc.T, err.Error(), errorMsg)
+
+		if family == chain_selectors.FamilySui {
+			require.True(tc.T,
+				strings.Contains(err.Error(), "Transaction is rejected") ||
+					strings.Contains(err.Error(), "Transaction validator signing failed") ||
+					strings.Contains(err.Error(), "transaction failed with error"),
+				"unexpected Sui revert: %v", err,
+			)
+		} else {
+			require.Contains(tc.T, err.Error(), errorMsg)
+		}
 		return TestCaseOutput{}
 	}
 	require.NoError(tc.T, err)

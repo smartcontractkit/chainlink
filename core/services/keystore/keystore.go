@@ -1,3 +1,7 @@
+// Package keystore manages private keys.
+// All raw key byte access is limited to internal/ package APIs, so they are not exposed outside of this subtree.
+// Additionally, packages in this subtree may not import the logger packages. Instead, a few select places accept Logf
+// funcs to announce new public keys. No other logging is allowed.
 package keystore
 
 import (

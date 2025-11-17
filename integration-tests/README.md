@@ -160,3 +160,43 @@ Such tests as Soak, Performance, Benchmark, and Chaos Tests remain bound to a Ku
 1. Ensure all necessary configurations are provided (see [Test and node configuration](#test-and-node-configuration)).
 2. Follow instructions provided in [E2E Tests on GitHub CI](../.github/E2E_TESTS_ON_GITHUB_CI.md).
 3. Refer [Tests Run Books](./run-books/) to get more details on how to run specific per-product tests.
+
+## CCIP 1.5 K8s Tests
+
+We run CCIP 1.5 on release in `main.stage` cluster, build the image from branch you need and run them.
+
+### Building CCIP 1.5 K8s Tests
+
+Build and push test image to the SDLC registry, you can find `<base_image_registry>` [here](https://sso.smartcontract.com/app/UserHome) -> AWS SSO -> secure-sdlc -> <base_image_registry> | staging@smartcontract.com
+
+Copy creds for any role with push access, for example `PowerUserAccess`
+
+```bash
+make build-ccip-test-image base-image-registry=<base_image_registry>
+make push-ccip-test-image base-image-registry=<base_image_registry>
+```
+In case you need to rebuild the base image read this [guide](https://github.com/smartcontractkit/chainlink-testing-framework/tree/main/lib/k8s#building-base-image-for-k8s-tests)
+
+### Running CCIP 1.5 K8s Tests
+Add this to `staging-ccip-tester` profile to `~/.aws/config`
+```bash
+[profile staging-ccip-tester]
+sso_start_url = https://smartcontract.awsapps.com/start
+sso_region = us-west-2
+sso_account_id = <main_stage_registry_number>
+sso_role_name = CCIP-Tester-DescribeClusterCRIB
+region = us-west-2
+```
+You can find `<main_stage_registry_number>` [here](https://sso.smartcontract.com/app/UserHome) -> AWS SSO -> staging -> <main_stage_registry_number> | staging@smartcontract.com
+
+Update `K8s` config and switch ctx
+```bash
+aws eks update-kubeconfig --name main-stage-cluster --alias main-stage-cluster-ccip-tester --region us-west-2 --profile staging-ccip-tester
+
+kubectl config use-context main-stage-cluster-ccip-tester
+```
+
+Run the tests, read more about `.testsecrets` above.
+```bash
+make test_smoke_ccip testimage=<base_image_registry>.dkr.ecr.us-west-2.amazonaws.com/chainlink-tests:latest override_toml=./ccip-tests/testconfig/tomls/prod-testnet/smoke-release-testing_token_transfer_native.toml testname=TestSmokeCCIPForBidirectionalLane
+```

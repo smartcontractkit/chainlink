@@ -11,20 +11,20 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/gagliardetto/solana-go"
 	chain_selectors "github.com/smartcontractkit/chain-selectors"
+	"github.com/smartcontractkit/quarantine"
 	"github.com/stretchr/testify/require"
-	"go.uber.org/zap/zapcore"
-
-	cldf_chain "github.com/smartcontractkit/chainlink-deployments-framework/chain"
 
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_5_1/token_pool"
-	solTestTokenPool "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/test_token_pool"
-	"github.com/smartcontractkit/chainlink-evm/gethwrappers/shared/generated/burn_mint_erc677"
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
+	"github.com/smartcontractkit/chainlink-evm/gethwrappers/shared/generated/initial/burn_mint_erc677"
 
+	cldf_chain "github.com/smartcontractkit/chainlink-deployments-framework/chain"
 	cldf_evm "github.com/smartcontractkit/chainlink-deployments-framework/chain/evm"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+	"github.com/smartcontractkit/chainlink-deployments-framework/engine/test/environment"
 
 	"github.com/smartcontractkit/chainlink/deployment"
-	changeset_solana "github.com/smartcontractkit/chainlink/deployment/ccip/changeset/solana"
+	changeset_solana "github.com/smartcontractkit/chainlink/deployment/ccip/changeset/solana_v0_1_1"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/v1_5_1"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared"
@@ -32,8 +32,6 @@ import (
 
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
-	"github.com/smartcontractkit/chainlink/deployment/environment/memory"
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
 
 // createSymmetricRateLimits is a utility to quickly create a rate limiter config with equal inbound and outbound values.
@@ -95,7 +93,7 @@ func validateMemberOfTokenPoolPair(
 		remotePoolAddresses, err := tokenPool.GetRemotePools(nil, supportedChain)
 		require.NoError(t, err)
 
-		require.Equal(t, len(expectedRemotePools), len(remotePoolAddresses))
+		require.Len(t, remotePoolAddresses, len(expectedRemotePools))
 		expectedRemotePoolAddressesBytes := make([][]byte, len(expectedRemotePools))
 		for i, remotePool := range expectedRemotePools {
 			expectedRemotePoolAddressesBytes[i] = common.LeftPadBytes(remotePool.Bytes(), 32)
@@ -197,7 +195,7 @@ func TestValidateRemoteChains(t *testing.T) {
 func TestValidateTokenPoolConfig(t *testing.T) {
 	t.Parallel()
 
-	e, selectorA, _, tokens := testhelpers.SetupTwoChainEnvironmentWithTokens(t, logger.TestLogger(t), true)
+	e, selectorA, _, tokens := testhelpers.SetupTwoChainEnvironmentWithTokens(t, logger.Test(t), true)
 
 	e = testhelpers.DeployTestTokenPools(t, e, map[uint64]v1_5_1.DeployTokenPoolInput{
 		selectorA: {
@@ -250,10 +248,11 @@ func TestValidateTokenPoolConfig(t *testing.T) {
 func TestValidateConfigureTokenPoolContractsConfig(t *testing.T) {
 	t.Parallel()
 
-	lggr := logger.TestLogger(t)
-	e := memory.NewMemoryEnvironment(t, lggr, zapcore.InfoLevel, memory.MemoryEnvironmentConfig{
-		Chains: 2,
-	})
+	e, err := environment.New(t.Context(),
+		environment.WithEVMSimulatedN(t, 2),
+		environment.WithLogger(logger.Test(t)),
+	)
+	require.NoError(t, err)
 
 	tests := []struct {
 		TokenSymbol shared.TokenSymbol
@@ -271,7 +270,7 @@ func TestValidateConfigureTokenPoolContractsConfig(t *testing.T) {
 			Input: v1_5_1.ConfigureTokenPoolContractsConfig{
 				TokenSymbol: testhelpers.TestTokenSymbol,
 				PoolUpdates: map[uint64]v1_5_1.TokenPoolConfig{
-					0: v1_5_1.TokenPoolConfig{},
+					0: {},
 				},
 			},
 			ErrStr: "failed to validate chain selector 0",
@@ -281,7 +280,7 @@ func TestValidateConfigureTokenPoolContractsConfig(t *testing.T) {
 			Input: v1_5_1.ConfigureTokenPoolContractsConfig{
 				TokenSymbol: testhelpers.TestTokenSymbol,
 				PoolUpdates: map[uint64]v1_5_1.TokenPoolConfig{
-					5009297550715157269: v1_5_1.TokenPoolConfig{},
+					5009297550715157269: {},
 				},
 			},
 			ErrStr: "does not exist in environment",
@@ -291,7 +290,7 @@ func TestValidateConfigureTokenPoolContractsConfig(t *testing.T) {
 			Input: v1_5_1.ConfigureTokenPoolContractsConfig{
 				TokenSymbol: testhelpers.TestTokenSymbol,
 				PoolUpdates: map[uint64]v1_5_1.TokenPoolConfig{
-					e.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chain_selectors.FamilyEVM))[0]: v1_5_1.TokenPoolConfig{
+					e.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chain_selectors.FamilyEVM))[0]: {
 						ChainUpdates: v1_5_1.RateLimiterPerChain{
 							e.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chain_selectors.FamilyEVM))[1]: v1_5_1.RateLimiterConfig{},
 						},
@@ -322,12 +321,12 @@ func TestValidateConfigureTokenPoolContractsConfig(t *testing.T) {
 			Input: v1_5_1.ConfigureTokenPoolContractsConfig{
 				TokenSymbol: testhelpers.TestTokenSymbol,
 				PoolUpdates: map[uint64]v1_5_1.TokenPoolConfig{
-					e.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chain_selectors.FamilyEVM))[0]: v1_5_1.TokenPoolConfig{
+					e.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chain_selectors.FamilyEVM))[0]: {
 						ChainUpdates: v1_5_1.RateLimiterPerChain{
 							e.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chain_selectors.FamilyEVM))[1]: v1_5_1.RateLimiterConfig{},
 						},
 					},
-					e.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chain_selectors.FamilyEVM))[1]: v1_5_1.TokenPoolConfig{
+					e.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chain_selectors.FamilyEVM))[1]: {
 						ChainUpdates: v1_5_1.RateLimiterPerChain{
 							e.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chain_selectors.FamilyEVM))[0]: v1_5_1.RateLimiterConfig{},
 						},
@@ -340,7 +339,7 @@ func TestValidateConfigureTokenPoolContractsConfig(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.Msg, func(t *testing.T) {
-			err := test.Input.Validate(e)
+			err := test.Input.Validate(*e)
 			require.Contains(t, err.Error(), test.ErrStr)
 		})
 	}
@@ -439,7 +438,7 @@ func TestValidateConfigureTokenPoolContracts(t *testing.T) {
 	for _, test := range tests {
 		for _, mcmsConfig := range []*proposalutils.TimelockConfig{nil, {MinDelay: 0 * time.Second}} { // Run all tests with and without MCMS
 			t.Run(test.Msg, func(t *testing.T) {
-				e, selectorA, selectorB, tokens := testhelpers.SetupTwoChainEnvironmentWithTokens(t, logger.TestLogger(t), mcmsConfig != nil)
+				e, selectorA, selectorB, tokens := testhelpers.SetupTwoChainEnvironmentWithTokens(t, logger.Test(t), mcmsConfig != nil)
 
 				e = testhelpers.DeployTestTokenPools(t, e, map[uint64]v1_5_1.DeployTokenPoolInput{
 					selectorA: {
@@ -479,11 +478,11 @@ func TestValidateConfigureTokenPoolContracts(t *testing.T) {
 				burnMintB, _ := token_pool.NewTokenPool(state.Chains[selectorB].BurnMintTokenPools[testhelpers.TestTokenSymbol][deployment.Version1_5_1].Address(), e.BlockChains.EVMChains()[selectorB].Client)
 
 				pools := map[uint64]tokenPools{
-					selectorA: tokenPools{
+					selectorA: {
 						LockRelease: lockReleaseA,
 						BurnMint:    burnMintA,
 					},
-					selectorB: tokenPools{
+					selectorB: {
 						LockRelease: lockReleaseB,
 						BurnMint:    burnMintB,
 					},
@@ -721,6 +720,7 @@ func TestValidateConfigureTokenPoolContracts(t *testing.T) {
 }
 
 func TestValidateConfigureTokenPoolContractsForSolana(t *testing.T) {
+	quarantine.Flaky(t, "DX-1726")
 	t.Parallel()
 	var err error
 
@@ -787,17 +787,20 @@ func TestValidateConfigureTokenPoolContractsForSolana(t *testing.T) {
 		state, err := stateview.LoadOnchainState(e)
 		require.NoError(t, err)
 		tokenAddress := state.SolChains[selector].SPL2022Tokens[0]
-		bnm := solTestTokenPool.BurnAndMint_PoolType
 		e, _, err = commonchangeset.ApplyChangesets(t, e, []commonchangeset.ConfiguredChangeSet{
-			// commonchangeset.Configure(
-			//	cldf.CreateLegacyChangeSet(changeset_solana.InitGlobalConfigTokenPoolProgram),
-			//	changeset_solana.TokenPoolConfigWithMCM{
-			//		ChainSelector: selector,
-			//		TokenPubKey:   tokenAddress,
-			//		PoolType:      &bnm,
-			//		Metadata:      shared.CLLMetadata,
-			//	},
-			// ),
+			commonchangeset.Configure(
+				cldf.CreateLegacyChangeSet(changeset_solana.InitGlobalConfigTokenPoolProgram),
+				changeset_solana.TokenPoolConfigWithMCM{
+					ChainSelector: selector,
+					TokenPoolConfigs: []changeset_solana.TokenPoolConfig{
+						{
+							TokenPubKey: tokenAddress,
+							PoolType:    shared.BurnMintTokenPool,
+							Metadata:    shared.CLLMetadata,
+						},
+					},
+				},
+			),
 			commonchangeset.Configure(
 				cldf.CreateLegacyChangeSet(changeset_solana.AddTokenPoolAndLookupTable),
 				changeset_solana.AddTokenPoolAndLookupTableConfig{
@@ -805,7 +808,7 @@ func TestValidateConfigureTokenPoolContractsForSolana(t *testing.T) {
 					TokenPoolConfigs: []changeset_solana.TokenPoolConfig{
 						{
 							TokenPubKey: tokenAddress,
-							PoolType:    &bnm,
+							PoolType:    shared.BurnMintTokenPool,
 							Metadata:    shared.CLLMetadata,
 						},
 					},
@@ -909,7 +912,6 @@ func TestValidateConfigureTokenPoolContractsForSolana(t *testing.T) {
 		require.NoError(t, err)
 		onchainState, err := stateview.LoadOnchainState(e)
 		require.NoError(t, err)
-		bnm := solTestTokenPool.BurnAndMint_PoolType
 		for _, tokenAddress := range onchainState.SolChains[selector].SPL2022Tokens {
 			if slices.Contains(tokensBefore, tokenAddress) {
 				continue
@@ -922,7 +924,7 @@ func TestValidateConfigureTokenPoolContractsForSolana(t *testing.T) {
 						TokenPoolConfigs: []changeset_solana.TokenPoolConfig{
 							{
 								TokenPubKey: tokenAddress,
-								PoolType:    &bnm,
+								PoolType:    shared.BurnMintTokenPool,
 								Metadata:    shared.CLLMetadata,
 							},
 						},
@@ -973,19 +975,22 @@ func TestValidateConfigureTokenPoolContractsForSolana(t *testing.T) {
 	// DEPLOY NEW SOLANA TOKEN POOL //
 	//////////////////////////////////
 	require.NoError(t, err)
-	lr := solTestTokenPool.LockAndRelease_PoolType
 	for _, selector := range solanaSelectors {
 		for _, tokenAddress := range remoteTokenAddresses {
 			e, _, err = commonchangeset.ApplyChangesets(t, e, []commonchangeset.ConfiguredChangeSet{
-				// commonchangeset.Configure(
-				//	cldf.CreateLegacyChangeSet(changeset_solana.InitGlobalConfigTokenPoolProgram),
-				//	changeset_solana.TokenPoolConfigWithMCM{
-				//		ChainSelector: selector,
-				//		TokenPubKey:   tokenAddress,
-				//		PoolType:      &lr,
-				//		Metadata:      shared.CLLMetadata,
-				//	},
-				// ),
+				commonchangeset.Configure(
+					cldf.CreateLegacyChangeSet(changeset_solana.InitGlobalConfigTokenPoolProgram),
+					changeset_solana.TokenPoolConfigWithMCM{
+						ChainSelector: selector,
+						TokenPoolConfigs: []changeset_solana.TokenPoolConfig{
+							{
+								TokenPubKey: tokenAddress,
+								PoolType:    shared.LockReleaseTokenPool,
+								Metadata:    shared.CLLMetadata,
+							},
+						},
+					},
+				),
 				commonchangeset.Configure(
 					cldf.CreateLegacyChangeSet(changeset_solana.AddTokenPoolAndLookupTable),
 					changeset_solana.AddTokenPoolAndLookupTableConfig{
@@ -993,7 +998,7 @@ func TestValidateConfigureTokenPoolContractsForSolana(t *testing.T) {
 						TokenPoolConfigs: []changeset_solana.TokenPoolConfig{
 							{
 								TokenPubKey: tokenAddress,
-								PoolType:    &lr,
+								PoolType:    shared.LockReleaseTokenPool,
 								Metadata:    shared.CLLMetadata,
 							},
 						},

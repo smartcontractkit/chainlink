@@ -39,7 +39,7 @@ func NewDonConfiguration(don NewDonConfigurationParams) (DonConfiguration, error
 
 	donPeers := make([]p2ptypes.PeerID, len(p2pKeys))
 	var donKeys []ethkey.KeyV2
-	for i := 0; i < len(p2pKeys); i++ {
+	for i := range p2pKeys {
 		donPeers[i] = p2ptypes.PeerID(p2pKeys[i].PeerID())
 		newKey, err := ethkey.NewV2()
 		if err != nil {

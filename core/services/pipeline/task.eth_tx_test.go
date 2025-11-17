@@ -52,7 +52,7 @@ func TestETHTxTask(t *testing.T) {
 		vars                  pipeline.Vars
 		inputs                []pipeline.Result
 		setupClientMocks      func(keyStore *keystoremocks.Eth, txManager *txmmocks.MockEvmTxManager)
-		expected              interface{}
+		expected              any
 		expectedErrorCause    error
 		expectedErrorContains string
 		expectedRunInfo       pipeline.RunInfo
@@ -65,7 +65,7 @@ func TestETHTxTask(t *testing.T) {
 			"12345",
 			`{ "jobID": 321, "requestID": "0x5198616554d738d9485d1a7cf53b2f33e09c3bbc8fe9ac0020bd672cd2bc15d2", "requestTxHash": "0xc524fafafcaec40652b1f84fca09c231185437d008d195fccf2f51e64b7062f8" }`,
 			`0`,
-			"0",
+			testutils.FixtureChainID.String(),
 			`{"CheckerType": "vrf_v2", "VRFCoordinatorAddress": "0x2E396ecbc8223Ebc16EC45136228AE5EDB649943"}`,
 			nil,
 			false,
@@ -107,11 +107,11 @@ func TestETHTxTask(t *testing.T) {
 			"$(gasLimit)",
 			`{ "jobID": $(jobID), "requestID": $(requestID), "requestTxHash": $(requestTxHash) }`,
 			`0`,
-			"0",
+			testutils.FixtureChainID.String(),
 			"",
 			nil,
 			false,
-			pipeline.NewVarsFrom(map[string]interface{}{
+			pipeline.NewVarsFrom(map[string]any{
 				"fromAddr":      common.HexToAddress("0x882969652440ccf14a5dbb9bd53eb21cb1e11e5c"),
 				"toAddr":        common.HexToAddress("0xDeaDbeefdEAdbeefdEadbEEFdeadbeEFdEaDbeeF"),
 				"data":          []byte("foobar"),
@@ -151,11 +151,11 @@ func TestETHTxTask(t *testing.T) {
 			"$(gasLimit)",
 			`{ "jobID": $(jobID), "requestID": $(requestID), "requestTxHash": $(requestTxHash) }`,
 			"$(minConfirmations)",
-			"0",
+			testutils.FixtureChainID.String(),
 			"",
 			nil,
 			false,
-			pipeline.NewVarsFrom(map[string]interface{}{
+			pipeline.NewVarsFrom(map[string]any{
 				"fromAddr":         common.HexToAddress("0x882969652440ccf14a5dbb9bd53eb21cb1e11e5c"),
 				"toAddr":           common.HexToAddress("0xDeaDbeefdEAdbeefdEadbEEFdeadbeEFdEaDbeeF"),
 				"data":             []byte("foobar"),
@@ -183,16 +183,16 @@ func TestETHTxTask(t *testing.T) {
 			"$(gasLimit)",
 			`$(requestData)`,
 			`0`,
-			"0",
+			testutils.FixtureChainID.String(),
 			"",
 			nil,
 			false,
-			pipeline.NewVarsFrom(map[string]interface{}{
+			pipeline.NewVarsFrom(map[string]any{
 				"fromAddrs": []common.Address{common.HexToAddress("0x882969652440ccf14a5dbb9bd53eb21cb1e11e5c")},
 				"toAddr":    "0xDeaDbeefdEAdbeefdEadbEEFdeadbeEFdEaDbeeF",
 				"data":      []byte("foobar"),
 				"gasLimit":  uint32(12345),
-				"requestData": map[string]interface{}{
+				"requestData": map[string]any{
 					"jobID":         int32(321),
 					"requestID":     common.HexToHash("0x5198616554d738d9485d1a7cf53b2f33e09c3bbc8fe9ac0020bd672cd2bc15d2"),
 					"requestTxHash": common.HexToHash("0xc524fafafcaec40652b1f84fca09c231185437d008d195fccf2f51e64b7062f8"),
@@ -229,16 +229,16 @@ func TestETHTxTask(t *testing.T) {
 			"$(gasLimit)",
 			`$(requestData)`,
 			`0`,
-			"0",
+			testutils.FixtureChainID.String(),
 			"",
 			nil,
 			false,
-			pipeline.NewVarsFrom(map[string]interface{}{
+			pipeline.NewVarsFrom(map[string]any{
 				"fromAddrs": []common.Address{common.HexToAddress("0x882969652440ccf14a5dbb9bd53eb21cb1e11e5c")},
 				"toAddr":    common.HexToAddress("0xDeaDbeefdEAdbeefdEadbEEFdeadbeEFdEaDbeeF"),
 				"data":      []byte("foobar"),
 				"gasLimit":  uint32(12345),
-				"requestData": map[string]interface{}{
+				"requestData": map[string]any{
 					"jobID":         int32(321),
 					"requestID":     common.HexToHash("0x5198616554d738d9485d1a7cf53b2f33e09c3bbc8fe9ac0020bd672cd2bc15d2"),
 					"requestTxHash": common.HexToHash("0xc524fafafcaec40652b1f84fca09c231185437d008d195fccf2f51e64b7062f8"),
@@ -275,7 +275,7 @@ func TestETHTxTask(t *testing.T) {
 			"12345",
 			`{}`,
 			`0`,
-			"0",
+			testutils.FixtureChainID.String(),
 			"",
 			nil,
 			false,
@@ -306,7 +306,7 @@ func TestETHTxTask(t *testing.T) {
 			"",
 			`{ "jobID": 321, "requestID": "0x5198616554d738d9485d1a7cf53b2f33e09c3bbc8fe9ac0020bd672cd2bc15d2", "requestTxHash": "0xc524fafafcaec40652b1f84fca09c231185437d008d195fccf2f51e64b7062f8" }`,
 			`0`,
-			"0",
+			testutils.FixtureChainID.String(),
 			"",
 			nil, // spec does not override gas limit
 			false,
@@ -341,7 +341,7 @@ func TestETHTxTask(t *testing.T) {
 			"",
 			`{ "jobID": 321, "requestID": "0x5198616554d738d9485d1a7cf53b2f33e09c3bbc8fe9ac0020bd672cd2bc15d2", "requestTxHash": "0xc524fafafcaec40652b1f84fca09c231185437d008d195fccf2f51e64b7062f8" }`,
 			`0`,
-			"0",
+			testutils.FixtureChainID.String(),
 			"",
 			&specGasLimit,
 			false,
@@ -376,16 +376,16 @@ func TestETHTxTask(t *testing.T) {
 			"$(gasLimit)",
 			`$(requestData)`,
 			`0`,
-			"0",
+			testutils.FixtureChainID.String(),
 			"",
 			nil,
 			false,
-			pipeline.NewVarsFrom(map[string]interface{}{
+			pipeline.NewVarsFrom(map[string]any{
 				"fromAddrs": []common.Address{common.HexToAddress("0x882969652440ccf14a5dbb9bd53eb21cb1e11e5c")},
 				"toAddr":    common.HexToAddress("0xDeaDbeefdEAdbeefdEadbEEFdeadbeEFdEaDbeeF"),
 				"data":      []byte("foobar"),
 				"gasLimit":  uint32(12345),
-				"requestData": map[string]interface{}{
+				"requestData": map[string]any{
 					"jobID":         int32(321),
 					"requestID":     common.HexToHash("0x5198616554d738d9485d1a7cf53b2f33e09c3bbc8fe9ac0020bd672cd2bc15d2"),
 					"requestTxHash": common.HexToHash("0xc524fafafcaec40652b1f84fca09c231185437d008d195fccf2f51e64b7062f8"),
@@ -405,7 +405,7 @@ func TestETHTxTask(t *testing.T) {
 			"12345",
 			`{ "jobID": 321, "requestID": "0x5198616554d738d9485d1a7cf53b2f33e09c3bbc8fe9ac0020bd672cd2bc15d2", "requestTxHash": "0xc524fafafcaec40652b1f84fca09c231185437d008d195fccf2f51e64b7062f8" }`,
 			`0`,
-			"0",
+			testutils.FixtureChainID.String(),
 			"",
 			nil,
 			false,
@@ -441,7 +441,7 @@ func TestETHTxTask(t *testing.T) {
 			"12345",
 			`{ "jobID": 321, "requestID": "0x5198616554d738d9485d1a7cf53b2f33e09c3bbc8fe9ac0020bd672cd2bc15d2", "requestTxHash": "0xc524fafafcaec40652b1f84fca09c231185437d008d195fccf2f51e64b7062f8", "foo": "bar" }`,
 			`0`,
-			"0",
+			testutils.FixtureChainID.String(),
 			"",
 			nil,
 			false,
@@ -458,7 +458,7 @@ func TestETHTxTask(t *testing.T) {
 			"12345",
 			`{ "jobID": "asdf", "requestID": 123, "requestTxHash": true }`,
 			`0`,
-			"0",
+			testutils.FixtureChainID.String(),
 			"",
 			nil,
 			false,
@@ -475,7 +475,7 @@ func TestETHTxTask(t *testing.T) {
 			"12345",
 			`{ "jobID": 321, "requestID": "0x5198616554d738d9485d1a7cf53b2f33e09c3bbc8fe9ac0020bd672cd2bc15d2", "requestTxHash": "0xc524fafafcaec40652b1f84fca09c231185437d008d195fccf2f51e64b7062f8" }`,
 			`0`,
-			"0",
+			testutils.FixtureChainID.String(),
 			"",
 			nil,
 			false,
@@ -492,7 +492,7 @@ func TestETHTxTask(t *testing.T) {
 			"12345",
 			`{ "jobID": 321, "requestID": "0x5198616554d738d9485d1a7cf53b2f33e09c3bbc8fe9ac0020bd672cd2bc15d2", "requestTxHash": "0xc524fafafcaec40652b1f84fca09c231185437d008d195fccf2f51e64b7062f8" }`,
 			`0`,
-			"0",
+			testutils.FixtureChainID.String(),
 			"",
 			nil,
 			false,
@@ -509,7 +509,7 @@ func TestETHTxTask(t *testing.T) {
 			"12345",
 			`{ "jobID": 321, "requestID": "0x5198616554d738d9485d1a7cf53b2f33e09c3bbc8fe9ac0020bd672cd2bc15d2", "requestTxHash": "0xc524fafafcaec40652b1f84fca09c231185437d008d195fccf2f51e64b7062f8" }`,
 			`3`,
-			"0",
+			testutils.FixtureChainID.String(),
 			"",
 			nil,
 			false,
@@ -536,7 +536,7 @@ func TestETHTxTask(t *testing.T) {
 			"",
 			nil,
 			false,
-			pipeline.NewVarsFrom(map[string]interface{}{
+			pipeline.NewVarsFrom(map[string]any{
 				"fromAddr":      common.HexToAddress("0x882969652440ccf14a5dbb9bd53eb21cb1e11e5c"),
 				"toAddr":        common.HexToAddress("0xDeaDbeefdEAdbeefdEadbEEFdeadbeEFdEaDbeeF"),
 				"data":          []byte("foobar"),
@@ -554,7 +554,6 @@ func TestETHTxTask(t *testing.T) {
 	}
 
 	for _, test := range tests {
-		test := test
 		t.Run(test.name, func(t *testing.T) {
 			t.Parallel()
 

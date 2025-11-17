@@ -7,29 +7,25 @@ import (
 	"time"
 
 	solBinary "github.com/gagliardetto/binary"
-	chainselectors "github.com/smartcontractkit/chain-selectors"
-	mcmsSolana "github.com/smartcontractkit/mcms/sdk/solana"
-
-	cldf_solana "github.com/smartcontractkit/chainlink-deployments-framework/chain/solana"
-
-	cldf_chain "github.com/smartcontractkit/chainlink-deployments-framework/chain"
-
-	burnmint "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/v0_1_1/burnmint_token_pool"
-	lockrelease "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/v0_1_1/lockrelease_token_pool"
-	"github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/v0_1_1/rmn_remote"
-	solTokenUtil "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/tokens"
-
 	"github.com/gagliardetto/solana-go"
+	chainselectors "github.com/smartcontractkit/chain-selectors"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zapcore"
 
 	"github.com/smartcontractkit/chainlink-ccip/chains/solana/contracts/tests/testutils"
-	"github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/test_token_pool"
+	burnmint "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/v0_1_1/burnmint_token_pool"
 	"github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/v0_1_1/ccip_offramp"
 	"github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/v0_1_1/ccip_router"
 	"github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/v0_1_1/fee_quoter"
+	lockrelease "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/v0_1_1/lockrelease_token_pool"
+	"github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/v0_1_1/rmn_remote"
+	solTokenUtil "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/tokens"
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 
+	cldf_chain "github.com/smartcontractkit/chainlink-deployments-framework/chain"
+	cldf_solana "github.com/smartcontractkit/chainlink-deployments-framework/chain/solana"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+	"github.com/smartcontractkit/chainlink-deployments-framework/engine/test/environment"
 
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/globals"
@@ -39,17 +35,11 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
 	solanastateview "github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview/solana"
-
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 	commontypes "github.com/smartcontractkit/chainlink/deployment/common/types"
 	"github.com/smartcontractkit/chainlink/deployment/environment/memory"
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
-
-// TODO: remove. These should be deployed as part of the test once deployment changesets are ready.
-const TimelockProgramID = "LoCoNsJFuhTkSQjfdDfn3yuwqhSYoPujmviRHVCzsqn"
-const MCMProgramID = "6UmMZr5MEqiKWD5jqTJd1WCR5kT8oZuFYBLJFi1o6GQX"
 
 func TestValidateContracts(t *testing.T) {
 	validPubkey := solana.NewWallet().PublicKey()
@@ -114,39 +104,42 @@ func TestValidateContracts(t *testing.T) {
 }
 
 func TestValidate(t *testing.T) {
-	skipInCI(t)
-	lggr := logger.TestLogger(t)
-	env := memory.NewMemoryEnvironment(t, lggr, zapcore.InfoLevel, memory.MemoryEnvironmentConfig{
-		SolChains: 1,
-	})
-	envWithInvalidSolChain := memory.NewMemoryEnvironment(t, lggr, zapcore.InfoLevel, memory.MemoryEnvironmentConfig{})
-	envWithInvalidSolChain.BlockChains = cldf_chain.NewBlockChains(map[uint64]cldf_chain.BlockChain{
-		chainselectors.ETHEREUM_TESTNET_SEPOLIA_LENS_1.Selector: cldf_solana.Chain{},
-	})
-	timelockID := mcmsSolana.ContractAddress(solana.MustPublicKeyFromBase58(TimelockProgramID), [32]byte{'t', 'e', 's', 't'})
-	mcmsID := mcmsSolana.ContractAddress(solana.MustPublicKeyFromBase58(MCMProgramID), [32]byte{'t', 'e', 's', 't'})
-	solChain := env.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chainselectors.FamilySolana))[0]
-	err := env.ExistingAddresses.Save(solChain, timelockID, cldf.TypeAndVersion{Type: commontypes.RBACTimelock, Version: deployment.Version1_0_0})
-	require.NoError(t, err)
-	err = env.ExistingAddresses.Save(solChain, mcmsID, cldf.TypeAndVersion{Type: commontypes.ProposerManyChainMultisig, Version: deployment.Version1_0_0})
-	require.NoError(t, err)
+	selector := chainselectors.TEST_22222222222222222222222222222222222222222222.Selector
 
 	tests := []struct {
 		name             string
-		env              cldf.Environment
+		env              func(t *testing.T) cldf.Environment
 		contractsByChain map[uint64]ccipChangesetSolana.CCIPContractsToTransfer
 		expectedError    string
 	}{
 		{
-			name:          "No chains found in environment",
-			env:           memory.NewMemoryEnvironment(t, lggr, zapcore.InfoLevel, memory.MemoryEnvironmentConfig{}),
+			name: "No chains found in environment",
+			env: func(t *testing.T) cldf.Environment {
+				t.Helper()
+
+				e, err := environment.New(t.Context())
+				require.NoError(t, err)
+
+				return *e
+			},
 			expectedError: "no chains found",
 		},
 		{
 			name: "Chain selector not found in environment",
-			env: memory.NewMemoryEnvironment(t, lggr, zapcore.InfoLevel, memory.MemoryEnvironmentConfig{
-				SolChains: 1,
-			}),
+			env: func(t *testing.T) cldf.Environment {
+				t.Helper()
+
+				e, err := environment.New(t.Context())
+				require.NoError(t, err)
+
+				e.BlockChains = cldf_chain.NewBlockChainsFromSlice([]cldf_chain.BlockChain{
+					cldf_solana.Chain{
+						Selector: selector,
+					},
+				})
+
+				return *e
+			},
 			contractsByChain: map[uint64]ccipChangesetSolana.CCIPContractsToTransfer{
 				99999: {Router: true, FeeQuoter: true},
 			},
@@ -154,11 +147,24 @@ func TestValidate(t *testing.T) {
 		},
 		{
 			name: "Invalid chain family",
-			env:  envWithInvalidSolChain,
-			contractsByChain: map[uint64]ccipChangesetSolana.CCIPContractsToTransfer{
-				chainselectors.ETHEREUM_TESTNET_SEPOLIA_LENS_1.Selector: {Router: true, FeeQuoter: true},
+			env: func(t *testing.T) cldf.Environment {
+				t.Helper()
+
+				e, err := environment.New(t.Context())
+				require.NoError(t, err)
+
+				e.BlockChains = cldf_chain.NewBlockChainsFromSlice([]cldf_chain.BlockChain{
+					cldf_solana.Chain{
+						Selector: selector,
+					},
+				})
+
+				return *e
 			},
-			expectedError: "failed to load addresses for chain 6827576821754315911: chain selector 6827576821754315911: chain not found",
+			contractsByChain: map[uint64]ccipChangesetSolana.CCIPContractsToTransfer{
+				selector: {Router: true, FeeQuoter: true},
+			},
+			expectedError: "failed to load addresses for chain 12463857294658392847: chain selector 12463857294658392847: chain not found",
 		},
 	}
 
@@ -171,7 +177,7 @@ func TestValidate(t *testing.T) {
 				},
 			}
 
-			err := cfg.Validate(tt.env)
+			err := cfg.Validate(tt.env(t))
 
 			if tt.expectedError == "" {
 				require.NoError(t, err)
@@ -187,7 +193,7 @@ func TestValidate(t *testing.T) {
 // the transfer ownership changeset.
 func prepareEnvironmentForOwnershipTransfer(t *testing.T) (cldf.Environment, stateview.CCIPOnChainState) {
 	t.Helper()
-	lggr := logger.TestLogger(t)
+	lggr := logger.Test(t)
 	e := memory.NewMemoryEnvironment(t, lggr, zapcore.InfoLevel, memory.MemoryEnvironmentConfig{
 		Bootstraps:                1,
 		Chains:                    2,
@@ -281,25 +287,23 @@ func prepareEnvironmentForOwnershipTransfer(t *testing.T) (cldf.Environment, sta
 	tokenAddressLockRelease := state.SolChains[solChain1].SPL2022Tokens[0]
 	tokenAddressBurnMint := state.SolChains[solChain1].SPLTokens[0]
 
-	lnr := test_token_pool.LockAndRelease_PoolType
-	bnm := test_token_pool.BurnAndMint_PoolType
 	e, _, err = commonchangeset.ApplyChangesets(t, e, []commonchangeset.ConfiguredChangeSet{
 		commonchangeset.Configure(
 			cldf.CreateLegacyChangeSet(ccipChangesetSolana.InitGlobalConfigTokenPoolProgram),
 			ccipChangesetSolana.TokenPoolConfigWithMCM{
 				ChainSelector: solChain1,
-				TokenPubKey:   tokenAddressLockRelease,
-				PoolType:      &lnr,
-				Metadata:      shared.CLLMetadata,
-			},
-		),
-		commonchangeset.Configure(
-			cldf.CreateLegacyChangeSet(ccipChangesetSolana.InitGlobalConfigTokenPoolProgram),
-			ccipChangesetSolana.TokenPoolConfigWithMCM{
-				ChainSelector: solChain1,
-				TokenPubKey:   tokenAddressBurnMint,
-				PoolType:      &bnm,
-				Metadata:      shared.CLLMetadata,
+				TokenPoolConfigs: []ccipChangesetSolana.TokenPoolConfig{
+					{
+						TokenPubKey: tokenAddressLockRelease,
+						PoolType:    shared.LockReleaseTokenPool,
+						Metadata:    shared.CLLMetadata,
+					},
+					{
+						TokenPubKey: tokenAddressBurnMint,
+						PoolType:    shared.BurnMintTokenPool,
+						Metadata:    shared.CLLMetadata,
+					},
+				},
 			},
 		),
 		commonchangeset.Configure(
@@ -309,7 +313,7 @@ func prepareEnvironmentForOwnershipTransfer(t *testing.T) (cldf.Environment, sta
 				TokenPoolConfigs: []ccipChangesetSolana.TokenPoolConfig{
 					{
 						TokenPubKey: tokenAddressLockRelease,
-						PoolType:    &lnr,
+						PoolType:    shared.LockReleaseTokenPool,
 						Metadata:    shared.CLLMetadata,
 					},
 				},
@@ -322,7 +326,7 @@ func prepareEnvironmentForOwnershipTransfer(t *testing.T) (cldf.Environment, sta
 				TokenPoolConfigs: []ccipChangesetSolana.TokenPoolConfig{
 					{
 						TokenPubKey: tokenAddressBurnMint,
-						PoolType:    &bnm,
+						PoolType:    shared.BurnMintTokenPool,
 						Metadata:    shared.CLLMetadata,
 					},
 				},

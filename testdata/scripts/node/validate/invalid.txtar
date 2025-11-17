@@ -13,6 +13,9 @@ Name = 'fake'
 WSURL = 'wss://foo.bar/ws'
 HTTPURL = 'https://foo.bar'
 
+[Billing]
+URL = ''
+
 -- secrets.toml --
 [Database]
 URL = 'postgresql://user:pass@localhost:5432/dbname?sslmode=disable'
@@ -34,6 +37,9 @@ Keystore = 'xxxxx'
 # Input Configuration:
 [Log]
 Level = 'debug'
+
+[Billing]
+URL = ''
 
 [[EVM]]
 ChainID = '1'
@@ -89,6 +95,7 @@ MaxBatchSize = 50
 SendInterval = '500ms'
 SendTimeout = '10s'
 UseBatchSend = true
+ChipIngressEnabled = false
 
 [AuditLogger]
 Enabled = false
@@ -227,6 +234,7 @@ IncomingMessageBufferSize = 10
 OutgoingMessageBufferSize = 10
 PeerID = ''
 TraceLogging = false
+EnableExperimentalRageP2P = false
 
 [P2P.V2]
 Enabled = true
@@ -320,6 +328,7 @@ IncomingMessageBufferSize = 10
 OutgoingMessageBufferSize = 10
 PeerID = ''
 TraceLogging = false
+EnableExperimentalRageP2P = false
 
 [Capabilities.Peering.V2]
 Enabled = false
@@ -329,9 +338,23 @@ DeltaDial = '15s'
 DeltaReconcile = '1m0s'
 ListenAddresses = []
 
+[Capabilities.SharedPeering]
+Enabled = false
+Bootstrappers = []
+
+[Capabilities.SharedPeering.StreamConfig]
+IncomingMessageBufferSize = 500
+OutgoingMessageBufferSize = 500
+MaxMessageLenBytes = 500000
+MessageRateLimiterRate = 100.0
+MessageRateLimiterCapacity = 500
+BytesRateLimiterRate = 5000000.0
+BytesRateLimiterCapacity = 10000000
+
 [Capabilities.Dispatcher]
 SupportedVersion = 1
 ReceiverBufferSize = 10000
+SendToSharedPeer = false
 
 [Capabilities.Dispatcher.RateLimit]
 GlobalRPS = 800.0
@@ -343,27 +366,31 @@ PerSenderBurst = 50
 Address = ''
 NetworkID = 'evm'
 ChainID = '1'
+ContractVersion = '1.0.0'
 
 [Capabilities.WorkflowRegistry]
 Address = ''
 NetworkID = 'evm'
 ChainID = '1'
+ContractVersion = '1.0.0'
 MaxBinarySize = '20.00mb'
 MaxEncryptedSecretsSize = '26.40kb'
 MaxConfigSize = '50.00kb'
 SyncStrategy = 'event'
 
+[Capabilities.WorkflowRegistry.WorkflowStorage]
+ArtifactStorageHost = ''
+URL = ''
+TLSEnabled = true
+
 [Capabilities.GatewayConnector]
 ChainIDForNodeKey = ''
 NodeAddress = ''
 DonID = ''
+Gateways = []
 WSHandshakeTimeoutMillis = 0
 AuthMinChallengeLen = 0
 AuthTimestampToleranceSec = 0
-
-[[Capabilities.GatewayConnector.Gateways]]
-ID = ''
-URL = ''
 
 [Telemetry]
 Enabled = false
@@ -374,7 +401,15 @@ TraceSampleRatio = 0.01
 EmitterBatchProcessor = true
 EmitterExportTimeout = '1s'
 ChipIngressEndpoint = ''
+ChipIngressInsecureConnection = false
 HeartbeatInterval = '1s'
+LogLevel = 'info'
+LogStreamingEnabled = false
+LogBatchProcessor = true
+LogExportTimeout = '1s'
+LogExportMaxBatchSize = 512
+LogExportInterval = '1s'
+LogMaxQueueSize = 2048
 
 [Workflows]
 [Workflows.Limits]
@@ -382,6 +417,9 @@ Global = 200
 PerOwner = 200
 
 [CRE]
+UseLocalTimeProvider = true
+EnableDKGRecipient = false
+
 [CRE.Streams]
 WsURL = ''
 RestURL = ''
@@ -389,8 +427,12 @@ RestURL = ''
 [CRE.WorkflowFetcher]
 URL = ''
 
+[CRE.Linking]
+URL = ''
+TLSEnabled = true
+
 [Billing]
-URL = 'localhost:4319'
+URL = ''
 TLSEnabled = true
 
 [BridgeStatusReporter]
@@ -408,6 +450,7 @@ BlockBackfillSkip = false
 FinalityDepth = 50
 SafeDepth = 0
 FinalityTagEnabled = true
+SafeTagSupported = true
 LinkContractAddress = '0x514910771AF9Ca656af840dff83E8264EcF986CA'
 LogBackfillBatchSize = 1000
 LogPollInterval = '15s'
@@ -493,6 +536,7 @@ EnforceRepeatableRead = true
 DeathDeclarationDelay = '1m0s'
 NewHeadsPollInterval = '0s'
 VerifyChainID = true
+ExternalRequestMaxResponseSize = 50000
 
 [EVM.OCR]
 ContractConfirmations = 4
@@ -517,7 +561,9 @@ Name = 'fake'
 WSURL = 'wss://foo.bar/ws'
 HTTPURL = 'https://foo.bar'
 
-Invalid configuration: invalid secrets: 2 errors:
+Invalid configuration: 2 errors:
+	- invalid configuration: Billing.URL: invalid value (): billing service url must be set
+	- invalid secrets: 2 errors:
 	- Database: 2 errors:
 		- URL: invalid value (*****): missing or insufficiently complex password: 
 	Expected password complexity:

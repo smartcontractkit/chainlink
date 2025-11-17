@@ -395,49 +395,49 @@ func Test_ExtractIDClaimValues(t *testing.T) {
 	require.NoError(t, err)
 	tests := []struct {
 		name    string
-		claims  map[string]interface{}
+		claims  map[string]any
 		key     string
 		want    []string
 		wantErr error
 	}{
 		{
 			name:    "String array claim",
-			claims:  map[string]interface{}{"groups": []string{"group1", "group2"}},
+			claims:  map[string]any{"groups": []string{"group1", "group2"}},
 			key:     "groups",
 			want:    []string{"group1", "group2"},
 			wantErr: nil,
 		},
 		{
 			name:    "Interface array claim",
-			claims:  map[string]interface{}{"groups": []interface{}{"group1", "group2"}},
+			claims:  map[string]any{"groups": []any{"group1", "group2"}},
 			key:     "groups",
 			want:    []string{"group1", "group2"},
 			wantErr: nil,
 		},
 		{
 			name:    "Single string claim",
-			claims:  map[string]interface{}{"groups": "group1"},
+			claims:  map[string]any{"groups": "group1"},
 			key:     "groups",
 			want:    []string{"group1"},
 			wantErr: nil,
 		},
 		{
 			name:    "Key not found",
-			claims:  map[string]interface{}{"other": []string{"group1"}},
+			claims:  map[string]any{"other": []string{"group1"}},
 			key:     "groups",
 			want:    nil,
 			wantErr: errors.New("claim 'groups' not found in ID token"),
 		},
 		{
 			name:    "Invalid item type in array",
-			claims:  map[string]interface{}{"groups": []interface{}{"group1", 42}},
+			claims:  map[string]any{"groups": []any{"group1", 42}},
 			key:     "groups",
 			want:    nil,
 			wantErr: fmt.Errorf("invalid type for item in 'groups': expected string, got %T", 42),
 		},
 		{
 			name:    "Invalid claim type",
-			claims:  map[string]interface{}{"groups": 42},
+			claims:  map[string]any{"groups": 42},
 			key:     "groups",
 			want:    nil,
 			wantErr: fmt.Errorf("claim 'groups' is not a string or array: got %T", 42),

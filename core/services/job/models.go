@@ -17,6 +17,7 @@ import (
 	"gopkg.in/guregu/null.v4"
 
 	commonassets "github.com/smartcontractkit/chainlink-common/pkg/assets"
+	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
 	"github.com/smartcontractkit/chainlink-common/pkg/workflows/sdk"
 
@@ -39,6 +40,7 @@ const (
 	BlockHeaderFeeder       Type = (Type)(pipeline.BlockHeaderFeederJobType)
 	BlockhashStore          Type = (Type)(pipeline.BlockhashStoreJobType)
 	Bootstrap               Type = (Type)(pipeline.BootstrapJobType)
+	CRESettings             Type = (Type)(pipeline.CRESettings)
 	Cron                    Type = (Type)(pipeline.CronJobType)
 	CCIP                    Type = (Type)(pipeline.CCIPJobType)
 	DirectRequest           Type = (Type)(pipeline.DirectRequestJobType)
@@ -80,6 +82,7 @@ var (
 		BlockHeaderFeeder:       false,
 		BlockhashStore:          false,
 		Bootstrap:               false,
+		CRESettings:             false,
 		Cron:                    true,
 		CCIP:                    false,
 		DirectRequest:           true,
@@ -100,6 +103,7 @@ var (
 		BlockHeaderFeeder:       false,
 		BlockhashStore:          false,
 		Bootstrap:               false,
+		CRESettings:             false,
 		Cron:                    true,
 		CCIP:                    false,
 		DirectRequest:           true,
@@ -120,6 +124,7 @@ var (
 		BlockHeaderFeeder:       1,
 		BlockhashStore:          1,
 		Bootstrap:               1,
+		CRESettings:             1,
 		Cron:                    1,
 		CCIP:                    1,
 		DirectRequest:           1,
@@ -184,13 +189,15 @@ type Job struct {
 	CCIPSpecID                    *int32
 	CCIPSpec                      *CCIPSpec
 	CCIPBootstrapSpecID           *int32
+	CRESettingsSpecID             *int32
+	CRESettingsSpec               *CRESettingsSpec
 	JobSpecErrors                 []SpecError
 	Type                          Type          `toml:"type"`
 	SchemaVersion                 uint32        `toml:"schemaVersion"`
 	GasLimit                      clnull.Uint32 `toml:"gasLimit"`
 	ForwardingAllowed             bool          `toml:"forwardingAllowed"`
 	Name                          null.String   `toml:"name"`
-	MaxTaskDuration               models.Interval
+	MaxTaskDuration               sqlutil.Interval
 	Pipeline                      pipeline.Pipeline `toml:"observationSource"`
 	CreatedAt                     time.Time
 }
@@ -279,15 +286,15 @@ type OCROracleSpec struct {
 	IsBootstrapPeer                        bool                   `toml:"isBootstrapPeer"`
 	EncryptedOCRKeyBundleID                *models.Sha256Hash     `toml:"keyBundleID"`
 	TransmitterAddress                     *evmtypes.EIP55Address `toml:"transmitterAddress"`
-	ObservationTimeout                     models.Interval        `toml:"observationTimeout"`
-	BlockchainTimeout                      models.Interval        `toml:"blockchainTimeout"`
-	ContractConfigTrackerSubscribeInterval models.Interval        `toml:"contractConfigTrackerSubscribeInterval"`
-	ContractConfigTrackerPollInterval      models.Interval        `toml:"contractConfigTrackerPollInterval"`
+	ObservationTimeout                     sqlutil.Interval       `toml:"observationTimeout"`
+	BlockchainTimeout                      sqlutil.Interval       `toml:"blockchainTimeout"`
+	ContractConfigTrackerSubscribeInterval sqlutil.Interval       `toml:"contractConfigTrackerSubscribeInterval"`
+	ContractConfigTrackerPollInterval      sqlutil.Interval       `toml:"contractConfigTrackerPollInterval"`
 	ContractConfigConfirmations            uint16                 `toml:"contractConfigConfirmations"`
 	EVMChainID                             *big.Big               `toml:"evmChainID" db:"evm_chain_id"`
-	DatabaseTimeout                        *models.Interval       `toml:"databaseTimeout"`
-	ObservationGracePeriod                 *models.Interval       `toml:"observationGracePeriod"`
-	ContractTransmitterTransmitTimeout     *models.Interval       `toml:"contractTransmitterTransmitTimeout"`
+	DatabaseTimeout                        *sqlutil.Interval      `toml:"databaseTimeout"`
+	ObservationGracePeriod                 *sqlutil.Interval      `toml:"observationGracePeriod"`
+	ContractTransmitterTransmitTimeout     *sqlutil.Interval      `toml:"contractTransmitterTransmitTimeout"`
 	CaptureEATelemetry                     bool                   `toml:"captureEATelemetry"`
 	CreatedAt                              time.Time              `toml:"-"`
 	UpdatedAt                              time.Time              `toml:"-"`
@@ -310,7 +317,7 @@ func (s *OCROracleSpec) SetID(value string) error {
 
 // JSONConfig is a map for config properties which are encoded as JSON in the database by implementing
 // sql.Scanner and driver.Valuer.
-type JSONConfig map[string]interface{}
+type JSONConfig map[string]any
 
 // Bytes returns the raw bytes
 func (r JSONConfig) Bytes() []byte {
@@ -324,7 +331,7 @@ func (r JSONConfig) Value() (driver.Value, error) {
 }
 
 // Scan reads the database value and returns an instance.
-func (r *JSONConfig) Scan(value interface{}) error {
+func (r *JSONConfig) Scan(value any) error {
 	b, ok := value.([]byte)
 	if !ok {
 		return errors.Errorf("expected bytes got %T", b)
@@ -377,8 +384,8 @@ type OCR2OracleSpec struct {
 	OCRKeyBundleID                    null.String          `toml:"ocrKeyBundleID"`
 	MonitoringEndpoint                null.String          `toml:"monitoringEndpoint"`
 	TransmitterID                     null.String          `toml:"transmitterID"`
-	BlockchainTimeout                 models.Interval      `toml:"blockchainTimeout"`
-	ContractConfigTrackerPollInterval models.Interval      `toml:"contractConfigTrackerPollInterval"`
+	BlockchainTimeout                 sqlutil.Interval     `toml:"blockchainTimeout"`
+	ContractConfigTrackerPollInterval sqlutil.Interval     `toml:"contractConfigTrackerPollInterval"`
 	ContractConfigConfirmations       uint16               `toml:"contractConfigConfirmations"`
 	OnchainSigningStrategy            JSONConfig           `toml:"onchainSigningStrategy"`
 	PluginConfig                      JSONConfig           `toml:"pluginConfig"`
@@ -781,12 +788,12 @@ type BootstrapSpec struct {
 	FeedID                            *common.Hash `toml:"feedID"`
 	Relay                             string       `toml:"relay"` // RelayID.Network
 	RelayConfig                       JSONConfig
-	MonitoringEndpoint                null.String     `toml:"monitoringEndpoint"`
-	BlockchainTimeout                 models.Interval `toml:"blockchainTimeout"`
-	ContractConfigTrackerPollInterval models.Interval `toml:"contractConfigTrackerPollInterval"`
-	ContractConfigConfirmations       uint16          `toml:"contractConfigConfirmations"`
-	CreatedAt                         time.Time       `toml:"-"`
-	UpdatedAt                         time.Time       `toml:"-"`
+	MonitoringEndpoint                null.String      `toml:"monitoringEndpoint"`
+	BlockchainTimeout                 sqlutil.Interval `toml:"blockchainTimeout"`
+	ContractConfigTrackerPollInterval sqlutil.Interval `toml:"contractConfigTrackerPollInterval"`
+	ContractConfigConfirmations       uint16           `toml:"contractConfigConfirmations"`
+	CreatedAt                         time.Time        `toml:"-"`
+	UpdatedAt                         time.Time        `toml:"-"`
 }
 
 // AsOCR2Spec transforms the bootstrap spec into a generic OCR2 format to enable code sharing between specs.
@@ -830,7 +837,7 @@ func (s *GatewaySpec) SetID(value string) error {
 func (s *GatewaySpec) AuthGatewayID() string {
 	// not using config.GatewayConfig directly to avoid import cycle
 	if nsc, ok := s.GatewayConfig["ConnectionManagerConfig"]; ok {
-		if nscMap, ok := nsc.(map[string]interface{}); ok {
+		if nscMap, ok := nsc.(map[string]any); ok {
 			if authGatewayID, ok := nscMap["AuthGatewayId"]; ok {
 				if authGatewayIDStr, ok := authGatewayID.(string); ok {
 					return authGatewayIDStr
@@ -903,6 +910,7 @@ type WorkflowSpec struct {
 	WorkflowID    string             `toml:"-" db:"workflow_id"` // Derived. Do not modify. the CID of the workflow.
 	WorkflowOwner string             `toml:"workflow_owner" db:"workflow_owner"`
 	WorkflowName  string             `toml:"workflow_name" db:"workflow_name"`
+	WorkflowTag   string             `toml:"workflow_tag" db:"workflow_tag"`
 	Status        WorkflowSpecStatus `db:"status"`
 	BinaryURL     string             `db:"binary_url"`
 	ConfigURL     string             `db:"config_url"`
@@ -1031,7 +1039,7 @@ func (ofc OracleFactoryConfig) Value() (driver.Value, error) {
 }
 
 // Scan reads the database value and returns an instance.
-func (ofc *OracleFactoryConfig) Scan(value interface{}) error {
+func (ofc *OracleFactoryConfig) Scan(value any) error {
 	if value == nil {
 		return nil // field is nullable
 	}
@@ -1113,4 +1121,13 @@ type CCIPSpec struct {
 	// PluginConfig contains plugin-specific config, like token price pipelines
 	// and RMN network info for offchain blessing.
 	PluginConfig JSONConfig `toml:"pluginConfig"`
+}
+
+type CRESettingsSpec struct {
+	ID        int32
+	CreatedAt time.Time `toml:"-"`
+	UpdatedAt time.Time `toml:"-"`
+
+	Settings string
+	Hash     string
 }

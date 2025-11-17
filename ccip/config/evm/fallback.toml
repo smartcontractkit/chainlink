@@ -4,6 +4,7 @@ BlockBackfillSkip = false
 SafeDepth = 0
 FinalityDepth = 50
 FinalityTagEnabled = false
+SafeTagSupported = true
 LogBackfillBatchSize = 1000
 LogPollInterval = '15s'
 LogKeepBlocksDepth = 100000
@@ -87,6 +88,7 @@ EnforceRepeatableRead = false
 DeathDeclarationDelay = '10s'
 NewHeadsPollInterval = '0s'
 VerifyChainID = true
+ExternalRequestMaxResponseSize = 50000
 
 [OCR]
 ContractConfirmations = 4

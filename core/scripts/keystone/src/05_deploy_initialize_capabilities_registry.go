@@ -5,13 +5,14 @@ import (
 	"flag"
 	"fmt"
 	"log"
+	"maps"
 	"os"
 	"strconv"
 
 	"github.com/ethereum/go-ethereum/common"
 	"google.golang.org/protobuf/proto"
 
-	"github.com/smartcontractkit/chainlink-common/pkg/values"
+	"github.com/smartcontractkit/chainlink-protos/cre/go/values"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 
@@ -74,9 +75,7 @@ func withDefaultConfig(m map[string]any) func(*values.Map) {
 		if err != nil {
 			panic(err)
 		}
-		for k, v := range overrides.Underlying {
-			dc.Underlying[k] = v
-		}
+		maps.Copy(dc.Underlying, overrides.Underlying)
 	}
 }
 

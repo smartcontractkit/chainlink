@@ -72,7 +72,7 @@ func initRestyClient(url string, email string, password string, headers map[stri
 	var resp *resty.Response
 	var err error
 	retryCount := 20
-	for i := 0; i < retryCount; i++ {
+	for range retryCount {
 		resp, err = rc.R().SetBody(session).Post("/sessions")
 		if err != nil {
 			log.Warn().Err(err).Str("URL", url).Interface("Session Details", session).Msg("Error connecting to Chainlink node, retrying")
@@ -921,6 +921,49 @@ func (c *ChainlinkClient) DeleteEI(name string) (*http.Response, error) {
 			"name": name,
 		}).
 		Delete("/v2/external_initiators/{name}")
+	if err != nil {
+		return nil, err
+	}
+	return resp.RawResponse, err
+}
+
+// CreateAptosKey creates an Aptos key on the Chainlink node
+func (c *ChainlinkClient) CreateAptosKey() (*AptosKey, *http.Response, error) {
+	aptosKey := &AptosKey{}
+	c.l.Info().Str(NodeURL, c.Config.URL).Msg("Creating Aptos Key")
+	resp, err := c.APIClient.R().
+		SetResult(aptosKey).
+		Post("/v2/keys/aptos")
+	if err != nil {
+		return nil, nil, err
+	}
+	return aptosKey, resp.RawResponse, err
+}
+
+// ReadAptosKeys reads all Aptos keys from the Chainlink node
+func (c *ChainlinkClient) ReadAptosKeys() (*AptosKeys, *http.Response, error) {
+	aptosKeys := &AptosKeys{}
+	c.l.Info().Str(NodeURL, c.Config.URL).Msg("Reading Aptos Keys")
+	resp, err := c.APIClient.R().
+		SetResult(aptosKeys).
+		Get("/v2/keys/aptos")
+	if err != nil {
+		return nil, nil, err
+	}
+	if len(aptosKeys.Data) == 0 {
+		c.l.Warn().Str(NodeURL, c.Config.URL).Msg("Found no Aptos Keys on the node")
+	}
+	return aptosKeys, resp.RawResponse, err
+}
+
+// DeleteAptosKey deletes an Aptos key based on the provided ID
+func (c *ChainlinkClient) DeleteAptosKey(id string) (*http.Response, error) {
+	c.l.Info().Str(NodeURL, c.Config.URL).Str("ID", id).Msg("Deleting Aptos Key")
+	resp, err := c.APIClient.R().
+		SetPathParams(map[string]string{
+			"id": id,
+		}).
+		Delete("/v2/keys/aptos/{id}")
 	if err != nil {
 		return nil, err
 	}

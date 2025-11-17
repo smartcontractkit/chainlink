@@ -19,7 +19,7 @@ import (
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/testcontext"
 
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_5_0/rmn_contract"
-	"github.com/smartcontractkit/chainlink-evm/gethwrappers/shared/generated/burn_mint_erc677"
+	"github.com/smartcontractkit/chainlink-evm/gethwrappers/shared/generated/initial/burn_mint_erc677"
 
 	cldf_evm "github.com/smartcontractkit/chainlink-deployments-framework/chain/evm"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
@@ -33,6 +33,7 @@ import (
 	ccipseq "github.com/smartcontractkit/chainlink/deployment/ccip/sequence/evm/v1_6"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
+	"github.com/smartcontractkit/chainlink/deployment/helpers/pointer"
 
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/types"
@@ -40,7 +41,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink-evm/pkg/utils"
 
-	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_0/fee_quoter"
+	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_3/fee_quoter"
 
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers"
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
@@ -65,7 +66,7 @@ func TestUpdateOnRampsDests(t *testing.T) {
 			// Default env just has 2 chains with all contracts
 			// deployed but no lanes.
 			tenv, _ := testhelpers.NewMemoryEnvironment(t)
-			state, err := stateview.LoadOnchainState(tenv.Env)
+			state, err := stateview.LoadOnchainState(tenv.Env, stateview.WithLoadLegacyContracts(true))
 			require.NoError(t, err)
 
 			allChains := maps.Keys(tenv.Env.BlockChains.EVMChains())
@@ -141,7 +142,7 @@ func TestUpdateOnRampDynamicConfig(t *testing.T) {
 			// Default env just has 2 chains with all contracts
 			// deployed but no lanes.
 			tenv, _ := testhelpers.NewMemoryEnvironment(t)
-			state, err := stateview.LoadOnchainState(tenv.Env)
+			state, err := stateview.LoadOnchainState(tenv.Env, stateview.WithLoadLegacyContracts(true))
 			require.NoError(t, err)
 
 			allChains := maps.Keys(tenv.Env.BlockChains.EVMChains())
@@ -209,7 +210,7 @@ func TestUpdateOnRampAllowList(t *testing.T) {
 			// Default env just has 2 chains with all contracts
 			// deployed but no lanes.
 			tenv, _ := testhelpers.NewMemoryEnvironment(t)
-			state, err := stateview.LoadOnchainState(tenv.Env)
+			state, err := stateview.LoadOnchainState(tenv.Env, stateview.WithLoadLegacyContracts(true))
 			require.NoError(t, err)
 
 			allChains := maps.Keys(tenv.Env.BlockChains.EVMChains())
@@ -285,7 +286,7 @@ func TestWithdrawOnRampFeeTokens(t *testing.T) {
 			// Default env just has 2 chains with all contracts
 			// deployed but no lanes.
 			tenv, _ := testhelpers.NewMemoryEnvironment(t)
-			state, err := stateview.LoadOnchainState(tenv.Env)
+			state, err := stateview.LoadOnchainState(tenv.Env, stateview.WithLoadLegacyContracts(true))
 			require.NoError(t, err)
 
 			allChains := maps.Keys(tenv.Env.BlockChains.EVMChains())
@@ -399,7 +400,7 @@ func TestUpdateOffRampsSources(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			ctx := testcontext.Get(t)
 			tenv, _ := testhelpers.NewMemoryEnvironment(t)
-			state, err := stateview.LoadOnchainState(tenv.Env)
+			state, err := stateview.LoadOnchainState(tenv.Env, stateview.WithLoadLegacyContracts(true))
 			require.NoError(t, err)
 
 			allChains := maps.Keys(tenv.Env.BlockChains.EVMChains())
@@ -475,7 +476,7 @@ func TestUpdateFQDests(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			ctx := testcontext.Get(t)
 			tenv, _ := testhelpers.NewMemoryEnvironment(t)
-			state, err := stateview.LoadOnchainState(tenv.Env)
+			state, err := stateview.LoadOnchainState(tenv.Env, stateview.WithLoadLegacyContracts(true))
 			require.NoError(t, err)
 
 			allChains := maps.Keys(tenv.Env.BlockChains.EVMChains())
@@ -531,7 +532,7 @@ func TestUpdateFeeQuoterDestsConfig_Validate_MultipleReportsEnabled(t *testing.T
 	allChains := maps.Keys(tenv.Env.BlockChains.EVMChains())
 	source := allChains[0]
 	dest := allChains[1]
-	state, err := stateview.LoadOnchainState(tenv.Env)
+	state, err := stateview.LoadOnchainState(tenv.Env, stateview.WithLoadLegacyContracts(true))
 	require.NoError(t, err)
 	homeChainSelector, err := state.HomeChainSelector()
 	require.NoError(t, err)
@@ -654,7 +655,7 @@ func TestUpdateRouterRamps(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			ctx := testcontext.Get(t)
 			tenv, _ := testhelpers.NewMemoryEnvironment(t)
-			state, err := stateview.LoadOnchainState(tenv.Env)
+			state, err := stateview.LoadOnchainState(tenv.Env, stateview.WithLoadLegacyContracts(true))
 			require.NoError(t, err)
 
 			allChains := maps.Keys(tenv.Env.BlockChains.EVMChains())
@@ -737,7 +738,7 @@ func TestUpdateDynamicConfigOffRampChangeset(t *testing.T) {
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			tenv, _ := testhelpers.NewMemoryEnvironment(t)
-			state, err := stateview.LoadOnchainState(tenv.Env)
+			state, err := stateview.LoadOnchainState(tenv.Env, stateview.WithLoadLegacyContracts(true))
 			require.NoError(t, err)
 
 			allChains := maps.Keys(tenv.Env.BlockChains.EVMChains())
@@ -797,7 +798,7 @@ func TestUpdateNonceManagersCS(t *testing.T) {
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			tenv, _ := testhelpers.NewMemoryEnvironment(t)
-			state, err := stateview.LoadOnchainState(tenv.Env)
+			state, err := stateview.LoadOnchainState(tenv.Env, stateview.WithLoadLegacyContracts(true))
 			require.NoError(t, err)
 
 			allChains := maps.Keys(tenv.Env.BlockChains.EVMChains())
@@ -860,7 +861,7 @@ func TestUpdateNonceManagersCSApplyPreviousRampsUpdates(t *testing.T) {
 		}),
 		testhelpers.WithNumOfChains(3),
 		testhelpers.WithChainIDs([]uint64{chainselectors.GETH_TESTNET.EvmChainID}))
-	state, err := stateview.LoadOnchainState(e.Env)
+	state, err := stateview.LoadOnchainState(e.Env, stateview.WithLoadLegacyContracts(true))
 	require.NoError(t, err)
 	allChains := e.Env.BlockChains.ListChainSelectors(
 		cldf_chain.WithFamily(chainselectors.FamilyEVM),
@@ -992,6 +993,22 @@ func TestSetOCR3ConfigValidations(t *testing.T) {
 	// it should fail as we need to update the chainconfig on CCIPHome first
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "invalid OCR3 config state, expected active config")
+	// provide the same plugin type twice
+	_, err = commonchangeset.Apply(t, e.Env,
+		commonchangeset.Configure(
+			// Enable the OCR config on the remote chains.
+			cldf.CreateLegacyChangeSet(v1_6.SetOCR3OffRampChangeset),
+			v1_6.SetOCR3OffRampConfig{
+				HomeChainSel:       e.HomeChainSel,
+				RemoteChainSels:    allChains,
+				CCIPHomeConfigType: globals.ConfigTypeActive,
+				PluginTypes:        []types.PluginType{types.PluginTypeCCIPCommit, types.PluginTypeCCIPCommit},
+			},
+		),
+	)
+	// it should fail because of duplicate plugin types
+	require.Error(t, err)
+	require.ErrorContains(t, err, "duplicate plugin type found: "+types.PluginTypeCCIPCommit.String())
 
 	// Build the per chain config.
 	wrongChainConfigs := make(map[uint64]v1_6.ChainConfig)
@@ -1082,7 +1099,7 @@ func TestApplyFeeTokensUpdatesFeeQuoterChangeset(t *testing.T) {
 				require.NoError(t, err)
 			}
 			require.NoError(t, tenv.Env.ExistingAddresses.Merge(ab))
-			state, err := stateview.LoadOnchainState(tenv.Env)
+			state, err := stateview.LoadOnchainState(tenv.Env, stateview.WithLoadLegacyContracts(true))
 			require.NoError(t, err)
 			source := allChains[0]
 			dest := allChains[1]
@@ -1144,7 +1161,7 @@ func TestApplyPremiumMultiplierWeiPerEthUpdatesFeeQuoterChangeset(t *testing.T) 
 			allChains := maps.Keys(tenv.Env.BlockChains.EVMChains())
 			source := allChains[0]
 			dest := allChains[1]
-			state, err := stateview.LoadOnchainState(tenv.Env)
+			state, err := stateview.LoadOnchainState(tenv.Env, stateview.WithLoadLegacyContracts(true))
 			require.NoError(t, err)
 			if tc.mcmsEnabled {
 				// Transfer ownership to timelock so that we can promote the zero digest later down the line.
@@ -1201,7 +1218,7 @@ func TestApplyPremiumMultiplierWeiPerEthUpdatesFeeQuoterChangeset(t *testing.T) 
 				require.NoError(t, err)
 			}
 			require.NoError(t, tenv.Env.ExistingAddresses.Merge(ab))
-			state, err = stateview.LoadOnchainState(tenv.Env)
+			state, err = stateview.LoadOnchainState(tenv.Env, stateview.WithLoadLegacyContracts(true))
 			require.NoError(t, err)
 			// now try to apply the changeset for TEST token
 			_, err = commonchangeset.Apply(t, tenv.Env,
@@ -1279,7 +1296,7 @@ func TestUpdateTokenPriceFeedsFeeQuoterChangeset(t *testing.T) {
 			)
 			require.NoError(t, err)
 			require.NoError(t, tenv.Env.ExistingAddresses.Merge(ab))
-			state, err := stateview.LoadOnchainState(tenv.Env)
+			state, err := stateview.LoadOnchainState(tenv.Env, stateview.WithLoadLegacyContracts(true))
 			require.NoError(t, err)
 
 			if tc.mcmsEnabled {
@@ -1373,7 +1390,7 @@ func TestApplyTokenTransferFeeConfigUpdatesFeeQuoterChangeset(t *testing.T) {
 			allChains := maps.Keys(tenv.Env.BlockChains.EVMChains())
 			source := allChains[0]
 			dest := allChains[1]
-			state, err := stateview.LoadOnchainState(tenv.Env)
+			state, err := stateview.LoadOnchainState(tenv.Env, stateview.WithLoadLegacyContracts(true))
 			require.NoError(t, err)
 			if tc.mcmsEnabled {
 				// Transfer ownership to timelock so that we can promote the zero digest later down the line.
@@ -1458,6 +1475,194 @@ func TestApplyTokenTransferFeeConfigUpdatesFeeQuoterChangeset(t *testing.T) {
 					}),
 			)
 			require.NoError(t, err)
+		})
+	}
+}
+
+func TestApplyTokenTransferFeeConfigUpdatesFeeQuoterChangesetV2(t *testing.T) {
+	for _, tc := range []struct {
+		name        string
+		mcmsEnabled bool
+	}{
+		{
+			name:        "MCMS enabled",
+			mcmsEnabled: true,
+		},
+		{
+			name:        "MCMS disabled",
+			mcmsEnabled: false,
+		},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			// Environment setup
+			tenv, _ := testhelpers.NewMemoryEnvironment(t)
+			allChains := maps.Keys(tenv.Env.BlockChains.EVMChains())
+			require.Len(t, allChains, 2)
+			src := allChains[0]
+			dst := allChains[1]
+			state, err := stateview.LoadOnchainState(tenv.Env, stateview.WithLoadLegacyContracts(true))
+			require.NoError(t, err)
+
+			// MCMS setup
+			var mcmsConfig *proposalutils.TimelockConfig
+			if tc.mcmsEnabled {
+				// Transfer ownership to timelock so that we can promote the zero digest later down the line.
+				testhelpers.TransferToTimelock(t, tenv, state, []uint64{src, dst}, true)
+				mcmsConfig = &proposalutils.TimelockConfig{MinDelay: 0}
+			}
+
+			// Tokens under test
+			srcLinkTokenAddress := state.MustGetEVMChainState(src).LinkToken.Address()
+			dstLinkTokenAddress := state.MustGetEVMChainState(dst).LinkToken.Address()
+			callOpts := &bind.CallOpts{Context: tenv.Env.GetContext()}
+
+			// Try an invalid update
+			_, err = commonchangeset.Apply(t, tenv.Env,
+				commonchangeset.Configure(
+					v1_6.ApplyTokenTransferFeeConfigUpdatesFeeQuoterChangesetV2,
+					v1_6.ApplyTokenTransferFeeConfigUpdatesConfigV2{
+						InputsByChain: map[uint64]map[uint64]v1_6.ApplyTokenTransferFeeConfigUpdatesConfigV2Input{
+							src: {
+								dst: {
+									TokenTransferFeeConfigRemoveArgs: []common.Address{
+										srcLinkTokenAddress,
+									},
+								},
+							},
+							dst: {
+								src: {
+									TokenTransferFeeConfigArgs: map[common.Address]v1_6.OptionalFeeQuoterTokenTransferFeeConfig{
+										dstLinkTokenAddress: {
+											MinFeeUSDCents:    pointer.To(uint32(1)),
+											MaxFeeUSDCents:    pointer.To(uint32(1)),
+											DeciBps:           pointer.To(uint16(1)),
+											DestGasOverhead:   pointer.To(uint32(1)),
+											DestBytesOverhead: pointer.To(uint32(1)),
+											IsEnabled:         pointer.To(true),
+										},
+									},
+								},
+							},
+						},
+						MCMS: mcmsConfig,
+					}),
+			)
+			require.Error(t, err)
+			require.Contains(t, err.Error(), "min fee must be less than max fee")
+
+			// dst->src token config should still be disabled
+			dstConfig1, err := state.MustGetEVMChainState(dst).FeeQuoter.GetTokenTransferFeeConfig(callOpts, src, dstLinkTokenAddress)
+			require.NoError(t, err)
+			require.Equal(t, fee_quoter.FeeQuoterTokenTransferFeeConfig{}, dstConfig1)
+
+			// src->dst token config should still be disabled
+			srcConfig1, err := state.MustGetEVMChainState(src).FeeQuoter.GetTokenTransferFeeConfig(callOpts, dst, srcLinkTokenAddress)
+			require.NoError(t, err)
+			require.Equal(t, fee_quoter.FeeQuoterTokenTransferFeeConfig{}, srcConfig1)
+
+			// Now try a valid update
+			_, err = commonchangeset.Apply(t, tenv.Env,
+				commonchangeset.Configure(
+					v1_6.ApplyTokenTransferFeeConfigUpdatesFeeQuoterChangesetV2,
+					v1_6.ApplyTokenTransferFeeConfigUpdatesConfigV2{
+						InputsByChain: map[uint64]map[uint64]v1_6.ApplyTokenTransferFeeConfigUpdatesConfigV2Input{
+							src: {
+								dst: {
+									TokenTransferFeeConfigRemoveArgs: []common.Address{
+										srcLinkTokenAddress,
+									},
+								},
+							},
+							dst: {
+								src: {
+									TokenTransferFeeConfigArgs: map[common.Address]v1_6.OptionalFeeQuoterTokenTransferFeeConfig{
+										dstLinkTokenAddress: {
+											MinFeeUSDCents:    pointer.To(uint32(1)),
+											MaxFeeUSDCents:    pointer.To(uint32(2)),
+											DeciBps:           pointer.To(uint16(1)),
+											DestGasOverhead:   pointer.To(uint32(1)),
+											DestBytesOverhead: pointer.To(uint32(64)),
+											IsEnabled:         pointer.To(true),
+										},
+									},
+								},
+							},
+						},
+						MCMS: mcmsConfig,
+					}),
+			)
+			require.NoError(t, err)
+
+			// dst->src token config should be enabled now
+			dstConfig2, err := state.MustGetEVMChainState(dst).FeeQuoter.GetTokenTransferFeeConfig(callOpts, src, dstLinkTokenAddress)
+			require.NoError(t, err)
+			require.Equal(t, fee_quoter.FeeQuoterTokenTransferFeeConfig{
+				MinFeeUSDCents:    uint32(1),
+				MaxFeeUSDCents:    uint32(2),
+				DeciBps:           uint16(1),
+				DestGasOverhead:   uint32(1),
+				DestBytesOverhead: uint32(64),
+				IsEnabled:         true,
+			}, dstConfig2)
+
+			// src->dst token config should still be disabled
+			srcConfig2, err := state.MustGetEVMChainState(src).FeeQuoter.GetTokenTransferFeeConfig(callOpts, dst, srcLinkTokenAddress)
+			require.NoError(t, err)
+			require.Equal(t, fee_quoter.FeeQuoterTokenTransferFeeConfig{}, srcConfig2)
+		})
+	}
+}
+
+func TestUpdateWrappedNativeOnRouterChangeset(t *testing.T) {
+	for _, tc := range []struct {
+		name        string
+		mcmsEnabled bool
+	}{
+		{name: "MCMS enabled", mcmsEnabled: true},
+		{name: "MCMS disabled", mcmsEnabled: false},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			ctx := testcontext.Get(t)
+			tenv, _ := testhelpers.NewMemoryEnvironment(t)
+			state, err := stateview.LoadOnchainState(tenv.Env, stateview.WithLoadLegacyContracts(true))
+			require.NoError(t, err)
+
+			allChains := maps.Keys(tenv.Env.BlockChains.EVMChains())
+			chainSel := allChains[0]
+			router := state.Chains[chainSel].Router
+			require.NotNil(t, router)
+
+			oldWrappedNative, err := router.GetWrappedNative(&bind.CallOpts{Context: ctx})
+			require.NoError(t, err)
+
+			newWrappedNative := common.HexToAddress("0x1234567890123456789012345678901234567890")
+
+			if tc.mcmsEnabled {
+				testhelpers.TransferToTimelock(t, tenv, state, []uint64{chainSel}, true)
+			}
+
+			var mcmsConfig *proposalutils.TimelockConfig
+			if tc.mcmsEnabled {
+				mcmsConfig = &proposalutils.TimelockConfig{MinDelay: 0}
+			}
+
+			_, err = commonchangeset.Apply(t, tenv.Env,
+				commonchangeset.Configure(
+					cldf.CreateLegacyChangeSet(v1_6.UpdateWrappedNativeOnRouterChangeset),
+					v1_6.UpdateWrappedNativeOnRouterConfig{
+						UpdatesByChain: map[uint64]common.Address{
+							chainSel: newWrappedNative,
+						},
+						MCMS: mcmsConfig,
+					},
+				),
+			)
+			require.NoError(t, err)
+
+			updatedWrappedNative, err := router.GetWrappedNative(&bind.CallOpts{Context: ctx})
+			require.NoError(t, err)
+			assert.Equal(t, newWrappedNative, updatedWrappedNative)
+			assert.NotEqual(t, oldWrappedNative, updatedWrappedNative)
 		})
 	}
 }

@@ -2,7 +2,7 @@ package upkeepstate
 
 import (
 	"errors"
-	"sort"
+	"slices"
 	"testing"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -153,9 +153,7 @@ func TestPerformedEventsScanner_Batch(t *testing.T) {
 
 	require.NoError(t, err)
 	require.Len(t, ids, 2)
-	sort.Slice(ids, func(i, j int) bool {
-		return ids[i] < ids[j]
-	})
+	slices.Sort(ids)
 	require.Equal(t, "290decd9548b62a8d60345a988386fc84ba6bc95484008f6362f93160ef3e563", ids[0])
 	require.Equal(t, "331decd9548b62a8d603457658386fc84ba6bc95888008f6362f93160ef3b663", ids[1])
 

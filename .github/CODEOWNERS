@@ -29,7 +29,7 @@
 # To be deprecated in Chainlink V3
 /core/services/fluxmonitorv2 @smartcontractkit/foundations @smartcontractkit/core
 /core/services/job @smartcontractkit/foundations @smartcontractkit/core
-/core/services/keystore @smartcontractkit/foundations @smartcontractkit/core
+/core/services/keystore @smartcontractkit/foundations
 /core/services/ocr* @smartcontractkit/foundations @smartcontractkit/core
 /core/services/periodicbackup @smartcontractkit/foundations @smartcontractkit/core
 /core/services/pg @smartcontractkit/foundations @smartcontractkit/core
@@ -88,12 +88,12 @@ core/scripts/gateway @smartcontractkit/dev-services
 /deployment/common @smartcontractkit/devex-tooling
 /deployment/ccip @smartcontractkit/ccip-tooling @smartcontractkit/ccip-offchain @smartcontractkit/core @smartcontractkit/cld-team
 /deployment/ccip/changeset/globals @smartcontractkit/ccip-offchain
-/deployment/ccip/changeset/solana @smartcontractkit/solana-tooling @smartcontractkit/core @smartcontractkit/cld-team
+/deployment/crib @smartcontractkit/ccip-offchain
 /deployment/ccip/changeset/ton @smartcontractkit/bix-build @smartcontractkit/core @smartcontractkit/cld-team
-/deployment/ccip/view/solana @smartcontractkit/solana-tooling @smartcontractkit/core @smartcontractkit/cld-team
 /deployment/keystone @smartcontractkit/keystone @smartcontractkit/core @smartcontractkit/cld-team
 /deployment/data-feeds @smartcontractkit/data-feeds-engineers @smartcontractkit/core @smartcontractkit/cld-team
 /deployment/data-streams @smartcontractkit/data-streams-engineers @smartcontractkit/core @smartcontractkit/cld-team
+/deployment/vault @smartcontractkit/cld-vault @smartcontractkit/core @smartcontractkit/cld-team
 # TODO: As more products add their deployment logic here, add the team as an owner
 
 # CI/CD

@@ -34,6 +34,7 @@ type Query {
     p2pKeys: P2PKeysPayload!
     solanaKeys: SolanaKeysPayload!
     aptosKeys: AptosKeysPayload!
+    suiKeys: SuiKeysPayload!
     cosmosKeys: CosmosKeysPayload!
     starknetKeys: StarkNetKeysPayload!
     tronKeys: TronKeysPayload!
@@ -799,6 +800,8 @@ enum OCR2ChainType {
     STARKNET
     APTOS
     TRON
+    TON
+    SUI
 }
 
 type OCR2KeyBundle {
@@ -1065,6 +1068,14 @@ type StarkNetKey {
 type StarkNetKeysPayload {
 	results: [StarkNetKey!]!
 }
+type SuiKey {
+	id: ID!
+	account: String!
+}
+
+type SuiKeysPayload {
+	results: [SuiKey!]!
+}
 type TaskRun {
     id: ID!
     dotID: String!
@@ -1073,6 +1084,15 @@ type TaskRun {
     error: String
     createdAt: Time!
     finishedAt: Time
+}
+type TONKey {
+	id: ID!
+	addressBase64: String!
+	rawAddress: String!
+}
+
+type TONKeysPayload {
+	results: [TONKey!]!
 }
 type TronKey {
 	id: ID!

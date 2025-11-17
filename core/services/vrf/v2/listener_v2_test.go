@@ -183,7 +183,7 @@ func testMaybeSubtractReservedLink(t *testing.T, vrfVersion vrfcommon.Version) {
 	ctx := testutils.Context(t)
 	db := pgtest.NewSqlxDB(t)
 	lggr := logger.TestLogger(t)
-	ks := keystore.NewInMemory(db, utils.FastScryptParams, lggr)
+	ks := keystore.NewInMemory(db, utils.FastScryptParams, lggr.Infof)
 	require.NoError(t, ks.Unlock(ctx, "blah"))
 	chainID := testutils.SimulatedChainID
 	k, err := ks.Eth().Create(testutils.Context(t), chainID)
@@ -263,7 +263,7 @@ func testMaybeSubtractReservedNative(t *testing.T, vrfVersion vrfcommon.Version)
 	ctx := testutils.Context(t)
 	db := pgtest.NewSqlxDB(t)
 	lggr := logger.TestLogger(t)
-	ks := keystore.NewInMemory(db, utils.FastScryptParams, lggr)
+	ks := keystore.NewInMemory(db, utils.FastScryptParams, lggr.Infof)
 	require.NoError(t, ks.Unlock(ctx, "blah"))
 	chainID := testutils.SimulatedChainID
 	k, err := ks.Eth().Create(testutils.Context(t), chainID)
@@ -340,7 +340,7 @@ func TestMaybeSubtractReservedNativeV2(t *testing.T) {
 	ctx := testutils.Context(t)
 	db := pgtest.NewSqlxDB(t)
 	lggr := logger.TestLogger(t)
-	ks := keystore.NewInMemory(db, utils.FastScryptParams, lggr)
+	ks := keystore.NewInMemory(db, utils.FastScryptParams, lggr.Infof)
 	require.NoError(t, ks.Unlock(ctx, "blah"))
 	chainID := testutils.SimulatedChainID
 	subID := new(big.Int).SetUint64(1)

@@ -22,7 +22,7 @@ import (
 	cappkg "github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/metering"
-	"github.com/smartcontractkit/chainlink-common/pkg/values"
+	"github.com/smartcontractkit/chainlink-protos/cre/go/values"
 
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/webapi"
@@ -98,7 +98,11 @@ func TestComputeStartAddsToRegistry(t *testing.T) {
 
 	cp, err := th.registry.Get(t.Context(), CapabilityIDCompute)
 	require.NoError(t, err)
-	assert.Equal(t, th.compute, cp)
+	loader, ok := cp.(interface {
+		Load() *cappkg.ExecutableCapability
+	})
+	require.True(t, ok, "expected atomic executable but got: %T", cp)
+	assert.Equal(t, th.compute, *loader.Load())
 }
 
 func TestComputeExecuteMissingConfig(t *testing.T) {

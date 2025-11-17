@@ -73,13 +73,25 @@ func DeployHomeChainChangeset(env cldf.Environment, cfg DeployHomeChainConfig) (
 	_, err = deployHomeChain(env.Logger, env, ab, env.BlockChains.EVMChains()[cfg.HomeChainSel], cfg.RMNStaticConfig, cfg.RMNDynamicConfig, cfg.NodeOperators, cfg.NodeP2PIDsPerNodeOpAdmin)
 	if err != nil {
 		env.Logger.Errorw("Failed to deploy cap reg", "err", err, "addresses", env.ExistingAddresses)
+		ds, err2 := shared.PopulateDataStore(ab)
+		if err2 != nil {
+			err2 = fmt.Errorf("failed to populate in-memory DataStore: %w", err)
+		}
+
 		return cldf.ChangesetOutput{
 			AddressBook: ab,
-		}, err
+			DataStore:   ds,
+		}, errors.Join(err, err2)
+	}
+
+	ds, err := shared.PopulateDataStore(ab)
+	if err != nil {
+		return cldf.ChangesetOutput{}, fmt.Errorf("failed to populate in-memory DataStore: %w", err)
 	}
 
 	return cldf.ChangesetOutput{
 		AddressBook: ab,
+		DataStore:   ds,
 	}, nil
 }
 
@@ -543,7 +555,7 @@ func RemoveDONs(e cldf.Environment, cfg RemoveDONsConfig) (cldf.ChangesetOutput,
 
 	timelocks := map[uint64]string{cfg.HomeChainSel: homeChainState.Timelock.Address().Hex()}
 	inspectors := map[uint64]mcmssdk.Inspector{cfg.HomeChainSel: mcmsevmsdk.NewInspector(homeChain.Client)}
-	mcmsContractsByActionPerChain, err := deployergroup.BuildMcmAddressesPerChainByAction(e, state, cfg.MCMS)
+	mcmsContractsByActionPerChain, err := deployergroup.BuildMcmAddressesPerChainByAction(e, state, cfg.MCMS, nil)
 	if err != nil {
 		return cldf.ChangesetOutput{}, err
 	}
@@ -676,8 +688,11 @@ func removeNodesLogic(env cldf.Environment, c RemoveNodesConfig) (cldf.Changeset
 		return cldf.ChangesetOutput{}, fmt.Errorf("failed to create batch operation for home chain: %w", err)
 	}
 
-	timelocks := deployergroup.BuildTimelockAddressPerChain(env, state)
-	mcmContract, err := deployergroup.BuildMcmAddressesPerChainByAction(env, state, c.MCMSCfg)
+	timelocks, err := deployergroup.BuildTimelockAddressPerChain(env, state, nil)
+	if err != nil {
+		return cldf.ChangesetOutput{}, err
+	}
+	mcmContract, err := deployergroup.BuildMcmAddressesPerChainByAction(env, state, c.MCMSCfg, nil)
 	if err != nil {
 		return cldf.ChangesetOutput{}, err
 	}

@@ -34,7 +34,6 @@ import (
 	types4 "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/config"
-	"github.com/smartcontractkit/chainlink-common/pkg/settings/limits"
 	cciptypes "github.com/smartcontractkit/chainlink-common/pkg/types/ccip"
 	"github.com/smartcontractkit/chainlink-evm/pkg/chains/legacyevm"
 	pb "github.com/smartcontractkit/chainlink-protos/orchestrator/feedsmanager"
@@ -446,7 +445,7 @@ func setupNodeCCIP(
 	require.NoError(t, err)
 	csaKeyStore.On("EnsureKey", mock.Anything).Return(nil)
 	csaKeyStore.On("GetAll").Return([]csakey.KeyV2{key}, nil)
-	keyStore := NewKsa(db, lggr, csaKeyStore)
+	keyStore := NewKsa(db, csaKeyStore, lggr.Infof)
 	ctx := testutils.Context(t)
 	app, err := chainlink.NewApplication(ctx, chainlink.ApplicationOpts{
 		CREOpts: chainlink.CREOpts{
@@ -473,7 +472,6 @@ func setupNodeCCIP(
 		UnrestrictedHTTPClient:   &http.Client{},
 		RestrictedHTTPClient:     &http.Client{},
 		AuditLogger:              audit.NoopLogger,
-		LimitsFactory:            limits.Factory{Logger: lggr.Named("Limits")},
 	})
 
 	require.NoError(t, err)
@@ -538,12 +536,6 @@ type CCIPIntegrationTestHarness struct {
 	CCIPContracts
 	Nodes     []Node
 	Bootstrap Node
-}
-
-func SetupCCIPIntegrationTH(t *testing.T, sourceChainID, sourceChainSelector, destChainId, destChainSelector uint64) CCIPIntegrationTestHarness {
-	return CCIPIntegrationTestHarness{
-		CCIPContracts: SetupCCIPContracts(t, sourceChainID, sourceChainSelector, destChainId, destChainSelector),
-	}
 }
 
 //nolint:testifylint //require is used for assertions in handlers
@@ -888,7 +880,7 @@ func (c *CCIPIntegrationTestHarness) SetupAndStartNodes(ctx context.Context, t *
 		KeyBundle:   bootstrapKb,
 	}
 	// Set up the minimum 4 oracles all funded with destination ETH
-	for i := int64(0); i < 4; i++ {
+	for i := range int64(4) {
 		app, peerID, transmitter, kb := setupNodeCCIP(
 			t,
 			c.Dest.User,
@@ -1010,9 +1002,9 @@ func (k *ksa) CSA() keystore.CSA {
 	return k.csa
 }
 
-func NewKsa(db *sqlx.DB, lggr logger.Logger, csa keystore.CSA) *ksa {
+func NewKsa(db *sqlx.DB, csa keystore.CSA, logf keystore.Logf) *ksa {
 	return &ksa{
-		Master: keystore.New(db, clutils.FastScryptParams, lggr),
+		Master: keystore.New(db, clutils.FastScryptParams, logf),
 		csa:    csa,
 	}
 }

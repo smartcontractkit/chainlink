@@ -47,7 +47,7 @@ func TestETHCallTask(t *testing.T) {
 		vars                  pipeline.Vars
 		inputs                []pipeline.Result
 		setupClientMocks      func(ethClient *clienttest.Client, config *pipelinemocks.Config)
-		expected              interface{}
+		expected              any
 		expectedErrorCause    error
 		expectedErrorContains string
 	}{
@@ -56,11 +56,11 @@ func TestETHCallTask(t *testing.T) {
 			"0xDeaDbeefdEAdbeefdEadbEEFdeadbeEFdEaDbeeF",
 			"",
 			"$(foo)",
-			"0",
+			testutils.FixtureChainID.String(),
 			"",
 			"",
 			nil,
-			pipeline.NewVarsFrom(map[string]interface{}{
+			pipeline.NewVarsFrom(map[string]any{
 				"foo": []byte("foo bar"),
 			}),
 			nil,
@@ -77,11 +77,11 @@ func TestETHCallTask(t *testing.T) {
 			"0xDeaDbeefdEAdbeefdEadbEEFdeadbeEFdEaDbeeF",
 			"",
 			"$(foo)",
-			"0",
+			testutils.FixtureChainID.String(),
 			"$(gasLimit)",
 			"",
 			nil,
-			pipeline.NewVarsFrom(map[string]interface{}{
+			pipeline.NewVarsFrom(map[string]any{
 				"foo":      []byte("foo bar"),
 				"gasLimit": 100_000,
 			}),
@@ -99,11 +99,11 @@ func TestETHCallTask(t *testing.T) {
 			"0xDeaDbeefdEAdbeefdEadbEEFdeadbeEFdEaDbeeF",
 			"",
 			"$(foo)",
-			"0",
+			testutils.FixtureChainID.String(),
 			"",
 			"",
 			&specGasLimit,
-			pipeline.NewVarsFrom(map[string]interface{}{
+			pipeline.NewVarsFrom(map[string]any{
 				"foo": []byte("foo bar"),
 			}),
 			nil,
@@ -120,11 +120,11 @@ func TestETHCallTask(t *testing.T) {
 			"0xDeaDbeefdEAdbeefdEadbEEFdeadbeEFdEaDbeeF",
 			"0xDeaDbeefdEAdbeefdEadbEEFdeadbeEFdEaDbeeF",
 			"$(foo)",
-			"0",
+			testutils.FixtureChainID.String(),
 			"",
 			"",
 			nil,
-			pipeline.NewVarsFrom(map[string]interface{}{
+			pipeline.NewVarsFrom(map[string]any{
 				"foo": []byte("foo bar"),
 			}),
 			nil,
@@ -142,11 +142,11 @@ func TestETHCallTask(t *testing.T) {
 			"0xDeaDbeefdEAdbeefdEadbEEFdeadbeEFdEaDbeeF",
 			"0xThisAintGonnaWork",
 			"$(foo)",
-			"0",
+			testutils.FixtureChainID.String(),
 			"",
 			"",
 			nil,
-			pipeline.NewVarsFrom(map[string]interface{}{
+			pipeline.NewVarsFrom(map[string]any{
 				"foo": []byte("foo bar"),
 			}),
 			nil,
@@ -158,11 +158,11 @@ func TestETHCallTask(t *testing.T) {
 			"0xDeaDbeefdEAdbeefdEadbEEFdeadbeEFdEaDbee",
 			"",
 			"$(foo)",
-			"0",
+			testutils.FixtureChainID.String(),
 			"",
 			"",
 			nil,
-			pipeline.NewVarsFrom(map[string]interface{}{
+			pipeline.NewVarsFrom(map[string]any{
 				"foo": []byte("foo bar"),
 			}),
 			nil,
@@ -174,11 +174,11 @@ func TestETHCallTask(t *testing.T) {
 			"0xDeaDbeefdEAdbeefdEadbEEFdeadbeEFdEaDbeeF",
 			"",
 			"$(foo)",
-			"0",
+			testutils.FixtureChainID.String(),
 			"",
 			"",
 			nil,
-			pipeline.NewVarsFrom(map[string]interface{}{
+			pipeline.NewVarsFrom(map[string]any{
 				"zork": []byte("foo bar"),
 			}),
 			nil,
@@ -190,11 +190,11 @@ func TestETHCallTask(t *testing.T) {
 			"0xDeaDbeefdEAdbeefdEadbEEFdeadbeEFdEaDbeeF",
 			"",
 			"$(foo)",
-			"0",
+			testutils.FixtureChainID.String(),
 			"",
 			"",
 			nil,
-			pipeline.NewVarsFrom(map[string]interface{}{
+			pipeline.NewVarsFrom(map[string]any{
 				"foo": []byte(nil),
 			}),
 			nil,
@@ -206,11 +206,11 @@ func TestETHCallTask(t *testing.T) {
 			"0xDeaDbeefdEAdbeefdEadbEEFdeadbeEFdEaDbeeF",
 			"",
 			"$(foo)",
-			"0",
+			testutils.FixtureChainID.String(),
 			"",
 			"",
 			nil,
-			pipeline.NewVarsFrom(map[string]interface{}{
+			pipeline.NewVarsFrom(map[string]any{
 				"foo": []byte("foo bar"),
 			}),
 			[]pipeline.Result{{Error: errors.New("uh oh")}},
@@ -226,7 +226,7 @@ func TestETHCallTask(t *testing.T) {
 			"",
 			"",
 			nil,
-			pipeline.NewVarsFrom(map[string]interface{}{
+			pipeline.NewVarsFrom(map[string]any{
 				"foo":        []byte("foo bar"),
 				"evmChainID": "123",
 			}),
@@ -244,11 +244,11 @@ func TestETHCallTask(t *testing.T) {
 			"0xDeaDbeefdEAdbeefdEadbEEFdeadbeEFdEaDbeeF",
 			"",
 			"$(foo)",
-			"0",
+			testutils.FixtureChainID.String(),
 			"",
 			"latest",
 			nil,
-			pipeline.NewVarsFrom(map[string]interface{}{
+			pipeline.NewVarsFrom(map[string]any{
 				"foo": []byte("foo bar"),
 			}),
 			nil,
@@ -265,11 +265,11 @@ func TestETHCallTask(t *testing.T) {
 			"0xDeaDbeefdEAdbeefdEadbEEFdeadbeEFdEaDbeeF",
 			"",
 			"$(foo)",
-			"0",
+			testutils.FixtureChainID.String(),
 			"",
 			"pending",
 			nil,
-			pipeline.NewVarsFrom(map[string]interface{}{
+			pipeline.NewVarsFrom(map[string]any{
 				"foo": []byte("foo bar"),
 			}),
 			nil,
@@ -284,7 +284,6 @@ func TestETHCallTask(t *testing.T) {
 	}
 
 	for _, test := range tests {
-		test := test
 		t.Run(test.name, func(t *testing.T) {
 			task := pipeline.ETHCallTask{
 				BaseTask:   pipeline.NewBaseTask(0, "ethcall", nil, nil, 0),

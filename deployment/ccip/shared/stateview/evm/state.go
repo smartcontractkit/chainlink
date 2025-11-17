@@ -8,49 +8,58 @@ import (
 	"github.com/Masterminds/semver/v3"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/smartcontractkit/ccip-contract-examples/chains/evm/gobindings/generated/latest/burn_mint_with_external_minter_token_pool"
+	"github.com/smartcontractkit/ccip-contract-examples/chains/evm/gobindings/generated/latest/hybrid_with_external_minter_token_pool"
+	"github.com/smartcontractkit/ccip-contract-examples/chains/evm/gobindings/generated/latest/token_governor"
 	"golang.org/x/sync/errgroup"
 
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/latest/don_id_claimer"
-	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/latest/factory_burn_mint_erc20"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/latest/fast_transfer_token_pool"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/latest/log_message_data_receiver"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/latest/maybe_revert_message_receiver"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/latest/mock_usdc_token_messenger"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/latest/mock_usdc_token_transmitter"
-	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/latest/token_pool_factory"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_0_0/rmn_proxy_contract"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_2_0/price_registry"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_2_0/router"
+	burn_mint_token_pool_and_proxy "github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_5_0/burn_mint_token_pool_and_proxy"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_5_0/commit_store"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_5_0/evm_2_evm_offramp"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_5_0/evm_2_evm_onramp"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_5_0/mock_rmn_contract"
-	registry_module_owner_custom2 "github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_5_0/registry_module_owner_custom"
+	registry_module_owner_custom_2 "github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_5_0/registry_module_owner_custom"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_5_0/rmn_contract"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_5_0/token_admin_registry"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_5_1/burn_from_mint_token_pool"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_5_1/burn_mint_token_pool"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_5_1/burn_with_from_mint_token_pool"
+	factory_burn_mint_erc20_2 "github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_5_1/factory_burn_mint_erc20"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_5_1/lock_release_token_pool"
+	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_5_1/token_pool_factory"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_5_1/usdc_token_pool"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_0/ccip_home"
-	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_0/fee_quoter"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_0/nonce_manager"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_0/offramp"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_0/onramp"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_0/registry_module_owner_custom"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_0/rmn_home"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_0/rmn_remote"
+	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_2/cctp_message_transmitter_proxy"
+	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_2/factory_burn_mint_erc20"
+	usdc_token_pool_v1_6_2 "github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_2/usdc_token_pool"
+	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_3/fee_quoter"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	capabilities_registry "github.com/smartcontractkit/chainlink-evm/gethwrappers/keystone/generated/capabilities_registry_1_1_0"
-	"github.com/smartcontractkit/chainlink-evm/gethwrappers/shared/generated/aggregator_v3_interface"
-	"github.com/smartcontractkit/chainlink-evm/gethwrappers/shared/generated/burn_mint_erc20"
-	"github.com/smartcontractkit/chainlink-evm/gethwrappers/shared/generated/burn_mint_erc20_with_drip"
-	"github.com/smartcontractkit/chainlink-evm/gethwrappers/shared/generated/burn_mint_erc677"
-	"github.com/smartcontractkit/chainlink-evm/gethwrappers/shared/generated/erc20"
-	"github.com/smartcontractkit/chainlink-evm/gethwrappers/shared/generated/erc677"
-	"github.com/smartcontractkit/chainlink-evm/gethwrappers/shared/generated/multicall3"
-	"github.com/smartcontractkit/chainlink-evm/gethwrappers/shared/generated/weth9"
+	"github.com/smartcontractkit/chainlink-evm/gethwrappers/shared/generated/1_5_0/burn_mint_erc20_with_drip"
+	"github.com/smartcontractkit/chainlink-evm/gethwrappers/shared/generated/initial/aggregator_v3_interface"
+	"github.com/smartcontractkit/chainlink-evm/gethwrappers/shared/generated/initial/burn_mint_erc20"
+	"github.com/smartcontractkit/chainlink-evm/gethwrappers/shared/generated/initial/burn_mint_erc677"
+	"github.com/smartcontractkit/chainlink-evm/gethwrappers/shared/generated/initial/erc20"
+	"github.com/smartcontractkit/chainlink-evm/gethwrappers/shared/generated/initial/erc677"
+	"github.com/smartcontractkit/chainlink-evm/gethwrappers/shared/generated/initial/multicall3"
+	"github.com/smartcontractkit/chainlink-evm/gethwrappers/shared/generated/initial/weth9"
+
+	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/bindings/signer_registry"
 
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 
@@ -81,13 +90,14 @@ type CCIPChainState struct {
 	OnRamp             onramp.OnRampInterface
 	OffRamp            offramp.OffRampInterface
 	FeeQuoter          *fee_quoter.FeeQuoter
+	FeeQuoterVersion   *semver.Version
 	RMNProxy           *rmn_proxy_contract.RMNProxy
 	NonceManager       *nonce_manager.NonceManager
 	TokenAdminRegistry *token_admin_registry.TokenAdminRegistry
 	TokenPoolFactory   *token_pool_factory.TokenPoolFactory
 	RegistryModules1_6 []*registry_module_owner_custom.RegistryModuleOwnerCustom
 	// TODO change this to contract object for v1.5 RegistryModules once we have the wrapper available in chainlink-evm
-	RegistryModules1_5 []*registry_module_owner_custom2.RegistryModuleOwnerCustom
+	RegistryModules1_5 []*registry_module_owner_custom_2.RegistryModuleOwnerCustom
 	Router             *router.Router
 	Weth9              *weth9.WETH9
 	RMNRemote          *rmn_remote.RMNRemote
@@ -95,22 +105,30 @@ type CCIPChainState struct {
 	// Map between token Descriptor (e.g. LinkSymbol, WethSymbol)
 	// and the respective token / token pool contract(s) (only one of which would be active on the registry).
 	// This is more of an illustration of how we'll have tokens, and it might need some work later to work properly.
-	ERC20Tokens               map[shared.TokenSymbol]*erc20.ERC20
-	FactoryBurnMintERC20Token *factory_burn_mint_erc20.FactoryBurnMintERC20
-	ERC677Tokens              map[shared.TokenSymbol]*erc677.ERC677
-	BurnMintTokens677         map[shared.TokenSymbol]*burn_mint_erc677.BurnMintERC677
-	BurnMintERC20             map[shared.TokenSymbol]*burn_mint_erc20.BurnMintERC20
-	BurnMintERC20WithDrip     map[shared.TokenSymbol]*burn_mint_erc20_with_drip.BurnMintERC20
+	ERC20Tokens                    map[shared.TokenSymbol]*erc20.ERC20
+	FactoryBurnMintERC20Token      *factory_burn_mint_erc20.FactoryBurnMintERC20
+	FactoryBurnMintERC20Token1_5_1 *factory_burn_mint_erc20_2.FactoryBurnMintERC20
+	ERC677Tokens                   map[shared.TokenSymbol]*erc677.ERC677
+	BurnMintTokens677              map[shared.TokenSymbol]*burn_mint_erc677.BurnMintERC677
+	BurnMintERC20                  map[shared.TokenSymbol]*burn_mint_erc20.BurnMintERC20
+	BurnMintERC20WithDrip          map[shared.TokenSymbol]*burn_mint_erc20_with_drip.BurnMintERC20WithDrip
+	TokenGovernor                  map[shared.TokenSymbol]*token_governor.TokenGovernor
 
 	// Pools
 	BurnMintTokenPools                               map[shared.TokenSymbol]map[semver.Version]*burn_mint_token_pool.BurnMintTokenPool
+	BurnMintTokenPoolsAndProxies                     map[shared.TokenSymbol]map[semver.Version]*burn_mint_token_pool_and_proxy.BurnMintTokenPoolAndProxy
 	BurnMintFastTransferTokenPools                   map[shared.TokenSymbol]map[semver.Version]*fast_transfer_token_pool.BurnMintFastTransferTokenPool
 	BurnMintWithExternalMinterFastTransferTokenPools map[shared.TokenSymbol]map[semver.Version]*burn_mint_with_external_minter_fast_transfer_token_pool.BurnMintWithExternalMinterFastTransferTokenPool
 	HybridWithExternalMinterFastTransferTokenPools   map[shared.TokenSymbol]map[semver.Version]*hybrid_with_external_minter_fast_transfer_token_pool.HybridWithExternalMinterFastTransferTokenPool
 	BurnWithFromMintTokenPools                       map[shared.TokenSymbol]map[semver.Version]*burn_with_from_mint_token_pool.BurnWithFromMintTokenPool
 	BurnFromMintTokenPools                           map[shared.TokenSymbol]map[semver.Version]*burn_from_mint_token_pool.BurnFromMintTokenPool
-	USDCTokenPools                                   map[semver.Version]*usdc_token_pool.USDCTokenPool
-	LockReleaseTokenPools                            map[shared.TokenSymbol]map[semver.Version]*lock_release_token_pool.LockReleaseTokenPool
+	BurnMintWithExternalMinterTokenPool              map[shared.TokenSymbol]map[semver.Version]*burn_mint_with_external_minter_token_pool.BurnMintWithExternalMinterTokenPool
+	HybridWithExternalMinterTokenPool                map[shared.TokenSymbol]map[semver.Version]*hybrid_with_external_minter_token_pool.HybridWithExternalMinterTokenPool
+	// Newer versions of the USDCTokenPool use a message transmitter proxy
+	CCTPMessageTransmitterProxies map[semver.Version]*cctp_message_transmitter_proxy.CCTPMessageTransmitterProxy
+	USDCTokenPools                map[semver.Version]*usdc_token_pool.USDCTokenPool
+	USDCTokenPoolsV1_6            map[semver.Version]*usdc_token_pool_v1_6_2.USDCTokenPool
+	LockReleaseTokenPools         map[shared.TokenSymbol]map[semver.Version]*lock_release_token_pool.LockReleaseTokenPool
 	// Map between token Symbol (e.g. LinkSymbol, WethSymbol)
 	// and the respective aggregator USD feed contract
 	USDFeeds map[shared.TokenSymbol]*aggregator_v3_interface.AggregatorV3Interface
@@ -139,6 +157,9 @@ type CCIPChainState struct {
 
 	// Treasury contracts
 	FeeAggregator common.Address
+
+	// Base Attestation contracts
+	SignerRegistry *signer_registry.SignerRegistry
 }
 
 // ValidateHomeChain validates the home chain contracts and their configurations after complete setup.
@@ -212,6 +233,9 @@ func (c CCIPChainState) validateCCIPHomeVersionedActiveConfig(e cldf.Environment
 		return nil
 	}
 	if _, exists := e.BlockChains.AptosChains()[chainSel]; exists {
+		return nil
+	}
+	if _, exists := e.BlockChains.SuiChains()[chainSel]; exists {
 		return nil
 	}
 	offRamp, ok := offRampsByChain[chainSel]
@@ -593,6 +617,9 @@ func (c CCIPChainState) TokenAddressBySymbol() (map[shared.TokenSymbol]common.Ad
 	for symbol, token := range c.BurnMintTokens677 {
 		tokenAddresses[symbol] = token.Address()
 	}
+	for symbol, token := range c.BurnMintERC20 {
+		tokenAddresses[symbol] = token.Address()
+	}
 	var err error
 	tokenAddresses[shared.LinkSymbol], err = c.LinkTokenAddress()
 	if err != nil {
@@ -618,6 +645,9 @@ func (c CCIPChainState) TokenDetailsBySymbol() (map[shared.TokenSymbol]shared.To
 		tokenDetails[symbol] = token
 	}
 	for symbol, token := range c.BurnMintTokens677 {
+		tokenDetails[symbol] = token
+	}
+	for symbol, token := range c.BurnMintERC20 {
 		tokenDetails[symbol] = token
 	}
 	if c.LinkToken != nil {
@@ -653,10 +683,26 @@ func (c CCIPChainState) LinkTokenAddress() (common.Address, error) {
 
 func (c CCIPChainState) GenerateView(lggr logger.Logger, chain string) (view.ChainView, error) {
 	chainView := view.NewChain()
+
+	// Create a buffered channel for jobs and limit workers to 8
+	const numWorkers = 8
+	jobCh := make(chan func() error, 100)
 	grp := errgroup.Group{}
 
-	if c.Router != nil {
+	// Start fixed number of workers
+	for range numWorkers {
 		grp.Go(func() error {
+			for job := range jobCh {
+				if err := job(); err != nil {
+					return err
+				}
+			}
+			return nil
+		})
+	}
+
+	if c.Router != nil {
+		jobCh <- func() error {
 			routerView, err := v1_2.GenerateRouterView(c.Router, false)
 			if err != nil {
 				return fmt.Errorf("failed to generate router view for router %s: %w", c.Router.Address().String(), err)
@@ -666,11 +712,11 @@ func (c CCIPChainState) GenerateView(lggr logger.Logger, chain string) (view.Cha
 			chainView.Router[c.Router.Address().Hex()] = routerView
 			lggr.Infow("generated router view", "router", c.Router.Address().Hex(), "chain", chain)
 			return nil
-		})
+		}
 	}
 
 	if c.TestRouter != nil {
-		grp.Go(func() error {
+		jobCh <- func() error {
 			testRouterView, err := v1_2.GenerateRouterView(c.TestRouter, true)
 			if err != nil {
 				return fmt.Errorf("failed to generate test router view for test router %s: %w", c.TestRouter.Address().String(), err)
@@ -680,10 +726,10 @@ func (c CCIPChainState) GenerateView(lggr logger.Logger, chain string) (view.Cha
 			chainView.Router[c.TestRouter.Address().Hex()] = testRouterView
 			lggr.Infow("generated test router view", "testRouter", c.TestRouter.Address().Hex(), "chain", chain)
 			return nil
-		})
+		}
 	}
 	if c.TokenAdminRegistry != nil {
-		grp.Go(func() error {
+		jobCh <- func() error {
 			lggr.Infow("generating token admin registry view, this might take a while based on number of tokens",
 				"tokenAdminRegistry", c.TokenAdminRegistry.Address().Hex(), "chain", chain)
 			taView, err := v1_5.GenerateTokenAdminRegistryView(c.TokenAdminRegistry)
@@ -695,10 +741,10 @@ func (c CCIPChainState) GenerateView(lggr logger.Logger, chain string) (view.Cha
 			chainView.TokenAdminRegistry[c.TokenAdminRegistry.Address().Hex()] = taView
 			lggr.Infow("generated token admin registry view", "tokenAdminRegistry", c.TokenAdminRegistry.Address().Hex(), "chain", chain)
 			return nil
-		})
+		}
 	}
 	if c.TokenPoolFactory != nil {
-		grp.Go(func() error {
+		jobCh <- func() error {
 			tpfView, err := v1_5_1.GenerateTokenPoolFactoryView(c.TokenPoolFactory)
 			if err != nil {
 				return fmt.Errorf("failed to generate token pool factory view for token pool factory %s: %w", c.TokenPoolFactory.Address().String(), err)
@@ -708,11 +754,26 @@ func (c CCIPChainState) GenerateView(lggr logger.Logger, chain string) (view.Cha
 			chainView.TokenPoolFactory[c.TokenPoolFactory.Address().Hex()] = tpfView
 			lggr.Infow("generated token pool factory view", "tokenPoolFactory", c.TokenPoolFactory.Address().Hex(), "chain", chain)
 			return nil
-		})
+		}
+	}
+	for tokenSymbol, versionToPool := range c.BurnMintTokenPoolsAndProxies {
+		for _, tokenPool := range versionToPool {
+			jobCh <- func() error {
+				tokenPoolView, err := v1_5.GenerateTokenPoolView(tokenPool, c.usdFeedOrDefault(tokenSymbol))
+				if err != nil {
+					return fmt.Errorf("failed to generate burn mint token pool view for %s: %w", tokenPool.Address().String(), err)
+				}
+				chainView.UpdateTokenPool(tokenSymbol.String(), tokenPool.Address().Hex(), v1_5_1.PoolView{
+					TokenPoolView: tokenPoolView,
+				})
+				lggr.Infow("generated burn mint token pool view", "tokenPool", tokenPool.Address().Hex(), "chain", chain)
+				return nil
+			}
+		}
 	}
 	for tokenSymbol, versionToPool := range c.BurnMintTokenPools {
 		for _, tokenPool := range versionToPool {
-			grp.Go(func() error {
+			jobCh <- func() error {
 				tokenPoolView, err := v1_5_1.GenerateTokenPoolView(tokenPool, c.usdFeedOrDefault(tokenSymbol))
 				if err != nil {
 					return fmt.Errorf("failed to generate burn mint token pool view for %s: %w", tokenPool.Address().String(), err)
@@ -722,12 +783,12 @@ func (c CCIPChainState) GenerateView(lggr logger.Logger, chain string) (view.Cha
 				})
 				lggr.Infow("generated burn mint token pool view", "tokenPool", tokenPool.Address().Hex(), "chain", chain)
 				return nil
-			})
+			}
 		}
 	}
 	for tokenSymbol, versionToPool := range c.BurnWithFromMintTokenPools {
 		for _, tokenPool := range versionToPool {
-			grp.Go(func() error {
+			jobCh <- func() error {
 				tokenPoolView, err := v1_5_1.GenerateTokenPoolView(tokenPool, c.usdFeedOrDefault(tokenSymbol))
 				if err != nil {
 					return fmt.Errorf("failed to generate burn mint token pool view for %s: %w", tokenPool.Address().String(), err)
@@ -735,14 +796,14 @@ func (c CCIPChainState) GenerateView(lggr logger.Logger, chain string) (view.Cha
 				chainView.UpdateTokenPool(tokenSymbol.String(), tokenPool.Address().Hex(), v1_5_1.PoolView{
 					TokenPoolView: tokenPoolView,
 				})
-				lggr.Infow("generated burn mint token pool view", "tokenPool", tokenPool.Address().Hex(), "chain", chain)
+				lggr.Infow("generated burn with from mint token pool view", "tokenPool", tokenPool.Address().Hex(), "chain", chain)
 				return nil
-			})
+			}
 		}
 	}
 	for tokenSymbol, versionToPool := range c.BurnFromMintTokenPools {
 		for _, tokenPool := range versionToPool {
-			grp.Go(func() error {
+			jobCh <- func() error {
 				tokenPoolView, err := v1_5_1.GenerateTokenPoolView(tokenPool, c.usdFeedOrDefault(tokenSymbol))
 				if err != nil {
 					return fmt.Errorf("failed to generate burn mint token pool view for %s: %w", tokenPool.Address().String(), err)
@@ -750,14 +811,14 @@ func (c CCIPChainState) GenerateView(lggr logger.Logger, chain string) (view.Cha
 				chainView.UpdateTokenPool(tokenSymbol.String(), tokenPool.Address().Hex(), v1_5_1.PoolView{
 					TokenPoolView: tokenPoolView,
 				})
-				lggr.Infow("generated burn mint token pool view", "tokenPool", tokenPool.Address().Hex(), "chain", chain)
+				lggr.Infow("generated burn from mint token pool view", "tokenPool", tokenPool.Address().Hex(), "chain", chain)
 				return nil
-			})
+			}
 		}
 	}
 	for tokenSymbol, versionToPool := range c.LockReleaseTokenPools {
 		for _, tokenPool := range versionToPool {
-			grp.Go(func() error {
+			jobCh <- func() error {
 				tokenPoolView, err := v1_5_1.GenerateLockReleaseTokenPoolView(tokenPool, c.usdFeedOrDefault(tokenSymbol))
 				if err != nil {
 					return fmt.Errorf("failed to generate lock release token pool view for %s: %w", tokenPool.Address().String(), err)
@@ -765,11 +826,12 @@ func (c CCIPChainState) GenerateView(lggr logger.Logger, chain string) (view.Cha
 				chainView.UpdateTokenPool(tokenSymbol.String(), tokenPool.Address().Hex(), tokenPoolView)
 				lggr.Infow("generated lock release token pool view", "tokenPool", tokenPool.Address().Hex(), "chain", chain)
 				return nil
-			})
+			}
 		}
 	}
+	// TODO: Something for c.USDCTokenPools_v1_6?
 	for _, pool := range c.USDCTokenPools {
-		grp.Go(func() error {
+		jobCh <- func() error {
 			tokenPoolView, err := v1_5_1.GenerateUSDCTokenPoolView(pool)
 			if err != nil {
 				return fmt.Errorf("failed to generate USDC token pool view for %s: %w", pool.Address().String(), err)
@@ -777,10 +839,10 @@ func (c CCIPChainState) GenerateView(lggr logger.Logger, chain string) (view.Cha
 			chainView.UpdateTokenPool(string(shared.USDCSymbol), pool.Address().Hex(), tokenPoolView)
 			lggr.Infow("generated USDC token pool view", "tokenPool", pool.Address().Hex(), "chain", chain)
 			return nil
-		})
+		}
 	}
 	if c.NonceManager != nil {
-		grp.Go(func() error {
+		jobCh <- func() error {
 			nmView, err := v1_6.GenerateNonceManagerView(c.NonceManager)
 			if err != nil {
 				return fmt.Errorf("failed to generate nonce manager view for nonce manager %s: %w", c.NonceManager.Address().String(), err)
@@ -790,10 +852,10 @@ func (c CCIPChainState) GenerateView(lggr logger.Logger, chain string) (view.Cha
 			chainView.NonceManager[c.NonceManager.Address().Hex()] = nmView
 			lggr.Infow("generated nonce manager view", "nonceManager", c.NonceManager.Address().Hex(), "chain", chain)
 			return nil
-		})
+		}
 	}
 	if c.RMNRemote != nil {
-		grp.Go(func() error {
+		jobCh <- func() error {
 			rmnView, err := v1_6.GenerateRMNRemoteView(c.RMNRemote)
 			if err != nil {
 				return fmt.Errorf("failed to generate rmn remote view for rmn remote %s: %w", c.RMNRemote.Address().String(), err)
@@ -803,11 +865,11 @@ func (c CCIPChainState) GenerateView(lggr logger.Logger, chain string) (view.Cha
 			chainView.RMNRemote[c.RMNRemote.Address().Hex()] = rmnView
 			lggr.Infow("generated rmn remote view", "rmnRemote", c.RMNRemote.Address().Hex(), "chain", chain)
 			return nil
-		})
+		}
 	}
 
 	if c.RMNHome != nil {
-		grp.Go(func() error {
+		jobCh <- func() error {
 			rmnHomeView, err := v1_6.GenerateRMNHomeView(c.RMNHome)
 			if err != nil {
 				return fmt.Errorf("failed to generate rmn home view for rmn home %s: %w", c.RMNHome.Address().String(), err)
@@ -817,11 +879,11 @@ func (c CCIPChainState) GenerateView(lggr logger.Logger, chain string) (view.Cha
 			chainView.RMNHome[c.RMNHome.Address().Hex()] = rmnHomeView
 			lggr.Infow("generated rmn home view", "rmnHome", c.RMNHome.Address().Hex(), "chain", chain)
 			return nil
-		})
+		}
 	}
 
 	if c.FeeQuoter != nil && c.Router != nil && c.TokenAdminRegistry != nil {
-		grp.Go(func() error {
+		jobCh <- func() error {
 			// FeeQuoter knows only about tokens that managed by CCIP (i.e. imported from address book)
 			tokenDetails, err := c.TokenDetailsBySymbol()
 			if err != nil {
@@ -840,11 +902,11 @@ func (c CCIPChainState) GenerateView(lggr logger.Logger, chain string) (view.Cha
 			chainView.FeeQuoter[c.FeeQuoter.Address().Hex()] = fqView
 			lggr.Infow("generated fee quoter view", "feeQuoter", c.FeeQuoter.Address().Hex(), "chain", chain)
 			return nil
-		})
+		}
 	}
 
 	if c.OnRamp != nil && c.Router != nil && c.TokenAdminRegistry != nil {
-		grp.Go(func() error {
+		jobCh <- func() error {
 			onRampView, err := v1_6.GenerateOnRampView(
 				c.OnRamp,
 				c.Router,
@@ -859,11 +921,11 @@ func (c CCIPChainState) GenerateView(lggr logger.Logger, chain string) (view.Cha
 			chainView.OnRamp[c.OnRamp.Address().Hex()] = onRampView
 			lggr.Infow("generated on ramp view", "onRamp", c.OnRamp.Address().Hex(), "chain", chain)
 			return nil
-		})
+		}
 	}
 
 	if c.OffRamp != nil && c.Router != nil {
-		grp.Go(func() error {
+		jobCh <- func() error {
 			offRampView, err := v1_6.GenerateOffRampView(
 				c.OffRamp,
 				c.Router,
@@ -877,11 +939,11 @@ func (c CCIPChainState) GenerateView(lggr logger.Logger, chain string) (view.Cha
 			chainView.OffRamp[c.OffRamp.Address().Hex()] = offRampView
 			lggr.Infow("generated off ramp view", "offRamp", c.OffRamp.Address().Hex(), "chain", chain)
 			return nil
-		})
+		}
 	}
 
 	if c.RMNProxy != nil {
-		grp.Go(func() error {
+		jobCh <- func() error {
 			rmnProxyView, err := v1_0.GenerateRMNProxyView(c.RMNProxy)
 			if err != nil {
 				return fmt.Errorf("failed to generate rmn proxy view for rmn proxy %s: %w", c.RMNProxy.Address().String(), err)
@@ -891,10 +953,10 @@ func (c CCIPChainState) GenerateView(lggr logger.Logger, chain string) (view.Cha
 			chainView.RMNProxy[c.RMNProxy.Address().Hex()] = rmnProxyView
 			lggr.Infow("generated rmn proxy view", "rmnProxy", c.RMNProxy.Address().Hex(), "chain", chain)
 			return nil
-		})
+		}
 	}
 	if c.CCIPHome != nil && c.CapabilityRegistry != nil {
-		grp.Go(func() error {
+		jobCh <- func() error {
 			chView, err := v1_6.GenerateCCIPHomeView(c.CapabilityRegistry, c.CCIPHome)
 			if err != nil {
 				return fmt.Errorf("failed to generate CCIP home view for CCIP home %s: %w", c.CCIPHome.Address().String(), err)
@@ -904,10 +966,10 @@ func (c CCIPChainState) GenerateView(lggr logger.Logger, chain string) (view.Cha
 			chainView.CCIPHome[c.CCIPHome.Address().Hex()] = chView
 			lggr.Infow("generated CCIP home view", "CCIPHome", c.CCIPHome.Address().Hex(), "chain", chain)
 			return nil
-		})
+		}
 	}
 	if c.CapabilityRegistry != nil {
-		grp.Go(func() error {
+		jobCh <- func() error {
 			capRegView, err := v1_1.GenerateCapabilityRegistryView(c.CapabilityRegistry)
 			if err != nil {
 				return fmt.Errorf("failed to generate capability registry view for capability registry %s: %w", c.CapabilityRegistry.Address().String(), err)
@@ -917,10 +979,10 @@ func (c CCIPChainState) GenerateView(lggr logger.Logger, chain string) (view.Cha
 			chainView.CapabilityRegistry[c.CapabilityRegistry.Address().Hex()] = capRegView
 			lggr.Infow("generated capability registry view", "capabilityRegistry", c.CapabilityRegistry.Address().Hex(), "chain", chain)
 			return nil
-		})
+		}
 	}
 	if c.MCMSWithTimelockState.Timelock != nil {
-		grp.Go(func() error {
+		jobCh <- func() error {
 			mcmsView, err := c.MCMSWithTimelockState.GenerateMCMSWithTimelockView()
 			if err != nil {
 				return fmt.Errorf("failed to generate MCMS with timelock view for MCMS with timelock %s: %w", c.MCMSWithTimelockState.Timelock.Address().String(), err)
@@ -930,10 +992,10 @@ func (c CCIPChainState) GenerateView(lggr logger.Logger, chain string) (view.Cha
 			chainView.MCMSWithTimelock = mcmsView
 			lggr.Infow("generated MCMS with timelock view", "MCMSWithTimelock", c.MCMSWithTimelockState.Timelock.Address().Hex(), "chain", chain)
 			return nil
-		})
+		}
 	}
 	if c.LinkToken != nil {
-		grp.Go(func() error {
+		jobCh <- func() error {
 			linkTokenView, err := c.GenerateLinkView()
 			if err != nil {
 				return fmt.Errorf("failed to generate link token view for link token %s: %w", c.LinkToken.Address().String(), err)
@@ -943,10 +1005,10 @@ func (c CCIPChainState) GenerateView(lggr logger.Logger, chain string) (view.Cha
 			chainView.LinkToken = linkTokenView
 			lggr.Infow("generated link token view", "linkToken", c.LinkToken.Address().Hex(), "chain", chain)
 			return nil
-		})
+		}
 	}
 	if c.StaticLinkToken != nil {
-		grp.Go(func() error {
+		jobCh <- func() error {
 			staticLinkTokenView, err := c.GenerateStaticLinkView()
 			if err != nil {
 				return err
@@ -956,7 +1018,7 @@ func (c CCIPChainState) GenerateView(lggr logger.Logger, chain string) (view.Cha
 			chainView.StaticLinkToken = staticLinkTokenView
 			lggr.Infow("generated static link token view", "staticLinkToken", c.StaticLinkToken.Address().Hex(), "chain", chain)
 			return nil
-		})
+		}
 	}
 
 	// Legacy contracts
@@ -964,7 +1026,7 @@ func (c CCIPChainState) GenerateView(lggr logger.Logger, chain string) (view.Cha
 	// considering the state of these contracts are not referred currently, and it's enormously expensive to generate
 	// state for multiple lanes per chain
 	for _, registryModule := range c.RegistryModules1_6 {
-		grp.Go(func() error {
+		jobCh <- func() error {
 			registryModuleView, err := shared2.GetRegistryModuleView(registryModule, c.TokenAdminRegistry.Address())
 			if err != nil {
 				return fmt.Errorf("failed to generate registry module view for registry module %s: %w", registryModule.Address().Hex(), err)
@@ -972,11 +1034,11 @@ func (c CCIPChainState) GenerateView(lggr logger.Logger, chain string) (view.Cha
 			chainView.UpdateRegistryModuleView(registryModule.Address().Hex(), registryModuleView)
 			lggr.Infow("generated registry module view", "registryModule", registryModule.Address().Hex(), "chain", chain)
 			return nil
-		})
+		}
 	}
 
 	for _, registryModule := range c.RegistryModules1_5 {
-		grp.Go(func() error {
+		jobCh <- func() error {
 			registryModuleView, err := shared2.GetRegistryModuleView(registryModule, c.TokenAdminRegistry.Address())
 			if err != nil {
 				return fmt.Errorf("failed to generate registry module view for registry module %s: %w", registryModule.Address().Hex(), err)
@@ -984,11 +1046,11 @@ func (c CCIPChainState) GenerateView(lggr logger.Logger, chain string) (view.Cha
 			chainView.UpdateRegistryModuleView(registryModule.Address().Hex(), registryModuleView)
 			lggr.Infow("generated registry module view", "registryModule", registryModule.Address().Hex(), "chain", chain)
 			return nil
-		})
+		}
 	}
 
 	if c.PriceRegistry != nil {
-		grp.Go(func() error {
+		jobCh <- func() error {
 			priceRegistryView, err := v1_2.GeneratePriceRegistryView(c.PriceRegistry)
 			if err != nil {
 				return fmt.Errorf("failed to generate price registry view for price registry %s: %w", c.PriceRegistry.Address().String(), err)
@@ -998,11 +1060,11 @@ func (c CCIPChainState) GenerateView(lggr logger.Logger, chain string) (view.Cha
 			chainView.PriceRegistry[c.PriceRegistry.Address().String()] = priceRegistryView
 			lggr.Infow("generated price registry view", "priceRegistry", c.PriceRegistry.Address().String(), "chain", chain)
 			return nil
-		})
+		}
 	}
 
 	if c.RMN != nil {
-		grp.Go(func() error {
+		jobCh <- func() error {
 			rmnView, err := v1_5.GenerateRMNView(c.RMN)
 			if err != nil {
 				return fmt.Errorf("failed to generate rmn view for rmn %s: %w", c.RMN.Address().String(), err)
@@ -1012,9 +1074,11 @@ func (c CCIPChainState) GenerateView(lggr logger.Logger, chain string) (view.Cha
 			chainView.RMN[c.RMN.Address().Hex()] = rmnView
 			lggr.Infow("generated rmn view", "rmn", c.RMN.Address().Hex(), "chain", chain)
 			return nil
-		})
+		}
 	}
 
+	// Close the job channel and wait for all workers to complete
+	close(jobCh)
 	return chainView, grp.Wait()
 }
 

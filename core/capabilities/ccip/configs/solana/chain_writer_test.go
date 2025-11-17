@@ -30,7 +30,7 @@ func TestChainWriterConfigRaw(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			config, err := GetSolanaChainWriterConfig("4Nn9dsYBcSTzRbK9hg9kzCUdrCSkMZq1UR6Vw1Tkaf6H", tt.fromAddress)
+			config, err := GetSolanaChainWriterConfig("4Nn9dsYBcSTzRbK9hg9kzCUdrCSkMZq1UR6Vw1Tkaf6H", tt.fromAddress, nil)
 			if tt.expectedError != "" {
 				assert.EqualError(t, err, tt.expectedError)
 			} else {
@@ -41,7 +41,7 @@ func TestChainWriterConfigRaw(t *testing.T) {
 				var result chainwriter.ChainWriterConfig
 				err = json.Unmarshal(raw, &result)
 				require.NoError(t, err)
-				require.EqualValues(t, config, result)
+				require.Equal(t, config, result)
 			}
 		})
 	}

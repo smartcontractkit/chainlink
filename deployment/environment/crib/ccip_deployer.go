@@ -19,9 +19,9 @@ import (
 
 	"github.com/smartcontractkit/chainlink-ccip/chainconfig"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_5_1/token_pool"
-	evm_fee_quoter "github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_0/fee_quoter"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_0/rmn_home"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_0/rmn_remote"
+	evm_fee_quoter "github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_3/fee_quoter"
 	cciptypes "github.com/smartcontractkit/chainlink-ccip/pkg/types/ccipocr3"
 	"github.com/smartcontractkit/chainlink-ccip/pluginconfig"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
@@ -32,7 +32,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/globals"
-	ccipChangesetSolana "github.com/smartcontractkit/chainlink/deployment/ccip/changeset/solana"
+	ccipChangesetSolana "github.com/smartcontractkit/chainlink/deployment/ccip/changeset/solana_v0_1_0"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/v1_5_1"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/v1_6"
@@ -40,9 +40,10 @@ import (
 	ccipseq "github.com/smartcontractkit/chainlink/deployment/ccip/sequence/evm/v1_6"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
+	"github.com/smartcontractkit/chainlink/deployment/utils/solutils"
 
 	solconfig "github.com/smartcontractkit/chainlink-ccip/chains/solana/contracts/tests/config"
-	solTestTokenPool "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/test_token_pool"
+	solTestTokenPool "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/v0_1_0/test_token_pool"
 	solcommon "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/common"
 	solstate "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/state"
 	soltokens "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/tokens"
@@ -55,7 +56,6 @@ import (
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 	commontypes "github.com/smartcontractkit/chainlink/deployment/common/types"
 	"github.com/smartcontractkit/chainlink/deployment/environment/devenv"
-	"github.com/smartcontractkit/chainlink/deployment/environment/memory"
 )
 
 const (
@@ -65,6 +65,7 @@ const (
 // DeployHomeChainContracts deploys the home chain contracts so that the chainlink nodes can use the CR address in Capabilities.ExternalRegistry
 // Afterward, we call DeployHomeChainChangeset changeset with nodeinfo ( the peer id and all)
 func DeployHomeChainContracts(ctx context.Context, lggr logger.Logger, envConfig devenv.EnvironmentConfig, homeChainSel uint64, feedChainSel uint64) (deployment.CapabilityRegistryConfig, cldf.AddressBook, error) {
+	lggr.Info("Deploying home chain contracts...")
 	e, _, err := devenv.NewEnvironment(func() context.Context { return ctx }, lggr, envConfig)
 	if err != nil {
 		return deployment.CapabilityRegistryConfig{}, nil, err
@@ -85,13 +86,16 @@ func DeployHomeChainContracts(ctx context.Context, lggr logger.Logger, envConfig
 
 	for _, selector := range solChainSelectors {
 		lggr.Infof("Funding solana deployer account %v", e.BlockChains.SolanaChains()[selector].DeployerKey.PublicKey())
-		err = memory.FundSolanaAccounts(e.GetContext(), []solana.PublicKey{e.BlockChains.SolanaChains()[selector].DeployerKey.PublicKey()}, 10000, e.BlockChains.SolanaChains()[selector].Client)
+		chain := e.BlockChains.SolanaChains()[selector]
+		err = solutils.FundAccounts(
+			e.GetContext(), chain.Client, []solana.PublicKey{chain.DeployerKey.PublicKey()}, 10000,
+		)
 		if err != nil {
 			return deployment.CapabilityRegistryConfig{}, nil, err
 		}
 	}
 
-	p2pIds := nodes.NonBootstraps().PeerIDs()
+	p2pIDs := nodes.NonBootstraps().PeerIDs()
 	cfg := make(map[uint64]commontypes.MCMSWithTimelockConfigV2)
 	for _, chain := range e.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chainselectors.FamilyEVM)) {
 		mcmsConfig, err := mcmstypes.NewConfig(1, []common.Address{evmChains[chain].DeployerKey.From}, []mcmstypes.Config{})
@@ -115,7 +119,7 @@ func DeployHomeChainContracts(ctx context.Context, lggr logger.Logger, envConfig
 			RMNStaticConfig:          testhelpers.NewTestRMNStaticConfig(),
 			RMNDynamicConfig:         testhelpers.NewTestRMNDynamicConfig(),
 			NodeOperators:            testhelpers.NewTestNodeOperator(evmChains[homeChainSel].DeployerKey.From),
-			NodeP2PIDsPerNodeOpAdmin: map[string][][32]byte{"NodeOperator": p2pIds},
+			NodeP2PIDsPerNodeOpAdmin: map[string][][32]byte{"NodeOperator": p2pIDs},
 		},
 	))
 	if err != nil {
@@ -500,7 +504,6 @@ func setupSolLinkPools(e *cldf.Environment) (cldf.Environment, error) {
 	}
 	for _, solChainSel := range sels {
 		solTokenAddress := state.SolChains[solChainSel].LinkToken
-		bnm := solTestTokenPool.BurnAndMint_PoolType
 
 		*e, err = commonchangeset.Apply(nil, *e,
 			commonchangeset.Configure(
@@ -533,7 +536,7 @@ func setupSolLinkPools(e *cldf.Environment) (cldf.Environment, error) {
 							TokenPoolConfigs: []ccipChangesetSolana.TokenPoolConfig{
 								{
 									TokenPubKey: solTokenAddress,
-									PoolType:    &bnm,
+									PoolType:    shared.BurnMintTokenPool,
 									Metadata:    shared.CLLMetadata,
 								},
 							},
@@ -568,7 +571,7 @@ func setupSolLinkPools(e *cldf.Environment) (cldf.Environment, error) {
 							SetPoolTokenConfigs: []ccipChangesetSolana.SetPoolTokenConfig{
 								{
 									TokenPubKey: solTokenAddress,
-									PoolType:    &bnm,
+									PoolType:    shared.BurnMintTokenPool,
 									Metadata:    shared.CLLMetadata,
 								},
 							},
@@ -680,7 +683,6 @@ func setupSolEvmLanes(lggr logger.Logger, e *cldf.Environment, state stateview.C
 	}
 
 	for _, solSelector := range solSelectors {
-		solSelector := solSelector // capture range variable
 		solChainSel := solSelector.ChainSelector()
 		relevantLanes := lanesBySolChain[solChainSel]
 
@@ -748,7 +750,7 @@ func setupSolEvmLanes(lggr logger.Logger, e *cldf.Environment, state stateview.C
 				if hasLaneFromTo(relevantLanes, evmChainSel, solChainSel) {
 					cs := testhelpers.AddEVMSrcChangesets(evmChainSel, solChainSel, false, gasPrices, tokenPrices, fqCfg)
 					laneChangesets = append(laneChangesets, cs...)
-					cs = testhelpers.AddLaneSolanaChangesets(&deployedEnv, solSelector.Selector, evmSelector.Selector, chainselectors.FamilyEVM)
+					cs = testhelpers.AddLaneSolanaChangesetsV0_1_1(&deployedEnv, solSelector.Selector, evmSelector.Selector, chainselectors.FamilyEVM)
 					laneChangesets = append(laneChangesets, cs...)
 				}
 
@@ -758,7 +760,6 @@ func setupSolEvmLanes(lggr logger.Logger, e *cldf.Environment, state stateview.C
 					laneChangesets = append(laneChangesets, cs...)
 				}
 
-				bnm := solTestTokenPool.BurnAndMint_PoolType
 				laneChangesets = append(laneChangesets,
 					commonchangeset.Configure(
 						cldf.CreateLegacyChangeSet(ccipChangesetSolana.SetupTokenPoolForRemoteChain),
@@ -767,7 +768,7 @@ func setupSolEvmLanes(lggr logger.Logger, e *cldf.Environment, state stateview.C
 							RemoteTokenPoolConfigs: []ccipChangesetSolana.RemoteChainTokenPoolConfig{
 								{
 									SolTokenPubKey: solChainState.LinkToken,
-									SolPoolType:    &bnm,
+									SolPoolType:    shared.BurnMintTokenPool,
 									EVMRemoteConfigs: map[uint64]ccipChangesetSolana.EVMRemoteConfig{
 										evmSelector.Selector: {
 											TokenSymbol: shared.LinkSymbol,
@@ -840,7 +841,6 @@ func setupEVM2EVMLanes(e *cldf.Environment, state stateview.CCIPOnChainState, la
 	}
 
 	for src := range evmChains {
-		src := src
 		lanesFromSrc := lanesBySource[src]
 		if len(lanesFromSrc) == 0 {
 			continue // Skip chains that don't have any outgoing lanes
@@ -1007,7 +1007,7 @@ func mustOCR(e *cldf.Environment, homeChainSel uint64, feedChainSel uint64, newD
 				params.CommitOffChainConfig.MultipleReportsEnabled = true
 				params.CommitOffChainConfig.MaxMerkleRootsPerReport = 1
 				params.CommitOffChainConfig.MaxPricesPerReport = 3
-				params.CommitOffChainConfig.MaxMerkleTreeSize = 1
+				params.CommitOffChainConfig.MaxMerkleTreeSize = 10
 				params.CommitOffChainConfig.MerkleRootAsyncObserverDisabled = true
 				return params
 			})
@@ -1254,7 +1254,7 @@ func GenerateRMNNodeIdentities(rmnNodeCount uint, rageProxyImageURI, rageProxyIm
 	lggr := zerolog.New(zerolog.ConsoleWriter{Out: os.Stdout})
 	rmnNodeConfigs := make([]RMNNodeConfig, rmnNodeCount)
 
-	for i := uint(0); i < rmnNodeCount; i++ {
+	for i := range rmnNodeCount {
 		peerID, rawKeystore, _, err := devenv.GeneratePeerID(zerolog.New(zerolog.ConsoleWriter{Out: os.Stdout}), rageProxyImageURI, rageProxyImageTag, imagePlatform)
 		if err != nil {
 			return nil, err

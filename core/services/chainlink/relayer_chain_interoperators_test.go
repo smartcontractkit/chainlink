@@ -80,21 +80,22 @@ func TestCoreRelayerChainInteroperators(t *testing.T) {
 				&solcfg.TOMLConfig{
 					ChainID: &solanaChainID1,
 					Enabled: ptr(true),
-					Chain:   solcfg.NewDefault().Chain,
 					Nodes: []*solcfg.Node{{
 						Name: ptr("solana chain 1 node 1"),
-						URL:  ((*commonconfig.URL)(commonconfig.MustParseURL("http://localhost:8547").URL())),
+						URL:  commonconfig.MustParseURL("http://localhost:8547"),
 					}},
 				},
 				&solcfg.TOMLConfig{
 					ChainID: &solanaChainID2,
 					Enabled: ptr(true),
-					Chain:   solcfg.NewDefault().Chain,
 					Nodes: []*solcfg.Node{{
 						Name: ptr("solana chain 2 node 1"),
-						URL:  ((*commonconfig.URL)(commonconfig.MustParseURL("http://localhost:8527").URL())),
+						URL:  commonconfig.MustParseURL("http://localhost:8527"),
 					}},
 				},
+			}
+			for i := range c.Solana {
+				c.Solana[i].SetDefaults()
 			}
 		})
 	}
@@ -213,7 +214,6 @@ func TestCoreRelayerChainInteroperators(t *testing.T) {
 		},
 	}
 	for _, tt := range tests {
-		tt := tt
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 
@@ -261,6 +261,8 @@ func TestCoreRelayerChainInteroperators(t *testing.T) {
 					t.Skip("tron doesn't need a CoreRelayerChainInteroperator")
 				case relay.NetworkTON:
 					t.Skip("ton doesn't need a CoreRelayerChainInteroperator")
+				case relay.NetworkSui:
+					t.Skip("sui doesn't need a CoreRelayerChainInteroperator")
 
 				default:
 					require.Fail(t, "untested relay network", relayNetwork)

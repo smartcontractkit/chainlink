@@ -14,6 +14,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/core"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/core/mocks"
+
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	"github.com/smartcontractkit/chainlink/v2/plugins"
@@ -38,7 +39,19 @@ func TestStandardCapabilityStart(t *testing.T) {
 				ChainID:            "31337",
 			}}
 
-		standardCapability := NewStandardCapabilities(lggr, spec, pluginRegistrar, &telemetryServiceMock{}, &kvstoreMock{}, registry, &errorLogMock{}, &pipelineRunnerServiceMock{}, &relayerSetMock{}, &oracleFactoryMock{}, &gatewayConnectorMock{}, &keystoreMock{})
+		dependencies := core.StandardCapabilitiesDependencies{
+			Config:             spec.Config,
+			TelemetryService:   &telemetryServiceMock{},
+			Store:              &kvstoreMock{},
+			CapabilityRegistry: registry,
+			ErrorLog:           &errorLogMock{},
+			PipelineRunner:     &pipelineRunnerServiceMock{},
+			RelayerSet:         &relayerSetMock{},
+			OracleFactory:      &oracleFactoryMock{},
+			GatewayConnector:   &gatewayConnectorMock{},
+			P2PKeystore:        &keystoreMock{},
+		}
+		standardCapability := NewStandardCapabilities(lggr, spec, pluginRegistrar, dependencies)
 		standardCapability.startTimeout = 1 * time.Second
 		err := standardCapability.Start(ctx)
 		require.NoError(t, err)
@@ -61,8 +74,11 @@ func (k *kvstoreMock) Store(ctx context.Context, key string, val []byte) error {
 func (k *kvstoreMock) Get(ctx context.Context, key string) ([]byte, error) {
 	return nil, nil
 }
+func (k *kvstoreMock) PruneExpiredEntries(ctx context.Context, maxAge time.Duration) (int64, error) {
+	return 0, nil
+}
 
-type keystoreMock struct{}
+type keystoreMock struct{ core.UnimplementedKeystore }
 
 func (k *keystoreMock) Accounts(ctx context.Context) (accounts []string, err error) {
 	return nil, nil
@@ -107,7 +123,9 @@ func (o *oracleMock) Close(ctx context.Context) error {
 	return nil
 }
 
-type gatewayConnectorMock struct{}
+type gatewayConnectorMock struct {
+	core.UnimplementedGatewayConnector
+}
 
 func (g *gatewayConnectorMock) Start(context.Context) error {
 	return nil
@@ -118,6 +136,10 @@ func (g *gatewayConnectorMock) Close() error {
 }
 
 func (g *gatewayConnectorMock) AddHandler(ctx context.Context, methods []string, handler core.GatewayConnectorHandler) error {
+	return nil
+}
+
+func (g *gatewayConnectorMock) RemoveHandler(ctx context.Context, methods []string) error {
 	return nil
 }
 

@@ -123,3 +123,6 @@ contracts/out/
 core/scripts/cre/environment/*.yaml
 core/scripts/cre/environment/*.yml
 core/scripts/cre/environment/logs/
+core/scripts/cre/environment/cron
+core/scripts/cre/environment/binaries/*
+*.br.b64

@@ -35,7 +35,6 @@ func TestUtils_NewSecret(t *testing.T) {
 		{12, 16}, {24, 32}, {48, 64}, {96, 128},
 	}
 	for _, test := range tests {
-		test := test
 
 		t.Run(fmt.Sprintf("%d_%d", test.numOfBytes, test.wantStrLen), func(t *testing.T) {
 			t.Parallel()
@@ -59,7 +58,6 @@ func TestUtils_StringToHex(t *testing.T) {
 	}
 
 	for _, test := range tests {
-		test := test
 
 		t.Run(test.utf8, func(t *testing.T) {
 			t.Parallel()
@@ -174,7 +172,7 @@ func Test_WithJitter(t *testing.T) {
 
 	d := 10 * time.Second
 
-	for i := 0; i < 32; i++ {
+	for range 32 {
 		r := utils.WithJitter(d)
 		require.GreaterOrEqual(t, int(r), int(9*time.Second))
 		require.LessOrEqual(t, int(r), int(11*time.Second))
@@ -226,7 +224,7 @@ func TestMustUnmarshalToMap(t *testing.T) {
 	t.Parallel()
 
 	json := `{"foo":123.45}`
-	expected := make(map[string]interface{})
+	expected := make(map[string]any)
 	expected["foo"] = 123.45
 	m := utils.MustUnmarshalToMap(json)
 	assert.Equal(t, expected, m)
@@ -367,25 +365,6 @@ func TestLeftPadBitString(t *testing.T) {
 		s := utils.LeftPadBitString(test.str, test.len)
 		assert.Equal(t, test.expected, s)
 	}
-}
-
-func TestKeyedMutex(t *testing.T) {
-	t.Parallel()
-
-	var km utils.KeyedMutex
-	unlock1 := km.LockInt64(1)
-	unlock2 := km.LockInt64(2)
-
-	awaiter := cltest.NewAwaiter()
-	go func() {
-		km.LockInt64(1)()
-		km.LockInt64(2)()
-		awaiter.ItHappened()
-	}()
-
-	unlock2()
-	unlock1()
-	awaiter.AwaitOrFail(t)
 }
 
 func TestValidateCronSchedule(t *testing.T) {

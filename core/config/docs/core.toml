@@ -105,6 +105,8 @@ SendInterval = '500ms' # Default
 SendTimeout = '10s' # Default
 # UseBatchSend toggles sending telemetry to the ingress server using the batch client.
 UseBatchSend = true # Default
+# ChipIngressEnabled enables sending telemetry to CHIP Ingress.
+ChipIngressEnabled = false # Default
 
 [[TelemetryIngress.Endpoints]] # Example
 # Network aka EVM, Solana, Starknet
@@ -200,7 +202,7 @@ ListenIP = '0.0.0.0' # Default
 [WebServer.OIDC]
 # ClientID is the ID of the OIDC application registered with the identity provider
 ClientID = 'abcd1234' # Example
-# ProviderURL is the base URL for your OIDC Identity provider. 
+# ProviderURL is the base URL for your OIDC Identity provider.
 ProviderURL = 'https://id[.]example[.]com/oauth2/default' # Example
 # RedirectURL will always be <NODE_BASE_URL>/signin. This needs to match the configuration on the provider side.
 RedirectURL = 'http://localhost:8080/signin' # Example
@@ -222,7 +224,7 @@ UserAPITokenEnabled = false # Default
 UserAPITokenDuration = '240h0m0s' # Default
 
 # Optional LDAP config if WebServer.AuthenticationMethod is set to 'ldap'
-# LDAP queries are all parameterized to support custom LDAP 'dn', 'cn', and attributes 
+# LDAP queries are all parameterized to support custom LDAP 'dn', 'cn', and attributes
 [WebServer.LDAP]
 # ServerTLS defines the option to require the secure ldaps
 ServerTLS = true # Default
@@ -318,7 +320,7 @@ ReaperThreshold = '24h' # Default
 # **ADVANCED**
 # ResultWriteQueueDepth controls how many writes will be buffered before subsequent writes are dropped, for jobs that write results asynchronously for performance reasons, such as OCR.
 ResultWriteQueueDepth = 100 # Default
-# VerboseLogging enables detailed logging of pipeline execution steps. 
+# VerboseLogging enables detailed logging of pipeline execution steps.
 # This can be useful for debugging failed runs without relying on the UI
 # or database.
 #
@@ -459,21 +461,23 @@ OutgoingMessageBufferSize = 10 # Default
 PeerID = '12D3KooWMoejJznyDuEk5aX6GvbjaG12UzeornPCBNzMRqdwrFJw' # Example
 # TraceLogging enables trace level logging.
 TraceLogging = false # Default
+# EnableExperimentalRageP2P needs to be enabled for ocr3.1 components
+EnableExperimentalRageP2P = false # Default
 
 [P2P.V2]
 # Enabled enables P2P V2.
 # Note: V1.Enabled is true by default, so it must be set false in order to run V2 only.
 Enabled = true # Default
-# AnnounceAddresses is the addresses the peer will advertise on the network in `host:port` form as accepted by the TCP version of Go’s `net.Dial`. 
-# The addresses should be reachable by other nodes on the network. When attempting to connect to another node, 
+# AnnounceAddresses is the addresses the peer will advertise on the network in `host:port` form as accepted by the TCP version of Go’s `net.Dial`.
+# The addresses should be reachable by other nodes on the network. When attempting to connect to another node,
 # a node will attempt to dial all of the other node’s AnnounceAddresses in round-robin fashion.
 AnnounceAddresses = ['1.2.3.4:9999', '[a52d:0:a88:1274::abcd]:1337'] # Example
 # DefaultBootstrappers is the default bootstrapper peers for libocr's v2 networking stack.
 #
-# Oracle nodes typically only know each other’s PeerIDs, but not their hostnames, IP addresses, or ports. 
-# DefaultBootstrappers are special nodes that help other nodes discover each other’s `AnnounceAddresses` so they can communicate. 
-# Nodes continuously attempt to connect to bootstrappers configured in here. When a node wants to connect to another node 
-# (which it knows only by PeerID, but not by address), it discovers the other node’s AnnounceAddresses from communications 
+# Oracle nodes typically only know each other’s PeerIDs, but not their hostnames, IP addresses, or ports.
+# DefaultBootstrappers are special nodes that help other nodes discover each other’s `AnnounceAddresses` so they can communicate.
+# Nodes continuously attempt to connect to bootstrappers configured in here. When a node wants to connect to another node
+# (which it knows only by PeerID, but not by address), it discovers the other node’s AnnounceAddresses from communications
 # received from its DefaultBootstrappers or other discovered nodes. To facilitate discovery,
 # nodes will regularly broadcast signed announcements containing their PeerID and AnnounceAddresses.
 DefaultBootstrappers = ['12D3KooWMHMRLQkgPbFSYHwD3NBuwtS1AmxhvKVUrcfyaGDASR4U@1.2.3.4:9999', '12D3KooWM55u5Swtpw9r8aFLQHEtw7HR4t44GdNs654ej5gRs2Dh@example.com:1234'] # Example
@@ -481,7 +485,7 @@ DefaultBootstrappers = ['12D3KooWMHMRLQkgPbFSYHwD3NBuwtS1AmxhvKVUrcfyaGDASR4U@1.
 DeltaDial = '15s' # Default
 # DeltaReconcile controls how often a Reconcile message is sent to every peer.
 DeltaReconcile = '1m' # Default
-# ListenAddresses is the addresses the peer will listen to on the network in `host:port` form as accepted by `net.Listen()`, 
+# ListenAddresses is the addresses the peer will listen to on the network in `host:port` form as accepted by `net.Listen()`,
 # but the host and port must be fully specified and cannot be empty. You can specify `0.0.0.0` (IPv4) or `::` (IPv6) to listen on all interfaces, but that is not recommended.
 ListenAddresses = ['1.2.3.4:9999', '[a52d:0:a88:1274::abcd]:1337'] # Example
 
@@ -502,6 +506,8 @@ Address = '0x0' # Example
 NetworkID = 'evm' # Default
 # ChainID identifies the target chain id where the remote registry is located.
 ChainID = '1' # Default
+# ContractVersion identifies semantic version of the WorkflowRegistry contract.
+ContractVersion = '1.0.0' # Default
 # MaxBinarySize is the maximum size of a binary that can be fetched from the registry.
 MaxBinarySize = '20.00mb' # Default
 # MaxEncryptedSecretsSize is the maximum size of encrypted secrets that can be fetched from the given secrets url.
@@ -511,6 +517,14 @@ MaxConfigSize = '50.00kb' # Default
 # SyncStrategy is the strategy that will be used to bring the node up to date with the latest Workflow Registry contract state.
 # Options are: event which watches for contract events or reconciliation which diffs workflow metadata state.
 SyncStrategy = 'event' # Default
+
+[Capabilities.WorkflowRegistry.WorkflowStorage]
+# URL is the location for the workflow storage service to be communicated with.
+URL = "localhost:4566" # Example
+# TLSEnabled enables TLS to be used to secure communication with the workflow storage service. This is enabled by default.
+TLSEnabled = true # Default
+# ArtifactStorageHost is the host name that, when present within the workflow metadata binary or config URL, designates that a signed URL should be retrieved from the workflow storage service.
+ArtifactStorageHost = 'artifact.cre.chain.link' # Example
 
 [Workflows]
 [Workflows.Limits]
@@ -526,12 +540,16 @@ Address = '0x0' # Example
 NetworkID = 'evm' # Default
 # ChainID identifies the target chain id where the remote registry is located.
 ChainID = '1' # Default
+# ContractVersion identifies semantic version of the CapabilitiesRegistry contract.
+ContractVersion = '1.0.0' # Default
 
 [Capabilities.Dispatcher]
 # SupportedVersion is the version of the version of message schema.
 SupportedVersion = 1 # Default
 # ReceiverBufferSize is the size of the buffer for incoming messages.
 ReceiverBufferSize = 10000 # Default
+# SendToSharedPeer sends all messages ONLY to the SharedPeer and not to legacy ExternalPeer.
+SendToSharedPeer = false # Default
 
 [Capabilities.Dispatcher.RateLimit]
 # GlobalRPS is the global rate limit for the dispatcher.
@@ -559,20 +577,22 @@ OutgoingMessageBufferSize = 10 # Default
 PeerID = '12D3KooWMoejJznyDuEk5aX6GvbjaG12UzeornPCBNzMRqdwrFJw' # Example
 # TraceLogging enables trace level logging.
 TraceLogging = false # Default
+# EnableExperimentalRageP2P needs to be enabled for ocr3.1 components
+EnableExperimentalRageP2P = false # Default
 
 [Capabilities.Peering.V2]
 # Enabled enables P2P V2.
 Enabled = false # Default
-# AnnounceAddresses is the addresses the peer will advertise on the network in `host:port` form as accepted by the TCP version of Go’s `net.Dial`. 
-# The addresses should be reachable by other nodes on the network. When attempting to connect to another node, 
+# AnnounceAddresses is the addresses the peer will advertise on the network in `host:port` form as accepted by the TCP version of Go’s `net.Dial`.
+# The addresses should be reachable by other nodes on the network. When attempting to connect to another node,
 # a node will attempt to dial all of the other node’s AnnounceAddresses in round-robin fashion.
 AnnounceAddresses = ['1.2.3.4:9999', '[a52d:0:a88:1274::abcd]:1337'] # Example
 # DefaultBootstrappers is the default bootstrapper peers for libocr's v2 networking stack.
 #
-# Oracle nodes typically only know each other’s PeerIDs, but not their hostnames, IP addresses, or ports. 
-# DefaultBootstrappers are special nodes that help other nodes discover each other’s `AnnounceAddresses` so they can communicate. 
-# Nodes continuously attempt to connect to bootstrappers configured in here. When a node wants to connect to another node 
-# (which it knows only by PeerID, but not by address), it discovers the other node’s AnnounceAddresses from communications 
+# Oracle nodes typically only know each other’s PeerIDs, but not their hostnames, IP addresses, or ports.
+# DefaultBootstrappers are special nodes that help other nodes discover each other’s `AnnounceAddresses` so they can communicate.
+# Nodes continuously attempt to connect to bootstrappers configured in here. When a node wants to connect to another node
+# (which it knows only by PeerID, but not by address), it discovers the other node’s AnnounceAddresses from communications
 # received from its DefaultBootstrappers or other discovered nodes. To facilitate discovery,
 # nodes will regularly broadcast signed announcements containing their PeerID and AnnounceAddresses.
 DefaultBootstrappers = ['12D3KooWMHMRLQkgPbFSYHwD3NBuwtS1AmxhvKVUrcfyaGDASR4U@1.2.3.4:9999', '12D3KooWM55u5Swtpw9r8aFLQHEtw7HR4t44GdNs654ej5gRs2Dh@example.com:1234'] # Example
@@ -580,7 +600,7 @@ DefaultBootstrappers = ['12D3KooWMHMRLQkgPbFSYHwD3NBuwtS1AmxhvKVUrcfyaGDASR4U@1.
 DeltaDial = '15s' # Default
 # DeltaReconcile controls how often a Reconcile message is sent to every peer.
 DeltaReconcile = '1m' # Default
-# ListenAddresses is the addresses the peer will listen to on the network in `host:port` form as accepted by `net.Listen()`, 
+# ListenAddresses is the addresses the peer will listen to on the network in `host:port` form as accepted by `net.Listen()`,
 # but the host and port must be fully specified and cannot be empty. You can specify `0.0.0.0` (IPv4) or `::` (IPv6) to listen on all interfaces, but that is not recommended.
 ListenAddresses = ['1.2.3.4:9999', '[a52d:0:a88:1274::abcd]:1337'] # Example
 
@@ -603,6 +623,28 @@ AuthTimestampToleranceSec = 10 # Example
 ID = 'example_gateway' # Example
 # URL of the Gateway
 URL = 'wss://localhost:8081/node' # Example
+
+[Capabilities.SharedPeering]
+# Enabled enabled SharedPeer
+Enabled = false # Default
+# Bootstrappers overrides bootstrap nodes for SharedPeer peer groups. If empty, default bootstrappers from P2P.V2 will be used.
+Bootstrappers = ['12D3KooWMHMRLQkgPbFSYHwD3NBuwtS1AmxhvKVUrcfyaGDASR4U@1.2.3.4:9999', '12D3KooWM55u5Swtpw9r8aFLQHEtw7HR4t44GdNs654ej5gRs2Dh@example.com:1234'] # Example
+
+[Capabilities.SharedPeering.StreamConfig]
+# IncomingMessageBufferSize is the max number of enqueued incoming messages awaiting processing.
+IncomingMessageBufferSize = 500 # Default
+# OutgoingMessageBufferSize is the max number of outgoing messages.
+OutgoingMessageBufferSize = 500 # Default
+# MaxMessageLenBytes is the max size of a message in bytes.
+MaxMessageLenBytes = 500000 # Default
+# MessageRateLimiterRate is the max number of processed messages per second.
+MessageRateLimiterRate = 100.0 # Default
+# MessageRateLimiterCapacity is the "burst" of the message rate limiter.
+MessageRateLimiterCapacity = 500 # Default
+# BytesRateLimiterRate is the max size of precessed messages per second.
+BytesRateLimiterRate = 5000000.0 # Default
+# BytesRateLimiterCapacity is the "burst" of the message rate limiter (in bytes).
+BytesRateLimiterCapacity = 10000000 # Default
 
 [Keeper]
 # **ADVANCED**
@@ -730,15 +772,15 @@ VerboseLogging = false # Default
 # LatestReportTTL controls how "stale" we will allow a price to be e.g. if
 # set to 1s, a new price will always be fetched if the last result was
 # from 1 second ago or older.
-# 
+#
 # Another way of looking at it is such: the cache will _never_ return a
 # price that was queried from now-LatestReportTTL or before.
-# 
+#
 # Setting to zero disables caching entirely.
 LatestReportTTL = "1s" # Default
 # MaxStaleAge is that maximum amount of time that a value can be stale
 # before it is deleted from the cache (a form of garbage collection).
-# 
+#
 # This should generally be set to something much larger than
 # LatestReportTTL. Setting to zero disables garbage collection.
 MaxStaleAge = "1h" # Default
@@ -803,8 +845,25 @@ EmitterBatchProcessor = true # Default
 EmitterExportTimeout = '1s' # Default
 # ChipIngressEndpoint enables sending custom messages to CHIP Ingress.
 ChipIngressEndpoint = '' # Default
+# ChipIngressInsecureConnection disables TLS when connecting to CHIP Ingress.
+ChipIngressInsecureConnection = false # Default
+
 # HeartbeatInterval is the interval at which a the application heartbeat is sent to telemetry backends.
 HeartbeatInterval = '1s' # Default
+# LogLevel sets the log level for telemetry streaming (debug, info, warn, error, crit, panic, fatal)
+LogLevel = "info" # Default
+# LogStreamingEnabled enables log streaming to the OTel log exporter
+LogStreamingEnabled = false # Default
+# LogBatchProcessor enables batching for telemetry logs
+LogBatchProcessor = true # Default
+# LogExportTimeout sets timeout for exporting telemetry logs
+LogExportTimeout = '1s' # Default
+# LogExportMaxBatchSize sets the maximum batch size of every batch export
+LogExportMaxBatchSize = 512 # Default
+# LogExportInterval sets the maximum duration between batched exports
+LogExportInterval = '1s' # Default
+# LogMaxQueueSize sets the maximum queue size used by the batcher
+LogMaxQueueSize = 2048 # Default
 
 # ResourceAttributes are global metadata to include with all telemetry.
 [Telemetry.ResourceAttributes]
@@ -818,8 +877,14 @@ WsURL = "streams.url" # Example
 RestURL = "streams.url" # Example
 
 [CRE.WorkflowFetcher]
-# URL is override URL for the workflow fetcher service. 
+# URL is override URL for the workflow fetcher service.
 URL = '' # Default
+
+[CRE.Linking]
+# URL is the locator for the Chainlink linking service.
+URL = "" # Default
+# TLSEnabled enables TLS to be used to secure communication with the linking service. This is enabled by default.
+TLSEnabled = true # Default
 
 # Billing holds settings for connecting to the billing service.
 [Billing]
@@ -840,3 +905,9 @@ PollingInterval = "5m" # Default
 IgnoreInvalidBridges = true # Default
 # IgnoreJoblessBridges skips bridges that have no associated jobs.
 IgnoreJoblessBridges = false # Default
+
+[CRE]
+# UseLocalTimeProvider should be set true if the DON Time OCR Plugin is not running
+UseLocalTimeProvider = true # Default
+# EnableDKGRecipient should be set to true if the DON runs a capability that uses a DKG result package.
+EnableDKGRecipient = false # Default

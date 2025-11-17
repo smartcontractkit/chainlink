@@ -127,6 +127,7 @@ type ServerRequest struct {
 	requestMessageID string
 	method           string
 	requestTimeout   time.Duration
+	capMethodName    string
 
 	mux  sync.Mutex
 	lggr logger.Logger
@@ -137,8 +138,8 @@ type ServerRequest struct {
 func NewServerRequest(capability capabilities.ExecutableCapability, method string, capabilityID string, capabilityDonID uint32,
 	capabilityPeerID p2ptypes.PeerID,
 	callingDon capabilities.DON, requestID string,
-	dispatcher types.Dispatcher, requestTimeout time.Duration, lggr logger.Logger) (*ServerRequest, error) {
-	lggr = logger.Sugared(lggr).Named("ServerRequest").With("requestID", requestID, "capabilityID", capabilityID)
+	dispatcher types.Dispatcher, requestTimeout time.Duration, capMethodName string, lggr logger.Logger) (*ServerRequest, error) {
+	lggr = logger.With(logger.Named(lggr, "ServerRequest"), "requestID", requestID) // cap ID and method name included in the parent logger
 
 	m, err := newSrMetrics(capabilityID, callingDon.ID)
 	if err != nil {
@@ -158,6 +159,7 @@ func NewServerRequest(capability capabilities.ExecutableCapability, method strin
 		requestMessageID:        requestID,
 		method:                  method,
 		requestTimeout:          requestTimeout,
+		capMethodName:           capMethodName,
 		lggr:                    lggr,
 		metrics:                 m,
 	}, nil
@@ -295,13 +297,14 @@ func (e *ServerRequest) sendResponses(ctx context.Context) error {
 
 func (e *ServerRequest) sendResponse(ctx context.Context, requester p2ptypes.PeerID) error {
 	responseMsg := types.MessageBody{
-		CapabilityId:    e.capabilityID,
-		CapabilityDonId: e.capabilityDonID,
-		CallerDonId:     e.callingDon.ID,
-		Method:          types.MethodExecute,
-		MessageId:       []byte(e.requestMessageID),
-		Sender:          e.capabilityPeerID[:],
-		Receiver:        requester[:],
+		CapabilityId:     e.capabilityID,
+		CapabilityDonId:  e.capabilityDonID,
+		CallerDonId:      e.callingDon.ID,
+		Method:           types.MethodExecute,
+		MessageId:        []byte(e.requestMessageID),
+		Sender:           e.capabilityPeerID[:],
+		Receiver:         requester[:],
+		CapabilityMethod: e.capMethodName,
 	}
 
 	if e.response.error != types.Error_OK {
@@ -311,7 +314,7 @@ func (e *ServerRequest) sendResponse(ctx context.Context, requester p2ptypes.Pee
 		responseMsg.Payload = e.response.response
 	}
 
-	e.lggr.Debugw("Sending response", "receiver", requester)
+	e.lggr.Debugw("Sending response", "receiver", requester, "capabilityId", e.capabilityID, "donId", e.capabilityDonID, "method", e.capMethodName)
 	err := e.dispatcher.Send(requester, &responseMsg)
 	e.metrics.countExecutionResponse(ctx, e.response.error.String(), err != nil)
 	if err != nil {

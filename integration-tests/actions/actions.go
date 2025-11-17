@@ -19,7 +19,6 @@ import (
 
 	geth "github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
-	"github.com/ethereum/go-ethereum/rpc"
 	"go.uber.org/zap/zapcore"
 
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/blockchain"
@@ -130,7 +129,7 @@ func GetTxFromAddress(tx *types.Transaction) (string, error) {
 }
 
 // todo - move to CTF
-func DecodeTxInputData(abiString string, data []byte) (map[string]interface{}, error) {
+func DecodeTxInputData(abiString string, data []byte) (map[string]any, error) {
 	jsonABI, err := abi.JSON(strings.NewReader(abiString))
 	if err != nil {
 		return nil, err
@@ -141,7 +140,7 @@ func DecodeTxInputData(abiString string, data []byte) (map[string]interface{}, e
 	if err != nil {
 		return nil, err
 	}
-	inputsMap := make(map[string]interface{})
+	inputsMap := make(map[string]any)
 	if err := method.Inputs.UnpackIntoMap(inputsMap, inputsSigData); err != nil {
 		return nil, err
 	}
@@ -497,7 +496,7 @@ func DeployForwarderContracts(
 	require.NoError(t, err, "failed to create new instance of operator factory")
 	operatorFactoryInstance = &instance
 
-	for i := 0; i < numberOfOperatorForwarderPairs; i++ {
+	for range numberOfOperatorForwarderPairs {
 		tx, deployErr := operatorFactoryInstance.DeployNewOperatorAndForwarder()
 		decodedTx, err := seth.Decode(tx, deployErr)
 		require.NoError(t, err, "Deploying new operator with proposed ownership with forwarder shouldn't fail")
@@ -545,7 +544,7 @@ func WatchNewOCRRound(
 		case <-timeoutC:
 			return fmt.Errorf("timeout waiting for round %d to be confirmed. %d/%d nodes confirmed it", roundNumber, len(confirmed), len(ocrInstances))
 		case <-ticker.C:
-			for i := 0; i < len(ocrInstances); i++ {
+			for i := range ocrInstances {
 				if confirmed[ocrInstances[i].Address()] {
 					continue
 				}
@@ -855,7 +854,7 @@ func DeleteAllJobs(chainlinkNodes []*nodeclient.ChainlinkK8sClient) error {
 func StartNewRound(
 	ocrInstances []contracts.OffChainAggregatorWithRounds,
 ) error {
-	for i := 0; i < len(ocrInstances); i++ {
+	for i := range ocrInstances {
 		err := ocrInstances[i].RequestNewRound()
 		if err != nil {
 			return fmt.Errorf("requesting new OCR round %d have failed: %w", i+1, err)
@@ -1059,54 +1058,6 @@ func WatchNewFluxRound(
 			}
 		}
 	}
-}
-
-// EstimateCostForChainlinkOperations estimates the cost of running a number of operations on the Chainlink node based on estimated gas costs. It supports
-// both legacy and EIP-1559 transactions.
-func EstimateCostForChainlinkOperations(l zerolog.Logger, client *seth.Client, network blockchain.EVMNetwork, amountOfOperations int) (*big.Float, error) {
-	bigAmountOfOperations := big.NewInt(int64(amountOfOperations))
-	estimations := client.CalculateGasEstimations(client.NewDefaultGasEstimationRequest())
-
-	gasLimit := network.GasEstimationBuffer + network.ChainlinkTransactionLimit
-
-	var gasPriceInWei *big.Int
-	if client.Cfg.Network.EIP1559DynamicFees {
-		gasPriceInWei = estimations.GasFeeCap
-	} else {
-		gasPriceInWei = estimations.GasPrice
-	}
-
-	gasCostPerOperationWei := big.NewInt(1).Mul(big.NewInt(1).SetUint64(gasLimit), gasPriceInWei)
-	gasCostPerOperationETH := conversions.WeiToEther(gasCostPerOperationWei)
-	// total Wei needed for all TXs = total value for TX * number of TXs
-	totalWeiForAllOperations := big.NewInt(1).Mul(gasCostPerOperationWei, bigAmountOfOperations)
-	totalEthForAllOperations := conversions.WeiToEther(totalWeiForAllOperations)
-
-	l.Debug().
-		Int("Number of Operations", amountOfOperations).
-		Uint64("Gas Limit per Operation", gasLimit).
-		Str("Value per Operation (ETH)", gasCostPerOperationETH.String()).
-		Str("Total (ETH)", totalEthForAllOperations.String()).
-		Msg("Calculated ETH for Chainlink Operations")
-
-	return totalEthForAllOperations, nil
-}
-
-// GetLatestFinalizedBlockHeader returns latest finalised block header for given network (taking into account finality tag/depth)
-func GetLatestFinalizedBlockHeader(ctx context.Context, client *seth.Client, network blockchain.EVMNetwork) (*types.Header, error) {
-	if network.FinalityTag {
-		return client.Client.HeaderByNumber(ctx, big.NewInt(rpc.FinalizedBlockNumber.Int64()))
-	}
-	if network.FinalityDepth == 0 {
-		return nil, fmt.Errorf("finality depth is 0 and finality tag is not enabled")
-	}
-	header, err := client.Client.HeaderByNumber(ctx, nil)
-	if err != nil {
-		return nil, err
-	}
-	latestBlockNumber := header.Number.Uint64()
-	finalizedBlockNumber := latestBlockNumber - network.FinalityDepth
-	return client.Client.HeaderByNumber(ctx, new(big.Int).SetUint64(finalizedBlockNumber))
 }
 
 // SendLinkFundsToDeploymentAddresses sends LINK token to all addresses, but the root one, from the root address. It uses

@@ -39,10 +39,10 @@ var endpoints = []Endpoint{
 
 func getFinalizedBlockNumber(url string) (uint64, error) {
 	// JSON-RPC request
-	payload := map[string]interface{}{
+	payload := map[string]any{
 		"jsonrpc": "2.0",
 		"method":  "eth_getBlockByNumber",
-		"params":  []interface{}{"finalized", false},
+		"params":  []any{"finalized", false},
 		"id":      1,
 	}
 	b, _ := json.Marshal(payload)

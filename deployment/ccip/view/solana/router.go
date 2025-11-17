@@ -5,16 +5,19 @@ import (
 	"fmt"
 
 	"github.com/gagliardetto/solana-go"
-	cldf_solana "github.com/smartcontractkit/chainlink-deployments-framework/chain/solana"
 
-	solCommon "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/ccip_common"
-	solRouter "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/ccip_router"
+	cldf_solana "github.com/smartcontractkit/chainlink-deployments-framework/chain/solana"
+	solanashared "github.com/smartcontractkit/chainlink/deployment"
+
+	solCommon "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/v0_1_1/ccip_common"
+	solRouter "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/v0_1_1/ccip_router"
 	solState "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/state"
 )
 
 type RouterView struct {
 	PDA                    string                              `json:"pda,omitempty"`
 	Version                uint8                               `json:"version,omitempty"`
+	UpgradeAuthority       string                              `json:"upgradeAuthority,omitempty"`
 	DefaultCodeVersion     string                              `json:"defaultCodeVersion,omitempty"`
 	SvmChainSelector       uint64                              `json:"svmChainSelector,omitempty"`
 	Owner                  string                              `json:"owner,omitempty"`
@@ -46,9 +49,18 @@ type RouterTokenAdminRegistry struct {
 
 func GenerateRouterView(chain cldf_solana.Chain, program solana.PublicKey, remoteChains []uint64, tokens []solana.PublicKey) (RouterView, error) {
 	view := RouterView{}
+	progDataAddr, err := solanashared.GetProgramDataAddress(chain.Client, program)
+	if err != nil {
+		return view, fmt.Errorf("failed to get program data address for program %s: %w", program.String(), err)
+	}
+	authority, _, err := solanashared.GetUpgradeAuthority(chain.Client, progDataAddr)
+	if err != nil {
+		return view, fmt.Errorf("failed to get upgrade authority for program data %s: %w", progDataAddr.String(), err)
+	}
+	view.UpgradeAuthority = authority.String()
 	var config solRouter.Config
 	configPDA, _, _ := solState.FindConfigPDA(program)
-	err := chain.GetAccountDataBorshInto(context.Background(), configPDA, &config)
+	err = chain.GetAccountDataBorshInto(context.Background(), configPDA, &config)
 	if err != nil {
 		return view, fmt.Errorf("config not found in existing state, initialize the router first %d", chain.Selector)
 	}

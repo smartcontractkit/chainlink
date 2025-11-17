@@ -561,7 +561,7 @@ root_key_funds_buffer = 1_000
 // This is a temporary and will be removed after migration to test secrets from env vars
 func checkSecretsInToml(content []byte) error {
 	logger := logging.GetTestLogger(nil)
-	data := make(map[string]interface{})
+	data := make(map[string]any)
 
 	// Decode the TOML data
 	err := toml.Unmarshal(content, &data)
@@ -574,21 +574,21 @@ func checkSecretsInToml(content []byte) error {
 	}
 
 	if data["ChainlinkImage"] != nil {
-		chainlinkImage := data["ChainlinkImage"].(map[string]interface{})
+		chainlinkImage := data["ChainlinkImage"].(map[string]any)
 		if chainlinkImage["image"] != nil {
 			logError("ChainlinkImage.image", "E2E_TEST_CHAINLINK_IMAGE")
 		}
 	}
 
 	if data["ChainlinkUpgradeImage"] != nil {
-		chainlinkUpgradeImage := data["ChainlinkUpgradeImage"].(map[string]interface{})
+		chainlinkUpgradeImage := data["ChainlinkUpgradeImage"].(map[string]any)
 		if chainlinkUpgradeImage["image"] != nil {
 			logError("ChainlinkUpgradeImage.image", "E2E_TEST_CHAINLINK_UPGRADE_IMAGE")
 		}
 	}
 
 	if data["Network"] != nil {
-		network := data["Network"].(map[string]interface{})
+		network := data["Network"].(map[string]any)
 		if network["RpcHttpUrls"] != nil {
 			logError("Network.RpcHttpUrls", "`E2E_TEST_(.+)_RPC_HTTP_URL$` like E2E_TEST_ARBITRUM_SEPOLIA_RPC_HTTP_URL")
 		}

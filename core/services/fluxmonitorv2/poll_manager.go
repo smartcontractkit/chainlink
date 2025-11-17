@@ -65,14 +65,8 @@ type PollManager struct {
 
 // NewPollManager initializes a new PollManager
 func NewPollManager(cfg PollManagerConfig, lggr logger.Logger) (*PollManager, error) {
-	minBackoffDuration := cfg.MinRetryBackoffDuration
-	if cfg.IdleTimerPeriod < minBackoffDuration {
-		minBackoffDuration = cfg.IdleTimerPeriod
-	}
-	maxBackoffDuration := cfg.MaxRetryBackoffDuration
-	if cfg.IdleTimerPeriod < maxBackoffDuration {
-		maxBackoffDuration = cfg.IdleTimerPeriod
-	}
+	minBackoffDuration := min(cfg.IdleTimerPeriod, cfg.MinRetryBackoffDuration)
+	maxBackoffDuration := min(cfg.IdleTimerPeriod, cfg.MaxRetryBackoffDuration)
 	// Always initialize the idle timer so that no matter what it has a ticker
 	// and won't get starved by an old startedAt timestamp from the oracle state on boot.
 	var idleTimer = utils.NewResettableTimer()

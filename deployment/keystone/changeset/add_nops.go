@@ -59,10 +59,11 @@ func AddNops(env cldf.Environment, req *AddNopsRequest) (cldf.ChangesetOutput, e
 
 	useMCMS := req.MCMSConfig != nil
 	req2 := internal.RegisterNOPSRequest{
-		Env:                   &env,
-		RegistryChainSelector: req.RegistryChainSel,
-		Nops:                  req.Nops,
-		UseMCMS:               useMCMS,
+		Env:           &env,
+		Registry:      capReg.Contract,
+		RegistryChain: &registryChain,
+		Nops:          req.Nops,
+		UseMCMS:       useMCMS,
 	}
 	resp, err := internal.RegisterNOPS(env.GetContext(), env.Logger, req2)
 
@@ -99,7 +100,7 @@ func AddNops(env cldf.Environment, req *AddNopsRequest) (cldf.ChangesetOutput, e
 			inspectorPerChain,
 			[]mcmstypes.BatchOperation{*resp.Ops},
 			"proposal to add NOPs",
-			proposalutils.TimelockConfig{MinDelay: req.MCMSConfig.MinDuration},
+			*req.MCMSConfig,
 		)
 		if err != nil {
 			return out, fmt.Errorf("failed to build proposal: %w", err)

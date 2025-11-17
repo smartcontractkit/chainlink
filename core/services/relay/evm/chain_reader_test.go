@@ -21,14 +21,14 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/loop/testutils"
 	commontypes "github.com/smartcontractkit/chainlink-common/pkg/types"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/query/primitives"
-	"github.com/smartcontractkit/chainlink-common/pkg/values"
+	"github.com/smartcontractkit/chainlink-evm/pkg/config"
 	"github.com/smartcontractkit/chainlink-evm/pkg/heads/headstest"
 	"github.com/smartcontractkit/chainlink-evm/pkg/logpoller"
 	evmtypes "github.com/smartcontractkit/chainlink-evm/pkg/types"
+	"github.com/smartcontractkit/chainlink-protos/cre/go/values"
 
 	lpmocks "github.com/smartcontractkit/chainlink/v2/common/logpoller/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm"
-	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/types"
 )
 
 func TestChainReaderSizedBigIntTypes(t *testing.T) {
@@ -73,16 +73,16 @@ func TestChainReaderSizedBigIntTypes(t *testing.T) {
 func TestChainReader_Bind(t *testing.T) {
 	lp := lpmocks.NewLogPoller(t)
 	ht := headstest.NewTracker[*evmtypes.Head](t)
-	cr, err := evm.NewChainReaderService(t.Context(), logger.Nop(), lp, ht, nil, types.ChainReaderConfig{Contracts: map[string]types.ChainContractReader{
+	cr, err := evm.NewChainReaderService(t.Context(), logger.Nop(), lp, ht, nil, config.ChainReaderConfig{Contracts: map[string]config.ChainContractReader{
 		"test-contract": {
 			ContractABI: "[{\"anonymous\":false,\"inputs\":[{\"indexed\":false,\"internalType\":\"string\",\"name\":\"someDW\",\"type\":\"string\"}],\"name\":\"EventName\",\"type\":\"event\"}]",
-			ContractPollingFilter: types.ContractPollingFilter{
+			ContractPollingFilter: config.ContractPollingFilter{
 				GenericEventNames: []string{"EventName"},
-				PollingFilter:     types.PollingFilter{Retention: 1},
+				PollingFilter:     config.PollingFilter{Retention: 1},
 			},
-			Configs: map[string]*types.ChainReaderDefinition{
+			Configs: map[string]*config.ChainReaderDefinition{
 				"EventName": {
-					ReadType:          types.Event,
+					ReadType:          config.Event,
 					ChainSpecificName: "EventName",
 				},
 			},
@@ -234,11 +234,11 @@ func (s *simpleTester) DisableTests(testIDs []string) {}
 func (s *simpleTester) GetContractReader(t *testing.T) commontypes.ContractReader {
 	t.Helper()
 
-	config := types.ChainReaderConfig{
-		Contracts: map[string]types.ChainContractReader{
+	config := config.ChainReaderConfig{
+		Contracts: map[string]config.ChainContractReader{
 			"Contract": {
 				ContractABI: fmt.Sprintf(contractABI, s.internalType, s.internalType),
-				Configs: map[string]*types.ChainReaderDefinition{
+				Configs: map[string]*config.ChainReaderDefinition{
 					"GetValue": {
 						ChainSpecificName:   "GetValue",
 						OutputModifications: codec.ModifiersConfig{},

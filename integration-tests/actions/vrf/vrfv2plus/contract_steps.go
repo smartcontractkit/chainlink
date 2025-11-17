@@ -230,7 +230,7 @@ func CreateSubs(
 ) ([]*big.Int, error) {
 	var subIDArr []*big.Int
 
-	for i := 0; i < subAmountToCreate; i++ {
+	for range subAmountToCreate {
 		subID, err := CreateSubAndFindSubID(ctx, sethClient, coordinator)
 		if err != nil {
 			return nil, err

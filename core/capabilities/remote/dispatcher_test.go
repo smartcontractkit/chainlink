@@ -60,6 +60,7 @@ type testConfig struct {
 	supportedVersion   int
 	receiverBufferSize int
 	rateLimit          testRateLimitConfig
+	sendToSharedPeer   bool
 }
 
 func (c testConfig) SupportedVersion() int {
@@ -74,6 +75,10 @@ func (c testConfig) RateLimit() config.DispatcherRateLimit {
 	return c.rateLimit
 }
 
+func (c testConfig) SendToSharedPeer() bool {
+	return c.sendToSharedPeer
+}
+
 func TestDispatcher_CleanStartClose(t *testing.T) {
 	lggr := logger.Test(t)
 	ctx := testutils.Context(t)
@@ -84,18 +89,10 @@ func TestDispatcher_CleanStartClose(t *testing.T) {
 	wrapper := mocks.NewPeerWrapper(t)
 	wrapper.On("GetPeer").Return(peer)
 	signer := mocks.NewSigner(t)
+	signer.EXPECT().Initialize().Return(nil)
 	registry := commonMocks.NewCapabilitiesRegistry(t)
 
-	dispatcher, err := remote.NewDispatcher(testConfig{
-		supportedVersion:   1,
-		receiverBufferSize: 10000,
-		rateLimit: testRateLimitConfig{
-			globalRPS:   800.0,
-			globalBurst: 100,
-			rps:         10.0,
-			burst:       50,
-		},
-	}, wrapper, signer, registry, lggr)
+	dispatcher, err := remote.NewDispatcher(newTestConfig(false), wrapper, nil, signer, registry, lggr)
 	require.NoError(t, err)
 	require.NoError(t, dispatcher.Start(ctx))
 	require.NoError(t, dispatcher.Close())
@@ -114,19 +111,11 @@ func TestDispatcher_Receive(t *testing.T) {
 	wrapper := mocks.NewPeerWrapper(t)
 	wrapper.On("GetPeer").Return(peer)
 	signer := mocks.NewSigner(t)
-	signer.On("Sign", mock.Anything).Return(nil, errors.New("not implemented"))
+	signer.EXPECT().Initialize().Return(nil)
+	signer.EXPECT().Sign(mock.Anything).Return(nil, errors.New("not implemented"))
 	registry := commonMocks.NewCapabilitiesRegistry(t)
 
-	dispatcher, err := remote.NewDispatcher(testConfig{
-		supportedVersion:   1,
-		receiverBufferSize: 10000,
-		rateLimit: testRateLimitConfig{
-			globalRPS:   800.0,
-			globalBurst: 100,
-			rps:         10.0,
-			burst:       50,
-		},
-	}, wrapper, signer, registry, lggr)
+	dispatcher, err := remote.NewDispatcher(newTestConfig(false), wrapper, nil, signer, registry, lggr)
 	require.NoError(t, err)
 	require.NoError(t, dispatcher.Start(ctx))
 
@@ -154,6 +143,58 @@ func TestDispatcher_Receive(t *testing.T) {
 	require.NoError(t, dispatcher.Close())
 }
 
+func TestDispatcher_ReceiveForMethod(t *testing.T) {
+	lggr := logger.Test(t)
+	ctx := testutils.Context(t)
+	privKey1, peerID1 := newKeyPair(t)
+	_, peerID2 := newKeyPair(t)
+
+	peer := mocks.NewPeer(t)
+	recvCh := make(chan p2ptypes.Message)
+	peer.On("Receive", mock.Anything).Return((<-chan p2ptypes.Message)(recvCh))
+	peer.On("ID", mock.Anything).Return(peerID2)
+	wrapper := mocks.NewPeerWrapper(t)
+	wrapper.On("GetPeer").Return(peer)
+	signer := mocks.NewSigner(t)
+	signer.EXPECT().Initialize().Return(nil)
+	signer.EXPECT().Sign(mock.Anything).Return(nil, errors.New("not implemented"))
+	registry := commonMocks.NewCapabilitiesRegistry(t)
+
+	dispatcher, err := remote.NewDispatcher(testConfig{
+		supportedVersion:   1,
+		receiverBufferSize: 10000,
+		rateLimit: testRateLimitConfig{
+			globalRPS:   800.0,
+			globalBurst: 100,
+			rps:         10.0,
+			burst:       50,
+		},
+	}, wrapper, nil, signer, registry, lggr)
+	require.NoError(t, err)
+	require.NoError(t, dispatcher.Start(ctx))
+
+	methodA, methodB := "methodA", "methodB"
+	rcvA, rcvB := newReceiver(), newReceiver()
+	require.NoError(t, dispatcher.SetReceiverForMethod(capID1, donID1, methodA, rcvA))
+	require.NoError(t, dispatcher.SetReceiverForMethod(capID1, donID1, methodB, rcvB))
+
+	// supported capability / methodA
+	recvCh <- encodeAndSignForMethod(t, privKey1, peerID1, peerID2, capID1, methodA, donID1, []byte(payload1))
+	// unknown capability
+	recvCh <- encodeAndSignForMethod(t, privKey1, peerID1, peerID2, capID2, methodA, donID1, []byte(payload1))
+	// supported capability / methodB
+	recvCh <- encodeAndSignForMethod(t, privKey1, peerID1, peerID2, capID1, methodB, donID1, []byte(payload2))
+
+	m := <-rcvA.ch
+	require.Equal(t, payload1, string(m.Payload))
+	m = <-rcvB.ch
+	require.Equal(t, payload2, string(m.Payload))
+
+	dispatcher.RemoveReceiverForMethod(capID1, donID1, methodA)
+	dispatcher.RemoveReceiverForMethod(capID1, donID1, methodB)
+	require.NoError(t, dispatcher.Close())
+}
+
 func TestDispatcher_RespondWithError(t *testing.T) {
 	lggr := logger.Test(t)
 	ctx := testutils.Context(t)
@@ -172,19 +213,11 @@ func TestDispatcher_RespondWithError(t *testing.T) {
 	wrapper := mocks.NewPeerWrapper(t)
 	wrapper.On("GetPeer").Return(peer)
 	signer := mocks.NewSigner(t)
-	signer.On("Sign", mock.Anything).Return([]byte{}, nil)
+	signer.EXPECT().Initialize().Return(nil)
+	signer.EXPECT().Sign(mock.Anything).Return([]byte{1, 2, 3}, nil)
 	registry := commonMocks.NewCapabilitiesRegistry(t)
 
-	dispatcher, err := remote.NewDispatcher(testConfig{
-		supportedVersion:   1,
-		receiverBufferSize: 10000,
-		rateLimit: testRateLimitConfig{
-			globalRPS:   800.0,
-			globalBurst: 100,
-			rps:         10.0,
-			burst:       50,
-		},
-	}, wrapper, signer, registry, lggr)
+	dispatcher, err := remote.NewDispatcher(newTestConfig(false), wrapper, nil, signer, registry, lggr)
 	require.NoError(t, err)
 	require.NoError(t, dispatcher.Start(ctx))
 
@@ -194,4 +227,91 @@ func TestDispatcher_RespondWithError(t *testing.T) {
 	require.Equal(t, peerID1, responseDestPeerID)
 
 	require.NoError(t, dispatcher.Close())
+}
+
+func TestDispatcher_ReceiveFromBothPeers(t *testing.T) {
+	lggr := logger.Test(t)
+	ctx := testutils.Context(t)
+	privKey1, peerID1 := newKeyPair(t)
+	_, peerID2 := newKeyPair(t)
+
+	peer := mocks.NewPeer(t)
+	recvCh := make(chan p2ptypes.Message)
+	peer.On("Receive", mock.Anything).Return((<-chan p2ptypes.Message)(recvCh))
+	peer.On("ID", mock.Anything).Return(peerID2)
+	wrapper := mocks.NewPeerWrapper(t)
+	wrapper.On("GetPeer").Return(peer)
+	signer := mocks.NewSigner(t)
+	signer.EXPECT().Initialize().Return(nil)
+	sharedPeer := mocks.NewSharedPeer(t)
+	sharedPeerRecvCh := make(chan p2ptypes.Message)
+	sharedPeer.On("Receive", mock.Anything).Return((<-chan p2ptypes.Message)(sharedPeerRecvCh))
+	sharedPeer.On("ID", mock.Anything).Return(peerID2)
+	registry := commonMocks.NewCapabilitiesRegistry(t)
+
+	dispatcher, err := remote.NewDispatcher(newTestConfig(false), wrapper, sharedPeer, signer, registry, lggr)
+	require.NoError(t, err)
+	require.NoError(t, dispatcher.Start(ctx))
+
+	rcv := newReceiver()
+	err = dispatcher.SetReceiver(capID1, donID1, rcv)
+	require.NoError(t, err)
+
+	recvCh <- encodeAndSign(t, privKey1, peerID1, peerID2, capID1, donID1, []byte(payload1))
+	sharedPeerRecvCh <- encodeAndSign(t, privKey1, peerID1, peerID2, capID1, donID1, []byte(payload2))
+	close(sharedPeerRecvCh) // make sure Dispatcher handles SharedPeer shutdown gracefully
+
+	m := <-rcv.ch
+	require.Equal(t, payload1, string(m.Payload))
+	m = <-rcv.ch
+	require.Equal(t, payload2, string(m.Payload))
+
+	dispatcher.RemoveReceiver(capID1, donID1)
+	require.NoError(t, dispatcher.Close())
+}
+
+func TestDispatcher_SendToSharedPeer(t *testing.T) {
+	lggr := logger.Test(t)
+	ctx := testutils.Context(t)
+	_, peerID1 := newKeyPair(t)
+	_, peerID2 := newKeyPair(t)
+
+	peer := mocks.NewPeer(t)
+	recvCh := make(chan p2ptypes.Message)
+	peer.On("Receive", mock.Anything).Return((<-chan p2ptypes.Message)(recvCh))
+	peer.On("ID", mock.Anything).Return(peerID2)
+	wrapper := mocks.NewPeerWrapper(t)
+	wrapper.On("GetPeer").Return(peer)
+	signer := mocks.NewSigner(t)
+	signer.EXPECT().Initialize().Return(nil)
+	signer.EXPECT().Sign(mock.Anything).Return([]byte("signed payload"), nil)
+	sharedPeer := mocks.NewSharedPeer(t)
+	sharedPeerRecvCh := make(chan p2ptypes.Message)
+	sharedPeer.On("Receive", mock.Anything).Return((<-chan p2ptypes.Message)(sharedPeerRecvCh))
+	sharedPeer.On("ID", mock.Anything).Return(peerID2)
+	sharedPeer.On("Send", mock.Anything, mock.Anything).Return(nil)
+	registry := commonMocks.NewCapabilitiesRegistry(t)
+
+	dispatcher, err := remote.NewDispatcher(newTestConfig(true), wrapper, sharedPeer, signer, registry, lggr)
+	require.NoError(t, err)
+	require.NoError(t, dispatcher.Start(ctx))
+
+	require.NoError(t, dispatcher.Send(peerID1, &remotetypes.MessageBody{}))
+	// mocks expect Sign() and Send()
+
+	require.NoError(t, dispatcher.Close())
+}
+
+func newTestConfig(sendToSharedPeer bool) testConfig {
+	return testConfig{
+		supportedVersion:   1,
+		receiverBufferSize: 10000,
+		rateLimit: testRateLimitConfig{
+			globalRPS:   800.0,
+			globalBurst: 100,
+			rps:         10.0,
+			burst:       50,
+		},
+		sendToSharedPeer: sendToSharedPeer,
+	}
 }

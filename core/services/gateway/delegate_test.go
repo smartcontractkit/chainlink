@@ -44,7 +44,6 @@ schemaVersion = 1
 		},
 	}
 	for _, tc := range tt {
-		tc := tc
 		t.Run(tc.name, func(t *testing.T) {
 			_, err := gateway.ValidatedGatewaySpec(tc.toml)
 			if tc.valid {

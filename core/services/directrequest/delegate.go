@@ -5,6 +5,7 @@ import (
 	stderrors "errors"
 	"fmt"
 	"reflect"
+	"slices"
 	"strconv"
 	"sync"
 
@@ -184,7 +185,7 @@ func (l *listener) Start(context.Context) error {
 // Close complies with job.Service
 func (l *listener) Close() error {
 	return l.StopOnce("DirectRequestListener", func() error {
-		l.runs.Range(func(key, runCloserChannelIf interface{}) bool {
+		l.runs.Range(func(key, runCloserChannelIf any) bool {
 			runCloserChannel := runCloserChannelIf.(services.StopChan)
 			close(runCloserChannel)
 			return true
@@ -292,8 +293,8 @@ func (l *listener) handleReceivedLogs(ctx context.Context, mailbox *mailbox.Mail
 	}
 }
 
-func oracleRequestToMap(request *operator.OperatorOracleRequest) map[string]interface{} {
-	result := make(map[string]interface{})
+func oracleRequestToMap(request *operator.OperatorOracleRequest) map[string]any {
+	result := make(map[string]any)
 	result["specId"] = fmt.Sprintf("0x%x", request.SpecId)
 	result["requester"] = request.Requester.Hex()
 	result["requestId"] = formatRequestId(request.RequestId)
@@ -346,7 +347,7 @@ func (l *listener) handleOracleRequest(ctx context.Context, request *operator.Op
 		}
 	}
 
-	meta := make(map[string]interface{})
+	meta := make(map[string]any)
 	meta["oracleRequest"] = oracleRequestToMap(request)
 
 	runCloserChannel := make(services.StopChan)
@@ -358,8 +359,8 @@ func (l *listener) handleOracleRequest(ctx context.Context, request *operator.Op
 	defer cancel()
 
 	evmChainID := lb.EVMChainID()
-	vars := pipeline.NewVarsFrom(map[string]interface{}{
-		"jobSpec": map[string]interface{}{
+	vars := pipeline.NewVarsFrom(map[string]any{
+		"jobSpec": map[string]any{
 			"databaseID":    l.job.ID,
 			"externalJobID": l.job.ExternalJobID,
 			"name":          l.job.Name.ValueOrZero(),
@@ -368,7 +369,7 @@ func (l *listener) handleOracleRequest(ctx context.Context, request *operator.Op
 			},
 			"evmChainID": evmChainID.String(),
 		},
-		"jobRun": map[string]interface{}{
+		"jobRun": map[string]any{
 			"meta":                  meta,
 			"logBlockHash":          request.Raw.BlockHash,
 			"logBlockNumber":        request.Raw.BlockNumber,
@@ -397,12 +398,7 @@ func (l *listener) allowRequester(requester common.Address) bool {
 	if len(l.requesters) == 0 {
 		return true
 	}
-	for _, addr := range l.requesters {
-		if addr == requester {
-			return true
-		}
-	}
-	return false
+	return slices.Contains(l.requesters, requester)
 }
 
 // Cancels runs that haven't been started yet, with the given request ID

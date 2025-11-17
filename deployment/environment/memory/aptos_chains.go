@@ -4,7 +4,6 @@ import (
 	"testing"
 
 	"github.com/aptos-labs/aptos-go-sdk"
-	"github.com/aptos-labs/aptos-go-sdk/bcs"
 	chainsel "github.com/smartcontractkit/chain-selectors"
 	"github.com/stretchr/testify/require"
 
@@ -12,7 +11,6 @@ import (
 	cldf_aptos "github.com/smartcontractkit/chainlink-deployments-framework/chain/aptos"
 	cldf_aptos_provider "github.com/smartcontractkit/chainlink-deployments-framework/chain/aptos/provider"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
-	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 )
 
 func getTestAptosChainSelectors() []uint64 {
@@ -45,27 +43,7 @@ func generateChainsAptos(t *testing.T, numChains int) []cldf_chain.BlockChain {
 		err = migrateAccountToFA(t, aptosChain.DeployerSigner, aptosChain.Client)
 		require.NoError(t, err)
 	}
-
-	t.Logf("Created %d Aptos chains", len(chains))
-
 	return chains
-}
-
-func createAptosChainConfig(chainID string, chain cldf_aptos.Chain) chainlink.RawConfig {
-	chainConfig := chainlink.RawConfig{}
-
-	chainConfig["Enabled"] = true
-	chainConfig["ChainID"] = chainID
-	chainConfig["NetworkName"] = "localnet"
-	chainConfig["NetworkNameFull"] = "aptos-localnet"
-	chainConfig["Nodes"] = []any{
-		map[string]any{
-			"Name": "primary",
-			"URL":  chain.URL,
-		},
-	}
-
-	return chainConfig
 }
 
 func migrateAccountToFA(t *testing.T, signer aptos.TransactionSigner, client aptos.AptosRpcClient) error {
@@ -99,29 +77,4 @@ func migrateAccountToFA(t *testing.T, signer aptos.TransactionSigner, client apt
 	accountAddress := signer.AccountAddress()
 	logger.TestLogger(t).Infof("Migrated account %v to Fungible Asset APT", accountAddress.StringLong())
 	return err
-}
-
-func fundAptosAccount(t *testing.T, signer aptos.TransactionSigner, to aptos.AccountAddress, amount uint64, client aptos.AptosRpcClient) {
-	toBytes, err := bcs.Serialize(&to)
-	require.NoError(t, err)
-	amountBytes, err := bcs.SerializeU64(amount)
-	require.NoError(t, err)
-	payload := aptos.TransactionPayload{Payload: &aptos.EntryFunction{
-		Module: aptos.ModuleId{
-			Address: aptos.AccountOne,
-			Name:    "aptos_account",
-		},
-		Function: "transfer",
-		Args: [][]byte{
-			toBytes,
-			amountBytes,
-		},
-	}}
-	tx, err := client.BuildSignAndSubmitTransaction(signer, payload)
-	require.NoError(t, err)
-	res, err := client.WaitForTransaction(tx.Hash)
-	require.NoError(t, err)
-	require.True(t, res.Success, res.VmStatus)
-	sender := signer.AccountAddress()
-	t.Logf("Funded account %s from %s with %f APT", to.StringLong(), sender.StringLong(), float64(amount)/1e8)
 }

@@ -8,8 +8,10 @@ import (
 	"time"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core"
-	"github.com/ethereum/go-ethereum/eth/ethconfig"
+	ethtypes "github.com/ethereum/go-ethereum/core/types"
+	"github.com/ethereum/go-ethereum/ethclient/simulated"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/atomic"
 
@@ -17,16 +19,14 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
 	"github.com/smartcontractkit/chainlink-evm/pkg/assets"
 	evmclient "github.com/smartcontractkit/chainlink-evm/pkg/client"
+	"github.com/smartcontractkit/chainlink-evm/pkg/config"
 	"github.com/smartcontractkit/chainlink-evm/pkg/heads/headstest"
+	"github.com/smartcontractkit/chainlink-evm/pkg/keys"
+	"github.com/smartcontractkit/chainlink-evm/pkg/keys/keystest"
 	"github.com/smartcontractkit/chainlink-evm/pkg/logpoller"
+	"github.com/smartcontractkit/chainlink-evm/pkg/testutils"
 	evmtypes "github.com/smartcontractkit/chainlink-evm/pkg/types"
-
-	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
-	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
-	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
-	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ethkey"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm"
-	evmrelaytypes "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/types"
 )
 
 // Test harness with EVM backend and chainlink core services like
@@ -38,8 +38,8 @@ type EVMBackendTH struct {
 	Backend   evmtypes.Backend
 	EVMClient evmclient.Client
 
-	ContractsOwner    *bind.TransactOpts
-	ContractsOwnerKey ethkey.KeyV2
+	ContractsOwner     *bind.TransactOpts
+	ContractsOwnerSign func(bytes []byte) ([]byte, error)
 
 	HeadTracker logpoller.HeadTracker
 	LogPoller   logpoller.LogPoller
@@ -51,19 +51,25 @@ var startID = atomic.NewInt64(1000)
 func NewEVMBackendTH(t *testing.T) *EVMBackendTH {
 	lggr := logger.Test(t)
 
-	ownerKey := cltest.MustGenerateRandomKey(t)
+	memKS := keystest.NewMemoryChainStore()
+	ownerAddress := memKS.MustCreate(t)
+	chainStore := keys.NewChainStore(memKS, testutils.SimulatedChainID)
+
 	contractsOwner := &bind.TransactOpts{
-		From:   ownerKey.Address,
-		Signer: ownerKey.SignerFn(testutils.SimulatedChainID),
+		From: ownerAddress,
+		Signer: func(addr common.Address, tx *ethtypes.Transaction) (*ethtypes.Transaction, error) {
+			return chainStore.SignTx(testutils.Context(t), addr, tx)
+		},
 	}
 
 	// Setup simulated go-ethereum EVM backend
 	genesisData := core.GenesisAlloc{
-		contractsOwner.From: {Balance: assets.Ether(100000).ToInt()},
+		ownerAddress: {Balance: assets.Ether(100000).ToInt()},
 	}
 
 	chainID := big.NewInt(startID.Add(1))
-	backend := cltest.NewSimulatedBackend(t, genesisData, ethconfig.Defaults.Miner.GasCeil)
+	backend := simulated.NewBackend(genesisData)
+
 	h, err := backend.Client().HeaderByNumber(testutils.Context(t), nil)
 	require.NoError(t, err)
 	//nolint:gosec // G115
@@ -81,8 +87,10 @@ func NewEVMBackendTH(t *testing.T) *EVMBackendTH {
 		Backend:   backend,
 		EVMClient: client,
 
-		ContractsOwner:    contractsOwner,
-		ContractsOwnerKey: ownerKey,
+		ContractsOwner: contractsOwner,
+		ContractsOwnerSign: func(bytes []byte) ([]byte, error) {
+			return memKS.Sign(testutils.Context(t), ownerAddress.String(), bytes)
+		},
 	}
 	th.HeadTracker, th.LogPoller = th.SetupCoreServices(t)
 
@@ -91,7 +99,7 @@ func NewEVMBackendTH(t *testing.T) *EVMBackendTH {
 
 // Setup core services like log poller and head tracker for the simulated backend
 func (th *EVMBackendTH) SetupCoreServices(t *testing.T) (logpoller.HeadTracker, logpoller.LogPoller) {
-	db := pgtest.NewSqlxDB(t)
+	db := testutils.NewSqlxDB(t)
 	const finalityDepth = 2
 	ht := headstest.NewSimulatedHeadTracker(th.EVMClient, false, finalityDepth)
 	lp := logpoller.NewLogPoller(
@@ -117,7 +125,7 @@ func (th *EVMBackendTH) SetupCoreServices(t *testing.T) (logpoller.HeadTracker, 
 }
 
 func (th *EVMBackendTH) NewContractReader(ctx context.Context, t *testing.T, cfg []byte) (types.ContractReader, error) {
-	crCfg := &evmrelaytypes.ChainReaderConfig{}
+	crCfg := &config.ChainReaderConfig{}
 	if err := json.Unmarshal(cfg, crCfg); err != nil {
 		return nil, err
 	}

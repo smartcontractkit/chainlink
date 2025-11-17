@@ -17,9 +17,10 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/mailbox"
-	"github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/offchain_aggregator_wrapper"
+	"github.com/smartcontractkit/chainlink-evm/gethwrappers/offchainaggregator/generated/ocr/offchain_aggregator_wrapper"
 	"github.com/smartcontractkit/chainlink-evm/pkg/chains/legacyevm"
 	"github.com/smartcontractkit/chainlink-evm/pkg/keys"
+	ocr2 "github.com/smartcontractkit/chainlink-evm/pkg/transmitter/ocr"
 	"github.com/smartcontractkit/chainlink-evm/pkg/txmgr"
 	"github.com/smartcontractkit/chainlink-evm/pkg/types"
 	txmgrcommon "github.com/smartcontractkit/chainlink-framework/chains/txmgr"
@@ -235,7 +236,7 @@ func (d *Delegate) ServicesForSpec(ctx context.Context, jb job.Job) (services []
 		cid := chain.ID()
 		ks := keys.NewChainStore(keystore.NewEthSigner(d.ethKeyStore, cid), cid)
 
-		transmitter, err := ocrcommon.NewTransmitter(
+		transmitter, err := ocr2.NewTransmitter(
 			chain.TxManager(),
 			[]common.Address{concreteSpec.TransmitterAddress.Address()},
 			gasLimit,

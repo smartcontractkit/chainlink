@@ -6,7 +6,7 @@ import (
 
 	"github.com/pkg/errors"
 
-	"github.com/smartcontractkit/chainlink-common/pkg/loop"
+	"github.com/smartcontractkit/chainlink-common/pkg/types/core"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/tonkey"
 )
 
@@ -138,7 +138,7 @@ func (ks *ton) EnsureKey(ctx context.Context) error {
 		return err
 	}
 
-	ks.logger.Infof("Created TON key with ID %s", key.ID())
+	ks.announce(key)
 
 	return ks.safeAddKey(ctx, key)
 }
@@ -163,9 +163,10 @@ func (ks *ton) getByID(id string) (tonkey.Key, error) {
 // handles signing for TON messages.
 type TONLooppSigner struct {
 	TON
+	core.UnimplementedKeystore
 }
 
-var _ loop.Keystore = &TONLooppSigner{}
+var _ core.Keystore = &TONLooppSigner{}
 
 // Returns a list of TON Public Keys
 func (s *TONLooppSigner) Accounts(ctx context.Context) (accounts []string, err error) {
@@ -177,4 +178,8 @@ func (s *TONLooppSigner) Accounts(ctx context.Context) (accounts []string, err e
 		accounts = append(accounts, k.ID())
 	}
 	return
+}
+
+func (s *TONLooppSigner) Sign(ctx context.Context, id string, msg []byte) (signature []byte, err error) {
+	return s.TON.Sign(ctx, id, msg)
 }

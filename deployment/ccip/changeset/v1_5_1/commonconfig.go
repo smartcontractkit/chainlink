@@ -7,14 +7,15 @@ import (
 	"github.com/Masterminds/semver/v3"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
+
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_5_0/token_admin_registry"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_5_1/token_pool"
-	deployment2 "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	"github.com/smartcontractkit/chainlink-evm/pkg/utils"
 
 	cldf_evm "github.com/smartcontractkit/chainlink-deployments-framework/chain/evm"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 
+	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview/evm"
@@ -107,7 +108,7 @@ func (c TokenAdminRegistryChangesetConfig) Validate(
 // TokenPoolInfo defines the type & version of a token pool, along with an optional external administrator.
 type TokenPoolInfo struct {
 	// Type is the type of the token pool.
-	Type deployment2.ContractType
+	Type cldf.ContractType
 	// Version is the version of the token pool.
 	Version semver.Version
 	// ExternalAdmin is the external administrator of the token pool on the registry.
@@ -174,12 +175,17 @@ func GetTokenPoolAddressFromSymbolTypeAndVersion(
 	chainState evm.CCIPChainState,
 	chain cldf_evm.Chain,
 	symbol shared.TokenSymbol,
-	poolType deployment2.ContractType,
+	poolType cldf.ContractType,
 	version semver.Version,
 ) (common.Address, bool) {
 	switch poolType {
 	case shared.BurnMintTokenPool:
 		if tokenPools, ok := chainState.BurnMintTokenPools[symbol]; ok {
+			if tokenPool, ok := tokenPools[version]; ok {
+				return tokenPool.Address(), true
+			}
+		}
+		if tokenPools, ok := chainState.BurnMintTokenPoolsAndProxies[symbol]; ok {
 			if tokenPool, ok := tokenPools[version]; ok {
 				return tokenPool.Address(), true
 			}
@@ -221,12 +227,34 @@ func GetTokenPoolAddressFromSymbolTypeAndVersion(
 			}
 		}
 	case shared.USDCTokenPool:
+		if version == deployment.Version1_6_2 {
+			if tokenPool, ok := chainState.USDCTokenPoolsV1_6[version]; ok {
+				return tokenPool.Address(), true
+			}
+		}
 		if tokenPool, ok := chainState.USDCTokenPools[version]; ok {
 			return tokenPool.Address(), true
 		}
 	case shared.HybridLockReleaseUSDCTokenPool:
+		if version == deployment.Version1_6_2 {
+			if tokenPool, ok := chainState.USDCTokenPoolsV1_6[version]; ok {
+				return tokenPool.Address(), true
+			}
+		}
 		if tokenPool, ok := chainState.USDCTokenPools[version]; ok {
 			return tokenPool.Address(), true
+		}
+	case shared.BurnMintWithExternalMinterTokenPool:
+		if tokenPools, ok := chainState.BurnMintWithExternalMinterTokenPool[symbol]; ok {
+			if tokenPool, ok := tokenPools[version]; ok {
+				return tokenPool.Address(), true
+			}
+		}
+	case shared.HybridWithExternalMinterTokenPool:
+		if tokenPools, ok := chainState.HybridWithExternalMinterTokenPool[symbol]; ok {
+			if tokenPool, ok := tokenPools[version]; ok {
+				return tokenPool.Address(), true
+			}
 		}
 	}
 

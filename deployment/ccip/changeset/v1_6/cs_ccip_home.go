@@ -6,25 +6,30 @@ import (
 	"errors"
 	"fmt"
 	"math/big"
+	"strings"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
-	chain_selectors "github.com/smartcontractkit/chain-selectors"
+	"github.com/gagliardetto/solana-go"
 	"golang.org/x/exp/maps"
+
+	chain_selectors "github.com/smartcontractkit/chain-selectors"
 
 	mcmslib "github.com/smartcontractkit/mcms"
 	mcmssdk "github.com/smartcontractkit/mcms/sdk"
 	mcmsevmsdk "github.com/smartcontractkit/mcms/sdk/evm"
 	mcmstypes "github.com/smartcontractkit/mcms/types"
 
-	"github.com/smartcontractkit/chainlink-ccip/chainconfig"
-	"github.com/smartcontractkit/chainlink-ccip/pkg/types/ccipocr3"
-	"github.com/smartcontractkit/chainlink-ccip/pluginconfig"
-	"github.com/smartcontractkit/chainlink-common/pkg/logger"
+	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/types"
 
+	"github.com/smartcontractkit/chainlink-ccip/chainconfig"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/latest/don_id_claimer"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_5_1/token_pool"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_0/ccip_home"
+	"github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/tokens"
+	"github.com/smartcontractkit/chainlink-ccip/pkg/types/ccipocr3"
+	"github.com/smartcontractkit/chainlink-ccip/pluginconfig"
+
 	capabilities_registry "github.com/smartcontractkit/chainlink-evm/gethwrappers/keystone/generated/capabilities_registry_1_1_0"
 
 	cldf_evm "github.com/smartcontractkit/chainlink-deployments-framework/chain/evm"
@@ -32,19 +37,15 @@ import (
 	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
 
 	"github.com/smartcontractkit/chainlink/deployment"
+	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/internal"
+	ccipseqs "github.com/smartcontractkit/chainlink/deployment/ccip/sequence/evm/v1_6"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/deployergroup"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
-	opsutil "github.com/smartcontractkit/chainlink/deployment/common/opsutils"
-
-	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/internal"
 	commoncs "github.com/smartcontractkit/chainlink/deployment/common/changeset"
+	opsutil "github.com/smartcontractkit/chainlink/deployment/common/opsutils"
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 	commontypes "github.com/smartcontractkit/chainlink/deployment/common/types"
-	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/types"
-	cctypes "github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/types"
-
-	ccipseqs "github.com/smartcontractkit/chainlink/deployment/ccip/sequence/evm/v1_6"
 )
 
 var (
@@ -173,17 +174,70 @@ func validateCommitOffchainConfig(c *pluginconfig.CommitOffchainConfig, selector
 
 func validateUSDCConfig(usdcConfig *pluginconfig.USDCCCTPObserverConfig, state stateview.CCIPOnChainState) error {
 	for sel, token := range usdcConfig.Tokens {
-		onchainState, ok := state.Chains[uint64(sel)]
-		if !ok {
-			return fmt.Errorf("chain %d does not exist in state but provided in USDCCCTPObserverConfig", sel)
+		family, err := chain_selectors.GetSelectorFamily(uint64(sel))
+		if err != nil {
+			return fmt.Errorf("failed to find family for selector %d: %w", sel, err)
 		}
-		if onchainState.USDCTokenPools == nil || onchainState.USDCTokenPools[deployment.Version1_5_1] == nil {
-			return fmt.Errorf("chain %d does not have USDC token pool deployed with version %s", sel, deployment.Version1_5_1)
-		}
-		if common.HexToAddress(token.SourcePoolAddress) != onchainState.USDCTokenPools[deployment.Version1_5_1].Address() {
-			return fmt.Errorf("chain %d has USDC token pool deployed at %s, "+
-				"but SourcePoolAddress %s is provided in USDCCCTPObserverConfig",
-				sel, onchainState.USDCTokenPools[deployment.Version1_5_1].Address().String(), token.SourcePoolAddress)
+		switch family {
+		case chain_selectors.FamilyEVM:
+			onchainState, ok := state.Chains[uint64(sel)]
+			if !ok {
+				return fmt.Errorf("chain %d does not exist in EVM chain state but provided in USDCCCTPObserverConfig", sel)
+			}
+			if onchainState.USDCTokenPools == nil {
+				return fmt.Errorf("chain %d does not have any USDC token pools deployed", sel)
+			}
+
+			var sourcePoolAddress common.Address
+			if pool, ok := onchainState.USDCTokenPoolsV1_6[deployment.Version1_6_2]; ok {
+				sourcePoolAddress = pool.Address()
+			} else if pool, ok := onchainState.USDCTokenPools[deployment.Version1_5_1]; ok {
+				sourcePoolAddress = pool.Address()
+			} else {
+				return fmt.Errorf("chain %d does not have USDC token pool deployed with version %s or %s", sel, deployment.Version1_5_1, deployment.Version1_6_2)
+			}
+
+			if common.HexToAddress(token.SourcePoolAddress) != sourcePoolAddress {
+				return fmt.Errorf("chain %d has latest USDC token pool deployed at %s, "+
+					"but SourcePoolAddress %s is provided in USDCCCTPObserverConfig",
+					sel, onchainState.USDCTokenPools[deployment.Version1_5_1].Address().String(), token.SourcePoolAddress)
+			}
+		case chain_selectors.FamilySolana:
+			onchainState, ok := state.SolChains[uint64(sel)]
+			if !ok {
+				return fmt.Errorf("chain %d does not exist in Solana chain state but provided in USDCCCTPObserverConfig", sel)
+			}
+			if onchainState.CCTPTokenPool.IsZero() {
+				return fmt.Errorf("chain %d does not have a CCTP token pool deployed", sel)
+			}
+			if onchainState.USDCToken.IsZero() {
+				return fmt.Errorf("chain %d does not have a USDC token in state", sel)
+			}
+			// Calculate the token pool config address for the USDCTokenPool since Solana expects the source pool to be this PDA instead of the actual pool
+			tokenPoolConfig, err := tokens.TokenPoolConfigAddress(onchainState.USDCToken, onchainState.CCTPTokenPool)
+			if err != nil {
+				return fmt.Errorf("failed to calculate token pool config address: %w", err)
+			}
+
+			// Token source pool address is stored as a hex representation of the address bytes
+			// This string is NOT a base58 address
+			sourcePoolAddrByteStr := token.SourcePoolAddress
+			if strings.HasPrefix(sourcePoolAddrByteStr, "0x") || strings.HasPrefix(sourcePoolAddrByteStr, "0X") {
+				sourcePoolAddrByteStr = sourcePoolAddrByteStr[2:]
+			}
+			sourcePoolBytes, err := hex.DecodeString(sourcePoolAddrByteStr)
+			if err != nil {
+				return fmt.Errorf("failed to decode source pool bytes hex: %w", err)
+			}
+
+			sourcePoolPubkey := solana.PublicKeyFromBytes(sourcePoolBytes)
+			if !sourcePoolPubkey.Equals(tokenPoolConfig) {
+				return fmt.Errorf("solana chain %d has CCTP token pool config deployed at %s, "+
+					"but SourcePoolAddress provided in USDCCCTPObserverConfig decodes to %s",
+					sel, tokenPoolConfig.String(), sourcePoolPubkey.String())
+			}
+		default:
+			return fmt.Errorf("USDC configs not supported for chain family %s", family)
 		}
 	}
 	return nil
@@ -302,7 +356,6 @@ func (p PromoteCandidateChangesetConfig) Validate(e cldf.Environment) (map[uint6
 				state.Chains[p.HomeChainSelector].CCIPHome,
 				chainSelector,
 			)
-
 			if err != nil {
 				return nil, fmt.Errorf("fetch don id for chain: %w", err)
 			}
@@ -910,7 +963,7 @@ func RevokeCandidateChangeset(e cldf.Environment, cfg RevokeCandidateChangesetCo
 	inspectors := map[uint64]mcmssdk.Inspector{cfg.HomeChainSelector: mcmsevmsdk.NewInspector(e.BlockChains.EVMChains()[cfg.HomeChainSelector].Client)}
 	batches := []mcmstypes.BatchOperation{{ChainSelector: mcmstypes.ChainSelector(cfg.HomeChainSelector), Transactions: ops}}
 
-	mcmsContractByChain, err := deployergroup.BuildMcmAddressesPerChainByAction(e, state, cfg.MCMS)
+	mcmsContractByChain, err := deployergroup.BuildMcmAddressesPerChainByAction(e, state, cfg.MCMS, nil)
 	if err != nil {
 		return cldf.ChangesetOutput{}, fmt.Errorf("failed to build mcm addresses per chain: %w", err)
 	}
@@ -1114,7 +1167,7 @@ func UpdateChainConfigChangeset(e cldf.Environment, cfg UpdateChainConfigConfig)
 			BatchSize:          4, // Conservative batch size to avoid exceeding gas limits (TODO: Make this configurable)
 		},
 	)
-	e.Logger.Infof("Proposed chain config update on chain %d removes %v, adds %v", cfg.HomeChainSelector, cfg.RemoteChainRemoves, cfg.RemoteChainAdds)
+	e.Logger.Infof("Proposed chain config update on chain %d removes %v, adds %+v", cfg.HomeChainSelector, cfg.RemoteChainRemoves, cfg.RemoteChainAdds)
 	return opsutil.AddEVMCallSequenceToCSOutput(e, cldf.ChangesetOutput{}, report, err, state.EVMMCMSStateByChain(), cfg.MCMS, "Update chain configs on CCIPHome")
 }
 
@@ -1130,68 +1183,6 @@ func isChainConfigEqual(a, b ccip_home.CCIPHomeChainConfig) bool {
 	}
 	return bytes.Equal(a.Config, b.Config) &&
 		a.FChain == b.FChain
-}
-
-// ValidateCCIPHomeConfigSetUp checks that the commit and exec active and candidate configs are set up correctly
-// TODO: Utilize this
-func ValidateCCIPHomeConfigSetUp(
-	lggr logger.Logger,
-	capReg *capabilities_registry.CapabilitiesRegistry,
-	ccipHome *ccip_home.CCIPHome,
-	chainSel uint64,
-) error {
-	// fetch DONID
-	donID, err := internal.DonIDForChain(capReg, ccipHome, chainSel)
-	if err != nil {
-		return fmt.Errorf("fetch don id for chain: %w", err)
-	}
-	if donID == 0 {
-		return fmt.Errorf("don id for chain (%d) does not exist", chainSel)
-	}
-
-	// final sanity checks on configs.
-	commitConfigs, err := ccipHome.GetAllConfigs(&bind.CallOpts{
-		//Pending: true,
-	}, donID, uint8(cctypes.PluginTypeCCIPCommit))
-	if err != nil {
-		return fmt.Errorf("get all commit configs: %w", err)
-	}
-	commitActiveDigest, err := ccipHome.GetActiveDigest(nil, donID, uint8(cctypes.PluginTypeCCIPCommit))
-	if err != nil {
-		return fmt.Errorf("get active commit digest: %w", err)
-	}
-	lggr.Debugw("Fetched active commit digest", "commitActiveDigest", hex.EncodeToString(commitActiveDigest[:]))
-	commitCandidateDigest, err := ccipHome.GetCandidateDigest(nil, donID, uint8(cctypes.PluginTypeCCIPCommit))
-	if err != nil {
-		return fmt.Errorf("get commit candidate digest: %w", err)
-	}
-	lggr.Debugw("Fetched candidate commit digest", "commitCandidateDigest", hex.EncodeToString(commitCandidateDigest[:]))
-	if commitConfigs.ActiveConfig.ConfigDigest == [32]byte{} {
-		return fmt.Errorf(
-			"active config digest is empty for commit, expected nonempty, donID: %d, cfg: %+v, config digest from GetActiveDigest call: %x, config digest from GetCandidateDigest call: %x",
-			donID, commitConfigs.ActiveConfig, commitActiveDigest, commitCandidateDigest)
-	}
-	if commitConfigs.CandidateConfig.ConfigDigest != [32]byte{} {
-		return fmt.Errorf(
-			"candidate config digest is nonempty for commit, expected empty, donID: %d, cfg: %+v, config digest from GetCandidateDigest call: %x, config digest from GetActiveDigest call: %x",
-			donID, commitConfigs.CandidateConfig, commitCandidateDigest, commitActiveDigest)
-	}
-
-	execConfigs, err := ccipHome.GetAllConfigs(nil, donID, uint8(cctypes.PluginTypeCCIPExec))
-	if err != nil {
-		return fmt.Errorf("get all exec configs: %w", err)
-	}
-	lggr.Debugw("Fetched exec configs",
-		"ActiveConfig.ConfigDigest", hex.EncodeToString(execConfigs.ActiveConfig.ConfigDigest[:]),
-		"CandidateConfig.ConfigDigest", hex.EncodeToString(execConfigs.CandidateConfig.ConfigDigest[:]),
-	)
-	if execConfigs.ActiveConfig.ConfigDigest == [32]byte{} {
-		return fmt.Errorf("active config digest is empty for exec, expected nonempty, cfg: %v", execConfigs.ActiveConfig)
-	}
-	if execConfigs.CandidateConfig.ConfigDigest != [32]byte{} {
-		return fmt.Errorf("candidate config digest is nonempty for exec, expected empty, cfg: %v", execConfigs.CandidateConfig)
-	}
-	return nil
 }
 
 type DeployDonIDClaimerConfig struct{}
@@ -1213,12 +1204,26 @@ func deployDonIDClaimerChangesetLogic(e cldf.Environment, _ DeployDonIDClaimerCo
 	err = deployDonIDClaimerContract(e, ab, state, chain)
 	if err != nil {
 		e.Logger.Errorw("Failed to deploy donIDClaimer contract", "err", err, "addressBook", ab)
+
+		ds, err2 := shared.PopulateDataStore(ab)
+		if err2 != nil {
+			err2 = fmt.Errorf("failed to populate in-memory DataStore: %w", err2)
+		}
+
 		return cldf.ChangesetOutput{
 			AddressBook: ab,
-		}, fmt.Errorf("failed to deploy donIDClaimer contract: %w", err)
+			DataStore:   ds,
+		}, fmt.Errorf("failed to deploy donIDClaimer contract: %w", errors.Join(err, err2))
 	}
+
+	ds, err := shared.PopulateDataStore(ab)
+	if err != nil {
+		return cldf.ChangesetOutput{}, fmt.Errorf("failed to populate in-memory DataStore: %w", err)
+	}
+
 	return cldf.ChangesetOutput{
 		AddressBook: ab,
+		DataStore:   ds,
 	}, nil
 }
 

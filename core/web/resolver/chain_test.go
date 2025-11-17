@@ -3,11 +3,9 @@ package resolver
 import (
 	"context"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"testing"
 
-	gqlerrors "github.com/graph-gophers/graphql-go/errors"
 	"github.com/pelletier/go-toml/v2"
 	"github.com/stretchr/testify/require"
 
@@ -213,7 +211,6 @@ ResendAfterThreshold = '1h0m0s'
 
 	configTOMLEscaped, err := json.Marshal(configTOML)
 	require.NoError(t, err)
-	multipleChainError := errors.New("multiple chains found with the same chain ID")
 	testCases := []GQLTestCase{
 		unauthorizedTestCase(GQLTestCase{query: query}, "chain"),
 		{
@@ -266,51 +263,9 @@ ResendAfterThreshold = '1h0m0s'
 				}`,
 		},
 		{
-			name:          "multiple chain with same chainID found error",
-			authenticated: true,
-			before: func(ctx context.Context, f *gqlTestFramework) {
-				chainConf := evmtoml.EVMConfig{
-					Chain:   chain,
-					ChainID: &chainID,
-				}
-
-				chainConfToml, err2 := chainConf.TOMLString()
-				require.NoError(t, err2)
-
-				f.App.On("GetRelayers").Return(&chainlinkmocks.FakeRelayerChainInteroperators{Relayers: map[commontypes.RelayID]loop.Relayer{
-					{
-						Network: relay.NetworkEVM,
-						ChainID: chainID.String(),
-					}: &testutils.MockRelayer{ChainStatus: commontypes.ChainStatus{
-						ID:      chainID.String(),
-						Enabled: chainConf.IsEnabled(),
-						Config:  chainConfToml,
-					}},
-					{
-						Network: relay.NetworkAptos,
-						ChainID: chainID.String(),
-					}: &testutils.MockRelayer{ChainStatus: commontypes.ChainStatus{
-						ID:      chainID.String(),
-						Enabled: chainConf.IsEnabled(),
-						Config:  chainConfToml,
-					}},
-				}})
-			},
-			query:  query,
-			result: "null",
-			errors: []*gqlerrors.QueryError{
-				{
-					Extensions:    nil,
-					ResolverError: multipleChainError,
-					Path:          []interface{}{"chain"},
-					Message:       multipleChainError.Error(),
-				},
-			},
-		},
-		{
 			name:          "should return aptos chain if network is aptos",
 			authenticated: true,
-			variables: map[string]interface{}{
+			variables: map[string]any{
 				"network": relay.NetworkAptos,
 			},
 			before: func(ctx context.Context, f *gqlTestFramework) {

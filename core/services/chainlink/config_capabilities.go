@@ -1,6 +1,8 @@
 package chainlink
 
 import (
+	"github.com/smartcontractkit/libocr/commontypes"
+
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
 	"github.com/smartcontractkit/chainlink/v2/core/config"
 	"github.com/smartcontractkit/chainlink/v2/core/config/toml"
@@ -15,6 +17,10 @@ type capabilitiesConfig struct {
 
 func (c *capabilitiesConfig) Peering() config.P2P {
 	return &p2p{c: c.c.Peering}
+}
+
+func (c *capabilitiesConfig) SharedPeering() config.SharedPeering {
+	return &sharedPeering{s: c.c.SharedPeering}
 }
 
 func (c *capabilitiesConfig) ExternalRegistry() config.CapabilitiesExternalRegistry {
@@ -75,6 +81,61 @@ func (d *dispatcher) RateLimit() config.DispatcherRateLimit {
 	return &dispatcherRateLimit{r: d.d.RateLimit}
 }
 
+func (d *dispatcher) SendToSharedPeer() bool {
+	return *d.d.SendToSharedPeer
+}
+
+type sharedPeering struct {
+	s toml.SharedPeering
+}
+
+func (s *sharedPeering) Enabled() bool {
+	return *s.s.Enabled
+}
+
+func (s *sharedPeering) Bootstrappers() (locators []commontypes.BootstrapperLocator) {
+	if d := s.s.Bootstrappers; d != nil {
+		return *d
+	}
+	return nil
+}
+
+func (s *sharedPeering) StreamConfig() config.StreamConfig {
+	return &streamConfig{c: s.s.StreamConfig}
+}
+
+type streamConfig struct {
+	c toml.StreamConfig
+}
+
+func (c *streamConfig) IncomingMessageBufferSize() int {
+	return *c.c.IncomingMessageBufferSize
+}
+
+func (c *streamConfig) OutgoingMessageBufferSize() int {
+	return *c.c.OutgoingMessageBufferSize
+}
+
+func (c *streamConfig) MaxMessageLenBytes() int {
+	return *c.c.MaxMessageLenBytes
+}
+
+func (c *streamConfig) MessageRateLimiterRate() float64 {
+	return *c.c.MessageRateLimiterRate
+}
+
+func (c *streamConfig) MessageRateLimiterCapacity() uint32 {
+	return *c.c.MessageRateLimiterCapacity
+}
+
+func (c *streamConfig) BytesRateLimiterRate() float64 {
+	return *c.c.BytesRateLimiterRate
+}
+
+func (c *streamConfig) BytesRateLimiterCapacity() uint32 {
+	return *c.c.BytesRateLimiterCapacity
+}
+
 type dispatcherRateLimit struct {
 	r toml.DispatcherRateLimit
 }
@@ -121,6 +182,10 @@ func (c *capabilitiesExternalRegistry) Address() string {
 	return *c.c.Address
 }
 
+func (c *capabilitiesExternalRegistry) ContractVersion() string {
+	return *c.c.ContractVersion
+}
+
 type capabilitiesWorkflowRegistry struct {
 	c toml.WorkflowRegistry
 }
@@ -135,6 +200,10 @@ func (c *capabilitiesWorkflowRegistry) NetworkID() string {
 
 func (c *capabilitiesWorkflowRegistry) ChainID() string {
 	return *c.c.ChainID
+}
+
+func (c *capabilitiesWorkflowRegistry) ContractVersion() string {
+	return *c.c.ContractVersion
 }
 
 func (c *capabilitiesWorkflowRegistry) Address() string {
@@ -155,6 +224,28 @@ func (c *capabilitiesWorkflowRegistry) MaxConfigSize() utils.FileSize {
 
 func (c *capabilitiesWorkflowRegistry) SyncStrategy() string {
 	return *c.c.SyncStrategy
+}
+
+func (c *capabilitiesWorkflowRegistry) WorkflowStorage() config.WorkflowStorage {
+	return &workflowStorage{
+		c: c.c.WorkflowStorage,
+	}
+}
+
+type workflowStorage struct {
+	c toml.WorkflowStorage
+}
+
+func (c *workflowStorage) URL() string {
+	return *c.c.URL
+}
+
+func (c *workflowStorage) TLSEnabled() bool {
+	return *c.c.TLSEnabled
+}
+
+func (c *workflowStorage) ArtifactStorageHost() string {
+	return *c.c.ArtifactStorageHost
 }
 
 type gatewayConnector struct {

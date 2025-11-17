@@ -49,7 +49,7 @@ type ORM interface {
 	FindJob(ctx context.Context, id int32) (Job, error)
 	FindJobByExternalJobID(ctx context.Context, uuid uuid.UUID) (Job, error)
 	FindJobIDByAddress(ctx context.Context, address evmtypes.EIP55Address, evmChainID *big.Big) (int32, error)
-	FindOCR2JobIDByAddress(ctx context.Context, contractID string, feedID *common.Hash) (int32, error)
+	FindOCR2JobIDByAddress(ctx context.Context, relay string, chainID int64, contractID string, feedID *common.Hash) (int32, error)
 	FindJobIDsWithBridge(ctx context.Context, name string) ([]int32, error)
 	DeleteJob(ctx context.Context, id int32, jobType Type) error
 	RecordError(ctx context.Context, jobID int32, description string) error
@@ -171,6 +171,10 @@ func (o *orm) AssertBridgesExist(ctx context.Context, p pipeline.Pipeline) error
 // Expects an unmarshalled job spec as the jb argument i.e. output from ValidatedXX.
 // Scans all persisted records back into jb
 func (o *orm) CreateJob(ctx context.Context, jb *Job) error {
+	if slices.Contains([]Type{DirectRequest, FluxMonitor, LegacyGasStationServer, LegacyGasStationSidecar, Webhook}, jb.Type) {
+		o.lggr.Warnw("Job of this type will not be supported in chainlink v3", "type", jb.Type)
+	}
+
 	p := jb.Pipeline
 	if err := o.AssertBridgesExist(ctx, p); err != nil {
 		return err
@@ -318,7 +322,7 @@ func (o *orm) CreateJob(ctx context.Context, jb *Job) error {
 					return errors.New("dual transmission is enabled but no dual transmission config present")
 				}
 
-				dualTransmissionConfig, ok := rawDualTransmissionConfig.(map[string]interface{})
+				dualTransmissionConfig, ok := rawDualTransmissionConfig.(map[string]any)
 				if !ok {
 					return errors.New("invalid dual transmission config")
 				}
@@ -333,7 +337,7 @@ func (o *orm) CreateJob(ctx context.Context, jb *Job) error {
 					return errors.New("invalid transmitter address in dual transmission config")
 				}
 
-				if _, ok := dualTransmissionConfig["meta"].(map[string]interface{}); !ok {
+				if _, ok := dualTransmissionConfig["meta"].(map[string]any); !ok {
 					return errors.New("invalid dual transmission meta")
 				}
 
@@ -368,6 +372,12 @@ func (o *orm) CreateJob(ctx context.Context, jb *Job) error {
 				return fmt.Errorf("failed to create KeeperSpec for jobSpec: %w", err)
 			}
 			jb.KeeperSpecID = &specID
+		case CRESettings:
+			specID, err := tx.insertCRESettingsSpec(ctx, jb.CRESettingsSpec)
+			if err != nil {
+				return fmt.Errorf("failed to create CRESettingsSpec for jobSpec: %w", err)
+			}
+			jb.CRESettingsSpecID = &specID
 		case Cron:
 			specID, err := tx.insertCronSpec(ctx, jb.CronSpec)
 			if err != nil {
@@ -576,6 +586,10 @@ func (o *orm) insertKeeperSpec(ctx context.Context, spec *KeeperSpec) (specID in
 			RETURNING id;`, spec)
 }
 
+func (o *orm) insertCRESettingsSpec(ctx context.Context, spec *CRESettingsSpec) (specID int32, err error) {
+	return o.prepareQuerySpecID(ctx, `INSERT INTO cre_settings_specs (settings, hash, created_at, updated_at) VALUES (:settings, :hash, NOW(), NOW()) RETURNING id;`, spec)
+}
+
 func (o *orm) insertCronSpec(ctx context.Context, spec *CronSpec) (specID int32, err error) {
 	return o.prepareQuerySpecID(ctx, `INSERT INTO cron_specs (cron_schedule, evm_chain_id, created_at, updated_at)
 			VALUES (:cron_schedule, :evm_chain_id, NOW(), NOW())
@@ -691,6 +705,11 @@ func validateKeyStoreMatchForRelay(ctx context.Context, network string, keyStore
 		if err != nil {
 			return errors.Errorf("no TON key matching: %q", key)
 		}
+	case relay.NetworkSui:
+		_, err := keyStore.Sui().Get(key)
+		if err != nil {
+			return errors.Errorf("no Sui key matching: %q", key)
+		}
 	}
 	return nil
 }
@@ -770,6 +789,7 @@ func (o *orm) DeleteJob(ctx context.Context, id int32, jobType Type) error {
 		OffchainReporting:    `DELETE FROM ocr_oracle_specs WHERE id IN (SELECT ocr_oracle_spec_id FROM deleted_jobs)`,
 		OffchainReporting2:   `DELETE FROM ocr2_oracle_specs WHERE id IN (SELECT ocr2_oracle_spec_id FROM deleted_jobs)`,
 		Keeper:               `DELETE FROM keeper_specs WHERE id IN (SELECT keeper_spec_id FROM deleted_jobs)`,
+		CRESettings:          `DELETE FROM cre_settings_specs WHERE id IN (SELECT cre_settings_specs_id FROM deleted_jobs)`,
 		Cron:                 `DELETE FROM cron_specs WHERE id IN (SELECT cron_spec_id FROM deleted_jobs)`,
 		VRF:                  `DELETE FROM vrf_specs WHERE id IN (SELECT vrf_spec_id FROM deleted_jobs)`,
 		Webhook:              `DELETE FROM webhook_specs WHERE id IN (SELECT webhook_spec_id FROM deleted_jobs)`,
@@ -798,6 +818,7 @@ func (o *orm) DeleteJob(ctx context.Context, id int32, jobType Type) error {
 				ocr_oracle_spec_id,
 				ocr2_oracle_spec_id,
 				keeper_spec_id,
+				cre_settings_spec_id,
 				cron_spec_id,
 				flux_monitor_spec_id,
 				vrf_spec_id,
@@ -939,28 +960,28 @@ type OCRConfig interface {
 // LoadConfigVarsLocalOCR loads local OCR vars into the OCROracleSpec.
 func LoadConfigVarsLocalOCR(evmOcrCfg evmconfig.OCR, os OCROracleSpec, ocrCfg OCRConfig) *OCROracleSpec {
 	if os.ObservationTimeout == 0 {
-		os.ObservationTimeout = models.Interval(ocrCfg.ObservationTimeout())
+		os.ObservationTimeout = sqlutil.Interval(ocrCfg.ObservationTimeout())
 	}
 	if os.BlockchainTimeout == 0 {
-		os.BlockchainTimeout = models.Interval(ocrCfg.BlockchainTimeout())
+		os.BlockchainTimeout = sqlutil.Interval(ocrCfg.BlockchainTimeout())
 	}
 	if os.ContractConfigTrackerSubscribeInterval == 0 {
-		os.ContractConfigTrackerSubscribeInterval = models.Interval(ocrCfg.ContractSubscribeInterval())
+		os.ContractConfigTrackerSubscribeInterval = sqlutil.Interval(ocrCfg.ContractSubscribeInterval())
 	}
 	if os.ContractConfigTrackerPollInterval == 0 {
-		os.ContractConfigTrackerPollInterval = models.Interval(ocrCfg.ContractPollInterval())
+		os.ContractConfigTrackerPollInterval = sqlutil.Interval(ocrCfg.ContractPollInterval())
 	}
 	if os.ContractConfigConfirmations == 0 {
 		os.ContractConfigConfirmations = evmOcrCfg.ContractConfirmations()
 	}
 	if os.DatabaseTimeout == nil {
-		os.DatabaseTimeout = models.NewInterval(evmOcrCfg.DatabaseTimeout())
+		os.DatabaseTimeout = sqlutil.NewInterval(evmOcrCfg.DatabaseTimeout())
 	}
 	if os.ObservationGracePeriod == nil {
-		os.ObservationGracePeriod = models.NewInterval(evmOcrCfg.ObservationGracePeriod())
+		os.ObservationGracePeriod = sqlutil.NewInterval(evmOcrCfg.ObservationGracePeriod())
 	}
 	if os.ContractTransmitterTransmitTimeout == nil {
-		os.ContractTransmitterTransmitTimeout = models.NewInterval(evmOcrCfg.ContractTransmitterTransmitTimeout())
+		os.ContractTransmitterTransmitTimeout = sqlutil.NewInterval(evmOcrCfg.ContractTransmitterTransmitTimeout())
 	}
 	os.CaptureEATelemetry = ocrCfg.CaptureEATelemetry()
 
@@ -1058,29 +1079,42 @@ WHERE ocrspec.id IS NOT NULL OR fmspec.id IS NOT NULL
 	return
 }
 
-func (o *orm) FindOCR2JobIDByAddress(ctx context.Context, contractID string, feedID *common.Hash) (jobID int32, err error) {
+func (o *orm) FindOCR2JobIDByAddress(ctx context.Context, relay string, chainID int64, contractID string, feedID *common.Hash) (int32, error) {
 	// NOTE: We want to explicitly match on NULL feed_id hence usage of `IS
 	// NOT DISTINCT FROM` instead of `=`
 	stmt := `
 SELECT jobs.id
 FROM jobs
-LEFT JOIN ocr2_oracle_specs ocr2spec on ocr2spec.contract_id = $1 AND ocr2spec.feed_id IS NOT DISTINCT FROM $2 AND ocr2spec.id = jobs.ocr2_oracle_spec_id
-LEFT JOIN bootstrap_specs bs on bs.contract_id = $1 AND bs.feed_id IS NOT DISTINCT FROM $2 AND bs.id = jobs.bootstrap_spec_id
+LEFT JOIN ocr2_oracle_specs ocr2spec on 
+	ocr2spec.contract_id = $1 AND 
+	ocr2spec.feed_id IS NOT DISTINCT FROM $2 AND 
+	ocr2spec.id = jobs.ocr2_oracle_spec_id AND
+	ocr2spec.relay = $3 AND
+	ocr2spec.relay_config->'chainID' = $4
+LEFT JOIN bootstrap_specs bs on 
+	bs.contract_id = $1 AND 
+	bs.feed_id IS NOT DISTINCT FROM $2 AND 
+	bs.id = jobs.bootstrap_spec_id AND
+	bs.relay = $3 AND
+	bs.relay_config->'chainID' = $4
 WHERE ocr2spec.id IS NOT NULL OR bs.id IS NOT NULL
 `
-	err = o.ds.GetContext(ctx, &jobID, stmt, contractID, feedID)
+	var results []int64
+	err := o.ds.SelectContext(ctx, &results, stmt, contractID, feedID, relay, chainID)
 	if err != nil {
-		if !errors.Is(err, sql.ErrNoRows) {
-			err = errors.Wrapf(err, "error searching for job by contract id=%s and feed id=%s", contractID, feedID)
-		}
-		err = errors.Wrap(err, "FindOCR2JobIDByAddress failed")
-		return
+		return 0, errors.Wrapf(err, "error searching for job by contract id=%s and feed id=%s", contractID, feedID)
 	}
-
-	return
+	if len(results) > 1 {
+		return 0, errors.Errorf("For contract id=%s, feed id=%s, find returned > 1 job results with ids = %v", contractID, feedID, results)
+	}
+	if len(results) == 0 {
+		return 0, nil
+	}
+	//nolint:gosec // Sqlx scans into int64 types irrespectively of the underlying db type; id is serial4, which is 4 bytes.
+	return int32(results[0]), nil
 }
 
-func (o *orm) findJob(ctx context.Context, jb *Job, col string, arg interface{}) error {
+func (o *orm) findJob(ctx context.Context, jb *Job, col string, arg any) error {
 	err := o.transact(ctx, false, func(tx *orm) error {
 		sql := fmt.Sprintf(`SELECT jobs.*, job_pipeline_specs.pipeline_spec_id FROM jobs JOIN job_pipeline_specs ON (jobs.id = job_pipeline_specs.job_id) WHERE jobs.%s = $1 AND job_pipeline_specs.is_primary = true LIMIT 1`, col)
 		err := tx.ds.GetContext(ctx, jb, sql, arg)

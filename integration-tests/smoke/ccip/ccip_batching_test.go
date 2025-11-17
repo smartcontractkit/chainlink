@@ -3,7 +3,6 @@ package ccip
 import (
 	"context"
 	"fmt"
-	"math/big"
 	"sync"
 	"testing"
 
@@ -25,7 +24,7 @@ import (
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_2_0/router"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_0/offramp"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_0/onramp"
-	"github.com/smartcontractkit/chainlink-evm/gethwrappers/shared/generated/multicall3"
+	"github.com/smartcontractkit/chainlink-evm/gethwrappers/shared/generated/initial/multicall3"
 
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/v1_6"
 )
@@ -436,7 +435,7 @@ func sendMessagesAsync(
 
 	// we retry a bunch of times just in case there is a race b/w the prices being
 	// posted and the messages being sent.
-	for i := 0; i < numRetries; i++ {
+	for range numRetries {
 		err = sendMessages(
 			ctx,
 			t,
@@ -472,12 +471,18 @@ func sendMessages(
 	numMessages int,
 	receiver []byte,
 ) error {
-	calls, totalValue, err := genMessages(
+	calls, totalValue, err := testhelpers.GenMessagesForMulticall3(
 		ctx,
 		sourceRouter,
 		destChainSelector,
 		numMessages,
-		receiver,
+		router.ClientEVM2AnyMessage{
+			Receiver:     receiver,
+			Data:         fmt.Appendf(nil, "hello world %d messages", numMessages),
+			TokenAmounts: nil,
+			FeeToken:     common.HexToAddress("0x0"),
+			ExtraArgs:    testhelpers.MakeEVMExtraArgsV2(50_000, false),
+		},
 	)
 	if err != nil {
 		return fmt.Errorf("generate messages: %w", err)
@@ -515,7 +520,7 @@ func sendMessages(
 	}()
 
 	// there should be numMessages messages emitted
-	for i := 0; i < numMessages; i++ {
+	for i := range numMessages {
 		if !iter.Next() {
 			return fmt.Errorf("expected %d messages, got %d", numMessages, i)
 		}
@@ -523,46 +528,6 @@ func sendMessages(
 	}
 
 	return nil
-}
-
-func genMessages(
-	ctx context.Context,
-	sourceRouter *router.Router,
-	destChainSelector uint64,
-	count int,
-	receiver []byte,
-) (calls []multicall3.Multicall3Call3Value, totalValue *big.Int, err error) {
-	totalValue = big.NewInt(0)
-	for i := 0; i < count; i++ {
-		msg := router.ClientEVM2AnyMessage{
-			Receiver:     receiver,
-			Data:         []byte(fmt.Sprintf("hello world %d", i)),
-			TokenAmounts: nil,
-			FeeToken:     common.HexToAddress("0x0"),
-			ExtraArgs:    testhelpers.MakeEVMExtraArgsV2(50_000, false),
-		}
-
-		fee, err := sourceRouter.GetFee(&bind.CallOpts{Context: ctx}, destChainSelector, msg)
-		if err != nil {
-			return nil, nil, fmt.Errorf("router get fee: %w", err)
-		}
-
-		totalValue.Add(totalValue, fee)
-
-		calldata, err := testhelpers.CCIPSendCalldata(destChainSelector, msg)
-		if err != nil {
-			return nil, nil, fmt.Errorf("generate calldata: %w", err)
-		}
-
-		calls = append(calls, multicall3.Multicall3Call3Value{
-			Target:       sourceRouter.Address(),
-			AllowFailure: false,
-			CallData:     calldata,
-			Value:        fee,
-		})
-	}
-
-	return calls, totalValue, nil
 }
 
 // creates an array of uint64 from start to end inclusive

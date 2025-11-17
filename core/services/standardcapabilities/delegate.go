@@ -2,6 +2,7 @@ package standardcapabilities
 
 import (
 	"context"
+	"crypto"
 	"fmt"
 
 	"github.com/google/uuid"
@@ -9,6 +10,7 @@ import (
 	"github.com/pkg/errors"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/loop"
+	"github.com/smartcontractkit/chainlink-common/pkg/services/orgresolver"
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/core"
@@ -50,11 +52,13 @@ type Delegate struct {
 	relayers                RelayGetter
 	gatewayConnectorWrapper *gatewayconnector.ServiceWrapper
 	ks                      keystore.Master
-	externalPeerWrapper     p2ptypes.PeerWrapper
+	getPeerID               func() (p2ptypes.PeerID, error)
 	ocrPeerWrapper          *ocrcommon.SingletonPeerWrapper
 	newOracleFactoryFn      NewOracleFactoryFn
 	computeFetcherFactoryFn compute.FetcherFactory
 	selectorOpts            []func(*gateway.RoundRobinSelector)
+	orgResolver             orgresolver.OrgResolver
+	creSettings             core.SettingsBroadcaster
 
 	isNewlyCreatedJob bool
 }
@@ -78,10 +82,12 @@ func NewDelegate(
 	relayers RelayGetter,
 	gatewayConnectorWrapper *gatewayconnector.ServiceWrapper,
 	ks keystore.Master,
-	externalPeerWrapper p2ptypes.PeerWrapper,
+	getPeerID func() (p2ptypes.PeerID, error),
 	ocrPeerWrapper *ocrcommon.SingletonPeerWrapper,
 	newOracleFactoryFn NewOracleFactoryFn,
 	fetcherFactoryFn compute.FetcherFactory,
+	orgResolver orgresolver.OrgResolver,
+	creSettings core.SettingsBroadcaster,
 	opts ...func(*gateway.RoundRobinSelector),
 ) *Delegate {
 	return &Delegate{
@@ -96,10 +102,12 @@ func NewDelegate(
 		isNewlyCreatedJob:       false,
 		gatewayConnectorWrapper: gatewayConnectorWrapper,
 		ks:                      ks,
-		externalPeerWrapper:     externalPeerWrapper,
+		getPeerID:               getPeerID,
 		ocrPeerWrapper:          ocrPeerWrapper,
 		newOracleFactoryFn:      newOracleFactoryFn,
 		computeFetcherFactoryFn: fetcherFactoryFn,
+		orgResolver:             orgResolver,
+		creSettings:             creSettings,
 		selectorOpts:            opts,
 	}
 }
@@ -114,26 +122,37 @@ func (d *Delegate) BeforeJobCreated(job job.Job) {
 }
 
 func (d *Delegate) ServicesForSpec(ctx context.Context, spec job.Job) ([]job.ServiceCtx, error) {
-	log := d.logger.Named("StandardCapabilities").Named(spec.StandardCapabilitiesSpec.GetID())
+	log := d.logger.Named("StandardCapabilities").Named(spec.StandardCapabilitiesSpec.GetID()).Named(spec.Name.ValueOrZero())
 
 	kvStore := job.NewKVStore(spec.ID, d.ds)
 
-	var keystore core.Keystore
-	if d.ks.P2P() != nil && d.externalPeerWrapper != nil {
-		key, err := d.ks.P2P().GetOrFirst(p2pkey.PeerID(d.externalPeerWrapper.GetPeer().ID()))
+	// Enable signing and decryption for the capability, if available.
+	var ks core.Keystore
+	var decrypter core.Decrypter
+	var signer crypto.Signer
+	if d.ks.Workflow() != nil {
+		workflowKeys, err := d.ks.Workflow().GetAll()
 		if err != nil {
-			return nil, fmt.Errorf("external peer wrapper does not pertain to a valid P2P key %x: %w", d.externalPeerWrapper.GetPeer().ID(), err)
+			return nil, fmt.Errorf("failed to get workflow keys: %w", err)
 		}
-		keystore, err = core.NewSingleAccountSigner(&core.P2PAccountKey, key)
+		if len(workflowKeys) > 0 {
+			decrypter = &workflowKeys[0]
+		}
+	}
+	if d.ks.P2P() != nil && d.getPeerID != nil {
+		peerID, err := d.getPeerID()
 		if err != nil {
-			return nil, fmt.Errorf("failed to create single account signer for P2P key: %w", err)
+			log.Warnw("getPeerID() failed, will extract default peerID from Keystore", "error", err)
 		}
-	} else {
-		var err error
-		keystore, err = core.NewSingleAccountSigner(nil, nil)
+		p2pKey, err := d.ks.P2P().GetOrFirst(p2pkey.PeerID(peerID))
 		if err != nil {
-			return nil, fmt.Errorf("failed to create empty single account signer: %w", err)
+			return nil, fmt.Errorf("external peer wrapper does not pertain to a valid P2P key %x: %w", peerID, err)
 		}
+		signer = p2pKey
+	}
+	ks, err := core.NewSignerDecrypter(core.StandardCapabilityAccount, signer, decrypter)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create signer decrypter: %w", err)
 	}
 
 	telemetryService := generic.NewTelemetryAdapter(d.monitoringEndpointGen)
@@ -210,7 +229,7 @@ func (d *Delegate) ServicesForSpec(ctx context.Context, spec job.Job) ([]job.Ser
 
 	// NOTE: special cases for built-in capabilities (to be moved into LOOPPs in the future)
 	if spec.StandardCapabilitiesSpec.Command == commandOverrideForWebAPITrigger {
-		if d.gatewayConnectorWrapper == nil {
+		if d.gatewayConnectorWrapper == nil || connector == nil {
 			return nil, errors.New("gateway connector is required for web API Trigger capability")
 		}
 		triggerSrvc, err := trigger.NewTrigger(spec.StandardCapabilitiesSpec.Config, d.registry, connector, log)
@@ -221,7 +240,7 @@ func (d *Delegate) ServicesForSpec(ctx context.Context, spec job.Job) ([]job.Ser
 	}
 
 	if spec.StandardCapabilitiesSpec.Command == commandOverrideForWebAPITarget {
-		if d.gatewayConnectorWrapper == nil {
+		if d.gatewayConnectorWrapper == nil || connector == nil {
 			return nil, errors.New("gateway connector is required for web API Target capability")
 		}
 		if len(spec.StandardCapabilitiesSpec.Config) == 0 {
@@ -257,7 +276,7 @@ func (d *Delegate) ServicesForSpec(ctx context.Context, spec job.Job) ([]job.Ser
 		if d.computeFetcherFactoryFn != nil {
 			fetcherFactoryFn = d.computeFetcherFactoryFn
 		} else {
-			if d.gatewayConnectorWrapper == nil {
+			if d.gatewayConnectorWrapper == nil || connector == nil {
 				return nil, errors.New("gateway connector is required for custom compute capability")
 			}
 
@@ -292,8 +311,21 @@ func (d *Delegate) ServicesForSpec(ctx context.Context, spec job.Job) ([]job.Ser
 		return services, nil
 	}
 
-	standardCapability := NewStandardCapabilities(log, spec.StandardCapabilitiesSpec, d.cfg, telemetryService, kvStore, d.registry, errorLog,
-		pr, relayerSet, oracleFactory, connector, keystore)
+	dependencies := core.StandardCapabilitiesDependencies{
+		Config:             spec.StandardCapabilitiesSpec.Config,
+		TelemetryService:   telemetryService,
+		Store:              kvStore,
+		CapabilityRegistry: d.registry,
+		ErrorLog:           errorLog,
+		PipelineRunner:     pr,
+		RelayerSet:         relayerSet,
+		OracleFactory:      oracleFactory,
+		GatewayConnector:   connector,
+		P2PKeystore:        ks,
+		OrgResolver:        d.orgResolver,
+		CRESettings:        d.creSettings,
+	}
+	standardCapability := NewStandardCapabilities(log, spec.StandardCapabilitiesSpec, d.cfg, dependencies)
 
 	return []job.ServiceCtx{standardCapability}, nil
 }
@@ -305,7 +337,7 @@ func (d *Delegate) BeforeJobDeleted(job job.Job) {}
 func (d *Delegate) OnDeleteJob(ctx context.Context, jb job.Job) error { return nil }
 
 func ValidatedStandardCapabilitiesSpec(tomlString string) (job.Job, error) {
-	var jb = job.Job{ExternalJobID: uuid.New()}
+	jb := job.Job{ExternalJobID: uuid.New()}
 
 	tree, err := toml.Load(tomlString)
 	if err != nil {

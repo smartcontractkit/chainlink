@@ -25,6 +25,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/platform"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/workflowkey"
+	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/types"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
@@ -58,9 +59,6 @@ func safeUint32(n uint64) uint32 {
 	}
 	return uint32(n)
 }
-
-// FetcherFunc is an abstraction for fetching the contents stored at a URL.
-type FetcherFunc func(ctx context.Context, messageID string, req ghcapabilities.Request) ([]byte, error)
 
 type ArtifactConfig struct {
 	MaxConfigSize  uint64
@@ -118,7 +116,7 @@ type Store struct {
 	orm WorkflowRegistryDS
 
 	// fetchFn is a function that fetches the contents of a URL with a limit on the size of the response.
-	fetchFn FetcherFunc
+	fetchFn types.FetcherFunc
 
 	lastFetchedAtMap         *lastFetchedAtMap
 	clock                    clockwork.Clock
@@ -131,7 +129,7 @@ type Store struct {
 	emitter custmsg.MessageEmitter
 }
 
-func NewStore(lggr logger.Logger, orm WorkflowRegistryDS, fetchFn FetcherFunc, clock clockwork.Clock, encryptionKey workflowkey.Key,
+func NewStore(lggr logger.Logger, orm WorkflowRegistryDS, fetchFn types.FetcherFunc, clock clockwork.Clock, encryptionKey workflowkey.Key,
 	emitter custmsg.MessageEmitter, opts ...func(*Store)) *Store {
 	return NewStoreWithDecryptSecretsFn(lggr, orm, fetchFn, clock, encryptionKey, emitter,
 		func(data []byte, owner string) (map[string]string, error) {
@@ -146,7 +144,7 @@ func NewStore(lggr logger.Logger, orm WorkflowRegistryDS, fetchFn FetcherFunc, c
 		opts...)
 }
 
-func NewStoreWithDecryptSecretsFn(lggr logger.Logger, orm WorkflowRegistryDS, fetchFn FetcherFunc, clock clockwork.Clock, encryptionKey workflowkey.Key,
+func NewStoreWithDecryptSecretsFn(lggr logger.Logger, orm WorkflowRegistryDS, fetchFn types.FetcherFunc, clock clockwork.Clock, encryptionKey workflowkey.Key,
 	emitter custmsg.MessageEmitter, decryptSecrets decryptSecretsFn, opts ...func(*Store)) *Store {
 	limits := &ArtifactConfig{}
 	limits.ApplyDefaults()
@@ -203,7 +201,7 @@ func (h *Store) FetchWorkflowArtifacts(ctx context.Context, workflowID, binaryUR
 	}
 
 	if decodedBinary, err = base64.StdEncoding.DecodeString(string(binary)); err != nil {
-		return nil, nil, fmt.Errorf("failed to decode binary: %w", err)
+		return nil, nil, fmt.Errorf("failed to decode binary: %w binary length %d", err, len(binary))
 	}
 
 	if configURL != "" {

@@ -1,0 +1,90 @@
+name: Deploy Nightly
+description: "Deploy nightly image by triggering deployment workflow in target repository"
+
+inputs:
+  aws-role-arn:
+    description: "AWS role ARN for GATI"
+    required: true
+  aws-lambda-url:
+    description: "AWS Lambda URL for GATI"
+    required: true
+  aws-region:
+    description: "AWS region"
+    required: true
+  repo-destination:
+    description: "Destination repository for deployment"
+    required: true
+  oci-image-tag:
+    description: "OCI image tag to deploy"
+    required: true
+  oci-repository-url:
+    description: "OCI repository URL for deployment image"
+    required: false
+  workflow-file-name:
+    description: "Workflow file name to trigger"
+    required: false
+    default: "image-bump-cd.yaml"
+  repo-destination-branch:
+    description: "Target branch in destination repository"
+    required: false
+    default: "main"
+  pr-base-branch:
+    description: "Base branch for pull request"
+    required: false
+    default: "main"
+  pr-close-enabled:
+    description: "Optionally close previous PRs."
+    required: false
+    default: "false"
+  pr-labels:
+    description: "Labels to apply to pull request"
+    required: false
+    default: "preview-stage"
+  pr-draft:
+    description: "Whether to create pull request as draft"
+    required: false
+    default: "true"
+  products:
+    description: "Products to deploy (multiline string)"
+    required: true
+  aws-role-duration-seconds:
+    description: "AWS role duration in seconds"
+    required: false
+    default: "1800"
+
+runs:
+  using: "composite"
+  steps:
+    - name: Setup GitHub Token
+      id: setup-github-token
+      uses: smartcontractkit/.github/actions/setup-github-token@setup-github-token/v1
+      with:
+        aws-role-arn: ${{ inputs.aws-role-arn }}
+        aws-lambda-url: ${{ inputs.aws-lambda-url }}
+        aws-region: ${{ inputs.aws-region }}
+        aws-role-duration-seconds: ${{ inputs.aws-role-duration-seconds }}
+
+    - name: Workflow Invoke - Deploy
+      shell: bash
+      env:
+        GH_TOKEN: ${{ steps.setup-github-token.outputs.access-token }}
+        WORKFLOW_FILE_NAME: ${{ inputs.workflow-file-name }}
+        REPO_DESTINATION_NAME: ${{ inputs.repo-destination }}
+        REPO_DESTINATION_GIT_BRANCH: ${{ inputs.repo-destination-branch }}
+        OCI_IMAGE_TAG: ${{ inputs.oci-image-tag }}
+        OCI_REPOSITORY_URL: ${{ inputs.oci-repository-url }}
+        PR_BASE_BRANCH: ${{ inputs.pr-base-branch }}
+        PR_LABELS: ${{ inputs.pr-labels }}
+        PR_DRAFT: ${{ inputs.pr-draft }}
+        PRODUCTS: ${{ inputs.products }}
+      run: |
+        gh workflow run "${WORKFLOW_FILE_NAME}" \
+          --repo "${REPO_DESTINATION_NAME}" \
+          --ref "${REPO_DESTINATION_GIT_BRANCH}" \
+          --field "oci-image-tag=${OCI_IMAGE_TAG}" \
+          --field "oci-repository-url=${OCI_REPOSITORY_URL}" \
+          --field "pr-base-branch=${PR_BASE_BRANCH}" \
+          --field "pr-labels=${PR_LABELS}" \
+          --field "pr-draft=${PR_DRAFT}" \
+          --field "pr-close-enabled=${{ inputs.pr-close-enabled }}" \
+          --field "products=${PRODUCTS}"

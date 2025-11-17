@@ -71,6 +71,13 @@ linters:
 #              desc: Tron only runs as a LOOPP
             - pkg: github.com/consul/sdk/freeport
               desc: Use github.com/smartcontractkit/freeport instead
+        keystore:
+          list-mode: lax
+          files:
+            - "github.com/smartcontractkit/chainlink/core/services/keystore/**/*.go"
+          deny:
+            - pkg: github.com/smartcontractkit/chainlink-common/pkg/logger
+            - pkg: github.com/smartcontractkit/chainlink/core/logger
     exhaustive:
       default-signifies-exhaustive: true
     gosec:

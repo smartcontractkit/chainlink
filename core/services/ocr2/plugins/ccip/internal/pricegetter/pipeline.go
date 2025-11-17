@@ -162,7 +162,7 @@ func (d *PipelineGetter) GetTokenPricesUSD(ctx context.Context, tokens []ccipcom
 	return tokenPricesMap, nil
 }
 
-func (d *PipelineGetter) getPricesFromRunner(ctx context.Context) (map[string]interface{}, error) {
+func (d *PipelineGetter) getPricesFromRunner(ctx context.Context) (map[string]any, error) {
 	_, trrs, err := d.runner.ExecuteRun(ctx, pipeline.Spec{
 		ID:           d.jobID,
 		DotDagSource: d.source,
@@ -170,7 +170,7 @@ func (d *PipelineGetter) getPricesFromRunner(ctx context.Context) (map[string]in
 		JobID:        d.jobID,
 		JobName:      d.name,
 		JobType:      "",
-	}, pipeline.NewVarsFrom(map[string]interface{}{}))
+	}, pipeline.NewVarsFrom(map[string]any{}))
 	if err != nil {
 		return nil, err
 	}
@@ -181,7 +181,7 @@ func (d *PipelineGetter) getPricesFromRunner(ctx context.Context) (map[string]in
 	if len(finalResult.Values) != 1 {
 		return nil, errors.Errorf("invalid number of price results, expected 1 got %v", len(finalResult.Values))
 	}
-	prices, ok := finalResult.Values[0].(map[string]interface{})
+	prices, ok := finalResult.Values[0].(map[string]any)
 	if !ok {
 		return nil, errors.Errorf("expected map output of price pipeline, got %T", finalResult.Values[0])
 	}

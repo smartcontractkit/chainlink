@@ -3,13 +3,15 @@
 package main
 
 import (
+	"log/slog"
+
 	"github.com/smartcontractkit/cre-sdk-go/capabilities/networking/http"
 	"github.com/smartcontractkit/cre-sdk-go/capabilities/scheduler/cron"
 	"github.com/smartcontractkit/cre-sdk-go/cre"
 	"github.com/smartcontractkit/cre-sdk-go/cre/wasm"
 )
 
-func RunSimpleCronWorkflow(_ *cre.Environment[struct{}]) (cre.Workflow[struct{}], error) {
+func RunSimpleCronWorkflow(_ struct{}, _ *slog.Logger, _ cre.SecretsProvider) (cre.Workflow[struct{}], error) {
 	cfg := &cron.Config{
 		Schedule: "*/3 * * * * *", // every 3 seconds
 	}
@@ -22,11 +24,13 @@ func RunSimpleCronWorkflow(_ *cre.Environment[struct{}]) (cre.Workflow[struct{}]
 	}, nil
 }
 
-func onTrigger(env *cre.Environment[struct{}], runtime cre.Runtime, outputs *cron.Payload) (string, error) {
-	env.Logger.Info("onTrigger called")
-	ret, err := cre.RunInNodeMode(env, runtime, func(env *cre.NodeEnvironment[struct{}], nrt cre.NodeRuntime) (string, error) {
-		httpClient := http.Client{}
-		resp, err := httpClient.SendRequest(nrt, &http.Request{
+func onTrigger(config struct{}, runtime cre.Runtime, outputs *cron.Payload) (string, error) {
+	logger := runtime.Logger()
+	logger.Info("onTrigger called")
+
+	httpClient := &http.Client{}
+	ret, err := http.SendRequest(config, runtime, httpClient, func(_ struct{}, _ *slog.Logger, sendRequester *http.SendRequester) (string, error) {
+		resp, err := sendRequester.SendRequest(&http.Request{
 			Method:  "GET",
 			Url:     "https://dummyjson.com/test",
 			Headers: map[string]string{"Content-Type": "application/json"},
@@ -35,9 +39,9 @@ func onTrigger(env *cre.Environment[struct{}], runtime cre.Runtime, outputs *cro
 	}, cre.ConsensusIdenticalAggregation[string]()).Await()
 
 	if err != nil {
-		env.Logger.Error("Error in RunInNodeMode", "err", err)
+		logger.Error("Error in RunInNodeMode", "err", err)
 	} else {
-		env.Logger.Info("Successfully aggregated HTTP responses", "aggregatedResponse", ret)
+		logger.Info("Successfully aggregated HTTP responses", "aggregatedResponse", ret)
 	}
 	return ret, err
 }
