@@ -619,6 +619,90 @@ func modifySelfServedConfig(e cldf.Environment, cfg TokenPoolConfigWithMCM, enab
 	return cldf.ChangesetOutput{}, nil
 }
 
+type CreateTokenMultisigConfig struct {
+	ChainSelector           uint64
+	TokenMint               solana.PublicKey
+	PoolType                *solTestTokenPool.PoolType
+	Metadata                string
+	CustomerMintAuthorities []solana.PublicKey
+}
+
+func (cfg CreateTokenMultisigConfig) Validate(e cldf.Environment, chainState solanastateview.CCIPChainState) error {
+	if err := chainState.CommonValidation(e, cfg.ChainSelector, cfg.TokenMint); err != nil {
+		return err
+	}
+	if *cfg.PoolType != solTestTokenPool.BurnAndMint_PoolType {
+		return fmt.Errorf("create token multisig only for burn and mint pools")
+	}
+	if _, err := chainState.TokenToTokenProgram(cfg.TokenMint); err != nil {
+		return fmt.Errorf("token %s not found in existing state, deploy the token first", cfg.TokenMint.String())
+	}
+	if _, err := chainState.TokenToTokenProgram(cfg.TokenMint); err != nil {
+		return fmt.Errorf("token program id %s not found in existing state", cfg.TokenMint.String())
+	}
+	if len(cfg.CustomerMintAuthorities) > 5 {
+		return fmt.Errorf("customer mint authorities max size is 5")
+	}
+	for _, mintAuthority := range cfg.CustomerMintAuthorities {
+		if mintAuthority.IsZero() {
+			return fmt.Errorf("customer mint authority can not be zero")
+		}
+	}
+	tokenPool, _ := chainState.GetActiveTokenPool(*cfg.PoolType, cfg.Metadata)
+	if tokenPool.IsZero() {
+		return fmt.Errorf("token pool of type %s not found in existing state, deploy the token pool first for chain %d", *cfg.PoolType, cfg.ChainSelector)
+	}
+	return nil
+}
+
+func CreateTokenMultisig(e cldf.Environment, cfg CreateTokenMultisigConfig) (cldf.ChangesetOutput, error) {
+	e.Logger.Infow("Create Token Multisig with", "cfg", cfg)
+
+	state, err := stateview.LoadOnchainState(e)
+	if err != nil {
+		return cldf.ChangesetOutput{}, err
+	}
+	solChainState := state.SolChains[cfg.ChainSelector]
+	if err := cfg.Validate(e, solChainState); err != nil {
+		return cldf.ChangesetOutput{}, err
+	}
+	tokenProgramId, err := solChainState.TokenToTokenProgram(cfg.TokenMint)
+	if err != nil {
+		return cldf.ChangesetOutput{}, err
+	}
+	tokenPoolProgramId, _ := solChainState.GetActiveTokenPool(*cfg.PoolType, cfg.Metadata)
+	if tokenPoolProgramId.IsZero() {
+		return cldf.ChangesetOutput{}, err
+	}
+	tokenPoolSignerPDA, err := solTokenUtil.TokenPoolSignerAddress(cfg.TokenMint, tokenPoolProgramId)
+	if err != nil {
+		return cldf.ChangesetOutput{}, err
+	}
+	newMultisig, err := createMultisig(e, tokenPoolSignerPDA, cfg.CustomerMintAuthorities, tokenProgramId)
+	e.Logger.Info("created multisig", "newMultisig", newMultisig)
+	return cldf.ChangesetOutput{}, nil
+}
+
+func createMultisig(e cldf.Environment, tokenPoolSignerPDA solana.PublicKey, customerMintAuthorities []solana.PublicKey, tokenProgramId solana.PublicKey) (solana.PublicKey, error) {
+	// spl-token create-multisig --program-id <TOKEN_PROGRAM_ID> 1 <USER_CUSTOM_MULTISIG> <TOKEN_POOL_SIGNER_PDA>
+	args := []string{"create-multisig", "--program-id", tokenProgramId.String(), "1", tokenPoolSignerPDA.String()}
+	authoritiesStr := make([]string, len(customerMintAuthorities))
+	for i, auth := range customerMintAuthorities {
+		authoritiesStr[i] = auth.String()
+	}
+	args = append(args, authoritiesStr...)
+	e.Logger.Info(args)
+	output, err := runCommand("spl-token", args, ".")
+	e.Logger.Debugw("spl-token create-multisig output", "output", output)
+	if err != nil {
+		e.Logger.Debugw("spl-token create-multisig error", "error", err)
+		return solana.PublicKey{}, fmt.Errorf("error spl-token create-multisig: %w", err)
+	}
+	e.Logger.Infow("Created Token Multisig ", "tokenProgramId", tokenProgramId)
+	// TODO: return output, nil
+	return solana.PublicKey{}, nil
+}
+
 func ModifyMintAuthority(e cldf.Environment, cfg NewMintTokenPoolConfig) (cldf.ChangesetOutput, error) {
 	e.Logger.Infow("Use multisig as mint authority", "cfg", cfg)
 

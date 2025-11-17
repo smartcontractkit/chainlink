@@ -610,3 +610,23 @@ func TestPartnerTokenPools(t *testing.T) {
 	doTestPoolLookupTable(t, e, false, metadata)
 	doTestTokenPool(t, e, TokenPoolTestConfig{MCMS: true, TokenMetadata: metadata})
 }
+
+func TestCreatingMultisig(t *testing.T) {
+	tenv, _ := testhelpers.NewMemoryEnvironment(t, testhelpers.WithSolChains(1), testhelpers.WithCCIPSolanaContractVersion(ccipChangesetSolana.SolanaContractV0_1_1))
+	solChain := tenv.Env.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chain_selectors.FamilySolana))[0]
+
+	burnMintTokenPoolType := solTestTokenPool.BurnAndMint_PoolType
+	_, _, err := commonchangeset.ApplyChangesets(t, tenv.Env, []commonchangeset.ConfiguredChangeSet{
+		commonchangeset.Configure(
+			cldf.CreateLegacyChangeSet(ccipChangesetSolana.CreateTokenMultisig),
+			ccipChangesetSolana.CreateTokenMultisigConfig{
+				ChainSelector:           solChain,
+				TokenMint:               solana.MustPublicKeyFromBase58("DzBixyQHeQHCBqCTqe1tW5hz8AJUGbfWHxuzUp8T8Dhr"),
+				PoolType:                &burnMintTokenPoolType,
+				Metadata:                shared.CLLMetadata,
+				CustomerMintAuthorities: []solana.PublicKey{solana.MustPublicKeyFromBase58("9o9vS5dHHQLaZLv8gHuNu6k6J5HjisF9ravgRZigiDkb")},
+			},
+		),
+	})
+	require.NoError(t, err)
+}
