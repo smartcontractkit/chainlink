@@ -146,6 +146,10 @@ func NewNodes(
 		fundNodesSol(t, solChain, nodes)
 	}
 
+	for _, suiChain := range cfg.BlockChains.SuiChains() {
+		fundNodesSui(t, suiChain, nodes)
+	}
+
 	return nodesByPeerID
 }
 

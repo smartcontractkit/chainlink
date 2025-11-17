@@ -3,21 +3,17 @@ package memory
 import (
 	"crypto/ed25519"
 	"crypto/rand"
-	"encoding/base64"
 	"encoding/hex"
 	"fmt"
-	"strconv"
 	"testing"
-	"time"
 
-	"github.com/block-vision/sui-go-sdk/models"
 	"github.com/stretchr/testify/require"
 
 	chainsel "github.com/smartcontractkit/chain-selectors"
 
 	cldf_chain "github.com/smartcontractkit/chainlink-deployments-framework/chain"
+	cldf_sui "github.com/smartcontractkit/chainlink-deployments-framework/chain/sui"
 	cldf_sui_provider "github.com/smartcontractkit/chainlink-deployments-framework/chain/sui/provider"
-	sui_common "github.com/smartcontractkit/chainlink-sui/bindings/bind"
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 )
 
@@ -84,62 +80,4 @@ func createSuiChainConfig(chainID string, chain cldf_sui.Chain) chainlink.RawCon
 	}
 
 	return chainConfig
-}
-
-func fundSuiNodes(t *testing.T, suiChain cldf_sui.Chain, nodes []*Node) {
-	ctx := t.Context()
-	signer := suiChain.Signer
-	client := suiChain.Client
-	signerAddr, _ := signer.GetAddress()
-
-	getCoinsReq := models.SuiXGetAllCoinsRequest{Owner: signerAddr, Limit: 50}
-	allCoins, _ := client.SuiXGetAllCoins(ctx, getCoinsReq)
-
-	coins := allCoins.Data[1:]
-
-	require.GreaterOrEqual(t, len(coins), len(nodes))
-
-	for i, node := range nodes {
-		suiKeys, err := node.App.GetKeyStore().Sui().GetAll()
-		require.NoError(t, err)
-		require.Len(t, suiKeys, 1)
-
-		transmitter := suiKeys[0]
-		coin := coins[i]
-		to := "0x" + transmitter.Account()
-		client := suiChain.Client
-
-		balance, _ := strconv.ParseUint(coin.Balance, 10, 64)
-		gas := uint64(100_000_000)
-		if balance <= gas {
-			t.Logf("Skipping coin %s (too small: %d)", coin.CoinObjectId, balance)
-			return
-		}
-
-		transferAmount := balance - gas
-
-		t.Logf("Transferring coin %s to %s (amount=%d)...", coin.CoinObjectId, to, transferAmount)
-
-		unsignedReq := models.TransferSuiRequest{
-			Signer:      signerAddr,
-			SuiObjectId: coin.CoinObjectId,
-			GasBudget:   strconv.FormatUint(gas, 10),
-			Recipient:   to,
-			Amount:      strconv.FormatUint(transferAmount, 10),
-		}
-
-		txnMeta, err := client.TransferSui(ctx, unsignedReq)
-		require.NoError(t, err, "failed to create unsigned transfer txn for %s", coin.CoinObjectId)
-
-		decodedTx, err := base64.StdEncoding.DecodeString(txnMeta.TxBytes)
-		require.NoError(t, err, "failed to decode tx bytes for %s", coin.CoinObjectId)
-
-		tx, err := sui_common.SignAndSendTx(ctx, signer, client, decodedTx, true)
-		require.NoError(t, err, "failed to execute transfer for coin %s", coin.CoinObjectId)
-
-		t.Logf("Transferred coin %s to %s, Digest: %s, Status: %s",
-			coin.CoinObjectId, to, tx.Digest, tx.Effects.Status.Status)
-
-		time.Sleep(300 * time.Millisecond)
-	}
 }
