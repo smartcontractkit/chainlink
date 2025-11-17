@@ -81,9 +81,7 @@ func (u ProposeEVMCapJobSpec) VerifyPreconditions(e cldf.Environment, input Prop
 	if input.ChainSelector == 0 {
 		return errors.New("chain selector is required")
 	}
-	if len(input.EVMCapabilityInputs) == 0 {
-		return errors.New("at least one evm capability input is required")
-	}
+
 	if len(input.BootstrapperOCR3Urls) == 0 {
 		return errors.New("at least one bootstrapper OCR3 URL is required")
 	}
@@ -231,7 +229,6 @@ func (u ProposeEVMCapJobSpec) Apply(e cldf.Environment, input ProposeEVMCapJobSp
 				{Key: "product", Value: offchain.ProductLabel},
 				{Key: "environment", Value: input.Environment},
 				{Key: "zone", Value: input.Zone},
-				// TODO
 			},
 		},
 	)
