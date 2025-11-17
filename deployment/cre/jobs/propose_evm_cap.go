@@ -1,16 +1,17 @@
 package jobs
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
 	"strconv"
 	"time"
 
 	chainselectors "github.com/smartcontractkit/chain-selectors"
-	"gopkg.in/yaml.v3"
 
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
+	"github.com/smartcontractkit/chainlink/deployment"
 	operations2 "github.com/smartcontractkit/chainlink/deployment/cre/jobs/operations"
 	"github.com/smartcontractkit/chainlink/deployment/cre/jobs/pkg"
 
@@ -21,28 +22,28 @@ var _ cldf.ChangeSetV2[ProposeEVMCapJobSpecInput] = ProposeEVMCapJobSpec{}
 
 // Config defaults
 const (
-	logTriggerPollInterval        = 1500 * time.Millisecond
+	logTriggerPollInterval        = 1500000000
 	receiverGasMinimum     uint64 = 500
 	logTriggerSendChanBuf  uint64 = 3000
 	network                       = "evm"
 )
 
 type OverrideDefaultCfg struct {
-	ChainID                         uint64        `json:"chainID" yaml:"chainID"`
-	Network                         string        `json:"network" yaml:"network"`
-	LogTriggerPollInterval          time.Duration `json:"logTriggerPollInterval" yaml:"logTriggerPollInterval"`
-	LogTriggerSendChannelBufferSize uint64        `json:"logTriggerSendChannelBufferSize" yaml:"logTriggerSendChannelBufferSize"`
-	LogTriggerLimitQueryLogSize     uint64        `json:"logTriggerLimitQueryLogSize" yaml:"logTriggerLimitQueryLogSize"`
-	BlockDepth                      int64         `json:"blockDepth" yaml:"blockDepth"`
-	CREForwarderAddress             string        `json:"creForwarderAddress" yaml:"creForwarderAddress"`
-	// The minimum amount of gas that the receiver contract must get to process the forwarder report.
+	ChainID                         uint64 `json:"chainID,omitempty" yaml:"chainID,omitempty"`
+	Network                         string `json:"network,omitempty" yaml:"network,omitempty"`
+	LogTriggerPollInterval          uint64 `json:"logTriggerPollInterval,omitempty" yaml:"logTriggerPollInterval,omitempty"`
+	LogTriggerSendChannelBufferSize uint64 `json:"logTriggerSendChannelBufferSize,omitempty" yaml:"logTriggerSendChannelBufferSize,omitempty"`
+	LogTriggerLimitQueryLogSize     uint64 `json:"logTriggerLimitQueryLogSize,omitempty" yaml:"logTriggerLimitQueryLogSize,omitempty"`
+	BlockDepth                      int64  `json:"blockDepth,omitempty" yaml:"blockDepth,omitempty"`
+	CREForwarderAddress             string `json:"creForwarderAddress,omitempty" yaml:"creForwarderAddress,omitempty"`
+	// ReceiverGasMinimum is the minimum amount of gas that the receiver contract must get to process the forwarder report.
 	// This is the default value used when the user doesn't specify a gas limit when invoking WriteReport.
-	ReceiverGasMinimum            uint64        `json:"receiverGasMinimum" yaml:"receiverGasMinimum"`
-	NodeAddress                   string        `json:"nodeAddress" yaml:"nodeAddress"`
-	ObservationPollerWorkersCount uint          `json:"observationPollerWorkersCount" yaml:"observationPollerWorkersCount"`
-	ObservationPollPeriod         time.Duration `json:"observationPollPeriod" yaml:"observationPollPeriod"`
-	ChainHeightPollPeriod         time.Duration `json:"chainHeightPollPeriod" yaml:"chainHeightPollPeriod"`
-	UnknownRequestsTTL            time.Duration `json:"unknownRequestsTTL" yaml:"unknownRequestsTTL"`
+	ReceiverGasMinimum            uint64        `json:"receiverGasMinimum,omitempty" yaml:"receiverGasMinimum,omitempty"`
+	NodeAddress                   string        `json:"nodeAddress,omitempty" yaml:"nodeAddress,omitempty"`
+	ObservationPollerWorkersCount uint          `json:"observationPollerWorkersCount,omitempty" yaml:"observationPollerWorkersCount,omitempty"`
+	ObservationPollPeriod         time.Duration `json:"observationPollPeriod,omitempty" yaml:"observationPollPeriod,omitempty"`
+	ChainHeightPollPeriod         time.Duration `json:"chainHeightPollPeriod,omitempty" yaml:"chainHeightPollPeriod,omitempty"`
+	UnknownRequestsTTL            time.Duration `json:"unknownRequestsTTL,omitempty" yaml:"unknownRequestsTTL,omitempty"`
 }
 
 type EVMCapabilityInput struct {
@@ -150,7 +151,7 @@ func (u ProposeEVMCapJobSpec) VerifyPreconditions(e cldf.Environment, input Prop
 		}
 
 		if ov.LogTriggerPollInterval != 0 && ov.LogTriggerPollInterval < logTriggerPollInterval {
-			return fmt.Errorf("logTriggerPollInterval (%s) is below minimum (%s) for node %s",
+			return fmt.Errorf("logTriggerPollInterval (%d) is below minimum (%d) for node %s",
 				ov.LogTriggerPollInterval, logTriggerPollInterval, evmCapInput.NodeID)
 		}
 		if ov.ReceiverGasMinimum != 0 && ov.ReceiverGasMinimum < receiverGasMinimum {
@@ -172,8 +173,17 @@ func (u ProposeEVMCapJobSpec) Apply(e cldf.Environment, input ProposeEVMCapJobSp
 		return cldf.ChangesetOutput{}, fmt.Errorf("failed to get chain name from selector: %w", err)
 	}
 
-	jobName := fmt.Sprintf("evm-capabilities-v2-%s-%s", chainName, input.Zone)
+	chainIDStr, err := chainselectors.GetChainIDFromSelector(input.ChainSelector)
+	if err != nil {
+		return cldf.ChangesetOutput{}, fmt.Errorf("failed to get chain ID from selector: %w", err)
+	}
 
+	chainID, err := strconv.ParseUint(chainIDStr, 10, 64)
+	if err != nil {
+		return cldf.ChangesetOutput{}, fmt.Errorf("failed to parse chain ID %s: %w", chainIDStr, err)
+	}
+
+	jobName := fmt.Sprintf("evm-capabilities-v2-%s-%s", chainName, input.Zone)
 	job := pkg.StandardCapabilityJob{
 		JobName:               jobName,
 		Command:               "/usr/local/bin/evm",
@@ -197,9 +207,20 @@ func (u ProposeEVMCapJobSpec) Apply(e cldf.Environment, input ProposeEVMCapJobSp
 			return cldf.ChangesetOutput{}, fmt.Errorf("duplicate nodeID %q in evmCapabilityInputs", evmCapInput.NodeID)
 		}
 
-		cfg := evmCapInput.OverrideDefaultCfg
+		nodeInfos, err := deployment.NodeInfo([]string{evmCapInput.NodeID}, e.Offchain)
+		if err != nil {
+			return cldf.ChangesetOutput{}, fmt.Errorf("failed to get node info for node %s: %w", evmCapInput.NodeID, err)
+		}
 
+		evmOCRConfig, ok := nodeInfos[0].OCRConfigForChainSelector(input.OCRChainSelector)
+		if !ok {
+			return cldf.ChangesetOutput{}, fmt.Errorf("no evm ocr config for node %s and chain selector %d", evmCapInput.NodeID, input.OCRChainSelector)
+		}
+
+		cfg := evmCapInput.OverrideDefaultCfg
+		cfg.ChainID = chainID
 		cfg.Network = network
+		cfg.NodeAddress = string(evmOCRConfig.TransmitAccount)
 		cfg.CREForwarderAddress = fwdAddress.Address
 
 		// Apply defaults if unset (zero-values). Values provided and validated in VerifyPreconditions are preserved.
@@ -213,7 +234,7 @@ func (u ProposeEVMCapJobSpec) Apply(e cldf.Environment, input ProposeEVMCapJobSp
 			cfg.LogTriggerSendChannelBufferSize = logTriggerSendChanBuf
 		}
 
-		enc, err := yaml.Marshal(cfg)
+		enc, err := json.Marshal(cfg)
 		if err != nil {
 			return cldf.ChangesetOutput{}, fmt.Errorf("failed to marshal evm cap config: %w", err)
 		}
