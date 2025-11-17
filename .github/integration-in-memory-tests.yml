@@ -912,7 +912,10 @@ runner-test-matrix:
     triggers:
       - PR Integration CCIP Tests
       - Nightly Integration CCIP Tests
-    test_cmd: go test ./smoke/ccip -run "Test_CCIP_Upgrade_CommonPkg_EVM2Sui" -timeout 15m -test.parallel=1 -count=1 -json
+    test_cmd: |
+      ./scripts/free-disk-space.sh
+      echo "🚀 Starting CCIP Upgrade CommonPkg EVM2Sui test..."
+      go test ./smoke/ccip -run "Test_CCIP_Upgrade_CommonPkg_EVM2Sui" -timeout 15m -test.parallel=1 -count=1 -json
     test_go_project_path: integration-tests
     sui_cli_version: mainnet-1.60.1
     install_plugins_public: true
@@ -924,7 +927,10 @@ runner-test-matrix:
     triggers:
       - PR Integration CCIP Tests
       - Nightly Integration CCIP Tests
-    test_cmd: go test ./smoke/ccip -run "Test_CCIP_Upgrade_NoBlock_EVM2Sui" -timeout 15m -test.parallel=1 -count=1 -json
+    test_cmd: |
+      ./scripts/free-disk-space.sh
+      echo "🚀 Starting CCIP Upgrade NoBlock EVM2Sui test..."
+      go test ./smoke/ccip -run "Test_CCIP_Upgrade_NoBlock_EVM2Sui" -timeout 15m -test.parallel=1 -count=1 -json
     test_go_project_path: integration-tests
     sui_cli_version: mainnet-1.60.1
     install_plugins_public: true
