@@ -109,8 +109,8 @@ var ProposeStandardCapabilityJob = operations.NewSequence[
 			return ProposeStandardCapabilityJobOutput{}, fmt.Errorf("no nodes info found for DON `%s` with filters %+v and node IDs %v", input.DONName, input.DONFilters, nodeIDs)
 		}
 
-		setPerNodeCfg := false
-		if input.NodeIDToConfig != nil && len(input.NodeIDToConfig) > 0 {
+		setPerNodeCfg := len(input.NodeIDToConfig) > 0
+		if setPerNodeCfg {
 			if len(input.NodeIDToConfig) != len(nodeInfos) {
 				return ProposeStandardCapabilityJobOutput{}, fmt.Errorf("number of nodes found (%d) does not match number of configs provided (%d)", len(nodeInfos), len(input.NodeIDToConfig))
 			}
@@ -119,7 +119,6 @@ var ProposeStandardCapabilityJob = operations.NewSequence[
 					return ProposeStandardCapabilityJobOutput{}, fmt.Errorf("node ID %s found in DON nodes but not in provided configs", n.NodeID)
 				}
 			}
-			setPerNodeCfg = true
 		}
 
 		shouldGenerateOracleFactory := input.Job.GenerateOracleFactory && input.Job.OracleFactory == nil
