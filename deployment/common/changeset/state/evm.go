@@ -162,7 +162,7 @@ func MaybeLoadMCMSWithTimelockStateDataStoreWithQualifier(env cldf.Environment, 
 
 // GetMCMSWithTimelockState loads the MCMSWithTimelockState for a specific chain and qualifier from the DataStore.
 func GetMCMSWithTimelockState(store datastore.AddressRefStore, chain cldf_evm.Chain, qualifier string) (*MCMSWithTimelockState, error) {
-	addressesChain, err := GetTypeVersionByQualifier(store, chain.Selector, qualifier)
+	addressesChain, err := GetAddressTypeVersionByQualifier(store, chain.Selector, qualifier)
 	if err != nil {
 		return nil, fmt.Errorf("failed to load addresses from DataStore for chain %d, qualifier %s: %w", chain.Selector, qualifier, err)
 	}
@@ -179,16 +179,16 @@ func GetMCMSWithTimelockState(store datastore.AddressRefStore, chain cldf_evm.Ch
 //
 // Deprecated: Use GetTypeVersionByQualifier instead.
 func LoadAddressesFromDataStore(ds datastore.DataStore, chainSelector uint64, qualifier string) (map[string]cldf.TypeAndVersion, error) {
-	addressesChain, err := GetTypeVersionByQualifier(ds.Addresses(), chainSelector, qualifier)
+	addressesChain, err := GetAddressTypeVersionByQualifier(ds.Addresses(), chainSelector, qualifier)
 	if err != nil {
 		return nil, err
 	}
 	return addressesChain, nil
 }
 
-// GetTypeVersionByQualifier loads addresses from DataStore for a specific chain and qualifier.
+// GetAddressTypeVersionByQualifier loads addresses from DataStore for a specific chain and qualifier.
 // returns a map of address to TypeAndVersion.
-func GetTypeVersionByQualifier(store datastore.AddressRefStore, chainSelector uint64, qualifier string) (map[string]cldf.TypeAndVersion, error) {
+func GetAddressTypeVersionByQualifier(store datastore.AddressRefStore, chainSelector uint64, qualifier string) (map[string]cldf.TypeAndVersion, error) {
 	addressesChain := make(map[string]cldf.TypeAndVersion)
 
 	// Build filter list starting with chain selector
