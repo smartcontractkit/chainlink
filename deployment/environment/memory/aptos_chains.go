@@ -4,7 +4,6 @@ import (
 	"testing"
 
 	"github.com/aptos-labs/aptos-go-sdk"
-	"github.com/aptos-labs/aptos-go-sdk/bcs"
 	chainsel "github.com/smartcontractkit/chain-selectors"
 	"github.com/stretchr/testify/require"
 
@@ -78,29 +77,4 @@ func migrateAccountToFA(t *testing.T, signer aptos.TransactionSigner, client apt
 	accountAddress := signer.AccountAddress()
 	logger.TestLogger(t).Infof("Migrated account %v to Fungible Asset APT", accountAddress.StringLong())
 	return err
-}
-
-func FundAptosAccount(t *testing.T, signer aptos.TransactionSigner, to aptos.AccountAddress, amount uint64, client aptos.AptosRpcClient) {
-	toBytes, err := bcs.Serialize(&to)
-	require.NoError(t, err)
-	amountBytes, err := bcs.SerializeU64(amount)
-	require.NoError(t, err)
-	payload := aptos.TransactionPayload{Payload: &aptos.EntryFunction{
-		Module: aptos.ModuleId{
-			Address: aptos.AccountOne,
-			Name:    "aptos_account",
-		},
-		Function: "transfer",
-		Args: [][]byte{
-			toBytes,
-			amountBytes,
-		},
-	}}
-	tx, err := client.BuildSignAndSubmitTransaction(signer, payload)
-	require.NoError(t, err)
-	res, err := client.WaitForTransaction(tx.Hash)
-	require.NoError(t, err)
-	require.True(t, res.Success, res.VmStatus)
-	sender := signer.AccountAddress()
-	t.Logf("Funded account %s from %s with %f APT", to.StringLong(), sender.StringLong(), float64(amount)/1e8)
 }
