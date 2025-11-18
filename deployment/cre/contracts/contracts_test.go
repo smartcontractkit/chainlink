@@ -88,7 +88,7 @@ func TestGetOwnableContractV2(t *testing.T) {
 		_, err = contracts.GetOwnableContractV2[*capabilities_registry.CapabilitiesRegistry](ds.Addresses(), chain, nonExistentAddrStr)
 
 		require.Error(t, err)
-		assert.Contains(t, err.Error(), "not found in address book")
+		assert.Contains(t, err.Error(), "found 0")
 	})
 }
 

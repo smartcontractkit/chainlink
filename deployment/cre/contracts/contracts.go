@@ -46,12 +46,12 @@ type Ownable interface {
 }
 
 func isOwnedByMCMSV2[T Ownable](contract T, store datastore.AddressRefStore, chain cldf_evm.Chain) (bool, error) {
-	var timelockTV = cldf.NewTypeAndVersion(types.RBACTimelock, deployment.Version1_0_0)
 
 	r, err := getOwnerReference(contract, store, chain)
 	if err != nil {
 		return false, fmt.Errorf("failed to get owner reference: %w", err)
 	}
+	var timelockTV = cldf.NewTypeAndVersion(types.RBACTimelock, deployment.Version1_0_0)
 
 	// Check if the owner is a timelock contract (owned by MCMS)
 	if r != nil && cldf.ContractType(r.Type) == timelockTV.Type && r.Version.String() == timelockTV.Version.String() {
@@ -88,9 +88,26 @@ func NewOwnableV2[T Ownable](contract T, store datastore.AddressRefStore, chain 
 	if err != nil {
 		return nil, fmt.Errorf("failed to get owner reference: %w", err)
 	}
+	// in the latest versions, qualifier is should be the same for all the mcms contracts
+	// which enables multiple MCMS deployments on a single chain
 	stateMCMS, err := state.GetMCMSWithTimelockState(store, chain, r.Qualifier)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get MCMS with timelock state: %w", err)
+	}
+
+	if err := stateMCMS.Validate(); err != nil {
+		// older versions had adhoc qualifiers, so we have to try labels sets
+		// TODO CRE-1360: remove this after we complete migration to consistent qualifiers
+		m := matchLabels(store, *r, chain.Selector)
+		var err2 error
+		stateMCMS, err2 = state.MaybeLoadMCMSWithTimelockChainState(chain, m)
+		if err2 != nil {
+			return nil, fmt.Errorf("failed to get MCMS with timelock state by labels: %w", err2)
+		}
+		err2 = stateMCMS.Validate()
+		if err2 != nil {
+			return nil, fmt.Errorf("failed to validate MCMS with timelock state by labels: %w", err2)
+		}
 	}
 
 	return &OwnedContract[T]{
@@ -100,11 +117,11 @@ func NewOwnableV2[T Ownable](contract T, store datastore.AddressRefStore, chain 
 
 }
 
-func matchLabels(ab datastore.AddressRefStore, tv cldf.TypeAndVersion, chainSelector uint64) map[string]cldf.TypeAndVersion {
+func matchLabels(ab datastore.AddressRefStore, ref datastore.AddressRef, chainSelector uint64) map[string]cldf.TypeAndVersion {
 	addresses := ab.Filter(datastore.AddressRefByChainSelector(chainSelector))
 	addressesMap := make(map[string]cldf.TypeAndVersion)
 	for _, addr := range addresses {
-		if !tv.Labels.Equal(cldf.NewLabelSet(addr.Labels.List()...)) {
+		if !ref.Labels.Equal(addr.Labels) {
 			continue
 		}
 		addressesMap[addr.Address] = cldf.TypeAndVersion{
@@ -178,7 +195,6 @@ func GetOwnableContractV2[T Ownable](addrs datastore.AddressRefStore, chain cldf
 	}
 
 	addresses := addrs.Filter(datastore.AddressRefByChainSelector(chain.Selector), datastore.AddressRefByAddress(targetAddr))
-
 	if len(addresses) != 1 {
 		return nil, fmt.Errorf("expected exactly one address for contract at %s on chain %d, found %d", targetAddr, chain.Selector, len(addresses))
 	}
