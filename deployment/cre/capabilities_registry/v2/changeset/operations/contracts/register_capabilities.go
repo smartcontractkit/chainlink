@@ -32,8 +32,8 @@ type RegisterCapabilitiesInput struct {
 }
 
 type RegisterCapabilitiesOutput struct {
-	CapabilitiesIDs []string
-	Operation       *mcmstypes.BatchOperation
+	Capabilities []capabilities_registry_v2.CapabilitiesRegistryCapability
+	Operation    *mcmstypes.BatchOperation
 }
 
 // RegisterCapabilities is an operation that registers nodes in the V2 Capabilities Registry contract.
@@ -45,7 +45,7 @@ var RegisterCapabilities = operations.NewOperation[RegisterCapabilitiesInput, Re
 		if len(input.Capabilities) == 0 {
 			b.Logger.Info("no capabilities provided, skipping operation")
 			return RegisterCapabilitiesOutput{
-				CapabilitiesIDs: []string{},
+				Capabilities: []capabilities_registry_v2.CapabilitiesRegistryCapability{},
 			}, nil
 		}
 
@@ -74,13 +74,8 @@ var RegisterCapabilities = operations.NewOperation[RegisterCapabilitiesInput, Re
 			b.Logger.Info("no new capabilities to register after deduplication, skipping operation")
 
 			return RegisterCapabilitiesOutput{
-				CapabilitiesIDs: []string{},
+				Capabilities: []capabilities_registry_v2.CapabilitiesRegistryCapability{},
 			}, nil
-		}
-
-		capsIDs := make([]string, len(capabilities))
-		for i, cp := range capabilities {
-			capsIDs[i] = cp.CapabilityId
 		}
 
 		// Execute the transaction using the strategy
@@ -99,8 +94,8 @@ var RegisterCapabilities = operations.NewOperation[RegisterCapabilitiesInput, Re
 		}
 
 		return RegisterCapabilitiesOutput{
-			Operation:       operation,
-			CapabilitiesIDs: capsIDs,
+			Operation:    operation,
+			Capabilities: capabilities,
 		}, nil
 	},
 )

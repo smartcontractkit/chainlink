@@ -51,7 +51,7 @@ func (c ConfigureCapabilitiesRegistryInput) Validate() error {
 }
 
 type ConfigureCapabilitiesRegistryOutput struct {
-	Capabilities          []string
+	Capabilities          []capabilities_registry_v2.CapabilitiesRegistryCapability
 	Nops                  []capabilities_registry_v2.CapabilitiesRegistryNodeOperatorParams
 	Nodes                 []capabilities_registry_v2.CapabilitiesRegistryNodeParams
 	DONs                  []capabilities_registry_v2.CapabilitiesRegistryNewDONParams
@@ -174,7 +174,7 @@ var ConfigureCapabilitiesRegistry = operations.NewSequence(
 		return ConfigureCapabilitiesRegistryOutput{
 			Nops:                  registerNopsReport.Output.Nops,
 			Nodes:                 registerNodesReport.Output.Nodes,
-			Capabilities:          registerCapabilitiesReport.Output.CapabilitiesIDs,
+			Capabilities:          registerCapabilitiesReport.Output.Capabilities,
 			DONs:                  registerDONsReport.Output.DONs,
 			MCMSTimelockProposals: proposals,
 		}, nil
