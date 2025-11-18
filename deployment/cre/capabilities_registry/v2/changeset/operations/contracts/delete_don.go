@@ -6,7 +6,6 @@ import (
 
 	"github.com/Masterminds/semver/v3"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
-	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	mcmstypes "github.com/smartcontractkit/mcms/types"
 
@@ -48,8 +47,6 @@ func (r *DeleteDONInput) Validate() error {
 // DeleteDONOutput returns the resulting MCMS operation (if any) and basic confirmation
 type DeleteDONOutput struct {
 	Operation *mcmstypes.BatchOperation
-	// TxHash is set when executed immediately (no MCMS)
-	TxHash common.Hash
 	// DeletedNames echoes the requested DON names
 	DeletedNames []string
 }
@@ -65,20 +62,10 @@ var DeleteDON = operations.NewOperation[DeleteDONInput, DeleteDONOutput, DeleteD
 		}
 
 		registry := deps.CapabilitiesRegistry
-		chain, ok := deps.Env.BlockChains.EVMChains()[input.ChainSelector]
-		if !ok {
-			return DeleteDONOutput{}, cldf.ErrChainNotFound
-		}
-
-		missing := make([]string, 0)
 		for _, name := range input.DonNames {
 			if _, err := registry.GetDONByName(&bind.CallOpts{}, name); err != nil {
-				// Treat any revert as non-existent for this validation step
-				missing = append(missing, name)
+				return DeleteDONOutput{}, cldf.DecodeErr(capabilities_registry_v2.CapabilitiesRegistryABI, err)
 			}
-		}
-		if len(missing) > 0 {
-			return DeleteDONOutput{}, fmt.Errorf("the following DON doesn't exist, or failed to retrieve it from the contract: %v", missing)
 		}
 
 		// Execute the transaction using the strategy; delete all provided names in one call
@@ -96,25 +83,14 @@ var DeleteDON = operations.NewOperation[DeleteDONInput, DeleteDONOutput, DeleteD
 			return DeleteDONOutput{Operation: operation, DeletedNames: input.DonNames}, nil
 		}
 
-		deps.Env.Logger.Infof("Submitted DeleteDON for %v on chain %d, tx %s", input.DonNames, input.ChainSelector, tx.Hash())
-		// Wait for inclusion when executing immediately
-		ctx := b.GetContext()
-		if _, err := bind.WaitMined(ctx, chain.Client, tx); err != nil {
-			return DeleteDONOutput{}, fmt.Errorf("failed to mine RemoveDONsByName transaction %s: %w", tx.Hash(), err)
+		txHash := ""
+		if tx != nil {
+			txHash = tx.Hash().String()
 		}
-
-		// Post condition: verify each name is now gone
-		for _, name := range input.DonNames {
-			if _, err := registry.GetDONByName(&bind.CallOpts{}, name); err == nil {
-				return DeleteDONOutput{}, fmt.Errorf("DON '%s' still exists after deletion", name)
-			}
-		}
-
-		deps.Env.Logger.Infof("Successfully deleted DONs %v on chain %d", input.DonNames, input.ChainSelector)
+		deps.Env.Logger.Infof("Submitted DeleteDON for %v on chain %d, tx hash %q", input.DonNames, input.ChainSelector, txHash)
 
 		return DeleteDONOutput{
 			Operation:    operation,
-			TxHash:       tx.Hash(),
 			DeletedNames: input.DonNames,
 		}, nil
 	},

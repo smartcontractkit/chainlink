@@ -74,7 +74,7 @@ func (d DeleteDONs) Apply(e cldf.Environment, cfg DeleteDONsInput) (cldf.Changes
 	// Validate each DON exists up-front for clear failures
 	for _, name := range cfg.DonNames {
 		if _, getErr := capReg.GetDONByName(nil, name); getErr != nil {
-			return cldf.ChangesetOutput{}, fmt.Errorf("don '%s' does not exist or GetDONByName failed: %w", name, getErr)
+			return cldf.ChangesetOutput{}, cldf.DecodeErr(capabilities_registry_v2.CapabilitiesRegistryABI, getErr)
 		}
 	}
 
