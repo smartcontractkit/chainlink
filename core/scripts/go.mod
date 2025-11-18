@@ -503,7 +503,7 @@ require (
 	github.com/smartcontractkit/chainlink-testing-framework/framework/components/fake v0.10.0 // indirect
 	github.com/smartcontractkit/chainlink-testing-framework/parrot v0.6.2 // indirect
 	github.com/smartcontractkit/chainlink-ton v0.0.0-20251117043516-cfda0f691147 // indirect
-	github.com/smartcontractkit/chainlink-ton/deployment v0.0.0-20251113211653-082bd18d77bb // indirect
+	github.com/smartcontractkit/chainlink-ton/deployment v0.0.0-20251117043516-cfda0f691147 // indirect
 	github.com/smartcontractkit/chainlink-tron/relayer v0.0.11-0.20251014143056-a0c6328c91e9 // indirect
 	github.com/smartcontractkit/cre-sdk-go v0.7.1-0.20250919133015-2df149f34a81 // indirect
 	github.com/smartcontractkit/crib-sdk v0.4.0 // indirect
