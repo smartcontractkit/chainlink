@@ -893,14 +893,13 @@ func TestCreatingMultisig(t *testing.T) {
 	deployerKey := tenv.Env.BlockChains.SolanaChains()[solChain].DeployerKey.PublicKey()
 	e, newTokenAddress, err := deployTokenAndMint(t, tenv.Env, solChain, []string{deployerKey.String()}, "TEST_TOKEN")
 	require.NoError(t, err)
-	burnMintTokenPoolType := solTestTokenPool.BurnAndMint_PoolType
 	_, _, err = commonchangeset.ApplyChangesets(t, e, []commonchangeset.ConfiguredChangeSet{
 		commonchangeset.Configure(
 			cldf.CreateLegacyChangeSet(ccipChangesetSolana.CreateTokenMultisig),
 			ccipChangesetSolana.CreateTokenMultisigConfig{
 				ChainSelector:           solChain,
 				TokenMint:               newTokenAddress,
-				PoolType:                &burnMintTokenPoolType,
+				PoolType:                &shared.BurnMintTokenPool,
 				Metadata:                shared.CLLMetadata,
 				CustomerMintAuthorities: []solana.PublicKey{solana.MustPublicKeyFromBase58("9o9vS5dHHQLaZLv8gHuNu6k6J5HjisF9ravgRZigiDkb")},
 			},
