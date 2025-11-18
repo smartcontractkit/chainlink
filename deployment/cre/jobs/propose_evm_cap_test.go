@@ -1,4 +1,4 @@
-package jobs
+package jobs_test
 
 import (
 	"strconv"
@@ -14,6 +14,7 @@ import (
 	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	"github.com/smartcontractkit/chainlink-protos/job-distributor/v1/node"
+	"github.com/smartcontractkit/chainlink/deployment/cre/jobs"
 
 	"github.com/smartcontractkit/chainlink/deployment/cre/test"
 
@@ -26,23 +27,23 @@ const (
 	testForwarderQualifier    = "forwarder-qualifier"
 )
 
-func minimalEVMCapInput(nodeID string) EVMCapabilityInput {
-	return EVMCapabilityInput{
+func minimalEVMCapInput(nodeID string) jobs.EVMCapabilityInput {
+	return jobs.EVMCapabilityInput{
 		NodeID:             nodeID,
-		OverrideDefaultCfg: OverrideDefaultCfg{},
+		OverrideDefaultCfg: jobs.OverrideDefaultCfg{},
 	}
 }
 
-func deepCloneInput(in ProposeEVMCapJobSpecInput) ProposeEVMCapJobSpecInput {
+func deepCloneInput(in jobs.ProposeEVMCapJobSpecInput) jobs.ProposeEVMCapJobSpecInput {
 	clone := in
 	if len(in.EVMCapabilityInputs) > 0 {
-		clone.EVMCapabilityInputs = append([]EVMCapabilityInput(nil), in.EVMCapabilityInputs...)
+		clone.EVMCapabilityInputs = append([]jobs.EVMCapabilityInput(nil), in.EVMCapabilityInputs...)
 	}
 	return clone
 }
 
-func freshBase(selector uint64) ProposeEVMCapJobSpecInput {
-	return ProposeEVMCapJobSpecInput{
+func freshBase(selector uint64) jobs.ProposeEVMCapJobSpecInput {
+	return jobs.ProposeEVMCapJobSpecInput{
 		Environment:          "test",
 		Zone:                 test.Zone,
 		Domain:               "cre",
@@ -52,7 +53,7 @@ func freshBase(selector uint64) ProposeEVMCapJobSpecInput {
 		BootstrapperOCR3Urls: []string{"12D3KooWxyz@127.0.0.1:5001"},
 		OCRContractQualifier: testOCRQualifier,
 		ForwardersQualifier:  testForwarderQualifier,
-		EVMCapabilityInputs:  []EVMCapabilityInput{minimalEVMCapInput("peer-1")},
+		EVMCapabilityInputs:  []jobs.EVMCapabilityInput{minimalEVMCapInput("peer-1")},
 	}
 }
 
@@ -84,7 +85,7 @@ func TestProposeEVMCapJobSpec_VerifyPreconditions_success(t *testing.T) {
 	seedAddressesForSelector(t, ds, chain.Selector, ocrAddr, fwdAddr)
 	env.DataStore = ds.Seal()
 
-	in := ProposeEVMCapJobSpecInput{
+	in := jobs.ProposeEVMCapJobSpecInput{
 		Environment:          "test",
 		Zone:                 test.Zone,
 		Domain:               "cre",
@@ -94,13 +95,13 @@ func TestProposeEVMCapJobSpec_VerifyPreconditions_success(t *testing.T) {
 		BootstrapperOCR3Urls: []string{"12D3KooWxyz@127.0.0.1:5001"},
 		OCRContractQualifier: testOCRQualifier,
 		ForwardersQualifier:  testForwarderQualifier,
-		EVMCapabilityInputs: []EVMCapabilityInput{
+		EVMCapabilityInputs: []jobs.EVMCapabilityInput{
 			minimalEVMCapInput("peer-1"),
 			minimalEVMCapInput("peer-2"),
 		},
 	}
 
-	err := ProposeEVMCapJobSpec{}.VerifyPreconditions(env, in)
+	err := jobs.ProposeEVMCapJobSpec{}.VerifyPreconditions(env, in)
 	require.NoError(t, err)
 }
 
@@ -115,28 +116,28 @@ func TestProposeEVMCapJobSpec_VerifyPreconditions_requiredFields(t *testing.T) {
 
 	cases := []struct {
 		name    string
-		mutate  func(*ProposeEVMCapJobSpecInput)
+		mutate  func(*jobs.ProposeEVMCapJobSpecInput)
 		errFrag string
 	}{
-		{"missing environment", func(in *ProposeEVMCapJobSpecInput) { in.Environment = "" }, "environment is required"},
-		{"missing domain", func(in *ProposeEVMCapJobSpecInput) { in.Domain = "" }, "domain is required"},
-		{"missing don name", func(in *ProposeEVMCapJobSpecInput) { in.DONName = "" }, "donName is required"},
-		{"missing zone", func(in *ProposeEVMCapJobSpecInput) { in.Zone = "" }, "zone is required"},
-		{"missing chain selector", func(in *ProposeEVMCapJobSpecInput) { in.ChainSelector = 0 }, "chain selector is required"},
-		{"missing ocr chain selector", func(in *ProposeEVMCapJobSpecInput) { in.OCRChainSelector = 0 }, "ocr chain selector is required"},
-		{"missing evm inputs", func(in *ProposeEVMCapJobSpecInput) { in.EVMCapabilityInputs = nil }, "at least one evm capability input is required"},
-		{"missing bootstrapper urls", func(in *ProposeEVMCapJobSpecInput) { in.BootstrapperOCR3Urls = nil }, "at least one bootstrapper OCR3 URL is required"},
-		{"empty bootstrapper url element", func(in *ProposeEVMCapJobSpecInput) { in.BootstrapperOCR3Urls = []string{""} }, "bootstrapper OCR3 URL at index 0 is empty"},
-		{"missing OCR qualifier", func(in *ProposeEVMCapJobSpecInput) { in.OCRContractQualifier = "" }, "ocr contract qualifier is required"},
-		{"missing forwarder qualifier", func(in *ProposeEVMCapJobSpecInput) { in.ForwardersQualifier = "" }, "cre forwarder qualifier is required"},
-		{"missing node id", func(in *ProposeEVMCapJobSpecInput) { in.EVMCapabilityInputs[0].NodeID = "" }, "nodeID is required for evm capability input"},
+		{"missing environment", func(in *jobs.ProposeEVMCapJobSpecInput) { in.Environment = "" }, "environment is required"},
+		{"missing domain", func(in *jobs.ProposeEVMCapJobSpecInput) { in.Domain = "" }, "domain is required"},
+		{"missing don name", func(in *jobs.ProposeEVMCapJobSpecInput) { in.DONName = "" }, "donName is required"},
+		{"missing zone", func(in *jobs.ProposeEVMCapJobSpecInput) { in.Zone = "" }, "zone is required"},
+		{"missing chain selector", func(in *jobs.ProposeEVMCapJobSpecInput) { in.ChainSelector = 0 }, "chain selector is required"},
+		{"missing ocr chain selector", func(in *jobs.ProposeEVMCapJobSpecInput) { in.OCRChainSelector = 0 }, "ocr chain selector is required"},
+		{"missing evm inputs", func(in *jobs.ProposeEVMCapJobSpecInput) { in.EVMCapabilityInputs = nil }, "at least one evm capability input is required"},
+		{"missing bootstrapper urls", func(in *jobs.ProposeEVMCapJobSpecInput) { in.BootstrapperOCR3Urls = nil }, "at least one bootstrapper OCR3 URL is required"},
+		{"empty bootstrapper url element", func(in *jobs.ProposeEVMCapJobSpecInput) { in.BootstrapperOCR3Urls = []string{""} }, "bootstrapper OCR3 URL at index 0 is empty"},
+		{"missing OCR qualifier", func(in *jobs.ProposeEVMCapJobSpecInput) { in.OCRContractQualifier = "" }, "ocr contract qualifier is required"},
+		{"missing forwarder qualifier", func(in *jobs.ProposeEVMCapJobSpecInput) { in.ForwardersQualifier = "" }, "cre forwarder qualifier is required"},
+		{"missing node id", func(in *jobs.ProposeEVMCapJobSpecInput) { in.EVMCapabilityInputs[0].NodeID = "" }, "nodeID is required for evm capability input"},
 	}
 
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
 			in := deepCloneInput(base)
 			tc.mutate(&in)
-			err := ProposeEVMCapJobSpec{}.VerifyPreconditions(env, in)
+			err := jobs.ProposeEVMCapJobSpec{}.VerifyPreconditions(env, in)
 			require.Error(t, err)
 			assert.Contains(t, err.Error(), tc.errFrag)
 		})
@@ -160,7 +161,7 @@ func TestProposeEVMCapJobSpec_VerifyPreconditions_missingAddresses(t *testing.T)
 	in := freshBase(selector)
 	in.OCRChainSelector = selector
 
-	err := ProposeEVMCapJobSpec{}.VerifyPreconditions(env, in)
+	err := jobs.ProposeEVMCapJobSpec{}.VerifyPreconditions(env, in)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "failed to get OCR contract address")
 
@@ -175,7 +176,7 @@ func TestProposeEVMCapJobSpec_VerifyPreconditions_missingAddresses(t *testing.T)
 	}))
 	env.DataStore = ds2.Seal()
 
-	err = ProposeEVMCapJobSpec{}.VerifyPreconditions(env, in)
+	err = jobs.ProposeEVMCapJobSpec{}.VerifyPreconditions(env, in)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "failed to get CRE forwarder address")
 }
@@ -200,7 +201,7 @@ func TestProposeEVMCapJobSpec_VerifyPreconditions_mismatchAndMinimums(t *testing
 		}
 		in.EVMCapabilityInputs[0].OverrideDefaultCfg.ChainID = wrong
 
-		err := ProposeEVMCapJobSpec{}.VerifyPreconditions(env, in)
+		err := jobs.ProposeEVMCapJobSpec{}.VerifyPreconditions(env, in)
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), "chainID in override config")
 	})
@@ -208,7 +209,7 @@ func TestProposeEVMCapJobSpec_VerifyPreconditions_mismatchAndMinimums(t *testing
 	t.Run("network must be evm if provided", func(t *testing.T) {
 		in := deepCloneInput(base)
 		in.EVMCapabilityInputs[0].OverrideDefaultCfg.Network = "solana"
-		err := ProposeEVMCapJobSpec{}.VerifyPreconditions(env, in)
+		err := jobs.ProposeEVMCapJobSpec{}.VerifyPreconditions(env, in)
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), "network in override config must be")
 	})
@@ -216,7 +217,7 @@ func TestProposeEVMCapJobSpec_VerifyPreconditions_mismatchAndMinimums(t *testing
 	t.Run("forwarder address mismatch when provided", func(t *testing.T) {
 		in := deepCloneInput(base)
 		in.EVMCapabilityInputs[0].OverrideDefaultCfg.CREForwarderAddress = "0xdeadbeefdeadbeefdeadbeefdeadbeefdeadbeef"
-		err := ProposeEVMCapJobSpec{}.VerifyPreconditions(env, in)
+		err := jobs.ProposeEVMCapJobSpec{}.VerifyPreconditions(env, in)
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), "CRE forwarder address in override config")
 	})
@@ -224,32 +225,32 @@ func TestProposeEVMCapJobSpec_VerifyPreconditions_mismatchAndMinimums(t *testing
 	t.Run("below-minimum values are rejected, zeros allowed because of defaults", func(t *testing.T) {
 		// Zeros OK (treated as "use defaults"), so verify passes:
 		in := deepCloneInput(base)
-		require.NoError(t, ProposeEVMCapJobSpec{}.VerifyPreconditions(env, in))
+		require.NoError(t, jobs.ProposeEVMCapJobSpec{}.VerifyPreconditions(env, in))
 
 		in = deepCloneInput(base)
 		in.EVMCapabilityInputs[0].OverrideDefaultCfg.LogTriggerPollInterval = 1500000000 // ns
 		in.EVMCapabilityInputs[0].OverrideDefaultCfg.ReceiverGasMinimum = 500
 		in.EVMCapabilityInputs[0].OverrideDefaultCfg.LogTriggerSendChannelBufferSize = 3000
-		require.NoError(t, ProposeEVMCapJobSpec{}.VerifyPreconditions(env, in))
+		require.NoError(t, jobs.ProposeEVMCapJobSpec{}.VerifyPreconditions(env, in))
 
 		// Now set below-minimums independently each time
 		in = deepCloneInput(base)
 		d := int64(1499 * time.Millisecond)
 		require.GreaterOrEqual(t, d, int64(0))
 		in.EVMCapabilityInputs[0].OverrideDefaultCfg.LogTriggerPollInterval = uint64(d)
-		err := ProposeEVMCapJobSpec{}.VerifyPreconditions(env, in)
+		err := jobs.ProposeEVMCapJobSpec{}.VerifyPreconditions(env, in)
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), "logTriggerPollInterval")
 
 		in = deepCloneInput(base)
 		in.EVMCapabilityInputs[0].OverrideDefaultCfg.ReceiverGasMinimum = 499
-		err = ProposeEVMCapJobSpec{}.VerifyPreconditions(env, in)
+		err = jobs.ProposeEVMCapJobSpec{}.VerifyPreconditions(env, in)
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), "receiverGasMinimum")
 
 		in = deepCloneInput(base)
 		in.EVMCapabilityInputs[0].OverrideDefaultCfg.LogTriggerSendChannelBufferSize = 2999
-		err = ProposeEVMCapJobSpec{}.VerifyPreconditions(env, in)
+		err = jobs.ProposeEVMCapJobSpec{}.VerifyPreconditions(env, in)
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), "logTriggerSendChannelBufferSize")
 	})
@@ -283,7 +284,7 @@ func TestProposeEVMCapJobSpec_Apply_success(t *testing.T) {
 
 	env.DataStore = ds.Seal()
 
-	input := ProposeEVMCapJobSpecInput{
+	input := jobs.ProposeEVMCapJobSpecInput{
 		Environment:          "test",
 		Zone:                 test.Zone,
 		Domain:               "cre",
@@ -293,7 +294,7 @@ func TestProposeEVMCapJobSpec_Apply_success(t *testing.T) {
 		BootstrapperOCR3Urls: []string{"12D3KooWabc@127.0.0.1:5001"},
 		OCRContractQualifier: testOCRQualifier,
 		ForwardersQualifier:  testForwarderQualifier,
-		EVMCapabilityInputs: []EVMCapabilityInput{
+		EVMCapabilityInputs: []jobs.EVMCapabilityInput{
 			// leave values zero to exercise defaults; Apply should fill them
 			minimalEVMCapInput("node_test-don-0"),
 			minimalEVMCapInput("node_test-don-1"),
@@ -303,10 +304,10 @@ func TestProposeEVMCapJobSpec_Apply_success(t *testing.T) {
 	}
 
 	// Verify should pass
-	require.NoError(t, ProposeEVMCapJobSpec{}.VerifyPreconditions(*env, input))
+	require.NoError(t, jobs.ProposeEVMCapJobSpec{}.VerifyPreconditions(*env, input))
 
 	// Apply should succeed and return one report
-	out, err := ProposeEVMCapJobSpec{}.Apply(*env, input)
+	out, err := jobs.ProposeEVMCapJobSpec{}.Apply(*env, input)
 	require.NoError(t, err)
 	assert.Len(t, out.Reports, 1)
 }
@@ -323,12 +324,12 @@ func TestProposeEVMCapJobSpec_Apply_duplicateNodeIDs(t *testing.T) {
 	input := freshBase(selector)
 	input.OCRChainSelector = selector
 	// duplicate
-	input.EVMCapabilityInputs = []EVMCapabilityInput{
+	input.EVMCapabilityInputs = []jobs.EVMCapabilityInput{
 		minimalEVMCapInput("node_test-don-0"),
 		minimalEVMCapInput("node_test-don-0"),
 	}
 
-	_, err := ProposeEVMCapJobSpec{}.Apply(*env, input)
+	_, err := jobs.ProposeEVMCapJobSpec{}.Apply(*env, input)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "duplicate nodeID")
 }
