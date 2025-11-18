@@ -12,6 +12,7 @@ import (
 	"go.uber.org/zap/zapcore"
 
 	"github.com/smartcontractkit/chainlink/deployment"
+	"github.com/smartcontractkit/chainlink/deployment/internal/jdtestutils"
 	"github.com/smartcontractkit/chainlink/deployment/utils/nodetestutils"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
@@ -127,7 +128,7 @@ func NewMemoryEnvironmentFromChainsNodes(
 		cldf.NewMemoryAddressBook(),
 		datastore.NewMemoryDataStore().Seal(),
 		nodeIDs, // Note these have the p2p_ prefix.
-		NewMemoryJobClient(nodes),
+		jdtestutils.NewMemoryJobClient(nodes),
 		ctx,
 		focr.XXXGenerateTestOCRSecrets(),
 		blockchains,
@@ -185,7 +186,7 @@ func NewMemoryEnvironment(
 		cldf.NewMemoryAddressBook(),
 		datastore.NewMemoryDataStore().Seal(),
 		nodeIDs,
-		NewMemoryJobClient(nodes),
+		jdtestutils.NewMemoryJobClient(nodes),
 		t.Context,
 		focr.XXXGenerateTestOCRSecrets(),
 		chains,

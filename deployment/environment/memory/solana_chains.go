@@ -1,9 +1,6 @@
 package memory
 
 import (
-	"context"
-	"errors"
-	"fmt"
 	"path/filepath"
 	"runtime"
 	"sync"
@@ -11,8 +8,6 @@ import (
 	"time"
 
 	"github.com/Masterminds/semver/v3"
-	"github.com/gagliardetto/solana-go"
-	solRpc "github.com/gagliardetto/solana-go/rpc"
 	chainsel "github.com/smartcontractkit/chain-selectors"
 	"github.com/stretchr/testify/require"
 
@@ -49,157 +44,6 @@ func getTestSolanaChainSelectors() []uint64 {
 		}
 	}
 	return result
-}
-
-// FundSolanaAccountsWithLogging requests airdrops for the provided accounts and waits for confirmation.
-// It waits until all transactions reach at least "Confirmed" commitment level with enhanced logging and timeouts.
-// Solana commitment levels: Processed < Confirmed < Finalized
-// - Processed: Transaction processed by a validator but may be rolled back
-// - Confirmed: Transaction confirmed by supermajority of cluster stake
-// - Finalized: Transaction finalized and cannot be rolled back
-func FundSolanaAccountsWithLogging(
-	ctx context.Context, accounts []solana.PublicKey, solAmount uint64, solanaGoClient *solRpc.Client,
-	lggr logger.Logger,
-) error {
-	if len(accounts) == 0 {
-		return nil
-	}
-
-	var sigs = make([]solana.Signature, 0, len(accounts))
-	var successfulAccounts = make([]solana.PublicKey, 0, len(accounts))
-
-	lggr.Infow("Starting Solana airdrop requests", "accountCount", len(accounts), "amountSOL", solAmount)
-
-	// Request airdrops with better error tracking
-	// Note: Using CommitmentConfirmed here means the RequestAirdrop call itself waits for confirmed status
-	for i, account := range accounts {
-		sig, err := solanaGoClient.RequestAirdrop(ctx, account, solAmount*solana.LAMPORTS_PER_SOL, solRpc.CommitmentFinalized)
-		if err != nil {
-			// Return partial success information
-			if len(sigs) > 0 {
-				return fmt.Errorf("airdrop request failed for account %d (%s): %w (note: %d previous requests may have succeeded)",
-					i, account.String(), err, len(sigs))
-			}
-			return fmt.Errorf("airdrop request failed for account %d (%s): %w", i, account.String(), err)
-		}
-		sigs = append(sigs, sig)
-		successfulAccounts = append(successfulAccounts, account)
-
-		lggr.Debugw("Airdrop request completed",
-			"progress", fmt.Sprintf("%d/%d", i+1, len(accounts)),
-			"account", account.String(),
-			"signature", sig.String())
-
-		// small delay to avoid rate limiting issues
-		time.Sleep(100 * time.Millisecond)
-	}
-
-	// Adaptive timeout based on batch size - each airdrop can take several seconds
-	// Base timeout of 30s + 5s per account for larger batches
-	baseTimeout := 60 * time.Second
-	if len(accounts) > 5 {
-		baseTimeout += time.Duration(len(accounts)) * 5 * time.Second
-	}
-	timeout := baseTimeout
-	const pollInterval = 500 * time.Millisecond
-
-	lggr.Infow("Starting confirmation polling", "timeout", timeout, "accounts", len(accounts))
-
-	timeoutCtx, cancel := context.WithTimeout(ctx, timeout)
-	defer cancel()
-
-	ticker := time.NewTicker(pollInterval)
-	defer ticker.Stop()
-
-	remaining := len(sigs)
-	pollCount := 0
-	for remaining > 0 {
-		select {
-		case <-timeoutCtx.Done():
-			// Log which transactions are still unconfirmed for debugging
-			unfinalizedSigs := []string{}
-			statusRes, _ := solanaGoClient.GetSignatureStatuses(ctx, true, sigs...)
-			if statusRes != nil && statusRes.Value != nil {
-				for i, res := range statusRes.Value {
-					if res == nil || res.ConfirmationStatus != solRpc.ConfirmationStatusFinalized {
-						unfinalizedSigs = append(unfinalizedSigs, fmt.Sprintf("%s (account: %s)",
-							sigs[i].String(), successfulAccounts[i].String()))
-					}
-				}
-			}
-			lggr.Errorw("Timeout waiting for transaction confirmations",
-				"remaining", remaining,
-				"total", len(sigs),
-				"timeout", timeout,
-				"unfinalizedSigs", unfinalizedSigs)
-
-			return fmt.Errorf("timeout waiting for transaction confirmations,"+
-				"remaining: %d, total: %d, timeout: %s"+
-				"unfinalizedSigs: %v",
-				remaining, len(sigs), timeout, unfinalizedSigs)
-		case <-ticker.C:
-			pollCount++
-			statusRes, sigErr := solanaGoClient.GetSignatureStatuses(timeoutCtx, true, sigs...)
-			if sigErr != nil {
-				return fmt.Errorf("failed to get signature statuses: %w", sigErr)
-			}
-			if statusRes == nil {
-				return errors.New("signature status response is nil")
-			}
-			if statusRes.Value == nil {
-				return errors.New("signature status response value is nil")
-			}
-
-			unfinalizedTxCount := 0
-			for i, res := range statusRes.Value {
-				if res == nil {
-					// Transaction status not yet available
-					unfinalizedTxCount++
-					continue
-				}
-
-				if res.Err != nil {
-					// Transaction failed
-					lggr.Errorw("Transaction failed",
-						"account", successfulAccounts[i].String(),
-						"signature", sigs[i].String(),
-						"error", res.Err)
-					return fmt.Errorf("transaction failed for account %s (sig: %s): %v",
-						successfulAccounts[i].String(), sigs[i].String(), res.Err)
-				}
-
-				// Check confirmation status - we want at least "Confirmed" level
-				// Solana confirmation levels: Processed < Confirmed < Finalized
-				switch res.ConfirmationStatus {
-				case solRpc.ConfirmationStatusProcessed, solRpc.ConfirmationStatusConfirmed:
-					// Still only processed, not yet confirmed
-					unfinalizedTxCount++
-				case solRpc.ConfirmationStatusFinalized:
-					// Transaction is finalized - we're good
-					// Don't increment unfinalizedTxCount
-				default:
-					// Unknown status, treat as unconfirmed
-					unfinalizedTxCount++
-				}
-			}
-			remaining = unfinalizedTxCount
-
-			// Log progress every 10 polls (5 seconds) for large batches
-			if pollCount%10 == 0 {
-				finalized := len(sigs) - remaining
-				lggr.Infow("Confirmation progress",
-					"finalized", finalized,
-					"total", len(sigs),
-					"pollCount", pollCount)
-			}
-		}
-	}
-
-	// Log successful completion
-	lggr.Infow("Successfully funded all accounts",
-		"accountCount", len(accounts),
-		"amountSOL", solAmount)
-	return nil
 }
 
 func generateChainsSol(t *testing.T, numChains int, commitSha string) []cldf_chain.BlockChain {

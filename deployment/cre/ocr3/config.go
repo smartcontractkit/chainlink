@@ -6,11 +6,12 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"math/big"
 	"strings"
 	"time"
 
+	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
+	gethTypes "github.com/ethereum/go-ethereum/core/types"
 	chainsel "github.com/smartcontractkit/chain-selectors"
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/confighelper"
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/ocr3_1confighelper"
@@ -26,7 +27,7 @@ import (
 	focr "github.com/smartcontractkit/chainlink-deployments-framework/offchain/ocr"
 
 	"github.com/smartcontractkit/chainlink/deployment"
-	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
+	"github.com/smartcontractkit/chainlink/deployment/cre/common/strategies"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/chaintype"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocrcommon"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm"
@@ -318,7 +319,8 @@ type ConfigureOCR3Request struct {
 	ReportingPluginConfigOverride []byte
 	Config                        OCR2OracleConfig
 
-	UseMCMS bool
+	UseMCMS  bool
+	Strategy strategies.TransactionStrategy
 }
 
 type ConfigureOCR3Response struct {
@@ -335,39 +337,22 @@ func ConfigureOCR3contract(req ConfigureOCR3Request) (*ConfigureOCR3Response, er
 		return &ConfigureOCR3Response{ocrConfig, nil}, nil
 	}
 
-	txOpt := req.Chain.DeployerKey
-	if req.UseMCMS {
-		txOpt = cldf.SimTransactOpts()
-	}
-
-	tx, err := req.Contract.SetConfig(txOpt,
-		ocrConfig.Signers,
-		ocrConfig.Transmitters,
-		ocrConfig.F,
-		ocrConfig.OnchainConfig,
-		ocrConfig.OffchainConfigVersion,
-		ocrConfig.OffchainConfig,
-	)
+	op, _, err := req.Strategy.Apply(func(opts *bind.TransactOpts) (*gethTypes.Transaction, error) {
+		return req.Contract.SetConfig(opts,
+			ocrConfig.Signers,
+			ocrConfig.Transmitters,
+			ocrConfig.F,
+			ocrConfig.OnchainConfig,
+			ocrConfig.OffchainConfigVersion,
+			ocrConfig.OffchainConfig,
+		)
+	})
 	if err != nil {
 		err = cldf.DecodeErr(ocr3_capability.OCR3CapabilityABI, err)
 		return nil, fmt.Errorf("failed to call SetConfig for OCR3 contract %s using mcms: %T: %w", req.Contract.Address().String(), req.UseMCMS, err)
 	}
 
-	var ops mcmstypes.BatchOperation
-	if !req.UseMCMS {
-		_, err = req.Chain.Confirm(tx)
-		if err != nil {
-			err = cldf.DecodeErr(ocr3_capability.OCR3CapabilityABI, err)
-			return nil, fmt.Errorf("failed to confirm SetConfig for OCR3 contract %s: %w", req.Contract.Address().String(), err)
-		}
-	} else {
-		ops, err = proposalutils.BatchOperationForChain(req.Chain.Selector, req.Contract.Address().Hex(), tx.Data(), big.NewInt(0), string(OCR3Capability), nil)
-		if err != nil {
-			return nil, fmt.Errorf("failed to create batch operation: %w", err)
-		}
-	}
-
-	return &ConfigureOCR3Response{ocrConfig, &ops}, nil
+	return &ConfigureOCR3Response{ocrConfig, op}, nil
 }
 
 type ConfigureOCR3Resp struct {
@@ -384,7 +369,8 @@ type ConfigureOCR3Config struct {
 
 	ReportingPluginConfigOverride []byte
 
-	UseMCMS bool
+	UseMCMS  bool
+	Strategy strategies.TransactionStrategy
 }
 
 func ConfigureOCR3ContractFromJD(env *cldf.Environment, cfg ConfigureOCR3Config) (*ConfigureOCR3Resp, error) {
@@ -420,6 +406,7 @@ func ConfigureOCR3ContractFromJD(env *cldf.Environment, cfg ConfigureOCR3Config)
 		Contract: contract,
 		DryRun:   cfg.DryRun,
 		UseMCMS:  cfg.UseMCMS,
+		Strategy: cfg.Strategy,
 	})
 	if err != nil {
 		return nil, err

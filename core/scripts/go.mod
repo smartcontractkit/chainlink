@@ -325,7 +325,6 @@ require (
 	github.com/grpc-ecosystem/grpc-gateway/v2 v2.26.3 // indirect
 	github.com/gsterjov/go-libsecret v0.0.0-20161001094733-a6f4afe4910c // indirect
 	github.com/hako/durafmt v0.0.0-20200710122514-c0fb7b4da026 // indirect
-	github.com/hashicorp/consul/sdk v0.16.2 // indirect
 	github.com/hashicorp/errwrap v1.1.0 // indirect
 	github.com/hashicorp/go-bexpr v0.1.10 // indirect
 	github.com/hashicorp/go-cleanhttp v0.5.2 // indirect
@@ -499,8 +498,8 @@ require (
 	github.com/smartcontractkit/chainlink-protos/svr v1.1.0 // indirect
 	github.com/smartcontractkit/chainlink-protos/workflows/go v0.0.0-20251025021331-aa7746850cc4 // indirect
 	github.com/smartcontractkit/chainlink-solana v1.1.2-0.20251105160343-b77843a1daf4 // indirect
-	github.com/smartcontractkit/chainlink-sui v0.0.0-20251105220250-f8d7f06e3b8d // indirect
-	github.com/smartcontractkit/chainlink-sui/deployment v0.0.0-20251105220250-f8d7f06e3b8d // indirect
+	github.com/smartcontractkit/chainlink-sui v0.0.0-20251114141003-d4fabe3c5586 // indirect
+	github.com/smartcontractkit/chainlink-sui/deployment v0.0.0-20251114141003-d4fabe3c5586 // indirect
 	github.com/smartcontractkit/chainlink-testing-framework/framework/components/fake v0.10.0 // indirect
 	github.com/smartcontractkit/chainlink-testing-framework/parrot v0.6.2 // indirect
 	github.com/smartcontractkit/chainlink-ton v0.0.0-20251113211653-082bd18d77bb // indirect
