@@ -235,9 +235,8 @@ func TestProposeEVMCapJobSpec_VerifyPreconditions_mismatchAndMinimums(t *testing
 
 		// Now set below-minimums independently each time
 		in = deepCloneInput(base)
-		d := int64(1499 * time.Millisecond)
-		require.GreaterOrEqual(t, d, int64(0))
-		in.EVMCapabilityInputs[0].OverrideDefaultCfg.LogTriggerPollInterval = uint64(d)
+		//nolint:gosec // disable G115
+		in.EVMCapabilityInputs[0].OverrideDefaultCfg.LogTriggerPollInterval = uint64(1499 * time.Millisecond)
 		err := jobs.ProposeEVMCapJobSpec{}.VerifyPreconditions(env, in)
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), "logTriggerPollInterval")
