@@ -53,7 +53,7 @@ func (i *AddCapabilitiesInput) Validate() error {
 }
 
 type AddCapabilitiesOutput struct {
-	AddedCapabilities []capabilities_registry_v2.CapabilitiesRegistryCapability
+	AddedCapabilities []contracts.RegisterCapabilitiesCapability
 	DonInfo           capabilities_registry_v2.CapabilitiesRegistryUpdateDONParams
 	UpdatedNodes      []capabilities_registry_v2.CapabilitiesRegistryNodeParams
 	Proposals         []mcmslib.TimelockProposal
@@ -97,7 +97,7 @@ var AddCapabilities = operations.NewSequence[AddCapabilitiesInput, AddCapabiliti
 		}
 
 		nodeUpdates := make(map[string]contracts.NodeConfig, len(p2pIDs))
-		capabilities := make([]capabilities_registry_v2.CapabilitiesRegistryCapability, len(input.CapabilityConfigs))
+		capabilities := make([]contracts.RegisterCapabilitiesCapability, len(input.CapabilityConfigs))
 		for i, cfg := range input.CapabilityConfigs {
 			metadataBytes, err := json.Marshal(cfg.Capability.Metadata)
 			if err != nil {
@@ -108,7 +108,11 @@ var AddCapabilities = operations.NewSequence[AddCapabilitiesInput, AddCapabiliti
 				ConfigurationContract: cfg.Capability.ConfigurationContract,
 				Metadata:              metadataBytes,
 			}
-			capabilities[i] = capability
+			capabilities[i] = contracts.RegisterCapabilitiesCapability{
+				Metadata:              cfg.Capability.Metadata,
+				CapabilityId:          cfg.Capability.CapabilityID,
+				ConfigurationContract: cfg.Capability.ConfigurationContract,
+			}
 			for _, p2pID := range p2pIDs {
 				p2pIDStr := p2pID.String()
 				nodeUpdate, exists := nodeUpdates[p2pIDStr]

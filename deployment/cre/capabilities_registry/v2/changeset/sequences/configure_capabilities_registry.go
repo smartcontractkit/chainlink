@@ -36,7 +36,7 @@ type ConfigureCapabilitiesRegistryInput struct {
 	ContractAddress string
 	Nops            []capabilities_registry_v2.CapabilitiesRegistryNodeOperatorParams
 	Nodes           []contracts.NodesInput
-	Capabilities    []capabilities_registry_v2.CapabilitiesRegistryCapability
+	Capabilities    []contracts.RegisterCapabilitiesCapability
 	DONs            []capabilities_registry_v2.CapabilitiesRegistryNewDONParams
 }
 
@@ -51,7 +51,7 @@ func (c ConfigureCapabilitiesRegistryInput) Validate() error {
 }
 
 type ConfigureCapabilitiesRegistryOutput struct {
-	Capabilities          []capabilities_registry_v2.CapabilitiesRegistryCapability
+	Capabilities          []contracts.RegisterCapabilitiesCapability
 	Nops                  []capabilities_registry_v2.CapabilitiesRegistryNodeOperatorParams
 	Nodes                 []capabilities_registry_v2.CapabilitiesRegistryNodeParams
 	DONs                  []capabilities_registry_v2.CapabilitiesRegistryNewDONParams

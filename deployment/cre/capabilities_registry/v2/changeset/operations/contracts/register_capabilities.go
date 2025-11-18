@@ -27,13 +27,19 @@ type RegisterCapabilitiesDeps struct {
 type RegisterCapabilitiesInput struct {
 	Address       string
 	ChainSelector uint64
-	Capabilities  []capabilities_registry_v2.CapabilitiesRegistryCapability
+	Capabilities  []RegisterCapabilitiesCapability
 	MCMSConfig    *contracts.MCMSConfig
 }
 
 type RegisterCapabilitiesOutput struct {
-	Capabilities []capabilities_registry_v2.CapabilitiesRegistryCapability
+	Capabilities []RegisterCapabilitiesCapability
 	Operation    *mcmstypes.BatchOperation
+}
+
+type RegisterCapabilitiesCapability struct {
+	CapabilityId          string
+	ConfigurationContract common.Address
+	Metadata              pkg.CapabilityConfig
 }
 
 // RegisterCapabilities is an operation that registers nodes in the V2 Capabilities Registry contract.
@@ -45,7 +51,7 @@ var RegisterCapabilities = operations.NewOperation[RegisterCapabilitiesInput, Re
 		if len(input.Capabilities) == 0 {
 			b.Logger.Info("no capabilities provided, skipping operation")
 			return RegisterCapabilitiesOutput{
-				Capabilities: []capabilities_registry_v2.CapabilitiesRegistryCapability{},
+				Capabilities: []RegisterCapabilitiesCapability{},
 			}, nil
 		}
 
@@ -74,7 +80,7 @@ var RegisterCapabilities = operations.NewOperation[RegisterCapabilitiesInput, Re
 			b.Logger.Info("no new capabilities to register after deduplication, skipping operation")
 
 			return RegisterCapabilitiesOutput{
-				Capabilities: []capabilities_registry_v2.CapabilitiesRegistryCapability{},
+				Capabilities: []RegisterCapabilitiesCapability{},
 			}, nil
 		}
 
@@ -95,7 +101,7 @@ var RegisterCapabilities = operations.NewOperation[RegisterCapabilitiesInput, Re
 
 		return RegisterCapabilitiesOutput{
 			Operation:    operation,
-			Capabilities: capabilities,
+			Capabilities: input.Capabilities,
 		}, nil
 	},
 )
@@ -104,7 +110,7 @@ var RegisterCapabilities = operations.NewOperation[RegisterCapabilitiesInput, Re
 // The contract reverts on adding the same capability twice and that would cause the whole transaction to revert.
 func dedupCapabilities(
 	capReg *capabilities_registry_v2.CapabilitiesRegistry,
-	capabilities []capabilities_registry_v2.CapabilitiesRegistryCapability,
+	capabilities []RegisterCapabilitiesCapability,
 ) ([]capabilities_registry_v2.CapabilitiesRegistryCapability, error) {
 	if capReg == nil {
 		return nil, errors.New("capabilities registry is nil")
@@ -137,7 +143,16 @@ func dedupCapabilities(
 
 		// Skip capabilities that already exist in the registry
 		if _, exists := existingByID[candidate.CapabilityId]; !exists {
-			out = append(out, candidate)
+			metadataBytes, metadataErr := candidate.Metadata.MarshalJSON()
+			if metadataErr != nil {
+				return nil, fmt.Errorf("failed to marshal capability metadata for capability %s: %w", candidate.CapabilityId, metadataErr)
+			}
+
+			out = append(out, capabilities_registry_v2.CapabilitiesRegistryCapability{
+				Metadata:              metadataBytes,
+				CapabilityId:          candidate.CapabilityId,
+				ConfigurationContract: candidate.ConfigurationContract,
+			})
 		}
 	}
 
