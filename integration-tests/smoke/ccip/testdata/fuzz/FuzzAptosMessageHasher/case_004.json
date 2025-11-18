@@ -1,0 +1,15 @@
+{
+  "message_id": "0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef",
+  "sequence_number": 1,
+  "nonce": 123,
+  "on_ramp": "0x47a1f0a819457f1e153f35c6b6b0d42e2e16e901",
+  "sender": "0xbd8a1fb0af25dc8700d275cb3742d3bacf02e718c3b2c3c6",
+  "data": "0x68656c6c6f20434349505265636569766572",
+  "receiver": "0xbd8a1fb0af25dc8700d275cb3742d3bacf02e718c3b2c3c68a45b1126c006490",
+  "extra_args": "0x181dcf10000000000000000000000000000000000000000000000000000000000007a1200000000000000000000000000000000000000000000000000000000000000001",
+  "token_source_pool_address": "0x",
+  "token_dest_token_address": "0x",
+  "token_extra_data": "0x",
+  "token_amount_bytes": "0x47a1f0a81945",
+  "token_dest_exec_data": "0x"
+}

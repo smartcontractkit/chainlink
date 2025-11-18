@@ -151,7 +151,7 @@ func DeployDons(ctx context.Context, input *DeployCribDonsInput) ([]*cre.NodeSet
 		}
 
 		for nodeIdx, nodeMetadata := range donMetadata.NodesMetadata {
-			configToml, secrets, confSecretsErr := getConfigAndSecretsForNode(nodeMetadata, donIdx, input, donMetadata)
+			configToml, secrets, confSecretsErr := getConfigAndSecretsForNode(nodeMetadata, donIdx, input)
 			if confSecretsErr != nil {
 				return nil, confSecretsErr
 			}
@@ -225,7 +225,7 @@ func DeployDons(ctx context.Context, input *DeployCribDonsInput) ([]*cre.NodeSet
 	return input.NodeSet, nil
 }
 
-func getConfigAndSecretsForNode(nodeMetadata *cre.NodeMetadata, donIndex int, input *DeployCribDonsInput, donMetadata *cre.DonMetadata) (*string, *string, error) {
+func getConfigAndSecretsForNode(nodeMetadata *cre.NodeMetadata, donIndex int, input *DeployCribDonsInput) (*string, *string, error) {
 	nodeSpec := input.NodeSet[donIndex].NodeSpecs[nodeMetadata.Index]
 
 	cleanedToml, tomlErr := cleanToml(nodeSpec.Node.TestConfigOverrides)

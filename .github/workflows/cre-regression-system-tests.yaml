@@ -178,6 +178,7 @@ jobs:
         id: run-regression-tests
         shell: bash
         working-directory: system-tests/tests
+        continue-on-error: ${{ env.ENABLE_AUTO_QUARANTINE == 'true' }}
         env:
           TEST_NAME: ${{ matrix.tests.test_name }}
           TEST_TIMEOUT: 30m
@@ -200,7 +201,7 @@ jobs:
           fi
           exit $exit_code
 
-      - name: Process and upload flaky Regression tests results (${{ steps.run-regression-tests.outputs.tests_result }})
+      - name: Analyze and upload test results (${{ steps.run-regression-tests.outputs.tests_result }})
         if: ${{ !cancelled() }}
         uses: smartcontractkit/.github/actions/branch-out-upload@branch-out-upload/v1
         with:

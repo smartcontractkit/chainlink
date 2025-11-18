@@ -12,11 +12,12 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers"
 	"github.com/xssnick/tonutils-go/tlb"
 
-	"github.com/smartcontractkit/chainlink-ton/pkg/ccip/bindings/onramp"
-	"github.com/smartcontractkit/chainlink-ton/pkg/ccip/codec"
 	mt "github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers/messagingtest"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
 	testsetups "github.com/smartcontractkit/chainlink/integration-tests/testsetups/ccip"
+
+	"github.com/smartcontractkit/chainlink-ton/pkg/ccip/bindings/onramp"
+	"github.com/smartcontractkit/chainlink-ton/pkg/ccip/codec"
 )
 
 func Test_CCIPMessaging_TON2EVM(t *testing.T) {
@@ -83,7 +84,7 @@ func Test_CCIPMessaging_TON2EVM(t *testing.T) {
 		out = mt.Run(
 			t,
 			mt.TestCase{
-				Replayed:               true,
+				Replayed:               false,
 				ValidationType:         mt.ValidationTypeExec,
 				TestSetup:              setup,
 				Nonce:                  nil, // TON nonce check is skipped
@@ -164,12 +165,13 @@ func Test_CCIPMessaging_EVM2TON(t *testing.T) {
 		out = mt.Run(
 			t,
 			mt.TestCase{
+				Replayed:               false,
 				ValidationType:         mt.ValidationTypeExec,
 				TestSetup:              setup,
 				Nonce:                  nil, // TON nonce check is skipped
 				Receiver:               receiverBytes,
 				MsgData:                []byte("hello CCIPReceiver"),
-				ExtraArgs:              testhelpers.MakeEVMExtraArgsV2(100000, false),
+				ExtraArgs:              testhelpers.MakeEVMExtraArgsV2(100_000_000, false), // 0.1 TON
 				ExpectedExecutionState: testhelpers.EXECUTION_STATE_SUCCESS,
 			},
 		)

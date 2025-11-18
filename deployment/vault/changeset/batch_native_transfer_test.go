@@ -154,7 +154,7 @@ func TestSetWhitelist(t *testing.T) {
 	require.NoError(t, err)
 	require.Len(t, whitelist[testChainID], 2)
 
-	// Test removing one address
+	// Test updating existing entry without removing others
 	updatedConfig := types.SetWhitelistConfig{
 		WhitelistByChain: map[uint64][]types.WhitelistAddress{
 			testChainID: {
@@ -162,6 +162,10 @@ func TestSetWhitelist(t *testing.T) {
 					Address:     common.HexToAddress(testAddr2).Hex(),
 					Description: "Test address 2 - kept",
 					Labels:      []string{"partner", "approved"},
+				},
+				{
+					Address:     common.HexToAddress(testAddr1).Hex(),
+					Description: "Test address 1 - unchanged",
 				},
 			},
 		},
@@ -175,8 +179,18 @@ func TestSetWhitelist(t *testing.T) {
 
 	updatedWhitelist, err := GetWhitelistedAddresses(rt.Environment(), []uint64{testChainID})
 	require.NoError(t, err)
-	require.Len(t, updatedWhitelist[testChainID], 1)
-	require.Equal(t, testAddr2, updatedWhitelist[testChainID][0].Address)
+	require.Len(t, updatedWhitelist[testChainID], 2)
+
+	addressLabels := make(map[string][]string)
+	for _, entry := range updatedWhitelist[testChainID] {
+		addressLabels[entry.Address] = entry.Labels
+	}
+
+	require.Contains(t, addressLabels, testAddr1)
+	require.Equal(t, []string{"team", "approved"}, addressLabels[testAddr1])
+
+	require.Contains(t, addressLabels, testAddr2)
+	require.Equal(t, []string{"partner", "approved"}, addressLabels[testAddr2])
 }
 
 func TestBatchNativeTransferIntegration(t *testing.T) {

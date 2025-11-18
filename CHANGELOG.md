@@ -52,7 +52,7 @@
 
 - [#19667](https://github.com/smartcontractkit/chainlink/pull/19667) [`535a014`](https://github.com/smartcontractkit/chainlink/commit/535a014bef3a6a007ecf7fe8c2d9f21907e4d127) - #added Add Workflow Registry Chain Selector to CRE v2 registry events.
 
-## 2.30.0
+## 2.30.0 - 2025-11-17
 
 ### Minor Changes
 

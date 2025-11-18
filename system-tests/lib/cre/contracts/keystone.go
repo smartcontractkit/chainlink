@@ -9,6 +9,7 @@ import (
 	"sort"
 	"strings"
 
+	"github.com/Masterminds/semver/v3"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind/v2"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/pkg/errors"
@@ -39,7 +40,7 @@ import (
 type DeployKeystoneContractsInput struct {
 	CldfEnvironment  *cldf.Environment
 	CtfBlockchains   []blockchains.Blockchain
-	ContractVersions map[string]string
+	ContractVersions map[cre.ContractType]*semver.Version
 	WithV2Registries bool
 }
 
@@ -75,10 +76,6 @@ func DeployKeystoneContracts(
 	)
 	if seqErr != nil {
 		return nil, errors.Wrap(seqErr, "failed to deploy Keystone contracts")
-	}
-
-	if err := input.CldfEnvironment.ExistingAddresses.Merge(registryContractsReport.Output.AddressBook); err != nil { //nolint:staticcheck // won't migrate now
-		return nil, errors.Wrap(err, "failed to merge address book with Keystone contracts addresses")
 	}
 
 	if err := memoryDatastore.Merge(registryContractsReport.Output.Datastore); err != nil {

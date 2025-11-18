@@ -3,10 +3,12 @@ package contracts
 import (
 	"errors"
 	"fmt"
-	"time"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
+
+	"github.com/smartcontractkit/chainlink/deployment/common/changeset/state"
+	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 
 	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
 
@@ -14,7 +16,6 @@ import (
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 
 	"github.com/smartcontractkit/chainlink/deployment"
-	commonstate "github.com/smartcontractkit/chainlink/deployment/common/changeset/state"
 	"github.com/smartcontractkit/chainlink/deployment/common/types"
 
 	capabilities_registry "github.com/smartcontractkit/chainlink-evm/gethwrappers/keystone/generated/capabilities_registry_1_1_0"
@@ -36,10 +37,7 @@ var (
 	ProposerManyChainMultiSig cldf.ContractType = "ProposerManyChainMultiSig" // no type and a version in contract https://github.com/smartcontractkit/ccip-owner-contracts/blob/main/src/ManyChainMultiSig.sol
 )
 
-// TODO: replace with proposalutils.MCMSConfig
-type MCMSConfig struct {
-	MinDuration time.Duration
-}
+type MCMSConfig = proposalutils.TimelockConfig
 
 // Ownable is an interface for contracts that have an owner.
 type Ownable interface {
@@ -66,7 +64,7 @@ func isOwnedByMCMSV2[T Ownable](contract T, store datastore.AddressRefStore, cha
 // OwnedContract represents a contract and its owned MCMS contracts.
 type OwnedContract[T Ownable] struct {
 	// The MCMS contracts that the contract might own
-	McmsContracts *commonstate.MCMSWithTimelockState
+	McmsContracts *state.MCMSWithTimelockState
 	// The actual contract instance
 	Contract T
 }
@@ -90,7 +88,7 @@ func NewOwnableV2[T Ownable](contract T, store datastore.AddressRefStore, chain 
 	if err != nil {
 		return nil, fmt.Errorf("failed to get owner reference: %w", err)
 	}
-	stateMCMS, err := commonstate.GetMCMSWithTimelockState(store, chain, r.Qualifier)
+	stateMCMS, err := state.GetMCMSWithTimelockState(store, chain, r.Qualifier)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get MCMS with timelock state: %w", err)
 	}
@@ -126,7 +124,7 @@ func GetOwnerTypeAndVersionV2[T Ownable](contract T, ab datastore.AddressRefStor
 		return nil, fmt.Errorf("failed to get contract owner: %w", err)
 	}
 
-	// Look for owner in address book
+	// Look for owner in datastore
 	addresses := ab.Filter(datastore.AddressRefByChainSelector(chain.Selector))
 
 	// Handle case where owner is not in address book

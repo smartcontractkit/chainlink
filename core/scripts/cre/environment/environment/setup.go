@@ -99,15 +99,8 @@ type billingServiceConfig struct {
 }
 
 type capabilitiesConfig struct {
-	TargetPath   string                 `toml:"target_path"`
-	Repositories []capabilityRepository `toml:"repositories"`
-}
-
-type capabilityRepository struct {
-	RepoURL       string   `toml:"repository"`
-	Branch        string   `toml:"branch"`
-	BuildCommand  string   `toml:"build_command"`
-	ArtifactsDirs []string `toml:"artifacts_dirs"`
+	TargetPath   string   `toml:"target_path"`
+	MakeCommands []string `toml:"make_commands"`
 }
 
 type observabilityConfig struct {
@@ -121,6 +114,7 @@ var (
 )
 
 const DefaultSetupConfigPath = "configs/setup.toml"
+const DefaultCapabilityBinariesPath = ".binaries"
 
 // SetupConfig represents the configuration for the setup command
 type SetupConfig struct {
@@ -463,6 +457,25 @@ func RunSetup(ctx context.Context, config SetupConfig, noPrompt, purge, withBill
 		}
 	}
 
+	bun, bunErr := checkBun(ctx, noPrompt)
+	if bunErr != nil {
+		setupErr = errors.Wrap(bunErr, "failed to ensure Bun")
+		return
+	}
+
+	if bun {
+		err := ensurePackageJSON(".")
+		if err != nil {
+			setupErr = errors.Wrap(err, "failed to ensure package.json")
+			return
+		}
+
+		if err := installBunPackages(ctx); err != nil {
+			setupErr = errors.Wrap(err, "failed to install Bun packages")
+			return
+		}
+	}
+
 	jdConfig := ImageConfig{
 		BuildConfig: cfg.JobDistributor.BuildConfig,
 		PullConfig:  cfg.JobDistributor.PullConfig,
@@ -507,10 +520,13 @@ func RunSetup(ctx context.Context, config SetupConfig, noPrompt, purge, withBill
 		return
 	}
 
-	buildErr := buildCapabilityBinaries(ctx, cfg.Capabilities)
-	if buildErr != nil {
-		setupErr = errors.Wrap(buildErr, "failed to build capabilities")
-		return
+	if err := runGHSetupGit(ctx); err != nil {
+		return errors.Wrap(err, "failed to run 'gh auth setup-git'")
+	}
+
+	installedCapabilities, capErr := makeCapabilities(ctx, cfg.Capabilities, relativePathToRepoRoot)
+	if capErr != nil {
+		return errors.Wrap(capErr, "failed to install capabilities")
 	}
 
 	// Print summary
@@ -528,10 +544,14 @@ func RunSetup(ctx context.Context, config SetupConfig, noPrompt, purge, withBill
 	} else {
 		logger.Warn().Msg("   ✗ GitHub CLI is not installed")
 	}
-	if len(cfg.Capabilities.Repositories) > 0 {
-		logger.Info().Msg("   ✓ Capabilities binaries built")
+	if bun {
+		logger.Info().Msg("   ✓ Bun is installed")
 	} else {
-		logger.Warn().Msg("   ✗ Capabilities binaries not built")
+		logger.Warn().Msg("   ✗ Bun is not installed")
+	}
+	if len(cfg.Capabilities.MakeCommands) > 0 {
+		logger.Info().Msg("   ✓ Capabilities binaries installed")
+		logger.Info().Msgf("     - capabilities: %s", strings.Join(installedCapabilities, ", "))
 	}
 
 	fmt.Println()
@@ -557,19 +577,131 @@ func BuildCapabilities(ctx context.Context, config SetupConfig, noPrompt bool) e
 		return errors.Wrap(ghCliErr, "failed to ensure GitHub CLI")
 	}
 
-	buildErr := buildCapabilityBinaries(ctx, cfg.Capabilities)
-	if buildErr != nil {
-		return errors.Wrap(buildErr, "failed to build capabilities")
+	if err := runGHSetupGit(ctx); err != nil {
+		return errors.Wrap(err, "failed to run 'gh auth setup-git'")
+	}
+
+	installedCapabilities, capErr := makeCapabilities(ctx, cfg.Capabilities, relativePathToRepoRoot)
+	if capErr != nil {
+		return errors.Wrap(capErr, "failed to install capabilities")
 	}
 
 	fmt.Println()
 	logger := framework.L
 	logger.Info().Msg("✅ Build Capabilities Summary:")
-	for _, repo := range cfg.Capabilities.Repositories {
-		logger.Info().Msgf("   ✓ %s", repo.RepoURL)
+	for _, capability := range installedCapabilities {
+		logger.Info().Msgf("   ✓ %s", capability)
+	}
+	logger.Info().Msgf("   ✓ %d capabilities installed", len(installedCapabilities))
+
+	return nil
+}
+
+func runGHSetupGit(ctx context.Context) error {
+	logger := framework.L
+	logger.Info().Msg("🔍 Checking if GitHub CLI authentication is set up for Git...")
+	cmd := exec.CommandContext(ctx, "bash", "-c", `printf "protocol=https\nhost=github.com\n\n" | git credential fill | sed -n 's/^password=//p' | head -n1`)
+	var out bytes.Buffer
+
+	cmd.Stdout = &out
+	cmd.Stderr = os.Stderr
+	if err := cmd.Run(); err != nil {
+		return errors.Wrap(err, "failed to run git credential fill")
+	}
+
+	if out.String() == "" {
+		logger.Info().Msg("  GitHub CLI authentication is not set up for Git. Running 'gh auth setup-git'...")
+		setupCmd := exec.CommandContext(ctx, "gh", "auth", "setup-git")
+		setupCmd.Stdout = os.Stdout
+		setupCmd.Stderr = os.Stderr
+		if err := setupCmd.Run(); err != nil {
+			return errors.Wrap(err, "failed to run 'gh auth setup-git'")
+		}
+		logger.Info().Msg("  ✓ GitHub CLI authentication is now set up for Git.")
+	} else {
+		logger.Info().Msg("  ✓ GitHub CLI authentication is already set up for Git.")
 	}
 
 	return nil
+}
+
+func makeCapabilities(ctx context.Context, capabilitiesConfig capabilitiesConfig, repoRootRelativePath string) ([]string, error) {
+	if len(capabilitiesConfig.MakeCommands) == 0 {
+		framework.L.Info().Msg("No make commands specified for capabilities. Skipping capabilities build.")
+		return nil, nil
+	}
+
+	logger := framework.L
+	logger.Info().Msg("🔍 Installing capabilities binaries...")
+
+	tempDir, tempErr := os.MkdirTemp(".", ".tmp-capability-binaries")
+	if tempErr != nil {
+		return nil, fmt.Errorf("failed to create temporary directory: %w", tempErr)
+	}
+
+	tempDirAbsPath, tAbsErr := filepath.Abs(tempDir)
+	if tAbsErr != nil {
+		return nil, fmt.Errorf("failed to get absolute path of temporary directory: %w", tAbsErr)
+	}
+
+	defer func() {
+		_ = os.RemoveAll(tempDir)
+	}()
+
+	for _, makeCommand := range capabilitiesConfig.MakeCommands {
+		cmd := exec.CommandContext(ctx, "make", makeCommand)
+		cmd.Dir = repoRootRelativePath
+		// Set GOBIN to the absolute path of the target path, so that binaries are placed there
+		cmd.Env = os.Environ()
+		cmd.Env = append(cmd.Env, "GOBIN="+tempDirAbsPath)
+		// cross-compile for linux/amd64 with CGO disabled, because our Chainlink Docker images use linux/amd64
+		cmd.Env = append(cmd.Env, "CL_PLUGIN_ENVVARS=GOOS=linux GOARCH=amd64 CGO_ENABLED=0")
+		cmd.Stdout = os.Stdout
+		cmd.Stderr = os.Stderr
+
+		if err := cmd.Run(); err != nil {
+			return nil, fmt.Errorf("failed to run make command '%s': %w", makeCommand, err)
+		}
+	}
+
+	if capabilitiesConfig.TargetPath == "" {
+		capabilitiesConfig.TargetPath = DefaultCapabilityBinariesPath
+	}
+
+	absPath, absErr := filepath.Abs(capabilitiesConfig.TargetPath)
+	if absErr != nil {
+		return nil, fmt.Errorf("failed to get absolute path of target path: %w", absErr)
+	}
+
+	if err := os.MkdirAll(absPath, 0o755); err != nil {
+		return nil, fmt.Errorf("failed to create target path: %w", err)
+	}
+
+	cmd := exec.CommandContext(ctx, "cp", "-R", tempDirAbsPath+string(os.PathSeparator)+".", absPath) //nolint:gosec //G204: Subprocess launched with a potential tainted input or cmd arguments
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+
+	if err := cmd.Run(); err != nil {
+		return nil, fmt.Errorf("failed to copy binaries to target path: %w", err)
+	}
+
+	files, err := os.ReadDir(tempDirAbsPath)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read temporary directory: %w", err)
+	}
+
+	fmt.Println("Dir: ", tempDirAbsPath)
+
+	installedCapabilities := []string{}
+	for _, f := range files {
+		if f.Type().IsRegular() {
+			installedCapabilities = append(installedCapabilities, f.Name())
+		}
+	}
+
+	logger.Info().Msgf("  ✓ %d capabilities binaries installed in %s", len(installedCapabilities), absPath)
+
+	return installedCapabilities, nil
 }
 
 func readConfig(configPath string) (*config, error) {
@@ -585,82 +717,6 @@ func readConfig(configPath string) (*config, error) {
 	}
 
 	return cfg, nil
-}
-
-func buildCapabilityBinaries(ctx context.Context, capabilitiesConfig capabilitiesConfig) error {
-	logger := framework.L
-	logger.Info().Msg("🔍 Building capabilities binaries...")
-
-	// Save current directory and change to working directory
-	currentDir, cErr := os.Getwd()
-	if cErr != nil {
-		return fmt.Errorf("failed to get current directory: %w", cErr)
-	}
-
-	dirsToDelete := []string{}
-
-	for _, repo := range capabilitiesConfig.Repositories {
-		logger.Info().Msgf("🔍 Building %s...", repo.RepoURL)
-
-		workingDir, isLocalRepo, err := setupRepo(ctx, logger, repo.RepoURL, repo.Branch, "", "")
-		if err != nil {
-			return fmt.Errorf("failed to setup up repository: %w", err)
-		}
-
-		if !isLocalRepo {
-			dirsToDelete = append(dirsToDelete, workingDir)
-		}
-
-		if err := os.Chdir(workingDir); err != nil {
-			return fmt.Errorf("failed to change to working directory: %w", err)
-		}
-
-		// Only checkout specific version if using a git repo and version is specified
-		if !isLocalRepo && repo.Branch != "" {
-			logger.Info().Msgf("Checking out version %s", repo.Branch)
-			cmd := exec.CommandContext(ctx, "git", "checkout", repo.Branch) //nolint:gosec //G204: Subprocess launched with a potential tainted input or cmd arguments
-			cmd.Stdout = os.Stdout
-			cmd.Stderr = os.Stderr
-			if err := cmd.Run(); err != nil {
-				return fmt.Errorf("failed to checkout version %s: %w", repo.Branch, err)
-			}
-		}
-
-		// Run build command
-		logger.Info().Msgf("Running build command: %s", repo.BuildCommand)
-		cmd := exec.CommandContext(ctx, "bash", "-c", repo.BuildCommand) //nolint:gosec //G204: Subprocess launched with a potential tainted input or cmd arguments
-		cmd.Stdout = os.Stdout
-		cmd.Stderr = os.Stderr
-		if err := cmd.Run(); err != nil {
-			return fmt.Errorf("failed to run build command: %w", err)
-		}
-
-		// Copy artifacts to target path
-		targetPath := filepath.Join(currentDir, capabilitiesConfig.TargetPath)
-		if err := os.MkdirAll(targetPath, 0755); err != nil {
-			return fmt.Errorf("failed to create target directory: %w", err)
-		}
-
-		for _, artifactDir := range repo.ArtifactsDirs {
-			logger.Info().Msgf("Copying build artifacts from %s to %s", artifactDir, targetPath)
-			artifactsDir := filepath.Join(workingDir, artifactDir)
-			copyCmd := exec.CommandContext(ctx, "sh", "-c", fmt.Sprintf("cp -r %s/* %s/", artifactsDir, targetPath)) //nolint:gosec //G204: Subprocess launched with a potential tainted input or cmd arguments
-			if err := copyCmd.Run(); err != nil {
-				return fmt.Errorf("failed to copy directory: %w", err)
-			}
-		}
-
-		logger.Info().Msgf("✓ Build artifacts copied to %s", targetPath)
-	}
-
-	defer func() {
-		_ = os.Chdir(currentDir)
-		for _, dir := range dirsToDelete {
-			_ = os.RemoveAll(dir)
-		}
-	}()
-
-	return nil
 }
 
 // isCommandAvailable checks if a command is available in the PATH
@@ -1017,5 +1073,112 @@ func logInToGithubWithGHCLI(ctx context.Context) error {
 	}
 
 	logger.Info().Msg("  ✓ GitHub CLI logged in successfully")
+	return nil
+}
+
+func checkBun(ctx context.Context, noPrompt bool) (installed bool, err error) {
+	installed, installErr := checkIfBunIsInstalled(ctx, noPrompt)
+	if installErr != nil {
+		return false, errors.Wrap(installErr, "failed to check if Bun is installed")
+	}
+
+	return installed, nil
+}
+
+func checkIfBunIsInstalled(ctx context.Context, noPrompt bool) (installed bool, err error) {
+	logger := framework.L
+
+	if isCommandAvailable("bun") {
+		logger.Info().Msg("✓ Bun is already installed")
+
+		return true, nil
+	}
+
+	logger.Info().Msg("Would you like to install Bun now? (y/n) [y]")
+
+	var input = "y" // Default to yes
+	if !noPrompt {
+		_, err = fmt.Scanln(&input)
+		if err != nil {
+			// If error is due to empty input (just pressing Enter), treat as 'y' (yes)
+			if err.Error() != "unexpected newline" {
+				return false, errors.Wrap(err, "failed to read input")
+			}
+		}
+	}
+	// check that input is valid
+	input = strings.TrimSpace(strings.ToLower(input))
+	if input != "y" && input != "n" {
+		logger.Warn().Msg("Invalid input. Please enter 'y' or 'n'.")
+		return false, fmt.Errorf("invalid input: %s", input)
+	}
+
+	if strings.ToLower(input) != "y" {
+		logger.Warn().Msg("  ! You will need to install Bun manually")
+		return false, nil
+	}
+
+	logger.Info().Msg("Installing Bun...")
+	tapCmd := exec.CommandContext(ctx, "brew", "tap", "oven-sh/bun")
+	tapCmd.Stdout = os.Stdout
+	tapCmd.Stderr = os.Stderr
+	if err := tapCmd.Run(); err != nil {
+		return false, errors.Wrap(err, "failed to tap Bun repository")
+	}
+
+	installCmd := exec.CommandContext(ctx, "brew", "install", "bun")
+	installCmd.Stdout = os.Stdout
+	installCmd.Stderr = os.Stderr
+	if err := installCmd.Run(); err != nil {
+		return false, errors.Wrap(err, "failed to install Bun")
+	}
+
+	return true, nil
+}
+
+func installBunPackages(ctx context.Context) error {
+	logger := framework.L
+	logger.Info().Msg("Installing Bun packages...")
+
+	installCmd := exec.CommandContext(ctx, "bun", "install")
+	installCmd.Stdout = os.Stdout
+	installCmd.Stderr = os.Stderr
+	if err := installCmd.Run(); err != nil {
+		return errors.Wrap(err, "failed to install Bun packages")
+	}
+
+	logger.Info().Msg("  ✓ Bun packages installed successfully")
+	return nil
+}
+
+func ensurePackageJSON(dir string) error {
+	packageJSONPath := filepath.Join(dir, "package.json")
+	if _, err := os.Stat(packageJSONPath); err == nil {
+		return nil
+	}
+
+	content := `{
+  "name": "typescript-cre-workflow",
+  "version": "1.0.0",
+  "main": "dist/main.js",
+  "private": true,
+  "scripts": {
+    "postinstall": "bunx cre-setup"
+  },
+  "license": "UNLICENSED",
+  "dependencies": {
+    "@chainlink/cre-sdk": "^1.0.0",
+    "viem": "2.34.0",
+    "zod": "3.25.76"
+  },
+  "devDependencies": {
+    "@types/bun": "1.2.21"
+  }
+}`
+
+	if err := os.WriteFile(packageJSONPath, []byte(content), 0644); err != nil { //nolint:gosec //G306: Expect WriteFile permissions to be 0600 or less. We want broad read access here.
+		return errors.Wrap(err, "failed to create package.json")
+	}
+
 	return nil
 }
