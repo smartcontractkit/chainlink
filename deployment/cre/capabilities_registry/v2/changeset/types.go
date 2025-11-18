@@ -31,8 +31,8 @@ type CapabilitiesRegistryCapability struct {
 	Metadata              map[string]any `json:"metadata" yaml:"metadata"`
 }
 
-func (cap CapabilitiesRegistryCapability) ToWrapper() (contracts.RegisterCapabilitiesCapability, error) {
-	return contracts.RegisterCapabilitiesCapability{
+func (cap CapabilitiesRegistryCapability) ToWrapper() (contracts.RegisterableCapability, error) {
+	return contracts.RegisterableCapability{
 		CapabilityID:          cap.CapabilityID,
 		ConfigurationContract: cap.ConfigurationContract,
 		Metadata:              cap.Metadata,

@@ -53,7 +53,7 @@ func (i *AddCapabilitiesInput) Validate() error {
 }
 
 type AddCapabilitiesOutput struct {
-	AddedCapabilities []contracts.RegisterCapabilitiesCapability
+	AddedCapabilities []contracts.RegisterableCapability
 	DonInfo           capabilities_registry_v2.CapabilitiesRegistryUpdateDONParams
 	UpdatedNodes      []capabilities_registry_v2.CapabilitiesRegistryNodeParams
 	Proposals         []mcmslib.TimelockProposal
@@ -97,7 +97,7 @@ var AddCapabilities = operations.NewSequence[AddCapabilitiesInput, AddCapabiliti
 		}
 
 		nodeUpdates := make(map[string]contracts.NodeConfig, len(p2pIDs))
-		capabilities := make([]contracts.RegisterCapabilitiesCapability, len(input.CapabilityConfigs))
+		capabilities := make([]contracts.RegisterableCapability, len(input.CapabilityConfigs))
 		for i, cfg := range input.CapabilityConfigs {
 			metadataBytes, err := json.Marshal(cfg.Capability.Metadata)
 			if err != nil {
@@ -108,7 +108,7 @@ var AddCapabilities = operations.NewSequence[AddCapabilitiesInput, AddCapabiliti
 				ConfigurationContract: cfg.Capability.ConfigurationContract,
 				Metadata:              metadataBytes,
 			}
-			capabilities[i] = contracts.RegisterCapabilitiesCapability{
+			capabilities[i] = contracts.RegisterableCapability{
 				Metadata:              cfg.Capability.Metadata,
 				CapabilityID:          cfg.Capability.CapabilityID,
 				ConfigurationContract: cfg.Capability.ConfigurationContract,

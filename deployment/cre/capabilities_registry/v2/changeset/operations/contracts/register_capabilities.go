@@ -27,16 +27,16 @@ type RegisterCapabilitiesDeps struct {
 type RegisterCapabilitiesInput struct {
 	Address       string
 	ChainSelector uint64
-	Capabilities  []RegisterCapabilitiesCapability
+	Capabilities  []RegisterableCapability
 	MCMSConfig    *contracts.MCMSConfig
 }
 
 type RegisterCapabilitiesOutput struct {
-	Capabilities []RegisterCapabilitiesCapability
+	Capabilities []RegisterableCapability
 	Operation    *mcmstypes.BatchOperation
 }
 
-type RegisterCapabilitiesCapability struct {
+type RegisterableCapability struct {
 	CapabilityID          string
 	ConfigurationContract common.Address
 	Metadata              pkg.CapabilityConfig
@@ -51,7 +51,7 @@ var RegisterCapabilities = operations.NewOperation[RegisterCapabilitiesInput, Re
 		if len(input.Capabilities) == 0 {
 			b.Logger.Info("no capabilities provided, skipping operation")
 			return RegisterCapabilitiesOutput{
-				Capabilities: []RegisterCapabilitiesCapability{},
+				Capabilities: []RegisterableCapability{},
 			}, nil
 		}
 
@@ -80,7 +80,7 @@ var RegisterCapabilities = operations.NewOperation[RegisterCapabilitiesInput, Re
 			b.Logger.Info("no new capabilities to register after deduplication, skipping operation")
 
 			return RegisterCapabilitiesOutput{
-				Capabilities: []RegisterCapabilitiesCapability{},
+				Capabilities: []RegisterableCapability{},
 			}, nil
 		}
 
@@ -110,7 +110,7 @@ var RegisterCapabilities = operations.NewOperation[RegisterCapabilitiesInput, Re
 // The contract reverts on adding the same capability twice and that would cause the whole transaction to revert.
 func dedupCapabilities(
 	capReg *capabilities_registry_v2.CapabilitiesRegistry,
-	capabilities []RegisterCapabilitiesCapability,
+	capabilities []RegisterableCapability,
 ) ([]capabilities_registry_v2.CapabilitiesRegistryCapability, error) {
 	if capReg == nil {
 		return nil, errors.New("capabilities registry is nil")

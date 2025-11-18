@@ -67,7 +67,7 @@ func (l ConfigureCapabilitiesRegistry) Apply(e cldf.Environment, config Configur
 		nops[i] = nop.ToWrapper()
 	}
 
-	capabilities := make([]contracts.RegisterCapabilitiesCapability, len(config.Capabilities))
+	capabilities := make([]contracts.RegisterableCapability, len(config.Capabilities))
 	for i, cp := range config.Capabilities {
 		c, err := cp.ToWrapper()
 		if err != nil {
