@@ -5,8 +5,8 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"regexp"
 	"maps"
+	"regexp"
 	"slices"
 	"strings"
 
@@ -949,7 +949,7 @@ func ModifyMintAuthority(e cldf.Environment, cfg NewMintTokenPoolConfig) (cldf.C
 			return cldf.ChangesetOutput{}, fmt.Errorf("failed to fetch timelock signer: %w", err)
 		}
 
-		ix, err := solBurnMintTokenPool.NewTransferMintAuthorityToMultisigInstruction(
+		builder := solBurnMintTokenPool.NewTransferMintAuthorityToMultisigInstruction(
 			poolConfig,
 			tokenPubKey,
 			tokenProgram,
@@ -957,11 +957,15 @@ func ModifyMintAuthority(e cldf.Environment, cfg NewMintTokenPoolConfig) (cldf.C
 			timelockSigner,
 			newMintAuthority,
 			tokenPool,
-			programData.Address).ValidateAndBuild()
+			programData.Address)
+		// Old mint authority is required only if the current mint authority is a multisig
+		if (cfg.OldMintAuthority != solana.PublicKey{}) {
+			builder.AccountMetaSlice = append(builder.AccountMetaSlice, solana.Meta(cfg.OldMintAuthority))
+		}
+		ix, err := builder.ValidateAndBuild()
 		if err != nil {
 			return cldf.ChangesetOutput{}, fmt.Errorf("failed to build ix to transfer mint authority to multisig: %w", err)
 		}
-
 		err = appendTxs([]solana.Instruction{ix}, tokenPool, cfg.PoolType, &txns)
 		if err != nil {
 			return cldf.ChangesetOutput{}, fmt.Errorf("failed to generate mcms txn: %w", err)
@@ -976,17 +980,14 @@ func ModifyMintAuthority(e cldf.Environment, cfg NewMintTokenPoolConfig) (cldf.C
 			newMintAuthority,
 			tokenPool,
 			programData.Address)
-
 		// Old mint authority is required only if the current mint authority is a multisig
 		if (cfg.OldMintAuthority != solana.PublicKey{}) {
 			builder.AccountMetaSlice = append(builder.AccountMetaSlice, solana.Meta(cfg.OldMintAuthority))
 		}
-
 		ix, err := builder.ValidateAndBuild()
 		if err != nil {
 			return cldf.ChangesetOutput{}, fmt.Errorf("failed to build ix to transfer mint authority to multisig: %w", err)
 		}
-
 		if err := chain.Confirm([]solana.Instruction{ix}); err != nil {
 			return cldf.ChangesetOutput{}, fmt.Errorf("failed to confirm instructions: %w", err)
 		}

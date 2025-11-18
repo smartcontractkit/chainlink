@@ -573,7 +573,7 @@ func doTestTokenPool(t *testing.T, e cldf.Environment, config TokenPoolTestConfi
 			}
 		}
 
-		// NOTE: the ModifyMintAuthority changeset only supports BnM token pools at the moment, so
+		// NOTE: the ModifyMintAuthority changeset only supports BnM token pools, so
 		// we'll only create the multisig account and run the changeset if the pool type is BnM.
 		if !mcms && testCase.poolType == shared.BurnMintTokenPool {
 			tokenPoolSignerPDA, err := solTokenUtil.TokenPoolSignerAddress(tokenAddress, testCase.poolAddress)
