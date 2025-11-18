@@ -83,6 +83,9 @@ func (u ProposeEVMCapJobSpec) VerifyPreconditions(e cldf.Environment, input Prop
 	if input.ChainSelector == 0 {
 		return errors.New("chain selector is required")
 	}
+	if input.OCRChainSelector == 0 {
+		return errors.New("ocr chain selector is required")
+	}
 	if len(input.EVMCapabilityInputs) == 0 {
 		return errors.New("at least one evm capability input is required")
 	}
@@ -211,10 +214,13 @@ func (u ProposeEVMCapJobSpec) Apply(e cldf.Environment, input ProposeEVMCapJobSp
 		if err != nil {
 			return cldf.ChangesetOutput{}, fmt.Errorf("failed to get node info for node %s: %w", evmCapInput.NodeID, err)
 		}
+		if len(nodeInfos) == 0 {
+			return cldf.ChangesetOutput{}, fmt.Errorf("no node info for node %s", evmCapInput.NodeID)
+		}
 
 		evmOCRConfig, ok := nodeInfos[0].OCRConfigForChainSelector(input.ChainSelector)
 		if !ok {
-			return cldf.ChangesetOutput{}, fmt.Errorf("no evm ocr config for node %s and chain selector %d", evmCapInput.NodeID, input.OCRChainSelector)
+			return cldf.ChangesetOutput{}, fmt.Errorf("no evm ocr config for node %s and chain selector %d", evmCapInput.NodeID, input.ChainSelector)
 		}
 
 		cfg := evmCapInput.OverrideDefaultCfg
