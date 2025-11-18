@@ -13,6 +13,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink-ccv/integration/pkg/constructors"
 	"github.com/smartcontractkit/chainlink-ccv/protocol"
+	"github.com/smartcontractkit/chainlink-ccv/protocol/common/hmac"
 	"github.com/smartcontractkit/chainlink-ccv/verifier"
 	commontypes "github.com/smartcontractkit/chainlink-common/pkg/types"
 	"github.com/smartcontractkit/chainlink/v2/core/config"
@@ -25,6 +26,8 @@ import (
 )
 
 type Delegate struct {
+	delegateLogger logger.Logger
+	// logger used to create new Named loggers for the services
 	lggr logger.Logger
 	// Houses secrets that are needed by the verifier (e.g. aggregator API keys).
 	ccvConfig config.CCV
@@ -37,10 +40,11 @@ type Delegate struct {
 
 func NewDelegate(lggr logger.Logger, ccvConfig config.CCV, ocrKs keystore.OCR2, chainServices []commontypes.ChainService) *Delegate {
 	return &Delegate{
-		lggr:          lggr.Named("CCVCommitteeVerifierDelegate"),
-		ccvConfig:     ccvConfig,
-		chainServices: chainServices,
-		ocrKs:         ocrKs,
+		delegateLogger: lggr.Named("CCVCommitteeVerifierDelegate"),
+		lggr:           lggr,
+		ccvConfig:      ccvConfig,
+		chainServices:  chainServices,
+		ocrKs:          ocrKs,
 	}
 }
 
@@ -53,7 +57,7 @@ func (d *Delegate) BeforeJobCreated(spec job.Job) {
 }
 
 func (d *Delegate) ServicesForSpec(ctx context.Context, spec job.Job) (services []job.ServiceCtx, err error) {
-	d.lggr.Infow("Creating services for CCV committee verifier job", "jobID", spec.ID)
+	d.delegateLogger.Infow("Creating services for CCV committee verifier job", "jobID", spec.ID)
 
 	// note that go-toml doesn't correctly parse nested TOMLs, at least from this struct,
 	// so burntsushi/toml is needed.
@@ -63,7 +67,7 @@ func (d *Delegate) ServicesForSpec(ctx context.Context, spec job.Job) (services 
 		return nil, fmt.Errorf("failed to unmarshal committeeVerifierConfig into the verifier config struct: %w", err)
 	}
 
-	d.lggr.Infow("validating committee verifier config", "config", decodedCfg, "raw", spec.CCVCommitteeVerifierSpec.CommitteeVerifierConfig)
+	d.delegateLogger.Infow("validating committee verifier config", "config", decodedCfg, "raw", spec.CCVCommitteeVerifierSpec.CommitteeVerifierConfig)
 
 	err = decodedCfg.Validate()
 	if err != nil {
@@ -101,11 +105,11 @@ func (d *Delegate) ServicesForSpec(ctx context.Context, spec job.Job) (services 
 	case 1:
 		signingKey = signingKeys[0]
 	default:
-		d.lggr.Warnw("multiple signing keys found for EVM, using the first", "keys", signingKeys)
+		d.delegateLogger.Warnw("multiple signing keys found for EVM, using the first", "keys", signingKeys)
 		signingKey = signingKeys[0]
 	}
 
-	d.lggr.Infow("using ocr2 onchain key for signing", "publicKey", signingKey.OnChainPublicKey())
+	d.delegateLogger.Infow("using ocr2 onchain key for signing", "publicKey", signingKey.OnChainPublicKey())
 	onchainPubKeyBytes, err := hex.DecodeString(signingKey.OnChainPublicKey())
 	if err != nil {
 		return nil, fmt.Errorf("failed to decode onchain public key: %w", err)
@@ -118,23 +122,19 @@ func (d *Delegate) ServicesForSpec(ctx context.Context, spec job.Job) (services 
 		return nil, fmt.Errorf("onchain public key does not match signer address in config, want %s, got %s", signingKey.OnChainPublicKey(), decodedCfg.SignerAddress)
 	}
 
-	apiKey, apiSecret := getAggregatorSecrets(d.ccvConfig, decodedCfg.VerifierID)
-	if apiKey == "" || apiSecret == "" {
-		// fall back to the keys current set in the TOML config
-		// TODO: this is a temporary solution to allow the node to run the verifier job but needs
-		// to be fixed.
-		apiKey = decodedCfg.AggregatorAPIKey       //nolint:staticcheck // will be fixed in follow ups
-		apiSecret = decodedCfg.AggregatorSecretKey //nolint:staticcheck // will be fixed in follow ups
-		d.lggr.Warnw("no aggregator secrets found for verifier ID, using keys current set in the TOML config",
-			"verifierID", decodedCfg.VerifierID)
+	apiKey, apiSecret, err := getAggregatorSecrets(d.ccvConfig, decodedCfg.VerifierID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get aggregator secrets from secrets toml: %w", err)
 	}
 
 	vc, err := constructors.NewVerificationCoordinator(
-		d.lggr.Named("CCVCommitteeVerificationCoordinator"),
+		d.lggr.
+			Named("CCVCommitteeVerificationCoordinator").
+			Named(decodedCfg.VerifierID),
 		decodedCfg,
-		constructors.AggregatorSecret{
-			APIKey:    apiKey,
-			SecretKey: apiSecret,
+		&hmac.ClientConfig{
+			APIKey: apiKey,
+			Secret: apiSecret,
 		},
 		common.HexToAddress(decodedCfg.SignerAddress).Bytes(),
 		newSignerAdapter(signingKey),
@@ -149,13 +149,13 @@ func (d *Delegate) ServicesForSpec(ctx context.Context, spec job.Job) (services 
 	return services, nil
 }
 
-func getAggregatorSecrets(ccvConfig config.CCV, verifierID string) (string, string) {
+func getAggregatorSecrets(ccvConfig config.CCV, verifierID string) (string, string, error) {
 	for _, secret := range ccvConfig.AggregatorSecrets() {
 		if secret.VerifierID() == verifierID {
-			return secret.APIKey(), secret.APISecret()
+			return secret.APIKey(), secret.APISecret(), nil
 		}
 	}
-	return "", ""
+	return "", "", fmt.Errorf("no aggregator secrets found for verifier ID %s", verifierID)
 }
 
 func (d *Delegate) AfterJobCreated(spec job.Job) {}
