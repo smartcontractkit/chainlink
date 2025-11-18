@@ -21,15 +21,11 @@ import (
 )
 
 const (
-	// ⚠️ Adjust this if your pkg.GetKeystoneForwarderCapabilityAddressRefKey
-	// encodes a different ContractType in its key.
 	testForwarderContractType = datastore.ContractType("KeystoneForwarder")
-
-	testOCRQualifier       = "OCR3Capability"
-	testForwarderQualifier = "forwarder-qualifier"
+	testOCRQualifier          = "OCR3Capability"
+	testForwarderQualifier    = "forwarder-qualifier"
 )
 
-// helper to build a minimal valid input (no user overrides; Apply will fill defaults)
 func minimalEVMCapInput(nodeID string) EVMCapabilityInput {
 	return EVMCapabilityInput{
 		NodeID:             nodeID,
@@ -45,7 +41,6 @@ func deepCloneInput(in ProposeEVMCapJobSpecInput) ProposeEVMCapJobSpecInput {
 	return clone
 }
 
-// freshBase now also sets OCRChainSelector to selector (most tests need this)
 func freshBase(selector uint64) ProposeEVMCapJobSpecInput {
 	return ProposeEVMCapJobSpecInput{
 		Environment:          "test",
@@ -239,7 +234,9 @@ func TestProposeEVMCapJobSpec_VerifyPreconditions_mismatchAndMinimums(t *testing
 
 		// Now set below-minimums independently each time
 		in = deepCloneInput(base)
-		in.EVMCapabilityInputs[0].OverrideDefaultCfg.LogTriggerPollInterval = uint64((1499 * time.Millisecond).Nanoseconds()) // 1ms below min
+		d := int64(1499 * time.Millisecond)
+		require.GreaterOrEqual(t, d, int64(0))
+		in.EVMCapabilityInputs[0].OverrideDefaultCfg.LogTriggerPollInterval = uint64(d)
 		err := ProposeEVMCapJobSpec{}.VerifyPreconditions(env, in)
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), "logTriggerPollInterval")
