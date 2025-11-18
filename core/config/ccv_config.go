@@ -6,7 +6,7 @@ type CCV interface {
 }
 
 type AggregatorSecret interface {
-	CommitteeID() string
+	VerifierID() string
 	APIKey() string
 	APISecret() string
 }

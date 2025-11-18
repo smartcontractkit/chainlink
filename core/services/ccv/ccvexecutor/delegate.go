@@ -23,7 +23,8 @@ import (
 )
 
 type Delegate struct {
-	lggr logger.Logger
+	delegateLogger logger.Logger
+	lggr           logger.Logger
 	// Houses secrets that are needed by the executor (e.g. indexer API keys).
 	ccvConfig config.CCV
 	// TODO: EVM specific (!)
@@ -35,10 +36,11 @@ type Delegate struct {
 
 func NewDelegate(lggr logger.Logger, ccvConfig config.CCV, ethKs keystore.Eth, chainServices []commontypes.ChainService) *Delegate {
 	return &Delegate{
-		lggr:          lggr.Named("CCVExecutorDelegate"),
-		ccvConfig:     ccvConfig,
-		chainServices: chainServices,
-		ethKs:         ethKs,
+		delegateLogger: lggr.Named("CCVExecutorDelegate"),
+		lggr:           lggr,
+		ccvConfig:      ccvConfig,
+		chainServices:  chainServices,
+		ethKs:          ethKs,
 	}
 }
 
@@ -51,7 +53,7 @@ func (d *Delegate) BeforeJobCreated(spec job.Job) {
 }
 
 func (d *Delegate) ServicesForSpec(ctx context.Context, spec job.Job) (services []job.ServiceCtx, err error) {
-	d.lggr.Infow("Creating services for CCV executor job", "jobID", spec.ID)
+	d.delegateLogger.Infow("Creating services for CCV executor job", "jobID", spec.ID)
 
 	var decodedCfg executor.Configuration
 	err = toml.Unmarshal([]byte(spec.CCVExecutorSpec.ExecutorConfig), &decodedCfg)
@@ -110,7 +112,9 @@ func (d *Delegate) ServicesForSpec(ctx context.Context, spec job.Job) (services 
 
 	// TODO: pass secrets as a separate param in the constructor.
 	ec, err := constructors.NewExecutorCoordinator(
-		d.lggr.Named("CCVExecutorCoordinator"),
+		d.lggr.
+			Named("CCVExecutorCoordinator").
+			Named(decodedCfg.ExecutorID),
 		decodedCfg,
 		legacyChains,
 		roundRobins,

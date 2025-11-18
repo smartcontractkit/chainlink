@@ -1982,12 +1982,11 @@ type IndexerSecret struct {
 
 // AggregatorSecret is the shared secret between the chainlink node and the
 // CCV aggregator.
-// A node can potentially write to multiple aggregators, so the CommitteeID
-// is used to identify the committee that the node is part of.
+// A node can potentially write to multiple aggregators, so the VerifierID
+// is used to further scope the secret.
 type AggregatorSecret struct {
-	// CommitteeID is the ID of the committee that the node is part of.
-	// This is used to identify the committee that the node is part of.
-	CommitteeID string `toml:",omitempty"`
+	// VerifierID is the ID of the verifier that this secret belongs to.
+	VerifierID string `toml:",omitempty"`
 	// APIKey is the API key for the CCV aggregator.
 	// This is used to authenticate the node to the CCV aggregator.
 	APIKey *commonconfig.SecretString `toml:",omitempty"`
@@ -2026,8 +2025,8 @@ func (a *CCVSecrets) validateMerge(f *CCVSecrets) (err error) {
 	if a.AggregatorSecrets != nil && f.AggregatorSecrets != nil {
 		for _, aggregatorSecret := range a.AggregatorSecrets {
 			for _, fAggregatorSecret := range f.AggregatorSecrets {
-				if aggregatorSecret.CommitteeID == fAggregatorSecret.CommitteeID {
-					err = errors.Join(err, configutils.ErrOverride{Name: "CCV.AggregatorSecrets.CommitteeID"})
+				if aggregatorSecret.VerifierID == fAggregatorSecret.VerifierID {
+					err = errors.Join(err, configutils.ErrOverride{Name: "CCV.AggregatorSecrets.VerifierID"})
 				}
 			}
 		}

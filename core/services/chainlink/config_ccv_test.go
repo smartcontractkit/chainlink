@@ -9,12 +9,12 @@ import (
 const (
 	secretsCCV = `
 [[CCV.AggregatorSecrets]]
-CommitteeID = "default"
+VerifierID = "default-verifier-1"
 APIKey = "default-api-key"
 APISecret = "default-api-secret"
 
 [[CCV.AggregatorSecrets]]
-CommitteeID = "secondary"
+VerifierID = "secondary-verifier-1"
 APIKey = "secondary-api-key"
 APISecret = "secondary-api-secret"
 
@@ -33,10 +33,10 @@ func TestCCVConfig(t *testing.T) {
 
 	require.Equal(t, 2, len(cfg.CCV().AggregatorSecrets()))
 	c := cfg.CCV()
-	require.Equal(t, "default", c.AggregatorSecrets()[0].CommitteeID())
+	require.Equal(t, "default-verifier-1", c.AggregatorSecrets()[0].VerifierID())
 	require.Equal(t, "default-api-key", c.AggregatorSecrets()[0].APIKey())
 	require.Equal(t, "default-api-secret", c.AggregatorSecrets()[0].APISecret())
-	require.Equal(t, "secondary", c.AggregatorSecrets()[1].CommitteeID())
+	require.Equal(t, "secondary-verifier-1", c.AggregatorSecrets()[1].VerifierID())
 	require.Equal(t, "secondary-api-key", c.AggregatorSecrets()[1].APIKey())
 	require.Equal(t, "secondary-api-secret", c.AggregatorSecrets()[1].APISecret())
 	require.Equal(t, "indexer-api-key", c.IndexerSecret().APIKey())
