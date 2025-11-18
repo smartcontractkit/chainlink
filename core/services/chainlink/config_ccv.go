@@ -13,9 +13,9 @@ func (c *ccvConfig) AggregatorSecrets() []config.AggregatorSecret {
 	secrets := make([]config.AggregatorSecret, len(c.s.AggregatorSecrets))
 	for i, secret := range c.s.AggregatorSecrets {
 		secrets[i] = &aggregatorSecretConfig{
-			committeeID: secret.CommitteeID,
-			apiKey:      string(*secret.APIKey),
-			apiSecret:   string(*secret.APISecret),
+			verifierID: secret.VerifierID,
+			apiKey:     string(*secret.APIKey),
+			apiSecret:  string(*secret.APISecret),
 		}
 	}
 	return secrets
@@ -42,13 +42,13 @@ func (i *indexerSecretConfig) APISecret() string {
 }
 
 type aggregatorSecretConfig struct {
-	committeeID string
-	apiKey      string
-	apiSecret   string
+	verifierID string
+	apiKey     string
+	apiSecret  string
 }
 
-func (a *aggregatorSecretConfig) CommitteeID() string {
-	return a.committeeID
+func (a *aggregatorSecretConfig) VerifierID() string {
+	return a.verifierID
 }
 
 func (a *aggregatorSecretConfig) APIKey() string {

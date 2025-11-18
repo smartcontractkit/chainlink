@@ -1,12 +1,15 @@
 package ccvcommitteeverifier
 
 import (
+	"bytes"
 	"context"
+	"encoding/hex"
 	"fmt"
 	"strconv"
 
 	burntsushitoml "github.com/BurntSushi/toml"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/common/hexutil"
 
 	"github.com/smartcontractkit/chainlink-ccv/integration/pkg/constructors"
 	"github.com/smartcontractkit/chainlink-ccv/protocol"
@@ -17,6 +20,8 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/ccv/ccvcommon"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
+	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/chaintype"
+	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ocr2key"
 )
 
 type Delegate struct {
@@ -25,19 +30,17 @@ type Delegate struct {
 	ccvConfig config.CCV
 	// TODO: EVM specific (!)
 	chainServices []commontypes.ChainService
-	// TODO: this is temporary, need to switch to the OCR2 keystore or another
-	// custom one.
-	ethKs keystore.Eth
+	ocrKs         keystore.OCR2
 
 	isNewlyCreatedJob bool
 }
 
-func NewDelegate(lggr logger.Logger, ccvConfig config.CCV, ocrKs keystore.Eth, chainServices []commontypes.ChainService) *Delegate {
+func NewDelegate(lggr logger.Logger, ccvConfig config.CCV, ocrKs keystore.OCR2, chainServices []commontypes.ChainService) *Delegate {
 	return &Delegate{
 		lggr:          lggr.Named("CCVCommitteeVerifierDelegate"),
 		ccvConfig:     ccvConfig,
 		chainServices: chainServices,
-		ethKs:         ocrKs,
+		ocrKs:         ocrKs,
 	}
 }
 
@@ -86,12 +89,34 @@ func (d *Delegate) ServicesForSpec(ctx context.Context, spec job.Job) (services 
 		return nil, fmt.Errorf("failed to get legacy chains: %w", err)
 	}
 
-	signingKey, err := d.ethKs.Get(ctx, decodedCfg.SignerAddress)
+	signingKeys, err := d.ocrKs.GetAllOfType(chaintype.EVM)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get signing key %s from eth keystore: %w", decodedCfg.SignerAddress, err)
 	}
 
-	d.lggr.Infow("using eth key for signing", "key", signingKey.Address.Hex())
+	var signingKey ocr2key.KeyBundle
+	switch len(signingKeys) {
+	case 0:
+		return nil, fmt.Errorf("no signing key found for EVM")
+	case 1:
+		signingKey = signingKeys[0]
+	default:
+		d.lggr.Warnw("multiple signing keys found for EVM, using the first", "keys", signingKeys)
+		signingKey = signingKeys[0]
+	}
+
+	d.lggr.Infow("using ocr2 onchain key for signing", "publicKey", signingKey.OnChainPublicKey())
+	onchainPubKeyBytes, err := hex.DecodeString(signingKey.OnChainPublicKey())
+	if err != nil {
+		return nil, fmt.Errorf("failed to decode onchain public key: %w", err)
+	}
+	configPubKeyBytes, err := hexutil.Decode(decodedCfg.SignerAddress)
+	if err != nil {
+		return nil, fmt.Errorf("failed to decode signer address: %w", err)
+	}
+	if !bytes.Equal(onchainPubKeyBytes, configPubKeyBytes) {
+		return nil, fmt.Errorf("onchain public key does not match signer address in config, want %s, got %s", signingKey.OnChainPublicKey(), decodedCfg.SignerAddress)
+	}
 
 	apiKey, apiSecret := getAggregatorSecrets(d.ccvConfig, decodedCfg.VerifierID)
 	if apiKey == "" || apiSecret == "" {
@@ -112,7 +137,7 @@ func (d *Delegate) ServicesForSpec(ctx context.Context, spec job.Job) (services 
 			SecretKey: apiSecret,
 		},
 		common.HexToAddress(decodedCfg.SignerAddress).Bytes(),
-		signingKey,
+		newSignerAdapter(signingKey),
 		legacyChains,
 	)
 	if err != nil {
@@ -126,7 +151,7 @@ func (d *Delegate) ServicesForSpec(ctx context.Context, spec job.Job) (services 
 
 func getAggregatorSecrets(ccvConfig config.CCV, verifierID string) (string, string) {
 	for _, secret := range ccvConfig.AggregatorSecrets() {
-		if secret.CommitteeID() == verifierID {
+		if secret.VerifierID() == verifierID {
 			return secret.APIKey(), secret.APISecret()
 		}
 	}
@@ -140,4 +165,15 @@ func (d *Delegate) BeforeJobDeleted(spec job.Job) {}
 func (d *Delegate) OnDeleteJob(ctx context.Context, spec job.Job) error {
 	// TODO: shut down needed services?
 	return nil
+}
+
+// signerAdapter is an adapter that implements the verifier.MessageSigner interface.
+type signerAdapter struct {
+	kb ocr2key.KeyBundle
+}
+
+func newSignerAdapter(kb ocr2key.KeyBundle) *signerAdapter { return &signerAdapter{kb} }
+
+func (s *signerAdapter) Sign(input []byte) ([]byte, error) {
+	return s.kb.SignBlob(input)
 }

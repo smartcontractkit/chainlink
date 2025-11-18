@@ -1,6 +1,7 @@
 package ccvcommon
 
 import (
+	"context"
 	"fmt"
 	"maps"
 	"slices"
@@ -16,9 +17,14 @@ import (
 func GetLegacyChains(lggr logger.Logger, chainServices []commontypes.ChainService, chainsInConfig []protocol.ChainSelector) (map[protocol.ChainSelector]legacyevm.Chain, error) {
 	chains := make(map[protocol.ChainSelector]legacyevm.Chain)
 	for _, c := range chainServices {
+		chainInfo, err := c.GetChainInfo(context.Background())
+		if err != nil {
+			return nil, fmt.Errorf("failed to get chain info for chain %s: %w", c.Name(), err)
+		}
+
 		chain, ok := c.(legacyevm.Chain)
 		if !ok {
-			return nil, fmt.Errorf("failed to cast chain service %s to legacyevm.Chain", c.Name())
+			return nil, fmt.Errorf("failed to cast chain service %s to legacyevm.Chain (info: %+v), check if you're running in LOOPP mode?", c.Name(), chainInfo)
 		}
 
 		id := chain.ID()

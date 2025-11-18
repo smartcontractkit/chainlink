@@ -619,7 +619,7 @@ func NewApplication(ctx context.Context, opts ApplicationOpts) (Application, err
 			job.CCVCommitteeVerifier: ccvcommitteeverifier.NewDelegate(
 				globalLogger,
 				cfg.CCV(),
-				keyStore.Eth(),
+				keyStore.OCR2(),
 				relayChainInterops.LegacyEVMChains().Slice(),
 			),
 			job.CCVExecutor: ccvexecutor.NewDelegate(
