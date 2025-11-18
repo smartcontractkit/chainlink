@@ -110,7 +110,7 @@ var AddCapabilities = operations.NewSequence[AddCapabilitiesInput, AddCapabiliti
 			}
 			capabilities[i] = contracts.RegisterCapabilitiesCapability{
 				Metadata:              cfg.Capability.Metadata,
-				CapabilityId:          cfg.Capability.CapabilityID,
+				CapabilityID:          cfg.Capability.CapabilityID,
 				ConfigurationContract: cfg.Capability.ConfigurationContract,
 			}
 			for _, p2pID := range p2pIDs {

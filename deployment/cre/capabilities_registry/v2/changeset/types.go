@@ -33,7 +33,7 @@ type CapabilitiesRegistryCapability struct {
 
 func (cap CapabilitiesRegistryCapability) ToWrapper() (contracts.RegisterCapabilitiesCapability, error) {
 	return contracts.RegisterCapabilitiesCapability{
-		CapabilityId:          cap.CapabilityID,
+		CapabilityID:          cap.CapabilityID,
 		ConfigurationContract: cap.ConfigurationContract,
 		Metadata:              cap.Metadata,
 	}, nil

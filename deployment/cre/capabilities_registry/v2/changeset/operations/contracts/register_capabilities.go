@@ -37,7 +37,7 @@ type RegisterCapabilitiesOutput struct {
 }
 
 type RegisterCapabilitiesCapability struct {
-	CapabilityId          string
+	CapabilityID          string
 	ConfigurationContract common.Address
 	Metadata              pkg.CapabilityConfig
 }
@@ -136,21 +136,21 @@ func dedupCapabilities(
 	seen := make(map[string]struct{}, len(capabilities))
 	for _, candidate := range capabilities {
 		// Process a capability only once in terms of the input list, to avoid duplicates in the output
-		if _, exists := seen[candidate.CapabilityId]; exists {
+		if _, exists := seen[candidate.CapabilityID]; exists {
 			continue
 		}
-		seen[candidate.CapabilityId] = struct{}{}
+		seen[candidate.CapabilityID] = struct{}{}
 
 		// Skip capabilities that already exist in the registry
-		if _, exists := existingByID[candidate.CapabilityId]; !exists {
+		if _, exists := existingByID[candidate.CapabilityID]; !exists {
 			metadataBytes, metadataErr := candidate.Metadata.MarshalJSON()
 			if metadataErr != nil {
-				return nil, fmt.Errorf("failed to marshal capability metadata for capability %s: %w", candidate.CapabilityId, metadataErr)
+				return nil, fmt.Errorf("failed to marshal capability metadata for capability %s: %w", candidate.CapabilityID, metadataErr)
 			}
 
 			out = append(out, capabilities_registry_v2.CapabilitiesRegistryCapability{
 				Metadata:              metadataBytes,
-				CapabilityId:          candidate.CapabilityId,
+				CapabilityId:          candidate.CapabilityID,
 				ConfigurationContract: candidate.ConfigurationContract,
 			})
 		}
