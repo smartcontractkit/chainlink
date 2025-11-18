@@ -558,7 +558,9 @@ func HandleTokenAndPoolDeploymentForSUI(e cldf.Environment, suiChainSel, evmChai
 	e, _, err = commoncs.ApplyChangesets(&testing.T{}, e, []commoncs.ConfiguredChangeSet{
 		commoncs.Configure(sui_cs.DeployTPAndConfigure{}, sui_cs.DeployTPAndConfigureConfig{
 			SuiChainSelector: suiChainSel,
-			TokenPoolTypes:   suideployment.TokenPoolTypeBurnMint,
+			TokenPoolTypes: []suideployment.TokenPoolType{
+				suideployment.TokenPoolTypeBurnMint,
+			},
 			BurnMintTpInput: burnminttokenpoolops.DeployAndInitBurnMintTokenPoolInput{
 				CoinObjectTypeArg:    linkTokenPkgID + "::link::LINK",
 				CoinMetadataObjectId: linkTokenObjectMetadataID,
