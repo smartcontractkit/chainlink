@@ -20,7 +20,7 @@ type ExtraDataDecoded struct {
 
 // HashedCapabilityID returns the hashed capability id in a manner equivalent to the capability registry.
 func HashedCapabilityID(capabilityLabelledName, capabilityVersion string) (r [32]byte, err error) {
-	// TODO: investigate how to avoid parsing the ABI everytime.
+	// TODO: investigate how to avoid parsing the ABI every time.
 	tabi := `[{"type": "string"}, {"type": "string"}]`
 	abiEncoded, err := utils.ABIEncode(tabi, capabilityLabelledName, capabilityVersion)
 	if err != nil {
