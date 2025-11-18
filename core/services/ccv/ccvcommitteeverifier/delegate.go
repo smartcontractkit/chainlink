@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/hex"
+	"errors"
 	"fmt"
 	"strconv"
 
@@ -101,7 +102,7 @@ func (d *Delegate) ServicesForSpec(ctx context.Context, spec job.Job) (services 
 	var signingKey ocr2key.KeyBundle
 	switch len(signingKeys) {
 	case 0:
-		return nil, fmt.Errorf("no signing key found for EVM")
+		return nil, errors.New("no signing key found for EVM in OCR2 keystore")
 	case 1:
 		signingKey = signingKeys[0]
 	default:
