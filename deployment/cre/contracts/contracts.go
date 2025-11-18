@@ -46,14 +46,13 @@ type Ownable interface {
 }
 
 func isOwnedByMCMSV2[T Ownable](contract T, store datastore.AddressRefStore, chain cldf_evm.Chain) (bool, error) {
+	var timelockTV = cldf.NewTypeAndVersion(types.RBACTimelock, deployment.Version1_0_0)
 
 	r, err := getOwnerReference(contract, store, chain)
 	if err != nil {
 		return false, fmt.Errorf("failed to get owner reference: %w", err)
 	}
-	var timelockTV = cldf.NewTypeAndVersion(types.RBACTimelock, deployment.Version1_0_0)
 
-	// Check if the owner is a timelock contract (owned by MCMS)
 	if r != nil && cldf.ContractType(r.Type) == timelockTV.Type && r.Version.String() == timelockTV.Version.String() {
 		return true, nil
 	}
@@ -114,7 +113,6 @@ func NewOwnableV2[T Ownable](contract T, store datastore.AddressRefStore, chain 
 		McmsContracts: stateMCMS,
 		Contract:      contract,
 	}, nil
-
 }
 
 func matchLabels(ab datastore.AddressRefStore, ref datastore.AddressRef, chainSelector uint64) map[string]cldf.TypeAndVersion {
