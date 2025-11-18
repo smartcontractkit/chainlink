@@ -17,6 +17,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/ptr"
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
+	"github.com/smartcontractkit/chainlink/deployment/utils/solutils"
 
 	capabilitiespb "github.com/smartcontractkit/chainlink-common/pkg/capabilities/pb"
 	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
@@ -33,7 +34,6 @@ import (
 	corechainlink "github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 
 	"github.com/smartcontractkit/chainlink/deployment"
-	"github.com/smartcontractkit/chainlink/deployment/environment/memory"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/don"
 	evmblockchain "github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/blockchains/evm"
@@ -112,22 +112,25 @@ func (o *Solana) PreEnvStartup(
 }
 
 func deployForwarder(testLogger zerolog.Logger, creEnv *cre.Environment, solChain *solana.Blockchain) (*string, *string, error) {
-	memoryDatastore, mErr := contracts.NewDataStoreFromExisting(creEnv.CldfEnvironment.DataStore)
-	if mErr != nil {
-		return nil, nil, fmt.Errorf("failed to create memory datastore: %w", mErr)
+	memoryDatastore, err := contracts.NewDataStoreFromExisting(creEnv.CldfEnvironment.DataStore)
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed to create memory datastore: %w", err)
 	}
 
-	populateContracts := map[string]datastore.ContractType{
-		deployment.KeystoneForwarderProgramName: ks_sol.ForwarderContract,
-	}
 	version := creEnv.ContractVersions[ks_sol.ForwarderContract.String()]
 
 	// Forwarder for solana is predeployed on chain spin-up. We jus need to add it to memory datastore here
-	errp := memory.PopulateDatastore(memoryDatastore.AddressRefStore, populateContracts,
-		version, ks_sol.DefaultForwarderQualifier, solChain.ChainSelector())
-	if errp != nil {
-		return nil, nil, errors.Wrap(errp, "failed to populate datastore with predeployed contracts")
+	err = memoryDatastore.Addresses().Add(datastore.AddressRef{
+		Address:       solutils.GetProgramID(solutils.ProgKeystoneForwarder),
+		ChainSelector: solChain.ChainSelector(),
+		Type:          ks_sol.ForwarderContract,
+		Version:       version,
+		Qualifier:     ks_sol.DefaultForwarderQualifier,
+	})
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed to add address to the datastore for Solana Forwarder: %w", err)
 	}
+
 	out, err := operations.ExecuteSequence(
 		creEnv.CldfEnvironment.OperationsBundle,
 		ks_sol_seq.DeployForwarderSeq,

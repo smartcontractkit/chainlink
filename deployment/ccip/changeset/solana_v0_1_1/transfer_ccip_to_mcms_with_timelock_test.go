@@ -41,10 +41,6 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/environment/memory"
 )
 
-// TODO: remove. These should be deployed as part of the test once deployment changesets are ready.
-const TimelockProgramID = "LoCoNsJFuhTkSQjfdDfn3yuwqhSYoPujmviRHVCzsqn"
-const MCMProgramID = "6UmMZr5MEqiKWD5jqTJd1WCR5kT8oZuFYBLJFi1o6GQX"
-
 func TestValidateContracts(t *testing.T) {
 	validPubkey := solana.NewWallet().PublicKey()
 
