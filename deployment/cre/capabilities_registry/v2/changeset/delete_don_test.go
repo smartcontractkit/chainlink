@@ -10,12 +10,17 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
+	opscontracts "github.com/smartcontractkit/chainlink/deployment/cre/capabilities_registry/v2/changeset/operations/contracts"
+
 	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	"github.com/smartcontractkit/chainlink-deployments-framework/engine/test/environment"
 	"github.com/smartcontractkit/chainlink-deployments-framework/engine/test/runtime"
+	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
+
 	capabilities_registry_v2 "github.com/smartcontractkit/chainlink-evm/gethwrappers/workflow/generated/capabilities_registry_wrapper_v2"
 	"github.com/smartcontractkit/chainlink/deployment/cre/capabilities_registry/v2/changeset"
+	"github.com/smartcontractkit/chainlink/deployment/cre/common/strategies"
 )
 
 type delFixture struct {
@@ -162,7 +167,6 @@ func TestDeleteDONChangeset_ByName_Direct_Succeeds(t *testing.T) {
 	t.Parallel()
 	fx := setupRegistryForDeleteDON(t, false)
 
-	// Sanity: DON exists before deletion
 	_, err := fx.registry.GetDONByName(nil, fx.donNames[0])
 	require.NoError(t, err)
 
@@ -280,4 +284,72 @@ func TestDeleteDONChangeset_QualifierNotFound(t *testing.T) {
 	})
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "failed to get registry address")
+}
+
+func TestDeleteDON_MCMS_Configuration(t *testing.T) {
+	t.Parallel()
+	fx := setupRegistryForDeleteDON(t, false)
+
+	_, err := fx.registry.GetDONByName(nil, fx.donNames[0])
+	require.NoError(t, err)
+	// Reset the bundle so we don't carry prior reports
+	// NOTE: we reset inside the fixture, mirroring your NOPs test style.
+	mcmsFixture := setupCapabilitiesRegistryWithMCMS(t)
+	mcmsFixture.env.OperationsBundle = operations.NewBundle(mcmsFixture.env.GetContext, mcmsFixture.env.Logger, operations.NewMemoryReporter())
+
+	// Create a live registry handle
+	chain, ok := mcmsFixture.env.BlockChains.EVMChains()[mcmsFixture.chainSelector]
+	require.True(t, ok, "chain should be found for selector %d", mcmsFixture.chainSelector)
+
+	reg := fx.registry
+
+	// Get MCMS contracts (same as your NOPs test)
+	mcmsContracts, err := strategies.GetMCMSContracts(mcmsFixture.env, mcmsFixture.chainSelector, mcmsFixture.configureInput.Qualifier)
+	require.NoError(t, err, "should be able to get MCMS contracts")
+	require.NotNil(t, mcmsContracts, "MCMS contracts should not be nil")
+
+	// Create the real MCMS strategy (same as your NOPs test) …
+	realStrategy, err := strategies.CreateStrategy(
+		chain,
+		mcmsFixture.env,
+		mcmsFixture.configureInput.MCMSConfig,
+		mcmsContracts,
+		common.HexToAddress(mcmsFixture.capabilitiesRegistryAddress),
+		"test DeleteDON with MCMS",
+	)
+	require.NoError(t, err, "should be able to create MCMS strategy")
+
+	// Operation deps
+	deps := opscontracts.DeleteDONDeps{
+		Env:                  &mcmsFixture.env,
+		Strategy:             realStrategy,
+		CapabilitiesRegistry: reg,
+	}
+
+	// MCMS-enabled input (names to delete)
+	input := opscontracts.DeleteDONInput{
+		ChainSelector: mcmsFixture.chainSelector,
+		DonNames:      []string{fx.donNames[0]},
+		MCMSConfig:    mcmsFixture.configureInput.MCMSConfig,
+	}
+
+	// Execute the DeleteDON operation with MCMS; this should CREATE a proposal,
+	// not execute the removal immediately.
+	report, err := operations.ExecuteOperation(
+		mcmsFixture.env.OperationsBundle,
+		opscontracts.DeleteDON,
+		deps,
+		input,
+	)
+	require.NoError(t, err, "DeleteDON with MCMS should succeed (proposal created)")
+	require.NotNil(t, report, "operation report should not be nil")
+
+	// Verify operation content mirrors your NOPs test assertions
+	require.NotZero(t, report.Output.Operation, "an operation should have been generated")
+	require.NotEmpty(t, report.Output.Operation.Transactions, "operation should have transactions")
+	assert.Equal(t, []string{fx.donNames[0]}, report.Output.DeletedNames)
+
+	// Since this is only a proposal (NoSend + nonzero GasLimit), the DON must still exist.
+	_, err = reg.GetDONByName(nil, fx.donNames[0])
+	require.NoError(t, err, "DON should still exist until governance executes the proposal")
 }
