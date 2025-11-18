@@ -290,23 +290,18 @@ func TestDeleteDON_MCMS_Configuration(t *testing.T) {
 
 	_, err := fx.registry.GetDONByName(nil, fx.donNames[0])
 	require.NoError(t, err)
-	// Reset the bundle so we don't carry prior reports
-	// NOTE: we reset inside the fixture, mirroring your NOPs test style.
 	mcmsFixture := setupCapabilitiesRegistryWithMCMS(t)
 	mcmsFixture.env.OperationsBundle = operations.NewBundle(mcmsFixture.env.GetContext, mcmsFixture.env.Logger, operations.NewMemoryReporter())
 
-	// Create a live registry handle
 	chain, ok := mcmsFixture.env.BlockChains.EVMChains()[mcmsFixture.chainSelector]
 	require.True(t, ok, "chain should be found for selector %d", mcmsFixture.chainSelector)
 
 	reg := fx.registry
 
-	// Get MCMS contracts (same as your NOPs test)
 	mcmsContracts, err := strategies.GetMCMSContracts(mcmsFixture.env, mcmsFixture.chainSelector, mcmsFixture.configureInput.Qualifier)
 	require.NoError(t, err, "should be able to get MCMS contracts")
 	require.NotNil(t, mcmsContracts, "MCMS contracts should not be nil")
 
-	// Create the real MCMS strategy (same as your NOPs test) …
 	realStrategy, err := strategies.CreateStrategy(
 		chain,
 		mcmsFixture.env,
@@ -317,14 +312,12 @@ func TestDeleteDON_MCMS_Configuration(t *testing.T) {
 	)
 	require.NoError(t, err, "should be able to create MCMS strategy")
 
-	// Operation deps
 	deps := opscontracts.DeleteDONDeps{
 		Env:                  &mcmsFixture.env,
 		Strategy:             realStrategy,
 		CapabilitiesRegistry: reg,
 	}
 
-	// MCMS-enabled input (names to delete)
 	input := opscontracts.DeleteDONInput{
 		ChainSelector: mcmsFixture.chainSelector,
 		DonNames:      []string{fx.donNames[0]},
