@@ -247,6 +247,7 @@ func Signers(nodeIDs []string, c offchain.Client, chainFamily string) ([]common.
 	return out, nil
 }
 
+// ConfigureForwarders is a changeset that configures Keystone Forwarder contracts for a given DON.
 type ConfigureForwarders struct{}
 
 var _ cldf.ChangeSetV2[ConfigureSeqInput] = ConfigureForwarders{}
