@@ -15,6 +15,7 @@ import (
 	chainselectors "github.com/smartcontractkit/chain-selectors"
 
 	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
+	"github.com/smartcontractkit/chainlink/deployment/cre/common/strategies"
 	cre_jobs "github.com/smartcontractkit/chainlink/deployment/cre/jobs"
 	cre_jobs_ops "github.com/smartcontractkit/chainlink/deployment/cre/jobs/operations"
 	job_types "github.com/smartcontractkit/chainlink/deployment/cre/jobs/types"
@@ -93,11 +94,29 @@ func (c *Consensus) PostEnvStartup(
 		return fmt.Errorf("failed to get default OCR3 config: %w", ocr3confErr)
 	}
 
+	chain, ok := creEnv.CldfEnvironment.BlockChains.EVMChains()[creEnv.RegistryChainSelector]
+	if !ok {
+		return fmt.Errorf("chain with selector %d not found in environment", creEnv.RegistryChainSelector)
+	}
+
+	strategy, err := strategies.CreateStrategy(
+		chain,
+		*creEnv.CldfEnvironment,
+		nil,
+		nil,
+		*ocr3ContractAddr,
+		"PostEnvStartup - Configure OCR3 Contract - v2 Consensus",
+	)
+	if err != nil {
+		return fmt.Errorf("failed to create strategy: %w", err)
+	}
+
 	_, ocr3Err := operations.ExecuteOperation(
 		creEnv.CldfEnvironment.OperationsBundle,
 		ks_contracts_op.ConfigureOCR3Op,
 		ks_contracts_op.ConfigureOCR3OpDeps{
-			Env: creEnv.CldfEnvironment,
+			Env:      creEnv.CldfEnvironment,
+			Strategy: strategy,
 		},
 		ks_contracts_op.ConfigureOCR3OpInput{
 			ContractAddress: ocr3ContractAddr,

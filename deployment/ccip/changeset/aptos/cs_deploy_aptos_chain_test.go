@@ -1,6 +1,7 @@
 package aptos
 
 import (
+	"crypto/ecdsa"
 	"math/big"
 	"testing"
 	"time"
@@ -10,21 +11,22 @@ import (
 	mcmstypes "github.com/smartcontractkit/mcms/types"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"go.uber.org/zap/zapcore"
 
 	"github.com/smartcontractkit/chainlink-aptos/bindings/ccip"
 	"github.com/smartcontractkit/chainlink-aptos/bindings/ccip_offramp"
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
+
 	"github.com/smartcontractkit/chainlink-deployments-framework/chain"
 	aptoschain "github.com/smartcontractkit/chainlink-deployments-framework/chain/aptos"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+	"github.com/smartcontractkit/chainlink-deployments-framework/engine/test/environment"
+	"github.com/smartcontractkit/chainlink-deployments-framework/engine/test/runtime"
+
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/aptos/config"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared"
 	aptosstate "github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview/aptos"
-	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 	"github.com/smartcontractkit/chainlink/deployment/common/types"
-	"github.com/smartcontractkit/chainlink/deployment/environment/memory"
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
 
 func TestDeployAptosChainImp_VerifyPreconditions(t *testing.T) {
@@ -40,7 +42,7 @@ func TestDeployAptosChainImp_VerifyPreconditions(t *testing.T) {
 			name: "success - valid configs",
 			env: cldf.Environment{
 				Name:              "test",
-				Logger:            logger.TestLogger(t),
+				Logger:            logger.Test(t),
 				ExistingAddresses: cldf.NewMemoryAddressBook(),
 				BlockChains: chain.NewBlockChains(
 					map[uint64]chain.BlockChain{
@@ -64,7 +66,7 @@ func TestDeployAptosChainImp_VerifyPreconditions(t *testing.T) {
 			name: "success - valid config w MCMS deployed",
 			env: cldf.Environment{
 				Name:   "test",
-				Logger: logger.TestLogger(t),
+				Logger: logger.Test(t),
 				ExistingAddresses: getTestAddressBook(
 					t,
 					map[uint64]map[string]cldf.TypeAndVersion{
@@ -94,7 +96,7 @@ func TestDeployAptosChainImp_VerifyPreconditions(t *testing.T) {
 			name: "error - invalid min delay",
 			env: cldf.Environment{
 				Name:              "test",
-				Logger:            logger.TestLogger(t),
+				Logger:            logger.Test(t),
 				ExistingAddresses: cldf.NewMemoryAddressBook(),
 				BlockChains: chain.NewBlockChains(
 					map[uint64]chain.BlockChain{
@@ -121,7 +123,7 @@ func TestDeployAptosChainImp_VerifyPreconditions(t *testing.T) {
 			name: "error - chain has no env",
 			env: cldf.Environment{
 				Name:   "test",
-				Logger: logger.TestLogger(t),
+				Logger: logger.Test(t),
 				ExistingAddresses: getTestAddressBook(
 					t,
 					map[uint64]map[string]cldf.TypeAndVersion{
@@ -151,7 +153,7 @@ func TestDeployAptosChainImp_VerifyPreconditions(t *testing.T) {
 			name: "error - invalid config - chainSelector",
 			env: cldf.Environment{
 				Name:              "test",
-				Logger:            logger.TestLogger(t),
+				Logger:            logger.Test(t),
 				ExistingAddresses: cldf.NewMemoryAddressBook(),
 			},
 			config: config.DeployAptosChainConfig{
@@ -166,7 +168,7 @@ func TestDeployAptosChainImp_VerifyPreconditions(t *testing.T) {
 			name: "error - missing MCMS config for chain without MCMS deployed",
 			env: cldf.Environment{
 				Name:   "test",
-				Logger: logger.TestLogger(t),
+				Logger: logger.Test(t),
 				ExistingAddresses: getTestAddressBook(
 					t,
 					map[uint64]map[string]cldf.TypeAndVersion{
@@ -191,7 +193,7 @@ func TestDeployAptosChainImp_VerifyPreconditions(t *testing.T) {
 			name: "error - invalid config for chain",
 			env: cldf.Environment{
 				Name:   "test",
-				Logger: logger.TestLogger(t),
+				Logger: logger.Test(t),
 				ExistingAddresses: getTestAddressBook(
 					t,
 					map[uint64]map[string]cldf.TypeAndVersion{
@@ -237,27 +239,27 @@ func TestDeployAptosChainImp_VerifyPreconditions(t *testing.T) {
 
 func TestDeployAptosChain_Apply(t *testing.T) {
 	t.Parallel()
-	lggr := logger.TestLogger(t)
 
-	// Setup memory environment with 1 Aptos chain
-	env := memory.NewMemoryEnvironment(t, lggr, zapcore.InfoLevel, memory.MemoryEnvironmentConfig{
-		AptosChains: 1,
-	})
+	// Setup environment with 1 Aptos chain
+	selector := chain_selectors.APTOS_LOCALNET.Selector
+	rt, err := runtime.New(t.Context(), runtime.WithEnvOpts(
+		environment.WithAptosContainer(t, []uint64{selector}),
+		environment.WithLogger(logger.Test(t)),
+	))
+	require.NoError(t, err)
 
-	// Get chain selectors
-	aptosChainSelectors := env.BlockChains.ListChainSelectors(chain.WithFamily(chain_selectors.FamilyAptos))
-	require.Len(t, aptosChainSelectors, 1, "Expected exactly 1 Aptos chain")
-	chainSelector := aptosChainSelectors[0]
-	t.Log("Deployer: ", env.BlockChains.AptosChains()[chainSelector].DeployerSigner)
+	chain := rt.Environment().BlockChains.AptosChains()[selector]
+
+	t.Log("Deployer: ", chain.DeployerSigner)
 
 	// Deploy CCIP to Aptos chain
-	mockCCIPParams := GetMockChainContractParams(t, chainSelector)
+	mockCCIPParams := GetMockChainContractParams(t, selector)
 	ccipConfig := config.DeployAptosChainConfig{
 		ContractParamsPerChain: map[uint64]config.ChainContractParams{
-			chainSelector: mockCCIPParams,
+			selector: mockCCIPParams,
 		},
 		MCMSDeployConfigPerChain: map[uint64]types.MCMSWithTimelockConfigV2{
-			chainSelector: {
+			selector: {
 				Canceller:        proposalutils.SingleGroupMCMSV2(t),
 				Proposer:         proposalutils.SingleGroupMCMSV2(t),
 				Bypasser:         proposalutils.SingleGroupMCMSV2(t),
@@ -265,35 +267,37 @@ func TestDeployAptosChain_Apply(t *testing.T) {
 			},
 		},
 		MCMSTimelockConfigPerChain: map[uint64]proposalutils.TimelockConfig{
-			chainSelector: {
+			selector: {
 				MinDelay:     time.Duration(1) * time.Second,
 				MCMSAction:   mcmstypes.TimelockActionSchedule,
 				OverrideRoot: false,
 			},
 		},
 	}
-	env, _, err := commonchangeset.ApplyChangesets(t, env, []commonchangeset.ConfiguredChangeSet{
-		commonchangeset.Configure(DeployAptosChain{}, ccipConfig),
-	})
+
+	err = rt.Exec(
+		runtime.ChangesetTask(DeployAptosChain{}, ccipConfig),
+		runtime.SignAndExecuteProposalsTask([]*ecdsa.PrivateKey{proposalutils.TestXXXMCMSSigner}),
+	)
 	require.NoError(t, err)
 
 	// Verify CCIP deployment state by binding ccip contract and checking if it's deployed
-	states, err := aptosstate.LoadOnchainStateAptos(env)
+	states, err := aptosstate.LoadOnchainStateAptos(rt.Environment())
 	require.NoError(t, err)
-	require.NotNil(t, states[chainSelector], "No state found for chain")
-	state := states[chainSelector]
+	require.NotNil(t, states[selector], "No state found for chain")
+	state := states[selector]
 
 	ccipAddr := state.CCIPAddress
 	require.NotEmpty(t, ccipAddr, "CCIP address should not be empty")
 
 	// Bind CCIP offramp contract
-	offrampBind := ccip_offramp.Bind(ccipAddr, env.BlockChains.AptosChains()[chainSelector].Client)
+	offrampBind := ccip_offramp.Bind(ccipAddr, chain.Client)
 	offRampSourceConfig, err := offrampBind.Offramp().GetSourceChainConfig(nil, mockCCIPParams.OffRampParams.SourceChainSelectors[0])
 	require.NoError(t, err)
 	require.True(t, offRampSourceConfig.IsEnabled, "contracts were not initialized correctly")
 
 	// Check premium multiplier
-	ccipBind := ccip.Bind(ccipAddr, env.BlockChains.AptosChains()[chainSelector].Client)
+	ccipBind := ccip.Bind(ccipAddr, chain.Client)
 	require.NotEqual(t, aptos.AccountAddress{}, state.LinkTokenAddress, "Link token address should not be empty")
 	mult, err := ccipBind.FeeQuoter().GetPremiumMultiplierWeiPerEth(nil, state.LinkTokenAddress)
 	require.NoError(t, err)
