@@ -901,7 +901,7 @@ func TestCreatingMultisig(t *testing.T) {
 				TokenMint:               newTokenAddress,
 				PoolType:                &shared.BurnMintTokenPool,
 				Metadata:                shared.CLLMetadata,
-				CustomerMintAuthorities: []solana.PublicKey{solana.MustPublicKeyFromBase58("9o9vS5dHHQLaZLv8gHuNu6k6J5HjisF9ravgRZigiDkb")},
+				CustomerMintAuthorities: []solana.PublicKey{solana.MustPublicKeyFromBase58("9o9vS5dHHQLaZLv8gHuNu6k6J5HjisF9ravgRZigiDkb"), solana.MustPublicKeyFromBase58("HhYZJrX45ARhK5GtpXeULu6gf8ESGkYFfGr91bBTKkS1")},
 			},
 		),
 	})
