@@ -225,6 +225,16 @@ func generateOracleFactory(cldEnv cldf.Environment, nodeInfo deployment.Node, jo
 	if err != nil {
 		return &pkg.OracleFactory{}, fmt.Errorf("failed to get OCR3 contract address for chain selector %d and qualifier %s: %w", contractChainSelector, job.ContractQualifier, err)
 	}
+
+	if addrRefKey.ChainSelector() != uint64(contractChainSelector) {
+		return &pkg.OracleFactory{}, fmt.Errorf(
+			"mismatched chain selector in address ref key for OCR3 contract %s: expected %d, got %d",
+			addrRefKey.String(),
+			contractChainSelector,
+			addrRefKey.ChainSelector(),
+		)
+	}
+
 	contractChainID, err := chainsel.GetChainIDFromSelector(addrRefKey.ChainSelector())
 	if err != nil {
 		return &pkg.OracleFactory{}, fmt.Errorf("failed to get chainID for chain selector %d and qualifier %s: %w", contractChainSelector, job.ContractQualifier, err)
