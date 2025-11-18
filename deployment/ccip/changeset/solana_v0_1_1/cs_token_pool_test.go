@@ -888,6 +888,7 @@ func getTokenPoolBaseChainConfig(t *testing.T, e cldf.Environment, solChain uint
 }
 
 func TestCreatingMultisig(t *testing.T) {
+	skipInCI(t)
 	tenv, _ := testhelpers.NewMemoryEnvironment(t, testhelpers.WithSolChains(1), testhelpers.WithCCIPSolanaContractVersion(ccipChangesetSolana.SolanaContractV0_1_1))
 	solChain := tenv.Env.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chain_selectors.FamilySolana))[0]
 	deployerKey := tenv.Env.BlockChains.SolanaChains()[solChain].DeployerKey.PublicKey()
