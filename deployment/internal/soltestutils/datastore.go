@@ -13,6 +13,7 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/common/changeset/state"
 	commontypes "github.com/smartcontractkit/chainlink/deployment/common/types"
+	"github.com/smartcontractkit/chainlink/deployment/utils/solutils"
 )
 
 // RegisterMCMSPrograms registers the MCMS programs in the datastore for a given selector.
@@ -20,7 +21,7 @@ func RegisterMCMSPrograms(t *testing.T, selector uint64, ds *datastore.MemoryDat
 	t.Helper()
 
 	err := ds.AddressRefStore.Add(datastore.AddressRef{
-		Address:       directory[ProgMCM].ID,
+		Address:       solutils.GetProgramID(solutils.ProgMCM),
 		ChainSelector: selector,
 		Type:          datastore.ContractType(commontypes.ManyChainMultisigProgram),
 		Version:       semver.MustParse("1.0.0"),
@@ -28,7 +29,7 @@ func RegisterMCMSPrograms(t *testing.T, selector uint64, ds *datastore.MemoryDat
 	require.NoError(t, err)
 
 	err = ds.AddressRefStore.Add(datastore.AddressRef{
-		Address:       directory[ProgAccessController].ID,
+		Address:       solutils.GetProgramID(solutils.ProgAccessController),
 		ChainSelector: selector,
 		Type:          datastore.ContractType(commontypes.AccessControllerProgram),
 		Version:       semver.MustParse("1.0.0"),
@@ -36,7 +37,7 @@ func RegisterMCMSPrograms(t *testing.T, selector uint64, ds *datastore.MemoryDat
 	require.NoError(t, err)
 
 	err = ds.AddressRefStore.Add(datastore.AddressRef{
-		Address:       directory[ProgTimelock].ID,
+		Address:       solutils.GetProgramID(solutils.ProgTimelock),
 		ChainSelector: selector,
 		Type:          datastore.ContractType(commontypes.RBACTimelockProgram),
 		Version:       semver.MustParse("1.0.0"),
@@ -52,15 +53,15 @@ func PreloadAddressBookWithMCMSPrograms(t *testing.T, selector uint64) *cldf.Add
 	ab := cldf.NewMemoryAddressBook()
 
 	tv := cldf.NewTypeAndVersion(commontypes.ManyChainMultisigProgram, deployment.Version1_0_0)
-	err := ab.Save(selector, directory[ProgMCM].ID, tv)
+	err := ab.Save(selector, solutils.GetProgramID(solutils.ProgMCM), tv)
 	require.NoError(t, err)
 
 	tv = cldf.NewTypeAndVersion(commontypes.AccessControllerProgram, deployment.Version1_0_0)
-	err = ab.Save(selector, directory[ProgAccessController].ID, tv)
+	err = ab.Save(selector, solutils.GetProgramID(solutils.ProgAccessController), tv)
 	require.NoError(t, err)
 
 	tv = cldf.NewTypeAndVersion(commontypes.RBACTimelockProgram, deployment.Version1_0_0)
-	err = ab.Save(selector, directory[ProgTimelock].ID, tv)
+	err = ab.Save(selector, solutils.GetProgramID(solutils.ProgTimelock), tv)
 	require.NoError(t, err)
 
 	return ab
