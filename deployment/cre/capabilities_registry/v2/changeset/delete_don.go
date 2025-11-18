@@ -19,10 +19,8 @@ import (
 	crecontracts "github.com/smartcontractkit/chainlink/deployment/cre/contracts"
 )
 
-// ensure the type implements the framework interface
 var _ cldf.ChangeSetV2[DeleteDONsInput] = DeleteDONs{}
 
-// DeleteDONsInput is the configuration payload for deleting one or more DONs by name.
 type DeleteDONsInput struct {
 	RegistryQualifier string                   `json:"registryQualifier" yaml:"registryQualifier"`
 	RegistryChainSel  uint64                   `json:"registryChainSel" yaml:"registryChainSel"`
@@ -92,7 +90,6 @@ func (d DeleteDONs) Apply(e cldf.Environment, cfg DeleteDONsInput) (cldf.Changes
 		return cldf.ChangesetOutput{}, fmt.Errorf("failed to create strategy: %w", err)
 	}
 
-	// Execute the deletion operation
 	deleteReport, err := operations.ExecuteOperation(
 		e.OperationsBundle,
 		opscontracts.DeleteDON,
