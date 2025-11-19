@@ -43,7 +43,7 @@ func assertSuiSourceRevertExpectedError(t *testing.T, err error, execRevertError
 }
 
 func Test_CCIPTokenTransfer_Sui2EVM_ManagedTokenPool(t *testing.T) {
-	e, sourceChain, destChain, state, outputMap, outputMapTransferToken, outputMapTransferToken1 := test_setup_token_transfer(t)
+	e, sourceChain, destChain, state, outputMap, outputMapTransferToken, outputMapTransferToken1 := testSetupTokenTransfer(t)
 
 	// Receiver Address
 	ccipReceiverAddress := state.Chains[destChain].Receiver.Address()
@@ -134,7 +134,7 @@ func Test_CCIPTokenTransfer_Sui2EVM_ManagedTokenPool(t *testing.T) {
 }
 
 func Test_CCIPTokenTransfer_Sui2EVM_BurnMintTokenPool(t *testing.T) {
-	e, sourceChain, destChain, state, outputMap, outputMapTransferToken, outputMapTransferToken1 := test_setup_token_transfer(t)
+	e, sourceChain, destChain, state, outputMap, outputMapTransferToken, outputMapTransferToken1 := testSetupTokenTransfer(t)
 
 	_, transferTokenOutput2, err := commoncs.ApplyChangesets(t, e.Env, []commoncs.ConfiguredChangeSet{
 		commoncs.Configure(sui_cs.MintLinkToken{}, sui_cs.MintLinkTokenConfig{
@@ -302,7 +302,7 @@ func Test_CCIPTokenTransfer_Sui2EVM_BurnMintTokenPool(t *testing.T) {
 	})
 }
 
-func test_setup_token_transfer(t *testing.T) (testhelpers.DeployedEnv, uint64, uint64, stateview.CCIPOnChainState, sui_ops.OpTxResult[linkops.MintLinkTokenOutput], sui_ops.OpTxResult[linkops.MintLinkTokenOutput], sui_ops.OpTxResult[linkops.MintLinkTokenOutput]) {
+func testSetupTokenTransfer(t *testing.T) (testhelpers.DeployedEnv, uint64, uint64, stateview.CCIPOnChainState, sui_ops.OpTxResult[linkops.MintLinkTokenOutput], sui_ops.OpTxResult[linkops.MintLinkTokenOutput], sui_ops.OpTxResult[linkops.MintLinkTokenOutput]) {
 	e, _, _ := testsetups.NewIntegrationEnvironment(
 		t,
 		testhelpers.WithNumOfChains(2),
@@ -377,7 +377,7 @@ func test_setup_token_transfer(t *testing.T) (testhelpers.DeployedEnv, uint64, u
 }
 
 func Test_CCIPTokenTransfer_EVM2SUI_ManagedTokenPool(t *testing.T) {
-	e, sourceChain, destChain, state, deployerSourceChain, suiTokenBytes, suiAddr := test_setup(t)
+	e, sourceChain, destChain, deployerSourceChain, suiTokenBytes, suiAddr := testSetupHelper(t)
 
 	// Token Pool setup on both SUI and EVM
 	updatedEnv, evmToken, _, err := testhelpers.HandleTokenAndManagedTokenPoolDeploymentForSUI(e.Env, destChain, sourceChain, []testhelpers.TokenPoolRateLimiterConfig{
@@ -393,7 +393,7 @@ func Test_CCIPTokenTransfer_EVM2SUI_ManagedTokenPool(t *testing.T) {
 	}) // sourceChain=EVM, destChain=SUI
 	require.NoError(t, err)
 
-	state, err = stateview.LoadOnchainState(e.Env)
+	state, err := stateview.LoadOnchainState(e.Env)
 	require.NoError(t, err)
 
 	// update env to include deployed contracts
@@ -589,7 +589,7 @@ func Test_CCIPTokenTransfer_EVM2SUI_ManagedTokenPool(t *testing.T) {
 }
 
 func Test_CCIPTokenTransfer_EVM2SUI_BurnMintTokenPool(t *testing.T) {
-	e, sourceChain, destChain, state, deployerSourceChain, suiTokenBytes, suiAddr := test_setup(t)
+	e, sourceChain, destChain, deployerSourceChain, suiTokenBytes, suiAddr := testSetupHelper(t)
 
 	// Token Pool setup on both SUI and EVM
 	updatedEnv, evmToken, _, err := testhelpers.HandleTokenAndBurnMintTokenPoolDeploymentForSUI(e.Env, destChain, sourceChain, []testhelpers.TokenPoolRateLimiterConfig{
@@ -605,7 +605,7 @@ func Test_CCIPTokenTransfer_EVM2SUI_BurnMintTokenPool(t *testing.T) {
 	}) // sourceChain=EVM, destChain=SUI
 	require.NoError(t, err)
 
-	state, err = stateview.LoadOnchainState(e.Env)
+	state, err := stateview.LoadOnchainState(e.Env)
 	require.NoError(t, err)
 
 	// update env to include deployed contracts
@@ -801,7 +801,7 @@ func Test_CCIPTokenTransfer_EVM2SUI_BurnMintTokenPool(t *testing.T) {
 }
 
 func Test_CCIPPureTokenTransfer_EVM2SUI_BurnMintTokenPool(t *testing.T) {
-	e, sourceChain, destChain, state, deployerSourceChain, suiTokenBytes, suiAddr := test_setup(t)
+	e, sourceChain, destChain, deployerSourceChain, suiTokenBytes, suiAddr := testSetupHelper(t)
 
 	// Token Pool setup on both SUI and EVM
 	updatedEnv, evmToken, _, err := testhelpers.HandleTokenAndBurnMintTokenPoolDeploymentForSUI(e.Env, destChain, sourceChain, []testhelpers.TokenPoolRateLimiterConfig{
@@ -817,7 +817,7 @@ func Test_CCIPPureTokenTransfer_EVM2SUI_BurnMintTokenPool(t *testing.T) {
 	}) // sourceChain=EVM, destChain=SUI
 	require.NoError(t, err)
 
-	state, err = stateview.LoadOnchainState(e.Env)
+	state, err := stateview.LoadOnchainState(e.Env)
 	require.NoError(t, err)
 
 	// update env to include deployed contracts
@@ -894,7 +894,7 @@ func Test_CCIPPureTokenTransfer_EVM2SUI_BurnMintTokenPool(t *testing.T) {
 }
 
 func Test_CCIPProgrammableTokenTransfer_EVM2SUI_BurnMintTokenPool(t *testing.T) {
-	e, sourceChain, destChain, state, deployerSourceChain, _, _ := test_setup(t)
+	e, sourceChain, destChain, deployerSourceChain, _, _ := testSetupHelper(t)
 
 	// Token Pool setup on both SUI and EVM
 	updatedEnv, evmToken, _, err := testhelpers.HandleTokenAndBurnMintTokenPoolDeploymentForSUI(e.Env, destChain, sourceChain, []testhelpers.TokenPoolRateLimiterConfig{
@@ -910,7 +910,7 @@ func Test_CCIPProgrammableTokenTransfer_EVM2SUI_BurnMintTokenPool(t *testing.T) 
 	}) // sourceChain=EVM, destChain=SUI
 	require.NoError(t, err)
 
-	state, err = stateview.LoadOnchainState(e.Env)
+	state, err := stateview.LoadOnchainState(e.Env)
 	require.NoError(t, err)
 
 	// update env to include deployed contracts
@@ -1022,7 +1022,7 @@ func Test_CCIPProgrammableTokenTransfer_EVM2SUI_BurnMintTokenPool(t *testing.T) 
 }
 
 func Test_CCIPZeroGasLimitTokenTransfer_EVM2SUI_BurnMintTokenPool(t *testing.T) {
-	e, sourceChain, destChain, state, deployerSourceChain, suiTokenBytes, suiAddr := test_setup(t)
+	e, sourceChain, destChain, deployerSourceChain, suiTokenBytes, suiAddr := testSetupHelper(t)
 
 	// Token Pool setup on both SUI and EVM
 	updatedEnv, evmToken, _, err := testhelpers.HandleTokenAndBurnMintTokenPoolDeploymentForSUI(e.Env, destChain, sourceChain, []testhelpers.TokenPoolRateLimiterConfig{
@@ -1038,7 +1038,7 @@ func Test_CCIPZeroGasLimitTokenTransfer_EVM2SUI_BurnMintTokenPool(t *testing.T) 
 	}) // sourceChain=EVM, destChain=SUI
 	require.NoError(t, err)
 
-	state, err = stateview.LoadOnchainState(e.Env)
+	state, err := stateview.LoadOnchainState(e.Env)
 	require.NoError(t, err)
 
 	// update env to include deployed contracts
@@ -1148,7 +1148,7 @@ func Test_CCIPZeroGasLimitTokenTransfer_EVM2SUI_BurnMintTokenPool(t *testing.T) 
 	testhelpers.WaitForTokenBalances(ctx, t, e.Env, expectedTokenBalances)
 }
 
-func test_setup(t *testing.T) (testhelpers.DeployedEnv, uint64, uint64, stateview.CCIPOnChainState, *bind.TransactOpts, []byte, [32]byte) {
+func testSetupHelper(t *testing.T) (testhelpers.DeployedEnv, uint64, uint64, *bind.TransactOpts, []byte, [32]byte) {
 	e, _, _ := testsetups.NewIntegrationEnvironment(
 		t,
 		testhelpers.WithNumOfChains(2),
@@ -1191,5 +1191,5 @@ func test_setup(t *testing.T) (testhelpers.DeployedEnv, uint64, uint64, statevie
 	require.Len(t, addrBytes, 32, "expected 32-byte sui address")
 	copy(suiAddr[:], addrBytes)
 
-	return e, sourceChain, destChain, state, deployerSourceChain, suiTokenBytes, suiAddr
+	return e, sourceChain, destChain, deployerSourceChain, suiTokenBytes, suiAddr
 }
