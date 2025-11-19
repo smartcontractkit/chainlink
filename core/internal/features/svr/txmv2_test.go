@@ -17,6 +17,7 @@ import (
 	gethtypes "github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/eth/ethconfig"
 	"github.com/ethereum/go-ethereum/ethclient/simulated"
+	"github.com/ethereum/go-ethereum/rpc"
 	"github.com/google/uuid"
 	"github.com/onsi/gomega"
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
@@ -351,19 +352,20 @@ func TestIntegration_secondary_feed_transmission(t *testing.T) {
 			for _, log := range logs {
 				msg := strings.ToLower(log.Message)
 				// Check for primary transmission (to chain)
-				// Look for transmit-related messages that don't mention secondary or flashbots
-				// Primary transmission typically logs about sending to chain/contract
-				if (strings.Contains(msg, "transmit") || strings.Contains(msg, "transmission")) &&
-					!strings.Contains(msg, "secondary") &&
-					!strings.Contains(msg, "flashbots") &&
-					!strings.Contains(msg, "transmitsecondary") {
+				// Look for "Created primary transaction" or transmit-related messages that don't mention secondary
+				if strings.Contains(msg, "created primary transaction") ||
+					((strings.Contains(msg, "transmit") || strings.Contains(msg, "transmission")) &&
+						!strings.Contains(msg, "secondary") &&
+						!strings.Contains(msg, "flashbots") &&
+						!strings.Contains(msg, "transmitsecondary")) {
 					primaryFound = true
 					t.Logf("Node %d: Found primary transmission log: %s", i, log.Message)
 				}
 				// Check for secondary transmission to Flashbots
-				// Look for explicit secondary transmission or Flashbots-related messages
-				if strings.Contains(msg, "transmitsecondary") ||
-					(strings.Contains(msg, "secondary") && (strings.Contains(msg, "transmit") || strings.Contains(msg, "transmission"))) ||
+				// Look for "Created secondary transaction" or explicit secondary transmission messages
+				if strings.Contains(msg, "created secondary transaction") ||
+					strings.Contains(msg, "transmitsecondary") ||
+					(strings.Contains(msg, "secondary") && (strings.Contains(msg, "transmit") || strings.Contains(msg, "transmission") || strings.Contains(msg, "transaction"))) ||
 					(strings.Contains(msg, "secondary") && strings.Contains(msg, "flashbots")) ||
 					(strings.Contains(msg, "flashbots") && (strings.Contains(msg, "transmit") || strings.Contains(msg, "transmission"))) {
 					secondaryFound = true
