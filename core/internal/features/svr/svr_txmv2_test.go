@@ -15,20 +15,19 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	gethtypes "github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/eth/ethconfig"
+	"github.com/ethereum/go-ethereum/ethclient/simulated"
 	"github.com/ethereum/go-ethereum/rpc"
 	"github.com/google/uuid"
-	"github.com/hashicorp/consul/sdk/freeport"
 	clcommonTypes "github.com/smartcontractkit/chainlink-common/pkg/types"
+	evmtestutils "github.com/smartcontractkit/chainlink-evm/pkg/testutils"
+	"github.com/smartcontractkit/freeport"
 	"github.com/stretchr/testify/require"
 	"gopkg.in/guregu/null.v4"
 
 	"github.com/smartcontractkit/libocr/offchainreporting2/reportingplugin/median"
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/confighelper"
 
-	"github.com/smartcontractkit/chainlink-integrations/evm/assets"
-	"github.com/smartcontractkit/chainlink-integrations/evm/testutils"
-	evmtestutils "github.com/smartcontractkit/chainlink-integrations/evm/testutils"
-	evmtypes "github.com/smartcontractkit/chainlink-integrations/evm/types"
+	"github.com/smartcontractkit/chainlink-evm/pkg/assets"
 
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
@@ -45,7 +44,7 @@ import (
 	Steps to run:
 	* `docker run --name cl-postgres -e POSTGRES_USER=postgres -e POSTGRES_PASSWORD=postgres -e POSTGRES_DB=dbname -p 5432:5432 -d postgres`
 	* `make setup-testdb` (password is 'postgres')
-	* `CL_DATABASE_URL=postgresql://chainlink_dev:insecurepassword@localhost:5432/chainlink_development_test?sslmode=disable go test -run ^TestIntegration_secondary_feed_transmission$ github.com/smartcontractkit/chainlink/v2/core/chains/evm/txm/integrationtest -v`
+	* `CL_DATABASE_URL=postgresql://chainlink_dev:insecurepassword@localhost:5432/chainlink_development_test?sslmode=disable go test -run ^TestIntegration_secondary_feed_transmission$ github.com/smartcontractkit/chainlink/v2/core/internal/features/svr -v`
 */
 
 var (
@@ -489,7 +488,7 @@ func TestIntegration_secondary_feed_transmission(t *testing.T) {
 
 }
 
-func setupBlockchain(t *testing.T) (*bind.TransactOpts, evmtypes.Backend) {
+func setupBlockchain(t *testing.T) (*bind.TransactOpts, simulated.Backend) {
 	// TODO(gg): maybe use seth instead?
 
 	contractOwner := evmtestutils.MustNewSimTransactor(t) // config contract deployer and owner
@@ -515,7 +514,7 @@ func mustNewType(t string) abi.Type {
 	return result
 }
 
-func fundAddressOf(key ethkey.KeyV2, contractOwner *bind.TransactOpts, backend evmtypes.Backend) error {
+func fundAddressOf(key ethkey.KeyV2, contractOwner *bind.TransactOpts, backend simulated.Backend) error {
 
 	// backend.Client().SendTransaction()
 	// contractOwner.From
