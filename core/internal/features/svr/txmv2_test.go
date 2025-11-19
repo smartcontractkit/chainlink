@@ -17,7 +17,6 @@ import (
 	gethtypes "github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/eth/ethconfig"
 	"github.com/ethereum/go-ethereum/ethclient/simulated"
-	"github.com/ethereum/go-ethereum/rpc"
 	"github.com/google/uuid"
 	"github.com/onsi/gomega"
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
