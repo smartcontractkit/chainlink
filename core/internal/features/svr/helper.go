@@ -10,6 +10,8 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"net/url"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 	"time"
@@ -19,6 +21,7 @@ import (
 	"github.com/smartcontractkit/freeport"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
 	"go.uber.org/zap/zaptest/observer"
 
@@ -197,7 +200,54 @@ func setupNode(
 		c.Log.Level = ptr(toml.LogLevel(zapcore.DebugLevel))
 	})
 
+	// Create file logger core
+	fileCore, logFile, err := createFileLogger(t, nodeName)
+	if err != nil {
+		t.Fatalf("Failed to create file logger: %v", err)
+	}
+	// Ensure log file is closed on cleanup
+	t.Cleanup(func() {
+		if logFile != nil {
+			_ = logFile.Sync()
+			_ = logFile.Close()
+		}
+	})
+
+	// Create observed logger (for test assertions)
 	lggr, observedLogs := logger.TestLoggerObserved(t, config.Log().Level())
+
+	// Start a goroutine to write observed logs to file in real-time
+	// This ensures the log file captures all logs from the node
+	go func() {
+		ticker := time.NewTicker(100 * time.Millisecond)
+		defer ticker.Stop()
+		lastCount := 0
+		ctx := testutils.Context(t)
+		for {
+			select {
+			case <-ticker.C:
+				logs := observedLogs.All()
+				if len(logs) > lastCount {
+					// Write new logs to file
+					for i := lastCount; i < len(logs); i++ {
+						log := logs[i]
+						entry := zapcore.Entry{
+							Time:    log.Time,
+							Level:   log.Level,
+							Message: log.Message,
+							Caller:  log.Caller,
+						}
+						_ = fileCore.Write(entry, log.Context)
+					}
+					lastCount = len(logs)
+					// Sync file periodically
+					_ = logFile.Sync()
+				}
+			case <-ctx.Done():
+				return
+			}
+		}
+	}()
 
 	if backend != nil {
 		app = cltest.NewApplicationWithConfigV2OnSimulatedBlockchain(t, config, backend, p2pKey, ocr2kb, csaKey, lggr.Named(nodeName))
@@ -205,7 +255,7 @@ func setupNode(
 		app = cltest.NewApplicationWithConfig(t, config, p2pKey, ocr2kb, csaKey, lggr.Named(nodeName))
 	}
 
-	err := app.Start(testutils.Context(t))
+	err = app.Start(testutils.Context(t))
 	require.NoError(t, err)
 
 	t.Cleanup(func() {
@@ -214,6 +264,69 @@ func setupNode(
 
 	t.Logf("GEERT p2pkey raw is %s", p2pKey.PeerID().Raw())
 	return app, p2pKey.PeerID().Raw(), csaKey.StaticSizedPublicKey(), ocr2kb, observedLogs
+}
+
+// createFileLogger creates a logger that writes to a file in the logs/ directory
+func createFileLogger(t *testing.T, nodeName string) (zapcore.Core, *os.File, error) {
+	// Find project root by looking for go.mod file
+	// Start from current working directory and walk up
+	cwd, err := os.Getwd()
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed to get current working directory: %w", err)
+	}
+
+	// Try to find project root (where go.mod is)
+	logsDir := "logs"
+	dir := cwd
+	for {
+		if _, err := os.Stat(filepath.Join(dir, "go.mod")); err == nil {
+			// Found project root, use logs directory there
+			logsDir = filepath.Join(dir, "logs")
+			break
+		}
+		parent := filepath.Dir(dir)
+		if parent == dir {
+			// Reached filesystem root, use logs in current directory
+			logsDir = filepath.Join(cwd, "logs")
+			break
+		}
+		dir = parent
+	}
+
+	// Create logs directory if it doesn't exist
+	if err := os.MkdirAll(logsDir, 0o755); err != nil {
+		return nil, nil, fmt.Errorf("failed to create logs directory: %w", err)
+	}
+
+	// Create log file with test name and node name
+	timestamp := time.Now().Format("2006-01-02T15-04-05")
+	filename := fmt.Sprintf("%s_%s_%s.log", timestamp, t.Name(), nodeName)
+	// Sanitize filename (remove invalid characters)
+	filename = strings.ReplaceAll(filename, "/", "_")
+	filename = strings.ReplaceAll(filename, " ", "_")
+
+	logPath := filepath.Join(logsDir, filename)
+
+	file, err := os.Create(logPath)
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed to create log file: %w", err)
+	}
+
+	t.Logf("Writing logs for %s to %s", nodeName, logPath)
+
+	// Create encoder config
+	encCfg := zap.NewDevelopmentEncoderConfig()
+	encCfg.EncodeTime = zapcore.TimeEncoderOfLayout("2006-01-02T15:04:05.000000000Z07:00")
+	encCfg.EncodeLevel = zapcore.CapitalLevelEncoder
+
+	// Create core that writes to file
+	core := zapcore.NewCore(
+		zapcore.NewJSONEncoder(encCfg),
+		zapcore.AddSync(file),
+		zapcore.DebugLevel,
+	)
+
+	return core, file, nil
 }
 
 func ptr[T any](t T) *T { return &t }
