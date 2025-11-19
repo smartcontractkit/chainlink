@@ -86,6 +86,16 @@ type CCIPMessageSent struct {
 	Message           Sui2AnyRampMessage `json:"message"`
 }
 
+type TokenPoolRateLimiterConfig struct {
+	RemoteChainSelector uint64
+	OutboundIsEnabled   bool
+	OutboundCapacity    uint64
+	OutboundRate        uint64
+	InboundIsEnabled    bool
+	InboundCapacity     uint64
+	InboundRate         uint64
+}
+
 func SendSuiCCIPRequest(e cldf.Environment, cfg *ccipclient.CCIPSendReqConfig) (*ccipclient.AnyMsgSentEvent, error) {
 	ctx := e.GetContext()
 	state, err := stateview.LoadOnchainState(e)
@@ -617,7 +627,7 @@ func MakeSuiExtraArgs(gasLimit uint64, allowOOO bool, receiverObjectIDs [][32]by
 
 // HandleTokenAndBurnMintTokenPoolDeploymentForSUI deploys a transferrable token and a burn mint token pool on the EVM chain.
 // It also deploys a burn mint token pool on the SUI chain and configures it to work with the transferrable token on the EVM chain.
-func HandleTokenAndBurnMintTokenPoolDeploymentForSUI(e cldf.Environment, suiChainSel, evmChainSel uint64) (cldf.Environment, *burn_mint_erc677.BurnMintERC677, *burn_mint_token_pool.BurnMintTokenPool, error) {
+func HandleTokenAndBurnMintTokenPoolDeploymentForSUI(e cldf.Environment, suiChainSel, evmChainSel uint64, rateLimiterConfigs []TokenPoolRateLimiterConfig) (cldf.Environment, *burn_mint_erc677.BurnMintERC677, *burn_mint_token_pool.BurnMintTokenPool, error) {
 	suiChains := e.BlockChains.SuiChains()
 	suiChain := suiChains[suiChainSel]
 
@@ -665,13 +675,13 @@ func HandleTokenAndBurnMintTokenPoolDeploymentForSUI(e cldf.Environment, suiChai
 				},
 
 				// set chain rate limiter configs
-				RemoteChainSelectors: []uint64{evmChainSel},
-				OutboundIsEnableds:   []bool{false},
-				OutboundCapacities:   []uint64{100000},
-				OutboundRates:        []uint64{100},
-				InboundIsEnableds:    []bool{false},
-				InboundCapacities:    []uint64{100000},
-				InboundRates:         []uint64{100},
+				RemoteChainSelectors: extractFields(rateLimiterConfigs, func(c TokenPoolRateLimiterConfig) uint64 { return c.RemoteChainSelector }),
+				OutboundIsEnableds:   extractFields(rateLimiterConfigs, func(c TokenPoolRateLimiterConfig) bool { return c.OutboundIsEnabled }),
+				OutboundCapacities:   extractFields(rateLimiterConfigs, func(c TokenPoolRateLimiterConfig) uint64 { return c.OutboundCapacity }),
+				OutboundRates:        extractFields(rateLimiterConfigs, func(c TokenPoolRateLimiterConfig) uint64 { return c.OutboundRate }),
+				InboundIsEnableds:    extractFields(rateLimiterConfigs, func(c TokenPoolRateLimiterConfig) bool { return c.InboundIsEnabled }),
+				InboundCapacities:    extractFields(rateLimiterConfigs, func(c TokenPoolRateLimiterConfig) uint64 { return c.InboundCapacity }),
+				InboundRates:         extractFields(rateLimiterConfigs, func(c TokenPoolRateLimiterConfig) uint64 { return c.InboundRate }),
 			},
 		}),
 	})
@@ -739,7 +749,7 @@ func HandleTokenAndBurnMintTokenPoolDeploymentForSUI(e cldf.Environment, suiChai
 
 // HandleTokenAndManagedTokenPoolDeploymentForSUI deploys a transferrable token and a burn mint token pool on the EVM chain.
 // It also deploys a managed token pool on the SUI chain and configures it to work with the transferrable token on the EVM chain.
-func HandleTokenAndManagedTokenPoolDeploymentForSUI(e cldf.Environment, suiChainSel, evmChainSel uint64) (cldf.Environment, *burn_mint_erc677.BurnMintERC677, *burn_mint_token_pool.BurnMintTokenPool, error) {
+func HandleTokenAndManagedTokenPoolDeploymentForSUI(e cldf.Environment, suiChainSel, evmChainSel uint64, rateLimiterConfigs []TokenPoolRateLimiterConfig) (cldf.Environment, *burn_mint_erc677.BurnMintERC677, *burn_mint_token_pool.BurnMintTokenPool, error) {
 	evmChain := e.BlockChains.EVMChains()[evmChainSel]
 	suiChain := e.BlockChains.SuiChains()[suiChainSel]
 	deployerAddr, err := suiChain.Signer.GetAddress()
@@ -813,13 +823,13 @@ func HandleTokenAndManagedTokenPoolDeploymentForSUI(e cldf.Environment, suiChain
 				},
 
 				// set chain rate limiter configs
-				RemoteChainSelectors: []uint64{evmChainSel},
-				OutboundIsEnableds:   []bool{false},
-				OutboundCapacities:   []uint64{100000},
-				OutboundRates:        []uint64{100},
-				InboundIsEnableds:    []bool{false},
-				InboundCapacities:    []uint64{100000},
-				InboundRates:         []uint64{100},
+				RemoteChainSelectors: extractFields(rateLimiterConfigs, func(c TokenPoolRateLimiterConfig) uint64 { return c.RemoteChainSelector }),
+				OutboundIsEnableds:   extractFields(rateLimiterConfigs, func(c TokenPoolRateLimiterConfig) bool { return c.OutboundIsEnabled }),
+				OutboundCapacities:   extractFields(rateLimiterConfigs, func(c TokenPoolRateLimiterConfig) uint64 { return c.OutboundCapacity }),
+				OutboundRates:        extractFields(rateLimiterConfigs, func(c TokenPoolRateLimiterConfig) uint64 { return c.OutboundRate }),
+				InboundIsEnableds:    extractFields(rateLimiterConfigs, func(c TokenPoolRateLimiterConfig) bool { return c.InboundIsEnabled }),
+				InboundCapacities:    extractFields(rateLimiterConfigs, func(c TokenPoolRateLimiterConfig) uint64 { return c.InboundCapacity }),
+				InboundRates:         extractFields(rateLimiterConfigs, func(c TokenPoolRateLimiterConfig) uint64 { return c.InboundRate }),
 			},
 		}),
 	})
@@ -1009,4 +1019,13 @@ func UpgradeContractDirect(
 	}
 
 	return resp, nil
+}
+
+// Helper functions to extract rate limiter config fields from array using concise Go patterns
+func extractFields[T any](configs []TokenPoolRateLimiterConfig, selector func(TokenPoolRateLimiterConfig) T) []T {
+	result := make([]T, len(configs))
+	for i, config := range configs {
+		result[i] = selector(config)
+	}
+	return result
 }
