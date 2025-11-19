@@ -82,6 +82,11 @@ func NewMedianServices(ctx context.Context,
 		cfg.JobPipelineResultWriteQueueDepth(),
 	)
 
+	// add gas limit if it's set in the job spec
+	if limit, err2 := jb.GasLimit.Value(); err2 == nil {
+		spec.PluginConfig["gasLimit"] = limit
+	}
+
 	provider, err := relayer.NewPluginProvider(ctx, types.RelayArgs{
 		ExternalJobID: jb.ExternalJobID,
 		JobID:         jb.ID,

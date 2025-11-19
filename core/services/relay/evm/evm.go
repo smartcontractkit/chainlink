@@ -887,7 +887,19 @@ func (r *Relayer) NewMedianProvider(ctx context.Context, rargs commontypes.Relay
 
 	reportCodec := evmreportcodec.ReportCodec{}
 
-	ct, err := transmitter.NewContractTransmitter(ctx, lggr, rargs, r.evmKeystore, configWatcher.chain, configWatcher.contractAddress, transmitter.ConfigTransmitterOpts{}, OCR2AggregatorTransmissionContractABI, relayConfig.EnableDualTransmission)
+	var pluginCfg map[string]any
+	if err = json.Unmarshal(pargs.PluginConfig, &pluginCfg); err != nil {
+		return nil, pkgerrors.WithStack(err)
+	}
+
+	// add gas limit if it's set in the plugin config
+	transmitterOpts := transmitter.ConfigTransmitterOpts{}
+	if limit, ok := pluginCfg["gasLimit"]; ok {
+		gasLimit := limit.(uint32)
+		transmitterOpts.PluginGasLimit = &gasLimit
+	}
+
+	ct, err := transmitter.NewContractTransmitter(ctx, lggr, rargs, r.evmKeystore, configWatcher.chain, configWatcher.contractAddress, transmitterOpts, OCR2AggregatorTransmissionContractABI, relayConfig.EnableDualTransmission)
 	if err != nil {
 		return nil, err
 	}
