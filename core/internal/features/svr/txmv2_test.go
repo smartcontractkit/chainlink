@@ -350,22 +350,14 @@ func TestIntegration_secondary_feed_transmission(t *testing.T) {
 			for _, log := range logs {
 				msg := strings.ToLower(log.Message)
 				// Check for primary transmission (to chain)
-				// Look for "Created primary transaction" or transmit-related messages that don't mention secondary
-				if !primaryFound && (strings.Contains(msg, "created primary transaction") ||
-					((strings.Contains(msg, "transmit") || strings.Contains(msg, "transmission")) &&
-						!strings.Contains(msg, "secondary") &&
-						!strings.Contains(msg, "flashbots") &&
-						!strings.Contains(msg, "transmitsecondary"))) {
+				// Look for "Created primary transaction" - this is the actual log message from dual contract transmitter
+				if !primaryFound && strings.Contains(msg, "created primary transaction") {
 					primaryFound = true
 					t.Logf("Node %d: Found primary transmission log: %s", i, log.Message)
 				}
 				// Check for secondary transmission to Flashbots
-				// Look for "Created secondary transaction" or explicit secondary transmission messages
-				if !secondaryFound && (strings.Contains(msg, "created secondary transaction") ||
-					strings.Contains(msg, "transmitsecondary") ||
-					(strings.Contains(msg, "secondary") && (strings.Contains(msg, "transmit") || strings.Contains(msg, "transmission") || strings.Contains(msg, "transaction"))) ||
-					(strings.Contains(msg, "secondary") && strings.Contains(msg, "flashbots")) ||
-					(strings.Contains(msg, "flashbots") && (strings.Contains(msg, "transmit") || strings.Contains(msg, "transmission")))) {
+				// Look for "Created secondary transaction" - this is the actual log message from dual contract transmitter
+				if !secondaryFound && strings.Contains(msg, "created secondary transaction") {
 					secondaryFound = true
 					t.Logf("Node %d: Found secondary transmission log: %s", i, log.Message)
 				}
