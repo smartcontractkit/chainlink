@@ -494,10 +494,8 @@ func upgradeSuiOnRamp(ctx context.Context, t *testing.T, e testhelpers.DeployedE
 		"original_onramp_pkg": state.SuiChains[sourceChain].OnRampAddress,
 		"upgrade_cap":         state.SuiChains[sourceChain].OnRampUpgradeCapId,
 		"signer":              signerAddr,
-	}, true)
+	}, true, "")
 	require.NoError(t, err)
-
-	fmt.Println("ONRAMP COMPILED PKG: ", len(compiledPackage.Dependencies), len(compiledPackage.Modules))
 
 	// decode modules from base64 -> [][]byte
 	moduleBytes := make([][]byte, len(compiledPackage.Modules))
@@ -587,7 +585,7 @@ func upgradeSuiOffRamp(ctx context.Context, t *testing.T, e testhelpers.Deployed
 		"original_offramp_pkg": state.SuiChains[sourceChain].OffRampAddress,
 		"upgrade_cap":          state.SuiChains[sourceChain].OffRampUpgradeCapId,
 		"signer":               signerAddr,
-	}, true)
+	}, true, "")
 	require.NoError(t, err)
 
 	// decode modules from base64 -> [][]byte
@@ -677,10 +675,8 @@ func upgradeCCIP(ctx context.Context, t *testing.T, e testhelpers.DeployedEnv, s
 		"original_ccip_pkg": state.SuiChains[sourceChain].CCIPAddress,
 		"upgrade_cap":       state.SuiChains[sourceChain].CCIPUpgradeCapObjectId,
 		"signer":            signerAddr,
-	}, true)
+	}, true, "")
 	require.NoError(t, err)
-
-	fmt.Println("CCIP COMPILED PKG: ", len(compiledPackage.Dependencies), len(compiledPackage.Modules))
 
 	// decode modules from base64 -> [][]byte
 	moduleBytes := make([][]byte, len(compiledPackage.Modules))
@@ -695,8 +691,6 @@ func upgradeCCIP(ctx context.Context, t *testing.T, e testhelpers.DeployedEnv, s
 	for i, dep := range compiledPackage.Dependencies {
 		depAddresses[i] = models.SuiAddress(dep)
 	}
-
-	fmt.Println("Dependency Upgrade Addr: ", depAddresses)
 
 	policy := byte(0)
 
@@ -745,15 +739,11 @@ func upgradeCCIP(ctx context.Context, t *testing.T, e testhelpers.DeployedEnv, s
 
 	require.Equal(t, "FeeQuoter 1.6.1", typeAndVersion)
 
-	fmt.Println("NEW CCIPPKGID: ", newCCIPPkgID, "OLD: ", state.SuiChains[sourceChain].CCIPAddress)
 	// save the new pkgId to addressbook
 	typeAndVersionCCIPMockV2 := cldf.NewTypeAndVersion(deployment.SuiCCIPMockV2, deployment.Version1_0_0)
 	//nolint:staticcheck // using ExistingAddresses temporarily until Sui migration to datastore is complete
 	err = e.Env.ExistingAddresses.Save(sourceChain, newCCIPPkgID, typeAndVersionCCIPMockV2)
 	require.NoError(t, err)
-
-	newPkgID := newFQ.Bound().GetPackageID()
-	fmt.Println("FQ NEW PKG ID: ", newPkgID)
 
 	fmt.Println("Upgraded SUI CCIP")
 

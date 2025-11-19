@@ -105,12 +105,12 @@ func (c *ExecutionHelper) callCapability(ctx context.Context, request *sdkpb.Cap
 	if err != nil {
 		// not explicitly an error case and more relevant (helpful) logging occurs in the metering package
 		// debug level should be sufficient here
-		c.lggr.Debugf("capability config not found: %s", err)
+		c.logger().Debugf("capability config not found: %s", err)
 	}
 
 	meterReport, ok := c.meterReports.Get(c.WorkflowExecutionID)
 	if !ok {
-		c.lggr.Errorf("no metering report found for %v", c.WorkflowExecutionID)
+		c.logger().Errorf("no metering report found for %v", c.WorkflowExecutionID)
 	}
 
 	meteringRef := strconv.Itoa(int(request.CallbackId))
@@ -159,7 +159,7 @@ func (c *ExecutionHelper) callCapability(ctx context.Context, request *sdkpb.Cap
 		Config: values.EmptyMap(),
 	}
 
-	c.lggr.Debugw("Executing capability ...", "capID", request.Id, "capReqCallbackID", request.CallbackId, "capReqMethod", request.Method)
+	c.logger().Debugw("Executing capability ...", "capID", request.Id, "capReqCallbackID", request.CallbackId, "capReqMethod", request.Method)
 	c.metrics.With(platform.KeyCapabilityID, request.Id).IncrementCapabilityInvocationCounter(ctx)
 	loggerLabels := *c.loggerLabels.Load()
 	_ = events.EmitCapabilityStartedEvent(ctx, loggerLabels, c.WorkflowExecutionID, request.Id, meteringRef, request.Method)
@@ -175,19 +175,19 @@ func (c *ExecutionHelper) callCapability(ctx context.Context, request *sdkpb.Cap
 	executionDuration := time.Since(executionStart)
 	c.metrics.With(platform.KeyCapabilityID, request.Id).UpdateCapabilityExecutionDurationHistogram(ctx, int64(executionDuration.Seconds()))
 	if err != nil {
-		c.lggr.Debugw("Capability execution failed", "capID", request.Id, "capReqCallbackID", request.CallbackId, "err", err)
+		c.logger().Debugw("Capability execution failed", "capID", request.Id, "capReqCallbackID", request.CallbackId, "err", err)
 		_ = events.EmitCapabilityFinishedEvent(ctx, loggerLabels, c.WorkflowExecutionID, request.Id, meteringRef, store.StatusErrored, request.Method, err)
 		c.metrics.With(platform.KeyCapabilityID, request.Id).IncrementCapabilityFailureCounter(ctx)
 		c.metrics.IncrementTotalWorkflowStepErrorsCounter(ctx)
 		return nil, fmt.Errorf("failed to execute capability: %w", err)
 	}
 
-	c.lggr.Debugw("Capability execution succeeded", "capID", request.Id, "capReqCallbackID", request.CallbackId)
+	c.logger().Debugw("Capability execution succeeded", "capID", request.Id, "capReqCallbackID", request.CallbackId)
 	_ = events.EmitCapabilityFinishedEvent(ctx, loggerLabels, c.WorkflowExecutionID, request.Id, meteringRef, store.StatusCompleted, request.Method, nil)
 
 	if meterReport != nil {
 		if err = meterReport.Settle(meteringRef, capResp.Metadata); err != nil {
-			c.lggr.Errorw("failed to set metering for capability request", "capReq", request.Id, "capReqCallbackID", request.CallbackId, "err", err)
+			c.logger().Errorw("failed to set metering for capability request", "capReq", request.Id, "capReqCallbackID", request.CallbackId, "err", err)
 		}
 	}
 
@@ -210,7 +210,7 @@ func (c *ExecutionHelper) EmitUserLog(msg string) error {
 	}:
 		// Successfully sent to channel
 	default:
-		c.lggr.Warnw("Exceeded max allowed user log messages, dropping")
+		c.logger().Warnw("Exceeded max allowed user log messages, dropping")
 	}
 	return nil
 }

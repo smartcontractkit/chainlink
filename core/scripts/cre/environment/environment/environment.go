@@ -259,7 +259,7 @@ func startCmd() *cobra.Command {
 			}()
 
 			if doSetup {
-				setupErr := RunSetup(cmd.Context(), SetupConfig{ConfigPath: DefaultSetupConfigPath}, true, false, withBilling)
+				setupErr := RunSetup(cmd.Context(), SetupConfig{ConfigPath: DefaultSetupConfigPath}, true, false, withBilling, relativePathToRepoRoot)
 				if setupErr != nil {
 					return errors.Wrap(setupErr, "failed to run setup")
 				}
