@@ -5,9 +5,14 @@ import (
 	"context"
 	"crypto/ed25519"
 	"encoding/hex"
+	"encoding/json"
 	"fmt"
+	"io"
 	"math/big"
+	"net/http"
+	"net/http/httptest"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -79,6 +84,143 @@ func TestIntegration_secondary_feed_transmission(t *testing.T) {
 
 	transactOpts, backend := setupBlockchain(t)
 	fromBlock := 1
+
+	// Setup mock HTTP server to receive secondary transactions (Flashbots endpoint)
+	// This server will receive secondary transactions and submit them to the chain
+	var (
+		secondaryTxReceived = sync.Map{} // map[string]bool - track received transactions by hash
+		secondaryTxCount    int64
+		secondaryTxMu       sync.Mutex
+	)
+
+	mockFlashbotsServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodPost {
+			w.WriteHeader(http.StatusMethodNotAllowed)
+			return
+		}
+
+		body, err := io.ReadAll(r.Body)
+		if err != nil {
+			t.Logf("Mock Flashbots server: failed to read request body: %v", err)
+			w.WriteHeader(http.StatusBadRequest)
+			return
+		}
+		defer r.Body.Close()
+
+		t.Logf("Mock Flashbots server: received request: %s", string(body))
+
+		// Try to parse as JSON-RPC format
+		var jsonRPCReq struct {
+			JSONRPC string          `json:"jsonrpc"`
+			Method  string          `json:"method"`
+			Params  json.RawMessage `json:"params"`
+			ID      interface{}     `json:"id"`
+		}
+
+		// Try to parse as plain JSON with transaction data
+		var txData struct {
+			Tx       string `json:"tx"`       // hex encoded transaction
+			TxHash   string `json:"txHash"`   // transaction hash
+			RawTx    string `json:"rawTx"`    // raw transaction bytes
+			SignedTx string `json:"signedTx"` // signed transaction
+		}
+
+		var txBytes []byte
+		var txHash string
+
+		// First try JSON-RPC format
+		if err := json.Unmarshal(body, &jsonRPCReq); err == nil && jsonRPCReq.Method != "" {
+			// Parse params - could be array or object
+			var params []interface{}
+			if err := json.Unmarshal(jsonRPCReq.Params, &params); err == nil && len(params) > 0 {
+				// Params might be an array with transaction data
+				if txStr, ok := params[0].(string); ok {
+					txBytes, _ = hex.DecodeString(strings.TrimPrefix(txStr, "0x"))
+				}
+			} else {
+				// Try as object
+				var paramsObj map[string]interface{}
+				if err := json.Unmarshal(jsonRPCReq.Params, &paramsObj); err == nil {
+					if tx, ok := paramsObj["tx"].(string); ok {
+						txBytes, _ = hex.DecodeString(strings.TrimPrefix(tx, "0x"))
+					}
+				}
+			}
+		} else if err := json.Unmarshal(body, &txData); err == nil {
+			// Try plain JSON format
+			if txData.RawTx != "" {
+				txBytes, _ = hex.DecodeString(strings.TrimPrefix(txData.RawTx, "0x"))
+				txHash = txData.TxHash
+			} else if txData.Tx != "" {
+				txBytes, _ = hex.DecodeString(strings.TrimPrefix(txData.Tx, "0x"))
+			} else if txData.SignedTx != "" {
+				txBytes, _ = hex.DecodeString(strings.TrimPrefix(txData.SignedTx, "0x"))
+			}
+		} else {
+			// Try to decode as raw hex
+			bodyStr := strings.TrimSpace(string(body))
+			if strings.HasPrefix(bodyStr, "0x") || strings.HasPrefix(bodyStr, "\"0x") {
+				bodyStr = strings.Trim(bodyStr, "\"")
+				txBytes, _ = hex.DecodeString(strings.TrimPrefix(bodyStr, "0x"))
+			}
+		}
+
+		if len(txBytes) == 0 {
+			t.Logf("Mock Flashbots server: could not extract transaction from request body: %s", string(body))
+			w.WriteHeader(http.StatusBadRequest)
+			w.Write([]byte(`{"error": "could not parse transaction"}`))
+			return
+		}
+
+		// Decode the transaction
+		var tx gethtypes.Transaction
+		if err := tx.UnmarshalBinary(txBytes); err != nil {
+			t.Logf("Mock Flashbots server: failed to unmarshal transaction: %v, body: %s", err, string(body))
+			w.WriteHeader(http.StatusBadRequest)
+			w.Write([]byte(`{"error": "invalid transaction format"}`))
+			return
+		}
+
+		// Calculate hash if not provided
+		if txHash == "" {
+			txHash = tx.Hash().Hex()
+		}
+
+		// Check if we've already received this transaction
+		if _, exists := secondaryTxReceived.LoadOrStore(txHash, true); exists {
+			t.Logf("Mock Flashbots server: duplicate transaction %s", txHash)
+			w.WriteHeader(http.StatusOK)
+			w.Write([]byte(`{"status": "duplicate"}`))
+			return
+		}
+
+		// Submit transaction to chain
+		t.Logf("Mock Flashbots server: submitting secondary transaction %s to chain", txHash)
+		err = backend.Client().SendTransaction(context.Background(), &tx)
+		if err != nil {
+			t.Logf("Mock Flashbots server: failed to submit transaction to chain: %v", err)
+			w.WriteHeader(http.StatusInternalServerError)
+			w.Write([]byte(fmt.Sprintf(`{"error": "failed to submit: %v"}`, err)))
+			return
+		}
+
+		// Commit the block to include the transaction
+		backend.Commit()
+
+		secondaryTxMu.Lock()
+		secondaryTxCount++
+		count := secondaryTxCount
+		secondaryTxMu.Unlock()
+
+		t.Logf("Mock Flashbots server: successfully submitted secondary transaction %s (count: %d)", txHash, count)
+
+		// Return success response
+		w.WriteHeader(http.StatusOK)
+		w.Write([]byte(fmt.Sprintf(`{"status": "success", "txHash": "%s"}`, txHash)))
+	}))
+	defer mockFlashbotsServer.Close()
+
+	t.Logf("Mock Flashbots server started at %s", mockFlashbotsServer.URL)
 
 	// Setup bootstrap node
 	bootstrapCSAKey := csakey.MustNewV2XXXTestingOnly(big.NewInt(salt - 1))
@@ -316,6 +458,7 @@ func TestIntegration_secondary_feed_transmission(t *testing.T) {
 							"hint":   []any{"full"},
 							"refund": []any{"0xbc1Be4cC8790b0C99cff76100E0e6d01E32C6A2C:90"},
 						},
+						"endpoint": mockFlashbotsServer.URL, // Configure secondary endpoint to use mock server
 					},
 				},
 				PluginConfig: map[string]any{
@@ -337,9 +480,11 @@ func TestIntegration_secondary_feed_transmission(t *testing.T) {
 		}
 	}()
 
-	// Use Eventually to wait for both primary and secondary transmissions in logs
+	// Use Eventually to wait for both primary and secondary transmissions in logs and on-chain
 	primaryFound := false
 	secondaryFound := false
+	var primaryTxHash, secondaryTxHash string
+
 	gomega.NewGomegaWithT(t).Eventually(func() bool {
 		// Check logs from all oracle nodes
 		for i, node := range nodes {
@@ -364,15 +509,97 @@ func TestIntegration_secondary_feed_transmission(t *testing.T) {
 			}
 		}
 
+		// Check on-chain for both transactions
+		// Get the latest block number to check for transactions
+		ctx := testutils.Context(t)
+		latestBlockNum, err := backend.Client().BlockNumber(ctx)
+		if err == nil && latestBlockNum > 0 {
+			// Check transactions in recent blocks (last 10 blocks)
+			startBlock := latestBlockNum
+			if startBlock > 10 {
+				startBlock = startBlock - 10
+			} else {
+				startBlock = 0
+			}
+
+			for blockNum := startBlock; blockNum <= latestBlockNum; blockNum++ {
+				block, err := backend.Client().BlockByNumber(ctx, big.NewInt(int64(blockNum)))
+				if err != nil || block == nil {
+					continue
+				}
+
+				for _, tx := range block.Transactions() {
+					// Check if transaction is to the dual aggregator contract
+					if tx.To() != nil && *tx.To() == dualAggAddress {
+						// Check if it's a transmit or transmitSecondary call
+						data := tx.Data()
+						if len(data) >= 4 {
+							// Get method signature (first 4 bytes)
+							methodSig := hex.EncodeToString(data[:4])
+
+							// Check for transmit method (0xb1dc65a4) or transmitSecondary (0xba0cb29e)
+							if methodSig == "b1dc65a4" && !primaryFound {
+								// Primary transmission
+								primaryFound = true
+								primaryTxHash = tx.Hash().Hex()
+								t.Logf("Found primary transmission on-chain: %s", primaryTxHash)
+							} else if methodSig == "ba0cb29e" && !secondaryFound {
+								// Secondary transmission
+								secondaryFound = true
+								secondaryTxHash = tx.Hash().Hex()
+								t.Logf("Found secondary transmission on-chain: %s", secondaryTxHash)
+							}
+						}
+					}
+				}
+			}
+		}
+
+		// Also check if mock server received secondary transactions
+		secondaryTxMu.Lock()
+		mockServerCount := secondaryTxCount
+		secondaryTxMu.Unlock()
+
+		if mockServerCount > 0 && !secondaryFound {
+			// Mock server received transactions, mark as found
+			secondaryFound = true
+			t.Logf("Mock Flashbots server received %d secondary transaction(s)", mockServerCount)
+		}
+
 		if primaryFound && secondaryFound {
-			t.Logf("Found both primary and secondary transmissions in logs")
+			t.Logf("Found both primary and secondary transmissions - Primary: %v (tx: %s), Secondary: %v (tx: %s, mock server count: %d)",
+				primaryFound, primaryTxHash, secondaryFound, secondaryTxHash, mockServerCount)
 		} else {
-			t.Logf("Waiting for transmissions - primary: %v, secondary: %v", primaryFound, secondaryFound)
+			t.Logf("Waiting for transmissions - primary: %v, secondary: %v (mock server count: %d)",
+				primaryFound, secondaryFound, mockServerCount)
 		}
 
 		return primaryFound && secondaryFound
 	}, 5*time.Minute, 1*time.Second).Should(gomega.BeTrue(),
-		"Expected both primary (to chain) and secondary (to Flashbots) transmissions in logs. Primary found: %v, Secondary found: %v", primaryFound, secondaryFound)
+		"Expected both primary (to chain) and secondary (to Flashbots) transmissions. Primary found: %v, Secondary found: %v, Mock server count: %d",
+		primaryFound, secondaryFound, func() int64 {
+			secondaryTxMu.Lock()
+			defer secondaryTxMu.Unlock()
+			return secondaryTxCount
+		}())
+
+	// Final assertions
+	require.True(t, primaryFound, "Primary transmission should be found in logs or on-chain")
+	require.True(t, secondaryFound, "Secondary transmission should be found in logs or on-chain")
+
+	if primaryTxHash != "" {
+		t.Logf("✓ Primary transaction confirmed on-chain: %s", primaryTxHash)
+	}
+	if secondaryTxHash != "" {
+		t.Logf("✓ Secondary transaction confirmed on-chain: %s", secondaryTxHash)
+	} else {
+		secondaryTxMu.Lock()
+		count := secondaryTxCount
+		secondaryTxMu.Unlock()
+		if count > 0 {
+			t.Logf("✓ Secondary transaction received by mock server and submitted to chain (count: %d)", count)
+		}
+	}
 
 	/**
 	NEXT STEPS
