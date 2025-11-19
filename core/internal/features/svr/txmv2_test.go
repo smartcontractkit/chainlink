@@ -338,11 +338,9 @@ func TestIntegration_secondary_feed_transmission(t *testing.T) {
 	}()
 
 	// Use Eventually to wait for both primary and secondary transmissions in logs
-	var primaryFound, secondaryFound bool
+	primaryFound := false
+	secondaryFound := false
 	gomega.NewGomegaWithT(t).Eventually(func() bool {
-		primaryFound = false
-		secondaryFound = false
-
 		// Check logs from all oracle nodes
 		for i, node := range nodes {
 			if node.ObservedLogs == nil {
@@ -353,21 +351,21 @@ func TestIntegration_secondary_feed_transmission(t *testing.T) {
 				msg := strings.ToLower(log.Message)
 				// Check for primary transmission (to chain)
 				// Look for "Created primary transaction" or transmit-related messages that don't mention secondary
-				if strings.Contains(msg, "created primary transaction") ||
+				if !primaryFound && (strings.Contains(msg, "created primary transaction") ||
 					((strings.Contains(msg, "transmit") || strings.Contains(msg, "transmission")) &&
 						!strings.Contains(msg, "secondary") &&
 						!strings.Contains(msg, "flashbots") &&
-						!strings.Contains(msg, "transmitsecondary")) {
+						!strings.Contains(msg, "transmitsecondary"))) {
 					primaryFound = true
 					t.Logf("Node %d: Found primary transmission log: %s", i, log.Message)
 				}
 				// Check for secondary transmission to Flashbots
 				// Look for "Created secondary transaction" or explicit secondary transmission messages
-				if strings.Contains(msg, "created secondary transaction") ||
+				if !secondaryFound && (strings.Contains(msg, "created secondary transaction") ||
 					strings.Contains(msg, "transmitsecondary") ||
 					(strings.Contains(msg, "secondary") && (strings.Contains(msg, "transmit") || strings.Contains(msg, "transmission") || strings.Contains(msg, "transaction"))) ||
 					(strings.Contains(msg, "secondary") && strings.Contains(msg, "flashbots")) ||
-					(strings.Contains(msg, "flashbots") && (strings.Contains(msg, "transmit") || strings.Contains(msg, "transmission"))) {
+					(strings.Contains(msg, "flashbots") && (strings.Contains(msg, "transmit") || strings.Contains(msg, "transmission")))) {
 					secondaryFound = true
 					t.Logf("Node %d: Found secondary transmission log: %s", i, log.Message)
 				}
