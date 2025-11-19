@@ -1,5 +1,11 @@
 # Changelog Chainlink Core
 
+## 2.30.1 - 2025-11-18
+
+### Patch Changes
+
+- Metadata-only hotfix release to restore GitHub Release publishing capability after v2.30.0 Release object became immutable.
+
 ## 2.30.0 (UNRELEASED)
 
 ### Minor Changes
