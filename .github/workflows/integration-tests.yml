@@ -202,7 +202,7 @@ jobs:
         run-core-cre-e2e-tests-setup,
         run-core-e2e-tests-setup,
         run-ccip-e2e-tests-setup,
-        # solana-smoke-tests-setup,
+        # solana-smoke-tests-setup, (disabled until removed or moved to main.stage or re-written to Docker)
       ]
     permissions:
       id-token: write
