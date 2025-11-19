@@ -87,7 +87,7 @@ func NewOwnableV2[T Ownable](contract T, store datastore.AddressRefStore, chain 
 	if err != nil {
 		return nil, fmt.Errorf("failed to get owner reference: %w", err)
 	}
-	// in the latest versions, qualifier is should be the same for all the mcms contracts
+	// in the latest versions, the qualifier should be the same for all the mcms contracts
 	// which enables multiple MCMS deployments on a single chain
 	stateMCMS, err := state.GetMCMSWithTimelockState(store, chain, r.Qualifier)
 	if err != nil {
