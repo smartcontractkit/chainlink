@@ -31,7 +31,7 @@ func TestCCVConfig(t *testing.T) {
 	cfg, err := opts.New()
 	require.NoError(t, err)
 
-	require.Equal(t, 2, len(cfg.CCV().AggregatorSecrets()))
+	require.Len(t, cfg.CCV().AggregatorSecrets(), 2)
 	c := cfg.CCV()
 	require.Equal(t, "default-verifier-1", c.AggregatorSecrets()[0].VerifierID())
 	require.Equal(t, "default-api-key", c.AggregatorSecrets()[0].APIKey())
