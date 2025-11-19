@@ -21,12 +21,11 @@ on:
         description: "The sha of the chainlink-evm commit to use if wanted"
         required: false
         type: string
-      # (disabled until removed or moved to main.stage or re-written to Docker)      
-      # run_solana:
-      #   description: "Run solana tests"
-      #   required: false
-      #   type: string
-      #   default: "false"
+      run_solana:
+        description: "Run solana tests"
+        required: false
+        type: string
+        default: "false"
       distinct_run_name:
         description: "A unique identifier for this run, only use from other repos"
         required: false
@@ -146,7 +145,7 @@ jobs:
     outputs:
       builder-runner-label-core: ${{ steps.runner-labels.outputs.builder-runner-label-core || steps.runner-labels.outputs.builder-runner-label }}
       builder-runner-label-plugins: ${{ steps.runner-labels.outputs.builder-runner-label-plugins || steps.runner-labels.outputs.builder-runner-label }}
-      # solana-runner-label: ${{ steps.runner-labels.outputs.solana-runner-label }} (disabled until removed or moved to main.stage or re-written to Docker)      
+      solana-runner-label: ${{ steps.runner-labels.outputs.solana-runner-label }}
       should-use-self-hosted-runners: ${{ steps.label-runs-on-opt-out.outputs.check-label-found == 'false' }}
       run-e2e-tests-label-found: ${{ steps.label-runs-e2e-tests.outputs.check-label-found || 'false' }}
       skip-e2e-regression-label-found: ${{ steps.label-skip-e2e-regression.outputs.check-label-found || 'false' }}
@@ -176,23 +175,19 @@ jobs:
         env:
           OPT_OUT: ${{ steps.label-runs-on-opt-out.outputs.check-label-found || 'false' }}
           GH_BUILDER_RUNNER: ubuntu22.04-8cores-32GB
-          # (disabled until removed or moved to main.stage or re-written to Docker)      
-          # GH_SOLANA_RUNNER: ubuntu22.04-8cores-32GB (disabled until removed or moved to main.stage or re-written to Docker)      
+          GH_SOLANA_RUNNER: ubuntu22.04-8cores-32GB
           # include unique label (core/plugins/solana) to ensure jobs are not competing for the same runner
           SH_BUILDER_RUNNER_CORE: runs-on=${{ github.run_id }}-core/cpu=32+36/memory=64+72/family=c6i+c7i+c5.*/extras=s3-cache+tmpfs
           SH_BUILDER_RUNNER_PLUGINS: runs-on=${{ github.run_id }}-plugins/cpu=32+36/memory=64+72/family=c6i+c7i+c5.*/extras=s3-cache+tmpfs
-          # (disabled until removed or moved to main.stage or re-written to Docker)      
-          # SH_SOLANA_RUNNER: runs-on=${{ github.run_id }}-solana/cpu=48/ram=96/family=c6i/spot=false/image=ubuntu24-full-x64/extras=s3-cache+tmpfs
+          SH_SOLANA_RUNNER: runs-on=${{ github.run_id }}-solana/cpu=48/ram=96/family=c6i/spot=false/image=ubuntu24-full-x64/extras=s3-cache+tmpfs
         run: |
           if [[ "${OPT_OUT}" == "true" ]]; then
             echo "builder-runner-label=${GH_BUILDER_RUNNER}" | tee -a "$GITHUB_OUTPUT"
-            # (disabled until removed or moved to main.stage or re-written to Docker)
-            # echo "solana-runner-label=${GH_SOLANA_RUNNER}" | tee -a "$GITHUB_OUTPUT"
+            echo "solana-runner-label=${GH_SOLANA_RUNNER}" | tee -a "$GITHUB_OUTPUT"
           else
             echo "builder-runner-label-core=${SH_BUILDER_RUNNER_CORE}" | tee -a "$GITHUB_OUTPUT"
             echo "builder-runner-label-plugins=${SH_BUILDER_RUNNER_PLUGINS}" | tee -a "$GITHUB_OUTPUT"
-            # (disabled until removed or moved to main.stage or re-written to Docker)
-            # echo "solana-runner-label=${SH_SOLANA_RUNNER}" | tee -a "$GITHUB_OUTPUT"
+            echo "solana-runner-label=${SH_SOLANA_RUNNER}" | tee -a "$GITHUB_OUTPUT"
           fi
 
   build-chainlink:
@@ -207,7 +202,7 @@ jobs:
         run-core-cre-e2e-tests-setup,
         run-core-e2e-tests-setup,
         run-ccip-e2e-tests-setup,
-        # solana-smoke-tests-setup, (disabled until removed or moved to main.stage or re-written to Docker)
+        solana-smoke-tests-setup,
       ]
     permissions:
       id-token: write
@@ -220,11 +215,11 @@ jobs:
             dockerfile: core/chainlink.Dockerfile
             tag-suffix: ""
             # todo: optimize this conditional
-            # needs.solana-smoke-tests-setup.outputs.should-run-solana-tests == 'true' || - (disabled until removed or moved to main.stage or re-written to Docker)
             should-build: >-
               ${{
                 needs.run-core-e2e-tests-setup.outputs.should-run == 'true' ||
                 needs.run-ccip-e2e-tests-setup.outputs.should-run == 'true' ||
+                needs.solana-smoke-tests-setup.outputs.should-run-solana-tests == 'true' ||
                 needs.run-core-cre-e2e-tests-setup.outputs.should-run == 'true'
               }}
 
@@ -233,11 +228,11 @@ jobs:
             dockerfile: plugins/chainlink.Dockerfile
             tag-suffix: -plugins
             # todo: optimize this conditional
-            # needs.solana-smoke-tests-setup.outputs.should-run-solana-tests == 'true' || - (disabled until removed or moved to main.stage or re-written to Docker)
             should-build: >-
               ${{
                 needs.run-core-e2e-tests-setup.outputs.should-run == 'true' ||
                 needs.run-ccip-e2e-tests-setup.outputs.should-run == 'true' ||
+                needs.solana-smoke-tests-setup.outputs.should-run-solana-tests == 'true' ||
                 needs.run-core-cre-e2e-tests-setup.outputs.should-run == 'true'
               }}
     steps:
@@ -737,354 +732,347 @@ jobs:
       - name: Show Coverage
         run: go run ./integration-tests/scripts/show_coverage.go "${{ github.workspace }}/cl_node_coverage_data/*/merged"
 
-  ## Solana Section (disabled until removed or moved to main.stage or re-written to Docker)
-  # solana-smoke-tests-setup:
-  #   name: Solana Smoke Tests Setup
-  #   # We don't directly merge dependabot PRs, so let's not waste the resources
-  #   if: ${{ github.actor != 'dependabot[bot]'  }}
-  #   runs-on: ubuntu-latest
-  #   needs: [changes, labels]
-  #   permissions:
-  #     contents: read
-  #   outputs:
-  #     should-run-solana-tests: ${{ steps.run-tests.outputs.should-run-solana-tests }}
-  #   steps:
-  #     - name: Determine if Solana tests should run
-  #       id: run-tests
-  #       env:
-  #         GITHUB_EVENT_NAME: ${{ github.event_name }}
-  #         GITHUB_REF_TYPE: ${{ github.ref_type }}
-  #         CONTAINS_CHANGES: ${{ needs.changes.outputs.general-changes == 'true' || needs.changes.outputs.core-changes == 'true' }}
-  #         RUN_E2E_TESTS_LABEL_FOUND: ${{ needs.labels.outputs.run-e2e-tests-label-found || 'false' }}
-  #         INPUTS_RUN_SOLANA: ${{ inputs.run_solana }}
-  #       run: |
-  #         if [[ "${INPUTS_RUN_SOLANA}" == 'false' ]]; then
-  #           echo "Solana tests are disabled by input, skipping."
-  #           echo "should-run-solana-tests=false" | tee -a "$GITHUB_OUTPUT"
+  ## Solana Section
+  solana-smoke-tests-setup:
+    name: Solana Smoke Tests Setup
+    # We don't directly merge dependabot PRs, so let's not waste the resources
+    if: ${{ github.actor != 'dependabot[bot]'  }}
+    runs-on: ubuntu-latest
+    needs: [changes, labels]
+    permissions:
+      contents: read
+    outputs:
+      should-run-solana-tests: ${{ steps.run-tests.outputs.should-run-solana-tests }}
+    steps:
+      - name: Determine if Solana tests should run
+        id: run-tests
+        env:
+          GITHUB_EVENT_NAME: ${{ github.event_name }}
+          GITHUB_REF_TYPE: ${{ github.ref_type }}
+          CONTAINS_CHANGES: ${{ needs.changes.outputs.general-changes == 'true' || needs.changes.outputs.core-changes == 'true' }}
+          RUN_E2E_TESTS_LABEL_FOUND: ${{ needs.labels.outputs.run-e2e-tests-label-found || 'false' }}
+          INPUTS_RUN_SOLANA: ${{ inputs.run_solana }}
+        run: |
+          if [[ "${INPUTS_RUN_SOLANA}" == 'false' ]]; then
+            echo "Solana tests are disabled by input, skipping."
+            echo "should-run-solana-tests=false" | tee -a "$GITHUB_OUTPUT"
 
-  #         elif [[ "${GITHUB_EVENT_NAME}" == 'pull_request' ]]; then
-  #           # Run Solana tests on PRs only if the label "run-e2e-tests" is present, and there are relevant changes
-  #           if [[ "${RUN_E2E_TESTS_LABEL_FOUND}" == 'true' && "${CONTAINS_CHANGES}" == 'true' ]]; then
-  #             echo "Solana tests will run on PR with label and relevant changes."
-  #             echo "should-run-solana-tests=true" | tee -a "$GITHUB_OUTPUT"
-  #           fi
+          elif [[ "${GITHUB_EVENT_NAME}" == 'pull_request' ]]; then
+            # Run Solana tests on PRs only if the label "run-e2e-tests" is present, and there are relevant changes
+            if [[ "${RUN_E2E_TESTS_LABEL_FOUND}" == 'true' && "${CONTAINS_CHANGES}" == 'true' ]]; then
+              echo "Solana tests will run on PR with label and relevant changes."
+              echo "should-run-solana-tests=true" | tee -a "$GITHUB_OUTPUT"
+            fi
 
-  #         elif [[ "${GITHUB_EVENT_NAME}" == 'merge_group' ]]; then
-  #           # Run Solana tests in the merge queue, if there are relevant changes
-  #           echo "Solana tests will run in the merge queue."
-  #           echo "should-run-solana-tests=${CONTAINS_CHANGES}" | tee -a "$GITHUB_OUTPUT"
+          elif [[ "${GITHUB_EVENT_NAME}" == 'merge_group' ]]; then
+            # Run Solana tests in the merge queue, if there are relevant changes
+            echo "Solana tests will run in the merge queue."
+            echo "should-run-solana-tests=${CONTAINS_CHANGES}" | tee -a "$GITHUB_OUTPUT"
 
-  #         elif [[ "${GITHUB_EVENT_NAME}" == 'workflow_dispatch' ]]; then
-  #           # Always run Solana tests on workflow dispatch
-  #           echo "Solana tests will run on workflow dispatch."
-  #           echo "should-run-solana-tests=true" | tee -a "$GITHUB_OUTPUT"
+          elif [[ "${GITHUB_EVENT_NAME}" == 'workflow_dispatch' ]]; then
+            # Always run Solana tests on workflow dispatch
+            echo "Solana tests will run on workflow dispatch."
+            echo "should-run-solana-tests=true" | tee -a "$GITHUB_OUTPUT"
 
-  #         elif [[ "${GITHUB_EVENT_NAME}" == 'push' ]]; then
-  #           # Run Solana tests on push events, only if there are relevant changes or if it's a tag push
-  #           if [[ "${CONTAINS_CHANGES}" == 'true' || "${GITHUB_REF_TYPE}" == 'tag' ]]; then
-  #             echo "Solana tests will run on push with relevant changes or tag push."
-  #             echo "should-run-solana-tests=true" | tee -a "$GITHUB_OUTPUT"
-  #           fi
+          elif [[ "${GITHUB_EVENT_NAME}" == 'push' ]]; then
+            # Run Solana tests on push events, only if there are relevant changes or if it's a tag push
+            if [[ "${CONTAINS_CHANGES}" == 'true' || "${GITHUB_REF_TYPE}" == 'tag' ]]; then
+              echo "Solana tests will run on push with relevant changes or tag push."
+              echo "should-run-solana-tests=true" | tee -a "$GITHUB_OUTPUT"
+            fi
 
-  #         else
-  #           echo "Solana tests will not run for this event type: ${GITHUB_EVENT_NAME}."
-  #           echo "should-run-solana-tests=false" | tee -a "$GITHUB_OUTPUT"
-  #         fi
+          else
+            echo "Solana tests will not run for this event type: ${GITHUB_EVENT_NAME}."
+            echo "should-run-solana-tests=false" | tee -a "$GITHUB_OUTPUT"
+          fi
 
-  # get-solana-sha:
-  #   if: needs.solana-smoke-tests-setup.outputs.should-run-solana-tests == 'true'
-  #   name: Get Solana Sha From Go Mod
-  #   environment: Integration
-  #   runs-on: ubuntu-latest
-  #   needs: [solana-smoke-tests-setup]
-  #   permissions:
-  #     contents: read
-  #   outputs:
-  #     sha: ${{ steps.getsha.outputs.sha }}
-  #   steps:
-  #     - name: Checkout the repo
-  #       uses: actions/checkout@v4
-  #       with:
-  #         persist-credentials: false
-  #         repository: smartcontractkit/chainlink
-  #         ref: ${{ env.CHAINLINK_REF }}
+  get-solana-sha:
+    if: needs.solana-smoke-tests-setup.outputs.should-run-solana-tests == 'true'
+    name: Get Solana Sha From Go Mod
+    environment: Integration
+    runs-on: ubuntu-latest
+    needs: [solana-smoke-tests-setup]
+    permissions:
+      contents: read
+    outputs:
+      sha: ${{ steps.getsha.outputs.sha }}
+    steps:
+      - name: Checkout the repo
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+          repository: smartcontractkit/chainlink
+          ref: ${{ env.CHAINLINK_REF }}
 
-  #     - name: Setup Go
-  #       uses: ./.github/actions/setup-go
-  #       with:
-  #         only-modules: "true"
+      - name: Setup Go
+        uses: ./.github/actions/setup-go
+        with:
+          only-modules: "true"
 
-  #     - name: Get the sha from go mod
-  #       id: getshortsha
-  #       run: |
-  #         sol_ver=$(go list -m -json github.com/smartcontractkit/chainlink-solana  | jq -r .Version)
-  #         if [ -z "${sol_ver}" ]; then
-  #             echo "Error: could not get the solana version from the go.mod file, look above for error(s)"
-  #             exit 1
-  #         fi
-  #         short_sha="${sol_ver##*-}"
-  #         echo "short sha is: ${short_sha}"
-  #         echo "short_sha=${short_sha}" | tee -a "$GITHUB_OUTPUT"
+      - name: Get the sha from go mod
+        id: getshortsha
+        run: |
+          sol_ver=$(go list -m -json github.com/smartcontractkit/chainlink-solana  | jq -r .Version)
+          if [ -z "${sol_ver}" ]; then
+              echo "Error: could not get the solana version from the go.mod file, look above for error(s)"
+              exit 1
+          fi
+          short_sha="${sol_ver##*-}"
+          echo "short sha is: ${short_sha}"
+          echo "short_sha=${short_sha}" | tee -a "$GITHUB_OUTPUT"
 
-  #     - name: Checkout solana
-  #       uses: actions/checkout@v4
-  #       with:
-  #         persist-credentials: false
-  #         repository: smartcontractkit/chainlink-solana
-  #         ref: develop
-  #         fetch-depth: 0
-  #         path: solanapath
+      - name: Checkout solana
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+          repository: smartcontractkit/chainlink-solana
+          ref: develop
+          fetch-depth: 0
+          path: solanapath
 
-  #     - name: Get long sha
-  #       id: getsha
-  #       run: |
-  #         cd solanapath
-  #         full_sha=$(git rev-parse ${{steps.getshortsha.outputs.short_sha}}^{}) # additional suffix allows handling tagged versions as well
-  #         if [ -z "${full_sha}" ]; then
-  #             echo "Error: could not get the full sha from the short sha using git, look above for error(s)"
-  #             exit 1
-  #         fi
-  #         echo "sha is: ${full_sha}"
-  #         echo "sha=${full_sha}" | tee -a "$GITHUB_OUTPUT"
+      - name: Get long sha
+        id: getsha
+        run: |
+          cd solanapath
+          full_sha=$(git rev-parse ${{steps.getshortsha.outputs.short_sha}}^{}) # additional suffix allows handling tagged versions as well
+          if [ -z "${full_sha}" ]; then
+              echo "Error: could not get the full sha from the short sha using git, look above for error(s)"
+              exit 1
+          fi
+          echo "sha is: ${full_sha}"
+          echo "sha=${full_sha}" | tee -a "$GITHUB_OUTPUT"
 
-  # solana-test-image-exists:
-  #   environment: integration
-  #   permissions:
-  #     checks: write
-  #     pull-requests: write
-  #     id-token: write
-  #     contents: read
-  #   name: Check If Solana Test Image Exists
-  #   runs-on: ubuntu-latest
-  #   needs: [get-solana-sha]
-  #   outputs:
-  #     exists: ${{ steps.check-image.outputs.exists }}
-  #   steps:
-  #     - name: Check if image exists
-  #       id: check-image
-  #       uses: smartcontractkit/chainlink-github-actions/docker/image-exists@0ce1e67b254a4f041e03cc6f0e3afc987b47c7bd # v2.3.30
-  #       with:
-  #         repository: chainlink-solana-tests
-  #         tag: ${{ needs.get-solana-sha.outputs.sha }}
-  #         AWS_REGION: ${{ secrets.QA_AWS_REGION }}
-  #         AWS_ROLE_TO_ASSUME: ${{ secrets.QA_AWS_ROLE_TO_ASSUME }}
+  solana-test-image-exists:
+    environment: integration
+    permissions:
+      checks: write
+      pull-requests: write
+      id-token: write
+      contents: read
+    name: Check If Solana Test Image Exists
+    runs-on: ubuntu-latest
+    needs: [get-solana-sha]
+    outputs:
+      exists: ${{ steps.check-image.outputs.exists }}
+    steps:
+      - name: Check if image exists
+        id: check-image
+        uses: smartcontractkit/chainlink-github-actions/docker/image-exists@0ce1e67b254a4f041e03cc6f0e3afc987b47c7bd # v2.3.30
+        with:
+          repository: chainlink-solana-tests
+          tag: ${{ needs.get-solana-sha.outputs.sha }}
+          AWS_REGION: ${{ secrets.QA_AWS_REGION }}
+          AWS_ROLE_TO_ASSUME: ${{ secrets.QA_AWS_ROLE_TO_ASSUME }}
 
-  # solana-build-contracts:
-  #   name: Solana Build Artifacts
-  #   if: needs.solana-smoke-tests-setup.outputs.should-run-solana-tests == 'true'
-  #   environment: integration
-  #   permissions:
-  #     checks: write
-  #     pull-requests: write
-  #     id-token: write
-  #     contents: read
-  #   runs-on: ubuntu22.04-8cores-32GB
-  #   needs:
-  #     [
-  #       changes,
-  #       solana-test-image-exists,
-  #       get-solana-sha,
-  #       solana-smoke-tests-setup,
-  #     ]
-  #   steps:
-  #     - name: Checkout the solana repo
-  #       uses: actions/checkout@v4
-  #       with:
-  #         persist-credentials: false
-  #         repository: smartcontractkit/chainlink-solana
-  #         ref: ${{ needs.get-solana-sha.outputs.sha }}
-  #     - name: Build contracts
-  #       if: needs.solana-test-image-exists.outputs.exists == 'false'
-  #       uses: smartcontractkit/chainlink-solana/.github/actions/build_contract_artifacts@841f6229b6a0be0114c47cb676b1136d92f935c9 # node20 update on may 10, 2024
-  #       with:
-  #         ref: ${{ needs.get-solana-sha.outputs.sha }}
-  #         runner-os: ${{ runner.os }}
+  solana-build-contracts:
+    name: Solana Build Artifacts
+    if: needs.solana-smoke-tests-setup.outputs.should-run-solana-tests == 'true'
+    environment: integration
+    permissions:
+      checks: write
+      pull-requests: write
+      id-token: write
+      contents: read
+    runs-on: ubuntu22.04-8cores-32GB
+    needs:
+      [
+        changes,
+        solana-test-image-exists,
+        get-solana-sha,
+        solana-smoke-tests-setup,
+      ]
+    steps:
+      - name: Checkout the solana repo
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+          repository: smartcontractkit/chainlink-solana
+          ref: ${{ needs.get-solana-sha.outputs.sha }}
+      - name: Build contracts
+        if: needs.solana-test-image-exists.outputs.exists == 'false'
+        uses: smartcontractkit/chainlink-solana/.github/actions/build_contract_artifacts@841f6229b6a0be0114c47cb676b1136d92f935c9 # node20 update on may 10, 2024
+        with:
+          ref: ${{ needs.get-solana-sha.outputs.sha }}
+          runner-os: ${{ runner.os }}
 
-  # solana-build-test-image:
-  #   name: Solana Build Test Image
-  #   if: needs.solana-smoke-tests-setup.outputs.should-run-solana-tests == 'true'
-  #   environment: integration
-  #   permissions:
-  #     checks: write
-  #     pull-requests: write
-  #     id-token: write
-  #     contents: read
-  #   runs-on: ubuntu22.04-8cores-32GB
-  #   needs:
-  #     [
-  #       solana-build-contracts,
-  #       solana-test-image-exists,
-  #       changes,
-  #       get-solana-sha,
-  #       solana-smoke-tests-setup,
-  #     ]
-  #   env:
-  #     CONTRACT_ARTIFACTS_PATH: contracts/target/deploy
-  #     GOTOOLCHAIN: auto
-  #   steps:
-  #     - name: Checkout the repo
-  #       if: needs.solana-test-image-exists.outputs.exists == 'false'
-  #       uses: actions/checkout@v4
-  #       with:
-  #         persist-credentials: false
-  #         repository: smartcontractkit/chainlink-solana
-  #         ref: ${{ needs.get-solana-sha.outputs.sha }}
-  #     - name: Download Artifacts
-  #       if: needs.solana-test-image-exists.outputs.exists == 'false'
-  #       uses: actions/download-artifact@v4
-  #       with:
-  #         name: artifacts
-  #         path: ${{ env.CONTRACT_ARTIFACTS_PATH }}
-  #     - name: Build Test Image
-  #       if: needs.solana-test-image-exists.outputs.exists == 'false'
-  #       uses: smartcontractkit/.github/actions/ctf-build-test-image@ctf-build-test-image/0.3.0
-  #       with:
-  #         repository: chainlink-solana-tests
-  #         tag: ${{ needs.get-solana-sha.outputs.sha }}
-  #         suites: smoke
-  #         QA_AWS_ROLE_TO_ASSUME: ${{ secrets.QA_AWS_ROLE_TO_ASSUME }}
-  #         QA_AWS_REGION: ${{ secrets.QA_AWS_REGION }}
-  #         QA_AWS_ACCOUNT_NUMBER: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}
+  solana-build-test-image:
+    name: Solana Build Test Image
+    if: needs.solana-smoke-tests-setup.outputs.should-run-solana-tests == 'true'
+    environment: integration
+    permissions:
+      checks: write
+      pull-requests: write
+      id-token: write
+      contents: read
+    runs-on: ubuntu22.04-8cores-32GB
+    needs:
+      [
+        solana-build-contracts,
+        solana-test-image-exists,
+        changes,
+        get-solana-sha,
+        solana-smoke-tests-setup,
+      ]
+    env:
+      CONTRACT_ARTIFACTS_PATH: contracts/target/deploy
+      GOTOOLCHAIN: auto
+    steps:
+      - name: Checkout the repo
+        if: needs.solana-test-image-exists.outputs.exists == 'false'
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+          repository: smartcontractkit/chainlink-solana
+          ref: ${{ needs.get-solana-sha.outputs.sha }}
+      - name: Download Artifacts
+        if: needs.solana-test-image-exists.outputs.exists == 'false'
+        uses: actions/download-artifact@v4
+        with:
+          name: artifacts
+          path: ${{ env.CONTRACT_ARTIFACTS_PATH }}
+      - name: Build Test Image
+        if: needs.solana-test-image-exists.outputs.exists == 'false'
+        uses: smartcontractkit/.github/actions/ctf-build-test-image@ctf-build-test-image/0.3.0
+        with:
+          repository: chainlink-solana-tests
+          tag: ${{ needs.get-solana-sha.outputs.sha }}
+          suites: smoke
+          QA_AWS_ROLE_TO_ASSUME: ${{ secrets.QA_AWS_ROLE_TO_ASSUME }}
+          QA_AWS_REGION: ${{ secrets.QA_AWS_REGION }}
+          QA_AWS_ACCOUNT_NUMBER: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}
 
-  # solana-smoke-tests:
-  #   environment: integration
-  #   permissions:
-  #     checks: write
-  #     pull-requests: write
-  #     id-token: write
-  #     contents: read
-  #   name: Solana Smoke Tests
-  #   if: needs.solana-smoke-tests-setup.outputs.should-run-solana-tests == 'true'
-  #   runs-on: ${{ needs.labels.outputs.builder-runner-label || 'ubuntu22.04-8cores-32GB' }}
-  #   needs:
-  #     [
-  #       build-chainlink,
-  #       solana-build-contracts,
-  #       solana-build-test-image,
-  #       labels,
-  #       changes,
-  #       get-solana-sha,
-  #       solana-smoke-tests-setup,
-  #     ]
-  #   env:
-  #     CHAINLINK_COMMIT_SHA: ${{ inputs.evm-ref || inputs.cl_ref || github.sha }}
-  #     CHAINLINK_ENV_USER: ${{ github.actor }}
-  #     TEST_LOG_LEVEL: debug
-  #     CONTRACT_ARTIFACTS_PATH: contracts/target/deploy
-  #   steps:
-  #     - name: Enable S3 Cache for Self-Hosted Runners
-  #       # these env vars are set (and exposed) when it is a self-hosted runner with extras=s3-cache
-  #       if: ${{ env.RUNS_ON_INSTANCE_ID != '' && env.ACTIONS_CACHE_URL != '' }}
-  #       uses: runs-on/action@66d4449b717b5462159659523d1241051ff470b9 # v1
-  #     - name: Checkout the repo
-  #       uses: actions/checkout@v4
-  #       with:
-  #         persist-credentials: false
-  #         repository: smartcontractkit/chainlink-solana
-  #         ref: ${{ needs.get-solana-sha.outputs.sha }}
-  #     - name: Run Setup
-  #       uses: smartcontractkit/.github/actions/ctf-setup-run-tests-environment@4ff522b1aef76519d2ced17b5d052927754fd34b # ctf-setup-run-tests-environment@v0.2.1
-  #       with:
-  #         go_mod_path: ./integration-tests/go.mod
-  #         cache_restore_only: true
-  #         cache_key_id: core-solana-e2e-${{ env.MOD_CACHE_VERSION }}
-  #         aws_registries: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}
-  #         dockerhub_username: ${{ secrets.DOCKERHUB_READONLY_USERNAME }}
-  #         dockerhub_password: ${{ secrets.DOCKERHUB_READONLY_PASSWORD }}
-  #         QA_AWS_REGION: ${{ secrets.QA_AWS_REGION }}
-  #         QA_AWS_ROLE_TO_ASSUME: ${{ secrets.QA_AWS_ROLE_TO_ASSUME }}
-  #         main-dns-zone: ${{ secrets.MAIN_DNS_ZONE_PUBLIC_SDLC }}
-  #         k8s-cluster-name: ${{ secrets.AWS_K8S_CLUSTER_NAME_SDLC }}
-  #     - name: Pull Artifacts
-  #       run: |
-  #         IMAGE_NAME=${{ secrets.QA_AWS_ACCOUNT_NUMBER }}.dkr.ecr.${{ secrets.QA_AWS_REGION }}.amazonaws.com/chainlink-solana-tests:${{ needs.get-solana-sha.outputs.sha }}
-  #         # Pull the Docker image
-  #         docker pull "$IMAGE_NAME"
+  solana-smoke-tests:
+    environment: integration
+    permissions:
+      checks: write
+      pull-requests: write
+      id-token: write
+      contents: read
+    name: Solana Smoke Tests
+    if: needs.solana-smoke-tests-setup.outputs.should-run-solana-tests == 'true'
+    runs-on: ${{ needs.labels.outputs.builder-runner-label || 'ubuntu22.04-8cores-32GB' }}
+    needs:
+      [
+        build-chainlink,
+        solana-build-contracts,
+        solana-build-test-image,
+        labels,
+        changes,
+        get-solana-sha,
+        solana-smoke-tests-setup,
+      ]
+    env:
+      CHAINLINK_COMMIT_SHA: ${{ inputs.evm-ref || inputs.cl_ref || github.sha }}
+      CHAINLINK_ENV_USER: ${{ github.actor }}
+      TEST_LOG_LEVEL: debug
+      CONTRACT_ARTIFACTS_PATH: contracts/target/deploy
+    steps:
+      - name: Enable S3 Cache for Self-Hosted Runners
+        # these env vars are set (and exposed) when it is a self-hosted runner with extras=s3-cache
+        if: ${{ env.RUNS_ON_INSTANCE_ID != '' && env.ACTIONS_CACHE_URL != '' }}
+        uses: runs-on/action@66d4449b717b5462159659523d1241051ff470b9 # v1
+      - name: Checkout the repo
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+          repository: smartcontractkit/chainlink-solana
+          ref: ${{ needs.get-solana-sha.outputs.sha }}
+      - name: Run Setup
+        uses: smartcontractkit/.github/actions/ctf-setup-run-tests-environment@ctf-setup-run-tests-environment/0.8.0
+        with:
+          go_mod_path: ./integration-tests/go.mod
+          cache_restore_only: true
+          cache_key_id: core-solana-e2e-${{ env.MOD_CACHE_VERSION }}
+          aws_registries: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}
+          dockerhub_username: ${{ secrets.DOCKERHUB_READONLY_USERNAME }}
+          dockerhub_password: ${{ secrets.DOCKERHUB_READONLY_PASSWORD }}
+          QA_AWS_REGION: ${{ secrets.QA_AWS_REGION }}
+          QA_AWS_ROLE_TO_ASSUME: ${{ secrets.QA_AWS_ROLE_TO_ASSUME }}
+          enable-gap: "false"
+      - name: Pull Artifacts
+        run: |
+          IMAGE_NAME=${{ secrets.QA_AWS_ACCOUNT_NUMBER }}.dkr.ecr.${{ secrets.QA_AWS_REGION }}.amazonaws.com/chainlink-solana-tests:${{ needs.get-solana-sha.outputs.sha }}
+          # Pull the Docker image
+          docker pull "$IMAGE_NAME"
 
-  #         # Create a container without starting it
-  #         CONTAINER_ID=$(docker create "$IMAGE_NAME")
+          # Create a container without starting it
+          CONTAINER_ID=$(docker create "$IMAGE_NAME")
 
-  #         # Copy the artifacts from the container
-  #         mkdir -p ./${{env.CONTRACT_ARTIFACTS_PATH}}/
-  #         docker cp "$CONTAINER_ID:/go/testdir/${{env.CONTRACT_ARTIFACTS_PATH}}/" "./${{env.CONTRACT_ARTIFACTS_PATH}}/../"
+          # Copy the artifacts from the container
+          mkdir -p ./${{env.CONTRACT_ARTIFACTS_PATH}}/
+          docker cp "$CONTAINER_ID:/go/testdir/${{env.CONTRACT_ARTIFACTS_PATH}}/" "./${{env.CONTRACT_ARTIFACTS_PATH}}/../"
 
-  #         # Remove the created container
-  #         docker rm "$CONTAINER_ID"
-  #     - name: Install Solana CLI # required for ensuring the local test validator is configured correctly
-  #       run: ./scripts/install-solana-ci.sh
+          # Remove the created container
+          docker rm "$CONTAINER_ID"
+      - name: Install Solana CLI # required for ensuring the local test validator is configured correctly
+        run: ./scripts/install-solana-ci.sh
 
-  #     - name: Install gauntlet
-  #       run: |
-  #         yarn --cwd ./gauntlet install --frozen-lockfile
-  #         yarn --cwd ./gauntlet build
-  #         yarn --cwd ./gauntlet gauntlet
-  #     - name: Generate config overrides
-  #       env:
-  #         VERSION: ${{ inputs.evm-ref || env.CHAINLINK_REF }}
-  #       run:
-  #         | # https://github.com/smartcontractkit/chainlink-testing-framework/lib/blob/main/config/README.md
-  #         cat << EOF > config.toml
-  #         [ChainlinkImage]
-  #         version="${{ env.VERSION }}"
-  #         [Common]
-  #         user="${{ github.actor }}"
-  #         internal_docker_repo = "${{ secrets.QA_AWS_ACCOUNT_NUMBER }}.dkr.ecr.${{ secrets.QA_AWS_REGION }}.amazonaws.com"
-  #         EOF
-  #         # shellcheck disable=SC2002
-  #         BASE64_CONFIG_OVERRIDE=$(cat config.toml | base64 -w 0)
-  #         # shellcheck disable=SC2086
-  #         echo ::add-mask::$BASE64_CONFIG_OVERRIDE
-  #         # shellcheck disable=SC2086
-  #         echo "BASE64_CONFIG_OVERRIDE=$BASE64_CONFIG_OVERRIDE" >> $GITHUB_ENV
-  #     - name: Run Tests
-  #       uses: smartcontractkit/.github/actions/ctf-run-tests@725dd141dd77cc87dad420e9484416fc4ae26be2 # ctf-run-tests@v0.5.0
-  #       env:
-  #         E2E_TEST_CHAINLINK_IMAGE: ${{ env.CHAINLINK_IMAGE }}
-  #         E2E_TEST_SOLANA_SECRET: thisisatestingonlysecret
-  #         CHAINLINK_USER_TEAM: "BIX"
-  #       with:
-  #         test_command_to_run: export ENV_JOB_IMAGE=${{ secrets.QA_AWS_ACCOUNT_NUMBER }}.dkr.ecr.${{ secrets.QA_AWS_REGION }}.amazonaws.com/chainlink-solana-tests:${{ needs.get-solana-sha.outputs.sha }} && make test_smoke
-  #         test_config_override_base64: ${{ env.BASE64_CONFIG_OVERRIDE }}
-  #         cl_repo: ${{ env.CHAINLINK_IMAGE }}
-  #         cl_image_tag: test-${{ inputs.evm-ref || env.CHAINLINK_REF }}
-  #         publish_check_name: Solana Smoke Test Results
-  #         go_mod_path: ./integration-tests/go.mod
-  #         cache_key_id: core-solana-e2e-${{ env.MOD_CACHE_VERSION }}
-  #         token: ${{ secrets.GITHUB_TOKEN }}
-  #         aws_registries: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}
-  #         artifacts_name: solana-test-artifacts
-  #         artifacts_location: |
-  #           ./integration-tests/smoke/logs
-  #           ./integration-tests/smoke/db_dumps
-  #           ./integration-tests/smoke/seth_artifacts
-  #           /tmp/gotest.log
-  #         QA_AWS_REGION: ${{ secrets.QA_AWS_REGION }}
-  #         QA_AWS_ROLE_TO_ASSUME: ${{ secrets.QA_AWS_ROLE_TO_ASSUME }}
-  #         run_setup: false
-  #         go_coverage_src_dir: /var/tmp/go-coverage
-  #         go_coverage_dest_dir: ${{ github.workspace }}/.covdata
-  #         main-dns-zone: ${{ secrets.MAIN_DNS_ZONE_PUBLIC_SDLC }}
-  #         k8s-cluster-name: ${{ secrets.AWS_K8S_CLUSTER_NAME_SDLC }}
+      - name: Install gauntlet
+        run: |
+          yarn --cwd ./gauntlet install --frozen-lockfile
+          yarn --cwd ./gauntlet build
+          yarn --cwd ./gauntlet gauntlet
+      - name: Generate config overrides
+        env:
+          VERSION: ${{ inputs.evm-ref || env.CHAINLINK_REF }}
+        run:
+          | # https://github.com/smartcontractkit/chainlink-testing-framework/lib/blob/main/config/README.md
+          cat << EOF > config.toml
+          [ChainlinkImage]
+          version="${{ env.VERSION }}"
+          [Common]
+          user="${{ github.actor }}"
+          internal_docker_repo = "${{ secrets.QA_AWS_ACCOUNT_NUMBER }}.dkr.ecr.${{ secrets.QA_AWS_REGION }}.amazonaws.com"
+          EOF
+          # shellcheck disable=SC2002
+          BASE64_CONFIG_OVERRIDE=$(cat config.toml | base64 -w 0)
+          # shellcheck disable=SC2086
+          echo ::add-mask::$BASE64_CONFIG_OVERRIDE
+          # shellcheck disable=SC2086
+          echo "BASE64_CONFIG_OVERRIDE=$BASE64_CONFIG_OVERRIDE" >> $GITHUB_ENV
+      - name: Run Tests
+        uses: smartcontractkit/.github/actions/ctf-run-tests@ctf-run-tests/0.11.0
+        env:
+          E2E_TEST_CHAINLINK_IMAGE: ${{ env.CHAINLINK_IMAGE }}
+          E2E_TEST_SOLANA_SECRET: thisisatestingonlysecret
+          CHAINLINK_USER_TEAM: "BIX"
+        with:
+          test_command_to_run: export ENV_JOB_IMAGE=${{ secrets.QA_AWS_ACCOUNT_NUMBER }}.dkr.ecr.${{ secrets.QA_AWS_REGION }}.amazonaws.com/chainlink-solana-tests:${{ needs.get-solana-sha.outputs.sha }} && make test_smoke
+          test_config_override_base64: ${{ env.BASE64_CONFIG_OVERRIDE }}
+          cl_repo: ${{ env.CHAINLINK_IMAGE }}
+          cl_image_tag: test-${{ inputs.evm-ref || env.CHAINLINK_REF }}
+          publish_check_name: Solana Smoke Test Results
+          go_mod_path: ./integration-tests/go.mod
+          cache_key_id: core-solana-e2e-${{ env.MOD_CACHE_VERSION }}
+          token: ${{ secrets.GITHUB_TOKEN }}
+          aws_registries: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}
+          artifacts_name: solana-test-artifacts
+          artifacts_location: |
+            ./integration-tests/smoke/logs
+            ./integration-tests/smoke/db_dumps
+            ./integration-tests/smoke/seth_artifacts
+            /tmp/gotest.log
+          QA_AWS_REGION: ${{ secrets.QA_AWS_REGION }}
+          QA_AWS_ROLE_TO_ASSUME: ${{ secrets.QA_AWS_ROLE_TO_ASSUME }}
+          run_setup: false
+          go_coverage_src_dir: /var/tmp/go-coverage
+          go_coverage_dest_dir: ${{ github.workspace }}/.covdata
 
-  #     - name: Upload Coverage Data
-  #       uses: actions/upload-artifact@v4
-  #       timeout-minutes: 2
-  #       continue-on-error: true
-  #       with:
-  #         name: cl_node_coverage_data_solana_tests
-  #         path: .covdata
-  #         retention-days: 1
+      - name: Upload Coverage Data
+        uses: actions/upload-artifact@v4
+        timeout-minutes: 2
+        continue-on-error: true
+        with:
+          name: cl_node_coverage_data_solana_tests
+          path: .covdata
+          retention-days: 1
 
   notify-test-failure:
     name: Notify Test Failure
     # TODO: uncomment this when we want to notify on test failures post-merge, if Phase 3 is necessary
     if: false
     # if: ${{ github.ref_name == 'develop' && failure() }}
-    needs: 
-      [ 
-        check-e2e-test-results
-    #- solana-smoke-tests (disabled until removed or moved to main.stage or re-written to Docker)
-      ]
+    needs: [check-e2e-test-results, solana-smoke-tests]
     runs-on: ubuntu-latest
     steps:
       - name: Send slack notification for failed migration tests
