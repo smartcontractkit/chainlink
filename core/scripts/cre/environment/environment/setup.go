@@ -44,7 +44,7 @@ func init() {
 		Short: "Setup the CRE environment prerequisites",
 		Long:  `Checks and sets up prerequisites for the CRE environment including Docker, AWS, Job Distributor, and CRE CLI`,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return RunSetup(cmd.Context(), config, noPrompt, purge, withBilling)
+			return RunSetup(cmd.Context(), config, noPrompt, purge, withBilling, relativePathToRepoRoot)
 		},
 	}
 
@@ -381,7 +381,7 @@ func (c ImageConfig) Ensure(ctx context.Context, dockerClient *client.Client, aw
 }
 
 // RunSetup performs the setup for the CRE environment
-func RunSetup(ctx context.Context, config SetupConfig, noPrompt, purge, withBilling bool) (setupErr error) {
+func RunSetup(ctx context.Context, config SetupConfig, noPrompt, purge, withBilling bool, relativePathToRepoRoot string) (setupErr error) {
 	logger := framework.L
 	var localDXTracker tracking.Tracker
 	localDXTracker = &tracking.NoOpTracker{}
