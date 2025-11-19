@@ -7,6 +7,7 @@ import (
 	"encoding/hex"
 	"fmt"
 	"math/big"
+	"strings"
 	"testing"
 	"time"
 
@@ -18,6 +19,7 @@ import (
 	"github.com/ethereum/go-ethereum/ethclient/simulated"
 	"github.com/ethereum/go-ethereum/rpc"
 	"github.com/google/uuid"
+	"github.com/onsi/gomega"
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 	clcommonTypes "github.com/smartcontractkit/chainlink-common/pkg/types"
 	evmtestutils "github.com/smartcontractkit/chainlink-evm/pkg/testutils"
@@ -326,33 +328,60 @@ func TestIntegration_secondary_feed_transmission(t *testing.T) {
 	}
 	t.Logf("Created jobs for feed %s", dualAggAddress.String())
 
-	nrOfBlocks := uint64(100)
-	currentBlock, err := backend.Client().BlockNumber(context.Background())
-	require.NoError(t, err)
-
-	targetBlock := big.NewInt(int64(currentBlock + nrOfBlocks))
-	t.Logf("Current block is %d, waiting for %d blocks until targetBlock %d", currentBlock, nrOfBlocks, targetBlock)
-
-	ch := make(chan *gethtypes.Header, 50)
-	sub, err := backend.Client().SubscribeNewHead(context.Background(), ch)
-	require.NoError(t, err)
-	defer sub.Unsubscribe()
-
-	for {
-		select {
-		case <-t.Context().Done():
-			return
-		case <-time.After(1 * time.Second):
-			t.Logf("new block created")
+	// Start block ticker to continue committing blocks
+	tick := time.NewTicker(1 * time.Second)
+	defer tick.Stop()
+	go func() {
+		for range tick.C {
 			backend.Commit()
-		case head := <-ch:
-			t.Logf("Received block %s", head.Number.String())
-			if head.Number.Cmp(targetBlock) >= 0 {
-				t.Logf("Block %d has arrived, we're done", head.Number.Int64())
-				return
+		}
+	}()
+
+	// Use Eventually to wait for both primary and secondary transmissions in logs
+	var primaryFound, secondaryFound bool
+	gomega.NewGomegaWithT(t).Eventually(func() bool {
+		primaryFound = false
+		secondaryFound = false
+
+		// Check logs from all oracle nodes
+		for i, node := range nodes {
+			if node.ObservedLogs == nil {
+				continue
+			}
+			logs := node.ObservedLogs.All()
+			for _, log := range logs {
+				msg := strings.ToLower(log.Message)
+				// Check for primary transmission (to chain)
+				// Look for transmit-related messages that don't mention secondary or flashbots
+				// Primary transmission typically logs about sending to chain/contract
+				if (strings.Contains(msg, "transmit") || strings.Contains(msg, "transmission")) &&
+					!strings.Contains(msg, "secondary") &&
+					!strings.Contains(msg, "flashbots") &&
+					!strings.Contains(msg, "transmitsecondary") {
+					primaryFound = true
+					t.Logf("Node %d: Found primary transmission log: %s", i, log.Message)
+				}
+				// Check for secondary transmission to Flashbots
+				// Look for explicit secondary transmission or Flashbots-related messages
+				if strings.Contains(msg, "transmitsecondary") ||
+					(strings.Contains(msg, "secondary") && (strings.Contains(msg, "transmit") || strings.Contains(msg, "transmission"))) ||
+					(strings.Contains(msg, "secondary") && strings.Contains(msg, "flashbots")) ||
+					(strings.Contains(msg, "flashbots") && (strings.Contains(msg, "transmit") || strings.Contains(msg, "transmission"))) {
+					secondaryFound = true
+					t.Logf("Node %d: Found secondary transmission log: %s", i, log.Message)
+				}
 			}
 		}
-	}
+
+		if primaryFound && secondaryFound {
+			t.Logf("Found both primary and secondary transmissions in logs")
+		} else {
+			t.Logf("Waiting for transmissions - primary: %v, secondary: %v", primaryFound, secondaryFound)
+		}
+
+		return primaryFound && secondaryFound
+	}, 5*time.Minute, 1*time.Second).Should(gomega.BeTrue(),
+		"Expected both primary (to chain) and secondary (to Flashbots) transmissions in logs. Primary found: %v, Secondary found: %v", primaryFound, secondaryFound)
 
 	/**
 	NEXT STEPS
