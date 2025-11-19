@@ -90,7 +90,7 @@ func (node *Node) AddBootstrapJob(t *testing.T, spec string) {
 	require.NoError(t, err)
 }
 
-func setupNodes(t *testing.T, nNodes int, backend simulated.Backend, clientCSAKeys []csakey.KeyV2) (oracles []confighelper.OracleIdentityExtra, nodes []Node) {
+func setupNodes(t *testing.T, nNodes int, backend *simulated.Backend, clientCSAKeys []csakey.KeyV2) (oracles []confighelper.OracleIdentityExtra, nodes []Node) {
 	ports := freeport.GetN(t, nNodes)
 	for i := 0; i < nNodes; i++ {
 		app, peerID, transmitter, kb, observedLogs := setupNode(t, ports[i], fmt.Sprintf("core_node_%d", i), backend, clientCSAKeys[i])
@@ -128,7 +128,7 @@ func setupNode(
 	t *testing.T,
 	port int,
 	nodeName string,
-	backend simulated.Backend,
+	backend *simulated.Backend,
 	csaKey csakey.KeyV2,
 ) (app chainlink.Application, peerID string, clientPubKey credentials.StaticSizedPublicKey, ocr2kb ocr2key.KeyBundle, observedLogs *observer.ObservedLogs) {
 	k := big.NewInt(int64(port)) // keys unique to port

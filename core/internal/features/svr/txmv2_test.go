@@ -18,6 +18,7 @@ import (
 	"github.com/ethereum/go-ethereum/ethclient/simulated"
 	"github.com/ethereum/go-ethereum/rpc"
 	"github.com/google/uuid"
+	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 	clcommonTypes "github.com/smartcontractkit/chainlink-common/pkg/types"
 	evmtestutils "github.com/smartcontractkit/chainlink-evm/pkg/testutils"
 	"github.com/smartcontractkit/freeport"
@@ -29,13 +30,12 @@ import (
 
 	"github.com/smartcontractkit/chainlink-evm/pkg/assets"
 
-	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/csakey"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ethkey"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/testhelpers"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
-	"github.com/smartcontractkit/chainlink/v2/core/store/models"
 )
 
 // Copied from core/services/ocr2/plugins/llo/integration_test.go + svr-contracts/test/e2e/svr_test.go + integration-tests/smoke/ocr2_test.go
@@ -294,7 +294,7 @@ func TestIntegration_secondary_feed_transmission(t *testing.T) {
 			Pipeline:          *pl,
 			ExternalJobID:     uuid.New(),
 			ForwardingAllowed: true,
-			MaxTaskDuration:   *models.NewInterval(0 * time.Second),
+			MaxTaskDuration:   *sqlutil.NewInterval(0 * time.Second),
 			OCR2OracleSpec: &job.OCR2OracleSpec{
 				ContractID:           dualAggAddress.Hex(),
 				Relay:                "evm",
@@ -488,12 +488,12 @@ func TestIntegration_secondary_feed_transmission(t *testing.T) {
 
 }
 
-func setupBlockchain(t *testing.T) (*bind.TransactOpts, simulated.Backend) {
+func setupBlockchain(t *testing.T) (*bind.TransactOpts, *simulated.Backend) {
 	// TODO(gg): maybe use seth instead?
 
 	contractOwner := evmtestutils.MustNewSimTransactor(t) // config contract deployer and owner
 	genesisData := gethtypes.GenesisAlloc{contractOwner.From: {Balance: assets.Ether(1000).ToInt()}}
-	backend := cltest.NewSimulatedBackend(t, genesisData, ethconfig.Defaults.Miner.GasCeil)
+	backend := simulated.NewBackend(genesisData, simulated.WithBlockGasLimit(ethconfig.Defaults.Miner.GasCeil))
 	backend.Commit()
 	backend.Commit() // ensure starting block number at least 1
 
@@ -514,7 +514,7 @@ func mustNewType(t string) abi.Type {
 	return result
 }
 
-func fundAddressOf(key ethkey.KeyV2, contractOwner *bind.TransactOpts, backend simulated.Backend) error {
+func fundAddressOf(key ethkey.KeyV2, contractOwner *bind.TransactOpts, backend *simulated.Backend) error {
 
 	// backend.Client().SendTransaction()
 	// contractOwner.From
