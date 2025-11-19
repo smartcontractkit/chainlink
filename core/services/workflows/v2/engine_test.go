@@ -48,6 +48,8 @@ import (
 	coreCap "github.com/smartcontractkit/chainlink/v2/core/capabilities"
 	capmocks "github.com/smartcontractkit/chainlink/v2/core/capabilities/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/wasmtest"
+	"github.com/smartcontractkit/chainlink/v2/core/platform"
+	"github.com/smartcontractkit/chainlink/v2/core/services/registrysyncer"
 	workflowEvents "github.com/smartcontractkit/chainlink/v2/core/services/workflows/events"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/metering"
 	metmocks "github.com/smartcontractkit/chainlink/v2/core/services/workflows/metering/mocks"
@@ -1779,6 +1781,122 @@ func TestEngine_HandleNewDON(t *testing.T) {
 	})
 }
 
+// TestEngine_DonVersionLabelUpdate tests that when a DON's ConfigVersion changes,
+// the beholder logger labels should be updated to reflect the new version.
+//
+// This test creates a REAL engine with a REAL DON notifier and triggers a REAL DON update
+// to verify that the beholder logger labels are updated correctly.
+//
+// Test Flow:
+// 1. Create a real engine with DON ConfigVersion = 1
+// 2. Start the engine (which subscribes to DON updates)
+// 3. Trigger a real DON update via NotifyDonSet() with ConfigVersion = 2
+// 4. Verify that the beholder logger labels are updated to reflect ConfigVersion = 2
+func TestEngine_DonVersionLabelUpdate(t *testing.T) {
+	t.Parallel()
+
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	lggr := logger.Test(t)
+
+	// Create a peer ID for our test node
+	peerID := ragetypes.PeerID{}
+	copy(peerID[:], "test-peer-id-1234567890abcdef")
+
+	// Create a tracking emitter to capture label changes
+	trackingEmitter := newTrackingBeholderEmitter()
+
+	// Create a real DON notifier (this is what the engine uses)
+	donNotifier := coreCap.NewDonNotifier()
+
+	// Note: CreateLocalRegistry creates a DON with ConfigVersion=2 by default, but we need to start at 1
+	lr := v2.CreateLocalRegistry(t, peerID)
+
+	donID := uint32(1)
+
+	// Update the DON to have ConfigVersion = 1 (initial state for this test)
+	don := lr.IDsToDONs[registrysyncer.DonID(donID)]
+	don.ConfigVersion = 1 // Start at version 1 so we can test the update to version 2
+	lr.IDsToDONs[registrysyncer.DonID(donID)] = don
+
+	// Wrap in updatableRegistry to allow thread-safe updates during testing
+	localRegistry := &updatableRegistry{
+		localRegistry: lr,
+	}
+
+	// Create initial DON object for the notifier
+	don1 := don.DON
+	workflowDonNodes := don1.Members
+
+	// Set initial DON in the notifier
+	donNotifier.NotifyDonSet(don1)
+
+	// Create a real capabilities registry and set our updatable local registry
+	capRegistry := coreCap.NewRegistry(lggr)
+	capRegistry.SetLocalRegistry(localRegistry)
+
+	// Create a real engine configuration
+	engine, cfg := createTestEngineForDonVersionTest(t, lggr, capRegistry, donNotifier, trackingEmitter)
+
+	// Start the engine - this will subscribe to DON updates
+	err := engine.Start(ctx)
+	require.NoError(t, err)
+	defer func() {
+		assert.NoError(t, engine.Close())
+	}()
+
+	// Wait for initialization
+	time.Sleep(500 * time.Millisecond)
+
+	// Verify initial labels
+	initialLabels := trackingEmitter.GetLatestLabels()
+	require.NotNil(t, initialLabels)
+	assert.Equal(t, "1", initialLabels[platform.DonVersion], "initial donVersion label should be 1")
+	t.Logf("✓ Initial labels: donVersion=%s", initialLabels[platform.DonVersion])
+
+	// NOW TRIGGER A REAL DON UPDATE
+	// This simulates what happens when the registry syncer detects a DON configuration change
+	don2 := capabilities.DON{
+		ID:               donID,
+		ConfigVersion:    2, // UPDATED VERSION
+		F:                uint8(1),
+		IsPublic:         true,
+		AcceptsWorkflows: true,
+		Members:          workflowDonNodes,
+	}
+
+	// Update the LocalRegistry (simulating what the registry syncer does)
+	localRegistry.UpdateDON(registrysyncer.DonID(donID), registrysyncer.DON{
+		DON:                      don2,
+		CapabilityConfigurations: map[string]registrysyncer.CapabilityConfiguration{},
+	})
+
+	// Notify the engine of the DON update
+	donNotifier.NotifyDonSet(don2)
+	t.Logf("✓ Triggered real DON update via NotifyDonSet()")
+
+	// Wait for the engine to process the update
+	time.Sleep(500 * time.Millisecond)
+
+	// Verify the registry was updated
+	updatedNode, err := localRegistry.LocalNode(ctx)
+	require.NoError(t, err)
+	assert.Equal(t, uint32(2), updatedNode.WorkflowDON.ConfigVersion, "DON ConfigVersion should now be 2")
+	t.Logf("✓ Registry updated: DON ConfigVersion is now %d", updatedNode.WorkflowDON.ConfigVersion)
+
+	// Check if the beholder logger labels were updated
+	currentLabels := trackingEmitter.GetLatestLabels()
+	donVersionLabel := currentLabels[platform.DonVersion]
+	t.Logf("After real DON update: donVersion label=%s (actual DON ConfigVersion=%d)",
+		donVersionLabel, updatedNode.WorkflowDON.ConfigVersion)
+	assert.Equal(t, "2", donVersionLabel,
+		"donVersion label should be updated to '2' when DON ConfigVersion changes. "+
+			"This test uses a REAL engine, REAL DON notifier, and triggers a REAL DON update.")
+
+	_ = cfg // Keep reference
+}
+
 // setupMockBillingClient creates a mock billing client with default expectations.
 func setupMockBillingClient(t *testing.T) *metmocks.BillingClient {
 	billingClient := metmocks.NewBillingClient(t)
@@ -1996,4 +2114,185 @@ func (c *TriggerCapabilityWrapper) Info(ctx context.Context) (capabilities.Capab
 		capabilities.CapabilityTypeTrigger,
 		"Mock of trigger capability for testing",
 	)
+}
+
+// updatableRegistry wraps LocalRegistry to allow thread-safe updates during testing
+// and implements the full CapabilitiesRegistry interface
+type updatableRegistry struct {
+	localRegistry *registrysyncer.LocalRegistry
+	mu            sync.RWMutex
+}
+
+func (r *updatableRegistry) LocalNode(ctx context.Context) (capabilities.Node, error) {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	return r.localRegistry.LocalNode(ctx)
+}
+
+func (r *updatableRegistry) UpdateDON(donID registrysyncer.DonID, don registrysyncer.DON) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	r.localRegistry.IDsToDONs[donID] = don
+}
+
+// Add implements the CapabilitiesRegistry interface (not used in this test)
+func (r *updatableRegistry) Add(ctx context.Context, capability capabilities.BaseCapability) error {
+	return nil
+}
+
+// ConfigForCapability implements the CapabilitiesRegistryMetadata interface
+func (r *updatableRegistry) ConfigForCapability(ctx context.Context, capabilityID string, donID uint32) (capabilities.CapabilityConfiguration, error) {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	return r.localRegistry.ConfigForCapability(ctx, capabilityID, donID)
+}
+
+// DONsForCapability implements the CapabilitiesRegistryMetadata interface
+func (r *updatableRegistry) DONsForCapability(ctx context.Context, capabilityID string) ([]capabilities.DONWithNodes, error) {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	return r.localRegistry.DONsForCapability(ctx, capabilityID)
+}
+
+// NodeByPeerID implements the CapabilitiesRegistryMetadata interface
+func (r *updatableRegistry) NodeByPeerID(ctx context.Context, peerID ragetypes.PeerID) (capabilities.Node, error) {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	return r.localRegistry.NodeByPeerID(ctx, peerID)
+}
+
+// createTestEngineForDonVersionTest creates a real V2 engine for testing DON version updates
+func createTestEngineForDonVersionTest(
+	t *testing.T,
+	lggr logger.Logger,
+	registry *coreCap.Registry,
+	donNotifier coreCap.DonNotifyWaitSubscriber,
+	emitter custmsg.MessageEmitter,
+) (*v2.Engine, *v2.EngineConfig) {
+	lf := limits.Factory{Logger: lggr}
+
+	name, err := types.NewWorkflowName("test-don-update-workflow")
+	require.NoError(t, err)
+
+	sLimiter, err := syncerlimiter.NewWorkflowLimits(lggr, syncerlimiter.Config{}, lf)
+	require.NoError(t, err)
+
+	// Use a mock WASM module (only mock we need!)
+	wasmModule := modulemocks.NewModuleV2(t)
+	wasmModule.On("Start").Return(nil)
+	wasmModule.On("Execute", mock.Anything, mock.Anything, mock.Anything).Return(nil, nil).Maybe()
+	wasmModule.On("Close").Return(nil)
+
+	cfg := &v2.EngineConfig{
+		Lggr:                              lggr,
+		Module:                            wasmModule,
+		CapRegistry:                       registry,
+		UseLocalTimeProvider:              true,
+		DonSubscriber:                     donNotifier,
+		ExecutionsStore:                   defaultTestConfig(t, nil).ExecutionsStore,
+		WorkflowID:                        "ffffaabbccddeeff00112233aabbccddeeff00112233aabbccddeeff00112233",
+		WorkflowOwner:                     "1234567890123456789012345678901234567890",
+		WorkflowName:                      name,
+		WorkflowTag:                       "test-tag",
+		WorkflowEncryptionKey:             defaultTestConfig(t, nil).WorkflowEncryptionKey,
+		LocalLimits:                       v2.EngineLimits{},
+		LocalLimiters:                     defaultTestConfig(t, nil).LocalLimiters,
+		GlobalExecutionConcurrencyLimiter: sLimiter,
+		GlobalExecutionRateLimiter:        defaultTestConfig(t, nil).GlobalExecutionRateLimiter,
+		BeholderEmitter:                   emitter,
+		WorkflowRegistryAddress:           "0xWorkflowRegistry",
+		WorkflowRegistryChainSelector:     "11155111",
+	}
+
+	engine, err := v2.NewEngine(cfg)
+	require.NoError(t, err)
+
+	return engine, cfg
+}
+
+// trackingBeholderEmitter is a test helper that tracks the labels set via With()
+// This helps us verify what labels the beholder logger would have at any point
+type trackingBeholderEmitter struct {
+	mu     sync.Mutex
+	labels map[string]string
+}
+
+func newTrackingBeholderEmitter() *trackingBeholderEmitter {
+	return &trackingBeholderEmitter{
+		labels: make(map[string]string),
+	}
+}
+
+func (t *trackingBeholderEmitter) With(keyValues ...string) custmsg.MessageEmitter {
+	t.mu.Lock()
+	defer t.mu.Unlock()
+
+	// Parse key-value pairs and store them
+	for i := 0; i < len(keyValues)-1; i += 2 {
+		key := keyValues[i]
+		value := keyValues[i+1]
+		t.labels[key] = value
+	}
+
+	return t
+}
+
+func (t *trackingBeholderEmitter) WithMapLabels(labels map[string]string) custmsg.MessageEmitter {
+	t.mu.Lock()
+	defer t.mu.Unlock()
+
+	for k, v := range labels {
+		t.labels[k] = v
+	}
+
+	return t
+}
+
+func (t *trackingBeholderEmitter) Labels() map[string]string {
+	return t.GetLatestLabels()
+}
+
+func (t *trackingBeholderEmitter) Emit(_ context.Context, _ string) error {
+	// No-op for this test
+	return nil
+}
+
+func (t *trackingBeholderEmitter) Close() error {
+	return nil
+}
+
+func (t *trackingBeholderEmitter) GetLatestLabels() map[string]string {
+	t.mu.Lock()
+	defer t.mu.Unlock()
+
+	// Return a copy to avoid race conditions
+	result := make(map[string]string, len(t.labels))
+	for k, v := range t.labels {
+		result[k] = v
+	}
+	return result
+}
+
+// HealthReport implements the custmsg.MessageEmitter interface
+func (t *trackingBeholderEmitter) HealthReport() map[string]error {
+	return nil
+}
+
+func (t *trackingBeholderEmitter) Name() string {
+	return "trackingBeholderEmitter"
+}
+
+func (t *trackingBeholderEmitter) Ready() error {
+	return nil
+}
+
+func (t *trackingBeholderEmitter) Start(context.Context) error {
+	return nil
+}
+
+// Helper function to pretty-print labels for debugging
+func (t *trackingBeholderEmitter) String() string {
+	t.mu.Lock()
+	defer t.mu.Unlock()
+	return fmt.Sprintf("Labels: %v", t.labels)
 }
