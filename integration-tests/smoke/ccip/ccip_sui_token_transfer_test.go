@@ -43,76 +43,7 @@ func assertSuiSourceRevertExpectedError(t *testing.T, err error, execRevertError
 }
 
 func Test_CCIPTokenTransfer_Sui2EVM_ManagedTokenPool(t *testing.T) {
-	ctx := testhelpers.Context(t)
-	e, _, _ := testsetups.NewIntegrationEnvironment(
-		t,
-		testhelpers.WithNumOfChains(2),
-		testhelpers.WithSuiChains(1),
-	)
-
-	evmChainSelectors := e.Env.BlockChains.ListChainSelectors(chain.WithFamily(chain_selectors.FamilyEVM))
-	suiChainSelectors := e.Env.BlockChains.ListChainSelectors(chain.WithFamily(chain_selectors.FamilySui))
-
-	sourceChain := suiChainSelectors[0]
-	destChain := evmChainSelectors[0]
-
-	state, err := stateview.LoadOnchainState(e.Env)
-	require.NoError(t, err)
-
-	t.Log("Source chain (Sui): ", sourceChain, "Dest chain (EVM): ", destChain)
-
-	err = testhelpers.AddLaneWithDefaultPricesAndFeeQuoterConfig(t, &e, state, sourceChain, destChain, false)
-	require.NoError(t, err)
-
-	_, err = e.Env.BlockChains.SuiChains()[sourceChain].Signer.GetAddress()
-	require.NoError(t, err)
-
-	// SUI FeeToken
-	// mint link token to use as feeToken
-	_, feeTokenOutput, err := commoncs.ApplyChangesets(t, e.Env, []commoncs.ConfiguredChangeSet{
-		commoncs.Configure(sui_cs.MintLinkToken{}, sui_cs.MintLinkTokenConfig{
-			ChainSelector:  sourceChain,
-			TokenPackageId: state.SuiChains[sourceChain].LinkTokenAddress,
-			TreasuryCapId:  state.SuiChains[sourceChain].LinkTokenTreasuryCapId,
-			Amount:         1000000000000, // 1000Link with 1e9,
-		}),
-	})
-	require.NoError(t, err)
-
-	rawOutput := feeTokenOutput[0].Reports[0]
-	outputMap, ok := rawOutput.Output.(sui_ops.OpTxResult[linkops.MintLinkTokenOutput])
-	require.True(t, ok)
-
-	// SUI TransferToken
-	// mint link token to use as Transfer Token
-	_, transferTokenOutput, err := commoncs.ApplyChangesets(t, e.Env, []commoncs.ConfiguredChangeSet{
-		commoncs.Configure(sui_cs.MintLinkToken{}, sui_cs.MintLinkTokenConfig{
-			ChainSelector:  sourceChain,
-			TokenPackageId: state.SuiChains[sourceChain].LinkTokenAddress,
-			TreasuryCapId:  state.SuiChains[sourceChain].LinkTokenTreasuryCapId,
-			Amount:         1000000000, // 1Link with 1e9
-		}),
-	})
-	require.NoError(t, err)
-
-	rawOutputTransferToken := transferTokenOutput[0].Reports[0]
-	outputMapTransferToken, ok := rawOutputTransferToken.Output.(sui_ops.OpTxResult[linkops.MintLinkTokenOutput])
-	require.True(t, ok)
-
-	// mint more token
-	_, transferTokenOutput1, err := commoncs.ApplyChangesets(t, e.Env, []commoncs.ConfiguredChangeSet{
-		commoncs.Configure(sui_cs.MintLinkToken{}, sui_cs.MintLinkTokenConfig{
-			ChainSelector:  sourceChain,
-			TokenPackageId: state.SuiChains[sourceChain].LinkTokenAddress,
-			TreasuryCapId:  state.SuiChains[sourceChain].LinkTokenTreasuryCapId,
-			Amount:         2000000000, // 1Link with 1e9
-		}),
-	})
-	require.NoError(t, err)
-
-	rawOutputTransferToken1 := transferTokenOutput1[0].Reports[0]
-	outputMapTransferToken1, ok := rawOutputTransferToken1.Output.(sui_ops.OpTxResult[linkops.MintLinkTokenOutput])
-	require.True(t, ok)
+	e, sourceChain, destChain, state, outputMap, outputMapTransferToken, outputMapTransferToken1 := test_setup_token_transfer(t)
 
 	// Receiver Address
 	ccipReceiverAddress := state.Chains[destChain].Receiver.Address()
@@ -177,6 +108,7 @@ func Test_CCIPTokenTransfer_Sui2EVM_ManagedTokenPool(t *testing.T) {
 		},
 	}
 
+	ctx := testhelpers.Context(t)
 	startBlocks, expectedSeqNums, expectedExecutionStates, expectedTokenBalances := testhelpers.TransferMultiple(ctx, t, updatedEnv, state, tcs)
 
 	err = testhelpers.ConfirmMultipleCommits(
@@ -202,76 +134,7 @@ func Test_CCIPTokenTransfer_Sui2EVM_ManagedTokenPool(t *testing.T) {
 }
 
 func Test_CCIPTokenTransfer_Sui2EVM_BurnMintTokenPool(t *testing.T) {
-	ctx := testhelpers.Context(t)
-	e, _, _ := testsetups.NewIntegrationEnvironment(
-		t,
-		testhelpers.WithNumOfChains(2),
-		testhelpers.WithSuiChains(1),
-	)
-
-	evmChainSelectors := e.Env.BlockChains.ListChainSelectors(chain.WithFamily(chain_selectors.FamilyEVM))
-	suiChainSelectors := e.Env.BlockChains.ListChainSelectors(chain.WithFamily(chain_selectors.FamilySui))
-
-	sourceChain := suiChainSelectors[0]
-	destChain := evmChainSelectors[0]
-
-	state, err := stateview.LoadOnchainState(e.Env)
-	require.NoError(t, err)
-
-	t.Log("Source chain (Sui): ", sourceChain, "Dest chain (EVM): ", destChain)
-
-	err = testhelpers.AddLaneWithDefaultPricesAndFeeQuoterConfig(t, &e, state, sourceChain, destChain, false)
-	require.NoError(t, err)
-
-	_, err = e.Env.BlockChains.SuiChains()[sourceChain].Signer.GetAddress()
-	require.NoError(t, err)
-
-	// SUI FeeToken
-	// mint link token to use as feeToken
-	_, feeTokenOutput, err := commoncs.ApplyChangesets(t, e.Env, []commoncs.ConfiguredChangeSet{
-		commoncs.Configure(sui_cs.MintLinkToken{}, sui_cs.MintLinkTokenConfig{
-			ChainSelector:  sourceChain,
-			TokenPackageId: state.SuiChains[sourceChain].LinkTokenAddress,
-			TreasuryCapId:  state.SuiChains[sourceChain].LinkTokenTreasuryCapId,
-			Amount:         1000000000000, // 1000Link with 1e9,
-		}),
-	})
-	require.NoError(t, err)
-
-	rawOutput := feeTokenOutput[0].Reports[0]
-	outputMap, ok := rawOutput.Output.(sui_ops.OpTxResult[linkops.MintLinkTokenOutput])
-	require.True(t, ok)
-
-	// SUI TransferToken
-	// mint link token to use as Transfer Token
-	_, transferTokenOutput, err := commoncs.ApplyChangesets(t, e.Env, []commoncs.ConfiguredChangeSet{
-		commoncs.Configure(sui_cs.MintLinkToken{}, sui_cs.MintLinkTokenConfig{
-			ChainSelector:  sourceChain,
-			TokenPackageId: state.SuiChains[sourceChain].LinkTokenAddress,
-			TreasuryCapId:  state.SuiChains[sourceChain].LinkTokenTreasuryCapId,
-			Amount:         1000000000, // 1Link with 1e9
-		}),
-	})
-	require.NoError(t, err)
-
-	rawOutputTransferToken := transferTokenOutput[0].Reports[0]
-	outputMapTransferToken, ok := rawOutputTransferToken.Output.(sui_ops.OpTxResult[linkops.MintLinkTokenOutput])
-	require.True(t, ok)
-
-	// mint more token
-	_, transferTokenOutput1, err := commoncs.ApplyChangesets(t, e.Env, []commoncs.ConfiguredChangeSet{
-		commoncs.Configure(sui_cs.MintLinkToken{}, sui_cs.MintLinkTokenConfig{
-			ChainSelector:  sourceChain,
-			TokenPackageId: state.SuiChains[sourceChain].LinkTokenAddress,
-			TreasuryCapId:  state.SuiChains[sourceChain].LinkTokenTreasuryCapId,
-			Amount:         2000000000, // 1Link with 1e9
-		}),
-	})
-	require.NoError(t, err)
-
-	rawOutputTransferToken1 := transferTokenOutput1[0].Reports[0]
-	outputMapTransferToken1, ok := rawOutputTransferToken1.Output.(sui_ops.OpTxResult[linkops.MintLinkTokenOutput])
-	require.True(t, ok)
+	e, sourceChain, destChain, state, outputMap, outputMapTransferToken, outputMapTransferToken1 := test_setup_token_transfer(t)
 
 	_, transferTokenOutput2, err := commoncs.ApplyChangesets(t, e.Env, []commoncs.ConfiguredChangeSet{
 		commoncs.Configure(sui_cs.MintLinkToken{}, sui_cs.MintLinkTokenConfig{
@@ -350,6 +213,7 @@ func Test_CCIPTokenTransfer_Sui2EVM_BurnMintTokenPool(t *testing.T) {
 		},
 	}
 
+	ctx := testhelpers.Context(t)
 	startBlocks, expectedSeqNums, expectedExecutionStates, expectedTokenBalances := testhelpers.TransferMultiple(ctx, t, updatedEnv, state, tcs)
 
 	err = testhelpers.ConfirmMultipleCommits(
@@ -436,7 +300,80 @@ func Test_CCIPTokenTransfer_Sui2EVM_BurnMintTokenPool(t *testing.T) {
 		assertSuiSourceRevertExpectedError(t, err, "transaction failed with error", "function_name: Some(\"resolve_generic_gas_limit\") }, 18)")
 		t.Log("Expected error: ", err)
 	})
+}
 
+func test_setup_token_transfer(t *testing.T) (testhelpers.DeployedEnv, uint64, uint64, stateview.CCIPOnChainState, sui_ops.OpTxResult[linkops.MintLinkTokenOutput], sui_ops.OpTxResult[linkops.MintLinkTokenOutput], sui_ops.OpTxResult[linkops.MintLinkTokenOutput]) {
+	e, _, _ := testsetups.NewIntegrationEnvironment(
+		t,
+		testhelpers.WithNumOfChains(2),
+		testhelpers.WithSuiChains(1),
+	)
+
+	evmChainSelectors := e.Env.BlockChains.ListChainSelectors(chain.WithFamily(chain_selectors.FamilyEVM))
+	suiChainSelectors := e.Env.BlockChains.ListChainSelectors(chain.WithFamily(chain_selectors.FamilySui))
+
+	sourceChain := suiChainSelectors[0]
+	destChain := evmChainSelectors[0]
+
+	state, err := stateview.LoadOnchainState(e.Env)
+	require.NoError(t, err)
+
+	t.Log("Source chain (Sui): ", sourceChain, "Dest chain (EVM): ", destChain)
+
+	err = testhelpers.AddLaneWithDefaultPricesAndFeeQuoterConfig(t, &e, state, sourceChain, destChain, false)
+	require.NoError(t, err)
+
+	_, err = e.Env.BlockChains.SuiChains()[sourceChain].Signer.GetAddress()
+	require.NoError(t, err)
+
+	// SUI FeeToken
+	// mint link token to use as feeToken
+	_, feeTokenOutput, err := commoncs.ApplyChangesets(t, e.Env, []commoncs.ConfiguredChangeSet{
+		commoncs.Configure(sui_cs.MintLinkToken{}, sui_cs.MintLinkTokenConfig{
+			ChainSelector:  sourceChain,
+			TokenPackageId: state.SuiChains[sourceChain].LinkTokenAddress,
+			TreasuryCapId:  state.SuiChains[sourceChain].LinkTokenTreasuryCapId,
+			Amount:         1000000000000, // 1000Link with 1e9,
+		}),
+	})
+	require.NoError(t, err)
+
+	rawOutput := feeTokenOutput[0].Reports[0]
+	outputMap, ok := rawOutput.Output.(sui_ops.OpTxResult[linkops.MintLinkTokenOutput])
+	require.True(t, ok)
+
+	// SUI TransferToken
+	// mint link token to use as Transfer Token
+	_, transferTokenOutput, err := commoncs.ApplyChangesets(t, e.Env, []commoncs.ConfiguredChangeSet{
+		commoncs.Configure(sui_cs.MintLinkToken{}, sui_cs.MintLinkTokenConfig{
+			ChainSelector:  sourceChain,
+			TokenPackageId: state.SuiChains[sourceChain].LinkTokenAddress,
+			TreasuryCapId:  state.SuiChains[sourceChain].LinkTokenTreasuryCapId,
+			Amount:         1000000000, // 1Link with 1e9
+		}),
+	})
+	require.NoError(t, err)
+
+	rawOutputTransferToken := transferTokenOutput[0].Reports[0]
+	outputMapTransferToken, ok := rawOutputTransferToken.Output.(sui_ops.OpTxResult[linkops.MintLinkTokenOutput])
+	require.True(t, ok)
+
+	// mint more token
+	_, transferTokenOutput1, err := commoncs.ApplyChangesets(t, e.Env, []commoncs.ConfiguredChangeSet{
+		commoncs.Configure(sui_cs.MintLinkToken{}, sui_cs.MintLinkTokenConfig{
+			ChainSelector:  sourceChain,
+			TokenPackageId: state.SuiChains[sourceChain].LinkTokenAddress,
+			TreasuryCapId:  state.SuiChains[sourceChain].LinkTokenTreasuryCapId,
+			Amount:         2000000000, // 1Link with 1e9
+		}),
+	})
+	require.NoError(t, err)
+
+	rawOutputTransferToken1 := transferTokenOutput1[0].Reports[0]
+	outputMapTransferToken1, ok := rawOutputTransferToken1.Output.(sui_ops.OpTxResult[linkops.MintLinkTokenOutput])
+	require.True(t, ok)
+
+	return e, sourceChain, destChain, state, outputMap, outputMapTransferToken, outputMapTransferToken1
 }
 
 func Test_CCIPTokenTransfer_EVM2SUI_ManagedTokenPool(t *testing.T) {
@@ -1185,8 +1122,8 @@ func Test_CCIPZeroGasLimitTokenTransfer_EVM2SUI_BurnMintTokenPool(t *testing.T) 
 			},
 		},
 	}
-	ctx := testhelpers.Context(t)
 
+	ctx := testhelpers.Context(t)
 	startBlocks, expectedSeqNums, expectedExecutionStates, expectedTokenBalances := testhelpers.TransferMultiple(ctx, t, e.Env, state, tcs)
 
 	err = testhelpers.ConfirmMultipleCommits(
