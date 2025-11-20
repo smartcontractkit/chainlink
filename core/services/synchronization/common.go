@@ -64,56 +64,49 @@ type ChipIngressService interface {
 // TelemetryTypeToDomainAndEntity maps TelemetryType to (domain, entity) pairs for beholder ingestion.
 // Based on atlas/ingress mappings.
 func TelemetryTypeToDomainAndEntity(telemType TelemetryType) (domain, entity string, err error) {
+	ocr2Entity := "offchainreporting2.TelemetryWrapper"
+	ocr3Entity := "offchainreporting3.TelemetryWrapper"
+
 	switch telemType {
-	case EnhancedEA:
-		return "data-feeds", "enhanced.ea.telemetry", nil
-	case FunctionsRequests:
-		return "functions", "functions.requests.telemetry", nil
-	case EnhancedEAMercury:
-		return "data-streams", "enhanced.ea.mercury.telemetry", nil
 	case OCR:
-		return "data-feeds", "ocr.v1.telemetry", nil
-	case OCR2Automation:
-		return "automation", "ocr.v2.automation.telemetry", nil
-	case OCR2Functions:
-		return "functions", "ocr.v2.functions.telemetry", nil
-	case OCR2CCIPCommit:
-		return "ccip", "ocr.v2.ccip.commit.telemetry", nil
-	case OCR2CCIPExec:
-		return "ccip", "ocr.v2.ccip.exec.telemetry", nil
-	case OCR2Threshold:
-		return "functions", "ocr.v2.threshold.telemetry", nil
-	case OCR2S4:
-		return "functions", "ocr.v2.s4.telemetry", nil
+		return "data-feeds.telemetry.ocr", "offchainreporting.TelemetryWrapper", nil
 	case OCR2Median:
-		return "data-feeds", "ocr.v2.median.telemetry", nil
-	case OCR3Mercury:
-		return "data-streams", "ocr.v3.mercury.telemetry", nil
-	case OCR3DataFeeds:
-		return "data-streams", "ocr.v3.data-feeds.telemetry", nil
-	case AutomationCustom:
-		return "automation", "automation.custom.telemetry", nil
+		return "data-feeds.telemetry.ocr2-median", ocr2Entity, nil
+	case OCR2Automation:
+		return "automations.telemetry.ocr2-automation", ocr2Entity, nil
+	case OCR2CCIPCommit:
+		return "ccip.telemetry.ocr2", ocr2Entity, nil
+	case OCR2CCIPExec:
+		return "ccip.telemetry.ocr2", ocr2Entity, nil
+	case OCR2Functions:
+		return "functions.telemetry.ocr2-functions", ocr2Entity, nil
 	case OCR3Automation:
-		return "automation", "ocr.v3.automation.telemetry", nil
-	case OCR3Rebalancer:
-		return "ccip", "ocr.v3.rebalancer.telemetry", nil
+		return "automations.telemetry.ocr3-automation", ocr3Entity, nil
+	case OCR3Mercury:
+		return "data-streams.telemetry.ocr3-mercury", ocr3Entity, nil
 	case OCR3CCIPCommit:
-		return "ccip", "ocr.v3.ccip.commit.telemetry", nil
+		return "ccip.telemetry.ocr3", ocr3Entity, nil
 	case OCR3CCIPExec:
-		return "ccip", "ocr.v3.ccip.exec.telemetry", nil
-	case OCR3CCIPBootstrap:
-		return "ccip", "ocr.v3.ccip.bootstrap.telemetry", nil
-	case HeadReport:
-		return "platform", "head.report.telemetry", nil
-	case PipelineBridge:
-		return "data-feeds", "pipeline.bridge.telemetry", nil
+		return "ccip.telemetry.ocr3", ocr3Entity, nil
+	case OCR3DataFeeds:
+		return "data-feeds.telemetry.ocr3-data-feeds", ocr3Entity, nil
+	case EnhancedEA:
+		return "data-feeds.telemetry.enhanced-ea", "telem.EnhancedEA", nil
+	case EnhancedEAMercury:
+		return "data-streams.telemetry.enhanced-ea-mercury", "telem.EnhancedEAMercury", nil
 	case LLOObservation:
-		return "data-streams", "llo.observation.telemetry", nil
+		return "data-streams.telemetry.llo-observation", "telem.LLOObservationTelemetry", nil
 	case LLOOutcome:
-		return "data-streams", "llo.outcome.telemetry", nil
-	case LLOReport:
-		return "data-streams", "llo.report.telemetry", nil
+		return "data-streams.telemetry.llo-outcome", "telem.LLOOutcomeTelemetry", nil
+	case AutomationCustom:
+		return "automations.telemetry.automation-custom", "telem.AutomationTelemWrapper", nil
+	case FunctionsRequests:
+		return "functions.telemetry.functions-requests", "telem.FunctionsRequest", nil
+	case HeadReport:
+		return "ccip.telemetry.head-report", "telem.HeadReportRequest", nil
+	case PipelineBridge:
+		return "data-streams.telemetry.pipeline-bridge", "telem.LLOBridgeTelemetry", nil
 	default:
-		return "", "", fmt.Errorf("unknown telemetry type: %s", telemType)
+		return "", "", fmt.Errorf("could not resolve domain and entity from telem type, unsupported telem type: %s", telemType)
 	}
 }
