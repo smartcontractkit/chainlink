@@ -201,7 +201,7 @@ jobs:
         run: |
           echo "::startgroup::Install CTF binary"
           mkdir -p bin
-          gh release download ${{ env.CTF_TAG }} --pattern "framework-v*-linux-amd64.tar.gz" --clobber --repo smartcontractkit/chainlink-testing-framework -O ctf.tar.gz
+          gh release download "${CTF_TAG}" --pattern "framework-v*-linux-amd64.tar.gz" --clobber --repo smartcontractkit/chainlink-testing-framework -O ctf.tar.gz
           tar -xzf ctf.tar.gz
           mv ctf bin/ctf
           chmod +x bin/ctf
