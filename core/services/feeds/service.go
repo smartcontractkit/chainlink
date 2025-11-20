@@ -1071,6 +1071,9 @@ func (s *service) ApproveSpec(ctx context.Context, id int64, force bool) error {
 				if txerr != nil && !errors.Is(txerr, sql.ErrNoRows) {
 					return fmt.Errorf("failed while checking for existing stream job: %w", txerr)
 				}
+			case job.CRESettings:
+				// Only possible to match CRE Setting by external job id
+				// no-op
 			default:
 				return errors.Errorf("unsupported job type when approving job proposal specs: %s", j.Type)
 			}
