@@ -46,6 +46,13 @@ if [[ ! -d $install_dir ]]; then
     mkdir $install_dir
 fi
 unzip -o $artifact -d $install_dir
+
+# check that bin/protoc exists in the install_dir
+if [[ ! -f $install_dir/bin/protoc ]]; then
+    echo "protoc $VERSION not installed in $install_dir"
+    exit 1
+fi
+
 rm $artifact
 
 echo "protoc $VERSION installed in $install_dir"
