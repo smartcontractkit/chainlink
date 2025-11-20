@@ -87,7 +87,7 @@ func ExecuteVaultTest(t *testing.T, testEnv *ttypes.TestEnvironment) {
 	secretID := strconv.Itoa(rand.Intn(10000)) // generate a random secret ID for testing
 	secretValue := "Secret Value to be stored"
 	vaultPublicKey := FetchVaultPublicKey(t, gatewayURL.String())
-	encryptedSecret, err := crevault.EncryptSecret(secretValue, vaultPublicKey)
+	encryptedSecret, err := crevault.EncryptSecret(secretValue, vaultPublicKey, sethClient.MustGetRootKeyAddress())
 	require.NoError(t, err, "failed to encrypt secret")
 
 	// Wait for the node to be up.
