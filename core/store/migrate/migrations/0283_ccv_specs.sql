@@ -4,15 +4,15 @@
 CREATE TABLE ccv_committee_verifier_specs(
     id BIGSERIAL PRIMARY KEY,
     committee_verifier_config TEXT NOT NULL,
-    created_at TIMESTAMP WITH TIME ZONE NOT NULL,
-    updated_at TIMESTAMP WITH TIME ZONE NOT NULL
+    created_at TIMESTAMPTZ NOT NULL,
+    updated_at TIMESTAMPTZ NOT NULL
 );
 
 CREATE TABLE ccv_executor_specs(
     id BIGSERIAL PRIMARY KEY,
     executor_config TEXT NOT NULL,
-    created_at TIMESTAMP WITH TIME ZONE NOT NULL,
-    updated_at TIMESTAMP WITH TIME ZONE NOT NULL
+    created_at TIMESTAMPTZ NOT NULL,
+    updated_at TIMESTAMPTZ NOT NULL
 );
 
 ALTER TABLE jobs
