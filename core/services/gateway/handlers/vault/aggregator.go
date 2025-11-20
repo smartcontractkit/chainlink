@@ -133,7 +133,11 @@ func (a *baseAggregator) sha(resp *jsonrpc.Response[json.RawMessage]) (string, e
 
 func (a *baseAggregator) validateUsingSignatures(don capabilities.DON, nodes []capabilities.Node, resp *jsonrpc.Response[json.RawMessage]) (*jsonrpc.Response[json.RawMessage], error) {
 	if resp.Result == nil {
-		return nil, errors.New("response result is nil: cannot validate signatures")
+		if resp.Error != nil {
+			return nil, errors.New("response has an error, cannot validate signatures. Error: " + resp.Error.Error())
+		} else {
+			return nil, errors.New("response result and error both are is nil: cannot validate signatures")
+		}
 	}
 
 	if resp.Method == vaulttypes.MethodSecretsGet {

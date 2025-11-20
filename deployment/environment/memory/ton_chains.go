@@ -15,18 +15,14 @@ import (
 	"github.com/xssnick/tonutils-go/tlb"
 	"golang.org/x/mod/modfile"
 
-	"github.com/xssnick/tonutils-go/ton/wallet"
-
 	cldf_chain "github.com/smartcontractkit/chainlink-deployments-framework/chain"
 	cldf_ton "github.com/smartcontractkit/chainlink-deployments-framework/chain/ton"
 	cldf_ton_provider "github.com/smartcontractkit/chainlink-deployments-framework/chain/ton/provider"
 	"github.com/smartcontractkit/chainlink-ton/deployment/utils"
-	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 )
 
 var (
-	deployerFundAmount    = tlb.MustFromTON("1000")
-	transmitterFundAmount = tlb.MustFromTON("200")
+	deployerFundAmount = tlb.MustFromTON("1000")
 )
 
 func getTestTonChainSelectors() []uint64 {
@@ -104,38 +100,6 @@ func generateChainsTon(t *testing.T, numChains int) []cldf_chain.BlockChain {
 	}
 
 	return chains
-}
-
-func createTonChainConfig(chainID string, chain cldf_ton.Chain) chainlink.RawConfig {
-	chainConfig := chainlink.RawConfig{}
-
-	chainConfig["Enabled"] = true
-	chainConfig["ChainID"] = chainID
-	chainConfig["NetworkName"] = "ton-local"
-	chainConfig["NetworkNameFull"] = "ton-local"
-	chainConfig["Nodes"] = []any{
-		map[string]any{
-			"Name": "primary",
-			"URL":  chain.URL,
-		},
-	}
-
-	return chainConfig
-}
-
-func fundNodesTon(t *testing.T, tonChain cldf_ton.Chain, nodes []*Node) {
-	messages := make([]*wallet.Message, 0, len(nodes))
-	for _, node := range nodes {
-		tonkeys, err := node.App.GetKeyStore().TON().GetAll()
-		require.NoError(t, err)
-		require.Len(t, tonkeys, 1)
-		transmitter := tonkeys[0].PubkeyToAddress()
-		msg, err := tonChain.Wallet.BuildTransfer(transmitter, transmitterFundAmount, false, "")
-		require.NoError(t, err)
-		messages = append(messages, msg)
-	}
-	_, _, err := tonChain.Wallet.SendManyWaitTransaction(t.Context(), messages)
-	require.NoError(t, err)
 }
 
 func getModFilePath() (string, error) {

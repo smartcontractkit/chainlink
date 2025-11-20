@@ -23,6 +23,7 @@ import (
 	"github.com/smartcontractkit/chainlink-evm/pkg/types"
 	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/blockchain"
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/ptr"
+	"github.com/smartcontractkit/chainlink/deployment/cre/common/strategies"
 	cre_jobs "github.com/smartcontractkit/chainlink/deployment/cre/jobs"
 	cre_jobs_ops "github.com/smartcontractkit/chainlink/deployment/cre/jobs/operations"
 	cre_jobs_pkg "github.com/smartcontractkit/chainlink/deployment/cre/jobs/pkg"
@@ -221,11 +222,29 @@ func (o *EVM) PostEnvStartup(
 			return fmt.Errorf("failed to get default OCR3 config: %w", ocr3confErr)
 		}
 
-		_, err := operations.ExecuteOperation(
+		chain, ok := creEnv.CldfEnvironment.BlockChains.EVMChains()[creEnv.RegistryChainSelector]
+		if !ok {
+			return fmt.Errorf("chain with selector %d not found in environment", creEnv.RegistryChainSelector)
+		}
+
+		strategy, err := strategies.CreateStrategy(
+			chain,
+			*creEnv.CldfEnvironment,
+			nil,
+			nil,
+			common.HexToAddress(evmOCR3Addr),
+			"PostEnvStartup - Configure OCR3 Contract - EVM Capability",
+		)
+		if err != nil {
+			return fmt.Errorf("failed to create strategy: %w", err)
+		}
+
+		_, err = operations.ExecuteOperation(
 			creEnv.CldfEnvironment.OperationsBundle,
 			ks_contracts_op.ConfigureOCR3Op,
 			ks_contracts_op.ConfigureOCR3OpDeps{
-				Env: creEnv.CldfEnvironment,
+				Env:      creEnv.CldfEnvironment,
+				Strategy: strategy,
 			},
 			ks_contracts_op.ConfigureOCR3OpInput{
 				ContractAddress: ptr.Ptr(common.HexToAddress(evmOCR3Addr)),

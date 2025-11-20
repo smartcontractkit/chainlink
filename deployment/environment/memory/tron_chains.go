@@ -7,10 +7,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	cldf_chain "github.com/smartcontractkit/chainlink-deployments-framework/chain"
-	cldf_tron "github.com/smartcontractkit/chainlink-deployments-framework/chain/tron"
 	cldf_tron_provider "github.com/smartcontractkit/chainlink-deployments-framework/chain/tron/provider"
-
-	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 )
 
 func getTestTronChainSelectors() []uint64 {
@@ -44,21 +41,4 @@ func generateChainsTron(t *testing.T, numChains int) []cldf_chain.BlockChain {
 	}
 
 	return chains
-}
-
-func createTronChainConfig(chainID string, chain cldf_tron.Chain) chainlink.RawConfig {
-	chainConfig := chainlink.RawConfig{}
-
-	chainConfig["Enabled"] = true
-	chainConfig["ChainID"] = chainID
-	chainConfig["NetworkName"] = "tron-local"
-	chainConfig["NetworkNameFull"] = "tron-local"
-	chainConfig["Nodes"] = []any{
-		map[string]any{
-			"Name": "primary",
-			"URL":  chain.URL,
-		},
-	}
-
-	return chainConfig
 }

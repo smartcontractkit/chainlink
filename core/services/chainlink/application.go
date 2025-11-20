@@ -712,6 +712,7 @@ func NewApplication(ctx context.Context, opts ApplicationOpts) (Application, err
 				RetirementReportCache:          opts.RetirementReportCache,
 				GatewayConnectorServiceWrapper: creServices.gatewayConnectorWrapper,
 				WorkflowRegistrySyncer:         creServices.workflowRegistrySyncer,
+				LimitsFactory:                  limitsFactory,
 			},
 			ocr2DelegateConfig,
 		)

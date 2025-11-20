@@ -22,6 +22,8 @@ import (
 	jsonrpc "github.com/smartcontractkit/chainlink-common/pkg/jsonrpc2"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/ratelimit"
+	"github.com/smartcontractkit/chainlink-common/pkg/settings/cresettings"
+	"github.com/smartcontractkit/chainlink-common/pkg/settings/limits"
 	vaultcapmocks "github.com/smartcontractkit/chainlink/v2/core/capabilities/vault/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/vault/vaulttypes"
 
@@ -59,7 +61,8 @@ func setupHandler(t *testing.T) (handlers.Handler, *common.Callback, *mocks.DON,
 	requestAuthorizer := vaultcapmocks.NewRequestAuthorizer(t)
 	requestAuthorizer.On("AuthorizeRequest", mock.Anything, mock.Anything).Return(true, owner, nil).Maybe()
 	clock := clockwork.NewFakeClock()
-	handler, err := NewHandler(methodConfig, donConfig, don, nil, requestAuthorizer, lggr, clock)
+	limitsFactory := limits.Factory{Settings: cresettings.DefaultGetter}
+	handler, err := NewHandler(methodConfig, donConfig, don, nil, requestAuthorizer, lggr, clock, limitsFactory)
 	require.NoError(t, err)
 	handler.aggregator = &mockAggregator{}
 	cb := common.NewCallback()

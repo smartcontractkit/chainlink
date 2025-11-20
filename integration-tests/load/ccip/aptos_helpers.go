@@ -11,22 +11,47 @@ import (
 	"time"
 
 	"github.com/aptos-labs/aptos-go-sdk"
+	"github.com/aptos-labs/aptos-go-sdk/bcs"
+	"github.com/stretchr/testify/require"
 	"go.uber.org/atomic"
 
 	aptos_ccip_offramp "github.com/smartcontractkit/chainlink-aptos/bindings/ccip_offramp"
 	module_offramp "github.com/smartcontractkit/chainlink-aptos/bindings/ccip_offramp/offramp"
 	aptos_ccip_onramp "github.com/smartcontractkit/chainlink-aptos/bindings/ccip_onramp"
 	module_onramp "github.com/smartcontractkit/chainlink-aptos/bindings/ccip_onramp/onramp"
+	"github.com/smartcontractkit/chainlink-ccip/pkg/types/ccipocr3"
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
+	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared"
 
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
-	"github.com/smartcontractkit/chainlink/deployment/environment/memory"
-
-	"github.com/smartcontractkit/chainlink-ccip/pkg/types/ccipocr3"
-	"github.com/smartcontractkit/chainlink-common/pkg/logger"
-
-	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers"
 )
+
+//nolint:unused // Can be removed by ccip aptos devs if they no longer require this function
+func fundAptosAccount(t *testing.T, signer aptos.TransactionSigner, to aptos.AccountAddress, amount uint64, client aptos.AptosRpcClient) {
+	toBytes, err := bcs.Serialize(&to)
+	require.NoError(t, err)
+	amountBytes, err := bcs.SerializeU64(amount)
+	require.NoError(t, err)
+	payload := aptos.TransactionPayload{Payload: &aptos.EntryFunction{
+		Module: aptos.ModuleId{
+			Address: aptos.AccountOne,
+			Name:    "aptos_account",
+		},
+		Function: "transfer",
+		Args: [][]byte{
+			toBytes,
+			amountBytes,
+		},
+	}}
+	tx, err := client.BuildSignAndSubmitTransaction(signer, payload)
+	require.NoError(t, err)
+	res, err := client.WaitForTransaction(tx.Hash)
+	require.NoError(t, err)
+	require.True(t, res.Success, res.VmStatus)
+	sender := signer.AccountAddress()
+	t.Logf("Funded account %s from %s with %f APT", to.StringLong(), sender.StringLong(), float64(amount)/1e8)
+}
 
 func fundAdditionalAptosKeys(
 	t *testing.T,
@@ -58,7 +83,7 @@ func fundAdditionalAptosKeys(
 				pk,
 			)
 
-			memory.FundAptosAccount(t, signer, account.AccountAddress(), fundingAmount, chain.Client)
+			fundAptosAccount(t, signer, account.AccountAddress(), fundingAmount, chain.Client)
 			funded[chain.ChainSelector()] = append(funded[chain.ChainSelector()], *account)
 		}
 	}
