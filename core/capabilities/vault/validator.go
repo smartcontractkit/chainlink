@@ -140,11 +140,14 @@ func (r *RequestValidator) ensureRightLabelOnSecret(publicKey *tdh2easy.PublicKe
 	if err != nil {
 		return errors.New("failed to decode encrypted value:" + err.Error())
 	}
-	if publicKey != nil { // Public key can be nil if gateway cache isn't populated yet
-		err = cipherText.UnmarshalVerify(cipherBytes, publicKey)
-		if err != nil {
-			return errors.New("failed to verify encrypted value:" + err.Error())
-		}
+	if publicKey == nil {
+		// Public key can be nil if gateway cache isn't populated yet(immediately after gateway reboots)
+		// Ok to not validate in such cases, since this validation also runs on Vault Nodes
+		return nil
+	}
+	err = cipherText.UnmarshalVerify(cipherBytes, publicKey)
+	if err != nil {
+		return errors.New("failed to verify encrypted value:" + err.Error())
 	}
 	secretLabel := cipherText.Label()
 	ownerAddr := common.HexToAddress(owner)
