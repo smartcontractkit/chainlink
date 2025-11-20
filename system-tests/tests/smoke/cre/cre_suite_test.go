@@ -50,6 +50,7 @@ func Test_CRE_V1_Tron(t *testing.T) {
 }
 
 func Test_CRE_V1_SecureMint(t *testing.T) {
+	quarantine.Flaky(t, "DX-2375")
 	testEnv := t_helpers.SetupTestEnvironmentWithConfig(t, t_helpers.GetTestConfig(t, "/configs/workflow-don-solana.toml"))
 
 	ExecuteSecureMintTest(t, testEnv)
