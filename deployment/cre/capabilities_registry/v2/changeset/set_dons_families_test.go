@@ -2,6 +2,7 @@ package changeset_test
 
 import (
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -11,6 +12,7 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/common/view/v2_0"
 	"github.com/smartcontractkit/chainlink/deployment/cre/capabilities_registry/v2/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/cre/capabilities_registry/v2/changeset/sequences"
+	"github.com/smartcontractkit/chainlink/deployment/cre/contracts"
 	"github.com/smartcontractkit/chainlink/deployment/cre/test"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/p2pkey"
 )
@@ -103,6 +105,29 @@ func TestSetDONsFamilies_Apply(t *testing.T) {
 		require.NoError(t, testErr)
 		assert.Len(t, updatedDON.DonFamilies, 3)
 		assert.Contains(t, updatedDON.DonFamilies, "family-new", "family-common")
+	})
+
+	t.Run("set families for existing DON - MCMS", func(t *testing.T) {
+		mcmsEnv := test.SetupEnvV2(t, true)
+
+		csOut, testErr := cs.Apply(*mcmsEnv.Env, changeset.SetDONsFamiliesInput{
+			RegistrySelector:  chainSelector,
+			RegistryQualifier: test.RegistryQualifier,
+			DONsFamiliesChanges: []sequences.DONFamiliesChange{
+				{
+					DonName:       test.DONName,
+					AddToFamilies: []string{"family-new", "family-common"},
+				},
+			},
+			MCMSConfig: &contracts.MCMSConfig{
+				MinDelay: 1 * time.Second,
+			},
+		})
+		require.NoError(t, testErr)
+
+		// Verify the changeset output
+		require.NotNil(t, csOut.Reports, "reports should be present")
+		require.NotEmpty(t, csOut.MCMSTimelockProposals, "should have MCMS proposals when using MCMS")
 	})
 
 	t.Run("remove families for existing DON", func(t *testing.T) {

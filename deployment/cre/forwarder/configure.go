@@ -109,7 +109,7 @@ var ConfigureSeq = operations.NewSequence[ConfigureSeqInput, ConfigureSeqOutput,
 				var mcmsErr error
 				mcmsContracts, mcmsErr = strategies.GetMCMSContracts(*deps.Env, chain.Selector, "")
 				if mcmsErr != nil {
-					return ConfigureSeqOutput{}, fmt.Errorf("failed to get MCMS contracts: %w", err)
+					return ConfigureSeqOutput{}, fmt.Errorf("failed to get MCMS contracts: %w", mcmsErr)
 				}
 			}
 
@@ -263,6 +263,7 @@ func Signers(nodeIDs []string, c offchain.Client, chainFamily string) ([]common.
 	return out, nil
 }
 
+// ConfigureForwarders is a changeset that configures Keystone Forwarder contracts for a given DON.
 type ConfigureForwarders struct{}
 
 var _ cldf.ChangeSetV2[ConfigureSeqInput] = ConfigureForwarders{}

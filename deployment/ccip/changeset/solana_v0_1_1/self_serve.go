@@ -32,7 +32,6 @@ type OnboardTokenPoolConfig struct {
 	ProposedOwner    solana.PublicKey
 	PoolType         cldf.ContractType
 	Metadata         string
-	Override         bool
 }
 
 type OnboardTokenPoolsForSelfServeConfig struct {
@@ -49,7 +48,6 @@ func (cfg OnboardTokenPoolsForSelfServeConfig) Validate(e cldf.Environment, chai
 	if err := ValidateMCMSConfigSolana(e, cfg.MCMS, chain, chainState, solana.PublicKey{}, "", map[cldf.ContractType]bool{shared.Router: true}); err != nil {
 		return err
 	}
-	routerProgramAddress, _, _ := chainState.GetRouterInfo()
 	// Duplicate mint detection
 	seen := make(map[string]int, len(cfg.RegisterTokenConfigs))
 	for i, registerTokenConfig := range cfg.RegisterTokenConfigs {
@@ -73,32 +71,7 @@ func (cfg OnboardTokenPoolsForSelfServeConfig) Validate(e cldf.Environment, chai
 			return fmt.Errorf("TokenProgramName not found in registerTokenConfig: %v", registerTokenConfig.TokenProgramName)
 		}
 		if registerTokenConfig.ProposedOwner.IsZero() {
-			return errors.New("token admin registry admin is required")
-		}
-		tokenAdminRegistryPDA, _, err := solState.FindTokenAdminRegistryPDA(tokenMint, routerProgramAddress)
-		if err != nil {
-			return fmt.Errorf("failed to find token admin registry pda (mint: %s, router: %s): %w",
-				mintStr, routerProgramAddress.String(), err)
-		}
-		var tokenAdminRegistryAccount solCommon.TokenAdminRegistry
-		if err := chain.GetAccountDataBorshInto(context.Background(), tokenAdminRegistryPDA, &tokenAdminRegistryAccount); err == nil {
-			if !registerTokenConfig.Override {
-				return fmt.Errorf("token admin registry already exists for (mint: %s, router: %s)", mintStr, routerProgramAddress.String())
-			}
-		}
-		tokenPoolProgramID := chainState.GetActiveTokenPool(registerTokenConfig.PoolType, shared.CLLMetadata) // This changeset is to register the token pool in the CLL Token Pool Program
-		if (tokenPoolProgramID == solana.PublicKey{}) {
-			return fmt.Errorf("token pool program ID not found for pool type: %s", registerTokenConfig.PoolType)
-		}
-		tokenPoolPDA, err := solTokenUtil.TokenPoolConfigAddress(tokenMint, tokenPoolProgramID)
-		if err != nil {
-			return err
-		}
-		var tokenPoolAccount lockrelease.State
-		if err := chain.GetAccountDataBorshInto(context.Background(), tokenPoolPDA, &tokenPoolAccount); err == nil {
-			if !registerTokenConfig.Override {
-				return fmt.Errorf("token pool already initialized for (mint: %s, program: %s)", mintStr, tokenPoolProgramID.String())
-			}
+			return errors.New("proposed Owner is required")
 		}
 	}
 	return nil
@@ -113,30 +86,33 @@ func OnboardTokenPoolsForSelfServe(e cldf.Environment, cfg OnboardTokenPoolsForS
 	if err != nil {
 		return cldf.ChangesetOutput{}, err
 	}
-	mcmsTxs := []mcmsTypes.Transaction{}
-	instructions := [][]solana.Instruction{}
+	var mcmsTxs []mcmsTypes.Transaction
+	var instructions [][]solana.Instruction
 	for _, registerTokenConfig := range cfg.RegisterTokenConfigs {
-		// Propose Admin in Token Admin Registry
-		proposeTokenAdminRegistryAdminIx, err := generateProposeTokenAdminRegistryAdministratorIx(registerTokenConfig, routerState)
-		if err != nil {
-			return cldf.ChangesetOutput{}, err
-		}
 		currentTokenPoolSolanaState, err := loadTokenPoolSolanaState(registerTokenConfig, solChainState)
+		var tokenInstructions []solana.Instruction
 		if err != nil {
 			return cldf.ChangesetOutput{}, err
 		}
-		tokenInstructions := []solana.Instruction{proposeTokenAdminRegistryAdminIx}
+		// Propose Admin in Token Admin Registry or override
+		proposeTokenAdminRegistryAdminIx, err := generateProposeTokenAdminRegistryAdministratorIx(e, registerTokenConfig, routerState, solChainState)
+		if err != nil {
+			return cldf.ChangesetOutput{}, err
+		}
+		if proposeTokenAdminRegistryAdminIx != nil {
+			tokenInstructions = append(tokenInstructions, proposeTokenAdminRegistryAdminIx)
+		}
 		var initializeTokenPoolIx solana.Instruction
-		if !registerTokenConfig.Override {
-			// Initialize Token Pool in CLL Program
-			initializeTokenPoolIx, err = generateInitializeCLLTokenPoolIx(registerTokenConfig, currentTokenPoolSolanaState)
-			if err != nil {
-				return cldf.ChangesetOutput{}, err
-			}
+		// Initialize Token Pool in CLL Program
+		initializeTokenPoolIx, err = generateInitializeCLLTokenPoolIx(e, registerTokenConfig, currentTokenPoolSolanaState, solChainState)
+		if err != nil {
+			return cldf.ChangesetOutput{}, err
+		}
+		if initializeTokenPoolIx != nil {
 			tokenInstructions = append(tokenInstructions, initializeTokenPoolIx)
 		}
 		// Propose new owner of the token pool
-		transferTokenPoolOwnershipIx, err := generateTransferTokenPoolOwnershipIx(registerTokenConfig, currentTokenPoolSolanaState)
+		transferTokenPoolOwnershipIx, err := generateTransferTokenPoolOwnershipIx(e, registerTokenConfig, currentTokenPoolSolanaState)
 		if err != nil {
 			return cldf.ChangesetOutput{}, err
 		}
@@ -144,11 +120,14 @@ func OnboardTokenPoolsForSelfServe(e cldf.Environment, cfg OnboardTokenPoolsForS
 		e.Logger.Infow("Onboarding Token in ", "TokenProgramID", currentTokenPoolSolanaState.tokenPoolProgramID.String())
 		// if the ccip admin is timelock, build mcms transaction
 		if cfg.MCMS != nil {
-			inputs := []MCMSTxParams{{
-				Ix:           proposeTokenAdminRegistryAdminIx,
-				ProgramID:    routerState.routerProgramID.String(),
-				ContractType: shared.Router}}
-			if !registerTokenConfig.Override {
+			var inputs []MCMSTxParams
+			if proposeTokenAdminRegistryAdminIx != nil {
+				inputs = append(inputs, MCMSTxParams{
+					Ix:           proposeTokenAdminRegistryAdminIx,
+					ProgramID:    routerState.routerProgramID.String(),
+					ContractType: shared.Router})
+			}
+			if initializeTokenPoolIx != nil {
 				inputs = append(inputs,
 					MCMSTxParams{
 						Ix:           initializeTokenPoolIx,
@@ -171,8 +150,9 @@ func OnboardTokenPoolsForSelfServe(e cldf.Environment, cfg OnboardTokenPoolsForS
 			// the ccip admin will always be deployer key if done without mcms
 			instructions = append(instructions, tokenInstructions)
 		}
-		if !registerTokenConfig.Override {
+		if proposeTokenAdminRegistryAdminIx != nil {
 			// Store in Address Book only first time running this
+			// TODO: Return this
 			newAddresses := cldf.NewMemoryAddressBook()
 			tv := cldf.NewTypeAndVersion(registerTokenConfig.TokenProgramName, deployment.Version1_0_0)
 			tv.AddLabel(registerTokenConfig.Metadata)                            // Customer Identifier
@@ -187,18 +167,30 @@ func OnboardTokenPoolsForSelfServe(e cldf.Environment, cfg OnboardTokenPoolsForS
 	return ExecuteInstructionsAndBuildProposals(e, ExecuteConfig{ChainSelector: cfg.ChainSelector, MCMS: cfg.MCMS, Chain: solChainState.chain}, instructions, mcmsTxs)
 }
 
-func generateProposeTokenAdminRegistryAdministratorIx(registerTokenConfig OnboardTokenPoolConfig, routerState routerSolanaState) (solana.Instruction, error) {
-	tokenPubKey := registerTokenConfig.TokenMint
-	tokenAdminRegistryPDA, _, _ := solState.FindTokenAdminRegistryPDA(tokenPubKey, routerState.routerProgramID)
-	tokenAdminRegistryAdmin := registerTokenConfig.ProposedOwner
-	var instruction solana.Instruction
+func generateProposeTokenAdminRegistryAdministratorIx(e cldf.Environment, registerTokenConfig OnboardTokenPoolConfig, routerState routerSolanaState, solChainState globalState) (solana.Instruction, error) {
+	tokenMint := registerTokenConfig.TokenMint
+	tokenAdminRegistryPDA, _, err := solState.FindTokenAdminRegistryPDA(tokenMint, routerState.routerProgramID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to find token admin registry pda (mint: %s, router: %s): %w",
+			tokenMint.String(), routerState.routerProgramID.String(), err)
+	}
+	var tokenAdminRegistryAccount solCommon.TokenAdminRegistry
+	tokenAdminRegistryExists := false
+	if err := solChainState.chain.GetAccountDataBorshInto(context.Background(), tokenAdminRegistryPDA, &tokenAdminRegistryAccount); err == nil {
+		tokenAdminRegistryExists = true
+		if tokenAdminRegistryAccount.Administrator == registerTokenConfig.ProposedOwner || tokenAdminRegistryAccount.PendingAdministrator == registerTokenConfig.ProposedOwner {
+			e.Logger.Infow("Skipping Propose Token Admin Registry Administrator as it is already set")
+			return nil, nil
+		}
+	}
 	// the ccip admin signs and makes tokenAdminRegistryAdmin the pending authority of the tokenAdminRegistry PDA, then they need to accept the role
-	if !registerTokenConfig.Override {
+	if !tokenAdminRegistryExists {
+		e.Logger.Infow("Running NewCcipAdminProposeAdministratorInstruction")
 		tempIx, err := solRouter.NewCcipAdminProposeAdministratorInstruction(
-			tokenAdminRegistryAdmin, // customer's admin of the tokenAdminRegistry PDA in the Router
+			registerTokenConfig.ProposedOwner, // customer's admin of the tokenAdminRegistry PDA in the Router
 			routerState.routerConfigPDA,
 			tokenAdminRegistryPDA, // If invoking the first time, this PDA is created
-			tokenPubKey,
+			tokenMint,
 			routerState.ccipAdmin,
 			solana.SystemProgramID,
 		).ValidateAndBuild()
@@ -209,14 +201,19 @@ func generateProposeTokenAdminRegistryAdministratorIx(registerTokenConfig Onboar
 		if err != nil {
 			return nil, fmt.Errorf("failed to extract data payload from ccip admin propose admin instruction: %w", err)
 		}
-		instruction = solana.NewInstruction(routerState.routerProgramID, tempIx.Accounts(), ixData)
+		return solana.NewInstruction(routerState.routerProgramID, tempIx.Accounts(), ixData), nil
 	} else {
+		if !tokenAdminRegistryAccount.Administrator.IsZero() {
+			e.Logger.Infow("Skipping Override Pending Administrator as there is already an administrator")
+			return nil, nil
+		}
+		e.Logger.Infow("Running NewCcipAdminOverridePendingAdministratorInstruction")
 		// Use this if the proposed token admin registry admin set was incorrect
 		overridePendingAdministratorIx, err := solRouter.NewCcipAdminOverridePendingAdministratorInstruction(
-			tokenAdminRegistryAdmin, // customer's admin of the tokenAdminRegistry PDA in the Router
+			registerTokenConfig.ProposedOwner, // customer's admin of the tokenAdminRegistry PDA in the Router
 			routerState.routerConfigPDA,
 			tokenAdminRegistryPDA,
-			tokenPubKey,
+			tokenMint,
 			routerState.ccipAdmin,
 			solana.SystemProgramID,
 		).ValidateAndBuild()
@@ -227,12 +224,21 @@ func generateProposeTokenAdminRegistryAdministratorIx(registerTokenConfig Onboar
 		if err != nil {
 			return nil, fmt.Errorf("failed to extract data payload from ccip admin override pending admin instruction: %w", err)
 		}
-		instruction = solana.NewInstruction(routerState.routerProgramID, overridePendingAdministratorIx.Accounts(), ixData)
+		return solana.NewInstruction(routerState.routerProgramID, overridePendingAdministratorIx.Accounts(), ixData), nil
 	}
-	return instruction, nil
 }
 
-func generateInitializeCLLTokenPoolIx(config OnboardTokenPoolConfig, state tokenPoolSolanaState) (solana.Instruction, error) {
+func generateInitializeCLLTokenPoolIx(e cldf.Environment, config OnboardTokenPoolConfig, state tokenPoolSolanaState, solChainState globalState) (solana.Instruction, error) {
+	tokenPoolPDA, err := solTokenUtil.TokenPoolConfigAddress(config.TokenMint, state.tokenPoolProgramID)
+	if err != nil {
+		return nil, err
+	}
+	var tokenPoolAccount lockrelease.State
+	if err := solChainState.chain.GetAccountDataBorshInto(context.Background(), tokenPoolPDA, &tokenPoolAccount); err == nil {
+		e.Logger.Infow("Skipping InitializeCLLTokenPoolIx", "tokenPool", tokenPoolPDA)
+		// Skip Creating existing PDA
+		return nil, nil
+	}
 	switch config.PoolType {
 	case shared.BurnMintTokenPool:
 		solBurnMintTokenPool.SetProgramID(state.tokenPoolProgramID)
@@ -261,7 +267,9 @@ func generateInitializeCLLTokenPoolIx(config OnboardTokenPoolConfig, state token
 	}
 }
 
-func generateTransferTokenPoolOwnershipIx(config OnboardTokenPoolConfig, state tokenPoolSolanaState) (solana.Instruction, error) {
+func generateTransferTokenPoolOwnershipIx(e cldf.Environment, config OnboardTokenPoolConfig, state tokenPoolSolanaState) (solana.Instruction, error) {
+	e.Logger.Infow("Running NewTransferOwnershipInstruction")
+	// TODO: Choose signer according to the Program State
 	switch config.PoolType {
 	case shared.BurnMintTokenPool:
 		solBurnMintTokenPool.SetProgramID(state.tokenPoolProgramID)

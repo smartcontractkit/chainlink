@@ -233,17 +233,23 @@ func ExecuteEVMLogTriggerTest(t *testing.T, testEnv *ttypes.TestEnvironment) {
 	for chainID, bcOutput := range chainsToTest {
 		lggr.Info().Msgf("Creating EVM LogTrigger workflow configuration for chain %s", chainID)
 		workflowConfig, msgEmitter := configureEVMLogTriggerWorkflow(t, lggr, bcOutput)
-
+		listenerCtx, messageChan, kafkaErrChan := t_helpers.StartBeholder(t, lggr, testEnv)
 		workflowName := fmt.Sprintf("evm-logTrigger-workflow-%s-%04d", chainID, rand.Intn(10000))
 		lggr.Info().Msgf("About to deploy Workflow %s on chain %s", workflowName, chainID)
 		t_helpers.CompileAndDeployWorkflow(t, testEnv, lggr, workflowName, &workflowConfig, workflowFileLocation)
 
-		time.Sleep(30 * time.Second) // wait for trigger to be registered
+		triggersUpAndRunning := "Trigger RunSimpleEvmLogTriggerWorkflow called"
+		err := t_helpers.AssertBeholderMessage(listenerCtx, t, triggersUpAndRunning, lggr, messageChan, kafkaErrChan, 4*time.Minute)
+		require.NoError(t, err, "LogTrigger capability test failed, Beholder should not return an error")
+
+		// wait for trigger to be registered across the workflow engine of all workflow nodes
+		time.Sleep(10 * time.Second)
 
 		message := "Data for log trigger"
-		startBlock := emitEvent(t, lggr, chainID, bcOutput, msgEmitter, message, workflowConfig)
-		evmChain := bcOutput.(*evm.Blockchain)
-		validateWorkflowExecution(t, lggr, testEnv, evmChain, workflowName, common.HexToAddress(workflowConfig.Addresses[0]), startBlock)
+		_ = emitEvent(t, lggr, chainID, bcOutput, msgEmitter, message, workflowConfig)
+		expectedUserLog := "OnTrigger decoded message: message:" + message
+		err = t_helpers.AssertBeholderMessage(listenerCtx, t, expectedUserLog, lggr, messageChan, kafkaErrChan, 4*time.Minute)
+		require.NoError(t, err, "Expected user log test failed")
 
 		lggr.Info().Msgf("🎉 LogTrigger Workflow %s executed successfully on chain %s", workflowName, chainID)
 		successfulLogTriggerChains = append(successfulLogTriggerChains, chainID)

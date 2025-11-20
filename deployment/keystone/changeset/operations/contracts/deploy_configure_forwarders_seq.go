@@ -270,7 +270,7 @@ func configureForwarderOp(
 		var mcmsErr error
 		mcmsContracts, mcmsErr = strategies.GetMCMSContracts(*deps.Env, chain.Selector, "")
 		if mcmsErr != nil {
-			return fmt.Errorf("failed to get MCMS contracts: %w", err)
+			return fmt.Errorf("failed to get MCMS contracts: %w", mcmsErr)
 		}
 	}
 

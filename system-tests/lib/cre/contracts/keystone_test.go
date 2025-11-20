@@ -97,8 +97,8 @@ func TestToV2ConfigureInput(t *testing.T) {
 	}
 
 	expectedCapID := "test-capability@1.0.0"
-	if result.Capabilities[0].CapabilityId != expectedCapID {
-		t.Errorf("expected capability ID '%s', got %s", expectedCapID, result.Capabilities[0].CapabilityId)
+	if result.Capabilities[0].CapabilityID != expectedCapID {
+		t.Errorf("expected capability ID '%s', got %s", expectedCapID, result.Capabilities[0].CapabilityID)
 	}
 
 	if len(result.DONs) != 1 {

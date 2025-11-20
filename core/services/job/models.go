@@ -1128,6 +1128,6 @@ type CRESettingsSpec struct {
 	CreatedAt time.Time `toml:"-"`
 	UpdatedAt time.Time `toml:"-"`
 
-	Settings string
-	Hash     string
+	Hash     string `toml:"hash"`
+	Settings string `toml:"settings"`
 }

@@ -2439,6 +2439,7 @@ type Telemetry struct {
 	TraceSampleRatio              *float64
 	EmitterBatchProcessor         *bool
 	EmitterExportTimeout          *commonconfig.Duration
+	AuthHeadersTTL                *commonconfig.Duration
 	ChipIngressEndpoint           *string
 	ChipIngressInsecureConnection *bool
 	HeartbeatInterval             *commonconfig.Duration
@@ -2475,6 +2476,9 @@ func (b *Telemetry) setFrom(f *Telemetry) {
 	}
 	if v := f.EmitterExportTimeout; v != nil {
 		b.EmitterExportTimeout = v
+	}
+	if v := f.AuthHeadersTTL; v != nil {
+		b.AuthHeadersTTL = v
 	}
 	if v := f.ChipIngressEndpoint; v != nil {
 		b.ChipIngressEndpoint = v

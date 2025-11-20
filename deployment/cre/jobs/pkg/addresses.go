@@ -14,3 +14,12 @@ func GetOCR3CapabilityAddressRefKey(chainSel uint64, qualifier string) datastore
 		qualifier,
 	)
 }
+
+func GetKeystoneForwarderCapabilityAddressRefKey(chainSel uint64, qualifier string) datastore.AddressRefKey {
+	return datastore.NewAddressRefKey(
+		chainSel,
+		"KeystoneForwarder",
+		semver.MustParse("1.0.0"),
+		qualifier,
+	)
+}

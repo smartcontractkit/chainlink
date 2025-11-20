@@ -45,7 +45,7 @@ type UpdateNodesInput struct {
 }
 
 type UpdateNodesOutput struct {
-	UpdatedNodes []*capabilities_registry_v2.CapabilitiesRegistryNodeUpdated
+	UpdatedNodes []capabilities_registry_v2.CapabilitiesRegistryNodeParams
 	Operation    *mcmstypes.BatchOperation
 }
 
@@ -54,20 +54,13 @@ var UpdateNodes = operations.NewOperation[UpdateNodesInput, UpdateNodesOutput, U
 	semver.MustParse("1.0.0"),
 	"Update Nodes in Capabilities Registry",
 	func(b operations.Bundle, deps UpdateNodesDeps, input UpdateNodesInput) (UpdateNodesOutput, error) {
-		chain, ok := deps.Env.BlockChains.EVMChains()[input.ChainSelector]
-		if !ok {
-			return UpdateNodesOutput{}, cldf.ErrChainNotFound
-		}
-
 		nodeParams, err := makeNodeParams(deps.CapabilitiesRegistry, input.NodesUpdates)
 		if err != nil {
 			return UpdateNodesOutput{}, fmt.Errorf("failed to make node params: %w", err)
 		}
 
-		var resultNodes []*capabilities_registry_v2.CapabilitiesRegistryNodeUpdated
-
 		// Execute the transaction using the strategy
-		operation, tx, err := deps.Strategy.Apply(func(opts *bind.TransactOpts) (*types.Transaction, error) {
+		operation, _, err := deps.Strategy.Apply(func(opts *bind.TransactOpts) (*types.Transaction, error) {
 			return deps.CapabilitiesRegistry.UpdateNodes(opts, nodeParams)
 		})
 		if err != nil {
@@ -78,31 +71,11 @@ var UpdateNodes = operations.NewOperation[UpdateNodesInput, UpdateNodesOutput, U
 		if input.MCMSConfig != nil {
 			deps.Env.Logger.Infof("Created MCMS proposal for UpdateNodes on chain %d", input.ChainSelector)
 		} else {
-			deps.Env.Logger.Infof("Successfully updated %d nodes on chain %d", len(resultNodes), input.ChainSelector)
-
-			ctx := b.GetContext()
-			receipt, err := bind.WaitMined(ctx, chain.Client, tx)
-			if err != nil {
-				return UpdateNodesOutput{}, fmt.Errorf("failed to mine UpdateNodes transaction %s: %w", tx.Hash().String(), err)
-			}
-
-			// Parse the logs to get the updated nodes
-			resultNodes = make([]*capabilities_registry_v2.CapabilitiesRegistryNodeUpdated, 0, len(receipt.Logs))
-			for i, log := range receipt.Logs {
-				if log == nil {
-					continue
-				}
-
-				o, err := deps.CapabilitiesRegistry.ParseNodeUpdated(*log)
-				if err != nil {
-					return UpdateNodesOutput{}, fmt.Errorf("failed to parse log %d for node updated: %w", i, err)
-				}
-				resultNodes = append(resultNodes, o)
-			}
+			deps.Env.Logger.Infof("Successfully updated %d nodes on chain %d", len(nodeParams), input.ChainSelector)
 		}
 
 		return UpdateNodesOutput{
-			UpdatedNodes: resultNodes,
+			UpdatedNodes: nodeParams,
 			Operation:    operation,
 		}, nil
 	},
