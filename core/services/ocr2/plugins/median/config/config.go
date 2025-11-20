@@ -4,6 +4,7 @@
 package config
 
 import (
+	"fmt"
 	"strings"
 	"time"
 
@@ -24,9 +25,10 @@ type PluginConfig struct {
 	// JuelsPerFeeCoinCache is disabled when nil
 	JuelsPerFeeCoinCache        *JuelsPerFeeCoinCache       `json:"juelsPerFeeCoinCache"`
 	DeviationFunctionDefinition DeviationFunctionDefinition `json:"deviationFunc"`
+}
 
-	// GasLimit is the gas limit to use for the median plugin, it has a higher precedence than the gas limit in the node config
-	GasLimit *uint32 `json:"gasLimit"`
+func EnsureChange() {
+	fmt.Println("EnsureChange")
 }
 
 type JuelsPerFeeCoinCache struct {
