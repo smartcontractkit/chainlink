@@ -55,6 +55,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/ccipexec"
 	ccipconfig "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/config"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/estimatorconfig"
+	medianconfig "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/median/config"
 	mercuryconfig "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/mercury/config"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/functions"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury"
@@ -887,16 +888,16 @@ func (r *Relayer) NewMedianProvider(ctx context.Context, rargs commontypes.Relay
 
 	reportCodec := evmreportcodec.ReportCodec{}
 
-	var pluginCfg map[string]any
+	var pluginCfg medianconfig.PluginConfig
 	if err = json.Unmarshal(pargs.PluginConfig, &pluginCfg); err != nil {
 		return nil, pkgerrors.WithStack(err)
 	}
 
 	// add gas limit if it's set in the plugin config
 	transmitterOpts := transmitter.ConfigTransmitterOpts{}
-	if limit, ok := pluginCfg["gasLimit"]; ok {
-		gasLimit := limit.(uint32)
-		transmitterOpts.PluginGasLimit = &gasLimit
+	if pluginCfg.GasLimit != nil {
+		lggr.Infow("Geert: setting plugin config gas limit", "gasLimit", *pluginCfg.GasLimit)
+		transmitterOpts.PluginGasLimit = pluginCfg.GasLimit
 	}
 
 	ct, err := transmitter.NewContractTransmitter(ctx, lggr, rargs, r.evmKeystore, configWatcher.chain, configWatcher.contractAddress, transmitterOpts, OCR2AggregatorTransmissionContractABI, relayConfig.EnableDualTransmission)
