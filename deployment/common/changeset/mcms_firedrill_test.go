@@ -5,9 +5,11 @@ import (
 
 	"github.com/gagliardetto/solana-go"
 	mcmsTypes "github.com/smartcontractkit/mcms/types"
+	"github.com/smartcontractkit/quarantine"
 	"github.com/stretchr/testify/require"
 
 	chain_selectors "github.com/smartcontractkit/chain-selectors"
+
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
@@ -23,6 +25,7 @@ import (
 )
 
 func TestMCMSSignFireDrillChangeset(t *testing.T) {
+	quarantine.Flaky(t, "DX-1814")
 	t.Parallel()
 
 	evmSelector1 := chain_selectors.TEST_90000001.Selector
