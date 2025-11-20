@@ -25,6 +25,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/core"
 	pb "github.com/smartcontractkit/chainlink-protos/orchestrator/feedsmanager"
+	"github.com/smartcontractkit/chainlink/v2/core/services/cresettings"
 
 	"github.com/smartcontractkit/chainlink-evm/pkg/chains/legacyevm"
 	"github.com/smartcontractkit/chainlink-evm/pkg/types"
@@ -1482,6 +1483,8 @@ func (s *service) generateJob(ctx context.Context, spec string) (*job.Job, error
 		js, err = gateway.ValidatedGatewaySpec(spec)
 	case job.StandardCapabilities:
 		js, err = standardcapabilities.ValidatedStandardCapabilitiesSpec(spec)
+	case job.CRESettings:
+		js, err = cresettings.ValidatedCRESettingsSpec(spec)
 	default:
 		return nil, errors.Errorf("unknown job type: %s", jobType)
 	}
