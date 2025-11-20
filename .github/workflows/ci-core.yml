@@ -144,7 +144,9 @@ jobs:
           go-directory: ${{ matrix.modules }}
 
       - name: Notify Slack
-        if: ${{ failure() && needs.run-frequency.outputs.one-per-day-frequency == 'true' }}
+        # Skip for now as it's always failing on scheduled runs
+        if: false
+        # if: ${{ failure() && needs.run-frequency.outputs.one-per-day-frequency == 'true' }}
         uses: slackapi/slack-github-action@485a9d42d3a73031f12ec201c457e2162c45d02d # v2.0.0
         with:
           method: chat.postMessage
@@ -158,15 +160,40 @@ jobs:
   # Inclusive check: all (new) modules are analyzed, but no need to enable "required" checks for each one
   golangci-matrix-results-validation:
     name: lint
-    if: ${{ always() && needs.golangci.result != 'skipped' && !contains(join(github.event.pull_request.labels.*.name, ' '), 'allow-lint-issues') }}
-    needs: [golangci]
+    if: ${{ always() }}
+    needs: [filter, golangci]
     runs-on: ubuntu-latest
     steps:
       - name: Check Golangci-lint Matrix Results
-        if: ${{ needs.golangci.result != 'success' }}
+        env:
+          GOLANGCI_RESULT: ${{ needs.golangci.result }}
+          ALLOW_FAILURE: ${{ contains(join(github.event.pull_request.labels.*.name, ' '), 'allow-lint-issues') }}
+          SKIPPED: ${{ needs.filter.outputs.affected-modules == '[]' }}
         run: |
-          echo "At least one 'GolangCI Lint' matrix job failed. Check the failed lint jobs."
-          exit 1
+          if [[ "${GOLANGCI_RESULT}" == "success" ]]; then
+            echo "All 'GolangCI Lint' matrix jobs succeeded."
+            exit 0
+          fi
+
+          if [[ "${GOLANGCI_RESULT}" == "skipped" || "${SKIPPED}" == "true" ]]; then
+            echo "'GolangCI Lint' jobs were skipped."
+            exit 0
+          fi
+
+          if [[ "${ALLOW_FAILURE}" == "true" ]]; then
+            echo "Some 'GolangCI Lint' matrix jobs failed, but failures are allowed due to 'allow-lint-issues' label."
+            exit 0
+          fi
+
+          if [[ "${GOLANGCI_RESULT}" == "cancelled" ]]; then
+            echo "'GolangCI Lint' jobs were cancelled."
+            exit 1
+          fi
+
+          if [[ "${GOLANGCI_RESULT}" == "failure" ]]; then
+            echo "'GolangCI Lint' matrix jobs had failures."
+            exit 1
+          fi
 
   core:
     env:
