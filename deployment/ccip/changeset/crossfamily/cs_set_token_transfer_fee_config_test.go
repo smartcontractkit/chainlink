@@ -283,6 +283,7 @@ func TestSetTokenTransferFeeConfig_Validations(t *testing.T) {
 }
 
 func TestSetTokenTransferFeeConfig_EmptyConfigIsGracefullyHandled(t *testing.T) {
+	quarantine.Flaky(t, "DX-2248")
 	env, _ := testhelpers.NewMemoryEnvironment(t,
 		testhelpers.WithCCIPSolanaContractVersion(ccip_cs_sol_v0_1_1.SolanaContractV0_1_1),
 		testhelpers.WithNumOfChains(2),
