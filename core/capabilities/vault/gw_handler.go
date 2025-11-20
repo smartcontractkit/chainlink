@@ -113,7 +113,7 @@ func (h *GatewayHandler) Methods() []string {
 }
 
 func (h *GatewayHandler) HandleGatewayMessage(ctx context.Context, gatewayID string, req *jsonrpc.Request[json.RawMessage]) (err error) {
-	h.lggr.Debugw("received message from gateway", "gatewayID", gatewayID, "req", req, "requestID", req.ID)
+	h.lggr.Debugw("received message from gateway", "gatewayID", gatewayID, "requestID", req.ID)
 
 	var response *jsonrpc.Response[json.RawMessage]
 	switch req.Method {
@@ -138,7 +138,7 @@ func (h *GatewayHandler) HandleGatewayMessage(ctx context.Context, gatewayID str
 		return err
 	}
 
-	h.lggr.Infow("Sent message to gateway", "gatewayID", gatewayID, "resp", response, "requestID", req.ID)
+	h.lggr.Infow("Sent message to gateway", "gatewayID", gatewayID, "requestID", req.ID)
 	h.metrics.requestSuccess.Add(ctx, 1, metric.WithAttributes(
 		attribute.String("gateway_id", gatewayID),
 	))
@@ -211,7 +211,7 @@ func (h *GatewayHandler) handleSecretsGet(ctx context.Context, gatewayID string,
 	vaultResponseProto := &vaultcommon.GetSecretsResponse{}
 	err = proto.Unmarshal(vaultCapResponse.Payload, vaultResponseProto)
 	if err != nil {
-		h.lggr.Errorf("Debugging: handleSecretsCreate failed to unmarshal response: %s. Payload was: %s", err.Error(), string(vaultCapResponse.Payload))
+		h.lggr.Errorf("Debugging: handleSecretsCreate failed to unmarshal response: %s.", err.Error())
 		return h.errorResponse(ctx, gatewayID, req, api.NodeReponseEncodingError, err)
 	}
 

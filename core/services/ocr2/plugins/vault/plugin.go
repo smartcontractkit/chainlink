@@ -997,6 +997,7 @@ func (r *ReportingPlugin) StateTransition(ctx context.Context, seqNr uint64, aq 
 		// This means that each entry in `shaToObs` will contain a list of all
 		// of the entries matching a given sha.
 		shaToObs := map[string][]*vaultcommon.Observation{}
+		shaToObsCount := map[string]int{}
 		for _, ob := range obs {
 			sha, err := shaForObservation(ob)
 			if err != nil {
@@ -1004,6 +1005,7 @@ func (r *ReportingPlugin) StateTransition(ctx context.Context, seqNr uint64, aq 
 				continue
 			}
 			shaToObs[sha] = append(shaToObs[sha], ob)
+			shaToObsCount[sha]++
 		}
 
 		// Now let's identify the "chosen" observation.
@@ -1021,7 +1023,7 @@ func (r *ReportingPlugin) StateTransition(ctx context.Context, seqNr uint64, aq 
 		}
 
 		if len(chosen) == 0 {
-			r.lggr.Warnw("insufficient observations found for id", "id", id, "threshold", threshold, "shaToObs", shaToObs)
+			r.lggr.Warnw("insufficient observations found for id", "id", id, "threshold", threshold, "shaToObs", shaToObsCount)
 			continue
 		}
 

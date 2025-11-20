@@ -146,7 +146,7 @@ func (s *Capability) Execute(ctx context.Context, request capabilities.Capabilit
 }
 
 func (s *Capability) CreateSecrets(ctx context.Context, request *vaultcommon.CreateSecretsRequest) (*vaulttypes.Response, error) {
-	s.lggr.Infof("Received Request: %s", request.String())
+	s.lggr.Infof("Received Request: %s", request.RequestId)
 	err := s.ValidateCreateSecretsRequest(s.publicKey.Get(), request)
 	if err != nil {
 		s.lggr.Infof("RequestId: [%s] failed validation checks: %s", request.RequestId, err.Error())
@@ -169,12 +169,12 @@ func (s *Capability) CreateSecrets(ctx context.Context, request *vaultcommon.Cre
 			return nil, errors.New("secret ID owner: " + req.Id.Owner + " does not match authorized owner: " + owner + " at index " + strconv.Itoa(idx))
 		}
 	}
-	s.lggr.Infof("Processing authorized and normalized request [%s]", request.String())
+	s.lggr.Infof("Processing authorized and normalized request [%s]", request.RequestId)
 	return s.handleRequest(ctx, request.RequestId, request)
 }
 
 func (s *Capability) UpdateSecrets(ctx context.Context, request *vaultcommon.UpdateSecretsRequest) (*vaulttypes.Response, error) {
-	s.lggr.Infof("Received Request: %s", request.String())
+	s.lggr.Infof("Received Request: %s", request.RequestId)
 	err := s.ValidateUpdateSecretsRequest(s.publicKey.Get(), request)
 	if err != nil {
 		s.lggr.Infof("RequestId: [%s] failed validation checks: %s", request.RequestId, err.Error())
@@ -197,7 +197,7 @@ func (s *Capability) UpdateSecrets(ctx context.Context, request *vaultcommon.Upd
 			return nil, errors.New("secret ID owner: " + req.Id.Owner + " does not match authorized owner: " + owner + " at index " + strconv.Itoa(idx))
 		}
 	}
-	s.lggr.Infof("Processing authorized and normalized request [%s]", request.String())
+	s.lggr.Infof("Processing authorized and normalized request [%s]", request.RequestId)
 	return s.handleRequest(ctx, request.RequestId, request)
 }
 
