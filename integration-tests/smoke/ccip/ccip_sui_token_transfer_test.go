@@ -334,11 +334,11 @@ func Test_CCIPTokenTransfer_Sui2EVM_BurnMintTokenPool_WithRateLimit(t *testing.T
 		{
 			RemoteChainSelector: destChain,
 			OutboundIsEnabled:   true,
-			OutboundCapacity:    100,
-			OutboundRate:        1,
+			OutboundCapacity:    100000000,
+			OutboundRate:        1000,
 			InboundIsEnabled:    true,
-			InboundCapacity:     100,
-			InboundRate:         1,
+			InboundCapacity:     100000000,
+			InboundRate:         1000,
 		},
 	}) // SourceChain = SUI, destChain = EVM
 	require.NoError(t, err)
