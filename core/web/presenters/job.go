@@ -493,6 +493,34 @@ func NewCCIPSpec(spec *job.CCIPSpec) *CCIPSpec {
 	}
 }
 
+type CCVCommitteeVerifierSpec struct {
+	CreatedAt               time.Time `json:"createdAt"`
+	UpdatedAt               time.Time `json:"updatedAt"`
+	CommitteeVerifierConfig string    `json:"committeeVerifierConfig"`
+}
+
+func NewCCVCommitteeVerifierSpec(spec *job.CCVCommitteeVerifierSpec) *CCVCommitteeVerifierSpec {
+	return &CCVCommitteeVerifierSpec{
+		CreatedAt:               spec.CreatedAt,
+		UpdatedAt:               spec.UpdatedAt,
+		CommitteeVerifierConfig: spec.CommitteeVerifierConfig,
+	}
+}
+
+type CCVExecutorSpec struct {
+	CreatedAt      time.Time `json:"createdAt"`
+	UpdatedAt      time.Time `json:"updatedAt"`
+	ExecutorConfig string    `json:"executorConfig"`
+}
+
+func NewCCVExecutorSpec(spec *job.CCVExecutorSpec) *CCVExecutorSpec {
+	return &CCVExecutorSpec{
+		CreatedAt:      spec.CreatedAt,
+		UpdatedAt:      spec.UpdatedAt,
+		ExecutorConfig: spec.ExecutorConfig,
+	}
+}
+
 type CRESettingsSpec struct {
 	CreatedAt time.Time `json:"createdAt"`
 	UpdatedAt time.Time `json:"updatedAt"`
@@ -555,6 +583,8 @@ type JobResource struct {
 	WorkflowSpec             *WorkflowSpec             `json:"workflowSpec"`
 	StandardCapabilitiesSpec *StandardCapabilitiesSpec `json:"standardCapabilitiesSpec"`
 	CCIPSpec                 *CCIPSpec                 `json:"ccipSpec"`
+	CCVCommitteeVerifierSpec *CCVCommitteeVerifierSpec `json:"ccvCommitteeVerifierSpec"`
+	CCVExecutorSpec          *CCVExecutorSpec          `json:"ccvExecutorSpec"`
 	PipelineSpec             PipelineSpec              `json:"pipelineSpec"`
 	Errors                   []JobError                `json:"errors"`
 }
@@ -609,6 +639,10 @@ func NewJobResource(j job.Job) *JobResource {
 		resource.StandardCapabilitiesSpec = NewStandardCapabilitiesSpec(j.StandardCapabilitiesSpec)
 	case job.CCIP:
 		resource.CCIPSpec = NewCCIPSpec(j.CCIPSpec)
+	case job.CCVCommitteeVerifier:
+		resource.CCVCommitteeVerifierSpec = NewCCVCommitteeVerifierSpec(j.CCVCommitteeVerifierSpec)
+	case job.CCVExecutor:
+		resource.CCVExecutorSpec = NewCCVExecutorSpec(j.CCVExecutorSpec)
 	case job.LegacyGasStationServer, job.LegacyGasStationSidecar:
 		// unsupported
 	}

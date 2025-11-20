@@ -47,6 +47,8 @@ func (m *mockCfgTracing) Mode() string            { return "tls" }
 
 type mockCfgTelemetry struct{}
 
+func (m mockCfgTelemetry) AuthHeadersTTL() time.Duration { return 10 * time.Minute }
+
 func (m mockCfgTelemetry) Enabled() bool { return true }
 
 func (m mockCfgTelemetry) InsecureConnection() bool { return true }

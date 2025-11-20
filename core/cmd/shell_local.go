@@ -1139,9 +1139,11 @@ func (s *Shell) beforeNode(c *cli.Context) error {
 		return errors.Wrap(err, "failed initializing globals")
 	}
 
+	// Set the signing mechanism for beholder auth headers
+	// if the TTL is 0, we will use the static headers, and this signer will never be called.
+	beholder.GetClient().SetSigner(&keystore.CSASigner{CSA: keyStore.CSA()})
 	// Emit node configuration through beholder
 	s.EmitNodeConfig(ctx)
-
 	// If log streaming is enabled swap core to add Otel
 	if s.Config.Telemetry().LogStreamingEnabled() {
 		if s.SetOtelCore == nil {

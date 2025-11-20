@@ -134,7 +134,7 @@ func (d *dons) allDonCapabilities() []keystone_changeset.DonCapabilities {
 func (d *dons) mustToV2ConfigureInput(chainSelector uint64, contractAddress string) cap_reg_v2_seq.ConfigureCapabilitiesRegistryInput {
 	nops := make([]capabilities_registry_v2.CapabilitiesRegistryNodeOperatorParams, 0)
 	nodes := make([]contracts.NodesInput, 0)
-	capabilities := make([]capabilities_registry_v2.CapabilitiesRegistryCapability, 0)
+	capabilities := make([]contracts.RegisterableCapability, 0)
 	donParams := make([]capabilities_registry_v2.CapabilitiesRegistryNewDONParams, 0)
 
 	// Collect unique capabilities and NOPs
@@ -247,8 +247,17 @@ func (d *dons) mustToV2ConfigureInput(chainSelector uint64, contractAddress stri
 	}
 
 	// Convert maps to slices
-	for _, cap := range capabilityMap {
-		capabilities = append(capabilities, cap)
+	for _, cp := range capabilityMap {
+		var metadata map[string]any
+		err := json.Unmarshal(cp.Metadata, &metadata)
+		if err != nil {
+			panic(fmt.Sprintf("failed to unmarshal capability metadata: %s", err))
+		}
+		capabilities = append(capabilities, contracts.RegisterableCapability{
+			Metadata:              metadata,
+			CapabilityID:          cp.CapabilityId,
+			ConfigurationContract: cp.ConfigurationContract,
+		})
 	}
 	for _, nop := range nopMap {
 		nops = append(nops, nop)
