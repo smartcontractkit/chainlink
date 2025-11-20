@@ -181,6 +181,7 @@ func TestChipIngressBatchClient_DifferentTelemetryTypes(t *testing.T) {
 func TestChipIngressBatchClient_ContextCancellation(t *testing.T) {
 	chipClient := chipingressmocks.NewClient(t)
 	chipClient.On("Ping", mock.Anything, mock.Anything, mock.Anything).Return(&chipingress.PingResponse{}, nil).Maybe()
+	chipClient.On("PublishBatch", mock.Anything, mock.Anything, mock.Anything).Return(&chipingress.PublishResponse{}, nil).Maybe()
 
 	sendInterval := time.Nanosecond
 	chipIngressClient := synchronization.NewTestChipIngressBatchClient(t, chipClient, false, sendInterval)
