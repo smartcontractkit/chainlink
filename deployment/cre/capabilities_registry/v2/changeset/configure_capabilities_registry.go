@@ -67,9 +67,9 @@ func (l ConfigureCapabilitiesRegistry) Apply(e cldf.Environment, config Configur
 		nops[i] = nop.ToWrapper()
 	}
 
-	capabilities := make([]capabilities_registry_v2.CapabilitiesRegistryCapability, len(config.Capabilities))
-	for i, cap := range config.Capabilities {
-		c, err := cap.ToWrapper()
+	capabilities := make([]contracts.RegisterableCapability, len(config.Capabilities))
+	for i, cp := range config.Capabilities {
+		c, err := cp.ToWrapper()
 		if err != nil {
 			return cldf.ChangesetOutput{}, fmt.Errorf("failed to convert capability %d: %w", i, err)
 		}

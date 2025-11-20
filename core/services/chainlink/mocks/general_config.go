@@ -359,6 +359,53 @@ func (_c *GeneralConfig_BridgeStatusReporter_Call) RunAndReturn(run func() confi
 	return _c
 }
 
+// CCV provides a mock function with no fields
+func (_m *GeneralConfig) CCV() config.CCV {
+	ret := _m.Called()
+
+	if len(ret) == 0 {
+		panic("no return value specified for CCV")
+	}
+
+	var r0 config.CCV
+	if rf, ok := ret.Get(0).(func() config.CCV); ok {
+		r0 = rf()
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(config.CCV)
+		}
+	}
+
+	return r0
+}
+
+// GeneralConfig_CCV_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'CCV'
+type GeneralConfig_CCV_Call struct {
+	*mock.Call
+}
+
+// CCV is a helper method to define mock.On call
+func (_e *GeneralConfig_Expecter) CCV() *GeneralConfig_CCV_Call {
+	return &GeneralConfig_CCV_Call{Call: _e.mock.On("CCV")}
+}
+
+func (_c *GeneralConfig_CCV_Call) Run(run func()) *GeneralConfig_CCV_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run()
+	})
+	return _c
+}
+
+func (_c *GeneralConfig_CCV_Call) Return(_a0 config.CCV) *GeneralConfig_CCV_Call {
+	_c.Call.Return(_a0)
+	return _c
+}
+
+func (_c *GeneralConfig_CCV_Call) RunAndReturn(run func() config.CCV) *GeneralConfig_CCV_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // CRE provides a mock function with no fields
 func (_m *GeneralConfig) CRE() config.CRE {
 	ret := _m.Called()

@@ -2330,6 +2330,7 @@ InsecureConnection = false # Default
 TraceSampleRatio = 0.01 # Default
 EmitterBatchProcessor = true # Default
 EmitterExportTimeout = '1s' # Default
+AuthHeadersTTL = '0s' # Default
 ChipIngressEndpoint = '' # Default
 ChipIngressInsecureConnection = false # Default
 HeartbeatInterval = '1s' # Default
@@ -2388,6 +2389,13 @@ EmitterBatchProcessor enables batching for telemetry events
 EmitterExportTimeout = '1s' # Default
 ```
 EmitterExportTimeout sets timeout for exporting telemetry events
+
+### AuthHeadersTTL
+```toml
+AuthHeadersTTL = '0s' # Default
+```
+AuthHeadersTTL is the time-to-live for rotating authentication headers used with telemetry endpoints.
+Set to 0 to use static authentication headers.
 
 ### ChipIngressEndpoint
 ```toml

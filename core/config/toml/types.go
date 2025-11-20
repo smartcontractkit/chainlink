@@ -145,6 +145,7 @@ type Secrets struct {
 	DKGRecipientKey DKGRecipientKey `toml:",omitempty"`
 
 	CRE CreSecrets `toml:",omitempty"`
+	CCV CCVSecrets `toml:",omitempty"`
 }
 
 type SolKeys struct {
@@ -1962,6 +1963,85 @@ func (l *LinkingConfig) ValidateConfig() error {
 	return nil
 }
 
+// CCVSecrets holds the secrets required for the CCV jobs.
+type CCVSecrets struct {
+	AggregatorSecrets []AggregatorSecret `toml:",omitempty"`
+	IndexerSecret     *IndexerSecret     `toml:",omitempty"`
+}
+
+// IndexerSecret is the shared secret between the chainlink node and
+// the CCV indexer.
+type IndexerSecret struct {
+	// APIKey is the API key for the CCV indexer.
+	// This is used to authenticate the node to the CCV indexer.
+	APIKey *commonconfig.SecretString `toml:",omitempty"`
+	// APISecret is the API secret for the CCV indexer.
+	// This is used to authenticate the node to the CCV indexer.
+	APISecret *commonconfig.SecretString `toml:",omitempty"`
+}
+
+// AggregatorSecret is the shared secret between the chainlink node and the
+// CCV aggregator.
+// A node can potentially write to multiple aggregators, so the VerifierID
+// is used to further scope the secret.
+type AggregatorSecret struct {
+	// VerifierID is the ID of the verifier that this secret belongs to.
+	VerifierID string `toml:",omitempty"`
+	// APIKey is the API key for the CCV aggregator.
+	// This is used to authenticate the node to the CCV aggregator.
+	APIKey *commonconfig.SecretString `toml:",omitempty"`
+	// APISecret is the API secret for the CCV aggregator.
+	// This is used to authenticate the node to the CCV aggregator.
+	APISecret *commonconfig.SecretString `toml:",omitempty"`
+}
+
+func (a *CCVSecrets) SetFrom(f *CCVSecrets) (err error) {
+	err = a.validateMerge(f)
+	if err != nil {
+		return err
+	}
+
+	if f.AggregatorSecrets != nil {
+		a.AggregatorSecrets = make([]AggregatorSecret, len(f.AggregatorSecrets))
+		copy(a.AggregatorSecrets, f.AggregatorSecrets)
+	}
+
+	if f.IndexerSecret != nil {
+		if a.IndexerSecret == nil {
+			a.IndexerSecret = &IndexerSecret{}
+		}
+		if v := f.IndexerSecret.APIKey; v != nil {
+			a.IndexerSecret.APIKey = v
+		}
+		if v := f.IndexerSecret.APISecret; v != nil {
+			a.IndexerSecret.APISecret = v
+		}
+	}
+
+	return nil
+}
+
+func (a *CCVSecrets) validateMerge(f *CCVSecrets) (err error) {
+	if a.AggregatorSecrets != nil && f.AggregatorSecrets != nil {
+		for _, aggregatorSecret := range a.AggregatorSecrets {
+			for _, fAggregatorSecret := range f.AggregatorSecrets {
+				if aggregatorSecret.VerifierID == fAggregatorSecret.VerifierID {
+					err = errors.Join(err, configutils.ErrOverride{Name: "CCV.AggregatorSecrets.VerifierID"})
+				}
+			}
+		}
+	}
+	if a.IndexerSecret != nil && f.IndexerSecret != nil {
+		if a.IndexerSecret.APIKey != nil && f.IndexerSecret.APIKey != nil {
+			err = errors.Join(err, configutils.ErrOverride{Name: "CCV.IndexerSecret.APIKey"})
+		}
+		if a.IndexerSecret.APISecret != nil && f.IndexerSecret.APISecret != nil {
+			err = errors.Join(err, configutils.ErrOverride{Name: "CCV.IndexerSecret.APISecret"})
+		}
+	}
+	return err
+}
+
 type StreamsSecretConfig struct {
 	APIKey    *commonconfig.SecretString `toml:",omitempty"`
 	APISecret *commonconfig.SecretString `toml:",omitempty"`
@@ -2439,6 +2519,7 @@ type Telemetry struct {
 	TraceSampleRatio              *float64
 	EmitterBatchProcessor         *bool
 	EmitterExportTimeout          *commonconfig.Duration
+	AuthHeadersTTL                *commonconfig.Duration
 	ChipIngressEndpoint           *string
 	ChipIngressInsecureConnection *bool
 	HeartbeatInterval             *commonconfig.Duration
@@ -2475,6 +2556,9 @@ func (b *Telemetry) setFrom(f *Telemetry) {
 	}
 	if v := f.EmitterExportTimeout; v != nil {
 		b.EmitterExportTimeout = v
+	}
+	if v := f.AuthHeadersTTL; v != nil {
+		b.AuthHeadersTTL = v
 	}
 	if v := f.ChipIngressEndpoint; v != nil {
 		b.ChipIngressEndpoint = v

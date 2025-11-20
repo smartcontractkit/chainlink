@@ -109,6 +109,7 @@ func initGlobals(cfgProm config.Prometheus, cfgTracing config.Tracing, cfgTeleme
 				EmitterExportTimeout:           cfgTelemetry.EmitterExportTimeout(),
 				AuthPublicKeyHex:               csaPubKeyHex,
 				AuthHeaders:                    beholderAuthHeaders,
+				AuthHeadersTTL:                 cfgTelemetry.AuthHeadersTTL(),
 				ChipIngressEmitterEnabled:      cfgTelemetry.ChipIngressEndpoint() != "",
 				ChipIngressEmitterGRPCEndpoint: cfgTelemetry.ChipIngressEndpoint(),
 				ChipIngressInsecureConnection:  cfgTelemetry.ChipIngressInsecureConnection(),

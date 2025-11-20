@@ -50,6 +50,8 @@ import (
 	"github.com/smartcontractkit/chainlink-evm/pkg/logpoller"
 	"github.com/smartcontractkit/chainlink-evm/pkg/txmgr"
 	evmutils "github.com/smartcontractkit/chainlink-evm/pkg/utils"
+	"github.com/smartcontractkit/chainlink/v2/core/services/ccv/ccvcommitteeverifier"
+	"github.com/smartcontractkit/chainlink/v2/core/services/ccv/ccvexecutor"
 	"github.com/smartcontractkit/chainlink/v2/core/services/cresettings"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/services/orgresolver"
@@ -613,6 +615,18 @@ func NewApplication(ctx context.Context, opts ApplicationOpts) (Application, err
 				streamRegistry,
 				pipelineRunner,
 				cfg.JobPipeline(),
+			),
+			job.CCVCommitteeVerifier: ccvcommitteeverifier.NewDelegate(
+				globalLogger,
+				cfg.CCV(),
+				keyStore.OCR2(),
+				relayChainInterops.LegacyEVMChains().Slice(),
+			),
+			job.CCVExecutor: ccvexecutor.NewDelegate(
+				globalLogger,
+				cfg.CCV(),
+				keyStore.Eth(),
+				relayChainInterops.LegacyEVMChains().Slice(),
 			),
 		}
 		webhookJobRunner = delegates[job.Webhook].(*webhook.Delegate).WebhookJobRunner()
