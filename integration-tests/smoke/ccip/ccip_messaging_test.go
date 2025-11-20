@@ -431,8 +431,9 @@ func Test_CCIPMessaging_EVM2Solana(t *testing.T) {
 		require.NoError(t, err, "failed to get account info")
 		require.Equal(t, uint8(0), receiverCounterAccount.Value)
 
-		deployer := solChains[sourceChain].DeployerKey
+		deployer := solChains[destChain].DeployerKey
 		// Set reject all flag in receiver to force reverts
+		test_ccip_receiver.SetProgramID(receiverProgram)
 		rejectAllIx, err := test_ccip_receiver.NewSetRejectAllInstruction(true, receiverTargetAccountPDA, deployer.PublicKey()).ValidateAndBuild()
 		require.NoError(t, err)
 		res := soltestutils.SendAndConfirm(ctx, t, solChains[destChain].Client, []solana.Instruction{rejectAllIx}, *deployer, solconfig.DefaultCommitment)
