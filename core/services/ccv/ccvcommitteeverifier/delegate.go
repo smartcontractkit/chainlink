@@ -89,7 +89,7 @@ func (d *Delegate) ServicesForSpec(ctx context.Context, spec job.Job) (services 
 		}
 		chainsInConfig = append(chainsInConfig, protocol.ChainSelector(parsed))
 	}
-	legacyChains, err := ccvcommon.GetLegacyChains(d.lggr, d.chainServices, chainsInConfig)
+	legacyChains, err := ccvcommon.GetLegacyChains(ctx, d.lggr, d.chainServices, chainsInConfig)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get legacy chains: %w", err)
 	}
@@ -164,7 +164,6 @@ func (d *Delegate) AfterJobCreated(spec job.Job) {}
 func (d *Delegate) BeforeJobDeleted(spec job.Job) {}
 
 func (d *Delegate) OnDeleteJob(ctx context.Context, spec job.Job) error {
-	// TODO: shut down needed services?
 	return nil
 }
 
