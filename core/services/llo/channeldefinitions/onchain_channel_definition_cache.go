@@ -68,7 +68,6 @@ var (
 	ChannelDefinitionAdded = (channel_config_store.ChannelConfigStoreChannelDefinitionAdded{}).Topic()
 	NoLimitSortAsc         = query.NewLimitAndSort(query.Limit{}, query.NewSortBySequence(query.Asc))
 
-	errAdderAdditionsLimitExceeded   = errors.New("adder additions per definition limit exceeded")
 	errChannelsPerAdderLimitExceeded = errors.New("channels per adder limit exceeded")
 )
 
@@ -295,6 +294,7 @@ func (c *channelDefinitionCache) unpackAdderLog(log logpoller.Log) (*channel_con
 	}
 
 	unpacked.DonId = new(big.Int).SetBytes(log.Topics[1])
+	//nolint:gosec // disable G115
 	unpacked.ChannelAdderId = uint32(new(big.Int).SetBytes(log.Topics[2]).Uint64())
 	//nolint:gosec // disable G115
 	unpacked.Raw.BlockNumber = uint64(log.BlockNumber)
@@ -396,14 +396,8 @@ func (c *channelDefinitionCache) readLogs(ctx context.Context) (err error) {
 // and the initial block number to prevent re-scanning blocks that have already been processed.
 func (c *channelDefinitionCache) scanFromBlockNum() int64 {
 	c.definitionsMu.RLock()
-	blockNum := c.definitionsBlockNum
-	c.definitionsMu.RUnlock()
-
-	if blockNum > c.initialBlockNum {
-		return blockNum
-	}
-
-	return c.initialBlockNum
+	defer c.definitionsMu.RUnlock()
+	return max(c.definitionsBlockNum, c.initialBlockNum)
 }
 
 // processLogs unpacks channel definition logs into fetch triggers by extracting URL, SHA hash,
@@ -474,20 +468,30 @@ func (c *channelDefinitionCache) mergeDefinitions(source uint32, currentDefiniti
 		}
 	}
 
-	var adderAdditions int
 	for channelID, def := range newDefinitions {
-		switch def.Source {
+		switch source {
 		case SourceOwner:
 			if def.Tombstone {
+				if existing, exists := currentDefinitions[channelID]; exists && existing.Source == SourceOwner {
+					c.lggr.Warnw("invalid channel tombstone, cannot tombstone owner-defined channel, must be dropped from definitions",
+						"channelID", channelID, "source", source)
+					continue
+				}
 				delete(currentDefinitions, channelID)
 				continue
 			}
 			currentDefinitions[channelID] = def
 
-		case source:
+		default:
+			if source < SourceOwner {
+				c.lggr.Warnw("undefined source, skipping definition",
+					"channelID", channelID, "source", source)
+				continue
+			}
+
 			if def.Tombstone {
-				c.lggr.Warnw("invalid channel tombstone, cannot be added by adders",
-					"channelID", channelID, "adderID", def.Source)
+				c.lggr.Warnw("invalid channel tombstone, cannot be added by source",
+					"channelID", channelID, "source", source)
 				continue
 			}
 			if existing, exists := currentDefinitions[channelID]; exists {
@@ -498,20 +502,21 @@ func (c *channelDefinitionCache) mergeDefinitions(source uint32, currentDefiniti
 				// Adders do not overwrite existing definitions, they can only add new ones
 				continue
 			}
-			adderAdditions++
 			currentDefinitions[channelID] = def
-
-		default:
-			c.lggr.Warnw("undefined source, skipping definition",
-				"channelID", channelID, "source", def.Source, "triggerSource", source)
-			continue
 		}
 	}
 
-	if source > SourceOwner && adderAdditions > MaxAdderAdditionsPerDefinition {
-		return nil, fmt.Errorf("%w: %d, max %d",
-			errAdderAdditionsLimitExceeded, adderAdditions, MaxAdderAdditionsPerDefinition)
+	// Handle owner removals
+	if source == SourceOwner {
+		for channelID, def := range currentDefinitions {
+			if def.Source == SourceOwner {
+				if _, exists := newDefinitions[channelID]; !exists {
+					delete(currentDefinitions, channelID)
+				}
+			}
+		}
 	}
+
 	return currentDefinitions, nil
 }
 
@@ -570,7 +575,7 @@ func (c *channelDefinitionCache) fetchLoop(ctx context.Context, trigger fetchTri
 		return
 	}
 
-	if errors.Is(err, errAdderAdditionsLimitExceeded) || errors.Is(err, errChannelsPerAdderLimitExceeded) {
+	if errors.Is(err, errChannelsPerAdderLimitExceeded) {
 		c.lggr.Errorw("Error while fetching channel definitions due to limits exceeded, stopping retries",
 			"donID", c.donID, "err", err, "source", trigger.source)
 
@@ -589,7 +594,7 @@ func (c *channelDefinitionCache) fetchLoop(ctx context.Context, trigger fetchTri
 			return
 		case <-time.After(b.Duration()):
 			if err := c.fetchAndSetChannelDefinitions(ctx, trigger); err != nil {
-				if errors.Is(err, errAdderAdditionsLimitExceeded) || errors.Is(err, errChannelsPerAdderLimitExceeded) {
+				if errors.Is(err, errChannelsPerAdderLimitExceeded) {
 					c.lggr.Errorw("Error while fetching channel definitions due to limits exceeded, stopping retries",
 						"donID", c.donID, "err", err, "source", trigger.source)
 					return

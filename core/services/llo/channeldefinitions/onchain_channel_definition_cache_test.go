@@ -722,20 +722,6 @@ func Test_ChannelDefinitionCache(t *testing.T) {
 
 		adderID := uint32(100)
 
-		t.Run("rejects adder definition with more than MaxAdderAdditionsPerDefinition new channels", func(t *testing.T) {
-			currentDefinitions := make(llotypes.ChannelDefinitions)
-			newDefinitions := make(llotypes.ChannelDefinitions)
-
-			// Create MaxAdderAdditionsPerDefinition + 1 new channels
-			addChannelDefinitions(newDefinitions, 1, uint32(MaxAdderAdditionsPerDefinition+1), adderID)
-
-			_, err := cdc.mergeDefinitions(adderID, currentDefinitions, newDefinitions)
-			require.Error(t, err)
-			require.Contains(t, err.Error(), errAdderAdditionsLimitExceeded.Error())
-			require.Contains(t, err.Error(), strconv.Itoa(MaxAdderAdditionsPerDefinition+1))
-			require.Contains(t, err.Error(), strconv.Itoa(MaxAdderAdditionsPerDefinition))
-		})
-
 		t.Run("allows adder definition with exactly MaxAdderAdditionsPerDefinition new channels", func(t *testing.T) {
 			currentDefinitions := make(llotypes.ChannelDefinitions)
 			newDefinitions := make(llotypes.ChannelDefinitions)
@@ -804,25 +790,6 @@ func Test_ChannelDefinitionCache(t *testing.T) {
 			require.Len(t, result, 5+MaxAdderAdditionsPerDefinition)
 		})
 
-		t.Run("rejects when trying to add more than MaxAdderAdditionsPerDefinition new channels", func(t *testing.T) {
-			currentDefinitions := make(llotypes.ChannelDefinitions)
-
-			// Pre-populate with some channels from this adder
-			addChannelDefinitions(currentDefinitions, 1, 5, adderID)
-
-			newDefinitions := make(llotypes.ChannelDefinitions)
-
-			// Add MaxAdderAdditionsPerDefinition + 1 new channels
-			// This should fail because we're trying to add 11 new channels when the limit is 10
-			addChannelDefinitions(newDefinitions, 6, uint32(5+MaxAdderAdditionsPerDefinition+1), adderID)
-
-			_, err := cdc.mergeDefinitions(adderID, currentDefinitions, newDefinitions)
-			require.Error(t, err)
-			require.Contains(t, err.Error(), errAdderAdditionsLimitExceeded.Error())
-			// Should fail because we're trying to add MaxAdderAdditionsPerDefinition + 1 new channels
-			require.Contains(t, err.Error(), strconv.Itoa(MaxAdderAdditionsPerDefinition+1))
-		})
-
 		t.Run("owner definitions are not subject to adder limits", func(t *testing.T) {
 			currentDefinitions := make(llotypes.ChannelDefinitions)
 			newDefinitions := make(llotypes.ChannelDefinitions)
@@ -845,6 +812,140 @@ func Test_ChannelDefinitionCache(t *testing.T) {
 			result, err := cdc.mergeDefinitions(SourceOwner, currentDefinitions, newDefinitions)
 			require.NoError(t, err)
 			require.Len(t, result, MaxChannelsPerAdder+10)
+		})
+	})
+
+	t.Run("owner removal", func(t *testing.T) {
+		cdc := &channelDefinitionCache{
+			lggr: logger.TestSugared(t),
+		}
+
+		t.Run("removes owner-defined channels missing from new definitions", func(t *testing.T) {
+			currentDefinitions := make(llotypes.ChannelDefinitions)
+			newDefinitions := make(llotypes.ChannelDefinitions)
+
+			// Set up current definitions with owner-defined channels 1, 2, 3, 4, 5
+			addChannelDefinitions(currentDefinitions, 1, 5, SourceOwner)
+
+			// New definitions only include channels 1, 3, 5 (missing 2 and 4)
+			newDefinitions[1] = makeChannelDefinition(1, SourceOwner)
+			newDefinitions[3] = makeChannelDefinition(3, SourceOwner)
+			newDefinitions[5] = makeChannelDefinition(5, SourceOwner)
+
+			result, err := cdc.mergeDefinitions(SourceOwner, currentDefinitions, newDefinitions)
+			require.NoError(t, err)
+
+			// Channels 1, 3, 5 should be present
+			require.Contains(t, result, llotypes.ChannelID(1))
+			require.Contains(t, result, llotypes.ChannelID(3))
+			require.Contains(t, result, llotypes.ChannelID(5))
+
+			// Channels 2 and 4 should be removed
+			require.NotContains(t, result, llotypes.ChannelID(2))
+			require.NotContains(t, result, llotypes.ChannelID(4))
+
+			// Result should contain exactly the channels from newDefinitions
+			require.Len(t, result, 3)
+		})
+
+		t.Run("preserves non-owner channels when owner updates definitions", func(t *testing.T) {
+			currentDefinitions := make(llotypes.ChannelDefinitions)
+			newDefinitions := make(llotypes.ChannelDefinitions)
+
+			adderID := uint32(100)
+
+			// Set up current definitions with owner channels 1, 2 and adder channel 10
+			addChannelDefinitions(currentDefinitions, 1, 2, SourceOwner)
+			currentDefinitions[10] = makeChannelDefinition(10, adderID)
+
+			// New owner definitions only include channel 1 (missing channel 2)
+			newDefinitions[1] = makeChannelDefinition(1, SourceOwner)
+
+			result, err := cdc.mergeDefinitions(SourceOwner, currentDefinitions, newDefinitions)
+			require.NoError(t, err)
+
+			// Owner channel 1 should be present
+			require.Contains(t, result, llotypes.ChannelID(1))
+			require.Equal(t, SourceOwner, result[1].Source)
+
+			// Owner channel 2 should be removed
+			require.NotContains(t, result, llotypes.ChannelID(2))
+
+			// Adder channel 10 should be preserved
+			require.Contains(t, result, llotypes.ChannelID(10))
+			require.Equal(t, adderID, result[10].Source)
+
+			// Result should contain channel 1 (owner) and channel 10 (adder)
+			require.Len(t, result, 2)
+		})
+
+		t.Run("owner removal only happens when source is SourceOwner", func(t *testing.T) {
+			currentDefinitions := make(llotypes.ChannelDefinitions)
+			newDefinitions := make(llotypes.ChannelDefinitions)
+
+			adderID := uint32(200)
+
+			// Set up current definitions with owner-defined channels 1, 2
+			addChannelDefinitions(currentDefinitions, 1, 2, SourceOwner)
+
+			// New definitions from adder only includes channel 1
+			newDefinitions[1] = makeChannelDefinition(1, adderID)
+
+			// When source is an adder (not SourceOwner), owner channels should NOT be removed
+			result, err := cdc.mergeDefinitions(adderID, currentDefinitions, newDefinitions)
+			require.NoError(t, err)
+
+			// Owner channel 1 should still be present (adder can't overwrite it)
+			require.Contains(t, result, llotypes.ChannelID(1))
+			require.Equal(t, SourceOwner, result[1].Source, "channel 1 should still have owner source")
+
+			// Owner channel 2 should still be present (not removed because source is not SourceOwner)
+			require.Contains(t, result, llotypes.ChannelID(2))
+			require.Equal(t, SourceOwner, result[2].Source)
+
+			// Result should contain both owner channels (adder's attempt to add channel 1 is ignored)
+			require.Len(t, result, 2)
+		})
+
+		t.Run("tombstone against owner channels is ignored", func(t *testing.T) {
+			currentDefinitions := make(llotypes.ChannelDefinitions)
+			newDefinitions := make(llotypes.ChannelDefinitions)
+
+			adderID := uint32(300)
+
+			// Set up current definitions with owner channel 1 and adder channel 2
+			currentDefinitions[1] = makeChannelDefinition(1, SourceOwner)
+			currentDefinitions[2] = makeChannelDefinition(2, adderID)
+
+			// Owner tries to tombstone owner channel 1 (should be ignored)
+			newDefinitions[1] = llotypes.ChannelDefinition{
+				ReportFormat: llotypes.ReportFormatJSON,
+				Streams:      []llotypes.Stream{{StreamID: 1, Aggregator: llotypes.AggregatorMedian}},
+				Source:       SourceOwner,
+				Tombstone:    true,
+			}
+
+			// Owner tries to tombstone adder channel 2 (should succeed)
+			newDefinitions[2] = llotypes.ChannelDefinition{
+				ReportFormat: llotypes.ReportFormatJSON,
+				Streams:      []llotypes.Stream{{StreamID: 2, Aggregator: llotypes.AggregatorMedian}},
+				Source:       SourceOwner,
+				Tombstone:    true,
+			}
+
+			result, err := cdc.mergeDefinitions(SourceOwner, currentDefinitions, newDefinitions)
+			require.NoError(t, err)
+
+			// Owner channel 1 should still be present (tombstone ignored)
+			require.Contains(t, result, llotypes.ChannelID(1))
+			require.Equal(t, SourceOwner, result[1].Source)
+			require.False(t, result[1].Tombstone, "channel 1 should not be tombstoned")
+
+			// Adder channel 2 should be removed (tombstone succeeded)
+			require.NotContains(t, result, llotypes.ChannelID(2))
+
+			// Result should only contain channel 1
+			require.Len(t, result, 1)
 		})
 	})
 }
