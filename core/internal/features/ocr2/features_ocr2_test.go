@@ -163,6 +163,7 @@ type               = "offchainreporting2"
 relay              = "evm"
 schemaVersion      = 1
 pluginType         = "median"
+gasLimit           = 90000000
 name               = "web oracle spec"
 forwardingAllowed  = true
 contractID         = "%s"

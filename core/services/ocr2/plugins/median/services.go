@@ -88,6 +88,11 @@ func NewMedianServices(ctx context.Context,
 		pluginConfig.GasLimit = &jb.GasLimit.Uint32
 	}
 
+	pluginConfigBytes, err := json.Marshal(pluginConfig)
+	if err != nil {
+		return
+	}
+
 	provider, err := relayer.NewPluginProvider(ctx, types.RelayArgs{
 		ExternalJobID: jb.ExternalJobID,
 		JobID:         jb.ID,
@@ -98,7 +103,7 @@ func NewMedianServices(ctx context.Context,
 		ProviderType:  string(spec.PluginType),
 	}, types.PluginArgs{
 		TransmitterID: spec.TransmitterID.String,
-		PluginConfig:  spec.PluginConfig.Bytes(),
+		PluginConfig:  pluginConfigBytes,
 	})
 	if err != nil {
 		return
