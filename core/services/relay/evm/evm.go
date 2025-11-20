@@ -867,7 +867,6 @@ func (r *Relayer) EVM() (commontypes.EVMService, error) {
 
 func (r *Relayer) NewMedianProvider(ctx context.Context, rargs commontypes.RelayArgs, pargs commontypes.PluginArgs) (commontypes.MedianProvider, error) {
 	lggr := logger.Sugared(r.lggr).Named(rargs.ExternalJobID.String()).Named("MedianProvider")
-	lggr.Infow("Geert: NewMedianProvider", "rargs", rargs)
 	relayOpts := config.NewRelayOpts(rargs)
 	relayConfig, err := relayOpts.RelayConfig()
 	if err != nil {
@@ -889,7 +888,6 @@ func (r *Relayer) NewMedianProvider(ctx context.Context, rargs commontypes.Relay
 
 	reportCodec := evmreportcodec.ReportCodec{}
 
-	lggr.Infow("Geert: pargs.PluginConfig", "PluginConfig", string(pargs.PluginConfig))
 	var pluginCfg medianconfig.PluginConfig
 	if err = json.Unmarshal(pargs.PluginConfig, &pluginCfg); err != nil {
 		return nil, pkgerrors.WithStack(err)
@@ -898,7 +896,7 @@ func (r *Relayer) NewMedianProvider(ctx context.Context, rargs commontypes.Relay
 	// add gas limit if it's set in the plugin config
 	transmitterOpts := transmitter.ConfigTransmitterOpts{}
 	if pluginCfg.GasLimit != nil {
-		lggr.Infow("Geert: setting plugin config gas limit", "gasLimit", *pluginCfg.GasLimit)
+		lggr.Debugw("Setting plugin config gas limit", "gasLimit", *pluginCfg.GasLimit)
 		transmitterOpts.PluginGasLimit = pluginCfg.GasLimit
 	}
 
