@@ -197,7 +197,7 @@ jobs:
         working-directory: core/scripts/cre/environment
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          CTF_TAG: "v0.11.9"
+          CTF_TAG: "framework/v0.11.9"
         run: |
           echo "::startgroup::Install CTF binary"
           mkdir -p bin
