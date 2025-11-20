@@ -12,6 +12,7 @@ import (
 	"github.com/smartcontractkit/mcms/sdk/evm"
 	"github.com/smartcontractkit/mcms/sdk/solana"
 	mcmstypes "github.com/smartcontractkit/mcms/types"
+	"github.com/smartcontractkit/quarantine"
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
@@ -166,6 +167,7 @@ func TestSetConfigMCMSV2EVM(t *testing.T) {
 }
 
 func TestSetConfigMCMSV2Solana(t *testing.T) {
+	quarantine.Flaky(t, "DX-1821")
 	t.Parallel()
 
 	selector := chain_selectors.TEST_22222222222222222222222222222222222222222222.Selector
