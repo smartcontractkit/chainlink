@@ -41,6 +41,6 @@ func main() {
 	}
 	if err := root.RootCmd.Execute(); err != nil {
 		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
-		os.Exit(1)
+		os.Exit(1) // small change to trigger CI
 	}
 }

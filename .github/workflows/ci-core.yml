@@ -23,7 +23,7 @@ jobs:
     permissions:
       pull-requests: read
     outputs:
-      affected-modules: ${{ steps.changed-modules.outputs.modified-modules-json }}
+      affected-modules: ${{ steps.changed-modules.outputs.modules-json }}
       # Runs on workflow changes, any deployment change, or any (non-ignored) core change
       should-run-deployment-tests: >-
         ${{
