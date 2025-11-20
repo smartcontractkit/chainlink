@@ -254,7 +254,7 @@ func SendSuiCCIPRequest(e cldf.Environment, cfg *ccipclient.CCIPSendReqConfig) (
 			client,
 		)
 		if err != nil {
-			return nil, errors.New("failed to create " + tokenPoolPkgName + " bound contract when appending PTB command: " + err.Error())
+			return nil, fmt.Errorf("failed to create %s bound contract when appending PTB command: %w", tokenPoolPkgName, err)
 		}
 
 		onRampContract, err := suiBind.NewBoundContract(

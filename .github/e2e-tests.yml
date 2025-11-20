@@ -1529,7 +1529,7 @@ runner-test-matrix:
         -- -v -run "TestVersionUpgrade" -timeout 30m -count=1 -parallel=2 github.com/smartcontractkit/chainlink/integration-tests/migration
     test_env_vars:
       E2E_TEST_CHAINLINK_IMAGE: public.ecr.aws/chainlink/chainlink
-      E2E_TEST_CHAINLINK_VERSION: "2.29.0" # TODO: Manual override to deal with Cloudflare outage. Replace with {{ env.LATEST_CHAINLINK_RELEASE_VERSION }} after fix.
+      E2E_TEST_CHAINLINK_VERSION: "{{ env.LATEST_CHAINLINK_RELEASE_VERSION }}"
       E2E_TEST_CHAINLINK_UPGRADE_IMAGE: "{{ env.QA_CHAINLINK_IMAGE }}"
       E2E_TEST_CHAINLINK_UPGRADE_VERSION: "{{ env.DEFAULT_CHAINLINK_VERSION }}"
     test_go_project_path: integration-tests

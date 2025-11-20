@@ -111,6 +111,13 @@ func (b *telemetryConfig) LogStreamingEnabled() bool {
 	return *b.s.LogStreamingEnabled
 }
 
+func (b *telemetryConfig) AuthHeadersTTL() time.Duration {
+	if b.s.AuthHeadersTTL == nil {
+		return 0
+	}
+	return b.s.AuthHeadersTTL.Duration()
+}
+
 func (b *telemetryConfig) LogLevel() zapcore.Level {
 	if b.s.LogLevel == nil {
 		return zapcore.InfoLevel // Default log level

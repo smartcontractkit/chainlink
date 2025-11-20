@@ -32,7 +32,7 @@ type RegisterNopsInput struct {
 }
 
 type RegisterNopsOutput struct {
-	Nops      []*capabilities_registry_v2.CapabilitiesRegistryNodeOperatorAdded
+	Nops      []capabilities_registry_v2.CapabilitiesRegistryNodeOperatorParams
 	Operation *mcmstypes.BatchOperation
 }
 
@@ -45,7 +45,7 @@ var RegisterNops = operations.NewOperation[RegisterNopsInput, RegisterNopsOutput
 		if len(input.Nops) == 0 {
 			// The contract allows to pass an empty array of NOPs.
 			return RegisterNopsOutput{
-				Nops: []*capabilities_registry_v2.CapabilitiesRegistryNodeOperatorAdded{},
+				Nops: []capabilities_registry_v2.CapabilitiesRegistryNodeOperatorParams{},
 			}, nil
 		}
 
@@ -69,10 +69,8 @@ var RegisterNops = operations.NewOperation[RegisterNopsInput, RegisterNopsOutput
 			return RegisterNopsOutput{}, fmt.Errorf("failed to dedupe NOPs: %w", err)
 		}
 
-		var resultNops []*capabilities_registry_v2.CapabilitiesRegistryNodeOperatorAdded
-
 		// Execute the transaction using the strategy
-		operation, tx, err := deps.Strategy.Apply(func(opts *bind.TransactOpts) (*types.Transaction, error) {
+		operation, _, err := deps.Strategy.Apply(func(opts *bind.TransactOpts) (*types.Transaction, error) {
 			return capReg.AddNodeOperators(opts, dedupedNOPs)
 		})
 		if err != nil {
@@ -83,40 +81,11 @@ var RegisterNops = operations.NewOperation[RegisterNopsInput, RegisterNopsOutput
 		if input.MCMSConfig != nil {
 			deps.Env.Logger.Infof("Created MCMS proposal for RegisterNops on chain %d", input.ChainSelector)
 		} else {
-			deps.Env.Logger.Infof("Successfully registered %d node operators on chain %d", len(resultNops), input.ChainSelector)
-
-			ctx := b.GetContext()
-			receipt, err := bind.WaitMined(ctx, chain.Client, tx)
-			if err != nil {
-				return RegisterNopsOutput{}, fmt.Errorf("failed to mine AddNodeOperators transaction %s: %w", tx.Hash().String(), err)
-			}
-
-			// Get the CapabilitiesRegistryFilterer contract for parsing logs
-			capabilityRegistryFilterer, err := capabilities_registry_v2.NewCapabilitiesRegistryFilterer(
-				common.HexToAddress(input.Address),
-				chain.Client,
-			)
-			if err != nil {
-				return RegisterNopsOutput{}, fmt.Errorf("failed to create CapabilitiesRegistryFilterer: %w", err)
-			}
-
-			// Parse the logs to get the added node operators
-			resultNops = make([]*capabilities_registry_v2.CapabilitiesRegistryNodeOperatorAdded, 0, len(receipt.Logs))
-			for i, log := range receipt.Logs {
-				if log == nil {
-					continue
-				}
-
-				o, err := capabilityRegistryFilterer.ParseNodeOperatorAdded(*log)
-				if err != nil {
-					return RegisterNopsOutput{}, fmt.Errorf("failed to parse log %d for operator added: %w", i, err)
-				}
-				resultNops = append(resultNops, o)
-			}
+			deps.Env.Logger.Infof("Successfully registered %d node operators on chain %d", len(dedupedNOPs), input.ChainSelector)
 		}
 
 		return RegisterNopsOutput{
-			Nops:      resultNops,
+			Nops:      dedupedNOPs,
 			Operation: operation,
 		}, nil
 	},

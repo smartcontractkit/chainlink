@@ -3,7 +3,6 @@ module github.com/smartcontractkit/chainlink/v2
 go 1.25.3
 
 require (
-	github.com/BurntSushi/toml v1.4.0
 	github.com/Depado/ginprom v1.8.0
 	github.com/Masterminds/semver/v3 v3.4.0
 	github.com/NethermindEth/juno v0.12.5
@@ -78,7 +77,6 @@ require (
 	github.com/scylladb/go-reflectx v1.0.1
 	github.com/shirou/gopsutil/v3 v3.24.3
 	github.com/shopspring/decimal v1.4.0
-	github.com/sigurn/crc16 v0.0.0-20211026045750-20ab5afb07e3
 	github.com/smartcontractkit/chain-selectors v1.0.82
 	github.com/smartcontractkit/chainlink-aptos v0.0.0-20251027153600-2b072ff3618e
 	github.com/smartcontractkit/chainlink-automation v0.8.1
@@ -86,7 +84,7 @@ require (
 	github.com/smartcontractkit/chainlink-ccip/chains/solana v0.0.0-20250912190424-fd2e35d7deb5
 	github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings v0.0.0-20250912190424-fd2e35d7deb5
 	github.com/smartcontractkit/chainlink-ccv v0.0.0-20251119220244-0914730bcd0f
-	github.com/smartcontractkit/chainlink-common v0.9.6-0.20251117184936-35bf8cfde69f
+	github.com/smartcontractkit/chainlink-common v0.9.6-0.20251118164938-731e805e0a2f
 	github.com/smartcontractkit/chainlink-common/pkg/chipingress v0.0.10
 	github.com/smartcontractkit/chainlink-data-streams v0.1.6
 	github.com/smartcontractkit/chainlink-evm v0.3.4-0.20251029010119-b2ed6162042f
@@ -101,8 +99,8 @@ require (
 	github.com/smartcontractkit/chainlink-protos/orchestrator v0.10.0
 	github.com/smartcontractkit/chainlink-protos/storage-service v0.3.0
 	github.com/smartcontractkit/chainlink-protos/workflows/go v0.0.0-20251025021331-aa7746850cc4
-	github.com/smartcontractkit/chainlink-solana v1.1.2-0.20251105160343-b77843a1daf4
-	github.com/smartcontractkit/chainlink-sui v0.0.0-20251114141003-d4fabe3c5586
+	github.com/smartcontractkit/chainlink-solana v1.1.2-0.20251118231846-4eed5e3d3207
+	github.com/smartcontractkit/chainlink-sui v0.0.0-20251117202410-65d1d60c95af
 	github.com/smartcontractkit/chainlink-ton v0.0.0-20251117043516-cfda0f691147
 	github.com/smartcontractkit/cre-sdk-go v0.7.1-0.20250919133015-2df149f34a81
 	github.com/smartcontractkit/cre-sdk-go/capabilities/networking/http v0.7.0
@@ -167,6 +165,7 @@ require (
 	github.com/99designs/go-keychain v0.0.0-20191008050251-8e49817e8af4 // indirect
 	github.com/99designs/keyring v1.2.1 // indirect
 	github.com/Azure/go-ntlmssp v0.0.0-20221128193559-754e69321358 // indirect
+	github.com/BurntSushi/toml v1.4.0 // indirect
 	github.com/DataDog/zstd v1.5.6 // indirect
 	github.com/Microsoft/go-winio v0.6.2 // indirect
 	github.com/VictoriaMetrics/fastcache v1.13.0 // indirect
@@ -347,6 +346,7 @@ require (
 	github.com/sasha-s/go-deadlock v0.3.5 // indirect
 	github.com/sethvargo/go-retry v0.3.0 // indirect
 	github.com/shirou/gopsutil v3.21.11+incompatible // indirect
+	github.com/sigurn/crc16 v0.0.0-20211026045750-20ab5afb07e3 // indirect
 	github.com/smartcontractkit/chainlink-ccip/ccv/chains/evm v0.0.0-20251107170647-25947f0bb4cb // indirect
 	github.com/smartcontractkit/chainlink-framework/metrics v0.0.0-20251020150604-8ab84f7bad1a // indirect
 	github.com/smartcontractkit/chainlink-protos/chainlink-ccv/go v0.0.0-20251119214842-48620ea319ea // indirect

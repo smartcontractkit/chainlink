@@ -48,7 +48,7 @@ func ValidatedCRESettingsSpec(tomlString string) (job.Job, error) {
 	if spec.Hash == "" {
 		spec.Hash = hash
 	} else if spec.Hash != hash {
-		return jb, fmt.Errorf("invalid sha256 hash %s: calculated %s", spec.Hash, hash)
+		return jb, fmt.Errorf("invalid sha256 hash %s: calculated %s from: \n%s", spec.Hash, hash, spec.Settings)
 	}
 
 	return jb, nil
