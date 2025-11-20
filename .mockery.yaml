@@ -21,6 +21,9 @@ packages:
   github.com/smartcontractkit/chainlink/v2/core/bridges:
     interfaces:
       ORM:
+  github.com/smartcontractkit/chainlink/v2/core/capabilities:
+    interfaces:
+      DonSubscriber:
   github.com/smartcontractkit/chainlink/v2/core/capabilities/vault:
     interfaces:
       RequestAuthorizer:
@@ -159,7 +162,7 @@ packages:
     interfaces:
       ConnectionInitiator:
       ConnectionAcceptor:
-      HttpServer:
+      HTTPServer:
       HTTPRequestHandler:
       WebSocketServer:
       HTTPClient:
@@ -235,9 +238,6 @@ packages:
       dir: "common/types/mocks"
     interfaces:
       MonitoringEndpoint:
-  github.com/smartcontractkit/chainlink/v2/core/services/relay/evm:
-    interfaces:
-      RequestRoundDB:
   github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury:
     interfaces:
       asyncDeleter:

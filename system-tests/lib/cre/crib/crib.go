@@ -24,7 +24,7 @@ import (
 	"github.com/smartcontractkit/chainlink/system-tests/lib/infra"
 )
 
-func Bootstrap(infraInput infra.Provider) error {
+func Bootstrap(ctx context.Context, infraInput infra.Provider) error {
 	plan := crib.NewPlan(
 		"namespace",
 		crib.Namespace(infraInput.CRIB.Namespace),
@@ -36,7 +36,7 @@ func Bootstrap(infraInput infra.Provider) error {
 			}),
 		),
 	)
-	_, err := plan.Apply(context.Background())
+	_, err := plan.Apply(ctx)
 	if err != nil {
 		return errors.Wrap(err, "failed to apply plan")
 	}
@@ -44,17 +44,34 @@ func Bootstrap(infraInput infra.Provider) error {
 	return nil
 }
 
-func DeployBlockchain(input *cre.DeployCribBlockchainInput) (*blockchain.Output, error) {
+type DeployCribBlockchainInput struct {
+	Blockchain     *blockchain.Input
+	CribConfigsDir string
+	Namespace      string
+}
+
+func (d *DeployCribBlockchainInput) Validate() error {
+	if d.Blockchain == nil {
+		return errors.New("blockchain input not set")
+	}
+	if d.CribConfigsDir == "" {
+		return errors.New("crib configs dir not set")
+	}
+	if d.Namespace == "" {
+		return errors.New("namespace not set")
+	}
+	return nil
+}
+
+func DeployBlockchain(ctx context.Context, input *DeployCribBlockchainInput) (*blockchain.Output, error) {
 	err := input.Validate()
 	if err != nil {
 		return nil, errors.Wrapf(err, "invalid input for deploying blockchain")
 	}
 
-	ctx := context.Background()
-
 	anvil := anvilv1.Component(&anvilv1.Props{
 		Namespace: input.Namespace,
-		ChainID:   input.BlockchainInput.ChainID,
+		ChainID:   input.Blockchain.ChainID,
 	})
 
 	plan := crib.NewPlan(
@@ -76,9 +93,9 @@ func DeployBlockchain(input *cre.DeployCribBlockchainInput) (*blockchain.Output,
 		res := crib.ComponentState[anvilv1.Result](component)
 
 		return &blockchain.Output{
-			Type:    input.BlockchainInput.Type,
+			Type:    input.Blockchain.Type,
 			Family:  "evm",
-			ChainID: input.BlockchainInput.ChainID,
+			ChainID: input.Blockchain.ChainID,
 			Nodes: []*blockchain.Node{
 				{
 					InternalWSUrl:   res.RPCWebsocketURL(),
@@ -92,7 +109,31 @@ func DeployBlockchain(input *cre.DeployCribBlockchainInput) (*blockchain.Output,
 
 	return nil, errors.New("failed to find a valid component")
 }
-func DeployDons(input *cre.DeployCribDonsInput) ([]*cre.CapabilitiesAwareNodeSet, error) {
+
+type DeployCribDonsInput struct {
+	Topology       *cre.Topology
+	NodeSet        []*cre.NodeSet
+	CribConfigsDir string
+	Namespace      string
+}
+
+func (d *DeployCribDonsInput) Validate() error {
+	if d.Topology == nil {
+		return errors.New("topology not set")
+	}
+	if len(d.Topology.DonsMetadata.List()) == 0 {
+		return errors.New("metadata not set")
+	}
+	if len(d.NodeSet) == 0 {
+		return errors.New("node set inputs not set")
+	}
+	if d.CribConfigsDir == "" {
+		return errors.New("crib configs dir not set")
+	}
+	return nil
+}
+
+func DeployDons(ctx context.Context, input *DeployCribDonsInput) ([]*cre.NodeSet, error) {
 	if input == nil {
 		return nil, errors.New("DeployCribDonsInput is nil")
 	}
@@ -110,7 +151,7 @@ func DeployDons(input *cre.DeployCribDonsInput) ([]*cre.CapabilitiesAwareNodeSet
 		}
 
 		for nodeIdx, nodeMetadata := range donMetadata.NodesMetadata {
-			configToml, secrets, confSecretsErr := getConfigAndSecretsForNode(nodeMetadata, donIdx, input, donMetadata)
+			configToml, secrets, confSecretsErr := getConfigAndSecretsForNode(nodeMetadata, donIdx, input)
 			if confSecretsErr != nil {
 				return nil, confSecretsErr
 			}
@@ -124,7 +165,7 @@ func DeployDons(input *cre.DeployCribDonsInput) ([]*cre.CapabilitiesAwareNodeSet
 				SecretsOverrides: map[string]string{
 					"overrides": *secrets,
 				},
-				EnvVars: input.NodeSetInputs[donIdx].NodeSpecs[nodeMetadata.Index].Node.EnvVars,
+				EnvVars: input.NodeSet[donIdx].NodeSpecs[nodeMetadata.Index].Node.EnvVars,
 			})
 			componentFuncs = append(componentFuncs, cFunc)
 		}
@@ -138,7 +179,7 @@ func DeployDons(input *cre.DeployCribDonsInput) ([]*cre.CapabilitiesAwareNodeSet
 		),
 	)
 
-	planState, err := plan.Apply(context.Background())
+	planState, err := plan.Apply(ctx)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to apply plan")
 	}
@@ -178,14 +219,14 @@ func DeployDons(input *cre.DeployCribDonsInput) ([]*cre.CapabilitiesAwareNodeSet
 				},
 			})
 		}
-		input.NodeSetInputs[j].Out = out
+		input.NodeSet[j].Out = out
 	}
 
-	return input.NodeSetInputs, nil
+	return input.NodeSet, nil
 }
 
-func getConfigAndSecretsForNode(nodeMetadata *cre.NodeMetadata, donIndex int, input *cre.DeployCribDonsInput, donMetadata *cre.DonMetadata) (*string, *string, error) {
-	nodeSpec := input.NodeSetInputs[donIndex].NodeSpecs[nodeMetadata.Index]
+func getConfigAndSecretsForNode(nodeMetadata *cre.NodeMetadata, donIndex int, input *DeployCribDonsInput) (*string, *string, error) {
+	nodeSpec := input.NodeSet[donIndex].NodeSpecs[nodeMetadata.Index]
 
 	cleanedToml, tomlErr := cleanToml(nodeSpec.Node.TestConfigOverrides)
 	if tomlErr != nil {
@@ -210,9 +251,9 @@ func getConfigAndSecretsForNode(nodeMetadata *cre.NodeMetadata, donIndex int, in
 	return &tomlString, &secretsString, nil
 }
 
-func imageNameAndTag(input *cre.DeployCribDonsInput, j int) (string, string, error) {
+func imageNameAndTag(input *DeployCribDonsInput, j int) (string, string, error) {
 	// validate that all nodes in the same node set use the same Docker image
-	dockerImage, dockerImagesErr := nodesetDockerImage(input.NodeSetInputs[j])
+	dockerImage, dockerImagesErr := nodesetDockerImage(input.NodeSet[j])
 	if dockerImagesErr != nil {
 		return "", "", errors.Wrap(dockerImagesErr, "failed to validate node set Docker images")
 	}
@@ -286,7 +327,20 @@ func mergeToml(tomlOne []byte, tomlTwo []byte) ([]byte, error) {
 	return result, nil
 }
 
-func DeployJd(input *cre.DeployCribJdInput) (*jd.Output, error) {
+type DeployCribJdInput struct {
+	JDInput        jd.Input
+	CribConfigsDir string
+	Namespace      string
+}
+
+func (d *DeployCribJdInput) Validate() error {
+	if d.CribConfigsDir == "" {
+		return errors.New("crib configs dir not set")
+	}
+	return nil
+}
+
+func DeployJd(ctx context.Context, input *DeployCribJdInput) (*jd.Output, error) {
 	if input == nil {
 		return nil, errors.New("DeployCribJdInput is nil")
 	}
@@ -312,7 +366,7 @@ func DeployJd(input *cre.DeployCribJdInput) (*jd.Output, error) {
 		),
 	)
 
-	planState, err := plan.Apply(context.Background())
+	planState, err := plan.Apply(ctx)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to apply a plan")
 	}
@@ -332,7 +386,7 @@ func DeployJd(input *cre.DeployCribJdInput) (*jd.Output, error) {
 	return nil, errors.New("failed to find a valid jd component in results")
 }
 
-func nodesetDockerImage(nodeSet *cre.CapabilitiesAwareNodeSet) (string, error) {
+func nodesetDockerImage(nodeSet *cre.NodeSet) (string, error) {
 	dockerImages := []string{}
 	for nodeIdx, nodeSpec := range nodeSet.NodeSpecs {
 		if nodeSpec.Node.DockerContext != "" {

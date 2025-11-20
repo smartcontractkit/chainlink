@@ -54,6 +54,7 @@ import (
 	ccipseq "github.com/smartcontractkit/chainlink/deployment/ccip/sequence/evm/v1_6"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
+	"github.com/smartcontractkit/chainlink/deployment/utils/nodetestutils"
 
 	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
 	ccipocr3common "github.com/smartcontractkit/chainlink-common/pkg/types/ccipocr3"
@@ -146,7 +147,7 @@ type TestConfigs struct {
 
 	// CLNodeConfigOpts are the config options to be passed to the chainlink node.
 	// Only used in memory mode.
-	CLNodeConfigOpts []memory.ConfigOpt
+	CLNodeConfigOpts []nodetestutils.ConfigOpt
 
 	// RoleDONTopology is the chain-node topology of the role DON.
 	// Only used in memory mode.
@@ -221,7 +222,7 @@ func WithExtraConfigTomls(extraTomls []string) TestOps {
 	}
 }
 
-func WithCLNodeConfigOpts(opts ...memory.ConfigOpt) TestOps {
+func WithCLNodeConfigOpts(opts ...nodetestutils.ConfigOpt) TestOps {
 	return func(testCfg *TestConfigs) {
 		testCfg.CLNodeConfigOpts = opts
 	}
@@ -407,7 +408,7 @@ func (d *DeployedEnv) SetupJobs(t *testing.T) {
 
 type MemoryEnvironment struct {
 	DeployedEnv
-	nodes       map[string]memory.Node
+	nodes       map[string]nodetestutils.Node
 	TestConfig  *TestConfigs
 	Chains      map[uint64]cldf_evm.Chain
 	SolChains   map[uint64]cldf_solana.Chain
@@ -521,7 +522,7 @@ func (m *MemoryEnvironment) StartNodes(t *testing.T, crConfig deployment.Capabil
 	require.NotNil(t, m.Chains, "start chains first, chains are empty")
 	require.NotNil(t, m.DeployedEnv, "start chains and initiate deployed env first before starting nodes")
 	tc := m.TestConfig
-	c := memory.NewNodesConfig{
+	c := nodetestutils.NewNodesConfig{
 		LogLevel:       zapcore.InfoLevel,
 		BlockChains:    m.Env.BlockChains,
 		NumNodes:       tc.Nodes,
@@ -529,7 +530,7 @@ func (m *MemoryEnvironment) StartNodes(t *testing.T, crConfig deployment.Capabil
 		RegistryConfig: crConfig,
 		CustomDBSetup:  nil,
 	}
-	nodes := memory.NewNodes(t, c, tc.CLNodeConfigOpts...)
+	nodes := nodetestutils.NewNodes(t, c, tc.CLNodeConfigOpts...)
 	ctx := testcontext.Get(t)
 	lggr := logger.Test(t)
 	for _, node := range nodes {
@@ -1163,7 +1164,7 @@ func AddCCIPContractsToEnvironment(t *testing.T, allChains []uint64, tEnv TestEn
 		_, err := memory.GetTONSha()
 		require.NoError(t, err, "failed to get TON commit sha")
 		// TODO replace the hardcoded commit sha with the one fetched from memory.GetTONSha()
-		contractVersion := "83e4df8520c5" // evm2ton enabled TON contracts(2025-10-09)
+		contractVersion := "bd37af74a93e" // https://github.com/smartcontractkit/chainlink-ton/releases/tag/ton-contracts-build-bd37af74a93e
 		// Allow overriding with a custom version, it's set to "local" on chainlink-ton CI
 		if version := os.Getenv("CCIP_CONTRACTS_TON_VERSION"); version != "" {
 			contractVersion = version
@@ -1347,11 +1348,16 @@ func AddCCIPContractsToEnvironment(t *testing.T, allChains []uint64, tEnv TestEn
 		ocrOverride := func(params v1_6.CCIPOCRParams) v1_6.CCIPOCRParams {
 			// Commit
 			params.CommitOffChainConfig.RMNEnabled = false
+
 			// Execute
 			params.ExecuteOffChainConfig.MultipleReportsEnabled = false
 			params.ExecuteOffChainConfig.MaxReportMessages = 1
 			params.ExecuteOffChainConfig.MaxSingleChainReports = 1
 			params.ExecuteOffChainConfig.MaxCommitReportsToFetch = 1
+
+			params.OCRParameters.MaxDurationShouldAcceptAttestedReport = 15 * time.Second
+			params.OCRParameters.MaxDurationShouldTransmitAcceptedReport = 15 * time.Second
+
 			if tc.OCRConfigOverride != nil {
 				tc.OCRConfigOverride(params)
 			}

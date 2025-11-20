@@ -4,34 +4,27 @@ import (
 	"fmt"
 
 	cldf_evm "github.com/smartcontractkit/chainlink-deployments-framework/chain/evm"
-	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
 
 	"github.com/smartcontractkit/chainlink/deployment/vault/changeset/types"
 )
 
-var BatchNativeTransferChangeset = cldf.CreateChangeSet(batchNativeTransferLogic, batchNativeTransferPrecondition)
+var BatchNativeTransferChangeset cldf.ChangeSetV2[types.BatchNativeTransferConfig] = batchNativeTransferChangeset{}
 
-func batchNativeTransferPrecondition(e cldf.Environment, cfg types.BatchNativeTransferConfig) error {
-	ctx := e.GetContext()
-	return ValidateBatchNativeTransferConfig(ctx, e, cfg)
+type batchNativeTransferChangeset struct{}
+
+func (b batchNativeTransferChangeset) VerifyPreconditions(e cldf.Environment, cfg types.BatchNativeTransferConfig) error {
+	return ValidateBatchNativeTransferConfig(e.GetContext(), e, cfg)
 }
 
-func batchNativeTransferLogic(e cldf.Environment, cfg types.BatchNativeTransferConfig) (cldf.ChangesetOutput, error) {
+func (b batchNativeTransferChangeset) Apply(e cldf.Environment, cfg types.BatchNativeTransferConfig) (cldf.ChangesetOutput, error) {
 	lggr := e.Logger
 
 	lggr.Infow("Starting batch native transfer",
 		"chains", len(cfg.TransfersByChain),
 		"mcms_mode", cfg.MCMSConfig != nil,
 		"description", cfg.Description)
-
-	mutableDS := datastore.NewMemoryDataStore()
-	if e.DataStore != nil {
-		if err := mutableDS.Merge(e.DataStore); err != nil {
-			return cldf.ChangesetOutput{}, fmt.Errorf("failed to merge existing datastore: %w", err)
-		}
-	}
 
 	evmChains := e.BlockChains.EVMChains()
 
@@ -51,7 +44,7 @@ func batchNativeTransferLogic(e cldf.Environment, cfg types.BatchNativeTransferC
 	deps := VaultDeps{
 		Chain:       primaryChain,
 		Auth:        primaryChain.DeployerKey,
-		DataStore:   mutableDS,
+		DataStore:   e.DataStore,
 		Environment: e,
 	}
 
@@ -72,7 +65,6 @@ func batchNativeTransferLogic(e cldf.Environment, cfg types.BatchNativeTransferC
 		"execution_reports", len(seqReport.ExecutionReports))
 
 	return cldf.ChangesetOutput{
-		DataStore:             mutableDS,
 		MCMSTimelockProposals: seqReport.Output.MCMSTimelockProposals,
 		Reports:               seqReport.ExecutionReports,
 	}, nil

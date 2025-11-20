@@ -12,6 +12,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
+	"github.com/smartcontractkit/chainlink-common/pkg/settings/limits"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 )
 
@@ -62,8 +63,11 @@ type webSocketServer struct {
 	lggr              logger.Logger
 }
 
-func NewWebSocketServer(config *WebSocketServerConfig, acceptor ConnectionAcceptor, lggr logger.Logger) WebSocketServer {
+func NewWebSocketServer(config *WebSocketServerConfig, acceptor ConnectionAcceptor, lggr logger.Logger, lf limits.Factory) (WebSocketServer, error) {
 	config.applyDefaults()
+	if err := config.ensureLimiters(lf); err != nil {
+		return nil, err
+	}
 	baseCtx, cancelBaseCtx := context.WithCancel(context.Background())
 	upgrader := &websocket.Upgrader{
 		HandshakeTimeout: time.Duration(config.HandshakeTimeoutMillis) * time.Millisecond,
@@ -86,7 +90,7 @@ func NewWebSocketServer(config *WebSocketServerConfig, acceptor ConnectionAccept
 		ReadHeaderTimeout: time.Duration(config.ReadTimeoutMillis) * time.Millisecond,
 		WriteTimeout:      time.Duration(config.WriteTimeoutMillis) * time.Millisecond,
 	}
-	return server
+	return server, nil
 }
 
 func (s *webSocketServer) GetPort() int {
@@ -124,7 +128,13 @@ func (s *webSocketServer) handleRequest(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	conn.SetReadLimit(s.config.MaxRequestBytes)
+	maxRequestBytes, err := s.config.MaxRequestBytesLimiter.Limit(r.Context())
+	if err != nil {
+		s.lggr.Errorw("failed to get request size limit", "err", err)
+		w.WriteHeader(http.StatusInternalServerError)
+		return
+	}
+	conn.SetReadLimit(int64(maxRequestBytes))
 	msgType, response, err := conn.ReadMessage()
 	if err != nil || msgType != websocket.BinaryMessage {
 		s.lggr.Errorw("invalid handshake message", "msgType", msgType, "err", err)

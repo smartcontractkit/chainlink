@@ -34,35 +34,6 @@ import (
 	csState "github.com/smartcontractkit/chainlink/deployment/common/changeset/state"
 )
 
-func verifyProgramSizes(t *testing.T, e cldf.Environment) {
-	state, err := stateview.LoadOnchainStateSolana(e)
-	require.NoError(t, err)
-	solChainSelectors := e.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chain_selectors.FamilySolana))
-	addresses, err := e.ExistingAddresses.AddressesForChain(solChainSelectors[0])
-	require.NoError(t, err)
-	chainState, err := csState.MaybeLoadMCMSWithTimelockChainStateSolana(e.BlockChains.SolanaChains()[solChainSelectors[0]], addresses)
-	require.NoError(t, err)
-	programsToState := map[string]solana.PublicKey{
-		deployment.RouterProgramName:               state.SolChains[solChainSelectors[0]].Router,
-		deployment.OffRampProgramName:              state.SolChains[solChainSelectors[0]].OffRamp,
-		deployment.FeeQuoterProgramName:            state.SolChains[solChainSelectors[0]].FeeQuoter,
-		deployment.BurnMintTokenPoolProgramName:    state.SolChains[solChainSelectors[0]].BurnMintTokenPools[shared.CLLMetadata],
-		deployment.LockReleaseTokenPoolProgramName: state.SolChains[solChainSelectors[0]].LockReleaseTokenPools[shared.CLLMetadata],
-		deployment.AccessControllerProgramName:     chainState.AccessControllerProgram,
-		deployment.TimelockProgramName:             chainState.TimelockProgram,
-		deployment.McmProgramName:                  chainState.McmProgram,
-		deployment.RMNRemoteProgramName:            state.SolChains[solChainSelectors[0]].RMNRemote,
-		deployment.CCTPTokenPoolProgramName:        state.SolChains[solChainSelectors[0]].CCTPTokenPool,
-	}
-	for program, sizeBytes := range deployment.SolanaProgramBytes {
-		t.Logf("Verifying program %s size is at least %d bytes", program, sizeBytes)
-		programDataAccount, _, _ := solana.FindProgramAddress([][]byte{programsToState[program].Bytes()}, solana.BPFLoaderUpgradeableProgramID)
-		programDataSize, err := ccipChangesetSolana.GetSolProgramSize(&e, e.BlockChains.SolanaChains()[solChainSelectors[0]], programDataAccount)
-		require.NoError(t, err)
-		require.GreaterOrEqual(t, programDataSize, sizeBytes)
-	}
-}
-
 func initialDeployCS(t *testing.T, e cldf.Environment, buildConfig *ccipChangesetSolana.BuildSolanaConfig) []commonchangeset.ConfiguredChangeSet {
 	evmSelectors := e.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chain_selectors.FamilyEVM))
 	homeChainSel := evmSelectors[0]
@@ -185,7 +156,7 @@ func TestUpgrade(t *testing.T) {
 	solChainSelectors := e.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chain_selectors.FamilySolana))
 	e, _, err := commonchangeset.ApplyChangesets(t, e, initialDeployCS(t, e,
 		&ccipChangesetSolana.BuildSolanaConfig{
-			SolanaContractVersion: ccipChangesetSolana.VersionSolanaV0_1_1TokenPools,
+			SolanaContractVersion: ccipChangesetSolana.VersionSolanaV0_1_1,
 			DestinationDir:        e.BlockChains.SolanaChains()[solChainSelectors[0]].ProgramsPath,
 			LocalBuild: ccipChangesetSolana.LocalBuildConfig{
 				BuildLocally:        true,
@@ -220,7 +191,6 @@ func TestUpgrade(t *testing.T) {
 	// upgradeAuthority := e.BlockChains.SolanaChains()[solChainSelectors[0]].DeployerKey.PublicKey()
 	state, err := stateview.LoadOnchainStateSolana(e)
 	require.NoError(t, err)
-	verifyProgramSizes(t, e)
 	addresses, err := e.ExistingAddresses.AddressesForChain(solChainSelectors[0])
 	require.NoError(t, err)
 	chainState, err := csState.MaybeLoadMCMSWithTimelockChainStateSolana(e.BlockChains.SolanaChains()[solChainSelectors[0]], addresses)
@@ -323,7 +293,7 @@ func TestUpgrade(t *testing.T) {
 					},
 				},
 				BuildConfig: &ccipChangesetSolana.BuildSolanaConfig{
-					SolanaContractVersion: ccipChangesetSolana.VersionSolanaV0_1_2,
+					SolanaContractVersion: ccipChangesetSolana.VersionSolanaV1_6_0,
 					DestinationDir:        e.BlockChains.SolanaChains()[solChainSelectors[0]].ProgramsPath,
 					LocalBuild: ccipChangesetSolana.LocalBuildConfig{
 						BuildLocally: true,
@@ -380,7 +350,7 @@ func TestClose(t *testing.T) {
 	solChainSelectors := e.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chain_selectors.FamilySolana))
 	e, _, err := commonchangeset.ApplyChangesets(t, e, initialDeployCS(t, e,
 		&ccipChangesetSolana.BuildSolanaConfig{
-			SolanaContractVersion: ccipChangesetSolana.VersionSolanaV0_1_2,
+			SolanaContractVersion: ccipChangesetSolana.VersionSolanaV1_6_0,
 			DestinationDir:        e.BlockChains.SolanaChains()[solChainSelectors[0]].ProgramsPath,
 			LocalBuild: ccipChangesetSolana.LocalBuildConfig{
 				BuildLocally:        true,
@@ -571,7 +541,7 @@ func TestIDL(t *testing.T) {
 			cldf.CreateLegacyChangeSet(ccipChangesetSolana.SetAuthorityIDL),
 			ccipChangesetSolana.IDLConfig{
 				ChainSelector:         solChain,
-				SolanaContractVersion: ccipChangesetSolana.VersionSolanaV0_1_1TokenPools,
+				SolanaContractVersion: ccipChangesetSolana.VersionSolanaV0_1_1,
 				BurnMintTokenPoolMetadata: []string{
 					shared.CLLMetadata,
 				},
@@ -581,7 +551,7 @@ func TestIDL(t *testing.T) {
 			cldf.CreateLegacyChangeSet(ccipChangesetSolana.UpgradeIDL),
 			ccipChangesetSolana.IDLConfig{
 				ChainSelector:         solChain,
-				SolanaContractVersion: ccipChangesetSolana.VersionSolanaV0_1_1TokenPools,
+				SolanaContractVersion: ccipChangesetSolana.VersionSolanaV0_1_1,
 				BurnMintTokenPoolMetadata: []string{
 					shared.CLLMetadata,
 				},

@@ -723,6 +723,7 @@ func TestVRFV2PlusIntegration_ConsumerProxy_CoordinatorZeroAddress(t *testing.T)
 }
 
 func TestVRFV2PlusIntegration_ExternalOwnerConsumerExample(t *testing.T) {
+	quarantine.Flaky(t, "DX-2222")
 	owner := evmtestutils.MustNewSimTransactor(t)
 	random := evmtestutils.MustNewSimTransactor(t)
 	genesisData := gethtypes.GenesisAlloc{

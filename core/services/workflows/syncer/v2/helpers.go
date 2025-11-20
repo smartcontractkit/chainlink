@@ -74,8 +74,18 @@ type testDonNotifier struct {
 	err error
 }
 
+func (t *testDonNotifier) NotifyDonSet(don capabilities.DON) {
+	t.don = don
+}
+
 func (t *testDonNotifier) WaitForDon(ctx context.Context) (capabilities.DON, error) {
 	return t.don, t.err
+}
+
+func (t *testDonNotifier) Subscribe(ctx context.Context) (<-chan capabilities.DON, func(), error) {
+	ch := make(chan capabilities.DON, 1)
+	ch <- t.don
+	return ch, func() {}, t.err
 }
 
 type mockService struct{}

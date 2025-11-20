@@ -530,7 +530,6 @@ func BuildOCR3ConfigForCCIPHome(
 		if destFamily == chain_selectors.FamilyAptos {
 			transmitAccount = replaceAptosPublicKeys(transmitAccount)
 		}
-
 		p2pIDs = append(p2pIDs, node.PeerID)
 		oracles = append(oracles, confighelper.OracleIdentityExtra{
 			OracleIdentity: confighelper.OracleIdentity{

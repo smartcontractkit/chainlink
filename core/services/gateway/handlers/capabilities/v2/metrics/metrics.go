@@ -9,13 +9,17 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/beholder"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
+	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/api"
+	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/config"
 )
 
 // Attribute constants for consistent labeling
 const (
 	AttrNodeAddress = "node_address"
+	AttrNodeName    = "node_name"
 	AttrStatusCode  = "status_code"
 	AttrErrorCode   = "error_code"
+	AttrErrorString = "error_string"
 	AttrMethodName  = "method_name"
 )
 
@@ -38,6 +42,9 @@ type ActionMetrics struct {
 	cacheSize                      metric.Int64Gauge
 	capabilityRequestCount         metric.Int64Counter
 	capabilityFailures             metric.Int64Counter
+	blockedRequestCount            metric.Int64Counter
+	httpSendErrorCount             metric.Int64Counter
+	httpReadErrorCount             metric.Int64Counter
 }
 
 // TriggerMetrics contains metrics for HTTP triggers
@@ -57,17 +64,20 @@ type TriggerMetrics struct {
 	metadataObservationsCount        metric.Int64Gauge
 	jwtCacheSize                     metric.Int64Gauge
 	jwtCacheCleanUpCount             metric.Int64Counter
+	metadataSyncStartupLatency       metric.Int64Histogram
+	loadedMetadataSize               metric.Int64Gauge
 }
 
 // Metrics combines all gateway metrics for dependency injection
 type Metrics struct {
-	Common  *CommonMetrics
-	Action  *ActionMetrics
-	Trigger *TriggerMetrics
+	common                *CommonMetrics
+	action                *ActionMetrics
+	trigger               *TriggerMetrics
+	nodeAddressToNodeName map[string]string
 }
 
 // NewMetrics creates a new instance of Metrics with all metrics initialized
-func NewMetrics() (*Metrics, error) {
+func NewMetrics(donConfig *config.DONConfig) (*Metrics, error) {
 	meter := beholder.GetMeter()
 
 	common, err := newCommonMetrics(meter)
@@ -85,10 +95,18 @@ func NewMetrics() (*Metrics, error) {
 		return nil, fmt.Errorf("failed to create trigger metrics: %w", err)
 	}
 
+	nodeAddressToNodeName := make(map[string]string)
+	if donConfig != nil {
+		for _, member := range donConfig.Members {
+			nodeAddressToNodeName[member.Address] = member.Name
+		}
+	}
+
 	return &Metrics{
-		Common:  common,
-		Action:  action,
-		Trigger: trigger,
+		common:                common,
+		action:                action,
+		trigger:               trigger,
+		nodeAddressToNodeName: nodeAddressToNodeName,
 	}, nil
 }
 
@@ -207,6 +225,30 @@ func newActionMetrics(meter metric.Meter) (*ActionMetrics, error) {
 	)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create HTTP action gateway capability failures metric: %w", err)
+	}
+
+	m.blockedRequestCount, err = meter.Int64Counter(
+		"http_action_blocked_request_count",
+		metric.WithDescription("Number of HTTP action requests blocked due to invalid input (blocked IP, invalid method, etc)"),
+	)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create HTTP action blocked request count metric: %w", err)
+	}
+
+	m.httpSendErrorCount, err = meter.Int64Counter(
+		"http_action_http_send_error_count",
+		metric.WithDescription("Number of HTTP send errors (network failures, connection errors, timeouts during request)"),
+	)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create HTTP action HTTP send error count metric: %w", err)
+	}
+
+	m.httpReadErrorCount, err = meter.Int64Counter(
+		"http_action_http_read_error_count",
+		metric.WithDescription("Number of HTTP read errors (failures reading response body)"),
+	)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create HTTP action HTTP read error count metric: %w", err)
 	}
 
 	return m, nil
@@ -337,135 +379,194 @@ func newTriggerMetrics(meter metric.Meter) (*TriggerMetrics, error) {
 		return nil, fmt.Errorf("failed to create HTTP trigger JWT cache cleanup count metric: %w", err)
 	}
 
+	m.metadataSyncStartupLatency, err = meter.Int64Histogram(
+		"http_trigger_metadata_sync_startup_latency_ms",
+		metric.WithDescription("Time in milliseconds from handler start to first successful workflow metadata sync (i.e. first workflow loaded)"),
+	)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create HTTP trigger metadata sync startup latency metric: %w", err)
+	}
+
+	m.loadedMetadataSize, err = meter.Int64Gauge(
+		"http_trigger_loaded_metadata_size",
+		metric.WithDescription("Number of workflows loaded for authorization after f+1 identical metadata received from workflow nodes"),
+	)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create HTTP trigger loaded metadata size metric: %w", err)
+	}
+
 	return m, nil
 }
 
 // Common Metrics Methods
 
-func (m *CommonMetrics) IncrementCapabilityNodeThrottled(ctx context.Context, nodeAddress string, lggr logger.Logger) {
-	m.capabilityNodeThrottled.Add(ctx, 1, metric.WithAttributes(attribute.String(AttrNodeAddress, nodeAddress)))
+func (m *Metrics) IncrementCapabilityNodeThrottled(ctx context.Context, nodeAddress string, lggr logger.Logger) {
+	m.common.capabilityNodeThrottled.Add(ctx, 1, metric.WithAttributes(
+		attribute.String(AttrNodeAddress, nodeAddress),
+		attribute.String(AttrNodeName, m.nodeAddressToNodeName[nodeAddress]),
+	))
 }
 
-func (m *CommonMetrics) IncrementGlobalThrottled(ctx context.Context, lggr logger.Logger) {
-	m.globalThrottled.Add(ctx, 1)
+func (m *Metrics) IncrementGlobalThrottled(ctx context.Context, lggr logger.Logger) {
+	m.common.globalThrottled.Add(ctx, 1)
 }
 
 // Action Metrics Methods
 
-func (m *ActionMetrics) IncrementRequestCount(ctx context.Context, nodeAddress string, lggr logger.Logger) {
-	m.requestCount.Add(ctx, 1, metric.WithAttributes(attribute.String(AttrNodeAddress, nodeAddress)))
+func (m *Metrics) IncrementActionRequestCount(ctx context.Context, nodeAddress string, lggr logger.Logger) {
+	m.action.requestCount.Add(ctx, 1, metric.WithAttributes(
+		attribute.String(AttrNodeAddress, nodeAddress),
+		attribute.String(AttrNodeName, m.nodeAddressToNodeName[nodeAddress]),
+	))
 }
 
-func (m *ActionMetrics) IncrementRequestFailures(ctx context.Context, nodeAddress string, lggr logger.Logger) {
-	m.requestFailures.Add(ctx, 1, metric.WithAttributes(attribute.String(AttrNodeAddress, nodeAddress)))
+func (m *Metrics) IncrementActionRequestFailures(ctx context.Context, nodeAddress string, lggr logger.Logger) {
+	m.action.requestFailures.Add(ctx, 1, metric.WithAttributes(
+		attribute.String(AttrNodeAddress, nodeAddress),
+		attribute.String(AttrNodeName, m.nodeAddressToNodeName[nodeAddress]),
+	))
 }
 
-func (m *ActionMetrics) RecordRequestLatency(ctx context.Context, latencyMs int64, lggr logger.Logger) {
-	m.requestLatency.Record(ctx, latencyMs)
+func (m *Metrics) RecordActionRequestLatency(ctx context.Context, latencyMs int64, lggr logger.Logger) {
+	m.action.requestLatency.Record(ctx, latencyMs)
 }
 
-func (m *ActionMetrics) RecordCustomerEndpointRequestLatency(ctx context.Context, latencyMs int64, lggr logger.Logger) {
-	m.customerEndpointRequestLatency.Record(ctx, latencyMs)
+func (m *Metrics) RecordCustomerEndpointRequestLatency(ctx context.Context, latencyMs int64, lggr logger.Logger) {
+	m.action.customerEndpointRequestLatency.Record(ctx, latencyMs)
 }
 
-func (m *ActionMetrics) IncrementCustomerEndpointResponseCount(ctx context.Context, statusCode string, lggr logger.Logger) {
-	m.customerEndpointResponseCount.Add(ctx, 1, metric.WithAttributes(attribute.String(AttrStatusCode, statusCode)))
+func (m *Metrics) IncrementCustomerEndpointResponseCount(ctx context.Context, statusCode string, lggr logger.Logger) {
+	m.action.customerEndpointResponseCount.Add(ctx, 1, metric.WithAttributes(attribute.String(AttrStatusCode, statusCode)))
 }
 
-func (m *ActionMetrics) IncrementCacheReadCount(ctx context.Context, lggr logger.Logger) {
-	m.cacheReadCount.Add(ctx, 1)
+func (m *Metrics) IncrementCacheReadCount(ctx context.Context, lggr logger.Logger) {
+	m.action.cacheReadCount.Add(ctx, 1)
 }
 
-func (m *ActionMetrics) IncrementCacheHitCount(ctx context.Context, lggr logger.Logger) {
-	m.cacheHitCount.Add(ctx, 1)
+func (m *Metrics) IncrementCacheHitCount(ctx context.Context, lggr logger.Logger) {
+	m.action.cacheHitCount.Add(ctx, 1)
 }
 
-func (m *ActionMetrics) IncrementCacheCleanUpCount(ctx context.Context, count int64, lggr logger.Logger) {
-	m.cacheCleanUpCount.Add(ctx, count)
+func (m *Metrics) IncrementCacheCleanUpCount(ctx context.Context, count int64, lggr logger.Logger) {
+	m.action.cacheCleanUpCount.Add(ctx, count)
 }
 
-func (m *ActionMetrics) RecordCacheSize(ctx context.Context, size int64, lggr logger.Logger) {
-	m.cacheSize.Record(ctx, size)
+func (m *Metrics) RecordCacheSize(ctx context.Context, size int64, lggr logger.Logger) {
+	m.action.cacheSize.Record(ctx, size)
 }
 
-func (m *ActionMetrics) IncrementCapabilityRequestCount(ctx context.Context, nodeAddress string, lggr logger.Logger) {
-	m.capabilityRequestCount.Add(ctx, 1, metric.WithAttributes(attribute.String(AttrNodeAddress, nodeAddress)))
+func (m *Metrics) IncrementActionCapabilityRequestCount(ctx context.Context, nodeAddress string, lggr logger.Logger) {
+	m.action.capabilityRequestCount.Add(ctx, 1, metric.WithAttributes(
+		attribute.String(AttrNodeAddress, nodeAddress),
+		attribute.String(AttrNodeName, m.nodeAddressToNodeName[nodeAddress]),
+	))
 }
 
-func (m *ActionMetrics) IncrementCapabilityFailures(ctx context.Context, nodeAddress string, lggr logger.Logger) {
-	m.capabilityFailures.Add(ctx, 1, metric.WithAttributes(attribute.String(AttrNodeAddress, nodeAddress)))
+func (m *Metrics) IncrementActionCapabilityFailures(ctx context.Context, nodeAddress string, lggr logger.Logger) {
+	m.action.capabilityFailures.Add(ctx, 1, metric.WithAttributes(
+		attribute.String(AttrNodeAddress, nodeAddress),
+		attribute.String(AttrNodeName, m.nodeAddressToNodeName[nodeAddress]),
+	))
+}
+
+func (m *Metrics) IncrementBlockedRequestCount(ctx context.Context, lggr logger.Logger) {
+	m.action.blockedRequestCount.Add(ctx, 1)
+}
+
+func (m *Metrics) IncrementHTTPSendErrorCount(ctx context.Context, lggr logger.Logger) {
+	m.action.httpSendErrorCount.Add(ctx, 1)
+}
+
+func (m *Metrics) IncrementHTTPReadErrorCount(ctx context.Context, lggr logger.Logger) {
+	m.action.httpReadErrorCount.Add(ctx, 1)
 }
 
 // Trigger Metrics Methods
 
-func (m *TriggerMetrics) IncrementRequestCount(ctx context.Context, lggr logger.Logger) {
-	m.requestCount.Add(ctx, 1)
+func (m *Metrics) IncrementTriggerRequestCount(ctx context.Context, lggr logger.Logger) {
+	m.trigger.requestCount.Add(ctx, 1)
 }
 
-func (m *TriggerMetrics) IncrementRequestErrors(ctx context.Context, errorCode int64, lggr logger.Logger) {
-	m.requestErrors.Add(ctx, 1, metric.WithAttributes(attribute.Int64(AttrErrorCode, errorCode)))
+func (m *Metrics) IncrementRequestErrors(ctx context.Context, errorCode int64, lggr logger.Logger) {
+	errorString := api.FromJSONRPCErrorCode(errorCode).String()
+	m.trigger.requestErrors.Add(ctx, 1, metric.WithAttributes(
+		attribute.Int64(AttrErrorCode, errorCode),
+		attribute.String(AttrErrorString, errorString),
+	))
 }
 
-func (m *TriggerMetrics) IncrementRequestSuccess(ctx context.Context, lggr logger.Logger) {
-	m.requestSuccess.Add(ctx, 1)
+func (m *Metrics) IncrementRequestSuccess(ctx context.Context, lggr logger.Logger) {
+	m.trigger.requestSuccess.Add(ctx, 1)
 }
 
-func (m *TriggerMetrics) IncrementWorkflowThrottled(ctx context.Context, lggr logger.Logger) {
-	m.workflowThrottled.Add(ctx, 1)
+func (m *Metrics) IncrementWorkflowThrottled(ctx context.Context, lggr logger.Logger) {
+	m.trigger.workflowThrottled.Add(ctx, 1)
 }
 
-func (m *TriggerMetrics) IncrementPendingRequestsCleanUpCount(ctx context.Context, count int64, lggr logger.Logger) {
-	m.pendingRequestsCleanUpCount.Add(ctx, count)
+func (m *Metrics) IncrementPendingRequestsCleanUpCount(ctx context.Context, count int64, lggr logger.Logger) {
+	m.trigger.pendingRequestsCleanUpCount.Add(ctx, count)
 }
 
-func (m *TriggerMetrics) RecordPendingRequestsCount(ctx context.Context, count int64, lggr logger.Logger) {
-	m.pendingRequestsCount.Record(ctx, count)
+func (m *Metrics) RecordPendingRequestsCount(ctx context.Context, count int64, lggr logger.Logger) {
+	m.trigger.pendingRequestsCount.Record(ctx, count)
 }
 
-func (m *TriggerMetrics) RecordRequestHandlerLatency(ctx context.Context, latencyMs int64, lggr logger.Logger) {
-	m.requestHandlerLatency.Record(ctx, latencyMs)
+func (m *Metrics) RecordRequestHandlerLatency(ctx context.Context, latencyMs int64, lggr logger.Logger) {
+	m.trigger.requestHandlerLatency.Record(ctx, latencyMs)
 }
 
-func (m *TriggerMetrics) IncrementCapabilityRequestCount(ctx context.Context, nodeAddress string, methodName string, lggr logger.Logger) {
-	m.capabilityRequestCount.Add(ctx, 1, metric.WithAttributes(
+func (m *Metrics) IncrementTriggerCapabilityRequestCount(ctx context.Context, nodeAddress string, methodName string, lggr logger.Logger) {
+	m.trigger.capabilityRequestCount.Add(ctx, 1, metric.WithAttributes(
 		attribute.String(AttrNodeAddress, nodeAddress),
+		attribute.String(AttrNodeName, m.nodeAddressToNodeName[nodeAddress]),
 		attribute.String(AttrMethodName, methodName),
 	))
 }
 
-func (m *TriggerMetrics) IncrementCapabilityRequestFailures(ctx context.Context, nodeAddress string, methodName string, lggr logger.Logger) {
-	m.capabilityRequestFailures.Add(ctx, 1, metric.WithAttributes(
+func (m *Metrics) IncrementTriggerCapabilityRequestFailures(ctx context.Context, nodeAddress string, methodName string, lggr logger.Logger) {
+	m.trigger.capabilityRequestFailures.Add(ctx, 1, metric.WithAttributes(
 		attribute.String(AttrNodeAddress, nodeAddress),
+		attribute.String(AttrNodeName, m.nodeAddressToNodeName[nodeAddress]),
 		attribute.String(AttrMethodName, methodName),
 	))
 }
 
-func (m *TriggerMetrics) IncrementMetadataProcessingFailures(ctx context.Context, nodeAddress string, methodName string, lggr logger.Logger) {
-	m.metadataProcessingFailures.Add(ctx, 1, metric.WithAttributes(
+func (m *Metrics) IncrementMetadataProcessingFailures(ctx context.Context, nodeAddress string, methodName string, lggr logger.Logger) {
+	m.trigger.metadataProcessingFailures.Add(ctx, 1, metric.WithAttributes(
 		attribute.String(AttrNodeAddress, nodeAddress),
+		attribute.String(AttrNodeName, m.nodeAddressToNodeName[nodeAddress]),
 		attribute.String(AttrMethodName, methodName),
 	))
 }
 
-func (m *TriggerMetrics) IncrementMetadataRequestCount(ctx context.Context, nodeAddress string, methodName string, lggr logger.Logger) {
-	m.metadataRequestCount.Add(ctx, 1, metric.WithAttributes(
+func (m *Metrics) IncrementMetadataRequestCount(ctx context.Context, nodeAddress string, methodName string, lggr logger.Logger) {
+	m.trigger.metadataRequestCount.Add(ctx, 1, metric.WithAttributes(
 		attribute.String(AttrNodeAddress, nodeAddress),
+		attribute.String(AttrNodeName, m.nodeAddressToNodeName[nodeAddress]),
 		attribute.String(AttrMethodName, methodName),
 	))
 }
 
-func (m *TriggerMetrics) IncrementMetadataObservationsCleanUpCount(ctx context.Context, count int64, lggr logger.Logger) {
-	m.metadataObservationsCleanUpCount.Add(ctx, count)
+func (m *Metrics) IncrementMetadataObservationsCleanUpCount(ctx context.Context, count int64, lggr logger.Logger) {
+	m.trigger.metadataObservationsCleanUpCount.Add(ctx, count)
 }
 
-func (m *TriggerMetrics) RecordMetadataObservationsCount(ctx context.Context, count int64, lggr logger.Logger) {
-	m.metadataObservationsCount.Record(ctx, count)
+func (m *Metrics) RecordMetadataObservationsCount(ctx context.Context, count int64, lggr logger.Logger) {
+	m.trigger.metadataObservationsCount.Record(ctx, count)
 }
 
-func (m *TriggerMetrics) RecordJwtCacheSize(ctx context.Context, size int64, lggr logger.Logger) {
-	m.jwtCacheSize.Record(ctx, size)
+func (m *Metrics) RecordJwtCacheSize(ctx context.Context, size int64, lggr logger.Logger) {
+	m.trigger.jwtCacheSize.Record(ctx, size)
 }
 
-func (m *TriggerMetrics) IncrementJwtCacheCleanUpCount(ctx context.Context, count int64, lggr logger.Logger) {
-	m.jwtCacheCleanUpCount.Add(ctx, count)
+func (m *Metrics) IncrementJwtCacheCleanUpCount(ctx context.Context, count int64, lggr logger.Logger) {
+	m.trigger.jwtCacheCleanUpCount.Add(ctx, count)
+}
+
+func (m *Metrics) RecordMetadataSyncStartupLatency(ctx context.Context, latencyMs int64, lggr logger.Logger) {
+	m.trigger.metadataSyncStartupLatency.Record(ctx, latencyMs)
+}
+
+func (m *Metrics) RecordLoadedMetadataSize(ctx context.Context, size int64, lggr logger.Logger) {
+	m.trigger.loadedMetadataSize.Record(ctx, size)
 }

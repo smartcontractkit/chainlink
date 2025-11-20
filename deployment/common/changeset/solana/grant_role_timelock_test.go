@@ -15,6 +15,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink/deployment/common/changeset/state"
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
+	"github.com/smartcontractkit/chainlink/deployment/internal/soltestutils"
 )
 
 func TestGrantRoleTimelockSolana(t *testing.T) {
@@ -32,7 +33,7 @@ func TestGrantRoleTimelockSolana(t *testing.T) {
 	mcmsState, err := state.MaybeLoadMCMSWithTimelockChainStateSolana(chain, addresses)
 	require.NoError(t, err)
 
-	fundSignerPDAs(t, chain, mcmsState)
+	soltestutils.FundSignerPDAs(t, chain, mcmsState)
 
 	// validate initial executors
 	inspector := mcmssolanasdk.NewTimelockInspector(chain.Client)

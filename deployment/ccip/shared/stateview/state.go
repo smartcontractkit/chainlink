@@ -21,8 +21,8 @@ import (
 
 	solOffRamp "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/v0_1_1/ccip_offramp"
 	solState "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/state"
+	"github.com/smartcontractkit/chainlink-evm/gethwrappers/shared/generated/1_5_0/burn_mint_erc20_with_drip"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/shared/generated/initial/burn_mint_erc20"
-	"github.com/smartcontractkit/chainlink-evm/gethwrappers/shared/generated/initial/burn_mint_erc20_with_drip"
 	"github.com/smartcontractkit/chainlink-ton/pkg/ccip/codec"
 
 	cldf_evm "github.com/smartcontractkit/chainlink-deployments-framework/chain/evm"
@@ -55,7 +55,6 @@ import (
 	suiutil "github.com/smartcontractkit/chainlink-sui/bindings/utils"
 
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/latest/don_id_claimer"
-	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/latest/factory_burn_mint_erc20"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/latest/fast_transfer_token_pool"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/latest/log_message_data_receiver"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/latest/maybe_revert_message_receiver"
@@ -75,6 +74,7 @@ import (
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_5_1/burn_from_mint_token_pool"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_5_1/burn_mint_token_pool"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_5_1/burn_with_from_mint_token_pool"
+	factoryBurnMintERC20v1_5_1 "github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_5_1/factory_burn_mint_erc20"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_5_1/lock_release_token_pool"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_5_1/token_pool_factory"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_5_1/usdc_token_pool"
@@ -86,6 +86,7 @@ import (
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_0/rmn_home"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_0/rmn_remote"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_2/cctp_message_transmitter_proxy"
+	factoryBurnMintERC20v1_6_2 "github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_2/factory_burn_mint_erc20"
 	usdc_token_pool_v1_6_2 "github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_2/usdc_token_pool"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_3/fee_quoter"
 	capabilities_registry "github.com/smartcontractkit/chainlink-evm/gethwrappers/keystone/generated/capabilities_registry_1_1_0"
@@ -123,6 +124,7 @@ type CCIPStateView struct {
 	SolChains   map[string]view.SolChainView
 	AptosChains map[string]view.AptosChainView
 	TONChains   map[string]tonstate.TONChainView
+	SuiChains   map[string]suistate.SuiChainView
 }
 
 func (c CCIPOnChainState) EVMChains() []uint64 {
@@ -478,7 +480,7 @@ func (c CCIPOnChainState) EnforceMCMSUsageIfProd(ctx context.Context, mcmsConfig
 // ValidateOwnershipOfChain validates the ownership of every CCIP contract on a chain.
 // If mcmsConfig is nil, the expected owner of each contract is the chain's deployer key.
 // If provided, the expected owner is the Timelock contract.
-func (c CCIPOnChainState) ValidateOwnershipOfChain(e cldf.Environment, chainSel uint64, mcmsConfig *proposalutils.TimelockConfig) error {
+func (c CCIPOnChainState) ValidateOwnershipOfChain(e cldf.Environment, chainSel uint64, mcmsConfig *proposalutils.TimelockConfig, ownedContracts map[string]commoncs.Ownable) error {
 	chain, ok := e.BlockChains.EVMChains()[chainSel]
 	if !ok {
 		return fmt.Errorf("chain with selector %d not found in the environment", chainSel)
@@ -492,16 +494,6 @@ func (c CCIPOnChainState) ValidateOwnershipOfChain(e cldf.Environment, chainSel 
 		return fmt.Errorf("timelock not found on %s", chain)
 	}
 
-	ownedContracts := map[string]commoncs.Ownable{
-		"router":             chainState.Router,
-		"feeQuoter":          chainState.FeeQuoter,
-		"offRamp":            chainState.OffRamp,
-		"onRamp":             chainState.OnRamp,
-		"nonceManager":       chainState.NonceManager,
-		"rmnRemote":          chainState.RMNRemote,
-		"rmnProxy":           chainState.RMNProxy,
-		"tokenAdminRegistry": chainState.TokenAdminRegistry,
-	}
 	var wg sync.WaitGroup
 	errs := make(chan error, len(ownedContracts))
 	for contractName, contract := range ownedContracts {
@@ -536,6 +528,7 @@ func (c CCIPOnChainState) View(e *cldf.Environment, chains []uint64) (CCIPStateV
 	sm := sync.Map{}
 	am := sync.Map{}
 	tm := sync.Map{}
+	suiMap := sync.Map{}
 
 	// Create worker pool with fixed number of goroutines
 	const numWorkers = 8
@@ -612,6 +605,16 @@ func (c CCIPOnChainState) View(e *cldf.Environment, chains []uint64) (CCIPStateV
 						return err
 					}
 					tm.Store(name, chainView)
+				case chain_selectors.FamilySui:
+					if _, ok := c.SuiChains[chainSelector]; !ok {
+						return fmt.Errorf("%s %d", chainNotSupportedErr, chainSelector)
+					}
+					chainState := c.SuiChains[chainSelector]
+					chainView, err := chainState.GenerateView(e, chainSelector, name)
+					if err != nil {
+						return err
+					}
+					suiMap.Store(name, chainView)
 				default:
 					return fmt.Errorf("unsupported chain family %s", family)
 				}
@@ -634,6 +637,7 @@ func (c CCIPOnChainState) View(e *cldf.Environment, chains []uint64) (CCIPStateV
 		SolChains:   make(map[string]view.SolChainView),
 		AptosChains: make(map[string]view.AptosChainView),
 		TONChains:   make(map[string]tonstate.TONChainView),
+		SuiChains:   make(map[string]suistate.SuiChainView),
 	}
 	m.Range(func(key, value any) bool {
 		stateView.Chains[key.(string)] = value.(view.ChainView)
@@ -649,6 +653,10 @@ func (c CCIPOnChainState) View(e *cldf.Environment, chains []uint64) (CCIPStateV
 	})
 	tm.Range(func(key, value any) bool {
 		stateView.TONChains[key.(string)] = value.(tonstate.TONChainView)
+		return true
+	})
+	suiMap.Range(func(key, value any) bool {
+		stateView.SuiChains[key.(string)] = value.(suistate.SuiChainView)
 		return true
 	})
 	return stateView, grp.Wait()
@@ -1281,13 +1289,20 @@ func LoadChainState(ctx context.Context, chain cldf_evm.Chain, addresses map[str
 			}
 			state.ERC20Tokens[ccipshared.TokenSymbol(symbol)] = tok
 			state.ABIByAddress[address] = erc20.ERC20ABI
-		case cldf.NewTypeAndVersion(ccipshared.FactoryBurnMintERC20Token, deployment.Version1_0_0).String():
-			tok, err := factory_burn_mint_erc20.NewFactoryBurnMintERC20(common.HexToAddress(address), chain.Client)
+		case cldf.NewTypeAndVersion(ccipshared.FactoryBurnMintERC20Token, deployment.Version1_6_2).String():
+			tok, err := factoryBurnMintERC20v1_6_2.NewFactoryBurnMintERC20(common.HexToAddress(address), chain.Client)
 			if err != nil {
 				return state, err
 			}
 			state.FactoryBurnMintERC20Token = tok
-			state.ABIByAddress[address] = factory_burn_mint_erc20.FactoryBurnMintERC20ABI
+			state.ABIByAddress[address] = factoryBurnMintERC20v1_6_2.FactoryBurnMintERC20ABI
+		case cldf.NewTypeAndVersion(ccipshared.FactoryBurnMintERC20Token, deployment.Version1_5_1).String():
+			tok, err := factoryBurnMintERC20v1_5_1.NewFactoryBurnMintERC20(common.HexToAddress(address), chain.Client)
+			if err != nil {
+				return state, err
+			}
+			state.FactoryBurnMintERC20Token1_5_1 = tok
+			state.ABIByAddress[address] = factoryBurnMintERC20v1_5_1.FactoryBurnMintERC20ABI
 		case cldf.NewTypeAndVersion(ccipshared.BurnMintERC20Token, deployment.Version1_0_0).String():
 			tok, err := burn_mint_erc20.NewBurnMintERC20(common.HexToAddress(address), chain.Client)
 			if err != nil {
@@ -1409,20 +1424,20 @@ func LoadChainState(ctx context.Context, chain cldf_evm.Chain, addresses map[str
 			state.DonIDClaimer = donIDClaimer
 			state.ABIByAddress[address] = don_id_claimer.DonIDClaimerABI
 		case cldf.NewTypeAndVersion(ccipshared.ERC677TokenHelper, deployment.Version1_0_0).String():
-			ERC677HelperToken, err := burn_mint_erc20_with_drip.NewBurnMintERC20(common.HexToAddress(address), chain.Client)
+			ERC677HelperToken, err := burn_mint_erc20_with_drip.NewBurnMintERC20WithDrip(common.HexToAddress(address), chain.Client)
 			if err != nil {
 				return state, err
 			}
 
 			if state.BurnMintERC20WithDrip == nil {
-				state.BurnMintERC20WithDrip = make(map[ccipshared.TokenSymbol]*burn_mint_erc20_with_drip.BurnMintERC20)
+				state.BurnMintERC20WithDrip = make(map[ccipshared.TokenSymbol]*burn_mint_erc20_with_drip.BurnMintERC20WithDrip)
 			}
 			symbol, err := ERC677HelperToken.Symbol(nil)
 			if err != nil {
 				return state, fmt.Errorf("failed to get token symbol of token at %s: %w", address, err)
 			}
 			state.BurnMintERC20WithDrip[ccipshared.TokenSymbol(symbol)] = ERC677HelperToken
-			state.ABIByAddress[address] = burn_mint_erc20_with_drip.BurnMintERC20ABI
+			state.ABIByAddress[address] = burn_mint_erc20_with_drip.BurnMintERC20WithDripABI
 		case cldf.NewTypeAndVersion(ccipshared.BurnMintWithExternalMinterTokenPool, deployment.Version1_6_0).String():
 			addr := common.HexToAddress(address)
 			pool, metadata, err := ccipshared.NewTokenPoolWithMetadata(ctx, burn_mint_with_external_minter_token_pool.NewBurnMintWithExternalMinterTokenPool, addr, chain.Client)

@@ -383,7 +383,8 @@ func (t *CronTicker) Start() bool {
 func (t *CronTicker) Stop() bool {
 	if t.Cron != nil {
 		if t.beenRun.CompareAndSwap(true, false) {
-			t.Cron.Stop()
+			ctx := t.Cron.Stop()
+			<-ctx.Done() // Wait for background routines
 			return true
 		}
 	}
@@ -483,20 +484,6 @@ func NewHTTPFetchBackoff() backoff.Backoff {
 		Max:    15 * time.Second,
 		Jitter: true,
 	}
-}
-
-// KeyedMutex allows to lock based on particular values
-type KeyedMutex struct {
-	mutexes sync.Map
-}
-
-// LockInt64 locks the value for read/write
-func (m *KeyedMutex) LockInt64(key int64) func() {
-	value, _ := m.mutexes.LoadOrStore(key, new(sync.Mutex))
-	mtx := value.(*sync.Mutex)
-	mtx.Lock()
-
-	return mtx.Unlock
 }
 
 // ConcatBytes appends a bunch of byte arrays into a single byte array

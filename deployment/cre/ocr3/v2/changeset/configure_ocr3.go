@@ -9,10 +9,15 @@ import (
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
 
+	changesetstate "github.com/smartcontractkit/chainlink/deployment/common/changeset/state"
+	"github.com/smartcontractkit/chainlink/deployment/cre/common/strategies"
+	crecontracts "github.com/smartcontractkit/chainlink/deployment/cre/contracts"
 	"github.com/smartcontractkit/chainlink/deployment/cre/jobs/pkg"
 	"github.com/smartcontractkit/chainlink/deployment/cre/ocr3"
 	"github.com/smartcontractkit/chainlink/deployment/cre/ocr3/v2/changeset/operations/contracts"
 )
+
+const ConfigureOCR3Description = "configure OCR3"
 
 var _ cldf.ChangeSetV2[ConfigureOCR3Input] = ConfigureOCR3{}
 
@@ -24,7 +29,7 @@ type ConfigureOCR3Input struct {
 	OracleConfig *ocr3.OracleConfig   `json:"oracleConfig" yaml:"oracleConfig"`
 	DryRun       bool                 `json:"dryRun" yaml:"dryRun"`
 
-	MCMSConfig *ocr3.MCMSConfig `json:"mcmsConfig" yaml:"mcmsConfig"`
+	MCMSConfig *crecontracts.MCMSConfig `json:"mcmsConfig" yaml:"mcmsConfig"`
 }
 
 type ConfigureOCR3 struct{}
@@ -58,8 +63,35 @@ func (l ConfigureOCR3) Apply(e cldf.Environment, input ConfigureOCR3Input) (cldf
 	}
 	contractAddr := common.HexToAddress(contractAddrRef.Address)
 
+	var mcmsContracts *changesetstate.MCMSWithTimelockState
+	if input.MCMSConfig != nil {
+		var mcmsErr error
+		mcmsContracts, mcmsErr = strategies.GetMCMSContracts(e, input.ContractChainSelector, "")
+		if mcmsErr != nil {
+			return cldf.ChangesetOutput{}, fmt.Errorf("failed to get MCMS contracts: %w", err)
+		}
+	}
+
+	chain, ok := e.BlockChains.EVMChains()[input.ContractChainSelector]
+	if !ok {
+		return cldf.ChangesetOutput{}, fmt.Errorf("chain with selector %d not found in environment", input.ContractChainSelector)
+	}
+
+	strategy, err := strategies.CreateStrategy(
+		chain,
+		e,
+		input.MCMSConfig,
+		mcmsContracts,
+		common.HexToAddress(contractAddrRef.Address),
+		ConfigureOCR3Description,
+	)
+	if err != nil {
+		return cldf.ChangesetOutput{}, fmt.Errorf("failed to create strategy: %w", err)
+	}
+
 	report, err := operations.ExecuteOperation(e.OperationsBundle, contracts.ConfigureOCR3, contracts.ConfigureOCR3Deps{
-		Env: &e,
+		Env:      &e,
+		Strategy: strategy,
 	}, contracts.ConfigureOCR3Input{
 		ContractAddress: &contractAddr,
 		ChainSelector:   input.ContractChainSelector,

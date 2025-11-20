@@ -190,6 +190,7 @@ MaxBatchSize = 50
 SendInterval = '500ms'
 SendTimeout = '10s'
 UseBatchSend = true
+ChipIngressEnabled = false
 
 [AuditLogger]
 Enabled = false
@@ -328,6 +329,7 @@ IncomingMessageBufferSize = 10
 OutgoingMessageBufferSize = 10
 PeerID = ''
 TraceLogging = false
+EnableExperimentalRageP2P = false
 
 [P2P.V2]
 Enabled = true
@@ -421,6 +423,7 @@ IncomingMessageBufferSize = 10
 OutgoingMessageBufferSize = 10
 PeerID = ''
 TraceLogging = false
+EnableExperimentalRageP2P = false
 
 [Capabilities.Peering.V2]
 Enabled = false
@@ -492,10 +495,17 @@ InsecureConnection = false
 TraceSampleRatio = 0.01
 EmitterBatchProcessor = true
 EmitterExportTimeout = '1s'
+AuthHeadersTTL = '0s'
 ChipIngressEndpoint = ''
 ChipIngressInsecureConnection = false
 HeartbeatInterval = '1s'
+LogLevel = 'info'
 LogStreamingEnabled = false
+LogBatchProcessor = true
+LogExportTimeout = '1s'
+LogExportMaxBatchSize = 512
+LogExportInterval = '1s'
+LogMaxQueueSize = 2048
 
 [Workflows]
 [Workflows.Limits]

@@ -33,3 +33,8 @@ bin/
 artifact_paths.json
 *.b64
 state/
+
+# TS sdk-related
+bun.lock
+package.json
+*.js

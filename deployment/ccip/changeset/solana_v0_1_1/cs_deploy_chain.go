@@ -12,8 +12,6 @@ import (
 	"github.com/smartcontractkit/mcms"
 	mcmsTypes "github.com/smartcontractkit/mcms/types"
 
-	"github.com/smartcontractkit/chainlink-common/pkg/utils/mathutil"
-
 	cldf_solana "github.com/smartcontractkit/chainlink-deployments-framework/chain/solana"
 
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
@@ -210,14 +208,26 @@ func DeployChainContractsChangeset(e cldf.Environment, c DeployChainContractsCon
 		if err != nil {
 			return cldf.ChangesetOutput{}, fmt.Errorf("failed to build proposal: %w", err)
 		}
+		ds, err := shared.PopulateDataStore(newAddresses)
+		if err != nil {
+			return cldf.ChangesetOutput{}, fmt.Errorf("failed to populate in-memory DataStore: %w", err)
+		}
+
 		return cldf.ChangesetOutput{
 			MCMSTimelockProposals: []mcms.TimelockProposal{*proposal},
 			AddressBook:           newAddresses,
+			DataStore:             ds,
 		}, nil
+	}
+
+	ds, err := shared.PopulateDataStore(newAddresses)
+	if err != nil {
+		return cldf.ChangesetOutput{}, fmt.Errorf("failed to populate in-memory DataStore: %w", err)
 	}
 
 	return cldf.ChangesetOutput{
 		AddressBook: newAddresses,
+		DataStore:   ds,
 	}, nil
 }
 
@@ -230,14 +240,12 @@ func DeployAndMaybeSaveToAddressBook(
 	contractType cldf.ContractType,
 	version semver.Version,
 	isUpgrade bool,
-	metadata string) (solana.PublicKey, error) {
+	metadata string,
+) (solana.PublicKey, error) {
 	programName := getTypeToProgramDeployName()[contractType]
-	// the last bool is whether to overallocate the buffer account, if the program is going to be managed
-	// by timelock/mcms we want to overallocate the buffer account so that future upgrades can be performed
 	programID, err := chain.DeployProgram(e.Logger, cldf_solana.ProgramInfo{
-		Name:  programName,
-		Bytes: deployment.SolanaProgramBytes[programName],
-	}, isUpgrade, true)
+		Name: programName,
+	}, isUpgrade, false)
 	if err != nil {
 		return solana.PublicKey{}, fmt.Errorf("failed to deploy program: %w", err)
 	}
@@ -782,7 +790,6 @@ func initializeRouter(
 		ccipRouterProgram,
 		programData.Address,
 	).ValidateAndBuild()
-
 	if err != nil {
 		return fmt.Errorf("failed to build instruction: %w", err)
 	}
@@ -833,7 +840,6 @@ func initializeFeeQuoter(
 		chain.DeployerKey.PublicKey(),
 		solana.SystemProgramID,
 	).ValidateAndBuild()
-
 	if err != nil {
 		return fmt.Errorf("failed to build instruction: %w", err)
 	}
@@ -875,7 +881,6 @@ func initializeOffRamp(
 		offRampAddress,
 		programData.Address,
 	).ValidateAndBuild()
-
 	if err != nil {
 		return fmt.Errorf("failed to build instruction: %w", err)
 	}
@@ -889,7 +894,6 @@ func initializeOffRamp(
 		offRampAddress,
 		programData.Address,
 	).ValidateAndBuild()
-
 	if err != nil {
 		return fmt.Errorf("failed to build instruction: %w", err)
 	}
@@ -944,6 +948,7 @@ func initializeCCTPTokenPoolGlobalConfig(
 	if err != nil {
 		return fmt.Errorf("failed to calculate the token pool global config PDA: %w", err)
 	}
+
 	ix, err := cctp_token_pool.NewInitGlobalConfigInstruction(
 		config,
 		chain.DeployerKey.PublicKey(),
@@ -982,7 +987,7 @@ func generateUpgradeTxns(
 	if err != nil {
 		return txns, fmt.Errorf("failed to deploy program: %w", err)
 	}
-	ixn := SetUpgradeAuthority(&e, &chain, bufferProgram, chain.DeployerKey.PublicKey(), config.UpgradeConfig.UpgradeAuthority, true)
+	ixn := SetUpgradeAuthority(&e, bufferProgram, chain.DeployerKey.PublicKey(), config.UpgradeConfig.UpgradeAuthority, true)
 	if err := chain.Confirm([]solana.Instruction{ixn}); err != nil {
 		return txns, fmt.Errorf("failed to confirm setUpgradeAuthority: %w", err)
 	}
@@ -1014,29 +1019,32 @@ func generateUpgradeTxns(
 		return txns, fmt.Errorf("failed to load MCMS with timelock chain state: %w", err)
 	}
 	timelockSignerPDA := state.GetTimelockSignerPDA(mcmState.TimelockProgram, mcmState.TimelockSeed)
+
+	bufferSize, err := GetSolProgramSize(&e, chain, bufferProgram)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get buffer size: %w", err)
+	}
+	// Extend transaction is permissionless, so it is always executed by deployer key
+	// It is a solana limitation that PDAs (MCMs in this case) can not manage memory
+	extendIxn, err := generateExtendIxn(
+		&e,
+		chain,
+		programID,
+		chain.DeployerKey.PublicKey(),
+		bufferSize,
+	)
+	if err != nil {
+		return txns, fmt.Errorf("failed to generate extend buffer instruction: %w", err)
+	}
+	if extendIxn != nil {
+		if err := chain.Confirm([]solana.Instruction{extendIxn}); err != nil {
+			return txns, fmt.Errorf("failed to confirm instructions: %w", err)
+		}
+	}
+
 	// if we're not upgrading via timelock, execute the raw ixns
 	if config.UpgradeConfig.UpgradeAuthority != timelockSignerPDA {
-		programName := getTypeToProgramDeployName()[contractType]
-		newBytes := deployment.SolanaProgramBytes[programName]
-		bufferSize, err := GetSolProgramSize(&e, chain, bufferProgram)
-		if err != nil {
-			return nil, fmt.Errorf("failed to get buffer size: %w", err)
-		}
-		ixns := []solana.Instruction{upgradeIxn}
-		extendIxn, err := generateExtendIxn(
-			&e,
-			chain,
-			programID,
-			config.UpgradeConfig.UpgradeAuthority,
-			mathutil.Max(newBytes, bufferSize),
-		)
-		if err != nil {
-			return txns, fmt.Errorf("failed to generate extend buffer instruction: %w", err)
-		}
-		if extendIxn != nil {
-			ixns = append(ixns, extendIxn)
-		}
-		ixns = append(ixns, closeIxn)
+		ixns := []solana.Instruction{upgradeIxn, closeIxn}
 		if err := chain.Confirm(ixns); err != nil {
 			return txns, fmt.Errorf("failed to confirm instructions: %w", err)
 		}
@@ -1050,8 +1058,6 @@ func generateUpgradeTxns(
 	if err != nil {
 		return txns, fmt.Errorf("failed to create close transaction: %w", err)
 	}
-	// We do not support extend as part of upgrades due to MCMS limitations
-	// https://docs.google.com/document/d/1Fk76lOeyS2z2X6MokaNX_QTMFAn5wvSZvNXJluuNV1E/edit?tab=t.0#heading=h.uij286zaarkz
 	txns = append(txns, *upgradeTx, *closeTx)
 	return txns, nil
 }
@@ -1199,7 +1205,8 @@ func GetSolProgramSize(e *cldf.Environment, chain cldf_solana.Chain, programID s
 func getSolProgramData(e cldf.Environment, chain cldf_solana.Chain, programID solana.PublicKey) (struct {
 	DataType uint32
 	Address  solana.PublicKey
-}, error) {
+}, error,
+) {
 	var programData struct {
 		DataType uint32
 		Address  solana.PublicKey

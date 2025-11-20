@@ -1244,7 +1244,18 @@ func (cfg UpdateRouterRampsConfig) Validate(e cldf.Environment, state stateview.
 				//   2. All contracts have the expected owner.
 				// That way, if cfg.MCMS exists, we ensure that every contract is owned by MCMS.
 				// Calling this function will ensure that both these checks are done.
-				err := state.ValidateOwnershipOfChain(e, chainSel, cfg.MCMS)
+
+				ownedContracts := map[string]commoncs.Ownable{
+					"router":             chainState.Router,
+					"feeQuoter":          chainState.FeeQuoter,
+					"offRamp":            chainState.OffRamp,
+					"onRamp":             chainState.OnRamp,
+					"nonceManager":       chainState.NonceManager,
+					"rmnRemote":          chainState.RMNRemote,
+					"rmnProxy":           chainState.RMNProxy,
+					"tokenAdminRegistry": chainState.TokenAdminRegistry,
+				}
+				err := state.ValidateOwnershipOfChain(e, chainSel, cfg.MCMS, ownedContracts)
 				if err != nil {
 					return fmt.Errorf("failed to validate ownership of contracts on %s: %w", e.BlockChains.EVMChains()[chainSel], err)
 				}

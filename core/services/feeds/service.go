@@ -31,6 +31,8 @@ import (
 	"github.com/smartcontractkit/chainlink-evm/pkg/utils/big"
 	ccip "github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/validate"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
+	"github.com/smartcontractkit/chainlink/v2/core/services/ccv/ccvcommitteeverifier"
+	"github.com/smartcontractkit/chainlink/v2/core/services/ccv/ccvexecutor"
 	"github.com/smartcontractkit/chainlink/v2/core/services/fluxmonitorv2"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
@@ -844,22 +846,24 @@ func (s *service) ProposeJob(ctx context.Context, args *ProposeJobArgs) (int64, 
 	if err != nil {
 		return 0, err
 	}
-	// auto approve workflow specs
-	if isWFSpec(logger, args.Spec) {
+	jobType, err := getJobType(args.Spec)
+	switch {
+	case err != nil:
+		logger.Errorw("Failed to validate spec while checking for workflow", "err", err)
+	case slices.Contains([]job.Type{job.Workflow, job.CRESettings}, jobType):
 		promWorkflowRequests.Inc()
 		promFeedsWorkflowRequests.Inc()
 		err = s.ApproveSpec(ctx, specID, true)
 		if err != nil {
 			promWorkflowFailures.Inc()
 			promFeedsWorkflowFailures.Inc()
-			logger.Errorw("Failed to auto approve workflow spec", "id", id, "err", err)
-			return 0, fmt.Errorf("failed to approve workflow spec %d: %w", id, err)
+			logger.Errorw("Failed to auto approve "+jobType.String()+" spec", "id", id, "err", err)
+			return 0, fmt.Errorf("failed to approve %s spec %d: %w", jobType, id, err)
 		}
-		logger.Infow("Successful workflow spec auto approval", "id", id)
+		logger.Infow("Successful "+jobType.String()+" spec auto approval", "id", id)
 		promWorkflowApprovals.Inc()
 		promFeedsWorkflowApprovals.Inc()
-	} else {
-		// Track the given job proposal request
+	default:
 		promJobProposalRequest.Inc()
 		promFeedsJobProposalRequest.Inc()
 	}
@@ -871,14 +875,12 @@ func (s *service) ProposeJob(ctx context.Context, args *ProposeJobArgs) (int64, 
 	return id, nil
 }
 
-func isWFSpec(lggr logger.Logger, spec string) bool {
+func getJobType(spec string) (job.Type, error) {
 	jobType, err := job.ValidateSpec(spec)
 	if err != nil {
-		// this should not happen in practice
-		lggr.Errorw("Failed to validate spec while checking for workflow", "err", err)
-		return false
+		return "", err
 	}
-	return jobType == job.Workflow
+	return jobType, nil
 }
 
 // GetJobProposal gets a job proposal by id.
@@ -1470,6 +1472,10 @@ func (s *service) generateJob(ctx context.Context, spec string) (*job.Job, error
 		js, err = workflows.ValidatedWorkflowJobSpec(ctx, spec)
 	case job.CCIP:
 		js, err = ccip.ValidatedCCIPSpec(spec)
+	case job.CCVCommitteeVerifier:
+		js, err = ccvcommitteeverifier.ValidatedCCVCommitteeVerifierSpec(spec)
+	case job.CCVExecutor:
+		js, err = ccvexecutor.ValidatedCCVExecutorSpec(spec)
 	case job.Stream:
 		js, err = streams.ValidatedStreamSpec(spec)
 	case job.Gateway:

@@ -21,6 +21,15 @@ func (j JobSpecInput) UnmarshalTo(target any) error {
 	return yaml.Unmarshal(bytes, target)
 }
 
+func (j JobSpecInput) UnmarshalFrom(source any) error {
+	bytes, err := yaml.Marshal(source)
+	if err != nil {
+		return fmt.Errorf("failed to marshal source to json: %w", err)
+	}
+
+	return yaml.Unmarshal(bytes, &j)
+}
+
 func (j JobSpecInput) ToStandardCapabilityJob(jobName string, generateOracleFactory bool) (pkg.StandardCapabilityJob, error) {
 	out := pkg.StandardCapabilityJob{
 		JobName:               jobName,

@@ -13,6 +13,10 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/actions/vault"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
+
+	changesetstate "github.com/smartcontractkit/chainlink/deployment/common/changeset/state"
+	"github.com/smartcontractkit/chainlink/deployment/cre/common/strategies"
+	crecontracts "github.com/smartcontractkit/chainlink/deployment/cre/contracts"
 	"github.com/smartcontractkit/chainlink/deployment/cre/jobs/pkg"
 	"github.com/smartcontractkit/chainlink/deployment/cre/ocr3"
 	"github.com/smartcontractkit/chainlink/deployment/cre/ocr3/v2/changeset/operations/contracts"
@@ -30,12 +34,12 @@ type ConfigureVaultPluginInput struct {
 	ContractQualifier     string `json:"contractQualifier" yaml:"contractQualifier"`
 
 	DON                   contracts.DonNodeSet         `json:"don" yaml:"don"`
-	OracleConfig          *ocr3.OracleConfig           `json:"oracleConfig" yaml:"oracleConfig"`
+	OracleConfig          *ocr3.V3_1OracleConfig       `json:"oracleConfig" yaml:"oracleConfig"`
 	DryRun                bool                         `json:"dryRun" yaml:"dryRun"`
 	InstanceID            InstanceIDComponents         `json:"instanceID" yaml:"instanceID"`
 	ReportingPluginConfig *vault.ReportingPluginConfig `json:"reportingPluginConfig,omitempty" yaml:"reportingPluginConfig,omitempty"`
 
-	MCMSConfig *ocr3.MCMSConfig `json:"mcmsConfig" yaml:"mcmsConfig"`
+	MCMSConfig *crecontracts.MCMSConfig `json:"mcmsConfig" yaml:"mcmsConfig"`
 }
 
 type ConfigureVaultPlugin struct{}
@@ -75,12 +79,38 @@ func (l ConfigureVaultPlugin) VerifyPreconditions(_ cldf.Environment, input Conf
 func (l ConfigureVaultPlugin) Apply(e cldf.Environment, input ConfigureVaultPluginInput) (cldf.ChangesetOutput, error) {
 	e.Logger.Infow("Configuring VaultPlugin contract with DON", "donName", input.DON.Name, "nodes", input.DON.NodeIDs, "dryRun", input.DryRun)
 
+	var mcmsContracts *changesetstate.MCMSWithTimelockState
+	if input.MCMSConfig != nil {
+		var mcmsErr error
+		mcmsContracts, mcmsErr = strategies.GetMCMSContracts(e, input.ContractChainSelector, "")
+		if mcmsErr != nil {
+			return cldf.ChangesetOutput{}, fmt.Errorf("failed to get MCMS contracts: %w", mcmsErr)
+		}
+	}
+
+	chain, ok := e.BlockChains.EVMChains()[input.ContractChainSelector]
+	if !ok {
+		return cldf.ChangesetOutput{}, fmt.Errorf("chain with selector %d not found in environment", input.ContractChainSelector)
+	}
+
 	contractRefKey := pkg.GetOCR3CapabilityAddressRefKey(input.ContractChainSelector, input.ContractQualifier)
 	contractAddrRef, err := e.DataStore.Addresses().Get(contractRefKey)
 	if err != nil {
 		return cldf.ChangesetOutput{}, fmt.Errorf("failed to get VaultPlugin contract address for chain selector %d and qualifier %s: %w", input.ContractChainSelector, input.ContractQualifier, err)
 	}
 	contractAddr := common.HexToAddress(contractAddrRef.Address)
+
+	strategy, err := strategies.CreateStrategy(
+		chain,
+		e,
+		input.MCMSConfig,
+		mcmsContracts,
+		common.HexToAddress(contractAddrRef.Address),
+		ConfigureOCR3Description,
+	)
+	if err != nil {
+		return cldf.ChangesetOutput{}, fmt.Errorf("failed to create strategy: %w", err)
+	}
 
 	dkgRefKey := pkg.GetOCR3CapabilityAddressRefKey(input.ContractChainSelector, input.InstanceID.DKGContractQualifier)
 	dkgAddrRef, err := e.DataStore.Addresses().Get(dkgRefKey)
@@ -101,9 +131,10 @@ func (l ConfigureVaultPlugin) Apply(e cldf.Environment, input ConfigureVaultPlug
 		return cldf.ChangesetOutput{}, fmt.Errorf("failed to marshal VaultPlugin reporting plugin config: %w", err)
 	}
 
-	report, err := operations.ExecuteOperation(e.OperationsBundle, contracts.ConfigureOCR3, contracts.ConfigureOCR3Deps{
-		Env: &e,
-	}, contracts.ConfigureOCR3Input{
+	report, err := operations.ExecuteOperation(e.OperationsBundle, contracts.ConfigureOCR3_1, contracts.ConfigureOCR3_1Deps{
+		Env:      &e,
+		Strategy: strategy,
+	}, contracts.ConfigureOCR3_1Input{
 		ContractAddress:               &contractAddr,
 		ChainSelector:                 input.ContractChainSelector,
 		DON:                           input.DON,

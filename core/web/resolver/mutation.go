@@ -21,7 +21,10 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/logger/audit"
 	"github.com/smartcontractkit/chainlink/v2/core/services/blockhashstore"
 	"github.com/smartcontractkit/chainlink/v2/core/services/blockheaderfeeder"
+	"github.com/smartcontractkit/chainlink/v2/core/services/ccv/ccvcommitteeverifier"
+	"github.com/smartcontractkit/chainlink/v2/core/services/ccv/ccvexecutor"
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
+	"github.com/smartcontractkit/chainlink/v2/core/services/cresettings"
 	"github.com/smartcontractkit/chainlink/v2/core/services/cron"
 	"github.com/smartcontractkit/chainlink/v2/core/services/directrequest"
 	"github.com/smartcontractkit/chainlink/v2/core/services/feeds"
@@ -1092,6 +1095,8 @@ func (r *Resolver) CreateJob(ctx context.Context, args struct {
 		jb, err = fluxmonitorv2.ValidatedFluxMonitorSpec(config.JobPipeline(), args.Input.TOML)
 	case job.Keeper:
 		jb, err = keeper.ValidatedKeeperSpec(args.Input.TOML)
+	case job.CRESettings:
+		jb, err = cresettings.ValidatedCRESettingsSpec(args.Input.TOML)
 	case job.Cron:
 		jb, err = cron.ValidatedCronSpec(args.Input.TOML)
 	case job.VRF:
@@ -1114,6 +1119,10 @@ func (r *Resolver) CreateJob(ctx context.Context, args struct {
 		jb, err = streams.ValidatedStreamSpec(args.Input.TOML)
 	case job.CCIP:
 		jb, err = ccip.ValidatedCCIPSpec(args.Input.TOML)
+	case job.CCVCommitteeVerifier:
+		jb, err = ccvcommitteeverifier.ValidatedCCVCommitteeVerifierSpec(args.Input.TOML)
+	case job.CCVExecutor:
+		jb, err = ccvexecutor.ValidatedCCVExecutorSpec(args.Input.TOML)
 	default:
 		return NewCreateJobPayload(r.App, nil, map[string]string{
 			"Job Type": fmt.Sprintf("unknown job type: %s", jbt),

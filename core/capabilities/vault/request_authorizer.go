@@ -5,6 +5,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"sync"
 	"time"
 
@@ -45,18 +46,19 @@ func (r *requestAuthorizer) AuthorizeRequest(ctx context.Context, req jsonrpc.Re
 		return false, "", errors.New("internal error: workflowRegistrySyncer is nil")
 	}
 	allowedRequests := r.workflowRegistrySyncer.GetAllowlistedRequests(ctx)
-	requestDigests := make([]string, 0, len(allowedRequests))
-	for _, allowedRequest := range allowedRequests {
-		requestDigests = append(requestDigests, hex.EncodeToString(allowedRequest.RequestDigest[:]))
+	allowedRequestsStrs := make([]string, 0, len(allowedRequests))
+	for _, rr := range allowedRequests {
+		allowedReqStr := fmt.Sprintf("Owner: %s, RequestDigest: %s, ExpiryTimestamp: %d", rr.Owner.Hex(), hex.EncodeToString(rr.RequestDigest[:]), rr.ExpiryTimestamp)
+		allowedRequestsStrs = append(allowedRequestsStrs, allowedReqStr)
 	}
-	r.lggr.Infow("AuthorizeRequest GetAllowlistedRequests", "method", req.Method, "requestID", req.ID, "allowedRequests", allowedRequests, "requestDigestHexStrs", requestDigests)
+	r.lggr.Infow("AuthorizeRequest GetAllowlistedRequests", "method", req.Method, "requestID", req.ID, "allowedRequests", allowedRequestsStrs)
 	allowlistedRequest := r.fetchAllowlistedItem(allowedRequests, requestDigestBytes32)
 	if allowlistedRequest == nil {
 		r.lggr.Infow("AuthorizeRequest fetchAllowlistedItem request not allowlisted",
 			"method", req.Method,
 			"requestID", req.ID,
 			"digestHexStr", requestDigest,
-			"allowedRequestDigestHexStrs", requestDigests)
+			"allowedRequestsStrs", allowedRequestsStrs)
 		return false, "", errors.New("request not allowlisted")
 	}
 	authorizedRequestStr := string(allowlistedRequest.RequestDigest[:])

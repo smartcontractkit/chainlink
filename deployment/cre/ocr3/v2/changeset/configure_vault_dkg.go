@@ -7,10 +7,15 @@ import (
 	"io"
 
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/smartcontractkit/chainlink/deployment/cre/common/strategies"
+
 	"github.com/smartcontractkit/smdkg/dkgocr/dkgocrtypes"
 
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
+
+	changesetstate "github.com/smartcontractkit/chainlink/deployment/common/changeset/state"
+	crecontracts "github.com/smartcontractkit/chainlink/deployment/cre/contracts"
 	"github.com/smartcontractkit/chainlink/deployment/cre/jobs/pkg"
 	"github.com/smartcontractkit/chainlink/deployment/cre/ocr3"
 	"github.com/smartcontractkit/chainlink/deployment/cre/ocr3/v2/changeset/operations/contracts"
@@ -22,11 +27,11 @@ type ConfigureVaultDKGInput struct {
 	ContractChainSelector uint64 `json:"contractChainSelector" yaml:"contractChainSelector"`
 	ContractQualifier     string `json:"contractQualifier" yaml:"contractQualifier"`
 
-	DON          DKGDon             `json:"don" yaml:"don"`
-	OracleConfig *ocr3.OracleConfig `json:"oracleConfig" yaml:"oracleConfig"`
-	DryRun       bool               `json:"dryRun" yaml:"dryRun"`
+	DON          DKGDon                 `json:"don" yaml:"don"`
+	OracleConfig *ocr3.V3_1OracleConfig `json:"oracleConfig" yaml:"oracleConfig"`
+	DryRun       bool                   `json:"dryRun" yaml:"dryRun"`
 
-	MCMSConfig *ocr3.MCMSConfig `json:"mcmsConfig" yaml:"mcmsConfig"`
+	MCMSConfig *crecontracts.MCMSConfig `json:"mcmsConfig" yaml:"mcmsConfig"`
 }
 
 type DKGDon struct {
@@ -64,12 +69,39 @@ func (l ConfigureVaultDKG) VerifyPreconditions(_ cldf.Environment, input Configu
 func (l ConfigureVaultDKG) Apply(e cldf.Environment, input ConfigureVaultDKGInput) (cldf.ChangesetOutput, error) {
 	e.Logger.Infow("Configuring Vault DKG contract with DON", "donName", input.DON.Name, "nodes", input.DON.NodeIDs, "dryRun", input.DryRun)
 
+	var mcmsContracts *changesetstate.MCMSWithTimelockState
+	if input.MCMSConfig != nil {
+		var mcmsErr error
+		mcmsContracts, mcmsErr = strategies.GetMCMSContracts(e, input.ContractChainSelector, "")
+		if mcmsErr != nil {
+			return cldf.ChangesetOutput{}, fmt.Errorf("failed to get MCMS contracts: %w", mcmsErr)
+		}
+	}
+
+	chain, ok := e.BlockChains.EVMChains()[input.ContractChainSelector]
+	if !ok {
+		return cldf.ChangesetOutput{}, fmt.Errorf("chain with selector %d not found in environment", input.ContractChainSelector)
+	}
+
 	contractRefKey := pkg.GetOCR3CapabilityAddressRefKey(input.ContractChainSelector, input.ContractQualifier)
 	contractAddrRef, err := e.DataStore.Addresses().Get(contractRefKey)
 	if err != nil {
 		return cldf.ChangesetOutput{}, fmt.Errorf("failed to get OCR3 contract address for chain selector %d and qualifier %s: %w", input.ContractChainSelector, input.ContractQualifier, err)
 	}
 	contractAddr := common.HexToAddress(contractAddrRef.Address)
+
+	strategy, err := strategies.CreateStrategy(
+		chain,
+		e,
+		input.MCMSConfig,
+		mcmsContracts,
+		common.HexToAddress(contractAddrRef.Address),
+		ConfigureOCR3Description,
+	)
+	if err != nil {
+		return cldf.ChangesetOutput{}, fmt.Errorf("failed to create strategy: %w", err)
+	}
+
 	cfg, err := dkgReportingPluginConfig(input.DON, input.OracleConfig.MaxFaultyOracles+1) // validate config can be created
 	if err != nil {
 		return cldf.ChangesetOutput{}, fmt.Errorf("failed to create DKG reporting plugin config: %w", err)
@@ -77,6 +109,7 @@ func (l ConfigureVaultDKG) Apply(e cldf.Environment, input ConfigureVaultDKGInpu
 	report, err := operations.ExecuteOperation(e.OperationsBundle, contracts.ConfigureDKG, contracts.ConfigureDKGDeps{
 		WriteGeneratedConfig: io.Discard,
 		Env:                  &e,
+		Strategy:             strategy,
 	}, contracts.ConfigureDKGInput{
 		ContractAddress:       &contractAddr,
 		ChainSelector:         input.ContractChainSelector,

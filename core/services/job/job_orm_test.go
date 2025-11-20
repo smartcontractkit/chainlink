@@ -19,6 +19,8 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/jsonserializable"
 	pkgworkflows "github.com/smartcontractkit/chainlink-common/pkg/workflows"
+	"github.com/smartcontractkit/chainlink/v2/core/services/ccv/ccvcommitteeverifier"
+	"github.com/smartcontractkit/chainlink/v2/core/services/ccv/ccvexecutor"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/artifacts"
 
 	"github.com/smartcontractkit/chainlink-evm/pkg/assets"
@@ -439,6 +441,46 @@ func TestORM_DeleteJob_DeletesAssociatedRecords(t *testing.T) {
 		err = jobORM.DeleteJob(ctx, jb.ID, jb.Type)
 		require.NoError(t, err)
 		cltest.AssertCount(t, db, "vrf_specs", 0)
+		cltest.AssertCount(t, db, "jobs", 0)
+	})
+
+	t.Run("it creates and deletes records for ccv committee verifier jobs", func(t *testing.T) {
+		ctx := testutils.Context(t)
+		jb, err := ccvcommitteeverifier.ValidatedCCVCommitteeVerifierSpec(
+			`
+schemaVersion = 1
+type = "ccvcommitteeverifier"
+committeeVerifierConfig = "Foo = 'Bar'"
+`,
+		)
+		require.NoError(t, err)
+		err = jobORM.CreateJob(ctx, &jb)
+		require.NoError(t, err)
+		cltest.AssertCount(t, db, "ccv_committee_verifier_specs", 1)
+
+		err = jobORM.DeleteJob(ctx, jb.ID, jb.Type)
+		require.NoError(t, err)
+		cltest.AssertCount(t, db, "ccv_committee_verifier_specs", 0)
+		cltest.AssertCount(t, db, "jobs", 0)
+	})
+
+	t.Run("it creates and deletes records for ccv executor jobs", func(t *testing.T) {
+		ctx := testutils.Context(t)
+		jb, err := ccvexecutor.ValidatedCCVExecutorSpec(
+			`
+schemaVersion = 1
+type = "ccvexecutor"
+executorConfig = "Foo = 'Bar'"
+`,
+		)
+		require.NoError(t, err)
+		err = jobORM.CreateJob(ctx, &jb)
+		require.NoError(t, err)
+		cltest.AssertCount(t, db, "ccv_executor_specs", 1)
+
+		err = jobORM.DeleteJob(ctx, jb.ID, jb.Type)
+		require.NoError(t, err)
+		cltest.AssertCount(t, db, "ccv_executor_specs", 0)
 		cltest.AssertCount(t, db, "jobs", 0)
 	})
 

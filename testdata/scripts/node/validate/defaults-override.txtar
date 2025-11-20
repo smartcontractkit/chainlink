@@ -116,6 +116,7 @@ MaxBatchSize = 50
 SendInterval = '500ms'
 SendTimeout = '10s'
 UseBatchSend = true
+ChipIngressEnabled = false
 
 [AuditLogger]
 Enabled = false
@@ -254,6 +255,7 @@ IncomingMessageBufferSize = 10
 OutgoingMessageBufferSize = 10
 PeerID = ''
 TraceLogging = false
+EnableExperimentalRageP2P = false
 
 [P2P.V2]
 Enabled = true
@@ -347,6 +349,7 @@ IncomingMessageBufferSize = 10
 OutgoingMessageBufferSize = 10
 PeerID = ''
 TraceLogging = false
+EnableExperimentalRageP2P = false
 
 [Capabilities.Peering.V2]
 Enabled = false
@@ -418,10 +421,17 @@ InsecureConnection = false
 TraceSampleRatio = 0.01
 EmitterBatchProcessor = true
 EmitterExportTimeout = '1s'
+AuthHeadersTTL = '0s'
 ChipIngressEndpoint = ''
 ChipIngressInsecureConnection = false
 HeartbeatInterval = '1s'
+LogLevel = 'info'
 LogStreamingEnabled = false
+LogBatchProcessor = true
+LogExportTimeout = '1s'
+LogExportMaxBatchSize = 512
+LogExportInterval = '1s'
+LogMaxQueueSize = 2048
 
 [Workflows]
 [Workflows.Limits]
@@ -462,6 +472,7 @@ BlockBackfillSkip = false
 FinalityDepth = 50
 SafeDepth = 0
 FinalityTagEnabled = false
+SafeTagSupported = true
 LinkContractAddress = '0x514910771AF9Ca656af840dff83E8264EcF986CA'
 LogBackfillBatchSize = 1000
 LogPollInterval = '15s'
@@ -547,7 +558,7 @@ EnforceRepeatableRead = true
 DeathDeclarationDelay = '1m0s'
 NewHeadsPollInterval = '0s'
 VerifyChainID = true
-ExternalRequestMaxResponseSize = 15000
+ExternalRequestMaxResponseSize = 50000
 
 [EVM.OCR]
 ContractConfirmations = 4

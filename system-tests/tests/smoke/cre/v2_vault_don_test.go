@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/require"
 
@@ -23,13 +24,14 @@ import (
 	"github.com/smartcontractkit/chainlink-testing-framework/seth"
 	keystone_changeset "github.com/smartcontractkit/chainlink/deployment/keystone/changeset"
 	crecontracts "github.com/smartcontractkit/chainlink/system-tests/lib/cre/contracts"
+	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/blockchains/evm"
 	t_helpers "github.com/smartcontractkit/chainlink/system-tests/tests/test-helpers"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/vault/vaulttypes"
 
 	workflow_registry_v2_wrapper "github.com/smartcontractkit/chainlink-evm/gethwrappers/workflow/generated/workflow_registry_wrapper_v2"
 
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre"
-	crevault "github.com/smartcontractkit/chainlink/system-tests/lib/cre/capabilities/vault"
+	crevault "github.com/smartcontractkit/chainlink/system-tests/lib/cre/features/vault"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/vault"
 	ttypes "github.com/smartcontractkit/chainlink/system-tests/tests/test-helpers/configuration"
 
@@ -46,8 +48,8 @@ func ExecuteVaultTest(t *testing.T, testEnv *ttypes.TestEnvironment) {
 	require.Eventually(t, func() bool {
 		for _, nodeSet := range testEnv.Config.NodeSets {
 			if slices.Contains(nodeSet.Capabilities, cre.VaultCapability) {
-				for i := range nodeSet.Nodes {
-					if i != nodeSet.BootstrapNodeIndex {
+				for i, node := range nodeSet.NodeSpecs {
+					if !slices.Contains(node.Roles, cre.BootstrapNode) {
 						packageCount, err := vault.GetResultPackageCount(t.Context(), i, nodeSet.DbInput.Port)
 						if err != nil || packageCount != 1 {
 							return false
@@ -64,22 +66,17 @@ func ExecuteVaultTest(t *testing.T, testEnv *ttypes.TestEnvironment) {
 	time.Sleep(30 * time.Second)
 
 	testLogger.Info().Msg("Getting gateway configuration...")
-	require.NotEmpty(t, testEnv.CreEnvironment.DonTopology.GatewayConnectorOutput.Configurations, "expected at least one gateway configuration")
-	gatewayURL, err := url.Parse(testEnv.CreEnvironment.DonTopology.GatewayConnectorOutput.Configurations[0].Incoming.Protocol + "://" + testEnv.CreEnvironment.DonTopology.GatewayConnectorOutput.Configurations[0].Incoming.Host + ":" + strconv.Itoa(testEnv.CreEnvironment.DonTopology.GatewayConnectorOutput.Configurations[0].Incoming.ExternalPort) + testEnv.CreEnvironment.DonTopology.GatewayConnectorOutput.Configurations[0].Incoming.Path)
+	require.NotEmpty(t, testEnv.Dons.GatewayConnectors.Configurations, "expected at least one gateway configuration")
+	gatewayURL, err := url.Parse(testEnv.Dons.GatewayConnectors.Configurations[0].Incoming.Protocol + "://" + testEnv.Dons.GatewayConnectors.Configurations[0].Incoming.Host + ":" + strconv.Itoa(testEnv.Dons.GatewayConnectors.Configurations[0].Incoming.ExternalPort) + testEnv.Dons.GatewayConnectors.Configurations[0].Incoming.Path)
 	require.NoError(t, err, "failed to parse gateway URL")
 	testLogger.Info().Msgf("Gateway URL: %s", gatewayURL.String())
 
-	// Ignoring the deprecation warning as the suggest solution is not working in CI
-	//lint:ignore SA1019 ignoring deprecation warning for this usage
-	workflowRegistryAddress, _, workflowRegistryErr := crecontracts.FindAddressesForChain(
-		testEnv.CreEnvironment.CldfEnvironment.ExistingAddresses, //nolint:staticcheck // SA1019 ignoring deprecation warning for this usage
-		testEnv.WrappedBlockchainOutputs[0].ChainSelector, keystone_changeset.WorkflowRegistry.String())
-	require.NoError(t, workflowRegistryErr, "failed to find workflow registry address for chain %d", testEnv.WrappedBlockchainOutputs[0].ChainID)
-
-	sethClient := testEnv.WrappedBlockchainOutputs[0].SethClient
+	workflowRegistryAddress := crecontracts.MustGetAddressFromDataStore(testEnv.CreEnvironment.CldfEnvironment.DataStore, testEnv.CreEnvironment.Blockchains[0].ChainSelector(), keystone_changeset.WorkflowRegistry.String(), testEnv.CreEnvironment.ContractVersions[keystone_changeset.WorkflowRegistry.String()], "")
+	require.IsType(t, &evm.Blockchain{}, testEnv.CreEnvironment.Blockchains[0], "expected EVM blockchain type")
+	sethClient := testEnv.CreEnvironment.Blockchains[0].(*evm.Blockchain).SethClient
 	ownerAddr := sethClient.MustGetRootKeyAddress().Hex()
 	t_helpers.CompileAndDeployWorkflow(t, testEnv, testLogger, "consensustest", &t_helpers.None{}, "../../../../core/scripts/cre/environment/examples/workflows/v2/node-mode/main.go")
-	wfRegistryContract, err := workflow_registry_v2_wrapper.NewWorkflowRegistry(workflowRegistryAddress, sethClient.Client)
+	wfRegistryContract, err := workflow_registry_v2_wrapper.NewWorkflowRegistry(common.HexToAddress(workflowRegistryAddress), sethClient.Client)
 	require.NoError(t, err, "failed to get workflow registry contract wrapper")
 
 	secretID := strconv.Itoa(rand.Intn(10000)) // generate a random secret ID for testing

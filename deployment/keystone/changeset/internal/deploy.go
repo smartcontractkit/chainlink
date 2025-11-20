@@ -31,8 +31,8 @@ import (
 	cldf_offchain "github.com/smartcontractkit/chainlink-deployments-framework/offchain"
 
 	"github.com/smartcontractkit/chainlink/deployment"
-
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
+	"github.com/smartcontractkit/chainlink/deployment/cre/common/strategies"
 	"github.com/smartcontractkit/chainlink/deployment/cre/ocr3"
 )
 
@@ -331,12 +331,28 @@ func ConfigureOCR3Contract(env *cldf.Environment, chainSel uint64, dons []Regist
 			return fmt.Errorf("failed to get OCR3 contract: %w", err)
 		}
 
+		config, err := ocr3.GenerateOCR3ConfigFromNodes(*cfg, don.Nodes, chainSel, env.OCRSecrets, nil)
+		if err != nil {
+			return err
+		}
+
+		strategy, err := strategies.CreateStrategy(
+			registryChain,
+			*env,
+			nil,
+			nil,
+			contract.Address(),
+			"ConfigureOCR3Contract",
+		)
+		if err != nil {
+			return fmt.Errorf("failed to create strategy: %w", err)
+		}
+
 		_, err = ocr3.ConfigureOCR3contract(ocr3.ConfigureOCR3Request{
-			Cfg:        cfg,
-			Chain:      registryChain,
-			Contract:   contract,
-			Nodes:      don.Nodes,
-			OcrSecrets: env.OCRSecrets,
+			Config:   config,
+			Chain:    registryChain,
+			Contract: contract,
+			Strategy: strategy,
 		})
 		if err != nil {
 			return fmt.Errorf("failed to configure OCR3 contract for don %s: %w", don.Name, err)

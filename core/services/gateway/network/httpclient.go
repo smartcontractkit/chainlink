@@ -61,10 +61,9 @@ var (
 	defaultMaxResponseBytes   = uint32(26.4 * utils.KB)
 	defaultMaxRequestDuration = 60 * time.Second
 	defaultTimeout            = 5 * time.Second
+	ErrBlockedRequest         = errors.New("blocked request")
 	ErrHTTPSend               = errors.New("failed to send HTTP request")
 	ErrHTTPRead               = errors.New("failed to read HTTP response body")
-	ErrInvalidMethod          = errors.New("HTTP method not allowed")
-	ErrBlockedHeader          = errors.New("HTTP header not allowed")
 )
 
 func (c *HTTPClientConfig) ApplyDefaults() {
@@ -148,6 +147,29 @@ func disableRedirects(req *http.Request, via []*http.Request) error {
 	return errors.New("redirects are not allowed")
 }
 
+// isBlockedRequest checks if an error is caused by blocked/invalid input (e.g., blocked IP, invalid scheme, blocked headers)
+// It checks for safeurl typed errors.
+func isBlockedRequest(err error) bool {
+	if err == nil {
+		return false
+	}
+
+	// Check safeurl typed errors - use errors.As for type checking
+	var (
+		ipv6Err        *safeurl.IPv6BlockedError
+		portErr        *safeurl.AllowedPortError
+		schemeErr      *safeurl.AllowedSchemeError
+		invalidHostErr *safeurl.InvalidHostError
+		ipErr          *safeurl.AllowedIPError
+	)
+
+	return errors.As(err, &ipv6Err) ||
+		errors.As(err, &portErr) ||
+		errors.As(err, &schemeErr) ||
+		errors.As(err, &invalidHostErr) ||
+		errors.As(err, &ipErr)
+}
+
 func (c *httpClient) validateMethod(method string) error {
 	methodUpper := strings.ToUpper(method)
 	for _, allowedMethod := range c.config.AllowedMethods {
@@ -155,7 +177,7 @@ func (c *httpClient) validateMethod(method string) error {
 			return nil
 		}
 	}
-	return fmt.Errorf("HTTP method not allowed: %s", method)
+	return fmt.Errorf("%w: HTTP method not allowed: %s", ErrBlockedRequest, method)
 }
 
 func (c *httpClient) validateHeaders(headers map[string]string) error {
@@ -163,7 +185,7 @@ func (c *httpClient) validateHeaders(headers map[string]string) error {
 		headerNameLower := strings.ToLower(headerName)
 		for _, blockedHeader := range c.config.BlockedHeaders {
 			if strings.ToLower(blockedHeader) == headerNameLower {
-				return fmt.Errorf("HTTP header not allowed: %s", headerName)
+				return fmt.Errorf("%w: HTTP header not allowed: %s", ErrBlockedRequest, headerName)
 			}
 		}
 	}
@@ -206,7 +228,11 @@ func (c *httpClient) Send(ctx context.Context, req HTTPRequest) (*HTTPResponse, 
 
 	resp, err := c.client.Do(r)
 	if err != nil {
-		c.lggr.Errorw("failed to send HTTP request", "url", req.URL, "err", err)
+		if isBlockedRequest(err) {
+			c.lggr.Warnw("HTTP request blocked", "err", err)
+			return nil, fmt.Errorf("%w: %w", ErrBlockedRequest, err)
+		}
+		c.lggr.Errorw("failed to send HTTP request", "err", err)
 		return nil, errors.Join(err, ErrHTTPSend)
 	}
 	defer resp.Body.Close()
@@ -217,7 +243,7 @@ func (c *httpClient) Send(ctx context.Context, req HTTPRequest) (*HTTPResponse, 
 	reader := http.MaxBytesReader(nil, resp.Body, int64(n))
 	body, err := io.ReadAll(reader)
 	if err != nil {
-		c.lggr.Errorw("failed to read HTTP response body", "url", req.URL, "err", err)
+		c.lggr.Errorw("failed to read HTTP response body", "err", err)
 		return nil, errors.Join(err, ErrHTTPRead)
 	}
 	headers := make(map[string]string)

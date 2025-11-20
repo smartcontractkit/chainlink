@@ -9,6 +9,7 @@ import (
 	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
 
 	ccipopsv1_5_1 "github.com/smartcontractkit/chainlink/deployment/ccip/operation/evm/v1_5_1"
+	"github.com/smartcontractkit/chainlink/deployment/ccip/shared"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
 	opsutil "github.com/smartcontractkit/chainlink/deployment/common/opsutils"
 )
@@ -117,5 +118,13 @@ func deployTokenPoolFactoryLogic(e cldf.Environment, config DeployTokenPoolFacto
 		e.Logger.Infof("Successfully deployed token pool factory %s on %s", tpfReport.Output.Address.Hex(), chain.String())
 	}
 
-	return cldf.ChangesetOutput{AddressBook: addressBook}, nil
+	ds, err := shared.PopulateDataStore(addressBook)
+	if err != nil {
+		return cldf.ChangesetOutput{}, fmt.Errorf("failed to populate in-memory DataStore: %w", err)
+	}
+
+	return cldf.ChangesetOutput{
+		AddressBook: addressBook,
+		DataStore:   ds,
+	}, nil
 }

@@ -16,7 +16,10 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/logger/audit"
 	"github.com/smartcontractkit/chainlink/v2/core/services/blockhashstore"
 	"github.com/smartcontractkit/chainlink/v2/core/services/blockheaderfeeder"
+	"github.com/smartcontractkit/chainlink/v2/core/services/ccv/ccvcommitteeverifier"
+	"github.com/smartcontractkit/chainlink/v2/core/services/ccv/ccvexecutor"
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
+	"github.com/smartcontractkit/chainlink/v2/core/services/cresettings"
 	"github.com/smartcontractkit/chainlink/v2/core/services/cron"
 	"github.com/smartcontractkit/chainlink/v2/core/services/directrequest"
 	"github.com/smartcontractkit/chainlink/v2/core/services/fluxmonitorv2"
@@ -239,6 +242,8 @@ func (jc *JobsController) validateJobSpec(ctx context.Context, tomlString string
 		jb, err = fluxmonitorv2.ValidatedFluxMonitorSpec(config.JobPipeline(), tomlString)
 	case job.Keeper:
 		jb, err = keeper.ValidatedKeeperSpec(tomlString)
+	case job.CRESettings:
+		jb, err = cresettings.ValidatedCRESettingsSpec(tomlString)
 	case job.Cron:
 		jb, err = cron.ValidatedCronSpec(tomlString)
 	case job.VRF:
@@ -261,6 +266,10 @@ func (jc *JobsController) validateJobSpec(ctx context.Context, tomlString string
 		jb, err = standardcapabilities.ValidatedStandardCapabilitiesSpec(tomlString)
 	case job.CCIP:
 		jb, err = ccip.ValidatedCCIPSpec(tomlString)
+	case job.CCVCommitteeVerifier:
+		jb, err = ccvcommitteeverifier.ValidatedCCVCommitteeVerifierSpec(tomlString)
+	case job.CCVExecutor:
+		jb, err = ccvexecutor.ValidatedCCVExecutorSpec(tomlString)
 	default:
 		return jb, http.StatusUnprocessableEntity, errors.Errorf("unknown job type: %s", jobType)
 	}

@@ -43,6 +43,7 @@ MaxBatchSize = 4321
 SendInterval = '1m0s'
 SendTimeout = '5s'
 UseBatchSend = true
+ChipIngressEnabled = false
 
 [[TelemetryIngress.Endpoints]]
 Network = 'EVM'
@@ -187,6 +188,7 @@ IncomingMessageBufferSize = 13
 OutgoingMessageBufferSize = 17
 PeerID = '12D3KooWMoejJznyDuEk5aX6GvbjaG12UzeornPCBNzMRqdwrFJw'
 TraceLogging = true
+EnableExperimentalRageP2P = true
 
 [P2P.V2]
 Enabled = false
@@ -284,6 +286,7 @@ IncomingMessageBufferSize = 13
 OutgoingMessageBufferSize = 17
 PeerID = '12D3KooWMoejJznyDuEk5aX6GvbjaG12UzeornPCBNzMRqdwrFJw'
 TraceLogging = true
+EnableExperimentalRageP2P = true
 
 [Capabilities.Peering.V2]
 Enabled = false
@@ -358,10 +361,17 @@ InsecureConnection = true
 TraceSampleRatio = 0.01
 EmitterBatchProcessor = true
 EmitterExportTimeout = '1s'
+AuthHeadersTTL = '0s'
 ChipIngressEndpoint = 'example.com/chip-ingress'
 ChipIngressInsecureConnection = false
 HeartbeatInterval = '1s'
+LogLevel = 'info'
 LogStreamingEnabled = false
+LogBatchProcessor = true
+LogExportTimeout = '1s'
+LogExportMaxBatchSize = 512
+LogExportInterval = '1s'
+LogMaxQueueSize = 2048
 
 [Telemetry.ResourceAttributes]
 Baz = 'test'
@@ -408,6 +418,7 @@ ChainType = 'Optimism'
 FinalityDepth = 42
 SafeDepth = 0
 FinalityTagEnabled = true
+SafeTagSupported = true
 FlagsContractAddress = '0xae4E781a6218A8031764928E88d457937A954fC3'
 LinkContractAddress = '0x538aAaB4ea120b2bC2fe5D296852D948F07D849e'
 LogBackfillBatchSize = 17

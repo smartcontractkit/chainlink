@@ -16,6 +16,7 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/cre/jobs/pkg"
 	"github.com/smartcontractkit/chainlink/deployment/cre/pkg/offchain"
+	"github.com/smartcontractkit/chainlink/deployment/helpers/pointer"
 )
 
 type ProposeStandardCapabilityJobDeps struct {
@@ -30,6 +31,10 @@ type ProposeStandardCapabilityJobInput struct {
 	// If GenerateOracleFactory is true, the OracleFactory field will be ignored and generated.
 	// If false, the OracleFactory field will be used as-is.
 	Job pkg.StandardCapabilityJob
+
+	// NodeIDToConfig is a map of node IDs to custom per node configs,
+	// throws an error if nodes from the map keys aren't an exact match with the DON nodes.
+	NodeIDToConfig map[string]string
 
 	DONFilters  []offchain.TargetDONFilter
 	ExtraLabels map[string]string
@@ -68,7 +73,15 @@ var ProposeStandardCapabilityJob = operations.NewSequence[
 					Op:    ptypes.SelectorOp_EQ,
 					Value: &input.Domain,
 				},
+				{
+					Key:   "type",
+					Op:    ptypes.SelectorOp_EQ,
+					Value: pointer.To(PluginNodeType),
+				},
 			},
+		}
+		for _, f := range input.DONFilters {
+			filter = f.AddToFilter(filter)
 		}
 
 		for _, f := range input.DONFilters {
@@ -78,6 +91,9 @@ var ProposeStandardCapabilityJob = operations.NewSequence[
 		nodes, err := offchain.FetchNodesFromJD(b.GetContext(), deps.Env.Offchain, filter)
 		if err != nil {
 			return ProposeStandardCapabilityJobOutput{}, fmt.Errorf("failed to fetch nodes from JD: %w", err)
+		}
+		if len(nodes) == 0 {
+			return ProposeStandardCapabilityJobOutput{}, fmt.Errorf("no nodes found on JD for DON `%s` with filters %+v", input.DONName, filter)
 		}
 
 		nodeIDs := make([]string, len(nodes))
@@ -89,14 +105,30 @@ var ProposeStandardCapabilityJob = operations.NewSequence[
 		if err != nil {
 			return ProposeStandardCapabilityJobOutput{}, fmt.Errorf("failed to fetch node infos: %w", err)
 		}
+		if len(nodeInfos) == 0 {
+			return ProposeStandardCapabilityJobOutput{}, fmt.Errorf("no nodes info found for DON `%s` with filters %+v and node IDs %v", input.DONName, input.DONFilters, nodeIDs)
+		}
 
-		if !input.Job.GenerateOracleFactory {
+		setPerNodeCfg := len(input.NodeIDToConfig) > 0
+		if setPerNodeCfg {
+			if len(input.NodeIDToConfig) != len(nodeInfos) {
+				return ProposeStandardCapabilityJobOutput{}, fmt.Errorf("number of nodes found (%d) does not match number of configs provided (%d)", len(nodeInfos), len(input.NodeIDToConfig))
+			}
+			for _, n := range nodeInfos {
+				if _, ok := input.NodeIDToConfig[n.NodeID]; !ok {
+					return ProposeStandardCapabilityJobOutput{}, fmt.Errorf("node ID %s found in DON nodes but not in provided configs", n.NodeID)
+				}
+			}
+		}
+
+		shouldGenerateOracleFactory := input.Job.GenerateOracleFactory && input.Job.OracleFactory == nil
+		if !shouldGenerateOracleFactory {
 			specs := make(map[string][]string)
 
 			for _, ni := range nodeInfos {
-				spec, err := input.Job.Resolve()
+				spec, err := resolveJob(input.Job, setPerNodeCfg, ni.NodeID, input.NodeIDToConfig)
 				if err != nil {
-					return ProposeStandardCapabilityJobOutput{}, fmt.Errorf("failed to resolve consensus job for node %s: %w", ni.NodeID, err)
+					return ProposeStandardCapabilityJobOutput{}, err
 				}
 
 				jobLabels := map[string]string{
@@ -115,7 +147,7 @@ var ProposeStandardCapabilityJob = operations.NewSequence[
 					},
 				})
 				if err != nil {
-					return ProposeStandardCapabilityJobOutput{}, fmt.Errorf("failed to propose consensus job: %w", err)
+					return ProposeStandardCapabilityJobOutput{}, fmt.Errorf("failed to propose standard capability job: %w", err)
 				}
 
 				maps.Copy(specs, report.Output.Specs)
@@ -125,49 +157,19 @@ var ProposeStandardCapabilityJob = operations.NewSequence[
 		}
 
 		// If no oracle factory is provided, we have to build it
-
-		addrRefKey := pkg.GetOCR3CapabilityAddressRefKey(uint64(input.Job.ChainSelectorEVM), input.Job.ContractQualifier)
-		contractAddrRef, err := deps.Env.DataStore.Addresses().Get(addrRefKey)
-		if err != nil {
-			return ProposeStandardCapabilityJobOutput{}, fmt.Errorf("failed to get OCR3 contract address for chain selector %d and qualifier %s: %w", input.Job.ChainSelectorEVM, input.Job.ContractQualifier, err)
-		}
-
-		chainID, err := chainsel.GetChainIDFromSelector(uint64(input.Job.ChainSelectorEVM))
-		if err != nil {
-			return ProposeStandardCapabilityJobOutput{}, fmt.Errorf("failed to get chain ID from selector: %w", err)
-		}
-
 		specs := make(map[string][]string)
 
 		for _, ni := range nodeInfos {
-			evmConfig, ok := ni.OCRConfigForChainSelector(uint64(input.Job.ChainSelectorEVM))
-			if !ok {
-				return ProposeStandardCapabilityJobOutput{}, fmt.Errorf("no evm ocr2 config for node %s", ni.NodeID)
-			}
-			aptosConfig, ok := ni.OCRConfigForChainSelector(uint64(input.Job.ChainSelectorAptos))
-			if !ok {
-				return ProposeStandardCapabilityJobOutput{}, fmt.Errorf("no aptos ocr2 config for node %s", ni.NodeID)
-			}
-
-			oracleFactory := &pkg.OracleFactory{
-				Enabled:            true,
-				BootstrapPeers:     input.Job.BootstrapPeers,
-				OCRContractAddress: contractAddrRef.Address,
-				OCRKeyBundleID:     evmConfig.KeyBundleID,
-				ChainID:            chainID,
-				TransmitterID:      string(evmConfig.TransmitAccount),
-				OnchainSigningStrategy: pkg.OnchainSigningStrategy{
-					StrategyName: "multi-chain",
-					Config: map[string]string{"evm": evmConfig.KeyBundleID,
-						"aptos": aptosConfig.KeyBundleID},
-				},
+			oracleFactory, err := generateOracleFactory(deps.Env, ni, input.Job)
+			if err != nil {
+				return ProposeStandardCapabilityJobOutput{}, fmt.Errorf("failed to generate oracle factory for node %s: %w", ni.NodeID, err)
 			}
 
 			input.Job.OracleFactory = oracleFactory
 
-			spec, err := input.Job.Resolve()
+			spec, err := resolveJob(input.Job, setPerNodeCfg, ni.NodeID, input.NodeIDToConfig)
 			if err != nil {
-				return ProposeStandardCapabilityJobOutput{}, fmt.Errorf("failed to resolve consensus job for node %s: %w", ni.NodeID, err)
+				return ProposeStandardCapabilityJobOutput{}, err
 			}
 
 			jobLabels := map[string]string{
@@ -186,7 +188,7 @@ var ProposeStandardCapabilityJob = operations.NewSequence[
 				},
 			})
 			if err != nil {
-				return ProposeStandardCapabilityJobOutput{}, fmt.Errorf("failed to propose consensus job: %w", err)
+				return ProposeStandardCapabilityJobOutput{}, fmt.Errorf("failed to propose standard capability job: %w", err)
 			}
 
 			maps.Copy(specs, report.Output.Specs)
@@ -194,3 +196,89 @@ var ProposeStandardCapabilityJob = operations.NewSequence[
 
 		return ProposeStandardCapabilityJobOutput{Specs: specs}, nil
 	})
+
+func resolveJob(job pkg.StandardCapabilityJob, setPerNodeCfg bool, nodeID string, nodeIDToConfig map[string]string) (string, error) {
+	if setPerNodeCfg {
+		customCfg, ok := nodeIDToConfig[nodeID]
+		if !ok {
+			return "", fmt.Errorf("no custom config found for node ID %s", nodeID)
+		}
+		job.Config = customCfg
+	}
+
+	spec, err := job.Resolve()
+	if err != nil {
+		return "", fmt.Errorf("failed to resolve standard capability job for node %s: %w", nodeID, err)
+	}
+
+	return spec, nil
+}
+
+func generateOracleFactory(cldEnv cldf.Environment, nodeInfo deployment.Node, job pkg.StandardCapabilityJob) (*pkg.OracleFactory, error) {
+	contractChainSelector := job.ChainSelectorEVM
+	if job.OCRChainSelector != 0 {
+		contractChainSelector = job.OCRChainSelector
+	}
+
+	addrRefKey := pkg.GetOCR3CapabilityAddressRefKey(uint64(contractChainSelector), job.ContractQualifier)
+	contractAddrRef, err := cldEnv.DataStore.Addresses().Get(addrRefKey)
+	if err != nil {
+		return &pkg.OracleFactory{}, fmt.Errorf("failed to get OCR3 contract address for chain selector %d and qualifier %s: %w", contractChainSelector, job.ContractQualifier, err)
+	}
+
+	if addrRefKey.ChainSelector() != uint64(contractChainSelector) {
+		return &pkg.OracleFactory{}, fmt.Errorf(
+			"mismatched chain selector in address ref key for OCR3 contract %s: expected %d, got %d",
+			addrRefKey.String(),
+			contractChainSelector,
+			addrRefKey.ChainSelector(),
+		)
+	}
+
+	contractChainID, err := chainsel.GetChainIDFromSelector(addrRefKey.ChainSelector())
+	if err != nil {
+		return &pkg.OracleFactory{}, fmt.Errorf("failed to get chainID for chain selector %d and qualifier %s: %w", contractChainSelector, job.ContractQualifier, err)
+	}
+
+	evmOCRConfig, ok := nodeInfo.OCRConfigForChainSelector(uint64(contractChainSelector))
+	if !ok {
+		return &pkg.OracleFactory{}, fmt.Errorf("no evm ocr2 config for node %s", nodeInfo.NodeID)
+	}
+
+	if job.OCRSigningStrategy == "" {
+		job.OCRSigningStrategy = "multi-chain"
+	}
+
+	oracleFactory := &pkg.OracleFactory{
+		Enabled:            true,
+		BootstrapPeers:     job.BootstrapPeers,
+		OCRContractAddress: contractAddrRef.Address,
+		OCRKeyBundleID:     evmOCRConfig.KeyBundleID,
+		ChainID:            contractChainID,
+		TransmitterID:      string(evmOCRConfig.TransmitAccount),
+		OnchainSigningStrategy: pkg.OnchainSigningStrategy{
+			StrategyName: job.OCRSigningStrategy,
+			Config:       map[string]string{"evm": evmOCRConfig.KeyBundleID},
+		},
+	}
+
+	if job.ChainSelectorAptos > 0 {
+		aptosConfig, ok := nodeInfo.OCRConfigForChainSelector(uint64(job.ChainSelectorAptos))
+		if !ok {
+			return &pkg.OracleFactory{}, fmt.Errorf("no aptos ocr2 config for node %s", nodeInfo.NodeID)
+		}
+
+		oracleFactory.OnchainSigningStrategy.Config["aptos"] = aptosConfig.KeyBundleID
+	}
+
+	if job.ChainSelectorSolana > 0 {
+		solanaConfig, ok := nodeInfo.OCRConfigForChainSelector(uint64(job.ChainSelectorSolana))
+		if !ok {
+			return &pkg.OracleFactory{}, fmt.Errorf("no solana ocr2 config for node %s", nodeInfo.NodeID)
+		}
+
+		oracleFactory.OnchainSigningStrategy.Config["solana"] = solanaConfig.KeyBundleID
+	}
+
+	return oracleFactory, nil
+}

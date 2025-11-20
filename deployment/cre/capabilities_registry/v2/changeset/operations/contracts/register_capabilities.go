@@ -8,33 +8,38 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
-	mcmslib "github.com/smartcontractkit/mcms"
+	mcmstypes "github.com/smartcontractkit/mcms/types"
 
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
-
 	capabilities_registry_v2 "github.com/smartcontractkit/chainlink-evm/gethwrappers/workflow/generated/capabilities_registry_wrapper_v2"
-	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset/state"
+
 	"github.com/smartcontractkit/chainlink/deployment/cre/capabilities_registry/v2/changeset/pkg"
 	"github.com/smartcontractkit/chainlink/deployment/cre/common/strategies"
-	"github.com/smartcontractkit/chainlink/deployment/cre/ocr3"
+	"github.com/smartcontractkit/chainlink/deployment/cre/contracts"
 )
 
 type RegisterCapabilitiesDeps struct {
-	Env           *cldf.Environment
-	MCMSContracts *commonchangeset.MCMSWithTimelockState // Required if MCMSConfig is not nil
+	Env      *cldf.Environment
+	Strategy strategies.TransactionStrategy
 }
 
 type RegisterCapabilitiesInput struct {
 	Address       string
 	ChainSelector uint64
-	Capabilities  []capabilities_registry_v2.CapabilitiesRegistryCapability
-	MCMSConfig    *ocr3.MCMSConfig
+	Capabilities  []RegisterableCapability
+	MCMSConfig    *contracts.MCMSConfig
 }
 
 type RegisterCapabilitiesOutput struct {
-	Capabilities []*capabilities_registry_v2.CapabilitiesRegistryCapabilityConfigured
-	Proposals    []mcmslib.TimelockProposal
+	Capabilities []RegisterableCapability
+	Operation    *mcmstypes.BatchOperation
+}
+
+type RegisterableCapability struct {
+	CapabilityID          string
+	ConfigurationContract common.Address
+	Metadata              pkg.CapabilityConfig
 }
 
 // RegisterCapabilities is an operation that registers nodes in the V2 Capabilities Registry contract.
@@ -43,6 +48,13 @@ var RegisterCapabilities = operations.NewOperation[RegisterCapabilitiesInput, Re
 	semver.MustParse("1.0.0"),
 	"Register Capabilities in Capabilities Registry",
 	func(b operations.Bundle, deps RegisterCapabilitiesDeps, input RegisterCapabilitiesInput) (RegisterCapabilitiesOutput, error) {
+		if len(input.Capabilities) == 0 {
+			b.Logger.Info("no capabilities provided, skipping operation")
+			return RegisterCapabilitiesOutput{
+				Capabilities: []RegisterableCapability{},
+			}, nil
+		}
+
 		chain, ok := deps.Env.BlockChains.EVMChains()[input.ChainSelector]
 		if !ok {
 			return RegisterCapabilitiesOutput{}, fmt.Errorf("chain not found for selector %d", input.ChainSelector)
@@ -68,80 +80,28 @@ var RegisterCapabilities = operations.NewOperation[RegisterCapabilitiesInput, Re
 			b.Logger.Info("no new capabilities to register after deduplication, skipping operation")
 
 			return RegisterCapabilitiesOutput{
-				Capabilities: []*capabilities_registry_v2.CapabilitiesRegistryCapabilityConfigured{},
-				Proposals:    []mcmslib.TimelockProposal{},
+				Capabilities: []RegisterableCapability{},
 			}, nil
 		}
 
-		// Create the appropriate strategy
-		strategy, err := strategies.CreateStrategy(
-			chain,
-			*deps.Env,
-			input.MCMSConfig,
-			deps.MCMSContracts,
-			common.HexToAddress(input.Address),
-			RegisterCapabilitiesDescription,
-		)
-		if err != nil {
-			return RegisterCapabilitiesOutput{}, fmt.Errorf("failed to create strategy: %w", err)
-		}
-
-		var resultCapabilities []*capabilities_registry_v2.CapabilitiesRegistryCapabilityConfigured
-
 		// Execute the transaction using the strategy
-		proposals, err := strategy.Apply(func(opts *bind.TransactOpts) (*types.Transaction, error) {
-			tx, err := capabilitiesRegistry.AddCapabilities(opts, capabilities)
-			if err != nil {
-				err = cldf.DecodeErr(capabilities_registry_v2.CapabilitiesRegistryABI, err)
-				return nil, fmt.Errorf("failed to call AddCapabilities: %w", err)
-			}
-
-			if input.MCMSConfig != nil {
-				return tx, nil
-			}
-
-			// For direct execution, we can get the receipt and parse logs
-			// Confirm transaction and get receipt
-			_, err = chain.Confirm(tx)
-			if err != nil {
-				return nil, fmt.Errorf("failed to confirm AddCapabilities transaction %s: %w", tx.Hash().String(), err)
-			}
-
-			ctx := b.GetContext()
-			receipt, err := bind.WaitMined(ctx, chain.Client, tx)
-			if err != nil {
-				return nil, fmt.Errorf("failed to mine AddCapabilities transaction %s: %w", tx.Hash().String(), err)
-			}
-
-			// Parse the logs to get the added capabilities
-			resultCapabilities = make([]*capabilities_registry_v2.CapabilitiesRegistryCapabilityConfigured, 0, len(receipt.Logs))
-			for i, log := range receipt.Logs {
-				if log == nil {
-					continue
-				}
-
-				o, err := capabilitiesRegistry.ParseCapabilityConfigured(*log)
-				if err != nil {
-					return nil, fmt.Errorf("failed to parse log %d for capability added: %w", i, err)
-				}
-				resultCapabilities = append(resultCapabilities, o)
-			}
-
-			return tx, nil
+		operation, _, err := deps.Strategy.Apply(func(opts *bind.TransactOpts) (*types.Transaction, error) {
+			return capabilitiesRegistry.AddCapabilities(opts, capabilities)
 		})
 		if err != nil {
+			err = cldf.DecodeErr(capabilities_registry_v2.CapabilitiesRegistryABI, err)
 			return RegisterCapabilitiesOutput{}, fmt.Errorf("failed to execute AddCapabilities: %w", err)
 		}
 
 		if input.MCMSConfig != nil {
 			deps.Env.Logger.Infof("Created MCMS proposal for RegisterCapabilities on chain %d", input.ChainSelector)
 		} else {
-			deps.Env.Logger.Infof("Successfully registered %d capabilities on chain %d", len(resultCapabilities), input.ChainSelector)
+			deps.Env.Logger.Infof("Successfully registered %d capabilities on chain %d", len(capabilities), input.ChainSelector)
 		}
 
 		return RegisterCapabilitiesOutput{
-			Capabilities: resultCapabilities,
-			Proposals:    proposals,
+			Operation:    operation,
+			Capabilities: input.Capabilities,
 		}, nil
 	},
 )
@@ -150,7 +110,7 @@ var RegisterCapabilities = operations.NewOperation[RegisterCapabilitiesInput, Re
 // The contract reverts on adding the same capability twice and that would cause the whole transaction to revert.
 func dedupCapabilities(
 	capReg *capabilities_registry_v2.CapabilitiesRegistry,
-	capabilities []capabilities_registry_v2.CapabilitiesRegistryCapability,
+	capabilities []RegisterableCapability,
 ) ([]capabilities_registry_v2.CapabilitiesRegistryCapability, error) {
 	if capReg == nil {
 		return nil, errors.New("capabilities registry is nil")
@@ -176,14 +136,23 @@ func dedupCapabilities(
 	seen := make(map[string]struct{}, len(capabilities))
 	for _, candidate := range capabilities {
 		// Process a capability only once in terms of the input list, to avoid duplicates in the output
-		if _, exists := seen[candidate.CapabilityId]; exists {
+		if _, exists := seen[candidate.CapabilityID]; exists {
 			continue
 		}
-		seen[candidate.CapabilityId] = struct{}{}
+		seen[candidate.CapabilityID] = struct{}{}
 
 		// Skip capabilities that already exist in the registry
-		if _, exists := existingByID[candidate.CapabilityId]; !exists {
-			out = append(out, candidate)
+		if _, exists := existingByID[candidate.CapabilityID]; !exists {
+			metadataBytes, metadataErr := candidate.Metadata.MarshalJSON()
+			if metadataErr != nil {
+				return nil, fmt.Errorf("failed to marshal capability metadata for capability %s: %w", candidate.CapabilityID, metadataErr)
+			}
+
+			out = append(out, capabilities_registry_v2.CapabilitiesRegistryCapability{
+				Metadata:              metadataBytes,
+				CapabilityId:          candidate.CapabilityID,
+				ConfigurationContract: candidate.ConfigurationContract,
+			})
 		}
 	}
 

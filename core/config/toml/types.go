@@ -145,6 +145,7 @@ type Secrets struct {
 	DKGRecipientKey DKGRecipientKey `toml:",omitempty"`
 
 	CRE CreSecrets `toml:",omitempty"`
+	CCV CCVSecrets `toml:",omitempty"`
 }
 
 type SolKeys struct {
@@ -438,6 +439,7 @@ func (p *P2PKey) SetFrom(f *P2PKey) (err error) {
 	}
 	return nil
 }
+
 func (p *P2PKey) validateMerge(f *P2PKey) (err error) {
 	if p.JSON != nil && f.JSON != nil {
 		err = errors.Join(err, configutils.ErrOverride{Name: "JSON"})
@@ -683,8 +685,10 @@ func (l *DatabaseLock) Mode() string {
 
 func (l *DatabaseLock) ValidateConfig() (err error) {
 	if l.LeaseRefreshInterval.Duration() > l.LeaseDuration.Duration()/2 {
-		err = errors.Join(err, configutils.ErrInvalid{Name: "LeaseRefreshInterval", Value: l.LeaseRefreshInterval.String(),
-			Msg: fmt.Sprintf("must be less than or equal to half of LeaseDuration (%s)", l.LeaseDuration.String())})
+		err = errors.Join(err, configutils.ErrInvalid{
+			Name: "LeaseRefreshInterval", Value: l.LeaseRefreshInterval,
+			Msg: fmt.Sprintf("must be less than or equal to half of LeaseDuration (%s)", l.LeaseDuration),
+		})
 	}
 	return
 }
@@ -727,14 +731,15 @@ func (d *DatabaseBackup) setFrom(f *DatabaseBackup) {
 }
 
 type TelemetryIngress struct {
-	UniConn      *bool
-	Logging      *bool
-	BufferSize   *uint16
-	MaxBatchSize *uint16
-	SendInterval *commonconfig.Duration
-	SendTimeout  *commonconfig.Duration
-	UseBatchSend *bool
-	Endpoints    []TelemetryIngressEndpoint `toml:",omitempty"`
+	UniConn            *bool
+	Logging            *bool
+	BufferSize         *uint16
+	MaxBatchSize       *uint16
+	SendInterval       *commonconfig.Duration
+	SendTimeout        *commonconfig.Duration
+	UseBatchSend       *bool
+	Endpoints          []TelemetryIngressEndpoint `toml:",omitempty"`
+	ChipIngressEnabled *bool
 }
 
 type TelemetryIngressEndpoint struct {
@@ -768,6 +773,9 @@ func (t *TelemetryIngress) setFrom(f *TelemetryIngress) {
 	}
 	if v := f.Endpoints; v != nil {
 		t.Endpoints = v
+	}
+	if v := f.ChipIngressEnabled; v != nil {
+		t.ChipIngressEnabled = v
 	}
 }
 
@@ -1452,6 +1460,7 @@ type P2P struct {
 	OutgoingMessageBufferSize *int64
 	PeerID                    *p2pkey.PeerID
 	TraceLogging              *bool
+	EnableExperimentalRageP2P *bool
 
 	V2 P2PV2 `toml:",omitempty"`
 }
@@ -1468,6 +1477,9 @@ func (p *P2P) setFrom(f *P2P) {
 	}
 	if v := f.TraceLogging; v != nil {
 		p.TraceLogging = v
+	}
+	if v := f.EnableExperimentalRageP2P; v != nil {
+		p.EnableExperimentalRageP2P = v
 	}
 
 	p.V2.setFrom(&f.V2)
@@ -1951,6 +1963,85 @@ func (l *LinkingConfig) ValidateConfig() error {
 	return nil
 }
 
+// CCVSecrets holds the secrets required for the CCV jobs.
+type CCVSecrets struct {
+	AggregatorSecrets []AggregatorSecret `toml:",omitempty"`
+	IndexerSecret     *IndexerSecret     `toml:",omitempty"`
+}
+
+// IndexerSecret is the shared secret between the chainlink node and
+// the CCV indexer.
+type IndexerSecret struct {
+	// APIKey is the API key for the CCV indexer.
+	// This is used to authenticate the node to the CCV indexer.
+	APIKey *commonconfig.SecretString `toml:",omitempty"`
+	// APISecret is the API secret for the CCV indexer.
+	// This is used to authenticate the node to the CCV indexer.
+	APISecret *commonconfig.SecretString `toml:",omitempty"`
+}
+
+// AggregatorSecret is the shared secret between the chainlink node and the
+// CCV aggregator.
+// A node can potentially write to multiple aggregators, so the VerifierID
+// is used to further scope the secret.
+type AggregatorSecret struct {
+	// VerifierID is the ID of the verifier that this secret belongs to.
+	VerifierID string `toml:",omitempty"`
+	// APIKey is the API key for the CCV aggregator.
+	// This is used to authenticate the node to the CCV aggregator.
+	APIKey *commonconfig.SecretString `toml:",omitempty"`
+	// APISecret is the API secret for the CCV aggregator.
+	// This is used to authenticate the node to the CCV aggregator.
+	APISecret *commonconfig.SecretString `toml:",omitempty"`
+}
+
+func (a *CCVSecrets) SetFrom(f *CCVSecrets) (err error) {
+	err = a.validateMerge(f)
+	if err != nil {
+		return err
+	}
+
+	if f.AggregatorSecrets != nil {
+		a.AggregatorSecrets = make([]AggregatorSecret, len(f.AggregatorSecrets))
+		copy(a.AggregatorSecrets, f.AggregatorSecrets)
+	}
+
+	if f.IndexerSecret != nil {
+		if a.IndexerSecret == nil {
+			a.IndexerSecret = &IndexerSecret{}
+		}
+		if v := f.IndexerSecret.APIKey; v != nil {
+			a.IndexerSecret.APIKey = v
+		}
+		if v := f.IndexerSecret.APISecret; v != nil {
+			a.IndexerSecret.APISecret = v
+		}
+	}
+
+	return nil
+}
+
+func (a *CCVSecrets) validateMerge(f *CCVSecrets) (err error) {
+	if a.AggregatorSecrets != nil && f.AggregatorSecrets != nil {
+		for _, aggregatorSecret := range a.AggregatorSecrets {
+			for _, fAggregatorSecret := range f.AggregatorSecrets {
+				if aggregatorSecret.VerifierID == fAggregatorSecret.VerifierID {
+					err = errors.Join(err, configutils.ErrOverride{Name: "CCV.AggregatorSecrets.VerifierID"})
+				}
+			}
+		}
+	}
+	if a.IndexerSecret != nil && f.IndexerSecret != nil {
+		if a.IndexerSecret.APIKey != nil && f.IndexerSecret.APIKey != nil {
+			err = errors.Join(err, configutils.ErrOverride{Name: "CCV.IndexerSecret.APIKey"})
+		}
+		if a.IndexerSecret.APISecret != nil && f.IndexerSecret.APISecret != nil {
+			err = errors.Join(err, configutils.ErrOverride{Name: "CCV.IndexerSecret.APISecret"})
+		}
+	}
+	return err
+}
+
 type StreamsSecretConfig struct {
 	APIKey    *commonconfig.SecretString `toml:",omitempty"`
 	APISecret *commonconfig.SecretString `toml:",omitempty"`
@@ -2428,10 +2519,17 @@ type Telemetry struct {
 	TraceSampleRatio              *float64
 	EmitterBatchProcessor         *bool
 	EmitterExportTimeout          *commonconfig.Duration
+	AuthHeadersTTL                *commonconfig.Duration
 	ChipIngressEndpoint           *string
 	ChipIngressInsecureConnection *bool
 	HeartbeatInterval             *commonconfig.Duration
+	LogLevel                      *string
 	LogStreamingEnabled           *bool
+	LogBatchProcessor             *bool
+	LogExportTimeout              *commonconfig.Duration
+	LogExportMaxBatchSize         *int
+	LogExportInterval             *commonconfig.Duration
+	LogMaxQueueSize               *int
 }
 
 func (b *Telemetry) setFrom(f *Telemetry) {
@@ -2459,6 +2557,9 @@ func (b *Telemetry) setFrom(f *Telemetry) {
 	if v := f.EmitterExportTimeout; v != nil {
 		b.EmitterExportTimeout = v
 	}
+	if v := f.AuthHeadersTTL; v != nil {
+		b.AuthHeadersTTL = v
+	}
 	if v := f.ChipIngressEndpoint; v != nil {
 		b.ChipIngressEndpoint = v
 	}
@@ -2470,6 +2571,24 @@ func (b *Telemetry) setFrom(f *Telemetry) {
 	}
 	if v := f.LogStreamingEnabled; v != nil {
 		b.LogStreamingEnabled = v
+	}
+	if v := f.LogLevel; v != nil {
+		b.LogLevel = v
+	}
+	if v := f.LogBatchProcessor; v != nil {
+		b.LogBatchProcessor = v
+	}
+	if v := f.LogExportTimeout; v != nil {
+		b.LogExportTimeout = v
+	}
+	if v := f.LogExportMaxBatchSize; v != nil {
+		b.LogExportMaxBatchSize = v
+	}
+	if v := f.LogExportInterval; v != nil {
+		b.LogExportInterval = v
+	}
+	if v := f.LogMaxQueueSize; v != nil {
+		b.LogMaxQueueSize = v
 	}
 }
 

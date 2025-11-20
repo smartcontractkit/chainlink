@@ -97,7 +97,7 @@ func (cr *chainReader) init(chainContractReaders map[string]config.ChainContract
 
 		var eventSigsForContractFilter evmtypes.HashArray
 		for typeName, chainReaderDefinition := range chainContractReader.Configs {
-			injectEVMSpecificCodecModifiers(chainReaderDefinition)
+			codec.InjectEVMSpecificCodecModifiers(chainReaderDefinition)
 
 			switch chainReaderDefinition.ReadType {
 			case config.Method:
@@ -143,23 +143,6 @@ func (cr *chainReader) init(chainContractReaders map[string]config.ChainContract
 		}
 	}
 	return nil
-}
-
-// injectEVMSpecificCodecModifiers injects an AddressModifier into Input/OutputModifications of a ChainReaderDefinition.
-func injectEVMSpecificCodecModifiers(chainReaderDefinition *config.ChainReaderDefinition) {
-	for i, modConfig := range chainReaderDefinition.InputModifications {
-		if addrModifierConfig, ok := modConfig.(*commoncodec.AddressBytesToStringModifierConfig); ok {
-			addrModifierConfig.Modifier = codec.EVMAddressModifier{}
-			chainReaderDefinition.InputModifications[i] = addrModifierConfig
-		}
-	}
-
-	for i, modConfig := range chainReaderDefinition.OutputModifications {
-		if addrModifierConfig, ok := modConfig.(*commoncodec.AddressBytesToStringModifierConfig); ok {
-			addrModifierConfig.Modifier = codec.EVMAddressModifier{}
-			chainReaderDefinition.OutputModifications[i] = addrModifierConfig
-		}
-	}
 }
 
 func (cr *chainReader) Name() string { return cr.lggr.Name() }

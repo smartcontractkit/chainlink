@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"maps"
+	"regexp"
 	"slices"
 	"strings"
 
@@ -236,17 +237,28 @@ func AddTokenPoolAndLookupTable(e cldf.Environment, cfg AddTokenPoolAndLookupTab
 		poolConfigPDA, _ := solTokenUtil.TokenPoolConfigAddress(tokenPubKey, tokenPool)
 		poolSigner, _ := solTokenUtil.TokenPoolSignerAddress(tokenPubKey, tokenPool)
 
+		var instructions []solana.Instruction
+
 		// ata for token pool
-		createI, tokenPoolATA, err := solTokenUtil.CreateAssociatedTokenAccount(
-			tokenprogramID,
-			tokenPubKey,
-			poolSigner,
-			chain.DeployerKey.PublicKey(),
-		)
+		tokenPoolATA, _, err := solTokenUtil.FindAssociatedTokenAddress(tokenprogramID, tokenPubKey, poolSigner)
 		if err != nil {
-			return cldf.ChangesetOutput{}, fmt.Errorf("failed to create associated token account for tokenpool (mint: %s, pool: %s): %w", tokenPubKey.String(), tokenPool.String(), err)
+			return cldf.ChangesetOutput{}, err
 		}
-		instructions := []solana.Instruction{createI}
+
+		// Check if the ATA is already initialized
+		_, err = chain.Client.GetAccountInfo(context.Background(), tokenPoolATA)
+		if err != nil { // it means that the ATA does not exist
+			createI, _, err := solTokenUtil.CreateAssociatedTokenAccount(
+				tokenprogramID,
+				tokenPubKey,
+				poolSigner,
+				chain.DeployerKey.PublicKey(),
+			)
+			if err != nil {
+				return cldf.ChangesetOutput{}, fmt.Errorf("failed to create the instruction to create associated token account for tokenpool (mint: %s, pool: %s): %w", tokenPubKey.String(), tokenPool.String(), err)
+			}
+			instructions = append(instructions, createI)
+		}
 
 		var configPDA solana.PublicKey
 		// Global Configuration
@@ -354,10 +366,12 @@ func AddTokenPoolAndLookupTable(e cldf.Environment, cfg AddTokenPoolAndLookupTab
 		}
 
 		// confirm instructions
-		if err := chain.Confirm(instructions); err != nil {
-			return cldf.ChangesetOutput{}, fmt.Errorf("failed to confirm instructions: %w", err)
+		if len(instructions) > 0 {
+			if err := chain.Confirm(instructions); err != nil {
+				return cldf.ChangesetOutput{}, fmt.Errorf("failed to confirm instructions: %w", err)
+			}
+			e.Logger.Infow("Created new token pool config", "token_pool_ata", tokenPoolATA.String(), "pool_config", poolConfigPDA.String(), "pool_signer", poolSigner.String())
 		}
-		e.Logger.Infow("Created new token pool config", "token_pool_ata", tokenPoolATA.String(), "pool_config", poolConfigPDA.String(), "pool_signer", poolSigner.String())
 
 		// add token pool lookup table
 		csOutput, err := AddTokenPoolLookupTable(e, TokenPoolLookupTableConfig{
@@ -383,14 +397,25 @@ func AddTokenPoolAndLookupTable(e cldf.Environment, cfg AddTokenPoolAndLookupTab
 		if err != nil {
 			return cldf.ChangesetOutput{}, fmt.Errorf("failed to build proposal: %w", err)
 		}
+		ds, err := shared.PopulateDataStore(addressBook)
+		if err != nil {
+			return cldf.ChangesetOutput{}, fmt.Errorf("failed to populate in-memory DataStore: %w", err)
+		}
 		return cldf.ChangesetOutput{
 			AddressBook:           addressBook,
+			DataStore:             ds,
 			MCMSTimelockProposals: []mcms.TimelockProposal{*proposal},
 		}, nil
 	}
 
+	ds, err := shared.PopulateDataStore(addressBook)
+	if err != nil {
+		return cldf.ChangesetOutput{}, fmt.Errorf("failed to populate in-memory DataStore: %w", err)
+	}
+
 	return cldf.ChangesetOutput{
 		AddressBook: addressBook,
+		DataStore:   ds,
 	}, nil
 }
 
@@ -757,6 +782,120 @@ func modifySelfServedConfig(e cldf.Environment, cfg TokenPoolConfigWithMCM, enab
 	return cldf.ChangesetOutput{}, nil
 }
 
+type CreateTokenMultisigConfig struct {
+	ChainSelector           uint64
+	TokenMint               solana.PublicKey
+	PoolType                *cldf.ContractType
+	Metadata                string
+	CustomerMintAuthorities []solana.PublicKey
+}
+
+func (cfg CreateTokenMultisigConfig) Validate(e cldf.Environment, chainState solanastateview.CCIPChainState) error {
+	if err := chainState.CommonValidation(e, cfg.ChainSelector, cfg.TokenMint); err != nil {
+		return err
+	}
+	if *cfg.PoolType != shared.BurnMintTokenPool {
+		return errors.New("create token multisig only for burn and mint pools")
+	}
+	if _, err := chainState.TokenToTokenProgram(cfg.TokenMint); err != nil {
+		return fmt.Errorf("token %s not found in existing state, deploy the token first", cfg.TokenMint.String())
+	}
+	if _, err := chainState.TokenToTokenProgram(cfg.TokenMint); err != nil {
+		return fmt.Errorf("token program id %s not found in existing state", cfg.TokenMint.String())
+	}
+	if len(cfg.CustomerMintAuthorities) > 5 {
+		return errors.New("customer mint authorities max size is 5")
+	}
+	for _, mintAuthority := range cfg.CustomerMintAuthorities {
+		if mintAuthority.IsZero() {
+			return errors.New("customer mint authority can not be zero")
+		}
+	}
+	tokenPool := chainState.GetActiveTokenPool(*cfg.PoolType, cfg.Metadata)
+	if tokenPool.IsZero() {
+		return fmt.Errorf("token pool of type %s not found in existing state, deploy the token pool first for chain %d", *cfg.PoolType, cfg.ChainSelector)
+	}
+	return nil
+}
+
+func CreateTokenMultisig(e cldf.Environment, cfg CreateTokenMultisigConfig) (cldf.ChangesetOutput, error) {
+	e.Logger.Infow("Create Token Multisig with", "cfg", cfg)
+
+	state, err := stateview.LoadOnchainState(e)
+	if err != nil {
+		return cldf.ChangesetOutput{}, err
+	}
+	solChainState := state.SolChains[cfg.ChainSelector]
+	if err := cfg.Validate(e, solChainState); err != nil {
+		return cldf.ChangesetOutput{}, err
+	}
+	tokenProgramID, err := solChainState.TokenToTokenProgram(cfg.TokenMint)
+	if err != nil {
+		return cldf.ChangesetOutput{}, err
+	}
+	tokenPoolProgramID := solChainState.GetActiveTokenPool(*cfg.PoolType, cfg.Metadata)
+	if tokenPoolProgramID.IsZero() {
+		return cldf.ChangesetOutput{}, err
+	}
+	tokenPoolSignerPDA, err := solTokenUtil.TokenPoolSignerAddress(cfg.TokenMint, tokenPoolProgramID)
+	if err != nil {
+		return cldf.ChangesetOutput{}, err
+	}
+	newMultisig, err := createMultisig(e, tokenPoolSignerPDA, cfg.CustomerMintAuthorities, tokenProgramID)
+	if err != nil {
+		return cldf.ChangesetOutput{}, err
+	}
+	newAddresses := cldf.NewMemoryAddressBook()
+	tv := cldf.NewTypeAndVersion("TokenMultisig", deployment.Version1_0_0)
+	tv.AddLabel(cfg.Metadata)
+	tv.AddLabel(cfg.TokenMint.String())
+	err = newAddresses.Save(cfg.ChainSelector, newMultisig.String(), tv)
+	if err != nil {
+		e.Logger.Errorw("Failed to save new token multisig", "chain", solChainState, "err", err)
+		return cldf.ChangesetOutput{}, err
+	}
+	e.Logger.Infow("Created multisig", "TokenMultisigAddress", newMultisig, "TokenMint", cfg.TokenMint)
+	return cldf.ChangesetOutput{
+		AddressBook: newAddresses,
+	}, nil
+}
+
+func createMultisig(e cldf.Environment, tokenPoolSignerPDA solana.PublicKey, customerMintAuthorities []solana.PublicKey, tokenProgramID solana.PublicKey) (solana.PublicKey, error) {
+	// spl-token create-multisig --program-id <TOKEN_PROGRAM_ID> 1 <USER_CUSTOM_MULTISIG> <TOKEN_POOL_SIGNER_PDA>
+	args := []string{"create-multisig", "--program-id", tokenProgramID.String(), "1", tokenPoolSignerPDA.String()}
+	authoritiesStr := make([]string, len(customerMintAuthorities))
+	for i, auth := range customerMintAuthorities {
+		authoritiesStr[i] = auth.String()
+	}
+	args = append(args, authoritiesStr...)
+	e.Logger.Info(args)
+	output, err := RunCommand("spl-token", args, ".")
+	e.Logger.Debugw("spl-token create-multisig output", "output", output)
+	if err != nil {
+		e.Logger.Debugw("spl-token create-multisig error", "error", err)
+		return solana.PublicKey{}, fmt.Errorf("error spl-token create-multisig: %w", err)
+	}
+	multisigAddress, err := parseMultisigAddress(output)
+	if err != nil {
+		e.Logger.Debugw("spl-token create-multisig error", "error", err)
+	}
+	e.Logger.Infow("Created Token Multisig ", "tokenProgramId", tokenProgramID)
+	return solana.MustPublicKeyFromBase58(multisigAddress), nil
+}
+
+// ParseMultisigAddress extracts the created multisig address from either a JSON blob
+// with an "output" field or from raw text. It returns the first match it finds.
+func parseMultisigAddress(text string) (string, error) {
+	// Regex: captures a Solana base58 address between "multisig" and "under program".
+	// Solana addresses are base58 (no 0, O, I, l) and typically 32–44 chars.
+	re := regexp.MustCompile(`(?i)Creating\s+\d+/\d+\s+multisig\s+([1-9A-HJ-NP-Za-km-z]{32,44})\s+under\s+program`)
+	m := re.FindStringSubmatch(text)
+	if len(m) < 2 {
+		return "", errors.New("multisig address not found")
+	}
+	return m[1], nil
+}
+
 func ModifyMintAuthority(e cldf.Environment, cfg NewMintTokenPoolConfig) (cldf.ChangesetOutput, error) {
 	e.Logger.Infow("Use multisig as mint authority", "cfg", cfg)
 
@@ -810,7 +949,7 @@ func ModifyMintAuthority(e cldf.Environment, cfg NewMintTokenPoolConfig) (cldf.C
 			return cldf.ChangesetOutput{}, fmt.Errorf("failed to fetch timelock signer: %w", err)
 		}
 
-		ix, err := solBurnMintTokenPool.NewTransferMintAuthorityToMultisigInstruction(
+		builder := solBurnMintTokenPool.NewTransferMintAuthorityToMultisigInstruction(
 			poolConfig,
 			tokenPubKey,
 			tokenProgram,
@@ -818,11 +957,15 @@ func ModifyMintAuthority(e cldf.Environment, cfg NewMintTokenPoolConfig) (cldf.C
 			timelockSigner,
 			newMintAuthority,
 			tokenPool,
-			programData.Address).ValidateAndBuild()
+			programData.Address)
+		// Old mint authority is required only if the current mint authority is a multisig
+		if (cfg.OldMintAuthority != solana.PublicKey{}) {
+			builder.AccountMetaSlice = append(builder.AccountMetaSlice, solana.Meta(cfg.OldMintAuthority))
+		}
+		ix, err := builder.ValidateAndBuild()
 		if err != nil {
 			return cldf.ChangesetOutput{}, fmt.Errorf("failed to build ix to transfer mint authority to multisig: %w", err)
 		}
-
 		err = appendTxs([]solana.Instruction{ix}, tokenPool, cfg.PoolType, &txns)
 		if err != nil {
 			return cldf.ChangesetOutput{}, fmt.Errorf("failed to generate mcms txn: %w", err)
@@ -837,17 +980,14 @@ func ModifyMintAuthority(e cldf.Environment, cfg NewMintTokenPoolConfig) (cldf.C
 			newMintAuthority,
 			tokenPool,
 			programData.Address)
-
 		// Old mint authority is required only if the current mint authority is a multisig
 		if (cfg.OldMintAuthority != solana.PublicKey{}) {
 			builder.AccountMetaSlice = append(builder.AccountMetaSlice, solana.Meta(cfg.OldMintAuthority))
 		}
-
 		ix, err := builder.ValidateAndBuild()
 		if err != nil {
 			return cldf.ChangesetOutput{}, fmt.Errorf("failed to build ix to transfer mint authority to multisig: %w", err)
 		}
-
 		if err := chain.Confirm([]solana.Instruction{ix}); err != nil {
 			return cldf.ChangesetOutput{}, fmt.Errorf("failed to confirm instructions: %w", err)
 		}
@@ -1730,8 +1870,14 @@ func AddTokenPoolLookupTable(e cldf.Environment, cfg TokenPoolLookupTableConfig)
 	}
 	e.Logger.Infow("Added token pool lookup table", "token_pubkey", tokenPubKey.String())
 
+	ds, err := shared.PopulateDataStore(newAddressBook)
+	if err != nil {
+		return cldf.ChangesetOutput{}, fmt.Errorf("failed to populate in-memory DataStore: %w", err)
+	}
+
 	return cldf.ChangesetOutput{
 		AddressBook: newAddressBook,
+		DataStore:   ds,
 	}, nil
 }
 
@@ -2629,7 +2775,7 @@ func (cfg ExtendTokenPoolLookupTableConfig) Validate(e cldf.Environment, chainSt
 	}
 
 	if cfg.TokenPubKey.IsZero() {
-		return errors.New("required field 'TokenPubKey' is empty or the zero address")
+		return errors.New("required field 'TokenMint' is empty or the zero address")
 	}
 
 	if cfg.PoolType == "" {

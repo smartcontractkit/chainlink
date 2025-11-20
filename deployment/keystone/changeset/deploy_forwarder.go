@@ -8,13 +8,13 @@ import (
 	"slices"
 
 	"github.com/ethereum/go-ethereum/common"
+	crecontracts "github.com/smartcontractkit/chainlink/deployment/cre/contracts"
 
 	cldf_evm "github.com/smartcontractkit/chainlink-deployments-framework/chain/evm"
 	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
 
-	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 	creforwarder "github.com/smartcontractkit/chainlink/deployment/cre/forwarder"
 	"github.com/smartcontractkit/chainlink/deployment/keystone/changeset/internal"
 )
@@ -102,7 +102,7 @@ type ConfigureForwardContractsRequest struct {
 	RegistryChainSel uint64
 
 	// MCMSConfig is optional. If non-nil, the changes will be proposed using MCMS.
-	MCMSConfig *MCMSConfig
+	MCMSConfig *crecontracts.MCMSConfig
 	// Chains is optional. Defines chains for which request will be executed. If empty, runs for all available chains.
 	Chains map[uint64]struct{}
 }
@@ -134,19 +134,13 @@ func ConfigureForwardContracts(env cldf.Environment, req ConfigureForwardContrac
 		NodeIDs: req.WFNodeIDs,
 	}
 
-	var mcmsConfig *proposalutils.TimelockConfig
-	if req.MCMSConfig != nil {
-		mcmsConfig = &proposalutils.TimelockConfig{
-			MinDelay: req.MCMSConfig.MinDuration,
-		}
-	}
 	seqReport, err := operations.ExecuteSequence(
 		env.OperationsBundle,
 		creforwarder.ConfigureSeq,
 		creforwarder.ConfigureSeqDeps{Env: &env},
 		creforwarder.ConfigureSeqInput{
 			DON:        cfg,
-			MCMSConfig: mcmsConfig,
+			MCMSConfig: req.MCMSConfig,
 			Chains:     req.Chains,
 		},
 	)

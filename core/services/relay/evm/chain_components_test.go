@@ -43,6 +43,7 @@ import (
 	"github.com/smartcontractkit/chainlink-evm/pkg/testutils"
 	evmtxmgr "github.com/smartcontractkit/chainlink-evm/pkg/txmgr"
 	clevmtypes "github.com/smartcontractkit/chainlink-evm/pkg/types"
+	writertestutils "github.com/smartcontractkit/chainlink-evm/pkg/writer/testutils"
 
 	lpmocks "github.com/smartcontractkit/chainlink/v2/common/logpoller/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
@@ -456,13 +457,13 @@ func (h *helper) Context(t *testing.T) context.Context {
 
 func (h *helper) ChainReaderEVMClient(ctx context.Context, t *testing.T, ht logpoller.HeadTracker, conf config.ChainReaderConfig) client.Client {
 	// wrap the client so that we can mock historical contract state
-	cwh := &evm.ClientWithContractHistory{Client: h.Client(t), HT: ht}
+	cwh := &writertestutils.ClientWithContractHistory{Client: h.Client(t), HT: ht}
 	require.NoError(t, cwh.Init(ctx, conf))
 	return cwh
 }
 
 func (h *helper) WrappedChainWriter(cw clcommontypes.ContractWriter, client client.Client) clcommontypes.ContractWriter {
-	cwhw := evm.NewChainWriterHistoricalWrapper(cw, client.(*evm.ClientWithContractHistory))
+	cwhw := writertestutils.NewChainWriterHistoricalWrapper(cw, client.(*writertestutils.ClientWithContractHistory))
 	return cwhw
 }
 

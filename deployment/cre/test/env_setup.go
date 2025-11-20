@@ -7,7 +7,6 @@ import (
 	"maps"
 	"sort"
 	"testing"
-	"time"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/stretchr/testify/require"
@@ -20,22 +19,26 @@ import (
 	cldf_chain "github.com/smartcontractkit/chainlink-deployments-framework/chain"
 	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+	"github.com/smartcontractkit/chainlink-deployments-framework/engine/test/environment"
+	"github.com/smartcontractkit/chainlink-deployments-framework/engine/test/onchain"
 	focr "github.com/smartcontractkit/chainlink-deployments-framework/offchain/ocr"
-	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
 
 	capabilities_registry_v2 "github.com/smartcontractkit/chainlink-evm/gethwrappers/workflow/generated/capabilities_registry_wrapper_v2"
 
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/common/changeset"
+	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
+	commontypes "github.com/smartcontractkit/chainlink/deployment/common/types"
 	changeset2 "github.com/smartcontractkit/chainlink/deployment/cre/capabilities_registry/v2/changeset"
-	"github.com/smartcontractkit/chainlink/deployment/cre/ocr3"
-	"github.com/smartcontractkit/chainlink/deployment/environment/memory"
 	envtest "github.com/smartcontractkit/chainlink/deployment/environment/test"
+	changeset3 "github.com/smartcontractkit/chainlink/deployment/keystone/changeset"
 )
 
 const (
 	DONName           = "test-don"
 	RegistryQualifier = "test-registry"
+	Zone              = "test-zone-1"
+	TotalNodes        = 4
 )
 
 type EnvWrapperV2 struct {
@@ -60,20 +63,15 @@ type donConfig struct {
 
 // TODO CRE-999; aptos can be made optional
 func initEnv(t *testing.T, lggr logger.Logger) (registryChainSel, aptosChainSel uint64, env *cldf.Environment) {
-	evmChains := memory.NewMemoryChainsEVM(t, 1, 1)
-	chains := cldf_chain.NewBlockChainsFromSlice([]cldf_chain.BlockChain{
-		evmChains[0],
-	})
-	registryChainSel = evmChains[0].ChainSelector()
+	registryChainSel = chain_selectors.TEST_90000001.Selector
 
-	ds := datastore.NewMemoryDataStore()
-	localEnv := cldf.Environment{
-		Logger:           lggr,
-		GetContext:       t.Context,
-		DataStore:        ds.Seal(),
-		BlockChains:      chains,
-		OperationsBundle: operations.NewBundle(t.Context, lggr, operations.NewMemoryReporter()),
-	}
+	e, err := environment.New(t.Context(),
+		environment.WithEVMSimulatedWithConfig(t, []uint64{registryChainSel}, onchain.EVMSimLoaderConfig{
+			NumAdditionalAccounts: 1,
+		}),
+		environment.WithLogger(lggr),
+	)
+	require.NoError(t, err)
 
 	deployCapRegChangeset := changeset2.DeployCapabilitiesRegistry{}
 	changes := []changeset.ConfiguredChangeSet{
@@ -86,7 +84,7 @@ func initEnv(t *testing.T, lggr logger.Logger) (registryChainSel, aptosChainSel 
 		),
 	}
 
-	localEnv, _, err := changeset.ApplyChangesets(t, localEnv, changes)
+	localEnv, _, err := changeset.ApplyChangesets(t, *e, changes)
 	require.NoError(t, err)
 
 	env = &localEnv
@@ -106,7 +104,7 @@ func SetupEnvV2(t *testing.T, useMCMS bool) *EnvWrapperV2 {
 	registryChainSel, aptosChainSel, envInitiated := initEnv(t, lggr)
 	lggr.Debug("Initialized environment", "registryChainSel", registryChainSel)
 
-	n := 4
+	n := TotalNodes
 	donCfg := donConfig{
 		Name:             DONName,
 		N:                n,
@@ -147,7 +145,7 @@ func SetupEnvV2(t *testing.T, useMCMS bool) *EnvWrapperV2 {
 		nodesP2PIDsBytes = append(nodesP2PIDsBytes, n.PeerID)
 
 		nodes = append(nodes, changeset2.CapabilitiesRegistryNodeParams{
-			NodeOperatorID:      1,
+			NOP:                 "Operator 1",
 			P2pID:               p2pID,
 			CsaKey:              n.CSA,
 			EncryptionPublicKey: n.WorkflowKey,
@@ -158,13 +156,6 @@ func SetupEnvV2(t *testing.T, useMCMS bool) *EnvWrapperV2 {
 		})
 	}
 
-	var mcmsConfig *ocr3.MCMSConfig
-	if useMCMS {
-		mcmsConfig = &ocr3.MCMSConfig{
-			MinDuration: 10 * time.Second,
-		}
-	}
-
 	configCapRegChangeset := changeset2.ConfigureCapabilitiesRegistry{}
 	changes := []changeset.ConfiguredChangeSet{
 		changeset.Configure(
@@ -172,7 +163,6 @@ func SetupEnvV2(t *testing.T, useMCMS bool) *EnvWrapperV2 {
 			changeset2.ConfigureCapabilitiesRegistryInput{
 				ChainSelector:               registryChainSel,
 				CapabilitiesRegistryAddress: registryAddrs[0].Address,
-				MCMSConfig:                  mcmsConfig,
 				Nops: []changeset2.CapabilitiesRegistryNodeOperator{
 					{
 						Name:  "Operator 1",
@@ -192,7 +182,7 @@ func SetupEnvV2(t *testing.T, useMCMS bool) *EnvWrapperV2 {
 						F:           uint8(donCfg.F), //nolint:gosec // disable G115
 						Nodes:       nodesP2PIDs,
 						DonFamilies: []string{"test-family"},
-						Config:      map[string]any{"consensus": "basic", "timeout": "30s"},
+						Config:      map[string]any{"defaultConfig": map[string]any{}},
 						CapabilityConfigurations: []changeset2.CapabilitiesRegistryCapabilityConfiguration{
 							{
 								CapabilityID: "test-capability@1.0.0",
@@ -239,6 +229,33 @@ func SetupEnvV2(t *testing.T, useMCMS bool) *EnvWrapperV2 {
 		require.Equal(t, sortedNodesP2PIDsBytes[i], id)
 	}
 
+	if useMCMS {
+		t.Log("Setting up MCMS infrastructure...")
+		timelockCfgs := map[uint64]commontypes.MCMSWithTimelockConfigV2{
+			registryChainSel: proposalutils.SingleGroupTimelockConfigV2(t),
+		}
+
+		updatedEnv, mcmsErr := changeset.Apply(t, env, changeset.Configure(
+			cldf.CreateLegacyChangeSet(changeset.DeployMCMSWithTimelockV2),
+			timelockCfgs,
+		))
+		require.NoError(t, mcmsErr, "failed to deploy MCMS infrastructure")
+		t.Log("MCMS infrastructure deployed successfully")
+
+		t.Log("Transferring ownership to MCMS...")
+		updatedEnv, mcmsErr = changeset.Apply(t, updatedEnv, changeset.Configure(
+			cldf.CreateLegacyChangeSet(changeset3.AcceptAllOwnershipsProposal),
+			&changeset3.AcceptAllOwnershipRequest{
+				ChainSelector: registryChainSel,
+				MinDelay:      0,
+			},
+		))
+		require.NoError(t, mcmsErr, "failed to transfer ownership to MCMS")
+		t.Log("Ownership transferred to MCMS successfully")
+
+		env = updatedEnv
+	}
+
 	return &EnvWrapperV2{
 		t:                t,
 		TestJD:           jd,
@@ -261,6 +278,7 @@ func setupViewOnlyNodeTest(t *testing.T, registryChainSel, aptosChainSel uint64,
 			"environment":        "test",
 			"product":            "cre",
 			"type":               "plugin",
+			"zone":               Zone,
 		}
 		if donCfg.Labels != nil {
 			maps.Copy(labels, donCfg.Labels)
@@ -279,6 +297,7 @@ func setupViewOnlyNodeTest(t *testing.T, registryChainSel, aptosChainSel uint64,
 		"environment":        "test",
 		"product":            "cre",
 		"type":               "bootstrap",
+		"zone":               Zone,
 	}
 	if donCfg.Labels != nil {
 		maps.Copy(btLabels, donCfg.Labels)
