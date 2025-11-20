@@ -8,9 +8,9 @@ import (
 	"fmt"
 	"strconv"
 
-	burntsushitoml "github.com/BurntSushi/toml"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
+	"github.com/pelletier/go-toml/v2"
 
 	"github.com/smartcontractkit/chainlink-ccv/integration/pkg/constructors"
 	"github.com/smartcontractkit/chainlink-ccv/protocol"
@@ -60,10 +60,8 @@ func (d *Delegate) BeforeJobCreated(spec job.Job) {
 func (d *Delegate) ServicesForSpec(ctx context.Context, spec job.Job) (services []job.ServiceCtx, err error) {
 	d.delegateLogger.Infow("Creating services for CCV committee verifier job", "jobID", spec.ID)
 
-	// note that go-toml doesn't correctly parse nested TOMLs, at least from this struct,
-	// so burntsushi/toml is needed.
 	var decodedCfg verifier.Config
-	_, err = burntsushitoml.Decode(spec.CCVCommitteeVerifierSpec.CommitteeVerifierConfig, &decodedCfg)
+	err = toml.Unmarshal([]byte(spec.CCVCommitteeVerifierSpec.CommitteeVerifierConfig), &decodedCfg)
 	if err != nil {
 		return nil, fmt.Errorf("failed to unmarshal committeeVerifierConfig into the verifier config struct: %w", err)
 	}
