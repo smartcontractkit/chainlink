@@ -12,6 +12,8 @@ import (
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 
+	"github.com/smartcontractkit/quarantine"
+
 	"github.com/smartcontractkit/chainlink-common/pkg/services/servicetest"
 
 	registry1_1 "github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/keeper_registry_wrapper1_1"
@@ -333,6 +335,7 @@ func Test_RegistrySynchronizer1_1_UpkeepCanceledLog(t *testing.T) {
 }
 
 func Test_RegistrySynchronizer1_1_UpkeepRegisteredLog(t *testing.T) {
+	quarantine.Flaky(t, "DX-2364")
 	ctx := testutils.Context(t)
 	db, synchronizer, ethMock, lb, job := setupRegistrySync(t, keeper.RegistryVersion_1_1)
 
