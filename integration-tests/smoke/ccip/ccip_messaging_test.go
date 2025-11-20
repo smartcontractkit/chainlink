@@ -17,6 +17,8 @@ import (
 	"golang.org/x/exp/maps"
 
 	solconfig "github.com/smartcontractkit/chainlink-ccip/chains/solana/contracts/tests/config"
+	soltestutils "github.com/smartcontractkit/chainlink-ccip/chains/solana/contracts/tests/testutils"
+	"github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/latest/test_ccip_receiver"
 	solccip "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/ccip"
 	solcommon "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/common"
 	"github.com/smartcontractkit/chainlink-common/pkg/config"
@@ -428,6 +430,13 @@ func Test_CCIPMessaging_EVM2Solana(t *testing.T) {
 		err = solcommon.GetAccountDataBorshInto(ctx, solChains[destChain].Client, receiverTargetAccountPDA, solconfig.DefaultCommitment, &receiverCounterAccount)
 		require.NoError(t, err, "failed to get account info")
 		require.Equal(t, uint8(0), receiverCounterAccount.Value)
+
+		deployer := solChains[sourceChain].DeployerKey
+		// Set reject all flag in receiver to force reverts
+		rejectAllIx, err := test_ccip_receiver.NewSetRejectAllInstruction(true, receiverTargetAccountPDA, deployer.PublicKey()).ValidateAndBuild()
+		require.NoError(t, err)
+		res := soltestutils.SendAndConfirm(ctx, t, solChains[destChain].Client, []solana.Instruction{rejectAllIx}, *deployer, solconfig.DefaultCommitment)
+		require.Nil(t, res.Meta.Err)
 
 		out = mt.Run(
 			t,
