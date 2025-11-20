@@ -132,6 +132,8 @@ func TestJob(t *testing.T) {
 						"gatewaySpec": null,
 						"standardCapabilitiesSpec": null,
 						"ccipSpec": null,
+						"ccvCommitteeVerifierSpec": null,
+						"ccvExecutorSpec": null,
 						"creSettingsSpec": null,
 						"errors": []
 					}
@@ -213,6 +215,8 @@ func TestJob(t *testing.T) {
 						"standardCapabilitiesSpec": null,
 						"ccipSpec": null,
 						"creSettingsSpec": null,
+						"ccvCommitteeVerifierSpec": null,
+						"ccvExecutorSpec": null,
 						"errors": []
 					}
 				}
@@ -303,6 +307,8 @@ func TestJob(t *testing.T) {
 						"standardCapabilitiesSpec": null,
 						"ccipSpec": null,
 						"creSettingsSpec": null,
+						"ccvCommitteeVerifierSpec": null,
+						"ccvExecutorSpec": null,
 						"errors": []
 					}
 				}
@@ -370,6 +376,8 @@ func TestJob(t *testing.T) {
 						"standardCapabilitiesSpec": null,
 						"ccipSpec": null,
 						"creSettingsSpec": null,
+						"ccvCommitteeVerifierSpec": null,
+						"ccvExecutorSpec": null,
 						"errors": []
 					}
 				}
@@ -434,6 +442,8 @@ func TestJob(t *testing.T) {
 						"standardCapabilitiesSpec": null,
 						"ccipSpec": null,
 						"creSettingsSpec": null,
+						"ccvCommitteeVerifierSpec": null,
+						"ccvExecutorSpec": null,
                         "errors": []
                     }
                 }
@@ -494,6 +504,8 @@ func TestJob(t *testing.T) {
 						"standardCapabilitiesSpec": null,
 						"ccipSpec": null,
 						"creSettingsSpec": null,
+						"ccvCommitteeVerifierSpec": null,
+						"ccvExecutorSpec": null,
 						"errors": []
 					}
 				}
@@ -583,6 +595,8 @@ func TestJob(t *testing.T) {
 						"standardCapabilitiesSpec": null,
 						"ccipSpec": null,
 						"creSettingsSpec": null,
+						"ccvCommitteeVerifierSpec": null,
+						"ccvExecutorSpec": null,
 						"errors": []
 					}
 				}
@@ -667,6 +681,8 @@ func TestJob(t *testing.T) {
 						"standardCapabilitiesSpec": null,
 						"ccipSpec": null,
 						"creSettingsSpec": null,
+						"ccvCommitteeVerifierSpec": null,
+						"ccvExecutorSpec": null,
 						"errors": []
 					}
 				}
@@ -751,6 +767,8 @@ func TestJob(t *testing.T) {
 						"standardCapabilitiesSpec": null,
 						"ccipSpec": null,
 						"creSettingsSpec": null,
+						"ccvCommitteeVerifierSpec": null,
+						"ccvExecutorSpec": null,
 						"errors": []
 					}
 				}
@@ -819,6 +837,8 @@ func TestJob(t *testing.T) {
 						"standardCapabilitiesSpec": null,
 						"ccipSpec": null,
 						"creSettingsSpec": null,
+						"ccvCommitteeVerifierSpec": null,
+						"ccvExecutorSpec": null,
 						"errors": []
 					}
 				}
@@ -884,6 +904,8 @@ func TestJob(t *testing.T) {
 							"jobID": 0,
 							"dotDagSource": ""
 						},
+						"ccvCommitteeVerifierSpec": null,
+						"ccvExecutorSpec": null,
 						"errors": []
 					}
 				}
@@ -950,6 +972,8 @@ func TestJob(t *testing.T) {
 							"jobID": 0,
 							"dotDagSource": ""
 						},
+						"ccvCommitteeVerifierSpec": null,
+						"ccvExecutorSpec": null,
 						"errors": []
 					}
 				}
@@ -1007,6 +1031,8 @@ func TestJob(t *testing.T) {
 						},
 						"ccipSpec": null,
 						"creSettingsSpec": null,
+						"ccvCommitteeVerifierSpec": null,
+						"ccvExecutorSpec": null,
 						"pipelineSpec": {
 							"id": 1,
 							"jobID": 0,
@@ -1073,6 +1099,136 @@ func TestJob(t *testing.T) {
 							"updatedAt":"2000-01-01T00:00:00Z"
 						},
 						"creSettingsSpec": null,
+						"ccvCommitteeVerifierSpec": null,
+						"ccvExecutorSpec": null,
+						"pipelineSpec": {
+							"id": 1,
+							"jobID": 0,
+							"dotDagSource": ""
+						},
+						"errors": []
+					}
+				}
+			}`,
+		},
+		{
+			name: "ccv executor spec",
+			job: job.Job{
+				ID: 1,
+				CCVExecutorSpec: &job.CCVExecutorSpec{
+					ID:             3,
+					CreatedAt:      timestamp,
+					UpdatedAt:      timestamp,
+					ExecutorConfig: `Foo = 'Bar'`,
+				},
+				PipelineSpec: &pipeline.Spec{
+					ID:           1,
+					DotDagSource: "",
+				},
+				ExternalJobID: uuid.MustParse("0eec7e1d-d0d2-476c-a1a8-72dfb6633f46"),
+				Type:          job.CCVExecutor,
+				SchemaVersion: 1,
+				Name:          null.StringFrom("ccv executor test"),
+			},
+			want: `
+			{
+				"data": {
+					"type": "jobs",
+					"id": "1",
+					"attributes": {
+						"name": "ccv executor test",
+						"type": "ccvexecutor",
+						"schemaVersion": 1,
+						"maxTaskDuration": "0s",
+						"externalJobID": "0eec7e1d-d0d2-476c-a1a8-72dfb6633f46",
+						"directRequestSpec": null,
+						"fluxMonitorSpec": null,
+						"gasLimit": null,
+						"forwardingAllowed": false,
+						"cronSpec": null,
+						"offChainReportingOracleSpec": null,
+						"offChainReporting2OracleSpec": null,
+						"keeperSpec": null,
+						"vrfSpec": null,
+						"webhookSpec": null,
+						"workflowSpec": null,
+						"blockhashStoreSpec": null,
+						"blockHeaderFeederSpec": null,
+						"bootstrapSpec": null,
+						"gatewaySpec": null,
+						"standardCapabilitiesSpec": null,
+						"ccipSpec": null,
+						"ccvCommitteeVerifierSpec": null,
+						"ccvExecutorSpec": {
+							"executorConfig": "Foo = 'Bar'",
+							"createdAt":"2000-01-01T00:00:00Z",
+							"updatedAt":"2000-01-01T00:00:00Z"
+						},
+						"creSettingsSpec": null,
+						"pipelineSpec": {
+							"id": 1,
+							"jobID": 0,
+							"dotDagSource": ""
+						},
+						"errors": []
+					}
+				}
+			}`,
+		},
+		{
+			name: "ccv committee verifier spec",
+			job: job.Job{
+				ID: 1,
+				CCVCommitteeVerifierSpec: &job.CCVCommitteeVerifierSpec{
+					ID:                      3,
+					CreatedAt:               timestamp,
+					UpdatedAt:               timestamp,
+					CommitteeVerifierConfig: `Foo = 'Bar'`,
+				},
+				PipelineSpec: &pipeline.Spec{
+					ID:           1,
+					DotDagSource: "",
+				},
+				ExternalJobID: uuid.MustParse("0eec7e1d-d0d2-476c-a1a8-72dfb6633f46"),
+				Type:          job.CCVCommitteeVerifier,
+				SchemaVersion: 1,
+				Name:          null.StringFrom("ccv committee verifier test"),
+			},
+			want: `
+			{
+				"data": {
+					"type": "jobs",
+					"id": "1",
+					"attributes": {
+						"name": "ccv committee verifier test",
+						"type": "ccvcommitteeverifier",
+						"schemaVersion": 1,
+						"maxTaskDuration": "0s",
+						"externalJobID": "0eec7e1d-d0d2-476c-a1a8-72dfb6633f46",
+						"directRequestSpec": null,
+						"fluxMonitorSpec": null,
+						"gasLimit": null,
+						"forwardingAllowed": false,
+						"cronSpec": null,
+						"offChainReportingOracleSpec": null,
+						"offChainReporting2OracleSpec": null,
+						"keeperSpec": null,
+						"vrfSpec": null,
+						"webhookSpec": null,
+						"workflowSpec": null,
+						"blockhashStoreSpec": null,
+						"blockHeaderFeederSpec": null,
+						"bootstrapSpec": null,
+						"gatewaySpec": null,
+						"standardCapabilitiesSpec": null,
+						"ccipSpec": null,
+						"ccvCommitteeVerifierSpec": {
+							"committeeVerifierConfig": "Foo = 'Bar'",
+							"createdAt":"2000-01-01T00:00:00Z",
+							"updatedAt":"2000-01-01T00:00:00Z"
+						},
+						"ccvExecutorSpec": null,
+						"creSettingsSpec": null,
 						"pipelineSpec": {
 							"id": 1,
 							"jobID": 0,
@@ -1136,6 +1292,8 @@ func TestJob(t *testing.T) {
 						"gatewaySpec": null,
 						"standardCapabilitiesSpec": null,
 						"ccipSpec": null,
+						"ccvCommitteeVerifierSpec": null,
+						"ccvExecutorSpec": null,
 						"pipelineSpec": {
 							"id": 1,
 							"jobID": 0,
@@ -1217,6 +1375,8 @@ func TestJob(t *testing.T) {
 						"gatewaySpec": null,
 						"standardCapabilitiesSpec": null,
 						"ccipSpec": null,
+						"ccvCommitteeVerifierSpec": null,
+						"ccvExecutorSpec": null,
 						"errors": [{
 							"id": 200,
 							"description": "some error",

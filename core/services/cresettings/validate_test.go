@@ -13,10 +13,19 @@ import (
 func TestValidatedCRESettingsSpec(t *testing.T) {
 	settingsString := `Foo = "bar"
 `
-	base := fmt.Sprintf(`type = "cresettings"
+	noHash := fmt.Sprintf(`type = "cresettings"
+schemaVersion = 1
 externalJobID = "7dcfa33b-8ed9-4e9f-9216-5b4d3f5c7887"
-Settings = '''
+settings = '''
 %s'''`, settingsString)
+	hashFn := func(hash string) string {
+		return fmt.Sprintf(`type = "cresettings"
+schemaVersion = 1
+externalJobID = "7dcfa33b-8ed9-4e9f-9216-5b4d3f5c7887"
+hash = "%s"
+settings = '''
+%s'''`, hash, settingsString)
+	}
 	tests := []struct {
 		name    string
 		toml    string
@@ -24,26 +33,25 @@ Settings = '''
 		wantErr string
 	}{
 		{name: "empty", toml: `type = "cresettings"
+schemaVersion = 1
 externalJobID = "7dcfa33b-8ed9-4e9f-9216-5b4d3f5c7887"`, want: job.Job{
-			ID:            0,
+			SchemaVersion: 1,
 			ExternalJobID: uuid.MustParse("7dcfa33b-8ed9-4e9f-9216-5b4d3f5c7887"),
 			CRESettingsSpec: &job.CRESettingsSpec{
 				Settings: "",
 				Hash:     "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
 			},
 		}},
-		{name: "hash", toml: base + `
-Hash = "dca1decf4530b4aaa0b6cf8f11ed62f3af75b4ecc4915e4a35292c6918e9160a"
-`, want: job.Job{
-			ID:            0,
+		{name: "hash", toml: hashFn(`dca1decf4530b4aaa0b6cf8f11ed62f3af75b4ecc4915e4a35292c6918e9160a`), want: job.Job{
+			SchemaVersion: 1,
 			ExternalJobID: uuid.MustParse("7dcfa33b-8ed9-4e9f-9216-5b4d3f5c7887"),
 			CRESettingsSpec: &job.CRESettingsSpec{
 				Settings: settingsString,
 				Hash:     "dca1decf4530b4aaa0b6cf8f11ed62f3af75b4ecc4915e4a35292c6918e9160a",
 			},
 		}},
-		{name: "no-hash", toml: base, want: job.Job{
-			ID:            0,
+		{name: "no-hash", toml: noHash, want: job.Job{
+			SchemaVersion: 1,
 			ExternalJobID: uuid.MustParse("7dcfa33b-8ed9-4e9f-9216-5b4d3f5c7887"),
 			CRESettingsSpec: &job.CRESettingsSpec{
 				Settings: settingsString,
@@ -51,8 +59,7 @@ Hash = "dca1decf4530b4aaa0b6cf8f11ed62f3af75b4ecc4915e4a35292c6918e9160a"
 			},
 		}},
 		{name: "wrong-type", toml: `type = "asdf"`, wantErr: "unsupported type"},
-		{name: "wrong-hash", toml: base + `
-Hash = "asdf"`, wantErr: "invalid sha256 hash"},
+		{name: "wrong-hash", toml: hashFn(`asdf`), wantErr: "invalid sha256 hash"},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

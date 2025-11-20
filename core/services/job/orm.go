@@ -513,6 +513,24 @@ func (o *orm) CreateJob(ctx context.Context, jb *Job) error {
 				return errors.Wrap(err, "failed to create CCIPSpec for jobSpec")
 			}
 			jb.CCIPSpecID = &specID
+		case CCVCommitteeVerifier:
+			sql := `INSERT INTO ccv_committee_verifier_specs (committee_verifier_config, created_at, updated_at)
+			VALUES (:committee_verifier_config, NOW(), NOW())
+			RETURNING id;`
+			specID, err := tx.prepareQuerySpecID(ctx, sql, jb.CCVCommitteeVerifierSpec)
+			if err != nil {
+				return errors.Wrap(err, "failed to create CCVCommitteeVerifierSpec for jobSpec")
+			}
+			jb.CCVCommitteeVerifierSpecID = &specID
+		case CCVExecutor:
+			sql := `INSERT INTO ccv_executor_specs (executor_config, created_at, updated_at)
+			VALUES (:executor_config, NOW(), NOW())
+			RETURNING id;`
+			specID, err := tx.prepareQuerySpecID(ctx, sql, jb.CCVExecutorSpec)
+			if err != nil {
+				return errors.Wrap(err, "failed to create CCVExecutorSpec for jobSpec")
+			}
+			jb.CCVExecutorSpecID = &specID
 		default:
 			o.lggr.Panicf("Unsupported jb.Type: %v", jb.Type)
 		}
@@ -750,18 +768,18 @@ func (o *orm) InsertJob(ctx context.Context, job *Job) error {
 		if job.ID == 0 {
 			query = `INSERT INTO jobs (name, stream_id, schema_version, type, max_task_duration, ocr_oracle_spec_id, ocr2_oracle_spec_id, direct_request_spec_id, flux_monitor_spec_id,
 				keeper_spec_id, cron_spec_id, vrf_spec_id, webhook_spec_id, blockhash_store_spec_id, bootstrap_spec_id, block_header_feeder_spec_id, gateway_spec_id,
-                legacy_gas_station_server_spec_id, legacy_gas_station_sidecar_spec_id, workflow_spec_id, standard_capabilities_spec_id, ccip_spec_id, external_job_id, gas_limit, forwarding_allowed, created_at)
+                legacy_gas_station_server_spec_id, legacy_gas_station_sidecar_spec_id, workflow_spec_id, standard_capabilities_spec_id, ccip_spec_id, ccv_committee_verifier_spec_id, ccv_executor_spec_id, external_job_id, gas_limit, forwarding_allowed, created_at)
 		VALUES (:name, :stream_id, :schema_version, :type, :max_task_duration, :ocr_oracle_spec_id, :ocr2_oracle_spec_id, :direct_request_spec_id, :flux_monitor_spec_id,
 				:keeper_spec_id, :cron_spec_id, :vrf_spec_id, :webhook_spec_id, :blockhash_store_spec_id, :bootstrap_spec_id, :block_header_feeder_spec_id, :gateway_spec_id,
-				:legacy_gas_station_server_spec_id, :legacy_gas_station_sidecar_spec_id, :workflow_spec_id, :standard_capabilities_spec_id, :ccip_spec_id, :external_job_id, :gas_limit, :forwarding_allowed, NOW())
+				:legacy_gas_station_server_spec_id, :legacy_gas_station_sidecar_spec_id, :workflow_spec_id, :standard_capabilities_spec_id, :ccip_spec_id, :ccv_committee_verifier_spec_id, :ccv_executor_spec_id, :external_job_id, :gas_limit, :forwarding_allowed, NOW())
 		RETURNING *;`
 		} else {
 			query = `INSERT INTO jobs (id, name, stream_id, schema_version, type, max_task_duration, ocr_oracle_spec_id, ocr2_oracle_spec_id, direct_request_spec_id, flux_monitor_spec_id,
 			keeper_spec_id, cron_spec_id, vrf_spec_id, webhook_spec_id, blockhash_store_spec_id, bootstrap_spec_id, block_header_feeder_spec_id, gateway_spec_id,
-                  legacy_gas_station_server_spec_id, legacy_gas_station_sidecar_spec_id, workflow_spec_id, standard_capabilities_spec_id, ccip_spec_id, external_job_id, gas_limit, forwarding_allowed, created_at)
+                  legacy_gas_station_server_spec_id, legacy_gas_station_sidecar_spec_id, workflow_spec_id, standard_capabilities_spec_id, ccip_spec_id, ccv_committee_verifier_spec_id, ccv_executor_spec_id, external_job_id, gas_limit, forwarding_allowed, created_at)
 		VALUES (:id, :name, :stream_id, :schema_version, :type, :max_task_duration, :ocr_oracle_spec_id, :ocr2_oracle_spec_id, :direct_request_spec_id, :flux_monitor_spec_id,
 				:keeper_spec_id, :cron_spec_id, :vrf_spec_id, :webhook_spec_id, :blockhash_store_spec_id, :bootstrap_spec_id, :block_header_feeder_spec_id, :gateway_spec_id,
-				:legacy_gas_station_server_spec_id, :legacy_gas_station_sidecar_spec_id, :workflow_spec_id, :standard_capabilities_spec_id, :ccip_spec_id, :external_job_id, :gas_limit, :forwarding_allowed, NOW())
+				:legacy_gas_station_server_spec_id, :legacy_gas_station_sidecar_spec_id, :workflow_spec_id, :standard_capabilities_spec_id, :ccip_spec_id, :ccv_committee_verifier_spec_id, :ccv_executor_spec_id, :external_job_id, :gas_limit, :forwarding_allowed, NOW())
 		RETURNING *;`
 		}
 		query, args, err := tx.ds.BindNamed(query, job)
@@ -800,6 +818,8 @@ func (o *orm) DeleteJob(ctx context.Context, id int32, jobType Type) error {
 		Workflow:             `DELETE FROM workflow_specs WHERE id in (SELECT workflow_spec_id FROM deleted_jobs)`,
 		StandardCapabilities: `DELETE FROM standardcapabilities_specs WHERE id in (SELECT standard_capabilities_spec_id FROM deleted_jobs)`,
 		CCIP:                 `DELETE FROM ccip_specs WHERE id in (SELECT ccip_spec_id FROM deleted_jobs)`,
+		CCVCommitteeVerifier: `DELETE FROM ccv_committee_verifier_specs WHERE id IN (SELECT ccv_committee_verifier_spec_id FROM deleted_jobs)`,
+		CCVExecutor:          `DELETE FROM ccv_executor_specs WHERE id IN (SELECT ccv_executor_spec_id FROM deleted_jobs)`,
 		Stream:               ``,
 	}
 	q, ok := queries[jobType]
@@ -831,6 +851,8 @@ func (o *orm) DeleteJob(ctx context.Context, id int32, jobType Type) error {
 				workflow_spec_id,
 				standard_capabilities_spec_id,
 				ccip_spec_id,
+				ccv_committee_verifier_spec_id,
+				ccv_executor_spec_id,
 				stream_id
 		),`
 	if len(q) > 0 {
@@ -1547,6 +1569,8 @@ func (o *orm) loadAllJobTypes(ctx context.Context, job *Job) error {
 		o.loadJobType(ctx, job, "WorkflowSpec", "workflow_specs", job.WorkflowSpecID),
 		o.loadJobType(ctx, job, "StandardCapabilitiesSpec", "standardcapabilities_specs", job.StandardCapabilitiesSpecID),
 		o.loadJobType(ctx, job, "CCIPSpec", "ccip_specs", job.CCIPSpecID),
+		o.loadJobType(ctx, job, "CCVCommitteeVerifierSpec", "ccv_committee_verifier_specs", job.CCVCommitteeVerifierSpecID),
+		o.loadJobType(ctx, job, "CCVExecutorSpec", "ccv_executor_specs", job.CCVExecutorSpecID),
 	)
 }
 

@@ -52,6 +52,13 @@
 
 - [#19667](https://github.com/smartcontractkit/chainlink/pull/19667) [`535a014`](https://github.com/smartcontractkit/chainlink/commit/535a014bef3a6a007ecf7fe8c2d9f21907e4d127) - #added Add Workflow Registry Chain Selector to CRE v2 registry events.
 
+## 2.30.1 - 2025-11-18
+
+### Patch Changes
+
+- Metadata-only hotfix release to restore GitHub Release publishing capability after v2.30.0 Release object became immutable.
+
+
 ## 2.30.0 - 2025-11-17
 
 ### Minor Changes
