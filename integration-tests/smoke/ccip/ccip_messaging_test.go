@@ -433,9 +433,11 @@ func Test_CCIPMessaging_EVM2Solana(t *testing.T) {
 
 		deployer := solChains[destChain].DeployerKey
 		// Set reject all flag in receiver to force reverts
-		test_ccip_receiver.SetProgramID(receiverProgram)
-		rejectAllIx, err := test_ccip_receiver.NewSetRejectAllInstruction(true, receiverTargetAccountPDA, deployer.PublicKey()).ValidateAndBuild()
+		ix, err := test_ccip_receiver.NewSetRejectAllInstruction(true, receiverTargetAccountPDA, deployer.PublicKey()).ValidateAndBuild()
 		require.NoError(t, err)
+		ixData, err := ix.Data()
+		require.NoError(t, err)
+		rejectAllIx := solana.NewInstruction(receiverProgram, ix.Accounts(), ixData)
 		res := soltestutils.SendAndConfirm(ctx, t, solChains[destChain].Client, []solana.Instruction{rejectAllIx}, *deployer, solconfig.DefaultCommitment)
 		require.Nil(t, res.Meta.Err)
 
