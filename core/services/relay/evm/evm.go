@@ -896,7 +896,7 @@ func (r *Relayer) NewMedianProvider(ctx context.Context, rargs commontypes.Relay
 	// add gas limit if it's set in the plugin config
 	transmitterOpts := transmitter.ConfigTransmitterOpts{}
 	if pluginCfg.GasLimit != nil {
-		lggr.Debugw("Setting plugin config gas limit", "gasLimit", *pluginCfg.GasLimit)
+		lggr.Debugf("Setting plugin config gas limit: %d", *pluginCfg.GasLimit)
 		transmitterOpts.PluginGasLimit = pluginCfg.GasLimit
 	}
 
