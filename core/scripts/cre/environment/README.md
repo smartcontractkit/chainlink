@@ -1,15 +1,17 @@
 # Local CRE environment
 
+The local CRE is developer environment for full stack development of the CRE platform. It deploys and configures DONs, capabilities, contracts, and observability, and optional features. It is built on Docker.
+
 ## Contact Us
 Slack: #topic-local-dev-environments
 
 ## Table of content
 
+[QUICKSTART](#quickstart)
 1. [Using the CLI](#using-the-cli)
    - [Installing the binary](#installing-the-binary)
    - [Prerequisites (for Docker)](#prerequisites-for-docker)
    - [Prerequisites For CRIB](#prerequisites-for-crib)
-   - [QUICKSTART](#quickstart)
    - [Setup](#setup)
    - [Start Environment](#start-environment)
       - [Using Existing Docker plugins image](#using-existing-docker-plugins-image)
@@ -79,6 +81,19 @@ Slack: #topic-local-dev-environments
     - [Docker fails to download public images](#docker-fails-to-download-public-images)
     - [GH CLI is not installed](#gh-cli-is-not-installed)
 
+# QUICKSTART
+Setup platform: allocate and configure the default environment with all dependencies. :rocket:
+```
+go run . env start --auto-setup
+```
+Note: this allocates and configures the full stack. It may take a few minutes the first time.
+
+Deploy app: your first workflow
+```
+go run . workflow deploy -w ./examples/workflows/v2/cron/main.go -n cron_example
+```
+
+<!-- TODO: add observe. The intro should be ~ setup platform, deploy app, observe -->
 # Using the CLI
 
 The CLI manages CRE test environments. It is located in `core/scripts/cre/environment`. It doesn't come as a compiled binary, so every command has to be executed as `go run . <command> [subcommand]` (although check below!).
