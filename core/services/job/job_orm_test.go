@@ -21,6 +21,7 @@ import (
 	pkgworkflows "github.com/smartcontractkit/chainlink-common/pkg/workflows"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ccv/ccvcommitteeverifier"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ccv/ccvexecutor"
+	"github.com/smartcontractkit/chainlink/v2/core/services/cresettings"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/artifacts"
 
 	"github.com/smartcontractkit/chainlink-evm/pkg/assets"
@@ -2539,4 +2540,26 @@ func Test_FindStandardCapabilityJobID_NoMatch(t *testing.T) {
 	id, err := orm.FindStandardCapabilityJobID(ctx, stdCapJobSpec)
 	require.Error(t, err, "found standard capabilities with different command")
 	require.Equal(t, int32(0), id, "found non-zero job id")
+}
+
+func TestORM_CRESettings(t *testing.T) {
+	config := configtest.NewGeneralConfig(t, nil)
+	db := pgtest.NewSqlxDB(t)
+	keyStore := cltest.NewKeyStore(t, db)
+
+	lggr := logger.TestLogger(t)
+	pipelineORM := pipeline.NewORM(db, lggr, config.JobPipeline().MaxSuccessfulRuns())
+	bridgesORM := bridges.NewORM(db)
+
+	jobORM := NewTestORM(t, db, pipelineORM, bridgesORM, keyStore)
+
+	settingsJob, err := cresettings.ValidatedCRESettingsSpec(testspecs.GetCRESettingsSpec())
+	require.NoError(t, err)
+
+	require.NoError(t, jobORM.CreateJob(t.Context(), &settingsJob))
+
+	settingsJob, err = jobORM.FindJobByExternalJobID(t.Context(), settingsJob.ExternalJobID)
+	require.NoError(t, err)
+
+	require.NoError(t, jobORM.DeleteJob(t.Context(), settingsJob.ID, settingsJob.Type))
 }
