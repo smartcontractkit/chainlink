@@ -5,7 +5,6 @@ import (
 	"time"
 
 	chainselectors "github.com/smartcontractkit/chain-selectors"
-	crecontracts "github.com/smartcontractkit/chainlink/deployment/cre/contracts"
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
@@ -18,6 +17,7 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 	commontypes "github.com/smartcontractkit/chainlink/deployment/common/types"
 	"github.com/smartcontractkit/chainlink/deployment/cre/common/strategies"
+	crecontracts "github.com/smartcontractkit/chainlink/deployment/cre/contracts"
 )
 
 // TestMultipleMCMSDeploymentsConflict demonstrates the gap where GetMCMSContracts
