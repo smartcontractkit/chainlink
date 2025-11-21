@@ -83,7 +83,7 @@ func NewMedianServices(ctx context.Context,
 	)
 
 	// add gas limit if it's set in the job spec
-	if jb.GasLimit.Valid {
+	if jb.GasLimit.Valid && pluginConfig.GasLimit == nil {
 		pluginConfig.GasLimit = &jb.GasLimit.Uint32
 	}
 
