@@ -3,27 +3,23 @@ package median
 import (
 	"context"
 	"encoding/json"
-	"os/exec"
 	"testing"
 
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"gopkg.in/guregu/null.v4"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/loop"
 	commontypes "github.com/smartcontractkit/chainlink-common/pkg/types"
-	libocr_median "github.com/smartcontractkit/libocr/offchainreporting2/reportingplugin/median"
-	libocr "github.com/smartcontractkit/libocr/offchainreporting2plus"
-	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
-	"gopkg.in/guregu/null.v4"
-
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	clnull "github.com/smartcontractkit/chainlink/v2/core/null"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/median/config"
-	"github.com/smartcontractkit/chainlink/v2/core/services/ocrcommon"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
-	"github.com/smartcontractkit/chainlink/v2/plugins"
+	libocr_median "github.com/smartcontractkit/libocr/offchainreporting2/reportingplugin/median"
+	libocr "github.com/smartcontractkit/libocr/offchainreporting2plus"
+	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 )
 
 // mockRelayer captures the PluginArgs passed to NewPluginProvider
@@ -43,15 +39,15 @@ type mockPluginProvider struct {
 }
 
 func (m *mockPluginProvider) ContractTransmitter() ocrtypes.ContractTransmitter {
-	return &mockContractTransmitter{}
+	return nil
 }
 
 func (m *mockPluginProvider) ContractConfigTracker() ocrtypes.ContractConfigTracker {
-	return &mockContractConfigTracker{}
+	return nil
 }
 
 func (m *mockPluginProvider) OffchainConfigDigester() ocrtypes.OffchainConfigDigester {
-	return &mockOffchainConfigDigester{}
+	return nil
 }
 
 func (m *mockPluginProvider) Start(context.Context) error { return nil }
@@ -65,59 +61,15 @@ func (m *mockPluginProvider) Name() string { return "mock" }
 // Type assertions
 var _ commontypes.MedianProvider = (*mockPluginProvider)(nil)
 
-func (m *mockPluginProvider) ReportCodec() libocr_median.ReportCodec { return &mockReportCodec{} }
+func (m *mockPluginProvider) ReportCodec() libocr_median.ReportCodec { return nil }
 func (m *mockPluginProvider) MedianContract() libocr_median.MedianContract {
-	return &mockMedianContract{}
+	return nil
 }
 func (m *mockPluginProvider) OnchainConfigCodec() libocr_median.OnchainConfigCodec {
-	return &mockOnchainConfigCodec{}
+	return nil
 }
 func (m *mockPluginProvider) ContractReader() commontypes.ContractReader { return nil }
 func (m *mockPluginProvider) Codec() commontypes.Codec                   { return nil }
-
-type mockReportCodec struct {
-	libocr_median.ReportCodec
-}
-
-type mockMedianContract struct {
-	libocr_median.MedianContract
-}
-
-type mockOnchainConfigCodec struct {
-	libocr_median.OnchainConfigCodec
-}
-
-type mockContractTransmitter struct {
-	ocrtypes.ContractTransmitter
-}
-
-type mockContractConfigTracker struct {
-	ocrtypes.ContractConfigTracker
-}
-
-type mockOffchainConfigDigester struct {
-	ocrtypes.OffchainConfigDigester
-}
-
-type mockPipelineRunner struct {
-	pipeline.Runner
-}
-
-type mockKVStore struct {
-	job.KVStore
-}
-
-type mockErrorLog struct {
-	loop.ErrorLog
-}
-
-type mockRegistrarConfig struct {
-	plugins.RegistrarConfig
-}
-
-func (m *mockRegistrarConfig) RegisterLOOP(config plugins.CmdConfig) (func() *exec.Cmd, loop.GRPCOpts, error) {
-	return nil, loop.GRPCOpts{}, nil
-}
 
 func TestNewMedianServices_GasLimitOverride(t *testing.T) {
 	t.Parallel()
@@ -157,13 +109,11 @@ func TestNewMedianServices_GasLimitOverride(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			// Create plugin config
-			// Disable cache to avoid goroutine cleanup issues in tests
 			pluginCfg := config.PluginConfig{
 				JuelsPerFeeCoinPipeline: `ds1 [type=bridge name=voter_turnout];`,
 				GasLimit:                tc.pluginConfigGasLimit,
 				JuelsPerFeeCoinCache: &config.JuelsPerFeeCoinCache{
-					Disable: true,
+					Disable: true, // disable cache to avoid goroutine cleanup issues in tests
 				},
 			}
 			pluginConfigBytes, err := json.Marshal(pluginCfg)
@@ -177,7 +127,7 @@ func TestNewMedianServices_GasLimitOverride(t *testing.T) {
 			// Create job with gas limit
 			jb := job.Job{
 				ID:               1,
-				ExternalJobID:    uuid.Must(uuid.NewRandom()),
+				ExternalJobID:    uuid.New(),
 				OCR2OracleSpecID: int32Ptr(7),
 				GasLimit:         tc.jobGasLimit,
 				OCR2OracleSpec: &job.OCR2OracleSpec{
@@ -197,13 +147,6 @@ func TestNewMedianServices_GasLimitOverride(t *testing.T) {
 			// Create mock relayer
 			mockRelayer := &mockRelayer{}
 
-			// Create mock config
-			mockCfg := NewMedianConfig(
-				100, // maxSuccessfulRuns
-				10,  // resultWriteQueueDepth
-				&mockRegistrarConfig{},
-			)
-
 			// Create OCR2OracleArgs with development mode to skip validation
 			argsNoPlugin := libocr.OCR2OracleArgs{
 				LocalConfig: ocrtypes.LocalConfig{
@@ -211,22 +154,19 @@ func TestNewMedianServices_GasLimitOverride(t *testing.T) {
 				},
 			}
 
-			// Create enhanced telemetry channel
-			chEnhancedTelem := make(chan ocrcommon.EnhancedTelemetryData, 100)
-
 			// Call NewMedianServices
 			_, err = NewMedianServices(
 				ctx,
 				jb,
 				false, // isNewlyCreatedJob
 				mockRelayer,
-				&mockKVStore{},
-				&mockPipelineRunner{},
+				nil, // kv store
+				nil, // pipeline runner
 				lggr,
 				argsNoPlugin,
-				mockCfg,
-				chEnhancedTelem,
-				&mockErrorLog{},
+				&medianConfig{},
+				nil, // enhanced telemetry channel
+				nil, // error log
 			)
 
 			// Verify no error occurred
