@@ -390,6 +390,7 @@ func Test_CCIPTokenTransfer_Sui2EVM_BurnMintTokenPool_WithRateLimit(t *testing.T
 	feeTokenOutput := mintLinkToken(t, e.Env, sourceChain, 1000000000000)
 	linkTokenOutput1 := mintLinkToken(t, e.Env, sourceChain, 10)
 	linkTokenOutput2 := mintLinkToken(t, e.Env, sourceChain, 60)
+	linkTokenOutput3 := mintLinkToken(t, e.Env, sourceChain, 999999999999)
 
 	state, err := stateview.LoadOnchainState(e.Env)
 	require.NoError(t, err)
@@ -483,8 +484,6 @@ func Test_CCIPTokenTransfer_Sui2EVM_BurnMintTokenPool_WithRateLimit(t *testing.T
 
 	testhelpers.WaitForTokenBalances(ctx, t, updatedEnv, expectedTokenBalances)
 
-	linkTokenOutput3 := mintLinkToken(t, e.Env, sourceChain, 99999999999999)
-
 	// suiState, err := sui_deployment.LoadOnchainStatesui(e.Env)
 	// require.NoError(t, err)
 
@@ -507,7 +506,7 @@ func Test_CCIPTokenTransfer_Sui2EVM_BurnMintTokenPool_WithRateLimit(t *testing.T
 				{
 					TokenPoolType: sui_deployment.TokenPoolTypeBurnMint,
 					Token:         linkTokenOutput3.Objects.MintedLinkTokenObjectId,
-					Amount:        99999999999999,
+					Amount:        999999999999,
 				},
 			}}
 
