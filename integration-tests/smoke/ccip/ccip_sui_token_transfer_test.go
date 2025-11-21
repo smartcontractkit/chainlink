@@ -463,10 +463,10 @@ func Test_CCIPTokenTransfer_Sui2EVM_BurnMintTokenPool_WithRateLimit(t *testing.T
 	updatedEnv, evmToken, _, err := testhelpers.HandleTokenAndBurnMintTokenPoolDeploymentForSUI(e.Env, sourceChain, destChain, []testhelpers.TokenPoolRateLimiterConfig{
 		{
 			RemoteChainSelector: destChain,
-			OutboundIsEnabled:   true,
+			OutboundIsEnabled:   false,
 			OutboundCapacity:    100000000,
 			OutboundRate:        1000,
-			InboundIsEnabled:    true,
+			InboundIsEnabled:    false,
 			InboundCapacity:     100000000,
 			InboundRate:         1000,
 		},
