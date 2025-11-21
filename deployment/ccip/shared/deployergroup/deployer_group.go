@@ -547,7 +547,7 @@ func BuildMcmAddressesPerChainByAction(e cldf.Environment, onchainState statevie
 	for _, chain := range e.BlockChains.EVMChains() {
 		mcmContract, err := mcmCfg.MCMBasedOnAction(onchainState.EVMMCMSStateByChain()[chain.Selector])
 		if err != nil {
-			return nil, fmt.Errorf("failed to get mcms for action %s: %w", mcmCfg.MCMSAction, err)
+			return nil, fmt.Errorf("failed to get mcms for action %s (chain: %d): %w", mcmCfg.MCMSAction, chain.Selector, err)
 		}
 		addressPerChain[chain.Selector] = mcmContract.Address().Hex()
 	}
@@ -576,7 +576,7 @@ func BuildMcmAddressesPerChainByAction(e cldf.Environment, onchainState statevie
 		}
 		address, err := mcmCfg.MCMBasedOnActionSolana(*mcmState)
 		if err != nil {
-			return nil, fmt.Errorf("failed to get mcms for action %s: %w", mcmCfg.MCMSAction, err)
+			return nil, fmt.Errorf("failed to get mcms for action %s (chain: %d): %w", mcmCfg.MCMSAction, selector, err)
 		}
 		addressPerChain[selector] = address
 	}

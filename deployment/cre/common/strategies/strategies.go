@@ -68,7 +68,14 @@ type SimpleTransactionV2 = SimpleTransaction
 type MCMSTransactionV2 = MCMSTransaction
 
 // GetMCMSContracts retrieves MCMS contracts from the environment using merged approach (both DataStore and AddressBook)
-func GetMCMSContracts(e cldf.Environment, chainSelector uint64, qualifier string) (*commonchangeset.MCMSWithTimelockState, error) {
+func GetMCMSContracts(e cldf.Environment, chainSelector uint64, mcmsConfig contracts.MCMSConfig) (*commonchangeset.MCMSWithTimelockState, error) {
+	var qualifier string
+
+	qualifier, ok := mcmsConfig.TimelockQualifierPerChain[chainSelector]
+	if !ok {
+		return nil, fmt.Errorf("no timelock qualifier found for chain selector %d in MCMSConfig", chainSelector)
+	}
+
 	states, err := commonchangeset.MaybeLoadMCMSWithTimelockStateWithQualifier(e, []uint64{chainSelector}, qualifier)
 	if err != nil {
 		return nil, fmt.Errorf("failed to load MCMS contracts for chain %d: %w", chainSelector, err)

@@ -43,6 +43,9 @@ func TestAdminBatchPauseWorkflows(t *testing.T) {
 			WorkflowIDs:               [][32]byte{testWorkflowID1},
 			MCMSConfig: &contracts.MCMSConfig{
 				MinDelay: 1 * time.Second,
+				TimelockQualifierPerChain: map[uint64]string{
+					fixture.selector: "",
+				},
 			},
 		})
 		require.NoError(t, err, "MCMS preconditions should pass")
@@ -54,6 +57,9 @@ func TestAdminBatchPauseWorkflows(t *testing.T) {
 			WorkflowIDs:               [][32]byte{testWorkflowID1},
 			MCMSConfig: &contracts.MCMSConfig{
 				MinDelay: 1 * time.Second,
+				TimelockQualifierPerChain: map[uint64]string{
+					fixture.selector: "",
+				},
 			},
 		})
 		require.NoError(t, err, "admin batch pause apply should pass")
@@ -93,6 +99,9 @@ func TestAdminPauseWorkflow(t *testing.T) {
 			WorkflowID:                testWorkflowID,
 			MCMSConfig: &contracts.MCMSConfig{
 				MinDelay: 1 * time.Second,
+				TimelockQualifierPerChain: map[uint64]string{
+					fixture.selector: "",
+				},
 			},
 		})
 		require.NoError(t, err, "MCMS preconditions should pass")
@@ -104,6 +113,9 @@ func TestAdminPauseWorkflow(t *testing.T) {
 			WorkflowID:                testWorkflowID,
 			MCMSConfig: &contracts.MCMSConfig{
 				MinDelay: 1 * time.Second,
+				TimelockQualifierPerChain: map[uint64]string{
+					fixture.selector: "",
+				},
 			},
 		})
 		require.NoError(t, err, "admin pause workflow apply should pass")
@@ -154,6 +166,9 @@ func TestAdminPauseAllByOwner(t *testing.T) {
 			Owner:                     testOwner,
 			MCMSConfig: &contracts.MCMSConfig{
 				MinDelay: 30 * time.Second,
+				TimelockQualifierPerChain: map[uint64]string{
+					fixture.selector: "",
+				},
 			},
 		})
 		require.NoError(t, err, "MCMS preconditions should pass")
@@ -166,6 +181,9 @@ func TestAdminPauseAllByOwner(t *testing.T) {
 			Limit:                     big.NewInt(10),
 			MCMSConfig: &contracts.MCMSConfig{
 				MinDelay: 1 * time.Second,
+				TimelockQualifierPerChain: map[uint64]string{
+					fixture.selector: "",
+				},
 			},
 		})
 		require.NoError(t, err, "admin pause all by owner apply should pass with MCMS")
@@ -216,6 +234,9 @@ func TestAdminPauseAllByDON(t *testing.T) {
 			DONFamily:                 testDONFamily,
 			MCMSConfig: &contracts.MCMSConfig{
 				MinDelay: 1 * time.Second,
+				TimelockQualifierPerChain: map[uint64]string{
+					fixture.selector: "",
+				},
 			},
 		})
 		require.NoError(t, err, "MCMS preconditions should pass")
@@ -228,6 +249,9 @@ func TestAdminPauseAllByDON(t *testing.T) {
 			Limit:                     big.NewInt(10),
 			MCMSConfig: &contracts.MCMSConfig{
 				MinDelay: 1 * time.Second,
+				TimelockQualifierPerChain: map[uint64]string{
+					fixture.selector: "",
+				},
 			},
 		})
 		require.NoError(t, err, "admin pause all by DON apply should pass with MCMS")

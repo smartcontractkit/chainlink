@@ -298,7 +298,7 @@ func TestDeleteDON_MCMS_Configuration(t *testing.T) {
 
 	reg := fx.registry
 
-	mcmsContracts, err := strategies.GetMCMSContracts(mcmsFixture.env, mcmsFixture.chainSelector, mcmsFixture.configureInput.Qualifier)
+	mcmsContracts, err := strategies.GetMCMSContracts(mcmsFixture.env, mcmsFixture.chainSelector, *mcmsFixture.configureInput.MCMSConfig)
 	require.NoError(t, err, "should be able to get MCMS contracts")
 	require.NotNil(t, mcmsContracts, "MCMS contracts should not be nil")
 

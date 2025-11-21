@@ -121,6 +121,9 @@ func TestSetDONsFamilies_Apply(t *testing.T) {
 			},
 			MCMSConfig: &contracts.MCMSConfig{
 				MinDelay: 1 * time.Second,
+				TimelockQualifierPerChain: map[uint64]string{
+					chainSelector: "",
+				},
 			},
 		})
 		require.NoError(t, testErr)
