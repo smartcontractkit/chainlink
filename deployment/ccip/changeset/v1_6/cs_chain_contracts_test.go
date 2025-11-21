@@ -7,6 +7,7 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	chainselectors "github.com/smartcontractkit/chain-selectors"
+	"github.com/smartcontractkit/quarantine"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"golang.org/x/exp/maps"
@@ -783,6 +784,7 @@ func TestUpdateDynamicConfigOffRampChangeset(t *testing.T) {
 }
 
 func TestUpdateNonceManagersCS(t *testing.T) {
+	quarantine.Flaky(t, "DX-2378")
 	for _, tc := range []struct {
 		name        string
 		mcmsEnabled bool
