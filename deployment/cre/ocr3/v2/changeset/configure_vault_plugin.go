@@ -82,7 +82,7 @@ func (l ConfigureVaultPlugin) Apply(e cldf.Environment, input ConfigureVaultPlug
 	var mcmsContracts *changesetstate.MCMSWithTimelockState
 	if input.MCMSConfig != nil {
 		var mcmsErr error
-		mcmsContracts, mcmsErr = strategies.GetMCMSContracts(e, input.ContractChainSelector, "")
+		mcmsContracts, mcmsErr = strategies.GetMCMSContracts(e, input.ContractChainSelector, *input.MCMSConfig)
 		if mcmsErr != nil {
 			return cldf.ChangesetOutput{}, fmt.Errorf("failed to get MCMS contracts: %w", mcmsErr)
 		}

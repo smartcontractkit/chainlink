@@ -2,8 +2,10 @@ package changeset
 
 import (
 	"testing"
+	"time"
 
 	chainselectors "github.com/smartcontractkit/chain-selectors"
+	crecontracts "github.com/smartcontractkit/chainlink/deployment/cre/contracts"
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
@@ -48,7 +50,12 @@ func TestMultipleMCMSDeploymentsConflict(t *testing.T) {
 	t.Log("Team A's MCMS infrastructure deployed successfully")
 
 	// Get Team A's MCMS contracts using their qualifier
-	teamAMCMSContracts, err := strategies.GetMCMSContracts(rt.Environment(), selector, teamAQualifier)
+	teamAMCMSContracts, err := strategies.GetMCMSContracts(rt.Environment(), selector, crecontracts.MCMSConfig{
+		MinDelay: 1 * time.Second,
+		TimelockQualifierPerChain: map[uint64]string{
+			selector: teamAQualifier,
+		},
+	})
 	require.NoError(t, err, "should be able to get Team A's MCMS contracts")
 	require.NotNil(t, teamAMCMSContracts, "Team A's MCMS contracts should not be nil")
 
@@ -74,7 +81,12 @@ func TestMultipleMCMSDeploymentsConflict(t *testing.T) {
 	t.Log("Team B's MCMS infrastructure deployed successfully")
 
 	// Get Team B's MCMS contracts using their qualifier
-	teamBMCMSContracts, err := strategies.GetMCMSContracts(rt.Environment(), selector, teamBQualifier)
+	teamBMCMSContracts, err := strategies.GetMCMSContracts(rt.Environment(), selector, crecontracts.MCMSConfig{
+		MinDelay: 1 * time.Second,
+		TimelockQualifierPerChain: map[uint64]string{
+			selector: teamBQualifier,
+		},
+	})
 	require.NoError(t, err, "should be able to get Team B's MCMS contracts with their qualifier")
 	require.NotNil(t, teamBMCMSContracts, "Team B's MCMS contracts should not be nil")
 
