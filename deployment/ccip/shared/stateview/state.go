@@ -1506,16 +1506,30 @@ func LoadChainState(ctx context.Context, chain cldf_evm.Chain, addresses map[str
 			if err != nil {
 				return state, err
 			}
+
+			if state.USDCTokenPoolCCTPV2 == nil {
+				state.USDCTokenPoolCCTPV2 = make(map[semver.Version]*usdc_token_pool_cctp_v2.USDCTokenPoolCCTPV2)
+			}
+
 			state.USDCTokenPoolCCTPV2[deployment.Version1_6_4] = utp
 			state.ABIByAddress[address] = usdc_token_pool_cctp_v2.USDCTokenPoolCCTPV2ABI
 		case cldf.NewTypeAndVersion(ccipshared.ERC20LockBox, deployment.Version1_6_4).String():
+			if state.ERC20LockBox == nil {
+				state.ERC20LockBox = make(map[semver.Version]*erc20_lock_box.ERC20LockBox)
+			}
+
 			elb, err := erc20_lock_box.NewERC20LockBox(common.HexToAddress(address), chain.Client)
 			if err != nil {
 				return state, err
 			}
+
 			state.ERC20LockBox[deployment.Version1_6_4] = elb
 			state.ABIByAddress[address] = erc20_lock_box.ERC20LockBoxABI
 		case cldf.NewTypeAndVersion(ccipshared.USDCTokenPoolProxy, deployment.Version1_6_4).String():
+			if state.USDCTokenPoolProxy == nil {
+				state.USDCTokenPoolProxy = make(map[semver.Version]*usdc_token_pool_proxy.USDCTokenPoolProxy)
+			}
+
 			utp, err := usdc_token_pool_proxy.NewUSDCTokenPoolProxy(common.HexToAddress(address), chain.Client)
 			if err != nil {
 				return state, err
@@ -1523,12 +1537,15 @@ func LoadChainState(ctx context.Context, chain cldf_evm.Chain, addresses map[str
 			state.USDCTokenPoolProxy[deployment.Version1_6_4] = utp
 			state.ABIByAddress[address] = usdc_token_pool_proxy.USDCTokenPoolProxyABI
 		case cldf.NewTypeAndVersion(ccipshared.SiloedUSDCTokenPool, deployment.Version1_6_4).String():
-			siloedUSDC, err := siloed_usdc_token_pool.NewSiloedUSDCTokenPool(common.HexToAddress(address), chain.Client)
-			if err != nil {
-				return state, err
-			}
+
 			if state.SiloedUSDCTokenPools == nil {
 				state.SiloedUSDCTokenPools = make(map[uint64]*siloed_usdc_token_pool.SiloedUSDCTokenPool)
+			}
+
+			siloedUSDC, err := siloed_usdc_token_pool.NewSiloedUSDCTokenPool(common.HexToAddress(address), chain.Client)
+
+			if err != nil {
+				return state, err
 			}
 			state.SiloedUSDCTokenPools[chain.Selector] = siloedUSDC
 			state.ABIByAddress[address] = siloed_usdc_token_pool.SiloedUSDCTokenPoolABI

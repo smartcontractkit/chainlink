@@ -3,6 +3,7 @@ package stateview_test
 import (
 	"context"
 	"crypto/ecdsa"
+	"fmt"
 	"testing"
 	"time"
 
@@ -30,6 +31,31 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/common/types"
 )
 
+func TestLoadChainState_USDCTokenPoolsCCTPV2(t *testing.T) {
+	tenv, _ := testhelpers.NewMemoryEnvironment(t, testhelpers.WithNumOfChains(2))
+
+	cctpMessageTransmitterProxyCCTPV2 := utils.RandomAddress().Hex()
+	usdcTokenPool := utils.RandomAddress().Hex()
+	erc20LockBox := utils.RandomAddress().Hex()
+	usdcTokenPoolProxy := utils.RandomAddress().Hex()
+
+	state, err := stateview.LoadChainState(context.Background(), tenv.Env.BlockChains.EVMChains()[tenv.HomeChainSel], map[string]cldf.TypeAndVersion{
+		cctpMessageTransmitterProxyCCTPV2: cldf.NewTypeAndVersion(shared.CCTPMessageTransmitterProxy, deployment.Version1_6_4),
+		usdcTokenPool:                     cldf.NewTypeAndVersion(shared.USDCTokenPoolCCTPV2, deployment.Version1_6_4),
+		erc20LockBox:                      cldf.NewTypeAndVersion(shared.ERC20LockBox, deployment.Version1_6_4),
+		usdcTokenPoolProxy:                cldf.NewTypeAndVersion(shared.USDCTokenPoolProxy, deployment.Version1_6_4),
+	})
+
+	if err != nil {
+		fmt.Println("Error loading chain state:", err)
+	}
+	require.NoError(t, err)
+	require.NotNil(t, state.ERC20LockBox)
+	require.Equal(t, cctpMessageTransmitterProxyCCTPV2, state.CCTPMessageTransmitterProxyCCTPV2[deployment.Version1_6_4].Address().Hex())
+	require.Equal(t, usdcTokenPool, state.USDCTokenPoolCCTPV2[deployment.Version1_6_4].Address().Hex())
+	require.Equal(t, erc20LockBox, state.ERC20LockBox[deployment.Version1_6_4].Address().Hex())
+	require.Equal(t, usdcTokenPoolProxy, state.USDCTokenPoolProxy[deployment.Version1_6_4].Address().Hex())
+}
 func TestLoadChainState_MultipleFeeQuoters(t *testing.T) {
 	tenv, _ := testhelpers.NewMemoryEnvironment(t, testhelpers.WithNumOfChains(3))
 	fq1 := utils.RandomAddress().Hex()
