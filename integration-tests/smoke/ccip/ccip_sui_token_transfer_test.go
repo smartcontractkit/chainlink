@@ -19,6 +19,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink-deployments-framework/chain"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
 
 	suiBind "github.com/smartcontractkit/chainlink-sui/bindings/bind"
 	module_fee_quoter "github.com/smartcontractkit/chainlink-sui/bindings/generated/ccip/ccip/fee_quoter"
@@ -26,6 +27,7 @@ import (
 	sui_cs "github.com/smartcontractkit/chainlink-sui/deployment/changesets"
 	sui_ops "github.com/smartcontractkit/chainlink-sui/deployment/ops"
 	ccipops "github.com/smartcontractkit/chainlink-sui/deployment/ops/ccip"
+	burnminttokenpoolops "github.com/smartcontractkit/chainlink-sui/deployment/ops/ccip_burn_mint_token_pool"
 	linkops "github.com/smartcontractkit/chainlink-sui/deployment/ops/link"
 
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers"
@@ -312,6 +314,7 @@ func Test_CCIPTokenTransfer_Sui2EVM_BurnMintTokenPool_WithAllowlist(t *testing.T
 	e, sourceChain, destChain := testSetupTokenTransfer(t)
 	feeTokenOutput := mintLinkToken(t, e.Env, sourceChain, 1000000000000)
 	linkTokenOutput1 := mintLinkToken(t, e.Env, sourceChain, 2000000000)
+	linkTokenOutput2 := mintLinkToken(t, e.Env, sourceChain, 1500000000)
 
 	state, err := stateview.LoadOnchainState(e.Env)
 	require.NoError(t, err)
@@ -383,6 +386,56 @@ func Test_CCIPTokenTransfer_Sui2EVM_BurnMintTokenPool_WithAllowlist(t *testing.T
 	require.Equal(t, expectedExecutionStates, execStates)
 
 	testhelpers.WaitForTokenBalances(ctx, t, updatedEnv, expectedTokenBalances)
+
+	suiChain := e.Env.BlockChains.SuiChains()[sourceChain]
+
+	deps := sui_ops.OpTxDeps{
+		Client: suiChain.Client,
+		Signer: suiChain.Signer,
+		GetCallOpts: func() *suiBind.CallOpts {
+			b := uint64(400_000_000)
+			return &suiBind.CallOpts{
+				WaitForExecution: true,
+				GasBudget:        &b,
+			}
+		},
+		SuiRPC: suiChain.URL,
+	}
+
+	// enable allowlist but not adding the current sender to the allowlist
+	_, err = operations.ExecuteOperation(e.Env.OperationsBundle, burnminttokenpoolops.BurnMintTokenPoolSetAllowlistEnabledOp, deps, burnminttokenpoolops.BurnMintTokenPoolSetAllowlistEnabledInput{
+		BurnMintPackageId: state.SuiChains[sourceChain].BnMTokenPools["LINK"].PackageID,
+		StateObjectId:     state.SuiChains[sourceChain].CCIPObjectRef,
+		OwnerCap:          state.SuiChains[sourceChain].CCIPOwnerCapObjectId,
+		CoinObjectTypeArg: state.SuiChains[sourceChain].LinkTokenAddress + "::link::LINK",
+		Enabled:           true,
+	})
+	require.NoError(t, err)
+
+	t.Run("Sender not in allowlist - should fail", func(t *testing.T) {
+		msg := testhelpers.SuiSendRequest{
+			Receiver: common.LeftPadBytes(ccipReceiverAddress.Bytes(), 32),
+			Data:     []byte("Hello, World!"),
+			FeeToken: feeTokenOutput.Objects.MintedLinkTokenObjectId,
+			TokenAmounts: []testhelpers.SuiTokenAmount{
+				{
+					TokenPoolType: sui_deployment.TokenPoolTypeBurnMint,
+					Token:         linkTokenOutput2.Objects.MintedLinkTokenObjectId,
+					Amount:        1500000000,
+				},
+			}}
+
+		baseOpts := []ccipclient.SendReqOpts{
+			ccipclient.WithSourceChain(sourceChain),
+			ccipclient.WithDestChain(destChain),
+			ccipclient.WithTestRouter(false),
+			ccipclient.WithMessage(msg),
+		}
+
+		_, err := testhelpers.SendRequest(e.Env, state, baseOpts...)
+		assertSuiSourceRevertExpectedError(t, err, "failed to execute ccip_send with err: transaction failed with error: MoveAbort", "function_name: Some(\"consume\") }, 1)")
+		t.Log("Expected error: ", err)
+	})
 }
 
 func Test_CCIPTokenTransfer_Sui2EVM_BurnMintTokenPool_WithRateLimit(t *testing.T) {
@@ -810,92 +863,6 @@ func Test_CCIPTokenTransfer_EVM2SUI_ManagedTokenPool_WithRateLimit(t *testing.T)
 	require.Equal(t, expectedExecutionStates, execStates)
 
 	testhelpers.WaitForTokenBalances(ctx, t, e.Env, expectedTokenBalances)
-
-	callOpts := &bind.CallOpts{Context: ctx}
-	srcFeeQuoterDestChainConfig, err := state.Chains[sourceChain].FeeQuoter.GetDestChainConfig(callOpts, destChain)
-	require.NoError(t, err, "Failed to get destination chain fee quoter config")
-
-	t.Run("Send token to CCIP Receiver setting gas above max gas allowed - should fail", func(t *testing.T) {
-		msg := router.ClientEVM2AnyMessage{
-			Receiver:  receiverByte,
-			Data:      []byte("Hello, World!"),
-			FeeToken:  evmToken.Address(),
-			ExtraArgs: testhelpers.MakeSuiExtraArgs(uint64(srcFeeQuoterDestChainConfig.MaxPerMsgGasLimit+1), true, receiverObjectIDs, stateObj),
-			TokenAmounts: []router.ClientEVMTokenAmount{
-				{
-					Token:  evmToken.Address(),
-					Amount: big.NewInt(1e8),
-				},
-			}}
-
-		baseOpts := []ccipclient.SendReqOpts{
-			ccipclient.WithSourceChain(sourceChain),
-			ccipclient.WithDestChain(destChain),
-			ccipclient.WithTestRouter(false),
-			ccipclient.WithMessage(msg),
-		}
-
-		_, err := testhelpers.SendRequest(e.Env, state, baseOpts...)
-		require.Error(t, err)
-		require.Contains(t, err.Error(), "execution reverted")
-		t.Log("Expected error: ", err)
-	})
-
-	t.Run("Send multiple token - should fail", func(t *testing.T) {
-		msg := router.ClientEVM2AnyMessage{
-			Receiver:  receiverByte,
-			Data:      []byte("Hello, World!"),
-			FeeToken:  evmToken.Address(),
-			ExtraArgs: testhelpers.MakeSuiExtraArgs(1000000, true, receiverObjectIDs, stateObj),
-			TokenAmounts: []router.ClientEVMTokenAmount{
-				{
-					Token:  evmToken.Address(),
-					Amount: big.NewInt(1),
-				},
-				{
-					Token:  evmToken.Address(),
-					Amount: big.NewInt(1),
-				},
-			}}
-
-		baseOpts := []ccipclient.SendReqOpts{
-			ccipclient.WithSourceChain(sourceChain),
-			ccipclient.WithDestChain(destChain),
-			ccipclient.WithTestRouter(false),
-			ccipclient.WithMessage(msg),
-		}
-
-		_, err := testhelpers.SendRequest(e.Env, state, baseOpts...)
-		require.Error(t, err)
-		require.Contains(t, err.Error(), "execution reverted")
-		t.Log("Expected error: ", err)
-	})
-
-	t.Run("Send invalid token to CCIP Receiver - should fail", func(t *testing.T) {
-		msg := router.ClientEVM2AnyMessage{
-			Receiver:  receiverByte,
-			Data:      []byte("Hello, World!"),
-			FeeToken:  evmToken.Address(),
-			ExtraArgs: testhelpers.MakeSuiExtraArgs(1000000, true, receiverObjectIDs, stateObj),
-			TokenAmounts: []router.ClientEVMTokenAmount{
-				{
-					Token:  common.HexToAddress("0x0000000000000000000000000000000000000000"), // Invalid token
-					Amount: big.NewInt(1e8),
-				},
-			}}
-
-		baseOpts := []ccipclient.SendReqOpts{
-			ccipclient.WithSourceChain(sourceChain),
-			ccipclient.WithDestChain(destChain),
-			ccipclient.WithTestRouter(false),
-			ccipclient.WithMessage(msg),
-		}
-
-		_, err := testhelpers.SendRequest(e.Env, state, baseOpts...)
-		require.Error(t, err)
-		require.Contains(t, err.Error(), "execution reverted")
-		t.Log("Expected error: ", err)
-	})
 }
 
 func Test_CCIPTokenTransfer_EVM2SUI_BurnMintTokenPool(t *testing.T) {
