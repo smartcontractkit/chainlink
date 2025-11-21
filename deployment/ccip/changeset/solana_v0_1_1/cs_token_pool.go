@@ -841,7 +841,8 @@ func CreateTokenMultisig(e cldf.Environment, cfg CreateTokenMultisigConfig) (cld
 	if err != nil {
 		return cldf.ChangesetOutput{}, err
 	}
-	newMultisig, err := createMultisig(e, tokenPoolSignerPDA, cfg.CustomerMintAuthorities, tokenProgramID)
+	e.Logger.Infow("Using tokenPoolSignerPDA as signer", "tokenPoolSignerPDA", tokenPoolSignerPDA, "tokenPoolProgramID", tokenPoolProgramID, "TokenMint", cfg.TokenMint)
+	newMultisig, err := createMultisig(e, cfg.ChainSelector, tokenPoolSignerPDA, cfg.CustomerMintAuthorities, tokenProgramID)
 	if err != nil {
 		return cldf.ChangesetOutput{}, err
 	}
@@ -860,9 +861,10 @@ func CreateTokenMultisig(e cldf.Environment, cfg CreateTokenMultisigConfig) (cld
 	}, nil
 }
 
-func createMultisig(e cldf.Environment, tokenPoolSignerPDA solana.PublicKey, customerMintAuthorities []solana.PublicKey, tokenProgramID solana.PublicKey) (solana.PublicKey, error) {
+func createMultisig(e cldf.Environment, chainSelector uint64, tokenPoolSignerPDA solana.PublicKey, customerMintAuthorities []solana.PublicKey, tokenProgramID solana.PublicKey) (solana.PublicKey, error) {
+	chain := e.BlockChains.SolanaChains()[chainSelector]
 	// spl-token create-multisig --program-id <TOKEN_PROGRAM_ID> 1 <USER_CUSTOM_MULTISIG> <TOKEN_POOL_SIGNER_PDA>
-	args := []string{"create-multisig", "--program-id", tokenProgramID.String(), "1", tokenPoolSignerPDA.String()}
+	args := []string{"create-multisig", "--program-id", tokenProgramID.String(), "--url", chain.URL, "--fee-payer", chain.KeypairPath, "1", tokenPoolSignerPDA.String()}
 	authoritiesStr := make([]string, len(customerMintAuthorities))
 	for i, auth := range customerMintAuthorities {
 		authoritiesStr[i] = auth.String()
