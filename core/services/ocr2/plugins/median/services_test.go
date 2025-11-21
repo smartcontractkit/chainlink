@@ -6,20 +6,21 @@ import (
 	"testing"
 
 	"github.com/google/uuid"
+	libocr_median "github.com/smartcontractkit/libocr/offchainreporting2/reportingplugin/median"
+	libocr "github.com/smartcontractkit/libocr/offchainreporting2plus"
+	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"gopkg.in/guregu/null.v4"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/loop"
 	commontypes "github.com/smartcontractkit/chainlink-common/pkg/types"
+
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	clnull "github.com/smartcontractkit/chainlink/v2/core/null"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/median/config"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
-	libocr_median "github.com/smartcontractkit/libocr/offchainreporting2/reportingplugin/median"
-	libocr "github.com/smartcontractkit/libocr/offchainreporting2plus"
-	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 )
 
 // mockRelayer captures the PluginArgs passed to NewPluginProvider
