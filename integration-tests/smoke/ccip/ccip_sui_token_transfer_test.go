@@ -316,20 +316,6 @@ func Test_CCIPTokenTransfer_Sui2EVM_BurnMintTokenPool_WithAllowlist(t *testing.T
 	state, err := stateview.LoadOnchainState(e.Env)
 	require.NoError(t, err)
 
-	// _, transferTokenOutput2, err := commoncs.ApplyChangesets(t, e.Env, []commoncs.ConfiguredChangeSet{
-	// 	commoncs.Configure(sui_cs.MintLinkToken{}, sui_cs.MintLinkTokenConfig{
-	// 		ChainSelector:  sourceChain,
-	// 		TokenPackageId: state.SuiChains[sourceChain].LinkTokenAddress,
-	// 		TreasuryCapId:  state.SuiChains[sourceChain].LinkTokenTreasuryCapId,
-	// 		Amount:         1500000000, // 1.5Link with 1e9
-	// 	}),
-	// })
-	// require.NoError(t, err)
-
-	// rawOutputTransferToken2 := transferTokenOutput2[0].Reports[0]
-	// outputMapTransferToken2, ok := rawOutputTransferToken2.Output.(sui_ops.OpTxResult[linkops.MintLinkTokenOutput])
-	// require.True(t, ok)
-
 	// Receiver Address
 	ccipReceiverAddress := state.Chains[destChain].Receiver.Address()
 
@@ -397,44 +383,6 @@ func Test_CCIPTokenTransfer_Sui2EVM_BurnMintTokenPool_WithAllowlist(t *testing.T
 	require.Equal(t, expectedExecutionStates, execStates)
 
 	testhelpers.WaitForTokenBalances(ctx, t, updatedEnv, expectedTokenBalances)
-
-	// suiState, err := sui_deployment.LoadOnchainStatesui(e.Env)
-	// require.NoError(t, err)
-
-	// suifeeQuoter, err := module_fee_quoter.NewFeeQuoter(suiState[sourceChain].CCIPAddress, e.Env.BlockChains.SuiChains()[sourceChain].Client)
-	// require.NoError(t, err)
-
-	// suiFeeQuoterDestChainConfig, err := suifeeQuoter.DevInspect().GetDestChainConfig(ctx, &suiBind.CallOpts{
-	// 	Signer:           e.Env.BlockChains.SuiChains()[sourceChain].Signer,
-	// 	WaitForExecution: true,
-	// }, suiBind.Object{Id: suiState[sourceChain].CCIPObjectRef}, destChain)
-	// require.NoError(t, err, "Failed to get destination chain config")
-
-	// t.Run("Send invalid token to CCIP Receiver - should fail", func(t *testing.T) {
-	// 	msg := testhelpers.SuiSendRequest{
-	// 		Receiver: common.LeftPadBytes(ccipReceiverAddress.Bytes(), 32), // left-pad 20-byte address up to 32 bytes to make it compatible with evm
-	// 		Data:     []byte("Hello, World!"),
-	// 		FeeToken: outputMap.Objects.MintedLinkTokenObjectId,
-	// 		// ExtraArgs: testhelpers.MakeBCSEVMExtraArgsV2(big.NewInt(int64(suiFeeQuoterDestChainConfig.MaxPerMsgGasLimit)), false),
-	// 		TokenAmounts: []testhelpers.SuiTokenAmount{
-	// 			{
-	// 				TokenPoolType: sui_deployment.TokenPoolTypeBurnMint,
-	// 				Token:         "0x0",
-	// 				Amount:        1e9,
-	// 			},
-	// 		}}
-
-	// 	baseOpts := []ccipclient.SendReqOpts{
-	// 		ccipclient.WithSourceChain(sourceChain),
-	// 		ccipclient.WithDestChain(destChain),
-	// 		ccipclient.WithTestRouter(false),
-	// 		ccipclient.WithMessage(msg),
-	// 	}
-
-	// 	_, err := testhelpers.SendRequest(e.Env, state, baseOpts...)
-	// 	assertSuiSourceRevertExpectedError(t, err, "failed to resolve CallArg at index 2", "failed to resolve UnresolvedObject 0x0000000000000000000000000000000000000000000000000000000000000000")
-	// 	t.Log("Expected error: ", err)
-	// })
 }
 
 func Test_CCIPTokenTransfer_Sui2EVM_BurnMintTokenPool_WithRateLimit(t *testing.T) {
@@ -446,20 +394,6 @@ func Test_CCIPTokenTransfer_Sui2EVM_BurnMintTokenPool_WithRateLimit(t *testing.T
 	state, err := stateview.LoadOnchainState(e.Env)
 	require.NoError(t, err)
 
-	// _, transferTokenOutput2, err := commoncs.ApplyChangesets(t, e.Env, []commoncs.ConfiguredChangeSet{
-	// 	commoncs.Configure(sui_cs.MintLinkToken{}, sui_cs.MintLinkTokenConfig{
-	// 		ChainSelector:  sourceChain,
-	// 		TokenPackageId: state.SuiChains[sourceChain].LinkTokenAddress,
-	// 		TreasuryCapId:  state.SuiChains[sourceChain].LinkTokenTreasuryCapId,
-	// 		Amount:         1500000000, // 1.5Link with 1e9
-	// 	}),
-	// })
-	// require.NoError(t, err)
-
-	// rawOutputTransferToken2 := transferTokenOutput2[0].Reports[0]
-	// outputMapTransferToken2, ok := rawOutputTransferToken2.Output.(sui_ops.OpTxResult[linkops.MintLinkTokenOutput])
-	// require.True(t, ok)
-
 	// Receiver Address
 	ccipReceiverAddress := state.Chains[destChain].Receiver.Address()
 
@@ -468,11 +402,11 @@ func Test_CCIPTokenTransfer_Sui2EVM_BurnMintTokenPool_WithRateLimit(t *testing.T
 		{
 			RemoteChainSelector: destChain,
 			OutboundIsEnabled:   true,
-			OutboundCapacity:    100000000,
-			OutboundRate:        1000,
+			OutboundCapacity:    10000000,
+			OutboundRate:        100,
 			InboundIsEnabled:    true,
-			InboundCapacity:     100000000,
-			InboundRate:         1000,
+			InboundCapacity:     10000000,
+			InboundRate:         100,
 		},
 	}) // SourceChain = SUI, destChain = EVM
 	require.NoError(t, err)
@@ -549,6 +483,8 @@ func Test_CCIPTokenTransfer_Sui2EVM_BurnMintTokenPool_WithRateLimit(t *testing.T
 
 	testhelpers.WaitForTokenBalances(ctx, t, updatedEnv, expectedTokenBalances)
 
+	linkTokenOutput3 := mintLinkToken(t, e.Env, sourceChain, 99999999999999)
+
 	// suiState, err := sui_deployment.LoadOnchainStatesui(e.Env)
 	// require.NoError(t, err)
 
@@ -561,31 +497,31 @@ func Test_CCIPTokenTransfer_Sui2EVM_BurnMintTokenPool_WithRateLimit(t *testing.T
 	// }, suiBind.Object{Id: suiState[sourceChain].CCIPObjectRef}, destChain)
 	// require.NoError(t, err, "Failed to get destination chain config")
 
-	// t.Run("Send token above outbound rate limit - should fail", func(t *testing.T) {
-	// 	msg := testhelpers.SuiSendRequest{
-	// 		Receiver:  common.LeftPadBytes(ccipReceiverAddress.Bytes(), 32), // left-pad 20-byte address up to 32 bytes to make it compatible with evm
-	// 		Data:      []byte("Hello, World!"),
-	// 		FeeToken:  outputMap.Objects.MintedLinkTokenObjectId,
-	// 		ExtraArgs: testhelpers.MakeBCSEVMExtraArgsV2(big.NewInt(int64(suiFeeQuoterDestChainConfig.MaxPerMsgGasLimit)), false),
-	// 		TokenAmounts: []testhelpers.SuiTokenAmount{
-	// 			{
-	// 				TokenPoolType: sui_deployment.TokenPoolTypeBurnMint,
-	// 				Token:         outputMapTransferToken2.Objects.MintedLinkTokenObjectId,
-	// 				Amount:        1500000000,
-	// 			},
-	// 		}}
+	t.Run("Send token above outbound rate limit - should fail", func(t *testing.T) {
+		msg := testhelpers.SuiSendRequest{
+			Receiver: common.LeftPadBytes(ccipReceiverAddress.Bytes(), 32), // left-pad 20-byte address up to 32 bytes to make it compatible with evm
+			Data:     []byte("Hello, World!"),
+			FeeToken: feeTokenOutput.Objects.MintedLinkTokenObjectId,
+			// ExtraArgs: testhelpers.MakeBCSEVMExtraArgsV2(big.NewInt(int64(suiFeeQuoterDestChainConfig.MaxPerMsgGasLimit)), false),
+			TokenAmounts: []testhelpers.SuiTokenAmount{
+				{
+					TokenPoolType: sui_deployment.TokenPoolTypeBurnMint,
+					Token:         linkTokenOutput3.Objects.MintedLinkTokenObjectId,
+					Amount:        99999999999999,
+				},
+			}}
 
-	// 	baseOpts := []ccipclient.SendReqOpts{
-	// 		ccipclient.WithSourceChain(sourceChain),
-	// 		ccipclient.WithDestChain(destChain),
-	// 		ccipclient.WithTestRouter(false),
-	// 		ccipclient.WithMessage(msg),
-	// 	}
+		baseOpts := []ccipclient.SendReqOpts{
+			ccipclient.WithSourceChain(sourceChain),
+			ccipclient.WithDestChain(destChain),
+			ccipclient.WithTestRouter(false),
+			ccipclient.WithMessage(msg),
+		}
 
-	// 	_, err := testhelpers.SendRequest(e.Env, state, baseOpts...)
-	// 	assertSuiSourceRevertExpectedError(t, err, "transaction failed with error", "function_name: Some(\"resolve_generic_gas_limit\") }, 18)")
-	// 	t.Log("Expected error: ", err)
-	// })
+		_, err := testhelpers.SendRequest(e.Env, state, baseOpts...)
+		assertSuiSourceRevertExpectedError(t, err, "transaction failed with error", "function_name: Some(\"resolve_generic_gas_limit\") }, 18)")
+		t.Log("Expected error: ", err)
+	})
 }
 
 func testSetupTokenTransfer(t *testing.T) (e testhelpers.DeployedEnv, sourceChain uint64, destChain uint64) {
@@ -611,17 +547,6 @@ func testSetupTokenTransfer(t *testing.T) (e testhelpers.DeployedEnv, sourceChai
 
 	_, err = e.Env.BlockChains.SuiChains()[sourceChain].Signer.GetAddress()
 	require.NoError(t, err)
-
-	// // SUI FeeToken
-	// // mint link token to use as feeToken
-	// outputMap = mintLinkToken(t, e.Env, sourceChain, 1000000000000)
-
-	// // SUI TransferToken
-	// // mint link token to use as Transfer Token
-	// outputMapTransferToken = mintLinkToken(t, e.Env, sourceChain, 1000000000)
-
-	// // mint more token
-	// outputMapTransferToken1 = mintLinkToken(t, e.Env, sourceChain, 2000000000)
 
 	return e, sourceChain, destChain
 }

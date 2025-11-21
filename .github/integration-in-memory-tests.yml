@@ -792,8 +792,7 @@ runner-test-matrix:
       - Nightly Integration CCIP Tests
     test_cmd: |
       ./scripts/free-disk-space.sh
-      echo "🚀 Starting CCIP Sui2EVM BurnMint token transfer test..."
-      go test ./smoke/ccip -run "Test_CCIPTokenTransfer_Sui2EVM_BurnMintTokenPool" -timeout 10m -test.parallel=1 -count=1 -json
+      ./scripts/run-ccip-test-isolated.sh "Test_CCIPTokenTransfer_Sui2EVM_BurnMintTokenPool" 12
     test_go_project_path: integration-tests
     sui_cli_version: mainnet-1.60.1
     install_plugins_public: true
@@ -807,8 +806,7 @@ runner-test-matrix:
       - Nightly Integration CCIP Tests
     test_cmd: |
       ./scripts/free-disk-space.sh
-      echo "🚀 Starting CCIP Sui2EVM ManagedTokenPool test..."
-      go test ./smoke/ccip -run "Test_CCIPTokenTransfer_Sui2EVM_ManagedTokenPool" -timeout 10m -test.parallel=1 -count=1 -json
+      ./scripts/run-ccip-test-isolated.sh "Test_CCIPTokenTransfer_Sui2EVM_ManagedTokenPool" 12
     test_go_project_path: integration-tests
     sui_cli_version: mainnet-1.60.1
     install_plugins_public: true
