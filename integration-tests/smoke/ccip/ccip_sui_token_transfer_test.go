@@ -114,7 +114,8 @@ func Test_CCIPTokenTransfer_Sui2EVM_ManagedTokenPool(t *testing.T) {
 	ctx := testhelpers.Context(t)
 	startBlocks, expectedSeqNums, expectedExecutionStates, expectedTokenBalances := testhelpers.TransferMultiple(ctx, t, updatedEnv, state, tcs)
 
-	err = testhelpers.ConfirmMultipleCommits(
+	err = testhelpers.ConfirmMultipleCommitsWithContext(
+		ctx,
 		t,
 		updatedEnv,
 		state,
@@ -124,7 +125,8 @@ func Test_CCIPTokenTransfer_Sui2EVM_ManagedTokenPool(t *testing.T) {
 	)
 	require.NoError(t, err)
 
-	execStates := testhelpers.ConfirmExecWithSeqNrsForAll(
+	execStates := testhelpers.ConfirmExecWithSeqNrsForAllWithContext(
+		ctx,
 		t,
 		updatedEnv,
 		state,
@@ -221,7 +223,8 @@ func Test_CCIPTokenTransfer_Sui2EVM_BurnMintTokenPool(t *testing.T) {
 	ctx := testhelpers.Context(t)
 	startBlocks, expectedSeqNums, expectedExecutionStates, expectedTokenBalances := testhelpers.TransferMultiple(ctx, t, updatedEnv, state, tcs)
 
-	err = testhelpers.ConfirmMultipleCommits(
+	err = testhelpers.ConfirmMultipleCommitsWithContext(
+		ctx,
 		t,
 		updatedEnv,
 		state,
@@ -231,7 +234,8 @@ func Test_CCIPTokenTransfer_Sui2EVM_BurnMintTokenPool(t *testing.T) {
 	)
 	require.NoError(t, err)
 
-	execStates := testhelpers.ConfirmExecWithSeqNrsForAll(
+	execStates := testhelpers.ConfirmExecWithSeqNrsForAllWithContext(
+		ctx,
 		t,
 		updatedEnv,
 		state,
@@ -371,7 +375,8 @@ func Test_CCIPTokenTransfer_Sui2EVM_BurnMintTokenPool_WithAllowlist(t *testing.T
 	ctx := testhelpers.Context(t)
 	startBlocks, expectedSeqNums, expectedExecutionStates, expectedTokenBalances := testhelpers.TransferMultiple(ctx, t, updatedEnv, state, tcs)
 
-	err = testhelpers.ConfirmMultipleCommits(
+	err = testhelpers.ConfirmMultipleCommitsWithContext(
+		ctx,
 		t,
 		updatedEnv,
 		state,
@@ -381,7 +386,8 @@ func Test_CCIPTokenTransfer_Sui2EVM_BurnMintTokenPool_WithAllowlist(t *testing.T
 	)
 	require.NoError(t, err)
 
-	execStates := testhelpers.ConfirmExecWithSeqNrsForAll(
+	execStates := testhelpers.ConfirmExecWithSeqNrsForAllWithContext(
+		ctx,
 		t,
 		updatedEnv,
 		state,
@@ -516,7 +522,8 @@ func Test_CCIPTokenTransfer_Sui2EVM_BurnMintTokenPool_WithRateLimit(t *testing.T
 	ctx := testhelpers.Context(t)
 	startBlocks, expectedSeqNums, expectedExecutionStates, expectedTokenBalances := testhelpers.TransferMultiple(ctx, t, updatedEnv, state, tcs)
 
-	err = testhelpers.ConfirmMultipleCommits(
+	err = testhelpers.ConfirmMultipleCommitsWithContext(
+		ctx,
 		t,
 		updatedEnv,
 		state,
@@ -526,7 +533,8 @@ func Test_CCIPTokenTransfer_Sui2EVM_BurnMintTokenPool_WithRateLimit(t *testing.T
 	)
 	require.NoError(t, err)
 
-	execStates := testhelpers.ConfirmExecWithSeqNrsForAll(
+	execStates := testhelpers.ConfirmExecWithSeqNrsForAllWithContext(
+		ctx,
 		t,
 		updatedEnv,
 		state,
@@ -754,7 +762,8 @@ func Test_CCIPTokenTransfer_EVM2SUI_ManagedTokenPool(t *testing.T) {
 	ctx := testhelpers.Context(t)
 	startBlocks, expectedSeqNums, expectedExecutionStates, expectedTokenBalances := testhelpers.TransferMultiple(ctx, t, e.Env, state, tcs)
 
-	err = testhelpers.ConfirmMultipleCommits(
+	err = testhelpers.ConfirmMultipleCommitsWithContext(
+		ctx,
 		t,
 		e.Env,
 		state,
@@ -764,7 +773,8 @@ func Test_CCIPTokenTransfer_EVM2SUI_ManagedTokenPool(t *testing.T) {
 	)
 	require.NoError(t, err)
 
-	execStates := testhelpers.ConfirmExecWithSeqNrsForAll(
+	execStates := testhelpers.ConfirmExecWithSeqNrsForAllWithContext(
+		ctx,
 		t,
 		e.Env,
 		state,
@@ -966,7 +976,8 @@ func Test_CCIPTokenTransfer_EVM2SUI_BurnMintTokenPool(t *testing.T) {
 	ctx := testhelpers.Context(t)
 	startBlocks, expectedSeqNums, expectedExecutionStates, expectedTokenBalances := testhelpers.TransferMultiple(ctx, t, e.Env, state, tcs)
 
-	err = testhelpers.ConfirmMultipleCommits(
+	err = testhelpers.ConfirmMultipleCommitsWithContext(
+		ctx,
 		t,
 		e.Env,
 		state,
@@ -976,7 +987,8 @@ func Test_CCIPTokenTransfer_EVM2SUI_BurnMintTokenPool(t *testing.T) {
 	)
 	require.NoError(t, err)
 
-	execStates := testhelpers.ConfirmExecWithSeqNrsForAll(
+	execStates := testhelpers.ConfirmExecWithSeqNrsForAllWithContext(
+		ctx,
 		t,
 		e.Env,
 		state,
@@ -1145,7 +1157,8 @@ func Test_CCIPPureTokenTransfer_EVM2SUI_BurnMintTokenPool(t *testing.T) {
 	ctx := testhelpers.Context(t)
 	startBlocks, expectedSeqNums, expectedExecutionStates, expectedTokenBalances := testhelpers.TransferMultiple(ctx, t, e.Env, state, tcs)
 
-	err = testhelpers.ConfirmMultipleCommits(
+	err = testhelpers.ConfirmMultipleCommitsWithContext(
+		ctx,
 		t,
 		e.Env,
 		state,
@@ -1155,7 +1168,8 @@ func Test_CCIPPureTokenTransfer_EVM2SUI_BurnMintTokenPool(t *testing.T) {
 	)
 	require.NoError(t, err)
 
-	execStates := testhelpers.ConfirmExecWithSeqNrsForAll(
+	execStates := testhelpers.ConfirmExecWithSeqNrsForAllWithContext(
+		ctx,
 		t,
 		e.Env,
 		state,
@@ -1273,7 +1287,8 @@ func Test_CCIPProgrammableTokenTransfer_EVM2SUI_BurnMintTokenPool(t *testing.T) 
 	ctx := testhelpers.Context(t)
 	startBlocks, expectedSeqNums, expectedExecutionStates, expectedTokenBalances := testhelpers.TransferMultiple(ctx, t, e.Env, state, tcs)
 
-	err = testhelpers.ConfirmMultipleCommits(
+	err = testhelpers.ConfirmMultipleCommitsWithContext(
+		ctx,
 		t,
 		e.Env,
 		state,
@@ -1283,7 +1298,8 @@ func Test_CCIPProgrammableTokenTransfer_EVM2SUI_BurnMintTokenPool(t *testing.T) 
 	)
 	require.NoError(t, err)
 
-	execStates := testhelpers.ConfirmExecWithSeqNrsForAll(
+	execStates := testhelpers.ConfirmExecWithSeqNrsForAllWithContext(
+		ctx,
 		t,
 		e.Env,
 		state,
@@ -1400,7 +1416,8 @@ func Test_CCIPZeroGasLimitTokenTransfer_EVM2SUI_BurnMintTokenPool(t *testing.T) 
 	ctx := testhelpers.Context(t)
 	startBlocks, expectedSeqNums, expectedExecutionStates, expectedTokenBalances := testhelpers.TransferMultiple(ctx, t, e.Env, state, tcs)
 
-	err = testhelpers.ConfirmMultipleCommits(
+	err = testhelpers.ConfirmMultipleCommitsWithContext(
+		ctx,
 		t,
 		e.Env,
 		state,
@@ -1410,7 +1427,8 @@ func Test_CCIPZeroGasLimitTokenTransfer_EVM2SUI_BurnMintTokenPool(t *testing.T) 
 	)
 	require.NoError(t, err)
 
-	execStates := testhelpers.ConfirmExecWithSeqNrsForAll(
+	execStates := testhelpers.ConfirmExecWithSeqNrsForAllWithContext(
+		ctx,
 		t,
 		e.Env,
 		state,

@@ -892,7 +892,7 @@ func WaitForTokenBalanceSui(
 		require.True(t, ok)
 
 		return balance.Cmp(expected) == 0
-	}, tests.WaitTimeout(t), 500*time.Millisecond)
+	}, tests.WaitTimeout(t), 2000*time.Millisecond)
 }
 
 func UpgradeContractDirect(

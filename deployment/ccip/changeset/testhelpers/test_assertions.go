@@ -416,6 +416,88 @@ func ConfirmMultipleCommits(
 	return errGrp.Wait()
 }
 
+// ConfirmMultipleCommitsWithContext waits for multiple ccipocr3.SeqNumRange to be committed by the Offramp with context support.
+// This function respects context cancellation and will terminate early if the context is cancelled.
+// Waiting is done in parallel per every sourceChain/destChain (lane) passed as argument.
+func ConfirmMultipleCommitsWithContext(
+	ctx context.Context,
+	t *testing.T,
+	env cldf.Environment,
+	state stateview.CCIPOnChainState,
+	startBlocks map[uint64]*uint64,
+	enforceSingleCommit bool,
+	expectedSeqNums map[SourceDestPair]ccipocr3.SeqNumRange,
+) error {
+	errGrp := &errgroup.Group{}
+
+	for sourceDest, seqRange := range expectedSeqNums {
+		srcChain := sourceDest.SourceChainSelector
+		destChain := sourceDest.DestChainSelector
+
+		errGrp.Go(func() error {
+			family, err := chainsel.GetSelectorFamily(destChain)
+			if err != nil {
+				return err
+			}
+			switch family {
+			case chainsel.FamilyEVM:
+				_, err := ConfirmCommitWithExpectedSeqNumRange(
+					t,
+					srcChain,
+					env.BlockChains.EVMChains()[destChain],
+					state.MustGetEVMChainState(destChain).OffRamp,
+					startBlocks[destChain],
+					seqRange,
+					enforceSingleCommit,
+				)
+				return err
+			case chainsel.FamilySolana:
+				var startSlot uint64
+				if startBlocks[destChain] != nil {
+					startSlot = *startBlocks[destChain]
+				}
+				_, err := ConfirmCommitWithExpectedSeqNumRangeSol(
+					t,
+					srcChain,
+					env.BlockChains.SolanaChains()[destChain],
+					state.SolChains[destChain].OffRamp,
+					startSlot,
+					seqRange,
+					enforceSingleCommit,
+				)
+				return err
+			case chainsel.FamilySui:
+				_, err := ConfirmCommitWithExpectedSeqNumRangeSuiWithContext(
+					ctx,
+					t,
+					srcChain,
+					env.BlockChains.SuiChains()[destChain],
+					state.SuiChains[destChain].OffRampAddress,
+					startBlocks[destChain],
+					seqRange,
+					enforceSingleCommit,
+				)
+				return err
+			case chainsel.FamilyAptos:
+				_, err := ConfirmCommitWithExpectedSeqNumRangeAptos(
+					t,
+					srcChain,
+					env.BlockChains.AptosChains()[destChain],
+					state.AptosChains[destChain].CCIPAddress,
+					startBlocks[destChain],
+					seqRange,
+					enforceSingleCommit,
+				)
+				return err
+			default:
+				return fmt.Errorf("unsupported chain family; %v", family)
+			}
+		})
+	}
+
+	return errGrp.Wait()
+}
+
 // ConfirmCommitWithExpectedSeqNumRange waits for a commit report on the destination chain with the expected sequence number range.
 // startBlock is the block number to start watching from.
 // If startBlock is nil, it will start watching from the latest block.
@@ -907,6 +989,124 @@ func ConfirmExecWithSeqNrsForAll(
 	return executionStates
 }
 
+// ConfirmExecWithSeqNrsForAllWithContext waits for all chains in the environment to execute the given expectedSeqNums with context support.
+// This function respects context cancellation and will terminate early if the context is cancelled.
+// If successful, it returns a map that maps the SourceDestPair to the expected sequence number
+// to its execution state.
+// expectedSeqNums is a map of SourceDestPair to a slice of expected sequence numbers to be executed.
+// startBlocks is a map of destination chain selector to start block number to start watching from.
+// If startBlocks is nil, it will start watching from the latest block.
+func ConfirmExecWithSeqNrsForAllWithContext(
+	ctx context.Context,
+	t *testing.T,
+	e cldf.Environment,
+	state stateview.CCIPOnChainState,
+	expectedSeqNums map[SourceDestPair][]uint64,
+	startBlocks map[uint64]*uint64,
+) (executionStates map[SourceDestPair]map[uint64]int) {
+	var (
+		wg errgroup.Group
+		mx sync.Mutex
+	)
+	executionStates = make(map[SourceDestPair]map[uint64]int)
+	for sourceDest, seqRange := range expectedSeqNums {
+		srcChain := sourceDest.SourceChainSelector
+		dstChain := sourceDest.DestChainSelector
+
+		var startBlock *uint64
+		if startBlocks != nil {
+			startBlock = startBlocks[dstChain]
+		}
+
+		wg.Go(func() error {
+			family, err := chainsel.GetSelectorFamily(dstChain)
+			if err != nil {
+				return err
+			}
+
+			var innerExecutionStates map[uint64]int
+			switch family {
+			case chainsel.FamilyEVM:
+				innerExecutionStates, err = ConfirmExecWithSeqNrs(
+					t,
+					srcChain,
+					e.BlockChains.EVMChains()[dstChain],
+					state.MustGetEVMChainState(dstChain).OffRamp,
+					startBlock,
+					seqRange,
+				)
+				if err != nil {
+					return err
+				}
+			case chainsel.FamilySolana:
+				var startSlot uint64
+				if startBlock != nil {
+					startSlot = *startBlock
+				}
+				innerExecutionStates, err = ConfirmExecWithSeqNrsSol(
+					t,
+					srcChain,
+					e.BlockChains.SolanaChains()[dstChain],
+					state.SolChains[dstChain].OffRamp,
+					startSlot,
+					seqRange,
+				)
+				if err != nil {
+					return err
+				}
+			case chainsel.FamilyAptos:
+				innerExecutionStates, err = ConfirmExecWithExpectedSeqNrsAptos(
+					t,
+					srcChain,
+					e.BlockChains.AptosChains()[dstChain],
+					state.AptosChains[dstChain].CCIPAddress,
+					startBlock,
+					seqRange,
+				)
+				if err != nil {
+					return err
+				}
+			case chainsel.FamilySui:
+				innerExecutionStates, err = ConfirmExecWithExpectedSeqNrsSuiWithContext(
+					ctx,
+					t,
+					srcChain,
+					e.BlockChains.SuiChains()[dstChain],
+					state.SuiChains[dstChain].OffRampAddress,
+					startBlock,
+					seqRange,
+				)
+				if err != nil {
+					return err
+				}
+			case chainsel.FamilyTon:
+				innerExecutionStates, err = ConfirmExecWithExpectedSeqNrsTON(
+					t,
+					srcChain,
+					e.BlockChains.TonChains()[dstChain],
+					state.TonChains[dstChain].OffRamp,
+					startBlock,
+					seqRange,
+				)
+				if err != nil {
+					return err
+				}
+			default:
+				return fmt.Errorf("unsupported chain family; %v", family)
+			}
+
+			mx.Lock()
+			executionStates[sourceDest] = innerExecutionStates
+			mx.Unlock()
+
+			return nil
+		})
+	}
+
+	require.NoError(t, wg.Wait())
+	return executionStates
+}
+
 // ConfirmExecWithSeqNrs waits for an execution state change on the destination chain with the expected sequence number.
 // startBlock is the block number to start watching from.
 // If startBlock is nil, it will start watching from the latest block.
@@ -1190,6 +1390,90 @@ func ConfirmExecWithExpectedSeqNrsSui(
 
 		case err := <-errChan:
 			require.NoError(t, err)
+		case <-timeout.C:
+			return nil, fmt.Errorf("(Sui) timed out waiting for ExecutionStateChanged on chain %d (offramp %s) from chain %d with expected sequence numbers %+v",
+				dest.Selector, offRampAddress, srcSelector, expectedSeqNrs)
+		}
+	}
+}
+
+// ConfirmExecWithExpectedSeqNrsSuiWithContext waits for execution state changes on Sui with context support.
+// This function respects context cancellation and will terminate early if the context is cancelled.
+func ConfirmExecWithExpectedSeqNrsSuiWithContext(
+	ctx context.Context,
+	t *testing.T,
+	srcSelector uint64,
+	dest cldf_sui.Chain,
+	offRampAddress string,
+	startVersion *uint64,
+	expectedSeqNrs []uint64,
+) (executionStates map[uint64]int, err error) {
+	if startVersion != nil {
+		t.Logf("[DEBUG] startVersion = %d", *startVersion)
+	} else {
+		t.Log("[DEBUG] startVersion = nil (streaming from latest)")
+	}
+
+	if len(expectedSeqNrs) == 0 {
+		t.Log("[DEBUG] expectedSeqNrs is empty")
+		return nil, errors.New("no expected sequence numbers provided")
+	}
+
+	done := make(chan any)
+	defer close(done)
+
+	t.Log("[DEBUG] Subscribing to Sui events...", offRampAddress)
+	sink, errChan := SuiEventEmitter[module_offramp.ExecutionStateChanged](t, dest.Client, offRampAddress, "offramp", "ExecutionStateChanged", done)
+
+	t.Log("[DEBUG] Event subscription established")
+
+	executionStates = make(map[uint64]int)
+	seqNrsToWatch := make(map[uint64]bool)
+	for _, seqNr := range expectedSeqNrs {
+		seqNrsToWatch[seqNr] = true
+	}
+	t.Logf("[DEBUG] Watching for sequence numbers: %+v", seqNrsToWatch)
+
+	timeout := time.NewTimer(tests.WaitTimeout(t))
+	defer timeout.Stop()
+
+	for {
+		select {
+		case <-ctx.Done():
+			return nil, fmt.Errorf("context cancelled while waiting for ExecutionStateChanged on chain %d (offramp %s) from chain %d with expected sequence numbers %+v: %w",
+				dest.Selector, offRampAddress, srcSelector, expectedSeqNrs, ctx.Err())
+		case event := <-sink:
+			t.Logf("[DEBUG] Received event: %+v", event)
+
+			if !seqNrsToWatch[event.Event.SequenceNumber] {
+				t.Logf("[DEBUG] Ignoring event with unexpected sequence number: %d", event.Event.SequenceNumber)
+				continue
+			}
+
+			if event.Event.SourceChainSelector != srcSelector {
+				t.Logf("[DEBUG] Ignoring event with unexpected source chain selector: got %d, expected %d",
+					event.Event.SourceChainSelector, srcSelector)
+				continue
+			}
+
+			t.Logf("[DEBUG] Processing event for sequence number %d with state %d",
+				event.Event.SequenceNumber, event.Event.State)
+
+			executionStates[event.Event.SequenceNumber] = int(event.Event.State)
+			delete(seqNrsToWatch, event.Event.SequenceNumber)
+
+			t.Logf("[DEBUG] Updated execution states: %+v, remaining to watch: %+v",
+				executionStates, seqNrsToWatch)
+
+			if len(seqNrsToWatch) == 0 {
+				t.Log("[DEBUG] All sequence numbers processed")
+				return executionStates, nil
+			}
+
+		case err := <-errChan:
+			t.Logf("[DEBUG] Error from event channel: %v", err)
+			return nil, fmt.Errorf("error from event subscription: %w", err)
+
 		case <-timeout.C:
 			return nil, fmt.Errorf("(Sui) timed out waiting for ExecutionStateChanged on chain %d (offramp %s) from chain %d with expected sequence numbers %+v",
 				dest.Selector, offRampAddress, srcSelector, expectedSeqNrs)
@@ -1497,6 +1781,79 @@ func ConfirmCommitWithExpectedSeqNumRangeSui(
 
 	for {
 		select {
+		case event := <-sink:
+			verified := verifyCommitReport(event.Event)
+			if verified {
+				return &event.Event, nil
+			}
+		case err := <-errChan:
+			require.NoError(t, err)
+		case <-timeout.C:
+			return nil, fmt.Errorf("(sui) timed out after waiting for commit report on chain selector %d from source selector %d expected seq nr range %s",
+				dest.Selector, srcSelector, expectedSeqNumRange.String())
+		}
+	}
+}
+
+// ConfirmCommitWithExpectedSeqNumRangeSuiWithContext waits for a commit report on Sui with context support.
+// This function respects context cancellation and will terminate early if the context is cancelled.
+func ConfirmCommitWithExpectedSeqNumRangeSuiWithContext(
+	ctx context.Context,
+	t *testing.T,
+	srcSelector uint64,
+	dest cldf_sui.Chain,
+	offRampAddress string,
+	startVersion *uint64,
+	expectedSeqNumRange ccipocr3common.SeqNumRange,
+	enforceSingleCommit bool,
+) (any, error) {
+	// Bound the offRamp
+	boundOffRamp, err := sui_ccip_offramp.NewOfframp(offRampAddress, dest.Client)
+	require.NoError(t, err)
+
+	done := make(chan any)
+	defer close(done)
+	sink, errChan := SuiEventEmitter[sui_module_offramp.CommitReportAccepted](t, dest.Client, boundOffRamp.Address(), "offramp", "CommitReportAccepted", done)
+
+	timeout := time.NewTimer(tests.WaitTimeout(t))
+	defer timeout.Stop()
+
+	seenMessages := NewCommitReportTracker(srcSelector, expectedSeqNumRange)
+
+	verifyCommitReport := func(report sui_module_offramp.CommitReportAccepted) bool {
+		processRoots := func(roots []sui_module_offramp.MerkleRoot) bool {
+			for _, mr := range roots {
+				t.Logf("(Sui) Received commit report for [%d, %d] on selector %d from source selector %d expected seq nr range %s, token prices: %v",
+					mr.MinSeqNr, mr.MaxSeqNr, dest.Selector, srcSelector, expectedSeqNumRange.String(), report.PriceUpdates.TokenPriceUpdates,
+				)
+				seenMessages.visitCommitReport(srcSelector, mr.MinSeqNr, mr.MaxSeqNr)
+
+				if mr.SourceChainSelector == srcSelector && uint64(expectedSeqNumRange.Start()) >= mr.MinSeqNr && uint64(expectedSeqNumRange.End()) <= mr.MaxSeqNr {
+					t.Logf("(Sui) All sequence numbers committed in a single report [%d, %d]",
+						expectedSeqNumRange.Start(), expectedSeqNumRange.End(),
+					)
+					return true
+				}
+
+				if !enforceSingleCommit && seenMessages.allCommited(srcSelector) {
+					t.Logf(
+						"(Sui) All sequence numbers already committed from range [%d, %d]",
+						expectedSeqNumRange.Start(), expectedSeqNumRange.End(),
+					)
+					return true
+				}
+			}
+			return false
+		}
+
+		return processRoots(report.BlessedMerkleRoots) || processRoots(report.UnblessedMerkleRoots)
+	}
+
+	for {
+		select {
+		case <-ctx.Done():
+			return nil, fmt.Errorf("context cancelled while waiting for commit report on chain selector %d from source selector %d expected seq nr range %s: %w",
+				dest.Selector, srcSelector, expectedSeqNumRange.String(), ctx.Err())
 		case event := <-sink:
 			verified := verifyCommitReport(event.Event)
 			if verified {
