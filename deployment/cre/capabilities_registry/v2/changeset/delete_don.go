@@ -45,7 +45,7 @@ func (d DeleteDONs) Apply(e cldf.Environment, cfg DeleteDONsInput) (cldf.Changes
 	var mcmsContracts *commonchangeset.MCMSWithTimelockState
 	if cfg.MCMSConfig != nil {
 		var err error
-		mcmsContracts, err = strategies.GetMCMSContracts(e, cfg.RegistryChainSel, emptyQualifier)
+		mcmsContracts, err = strategies.GetMCMSContracts(e, cfg.RegistryChainSel, *cfg.MCMSConfig)
 		if err != nil {
 			return cldf.ChangesetOutput{}, fmt.Errorf("failed to get MCMS contracts: %w", err)
 		}

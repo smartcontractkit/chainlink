@@ -46,6 +46,9 @@ func TestSetConfig(t *testing.T) {
 			ExpiryLen:                 604800,
 			MCMSConfig: &crecontracts.MCMSConfig{
 				MinDelay: 30 * time.Second,
+				TimelockQualifierPerChain: map[uint64]string{
+					fixture.selector: "",
+				},
 			},
 		})
 		t.Logf("MCMS metadata config result: err=%v, output=%v", err, output)
@@ -92,6 +95,9 @@ func TestUpdateAllowedSigners(t *testing.T) {
 			Allowed: true,
 			MCMSConfig: &crecontracts.MCMSConfig{
 				MinDelay: 30 * time.Second,
+				TimelockQualifierPerChain: map[uint64]string{
+					fixture.selector: "",
+				},
 			},
 		})
 		t.Logf("MCMS update allowed signers result: err=%v, output=%v", err, output)
@@ -133,6 +139,9 @@ func TestSetWorkflowOwnerConfig(t *testing.T) {
 			Config:                    []byte("test config data"),
 			MCMSConfig: &crecontracts.MCMSConfig{
 				MinDelay: 30 * time.Second,
+				TimelockQualifierPerChain: map[uint64]string{
+					fixture.selector: "",
+				},
 			},
 		})
 		t.Logf("MCMS set workflow owner config result: err=%v, output=%v", err, output)
@@ -176,6 +185,9 @@ func TestSetDONLimit(t *testing.T) {
 			UserDefaultLimit:          5,
 			MCMSConfig: &crecontracts.MCMSConfig{
 				MinDelay: 30 * time.Second,
+				TimelockQualifierPerChain: map[uint64]string{
+					fixture.selector: "",
+				},
 			},
 		})
 		t.Logf("MCMS set DON limit result: err=%v, output=%v", err, output)
@@ -243,6 +255,9 @@ func TestSetUserDONOverride(t *testing.T) {
 			Enabled:                   true,
 			MCMSConfig: &crecontracts.MCMSConfig{
 				MinDelay: 30 * time.Second,
+				TimelockQualifierPerChain: map[uint64]string{
+					fixture.selector: "",
+				},
 			},
 		})
 		t.Logf("MCMS set user DON override result: err=%v, output=%v", err, output)
@@ -314,6 +329,9 @@ func TestSetCapabilitiesRegistry(t *testing.T) {
 			ChainSelectorDON:          donChainSelector,
 			MCMSConfig: &crecontracts.MCMSConfig{
 				MinDelay: 30 * time.Second,
+				TimelockQualifierPerChain: map[uint64]string{
+					fixture.selector: "",
+				},
 			},
 		})
 		t.Logf("MCMS DON registry configuration result: err=%v, output=%v", err, configureOutput)

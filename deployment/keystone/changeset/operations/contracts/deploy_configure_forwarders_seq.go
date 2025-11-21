@@ -268,7 +268,7 @@ func configureForwarderOp(
 	var mcmsContracts *mcmschangesetstate.MCMSWithTimelockState
 	if input.MCMSConfig != nil {
 		var mcmsErr error
-		mcmsContracts, mcmsErr = strategies.GetMCMSContracts(*deps.Env, chain.Selector, "")
+		mcmsContracts, mcmsErr = strategies.GetMCMSContracts(*deps.Env, chain.Selector, *input.MCMSConfig)
 		if mcmsErr != nil {
 			return fmt.Errorf("failed to get MCMS contracts: %w", mcmsErr)
 		}
