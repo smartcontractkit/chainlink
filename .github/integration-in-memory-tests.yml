@@ -776,7 +776,9 @@ runner-test-matrix:
     triggers:
       - PR Integration CCIP Tests
       - Nightly Integration CCIP Tests
-    test_cmd: go test ./smoke/ccip -run "Test_CCIP_EVM2Sui_ZeroReceiver" -timeout 10m -test.parallel=1 -count=1 -json
+    test_cmd: |
+      ./scripts/free-disk-space.sh
+      ./scripts/run-ccip-test-isolated.sh "Test_CCIP_EVM2Sui_ZeroReceiver" 12
     test_go_project_path: integration-tests
     sui_cli_version: mainnet-1.60.1
     install_plugins_public: true
@@ -820,8 +822,7 @@ runner-test-matrix:
       - Nightly Integration CCIP Tests
     test_cmd: |
       ./scripts/free-disk-space.sh
-      echo "🚀 Starting CCIP EVM2Sui ManagedTokenPool test..."
-      go test ./smoke/ccip -run "Test_CCIPTokenTransfer_EVM2SUI_ManagedTokenPool" -timeout 10m -test.parallel=1 -count=1 -json
+      ./scripts/run-ccip-test-isolated.sh "Test_CCIPTokenTransfer_EVM2SUI_ManagedTokenPool" 12
     test_go_project_path: integration-tests
     sui_cli_version: mainnet-1.60.1
     install_plugins_public: true
