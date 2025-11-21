@@ -80,7 +80,7 @@ func TestIntegration_secondary_feed_transmission(t *testing.T) {
 	mockFlashbotsServer := setupFlashbotsMock(t, backend)
 	defer mockFlashbotsServer.Close()
 
-	t.Logf("Mock Flashbots server started at %s", mockFlashbotsServer.URL)
+	t.Logf("Mock Flashbots server started at %s", mockFlashbotsServer.URL())
 
 	// Setup bootstrap node
 	bootstrapCSAKey := csakey.MustNewV2XXXTestingOnly(big.NewInt(salt - 1))
@@ -318,7 +318,7 @@ func TestIntegration_secondary_feed_transmission(t *testing.T) {
 							"hint":   []any{"full"},
 							"refund": []any{"0xbc1Be4cC8790b0C99cff76100E0e6d01E32C6A2C:90"},
 						},
-						"endpoint": mockFlashbotsServer.URL, // Configure secondary endpoint to use mock server
+						"endpoint": mockFlashbotsServer.URL(), // Configure secondary endpoint to use mock server
 					},
 				},
 				PluginConfig: map[string]any{
@@ -403,7 +403,7 @@ func TestIntegration_secondary_feed_transmission(t *testing.T) {
 								t.Logf("Found primary transmission on-chain: %s", primaryTxHash)
 							} else if methodSig == "ba0cb29e" {
 								// Secondary transmission - check if it was submitted by mock server
-								if _, wasSubmittedByMock := secondaryTxSubmitted.Load(txHash); wasSubmittedByMock {
+								if mockFlashbotsServer.WasSubmitted(txHash) {
 									// This transaction was sent to Flashbots and then submitted to chain
 									if !secondaryFound {
 										secondaryFound = true
@@ -424,9 +424,7 @@ func TestIntegration_secondary_feed_transmission(t *testing.T) {
 		}
 
 		// Also check if mock server received secondary transactions
-		secondaryTxMu.Lock()
-		mockServerCount := secondaryTxCount
-		secondaryTxMu.Unlock()
+		mockServerCount := mockFlashbotsServer.TransactionCount()
 
 		if mockServerCount > 0 && !flashbotsFound {
 			// Mock server received transactions, mark as found
@@ -446,11 +444,7 @@ func TestIntegration_secondary_feed_transmission(t *testing.T) {
 		return primaryFound && secondaryAnyFound
 	}, 5*time.Minute, 1*time.Second).Should(gomega.BeTrue(),
 		"Expected both primary (to chain) and secondary transmissions (at least one secondary path: on-chain or Flashbots). Primary found: %v, Secondary on-chain: %v, Flashbots: %v, Mock server count: %d",
-		primaryFound, secondaryFound, flashbotsFound, func() int64 {
-			secondaryTxMu.Lock()
-			defer secondaryTxMu.Unlock()
-			return secondaryTxCount
-		}())
+		primaryFound, secondaryFound, flashbotsFound, mockFlashbotsServer.TransactionCount())
 
 	// Final assertions - separate checks for each secondary path
 	// These allow the test to separately succeed/fail based on txs landing on chain vs. being sent to Flashbots
@@ -475,9 +469,7 @@ func TestIntegration_secondary_feed_transmission(t *testing.T) {
 	if secondaryTxHash != "" {
 		t.Logf("✓ Secondary transaction confirmed on-chain: %s", secondaryTxHash)
 	} else {
-		secondaryTxMu.Lock()
-		count := secondaryTxCount
-		secondaryTxMu.Unlock()
+		count := mockFlashbotsServer.TransactionCount()
 		if count > 0 {
 			t.Logf("✓ Secondary transaction received by mock server and submitted to chain (count: %d)", count)
 		}
