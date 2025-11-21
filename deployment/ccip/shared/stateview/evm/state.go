@@ -48,7 +48,16 @@ import (
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_2/factory_burn_mint_erc20"
 	usdc_token_pool_v1_6_2 "github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_2/usdc_token_pool"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_3/fee_quoter"
+
+	// V1.6.4
+	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_4/erc20_lock_box"
+	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_4/siloed_usdc_token_pool"
+	usdc_token_pool_v1_6_4 "github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_4/usdc_token_pool"
+	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_4/usdc_token_pool_cctp_v2"
+	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_4/usdc_token_pool_proxy"
+
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
+
 	capabilities_registry "github.com/smartcontractkit/chainlink-evm/gethwrappers/keystone/generated/capabilities_registry_1_1_0"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/shared/generated/1_5_0/burn_mint_erc20_with_drip"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/shared/generated/initial/aggregator_v3_interface"
@@ -129,6 +138,19 @@ type CCIPChainState struct {
 	USDCTokenPools                map[semver.Version]*usdc_token_pool.USDCTokenPool
 	USDCTokenPoolsV1_6            map[semver.Version]*usdc_token_pool_v1_6_2.USDCTokenPool
 	LockReleaseTokenPools         map[shared.TokenSymbol]map[semver.Version]*lock_release_token_pool.LockReleaseTokenPool
+
+	// USDC Token Pool Contracts for CCTP V2
+	USDCTokenPoolCCTPV2 map[semver.Version]*usdc_token_pool_cctp_v2.USDCTokenPoolCCTPV2
+
+	// It's the same contract bin as the other transmitter proxies but only for using CCTP V2.
+	CCTPMessageTransmitterProxy_CCTPV2 map[semver.Version]*cctp_message_transmitter_proxy.CCTPMessageTransmitterProxy
+	USDCTokenPoolProxy                 map[semver.Version]*usdc_token_pool_proxy.USDCTokenPoolProxy
+	ERC20LockBox                       map[semver.Version]*erc20_lock_box.ERC20LockBox
+	USDCTokenPoolV1_6_4                map[semver.Version]*usdc_token_pool_v1_6_4.USDCTokenPool
+
+	// Siloed USDC Token Pool is a mapping of chain selectors since there will only ever be one siloed USDC token pool per remote chain if at all.
+	SiloedUSDCTokenPools map[uint64]*siloed_usdc_token_pool.SiloedUSDCTokenPool
+
 	// Map between token Symbol (e.g. LinkSymbol, WethSymbol)
 	// and the respective aggregator USD feed contract
 	USDFeeds map[shared.TokenSymbol]*aggregator_v3_interface.AggregatorV3Interface

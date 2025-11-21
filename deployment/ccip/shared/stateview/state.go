@@ -89,6 +89,13 @@ import (
 	factoryBurnMintERC20v1_6_2 "github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_2/factory_burn_mint_erc20"
 	usdc_token_pool_v1_6_2 "github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_2/usdc_token_pool"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_3/fee_quoter"
+
+	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_4/erc20_lock_box"
+	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_4/siloed_usdc_token_pool"
+	usdc_token_pool_v1_6_4 "github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_4/usdc_token_pool"
+	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_4/usdc_token_pool_cctp_v2"
+	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_4/usdc_token_pool_proxy"
+
 	capabilities_registry "github.com/smartcontractkit/chainlink-evm/gethwrappers/keystone/generated/capabilities_registry_1_1_0"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/shared/generated/initial/aggregator_v3_interface"
 
@@ -1484,6 +1491,59 @@ func LoadChainState(ctx context.Context, chain cldf_evm.Chain, addresses map[str
 
 			state.SignerRegistry = signerRegistry
 			state.ABIByAddress[address] = signer_registry.SignerRegistryABI
+		case cldf.NewTypeAndVersion(ccipshared.CCTPMessageTransmitterProxy, deployment.Version1_6_4).String():
+			cmtp, err := cctp_message_transmitter_proxy.NewCCTPMessageTransmitterProxy(common.HexToAddress(address), chain.Client)
+			if err != nil {
+				return state, err
+			}
+			if state.CCTPMessageTransmitterProxy_CCTPV2 == nil {
+				state.CCTPMessageTransmitterProxy_CCTPV2 = make(map[semver.Version]*cctp_message_transmitter_proxy.CCTPMessageTransmitterProxy)
+			}
+			state.CCTPMessageTransmitterProxy_CCTPV2[deployment.Version1_6_4] = cmtp
+			state.ABIByAddress[address] = cctp_message_transmitter_proxy.CCTPMessageTransmitterProxyABI
+		case cldf.NewTypeAndVersion(ccipshared.USDCTokenPool_CCTPV2, deployment.Version1_6_4).String():
+			utp, err := usdc_token_pool_cctp_v2.NewUSDCTokenPoolCCTPV2(common.HexToAddress(address), chain.Client)
+			if err != nil {
+				return state, err
+			}
+			state.USDCTokenPoolCCTPV2[deployment.Version1_6_4] = utp
+			state.ABIByAddress[address] = usdc_token_pool_cctp_v2.USDCTokenPoolCCTPV2ABI
+		case cldf.NewTypeAndVersion(ccipshared.ERC20LockBox_CCTPV2, deployment.Version1_6_4).String():
+			elb, err := erc20_lock_box.NewERC20LockBox(common.HexToAddress(address), chain.Client)
+			if err != nil {
+				return state, err
+			}
+			state.ERC20LockBox[deployment.Version1_6_4] = elb
+			state.ABIByAddress[address] = erc20_lock_box.ERC20LockBoxABI
+		case cldf.NewTypeAndVersion(ccipshared.USDCTokenPoolProxy_CCTPV2, deployment.Version1_6_4).String():
+			utp, err := usdc_token_pool_proxy.NewUSDCTokenPoolProxy(common.HexToAddress(address), chain.Client)
+			if err != nil {
+				return state, err
+			}
+			state.USDCTokenPoolProxy[deployment.Version1_6_4] = utp
+			state.ABIByAddress[address] = usdc_token_pool_proxy.USDCTokenPoolProxyABI
+		case cldf.NewTypeAndVersion(ccipshared.SiloedUSDCTokenPool, deployment.Version1_6_4).String():
+			siloedUSDC, err := siloed_usdc_token_pool.NewSiloedUSDCTokenPool(common.HexToAddress(address), chain.Client)
+			if err != nil {
+				return state, err
+			}
+			if state.SiloedUSDCTokenPools == nil {
+				state.SiloedUSDCTokenPools = make(map[uint64]*siloed_usdc_token_pool.SiloedUSDCTokenPool)
+			}
+			state.SiloedUSDCTokenPools[chain.Selector] = siloedUSDC
+			state.ABIByAddress[address] = siloed_usdc_token_pool.SiloedUSDCTokenPoolABI
+
+		// Note: The USDC Token Pool Contract in v1.6.4 is different than previous versions, so we need to load it separately.
+		case cldf.NewTypeAndVersion(ccipshared.USDCTokenPool, deployment.Version1_6_4).String():
+			utp, err := usdc_token_pool_v1_6_4.NewUSDCTokenPool(common.HexToAddress(address), chain.Client)
+			if err != nil {
+				return state, err
+			}
+			if state.USDCTokenPoolV1_6_4 == nil {
+				state.USDCTokenPoolV1_6_4 = make(map[semver.Version]*usdc_token_pool_v1_6_4.USDCTokenPool)
+			}
+			state.USDCTokenPoolV1_6_4[deployment.Version1_6_4] = utp
+			state.ABIByAddress[address] = usdc_token_pool_v1_6_4.USDCTokenPoolABI
 		default:
 			// ManyChainMultiSig 1.0.0 can have any of these labels, it can have either 1,2 or 3 of these -
 			// bypasser, proposer and canceller
