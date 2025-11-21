@@ -1,7 +1,7 @@
 // Code generated - DO NOT EDIT. And then copied from the svr-contracts repo. Will be resolved when merging that one into the core repo.
 // This file is a generated binding and any manual changes will be lost.
 
-package svr
+package svr // TODO(gg): can we just get this from somewhere instead?
 
 import (
 	"errors"
