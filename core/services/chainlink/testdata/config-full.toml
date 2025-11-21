@@ -361,6 +361,7 @@ InsecureConnection = true
 TraceSampleRatio = 0.01
 EmitterBatchProcessor = true
 EmitterExportTimeout = '1s'
+AuthHeadersTTL = '0s'
 ChipIngressEndpoint = 'example.com/chip-ingress'
 ChipIngressInsecureConnection = false
 HeartbeatInterval = '1s'

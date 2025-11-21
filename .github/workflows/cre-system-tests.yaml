@@ -195,10 +195,14 @@ jobs:
       - name: Install CTF binary
         shell: bash
         working-directory: core/scripts/cre/environment
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          CTF_TAG: "framework/v0.11.9"
         run: |
           echo "::startgroup::Install CTF binary"
           mkdir -p bin
-          curl -L https://github.com/smartcontractkit/chainlink-testing-framework/releases/download/framework%2Fv0.11.9/framework-v0.11.9-linux-amd64.tar.gz | tar -xz
+          gh release download "${CTF_TAG}" --pattern "framework-v*-linux-amd64.tar.gz" --clobber --repo smartcontractkit/chainlink-testing-framework -O ctf.tar.gz
+          tar -xzf ctf.tar.gz
           mv ctf bin/ctf
           chmod +x bin/ctf
           echo "::endgroup::"
@@ -280,7 +284,7 @@ jobs:
           aws-region: us-west-2
           aws-role-duration-seconds: "1800"
           set-git-config: "true"
-          
+
       - name: Run CRE${{ matrix.tests.cre_version }} Smoke system tests
         id: run-tests
         shell: bash

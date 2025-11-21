@@ -843,6 +843,9 @@ TraceSampleRatio = 0.01 # Default
 EmitterBatchProcessor = true # Default
 # EmitterExportTimeout sets timeout for exporting telemetry events
 EmitterExportTimeout = '1s' # Default
+# AuthHeadersTTL is the time-to-live for rotating authentication headers used with telemetry endpoints.
+# Set to 0 to use static authentication headers.
+AuthHeadersTTL = '0s' # Default
 # ChipIngressEndpoint enables sending custom messages to CHIP Ingress.
 ChipIngressEndpoint = '' # Default
 # ChipIngressInsecureConnection disables TLS when connecting to CHIP Ingress.

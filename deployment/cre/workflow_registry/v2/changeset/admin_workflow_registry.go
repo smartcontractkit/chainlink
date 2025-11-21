@@ -3,6 +3,7 @@ package changeset
 import (
 	"errors"
 	"fmt"
+	"math/big"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/smartcontractkit/mcms"
@@ -33,9 +34,6 @@ type AdminPauseWorkflowInput struct {
 
 type AdminPauseWorkflow struct{}
 
-// emptyQualifier is used when no specific workflow registry qualifier is needed
-const emptyQualifier = ""
-
 func (l AdminPauseWorkflow) VerifyPreconditions(e cldf.Environment, config AdminPauseWorkflowInput) error {
 	return nil
 }
@@ -45,7 +43,7 @@ func (l AdminPauseWorkflow) Apply(e cldf.Environment, config AdminPauseWorkflowI
 	var mcmsContracts *commonchangeset.MCMSWithTimelockState
 	if config.MCMSConfig != nil {
 		var err error
-		mcmsContracts, err = strategies.GetMCMSContracts(e, config.ChainSelector, emptyQualifier)
+		mcmsContracts, err = strategies.GetMCMSContracts(e, config.ChainSelector, *config.MCMSConfig)
 		if err != nil {
 			return cldf.ChangesetOutput{}, fmt.Errorf("failed to get MCMS contracts: %w", err)
 		}
@@ -86,7 +84,6 @@ func (l AdminPauseWorkflow) Apply(e cldf.Environment, config AdminPauseWorkflowI
 			ChainSelector: config.ChainSelector,
 			Qualifier:     config.WorkflowRegistryQualifier,
 			WorkflowID:    config.WorkflowID,
-			MCMSConfig:    config.MCMSConfig,
 		},
 	)
 	if err != nil {
@@ -136,7 +133,7 @@ func (l AdminBatchPauseWorkflows) Apply(e cldf.Environment, config AdminBatchPau
 	var mcmsContracts *commonchangeset.MCMSWithTimelockState
 	if config.MCMSConfig != nil {
 		var err error
-		mcmsContracts, err = strategies.GetMCMSContracts(e, config.ChainSelector, emptyQualifier)
+		mcmsContracts, err = strategies.GetMCMSContracts(e, config.ChainSelector, *config.MCMSConfig)
 		if err != nil {
 			return cldf.ChangesetOutput{}, fmt.Errorf("failed to get MCMS contracts: %w", err)
 		}
@@ -177,7 +174,6 @@ func (l AdminBatchPauseWorkflows) Apply(e cldf.Environment, config AdminBatchPau
 			ChainSelector: config.ChainSelector,
 			Qualifier:     config.WorkflowRegistryQualifier,
 			WorkflowIDs:   config.WorkflowIDs,
-			MCMSConfig:    config.MCMSConfig,
 		},
 	)
 	if err != nil {
@@ -203,10 +199,11 @@ func (l AdminBatchPauseWorkflows) Apply(e cldf.Environment, config AdminBatchPau
 
 // AdminPauseAllByOwnerInput pauses all workflows for a specific owner
 type AdminPauseAllByOwnerInput struct {
-	ChainSelector             uint64                   `json:"chainSelector"`
-	WorkflowRegistryQualifier string                   `json:"workflowRegistryQualifier"` // Qualifier to identify the specific workflow registry
-	Owner                     common.Address           `json:"owner"`                     // Owner whose workflows should be paused
-	MCMSConfig                *crecontracts.MCMSConfig `json:"mcmsConfig,omitempty"`      // MCMS configuration
+	ChainSelector             uint64                   `yaml:"chainSelector"`
+	WorkflowRegistryQualifier string                   `yaml:"workflowRegistryQualifier"` // Qualifier to identify the specific workflow registry
+	Owner                     common.Address           `yaml:"owner"`                     // Owner whose workflows should be paused
+	MCMSConfig                *crecontracts.MCMSConfig `yaml:"mcmsConfig,omitempty"`      // MCMS configuration
+	Limit                     *big.Int                 `yaml:"limit"`
 }
 
 type AdminPauseAllByOwner struct{}
@@ -220,7 +217,7 @@ func (l AdminPauseAllByOwner) Apply(e cldf.Environment, config AdminPauseAllByOw
 	var mcmsContracts *commonchangeset.MCMSWithTimelockState
 	if config.MCMSConfig != nil {
 		var err error
-		mcmsContracts, err = strategies.GetMCMSContracts(e, config.ChainSelector, emptyQualifier)
+		mcmsContracts, err = strategies.GetMCMSContracts(e, config.ChainSelector, *config.MCMSConfig)
 		if err != nil {
 			return cldf.ChangesetOutput{}, fmt.Errorf("failed to get MCMS contracts: %w", err)
 		}
@@ -261,7 +258,7 @@ func (l AdminPauseAllByOwner) Apply(e cldf.Environment, config AdminPauseAllByOw
 			ChainSelector: config.ChainSelector,
 			Qualifier:     config.WorkflowRegistryQualifier,
 			Owner:         config.Owner,
-			MCMSConfig:    config.MCMSConfig,
+			Limit:         config.Limit,
 		},
 	)
 	if err != nil {
@@ -287,10 +284,11 @@ func (l AdminPauseAllByOwner) Apply(e cldf.Environment, config AdminPauseAllByOw
 
 // AdminPauseAllByDONInput pauses all workflows for a specific DON family
 type AdminPauseAllByDONInput struct {
-	ChainSelector             uint64                   `json:"chainSelector"`
-	WorkflowRegistryQualifier string                   `json:"workflowRegistryQualifier"` // Qualifier to identify the specific workflow registry
-	DONFamily                 string                   `json:"donFamily"`                 // DON family whose workflows should be paused
-	MCMSConfig                *crecontracts.MCMSConfig `json:"mcmsConfig,omitempty"`      // MCMS configuration
+	ChainSelector             uint64                   `yaml:"chainSelector"`
+	WorkflowRegistryQualifier string                   `yaml:"workflowRegistryQualifier"` // Qualifier to identify the specific workflow registry
+	DONFamily                 string                   `yaml:"donFamily"`                 // DON family whose workflows should be paused
+	Limit                     *big.Int                 `yaml:"limit"`
+	MCMSConfig                *crecontracts.MCMSConfig `yaml:"mcmsConfig,omitempty"` // MCMS configuration
 }
 
 type AdminPauseAllByDON struct{}
@@ -304,7 +302,7 @@ func (l AdminPauseAllByDON) Apply(e cldf.Environment, config AdminPauseAllByDONI
 	var mcmsContracts *commonchangeset.MCMSWithTimelockState
 	if config.MCMSConfig != nil {
 		var err error
-		mcmsContracts, err = strategies.GetMCMSContracts(e, config.ChainSelector, emptyQualifier)
+		mcmsContracts, err = strategies.GetMCMSContracts(e, config.ChainSelector, *config.MCMSConfig)
 		if err != nil {
 			return cldf.ChangesetOutput{}, fmt.Errorf("failed to get MCMS contracts: %w", err)
 		}
@@ -345,7 +343,7 @@ func (l AdminPauseAllByDON) Apply(e cldf.Environment, config AdminPauseAllByDONI
 			ChainSelector: config.ChainSelector,
 			Qualifier:     config.WorkflowRegistryQualifier,
 			DONFamily:     config.DONFamily,
-			MCMSConfig:    config.MCMSConfig,
+			Limit:         config.Limit,
 		},
 	)
 	if err != nil {

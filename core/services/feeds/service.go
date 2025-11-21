@@ -25,12 +25,15 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/core"
 	pb "github.com/smartcontractkit/chainlink-protos/orchestrator/feedsmanager"
+	"github.com/smartcontractkit/chainlink/v2/core/services/cresettings"
 
 	"github.com/smartcontractkit/chainlink-evm/pkg/chains/legacyevm"
 	"github.com/smartcontractkit/chainlink-evm/pkg/types"
 	"github.com/smartcontractkit/chainlink-evm/pkg/utils/big"
 	ccip "github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/validate"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
+	"github.com/smartcontractkit/chainlink/v2/core/services/ccv/ccvcommitteeverifier"
+	"github.com/smartcontractkit/chainlink/v2/core/services/ccv/ccvexecutor"
 	"github.com/smartcontractkit/chainlink/v2/core/services/fluxmonitorv2"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
@@ -1068,6 +1071,9 @@ func (s *service) ApproveSpec(ctx context.Context, id int64, force bool) error {
 				if txerr != nil && !errors.Is(txerr, sql.ErrNoRows) {
 					return fmt.Errorf("failed while checking for existing stream job: %w", txerr)
 				}
+			case job.CRESettings:
+				// Only possible to match CRE Setting by external job id
+				// no-op
 			default:
 				return errors.Errorf("unsupported job type when approving job proposal specs: %s", j.Type)
 			}
@@ -1470,12 +1476,18 @@ func (s *service) generateJob(ctx context.Context, spec string) (*job.Job, error
 		js, err = workflows.ValidatedWorkflowJobSpec(ctx, spec)
 	case job.CCIP:
 		js, err = ccip.ValidatedCCIPSpec(spec)
+	case job.CCVCommitteeVerifier:
+		js, err = ccvcommitteeverifier.ValidatedCCVCommitteeVerifierSpec(spec)
+	case job.CCVExecutor:
+		js, err = ccvexecutor.ValidatedCCVExecutorSpec(spec)
 	case job.Stream:
 		js, err = streams.ValidatedStreamSpec(spec)
 	case job.Gateway:
 		js, err = gateway.ValidatedGatewaySpec(spec)
 	case job.StandardCapabilities:
 		js, err = standardcapabilities.ValidatedStandardCapabilitiesSpec(spec)
+	case job.CRESettings:
+		js, err = cresettings.ValidatedCRESettingsSpec(spec)
 	default:
 		return nil, errors.Errorf("unknown job type: %s", jobType)
 	}

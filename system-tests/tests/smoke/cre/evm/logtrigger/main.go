@@ -9,8 +9,6 @@ import (
 	"strings"
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
-	"github.com/ethereum/go-ethereum/common"
-	sdkpb "github.com/smartcontractkit/chainlink-protos/cre/go/sdk"
 	"github.com/smartcontractkit/cre-sdk-go/capabilities/blockchain/evm"
 	"github.com/smartcontractkit/cre-sdk-go/cre"
 	"github.com/smartcontractkit/cre-sdk-go/cre/wasm"
@@ -104,30 +102,7 @@ func onTrigger(cfg logtrigger.Config, runtime sdk.Runtime, outputs *evm.Log) (st
 		return "", fmt.Errorf("OnTrigger error decoding log data: %w", err)
 	}
 	runtime.Logger().Info(fmt.Sprintf("OnTrigger decoded message: %s", decodedMessageString))
-	client := evm.Client{ChainSelector: cfg.ChainSelector}
-	txHash := sendTx(t, runtime, cfg, client, decodedMessageString)
-	runtime.Logger().Info("Successfully sent transaction", "hash", common.Hash(txHash).String())
 	return "success", nil
-}
-
-func sendTx(t *T, runtime sdk.Runtime, cfg logtrigger.Config, client evm.Client, msg string) []byte {
-	// NOTE: This is not a right way to send a transaction. Msg must be properly encoded to trigger a proper receiver contract call.
-	// In this case we just need to see transaction on chain, so it's sufficient.
-	report, err := runtime.GenerateReport(&sdkpb.ReportRequest{
-		EncodedPayload: []byte(msg),
-		EncoderName:    "evm",
-		SigningAlgo:    "ecdsa",
-		HashingAlgo:    "keccak256",
-	}).Await()
-	require.NoError(t, err, "failed to generate report")
-	reportReply, err := client.WriteReport(runtime, &evm.WriteCreReportRequest{
-		Receiver:  common.HexToAddress(cfg.Addresses[0]).Bytes(),
-		Report:    report,
-		GasConfig: &evm.GasConfig{GasLimit: 500_000},
-	}).Await()
-	require.NoError(t, err, "failed to write report")
-	require.NotNil(t, reportReply)
-	return reportReply.TxHash
 }
 
 func printDecodedData(t *T, runtime sdk.Runtime, eventABI string, eventName string, data []byte) (string, error) {

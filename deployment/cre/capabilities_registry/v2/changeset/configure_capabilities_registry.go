@@ -56,7 +56,7 @@ func (l ConfigureCapabilitiesRegistry) Apply(e cldf.Environment, config Configur
 	var mcmsContracts *commonchangeset.MCMSWithTimelockState
 	if config.MCMSConfig != nil {
 		var err error
-		mcmsContracts, err = strategies.GetMCMSContracts(e, config.ChainSelector, config.Qualifier)
+		mcmsContracts, err = strategies.GetMCMSContracts(e, config.ChainSelector, *config.MCMSConfig)
 		if err != nil {
 			return cldf.ChangesetOutput{}, fmt.Errorf("failed to get MCMS contracts: %w", err)
 		}
@@ -67,9 +67,9 @@ func (l ConfigureCapabilitiesRegistry) Apply(e cldf.Environment, config Configur
 		nops[i] = nop.ToWrapper()
 	}
 
-	capabilities := make([]capabilities_registry_v2.CapabilitiesRegistryCapability, len(config.Capabilities))
-	for i, cap := range config.Capabilities {
-		c, err := cap.ToWrapper()
+	capabilities := make([]contracts.RegisterableCapability, len(config.Capabilities))
+	for i, cp := range config.Capabilities {
+		c, err := cp.ToWrapper()
 		if err != nil {
 			return cldf.ChangesetOutput{}, fmt.Errorf("failed to convert capability %d: %w", i, err)
 		}

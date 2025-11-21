@@ -6,6 +6,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
+
 	"github.com/smartcontractkit/chainlink/deployment/common/changeset/state"
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 
@@ -44,6 +45,21 @@ type Ownable interface {
 	Owner(opts *bind.CallOpts) (common.Address, error)
 }
 
+func isOwnedByMCMSV2[T Ownable](contract T, store datastore.AddressRefStore, chain cldf_evm.Chain) (bool, error) {
+	var timelockTV = cldf.NewTypeAndVersion(types.RBACTimelock, deployment.Version1_0_0)
+
+	r, err := getOwnerReference(contract, store, chain)
+	if err != nil {
+		return false, fmt.Errorf("failed to get owner reference: %w", err)
+	}
+
+	if r != nil && cldf.ContractType(r.Type) == timelockTV.Type && r.Version.String() == timelockTV.Version.String() {
+		return true, nil
+	}
+
+	return false, nil
+}
+
 // OwnedContract represents a contract and its owned MCMS contracts.
 type OwnedContract[T Ownable] struct {
 	// The MCMS contracts that the contract might own
@@ -54,40 +70,56 @@ type OwnedContract[T Ownable] struct {
 
 // NewOwnable creates an OwnedContract instance.
 // It checks if the contract is owned by a timelock contract and loads the MCMS state if necessary.
-func NewOwnableV2[T Ownable](contract T, ab datastore.AddressRefStore, chain cldf_evm.Chain) (*OwnedContract[T], error) {
-	var timelockTV = cldf.NewTypeAndVersion(types.RBACTimelock, deployment.Version1_0_0)
-
-	ownerTV, err := GetOwnerTypeAndVersionV2[T](contract, ab, chain)
+func NewOwnableV2[T Ownable](contract T, store datastore.AddressRefStore, chain cldf_evm.Chain) (*OwnedContract[T], error) {
+	isOwnedByMCMSV2, err := isOwnedByMCMSV2[T](contract, store, chain)
 	if err != nil {
-		return nil, fmt.Errorf("failed to get owner type and version: %w", err)
+		return nil, fmt.Errorf("failed to check if contract is owned by MCMS: %w", err)
 	}
-
-	// Check if the owner is a timelock contract (owned by MCMS)
-	// If the owner is not in the address book (ownerTV = nil and err = nil), we assume it's not owned by MCMS
-	if ownerTV != nil && ownerTV.Type == timelockTV.Type && ownerTV.Version.String() == timelockTV.Version.String() {
-		addressesMap := matchLabels(ab, *ownerTV, chain.Selector)
-		stateMCMS, mcmsErr := state.MaybeLoadMCMSWithTimelockChainState(chain, addressesMap)
-		if mcmsErr != nil {
-			return nil, fmt.Errorf("failed to load MCMS state: %w", mcmsErr)
-		}
-
+	if !isOwnedByMCMSV2 {
 		return &OwnedContract[T]{
-			McmsContracts: stateMCMS,
+			McmsContracts: nil,
 			Contract:      contract,
 		}, nil
 	}
+	// find all the addresses by the chain and qualifier that match the timelock
+	// make sure they constitute a valid MCMS with timelock
+	r, err := getOwnerReference(contract, store, chain)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get owner reference: %w", err)
+	}
+	// in the latest versions, the qualifier should be the same for all the mcms contracts
+	// which enables multiple MCMS deployments on a single chain
+	stateMCMS, err := state.GetMCMSWithTimelockState(store, chain, r.Qualifier)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get MCMS with timelock state: %w", err)
+	}
+
+	if err := stateMCMS.Validate(); err != nil {
+		// older versions had adhoc qualifiers, so we have to try labels sets
+		// TODO CRE-1360: remove this after we complete migration to consistent qualifiers
+		m := matchLabels(store, *r, chain.Selector)
+		var err2 error
+		stateMCMS, err2 = state.MaybeLoadMCMSWithTimelockChainState(chain, m)
+		if err2 != nil {
+			return nil, fmt.Errorf("failed to get MCMS with timelock state by labels: %w", err2)
+		}
+		err2 = stateMCMS.Validate()
+		if err2 != nil {
+			return nil, fmt.Errorf("failed to validate MCMS with timelock state by labels: %w", err2)
+		}
+	}
 
 	return &OwnedContract[T]{
-		McmsContracts: nil,
+		McmsContracts: stateMCMS,
 		Contract:      contract,
 	}, nil
 }
 
-func matchLabels(ab datastore.AddressRefStore, tv cldf.TypeAndVersion, chainSelector uint64) map[string]cldf.TypeAndVersion {
+func matchLabels(ab datastore.AddressRefStore, ref datastore.AddressRef, chainSelector uint64) map[string]cldf.TypeAndVersion {
 	addresses := ab.Filter(datastore.AddressRefByChainSelector(chainSelector))
 	addressesMap := make(map[string]cldf.TypeAndVersion)
 	for _, addr := range addresses {
-		if !tv.Labels.Equal(cldf.NewLabelSet(addr.Labels.List()...)) {
+		if !ref.Labels.Equal(addr.Labels) {
 			continue
 		}
 		addressesMap[addr.Address] = cldf.TypeAndVersion{
@@ -126,6 +158,24 @@ func GetOwnerTypeAndVersionV2[T Ownable](contract T, ab datastore.AddressRefStor
 	return nil, nil
 }
 
+// getOwnerReference retrieves the owner reference of a contract using the datastore.
+// If the owner is not found, it returns nil without an error.
+func getOwnerReference[T Ownable](contract T, store datastore.AddressRefStore, chain cldf_evm.Chain) (*datastore.AddressRef, error) {
+	// Get the contract owner
+	owner, err := contract.Owner(nil)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get contract owner: %w", err)
+	}
+
+	// Look for owner in address book
+	addresses := store.Filter(datastore.AddressRefByChainSelector(chain.Selector), datastore.AddressRefByAddress(owner.Hex()))
+	if len(addresses) == 1 {
+		return &addresses[0], nil
+	}
+	// If the owner is not found, then we assume it's non-MCMS so return nil
+	return nil, nil
+}
+
 // GetOwnableContractV2 retrieves a contract instance of type T from the datastore.
 // If `targetAddr` is provided, it will look for that specific address.
 // If not, it will default to looking one contract of type T, and if it doesn't find exactly one, it will error.
@@ -142,17 +192,9 @@ func GetOwnableContractV2[T Ownable](addrs datastore.AddressRefStore, chain cldf
 		return nil, fmt.Errorf("unsupported contract type %T", *new(T))
 	}
 
-	addresses := addrs.Filter(datastore.AddressRefByChainSelector(chain.Selector))
-
-	var foundAddr bool
-	for _, a := range addresses {
-		if targetAddr == a.Address {
-			foundAddr = true
-			break
-		}
-	}
-	if !foundAddr {
-		return nil, fmt.Errorf("address %s not found in address book", targetAddr)
+	addresses := addrs.Filter(datastore.AddressRefByChainSelector(chain.Selector), datastore.AddressRefByAddress(targetAddr))
+	if len(addresses) != 1 {
+		return nil, fmt.Errorf("expected exactly one address for contract at %s on chain %d, found %d", targetAddr, chain.Selector, len(addresses))
 	}
 
 	return createContractInstance[T](targetAddr, chain)
@@ -193,25 +235,23 @@ func createContractInstance[T Ownable](addr string, chain cldf_evm.Chain) (*T, e
 	return &instance, nil
 }
 
-func GetOwnedContractV2[T Ownable](addrs datastore.AddressRefStore, chain cldf_evm.Chain, addr string) (*OwnedContract[T], error) {
-	addresses := addrs.Filter(datastore.AddressRefByChainSelector(chain.Selector))
+// GetOwnedContractV2 retrieves an OwnedContract instance of type T from the datastore for a specific address.
+func GetOwnedContractV2[T Ownable](store datastore.AddressRefStore, chain cldf_evm.Chain, addr string) (*OwnedContract[T], error) {
+	addresses := store.Filter(datastore.AddressRefByChainSelector(chain.Selector), datastore.AddressRefByAddress(addr))
 
-	var foundAddr bool
-	for _, a := range addresses {
-		if addr == a.Address {
-			foundAddr = true
-			break
-		}
+	if len(addresses) == 0 {
+		return nil, fmt.Errorf("address %s not found in address ref store for chain %d", addr, chain.Selector)
 	}
-	if !foundAddr {
-		return nil, fmt.Errorf("address %s not found in datastore", addr)
+	// should not happen since address is unique
+	if len(addresses) > 1 {
+		return nil, fmt.Errorf("multiple addresses found for %s in address ref store for chain %d", addr, chain.Selector)
 	}
-	contract, err := GetOwnableContractV2[T](addrs, chain, addr)
+	contract, err := GetOwnableContractV2[T](store, chain, addr)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get contract at %s: %w", addr, err)
 	}
 
-	ownedContract, err := NewOwnableV2(*contract, addrs, chain)
+	ownedContract, err := NewOwnableV2(*contract, store, chain)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create owned contract for %s: %w", addr, err)
 	}

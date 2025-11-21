@@ -112,7 +112,7 @@ func OnboardTokenPoolsForSelfServe(e cldf.Environment, cfg OnboardTokenPoolsForS
 			tokenInstructions = append(tokenInstructions, initializeTokenPoolIx)
 		}
 		// Propose new owner of the token pool
-		transferTokenPoolOwnershipIx, err := generateTransferTokenPoolOwnershipIx(registerTokenConfig, currentTokenPoolSolanaState)
+		transferTokenPoolOwnershipIx, err := generateTransferTokenPoolOwnershipIx(e, registerTokenConfig, currentTokenPoolSolanaState)
 		if err != nil {
 			return cldf.ChangesetOutput{}, err
 		}
@@ -203,6 +203,10 @@ func generateProposeTokenAdminRegistryAdministratorIx(e cldf.Environment, regist
 		}
 		return solana.NewInstruction(routerState.routerProgramID, tempIx.Accounts(), ixData), nil
 	} else {
+		if !tokenAdminRegistryAccount.Administrator.IsZero() {
+			e.Logger.Infow("Skipping Override Pending Administrator as there is already an administrator")
+			return nil, nil
+		}
 		e.Logger.Infow("Running NewCcipAdminOverridePendingAdministratorInstruction")
 		// Use this if the proposed token admin registry admin set was incorrect
 		overridePendingAdministratorIx, err := solRouter.NewCcipAdminOverridePendingAdministratorInstruction(
@@ -263,7 +267,8 @@ func generateInitializeCLLTokenPoolIx(e cldf.Environment, config OnboardTokenPoo
 	}
 }
 
-func generateTransferTokenPoolOwnershipIx(config OnboardTokenPoolConfig, state tokenPoolSolanaState) (solana.Instruction, error) {
+func generateTransferTokenPoolOwnershipIx(e cldf.Environment, config OnboardTokenPoolConfig, state tokenPoolSolanaState) (solana.Instruction, error) {
+	e.Logger.Infow("Running NewTransferOwnershipInstruction")
 	// TODO: Choose signer according to the Program State
 	switch config.PoolType {
 	case shared.BurnMintTokenPool:

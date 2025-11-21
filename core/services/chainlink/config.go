@@ -425,6 +425,10 @@ func (s *Secrets) SetFrom(f *Secrets) (err error) {
 		err = errors.Join(err, commonconfig.NamedMultiErrorList(err2, "CRE"))
 	}
 
+	if err2 := s.CCV.SetFrom(&f.CCV); err2 != nil {
+		err = errors.Join(err, commonconfig.NamedMultiErrorList(err2, "CCV"))
+	}
+
 	_, err = commonconfig.MultiErrorList(err)
 
 	return err

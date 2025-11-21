@@ -71,7 +71,7 @@ func (m *MCMSTransaction) BuildProposal(operations []mcmstypes.BatchOperation) (
 		m.ChainSel: inspector,
 	}
 
-	proposal, err := proposalutils.BuildProposalFromBatchesV2(
+	return proposalutils.BuildProposalFromBatchesV2(
 		m.Env,
 		timelocksPerChain,
 		proposerMCMSes,
@@ -80,9 +80,4 @@ func (m *MCMSTransaction) BuildProposal(operations []mcmstypes.BatchOperation) (
 		m.Description,
 		*m.Config,
 	)
-	if err != nil {
-		return nil, err
-	}
-
-	return proposal, nil
 }
