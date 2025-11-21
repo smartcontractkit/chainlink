@@ -28,6 +28,8 @@ type mockLogPoller struct {
 	latestBlock     logpoller.Block
 	latestBlockErr  error
 	filteredLogs    []logpoller.Log
+	adderLogs       []logpoller.Log
+	ownerLogs       []logpoller.Log
 	filteredLogsErr error
 
 	unregisteredFilterNames []string
@@ -40,6 +42,19 @@ func (m *mockLogPoller) LatestBlock(ctx context.Context) (logpoller.Block, error
 	return m.latestBlock, m.latestBlockErr
 }
 func (m *mockLogPoller) FilteredLogs(ctx context.Context, filter []query.Expression, limitAndSort query.LimitAndSort, queryName string) ([]logpoller.Log, error) {
+	// Return different logs based on query name to simulate separate adder/owner queries
+	if queryName == "ChannelDefinitionCachePoller - NewAdderChannelDefinition" {
+		if len(m.adderLogs) > 0 {
+			return m.adderLogs, m.filteredLogsErr
+		}
+		return m.filteredLogs, m.filteredLogsErr
+	}
+	if queryName == "ChannelDefinitionCachePoller - NewOwnerChannelDefinition" {
+		if len(m.ownerLogs) > 0 {
+			return m.ownerLogs, m.filteredLogsErr
+		}
+		return m.filteredLogs, m.filteredLogsErr
+	}
 	return m.filteredLogs, m.filteredLogsErr
 }
 func (m *mockLogPoller) UnregisterFilter(ctx context.Context, name string) error {
@@ -165,27 +180,91 @@ func Test_ChannelDefinitionCache(t *testing.T) {
 
 	t.Run("Definitions", func(t *testing.T) {
 		// NOTE: this is covered more thoroughly in the integration tests
-		dfns := llotypes.ChannelDefinitions(map[llotypes.ChannelID]llotypes.ChannelDefinition{
+		prev := llotypes.ChannelDefinitions(map[llotypes.ChannelID]llotypes.ChannelDefinition{
 			1: {
 				ReportFormat: llotypes.ReportFormat(43),
 				Streams:      []llotypes.Stream{{StreamID: 1, Aggregator: llotypes.AggregatorMedian}, {StreamID: 2, Aggregator: llotypes.AggregatorMode}, {StreamID: 3, Aggregator: llotypes.AggregatorQuote}},
 				Opts:         llotypes.ChannelOpts{1, 2, 3},
+				Source:       SourceOwner,
 			},
 		})
 
-		cdc := &channelDefinitionCache{definitions: dfns}
+		// Test that Definitions() returns prev when sourceDefinitions is empty
+		cdc := &channelDefinitionCache{
+			lggr:              logger.TestSugared(t),
+			sourceDefinitions: make(map[uint32]sourceDefinition),
+			orm:               &mockCDCORM{}, // Required for persist() call in Definitions()
+		}
 
-		require.Equal(t, dfns, cdc.Definitions())
+		result := cdc.Definitions(prev)
+		require.Equal(t, prev, result)
+
+		// Test merging from sourceDefinitions
+		adderID := uint32(100)
+		sourceDefs := llotypes.ChannelDefinitions{
+			2: {
+				ReportFormat: llotypes.ReportFormatJSON,
+				Streams:      []llotypes.Stream{{StreamID: 2, Aggregator: llotypes.AggregatorMedian}},
+				Source:       adderID,
+			},
+		}
+		cdc.sourceDefinitions[adderID] = sourceDefinition{
+			trigger: fetchTrigger{
+				source:   adderID,
+				blockNum: 1000,
+			},
+			definitions: sourceDefs,
+		}
+
+		result = cdc.Definitions(prev)
+		// Should contain both prev channel 1 and adder channel 2
+		require.Contains(t, result, llotypes.ChannelID(1))
+		require.Contains(t, result, llotypes.ChannelID(2))
+		require.Equal(t, SourceOwner, result[1].Source)
+		require.Equal(t, adderID, result[2].Source)
+
+		// Test tombstone removal
+		tombstoneDefs := llotypes.ChannelDefinitions{
+			1: {
+				ReportFormat: llotypes.ReportFormat(43),
+				Streams:      []llotypes.Stream{{StreamID: 1, Aggregator: llotypes.AggregatorMedian}, {StreamID: 2, Aggregator: llotypes.AggregatorMode}, {StreamID: 3, Aggregator: llotypes.AggregatorQuote}},
+				Opts:         llotypes.ChannelOpts{1, 2, 3},
+				Source:       SourceOwner,
+				Tombstone:    false,
+			},
+			3: {
+				ReportFormat: llotypes.ReportFormatJSON,
+				Streams:      []llotypes.Stream{{StreamID: 3, Aggregator: llotypes.AggregatorMedian}},
+				Source:       SourceOwner,
+				Tombstone:    true,
+			},
+		}
+		cdc.sourceDefinitions[SourceOwner] = sourceDefinition{
+			trigger: fetchTrigger{
+				source:   SourceOwner,
+				blockNum: 2000,
+			},
+			definitions: tombstoneDefs,
+		}
+
+		result = cdc.Definitions(prev)
+		// Tombstoned channel should be kept in definitions with Tombstone: true
+		require.Contains(t, result, llotypes.ChannelID(3))
+		require.True(t, result[3].Tombstone, "channel 3 should be tombstoned")
+		// Channels 1 and 2 should still be present
+		require.Contains(t, result, llotypes.ChannelID(1))
+		require.Contains(t, result, llotypes.ChannelID(2))
 	})
 
 	t.Run("readLogs", func(t *testing.T) {
 		lp := &mockLogPoller{latestBlockErr: sql.ErrNoRows}
 		fetchTriggerCh := make(chan fetchTrigger, 100)
 		cdc := &channelDefinitionCache{
-			donID:          donID,
-			lp:             lp,
-			lggr:           logger.TestSugared(t),
-			fetchTriggerCh: fetchTriggerCh,
+			donID:             donID,
+			lp:                lp,
+			lggr:              logger.TestSugared(t),
+			fetchTriggerCh:    fetchTriggerCh,
+			sourceDefinitions: make(map[uint32]sourceDefinition),
 		}
 
 		t.Run("skips if logpoller has no blocks", func(t *testing.T) {
@@ -220,7 +299,9 @@ func Test_ChannelDefinitionCache(t *testing.T) {
 		t.Run("ignores logs with different topic", func(t *testing.T) {
 			ctx := t.Context()
 			lp.filteredLogsErr = nil
-			lp.filteredLogs = []logpoller.Log{{EventSig: common.Hash{1, 2, 3, 4}}}
+			// Set logs with different event signature (not NewChannelDefinition or ChannelDefinitionAdded)
+			lp.ownerLogs = []logpoller.Log{{EventSig: common.Hash{1, 2, 3, 4}}}
+			lp.adderLogs = []logpoller.Log{}
 
 			err := cdc.readLogs(ctx)
 			require.NoError(t, err)
@@ -234,7 +315,9 @@ func Test_ChannelDefinitionCache(t *testing.T) {
 			lp.latestBlock = logpoller.Block{BlockNumber: 2000}
 			lp.latestBlockErr = nil
 			lp.filteredLogsErr = nil
-			lp.filteredLogs = []logpoller.Log{{EventSig: NewChannelDefinition}}
+			// Set malformed owner log (has correct event sig but missing data)
+			lp.ownerLogs = []logpoller.Log{{EventSig: NewChannelDefinition}}
+			lp.adderLogs = []logpoller.Log{}
 
 			err := cdc.readLogs(ctx)
 			require.NoError(t, err, "should not return error for malformed log, should log warning and continue")
@@ -246,7 +329,7 @@ func Test_ChannelDefinitionCache(t *testing.T) {
 				// Expected - no trigger
 			}
 		})
-		t.Run("sets definitions and sends on channel if FilteredLogs returns new event with a later version", func(t *testing.T) {
+		t.Run("sends trigger on channel if FilteredLogs returns new event with a later version", func(t *testing.T) {
 			ctx := t.Context()
 			// Drain any existing triggers
 			drainChannel(fetchTriggerCh)
@@ -255,7 +338,10 @@ func Test_ChannelDefinitionCache(t *testing.T) {
 			lp.latestBlock = logpoller.Block{BlockNumber: 2000}
 			lp.latestBlockErr = nil
 			lp.filteredLogsErr = nil
-			lp.filteredLogs = []logpoller.Log{makeLog(t, donID, uint32(43), "http://example.com/xxx.json", [32]byte{1, 2, 3, 4})}
+			// Set owner logs
+			lp.ownerLogs = []logpoller.Log{makeLog(t, donID, uint32(43), "http://example.com/xxx.json", [32]byte{1, 2, 3, 4})}
+			// Set empty adder logs
+			lp.adderLogs = []logpoller.Log{}
 
 			err := cdc.readLogs(ctx)
 			require.NoError(t, err)
@@ -279,17 +365,19 @@ func Test_ChannelDefinitionCache(t *testing.T) {
 			cdc.initialBlockNum = 0
 			lp.latestBlock = logpoller.Block{BlockNumber: 2000}
 			lp.filteredLogsErr = nil
-			lp.filteredLogs = []logpoller.Log{
+			// Set owner logs (readLogs calls FilteredLogs for owner logs)
+			lp.ownerLogs = []logpoller.Log{
 				makeLog(t, donID, uint32(42), "http://example.com/xxx.json", [32]byte{1, 2, 3, 4}),
 				makeLog(t, donID, uint32(43), "http://example.com/xxx.json", [32]byte{1, 2, 3, 4}),
 			}
+			// Set empty adder logs
+			lp.adderLogs = []logpoller.Log{}
 
 			err := cdc.readLogs(ctx)
 			require.NoError(t, err)
-			// Should receive triggers for both logs (they get processed twice because readLogs calls FilteredLogs twice)
-			// The logs are sorted by block number, so we get them in order
+			// Should receive triggers for both owner logs
 			triggers := collectTriggers(fetchTriggerCh, 4)
-			require.GreaterOrEqual(t, len(triggers), 2, "expected at least 2 triggers")
+			require.Len(t, triggers, 2, "expected 2 triggers")
 			// Find the trigger with version 43 (latest)
 			var found43 bool
 			for _, trigger := range triggers {
@@ -308,20 +396,22 @@ func Test_ChannelDefinitionCache(t *testing.T) {
 			cdc.initialBlockNum = 0
 			lp.latestBlock = logpoller.Block{BlockNumber: 2000}
 			lp.filteredLogsErr = nil
-			lp.filteredLogs = []logpoller.Log{
+			// Set owner logs (readLogs calls FilteredLogs for owner logs)
+			lp.ownerLogs = []logpoller.Log{
 				makeLog(t, donID, uint32(42), "http://example.com/xxx.json", [32]byte{1, 2, 3, 4}),
 				makeLog(t, donID, uint32(45), "http://example.com/xxx2.json", [32]byte{2, 2, 3, 4}),
 				makeLog(t, donID, uint32(44), "http://example.com/xxx3.json", [32]byte{3, 2, 3, 4}),
 				makeLog(t, donID, uint32(43), "http://example.com/xxx4.json", [32]byte{4, 2, 3, 4}),
 			}
+			// Set empty adder logs
+			lp.adderLogs = []logpoller.Log{}
 
 			err := cdc.readLogs(ctx)
 			require.NoError(t, err)
 
-			// Check that fetch triggers were sent for all logs
-			// Note: readLogs calls FilteredLogs twice (once for owner, once for adder), so we get duplicates
+			// Check that fetch triggers were sent for all owner logs
 			triggers := collectTriggers(fetchTriggerCh, 8)
-			require.GreaterOrEqual(t, len(triggers), 4, "expected at least 4 triggers")
+			require.Len(t, triggers, 4, "expected 4 triggers")
 			// Find the trigger with version 45 (latest)
 			var latestTrigger *fetchTrigger
 			for i := range triggers {
@@ -339,9 +429,12 @@ func Test_ChannelDefinitionCache(t *testing.T) {
 			// Drain any existing triggers
 			drainChannel(fetchTriggerCh)
 			lp.filteredLogsErr = nil
-			lp.filteredLogs = []logpoller.Log{
+			// Set owner logs with wrong donID
+			lp.ownerLogs = []logpoller.Log{
 				makeLog(t, donID+1, uint32(42), "http://example.com/xxx.json", [32]byte{1, 2, 3, 4}),
 			}
+			// Set empty adder logs
+			lp.adderLogs = []logpoller.Log{}
 
 			err := cdc.readLogs(ctx)
 			require.NoError(t, err)
@@ -361,7 +454,10 @@ func Test_ChannelDefinitionCache(t *testing.T) {
 			lp.filteredLogsErr = nil
 			lg := makeLog(t, donID, uint32(42), "http://example.com/xxx.json", [32]byte{1, 2, 3, 4})
 			lg.Topics = lg.Topics[:1]
-			lp.filteredLogs = []logpoller.Log{lg}
+			// Set owner log with wrong number of topics
+			lp.ownerLogs = []logpoller.Log{lg}
+			// Set empty adder logs
+			lp.adderLogs = []logpoller.Log{}
 
 			err := cdc.readLogs(ctx)
 			require.NoError(t, err)
@@ -384,10 +480,13 @@ func Test_ChannelDefinitionCache(t *testing.T) {
 			cdc.initialBlockNum = 0
 			adderID1 := uint32(100)
 			adderID2 := uint32(200)
-			lp.filteredLogs = []logpoller.Log{
+			// Set adder logs (readLogs calls FilteredLogs for adder logs first)
+			lp.adderLogs = []logpoller.Log{
 				makeAdderLog(t, donID, adderID1, "http://example.com/adder1.json", [32]byte{1, 1, 1, 1}, 1500),
 				makeAdderLog(t, donID, adderID2, "http://example.com/adder2.json", [32]byte{2, 2, 2, 2}, 1600),
 			}
+			// Set empty owner logs
+			lp.ownerLogs = []logpoller.Log{}
 
 			err := cdc.readLogs(ctx)
 			require.NoError(t, err)
@@ -416,27 +515,37 @@ func Test_ChannelDefinitionCache(t *testing.T) {
 			lp.latestBlock = logpoller.Block{BlockNumber: 2000}
 			cdc.definitionsBlockNum = 0
 			cdc.initialBlockNum = 0
-			// readLogs calls FilteredLogs twice - once for owner logs, once for adder logs
-			// The mock returns the same logs each time, so we set it to return owner logs
-			// which will be processed on the first call, then the same logs on second call
-			// (which will try to process as adder logs but fail validation)
-			// For a proper test, we'd need a smarter mock, but for now just verify owner logs work
-			lp.filteredLogs = []logpoller.Log{
+			adderID := uint32(100)
+			// Set both adder and owner logs
+			lp.adderLogs = []logpoller.Log{
+				makeAdderLog(t, donID, adderID, "http://example.com/adder.json", [32]byte{6, 6, 6, 6}, 1500),
+			}
+			lp.ownerLogs = []logpoller.Log{
 				makeLog(t, donID, uint32(50), "http://example.com/owner.json", [32]byte{5, 5, 5, 5}),
 			}
 
 			err := cdc.readLogs(ctx)
 			require.NoError(t, err)
 
-			// Should have at least one trigger (owner log)
-			select {
-			case trigger := <-fetchTriggerCh:
-				require.Equal(t, SourceOwner, trigger.source)
-				require.Equal(t, uint32(50), trigger.version)
-				require.Equal(t, "http://example.com/owner.json", trigger.url)
-			default:
-				t.Fatal("expected owner trigger")
+			// Should have triggers for both adder and owner logs
+			triggers := collectTriggers(fetchTriggerCh, 2)
+			require.Len(t, triggers, 2, "expected 2 triggers (one adder, one owner)")
+			// Verify we have both types
+			var foundOwner, foundAdder bool
+			for _, trigger := range triggers {
+				switch trigger.source {
+				case SourceOwner:
+					foundOwner = true
+					require.Equal(t, uint32(50), trigger.version)
+					require.Equal(t, "http://example.com/owner.json", trigger.url)
+				case adderID:
+					foundAdder = true
+					require.Equal(t, "http://example.com/adder.json", trigger.url)
+					require.Equal(t, [32]byte{6, 6, 6, 6}, trigger.sha)
+				}
 			}
+			require.True(t, foundOwner, "expected owner trigger")
+			require.True(t, foundAdder, "expected adder trigger")
 		})
 		t.Run("ignores adder logs with incorrect don ID", func(t *testing.T) {
 			ctx := t.Context()
@@ -447,9 +556,12 @@ func Test_ChannelDefinitionCache(t *testing.T) {
 			cdc.definitionsBlockNum = 0
 			cdc.initialBlockNum = 0
 			adderID := uint32(100)
-			lp.filteredLogs = []logpoller.Log{
+			// Set adder logs with wrong donID
+			lp.adderLogs = []logpoller.Log{
 				makeAdderLog(t, donID+1, adderID, "http://example.com/adder.json", [32]byte{1, 1, 1, 1}, 1500),
 			}
+			// Set empty owner logs
+			lp.ownerLogs = []logpoller.Log{}
 
 			err := cdc.readLogs(ctx)
 			require.NoError(t, err)
@@ -650,31 +762,37 @@ func Test_ChannelDefinitionCache(t *testing.T) {
 	})
 
 	t.Run("persist", func(t *testing.T) {
-		cdc := &channelDefinitionCache{
-			lggr:  logger.TestSugared(t),
-			orm:   nil,
-			addr:  testutils.NewAddress(),
-			donID: donID,
-			definitions: llotypes.ChannelDefinitions{
-				1: {
-					ReportFormat: llotypes.ReportFormat(43),
-					Streams:      []llotypes.Stream{{StreamID: 1, Aggregator: llotypes.AggregatorMedian}, {StreamID: 2, Aggregator: llotypes.AggregatorMode}, {StreamID: 3, Aggregator: llotypes.AggregatorQuote}},
-					Opts:         llotypes.ChannelOpts{1, 2, 3},
-				},
+		definitions := llotypes.ChannelDefinitions{
+			1: {
+				ReportFormat: llotypes.ReportFormat(43),
+				Streams:      []llotypes.Stream{{StreamID: 1, Aggregator: llotypes.AggregatorMedian}, {StreamID: 2, Aggregator: llotypes.AggregatorMode}, {StreamID: 3, Aggregator: llotypes.AggregatorQuote}},
+				Opts:         llotypes.ChannelOpts{1, 2, 3},
 			},
+		}
+		cdc := &channelDefinitionCache{
+			lggr:                logger.TestSugared(t),
+			orm:                 nil,
+			addr:                testutils.NewAddress(),
+			donID:               donID,
+			definitions:         definitions, // definitions is set from prev in Definitions() method
 			definitionsBlockNum: 142,
 		}
 
-		t.Run("does nothing if persisted block number is up-to-date", func(t *testing.T) {
+		t.Run("persists current definitions", func(t *testing.T) {
 			ctx := t.Context()
+			orm := &mockCDCORM{}
+			cdc.orm = orm
 			cdc.definitionsVersion = 42
-			cdc.persistedBlockNum = 142 // Match definitionsBlockNum
+			cdc.persistedBlockNum = 141
+			cdc.definitionsBlockNum = 142
 
+			// persist() always persists c.definitions (no comparison logic)
 			memoryBlockNum, persistedBlockNum, err := cdc.persist(ctx)
 			require.NoError(t, err)
 			require.Equal(t, int64(142), memoryBlockNum)
 			require.Equal(t, int64(142), persistedBlockNum)
 			require.Equal(t, int64(142), cdc.persistedBlockNum)
+			require.Equal(t, definitions, orm.lastPersistedDfns)
 		})
 
 		orm := &mockCDCORM{}
@@ -687,6 +805,7 @@ func Test_ChannelDefinitionCache(t *testing.T) {
 			cdc.definitionsBlockNum = 143
 			orm.err = errors.New("test error")
 
+			// persist() always persists c.definitions
 			memoryBlockNum, persistedBlockNum, err := cdc.persist(ctx)
 			require.EqualError(t, err, "test error")
 			require.Equal(t, int64(143), memoryBlockNum)
@@ -701,6 +820,7 @@ func Test_ChannelDefinitionCache(t *testing.T) {
 			cdc.persistedBlockNum = 141
 			orm.err = nil
 
+			// persist() always persists c.definitions
 			memoryBlockNum, persistedBlockNum, err := cdc.persist(ctx)
 			require.NoError(t, err)
 			require.Equal(t, int64(143), memoryBlockNum)
@@ -722,18 +842,6 @@ func Test_ChannelDefinitionCache(t *testing.T) {
 
 		adderID := uint32(100)
 
-		t.Run("allows adder definition with exactly MaxAdderAdditionsPerDefinition new channels", func(t *testing.T) {
-			currentDefinitions := make(llotypes.ChannelDefinitions)
-			newDefinitions := make(llotypes.ChannelDefinitions)
-
-			// Create exactly MaxAdderAdditionsPerDefinition new channels
-			addChannelDefinitions(newDefinitions, 1, uint32(MaxAdderAdditionsPerDefinition), adderID)
-
-			result, err := cdc.mergeDefinitions(adderID, currentDefinitions, newDefinitions)
-			require.NoError(t, err)
-			require.Len(t, result, MaxAdderAdditionsPerDefinition)
-		})
-
 		t.Run("rejects adder definition file with more than MaxChannelsPerAdder channels", func(t *testing.T) {
 			currentDefinitions := make(llotypes.ChannelDefinitions)
 			newDefinitions := make(llotypes.ChannelDefinitions)
@@ -753,53 +861,32 @@ func Test_ChannelDefinitionCache(t *testing.T) {
 			currentDefinitions := make(llotypes.ChannelDefinitions)
 			newDefinitions := make(llotypes.ChannelDefinitions)
 
-			// Pre-populate with MaxChannelsPerAdder - MaxAdderAdditionsPerDefinition existing channels
-			// This way we can test MaxChannelsPerAdder without hitting MaxAdderAdditionsPerDefinition
-			existingEnd := uint32(MaxChannelsPerAdder - MaxAdderAdditionsPerDefinition)
+			// Pre-populate with 90 existing channels (MaxChannelsPerAdder - 10)
+			// This tests that existing channels + new channels can total up to MaxChannelsPerAdder
+			existingEnd := uint32(90)
 			addChannelDefinitions(currentDefinitions, 1, existingEnd, adderID)
 			// Include these existing channels in the new definition file (they'll be skipped)
 			addChannelDefinitions(newDefinitions, 1, existingEnd, adderID)
 
-			// Add MaxAdderAdditionsPerDefinition new channels to reach exactly MaxChannelsPerAdder total in the file
+			// Add 10 new channels to reach exactly MaxChannelsPerAdder total in the file
 			addChannelDefinitions(newDefinitions, existingEnd+1, uint32(MaxChannelsPerAdder), adderID)
 
 			result, err := cdc.mergeDefinitions(adderID, currentDefinitions, newDefinitions)
 			require.NoError(t, err)
-			// Should have (MaxChannelsPerAdder - MaxAdderAdditionsPerDefinition) existing + MaxAdderAdditionsPerDefinition new = MaxChannelsPerAdder
+			// Should have 90 existing + 10 new = 100 (MaxChannelsPerAdder)
 			require.Len(t, result, MaxChannelsPerAdder)
-		})
-
-		t.Run("counts only new channels for MaxAdderAdditionsPerDefinition limit", func(t *testing.T) {
-			currentDefinitions := make(llotypes.ChannelDefinitions)
-
-			// Pre-populate with some channels from this adder
-			addChannelDefinitions(currentDefinitions, 1, 5, adderID)
-
-			newDefinitions := make(llotypes.ChannelDefinitions)
-
-			// Include existing channels (should be skipped) + MaxAdderAdditionsPerDefinition new ones
-			// First, include an existing channel (should be skipped, not counted)
-			newDefinitions[llotypes.ChannelID(1)] = makeChannelDefinition(1, adderID)
-
-			// Then add MaxAdderAdditionsPerDefinition new channels
-			addChannelDefinitions(newDefinitions, 6, uint32(5+MaxAdderAdditionsPerDefinition), adderID)
-
-			result, err := cdc.mergeDefinitions(adderID, currentDefinitions, newDefinitions)
-			require.NoError(t, err)
-			// Should have 5 existing + MaxAdderAdditionsPerDefinition new = 5 + 10 = 15
-			require.Len(t, result, 5+MaxAdderAdditionsPerDefinition)
 		})
 
 		t.Run("owner definitions are not subject to adder limits", func(t *testing.T) {
 			currentDefinitions := make(llotypes.ChannelDefinitions)
 			newDefinitions := make(llotypes.ChannelDefinitions)
 
-			// Owner can add more than MaxAdderAdditionsPerDefinition channels
-			addChannelDefinitions(newDefinitions, 1, uint32(MaxAdderAdditionsPerDefinition+10), SourceOwner)
+			// Owner can add any number of channels (not subject to MaxChannelsPerAdder limit)
+			addChannelDefinitions(newDefinitions, 1, 20, SourceOwner)
 
 			result, err := cdc.mergeDefinitions(SourceOwner, currentDefinitions, newDefinitions)
 			require.NoError(t, err)
-			require.Len(t, result, MaxAdderAdditionsPerDefinition+10)
+			require.Len(t, result, 20)
 		})
 
 		t.Run("owner can have more than MaxChannelsPerAdder channels", func(t *testing.T) {
@@ -941,11 +1028,12 @@ func Test_ChannelDefinitionCache(t *testing.T) {
 			require.Equal(t, SourceOwner, result[1].Source)
 			require.False(t, result[1].Tombstone, "channel 1 should not be tombstoned")
 
-			// Adder channel 2 should be removed (tombstone succeeded)
-			require.NotContains(t, result, llotypes.ChannelID(2))
+			// Adder channel 2 should be kept in definitions with Tombstone: true (tombstone succeeded)
+			require.Contains(t, result, llotypes.ChannelID(2))
+			require.True(t, result[2].Tombstone, "channel 2 should be tombstoned")
 
-			// Result should only contain channel 1
-			require.Len(t, result, 1)
+			// Result should contain both channels
+			require.Len(t, result, 2)
 		})
 	})
 }

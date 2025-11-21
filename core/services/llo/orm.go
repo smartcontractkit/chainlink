@@ -50,8 +50,9 @@ INSERT INTO channel_definitions (chain_selector, addr, don_id, definitions, bloc
 VALUES ($1, $2, $3, $4, $5, $6, NOW())
 ON CONFLICT (chain_selector, addr, don_id) DO UPDATE
 SET definitions = $4, block_num = $5, version = $6, updated_at = NOW()
-WHERE EXCLUDED.version > channel_definitions.version OR EXCLUDED.block_num > channel_definitions.block_num
-`, o.chainSelector, addr, donID, dfns, blockNum, version)
+WHERE EXCLUDED.don_id = channel_definitions.don_id AND EXCLUDED.chain_selector = channel_definitions.chain_selector
+AND (EXCLUDED.version > channel_definitions.version OR EXCLUDED.block_num > channel_definitions.block_num)`,
+		o.chainSelector, addr, donID, dfns, blockNum, version)
 	if err != nil {
 		return fmt.Errorf("StoreChannelDefinitions failed: %w", err)
 	}
