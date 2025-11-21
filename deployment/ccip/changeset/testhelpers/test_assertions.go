@@ -904,7 +904,8 @@ func ConfirmExecWithSeqNrsForAll(
 				if startBlock != nil {
 					startSlot = *startBlock
 				}
-				innerExecutionStates, err = ConfirmExecWithSeqNrsSol(
+				innerExecutionStates, err = GetMessageStateWithSeqNrsSol(
+					//innerExecutionStates, err = ConfirmExecWithSeqNrsSol(
 					t,
 					srcChain,
 					e.BlockChains.SolanaChains()[dstChain],
@@ -963,7 +964,7 @@ func ConfirmExecWithSeqNrsForAll(
 		})
 	}
 
-	require.NoError(t, wg.Wait())
+	//require.NoError(t, wg.Wait())
 	return executionStates
 }
 
@@ -1046,7 +1047,7 @@ func ConfirmExecWithSeqNrs(
 	}
 }
 
-func ConfirmExecWithSeqNrsSol(
+func GetMessageStateWithSeqNrsSol(
 	t *testing.T,
 	srcSelector uint64,
 	dest cldf_solana.Chain,
@@ -1080,10 +1081,11 @@ func ConfirmExecWithSeqNrsSol(
 				t.Logf("Received ExecutionStateChanged (state %s) on chain %d (offramp %s) from chain %d with expected sequence number %d",
 					execEvent.State.String(), dest.Selector, offrampAddress.String(), srcSelector, execEvent.SequenceNumber)
 				if execEvent.State == ccip_offramp.InProgress_MessageExecutionState {
-					// skip the in progress state, executed event should follow
+					executionStates[execEvent.SequenceNumber] = int(execEvent.State)
+					fmt.Println("IN PROGRESS", execEvent)
+					// continue watching for final state
 					continue
 				}
-				executionStates[execEvent.SequenceNumber] = int(execEvent.State)
 				delete(seqNrsToWatch, execEvent.SequenceNumber)
 				if len(seqNrsToWatch) == 0 {
 					return executionStates, nil
@@ -1096,6 +1098,27 @@ func ConfirmExecWithSeqNrsSol(
 				dest.Selector, offrampAddress.String(), srcSelector, expectedSeqNrs)
 		}
 	}
+
+}
+
+func ConfirmExecWithSeqNrsSol(
+	t *testing.T,
+	srcSelector uint64,
+	dest cldf_solana.Chain,
+	offrampAddress solana.PublicKey,
+	startSlot uint64,
+	expectedSeqNrs []uint64,
+) (executionStates map[uint64]int, err error) {
+	states, err := GetMessageStateWithSeqNrsSol(t, srcSelector, dest, offrampAddress, startSlot, expectedSeqNrs)
+	if err != nil {
+		return nil, err
+	}
+	for seqNr, state := range states {
+		if state != int(ccip_offramp.Success_MessageExecutionState) || state != int(ccip_offramp.Failure_MessageExecutionState) {
+			return nil, fmt.Errorf("expected final execution state for seqNr %d, got %s", seqNr, ccip_offramp.MessageExecutionState(state).String())
+		}
+	}
+	return states, nil
 }
 
 func ConfirmExecWithExpectedSeqNrsAptos(

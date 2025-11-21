@@ -1,6 +1,7 @@
 package messagingtest
 
 import (
+	"fmt"
 	"math/rand"
 	"testing"
 	"time"
@@ -9,10 +10,11 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/gagliardetto/solana-go"
-	chain_selectors "github.com/smartcontractkit/chain-selectors"
 	"github.com/stretchr/testify/require"
 	"github.com/xssnick/tonutils-go/address"
 	"github.com/xssnick/tonutils-go/tvm/cell"
+
+	chain_selectors "github.com/smartcontractkit/chain-selectors"
 
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_2_0/router"
 	solconfig "github.com/smartcontractkit/chainlink-ccip/chains/solana/contracts/tests/config"
@@ -107,9 +109,10 @@ const (
 )
 
 type TestCaseOutput struct {
-	Replayed     bool
-	Nonce        uint64
-	MsgSentEvent *ccipclient.AnyMsgSentEvent
+	Replayed         bool
+	Nonce            uint64
+	MsgSentEvent     *ccipclient.AnyMsgSentEvent
+	AllMsgSentEvents []*ccipclient.AnyMsgSentEvent
 }
 
 func getLatestNonce(tc TestCase) uint64 {
@@ -270,8 +273,15 @@ func Run(t *testing.T, tc TestCase) (out TestCaseOutput) {
 			calls,
 		)
 		require.NoError(tc.T, err)
+		if err != nil {
+			fmt.Println(err)
+		}
 
+		// Note: This is wher I'm seeing the revert error.
 		_, err = cldf.ConfirmIfNoError(tc.Env.BlockChains.EVMChains()[tc.SourceChain], tx, err)
+		if err != nil {
+			fmt.Println(err)
+		}
 		require.NoError(tc.T, err)
 
 		// check that the message was emitted
@@ -329,6 +339,8 @@ func Run(t *testing.T, tc TestCase) (out TestCaseOutput) {
 			msgSentEvents[i] = msgSentEventLocal
 		}
 	}
+	// return all message sent events.
+	out.AllMsgSentEvents = msgSentEvents
 
 	// HACK: if the node booted or the logpoller filters got registered after ccipSend,
 	// we need to replay missed logs
