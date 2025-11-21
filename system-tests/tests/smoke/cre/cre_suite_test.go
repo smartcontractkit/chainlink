@@ -6,6 +6,8 @@ import (
 
 	"github.com/stretchr/testify/require"
 
+	"github.com/smartcontractkit/quarantine"
+
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/blockchains"
 	t_helpers "github.com/smartcontractkit/chainlink/system-tests/tests/test-helpers"
 )
@@ -29,6 +31,7 @@ Inside `core/scripts/cre/environment` directory
  6. Execute the tests in `system-tests/tests/smoke/cre`: `go test -timeout 15m -run "^Test_CRE_V2"`.
 */
 func Test_CRE_V1_Proof_Of_Reserve(t *testing.T) {
+	quarantine.Flaky(t, "DX-1920")
 	testEnv := t_helpers.SetupTestEnvironmentWithConfig(t, t_helpers.GetDefaultTestConfig(t))
 	// WARNING: currently we can't run these tests in parallel, because each test rebuilds environment structs and that includes
 	// logging into CL node with GraphQL API, which allows only 1 session per user at a time.
