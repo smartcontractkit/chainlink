@@ -893,14 +893,7 @@ func (r *Relayer) NewMedianProvider(ctx context.Context, rargs commontypes.Relay
 		return nil, pkgerrors.WithStack(err)
 	}
 
-	// add gas limit if it's set in the plugin config
-	transmitterOpts := transmitter.ConfigTransmitterOpts{}
-	if pluginCfg.GasLimit != nil {
-		lggr.Debugf("Setting plugin config gas limit: %d", *pluginCfg.GasLimit)
-		transmitterOpts.PluginGasLimit = pluginCfg.GasLimit
-	}
-
-	ct, err := transmitter.NewContractTransmitter(ctx, lggr, rargs, r.evmKeystore, configWatcher.chain, configWatcher.contractAddress, transmitterOpts, OCR2AggregatorTransmissionContractABI, relayConfig.EnableDualTransmission)
+	ct, err := transmitter.NewContractTransmitter(ctx, lggr, rargs, r.evmKeystore, configWatcher.chain, configWatcher.contractAddress, transmitter.ConfigTransmitterOpts{PluginGasLimit: pluginCfg.GasLimit}, OCR2AggregatorTransmissionContractABI, relayConfig.EnableDualTransmission)
 	if err != nil {
 		return nil, err
 	}
