@@ -33,44 +33,6 @@ func (m *mockRelayer) NewPluginProvider(ctx context.Context, rargs commontypes.R
 	return &mockPluginProvider{}, nil
 }
 
-// mockPluginProvider implements commontypes.PluginProvider and commontypes.MedianProvider
-type mockPluginProvider struct {
-	commontypes.PluginProvider
-}
-
-func (m *mockPluginProvider) ContractTransmitter() ocrtypes.ContractTransmitter {
-	return nil
-}
-
-func (m *mockPluginProvider) ContractConfigTracker() ocrtypes.ContractConfigTracker {
-	return nil
-}
-
-func (m *mockPluginProvider) OffchainConfigDigester() ocrtypes.OffchainConfigDigester {
-	return nil
-}
-
-func (m *mockPluginProvider) Start(context.Context) error { return nil }
-func (m *mockPluginProvider) Close() error                { return nil }
-func (m *mockPluginProvider) Ready() error                { return nil }
-func (m *mockPluginProvider) HealthReport() map[string]error {
-	return map[string]error{"mock": nil}
-}
-func (m *mockPluginProvider) Name() string { return "mock" }
-
-// Type assertions
-var _ commontypes.MedianProvider = (*mockPluginProvider)(nil)
-
-func (m *mockPluginProvider) ReportCodec() libocr_median.ReportCodec { return nil }
-func (m *mockPluginProvider) MedianContract() libocr_median.MedianContract {
-	return nil
-}
-func (m *mockPluginProvider) OnchainConfigCodec() libocr_median.OnchainConfigCodec {
-	return nil
-}
-func (m *mockPluginProvider) ContractReader() commontypes.ContractReader { return nil }
-func (m *mockPluginProvider) Codec() commontypes.Codec                   { return nil }
-
 func TestNewMedianServices_GasLimitOverride(t *testing.T) {
 	t.Parallel()
 
@@ -187,6 +149,44 @@ func TestNewMedianServices_GasLimitOverride(t *testing.T) {
 		})
 	}
 }
+
+// mockPluginProvider implements commontypes.PluginProvider and commontypes.MedianProvider
+type mockPluginProvider struct {
+	commontypes.PluginProvider
+}
+
+func (m *mockPluginProvider) ContractTransmitter() ocrtypes.ContractTransmitter {
+	return nil
+}
+
+func (m *mockPluginProvider) ContractConfigTracker() ocrtypes.ContractConfigTracker {
+	return nil
+}
+
+func (m *mockPluginProvider) OffchainConfigDigester() ocrtypes.OffchainConfigDigester {
+	return nil
+}
+
+func (m *mockPluginProvider) Start(context.Context) error { return nil }
+func (m *mockPluginProvider) Close() error                { return nil }
+func (m *mockPluginProvider) Ready() error                { return nil }
+func (m *mockPluginProvider) HealthReport() map[string]error {
+	return map[string]error{"mock": nil}
+}
+func (m *mockPluginProvider) Name() string { return "mock" }
+
+// Type assertions
+var _ commontypes.MedianProvider = (*mockPluginProvider)(nil)
+
+func (m *mockPluginProvider) ReportCodec() libocr_median.ReportCodec { return nil }
+func (m *mockPluginProvider) MedianContract() libocr_median.MedianContract {
+	return nil
+}
+func (m *mockPluginProvider) OnchainConfigCodec() libocr_median.OnchainConfigCodec {
+	return nil
+}
+func (m *mockPluginProvider) ContractReader() commontypes.ContractReader { return nil }
+func (m *mockPluginProvider) Codec() commontypes.Codec                   { return nil }
 
 func uint32Ptr(v uint32) *uint32 {
 	return &v
