@@ -402,9 +402,13 @@ func Test_CCIPTokenTransfer_Sui2EVM_BurnMintTokenPool_WithAllowlist(t *testing.T
 		SuiRPC: suiChain.URL,
 	}
 
+	// reload state to include the BnM token pool
+	state, err = stateview.LoadOnchainState(e.Env)
+	require.NoError(t, err)
+
 	// enable allowlist but not adding the current sender to the allowlist
 	_, err = operations.ExecuteOperation(e.Env.OperationsBundle, burnminttokenpoolops.BurnMintTokenPoolSetAllowlistEnabledOp, deps, burnminttokenpoolops.BurnMintTokenPoolSetAllowlistEnabledInput{
-		BurnMintPackageId: state.SuiChains[sourceChain].BnMTokenPools["LINK"].PackageID,
+		BurnMintPackageId: state.SuiChains[sourceChain].BnMTokenPools[testhelpers.TokenSymbolLINK].PackageID,
 		StateObjectId:     state.SuiChains[sourceChain].CCIPObjectRef,
 		OwnerCap:          state.SuiChains[sourceChain].CCIPOwnerCapObjectId,
 		CoinObjectTypeArg: state.SuiChains[sourceChain].LinkTokenAddress + "::link::LINK",
