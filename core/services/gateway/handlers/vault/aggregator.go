@@ -135,9 +135,8 @@ func (a *baseAggregator) validateUsingSignatures(don capabilities.DON, nodes []c
 	if resp.Result == nil {
 		if resp.Error != nil {
 			return nil, errors.New("response has an error, cannot validate signatures. Error: " + resp.Error.Error())
-		} else {
-			return nil, errors.New("response result and error both are is nil: cannot validate signatures")
 		}
+		return nil, errors.New("response result and error both are is nil: cannot validate signatures")
 	}
 
 	if resp.Method == vaulttypes.MethodSecretsGet {
