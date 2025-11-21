@@ -423,7 +423,7 @@ func reportingPluginConfigOverride(vaultDKGOCR3Addr *common.Address, creEnv *cre
 	return cfgb, nil
 }
 
-func EncryptSecret(secret, masterPublicKeyStr string) (string, error) {
+func EncryptSecret(secret, masterPublicKeyStr string, owner common.Address) (string, error) {
 	masterPublicKey := tdh2easy.PublicKey{}
 	masterPublicKeyBytes, err := hex.DecodeString(masterPublicKeyStr)
 	if err != nil {
@@ -433,7 +433,9 @@ func EncryptSecret(secret, masterPublicKeyStr string) (string, error) {
 	if err != nil {
 		return "", errors.Wrap(err, "failed to unmarshal master public key")
 	}
-	cipher, err := tdh2easy.Encrypt(&masterPublicKey, []byte(secret))
+	var label [32]byte
+	copy(label[12:], owner.Bytes()) // left-pad with 12 zero
+	cipher, err := tdh2easy.EncryptWithLabel(&masterPublicKey, []byte(secret), label)
 	if err != nil {
 		return "", errors.Wrap(err, "failed to encrypt secret")
 	}

@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"strconv"
 
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/smartcontractkit/tdh2/go/tdh2/tdh2easy"
 
 	vaultcommon "github.com/smartcontractkit/chainlink-common/pkg/capabilities/actions/vault"
@@ -49,7 +50,6 @@ func (r *RequestValidator) validateWriteRequest(publicKey *tdh2easy.PublicKey, i
 	}
 
 	uniqueIDs := map[string]bool{}
-	cipherText := &tdh2easy.Ciphertext{}
 	for idx, req := range encryptedSecrets {
 		if req == nil {
 			return errors.New("encrypted secret must not be nil at index " + strconv.Itoa(idx))
@@ -65,19 +65,10 @@ func (r *RequestValidator) validateWriteRequest(publicKey *tdh2easy.PublicKey, i
 		if req.EncryptedValue == "" {
 			return errors.New("secret must have encrypted value set at index " + strconv.Itoa(idx) + ":" + req.Id.String())
 		}
-
-		// Validate that the encrypted value was indeed encrypted by the Vault public key
-		cipherBytes, err := hex.DecodeString(req.EncryptedValue)
+		err := r.ensureRightLabelOnSecret(publicKey, req.EncryptedValue, req.Id.Owner)
 		if err != nil {
-			return errors.New("failed to decode encrypted value at index " + strconv.Itoa(idx) + ":" + err.Error())
+			return errors.New("Encrypted Secret at index [" + strconv.Itoa(idx) + "] doesn't have owner as the label. Error: " + err.Error())
 		}
-		if publicKey != nil { // Public key can be nil if gateway cache isn't populated yet
-			err = cipherText.UnmarshalVerify(cipherBytes, publicKey)
-			if err != nil {
-				return errors.New("failed to verify encrypted value at index " + strconv.Itoa(idx) + ":" + err.Error())
-			}
-		}
-
 		_, ok := uniqueIDs[vaulttypes.KeyFor(req.Id)]
 		if ok {
 			return errors.New("duplicate secret ID found at index " + strconv.Itoa(idx) + ": " + req.Id.String())
@@ -139,6 +130,31 @@ func (r *RequestValidator) ValidateDeleteSecretsRequest(request *vaultcommon.Del
 		}
 
 		uniqueIDs[vaulttypes.KeyFor(id)] = true
+	}
+	return nil
+}
+
+func (r *RequestValidator) ensureRightLabelOnSecret(publicKey *tdh2easy.PublicKey, secret, owner string) error {
+	cipherText := &tdh2easy.Ciphertext{}
+	cipherBytes, err := hex.DecodeString(secret)
+	if err != nil {
+		return errors.New("failed to decode encrypted value:" + err.Error())
+	}
+	if publicKey == nil {
+		// Public key can be nil if gateway cache isn't populated yet(immediately after gateway reboots)
+		// Ok to not validate in such cases, since this validation also runs on Vault Nodes
+		return nil
+	}
+	err = cipherText.UnmarshalVerify(cipherBytes, publicKey)
+	if err != nil {
+		return errors.New("failed to verify encrypted value:" + err.Error())
+	}
+	secretLabel := cipherText.Label()
+	ownerAddr := common.HexToAddress(owner)
+	var ownerLabel [32]byte
+	copy(ownerLabel[12:], ownerAddr.Bytes()) // left-pad with 12 zero
+	if secretLabel != ownerLabel {
+		return errors.New("secret label [" + string(secretLabel[:]) + "] does not match owner label [" + string(ownerLabel[:]) + "]")
 	}
 	return nil
 }
