@@ -3,7 +3,6 @@ package stateview_test
 import (
 	"context"
 	"crypto/ecdsa"
-	"fmt"
 	"testing"
 	"time"
 
@@ -46,9 +45,6 @@ func TestLoadChainState_USDCTokenPoolsCCTPV2(t *testing.T) {
 		usdcTokenPoolProxy:                cldf.NewTypeAndVersion(shared.USDCTokenPoolProxy, deployment.Version1_6_4),
 	})
 
-	if err != nil {
-		fmt.Println("Error loading chain state:", err)
-	}
 	require.NoError(t, err)
 	require.NotNil(t, state.ERC20LockBox)
 	require.Equal(t, cctpMessageTransmitterProxyCCTPV2, state.CCTPMessageTransmitterProxyCCTPV2[deployment.Version1_6_4].Address().Hex())
