@@ -84,7 +84,6 @@ func NewMedianServices(ctx context.Context,
 
 	// add gas limit if it's set in the job spec
 	if jb.GasLimit.Valid {
-		lggr.Infow("Geert: setting job spec gas limit", "gasLimit", jb.GasLimit.Uint32)
 		pluginConfig.GasLimit = &jb.GasLimit.Uint32
 	}
 
