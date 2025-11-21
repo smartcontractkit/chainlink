@@ -13,7 +13,6 @@ import (
 	"math/big"
 	"net/http"
 	"net/url"
-	"sort"
 	"strconv"
 	"strings"
 	"sync"
@@ -366,27 +365,19 @@ func (c *channelDefinitionCache) readLogs(ctx context.Context) (err error) {
 		return nil
 	}
 
-	logsToProcess := make([]logpoller.Log, 0)
-
 	exprs := buildFilterExprs(c.adderFilterExprs, fromBlock, toBlock)
 	logs, err := c.lp.FilteredLogs(ctx, exprs, NoLimitSortAsc, "ChannelDefinitionCachePoller - NewAdderChannelDefinition")
 	if err != nil {
 		return err
 	}
-	logsToProcess = append(logsToProcess, logs...)
+	c.processLogs(logs)
 
 	exprs = buildFilterExprs(c.ownerFilterExprs, fromBlock, toBlock)
 	logs, err = c.lp.FilteredLogs(ctx, exprs, NoLimitSortAsc, "ChannelDefinitionCachePoller - NewOwnerChannelDefinition")
 	if err != nil {
 		return err
 	}
-	logsToProcess = append(logsToProcess, logs...)
-
-	sort.Slice(logsToProcess, func(i, j int) bool {
-		return logsToProcess[i].BlockNumber < logsToProcess[j].BlockNumber
-	})
-
-	c.processLogs(logsToProcess)
+	c.processLogs(logs)
 
 	return nil
 }
@@ -453,12 +444,8 @@ func (c *channelDefinitionCache) processLogs(logs []logpoller.Log) {
 // Adder limits are enforced:
 //   - MaxChannelsPerAdder: The total number of channels in a single adder definition file cannot
 //     exceed this limit. This is checked before processing any channels.
-//   - MaxAdderAdditionsPerDefinition: The number of new channels an adder can add in a single
-//     definition is limited. Only channels that don't already exist are counted toward this limit.
-//     Existing channels from the same adder are skipped and not counted.
 //
-// Returns an error if adder limits are exceeded. The error will be one of:
-//   - errChannelsPerAdderLimitExceeded: When the definition file contains too many channels
+// Returns an error if adder limits are exceeded
 //   - errAdderAdditionsLimitExceeded: When the adder tries to add too many new channels
 func (c *channelDefinitionCache) mergeDefinitions(source uint32, currentDefinitions llotypes.ChannelDefinitions, newDefinitions llotypes.ChannelDefinitions) (llotypes.ChannelDefinitions, error) {
 	if source > SourceOwner {
