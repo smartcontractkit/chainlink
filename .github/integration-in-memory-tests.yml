@@ -873,8 +873,7 @@ runner-test-matrix:
       - Nightly Integration CCIP Tests
     test_cmd: |
       ./scripts/free-disk-space.sh
-      echo "🚀 Starting CCIP Upgrade NoBlock EVM2Sui test..."
-      go test ./smoke/ccip -run "Test_CCIP_Upgrade_NoBlock_EVM2Sui" -timeout 15m -test.parallel=1 -count=1 -json
+      ./scripts/run-ccip-test-isolated.sh "Test_CCIP_Upgrade_NoBlock_EVM2Sui" 17
     test_go_project_path: integration-tests
     sui_cli_version: mainnet-1.60.1
     install_plugins_public: true
@@ -888,8 +887,7 @@ runner-test-matrix:
       - Nightly Integration CCIP Tests
     test_cmd: |
       ./scripts/free-disk-space.sh
-      echo "🚀 Starting CCIP Sui2EVM BurnMint token transfer with rate limit test..."
-      go test ./smoke/ccip -run "Test_CCIPTokenTransfer_Sui2EVM_BurnMintTokenPool_WithRateLimit" -timeout 15m -test.parallel=1 -count=1 -json
+      ./scripts/run-ccip-test-isolated.sh "Test_CCIPTokenTransfer_Sui2EVM_BurnMintTokenPool_WithRateLimit" 17
     test_go_project_path: integration-tests
     sui_cli_version: mainnet-1.60.1
     install_plugins_public: true
@@ -903,8 +901,7 @@ runner-test-matrix:
       - Nightly Integration CCIP Tests
     test_cmd: |
       ./scripts/free-disk-space.sh
-      echo "🚀 Starting CCIP Sui2EVM BurnMint token transfer with allowlist test..."
-      go test ./smoke/ccip -run "Test_CCIPTokenTransfer_Sui2EVM_BurnMintTokenPool_WithAllowlist" -timeout 10m -test.parallel=1 -count=1 -json
+      ./scripts/run-ccip-test-isolated.sh "Test_CCIPTokenTransfer_Sui2EVM_BurnMintTokenPool_WithAllowlist" 12
     test_go_project_path: integration-tests
     sui_cli_version: mainnet-1.60.1
     install_plugins_public: true

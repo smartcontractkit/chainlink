@@ -484,24 +484,11 @@ func Test_CCIPTokenTransfer_Sui2EVM_BurnMintTokenPool_WithRateLimit(t *testing.T
 
 	testhelpers.WaitForTokenBalances(ctx, t, updatedEnv, expectedTokenBalances)
 
-	// suiState, err := sui_deployment.LoadOnchainStatesui(e.Env)
-	// require.NoError(t, err)
-
-	// suifeeQuoter, err := module_fee_quoter.NewFeeQuoter(suiState[sourceChain].CCIPAddress, e.Env.BlockChains.SuiChains()[sourceChain].Client)
-	// require.NoError(t, err)
-
-	// suiFeeQuoterDestChainConfig, err := suifeeQuoter.DevInspect().GetDestChainConfig(ctx, &suiBind.CallOpts{
-	// 	Signer:           e.Env.BlockChains.SuiChains()[sourceChain].Signer,
-	// 	WaitForExecution: true,
-	// }, suiBind.Object{Id: suiState[sourceChain].CCIPObjectRef}, destChain)
-	// require.NoError(t, err, "Failed to get destination chain config")
-
 	t.Run("Send token above outbound rate limit - should fail", func(t *testing.T) {
 		msg := testhelpers.SuiSendRequest{
-			Receiver: common.LeftPadBytes(ccipReceiverAddress.Bytes(), 32), // left-pad 20-byte address up to 32 bytes to make it compatible with evm
+			Receiver: common.LeftPadBytes(ccipReceiverAddress.Bytes(), 32),
 			Data:     []byte("Hello, World!"),
 			FeeToken: feeTokenOutput.Objects.MintedLinkTokenObjectId,
-			// ExtraArgs: testhelpers.MakeBCSEVMExtraArgsV2(big.NewInt(int64(suiFeeQuoterDestChainConfig.MaxPerMsgGasLimit)), false),
 			TokenAmounts: []testhelpers.SuiTokenAmount{
 				{
 					TokenPoolType: sui_deployment.TokenPoolTypeBurnMint,
@@ -518,7 +505,7 @@ func Test_CCIPTokenTransfer_Sui2EVM_BurnMintTokenPool_WithRateLimit(t *testing.T
 		}
 
 		_, err := testhelpers.SendRequest(e.Env, state, baseOpts...)
-		assertSuiSourceRevertExpectedError(t, err, "transaction failed with error", "function_name: Some(\"resolve_generic_gas_limit\") }, 18)")
+		assertSuiSourceRevertExpectedError(t, err, "failed to execute ccip_send with err: transaction failed with error: MoveAbort", "function_name: Some(\"consume\") }, 1)")
 		t.Log("Expected error: ", err)
 	})
 }
