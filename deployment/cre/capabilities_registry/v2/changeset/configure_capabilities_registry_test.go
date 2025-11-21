@@ -43,7 +43,6 @@ type testFixture struct {
 	nodes                       []changeset.CapabilitiesRegistryNodeParams
 	DONs                        []changeset.CapabilitiesRegistryNewDONParams
 	configureInput              changeset.ConfigureCapabilitiesRegistryInput
-	mcmsConfig                  *crecontracts.MCMSConfig
 }
 
 const (
@@ -116,7 +115,7 @@ func suite(t *testing.T, fixture *testFixture) {
 		t.Log("Testing MCMS proposal creation for NOPs registration...")
 
 		// Get MCMS contracts from the environment
-		mcmsContracts, err := strategies.GetMCMSContracts(mcmsFixture.env, mcmsFixture.chainSelector, *mcmsFixture.mcmsConfig)
+		mcmsContracts, err := strategies.GetMCMSContracts(mcmsFixture.env, mcmsFixture.chainSelector, *mcmsFixture.configureInput.MCMSConfig)
 		require.NoError(t, err, "should be able to get MCMS contracts")
 		require.NotNil(t, mcmsContracts, "MCMS contracts should not be nil")
 
@@ -574,6 +573,9 @@ func setupCapabilitiesRegistryWithMCMS(t *testing.T) *testFixture {
 		CapabilitiesRegistryAddress: capabilitiesRegistryAddress,
 		MCMSConfig: &crecontracts.MCMSConfig{
 			MinDelay: 30 * time.Second,
+			TimelockQualifierPerChain: map[uint64]string{
+				selector: "",
+			},
 		},
 		Nops:         nops,
 		Capabilities: capabilities,
@@ -591,12 +593,6 @@ func setupCapabilitiesRegistryWithMCMS(t *testing.T) *testFixture {
 		nodes:                       nodes,
 		DONs:                        DONs,
 		configureInput:              configureInput,
-		mcmsConfig: &crecontracts.MCMSConfig{
-			MinDelay: 1 * time.Second,
-			TimelockQualifierPerChain: map[uint64]string{
-				selector: "",
-			},
-		},
 	}
 }
 

@@ -71,6 +71,9 @@ func TestConfigureForwarders_WithMCMS(t *testing.T) {
 		DON: donConfig,
 		MCMSConfig: &contracts.MCMSConfig{
 			MinDelay: 10 * time.Second,
+			TimelockQualifierPerChain: map[uint64]string{
+				registryChainSel: "",
+			},
 		},
 		Chains: map[uint64]struct{}{registryChainSel: {}},
 	})
