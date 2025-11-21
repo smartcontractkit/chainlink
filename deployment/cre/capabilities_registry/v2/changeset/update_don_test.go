@@ -282,6 +282,9 @@ func TestUpdateDONChangeset_ByName_Direct_Succeeds_MCMS(t *testing.T) {
 		Force: false,
 		MCMSConfig: &crecontracts.MCMSConfig{
 			MinDelay: 1 * time.Second,
+			TimelockQualifierPerChain: map[uint64]string{
+				fx.selector: "",
+			},
 		},
 	})
 	require.NoError(t, err)

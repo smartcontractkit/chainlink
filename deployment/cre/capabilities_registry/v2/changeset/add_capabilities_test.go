@@ -206,6 +206,9 @@ func TestAddCapabilities_Apply_MCMS(t *testing.T) {
 		Force: true,
 		MCMSConfig: &crecontracts.MCMSConfig{
 			MinDelay: 1 * time.Second,
+			TimelockQualifierPerChain: map[uint64]string{
+				fixture.RegistrySelector: "",
+			},
 		},
 	}
 

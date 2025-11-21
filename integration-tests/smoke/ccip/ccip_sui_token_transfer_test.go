@@ -43,82 +43,26 @@ func assertSuiSourceRevertExpectedError(t *testing.T, err error, execRevertError
 }
 
 func Test_CCIPTokenTransfer_Sui2EVM_ManagedTokenPool(t *testing.T) {
-	ctx := testhelpers.Context(t)
-	e, _, _ := testsetups.NewIntegrationEnvironment(
-		t,
-		testhelpers.WithNumOfChains(2),
-		testhelpers.WithSuiChains(1),
-	)
-
-	evmChainSelectors := e.Env.BlockChains.ListChainSelectors(chain.WithFamily(chain_selectors.FamilyEVM))
-	suiChainSelectors := e.Env.BlockChains.ListChainSelectors(chain.WithFamily(chain_selectors.FamilySui))
-
-	sourceChain := suiChainSelectors[0]
-	destChain := evmChainSelectors[0]
+	e, sourceChain, destChain, outputMap, outputMapTransferToken, outputMapTransferToken1 := testSetupTokenTransfer(t)
 
 	state, err := stateview.LoadOnchainState(e.Env)
 	require.NoError(t, err)
-
-	t.Log("Source chain (Sui): ", sourceChain, "Dest chain (EVM): ", destChain)
-
-	err = testhelpers.AddLaneWithDefaultPricesAndFeeQuoterConfig(t, &e, state, sourceChain, destChain, false)
-	require.NoError(t, err)
-
-	_, err = e.Env.BlockChains.SuiChains()[sourceChain].Signer.GetAddress()
-	require.NoError(t, err)
-
-	// SUI FeeToken
-	// mint link token to use as feeToken
-	_, feeTokenOutput, err := commoncs.ApplyChangesets(t, e.Env, []commoncs.ConfiguredChangeSet{
-		commoncs.Configure(sui_cs.MintLinkToken{}, sui_cs.MintLinkTokenConfig{
-			ChainSelector:  sourceChain,
-			TokenPackageId: state.SuiChains[sourceChain].LinkTokenAddress,
-			TreasuryCapId:  state.SuiChains[sourceChain].LinkTokenTreasuryCapId,
-			Amount:         1000000000000, // 1000Link with 1e9,
-		}),
-	})
-	require.NoError(t, err)
-
-	rawOutput := feeTokenOutput[0].Reports[0]
-	outputMap, ok := rawOutput.Output.(sui_ops.OpTxResult[linkops.MintLinkTokenOutput])
-	require.True(t, ok)
-
-	// SUI TransferToken
-	// mint link token to use as Transfer Token
-	_, transferTokenOutput, err := commoncs.ApplyChangesets(t, e.Env, []commoncs.ConfiguredChangeSet{
-		commoncs.Configure(sui_cs.MintLinkToken{}, sui_cs.MintLinkTokenConfig{
-			ChainSelector:  sourceChain,
-			TokenPackageId: state.SuiChains[sourceChain].LinkTokenAddress,
-			TreasuryCapId:  state.SuiChains[sourceChain].LinkTokenTreasuryCapId,
-			Amount:         1000000000, // 1Link with 1e9
-		}),
-	})
-	require.NoError(t, err)
-
-	rawOutputTransferToken := transferTokenOutput[0].Reports[0]
-	outputMapTransferToken, ok := rawOutputTransferToken.Output.(sui_ops.OpTxResult[linkops.MintLinkTokenOutput])
-	require.True(t, ok)
-
-	// mint more token
-	_, transferTokenOutput1, err := commoncs.ApplyChangesets(t, e.Env, []commoncs.ConfiguredChangeSet{
-		commoncs.Configure(sui_cs.MintLinkToken{}, sui_cs.MintLinkTokenConfig{
-			ChainSelector:  sourceChain,
-			TokenPackageId: state.SuiChains[sourceChain].LinkTokenAddress,
-			TreasuryCapId:  state.SuiChains[sourceChain].LinkTokenTreasuryCapId,
-			Amount:         2000000000, // 1Link with 1e9
-		}),
-	})
-	require.NoError(t, err)
-
-	rawOutputTransferToken1 := transferTokenOutput1[0].Reports[0]
-	outputMapTransferToken1, ok := rawOutputTransferToken1.Output.(sui_ops.OpTxResult[linkops.MintLinkTokenOutput])
-	require.True(t, ok)
 
 	// Receiver Address
 	ccipReceiverAddress := state.Chains[destChain].Receiver.Address()
 
 	// Token Pool setup on both SUI and EVM
-	updatedEnv, evmToken, _, err := testhelpers.HandleTokenAndManagedTokenPoolDeploymentForSUI(e.Env, sourceChain, destChain) // SourceChain = SUI, destChain = EVM
+	updatedEnv, evmToken, _, err := testhelpers.HandleTokenAndManagedTokenPoolDeploymentForSUI(e.Env, sourceChain, destChain, []testhelpers.TokenPoolRateLimiterConfig{
+		{
+			RemoteChainSelector: destChain,
+			OutboundIsEnabled:   false,
+			OutboundCapacity:    100000,
+			OutboundRate:        100,
+			InboundIsEnabled:    false,
+			InboundCapacity:     100000,
+			InboundRate:         100,
+		},
+	}) // SourceChain = SUI, destChain = EVM
 	require.NoError(t, err)
 	e.Env = updatedEnv
 
@@ -167,6 +111,7 @@ func Test_CCIPTokenTransfer_Sui2EVM_ManagedTokenPool(t *testing.T) {
 		},
 	}
 
+	ctx := testhelpers.Context(t)
 	startBlocks, expectedSeqNums, expectedExecutionStates, expectedTokenBalances := testhelpers.TransferMultiple(ctx, t, updatedEnv, state, tcs)
 
 	err = testhelpers.ConfirmMultipleCommits(
@@ -192,76 +137,9 @@ func Test_CCIPTokenTransfer_Sui2EVM_ManagedTokenPool(t *testing.T) {
 }
 
 func Test_CCIPTokenTransfer_Sui2EVM_BurnMintTokenPool(t *testing.T) {
-	ctx := testhelpers.Context(t)
-	e, _, _ := testsetups.NewIntegrationEnvironment(
-		t,
-		testhelpers.WithNumOfChains(2),
-		testhelpers.WithSuiChains(1),
-	)
-
-	evmChainSelectors := e.Env.BlockChains.ListChainSelectors(chain.WithFamily(chain_selectors.FamilyEVM))
-	suiChainSelectors := e.Env.BlockChains.ListChainSelectors(chain.WithFamily(chain_selectors.FamilySui))
-
-	sourceChain := suiChainSelectors[0]
-	destChain := evmChainSelectors[0]
-
+	e, sourceChain, destChain, outputMap, outputMapTransferToken, outputMapTransferToken1 := testSetupTokenTransfer(t)
 	state, err := stateview.LoadOnchainState(e.Env)
 	require.NoError(t, err)
-
-	t.Log("Source chain (Sui): ", sourceChain, "Dest chain (EVM): ", destChain)
-
-	err = testhelpers.AddLaneWithDefaultPricesAndFeeQuoterConfig(t, &e, state, sourceChain, destChain, false)
-	require.NoError(t, err)
-
-	_, err = e.Env.BlockChains.SuiChains()[sourceChain].Signer.GetAddress()
-	require.NoError(t, err)
-
-	// SUI FeeToken
-	// mint link token to use as feeToken
-	_, feeTokenOutput, err := commoncs.ApplyChangesets(t, e.Env, []commoncs.ConfiguredChangeSet{
-		commoncs.Configure(sui_cs.MintLinkToken{}, sui_cs.MintLinkTokenConfig{
-			ChainSelector:  sourceChain,
-			TokenPackageId: state.SuiChains[sourceChain].LinkTokenAddress,
-			TreasuryCapId:  state.SuiChains[sourceChain].LinkTokenTreasuryCapId,
-			Amount:         1000000000000, // 1000Link with 1e9,
-		}),
-	})
-	require.NoError(t, err)
-
-	rawOutput := feeTokenOutput[0].Reports[0]
-	outputMap, ok := rawOutput.Output.(sui_ops.OpTxResult[linkops.MintLinkTokenOutput])
-	require.True(t, ok)
-
-	// SUI TransferToken
-	// mint link token to use as Transfer Token
-	_, transferTokenOutput, err := commoncs.ApplyChangesets(t, e.Env, []commoncs.ConfiguredChangeSet{
-		commoncs.Configure(sui_cs.MintLinkToken{}, sui_cs.MintLinkTokenConfig{
-			ChainSelector:  sourceChain,
-			TokenPackageId: state.SuiChains[sourceChain].LinkTokenAddress,
-			TreasuryCapId:  state.SuiChains[sourceChain].LinkTokenTreasuryCapId,
-			Amount:         1000000000, // 1Link with 1e9
-		}),
-	})
-	require.NoError(t, err)
-
-	rawOutputTransferToken := transferTokenOutput[0].Reports[0]
-	outputMapTransferToken, ok := rawOutputTransferToken.Output.(sui_ops.OpTxResult[linkops.MintLinkTokenOutput])
-	require.True(t, ok)
-
-	// mint more token
-	_, transferTokenOutput1, err := commoncs.ApplyChangesets(t, e.Env, []commoncs.ConfiguredChangeSet{
-		commoncs.Configure(sui_cs.MintLinkToken{}, sui_cs.MintLinkTokenConfig{
-			ChainSelector:  sourceChain,
-			TokenPackageId: state.SuiChains[sourceChain].LinkTokenAddress,
-			TreasuryCapId:  state.SuiChains[sourceChain].LinkTokenTreasuryCapId,
-			Amount:         2000000000, // 1Link with 1e9
-		}),
-	})
-	require.NoError(t, err)
-
-	rawOutputTransferToken1 := transferTokenOutput1[0].Reports[0]
-	outputMapTransferToken1, ok := rawOutputTransferToken1.Output.(sui_ops.OpTxResult[linkops.MintLinkTokenOutput])
-	require.True(t, ok)
 
 	_, transferTokenOutput2, err := commoncs.ApplyChangesets(t, e.Env, []commoncs.ConfiguredChangeSet{
 		commoncs.Configure(sui_cs.MintLinkToken{}, sui_cs.MintLinkTokenConfig{
@@ -281,7 +159,17 @@ func Test_CCIPTokenTransfer_Sui2EVM_BurnMintTokenPool(t *testing.T) {
 	ccipReceiverAddress := state.Chains[destChain].Receiver.Address()
 
 	// Token Pool setup on both SUI and EVM
-	updatedEnv, evmToken, _, err := testhelpers.HandleTokenAndBurnMintTokenPoolDeploymentForSUI(e.Env, sourceChain, destChain) // SourceChain = SUI, destChain = EVM
+	updatedEnv, evmToken, _, err := testhelpers.HandleTokenAndBurnMintTokenPoolDeploymentForSUI(e.Env, sourceChain, destChain, []testhelpers.TokenPoolRateLimiterConfig{
+		{
+			RemoteChainSelector: destChain,
+			OutboundIsEnabled:   false,
+			OutboundCapacity:    100000,
+			OutboundRate:        100,
+			InboundIsEnabled:    false,
+			InboundCapacity:     100000,
+			InboundRate:         100,
+		},
+	}) // SourceChain = SUI, destChain = EVM
 	require.NoError(t, err)
 	e.Env = updatedEnv
 
@@ -330,6 +218,7 @@ func Test_CCIPTokenTransfer_Sui2EVM_BurnMintTokenPool(t *testing.T) {
 		},
 	}
 
+	ctx := testhelpers.Context(t)
 	startBlocks, expectedSeqNums, expectedExecutionStates, expectedTokenBalances := testhelpers.TransferMultiple(ctx, t, updatedEnv, state, tcs)
 
 	err = testhelpers.ConfirmMultipleCommits(
@@ -416,12 +305,10 @@ func Test_CCIPTokenTransfer_Sui2EVM_BurnMintTokenPool(t *testing.T) {
 		assertSuiSourceRevertExpectedError(t, err, "transaction failed with error", "function_name: Some(\"resolve_generic_gas_limit\") }, 18)")
 		t.Log("Expected error: ", err)
 	})
-
 }
 
-func Test_CCIPTokenTransfer_EVM2SUI_ManagedTokenPool(t *testing.T) {
-	ctx := testhelpers.Context(t)
-	e, _, _ := testsetups.NewIntegrationEnvironment(
+func testSetupTokenTransfer(t *testing.T) (e testhelpers.DeployedEnv, sourceChain uint64, destChain uint64, outputMap sui_ops.OpTxResult[linkops.MintLinkTokenOutput], outputMapTransferToken sui_ops.OpTxResult[linkops.MintLinkTokenOutput], outputMapTransferToken1 sui_ops.OpTxResult[linkops.MintLinkTokenOutput]) {
+	e, _, _ = testsetups.NewIntegrationEnvironment(
 		t,
 		testhelpers.WithNumOfChains(2),
 		testhelpers.WithSuiChains(1),
@@ -430,48 +317,88 @@ func Test_CCIPTokenTransfer_EVM2SUI_ManagedTokenPool(t *testing.T) {
 	evmChainSelectors := e.Env.BlockChains.ListChainSelectors(chain.WithFamily(chain_selectors.FamilyEVM))
 	suiChainSelectors := e.Env.BlockChains.ListChainSelectors(chain.WithFamily(chain_selectors.FamilySui))
 
-	sourceChain := evmChainSelectors[0]
-	destChain := suiChainSelectors[0]
-
-	t.Log("Source chain (Sui): ", sourceChain, "Dest chain (EVM): ", destChain)
+	sourceChain = suiChainSelectors[0]
+	destChain = evmChainSelectors[0]
 
 	state, err := stateview.LoadOnchainState(e.Env)
 	require.NoError(t, err)
 
-	deployerSourceChain := e.Env.BlockChains.EVMChains()[sourceChain].DeployerKey
-	var suiTokenAddr [32]byte
-	suiTokenHex := state.SuiChains[destChain].LinkTokenAddress
-	suiTokenHex = strings.TrimPrefix(suiTokenHex, "0x")
-
-	suiTokenBytes, err := hex.DecodeString(suiTokenHex)
-	require.NoError(t, err)
-
-	require.NoError(t, err)
-
-	require.Len(t, suiTokenBytes, 32, "expected 32-byte sui address")
-	copy(suiTokenAddr[:], suiTokenBytes)
+	t.Log("Source chain (Sui): ", sourceChain, "Dest chain (EVM): ", destChain)
 
 	err = testhelpers.AddLaneWithDefaultPricesAndFeeQuoterConfig(t, &e, state, sourceChain, destChain, false)
 	require.NoError(t, err)
 
-	// get sui address in [32]bytes for extraArgs.TokenReceiver
-	var suiAddr [32]byte
-	suiAddrStr, err := e.Env.BlockChains.SuiChains()[destChain].Signer.GetAddress()
+	_, err = e.Env.BlockChains.SuiChains()[sourceChain].Signer.GetAddress()
 	require.NoError(t, err)
 
-	suiAddrStr = strings.TrimPrefix(suiAddrStr, "0x")
-
-	addrBytes, err := hex.DecodeString(suiAddrStr)
+	// SUI FeeToken
+	// mint link token to use as feeToken
+	_, feeTokenOutput, err := commoncs.ApplyChangesets(t, e.Env, []commoncs.ConfiguredChangeSet{
+		commoncs.Configure(sui_cs.MintLinkToken{}, sui_cs.MintLinkTokenConfig{
+			ChainSelector:  sourceChain,
+			TokenPackageId: state.SuiChains[sourceChain].LinkTokenAddress,
+			TreasuryCapId:  state.SuiChains[sourceChain].LinkTokenTreasuryCapId,
+			Amount:         1000000000000, // 1000Link with 1e9,
+		}),
+	})
 	require.NoError(t, err)
 
-	require.Len(t, addrBytes, 32, "expected 32-byte sui address")
-	copy(suiAddr[:], addrBytes)
+	rawOutput := feeTokenOutput[0].Reports[0]
+	outputMap, ok := rawOutput.Output.(sui_ops.OpTxResult[linkops.MintLinkTokenOutput])
+	require.True(t, ok)
+
+	// SUI TransferToken
+	// mint link token to use as Transfer Token
+	_, transferTokenOutput, err := commoncs.ApplyChangesets(t, e.Env, []commoncs.ConfiguredChangeSet{
+		commoncs.Configure(sui_cs.MintLinkToken{}, sui_cs.MintLinkTokenConfig{
+			ChainSelector:  sourceChain,
+			TokenPackageId: state.SuiChains[sourceChain].LinkTokenAddress,
+			TreasuryCapId:  state.SuiChains[sourceChain].LinkTokenTreasuryCapId,
+			Amount:         1000000000, // 1Link with 1e9
+		}),
+	})
+	require.NoError(t, err)
+
+	rawOutputTransferToken := transferTokenOutput[0].Reports[0]
+	outputMapTransferToken, ok = rawOutputTransferToken.Output.(sui_ops.OpTxResult[linkops.MintLinkTokenOutput])
+	require.True(t, ok)
+
+	// mint more token
+	_, transferTokenOutput1, err := commoncs.ApplyChangesets(t, e.Env, []commoncs.ConfiguredChangeSet{
+		commoncs.Configure(sui_cs.MintLinkToken{}, sui_cs.MintLinkTokenConfig{
+			ChainSelector:  sourceChain,
+			TokenPackageId: state.SuiChains[sourceChain].LinkTokenAddress,
+			TreasuryCapId:  state.SuiChains[sourceChain].LinkTokenTreasuryCapId,
+			Amount:         2000000000, // 1Link with 1e9
+		}),
+	})
+	require.NoError(t, err)
+
+	rawOutputTransferToken1 := transferTokenOutput1[0].Reports[0]
+	outputMapTransferToken1, ok = rawOutputTransferToken1.Output.(sui_ops.OpTxResult[linkops.MintLinkTokenOutput])
+	require.True(t, ok)
+
+	return e, sourceChain, destChain, outputMap, outputMapTransferToken, outputMapTransferToken1
+}
+
+func Test_CCIPTokenTransfer_EVM2SUI_ManagedTokenPool(t *testing.T) {
+	e, sourceChain, destChain, deployerSourceChain, suiTokenBytes, suiAddr := testSetupHelper(t)
 
 	// Token Pool setup on both SUI and EVM
-	updatedEnv, evmToken, _, err := testhelpers.HandleTokenAndManagedTokenPoolDeploymentForSUI(e.Env, destChain, sourceChain) // sourceChain=EVM, destChain=SUI
+	updatedEnv, evmToken, _, err := testhelpers.HandleTokenAndManagedTokenPoolDeploymentForSUI(e.Env, destChain, sourceChain, []testhelpers.TokenPoolRateLimiterConfig{
+		{
+			RemoteChainSelector: sourceChain,
+			OutboundIsEnabled:   false,
+			OutboundCapacity:    100000,
+			OutboundRate:        100,
+			InboundIsEnabled:    false,
+			InboundCapacity:     100000,
+			InboundRate:         100,
+		},
+	}) // sourceChain=EVM, destChain=SUI
 	require.NoError(t, err)
 
-	state, err = stateview.LoadOnchainState(e.Env)
+	state, err := stateview.LoadOnchainState(e.Env)
 	require.NoError(t, err)
 
 	// update env to include deployed contracts
@@ -555,6 +482,7 @@ func Test_CCIPTokenTransfer_EVM2SUI_ManagedTokenPool(t *testing.T) {
 		},
 	}
 
+	ctx := testhelpers.Context(t)
 	startBlocks, expectedSeqNums, expectedExecutionStates, expectedTokenBalances := testhelpers.TransferMultiple(ctx, t, e.Env, state, tcs)
 
 	err = testhelpers.ConfirmMultipleCommits(
@@ -666,58 +594,23 @@ func Test_CCIPTokenTransfer_EVM2SUI_ManagedTokenPool(t *testing.T) {
 }
 
 func Test_CCIPTokenTransfer_EVM2SUI_BurnMintTokenPool(t *testing.T) {
-	ctx := testhelpers.Context(t)
-	e, _, _ := testsetups.NewIntegrationEnvironment(
-		t,
-		testhelpers.WithNumOfChains(2),
-		testhelpers.WithSuiChains(1),
-	)
-
-	evmChainSelectors := e.Env.BlockChains.ListChainSelectors(chain.WithFamily(chain_selectors.FamilyEVM))
-	suiChainSelectors := e.Env.BlockChains.ListChainSelectors(chain.WithFamily(chain_selectors.FamilySui))
-
-	sourceChain := evmChainSelectors[0]
-	destChain := suiChainSelectors[0]
-
-	t.Log("Source chain (Sui): ", sourceChain, "Dest chain (EVM): ", destChain)
-
-	state, err := stateview.LoadOnchainState(e.Env)
-	require.NoError(t, err)
-
-	deployerSourceChain := e.Env.BlockChains.EVMChains()[sourceChain].DeployerKey
-	var suiTokenAddr [32]byte
-	suiTokenHex := state.SuiChains[destChain].LinkTokenAddress
-	suiTokenHex = strings.TrimPrefix(suiTokenHex, "0x")
-
-	suiTokenBytes, err := hex.DecodeString(suiTokenHex)
-	require.NoError(t, err)
-
-	require.NoError(t, err)
-
-	require.Len(t, suiTokenBytes, 32, "expected 32-byte sui address")
-	copy(suiTokenAddr[:], suiTokenBytes)
-
-	err = testhelpers.AddLaneWithDefaultPricesAndFeeQuoterConfig(t, &e, state, sourceChain, destChain, false)
-	require.NoError(t, err)
-
-	// get sui address in [32]bytes for extraArgs.TokenReceiver
-	var suiAddr [32]byte
-	suiAddrStr, err := e.Env.BlockChains.SuiChains()[destChain].Signer.GetAddress()
-	require.NoError(t, err)
-
-	suiAddrStr = strings.TrimPrefix(suiAddrStr, "0x")
-
-	addrBytes, err := hex.DecodeString(suiAddrStr)
-	require.NoError(t, err)
-
-	require.Len(t, addrBytes, 32, "expected 32-byte sui address")
-	copy(suiAddr[:], addrBytes)
+	e, sourceChain, destChain, deployerSourceChain, suiTokenBytes, suiAddr := testSetupHelper(t)
 
 	// Token Pool setup on both SUI and EVM
-	updatedEnv, evmToken, _, err := testhelpers.HandleTokenAndBurnMintTokenPoolDeploymentForSUI(e.Env, destChain, sourceChain) // sourceChain=EVM, destChain=SUI
+	updatedEnv, evmToken, _, err := testhelpers.HandleTokenAndBurnMintTokenPoolDeploymentForSUI(e.Env, destChain, sourceChain, []testhelpers.TokenPoolRateLimiterConfig{
+		{
+			RemoteChainSelector: sourceChain,
+			OutboundIsEnabled:   false,
+			OutboundCapacity:    100000,
+			OutboundRate:        100,
+			InboundIsEnabled:    false,
+			InboundCapacity:     100000,
+			InboundRate:         100,
+		},
+	}) // sourceChain=EVM, destChain=SUI
 	require.NoError(t, err)
 
-	state, err = stateview.LoadOnchainState(e.Env)
+	state, err := stateview.LoadOnchainState(e.Env)
 	require.NoError(t, err)
 
 	// update env to include deployed contracts
@@ -801,6 +694,7 @@ func Test_CCIPTokenTransfer_EVM2SUI_BurnMintTokenPool(t *testing.T) {
 		},
 	}
 
+	ctx := testhelpers.Context(t)
 	startBlocks, expectedSeqNums, expectedExecutionStates, expectedTokenBalances := testhelpers.TransferMultiple(ctx, t, e.Env, state, tcs)
 
 	err = testhelpers.ConfirmMultipleCommits(
@@ -912,58 +806,23 @@ func Test_CCIPTokenTransfer_EVM2SUI_BurnMintTokenPool(t *testing.T) {
 }
 
 func Test_CCIPPureTokenTransfer_EVM2SUI_BurnMintTokenPool(t *testing.T) {
-	ctx := testhelpers.Context(t)
-	e, _, _ := testsetups.NewIntegrationEnvironment(
-		t,
-		testhelpers.WithNumOfChains(2),
-		testhelpers.WithSuiChains(1),
-	)
-
-	evmChainSelectors := e.Env.BlockChains.ListChainSelectors(chain.WithFamily(chain_selectors.FamilyEVM))
-	suiChainSelectors := e.Env.BlockChains.ListChainSelectors(chain.WithFamily(chain_selectors.FamilySui))
-
-	sourceChain := evmChainSelectors[0]
-	destChain := suiChainSelectors[0]
-
-	t.Log("Source chain (Sui): ", sourceChain, "Dest chain (EVM): ", destChain)
-
-	state, err := stateview.LoadOnchainState(e.Env)
-	require.NoError(t, err)
-
-	deployerSourceChain := e.Env.BlockChains.EVMChains()[sourceChain].DeployerKey
-	var suiTokenAddr [32]byte
-	suiTokenHex := state.SuiChains[destChain].LinkTokenAddress
-	suiTokenHex = strings.TrimPrefix(suiTokenHex, "0x")
-
-	suiTokenBytes, err := hex.DecodeString(suiTokenHex)
-	require.NoError(t, err)
-
-	require.NoError(t, err)
-
-	require.Len(t, suiTokenBytes, 32, "expected 32-byte sui address")
-	copy(suiTokenAddr[:], suiTokenBytes)
-
-	err = testhelpers.AddLaneWithDefaultPricesAndFeeQuoterConfig(t, &e, state, sourceChain, destChain, false)
-	require.NoError(t, err)
-
-	// get sui address in [32]bytes for extraArgs.TokenReceiver
-	var suiAddr [32]byte
-	suiAddrStr, err := e.Env.BlockChains.SuiChains()[destChain].Signer.GetAddress()
-	require.NoError(t, err)
-
-	suiAddrStr = strings.TrimPrefix(suiAddrStr, "0x")
-
-	addrBytes, err := hex.DecodeString(suiAddrStr)
-	require.NoError(t, err)
-
-	require.Len(t, addrBytes, 32, "expected 32-byte sui address")
-	copy(suiAddr[:], addrBytes)
+	e, sourceChain, destChain, deployerSourceChain, suiTokenBytes, suiAddr := testSetupHelper(t)
 
 	// Token Pool setup on both SUI and EVM
-	updatedEnv, evmToken, _, err := testhelpers.HandleTokenAndBurnMintTokenPoolDeploymentForSUI(e.Env, destChain, sourceChain) // sourceChain=EVM, destChain=SUI
+	updatedEnv, evmToken, _, err := testhelpers.HandleTokenAndBurnMintTokenPoolDeploymentForSUI(e.Env, destChain, sourceChain, []testhelpers.TokenPoolRateLimiterConfig{
+		{
+			RemoteChainSelector: sourceChain,
+			OutboundIsEnabled:   false,
+			OutboundCapacity:    100000,
+			OutboundRate:        100,
+			InboundIsEnabled:    false,
+			InboundCapacity:     100000,
+			InboundRate:         100,
+		},
+	}) // sourceChain=EVM, destChain=SUI
 	require.NoError(t, err)
 
-	state, err = stateview.LoadOnchainState(e.Env)
+	state, err := stateview.LoadOnchainState(e.Env)
 	require.NoError(t, err)
 
 	// update env to include deployed contracts
@@ -1014,6 +873,7 @@ func Test_CCIPPureTokenTransfer_EVM2SUI_BurnMintTokenPool(t *testing.T) {
 		},
 	}
 
+	ctx := testhelpers.Context(t)
 	startBlocks, expectedSeqNums, expectedExecutionStates, expectedTokenBalances := testhelpers.TransferMultiple(ctx, t, e.Env, state, tcs)
 
 	err = testhelpers.ConfirmMultipleCommits(
@@ -1039,58 +899,23 @@ func Test_CCIPPureTokenTransfer_EVM2SUI_BurnMintTokenPool(t *testing.T) {
 }
 
 func Test_CCIPProgrammableTokenTransfer_EVM2SUI_BurnMintTokenPool(t *testing.T) {
-	ctx := testhelpers.Context(t)
-	e, _, _ := testsetups.NewIntegrationEnvironment(
-		t,
-		testhelpers.WithNumOfChains(2),
-		testhelpers.WithSuiChains(1),
-	)
-
-	evmChainSelectors := e.Env.BlockChains.ListChainSelectors(chain.WithFamily(chain_selectors.FamilyEVM))
-	suiChainSelectors := e.Env.BlockChains.ListChainSelectors(chain.WithFamily(chain_selectors.FamilySui))
-
-	sourceChain := evmChainSelectors[0]
-	destChain := suiChainSelectors[0]
-
-	t.Log("Source chain (Sui): ", sourceChain, "Dest chain (EVM): ", destChain)
-
-	state, err := stateview.LoadOnchainState(e.Env)
-	require.NoError(t, err)
-
-	deployerSourceChain := e.Env.BlockChains.EVMChains()[sourceChain].DeployerKey
-	var suiTokenAddr [32]byte
-	suiTokenHex := state.SuiChains[destChain].LinkTokenAddress
-	suiTokenHex = strings.TrimPrefix(suiTokenHex, "0x")
-
-	suiTokenBytes, err := hex.DecodeString(suiTokenHex)
-	require.NoError(t, err)
-
-	require.NoError(t, err)
-
-	require.Len(t, suiTokenBytes, 32, "expected 32-byte sui address")
-	copy(suiTokenAddr[:], suiTokenBytes)
-
-	err = testhelpers.AddLaneWithDefaultPricesAndFeeQuoterConfig(t, &e, state, sourceChain, destChain, false)
-	require.NoError(t, err)
-
-	// get sui address in [32]bytes for extraArgs.TokenReceiver
-	var suiAddr [32]byte
-	suiAddrStr, err := e.Env.BlockChains.SuiChains()[destChain].Signer.GetAddress()
-	require.NoError(t, err)
-
-	suiAddrStr = strings.TrimPrefix(suiAddrStr, "0x")
-
-	addrBytes, err := hex.DecodeString(suiAddrStr)
-	require.NoError(t, err)
-
-	require.Len(t, addrBytes, 32, "expected 32-byte sui address")
-	copy(suiAddr[:], addrBytes)
+	e, sourceChain, destChain, deployerSourceChain, _, _ := testSetupHelper(t)
 
 	// Token Pool setup on both SUI and EVM
-	updatedEnv, evmToken, _, err := testhelpers.HandleTokenAndBurnMintTokenPoolDeploymentForSUI(e.Env, destChain, sourceChain) // sourceChain=EVM, destChain=SUI
+	updatedEnv, evmToken, _, err := testhelpers.HandleTokenAndBurnMintTokenPoolDeploymentForSUI(e.Env, destChain, sourceChain, []testhelpers.TokenPoolRateLimiterConfig{
+		{
+			RemoteChainSelector: sourceChain,
+			OutboundIsEnabled:   false,
+			OutboundCapacity:    100000,
+			OutboundRate:        100,
+			InboundIsEnabled:    false,
+			InboundCapacity:     100000,
+			InboundRate:         100,
+		},
+	}) // sourceChain=EVM, destChain=SUI
 	require.NoError(t, err)
 
-	state, err = stateview.LoadOnchainState(e.Env)
+	state, err := stateview.LoadOnchainState(e.Env)
 	require.NoError(t, err)
 
 	// update env to include deployed contracts
@@ -1176,6 +1001,7 @@ func Test_CCIPProgrammableTokenTransfer_EVM2SUI_BurnMintTokenPool(t *testing.T) 
 		},
 	}
 
+	ctx := testhelpers.Context(t)
 	startBlocks, expectedSeqNums, expectedExecutionStates, expectedTokenBalances := testhelpers.TransferMultiple(ctx, t, e.Env, state, tcs)
 
 	err = testhelpers.ConfirmMultipleCommits(
@@ -1201,58 +1027,23 @@ func Test_CCIPProgrammableTokenTransfer_EVM2SUI_BurnMintTokenPool(t *testing.T) 
 }
 
 func Test_CCIPZeroGasLimitTokenTransfer_EVM2SUI_BurnMintTokenPool(t *testing.T) {
-	ctx := testhelpers.Context(t)
-	e, _, _ := testsetups.NewIntegrationEnvironment(
-		t,
-		testhelpers.WithNumOfChains(2),
-		testhelpers.WithSuiChains(1),
-	)
-
-	evmChainSelectors := e.Env.BlockChains.ListChainSelectors(chain.WithFamily(chain_selectors.FamilyEVM))
-	suiChainSelectors := e.Env.BlockChains.ListChainSelectors(chain.WithFamily(chain_selectors.FamilySui))
-
-	sourceChain := evmChainSelectors[0]
-	destChain := suiChainSelectors[0]
-
-	t.Log("Source chain (Sui): ", sourceChain, "Dest chain (EVM): ", destChain)
-
-	state, err := stateview.LoadOnchainState(e.Env)
-	require.NoError(t, err)
-
-	deployerSourceChain := e.Env.BlockChains.EVMChains()[sourceChain].DeployerKey
-	var suiTokenAddr [32]byte
-	suiTokenHex := state.SuiChains[destChain].LinkTokenAddress
-	suiTokenHex = strings.TrimPrefix(suiTokenHex, "0x")
-
-	suiTokenBytes, err := hex.DecodeString(suiTokenHex)
-	require.NoError(t, err)
-
-	require.NoError(t, err)
-
-	require.Len(t, suiTokenBytes, 32, "expected 32-byte sui address")
-	copy(suiTokenAddr[:], suiTokenBytes)
-
-	err = testhelpers.AddLaneWithDefaultPricesAndFeeQuoterConfig(t, &e, state, sourceChain, destChain, false)
-	require.NoError(t, err)
-
-	// get sui address in [32]bytes for extraArgs.TokenReceiver
-	var suiAddr [32]byte
-	suiAddrStr, err := e.Env.BlockChains.SuiChains()[destChain].Signer.GetAddress()
-	require.NoError(t, err)
-
-	suiAddrStr = strings.TrimPrefix(suiAddrStr, "0x")
-
-	addrBytes, err := hex.DecodeString(suiAddrStr)
-	require.NoError(t, err)
-
-	require.Len(t, addrBytes, 32, "expected 32-byte sui address")
-	copy(suiAddr[:], addrBytes)
+	e, sourceChain, destChain, deployerSourceChain, suiTokenBytes, suiAddr := testSetupHelper(t)
 
 	// Token Pool setup on both SUI and EVM
-	updatedEnv, evmToken, _, err := testhelpers.HandleTokenAndBurnMintTokenPoolDeploymentForSUI(e.Env, destChain, sourceChain) // sourceChain=EVM, destChain=SUI
+	updatedEnv, evmToken, _, err := testhelpers.HandleTokenAndBurnMintTokenPoolDeploymentForSUI(e.Env, destChain, sourceChain, []testhelpers.TokenPoolRateLimiterConfig{
+		{
+			RemoteChainSelector: sourceChain,
+			OutboundIsEnabled:   false,
+			OutboundCapacity:    100000,
+			OutboundRate:        100,
+			InboundIsEnabled:    false,
+			InboundCapacity:     100000,
+			InboundRate:         100,
+		},
+	}) // sourceChain=EVM, destChain=SUI
 	require.NoError(t, err)
 
-	state, err = stateview.LoadOnchainState(e.Env)
+	state, err := stateview.LoadOnchainState(e.Env)
 	require.NoError(t, err)
 
 	// update env to include deployed contracts
@@ -1337,6 +1128,7 @@ func Test_CCIPZeroGasLimitTokenTransfer_EVM2SUI_BurnMintTokenPool(t *testing.T) 
 		},
 	}
 
+	ctx := testhelpers.Context(t)
 	startBlocks, expectedSeqNums, expectedExecutionStates, expectedTokenBalances := testhelpers.TransferMultiple(ctx, t, e.Env, state, tcs)
 
 	err = testhelpers.ConfirmMultipleCommits(
@@ -1359,4 +1151,49 @@ func Test_CCIPZeroGasLimitTokenTransfer_EVM2SUI_BurnMintTokenPool(t *testing.T) 
 	require.Equal(t, expectedExecutionStates, execStates)
 
 	testhelpers.WaitForTokenBalances(ctx, t, e.Env, expectedTokenBalances)
+}
+
+func testSetupHelper(t *testing.T) (e testhelpers.DeployedEnv, sourceChain uint64, destChain uint64, deployerSourceChain *bind.TransactOpts, suiTokenBytes []byte, suiAddr [32]byte) {
+	e, _, _ = testsetups.NewIntegrationEnvironment(
+		t,
+		testhelpers.WithNumOfChains(2),
+		testhelpers.WithSuiChains(1),
+	)
+
+	evmChainSelectors := e.Env.BlockChains.ListChainSelectors(chain.WithFamily(chain_selectors.FamilyEVM))
+	suiChainSelectors := e.Env.BlockChains.ListChainSelectors(chain.WithFamily(chain_selectors.FamilySui))
+
+	sourceChain = evmChainSelectors[0]
+	destChain = suiChainSelectors[0]
+
+	t.Log("Source chain (Sui): ", sourceChain, "Dest chain (EVM): ", destChain)
+
+	state, err := stateview.LoadOnchainState(e.Env)
+	require.NoError(t, err)
+
+	deployerSourceChain = e.Env.BlockChains.EVMChains()[sourceChain].DeployerKey
+	suiTokenHex := state.SuiChains[destChain].LinkTokenAddress
+	suiTokenHex = strings.TrimPrefix(suiTokenHex, "0x")
+
+	suiTokenBytes, err = hex.DecodeString(suiTokenHex)
+	require.NoError(t, err)
+
+	require.Len(t, suiTokenBytes, 32, "expected 32-byte sui address")
+
+	err = testhelpers.AddLaneWithDefaultPricesAndFeeQuoterConfig(t, &e, state, sourceChain, destChain, false)
+	require.NoError(t, err)
+
+	// get sui address in [32]bytes for extraArgs.TokenReceiver
+	suiAddrStr, err := e.Env.BlockChains.SuiChains()[destChain].Signer.GetAddress()
+	require.NoError(t, err)
+
+	suiAddrStr = strings.TrimPrefix(suiAddrStr, "0x")
+
+	addrBytes, err := hex.DecodeString(suiAddrStr)
+	require.NoError(t, err)
+
+	require.Len(t, addrBytes, 32, "expected 32-byte sui address")
+	copy(suiAddr[:], addrBytes)
+
+	return e, sourceChain, destChain, deployerSourceChain, suiTokenBytes, suiAddr
 }

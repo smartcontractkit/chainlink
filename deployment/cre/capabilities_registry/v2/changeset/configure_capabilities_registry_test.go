@@ -115,7 +115,7 @@ func suite(t *testing.T, fixture *testFixture) {
 		t.Log("Testing MCMS proposal creation for NOPs registration...")
 
 		// Get MCMS contracts from the environment
-		mcmsContracts, err := strategies.GetMCMSContracts(mcmsFixture.env, mcmsFixture.chainSelector, mcmsFixture.configureInput.Qualifier)
+		mcmsContracts, err := strategies.GetMCMSContracts(mcmsFixture.env, mcmsFixture.chainSelector, *mcmsFixture.configureInput.MCMSConfig)
 		require.NoError(t, err, "should be able to get MCMS contracts")
 		require.NotNil(t, mcmsContracts, "MCMS contracts should not be nil")
 
@@ -573,6 +573,9 @@ func setupCapabilitiesRegistryWithMCMS(t *testing.T) *testFixture {
 		CapabilitiesRegistryAddress: capabilitiesRegistryAddress,
 		MCMSConfig: &crecontracts.MCMSConfig{
 			MinDelay: 30 * time.Second,
+			TimelockQualifierPerChain: map[uint64]string{
+				selector: "",
+			},
 		},
 		Nops:         nops,
 		Capabilities: capabilities,
