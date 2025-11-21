@@ -512,8 +512,12 @@ func fundAdditionalKeys(lggr logger.Logger, e cldf.Environment, destChains []uin
 	g := new(errgroup.Group)
 	for sel, addresses := range addressMap {
 		sel, addresses := sel, addresses
+		funding := fundingAmount
+		if sel == chainselectors.AVALANCHE_TESTNET_FUJI.Selector || sel == chainselectors.BINANCE_SMART_CHAIN_TESTNET.Selector {
+			funding = 5000000000000000000
+		}
 		g.Go(func() error {
-			return crib.SendFundsToAccounts(e.GetContext(), lggr, e.BlockChains.EVMChains()[sel], addresses, new(big.Int).SetUint64(fundingAmount), sel)
+			return crib.SendFundsToAccounts(e.GetContext(), lggr, e.BlockChains.EVMChains()[sel], addresses, new(big.Int).SetUint64(funding), sel)
 		})
 	}
 

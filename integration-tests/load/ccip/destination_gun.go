@@ -364,7 +364,7 @@ func (m *DestinationGun) GetEVMMessage(src uint64) (router.ClientEVM2AnyMessage,
 		// TODO: read from testnetDefaults.go
 		// Default to Link token for token transfers
 		tokenAddress := common.HexToAddress("0x0A3c837dF81fd77956784E90245aa527A024690d")
-		tokenAmount := big.NewInt(1) //  1 wei for very small amounts
+		tokenAmount := big.NewInt(1e12) //  1 wei for very small amounts
 
 		// Only use BnM token if we're running on testnet/staging AND BnM is configured for this chain
 		if m.testConfig.TestnetConfig != nil &&
