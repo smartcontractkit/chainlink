@@ -143,10 +143,10 @@ type CCIPChainState struct {
 	USDCTokenPoolCCTPV2 map[semver.Version]*usdc_token_pool_cctp_v2.USDCTokenPoolCCTPV2
 
 	// It's the same contract bin as the other transmitter proxies but only for using CCTP V2.
-	CCTPMessageTransmitterProxy_CCTPV2 map[semver.Version]*cctp_message_transmitter_proxy.CCTPMessageTransmitterProxy
-	USDCTokenPoolProxy                 map[semver.Version]*usdc_token_pool_proxy.USDCTokenPoolProxy
-	ERC20LockBox                       map[semver.Version]*erc20_lock_box.ERC20LockBox
-	USDCTokenPoolV1_6_4                map[semver.Version]*usdc_token_pool_v1_6_4.USDCTokenPool
+	CCTPMessageTransmitterProxyCCTPV2 map[semver.Version]*cctp_message_transmitter_proxy.CCTPMessageTransmitterProxy
+	USDCTokenPoolProxy                map[semver.Version]*usdc_token_pool_proxy.USDCTokenPoolProxy
+	ERC20LockBox                      map[semver.Version]*erc20_lock_box.ERC20LockBox
+	USDCTokenPoolV1_6_4               map[semver.Version]*usdc_token_pool_v1_6_4.USDCTokenPool
 
 	// Siloed USDC Token Pool is a mapping of chain selectors since there will only ever be one siloed USDC token pool per remote chain if at all.
 	SiloedUSDCTokenPools map[uint64]*siloed_usdc_token_pool.SiloedUSDCTokenPool

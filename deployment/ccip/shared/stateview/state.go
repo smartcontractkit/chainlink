@@ -1496,26 +1496,26 @@ func LoadChainState(ctx context.Context, chain cldf_evm.Chain, addresses map[str
 			if err != nil {
 				return state, err
 			}
-			if state.CCTPMessageTransmitterProxy_CCTPV2 == nil {
-				state.CCTPMessageTransmitterProxy_CCTPV2 = make(map[semver.Version]*cctp_message_transmitter_proxy.CCTPMessageTransmitterProxy)
+			if state.CCTPMessageTransmitterProxyCCTPV2 == nil {
+				state.CCTPMessageTransmitterProxyCCTPV2 = make(map[semver.Version]*cctp_message_transmitter_proxy.CCTPMessageTransmitterProxy)
 			}
-			state.CCTPMessageTransmitterProxy_CCTPV2[deployment.Version1_6_4] = cmtp
+			state.CCTPMessageTransmitterProxyCCTPV2[deployment.Version1_6_4] = cmtp
 			state.ABIByAddress[address] = cctp_message_transmitter_proxy.CCTPMessageTransmitterProxyABI
-		case cldf.NewTypeAndVersion(ccipshared.USDCTokenPool_CCTPV2, deployment.Version1_6_4).String():
+		case cldf.NewTypeAndVersion(ccipshared.USDCTokenPoolCCTPV2, deployment.Version1_6_4).String():
 			utp, err := usdc_token_pool_cctp_v2.NewUSDCTokenPoolCCTPV2(common.HexToAddress(address), chain.Client)
 			if err != nil {
 				return state, err
 			}
 			state.USDCTokenPoolCCTPV2[deployment.Version1_6_4] = utp
 			state.ABIByAddress[address] = usdc_token_pool_cctp_v2.USDCTokenPoolCCTPV2ABI
-		case cldf.NewTypeAndVersion(ccipshared.ERC20LockBox_CCTPV2, deployment.Version1_6_4).String():
+		case cldf.NewTypeAndVersion(ccipshared.ERC20LockBox, deployment.Version1_6_4).String():
 			elb, err := erc20_lock_box.NewERC20LockBox(common.HexToAddress(address), chain.Client)
 			if err != nil {
 				return state, err
 			}
 			state.ERC20LockBox[deployment.Version1_6_4] = elb
 			state.ABIByAddress[address] = erc20_lock_box.ERC20LockBoxABI
-		case cldf.NewTypeAndVersion(ccipshared.USDCTokenPoolProxy_CCTPV2, deployment.Version1_6_4).String():
+		case cldf.NewTypeAndVersion(ccipshared.USDCTokenPoolProxy, deployment.Version1_6_4).String():
 			utp, err := usdc_token_pool_proxy.NewUSDCTokenPoolProxy(common.HexToAddress(address), chain.Client)
 			if err != nil {
 				return state, err
