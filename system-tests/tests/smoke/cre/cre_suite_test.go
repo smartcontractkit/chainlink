@@ -6,6 +6,8 @@ import (
 
 	"github.com/stretchr/testify/require"
 
+	"github.com/smartcontractkit/quarantine"
+
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/blockchains"
 	t_helpers "github.com/smartcontractkit/chainlink/system-tests/tests/test-helpers"
 )
@@ -171,6 +173,7 @@ func Test_CRE_V2_HTTP_Action_Suite(t *testing.T) {
 }
 
 func Test_CRE_V2_Beholder_Suite(t *testing.T) {
+	quarantine.Flaky(t, "DX-2340")
 	testEnv := t_helpers.SetupTestEnvironmentWithConfig(t, t_helpers.GetDefaultTestConfig(t), append(v2RegistriesFlags, "--with-dashboards")...)
 
 	ExecuteLogStreamingTest(t, testEnv)
