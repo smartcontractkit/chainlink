@@ -348,7 +348,7 @@ func Test_CCIPTokenTransfer_Sui2EVM_BurnMintTokenPool_WithAllowlist(t *testing.T
 				{
 					TokenPoolType: sui_deployment.TokenPoolTypeBurnMint,
 					Token:         linkTokenOutput1.Objects.MintedLinkTokenObjectId,
-					Amount:        2000000000, // Send 1Link to EVM
+					Amount:        2000000000, // send 1 LINK to EVM
 				},
 			},
 			FeeToken: feeTokenOutput.Objects.MintedLinkTokenObjectId,
@@ -439,6 +439,42 @@ func Test_CCIPTokenTransfer_Sui2EVM_BurnMintTokenPool_WithAllowlist(t *testing.T
 		_, err := testhelpers.SendRequest(e.Env, state, baseOpts...)
 		assertSuiSourceRevertExpectedError(t, err, "failed to execute ccip_send with err: transaction failed with error: MoveAbort", "function_name: Some(\"validate_lock_or_burn\") }, 1)")
 		t.Log("Expected error: ", err)
+	})
+
+	signerAddress, err := deps.Signer.GetAddress()
+	require.NoError(t, err)
+	_, err = operations.ExecuteOperation(e.Env.OperationsBundle, burnminttokenpoolops.BurnMintTokenPoolApplyAllowlistUpdatesOp, deps, burnminttokenpoolops.BurnMintTokenPoolApplyAllowlistUpdatesInput{
+		BurnMintPackageId: state.SuiChains[sourceChain].BnMTokenPools[testhelpers.TokenSymbolLINK].PackageID,
+		StateObjectId:     state.SuiChains[sourceChain].BnMTokenPools[testhelpers.TokenSymbolLINK].StateObjectId,
+		OwnerCap:          state.SuiChains[sourceChain].BnMTokenPools[testhelpers.TokenSymbolLINK].OwnerCapObjectId,
+		CoinObjectTypeArg: state.SuiChains[sourceChain].LinkTokenAddress + "::link::LINK",
+		Removes:           []string{},
+		Adds:              []string{signerAddress},
+	})
+	require.NoError(t, err)
+
+	t.Run("Sender in allowlist - should succeed", func(t *testing.T) {
+		msg := testhelpers.SuiSendRequest{
+			Receiver: common.LeftPadBytes(ccipReceiverAddress.Bytes(), 32),
+			Data:     []byte("Hello, World!"),
+			FeeToken: feeTokenOutput.Objects.MintedLinkTokenObjectId,
+			TokenAmounts: []testhelpers.SuiTokenAmount{
+				{
+					TokenPoolType: sui_deployment.TokenPoolTypeBurnMint,
+					Token:         linkTokenOutput2.Objects.MintedLinkTokenObjectId,
+					Amount:        1500000000,
+				},
+			}}
+
+		baseOpts := []ccipclient.SendReqOpts{
+			ccipclient.WithSourceChain(sourceChain),
+			ccipclient.WithDestChain(destChain),
+			ccipclient.WithTestRouter(false),
+			ccipclient.WithMessage(msg),
+		}
+
+		_, err := testhelpers.SendRequest(e.Env, state, baseOpts...)
+		require.NoError(t, err)
 	})
 }
 
