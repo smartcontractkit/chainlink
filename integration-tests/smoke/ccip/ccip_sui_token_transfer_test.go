@@ -437,7 +437,7 @@ func Test_CCIPTokenTransfer_Sui2EVM_BurnMintTokenPool_WithAllowlist(t *testing.T
 		}
 
 		_, err := testhelpers.SendRequest(e.Env, state, baseOpts...)
-		assertSuiSourceRevertExpectedError(t, err, "failed to execute ccip_send with err: transaction failed with error: MoveAbort", "function_name: Some(\"consume\") }, 1)")
+		assertSuiSourceRevertExpectedError(t, err, "failed to execute ccip_send with err: transaction failed with error: MoveAbort", "function_name: Some(\"validate_lock_or_burn\") }, 1)")
 		t.Log("Expected error: ", err)
 	})
 }
