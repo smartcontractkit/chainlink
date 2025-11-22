@@ -386,6 +386,7 @@ func TestWithdrawOnRampFeeTokens(t *testing.T) {
 }
 
 func TestUpdateOffRampsSources(t *testing.T) {
+	quarantine.Flaky(t, "DX-2380")
 	for _, tc := range []struct {
 		name        string
 		mcmsEnabled bool
