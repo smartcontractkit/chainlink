@@ -465,7 +465,7 @@ func Test_CCIPTokenTransfer_Sui2EVM_BurnMintTokenPool_RMN_Cursed(t *testing.T) {
 			Name:           "Send token to EOA",
 			SourceChain:    sourceChain,
 			DestChain:      destChain,
-			Receiver:       updatedEnv.BlockChains.EVMChains()[destChain].DeployerKey.From.Bytes(), // internally left padded to 32byte
+			Receiver:       updatedEnv.BlockChains.EVMChains()[destChain].Users[0].From[:], // internally left padded to 32byte
 			ExpectedStatus: testhelpers.EXECUTION_STATE_SUCCESS,
 			FeeToken:       feeTokenOutput.Objects.MintedLinkTokenObjectId,
 			SuiTokens: []testhelpers.SuiTokenAmount{
