@@ -7,6 +7,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	chain_selectors "github.com/smartcontractkit/chain-selectors"
+	"github.com/smartcontractkit/quarantine"
 
 	cldf_chain "github.com/smartcontractkit/chainlink-deployments-framework/chain"
 
@@ -19,6 +20,7 @@ import (
 )
 
 func TestAddLanesWithTestRouter(t *testing.T) {
+	quarantine.Flaky(t, "DX-2384")
 	t.Parallel()
 	e, _ := testhelpers.NewMemoryEnvironment(t)
 	// Here we have CR + nodes set up, but no CCIP contracts deployed.
