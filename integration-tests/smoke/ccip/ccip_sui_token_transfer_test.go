@@ -459,6 +459,55 @@ func Test_CCIPTokenTransfer_Sui2EVM_BurnMintTokenPool_RMN_Cursed(t *testing.T) {
 		},
 	})
 	require.NoError(t, err)
+
+	tcs = []testhelpers.TestTransferRequest{
+		{
+			Name:           "Send token to EOA",
+			SourceChain:    sourceChain,
+			DestChain:      destChain,
+			Receiver:       updatedEnv.BlockChains.EVMChains()[destChain].DeployerKey.From.Bytes(), // internally left padded to 32byte
+			ExpectedStatus: testhelpers.EXECUTION_STATE_SUCCESS,
+			FeeToken:       feeTokenOutput.Objects.MintedLinkTokenObjectId,
+			SuiTokens: []testhelpers.SuiTokenAmount{
+				{
+					TokenPoolType: sui_deployment.TokenPoolTypeBurnMint,
+					Token:         linkTokenOutput2.Objects.MintedLinkTokenObjectId,
+					Amount:        2000000000, // Send 2 LINK to EVM
+				},
+			},
+			ExpectedTokenBalances: []testhelpers.ExpectedBalance{
+				{
+					Token:  evmToken.Address().Bytes(),
+					Amount: big.NewInt(2e18),
+				},
+			},
+		},
+	}
+
+	startBlocks, expectedSeqNums, expectedExecutionStates, expectedTokenBalances = testhelpers.TransferMultiple(ctx, t, updatedEnv, state, tcs)
+
+	err = testhelpers.ConfirmMultipleCommitsWithContext(
+		ctx,
+		t,
+		updatedEnv,
+		state,
+		startBlocks,
+		false,
+		expectedSeqNums,
+	)
+	require.NoError(t, err)
+
+	execStates = testhelpers.ConfirmExecWithSeqNrsForAllWithContext(
+		ctx,
+		t,
+		updatedEnv,
+		state,
+		testhelpers.SeqNumberRangeToSlice(expectedSeqNums),
+		startBlocks,
+	)
+	require.Equal(t, expectedExecutionStates, execStates)
+
+	testhelpers.WaitForTokenBalances(ctx, t, updatedEnv, expectedTokenBalances)
 }
 
 func Test_CCIPTokenTransfer_Sui2EVM_BurnMintTokenPool_WithAllowlist(t *testing.T) {
