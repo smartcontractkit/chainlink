@@ -1,6 +1,7 @@
 package ccip
 
 import (
+	"encoding/binary"
 	"encoding/hex"
 	"fmt"
 	"math/big"
@@ -51,6 +52,7 @@ func Test_CCIPTokenTransfer_Sui2EVM_ManagedTokenPool(t *testing.T) {
 	feeTokenOutput := mintLinkToken(t, e.Env, sourceChain, 1000000000000)
 	linkTokenOutput1 := mintLinkToken(t, e.Env, sourceChain, 1000000000)
 	linkTokenOutput2 := mintLinkToken(t, e.Env, sourceChain, 2000000000)
+	linkTokenOutput3 := mintLinkToken(t, e.Env, sourceChain, 1500000000)
 
 	state, err := stateview.LoadOnchainState(e.Env)
 	require.NoError(t, err)
@@ -143,6 +145,63 @@ func Test_CCIPTokenTransfer_Sui2EVM_ManagedTokenPool(t *testing.T) {
 	require.Equal(t, expectedExecutionStates, execStates)
 
 	testhelpers.WaitForTokenBalances(ctx, t, updatedEnv, expectedTokenBalances)
+
+	suiState, err := sui_deployment.LoadOnchainStatesui(e.Env)
+	require.NoError(t, err)
+
+	suiChain := e.Env.BlockChains.SuiChains()[destChain]
+	require.NotNil(t, suiChain)
+
+	deps := sui_ops.OpTxDeps{
+		Client: suiChain.Client,
+		Signer: suiChain.Signer,
+		GetCallOpts: func() *suiBind.CallOpts {
+			b := uint64(400_000_000)
+			return &suiBind.CallOpts{
+				WaitForExecution: true,
+				GasBudget:        &b,
+			}
+		},
+		SuiRPC: suiChain.URL,
+	}
+
+	// Convert suiChain.Selector to []byte
+	selectorBytes := make([]byte, 16)
+	binary.BigEndian.PutUint64(selectorBytes[8:], destChain)
+
+	// curse destination chain
+	_, err = operations.ExecuteOperation(e.Env.OperationsBundle, ccipops.RMNRemoteCurseOp, deps, ccipops.RMNRemoteCurseInput{
+		CCIPPackageId:    suiState[destChain].CCIPAddress,
+		StateObjectId:    suiState[destChain].CCIPObjectRef,
+		OwnerCapObjectId: suiState[destChain].CCIPOwnerCapObjectId,
+		Subject:          selectorBytes,
+	})
+	require.NoError(t, err)
+
+	t.Run("Destination chain is cursed - should fail", func(t *testing.T) {
+		msg := testhelpers.SuiSendRequest{
+			Receiver: common.LeftPadBytes(ccipReceiverAddress.Bytes(), 32),
+			Data:     []byte("Hello, World!"),
+			FeeToken: feeTokenOutput.Objects.MintedLinkTokenObjectId,
+			TokenAmounts: []testhelpers.SuiTokenAmount{
+				{
+					TokenPoolType: sui_deployment.TokenPoolTypeManaged,
+					Token:         linkTokenOutput3.Objects.MintedLinkTokenObjectId,
+					Amount:        1500000000,
+				},
+			}}
+
+		baseOpts := []ccipclient.SendReqOpts{
+			ccipclient.WithSourceChain(sourceChain),
+			ccipclient.WithDestChain(destChain),
+			ccipclient.WithTestRouter(false),
+			ccipclient.WithMessage(msg),
+		}
+
+		_, err := testhelpers.SendRequest(e.Env, state, baseOpts...)
+		assertSuiSourceRevertExpectedError(t, err, "failed to execute ccip_send with err: transaction failed with error: MoveAbort", "function_name: Some(\"validate_lock_or_burn\") }, 3)")
+		t.Log("Expected error: ", err)
+	})
 }
 
 func Test_CCIPTokenTransfer_Sui2EVM_BurnMintTokenPool(t *testing.T) {
@@ -507,6 +566,7 @@ func Test_CCIPTokenTransfer_Sui2EVM_BurnMintTokenPool_RMN_Cursed(t *testing.T) {
 	)
 	require.Equal(t, expectedExecutionStates, execStates)
 
+	expectedTokenBalances[destChain][0].Amount.Add(expectedTokenBalances[destChain][0].Amount, big.NewInt(1000000000))
 	testhelpers.WaitForTokenBalances(ctx, t, updatedEnv, expectedTokenBalances)
 }
 
