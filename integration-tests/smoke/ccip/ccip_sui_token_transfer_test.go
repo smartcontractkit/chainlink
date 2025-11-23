@@ -171,9 +171,9 @@ func Test_CCIPTokenTransfer_Sui2EVM_ManagedTokenPool(t *testing.T) {
 
 	// curse destination chain
 	_, err = operations.ExecuteOperation(e.Env.OperationsBundle, ccipops.RMNRemoteCurseOp, deps, ccipops.RMNRemoteCurseInput{
-		CCIPPackageId:    suiState[destChain].CCIPAddress,
-		StateObjectId:    suiState[destChain].CCIPObjectRef,
-		OwnerCapObjectId: suiState[destChain].CCIPOwnerCapObjectId,
+		CCIPPackageId:    suiState[sourceChain].CCIPAddress,
+		StateObjectId:    suiState[sourceChain].CCIPObjectRef,
+		OwnerCapObjectId: suiState[sourceChain].CCIPOwnerCapObjectId,
 		Subject:          selectorBytes,
 	})
 	require.NoError(t, err)
