@@ -410,7 +410,7 @@ func Test_CCIPTokenTransfer_Sui2EVM_BurnMintTokenPool_RMN_Cursed(t *testing.T) {
 				{
 					TokenPoolType: sui_deployment.TokenPoolTypeBurnMint,
 					Token:         linkTokenOutput1.Objects.MintedLinkTokenObjectId,
-					Amount:        1000000000, // Send 1Link to EVM
+					Amount:        1000000000, // Send 1 LINK to EVM
 				},
 			},
 			ExpectedTokenBalances: []testhelpers.ExpectedBalance{
@@ -467,10 +467,6 @@ func Test_CCIPTokenTransfer_Sui2EVM_BurnMintTokenPool_RMN_Cursed(t *testing.T) {
 		SuiRPC: suiChain.URL,
 	}
 
-	// // Convert suiChain.Selector to []byte
-	// selectorBytes := make([]byte, 16)
-	// binary.BigEndian.PutUint64(selectorBytes[8:], suiChain.Selector)
-
 	// curse globally
 	_, err = operations.ExecuteOperation(e.Env.OperationsBundle, ccipops.RMNRemoteCurseOp, deps, ccipops.RMNRemoteCurseInput{
 		CCIPPackageId:    suiState[sourceChain].CCIPAddress,
@@ -525,7 +521,7 @@ func Test_CCIPTokenTransfer_Sui2EVM_BurnMintTokenPool_RMN_Cursed(t *testing.T) {
 			Name:           "Send token to EOA",
 			SourceChain:    sourceChain,
 			DestChain:      destChain,
-			Receiver:       updatedEnv.BlockChains.EVMChains()[destChain].Users[0].From[:], // internally left padded to 32byte
+			Receiver:       updatedEnv.BlockChains.EVMChains()[destChain].DeployerKey.From.Bytes(), // internally left padded to 32byte
 			ExpectedStatus: testhelpers.EXECUTION_STATE_SUCCESS,
 			FeeToken:       feeTokenOutput.Objects.MintedLinkTokenObjectId,
 			SuiTokens: []testhelpers.SuiTokenAmount{
@@ -567,7 +563,6 @@ func Test_CCIPTokenTransfer_Sui2EVM_BurnMintTokenPool_RMN_Cursed(t *testing.T) {
 	)
 	require.Equal(t, expectedExecutionStates, execStates)
 
-	expectedTokenBalances[destChain][0].Amount.Add(expectedTokenBalances[destChain][0].Amount, big.NewInt(1000000000))
 	testhelpers.WaitForTokenBalances(ctx, t, updatedEnv, expectedTokenBalances)
 }
 
