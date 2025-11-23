@@ -83,7 +83,7 @@ require (
 	github.com/smartcontractkit/chainlink-ccip v0.1.1-solana.0.20251105200616-e158f436aa95
 	github.com/smartcontractkit/chainlink-ccip/chains/solana v0.0.0-20250912190424-fd2e35d7deb5
 	github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings v0.0.0-20250912190424-fd2e35d7deb5
-	github.com/smartcontractkit/chainlink-ccv v0.0.0-20251119220244-0914730bcd0f
+	github.com/smartcontractkit/chainlink-ccv v0.0.0-20251123184631-0af087d1834b
 	github.com/smartcontractkit/chainlink-common v0.9.6-0.20251118164938-731e805e0a2f
 	github.com/smartcontractkit/chainlink-common/pkg/chipingress v0.0.10
 	github.com/smartcontractkit/chainlink-data-streams v0.1.6
@@ -230,6 +230,7 @@ require (
 	github.com/ethereum/go-bigmodexpfix v0.0.0-20250911101455-f9e208c548ab // indirect
 	github.com/ethereum/go-verkle v0.2.2 // indirect
 	github.com/expr-lang/expr v1.17.5 // indirect
+	github.com/failsafe-go/failsafe-go v0.9.0 // indirect
 	github.com/fbsobreira/gotron-sdk v0.0.0-20250403083053-2943ce8c759b // indirect
 	github.com/ferranbt/fastssz v0.1.4 // indirect
 	github.com/fsnotify/fsnotify v1.9.0 // indirect
@@ -288,6 +289,7 @@ require (
 	github.com/huin/goupnp v1.3.0 // indirect
 	github.com/iancoleman/strcase v0.3.0 // indirect
 	github.com/inconshreveable/mousetrap v1.1.0 // indirect
+	github.com/influxdata/tdigest v0.0.1 // indirect
 	github.com/invopop/jsonschema v0.13.0 // indirect
 	github.com/jackc/chunkreader/v2 v2.0.1 // indirect
 	github.com/jackc/pgio v1.0.0 // indirect

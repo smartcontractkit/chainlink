@@ -216,6 +216,7 @@ require (
 	github.com/evanphx/json-patch/v5 v5.9.0 // indirect
 	github.com/exponent-io/jsonpath v0.0.0-20210407135951-1de76d718b3f // indirect
 	github.com/expr-lang/expr v1.17.5 // indirect
+	github.com/failsafe-go/failsafe-go v0.9.0 // indirect
 	github.com/fatih/camelcase v1.0.0 // indirect
 	github.com/fatih/color v1.18.0 // indirect
 	github.com/felixge/httpsnoop v1.0.4 // indirect
@@ -300,6 +301,7 @@ require (
 	github.com/iancoleman/strcase v0.3.0 // indirect
 	github.com/imdario/mergo v0.3.16 // indirect
 	github.com/inconshreveable/mousetrap v1.1.0 // indirect
+	github.com/influxdata/tdigest v0.0.1 // indirect
 	github.com/invopop/jsonschema v0.13.0 // indirect
 	github.com/jackc/chunkreader/v2 v2.0.1 // indirect
 	github.com/jackc/pgconn v1.14.3 // indirect
@@ -411,7 +413,7 @@ require (
 	github.com/smartcontractkit/chainlink-automation v0.8.1 // indirect
 	github.com/smartcontractkit/chainlink-ccip/ccv/chains/evm v0.0.0-20251107170647-25947f0bb4cb // indirect
 	github.com/smartcontractkit/chainlink-ccip/deployment v0.0.0-20251027185542-babb09e5363e // indirect
-	github.com/smartcontractkit/chainlink-ccv v0.0.0-20251119220244-0914730bcd0f // indirect
+	github.com/smartcontractkit/chainlink-ccv v0.0.0-20251123184631-0af087d1834b // indirect
 	github.com/smartcontractkit/chainlink-common/pkg/chipingress v0.0.10 // indirect
 	github.com/smartcontractkit/chainlink-data-streams v0.1.6 // indirect
 	github.com/smartcontractkit/chainlink-feeds v0.1.2-0.20250227211209-7cd000095135 // indirect

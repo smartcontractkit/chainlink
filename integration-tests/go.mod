@@ -237,6 +237,7 @@ require (
 	github.com/exponent-io/jsonpath v0.0.0-20210407135951-1de76d718b3f // indirect
 	github.com/expr-lang/expr v1.17.5 // indirect
 	github.com/facette/natsort v0.0.0-20181210072756-2cd4dd1e2dcb // indirect
+	github.com/failsafe-go/failsafe-go v0.9.0 // indirect
 	github.com/fatih/camelcase v1.0.0 // indirect
 	github.com/fatih/color v1.18.0 // indirect
 	github.com/fbsobreira/gotron-sdk v0.0.0-20250403083053-2943ce8c759b // indirect
@@ -357,6 +358,7 @@ require (
 	github.com/iancoleman/strcase v0.3.0 // indirect
 	github.com/imdario/mergo v0.3.16 // indirect
 	github.com/inconshreveable/mousetrap v1.1.0 // indirect
+	github.com/influxdata/tdigest v0.0.2-0.20210216194612-fc98d27c9e8b // indirect
 	github.com/invopop/jsonschema v0.13.0 // indirect
 	github.com/jackc/chunkreader/v2 v2.0.1 // indirect
 	github.com/jackc/pgconn v1.14.3 // indirect
@@ -492,7 +494,7 @@ require (
 	github.com/smartcontractkit/ccip-owner-contracts v0.1.0 // indirect
 	github.com/smartcontractkit/chainlink-ccip/ccv/chains/evm v0.0.0-20251107170647-25947f0bb4cb // indirect
 	github.com/smartcontractkit/chainlink-ccip/deployment v0.0.0-20251027185542-babb09e5363e // indirect
-	github.com/smartcontractkit/chainlink-ccv v0.0.0-20251119220244-0914730bcd0f // indirect
+	github.com/smartcontractkit/chainlink-ccv v0.0.0-20251123184631-0af087d1834b // indirect
 	github.com/smartcontractkit/chainlink-common/pkg/chipingress v0.0.10 // indirect
 	github.com/smartcontractkit/chainlink-data-streams v0.1.6 // indirect
 	github.com/smartcontractkit/chainlink-feeds v0.1.2-0.20250227211209-7cd000095135 // indirect
