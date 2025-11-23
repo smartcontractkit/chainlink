@@ -158,6 +158,7 @@ func Test_CCIPTokenTransfer_Sui2EVM_ManagedTokenPool(t *testing.T) {
 		GetCallOpts: func() *suiBind.CallOpts {
 			b := uint64(400_000_000)
 			return &suiBind.CallOpts{
+				Signer:           suiChain.Signer,
 				WaitForExecution: true,
 				GasBudget:        &b,
 			}
