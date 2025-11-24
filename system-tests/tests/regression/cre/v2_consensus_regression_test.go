@@ -23,7 +23,7 @@ type consensusNegativeTest struct {
 }
 
 const (
-	expectedConsensusError = "consensus calculation failed"
+	expectedConsensusError = "could not process consensus request before expiry"
 )
 
 var consensusNegativeTestsGenerateReport = []consensusNegativeTest{
