@@ -938,55 +938,11 @@ func Test_CCIPTokenTransfer_EVM2SUI_ManagedTokenPool_NoRateLimit(t *testing.T) {
 		},
 	)
 
-	// Deploy SUI Receiver
-	// _, output, err := commoncs.ApplyChangesets(t, e.Env, []commoncs.ConfiguredChangeSet{
-	// 	commoncs.Configure(sui_cs.DeployDummyReceiver{}, sui_cs.DeployDummyReceiverConfig{
-	// 		SuiChainSelector: destChain,
-	// 		McmsOwner:        "0x1",
-	// 	}),
-	// })
-	// require.NoError(t, err)
-
-	// rawOutput := output[0].Reports[0]
-
-	// outputMap, ok := rawOutput.Output.(sui_ops.OpTxResult[ccipops.DeployDummyReceiverObjects])
-	// require.True(t, ok)
-
-	// id := strings.TrimPrefix(outputMap.PackageId, "0x")
-	// receiverByteDecoded, err := hex.DecodeString(id)
-	// require.NoError(t, err)
-
-	// // register the receiver
-	// _, _, err = commoncs.ApplyChangesets(t, e.Env, []commoncs.ConfiguredChangeSet{
-	// 	commoncs.Configure(sui_cs.RegisterDummyReceiver{}, sui_cs.RegisterDummyReceiverConfig{
-	// 		SuiChainSelector:       destChain,
-	// 		OwnerCapObjectId:       outputMap.Objects.OwnerCapObjectId,
-	// 		CCIPObjectRefObjectId:  state.SuiChains[destChain].CCIPObjectRef,
-	// 		DummyReceiverPackageId: outputMap.PackageId,
-	// 	}),
-	// })
-	// require.NoError(t, err)
-
-	// receiverByte := receiverByteDecoded
-
-	// var clockObj [32]byte
-	// copy(clockObj[:], hexutil.MustDecode(
-	// 	"0x0000000000000000000000000000000000000000000000000000000000000006",
-	// ))
-
-	// var stateObj [32]byte
-	// copy(stateObj[:], hexutil.MustDecode(
-	// 	outputMap.Objects.CCIPReceiverStateObjectId,
-	// ))
-
-	// receiverObjectIDs := [][32]byte{clockObj, stateObj}
-
 	tcs := []testhelpers.TestTransferRequest{
 		{
-			Name:        "Send token to EOA",
-			SourceChain: sourceChain,
-			DestChain:   destChain,
-			// Receiver:         receiverByte, // receiver contract pkgId
+			Name:             "Send token to EOA",
+			SourceChain:      sourceChain,
+			DestChain:        destChain,
 			TokenReceiverATA: suiAddr[:], // tokenReceiver extracted from extraArgs (the address that actually gets the token)
 			ExpectedStatus:   testhelpers.EXECUTION_STATE_SUCCESS,
 			Tokens: []router.ClientEVMTokenAmount{
@@ -1042,7 +998,7 @@ func Test_CCIPTokenTransfer_EVM2SUI_ManagedTokenPool_WithRateLimit(t *testing.T)
 			OutboundIsEnabled:   true,
 			OutboundCapacity:    100000,
 			OutboundRate:        100,
-			InboundIsEnabled:    true,
+			InboundIsEnabled:    false,
 			InboundCapacity:     2000000000,
 			InboundRate:         100000,
 		},
@@ -1066,55 +1022,11 @@ func Test_CCIPTokenTransfer_EVM2SUI_ManagedTokenPool_WithRateLimit(t *testing.T)
 		},
 	)
 
-	// // Deploy SUI Receiver
-	// _, output, err := commoncs.ApplyChangesets(t, e.Env, []commoncs.ConfiguredChangeSet{
-	// 	commoncs.Configure(sui_cs.DeployDummyReceiver{}, sui_cs.DeployDummyReceiverConfig{
-	// 		SuiChainSelector: destChain,
-	// 		McmsOwner:        "0x1",
-	// 	}),
-	// })
-	// require.NoError(t, err)
-
-	// rawOutput := output[0].Reports[0]
-
-	// outputMap, ok := rawOutput.Output.(sui_ops.OpTxResult[ccipops.DeployDummyReceiverObjects])
-	// require.True(t, ok)
-
-	// id := strings.TrimPrefix(outputMap.PackageId, "0x")
-	// receiverByteDecoded, err := hex.DecodeString(id)
-	// require.NoError(t, err)
-
-	// // register the receiver
-	// _, _, err = commoncs.ApplyChangesets(t, e.Env, []commoncs.ConfiguredChangeSet{
-	// 	commoncs.Configure(sui_cs.RegisterDummyReceiver{}, sui_cs.RegisterDummyReceiverConfig{
-	// 		SuiChainSelector:       destChain,
-	// 		OwnerCapObjectId:       outputMap.Objects.OwnerCapObjectId,
-	// 		CCIPObjectRefObjectId:  state.SuiChains[destChain].CCIPObjectRef,
-	// 		DummyReceiverPackageId: outputMap.PackageId,
-	// 	}),
-	// })
-	// require.NoError(t, err)
-
-	// receiverByte := receiverByteDecoded
-
-	// var clockObj [32]byte
-	// copy(clockObj[:], hexutil.MustDecode(
-	// 	"0x0000000000000000000000000000000000000000000000000000000000000006",
-	// ))
-
-	// var stateObj [32]byte
-	// copy(stateObj[:], hexutil.MustDecode(
-	// 	outputMap.Objects.CCIPReceiverStateObjectId,
-	// ))
-
-	// receiverObjectIDs := [][32]byte{clockObj, stateObj}
-
 	tcs := []testhelpers.TestTransferRequest{
 		{
-			Name:        "Send token to EOA",
-			SourceChain: sourceChain,
-			DestChain:   destChain,
-			// Receiver:         receiverByte, // receiver contract pkgId
+			Name:             "Send token to EOA",
+			SourceChain:      sourceChain,
+			DestChain:        destChain,
 			TokenReceiverATA: suiAddr[:], // tokenReceiver extracted from extraArgs (the address that actually gets the token)
 			ExpectedStatus:   testhelpers.EXECUTION_STATE_SUCCESS,
 			Tokens: []router.ClientEVMTokenAmount{

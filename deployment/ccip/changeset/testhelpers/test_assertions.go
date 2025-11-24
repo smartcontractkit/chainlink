@@ -426,7 +426,7 @@ func ConfirmMultipleCommitsWithContext(
 	state stateview.CCIPOnChainState,
 	startBlocks map[uint64]*uint64,
 	enforceSingleCommit bool,
-	expectedSeqNums map[SourceDestPair]ccipocr3.SeqNumRange,
+	expectedSeqNums map[SourceDestPair]ccipocr3common.SeqNumRange,
 ) error {
 	errGrp := &errgroup.Group{}
 
