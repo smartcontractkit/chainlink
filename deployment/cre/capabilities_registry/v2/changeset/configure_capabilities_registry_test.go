@@ -21,11 +21,11 @@ import (
 	"github.com/smartcontractkit/chainlink-deployments-framework/engine/test/runtime"
 	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
 	capabilities_registry_v2 "github.com/smartcontractkit/chainlink-evm/gethwrappers/workflow/generated/capabilities_registry_wrapper_v2"
-	"github.com/smartcontractkit/chainlink/deployment/cre/capabilities_registry/v2/changeset"
 
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 	commontypes "github.com/smartcontractkit/chainlink/deployment/common/types"
+	"github.com/smartcontractkit/chainlink/deployment/cre/capabilities_registry/v2/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/cre/capabilities_registry/v2/changeset/operations/contracts"
 	"github.com/smartcontractkit/chainlink/deployment/cre/capabilities_registry/v2/changeset/pkg"
 	crecontracts "github.com/smartcontractkit/chainlink/deployment/cre/contracts"
