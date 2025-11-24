@@ -6,8 +6,8 @@ import (
 	"math/big"
 	"strconv"
 
+	"github.com/BurntSushi/toml"
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/pelletier/go-toml/v2"
 	chainselectors "github.com/smartcontractkit/chain-selectors"
 
 	"github.com/smartcontractkit/chainlink-ccv/executor"
