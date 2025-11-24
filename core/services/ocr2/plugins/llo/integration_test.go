@@ -409,7 +409,7 @@ func promoteStagingConfig(t *testing.T, donID uint32, steve *bind.TransactOpts, 
 }
 
 func TestIntegration_LLO_evm_premium_legacy(t *testing.T) {
-	t.Parallel()
+	// t.Parallel()
 	offchainConfigs := []datastreamsllo.OffchainConfig{
 		{
 			ProtocolVersion:                     0,
@@ -422,7 +422,7 @@ func TestIntegration_LLO_evm_premium_legacy(t *testing.T) {
 	}
 	for _, offchainConfig := range offchainConfigs {
 		t.Run(fmt.Sprintf("offchainConfig=%+v", offchainConfig), func(t *testing.T) {
-			t.Parallel()
+			// t.Parallel()
 
 			testIntegrationLLOEVMPremiumLegacy(t, offchainConfig)
 		})
@@ -650,7 +650,7 @@ channelDefinitionsContractFromBlock = %d`, serverURL, serverPubKey, donID, confi
 }
 
 func TestIntegration_LLO_multi_formats(t *testing.T) {
-	t.Parallel()
+	// t.Parallel()
 	offchainConfigs := []datastreamsllo.OffchainConfig{
 		{
 			ProtocolVersion:                     0,
@@ -663,7 +663,7 @@ func TestIntegration_LLO_multi_formats(t *testing.T) {
 	}
 	for _, offchainConfig := range offchainConfigs {
 		t.Run(fmt.Sprintf("offchainConfig=%+v", offchainConfig), func(t *testing.T) {
-			t.Parallel()
+			// t.Parallel()
 
 			testIntegrationLLOMultiFormats(t, offchainConfig)
 		})
@@ -1401,7 +1401,7 @@ dp -> deribit_funding_interval_hours_parse -> deribit_funding_interval_hours_dec
 }
 
 func TestIntegration_LLO_stress_test_V1(t *testing.T) {
-	t.Parallel()
+	// t.Parallel()
 
 	// logLevel: the log level to use for the nodes
 	// setting a more verbose log level increases cpu usage significantly
@@ -1635,7 +1635,7 @@ channelDefinitionsContractFromBlock = %d`, serverURL, serverPubKey, donID, confi
 }
 
 func TestIntegration_LLO_transmit_errors(t *testing.T) {
-	t.Parallel()
+	// t.Parallel()
 
 	// logLevel: the log level to use for the nodes
 	// setting a more verbose log level increases cpu usage significantly
@@ -1808,7 +1808,8 @@ channelDefinitionsContractFromBlock = %d`, serverURL, serverPubKey, serverPubKey
 }
 
 func TestIntegration_LLO_blue_green_lifecycle(t *testing.T) {
-	t.Parallel()
+	// tests.SkipFlakey(t, "https://smartcontract-it.atlassian.net/browse/MERC-7232")
+	// t.Parallel()
 
 	offchainConfigs := []datastreamsllo.OffchainConfig{
 		{
@@ -1822,7 +1823,7 @@ func TestIntegration_LLO_blue_green_lifecycle(t *testing.T) {
 	}
 	for _, offchainConfig := range offchainConfigs {
 		t.Run(fmt.Sprintf("offchainConfig=%+v", offchainConfig), func(t *testing.T) {
-			t.Parallel()
+			// t.Parallel()
 
 			testIntegrationLLOBlueGreenLifecycle(t, offchainConfig)
 		})
