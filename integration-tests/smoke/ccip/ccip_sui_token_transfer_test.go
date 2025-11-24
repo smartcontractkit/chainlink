@@ -19,6 +19,7 @@ import (
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_2_0/router"
 
 	"github.com/smartcontractkit/chainlink-deployments-framework/chain"
+	"github.com/smartcontractkit/chainlink-deployments-framework/chain/sui"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
 
@@ -46,7 +47,7 @@ func assertSuiSourceRevertExpectedError(t *testing.T, err error, execRevertError
 	require.Contains(t, err.Error(), execRevertCauseErrorMsg)
 }
 
-func Test_CCIPTokenTransfer_Sui2EVM_ManagedTokenPool(t *testing.T) {
+func Test_CCIPTokenTransfer_Sui2EVM_ManagedTokenPool_ThenCurse(t *testing.T) {
 	e, sourceChain, destChain := testSetupTokenTransfer(t)
 
 	feeTokenOutput := mintLinkToken(t, e.Env, sourceChain, 1000000000000)
@@ -87,7 +88,7 @@ func Test_CCIPTokenTransfer_Sui2EVM_ManagedTokenPool(t *testing.T) {
 				{
 					TokenPoolType: sui_deployment.TokenPoolTypeManaged,
 					Token:         linkTokenOutput1.Objects.MintedLinkTokenObjectId,
-					Amount:        1000000000, // Send 1Link to EVM
+					Amount:        1000000000, // Send 1 LINK to EVM
 				},
 			},
 			ExpectedTokenBalances: []testhelpers.ExpectedBalance{
@@ -107,7 +108,7 @@ func Test_CCIPTokenTransfer_Sui2EVM_ManagedTokenPool(t *testing.T) {
 				{
 					TokenPoolType: sui_deployment.TokenPoolTypeManaged,
 					Token:         linkTokenOutput2.Objects.MintedLinkTokenObjectId,
-					Amount:        2000000000, // Send 1Link to EVM
+					Amount:        2000000000, // Send 2 LINK to EVM
 				},
 			},
 			FeeToken: feeTokenOutput.Objects.MintedLinkTokenObjectId,
@@ -152,18 +153,7 @@ func Test_CCIPTokenTransfer_Sui2EVM_ManagedTokenPool(t *testing.T) {
 	suiChain := e.Env.BlockChains.SuiChains()[sourceChain]
 	require.NotNil(t, suiChain)
 
-	deps := sui_ops.OpTxDeps{
-		Client: suiChain.Client,
-		Signer: suiChain.Signer,
-		GetCallOpts: func() *suiBind.CallOpts {
-			b := uint64(400_000_000)
-			return &suiBind.CallOpts{
-				WaitForExecution: true,
-				GasBudget:        &b,
-			}
-		},
-		SuiRPC: suiChain.URL,
-	}
+	deps := getOpTxDeps(suiChain)
 
 	// Convert evmChain selector to []byte
 	selectorBytes := make([]byte, 16)
@@ -245,7 +235,7 @@ func Test_CCIPTokenTransfer_Sui2EVM_BurnMintTokenPool(t *testing.T) {
 				{
 					TokenPoolType: sui_deployment.TokenPoolTypeBurnMint,
 					Token:         linkTokenOutput1.Objects.MintedLinkTokenObjectId,
-					Amount:        1000000000, // Send 1Link to EVM
+					Amount:        1000000000, // Send 1 LINK to EVM
 				},
 			},
 			ExpectedTokenBalances: []testhelpers.ExpectedBalance{
@@ -265,7 +255,7 @@ func Test_CCIPTokenTransfer_Sui2EVM_BurnMintTokenPool(t *testing.T) {
 				{
 					TokenPoolType: sui_deployment.TokenPoolTypeBurnMint,
 					Token:         linkTokenOutput2.Objects.MintedLinkTokenObjectId,
-					Amount:        2000000000, // Send 1Link to EVM
+					Amount:        2000000000, // Send 2 LINK to EVM
 				},
 			},
 			FeeToken: feeTokenOutput.Objects.MintedLinkTokenObjectId,
@@ -369,7 +359,7 @@ func Test_CCIPTokenTransfer_Sui2EVM_BurnMintTokenPool(t *testing.T) {
 	})
 }
 
-func Test_CCIPTokenTransfer_Sui2EVM_BurnMintTokenPool_RMN_Cursed(t *testing.T) {
+func Test_CCIPTokenTransfer_Sui2EVM_BurnMintTokenPool_ThenGloballyCursed(t *testing.T) {
 	e, sourceChain, destChain := testSetupTokenTransfer(t)
 
 	feeTokenOutput := mintLinkToken(t, e.Env, sourceChain, 1000000000000)
@@ -453,18 +443,7 @@ func Test_CCIPTokenTransfer_Sui2EVM_BurnMintTokenPool_RMN_Cursed(t *testing.T) {
 	suiChain := e.Env.BlockChains.SuiChains()[sourceChain]
 	require.NotNil(t, suiChain)
 
-	deps := sui_ops.OpTxDeps{
-		Client: suiChain.Client,
-		Signer: suiChain.Signer,
-		GetCallOpts: func() *suiBind.CallOpts {
-			b := uint64(400_000_000)
-			return &suiBind.CallOpts{
-				WaitForExecution: true,
-				GasBudget:        &b,
-			}
-		},
-		SuiRPC: suiChain.URL,
-	}
+	deps := getOpTxDeps(suiChain)
 
 	// curse globally
 	_, err = operations.ExecuteOperation(e.Env.OperationsBundle, ccipops.RMNRemoteCurseOp, deps, ccipops.RMNRemoteCurseInput{
@@ -644,18 +623,7 @@ func Test_CCIPTokenTransfer_Sui2EVM_BurnMintTokenPool_WithAllowlist(t *testing.T
 
 	suiChain := e.Env.BlockChains.SuiChains()[sourceChain]
 
-	deps := sui_ops.OpTxDeps{
-		Client: suiChain.Client,
-		Signer: suiChain.Signer,
-		GetCallOpts: func() *suiBind.CallOpts {
-			b := uint64(400_000_000)
-			return &suiBind.CallOpts{
-				WaitForExecution: true,
-				GasBudget:        &b,
-			}
-		},
-		SuiRPC: suiChain.URL,
-	}
+	deps := getOpTxDeps(suiChain)
 
 	// reload state to include the BnM token pool
 	state, err = stateview.LoadOnchainState(e.Env)
@@ -1683,4 +1651,19 @@ func testSetupHelper(t *testing.T) (e testhelpers.DeployedEnv, sourceChain uint6
 	copy(suiAddr[:], addrBytes)
 
 	return e, sourceChain, destChain, deployerSourceChain, suiTokenBytes, suiAddr
+}
+
+func getOpTxDeps(suiChain sui.Chain) sui_ops.OpTxDeps {
+	return sui_ops.OpTxDeps{
+		Client: suiChain.Client,
+		Signer: suiChain.Signer,
+		GetCallOpts: func() *suiBind.CallOpts {
+			b := uint64(400_000_000)
+			return &suiBind.CallOpts{
+				WaitForExecution: true,
+				GasBudget:        &b,
+			}
+		},
+		SuiRPC: suiChain.URL,
+	}
 }

@@ -838,7 +838,7 @@ runner-test-matrix:
     sui_cli_version: mainnet-1.60.1
     install_plugins_public: true
 
-  - id: smoke/ccip/ccip_sui_token_transfer_test.go:Test_CCIPTokenTransfer_Sui2EVM_BurnMintTokenPool_RMN_Cursed
+  - id: smoke/ccip/ccip_sui_token_transfer_test.go:Test_CCIPTokenTransfer_Sui2EVM_BurnMintTokenPool_ThenGloballyCursed
     path: integration-tests/smoke/ccip/ccip_sui_token_transfer_test.go
     test_env_type: in-memory
     runs_on_self_hosted: runs-on/cpu=8/ram=32/family=m6i+m5.*/spot=false/image=ubuntu24-full-x64/extras=s3-cache+tmpfs
@@ -847,7 +847,7 @@ runner-test-matrix:
       - Nightly Integration CCIP Tests
     test_cmd: |
       ./scripts/free-disk-space.sh
-      ./scripts/run-ccip-test-isolated.sh "Test_CCIPTokenTransfer_Sui2EVM_BurnMintTokenPool_RMN_Cursed" 12
+      ./scripts/run-ccip-test-isolated.sh "Test_CCIPTokenTransfer_Sui2EVM_BurnMintTokenPool_ThenGloballyCursed" 12
     test_go_project_path: integration-tests
     sui_cli_version: mainnet-1.60.1
     install_plugins_public: true
@@ -881,7 +881,7 @@ runner-test-matrix:
     sui_cli_version: mainnet-1.60.1
     install_plugins_public: true
 
-  - id: smoke/ccip/ccip_sui_token_transfer_test.go:Test_CCIPTokenTransfer_Sui2EVM_ManagedTokenPool
+  - id: smoke/ccip/ccip_sui_token_transfer_test.go:Test_CCIPTokenTransfer_Sui2EVM_ManagedTokenPool_ThenCurse
     path: integration-tests/smoke/ccip/ccip_sui_token_transfer_test.go
     test_env_type: in-memory
     runs_on_self_hosted: runs-on/cpu=8/ram=32/family=m6i+m5.*/spot=false/image=ubuntu24-full-x64/extras=s3-cache+tmpfs
@@ -890,7 +890,7 @@ runner-test-matrix:
       - Nightly Integration CCIP Tests
     test_cmd: |
       ./scripts/free-disk-space.sh
-      ./scripts/run-ccip-test-isolated.sh "Test_CCIPTokenTransfer_Sui2EVM_ManagedTokenPool" 15
+      ./scripts/run-ccip-test-isolated.sh "Test_CCIPTokenTransfer_Sui2EVM_ManagedTokenPool_ThenCurse" 15
     test_go_project_path: integration-tests
     sui_cli_version: mainnet-1.60.1
     install_plugins_public: true
