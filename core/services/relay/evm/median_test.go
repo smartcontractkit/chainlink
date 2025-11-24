@@ -29,16 +29,8 @@ func TestNewMedianProvider(t *testing.T) {
 	lggr := logger.Test(t)
 
 	chain := mocks.NewChain(t)
-
 	chainID := testutils.NewRandomEVMChainID()
 	chain.EXPECT().ID().Return(chainID)
-
-	mockConfig := configmocks.NewChainScopedConfig(t)
-	chain.EXPECT().Config().Return(mockConfig)
-
-	mockEVM := configmocks.NewEVM(t)
-	mockConfig.EXPECT().EVM().Return(mockEVM)
-	mockEVM.EXPECT().ChainID().Return(chainID)
 
 	contractID := testutils.NewAddress()
 	transmitterAddr := testutils.NewAddress()
@@ -71,6 +63,13 @@ func TestNewMedianProvider(t *testing.T) {
 	})
 
 	t.Run("plugin config contains gas limit", func(t *testing.T) {
+		mockConfig := configmocks.NewChainScopedConfig(t)
+		chain.EXPECT().Config().Return(mockConfig)
+
+		mockEVM := configmocks.NewEVM(t)
+		mockConfig.EXPECT().EVM().Return(mockEVM)
+		mockEVM.EXPECT().ChainID().Return(chainID)
+
 		evmClient := clienttest.NewClient(t)
 		poller := lpmocks.NewLogPoller(t)
 
