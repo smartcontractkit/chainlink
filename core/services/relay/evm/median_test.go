@@ -30,13 +30,10 @@ func TestNewMedianProvider(t *testing.T) {
 	chain.EXPECT().ID().Return(chainID)
 
 	contractID := testutils.NewAddress()
-	transmitterAddr := testutils.NewAddress()
 
-	keystore := &keystest.FakeChainStore{Addresses: keystest.Addresses{transmitterAddr}}
 	relayer := &Relayer{
-		lggr:        logger.Sugared(lggr),
-		chain:       chain,
-		evmKeystore: keystore,
+		lggr:  logger.Sugared(lggr),
+		chain: chain,
 	}
 
 	pargs := commontypes.PluginArgs{}
@@ -60,9 +57,11 @@ func TestNewMedianProvider(t *testing.T) {
 	})
 
 	t.Run("plugin config contains gas limit", func(t *testing.T) {
+		transmitterAddr := testutils.NewAddress()
+		keystore := &keystest.FakeChainStore{Addresses: keystest.Addresses{transmitterAddr}}
+
 		mocks, relayer := setupMocksAndRelayer(t)
 		relayer.evmKeystore = keystore
-		relayer.lggr = logger.Sugared(lggr)
 
 		mocks.Chain.EXPECT().ID().Return(chainID)
 		mocks.EVM.EXPECT().ChainID().Return(chainID)
