@@ -149,7 +149,7 @@ func Test_CCIPTokenTransfer_Sui2EVM_ManagedTokenPool(t *testing.T) {
 	suiState, err := sui_deployment.LoadOnchainStatesui(e.Env)
 	require.NoError(t, err)
 
-	suiChain := e.Env.BlockChains.SuiChains()[destChain]
+	suiChain := e.Env.BlockChains.SuiChains()[sourceChain]
 	require.NotNil(t, suiChain)
 
 	deps := sui_ops.OpTxDeps{
@@ -158,7 +158,6 @@ func Test_CCIPTokenTransfer_Sui2EVM_ManagedTokenPool(t *testing.T) {
 		GetCallOpts: func() *suiBind.CallOpts {
 			b := uint64(400_000_000)
 			return &suiBind.CallOpts{
-				Signer:           suiChain.Signer,
 				WaitForExecution: true,
 				GasBudget:        &b,
 			}
@@ -166,7 +165,7 @@ func Test_CCIPTokenTransfer_Sui2EVM_ManagedTokenPool(t *testing.T) {
 		SuiRPC: suiChain.URL,
 	}
 
-	// Convert suiChain.Selector to []byte
+	// Convert evmChain selector to []byte
 	selectorBytes := make([]byte, 16)
 	binary.BigEndian.PutUint64(selectorBytes[8:], destChain)
 
