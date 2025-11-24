@@ -4,7 +4,6 @@ import (
 	"context"
 	"crypto"
 	"crypto/ed25519"
-	"errors"
 	"fmt"
 	"io"
 	"math/big"
@@ -27,11 +26,7 @@ import (
 	"github.com/smartcontractkit/chainlink-data-streams/rpc"
 	"github.com/smartcontractkit/chainlink-data-streams/rpc/mtls"
 
-	"github.com/smartcontractkit/wsrpc"
 	"github.com/smartcontractkit/wsrpc/credentials"
-	"github.com/smartcontractkit/wsrpc/peer"
-
-	ocr2types "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 
 	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
 
@@ -49,13 +44,10 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/p2pkey"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/validate"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocrbootstrap"
-	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury/wsrpc/pb"
 	"github.com/smartcontractkit/chainlink/v2/core/services/streams"
 	"github.com/smartcontractkit/chainlink/v2/core/store/models"
 	"github.com/smartcontractkit/chainlink/v2/core/utils/testutils/heavyweight"
 )
-
-var _ pb.MercuryServer = &wsrpcMercuryServer{}
 
 type mercuryServer struct {
 	rpc.UnimplementedTransmitterServer
@@ -120,62 +112,6 @@ func (s *mercuryServer) Transmit(ctx context.Context, req *rpc.TransmitRequest) 
 
 func (s *mercuryServer) LatestReport(ctx context.Context, lrr *rpc.LatestReportRequest) (*rpc.LatestReportResponse, error) {
 	panic("should not be called")
-}
-
-type wsrpcMercuryServer struct {
-	csaSigner crypto.Signer
-	reqsCh    chan wsrpcRequest
-	t         *testing.T
-}
-
-type wsrpcRequest struct {
-	pk  credentials.StaticSizedPublicKey
-	req *pb.TransmitRequest
-}
-
-func (r wsrpcRequest) TransmitterID() ocr2types.Account {
-	return ocr2types.Account(fmt.Sprintf("%x", r.pk))
-}
-
-func NewWSRPCMercuryServer(t *testing.T, csaSigner crypto.Signer, reqsCh chan wsrpcRequest) *wsrpcMercuryServer {
-	return &wsrpcMercuryServer{csaSigner, reqsCh, t}
-}
-
-func (s *wsrpcMercuryServer) Transmit(ctx context.Context, req *pb.TransmitRequest) (*pb.TransmitResponse, error) {
-	p, ok := peer.FromContext(ctx)
-	if !ok {
-		return nil, errors.New("could not extract public key")
-	}
-	r := wsrpcRequest{p.PublicKey, req}
-	s.reqsCh <- r
-
-	return &pb.TransmitResponse{
-		Code:  1,
-		Error: "",
-	}, nil
-}
-
-func (s *wsrpcMercuryServer) LatestReport(ctx context.Context, lrr *pb.LatestReportRequest) (*pb.LatestReportResponse, error) {
-	panic("should not be called")
-}
-
-func startWSRPCMercuryServer(t *testing.T, srv *wsrpcMercuryServer, pubKeys []ed25519.PublicKey) (serverURL string) {
-	// Set up the wsrpc server
-	lis, err := net.Listen("tcp", "127.0.0.1:0")
-	if err != nil {
-		t.Fatalf("[MAIN] failed to listen: %v", err)
-	}
-	serverURL = lis.Addr().String()
-	s := wsrpc.NewServer(wsrpc.WithSigner(srv.csaSigner, pubKeys))
-
-	// Register mercury implementation with the wsrpc server
-	pb.RegisterMercuryServer(s, srv)
-
-	// Start serving
-	go s.Serve(lis)
-	t.Cleanup(s.Stop)
-
-	return
 }
 
 type Node struct {

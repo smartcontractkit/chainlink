@@ -34,7 +34,6 @@ import (
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/confighelper"
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/ocr3confighelper"
 	ocr2types "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
-	"github.com/smartcontractkit/wsrpc/credentials"
 
 	llotypes "github.com/smartcontractkit/chainlink-common/pkg/types/llo"
 	datastreamsllo "github.com/smartcontractkit/chainlink-data-streams/llo"
@@ -456,12 +455,12 @@ func testIntegrationLLOEVMPremiumLegacy(t *testing.T, offchainConfig datastreams
 	bootstrapNode := Node{App: appBootstrap, KeyBundle: bootstrapKb}
 
 	t.Run("using legacy verifier configuration contract, produces reports in v0.3 format", func(t *testing.T) {
-		reqs := make(chan wsrpcRequest, 100000)
+		reqs := make(chan *packet, 100000)
 		serverKey := csakey.MustNewV2XXXTestingOnly(big.NewInt(salt - 2))
 		serverPubKey := serverKey.PublicKey
-		srv := NewWSRPCMercuryServer(t, serverKey, reqs)
+		srv := NewMercuryServer(t, serverKey, reqs)
 
-		serverURL := startWSRPCMercuryServer(t, srv, clientPubKeys)
+		serverURL := startMercuryServer(t, srv, clientPubKeys)
 
 		donID := uint32(995544)
 		streams := []Stream{ethStream, linkStream, quoteStream1, quoteStream2}
@@ -472,7 +471,7 @@ func testIntegrationLLOEVMPremiumLegacy(t *testing.T, offchainConfig datastreams
 
 		// Setup oracle nodes
 		oracles, nodes := setupNodes(t, nNodes, backend, clientCSAKeys, func(c *chainlink.Config) {
-			c.Mercury.Transmitter.Protocol = ptr(config.MercuryTransmitterProtocolWSRPC)
+			c.Mercury.Transmitter.Protocol = ptr(config.MercuryTransmitterProtocolGRPC)
 		})
 
 		chainID := testutils.SimulatedChainID
@@ -558,13 +557,13 @@ channelDefinitionsContractFromBlock = %d`, serverURL, serverPubKey, donID, confi
 
 		t.Run("receives at least one report per channel from each oracle when EAs are at 100% reliability", func(t *testing.T) {
 			// Expect at least one report per feed from each oracle
-			seen := make(map[[32]byte]map[credentials.StaticSizedPublicKey]struct{})
+			seen := make(map[[32]byte]map[string]struct{})
 			for _, cd := range channelDefinitions {
 				var opts lloevm.ReportFormatEVMPremiumLegacyOpts
 				err := json.Unmarshal(cd.Opts, &opts)
 				require.NoError(t, err)
 				// feedID will be deleted when all n oracles have reported
-				seen[opts.FeedID] = make(map[credentials.StaticSizedPublicKey]struct{}, nNodes)
+				seen[opts.FeedID] = make(map[string]struct{}, nNodes)
 			}
 			for req := range reqs {
 				assert.Equal(t, uint32(llotypes.ReportFormatEVMPremiumLegacy), req.req.ReportFormat)
@@ -633,9 +632,11 @@ channelDefinitionsContractFromBlock = %d`, serverURL, serverPubKey, donID, confi
 					require.NoError(t, err)
 				})
 
-				t.Logf("oracle %x reported for 0x%x", req.pk[:], feedID[:])
+				pr, ok := peer.FromContext(req.ctx)
+				require.True(t, ok)
+				t.Logf("oracle %x reported for 0x%x", pr.String(), feedID[:])
 
-				seen[feedID][req.pk] = struct{}{}
+				seen[feedID][pr.String()] = struct{}{}
 				if len(seen[feedID]) == nNodes {
 					t.Logf("all oracles reported for 0x%x", feedID[:])
 					delete(seen, feedID)
