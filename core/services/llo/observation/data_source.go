@@ -296,6 +296,7 @@ func (d *dataSource) Close() error {
 	close(d.observationLoopCloseCh)
 	d.observationLoopStarted.Store(false)
 	<-d.observationLoopDoneCh
+	d.cache.Close()
 
 	return nil
 }
