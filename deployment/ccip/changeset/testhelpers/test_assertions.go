@@ -581,7 +581,7 @@ type EventWithTxn[T any] struct {
 }
 
 // Scan for events referencing address
-func SolEventEmitter[T any](ctx context.Context, client *solrpc.Client, address solana.PublicKey, eventType string, startSlot uint64, done chan any, ticker *time.Ticker) (<-chan EventWithTxn[T], <-chan error) {
+func SolEventEmitter[T any](ctx context.Context, client *solrpc.Client, address solana.PublicKey, eventType string, startSlot uint64, done chan any, ticker *time.Ticker, includeFailed bool) (<-chan EventWithTxn[T], <-chan error) {
 	ch := make(chan EventWithTxn[T])
 	errorCh := make(chan error)
 	go func() {
@@ -612,7 +612,7 @@ func SolEventEmitter[T any](ctx context.Context, client *solrpc.Client, address 
 
 				// values are returned ordered newest to oldest, so we replay them backwards
 				for _, txSig := range slices.Backward(txSigs) {
-					if txSig.Err != nil {
+					if txSig.Err != nil && !includeFailed {
 						// We're not interested in failed transactions.
 						continue
 					}
@@ -677,7 +677,7 @@ func ConfirmCommitWithExpectedSeqNumRangeSol(
 
 	done := make(chan any)
 	defer close(done)
-	sink, errCh := SolEventEmitter[solcommon.EventCommitReportAccepted](t.Context(), dest.Client, offrampAddress, consts.EventNameCommitReportAccepted, startSlot, done, time.NewTicker(2*time.Second))
+	sink, errCh := SolEventEmitter[solcommon.EventCommitReportAccepted](t.Context(), dest.Client, offrampAddress, consts.EventNameCommitReportAccepted, startSlot, done, time.NewTicker(2*time.Second), false)
 
 	timeout := time.NewTimer(tests.WaitTimeout(t))
 	defer timeout.Stop()
@@ -904,8 +904,7 @@ func ConfirmExecWithSeqNrsForAll(
 				if startBlock != nil {
 					startSlot = *startBlock
 				}
-				innerExecutionStates, err = GetMessageStateWithSeqNrsSol(
-					//innerExecutionStates, err = ConfirmExecWithSeqNrsSol(
+				innerExecutionStates, err = ConfirmExecWithSeqNrsSol(
 					t,
 					srcChain,
 					e.BlockChains.SolanaChains()[dstChain],
@@ -1054,19 +1053,22 @@ func GetMessageStateWithSeqNrsSol(
 	offrampAddress solana.PublicKey,
 	startSlot uint64,
 	expectedSeqNrs []uint64,
+	inProgress bool,
 ) (executionStates map[uint64]int, err error) {
 	// TODO: share with EVM
 	// some state to efficiently track the execution states
 	// of all the expected sequence numbers.
 	executionStates = make(map[uint64]int)
+	seqNrsInProgress := make(map[uint64]struct{})
 	seqNrsToWatch := make(map[uint64]struct{})
 	for _, seqNr := range expectedSeqNrs {
 		seqNrsToWatch[seqNr] = struct{}{}
+		seqNrsInProgress[seqNr] = struct{}{}
 	}
 
 	done := make(chan any)
 	defer close(done)
-	sink, errCh := SolEventEmitter[solccip.EventExecutionStateChanged](t.Context(), dest.Client, offrampAddress, consts.EventNameExecutionStateChanged, startSlot, done, time.NewTicker(2*time.Second))
+	sink, errCh := SolEventEmitter[solccip.EventExecutionStateChanged](t.Context(), dest.Client, offrampAddress, consts.EventNameExecutionStateChanged, startSlot, done, time.NewTicker(2*time.Second), inProgress)
 
 	timeout := time.NewTimer(tests.WaitTimeout(t))
 	defer timeout.Stop()
@@ -1083,10 +1085,16 @@ func GetMessageStateWithSeqNrsSol(
 				if execEvent.State == ccip_offramp.InProgress_MessageExecutionState {
 					executionStates[execEvent.SequenceNumber] = int(execEvent.State)
 					fmt.Println("IN PROGRESS", execEvent)
+					delete(seqNrsInProgress, execEvent.SequenceNumber)
+
+					if inProgress && len(seqNrsInProgress) == 0 {
+						return executionStates, nil
+					}
 					// continue watching for final state
 					continue
 				}
 				delete(seqNrsToWatch, execEvent.SequenceNumber)
+				delete(seqNrsInProgress, execEvent.SequenceNumber)
 				if len(seqNrsToWatch) == 0 {
 					return executionStates, nil
 				}
@@ -1094,6 +1102,10 @@ func GetMessageStateWithSeqNrsSol(
 		case err := <-errCh:
 			require.NoError(t, err)
 		case <-timeout.C:
+			// If we have some status for every seqNr, return what we have instead of an error.
+			if len(seqNrsInProgress) == 0 {
+				return executionStates, nil
+			}
 			return nil, fmt.Errorf("timed out waiting for ExecutionStateChanged on chain %d (offramp %s) from chain %d with expected sequence numbers %+v",
 				dest.Selector, offrampAddress.String(), srcSelector, expectedSeqNrs)
 		}
@@ -1109,7 +1121,7 @@ func ConfirmExecWithSeqNrsSol(
 	startSlot uint64,
 	expectedSeqNrs []uint64,
 ) (executionStates map[uint64]int, err error) {
-	states, err := GetMessageStateWithSeqNrsSol(t, srcSelector, dest, offrampAddress, startSlot, expectedSeqNrs)
+	states, err := GetMessageStateWithSeqNrsSol(t, srcSelector, dest, offrampAddress, startSlot, expectedSeqNrs, false)
 	if err != nil {
 		return nil, err
 	}
