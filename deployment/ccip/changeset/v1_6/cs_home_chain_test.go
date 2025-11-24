@@ -7,40 +7,40 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	chain_selectors "github.com/smartcontractkit/chain-selectors"
 	"github.com/stretchr/testify/require"
-	"go.uber.org/zap/zapcore"
 
 	cldf_chain "github.com/smartcontractkit/chainlink-deployments-framework/chain"
-
-	capabilities_registry "github.com/smartcontractkit/chainlink-evm/gethwrappers/keystone/generated/capabilities_registry_1_1_0"
-
-	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/testcontext"
-
-	"github.com/smartcontractkit/chainlink-evm/pkg/utils"
-
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+	"github.com/smartcontractkit/chainlink-deployments-framework/engine/test/environment"
+
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
+	capabilities_registry "github.com/smartcontractkit/chainlink-evm/gethwrappers/keystone/generated/capabilities_registry_1_1_0"
+	"github.com/smartcontractkit/chainlink-evm/pkg/utils"
+	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/testcontext"
 
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/v1_6"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
-	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 	commoncs "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 	"github.com/smartcontractkit/chainlink/deployment/common/view/v1_0"
-	"github.com/smartcontractkit/chainlink/deployment/environment/memory"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/types"
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
 
 func TestDeployHomeChain(t *testing.T) {
 	t.Parallel()
-	lggr := logger.TestLogger(t)
-	e := memory.NewMemoryEnvironment(t, lggr, zapcore.InfoLevel, memory.MemoryEnvironmentConfig{
-		Bootstraps: 1,
-		Chains:     2,
-		Nodes:      4,
-	})
-	homeChainSel := e.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chain_selectors.FamilyEVM))[0]
+
+	homeChainSel := chain_selectors.TEST_90000001.Selector
+	env, err := environment.New(t.Context(),
+		environment.WithEVMSimulated(t, []uint64{homeChainSel}),
+		environment.WithLogger(logger.Test(t)),
+	)
+	require.NoError(t, err)
+
+	testhelpers.RegisterNodes(t, env, 4, homeChainSel)
+
+	e := *env
+
 	nodes, err := deployment.NodeInfo(e.NodeIDs, e.Offchain)
 	require.NoError(t, err)
 	p2pIds := nodes.NonBootstraps().PeerIDs()
@@ -119,8 +119,8 @@ func TestDeployDonIDClaimerAndOffSet(t *testing.T) {
 	}
 
 	// apply the changeset once again to ensure idempotency
-	e, err = commonchangeset.Apply(t, e,
-		commonchangeset.Configure(
+	e, err = commoncs.Apply(t, e,
+		commoncs.Configure(
 			cldf.CreateLegacyChangeSet(v1_6.DeployHomeChainChangeset),
 			homeChainCfg,
 		))
@@ -134,8 +134,8 @@ func TestDeployDonIDClaimerAndOffSet(t *testing.T) {
 	require.NoError(t, err)
 
 	// deploy donIDClaimer
-	e, err = commonchangeset.Apply(t, e,
-		commonchangeset.Configure(
+	e, err = commoncs.Apply(t, e,
+		commoncs.Configure(
 			v1_6.DeployDonIDClaimerChangeset,
 			v1_6.DeployDonIDClaimerConfig{},
 		))
@@ -145,8 +145,8 @@ func TestDeployDonIDClaimerAndOffSet(t *testing.T) {
 	state, err = stateview.LoadOnchainState(e)
 	require.NoError(t, err)
 
-	e, err = commonchangeset.Apply(t, e,
-		commonchangeset.Configure(
+	e, err = commoncs.Apply(t, e,
+		commoncs.Configure(
 			v1_6.DonIDClaimerOffSetChangeset,
 			v1_6.DonIDClaimerOffSetConfig{
 				OffSet: 1,

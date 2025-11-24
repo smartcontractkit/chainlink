@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"maps"
 	"math/big"
 	"math/rand"
 	"net/http"
@@ -18,31 +17,34 @@ import (
 	"github.com/Masterminds/semver/v3"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/gagliardetto/solana-go"
+	solBinary "github.com/gagliardetto/binary"
 	solanago "github.com/gagliardetto/solana-go"
+	chain_selectors "github.com/smartcontractkit/chain-selectors"
+	mcmstypes "github.com/smartcontractkit/mcms/types"
+	"github.com/stretchr/testify/require"
+	"github.com/xssnick/tonutils-go/address"
+	"github.com/xssnick/tonutils-go/tlb"
+	"go.uber.org/zap/zapcore"
 
 	ops "github.com/smartcontractkit/chainlink-ton/deployment/ccip"
 	tonOperation "github.com/smartcontractkit/chainlink-ton/deployment/ccip/operation"
-
-	chain_selectors "github.com/smartcontractkit/chain-selectors"
-	mcmstypes "github.com/smartcontractkit/mcms/types"
-
-	cldf_aptos "github.com/smartcontractkit/chainlink-deployments-framework/chain/aptos"
-	cldf_evm_provider "github.com/smartcontractkit/chainlink-deployments-framework/chain/evm/provider"
-	cldf_solana "github.com/smartcontractkit/chainlink-deployments-framework/chain/solana"
-	cldf_ton "github.com/smartcontractkit/chainlink-deployments-framework/chain/ton"
-
-	"github.com/stretchr/testify/require"
-	"go.uber.org/zap/zapcore"
-
-	"github.com/smartcontractkit/chainlink-common/pkg/logger"
-	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/testcontext"
+	"github.com/smartcontractkit/chainlink-ton/deployment/utils"
 
 	cldf_chain "github.com/smartcontractkit/chainlink-deployments-framework/chain"
-
+	cldf_aptos "github.com/smartcontractkit/chainlink-deployments-framework/chain/aptos"
 	cldf_evm "github.com/smartcontractkit/chainlink-deployments-framework/chain/evm"
+	cldf_evm_provider "github.com/smartcontractkit/chainlink-deployments-framework/chain/evm/provider"
+	cldf_solana "github.com/smartcontractkit/chainlink-deployments-framework/chain/solana"
 	cldf_sui "github.com/smartcontractkit/chainlink-deployments-framework/chain/sui"
+	cldf_ton "github.com/smartcontractkit/chainlink-deployments-framework/chain/ton"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+	"github.com/smartcontractkit/chainlink-deployments-framework/engine/test/environment"
+	"github.com/smartcontractkit/chainlink-deployments-framework/engine/test/onchain"
+	simjd "github.com/smartcontractkit/chainlink-deployments-framework/offchain/jd/memory"
+
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
+	nodev1 "github.com/smartcontractkit/chainlink-protos/job-distributor/v1/node"
+	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/testcontext"
 
 	sui_cs "github.com/smartcontractkit/chainlink-sui/deployment/changesets"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
@@ -54,19 +56,18 @@ import (
 	ccipseq "github.com/smartcontractkit/chainlink/deployment/ccip/sequence/evm/v1_6"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
+	"github.com/smartcontractkit/chainlink/deployment/internal/jdtestutils"
+	"github.com/smartcontractkit/chainlink/deployment/internal/soltestutils"
+	"github.com/smartcontractkit/chainlink/deployment/internal/tontestutils"
 	"github.com/smartcontractkit/chainlink/deployment/utils/nodetestutils"
 
 	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
 	ccipocr3common "github.com/smartcontractkit/chainlink-common/pkg/types/ccipocr3"
 
-	solBinary "github.com/gagliardetto/binary"
-
+	"github.com/smartcontractkit/chainlink-ccip/chainconfig"
+	fee_quoterV1_6_3 "github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_3/fee_quoter"
 	solFeeQuoterV0_1_0 "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/v0_1_0/fee_quoter"
 	solFeeQuoterV0_1_1 "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/v0_1_1/fee_quoter"
-
-	fee_quoterV1_6_3 "github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_3/fee_quoter"
-
-	"github.com/smartcontractkit/chainlink-ccip/chainconfig"
 	"github.com/smartcontractkit/chainlink-ccip/execute/tokendata/lbtc"
 	cciptypes "github.com/smartcontractkit/chainlink-ccip/pkg/types/ccipocr3"
 	"github.com/smartcontractkit/chainlink-ccip/pluginconfig"
@@ -80,14 +81,18 @@ import (
 	opsutil "github.com/smartcontractkit/chainlink/deployment/common/opsutils"
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 	commontypes "github.com/smartcontractkit/chainlink/deployment/common/types"
-	"github.com/smartcontractkit/chainlink/deployment/environment/memory"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/types"
+	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/p2pkey"
 )
 
 const (
 	// NOTE: these are test values, real production values are configured in CLD.
 	DefaultGasPriceDeviationPPB   = 1000
 	DefaultDAGasPriceDeviationPPB = 1000
+)
+
+var (
+	tonDeployerFundAmount = tlb.MustFromTON("1000")
 )
 
 type EnvType string
@@ -116,8 +121,8 @@ type TestConfigs struct {
 	AptosChains                int      // only used in memory mode, for docker mode, this is determined by the integration-test config toml input
 	SuiChains                  int      // only used in memory mode, for docker mode, this is determined by the integration-test config toml input
 	TonChains                  int      // only used in memory mode, for docker mode, this is determined by the integration-test config toml input
-	ChainIDs                   []uint64 // only used in memory mode, for docker mode, this is determined by the integration-test config toml input
-	NumOfUsersPerChain         int      // only used in memory mode, for docker mode, this is determined by the integration-test config toml input
+	EVMChainsBySelectors       []uint64 // only used in memory mode, for docker mode, this is determined by the integration-test config toml input
+	NumOfUsersPerChain         uint     // only used in memory mode, for docker mode, this is determined by the integration-test config toml input
 	Nodes                      int      // only used in memory mode, for docker mode, this is determined by the integration-test config toml input
 	Bootstraps                 int      // only used in memory mode, for docker mode, this is determined by the integration-test config toml input
 	IsUSDC                     bool
@@ -267,9 +272,9 @@ func WithPrerequisiteDeploymentOnly(v1_5Cfg *changeset.V1_5DeploymentConfig) Tes
 	}
 }
 
-func WithChainIDs(chainIDs []uint64) TestOps {
+func WithEVMChainsBySelectors(selectors []uint64) TestOps {
 	return func(testCfg *TestConfigs) {
-		testCfg.ChainIDs = chainIDs
+		testCfg.EVMChainsBySelectors = selectors
 	}
 }
 
@@ -354,7 +359,7 @@ func WithTonChains(numChains int) TestOps {
 	}
 }
 
-func WithNumOfUsersPerChain(numUsers int) TestOps {
+func WithNumOfUsersPerChain(numUsers uint) TestOps {
 	return func(testCfg *TestConfigs) {
 		testCfg.NumOfUsersPerChain = numUsers
 	}
@@ -432,89 +437,65 @@ func (m *MemoryEnvironment) UpdateDeployedEnvironment(env DeployedEnv) {
 func (m *MemoryEnvironment) StartChains(t *testing.T) {
 	ctx := testcontext.Get(t)
 	tc := m.TestConfig
-	var chains map[uint64]cldf_evm.Chain
-	var users map[uint64][]*bind.TransactOpts
-	if len(tc.ChainIDs) > 0 {
-		chains = cldf_chain.NewBlockChainsFromSlice(
-			memory.NewMemoryChainsEVMWithChainIDs(t, tc.ChainIDs, tc.NumOfUsersPerChain),
-		).EVMChains()
-		users = usersMap(t, chains)
 
-		if tc.Chains > len(tc.ChainIDs) {
-			additionalChains := cldf_chain.NewBlockChainsFromSlice(
-				memory.NewMemoryChainsEVM(t, tc.Chains-len(tc.ChainIDs), tc.NumOfUsersPerChain),
-			)
+	loadOpts := []environment.LoadOpt{
+		environment.WithAptosContainerN(t, tc.AptosChains),
+		environment.WithSuiContainerN(t, tc.SuiChains),
+		environment.WithTonContainerN(t, tc.TonChains),
+		environment.WithLogger(logger.Test(t)),
+	}
 
-			maps.Copy(chains, additionalChains.EVMChains())
-
-			additionalUsers := usersMap(t, chains)
-			maps.Copy(users, additionalUsers)
-		}
+	// We have to handle EVM a bit differently because there are two different ways to load EVM chains:
+	// 1. With chain IDs
+	// 2. With number of chains
+	evmLoadConfig := onchain.EVMSimLoaderConfig{
+		NumAdditionalAccounts: tc.NumOfUsersPerChain,
+	}
+	if len(tc.EVMChainsBySelectors) > 0 {
+		loadOpts = append(loadOpts, environment.WithEVMSimulatedWithConfig(t, tc.EVMChainsBySelectors, evmLoadConfig))
 	} else {
-		chains = cldf_chain.NewBlockChainsFromSlice(
-			memory.NewMemoryChainsEVM(t, tc.Chains, tc.NumOfUsersPerChain),
-		).EVMChains()
-		users = usersMap(t, chains)
+		loadOpts = append(loadOpts, environment.WithEVMSimulatedWithConfigN(t, tc.Chains, evmLoadConfig))
 	}
 
-	m.Chains = chains
-
-	var commitSha string
-
-	ccipContractVersion := m.TestConfig.CCIPSolanaContractVersion
-	if ccipContractVersion == ccipChangeSetSolanaV0_1_1.SolanaContractV0_1_1 {
-		commitSha = ccipChangeSetSolanaV0_1_1.ContractVersionShortSha[ccipContractVersion]
-	} else {
-		commitSha = ""
+	// We handle Solana differently as well since we need to download programs from their repositories
+	if tc.SolChains > 0 {
+		programsPath := t.TempDir()
+		progIDs := soltestutils.LoadCCIPPrograms(t, programsPath)
+		loadOpts = append(loadOpts, environment.WithSolanaContainerN(t, tc.SolChains, programsPath, progIDs))
 	}
 
-	solChains := memory.NewMemoryChainsSol(t, tc.SolChains, commitSha)
+	env, err := environment.New(t.Context(), loadOpts...)
+	require.NoError(t, err)
 
-	aptosChains := memory.NewMemoryChainsAptos(t, tc.AptosChains)
-	suiChains := memory.NewMemoryChainsSui(t, tc.SuiChains)
-	tonChains := memory.NewMemoryChainsTon(t, tc.TonChains)
-	// if we have Aptos and Solana chains, we need to set their chain selectors on the wrapper
-	// environment, so we have to convert it back to the concrete type. This needs to be refactored
-	m.AptosChains = cldf_chain.NewBlockChainsFromSlice(aptosChains).AptosChains()
-	m.SolChains = cldf_chain.NewBlockChainsFromSlice(solChains).SolanaChains()
-	m.TonChains = cldf_chain.NewBlockChainsFromSlice(tonChains).TonChains()
-	m.SuiChains = cldf_chain.NewBlockChainsFromSlice(suiChains).SuiChains()
+	// We need to set the concrete chains on the wrapper environment
+	m.Chains = env.BlockChains.EVMChains()
+	m.AptosChains = env.BlockChains.AptosChains()
+	m.SolChains = env.BlockChains.SolanaChains()
+	m.TonChains = env.BlockChains.TonChains()
+	m.SuiChains = env.BlockChains.SuiChains()
 
-	blockChains := map[uint64]cldf_chain.BlockChain{}
-	for selector, ch := range m.Chains {
-		blockChains[selector] = ch
-	}
-	for selector, ch := range m.SolChains {
-		blockChains[selector] = ch
-	}
-	for _, ch := range aptosChains {
-		blockChains[ch.ChainSelector()] = ch
-	}
-	for selector, ch := range m.TonChains {
-		blockChains[selector] = ch
-	}
-
-	for selector, ch := range m.SuiChains {
-		blockChains[selector] = ch
-	}
-
-	env := cldf.Environment{
-		BlockChains: cldf_chain.NewBlockChains(blockChains),
-	}
-	homeChainSel, feedSel := allocateCCIPChainSelectors(chains)
-	replayBlocks, err := LatestBlocksByChain(ctx, env)
+	homeChainSel, feedSel := allocateCCIPChainSelectors(m.Chains)
+	replayBlocks, err := LatestBlocksByChain(ctx, *env)
 	require.NoError(t, err)
 
 	// Aptos doesn't support replaying blocks
 	for selector := range env.BlockChains.AptosChains() {
 		delete(replayBlocks, selector)
 	}
+
+	// Ton chains must be funded if they exist
+	if len(env.BlockChains.TonChains()) > 0 {
+		for _, tonChain := range env.BlockChains.TonChains() {
+			utils.FundWallets(t, tonChain.Client, []*address.Address{tonChain.WalletAddress}, []tlb.Coins{tonDeployerFundAmount})
+		}
+	}
+
 	m.DeployedEnv = DeployedEnv{
-		Env:          env,
+		Env:          *env,
 		HomeChainSel: homeChainSel,
 		FeedChainSel: feedSel,
 		ReplayBlocks: replayBlocks,
-		Users:        users,
+		Users:        usersMap(t, m.Chains), // Extract the additional users from the EVM chains
 	}
 }
 
@@ -533,19 +514,28 @@ func (m *MemoryEnvironment) StartNodes(t *testing.T, crConfig deployment.Capabil
 	nodes := nodetestutils.NewNodes(t, c, tc.CLNodeConfigOpts...)
 	ctx := testcontext.Get(t)
 	lggr := logger.Test(t)
-	for _, node := range nodes {
+
+	nodeIDs := make([]string, 0, len(nodes))
+	for id, node := range nodes {
 		require.NoError(t, node.App.Start(ctx))
 		t.Cleanup(func() {
 			require.NoError(t, node.App.Stop())
 		})
+		nodeIDs = append(nodeIDs, id)
 	}
 	m.nodes = nodes
-	m.Env = memory.NewMemoryEnvironmentFromChainsNodes(
-		func() context.Context { return ctx },
-		lggr,
-		m.Env.BlockChains,
-		nodes,
+
+	e, err := environment.New(ctx,
+		environment.WithNodeIDs(nodeIDs),
+		environment.WithOffchainClient(jdtestutils.NewMemoryJobClient(nodes)),
+		environment.WithLogger(lggr),
 	)
+	require.NoError(t, err)
+
+	// Manually set the block chains on the environment
+	e.BlockChains = m.Env.BlockChains
+
+	m.Env = *e
 }
 
 func (m *MemoryEnvironment) DeleteJobs(ctx context.Context, jobIDs map[string][]string) error {
@@ -730,7 +720,7 @@ func NewEnvironmentWithPrerequisitesContracts(t *testing.T, tEnv TestEnvironment
 	))
 	require.NoError(t, err)
 	if len(solChains) > 0 {
-		solLinkTokenPrivKey, _ := solana.NewRandomPrivateKey()
+		solLinkTokenPrivKey, _ := solanago.NewRandomPrivateKey()
 		deploySolanaLinkApp := commonchangeset.Configure(
 			cldf.CreateLegacyChangeSet(commonchangeset.DeploySolanaLinkToken),
 			commonchangeset.DeploySolanaLinkTokenConfig{
@@ -1108,10 +1098,13 @@ func AddCCIPContractsToEnvironment(t *testing.T, allChains []uint64, tEnv TestEn
 		),
 	}...)
 	if len(solChains) != 0 {
+		// We take the path of the programs from the first solana chain since we always use the same path in all tests.
+		programsPath := e.Env.BlockChains.SolanaChains()[solChains[0]].ProgramsPath
+
 		if tEnv.TestConfigs().CCIPSolanaContractVersion == ccipChangeSetSolanaV0_1_1.SolanaContractV0_1_1 {
 			var buildSolConfig = &ccipChangeSetSolanaV0_1_1.BuildSolanaConfig{
 				SolanaContractVersion: ccipChangeSetSolanaV0_1_1.VersionSolanaV0_1_1,
-				DestinationDir:        memory.ProgramsPath,
+				DestinationDir:        programsPath,
 			}
 			solCs, err := DeployChainContractsToSolChainCSV0_1_1(e, solChains[0], true, buildSolConfig)
 
@@ -1161,7 +1154,7 @@ func AddCCIPContractsToEnvironment(t *testing.T, allChains []uint64, tEnv TestEn
 
 	if len(tonChains) != 0 {
 		// Currently only one ton chain is supported in test environment
-		_, err := memory.GetTONSha()
+		_, err := tontestutils.GetTONSha()
 		require.NoError(t, err, "failed to get TON commit sha")
 		// TODO replace the hardcoded commit sha with the one fetched from memory.GetTONSha()
 		contractVersion := "bd37af74a93e" // https://github.com/smartcontractkit/chainlink-ton/releases/tag/ton-contracts-build-bd37af74a93e
@@ -1644,4 +1637,59 @@ func usersMap(t *testing.T, chains map[uint64]cldf_evm.Chain) map[uint64][]*bind
 	}
 
 	return users
+}
+
+// RegisterNodes registers a number of nodes against an in-memory job distributor and sets the
+// chain configuration for the given chain.
+//
+// This only supports EVM chains.
+func RegisterNodes(t *testing.T, env *cldf.Environment, numNodes int, selector uint64) []string {
+	client, ok := env.Offchain.(*simjd.MemoryJobDistributor)
+	require.True(t, ok)
+
+	family, err := chain_selectors.GetSelectorFamily(selector)
+	require.NoError(t, err)
+	require.Equal(t, chain_selectors.FamilyEVM, family, "only EVM chains are supported")
+
+	chainID, err := chain_selectors.GetChainIDFromSelector(selector)
+	require.NoError(t, err)
+
+	nodeIDs := make([]string, numNodes)
+	for i := range numNodes {
+		res, err := client.RegisterNode(t.Context(), &nodev1.RegisterNodeRequest{
+			Name:      fmt.Sprintf("oracle-%d", i),
+			PublicKey: fmt.Sprintf("0x%d", i),
+		})
+		require.NoError(t, err)
+		require.NotNil(t, res.Node)
+		require.NotEmpty(t, res.Node.Id)
+
+		nodeID := res.Node.GetId()
+		nodeIDs[i] = nodeID
+
+		p2pKey, err := p2pkey.NewV2()
+		require.NoError(t, err)
+
+		err = client.AddChainConfig(nodeID, &nodev1.ChainConfig{
+			Chain: &nodev1.Chain{
+				Id:   chainID,
+				Type: nodev1.ChainType_CHAIN_TYPE_EVM,
+			},
+			NodeId: nodeID,
+			Ocr2Config: &nodev1.OCR2Config{
+				Enabled: true,
+				OcrKeyBundle: &nodev1.OCR2Config_OCRKeyBundle{
+					BundleId: fmt.Sprintf("ocr-key-bundle-%d", i),
+				},
+				P2PKeyBundle: &nodev1.OCR2Config_P2PKeyBundle{
+					PeerId: p2pKey.PeerID().String(),
+				},
+			},
+		})
+		require.NoError(t, err)
+	}
+
+	env.NodeIDs = nodeIDs
+
+	return nodeIDs
 }

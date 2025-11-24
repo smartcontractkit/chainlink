@@ -58,6 +58,20 @@ func LoadDataFeedsPrograms(t *testing.T, dir string) map[string]string {
 	return progIDs
 }
 
+// LoadCCIPPrograms loads the CCIP program artifacts into the given directory.
+func LoadCCIPPrograms(t *testing.T, dir string) map[string]string {
+	t.Helper()
+
+	ccipProgIDs := loadProgramArtifacts(t, solutils.CCIPProgramNames, downloadChainlinkCCIPProgramArtifacts, dir)
+	_, mcmsProgIDs := LoadMCMSPrograms(t, dir)
+
+	progIDs := make(map[string]string, len(ccipProgIDs)+len(mcmsProgIDs))
+	maps.Copy(progIDs, ccipProgIDs)
+	maps.Copy(progIDs, mcmsProgIDs)
+
+	return progIDs
+}
+
 // PreloadMCMS provides a convenience function to preload the MCMS program artifacts and address
 // book for a given selector.
 //

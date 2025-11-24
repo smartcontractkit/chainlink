@@ -67,12 +67,7 @@ func TestTranslateEVM2EVMOnRampsToFeeQuoterChangeset(t *testing.T) {
 	state, err := stateview.LoadOnchainState(tenv, stateview.WithLoadLegacyContracts(true))
 	require.NoError(t, err, "Failed to load initial onchain state")
 
-	allChains := tenv.BlockChains.ListChainSelectors(
-		cldf_chain.WithFamily(chain_selectors.FamilyEVM),
-		cldf_chain.WithChainSelectorsExclusion([]uint64{chain_selectors.GETH_TESTNET.Selector}),
-	)
-
-	selectorA, selectorB := allChains[0], allChains[1]
+	selectorA, selectorB := allChainSelectors[0], allChainSelectors[1]
 	pairs := []testhelpers.SourceDestPair{
 		{SourceChainSelector: selectorA, DestChainSelector: selectorB},
 		{SourceChainSelector: selectorB, DestChainSelector: selectorA},
@@ -80,7 +75,7 @@ func TestTranslateEVM2EVMOnRampsToFeeQuoterChangeset(t *testing.T) {
 
 	// 3. Remove link token as it will be deployed by 1.6 contracts again
 	ab := cldf.NewMemoryAddressBook()
-	for _, sel := range allChains {
+	for _, sel := range allChainSelectors {
 		require.NoError(t, ab.Save(sel, state.Chains[sel].LinkToken.Address().Hex(),
 			cldf.NewTypeAndVersion("LinkToken", deployment.Version1_0_0)))
 	}
@@ -88,7 +83,7 @@ func TestTranslateEVM2EVMOnRampsToFeeQuoterChangeset(t *testing.T) {
 
 	// 4. Set the test router as the source chain's router
 	ab = cldf.NewMemoryAddressBook()
-	for _, sel := range allChains {
+	for _, sel := range allChainSelectors {
 		require.NoError(t, ab.Save(sel, utils.RandomAddress().Hex(),
 			cldf.NewTypeAndVersion(shared.TestRouter, deployment.Version1_2_0)))
 	}
