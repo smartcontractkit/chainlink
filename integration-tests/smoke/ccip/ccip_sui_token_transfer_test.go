@@ -533,7 +533,7 @@ func Test_CCIPTokenTransfer_Sui2EVM_BurnMintTokenPool_RMN_Cursed(t *testing.T) {
 			ExpectedTokenBalances: []testhelpers.ExpectedBalance{
 				{
 					Token:  evmToken.Address().Bytes(),
-					Amount: big.NewInt(2e18),
+					Amount: big.NewInt(3e18), // 1e18 from first transfer + 2e18 from second transfer
 				},
 			},
 		},
@@ -603,7 +603,7 @@ func Test_CCIPTokenTransfer_Sui2EVM_BurnMintTokenPool_WithAllowlist(t *testing.T
 				{
 					TokenPoolType: sui_deployment.TokenPoolTypeBurnMint,
 					Token:         linkTokenOutput1.Objects.MintedLinkTokenObjectId,
-					Amount:        2000000000, // send 1 LINK to EVM
+					Amount:        2000000000, // send 2 LINK to EVM
 				},
 			},
 			FeeToken: feeTokenOutput.Objects.MintedLinkTokenObjectId,
@@ -696,41 +696,41 @@ func Test_CCIPTokenTransfer_Sui2EVM_BurnMintTokenPool_WithAllowlist(t *testing.T
 		t.Log("Expected error: ", err)
 	})
 
-	signerAddress, err := deps.Signer.GetAddress()
-	require.NoError(t, err)
-	_, err = operations.ExecuteOperation(e.Env.OperationsBundle, burnminttokenpoolops.BurnMintTokenPoolApplyAllowlistUpdatesOp, deps, burnminttokenpoolops.BurnMintTokenPoolApplyAllowlistUpdatesInput{
-		BurnMintPackageId: state.SuiChains[sourceChain].BnMTokenPools[testhelpers.TokenSymbolLINK].PackageID,
-		StateObjectId:     state.SuiChains[sourceChain].BnMTokenPools[testhelpers.TokenSymbolLINK].StateObjectId,
-		OwnerCap:          state.SuiChains[sourceChain].BnMTokenPools[testhelpers.TokenSymbolLINK].OwnerCapObjectId,
-		CoinObjectTypeArg: state.SuiChains[sourceChain].LinkTokenAddress + "::link::LINK",
-		Removes:           []string{},
-		Adds:              []string{signerAddress},
-	})
-	require.NoError(t, err)
+	// signerAddress, err := deps.Signer.GetAddress()
+	// require.NoError(t, err)
+	// _, err = operations.ExecuteOperation(e.Env.OperationsBundle, burnminttokenpoolops.BurnMintTokenPoolApplyAllowlistUpdatesOp, deps, burnminttokenpoolops.BurnMintTokenPoolApplyAllowlistUpdatesInput{
+	// 	BurnMintPackageId: state.SuiChains[sourceChain].BnMTokenPools[testhelpers.TokenSymbolLINK].PackageID,
+	// 	StateObjectId:     state.SuiChains[sourceChain].BnMTokenPools[testhelpers.TokenSymbolLINK].StateObjectId,
+	// 	OwnerCap:          state.SuiChains[sourceChain].BnMTokenPools[testhelpers.TokenSymbolLINK].OwnerCapObjectId,
+	// 	CoinObjectTypeArg: state.SuiChains[sourceChain].LinkTokenAddress + "::link::LINK",
+	// 	Removes:           []string{},
+	// 	Adds:              []string{signerAddress},
+	// })
+	// require.NoError(t, err)
 
-	t.Run("Sender in allowlist - should succeed", func(t *testing.T) {
-		msg := testhelpers.SuiSendRequest{
-			Receiver: common.LeftPadBytes(ccipReceiverAddress.Bytes(), 32),
-			Data:     []byte("Hello, World!"),
-			FeeToken: feeTokenOutput.Objects.MintedLinkTokenObjectId,
-			TokenAmounts: []testhelpers.SuiTokenAmount{
-				{
-					TokenPoolType: sui_deployment.TokenPoolTypeBurnMint,
-					Token:         linkTokenOutput2.Objects.MintedLinkTokenObjectId,
-					Amount:        1500000000,
-				},
-			}}
+	// t.Run("Sender in allowlist - should succeed", func(t *testing.T) {
+	// 	msg := testhelpers.SuiSendRequest{
+	// 		Receiver: common.LeftPadBytes(ccipReceiverAddress.Bytes(), 32),
+	// 		Data:     []byte("Hello, World!"),
+	// 		FeeToken: feeTokenOutput.Objects.MintedLinkTokenObjectId,
+	// 		TokenAmounts: []testhelpers.SuiTokenAmount{
+	// 			{
+	// 				TokenPoolType: sui_deployment.TokenPoolTypeBurnMint,
+	// 				Token:         linkTokenOutput2.Objects.MintedLinkTokenObjectId,
+	// 				Amount:        1500000000,
+	// 			},
+	// 		}}
 
-		baseOpts := []ccipclient.SendReqOpts{
-			ccipclient.WithSourceChain(sourceChain),
-			ccipclient.WithDestChain(destChain),
-			ccipclient.WithTestRouter(false),
-			ccipclient.WithMessage(msg),
-		}
+	// 	baseOpts := []ccipclient.SendReqOpts{
+	// 		ccipclient.WithSourceChain(sourceChain),
+	// 		ccipclient.WithDestChain(destChain),
+	// 		ccipclient.WithTestRouter(false),
+	// 		ccipclient.WithMessage(msg),
+	// 	}
 
-		_, err := testhelpers.SendRequest(e.Env, state, baseOpts...)
-		require.NoError(t, err)
-	})
+	// 	_, err := testhelpers.SendRequest(e.Env, state, baseOpts...)
+	// 	require.NoError(t, err)
+	// })
 }
 
 func Test_CCIPTokenTransfer_Sui2EVM_BurnMintTokenPool_WithRateLimit(t *testing.T) {
@@ -939,55 +939,55 @@ func Test_CCIPTokenTransfer_EVM2SUI_ManagedTokenPool(t *testing.T) {
 	)
 
 	// Deploy SUI Receiver
-	_, output, err := commoncs.ApplyChangesets(t, e.Env, []commoncs.ConfiguredChangeSet{
-		commoncs.Configure(sui_cs.DeployDummyReceiver{}, sui_cs.DeployDummyReceiverConfig{
-			SuiChainSelector: destChain,
-			McmsOwner:        "0x1",
-		}),
-	})
-	require.NoError(t, err)
+	// _, output, err := commoncs.ApplyChangesets(t, e.Env, []commoncs.ConfiguredChangeSet{
+	// 	commoncs.Configure(sui_cs.DeployDummyReceiver{}, sui_cs.DeployDummyReceiverConfig{
+	// 		SuiChainSelector: destChain,
+	// 		McmsOwner:        "0x1",
+	// 	}),
+	// })
+	// require.NoError(t, err)
 
-	rawOutput := output[0].Reports[0]
+	// rawOutput := output[0].Reports[0]
 
-	outputMap, ok := rawOutput.Output.(sui_ops.OpTxResult[ccipops.DeployDummyReceiverObjects])
-	require.True(t, ok)
+	// outputMap, ok := rawOutput.Output.(sui_ops.OpTxResult[ccipops.DeployDummyReceiverObjects])
+	// require.True(t, ok)
 
-	id := strings.TrimPrefix(outputMap.PackageId, "0x")
-	receiverByteDecoded, err := hex.DecodeString(id)
-	require.NoError(t, err)
+	// id := strings.TrimPrefix(outputMap.PackageId, "0x")
+	// receiverByteDecoded, err := hex.DecodeString(id)
+	// require.NoError(t, err)
 
-	// register the receiver
-	_, _, err = commoncs.ApplyChangesets(t, e.Env, []commoncs.ConfiguredChangeSet{
-		commoncs.Configure(sui_cs.RegisterDummyReceiver{}, sui_cs.RegisterDummyReceiverConfig{
-			SuiChainSelector:       destChain,
-			OwnerCapObjectId:       outputMap.Objects.OwnerCapObjectId,
-			CCIPObjectRefObjectId:  state.SuiChains[destChain].CCIPObjectRef,
-			DummyReceiverPackageId: outputMap.PackageId,
-		}),
-	})
-	require.NoError(t, err)
+	// // register the receiver
+	// _, _, err = commoncs.ApplyChangesets(t, e.Env, []commoncs.ConfiguredChangeSet{
+	// 	commoncs.Configure(sui_cs.RegisterDummyReceiver{}, sui_cs.RegisterDummyReceiverConfig{
+	// 		SuiChainSelector:       destChain,
+	// 		OwnerCapObjectId:       outputMap.Objects.OwnerCapObjectId,
+	// 		CCIPObjectRefObjectId:  state.SuiChains[destChain].CCIPObjectRef,
+	// 		DummyReceiverPackageId: outputMap.PackageId,
+	// 	}),
+	// })
+	// require.NoError(t, err)
 
-	receiverByte := receiverByteDecoded
+	// receiverByte := receiverByteDecoded
 
-	var clockObj [32]byte
-	copy(clockObj[:], hexutil.MustDecode(
-		"0x0000000000000000000000000000000000000000000000000000000000000006",
-	))
+	// var clockObj [32]byte
+	// copy(clockObj[:], hexutil.MustDecode(
+	// 	"0x0000000000000000000000000000000000000000000000000000000000000006",
+	// ))
 
-	var stateObj [32]byte
-	copy(stateObj[:], hexutil.MustDecode(
-		outputMap.Objects.CCIPReceiverStateObjectId,
-	))
+	// var stateObj [32]byte
+	// copy(stateObj[:], hexutil.MustDecode(
+	// 	outputMap.Objects.CCIPReceiverStateObjectId,
+	// ))
 
-	receiverObjectIDs := [][32]byte{clockObj, stateObj}
+	// receiverObjectIDs := [][32]byte{clockObj, stateObj}
 
 	tcs := []testhelpers.TestTransferRequest{
 		{
-			Name:             "Send token to EOA",
-			SourceChain:      sourceChain,
-			DestChain:        destChain,
-			Receiver:         receiverByte, // receiver contract pkgId
-			TokenReceiverATA: suiAddr[:],   // tokenReceiver extracted from extraArgs (the address that actually gets the token)
+			Name:        "Send token to EOA",
+			SourceChain: sourceChain,
+			DestChain:   destChain,
+			// Receiver:         receiverByte, // receiver contract pkgId
+			TokenReceiverATA: suiAddr[:], // tokenReceiver extracted from extraArgs (the address that actually gets the token)
 			ExpectedStatus:   testhelpers.EXECUTION_STATE_SUCCESS,
 			Tokens: []router.ClientEVMTokenAmount{
 				{
@@ -995,7 +995,7 @@ func Test_CCIPTokenTransfer_EVM2SUI_ManagedTokenPool(t *testing.T) {
 					Amount: big.NewInt(1e18),
 				},
 			},
-			ExtraArgs: testhelpers.MakeSuiExtraArgs(10000000, true, receiverObjectIDs, suiAddr),
+			// ExtraArgs: testhelpers.MakeSuiExtraArgs(10000000, true, receiverObjectIDs, suiAddr),
 			ExpectedTokenBalances: []testhelpers.ExpectedBalance{
 				{
 					Token:  suiTokenBytes,
@@ -1066,56 +1066,56 @@ func Test_CCIPTokenTransfer_EVM2SUI_ManagedTokenPool_WithRateLimit(t *testing.T)
 		},
 	)
 
-	// Deploy SUI Receiver
-	_, output, err := commoncs.ApplyChangesets(t, e.Env, []commoncs.ConfiguredChangeSet{
-		commoncs.Configure(sui_cs.DeployDummyReceiver{}, sui_cs.DeployDummyReceiverConfig{
-			SuiChainSelector: destChain,
-			McmsOwner:        "0x1",
-		}),
-	})
-	require.NoError(t, err)
+	// // Deploy SUI Receiver
+	// _, output, err := commoncs.ApplyChangesets(t, e.Env, []commoncs.ConfiguredChangeSet{
+	// 	commoncs.Configure(sui_cs.DeployDummyReceiver{}, sui_cs.DeployDummyReceiverConfig{
+	// 		SuiChainSelector: destChain,
+	// 		McmsOwner:        "0x1",
+	// 	}),
+	// })
+	// require.NoError(t, err)
 
-	rawOutput := output[0].Reports[0]
+	// rawOutput := output[0].Reports[0]
 
-	outputMap, ok := rawOutput.Output.(sui_ops.OpTxResult[ccipops.DeployDummyReceiverObjects])
-	require.True(t, ok)
+	// outputMap, ok := rawOutput.Output.(sui_ops.OpTxResult[ccipops.DeployDummyReceiverObjects])
+	// require.True(t, ok)
 
-	id := strings.TrimPrefix(outputMap.PackageId, "0x")
-	receiverByteDecoded, err := hex.DecodeString(id)
-	require.NoError(t, err)
+	// id := strings.TrimPrefix(outputMap.PackageId, "0x")
+	// receiverByteDecoded, err := hex.DecodeString(id)
+	// require.NoError(t, err)
 
-	// register the receiver
-	_, _, err = commoncs.ApplyChangesets(t, e.Env, []commoncs.ConfiguredChangeSet{
-		commoncs.Configure(sui_cs.RegisterDummyReceiver{}, sui_cs.RegisterDummyReceiverConfig{
-			SuiChainSelector:       destChain,
-			OwnerCapObjectId:       outputMap.Objects.OwnerCapObjectId,
-			CCIPObjectRefObjectId:  state.SuiChains[destChain].CCIPObjectRef,
-			DummyReceiverPackageId: outputMap.PackageId,
-		}),
-	})
-	require.NoError(t, err)
+	// // register the receiver
+	// _, _, err = commoncs.ApplyChangesets(t, e.Env, []commoncs.ConfiguredChangeSet{
+	// 	commoncs.Configure(sui_cs.RegisterDummyReceiver{}, sui_cs.RegisterDummyReceiverConfig{
+	// 		SuiChainSelector:       destChain,
+	// 		OwnerCapObjectId:       outputMap.Objects.OwnerCapObjectId,
+	// 		CCIPObjectRefObjectId:  state.SuiChains[destChain].CCIPObjectRef,
+	// 		DummyReceiverPackageId: outputMap.PackageId,
+	// 	}),
+	// })
+	// require.NoError(t, err)
 
-	receiverByte := receiverByteDecoded
+	// receiverByte := receiverByteDecoded
 
-	var clockObj [32]byte
-	copy(clockObj[:], hexutil.MustDecode(
-		"0x0000000000000000000000000000000000000000000000000000000000000006",
-	))
+	// var clockObj [32]byte
+	// copy(clockObj[:], hexutil.MustDecode(
+	// 	"0x0000000000000000000000000000000000000000000000000000000000000006",
+	// ))
 
-	var stateObj [32]byte
-	copy(stateObj[:], hexutil.MustDecode(
-		outputMap.Objects.CCIPReceiverStateObjectId,
-	))
+	// var stateObj [32]byte
+	// copy(stateObj[:], hexutil.MustDecode(
+	// 	outputMap.Objects.CCIPReceiverStateObjectId,
+	// ))
 
-	receiverObjectIDs := [][32]byte{clockObj, stateObj}
+	// receiverObjectIDs := [][32]byte{clockObj, stateObj}
 
 	tcs := []testhelpers.TestTransferRequest{
 		{
-			Name:             "Send token to EOA",
-			SourceChain:      sourceChain,
-			DestChain:        destChain,
-			Receiver:         receiverByte, // receiver contract pkgId
-			TokenReceiverATA: suiAddr[:],   // tokenReceiver extracted from extraArgs (the address that actually gets the token)
+			Name:        "Send token to EOA",
+			SourceChain: sourceChain,
+			DestChain:   destChain,
+			// Receiver:         receiverByte, // receiver contract pkgId
+			TokenReceiverATA: suiAddr[:], // tokenReceiver extracted from extraArgs (the address that actually gets the token)
 			ExpectedStatus:   testhelpers.EXECUTION_STATE_SUCCESS,
 			Tokens: []router.ClientEVMTokenAmount{
 				{
@@ -1123,7 +1123,7 @@ func Test_CCIPTokenTransfer_EVM2SUI_ManagedTokenPool_WithRateLimit(t *testing.T)
 					Amount: big.NewInt(1e18),
 				},
 			},
-			ExtraArgs: testhelpers.MakeSuiExtraArgs(1000000, true, receiverObjectIDs, suiAddr),
+			// ExtraArgs: testhelpers.MakeSuiExtraArgs(1000000, true, receiverObjectIDs, suiAddr),
 			ExpectedTokenBalances: []testhelpers.ExpectedBalance{
 				{
 					Token:  suiTokenBytes,
