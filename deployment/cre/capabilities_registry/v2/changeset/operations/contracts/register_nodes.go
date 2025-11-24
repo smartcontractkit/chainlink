@@ -99,7 +99,7 @@ var RegisterNodes = operations.NewOperation[RegisterNodesInput, RegisterNodesOut
 		}
 
 		allNOPsNamesInContract := input.AllNOPsInContract
-		if allNOPsNamesInContract == nil || len(allNOPsNamesInContract) == 0 {
+		if len(allNOPsNamesInContract) == 0 {
 			contractNOPs, err := pkg.GetNodeOperators(nil, capReg)
 			if err != nil {
 				return RegisterNodesOutput{}, fmt.Errorf("failed to fetch node operators from contract: %w", err)
