@@ -22,6 +22,7 @@ import (
 	"go.uber.org/zap/zapcore"
 	"go.uber.org/zap/zaptest/observer"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/keepalive"
 
 	"github.com/smartcontractkit/chainlink-data-streams/rpc"
 	"github.com/smartcontractkit/chainlink-data-streams/rpc/mtls"
@@ -72,7 +73,11 @@ func startMercuryServer(t *testing.T, srv *mercuryServer, pubKeys []ed25519.Publ
 	serverURL = lis.Addr().String()
 	sMtls, err := mtls.NewTransportSigner(srv.csaSigner, pubKeys)
 	require.NoError(t, err)
-	s := grpc.NewServer(grpc.Creds(sMtls))
+	s := grpc.NewServer(grpc.Creds(sMtls),
+		grpc.KeepaliveEnforcementPolicy(keepalive.EnforcementPolicy{
+			MinTime:             time.Second,
+			PermitWithoutStream: true,
+		}))
 
 	// Register mercury implementation with the wsrpc server
 	rpc.RegisterTransmitterServer(s, srv)

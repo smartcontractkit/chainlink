@@ -1113,7 +1113,8 @@ dp -> bp_parse -> bp_decimal;
 		timestampedStreamValuePipeline := fmt.Sprintf(`
 ds1_payload [type=bridge name="%s" requestData="{\\"data\\":{\\"data\\":\\"foo\\"}}"];
 ds1_benchmark [type=jsonparse path="result,benchmarkPrice"];
-ds1_payload -> ds1_benchmark -> benchmark_price;
+ds1_benchmark_decimal [type=multiply times=1000000000000000000];
+ds1_payload -> ds1_benchmark -> ds1_benchmark_decimal -> benchmark_price;
 ds1_provider_indicated_time [type=jsonparse lax=true path="timestamps,providerIndicatedTimeUnixMs"];
 ds1_payload -> ds1_provider_indicated_time -> provider_indicated_time;
 ds1_data_received_time [type=jsonparse lax=true path="timestamps,providerDataReceivedUnixMs"];
@@ -1121,14 +1122,14 @@ ds1_payload -> ds1_data_received_time -> data_received_time;
 
 ds2_payload [type=bridge name="%s" requestData="{\\"data\\":{\\"data\\":\\"foo\\"}}"];
 ds2_benchmark [type=jsonparse path="result,benchmarkPrice2"];
-ds2_payload -> ds2_benchmark -> benchmark_price;
+ds2_benchmark_decimal [type=multiply times=1000000000000000000];
+ds2_payload -> ds2_benchmark -> ds2_benchmark_decimal -> benchmark_price;
 ds2_provider_indicated_time [type=jsonparse lax=true path="timestamps,providerIndicatedTimeUnixMs2"];
 ds2_payload -> ds2_provider_indicated_time -> provider_indicated_time;
 ds2_data_received_time [type=jsonparse lax=true path="timestamps,providerDataReceivedUnixMs"];
 ds2_payload -> ds2_data_received_time -> data_received_time;
 
 benchmark_price [type=median allowedFaults=1 streamID=%d index=0];
-
 provider_indicated_time [type=median allowedFaults=1 lax=true];
 data_received_time [type=median allowedFaults=1 lax=true];
 provider_indicated_time -> benchmark_price_timestamp;
