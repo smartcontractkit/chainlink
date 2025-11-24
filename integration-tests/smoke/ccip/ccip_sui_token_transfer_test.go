@@ -904,7 +904,7 @@ func mintLinkToken(t *testing.T, e cldf.Environment, sourceChain uint64, amount 
 	return outputMapTransferToken
 }
 
-func Test_CCIPTokenTransfer_EVM2SUI_ManagedTokenPool(t *testing.T) {
+func Test_CCIPTokenTransfer_EVM2SUI_ManagedTokenPool_NoRateLimit(t *testing.T) {
 	e, sourceChain, destChain, deployerSourceChain, suiTokenBytes, suiAddr := testSetupHelper(t)
 
 	// Token Pool setup on both SUI and EVM
