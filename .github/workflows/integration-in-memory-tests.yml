@@ -82,7 +82,7 @@ jobs:
       contents: read
     needs: changes
     if: github.event_name == 'pull_request' && ( needs.changes.outputs.ccip_changes == 'true' || needs.changes.outputs.core_changes == 'true' || needs.changes.outputs.github_ci_changes == 'true')
-    uses: smartcontractkit/.github/.github/workflows/run-e2e-tests.yml@a1273177bb5fc9577ec88364df09e95e102e87d1 # 2025-10-06
+    uses: smartcontractkit/.github/.github/workflows/run-e2e-tests.yml@test/free-disk-space
     with:
       workflow_name: Run CCIP Integration Tests For PR
       chainlink_version: ${{ inputs.cl_ref || github.sha }}
@@ -90,6 +90,7 @@ jobs:
       test_trigger: PR Integration CCIP Tests
       skip_image_build: true # in-memory tests do not require an image
       use-self-hosted-runners: ${{ needs.changes.outputs.should_use_self_hosted_runner }}
+      free-disk-space: "true"
     secrets:
       QA_AWS_REGION: ${{ secrets.QA_AWS_REGION }}
       AWS_REGION: ${{ secrets.AWS_REGION }}
@@ -112,7 +113,7 @@ jobs:
       contents: read
     needs: changes
     if: github.event_name == 'merge_group' && ( needs.changes.outputs.ccip_changes == 'true' || needs.changes.outputs.core_changes == 'true' || needs.changes.outputs.github_ci_changes == 'true')
-    uses: smartcontractkit/.github/.github/workflows/run-e2e-tests.yml@a1273177bb5fc9577ec88364df09e95e102e87d1 # 2025-10-06
+    uses: smartcontractkit/.github/.github/workflows/run-e2e-tests.yml@test/free-disk-space
     with:
       workflow_name: Run CCIP Integration Tests For Merge Queue
       chainlink_version: ${{ inputs.cl_ref || github.sha }}
@@ -123,6 +124,7 @@ jobs:
       slack_notification_after_tests_name: CCIP Integration Tests In Merge Queue
       use-self-hosted-runners: ${{ needs.changes.outputs.should_use_self_hosted_runner }}
       skip_image_build: true # in-memory tests do not require an image
+      free-disk-space: "true"
     secrets:
       GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       SLACK_BOT_TOKEN: ${{ secrets.QA_SLACK_API_KEY }}
