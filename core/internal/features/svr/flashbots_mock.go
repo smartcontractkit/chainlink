@@ -10,6 +10,7 @@ import (
 	"net/http/httptest"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"testing"
 
 	gethtypes "github.com/ethereum/go-ethereum/core/types"
@@ -19,13 +20,12 @@ import (
 // FlashbotsMockServer is a mock HTTP server that receives secondary transactions
 // (Flashbots endpoint) and submits them to the chain.
 type FlashbotsMockServer struct {
-	server       *httptest.Server
+	*httptest.Server
 	t            *testing.T
 	backend      *simulated.Backend
 	receivedTxs  sync.Map // map[string]bool - track received transactions by hash
 	submittedTxs sync.Map // map[string]bool - track transaction hashes submitted to chain
-	txCount      int64
-	txCountMu    sync.Mutex
+	txCount      atomic.Int32
 }
 
 // setupFlashbotsMock creates and starts a new FlashbotsMockServer.
@@ -34,25 +34,18 @@ func setupFlashbotsMock(t *testing.T, backend *simulated.Backend) *FlashbotsMock
 		t:       t,
 		backend: backend,
 	}
-	mock.server = httptest.NewServer(http.HandlerFunc(mock.handleRequest))
+	mock.Server = httptest.NewServer(http.HandlerFunc(mock.handleRequest))
 	return mock
 }
 
 // URL returns the URL of the mock server.
 func (m *FlashbotsMockServer) URL() string {
-	return m.server.URL
-}
-
-// Close shuts down the mock server.
-func (m *FlashbotsMockServer) Close() {
-	m.server.Close()
+	return m.Server.URL
 }
 
 // TransactionCount returns the number of transactions received by the mock server.
-func (m *FlashbotsMockServer) TransactionCount() int64 {
-	m.txCountMu.Lock()
-	defer m.txCountMu.Unlock()
-	return m.txCount
+func (m *FlashbotsMockServer) TransactionCount() int32 {
+	return m.txCount.Load()
 }
 
 // WasSubmitted checks if a transaction with the given hash was submitted to the chain.
@@ -176,17 +169,17 @@ func (m *FlashbotsMockServer) handleRequest(w http.ResponseWriter, r *http.Reque
 	// Commit the block to include the transaction
 	m.backend.Commit()
 
-	m.txCountMu.Lock()
-	m.txCount++
-	count := m.txCount
-	m.txCountMu.Unlock()
+	m.txCount.Add(1)
 
 	// Track that this transaction hash was submitted to chain by the mock server
 	m.submittedTxs.Store(txHash, true)
 
-	m.t.Logf("Mock Flashbots server: successfully submitted secondary transaction %s to chain (count: %d)", txHash, count)
+	m.t.Logf("Mock Flashbots server: successfully submitted secondary transaction %s to chain (count: %d)", txHash, m.TransactionCount())
 
 	// Return success response
 	w.WriteHeader(http.StatusOK)
-	w.Write([]byte(fmt.Sprintf(`{"status": "success", "txHash": "%s"}`, txHash)))
+	_, err = w.Write(fmt.Appendf(nil, `{"status": "success", "txHash": "%s"}`, txHash))
+	if err != nil {
+		m.t.Logf("Mock Flashbots server: failed to write response: %v", err)
+	}
 }

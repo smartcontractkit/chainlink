@@ -59,15 +59,12 @@ var (
 // TODO(gg) use framework.Context from "github.com/smartcontractkit/chainlink/v2/core/capabilities/integration_tests/framework" for Contexts
 
 func TestIntegration_secondary_feed_transmission(t *testing.T) {
-	// testStartTimeStamp := time.Now()
-	// multiplier := decimal.New(1, 18)
-	// expirationWindow := time.Hour / time.Second
-
 	const salt = 99
 
+	// create node keys
 	clientCSAKeys := make([]csakey.KeyV2, nNodes)
 	clientPubKeys := make([]ed25519.PublicKey, nNodes)
-	for i := 0; i < nNodes; i++ {
+	for i := range nNodes {
 		k := big.NewInt(int64(salt + i))
 		key := csakey.MustNewV2XXXTestingOnly(k)
 		clientCSAKeys[i] = key
@@ -79,7 +76,6 @@ func TestIntegration_secondary_feed_transmission(t *testing.T) {
 
 	mockFlashbotsServer := setupFlashbotsMock(t, backend)
 	defer mockFlashbotsServer.Close()
-
 	t.Logf("Mock Flashbots server started at %s", mockFlashbotsServer.URL())
 
 	// Setup bootstrap node
