@@ -995,7 +995,7 @@ func Test_CCIPTokenTransfer_EVM2SUI_ManagedTokenPool(t *testing.T) {
 					Amount: big.NewInt(1e18),
 				},
 			},
-			// ExtraArgs: testhelpers.MakeSuiExtraArgs(10000000, true, receiverObjectIDs, suiAddr),
+			ExtraArgs: testhelpers.MakeSuiExtraArgs(0, true, [][32]byte{}, suiAddr),
 			ExpectedTokenBalances: []testhelpers.ExpectedBalance{
 				{
 					Token:  suiTokenBytes,
@@ -1123,7 +1123,7 @@ func Test_CCIPTokenTransfer_EVM2SUI_ManagedTokenPool_WithRateLimit(t *testing.T)
 					Amount: big.NewInt(1e18),
 				},
 			},
-			// ExtraArgs: testhelpers.MakeSuiExtraArgs(1000000, true, receiverObjectIDs, suiAddr),
+			ExtraArgs: testhelpers.MakeSuiExtraArgs(0, true, [][32]byte{}, suiAddr),
 			ExpectedTokenBalances: []testhelpers.ExpectedBalance{
 				{
 					Token:  suiTokenBytes,
