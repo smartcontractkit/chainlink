@@ -111,6 +111,20 @@ jobs:
             bash ./.github/scripts/map-affected-files-to-modules.sh '${{ steps.match-every.outputs.all_files }}' '["core/scripts/cre/environment/examples/workflows"]'
           fi
 
+      - name: Changed modules
+        uses: smartcontractkit/.github/actions/changed-modules-go@bc3f1be9389263eee8d2df57a1972bcca29423ce # 2025-11-24
+        continue-on-error: true # don't let this call affect the outcome of the job
+        with:
+          # when scheduled/workflow_dispatch, run against all modules
+          no-change-behaviour: all
+          file-patterns: |
+            **/*.go
+            **/go.mod
+            **/go.sum
+          module-patterns: |
+            **
+            !core/scripts/cre/environment/examples/workflows/**
+
   golangci:
     name: GolangCI Lint
     needs: [filter, run-frequency, runner-config]
