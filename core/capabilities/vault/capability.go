@@ -10,6 +10,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/jonboulle/clockwork"
 	"github.com/smartcontractkit/tdh2/go/tdh2/tdh2easy"
 	"google.golang.org/protobuf/proto"
@@ -178,6 +179,10 @@ func validateWriteRequest(publicKey *tdh2easy.PublicKey, id string, encryptedSec
 			return errors.New("secret must have encrypted value set at index " + strconv.Itoa(idx) + ":" + req.Id.String())
 		}
 
+		err := ensureRightLabelOnSecret(publicKey, req.EncryptedValue, req.Id.Owner)
+		if err != nil {
+			return errors.New("Encrypted Secret at index [" + strconv.Itoa(idx) + "] doesn't have owner as the label. Error: " + err.Error())
+		}
 		// Validate that the encrypted value was indeed encrypted by the Vault public key
 		cipherBytes, err := hex.DecodeString(req.EncryptedValue)
 		if err != nil {
@@ -492,6 +497,31 @@ func (s *Capability) isAuthorizedRequest(ctx context.Context, request any, reque
 		Params:  &params,
 	}
 	return s.requestAuthorizer.AuthorizeRequest(ctx, jsonRequest)
+}
+
+func ensureRightLabelOnSecret(publicKey *tdh2easy.PublicKey, secret, owner string) error {
+	cipherText := &tdh2easy.Ciphertext{}
+	cipherBytes, err := hex.DecodeString(secret)
+	if err != nil {
+		return errors.New("failed to decode encrypted value:" + err.Error())
+	}
+	if publicKey == nil {
+		// Public key can be nil if gateway cache isn't populated yet(immediately after gateway reboots)
+		// Ok to not validate in such cases, since this validation also runs on Vault Nodes
+		return nil
+	}
+	err = cipherText.UnmarshalVerify(cipherBytes, publicKey)
+	if err != nil {
+		return errors.New("failed to verify encrypted value:" + err.Error())
+	}
+	secretLabel := cipherText.Label()
+	ownerAddr := common.HexToAddress(owner)
+	var ownerLabel [32]byte
+	copy(ownerLabel[12:], ownerAddr.Bytes()) // left-pad with 12 zero
+	if secretLabel != ownerLabel {
+		return errors.New("secret label [" + hex.EncodeToString(secretLabel[:]) + "] does not match owner label [" + hex.EncodeToString(ownerLabel[:]) + "]")
+	}
+	return nil
 }
 
 func NewCapability(
