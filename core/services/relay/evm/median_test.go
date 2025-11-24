@@ -11,7 +11,6 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	commontypes "github.com/smartcontractkit/chainlink-common/pkg/types"
-	"github.com/smartcontractkit/chainlink-evm/pkg/client/clienttest"
 	"github.com/smartcontractkit/chainlink-evm/pkg/config"
 	configmocks "github.com/smartcontractkit/chainlink-evm/pkg/config/mocks"
 	"github.com/smartcontractkit/chainlink-evm/pkg/keys/keystest"
@@ -20,8 +19,6 @@ import (
 	"github.com/smartcontractkit/chainlink-evm/pkg/utils/big"
 	"github.com/smartcontractkit/chainlink/v2/common/chains/mocks"
 	logmocks "github.com/smartcontractkit/chainlink/v2/common/log/mocks"
-	lpmocks "github.com/smartcontractkit/chainlink/v2/common/logpoller/mocks"
-	txmmocks "github.com/smartcontractkit/chainlink/v2/common/txmgr/mocks"
 	medianconfig "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/median/config"
 )
 
@@ -63,25 +60,18 @@ func TestNewMedianProvider(t *testing.T) {
 	})
 
 	t.Run("plugin config contains gas limit", func(t *testing.T) {
-		mockConfig := configmocks.NewChainScopedConfig(t)
-		chain.EXPECT().Config().Return(mockConfig)
+		mocks, relayer := setupMocksAndRelayer(t)
+		relayer.evmKeystore = keystore
+		relayer.lggr = logger.Sugared(lggr)
 
-		mockEVM := configmocks.NewEVM(t)
-		mockConfig.EXPECT().EVM().Return(mockEVM)
-		mockEVM.EXPECT().ChainID().Return(chainID)
-
-		evmClient := clienttest.NewClient(t)
-		poller := lpmocks.NewLogPoller(t)
-
-		chain.EXPECT().Client().Return(evmClient)
-		chain.EXPECT().LogPoller().Return(poller)
-		poller.EXPECT().RegisterFilter(mock.Anything, mock.Anything).Return(nil)
-		chain.EXPECT().TxManager().Return(txmmocks.NewMockEvmTxManager(t))
-		mockEVM.EXPECT().ChainType().Return("")
-		chain.EXPECT().LogBroadcaster().Return(logmocks.NewBroadcaster(t))
+		mocks.Chain.EXPECT().ID().Return(chainID)
+		mocks.EVM.EXPECT().ChainID().Return(chainID)
+		mocks.Poller.EXPECT().RegisterFilter(mock.Anything, mock.Anything).Return(nil)
+		mocks.EVM.EXPECT().ChainType().Return("")
+		mocks.Chain.EXPECT().LogBroadcaster().Return(logmocks.NewBroadcaster(t))
 
 		mockGasEstimator := configmocks.NewGasEstimator(t)
-		mockEVM.EXPECT().GasEstimator().Return(mockGasEstimator)
+		mocks.EVM.EXPECT().GasEstimator().Return(mockGasEstimator)
 		mockGasEstimator.EXPECT().LimitDefault().Return(uint64(500000))
 		mockGasEstimator.EXPECT().LimitJobType().Return(&txmgr.TestLimitJobTypeConfig{})
 
