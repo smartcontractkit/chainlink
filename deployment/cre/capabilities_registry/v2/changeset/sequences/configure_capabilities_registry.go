@@ -131,10 +131,11 @@ var ConfigureCapabilitiesRegistry = operations.NewSequence(
 			Env:      deps.Env,
 			Strategy: strategy,
 		}, contracts.RegisterNodesInput{
-			ChainSelector: input.RegistryChainSel,
-			Address:       addr,
-			Nodes:         input.Nodes,
-			MCMSConfig:    input.MCMSConfig,
+			ChainSelector:     input.RegistryChainSel,
+			Address:           addr,
+			Nodes:             input.Nodes,
+			MCMSConfig:        input.MCMSConfig,
+			AllNOPsInContract: registerNopsReport.Output.AllContractExpectedNOPs,
 		})
 		if err != nil {
 			return ConfigureCapabilitiesRegistryOutput{}, err
