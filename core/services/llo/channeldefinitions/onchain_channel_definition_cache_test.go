@@ -81,14 +81,14 @@ type mockCDCORM struct {
 	lastPersistedAddr     common.Address
 	lastPersistedDonID    uint32
 	lastPersistedVersion  uint32
-	lastPersistedDfns     llotypes.ChannelDefinitions
+	lastPersistedDfns     map[uint32]types.SourceDefinition
 	lastPersistedBlockNum int64
 }
 
 func (m *mockCDCORM) LoadChannelDefinitions(ctx context.Context, addr common.Address, donID uint32) (pd *types.PersistedDefinitions, err error) {
 	panic("not implemented")
 }
-func (m *mockCDCORM) StoreChannelDefinitions(ctx context.Context, addr common.Address, donID, version uint32, dfns llotypes.ChannelDefinitions, blockNum int64) (err error) {
+func (m *mockCDCORM) StoreChannelDefinitions(ctx context.Context, addr common.Address, donID, version uint32, dfns map[uint32]types.SourceDefinition, blockNum int64) (err error) {
 	m.lastPersistedAddr = addr
 	m.lastPersistedDonID = donID
 	m.lastPersistedVersion = version
@@ -145,8 +145,8 @@ func drainChannel[T any](ch chan T) {
 }
 
 // collectTriggers collects all available triggers from a channel up to maxCount
-func collectTriggers(ch chan fetchTrigger, maxCount int) []fetchTrigger {
-	triggers := make([]fetchTrigger, 0, maxCount)
+func collectTriggers(ch chan types.Trigger, maxCount int) []types.Trigger {
+	triggers := make([]types.Trigger, 0, maxCount)
 	for i := 0; i < maxCount; i++ {
 		select {
 		case trigger := <-ch:
@@ -191,9 +191,11 @@ func Test_ChannelDefinitionCache(t *testing.T) {
 
 		// Test that Definitions() returns prev when sourceDefinitions is empty
 		cdc := &channelDefinitionCache{
-			lggr:              logger.TestSugared(t),
-			sourceDefinitions: make(map[uint32]sourceDefinition),
-			orm:               &mockCDCORM{}, // Required for persist() call in Definitions()
+			lggr: logger.TestSugared(t),
+			definitions: Definitions{
+				Sources: make(map[uint32]types.SourceDefinition),
+			},
+			orm: &mockCDCORM{}, // Required for persist() call in Definitions()
 		}
 
 		result := cdc.Definitions(prev)
@@ -208,12 +210,12 @@ func Test_ChannelDefinitionCache(t *testing.T) {
 				Source:       adderID,
 			},
 		}
-		cdc.sourceDefinitions[adderID] = sourceDefinition{
-			trigger: fetchTrigger{
-				source:   adderID,
-				blockNum: 1000,
+		cdc.definitions.Sources[adderID] = types.SourceDefinition{
+			Trigger: types.Trigger{
+				Source:   adderID,
+				BlockNum: 1000,
 			},
-			definitions: sourceDefs,
+			Definitions: sourceDefs,
 		}
 
 		result = cdc.Definitions(prev)
@@ -239,12 +241,12 @@ func Test_ChannelDefinitionCache(t *testing.T) {
 				Tombstone:    true,
 			},
 		}
-		cdc.sourceDefinitions[SourceOwner] = sourceDefinition{
-			trigger: fetchTrigger{
-				source:   SourceOwner,
-				blockNum: 2000,
+		cdc.definitions.Sources[SourceOwner] = types.SourceDefinition{
+			Trigger: types.Trigger{
+				Source:   SourceOwner,
+				BlockNum: 2000,
 			},
-			definitions: tombstoneDefs,
+			Definitions: tombstoneDefs,
 		}
 
 		result = cdc.Definitions(prev)
@@ -258,13 +260,15 @@ func Test_ChannelDefinitionCache(t *testing.T) {
 
 	t.Run("readLogs", func(t *testing.T) {
 		lp := &mockLogPoller{latestBlockErr: sql.ErrNoRows}
-		fetchTriggerCh := make(chan fetchTrigger, 100)
+		fetchTriggerCh := make(chan types.Trigger, 100)
 		cdc := &channelDefinitionCache{
-			donID:             donID,
-			lp:                lp,
-			lggr:              logger.TestSugared(t),
-			fetchTriggerCh:    fetchTriggerCh,
-			sourceDefinitions: make(map[uint32]sourceDefinition),
+			donID:          donID,
+			lp:             lp,
+			lggr:           logger.TestSugared(t),
+			fetchTriggerCh: fetchTriggerCh,
+			definitions: Definitions{
+				Sources: make(map[uint32]types.SourceDefinition),
+			},
 		}
 
 		t.Run("skips if logpoller has no blocks", func(t *testing.T) {
@@ -283,14 +287,14 @@ func Test_ChannelDefinitionCache(t *testing.T) {
 			ctx := t.Context()
 			lp.latestBlockErr = nil
 			lp.latestBlock = logpoller.Block{BlockNumber: 42}
-			cdc.definitionsBlockNum = 43
+			cdc.definitions.LastBlockNum = 43
 
 			err := cdc.readLogs(ctx)
 			require.NoError(t, err)
 		})
 		t.Run("returns error if FilteredLogs fails", func(t *testing.T) {
 			ctx := t.Context()
-			cdc.definitionsBlockNum = 0
+			cdc.definitions.LastBlockNum = 0
 			lp.filteredLogsErr = errors.New("test error 2")
 
 			err := cdc.readLogs(ctx)
@@ -310,7 +314,7 @@ func Test_ChannelDefinitionCache(t *testing.T) {
 			ctx := t.Context()
 			// Drain any existing triggers
 			drainChannel(fetchTriggerCh)
-			cdc.definitionsBlockNum = 0
+			cdc.definitions.LastBlockNum = 0
 			cdc.initialBlockNum = 0
 			lp.latestBlock = logpoller.Block{BlockNumber: 2000}
 			lp.latestBlockErr = nil
@@ -333,7 +337,7 @@ func Test_ChannelDefinitionCache(t *testing.T) {
 			ctx := t.Context()
 			// Drain any existing triggers
 			drainChannel(fetchTriggerCh)
-			cdc.definitionsBlockNum = 0
+			cdc.definitions.LastBlockNum = 0
 			cdc.initialBlockNum = 0
 			lp.latestBlock = logpoller.Block{BlockNumber: 2000}
 			lp.latestBlockErr = nil
@@ -349,10 +353,10 @@ func Test_ChannelDefinitionCache(t *testing.T) {
 			// Check that fetch trigger was sent
 			select {
 			case trigger := <-fetchTriggerCh:
-				require.Equal(t, SourceOwner, trigger.source)
-				require.Equal(t, uint32(43), trigger.version)
-				require.Equal(t, "http://example.com/xxx.json", trigger.url)
-				require.Equal(t, [32]byte{1, 2, 3, 4}, trigger.sha)
+				require.Equal(t, SourceOwner, trigger.Source)
+				require.Equal(t, uint32(43), trigger.Version)
+				require.Equal(t, "http://example.com/xxx.json", trigger.URL)
+				require.Equal(t, [32]byte{1, 2, 3, 4}, trigger.SHA)
 			default:
 				t.Fatal("expected fetch trigger signal in channel")
 			}
@@ -361,7 +365,7 @@ func Test_ChannelDefinitionCache(t *testing.T) {
 			ctx := t.Context()
 			// Drain any existing triggers
 			drainChannel(fetchTriggerCh)
-			cdc.definitionsBlockNum = 0
+			cdc.definitions.LastBlockNum = 0
 			cdc.initialBlockNum = 0
 			lp.latestBlock = logpoller.Block{BlockNumber: 2000}
 			lp.filteredLogsErr = nil
@@ -381,7 +385,7 @@ func Test_ChannelDefinitionCache(t *testing.T) {
 			// Find the trigger with version 43 (latest)
 			var found43 bool
 			for _, trigger := range triggers {
-				if trigger.version == 43 {
+				if trigger.Version == 43 {
 					found43 = true
 					break
 				}
@@ -392,7 +396,7 @@ func Test_ChannelDefinitionCache(t *testing.T) {
 			ctx := t.Context()
 			// Drain any existing triggers
 			drainChannel(fetchTriggerCh)
-			cdc.definitionsBlockNum = 0
+			cdc.definitions.LastBlockNum = 0
 			cdc.initialBlockNum = 0
 			lp.latestBlock = logpoller.Block{BlockNumber: 2000}
 			lp.filteredLogsErr = nil
@@ -413,16 +417,16 @@ func Test_ChannelDefinitionCache(t *testing.T) {
 			triggers := collectTriggers(fetchTriggerCh, 8)
 			require.Len(t, triggers, 4, "expected 4 triggers")
 			// Find the trigger with version 45 (latest)
-			var latestTrigger *fetchTrigger
+			var latestTrigger *types.Trigger
 			for i := range triggers {
-				if triggers[i].version == 45 {
+				if triggers[i].Version == 45 {
 					latestTrigger = &triggers[i]
 					break
 				}
 			}
 			require.NotNil(t, latestTrigger, "expected trigger with version 45")
-			require.Equal(t, "http://example.com/xxx2.json", latestTrigger.url)
-			require.Equal(t, [32]byte{2, 2, 3, 4}, latestTrigger.sha)
+			require.Equal(t, "http://example.com/xxx2.json", latestTrigger.URL)
+			require.Equal(t, [32]byte{2, 2, 3, 4}, latestTrigger.SHA)
 		})
 		t.Run("ignores logs with incorrect don ID", func(t *testing.T) {
 			ctx := t.Context()
@@ -476,7 +480,7 @@ func Test_ChannelDefinitionCache(t *testing.T) {
 			drainChannel(fetchTriggerCh)
 			lp.filteredLogsErr = nil
 			lp.latestBlock = logpoller.Block{BlockNumber: 2000}
-			cdc.definitionsBlockNum = 0
+			cdc.definitions.LastBlockNum = 0
 			cdc.initialBlockNum = 0
 			adderID1 := uint32(100)
 			adderID2 := uint32(200)
@@ -496,14 +500,14 @@ func Test_ChannelDefinitionCache(t *testing.T) {
 			require.Len(t, triggers, 2, "expected 2 triggers")
 			// Verify adder triggers
 			for _, trigger := range triggers {
-				require.NotEqual(t, SourceOwner, trigger.source, "should not be owner")
-				require.True(t, trigger.source == adderID1 || trigger.source == adderID2, "should be one of the adder IDs")
-				if trigger.source == adderID1 {
-					require.Equal(t, "http://example.com/adder1.json", trigger.url)
-					require.Equal(t, [32]byte{1, 1, 1, 1}, trigger.sha)
+				require.NotEqual(t, SourceOwner, trigger.Source, "should not be owner")
+				require.True(t, trigger.Source == adderID1 || trigger.Source == adderID2, "should be one of the adder IDs")
+				if trigger.Source == adderID1 {
+					require.Equal(t, "http://example.com/adder1.json", trigger.URL)
+					require.Equal(t, [32]byte{1, 1, 1, 1}, trigger.SHA)
 				} else {
-					require.Equal(t, "http://example.com/adder2.json", trigger.url)
-					require.Equal(t, [32]byte{2, 2, 2, 2}, trigger.sha)
+					require.Equal(t, "http://example.com/adder2.json", trigger.URL)
+					require.Equal(t, [32]byte{2, 2, 2, 2}, trigger.SHA)
 				}
 			}
 		})
@@ -513,7 +517,7 @@ func Test_ChannelDefinitionCache(t *testing.T) {
 			drainChannel(fetchTriggerCh)
 			lp.filteredLogsErr = nil
 			lp.latestBlock = logpoller.Block{BlockNumber: 2000}
-			cdc.definitionsBlockNum = 0
+			cdc.definitions.LastBlockNum = 0
 			cdc.initialBlockNum = 0
 			adderID := uint32(100)
 			// Set both adder and owner logs
@@ -533,15 +537,15 @@ func Test_ChannelDefinitionCache(t *testing.T) {
 			// Verify we have both types
 			var foundOwner, foundAdder bool
 			for _, trigger := range triggers {
-				switch trigger.source {
+				switch trigger.Source {
 				case SourceOwner:
 					foundOwner = true
-					require.Equal(t, uint32(50), trigger.version)
-					require.Equal(t, "http://example.com/owner.json", trigger.url)
+					require.Equal(t, uint32(50), trigger.Version)
+					require.Equal(t, "http://example.com/owner.json", trigger.URL)
 				case adderID:
 					foundAdder = true
-					require.Equal(t, "http://example.com/adder.json", trigger.url)
-					require.Equal(t, [32]byte{6, 6, 6, 6}, trigger.sha)
+					require.Equal(t, "http://example.com/adder.json", trigger.URL)
+					require.Equal(t, [32]byte{6, 6, 6, 6}, trigger.SHA)
 				}
 			}
 			require.True(t, foundOwner, "expected owner trigger")
@@ -553,7 +557,7 @@ func Test_ChannelDefinitionCache(t *testing.T) {
 			drainChannel(fetchTriggerCh)
 			lp.filteredLogsErr = nil
 			lp.latestBlock = logpoller.Block{BlockNumber: 2000}
-			cdc.definitionsBlockNum = 0
+			cdc.definitions.LastBlockNum = 0
 			cdc.initialBlockNum = 0
 			adderID := uint32(100)
 			// Set adder logs with wrong donID
@@ -591,12 +595,12 @@ func Test_ChannelDefinitionCache(t *testing.T) {
 
 			// Use a URL with invalid scheme that will fail at HTTP client level
 			// This avoids panic from URL parsing in the HTTP library
-			trigger := fetchTrigger{
-				source:   SourceOwner,
-				url:      "http://[::1",
-				sha:      [32]byte{},
-				blockNum: 0,
-				version:  0,
+			trigger := types.Trigger{
+				Source:   SourceOwner,
+				URL:      "http://[::1",
+				SHA:      [32]byte{},
+				BlockNum: 0,
+				Version:  0,
 			}
 			_, err := cdc.fetchChannelDefinitions(ctx, trigger)
 			// The error could be from URL parsing or HTTP client - both are acceptable
@@ -608,12 +612,12 @@ func Test_ChannelDefinitionCache(t *testing.T) {
 			c.resp = nil
 			c.err = errors.New("http request failed")
 
-			trigger := fetchTrigger{
-				source:   SourceOwner,
-				url:      "http://example.com/definitions.json",
-				sha:      [32]byte{},
-				blockNum: 0,
-				version:  0,
+			trigger := types.Trigger{
+				Source:   SourceOwner,
+				URL:      "http://example.com/definitions.json",
+				SHA:      [32]byte{},
+				BlockNum: 0,
+				Version:  0,
 			}
 			_, err := cdc.fetchChannelDefinitions(ctx, trigger)
 			require.Contains(t, err.Error(), "failed to make HTTP request to channel definitions URL")
@@ -625,12 +629,12 @@ func Test_ChannelDefinitionCache(t *testing.T) {
 			c.err = nil
 			c.resp = &http.Response{StatusCode: 500, Body: io.NopCloser(bytes.NewReader([]byte{1, 2, 3}))}
 
-			trigger := fetchTrigger{
-				source:   SourceOwner,
-				url:      "http://example.com/definitions.json",
-				sha:      [32]byte{},
-				blockNum: 0,
-				version:  0,
+			trigger := types.Trigger{
+				Source:   SourceOwner,
+				URL:      "http://example.com/definitions.json",
+				SHA:      [32]byte{},
+				BlockNum: 0,
+				Version:  0,
 			}
 			_, err := cdc.fetchChannelDefinitions(ctx, trigger)
 			require.Contains(t, err.Error(), "HTTP error from channel definitions URL http://example.com/definitions.json (status 500)")
@@ -647,12 +651,12 @@ func Test_ChannelDefinitionCache(t *testing.T) {
 			c.err = nil
 			c.resp = &http.Response{StatusCode: 404, Body: io.NopCloser(bytes.NewReader(largeBody))}
 
-			trigger := fetchTrigger{
-				source:   SourceOwner,
-				url:      "http://example.com/definitions.json",
-				sha:      [32]byte{},
-				blockNum: 0,
-				version:  0,
+			trigger := types.Trigger{
+				Source:   SourceOwner,
+				URL:      "http://example.com/definitions.json",
+				SHA:      [32]byte{},
+				BlockNum: 0,
+				Version:  0,
 			}
 			_, err := cdc.fetchChannelDefinitions(ctx, trigger)
 			require.Contains(t, err.Error(), "HTTP error from channel definitions URL http://example.com/definitions.json (status 404)")
@@ -668,12 +672,12 @@ func Test_ChannelDefinitionCache(t *testing.T) {
 			c.err = nil
 			c.resp = &http.Response{StatusCode: 200, Body: io.NopCloser(bytes.NewReader(hugeBody))}
 
-			trigger := fetchTrigger{
-				source:   SourceOwner,
-				url:      "http://example.com/definitions.json",
-				sha:      [32]byte{},
-				blockNum: 0,
-				version:  0,
+			trigger := types.Trigger{
+				Source:   SourceOwner,
+				URL:      "http://example.com/definitions.json",
+				SHA:      [32]byte{},
+				BlockNum: 0,
+				Version:  0,
 			}
 			_, err := cdc.fetchChannelDefinitions(ctx, trigger)
 			require.Contains(t, err.Error(), "failed to read channel definitions response body from")
@@ -686,12 +690,12 @@ func Test_ChannelDefinitionCache(t *testing.T) {
 			c.resp = &http.Response{StatusCode: 200, Body: io.NopCloser(bytes.NewReader([]byte{1, 2, 3}))}
 
 			expectedSha := common.HexToHash("0xfd1780a6fc9ee0dab26ceb4b3941ab03e66ccd970d1db91612c66df4515b0a0a")
-			trigger := fetchTrigger{
-				source:   SourceOwner,
-				url:      "http://example.com/definitions.json",
-				sha:      [32]byte(expectedSha),
-				blockNum: 0,
-				version:  0,
+			trigger := types.Trigger{
+				Source:   SourceOwner,
+				URL:      "http://example.com/definitions.json",
+				SHA:      [32]byte(expectedSha),
+				BlockNum: 0,
+				Version:  0,
 			}
 			_, err := cdc.fetchChannelDefinitions(ctx, trigger)
 			require.Contains(t, err.Error(), "failed to decode channel definitions JSON from")
@@ -703,12 +707,12 @@ func Test_ChannelDefinitionCache(t *testing.T) {
 			c.err = nil
 			c.resp = &http.Response{StatusCode: 200, Body: io.NopCloser(bytes.NewReader([]byte(`{"foo":"bar"}`)))}
 
-			trigger := fetchTrigger{
-				source:   SourceOwner,
-				url:      "http://example.com/definitions.json",
-				sha:      [32]byte{},
-				blockNum: 0,
-				version:  0,
+			trigger := types.Trigger{
+				Source:   SourceOwner,
+				URL:      "http://example.com/definitions.json",
+				SHA:      [32]byte{},
+				BlockNum: 0,
+				Version:  0,
 			}
 			_, err := cdc.fetchChannelDefinitions(ctx, trigger)
 			require.Contains(t, err.Error(), "SHA3 mismatch for channel definitions from")
@@ -742,12 +746,12 @@ func Test_ChannelDefinitionCache(t *testing.T) {
 			c.resp = &http.Response{StatusCode: 200, Body: io.NopCloser(bytes.NewReader([]byte(valid)))}
 
 			expectedSha := common.HexToHash("0x367bbc75f7b6c9fc66a98ea99f837ea7ac4a3c2d6a9ee284de018bd02c41b52d")
-			trigger := fetchTrigger{
-				source:   SourceOwner,
-				url:      "http://example.com/definitions.json",
-				sha:      [32]byte(expectedSha),
-				blockNum: 0,
-				version:  0,
+			trigger := types.Trigger{
+				Source:   SourceOwner,
+				URL:      "http://example.com/definitions.json",
+				SHA:      [32]byte(expectedSha),
+				BlockNum: 0,
+				Version:  0,
 			}
 			cd, err := cdc.fetchChannelDefinitions(ctx, trigger)
 			require.NoError(t, err)
@@ -770,21 +774,32 @@ func Test_ChannelDefinitionCache(t *testing.T) {
 			},
 		}
 		cdc := &channelDefinitionCache{
-			lggr:                logger.TestSugared(t),
-			orm:                 nil,
-			addr:                testutils.NewAddress(),
-			donID:               donID,
-			definitions:         definitions, // definitions is set from prev in Definitions() method
-			definitionsBlockNum: 142,
+			lggr:  logger.TestSugared(t),
+			orm:   nil,
+			addr:  testutils.NewAddress(),
+			donID: donID,
+			definitions: Definitions{
+				LastBlockNum: 142,
+			},
 		}
 
 		t.Run("persists current definitions", func(t *testing.T) {
 			ctx := t.Context()
 			orm := &mockCDCORM{}
 			cdc.orm = orm
-			cdc.definitionsVersion = 42
+			cdc.definitions.Version = 42
 			cdc.persistedBlockNum = 141
-			cdc.definitionsBlockNum = 142
+			cdc.definitions.LastBlockNum = 142
+			cdc.definitions.Sources = map[uint32]types.SourceDefinition{
+				SourceOwner: {
+					Trigger: types.Trigger{
+						Source:   SourceOwner,
+						BlockNum: 142,
+						Version:  42,
+					},
+					Definitions: definitions,
+				},
+			}
 
 			// persist() always persists c.definitions (no comparison logic)
 			memoryBlockNum, persistedBlockNum, err := cdc.persist(ctx)
@@ -792,7 +807,7 @@ func Test_ChannelDefinitionCache(t *testing.T) {
 			require.Equal(t, int64(142), memoryBlockNum)
 			require.Equal(t, int64(142), persistedBlockNum)
 			require.Equal(t, int64(142), cdc.persistedBlockNum)
-			require.Equal(t, definitions, orm.lastPersistedDfns)
+			require.Equal(t, cdc.definitions.Sources, orm.lastPersistedDfns)
 		})
 
 		orm := &mockCDCORM{}
@@ -801,8 +816,18 @@ func Test_ChannelDefinitionCache(t *testing.T) {
 		t.Run("returns error on db failure and does not update persisted block number", func(t *testing.T) {
 			ctx := t.Context()
 			cdc.persistedBlockNum = 141
-			cdc.definitionsVersion = 43
-			cdc.definitionsBlockNum = 143
+			cdc.definitions.Version = 43
+			cdc.definitions.LastBlockNum = 143
+			cdc.definitions.Sources = map[uint32]types.SourceDefinition{
+				SourceOwner: {
+					Trigger: types.Trigger{
+						Source:   SourceOwner,
+						BlockNum: 143,
+						Version:  43,
+					},
+					Definitions: definitions,
+				},
+			}
 			orm.err = errors.New("test error")
 
 			// persist() always persists c.definitions
@@ -815,8 +840,18 @@ func Test_ChannelDefinitionCache(t *testing.T) {
 
 		t.Run("updates persisted block number on success", func(t *testing.T) {
 			ctx := t.Context()
-			cdc.definitionsVersion = 43
-			cdc.definitionsBlockNum = 143
+			cdc.definitions.Version = 43
+			cdc.definitions.LastBlockNum = 143
+			cdc.definitions.Sources = map[uint32]types.SourceDefinition{
+				SourceOwner: {
+					Trigger: types.Trigger{
+						Source:   SourceOwner,
+						BlockNum: 143,
+						Version:  43,
+					},
+					Definitions: definitions,
+				},
+			}
 			cdc.persistedBlockNum = 141
 			orm.err = nil
 
@@ -829,9 +864,9 @@ func Test_ChannelDefinitionCache(t *testing.T) {
 
 			require.Equal(t, cdc.addr, orm.lastPersistedAddr)
 			require.Equal(t, cdc.donID, orm.lastPersistedDonID)
-			require.Equal(t, cdc.definitionsVersion, orm.lastPersistedVersion)
-			require.Equal(t, cdc.definitions, orm.lastPersistedDfns)
-			require.Equal(t, cdc.definitionsBlockNum, orm.lastPersistedBlockNum)
+			require.Equal(t, cdc.definitions.Version, orm.lastPersistedVersion)
+			require.Equal(t, cdc.definitions.Sources, orm.lastPersistedDfns)
+			require.Equal(t, cdc.definitions.LastBlockNum, orm.lastPersistedBlockNum)
 		})
 	})
 

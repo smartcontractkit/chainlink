@@ -9,7 +9,6 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
-	llotypes "github.com/smartcontractkit/chainlink-common/pkg/types/llo"
 	"github.com/smartcontractkit/chainlink/v2/core/services/llo/channeldefinitions"
 	"github.com/smartcontractkit/chainlink/v2/core/services/llo/types"
 )
@@ -44,7 +43,7 @@ func (o *chainScopedORM) LoadChannelDefinitions(ctx context.Context, addr common
 // StoreChannelDefinitions will store a ChannelDefinitions list for a given chain_selector, addr, don_id
 // It updates if the new version is greater than the existing record OR if the block number has changed
 // (indicating definitions were updated even if version hasn't progressed)
-func (o *chainScopedORM) StoreChannelDefinitions(ctx context.Context, addr common.Address, donID, version uint32, dfns llotypes.ChannelDefinitions, blockNum int64) error {
+func (o *chainScopedORM) StoreChannelDefinitions(ctx context.Context, addr common.Address, donID, version uint32, dfns map[uint32]types.SourceDefinition, blockNum int64) error {
 	_, err := o.ds.ExecContext(ctx, `
 INSERT INTO channel_definitions (chain_selector, addr, don_id, definitions, block_num, version, updated_at)
 VALUES ($1, $2, $3, $4, $5, $6, NOW())

@@ -86,6 +86,26 @@ func (m *MockReadCloser) Close() error {
 	return err
 }
 
+// extractChannelDefinitions merges all channel definitions from source definitions into a single map
+func extractChannelDefinitions(sourceDefs map[uint32]llotypes2.SourceDefinition) llotypes.ChannelDefinitions {
+	result := make(llotypes.ChannelDefinitions)
+	for _, sourceDef := range sourceDefs {
+		for channelID, def := range sourceDef.Definitions {
+			result[channelID] = def
+		}
+	}
+	return result
+}
+
+// countChannels counts the total number of channels across all source definitions
+func countChannels(sourceDefs map[uint32]llotypes2.SourceDefinition) int {
+	count := 0
+	for _, sourceDef := range sourceDefs {
+		count += len(sourceDef.Definitions)
+	}
+	return count
+}
+
 func Test_ChannelDefinitionCache_Integration(t *testing.T) {
 	var (
 		invalidDefinitions    = []byte(`{{{`)
@@ -291,15 +311,15 @@ func Test_ChannelDefinitionCache_Integration(t *testing.T) {
 		assert.Equal(t, sampleDefinitions, cdc.Definitions(llotypes.ChannelDefinitions{}))
 
 		t.Run("latest channel definitions are persisted", func(t *testing.T) {
-			// Wait for initial persistence to complete (from calling Definitions() with empty map above)
+			// Wait for initial persistence to complete (persistLoop periodically persists source definitions)
 			var prevOutcome *llotypes2.PersistedDefinitions
 			require.Eventually(t, func() bool {
 				loaded, err := orm.LoadChannelDefinitions(testutils.Context(t), configStoreAddress, donID)
 				if err != nil || loaded == nil {
 					return false
 				}
-				// Check if we have the expected number of definitions
-				if len(loaded.Definitions) != len(sampleDefinitions) {
+				// Check if we have the expected number of channels across all sources
+				if countChannels(loaded.Definitions) != len(sampleDefinitions) {
 					return false
 				}
 				prevOutcome = loaded
@@ -307,9 +327,10 @@ func Test_ChannelDefinitionCache_Integration(t *testing.T) {
 			}, 5*time.Second, 100*time.Millisecond, "channel definitions should be persisted")
 			require.NotNil(t, prevOutcome, "previous outcome should be loaded from database")
 
-			// Simulate plugin behavior: call Definitions() with previous outcome definitions
-			// This triggers persistence with the version from the previous outcome
-			_ = cdc.Definitions(prevOutcome.Definitions)
+			// Simulate plugin behavior: call Definitions() with merged channel definitions from previous outcome
+			// Definitions() merges source definitions with prev and returns the result
+			// Persistence happens separately via persistLoop, which stores c.definitions.Sources
+			_ = cdc.Definitions(extractChannelDefinitions(prevOutcome.Definitions))
 
 			// Wait for persistence to complete after calling Definitions() with previous outcome
 			var pd *llotypes2.PersistedDefinitions
@@ -318,8 +339,8 @@ func Test_ChannelDefinitionCache_Integration(t *testing.T) {
 				if err != nil || loaded == nil {
 					return false
 				}
-				// Check if we have the expected number of definitions
-				if len(loaded.Definitions) != len(sampleDefinitions) {
+				// Check if we have the expected number of channels across all sources
+				if countChannels(loaded.Definitions) != len(sampleDefinitions) {
 					return false
 				}
 				pd = loaded
@@ -328,19 +349,18 @@ func Test_ChannelDefinitionCache_Integration(t *testing.T) {
 			require.NotNil(t, pd)
 			assert.Equal(t, ETHMainnetChainSelector, pd.ChainSelector)
 			assert.Equal(t, configStoreAddress, pd.Address)
-			// Verify the structure matches
-			assert.Len(t, pd.Definitions, len(sampleDefinitions))
+			// Verify the structure matches - extract and compare channel definitions
+			extractedDefs := extractChannelDefinitions(pd.Definitions)
+			assert.Len(t, extractedDefs, len(sampleDefinitions))
 			for channelID, expectedDef := range sampleDefinitions {
-				actualDef, exists := pd.Definitions[channelID]
+				actualDef, exists := extractedDefs[channelID]
 				assert.True(t, exists, "channel %d should exist", channelID)
 				assert.Equal(t, expectedDef.ReportFormat, actualDef.ReportFormat)
 				assert.Equal(t, expectedDef.Streams, actualDef.Streams)
 			}
 			assert.Equal(t, donID, pd.DonID)
-			// When calling Definitions() with previous outcome, persist() compares the merged result
-			// with c.definitions. If they're equal, it doesn't persist again, so version remains the same.
-			// If they differ, it persists with c.definitionsVersion (from latest owner trigger).
-			// Since we're calling with the same definitions that were just persisted, the version should match.
+			// persist() stores c.definitions.Sources (source definitions) to the database.
+			// The version comes from c.definitions.Version which is set from the latest owner trigger in the source definitions.
 			assert.GreaterOrEqual(t, pd.Version, prevOutcome.Version, "version should be >= previous outcome version")
 		})
 
@@ -348,13 +368,14 @@ func Test_ChannelDefinitionCache_Integration(t *testing.T) {
 			// fromBlock far in the future to ensure logs are not used
 			cdc2 := channeldefinitions.NewChannelDefinitionCache(logger.NullLogger, orm, client, lp, configStoreAddress, donID, 1000)
 			servicetest.Run(t, cdc2)
-			// Load the persisted definitions and use them as prev
-			// Definitions(prev) merges sourceDefinitions with prev
-			// Since sourceDefinitions should be empty for a new cache, it should return prev
+			// Load the persisted source definitions from DB
+			// The cache loads source definitions (map[uint32]types.SourceDefinition) from the database
+			// Definitions(prev) merges the loaded source definitions from c.definitions.Sources with prev
+			// Since source definitions are loaded from DB for a new cache, it should merge them with prev
 			loaded, err := orm.LoadChannelDefinitions(testutils.Context(t), configStoreAddress, donID)
 			require.NoError(t, err)
 			require.NotNil(t, loaded)
-			require.Equal(t, sampleDefinitions, loaded.Definitions)
+			require.Equal(t, sampleDefinitions, extractChannelDefinitions(loaded.Definitions))
 		})
 	})
 
@@ -428,25 +449,27 @@ func Test_ChannelDefinitionCache_Integration(t *testing.T) {
 	})
 
 	t.Run("latest channel definitions are persisted and overwrite previous value", func(t *testing.T) {
-		// Wait for initial persistence to complete (from calling Definitions() with empty map above)
-		var prevOutcome *llotypes2.PersistedDefinitions
+		// Wait for initial persistence to complete (persistLoop periodically persists source definitions)
+		var prev *llotypes2.PersistedDefinitions
 		require.Eventually(t, func() bool {
 			loaded, err := orm.LoadChannelDefinitions(testutils.Context(t), configStoreAddress, donID)
 			if err != nil || loaded == nil {
 				return false
 			}
-			// Check if we have the expected number of definitions
-			if len(loaded.Definitions) != len(sampleDefinitions) {
+			// Check if we have the expected number of channels across all sources
+			// Definitions is a map[uint32]types.SourceDefinition, so we need to count channels across all sources
+			if countChannels(loaded.Definitions) != len(sampleDefinitions) {
 				return false
 			}
-			prevOutcome = loaded
+			prev = loaded
 			return true
-		}, 5*time.Second, 100*time.Millisecond, "previous outcome should be available")
-		require.NotNil(t, prevOutcome, "previous outcome should be loaded from database")
+		}, 5*time.Second, 100*time.Millisecond, "latest channel definitions should be loaded from database")
+		require.NotNil(t, prev, "latest channel definitions should be loaded from database")
 
-		// Simulate plugin behavior: call Definitions() with previous outcome definitions
-		// This triggers persistence with the version from the previous outcome
-		_ = cdc.Definitions(prevOutcome.Definitions)
+		// Simulate plugin behavior: call Definitions() with merged channel definitions from previous outcome
+		// Definitions() merges source definitions with prev and returns the result
+		// Persistence happens separately via persistLoop, which stores c.definitions.Sources
+		_ = cdc.Definitions(extractChannelDefinitions(prev.Definitions))
 
 		// Wait for persistence to complete after calling Definitions() with previous outcome
 		var pd *llotypes2.PersistedDefinitions
@@ -455,8 +478,8 @@ func Test_ChannelDefinitionCache_Integration(t *testing.T) {
 			if err != nil || loaded == nil {
 				return false
 			}
-			// Check if we have the expected number of definitions
-			if len(loaded.Definitions) != len(sampleDefinitions) {
+			// Check if we have the expected number of channels across all sources
+			if countChannels(loaded.Definitions) != len(sampleDefinitions) {
 				return false
 			}
 			pd = loaded
@@ -465,19 +488,18 @@ func Test_ChannelDefinitionCache_Integration(t *testing.T) {
 		require.NotNil(t, pd)
 		assert.Equal(t, ETHMainnetChainSelector, pd.ChainSelector)
 		assert.Equal(t, configStoreAddress, pd.Address)
-		// Verify the structure matches - definitions are merged from sourceDefinitions
-		assert.Len(t, pd.Definitions, len(sampleDefinitions))
+		// Verify the structure matches - extract channel definitions from persisted source definitions
+		extractedDefs := extractChannelDefinitions(pd.Definitions)
+		assert.Len(t, extractedDefs, len(sampleDefinitions))
 		for channelID, expectedDef := range sampleDefinitions {
-			actualDef, exists := pd.Definitions[channelID]
+			actualDef, exists := extractedDefs[channelID]
 			assert.True(t, exists, "channel %d should exist", channelID)
 			assert.Equal(t, expectedDef.ReportFormat, actualDef.ReportFormat)
 			assert.Equal(t, expectedDef.Streams, actualDef.Streams)
 		}
 		assert.Equal(t, donID, pd.DonID)
-		// When calling Definitions() with previous outcome, persist() compares the merged result
-		// with c.definitions. If they're equal, it doesn't persist again, so version remains the same.
-		// If they differ, it persists with c.definitionsVersion (from latest owner trigger).
-		// Since we're calling with the same definitions that were just persisted, the version should match.
-		assert.GreaterOrEqual(t, pd.Version, prevOutcome.Version, "version should be >= previous outcome version")
+		// persist() stores c.definitions.Sources (source definitions) to the database.
+		// The version comes from c.definitions.Version which is set from the latest owner trigger in the source definitions.
+		assert.GreaterOrEqual(t, pd.Version, prev.Version, "version should be >= previous outcome version")
 	})
 }
