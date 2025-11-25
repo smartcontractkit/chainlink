@@ -19,13 +19,13 @@ import (
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
 	capabilities_registry "github.com/smartcontractkit/chainlink-evm/gethwrappers/keystone/generated/capabilities_registry_1_1_0"
-	"github.com/smartcontractkit/chainlink/deployment"
 	commonstate "github.com/smartcontractkit/chainlink/deployment/common/changeset/state"
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 	"github.com/smartcontractkit/chainlink/deployment/helpers"
 	"github.com/smartcontractkit/chainlink/deployment/keystone/changeset/internal"
 	seq "github.com/smartcontractkit/chainlink/deployment/keystone/changeset/solana/sequence"
 	"github.com/smartcontractkit/chainlink/deployment/keystone/changeset/solana/sequence/operation"
+	"github.com/smartcontractkit/chainlink/deployment/utils/solutils"
 )
 
 const (
@@ -76,7 +76,7 @@ func (cs DeployForwarder) Apply(env cldf.Environment, req *DeployForwarderReques
 
 	deploySeqInput := seq.DeployForwarderSeqInput{
 		ChainSel:     req.ChainSel,
-		ProgramName:  deployment.KeystoneForwarderProgramName,
+		ProgramName:  solutils.ProgKeystoneForwarder,
 		Overallocate: true,
 		ContractType: ForwarderContract,
 		Qualifier:    req.Qualifier,
