@@ -925,11 +925,11 @@ func Test_CCIPTokenTransfer_EVM2SUI_ManagedTokenPool_NoRateLimit(t *testing.T) {
 	}) // sourceChain=EVM, destChain=SUI
 	require.NoError(t, err)
 
-	state, err := stateview.LoadOnchainState(e.Env)
-	require.NoError(t, err)
-
 	// update env to include deployed contracts
 	e.Env = updatedEnv
+
+	state, err := stateview.LoadOnchainState(e.Env)
+	require.NoError(t, err)
 
 	testhelpers.MintAndAllow(
 		t,
@@ -1009,11 +1009,11 @@ func Test_CCIPTokenTransfer_EVM2SUI_ManagedTokenPool_WithRateLimit(t *testing.T)
 	}) // sourceChain=EVM, destChain=SUI
 	require.NoError(t, err)
 
-	state, err := stateview.LoadOnchainState(e.Env)
-	require.NoError(t, err)
-
 	// update env to include deployed contracts
 	e.Env = updatedEnv
+
+	state, err := stateview.LoadOnchainState(e.Env)
+	require.NoError(t, err)
 
 	testhelpers.MintAndAllow(
 		t,
