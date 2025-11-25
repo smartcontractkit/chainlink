@@ -120,7 +120,7 @@ func suite(t *testing.T, fixture *testFixture) {
 		assert.NotEmpty(t, report.MCMSTimelockProposals, "there should be MCMS timelock proposal(s)")
 		t.Logf("MCMSOperation has %d proposals", len(report.MCMSTimelockProposals))
 
-		assert.Equal(t, 4, len(report.MCMSTimelockProposals[0].Operations), "there should be 4 MCMS timelock operations")
+		assert.Len(t, report.MCMSTimelockProposals[0].Operations, 4, "there should be 4 MCMS timelock operations")
 		t.Logf("MCMSOperation has %d operations", len(report.MCMSTimelockProposals[0].Operations))
 
 		t.Logf("MCMS Cap Reg config test completed successfully")
