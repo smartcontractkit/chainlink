@@ -30,7 +30,12 @@ type RegisterNodesInput struct {
 	Address       string
 	ChainSelector uint64
 	Nodes         []NodesInput
-	MCMSConfig    *contracts.MCMSConfig
+
+	// AllNOPsInContract Optional: map of all NOP names to their IDs (or expected IDs) in the contract.
+	// Useful when using MCMS, since the NOPs won't be present in the contract yet, but we can assume their IDs based on the existing NOPs.
+	// If not provided, the operation will fail if it encounters a NOP that is not in the contract.
+	AllNOPsInContract map[string]int
+	MCMSConfig        *contracts.MCMSConfig
 }
 
 type NodesInput struct {
@@ -93,18 +98,21 @@ var RegisterNodes = operations.NewOperation[RegisterNodesInput, RegisterNodesOut
 			}, nil
 		}
 
-		contractNOPs, err := pkg.GetNodeOperators(nil, capReg)
-		if err != nil {
-			return RegisterNodesOutput{}, fmt.Errorf("failed to fetch node operators from contract: %w", err)
-		}
+		allNOPsNamesInContract := input.AllNOPsInContract
+		if len(allNOPsNamesInContract) == 0 {
+			contractNOPs, err := pkg.GetNodeOperators(nil, capReg)
+			if err != nil {
+				return RegisterNodesOutput{}, fmt.Errorf("failed to fetch node operators from contract: %w", err)
+			}
 
-		allNOPsNamesInContract := make(map[string]int)
-		for i, nop := range contractNOPs {
-			// NodeOperatorId is 1-based and returned in order from the contract.
-			// So the ID is the index + 1
-			// See the implementation of `AddNodeOperators` in the contract for reference:
-			// https://github.com/smartcontractkit/chainlink-evm/blob/develop/contracts/src/v0.8/workflow/v2/CapabilitiesRegistry.sol#L568
-			allNOPsNamesInContract[nop.Name] = i + 1
+			allNOPsNamesInContract = make(map[string]int)
+			for i, nop := range contractNOPs {
+				// NodeOperatorId is 1-based and returned in order from the contract.
+				// So the ID is the index + 1
+				// See the implementation of `AddNodeOperators` in the contract for reference:
+				// https://github.com/smartcontractkit/chainlink-evm/blob/develop/contracts/src/v0.8/workflow/v2/CapabilitiesRegistry.sol#L568
+				allNOPsNamesInContract[nop.Name] = i + 1
+			}
 		}
 
 		var nodes []capabilities_registry_v2.CapabilitiesRegistryNodeParams

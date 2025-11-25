@@ -48,7 +48,6 @@ func TestE2ELegacy(t *testing.T) {
 				},
 			},
 		}),
-		// testhelpers.WithNumOfChains(3),
 		testhelpers.WithEVMChainsBySelectors([]uint64{
 			chainselectors.GETH_TESTNET.Selector,
 			chainselectors.TEST_90000001.Selector,
