@@ -481,14 +481,6 @@ func (c *channelDefinitionCache) mergeDefinitions(source uint32, currentDefiniti
 	for channelID, def := range newDefinitions {
 		switch source {
 		case SourceOwner:
-			if def.Tombstone {
-				existing, exists := currentDefinitions[channelID]
-				if exists && (existing.Source == SourceOwner && !existing.Tombstone) {
-					c.lggr.Warnw("invalid channel tombstone, cannot tombstone owner-defined channel, must be dropped from definitions",
-						"channelID", channelID, "source", source)
-					continue
-				}
-			}
 			currentDefinitions[channelID] = def
 
 		default:

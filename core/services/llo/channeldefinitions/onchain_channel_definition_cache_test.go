@@ -1029,7 +1029,7 @@ func Test_ChannelDefinitionCache(t *testing.T) {
 			require.Len(t, result, 2)
 		})
 
-		t.Run("tombstone against owner channels is ignored", func(t *testing.T) {
+		t.Run("owner can tombstone owner channels", func(t *testing.T) {
 			currentDefinitions := make(llotypes.ChannelDefinitions)
 			newDefinitions := make(llotypes.ChannelDefinitions)
 
@@ -1039,7 +1039,7 @@ func Test_ChannelDefinitionCache(t *testing.T) {
 			currentDefinitions[1] = makeChannelDefinition(1, SourceOwner)
 			currentDefinitions[2] = makeChannelDefinition(2, adderID)
 
-			// Owner tries to tombstone owner channel 1 (should be ignored)
+			// Owner tries to tombstone owner channel 1 (should succeed)
 			newDefinitions[1] = llotypes.ChannelDefinition{
 				ReportFormat: llotypes.ReportFormatJSON,
 				Streams:      []llotypes.Stream{{StreamID: 1, Aggregator: llotypes.AggregatorMedian}},
@@ -1050,7 +1050,6 @@ func Test_ChannelDefinitionCache(t *testing.T) {
 			// Owner tries to tombstone adder channel 2 (should succeed)
 			newDefinitions[2] = llotypes.ChannelDefinition{
 				ReportFormat: llotypes.ReportFormatJSON,
-				Streams:      []llotypes.Stream{{StreamID: 2, Aggregator: llotypes.AggregatorMedian}},
 				Source:       SourceOwner,
 				Tombstone:    true,
 			}
@@ -1058,17 +1057,17 @@ func Test_ChannelDefinitionCache(t *testing.T) {
 			result, err := cdc.mergeDefinitions(SourceOwner, currentDefinitions, newDefinitions)
 			require.NoError(t, err)
 
-			// Owner channel 1 should still be present (tombstone ignored)
+			// Result should contain both channels
+			require.Len(t, result, 2)
+
+			// Owner channel 1 should be present (tombstone succeeded)
 			require.Contains(t, result, llotypes.ChannelID(1))
 			require.Equal(t, SourceOwner, result[1].Source)
-			require.False(t, result[1].Tombstone, "channel 1 should not be tombstoned")
+			require.True(t, result[1].Tombstone, "channel 1 should be tombstoned")
 
 			// Adder channel 2 should be kept in definitions with Tombstone: true (tombstone succeeded)
 			require.Contains(t, result, llotypes.ChannelID(2))
 			require.True(t, result[2].Tombstone, "channel 2 should be tombstoned")
-
-			// Result should contain both channels
-			require.Len(t, result, 2)
 		})
 	})
 }
