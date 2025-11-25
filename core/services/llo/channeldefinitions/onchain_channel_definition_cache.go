@@ -13,6 +13,7 @@ import (
 	"math/big"
 	"net/http"
 	"net/url"
+	"sort"
 	"strconv"
 	"strings"
 	"sync"
@@ -118,6 +119,7 @@ type fetchTrigger struct {
 	url      string
 	sha      [32]byte
 	blockNum int64
+	logIndex int64
 	version  uint32
 	txHash   common.Hash
 }
@@ -443,6 +445,7 @@ func (c *channelDefinitionCache) processLogs(logs []logpoller.Log) {
 				source:   SourceOwner,
 				url:      unpacked.Url,
 				sha:      unpacked.Sha,
+				logIndex: log.LogIndex,
 				blockNum: blockNumFromUint64(unpacked.Raw.BlockNumber),
 				version:  unpacked.Version,
 				txHash:   log.TxHash,
@@ -458,6 +461,7 @@ func (c *channelDefinitionCache) processLogs(logs []logpoller.Log) {
 				source:   unpacked.ChannelAdderId,
 				url:      unpacked.Url,
 				sha:      unpacked.Sha,
+				logIndex: log.LogIndex,
 				blockNum: blockNumFromUint64(unpacked.Raw.BlockNumber),
 				txHash:   log.TxHash,
 			}
@@ -825,23 +829,38 @@ func (c *channelDefinitionCache) Definitions(prev llotypes.ChannelDefinitions) l
 	var err error
 	var merged llotypes.ChannelDefinitions
 
-	if prev == nil {
+	merged = maps.Clone(prev)
+	if merged == nil {
 		merged = make(llotypes.ChannelDefinitions)
-	} else {
-		merged = maps.Clone(prev)
 	}
 
 	c.definitionsMu.Lock()
 	defer c.definitionsMu.Unlock()
 	c.definitions = merged
 
-	if len(c.sourceDefinitions) > 0 {
-		for source, sourceDefinition := range c.sourceDefinitions {
-			merged, err = c.mergeDefinitions(source, merged, sourceDefinition.definitions)
-			if err != nil {
-				c.lggr.Errorw("failed to merge definitions", "err", err, "source", source,
-					"blockNum", sourceDefinition.trigger.blockNum, "txHash", sourceDefinition.trigger.txHash.Hex())
-			}
+	// nothing to merge
+	if len(c.sourceDefinitions) == 0 {
+		return prev
+	}
+
+	src := make([]sourceDefinition, 0, len(c.sourceDefinitions))
+	for _, sourceDefinition := range c.sourceDefinitions {
+		src = append(src, sourceDefinition)
+	}
+
+	// process definitions deterministically
+	sort.Slice(src, func(i, j int) bool {
+		if src[i].trigger.blockNum == src[j].trigger.blockNum {
+			return src[i].trigger.logIndex < src[j].trigger.logIndex
+		}
+		return src[i].trigger.blockNum < src[j].trigger.blockNum
+	})
+
+	for _, sourceDefinition := range src {
+		merged, err = c.mergeDefinitions(sourceDefinition.trigger.source, merged, sourceDefinition.definitions)
+		if err != nil {
+			c.lggr.Errorw("failed to merge definitions", "err", err, "source", sourceDefinition.trigger.source,
+				"blockNum", sourceDefinition.trigger.blockNum, "txHash", sourceDefinition.trigger.txHash.Hex())
 		}
 	}
 
