@@ -26,16 +26,11 @@ cleanup() {
     # Kill processes by test ID
     pkill -f "$TEST_ID" 2>/dev/null || true
     
-    # Kill SUI RPC processes on hardcoded port 9000
-    echo "🧹 Cleaning up SUI RPC on port 9000..."
-    lsof -ti:9000 2>/dev/null | xargs -r kill -9 2>/dev/null || true
-    
-    # Kill any remaining SUI-related processes
-    pkill -f "sui" 2>/dev/null || true
-    
-    # Clean up Docker containers that might be using SUI
-    docker ps -q --filter "ancestor=*sui*" | xargs -r docker kill 2>/dev/null || true
-    docker ps -aq --filter "ancestor=*sui*" | xargs -r docker rm -f 2>/dev/null || true
+    # NOTE: We do NOT kill SUI RPC processes on port 9000 because:
+    # 1. Upgrade tests need SUI containers running for getDynamicSuiRPC()
+    # 2. SUI containers are properly isolated by Docker networking
+    # 3. Killing them causes "could not find sui rpc port mapping for port 9000" errors
+    echo "🧹 SUI containers left running for upgrade test compatibility..."
     
     echo "✅ Cleanup completed"
 }
