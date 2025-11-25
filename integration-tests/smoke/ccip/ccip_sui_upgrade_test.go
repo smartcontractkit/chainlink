@@ -115,8 +115,16 @@ func Test_CCIP_Upgrade_Sui2EVM(t *testing.T) {
 
 	// upgrade contracts, upgrade onRamp to v2
 	fmt.Println("Upgrading SUI contracts")
+	upgradeStart := time.Now()
 	upgradeCCIP(ctx, t, e, sourceChain, contracts.CCIP)
+	t.Logf("CCIP upgrade completed in %s", time.Since(upgradeStart))
+
+	onRampUpgradeStart := time.Now()
 	upgradeSuiOnRamp(ctx, t, e, sourceChain, contracts.CCIPOnramp)
+	t.Logf("OnRamp upgrade completed in %s", time.Since(onRampUpgradeStart))
+
+	totalUpgradeTime := time.Since(upgradeStart)
+	t.Logf("Total upgrade time: %s", totalUpgradeTime)
 
 	t.Run("Sui OnRamp, CCIP FQ Upgraded: Message to EVM - Should Succeed", func(t *testing.T) {
 		out = messagingtest.Run(t,
@@ -203,8 +211,16 @@ func Test_CCIP_Upgrade_EVM2Sui(t *testing.T) {
 	receiverObjectIDs := [][32]byte{clockObj, stateObj}
 
 	fmt.Println("Upgrading SUI contracts")
+	upgradeStart := time.Now()
 	upgradeCCIP(ctx, t, e, destChain, contracts.CCIP)
+	t.Logf("CCIP upgrade completed in %s", time.Since(upgradeStart))
+
+	offRampUpgradeStart := time.Now()
 	upgradeSuiOffRamp(ctx, t, e, destChain, contracts.CCIPOfframp)
+	t.Logf("OffRamp upgrade completed in %s", time.Since(offRampUpgradeStart))
+
+	totalUpgradeTime := time.Since(upgradeStart)
+	t.Logf("Total upgrade time: %s", totalUpgradeTime)
 
 	// Block offramp v1
 	_, _, err = commoncs.ApplyChangesets(t, e.Env, []commoncs.ConfiguredChangeSet{
@@ -332,8 +348,16 @@ func Test_CCIP_Upgrade_NoBlock_EVM2Sui(t *testing.T) {
 	receiverObjectIDs := [][32]byte{clockObj, stateObj}
 
 	fmt.Println("Upgrading SUI contracts")
+	upgradeStart := time.Now()
 	upgradeCCIP(ctx, t, e, destChain, contracts.CCIP)
+	t.Logf("CCIP upgrade completed in %s", time.Since(upgradeStart))
+
+	offRampUpgradeStart := time.Now()
 	upgradeSuiOffRamp(ctx, t, e, destChain, contracts.CCIPOfframp)
+	t.Logf("OffRamp upgrade completed in %s", time.Since(offRampUpgradeStart))
+
+	totalUpgradeTime := time.Since(upgradeStart)
+	t.Logf("Total upgrade time: %s", totalUpgradeTime)
 
 	state, err = stateview.LoadOnchainState(e.Env)
 	require.NoError(t, err)
@@ -449,7 +473,9 @@ func Test_CCIP_Upgrade_CommonPkg_EVM2Sui(t *testing.T) {
 	receiverObjectIDs := [][32]byte{clockObj, stateObj}
 
 	fmt.Println("Upgrading SUI contracts")
+	upgradeStart := time.Now()
 	upgradeCCIP(ctx, t, e, destChain, contracts.CCIP)
+	t.Logf("CCIP upgrade completed in %s", time.Since(upgradeStart))
 
 	// Block ccip v1 FQ
 	_, _, err = commoncs.ApplyChangesets(t, e.Env, []commoncs.ConfiguredChangeSet{
