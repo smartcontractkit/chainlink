@@ -7,6 +7,7 @@ import (
 	"math/big"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/require"
 
@@ -870,6 +871,10 @@ func testSetupTokenTransfer(t *testing.T) (e testhelpers.DeployedEnv, sourceChai
 	sourceChain = suiChainSelectors[0]
 	destChain = evmChainSelectors[0]
 
+	// Ensure SUI RPC is ready after container startup
+	t.Log("🔍 Performing SUI RPC health check after container startup...")
+	WaitForAllSuiChainsReady(t, e.Env.BlockChains.SuiChains(), 60*time.Second)
+
 	state, err := stateview.LoadOnchainState(e.Env)
 	require.NoError(t, err)
 
@@ -1681,7 +1686,11 @@ func testSetupHelper(t *testing.T) (e testhelpers.DeployedEnv, sourceChain uint6
 	sourceChain = evmChainSelectors[0]
 	destChain = suiChainSelectors[0]
 
-	t.Log("Source chain (Sui): ", sourceChain, "Dest chain (EVM): ", destChain)
+	t.Log("Source chain (EVM): ", sourceChain, "Dest chain (SUI): ", destChain)
+
+	// Ensure SUI RPC is ready after container startup
+	t.Log("🔍 Performing SUI RPC health check after container startup...")
+	WaitForAllSuiChainsReady(t, e.Env.BlockChains.SuiChains(), 60*time.Second)
 
 	state, err := stateview.LoadOnchainState(e.Env)
 	require.NoError(t, err)

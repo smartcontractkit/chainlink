@@ -6,6 +6,7 @@ import (
 	"math/big"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/require"
 
@@ -55,6 +56,10 @@ func Test_CCIP_Messaging_Sui2EVM(t *testing.T) {
 
 	sourceChain := suiChainSelectors[0]
 	destChain := evmChainSelectors[0]
+
+	// Ensure SUI RPC is ready after container startup
+	t.Log("🔍 Performing SUI RPC health check after container startup...")
+	WaitForAllSuiChainsReady(t, e.Env.BlockChains.SuiChains(), 60*time.Second)
 
 	state, err := stateview.LoadOnchainState(e.Env)
 	require.NoError(t, err)
