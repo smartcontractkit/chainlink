@@ -90,8 +90,6 @@ jobs:
       test_trigger: PR Integration CCIP Tests
       skip_image_build: true # in-memory tests do not require an image
       use-self-hosted-runners: ${{ needs.changes.outputs.should_use_self_hosted_runner }}
-      collect_test_telemetry: true
-      free-disk-space: "true"
     secrets:
       QA_AWS_REGION: ${{ secrets.QA_AWS_REGION }}
       AWS_REGION: ${{ secrets.AWS_REGION }}
@@ -125,8 +123,6 @@ jobs:
       slack_notification_after_tests_name: CCIP Integration Tests In Merge Queue
       use-self-hosted-runners: ${{ needs.changes.outputs.should_use_self_hosted_runner }}
       skip_image_build: true # in-memory tests do not require an image
-      collect_test_telemetry: true
-      free-disk-space: "true"
     secrets:
       GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       SLACK_BOT_TOKEN: ${{ secrets.QA_SLACK_API_KEY }}
