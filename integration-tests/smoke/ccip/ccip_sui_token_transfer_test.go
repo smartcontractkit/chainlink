@@ -49,7 +49,7 @@ func assertSuiSourceRevertExpectedError(t *testing.T, err error, execRevertError
 }
 
 func Test_CCIPTokenTransfer_Sui2EVM_ManagedTokenPool_ThenCurse(t *testing.T) {
-	e, sourceChain, destChain := testSetupTokenTransfer(t)
+	e, sourceChain, destChain := testSetupTokenTransferSui2Evm(t)
 
 	feeTokenOutput := mintLinkToken(t, e.Env, sourceChain, 1000000000000)
 	linkTokenOutput1 := mintLinkToken(t, e.Env, sourceChain, 1000000000)
@@ -196,7 +196,7 @@ func Test_CCIPTokenTransfer_Sui2EVM_ManagedTokenPool_ThenCurse(t *testing.T) {
 }
 
 func Test_CCIPTokenTransfer_Sui2EVM_BurnMintTokenPool(t *testing.T) {
-	e, sourceChain, destChain := testSetupTokenTransfer(t)
+	e, sourceChain, destChain := testSetupTokenTransferSui2Evm(t)
 
 	feeTokenOutput := mintLinkToken(t, e.Env, sourceChain, 1000000000000)
 	linkTokenOutput1 := mintLinkToken(t, e.Env, sourceChain, 1000000000)
@@ -361,7 +361,7 @@ func Test_CCIPTokenTransfer_Sui2EVM_BurnMintTokenPool(t *testing.T) {
 }
 
 func Test_CCIPTokenTransfer_Sui2EVM_BurnMintTokenPool_ThenGloballyCursed(t *testing.T) {
-	e, sourceChain, destChain := testSetupTokenTransfer(t)
+	e, sourceChain, destChain := testSetupTokenTransferSui2Evm(t)
 
 	feeTokenOutput := mintLinkToken(t, e.Env, sourceChain, 1000000000000)
 	linkTokenOutput1 := mintLinkToken(t, e.Env, sourceChain, 1000000000)
@@ -549,7 +549,7 @@ func Test_CCIPTokenTransfer_Sui2EVM_BurnMintTokenPool_ThenGloballyCursed(t *test
 }
 
 func Test_CCIPTokenTransfer_Sui2EVM_BurnMintTokenPool_WithAllowlist(t *testing.T) {
-	e, sourceChain, destChain := testSetupTokenTransfer(t)
+	e, sourceChain, destChain := testSetupTokenTransferSui2Evm(t)
 	feeTokenOutput := mintLinkToken(t, e.Env, sourceChain, 1000000000000)
 	linkTokenOutput1 := mintLinkToken(t, e.Env, sourceChain, 2000000000)
 	linkTokenOutput2 := mintLinkToken(t, e.Env, sourceChain, 1500000000)
@@ -734,7 +734,7 @@ func Test_CCIPTokenTransfer_Sui2EVM_BurnMintTokenPool_WithAllowlist(t *testing.T
 }
 
 func Test_CCIPTokenTransfer_Sui2EVM_BurnMintTokenPool_WithRateLimit(t *testing.T) {
-	e, sourceChain, destChain := testSetupTokenTransfer(t)
+	e, sourceChain, destChain := testSetupTokenTransferSui2Evm(t)
 	feeTokenOutput := mintLinkToken(t, e.Env, sourceChain, 1000000000000)
 	linkTokenOutput1 := mintLinkToken(t, e.Env, sourceChain, 10)
 	linkTokenOutput2 := mintLinkToken(t, e.Env, sourceChain, 60)
@@ -858,7 +858,7 @@ func Test_CCIPTokenTransfer_Sui2EVM_BurnMintTokenPool_WithRateLimit(t *testing.T
 	})
 }
 
-func testSetupTokenTransfer(t *testing.T) (e testhelpers.DeployedEnv, sourceChain uint64, destChain uint64) {
+func testSetupTokenTransferSui2Evm(t *testing.T) (e testhelpers.DeployedEnv, sourceChain uint64, destChain uint64) {
 	e, _, _ = testsetups.NewIntegrationEnvironment(
 		t,
 		testhelpers.WithNumOfChains(2),
@@ -909,7 +909,7 @@ func mintLinkToken(t *testing.T, e cldf.Environment, sourceChain uint64, amount 
 }
 
 func Test_CCIPTokenTransfer_EVM2SUI_ManagedTokenPool_NoRateLimit(t *testing.T) {
-	e, sourceChain, destChain, deployerSourceChain, suiTokenBytes, suiAddr := testSetupHelper(t)
+	e, sourceChain, destChain, deployerSourceChain, suiTokenBytes, suiAddr := testSetupHelperEvm2Sui(t)
 
 	// Token Pool setup on both SUI and EVM
 	updatedEnv, evmToken, _, err := testhelpers.HandleTokenAndManagedTokenPoolDeploymentForSUI(e.Env, destChain, sourceChain, []testhelpers.TokenPoolRateLimiterConfig{
@@ -966,12 +966,12 @@ func Test_CCIPTokenTransfer_EVM2SUI_ManagedTokenPool_NoRateLimit(t *testing.T) {
 	}
 
 	ctx := testhelpers.Context(t)
-	startBlocks, expectedSeqNums, expectedExecutionStates, expectedTokenBalances := testhelpers.TransferMultiple(ctx, t, e.Env, state, tcs)
+	startBlocks, expectedSeqNums, expectedExecutionStates, expectedTokenBalances := testhelpers.TransferMultiple(ctx, t, updatedEnv, state, tcs)
 
 	err = testhelpers.ConfirmMultipleCommitsWithContext(
 		ctx,
 		t,
-		e.Env,
+		updatedEnv,
 		state,
 		startBlocks,
 		false,
@@ -982,18 +982,18 @@ func Test_CCIPTokenTransfer_EVM2SUI_ManagedTokenPool_NoRateLimit(t *testing.T) {
 	execStates := testhelpers.ConfirmExecWithSeqNrsForAllWithContext(
 		ctx,
 		t,
-		e.Env,
+		updatedEnv,
 		state,
 		testhelpers.SeqNumberRangeToSlice(expectedSeqNums),
 		startBlocks,
 	)
 	require.Equal(t, expectedExecutionStates, execStates)
 
-	testhelpers.WaitForTokenBalances(ctx, t, e.Env, expectedTokenBalances)
+	testhelpers.WaitForTokenBalances(ctx, t, updatedEnv, expectedTokenBalances)
 }
 
 func Test_CCIPTokenTransfer_EVM2SUI_ManagedTokenPool_WithRateLimit(t *testing.T) {
-	e, sourceChain, destChain, deployerSourceChain, suiTokenBytes, suiAddr := testSetupHelper(t)
+	e, sourceChain, destChain, deployerSourceChain, suiTokenBytes, suiAddr := testSetupHelperEvm2Sui(t)
 
 	// Token Pool setup on both SUI and EVM
 	updatedEnv, evmToken, _, err := testhelpers.HandleTokenAndManagedTokenPoolDeploymentForSUI(e.Env, destChain, sourceChain, []testhelpers.TokenPoolRateLimiterConfig{
@@ -1106,7 +1106,7 @@ func Test_CCIPTokenTransfer_EVM2SUI_ManagedTokenPool_WithRateLimit(t *testing.T)
 }
 
 func Test_CCIPTokenTransfer_EVM2SUI_BurnMintTokenPool(t *testing.T) {
-	e, sourceChain, destChain, deployerSourceChain, suiTokenBytes, suiAddr := testSetupHelper(t)
+	e, sourceChain, destChain, deployerSourceChain, suiTokenBytes, suiAddr := testSetupHelperEvm2Sui(t)
 
 	// Token Pool setup on both SUI and EVM
 	updatedEnv, evmToken, _, err := testhelpers.HandleTokenAndBurnMintTokenPoolDeploymentForSUI(e.Env, destChain, sourceChain, []testhelpers.TokenPoolRateLimiterConfig{
@@ -1320,7 +1320,7 @@ func Test_CCIPTokenTransfer_EVM2SUI_BurnMintTokenPool(t *testing.T) {
 }
 
 func Test_CCIPPureTokenTransfer_EVM2SUI_BurnMintTokenPool(t *testing.T) {
-	e, sourceChain, destChain, deployerSourceChain, suiTokenBytes, suiAddr := testSetupHelper(t)
+	e, sourceChain, destChain, deployerSourceChain, suiTokenBytes, suiAddr := testSetupHelperEvm2Sui(t)
 
 	// Token Pool setup on both SUI and EVM
 	updatedEnv, evmToken, _, err := testhelpers.HandleTokenAndBurnMintTokenPoolDeploymentForSUI(e.Env, destChain, sourceChain, []testhelpers.TokenPoolRateLimiterConfig{
@@ -1415,7 +1415,7 @@ func Test_CCIPPureTokenTransfer_EVM2SUI_BurnMintTokenPool(t *testing.T) {
 }
 
 func Test_CCIPProgrammableTokenTransfer_EVM2SUI_BurnMintTokenPool(t *testing.T) {
-	e, sourceChain, destChain, deployerSourceChain, _, _ := testSetupHelper(t)
+	e, sourceChain, destChain, deployerSourceChain, _, _ := testSetupHelperEvm2Sui(t)
 
 	// Token Pool setup on both SUI and EVM
 	updatedEnv, evmToken, _, err := testhelpers.HandleTokenAndBurnMintTokenPoolDeploymentForSUI(e.Env, destChain, sourceChain, []testhelpers.TokenPoolRateLimiterConfig{
@@ -1545,7 +1545,7 @@ func Test_CCIPProgrammableTokenTransfer_EVM2SUI_BurnMintTokenPool(t *testing.T) 
 }
 
 func Test_CCIPZeroGasLimitTokenTransfer_EVM2SUI_BurnMintTokenPool(t *testing.T) {
-	e, sourceChain, destChain, deployerSourceChain, suiTokenBytes, suiAddr := testSetupHelper(t)
+	e, sourceChain, destChain, deployerSourceChain, suiTokenBytes, suiAddr := testSetupHelperEvm2Sui(t)
 
 	// Token Pool setup on both SUI and EVM
 	updatedEnv, evmToken, _, err := testhelpers.HandleTokenAndBurnMintTokenPoolDeploymentForSUI(e.Env, destChain, sourceChain, []testhelpers.TokenPoolRateLimiterConfig{
@@ -1673,7 +1673,7 @@ func Test_CCIPZeroGasLimitTokenTransfer_EVM2SUI_BurnMintTokenPool(t *testing.T) 
 	testhelpers.WaitForTokenBalances(ctx, t, e.Env, expectedTokenBalances)
 }
 
-func testSetupHelper(t *testing.T) (e testhelpers.DeployedEnv, sourceChain uint64, destChain uint64, deployerSourceChain *bind.TransactOpts, suiTokenBytes []byte, suiAddr [32]byte) {
+func testSetupHelperEvm2Sui(t *testing.T) (e testhelpers.DeployedEnv, sourceChain uint64, destChain uint64, deployerSourceChain *bind.TransactOpts, suiTokenBytes []byte, suiAddr [32]byte) {
 	e, _, _ = testsetups.NewIntegrationEnvironment(
 		t,
 		testhelpers.WithNumOfChains(2),

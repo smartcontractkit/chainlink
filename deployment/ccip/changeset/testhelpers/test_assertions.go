@@ -1734,7 +1734,7 @@ func SuiEventEmitter[T any](
 		Version string
 	}, 200)
 	errChan := make(chan error)
-	limit := 50
+	limit := uint64(50)                 // Use uint64 directly to avoid conversion
 	seenEvents := make(map[string]bool) // Track all seen event IDs to prevent duplicates
 
 	go func() {
@@ -1760,7 +1760,7 @@ func SuiEventEmitter[T any](
 
 				events, err := client.SuiXQueryEvents(t.Context(), models.SuiXQueryEventsRequest{
 					SuiEventFilter:  eventFilter,
-					Limit:           uint64(limit),
+					Limit:           limit,
 					DescendingOrder: false,
 				})
 				if err != nil {
@@ -1831,7 +1831,7 @@ func SuiEventEmitter[T any](
 
 				// For now, break after processing to avoid infinite loops
 				// TODO: Implement proper cursor-based pagination when SUI SDK supports it
-				if len(events.Data) < limit {
+				if uint64(len(events.Data)) < limit {
 					// Received fewer events than limit, likely no more events available
 					break
 				}
