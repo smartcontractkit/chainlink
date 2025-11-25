@@ -7,8 +7,6 @@ set -euo pipefail
 TEST_PATTERN="${1:-}"
 TIMEOUT_MINUTES="${2:-15}"
 TEST_ID="ccip-$(date +%s)-$$"
-PORT_BASE=$(shuf -i 30000-40000 -n 1)
-
 if [[ -z "$TEST_PATTERN" ]]; then
     echo "Usage: $0 <test_pattern> [timeout_minutes]"
     echo "Example: $0 'Test_CCIPTokenTransfer_Sui2EVM_BurnMintTokenPool_WithRateLimit' 20"
@@ -17,11 +15,9 @@ fi
 
 echo "🚀 Starting isolated CCIP test: $TEST_PATTERN"
 echo "📊 Test ID: $TEST_ID"
-echo "🔌 Port base: $PORT_BASE"
 
 # Export test environment
 export CCIP_TEST_ID="$TEST_ID"
-export CCIP_TEST_PORT_BASE="$PORT_BASE"
 
 # Cleanup function
 cleanup() {
@@ -30,10 +26,16 @@ cleanup() {
     # Kill processes by test ID
     pkill -f "$TEST_ID" 2>/dev/null || true
     
-    # Kill processes in our port range
-    for port in $(seq $PORT_BASE $((PORT_BASE + 200))); do
-        lsof -ti:$port 2>/dev/null | xargs -r kill -9 2>/dev/null || true
-    done
+    # Kill SUI RPC processes on hardcoded port 9000
+    echo "🧹 Cleaning up SUI RPC on port 9000..."
+    lsof -ti:9000 2>/dev/null | xargs -r kill -9 2>/dev/null || true
+    
+    # Kill any remaining SUI-related processes
+    pkill -f "sui" 2>/dev/null || true
+    
+    # Clean up Docker containers that might be using SUI
+    docker ps -q --filter "ancestor=*sui*" | xargs -r docker kill 2>/dev/null || true
+    docker ps -aq --filter "ancestor=*sui*" | xargs -r docker rm -f 2>/dev/null || true
     
     echo "✅ Cleanup completed"
 }
