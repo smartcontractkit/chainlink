@@ -8,13 +8,13 @@ import (
 
 	"google.golang.org/protobuf/proto"
 
-	"github.com/smartcontractkit/libocr/offchainreporting2plus/types"
-
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	"github.com/smartcontractkit/chainlink-data-streams/llo"
 	datastreamsllo "github.com/smartcontractkit/chainlink-data-streams/llo"
 	"github.com/smartcontractkit/chainlink-data-streams/llo/reportcodecs/evm"
+	"github.com/smartcontractkit/libocr/offchainreporting2plus/types"
+
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocrcommon"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline/eautils"
@@ -77,6 +77,7 @@ func newTelemeter(params TelemeterParams) *telemeter {
 		}, 10),
 		currentSeqNr:    make(map[string]uint64),
 		telemetryBuffer: make(map[string]map[uint64][]telemetryEntry),
+		sampler:         newSampler(logger.Sugared(params.Logger)),
 	}
 	if params.CaptureOutcomeTelemetry {
 		t.chOutcomeTelemetry = make(chan *datastreamsllo.LLOOutcomeTelemetry, 100) // only one per round so 100 buffer should be more than enough even for very fast rounds
@@ -139,6 +140,8 @@ type telemeter struct {
 	// for transmitting rounds sequence numbers
 	telemetryBufferMu sync.Mutex
 	telemetryBuffer   map[string]map[uint64][]telemetryEntry
+
+	sampler *sampler
 }
 
 func (t *telemeter) EnqueueV3PremiumLegacy(run *pipeline.Run, trrs pipeline.TaskRunResults, streamID uint32, opts llo.DSOpts, val llo.StreamValue, err error) {
@@ -270,7 +273,7 @@ func (t *telemeter) sendBufferedTelemetry(digest types.ConfigDigest, seqNr uint6
 	digestMessages := t.telemetryBuffer[cd]
 
 	// include any message from the previous sequence number
-	// that was enqueued after the its transmission
+	// that was enqueued after the seq's transmission
 	var messages [2][]telemetryEntry
 	messages[0] = digestMessages[currentSeqNr]
 	messages[1] = digestMessages[seqNr]
@@ -316,7 +319,9 @@ func (t *telemeter) enqueueTelemetry(digest string, seqNr uint64, typ synchroniz
 			return
 		}
 		// observation and bridge telemetry are not buffered
-		t.monitoringEndpoint.SendTypedLog(typ, bytes)
+		if t.sampler.Sample(typ, msg) {
+			t.monitoringEndpoint.SendTypedLog(typ, bytes)
+		}
 	default: // synchronization.LLOOutcome, synchronization.LLOReport
 		t.telemetryBufferMu.Lock()
 		defer t.telemetryBufferMu.Unlock()
@@ -324,10 +329,12 @@ func (t *telemeter) enqueueTelemetry(digest string, seqNr uint64, typ synchroniz
 		if _, ok := t.telemetryBuffer[digest]; !ok {
 			t.telemetryBuffer[digest] = make(map[uint64][]telemetryEntry)
 		}
-		t.telemetryBuffer[digest][seqNr] = append(t.telemetryBuffer[digest][seqNr], telemetryEntry{
-			telemType: typ,
-			msg:       msg,
-		})
+		if t.sampler.Sample(typ, msg) {
+			t.telemetryBuffer[digest][seqNr] = append(t.telemetryBuffer[digest][seqNr], telemetryEntry{
+				telemType: typ,
+				msg:       msg,
+			})
+		}
 	}
 }
 
