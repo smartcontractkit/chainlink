@@ -910,11 +910,16 @@ func Test_CCIPTokenTransfer_EVM2SUI_ManagedTokenPool_NoRateLimit(t *testing.T) {
 		},
 	)
 
+	emptyReceiver := hexutil.MustDecode(
+		"0x0000000000000000000000000000000000000000000000000000000000000000", // receiver packageID
+	)
+
 	tcs := []testhelpers.TestTransferRequest{
 		{
 			Name:             "Send token to EOA",
 			SourceChain:      sourceChain,
 			DestChain:        destChain,
+			Receiver:         emptyReceiver,
 			TokenReceiverATA: suiAddr[:], // tokenReceiver extracted from extraArgs (the address that actually gets the token)
 			ExpectedStatus:   testhelpers.EXECUTION_STATE_SUCCESS,
 			Tokens: []router.ClientEVMTokenAmount{
@@ -994,11 +999,16 @@ func Test_CCIPTokenTransfer_EVM2SUI_ManagedTokenPool_WithRateLimit(t *testing.T)
 		},
 	)
 
+	emptyReceiver := hexutil.MustDecode(
+		"0x0000000000000000000000000000000000000000000000000000000000000000", // receiver packageID
+	)
+
 	tcs := []testhelpers.TestTransferRequest{
 		{
 			Name:             "Send token to EOA",
 			SourceChain:      sourceChain,
 			DestChain:        destChain,
+			Receiver:         emptyReceiver,
 			TokenReceiverATA: suiAddr[:], // tokenReceiver extracted from extraArgs (the address that actually gets the token)
 			ExpectedStatus:   testhelpers.EXECUTION_STATE_SUCCESS,
 			Tokens: []router.ClientEVMTokenAmount{
@@ -1042,10 +1052,6 @@ func Test_CCIPTokenTransfer_EVM2SUI_ManagedTokenPool_WithRateLimit(t *testing.T)
 	require.Equal(t, expectedExecutionStates, execStates)
 
 	testhelpers.WaitForTokenBalances(ctx, t, e.Env, expectedTokenBalances)
-
-	emptyReceiver := hexutil.MustDecode(
-		"0x0000000000000000000000000000000000000000000000000000000000000000", // receiver packageID
-	)
 
 	t.Run("Send tokens exceeding inbound rate limit - should fail", func(t *testing.T) {
 		msg := router.ClientEVM2AnyMessage{
