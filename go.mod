@@ -2,6 +2,9 @@ module github.com/smartcontractkit/chainlink/v2
 
 go 1.25.3
 
+// temporarily override chainlink-evm to the local version
+replace github.com/smartcontractkit/chainlink-evm => ../chainlink-evm
+
 require (
 	github.com/Depado/ginprom v1.8.0
 	github.com/Masterminds/semver/v3 v3.4.0
@@ -87,7 +90,7 @@ require (
 	github.com/smartcontractkit/chainlink-common v0.9.6-0.20251118164938-731e805e0a2f
 	github.com/smartcontractkit/chainlink-common/pkg/chipingress v0.0.10
 	github.com/smartcontractkit/chainlink-data-streams v0.1.6
-	github.com/smartcontractkit/chainlink-evm v0.3.4-0.20251126123117-165c7d79aea9
+	github.com/smartcontractkit/chainlink-evm v0.3.4-0.20251029010119-b2ed6162042f
 	github.com/smartcontractkit/chainlink-evm/gethwrappers v0.0.0-20251022075638-49d961001d1b
 	github.com/smartcontractkit/chainlink-feeds v0.1.2-0.20250227211209-7cd000095135
 	github.com/smartcontractkit/chainlink-framework/capabilities v0.0.0-20250818175541-3389ac08a563
