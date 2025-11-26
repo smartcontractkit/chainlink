@@ -75,6 +75,7 @@ func Test_CRE_V1_Billing_EVM_Write(t *testing.T) {
 */
 
 func Test_CRE_V1_Billing_Cron_Beholder(t *testing.T) {
+	quarantine.Flaky(t, "DX-1907")
 	testEnv := t_helpers.SetupTestEnvironmentWithConfig(t, t_helpers.GetDefaultTestConfig(t))
 
 	// TODO remove this when OCR works properly with multiple chains in Local CRE
