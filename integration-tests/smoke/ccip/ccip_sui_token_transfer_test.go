@@ -911,6 +911,9 @@ func mintLinkToken(t *testing.T, e cldf.Environment, sourceChain uint64, amount 
 func Test_CCIPTokenTransfer_EVM2SUI_ManagedTokenPool_NoRateLimit(t *testing.T) {
 	e, sourceChain, destChain, deployerSourceChain, suiTokenBytes, suiAddr := testSetupHelperEvm2Sui(t)
 
+	state, err := stateview.LoadOnchainState(e.Env)
+	require.NoError(t, err)
+
 	// Token Pool setup on both SUI and EVM
 	updatedEnv, evmToken, _, err := testhelpers.HandleTokenAndManagedTokenPoolDeploymentForSUI(e.Env, destChain, sourceChain, []testhelpers.TokenPoolRateLimiterConfig{
 		{
@@ -927,9 +930,6 @@ func Test_CCIPTokenTransfer_EVM2SUI_ManagedTokenPool_NoRateLimit(t *testing.T) {
 
 	// update env to include deployed contracts
 	e.Env = updatedEnv
-
-	state, err := stateview.LoadOnchainState(e.Env)
-	require.NoError(t, err)
 
 	testhelpers.MintAndAllow(
 		t,

@@ -1787,7 +1787,7 @@ func SuiEventEmitter[T any](
 					eventID := fmt.Sprintf("%s:%s", ev.Id.TxDigest, ev.Id.EventSeq)
 
 					if seenEvents[eventID] {
-						t.Logf("[DEBUG] SuiEventEmitter: Skipping duplicate event %s", eventID)
+						t.Logf("[DEBUG] SuiEventEmitter: Skipping duplicate event %s with type %s and transaction module %s at timestamp %s", eventID, ev.Type, ev.TransactionModule, ev.TimestampMs)
 						continue // skip duplicates
 					}
 					seenEvents[eventID] = true
@@ -1795,9 +1795,9 @@ func SuiEventEmitter[T any](
 					var out T
 					// TODO: Use proper SUI JSON decoder instead of Aptos decoder
 					if err := codec.DecodeAptosJsonValue(ev.ParsedJson, &out); err != nil {
-						t.Logf("[DEBUG] SuiEventEmitter: Decode error for event %s: %v", eventID, err)
+						t.Logf("[DEBUG] SuiEventEmitter: Decode error for event %s with type %s and transaction module %s at timestamp %s: %v", eventID, ev.Type, ev.TransactionModule, ev.TimestampMs, err)
 						select {
-						case errChan <- fmt.Errorf("failed to decode event %s: %w", eventID, err):
+						case errChan <- fmt.Errorf("failed to decode event %s with type %s and transaction module %s at timestamp %s: %w", eventID, ev.Type, ev.TransactionModule, ev.TimestampMs, err):
 						case <-done:
 							return
 						}
@@ -1816,12 +1816,12 @@ func SuiEventEmitter[T any](
 					// Non-blocking send to prevent goroutine deadlock
 					select {
 					case ch <- eventData:
-						t.Logf("[DEBUG] SuiEventEmitter: Sent event %s", eventID)
+						t.Logf("[DEBUG] SuiEventEmitter: Sent event %s with type %s and transaction module %s at timestamp %s", eventID, ev.Type, ev.TransactionModule, ev.TimestampMs)
 					case <-done:
 						t.Logf("[DEBUG] SuiEventEmitter: Stopping due to done signal during send")
 						return
 					default:
-						t.Logf("[WARNING] SuiEventEmitter: Channel full, dropping event %s", eventID)
+						t.Logf("[WARNING] SuiEventEmitter: Channel full, dropping event %s with type %s and transaction module %s at timestamp %s", eventID, ev.Type, ev.TransactionModule, ev.TimestampMs)
 						// Channel is full, log warning but continue processing
 						// This prevents blocking the entire event loop
 					}
