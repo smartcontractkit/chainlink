@@ -557,6 +557,7 @@ func SendRequestEVM(
 		return nil, err
 	}
 
+	// Try the standard event filtering approach first
 	it, err := state.MustGetEVMChainState(cfg.SourceChain).OnRamp.FilterCCIPMessageSent(&bind.FilterOpts{
 		Start:   blockNum,
 		End:     &blockNum,
@@ -566,24 +567,60 @@ func SendRequestEVM(
 		return nil, err
 	}
 
-	if !it.Next() {
-		return nil, errors.New("no CCIP message sent event found")
+	var msgSentEvent *ccipclient.AnyMsgSentEvent
+
+	// If standard filtering works, use it
+	if it.Next() {
+		msgSentEvent = &ccipclient.AnyMsgSentEvent{
+			SequenceNumber: it.Event.SequenceNumber,
+			RawEvent:       it.Event,
+		}
+	} else {
+		// Fallback: If filtering didn't find the event (likely onRamp ABI version mismatch),
+		// parse directly from transaction receipt logs
+		e.Logger.Warnf("Standard event filtering found no events, falling back to receipt log parsing (likely ABI version mismatch)")
+		
+		receipt, err := e.BlockChains.EVMChains()[cfg.SourceChain].Client.TransactionReceipt(context.Background(), tx.Hash())
+		if err != nil {
+			return nil, fmt.Errorf("failed to get transaction receipt: %w", err)
+		}
+		
+		onRampAddr := state.MustGetEVMChainState(cfg.SourceChain).OnRamp.Address()
+		onRamp := state.MustGetEVMChainState(cfg.SourceChain).OnRamp
+		
+		for _, log := range receipt.Logs {
+			if log.Address == onRampAddr && len(log.Topics) > 0 {
+				event, err := onRamp.ParseCCIPMessageSent(*log)
+				if err == nil {
+					msgSentEvent = &ccipclient.AnyMsgSentEvent{
+						SequenceNumber: event.SequenceNumber,
+						RawEvent:       event,
+					}
+					break
+				}
+			}
+		}
 	}
 
+	if msgSentEvent == nil {
+		return nil, fmt.Errorf("no CCIP message sent event found for tx %s in block %d (tried both filtering and receipt parsing)", 
+			tx.Hash().String(), blockNum)
+	}
+
+	// Log the successful message send
+	event := msgSentEvent.RawEvent.(*onramp.OnRampCCIPMessageSent)
 	e.Logger.Infof("CCIP message (id %s) sent from chain selector %d to chain selector %d tx %s seqNum %d nonce %d sender %s testRouterEnabled %t",
-		common.Bytes2Hex(it.Event.Message.Header.MessageId[:]),
+		common.Bytes2Hex(event.Message.Header.MessageId[:]),
 		cfg.SourceChain,
 		cfg.DestChain,
 		tx.Hash().String(),
-		it.Event.SequenceNumber,
-		it.Event.Message.Header.Nonce,
-		it.Event.Message.Sender.String(),
+		msgSentEvent.SequenceNumber,
+		event.Message.Header.Nonce,
+		event.Message.Sender.String(),
 		cfg.IsTestRouter,
 	)
-	return &ccipclient.AnyMsgSentEvent{
-		SequenceNumber: it.Event.SequenceNumber,
-		RawEvent:       it.Event,
-	}, nil
+
+	return msgSentEvent, nil
 }
 
 func SendRequestSui(
