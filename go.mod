@@ -2,7 +2,7 @@ module github.com/smartcontractkit/chainlink/v2
 
 go 1.25.3
 
-replace github.com/smartcontractkit/chainlink-solana => github.com/smartcontractkit/chainlink-internal-solana v0.0.0-20251126190340-4156794e3348
+replace github.com/smartcontractkit/chainlink-solana => github.com/smartcontractkit/chainlink-internal-solana v0.0.0-20251126205354-2aa332cb5a04
 
 require (
 	github.com/Depado/ginprom v1.8.0
