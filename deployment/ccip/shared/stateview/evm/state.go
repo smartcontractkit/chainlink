@@ -44,6 +44,8 @@ import (
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_0/registry_module_owner_custom"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_0/rmn_home"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_0/rmn_remote"
+	burn_mint_token_pool_v1_6_1 "github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_1/burn_mint_token_pool"
+	lock_release_token_pool_v1_6_1 "github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_1/lock_release_token_pool"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_2/cctp_message_transmitter_proxy"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_2/factory_burn_mint_erc20"
 	usdc_token_pool_v1_6_2 "github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_2/usdc_token_pool"
@@ -75,6 +77,7 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/ccip/view/v1_5"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/view/v1_5_1"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/view/v1_6"
+	"github.com/smartcontractkit/chainlink/deployment/ccip/view/v1_6_1"
 	"github.com/smartcontractkit/chainlink/deployment/common/changeset/state"
 	v1_1 "github.com/smartcontractkit/chainlink/deployment/common/view/v1_0"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/types"
@@ -116,6 +119,7 @@ type CCIPChainState struct {
 
 	// Pools
 	BurnMintTokenPools                               map[shared.TokenSymbol]map[semver.Version]*burn_mint_token_pool.BurnMintTokenPool
+	BurnMintTokenPoolsV1_6_1                         map[shared.TokenSymbol]map[semver.Version]*burn_mint_token_pool_v1_6_1.BurnMintTokenPool
 	BurnMintTokenPoolsAndProxies                     map[shared.TokenSymbol]map[semver.Version]*burn_mint_token_pool_and_proxy.BurnMintTokenPoolAndProxy
 	BurnMintFastTransferTokenPools                   map[shared.TokenSymbol]map[semver.Version]*fast_transfer_token_pool.BurnMintFastTransferTokenPool
 	BurnMintWithExternalMinterFastTransferTokenPools map[shared.TokenSymbol]map[semver.Version]*burn_mint_with_external_minter_fast_transfer_token_pool.BurnMintWithExternalMinterFastTransferTokenPool
@@ -129,6 +133,7 @@ type CCIPChainState struct {
 	USDCTokenPools                map[semver.Version]*usdc_token_pool.USDCTokenPool
 	USDCTokenPoolsV1_6            map[semver.Version]*usdc_token_pool_v1_6_2.USDCTokenPool
 	LockReleaseTokenPools         map[shared.TokenSymbol]map[semver.Version]*lock_release_token_pool.LockReleaseTokenPool
+	LockReleaseTokenPoolsV1_6_1   map[shared.TokenSymbol]map[semver.Version]*lock_release_token_pool_v1_6_1.LockReleaseTokenPool
 	// Map between token Symbol (e.g. LinkSymbol, WethSymbol)
 	// and the respective aggregator USD feed contract
 	USDFeeds map[shared.TokenSymbol]*aggregator_v3_interface.AggregatorV3Interface
@@ -786,6 +791,21 @@ func (c CCIPChainState) GenerateView(lggr logger.Logger, chain string) (view.Cha
 			}
 		}
 	}
+	for tokenSymbol, versionToPool := range c.BurnMintTokenPoolsV1_6_1 {
+		for _, tokenPool := range versionToPool {
+			jobCh <- func() error {
+				tokenPoolView, err := v1_5_1.GenerateTokenPoolView(tokenPool, c.usdFeedOrDefault(tokenSymbol))
+				if err != nil {
+					return fmt.Errorf("failed to generate burn mint token pool view for %s: %w", tokenPool.Address().String(), err)
+				}
+				chainView.UpdateTokenPool(tokenSymbol.String(), tokenPool.Address().Hex(), v1_5_1.PoolView{
+					TokenPoolView: tokenPoolView,
+				})
+				lggr.Infow("generated burn mint token pool view", "tokenPool", tokenPool.Address().Hex(), "chain", chain)
+				return nil
+			}
+		}
+	}
 	for tokenSymbol, versionToPool := range c.BurnWithFromMintTokenPools {
 		for _, tokenPool := range versionToPool {
 			jobCh <- func() error {
@@ -820,6 +840,19 @@ func (c CCIPChainState) GenerateView(lggr logger.Logger, chain string) (view.Cha
 		for _, tokenPool := range versionToPool {
 			jobCh <- func() error {
 				tokenPoolView, err := v1_5_1.GenerateLockReleaseTokenPoolView(tokenPool, c.usdFeedOrDefault(tokenSymbol))
+				if err != nil {
+					return fmt.Errorf("failed to generate lock release token pool view for %s: %w", tokenPool.Address().String(), err)
+				}
+				chainView.UpdateTokenPool(tokenSymbol.String(), tokenPool.Address().Hex(), tokenPoolView)
+				lggr.Infow("generated lock release token pool view", "tokenPool", tokenPool.Address().Hex(), "chain", chain)
+				return nil
+			}
+		}
+	}
+	for tokenSymbol, versionToPool := range c.LockReleaseTokenPoolsV1_6_1 {
+		for _, tokenPool := range versionToPool {
+			jobCh <- func() error {
+				tokenPoolView, err := v1_6_1.GenerateLockReleaseTokenPoolView(tokenPool, c.usdFeedOrDefault(tokenSymbol))
 				if err != nil {
 					return fmt.Errorf("failed to generate lock release token pool view for %s: %w", tokenPool.Address().String(), err)
 				}

@@ -33,8 +33,8 @@ import (
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_5_1/burn_with_from_mint_token_pool"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_5_1/lock_release_token_pool"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_5_1/token_pool"
-	burnmint161 "github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_1/burn_mint_token_pool"
-	lockrelease161 "github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_1/lock_release_token_pool"
+	burn_mint_token_pool_v1_6_1 "github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_1/burn_mint_token_pool"
+	lock_release_token_pool_v1_6_1 "github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_1/lock_release_token_pool"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/shared/generated/initial/erc20"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/bindings/burn_mint_with_external_minter_fast_transfer_token_pool"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/bindings/hybrid_with_external_minter_fast_transfer_token_pool"
@@ -268,7 +268,7 @@ func deployTokenPool(
 			case shared.BurnMintTokenPool:
 				if poolConfig.Version == deployment.Version1_6_1 {
 					tokenPoolVersion = deployment.Version1_6_1
-					tpAddr, tx, _, err = burnmint161.DeployBurnMintTokenPool(
+					tpAddr, tx, _, err = burn_mint_token_pool_v1_6_1.DeployBurnMintTokenPool(
 						chain.DeployerKey, chain.Client, poolConfig.TokenAddress, poolConfig.LocalTokenDecimals,
 						poolConfig.AllowList, rmnProxy.Address(), router.Address(),
 					)
@@ -290,7 +290,7 @@ func deployTokenPool(
 				)
 			case shared.LockReleaseTokenPool:
 				if poolConfig.Version == deployment.Version1_6_1 {
-					tpAddr, tx, _, err = lockrelease161.DeployLockReleaseTokenPool(
+					tpAddr, tx, _, err = lock_release_token_pool_v1_6_1.DeployLockReleaseTokenPool(
 						chain.DeployerKey, chain.Client, poolConfig.TokenAddress, poolConfig.LocalTokenDecimals,
 						poolConfig.AllowList, rmnProxy.Address(), router.Address(),
 					)
