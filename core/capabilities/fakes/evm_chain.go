@@ -165,9 +165,9 @@ func (fc *FakeEVMChain) WriteReport(
 
 	// If dryRunWrites is enabled, simulate the transaction without broadcasting it
 	if fc.dryRunWrites {
-		resp, err := fc.dryRunWriteReport(ctx, auth.From, input, signatures)
-		if err != nil {
-			return nil, caperrors.NewPublicSystemError(err, caperrors.Unknown)
+		resp, dryRunErr := fc.dryRunWriteReport(ctx, auth.From, input, signatures)
+		if dryRunErr != nil {
+			return nil, caperrors.NewPublicSystemError(dryRunErr, caperrors.Unknown)
 		}
 
 		return resp, nil
