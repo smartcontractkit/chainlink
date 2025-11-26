@@ -230,6 +230,22 @@ func setupNode(
 
 func ptr[T any](t T) *T { return &t }
 
+// receiveWithTimeout receives from the packet channel with a timeout.
+// It returns the packet if a packet was received or an error if the timeout is reached
+// or the channel is closed unexpectedly.
+func receiveWithTimeout(t *testing.T, ch <-chan *packet, timeout time.Duration) (*packet, error) {
+	t.Helper()
+	select {
+	case pckt, ok := <-ch:
+		if !ok {
+			return nil, fmt.Errorf("packet channel closed unexpectedly")
+		}
+		return pckt, nil
+	case <-time.After(timeout):
+		return nil, fmt.Errorf("timed out waiting on channel")
+	}
+}
+
 func addSingleDecimalStreamJob(
 	t *testing.T,
 	node Node,

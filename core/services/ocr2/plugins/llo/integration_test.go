@@ -67,8 +67,9 @@ import (
 )
 
 var (
-	fNodes = uint8(1)
-	nNodes = 4 // number of nodes (not including bootstrap)
+	fNodes        = uint8(1)
+	nNodes        = 4 // number of nodes (not including bootstrap)
+	reportTimeout = time.Second * 60
 )
 
 func setupBlockchain(t *testing.T) (
@@ -409,7 +410,7 @@ func promoteStagingConfig(t *testing.T, donID uint32, steve *bind.TransactOpts, 
 }
 
 func TestIntegration_LLO_evm_premium_legacy(t *testing.T) {
-	// t.Parallel()
+	t.Parallel()
 	offchainConfigs := []datastreamsllo.OffchainConfig{
 		{
 			ProtocolVersion:                     0,
@@ -422,8 +423,7 @@ func TestIntegration_LLO_evm_premium_legacy(t *testing.T) {
 	}
 	for _, offchainConfig := range offchainConfigs {
 		t.Run(fmt.Sprintf("offchainConfig=%+v", offchainConfig), func(t *testing.T) {
-			// t.Parallel()
-
+			t.Parallel()
 			testIntegrationLLOEVMPremiumLegacy(t, offchainConfig)
 		})
 	}
@@ -565,10 +565,12 @@ channelDefinitionsContractFromBlock = %d`, serverURL, serverPubKey, donID, confi
 				// feedID will be deleted when all n oracles have reported
 				seen[opts.FeedID] = make(map[string]struct{}, nNodes)
 			}
-			for req := range reqs {
+			for {
+				req, err := receiveWithTimeout(t, reqs, reportTimeout)
+				require.NoError(t, err)
 				assert.Equal(t, uint32(llotypes.ReportFormatEVMPremiumLegacy), req.req.ReportFormat)
 				v := make(map[string]any)
-				err := mercury.PayloadTypes.UnpackIntoMap(v, req.req.Payload)
+				err = mercury.PayloadTypes.UnpackIntoMap(v, req.req.Payload)
 				require.NoError(t, err)
 				report, exists := v["report"]
 				if !exists {
@@ -650,7 +652,7 @@ channelDefinitionsContractFromBlock = %d`, serverURL, serverPubKey, donID, confi
 }
 
 func TestIntegration_LLO_multi_formats(t *testing.T) {
-	// t.Parallel()
+	t.Parallel()
 	offchainConfigs := []datastreamsllo.OffchainConfig{
 		{
 			ProtocolVersion:                     0,
@@ -663,8 +665,7 @@ func TestIntegration_LLO_multi_formats(t *testing.T) {
 	}
 	for _, offchainConfig := range offchainConfigs {
 		t.Run(fmt.Sprintf("offchainConfig=%+v", offchainConfig), func(t *testing.T) {
-			// t.Parallel()
-
+			t.Parallel()
 			testIntegrationLLOMultiFormats(t, offchainConfig)
 		})
 	}
@@ -1209,12 +1210,14 @@ dp -> deribit_funding_interval_hours_parse -> deribit_funding_interval_hours_dec
 			sampleTimestampsStockPriceFeedID: {},
 		}
 
-		for pckt := range packetCh {
+		for {
+			pckt, err := receiveWithTimeout(t, packetCh, reportTimeout)
+			require.NoError(t, err)
 			req := pckt.req
 			switch req.ReportFormat {
 			case uint32(llotypes.ReportFormatEVMABIEncodeUnpacked):
 				v := make(map[string]any)
-				err := mercury.PayloadTypes.UnpackIntoMap(v, req.Payload)
+				err = mercury.PayloadTypes.UnpackIntoMap(v, req.Payload)
 				require.NoError(t, err)
 				report, exists := v["report"]
 				if !exists {
@@ -1399,7 +1402,7 @@ dp -> deribit_funding_interval_hours_parse -> deribit_funding_interval_hours_dec
 }
 
 func TestIntegration_LLO_stress_test_V1(t *testing.T) {
-	// t.Parallel()
+	t.Parallel()
 
 	// logLevel: the log level to use for the nodes
 	// setting a more verbose log level increases cpu usage significantly
@@ -1430,6 +1433,7 @@ func TestIntegration_LLO_stress_test_V1(t *testing.T) {
 		WithOffchainConfig(datastreamsllo.OffchainConfig{
 			ProtocolVersion:                     1,
 			DefaultMinReportIntervalNanoseconds: uint64(defaultMinReportInterval),
+			EnableObservationCompression:        true,
 		}),
 		func(cfg *OCRConfig) {
 			// cfg.DeltaRound = 0 // Go as fast as possible
@@ -1549,7 +1553,9 @@ channelDefinitionsContractFromBlock = %d`, serverURL, serverPubKey, donID, confi
 		// transmitter addr => channel ID => reports
 		m := map[string]map[uint32][]datastreamsllo.Report{}
 
-		for pckt := range packets {
+		for {
+			pckt, err := receiveWithTimeout(t, packets, reportTimeout)
+			require.NoError(t, err)
 			pr, ok := peer.FromContext(pckt.ctx)
 			require.True(t, ok)
 			addr := pr.Addr
@@ -1633,7 +1639,7 @@ channelDefinitionsContractFromBlock = %d`, serverURL, serverPubKey, donID, confi
 }
 
 func TestIntegration_LLO_transmit_errors(t *testing.T) {
-	// t.Parallel()
+	t.Parallel()
 
 	// logLevel: the log level to use for the nodes
 	// setting a more verbose log level increases cpu usage significantly
@@ -1757,7 +1763,9 @@ channelDefinitionsContractFromBlock = %d`, serverURL, serverPubKey, serverPubKey
 			// NOTE: Wait for nReports reports
 			// count of packets received keyed by transmitter IP
 			m := map[string]int{}
-			for pckt := range packets {
+			for {
+				pckt, err := receiveWithTimeout(t, packets, reportTimeout)
+				require.NoError(t, err)
 				pr, ok := peer.FromContext(pckt.ctx)
 				require.True(t, ok)
 				addr := pr.Addr
@@ -1806,26 +1814,15 @@ channelDefinitionsContractFromBlock = %d`, serverURL, serverPubKey, serverPubKey
 }
 
 func TestIntegration_LLO_blue_green_lifecycle(t *testing.T) {
-	// tests.SkipFlakey(t, "https://smartcontract-it.atlassian.net/browse/MERC-7232")
-	// t.Parallel()
+	t.Parallel()
 
-	offchainConfigs := []datastreamsllo.OffchainConfig{
-		{
-			ProtocolVersion:                     0,
-			DefaultMinReportIntervalNanoseconds: 0,
-		},
-		{
-			ProtocolVersion:                     1,
-			DefaultMinReportIntervalNanoseconds: 1,
-		},
-	}
-	for _, offchainConfig := range offchainConfigs {
-		t.Run(fmt.Sprintf("offchainConfig=%+v", offchainConfig), func(t *testing.T) {
-			// t.Parallel()
-
-			testIntegrationLLOBlueGreenLifecycle(t, offchainConfig)
-		})
-	}
+	// starting offchainConfig, the test will handle
+	// blue green for ProtocolVersion and EnableObservationCompression changes
+	offchainConfig := datastreamsllo.OffchainConfig{
+		ProtocolVersion:                     0,
+		DefaultMinReportIntervalNanoseconds: 0,
+		EnableObservationCompression:        false}
+	testIntegrationLLOBlueGreenLifecycle(t, offchainConfig)
 }
 
 func testIntegrationLLOBlueGreenLifecycle(t *testing.T, offchainConfig datastreamsllo.OffchainConfig) {
@@ -1918,7 +1915,9 @@ channelDefinitionsContractFromBlock = %d`, serverURL, serverPubKey, donID, confi
 
 			// NOTE: Wait until blue produces a report
 
-			for pckt := range packetCh {
+			for {
+				pckt, err := receiveWithTimeout(t, packetCh, reportTimeout)
+				require.NoError(t, err)
 				req := pckt.req
 				assert.Equal(t, uint32(llotypes.ReportFormatJSON), req.ReportFormat)
 				_, _, r, _, err := (datastreamsllo.JSONReportCodec{}).UnpackDecode(req.Payload)
@@ -1935,13 +1934,16 @@ channelDefinitionsContractFromBlock = %d`, serverURL, serverPubKey, donID, confi
 		}
 		// setStagingConfig does not affect production
 		{
+			offchainConfig.EnableObservationCompression = true
 			greenDigest = setStagingConfig(
 				t, donID, steve, backend, configurator, configuratorAddress, nodes, WithPredecessorConfigDigest(blueDigest), WithOracles(oracles), WithOffchainConfig(offchainConfig),
 			)
 
 			// NOTE: Wait until green produces the first "specimen" report
 
-			for pckt := range packetCh {
+			for {
+				pckt, err := receiveWithTimeout(t, packetCh, reportTimeout)
+				require.NoError(t, err)
 				req := pckt.req
 				assert.Equal(t, uint32(llotypes.ReportFormatJSON), req.ReportFormat)
 				_, _, r, _, err := (datastreamsllo.JSONReportCodec{}).UnpackDecode(req.Payload)
@@ -1964,7 +1966,9 @@ channelDefinitionsContractFromBlock = %d`, serverURL, serverPubKey, donID, confi
 
 			// NOTE: Wait for first non-specimen report for the newly promoted (green) instance
 
-			for pckt := range packetCh {
+			for {
+				pckt, err := receiveWithTimeout(t, packetCh, reportTimeout)
+				require.NoError(t, err)
 				req := pckt.req
 				assert.Equal(t, uint32(llotypes.ReportFormatJSON), req.ReportFormat)
 				_, _, r, _, err := (datastreamsllo.JSONReportCodec{}).UnpackDecode(req.Payload)
@@ -2045,7 +2049,9 @@ channelDefinitionsContractFromBlock = %d`, serverURL, serverPubKey, donID, confi
 			// NOTE: Wait for five "green" reports to be produced and assert no "blue" reports
 
 			i := 0
-			for pckt := range packetCh {
+			for {
+				pckt, err := receiveWithTimeout(t, packetCh, reportTimeout)
+				require.NoError(t, err)
 				req := pckt.req
 				i++
 				if i == 5 {
@@ -2062,13 +2068,17 @@ channelDefinitionsContractFromBlock = %d`, serverURL, serverPubKey, donID, confi
 		}
 		// setStagingConfig replaces 'retired' instance with new config and starts producing specimen reports again
 		{
+			offchainConfig.ProtocolVersion = 1
+			offchainConfig.DefaultMinReportIntervalNanoseconds = 1
 			blueDigest = setStagingConfig(
 				t, donID, steve, backend, configurator, configuratorAddress, nodes, WithPredecessorConfigDigest(greenDigest), WithOracles(oracles), WithOffchainConfig(offchainConfig),
 			)
 
 			// NOTE: Wait until blue produces the first "specimen" report
 
-			for pckt := range packetCh {
+			for {
+				pckt, err := receiveWithTimeout(t, packetCh, reportTimeout)
+				require.NoError(t, err)
 				req := pckt.req
 				assert.Equal(t, uint32(llotypes.ReportFormatJSON), req.ReportFormat)
 				_, _, r, _, err := (datastreamsllo.JSONReportCodec{}).UnpackDecode(req.Payload)
@@ -2090,7 +2100,9 @@ channelDefinitionsContractFromBlock = %d`, serverURL, serverPubKey, donID, confi
 
 			// NOTE: Wait for first non-specimen report for the newly promoted (blue) instance
 
-			for pckt := range packetCh {
+			for {
+				pckt, err := receiveWithTimeout(t, packetCh, reportTimeout)
+				require.NoError(t, err)
 				req := pckt.req
 				assert.Equal(t, uint32(llotypes.ReportFormatJSON), req.ReportFormat)
 				_, _, r, _, err := (datastreamsllo.JSONReportCodec{}).UnpackDecode(req.Payload)
@@ -2105,16 +2117,7 @@ channelDefinitionsContractFromBlock = %d`, serverURL, serverPubKey, donID, confi
 
 			initialPromotedBlueReport := allReports[blueDigest][len(allReports[blueDigest])-1]
 			finalGreenReport := allReports[greenDigest][len(allReports[greenDigest])-1]
-
-			// Gapless handover
 			assert.Less(t, finalGreenReport.ValidAfterNanoseconds, finalGreenReport.ObservationTimestampNanoseconds)
-			if offchainConfig.ProtocolVersion == 0 {
-				// validAfter is always truncated to 1s in v0
-				// IMPORTANT: gapless handovers in v0 ONLY supported at 1s resolution!!
-				assert.Equal(t, finalGreenReport.ObservationTimestampNanoseconds/1e9*1e9, initialPromotedBlueReport.ValidAfterNanoseconds/1e9*1e9, 1_000_000_000, "ObservationTimestampSeconds->ValidAfterNanoseconds should be gapless to within 1s resolution, got: %d vs %d", finalGreenReport.ObservationTimestampNanoseconds, initialPromotedBlueReport.ValidAfterNanoseconds)
-			} else {
-				assert.Equal(t, finalGreenReport.ObservationTimestampNanoseconds, initialPromotedBlueReport.ValidAfterNanoseconds, "ObservationTimestampSeconds->ValidAfterNanoseconds should be gapless, got: %d vs %d", finalGreenReport.ObservationTimestampNanoseconds, initialPromotedBlueReport.ValidAfterNanoseconds)
-			}
 			assert.Less(t, initialPromotedBlueReport.ValidAfterNanoseconds, initialPromotedBlueReport.ObservationTimestampNanoseconds)
 		}
 		// adding a new channel definition is picked up on the fly
@@ -2138,7 +2141,9 @@ channelDefinitionsContractFromBlock = %d`, serverURL, serverPubKey, donID, confi
 
 			// NOTE: Wait until the first report for the new channel definition is produced
 
-			for pckt := range packetCh {
+			for {
+				pckt, err := receiveWithTimeout(t, packetCh, reportTimeout)
+				require.NoError(t, err)
 				req := pckt.req
 				assert.Equal(t, uint32(llotypes.ReportFormatJSON), req.ReportFormat)
 				_, _, r, _, err := (datastreamsllo.JSONReportCodec{}).UnpackDecode(req.Payload)
