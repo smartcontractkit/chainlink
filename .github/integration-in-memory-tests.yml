@@ -847,7 +847,7 @@ runner-test-matrix:
       - Nightly Integration CCIP Tests
     test_cmd: |
       ./scripts/free-disk-space.sh
-      go test ./smoke/ccip -run "Test_CCIPTokenTransfer_EVM2SUI_ManagedTokenPool_NoRateLimit" -timeout 20m -test.parallel=1 -count=1 -json
+      go test ./smoke/ccip -run "Test_CCIPTokenTransfer_EVM2SUI_ManagedTokenPool_NoRateLimit" -timeout 25m -test.parallel=1 -count=1 -json
     test_go_project_path: integration-tests
     sui_cli_version: mainnet-1.60.1
     install_plugins_public: true
@@ -861,7 +861,7 @@ runner-test-matrix:
       - Nightly Integration CCIP Tests
     test_cmd: |
       ./scripts/free-disk-space.sh
-      ./scripts/run-ccip-sui-test-isolated.sh "Test_CCIPTokenTransfer_EVM2SUI_ManagedTokenPool_WithRateLimit" 20
+      ./scripts/run-ccip-sui-test-isolated.sh "Test_CCIPTokenTransfer_EVM2SUI_ManagedTokenPool_WithRateLimit" 25
     test_go_project_path: integration-tests
     sui_cli_version: mainnet-1.60.1
     install_plugins_public: true

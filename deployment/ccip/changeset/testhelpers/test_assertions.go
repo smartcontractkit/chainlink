@@ -1945,32 +1945,46 @@ func ConfirmCommitWithExpectedSeqNumRangeSuiWithContext(
 	seenMessages := NewCommitReportTracker(srcSelector, expectedSeqNumRange)
 
 	verifyCommitReport := func(report sui_module_offramp.CommitReportAccepted) bool {
-		processRoots := func(roots []sui_module_offramp.MerkleRoot) bool {
-			for _, mr := range roots {
-				t.Logf("(Sui) Received commit report for [%d, %d] on selector %d from source selector %d expected seq nr range %s, token prices: %v",
-					mr.MinSeqNr, mr.MaxSeqNr, dest.Selector, srcSelector, expectedSeqNumRange.String(), report.PriceUpdates.TokenPriceUpdates,
+		processRoots := func(roots []sui_module_offramp.MerkleRoot, rootType string) bool {
+			t.Logf("[DEBUG] processRoots: Processing %d %s roots", len(roots), rootType)
+			if len(roots) == 0 {
+				t.Logf("[DEBUG] processRoots: No %s roots to process - returning false", rootType)
+				return false
+			}
+
+			for i, mr := range roots {
+				t.Logf("(Sui) Received commit report for [%d, %d] on selector %d from source selector %d expected seq nr range %s, token prices: %v (%s root #%d)",
+					mr.MinSeqNr, mr.MaxSeqNr, dest.Selector, srcSelector, expectedSeqNumRange.String(), report.PriceUpdates.TokenPriceUpdates, rootType, i+1,
 				)
 				seenMessages.visitCommitReport(srcSelector, mr.MinSeqNr, mr.MaxSeqNr)
 
 				if mr.SourceChainSelector == srcSelector && uint64(expectedSeqNumRange.Start()) >= mr.MinSeqNr && uint64(expectedSeqNumRange.End()) <= mr.MaxSeqNr {
-					t.Logf("(Sui) All sequence numbers committed in a single report [%d, %d]",
-						expectedSeqNumRange.Start(), expectedSeqNumRange.End(),
+					t.Logf("(Sui) All sequence numbers committed in a single report [%d, %d] (%s root #%d)",
+						expectedSeqNumRange.Start(), expectedSeqNumRange.End(), rootType, i+1,
 					)
 					return true
 				}
 
 				if !enforceSingleCommit && seenMessages.allCommited(srcSelector) {
 					t.Logf(
-						"(Sui) All sequence numbers already committed from range [%d, %d]",
-						expectedSeqNumRange.Start(), expectedSeqNumRange.End(),
+						"(Sui) All sequence numbers already committed from range [%d, %d] (%s root #%d)",
+						expectedSeqNumRange.Start(), expectedSeqNumRange.End(), rootType, i+1,
 					)
 					return true
 				}
 			}
+			t.Logf("[DEBUG] processRoots: Processed %d %s roots, none matched criteria", len(roots), rootType)
 			return false
 		}
 
-		return processRoots(report.BlessedMerkleRoots) || processRoots(report.UnblessedMerkleRoots)
+		t.Logf("(Sui) Received commit report for %d blessed merkle roots and %d unblessed merkle roots on selector %d from source selector %d expected seq nr range %s, token prices: %v", len(report.BlessedMerkleRoots), len(report.UnblessedMerkleRoots), dest.Selector, srcSelector, expectedSeqNumRange.String(), report.PriceUpdates.TokenPriceUpdates)
+
+		blessedResult := processRoots(report.BlessedMerkleRoots, "Blessed")
+		unblessedResult := processRoots(report.UnblessedMerkleRoots, "Unblessed")
+
+		result := blessedResult || unblessedResult
+		t.Logf("[DEBUG] verifyCommitReport: Final result = %v (blessed: %v, unblessed: %v)", result, blessedResult, unblessedResult)
+		return result
 	}
 
 	for {
@@ -1979,11 +1993,15 @@ func ConfirmCommitWithExpectedSeqNumRangeSuiWithContext(
 			return nil, fmt.Errorf("context cancelled while waiting for commit report on chain selector %d from source selector %d expected seq nr range %s: %w",
 				dest.Selector, srcSelector, expectedSeqNumRange.String(), ctx.Err())
 		case event := <-sink:
+			t.Logf("[DEBUG] ConfirmCommitWithExpectedSeqNumRangeSui: Received event from sink, processing...")
 			verified := verifyCommitReport(event.Event)
 			if verified {
+				t.Logf("[DEBUG] ConfirmCommitWithExpectedSeqNumRangeSui: Event verified successfully, returning")
 				return &event.Event, nil
 			}
+			t.Logf("[DEBUG] ConfirmCommitWithExpectedSeqNumRangeSui: Event did not match expected criteria, continuing...")
 		case err := <-errChan:
+			t.Logf("[DEBUG] ConfirmCommitWithExpectedSeqNumRangeSui: Received error from errChan: %v", err)
 			require.NoError(t, err)
 		case <-timeout.C:
 			return nil, fmt.Errorf("(sui) timed out after waiting for commit report on chain selector %d from source selector %d expected seq nr range %s",
