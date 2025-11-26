@@ -767,18 +767,18 @@ func (o *orm) InsertJob(ctx context.Context, job *Job) error {
 		// if job has id, emplace otherwise insert with a new id.
 		if job.ID == 0 {
 			query = `INSERT INTO jobs (name, stream_id, schema_version, type, max_task_duration, ocr_oracle_spec_id, ocr2_oracle_spec_id, direct_request_spec_id, flux_monitor_spec_id,
-				keeper_spec_id, cron_spec_id, vrf_spec_id, webhook_spec_id, blockhash_store_spec_id, bootstrap_spec_id, block_header_feeder_spec_id, gateway_spec_id,
+				keeper_spec_id, cre_settings_spec_id, cron_spec_id, vrf_spec_id, webhook_spec_id, blockhash_store_spec_id, bootstrap_spec_id, block_header_feeder_spec_id, gateway_spec_id,
                 legacy_gas_station_server_spec_id, legacy_gas_station_sidecar_spec_id, workflow_spec_id, standard_capabilities_spec_id, ccip_spec_id, ccv_committee_verifier_spec_id, ccv_executor_spec_id, external_job_id, gas_limit, forwarding_allowed, created_at)
 		VALUES (:name, :stream_id, :schema_version, :type, :max_task_duration, :ocr_oracle_spec_id, :ocr2_oracle_spec_id, :direct_request_spec_id, :flux_monitor_spec_id,
-				:keeper_spec_id, :cron_spec_id, :vrf_spec_id, :webhook_spec_id, :blockhash_store_spec_id, :bootstrap_spec_id, :block_header_feeder_spec_id, :gateway_spec_id,
+				:keeper_spec_id, :cre_settings_spec_id, :cron_spec_id, :vrf_spec_id, :webhook_spec_id, :blockhash_store_spec_id, :bootstrap_spec_id, :block_header_feeder_spec_id, :gateway_spec_id,
 				:legacy_gas_station_server_spec_id, :legacy_gas_station_sidecar_spec_id, :workflow_spec_id, :standard_capabilities_spec_id, :ccip_spec_id, :ccv_committee_verifier_spec_id, :ccv_executor_spec_id, :external_job_id, :gas_limit, :forwarding_allowed, NOW())
 		RETURNING *;`
 		} else {
 			query = `INSERT INTO jobs (id, name, stream_id, schema_version, type, max_task_duration, ocr_oracle_spec_id, ocr2_oracle_spec_id, direct_request_spec_id, flux_monitor_spec_id,
-			keeper_spec_id, cron_spec_id, vrf_spec_id, webhook_spec_id, blockhash_store_spec_id, bootstrap_spec_id, block_header_feeder_spec_id, gateway_spec_id,
+			keeper_spec_id, cre_settings_spec_id, cron_spec_id, vrf_spec_id, webhook_spec_id, blockhash_store_spec_id, bootstrap_spec_id, block_header_feeder_spec_id, gateway_spec_id,
                   legacy_gas_station_server_spec_id, legacy_gas_station_sidecar_spec_id, workflow_spec_id, standard_capabilities_spec_id, ccip_spec_id, ccv_committee_verifier_spec_id, ccv_executor_spec_id, external_job_id, gas_limit, forwarding_allowed, created_at)
 		VALUES (:id, :name, :stream_id, :schema_version, :type, :max_task_duration, :ocr_oracle_spec_id, :ocr2_oracle_spec_id, :direct_request_spec_id, :flux_monitor_spec_id,
-				:keeper_spec_id, :cron_spec_id, :vrf_spec_id, :webhook_spec_id, :blockhash_store_spec_id, :bootstrap_spec_id, :block_header_feeder_spec_id, :gateway_spec_id,
+				:keeper_spec_id, :cre_settings_spec_id, :cron_spec_id, :vrf_spec_id, :webhook_spec_id, :blockhash_store_spec_id, :bootstrap_spec_id, :block_header_feeder_spec_id, :gateway_spec_id,
 				:legacy_gas_station_server_spec_id, :legacy_gas_station_sidecar_spec_id, :workflow_spec_id, :standard_capabilities_spec_id, :ccip_spec_id, :ccv_committee_verifier_spec_id, :ccv_executor_spec_id, :external_job_id, :gas_limit, :forwarding_allowed, NOW())
 		RETURNING *;`
 		}
@@ -807,7 +807,7 @@ func (o *orm) DeleteJob(ctx context.Context, id int32, jobType Type) error {
 		OffchainReporting:    `DELETE FROM ocr_oracle_specs WHERE id IN (SELECT ocr_oracle_spec_id FROM deleted_jobs)`,
 		OffchainReporting2:   `DELETE FROM ocr2_oracle_specs WHERE id IN (SELECT ocr2_oracle_spec_id FROM deleted_jobs)`,
 		Keeper:               `DELETE FROM keeper_specs WHERE id IN (SELECT keeper_spec_id FROM deleted_jobs)`,
-		CRESettings:          `DELETE FROM cre_settings_specs WHERE id IN (SELECT cre_settings_specs_id FROM deleted_jobs)`,
+		CRESettings:          `DELETE FROM cre_settings_specs WHERE id IN (SELECT cre_settings_spec_id FROM deleted_jobs)`,
 		Cron:                 `DELETE FROM cron_specs WHERE id IN (SELECT cron_spec_id FROM deleted_jobs)`,
 		VRF:                  `DELETE FROM vrf_specs WHERE id IN (SELECT vrf_spec_id FROM deleted_jobs)`,
 		Webhook:              `DELETE FROM webhook_specs WHERE id IN (SELECT webhook_spec_id FROM deleted_jobs)`,
@@ -1557,6 +1557,7 @@ func (o *orm) loadAllJobTypes(ctx context.Context, job *Job) error {
 		o.loadJobType(ctx, job, "OCROracleSpec", "ocr_oracle_specs", job.OCROracleSpecID),
 		o.loadJobType(ctx, job, "OCR2OracleSpec", "ocr2_oracle_specs", job.OCR2OracleSpecID),
 		o.loadJobType(ctx, job, "KeeperSpec", "keeper_specs", job.KeeperSpecID),
+		o.loadJobType(ctx, job, "CRESettingsSpec", "cre_settings_specs", job.CRESettingsSpecID),
 		o.loadJobType(ctx, job, "CronSpec", "cron_specs", job.CronSpecID),
 		o.loadJobType(ctx, job, "WebhookSpec", "webhook_specs", job.WebhookSpecID),
 		o.loadVRFJob(ctx, job, job.VRFSpecID),

@@ -6,8 +6,8 @@ import (
 	"math/big"
 	"strconv"
 
+	"github.com/BurntSushi/toml"
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/pelletier/go-toml/v2"
 	chainselectors "github.com/smartcontractkit/chain-selectors"
 
 	"github.com/smartcontractkit/chainlink-ccv/executor"
@@ -72,14 +72,15 @@ func (d *Delegate) ServicesForSpec(ctx context.Context, spec job.Job) (services 
 	}
 
 	// Chains in the executor configuration should dictate what we end up verifying for.
-	var chainsInConfig = make([]protocol.ChainSelector, 0, len(decodedCfg.OffRampAddresses))
-	for chainSelStr := range decodedCfg.OffRampAddresses {
+	var chainsInConfig = make([]protocol.ChainSelector, 0, len(decodedCfg.ChainConfiguration))
+	for chainSelStr := range decodedCfg.ChainConfiguration {
 		parsed, err2 := strconv.ParseUint(chainSelStr, 10, 64)
 		if err2 != nil {
-			return nil, fmt.Errorf("failed to parse chain selector string from executor offramp addresses config (%s): %w", chainSelStr, err)
+			return nil, fmt.Errorf("failed to parse chain selector string from executor config (%s): %w", chainSelStr, err)
 		}
 		chainsInConfig = append(chainsInConfig, protocol.ChainSelector(parsed))
 	}
+
 	legacyChains, err := ccvcommon.GetLegacyChains(ctx, d.lggr, d.chainServices, chainsInConfig)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get legacy chains: %w", err)
@@ -88,26 +89,22 @@ func (d *Delegate) ServicesForSpec(ctx context.Context, spec job.Job) (services 
 	var roundRobins = make(map[protocol.ChainSelector]keys.RoundRobin)
 	var fromAddresses = make(map[protocol.ChainSelector][]common.Address)
 
-	for chainSelectorString := range decodedCfg.OffRampAddresses {
-		chainSel, err3 := strconv.ParseUint(chainSelectorString, 10, 64)
+	for _, chainSel := range chainsInConfig {
+		id, err3 := chainselectors.GetChainIDFromSelector(uint64(chainSel))
 		if err3 != nil {
-			return nil, fmt.Errorf("failed to parse chain selector from executor config (%s): %w", chainSelectorString, err3)
-		}
-		id, err3 := chainselectors.GetChainIDFromSelector(chainSel)
-		if err3 != nil {
-			return nil, fmt.Errorf("failed to get chain ID from selector (%s): %w", chainSelectorString, err3)
+			return nil, fmt.Errorf("failed to get chain ID from selector (%d): %w", chainSel, err3)
 		}
 		chainID, ok := new(big.Int).SetString(id, 10)
 		if !ok {
 			return nil, fmt.Errorf("failed to convert chain ID (%s) to big.Int: %w", id, err3)
 		}
-		chainSelector := protocol.ChainSelector(chainSel)
-		roundRobins[chainSelector] = NewRoundRobin(d.ethKs, chainID)
+
+		roundRobins[chainSel] = NewRoundRobin(d.ethKs, chainID)
 		addressesForChain, err3 := d.ethKs.EnabledAddressesForChain(ctx, chainID)
 		if err3 != nil {
 			return nil, fmt.Errorf("failed to get all addresses for chain %s from eth keystore: %w", chainID.String(), err3)
 		}
-		fromAddresses[chainSelector] = addressesForChain
+		fromAddresses[chainSel] = addressesForChain
 	}
 
 	// TODO: pass secrets as a separate param in the constructor.

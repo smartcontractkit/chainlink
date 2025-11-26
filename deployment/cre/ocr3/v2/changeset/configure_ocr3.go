@@ -66,9 +66,9 @@ func (l ConfigureOCR3) Apply(e cldf.Environment, input ConfigureOCR3Input) (cldf
 	var mcmsContracts *changesetstate.MCMSWithTimelockState
 	if input.MCMSConfig != nil {
 		var mcmsErr error
-		mcmsContracts, mcmsErr = strategies.GetMCMSContracts(e, input.ContractChainSelector, "")
+		mcmsContracts, mcmsErr = strategies.GetMCMSContracts(e, input.ContractChainSelector, *input.MCMSConfig)
 		if mcmsErr != nil {
-			return cldf.ChangesetOutput{}, fmt.Errorf("failed to get MCMS contracts: %w", err)
+			return cldf.ChangesetOutput{}, fmt.Errorf("failed to get MCMS contracts: %w", mcmsErr)
 		}
 	}
 

@@ -298,7 +298,12 @@ func TestConfigureOCR3(t *testing.T) {
 			OCR3Config:           &c,
 			WriteGeneratedConfig: w,
 			Address:              &addr,
-			MCMSConfig:           &changeset.MCMSConfig{MinDelay: 0},
+			MCMSConfig: &changeset.MCMSConfig{
+				MinDelay: 0,
+				TimelockQualifierPerChain: map[uint64]string{
+					te.RegistrySelector: "",
+				},
+			},
 		}
 
 		csOut, err := changeset.ConfigureOCR3Contract(te.Env, cfg)

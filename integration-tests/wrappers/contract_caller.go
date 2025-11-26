@@ -358,7 +358,6 @@ func (e ethHeadBanger[ReturnType]) retry(functionName string, fnToRetry func() (
 	},
 		retry.RetryIf(func(err error) bool {
 			if err.Error() == rpc.ErrClientQuit.Error() ||
-				err.Error() == rpc.ErrBadResult.Error() ||
 				strings.Contains(err.Error(), "connection") ||
 				strings.Contains(err.Error(), "EOF") {
 				return true

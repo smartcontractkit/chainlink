@@ -107,7 +107,7 @@ var ConfigureSeq = operations.NewSequence[ConfigureSeqInput, ConfigureSeqOutput,
 			var mcmsContracts *changesetstate.MCMSWithTimelockState
 			if input.MCMSConfig != nil {
 				var mcmsErr error
-				mcmsContracts, mcmsErr = strategies.GetMCMSContracts(*deps.Env, chain.Selector, "")
+				mcmsContracts, mcmsErr = strategies.GetMCMSContracts(*deps.Env, chain.Selector, *input.MCMSConfig)
 				if mcmsErr != nil {
 					return ConfigureSeqOutput{}, fmt.Errorf("failed to get MCMS contracts: %w", mcmsErr)
 				}

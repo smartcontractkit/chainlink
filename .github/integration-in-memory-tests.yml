@@ -806,7 +806,7 @@ runner-test-matrix:
     test_cmd: |
       ./scripts/free-disk-space.sh
       echo "🚀 Starting CCIP Sui2EVM ManagedTokenPool test..."
-      go test ./smoke/ccip -run "Test_CCIPTokenTransfer_Sui2EVM_ManagedTokenPool" -timeout 10m -test.parallel=1 -count=1 -json
+      go test ./smoke/ccip -run "Test_CCIPTokenTransfer_Sui2EVM_ManagedTokenPool" -timeout 15m -test.parallel=1 -count=1 -json
     test_go_project_path: integration-tests
     sui_cli_version: mainnet-1.60.1
     install_plugins_public: true

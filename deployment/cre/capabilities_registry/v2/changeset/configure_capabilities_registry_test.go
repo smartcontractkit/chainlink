@@ -21,14 +21,13 @@ import (
 	"github.com/smartcontractkit/chainlink-deployments-framework/engine/test/runtime"
 	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
 	capabilities_registry_v2 "github.com/smartcontractkit/chainlink-evm/gethwrappers/workflow/generated/capabilities_registry_wrapper_v2"
-	"github.com/smartcontractkit/chainlink/deployment/cre/capabilities_registry/v2/changeset"
 
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 	commontypes "github.com/smartcontractkit/chainlink/deployment/common/types"
+	"github.com/smartcontractkit/chainlink/deployment/cre/capabilities_registry/v2/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/cre/capabilities_registry/v2/changeset/operations/contracts"
 	"github.com/smartcontractkit/chainlink/deployment/cre/capabilities_registry/v2/changeset/pkg"
-	"github.com/smartcontractkit/chainlink/deployment/cre/common/strategies"
 	crecontracts "github.com/smartcontractkit/chainlink/deployment/cre/contracts"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/p2pkey"
 )
@@ -105,75 +104,26 @@ func suite(t *testing.T, fixture *testFixture) {
 	})
 
 	t.Run("MCMS configuration", func(t *testing.T) {
-		// Resetting the bundle to avoid carrying on previous operations reports
-		fixture.env.OperationsBundle = operations.NewBundle(fixture.env.GetContext, fixture.env.Logger, operations.NewMemoryReporter())
-
 		// Set up MCMS infrastructure
 		mcmsFixture := setupCapabilitiesRegistryWithMCMS(t)
 
 		// Test MCMS by directly calling the RegisterNops operation which should create proposals
 		t.Log("Testing MCMS proposal creation for NOPs registration...")
 
-		// Get MCMS contracts from the environment
-		mcmsContracts, err := strategies.GetMCMSContracts(mcmsFixture.env, mcmsFixture.chainSelector, mcmsFixture.configureInput.Qualifier)
-		require.NoError(t, err, "should be able to get MCMS contracts")
-		require.NotNil(t, mcmsContracts, "MCMS contracts should not be nil")
+		report, err := changeset.ConfigureCapabilitiesRegistry{}.Apply(mcmsFixture.env, mcmsFixture.configureInput)
+		require.NoError(t, err, "Cap Reg config with MCMS should succeed")
 
-		chain, ok := mcmsFixture.env.BlockChains.EVMChains()[mcmsFixture.chainSelector]
-		require.True(t, ok, "chain should be found for selector %d", mcmsFixture.chainSelector)
-
-		// Create the appropriate strategy
-		strategy, err := strategies.CreateStrategy(
-			chain,
-			mcmsFixture.env,
-			mcmsFixture.configureInput.MCMSConfig,
-			mcmsContracts,
-			common.HexToAddress(mcmsFixture.capabilitiesRegistryAddress),
-			"test NOPs registration with MCMS",
-		)
-		require.NoError(t, err, "should be able to create MCMS strategy")
-
-		// Create dependencies for the operation
-		deps := contracts.RegisterNopsDeps{
-			Env:      &mcmsFixture.env,
-			Strategy: strategy,
-		}
-
-		// Create NOPs registration input with MCMS enabled
-		nopsInput := contracts.RegisterNopsInput{
-			Address:       mcmsFixture.capabilitiesRegistryAddress,
-			ChainSelector: mcmsFixture.chainSelector,
-			Nops: []capabilities_registry_v2.CapabilitiesRegistryNodeOperatorParams{
-				{
-					Admin: common.HexToAddress("0x0000000000000000000000000000000000000001"),
-					Name:  "test nop1",
-				},
-				{
-					Admin: common.HexToAddress("0x0000000000000000000000000000000000000002"),
-					Name:  "test nop2",
-				},
-			},
-			MCMSConfig: mcmsFixture.configureInput.MCMSConfig,
-		}
-
-		// Execute the NOPs registration operation with MCMS
-		report, err := operations.ExecuteOperation(
-			mcmsFixture.env.OperationsBundle,
-			contracts.RegisterNops,
-			deps,
-			nopsInput,
-		)
-		require.NoError(t, err, "NOPs registration with MCMS should succeed")
-		require.NotNil(t, report, "operation report should not be nil")
-
-		// Verify operation content
-		require.NotZero(t, report.Output.Operation, "an operation should have been generated")
+		// Verify reports content
+		assert.NotEmpty(t, report.Reports, "multiple reports should have been generated")
 
 		// Verify that the operation targets the timelock
-		require.NotEmpty(t, report.Output.Operation.Transactions, "operation %d should have transactions")
-		t.Logf("MCMSOperation has %d transactions", len(report.Output.Operation.Transactions))
+		assert.NotEmpty(t, report.MCMSTimelockProposals, "there should be MCMS timelock proposal(s)")
+		t.Logf("MCMSOperation has %d proposals", len(report.MCMSTimelockProposals))
 
-		t.Logf("MCMS NOPs registration test completed successfully")
+		assert.Len(t, report.MCMSTimelockProposals[0].Operations, 4, "there should be 4 MCMS timelock operations")
+		t.Logf("MCMSOperation has %d operations", len(report.MCMSTimelockProposals[0].Operations))
+
+		t.Logf("MCMS Cap Reg config test completed successfully")
 		t.Logf("MCMS proposals created and ready for execution through governance")
 	})
 }
@@ -573,6 +523,9 @@ func setupCapabilitiesRegistryWithMCMS(t *testing.T) *testFixture {
 		CapabilitiesRegistryAddress: capabilitiesRegistryAddress,
 		MCMSConfig: &crecontracts.MCMSConfig{
 			MinDelay: 30 * time.Second,
+			TimelockQualifierPerChain: map[uint64]string{
+				selector: "",
+			},
 		},
 		Nops:         nops,
 		Capabilities: capabilities,
