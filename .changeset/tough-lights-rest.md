@@ -2,4 +2,4 @@
 "chainlink": patch
 ---
 
-update ctf cldf and chainlink-sui deps
+#added update ctf cldf and chainlink-sui deps
