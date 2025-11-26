@@ -8,6 +8,7 @@ import (
 	"math/big"
 	mathrand "math/rand"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
@@ -44,6 +45,10 @@ type SeqNumRange struct {
 	Start *atomic.Uint64
 	End   *atomic.Uint64
 }
+
+// Global mutex to prevent concurrent Sui transactions across all DestinationGun instances
+// Sui uses an object-based model where gas coins can only be used by one transaction at a time
+var globalSuiMutex sync.Mutex
 
 type DestinationGun struct {
 	l                logger.Logger
@@ -637,7 +642,12 @@ func (m *DestinationGun) sendSuiSourceMessage(src uint64) error {
 		Message:      msg,
 		MaxRetries:   1,
 	}
+
+	// Lock to prevent concurrent Sui transactions from using the same gas object
+	globalSuiMutex.Lock()
 	_, err = testhelpers.SendSuiCCIPRequest(m.env, &sendRequestCfg)
+	globalSuiMutex.Unlock()
+
 	if err != nil {
 		m.l.Errorw("SendRequestSui failed",
 			"sourceChain", src,

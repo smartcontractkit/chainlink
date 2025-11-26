@@ -210,7 +210,8 @@ func subscribeSuiTransmitEvents(
 					lggr.Debugw("received sui transmit event for",
 						"srcChain", srcChainSel,
 						"destChain", destChain,
-						"sequenceNumber", seqNum)
+						"sequenceNumber", seqNum,
+						"txHash", seq.Cursor)
 
 					data := messageData{
 						eventType: transmitted,
