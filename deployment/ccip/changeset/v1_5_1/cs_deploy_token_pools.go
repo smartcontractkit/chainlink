@@ -290,6 +290,7 @@ func deployTokenPool(
 				)
 			case shared.LockReleaseTokenPool:
 				if poolConfig.Version == deployment.Version1_6_1 {
+					tokenPoolVersion = deployment.Version1_6_1
 					tpAddr, tx, _, err = lock_release_token_pool_v1_6_1.DeployLockReleaseTokenPool(
 						chain.DeployerKey, chain.Client, poolConfig.TokenAddress, poolConfig.LocalTokenDecimals,
 						poolConfig.AllowList, rmnProxy.Address(), router.Address(),
