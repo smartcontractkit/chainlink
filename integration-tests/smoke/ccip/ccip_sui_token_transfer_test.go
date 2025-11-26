@@ -7,7 +7,6 @@ import (
 	"math/big"
 	"strings"
 	"testing"
-	"time"
 
 	"github.com/stretchr/testify/require"
 
@@ -48,160 +47,13 @@ func assertSuiSourceRevertExpectedError(t *testing.T, err error, execRevertError
 	require.Contains(t, err.Error(), execRevertCauseErrorMsg)
 }
 
-func Test_CCIPTokenTransfer_Sui2EVM_ManagedTokenPool_ThenCurse(t *testing.T) {
-	e, sourceChain, destChain := testSetupTokenTransferSui2Evm(t)
-
-	feeTokenOutput := mintLinkToken(t, e.Env, sourceChain, 1000000000000)
-	linkTokenOutput1 := mintLinkToken(t, e.Env, sourceChain, 1000000000)
-	linkTokenOutput2 := mintLinkToken(t, e.Env, sourceChain, 2000000000)
-	linkTokenOutput3 := mintLinkToken(t, e.Env, sourceChain, 1500000000)
-
-	state, err := stateview.LoadOnchainState(e.Env)
-	require.NoError(t, err)
-
-	// Receiver Address
-	ccipReceiverAddress := state.Chains[destChain].Receiver.Address()
-
-	// Token Pool setup on both SUI and EVM
-	updatedEnv, evmToken, _, err := testhelpers.HandleTokenAndManagedTokenPoolDeploymentForSUI(e.Env, sourceChain, destChain, []testhelpers.TokenPoolRateLimiterConfig{
-		{
-			RemoteChainSelector: destChain,
-			OutboundIsEnabled:   false,
-			OutboundCapacity:    100000,
-			OutboundRate:        100,
-			InboundIsEnabled:    false,
-			InboundCapacity:     100000,
-			InboundRate:         100,
-		},
-	}) // SourceChain = SUI, destChain = EVM
-	require.NoError(t, err)
-	e.Env = updatedEnv
-
-	tcs := []testhelpers.TestTransferRequest{
-		{
-			Name:           "Send token to EOA",
-			SourceChain:    sourceChain,
-			DestChain:      destChain,
-			Receiver:       updatedEnv.BlockChains.EVMChains()[destChain].DeployerKey.From.Bytes(), // internally left padded to 32byte
-			ExpectedStatus: testhelpers.EXECUTION_STATE_SUCCESS,
-			FeeToken:       feeTokenOutput.Objects.MintedLinkTokenObjectId,
-			SuiTokens: []testhelpers.SuiTokenAmount{
-				{
-					TokenPoolType: sui_deployment.TokenPoolTypeManaged,
-					Token:         linkTokenOutput1.Objects.MintedLinkTokenObjectId,
-					Amount:        1000000000, // Send 1 LINK to EVM
-				},
-			},
-			ExpectedTokenBalances: []testhelpers.ExpectedBalance{
-				{
-					Token:  evmToken.Address().Bytes(),
-					Amount: big.NewInt(1e18),
-				},
-			},
-		},
-		{
-			Name:           "Send token to Receiver",
-			SourceChain:    sourceChain,
-			DestChain:      destChain,
-			Receiver:       ccipReceiverAddress.Bytes(), // internally left padded to 32byte
-			ExpectedStatus: testhelpers.EXECUTION_STATE_SUCCESS,
-			SuiTokens: []testhelpers.SuiTokenAmount{
-				{
-					TokenPoolType: sui_deployment.TokenPoolTypeManaged,
-					Token:         linkTokenOutput2.Objects.MintedLinkTokenObjectId,
-					Amount:        2000000000, // Send 2 LINK to EVM
-				},
-			},
-			FeeToken: feeTokenOutput.Objects.MintedLinkTokenObjectId,
-			ExpectedTokenBalances: []testhelpers.ExpectedBalance{
-				{
-					Token:  evmToken.Address().Bytes(),
-					Amount: big.NewInt(2e18),
-				},
-			},
-		},
-	}
-
-	ctx := testhelpers.Context(t)
-	startBlocks, expectedSeqNums, expectedExecutionStates, expectedTokenBalances := testhelpers.TransferMultiple(ctx, t, updatedEnv, state, tcs)
-
-	err = testhelpers.ConfirmMultipleCommitsWithContext(
-		ctx,
-		t,
-		updatedEnv,
-		state,
-		startBlocks,
-		false,
-		expectedSeqNums,
-	)
-	require.NoError(t, err)
-
-	execStates := testhelpers.ConfirmExecWithSeqNrsForAllWithContext(
-		ctx,
-		t,
-		updatedEnv,
-		state,
-		testhelpers.SeqNumberRangeToSlice(expectedSeqNums),
-		startBlocks,
-	)
-	require.Equal(t, expectedExecutionStates, execStates)
-
-	testhelpers.WaitForTokenBalances(ctx, t, updatedEnv, expectedTokenBalances)
-
-	suiState, err := sui_deployment.LoadOnchainStatesui(e.Env)
-	require.NoError(t, err)
-
-	suiChain := e.Env.BlockChains.SuiChains()[sourceChain]
-	require.NotNil(t, suiChain)
-
-	deps := getOpTxDeps(suiChain)
-
-	// Convert evmChain selector to []byte
-	selectorBytes := make([]byte, 16)
-	binary.BigEndian.PutUint64(selectorBytes[8:], destChain)
-
-	// curse destination chain
-	_, err = operations.ExecuteOperation(e.Env.OperationsBundle, ccipops.RMNRemoteCurseOp, deps, ccipops.RMNRemoteCurseInput{
-		CCIPPackageId:    suiState[sourceChain].CCIPAddress,
-		StateObjectId:    suiState[sourceChain].CCIPObjectRef,
-		OwnerCapObjectId: suiState[sourceChain].CCIPOwnerCapObjectId,
-		Subject:          selectorBytes,
-	})
-	require.NoError(t, err)
-
-	t.Run("Destination chain is cursed - should fail", func(t *testing.T) {
-		msg := testhelpers.SuiSendRequest{
-			Receiver: common.LeftPadBytes(ccipReceiverAddress.Bytes(), 32),
-			Data:     []byte("Hello, World!"),
-			FeeToken: feeTokenOutput.Objects.MintedLinkTokenObjectId,
-			TokenAmounts: []testhelpers.SuiTokenAmount{
-				{
-					TokenPoolType: sui_deployment.TokenPoolTypeManaged,
-					Token:         linkTokenOutput3.Objects.MintedLinkTokenObjectId,
-					Amount:        1500000000,
-				},
-			}}
-
-		baseOpts := []ccipclient.SendReqOpts{
-			ccipclient.WithSourceChain(sourceChain),
-			ccipclient.WithDestChain(destChain),
-			ccipclient.WithTestRouter(false),
-			ccipclient.WithMessage(msg),
-		}
-
-		_, err := testhelpers.SendRequest(e.Env, state, baseOpts...)
-		assertSuiSourceRevertExpectedError(t, err, "failed to execute ccip_send with err: transaction failed with error: MoveAbort", "function_name: Some(\"validate_lock_or_burn\") }, 3)")
-		t.Log("Expected error: ", err)
-	})
-}
-
 func Test_CCIPTokenTransfer_Sui2EVM_BurnMintTokenPool(t *testing.T) {
 	e, sourceChain, destChain := testSetupTokenTransferSui2Evm(t)
 
-	feeTokenOutput := mintLinkToken(t, e.Env, sourceChain, 1000000000000)
-	linkTokenOutput1 := mintLinkToken(t, e.Env, sourceChain, 1000000000)
-	linkTokenOutput2 := mintLinkToken(t, e.Env, sourceChain, 2000000000)
-	linkTokenOutput3 := mintLinkToken(t, e.Env, sourceChain, 1500000000)
+	feeTokenOutput := mintLinkTokenOnSui(t, e.Env, sourceChain, 1000000000000)
+	linkTokenOutput1 := mintLinkTokenOnSui(t, e.Env, sourceChain, 1000000000)
+	linkTokenOutput2 := mintLinkTokenOnSui(t, e.Env, sourceChain, 2000000000)
+	linkTokenOutput3 := mintLinkTokenOnSui(t, e.Env, sourceChain, 1500000000)
 
 	state, err := stateview.LoadOnchainState(e.Env)
 	require.NoError(t, err)
@@ -363,9 +215,9 @@ func Test_CCIPTokenTransfer_Sui2EVM_BurnMintTokenPool(t *testing.T) {
 func Test_CCIPTokenTransfer_Sui2EVM_BurnMintTokenPool_ThenGloballyCursed(t *testing.T) {
 	e, sourceChain, destChain := testSetupTokenTransferSui2Evm(t)
 
-	feeTokenOutput := mintLinkToken(t, e.Env, sourceChain, 1000000000000)
-	linkTokenOutput1 := mintLinkToken(t, e.Env, sourceChain, 1000000000)
-	linkTokenOutput2 := mintLinkToken(t, e.Env, sourceChain, 2000000000)
+	feeTokenOutput := mintLinkTokenOnSui(t, e.Env, sourceChain, 1000000000000)
+	linkTokenOutput1 := mintLinkTokenOnSui(t, e.Env, sourceChain, 1000000000)
+	linkTokenOutput2 := mintLinkTokenOnSui(t, e.Env, sourceChain, 2000000000)
 
 	state, err := stateview.LoadOnchainState(e.Env)
 	require.NoError(t, err)
@@ -550,9 +402,9 @@ func Test_CCIPTokenTransfer_Sui2EVM_BurnMintTokenPool_ThenGloballyCursed(t *test
 
 func Test_CCIPTokenTransfer_Sui2EVM_BurnMintTokenPool_WithAllowlist(t *testing.T) {
 	e, sourceChain, destChain := testSetupTokenTransferSui2Evm(t)
-	feeTokenOutput := mintLinkToken(t, e.Env, sourceChain, 1000000000000)
-	linkTokenOutput1 := mintLinkToken(t, e.Env, sourceChain, 2000000000)
-	linkTokenOutput2 := mintLinkToken(t, e.Env, sourceChain, 1500000000)
+	feeTokenOutput := mintLinkTokenOnSui(t, e.Env, sourceChain, 1000000000000)
+	linkTokenOutput1 := mintLinkTokenOnSui(t, e.Env, sourceChain, 2000000000)
+	linkTokenOutput2 := mintLinkTokenOnSui(t, e.Env, sourceChain, 1500000000)
 
 	state, err := stateview.LoadOnchainState(e.Env)
 	require.NoError(t, err)
@@ -735,10 +587,10 @@ func Test_CCIPTokenTransfer_Sui2EVM_BurnMintTokenPool_WithAllowlist(t *testing.T
 
 func Test_CCIPTokenTransfer_Sui2EVM_BurnMintTokenPool_WithRateLimit(t *testing.T) {
 	e, sourceChain, destChain := testSetupTokenTransferSui2Evm(t)
-	feeTokenOutput := mintLinkToken(t, e.Env, sourceChain, 1000000000000)
-	linkTokenOutput1 := mintLinkToken(t, e.Env, sourceChain, 10)
-	linkTokenOutput2 := mintLinkToken(t, e.Env, sourceChain, 60)
-	linkTokenOutput3 := mintLinkToken(t, e.Env, sourceChain, 999999999999)
+	feeTokenOutput := mintLinkTokenOnSui(t, e.Env, sourceChain, 1000000000000)
+	linkTokenOutput1 := mintLinkTokenOnSui(t, e.Env, sourceChain, 10)
+	linkTokenOutput2 := mintLinkTokenOnSui(t, e.Env, sourceChain, 60)
+	linkTokenOutput3 := mintLinkTokenOnSui(t, e.Env, sourceChain, 999999999999)
 
 	state, err := stateview.LoadOnchainState(e.Env)
 	require.NoError(t, err)
@@ -858,38 +710,7 @@ func Test_CCIPTokenTransfer_Sui2EVM_BurnMintTokenPool_WithRateLimit(t *testing.T
 	})
 }
 
-func testSetupTokenTransferSui2Evm(t *testing.T) (e testhelpers.DeployedEnv, sourceChain uint64, destChain uint64) {
-	e, _, _ = testsetups.NewIntegrationEnvironment(
-		t,
-		testhelpers.WithNumOfChains(2),
-		testhelpers.WithSuiChains(1),
-	)
-
-	evmChainSelectors := e.Env.BlockChains.ListChainSelectors(chain.WithFamily(chain_selectors.FamilyEVM))
-	suiChainSelectors := e.Env.BlockChains.ListChainSelectors(chain.WithFamily(chain_selectors.FamilySui))
-
-	sourceChain = suiChainSelectors[0]
-	destChain = evmChainSelectors[0]
-
-	// Ensure SUI RPC is ready after container startup
-	t.Log("🔍 Performing SUI RPC health check after container startup...")
-	WaitForAllSuiChainsReady(t, e.Env.BlockChains.SuiChains(), 60*time.Second)
-
-	state, err := stateview.LoadOnchainState(e.Env)
-	require.NoError(t, err)
-
-	t.Log("Source chain (Sui): ", sourceChain, "Dest chain (EVM): ", destChain)
-
-	err = testhelpers.AddLaneWithDefaultPricesAndFeeQuoterConfig(t, &e, state, sourceChain, destChain, false)
-	require.NoError(t, err)
-
-	_, err = e.Env.BlockChains.SuiChains()[sourceChain].Signer.GetAddress()
-	require.NoError(t, err)
-
-	return e, sourceChain, destChain
-}
-
-func mintLinkToken(t *testing.T, e cldf.Environment, sourceChain uint64, amount uint64) sui_ops.OpTxResult[linkops.MintLinkTokenOutput] {
+func mintLinkTokenOnSui(t *testing.T, e cldf.Environment, sourceChain uint64, amount uint64) sui_ops.OpTxResult[linkops.MintLinkTokenOutput] {
 	state, err := stateview.LoadOnchainState(e)
 	require.NoError(t, err)
 
@@ -906,6 +727,153 @@ func mintLinkToken(t *testing.T, e cldf.Environment, sourceChain uint64, amount 
 	outputMapTransferToken, ok := rawOutputTransferToken.Output.(sui_ops.OpTxResult[linkops.MintLinkTokenOutput])
 	require.True(t, ok)
 	return outputMapTransferToken
+}
+
+func Test_CCIPTokenTransfer_Sui2EVM_ManagedTokenPool_ThenCurse(t *testing.T) {
+	e, sourceChain, destChain := testSetupTokenTransferSui2Evm(t)
+
+	feeTokenOutput := mintLinkTokenOnSui(t, e.Env, sourceChain, 1000000000000)
+	linkTokenOutput1 := mintLinkTokenOnSui(t, e.Env, sourceChain, 1000000000)
+	linkTokenOutput2 := mintLinkTokenOnSui(t, e.Env, sourceChain, 2000000000)
+	linkTokenOutput3 := mintLinkTokenOnSui(t, e.Env, sourceChain, 1500000000)
+
+	state, err := stateview.LoadOnchainState(e.Env)
+	require.NoError(t, err)
+
+	// Receiver Address
+	ccipReceiverAddress := state.Chains[destChain].Receiver.Address()
+
+	// Token Pool setup on both SUI and EVM
+	updatedEnv, evmToken, _, err := testhelpers.HandleTokenAndManagedTokenPoolDeploymentForSUI(e.Env, sourceChain, destChain, []testhelpers.TokenPoolRateLimiterConfig{
+		{
+			RemoteChainSelector: destChain,
+			OutboundIsEnabled:   false,
+			OutboundCapacity:    100000,
+			OutboundRate:        100,
+			InboundIsEnabled:    false,
+			InboundCapacity:     100000,
+			InboundRate:         100,
+		},
+	}) // SourceChain = SUI, destChain = EVM
+	require.NoError(t, err)
+	e.Env = updatedEnv
+
+	tcs := []testhelpers.TestTransferRequest{
+		{
+			Name:           "Send token to EOA",
+			SourceChain:    sourceChain,
+			DestChain:      destChain,
+			Receiver:       updatedEnv.BlockChains.EVMChains()[destChain].DeployerKey.From.Bytes(), // internally left padded to 32byte
+			ExpectedStatus: testhelpers.EXECUTION_STATE_SUCCESS,
+			FeeToken:       feeTokenOutput.Objects.MintedLinkTokenObjectId,
+			SuiTokens: []testhelpers.SuiTokenAmount{
+				{
+					TokenPoolType: sui_deployment.TokenPoolTypeManaged,
+					Token:         linkTokenOutput1.Objects.MintedLinkTokenObjectId,
+					Amount:        1000000000, // Send 1 LINK to EVM
+				},
+			},
+			ExpectedTokenBalances: []testhelpers.ExpectedBalance{
+				{
+					Token:  evmToken.Address().Bytes(),
+					Amount: big.NewInt(1e18),
+				},
+			},
+		},
+		{
+			Name:           "Send token to Receiver",
+			SourceChain:    sourceChain,
+			DestChain:      destChain,
+			Receiver:       ccipReceiverAddress.Bytes(), // internally left padded to 32byte
+			ExpectedStatus: testhelpers.EXECUTION_STATE_SUCCESS,
+			SuiTokens: []testhelpers.SuiTokenAmount{
+				{
+					TokenPoolType: sui_deployment.TokenPoolTypeManaged,
+					Token:         linkTokenOutput2.Objects.MintedLinkTokenObjectId,
+					Amount:        2000000000, // Send 2 LINK to EVM
+				},
+			},
+			FeeToken: feeTokenOutput.Objects.MintedLinkTokenObjectId,
+			ExpectedTokenBalances: []testhelpers.ExpectedBalance{
+				{
+					Token:  evmToken.Address().Bytes(),
+					Amount: big.NewInt(2e18),
+				},
+			},
+		},
+	}
+
+	ctx := testhelpers.Context(t)
+	startBlocks, expectedSeqNums, expectedExecutionStates, expectedTokenBalances := testhelpers.TransferMultiple(ctx, t, updatedEnv, state, tcs)
+
+	err = testhelpers.ConfirmMultipleCommitsWithContext(
+		ctx,
+		t,
+		updatedEnv,
+		state,
+		startBlocks,
+		false,
+		expectedSeqNums,
+	)
+	require.NoError(t, err)
+
+	execStates := testhelpers.ConfirmExecWithSeqNrsForAllWithContext(
+		ctx,
+		t,
+		updatedEnv,
+		state,
+		testhelpers.SeqNumberRangeToSlice(expectedSeqNums),
+		startBlocks,
+	)
+	require.Equal(t, expectedExecutionStates, execStates)
+
+	testhelpers.WaitForTokenBalances(ctx, t, updatedEnv, expectedTokenBalances)
+
+	suiState, err := sui_deployment.LoadOnchainStatesui(e.Env)
+	require.NoError(t, err)
+
+	suiChain := e.Env.BlockChains.SuiChains()[sourceChain]
+	require.NotNil(t, suiChain)
+
+	deps := getOpTxDeps(suiChain)
+
+	// Convert evmChain selector to []byte
+	selectorBytes := make([]byte, 16)
+	binary.BigEndian.PutUint64(selectorBytes[8:], destChain)
+
+	// curse destination chain
+	_, err = operations.ExecuteOperation(e.Env.OperationsBundle, ccipops.RMNRemoteCurseOp, deps, ccipops.RMNRemoteCurseInput{
+		CCIPPackageId:    suiState[sourceChain].CCIPAddress,
+		StateObjectId:    suiState[sourceChain].CCIPObjectRef,
+		OwnerCapObjectId: suiState[sourceChain].CCIPOwnerCapObjectId,
+		Subject:          selectorBytes,
+	})
+	require.NoError(t, err)
+
+	t.Run("Destination chain is cursed - should fail", func(t *testing.T) {
+		msg := testhelpers.SuiSendRequest{
+			Receiver: common.LeftPadBytes(ccipReceiverAddress.Bytes(), 32),
+			Data:     []byte("Hello, World!"),
+			FeeToken: feeTokenOutput.Objects.MintedLinkTokenObjectId,
+			TokenAmounts: []testhelpers.SuiTokenAmount{
+				{
+					TokenPoolType: sui_deployment.TokenPoolTypeManaged,
+					Token:         linkTokenOutput3.Objects.MintedLinkTokenObjectId,
+					Amount:        1500000000,
+				},
+			}}
+
+		baseOpts := []ccipclient.SendReqOpts{
+			ccipclient.WithSourceChain(sourceChain),
+			ccipclient.WithDestChain(destChain),
+			ccipclient.WithTestRouter(false),
+			ccipclient.WithMessage(msg),
+		}
+
+		_, err := testhelpers.SendRequest(e.Env, state, baseOpts...)
+		assertSuiSourceRevertExpectedError(t, err, "failed to execute ccip_send with err: transaction failed with error: MoveAbort", "function_name: Some(\"validate_lock_or_burn\") }, 3)")
+		t.Log("Expected error: ", err)
+	})
 }
 
 func Test_CCIPTokenTransfer_EVM2SUI_ManagedTokenPool_NoRateLimit(t *testing.T) {
@@ -1673,6 +1641,30 @@ func Test_CCIPZeroGasLimitTokenTransfer_EVM2SUI_BurnMintTokenPool(t *testing.T) 
 	testhelpers.WaitForTokenBalances(ctx, t, e.Env, expectedTokenBalances)
 }
 
+func testSetupTokenTransferSui2Evm(t *testing.T) (e testhelpers.DeployedEnv, sourceChain uint64, destChain uint64) {
+	e, _, _ = testsetups.NewIntegrationEnvironment(
+		t,
+		testhelpers.WithNumOfChains(2),
+		testhelpers.WithSuiChains(1),
+	)
+
+	evmChainSelectors := e.Env.BlockChains.ListChainSelectors(chain.WithFamily(chain_selectors.FamilyEVM))
+	suiChainSelectors := e.Env.BlockChains.ListChainSelectors(chain.WithFamily(chain_selectors.FamilySui))
+
+	sourceChain = suiChainSelectors[0]
+	destChain = evmChainSelectors[0]
+
+	state, err := stateview.LoadOnchainState(e.Env)
+	require.NoError(t, err)
+
+	t.Log("Source chain (Sui): ", sourceChain, "Dest chain (EVM): ", destChain)
+
+	err = testhelpers.AddLaneWithDefaultPricesAndFeeQuoterConfig(t, &e, state, sourceChain, destChain, false)
+	require.NoError(t, err)
+
+	return e, sourceChain, destChain
+}
+
 func testSetupHelperEvm2Sui(t *testing.T) (e testhelpers.DeployedEnv, sourceChain uint64, destChain uint64, deployerSourceChain *bind.TransactOpts, suiTokenBytes []byte, suiAddr [32]byte) {
 	e, _, _ = testsetups.NewIntegrationEnvironment(
 		t,
@@ -1686,14 +1678,10 @@ func testSetupHelperEvm2Sui(t *testing.T) (e testhelpers.DeployedEnv, sourceChai
 	sourceChain = evmChainSelectors[0]
 	destChain = suiChainSelectors[0]
 
-	t.Log("Source chain (EVM): ", sourceChain, "Dest chain (SUI): ", destChain)
-
-	// Ensure SUI RPC is ready after container startup
-	t.Log("🔍 Performing SUI RPC health check after container startup...")
-	WaitForAllSuiChainsReady(t, e.Env.BlockChains.SuiChains(), 60*time.Second)
-
 	state, err := stateview.LoadOnchainState(e.Env)
 	require.NoError(t, err)
+
+	t.Log("Source chain (EVM): ", sourceChain, "Dest chain (SUI): ", destChain)
 
 	deployerSourceChain = e.Env.BlockChains.EVMChains()[sourceChain].DeployerKey
 	suiTokenHex := state.SuiChains[destChain].LinkTokenAddress
