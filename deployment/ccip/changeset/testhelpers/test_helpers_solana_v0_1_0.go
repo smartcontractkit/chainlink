@@ -585,8 +585,9 @@ func SendRequestEVM(
 			return nil, fmt.Errorf("failed to get transaction receipt: %w", err)
 		}
 
-		onRampAddr := state.MustGetEVMChainState(cfg.SourceChain).OnRamp.Address()
-		onRamp := state.MustGetEVMChainState(cfg.SourceChain).OnRamp
+		evmChainState := state.MustGetEVMChainState(cfg.SourceChain)
+		onRampAddr := evmChainState.OnRamp.Address()
+		onRamp := evmChainState.OnRamp
 
 		for _, log := range receipt.Logs {
 			if log.Address == onRampAddr && len(log.Topics) > 0 {
