@@ -86,8 +86,12 @@ func (m *MockReadCloser) Close() error {
 	return err
 }
 
-// extractChannelDefinitions merges all channel definitions from source definitions into a single map
-func extractChannelDefinitions(sourceDefs map[uint32]llotypes2.SourceDefinition) llotypes.ChannelDefinitions {
+// extractChannelDefinitions unmarshals json.RawMessage and merges all channel definitions from source definitions into a single map
+func extractChannelDefinitions(defsJSON json.RawMessage) llotypes.ChannelDefinitions {
+	var sourceDefs map[uint32]llotypes2.SourceDefinition
+	if err := json.Unmarshal(defsJSON, &sourceDefs); err != nil {
+		return make(llotypes.ChannelDefinitions)
+	}
 	result := make(llotypes.ChannelDefinitions)
 	for _, sourceDef := range sourceDefs {
 		for channelID, def := range sourceDef.Definitions {
@@ -97,8 +101,12 @@ func extractChannelDefinitions(sourceDefs map[uint32]llotypes2.SourceDefinition)
 	return result
 }
 
-// countChannels counts the total number of channels across all source definitions
-func countChannels(sourceDefs map[uint32]llotypes2.SourceDefinition) int {
+// countChannels unmarshals json.RawMessage and counts the total number of channels across all source definitions
+func countChannels(defsJSON json.RawMessage) int {
+	var sourceDefs map[uint32]llotypes2.SourceDefinition
+	if err := json.Unmarshal(defsJSON, &sourceDefs); err != nil {
+		return 0
+	}
 	count := 0
 	for _, sourceDef := range sourceDefs {
 		count += len(sourceDef.Definitions)
@@ -501,5 +509,158 @@ func Test_ChannelDefinitionCache_Integration(t *testing.T) {
 		// persist() stores c.definitions.Sources (source definitions) to the database.
 		// The version comes from c.definitions.Version which is set from the latest owner trigger in the source definitions.
 		assert.GreaterOrEqual(t, pd.Version, prev.Version, "version should be >= previous outcome version")
+	})
+
+	t.Run("migration from SingleChannelDefinitionsFormat to MultiChannelDefinitionsFormat preserves metadata", func(t *testing.T) {
+		migrationDonID := rand.Uint32()
+		migrationVersion := uint32(1)
+		migrationBlockNum := int64(1)
+		migrationChainSelector := ETHMainnetChainSelector
+
+		// Create old format definitions (just ChannelDefinitions, no source wrapper)
+		oldFormatDefs := llotypes.ChannelDefinitions{
+			1: {
+				ReportFormat: llotypes.ReportFormatJSON,
+				Streams: []llotypes.Stream{
+					{StreamID: 1, Aggregator: llotypes.AggregatorMedian},
+					{StreamID: 2, Aggregator: llotypes.AggregatorMode},
+				},
+				Source:    channeldefinitions.SourceOwner,
+				Tombstone: false,
+			},
+			2: {
+				ReportFormat: llotypes.ReportFormatEVMPremiumLegacy,
+				Streams: []llotypes.Stream{
+					{StreamID: 3, Aggregator: llotypes.AggregatorQuote},
+				},
+				Source:    channeldefinitions.SourceOwner,
+				Tombstone: false,
+			},
+		}
+
+		oldFormatJSON, err := json.Marshal(oldFormatDefs)
+		require.NoError(t, err)
+
+		pgtest.MustExec(t, db, `
+			INSERT INTO channel_definitions(addr, chain_selector, don_id, definitions, block_num, version, updated_at, format)
+			VALUES ($1, $2, $3, $4, $5, $6, NOW(), $7)
+		`, configStoreAddress, migrationChainSelector, migrationDonID, oldFormatJSON, migrationBlockNum, migrationVersion, channeldefinitions.SingleChannelDefinitionsFormat)
+
+		// Verify old format data in database
+		oldPD, err := orm.LoadChannelDefinitions(testutils.Context(t), configStoreAddress, migrationDonID)
+		require.NoError(t, err)
+		require.NotNil(t, oldPD)
+		assert.Equal(t, migrationChainSelector, oldPD.ChainSelector)
+		assert.Equal(t, configStoreAddress, oldPD.Address)
+		assert.Equal(t, migrationDonID, oldPD.DonID)
+		assert.Equal(t, migrationVersion, oldPD.Version)
+		assert.Equal(t, migrationBlockNum, oldPD.BlockNum)
+		assert.Equal(t, channeldefinitions.SingleChannelDefinitionsFormat, oldPD.Format)
+
+		// Create a new cache - it should load the metadata but not the definitions
+		cdcMigration := channeldefinitions.NewChannelDefinitionCache(logger.NullLogger, orm, client, lp, configStoreAddress, migrationDonID, 0, channeldefinitions.WithLogPollInterval(100*time.Millisecond))
+		servicetest.Run(t, cdcMigration)
+
+		// Verify that metadata was loaded but definitions are empty
+		// The cache should have loaded Version and BlockNum from the old format data
+		defs := cdcMigration.Definitions(llotypes.ChannelDefinitions{})
+		assert.Empty(t, defs, "definitions should be empty when format is SingleChannelDefinitionsFormat")
+
+		// Now trigger new definitions to be persisted (this will migrate to new format)
+		// Set up new definitions that will be fetched
+		newDefinitions := llotypes.ChannelDefinitions{
+			1: {
+				ReportFormat: llotypes.ReportFormatJSON,
+				Streams: []llotypes.Stream{
+					{StreamID: 1, Aggregator: llotypes.AggregatorMedian},
+					{StreamID: 2, Aggregator: llotypes.AggregatorMode},
+				},
+				Source:    channeldefinitions.SourceOwner,
+				Tombstone: false,
+			},
+			2: {
+				ReportFormat: llotypes.ReportFormatEVMPremiumLegacy,
+				Streams: []llotypes.Stream{
+					{StreamID: 3, Aggregator: llotypes.AggregatorQuote},
+				},
+				Source:    channeldefinitions.SourceOwner,
+				Tombstone: false,
+			},
+			3: {
+				ReportFormat: llotypes.ReportFormatJSON,
+				Streams: []llotypes.Stream{
+					{StreamID: 4, Aggregator: llotypes.AggregatorMedian},
+				},
+				Source:    channeldefinitions.SourceOwner,
+				Tombstone: false,
+			},
+		}
+
+		newDefinitionsJSON, err := json.MarshalIndent(newDefinitions, "", "  ")
+		require.NoError(t, err)
+		newDefinitionsSHA := sha3.Sum256(newDefinitionsJSON)
+
+		// Set up HTTP client to return new definitions
+		rc := NewMockReadCloser(newDefinitionsJSON)
+		client.SetResponse(&http.Response{
+			StatusCode: 200,
+			Body:       rc,
+		}, nil)
+
+		// Trigger new channel definitions on-chain
+		url := "http://example.com/migration-test.json"
+		require.NoError(t, utils.JustError(configStoreContract.SetChannelDefinitions(steve, migrationDonID, url, newDefinitionsSHA)))
+		backend.Commit()
+
+		// Wait for definitions to be fetched and persisted
+		require.Eventually(t, func() bool {
+			defs := cdcMigration.Definitions(llotypes.ChannelDefinitions{})
+			return len(defs) == len(newDefinitions)
+		}, 5*time.Second, 100*time.Millisecond, "new definitions should be available")
+
+		// Wait for persistence to complete
+		var migratedPD *llotypes2.PersistedDefinitions
+		require.Eventually(t, func() bool {
+			var loaded *llotypes2.PersistedDefinitions
+			if loaded, err = orm.LoadChannelDefinitions(testutils.Context(t), configStoreAddress, migrationDonID); err != nil || loaded == nil {
+				return false
+			}
+			// Check that format has been migrated
+			if loaded.Format != channeldefinitions.MultiChannelDefinitionsFormat {
+				return false
+			}
+			migratedPD = loaded
+			return true
+		}, 5*time.Second, 100*time.Millisecond, "definitions should be migrated to MultiChannelDefinitionsFormat")
+
+		require.NotNil(t, migratedPD)
+
+		// Verify that all metadata is preserved
+		assert.Equal(t, migrationChainSelector, migratedPD.ChainSelector, "ChainSelector should be preserved")
+		assert.Equal(t, configStoreAddress, migratedPD.Address, "Address should be preserved")
+		assert.Equal(t, migrationDonID, migratedPD.DonID, "DonID should be preserved")
+		// Version should be preserved or updated (not reset to 0)
+		assert.GreaterOrEqual(t, migratedPD.Version, migrationVersion, "Version should be preserved or updated, not reset")
+		// BlockNum should be preserved or updated (not reset to 0)
+		assert.GreaterOrEqual(t, migratedPD.BlockNum, migrationBlockNum, "BlockNum should be preserved or updated, not reset")
+
+		// Verify format has been migrated
+		assert.Equal(t, channeldefinitions.MultiChannelDefinitionsFormat, migratedPD.Format, "Format should be migrated to MultiChannelDefinitionsFormat")
+
+		// Verify definitions are in new format (map[uint32]SourceDefinition)
+		var newFormatDefs map[uint32]llotypes2.SourceDefinition
+		err = json.Unmarshal(migratedPD.Definitions, &newFormatDefs)
+		require.NoError(t, err)
+		require.NotEmpty(t, newFormatDefs, "definitions should be in new format")
+
+		// Verify the definitions contain the expected channels
+		extractedDefs := extractChannelDefinitions(migratedPD.Definitions)
+		assert.Len(t, extractedDefs, len(newDefinitions))
+		for channelID, expectedDef := range newDefinitions {
+			actualDef, exists := extractedDefs[channelID]
+			assert.True(t, exists, "channel %d should exist", channelID)
+			assert.Equal(t, expectedDef.ReportFormat, actualDef.ReportFormat)
+			assert.Equal(t, expectedDef.Streams, actualDef.Streams)
+		}
 	})
 }

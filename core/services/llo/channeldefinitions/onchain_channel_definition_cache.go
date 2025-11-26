@@ -60,6 +60,12 @@ const (
 	SourceUndefined uint32 = 0
 	// SourceOwner represents the owner source for channel definitions, which has full authority.
 	SourceOwner uint32 = 1
+
+	// SingleChannelDefinitionsFormat is the format of the channel definitions for a single source.
+	SingleChannelDefinitionsFormat uint32 = 0
+
+	// MultiChannelDefinitionsFormat is the format of the channel definitions for multiple sources.
+	MultiChannelDefinitionsFormat uint32 = 1
 )
 
 var (
@@ -86,7 +92,7 @@ func init() {
 
 type ChannelDefinitionCacheORM interface {
 	LoadChannelDefinitions(ctx context.Context, addr common.Address, donID uint32) (pd *types.PersistedDefinitions, err error)
-	StoreChannelDefinitions(ctx context.Context, addr common.Address, donID, version uint32, dfns map[uint32]types.SourceDefinition, blockNum int64) (err error)
+	StoreChannelDefinitions(ctx context.Context, addr common.Address, donID, version uint32, dfns json.RawMessage, blockNum int64, format uint32) (err error)
 	CleanupChannelDefinitions(ctx context.Context, addr common.Address, donID uint32) error
 }
 
@@ -235,8 +241,15 @@ func (c *channelDefinitionCache) Start(ctx context.Context) error {
 			return err
 		}
 
+		c.definitions.Sources = make(map[uint32]types.SourceDefinition)
 		if pd != nil {
-			c.definitions.Sources = pd.Definitions
+			if pd.Format == MultiChannelDefinitionsFormat {
+				var sources map[uint32]types.SourceDefinition
+				if err := json.Unmarshal(pd.Definitions, &sources); err != nil {
+					return fmt.Errorf("failed to unmarshal definitions: %w", err)
+				}
+				c.definitions.Sources = sources
+			}
 			c.definitions.Version = pd.Version
 			c.definitions.LastBlockNum = pd.BlockNum
 			c.persistedBlockNum = pd.BlockNum
@@ -407,7 +420,7 @@ func (c *channelDefinitionCache) readLogs(ctx context.Context) (err error) {
 func (c *channelDefinitionCache) scanFromBlockNum() int64 {
 	c.definitionsMu.RLock()
 	defer c.definitionsMu.RUnlock()
-	return max(c.definitions.LastBlockNum, c.initialBlockNum) - 1
+	return max(c.definitions.LastBlockNum, c.initialBlockNum)
 }
 
 // processLogs unpacks channel definition logs into fetch triggers by extracting URL, SHA hash,
@@ -737,8 +750,15 @@ func (c *channelDefinitionCache) persist(ctx context.Context) (memoryBlockNum, p
 		return definitionsBlockNum, c.persistedBlockNum, nil
 	}
 
-	if err = c.orm.StoreChannelDefinitions(ctx, c.addr, c.donID, definitionsVersion, definitions, definitionsBlockNum); err != nil {
-		return definitionsBlockNum, c.persistedBlockNum, err
+	definitionsJSON, err := json.Marshal(definitions)
+	if err != nil {
+		return definitionsBlockNum, c.persistedBlockNum, fmt.Errorf("failed to marshal definitions: %w", err)
+	}
+
+	err = c.orm.StoreChannelDefinitions(ctx, c.addr, c.donID, definitionsVersion,
+		definitionsJSON, definitionsBlockNum, MultiChannelDefinitionsFormat)
+	if err != nil {
+		return definitionsBlockNum, c.persistedBlockNum, fmt.Errorf("failed to store definitions: %w", err)
 	}
 
 	c.persistedBlockNum = definitionsBlockNum
@@ -835,7 +855,7 @@ func (c *channelDefinitionCache) Definitions(prev llotypes.ChannelDefinitions) l
 		merged, err = c.mergeDefinitions(sourceDefinition.Trigger.Source, merged, sourceDefinition.Definitions)
 		if err != nil {
 			c.lggr.Errorw("failed to merge definitions", "err", err, "source", sourceDefinition.Trigger.Source,
-				"blockNum", sourceDefinition.Trigger.BlockNum, "txHash", sourceDefinition.Trigger.TxHash.Hex())
+				"blockNum", sourceDefinition.Trigger.BlockNum, "txHash", common.BytesToHash(sourceDefinition.Trigger.TxHash[:]).Hex())
 		}
 	}
 

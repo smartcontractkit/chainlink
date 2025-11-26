@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"database/sql"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -83,17 +84,22 @@ type mockCDCORM struct {
 	lastPersistedVersion  uint32
 	lastPersistedDfns     map[uint32]types.SourceDefinition
 	lastPersistedBlockNum int64
+	lastPersistedFormat   uint32
 }
 
 func (m *mockCDCORM) LoadChannelDefinitions(ctx context.Context, addr common.Address, donID uint32) (pd *types.PersistedDefinitions, err error) {
 	panic("not implemented")
 }
-func (m *mockCDCORM) StoreChannelDefinitions(ctx context.Context, addr common.Address, donID, version uint32, dfns map[uint32]types.SourceDefinition, blockNum int64) (err error) {
+func (m *mockCDCORM) StoreChannelDefinitions(ctx context.Context, addr common.Address, donID, version uint32, dfns json.RawMessage, blockNum int64, format uint32) (err error) {
 	m.lastPersistedAddr = addr
 	m.lastPersistedDonID = donID
 	m.lastPersistedVersion = version
-	m.lastPersistedDfns = dfns
 	m.lastPersistedBlockNum = blockNum
+	m.lastPersistedFormat = format
+	// Unmarshal the json.RawMessage to store in lastPersistedDfns for test assertions
+	if err := json.Unmarshal(dfns, &m.lastPersistedDfns); err != nil {
+		return err
+	}
 	return m.err
 }
 
@@ -768,9 +774,9 @@ func Test_ChannelDefinitionCache(t *testing.T) {
 	t.Run("persist", func(t *testing.T) {
 		definitions := llotypes.ChannelDefinitions{
 			1: {
-				ReportFormat: llotypes.ReportFormat(43),
+				ReportFormat: llotypes.ReportFormatEVMPremiumLegacy,
 				Streams:      []llotypes.Stream{{StreamID: 1, Aggregator: llotypes.AggregatorMedian}, {StreamID: 2, Aggregator: llotypes.AggregatorMode}, {StreamID: 3, Aggregator: llotypes.AggregatorQuote}},
-				Opts:         llotypes.ChannelOpts{1, 2, 3},
+				Opts:         llotypes.ChannelOpts(`{"foo":"bar"}`),
 			},
 		}
 		cdc := &channelDefinitionCache{
@@ -832,7 +838,7 @@ func Test_ChannelDefinitionCache(t *testing.T) {
 
 			// persist() always persists c.definitions
 			memoryBlockNum, persistedBlockNum, err := cdc.persist(ctx)
-			require.EqualError(t, err, "test error")
+			require.Contains(t, err.Error(), "test error")
 			require.Equal(t, int64(143), memoryBlockNum)
 			require.Equal(t, int64(141), persistedBlockNum)
 			require.Equal(t, int64(141), cdc.persistedBlockNum)
