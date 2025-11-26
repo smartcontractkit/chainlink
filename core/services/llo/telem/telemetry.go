@@ -221,6 +221,7 @@ func (t *telemeter) CaptureObservationTelemetry() bool {
 func (t *telemeter) start(_ context.Context) error {
 	t.eng.Go(func(ctx context.Context) {
 		wg := sync.WaitGroup{}
+		t.sampler.StartPruningLoop(ctx, &wg)
 		for {
 			select {
 			case tcc := <-t.chch:

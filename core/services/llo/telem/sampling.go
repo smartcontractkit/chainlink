@@ -1,10 +1,12 @@
 package telem
 
 import (
+	"context"
 	"encoding/hex"
 	"errors"
 	"fmt"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
@@ -14,54 +16,102 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/synchronization"
 )
 
-const samplerDelimiter = "-"
+const (
+	PrunePeriod = 10 * time.Second
+
+	samplerDelimiter = "-"
+)
+
+var (
+	errUnsupportedTelemetryType = errors.New("unsupported telemetry type")
+)
 
 // sampler keeps track of what kind of telemetry has already been sent to the collection point and decides whether the
 // next telemetry package will be sent or dropped.
 type sampler struct {
 	// samples keeps track of the telemetry samples we've already sent (or approved for sending).
-	// The format is `map[fingerprint][observation timestamp in seconds]any`
-	samples map[string]map[int64]any
-	lggr    logger.Logger
+	// The format is `map[fingerprint][observation timestamp in seconds]any`. We intentionally use int32 because it's
+	// enough for seconds but not enough for nanos, so we can't mix them up.
+	samples   map[string]map[int32]any
+	samplesMu sync.Mutex
+
+	lggr logger.Logger
 }
 
 func newSampler(lgger logger.SugaredLogger) *sampler {
 	return &sampler{
-		samples: make(map[string]map[int64]any),
+		samples: make(map[string]map[int32]any),
 		lggr:    lgger,
 	}
 }
-
-// TODO implement a loop which evicts data older than 10 seconds. start this on telemetry start
 
 // TODO implement config option. should allow enabling/disabling and changing the sampling frequency.
 
 // Sample is the method which decides whether we're going to send the data downstream or not.
 func (s *sampler) Sample(typ synchronization.TelemetryType, msg proto.Message) bool {
-
 	fp, ots, err := fingerprint(typ, msg)
 	if err != nil {
-		s.lggr.Warnw("Couldn't determine fingerprint", "type", typ, "err", err)
-		// default to sending data
+		if err != errUnsupportedTelemetryType {
+			s.lggr.Warnw("Couldn't determine fingerprint", "type", typ, "err", err)
+		}
 		return true
 	}
+
+	s.samplesMu.Lock()
+	defer s.samplesMu.Unlock()
 	// Do we have any records for this fingerprint?
 	if _, ok := s.samples[fp]; !ok {
-		s.samples[fp] = make(map[int64]any)
+		s.samples[fp] = make(map[int32]any)
 	}
 	// Do we already have a record for this fingerprint and this second?
-	if _, ok := s.samples[fp][nanosToSec(ots)]; !ok {
-		s.samples[fp][nanosToSec(ots)] = struct{}{}
+	if _, ok := s.samples[fp][ots]; !ok {
+		s.samples[fp][ots] = struct{}{}
 		return true
 	}
 	// We already have a record, and we don't need to send another one.
 	return false
 }
 
+// StartPruningLoop starts a regular check routine which removes old entries from the sampling records.
+//
+// This method is non-blocking. It starts a goroutine and returns.
+func (s *sampler) StartPruningLoop(ctx context.Context, wg *sync.WaitGroup) {
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		t := time.NewTicker(PrunePeriod)
+		defer t.Stop()
+
+		for {
+			select {
+			case <-t.C:
+				s.pruneStorage()
+			case <-ctx.Done():
+				return
+			}
+		}
+	}()
+}
+
+// pruneStorage removes all records which are older than a predefined period (PrunePeriod).
+func (s *sampler) pruneStorage() {
+	s.samplesMu.Lock()
+	defer s.samplesMu.Unlock()
+
+	cutoff := int32(time.Now().Add(-PrunePeriod).Second())
+	for _, ots := range s.samples {
+		for ts := range ots {
+			if ts < cutoff {
+				delete(ots, ts)
+			}
+		}
+	}
+}
+
 // fingerprint combines unique characteristics of each supported telemetry report type and constructs a string
-// fingerprint of it. It returns the fingerprint, together with a nanosecond observation timestamp.
+// fingerprint of it. It returns the fingerprint, together with an observation timestamp in seconds.
 // TODO improve encoding efficiency by switching from string to hex([]byte) or string([]byte).
-func fingerprint(typ synchronization.TelemetryType, msg proto.Message) (string, int64, error) {
+func fingerprint(typ synchronization.TelemetryType, msg proto.Message) (string, int32, error) {
 	switch typ {
 	case synchronization.LLOObservation:
 		m, ok := msg.(*LLOObservationTelemetry)
@@ -73,8 +123,7 @@ func fingerprint(typ synchronization.TelemetryType, msg proto.Message) (string, 
 			fmt.Sprint(m.GetStreamId()),
 			fmt.Sprint(hex.EncodeToString(m.ConfigDigest)),
 		}
-		return strings.Join(traits, samplerDelimiter), m.ObservationTimestamp, nil
-
+		return strings.Join(traits, samplerDelimiter), nanosToSec(m.ObservationTimestamp), nil
 	case synchronization.LLOOutcome:
 		m, ok := msg.(*llo.LLOOutcomeTelemetry)
 		if !ok || m == nil {
@@ -84,7 +133,7 @@ func fingerprint(typ synchronization.TelemetryType, msg proto.Message) (string, 
 			fmt.Sprint(m.DonId),
 			fmt.Sprint(hex.EncodeToString(m.ConfigDigest)),
 		}
-		return strings.Join(traits, samplerDelimiter), int64(m.ObservationTimestampNanoseconds), nil
+		return strings.Join(traits, samplerDelimiter), nanosToSec(int64(m.ObservationTimestampNanoseconds)), nil
 	case synchronization.LLOReport:
 		m, ok := msg.(*llo.LLOReportTelemetry)
 		if !ok || m == nil {
@@ -95,7 +144,7 @@ func fingerprint(typ synchronization.TelemetryType, msg proto.Message) (string, 
 			fmt.Sprint(m.ChannelId),
 			fmt.Sprint(hex.EncodeToString(m.ConfigDigest)),
 		}
-		return strings.Join(traits, samplerDelimiter), int64(m.ObservationTimestampNanoseconds), nil
+		return strings.Join(traits, samplerDelimiter), nanosToSec(int64(m.ObservationTimestampNanoseconds)), nil
 	case synchronization.PipelineBridge:
 		m, ok := msg.(*LLOBridgeTelemetry)
 		if !ok || m == nil {
@@ -108,14 +157,12 @@ func fingerprint(typ synchronization.TelemetryType, msg proto.Message) (string, 
 			fmt.Sprint(m.BridgeAdapterName),
 			fmt.Sprint(hex.EncodeToString(m.ConfigDigest)),
 		}
-		return strings.Join(traits, samplerDelimiter), m.ObservationTimestamp, nil
+		return strings.Join(traits, samplerDelimiter), nanosToSec(m.ObservationTimestamp), nil
 	default:
-		// TODO We should probably return a sentinel error here and always send these downstream.
-		// 	This is not really an error, it's just a "we got something we don't intend to sample" situation.
-		return "", 0, fmt.Errorf("unsupported telemetry type: %s", typ)
+		return "", 0, errUnsupportedTelemetryType
 	}
 }
 
-func nanosToSec(n int64) int64 {
-	return n / int64(time.Second)
+func nanosToSec(n int64) int32 {
+	return int32(n / int64(time.Second))
 }
