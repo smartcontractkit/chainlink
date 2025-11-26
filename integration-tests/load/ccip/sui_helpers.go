@@ -1068,10 +1068,10 @@ func createSuiChainReader(
 		lggr,
 		env.BlockChains.SuiChains()[chainSelector].URL,
 		nil,
-		10*time.Second,
+		30*time.Second,
 		suiKeystore,
-		5,
-		"WaitForLocalExecution",
+		2000,
+		"WaitForEffectsCert",
 	)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create PTB client: %w", err)
