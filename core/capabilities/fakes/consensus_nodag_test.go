@@ -47,9 +47,9 @@ func Test_Simple_EVMEncoder(t *testing.T) {
 		EncoderName:    "evm",
 	}
 	fakeConsensusNoDAG := NewFakeConsensusNoDAG(signers, logger.Test(t))
-	outputs, err := fakeConsensusNoDAG.Report(t.Context(), metadata, input)
+	outputs, capErr := fakeConsensusNoDAG.Report(t.Context(), metadata, input)
 
-	require.NoError(t, err)
+	require.NoError(t, capErr)
 	require.Len(t, outputs.Response.Sigs, nSigners)
 
 	// validate signatures
