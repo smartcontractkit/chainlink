@@ -12,6 +12,7 @@ import (
 	"github.com/smartcontractkit/chainlink-evm/pkg/config"
 	"github.com/smartcontractkit/chainlink-evm/pkg/testutils"
 	"github.com/smartcontractkit/chainlink-evm/pkg/utils/big"
+
 	"github.com/smartcontractkit/chainlink/v2/common/chains/mocks"
 )
 
@@ -20,14 +21,9 @@ func TestNewMedianProvider(t *testing.T) {
 
 	chain := mocks.NewChain(t)
 	chainID := testutils.NewRandomEVMChainID()
-	chain.EXPECT().ID().Return(chainID)
-
+	chain.On("ID").Return(chainID)
 	contractID := testutils.NewAddress()
-
-	relayer := &Relayer{
-		lggr:  logger.Sugared(lggr),
-		chain: chain,
-	}
+	relayer := Relayer{lggr: logger.Sugared(lggr), chain: chain}
 
 	pargs := commontypes.PluginArgs{}
 
