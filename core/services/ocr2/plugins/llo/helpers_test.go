@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto"
 	"crypto/ed25519"
+	"errors"
 	"fmt"
 	"io"
 	"math/big"
@@ -238,11 +239,11 @@ func receiveWithTimeout(t *testing.T, ch <-chan *packet, timeout time.Duration) 
 	select {
 	case pckt, ok := <-ch:
 		if !ok {
-			return nil, fmt.Errorf("packet channel closed unexpectedly")
+			return nil, errors.New("packet channel closed unexpectedly")
 		}
 		return pckt, nil
 	case <-time.After(timeout):
-		return nil, fmt.Errorf("timed out waiting on channel")
+		return nil, errors.New("timed out waiting on channel")
 	}
 }
 
