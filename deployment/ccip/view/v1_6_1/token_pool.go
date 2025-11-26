@@ -1,8 +1,9 @@
 package v1_6_1
 
 import (
-	"github.com/ethereum/go-ethereum/common"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/view/v1_5_1"
+
+	"github.com/ethereum/go-ethereum/common"
 
 	lock_release_token_pool_v1_6_1 "github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_1/lock_release_token_pool"
 )
