@@ -112,8 +112,8 @@ jobs:
           fi
 
       - name: Changed modules
-        uses: smartcontractkit/.github/actions/changed-modules-go@bc3f1be9389263eee8d2df57a1972bcca29423ce # 2025-11-24
-        continue-on-error: true # don't let this call affect the outcome of the job
+        uses: smartcontractkit/.github/actions/changed-modules-go@changed-modules-go/v1
+        continue-on-error: true # don't let this call affect the outcome of the job (during rollout)
         with:
           # when scheduled/workflow_dispatch, run against all modules
           no-change-behaviour: all
