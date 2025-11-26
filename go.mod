@@ -2,6 +2,9 @@ module github.com/smartcontractkit/chainlink/v2
 
 go 1.25.3
 
+// temporarily override chainlink-evm to the local version
+replace github.com/smartcontractkit/chainlink-evm => ../chainlink-evm
+
 require (
 	github.com/Depado/ginprom v1.8.0
 	github.com/Masterminds/semver/v3 v3.4.0

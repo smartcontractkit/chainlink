@@ -55,7 +55,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/ccipexec"
 	ccipconfig "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/config"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/estimatorconfig"
-	medianconfig "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/median/config"
 	mercuryconfig "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/mercury/config"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/functions"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury"
@@ -888,12 +887,7 @@ func (r *Relayer) NewMedianProvider(ctx context.Context, rargs commontypes.Relay
 
 	reportCodec := evmreportcodec.ReportCodec{}
 
-	var pluginCfg medianconfig.PluginConfig
-	if err = json.Unmarshal(pargs.PluginConfig, &pluginCfg); err != nil {
-		return nil, pkgerrors.WithStack(err)
-	}
-
-	ct, err := transmitter.NewContractTransmitter(ctx, lggr, rargs, r.evmKeystore, configWatcher.chain, configWatcher.contractAddress, transmitter.ConfigTransmitterOpts{PluginGasLimit: pluginCfg.GasLimit}, OCR2AggregatorTransmissionContractABI, relayConfig.EnableDualTransmission)
+	ct, err := transmitter.NewContractTransmitter(ctx, lggr, rargs, r.evmKeystore, configWatcher.chain, configWatcher.contractAddress, transmitter.ConfigTransmitterOpts{}, OCR2AggregatorTransmissionContractABI, relayConfig.EnableDualTransmission)
 	if err != nil {
 		return nil, err
 	}

@@ -82,7 +82,6 @@ func setupMocksAndRelayer(t *testing.T) (*Mocks, *Relayer) {
 	relayer := &Relayer{
 		chain:      chain,
 		evmService: evmService{chain: chain, logger: lggr},
-		lggr:       logger.Sugared(lggr),
 	}
 
 	return &Mocks{
