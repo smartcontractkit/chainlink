@@ -579,15 +579,15 @@ func SendRequestEVM(
 		// Fallback: If filtering didn't find the event (likely onRamp ABI version mismatch),
 		// parse directly from transaction receipt logs
 		e.Logger.Warnf("Standard event filtering found no events, falling back to receipt log parsing (likely ABI version mismatch)")
-		
+
 		receipt, err := e.BlockChains.EVMChains()[cfg.SourceChain].Client.TransactionReceipt(context.Background(), tx.Hash())
 		if err != nil {
 			return nil, fmt.Errorf("failed to get transaction receipt: %w", err)
 		}
-		
+
 		onRampAddr := state.MustGetEVMChainState(cfg.SourceChain).OnRamp.Address()
 		onRamp := state.MustGetEVMChainState(cfg.SourceChain).OnRamp
-		
+
 		for _, log := range receipt.Logs {
 			if log.Address == onRampAddr && len(log.Topics) > 0 {
 				event, err := onRamp.ParseCCIPMessageSent(*log)
@@ -603,7 +603,7 @@ func SendRequestEVM(
 	}
 
 	if msgSentEvent == nil {
-		return nil, fmt.Errorf("no CCIP message sent event found for tx %s in block %d (tried both filtering and receipt parsing)", 
+		return nil, fmt.Errorf("no CCIP message sent event found for tx %s in block %d (tried both filtering and receipt parsing)",
 			tx.Hash().String(), blockNum)
 	}
 
