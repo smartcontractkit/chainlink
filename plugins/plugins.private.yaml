@@ -24,7 +24,7 @@ plugins:
       installPath: "github.com/smartcontractkit/capabilities/readcontract"
   consensus:
     - moduleURI: "github.com/smartcontractkit/capabilities/consensus"
-      gitRef: "5f5cab3fe9fb8ab8c969d0c0fe77de70454ad86b"
+      gitRef: "48b980e79256bdeb2fe2ad7cf70ed9fe8ac0d4d2"
       installPath: "github.com/smartcontractkit/capabilities/consensus"
   workflowevent:
     - enabled: false
