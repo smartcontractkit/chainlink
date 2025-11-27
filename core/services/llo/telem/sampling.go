@@ -4,7 +4,7 @@ import (
 	"context"
 	"encoding/hex"
 	"errors"
-	"fmt"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -51,7 +51,7 @@ func newSampler(lgger logger.SugaredLogger) *sampler {
 func (s *sampler) Sample(typ synchronization.TelemetryType, msg proto.Message) bool {
 	fp, ots, err := fingerprint(typ, msg)
 	if err != nil {
-		if err != errUnsupportedTelemetryType {
+		if !errors.Is(err, errUnsupportedTelemetryType) {
 			s.lggr.Warnw("Couldn't determine fingerprint", "type", typ, "err", err)
 		}
 		return true
@@ -98,7 +98,7 @@ func (s *sampler) pruneStorage() {
 	s.samplesMu.Lock()
 	defer s.samplesMu.Unlock()
 
-	cutoff := int32(time.Now().Add(-s.prunePeriod).Unix())
+	cutoff := int32(time.Now().Add(-s.prunePeriod).Unix()) //nolint:gosec // G115
 	for _, ots := range s.samples {
 		for ts := range ots {
 			if ts < cutoff {
@@ -119,9 +119,9 @@ func fingerprint(typ synchronization.TelemetryType, msg proto.Message) (string, 
 			return "", 0, errors.New("invalid telemetry type, expected LLOObservation")
 		}
 		traits := []string{
-			fmt.Sprint(m.DonId),
-			fmt.Sprint(m.GetStreamId()),
-			fmt.Sprint(hex.EncodeToString(m.ConfigDigest)),
+			strconv.FormatUint(uint64(m.DonId), 10),
+			strconv.FormatUint(uint64(m.GetStreamId()), 10),
+			hex.EncodeToString(m.ConfigDigest),
 		}
 		return strings.Join(traits, samplerDelimiter), nanosToSec(m.ObservationTimestamp), nil
 	case synchronization.LLOOutcome:
@@ -130,32 +130,32 @@ func fingerprint(typ synchronization.TelemetryType, msg proto.Message) (string, 
 			return "", 0, errors.New("invalid telemetry type, expected LLOOutcomeTelemetry")
 		}
 		traits := []string{
-			fmt.Sprint(m.DonId),
-			fmt.Sprint(hex.EncodeToString(m.ConfigDigest)),
+			strconv.FormatUint(uint64(m.DonId), 10),
+			hex.EncodeToString(m.ConfigDigest),
 		}
-		return strings.Join(traits, samplerDelimiter), nanosToSec(int64(m.ObservationTimestampNanoseconds)), nil
+		return strings.Join(traits, samplerDelimiter), nanosToSec(int64(m.ObservationTimestampNanoseconds)), nil //nolint:gosec // G115
 	case synchronization.LLOReport:
 		m, ok := msg.(*llo.LLOReportTelemetry)
 		if !ok || m == nil {
 			return "", 0, errors.New("invalid telemetry type, expected LLOReportTelemetry")
 		}
 		traits := []string{
-			fmt.Sprint(m.DonId),
-			fmt.Sprint(m.ChannelId),
-			fmt.Sprint(hex.EncodeToString(m.ConfigDigest)),
+			strconv.FormatUint(uint64(m.DonId), 10),
+			strconv.FormatUint(uint64(m.ChannelId), 10),
+			hex.EncodeToString(m.ConfigDigest),
 		}
-		return strings.Join(traits, samplerDelimiter), nanosToSec(int64(m.ObservationTimestampNanoseconds)), nil
+		return strings.Join(traits, samplerDelimiter), nanosToSec(int64(m.ObservationTimestampNanoseconds)), nil //nolint:gosec // G115
 	case synchronization.PipelineBridge:
 		m, ok := msg.(*LLOBridgeTelemetry)
 		if !ok || m == nil {
 			return "", 0, errors.New("invalid telemetry type, expected LLOBridgeTelemetry")
 		}
 		traits := []string{
-			fmt.Sprint(m.DonId),
-			fmt.Sprint(m.GetStreamId()),
-			fmt.Sprint(m.SpecId),
-			fmt.Sprint(m.BridgeAdapterName),
-			fmt.Sprint(hex.EncodeToString(m.ConfigDigest)),
+			strconv.FormatUint(uint64(m.DonId), 10),
+			strconv.FormatUint(uint64(m.GetStreamId()), 10),
+			strconv.FormatUint(uint64(m.SpecId), 10),
+			m.BridgeAdapterName,
+			hex.EncodeToString(m.ConfigDigest),
 		}
 		return strings.Join(traits, samplerDelimiter), nanosToSec(m.ObservationTimestamp), nil
 	default:
@@ -164,5 +164,5 @@ func fingerprint(typ synchronization.TelemetryType, msg proto.Message) (string, 
 }
 
 func nanosToSec(n int64) int32 {
-	return int32(n / int64(time.Second))
+	return int32(n / int64(time.Second)) //nolint:gosec // G115
 }
