@@ -17,7 +17,7 @@ import (
 )
 
 const (
-	PrunePeriod = 10 * time.Second
+	defaultPrunePeriod = 10 * time.Second
 
 	samplerDelimiter = "-"
 )
@@ -35,17 +35,17 @@ type sampler struct {
 	samples   map[string]map[int32]any
 	samplesMu sync.Mutex
 
-	lggr logger.Logger
+	prunePeriod time.Duration // exists, so we can test pruning
+	lggr        logger.Logger
 }
 
 func newSampler(lgger logger.SugaredLogger) *sampler {
 	return &sampler{
-		samples: make(map[string]map[int32]any),
-		lggr:    lgger,
+		samples:     make(map[string]map[int32]any),
+		prunePeriod: defaultPrunePeriod,
+		lggr:        lgger,
 	}
 }
-
-// TODO implement config option. should allow enabling/disabling and changing the sampling frequency.
 
 // Sample is the method which decides whether we're going to send the data downstream or not.
 func (s *sampler) Sample(typ synchronization.TelemetryType, msg proto.Message) bool {
@@ -79,7 +79,7 @@ func (s *sampler) StartPruningLoop(ctx context.Context, wg *sync.WaitGroup) {
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
-		t := time.NewTicker(PrunePeriod)
+		t := time.NewTicker(s.prunePeriod)
 		defer t.Stop()
 
 		for {
@@ -93,12 +93,12 @@ func (s *sampler) StartPruningLoop(ctx context.Context, wg *sync.WaitGroup) {
 	}()
 }
 
-// pruneStorage removes all records which are older than a predefined period (PrunePeriod).
+// pruneStorage removes all records which are older than a predefined period (s.prunePeriod).
 func (s *sampler) pruneStorage() {
 	s.samplesMu.Lock()
 	defer s.samplesMu.Unlock()
 
-	cutoff := int32(time.Now().Add(-PrunePeriod).Second())
+	cutoff := int32(time.Now().Add(-s.prunePeriod).Unix())
 	for _, ots := range s.samples {
 		for ts := range ots {
 			if ts < cutoff {
