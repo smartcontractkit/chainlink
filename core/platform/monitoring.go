@@ -26,6 +26,7 @@ const (
 	KeyP2PID               = "p2pID"
 	ValueWorkflowVersion   = "1.0.0"
 	ValueWorkflowVersionV2 = "2.0.0"
+	KeyCapabilityErrorCode = "capabilityErrorCode"
 
 	// Registry and version keys
 	WorkflowRegistryAddress       = "workflowRegistryAddress"
