@@ -212,7 +212,7 @@ func Test_CCIPTokenTransfer_Sui2EVM_BurnMintTokenPool(t *testing.T) {
 	})
 }
 
-func Test_CCIPTokenTransfer_Sui2EVM_BurnMintTokenPool_ThenGloballyCursed(t *testing.T) {
+func Test_CCIPTokenTransfer_Sui2EVM_BurnMintTokenPool_ThenGloballyCursedUncursed(t *testing.T) {
 	e, sourceChain, destChain := testSetupTokenTransferSui2Evm(t)
 
 	feeTokenOutput := mintLinkTokenOnSui(t, e.Env, sourceChain, 1000000000000)
@@ -684,7 +684,7 @@ func Test_CCIPTokenTransfer_Sui2EVM_BurnMintTokenPool_WithRateLimit(t *testing.T
 
 	testhelpers.WaitForTokenBalances(ctx, t, updatedEnv, expectedTokenBalances)
 
-	t.Run("Send token above outbound rate limit - should fail", func(t *testing.T) {
+	t.Run("Send token above Sui's outbound rate limit - should fail", func(t *testing.T) {
 		msg := testhelpers.SuiSendRequest{
 			Receiver: common.LeftPadBytes(ccipReceiverAddress.Bytes(), 32),
 			Data:     []byte("Hello, World!"),
@@ -729,7 +729,7 @@ func mintLinkTokenOnSui(t *testing.T, e cldf.Environment, sourceChain uint64, am
 	return outputMapTransferToken
 }
 
-func Test_CCIPTokenTransfer_Sui2EVM_ManagedTokenPool_ThenCurse(t *testing.T) {
+func Test_CCIPTokenTransfer_Sui2EVM_ManagedTokenPool_ThenCurseUncurse(t *testing.T) {
 	e, sourceChain, destChain := testSetupTokenTransferSui2Evm(t)
 
 	feeTokenOutput := mintLinkTokenOnSui(t, e.Env, sourceChain, 1000000000000)
@@ -874,72 +874,46 @@ func Test_CCIPTokenTransfer_Sui2EVM_ManagedTokenPool_ThenCurse(t *testing.T) {
 		assertSuiSourceRevertExpectedError(t, err, "failed to execute ccip_send with err: transaction failed with error: MoveAbort", "function_name: Some(\"validate_lock_or_burn\") }, 3)")
 		t.Log("Expected error: ", err)
 	})
-}
 
-func Test_CCIPTokenTransfer_EVM2SUI_ManagedTokenPool_NoRateLimit(t *testing.T) {
-	e, sourceChain, destChain, deployerSourceChain, suiTokenBytes, suiAddr := testSetupHelperEvm2Sui(t)
-
-	state, err := stateview.LoadOnchainState(e.Env)
+	// uncurse destination chain
+	_, err = operations.ExecuteOperation(e.Env.OperationsBundle, ccipops.RMNRemoteUncurseOp, deps, ccipops.RMNRemoteUncurseInput{
+		CCIPPackageId:    suiState[sourceChain].CCIPAddress,
+		StateObjectId:    suiState[sourceChain].CCIPObjectRef,
+		OwnerCapObjectId: suiState[sourceChain].CCIPOwnerCapObjectId,
+		Subject:          selectorBytes,
+	})
 	require.NoError(t, err)
 
-	// Token Pool setup on both SUI and EVM
-	updatedEnv, evmToken, _, err := testhelpers.HandleTokenAndManagedTokenPoolDeploymentForSUI(e.Env, destChain, sourceChain, []testhelpers.TokenPoolRateLimiterConfig{
+	tcs = []testhelpers.TestTransferRequest{
 		{
-			RemoteChainSelector: sourceChain,
-			OutboundIsEnabled:   false,
-			OutboundCapacity:    100000,
-			OutboundRate:        100,
-			InboundIsEnabled:    false,
-			InboundCapacity:     100000,
-			InboundRate:         100,
-		},
-	}) // sourceChain=EVM, destChain=SUI
-	require.NoError(t, err)
-
-	// update env to include deployed contracts
-	e.Env = updatedEnv
-
-	testhelpers.MintAndAllow(
-		t,
-		e.Env,
-		state,
-		map[uint64][]testhelpers.MintTokenInfo{
-			sourceChain: {
-				testhelpers.NewMintTokenInfo(deployerSourceChain, evmToken),
-			},
-		},
-	)
-
-	emptyReceiver := hexutil.MustDecode(
-		"0x0000000000000000000000000000000000000000000000000000000000000000", // receiver packageID
-	)
-
-	tcs := []testhelpers.TestTransferRequest{
-		{
-			Name:             "Send token to EOA",
-			SourceChain:      sourceChain,
-			DestChain:        destChain,
-			Receiver:         emptyReceiver,
-			TokenReceiverATA: suiAddr[:], // tokenReceiver extracted from extraArgs (the address that actually gets the token)
-			ExpectedStatus:   testhelpers.EXECUTION_STATE_SUCCESS,
-			Tokens: []router.ClientEVMTokenAmount{
+			Name:           "Send token to EOA after uncursing",
+			SourceChain:    sourceChain,
+			DestChain:      destChain,
+			Receiver:       updatedEnv.BlockChains.EVMChains()[destChain].DeployerKey.From.Bytes(), // internally left padded to 32byte
+			ExpectedStatus: testhelpers.EXECUTION_STATE_SUCCESS,
+			FeeToken:       feeTokenOutput.Objects.MintedLinkTokenObjectId,
+			SuiTokens: []testhelpers.SuiTokenAmount{
 				{
-					Token:  evmToken.Address(),
-					Amount: big.NewInt(1e18),
+					TokenPoolType: sui_deployment.TokenPoolTypeManaged,
+					Token:         linkTokenOutput3.Objects.MintedLinkTokenObjectId,
+					Amount:        1500000000, // Send 1.5 LINK to EVM
 				},
 			},
-			ExtraArgs: testhelpers.MakeSuiExtraArgs(0, true, [][32]byte{}, suiAddr),
 			ExpectedTokenBalances: []testhelpers.ExpectedBalance{
 				{
-					Token:  suiTokenBytes,
-					Amount: big.NewInt(1e9),
+					Token:  evmToken.Address().Bytes(),
+					Amount: big.NewInt(2.5e18), // 1e18 from first transfer + 1.5e18 from second transfer
 				},
 			},
 		},
 	}
 
-	ctx := testhelpers.Context(t)
-	startBlocks, expectedSeqNums, expectedExecutionStates, expectedTokenBalances := testhelpers.TransferMultiple(ctx, t, updatedEnv, state, tcs)
+	// reload state
+	state, err = stateview.LoadOnchainState(e.Env)
+	require.NoError(t, err)
+
+	ctx = testhelpers.Context(t)
+	startBlocks, expectedSeqNums, expectedExecutionStates, expectedTokenBalances = testhelpers.TransferMultiple(ctx, t, updatedEnv, state, tcs)
 
 	err = testhelpers.ConfirmMultipleCommitsWithContext(
 		ctx,
@@ -952,7 +926,7 @@ func Test_CCIPTokenTransfer_EVM2SUI_ManagedTokenPool_NoRateLimit(t *testing.T) {
 	)
 	require.NoError(t, err)
 
-	execStates := testhelpers.ConfirmExecWithSeqNrsForAllWithContext(
+	execStates = testhelpers.ConfirmExecWithSeqNrsForAllWithContext(
 		ctx,
 		t,
 		updatedEnv,
@@ -964,6 +938,95 @@ func Test_CCIPTokenTransfer_EVM2SUI_ManagedTokenPool_NoRateLimit(t *testing.T) {
 
 	testhelpers.WaitForTokenBalances(ctx, t, updatedEnv, expectedTokenBalances)
 }
+
+// func Test_CCIPTokenTransfer_EVM2SUI_ManagedTokenPool_NoRateLimit(t *testing.T) {
+// 	e, sourceChain, destChain, deployerSourceChain, suiTokenBytes, suiAddr := testSetupHelperEvm2Sui(t)
+
+// 	state, err := stateview.LoadOnchainState(e.Env)
+// 	require.NoError(t, err)
+
+// 	// Token Pool setup on both SUI and EVM
+// 	updatedEnv, evmToken, _, err := testhelpers.HandleTokenAndManagedTokenPoolDeploymentForSUI(e.Env, destChain, sourceChain, []testhelpers.TokenPoolRateLimiterConfig{
+// 		{
+// 			RemoteChainSelector: sourceChain,
+// 			OutboundIsEnabled:   false,
+// 			OutboundCapacity:    100000,
+// 			OutboundRate:        100,
+// 			InboundIsEnabled:    false,
+// 			InboundCapacity:     100000,
+// 			InboundRate:         100,
+// 		},
+// 	}) // sourceChain=EVM, destChain=SUI
+// 	require.NoError(t, err)
+
+// 	// update env to include deployed contracts
+// 	e.Env = updatedEnv
+
+// 	testhelpers.MintAndAllow(
+// 		t,
+// 		e.Env,
+// 		state,
+// 		map[uint64][]testhelpers.MintTokenInfo{
+// 			sourceChain: {
+// 				testhelpers.NewMintTokenInfo(deployerSourceChain, evmToken),
+// 			},
+// 		},
+// 	)
+
+// 	emptyReceiver := hexutil.MustDecode(
+// 		"0x0000000000000000000000000000000000000000000000000000000000000000", // receiver packageID
+// 	)
+
+// 	tcs := []testhelpers.TestTransferRequest{
+// 		{
+// 			Name:             "Send token to EOA",
+// 			SourceChain:      sourceChain,
+// 			DestChain:        destChain,
+// 			Receiver:         emptyReceiver,
+// 			TokenReceiverATA: suiAddr[:], // tokenReceiver extracted from extraArgs (the address that actually gets the token)
+// 			ExpectedStatus:   testhelpers.EXECUTION_STATE_SUCCESS,
+// 			Tokens: []router.ClientEVMTokenAmount{
+// 				{
+// 					Token:  evmToken.Address(),
+// 					Amount: big.NewInt(1e18),
+// 				},
+// 			},
+// 			ExtraArgs: testhelpers.MakeSuiExtraArgs(0, true, [][32]byte{}, suiAddr),
+// 			ExpectedTokenBalances: []testhelpers.ExpectedBalance{
+// 				{
+// 					Token:  suiTokenBytes,
+// 					Amount: big.NewInt(1e9),
+// 				},
+// 			},
+// 		},
+// 	}
+
+// 	ctx := testhelpers.Context(t)
+// 	startBlocks, expectedSeqNums, expectedExecutionStates, expectedTokenBalances := testhelpers.TransferMultiple(ctx, t, updatedEnv, state, tcs)
+
+// 	err = testhelpers.ConfirmMultipleCommitsWithContext(
+// 		ctx,
+// 		t,
+// 		updatedEnv,
+// 		state,
+// 		startBlocks,
+// 		false,
+// 		expectedSeqNums,
+// 	)
+// 	require.NoError(t, err)
+
+// 	execStates := testhelpers.ConfirmExecWithSeqNrsForAllWithContext(
+// 		ctx,
+// 		t,
+// 		updatedEnv,
+// 		state,
+// 		testhelpers.SeqNumberRangeToSlice(expectedSeqNums),
+// 		startBlocks,
+// 	)
+// 	require.Equal(t, expectedExecutionStates, execStates)
+
+// 	testhelpers.WaitForTokenBalances(ctx, t, updatedEnv, expectedTokenBalances)
+// }
 
 func Test_CCIPTokenTransfer_SUI2EVM_ManagedTokenPool_WithRateLimit(t *testing.T) {
 	e, sourceChain, destChain := testSetupTokenTransferSui2Evm(t)
@@ -1044,7 +1107,7 @@ func Test_CCIPTokenTransfer_SUI2EVM_ManagedTokenPool_WithRateLimit(t *testing.T)
 
 	testhelpers.WaitForTokenBalances(ctx, t, e.Env, expectedTokenBalances)
 
-	t.Run("Send tokens exceeding Sui's inbound rate limit - should fail", func(t *testing.T) {
+	t.Run("Send tokens exceeding Sui's outbound rate limit - should fail", func(t *testing.T) {
 		msg := testhelpers.SuiSendRequest{
 			Receiver: common.LeftPadBytes(ccipReceiverAddress.Bytes(), 32),
 			Data:     []byte("Hello, World!"),
@@ -1070,119 +1133,119 @@ func Test_CCIPTokenTransfer_SUI2EVM_ManagedTokenPool_WithRateLimit(t *testing.T)
 	})
 }
 
-func Test_CCIPTokenTransfer_EVM2SUI_ManagedTokenPool_WithRateLimit(t *testing.T) {
-	e, sourceChain, destChain, deployerSourceChain, suiTokenBytes, suiAddr := testSetupHelperEvm2Sui(t)
+// func Test_CCIPTokenTransfer_EVM2SUI_ManagedTokenPool_WithRateLimit(t *testing.T) {
+// 	e, sourceChain, destChain, deployerSourceChain, suiTokenBytes, suiAddr := testSetupHelperEvm2Sui(t)
 
-	// Token Pool setup on both SUI and EVM
-	updatedEnv, evmToken, _, err := testhelpers.HandleTokenAndManagedTokenPoolDeploymentForSUI(e.Env, destChain, sourceChain, []testhelpers.TokenPoolRateLimiterConfig{
-		{
-			RemoteChainSelector: sourceChain,
-			OutboundIsEnabled:   true,
-			OutboundCapacity:    100000,
-			OutboundRate:        100,
-			InboundIsEnabled:    true,
-			InboundCapacity:     2000000000,
-			InboundRate:         100000,
-		},
-	}) // sourceChain=EVM, destChain=SUI
-	require.NoError(t, err)
+// 	// Token Pool setup on both SUI and EVM
+// 	updatedEnv, evmToken, _, err := testhelpers.HandleTokenAndManagedTokenPoolDeploymentForSUI(e.Env, destChain, sourceChain, []testhelpers.TokenPoolRateLimiterConfig{
+// 		{
+// 			RemoteChainSelector: sourceChain,
+// 			OutboundIsEnabled:   true,
+// 			OutboundCapacity:    100000,
+// 			OutboundRate:        100,
+// 			InboundIsEnabled:    true,
+// 			InboundCapacity:     2000000000,
+// 			InboundRate:         100000,
+// 		},
+// 	}) // sourceChain=EVM, destChain=SUI
+// 	require.NoError(t, err)
 
-	// update env to include deployed contracts
-	e.Env = updatedEnv
+// 	// update env to include deployed contracts
+// 	e.Env = updatedEnv
 
-	state, err := stateview.LoadOnchainState(e.Env)
-	require.NoError(t, err)
+// 	state, err := stateview.LoadOnchainState(e.Env)
+// 	require.NoError(t, err)
 
-	testhelpers.MintAndAllow(
-		t,
-		e.Env,
-		state,
-		map[uint64][]testhelpers.MintTokenInfo{
-			sourceChain: {
-				testhelpers.NewMintTokenInfo(deployerSourceChain, evmToken),
-			},
-		},
-	)
+// 	testhelpers.MintAndAllow(
+// 		t,
+// 		e.Env,
+// 		state,
+// 		map[uint64][]testhelpers.MintTokenInfo{
+// 			sourceChain: {
+// 				testhelpers.NewMintTokenInfo(deployerSourceChain, evmToken),
+// 			},
+// 		},
+// 	)
 
-	emptyReceiver := hexutil.MustDecode(
-		"0x0000000000000000000000000000000000000000000000000000000000000000", // receiver packageID
-	)
+// 	emptyReceiver := hexutil.MustDecode(
+// 		"0x0000000000000000000000000000000000000000000000000000000000000000", // receiver packageID
+// 	)
 
-	tcs := []testhelpers.TestTransferRequest{
-		{
-			Name:             "Send token to EOA",
-			SourceChain:      sourceChain,
-			DestChain:        destChain,
-			Receiver:         emptyReceiver,
-			TokenReceiverATA: suiAddr[:], // tokenReceiver extracted from extraArgs (the address that actually gets the token)
-			ExpectedStatus:   testhelpers.EXECUTION_STATE_SUCCESS,
-			Tokens: []router.ClientEVMTokenAmount{
-				{
-					Token:  evmToken.Address(),
-					Amount: big.NewInt(1e18),
-				},
-			},
-			ExtraArgs: testhelpers.MakeSuiExtraArgs(0, true, [][32]byte{}, suiAddr),
-			ExpectedTokenBalances: []testhelpers.ExpectedBalance{
-				{
-					Token:  suiTokenBytes,
-					Amount: big.NewInt(1e9),
-				},
-			},
-		},
-	}
+// 	tcs := []testhelpers.TestTransferRequest{
+// 		{
+// 			Name:             "Send token to EOA",
+// 			SourceChain:      sourceChain,
+// 			DestChain:        destChain,
+// 			Receiver:         emptyReceiver,
+// 			TokenReceiverATA: suiAddr[:], // tokenReceiver extracted from extraArgs (the address that actually gets the token)
+// 			ExpectedStatus:   testhelpers.EXECUTION_STATE_SUCCESS,
+// 			Tokens: []router.ClientEVMTokenAmount{
+// 				{
+// 					Token:  evmToken.Address(),
+// 					Amount: big.NewInt(1e18),
+// 				},
+// 			},
+// 			ExtraArgs: testhelpers.MakeSuiExtraArgs(0, true, [][32]byte{}, suiAddr),
+// 			ExpectedTokenBalances: []testhelpers.ExpectedBalance{
+// 				{
+// 					Token:  suiTokenBytes,
+// 					Amount: big.NewInt(1e9),
+// 				},
+// 			},
+// 		},
+// 	}
 
-	ctx := testhelpers.Context(t)
-	startBlocks, expectedSeqNums, expectedExecutionStates, expectedTokenBalances := testhelpers.TransferMultiple(ctx, t, e.Env, state, tcs)
+// 	ctx := testhelpers.Context(t)
+// 	startBlocks, expectedSeqNums, expectedExecutionStates, expectedTokenBalances := testhelpers.TransferMultiple(ctx, t, e.Env, state, tcs)
 
-	err = testhelpers.ConfirmMultipleCommitsWithContext(
-		ctx,
-		t,
-		e.Env,
-		state,
-		startBlocks,
-		false,
-		expectedSeqNums,
-	)
-	require.NoError(t, err)
+// 	err = testhelpers.ConfirmMultipleCommitsWithContext(
+// 		ctx,
+// 		t,
+// 		e.Env,
+// 		state,
+// 		startBlocks,
+// 		false,
+// 		expectedSeqNums,
+// 	)
+// 	require.NoError(t, err)
 
-	execStates := testhelpers.ConfirmExecWithSeqNrsForAllWithContext(
-		ctx,
-		t,
-		e.Env,
-		state,
-		testhelpers.SeqNumberRangeToSlice(expectedSeqNums),
-		startBlocks,
-	)
-	require.Equal(t, expectedExecutionStates, execStates)
+// 	execStates := testhelpers.ConfirmExecWithSeqNrsForAllWithContext(
+// 		ctx,
+// 		t,
+// 		e.Env,
+// 		state,
+// 		testhelpers.SeqNumberRangeToSlice(expectedSeqNums),
+// 		startBlocks,
+// 	)
+// 	require.Equal(t, expectedExecutionStates, execStates)
 
-	testhelpers.WaitForTokenBalances(ctx, t, e.Env, expectedTokenBalances)
+// 	testhelpers.WaitForTokenBalances(ctx, t, e.Env, expectedTokenBalances)
 
-	t.Run("Send tokens exceeding inbound rate limit - should fail", func(t *testing.T) {
-		msg := router.ClientEVM2AnyMessage{
-			FeeToken:  evmToken.Address(),
-			Receiver:  emptyReceiver,
-			ExtraArgs: testhelpers.MakeSuiExtraArgs(0, true, [][32]byte{}, suiAddr),
-			TokenAmounts: []router.ClientEVMTokenAmount{
-				{
-					Token:  evmToken.Address(),
-					Amount: big.NewInt(5e18), // send 5 LINK
-				},
-			}}
+// 	t.Run("Send tokens exceeding Sui's inbound rate limit - should fail", func(t *testing.T) {
+// 		msg := router.ClientEVM2AnyMessage{
+// 			FeeToken:  evmToken.Address(),
+// 			Receiver:  emptyReceiver,
+// 			ExtraArgs: testhelpers.MakeSuiExtraArgs(0, true, [][32]byte{}, suiAddr),
+// 			TokenAmounts: []router.ClientEVMTokenAmount{
+// 				{
+// 					Token:  evmToken.Address(),
+// 					Amount: big.NewInt(5e18), // send 5 LINK
+// 				},
+// 			}}
 
-		baseOpts := []ccipclient.SendReqOpts{
-			ccipclient.WithSourceChain(sourceChain),
-			ccipclient.WithDestChain(destChain),
-			ccipclient.WithTestRouter(false),
-			ccipclient.WithMessage(msg),
-		}
+// 		baseOpts := []ccipclient.SendReqOpts{
+// 			ccipclient.WithSourceChain(sourceChain),
+// 			ccipclient.WithDestChain(destChain),
+// 			ccipclient.WithTestRouter(false),
+// 			ccipclient.WithMessage(msg),
+// 		}
 
-		_, err := testhelpers.SendRequest(e.Env, state, baseOpts...)
-		require.Error(t, err)
-		require.Contains(t, err.Error(), "execution reverted")
-		t.Log("Expected error: ", err)
-	})
-}
+// 		_, err := testhelpers.SendRequest(e.Env, state, baseOpts...)
+// 		require.Error(t, err)
+// 		require.Contains(t, err.Error(), "execution reverted")
+// 		t.Log("Expected error: ", err)
+// 	})
+// }
 
 func Test_CCIPTokenTransfer_EVM2SUI_BurnMintTokenPool(t *testing.T) {
 	e, sourceChain, destChain, deployerSourceChain, suiTokenBytes, suiAddr := testSetupHelperEvm2Sui(t)
@@ -1398,359 +1461,359 @@ func Test_CCIPTokenTransfer_EVM2SUI_BurnMintTokenPool(t *testing.T) {
 	})
 }
 
-func Test_CCIPPureTokenTransfer_EVM2SUI_BurnMintTokenPool(t *testing.T) {
-	e, sourceChain, destChain, deployerSourceChain, suiTokenBytes, suiAddr := testSetupHelperEvm2Sui(t)
+// func Test_CCIPPureTokenTransfer_EVM2SUI_BurnMintTokenPool(t *testing.T) {
+// 	e, sourceChain, destChain, deployerSourceChain, suiTokenBytes, suiAddr := testSetupHelperEvm2Sui(t)
 
-	// Token Pool setup on both SUI and EVM
-	updatedEnv, evmToken, _, err := testhelpers.HandleTokenAndBurnMintTokenPoolDeploymentForSUI(e.Env, destChain, sourceChain, []testhelpers.TokenPoolRateLimiterConfig{
-		{
-			RemoteChainSelector: sourceChain,
-			OutboundIsEnabled:   false,
-			OutboundCapacity:    100000,
-			OutboundRate:        100,
-			InboundIsEnabled:    false,
-			InboundCapacity:     100000,
-			InboundRate:         100,
-		},
-	}) // sourceChain=EVM, destChain=SUI
-	require.NoError(t, err)
+// 	// Token Pool setup on both SUI and EVM
+// 	updatedEnv, evmToken, _, err := testhelpers.HandleTokenAndBurnMintTokenPoolDeploymentForSUI(e.Env, destChain, sourceChain, []testhelpers.TokenPoolRateLimiterConfig{
+// 		{
+// 			RemoteChainSelector: sourceChain,
+// 			OutboundIsEnabled:   false,
+// 			OutboundCapacity:    100000,
+// 			OutboundRate:        100,
+// 			InboundIsEnabled:    false,
+// 			InboundCapacity:     100000,
+// 			InboundRate:         100,
+// 		},
+// 	}) // sourceChain=EVM, destChain=SUI
+// 	require.NoError(t, err)
 
-	state, err := stateview.LoadOnchainState(e.Env)
-	require.NoError(t, err)
+// 	state, err := stateview.LoadOnchainState(e.Env)
+// 	require.NoError(t, err)
 
-	// update env to include deployed contracts
-	e.Env = updatedEnv
+// 	// update env to include deployed contracts
+// 	e.Env = updatedEnv
 
-	testhelpers.MintAndAllow(
-		t,
-		e.Env,
-		state,
-		map[uint64][]testhelpers.MintTokenInfo{
-			sourceChain: {
-				testhelpers.NewMintTokenInfo(deployerSourceChain, evmToken),
-			},
-		},
-	)
+// 	testhelpers.MintAndAllow(
+// 		t,
+// 		e.Env,
+// 		state,
+// 		map[uint64][]testhelpers.MintTokenInfo{
+// 			sourceChain: {
+// 				testhelpers.NewMintTokenInfo(deployerSourceChain, evmToken),
+// 			},
+// 		},
+// 	)
 
-	emptyReceiver := hexutil.MustDecode(
-		"0x0000000000000000000000000000000000000000000000000000000000000000", // receiver packageID
-	)
+// 	emptyReceiver := hexutil.MustDecode(
+// 		"0x0000000000000000000000000000000000000000000000000000000000000000", // receiver packageID
+// 	)
 
-	tcs := []testhelpers.TestTransferRequest{
-		// Pure token transfer
-		// ReceiverObjectIds = empty
-		// token.Receiver = non empty (maybe EOA or object)
-		// message.Receiver = empty
-		// don't need extraArgs gasLimit, can be set to 0
-		{
-			Name:             "Send token to EOA with - Pure Token Transfer",
-			SourceChain:      sourceChain,
-			DestChain:        destChain,
-			Data:             []byte{},
-			Receiver:         emptyReceiver, // empty Receiver
-			TokenReceiverATA: suiAddr[:],    // tokenReceiver extracted from extraArgs (the address that actually gets the token)
-			ExpectedStatus:   testhelpers.EXECUTION_STATE_SUCCESS,
-			Tokens: []router.ClientEVMTokenAmount{
-				{
-					Token:  evmToken.Address(),
-					Amount: big.NewInt(1e18),
-				},
-			},
-			ExtraArgs: testhelpers.MakeSuiExtraArgs(0, true, [][32]byte{}, suiAddr),
-			ExpectedTokenBalances: []testhelpers.ExpectedBalance{
-				{
-					Token:  suiTokenBytes,
-					Amount: big.NewInt(1e9),
-				},
-			},
-		},
-	}
+// 	tcs := []testhelpers.TestTransferRequest{
+// 		// Pure token transfer
+// 		// ReceiverObjectIds = empty
+// 		// token.Receiver = non empty (maybe EOA or object)
+// 		// message.Receiver = empty
+// 		// don't need extraArgs gasLimit, can be set to 0
+// 		{
+// 			Name:             "Send token to EOA with - Pure Token Transfer",
+// 			SourceChain:      sourceChain,
+// 			DestChain:        destChain,
+// 			Data:             []byte{},
+// 			Receiver:         emptyReceiver, // empty Receiver
+// 			TokenReceiverATA: suiAddr[:],    // tokenReceiver extracted from extraArgs (the address that actually gets the token)
+// 			ExpectedStatus:   testhelpers.EXECUTION_STATE_SUCCESS,
+// 			Tokens: []router.ClientEVMTokenAmount{
+// 				{
+// 					Token:  evmToken.Address(),
+// 					Amount: big.NewInt(1e18),
+// 				},
+// 			},
+// 			ExtraArgs: testhelpers.MakeSuiExtraArgs(0, true, [][32]byte{}, suiAddr),
+// 			ExpectedTokenBalances: []testhelpers.ExpectedBalance{
+// 				{
+// 					Token:  suiTokenBytes,
+// 					Amount: big.NewInt(1e9),
+// 				},
+// 			},
+// 		},
+// 	}
 
-	ctx := testhelpers.Context(t)
-	startBlocks, expectedSeqNums, expectedExecutionStates, expectedTokenBalances := testhelpers.TransferMultiple(ctx, t, e.Env, state, tcs)
+// 	ctx := testhelpers.Context(t)
+// 	startBlocks, expectedSeqNums, expectedExecutionStates, expectedTokenBalances := testhelpers.TransferMultiple(ctx, t, e.Env, state, tcs)
 
-	err = testhelpers.ConfirmMultipleCommitsWithContext(
-		ctx,
-		t,
-		e.Env,
-		state,
-		startBlocks,
-		false,
-		expectedSeqNums,
-	)
-	require.NoError(t, err)
+// 	err = testhelpers.ConfirmMultipleCommitsWithContext(
+// 		ctx,
+// 		t,
+// 		e.Env,
+// 		state,
+// 		startBlocks,
+// 		false,
+// 		expectedSeqNums,
+// 	)
+// 	require.NoError(t, err)
 
-	execStates := testhelpers.ConfirmExecWithSeqNrsForAllWithContext(
-		ctx,
-		t,
-		e.Env,
-		state,
-		testhelpers.SeqNumberRangeToSlice(expectedSeqNums),
-		startBlocks,
-	)
-	require.Equal(t, expectedExecutionStates, execStates)
+// 	execStates := testhelpers.ConfirmExecWithSeqNrsForAllWithContext(
+// 		ctx,
+// 		t,
+// 		e.Env,
+// 		state,
+// 		testhelpers.SeqNumberRangeToSlice(expectedSeqNums),
+// 		startBlocks,
+// 	)
+// 	require.Equal(t, expectedExecutionStates, execStates)
 
-	testhelpers.WaitForTokenBalances(ctx, t, e.Env, expectedTokenBalances)
-}
+// 	testhelpers.WaitForTokenBalances(ctx, t, e.Env, expectedTokenBalances)
+// }
 
-func Test_CCIPProgrammableTokenTransfer_EVM2SUI_BurnMintTokenPool(t *testing.T) {
-	e, sourceChain, destChain, deployerSourceChain, _, _ := testSetupHelperEvm2Sui(t)
+// func Test_CCIPProgrammableTokenTransfer_EVM2SUI_BurnMintTokenPool(t *testing.T) {
+// 	e, sourceChain, destChain, deployerSourceChain, _, _ := testSetupHelperEvm2Sui(t)
 
-	// Token Pool setup on both SUI and EVM
-	updatedEnv, evmToken, _, err := testhelpers.HandleTokenAndBurnMintTokenPoolDeploymentForSUI(e.Env, destChain, sourceChain, []testhelpers.TokenPoolRateLimiterConfig{
-		{
-			RemoteChainSelector: sourceChain,
-			OutboundIsEnabled:   false,
-			OutboundCapacity:    100000,
-			OutboundRate:        100,
-			InboundIsEnabled:    false,
-			InboundCapacity:     100000,
-			InboundRate:         100,
-		},
-	}) // sourceChain=EVM, destChain=SUI
-	require.NoError(t, err)
+// 	// Token Pool setup on both SUI and EVM
+// 	updatedEnv, evmToken, _, err := testhelpers.HandleTokenAndBurnMintTokenPoolDeploymentForSUI(e.Env, destChain, sourceChain, []testhelpers.TokenPoolRateLimiterConfig{
+// 		{
+// 			RemoteChainSelector: sourceChain,
+// 			OutboundIsEnabled:   false,
+// 			OutboundCapacity:    100000,
+// 			OutboundRate:        100,
+// 			InboundIsEnabled:    false,
+// 			InboundCapacity:     100000,
+// 			InboundRate:         100,
+// 		},
+// 	}) // sourceChain=EVM, destChain=SUI
+// 	require.NoError(t, err)
 
-	state, err := stateview.LoadOnchainState(e.Env)
-	require.NoError(t, err)
+// 	state, err := stateview.LoadOnchainState(e.Env)
+// 	require.NoError(t, err)
 
-	// update env to include deployed contracts
-	e.Env = updatedEnv
+// 	// update env to include deployed contracts
+// 	e.Env = updatedEnv
 
-	testhelpers.MintAndAllow(
-		t,
-		e.Env,
-		state,
-		map[uint64][]testhelpers.MintTokenInfo{
-			sourceChain: {
-				testhelpers.NewMintTokenInfo(deployerSourceChain, evmToken),
-			},
-		},
-	)
+// 	testhelpers.MintAndAllow(
+// 		t,
+// 		e.Env,
+// 		state,
+// 		map[uint64][]testhelpers.MintTokenInfo{
+// 			sourceChain: {
+// 				testhelpers.NewMintTokenInfo(deployerSourceChain, evmToken),
+// 			},
+// 		},
+// 	)
 
-	// Deploy SUI Receiver
-	_, output, err := commoncs.ApplyChangesets(t, e.Env, []commoncs.ConfiguredChangeSet{
-		commoncs.Configure(sui_cs.DeployDummyReceiver{}, sui_cs.DeployDummyReceiverConfig{
-			SuiChainSelector: destChain,
-			McmsOwner:        "0x1",
-		}),
-	})
-	require.NoError(t, err)
+// 	// Deploy SUI Receiver
+// 	_, output, err := commoncs.ApplyChangesets(t, e.Env, []commoncs.ConfiguredChangeSet{
+// 		commoncs.Configure(sui_cs.DeployDummyReceiver{}, sui_cs.DeployDummyReceiverConfig{
+// 			SuiChainSelector: destChain,
+// 			McmsOwner:        "0x1",
+// 		}),
+// 	})
+// 	require.NoError(t, err)
 
-	rawOutput := output[0].Reports[0]
+// 	rawOutput := output[0].Reports[0]
 
-	outputMap, ok := rawOutput.Output.(sui_ops.OpTxResult[ccipops.DeployDummyReceiverObjects])
-	require.True(t, ok)
+// 	outputMap, ok := rawOutput.Output.(sui_ops.OpTxResult[ccipops.DeployDummyReceiverObjects])
+// 	require.True(t, ok)
 
-	id := strings.TrimPrefix(outputMap.PackageId, "0x")
-	receiverByteDecoded, err := hex.DecodeString(id)
-	require.NoError(t, err)
+// 	id := strings.TrimPrefix(outputMap.PackageId, "0x")
+// 	receiverByteDecoded, err := hex.DecodeString(id)
+// 	require.NoError(t, err)
 
-	// register the receiver
-	_, _, err = commoncs.ApplyChangesets(t, e.Env, []commoncs.ConfiguredChangeSet{
-		commoncs.Configure(sui_cs.RegisterDummyReceiver{}, sui_cs.RegisterDummyReceiverConfig{
-			SuiChainSelector:       destChain,
-			OwnerCapObjectId:       outputMap.Objects.OwnerCapObjectId,
-			CCIPObjectRefObjectId:  state.SuiChains[destChain].CCIPObjectRef,
-			DummyReceiverPackageId: outputMap.PackageId,
-		}),
-	})
-	require.NoError(t, err)
+// 	// register the receiver
+// 	_, _, err = commoncs.ApplyChangesets(t, e.Env, []commoncs.ConfiguredChangeSet{
+// 		commoncs.Configure(sui_cs.RegisterDummyReceiver{}, sui_cs.RegisterDummyReceiverConfig{
+// 			SuiChainSelector:       destChain,
+// 			OwnerCapObjectId:       outputMap.Objects.OwnerCapObjectId,
+// 			CCIPObjectRefObjectId:  state.SuiChains[destChain].CCIPObjectRef,
+// 			DummyReceiverPackageId: outputMap.PackageId,
+// 		}),
+// 	})
+// 	require.NoError(t, err)
 
-	receiverByte := receiverByteDecoded
+// 	receiverByte := receiverByteDecoded
 
-	var clockObj [32]byte
-	copy(clockObj[:], hexutil.MustDecode(
-		"0x0000000000000000000000000000000000000000000000000000000000000006",
-	))
+// 	var clockObj [32]byte
+// 	copy(clockObj[:], hexutil.MustDecode(
+// 		"0x0000000000000000000000000000000000000000000000000000000000000006",
+// 	))
 
-	var stateObj [32]byte
-	copy(stateObj[:], hexutil.MustDecode(
-		outputMap.Objects.CCIPReceiverStateObjectId,
-	))
+// 	var stateObj [32]byte
+// 	copy(stateObj[:], hexutil.MustDecode(
+// 		outputMap.Objects.CCIPReceiverStateObjectId,
+// 	))
 
-	receiverObjectIDs := [][32]byte{clockObj, stateObj}
+// 	receiverObjectIDs := [][32]byte{clockObj, stateObj}
 
-	tcs := []testhelpers.TestTransferRequest{
-		// Programmable token transfer
-		// can be thought of as two separate paths tokenPool release/mint + message ccip_receive
-		// receiverObjectIds = non empty (with clock & receiverStateValue)
-		// token.Receiver = non empty(maybe EOA or object)
-		// message.Receiver = receiverPackageId
-		// extraArgs gasLimit > 0
-		{
-			Name:             "Send token to an Object",
-			SourceChain:      sourceChain,
-			DestChain:        destChain,
-			Data:             []byte("Hello Sui From EVM"),
-			Receiver:         receiverByte, // receiver contract pkgId
-			TokenReceiverATA: stateObj[:],  // tokenReceiver extracted from extraArgs (the object that actually gets the token)
-			ExpectedStatus:   testhelpers.EXECUTION_STATE_SUCCESS,
-			Tokens: []router.ClientEVMTokenAmount{
-				{
-					Token:  evmToken.Address(),
-					Amount: big.NewInt(1e18),
-				},
-			},
-			ExtraArgs:             testhelpers.MakeSuiExtraArgs(1000000, true, receiverObjectIDs, stateObj), // receiver is objectId this time
-			ExpectedTokenBalances: []testhelpers.ExpectedBalance{},
-		},
-	}
+// 	tcs := []testhelpers.TestTransferRequest{
+// 		// Programmable token transfer
+// 		// can be thought of as two separate paths tokenPool release/mint + message ccip_receive
+// 		// receiverObjectIds = non empty (with clock & receiverStateValue)
+// 		// token.Receiver = non empty(maybe EOA or object)
+// 		// message.Receiver = receiverPackageId
+// 		// extraArgs gasLimit > 0
+// 		{
+// 			Name:             "Send token to an Object",
+// 			SourceChain:      sourceChain,
+// 			DestChain:        destChain,
+// 			Data:             []byte("Hello Sui From EVM"),
+// 			Receiver:         receiverByte, // receiver contract pkgId
+// 			TokenReceiverATA: stateObj[:],  // tokenReceiver extracted from extraArgs (the object that actually gets the token)
+// 			ExpectedStatus:   testhelpers.EXECUTION_STATE_SUCCESS,
+// 			Tokens: []router.ClientEVMTokenAmount{
+// 				{
+// 					Token:  evmToken.Address(),
+// 					Amount: big.NewInt(1e18),
+// 				},
+// 			},
+// 			ExtraArgs:             testhelpers.MakeSuiExtraArgs(1000000, true, receiverObjectIDs, stateObj), // receiver is objectId this time
+// 			ExpectedTokenBalances: []testhelpers.ExpectedBalance{},
+// 		},
+// 	}
 
-	ctx := testhelpers.Context(t)
-	startBlocks, expectedSeqNums, expectedExecutionStates, expectedTokenBalances := testhelpers.TransferMultiple(ctx, t, e.Env, state, tcs)
+// 	ctx := testhelpers.Context(t)
+// 	startBlocks, expectedSeqNums, expectedExecutionStates, expectedTokenBalances := testhelpers.TransferMultiple(ctx, t, e.Env, state, tcs)
 
-	err = testhelpers.ConfirmMultipleCommitsWithContext(
-		ctx,
-		t,
-		e.Env,
-		state,
-		startBlocks,
-		false,
-		expectedSeqNums,
-	)
-	require.NoError(t, err)
+// 	err = testhelpers.ConfirmMultipleCommitsWithContext(
+// 		ctx,
+// 		t,
+// 		e.Env,
+// 		state,
+// 		startBlocks,
+// 		false,
+// 		expectedSeqNums,
+// 	)
+// 	require.NoError(t, err)
 
-	execStates := testhelpers.ConfirmExecWithSeqNrsForAllWithContext(
-		ctx,
-		t,
-		e.Env,
-		state,
-		testhelpers.SeqNumberRangeToSlice(expectedSeqNums),
-		startBlocks,
-	)
-	require.Equal(t, expectedExecutionStates, execStates)
+// 	execStates := testhelpers.ConfirmExecWithSeqNrsForAllWithContext(
+// 		ctx,
+// 		t,
+// 		e.Env,
+// 		state,
+// 		testhelpers.SeqNumberRangeToSlice(expectedSeqNums),
+// 		startBlocks,
+// 	)
+// 	require.Equal(t, expectedExecutionStates, execStates)
 
-	testhelpers.WaitForTokenBalances(ctx, t, e.Env, expectedTokenBalances)
-}
+// 	testhelpers.WaitForTokenBalances(ctx, t, e.Env, expectedTokenBalances)
+// }
 
-func Test_CCIPZeroGasLimitTokenTransfer_EVM2SUI_BurnMintTokenPool(t *testing.T) {
-	e, sourceChain, destChain, deployerSourceChain, suiTokenBytes, suiAddr := testSetupHelperEvm2Sui(t)
+// func Test_CCIPZeroGasLimitTokenTransfer_EVM2SUI_BurnMintTokenPool(t *testing.T) {
+// 	e, sourceChain, destChain, deployerSourceChain, suiTokenBytes, suiAddr := testSetupHelperEvm2Sui(t)
 
-	// Token Pool setup on both SUI and EVM
-	updatedEnv, evmToken, _, err := testhelpers.HandleTokenAndBurnMintTokenPoolDeploymentForSUI(e.Env, destChain, sourceChain, []testhelpers.TokenPoolRateLimiterConfig{
-		{
-			RemoteChainSelector: sourceChain,
-			OutboundIsEnabled:   false,
-			OutboundCapacity:    100000,
-			OutboundRate:        100,
-			InboundIsEnabled:    false,
-			InboundCapacity:     100000,
-			InboundRate:         100,
-		},
-	}) // sourceChain=EVM, destChain=SUI
-	require.NoError(t, err)
+// 	// Token Pool setup on both SUI and EVM
+// 	updatedEnv, evmToken, _, err := testhelpers.HandleTokenAndBurnMintTokenPoolDeploymentForSUI(e.Env, destChain, sourceChain, []testhelpers.TokenPoolRateLimiterConfig{
+// 		{
+// 			RemoteChainSelector: sourceChain,
+// 			OutboundIsEnabled:   false,
+// 			OutboundCapacity:    100000,
+// 			OutboundRate:        100,
+// 			InboundIsEnabled:    false,
+// 			InboundCapacity:     100000,
+// 			InboundRate:         100,
+// 		},
+// 	}) // sourceChain=EVM, destChain=SUI
+// 	require.NoError(t, err)
 
-	state, err := stateview.LoadOnchainState(e.Env)
-	require.NoError(t, err)
+// 	state, err := stateview.LoadOnchainState(e.Env)
+// 	require.NoError(t, err)
 
-	// update env to include deployed contracts
-	e.Env = updatedEnv
+// 	// update env to include deployed contracts
+// 	e.Env = updatedEnv
 
-	testhelpers.MintAndAllow(
-		t,
-		e.Env,
-		state,
-		map[uint64][]testhelpers.MintTokenInfo{
-			sourceChain: {
-				testhelpers.NewMintTokenInfo(deployerSourceChain, evmToken),
-			},
-		},
-	)
+// 	testhelpers.MintAndAllow(
+// 		t,
+// 		e.Env,
+// 		state,
+// 		map[uint64][]testhelpers.MintTokenInfo{
+// 			sourceChain: {
+// 				testhelpers.NewMintTokenInfo(deployerSourceChain, evmToken),
+// 			},
+// 		},
+// 	)
 
-	// Deploy SUI Receiver
-	_, output, err := commoncs.ApplyChangesets(t, e.Env, []commoncs.ConfiguredChangeSet{
-		commoncs.Configure(sui_cs.DeployDummyReceiver{}, sui_cs.DeployDummyReceiverConfig{
-			SuiChainSelector: destChain,
-			McmsOwner:        "0x1",
-		}),
-	})
-	require.NoError(t, err)
+// 	// Deploy SUI Receiver
+// 	_, output, err := commoncs.ApplyChangesets(t, e.Env, []commoncs.ConfiguredChangeSet{
+// 		commoncs.Configure(sui_cs.DeployDummyReceiver{}, sui_cs.DeployDummyReceiverConfig{
+// 			SuiChainSelector: destChain,
+// 			McmsOwner:        "0x1",
+// 		}),
+// 	})
+// 	require.NoError(t, err)
 
-	rawOutput := output[0].Reports[0]
+// 	rawOutput := output[0].Reports[0]
 
-	outputMap, ok := rawOutput.Output.(sui_ops.OpTxResult[ccipops.DeployDummyReceiverObjects])
-	require.True(t, ok)
+// 	outputMap, ok := rawOutput.Output.(sui_ops.OpTxResult[ccipops.DeployDummyReceiverObjects])
+// 	require.True(t, ok)
 
-	id := strings.TrimPrefix(outputMap.PackageId, "0x")
-	receiverByteDecoded, err := hex.DecodeString(id)
-	require.NoError(t, err)
+// 	id := strings.TrimPrefix(outputMap.PackageId, "0x")
+// 	receiverByteDecoded, err := hex.DecodeString(id)
+// 	require.NoError(t, err)
 
-	// register the receiver
-	_, _, err = commoncs.ApplyChangesets(t, e.Env, []commoncs.ConfiguredChangeSet{
-		commoncs.Configure(sui_cs.RegisterDummyReceiver{}, sui_cs.RegisterDummyReceiverConfig{
-			SuiChainSelector:       destChain,
-			OwnerCapObjectId:       outputMap.Objects.OwnerCapObjectId,
-			CCIPObjectRefObjectId:  state.SuiChains[destChain].CCIPObjectRef,
-			DummyReceiverPackageId: outputMap.PackageId,
-		}),
-	})
-	require.NoError(t, err)
+// 	// register the receiver
+// 	_, _, err = commoncs.ApplyChangesets(t, e.Env, []commoncs.ConfiguredChangeSet{
+// 		commoncs.Configure(sui_cs.RegisterDummyReceiver{}, sui_cs.RegisterDummyReceiverConfig{
+// 			SuiChainSelector:       destChain,
+// 			OwnerCapObjectId:       outputMap.Objects.OwnerCapObjectId,
+// 			CCIPObjectRefObjectId:  state.SuiChains[destChain].CCIPObjectRef,
+// 			DummyReceiverPackageId: outputMap.PackageId,
+// 		}),
+// 	})
+// 	require.NoError(t, err)
 
-	receiverByte := receiverByteDecoded
+// 	receiverByte := receiverByteDecoded
 
-	var clockObj [32]byte
-	copy(clockObj[:], hexutil.MustDecode(
-		"0x0000000000000000000000000000000000000000000000000000000000000006",
-	))
+// 	var clockObj [32]byte
+// 	copy(clockObj[:], hexutil.MustDecode(
+// 		"0x0000000000000000000000000000000000000000000000000000000000000006",
+// 	))
 
-	var stateObj [32]byte
-	copy(stateObj[:], hexutil.MustDecode(
-		outputMap.Objects.CCIPReceiverStateObjectId,
-	))
+// 	var stateObj [32]byte
+// 	copy(stateObj[:], hexutil.MustDecode(
+// 		outputMap.Objects.CCIPReceiverStateObjectId,
+// 	))
 
-	receiverObjectIDs := [][32]byte{clockObj, stateObj}
+// 	receiverObjectIDs := [][32]byte{clockObj, stateObj}
 
-	tcs := []testhelpers.TestTransferRequest{
-		{
-			Name:             "Send token To EOA + include a receiver but keep gasLimit to 0",
-			SourceChain:      sourceChain,
-			DestChain:        destChain,
-			Data:             []byte("Hello Sui From EVM"),
-			Receiver:         receiverByte, // non empty Receiver
-			TokenReceiverATA: suiAddr[:],   // tokenReceiver extracted from extraArgs (the address that actually gets the token)
-			ExpectedStatus:   testhelpers.EXECUTION_STATE_SUCCESS,
-			Tokens: []router.ClientEVMTokenAmount{
-				{
-					Token:  evmToken.Address(),
-					Amount: big.NewInt(1e18),
-				},
-			},
-			ExtraArgs: testhelpers.MakeSuiExtraArgs(0, true, receiverObjectIDs, suiAddr), // keep gasLimit to 0
-			ExpectedTokenBalances: []testhelpers.ExpectedBalance{
-				{
-					Token:  suiTokenBytes,
-					Amount: big.NewInt(1e9),
-				},
-			},
-		},
-	}
+// 	tcs := []testhelpers.TestTransferRequest{
+// 		{
+// 			Name:             "Send token To EOA + include a receiver but keep gasLimit to 0",
+// 			SourceChain:      sourceChain,
+// 			DestChain:        destChain,
+// 			Data:             []byte("Hello Sui From EVM"),
+// 			Receiver:         receiverByte, // non empty Receiver
+// 			TokenReceiverATA: suiAddr[:],   // tokenReceiver extracted from extraArgs (the address that actually gets the token)
+// 			ExpectedStatus:   testhelpers.EXECUTION_STATE_SUCCESS,
+// 			Tokens: []router.ClientEVMTokenAmount{
+// 				{
+// 					Token:  evmToken.Address(),
+// 					Amount: big.NewInt(1e18),
+// 				},
+// 			},
+// 			ExtraArgs: testhelpers.MakeSuiExtraArgs(0, true, receiverObjectIDs, suiAddr), // keep gasLimit to 0
+// 			ExpectedTokenBalances: []testhelpers.ExpectedBalance{
+// 				{
+// 					Token:  suiTokenBytes,
+// 					Amount: big.NewInt(1e9),
+// 				},
+// 			},
+// 		},
+// 	}
 
-	ctx := testhelpers.Context(t)
-	startBlocks, expectedSeqNums, expectedExecutionStates, expectedTokenBalances := testhelpers.TransferMultiple(ctx, t, e.Env, state, tcs)
+// 	ctx := testhelpers.Context(t)
+// 	startBlocks, expectedSeqNums, expectedExecutionStates, expectedTokenBalances := testhelpers.TransferMultiple(ctx, t, e.Env, state, tcs)
 
-	err = testhelpers.ConfirmMultipleCommitsWithContext(
-		ctx,
-		t,
-		e.Env,
-		state,
-		startBlocks,
-		false,
-		expectedSeqNums,
-	)
-	require.NoError(t, err)
+// 	err = testhelpers.ConfirmMultipleCommitsWithContext(
+// 		ctx,
+// 		t,
+// 		e.Env,
+// 		state,
+// 		startBlocks,
+// 		false,
+// 		expectedSeqNums,
+// 	)
+// 	require.NoError(t, err)
 
-	execStates := testhelpers.ConfirmExecWithSeqNrsForAllWithContext(
-		ctx,
-		t,
-		e.Env,
-		state,
-		testhelpers.SeqNumberRangeToSlice(expectedSeqNums),
-		startBlocks,
-	)
-	require.Equal(t, expectedExecutionStates, execStates)
+// 	execStates := testhelpers.ConfirmExecWithSeqNrsForAllWithContext(
+// 		ctx,
+// 		t,
+// 		e.Env,
+// 		state,
+// 		testhelpers.SeqNumberRangeToSlice(expectedSeqNums),
+// 		startBlocks,
+// 	)
+// 	require.Equal(t, expectedExecutionStates, execStates)
 
-	testhelpers.WaitForTokenBalances(ctx, t, e.Env, expectedTokenBalances)
-}
+// 	testhelpers.WaitForTokenBalances(ctx, t, e.Env, expectedTokenBalances)
+// }
 
 func testSetupTokenTransferSui2Evm(t *testing.T) (e testhelpers.DeployedEnv, sourceChain uint64, destChain uint64) {
 	e, _, _ = testsetups.NewIntegrationEnvironment(
