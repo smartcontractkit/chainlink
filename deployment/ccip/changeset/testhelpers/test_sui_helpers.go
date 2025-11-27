@@ -365,6 +365,15 @@ func SendSuiCCIPRequest(e cldf.Environment, cfg *ccipclient.CCIPSendReqConfig) (
 				suiBind.Object{Id: state.SuiChains[cfg.SourceChain].ManagedTokens[TokenSymbolLINK].StateObjectId}, // Managed token state object id
 				suiBind.Object{Id: tokenPoolStateObjectID},                                                        // Managed TP state object id
 			}
+		case sui_deployment.TokenPoolTypeLockRelease:
+			paramValuesLockBurn = []any{
+				suiBind.Object{Id: ccipObjectRefID},           // ref
+				createTokenTransferParamsResult,               // token_params
+				suiBind.Object{Id: msg.TokenAmounts[0].Token}, // locked token to send to EVM
+				cfg.DestChain,
+				suiBind.Object{Id: "0x6"},                  // clock
+				suiBind.Object{Id: tokenPoolStateObjectID}, // LnR TP state object id
+			}
 		default:
 			return nil, fmt.Errorf("unsupported token pool type: %s", msg.TokenAmounts[0].TokenPoolType)
 		}
