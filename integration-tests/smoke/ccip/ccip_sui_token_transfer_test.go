@@ -43,8 +43,8 @@ import (
 func Test_CCIPTokenTransfer_Sui2EVM_LockReleaseTokenPool(t *testing.T) {
 	e, sourceChain, destChain := testSetupTokenTransferSui2Evm(t)
 
-	feeTokenOutput := mintLinkTokenOnSui(t, e.Env, sourceChain, 1000000000000)
-	linkTokenOutput1 := mintLinkTokenOnSui(t, e.Env, sourceChain, 100000000000)
+	feeTokenOutput := mintLinkTokenOnSui(t, e.Env, sourceChain, 100000000000)
+	linkTokenOutput1 := mintLinkTokenOnSui(t, e.Env, sourceChain, 5000000000)
 	// linkTokenOutput2 := mintLinkTokenOnSui(t, e.Env, sourceChain, 2000000000)
 	linkTokenOutput3 := mintLinkTokenOnSui(t, e.Env, sourceChain, 1500000000)
 
@@ -81,13 +81,13 @@ func Test_CCIPTokenTransfer_Sui2EVM_LockReleaseTokenPool(t *testing.T) {
 				{
 					TokenPoolType: sui_deployment.TokenPoolTypeLockRelease,
 					Token:         linkTokenOutput1.Objects.MintedLinkTokenObjectId,
-					Amount:        1000000000, // Send 1 LINK to EVM
+					Amount:        5000000000, // Send 5 LINK to EVM
 				},
 			},
 			ExpectedTokenBalances: []testhelpers.ExpectedBalance{
 				{
 					Token:  evmToken.Address().Bytes(),
-					Amount: big.NewInt(1e18),
+					Amount: big.NewInt(5e18),
 				},
 			},
 		},
