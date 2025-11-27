@@ -40,11 +40,148 @@ import (
 	testsetups "github.com/smartcontractkit/chainlink/integration-tests/testsetups/ccip"
 )
 
-func assertSuiSourceRevertExpectedError(t *testing.T, err error, execRevertErrorMsg string, execRevertCauseErrorMsg string) {
-	require.Error(t, err)
-	fmt.Println("Error: ", err.Error())
-	require.Contains(t, err.Error(), execRevertErrorMsg)
-	require.Contains(t, err.Error(), execRevertCauseErrorMsg)
+func Test_CCIPTokenTransfer_Sui2EVM_LockReleaseTokenPool(t *testing.T) {
+	e, sourceChain, destChain := testSetupTokenTransferSui2Evm(t)
+
+	feeTokenOutput := mintLinkTokenOnSui(t, e.Env, sourceChain, 1000000000000)
+	linkTokenOutput1 := mintLinkTokenOnSui(t, e.Env, sourceChain, 100000000000)
+	// linkTokenOutput2 := mintLinkTokenOnSui(t, e.Env, sourceChain, 2000000000)
+	linkTokenOutput3 := mintLinkTokenOnSui(t, e.Env, sourceChain, 1500000000)
+
+	state, err := stateview.LoadOnchainState(e.Env)
+	require.NoError(t, err)
+
+	// Receiver Address
+	ccipReceiverAddress := state.Chains[destChain].Receiver.Address()
+
+	// Token Pool setup on both SUI and EVM
+	updatedEnv, evmToken, _, err := testhelpers.HandleTokenAndLockReleaseTokenPoolDeploymentForSUI(e.Env, sourceChain, destChain, []testhelpers.TokenPoolRateLimiterConfig{
+		{
+			RemoteChainSelector: destChain,
+			OutboundIsEnabled:   false,
+			OutboundCapacity:    100000,
+			OutboundRate:        100,
+			InboundIsEnabled:    false,
+			InboundCapacity:     100000,
+			InboundRate:         100,
+		},
+	}) // SourceChain = SUI, destChain = EVM
+	require.NoError(t, err)
+	e.Env = updatedEnv
+
+	tcs := []testhelpers.TestTransferRequest{
+		{
+			Name:           "Send token to EOA",
+			SourceChain:    sourceChain,
+			DestChain:      destChain,
+			Receiver:       updatedEnv.BlockChains.EVMChains()[destChain].DeployerKey.From.Bytes(), // internally left padded to 32byte
+			ExpectedStatus: testhelpers.EXECUTION_STATE_SUCCESS,
+			FeeToken:       feeTokenOutput.Objects.MintedLinkTokenObjectId,
+			SuiTokens: []testhelpers.SuiTokenAmount{
+				{
+					TokenPoolType: sui_deployment.TokenPoolTypeLockRelease,
+					Token:         linkTokenOutput1.Objects.MintedLinkTokenObjectId,
+					Amount:        1000000000, // Send 1 LINK to EVM
+				},
+			},
+			ExpectedTokenBalances: []testhelpers.ExpectedBalance{
+				{
+					Token:  evmToken.Address().Bytes(),
+					Amount: big.NewInt(1e18),
+				},
+			},
+		},
+	}
+
+	ctx := testhelpers.Context(t)
+	startBlocks, expectedSeqNums, expectedExecutionStates, expectedTokenBalances := testhelpers.TransferMultiple(ctx, t, updatedEnv, state, tcs)
+
+	err = testhelpers.ConfirmMultipleCommitsWithContext(
+		ctx,
+		t,
+		updatedEnv,
+		state,
+		startBlocks,
+		false,
+		expectedSeqNums,
+	)
+	require.NoError(t, err)
+
+	execStates := testhelpers.ConfirmExecWithSeqNrsForAllWithContext(
+		ctx,
+		t,
+		updatedEnv,
+		state,
+		testhelpers.SeqNumberRangeToSlice(expectedSeqNums),
+		startBlocks,
+	)
+	require.Equal(t, expectedExecutionStates, execStates)
+
+	testhelpers.WaitForTokenBalances(ctx, t, updatedEnv, expectedTokenBalances)
+
+	suiState, err := sui_deployment.LoadOnchainStatesui(e.Env)
+	require.NoError(t, err)
+
+	suifeeQuoter, err := module_fee_quoter.NewFeeQuoter(suiState[sourceChain].CCIPAddress, e.Env.BlockChains.SuiChains()[sourceChain].Client)
+	require.NoError(t, err)
+
+	suiFeeQuoterDestChainConfig, err := suifeeQuoter.DevInspect().GetDestChainConfig(ctx, &suiBind.CallOpts{
+		Signer:           e.Env.BlockChains.SuiChains()[sourceChain].Signer,
+		WaitForExecution: true,
+	}, suiBind.Object{Id: suiState[sourceChain].CCIPObjectRef}, destChain)
+	require.NoError(t, err, "Failed to get destination chain config")
+
+	t.Run("Send invalid token to CCIP Receiver - should fail", func(t *testing.T) {
+		msg := testhelpers.SuiSendRequest{
+			Receiver:  common.LeftPadBytes(ccipReceiverAddress.Bytes(), 32), // left-pad 20-byte address up to 32 bytes to make it compatible with evm
+			Data:      []byte("Hello, World!"),
+			FeeToken:  feeTokenOutput.Objects.MintedLinkTokenObjectId,
+			ExtraArgs: testhelpers.MakeBCSEVMExtraArgsV2(big.NewInt(int64(suiFeeQuoterDestChainConfig.MaxPerMsgGasLimit)), false),
+			TokenAmounts: []testhelpers.SuiTokenAmount{
+				{
+					TokenPoolType: sui_deployment.TokenPoolTypeLockRelease,
+					Token:         "0x0",
+					Amount:        1e9,
+				},
+			}}
+
+		baseOpts := []ccipclient.SendReqOpts{
+			ccipclient.WithSourceChain(sourceChain),
+			ccipclient.WithDestChain(destChain),
+			ccipclient.WithTestRouter(false),
+			ccipclient.WithMessage(msg),
+		}
+
+		_, err := testhelpers.SendRequest(e.Env, state, baseOpts...)
+		assertSuiSourceRevertExpectedError(t, err, "failed to resolve CallArg at index 2", "failed to resolve UnresolvedObject 0x0000000000000000000000000000000000000000000000000000000000000000")
+		t.Log("Expected error: ", err)
+	})
+
+	t.Run("Send token to CCIP Receiver setting gas above max gas allowed - should fail", func(t *testing.T) {
+		msg := testhelpers.SuiSendRequest{
+			Receiver:  common.LeftPadBytes(ccipReceiverAddress.Bytes(), 32), // left-pad 20-byte address up to 32 bytes to make it compatible with evm
+			Data:      []byte("Hello, World!"),
+			FeeToken:  feeTokenOutput.Objects.MintedLinkTokenObjectId,
+			ExtraArgs: testhelpers.MakeBCSEVMExtraArgsV2(big.NewInt(int64(suiFeeQuoterDestChainConfig.MaxPerMsgGasLimit+10)), false),
+			TokenAmounts: []testhelpers.SuiTokenAmount{
+				{
+					TokenPoolType: sui_deployment.TokenPoolTypeLockRelease,
+					Token:         linkTokenOutput3.Objects.MintedLinkTokenObjectId,
+					Amount:        1500000000,
+				},
+			}}
+
+		baseOpts := []ccipclient.SendReqOpts{
+			ccipclient.WithSourceChain(sourceChain),
+			ccipclient.WithDestChain(destChain),
+			ccipclient.WithTestRouter(false),
+			ccipclient.WithMessage(msg),
+		}
+
+		_, err := testhelpers.SendRequest(e.Env, state, baseOpts...)
+		assertSuiSourceRevertExpectedError(t, err, "transaction failed with error", "function_name: Some(\"resolve_generic_gas_limit\") }, 18)")
+		t.Log("Expected error: ", err)
+	})
 }
 
 func Test_CCIPTokenTransfer_Sui2EVM_BurnMintTokenPool(t *testing.T) {
@@ -1897,4 +2034,11 @@ func getOpTxDeps(suiChain sui.Chain) sui_ops.OpTxDeps {
 		},
 		SuiRPC: suiChain.URL,
 	}
+}
+
+func assertSuiSourceRevertExpectedError(t *testing.T, err error, execRevertErrorMsg string, execRevertCauseErrorMsg string) {
+	require.Error(t, err)
+	fmt.Println("Error: ", err.Error())
+	require.Contains(t, err.Error(), execRevertErrorMsg)
+	require.Contains(t, err.Error(), execRevertCauseErrorMsg)
 }

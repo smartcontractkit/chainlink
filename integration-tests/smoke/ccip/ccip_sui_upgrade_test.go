@@ -154,6 +154,10 @@ func Test_CCIP_Upgrade_EVM2Sui(t *testing.T) {
 	sourceChain := evmChainSelectors[0]
 	destChain := suiChainSelectors[0]
 
+	// Ensure SUI RPC is ready after container startup
+	t.Log("🔍 Performing SUI RPC health check after container startup...")
+	WaitForAllSuiChainsReady(t, e.Env.BlockChains.SuiChains(), 60*time.Second)
+
 	lggr.Debug("Source chain (EVM): ", sourceChain, "Dest chain (Sui): ", destChain)
 
 	err = testhelpers.AddLaneWithDefaultPricesAndFeeQuoterConfig(t, &e, state, sourceChain, destChain, false)
@@ -283,6 +287,10 @@ func Test_CCIP_Upgrade_NoBlock_EVM2Sui(t *testing.T) {
 	sourceChain := evmChainSelectors[0]
 	destChain := suiChainSelectors[0]
 
+	// Ensure SUI RPC is ready after container startup
+	t.Log("🔍 Performing SUI RPC health check after container startup...")
+	WaitForAllSuiChainsReady(t, e.Env.BlockChains.SuiChains(), 60*time.Second)
+
 	lggr.Debug("Source chain (EVM): ", sourceChain, "Dest chain (Sui): ", destChain)
 
 	err = testhelpers.AddLaneWithDefaultPricesAndFeeQuoterConfig(t, &e, state, sourceChain, destChain, false)
@@ -385,6 +393,10 @@ func Test_CCIP_Upgrade_CommonPkg_EVM2Sui(t *testing.T) {
 
 	sourceChain := evmChainSelectors[0]
 	destChain := suiChainSelectors[0]
+
+	// Ensure SUI RPC is ready after container startup
+	t.Log("🔍 Performing SUI RPC health check after container startup...")
+	WaitForAllSuiChainsReady(t, e.Env.BlockChains.SuiChains(), 60*time.Second)
 
 	lggr.Debug("Source chain (EVM): ", sourceChain, "Dest chain (Sui): ", destChain)
 
