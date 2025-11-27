@@ -965,6 +965,111 @@ func Test_CCIPTokenTransfer_EVM2SUI_ManagedTokenPool_NoRateLimit(t *testing.T) {
 	testhelpers.WaitForTokenBalances(ctx, t, updatedEnv, expectedTokenBalances)
 }
 
+func Test_CCIPTokenTransfer_SUI2EVM_ManagedTokenPool_WithRateLimit(t *testing.T) {
+	e, sourceChain, destChain := testSetupTokenTransferSui2Evm(t)
+
+	feeTokenOutput := mintLinkTokenOnSui(t, e.Env, sourceChain, 1000000000000)
+	linkTokenOutput1 := mintLinkTokenOnSui(t, e.Env, sourceChain, 1000000000)
+	linkTokenOutput2 := mintLinkTokenOnSui(t, e.Env, sourceChain, 20000000000)
+
+	state, err := stateview.LoadOnchainState(e.Env)
+	require.NoError(t, err)
+
+	ccipReceiverAddress := state.Chains[destChain].Receiver.Address()
+
+	// Token Pool setup on both SUI and EVM
+	updatedEnv, evmToken, _, err := testhelpers.HandleTokenAndManagedTokenPoolDeploymentForSUI(e.Env, sourceChain, destChain, []testhelpers.TokenPoolRateLimiterConfig{
+		{
+			RemoteChainSelector: destChain,
+			OutboundIsEnabled:   true,
+			OutboundCapacity:    100000,
+			OutboundRate:        100,
+			InboundIsEnabled:    true,
+			InboundCapacity:     2000000000,
+			InboundRate:         100000,
+		},
+	}) // sourceChain=SUI, destChain=EVM
+	require.NoError(t, err)
+
+	// update env to include deployed contracts
+	e.Env = updatedEnv
+
+	tcs := []testhelpers.TestTransferRequest{
+		{
+			Name:           "Send token to EOA, within rate limit",
+			SourceChain:    sourceChain,
+			DestChain:      destChain,
+			Receiver:       updatedEnv.BlockChains.EVMChains()[destChain].DeployerKey.From.Bytes(), // internally left padded to 32byte
+			ExpectedStatus: testhelpers.EXECUTION_STATE_SUCCESS,
+			FeeToken:       feeTokenOutput.Objects.MintedLinkTokenObjectId,
+			SuiTokens: []testhelpers.SuiTokenAmount{
+				{
+					TokenPoolType: sui_deployment.TokenPoolTypeManaged,
+					Token:         linkTokenOutput1.Objects.MintedLinkTokenObjectId,
+					Amount:        1000000000, // Send 1 LINK to EVM
+				},
+			},
+			ExpectedTokenBalances: []testhelpers.ExpectedBalance{
+				{
+					Token:  evmToken.Address().Bytes(),
+					Amount: big.NewInt(1e18),
+				},
+			},
+		},
+	}
+
+	ctx := testhelpers.Context(t)
+	startBlocks, expectedSeqNums, expectedExecutionStates, expectedTokenBalances := testhelpers.TransferMultiple(ctx, t, e.Env, state, tcs)
+
+	err = testhelpers.ConfirmMultipleCommitsWithContext(
+		ctx,
+		t,
+		e.Env,
+		state,
+		startBlocks,
+		false,
+		expectedSeqNums,
+	)
+	require.NoError(t, err)
+
+	execStates := testhelpers.ConfirmExecWithSeqNrsForAllWithContext(
+		ctx,
+		t,
+		e.Env,
+		state,
+		testhelpers.SeqNumberRangeToSlice(expectedSeqNums),
+		startBlocks,
+	)
+	require.Equal(t, expectedExecutionStates, execStates)
+
+	testhelpers.WaitForTokenBalances(ctx, t, e.Env, expectedTokenBalances)
+
+	t.Run("Send tokens exceeding Sui's inbound rate limit - should fail", func(t *testing.T) {
+		msg := testhelpers.SuiSendRequest{
+			Receiver: common.LeftPadBytes(ccipReceiverAddress.Bytes(), 32),
+			Data:     []byte("Hello, World!"),
+			FeeToken: feeTokenOutput.Objects.MintedLinkTokenObjectId,
+			TokenAmounts: []testhelpers.SuiTokenAmount{
+				{
+					TokenPoolType: sui_deployment.TokenPoolTypeManaged,
+					Token:         linkTokenOutput2.Objects.MintedLinkTokenObjectId,
+					Amount:        20000000000,
+				},
+			}}
+
+		baseOpts := []ccipclient.SendReqOpts{
+			ccipclient.WithSourceChain(sourceChain),
+			ccipclient.WithDestChain(destChain),
+			ccipclient.WithTestRouter(false),
+			ccipclient.WithMessage(msg),
+		}
+
+		_, err := testhelpers.SendRequest(e.Env, state, baseOpts...)
+		assertSuiSourceRevertExpectedError(t, err, "failed to execute ccip_send with err: transaction failed with error: MoveAbort", "function_name: Some(\"validate_lock_or_burn\") }, 3)")
+		t.Log("Expected error: ", err)
+	})
+}
+
 func Test_CCIPTokenTransfer_EVM2SUI_ManagedTokenPool_WithRateLimit(t *testing.T) {
 	e, sourceChain, destChain, deployerSourceChain, suiTokenBytes, suiAddr := testSetupHelperEvm2Sui(t)
 
