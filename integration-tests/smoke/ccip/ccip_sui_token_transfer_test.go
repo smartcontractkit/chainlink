@@ -31,6 +31,7 @@ import (
 	sui_ops "github.com/smartcontractkit/chainlink-sui/deployment/ops"
 	ccipops "github.com/smartcontractkit/chainlink-sui/deployment/ops/ccip"
 	burnminttokenpoolops "github.com/smartcontractkit/chainlink-sui/deployment/ops/ccip_burn_mint_token_pool"
+	lockreleasetokenpoolops "github.com/smartcontractkit/chainlink-sui/deployment/ops/ccip_lock_release_token_pool"
 	linkops "github.com/smartcontractkit/chainlink-sui/deployment/ops/link"
 
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers"
@@ -46,7 +47,7 @@ func Test_CCIPTokenTransfer_Sui2EVM_LockReleaseTokenPool(t *testing.T) {
 
 	feeTokenOutput := mintLinkTokenOnSui(t, e.Env, sourceChain, 100000000000)
 	linkTokenOutput1 := mintLinkTokenOnSui(t, e.Env, sourceChain, 5000000000)
-	// linkTokenOutput2 := mintLinkTokenOnSui(t, e.Env, sourceChain, 2000000000)
+	linkTokenOutput2 := mintLinkTokenOnSui(t, e.Env, sourceChain, 2000000000)
 	linkTokenOutput3 := mintLinkTokenOnSui(t, e.Env, sourceChain, 1500000000)
 
 	state, err := stateview.LoadOnchainState(e.Env)
@@ -130,8 +131,28 @@ func Test_CCIPTokenTransfer_Sui2EVM_LockReleaseTokenPool(t *testing.T) {
 		WaitForExecution: true,
 	}, []string{}, suiBind.Object{Id: suiState[sourceChain].LnRTokenPools[testhelpers.TokenSymbolLINK].StateObjectId})
 	require.NoError(t, err)
-	t.Log("Balance: ", balance)
-	require.Equal(t, uint64(5e18), balance)
+	t.Log("Current Balance: ", balance)
+	require.Equal(t, uint64(5000000000), balance)
+
+	deps := getOpTxDeps(e.Env.BlockChains.SuiChains()[sourceChain])
+
+	// enable allowlist but not adding the current sender to the allowlist
+	_, err = operations.ExecuteOperation(e.Env.OperationsBundle, lockreleasetokenpoolops.LockReleaseTokenPoolProvideLiquidityOp, deps, lockreleasetokenpoolops.LockReleaseTokenPoolProvideLiquidityInput{
+		LockReleaseTokenPoolPackageId: suiState[sourceChain].LnRTokenPools[testhelpers.TokenSymbolLINK].PackageID,
+		StateObjectId:                 suiState[sourceChain].LnRTokenPools[testhelpers.TokenSymbolLINK].StateObjectId,
+		RebalancerCapObjectId:         suiState[sourceChain].LnRTokenPools[testhelpers.TokenSymbolLINK].RebalancerCapIds[0],
+		CoinObjectTypeArg:             state.SuiChains[sourceChain].LinkTokenAddress + "::link::LINK",
+		Coin:                          linkTokenOutput2.Objects.MintedLinkTokenObjectId,
+	})
+	require.NoError(t, err)
+
+	balance, err = lockReleaseTokenPool.DevInspect().GetBalance(ctx, &suiBind.CallOpts{
+		Signer:           e.Env.BlockChains.SuiChains()[sourceChain].Signer,
+		WaitForExecution: true,
+	}, []string{}, suiBind.Object{Id: suiState[sourceChain].LnRTokenPools[testhelpers.TokenSymbolLINK].StateObjectId})
+	require.NoError(t, err)
+	t.Log("New Balance: ", balance)
+	require.Equal(t, uint64(7000000000), balance)
 
 	suifeeQuoter, err := module_fee_quoter.NewFeeQuoter(suiState[sourceChain].CCIPAddress, e.Env.BlockChains.SuiChains()[sourceChain].Client)
 	require.NoError(t, err)
