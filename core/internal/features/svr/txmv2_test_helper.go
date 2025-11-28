@@ -50,6 +50,7 @@ type node struct {
 	keyBundle            ocr2key.KeyBundle
 	observedLogs         *observer.ObservedLogs
 	transmitter          common.Address // the node's primary EOA address
+	secondaryTransmitter common.Address // the node's secondary EOA address
 	effectiveTransmitter common.Address // the node's forwarder address
 }
 
@@ -71,10 +72,25 @@ func setupNodes(t *testing.T, nNodes int, transactOpts *bind.TransactOpts, backe
 		// set up the secondary transmitter key
 		secondaryTransmitter, err := app.GetKeyStore().Eth().Create(testutils.Context(t), testutils.SimulatedChainID)
 		require.NoErrorf(t, err, "could not create secondary transmitter key for node %d", i)
+
+		// Explicitly enable the secondary transmitter for the chain
+		err = app.GetKeyStore().Eth().Enable(testutils.Context(t), secondaryTransmitter.Address, testutils.SimulatedChainID)
+		require.NoErrorf(t, err, "could not enable secondary transmitter key for node %d", i)
+
+		// err = app.Stop()
+		// require.NoError(t, err)
+		// app.Start(testutils.Context(t))
+		// require.NoError(t, err)
+
 		err = fundAddress(secondaryTransmitter.Address, transactOpts, backend)
 		require.NoError(t, err, "Funding secondary transmitter shouldn't fail for node %d", i)
 		backend.Commit()
 		t.Logf("Funded secondary transmitter for node %d: %s", i, secondaryTransmitter.Address.String())
+
+		addresses, err := app.GetKeyStore().Eth().EnabledAddressesForChain(testutils.Context(t), testutils.SimulatedChainID)
+		require.NoError(t, err)
+		t.Logf("Enabled addresses for node %d: %v", i, addresses)
+		require.Len(t, addresses, 2)
 
 		kb, err := app.GetKeyStore().OCR2().Create(testutils.Context(t), "evm")
 		require.NoError(t, err)
@@ -110,7 +126,8 @@ func setupNodes(t *testing.T, nNodes int, transactOpts *bind.TransactOpts, backe
 			app:                  app,
 			keyBundle:            kb,
 			observedLogs:         observedLogs,
-			transmitter:          transmitterAddress, // TODO(gg): add secondary transmitter as well
+			transmitter:          transmitterAddress,
+			secondaryTransmitter: secondaryTransmitter.Address,
 			effectiveTransmitter: forwarderAddress,
 		})
 	}

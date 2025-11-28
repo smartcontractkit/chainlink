@@ -101,11 +101,9 @@ func TestIntegration_secondary_feed_transmission(t *testing.T) {
 
 	var allPrimaryTransmitterAddresses []common.Address
 	var allSecondaryTransmitterAddresses []common.Address
-	for i, node := range nodes {
-		keys, err := node.app.GetKeyStore().Eth().GetAll(context.Background())
-		require.NoErrorf(t, err, "could not get eth keys for node %d", i)
-		allPrimaryTransmitterAddresses = append(allPrimaryTransmitterAddresses, keys[0].Address)
-		allSecondaryTransmitterAddresses = append(allSecondaryTransmitterAddresses, keys[1].Address)
+	for _, node := range nodes {
+		allPrimaryTransmitterAddresses = append(allPrimaryTransmitterAddresses, node.transmitter)
+		allSecondaryTransmitterAddresses = append(allSecondaryTransmitterAddresses, node.secondaryTransmitter)
 	}
 	t.Logf("allPrimaryTransmitterAddresses: %v", allPrimaryTransmitterAddresses)
 	t.Logf("allSecondaryTransmitterAddresses: %v", allSecondaryTransmitterAddresses)
@@ -274,7 +272,7 @@ func TestIntegration_secondary_feed_transmission(t *testing.T) {
 					"enableDualTransmission": true,
 					"dualTransmission": map[string]any{
 						"contractAddress":    dualAggAddress.Hex(),
-						"transmitterAddress": keys[1].Hex(),
+						"transmitterAddress": node.secondaryTransmitter.Hex(),
 						"meta": map[string]any{
 							"hint":   []any{"full"},
 							"refund": []any{"0xbc1Be4cC8790b0C99cff76100E0e6d01E32C6A2C:90"},
