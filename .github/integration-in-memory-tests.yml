@@ -795,7 +795,6 @@ runner-test-matrix:
       - PR Integration CCIP Tests
       - Nightly Integration CCIP Tests
     test_cmd: |
-      ./scripts/free-disk-space.sh
       go test ./smoke/ccip -run "Test_CCIP_EVM2Sui_ZeroReceiver" -timeout 25m -test.parallel=1 -count=1 -json
     test_go_project_path: integration-tests
     sui_cli_version: mainnet-1.60.1
@@ -824,7 +823,6 @@ runner-test-matrix:
       - PR Integration CCIP Tests
       - Nightly Integration CCIP Tests
     test_cmd: |
-      ./scripts/free-disk-space.sh
       ./scripts/run-ccip-sui-test-isolated.sh "Test_CCIPTokenTransfer_Sui2EVM_BurnMintTokenPool" 12
     test_go_project_path: integration-tests
     sui_cli_version: mainnet-1.60.1
@@ -866,7 +864,6 @@ runner-test-matrix:
       - PR Integration CCIP Tests
       - Nightly Integration CCIP Tests
     test_cmd: |
-      ./scripts/free-disk-space.sh
       go test ./smoke/ccip -run "Test_CCIPTokenTransfer_Sui2EVM_BurnMintTokenPool_ThenGloballyCursedUncursed" -timeout 15m -test.parallel=1 -count=1 -json
     test_go_project_path: integration-tests
     sui_cli_version: mainnet-1.60.1
@@ -880,7 +877,6 @@ runner-test-matrix:
   #     - PR Integration CCIP Tests
   #     - Nightly Integration CCIP Tests
   #   test_cmd: |
-  #     ./scripts/free-disk-space.sh
   #     go test ./smoke/ccip -run "Test_CCIPTokenTransfer_EVM2SUI_ManagedTokenPool_NoRateLimit" -timeout 25m -test.parallel=1 -count=1 -json
   #   test_go_project_path: integration-tests
   #   sui_cli_version: mainnet-1.60.1
@@ -894,7 +890,6 @@ runner-test-matrix:
   #     - PR Integration CCIP Tests
   #     - Nightly Integration CCIP Tests
   #   test_cmd: |
-  #     ./scripts/free-disk-space.sh
   #     go test ./smoke/ccip -run "Test_CCIPTokenTransfer_EVM2SUI_ManagedTokenPool_WithRateLimit" -timeout 25m -test.parallel=1 -count=1 -json
   #   test_go_project_path: integration-tests
   #   sui_cli_version: mainnet-1.60.1
@@ -908,7 +903,6 @@ runner-test-matrix:
       - PR Integration CCIP Tests
       - Nightly Integration CCIP Tests
     test_cmd: |
-      ./scripts/free-disk-space.sh
       ./scripts/run-ccip-sui-test-isolated.sh "Test_CCIPTokenTransfer_Sui2EVM_ManagedTokenPool_ThenCurseUncurse" 15
     test_go_project_path: integration-tests
     sui_cli_version: mainnet-1.60.1
@@ -923,7 +917,6 @@ runner-test-matrix:
       - PR Integration CCIP Tests
       - Nightly Integration CCIP Tests
     test_cmd: |
-      ./scripts/free-disk-space.sh
       ./scripts/run-ccip-sui-test-isolated.sh "Test_CCIPTokenTransfer_Sui2EVM_ManagedTokenPool_WithRateLimit" 25
     test_go_project_path: integration-tests
     sui_cli_version: mainnet-1.60.1
@@ -938,7 +931,6 @@ runner-test-matrix:
       - PR Integration CCIP Tests
       - Nightly Integration CCIP Tests
     test_cmd: |
-      ./scripts/free-disk-space.sh
       ./scripts/run-ccip-sui-test-isolated.sh "Test_CCIP_Upgrade_Sui2EVM" 25
     test_go_project_path: integration-tests
     sui_cli_version: mainnet-1.60.1
@@ -953,7 +945,6 @@ runner-test-matrix:
       - PR Integration CCIP Tests
       - Nightly Integration CCIP Tests
     test_cmd: |
-      ./scripts/free-disk-space.sh
       go test ./smoke/ccip -run "Test_CCIP_Upgrade_EVM2Sui" -timeout 25m -test.parallel=1 -count=1 -json
     test_go_project_path: integration-tests
     sui_cli_version: mainnet-1.60.1
@@ -968,8 +959,7 @@ runner-test-matrix:
       - PR Integration CCIP Tests
       - Nightly Integration CCIP Tests
     test_cmd: |
-      echo "🚀 Starting CCIP Upgrade CommonPkg EVM2Sui test..."
-      go test ./smoke/ccip -run "Test_CCIP_Upgrade_CommonPkg_EVM2Sui" -timeout 25m -test.parallel=1 -count=1 -json
+      ./scripts/run-ccip-sui-test-isolated.sh "Test_CCIP_Upgrade_CommonPkg_EVM2Sui" 25
     test_go_project_path: integration-tests
     sui_cli_version: mainnet-1.60.1
     install_plugins_public: true
@@ -983,7 +973,7 @@ runner-test-matrix:
       - PR Integration CCIP Tests
       - Nightly Integration CCIP Tests
     test_cmd: |
-      go test ./smoke/ccip -run "Test_CCIP_Upgrade_NoBlock_EVM2Sui" -timeout 25m -test.parallel=1 -count=1 -json
+      ./scripts/run-ccip-sui-test-isolated.sh "Test_CCIP_Upgrade_NoBlock_EVM2Sui" 25
     test_go_project_path: integration-tests
     sui_cli_version: mainnet-1.60.1
     install_plugins_public: true
