@@ -87,7 +87,7 @@ func TestIntegration_secondary_feed_transmission(t *testing.T) {
 	t.Logf("created bootstrap node with id %q and public key %#v", bootstrapPeerID, bootstrapNode.KeyBundle.OnChainPublicKey())
 
 	// Setup oracle nodes
-	oracles, nodes := setupNodes(t, nNodes, backend, clientCSAKeys)
+	oracles, nodes := setupNodes(t, nNodes, transactOpts, backend, clientCSAKeys)
 	t.Logf("created %d oracle nodes", len(nodes))
 
 	for i, node := range nodes {

@@ -11,6 +11,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/ethereum/go-ethereum/accounts/abi/bind"
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/smartcontractkit/freeport"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -22,9 +24,11 @@ import (
 
 	"github.com/smartcontractkit/wsrpc/credentials"
 
-	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
-
 	"github.com/ethereum/go-ethereum/ethclient/simulated"
+	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
+	"github.com/smartcontractkit/chainlink-evm/gethwrappers/operatorforwarder/generated/authorized_forwarder"
+	"github.com/smartcontractkit/chainlink-evm/pkg/forwarders"
+	ubig "github.com/smartcontractkit/chainlink-evm/pkg/utils/big"
 	"github.com/smartcontractkit/chainlink/v2/core/config/toml"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
@@ -46,9 +50,9 @@ type Node struct {
 	ObservedLogs *observer.ObservedLogs
 }
 
-func setupNodes(t *testing.T, nNodes int, backend *simulated.Backend, clientCSAKeys []csakey.KeyV2) (oracles []confighelper.OracleIdentityExtra, nodes []Node) {
+func setupNodes(t *testing.T, nNodes int, transactOpts *bind.TransactOpts, backend *simulated.Backend, clientCSAKeys []csakey.KeyV2) (oracles []confighelper.OracleIdentityExtra, nodes []Node) {
 	ports := freeport.GetN(t, nNodes)
-	for i := 0; i < nNodes; i++ {
+	for i := range nNodes {
 		app, peerID, transmitter, kb, observedLogs := setupNode(t, ports[i], fmt.Sprintf("core_node_%d", i), backend, clientCSAKeys[i])
 		t.Logf("Node %d with transmitter %#v (%s) and peer id %s started on port %d", i, transmitter, fmt.Sprintf("%x", transmitter[:]), peerID, ports[i])
 
@@ -76,6 +80,48 @@ func setupNodes(t *testing.T, nNodes int, backend *simulated.Backend, clientCSAK
 			},
 			ConfigEncryptionPublicKey: kb.ConfigEncryptionPublicKey(),
 		})
+
+		/** TODO(gg): to use:
+				oracles = append(oracles, confighelper2.OracleIdentityExtra{
+					OracleIdentity: confighelper2.OracleIdentity{
+						OnchainPublicKey:  node.KeyBundle.PublicKey(),
+						TransmitAccount:   ocrtypes2.Account(node.EffectiveTransmitter.String()),
+						OffchainPublicKey: node.KeyBundle.OffchainPublicKey(),
+						PeerID:            node.PeerID,
+					},
+					ConfigEncryptionPublicKey: node.KeyBundle.ConfigEncryptionPublicKey(),
+				})
+		**/
+
+		// deploy a forwarder
+		//dualAggAddress, _, _, err := bind.DeployContract(transactOpts, *abi, common.FromHex(DualAggregatorMetaData.Bin), backend.Client(),
+		linkAddress := common.HexToAddress("0x326C977E6efc84E512bB9C30f76E30c160eD06FB")
+		faddr, _, authorizedForwarder, err := authorized_forwarder.DeployAuthorizedForwarder(transactOpts, backend.Client(), linkAddress, transactOpts.From, common.Address{}, []byte{})
+		require.NoError(t, err)
+		backend.Commit()
+
+		// set EOA as an authorized sender for the forwarder
+		_, err = authorizedForwarder.SetAuthorizedSenders(transactOpts, []common.Address{common.HexToAddress(fmt.Sprintf("%x", transmitter[:]))})
+		require.NoError(t, err)
+		backend.Commit()
+
+		// add forwarder address to be tracked in db
+		forwarderORM := forwarders.NewORM(app.GetDB())
+		chainID, err := backend.Client().ChainID(testutils.Context(t))
+		require.NoError(t, err)
+		_, err = forwarderORM.CreateForwarder(testutils.Context(t), faddr, ubig.Big(*chainID))
+		require.NoError(t, err)
+
+		//effectiveTransmitter = faddr
+		// }
+		// return &Node{
+		// 	App:                  app,
+		// 	PeerID:               p2pKey.PeerID().Raw(),
+		// 	Transmitter:          transmitter,
+		// 	EffectiveTransmitter: effectiveTransmitter,
+		// 	KeyBundle:            kb,
+		// }
+
 	}
 	return
 }
