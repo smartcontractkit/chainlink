@@ -92,7 +92,7 @@ ChainID = '99'
 
 [[Ton.Nodes]]
 Name = 'node'
-URL = 'https://ton.rpc'
+URL = 'liteserver://dummypublickey@127.0.0.1:4443'
 
 [[Tron]]
 ChainID = '1001'
@@ -165,6 +165,7 @@ ok TON.99.RelayerService.PluginRelayerClient
 ok TON.99.RelayerService.PluginRelayerClient.PluginTON
 ok TON.99.RelayerService.PluginRelayerClient.PluginTON.Chain
 ok TON.99.RelayerService.PluginRelayerClient.PluginTON.Relayer
+ok TON.99.RelayerService.PluginRelayerClient.PluginTON.TONLogPoller
 ok TON.99.RelayerService.PluginRelayerClient.PluginTON.Txm
 ok TelemetryManager
 ok Tron.1001.RelayerService
@@ -722,6 +723,15 @@ ok WorkflowStore
       "id": "TON.99.RelayerService.PluginRelayerClient.PluginTON.Relayer",
       "attributes": {
         "name": "TON.99.RelayerService.PluginRelayerClient.PluginTON.Relayer",
+        "status": "passing",
+        "output": ""
+      }
+    },
+    {
+      "type": "checks",
+      "id": "TON.99.RelayerService.PluginRelayerClient.PluginTON.TONLogPoller",
+      "attributes": {
+        "name": "TON.99.RelayerService.PluginRelayerClient.PluginTON.TONLogPoller",
         "status": "passing",
         "output": ""
       }
