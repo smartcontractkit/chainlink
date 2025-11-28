@@ -1,8 +1,6 @@
 package svr
 
 import (
-	"context"
-	"encoding/hex"
 	"fmt"
 	"math/big"
 	"os"
@@ -24,12 +22,14 @@ import (
 
 	"github.com/smartcontractkit/wsrpc/credentials"
 
+	"github.com/smartcontractkit/chainlink-evm/pkg/config/toml"
+
 	"github.com/ethereum/go-ethereum/ethclient/simulated"
 	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/operatorforwarder/generated/authorized_forwarder"
 	"github.com/smartcontractkit/chainlink-evm/pkg/forwarders"
 	ubig "github.com/smartcontractkit/chainlink-evm/pkg/utils/big"
-	"github.com/smartcontractkit/chainlink/v2/core/config/toml"
+	logtoml "github.com/smartcontractkit/chainlink/v2/core/config/toml"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/keystest"
@@ -47,60 +47,45 @@ var linkTokenAddress = common.HexToAddress("0x326C977E6efc84E512bB9C30f76E30c160
 
 type node struct {
 	app                  chainlink.Application
-	clientPubKey         credentials.StaticSizedPublicKey
 	keyBundle            ocr2key.KeyBundle
 	observedLogs         *observer.ObservedLogs
-	effectiveTransmitter common.Address
+	transmitter          common.Address // the node's primary EOA address
+	effectiveTransmitter common.Address // the node's forwarder address
 }
 
 func setupNodes(t *testing.T, nNodes int, transactOpts *bind.TransactOpts, backend *simulated.Backend, clientCSAKeys []csakey.KeyV2) (oracles []confighelper.OracleIdentityExtra, nodes []node) {
 	ports := freeport.GetN(t, nNodes)
 	for i := range nNodes {
-		app, peerID, transmitter, kb, observedLogs := setupNode(t, ports[i], fmt.Sprintf("core_node_%d", i), backend, clientCSAKeys[i])
-		t.Logf("Node %d with transmitter %#v (%s) and peer id %s started on port %d", i, transmitter, fmt.Sprintf("%x", transmitter[:]), peerID, ports[i])
+		app, peerID, _, _, observedLogs := setupNode(t, ports[i], fmt.Sprintf("core_node_%d", i), backend, clientCSAKeys[i])
+		t.Logf("Node %d with peer id %s started on port %d", i, peerID, ports[i])
 
-		keys, err := app.GetKeyStore().Eth().GetAll(context.Background())
-		require.NoErrorf(t, err, "failed to get keys")
-		if len(keys) == 0 {
-			t.Logf("No keys found")
-		} else {
-			for _, key := range keys {
-				t.Logf("Existing key address: %s", key.Address.Hex())
-			}
-		}
-
-		offchainPublicKey, err := hex.DecodeString(strings.TrimPrefix(kb.OnChainPublicKey(), "0x"))
+		sendingKeys, err := app.GetKeyStore().Eth().EnabledKeysForChain(testutils.Context(t), testutils.SimulatedChainID)
 		require.NoError(t, err)
-		oracles = append(oracles, confighelper.OracleIdentityExtra{
-			OracleIdentity: confighelper.OracleIdentity{
-				OnchainPublicKey:  offchainPublicKey,
-				TransmitAccount:   ocr2types.Account(fmt.Sprintf("%x", transmitter[:])),
-				OffchainPublicKey: kb.OffchainPublicKey(),
-				PeerID:            peerID,
-			},
-			ConfigEncryptionPublicKey: kb.ConfigEncryptionPublicKey(),
-		})
+		require.Len(t, sendingKeys, 1)
+		transmitterAddress := sendingKeys[0].Address
+		err = fundAddress(transmitterAddress, transactOpts, backend)
+		require.NoError(t, err)
+		backend.Commit()
+		t.Logf("Funded primary transmitter for node %d: %s", i, transmitterAddress.String())
 
-		/** TODO(gg): to use:
-				oracles = append(oracles, confighelper2.OracleIdentityExtra{
-					OracleIdentity: confighelper2.OracleIdentity{
-						OnchainPublicKey:  node.KeyBundle.PublicKey(),
-						TransmitAccount:   ocrtypes2.Account(node.EffectiveTransmitter.String()),
-						OffchainPublicKey: node.KeyBundle.OffchainPublicKey(),
-						PeerID:            node.PeerID,
-					},
-					ConfigEncryptionPublicKey: node.KeyBundle.ConfigEncryptionPublicKey(),
-				})
-		**/
+		// set up the secondary transmitter key
+		secondaryTransmitter, err := app.GetKeyStore().Eth().Create(testutils.Context(t), testutils.SimulatedChainID)
+		require.NoErrorf(t, err, "could not create secondary transmitter key for node %d", i)
+		err = fundAddress(secondaryTransmitter.Address, transactOpts, backend)
+		require.NoError(t, err, "Funding secondary transmitter shouldn't fail for node %d", i)
+		backend.Commit()
+		t.Logf("Funded secondary transmitter for node %d: %s", i, secondaryTransmitter.Address.String())
+
+		kb, err := app.GetKeyStore().OCR2().Create(testutils.Context(t), "evm")
+		require.NoError(t, err)
 
 		// deploy a forwarder
-
 		forwarderAddress, _, authorizedForwarder, err := authorized_forwarder.DeployAuthorizedForwarder(transactOpts, backend.Client(), linkTokenAddress, transactOpts.From, common.Address{}, []byte{})
 		require.NoError(t, err)
 		backend.Commit()
 
-		// set EOA as an authorized sender for the forwarder
-		_, err = authorizedForwarder.SetAuthorizedSenders(transactOpts, []common.Address{common.HexToAddress(fmt.Sprintf("%x", transmitter[:]))})
+		// set primary and secondary EOA as an authorized sender for the forwarder
+		_, err = authorizedForwarder.SetAuthorizedSenders(transactOpts, []common.Address{transmitterAddress, secondaryTransmitter.Address})
 		require.NoError(t, err)
 		backend.Commit()
 
@@ -111,20 +96,21 @@ func setupNodes(t *testing.T, nNodes int, transactOpts *bind.TransactOpts, backe
 		_, err = forwarderORM.CreateForwarder(testutils.Context(t), forwarderAddress, ubig.Big(*chainID))
 		require.NoError(t, err)
 
-		// }
-		// return &Node{
-		// 	App:                  app,
-		// 	PeerID:               p2pKey.PeerID().Raw(),
-		// 	Transmitter:          transmitter,
-		// 	EffectiveTransmitter: effectiveTransmitter,
-		// 	KeyBundle:            kb,
-		// }
+		oracles = append(oracles, confighelper.OracleIdentityExtra{
+			OracleIdentity: confighelper.OracleIdentity{
+				OnchainPublicKey:  kb.PublicKey(),
+				TransmitAccount:   ocr2types.Account(forwarderAddress.String()),
+				OffchainPublicKey: kb.OffchainPublicKey(),
+				PeerID:            peerID,
+			},
+			ConfigEncryptionPublicKey: kb.ConfigEncryptionPublicKey(),
+		})
 
 		nodes = append(nodes, node{
 			app:                  app,
-			clientPubKey:         credentials.StaticSizedPublicKey(transmitter),
 			keyBundle:            kb,
 			observedLogs:         observedLogs,
+			transmitter:          transmitterAddress, // TODO(gg): add secondary transmitter as well
 			effectiveTransmitter: forwarderAddress,
 		})
 	}
@@ -146,27 +132,18 @@ func setupNode(
 
 	p2paddresses := []string{fmt.Sprintf("127.0.0.1:%d", port)}
 
+	tomlNode := toml.Node{
+		Name:              ptr(nodeName),
+		HTTPURL:           ptr(commonconfig.URL{Scheme: "http", Host: fmt.Sprintf("127.0.0.1:%d", port)}),
+		SendOnly:          ptr(false),
+		Order:             ptr(int32(1)),
+		IsLoadBalancedRPC: ptr(false),
+	}
+
 	config, _ := heavyweight.FullTestDBV2(t, func(c *chainlink.Config, s *chainlink.Secrets) {
-		/**
-		  [Log]
-		  Level = 'debug'
 
-		  [Pyroscope]
-		  ServerAddress = 'http://host.docker.internal:4040'
-		  Environment = 'local'
-
-		  [WebServer]
-		  HTTPWriteTimeout = '30s'
-		  SecureCookies = false
-		  HTTPPort = {{.HTTPPort}}
-
-		  [WebServer.TLS]
-		  HTTPSPort = 0
-
-		  [JobPipeline]
-		  [JobPipeline.HTTPRequest]
-		  DefaultTimeout = '30s'
-		*/
+		// [Insecure]
+		c.Insecure.OCRDevelopmentMode = ptr(true) // Disables ocr spec validation so we can have fast polling for the test.
 
 		// [JobPipeline]
 		c.JobPipeline.MaxSuccessfulRuns = ptr(uint64(0))
@@ -187,7 +164,7 @@ func setupNode(
 
 		// [P2P]
 		c.P2P.PeerID = ptr(p2pKey.PeerID())
-		c.P2P.TraceLogging = ptr(true)
+		c.P2P.TraceLogging = ptr(false)
 
 		// [P2P.V2]
 		c.P2P.V2.Enabled = ptr(true)
@@ -196,15 +173,41 @@ func setupNode(
 		c.P2P.V2.DeltaDial = commonconfig.MustNewDuration(500 * time.Millisecond)
 		c.P2P.V2.DeltaReconcile = commonconfig.MustNewDuration(5 * time.Second)
 
-		// [Mercury]
+		// [Mercury] // TODO(gg): remove
 		c.Mercury.VerboseLogging = ptr(true)
 		c.Mercury.Transmitter.ReaperFrequency = commonconfig.MustNewDuration(0 * time.Millisecond)
 
+		// [EVM]
+		c.EVM[0].Nodes = toml.EVMNodes{&tomlNode}
+		c.EVM[0].LogPollInterval = commonconfig.MustNewDuration(5 * time.Second)
+		c.EVM[0].Transactions.ForwardersEnabled = ptr(true)
+
+		// [EVM.Transactions]
+		// ForwardersEnabled = true
+
+		// [EVM.Transactions.TransactionManagerV2]
+		c.EVM[0].Transactions.TransactionManagerV2.Enabled = ptr(true)
+		c.EVM[0].Transactions.TransactionManagerV2.BlockTime = commonconfig.MustNewDuration(11 * time.Second)
+		// c.EVM[0].Transactions.TransactionManagerV2.CustomURL = ptr(commonconfig.URL{Scheme: "https", Host: "rpc-sepolia.flashbots.net", Path: "/fast"}) // TODO(gg): use flashbots mock?
+		c.EVM[0].Transactions.TransactionManagerV2.DualBroadcast = ptr(true)
+
+		// [EVM.Transactions.AutoPurge]
+		// c.EVM[0].Transactions.AutoPurge.Enabled = ptr(true)
+		// c.EVM[0].Transactions.AutoPurge.Threshold = ptr(uint32(5))
+		// c.EVM[0].Transactions.AutoPurge.MinAttempts = ptr(uint32(100))
+		// // c.EVM[0].Transactions.AutoPurge.DetectionApiUrl = ptr(commonconfig.URL{Scheme: "https", Host: "protecc.flashbots.net", Path: "/tx/"}) // TODO(gg): use flashbots mock?
+		// c.EVM[0].GasEstimator.BumpThreshold = ptr(uint32(6))
+
+		// if cfg.Transactions().TransactionManagerV2().Enabled() {
+		// 		c.EVM[0].Transactions.TransactionManagerV2.Enabled = ptr(true)
+		// 		c.EVM[0].Transactions.TransactionManagerV2.ForwardersEnabled = ptr(true)
+		// 	}
+
 		// [Log]
-		c.Log.Level = ptr(toml.LogLevel(zapcore.DebugLevel))
+		c.Log.Level = ptr(logtoml.LogLevel(zapcore.DebugLevel))
 	})
 
-	// Create file logger core
+	// Create file logger core // TODO(gg): maybe refactor this into something more general?
 	fileCore, logFile, err := createFileLogger(t, nodeName)
 	if err != nil {
 		t.Fatalf("Failed to create file logger: %v", err)
@@ -254,7 +257,7 @@ func setupNode(
 	}()
 
 	if backend != nil {
-		app = cltest.NewApplicationWithConfigV2OnSimulatedBlockchain(t, config, backend, p2pKey, ocr2kb, csaKey, lggr.Named(nodeName))
+		app = cltest.NewApplicationWithConfigV2AndKeyOnSimulatedBlockchain(t, config, backend, p2pKey)
 	} else {
 		app = cltest.NewApplicationWithConfig(t, config, p2pKey, ocr2kb, csaKey, lggr.Named(nodeName))
 	}

@@ -29,7 +29,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/csakey"
-	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ethkey"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/testhelpers"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
 	"github.com/smartcontractkit/freeport"
@@ -90,22 +89,15 @@ func TestIntegration_secondary_feed_transmission(t *testing.T) {
 	oracles, nodes := setupNodes(t, nNodes, transactOpts, backend, clientCSAKeys)
 	t.Logf("created %d oracle nodes", len(nodes))
 
-	for i, node := range nodes {
-		// set up the keys
-		transmitterKey1, err := node.app.GetKeyStore().Eth().Create(context.Background(), big.NewInt(int64(1337)))
-		require.NoErrorf(t, err, "could not create transmitter key for node %d", i)
-		err = fundAddressOf(transmitterKey1, transactOpts, backend)
-		require.NoError(t, err, "Funding transmitter shouldn't fail for node %d", i)
-		backend.Commit()
-
-		transmitterKey2, err := node.app.GetKeyStore().Eth().Create(context.Background(), big.NewInt(int64(1337)))
-		require.NoErrorf(t, err, "could not create transmitter key for node %d", i)
-		err = fundAddressOf(transmitterKey2, transactOpts, backend)
-		require.NoError(t, err, "Funding transmitter shouldn't fail for node %d", i)
-		backend.Commit()
-
-		t.Logf("Funded primary and secondary transmitter for node %d", i)
-	}
+	// for i, node := range nodes {
+	// 	// set up the secondary transmitter key
+	// 	transmitterKey2, err := node.app.GetKeyStore().Eth().Create(testutils.Context(t), testutils.SimulatedChainID)
+	// 	require.NoErrorf(t, err, "could not create transmitter key for node %d", i)
+	// 	err = fundAddress(transmitterKey2.Address, transactOpts, backend)
+	// 	require.NoError(t, err, "Funding transmitter shouldn't fail for node %d", i)
+	// 	backend.Commit()
+	// 	t.Logf("Funded secondary transmitter for node %d", i)
+	// }
 
 	var allPrimaryTransmitterAddresses []common.Address
 	var allSecondaryTransmitterAddresses []common.Address
@@ -117,6 +109,12 @@ func TestIntegration_secondary_feed_transmission(t *testing.T) {
 	}
 	t.Logf("allPrimaryTransmitterAddresses: %v", allPrimaryTransmitterAddresses)
 	t.Logf("allSecondaryTransmitterAddresses: %v", allSecondaryTransmitterAddresses)
+
+	var allForwarderAddresses []common.Address
+	for _, node := range nodes {
+		allForwarderAddresses = append(allForwarderAddresses, node.effectiveTransmitter)
+	}
+	t.Logf("allForwarderAddresses: %v", allForwarderAddresses)
 
 	// 8. Deploy dual aggregator contract
 	abi, err := DualAggregatorMetaData.GetAbi()
@@ -187,7 +185,7 @@ func TestIntegration_secondary_feed_transmission(t *testing.T) {
 	t.Logf("TransmitterAddresses: %v", transmitterAddresses)
 	t.Logf("allPrimaryTransmitterAddresses: %v", allPrimaryTransmitterAddresses)
 
-	_, err = dualAggregatorInstance.SetConfig(transactOpts, signerAddresses, allPrimaryTransmitterAddresses, f, onchainConfig, offchainConfigVersion, offchainConfig)
+	_, err = dualAggregatorInstance.SetConfig(transactOpts, signerAddresses, allForwarderAddresses, f, onchainConfig, offchainConfigVersion, offchainConfig)
 	if err != nil {
 		// decode the revert reason
 		cerr, ok := err.(rpc.DataError)
@@ -245,8 +243,10 @@ func TestIntegration_secondary_feed_transmission(t *testing.T) {
 	require.NoErrorf(t, err, "Failed to parse observation source")
 
 	for i, node := range nodes {
-		keys, err := node.app.GetKeyStore().Eth().GetAll(context.Background())
+		keys, err := node.app.GetKeyStore().Eth().EnabledAddressesForChain(testutils.Context(t), testutils.SimulatedChainID)
 		require.NoErrorf(t, err, "could not get eth keys for node %d", i)
+		t.Logf("keys from node %d: %v", i, keys)
+		// require.Len(t, keys, 2)
 
 		// create the job
 		// TODO(gg): maybe use oevJobSpec() instead if possible?
@@ -265,8 +265,8 @@ func TestIntegration_secondary_feed_transmission(t *testing.T) {
 				Relay:                "evm",
 				OCRKeyBundleID:       null.StringFrom(node.keyBundle.ID()),
 				PluginType:           clcommonTypes.Median,
-				TransmitterID:        null.StringFrom(keys[0].Address.Hex()),
-				AllowNoBootstrappers: false,                                                                        // TODO(gg): maybe we can get away with this?
+				TransmitterID:        null.StringFrom(node.transmitter.Hex()),
+				AllowNoBootstrappers: true,                                                                         // TODO(gg): maybe we can get away with this?
 				P2PV2Bootstrappers:   []string{fmt.Sprintf("%s@127.0.0.1:%d", bootstrapPeerID, bootstrapNodePort)}, // TODO(gg) bootstrapPeerID.Data[0].Attributes.PeerID, needed?
 				RelayConfig: map[string]any{
 					"chainID":                testutils.SimulatedChainID.String(),
@@ -274,7 +274,7 @@ func TestIntegration_secondary_feed_transmission(t *testing.T) {
 					"enableDualTransmission": true,
 					"dualTransmission": map[string]any{
 						"contractAddress":    dualAggAddress.Hex(),
-						"transmitterAddress": keys[1].Address.Hex(),
+						"transmitterAddress": keys[1].Hex(),
 						"meta": map[string]any{
 							"hint":   []any{"full"},
 							"refund": []any{"0xbc1Be4cC8790b0C99cff76100E0e6d01E32C6A2C:90"},
@@ -403,7 +403,7 @@ func TestIntegration_secondary_feed_transmission(t *testing.T) {
 		}
 
 		return primaryFound && secondaryAnyFound
-	}, 5*time.Minute, 1*time.Second).Should(gomega.BeTrue(),
+	}, 2*time.Minute, 1*time.Second).Should(gomega.BeTrue(),
 		"Expected both primary (to chain) and secondary transmissions (at least one secondary path: on-chain or Flashbots). Primary found: %v, Secondary on-chain: %v, Flashbots: %v, Mock server count: %d",
 		primaryFound, secondaryFound, flashbotsFound, mockFlashbotsServer.TransactionCount())
 
@@ -449,13 +449,13 @@ func setupBlockchain(t *testing.T) (*bind.TransactOpts, *simulated.Backend) {
 	return contractOwner, backend
 }
 
-func fundAddressOf(key ethkey.KeyV2, contractOwner *bind.TransactOpts, backend *simulated.Backend) error {
+func fundAddress(address common.Address, contractOwner *bind.TransactOpts, backend *simulated.Backend) error {
 	wei := new(big.Int)
 	amount := big.NewFloat(0.2)
 	amountWei := new(big.Float).Mul(amount, big.NewFloat(1e18))
 	amountWei.Int(wei)
 
-	backend.Client().PendingNonceAt(context.Background(), key.Address)
+	backend.Client().PendingNonceAt(context.Background(), address)
 	nonce, err := backend.Client().PendingNonceAt(context.Background(), contractOwner.From)
 	if err != nil {
 		return fmt.Errorf("failed to fetch nonce: %w", err)
@@ -467,7 +467,7 @@ func fundAddressOf(key ethkey.KeyV2, contractOwner *bind.TransactOpts, backend *
 	}
 	gasLimit := uint64(21000) // Standard gas limit for ETH transfer
 
-	tx := gethtypes.NewTransaction(nonce, key.Address, wei, gasLimit, gasPrice, nil)
+	tx := gethtypes.NewTransaction(nonce, address, wei, gasLimit, gasPrice, nil)
 
 	signedTx, err := contractOwner.Signer(contractOwner.From, tx)
 	if err != nil {
