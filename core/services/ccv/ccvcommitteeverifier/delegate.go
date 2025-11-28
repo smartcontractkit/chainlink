@@ -150,7 +150,7 @@ func (d *Delegate) ServicesForSpec(ctx context.Context, spec job.Job) (services 
 }
 
 func getAggregatorSecrets(ccvConfig config.CCV, verifierID string) (string, string, error) {
-	var verifierIDs []string
+	verifierIDs := make([]string, 0, len(ccvConfig.AggregatorSecrets()))
 	for _, secret := range ccvConfig.AggregatorSecrets() {
 		if secret.VerifierID() == verifierID {
 			return secret.APIKey(), secret.APISecret(), nil
