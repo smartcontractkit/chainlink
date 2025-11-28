@@ -12,35 +12,24 @@ import (
 	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
 	ccipopsv1_5_1 "github.com/smartcontractkit/chainlink/deployment/ccip/operation/evm/v1_5_1"
 	ccipopsv1_6_2 "github.com/smartcontractkit/chainlink/deployment/ccip/operation/evm/v1_6_2"
+	"github.com/smartcontractkit/chainlink/deployment/ccip/shared"
 	opsutil "github.com/smartcontractkit/chainlink/deployment/common/opsutils"
 	commontypes "github.com/smartcontractkit/chainlink/deployment/common/types"
 	"golang.org/x/sync/errgroup"
 )
 
 type TokenAndPoolContractParams struct {
-	TokenAddress    common.Address
 	Decimals        uint8
 	AllowList       []common.Address
 	AcceptLiquidity bool
 	MaxSupply       *big.Int
 	PreMint         *big.Int
 	NewOwner        common.Address
-	TokenName       string
-	TokenSymbol     string
 }
 
 func (c TokenAndPoolContractParams) Validate(selector uint64) error {
-	if c.TokenAddress == (common.Address{}) {
-		return fmt.Errorf("token address cannot be empty for selector %d", selector)
-	}
 	if c.NewOwner == (common.Address{}) {
 		return fmt.Errorf("new owner address cannot be empty for selector %d", selector)
-	}
-	if len(c.TokenName) == 0 {
-		return fmt.Errorf("token name cannot be empty for selector %d", selector)
-	}
-	if len(c.TokenSymbol) == 0 {
-		return fmt.Errorf("token symbol cannot be empty for selector %d", selector)
 	}
 
 	return nil
@@ -139,8 +128,8 @@ var (
 						report, err := operations.ExecuteOperation(b, ccipopsv1_6_2.DeployFactoryBurnMintERC20TokenOp, chain, opsutil.EVMDeployInput[ccipopsv1_6_2.DeployFactoryBurnMintERC20TokenInput]{
 							ChainSelector: chainSelector,
 							DeployInput: ccipopsv1_6_2.DeployFactoryBurnMintERC20TokenInput{
-								Name:      contractParams.TokenName,
-								Symbol:    contractParams.TokenSymbol,
+								Name:      shared.FactoryBurnMintERC20Symbol.String(),
+								Symbol:    shared.FactoryBurnMintERC20Symbol.String(),
 								Decimals:  contractParams.Decimals,
 								MaxSupply: contractParams.MaxSupply,
 								PreMint:   contractParams.PreMint,
