@@ -72,6 +72,11 @@ const (
 	// Engine reads trigger events without blocking and applies its own limits
 	sendChannelBufferSize = 1000
 	maxBatchedWorkflowIDs = 1000
+
+	// This is required to ensure registration calls return if the remote node does not support the trigger capability
+	// response protocol.  Once all nodes support the trigger capability response protocol, this timeout should be
+	// changed to return timeout error.
+	registrationResponseTimeout = 10 * time.Second
 )
 
 func NewTriggerSubscriber(capabilityID string, capMethodName string, dispatcher types.Dispatcher, lggr logger.Logger) *triggerSubscriber {
@@ -147,18 +152,43 @@ func (s *triggerSubscriber) RegisterTrigger(ctx context.Context, request commonc
 	defer s.mu.Unlock()
 	s.lggr.Infow("RegisterTrigger called", "donId", cfg.capDonInfo.ID, "workflowID", request.Metadata.WorkflowID)
 	regState, ok := s.registeredWorkflows[request.Metadata.WorkflowID]
+
+	var pendingResponseChan chan error
 	if !ok {
 		regState = &subRegState{
 			callback:   make(chan commoncap.TriggerResponse, sendChannelBufferSize),
 			rawRequest: rawRequest,
 		}
 		s.registeredWorkflows[request.Metadata.WorkflowID] = regState
+
+		// Could here create something that would wait for a response from remote nodes
+		// The issue is in the backwards compatibility state would have to rely on a timeout - but it would be no worse than current situation
+		// especially if they do positive ack when registration is successful - so initially it would rely on timeout, but in future could be improved to wait for positive ack
+		// when all dons updated.  As registration only occurs when workflow is started/restarted, the delay should be acceptable.
 	} else {
 		regState.rawRequest = rawRequest
 		s.lggr.Warnw("RegisterTrigger re-registering trigger", "donId", cfg.capDonInfo.ID, "workflowID", request.Metadata.WorkflowID)
 	}
 
-	return regState.callback, nil
+	if pendingResponseChan != nil {
+		ctxWithTimeout, cancel := context.WithTimeout(ctx, registrationResponseTimeout)
+		defer cancel()
+
+		select {
+		case <-s.stopCh:
+			return nil, errors.New("trigger subscriber is stopping")
+		case <-ctxWithTimeout.Done():
+			return nil, ctx.Err()
+		case err := <-pendingResponseChan:
+			if err != nil {
+				return nil, err
+			}
+			return regState.callback, nil
+		}
+
+	} else {
+		return regState.callback, nil
+	}
 }
 
 func (s *triggerSubscriber) registrationLoop() {
@@ -273,6 +303,9 @@ func (s *triggerSubscriber) Receive(_ context.Context, msg *types.MessageBody) {
 				registration.callback <- aggregatedResponse
 			}
 		}
+	} else if msg.Method == types.RegisterTriggerResponse {
+		meta := msg.GetTriggerRegistrationMetadata()
+
 	} else {
 		s.lggr.Errorw("received trigger event with unknown method", "method", SanitizeLogString(msg.Method), "sender", sender, "err", SanitizeLogString(msg.ErrorMsg))
 	}

@@ -44,6 +44,9 @@ message MessageBody {
 
 message TriggerRegistrationMetadata {
   string last_received_event_id = 1;
+
+  // Todo make struct ? probably better to have a structured error with visibility and origin
+  optional string error = 2;
 }
 
 message TriggerEventMetadata {
