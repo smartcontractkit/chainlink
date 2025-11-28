@@ -15,6 +15,7 @@ import (
 	"github.com/ethereum/go-ethereum/common/hexutil"
 
 	chain_selectors "github.com/smartcontractkit/chain-selectors"
+	module_lock_release_token_pool "github.com/smartcontractkit/chainlink-sui/bindings/generated/ccip/ccip_token_pools/lock_release_token_pool"
 
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_2_0/router"
 
@@ -121,6 +122,16 @@ func Test_CCIPTokenTransfer_Sui2EVM_LockReleaseTokenPool(t *testing.T) {
 
 	suiState, err := sui_deployment.LoadOnchainStatesui(e.Env)
 	require.NoError(t, err)
+
+	lockReleaseTokenPool, err := module_lock_release_token_pool.NewLockReleaseTokenPool(suiState[sourceChain].LnRTokenPools[testhelpers.TokenSymbolLINK].PackageID, e.Env.BlockChains.SuiChains()[sourceChain].Client)
+	require.NoError(t, err)
+	balance, err := lockReleaseTokenPool.DevInspect().GetBalance(ctx, &suiBind.CallOpts{
+		Signer:           e.Env.BlockChains.SuiChains()[sourceChain].Signer,
+		WaitForExecution: true,
+	}, []string{}, suiBind.Object{Id: suiState[sourceChain].LnRTokenPools[testhelpers.TokenSymbolLINK].StateObjectId})
+	require.NoError(t, err)
+	t.Log("Balance: ", balance)
+	require.Equal(t, uint64(5e18), balance)
 
 	suifeeQuoter, err := module_fee_quoter.NewFeeQuoter(suiState[sourceChain].CCIPAddress, e.Env.BlockChains.SuiChains()[sourceChain].Client)
 	require.NoError(t, err)
