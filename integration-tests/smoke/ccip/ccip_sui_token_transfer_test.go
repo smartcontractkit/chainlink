@@ -129,7 +129,7 @@ func Test_CCIPTokenTransfer_Sui2EVM_LockReleaseTokenPool(t *testing.T) {
 	balance, err := lockReleaseTokenPool.DevInspect().GetBalance(ctx, &suiBind.CallOpts{
 		Signer:           e.Env.BlockChains.SuiChains()[sourceChain].Signer,
 		WaitForExecution: true,
-	}, []string{}, suiBind.Object{Id: suiState[sourceChain].LnRTokenPools[testhelpers.TokenSymbolLINK].StateObjectId})
+	}, []string{state.SuiChains[sourceChain].LinkTokenAddress + "::link::LINK"}, suiBind.Object{Id: suiState[sourceChain].LnRTokenPools[testhelpers.TokenSymbolLINK].StateObjectId})
 	require.NoError(t, err)
 	t.Log("Current Balance: ", balance)
 	require.Equal(t, uint64(5000000000), balance)
@@ -149,7 +149,7 @@ func Test_CCIPTokenTransfer_Sui2EVM_LockReleaseTokenPool(t *testing.T) {
 	balance, err = lockReleaseTokenPool.DevInspect().GetBalance(ctx, &suiBind.CallOpts{
 		Signer:           e.Env.BlockChains.SuiChains()[sourceChain].Signer,
 		WaitForExecution: true,
-	}, []string{}, suiBind.Object{Id: suiState[sourceChain].LnRTokenPools[testhelpers.TokenSymbolLINK].StateObjectId})
+	}, []string{state.SuiChains[sourceChain].LinkTokenAddress + "::link::LINK"}, suiBind.Object{Id: suiState[sourceChain].LnRTokenPools[testhelpers.TokenSymbolLINK].StateObjectId})
 	require.NoError(t, err)
 	t.Log("New Balance: ", balance)
 	require.Equal(t, uint64(7000000000), balance)
