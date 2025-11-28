@@ -1,4 +1,4 @@
-package mcms_test
+package changeset_test
 
 import (
 	"strings"
@@ -16,8 +16,8 @@ import (
 	"github.com/smartcontractkit/chainlink-deployments-framework/engine/test/runtime"
 
 	"github.com/smartcontractkit/chainlink/deployment/common/types"
-	"github.com/smartcontractkit/chainlink/deployment/cre/mcms"
-	pkg "github.com/smartcontractkit/chainlink/deployment/cre/mcms/pkg"
+	"github.com/smartcontractkit/chainlink/deployment/cre/mcms/changeset"
+	"github.com/smartcontractkit/chainlink/deployment/cre/mcms/pkg"
 )
 
 func TestMCMSConfiguration(t *testing.T) {
@@ -33,11 +33,11 @@ func TestMCMSConfiguration(t *testing.T) {
 	r := runtime.NewFromEnvironment(*env)
 
 	// Execute a changeset to deploy the MCMS contracts
-	task := runtime.ChangesetTask(mcms.CsMCMSDeploy{}, mcms.DeployChangesetInput{
+	task := runtime.ChangesetTask(changeset.CsMCMSDeploy{}, changeset.DeployChangesetInput{
 		ConfigID:       "test-config",
 		Labels:         map[string]string{"foo": "bar"},
 		ChainSelectors: selectors,
-		ContractConfiguration: mcms.ContractConfiguration{
+		ContractConfiguration: changeset.ContractConfiguration{
 			Config: testMCMSCfg,
 		},
 	})
@@ -66,9 +66,9 @@ func TestMCMSConfiguration(t *testing.T) {
 	}
 
 	// Execute a changeset to update the MCMS contracts
-	task2 := runtime.ChangesetTask(mcms.CsMCMSConfigure{}, mcms.ConfigureChangesetInput{
+	task2 := runtime.ChangesetTask(changeset.CsMCMSConfigure{}, changeset.ConfigureChangesetInput{
 		ChainSelectors: selectors,
-		MCMSContractConfiguration: mcms.ContractConfiguration{
+		MCMSContractConfiguration: changeset.ContractConfiguration{
 			Config: testMCMSCfg2,
 		},
 		// MCMSConfig: mcmsConfig, // TODO: Add MCMS once runtime.ChangesetTask supports them in Run()

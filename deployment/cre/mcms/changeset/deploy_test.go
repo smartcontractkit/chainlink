@@ -1,4 +1,4 @@
-package mcms_test
+package changeset_test
 
 import (
 	"math/big"
@@ -13,8 +13,8 @@ import (
 	testenv "github.com/smartcontractkit/chainlink-deployments-framework/engine/test/environment"
 	"github.com/smartcontractkit/chainlink-deployments-framework/engine/test/runtime"
 	"github.com/smartcontractkit/chainlink/deployment/common/types"
-	"github.com/smartcontractkit/chainlink/deployment/cre/mcms"
-	pkg "github.com/smartcontractkit/chainlink/deployment/cre/mcms/pkg"
+	"github.com/smartcontractkit/chainlink/deployment/cre/mcms/changeset"
+	"github.com/smartcontractkit/chainlink/deployment/cre/mcms/pkg"
 )
 
 func TestMCMSDeployment(t *testing.T) {
@@ -30,11 +30,11 @@ func TestMCMSDeployment(t *testing.T) {
 	r := runtime.NewFromEnvironment(*env)
 
 	// Execute a changeset
-	task := runtime.ChangesetTask(mcms.CsMCMSDeploy{}, mcms.DeployChangesetInput{
+	task := runtime.ChangesetTask(changeset.CsMCMSDeploy{}, changeset.DeployChangesetInput{
 		ConfigID:       "test-config",
 		Labels:         map[string]string{"foo": "bar"},
 		ChainSelectors: selectors,
-		ContractConfiguration: mcms.ContractConfiguration{
+		ContractConfiguration: changeset.ContractConfiguration{
 			Config: testMCMSCfg,
 		},
 		//
