@@ -167,7 +167,7 @@ operator-ui: ## Fetch the frontend
 generate: codecgen mockery protoc gomods modgraph ## Execute all go:generate commands.
 	## Updating PATH makes sure that go:generate uses the version of protoc installed by the protoc make command.
 	export PATH="$(HOME)/.local/bin:$(PATH)"; gomods -w go generate -x ./...
-	find . -type f -name .mockery.yaml -execdir mockery \; ## Execute mockery for all .mockery.yaml files
+	GOPRIVATE=github.com/smartcontractkit/* find . -type f -name .mockery.yaml -execdir mockery \; ## Execute mockery for all .mockery.yaml files
 
 .PHONY: rm-mocked
 rm-mocked:

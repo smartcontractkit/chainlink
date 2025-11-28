@@ -142,6 +142,8 @@ jobs:
         id: golang-lint
         uses: ./.github/actions/golangci-lint
         timeout-minutes: 20
+        env:
+          GOPRIVATE: github.com/smartcontractkit/*
         with:
           go-directory: ${{ matrix.modules }}
 
@@ -274,7 +276,7 @@ jobs:
 
       - name: Download Go vendor packages
         if: ${{ matrix.type.should-run == 'true' }}
-        run: go mod download
+        run: GOPRIVATE=github.com/smartcontractkit/* go mod download
 
       - name: Setup DB
         if: ${{ matrix.type.should-run == 'true' }}
