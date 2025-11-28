@@ -35,9 +35,9 @@ func (CsMCMSDeploy) VerifyPreconditions(env cldf.Environment, input DeployChange
 			err2 = errors.Join(err2, fmt.Errorf("duplicate qualifier found: %s", q))
 		}
 		m[q] = struct{}{}
-		if err2 != nil {
-			return err2
-		}
+	}
+	if err2 != nil {
+		return err2
 	}
 
 	// check against existing addresses in the datastore
