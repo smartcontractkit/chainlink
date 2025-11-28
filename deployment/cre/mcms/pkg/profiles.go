@@ -18,7 +18,7 @@ type MCMSConfigStore struct {
 	m map[string]*commontypes.MCMSWithTimelockConfigV2
 }
 
-func (r MCMSConfigStore) Get(profileID string) (*commontypes.MCMSWithTimelockConfigV2, error) {
+func (r *MCMSConfigStore) Get(profileID string) (*commontypes.MCMSWithTimelockConfigV2, error) {
 	profile, exists := r.m[profileID]
 	if !exists {
 		return nil, errors.New("mcms profile not found: " + profileID)
@@ -26,7 +26,7 @@ func (r MCMSConfigStore) Get(profileID string) (*commontypes.MCMSWithTimelockCon
 
 	return profile, nil
 }
-func (r MCMSConfigStore) List() []string {
+func (r *MCMSConfigStore) List() []string {
 	profiles := make([]string, 0, len(r.m))
 	for profileID := range r.m {
 		profiles = append(profiles, profileID)
@@ -35,7 +35,7 @@ func (r MCMSConfigStore) List() []string {
 	return profiles
 }
 
-func (r MCMSConfigStore) Put(profileID string, config commontypes.MCMSWithTimelockConfigV2) {
+func (r *MCMSConfigStore) Put(profileID string, config commontypes.MCMSWithTimelockConfigV2) {
 	r.m[profileID] = &config
 }
 
