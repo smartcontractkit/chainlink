@@ -96,7 +96,7 @@ type DeployChangesetInput struct {
 	Environment string
 	// ConfigID is the ID of the MCMS configuration in the config store
 	ConfigID string `json:"configId" yaml:"configId"`
-	// Descriptor is an optional descriptor to append to the computed, used to distinguish multiple MCMS with the same config ID
+	// Descriptor is an optional descriptor to append to the computed qualifier URL as a query parameter, used to distinguish multiple MCMS deployments with the same config ID
 	Descriptor *string `json:"descriptor,omitempty" yaml:"descriptor,omitempty"`
 	// Labels are optional labels to add to the deployed MCMS contracts addresses in the datastore
 	Labels map[string]string `json:"labels,omitempty" yaml:"labels,omitempty"`
