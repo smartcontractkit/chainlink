@@ -83,8 +83,8 @@ func TestIntegration_secondary_feed_transmission(t *testing.T) {
 	bootstrapCSAKey := csakey.MustNewV2XXXTestingOnly(big.NewInt(salt - 1))
 	bootstrapNodePort := freeport.GetOne(t)
 	appBootstrap, bootstrapPeerID, _, bootstrapKb, _ := setupNode(t, bootstrapNodePort, "bootstrap_node", backend, bootstrapCSAKey)
-	bootstrapNode := Node{App: appBootstrap, KeyBundle: bootstrapKb}
-	t.Logf("created bootstrap node with id %q and public key %#v", bootstrapPeerID, bootstrapNode.KeyBundle.OnChainPublicKey())
+	bootstrapNode := node{app: appBootstrap, keyBundle: bootstrapKb}
+	t.Logf("created bootstrap node with id %q and public key %#v", bootstrapPeerID, bootstrapNode.keyBundle.OnChainPublicKey())
 
 	// Setup oracle nodes
 	oracles, nodes := setupNodes(t, nNodes, transactOpts, backend, clientCSAKeys)
@@ -92,13 +92,13 @@ func TestIntegration_secondary_feed_transmission(t *testing.T) {
 
 	for i, node := range nodes {
 		// set up the keys
-		transmitterKey1, err := node.App.GetKeyStore().Eth().Create(context.Background(), big.NewInt(int64(1337)))
+		transmitterKey1, err := node.app.GetKeyStore().Eth().Create(context.Background(), big.NewInt(int64(1337)))
 		require.NoErrorf(t, err, "could not create transmitter key for node %d", i)
 		err = fundAddressOf(transmitterKey1, transactOpts, backend)
 		require.NoError(t, err, "Funding transmitter shouldn't fail for node %d", i)
 		backend.Commit()
 
-		transmitterKey2, err := node.App.GetKeyStore().Eth().Create(context.Background(), big.NewInt(int64(1337)))
+		transmitterKey2, err := node.app.GetKeyStore().Eth().Create(context.Background(), big.NewInt(int64(1337)))
 		require.NoErrorf(t, err, "could not create transmitter key for node %d", i)
 		err = fundAddressOf(transmitterKey2, transactOpts, backend)
 		require.NoError(t, err, "Funding transmitter shouldn't fail for node %d", i)
@@ -110,7 +110,7 @@ func TestIntegration_secondary_feed_transmission(t *testing.T) {
 	var allPrimaryTransmitterAddresses []common.Address
 	var allSecondaryTransmitterAddresses []common.Address
 	for i, node := range nodes {
-		keys, err := node.App.GetKeyStore().Eth().GetAll(context.Background())
+		keys, err := node.app.GetKeyStore().Eth().GetAll(context.Background())
 		require.NoErrorf(t, err, "could not get eth keys for node %d", i)
 		allPrimaryTransmitterAddresses = append(allPrimaryTransmitterAddresses, keys[0].Address)
 		allSecondaryTransmitterAddresses = append(allSecondaryTransmitterAddresses, keys[1].Address)
@@ -235,7 +235,7 @@ func TestIntegration_secondary_feed_transmission(t *testing.T) {
 			},
 		},
 	}
-	err = bootstrapNode.App.AddJobV2(context.Background(), &bootstrapJob)
+	err = bootstrapNode.app.AddJobV2(context.Background(), &bootstrapJob)
 	require.NoError(t, err, "Failed to create bootstrap job")
 	t.Logf("Created bootstrap job")
 
@@ -245,7 +245,7 @@ func TestIntegration_secondary_feed_transmission(t *testing.T) {
 	require.NoErrorf(t, err, "Failed to parse observation source")
 
 	for i, node := range nodes {
-		keys, err := node.App.GetKeyStore().Eth().GetAll(context.Background())
+		keys, err := node.app.GetKeyStore().Eth().GetAll(context.Background())
 		require.NoErrorf(t, err, "could not get eth keys for node %d", i)
 
 		// create the job
@@ -263,7 +263,7 @@ func TestIntegration_secondary_feed_transmission(t *testing.T) {
 			OCR2OracleSpec: &job.OCR2OracleSpec{
 				ContractID:           dualAggAddress.Hex(),
 				Relay:                "evm",
-				OCRKeyBundleID:       null.StringFrom(node.KeyBundle.ID()),
+				OCRKeyBundleID:       null.StringFrom(node.keyBundle.ID()),
 				PluginType:           clcommonTypes.Median,
 				TransmitterID:        null.StringFrom(keys[0].Address.Hex()),
 				AllowNoBootstrappers: false,                                                                        // TODO(gg): maybe we can get away with this?
@@ -287,7 +287,7 @@ func TestIntegration_secondary_feed_transmission(t *testing.T) {
 				},
 			},
 		}
-		err = node.App.AddJobV2(context.Background(), jb)
+		err = node.app.AddJobV2(context.Background(), jb)
 		require.NoError(t, err, "Failed to create feed job")
 	}
 	t.Logf("Created jobs for feed %s", dualAggAddress.String())
@@ -310,10 +310,10 @@ func TestIntegration_secondary_feed_transmission(t *testing.T) {
 	gomega.NewGomegaWithT(t).Eventually(func() bool {
 		// Check logs from all oracle nodes
 		for i, node := range nodes {
-			if node.ObservedLogs == nil {
+			if node.observedLogs == nil {
 				continue
 			}
-			logs := node.ObservedLogs.All()
+			logs := node.observedLogs.All()
 			for _, log := range logs {
 				msg := strings.ToLower(log.Message)
 				// Check for primary transmission (to chain)

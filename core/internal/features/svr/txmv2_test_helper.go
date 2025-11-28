@@ -43,14 +43,17 @@ import (
 	ocr2types "github.com/smartcontractkit/libocr/offchainreporting2/types"
 )
 
-type Node struct {
-	App          chainlink.Application
-	ClientPubKey credentials.StaticSizedPublicKey
-	KeyBundle    ocr2key.KeyBundle
-	ObservedLogs *observer.ObservedLogs
+var linkTokenAddress = common.HexToAddress("0x326C977E6efc84E512bB9C30f76E30c160eD06FB")
+
+type node struct {
+	app                  chainlink.Application
+	clientPubKey         credentials.StaticSizedPublicKey
+	keyBundle            ocr2key.KeyBundle
+	observedLogs         *observer.ObservedLogs
+	effectiveTransmitter common.Address
 }
 
-func setupNodes(t *testing.T, nNodes int, transactOpts *bind.TransactOpts, backend *simulated.Backend, clientCSAKeys []csakey.KeyV2) (oracles []confighelper.OracleIdentityExtra, nodes []Node) {
+func setupNodes(t *testing.T, nNodes int, transactOpts *bind.TransactOpts, backend *simulated.Backend, clientCSAKeys []csakey.KeyV2) (oracles []confighelper.OracleIdentityExtra, nodes []node) {
 	ports := freeport.GetN(t, nNodes)
 	for i := range nNodes {
 		app, peerID, transmitter, kb, observedLogs := setupNode(t, ports[i], fmt.Sprintf("core_node_%d", i), backend, clientCSAKeys[i])
@@ -66,9 +69,6 @@ func setupNodes(t *testing.T, nNodes int, transactOpts *bind.TransactOpts, backe
 			}
 		}
 
-		nodes = append(nodes, Node{
-			app, transmitter, kb, observedLogs,
-		})
 		offchainPublicKey, err := hex.DecodeString(strings.TrimPrefix(kb.OnChainPublicKey(), "0x"))
 		require.NoError(t, err)
 		oracles = append(oracles, confighelper.OracleIdentityExtra{
@@ -94,9 +94,8 @@ func setupNodes(t *testing.T, nNodes int, transactOpts *bind.TransactOpts, backe
 		**/
 
 		// deploy a forwarder
-		//dualAggAddress, _, _, err := bind.DeployContract(transactOpts, *abi, common.FromHex(DualAggregatorMetaData.Bin), backend.Client(),
-		linkAddress := common.HexToAddress("0x326C977E6efc84E512bB9C30f76E30c160eD06FB")
-		faddr, _, authorizedForwarder, err := authorized_forwarder.DeployAuthorizedForwarder(transactOpts, backend.Client(), linkAddress, transactOpts.From, common.Address{}, []byte{})
+
+		forwarderAddress, _, authorizedForwarder, err := authorized_forwarder.DeployAuthorizedForwarder(transactOpts, backend.Client(), linkTokenAddress, transactOpts.From, common.Address{}, []byte{})
 		require.NoError(t, err)
 		backend.Commit()
 
@@ -109,10 +108,9 @@ func setupNodes(t *testing.T, nNodes int, transactOpts *bind.TransactOpts, backe
 		forwarderORM := forwarders.NewORM(app.GetDB())
 		chainID, err := backend.Client().ChainID(testutils.Context(t))
 		require.NoError(t, err)
-		_, err = forwarderORM.CreateForwarder(testutils.Context(t), faddr, ubig.Big(*chainID))
+		_, err = forwarderORM.CreateForwarder(testutils.Context(t), forwarderAddress, ubig.Big(*chainID))
 		require.NoError(t, err)
 
-		//effectiveTransmitter = faddr
 		// }
 		// return &Node{
 		// 	App:                  app,
@@ -122,6 +120,13 @@ func setupNodes(t *testing.T, nNodes int, transactOpts *bind.TransactOpts, backe
 		// 	KeyBundle:            kb,
 		// }
 
+		nodes = append(nodes, node{
+			app:                  app,
+			clientPubKey:         credentials.StaticSizedPublicKey(transmitter),
+			keyBundle:            kb,
+			observedLogs:         observedLogs,
+			effectiveTransmitter: forwarderAddress,
+		})
 	}
 	return
 }
