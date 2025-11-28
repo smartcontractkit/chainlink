@@ -516,6 +516,8 @@ jobs:
     name: Clean Go Tidy & Generate
     if: ${{ github.actor != 'dependabot[bot]' }}
     runs-on: ubuntu22.04-8cores-32GB
+    env:
+      GOPRIVATE: github.com/smartcontractkit/chainlink-internal-solana
     defaults:
       run:
         shell: bash
@@ -524,6 +526,15 @@ jobs:
         with:
           persist-credentials: false
           fetch-depth: 0
+      - name: Setup GitHub token using GATI
+        id: github-token
+        uses: smartcontractkit/.github/actions/setup-github-token@setup-github-token/1.0.0
+        with:
+          aws-role-arn: ${{ secrets.AWS_OIDC_CHAINLINK_READ_ONLY_TOKEN_ISSUER_ROLE_ARN }}
+          aws-lambda-url: ${{ secrets.AWS_INFRA_RELENG_TOKEN_ISSUER_LAMBDA_URL }}
+          aws-region: us-west-2
+          aws-role-duration-seconds: "1800"
+          set-git-config: "true"
       - name: Setup Go
         uses: ./.github/actions/setup-go
         with:
@@ -532,7 +543,6 @@ jobs:
         run: curl https://github.com/smartcontractkit/wsrpc/raw/main/cmd/protoc-gen-go-wsrpc/protoc-gen-go-wsrpc --output $HOME/go/bin/protoc-gen-go-wsrpc && chmod +x $HOME/go/bin/protoc-gen-go-wsrpc
       - name: make generate
         run: |
-          export GOPRIVATE=github.com/smartcontractkit/*
           make rm-mocked
           make generate
       - name: Ensure clean after generate
