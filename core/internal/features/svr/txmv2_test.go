@@ -11,7 +11,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	gethtypes "github.com/ethereum/go-ethereum/core/types"
@@ -58,6 +57,8 @@ var (
 
 // TODO(gg) use framework.Context from "github.com/smartcontractkit/chainlink/v2/core/capabilities/integration_tests/framework" for Contexts
 
+//TODO(gg): potential speedup: deploy + configure config contract first before starting the jobs (maybe we already do? We see a lot of "    logger.go:146: 2025-11-28T11:53:17.787Z     WARN    core_node_0.OCR2.offchainreporting2.2c534b8d-584c-4d54-85fd-bf7993542261        managed/track_config.go:110     TrackConfig: LatestConfigDetails() returned a zero configDigest. Looks like the contract has not been configured        {"version": "unset@unset", "jobID": 1, "jobName": "SVR job 0", "contractID":" though)
+
 func TestIntegration_secondary_feed_transmission(t *testing.T) {
 	const salt = 99
 
@@ -89,34 +90,6 @@ func TestIntegration_secondary_feed_transmission(t *testing.T) {
 	oracles, nodes := setupNodes(t, nNodes, backend, clientCSAKeys)
 	t.Logf("created %d oracle nodes", len(nodes))
 
-	// Deploy link address? // TODO(gg): maybe not needed
-
-	// operatorFactoryAddr, _, operatorFactory, err := operator_factory.DeployOperatorFactory(transactOpts, backend.Client(), transactOpts.From) // actually: linkAddress)
-	// require.NoError(t, err)
-	// backend.Commit()
-	// t.Logf("Deployed OperatorFactory at %s", operatorFactoryAddr.String())
-
-	// c1 := make(chan *operator_factory.OperatorFactoryOperatorCreated)
-	// _, err = operatorFactory.WatchOperatorCreated(nil, c1, nil, nil, nil)
-	// require.NoError(t, err)
-
-	// _, err = operatorFactory.DeployNewOperator(transactOpts)
-	// require.NoError(t, err)
-	// backend.Commit()
-	// t.Logf("Deployed Operator")
-
-	// var operatorInstance *operator.Operator
-	// select {
-	// case created := <-c1:
-	// 	t.Logf("Operator created at %s", created.Operator.String())
-	// 	operatorInstance, err = operator.NewOperator(created.Operator, backend.Client())
-	// 	require.NoError(t, err)
-	// case <-time.After(5 * time.Second):
-	// 	t.Fatal("Timed out waiting for OperatorFactoryOperatorCreated event")
-	// }
-
-	// donID := uint32(995544)
-
 	for i, node := range nodes {
 		// set up the keys
 		transmitterKey1, err := node.App.GetKeyStore().Eth().Create(context.Background(), big.NewInt(int64(1337)))
@@ -144,11 +117,6 @@ func TestIntegration_secondary_feed_transmission(t *testing.T) {
 	}
 	t.Logf("allPrimaryTransmitterAddresses: %v", allPrimaryTransmitterAddresses)
 	t.Logf("allSecondaryTransmitterAddresses: %v", allSecondaryTransmitterAddresses)
-
-	// _, err = operatorInstance.AcceptAuthorizedReceivers(transactOpts, []common.Address{forwarder.Address()}, []common.Address{primaryTransmitterKey.Address, secondaryTransmitterKey.Address})
-	// require.NoError(t, err, "Accepting authorized forwarder shouldn't fail")
-	// backend.Commit()
-	// t.Logf("Accepted authorized forwarder")
 
 	// 8. Deploy dual aggregator contract
 	abi, err := DualAggregatorMetaData.GetAbi()
@@ -253,10 +221,6 @@ func TestIntegration_secondary_feed_transmission(t *testing.T) {
 	backend.Commit()
 	t.Logf("Configured dual aggregator contract")
 
-	// 3. Restart the nodes so TXMv2 can load the key for the secondary address // TODO(gg): needed?
-
-	// 5. Deploy the LINK token contract // TODO(gg): needed?
-
 	t.Logf("Creating bootstrap job")
 	bootstrapJob := job.Job{
 		Type:          job.Bootstrap,
@@ -285,6 +249,7 @@ func TestIntegration_secondary_feed_transmission(t *testing.T) {
 		require.NoErrorf(t, err, "could not get eth keys for node %d", i)
 
 		// create the job
+		// TODO(gg): maybe use oevJobSpec() instead if possible?
 		jb := &job.Job{
 			Type:              job.OffchainReporting2,
 			SchemaVersion:     1,
@@ -442,6 +407,8 @@ func TestIntegration_secondary_feed_transmission(t *testing.T) {
 		"Expected both primary (to chain) and secondary transmissions (at least one secondary path: on-chain or Flashbots). Primary found: %v, Secondary on-chain: %v, Flashbots: %v, Mock server count: %d",
 		primaryFound, secondaryFound, flashbotsFound, mockFlashbotsServer.TransactionCount())
 
+	t.Logf("primaryFound: %v, secondaryFound: %v, flashbotsFound: %v, mockServerCount: %d", primaryFound, secondaryFound, flashbotsFound, mockFlashbotsServer.TransactionCount())
+
 	// Final assertions - separate checks for each secondary path
 	// These allow the test to separately succeed/fail based on txs landing on chain vs. being sent to Flashbots
 	require.True(t, primaryFound, "Primary transmission should be found in logs or on-chain")
@@ -470,193 +437,23 @@ func TestIntegration_secondary_feed_transmission(t *testing.T) {
 			t.Logf("✓ Secondary transaction received by mock server and submitted to chain (count: %d)", count)
 		}
 	}
-
-	/**
-	NEXT STEPS
-
-	* contract deployment + configuration:
-	    logger.go:146: 2025-03-02T16:29:04.901Z	DEBUG	oracle_svr.OCR2.offchainreporting2.4afd738a-d7cd-42cd-88d9-ee960caa0e41	managed/track_config.go:46	TrackConfig: checking latestConfigDetails	{"version": "unset@unset", "jobID": 1, "jobName": "SVR job 1", "contractID": "0xbc1Be4cC8790b0C99cff76100E0e6d01E32C6A2C", "transmitterID": "0xD0203286ca243762044dc5A8636c6568b31b58A3", "evmChainID": "1337"}
-	    logger.go:146: 2025-03-02T16:29:05.906Z	WARN	oracle_svr.OCR2.offchainreporting2.4afd738a-d7cd-42cd-88d9-ee960caa0e41	managed/track_config.go:110	TrackConfig: LatestConfigDetails() returned a zero configDigest. Looks like the contract has not been configured	{"version": "unset@unset", "jobID": 1, "jobName": "SVR job 1", "contractID": "0xbc1Be4cC8790b0C99cff76100E0e6d01E32C6A2C", "transmitterID": "0xD0203286ca243762044dc5A8636c6568b31b58A3", "evmChainID": "1337", "configDigest": "0000000000000000000000000000000000000000000000000000000000000000"}
-	* asser on events from dual transmission (similar to svr_test
-	*/
-
-	// relayType := "evm"
-	// relayConfig := fmt.Sprintf(`
-	// 			chainID = "%s"
-	// 			fromBlock = %d
-	// 	`, chainID, fromBlock, donID)
-	// addBootstrapJob(t, bootstrapNode, legacyVerifierAddr, "job-2", relayType, relayConfig)
-
-	// 	// Channel definitions
-	// 	channelDefinitions := llotypes.ChannelDefinitions{
-	// 		1: {
-	// 			ReportFormat: llotypes.ReportFormatEVMPremiumLegacy,
-	// 			Streams: []llotypes.Stream{
-	// 				{
-	// 					StreamID:   ethStreamID,
-	// 					Aggregator: llotypes.AggregatorMedian,
-	// 				},
-	// 			},
-	// 			Opts: llotypes.ChannelOpts([]byte(fmt.Sprintf(`{"baseUSDFee":"0.1","expirationWindow":%d,"feedId":"0x%x","multiplier":"%s"}`, expirationWindow, quoteStreamFeedID1, multiplier.String()))),
-	// 		},
-	// 		2: {
-	// 			ReportFormat: llotypes.ReportFormatEVMPremiumLegacy,
-	// 			Streams: []llotypes.Stream{
-	// 				{
-	// 					StreamID:   ethStreamID,
-	// 					Aggregator: llotypes.AggregatorMedian,
-	// 				},
-	// 			},
-	// 			Opts: llotypes.ChannelOpts([]byte(fmt.Sprintf(`{"baseUSDFee":"0.1","expirationWindow":%d,"feedId":"0x%x","multiplier":"%s"}`, expirationWindow, quoteStreamFeedID2, multiplier.String()))),
-	// 		},
-	// 	}
-
-	// 	pluginConfig := fmt.Sprintf(`servers = { "%s" = "%x" }
-	// donID = %d
-	// channelDefinitionsContractAddress = "0x%x"
-	// channelDefinitionsContractFromBlock = %d`, serverURL, serverPubKey, donID, configStoreAddress, fromBlock)
-	// 	addOCRJobsEVMPremiumLegacy(t, streams, serverPubKey, serverURL, legacyVerifierAddr, bootstrapPeerID, bootstrapNodePort, nodes, configStoreAddress, clientPubKeys, pluginConfig, relayType, relayConfig)
-
-	// 	// Set config on configurator
-	// 	setLegacyConfig(
-	// 		t, donID, steve, backend, legacyVerifier, legacyVerifierAddr, nodes, oracles,
-	// 	)
-
-	// 	// Set config on the destination verifier
-	// 	signerAddresses := make([]common.Address, len(oracles))
-	// 	for i, oracle := range oracles {
-	// 		signerAddresses[i] = common.BytesToAddress(oracle.OracleIdentity.OnchainPublicKey)
-	// 	}
-	// 	{
-	// 		recipientAddressesAndWeights := []destination_verifier.CommonAddressAndWeight{}
-
-	// 		_, err := verifier.SetConfig(steve, signerAddresses, fNodes, recipientAddressesAndWeights)
-	// 		require.NoError(t, err)
-	// 		backend.Commit()
-	// 	}
-
-	// 	// Expect at least one report per feed from each oracle
-	// 	seen := make(map[[32]byte]map[credentials.StaticSizedPublicKey]struct{})
-	// 	for _, cd := range channelDefinitions {
-	// 		var opts lloevm.ReportFormatEVMPremiumLegacyOpts
-	// 		err := json.Unmarshal(cd.Opts, &opts)
-	// 		require.NoError(t, err)
-	// 		// feedID will be deleted when all n oracles have reported
-	// 		seen[opts.FeedID] = make(map[credentials.StaticSizedPublicKey]struct{}, nNodes)
-	// 	}
-	// 	for req := range reqs {
-	// 		assert.Equal(t, uint32(llotypes.ReportFormatEVMPremiumLegacy), req.req.ReportFormat)
-	// 		v := make(map[string]interface{})
-	// 		err := mercury.PayloadTypes.UnpackIntoMap(v, req.req.Payload)
-	// 		require.NoError(t, err)
-	// 		report, exists := v["report"]
-	// 		if !exists {
-	// 			t.Fatalf("expected payload %#v to contain 'report'", v)
-	// 		}
-	// 		reportElems := make(map[string]interface{})
-	// 		err = reportcodecv3.ReportTypes.UnpackIntoMap(reportElems, report.([]byte))
-	// 		require.NoError(t, err)
-
-	// 		feedID := reportElems["feedId"].([32]uint8)
-
-	// 		if _, exists := seen[feedID]; !exists {
-	// 			continue // already saw all oracles for this feed
-	// 		}
-
-	// 		var expectedBm, expectedBid, expectedAsk *big.Int
-	// 		if feedID == quoteStreamFeedID1 {
-	// 			expectedBm = quoteStream1.baseBenchmarkPrice.Mul(multiplier).BigInt()
-	// 			expectedBid = quoteStream1.baseBid.Mul(multiplier).BigInt()
-	// 			expectedAsk = quoteStream1.baseAsk.Mul(multiplier).BigInt()
-	// 		} else if feedID == quoteStreamFeedID2 {
-	// 			expectedBm = quoteStream2.baseBenchmarkPrice.Mul(multiplier).BigInt()
-	// 			expectedBid = quoteStream2.baseBid.Mul(multiplier).BigInt()
-	// 			expectedAsk = quoteStream2.baseAsk.Mul(multiplier).BigInt()
-	// 		} else {
-	// 			t.Fatalf("unrecognized feedID: 0x%x", feedID)
-	// 		}
-
-	// 		assert.GreaterOrEqual(t, reportElems["validFromTimestamp"].(uint32), uint32(testStartTimeStamp.Unix()))
-	// 		assert.GreaterOrEqual(t, int(reportElems["observationsTimestamp"].(uint32)), int(testStartTimeStamp.Unix()))
-	// 		assert.Equal(t, "33597747607000", reportElems["nativeFee"].(*big.Int).String())
-	// 		assert.Equal(t, "7547169811320755", reportElems["linkFee"].(*big.Int).String())
-	// 		assert.Equal(t, reportElems["observationsTimestamp"].(uint32)+uint32(expirationWindow), reportElems["expiresAt"].(uint32))
-	// 		assert.Equal(t, expectedBm.String(), reportElems["benchmarkPrice"].(*big.Int).String())
-	// 		assert.Equal(t, expectedBid.String(), reportElems["bid"].(*big.Int).String())
-	// 		assert.Equal(t, expectedAsk.String(), reportElems["ask"].(*big.Int).String())
-
-	// 		// emulate mercury server verifying report (local verification)
-	// 		{
-	// 			rv := mercuryverifier.NewVerifier()
-
-	// 			reportSigners, err := rv.Verify(mercuryverifier.SignedReport{
-	// 				RawRs:         v["rawRs"].([][32]byte),
-	// 				RawSs:         v["rawSs"].([][32]byte),
-	// 				RawVs:         v["rawVs"].([32]byte),
-	// 				ReportContext: v["reportContext"].([3][32]byte),
-	// 				Report:        v["report"].([]byte),
-	// 			}, fNodes, signerAddresses)
-	// 			require.NoError(t, err)
-	// 			assert.GreaterOrEqual(t, len(reportSigners), int(fNodes+1))
-	// 			assert.Subset(t, signerAddresses, reportSigners)
-	// 		}
-
-	// 	}
-
 }
 
 func setupBlockchain(t *testing.T) (*bind.TransactOpts, *simulated.Backend) {
-	// TODO(gg): maybe use seth instead?
-
 	contractOwner := evmtestutils.MustNewSimTransactor(t) // config contract deployer and owner
 	genesisData := gethtypes.GenesisAlloc{contractOwner.From: {Balance: assets.Ether(1000).ToInt()}}
 	backend := simulated.NewBackend(genesisData, simulated.WithBlockGasLimit(ethconfig.Defaults.Miner.GasCeil))
 	backend.Commit()
 	backend.Commit() // ensure starting block number at least 1
 
-	// // Configurator
-	// configuratorAddress, _, configurator, err := configurator.DeployConfigurator(transactor, backend.Client())
-	// require.NoError(t, err)
-	// backend.Commit()
-	// ChannelConfigStore
-
 	return contractOwner, backend
 }
 
-func mustNewType(t string) abi.Type {
-	result, err := abi.NewType(t, "", []abi.ArgumentMarshaling{})
-	if err != nil {
-		panic(fmt.Sprintf("Unexpected error during abi.NewType: %s", err))
-	}
-	return result
-}
-
 func fundAddressOf(key ethkey.KeyV2, contractOwner *bind.TransactOpts, backend *simulated.Backend) error {
-
-	// backend.Client().SendTransaction()
-	// contractOwner.From
-	// backend.Client().
-	// 	// 4. Fund addresses
-	// 	for i := range primaryAddresses {
-	// 		require.NoError(t, ns.SendETH(sethClient.Client, pkey, primaryAddresses[i].String(), big.NewFloat(0.2)), "Failed to fund primary address")
-	// 		require.NoError(t, ns.SendETH(sethClient.Client, pkey, secondaryAddresses[i].String(), big.NewFloat(0.2)), "Failed to fund secondary address")
-	// 	}
-
-	// privateKey, err := crypto.HexToECDSA(key)
-	// if err != nil {
-	// 	return er.Wrap(err, "failed to parse private key")
-	// }
 	wei := new(big.Int)
 	amount := big.NewFloat(0.2)
 	amountWei := new(big.Float).Mul(amount, big.NewFloat(1e18))
 	amountWei.Int(wei)
-
-	// publicKey := privateKey.Public()
-	// publicKeyECDSA, ok := publicKey.(*ecdsa.PublicKey)
-	// if !ok {
-	// 	return fmt.Errorf("error casting public key to ECDSA")
-	// }
-	// fromAddress := crypto.PubkeyToAddress(*publicKeyECDSA)
 
 	backend.Client().PendingNonceAt(context.Background(), key.Address)
 	nonce, err := backend.Client().PendingNonceAt(context.Background(), contractOwner.From)
