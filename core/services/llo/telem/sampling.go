@@ -9,9 +9,10 @@ import (
 	"sync"
 	"time"
 
+	"google.golang.org/protobuf/proto"
+
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-data-streams/llo"
-	"google.golang.org/protobuf/proto"
 
 	"github.com/smartcontractkit/chainlink/v2/core/services/synchronization"
 )
@@ -22,9 +23,7 @@ const (
 	samplerDelimiter = "-"
 )
 
-var (
-	errUnsupportedTelemetryType = errors.New("unsupported telemetry type")
-)
+var errUnsupportedTelemetryType = errors.New("unsupported telemetry type")
 
 // sampler keeps track of what kind of telemetry has already been sent to the collection point and decides whether the
 // next telemetry package will be sent or dropped.
@@ -153,7 +152,7 @@ func fingerprint(typ synchronization.TelemetryType, msg proto.Message) (string, 
 		traits := []string{
 			strconv.FormatUint(uint64(m.DonId), 10),
 			strconv.FormatUint(uint64(m.GetStreamId()), 10),
-			strconv.FormatUint(uint64(m.SpecId), 10),
+			strconv.FormatUint(uint64(m.SpecId), 10), //nolint:gosec // G115
 			m.BridgeAdapterName,
 			hex.EncodeToString(m.ConfigDigest),
 		}
