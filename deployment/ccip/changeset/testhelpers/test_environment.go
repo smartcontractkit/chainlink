@@ -165,6 +165,10 @@ type TestConfigs struct {
 
 	// Solana Handle different contract versions
 	CCIPSolanaContractVersion ccipChangeSetSolanaV0_1_1.CCIPSolanaContractVersion
+
+	// TonContainerConfig allows custom configuration for mylocalton-docker.
+	// See https://github.com/neodix42/mylocalton-docker/wiki/Genesis-setup-parameters for available options.
+	TonContainerConfig *onchain.TonContainerConfig
 }
 
 func (tc *TestConfigs) Validate() error {
@@ -359,6 +363,13 @@ func WithTonChains(numChains int) TestOps {
 	}
 }
 
+// WithTonContainerConfig sets the TON container configuration for tests.
+func WithTonContainerConfig(cfg onchain.TonContainerConfig) TestOps {
+	return func(testCfg *TestConfigs) {
+		testCfg.TonContainerConfig = &cfg
+	}
+}
+
 func WithNumOfUsersPerChain(numUsers uint) TestOps {
 	return func(testCfg *TestConfigs) {
 		testCfg.NumOfUsersPerChain = numUsers
@@ -441,7 +452,6 @@ func (m *MemoryEnvironment) StartChains(t *testing.T) {
 	loadOpts := []environment.LoadOpt{
 		environment.WithAptosContainerN(t, tc.AptosChains),
 		environment.WithSuiContainerN(t, tc.SuiChains),
-		environment.WithTonContainerN(t, tc.TonChains),
 		environment.WithLogger(logger.Test(t)),
 	}
 
@@ -462,6 +472,12 @@ func (m *MemoryEnvironment) StartChains(t *testing.T) {
 		programsPath := t.TempDir()
 		progIDs := soltestutils.LoadCCIPPrograms(t, programsPath)
 		loadOpts = append(loadOpts, environment.WithSolanaContainerN(t, tc.SolChains, programsPath, progIDs))
+	}
+
+	// Handle TON chains
+	if tc.TonChains > 0 {
+		require.NotNil(t, tc.TonContainerConfig, "TON container config is required")
+		loadOpts = append(loadOpts, environment.WithTonContainerNWithConfig(t, tc.TonChains, *tc.TonContainerConfig))
 	}
 
 	env, err := environment.New(t.Context(), loadOpts...)
@@ -1157,7 +1173,7 @@ func AddCCIPContractsToEnvironment(t *testing.T, allChains []uint64, tEnv TestEn
 		_, err := tontestutils.GetTONSha()
 		require.NoError(t, err, "failed to get TON commit sha")
 		// TODO replace the hardcoded commit sha with the one fetched from memory.GetTONSha()
-		contractVersion := "bd37af74a93e" // https://github.com/smartcontractkit/chainlink-ton/releases/tag/ton-contracts-build-bd37af74a93e
+		contractVersion := "e12a49a0db4d" // https://github.com/smartcontractkit/chainlink-ton/releases/tag/ton-contracts-build-e12a49a0db4d
 		// Allow overriding with a custom version, it's set to "local" on chainlink-ton CI
 		if version := os.Getenv("CCIP_CONTRACTS_TON_VERSION"); version != "" {
 			contractVersion = version
