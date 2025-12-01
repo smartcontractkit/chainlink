@@ -44,7 +44,7 @@ FeeBumpPeriod = '3s' # Default
 # BlockHistoryPollPeriod is the rate to poll for blocks in the block history fee estimator
 BlockHistoryPollPeriod = '5s' # Default
 # BlockHistorySize is the number of blocks to take into consideration when using FeeEstimatorMode = 'blockhistory' to determine compute unit price.
-# If set to 1, the compute unit price will be determined by the median of the last block's compute unit prices. 
+# If set to 1, the compute unit price will be determined by the median of the last block's compute unit prices.
 # If set N > 1, the compute unit price will be determined by the average of the medians of the last N blocks' compute unit prices.
 # DISCLAIMER: If set to a value greater than BlockHistoryBatchLoadSize, initial estimations during startup would be over smaller block ranges until the cache is filled.
 BlockHistorySize = 1 # Default
@@ -58,6 +58,8 @@ ComputeUnitLimitDefault = 200_000 # Default
 EstimateComputeUnitLimit = false # Default
 # LogPollerStartingLookback
 LogPollerStartingLookback = '24h0m0s' # Default
+# LogPoller2538Enabled
+LogPoller2538Enabled = false # Default
 
 [Solana.Workflow]
 # AcceptanceTimeout is the default timeout for a tranmission to be accepted on chain

@@ -272,6 +272,7 @@ BlockHistoryBatchLoadSize = 20
 ComputeUnitLimitDefault = 200000
 EstimateComputeUnitLimit = false
 LogPollerStartingLookback = '24h0m0s'
+LogPoller2538Enabled = false
 Nodes = []
 
 [Workflow]
