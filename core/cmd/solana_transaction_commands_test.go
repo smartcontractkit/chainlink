@@ -11,7 +11,6 @@ import (
 	"time"
 
 	solanago "github.com/gagliardetto/solana-go"
-	mnCfg "github.com/smartcontractkit/chainlink-framework/multinode/config"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/urfave/cli"
@@ -33,13 +32,16 @@ func TestShell_SolanaSendSol(t *testing.T) {
 		Name: ptr(t.Name()),
 		URL:  config.MustParseURL(url),
 	}
-	multiNodeCfg := mnCfg.MultiNode{VerifyChainID: ptr(false)}
+
+	multiNodeCfg := solcfg.NewDefaultMultiNodeConfig()
+	multiNodeCfg.MultiNode.VerifyChainID = ptr(false)
 	cfg := solcfg.TOMLConfig{
 		ChainID:   &chainID,
 		Nodes:     solcfg.Nodes{&node},
 		Enabled:   ptr(true),
-		MultiNode: mnCfg.MultiNodeConfig{multiNodeCfg},
+		MultiNode: multiNodeCfg,
 	}
+
 	app := solanaStartNewApplication(t, &cfg1, &cfg2)
 	from, err := app.GetKeyStore().Solana().Create(ctx)
 	require.NoError(t, err)
