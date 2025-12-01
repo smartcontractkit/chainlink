@@ -127,18 +127,18 @@ func TestShell_IndexStarkNetNodes(t *testing.T) {
 	t.Logf("=== END DEBUG ===")
 	
 	assert.Len(t, renderLines, 25) // Actual line count from the error
-	// Skip empty node, check first real node (nodes[1])
-	assert.Contains(t, renderLines[10], "Name")
-	assert.Contains(t, renderLines[10], n1.Name)
-	assert.Contains(t, renderLines[11], "Chain ID")
-	assert.Contains(t, renderLines[11], n1.ChainID)
-	assert.Contains(t, renderLines[12], "State")
-	assert.Contains(t, renderLines[12], n1.State)
-	// Second real node (nodes[2]) should be around line 17-19
-	assert.Contains(t, renderLines[17], "Name")
-	assert.Contains(t, renderLines[17], n2.Name)
-	assert.Contains(t, renderLines[18], "Chain ID")
-	assert.Contains(t, renderLines[18], n2.ChainID)
-	assert.Contains(t, renderLines[19], "State")
-	assert.Contains(t, renderLines[19], n2.State)
+	// First real node (nodes[1]) - from error: line 18,19,20
+	assert.Contains(t, renderLines[18], "Name")
+	assert.Contains(t, renderLines[18], n1.Name)
+	assert.Contains(t, renderLines[19], "Chain ID")
+	assert.Contains(t, renderLines[19], n1.ChainID)
+	assert.Contains(t, renderLines[20], "State")
+	assert.Contains(t, renderLines[20], n1.State)
+	// Second real node (nodes[2]) - likely lines 22,23,24
+	assert.Contains(t, renderLines[22], "Name")
+	assert.Contains(t, renderLines[22], n2.Name)
+	assert.Contains(t, renderLines[23], "Chain ID")
+	assert.Contains(t, renderLines[23], n2.ChainID)
+	assert.Contains(t, renderLines[24], "State")
+	assert.Contains(t, renderLines[24], n2.State)
 }
