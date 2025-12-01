@@ -34,7 +34,7 @@ import (
 
 func TestCoreRelayerChainInteroperators(t *testing.T) {
 	evmChainID1, evmChainID2 := ubig.New(big.NewInt(1)), ubig.New(big.NewInt(2))
-	solanaChainID1, solanaChainID2 := "solana-id-1", "solana-id-2"
+	solanaChainID1, solanaChainID2 := "22222222222222222222222222222222222222222222", "33333333333333333333333333333333333333333333"
 
 	newConfig := func() chainlink.GeneralConfig {
 		return configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {

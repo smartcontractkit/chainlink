@@ -14,7 +14,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/cmd"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
-	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/solanatest"
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 )
 
@@ -43,7 +42,7 @@ func TestShell_IndexEVMChains(t *testing.T) {
 func TestShell_IndexSolanaChains(t *testing.T) {
 	t.Parallel()
 
-	id := solanatest.RandomChainID()
+	id := "22222222222222222222222222222222222222222222"
 	cfg := solcfg.TOMLConfig{
 		ChainID: &id,
 		Enabled: ptr(true),
