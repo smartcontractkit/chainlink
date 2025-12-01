@@ -97,7 +97,7 @@ func TestShell_IndexStarkNetNodes(t *testing.T) {
 	require.NotEmpty(t, r.Renders)
 	nodes := *r.Renders[0].(*cmd.NodePresenters)
 	require.Len(t, nodes, 3)
-	n1 := nodes[1]  // Skip the empty node at index 0
+	n1 := nodes[1] // Skip the empty node at index 0
 	n2 := nodes[2]
 	assert.Equal(t, id, n1.ChainID)
 	assert.Equal(t, cltest.FormatWithPrefixedChainID(id, "first"), n1.ID)
@@ -118,7 +118,15 @@ func TestShell_IndexStarkNetNodes(t *testing.T) {
 	rt := cmd.RendererTable{b}
 	require.NoError(t, nodes.RenderTable(rt))
 	renderLines := strings.Split(b.String(), "\n")
-	assert.Len(t, renderLines, 25)  // Actual line count from the error
+	
+	// DEBUG: Print actual table lines to understand structure
+	t.Logf("=== TABLE LINES DEBUG (Total: %d) ===", len(renderLines))
+	for i, line := range renderLines {
+		t.Logf("Line %d: %q", i, line)
+	}
+	t.Logf("=== END DEBUG ===")
+	
+	assert.Len(t, renderLines, 25) // Actual line count from the error
 	// Skip empty node, check first real node (nodes[1])
 	assert.Contains(t, renderLines[10], "Name")
 	assert.Contains(t, renderLines[10], n1.Name)
