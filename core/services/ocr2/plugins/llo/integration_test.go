@@ -29,6 +29,7 @@ import (
 	"google.golang.org/protobuf/proto"
 
 	"github.com/smartcontractkit/freeport"
+	"github.com/smartcontractkit/quarantine"
 
 	"github.com/smartcontractkit/libocr/offchainreporting2/types"
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/confighelper"
@@ -1402,6 +1403,7 @@ dp -> deribit_funding_interval_hours_parse -> deribit_funding_interval_hours_dec
 }
 
 func TestIntegration_LLO_stress_test_V1(t *testing.T) {
+	quarantine.Flaky(t, "DX-2387")
 	tests.SkipFlakey(t, "https://smartcontract-it.atlassian.net/browse/MERC-7232")
 	t.Parallel()
 
