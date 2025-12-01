@@ -110,7 +110,7 @@ install-plugins-local: ## Build & install local plugins
 	go install $(GOFLAGS) ./plugins/cmd/capabilities/log-event-trigger
 
 .PHONY: make install-plugins
-install-plugins: install-plugins-local install-plugins-public ## Build and install local and public plugins via loopinstall
+install-plugins: install-plugins-local install-plugins-public install-plugin-private ## Build and install local and public plugins via loopinstall
 
 .PHONY: docker ## Build the chainlink docker image
 docker:
