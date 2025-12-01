@@ -126,10 +126,11 @@ func TestShell_IndexStarkNetNodes(t *testing.T) {
 	assert.Contains(t, renderLines[11], n1.ChainID)
 	assert.Contains(t, renderLines[12], "State")
 	assert.Contains(t, renderLines[12], n1.State)
-	assert.Contains(t, renderLines[9], "Name")
-	assert.Contains(t, renderLines[9], n2.Name)
-	assert.Contains(t, renderLines[10], "Chain ID")
-	assert.Contains(t, renderLines[10], n2.ChainID)
-	assert.Contains(t, renderLines[11], "State")
-	assert.Contains(t, renderLines[11], n2.State)
+	// Second real node (nodes[2]) should be around line 17-19
+	assert.Contains(t, renderLines[17], "Name")
+	assert.Contains(t, renderLines[17], n2.Name)
+	assert.Contains(t, renderLines[18], "Chain ID")
+	assert.Contains(t, renderLines[18], n2.ChainID)
+	assert.Contains(t, renderLines[19], "State")
+	assert.Contains(t, renderLines[19], n2.State)
 }
