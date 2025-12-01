@@ -109,8 +109,7 @@ func Test_CCIPTokenTransfer_Sui2EVM_LockReleaseTokenPool(t *testing.T) {
 	)
 	require.NoError(t, err)
 
-	execStates := testhelpers.ConfirmExecWithSeqNrsForAllWithContext(
-		ctx,
+	execStates := testhelpers.ConfirmExecWithSeqNrsForAll(
 		t,
 		updatedEnv,
 		state,
@@ -304,8 +303,7 @@ func Test_CCIPTokenTransfer_Sui2EVM_BurnMintTokenPool(t *testing.T) {
 	)
 	require.NoError(t, err)
 
-	execStates := testhelpers.ConfirmExecWithSeqNrsForAllWithContext(
-		ctx,
+	execStates := testhelpers.ConfirmExecWithSeqNrsForAll(
 		t,
 		updatedEnv,
 		state,
@@ -447,14 +445,12 @@ func Test_CCIPTokenTransfer_Sui2EVM_BurnMintTokenPool_ThenGloballyCursedUncursed
 	)
 	require.NoError(t, err)
 
-	execStates := testhelpers.ConfirmExecWithSeqNrsForAllWithContext(
-		ctx,
+	execStates := testhelpers.ConfirmExecWithSeqNrsForAll(
 		t,
 		updatedEnv,
 		state,
 		testhelpers.SeqNumberRangeToSlice(expectedSeqNums),
-		startBlocks,
-	)
+		startBlocks)
 	require.Equal(t, expectedExecutionStates, execStates)
 
 	testhelpers.WaitForTokenBalances(ctx, t, updatedEnv, expectedTokenBalances)
@@ -556,8 +552,7 @@ func Test_CCIPTokenTransfer_Sui2EVM_BurnMintTokenPool_ThenGloballyCursedUncursed
 	)
 	require.NoError(t, err)
 
-	execStates = testhelpers.ConfirmExecWithSeqNrsForAllWithContext(
-		ctx,
+	execStates = testhelpers.ConfirmExecWithSeqNrsForAll(
 		t,
 		updatedEnv,
 		state,
@@ -634,8 +629,7 @@ func Test_CCIPTokenTransfer_Sui2EVM_BurnMintTokenPool_WithAllowlist(t *testing.T
 	)
 	require.NoError(t, err)
 
-	execStates := testhelpers.ConfirmExecWithSeqNrsForAllWithContext(
-		ctx,
+	execStates := testhelpers.ConfirmExecWithSeqNrsForAll(
 		t,
 		updatedEnv,
 		state,
