@@ -292,8 +292,7 @@ func Test_CCIPTokenTransfer_Sui2EVM_BurnMintTokenPool(t *testing.T) {
 	ctx := testhelpers.Context(t)
 	startBlocks, expectedSeqNums, expectedExecutionStates, expectedTokenBalances := testhelpers.TransferMultiple(ctx, t, updatedEnv, state, tcs)
 
-	err = testhelpers.ConfirmMultipleCommitsWithContext(
-		ctx,
+	err = testhelpers.ConfirmMultipleCommits(
 		t,
 		updatedEnv,
 		state,
@@ -434,8 +433,7 @@ func Test_CCIPTokenTransfer_Sui2EVM_BurnMintTokenPool_ThenGloballyCursedUncursed
 	ctx := testhelpers.Context(t)
 	startBlocks, expectedSeqNums, expectedExecutionStates, expectedTokenBalances := testhelpers.TransferMultiple(ctx, t, updatedEnv, state, tcs)
 
-	err = testhelpers.ConfirmMultipleCommitsWithContext(
-		ctx,
+	err = testhelpers.ConfirmMultipleCommits(
 		t,
 		updatedEnv,
 		state,
@@ -541,8 +539,7 @@ func Test_CCIPTokenTransfer_Sui2EVM_BurnMintTokenPool_ThenGloballyCursedUncursed
 
 	startBlocks, expectedSeqNums, expectedExecutionStates, expectedTokenBalances = testhelpers.TransferMultiple(ctx, t, updatedEnv, state, tcs)
 
-	err = testhelpers.ConfirmMultipleCommitsWithContext(
-		ctx,
+	err = testhelpers.ConfirmMultipleCommits(
 		t,
 		updatedEnv,
 		state,
@@ -618,8 +615,7 @@ func Test_CCIPTokenTransfer_Sui2EVM_BurnMintTokenPool_WithAllowlist(t *testing.T
 	ctx := testhelpers.Context(t)
 	startBlocks, expectedSeqNums, expectedExecutionStates, expectedTokenBalances := testhelpers.TransferMultiple(ctx, t, updatedEnv, state, tcs)
 
-	err = testhelpers.ConfirmMultipleCommitsWithContext(
-		ctx,
+	err = testhelpers.ConfirmMultipleCommits(
 		t,
 		updatedEnv,
 		state,
@@ -823,8 +819,7 @@ func Test_CCIPTokenTransfer_Sui2EVM_BurnMintTokenPool_WithRateLimit(t *testing.T
 	ctx := testhelpers.Context(t)
 	startBlocks, expectedSeqNums, expectedExecutionStates, expectedTokenBalances := testhelpers.TransferMultiple(ctx, t, updatedEnv, state, tcs)
 
-	err = testhelpers.ConfirmMultipleCommitsWithContext(
-		ctx,
+	err = testhelpers.ConfirmMultipleCommits(
 		t,
 		updatedEnv,
 		state,
@@ -967,8 +962,7 @@ func Test_CCIPTokenTransfer_Sui2EVM_ManagedTokenPool_ThenCurseUncurse(t *testing
 	ctx := testhelpers.Context(t)
 	startBlocks, expectedSeqNums, expectedExecutionStates, expectedTokenBalances := testhelpers.TransferMultiple(ctx, t, updatedEnv, state, tcs)
 
-	err = testhelpers.ConfirmMultipleCommitsWithContext(
-		ctx,
+	err = testhelpers.ConfirmMultipleCommits(
 		t,
 		updatedEnv,
 		state,
@@ -1075,8 +1069,7 @@ func Test_CCIPTokenTransfer_Sui2EVM_ManagedTokenPool_ThenCurseUncurse(t *testing
 	ctx = testhelpers.Context(t)
 	startBlocks, expectedSeqNums, expectedExecutionStates, expectedTokenBalances = testhelpers.TransferMultiple(ctx, t, updatedEnv, state, tcs)
 
-	err = testhelpers.ConfirmMultipleCommitsWithContext(
-		ctx,
+	err = testhelpers.ConfirmMultipleCommits(
 		t,
 		updatedEnv,
 		state,
