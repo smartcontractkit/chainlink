@@ -1,7 +1,6 @@
 package web_test
 
 import (
-	"fmt"
 	"math/big"
 	"net/http"
 	"sort"
@@ -11,7 +10,6 @@ import (
 	"github.com/manyminds/api2go/jsonapi"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"golang.org/x/exp/rand"
 
 	"github.com/smartcontractkit/quarantine"
 
@@ -357,13 +355,13 @@ func Test_SolanaChainsController_Index(t *testing.T) {
 	t.Parallel()
 
 	chainA := &config.TOMLConfig{
-		ChainID: ptr(fmt.Sprintf("ChainlinktestA-%d", rand.Int31n(999999))),
+		ChainID: ptr("33333333333333333333333333333333333333333333"),
 		Chain: config.Chain{
 			TxTimeout: commoncfg.MustNewDuration(time.Hour),
 		},
 	}
 	chainB := &config.TOMLConfig{
-		ChainID: ptr(fmt.Sprintf("ChainlinktestB-%d", rand.Int31n(999999))),
+		ChainID: ptr("44444444444444444444444444444444444444444444"),
 		Chain: config.Chain{
 			SkipPreflight: ptr(false),
 		},

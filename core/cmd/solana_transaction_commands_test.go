@@ -26,7 +26,7 @@ import (
 // TODO: move this test to `chainlink-solana` https://smartcontract-it.atlassian.net/browse/NONEVM-790
 func TestShell_SolanaSendSol(t *testing.T) {
 	ctx := testutils.Context(t)
-	chainID := "22222222222222222222222222222222222222222222"
+	chainID := "localnet"
 	url := solanatesting.SetupLocalSolNode(t)
 	node := solcfg.Node{
 		Name: ptr(t.Name()),
