@@ -47,7 +47,7 @@ WSURL = 'wss://foo.bar/ws'
 HTTPURL = 'https://foo.bar'
 
 [[Solana]]
-ChainID = '44444444444444444444444444444444444444444444'
+ChainID = '22222222222222222222222222222222222222222222'
 
 [[Solana.Nodes]]
 Name = 'primary'
