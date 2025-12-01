@@ -25,32 +25,35 @@ fj293fbBnlQ!f9vNs
 -- config.toml.tmpl --
 [Webserver]
 HTTPPort = $PORT
+[Webserver.TLS]
+HTTPSPort = 0
 
 [[Starknet]]
-ChainID = '68472'
+ChainID = 'starknet chain ID'
+FeederURL = 'http://feeder.url'
 
 [[Starknet.Nodes]]
-Name = 'Blue'
-URL = 'wss://primaryfoo.bar'
+Name = 'first'
+URL = 'https://starknet1.example'
 
 [[Starknet.Nodes]]
-Name = 'Yellow'
-URL = 'wss://sendonlyfoo.bar'
+Name = 'second'
+URL = 'https://starknet2.example'
 
 -- out.txt --
 
 -----------------------------
-Name:     Blue
-Chain ID: 68472
-State:    
-Config:   Name = 'Blue'
-URL = 'wss://primaryfoo.bar'
+Name:     first
+Chain ID: starknet chain ID
+State:    Unreachable
+Config:   Name = 'first'
+URL = 'https://starknet1.example'
 
 -----------------------------
-Name:     Yellow
-Chain ID: 68472
-State:    
-Config:   Name = 'Yellow'
-URL = 'wss://sendonlyfoo.bar'
+Name:     second
+Chain ID: starknet chain ID
+State:    Unreachable
+Config:   Name = 'second'
+URL = 'https://starknet2.example'
 
 -----------------------------
