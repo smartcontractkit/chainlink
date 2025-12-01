@@ -61,11 +61,11 @@ ChainID = '1'
 
 [[EVM.Nodes]]
 Name = 'fake'
-WSURL = 'wss://foo.22222222222222222222222222222222222222222222/ws'
-HTTPURL = 'https://foo.22222222222222222222222222222222222222222222'
+WSURL = 'wss://foo.bar/ws'
+HTTPURL = 'https://foo.bar'
 
 [[Solana]]
-ChainID = '22222222222222222222222222222222222222222222'
+ChainID = 'Bar'
 
 [[Solana.Nodes]]
 Name = 'primary'
@@ -81,7 +81,7 @@ URL = 'http://stark.node'
 [[Sui]]
 ChainID = '67'
 NetworkName = 'foo'
-NetworkNameFull = 'foo22222222222222222222222222222222222222222222'
+NetworkNameFull = 'foobar'
 
 [[Sui.Nodes]]
 Name = 'node'
