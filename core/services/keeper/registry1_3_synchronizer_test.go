@@ -12,6 +12,8 @@ import (
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 
+	"github.com/smartcontractkit/quarantine"
+
 	"github.com/smartcontractkit/chainlink-common/pkg/services/servicetest"
 
 	registry1_3 "github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/keeper_registry_wrapper1_3"
@@ -665,6 +667,7 @@ func Test_RegistrySynchronizer1_3_UpkeepPausedLog_UpkeepUnpausedLog(t *testing.T
 }
 
 func Test_RegistrySynchronizer1_3_UpkeepCheckDataUpdatedLog(t *testing.T) {
+	quarantine.Flaky(t, "DX-1762")
 	ctx := testutils.Context(t)
 	g := gomega.NewWithT(t)
 	db, synchronizer, ethMock, lb, job := setupRegistrySync(t, keeper.RegistryVersion_1_3)
