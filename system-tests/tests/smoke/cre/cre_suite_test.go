@@ -6,6 +6,8 @@ import (
 
 	"github.com/stretchr/testify/require"
 
+	"github.com/smartcontractkit/quarantine"
+
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/blockchains"
 	t_helpers "github.com/smartcontractkit/chainlink/system-tests/tests/test-helpers"
 )
@@ -39,6 +41,7 @@ func Test_CRE_V1_Proof_Of_Reserve(t *testing.T) {
 }
 
 func Test_CRE_V1_Tron(t *testing.T) {
+	quarantine.Flaky(t, "DX-2008")
 	testEnv := t_helpers.SetupTestEnvironmentWithConfig(t, t_helpers.GetTestConfig(t, "/configs/workflow-don-tron.toml"))
 
 	priceProvider, porWfCfg := beforePoRTest(t, testEnv, "por-workflowV1", PoRWFV1Location)
