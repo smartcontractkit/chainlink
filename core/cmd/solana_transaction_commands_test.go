@@ -42,7 +42,7 @@ func TestShell_SolanaSendSol(t *testing.T) {
 		MultiNode: multiNodeCfg,
 	}
 
-	app := solanaStartNewApplication(t, &cfg1, &cfg2)
+	app := solanaStartNewApplication(t, &cfg)
 	from, err := app.GetKeyStore().Solana().Create(ctx)
 	require.NoError(t, err)
 	to, err := solanago.NewRandomPrivateKey()
