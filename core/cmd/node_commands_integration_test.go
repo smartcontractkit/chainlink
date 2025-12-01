@@ -119,13 +119,6 @@ func TestShell_IndexStarkNetNodes(t *testing.T) {
 	require.NoError(t, nodes.RenderTable(rt))
 	renderLines := strings.Split(b.String(), "\n")
 
-	// DEBUG: Print actual table lines to understand structure
-	t.Logf("=== TABLE LINES DEBUG (Total: %d) ===", len(renderLines))
-	for i, line := range renderLines {
-		t.Logf("Line %d: %q", i, line)
-	}
-	t.Logf("=== END DEBUG ===")
-
 	assert.Len(t, renderLines, 25) // Actual line count from the error
 	// First real node (nodes[1]) - from error: line 18,19,20
 	assert.Contains(t, renderLines[18], "Name")
