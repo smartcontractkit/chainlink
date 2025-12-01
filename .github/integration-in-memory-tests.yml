@@ -750,7 +750,6 @@ runner-test-matrix:
       - PR Integration CCIP Tests
       - Nightly Integration CCIP Tests
     test_cmd: |
-      echo "🚀 Starting CCIP EVM2TON test..."
       go test ./smoke/ccip -run "Test_CCIPMessaging_EVM2TON" -timeout 20m -test.parallel=1 -count=1 -json
     test_go_project_path: integration-tests
     install_plugins_public: true
@@ -765,8 +764,7 @@ runner-test-matrix:
       - PR Integration CCIP Tests
       - Nightly Integration CCIP Tests
     test_cmd: |
-      echo "🚀 Starting CCIP Sui2EVM test..."
-      ./scripts/run-ccip-sui-test-isolated.sh "Test_CCIP_Messaging_Sui2EVM" 12
+      go test ./smoke/ccip -run "Test_CCIP_Messaging_Sui2EVM" -timeout 12m -test.parallel=1 -count=1 -json
     test_go_project_path: integration-tests
     sui_cli_version: mainnet-1.60.1
     install_plugins_public: true
@@ -823,7 +821,7 @@ runner-test-matrix:
       - PR Integration CCIP Tests
       - Nightly Integration CCIP Tests
     test_cmd: |
-      ./scripts/run-ccip-sui-test-isolated.sh "Test_CCIPTokenTransfer_Sui2EVM_BurnMintTokenPool" 12
+      go test ./smoke/ccip -run "Test_CCIPTokenTransfer_Sui2EVM_BurnMintTokenPool" -timeout 12m -test.parallel=1 -count=1 -json
     test_go_project_path: integration-tests
     sui_cli_version: mainnet-1.60.1
     install_plugins_public: true
@@ -837,7 +835,7 @@ runner-test-matrix:
       - PR Integration CCIP Tests
       - Nightly Integration CCIP Tests
     test_cmd: |
-      ./scripts/run-ccip-sui-test-isolated.sh "Test_CCIPTokenTransfer_Sui2EVM_BurnMintTokenPool_WithRateLimit" 15
+      go test ./smoke/ccip -run "Test_CCIPTokenTransfer_Sui2EVM_BurnMintTokenPool_WithRateLimit" -timeout 15m -test.parallel=1 -count=1 -json
     test_go_project_path: integration-tests
     sui_cli_version: mainnet-1.60.1
     install_plugins_public: true
@@ -907,7 +905,7 @@ runner-test-matrix:
       - PR Integration CCIP Tests
       - Nightly Integration CCIP Tests
     test_cmd: |
-      ./scripts/run-ccip-sui-test-isolated.sh "Test_CCIPTokenTransfer_Sui2EVM_ManagedTokenPool_ThenCurseUncurse" 15
+      go test ./smoke/ccip -run "Test_CCIPTokenTransfer_Sui2EVM_ManagedTokenPool_ThenCurseUncurse" -timeout 15m -test.parallel=1 -count=1 -json
     test_go_project_path: integration-tests
     sui_cli_version: mainnet-1.60.1
     install_plugins_public: true
@@ -921,7 +919,7 @@ runner-test-matrix:
       - PR Integration CCIP Tests
       - Nightly Integration CCIP Tests
     test_cmd: |
-      ./scripts/run-ccip-sui-test-isolated.sh "Test_CCIPTokenTransfer_Sui2EVM_ManagedTokenPool_WithRateLimit" 25
+      go test ./smoke/ccip -run "Test_CCIPTokenTransfer_Sui2EVM_ManagedTokenPool_WithRateLimit" -timeout 25m -test.parallel=1 -count=1 -json
     test_go_project_path: integration-tests
     sui_cli_version: mainnet-1.60.1
     install_plugins_public: true
@@ -935,7 +933,7 @@ runner-test-matrix:
       - PR Integration CCIP Tests
       - Nightly Integration CCIP Tests
     test_cmd: |
-      ./scripts/run-ccip-sui-test-isolated.sh "Test_CCIP_Upgrade_Sui2EVM" 25
+      go test ./smoke/ccip -run "Test_CCIP_Upgrade_Sui2EVM" -timeout 25m -test.parallel=1 -count=1 -json
     test_go_project_path: integration-tests
     sui_cli_version: mainnet-1.60.1
     install_plugins_public: true
@@ -963,7 +961,7 @@ runner-test-matrix:
       - PR Integration CCIP Tests
       - Nightly Integration CCIP Tests
     test_cmd: |
-      ./scripts/run-ccip-sui-test-isolated.sh "Test_CCIP_Upgrade_CommonPkg_EVM2Sui" 25
+      go test ./smoke/ccip -run "Test_CCIP_Upgrade_CommonPkg_EVM2Sui" -timeout 25m -test.parallel=1 -count=1 -json
     test_go_project_path: integration-tests
     sui_cli_version: mainnet-1.60.1
     install_plugins_public: true
@@ -977,7 +975,7 @@ runner-test-matrix:
       - PR Integration CCIP Tests
       - Nightly Integration CCIP Tests
     test_cmd: |
-      ./scripts/run-ccip-sui-test-isolated.sh "Test_CCIP_Upgrade_NoBlock_EVM2Sui" 25
+      go test ./smoke/ccip -run "Test_CCIP_Upgrade_NoBlock_EVM2Sui" -timeout 25m -test.parallel=1 -count=1 -json
     test_go_project_path: integration-tests
     sui_cli_version: mainnet-1.60.1
     install_plugins_public: true
