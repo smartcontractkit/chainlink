@@ -231,7 +231,7 @@ func setupEVMChainsControllerTest(t *testing.T, cfg chainlink.GeneralConfig) *Te
 func Test_SolanaChainsController_Show(t *testing.T) {
 	t.Parallel()
 
-	const validID = "Chainlink-12"
+	const validID = "22222222222222222222222222222222222222222222"
 
 	testCases := []struct {
 		name           string
@@ -246,7 +246,7 @@ func Test_SolanaChainsController_Show(t *testing.T) {
 				return &commonTypes.ChainStatus{
 					ID:      validID,
 					Enabled: true,
-					Config: `ChainID = 'Chainlink-12'
+					Config: `ChainID = '22222222222222222222222222222222222222222222'
 Enabled = true
 BlockTime = '500ms'
 BalancePollPeriod = '5s'
