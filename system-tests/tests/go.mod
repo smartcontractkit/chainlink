@@ -35,7 +35,7 @@ require (
 	github.com/Masterminds/semver/v3 v3.4.0
 	github.com/avast/retry-go/v4 v4.6.1
 	github.com/confluentinc/confluent-kafka-go v1.9.2
-	github.com/ethereum/go-ethereum v1.16.4
+	github.com/ethereum/go-ethereum v1.16.5
 	github.com/fbsobreira/gotron-sdk v0.0.0-20250403083053-2943ce8c759b
 	github.com/gagliardetto/solana-go v1.13.0
 	github.com/gin-gonic/gin v1.10.1
@@ -118,7 +118,7 @@ require (
 	github.com/Microsoft/go-winio v0.6.2 // indirect
 	github.com/NethermindEth/juno v0.12.5 // indirect
 	github.com/NethermindEth/starknet.go v0.8.0 // indirect
-	github.com/VictoriaMetrics/fastcache v1.12.2 // indirect
+	github.com/VictoriaMetrics/fastcache v1.13.0 // indirect
 	github.com/XSAM/otelsql v0.37.0 // indirect
 	github.com/acarl005/stripansi v0.0.0-20180116102854-5a71ef0e047d // indirect
 	github.com/alecthomas/units v0.0.0-20240927000941-0f3dac36c52b // indirect
@@ -547,7 +547,7 @@ require (
 	github.com/smartcontractkit/ccip-owner-contracts v0.1.0 // indirect
 	github.com/smartcontractkit/chainlink-aptos v0.0.0-20251027153600-2b072ff3618e // indirect
 	github.com/smartcontractkit/chainlink-automation v0.8.1 // indirect
-	github.com/smartcontractkit/chainlink-ccip v0.1.1-solana.0.20251105200616-e158f436aa95 // indirect
+	github.com/smartcontractkit/chainlink-ccip v0.1.1-solana.0.20251128020529-88d93b01d749 // indirect
 	github.com/smartcontractkit/chainlink-ccip/chains/solana v0.0.0-20250912190424-fd2e35d7deb5 // indirect
 	github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings v0.0.0-20250912190424-fd2e35d7deb5 // indirect
 	github.com/smartcontractkit/chainlink-common/pkg/chipingress v0.0.10 // indirect

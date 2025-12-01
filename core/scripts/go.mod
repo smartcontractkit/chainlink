@@ -29,7 +29,7 @@ require (
 	github.com/davecgh/go-spew v1.1.2-0.20180830191138-d8f796af33cc
 	github.com/docker/docker v28.5.1+incompatible
 	github.com/docker/go-connections v0.6.0
-	github.com/ethereum/go-ethereum v1.16.4
+	github.com/ethereum/go-ethereum v1.16.5
 	github.com/gkampitakis/go-snaps v0.5.13
 	github.com/google/go-cmp v0.7.0
 	github.com/google/uuid v1.6.0
@@ -46,7 +46,7 @@ require (
 	github.com/rs/zerolog v1.34.0
 	github.com/shopspring/decimal v1.4.0
 	github.com/smartcontractkit/chainlink-automation v0.8.1
-	github.com/smartcontractkit/chainlink-ccip v0.1.1-solana.0.20251105200616-e158f436aa95
+	github.com/smartcontractkit/chainlink-ccip v0.1.1-solana.0.20251128020529-88d93b01d749
 	github.com/smartcontractkit/chainlink-common v0.9.6-0.20251105200931-fdbfd5296201
 	github.com/smartcontractkit/chainlink-data-streams v0.1.6
 	github.com/smartcontractkit/chainlink-deployments-framework v0.62.0
@@ -112,7 +112,7 @@ require (
 	github.com/Microsoft/go-winio v0.6.2 // indirect
 	github.com/NethermindEth/juno v0.12.5 // indirect
 	github.com/NethermindEth/starknet.go v0.8.0 // indirect
-	github.com/VictoriaMetrics/fastcache v1.12.2 // indirect
+	github.com/VictoriaMetrics/fastcache v1.13.0 // indirect
 	github.com/XSAM/otelsql v0.37.0 // indirect
 	github.com/acarl005/stripansi v0.0.0-20180116102854-5a71ef0e047d // indirect
 	github.com/alecthomas/units v0.0.0-20240927000941-0f3dac36c52b // indirect
