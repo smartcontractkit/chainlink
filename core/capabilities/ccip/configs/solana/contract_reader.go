@@ -81,7 +81,9 @@ func DestContractReaderConfig() (config.ContractReader, error) {
 		return config.ContractReader{}, fmt.Errorf("unexpected error: invalid CCIP Router IDL, error: %w", err)
 	}
 
-	trueVal := true
+	trueVal := false
+
+	fmt.Println("WW: trueVal set to", trueVal)
 
 	locationFirst := codec.ElementExtractorLocationFirst
 	return config.ContractReader{
@@ -95,8 +97,8 @@ func DestContractReaderConfig() (config.ContractReader, error) {
 						ReadType:          config.Event,
 						EventDefinitions: &config.EventDefinitions{
 							PollingFilter: &config.PollingFilter{
-								Retention:       &defaultCCIPLogsRetention,
-								IncludeReverted: &trueVal,
+								Retention: &defaultCCIPLogsRetention,
+								//IncludeReverted: &trueVal,
 							},
 							IndexedField0: &config.IndexedField{
 								OffChainPath: consts.EventAttributeSourceChain,

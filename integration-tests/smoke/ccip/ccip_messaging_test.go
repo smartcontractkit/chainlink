@@ -12,23 +12,24 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/gagliardetto/solana-go"
+	"github.com/gagliardetto/solana-go/rpc"
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"golang.org/x/exp/maps"
 
 	chainsel "github.com/smartcontractkit/chain-selectors"
+	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_0/offramp"
+	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_0/onramp"
+	msg_hasher163 "github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_3/message_hasher"
 	solconfig "github.com/smartcontractkit/chainlink-ccip/chains/solana/contracts/tests/config"
 	soltestutils "github.com/smartcontractkit/chainlink-ccip/chains/solana/contracts/tests/testutils"
+	"github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/v0_1_1/ccip_offramp"
 	"github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/v0_1_1/test_ccip_receiver"
 	solccip "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/ccip"
 	solcommon "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/common"
 	"github.com/smartcontractkit/chainlink-common/pkg/config"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/smartcontractkit/chainlink-deployments-framework/chain"
-
-	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_0/offramp"
-	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_0/onramp"
-	msg_hasher163 "github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_3/message_hasher"
-
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers"
 	mt "github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers/messagingtest"
 	soltesthelpers "github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers/solana"
@@ -310,7 +311,7 @@ func Test_CCIPMessaging_MultiExecReports_EVM2Solana(t *testing.T) {
 	done := make(chan any)
 	defer close(done)
 	offrampAddress := state.SolChains[destChain].OffRamp
-	sink, errCh := testhelpers.SolEventEmitter[solccip.EventTransmitted](ctx, solChains[destChain].Client, offrampAddress, "Transmitted", 0, done, time.NewTicker(2*time.Second))
+	sink, errCh := testhelpers.SolEventEmitter[solccip.EventTransmitted](ctx, solChains[destChain].Client, offrampAddress, "Transmitted", 0, done, time.NewTicker(2*time.Second), false)
 	timeout := time.NewTimer(tests.WaitTimeout(t) - 5*time.Second) // 5 seconds buffer for cleanup
 	defer timeout.Stop()
 
@@ -606,12 +607,14 @@ func Test_CCIPMessaging_EVM2Solana(t *testing.T) {
 }
 
 func Test_CCIPMessaging_EVM2Solana_Revert(t *testing.T) {
+	inflightDuration := time.Millisecond
+
 	// Setup 2 chains (EVM and Solana) and a single lane.
 	e, _, _ := testsetups.NewIntegrationEnvironment(t,
 		testhelpers.WithMultiCall3(),
 		testhelpers.WithSolChains(1),
 		testhelpers.WithOCRConfigOverride(func(params v1_6.CCIPOCRParams) v1_6.CCIPOCRParams {
-			params.ExecuteOffChainConfig.InflightCacheExpiry = *config.MustNewDuration(1 * time.Hour)
+			params.ExecuteOffChainConfig.InflightCacheExpiry = *config.MustNewDuration(inflightDuration)
 			params.ExecuteOffChainConfig.MessageVisibilityInterval = *config.MustNewDuration(1 * time.Hour)
 			params.ExecuteOffChainConfig.MultipleReportsEnabled = true
 			params.ExecuteOffChainConfig.MaxReportMessages = 1
@@ -656,8 +659,10 @@ func Test_CCIPMessaging_EVM2Solana_Revert(t *testing.T) {
 		)
 	)
 
+	fmt.Println("Waiting for event filter...")
 	// Wait for filter registration for CCIPMessageSent (onramp), CommitReportAccepted (offramp), and ExecutionStateChanged (offramp)
 	testhelpers.WaitForEventFilterRegistrationOnLane(t, state, e.Env.Offchain, sourceChain, destChain)
+	fmt.Println("Done: Waiting for event filter...")
 
 	receiverProgram := state.SolChains[destChain].Receiver
 	receiver := receiverProgram.Bytes()
@@ -681,8 +686,6 @@ func Test_CCIPMessaging_EVM2Solana_Revert(t *testing.T) {
 	require.Nil(t, res.Meta.Err)
 
 	t.Run("failed messages should only execute once", func(t *testing.T) {
-		// This test didn't finish, it timed out waiting for exec state change... not sure why when
-		// there is no expected status.
 		accounts := [][32]byte{
 			receiverExternalExecutionConfigPDA,
 			receiverTargetAccountPDA,
@@ -697,137 +700,118 @@ func Test_CCIPMessaging_EVM2Solana_Revert(t *testing.T) {
 		})
 		require.NoError(t, err)
 
-		/*
-			deployer := solChains[destChain].DeployerKey
-			// Set reject all flag in receiver to force reverts
-			rejectAllIx, err := test_ccip_receiver.NewSetRejectAllInstruction(true, receiverTargetAccountPDA, deployer.PublicKey()).ValidateAndBuild()
-			require.NoError(t, err)
-			res := soltestutils.SendAndConfirm(ctx, t, solChains[destChain].Client, []solana.Instruction{rejectAllIx}, *deployer, solconfig.DefaultCommitment)
-			require.Nil(t, res.Meta.Err)
-		*/
-		/*
-			deployer := solChains[destChain].DeployerKey
-			// Set reject all flag in receiver to force reverts
-			test_ccip_receiver.SetProgramID(receiverProgram)
-			rejectAllIx, err := test_ccip_receiver.NewSetRejectAllInstruction(true, receiverTargetAccountPDA, deployer.PublicKey()).ValidateAndBuild()
-			require.NoError(t, err)
-			res := soltestutils.SendAndConfirm(ctx, t, solChains[destChain].Client, []solana.Instruction{rejectAllIx}, *deployer, solconfig.DefaultCommitment)
-			require.Nil(t, res.Meta.Err)
-		*/
+		blockH, err := e.Env.BlockChains.SolanaChains()[destChain].Client.GetBlockHeight(t.Context(), rpc.CommitmentFinalized)
+		if err != nil {
+			t.Fatalf("failed to get latest block height: %v", err)
+		}
 
 		out = mt.Run(
 			t,
 			mt.TestCase{
-				ValidationType:         mt.ValidationTypeCommit,
-				TestSetup:              setup,
-				Nonce:                  nil, // Solana nonce check is skipped
-				Receiver:               receiver,
-				MsgData:                bytes.Repeat([]byte("a"), 1),
-				ExtraArgs:              extraArgs,
-				NumberOfMessages:       2,
-				UseMulticall3:          true,
-				ExpectedExecutionState: testhelpers.EXECUTION_STATE_INPROGRESS,
-				//ExpectedExecutionState: testhelpers.EXECUTION_STATE_SUCCESS,
+				ValidationType:   mt.ValidationTypeCommit,
+				TestSetup:        setup,
+				Nonce:            nil, // Solana nonce check is skipped
+				Receiver:         receiver,
+				MsgData:          bytes.Repeat([]byte("a"), 1),
+				ExtraArgs:        extraArgs,
+				NumberOfMessages: 1,
+				UseMulticall3:    true,
 			},
 		)
-		fmt.Println(out)
-		//evt := out.MsgSentEvent
 
 		var seqNrs []uint64
 		for _, msgEvent := range out.AllMsgSentEvents {
 			seqNrs = append(seqNrs, msgEvent.SequenceNumber)
 		}
-		// Just keep checking message states...
-		for true {
-			states, err := testhelpers.GetMessageStateWithSeqNrsSol(
-				//innerExecutionStates, err = ConfirmExecWithSeqNrsSol(
+
+		// This test works by waiting for an extra long duration and checking that
+		// no re-execution happens for the failed message.
+
+		fmt.Println("Checking for states.")
+		states, err := testhelpers.GetMessageStatesWithSeqNrsSol(
+			t,
+			2*time.Minute, // timeout
+			sourceChain,
+			e.Env.BlockChains.SolanaChains()[destChain],
+			state.SolChains[destChain].OffRamp,
+			blockH,
+			seqNrs,
+			true,
+		)
+		fmt.Println("Done checking for states.")
+		if err != nil {
+			t.Logf("Error getting message states: %v", err)
+		}
+		//else {
+		//	if states[seqNrs[0]] == testhelpers.EXECUTION_STATE_INPROGRESS {
+		//		assert.Fail(t, "An additional in progress event is detected.")
+		//	}
+		//}
+
+		fmt.Println(states)
+		_, ok := states[seqNrs[0]]
+		assert.True(t, ok, "status returned for seqNr")
+
+		// Only 1 event
+		assert.Len(t, states[seqNrs[0]], 1)
+		// And it is in progress.
+		assert.Equal(t, int(states[seqNrs[0]][0].State), int(ccip_offramp.InProgress_MessageExecutionState))
+
+		/*
+			// We need to find an in progress state.
+			looking := true
+			for looking {
+				states, err := testhelpers.GetMessageStateWithSeqNrsSol(
+					t,
+					sourceChain,
+					e.Env.BlockChains.SolanaChains()[destChain],
+					state.SolChains[destChain].OffRamp,
+					blockH,
+					seqNrs,
+					true,
+				)
+				if err != nil {
+					t.Logf("Error getting message states: %v", err)
+				} else {
+					if states[seqNrs[0]] == testhelpers.EXECUTION_STATE_INPROGRESS {
+						// We see the message is "in progress", as expected
+						looking = false
+					}
+				}
+
+				// Wait a bit before trying again
+				if looking {
+					time.Sleep(5 * time.Second)
+				}
+			}
+
+			// Update the blockH, we'll continue searching for events from here.
+			blockH, err = e.Env.BlockChains.SolanaChains()[destChain].Client.GetBlockHeight(t.Context(), rpc.CommitmentFinalized)
+			if err != nil {
+				t.Fatalf("failed to get latest block height: %v", err)
+			}
+
+			// Wait for the in-flight duration to expire to ensure no re-execution happens.
+			time.Sleep(inflightDuration * 2)
+
+			// There should be no more in progress events.
+			states, err := testhelpers.GetMessageStatesWithSeqNrsSol(
 				t,
 				sourceChain,
 				e.Env.BlockChains.SolanaChains()[destChain],
 				state.SolChains[destChain].OffRamp,
-				0,
+				blockH,
 				seqNrs,
+				true,
 			)
 			if err != nil {
 				t.Logf("Error getting message states: %v", err)
 			} else {
-				fmt.Println(states)
+				if states[seqNrs[0]] == testhelpers.EXECUTION_STATE_INPROGRESS {
+					assert.Fail(t, "An additional in progress event is detected.")
+				}
 			}
-
-			time.Sleep(5 * time.Second)
-		}
-
-		// I'm not sure where this one failed, but it wasn't on the destination chain.
-		/*
-			// Generate 60 dummy accounts
-			numAccounts := 60
-			accountsFailure := make([][32]byte, numAccounts)
-			writableIndexes := []int{0, 1, 2} // Mark first 3 as writable
-			for i := range numAccounts {
-				accountsFailure[i] = common.HexToHash(fmt.Sprintf("0x%064d", i+1))
-			}
-			// Set required accounts
-			accountsFailure[0] = receiverExternalExecutionConfigPDA
-			accountsFailure[1] = receiverTargetAccountPDA
-			accountsFailure[2] = solana.SystemProgramID
-
-			extraArgsFailure, err := ccipevm.SerializeClientSVMExtraArgsV1(msg_hasher163.ClientSVMExtraArgsV1{
-				AccountIsWritableBitmap:  solccip.GenerateBitMapForIndexes(writableIndexes),
-				Accounts:                 accountsFailure,
-				ComputeUnits:             80_000,
-				AllowOutOfOrderExecution: true,
-			})
-			require.NoError(t, err)
-
-			// Run the test case expecting failure
-			// Use initial replayed=false and nonce=0
-			out = mt.Run(
-				t,
-				mt.TestCase{
-					ValidationType: mt.ValidationTypeCommit,
-					TestSetup:      setup,
-					Nonce:          nil, // Nonce check skipped for Commit validation and Solana
-					Receiver:       receiver,
-					MsgData:        []byte("hello with too many accounts"),
-					ExtraArgs:      extraArgsFailure,
-				},
-			)
 		*/
-
-		// This test didn't finish, it timed out waiting for exec state change... not sure why when
-		// there is no expected status.
-		/*
-			accounts := [][32]byte{
-				receiverExternalExecutionConfigPDA,
-				receiverTargetAccountPDA,
-				//solana.SystemProgramID,
-			}
-
-			extraArgs, err := ccipevm.SerializeClientSVMExtraArgsV1(msg_hasher163.ClientSVMExtraArgsV1{
-				AccountIsWritableBitmap:  solccip.GenerateBitMapForIndexes([]int{0, 1}),
-				Accounts:                 accounts,
-				ComputeUnits:             1_000_000,
-				AllowOutOfOrderExecution: true,
-			})
-			require.NoError(t, err)
-
-			out = mt.Run(
-				t,
-				mt.TestCase{
-					ValidationType:         mt.ValidationTypeExec,
-					TestSetup:              setup,
-					Nonce:                  nil, // Solana nonce check is skipped
-					Receiver:               receiver,
-					MsgData:                bytes.Repeat([]byte("a"), 1),
-					ExtraArgs:              extraArgs,
-					NumberOfMessages:       1,
-					UseMulticall3:          true,
-					//ExpectedExecutionState: testhelpers.EXECUTION_STATE_SUCCESS,
-				},
-			)
-
-		*/
-
 		fmt.Println("done")
 	})
 
