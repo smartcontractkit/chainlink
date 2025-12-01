@@ -1,7 +1,6 @@
 package observation
 
 import (
-	"runtime"
 	"strconv"
 	"sync"
 	"time"
@@ -76,10 +75,6 @@ func NewCache(cleanupInterval time.Duration) *Cache {
 				}
 			}
 		}()
-
-		runtime.AddCleanup(c, func(ch chan struct{}) {
-			close(ch)
-		}, c.closeChan)
 	}
 
 	return c
@@ -130,4 +125,14 @@ func (c *Cache) cleanup() {
 			delete(c.values, id)
 		}
 	}
+}
+
+func (c *Cache) Close() error {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	if c.cleanupInterval > 0 {
+		close(c.closeChan)
+	}
+	c.values = nil
+	return nil
 }

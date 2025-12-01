@@ -1246,12 +1246,13 @@ func (cfg UpdateRouterRampsConfig) Validate(e cldf.Environment, state stateview.
 				// Calling this function will ensure that both these checks are done.
 
 				ownedContracts := map[string]commoncs.Ownable{
-					"router":             chainState.Router,
-					"feeQuoter":          chainState.FeeQuoter,
-					"offRamp":            chainState.OffRamp,
-					"onRamp":             chainState.OnRamp,
-					"nonceManager":       chainState.NonceManager,
-					"rmnRemote":          chainState.RMNRemote,
+					"router":       chainState.Router,
+					"feeQuoter":    chainState.FeeQuoter,
+					"offRamp":      chainState.OffRamp,
+					"onRamp":       chainState.OnRamp,
+					"nonceManager": chainState.NonceManager,
+					// RMN remote is owned by a different timelock, so we don't check it here.
+					//	"rmnRemote":          chainState.RMNRemote,
 					"rmnProxy":           chainState.RMNProxy,
 					"tokenAdminRegistry": chainState.TokenAdminRegistry,
 				}

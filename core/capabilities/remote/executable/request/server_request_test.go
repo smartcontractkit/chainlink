@@ -12,6 +12,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	commoncap "github.com/smartcontractkit/chainlink-common/pkg/capabilities"
+	caperrors "github.com/smartcontractkit/chainlink-common/pkg/capabilities/errors"
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/pb"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-protos/cre/go/values"
@@ -145,9 +146,18 @@ func Test_ServerRequest_MessageValidation(t *testing.T) {
 		assert.Equal(t, "failed to execute capability", dispatcher.msgs[1].ErrorMsg)
 	})
 
-	t.Run("Reportable errors are returned to the caller", func(t *testing.T) {
+	// Testing backwards compatibility from old don to new don error handling
+	t.Run("Public system error messages are returned to the caller - old source don, new sink don", func(t *testing.T) {
+		capError := caperrors.DeserializeErrorFromString("failed to execute capability: error details")
+		require.Equal(t, caperrors.VisibilityPrivate, capError.Visibility())
+		require.Equal(t, caperrors.OriginSystem, capError.Origin())
+		require.Equal(t, caperrors.Unknown, capError.Code())
+		require.Equal(t, "[2]Unknown: failed to execute capability: error details", capError.Error())
+	})
+
+	t.Run("Private user error messages are obfuscated", func(t *testing.T) {
 		dispatcher := &testDispatcher{}
-		req, err := request.NewServerRequest(TestErrorCapability{err: commoncap.NewRemoteReportableError(errors.New("error details"))}, types.MethodExecute, "capabilityID", 2,
+		req, err := request.NewServerRequest(TestErrorCapability{err: caperrors.NewPrivateUserError(errors.New("error details"), caperrors.ConsensusFailed)}, types.MethodExecute, "capabilityID", 2,
 			capabilityPeerID, callingDon, "requestMessageID", dispatcher, 10*time.Minute, "", lggr)
 		require.NoError(t, err)
 
@@ -168,9 +178,138 @@ func Test_ServerRequest_MessageValidation(t *testing.T) {
 		require.NoError(t, err)
 		assert.Len(t, dispatcher.msgs, 2)
 		assert.Equal(t, types.Error_INTERNAL_ERROR, dispatcher.msgs[0].Error)
-		assert.Equal(t, "failed to execute capability: error details", dispatcher.msgs[0].ErrorMsg)
+
+		capError := caperrors.DeserializeErrorFromString(dispatcher.msgs[0].ErrorMsg)
+		require.Equal(t, caperrors.VisibilityPrivate, capError.Visibility())
+		require.Equal(t, caperrors.OriginUser, capError.Origin())
+		require.Equal(t, caperrors.ConsensusFailed, capError.Code())
+		require.Equal(t, "[100]ConsensusFailed: error whilst executing capability - the error message is not publicly reportable", capError.Error())
+
 		assert.Equal(t, types.Error_INTERNAL_ERROR, dispatcher.msgs[1].Error)
-		assert.Equal(t, "failed to execute capability: error details", dispatcher.msgs[1].ErrorMsg)
+
+		capError = caperrors.DeserializeErrorFromString(dispatcher.msgs[1].ErrorMsg)
+		require.Equal(t, caperrors.VisibilityPrivate, capError.Visibility())
+		require.Equal(t, caperrors.OriginUser, capError.Origin())
+		require.Equal(t, caperrors.ConsensusFailed, capError.Code())
+		require.Equal(t, "[100]ConsensusFailed: error whilst executing capability - the error message is not publicly reportable", capError.Error())
+	})
+
+	t.Run("Private system error messages are obfuscated", func(t *testing.T) {
+		dispatcher := &testDispatcher{}
+		req, err := request.NewServerRequest(TestErrorCapability{err: caperrors.NewPrivateSystemError(errors.New("error details"), caperrors.ConsensusFailed)}, types.MethodExecute, "capabilityID", 2,
+			capabilityPeerID, callingDon, "requestMessageID", dispatcher, 10*time.Minute, "", lggr)
+		require.NoError(t, err)
+
+		err = sendValidRequest(req, workflowPeers, capabilityPeerID, rawRequest)
+		require.NoError(t, err)
+
+		err = req.OnMessage(context.Background(), &types.MessageBody{
+			Version:         0,
+			Sender:          workflowPeers[1][:],
+			Receiver:        capabilityPeerID[:],
+			MessageId:       []byte("workflowID" + "workflowExecutionID"),
+			CapabilityId:    "capabilityID",
+			CapabilityDonId: 2,
+			CallerDonId:     1,
+			Method:          types.MethodExecute,
+			Payload:         rawRequest,
+		})
+		require.NoError(t, err)
+		assert.Len(t, dispatcher.msgs, 2)
+		assert.Equal(t, types.Error_INTERNAL_ERROR, dispatcher.msgs[0].Error)
+
+		capError := caperrors.DeserializeErrorFromString(dispatcher.msgs[0].ErrorMsg)
+		require.Equal(t, caperrors.VisibilityPrivate, capError.Visibility())
+		require.Equal(t, caperrors.OriginSystem, capError.Origin())
+		require.Equal(t, caperrors.ConsensusFailed, capError.Code())
+		require.Equal(t, "[100]ConsensusFailed: error whilst executing capability - the error message is not publicly reportable", capError.Error())
+
+		assert.Equal(t, types.Error_INTERNAL_ERROR, dispatcher.msgs[1].Error)
+
+		capError = caperrors.DeserializeErrorFromString(dispatcher.msgs[1].ErrorMsg)
+		require.Equal(t, caperrors.VisibilityPrivate, capError.Visibility())
+		require.Equal(t, caperrors.OriginSystem, capError.Origin())
+		require.Equal(t, caperrors.ConsensusFailed, capError.Code())
+		require.Equal(t, "[100]ConsensusFailed: error whilst executing capability - the error message is not publicly reportable", capError.Error())
+	})
+
+	t.Run("Public system error messages are returned to the caller", func(t *testing.T) {
+		dispatcher := &testDispatcher{}
+		req, err := request.NewServerRequest(TestErrorCapability{err: caperrors.NewPublicSystemError(errors.New("error details"), caperrors.ConsensusFailed)}, types.MethodExecute, "capabilityID", 2,
+			capabilityPeerID, callingDon, "requestMessageID", dispatcher, 10*time.Minute, "", lggr)
+		require.NoError(t, err)
+
+		err = sendValidRequest(req, workflowPeers, capabilityPeerID, rawRequest)
+		require.NoError(t, err)
+
+		err = req.OnMessage(context.Background(), &types.MessageBody{
+			Version:         0,
+			Sender:          workflowPeers[1][:],
+			Receiver:        capabilityPeerID[:],
+			MessageId:       []byte("workflowID" + "workflowExecutionID"),
+			CapabilityId:    "capabilityID",
+			CapabilityDonId: 2,
+			CallerDonId:     1,
+			Method:          types.MethodExecute,
+			Payload:         rawRequest,
+		})
+		require.NoError(t, err)
+		assert.Len(t, dispatcher.msgs, 2)
+		assert.Equal(t, types.Error_INTERNAL_ERROR, dispatcher.msgs[0].Error)
+
+		capError := caperrors.DeserializeErrorFromString(dispatcher.msgs[0].ErrorMsg)
+		require.Equal(t, caperrors.VisibilityPublic, capError.Visibility())
+		require.Equal(t, caperrors.OriginSystem, capError.Origin())
+		require.Equal(t, caperrors.ConsensusFailed, capError.Code())
+		require.Equal(t, "[100]ConsensusFailed: error details", capError.Error())
+
+		assert.Equal(t, types.Error_INTERNAL_ERROR, dispatcher.msgs[1].Error)
+
+		capError = caperrors.DeserializeErrorFromString(dispatcher.msgs[1].ErrorMsg)
+		require.Equal(t, caperrors.VisibilityPublic, capError.Visibility())
+		require.Equal(t, caperrors.OriginSystem, capError.Origin())
+		require.Equal(t, caperrors.ConsensusFailed, capError.Code())
+		require.Equal(t, "[100]ConsensusFailed: error details", capError.Error())
+	})
+
+	t.Run("Public user errors are returned to the caller", func(t *testing.T) {
+		dispatcher := &testDispatcher{}
+		req, err := request.NewServerRequest(TestErrorCapability{err: caperrors.NewPublicUserError(errors.New("error details"), caperrors.InvalidArgument)}, types.MethodExecute, "capabilityID", 2,
+			capabilityPeerID, callingDon, "requestMessageID", dispatcher, 10*time.Minute, "", lggr)
+		require.NoError(t, err)
+
+		err = sendValidRequest(req, workflowPeers, capabilityPeerID, rawRequest)
+		require.NoError(t, err)
+
+		err = req.OnMessage(context.Background(), &types.MessageBody{
+			Version:         0,
+			Sender:          workflowPeers[1][:],
+			Receiver:        capabilityPeerID[:],
+			MessageId:       []byte("workflowID" + "workflowExecutionID"),
+			CapabilityId:    "capabilityID",
+			CapabilityDonId: 2,
+			CallerDonId:     1,
+			Method:          types.MethodExecute,
+			Payload:         rawRequest,
+		})
+		require.NoError(t, err)
+		assert.Len(t, dispatcher.msgs, 2)
+		assert.Equal(t, types.Error_INTERNAL_ERROR, dispatcher.msgs[0].Error)
+
+		capError := caperrors.DeserializeErrorFromString(dispatcher.msgs[0].ErrorMsg)
+		require.Equal(t, caperrors.VisibilityPublic, capError.Visibility())
+		require.Equal(t, caperrors.OriginUser, capError.Origin())
+		require.Equal(t, caperrors.InvalidArgument, capError.Code())
+		require.Equal(t, "[3]InvalidArgument: error details", capError.Error())
+
+		assert.Equal(t, types.Error_INTERNAL_ERROR, dispatcher.msgs[1].Error)
+
+		capError = caperrors.DeserializeErrorFromString(dispatcher.msgs[1].ErrorMsg)
+		require.Equal(t, caperrors.VisibilityPublic, capError.Visibility())
+		require.Equal(t, caperrors.OriginUser, capError.Origin())
+		require.Equal(t, caperrors.InvalidArgument, capError.Code())
+		require.Equal(t, "[3]InvalidArgument: error details", capError.Error())
+
 	})
 
 	t.Run("Execute capability", func(t *testing.T) {

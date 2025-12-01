@@ -15,6 +15,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/beholder"
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
+	caperrors "github.com/smartcontractkit/chainlink-common/pkg/capabilities/errors"
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/pb"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 
@@ -342,10 +343,9 @@ func executeCapabilityRequest(ctx context.Context, lggr logger.Logger, capabilit
 	if err != nil {
 		lggr.Errorw("received execution error", "error", err)
 
-		// If an error is a RemoteReportableError then the information it contains is considered to be safe to report back to the calling nodes
-		var reportableError *capabilities.RemoteReportableError
-		if errors.As(err, &reportableError) {
-			return nil, fmt.Errorf("failed to execute capability: %w", reportableError)
+		var capError caperrors.Error
+		if errors.As(err, &capError) {
+			return nil, errors.New(capError.SerializeToRemoteString())
 		}
 		return nil, errors.New("failed to execute capability")
 	}

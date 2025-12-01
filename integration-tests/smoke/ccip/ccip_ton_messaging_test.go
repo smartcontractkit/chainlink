@@ -3,6 +3,7 @@ package ccip
 import (
 	"math/big"
 	"slices"
+	"sync"
 	"testing"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -16,15 +17,19 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
 	testsetups "github.com/smartcontractkit/chainlink/integration-tests/testsetups/ccip"
 
+	tonconfig "github.com/smartcontractkit/chainlink-ton/deployment/config"
 	"github.com/smartcontractkit/chainlink-ton/pkg/ccip/bindings/onramp"
 	"github.com/smartcontractkit/chainlink-ton/pkg/ccip/codec"
 )
 
 func Test_CCIPMessaging_TON2EVM(t *testing.T) {
 	// setup environment with 1 ton chain
+	once := &sync.Once{}
+	ctfConfig := tonconfig.LocalNetworkConfig(once)
 	e, _, _ := testsetups.NewIntegrationEnvironment(t,
-		testhelpers.WithNumOfChains(2),
+		testhelpers.WithNumOfChains(2), // required 2 evm chains
 		testhelpers.WithTonChains(1),
+		testhelpers.WithTonContainerConfig(ctfConfig),
 	)
 
 	// load state
@@ -101,9 +106,12 @@ func Test_CCIPMessaging_TON2EVM(t *testing.T) {
 
 func Test_CCIPMessaging_EVM2TON(t *testing.T) {
 	// setup environment with 1 ton chain
+	once := &sync.Once{}
+	ctfConfig := tonconfig.LocalNetworkConfig(once)
 	e, _, _ := testsetups.NewIntegrationEnvironment(t,
 		testhelpers.WithNumOfChains(2),
 		testhelpers.WithTonChains(1),
+		testhelpers.WithTonContainerConfig(ctfConfig),
 	)
 
 	// load state

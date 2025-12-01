@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"strconv"
+	"strings"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
@@ -149,12 +150,14 @@ func (d *Delegate) ServicesForSpec(ctx context.Context, spec job.Job) (services 
 }
 
 func getAggregatorSecrets(ccvConfig config.CCV, verifierID string) (string, string, error) {
+	verifierIDs := make([]string, 0, len(ccvConfig.AggregatorSecrets()))
 	for _, secret := range ccvConfig.AggregatorSecrets() {
 		if secret.VerifierID() == verifierID {
 			return secret.APIKey(), secret.APISecret(), nil
 		}
+		verifierIDs = append(verifierIDs, secret.VerifierID())
 	}
-	return "", "", fmt.Errorf("no aggregator secrets found for verifier ID %s", verifierID)
+	return "", "", fmt.Errorf("no aggregator secrets found for verifier ID %s, found %s", verifierID, strings.Join(verifierIDs, ", "))
 }
 
 func (d *Delegate) AfterJobCreated(spec job.Job) {}
