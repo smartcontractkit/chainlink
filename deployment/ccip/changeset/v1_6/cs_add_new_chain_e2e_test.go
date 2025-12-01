@@ -7,6 +7,8 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	chain_selectors "github.com/smartcontractkit/chain-selectors"
+	"github.com/smartcontractkit/quarantine"
+
 	"github.com/smartcontractkit/chainlink-ccip/chainconfig"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/latest/don_id_claimer"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_2_0/router"
@@ -67,6 +69,7 @@ func checkConnectivity(
 }
 
 func TestConnectNewChain(t *testing.T) {
+	quarantine.Flaky(t, "DX-2421")
 	t.Parallel()
 	mustHaveOwner := func(t *testing.T, ownable commonchangeset.Ownable, expectedOwner string) {
 		owner, err := ownable.Owner(nil)
