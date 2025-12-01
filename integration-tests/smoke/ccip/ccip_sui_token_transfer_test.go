@@ -735,8 +735,7 @@ func Test_CCIPTokenTransfer_Sui2EVM_BurnMintTokenPool_WithAllowlist(t *testing.T
 	)
 	require.NoError(t, err)
 
-	execStates = testhelpers.ConfirmExecWithSeqNrsForAllWithContext(
-		ctx,
+	execStates = testhelpers.ConfirmExecWithSeqNrsForAll(
 		t,
 		e.Env,
 		state,
@@ -835,8 +834,7 @@ func Test_CCIPTokenTransfer_Sui2EVM_BurnMintTokenPool_WithRateLimit(t *testing.T
 	)
 	require.NoError(t, err)
 
-	execStates := testhelpers.ConfirmExecWithSeqNrsForAllWithContext(
-		ctx,
+	execStates := testhelpers.ConfirmExecWithSeqNrsForAll(
 		t,
 		updatedEnv,
 		state,
@@ -980,8 +978,7 @@ func Test_CCIPTokenTransfer_Sui2EVM_ManagedTokenPool_ThenCurseUncurse(t *testing
 	)
 	require.NoError(t, err)
 
-	execStates := testhelpers.ConfirmExecWithSeqNrsForAllWithContext(
-		ctx,
+	execStates := testhelpers.ConfirmExecWithSeqNrsForAll(
 		t,
 		updatedEnv,
 		state,
@@ -1089,8 +1086,7 @@ func Test_CCIPTokenTransfer_Sui2EVM_ManagedTokenPool_ThenCurseUncurse(t *testing
 	)
 	require.NoError(t, err)
 
-	execStates = testhelpers.ConfirmExecWithSeqNrsForAllWithContext(
-		ctx,
+	execStates = testhelpers.ConfirmExecWithSeqNrsForAll(
 		t,
 		updatedEnv,
 		state,
@@ -1178,8 +1174,7 @@ func Test_CCIPTokenTransfer_Sui2EVM_ManagedTokenPool_ThenCurseUncurse(t *testing
 // 	)
 // 	require.NoError(t, err)
 
-// 	execStates := testhelpers.ConfirmExecWithSeqNrsForAllWithContext(
-// 		ctx,
+// 	execStates := testhelpers.ConfirmExecWithSeqNrsForAll(
 // 		t,
 // 		updatedEnv,
 // 		state,
@@ -1258,8 +1253,7 @@ func Test_CCIPTokenTransfer_SUI2EVM_ManagedTokenPool_WithRateLimit(t *testing.T)
 	)
 	require.NoError(t, err)
 
-	execStates := testhelpers.ConfirmExecWithSeqNrsForAllWithContext(
-		ctx,
+	execStates := testhelpers.ConfirmExecWithSeqNrsForAll(
 		t,
 		e.Env,
 		state,
@@ -1372,8 +1366,7 @@ func Test_CCIPTokenTransfer_SUI2EVM_ManagedTokenPool_WithRateLimit(t *testing.T)
 // 	)
 // 	require.NoError(t, err)
 
-// 	execStates := testhelpers.ConfirmExecWithSeqNrsForAllWithContext(
-// 		ctx,
+// 	execStates := testhelpers.ConfirmExecWithSeqNrsForAll(
 // 		t,
 // 		e.Env,
 // 		state,
@@ -1525,8 +1518,7 @@ func Test_CCIPTokenTransfer_EVM2SUI_BurnMintTokenPool(t *testing.T) {
 	)
 	require.NoError(t, err)
 
-	execStates := testhelpers.ConfirmExecWithSeqNrsForAllWithContext(
-		ctx,
+	execStates := testhelpers.ConfirmExecWithSeqNrsForAll(
 		t,
 		e.Env,
 		state,
@@ -1706,8 +1698,7 @@ func Test_CCIPTokenTransfer_EVM2SUI_BurnMintTokenPool(t *testing.T) {
 // 	)
 // 	require.NoError(t, err)
 
-// 	execStates := testhelpers.ConfirmExecWithSeqNrsForAllWithContext(
-// 		ctx,
+// 	execStates := testhelpers.ConfirmExecWithSeqNrsForAll(
 // 		t,
 // 		e.Env,
 // 		state,
@@ -1836,8 +1827,7 @@ func Test_CCIPTokenTransfer_EVM2SUI_BurnMintTokenPool(t *testing.T) {
 // 	)
 // 	require.NoError(t, err)
 
-// 	execStates := testhelpers.ConfirmExecWithSeqNrsForAllWithContext(
-// 		ctx,
+// 	execStates := testhelpers.ConfirmExecWithSeqNrsForAll(
 // 		t,
 // 		e.Env,
 // 		state,
@@ -1965,8 +1955,7 @@ func Test_CCIPTokenTransfer_EVM2SUI_BurnMintTokenPool(t *testing.T) {
 // 	)
 // 	require.NoError(t, err)
 
-// 	execStates := testhelpers.ConfirmExecWithSeqNrsForAllWithContext(
-// 		ctx,
+// 	execStates := testhelpers.ConfirmExecWithSeqNrsForAll(
 // 		t,
 // 		e.Env,
 // 		state,
