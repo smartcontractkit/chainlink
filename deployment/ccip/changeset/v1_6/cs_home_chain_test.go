@@ -6,6 +6,7 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	chain_selectors "github.com/smartcontractkit/chain-selectors"
+	"github.com/smartcontractkit/quarantine"
 	"github.com/stretchr/testify/require"
 
 	cldf_chain "github.com/smartcontractkit/chainlink-deployments-framework/chain"
@@ -339,6 +340,7 @@ func TestAddDonAfterRemoveDons(t *testing.T) {
 }
 
 func TestAddUpdateAndRemoveNops(t *testing.T) {
+	quarantine.Flaky(t, "DX-2420")
 	for _, tc := range []struct {
 		name        string
 		mcmsEnabled bool
