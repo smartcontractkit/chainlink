@@ -26,7 +26,7 @@ fj293fbBnlQ!f9vNs
 HTTPPort = $PORT
 
 [[Solana]]
-ChainID = '68472'
+ChainID = '22222222222222222222222222222222222222222222'
 
 [[Solana.Nodes]]
 Name = 'Blue'
@@ -40,8 +40,8 @@ URL = 'wss://sendonlyfoo.bar'
 
 -----------------------------
 Name:     Blue
-Chain ID: 68472
-State:    
+Chain ID: 22222222222222222222222222222222222222222222
+State:
 Config:   Name = 'Blue'
 URL = 'wss://primaryfoo.bar'
 SendOnly = false
@@ -50,8 +50,8 @@ IsLoadBalancedRPC = false
 
 -----------------------------
 Name:     Yellow
-Chain ID: 68472
-State:    
+Chain ID: 22222222222222222222222222222222222222222222
+State:
 Config:   Name = 'Yellow'
 URL = 'wss://sendonlyfoo.bar'
 SendOnly = false
