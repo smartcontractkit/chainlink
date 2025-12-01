@@ -1841,21 +1841,21 @@ AllowSimplePasswords = false`,
 	Must have a length of 16-50 characters
 	Must not comprise:
 		Leading or trailing whitespace (note that a trailing newline in the password file, if present, will be ignored)
-    
+	
 		- BackupURL: invalid value (*****): missing or insufficiently complex password: 
 	Expected password complexity:
 	Must be at least 16 characters long
 	Must not comprise:
 		Leading or trailing whitespace
 		A user's API email
-    
+	
 	Faults:
 		password is less than 16 characters long
 	. Database should be secured by a password matching the following complexity requirements: 
 	Must have a length of 16-50 characters
 	Must not comprise:
 		Leading or trailing whitespace (note that a trailing newline in the password file, if present, will be ignored)
-    
+	
 	- Password.Keystore: empty: must be provided and non-empty`},
 
 		{name: "invalid-urls-allowed",
