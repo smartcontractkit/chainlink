@@ -841,6 +841,7 @@ runner-test-matrix:
     test_go_project_path: integration-tests
     sui_cli_version: mainnet-1.60.1
     install_plugins_public: true
+    free_disk_space: true
 
   - id: smoke/ccip/ccip_sui_token_transfer_test.go:Test_CCIPTokenTransfer_Sui2EVM_BurnMintTokenPool_WithAllowlist
     path: integration-tests/smoke/ccip/ccip_sui_token_transfer_test.go
@@ -864,11 +865,11 @@ runner-test-matrix:
       - PR Integration CCIP Tests
       - Nightly Integration CCIP Tests
     test_cmd: |
-      ./scripts/free-disk-space.sh
       go test ./smoke/ccip -run "Test_CCIPTokenTransfer_Sui2EVM_BurnMintTokenPool_ThenGloballyCursedUncursed" -timeout 15m -test.parallel=1 -count=1 -json
     test_go_project_path: integration-tests
     sui_cli_version: mainnet-1.60.1
     install_plugins_public: true
+    free_disk_space: true
 
   # - id: smoke/ccip/ccip_sui_token_transfer_test.go:Test_CCIPTokenTransfer_EVM2SUI_ManagedTokenPool_NoRateLimit
   #   path: integration-tests/smoke/ccip/ccip_sui_token_transfer_test.go
@@ -882,6 +883,7 @@ runner-test-matrix:
   #   test_go_project_path: integration-tests
   #   sui_cli_version: mainnet-1.60.1
   #   install_plugins_public: true
+  #   free_disk_space: true
 
   # - id: smoke/ccip/ccip_sui_token_transfer_test.go:Test_CCIPTokenTransfer_EVM2SUI_ManagedTokenPool_WithRateLimit
   #   path: integration-tests/smoke/ccip/ccip_sui_token_transfer_test.go
@@ -895,6 +897,7 @@ runner-test-matrix:
   #   test_go_project_path: integration-tests
   #   sui_cli_version: mainnet-1.60.1
   #   install_plugins_public: true
+  #   free_disk_space: true
 
   - id: smoke/ccip/ccip_sui_token_transfer_test.go:Test_CCIPTokenTransfer_Sui2EVM_ManagedTokenPool_ThenCurseUncurse
     path: integration-tests/smoke/ccip/ccip_sui_token_transfer_test.go
@@ -993,6 +996,7 @@ runner-test-matrix:
   #   test_go_project_path: integration-tests
   #   sui_cli_version: mainnet-1.60.1
   #   install_plugins_public: true
+  #   free_disk_space: true
 
   # - id: smoke/ccip/ccip_sui_token_transfer_test.go:Test_CCIPProgrammableTokenTransfer_EVM2SUI_BurnMintTokenPool
   #   path: integration-tests/smoke/ccip/ccip_sui_token_transfer_test.go
@@ -1007,6 +1011,7 @@ runner-test-matrix:
   #   test_go_project_path: integration-tests
   #   sui_cli_version: mainnet-1.60.1
   #   install_plugins_public: true
+  #   free_disk_space: true
 
   # - id: smoke/ccip/ccip_sui_token_transfer_test.go:Test_CCIPZeroGasLimitTokenTransfer_EVM2SUI_BurnMintTokenPool
   #   path: integration-tests/smoke/ccip/ccip_sui_token_transfer_test.go
@@ -1021,6 +1026,7 @@ runner-test-matrix:
   #   test_go_project_path: integration-tests
   #   sui_cli_version: mainnet-1.60.1
   #   install_plugins_public: true
+  #   free_disk_space: true
 
   # - id: smoke/ccip/ccip_sui_token_transfer_test.go:Test_CCIPTokenTransfer_EVM2SUI_BurnMintTokenPool
   #   path: integration-tests/smoke/ccip/ccip_sui_token_transfer_test.go
@@ -1035,5 +1041,6 @@ runner-test-matrix:
   #   test_go_project_path: integration-tests
   #   sui_cli_version: mainnet-1.60.1
   #   install_plugins_public: true
+  #   free_disk_space: true
 
   # END: CCIP tests
