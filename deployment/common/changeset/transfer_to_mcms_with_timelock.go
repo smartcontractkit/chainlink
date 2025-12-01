@@ -90,7 +90,7 @@ func (t TransferToMCMSWithTimelockConfig) Validate(e cldf.Environment) error {
 			if err != nil {
 				return fmt.Errorf("failed to load ownable: %w", err)
 			}
-			if owner != evmChains[chainSelector].DeployerKey.From {
+			if !t.OnlyAcceptOwnership && owner != evmChains[chainSelector].DeployerKey.From {
 				return fmt.Errorf("contract %s is not owned by the deployer key", contract)
 			}
 		}
