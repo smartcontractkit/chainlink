@@ -96,9 +96,9 @@ func TestShell_IndexStarkNetNodes(t *testing.T) {
 	require.NoError(t, cmd.NewNodeClient(client, "starknet").IndexNodes(cltest.EmptyCLIContext()))
 	require.NotEmpty(t, r.Renders)
 	nodes := *r.Renders[0].(*cmd.NodePresenters)
-	require.Len(t, nodes, 2)
-	n1 := nodes[0]
-	n2 := nodes[1]
+	require.Len(t, nodes, 3)
+	n1 := nodes[1]  // Skip the empty node at index 0
+	n2 := nodes[2]
 	assert.Equal(t, id, n1.ChainID)
 	assert.Equal(t, cltest.FormatWithPrefixedChainID(id, "first"), n1.ID)
 	assert.Equal(t, "first", n1.Name)
@@ -118,7 +118,7 @@ func TestShell_IndexStarkNetNodes(t *testing.T) {
 	rt := cmd.RendererTable{b}
 	require.NoError(t, nodes.RenderTable(rt))
 	renderLines := strings.Split(b.String(), "\n")
-	assert.Len(t, renderLines, 17)
+	assert.Len(t, renderLines, 27)  // 3 nodes instead of 2 = +10 lines
 	assert.Contains(t, renderLines[2], "Name")
 	assert.Contains(t, renderLines[2], n1.Name)
 	assert.Contains(t, renderLines[3], "Chain ID")
