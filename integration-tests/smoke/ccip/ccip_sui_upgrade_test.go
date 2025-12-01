@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"strings"
 	"testing"
-	"time"
 
 	"github.com/block-vision/sui-go-sdk/models"
 	"github.com/stretchr/testify/require"
@@ -42,8 +41,6 @@ import (
 	commoncs "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 
 	testsetups "github.com/smartcontractkit/chainlink/integration-tests/testsetups/ccip"
-
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
 
 func Test_CCIP_Upgrade_Sui2EVM(t *testing.T) {
@@ -58,20 +55,17 @@ func Test_CCIP_Upgrade_Sui2EVM(t *testing.T) {
 	evmChainSelectors := e.Env.BlockChains.ListChainSelectors(chain.WithFamily(chain_selectors.FamilyEVM))
 	suiChainSelectors := e.Env.BlockChains.ListChainSelectors(chain.WithFamily(chain_selectors.FamilySui))
 
-	fmt.Println("EVM: ", evmChainSelectors[0])
-	fmt.Println("Sui: ", suiChainSelectors[0])
-
 	sourceChain := suiChainSelectors[0]
 	destChain := evmChainSelectors[0]
 
+	t.Log("Source chain (EVM): ", sourceChain, "Dest chain (SUI): ", destChain)
+
 	// Ensure SUI RPC is ready after container startup
-	t.Log("🔍 Performing SUI RPC health check after container startup...")
-	WaitForAllSuiChainsReady(t, e.Env.BlockChains.SuiChains(), 60*time.Second)
+	// t.Log("🔍 Performing SUI RPC health check after container startup...")
+	// WaitForAllSuiChainsReady(t, e.Env.BlockChains.SuiChains(), 60*time.Second)
 
 	state, err := stateview.LoadOnchainState(e.Env)
 	require.NoError(t, err)
-
-	t.Log("Source chain (Sui): ", sourceChain, "Dest chain (EVM): ", destChain)
 
 	err = testhelpers.AddLaneWithDefaultPricesAndFeeQuoterConfig(t, &e, state, sourceChain, destChain, false)
 	require.NoError(t, err)
@@ -137,7 +131,6 @@ func Test_CCIP_Upgrade_Sui2EVM(t *testing.T) {
 }
 
 func Test_CCIP_Upgrade_EVM2Sui(t *testing.T) {
-	lggr := logger.TestLogger(t)
 	ctx := testcontext.Get(t)
 	e, _, _ := testsetups.NewIntegrationEnvironment(
 		t,
@@ -155,10 +148,10 @@ func Test_CCIP_Upgrade_EVM2Sui(t *testing.T) {
 	destChain := suiChainSelectors[0]
 
 	// Ensure SUI RPC is ready after container startup
-	t.Log("🔍 Performing SUI RPC health check after container startup...")
-	WaitForAllSuiChainsReady(t, e.Env.BlockChains.SuiChains(), 60*time.Second)
+	// t.Log("🔍 Performing SUI RPC health check after container startup...")
+	// WaitForAllSuiChainsReady(t, e.Env.BlockChains.SuiChains(), 60*time.Second)
 
-	lggr.Debug("Source chain (EVM): ", sourceChain, "Dest chain (Sui): ", destChain)
+	t.Log("Source chain (EVM): ", sourceChain, "Dest chain (Sui): ", destChain)
 
 	err = testhelpers.AddLaneWithDefaultPricesAndFeeQuoterConfig(t, &e, state, sourceChain, destChain, false)
 	require.NoError(t, err)
@@ -270,7 +263,6 @@ func Test_CCIP_Upgrade_EVM2Sui(t *testing.T) {
 }
 
 func Test_CCIP_Upgrade_NoBlock_EVM2Sui(t *testing.T) {
-	lggr := logger.TestLogger(t)
 	ctx := testcontext.Get(t)
 	e, _, _ := testsetups.NewIntegrationEnvironment(
 		t,
@@ -288,10 +280,10 @@ func Test_CCIP_Upgrade_NoBlock_EVM2Sui(t *testing.T) {
 	destChain := suiChainSelectors[0]
 
 	// Ensure SUI RPC is ready after container startup
-	t.Log("🔍 Performing SUI RPC health check after container startup...")
-	WaitForAllSuiChainsReady(t, e.Env.BlockChains.SuiChains(), 60*time.Second)
+	// t.Log("🔍 Performing SUI RPC health check after container startup...")
+	// WaitForAllSuiChainsReady(t, e.Env.BlockChains.SuiChains(), 60*time.Second)
 
-	lggr.Debug("Source chain (EVM): ", sourceChain, "Dest chain (Sui): ", destChain)
+	t.Log("Source chain (EVM): ", sourceChain, "Dest chain (Sui): ", destChain)
 
 	err = testhelpers.AddLaneWithDefaultPricesAndFeeQuoterConfig(t, &e, state, sourceChain, destChain, false)
 	require.NoError(t, err)
@@ -378,7 +370,6 @@ func Test_CCIP_Upgrade_NoBlock_EVM2Sui(t *testing.T) {
 
 func Test_CCIP_Upgrade_CommonPkg_EVM2Sui(t *testing.T) {
 	ctx := testcontext.Get(t)
-	lggr := logger.TestLogger(t)
 	e, _, _ := testsetups.NewIntegrationEnvironment(
 		t,
 		testhelpers.WithNumOfChains(2),
@@ -395,10 +386,10 @@ func Test_CCIP_Upgrade_CommonPkg_EVM2Sui(t *testing.T) {
 	destChain := suiChainSelectors[0]
 
 	// Ensure SUI RPC is ready after container startup
-	t.Log("🔍 Performing SUI RPC health check after container startup...")
-	WaitForAllSuiChainsReady(t, e.Env.BlockChains.SuiChains(), 60*time.Second)
+	// t.Log("🔍 Performing SUI RPC health check after container startup...")
+	// WaitForAllSuiChainsReady(t, e.Env.BlockChains.SuiChains(), 60*time.Second)
 
-	lggr.Debug("Source chain (EVM): ", sourceChain, "Dest chain (Sui): ", destChain)
+	t.Log("Source chain (EVM): ", sourceChain, "Dest chain (Sui): ", destChain)
 
 	err = testhelpers.AddLaneWithDefaultPricesAndFeeQuoterConfig(t, &e, state, sourceChain, destChain, false)
 	require.NoError(t, err)
