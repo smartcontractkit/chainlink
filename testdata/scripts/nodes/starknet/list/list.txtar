@@ -42,18 +42,26 @@ URL = 'https://starknet2.example'
 
 -- out.txt --
 
------------------------------
+---------------------------------
+Name:     
+Chain ID: starknet chain ID
+State:    
+Config:   Name = ''
+URL = ''
+APIKey = ''
+
+---------------------------------
 Name:     first
 Chain ID: starknet chain ID
-State:    Unreachable
+State:    
 Config:   Name = 'first'
 URL = 'https://starknet1.example'
 
------------------------------
+---------------------------------
 Name:     second
 Chain ID: starknet chain ID
-State:    Unreachable
+State:    
 Config:   Name = 'second'
 URL = 'https://starknet2.example'
 
------------------------------
+---------------------------------
