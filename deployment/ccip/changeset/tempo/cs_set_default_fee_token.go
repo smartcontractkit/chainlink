@@ -16,7 +16,7 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
 )
 
-var EnableBigBlockChangeset = cldf.CreateChangeSet(setFeeTokenLogic, setFeeTokenPreCondition)
+var SetFeeTokenChangeset = cldf.CreateChangeSet(setFeeTokenLogic, setFeeTokenPreCondition)
 
 type SetFeeTokenConfig struct {
 	ChainSel          uint64
@@ -98,7 +98,6 @@ func setFeeTokenLogic(env cldf.Environment, cfg SetFeeTokenConfig) (cldf.Changes
 	}
 
 	err = evmChain.Client.SendTransaction(context.Background(), signedTx)
-
 	if err != nil {
 		log.Fatalf("failed to send tx: %v", err)
 	}
