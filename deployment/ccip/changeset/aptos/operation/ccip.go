@@ -198,10 +198,9 @@ func initializeCCIP(b operations.Bundle, deps AptosDeps, in InitializeCCIPInput)
 		deps.AptosChain.Selector,
 		in.CCIPConfig.OnRampParams.FeeAggregator,
 		in.CCIPConfig.OnRampParams.AllowlistAdmin,
-		[]uint64{},
+		[]uint64{},               // destChainSelectors
 		[]aptos.AccountAddress{}, // destChainRouters
-		[]aptos.AccountAddress{}, // destChainRouterStateAddresses
-		[]bool{},
+		[]bool{},                 // destChainAllowlistEnabled
 	)
 	if err != nil {
 		return nil, fmt.Errorf("failed to encode onramp initialize: %w", err)

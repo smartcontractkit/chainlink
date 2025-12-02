@@ -51,7 +51,7 @@ func updateOnRampDests(b operations.Bundle, deps AptosDeps, in UpdateOnRampDests
 		}
 		testRouterStateAddress = stateAddress
 	}
-	// // Router address is the router module address
+	// Router address is the router module address
 	router := ccip_router.Bind(ccipAddress, deps.AptosChain.Client)
 	// Router state address is the router state signer address
 	routerStateAddress, err := router.Router().GetStateAddress(nil)
@@ -90,7 +90,6 @@ func updateOnRampDests(b operations.Bundle, deps AptosDeps, in UpdateOnRampDests
 	moduleInfo, function, _, args, err := onrampBind.Onramp().Encoder().ApplyDestChainConfigUpdates(
 		destChainSelectors,
 		destChainRouters,
-		destChainRouterStateAddresses,
 		destChainAllowlistEnabled,
 	)
 	if err != nil {

@@ -286,7 +286,7 @@ func GetChainReaderConfig() (config.ChainReaderConfig, error) {
 						Name: "get_static_config",
 					},
 					consts.MethodNameOnRampGetDestChainConfig: {
-						Name: "get_dest_chain_config",
+						Name: "get_dest_chain_config_v2",
 						Params: []config.AptosFunctionParam{
 							{
 								Name:     "destChainSelector",
@@ -294,7 +294,7 @@ func GetChainReaderConfig() (config.ChainReaderConfig, error) {
 								Required: true,
 							},
 						},
-						ResultTupleToStruct: []string{"sequenceNumber", "allowListEnabled", "router", "router_state_address"},
+						ResultTupleToStruct: []string{"sequenceNumber", "allowListEnabled", "router"},
 					},
 					consts.MethodNameGetExpectedNextSequenceNumber: {
 						Name: "get_expected_next_sequence_number",
