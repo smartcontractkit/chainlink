@@ -1018,6 +1018,7 @@ AllowNoBootstrappers = false # Default
 DefaultTransactionQueueDepth = 1 # Default
 SimulateTransactions = false # Default
 TraceLogging = false # Default
+SampleTelemetry = false # Default
 KeyValueStoreRootDir = '~/.chainlink-data' # Default
 ```
 
@@ -1139,6 +1140,12 @@ SimulateTransactions enables transaction simulation for OCR2.
 TraceLogging = false # Default
 ```
 TraceLogging enables trace level logging.
+
+### SampleTelemetry
+```toml
+SampleTelemetry = false # Default
+```
+SampleTelemetry enables telemetry sampling.
 
 ### KeyValueStoreRootDir
 ```toml

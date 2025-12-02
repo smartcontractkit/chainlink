@@ -72,6 +72,7 @@ type DelegateConfig struct {
 
 	// OCR3
 	TraceLogging                 bool
+	SampleTelemetry              bool
 	BinaryNetworkEndpointFactory ocr2types.BinaryNetworkEndpointFactory
 	V2Bootstrappers              []ocrcommontypes.BootstrapperLocator
 	// One Oracle will be started for each ContractConfigTracker
@@ -118,6 +119,7 @@ func NewDelegate(cfg DelegateConfig) (job.ServiceCtx, error) {
 		CaptureObservationTelemetry: cfg.CaptureObservationTelemetry,
 		CaptureOutcomeTelemetry:     cfg.CaptureOutcomeTelemetry,
 		CaptureReportTelemetry:      cfg.CaptureReportTelemetry,
+		SampleTelemetry:             cfg.SampleTelemetry,
 	})
 
 	ds := observation.NewDataSource(

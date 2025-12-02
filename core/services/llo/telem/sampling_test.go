@@ -117,7 +117,7 @@ func TestSample(t *testing.T) {
 	lggr := logger.TestSugared(t)
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
-	samplr := newSampler(lggr)
+	samplr := newSampler(lggr, true)
 	samplr.StartPruningLoop(ctx, &sync.WaitGroup{})
 
 	t0 := time.Now()
@@ -148,7 +148,7 @@ func TestPruningLoop(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	samplr := newSampler(lggr)
+	samplr := newSampler(lggr, true)
 	// We need a prune time of at least one second in order to detect outdated entries.
 	// The entries have second-based timestamps and cannot distinguish shorter intervals.
 	samplr.prunePeriod = time.Second
@@ -199,7 +199,7 @@ func TestPruningLoop_Exits(t *testing.T) {
 	wg := &sync.WaitGroup{}
 
 	// Start the sampler and its loop. This increments the waitgroup's counter.
-	samplr := newSampler(lggr)
+	samplr := newSampler(lggr, true)
 	samplr.StartPruningLoop(ctx, wg)
 
 	// Create a channel which will be closed when the waitgroup is done, i.e. when the loop is closed.
