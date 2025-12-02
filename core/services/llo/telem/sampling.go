@@ -34,13 +34,15 @@ type sampler struct {
 	samples   map[string]map[int32]any
 	samplesMu sync.Mutex
 
+	enabled     bool
 	prunePeriod time.Duration // exists, so we can test pruning
 	lggr        logger.Logger
 }
 
-func newSampler(lgger logger.SugaredLogger) *sampler {
+func newSampler(lgger logger.SugaredLogger, samplingEnabled bool) *sampler {
 	return &sampler{
 		samples:     make(map[string]map[int32]any),
+		enabled:     samplingEnabled,
 		prunePeriod: defaultPrunePeriod,
 		lggr:        lgger,
 	}
@@ -48,6 +50,11 @@ func newSampler(lgger logger.SugaredLogger) *sampler {
 
 // Sample is the method which decides whether we're going to send the data downstream or not.
 func (s *sampler) Sample(typ synchronization.TelemetryType, msg proto.Message) bool {
+	// If sampling is not enabled we want to send each and every telemetry message, so always return true.
+	if !s.enabled {
+		return true
+	}
+
 	fp, ots, err := fingerprint(typ, msg)
 	if err != nil {
 		if !errors.Is(err, errUnsupportedTelemetryType) {
@@ -75,6 +82,11 @@ func (s *sampler) Sample(typ synchronization.TelemetryType, msg proto.Message) b
 //
 // This method is non-blocking. It starts a goroutine and returns.
 func (s *sampler) StartPruningLoop(ctx context.Context, wg *sync.WaitGroup) {
+	// We don't need pruning if sampling is not enabled.
+	if !s.enabled {
+		return
+	}
+
 	wg.Add(1)
 	go func() {
 		defer wg.Done()

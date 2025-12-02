@@ -50,6 +50,7 @@ type TelemeterParams struct {
 	CaptureObservationTelemetry bool
 	CaptureOutcomeTelemetry     bool
 	CaptureReportTelemetry      bool
+	SampleTelemetry             bool
 }
 
 func NewTelemeterService(params TelemeterParams) TelemeterService {
@@ -78,7 +79,7 @@ func newTelemeter(params TelemeterParams) *telemeter {
 		}, 10),
 		currentSeqNr:    make(map[string]uint64),
 		telemetryBuffer: make(map[string]map[uint64][]telemetryEntry),
-		sampler:         newSampler(logger.Sugared(params.Logger)),
+		sampler:         newSampler(logger.Sugared(params.Logger), params.SampleTelemetry),
 	}
 	if params.CaptureOutcomeTelemetry {
 		t.chOutcomeTelemetry = make(chan *datastreamsllo.LLOOutcomeTelemetry, 100) // only one per round so 100 buffer should be more than enough even for very fast rounds

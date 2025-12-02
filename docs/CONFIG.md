@@ -1018,6 +1018,7 @@ AllowNoBootstrappers = false # Default
 DefaultTransactionQueueDepth = 1 # Default
 SimulateTransactions = false # Default
 TraceLogging = false # Default
+SampleTelemetry = false # Default
 KeyValueStoreRootDir = '~/.chainlink-data' # Default
 ```
 
@@ -1139,6 +1140,12 @@ SimulateTransactions enables transaction simulation for OCR2.
 TraceLogging = false # Default
 ```
 TraceLogging enables trace level logging.
+
+### SampleTelemetry
+```toml
+SampleTelemetry = false # Default
+```
+SampleTelemetry enables telemetry sampling.
 
 ### KeyValueStoreRootDir
 ```toml
@@ -18828,4 +18835,3 @@ URL is the base HTTP(S) endpoint for this node.
 APIKey = 'key' # Example
 ```
 APIKey Header is optional and only required for Nethermind RPCs
-
