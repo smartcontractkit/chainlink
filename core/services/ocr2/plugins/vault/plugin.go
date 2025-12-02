@@ -241,6 +241,7 @@ func (r *ReportingPluginFactory) NewReportingPlugin(ctx context.Context, config 
 		return nil, ocr3_1types.ReportingPluginInfo1{}, errors.New("DKG instance ID cannot be nil")
 	}
 
+	r.lggr.Debugw("fetching key material for instance id", "instanceID", *configProto.DKGInstanceID)
 	publicKey, privateKeyShare, err := r.getKeyMaterial(ctx, *configProto.DKGInstanceID)
 	if err != nil {
 		return nil, ocr3_1types.ReportingPluginInfo1{}, fmt.Errorf("could not get key material from DB: %w", err)
@@ -390,7 +391,6 @@ func (r *ReportingPlugin) observeGetSecretsRequest(ctx context.Context, reader R
 	if err != nil {
 		return nil, fmt.Errorf("failed to read secret from key-value store: %w", err)
 	}
-
 	if secret == nil {
 		return nil, newUserError("key does not exist")
 	}
@@ -399,6 +399,12 @@ func (r *ReportingPlugin) observeGetSecretsRequest(ctx context.Context, reader R
 	err = ct.UnmarshalVerify(secret.EncryptedSecret, r.cfg.PublicKey)
 	if err != nil {
 		return nil, fmt.Errorf("failed to unmarshal ciphertext: %w", err)
+	}
+
+	encryptedSecret := hex.EncodeToString(secret.EncryptedSecret)
+	err = vaultcap.EnsureRightLabelOnSecret(r.cfg.PublicKey, encryptedSecret, secretRequest.Id.Owner)
+	if err != nil {
+		return nil, errors.New("failed to verify label on secret. error: " + err.Error())
 	}
 
 	share, err := tdh2easy.Decrypt(ct, r.cfg.PrivateKeyShare)
@@ -440,7 +446,7 @@ func (r *ReportingPlugin) observeGetSecretsRequest(ctx context.Context, reader R
 		Id: id,
 		Result: &vaultcommon.SecretResponse_Data{
 			Data: &vaultcommon.SecretData{
-				EncryptedValue:               hex.EncodeToString(secret.EncryptedSecret),
+				EncryptedValue:               encryptedSecret,
 				EncryptedDecryptionKeyShares: shares,
 			},
 		},
