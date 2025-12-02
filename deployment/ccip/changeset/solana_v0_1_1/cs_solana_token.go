@@ -20,6 +20,7 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
+	"github.com/smartcontractkit/chainlink/deployment/utils/solutils"
 
 	solCommonUtil "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/common"
 	solTokenUtil "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/tokens"
@@ -431,7 +432,7 @@ func (cfg UploadTokenMetadataConfig) Validate(e cldf.Environment) error {
 			return errors.New("token pubkey is zero")
 		}
 		var tokenMetadata tokenMetadata.Metadata
-		metadataPDA, err := deployment.FindMplTokenMetadataPDA(metadata.TokenPubkey)
+		metadataPDA, err := solutils.FindMplTokenMetadataPDA(metadata.TokenPubkey)
 		if err != nil {
 			return fmt.Errorf("failed to find metadata PDA: %w", err)
 		}
@@ -487,7 +488,7 @@ func UploadTokenMetadata(e cldf.Environment, cfg UploadTokenMetadataConfig) (cld
 
 		tokenMint := metadata.TokenPubkey
 		var mintMetadata tokenMetadata.Metadata
-		metadataPDA, metadataErr := deployment.FindMplTokenMetadataPDA(tokenMint)
+		metadataPDA, metadataErr := solutils.FindMplTokenMetadataPDA(tokenMint)
 		if metadataErr != nil {
 			return cldf.ChangesetOutput{}, fmt.Errorf("error finding metadata account: %w", metadataErr)
 		}
@@ -521,7 +522,7 @@ func UploadTokenMetadata(e cldf.Environment, cfg UploadTokenMetadataConfig) (cld
 			return cldf.ChangesetOutput{}, fmt.Errorf("error generating modify metadata ix: %w", err)
 		}
 		if mintMetadata.UpdateAuthority.Equals(timelockSignerPDA) {
-			upgradeTx, err := BuildMCMSTxn(&instruction, deployment.MplTokenMetadataID.String(), MplTokenMetadataProgramName)
+			upgradeTx, err := BuildMCMSTxn(&instruction, solutils.MplTokenMetadataID.String(), MplTokenMetadataProgramName)
 			if err != nil {
 				return cldf.ChangesetOutput{}, fmt.Errorf("failed to create upgrade transaction: %w", err)
 			}
@@ -557,7 +558,7 @@ func modifyTokenMetadataIx(
 	}
 
 	instruction := solana.NewInstruction(
-		deployment.MplTokenMetadataID,
+		solutils.MplTokenMetadataID,
 		ix.Accounts(),
 		data,
 	)

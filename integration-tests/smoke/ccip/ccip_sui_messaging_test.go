@@ -2,7 +2,6 @@ package ccip
 
 import (
 	"encoding/hex"
-	"fmt"
 	"math/big"
 	"strings"
 	"testing"
@@ -35,8 +34,6 @@ import (
 	commoncs "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 
 	testsetups "github.com/smartcontractkit/chainlink/integration-tests/testsetups/ccip"
-
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
 
 func Test_CCIP_Messaging_Sui2EVM(t *testing.T) {
@@ -49,9 +46,6 @@ func Test_CCIP_Messaging_Sui2EVM(t *testing.T) {
 
 	evmChainSelectors := e.Env.BlockChains.ListChainSelectors(chain.WithFamily(chain_selectors.FamilyEVM))
 	suiChainSelectors := e.Env.BlockChains.ListChainSelectors(chain.WithFamily(chain_selectors.FamilySui))
-
-	fmt.Println("EVM: ", evmChainSelectors[0])
-	fmt.Println("Sui: ", suiChainSelectors[0])
 
 	sourceChain := suiChainSelectors[0]
 	destChain := evmChainSelectors[0]
@@ -289,11 +283,10 @@ func Test_CCIP_Messaging_Sui2EVM(t *testing.T) {
 		})
 	})
 
-	fmt.Printf("out: %v\n", out)
+	t.Logf("out: %v\n", out)
 }
 
 func Test_CCIP_Messaging_EVM2Sui(t *testing.T) {
-	lggr := logger.TestLogger(t)
 	ctx := testcontext.Get(t)
 	e, _, _ := testsetups.NewIntegrationEnvironment(
 		t,
@@ -310,7 +303,7 @@ func Test_CCIP_Messaging_EVM2Sui(t *testing.T) {
 	sourceChain := evmChainSelectors[0]
 	destChain := suiChainSelectors[0]
 
-	lggr.Debug("Source chain (EVM): ", sourceChain, "Dest chain (Sui): ", destChain)
+	t.Log("Source chain (EVM): ", sourceChain, "Dest chain (Sui): ", destChain)
 
 	err = testhelpers.AddLaneWithDefaultPricesAndFeeQuoterConfig(t, &e, state, sourceChain, destChain, false)
 	require.NoError(t, err)
@@ -551,7 +544,6 @@ func Test_CCIP_Messaging_EVM2Sui(t *testing.T) {
 }
 
 func Test_CCIP_EVM2Sui_ZeroReceiver(t *testing.T) {
-	lggr := logger.TestLogger(t)
 	e, _, _ := testsetups.NewIntegrationEnvironment(
 		t,
 		testhelpers.WithNumOfChains(2),
@@ -567,7 +559,7 @@ func Test_CCIP_EVM2Sui_ZeroReceiver(t *testing.T) {
 	sourceChain := evmChainSelectors[0]
 	destChain := suiChainSelectors[0]
 
-	lggr.Debug("Source chain (EVM): ", sourceChain, "Dest chain (Sui): ", destChain)
+	t.Log("Source chain (EVM): ", sourceChain, "Dest chain (Sui): ", destChain)
 
 	err = testhelpers.AddLaneWithDefaultPricesAndFeeQuoterConfig(t, &e, state, sourceChain, destChain, false)
 	require.NoError(t, err)

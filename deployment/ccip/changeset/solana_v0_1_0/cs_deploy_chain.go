@@ -22,6 +22,7 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
 	solanastateview "github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview/solana"
+	"github.com/smartcontractkit/chainlink/deployment/utils/solutils"
 
 	"github.com/smartcontractkit/chainlink/deployment/common/changeset/state"
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
@@ -48,16 +49,16 @@ var _ cldf.ChangeSet[ExtendGlobalLookupTableConfig] = ExtendGlobalLookupTableCha
 
 func getTypeToProgramDeployName() map[cldf.ContractType]string {
 	return map[cldf.ContractType]string{
-		shared.Router:                  deployment.RouterProgramName,
-		shared.OffRamp:                 deployment.OffRampProgramName,
-		shared.FeeQuoter:               deployment.FeeQuoterProgramName,
-		shared.BurnMintTokenPool:       deployment.BurnMintTokenPoolProgramName,
-		shared.LockReleaseTokenPool:    deployment.LockReleaseTokenPoolProgramName,
-		shared.RMNRemote:               deployment.RMNRemoteProgramName,
-		types.AccessControllerProgram:  deployment.AccessControllerProgramName,
-		types.ManyChainMultisigProgram: deployment.McmProgramName,
-		types.RBACTimelockProgram:      deployment.TimelockProgramName,
-		shared.Receiver:                deployment.ReceiverProgramName,
+		shared.Router:                  solutils.ProgCCIPRouter,
+		shared.OffRamp:                 solutils.ProgCCIPOfframp,
+		shared.FeeQuoter:               solutils.ProgFeeQuoter,
+		shared.BurnMintTokenPool:       solutils.ProgBurnMintTokenPool,
+		shared.LockReleaseTokenPool:    solutils.ProgLockReleaseTokenPool,
+		shared.RMNRemote:               solutils.ProgRMNRemote,
+		types.AccessControllerProgram:  solutils.ProgAccessController,
+		types.ManyChainMultisigProgram: solutils.ProgMCM,
+		types.RBACTimelockProgram:      solutils.ProgTimelock,
+		shared.Receiver:                solutils.ProgTestCCIPReceiver,
 	}
 }
 

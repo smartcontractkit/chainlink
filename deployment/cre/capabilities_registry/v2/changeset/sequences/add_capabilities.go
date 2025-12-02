@@ -201,14 +201,17 @@ var AddCapabilities = operations.NewSequence[AddCapabilitiesInput, AddCapabiliti
 		var proposals []mcmslib.TimelockProposal
 
 		if input.MCMSConfig != nil {
-			proposal, mcmsErr := strategy.BuildProposal([]types.BatchOperation{
-				*regCapsReport.Output.Operation, *updateNodesReport.Output.Operation, *updateDonReport.Output.Operation,
-			})
-			if mcmsErr != nil {
-				return AddCapabilitiesOutput{}, fmt.Errorf("failed to build MCMS proposal: %w", mcmsErr)
-			}
+			ops := toOpsSlice(regCapsReport.Output.Operation, updateNodesReport.Output.Operation, updateDonReport.Output.Operation)
+			if len(ops) > 0 {
+				proposal, mcmsErr := strategy.BuildProposal(ops)
+				if mcmsErr != nil {
+					return AddCapabilitiesOutput{}, fmt.Errorf("failed to build MCMS proposal: %w", mcmsErr)
+				}
 
-			proposals = append(proposals, *proposal)
+				proposals = append(proposals, *proposal)
+			} else {
+				deps.Env.Logger.Warnw("Add capability sequence has not produced any operations to execute")
+			}
 		}
 
 		return AddCapabilitiesOutput{
@@ -219,6 +222,17 @@ var AddCapabilities = operations.NewSequence[AddCapabilitiesInput, AddCapabiliti
 		}, nil
 	},
 )
+
+func toOpsSlice(opPtrs ...*types.BatchOperation) []types.BatchOperation {
+	var result []types.BatchOperation
+	for _, opPtr := range opPtrs {
+		if opPtr != nil {
+			result = append(result, *opPtr)
+		}
+	}
+
+	return result
+}
 
 func GetDonNodes(donName string, capReg *capabilities_registry_v2.CapabilitiesRegistry) (
 	*capabilities_registry_v2.CapabilitiesRegistryDONInfo,
