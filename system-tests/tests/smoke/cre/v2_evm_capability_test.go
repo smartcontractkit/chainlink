@@ -246,7 +246,22 @@ func ExecuteEVMLogTriggerTest(t *testing.T, testEnv *ttypes.TestEnvironment) {
 		time.Sleep(10 * time.Second)
 
 		message := "Data for log trigger"
-		_ = emitEvent(t, lggr, chainID, bcOutput, msgEmitter, message, workflowConfig)
+		//_ = emitEvent(t, lggr, chainID, bcOutput, msgEmitter, message, workflowConfig)
+		// start background event emission every 10s while AssertBeholderMessage is running
+		ticker := time.NewTicker(10 * time.Second)
+		go func() {
+			defer ticker.Stop()
+			for {
+				select {
+				case <-listenerCtx.Done():
+					return
+				case <-ticker.C:
+					lggr.Info().Msgf("About to emit an event for chain %s", chainID)
+					blockNumber := emitEvent(t, lggr, chainID, bcOutput, msgEmitter, message, workflowConfig)
+					lggr.Info().Msgf("Event emitted for chain %s at blockNumber %d", chainID, blockNumber)
+				}
+			}
+		}()
 		expectedUserLog := "OnTrigger decoded message: message:" + message
 		err = t_helpers.AssertBeholderMessage(listenerCtx, t, expectedUserLog, lggr, messageChan, kafkaErrChan, 4*time.Minute)
 		require.NoError(t, err, "Expected user log test failed")
