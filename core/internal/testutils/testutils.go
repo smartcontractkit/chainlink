@@ -167,7 +167,17 @@ func WaitForLogMessage(t *testing.T, observedLogs *observer.ObservedLogs, msg st
 func WaitForLogMessageWithField(t *testing.T, observedLogs *observer.ObservedLogs, msg, field, value string) (le observer.LoggedEntry) {
 	RequireEventually(t, func() bool {
 		for _, l := range observedLogs.All() {
-			if strings.Contains(l.Message, msg) && strings.Contains(l.ContextMap()[field].(string), value) {
+			if !strings.Contains(l.Message, msg) {
+				continue
+			}
+			ctxMap := l.ContextMap()
+			fieldValue, exists := ctxMap[field]
+			if !exists {
+				continue
+			}
+			// Convert field value to string for comparison, handling all types
+			fieldValueStr := fmt.Sprintf("%v", fieldValue)
+			if strings.Contains(fieldValueStr, value) {
 				le = l
 				return true
 			}

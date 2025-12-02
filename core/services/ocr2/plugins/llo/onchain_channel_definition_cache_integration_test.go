@@ -5,6 +5,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io"
 	"math/rand"
 	"net/http"
@@ -40,22 +41,46 @@ import (
 )
 
 type mockHTTPClient struct {
-	resp *http.Response
-	err  error
-	mu   sync.Mutex
+	responses map[string]*http.Response
+	errors    map[string]error
+	mu        sync.Mutex
 }
 
 func (h *mockHTTPClient) Do(req *http.Request) (*http.Response, error) {
 	h.mu.Lock()
 	defer h.mu.Unlock()
-	return h.resp, h.err
+	url := req.URL.String()
+	// Check for URL-specific response first
+	if err, ok := h.errors[url]; ok {
+		return nil, err
+	}
+	if resp, ok := h.responses[url]; ok {
+		return resp, nil
+	}
+	// Fall back to default response (for backward compatibility with old tests)
+	if err, ok := h.errors[""]; ok {
+		return nil, err
+	}
+	if resp, ok := h.responses[""]; ok {
+		return resp, nil
+	}
+	return nil, fmt.Errorf("no response configured for URL: %s", url)
 }
 
-func (h *mockHTTPClient) SetResponse(resp *http.Response, err error) {
+func (h *mockHTTPClient) SetResponseForURL(url string, resp *http.Response, err error) {
 	h.mu.Lock()
 	defer h.mu.Unlock()
-	h.resp = resp
-	h.err = err
+	if h.responses == nil {
+		h.responses = make(map[string]*http.Response)
+		h.errors = make(map[string]error)
+	}
+	if err != nil {
+		h.errors[url] = err
+		delete(h.responses, url)
+	} else {
+		h.responses[url] = resp
+		delete(h.errors, url)
+	}
 }
 
 type MockReadCloser struct {
@@ -115,6 +140,7 @@ func countChannels(defsJSON json.RawMessage) int {
 }
 
 func Test_ChannelDefinitionCache_Integration(t *testing.T) {
+	t.Parallel()
 	var (
 		invalidDefinitions    = []byte(`{{{`)
 		invalidDefinitionsSHA = sha3.Sum256(invalidDefinitions)
@@ -206,13 +232,13 @@ func Test_ChannelDefinitionCache_Integration(t *testing.T) {
 		t.Cleanup(func() { observedLogs.TakeAll() })
 
 		{
+			url := "http://example.com/foo"
 			rc := NewMockReadCloser(invalidDefinitions)
-			client.SetResponse(&http.Response{
+			client.SetResponseForURL(url, &http.Response{
 				StatusCode: 200,
 				Body:       rc,
 			}, nil)
 
-			url := "http://example.com/foo"
 			require.NoError(t, utils.JustError(configStoreContract.SetChannelDefinitions(steve, donID, url, sampleDefinitionsSHA)))
 
 			backend.Commit()
@@ -230,13 +256,13 @@ func Test_ChannelDefinitionCache_Integration(t *testing.T) {
 		observedLogs.TakeAll()
 
 		{
+			url := "http://example.com/foo"
 			rc := NewMockReadCloser(invalidDefinitions)
-			client.SetResponse(&http.Response{
+			client.SetResponseForURL(url, &http.Response{
 				StatusCode: 200,
 				Body:       rc,
 			}, nil)
 
-			url := "http://example.com/foo"
 			require.NoError(t, utils.JustError(configStoreContract.SetChannelDefinitions(steve, donID, url, invalidDefinitionsSHA)))
 			backend.Commit()
 		}
@@ -253,12 +279,12 @@ func Test_ChannelDefinitionCache_Integration(t *testing.T) {
 
 		{
 			rc := NewMockReadCloser([]byte("not found"))
-			client.SetResponse(&http.Response{
+			url := "http://example.com/foo3"
+			client.SetResponseForURL(url, &http.Response{
 				StatusCode: 404,
 				Body:       rc,
 			}, nil)
 
-			url := "http://example.com/foo3"
 			require.NoError(t, utils.JustError(configStoreContract.SetChannelDefinitions(steve, donID, url, sampleDefinitionsSHA)))
 			backend.Commit()
 		}
@@ -274,7 +300,8 @@ func Test_ChannelDefinitionCache_Integration(t *testing.T) {
 
 		{
 			rc := NewMockReadCloser([]byte{})
-			client.SetResponse(&http.Response{
+			url := "http://example.com/foo3"
+			client.SetResponseForURL(url, &http.Response{
 				StatusCode: 200,
 				Body:       rc,
 			}, nil)
@@ -290,7 +317,8 @@ func Test_ChannelDefinitionCache_Integration(t *testing.T) {
 
 		{
 			rc := NewMockReadCloser(sampleDefinitionsJSON)
-			client.SetResponse(&http.Response{
+			url := "http://example.com/foo3"
+			client.SetResponseForURL(url, &http.Response{
 				StatusCode: 200,
 				Body:       rc,
 			}, nil)
@@ -393,7 +421,7 @@ func Test_ChannelDefinitionCache_Integration(t *testing.T) {
 		{
 			url := "not a real URL"
 			require.NoError(t, utils.JustError(configStoreContract.SetChannelDefinitions(steve, donID, url, sampleDefinitionsSHA)))
-			client.SetResponse(nil, errors.New("failed; not a real URL"))
+			client.SetResponseForURL(url, nil, errors.New("failed; not a real URL"))
 			backend.Commit()
 		}
 
@@ -422,12 +450,12 @@ func Test_ChannelDefinitionCache_Integration(t *testing.T) {
 			require.NoError(t, err)
 			sampleDefinitionsSHA = sha3.Sum256(sampleDefinitionsJSON)
 			rc := NewMockReadCloser(sampleDefinitionsJSON)
-			client.SetResponse(&http.Response{
+			url := "http://example.com/foo5"
+			client.SetResponseForURL(url, &http.Response{
 				StatusCode: 200,
 				Body:       rc,
 			}, nil)
 
-			url := "http://example.com/foo5"
 			require.NoError(t, utils.JustError(configStoreContract.SetChannelDefinitions(steve, donID, url, sampleDefinitionsSHA)))
 
 			backend.Commit()
@@ -602,13 +630,13 @@ func Test_ChannelDefinitionCache_Integration(t *testing.T) {
 
 		// Set up HTTP client to return new definitions
 		rc := NewMockReadCloser(newDefinitionsJSON)
-		client.SetResponse(&http.Response{
+		url := "http://example.com/migration-test.json"
+		client.SetResponseForURL(url, &http.Response{
 			StatusCode: 200,
 			Body:       rc,
 		}, nil)
 
 		// Trigger new channel definitions on-chain
-		url := "http://example.com/migration-test.json"
 		require.NoError(t, utils.JustError(configStoreContract.SetChannelDefinitions(steve, migrationDonID, url, newDefinitionsSHA)))
 		backend.Commit()
 
@@ -662,5 +690,728 @@ func Test_ChannelDefinitionCache_Integration(t *testing.T) {
 			assert.Equal(t, expectedDef.ReportFormat, actualDef.ReportFormat)
 			assert.Equal(t, expectedDef.Streams, actualDef.Streams)
 		}
+	})
+}
+
+func Test_ChannelDefinitionCache_OwnerAndAdderMerging(t *testing.T) {
+	t.Parallel()
+	lggr, observedLogs := logger.TestLoggerObserved(t, zapcore.DebugLevel)
+	db := pgtest.NewSqlxDB(t)
+	const ETHMainnetChainSelector uint64 = 5009297550715157269
+	orm := llo.NewChainScopedORM(db, ETHMainnetChainSelector)
+
+	steve := evmtestutils.MustNewSimTransactor(t) // config contract deployer and owner
+	// Create adder accounts before creating backend
+	adder1 := evmtestutils.MustNewSimTransactor(t)
+	adder2 := evmtestutils.MustNewSimTransactor(t)
+	genesisData := types.GenesisAlloc{
+		steve.From:  {Balance: assets.Ether(1000).ToInt()},
+		adder1.From: {Balance: assets.Ether(1000).ToInt()},
+		adder2.From: {Balance: assets.Ether(1000).ToInt()},
+	}
+	backend := cltest.NewSimulatedBackend(t, genesisData, ethconfig.Defaults.Miner.GasCeil)
+	backend.Commit() // ensure starting block number at least 1
+
+	ethClient := client.NewSimulatedBackendClient(t, backend, testutils.SimulatedChainID)
+
+	configStoreAddress, _, configStoreContract, err := channel_config_store.DeployChannelConfigStore(steve, backend.Client())
+	require.NoError(t, err)
+
+	backend.Commit()
+
+	lpOpts := logpoller.Opts{
+		PollPeriod:               100 * time.Millisecond,
+		FinalityDepth:            1,
+		BackfillBatchSize:        3,
+		RPCBatchSize:             2,
+		KeepFinalizedBlocksDepth: 1000,
+	}
+	ht := headstest.NewSimulatedHeadTracker(ethClient, lpOpts.UseFinalityTag, lpOpts.FinalityDepth)
+	lp := logpoller.NewLogPoller(
+		logpoller.NewORM(testutils.SimulatedChainID, db, lggr), ethClient, lggr, ht, lpOpts)
+	servicetest.Run(t, lp)
+
+	client := &mockHTTPClient{}
+	donID := rand.Uint32()
+
+	cdc := channeldefinitions.NewChannelDefinitionCache(lggr, orm, client, lp, configStoreAddress, donID, 0, channeldefinitions.WithLogPollInterval(100*time.Millisecond))
+	servicetest.Run(t, cdc)
+
+	// Configure adders on the contract
+	// Adder IDs start from 2 (since SourceOwner = 1)
+	adder1ID := uint32(2)
+	adder2ID := uint32(3)
+
+	require.NoError(t, utils.JustError(configStoreContract.SetChannelAdderAddress(steve, adder1ID, adder1.From)))
+	backend.Commit()
+	require.NoError(t, utils.JustError(configStoreContract.SetChannelAdderAddress(steve, adder2ID, adder2.From)))
+	backend.Commit()
+
+	// Enable adders
+	require.NoError(t, utils.JustError(configStoreContract.SetChannelAdder(steve, donID, adder1ID, true)))
+	backend.Commit()
+	require.NoError(t, utils.JustError(configStoreContract.SetChannelAdder(steve, donID, adder2ID, true)))
+	backend.Commit()
+
+	t.Run("adder can add new channels", func(t *testing.T) {
+		observedLogs.TakeAll()
+
+		adder1Definitions := llotypes.ChannelDefinitions{
+			100: {
+				ReportFormat: llotypes.ReportFormatJSON,
+				Streams: []llotypes.Stream{
+					{StreamID: 1, Aggregator: llotypes.AggregatorMedian},
+				},
+				Source:    adder1ID,
+				Tombstone: false,
+			},
+			101: {
+				ReportFormat: llotypes.ReportFormatEVMPremiumLegacy,
+				Streams: []llotypes.Stream{
+					{StreamID: 2, Aggregator: llotypes.AggregatorMode},
+				},
+				Source:    adder1ID,
+				Tombstone: false,
+			},
+		}
+
+		adder1DefinitionsJSON, err := json.MarshalIndent(adder1Definitions, "", "  ")
+		require.NoError(t, err)
+		adder1DefinitionsSHA := sha3.Sum256(adder1DefinitionsJSON)
+
+		url := "http://example.com/adder1-defs.json"
+		rc := NewMockReadCloser(adder1DefinitionsJSON)
+		client.SetResponseForURL(url, &http.Response{
+			StatusCode: 200,
+			Body:       rc,
+		}, nil)
+		_, err = configStoreContract.AddChannelDefinitions(adder1, donID, adder1ID, url, adder1DefinitionsSHA)
+		require.NoError(t, err)
+		backend.Commit()
+
+		testutils.WaitForLogMessageWithField(t, observedLogs, "Got new logs",
+			"url", url)
+
+		require.Eventually(t, func() bool {
+			defs := cdc.Definitions(llotypes.ChannelDefinitions{})
+			return len(defs) >= 2
+		}, 5*time.Second, 100*time.Millisecond, "adder definitions should be available")
+
+		defs := cdc.Definitions(llotypes.ChannelDefinitions{})
+		assert.Equal(t, adder1Definitions[100], defs[100])
+		assert.Equal(t, adder1Definitions[101], defs[101])
+	})
+
+	t.Run("adder cannot overwrite existing owner channels", func(t *testing.T) {
+		observedLogs.TakeAll()
+
+		// Owner sets channel definitions first
+		ownerDefinitions := llotypes.ChannelDefinitions{
+			200: {
+				ReportFormat: llotypes.ReportFormatJSON,
+				Streams: []llotypes.Stream{
+					{StreamID: 1, Aggregator: llotypes.AggregatorMedian},
+				},
+				Source:    channeldefinitions.SourceOwner,
+				Tombstone: false,
+			},
+		}
+
+		ownerDefinitionsJSON, err := json.MarshalIndent(ownerDefinitions, "", "  ")
+		require.NoError(t, err)
+		ownerDefinitionsSHA := sha3.Sum256(ownerDefinitionsJSON)
+
+		url := "http://example.com/owner-defs.json"
+		rc := NewMockReadCloser(ownerDefinitionsJSON)
+		client.SetResponseForURL(url, &http.Response{
+			StatusCode: 200,
+			Body:       rc,
+		}, nil)
+		require.NoError(t, utils.JustError(configStoreContract.SetChannelDefinitions(steve, donID, url, ownerDefinitionsSHA)))
+		backend.Commit()
+
+		testutils.WaitForLogMessageWithField(t, observedLogs, "Got new logs",
+			"url", url)
+
+		require.Eventually(t, func() bool {
+			defs := cdc.Definitions(llotypes.ChannelDefinitions{})
+			return len(defs) >= 1 && defs[200].Source == channeldefinitions.SourceOwner
+		}, 5*time.Second, 100*time.Millisecond, "owner definitions should be available")
+
+		// Now adder tries to add the same channel ID
+		observedLogs.TakeAll()
+
+		adderAttemptDefinitions := llotypes.ChannelDefinitions{
+			200: {
+				ReportFormat: llotypes.ReportFormatEVMPremiumLegacy,
+				Streams: []llotypes.Stream{
+					{StreamID: 999, Aggregator: llotypes.AggregatorQuote},
+				},
+				Source:    adder1ID,
+				Tombstone: false,
+			},
+		}
+
+		adderAttemptDefinitionsJSON, err := json.MarshalIndent(adderAttemptDefinitions, "", "  ")
+		require.NoError(t, err)
+		adderAttemptDefinitionsSHA := sha3.Sum256(adderAttemptDefinitionsJSON)
+
+		url2 := "http://example.com/adder-attempt.json"
+		rc = NewMockReadCloser(adderAttemptDefinitionsJSON)
+		client.SetResponseForURL(url2, &http.Response{
+			StatusCode: 200,
+			Body:       rc,
+		}, nil)
+		_, err = configStoreContract.AddChannelDefinitions(adder1, donID, adder1ID, url2, adderAttemptDefinitionsSHA)
+		require.NoError(t, err)
+		backend.Commit()
+
+		testutils.WaitForLogMessageWithField(t, observedLogs, "Got new logs",
+			"url", url2)
+
+		// Wait a bit for processing
+		time.Sleep(500 * time.Millisecond)
+
+		// Verify adder's definition was skipped - owner's definition should still be there
+		defs := cdc.Definitions(llotypes.ChannelDefinitions{})
+		assert.Equal(t, channeldefinitions.SourceOwner, defs[200].Source, "channel 200 should still be from owner")
+		assert.Equal(t, ownerDefinitions[200].Streams, defs[200].Streams, "channel 200 should have owner's streams")
+
+		// Check for conflict warning log
+		testutils.WaitForLogMessageWithField(t, observedLogs, "channel adder conflict",
+			"channelID", "200")
+	})
+
+	t.Run("adder cannot overwrite existing adder channels", func(t *testing.T) {
+		observedLogs.TakeAll()
+
+		// First adder adds a channel
+		adder1Defs := llotypes.ChannelDefinitions{
+			300: {
+				ReportFormat: llotypes.ReportFormatJSON,
+				Streams: []llotypes.Stream{
+					{StreamID: 1, Aggregator: llotypes.AggregatorMedian},
+				},
+				Source:    adder1ID,
+				Tombstone: false,
+			},
+		}
+
+		adder1DefsJSON, err := json.MarshalIndent(adder1Defs, "", "  ")
+		require.NoError(t, err)
+		adder1DefsSHA := sha3.Sum256(adder1DefsJSON)
+
+		url := "http://example.com/adder1-channel300.json"
+		rc := NewMockReadCloser(adder1DefsJSON)
+		client.SetResponseForURL(url, &http.Response{
+			StatusCode: 200,
+			Body:       rc,
+		}, nil)
+		_, err = configStoreContract.AddChannelDefinitions(adder1, donID, adder1ID, url, adder1DefsSHA)
+		require.NoError(t, err)
+		backend.Commit()
+
+		testutils.WaitForLogMessageWithField(t, observedLogs, "Got new logs",
+			"url", url)
+
+		require.Eventually(t, func() bool {
+			defs := cdc.Definitions(llotypes.ChannelDefinitions{})
+			return defs[300].Source == adder1ID
+		}, 5*time.Second, 100*time.Millisecond, "adder1 channel 300 should be available")
+
+		// Second adder tries to add the same channel ID
+		observedLogs.TakeAll()
+
+		adder2Defs := llotypes.ChannelDefinitions{
+			300: {
+				ReportFormat: llotypes.ReportFormatEVMPremiumLegacy,
+				Streams: []llotypes.Stream{
+					{StreamID: 999, Aggregator: llotypes.AggregatorQuote},
+				},
+				Source:    adder2ID,
+				Tombstone: false,
+			},
+		}
+
+		adder2DefsJSON, err := json.MarshalIndent(adder2Defs, "", "  ")
+		require.NoError(t, err)
+		adder2DefsSHA := sha3.Sum256(adder2DefsJSON)
+
+		url2 := "http://example.com/adder2-channel300.json"
+		rc = NewMockReadCloser(adder2DefsJSON)
+		client.SetResponseForURL(url2, &http.Response{
+			StatusCode: 200,
+			Body:       rc,
+		}, nil)
+		_, err = configStoreContract.AddChannelDefinitions(adder2, donID, adder2ID, url2, adder2DefsSHA)
+		require.NoError(t, err)
+		backend.Commit()
+
+		testutils.WaitForLogMessageWithField(t, observedLogs, "Got new logs",
+			"url", url2)
+
+		// Wait a bit for processing
+		time.Sleep(500 * time.Millisecond)
+
+		// Verify second adder's definition was skipped
+		defs := cdc.Definitions(llotypes.ChannelDefinitions{})
+		assert.Equal(t, adder1ID, defs[300].Source, "channel 300 should still be from adder1")
+		assert.Equal(t, adder1Defs[300].Streams, defs[300].Streams, "channel 300 should have adder1's streams")
+
+		// Check for conflict warning log
+		testutils.WaitForLogMessageWithField(t, observedLogs, "channel adder conflict",
+			"channelID", "300")
+	})
+
+	t.Run("adder cannot tombstone channels", func(t *testing.T) {
+		observedLogs.TakeAll()
+
+		// Adder tries to add a channel with Tombstone: true
+		adderTombstoneDefs := llotypes.ChannelDefinitions{
+			400: {
+				ReportFormat: llotypes.ReportFormatJSON,
+				Streams: []llotypes.Stream{
+					{StreamID: 1, Aggregator: llotypes.AggregatorMedian},
+				},
+				Source:    adder1ID,
+				Tombstone: true, // Adders cannot tombstone
+			},
+		}
+
+		adderTombstoneDefsJSON, err := json.MarshalIndent(adderTombstoneDefs, "", "  ")
+		require.NoError(t, err)
+		adderTombstoneDefsSHA := sha3.Sum256(adderTombstoneDefsJSON)
+
+		url := "http://example.com/adder-tombstone.json"
+		rc := NewMockReadCloser(adderTombstoneDefsJSON)
+		client.SetResponseForURL(url, &http.Response{
+			StatusCode: 200,
+			Body:       rc,
+		}, nil)
+		_, err = configStoreContract.AddChannelDefinitions(adder1, donID, adder1ID, url, adderTombstoneDefsSHA)
+		require.NoError(t, err)
+		backend.Commit()
+
+		testutils.WaitForLogMessageWithField(t, observedLogs, "Got new logs",
+			"url", url)
+
+		// Wait a bit for processing
+		time.Sleep(500 * time.Millisecond)
+
+		// Verify tombstone channel was skipped
+		defs := cdc.Definitions(llotypes.ChannelDefinitions{})
+		_, exists := defs[400]
+		assert.False(t, exists, "channel 400 should not exist (tombstone skipped)")
+
+		// Check for tombstone warning log
+		testutils.WaitForLogMessageWithField(t, observedLogs, "invalid channel tombstone",
+			"channelID", "400")
+	})
+
+	t.Run("owner can overwrite adder channels", func(t *testing.T) {
+		observedLogs.TakeAll()
+
+		// Adder adds a channel first
+		adderDefs := llotypes.ChannelDefinitions{
+			500: {
+				ReportFormat: llotypes.ReportFormatJSON,
+				Streams: []llotypes.Stream{
+					{StreamID: 1, Aggregator: llotypes.AggregatorMedian},
+				},
+				Source:    adder1ID,
+				Tombstone: false,
+			},
+		}
+
+		adderDefsJSON, err := json.MarshalIndent(adderDefs, "", "  ")
+		require.NoError(t, err)
+		adderDefsSHA := sha3.Sum256(adderDefsJSON)
+
+		url := "http://example.com/adder-channel500.json"
+		rc := NewMockReadCloser(adderDefsJSON)
+		client.SetResponseForURL(url, &http.Response{
+			StatusCode: 200,
+			Body:       rc,
+		}, nil)
+		_, err = configStoreContract.AddChannelDefinitions(adder1, donID, adder1ID, url, adderDefsSHA)
+		require.NoError(t, err)
+		backend.Commit()
+
+		testutils.WaitForLogMessageWithField(t, observedLogs, "Got new logs",
+			"url", url)
+
+		require.Eventually(t, func() bool {
+			defs := cdc.Definitions(llotypes.ChannelDefinitions{})
+			return defs[500].Source == adder1ID
+		}, 5*time.Second, 100*time.Millisecond, "adder channel 500 should be available")
+
+		// Owner sets new definitions that include the same channel ID with different values
+		observedLogs.TakeAll()
+
+		ownerDefs := llotypes.ChannelDefinitions{
+			500: {
+				ReportFormat: llotypes.ReportFormatEVMPremiumLegacy,
+				Streams: []llotypes.Stream{
+					{StreamID: 999, Aggregator: llotypes.AggregatorQuote},
+				},
+				Source:    channeldefinitions.SourceOwner,
+				Tombstone: false,
+			},
+		}
+
+		ownerDefsJSON, err := json.MarshalIndent(ownerDefs, "", "  ")
+		require.NoError(t, err)
+		ownerDefsSHA := sha3.Sum256(ownerDefsJSON)
+
+		url2 := "http://example.com/owner-overwrite.json"
+		rc = NewMockReadCloser(ownerDefsJSON)
+		client.SetResponseForURL(url2, &http.Response{
+			StatusCode: 200,
+			Body:       rc,
+		}, nil)
+		require.NoError(t, utils.JustError(configStoreContract.SetChannelDefinitions(steve, donID, url2, ownerDefsSHA)))
+		backend.Commit()
+
+		testutils.WaitForLogMessageWithField(t, observedLogs, "Got new logs",
+			"url", url2)
+
+		require.Eventually(t, func() bool {
+			defs := cdc.Definitions(llotypes.ChannelDefinitions{})
+			return defs[500].Source == channeldefinitions.SourceOwner
+		}, 5*time.Second, 100*time.Millisecond, "owner should have overwritten channel 500")
+
+		// Verify owner's definition overwrote the adder's
+		defs := cdc.Definitions(llotypes.ChannelDefinitions{})
+		assert.Equal(t, channeldefinitions.SourceOwner, defs[500].Source, "channel 500 should be from owner")
+		assert.Equal(t, ownerDefs[500].Streams, defs[500].Streams, "channel 500 should have owner's streams")
+	})
+
+	t.Run("owner can remove channels", func(t *testing.T) {
+		observedLogs.TakeAll()
+
+		// Start with channels from owner and adders
+		ownerDefs := llotypes.ChannelDefinitions{
+			600: {
+				ReportFormat: llotypes.ReportFormatJSON,
+				Streams: []llotypes.Stream{
+					{StreamID: 1, Aggregator: llotypes.AggregatorMedian},
+				},
+				Source:    channeldefinitions.SourceOwner,
+				Tombstone: false,
+			},
+			601: {
+				ReportFormat: llotypes.ReportFormatJSON,
+				Streams: []llotypes.Stream{
+					{StreamID: 2, Aggregator: llotypes.AggregatorMode},
+				},
+				Source:    channeldefinitions.SourceOwner,
+				Tombstone: false,
+			},
+		}
+
+		ownerDefsJSON, err := json.MarshalIndent(ownerDefs, "", "  ")
+		require.NoError(t, err)
+		ownerDefsSHA := sha3.Sum256(ownerDefsJSON)
+
+		url := "http://example.com/owner-channels600-601.json"
+		rc := NewMockReadCloser(ownerDefsJSON)
+		client.SetResponseForURL(url, &http.Response{
+			StatusCode: 200,
+			Body:       rc,
+		}, nil)
+		require.NoError(t, utils.JustError(configStoreContract.SetChannelDefinitions(steve, donID, url, ownerDefsSHA)))
+		backend.Commit()
+
+		testutils.WaitForLogMessageWithField(t, observedLogs, "Got new logs",
+			"url", url)
+
+		// Adder adds a channel
+		observedLogs.TakeAll()
+
+		adderDefs := llotypes.ChannelDefinitions{
+			602: {
+				ReportFormat: llotypes.ReportFormatJSON,
+				Streams: []llotypes.Stream{
+					{StreamID: 3, Aggregator: llotypes.AggregatorMedian},
+				},
+				Source:    adder1ID,
+				Tombstone: false,
+			},
+		}
+
+		adderDefsJSON, err := json.MarshalIndent(adderDefs, "", "  ")
+		require.NoError(t, err)
+		adderDefsSHA := sha3.Sum256(adderDefsJSON)
+
+		url2 := "http://example.com/adder-channel602.json"
+		rc = NewMockReadCloser(adderDefsJSON)
+		client.SetResponseForURL(url2, &http.Response{
+			StatusCode: 200,
+			Body:       rc,
+		}, nil)
+		_, err = configStoreContract.AddChannelDefinitions(adder1, donID, adder1ID, url2, adderDefsSHA)
+		require.NoError(t, err)
+		backend.Commit()
+
+		testutils.WaitForLogMessageWithField(t, observedLogs, "Got new logs",
+			"url", url2)
+
+		require.Eventually(t, func() bool {
+			defs := cdc.Definitions(llotypes.ChannelDefinitions{})
+			return len(defs) >= 3
+		}, 5*time.Second, 100*time.Millisecond, "all channels should be available")
+
+		// Owner sets new definitions that exclude channel 600
+		observedLogs.TakeAll()
+
+		ownerDefsUpdated := llotypes.ChannelDefinitions{
+			601: {
+				ReportFormat: llotypes.ReportFormatJSON,
+				Streams: []llotypes.Stream{
+					{StreamID: 2, Aggregator: llotypes.AggregatorMode},
+				},
+				Source:    channeldefinitions.SourceOwner,
+				Tombstone: false,
+			},
+			// Channel 600 is excluded - should be removed
+		}
+
+		ownerDefsUpdatedJSON, err := json.MarshalIndent(ownerDefsUpdated, "", "  ")
+		require.NoError(t, err)
+		ownerDefsUpdatedSHA := sha3.Sum256(ownerDefsUpdatedJSON)
+
+		url3 := "http://example.com/owner-removed-600.json"
+		rc = NewMockReadCloser(ownerDefsUpdatedJSON)
+		client.SetResponseForURL(url3, &http.Response{
+			StatusCode: 200,
+			Body:       rc,
+		}, nil)
+		require.NoError(t, utils.JustError(configStoreContract.SetChannelDefinitions(steve, donID, url3, ownerDefsUpdatedSHA)))
+		backend.Commit()
+
+		testutils.WaitForLogMessageWithField(t, observedLogs, "Got new logs",
+			"url", url3)
+
+		require.Eventually(t, func() bool {
+			defs := cdc.Definitions(llotypes.ChannelDefinitions{})
+			_, has600 := defs[600]
+			_, has601 := defs[601]
+			_, has602 := defs[602]
+			return !has600 && has601 && has602
+		}, 5*time.Second, 100*time.Millisecond, "channel 600 should be removed, 601 and 602 should remain")
+
+		// Verify excluded owner channel is removed, but adder channel remains
+		defs := cdc.Definitions(llotypes.ChannelDefinitions{})
+		_, exists := defs[600]
+		assert.False(t, exists, "channel 600 (owner) should be removed")
+		_, exists = defs[601]
+		assert.True(t, exists, "channel 601 (owner) should remain")
+		_, exists = defs[602]
+		assert.True(t, exists, "channel 602 (adder) should remain")
+	})
+
+	t.Run("multiple adders can add different channels", func(t *testing.T) {
+		observedLogs.TakeAll()
+
+		// Adder1 adds channels
+		adder1Defs := llotypes.ChannelDefinitions{
+			700: {
+				ReportFormat: llotypes.ReportFormatJSON,
+				Streams: []llotypes.Stream{
+					{StreamID: 1, Aggregator: llotypes.AggregatorMedian},
+				},
+				Source:    adder1ID,
+				Tombstone: false,
+			},
+		}
+
+		adder1DefsJSON, err := json.MarshalIndent(adder1Defs, "", "  ")
+		require.NoError(t, err)
+		adder1DefsSHA := sha3.Sum256(adder1DefsJSON)
+
+		url := "http://example.com/adder1-channel700.json"
+		rc := NewMockReadCloser(adder1DefsJSON)
+		client.SetResponseForURL(url, &http.Response{
+			StatusCode: 200,
+			Body:       rc,
+		}, nil)
+		_, err = configStoreContract.AddChannelDefinitions(adder1, donID, adder1ID, url, adder1DefsSHA)
+		require.NoError(t, err)
+		backend.Commit()
+
+		testutils.WaitForLogMessageWithField(t, observedLogs, "Got new logs",
+			"url", url)
+
+		// Adder2 adds different channels
+		observedLogs.TakeAll()
+
+		adder2Defs := llotypes.ChannelDefinitions{
+			701: {
+				ReportFormat: llotypes.ReportFormatEVMPremiumLegacy,
+				Streams: []llotypes.Stream{
+					{StreamID: 2, Aggregator: llotypes.AggregatorMode},
+				},
+				Source:    adder2ID,
+				Tombstone: false,
+			},
+		}
+
+		adder2DefsJSON, err := json.MarshalIndent(adder2Defs, "", "  ")
+		require.NoError(t, err)
+		adder2DefsSHA := sha3.Sum256(adder2DefsJSON)
+
+		url2 := "http://example.com/adder2-channel701.json"
+		rc = NewMockReadCloser(adder2DefsJSON)
+		client.SetResponseForURL(url2, &http.Response{
+			StatusCode: 200,
+			Body:       rc,
+		}, nil)
+		_, err = configStoreContract.AddChannelDefinitions(adder2, donID, adder2ID, url2, adder2DefsSHA)
+		require.NoError(t, err)
+		backend.Commit()
+
+		testutils.WaitForLogMessageWithField(t, observedLogs, "Got new logs",
+			"url", url2)
+
+		require.Eventually(t, func() bool {
+			defs := cdc.Definitions(llotypes.ChannelDefinitions{})
+			_, has700 := defs[700]
+			_, has701 := defs[701]
+			return has700 && has701
+		}, 5*time.Second, 100*time.Millisecond, "both adder channels should be available")
+
+		// Verify all channels from both adders are present
+		defs := cdc.Definitions(llotypes.ChannelDefinitions{})
+		assert.Equal(t, adder1ID, defs[700].Source, "channel 700 should be from adder1")
+		assert.Equal(t, adder2ID, defs[701].Source, "channel 701 should be from adder2")
+		assert.Equal(t, adder1Defs[700].Streams, defs[700].Streams, "channel 700 should have adder1's streams")
+		assert.Equal(t, adder2Defs[701].Streams, defs[701].Streams, "channel 701 should have adder2's streams")
+	})
+
+	t.Run("adder limit enforcement", func(t *testing.T) {
+		observedLogs.TakeAll()
+
+		// Create definitions with more than MaxChannelsPerAdder (100) channels
+		tooManyDefs := make(llotypes.ChannelDefinitions)
+		for i := uint32(800); i < 800+channeldefinitions.MaxChannelsPerAdder+1; i++ {
+			tooManyDefs[i] = llotypes.ChannelDefinition{
+				ReportFormat: llotypes.ReportFormatJSON,
+				Streams: []llotypes.Stream{
+					{StreamID: uint32(i), Aggregator: llotypes.AggregatorMedian},
+				},
+				Source:    adder1ID,
+				Tombstone: false,
+			}
+		}
+
+		tooManyDefsJSON, err := json.MarshalIndent(tooManyDefs, "", "  ")
+		require.NoError(t, err)
+		tooManyDefsSHA := sha3.Sum256(tooManyDefsJSON)
+
+		url := "http://example.com/too-many-channels.json"
+		rc := NewMockReadCloser(tooManyDefsJSON)
+		client.SetResponseForURL(url, &http.Response{
+			StatusCode: 200,
+			Body:       rc,
+		}, nil)
+		_, err = configStoreContract.AddChannelDefinitions(adder1, donID, adder1ID, url, tooManyDefsSHA)
+		require.NoError(t, err)
+		backend.Commit()
+
+		testutils.WaitForLogMessageWithField(t, observedLogs, "Got new logs",
+			"url", url)
+
+		// Wait a bit for processing
+		time.Sleep(500 * time.Millisecond)
+
+		// Call Definitions() to trigger the merge and error logging
+		_ = cdc.Definitions(llotypes.ChannelDefinitions{})
+
+		// Verify error is logged and channels are not merged
+		testutils.WaitForLogMessageWithField(t, observedLogs, "failed to merge definitions",
+			"err", "channels per adder limit exceeded")
+
+		// Verify no channels from this definition were added
+		defs := cdc.Definitions(llotypes.ChannelDefinitions{})
+		for i := uint32(800); i < 800+channeldefinitions.MaxChannelsPerAdder+1; i++ {
+			_, exists := defs[i]
+			assert.False(t, exists, "channel %d should not exist (limit exceeded)", i)
+		}
+	})
+
+	t.Run("deterministic processing order", func(t *testing.T) {
+		observedLogs.TakeAll()
+
+		// Add definitions from owner and adders at different block numbers
+		// We'll add them in a specific order and verify the final result respects block/log ordering
+
+		// First, adder1 adds channel 900
+		adder1Defs := llotypes.ChannelDefinitions{
+			900: {
+				ReportFormat: llotypes.ReportFormatJSON,
+				Streams: []llotypes.Stream{
+					{StreamID: 1, Aggregator: llotypes.AggregatorMedian},
+				},
+				Source:    adder1ID,
+				Tombstone: false,
+			},
+		}
+
+		adder1DefsJSON, err := json.MarshalIndent(adder1Defs, "", "  ")
+		require.NoError(t, err)
+		adder1DefsSHA := sha3.Sum256(adder1DefsJSON)
+
+		url := "http://example.com/adder1-channel900.json"
+		rc := NewMockReadCloser(adder1DefsJSON)
+		client.SetResponseForURL(url, &http.Response{
+			StatusCode: 200,
+			Body:       rc,
+		}, nil)
+		_, err = configStoreContract.AddChannelDefinitions(adder1, donID, adder1ID, url, adder1DefsSHA)
+		require.NoError(t, err)
+		backend.Commit()
+
+		testutils.WaitForLogMessageWithField(t, observedLogs, "Got new logs",
+			"url", url)
+
+		// Then owner adds channel 900 (should overwrite)
+		observedLogs.TakeAll()
+
+		ownerDefs := llotypes.ChannelDefinitions{
+			900: {
+				ReportFormat: llotypes.ReportFormatEVMPremiumLegacy,
+				Streams: []llotypes.Stream{
+					{StreamID: 999, Aggregator: llotypes.AggregatorQuote},
+				},
+				Source:    channeldefinitions.SourceOwner,
+				Tombstone: false,
+			},
+		}
+
+		ownerDefsJSON, err := json.MarshalIndent(ownerDefs, "", "  ")
+		require.NoError(t, err)
+		ownerDefsSHA := sha3.Sum256(ownerDefsJSON)
+
+		url2 := "http://example.com/owner-channel900.json"
+		rc = NewMockReadCloser(ownerDefsJSON)
+		client.SetResponseForURL(url2, &http.Response{
+			StatusCode: 200,
+			Body:       rc,
+		}, nil)
+		require.NoError(t, utils.JustError(configStoreContract.SetChannelDefinitions(steve, donID, url2, ownerDefsSHA)))
+		backend.Commit()
+
+		testutils.WaitForLogMessageWithField(t, observedLogs, "Got new logs",
+			"url", url2)
+
+		require.Eventually(t, func() bool {
+			defs := cdc.Definitions(llotypes.ChannelDefinitions{})
+			return defs[900].Source == channeldefinitions.SourceOwner
+		}, 5*time.Second, 100*time.Millisecond, "owner should have overwritten channel 900")
+
+		// Verify final result respects ordering (owner's definition should win)
+		defs := cdc.Definitions(llotypes.ChannelDefinitions{})
+		assert.Equal(t, channeldefinitions.SourceOwner, defs[900].Source, "channel 900 should be from owner (processed later)")
+		assert.Equal(t, ownerDefs[900].Streams, defs[900].Streams, "channel 900 should have owner's streams")
 	})
 }
