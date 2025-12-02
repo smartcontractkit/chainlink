@@ -53,7 +53,7 @@ func CreateStrategy(
 			Config:        mcmsConfig,
 			Description:   description,
 			Address:       targetAddress,
-			Chain:         chain,
+			ChainSel:      chain.ChainSelector(),
 			MCMSContracts: mcmsContracts,
 			Env:           env,
 		}, nil

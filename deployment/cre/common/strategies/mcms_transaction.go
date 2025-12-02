@@ -12,7 +12,6 @@ import (
 	"github.com/smartcontractkit/mcms/sdk"
 	mcmstypes "github.com/smartcontractkit/mcms/types"
 
-	cldf_evm "github.com/smartcontractkit/chainlink-deployments-framework/chain/evm"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset/state"
@@ -23,7 +22,7 @@ import (
 // MCMSTransaction executes a transaction through MCMS timelock
 type MCMSTransaction struct {
 	Env           cldf.Environment
-	Chain         cldf_evm.Chain
+	ChainSel      uint64
 	Description   string
 	Address       common.Address
 	Config        *contracts.MCMSConfig
@@ -38,7 +37,7 @@ func (m *MCMSTransaction) Apply(callFn func(opts *bind.TransactOpts) (*types.Tra
 		return nil, nil, err
 	}
 
-	op, err := proposalutils.BatchOperationForChain(m.Chain.ChainSelector(), m.Address.Hex(), tx.Data(), big.NewInt(0), "", nil)
+	op, err := proposalutils.BatchOperationForChain(m.ChainSel, m.Address.Hex(), tx.Data(), big.NewInt(0), "", nil)
 	if err != nil {
 		return nil, tx, err
 	}
@@ -65,17 +64,17 @@ func (m *MCMSTransaction) BuildProposal(operations []mcmstypes.BatchOperation) (
 	}
 
 	timelocksPerChain := map[uint64]string{
-		m.Chain.ChainSelector(): m.MCMSContracts.Timelock.Address().Hex(),
+		m.ChainSel: m.MCMSContracts.Timelock.Address().Hex(),
 	}
 	mcmsAddressesPerChain := map[uint64]string{
-		m.Chain.ChainSelector(): mcmContract.Address().Hex(),
+		m.ChainSel: mcmContract.Address().Hex(),
 	}
-	inspector, err := proposalutils.McmsInspectorForChain(m.Env, m.Chain.ChainSelector())
+	inspector, err := proposalutils.McmsInspectorForChain(m.Env, m.ChainSel)
 	if err != nil {
 		return nil, err
 	}
 	inspectorPerChain := map[uint64]sdk.Inspector{
-		m.Chain.ChainSelector(): inspector,
+		m.ChainSel: inspector,
 	}
 
 	return proposalutils.BuildProposalFromBatchesV2(
