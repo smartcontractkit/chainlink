@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"github.com/ethereum/go-ethereum/common"
+	cldf_evm "github.com/smartcontractkit/chainlink-deployments-framework/chain/evm"
 	mcmstypes "github.com/smartcontractkit/mcms/types"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -18,12 +19,12 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/cre/test"
 )
 
-func getMCMSTransaction(t *testing.T, env deployment.Environment) *strategies.MCMSTransaction {
+func getMCMSTransaction(t *testing.T, env deployment.Environment, chain cldf_evm.Chain) *strategies.MCMSTransaction {
 	t.Helper()
 
 	return &strategies.MCMSTransaction{
 		Env:           env,
-		ChainSel:      1,
+		Chain:         chain,
 		Description:   "test",
 		Config:        &contracts.MCMSConfig{},
 		Address:       common.HexToAddress("0x1"),
@@ -35,9 +36,10 @@ func TestMCMSTransaction_BuildProposal(t *testing.T) {
 	t.Parallel()
 
 	fixture := test.SetupEnvV2(t, true)
+	chain := fixture.Env.BlockChains.EVMChains()[fixture.RegistrySelector]
 
 	t.Run("no config", func(t *testing.T) {
-		m := getMCMSTransaction(t, *fixture.Env)
+		m := getMCMSTransaction(t, *fixture.Env, chain)
 		m.Config = nil
 
 		_, err := m.BuildProposal([]mcmstypes.BatchOperation{})
@@ -46,7 +48,7 @@ func TestMCMSTransaction_BuildProposal(t *testing.T) {
 	})
 
 	t.Run("no contracts", func(t *testing.T) {
-		m := getMCMSTransaction(t, *fixture.Env)
+		m := getMCMSTransaction(t, *fixture.Env, chain)
 		m.MCMSContracts = nil
 
 		_, err := m.BuildProposal([]mcmstypes.BatchOperation{})
@@ -55,7 +57,7 @@ func TestMCMSTransaction_BuildProposal(t *testing.T) {
 	})
 
 	t.Run("no timelock", func(t *testing.T) {
-		m := getMCMSTransaction(t, *fixture.Env)
+		m := getMCMSTransaction(t, *fixture.Env, chain)
 		cfg := contracts.MCMSConfig{
 			MinDelay: 0,
 			TimelockQualifierPerChain: map[uint64]string{
@@ -73,7 +75,7 @@ func TestMCMSTransaction_BuildProposal(t *testing.T) {
 	})
 
 	t.Run("no proposer", func(t *testing.T) {
-		m := getMCMSTransaction(t, *fixture.Env)
+		m := getMCMSTransaction(t, *fixture.Env, chain)
 		cfg := contracts.MCMSConfig{
 			MinDelay: 0,
 			TimelockQualifierPerChain: map[uint64]string{
@@ -91,7 +93,7 @@ func TestMCMSTransaction_BuildProposal(t *testing.T) {
 	})
 
 	t.Run("no operations", func(t *testing.T) {
-		m := getMCMSTransaction(t, *fixture.Env)
+		m := getMCMSTransaction(t, *fixture.Env, chain)
 		cfg := contracts.MCMSConfig{
 			MinDelay: 0,
 			TimelockQualifierPerChain: map[uint64]string{
@@ -108,7 +110,7 @@ func TestMCMSTransaction_BuildProposal(t *testing.T) {
 	})
 
 	t.Run("MCMBasedOnAction fails", func(t *testing.T) {
-		m := getMCMSTransaction(t, *fixture.Env)
+		m := getMCMSTransaction(t, *fixture.Env, chain)
 		cfg := contracts.MCMSConfig{
 			MinDelay: 0,
 			TimelockQualifierPerChain: map[uint64]string{
@@ -126,7 +128,7 @@ func TestMCMSTransaction_BuildProposal(t *testing.T) {
 	})
 
 	t.Run("uses Proposer when not specifying an action (defaults to `schedule`)", func(t *testing.T) {
-		m := getMCMSTransaction(t, *fixture.Env)
+		m := getMCMSTransaction(t, *fixture.Env, chain)
 		cfg := contracts.MCMSConfig{
 			MinDelay: 0,
 			TimelockQualifierPerChain: map[uint64]string{
@@ -137,9 +139,8 @@ func TestMCMSTransaction_BuildProposal(t *testing.T) {
 		require.NoError(t, err)
 		m.Config = &cfg
 		m.MCMSContracts = mcmsContracts
-		m.ChainSel = fixture.RegistrySelector
 
-		op, err := proposalutils.BatchOperationForChain(m.ChainSel, m.Address.Hex(), []byte{0x01, 0x02, 0x03}, big.NewInt(0), "", nil)
+		op, err := proposalutils.BatchOperationForChain(m.Chain.ChainSelector(), m.Address.Hex(), []byte{0x01, 0x02, 0x03}, big.NewInt(0), "", nil)
 		require.NoError(t, err)
 
 		p, err := m.BuildProposal([]mcmstypes.BatchOperation{op})
@@ -151,7 +152,7 @@ func TestMCMSTransaction_BuildProposal(t *testing.T) {
 	})
 
 	t.Run("uses Bypasser when specified", func(t *testing.T) {
-		m := getMCMSTransaction(t, *fixture.Env)
+		m := getMCMSTransaction(t, *fixture.Env, chain)
 		cfg := contracts.MCMSConfig{
 			MinDelay:   0,
 			MCMSAction: mcmstypes.TimelockActionBypass,
@@ -163,9 +164,8 @@ func TestMCMSTransaction_BuildProposal(t *testing.T) {
 		require.NoError(t, err)
 		m.Config = &cfg
 		m.MCMSContracts = mcmsContracts
-		m.ChainSel = fixture.RegistrySelector
 
-		op, err := proposalutils.BatchOperationForChain(m.ChainSel, m.Address.Hex(), []byte{0x01, 0x02, 0x03}, big.NewInt(0), "", nil)
+		op, err := proposalutils.BatchOperationForChain(m.Chain.ChainSelector(), m.Address.Hex(), []byte{0x01, 0x02, 0x03}, big.NewInt(0), "", nil)
 		require.NoError(t, err)
 
 		p, err := m.BuildProposal([]mcmstypes.BatchOperation{op})
@@ -177,7 +177,7 @@ func TestMCMSTransaction_BuildProposal(t *testing.T) {
 	})
 
 	t.Run("uses Canceller when specified", func(t *testing.T) {
-		m := getMCMSTransaction(t, *fixture.Env)
+		m := getMCMSTransaction(t, *fixture.Env, chain)
 		cfg := contracts.MCMSConfig{
 			MinDelay:   0,
 			MCMSAction: mcmstypes.TimelockActionCancel,
@@ -189,9 +189,8 @@ func TestMCMSTransaction_BuildProposal(t *testing.T) {
 		require.NoError(t, err)
 		m.Config = &cfg
 		m.MCMSContracts = mcmsContracts
-		m.ChainSel = fixture.RegistrySelector
 
-		op, err := proposalutils.BatchOperationForChain(m.ChainSel, m.Address.Hex(), []byte{0x01, 0x02, 0x03}, big.NewInt(0), "", nil)
+		op, err := proposalutils.BatchOperationForChain(m.Chain.ChainSelector(), m.Address.Hex(), []byte{0x01, 0x02, 0x03}, big.NewInt(0), "", nil)
 		require.NoError(t, err)
 
 		p, err := m.BuildProposal([]mcmstypes.BatchOperation{op})
