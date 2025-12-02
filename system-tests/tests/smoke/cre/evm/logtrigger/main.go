@@ -135,7 +135,7 @@ func printDecodedData(t *T, runtime sdk.Runtime, eventABI string, eventName stri
 		first = false
 	}
 	decodedData := sb.String()
-	runtime.Logger().Info("Values formatted successfully:", "decodedData ", decodedData)
+	runtime.Logger().Info("Values formatted successfully")
 	return decodedData, nil
 }
 
