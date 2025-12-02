@@ -87,9 +87,10 @@ func updateOnRampDests(b operations.Bundle, deps AptosDeps, in UpdateOnRampDests
 	}
 
 	// Encode the update operation
-	moduleInfo, function, _, args, err := onrampBind.Onramp().Encoder().ApplyDestChainConfigUpdates(
+	moduleInfo, function, _, args, err := onrampBind.Onramp().Encoder().ApplyDestChainConfigUpdatesV2(
 		destChainSelectors,
 		destChainRouters,
+		destChainRouterStateAddresses,
 		destChainAllowlistEnabled,
 	)
 	if err != nil {
