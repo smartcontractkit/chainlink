@@ -64,7 +64,7 @@ func (m *MCMSTransaction) BuildProposal(operations []mcmstypes.BatchOperation) (
 		if action == "" {
 			action = mcmstypes.TimelockActionSchedule
 		}
-		return nil, fmt.Errorf("error building MCM contract based on Action: %s, error: %v", action, err)
+		return nil, fmt.Errorf("error building MCM contract based on Action: %s, error: %w", action, err)
 	}
 
 	timelocksPerChain := map[uint64]string{
