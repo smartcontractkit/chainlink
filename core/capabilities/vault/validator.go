@@ -65,7 +65,7 @@ func (r *RequestValidator) validateWriteRequest(publicKey *tdh2easy.PublicKey, i
 		if req.EncryptedValue == "" {
 			return errors.New("secret must have encrypted value set at index " + strconv.Itoa(idx) + ":" + req.Id.String())
 		}
-		err := r.ensureRightLabelOnSecret(publicKey, req.EncryptedValue, req.Id.Owner)
+		err := EnsureRightLabelOnSecret(publicKey, req.EncryptedValue, req.Id.Owner)
 		if err != nil {
 			return errors.New("Encrypted Secret at index [" + strconv.Itoa(idx) + "] doesn't have owner as the label. Error: " + err.Error())
 		}
@@ -134,7 +134,13 @@ func (r *RequestValidator) ValidateDeleteSecretsRequest(request *vaultcommon.Del
 	return nil
 }
 
-func (r *RequestValidator) ensureRightLabelOnSecret(publicKey *tdh2easy.PublicKey, secret, owner string) error {
+func NewRequestValidator(maxRequestBatchSizeLimiter limits.BoundLimiter[int]) *RequestValidator {
+	return &RequestValidator{
+		MaxRequestBatchSizeLimiter: maxRequestBatchSizeLimiter,
+	}
+}
+
+func EnsureRightLabelOnSecret(publicKey *tdh2easy.PublicKey, secret, owner string) error {
 	cipherText := &tdh2easy.Ciphertext{}
 	cipherBytes, err := hex.DecodeString(secret)
 	if err != nil {
@@ -154,13 +160,7 @@ func (r *RequestValidator) ensureRightLabelOnSecret(publicKey *tdh2easy.PublicKe
 	var ownerLabel [32]byte
 	copy(ownerLabel[12:], ownerAddr.Bytes()) // left-pad with 12 zero
 	if secretLabel != ownerLabel {
-		return errors.New("secret label [" + string(secretLabel[:]) + "] does not match owner label [" + string(ownerLabel[:]) + "]")
+		return errors.New("secret label [" + hex.EncodeToString(secretLabel[:]) + "] does not match owner label [" + hex.EncodeToString(ownerLabel[:]) + "]")
 	}
 	return nil
-}
-
-func NewRequestValidator(maxRequestBatchSizeLimiter limits.BoundLimiter[int]) *RequestValidator {
-	return &RequestValidator{
-		MaxRequestBatchSizeLimiter: maxRequestBatchSizeLimiter,
-	}
 }

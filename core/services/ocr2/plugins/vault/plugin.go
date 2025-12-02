@@ -390,7 +390,6 @@ func (r *ReportingPlugin) observeGetSecretsRequest(ctx context.Context, reader R
 	if err != nil {
 		return nil, fmt.Errorf("failed to read secret from key-value store: %w", err)
 	}
-
 	if secret == nil {
 		return nil, newUserError("key does not exist")
 	}
@@ -399,6 +398,12 @@ func (r *ReportingPlugin) observeGetSecretsRequest(ctx context.Context, reader R
 	err = ct.UnmarshalVerify(secret.EncryptedSecret, r.cfg.PublicKey)
 	if err != nil {
 		return nil, fmt.Errorf("failed to unmarshal ciphertext: %w", err)
+	}
+	
+	encryptedSecret := hex.EncodeToString(secret.EncryptedSecret)
+	err = vaultcap.EnsureRightLabelOnSecret(r.cfg.PublicKey, encryptedSecret, secretRequest.Id.Owner)
+	if err != nil {
+		return nil, errors.New("failed to veify label on secret. error: " + err.Error())
 	}
 
 	share, err := tdh2easy.Decrypt(ct, r.cfg.PrivateKeyShare)
@@ -440,7 +445,7 @@ func (r *ReportingPlugin) observeGetSecretsRequest(ctx context.Context, reader R
 		Id: id,
 		Result: &vaultcommon.SecretResponse_Data{
 			Data: &vaultcommon.SecretData{
-				EncryptedValue:               hex.EncodeToString(secret.EncryptedSecret),
+				EncryptedValue:               encryptedSecret,
 				EncryptedDecryptionKeyShares: shares,
 			},
 		},

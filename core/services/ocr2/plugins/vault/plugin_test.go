@@ -5,6 +5,7 @@ import (
 	"encoding/hex"
 	"testing"
 
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/ocr3_1types"
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/ocr3types"
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/types"
@@ -706,8 +707,9 @@ func TestPlugin_Observation_GetSecretsRequest_Success(t *testing.T) {
 		),
 	}
 
+	owner := "0x0001020304050607080900010203040506070809"
 	id := &vaultcommon.SecretIdentifier{
-		Owner:     "owner",
+		Owner:     owner,
 		Namespace: "main",
 		Key:       "my_secret",
 	}
@@ -716,7 +718,10 @@ func TestPlugin_Observation_GetSecretsRequest_Success(t *testing.T) {
 	}
 
 	plaintext := []byte("my-secret-value")
-	ciphertext, err := tdh2easy.Encrypt(pk, plaintext)
+	var label [32]byte
+	ownerAddress := common.HexToAddress(owner)
+	copy(label[12:], ownerAddress.Bytes()) // left-pad with 12 zero
+	ciphertext, err := tdh2easy.EncryptWithLabel(pk, plaintext, label)
 	require.NoError(t, err)
 	ciphertextBytes, err := ciphertext.Marshal()
 	require.NoError(t, err)
