@@ -210,7 +210,7 @@ var AddCapabilities = operations.NewSequence[AddCapabilitiesInput, AddCapabiliti
 
 				proposals = append(proposals, *proposal)
 			} else {
-				deps.Env.Logger.Warnw("Add capability sequence have not produced any operations to execute")
+				deps.Env.Logger.Warnw("Add capability sequence has not produced any operations to execute")
 			}
 		}
 
