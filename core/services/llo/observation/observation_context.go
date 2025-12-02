@@ -270,9 +270,6 @@ func toUint64(v any) (uint64, error) {
 	}
 }
 
-// TODO this is to return an array of values. maybe a map of streamid->streamval
-// map[stream][llo.Streamvalue]
-
 // extractFinalResultAsStreamValue extracts a final StreamValue from a TaskRunResults
 func extractFinalResultAsStreamValue(trrs pipeline.TaskRunResults) (llo.StreamValue, error) {
 	// pipeline.TaskRunResults comes ordered asc by index, this is guaranteed
