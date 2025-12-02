@@ -246,7 +246,7 @@ func ExecuteEVMLogTriggerTest(t *testing.T, testEnv *ttypes.TestEnvironment) {
 		time.Sleep(10 * time.Second)
 
 		message := "Data for log trigger"
-		//_ = emitEvent(t, lggr, chainID, bcOutput, msgEmitter, message, workflowConfig)
+		// _ = emitEvent(t, lggr, chainID, bcOutput, msgEmitter, message, workflowConfig)
 		// start background event emission every 10s while AssertBeholderMessage is running
 		ticker := time.NewTicker(10 * time.Second)
 		go func() {
