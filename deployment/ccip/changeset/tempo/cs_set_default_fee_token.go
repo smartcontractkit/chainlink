@@ -61,26 +61,43 @@ func setFeeTokenLogic(env cldf.Environment, cfg SetFeeTokenConfig) (cldf.Changes
 
 	data := append(selector, encodedArgs...)
 
-	gas, err := evmChain.Client.SuggestGasPrice(ctx)
+	tipCap, err := evmChain.Client.SuggestGasTipCap(ctx)
 	if err != nil {
-		return out, fmt.Errorf("could not estimate gas: %w", err)
+		return out, fmt.Errorf("could not suggest gas tip cap: %w", err)
 	}
+
+	latestBlock, err := evmChain.Client.HeaderByNumber(ctx, nil)
+	if err != nil {
+		return out, fmt.Errorf("could not get latest block: %w", err)
+	}
+	baseFee := latestBlock.BaseFee
+
+	feeCap := new(big.Int).Add(
+		new(big.Int).Mul(baseFee, big.NewInt(2)),
+		tipCap,
+	)
 
 	nonce, err := evmChain.Client.PendingNonceAt(ctx, evmChain.DeployerKey.From)
 	if err != nil {
 		return out, fmt.Errorf("could not get pending nonce: %v", err)
 	}
 
-	tx := ethtypes.NewTx(&ethtypes.LegacyTx{
-		Nonce:    nonce,
-		To:       &feeManagerAddress,
-		Value:    big.NewInt(0),
-		Gas:      200000,
-		GasPrice: gas,
-		Data:     data,
+	tx := ethtypes.NewTx(&ethtypes.DynamicFeeTx{
+		Nonce:     nonce,
+		GasTipCap: tipCap,
+		GasFeeCap: feeCap,
+		Gas:       200000,
+		To:        &feeManagerAddress,
+		Value:     big.NewInt(0),
+		Data:      data,
 	})
 
-	err = evmChain.Client.SendTransaction(context.Background(), tx)
+	signedTx, err := evmChain.DeployerKey.Signer(evmChain.DeployerKey.From, tx)
+	if err != nil {
+		return out, fmt.Errorf("could not sign transaction")
+	}
+
+	err = evmChain.Client.SendTransaction(context.Background(), signedTx)
 
 	if err != nil {
 		log.Fatalf("failed to send tx: %v", err)
