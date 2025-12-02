@@ -399,7 +399,7 @@ func (r *ReportingPlugin) observeGetSecretsRequest(ctx context.Context, reader R
 	if err != nil {
 		return nil, fmt.Errorf("failed to unmarshal ciphertext: %w", err)
 	}
-	
+
 	encryptedSecret := hex.EncodeToString(secret.EncryptedSecret)
 	err = vaultcap.EnsureRightLabelOnSecret(r.cfg.PublicKey, encryptedSecret, secretRequest.Id.Owner)
 	if err != nil {
