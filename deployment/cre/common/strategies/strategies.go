@@ -44,11 +44,16 @@ func CreateStrategy(
 			return nil, errors.New("MCMS contracts are required when mcmsConfig is not nil")
 		}
 
+		err := mcmsConfig.Validate(chain, *mcmsContracts)
+		if err != nil {
+			return nil, fmt.Errorf("invalid MCMS configuration: %w", err)
+		}
+
 		return &MCMSTransaction{
 			Config:        mcmsConfig,
 			Description:   description,
 			Address:       targetAddress,
-			ChainSel:      chain.Selector,
+			Chain:         chain,
 			MCMSContracts: mcmsContracts,
 			Env:           env,
 		}, nil
