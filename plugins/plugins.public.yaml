@@ -40,7 +40,7 @@ plugins:
 
   starknet:
     - moduleURI: "github.com/smartcontractkit/chainlink-starknet/relayer"
-      gitRef: "c647a61858e847b67e89d0daf47c8c521809c822" # 2025-12-01
+      gitRef: "029a79c9a1b8d712903611cf0700114a9cb45e61" # 2025-12-02
       installPath: "./pkg/chainlink/cmd/chainlink-starknet"
 
   streams:
