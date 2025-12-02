@@ -7,6 +7,7 @@ import (
 	"strconv"
 
 	"dario.cat/mergo"
+	"github.com/Masterminds/semver/v3"
 	"github.com/cosmos/gogoproto/proto"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/pelletier/go-toml/v2"
@@ -23,11 +24,11 @@ import (
 
 	vaultprotos "github.com/smartcontractkit/chainlink-common/pkg/capabilities/actions/vault"
 	capabilitiespb "github.com/smartcontractkit/chainlink-common/pkg/capabilities/pb"
-	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
 	kcr "github.com/smartcontractkit/chainlink-evm/gethwrappers/keystone/generated/capabilities_registry_1_1_0"
 	ocr3_capability "github.com/smartcontractkit/chainlink-evm/gethwrappers/keystone/generated/ocr3_capability_1_0_0"
+	"github.com/smartcontractkit/chainlink/deployment/cre/common/strategies"
 	cre_jobs "github.com/smartcontractkit/chainlink/deployment/cre/jobs"
 	cre_jobs_ops "github.com/smartcontractkit/chainlink/deployment/cre/jobs/operations"
 	"github.com/smartcontractkit/chainlink/deployment/cre/jobs/pkg"
@@ -81,14 +82,7 @@ func (o *Vault) PreEnvStartup(
 		return nil, errors.Wrapf(cErr, "failed to add gateway connectors to node's TOML config in for don %s", don.Name)
 	}
 
-	workflowRegistryAddress, wfRegTypeVersion, wfErr := contracts.FindAddressesForChain(
-		creEnv.CldfEnvironment.ExistingAddresses, //nolint:staticcheck // won't migrate
-		creEnv.RegistryChainSelector,
-		keystone_changeset.WorkflowRegistry.String(),
-	)
-	if wfErr != nil {
-		return nil, errors.Wrap(wfErr, "failed to find WorkflowRegistry address")
-	}
+	workflowRegistryAddress := contracts.MustGetAddressFromDataStore(creEnv.CldfEnvironment.DataStore, creEnv.RegistryChainSelector, keystone_changeset.WorkflowRegistry.String(), creEnv.ContractVersions[keystone_changeset.WorkflowRegistry.String()], "")
 
 	// enable workflow registry syncer in node's TOML config
 	workerNodes, wErr := don.Workers()
@@ -98,7 +92,7 @@ func (o *Vault) PreEnvStartup(
 
 	for _, workerNode := range workerNodes {
 		currentConfig := don.NodeSets().NodeSpecs[workerNode.Index].Node.TestConfigOverrides
-		updatedConfig, uErr := updateNodeConfig(workerNode, currentConfig, registryChainID, workflowRegistryAddress, wfRegTypeVersion)
+		updatedConfig, uErr := updateNodeConfig(workerNode, currentConfig, registryChainID, common.HexToAddress(workflowRegistryAddress), creEnv.ContractVersions[keystone_changeset.WorkflowRegistry.String()])
 		if uErr != nil {
 			return nil, errors.Wrapf(uErr, "failed to update node config for node index %d", workerNode.Index)
 		}
@@ -119,7 +113,7 @@ func (o *Vault) PreEnvStartup(
 	}, nil
 }
 
-func updateNodeConfig(workerNode *cre.NodeMetadata, currentConfig string, registryChainID uint64, workflowRegistryAddress common.Address, wfRegTypeVersion cldf.TypeAndVersion) (*string, error) {
+func updateNodeConfig(workerNode *cre.NodeMetadata, currentConfig string, registryChainID uint64, workflowRegistryAddress common.Address, wfRegVersion *semver.Version) (*string, error) {
 	var typedConfig corechainlink.Config
 	unmarshallErr := toml.Unmarshal([]byte(currentConfig), &typedConfig)
 	if unmarshallErr != nil {
@@ -132,7 +126,7 @@ func updateNodeConfig(workerNode *cre.NodeMetadata, currentConfig string, regist
 		NetworkID:       ptr.Ptr("evm"),
 		ChainID:         ptr.Ptr(strconv.FormatUint(registryChainID, 10)),
 		SyncStrategy:    ptr.Ptr("reconciliation"),
-		ContractVersion: ptr.Ptr(wfRegTypeVersion.Version.String()),
+		ContractVersion: ptr.Ptr(wfRegVersion.String()),
 	}
 
 	stringifiedConfig, mErr := toml.Marshal(typedConfig)
@@ -175,11 +169,29 @@ func (o *Vault) PostEnvStartup(
 		return fmt.Errorf("failed to create DKG reporting plugin config: %w", dErr)
 	}
 
+	chain, ok := creEnv.CldfEnvironment.BlockChains.EVMChains()[creEnv.RegistryChainSelector]
+	if !ok {
+		return fmt.Errorf("chain with selector %d not found in environment", creEnv.RegistryChainSelector)
+	}
+
+	strategy, err := strategies.CreateStrategy(
+		chain,
+		*creEnv.CldfEnvironment,
+		nil,
+		nil,
+		*vaultDKGOCR3Addr,
+		"PostEnvStartup - Configure OCR3 Contract - Vault DKG",
+	)
+	if err != nil {
+		return fmt.Errorf("failed to create strategy: %w", err)
+	}
+
 	_, err = operations.ExecuteOperation(
 		creEnv.CldfEnvironment.OperationsBundle,
 		ks_contracts_op.ConfigureDKGOp,
 		ks_contracts_op.ConfigureDKGOpDeps{
-			Env: creEnv.CldfEnvironment,
+			Env:      creEnv.CldfEnvironment,
+			Strategy: strategy,
 		},
 		ks_contracts_op.ConfigureDKGOpInput{
 			ContractAddress:       vaultDKGOCR3Addr,
@@ -199,11 +211,24 @@ func (o *Vault) PostEnvStartup(
 		return fmt.Errorf("failed to create Vault reporting plugin config override: %w", cErr)
 	}
 
+	strategy, err = strategies.CreateStrategy(
+		chain,
+		*creEnv.CldfEnvironment,
+		nil,
+		nil,
+		*vaultOCR3Addr,
+		"PostEnvStartup - Configure OCR3 Contract - Vault",
+	)
+	if err != nil {
+		return fmt.Errorf("failed to create strategy: %w", err)
+	}
+
 	_, err = operations.ExecuteOperation(
 		creEnv.CldfEnvironment.OperationsBundle,
 		depcontracts.ConfigureOCR3_1,
 		depcontracts.ConfigureOCR3_1Deps{
-			Env: creEnv.CldfEnvironment,
+			Env:      creEnv.CldfEnvironment,
+			Strategy: strategy,
 		},
 		depcontracts.ConfigureOCR3_1Input{
 			ContractAddress:               vaultOCR3Addr,
@@ -323,13 +348,10 @@ func createJobs(
 	return nil
 }
 
-func deployVaultContracts(testLogger zerolog.Logger, qualifier string, registryChainSelector uint64, env *cldf.Environment, contractVersions map[string]string) (*common.Address, *common.Address, error) {
-	memoryDatastore := datastore.NewMemoryDataStore()
-
-	// load all existing addresses into memory datastore
-	mergeErr := memoryDatastore.Merge(env.DataStore)
-	if mergeErr != nil {
-		return nil, nil, fmt.Errorf("failed to merge existing datastore into memory datastore: %w", mergeErr)
+func deployVaultContracts(testLogger zerolog.Logger, qualifier string, registryChainSelector uint64, env *cldf.Environment, contractVersions map[cre.ContractType]*semver.Version) (*common.Address, *common.Address, error) {
+	memoryDatastore, mErr := contracts.NewDataStoreFromExisting(env.DataStore)
+	if mErr != nil {
+		return nil, nil, fmt.Errorf("failed to create memory datastore: %w", mErr)
 	}
 
 	report, err := operations.ExecuteSequence(
@@ -401,7 +423,7 @@ func reportingPluginConfigOverride(vaultDKGOCR3Addr *common.Address, creEnv *cre
 	return cfgb, nil
 }
 
-func EncryptSecret(secret, masterPublicKeyStr string) (string, error) {
+func EncryptSecret(secret, masterPublicKeyStr string, owner common.Address) (string, error) {
 	masterPublicKey := tdh2easy.PublicKey{}
 	masterPublicKeyBytes, err := hex.DecodeString(masterPublicKeyStr)
 	if err != nil {
@@ -411,7 +433,9 @@ func EncryptSecret(secret, masterPublicKeyStr string) (string, error) {
 	if err != nil {
 		return "", errors.Wrap(err, "failed to unmarshal master public key")
 	}
-	cipher, err := tdh2easy.Encrypt(&masterPublicKey, []byte(secret))
+	var label [32]byte
+	copy(label[12:], owner.Bytes()) // left-pad with 12 zero
+	cipher, err := tdh2easy.EncryptWithLabel(&masterPublicKey, []byte(secret), label)
 	if err != nil {
 		return "", errors.Wrap(err, "failed to encrypt secret")
 	}

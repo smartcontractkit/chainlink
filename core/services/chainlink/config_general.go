@@ -584,6 +584,10 @@ func (g *generalConfig) CRE() coreconfig.CRE {
 	return &creConfig{s: g.secrets.CRE, c: g.c.CRE}
 }
 
+func (g *generalConfig) CCV() coreconfig.CCV {
+	return &ccvConfig{s: g.secrets.CCV}
+}
+
 func (g *generalConfig) Billing() coreconfig.Billing {
 	return &billingConfig{t: g.c.Billing}
 }

@@ -213,9 +213,11 @@ func (l *launcher) processUpdate(ctx context.Context, updated map[registrysyncer
 			prevPlugins,
 			don,
 			l.oracleCreator,
-			latestConfigs)
+			latestConfigs,
+		)
 		if err != nil {
-			return err
+			l.lggr.Errorw("Some oracles failed to be created", "donID", donID, "err", err)
+			continue
 		}
 		if len(newPlugins) == 0 {
 			// not a member of this DON.
@@ -254,7 +256,8 @@ func (l *launcher) processAdded(ctx context.Context, added map[registrysyncer.Do
 			configs,
 		)
 		if err != nil {
-			return fmt.Errorf("processAdded: call createDON %d: %w", donID, err)
+			l.lggr.Errorw("Some oracles failed to be created", "donID", donID, "err", err)
+			continue
 		}
 		if len(newPlugins) == 0 {
 			// not a member of this DON.
@@ -325,7 +328,7 @@ func updateDON(
 		if _, ok := prevPlugins[digest]; !ok {
 			oracle, err := oracleCreator.Create(ctx, don.ID, cctypes.OCR3ConfigWithMeta(c))
 			if err != nil {
-				return nil, fmt.Errorf("failed to create CCIP oracle: %w for digest %x", err, digest)
+				return nil, fmt.Errorf("failed to create CCIP oracle: %w for digest %x", err, digest[:])
 			}
 
 			newP[digest] = oracle
@@ -360,7 +363,7 @@ func createDON(
 
 		oracle, err := oracleCreator.Create(ctx, don.ID, cctypes.OCR3ConfigWithMeta(config))
 		if err != nil {
-			return nil, fmt.Errorf("failed to create CCIP oracle: %w for digest %x", err, digest)
+			return nil, fmt.Errorf("failed to create CCIP oracle: %w for digest %x", err, digest[:])
 		}
 
 		p[digest] = oracle

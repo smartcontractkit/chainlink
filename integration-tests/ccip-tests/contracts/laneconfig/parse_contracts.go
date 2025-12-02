@@ -204,7 +204,7 @@ func WriteLanesToJSON(path string, lanes *Lanes) error {
 	// Check if the directory exists.
 	if _, err := os.Stat(dir); os.IsNotExist(err) {
 		// The directory does not exist, create it.
-		if err := os.MkdirAll(dir, 0755); err != nil {
+		if err := os.MkdirAll(dir, 0o777); err != nil {
 			return fmt.Errorf("failed to create directory: %w", err)
 		}
 	}

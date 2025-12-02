@@ -1,15 +1,17 @@
 # Local CRE environment
 
+The local CRE is developer environment for full stack development of the CRE platform. It deploys and configures DONs, capabilities, contracts, and observability, and optional features. It is built on Docker.
+
 ## Contact Us
 Slack: #topic-local-dev-environments
 
 ## Table of content
 
+[QUICKSTART](#quickstart)
 1. [Using the CLI](#using-the-cli)
    - [Installing the binary](#installing-the-binary)
    - [Prerequisites (for Docker)](#prerequisites-for-docker)
    - [Prerequisites For CRIB](#prerequisites-for-crib)
-   - [QUICKSTART](#quickstart)
    - [Setup](#setup)
    - [Start Environment](#start-environment)
       - [Using Existing Docker plugins image](#using-existing-docker-plugins-image)
@@ -79,6 +81,19 @@ Slack: #topic-local-dev-environments
     - [Docker fails to download public images](#docker-fails-to-download-public-images)
     - [GH CLI is not installed](#gh-cli-is-not-installed)
 
+# QUICKSTART
+Setup platform: allocate and configure the default environment with all dependencies. :rocket:
+```
+go run . env start --auto-setup
+```
+Note: this allocates and configures the full stack. It may take a few minutes the first time.
+
+Deploy app: your first workflow
+```
+go run . workflow deploy -w ./examples/workflows/v2/cron/main.go -n cron_example
+```
+
+<!-- TODO: add observe. The intro should be ~ setup platform, deploy app, observe -->
 # Using the CLI
 
 The CLI manages CRE test environments. It is located in `core/scripts/cre/environment`. It doesn't come as a compiled binary, so every command has to be executed as `go run . <command> [subcommand]` (although check below!).
@@ -102,9 +117,18 @@ It will compile local CRE as `local_cre`. With it installed you will be able to 
     - with Apple Virtualization framework **enabled**
     - with VirtioFS **enabled**
     - with use of containerd for pulling and storing images **disabled**
-2. **AWS SSO access to SDLC**
+2. **AWS SSO access to SDLC** or **Access to Git repositories**
+  AWS:
   - REQUIRED: `sdlc` profile (with `PowerUserAccess` role)
 >  [See more for configuring AWS in CLL](https://smartcontract-it.atlassian.net/wiki/spaces/INFRA/pages/1045495923/Configure+the+AWS+CLI)
+  Git repositories:
+  - REQUIRED: read access to [Atlas](https://github.com/smartcontractkit/atlas) and [Capabilities](https://github.com/smartcontractkit/capabilities) and [Job Distributor](https://github.com/smartcontractkit/job-distributor) repositories
+
+  Either AWS or Git access is required in order to pull/build Docker images for:
+  - Chip Ingress (Beholder)
+  - Job Distributor
+
+  Git access to `Capabilities` repository is required in order to build capability binaries. Unless you plan on only using Docker images with all capabilities baked in.
 
 
 ## Prerequisites For CRIB ###
@@ -124,11 +148,27 @@ Refer to [this document](https://docs.google.com/document/d/1HtVLv2ipx2jvU15WYOi
 
 ## Setup
 
-Environment can be setup by running `go run . env setup` inside `core/scripts/cre/evnrionment` folder. Its configuration is defined in [configs/setup.toml](configs/setup.toml) file. It will make sure that:
+Environment can be setup by running `go run . env setup` inside `core/scripts/cre/environment` folder. Its configuration is defined in [configs/setup.toml](configs/setup.toml) file. It will make sure that:
 - you have AWS CLI installed and configured
 - you have GH CLI installed and authenticated
 - you have required Job Distributor and Chip Ingress (Beholder) images
-- build and copy all capability binaries to expected location
+- install and copy all capability binaries to expected location
+
+Capability installation is two fold. Private and local plugins are compiled locally and then copied to the running Docker container. Public plugins are installed, when the Docker image is built. The reason is that capability developers need a way to quickly test capabilities they are working on, without having to push the code to remote repository, so that it could be installed in the Docker image (and that's because local capability code is usually located outside Docker build context and thus unavailable).
+
+Private capabilities are defined in [plugins.private.yaml](../../../../plugins/plugins.private.yaml) file, public in [plugins.public.yaml](../../../../plugins/plugins.public.yaml). Local ones include:
+- `chainlink-evm`
+- `chainlink-medianpoc`
+- `chainlink-ocr3-capability`
+- `log-event-trigger`
+
+If you need to modify make commands that are used navigate to [configs/setup.toml](configs/setup.toml) file and adjust following lines:
+```toml
+[capabilities]
+target_path = "./binaries"
+# add "install-plugins-public" to also locally compile and copy public plugins (be aware chainlink-cosmos might fail due to issues with cross-compile)
+make_commands = ["install-plugins-private", "install-plugins-local"]
+```
 
 ## Start Environment
 ```bash

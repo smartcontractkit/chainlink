@@ -85,6 +85,8 @@ import (
 	registryModuleOwnerCustomv16 "github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_0/registry_module_owner_custom"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_0/rmn_home"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_0/rmn_remote"
+	burn_mint_token_pool_v1_6_1 "github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_1/burn_mint_token_pool"
+	lock_release_token_pool_v1_6_1 "github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_1/lock_release_token_pool"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_2/cctp_message_transmitter_proxy"
 	factoryBurnMintERC20v1_6_2 "github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_2/factory_burn_mint_erc20"
 	usdc_token_pool_v1_6_2 "github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_2/usdc_token_pool"
@@ -124,6 +126,7 @@ type CCIPStateView struct {
 	SolChains   map[string]view.SolChainView
 	AptosChains map[string]view.AptosChainView
 	TONChains   map[string]tonstate.TONChainView
+	SuiChains   map[string]suistate.SuiChainView
 }
 
 func (c CCIPOnChainState) EVMChains() []uint64 {
@@ -479,7 +482,7 @@ func (c CCIPOnChainState) EnforceMCMSUsageIfProd(ctx context.Context, mcmsConfig
 // ValidateOwnershipOfChain validates the ownership of every CCIP contract on a chain.
 // If mcmsConfig is nil, the expected owner of each contract is the chain's deployer key.
 // If provided, the expected owner is the Timelock contract.
-func (c CCIPOnChainState) ValidateOwnershipOfChain(e cldf.Environment, chainSel uint64, mcmsConfig *proposalutils.TimelockConfig) error {
+func (c CCIPOnChainState) ValidateOwnershipOfChain(e cldf.Environment, chainSel uint64, mcmsConfig *proposalutils.TimelockConfig, ownedContracts map[string]commoncs.Ownable) error {
 	chain, ok := e.BlockChains.EVMChains()[chainSel]
 	if !ok {
 		return fmt.Errorf("chain with selector %d not found in the environment", chainSel)
@@ -493,16 +496,6 @@ func (c CCIPOnChainState) ValidateOwnershipOfChain(e cldf.Environment, chainSel 
 		return fmt.Errorf("timelock not found on %s", chain)
 	}
 
-	ownedContracts := map[string]commoncs.Ownable{
-		"router":             chainState.Router,
-		"feeQuoter":          chainState.FeeQuoter,
-		"offRamp":            chainState.OffRamp,
-		"onRamp":             chainState.OnRamp,
-		"nonceManager":       chainState.NonceManager,
-		"rmnRemote":          chainState.RMNRemote,
-		"rmnProxy":           chainState.RMNProxy,
-		"tokenAdminRegistry": chainState.TokenAdminRegistry,
-	}
 	var wg sync.WaitGroup
 	errs := make(chan error, len(ownedContracts))
 	for contractName, contract := range ownedContracts {
@@ -537,6 +530,7 @@ func (c CCIPOnChainState) View(e *cldf.Environment, chains []uint64) (CCIPStateV
 	sm := sync.Map{}
 	am := sync.Map{}
 	tm := sync.Map{}
+	suiMap := sync.Map{}
 
 	// Create worker pool with fixed number of goroutines
 	const numWorkers = 8
@@ -613,6 +607,16 @@ func (c CCIPOnChainState) View(e *cldf.Environment, chains []uint64) (CCIPStateV
 						return err
 					}
 					tm.Store(name, chainView)
+				case chain_selectors.FamilySui:
+					if _, ok := c.SuiChains[chainSelector]; !ok {
+						return fmt.Errorf("%s %d", chainNotSupportedErr, chainSelector)
+					}
+					chainState := c.SuiChains[chainSelector]
+					chainView, err := chainState.GenerateView(e, chainSelector, name)
+					if err != nil {
+						return err
+					}
+					suiMap.Store(name, chainView)
 				default:
 					return fmt.Errorf("unsupported chain family %s", family)
 				}
@@ -635,6 +639,7 @@ func (c CCIPOnChainState) View(e *cldf.Environment, chains []uint64) (CCIPStateV
 		SolChains:   make(map[string]view.SolChainView),
 		AptosChains: make(map[string]view.AptosChainView),
 		TONChains:   make(map[string]tonstate.TONChainView),
+		SuiChains:   make(map[string]suistate.SuiChainView),
 	}
 	m.Range(func(key, value any) bool {
 		stateView.Chains[key.(string)] = value.(view.ChainView)
@@ -650,6 +655,10 @@ func (c CCIPOnChainState) View(e *cldf.Environment, chains []uint64) (CCIPStateV
 	})
 	tm.Range(func(key, value any) bool {
 		stateView.TONChains[key.(string)] = value.(tonstate.TONChainView)
+		return true
+	})
+	suiMap.Range(func(key, value any) bool {
+		stateView.SuiChains[key.(string)] = value.(suistate.SuiChainView)
 		return true
 	})
 	return stateView, grp.Wait()
@@ -1198,6 +1207,14 @@ func LoadChainState(ctx context.Context, chain cldf_evm.Chain, addresses map[str
 			}
 			state.BurnMintTokenPoolsAndProxies = helpers.AddValueToNestedMap(state.BurnMintTokenPoolsAndProxies, metadata.Symbol, metadata.Version, pool)
 			state.ABIByAddress[address] = burn_mint_token_pool.BurnMintTokenPoolABI
+		case cldf.NewTypeAndVersion(ccipshared.BurnMintTokenPool, deployment.Version1_6_1).String():
+			ethAddress := common.HexToAddress(address)
+			pool, metadata, err := ccipshared.NewTokenPoolWithMetadata(ctx, burn_mint_token_pool_v1_6_1.NewBurnMintTokenPool, ethAddress, chain.Client)
+			if err != nil {
+				return state, fmt.Errorf("failed to connect address %s with token pool bindings and get token symbol: %w", ethAddress, err)
+			}
+			state.BurnMintTokenPoolsV1_6_1 = helpers.AddValueToNestedMap(state.BurnMintTokenPoolsV1_6_1, metadata.Symbol, metadata.Version, pool)
+			state.ABIByAddress[address] = burn_mint_token_pool_v1_6_1.BurnMintTokenPoolABI
 		case cldf.NewTypeAndVersion(ccipshared.BurnMintFastTransferTokenPool, deployment.Version1_6_1).String():
 			ethAddress := common.HexToAddress(address)
 			pool, metadata, err := ccipshared.NewTokenPoolWithMetadata(ctx, fast_transfer_token_pool.NewBurnMintFastTransferTokenPool, ethAddress, chain.Client)
@@ -1254,6 +1271,14 @@ func LoadChainState(ctx context.Context, chain cldf_evm.Chain, addresses map[str
 			}
 			state.LockReleaseTokenPools = helpers.AddValueToNestedMap(state.LockReleaseTokenPools, metadata.Symbol, metadata.Version, pool)
 			state.ABIByAddress[address] = lock_release_token_pool.LockReleaseTokenPoolABI
+		case cldf.NewTypeAndVersion(ccipshared.LockReleaseTokenPool, deployment.Version1_6_1).String():
+			ethAddress := common.HexToAddress(address)
+			pool, metadata, err := ccipshared.NewTokenPoolWithMetadata(ctx, lock_release_token_pool_v1_6_1.NewLockReleaseTokenPool, ethAddress, chain.Client)
+			if err != nil {
+				return state, fmt.Errorf("failed to connect address %s with token pool bindings and get token symbol: %w", ethAddress, err)
+			}
+			state.LockReleaseTokenPoolsV1_6_1 = helpers.AddValueToNestedMap(state.LockReleaseTokenPoolsV1_6_1, metadata.Symbol, metadata.Version, pool)
+			state.ABIByAddress[address] = lock_release_token_pool_v1_6_1.LockReleaseTokenPoolABI
 		case cldf.NewTypeAndVersion(ccipshared.BurnMintToken, deployment.Version1_0_0).String():
 			tok, err := burn_mint_erc677.NewBurnMintERC677(common.HexToAddress(address), chain.Client)
 			if err != nil {

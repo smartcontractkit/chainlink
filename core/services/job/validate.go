@@ -15,6 +15,7 @@ var (
 		BlockHeaderFeeder:       {},
 		BlockhashStore:          {},
 		Bootstrap:               {},
+		CRESettings:             {},
 		Cron:                    {},
 		DirectRequest:           {},
 		FluxMonitor:             {},
@@ -30,6 +31,8 @@ var (
 		Workflow:                {},
 		StandardCapabilities:    {},
 		CCIP:                    {},
+		CCVCommitteeVerifier:    {},
+		CCVExecutor:             {},
 	}
 )
 

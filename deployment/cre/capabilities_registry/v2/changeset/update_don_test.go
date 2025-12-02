@@ -3,6 +3,7 @@ package changeset_test
 import (
 	"encoding/json"
 	"testing"
+	"time"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/stretchr/testify/assert"
@@ -18,9 +19,14 @@ import (
 	"github.com/smartcontractkit/chainlink-deployments-framework/engine/test/environment"
 	"github.com/smartcontractkit/chainlink-deployments-framework/engine/test/runtime"
 
+	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
+	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
+	commontypes "github.com/smartcontractkit/chainlink/deployment/common/types"
 	"github.com/smartcontractkit/chainlink/deployment/cre/capabilities_registry/v2/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/cre/capabilities_registry/v2/changeset/operations/contracts"
 	"github.com/smartcontractkit/chainlink/deployment/cre/capabilities_registry/v2/changeset/pkg"
+	crecontracts "github.com/smartcontractkit/chainlink/deployment/cre/contracts"
+	keystonechangeset "github.com/smartcontractkit/chainlink/deployment/keystone/changeset"
 )
 
 // Local constants (same values used in existing tests)
@@ -44,7 +50,7 @@ type updFixture struct {
 	isWorkflow bool // whether initial DON.AcceptsWorkflows = true
 }
 
-func setupRegistryForUpdateDON(t *testing.T, isWorkflow bool) *updFixture {
+func setupRegistryForUpdateDON(t *testing.T, isWorkflow, useMCMS bool) *updFixture {
 	t.Helper()
 
 	selector := chainselectors.TEST_90000001.Selector
@@ -151,8 +157,43 @@ func setupRegistryForUpdateDON(t *testing.T, isWorkflow bool) *updFixture {
 	})
 	require.NoError(t, err)
 
+	if !useMCMS {
+		return &updFixture{
+			env:        rt.Environment(),
+			selector:   selector,
+			qualifier:  qualifier,
+			address:    addr,
+			registry:   reg,
+			donName:    donName,
+			capIDs:     []string{writeChain.CapabilityId, trigger.CapabilityId},
+			isWorkflow: isWorkflow,
+		}
+	}
+
+	timelockCfgs := map[uint64]commontypes.MCMSWithTimelockConfigV2{
+		selector: proposalutils.SingleGroupTimelockConfigV2(t),
+	}
+
+	updatedEnv, mcmsErr := commonchangeset.Apply(t, rt.Environment(), commonchangeset.Configure(
+		cldf.CreateLegacyChangeSet(commonchangeset.DeployMCMSWithTimelockV2),
+		timelockCfgs,
+	))
+	require.NoError(t, mcmsErr, "failed to deploy MCMS infrastructure")
+	t.Log("MCMS infrastructure deployed successfully")
+
+	t.Log("Transferring ownership to MCMS...")
+	updatedEnv, mcmsErr = commonchangeset.Apply(t, updatedEnv, commonchangeset.Configure(
+		cldf.CreateLegacyChangeSet(keystonechangeset.AcceptAllOwnershipsProposal),
+		&keystonechangeset.AcceptAllOwnershipRequest{
+			ChainSelector: selector,
+			MinDelay:      0,
+		},
+	))
+	require.NoError(t, mcmsErr, "failed to transfer ownership to MCMS")
+	t.Log("Ownership transferred to MCMS successfully")
+
 	return &updFixture{
-		env:        rt.Environment(),
+		env:        updatedEnv,
 		selector:   selector,
 		qualifier:  qualifier,
 		address:    addr,
@@ -166,7 +207,7 @@ func setupRegistryForUpdateDON(t *testing.T, isWorkflow bool) *updFixture {
 // Happy path: non-workflow DON; also renames the DON; capability config updated; visibility/F preserved.
 func TestUpdateDONChangeset_ByName_Direct_Succeeds(t *testing.T) {
 	t.Parallel()
-	fx := setupRegistryForUpdateDON(t /*isWorkflow=*/, false)
+	fx := setupRegistryForUpdateDON(t /*isWorkflow=*/, false, false)
 
 	// New config to apply
 	newCfg := map[string]any{
@@ -213,10 +254,50 @@ func TestUpdateDONChangeset_ByName_Direct_Succeeds(t *testing.T) {
 	assert.Equal(t, wantProto, got.CapabilityConfigurations[0].Config)
 }
 
+func TestUpdateDONChangeset_ByName_Direct_Succeeds_MCMS(t *testing.T) {
+	t.Parallel()
+	fx := setupRegistryForUpdateDON(t /*isWorkflow=*/, false, true)
+
+	// New config to apply
+	newCfg := map[string]any{
+		"defaultConfig": map[string]any{},
+		"remoteTriggerConfig": map[string]any{
+			"registrationRefresh":     "25s", // changed value to detect update
+			"registrationExpiry":      "60s",
+			"minResponsesToAggregate": 2,
+			"messageExpiry":           "120s",
+		},
+	}
+
+	newName := fx.donName + "-renamed"
+
+	out, err := changeset.UpdateDON{}.Apply(fx.env, changeset.UpdateDONInput{
+		RegistryQualifier: fx.qualifier,
+		RegistryChainSel:  fx.selector,
+		DONName:           fx.donName, // required current name
+		NewDonName:        newName,    // rename the DON
+		CapabilityConfigs: []contracts.CapabilityConfig{
+			{Capability: contracts.Capability{CapabilityID: fx.capIDs[0]}, Config: newCfg},
+		},
+		Force: false,
+		MCMSConfig: &crecontracts.MCMSConfig{
+			MinDelay: 1 * time.Second,
+			TimelockQualifierPerChain: map[uint64]string{
+				fx.selector: "",
+			},
+		},
+	})
+	require.NoError(t, err)
+
+	assert.NotNil(t, out)
+	assert.NotEmpty(t, out.Reports)
+	assert.NotEmpty(t, out.MCMSTimelockProposals, "MCMS → proposals must not be empty")
+}
+
 // Safety gate: workflow DON should refuse without Force=true (changeset passes Force through to operation).
 func TestUpdateDONChangeset_ByName_Workflow_RefusesWithoutForce(t *testing.T) {
 	t.Parallel()
-	fx := setupRegistryForUpdateDON(t /*isWorkflow=*/, true)
+	fx := setupRegistryForUpdateDON(t /*isWorkflow=*/, true, false)
 
 	_, err := changeset.UpdateDON{}.Apply(fx.env, changeset.UpdateDONInput{
 		RegistryQualifier: fx.qualifier,
@@ -234,7 +315,7 @@ func TestUpdateDONChangeset_ByName_Workflow_RefusesWithoutForce(t *testing.T) {
 // Force override: workflow DON update succeeds when Force=true.
 func TestUpdateDONChangeset_ByName_Workflow_Force_Succeeds(t *testing.T) {
 	t.Parallel()
-	fx := setupRegistryForUpdateDON(t /*isWorkflow=*/, true)
+	fx := setupRegistryForUpdateDON(t /*isWorkflow=*/, true, false)
 
 	// Use a valid protobuf structure with proper fields format
 	newCfg := map[string]any{

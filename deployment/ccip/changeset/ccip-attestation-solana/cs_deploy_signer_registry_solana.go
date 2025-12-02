@@ -16,6 +16,7 @@ import (
 	chainsel "github.com/smartcontractkit/chain-selectors"
 
 	signer_registry "github.com/smartcontractkit/chainlink/deployment/ccip/shared/bindings/signer_registry_solana"
+	"github.com/smartcontractkit/chainlink/deployment/utils/solutils"
 
 	cldf_solana "github.com/smartcontractkit/chainlink-deployments-framework/chain/solana"
 
@@ -23,7 +24,6 @@ import (
 	sol_rpc "github.com/gagliardetto/solana-go/rpc"
 
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
-	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared"
 )
 
@@ -56,7 +56,7 @@ func DeployBaseSignerRegistryContractChangeset(e cldf.Environment, c DeployBaseS
 
 	newAddresses := cldf.NewMemoryAddressBook()
 
-	programFileName := deployment.BaseSignerRegistryProgramName + ".so"
+	programFileName := solutils.ProgBaseSignerRegistry + ".so"
 	programFilePath := filepath.Join(chain.ProgramsPath, programFileName)
 	if _, err := os.Stat(programFilePath); err != nil {
 		if !os.IsNotExist(err) {
@@ -127,11 +127,11 @@ func InitializeBaseSignerRegistryContractChangeset(e cldf.Environment, c Initali
 func deployBaseSignerRegistryContract(e cldf.Environment, chain cldf_solana.Chain, ab cldf.AddressBook, config DeployBaseSignerRegistryContractConfig,
 ) (solana.PublicKey, error) {
 	contractType := shared.SVMSignerRegistry
-	programName := deployment.BaseSignerRegistryProgramName
+	programName := solutils.ProgBaseSignerRegistry
 
 	programID, err := chain.DeployProgram(e.Logger, cldf_solana.ProgramInfo{
 		Name:  programName,
-		Bytes: deployment.SolanaProgramBytes[programName],
+		Bytes: solutils.GetProgramBufferBytes(programName),
 	}, config.IsUpgrade, true)
 	if err != nil {
 		return solana.PublicKey{}, fmt.Errorf("failed to deploy program: %w", err)

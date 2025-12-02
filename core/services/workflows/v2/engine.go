@@ -41,8 +41,18 @@ type Engine struct {
 	services.Service
 	srvcEng *services.Engine
 
-	cfg          *EngineConfig
-	lggr         logger.SugaredLogger
+	cfg *EngineConfig
+
+	// lggr is the engine's logger. It is protected by lggrMu to allow safe updates when DON configuration changes.
+	// IMPORTANT: Do NOT access this field directly. Always use the logger() method to ensure thread-safety.
+	// Direct access will cause data races when the logger is updated in localNodeSync().
+	lggr logger.SugaredLogger
+
+	// lggrMu protects lggr during dynamic updates when DON configuration changes.
+	// Write access (Lock): Only in setLogger() called from localNodeSync()
+	// Read access (RLock): In logger() method called from everywhere else
+	lggrMu sync.RWMutex
+
 	loggerLabels atomic.Pointer[map[string]string]
 	localNode    atomic.Pointer[capabilities.Node]
 
@@ -73,6 +83,46 @@ type enqueuedTriggerEvent struct {
 	event        capabilities.TriggerResponse
 }
 
+// buildLabels creates the label slice for the beholder logger based on config and localNode state.
+// This is used both during engine creation and when updating labels after a DON configuration change.
+func (e *Engine) buildLabels(localNode *capabilities.Node) []any {
+	return []any{
+		platform.KeyWorkflowID, e.cfg.WorkflowID,
+		platform.KeyWorkflowOwner, e.cfg.WorkflowOwner,
+		platform.KeyWorkflowName, e.cfg.WorkflowName.String(),
+		platform.KeyWorkflowVersion, platform.ValueWorkflowVersionV2,
+		platform.KeyDonID, strconv.Itoa(int(localNode.WorkflowDON.ID)),
+		platform.KeyDonF, strconv.Itoa(int(localNode.WorkflowDON.F)),
+		platform.KeyDonN, strconv.Itoa(len(localNode.WorkflowDON.Members)),
+		platform.KeyDonQ, strconv.Itoa(aggregation.ByzantineQuorum(
+			len(localNode.WorkflowDON.Members),
+			int(localNode.WorkflowDON.F),
+		)),
+		platform.KeyP2PID, localNode.PeerID.String(),
+		platform.WorkflowRegistryAddress, e.cfg.WorkflowRegistryAddress,
+		platform.WorkflowRegistryChainSelector, e.cfg.WorkflowRegistryChainSelector,
+		platform.EngineVersion, platform.ValueWorkflowVersionV2,
+		platform.DonVersion, strconv.FormatUint(uint64(localNode.WorkflowDON.ConfigVersion), 10),
+	}
+}
+
+// logger returns the current logger in a thread-safe manner.
+// This method should be used instead of accessing e.lggr directly to avoid race conditions
+// when the logger is dynamically updated (e.g., when DON configuration changes).
+func (e *Engine) logger() logger.SugaredLogger {
+	e.lggrMu.RLock()
+	defer e.lggrMu.RUnlock()
+	return e.lggr
+}
+
+// setLogger updates the logger in a thread-safe manner.
+// This is called when the DON configuration changes and we need to update the platform.DonVersion label.
+func (e *Engine) setLogger(lggr logger.SugaredLogger) {
+	e.lggrMu.Lock()
+	defer e.lggrMu.Unlock()
+	e.lggr = lggr
+}
+
 func NewEngine(cfg *EngineConfig) (*Engine, error) {
 	err := cfg.Validate()
 	if err != nil {
@@ -92,24 +142,17 @@ func NewEngine(cfg *EngineConfig) (*Engine, error) {
 		return nil, fmt.Errorf("could not get local node state: %w", err)
 	}
 
-	labels := []any{
-		platform.KeyWorkflowID, cfg.WorkflowID,
-		platform.KeyWorkflowOwner, cfg.WorkflowOwner,
-		platform.KeyWorkflowName, cfg.WorkflowName.String(),
-		platform.KeyWorkflowVersion, platform.ValueWorkflowVersionV2,
-		platform.KeyDonID, strconv.Itoa(int(localNode.WorkflowDON.ID)),
-		platform.KeyDonF, strconv.Itoa(int(localNode.WorkflowDON.F)),
-		platform.KeyDonN, strconv.Itoa(len(localNode.WorkflowDON.Members)),
-		platform.KeyDonQ, strconv.Itoa(aggregation.ByzantineQuorum(
-			len(localNode.WorkflowDON.Members),
-			int(localNode.WorkflowDON.F),
-		)),
-		platform.KeyP2PID, localNode.PeerID.String(),
-		platform.WorkflowRegistryAddress, cfg.WorkflowRegistryAddress,
-		platform.WorkflowRegistryChainSelector, cfg.WorkflowRegistryChainSelector,
-		platform.EngineVersion, platform.ValueWorkflowVersionV2,
-		platform.DonVersion, strconv.FormatUint(uint64(localNode.WorkflowDON.ConfigVersion), 10),
+	// Create engine first so we can use the buildLabels method
+	engine := &Engine{
+		cfg:                     cfg,
+		triggers:                make(map[string]*triggerCapability),
+		allTriggerEventsQueueCh: cfg.LocalLimiters.TriggerEventQueue,
+		executionsSemaphore:     cfg.LocalLimiters.ExecutionConcurrency,
+		capCallsSemaphore:       cfg.LocalLimiters.CapabilityConcurrency,
 	}
+
+	// Build labels using the helper method
+	labels := engine.buildLabels(&localNode)
 
 	beholderLogger := logger.Sugared(custmsg.NewBeholderLogger(cfg.Lggr, cfg.BeholderEmitter).Named("WorkflowEngine").With(labels...))
 	metricsLabeler := monitoring.NewWorkflowsMetricLabeler(metrics.NewLabeler(), em).With(
@@ -125,16 +168,10 @@ func NewEngine(cfg *EngineConfig) (*Engine, error) {
 		beholderLogger.Errorw("WARNING: Debug mode is enabled, this is not suitable for production")
 	}
 
-	engine := &Engine{
-		cfg:                     cfg,
-		lggr:                    beholderLogger,
-		triggers:                make(map[string]*triggerCapability),
-		allTriggerEventsQueueCh: cfg.LocalLimiters.TriggerEventQueue,
-		executionsSemaphore:     cfg.LocalLimiters.ExecutionConcurrency,
-		capCallsSemaphore:       cfg.LocalLimiters.CapabilityConcurrency,
-		meterReports:            metering.NewReports(cfg.BillingClient, cfg.WorkflowOwner, cfg.WorkflowID, beholderLogger, labelsMap, metricsLabeler, cfg.WorkflowRegistryAddress, cfg.WorkflowRegistryChainSelector, metering.EngineVersionV2),
-		metrics:                 metricsLabeler,
-	}
+	// Store logger and other fields
+	engine.setLogger(beholderLogger)
+	engine.meterReports = metering.NewReports(cfg.BillingClient, cfg.WorkflowOwner, cfg.WorkflowID, beholderLogger, labelsMap, metricsLabeler, cfg.WorkflowRegistryAddress, cfg.WorkflowRegistryChainSelector, metering.EngineVersionV2)
+	engine.metrics = metricsLabeler
 	engine.loggerLabels.Store(&labelsMap)
 	engine.localNode.Store(&localNode)
 	engine.Service, engine.srvcEng = services.Config{
@@ -164,15 +201,15 @@ func (e *Engine) init(ctx context.Context) {
 		if errors.As(err, &errLimited) {
 			switch errLimited.Scope {
 			case settings.ScopeOwner:
-				e.lggr.Info("Per owner workflow count limit reached", "err", err)
+				e.logger().Info("Per owner workflow count limit reached", "err", err)
 				e.metrics.IncrementWorkflowLimitPerOwnerCounter(ctx)
 				e.cfg.Hooks.OnInitialized(types.ErrPerOwnerWorkflowCountLimitReached)
 			case settings.ScopeGlobal:
-				e.lggr.Info("Global workflow count limit reached", "err", err)
+				e.logger().Info("Global workflow count limit reached", "err", err)
 				e.metrics.IncrementWorkflowLimitGlobalCounter(ctx)
 				e.cfg.Hooks.OnInitialized(types.ErrGlobalWorkflowCountLimitReached)
 			default:
-				e.lggr.Errorw("Workflow count limit reached for unexpected scope", "scope", errLimited.Scope, "err", err)
+				e.logger().Errorw("Workflow count limit reached for unexpected scope", "scope", errLimited.Scope, "err", err)
 				e.cfg.Hooks.OnInitialized(err)
 			}
 		} else {
@@ -183,7 +220,7 @@ func (e *Engine) init(ctx context.Context) {
 
 	donSubCh, cleanup, err := e.cfg.DonSubscriber.Subscribe(ctx)
 	if err != nil {
-		e.lggr.Errorw("failed to subscribe to DON notifier", "error", err)
+		e.logger().Errorw("failed to subscribe to DON notifier", "error", err)
 		e.cfg.Hooks.OnInitialized(fmt.Errorf("failed to subscribe to DON notifier: %w", err))
 		return
 	}
@@ -207,12 +244,12 @@ func (e *Engine) init(ctx context.Context) {
 
 	err = e.runTriggerSubscriptionPhase(ctx)
 	if err != nil {
-		e.lggr.Errorw("Workflow Engine initialization failed", "err", err)
+		e.logger().Errorw("Workflow Engine initialization failed", "err", err)
 		e.cfg.Hooks.OnInitialized(err)
 		return
 	}
 
-	e.lggr.Info("Workflow Engine initialized")
+	e.logger().Info("Workflow Engine initialized")
 	e.metrics.IncrementWorkflowInitializationCounter(ctx)
 	e.cfg.Hooks.OnInitialized(nil)
 }
@@ -239,6 +276,23 @@ func (e *Engine) localNodeSync(ctx context.Context) {
 		"Workflow DON Families", localNode.WorkflowDON.Families,
 		"Workflow DON Config Version", localNode.WorkflowDON.ConfigVersion,
 	)
+
+	// Recreate the beholder logger with updated labels to reflect the new DON version
+	labels := e.buildLabels(&localNode)
+	newLogger := logger.Sugared(
+		custmsg.NewBeholderLogger(e.cfg.Lggr, e.cfg.BeholderEmitter).
+			Named("WorkflowEngine").
+			With(labels...),
+	)
+	e.setLogger(newLogger)
+
+	// Update loggerLabels map for metrics
+	labelsMap := make(map[string]string, len(labels)/2)
+	for i := 0; i < len(labels); i += 2 {
+		labelsMap[labels[i].(string)] = labels[i+1].(string)
+	}
+	e.loggerLabels.Store(&labelsMap)
+
 	e.cfg.Hooks.OnNodeSynced(localNode, nil)
 	e.localNode.Store(&localNode)
 }
@@ -263,7 +317,7 @@ func (e *Engine) runTriggerSubscriptionPhase(ctx context.Context) error {
 
 	var timeProvider TimeProvider = &types.LocalTimeProvider{}
 	if !e.cfg.UseLocalTimeProvider {
-		timeProvider = NewDonTimeProvider(e.cfg.DonTimeStore, e.cfg.WorkflowID, e.lggr)
+		timeProvider = NewDonTimeProvider(e.cfg.DonTimeStore, e.cfg.WorkflowID, e.logger())
 	}
 
 	moduleExecuteMaxResponseSizeBytes, err := e.cfg.LocalLimiters.ExecutionResponse.Limit(ctx)
@@ -277,7 +331,7 @@ func (e *Engine) runTriggerSubscriptionPhase(ctx context.Context) error {
 		Request:         &sdkpb.ExecuteRequest_Subscribe{},
 		MaxResponseSize: uint64(moduleExecuteMaxResponseSizeBytes), //nolint:gosec // G115
 		Config:          e.cfg.WorkflowConfig,
-	}, NewDisallowedExecutionHelper(e.lggr, userLogChan, timeProvider, e.secretsFetcher(e.cfg.WorkflowID)))
+	}, NewDisallowedExecutionHelper(e.logger(), userLogChan, timeProvider, e.secretsFetcher(e.cfg.WorkflowID)))
 	if err != nil {
 		return fmt.Errorf("failed to execute subscribe: %w", err)
 	}
@@ -316,7 +370,7 @@ func (e *Engine) runTriggerSubscriptionPhase(ctx context.Context) error {
 	for i, sub := range subs.Subscriptions {
 		triggerCap := triggers[i]
 		registrationID := fmt.Sprintf("trigger_reg_%s_%d", e.cfg.WorkflowID, i)
-		e.lggr.Debugw("Registering trigger", "triggerID", sub.Id, "method", sub.Method)
+		e.logger().Debugw("Registering trigger", "triggerID", sub.Id, "method", sub.Method)
 		triggerEventCh, err := triggerCap.RegisterTrigger(regCtx, capabilities.TriggerRegistrationRequest{
 			TriggerID: registrationID,
 			Metadata: capabilities.RequestMetadata{
@@ -338,7 +392,7 @@ func (e *Engine) runTriggerSubscriptionPhase(ctx context.Context) error {
 			// no Config needed - NoDAG uses Payload
 		})
 		if err != nil {
-			e.lggr.Errorw("One of trigger registrations failed - reverting all", "triggerID", sub.Id, "err", err)
+			e.logger().Errorw("One of trigger registrations failed - reverting all", "triggerID", sub.Id, "err", err)
 			e.metrics.With(platform.KeyTriggerID, sub.Id).IncrementRegisterTriggerFailureCounter(ctx)
 			e.unregisterAllTriggers(ctx)
 			return fmt.Errorf("failed to register trigger: %w", err)
@@ -364,7 +418,7 @@ func (e *Engine) runTriggerSubscriptionPhase(ctx context.Context) error {
 						return
 					}
 					if event.Err != nil {
-						e.lggr.Errorw("Received a trigger event with error, dropping", "triggerID", subs.Subscriptions[idx].Id, "err", event.Err)
+						e.logger().Errorw("Received a trigger event with error, dropping", "triggerID", subs.Subscriptions[idx].Id, "err", event.Err)
 						e.metrics.With(platform.KeyTriggerID, subs.Subscriptions[idx].Id).IncrementWorkflowTriggerEventErrorCounter(ctx)
 						continue
 					}
@@ -377,10 +431,10 @@ func (e *Engine) runTriggerSubscriptionPhase(ctx context.Context) error {
 						var errFull limits.ErrorQueueFull
 						if errors.As(err, &errFull) {
 							// queue full, drop the event
-							e.lggr.Errorw("Trigger event queue is full, dropping event", "triggerID", subs.Subscriptions[idx].Id, "triggerIndex", idx, "err", err)
+							e.logger().Errorw("Trigger event queue is full, dropping event", "triggerID", subs.Subscriptions[idx].Id, "triggerIndex", idx, "err", err)
 							e.metrics.With(platform.KeyTriggerID, subs.Subscriptions[idx].Id).IncrementWorkflowTriggerEventQueueFullCounter(ctx)
 						}
-						e.lggr.Errorw("Failed to enqueue trigger event", "triggerID", subs.Subscriptions[idx].Id, "triggerIndex", idx, "err", err)
+						e.logger().Errorw("Failed to enqueue trigger event", "triggerID", subs.Subscriptions[idx].Id, "triggerIndex", idx, "err", err)
 						e.metrics.With(platform.KeyTriggerID, subs.Subscriptions[idx].Id).IncrementWorkflowTriggerEventErrorCounter(ctx)
 						continue
 					}
@@ -388,7 +442,7 @@ func (e *Engine) runTriggerSubscriptionPhase(ctx context.Context) error {
 			}
 		})
 	}
-	e.lggr.Infow("All triggers registered successfully", "numTriggers", len(subs.Subscriptions), "triggerIDs", triggerCapIDs)
+	e.logger().Infow("All triggers registered successfully", "numTriggers", len(subs.Subscriptions), "triggerIDs", triggerCapIDs)
 	e.metrics.IncrementWorkflowRegisteredCounter(ctx)
 	e.cfg.Hooks.OnSubscribedToTriggers(triggerCapIDs)
 	return nil
@@ -403,16 +457,16 @@ func (e *Engine) handleAllTriggerEvents(ctx context.Context) {
 		eventAge := queueHead.timestamp.Sub(e.cfg.Clock.Now())
 		triggerEventMaxAge, err := e.cfg.LocalLimiters.TriggerEventQueueTime.Limit(ctx)
 		if err != nil {
-			e.lggr.Errorw("Failed to get trigger event queue time limit", "err", err)
+			e.logger().Errorw("Failed to get trigger event queue time limit", "err", err)
 			continue
 		}
 		if eventAge > triggerEventMaxAge {
-			e.lggr.Warnw("Trigger event is too old, skipping execution", "triggerID", queueHead.triggerCapID, "eventID", queueHead.event.Event.ID, "eventAgeMs", eventAge.Milliseconds())
+			e.logger().Warnw("Trigger event is too old, skipping execution", "triggerID", queueHead.triggerCapID, "eventID", queueHead.event.Event.ID, "eventAgeMs", eventAge.Milliseconds())
 			continue
 		}
 		free, err := e.executionsSemaphore.Wait(ctx, 1) // block if too many concurrent workflow executions
 		if err != nil {
-			e.lggr.Errorw("Failed to acquire executions semaphore", "err", err)
+			e.logger().Errorw("Failed to acquire executions semaphore", "err", err)
 			continue
 		}
 		e.srvcEng.GoCtx(context.WithoutCancel(ctx), func(ctx context.Context) {
@@ -427,7 +481,7 @@ func (e *Engine) startExecution(ctx context.Context, wrappedTriggerEvent enqueue
 	triggerEvent := wrappedTriggerEvent.event.Event
 	executionID, err := events.GenerateExecutionID(e.cfg.WorkflowID, triggerEvent.ID)
 	if err != nil {
-		e.lggr.Errorw("Failed to generate execution ID", "err", err, "triggerID", wrappedTriggerEvent.triggerCapID)
+		e.logger().Errorw("Failed to generate execution ID", "err", err, "triggerID", wrappedTriggerEvent.triggerCapID)
 		return
 	}
 
@@ -436,7 +490,7 @@ func (e *Engine) startExecution(ctx context.Context, wrappedTriggerEvent enqueue
 	if e.cfg.OrgResolver != nil {
 		orgID, gerr := e.cfg.OrgResolver.Get(ctx, e.cfg.WorkflowOwner)
 		if gerr != nil {
-			e.lggr.Warnw("Failed to resolve organization ID, continuing without it", "workflowOwner", e.cfg.WorkflowOwner, "err", gerr)
+			e.logger().Warnw("Failed to resolve organization ID, continuing without it", "workflowOwner", e.cfg.WorkflowOwner, "err", gerr)
 		} else {
 			organizationID = orgID
 		}
@@ -444,7 +498,7 @@ func (e *Engine) startExecution(ctx context.Context, wrappedTriggerEvent enqueue
 	loggerLabels := maps.Clone(*e.loggerLabels.Load())
 	loggerLabels[platform.KeyOrganizationID] = organizationID
 	e.loggerLabels.Store(&loggerLabels)
-	e.lggr.With(platform.KeyOrganizationID, organizationID)
+	e.logger().With(platform.KeyOrganizationID, organizationID)
 	creCtx := contexts.CREValue(ctx)
 	creCtx.Org = organizationID
 	ctx = contexts.WithCRE(ctx, creCtx)
@@ -456,14 +510,14 @@ func (e *Engine) startExecution(ctx context.Context, wrappedTriggerEvent enqueue
 
 	meteringReport, meteringErr := e.meterReports.Start(ctx, executionID)
 	if meteringErr != nil {
-		e.lggr.Errorw("could start metering workflow execution. continuing without metering", "err", meteringErr)
+		e.logger().Errorw("could start metering workflow execution. continuing without metering", "err", meteringErr)
 	}
 
 	isMetering := meteringErr == nil
 	if isMetering {
 		mrErr := meteringReport.Reserve(ctx)
 		if mrErr != nil {
-			e.lggr.Errorw("could not reserve metering", "err", mrErr)
+			e.logger().Errorw("could not reserve metering", "err", mrErr)
 			return
 		}
 
@@ -472,15 +526,15 @@ func (e *Engine) startExecution(ctx context.Context, wrappedTriggerEvent enqueue
 
 	execCtx, execCancel, err := e.cfg.LocalLimiters.ExecutionTime.WithTimeout(ctx)
 	if err != nil {
-		e.lggr.Errorw("Failed to get execution time limit", "err", err)
+		e.logger().Errorw("Failed to get execution time limit", "err", err)
 		return
 	}
 	defer execCancel()
-	executionLogger := logger.With(e.lggr, "executionID", executionID, "triggerID", wrappedTriggerEvent.triggerCapID, "triggerIndex", wrappedTriggerEvent.triggerIndex)
+	executionLogger := logger.With(e.logger(), "executionID", executionID, "triggerID", wrappedTriggerEvent.triggerCapID, "triggerIndex", wrappedTriggerEvent.triggerIndex)
 
 	maxUserLogEventsPerExecution, err := e.cfg.LocalLimiters.LogEvent.Limit(ctx)
 	if err != nil {
-		e.lggr.Errorw("Failed to get log event limit", "err", err)
+		e.logger().Errorw("Failed to get log event limit", "err", err)
 		return
 	}
 	userLogChan := make(chan *protoevents.LogLine, maxUserLogEventsPerExecution)
@@ -503,16 +557,16 @@ func (e *Engine) startExecution(ctx context.Context, wrappedTriggerEvent enqueue
 
 	var timeProvider TimeProvider = &types.LocalTimeProvider{}
 	if !e.cfg.UseLocalTimeProvider {
-		timeProvider = NewDonTimeProvider(e.cfg.DonTimeStore, e.cfg.WorkflowID, e.lggr)
+		timeProvider = NewDonTimeProvider(e.cfg.DonTimeStore, e.cfg.WorkflowID, e.logger())
 	}
 
 	moduleExecuteMaxResponseSizeBytes, err := e.cfg.LocalLimiters.ExecutionResponse.Limit(ctx)
 	if err != nil {
-		e.lggr.Errorw("Failed to get execution response size limit", "err", err)
+		e.logger().Errorw("Failed to get execution response size limit", "err", err)
 		return
 	}
 	if moduleExecuteMaxResponseSizeBytes < 0 {
-		e.lggr.Errorf("invalid moduleExecuteMaxResponseSizeBytes; must not be negative: %d", moduleExecuteMaxResponseSizeBytes)
+		e.logger().Errorf("invalid moduleExecuteMaxResponseSizeBytes; must not be negative: %d", moduleExecuteMaxResponseSizeBytes)
 		return
 	}
 	execHelper := &ExecutionHelper{
@@ -547,11 +601,11 @@ func (e *Engine) startExecution(ctx context.Context, wrappedTriggerEvent enqueue
 			},
 		)
 		if mrErr != nil {
-			e.lggr.Errorw("could not set metering for compute", "err", mrErr)
+			e.logger().Errorw("could not set metering for compute", "err", mrErr)
 		}
 		mrErr = e.meterReports.End(ctx, executionID)
 		if mrErr != nil {
-			e.lggr.Errorw("could not end metering report", "err", mrErr)
+			e.logger().Errorw("could not end metering report", "err", mrErr)
 		}
 	}
 
@@ -565,14 +619,14 @@ func (e *Engine) startExecution(ctx context.Context, wrappedTriggerEvent enqueue
 		}
 
 		executionLogger.Errorw("Workflow execution failed with module execution error", "status", executionStatus, "durationMs", executionDuration.Milliseconds(), "err", execErr)
-		_ = events.EmitExecutionFinishedEvent(ctx, loggerLabels, executionStatus, executionID, e.lggr)
+		_ = events.EmitExecutionFinishedEvent(ctx, loggerLabels, executionStatus, executionID, e.logger())
 		e.cfg.Hooks.OnExecutionFinished(executionID, executionStatus)
 		e.cfg.Hooks.OnExecutionError(execErr.Error())
 		return
 	}
 
 	if e.cfg.DebugMode {
-		e.lggr.Debugw("User workflow execution result", "result", result.GetValue(), "err", result.GetError())
+		e.logger().Debugw("User workflow execution result", "result", result.GetValue(), "err", result.GetError())
 	}
 
 	if len(result.GetError()) > 0 {
@@ -580,7 +634,7 @@ func (e *Engine) startExecution(ctx context.Context, wrappedTriggerEvent enqueue
 		e.metrics.UpdateWorkflowErrorDurationHistogram(ctx, int64(executionDuration.Seconds()))
 		e.metrics.With("workflowID", e.cfg.WorkflowID, "workflowName", e.cfg.WorkflowName.String()).IncrementWorkflowExecutionFailedCounter(ctx)
 		executionLogger.Errorw("Workflow execution failed", "status", executionStatus, "durationMs", executionDuration.Milliseconds(), "error", result.GetError())
-		_ = events.EmitExecutionFinishedEvent(ctx, loggerLabels, executionStatus, executionID, e.lggr)
+		_ = events.EmitExecutionFinishedEvent(ctx, loggerLabels, executionStatus, executionID, e.logger())
 		e.cfg.Hooks.OnExecutionFinished(executionID, executionStatus)
 		e.cfg.Hooks.OnExecutionError(result.GetError())
 		return
@@ -588,7 +642,7 @@ func (e *Engine) startExecution(ctx context.Context, wrappedTriggerEvent enqueue
 
 	executionStatus = store.StatusCompleted
 	executionLogger.Infow("Workflow execution finished successfully", "durationMs", executionDuration.Milliseconds())
-	_ = events.EmitExecutionFinishedEvent(ctx, loggerLabels, executionStatus, executionID, e.lggr)
+	_ = events.EmitExecutionFinishedEvent(ctx, loggerLabels, executionStatus, executionID, e.logger())
 	e.metrics.UpdateWorkflowCompletedDurationHistogram(ctx, int64(executionDuration.Seconds()))
 	e.metrics.With("workflowID", e.cfg.WorkflowID, "workflowName", e.cfg.WorkflowName.String()).IncrementWorkflowExecutionSucceededCounter(ctx)
 	e.cfg.Hooks.OnResultReceived(result)
@@ -603,7 +657,7 @@ func (e *Engine) secretsFetcher(phaseID string) SecretsFetcher {
 	return NewSecretsFetcher(
 		e.metrics,
 		e.cfg.CapRegistry,
-		e.lggr,
+		e.logger(),
 		e.cfg.LocalLimiters.SecretsConcurrency,
 		e.cfg.WorkflowOwner,
 		e.cfg.WorkflowName.String(),
@@ -646,28 +700,28 @@ func (e *Engine) unregisterAllTriggers(ctx context.Context) {
 			Method:  trigger.method,
 		})
 		if err != nil {
-			e.lggr.Errorw("Failed to unregister trigger", "registrationId", registrationID, "err", err)
+			e.logger().Errorw("Failed to unregister trigger", "registrationId", registrationID, "err", err)
 			failCount++
 		}
 	}
-	e.lggr.Infow("All triggers unregistered", "numTriggers", len(e.triggers), "failed", failCount)
+	e.logger().Infow("All triggers unregistered", "numTriggers", len(e.triggers), "failed", failCount)
 	e.triggers = make(map[string]*triggerCapability)
 }
 
 func (e *Engine) heartbeatLoop(ctx context.Context) {
 	ticker := time.NewTicker(time.Duration(e.cfg.LocalLimits.HeartbeatFrequencyMs) * time.Millisecond)
 	defer ticker.Stop()
-	e.lggr.Info("Starting heartbeat loop")
+	e.logger().Info("Starting heartbeat loop")
 	e.metrics.EngineHeartbeatGauge(ctx, 1)
 
 	for {
 		select {
 		case <-ctx.Done():
 			e.metrics.EngineHeartbeatGauge(ctx, 0)
-			e.lggr.Info("Shutting down heartbeat")
+			e.logger().Info("Shutting down heartbeat")
 			return
 		case <-ticker.C:
-			e.lggr.Debugw("Engine heartbeat tick", "time", e.cfg.Clock.Now().Format(time.RFC3339))
+			e.logger().Debugw("Engine heartbeat tick", "time", e.cfg.Clock.Now().Format(time.RFC3339))
 			e.metrics.IncrementEngineHeartbeatCounter(ctx)
 		}
 	}
@@ -679,7 +733,7 @@ func (e *Engine) deductStandardBalances(ctx context.Context, meteringReport *met
 	ctxCancelPadding := (time.Millisecond * 1000).Milliseconds()
 	workflowExecutionTimeout, err := e.cfg.LocalLimiters.ExecutionTime.Limit(ctx)
 	if err != nil {
-		e.lggr.Errorw("Failed to get execution time limit", "err", err)
+		e.logger().Errorw("Failed to get execution time limit", "err", err)
 		return
 	}
 	compMs := decimal.NewFromInt(workflowExecutionTimeout.Milliseconds() + ctxCancelPadding)
@@ -689,15 +743,15 @@ func (e *Engine) deductStandardBalances(ctx context.Context, meteringReport *met
 		computeUnit,
 		metering.ByResource(computeUnit, "v2-standard-deduction-compute", compMs),
 	); err != nil {
-		e.lggr.Errorw("could not deduct balance for capability request", "capReq", "standard-deduction-compute", "err", err)
+		e.logger().Errorw("could not deduct balance for capability request", "capReq", "standard-deduction-compute", "err", err)
 	}
 }
 
 // separate call for each workflow execution
 func (e *Engine) emitUserLogs(ctx context.Context, userLogChan chan *protoevents.LogLine, executionID string, executionLabels map[string]string) {
-	e.lggr.Debugw("Listening for user logs ...")
+	e.logger().Debugw("Listening for user logs ...")
 	count := 0
-	defer func() { e.lggr.Debugw("Listening for user logs done.", "processedLogLines", count) }()
+	defer func() { e.logger().Debugw("Listening for user logs done.", "processedLogLines", count) }()
 	for {
 		select {
 		case <-ctx.Done():
@@ -707,21 +761,21 @@ func (e *Engine) emitUserLogs(ctx context.Context, userLogChan chan *protoevents
 				return
 			}
 			if e.cfg.DebugMode {
-				e.lggr.Debugf("User log: <<<%s>>>, local node timestamp: %s", logLine.Message, logLine.NodeTimestamp)
+				e.logger().Debugf("User log: <<<%s>>>, local node timestamp: %s", logLine.Message, logLine.NodeTimestamp)
 			}
 			err := e.cfg.LocalLimiters.LogEvent.Check(ctx, count)
 			if err != nil {
 				var errBoundLimited limits.ErrorBoundLimited[int]
 				if errors.As(err, &errBoundLimited) {
-					e.lggr.Warnw("Max user log events per execution reached, dropping event", "maxEvents", errBoundLimited.Limit)
+					e.logger().Warnw("Max user log events per execution reached, dropping event", "maxEvents", errBoundLimited.Limit)
 					return
 				}
-				e.lggr.Errorw("Failed to get user log event limit", "err", err)
+				e.logger().Errorw("Failed to get user log event limit", "err", err)
 				return
 			}
 			maxUserLogLength, err := e.cfg.LocalLimiters.LogLine.Limit(ctx)
 			if err != nil {
-				e.lggr.Errorw("Failed to get user log line limit", "err", err)
+				e.logger().Errorw("Failed to get user log line limit", "err", err)
 				return
 			}
 			if len(logLine.Message) > int(maxUserLogLength) {
@@ -729,7 +783,7 @@ func (e *Engine) emitUserLogs(ctx context.Context, userLogChan chan *protoevents
 			}
 
 			if err := events.EmitUserLogs(ctx, executionLabels, []*protoevents.LogLine{logLine}, executionID); err != nil {
-				e.lggr.Errorw("Failed to emit user logs", "err", err)
+				e.logger().Errorw("Failed to emit user logs", "err", err)
 			}
 			count++
 		}

@@ -7,11 +7,11 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/Masterminds/semver/v3"
 	pkgerrors "github.com/pkg/errors"
 
 	capabilitiespb "github.com/smartcontractkit/chainlink-common/pkg/capabilities/pb"
 	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
-	cldf_deployment "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	capabilities_registry "github.com/smartcontractkit/chainlink-evm/gethwrappers/keystone/generated/capabilities_registry_1_1_0"
 	"github.com/smartcontractkit/chainlink-testing-framework/framework"
 	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/jd"
@@ -28,17 +28,16 @@ const (
 )
 
 type EnvArtifact struct {
-	RegistryChainSelector uint64                                               `json:"home_chain_selector"`
-	AddressRefs           []datastore.AddressRef                               `json:"address_refs"`
-	AddressBook           map[uint64]map[string]cldf_deployment.TypeAndVersion `json:"address_book"`
-	JdConfig              jd.Output                                            `json:"jd_config"`
-	Nodes                 map[string]NodesArtifact                             `json:"nodes"`
-	DONs                  []DonArtifact                                        `json:"dons"`
-	Bootstrappers         []BootstrapNodeArtifact                              `json:"bootstrappers"`
-	NOPs                  []NOPArtifact                                        `json:"nops"`
-	ContractVersions      map[string]string                                    `json:"contract_versions"`
-	CapabilityConfigs     map[cre.CapabilityFlag]cre.CapabilityConfig          `json:"capability_configs"`
-	GatewayConnectors     *cre.GatewayConnectors                               `json:"gateway_connectors,omitempty"`
+	RegistryChainSelector uint64                                      `json:"home_chain_selector"`
+	AddressRefs           []datastore.AddressRef                      `json:"address_refs"`
+	JdConfig              jd.Output                                   `json:"jd_config"`
+	Nodes                 map[string]NodesArtifact                    `json:"nodes"`
+	DONs                  []DonArtifact                               `json:"dons"`
+	Bootstrappers         []BootstrapNodeArtifact                     `json:"bootstrappers"`
+	NOPs                  []NOPArtifact                               `json:"nops"`
+	ContractVersions      map[cre.ContractType]*semver.Version        `json:"contract_versions"`
+	CapabilityConfigs     map[cre.CapabilityFlag]cre.CapabilityConfig `json:"capability_configs"`
+	GatewayConnectors     *cre.GatewayConnectors                      `json:"gateway_connectors,omitempty"`
 }
 
 type NodesArtifact struct {
@@ -224,11 +223,6 @@ func GenerateArtifact(
 ) (*EnvArtifact, error) {
 	var err error
 
-	addresses, err := creEnv.CldfEnvironment.ExistingAddresses.Addresses() //nolint:staticcheck //won't migrate now
-	if err != nil {
-		return nil, pkgerrors.Wrap(err, "failed to get addresses from address book")
-	}
-
 	addressRecords, err := creEnv.CldfEnvironment.DataStore.Addresses().Fetch()
 	if err != nil {
 		return nil, pkgerrors.Wrap(err, "failed to fetch address records from datastore")
@@ -237,7 +231,6 @@ func GenerateArtifact(
 	artifact := EnvArtifact{
 		RegistryChainSelector: creEnv.RegistryChainSelector,
 		JdConfig:              jdOutput,
-		AddressBook:           addresses,
 		AddressRefs:           addressRecords,
 		Nodes:                 make(map[string]NodesArtifact),
 		DONs:                  make([]DonArtifact, 0),

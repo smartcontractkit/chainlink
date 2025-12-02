@@ -9,16 +9,16 @@ import (
 	"github.com/Masterminds/semver/v3"
 	"github.com/ethereum/go-ethereum/common"
 
-	"github.com/smartcontractkit/mcms"
-	"github.com/smartcontractkit/mcms/sdk"
+	mcmslib "github.com/smartcontractkit/mcms"
 	mcmstypes "github.com/smartcontractkit/mcms/types"
 	"github.com/smartcontractkit/smdkg/dkgocr/dkgocrtypes"
 
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
 	ocr3_capability "github.com/smartcontractkit/chainlink-evm/gethwrappers/keystone/generated/ocr3_capability_1_0_0"
+
 	"github.com/smartcontractkit/chainlink/deployment"
-	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
+	"github.com/smartcontractkit/chainlink/deployment/cre/common/strategies"
 	"github.com/smartcontractkit/chainlink/deployment/cre/contracts"
 	"github.com/smartcontractkit/chainlink/deployment/cre/ocr3"
 )
@@ -26,6 +26,7 @@ import (
 type ConfigureDKGDeps struct {
 	Env                  *cldf.Environment
 	WriteGeneratedConfig io.Writer
+	Strategy             strategies.TransactionStrategy
 }
 
 type ConfigureDKGInput struct {
@@ -35,7 +36,7 @@ type ConfigureDKGInput struct {
 	Config          *ocr3.V3_1OracleConfig
 	DryRun          bool
 
-	MCMSConfig            *ocr3.MCMSConfig
+	MCMSConfig            *contracts.MCMSConfig
 	ReportingPluginConfig dkgocrtypes.ReportingPluginConfig
 }
 
@@ -44,7 +45,7 @@ func (i ConfigureDKGInput) UseMCMS() bool {
 }
 
 type ConfigureDKGOpOutput struct {
-	MCMSTimelockProposals []mcms.TimelockProposal
+	MCMSTimelockProposals []mcmslib.TimelockProposal
 }
 
 var ConfigureDKG = operations.NewOperation(
@@ -88,6 +89,7 @@ var ConfigureDKG = operations.NewOperation(
 			Contract: contract.Contract,
 			DryRun:   input.DryRun,
 			UseMCMS:  input.UseMCMS(),
+			Strategy: deps.Strategy,
 		})
 		if err != nil {
 			return ConfigureDKGOpOutput{}, err
@@ -118,33 +120,11 @@ var ConfigureDKG = operations.NewOperation(
 				return out, fmt.Errorf("expected DKG capabilty contract %s to be owned by MCMS", contract.Contract.Address().String())
 			}
 
-			timelocksPerChain := map[uint64]string{
-				input.ChainSelector: contract.McmsContracts.Timelock.Address().Hex(),
-			}
-			proposerMCMSes := map[uint64]string{
-				input.ChainSelector: contract.McmsContracts.ProposerMcm.Address().Hex(),
-			}
-
-			inspector, err := proposalutils.McmsInspectorForChain(*deps.Env, input.ChainSelector)
-			if err != nil {
-				return ConfigureDKGOpOutput{}, err
-			}
-			inspectorPerChain := map[uint64]sdk.Inspector{
-				input.ChainSelector: inspector,
-			}
-			proposal, err := proposalutils.BuildProposalFromBatchesV2(
-				*deps.Env,
-				timelocksPerChain,
-				proposerMCMSes,
-				inspectorPerChain,
-				[]mcmstypes.BatchOperation{*resp.Ops},
-				"proposal to set DKG config",
-				proposalutils.TimelockConfig{MinDelay: input.MCMSConfig.MinDuration},
-			)
+			proposal, err := deps.Strategy.BuildProposal([]mcmstypes.BatchOperation{*resp.Ops})
 			if err != nil {
 				return out, fmt.Errorf("failed to build proposal: %w", err)
 			}
-			out.MCMSTimelockProposals = []mcms.TimelockProposal{*proposal}
+			out.MCMSTimelockProposals = []mcmslib.TimelockProposal{*proposal}
 		}
 		return out, nil
 	},
