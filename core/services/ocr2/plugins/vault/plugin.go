@@ -403,7 +403,7 @@ func (r *ReportingPlugin) observeGetSecretsRequest(ctx context.Context, reader R
 	encryptedSecret := hex.EncodeToString(secret.EncryptedSecret)
 	err = vaultcap.EnsureRightLabelOnSecret(r.cfg.PublicKey, encryptedSecret, secretRequest.Id.Owner)
 	if err != nil {
-		return nil, errors.New("failed to veify label on secret. error: " + err.Error())
+		return nil, errors.New("failed to verify label on secret. error: " + err.Error())
 	}
 
 	share, err := tdh2easy.Decrypt(ct, r.cfg.PrivateKeyShare)
