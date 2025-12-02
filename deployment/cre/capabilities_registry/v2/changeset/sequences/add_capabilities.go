@@ -202,15 +202,16 @@ var AddCapabilities = operations.NewSequence[AddCapabilitiesInput, AddCapabiliti
 
 		if input.MCMSConfig != nil {
 			ops := toOpsSlice(regCapsReport.Output.Operation, updateNodesReport.Output.Operation, updateDonReport.Output.Operation)
-			if len(ops) == 0 {
-				return AddCapabilitiesOutput{}, fmt.Errorf("no operations to execute")
-			}
-			proposal, mcmsErr := strategy.BuildProposal(ops)
-			if mcmsErr != nil {
-				return AddCapabilitiesOutput{}, fmt.Errorf("failed to build MCMS proposal: %w", mcmsErr)
-			}
+			if len(ops) > 0 {
+				proposal, mcmsErr := strategy.BuildProposal(ops)
+				if mcmsErr != nil {
+					return AddCapabilitiesOutput{}, fmt.Errorf("failed to build MCMS proposal: %w", mcmsErr)
+				}
 
-			proposals = append(proposals, *proposal)
+				proposals = append(proposals, *proposal)
+			} else {
+				deps.Env.Logger.Warnw("Add capability sequence have not produced any operations to execute")
+			}
 		}
 
 		return AddCapabilitiesOutput{
