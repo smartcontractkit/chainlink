@@ -557,58 +557,36 @@ func SendRequestEVM(
 		return nil, err
 	}
 
-	// Try the standard event filtering approach first
-	it, err := state.MustGetEVMChainState(cfg.SourceChain).OnRamp.FilterCCIPMessageSent(&bind.FilterOpts{
-		Start:   blockNum,
-		End:     &blockNum,
-		Context: context.Background(),
-	}, []uint64{cfg.DestChain}, []uint64{})
+	// Get transaction receipt and parse events directly from logs
+	receipt, err := e.BlockChains.EVMChains()[cfg.SourceChain].Client.TransactionReceipt(context.Background(), tx.Hash())
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to get transaction receipt: %w", err)
 	}
 
+	evmChainState := state.MustGetEVMChainState(cfg.SourceChain)
+	onRampAddr := evmChainState.OnRamp.Address()
+	onRamp := evmChainState.OnRamp
+
 	var msgSentEvent *ccipclient.AnyMsgSentEvent
-
-	// If standard filtering works, use it
-	if it.Next() {
-		msgSentEvent = &ccipclient.AnyMsgSentEvent{
-			SequenceNumber: it.Event.SequenceNumber,
-			RawEvent:       it.Event,
-		}
-	} else {
-		// Fallback: If filtering didn't find the event (likely onRamp ABI version mismatch),
-		// parse directly from transaction receipt logs
-		e.Logger.Warnf("Standard event filtering found no events, falling back to receipt log parsing (likely ABI version mismatch)")
-
-		receipt, err := e.BlockChains.EVMChains()[cfg.SourceChain].Client.TransactionReceipt(context.Background(), tx.Hash())
-		if err != nil {
-			return nil, fmt.Errorf("failed to get transaction receipt: %w", err)
-		}
-
-		evmChainState := state.MustGetEVMChainState(cfg.SourceChain)
-		onRampAddr := evmChainState.OnRamp.Address()
-		onRamp := evmChainState.OnRamp
-
-		for _, log := range receipt.Logs {
-			if log.Address == onRampAddr && len(log.Topics) > 0 {
-				event, err := onRamp.ParseCCIPMessageSent(*log)
-				if err == nil {
-					msgSentEvent = &ccipclient.AnyMsgSentEvent{
-						SequenceNumber: event.SequenceNumber,
-						RawEvent:       event,
-					}
-					break
+	for _, log := range receipt.Logs {
+		if log.Address == onRampAddr && len(log.Topics) > 0 {
+			// ParseCCIPMessageSent works for both v1.5 (CCIPSendRequested) and v1.6 (CCIPMessageSent)
+			// because the v1.6 binding includes both event signatures for backward compatibility
+			event, err := onRamp.ParseCCIPMessageSent(*log)
+			if err == nil {
+				msgSentEvent = &ccipclient.AnyMsgSentEvent{
+					SequenceNumber: event.SequenceNumber,
+					RawEvent:       event,
 				}
+				break
 			}
 		}
 	}
 
 	if msgSentEvent == nil {
-		return nil, fmt.Errorf("no CCIP message sent event found for tx %s in block %d (tried both filtering and receipt parsing)",
-			tx.Hash().String(), blockNum)
+		return nil, fmt.Errorf("no CCIP message sent event found for tx %s in block %d", tx.Hash().String(), blockNum)
 	}
 
-	// Log the successful message send
 	event := msgSentEvent.RawEvent.(*onramp.OnRampCCIPMessageSent)
 	e.Logger.Infof("CCIP message (id %s) sent from chain selector %d to chain selector %d tx %s seqNum %d nonce %d sender %s testRouterEnabled %t",
 		common.Bytes2Hex(event.Message.Header.MessageId[:]),
@@ -620,7 +598,6 @@ func SendRequestEVM(
 		event.Message.Sender.String(),
 		cfg.IsTestRouter,
 	)
-
 	return msgSentEvent, nil
 }
 
