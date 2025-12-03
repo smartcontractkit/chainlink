@@ -2,6 +2,7 @@ package tempo
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log"
 	"math/big"
@@ -46,20 +47,20 @@ func setFeeTokenLogic(env cldf.Environment, cfg SetFeeTokenConfig) (cldf.Changes
 
 	evmChain, ok := chain.(evm.Chain)
 	if !ok {
-		return out, fmt.Errorf("not an EVM chain")
+		return out, errors.New("not an EVM chain")
 	}
 
 	methodSig := []byte("setUserToken(address)")
-	selector := crypto.Keccak256(methodSig)[:4]
+	data := crypto.Keccak256(methodSig)[:4]
 
 	addressType, _ := abi.NewType("address", "", nil)
 	arguments := abi.Arguments{{Type: addressType}}
 	encodedArgs, err := arguments.Pack(tokenAddress)
 	if err != nil {
-		return out, fmt.Errorf("abi pack: %v", err)
+		return out, fmt.Errorf("abi pack: %w", err)
 	}
 
-	data := append(selector, encodedArgs...)
+	data = append(data, encodedArgs...)
 
 	tipCap, err := evmChain.Client.SuggestGasTipCap(ctx)
 	if err != nil {
@@ -79,7 +80,7 @@ func setFeeTokenLogic(env cldf.Environment, cfg SetFeeTokenConfig) (cldf.Changes
 
 	nonce, err := evmChain.Client.PendingNonceAt(ctx, evmChain.DeployerKey.From)
 	if err != nil {
-		return out, fmt.Errorf("could not get pending nonce: %v", err)
+		return out, fmt.Errorf("could not get pending nonce: %w", err)
 	}
 
 	tx := ethtypes.NewTx(&ethtypes.DynamicFeeTx{
@@ -94,7 +95,7 @@ func setFeeTokenLogic(env cldf.Environment, cfg SetFeeTokenConfig) (cldf.Changes
 
 	signedTx, err := evmChain.DeployerKey.Signer(evmChain.DeployerKey.From, tx)
 	if err != nil {
-		return out, fmt.Errorf("could not sign transaction")
+		return out, errors.New("could not sign transaction")
 	}
 
 	err = evmChain.Client.SendTransaction(context.Background(), signedTx)
