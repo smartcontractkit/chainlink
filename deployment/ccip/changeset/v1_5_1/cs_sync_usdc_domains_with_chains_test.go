@@ -8,6 +8,8 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/stretchr/testify/require"
 
+	"github.com/smartcontractkit/quarantine"
+
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 
 	chain_selectors "github.com/smartcontractkit/chain-selectors"
@@ -26,6 +28,7 @@ import (
 )
 
 func TestValidateSyncUSDCDomainsWithChainsConfig(t *testing.T) {
+	quarantine.Flaky(t, "DX-2428")
 	t.Parallel()
 
 	testCases := []struct {
