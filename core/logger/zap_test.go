@@ -277,14 +277,14 @@ func TestZapLogger_Cleanup(t *testing.T) {
 		ac.With([]zapcore.Field{})
 	}
 	// Without the cleanup triggered, all children should remain.
-	// (We assume that the cleanupInterval is sufficiently large to not yet trigger.)
+	// We assume that the cleanupInterval is sufficiently large to not yet trigger.
 	require.Equal(t, len(ac.children), l)
 
-	// Trigger cleanup manually
+	// Trigger cleanup manually.
 	runtime.GC()
 	ac.cleanup()
 	ac.With([]zapcore.Field{})
-	// Ideally, a.children should be 1 here, but since garbage collected weak pointers are not necessary nil we just
+	// Ideally, ac.children should be 1 here, but since garbage collected weak pointers are not necessary nil we just
 	// test that some have been cleaned up.
 	require.Less(t, len(ac.children), l)
 }
