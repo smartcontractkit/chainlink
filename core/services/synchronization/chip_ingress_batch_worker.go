@@ -151,9 +151,15 @@ func (cw *chipIngressBatchWorker) payloadToEvent(payload TelemPayload) (chipingr
 		return chipingress.CloudEvent{}, fmt.Errorf("failed creating CloudEvent: %w", err)
 	}
 
-	event.SetExtension("telemtype", string(payload.TelemType))
+	event.SetExtension("telemetrytype", string(payload.TelemType))
 	event.SetExtension("chainselector", strconv.FormatUint(payload.ChainSelector, 10))
 	event.SetExtension("contractid", payload.ContractID)
+	event.SetExtension("networkname", payload.Network)
+	event.SetExtension("sentat", now.Format(time.RFC3339))
+	// These attributes need to be set in chip-ingress server side
+	event.SetExtension("nodeoperatorname", "")
+	event.SetExtension("nodename", "")
+	event.SetExtension("nodecsapublickey", "")
 
 	return event, nil
 }

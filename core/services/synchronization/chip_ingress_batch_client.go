@@ -23,7 +23,7 @@ func (NoopChipIngressBatchClient) Start(context.Context) error { return nil }
 func (NoopChipIngressBatchClient) Close() error { return nil }
 
 // Send is a no-op
-func (NoopChipIngressBatchClient) Send(context.Context, []byte, string, TelemetryType, uint64, string, string) {
+func (NoopChipIngressBatchClient) Send(context.Context, []byte, string, TelemetryType, uint64, string, string, string) {
 }
 
 func (NoopChipIngressBatchClient) HealthReport() map[string]error { return map[string]error{} }
@@ -89,7 +89,7 @@ func (cc *chipIngressBatchClient) close() error {
 // Send directs incoming telmetry messages to the worker responsible for pushing it to
 // the ingress server. If the worker telemetry buffer is full, messages are dropped
 // and a warning is logged.
-func (cc *chipIngressBatchClient) Send(ctx context.Context, telemData []byte, contractID string, telemType TelemetryType, chainSelector uint64, domain string, entity string) {
+func (cc *chipIngressBatchClient) Send(ctx context.Context, telemData []byte, contractID string, telemType TelemetryType, chainSelector uint64, domain string, entity string, network string) {
 	payload := TelemPayload{
 		Telemetry:     telemData,
 		TelemType:     telemType,
@@ -97,6 +97,7 @@ func (cc *chipIngressBatchClient) Send(ctx context.Context, telemData []byte, co
 		ChainSelector: chainSelector,
 		Domain:        domain,
 		Entity:        entity,
+		Network:       network,
 	}
 	worker := cc.findOrCreateWorker(payload)
 

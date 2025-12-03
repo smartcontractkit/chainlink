@@ -37,6 +37,7 @@ func TestChipIngressBatchClient_HappyPath(t *testing.T) {
 		ChainSelector: 12345,
 		Domain:        "data-feeds",
 		Entity:        "ocr.v1.telemetry",
+		Network:       "ethereum-mainnet",
 	}
 	telemPayload3 := synchronization.TelemPayload{
 		Telemetry:     []byte("Mock telem 3"),
@@ -45,6 +46,7 @@ func TestChipIngressBatchClient_HappyPath(t *testing.T) {
 		ChainSelector: 67890,
 		Domain:        "functions",
 		Entity:        "ocr.v2.functions.telemetry",
+		Network:       "polygon-mainnet",
 	}
 
 	// Assert telemetry payloads for each contract are correctly sent to chip ingress
@@ -63,23 +65,31 @@ func TestChipIngressBatchClient_HappyPath(t *testing.T) {
 			if contractID == "0x1" {
 				contractCounter1.Add(1)
 				assert.Equal(t, telemPayload1.Telemetry, event.Data())
-				assert.Equal(t, string(synchronization.OCR), attrs["telemtype"].GetCeString())
+				assert.Equal(t, string(synchronization.OCR), attrs["telemetrytype"].GetCeString())
+				assert.Equal(t, telemPayload1.Network, attrs["networkname"].GetCeString())
+				assert.Equal(t, "", attrs["nodeoperatorname"].GetCeString())
+				assert.Equal(t, "", attrs["nodename"].GetCeString())
+				assert.Equal(t, "", attrs["nodecsapublickey"].GetCeString())
 			}
 			if contractID == "0x3" {
 				contractCounter3.Add(1)
 				assert.Equal(t, telemPayload3.Telemetry, event.Data())
-				assert.Equal(t, string(synchronization.OCR2Functions), attrs["telemtype"].GetCeString())
+				assert.Equal(t, string(synchronization.OCR2Functions), attrs["telemetrytype"].GetCeString())
+				assert.Equal(t, telemPayload3.Network, attrs["networkname"].GetCeString())
+				assert.Equal(t, "", attrs["nodeoperatorname"].GetCeString())
+				assert.Equal(t, "", attrs["nodename"].GetCeString())
+				assert.Equal(t, "", attrs["nodecsapublickey"].GetCeString())
 			}
 		}
 	})
 
 	// Send telemetry
 	testCtx := testutils.Context(t)
-	chipIngressClient.Send(testCtx, telemPayload1.Telemetry, telemPayload1.ContractID, telemPayload1.TelemType, telemPayload1.ChainSelector, telemPayload1.Domain, telemPayload1.Entity)
-	chipIngressClient.Send(testCtx, telemPayload3.Telemetry, telemPayload3.ContractID, telemPayload3.TelemType, telemPayload3.ChainSelector, telemPayload3.Domain, telemPayload3.Entity)
+	chipIngressClient.Send(testCtx, telemPayload1.Telemetry, telemPayload1.ContractID, telemPayload1.TelemType, telemPayload1.ChainSelector, telemPayload1.Domain, telemPayload1.Entity, telemPayload1.Network)
+	chipIngressClient.Send(testCtx, telemPayload3.Telemetry, telemPayload3.ContractID, telemPayload3.TelemType, telemPayload3.ChainSelector, telemPayload3.Domain, telemPayload3.Entity, telemPayload3.Network)
 	time.Sleep(sendInterval * 2)
-	chipIngressClient.Send(testCtx, telemPayload1.Telemetry, telemPayload1.ContractID, telemPayload1.TelemType, telemPayload1.ChainSelector, telemPayload1.Domain, telemPayload1.Entity)
-	chipIngressClient.Send(testCtx, telemPayload1.Telemetry, telemPayload1.ContractID, telemPayload1.TelemType, telemPayload1.ChainSelector, telemPayload1.Domain, telemPayload1.Entity)
+	chipIngressClient.Send(testCtx, telemPayload1.Telemetry, telemPayload1.ContractID, telemPayload1.TelemType, telemPayload1.ChainSelector, telemPayload1.Domain, telemPayload1.Entity, telemPayload1.Network)
+	chipIngressClient.Send(testCtx, telemPayload1.Telemetry, telemPayload1.ContractID, telemPayload1.TelemType, telemPayload1.ChainSelector, telemPayload1.Domain, telemPayload1.Entity, telemPayload1.Network)
 
 	// Wait for the telemetry to be handled
 	g.Eventually(func() []uint32 {
@@ -104,6 +114,7 @@ func TestChipIngressBatchClient_MultipleBatches(t *testing.T) {
 		ChainSelector: 12345,
 		Domain:        "data-feeds",
 		Entity:        "ocr.v2.median.telemetry",
+		Network:       "ethereum-mainnet",
 	}
 
 	var batchCount atomic.Uint32
@@ -114,7 +125,7 @@ func TestChipIngressBatchClient_MultipleBatches(t *testing.T) {
 	testCtx := testutils.Context(t)
 	// Send multiple messages to trigger multiple batches
 	for i := 0; i < 10; i++ {
-		chipIngressClient.Send(testCtx, telemPayload.Telemetry, telemPayload.ContractID, telemPayload.TelemType, telemPayload.ChainSelector, telemPayload.Domain, telemPayload.Entity)
+		chipIngressClient.Send(testCtx, telemPayload.Telemetry, telemPayload.ContractID, telemPayload.TelemType, telemPayload.ChainSelector, telemPayload.Domain, telemPayload.Entity, telemPayload.Network)
 		if i%3 == 0 {
 			time.Sleep(sendInterval * 2) // Allow batch to be sent
 		}
@@ -144,6 +155,7 @@ func TestChipIngressBatchClient_DifferentTelemetryTypes(t *testing.T) {
 		ChainSelector: 1,
 		Domain:        "data-feeds",
 		Entity:        "ocr.v1.telemetry",
+		Network:       "ethereum-mainnet",
 	}
 
 	payloadOCR2 := synchronization.TelemPayload{
@@ -153,6 +165,7 @@ func TestChipIngressBatchClient_DifferentTelemetryTypes(t *testing.T) {
 		ChainSelector: 1,
 		Domain:        "data-feeds",
 		Entity:        "ocr.v2.median.telemetry",
+		Network:       "ethereum-mainnet",
 	}
 
 	var ocrCount, ocr2Count atomic.Uint32
@@ -160,7 +173,7 @@ func TestChipIngressBatchClient_DifferentTelemetryTypes(t *testing.T) {
 		batch := args.Get(1).(*chipingress.CloudEventBatch)
 		for _, protoEvent := range batch.Events {
 			attrs := protoEvent.GetAttributes()
-			telemType := attrs["telemtype"].GetCeString()
+			telemType := attrs["telemetrytype"].GetCeString()
 			if telemType == string(synchronization.OCR) {
 				ocrCount.Add(1)
 			} else if telemType == string(synchronization.OCR2Median) {
@@ -170,8 +183,8 @@ func TestChipIngressBatchClient_DifferentTelemetryTypes(t *testing.T) {
 	})
 
 	testCtx := testutils.Context(t)
-	chipIngressClient.Send(testCtx, payloadOCR.Telemetry, payloadOCR.ContractID, payloadOCR.TelemType, payloadOCR.ChainSelector, payloadOCR.Domain, payloadOCR.Entity)
-	chipIngressClient.Send(testCtx, payloadOCR2.Telemetry, payloadOCR2.ContractID, payloadOCR2.TelemType, payloadOCR2.ChainSelector, payloadOCR2.Domain, payloadOCR2.Entity)
+	chipIngressClient.Send(testCtx, payloadOCR.Telemetry, payloadOCR.ContractID, payloadOCR.TelemType, payloadOCR.ChainSelector, payloadOCR.Domain, payloadOCR.Entity, payloadOCR.Network)
+	chipIngressClient.Send(testCtx, payloadOCR2.Telemetry, payloadOCR2.ContractID, payloadOCR2.TelemType, payloadOCR2.ChainSelector, payloadOCR2.Domain, payloadOCR2.Entity, payloadOCR2.Network)
 
 	g.Eventually(func() []uint32 {
 		return []uint32{ocrCount.Load(), ocr2Count.Load()}
@@ -194,6 +207,7 @@ func TestChipIngressBatchClient_ContextCancellation(t *testing.T) {
 		ChainSelector: 67890,
 		Domain:        "functions",
 		Entity:        "ocr.v2.functions.telemetry",
+		Network:       "ethereum-mainnet",
 	}
 
 	// Create a cancelled context
@@ -201,7 +215,7 @@ func TestChipIngressBatchClient_ContextCancellation(t *testing.T) {
 	cancel()
 
 	// Should not panic or block when context is cancelled
-	chipIngressClient.Send(ctx, telemPayload.Telemetry, telemPayload.ContractID, telemPayload.TelemType, telemPayload.ChainSelector, telemPayload.Domain, telemPayload.Entity)
+	chipIngressClient.Send(ctx, telemPayload.Telemetry, telemPayload.ContractID, telemPayload.TelemType, telemPayload.ChainSelector, telemPayload.Domain, telemPayload.Entity, telemPayload.Network)
 }
 
 func TestChipIngressBatchClient_WorkerReuse(t *testing.T) {
@@ -221,6 +235,7 @@ func TestChipIngressBatchClient_WorkerReuse(t *testing.T) {
 		ChainSelector: 99999,
 		Domain:        "automation",
 		Entity:        "ocr.v2.automation.telemetry",
+		Network:       "ethereum-mainnet",
 	}
 
 	var messageCount atomic.Uint32
@@ -232,7 +247,7 @@ func TestChipIngressBatchClient_WorkerReuse(t *testing.T) {
 	testCtx := testutils.Context(t)
 	// Send multiple messages with same contract and type - should reuse worker
 	for i := 0; i < 5; i++ {
-		chipIngressClient.Send(testCtx, telemPayload.Telemetry, telemPayload.ContractID, telemPayload.TelemType, telemPayload.ChainSelector, telemPayload.Domain, telemPayload.Entity)
+		chipIngressClient.Send(testCtx, telemPayload.Telemetry, telemPayload.ContractID, telemPayload.TelemType, telemPayload.ChainSelector, telemPayload.Domain, telemPayload.Entity, telemPayload.Network)
 	}
 
 	// Wait for all messages to be sent
@@ -259,6 +274,7 @@ func TestChipIngressBatchClient_ChainSelectorInAttributes(t *testing.T) {
 		ChainSelector: expectedChainSelector,
 		Domain:        "ccip",
 		Entity:        "ocr.v3.ccip.commit.telemetry",
+		Network:       "ethereum-mainnet",
 	}
 
 	var capturedChainSelector string
@@ -271,7 +287,7 @@ func TestChipIngressBatchClient_ChainSelectorInAttributes(t *testing.T) {
 	})
 
 	testCtx := testutils.Context(t)
-	chipIngressClient.Send(testCtx, telemPayload.Telemetry, telemPayload.ContractID, telemPayload.TelemType, telemPayload.ChainSelector, telemPayload.Domain, telemPayload.Entity)
+	chipIngressClient.Send(testCtx, telemPayload.Telemetry, telemPayload.ContractID, telemPayload.TelemType, telemPayload.ChainSelector, telemPayload.Domain, telemPayload.Entity, telemPayload.Network)
 
 	g.Eventually(func() string {
 		return capturedChainSelector
