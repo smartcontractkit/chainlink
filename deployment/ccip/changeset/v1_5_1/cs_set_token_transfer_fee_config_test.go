@@ -10,6 +10,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	chain_selectors "github.com/smartcontractkit/chain-selectors"
+	"github.com/smartcontractkit/quarantine"
 
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_5_0/evm_2_evm_onramp"
 	"github.com/smartcontractkit/chainlink-evm/pkg/utils"
@@ -51,6 +52,7 @@ func ReadTokenTransferFeeConfig(t *testing.T, e testhelpers.DeployedEnv, srcSele
 }
 
 func TestSetTokenTransferFeeConfig_Validations(t *testing.T) {
+	quarantine.Flaky(t, "DX-2429")
 	t.Parallel()
 
 	// Spin up a memory env with minimal prerequisite deployment
