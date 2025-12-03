@@ -250,7 +250,7 @@ func ExecuteEVMLogTriggerTest(t *testing.T, testEnv *ttypes.TestEnvironment) {
 
 		message := "Data for log trigger"
 		// start background event emission every 10s while AssertBeholderMessage is running, so that the workflow has events to pick up eventually
-		var amountEmittedEvents int64
+		var emittedEventCount int64
 		ticker := time.NewTicker(10 * time.Second)
 		go func() {
 			defer ticker.Stop()
@@ -259,10 +259,10 @@ func ExecuteEVMLogTriggerTest(t *testing.T, testEnv *ttypes.TestEnvironment) {
 				case <-listenerCtx.Done():
 					return
 				case <-ticker.C:
-					lggr.Info().Msgf("About to emit an event %d for chain %s", amountEmittedEvents, chainID)
+					lggr.Info().Msgf("About to emit event #%d for chain %s", emittedEventCount, chainID)
 					blockNumber := emitEvent(t, lggr, chainID, bcOutput, msgEmitter, message, workflowConfig)
 					lggr.Info().Msgf("Event emitted for chain %s at blockNumber %d", chainID, blockNumber)
-					amountEmittedEvents++
+					emittedEventCount++
 				}
 			}
 		}()
