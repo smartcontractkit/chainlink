@@ -92,7 +92,6 @@ func toByteSlices(addresses []string) [][]byte {
 }
 
 func onTrigger(cfg logtrigger.Config, runtime sdk.Runtime, outputs *evm.Log) (string, error) {
-	//runtime.Logger().Info("Trigger OnTrigger called", "outputs", outputs)
 	runtime.Logger().With().Info(fmt.Sprintf("OnTrigger txHash: %s log index: %d", hex.EncodeToString(outputs.TxHash), outputs.Index))
 	t := &T{Logger: runtime.Logger()}
 	require.NotNil(t, outputs, "Log input should not be nil")

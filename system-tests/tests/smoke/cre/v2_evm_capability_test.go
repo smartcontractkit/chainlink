@@ -168,14 +168,12 @@ func emitEvent(t *testing.T, lggr zerolog.Logger, chainID string, bcOutput block
 	lggr.Info().Msgf("Emitting event to be picked up by workflow for chain '%s'", chainID)
 	sethClient := bcOutput.(*evm.Blockchain).SethClient
 	emittingTx, err := msgEmitter.EmitMessage(sethClient.NewTXOpts(), expectedUserLog)
-	// require.NoError(t, err, "failed to emit message from contract '%s'", workflowConfig.Addresses[0])
 	if err != nil {
 		lggr.Info().Msgf("Failed to emit transaction for chain '%s': %v", chainID, err)
 		return 0
 	}
 
 	emittingReceipt, err := sethClient.WaitMined(t.Context(), lggr, sethClient.Client, emittingTx)
-	// require.NoError(t, err, "failed to get message emitter event tx")
 	if err != nil {
 		lggr.Info().Msgf("Failed to emit receipt for chain '%s': %v", chainID, err)
 		return 0
@@ -250,12 +248,9 @@ func ExecuteEVMLogTriggerTest(t *testing.T, testEnv *ttypes.TestEnvironment) {
 		err := t_helpers.AssertBeholderMessage(listenerCtx, t, triggersUpAndRunning, lggr, messageChan, kafkaErrChan, 4*time.Minute)
 		require.NoError(t, err, "LogTrigger capability test failed, Beholder should not return an error")
 
-		// wait for trigger to be registered across the workflow engine of all workflow nodes
-		time.Sleep(10 * time.Second)
-
 		message := "Data for log trigger"
-		// _ = emitEvent(t, lggr, chainID, bcOutput, msgEmitter, message, workflowConfig)
-		// start background event emission every 10s while AssertBeholderMessage is running
+		// start background event emission every 10s while AssertBeholderMessage is running, so that the workflow has events to pick up eventually
+		var amountEmittedEvents int64 = 0
 		ticker := time.NewTicker(10 * time.Second)
 		go func() {
 			defer ticker.Stop()
@@ -264,9 +259,10 @@ func ExecuteEVMLogTriggerTest(t *testing.T, testEnv *ttypes.TestEnvironment) {
 				case <-listenerCtx.Done():
 					return
 				case <-ticker.C:
-					lggr.Info().Msgf("About to emit an event for chain %s", chainID)
+					lggr.Info().Msgf("About to emit an event %d for chain %s", amountEmittedEvents, chainID)
 					blockNumber := emitEvent(t, lggr, chainID, bcOutput, msgEmitter, message, workflowConfig)
 					lggr.Info().Msgf("Event emitted for chain %s at blockNumber %d", chainID, blockNumber)
+					amountEmittedEvents++
 				}
 			}
 		}()
