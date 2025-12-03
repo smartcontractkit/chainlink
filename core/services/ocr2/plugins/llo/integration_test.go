@@ -580,23 +580,22 @@ channelDefinitionsContractFromBlock = %d`, serverURL, serverPubKey, donID, confi
 				err = reportcodecv3.ReportTypes.UnpackIntoMap(reportElems, report.([]byte))
 				require.NoError(t, err)
 
-				feedID := reportElems["feedId"].(common.Hash)
+				feedID := reportElems["feedId"].([32]uint8)
 
 				if _, exists := seen[feedID]; !exists {
 					continue // already saw all oracles for this feed
 				}
 
 				var expectedBm, expectedBid, expectedAsk *big.Int
-				switch feedID {
-				case quoteStreamFeedID1:
+				if feedID == quoteStreamFeedID1 {
 					expectedBm = quoteStream1.baseBenchmarkPrice.Mul(multiplier).BigInt()
 					expectedBid = quoteStream1.baseBid.Mul(multiplier).BigInt()
 					expectedAsk = quoteStream1.baseAsk.Mul(multiplier).BigInt()
-				case quoteStreamFeedID2:
+				} else if feedID == quoteStreamFeedID2 {
 					expectedBm = quoteStream2.baseBenchmarkPrice.Mul(multiplier).BigInt()
 					expectedBid = quoteStream2.baseBid.Mul(multiplier).BigInt()
 					expectedAsk = quoteStream2.baseAsk.Mul(multiplier).BigInt()
-				default:
+				} else {
 					t.Fatalf("unrecognized feedID: 0x%x", feedID)
 				}
 
