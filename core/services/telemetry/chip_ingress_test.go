@@ -27,8 +27,8 @@ func (m *MockChipIngressService) Close() error {
 	return args.Error(0)
 }
 
-func (m *MockChipIngressService) Send(ctx context.Context, telemetry []byte, contractID string, telemType synchronization.TelemetryType, chainSelector uint64, domain string, entity string) {
-	m.Called(ctx, telemetry, contractID, telemType, chainSelector, domain, entity)
+func (m *MockChipIngressService) Send(ctx context.Context, telemetry []byte, contractID string, telemType synchronization.TelemetryType, chainSelector uint64, domain string, entity string, network string) {
+	m.Called(ctx, telemetry, contractID, telemType, chainSelector, domain, entity, network)
 }
 
 func (m *MockChipIngressService) HealthReport() map[string]error {
@@ -66,8 +66,8 @@ func TestNewChipIngressAdapter(t *testing.T) {
 		assert.Equal(t, contractID, adapter.ContractID)
 
 		// Verify domain and entity were derived correctly
-		assert.Equal(t, "data-feeds", adapter.Domain)
-		assert.Equal(t, "ocr.v2.median.telemetry", adapter.Entity)
+		assert.Equal(t, "data-feeds.telemetry.ocr2-median", adapter.Domain)
+		assert.Equal(t, "offchainreporting2.TelemetryWrapper", adapter.Entity)
 	})
 
 	t.Run("Success - Polygon", func(t *testing.T) {
@@ -83,8 +83,8 @@ func TestNewChipIngressAdapter(t *testing.T) {
 		assert.Equal(t, "137", adapter.ChainID)
 
 		// Verify domain and entity for CCIP commit
-		assert.Equal(t, "ccip", adapter.Domain)
-		assert.Equal(t, "ocr.v3.ccip.commit.telemetry", adapter.Entity)
+		assert.Equal(t, "ccip.telemetry.ocr3", adapter.Domain)
+		assert.Equal(t, "offchainreporting3.TelemetryWrapper", adapter.Entity)
 	})
 
 	t.Run("Success - Arbitrum One", func(t *testing.T) {
@@ -149,9 +149,9 @@ func TestChipIngressAdapter_SendLog(t *testing.T) {
 		adapter, err := NewChipIngressAgent(mockTelemService, "EVM", "1", contractID, telemType, lggr)
 		require.NoError(t, err)
 
-		// Setup expectations - now includes chainSelector, domain, entity
+		// Setup expectations - now includes chainSelector, domain, entity, network
 		mockTelemService.
-			On("Send", mock.Anything, telemetryLog, contractID, telemType, adapter.ChainSelector, adapter.Domain, adapter.Entity).
+			On("Send", mock.Anything, telemetryLog, contractID, telemType, adapter.ChainSelector, adapter.Domain, adapter.Entity, adapter.Network).
 			Once()
 
 		// Call SendLog
@@ -172,7 +172,7 @@ func TestChipIngressAdapter_SendLog(t *testing.T) {
 		require.NoError(t, err)
 
 		// Setup expectations - Send doesn't return an error
-		mockTelemService.On("Send", mock.Anything, telemetryLog, contractID, telemType, adapter.ChainSelector, adapter.Domain, adapter.Entity).
+		mockTelemService.On("Send", mock.Anything, telemetryLog, contractID, telemType, adapter.ChainSelector, adapter.Domain, adapter.Entity, adapter.Network).
 			Once()
 
 		// Call SendLog - should not panic
@@ -197,9 +197,9 @@ func TestChipIngressAdapter_SendLog(t *testing.T) {
 		log2 := []byte("log 2")
 		log3 := []byte("log 3")
 
-		mockTelemService.On("Send", mock.Anything, log1, contractID, telemType, adapter.ChainSelector, adapter.Domain, adapter.Entity).Once()
-		mockTelemService.On("Send", mock.Anything, log2, contractID, telemType, adapter.ChainSelector, adapter.Domain, adapter.Entity).Once()
-		mockTelemService.On("Send", mock.Anything, log3, contractID, telemType, adapter.ChainSelector, adapter.Domain, adapter.Entity).Once()
+		mockTelemService.On("Send", mock.Anything, log1, contractID, telemType, adapter.ChainSelector, adapter.Domain, adapter.Entity, adapter.Network).Once()
+		mockTelemService.On("Send", mock.Anything, log2, contractID, telemType, adapter.ChainSelector, adapter.Domain, adapter.Entity, adapter.Network).Once()
+		mockTelemService.On("Send", mock.Anything, log3, contractID, telemType, adapter.ChainSelector, adapter.Domain, adapter.Entity, adapter.Network).Once()
 
 		// Send multiple logs
 		adapter.SendLog(log1)
@@ -236,11 +236,11 @@ func TestChipIngressAdapter_ExportedFields(t *testing.T) {
 	})
 
 	t.Run("Domain", func(t *testing.T) {
-		assert.Equal(t, "data-streams", adapter.Domain)
+		assert.Equal(t, "data-streams.telemetry.ocr3-mercury", adapter.Domain)
 	})
 
 	t.Run("Entity", func(t *testing.T) {
-		assert.Equal(t, "ocr.v3.mercury.telemetry", adapter.Entity)
+		assert.Equal(t, "offchainreporting3.TelemetryWrapper", adapter.Entity)
 	})
 }
 
@@ -256,7 +256,7 @@ func TestChipIngressAdapter_InterfaceCompliance(t *testing.T) {
 	var _ interface{} = adapter
 
 	// Call the interface method
-	mockTelemService.On("Send", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything)
+	mockTelemService.On("Send", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything)
 	adapter.SendLog([]byte("test"))
-	mockTelemService.AssertCalled(t, "Send", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything)
+	mockTelemService.AssertCalled(t, "Send", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything)
 }

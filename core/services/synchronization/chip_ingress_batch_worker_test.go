@@ -87,9 +87,9 @@ func TestChipIngressBatchWorker_BuildCloudEventBatch(t *testing.T) {
 	assert.Equal(t, []byte("payload-1"), evt.Data())
 
 	attrs := batch1.Events[0].GetAttributes()
-	require.Contains(t, attrs, "telemtype")
+	require.Contains(t, attrs, "telemetrytype")
 	require.Contains(t, attrs, "chainselector")
-	assert.Equal(t, string(OCR), attrs["telemtype"].GetCeString())
+	assert.Equal(t, string(OCR), attrs["telemetrytype"].GetCeString())
 	assert.Equal(t, "7700", attrs["chainselector"].GetCeString())
 
 	batch2 := worker.BuildCloudEventBatch()
@@ -126,5 +126,5 @@ func TestChipIngressBatchWorker_BuildCloudEventBatchUsesMapping(t *testing.T) {
 
 	evt, err := chipingress.ProtoToEvent(batch.Events[0])
 	require.NoError(t, err)
-	assert.Equal(t, "data-feeds", evt.Source())
+	assert.Equal(t, "data-feeds.telemetry.ocr", evt.Source())
 }
