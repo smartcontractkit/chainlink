@@ -286,18 +286,6 @@ func GetChainReaderConfig() (config.ChainReaderConfig, error) {
 						Name: "get_static_config",
 					},
 					consts.MethodNameOnRampGetDestChainConfig: {
-						Name: "get_dest_chain_config",
-						Params: []config.AptosFunctionParam{
-							{
-								Name:     "destChainSelector",
-								Type:     "u64",
-								Required: true,
-							},
-						},
-						ResultTupleToStruct: []string{"sequenceNumber", "allowListEnabled", "router"},
-					},
-					// OnrampV2 method - new functionality with router_state_address (4 fields)
-					"OnRampGetDestChainConfigV2": {
 						Name: "get_dest_chain_config_v2",
 						Params: []config.AptosFunctionParam{
 							{

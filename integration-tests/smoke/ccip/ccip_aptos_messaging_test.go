@@ -41,14 +41,6 @@ func Test_CCIP_Messaging_EVM2Aptos(t *testing.T) {
 	evmChainSelectors := e.Env.BlockChains.ListChainSelectors(chain.WithFamily(chain_selectors.FamilyEVM))
 	aptosChainSelectors := e.Env.BlockChains.ListChainSelectors(chain.WithFamily(chain_selectors.FamilyAptos))
 
-	lggr.Infow("Environment chain status",
-		"evmChainCount", len(evmChainSelectors),
-		"aptosChainCount", len(aptosChainSelectors),
-		"evmSelectors", evmChainSelectors,
-		"aptosSelectors", aptosChainSelectors,
-		"allAptosChains", len(e.Env.BlockChains.AptosChains()),
-	)
-
 	// Deploy the dummy receiver contract
 	testhelpers.DeployAptosCCIPReceiver(t, e.Env)
 
