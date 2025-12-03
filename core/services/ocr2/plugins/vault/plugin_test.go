@@ -5,6 +5,7 @@ import (
 	"encoding/hex"
 	"testing"
 
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/ocr3_1types"
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/ocr3types"
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/types"
@@ -685,7 +686,7 @@ func TestPlugin_Observation_GetSecretsRequest_PublicKeyIsInvalid(t *testing.T) {
 	assert.Contains(t, resp.GetError(), "failed to convert public key to bytes")
 }
 
-func TestPlugin_Observation_GetSecretsRequest_Success(t *testing.T) {
+func TestPlugin_Observation_GetSecretsRequest_SecretLabelIsInvalid(t *testing.T) {
 	lggr, _ := logger.TestLoggerObserved(t, zapcore.DebugLevel)
 	store := requests.NewStore[*vaulttypes.Request]()
 	_, pk, shares, err := tdh2easy.GenerateKeys(1, 3)
@@ -716,7 +717,94 @@ func TestPlugin_Observation_GetSecretsRequest_Success(t *testing.T) {
 	}
 
 	plaintext := []byte("my-secret-value")
-	ciphertext, err := tdh2easy.Encrypt(pk, plaintext)
+	var label [32]byte
+	ownerAddress := common.HexToAddress("0x0001020304050607080900010203040506070809")
+	copy(label[12:], ownerAddress.Bytes()) // left-pad with 12 zero
+	ciphertext, err := tdh2easy.EncryptWithLabel(pk, plaintext, label)
+	require.NoError(t, err)
+	ciphertextBytes, err := ciphertext.Marshal()
+	require.NoError(t, err)
+
+	err = NewWriteStore(rdr).WriteSecret(id, &vaultcommon.StoredSecret{
+		EncryptedSecret: ciphertextBytes,
+	})
+	require.NoError(t, err)
+
+	pubK, _, err := box.GenerateKey(rand.Reader)
+	require.NoError(t, err)
+
+	pks := hex.EncodeToString(pubK[:])
+
+	p := &vaultcommon.GetSecretsRequest{
+		Requests: []*vaultcommon.SecretRequest{
+			{
+				Id:             id,
+				EncryptionKeys: []string{pks},
+			},
+		},
+	}
+	err = store.Add(&vaulttypes.Request{Payload: p})
+	require.NoError(t, err)
+	seqNr := uint64(1)
+	data, err := r.Observation(t.Context(), seqNr, types.AttributedQuery{}, rdr, nil)
+	require.NoError(t, err)
+
+	obs := &vaultcommon.Observations{}
+	err = proto.Unmarshal(data, obs)
+	require.NoError(t, err)
+
+	assert.Len(t, obs.Observations, 1)
+	o := obs.Observations[0]
+
+	assert.Equal(t, vaultcommon.RequestType_GET_SECRETS, o.RequestType)
+	assert.True(t, proto.Equal(o.GetGetSecretsRequest(), p))
+
+	batchResp := o.GetGetSecretsResponse()
+	assert.Len(t, p.Requests, 1)
+	assert.Len(t, p.Requests, len(batchResp.Responses))
+
+	assert.True(t, proto.Equal(p.Requests[0].Id, batchResp.Responses[0].Id))
+	resp := batchResp.Responses[0]
+
+	assert.Contains(t, resp.GetError(), "failed to handle get secret request")
+}
+
+func TestPlugin_Observation_GetSecretsRequest_Success(t *testing.T) {
+	lggr, _ := logger.TestLoggerObserved(t, zapcore.DebugLevel)
+	store := requests.NewStore[*vaulttypes.Request]()
+	_, pk, shares, err := tdh2easy.GenerateKeys(1, 3)
+	require.NoError(t, err)
+	r := &ReportingPlugin{
+		lggr:  lggr,
+		store: store,
+		cfg: makeReportingPluginConfig(
+			t,
+			10,
+			pk,
+			shares[0],
+			1,
+			1024,
+			100,
+			100,
+			100,
+		),
+	}
+
+	owner := "0x0001020304050607080900010203040506070809"
+	id := &vaultcommon.SecretIdentifier{
+		Owner:     owner,
+		Namespace: "main",
+		Key:       "my_secret",
+	}
+	rdr := &kv{
+		m: make(map[string]response),
+	}
+
+	plaintext := []byte("my-secret-value")
+	var label [32]byte
+	ownerAddress := common.HexToAddress(owner)
+	copy(label[12:], ownerAddress.Bytes()) // left-pad with 12 zero
+	ciphertext, err := tdh2easy.EncryptWithLabel(pk, plaintext, label)
 	require.NoError(t, err)
 	ciphertextBytes, err := ciphertext.Marshal()
 	require.NoError(t, err)

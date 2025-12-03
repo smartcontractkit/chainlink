@@ -173,7 +173,6 @@ func NewStandaloneEngine(
 		LocalLimits:                       v2.EngineLimits{},
 		LocalLimiters:                     limiters,
 		GlobalExecutionConcurrencyLimiter: workflowLimits,
-		GlobalExecutionRateLimiter:        rl,
 
 		BeholderEmitter: custmsg.NewLabeler(),
 

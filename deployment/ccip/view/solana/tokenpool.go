@@ -13,9 +13,9 @@ import (
 	solTestTokenPool "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/v0_1_1/test_token_pool"
 	solTokenUtil "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/tokens"
 
-	solanashared "github.com/smartcontractkit/chainlink/deployment"
 	ccipshared "github.com/smartcontractkit/chainlink/deployment/ccip/shared"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/view/shared"
+	"github.com/smartcontractkit/chainlink/deployment/utils/solutils"
 )
 
 type TokenPoolView struct {
@@ -66,11 +66,11 @@ type TokenPoolRateLimitTokenBucket struct {
 func GenerateTokenPoolView(chain cldf_solana.Chain, program solana.PublicKey, remoteChains []uint64, tokens []solana.PublicKey, poolType string, poolMetadata string) (TokenPoolView, error) {
 	view := TokenPoolView{}
 	view.PoolType = poolType
-	progDataAddr, err := solanashared.GetProgramDataAddress(chain.Client, program)
+	progDataAddr, err := solutils.GetProgramDataAddress(chain.Client, program)
 	if err != nil {
 		return view, fmt.Errorf("failed to get program data address for program %s: %w", program.String(), err)
 	}
-	authority, _, err := solanashared.GetUpgradeAuthority(chain.Client, progDataAddr)
+	authority, _, err := solutils.GetUpgradeAuthority(chain.Client, progDataAddr)
 	if err != nil {
 		return view, fmt.Errorf("failed to get upgrade authority for program data %s: %w", progDataAddr.String(), err)
 	}
