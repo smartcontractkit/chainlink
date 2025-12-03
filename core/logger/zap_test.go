@@ -256,7 +256,7 @@ func TestZapLogger_LogCaller(t *testing.T) {
 	logs := string(b)
 	lines := strings.Split(logs, "\n")
 
-	require.Contains(t, lines[0], "logger/zap_test.go:246")
+	require.Contains(t, lines[0], "logger/zap_test.go:247")
 }
 
 func TestZapLogger_Name(t *testing.T) {
