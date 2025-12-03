@@ -15,7 +15,6 @@ import (
 	configtoml "github.com/smartcontractkit/chainlink-evm/pkg/config/toml"
 	"github.com/smartcontractkit/chainlink/v2/core/cmd"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
-	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/solanatest"
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 )
 
@@ -109,7 +108,7 @@ func solanaStartNewApplication(t *testing.T, cfgs ...*solcfg.TOMLConfig) *cltest
 func TestShell_IndexSolanaNodes(t *testing.T) {
 	t.Parallel()
 
-	id := solanatest.RandomChainID()
+	id := "22222222222222222222222222222222222222222222"
 	node1 := solcfg.Node{
 		Name: ptr("first"),
 		URL:  config.MustParseURL("https://solana1.example"),

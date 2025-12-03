@@ -227,36 +227,36 @@
     },
     {
       "type": "checks",
-      "id": "Solana.Bar.Chain",
+      "id": "Solana.22222222222222222222222222222222222222222222.Chain",
       "attributes": {
-        "name": "Solana.Bar.Chain",
+        "name": "Solana.22222222222222222222222222222222222222222222.Chain",
         "status": "passing",
         "output": ""
       }
     },
     {
       "type": "checks",
-      "id": "Solana.Bar.Chain.BalanceMonitor",
+      "id": "Solana.22222222222222222222222222222222222222222222.Chain.BalanceMonitor",
       "attributes": {
-        "name": "Solana.Bar.Chain.BalanceMonitor",
+        "name": "Solana.22222222222222222222222222222222222222222222.Chain.BalanceMonitor",
         "status": "passing",
         "output": ""
       }
     },
     {
       "type": "checks",
-      "id": "Solana.Bar.Chain.Txm",
+      "id": "Solana.22222222222222222222222222222222222222222222.Chain.Txm",
       "attributes": {
-        "name": "Solana.Bar.Chain.Txm",
+        "name": "Solana.22222222222222222222222222222222222222222222.Chain.Txm",
         "status": "passing",
         "output": ""
       }
     },
     {
       "type": "checks",
-      "id": "Solana.Bar.Relayer",
+      "id": "Solana.22222222222222222222222222222222222222222222.Relayer",
       "attributes": {
-        "name": "Solana.Bar.Relayer",
+        "name": "Solana.22222222222222222222222222222222222222222222.Relayer",
         "status": "passing",
         "output": ""
       }

@@ -18220,6 +18220,7 @@ BlockHistoryBatchLoadSize = 20 # Default
 ComputeUnitLimitDefault = 200_000 # Default
 EstimateComputeUnitLimit = false # Default
 LogPollerStartingLookback = '24h0m0s' # Default
+LogPoller2538Enabled = false # Default
 ```
 
 
@@ -18385,6 +18386,12 @@ EstimateComputeUnitLimit enables or disables compute unit limit estimations per 
 LogPollerStartingLookback = '24h0m0s' # Default
 ```
 LogPollerStartingLookback
+
+### LogPoller2538Enabled
+```toml
+LogPoller2538Enabled = false # Default
+```
+LogPoller2538Enabled
 
 ## Solana.Workflow
 ```toml

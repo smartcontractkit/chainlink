@@ -368,12 +368,12 @@ func TestSetupSolanaRelayer(t *testing.T) {
 	tConfig := configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
 		c.Solana = solcfg.TOMLConfigs{
 			&solcfg.TOMLConfig{
-				ChainID: ptr[string]("solana-id-1"),
+				ChainID: ptr[string]("22222222222222222222222222222222222222222222"),
 				Enabled: ptr(true),
 				Nodes:   []*solcfg.Node{},
 			},
 			&solcfg.TOMLConfig{
-				ChainID: ptr[string]("solana-id-2"),
+				ChainID: ptr[string]("33333333333333333333333333333333333333333333"),
 				Enabled: ptr(true),
 				Nodes:   []*solcfg.Node{},
 			},
@@ -391,7 +391,7 @@ func TestSetupSolanaRelayer(t *testing.T) {
 	t2Config := configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
 		c.Solana = solcfg.TOMLConfigs{
 			&solcfg.TOMLConfig{
-				ChainID: ptr[string]("solana-id-1"),
+				ChainID: ptr[string]("22222222222222222222222222222222222222222222"),
 				Enabled: ptr(true),
 				Nodes:   []*solcfg.Node{},
 			},

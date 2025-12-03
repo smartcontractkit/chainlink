@@ -26,17 +26,22 @@ import (
 // TODO: move this test to `chainlink-solana` https://smartcontract-it.atlassian.net/browse/NONEVM-790
 func TestShell_SolanaSendSol(t *testing.T) {
 	ctx := testutils.Context(t)
-	chainID := "localnet"
+	chainID := "22222222222222222222222222222222222222222222"
 	url := solanatesting.SetupLocalSolNode(t)
 	node := solcfg.Node{
 		Name: ptr(t.Name()),
 		URL:  config.MustParseURL(url),
 	}
+
+	multiNodeCfg := solcfg.NewDefaultMultiNodeConfig()
+	multiNodeCfg.MultiNode.VerifyChainID = ptr(false)
 	cfg := solcfg.TOMLConfig{
-		ChainID: &chainID,
-		Nodes:   solcfg.Nodes{&node},
-		Enabled: ptr(true),
+		ChainID:   &chainID,
+		Nodes:     solcfg.Nodes{&node},
+		Enabled:   ptr(true),
+		MultiNode: multiNodeCfg,
 	}
+
 	app := solanaStartNewApplication(t, &cfg)
 	from, err := app.GetKeyStore().Solana().Create(ctx)
 	require.NoError(t, err)

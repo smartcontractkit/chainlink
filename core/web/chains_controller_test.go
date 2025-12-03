@@ -1,7 +1,6 @@
 package web_test
 
 import (
-	"fmt"
 	"math/big"
 	"net/http"
 	"sort"
@@ -11,7 +10,6 @@ import (
 	"github.com/manyminds/api2go/jsonapi"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"golang.org/x/exp/rand"
 
 	"github.com/smartcontractkit/quarantine"
 
@@ -233,7 +231,7 @@ func setupEVMChainsControllerTest(t *testing.T, cfg chainlink.GeneralConfig) *Te
 func Test_SolanaChainsController_Show(t *testing.T) {
 	t.Parallel()
 
-	const validID = "Chainlink-12"
+	const validID = "22222222222222222222222222222222222222222222"
 
 	testCases := []struct {
 		name           string
@@ -248,7 +246,7 @@ func Test_SolanaChainsController_Show(t *testing.T) {
 				return &commonTypes.ChainStatus{
 					ID:      validID,
 					Enabled: true,
-					Config: `ChainID = 'Chainlink-12'
+					Config: `ChainID = '22222222222222222222222222222222222222222222'
 Enabled = true
 BlockTime = '500ms'
 BalancePollPeriod = '5s'
@@ -274,6 +272,7 @@ BlockHistoryBatchLoadSize = 20
 ComputeUnitLimitDefault = 200000
 EstimateComputeUnitLimit = false
 LogPollerStartingLookback = '24h0m0s'
+LogPoller2538Enabled = false
 Nodes = []
 
 [Workflow]
@@ -357,13 +356,13 @@ func Test_SolanaChainsController_Index(t *testing.T) {
 	t.Parallel()
 
 	chainA := &config.TOMLConfig{
-		ChainID: ptr(fmt.Sprintf("ChainlinktestA-%d", rand.Int31n(999999))),
+		ChainID: ptr("33333333333333333333333333333333333333333333"),
 		Chain: config.Chain{
 			TxTimeout: commoncfg.MustNewDuration(time.Hour),
 		},
 	}
 	chainB := &config.TOMLConfig{
-		ChainID: ptr(fmt.Sprintf("ChainlinktestB-%d", rand.Int31n(999999))),
+		ChainID: ptr("44444444444444444444444444444444444444444444"),
 		Chain: config.Chain{
 			SkipPreflight: ptr(false),
 		},
