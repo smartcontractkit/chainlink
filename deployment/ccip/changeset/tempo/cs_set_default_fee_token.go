@@ -15,31 +15,19 @@ import (
 	"github.com/smartcontractkit/chainlink-deployments-framework/chain"
 	"github.com/smartcontractkit/chainlink-deployments-framework/chain/evm"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
-	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
 )
 
-var SetFeeTokenChangeset = cldf.CreateChangeSet(setFeeTokenLogic, setFeeTokenPreCondition)
+var SetFeeTokenChangeset = cldf.CreateLegacyChangeSet(setFeeTokenLogic)
 
 type SetFeeTokenConfig struct {
 	ChainSel          uint64
-	FeeTokenAddress   string
-	FeeManagerAddress string
-}
-
-func setFeeTokenPreCondition(env cldf.Environment, cfg SetFeeTokenConfig) error {
-	_, err := stateview.LoadOnchainState(env)
-	if err != nil {
-		return fmt.Errorf("failed to load onchain state: %w", err)
-	}
-	return nil
+	FeeTokenAddress   common.Address
+	FeeManagerAddress common.Address
 }
 
 func setFeeTokenLogic(env cldf.Environment, cfg SetFeeTokenConfig) (cldf.ChangesetOutput, error) {
 	out := cldf.ChangesetOutput{}
 	ctx := context.Background()
-
-	tokenAddress := common.HexToAddress(cfg.FeeTokenAddress)
-	feeManagerAddress := common.HexToAddress(cfg.FeeManagerAddress)
 
 	chain, err := findChainBySelector(env, cfg.ChainSel)
 	if err != nil {
@@ -56,7 +44,7 @@ func setFeeTokenLogic(env cldf.Environment, cfg SetFeeTokenConfig) (cldf.Changes
 
 	addressType, _ := abi.NewType("address", "", nil)
 	arguments := abi.Arguments{{Type: addressType}}
-	encodedArgs, err := arguments.Pack(tokenAddress)
+	encodedArgs, err := arguments.Pack(cfg.FeeTokenAddress)
 	if err != nil {
 		return out, fmt.Errorf("abi pack: %w", err)
 	}
@@ -89,7 +77,7 @@ func setFeeTokenLogic(env cldf.Environment, cfg SetFeeTokenConfig) (cldf.Changes
 		GasTipCap: tipCap,
 		GasFeeCap: feeCap,
 		Gas:       200000,
-		To:        &feeManagerAddress,
+		To:        &cfg.FeeManagerAddress,
 		Value:     big.NewInt(0),
 		Data:      data,
 	})
