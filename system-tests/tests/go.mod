@@ -86,7 +86,7 @@ require (
 	github.com/hashicorp/golang-lru/v2 v2.0.7 // indirect
 	github.com/influxdata/tdigest v0.0.2-0.20210216194612-fc98d27c9e8b // indirect
 	github.com/smartcontractkit/chainlink-ccip/ccv/chains/evm v0.0.0-20251127040717-30244f57ea7a // indirect
-	github.com/smartcontractkit/chainlink-ccv v0.0.0-20251127140025-e21beb7b6213 // indirect
+	github.com/smartcontractkit/chainlink-ccv v0.0.0-20251201171152-bd4501ddf2b1 // indirect
 	github.com/smartcontractkit/chainlink-protos/chainlink-ccv/go v0.0.0-20251126123859-d079d6815edb // indirect
 )
 
