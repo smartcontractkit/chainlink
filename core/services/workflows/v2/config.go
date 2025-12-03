@@ -47,8 +47,7 @@ type EngineConfig struct {
 
 	LocalLimits                       EngineLimits
 	LocalLimiters                     *EngineLimiters
-	GlobalExecutionConcurrencyLimiter limits.ResourceLimiter[int] // global + per owner
-	GlobalExecutionRateLimiter        limits.RateLimiter          // global + per owner
+	GlobalExecutionConcurrencyLimiter limits.ResourceLimiter[int] // global + per owner WorkflowExecutionConcurrencyLimit
 
 	BeholderEmitter custmsg.MessageEmitter
 
@@ -267,9 +266,6 @@ func (c *EngineConfig) Validate() error {
 	c.LocalLimits.setDefaultLimits()
 	if c.GlobalExecutionConcurrencyLimiter == nil {
 		return errors.New("execution concurrency limiter not set")
-	}
-	if c.GlobalExecutionRateLimiter == nil {
-		return errors.New("execution rate limiter not set")
 	}
 
 	if c.BeholderEmitter == nil {

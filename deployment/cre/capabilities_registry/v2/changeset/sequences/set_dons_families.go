@@ -7,6 +7,7 @@ import (
 	"github.com/Masterminds/semver/v3"
 	"github.com/ethereum/go-ethereum/common"
 	mcmslib "github.com/smartcontractkit/mcms"
+	"github.com/smartcontractkit/mcms/types"
 
 	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
@@ -15,7 +16,8 @@ import (
 
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset/state"
 	"github.com/smartcontractkit/chainlink/deployment/cre/capabilities_registry/v2/changeset/operations/contracts"
-	"github.com/smartcontractkit/chainlink/deployment/cre/ocr3"
+	"github.com/smartcontractkit/chainlink/deployment/cre/common/strategies"
+	crecontracts "github.com/smartcontractkit/chainlink/deployment/cre/contracts"
 )
 
 type SetDONsFamiliesDeps struct {
@@ -28,7 +30,7 @@ type SetDONsFamiliesInput struct {
 
 	RegistryRef datastore.AddressRefKey
 
-	MCMSConfig *ocr3.MCMSConfig
+	MCMSConfig *crecontracts.MCMSConfig
 }
 
 func (i *SetDONsFamiliesInput) Validate() error {
@@ -75,14 +77,31 @@ var SetDONsFamilies = operations.NewSequence[SetDONsFamiliesInput, SetDONsFamili
 			return SetDONsFamiliesOutput{}, fmt.Errorf("failed to create CapabilitiesRegistry: %w", err)
 		}
 
-		var proposals []mcmslib.TimelockProposal
+		// Create the appropriate strategy
+		strategy, err := strategies.CreateStrategy(
+			chain,
+			*deps.Env,
+			input.MCMSConfig,
+			deps.MCMSContracts,
+			capReg.Address(),
+			contracts.SetDONFamiliesDescription,
+		)
+		if err != nil {
+			return SetDONsFamiliesOutput{}, fmt.Errorf("failed to create strategy: %w", err)
+		}
+
+		var mcmsOperations []types.BatchOperation
 		var donsInfo []capabilities_registry_v2.CapabilitiesRegistryDONInfo
 
 		for _, change := range input.DONsChanges {
 			report, err := operations.ExecuteOperation(
 				b,
 				contracts.SetDONFamilies,
-				contracts.SetDONFamiliesDeps{Env: deps.Env, CapabilitiesRegistry: capReg, MCMSContracts: deps.MCMSContracts},
+				contracts.SetDONFamiliesDeps{
+					Env:                  deps.Env,
+					CapabilitiesRegistry: capReg,
+					Strategy:             strategy,
+				},
 				contracts.SetDONFamiliesInput{
 					DonName:            change.DonName,
 					AddToFamilies:      change.AddToFamilies,
@@ -96,7 +115,20 @@ var SetDONsFamilies = operations.NewSequence[SetDONsFamiliesInput, SetDONsFamili
 			}
 
 			donsInfo = append(donsInfo, report.Output.DonInfo)
-			proposals = append(proposals, report.Output.Proposals...)
+			if report.Output.Operation != nil {
+				mcmsOperations = append(mcmsOperations, *report.Output.Operation)
+			}
+		}
+
+		var proposals []mcmslib.TimelockProposal
+
+		if len(mcmsOperations) > 0 {
+			proposal, err := strategy.BuildProposal(mcmsOperations)
+			if err != nil {
+				return SetDONsFamiliesOutput{}, fmt.Errorf("failed to build MCMS proposal: %w", err)
+			}
+
+			proposals = append(proposals, *proposal)
 		}
 
 		return SetDONsFamiliesOutput{

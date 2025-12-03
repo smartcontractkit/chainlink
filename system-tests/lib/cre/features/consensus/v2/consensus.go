@@ -1,29 +1,32 @@
 package v2
 
 import (
-	"bytes"
 	"context"
 	"fmt"
-	"html/template"
+	"strings"
 
-	"github.com/Masterminds/semver/v3"
+	"dario.cat/mergo"
 	"github.com/pkg/errors"
 	"github.com/rs/zerolog"
 
 	capabilitiespb "github.com/smartcontractkit/chainlink-common/pkg/capabilities/pb"
 	kcr "github.com/smartcontractkit/chainlink-evm/gethwrappers/keystone/generated/capabilities_registry_1_1_0"
 
-	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
+	chainselectors "github.com/smartcontractkit/chain-selectors"
+
 	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
+	"github.com/smartcontractkit/chainlink/deployment/cre/common/strategies"
+	cre_jobs "github.com/smartcontractkit/chainlink/deployment/cre/jobs"
+	cre_jobs_ops "github.com/smartcontractkit/chainlink/deployment/cre/jobs/operations"
+	job_types "github.com/smartcontractkit/chainlink/deployment/cre/jobs/types"
+	"github.com/smartcontractkit/chainlink/deployment/cre/pkg/offchain"
 	keystone_changeset "github.com/smartcontractkit/chainlink/deployment/keystone/changeset"
 	ks_contracts_op "github.com/smartcontractkit/chainlink/deployment/keystone/changeset/operations/contracts"
 
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/contracts"
-	credon "github.com/smartcontractkit/chainlink/system-tests/lib/cre/don"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/jobs"
-	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/jobs/ocr"
-	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/jobs/ocr/donlevel"
+	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/jobs/standardcapability"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/features/consensus"
 )
 
@@ -91,11 +94,29 @@ func (c *Consensus) PostEnvStartup(
 		return fmt.Errorf("failed to get default OCR3 config: %w", ocr3confErr)
 	}
 
+	chain, ok := creEnv.CldfEnvironment.BlockChains.EVMChains()[creEnv.RegistryChainSelector]
+	if !ok {
+		return fmt.Errorf("chain with selector %d not found in environment", creEnv.RegistryChainSelector)
+	}
+
+	strategy, err := strategies.CreateStrategy(
+		chain,
+		*creEnv.CldfEnvironment,
+		nil,
+		nil,
+		*ocr3ContractAddr,
+		"PostEnvStartup - Configure OCR3 Contract - v2 Consensus",
+	)
+	if err != nil {
+		return fmt.Errorf("failed to create strategy: %w", err)
+	}
+
 	_, ocr3Err := operations.ExecuteOperation(
 		creEnv.CldfEnvironment.OperationsBundle,
 		ks_contracts_op.ConfigureOCR3Op,
 		ks_contracts_op.ConfigureOCR3OpDeps{
-			Env: creEnv.CldfEnvironment,
+			Env:      creEnv.CldfEnvironment,
+			Strategy: strategy,
 		},
 		ks_contracts_op.ConfigureOCR3OpInput{
 			ContractAddress: ocr3ContractAddr,
@@ -113,74 +134,134 @@ func (c *Consensus) PostEnvStartup(
 	return nil
 }
 
-const configTemplate = `'{"chainId":{{.ChainID}},"network":"{{.NetworkFamily}}","nodeAddress":"{{.NodeAddress}}"}'`
-
 func createJobs(
 	ctx context.Context,
 	don *cre.Don,
 	dons *cre.Dons,
 	creEnv *cre.Environment,
 ) error {
-	var generateJobSpec = func(logger zerolog.Logger, chainID uint64, nodeAddress string, mergedConfig map[string]any) (string, error) {
-		runtimeFallbacks := buildRuntimeValues(chainID, "evm", nodeAddress)
+	specs := make(map[string][]string)
 
-		templateData, aErr := credon.ApplyRuntimeValues(mergedConfig, runtimeFallbacks)
-		if aErr != nil {
-			return "", errors.Wrap(aErr, "failed to apply runtime values")
-		}
-
-		tmpl, err := template.New("consensusConfig").Parse(configTemplate)
-		if err != nil {
-			return "", errors.Wrap(err, "failed to parse consensus config template")
-		}
-
-		var configBuffer bytes.Buffer
-		if err := tmpl.Execute(&configBuffer, templateData); err != nil {
-			return "", errors.Wrap(err, "failed to execute consensus config template")
-		}
-
-		return configBuffer.String(), nil
+	capabilityConfig, ok := creEnv.CapabilityConfigs[flag]
+	if !ok {
+		return fmt.Errorf("%s config not found in capabilities config: %v", flag, creEnv.CapabilityConfigs)
 	}
 
-	var dataStoreOCR3ContractKeyProvider = func(contractName string, chainSelector uint64) datastore.AddressRefKey {
-		return datastore.NewAddressRefKey(
-			chainSelector,
-			datastore.ContractType(keystone_changeset.OCR3Capability.String()),
-			semver.MustParse("1.0.0"),
-			contractName,
-		)
+	command, cErr := standardcapability.GetCommand(capabilityConfig.BinaryPath, creEnv.Provider)
+	if cErr != nil {
+		return errors.Wrap(cErr, "failed to get command for cron capability")
 	}
 
-	jobSpecs, jErr := ocr.GenerateJobSpecsForStandardCapabilityWithOCR(
-		don,
-		dons,
-		creEnv,
-		flag,
-		func(_ uint64) string {
-			return ContractQualifier
+	var nodeSet cre.NodeSetWithCapabilityConfigs
+	for _, ns := range dons.AsNodeSetWithChainCapabilities() {
+		if ns.GetName() == don.Name {
+			nodeSet = ns
+			break
+		}
+	}
+	if nodeSet == nil {
+		return fmt.Errorf("could not find node set for Don named '%s'", don.Name)
+	}
+
+	bootstrap, isBootstrap := dons.Bootstrap()
+	if !isBootstrap {
+		return errors.New("could not find bootstrap node in topology, exactly one bootstrap node is required")
+	}
+
+	chainID, cErr := chainselectors.ChainIdFromSelector(creEnv.RegistryChainSelector)
+	if cErr != nil {
+		return fmt.Errorf("failed to get chain ID from selector %d: %w", creEnv.RegistryChainSelector, cErr)
+	}
+
+	bootInput := cre_jobs.ProposeJobSpecInput{
+		Domain:      offchain.ProductLabel,
+		Environment: cre.EnvironmentName,
+		DONName:     don.Name,
+		JobName:     "consensus-v2-bootstrap",
+		ExtraLabels: map[string]string{cre.CapabilityLabelKey: flag},
+		DONFilters: []offchain.TargetDONFilter{
+			{Key: offchain.FilterKeyDONName, Value: don.Name},
 		},
-		dataStoreOCR3ContractKeyProvider,
-		donlevel.CapabilityEnabler,
-		donlevel.EnabledChainsProvider,
-		generateJobSpec,
-		donlevel.ConfigMerger,
-	)
-	if jErr != nil {
-		return errors.Wrap(jErr, "failed to generate EVM OCR3 job specs")
+		Template: job_types.BootstrapOCR3,
+		Inputs: job_types.JobSpecInput{
+			"chainSelector":     creEnv.RegistryChainSelector,
+			"contractQualifier": ContractQualifier,
+		},
 	}
 
-	jobErr := jobs.Create(ctx, creEnv.CldfEnvironment.Offchain, dons, jobSpecs)
-	if jobErr != nil {
-		return fmt.Errorf("failed to create EVM OCR3 jobs for don %s: %w", don.Name, jobErr)
+	bootVerErr := cre_jobs.ProposeJobSpec{}.VerifyPreconditions(*creEnv.CldfEnvironment, bootInput)
+	if bootVerErr != nil {
+		return fmt.Errorf("precondition verification failed for Consensus v2 bootstrap job for chainID %d: %w", chainID, bootVerErr)
+	}
+
+	bootReport, bootErr := cre_jobs.ProposeJobSpec{}.Apply(*creEnv.CldfEnvironment, bootInput)
+	if bootErr != nil {
+		return fmt.Errorf("failed to propose Consensus v2 bootstrap job spec for chainID %d: %w", chainID, bootErr)
+	}
+
+	for _, r := range bootReport.Reports {
+		out, ok := r.Output.(cre_jobs_ops.ProposeOCR3BootstrapJobOutput)
+		if !ok {
+			return fmt.Errorf("unable to cast to ProposeOCR3BootstrapJobOutput, actual type: %T", r.Output)
+		}
+		mErr := mergo.Merge(&specs, out.Specs, mergo.WithAppendSlice)
+		if mErr != nil {
+			return fmt.Errorf("failed to merge bootstrap job specs: %w", mErr)
+		}
+	}
+
+	bootstrapPeers := []string{fmt.Sprintf("%s@%s:%d", strings.TrimPrefix(bootstrap.Keys.PeerID(), "p2p_"), bootstrap.Host, cre.OCRPeeringPort)}
+
+	workerInput := cre_jobs.ProposeJobSpecInput{
+		Domain:      offchain.ProductLabel,
+		Environment: cre.EnvironmentName,
+		DONName:     don.Name,
+		JobName:     "consensus-v2-worker",
+		ExtraLabels: map[string]string{cre.CapabilityLabelKey: flag},
+		DONFilters: []offchain.TargetDONFilter{
+			{Key: offchain.FilterKeyDONName, Value: don.Name},
+		},
+		Template: job_types.Consensus,
+		Inputs: job_types.JobSpecInput{
+			"command":           command,
+			"chainSelectorEVM":  creEnv.RegistryChainSelector,
+			"contractQualifier": ContractQualifier,
+			"bootstrapPeers":    bootstrapPeers,
+		},
+	}
+
+	for _, blockchain := range creEnv.Blockchains {
+		if blockchain.IsFamily(chainselectors.FamilySolana) {
+			workerInput.Inputs["chainSelectorSolana"] = blockchain.ChainSelector()
+			break
+		}
+	}
+
+	workerVerErr := cre_jobs.ProposeJobSpec{}.VerifyPreconditions(*creEnv.CldfEnvironment, workerInput)
+	if workerVerErr != nil {
+		return fmt.Errorf("precondition verification failed for Consensus v2 worker job: %w", workerVerErr)
+	}
+
+	workerReport, workerErr := cre_jobs.ProposeJobSpec{}.Apply(*creEnv.CldfEnvironment, workerInput)
+	if workerErr != nil {
+		return fmt.Errorf("failed to propose Consensus v2 worker job spec: %w", workerErr)
+	}
+
+	for _, r := range workerReport.Reports {
+		out, ok := r.Output.(cre_jobs_ops.ProposeStandardCapabilityJobOutput)
+		if !ok {
+			return fmt.Errorf("unable to cast to ProposeStandardCapabilityJobOutput, actual type: %T", r.Output)
+		}
+		mErr := mergo.Merge(&specs, out.Specs)
+		if mErr != nil {
+			return fmt.Errorf("failed to merge worker job specs: %w", mErr)
+		}
+	}
+
+	approveErr := jobs.Approve(ctx, creEnv.CldfEnvironment.Offchain, dons, specs)
+	if approveErr != nil {
+		return fmt.Errorf("failed to approve Consensus v2 jobs: %w", approveErr)
 	}
 
 	return nil
-}
-
-func buildRuntimeValues(chainID uint64, networkFamily, nodeAddress string) map[string]any {
-	return map[string]any{
-		"ChainID":       chainID,
-		"NetworkFamily": networkFamily,
-		"NodeAddress":   nodeAddress,
-	}
 }

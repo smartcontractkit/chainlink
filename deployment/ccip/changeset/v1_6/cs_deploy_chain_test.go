@@ -5,17 +5,16 @@ import (
 
 	"github.com/Masterminds/semver/v3"
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/stretchr/testify/require"
-	"go.uber.org/zap/zapcore"
-
 	chain_selectors "github.com/smartcontractkit/chain-selectors"
-	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
+	"github.com/stretchr/testify/require"
 
 	cldf_chain "github.com/smartcontractkit/chainlink-deployments-framework/chain"
-
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+	"github.com/smartcontractkit/chainlink-deployments-framework/engine/test/environment"
 
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_3/fee_quoter"
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
@@ -24,26 +23,25 @@ import (
 	ccipops "github.com/smartcontractkit/chainlink/deployment/ccip/operation/evm/v1_6"
 	ccipseq "github.com/smartcontractkit/chainlink/deployment/ccip/sequence/evm/v1_6"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
-
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/common/opsutils"
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 	commontypes "github.com/smartcontractkit/chainlink/deployment/common/types"
-	"github.com/smartcontractkit/chainlink/deployment/environment/memory"
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
 
 func TestDeployChainContractsChangeset(t *testing.T) {
 	t.Parallel()
-	lggr := logger.TestLogger(t)
-	e := memory.NewMemoryEnvironment(t, lggr, zapcore.InfoLevel, memory.MemoryEnvironmentConfig{
-		Bootstraps: 1,
-		Chains:     2,
-		Nodes:      4,
-	})
-	evmSelectors := e.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chain_selectors.FamilyEVM))
-	homeChainSel := evmSelectors[0]
-	testDeployChainContractsChangesetWithEnv(t, e, homeChainSel)
+
+	homeChainSel := chain_selectors.TEST_90000001.Selector
+	env, err := environment.New(t.Context(),
+		environment.WithEVMSimulated(t, []uint64{homeChainSel}),
+		environment.WithLogger(logger.Test(t)),
+	)
+	require.NoError(t, err)
+
+	testhelpers.RegisterNodes(t, env, 4, homeChainSel)
+
+	testDeployChainContractsChangesetWithEnv(t, *env, homeChainSel)
 }
 
 func TestDeployChainContractsChangesetZk(t *testing.T) {
@@ -51,23 +49,19 @@ func TestDeployChainContractsChangesetZk(t *testing.T) {
 	tests.SkipFlakey(t, "https://smartcontract-it.atlassian.net/browse/CCIP-6427")
 
 	t.Parallel()
-	lggr := logger.TestLogger(t)
-	e := memory.NewMemoryEnvironment(t, lggr, zapcore.InfoLevel, memory.MemoryEnvironmentConfig{
-		Bootstraps: 1,
-		Chains:     1,
-		ZkChains:   1,
-		Nodes:      4,
-	})
-	evmSelectors := e.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chain_selectors.FamilyEVM))
-	var homeChainSel uint64
-	for _, selector := range evmSelectors {
-		chain := e.BlockChains.EVMChains()[selector]
-		if !chain.IsZkSyncVM {
-			homeChainSel = chain.Selector
-			break
-		}
-	}
-	testDeployChainContractsChangesetWithEnv(t, e, homeChainSel)
+
+	homeChainSel := chain_selectors.TEST_90000001.Selector
+	zkChainSel := chain_selectors.TEST_90000050.Selector
+	env, err := environment.New(t.Context(),
+		environment.WithEVMSimulated(t, []uint64{homeChainSel}),
+		environment.WithZKSyncContainer(t, []uint64{zkChainSel}),
+		environment.WithLogger(logger.Test(t)),
+	)
+	require.NoError(t, err)
+
+	testhelpers.RegisterNodes(t, env, 4, homeChainSel)
+
+	testDeployChainContractsChangesetWithEnv(t, *env, homeChainSel)
 }
 
 func testDeployChainContractsChangesetWithEnv(t *testing.T, e cldf.Environment, homeChainSel uint64) {

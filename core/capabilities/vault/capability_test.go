@@ -7,6 +7,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/jonboulle/clockwork"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
@@ -20,6 +21,8 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/actions/vault"
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/consensus/requests"
 	"github.com/smartcontractkit/chainlink-common/pkg/services/servicetest"
+	"github.com/smartcontractkit/chainlink-common/pkg/settings/cresettings"
+	"github.com/smartcontractkit/chainlink-common/pkg/settings/limits"
 	coreCapabilities "github.com/smartcontractkit/chainlink/v2/core/capabilities"
 	vaultcapmocks "github.com/smartcontractkit/chainlink/v2/core/capabilities/vault/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/vault/vaulttypes"
@@ -34,7 +37,9 @@ func TestCapability_CapabilityCall(t *testing.T) {
 	handler := requests.NewHandler[*vaulttypes.Request, *vaulttypes.Response](lggr, store, clock, expiry)
 	requestAuthorizer := vaultcapmocks.NewRequestAuthorizer(t)
 	reg := coreCapabilities.NewRegistry(lggr)
-	capability := NewCapability(lggr, clock, expiry, handler, requestAuthorizer, reg, nil)
+	lf := limits.Factory{Settings: cresettings.DefaultGetter}
+	capability, err := NewCapability(lggr, clock, expiry, handler, requestAuthorizer, reg, nil, lf)
+	require.NoError(t, err)
 	servicetest.Run(t, capability)
 
 	owner := "test-owner"
@@ -130,7 +135,9 @@ func TestCapability_CapabilityCall_DuringSubscriptionPhase(t *testing.T) {
 	handler := requests.NewHandler[*vaulttypes.Request, *vaulttypes.Response](lggr, store, clock, expiry)
 	requestAuthorizer := vaultcapmocks.NewRequestAuthorizer(t)
 	reg := coreCapabilities.NewRegistry(lggr)
-	capability := NewCapability(lggr, clock, expiry, handler, requestAuthorizer, reg, nil)
+	lf := limits.Factory{Settings: cresettings.DefaultGetter}
+	capability, err := NewCapability(lggr, clock, expiry, handler, requestAuthorizer, reg, nil, lf)
+	require.NoError(t, err)
 	servicetest.Run(t, capability)
 
 	owner := "test-owner"
@@ -225,7 +232,9 @@ func TestCapability_CapabilityCall_ReturnsIncorrectType(t *testing.T) {
 	handler := requests.NewHandler[*vaulttypes.Request, *vaulttypes.Response](lggr, store, clock, expiry)
 	requestAuthorizer := vaultcapmocks.NewRequestAuthorizer(t)
 	reg := coreCapabilities.NewRegistry(lggr)
-	capability := NewCapability(lggr, clock, expiry, handler, requestAuthorizer, reg, nil)
+	lf := limits.Factory{Settings: cresettings.DefaultGetter}
+	capability, err := NewCapability(lggr, clock, expiry, handler, requestAuthorizer, reg, nil, lf)
+	require.NoError(t, err)
 	servicetest.Run(t, capability)
 
 	owner := "test-owner"
@@ -298,7 +307,9 @@ func TestCapability_CapabilityCall_TimeOut(t *testing.T) {
 	handler := requests.NewHandler[*vaulttypes.Request, *vaulttypes.Response](lggr, store, fakeClock, expiry)
 	requestAuthorizer := vaultcapmocks.NewRequestAuthorizer(t)
 	reg := coreCapabilities.NewRegistry(lggr)
-	capability := NewCapability(lggr, fakeClock, expiry, handler, requestAuthorizer, reg, nil)
+	lf := limits.Factory{Settings: cresettings.DefaultGetter}
+	capability, err := NewCapability(lggr, fakeClock, expiry, handler, requestAuthorizer, reg, nil, lf)
+	require.NoError(t, err)
 	servicetest.Run(t, capability)
 
 	owner := "test-owner"
@@ -360,7 +371,7 @@ func TestCapability_CapabilityCall_TimeOut(t *testing.T) {
 }
 
 func TestCapability_CRUD(t *testing.T) {
-	owner := "test-owner"
+	owner := "0x0001020304050607080900010203040506070809"
 	requestID := owner + "::" + "test-request-id"
 	sid := &vault.SecretIdentifier{
 		Key:       "Foo",
@@ -372,7 +383,10 @@ func TestCapability_CRUD(t *testing.T) {
 	require.NoError(t, err)
 	lpk.Set(pk)
 	rawSecret := "raw secret string"
-	cipher, err := tdh2easy.Encrypt(pk, []byte(rawSecret))
+	ownerAddr := common.HexToAddress(owner) // canonical 20-byte address
+	var label [32]byte
+	copy(label[12:], ownerAddr.Bytes()) // left-pad with 12 zero bytes
+	cipher, err := tdh2easy.EncryptWithLabel(pk, []byte(rawSecret), label)
 	require.NoError(t, err)
 	cipherBytes, err := cipher.Marshal()
 	require.NoError(t, err)
@@ -470,7 +484,7 @@ func TestCapability_CRUD(t *testing.T) {
 		{
 			name:     "CreateSecrets_Invalid_Owner",
 			response: nil,
-			error:    "secret ID owner: a does not match authorized owner: test-owner at index 0",
+			error:    "Encrypted Secret at index [0] doesn't have owner as the label.",
 			call: func(t *testing.T, capability *Capability) (*vaulttypes.Response, error) {
 				req := &vault.CreateSecretsRequest{
 					RequestId: requestID,
@@ -672,7 +686,7 @@ func TestCapability_CRUD(t *testing.T) {
 				Payload: []byte("hello world"),
 				Format:  "protobuf",
 			},
-			error: "secret ID owner: random does not match authorized owner: test-owner at index 0",
+			error: "Encrypted Secret at index [0] doesn't have owner as the label.",
 			call: func(t *testing.T, capability *Capability) (*vaulttypes.Response, error) {
 				req := &vault.UpdateSecretsRequest{
 					RequestId: requestID,
@@ -727,7 +741,7 @@ func TestCapability_CRUD(t *testing.T) {
 							Id: &vault.SecretIdentifier{
 								Key:       "Foo",
 								Namespace: "Bar",
-								Owner:     "Owner",
+								Owner:     owner,
 							},
 							EncryptedValue: encryptedSecret,
 						},
@@ -735,7 +749,7 @@ func TestCapability_CRUD(t *testing.T) {
 							Id: &vault.SecretIdentifier{
 								Key:       "Foo",
 								Namespace: "Bar",
-								Owner:     "Owner",
+								Owner:     owner,
 							},
 							EncryptedValue: encryptedSecret,
 						},
@@ -901,7 +915,7 @@ func TestCapability_CRUD(t *testing.T) {
 		{
 			name:     "DeleteSecrets_Invalid_Owner",
 			response: nil,
-			error:    "secret ID owner: random does not match authorized owner: test-owner at index 0",
+			error:    "secret ID owner: random does not match authorized owner:",
 			call: func(t *testing.T, capability *Capability) (*vaulttypes.Response, error) {
 				req := &vault.DeleteSecretsRequest{
 					RequestId: requestID,
@@ -1017,7 +1031,9 @@ func TestCapability_CRUD(t *testing.T) {
 			requestAuthorizer := vaultcapmocks.NewRequestAuthorizer(t)
 			requestAuthorizer.On("AuthorizeRequest", t.Context(), mock.Anything).Return(true, owner, nil).Maybe()
 			reg := coreCapabilities.NewRegistry(lggr)
-			capability := NewCapability(lggr, clock, expiry, handler, requestAuthorizer, reg, lpk)
+			lf := limits.Factory{Settings: cresettings.DefaultGetter}
+			capability, err := NewCapability(lggr, clock, expiry, handler, requestAuthorizer, reg, lpk, lf)
+			require.NoError(t, err)
 			servicetest.Run(t, capability)
 
 			wait := func() {}
@@ -1065,9 +1081,11 @@ func TestCapability_Lifecycle(t *testing.T) {
 	requestAuthorizer := vaultcapmocks.NewRequestAuthorizer(t)
 	requestAuthorizer.On("AuthorizeRequest", t.Context(), mock.Anything).Return(true, "owner", nil).Maybe()
 	reg := coreCapabilities.NewRegistry(lggr)
-	capability := NewCapability(lggr, clock, expiry, handler, requestAuthorizer, reg, nil)
+	lf := limits.Factory{Settings: cresettings.DefaultGetter}
+	capability, err := NewCapability(lggr, clock, expiry, handler, requestAuthorizer, reg, nil, lf)
+	require.NoError(t, err)
 
-	_, err := reg.GetExecutable(t.Context(), vault.CapabilityID)
+	_, err = reg.GetExecutable(t.Context(), vault.CapabilityID)
 	require.ErrorContains(t, err, "no compatible capability found for id vault@1.0.0")
 
 	require.NoError(t, capability.Start(t.Context()))
@@ -1095,10 +1113,12 @@ func TestCapability_PublicKeyGet(t *testing.T) {
 	requestAuthorizer := vaultcapmocks.NewRequestAuthorizer(t)
 	reg := coreCapabilities.NewRegistry(lggr)
 	lpk := NewLazyPublicKey()
-	capability := NewCapability(lggr, clock, expiry, handler, requestAuthorizer, reg, lpk)
+	lf := limits.Factory{Settings: cresettings.DefaultGetter}
+	capability, err := NewCapability(lggr, clock, expiry, handler, requestAuthorizer, reg, lpk, lf)
+	require.NoError(t, err)
 	servicetest.Run(t, capability)
 
-	_, err := capability.GetPublicKey(t.Context(), nil)
+	_, err = capability.GetPublicKey(t.Context(), nil)
 	require.ErrorContains(t, err, "could not get public key: is the plugin initialized?")
 
 	_, pk, _, err := tdh2easy.GenerateKeys(1, 3)

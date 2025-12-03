@@ -1,21 +1,28 @@
 package logeventtrigger
 
 import (
+	"bytes"
 	"context"
 	"fmt"
+	"html/template"
 
+	"dario.cat/mergo"
 	"github.com/pkg/errors"
 	"github.com/rs/zerolog"
 
 	capabilitiespb "github.com/smartcontractkit/chainlink-common/pkg/capabilities/pb"
 	kcr "github.com/smartcontractkit/chainlink-evm/gethwrappers/keystone/generated/capabilities_registry_1_1_0"
-	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/blockchain"
+	cre_jobs "github.com/smartcontractkit/chainlink/deployment/cre/jobs"
+	cre_jobs_ops "github.com/smartcontractkit/chainlink/deployment/cre/jobs/operations"
+	job_types "github.com/smartcontractkit/chainlink/deployment/cre/jobs/types"
+	"github.com/smartcontractkit/chainlink/deployment/cre/pkg/offchain"
 	keystone_changeset "github.com/smartcontractkit/chainlink/deployment/keystone/changeset"
 
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre"
+	credon "github.com/smartcontractkit/chainlink/system-tests/lib/cre/don"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/jobs"
-	factory "github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/jobs/standardcapability"
-	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/jobs/standardcapability/chainlevel"
+	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/jobs/standardcapability"
+	envconfig "github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/config"
 )
 
 const flag = cre.LogEventTriggerCapability
@@ -52,14 +59,14 @@ func (o *LogEventTrigger) PreEnvStartup(
 	}, nil
 }
 
-const configTemplate = `"""
+const configTemplate = `
 {
 	"chainId": "{{.ChainID}}",
 	"network": "{{.NetworkFamily}}",
 	"lookbackBlocks": {{.LookbackBlocks}},
 	"pollPeriod": {{.PollPeriod}}
 }
-"""`
+`
 
 func (o *LogEventTrigger) PostEnvStartup(
 	ctx context.Context,
@@ -68,21 +75,16 @@ func (o *LogEventTrigger) PostEnvStartup(
 	dons *cre.Dons,
 	creEnv *cre.Environment,
 ) error {
-	perDonJobSpecFactory, fErr := factory.NewCapabilityJobSpecFactory(
-		creEnv.RegistryChainSelector,
-		chainlevel.CapabilityEnabler,
-		chainlevel.EnabledChainsProvider,
-		chainlevel.ConfigResolver,
-		chainlevel.JobNamer,
-	)
+	specs := make(map[string][]string)
 
-	if fErr != nil {
-		return errors.Wrap(fErr, "failed to create capability job spec factory")
+	capabilityConfig, ok := creEnv.CapabilityConfigs[flag]
+	if !ok {
+		return errors.Errorf("%s config not found in capabilities config. Make sure you have set it in the TOML config", flag)
 	}
 
-	bcOuts := make([]*blockchain.Output, len(creEnv.Blockchains))
-	for i, b := range creEnv.Blockchains {
-		bcOuts[i] = b.CtfOutput()
+	command, cErr := standardcapability.GetCommand(capabilityConfig.BinaryPath, creEnv.Provider)
+	if cErr != nil {
+		return errors.Wrap(cErr, "failed to get command for Log Event Trigger capability")
 	}
 
 	var nodeSet cre.NodeSetWithCapabilityConfigs
@@ -96,32 +98,74 @@ func (o *LogEventTrigger) PostEnvStartup(
 		return fmt.Errorf("could not find node set for Don named '%s'", don.Name)
 	}
 
-	jobSpecs, specErr := perDonJobSpecFactory.BuildJobSpec(
-		flag,
-		configTemplate,
-		func(chainID uint64, _ *cre.Node) map[string]any {
-			return map[string]any{
-				"ChainID":       chainID,
-				"NetworkFamily": "evm",
-			}
-		},
-		factory.BinaryPathBuilder,
-	)(&cre.JobSpecInput{
-		CreEnvironment: creEnv,
-		Don:            don,
-		NodeSet:        nodeSet,
-	})
-	if specErr != nil {
-		return fmt.Errorf("failed to build job spec for http action capability: %w", specErr)
-	}
-	if len(jobSpecs) == 0 {
-		return fmt.Errorf("no job specs created for '%s' capability, even though it is enabled", flag)
+	chainCapConfig, ok := nodeSet.GetChainCapabilityConfigs()[flag]
+	if !ok || chainCapConfig == nil {
+		return fmt.Errorf("could not find chain capability config for '%s' in don '%s'", flag, don.Name)
 	}
 
-	// pass all dons, since some jobs might need to be created on multiple ones
-	jobErr := jobs.Create(ctx, creEnv.CldfEnvironment.Offchain, dons, jobSpecs)
-	if jobErr != nil {
-		return fmt.Errorf("failed to create http action jobs for don %s: %w", don.Name, jobErr)
+	for _, chainID := range chainCapConfig.EnabledChains {
+		_, templateData, tErr := envconfig.ResolveCapabilityForChain(flag, nodeSet.GetChainCapabilityConfigs(), capabilityConfig.Config, chainID)
+		if tErr != nil {
+			return errors.Wrapf(tErr, "failed to resolve capability config for chain %d", chainID)
+		}
+		templateData["ChainID"] = chainID
+
+		tmpl, tmplErr := template.New(flag + "-config").Parse(configTemplate)
+		if tmplErr != nil {
+			return errors.Wrapf(tmplErr, "failed to parse %s config template", flag)
+		}
+
+		var configBuffer bytes.Buffer
+		if err := tmpl.Execute(&configBuffer, templateData); err != nil {
+			return errors.Wrapf(err, "failed to execute %s config template", flag)
+		}
+		configStr := configBuffer.String()
+
+		if err := credon.ValidateTemplateSubstitution(configStr, flag); err != nil {
+			return errors.Wrapf(err, "%s template validation failed", flag)
+		}
+
+		workerInput := cre_jobs.ProposeJobSpecInput{
+			Domain:      offchain.ProductLabel,
+			Environment: cre.EnvironmentName,
+			DONName:     don.Name,
+			JobName:     fmt.Sprintf("log-event-trigger-worker-%d", chainID),
+			ExtraLabels: map[string]string{cre.CapabilityLabelKey: flag},
+			DONFilters: []offchain.TargetDONFilter{
+				{Key: offchain.FilterKeyDONName, Value: don.Name},
+			},
+			Template: job_types.LogEventTrigger,
+			Inputs: job_types.JobSpecInput{
+				"command": command,
+				"config":  configStr,
+			},
+		}
+
+		workerVerErr := cre_jobs.ProposeJobSpec{}.VerifyPreconditions(*creEnv.CldfEnvironment, workerInput)
+		if workerVerErr != nil {
+			return fmt.Errorf("precondition verification failed for Log Event Trigger worker job: %w", workerVerErr)
+		}
+
+		workerReport, workerErr := cre_jobs.ProposeJobSpec{}.Apply(*creEnv.CldfEnvironment, workerInput)
+		if workerErr != nil {
+			return fmt.Errorf("failed to propose Log Event Trigger worker job spec: %w", workerErr)
+		}
+
+		for _, r := range workerReport.Reports {
+			out, ok := r.Output.(cre_jobs_ops.ProposeStandardCapabilityJobOutput)
+			if !ok {
+				return fmt.Errorf("unable to cast to ProposeStandardCapabilityJobOutput, actual type: %T", r.Output)
+			}
+			mErr := mergo.Merge(&specs, out.Specs, mergo.WithAppendSlice)
+			if mErr != nil {
+				return fmt.Errorf("failed to merge worker job specs: %w", mErr)
+			}
+		}
+	}
+
+	approveErr := jobs.Approve(ctx, creEnv.CldfEnvironment.Offchain, dons, specs)
+	if approveErr != nil {
+		return fmt.Errorf("failed to approve Log Event Trigger jobs: %w", approveErr)
 	}
 
 	return nil

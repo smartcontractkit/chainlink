@@ -50,7 +50,7 @@ func doAppendCapabilitiesOp(t *testing.T, useMcms bool) {
 		RegistryChainSel: te.RegistrySelector,
 	}
 	if useMcms {
-		input.MCMSConfig = &changeset.MCMSConfig{MinDuration: 0}
+		input.MCMSConfig = &changeset.MCMSConfig{MinDelay: 0}
 	}
 	opOutput, err := operations.ExecuteOperation(b, contracts.AppendCapabilitiesOp, deps, input)
 	require.NoError(t, err)
@@ -112,7 +112,7 @@ func doUpdateDonOp(t *testing.T, useMcms bool) {
 		RegistryChainSel: te.RegistrySelector,
 	}
 	if useMcms {
-		input.MCMSConfig = &changeset.MCMSConfig{MinDuration: 0}
+		input.MCMSConfig = &changeset.MCMSConfig{MinDelay: 0}
 	}
 
 	opOutput, err := operations.ExecuteOperation(b, contracts.UpdateDonOp, deps, input)

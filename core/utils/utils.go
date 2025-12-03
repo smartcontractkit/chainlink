@@ -383,7 +383,8 @@ func (t *CronTicker) Start() bool {
 func (t *CronTicker) Stop() bool {
 	if t.Cron != nil {
 		if t.beenRun.CompareAndSwap(true, false) {
-			t.Cron.Stop()
+			ctx := t.Cron.Stop()
+			<-ctx.Done() // Wait for background routines
 			return true
 		}
 	}

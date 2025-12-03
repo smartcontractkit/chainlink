@@ -9,6 +9,7 @@ import (
 	"sort"
 	"strings"
 
+	"github.com/Masterminds/semver/v3"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind/v2"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/pkg/errors"
@@ -39,7 +40,7 @@ import (
 type DeployKeystoneContractsInput struct {
 	CldfEnvironment  *cldf.Environment
 	CtfBlockchains   []blockchains.Blockchain
-	ContractVersions map[string]string
+	ContractVersions map[cre.ContractType]*semver.Version
 	WithV2Registries bool
 }
 
@@ -56,8 +57,8 @@ func DeployKeystoneContracts(
 ) (*DeployKeystoneContractsOutput, error) {
 	memoryDatastore := datastore.NewMemoryDataStore()
 
-	homeChainOutput := input.CtfBlockchains[0]
-	homeChainSelector := homeChainOutput.ChainSelector()
+	registryChainOutput := input.CtfBlockchains[0]
+	registryChainSelector := registryChainOutput.ChainSelector()
 	deployRegistrySeq := ks_contracts_op.DeployRegistryContractsSequence
 	if input.WithV2Registries {
 		deployRegistrySeq = ks_contracts_op.DeployV2RegistryContractsSequence
@@ -70,26 +71,22 @@ func DeployKeystoneContracts(
 			Env: input.CldfEnvironment,
 		},
 		ks_contracts_op.DeployRegistryContractsSequenceInput{
-			RegistryChainSelector: homeChainSelector,
+			RegistryChainSelector: registryChainSelector,
 		},
 	)
 	if seqErr != nil {
 		return nil, errors.Wrap(seqErr, "failed to deploy Keystone contracts")
 	}
 
-	if err := input.CldfEnvironment.ExistingAddresses.Merge(registryContractsReport.Output.AddressBook); err != nil { //nolint:staticcheck // won't migrate now
-		return nil, errors.Wrap(err, "failed to merge address book with Keystone contracts addresses")
-	}
-
 	if err := memoryDatastore.Merge(registryContractsReport.Output.Datastore); err != nil {
 		return nil, errors.Wrap(err, "failed to merge datastore with Keystone contracts addresses")
 	}
 
-	wfRegAddr := MustGetAddressFromMemoryDataStore(memoryDatastore, homeChainSelector, keystone_changeset.WorkflowRegistry.String(), input.ContractVersions[keystone_changeset.WorkflowRegistry.String()], "")
-	testLogger.Info().Msgf("Deployed Workflow Registry %s contract on chain %d at %s", input.ContractVersions[keystone_changeset.WorkflowRegistry.String()], homeChainSelector, wfRegAddr)
+	wfRegAddr := MustGetAddressFromMemoryDataStore(memoryDatastore, registryChainSelector, keystone_changeset.WorkflowRegistry.String(), input.ContractVersions[keystone_changeset.WorkflowRegistry.String()], "")
+	testLogger.Info().Msgf("Deployed Workflow Registry %s contract on chain %d at %s", input.ContractVersions[keystone_changeset.WorkflowRegistry.String()], registryChainSelector, wfRegAddr)
 
-	capRegAddr := MustGetAddressFromMemoryDataStore(memoryDatastore, homeChainSelector, keystone_changeset.CapabilitiesRegistry.String(), input.ContractVersions[keystone_changeset.CapabilitiesRegistry.String()], "")
-	testLogger.Info().Msgf("Deployed Capabilities Registry %s contract on chain %d at %s", input.ContractVersions[keystone_changeset.CapabilitiesRegistry.String()], homeChainSelector, capRegAddr)
+	capRegAddr := MustGetAddressFromMemoryDataStore(memoryDatastore, registryChainSelector, keystone_changeset.CapabilitiesRegistry.String(), input.ContractVersions[keystone_changeset.CapabilitiesRegistry.String()], "")
+	testLogger.Info().Msgf("Deployed Capabilities Registry %s contract on chain %d at %s", input.ContractVersions[keystone_changeset.CapabilitiesRegistry.String()], registryChainSelector, capRegAddr)
 
 	input.CldfEnvironment.DataStore = memoryDatastore.Seal()
 
@@ -137,7 +134,7 @@ func (d *dons) allDonCapabilities() []keystone_changeset.DonCapabilities {
 func (d *dons) mustToV2ConfigureInput(chainSelector uint64, contractAddress string) cap_reg_v2_seq.ConfigureCapabilitiesRegistryInput {
 	nops := make([]capabilities_registry_v2.CapabilitiesRegistryNodeOperatorParams, 0)
 	nodes := make([]contracts.NodesInput, 0)
-	capabilities := make([]capabilities_registry_v2.CapabilitiesRegistryCapability, 0)
+	capabilities := make([]contracts.RegisterableCapability, 0)
 	donParams := make([]capabilities_registry_v2.CapabilitiesRegistryNewDONParams, 0)
 
 	// Collect unique capabilities and NOPs
@@ -250,8 +247,17 @@ func (d *dons) mustToV2ConfigureInput(chainSelector uint64, contractAddress stri
 	}
 
 	// Convert maps to slices
-	for _, cap := range capabilityMap {
-		capabilities = append(capabilities, cap)
+	for _, cp := range capabilityMap {
+		var metadata map[string]any
+		err := json.Unmarshal(cp.Metadata, &metadata)
+		if err != nil {
+			panic(fmt.Sprintf("failed to unmarshal capability metadata: %s", err))
+		}
+		capabilities = append(capabilities, contracts.RegisterableCapability{
+			Metadata:              metadata,
+			CapabilityID:          cp.CapabilityId,
+			ConfigurationContract: cp.ConfigurationContract,
+		})
 	}
 	for _, nop := range nopMap {
 		nops = append(nops, nop)

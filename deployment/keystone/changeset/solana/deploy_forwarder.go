@@ -18,13 +18,14 @@ import (
 	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
-	"github.com/smartcontractkit/chainlink/deployment"
+	capabilities_registry "github.com/smartcontractkit/chainlink-evm/gethwrappers/keystone/generated/capabilities_registry_1_1_0"
 	commonstate "github.com/smartcontractkit/chainlink/deployment/common/changeset/state"
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 	"github.com/smartcontractkit/chainlink/deployment/helpers"
 	"github.com/smartcontractkit/chainlink/deployment/keystone/changeset/internal"
 	seq "github.com/smartcontractkit/chainlink/deployment/keystone/changeset/solana/sequence"
 	"github.com/smartcontractkit/chainlink/deployment/keystone/changeset/solana/sequence/operation"
+	"github.com/smartcontractkit/chainlink/deployment/utils/solutils"
 )
 
 const (
@@ -75,7 +76,7 @@ func (cs DeployForwarder) Apply(env cldf.Environment, req *DeployForwarderReques
 
 	deploySeqInput := seq.DeployForwarderSeqInput{
 		ChainSel:     req.ChainSel,
-		ProgramName:  deployment.KeystoneForwarderProgramName,
+		ProgramName:  solutils.ProgKeystoneForwarder,
 		Overallocate: true,
 		ContractType: ForwarderContract,
 		Qualifier:    req.Qualifier,
@@ -210,6 +211,7 @@ type ConfigureForwarderRequest struct {
 	// workflow don node ids in the offchain client. Used to fetch and derive the signer keys
 	WFNodeIDs        []string
 	RegistryChainSel uint64
+	Registry         *capabilities_registry.CapabilitiesRegistry
 
 	MCMS *proposalutils.TimelockConfig // if set, assumes current ownership is the timelock
 
@@ -252,7 +254,9 @@ func (cs ConfigureForwarders) VerifyPreconditions(env cldf.Environment, req *Con
 	if _, err := internal.NewRegisteredDon(env, internal.RegisteredDonConfig{
 		NodeIDs:          req.WFNodeIDs,
 		Name:             req.WFDonName,
-		RegistryChainSel: req.RegistryChainSel}); err != nil {
+		RegistryChainSel: req.RegistryChainSel,
+		Registry:         req.Registry,
+	}); err != nil {
 		return fmt.Errorf("failed to create registered don: %w", err)
 	}
 
@@ -266,6 +270,7 @@ func (cs ConfigureForwarders) Apply(env cldf.Environment, req *ConfigureForwarde
 		NodeIDs:          req.WFNodeIDs,
 		Name:             req.WFDonName,
 		RegistryChainSel: req.RegistryChainSel,
+		Registry:         req.Registry,
 	})
 	if err != nil {
 		return out, fmt.Errorf("failed to create registered don: %w", err)

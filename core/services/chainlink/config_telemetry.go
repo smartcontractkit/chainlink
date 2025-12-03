@@ -111,6 +111,13 @@ func (b *telemetryConfig) LogStreamingEnabled() bool {
 	return *b.s.LogStreamingEnabled
 }
 
+func (b *telemetryConfig) AuthHeadersTTL() time.Duration {
+	if b.s.AuthHeadersTTL == nil {
+		return 0
+	}
+	return b.s.AuthHeadersTTL.Duration()
+}
+
 func (b *telemetryConfig) LogLevel() zapcore.Level {
 	if b.s.LogLevel == nil {
 		return zapcore.InfoLevel // Default log level
@@ -121,4 +128,39 @@ func (b *telemetryConfig) LogLevel() zapcore.Level {
 		return zapcore.InfoLevel // Fallback to info level on invalid input
 	}
 	return level
+}
+
+func (b *telemetryConfig) LogBatchProcessor() bool {
+	if b.s.LogBatchProcessor == nil {
+		return true
+	}
+	return *b.s.LogBatchProcessor
+}
+
+func (b *telemetryConfig) LogExportTimeout() time.Duration {
+	if b.s.LogExportTimeout == nil {
+		return 1 * time.Second
+	}
+	return b.s.LogExportTimeout.Duration()
+}
+
+func (b *telemetryConfig) LogExportMaxBatchSize() int {
+	if b.s.LogExportMaxBatchSize == nil {
+		return 512
+	}
+	return *b.s.LogExportMaxBatchSize
+}
+
+func (b *telemetryConfig) LogExportInterval() time.Duration {
+	if b.s.LogExportInterval == nil {
+		return 1 * time.Second
+	}
+	return b.s.LogExportInterval.Duration()
+}
+
+func (b *telemetryConfig) LogMaxQueueSize() int {
+	if b.s.LogMaxQueueSize == nil {
+		return 2048
+	}
+	return *b.s.LogMaxQueueSize
 }

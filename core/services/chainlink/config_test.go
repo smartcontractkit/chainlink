@@ -612,11 +612,17 @@ func TestConfig_Marshal(t *testing.T) {
 		TraceSampleRatio:              ptr(0.01),
 		EmitterBatchProcessor:         ptr(true),
 		EmitterExportTimeout:          commoncfg.MustNewDuration(1 * time.Second),
+		AuthHeadersTTL:                commoncfg.MustNewDuration(0 * time.Second),
 		ChipIngressEndpoint:           ptr("example.com/chip-ingress"),
 		ChipIngressInsecureConnection: ptr(false),
 		HeartbeatInterval:             commoncfg.MustNewDuration(1 * time.Second),
 		LogStreamingEnabled:           ptr(false),
 		LogLevel:                      ptr("info"),
+		LogBatchProcessor:             ptr(true),
+		LogExportTimeout:              commoncfg.MustNewDuration(1 * time.Second),
+		LogExportMaxBatchSize:         ptr[int](512),
+		LogExportInterval:             ptrDuration(1 * time.Second),
+		LogMaxQueueSize:               ptrInt(2048),
 	}
 	full.CRE = toml.CreConfig{
 		UseLocalTimeProvider: ptr(true),

@@ -6,9 +6,10 @@ import (
 	"fmt"
 	"strconv"
 
+	"dario.cat/mergo"
+	"github.com/Masterminds/semver/v3"
 	"github.com/cosmos/gogoproto/proto"
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/google/uuid"
 	"github.com/pelletier/go-toml/v2"
 	"github.com/pkg/errors"
 	"github.com/rs/zerolog"
@@ -17,38 +18,37 @@ import (
 	"github.com/smartcontractkit/smdkg/dkgocr/dkgocrtypes"
 	"github.com/smartcontractkit/tdh2/go/tdh2/tdh2easy"
 
-	jobv1 "github.com/smartcontractkit/chainlink-protos/job-distributor/v1/job"
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/ptr"
 	coretoml "github.com/smartcontractkit/chainlink/v2/core/config/toml"
 	corechainlink "github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 
 	vaultprotos "github.com/smartcontractkit/chainlink-common/pkg/capabilities/actions/vault"
 	capabilitiespb "github.com/smartcontractkit/chainlink-common/pkg/capabilities/pb"
-	"github.com/smartcontractkit/chainlink-common/pkg/types"
-	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
-	"github.com/smartcontractkit/chainlink-deployments-framework/offchain/jd"
 	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
 	kcr "github.com/smartcontractkit/chainlink-evm/gethwrappers/keystone/generated/capabilities_registry_1_1_0"
 	ocr3_capability "github.com/smartcontractkit/chainlink-evm/gethwrappers/keystone/generated/ocr3_capability_1_0_0"
+	"github.com/smartcontractkit/chainlink/deployment/cre/common/strategies"
+	cre_jobs "github.com/smartcontractkit/chainlink/deployment/cre/jobs"
+	cre_jobs_ops "github.com/smartcontractkit/chainlink/deployment/cre/jobs/operations"
+	"github.com/smartcontractkit/chainlink/deployment/cre/jobs/pkg"
+	cre_jobs_seq "github.com/smartcontractkit/chainlink/deployment/cre/jobs/sequences"
+	job_types "github.com/smartcontractkit/chainlink/deployment/cre/jobs/types"
 	creseq "github.com/smartcontractkit/chainlink/deployment/cre/ocr3/v2/changeset/sequences"
+	"github.com/smartcontractkit/chainlink/deployment/cre/pkg/offchain"
 	keystone_changeset "github.com/smartcontractkit/chainlink/deployment/keystone/changeset"
 	ks_contracts_op "github.com/smartcontractkit/chainlink/deployment/keystone/changeset/operations/contracts"
-	coregateway "github.com/smartcontractkit/chainlink/v2/core/services/gateway"
 
 	depcontracts "github.com/smartcontractkit/chainlink/deployment/cre/ocr3/v2/changeset/operations/contracts"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/contracts"
-	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/gateway"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/jobs"
-	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/jobs/ocr"
-	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/config"
 )
 
 const flag = cre.VaultCapability
 
 const (
-	ContractQualifier = "capability_vault"
+	ContractQualifier = "vault"
 )
 
 type Vault struct{}
@@ -70,30 +70,19 @@ func (o *Vault) PreEnvStartup(
 		return nil, errors.Wrapf(chErr, "failed to get chain ID from selector %d", creEnv.RegistryChainSelector)
 	}
 
-	// add 'vault' handler to gateway config (future jobspec)
+	// add 'vault' handler to gateway config
 	// add gateway connector to to node TOML config, so that node can route vault requests to the gateway
-	handlerConfig, confErr := gateway.HandlerConfig(coregateway.VaultHandlerType)
-	if confErr != nil {
-		return nil, errors.Wrapf(confErr, "failed to get %s handler config for don %s", coregateway.VaultHandlerType, don.Name)
-	}
-	hErr := gateway.AddHandlers(*don, registryChainID, topology.GatewayJobConfigs, []config.Handler{handlerConfig})
+	hErr := topology.AddGatewayHandlers(*don, []string{pkg.GatewayHandlerTypeVault})
 	if hErr != nil {
-		return nil, errors.Wrapf(hErr, "failed to add gateway handlers to gateway config (jobspec) for don %s ", don.Name)
+		return nil, errors.Wrapf(hErr, "failed to add gateway handlers to gateway config for don %s ", don.Name)
 	}
 
-	cErr := gateway.AddConnectors(don, registryChainID, *topology.GatewayConnectors)
+	cErr := don.ConfigureForGatewayAccess(registryChainID, *topology.GatewayConnectors)
 	if cErr != nil {
 		return nil, errors.Wrapf(cErr, "failed to add gateway connectors to node's TOML config in for don %s", don.Name)
 	}
 
-	workflowRegistryAddress, wfRegTypeVersion, wfErr := contracts.FindAddressesForChain(
-		creEnv.CldfEnvironment.ExistingAddresses, //nolint:staticcheck // won't migrate
-		creEnv.RegistryChainSelector,
-		keystone_changeset.WorkflowRegistry.String(),
-	)
-	if wfErr != nil {
-		return nil, errors.Wrap(wfErr, "failed to find WorkflowRegistry address")
-	}
+	workflowRegistryAddress := contracts.MustGetAddressFromDataStore(creEnv.CldfEnvironment.DataStore, creEnv.RegistryChainSelector, keystone_changeset.WorkflowRegistry.String(), creEnv.ContractVersions[keystone_changeset.WorkflowRegistry.String()], "")
 
 	// enable workflow registry syncer in node's TOML config
 	workerNodes, wErr := don.Workers()
@@ -103,7 +92,7 @@ func (o *Vault) PreEnvStartup(
 
 	for _, workerNode := range workerNodes {
 		currentConfig := don.NodeSets().NodeSpecs[workerNode.Index].Node.TestConfigOverrides
-		updatedConfig, uErr := updateNodeConfig(workerNode, currentConfig, registryChainID, workflowRegistryAddress, wfRegTypeVersion)
+		updatedConfig, uErr := updateNodeConfig(workerNode, currentConfig, registryChainID, common.HexToAddress(workflowRegistryAddress), creEnv.ContractVersions[keystone_changeset.WorkflowRegistry.String()])
 		if uErr != nil {
 			return nil, errors.Wrapf(uErr, "failed to update node config for node index %d", workerNode.Index)
 		}
@@ -124,7 +113,7 @@ func (o *Vault) PreEnvStartup(
 	}, nil
 }
 
-func updateNodeConfig(workerNode *cre.NodeMetadata, currentConfig string, registryChainID uint64, workflowRegistryAddress common.Address, wfRegTypeVersion cldf.TypeAndVersion) (*string, error) {
+func updateNodeConfig(workerNode *cre.NodeMetadata, currentConfig string, registryChainID uint64, workflowRegistryAddress common.Address, wfRegVersion *semver.Version) (*string, error) {
 	var typedConfig corechainlink.Config
 	unmarshallErr := toml.Unmarshal([]byte(currentConfig), &typedConfig)
 	if unmarshallErr != nil {
@@ -137,7 +126,7 @@ func updateNodeConfig(workerNode *cre.NodeMetadata, currentConfig string, regist
 		NetworkID:       ptr.Ptr("evm"),
 		ChainID:         ptr.Ptr(strconv.FormatUint(registryChainID, 10)),
 		SyncStrategy:    ptr.Ptr("reconciliation"),
-		ContractVersion: ptr.Ptr(wfRegTypeVersion.Version.String()),
+		ContractVersion: ptr.Ptr(wfRegVersion.String()),
 	}
 
 	stringifiedConfig, mErr := toml.Marshal(typedConfig)
@@ -160,17 +149,9 @@ func (o *Vault) PostEnvStartup(
 		return fmt.Errorf("failed to deploy Vault OCR3 contract %w", err)
 	}
 
-	chainID, chErr := chainselectors.ChainIdFromSelector(creEnv.RegistryChainSelector)
-	if chErr != nil {
-		return errors.Wrapf(chErr, "failed to get chain ID from chain selector %d", creEnv.RegistryChainSelector)
-	}
-
 	jobErr := createJobs(
 		ctx,
-		chainID,
-		vaultOCR3Addr,
-		vaultDKGOCR3Addr,
-		creEnv.CldfEnvironment.Offchain.(*jd.JobDistributor),
+		creEnv,
 		don,
 		dons,
 	)
@@ -188,11 +169,29 @@ func (o *Vault) PostEnvStartup(
 		return fmt.Errorf("failed to create DKG reporting plugin config: %w", dErr)
 	}
 
+	chain, ok := creEnv.CldfEnvironment.BlockChains.EVMChains()[creEnv.RegistryChainSelector]
+	if !ok {
+		return fmt.Errorf("chain with selector %d not found in environment", creEnv.RegistryChainSelector)
+	}
+
+	strategy, err := strategies.CreateStrategy(
+		chain,
+		*creEnv.CldfEnvironment,
+		nil,
+		nil,
+		*vaultDKGOCR3Addr,
+		"PostEnvStartup - Configure OCR3 Contract - Vault DKG",
+	)
+	if err != nil {
+		return fmt.Errorf("failed to create strategy: %w", err)
+	}
+
 	_, err = operations.ExecuteOperation(
 		creEnv.CldfEnvironment.OperationsBundle,
 		ks_contracts_op.ConfigureDKGOp,
 		ks_contracts_op.ConfigureDKGOpDeps{
-			Env: creEnv.CldfEnvironment,
+			Env:      creEnv.CldfEnvironment,
+			Strategy: strategy,
 		},
 		ks_contracts_op.ConfigureDKGOpInput{
 			ContractAddress:       vaultDKGOCR3Addr,
@@ -212,11 +211,24 @@ func (o *Vault) PostEnvStartup(
 		return fmt.Errorf("failed to create Vault reporting plugin config override: %w", cErr)
 	}
 
+	strategy, err = strategies.CreateStrategy(
+		chain,
+		*creEnv.CldfEnvironment,
+		nil,
+		nil,
+		*vaultOCR3Addr,
+		"PostEnvStartup - Configure OCR3 Contract - Vault",
+	)
+	if err != nil {
+		return fmt.Errorf("failed to create strategy: %w", err)
+	}
+
 	_, err = operations.ExecuteOperation(
 		creEnv.CldfEnvironment.OperationsBundle,
 		depcontracts.ConfigureOCR3_1,
 		depcontracts.ConfigureOCR3_1Deps{
-			Env: creEnv.CldfEnvironment,
+			Env:      creEnv.CldfEnvironment,
+			Strategy: strategy,
 		},
 		depcontracts.ConfigureOCR3_1Input{
 			ContractAddress:               vaultOCR3Addr,
@@ -236,10 +248,7 @@ func (o *Vault) PostEnvStartup(
 
 func createJobs(
 	ctx context.Context,
-	chainID uint64,
-	vaultOCR3Addr *common.Address,
-	vaultDKGOCR3Addr *common.Address,
-	jdClient *jd.JobDistributor,
+	creEnv *cre.Environment,
 	don *cre.Don,
 	dons *cre.Dons,
 ) error {
@@ -248,9 +257,42 @@ func createJobs(
 		return errors.New("could not find bootstrap node in topology, exactly one bootstrap node is required")
 	}
 
-	workerNodes, wErr := don.Workers()
-	if wErr != nil {
-		return errors.Wrap(wErr, "failed to find worker nodes")
+	bootInput := cre_jobs.ProposeJobSpecInput{
+		Domain:      offchain.ProductLabel,
+		Environment: cre.EnvironmentName,
+		DONName:     bootstrap.DON.Name,
+		JobName:     "vault-bootstrap",
+		ExtraLabels: map[string]string{cre.CapabilityLabelKey: flag},
+		DONFilters: []offchain.TargetDONFilter{
+			{Key: offchain.FilterKeyDONName, Value: bootstrap.DON.Name},
+		},
+		Template: job_types.BootstrapVault,
+		Inputs: job_types.JobSpecInput{
+			"chainSelector":           creEnv.RegistryChainSelector,
+			"contractQualifierPrefix": ContractQualifier,
+		},
+	}
+
+	bootVerErr := cre_jobs.ProposeJobSpec{}.VerifyPreconditions(*creEnv.CldfEnvironment, bootInput)
+	if bootVerErr != nil {
+		return fmt.Errorf("precondition verification failed for Vault bootstrap job: %w", bootVerErr)
+	}
+
+	bootReport, bootErr := cre_jobs.ProposeJobSpec{}.Apply(*creEnv.CldfEnvironment, bootInput)
+	if bootErr != nil {
+		return fmt.Errorf("failed to propose Vault bootstrap job spec: %w", bootErr)
+	}
+
+	specs := make(map[string][]string)
+	for _, r := range bootReport.Reports {
+		out, ok := r.Output.(cre_jobs_seq.ProposeVaultBootstrapJobsOutput)
+		if !ok {
+			return fmt.Errorf("unable to cast to ProposeVaultBootstrapJobsOutput, actual type: %T", r.Output)
+		}
+		mErr := mergo.Merge(&specs, out.Specs, mergo.WithAppendSlice)
+		if mErr != nil {
+			return fmt.Errorf("failed to merge bootstrap job specs: %w", mErr)
+		}
 	}
 
 	_, ocrPeeringCfg, err := cre.PeeringCfgs(bootstrap)
@@ -258,36 +300,58 @@ func createJobs(
 		return errors.Wrap(err, "failed to get peering configs")
 	}
 
-	jobSpecs := []*jobv1.ProposeJobRequest{}
-	jobSpecs = append(jobSpecs, ocr.BootstrapOCR3(bootstrap.JobDistributorDetails.NodeID, "vault-capability", vaultOCR3Addr.Hex(), chainID))
-
-	for _, workerNode := range workerNodes {
-		evmKey, ok := workerNode.Keys.EVM[chainID]
-		if !ok {
-			return fmt.Errorf("failed to get EVM key (chainID %d, node index %d)", chainID, workerNode.Index)
-		}
-
-		// we need the OCR2 key bundle for the EVM chain, because OCR jobs currently run only on EVM chains
-		evmOCR2KeyBundle, ok := workerNode.Keys.OCR2BundleIDs[chainselectors.FamilyEVM]
-		if !ok {
-			return fmt.Errorf("node %s does not have OCR2 key bundle for evm", workerNode.Name)
-		}
-
-		// we pass here bundles for all chains to enable multi-chain signing
-		jobSpecs = append(jobSpecs, workerJobSpec(workerNode.JobDistributorDetails.NodeID, vaultOCR3Addr.Hex(), vaultDKGOCR3Addr.Hex(), evmKey.PublicAddress.Hex(), evmOCR2KeyBundle, ocrPeeringCfg, chainID))
+	workerInput := cre_jobs.ProposeJobSpecInput{
+		Domain:      offchain.ProductLabel,
+		Environment: cre.EnvironmentName,
+		DONName:     don.Name,
+		JobName:     "vault-worker",
+		ExtraLabels: map[string]string{cre.CapabilityLabelKey: flag},
+		DONFilters: []offchain.TargetDONFilter{
+			{Key: offchain.FilterKeyDONName, Value: don.Name},
+		},
+		Template: job_types.OCR3,
+		Inputs: job_types.JobSpecInput{
+			"chainSelectorEVM":     creEnv.RegistryChainSelector,
+			"contractQualifier":    ContractQualifier + "_plugin",
+			"dkgContractQualifier": ContractQualifier + "_dkg",
+			"templateName":         "worker-vault",
+			"bootstrapperOCR3Urls": []string{ocrPeeringCfg.OCRBootstraperPeerID + "@" + ocrPeeringCfg.OCRBootstraperHost + ":" + strconv.Itoa(ocrPeeringCfg.Port)},
+		},
 	}
 
-	// pass whole topology, since some jobs might need to be created on multiple DONs
-	return jobs.Create(ctx, jdClient, dons, jobSpecs)
+	workerVerErr := cre_jobs.ProposeJobSpec{}.VerifyPreconditions(*creEnv.CldfEnvironment, workerInput)
+	if workerVerErr != nil {
+		return fmt.Errorf("precondition verification failed for Vault worker job: %w", workerVerErr)
+	}
+
+	workerReport, workerErr := cre_jobs.ProposeJobSpec{}.Apply(*creEnv.CldfEnvironment, workerInput)
+	if workerErr != nil {
+		return fmt.Errorf("failed to propose Vault worker job spec: %w", workerErr)
+	}
+
+	for _, r := range workerReport.Reports {
+		out, ok := r.Output.(cre_jobs_ops.ProposeOCR3JobOutput)
+		if !ok {
+			return fmt.Errorf("unable to cast to ProposeOCR3JobOutput, actual type: %T", r.Output)
+		}
+		mErr := mergo.Merge(&specs, out.Specs, mergo.WithAppendSlice)
+		if mErr != nil {
+			return fmt.Errorf("failed to merge worker job specs: %w", mErr)
+		}
+	}
+
+	approveErr := jobs.Approve(ctx, creEnv.CldfEnvironment.Offchain, dons, specs)
+	if approveErr != nil {
+		return fmt.Errorf("failed to approve Vault jobs: %w", approveErr)
+	}
+
+	return nil
 }
 
-func deployVaultContracts(testLogger zerolog.Logger, qualifier string, homeChainSelector uint64, env *cldf.Environment, contractVersions map[string]string) (*common.Address, *common.Address, error) {
-	memoryDatastore := datastore.NewMemoryDataStore()
-
-	// load all existing addresses into memory datastore
-	mergeErr := memoryDatastore.Merge(env.DataStore)
-	if mergeErr != nil {
-		return nil, nil, fmt.Errorf("failed to merge existing datastore into memory datastore: %w", mergeErr)
+func deployVaultContracts(testLogger zerolog.Logger, qualifier string, registryChainSelector uint64, env *cldf.Environment, contractVersions map[cre.ContractType]*semver.Version) (*common.Address, *common.Address, error) {
+	memoryDatastore, mErr := contracts.NewDataStoreFromExisting(env.DataStore)
+	if mErr != nil {
+		return nil, nil, fmt.Errorf("failed to create memory datastore: %w", mErr)
 	}
 
 	report, err := operations.ExecuteSequence(
@@ -297,21 +361,21 @@ func deployVaultContracts(testLogger zerolog.Logger, qualifier string, homeChain
 			Env: env,
 		},
 		creseq.DeployVaultInput{
-			ChainSelector: homeChainSelector,
+			ChainSelector: registryChainSelector,
 			Qualifier:     qualifier,
 		},
 	)
 	if err != nil {
-		return nil, nil, fmt.Errorf("failed to deploy OCR3 contract '%s' on chain %d: %w", qualifier, homeChainSelector, err)
+		return nil, nil, fmt.Errorf("failed to deploy OCR3 contract '%s' on chain %d: %w", qualifier, registryChainSelector, err)
 	}
 	if err = memoryDatastore.Merge(report.Output.Datastore); err != nil {
-		return nil, nil, fmt.Errorf("failed to merge datastore with OCR3 contract address for '%s' on chain %d: %w", qualifier, homeChainSelector, err)
+		return nil, nil, fmt.Errorf("failed to merge datastore with OCR3 contract address for '%s' on chain %d: %w", qualifier, registryChainSelector, err)
 	}
 
 	vaultOCR3Addr := report.Output.PluginAddress
-	testLogger.Info().Msgf("Deployed OCR3 %s (Vault) contract on chain %d at %s", contractVersions[keystone_changeset.OCR3Capability.String()], homeChainSelector, vaultOCR3Addr)
+	testLogger.Info().Msgf("Deployed OCR3 %s (Vault) contract on chain %d at %s", contractVersions[keystone_changeset.OCR3Capability.String()], registryChainSelector, vaultOCR3Addr)
 	vaultDKGOCR3Addr := report.Output.DKGAddress
-	testLogger.Info().Msgf("Deployed OCR3 %s (DKG) contract on chain %d at %s", contractVersions[keystone_changeset.OCR3Capability.String()], homeChainSelector, vaultDKGOCR3Addr)
+	testLogger.Info().Msgf("Deployed OCR3 %s (DKG) contract on chain %d at %s", contractVersions[keystone_changeset.OCR3Capability.String()], registryChainSelector, vaultDKGOCR3Addr)
 
 	env.DataStore = memoryDatastore.Seal()
 
@@ -359,7 +423,7 @@ func reportingPluginConfigOverride(vaultDKGOCR3Addr *common.Address, creEnv *cre
 	return cfgb, nil
 }
 
-func EncryptSecret(secret, masterPublicKeyStr string) (string, error) {
+func EncryptSecret(secret, masterPublicKeyStr string, owner common.Address) (string, error) {
 	masterPublicKey := tdh2easy.PublicKey{}
 	masterPublicKeyBytes, err := hex.DecodeString(masterPublicKeyStr)
 	if err != nil {
@@ -369,7 +433,9 @@ func EncryptSecret(secret, masterPublicKeyStr string) (string, error) {
 	if err != nil {
 		return "", errors.Wrap(err, "failed to unmarshal master public key")
 	}
-	cipher, err := tdh2easy.Encrypt(&masterPublicKey, []byte(secret))
+	var label [32]byte
+	copy(label[12:], owner.Bytes()) // left-pad with 12 zero
+	cipher, err := tdh2easy.EncryptWithLabel(&masterPublicKey, []byte(secret), label)
 	if err != nil {
 		return "", errors.Wrap(err, "failed to encrypt secret")
 	}
@@ -378,43 +444,4 @@ func EncryptSecret(secret, masterPublicKeyStr string) (string, error) {
 		return "", errors.Wrap(err, "failed to marshal encrypted secrets to bytes")
 	}
 	return hex.EncodeToString(cipherBytes), nil
-}
-
-func workerJobSpec(nodeID string, vaultCapabilityAddress, dkgAddress, nodeEthAddress, ocr2KeyBundleID string, ocrPeeringData cre.OCRPeeringData, chainID uint64) *jobv1.ProposeJobRequest {
-	uuid := uuid.NewString()
-
-	return &jobv1.ProposeJobRequest{
-		NodeId: nodeID,
-		Spec: fmt.Sprintf(`
-	type = "offchainreporting2"
-	schemaVersion = 1
-	externalJobID = "%s"
-	name = "%s"
-	contractID = "%s"
-	ocrKeyBundleID = "%s"
-	p2pv2Bootstrappers = [
-		"%s@%s",
-	]
-	relay = "evm"
-	pluginType = "%s"
-	transmitterID = "%s"
-	[relayConfig]
-	chainID = "%d"
-	[pluginConfig]
-	requestExpiryDuration = "60s"
-	[pluginConfig.dkg]
-	dkgContractID = "%s"
-`,
-			uuid,
-			"Vault OCR3 Capability",
-			vaultCapabilityAddress,
-			ocr2KeyBundleID,
-			ocrPeeringData.OCRBootstraperPeerID,
-			fmt.Sprintf("%s:%d", ocrPeeringData.OCRBootstraperHost, ocrPeeringData.Port),
-			types.VaultPlugin,
-			nodeEthAddress,
-			chainID,
-			dkgAddress,
-		),
-	}
 }

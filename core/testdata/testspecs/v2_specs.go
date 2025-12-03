@@ -21,6 +21,13 @@ import (
 )
 
 var (
+	CRESettingsSpec = `
+type = "cresettings"
+schemaVersion = 1
+externalJobID = "7dcfa33b-8ed9-4e9f-9216-5b4d3f5c7887"
+hash = "7b9852545d50f9657d63da45789a0147858a67bc1284255209293a573ec4e3d7"
+settings = '''
+Foo = "bar"'''`
 	CronSpecTemplate = `
 type                = "cron"
 schemaVersion       = 1
@@ -1050,3 +1057,5 @@ juelsPerFeeCoinSource = """
 [relayConfig]
 chainID = 0
 `
+
+func GetCRESettingsSpec() string { return CRESettingsSpec }

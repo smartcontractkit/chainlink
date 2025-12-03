@@ -4,62 +4,58 @@ import (
 	"math/big"
 	"os"
 	"path/filepath"
-	"runtime"
 	"testing"
 	"time"
 
 	"github.com/Masterminds/semver/v3"
-
 	"github.com/gagliardetto/solana-go"
-
 	chain_selectors "github.com/smartcontractkit/chain-selectors"
-	"github.com/smartcontractkit/wsrpc/logger"
 	"github.com/stretchr/testify/require"
-	"go.uber.org/zap/zapcore"
 
-	"github.com/smartcontractkit/chainlink/deployment/helpers"
-	"github.com/smartcontractkit/chainlink/deployment/internal/soltestutils"
-
-	cldfchain "github.com/smartcontractkit/chainlink-deployments-framework/chain"
 	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
+	"github.com/smartcontractkit/chainlink-deployments-framework/engine/test/environment"
+
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 	solanaMCMS "github.com/smartcontractkit/chainlink/deployment/common/changeset/solana/mcms"
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 	commontypes "github.com/smartcontractkit/chainlink/deployment/common/types"
-	"github.com/smartcontractkit/chainlink/deployment/environment/memory"
+	"github.com/smartcontractkit/chainlink/deployment/helpers"
+	"github.com/smartcontractkit/chainlink/deployment/internal/soltestutils"
 )
 
 const (
 	testQualifier = "test-deploy"
 )
 
+// TODO: This test is not working as expected, however this has been modified to work with the new
+// test engine environment.
 func TestDeployCache(t *testing.T) {
 	skipInCI(t)
 	t.Parallel()
 
-	lggr := logger.Test(t)
-	cfg := memory.MemoryEnvironmentConfig{
-		Nodes:     1,
-		SolChains: 1,
-	}
+	selector := chain_selectors.TEST_22222222222222222222222222222222222222222222.Selector
+	e, err := environment.New(t.Context(),
+		environment.WithSolanaContainer(t, []uint64{selector}, t.TempDir(), map[string]string{}),
+		environment.WithLogger(logger.Test(t)),
+	)
+	require.NoError(t, err)
 
-	env := memory.NewMemoryEnvironment(t, lggr, zapcore.DebugLevel, cfg)
-	solSel := env.BlockChains.ListChainSelectors(cldfchain.WithFamily(chain_selectors.FamilySolana))[0]
+	chain := e.BlockChains.SolanaChains()[selector]
 
-	chain := env.BlockChains.SolanaChains()[solSel]
-	chain.ProgramsPath = getProgramsPath()
-	env.BlockChains = cldfchain.NewBlockChains(map[uint64]cldfchain.BlockChain{solSel: chain})
+	// Reassign the environment value to keep the test the same as the original test
+	env := *e
 
 	forwarderProgramID := solana.SystemProgramID // needs to be executable
 	t.Run("should deploy cache", func(t *testing.T) {
 		configuredChangeset := commonchangeset.Configure(DeployCache{},
 			&DeployCacheRequest{
-				ChainSel:  solSel,
+				ChainSel:  selector,
 				Qualifier: testQualifier,
 				Version:   "1.0.0",
 				BuildConfig: &helpers.BuildSolanaConfig{
-					GitCommitSha:   "3305b4d55b5469e110133e5a36e5600aadf436fb",
-					DestinationDir: getProgramsPath(),
+					GitCommitSha:   "cd449e02f649fab782739685b57b373394e6f3e8",
+					DestinationDir: chain.ProgramsPath,
 					LocalBuild:     helpers.LocalBuildConfig{BuildLocally: true, CreateDestinationDir: true},
 				},
 				FeedAdmins:         []solana.PublicKey{chain.DeployerKey.PublicKey()},
@@ -74,8 +70,8 @@ func TestDeployCache(t *testing.T) {
 		// Check that the cache program and state addresses are present in the datastore
 		ds := env.DataStore
 		version := "1.0.0"
-		cacheKey := datastore.NewAddressRefKey(solSel, CacheContract, mustParseVersion(version), testQualifier)
-		cacheStateKey := datastore.NewAddressRefKey(solSel, CacheState, mustParseVersion(version), testQualifier)
+		cacheKey := datastore.NewAddressRefKey(selector, CacheContract, semver.MustParse(version), testQualifier)
+		cacheStateKey := datastore.NewAddressRefKey(selector, CacheState, semver.MustParse(version), testQualifier)
 
 		cacheAddr, err := ds.Addresses().Get(cacheKey)
 		require.NoError(t, err)
@@ -89,7 +85,7 @@ func TestDeployCache(t *testing.T) {
 	t.Run("should pass upgrade authority", func(t *testing.T) {
 		configuredChangeset := commonchangeset.Configure(SetCacheUpgradeAuthority{},
 			&SetCacheUpgradeAuthorityRequest{
-				ChainSel:            solSel,
+				ChainSel:            selector,
 				Qualifier:           testQualifier,
 				Version:             "1.0.0",
 				NewUpgradeAuthority: chain.DeployerKey.PublicKey().String(),
@@ -102,22 +98,33 @@ func TestDeployCache(t *testing.T) {
 	})
 }
 
+// TODO: This test is not working as expected, however this has been modified to work with the new
+// test engine environment.
 func TestConfigureCache(t *testing.T) {
 	skipInCI(t)
 	t.Parallel()
 
-	lggr := logger.Test(t)
-	cfg := memory.MemoryEnvironmentConfig{
-		Nodes:     1,
-		SolChains: 1,
+	selector := chain_selectors.TEST_22222222222222222222222222222222222222222222.Selector
+	programsPath := t.TempDir()
+	soltestutils.LoadDataFeedsPrograms(t, programsPath)
+
+	e, err := environment.New(t.Context(),
+		environment.WithSolanaContainer(t, []uint64{selector}, programsPath, map[string]string{}),
+		environment.WithLogger(logger.Test(t)),
+	)
+	require.NoError(t, err)
+
+	chain := e.BlockChains.SolanaChains()[selector]
+
+	files, err := os.ReadDir(programsPath)
+	require.NoError(t, err)
+	for _, file := range files {
+		absPath := filepath.Join(programsPath, file.Name())
+		t.Logf("Program file: %s", absPath)
 	}
 
-	env := memory.NewMemoryEnvironment(t, lggr, zapcore.DebugLevel, cfg)
-	solSel := env.BlockChains.ListChainSelectors(cldfchain.WithFamily(chain_selectors.FamilySolana))[0]
+	env := *e
 
-	chain := env.BlockChains.SolanaChains()[solSel]
-	chain.ProgramsPath = getProgramsPath()
-	env.BlockChains = cldfchain.NewBlockChains(map[uint64]cldfchain.BlockChain{solSel: chain})
 	// Example array of DataIDs as [][16]uint8
 	DataIDs := []string{
 		"0x018e16c39e00032000000",
@@ -126,9 +133,9 @@ func TestConfigureCache(t *testing.T) {
 	}
 
 	descriptions := [][32]uint8{
-		[32]uint8{'B', 'i', 't', 'c', 'o', 'i', 'n', ' ', 'P', 'r', 'i', 'c', 'e', ' ', 'F', 'e', 'e', 'd'},
-		[32]uint8{'E', 't', 'h', 'e', 'r', 'e', 'u', 'm', ' ', 'P', 'r', 'i', 'c', 'e', ' ', 'F', 'e', 'e', 'd'},
-		[32]uint8{'S', 'o', 'l', 'a', 'n', 'a', ' ', 'P', 'r', 'i', 'c', 'e', ' ', 'F', 'e', 'e', 'd'},
+		{'B', 'i', 't', 'c', 'o', 'i', 'n', ' ', 'P', 'r', 'i', 'c', 'e', ' ', 'F', 'e', 'e', 'd'},
+		{'E', 't', 'h', 'e', 'r', 'e', 'u', 'm', ' ', 'P', 'r', 'i', 'c', 'e', ' ', 'F', 'e', 'e', 'd'},
+		{'S', 'o', 'l', 'a', 'n', 'a', ' ', 'P', 'r', 'i', 'c', 'e', ' ', 'F', 'e', 'e', 'd'},
 	}
 
 	// For AllowedSender (slice of solana.PublicKey)
@@ -162,7 +169,7 @@ func TestConfigureCache(t *testing.T) {
 		// First deploy the cache to get the program ID and state
 		deployChangeset := commonchangeset.Configure(DeployCache{},
 			&DeployCacheRequest{
-				ChainSel:           solSel,
+				ChainSel:           selector,
 				Qualifier:          testQualifier,
 				Version:            "1.0.0",
 				FeedAdmins:         []solana.PublicKey{chain.DeployerKey.PublicKey()},
@@ -176,7 +183,7 @@ func TestConfigureCache(t *testing.T) {
 
 		configuredChangeset := commonchangeset.Configure(InitCacheDecimalReport{},
 			&InitCacheDecimalReportRequest{
-				ChainSel:  solSel,
+				ChainSel:  selector,
 				Qualifier: testQualifier,
 				Version:   "1.0.0",
 				DataIDs:   DataIDs,
@@ -190,7 +197,7 @@ func TestConfigureCache(t *testing.T) {
 
 		configuredChangeset = commonchangeset.Configure(ConfigureCacheDecimalReport{},
 			&ConfigureCacheDecimalReportRequest{
-				ChainSel:             solSel,
+				ChainSel:             selector,
 				Qualifier:            testQualifier,
 				Version:              "1.0.0",
 				SenderList:           senderList,
@@ -211,7 +218,7 @@ func TestConfigureCache(t *testing.T) {
 		// First deploy the cache
 		deployChangeset := commonchangeset.Configure(DeployCache{},
 			&DeployCacheRequest{
-				ChainSel:           solSel,
+				ChainSel:           selector,
 				Qualifier:          testQualifier,
 				Version:            "1.0.0",
 				FeedAdmins:         []solana.PublicKey{chain.DeployerKey.PublicKey()},
@@ -225,7 +232,7 @@ func TestConfigureCache(t *testing.T) {
 
 		configuredChangeset := commonchangeset.Configure(ConfigureCacheDecimalReport{},
 			&ConfigureCacheDecimalReportRequest{
-				ChainSel:             solSel,
+				ChainSel:             selector,
 				Qualifier:            testQualifier,
 				Version:              "1.0.0",
 				SenderList:           senderList,
@@ -245,7 +252,7 @@ func TestConfigureCache(t *testing.T) {
 	t.Run("should set cache decimal report config with mcms", func(t *testing.T) {
 		configuredChangeset := commonchangeset.Configure(ConfigureCacheDecimalReport{},
 			&ConfigureCacheDecimalReportRequest{
-				ChainSel:             solSel,
+				ChainSel:             selector,
 				Qualifier:            testQualifier,
 				Version:              "1.0.0",
 				SenderList:           senderList,
@@ -259,7 +266,7 @@ func TestConfigureCache(t *testing.T) {
 
 		deployChangeset := commonchangeset.Configure(DeployCache{},
 			&DeployCacheRequest{
-				ChainSel:           solSel,
+				ChainSel:           selector,
 				Qualifier:          testQualifier,
 				Version:            "1.0.0",
 				FeedAdmins:         []solana.PublicKey{chain.DeployerKey.PublicKey()},
@@ -286,7 +293,7 @@ func TestConfigureCache(t *testing.T) {
 
 		transferOwnershipChangeset := commonchangeset.Configure(TransferOwnershipCache{},
 			&TransferOwnershipCacheRequest{
-				ChainSel:  solSel,
+				ChainSel:  selector,
 				MCMSCfg:   proposalutils.TimelockConfig{MinDelay: 1 * time.Second},
 				Qualifier: testQualifier,
 				Version:   "1.0.0",
@@ -295,27 +302,6 @@ func TestConfigureCache(t *testing.T) {
 		_, _, err = commonchangeset.ApplyChangesets(t, env, []commonchangeset.ConfiguredChangeSet{deployChangeset, configuredChangeset, transferOwnershipChangeset})
 		require.NoError(t, err)
 	})
-}
-
-func ParseSemver(v string) *semver.Version {
-	ver, err := semver.NewVersion(v)
-	if err != nil {
-		panic(err)
-	}
-	return ver
-}
-
-func mustParseVersion(v string) *semver.Version {
-	return ParseSemver(v)
-}
-
-func getProgramsPath() string {
-	// Get the directory of the current file (environment.go)
-	_, currentFile, _, _ := runtime.Caller(0)
-	// Go up to the root of the deployment package
-	rootDir := filepath.Dir(filepath.Dir(filepath.Dir(currentFile)))
-	// Construct the absolute path
-	return filepath.Join(rootDir, "changeset/solana", "solana_contracts")
 }
 
 func skipInCI(t *testing.T) {

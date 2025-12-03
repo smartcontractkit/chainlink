@@ -8,6 +8,7 @@ import (
 	"strings"
 	"text/template"
 
+	"github.com/Masterminds/semver/v3"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/pelletier/go-toml/v2"
 	"github.com/pkg/errors"
@@ -16,7 +17,6 @@ import (
 	chain_selectors "github.com/smartcontractkit/chain-selectors"
 
 	cldf_tron "github.com/smartcontractkit/chainlink-deployments-framework/chain/tron"
-	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	evmworkflow "github.com/smartcontractkit/chainlink-evm/pkg/config/toml"
 	chainlinkbig "github.com/smartcontractkit/chainlink-evm/pkg/utils/big"
@@ -37,6 +37,7 @@ import (
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/contracts"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/don"
+	evmblockchain "github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/blockchains/evm"
 	envconfig "github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/config"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/features/evm"
 )
@@ -147,7 +148,7 @@ func (o *EVM) PostEnvStartup(
 	_, exist = chainsWithForwarders[blockchain.FamilyTron]
 	if exist {
 		for _, don := range consensusDons {
-			tErr := configureTronForwarder(testLogger, creEnv.CldfEnvironment, creEnv.RegistryChainSelector, don)
+			tErr := configureTronForwarder(testLogger, creEnv, don)
 			if tErr != nil {
 				return errors.Wrap(tErr, "failed to configure Tron forwarders")
 			}
@@ -157,13 +158,10 @@ func (o *EVM) PostEnvStartup(
 	return nil
 }
 
-func deployTronForwarders(testLogger zerolog.Logger, cldfEnv *cldf.Environment, chainSelectors []uint64, contractVersions map[string]string) error {
-	memoryDatastore := datastore.NewMemoryDataStore()
-
-	// load all existing addresses into memory datastore
-	mergeErr := memoryDatastore.Merge(cldfEnv.DataStore)
-	if mergeErr != nil {
-		return fmt.Errorf("failed to merge existing datastore into memory datastore: %w", mergeErr)
+func deployTronForwarders(testLogger zerolog.Logger, cldfEnv *cldf.Environment, chainSelectors []uint64, contractVersions map[cre.ContractType]*semver.Version) error {
+	memoryDatastore, mErr := contracts.NewDataStoreFromExisting(cldfEnv.DataStore)
+	if mErr != nil {
+		return fmt.Errorf("failed to create memory datastore: %w", mErr)
 	}
 
 	deployOptions := cldf_tron.DefaultDeployOptions()
@@ -179,8 +177,6 @@ func deployTronForwarders(testLogger zerolog.Logger, cldfEnv *cldf.Environment, 
 	if err != nil {
 		return fmt.Errorf("failed to deploy Tron forwarders using changesets: %w", err)
 	}
-
-	cldfEnv.ExistingAddresses = updatedEnv.ExistingAddresses //nolint:staticcheck // won't migrate now
 
 	if updatedEnv.DataStore != nil {
 		err = memoryDatastore.Merge(updatedEnv.DataStore)
@@ -198,7 +194,7 @@ func deployTronForwarders(testLogger zerolog.Logger, cldfEnv *cldf.Environment, 
 	return nil
 }
 
-func configureTronForwarder(testLogger zerolog.Logger, env *cldf.Environment, registryChainSelector uint64, don *cre.Don) error {
+func configureTronForwarder(testLogger zerolog.Logger, creEnv *cre.Environment, don *cre.Don) error {
 	triggerOptions := cldf_tron.DefaultTriggerOptions()
 	triggerOptions.FeeLimit = 1_000_000_000
 
@@ -212,37 +208,39 @@ func configureTronForwarder(testLogger zerolog.Logger, env *cldf.Environment, re
 		wfNodeIDs = append(wfNodeIDs, node.Keys.P2PKey.PeerID.String())
 	}
 
+	registryChain, rErr := creEnv.RegistryChain()
+	if rErr != nil {
+		return fmt.Errorf("failed to get registry chain: %w", rErr)
+	}
+
+	asEVM, ok := registryChain.(*evmblockchain.Blockchain)
+	if !ok {
+		return fmt.Errorf("registry chain is not *evmblockchain.Blockchain, but %T", registryChain)
+	}
+
+	capabilitiesRegistryAddress := contracts.MustGetAddressFromDataStore(creEnv.CldfEnvironment.DataStore, creEnv.RegistryChainSelector, keystone_changeset.CapabilitiesRegistry.String(), creEnv.ContractVersions[keystone_changeset.CapabilitiesRegistry.String()], "")
+	capReg, capErr := kcr.NewCapabilitiesRegistry(common.HexToAddress(capabilitiesRegistryAddress), asEVM.SethClient.Client)
+	if capErr != nil {
+		return fmt.Errorf("failed to create capabilities registry instance: %w", capErr)
+	}
+
 	configChangeset := commonchangeset.Configure(tronchangeset.ConfigureForwarder{}, &tronchangeset.ConfigureForwarderRequest{
 		WFDonName:        don.Name,
 		WFNodeIDs:        wfNodeIDs,
-		RegistryChainSel: registryChainSelector,
+		RegistryChainSel: creEnv.RegistryChainSelector,
 		Chains:           make(map[uint64]struct{}),
 		TriggerOptions:   triggerOptions,
+		Registry:         capReg,
 	})
 
-	_, err := commonchangeset.Apply(nil, *env, configChangeset)
+	_, err := commonchangeset.Apply(nil, *creEnv.CldfEnvironment, configChangeset)
 	if err != nil {
 		return fmt.Errorf("failed to configure Tron forwarders using changesets: %w", err)
 	}
 
-	testLogger.Info().Msgf("Configured TRON forwarder for v1 consensus on chain: %d", registryChainSelector)
+	testLogger.Info().Msgf("Configured TRON forwarder for v1 consensus on chain: %d", creEnv.RegistryChainSelector)
 
 	return nil
-}
-
-func findForwarderAddress(chain chain_selectors.Chain, addressBook cldf.AddressBook) (*common.Address, error) {
-	addrsForChains, addErr := addressBook.AddressesForChain(chain.Selector)
-	if addErr != nil {
-		return nil, errors.Wrap(addErr, "failed to get addresses from address book")
-	}
-
-	for addr, addrValue := range addrsForChains {
-		if addrValue.Type == keystone_changeset.KeystoneForwarder {
-			return ptr.Ptr(common.HexToAddress(addr)), nil
-		}
-	}
-
-	return nil, errors.Errorf("failed to find forwarder address for chain %d", chain.Selector)
 }
 
 func updateNodeConfig(workerNode *cre.NodeMetadata, currentConfig string, chainCapabilityConfigs map[string]*cre.ChainCapabilityConfig, creEnv *cre.Environment) (*string, error) {
@@ -260,12 +258,7 @@ func updateNodeConfig(workerNode *cre.NodeMetadata, currentConfig string, chainC
 			ChainSelector: chain.Selector,
 		}
 
-		forwarderAddress, fErr := findForwarderAddress(chain, creEnv.CldfEnvironment.ExistingAddresses) //nolint:staticcheck // won't migrate now
-		if fErr != nil {
-			return nil, errors.Errorf("failed to find forwarder address for chain %d", chain.Selector)
-		}
-		evmData.ForwarderAddress = forwarderAddress.Hex()
-
+		evmData.ForwarderAddress = contracts.MustGetAddressFromDataStore(creEnv.CldfEnvironment.DataStore, chain.Selector, keystone_changeset.KeystoneForwarder.String(), creEnv.ContractVersions[keystone_changeset.KeystoneForwarder.String()], "")
 		evmKey, ok := workerNode.Keys.EVM[chainID]
 		if !ok {
 			return nil, fmt.Errorf("failed to get EVM key (chainID %d, node index %d)", chainID, workerNode.Index)

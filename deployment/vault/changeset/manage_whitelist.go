@@ -10,18 +10,31 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/vault/changeset/types"
 )
 
-var SetWhitelistChangeset cldf.ChangeSetV2[types.SetWhitelistConfig] = setWhitelistChangeset{}
+var (
+	SetWhitelistChangeset       cldf.ChangeSetV2[types.SetWhitelistConfig] = whitelistChangeset{mode: "append", reducer: mergeWhitelistEntries}
+	OverwriteWhitelistChangeset cldf.ChangeSetV2[types.SetWhitelistConfig] = whitelistChangeset{mode: "overwrite", reducer: overwriteWhitelistEntries}
+)
 
-type setWhitelistChangeset struct{}
+type whitelistReducer func(existing, incoming []types.WhitelistAddress) []types.WhitelistAddress
 
-func (s setWhitelistChangeset) VerifyPreconditions(e cldf.Environment, cfg types.SetWhitelistConfig) error {
+type whitelistChangeset struct {
+	mode    string
+	reducer whitelistReducer
+}
+
+func (s whitelistChangeset) VerifyPreconditions(e cldf.Environment, cfg types.SetWhitelistConfig) error {
 	return ValidateSetWhitelistConfig(e, cfg)
 }
 
-func (s setWhitelistChangeset) Apply(e cldf.Environment, cfg types.SetWhitelistConfig) (cldf.ChangesetOutput, error) {
+func (s whitelistChangeset) Apply(e cldf.Environment, cfg types.SetWhitelistConfig) (cldf.ChangesetOutput, error) {
 	lggr := e.Logger
 
 	ds := datastore.NewMemoryDataStore()
+	if e.DataStore != nil {
+		if err := ds.Merge(e.DataStore); err != nil {
+			return cldf.ChangesetOutput{}, fmt.Errorf("failed to merge existing datastore: %w", err)
+		}
+	}
 
 	totalAddresses := 0
 	for _, addresses := range cfg.WhitelistByChain {
@@ -30,25 +43,27 @@ func (s setWhitelistChangeset) Apply(e cldf.Environment, cfg types.SetWhitelistC
 
 	lggr.Infow("Setting whitelist state",
 		"chains", len(cfg.WhitelistByChain),
-		"total_addresses", totalAddresses)
+		"total_addresses", totalAddresses,
+		"mode", s.mode)
 
 	for chainSelector, addresses := range cfg.WhitelistByChain {
 		lggr.Infow("Setting whitelist for chain",
 			"chain", chainSelector,
-			"address_count", len(addresses))
+			"address_count", len(addresses),
+			"mode", s.mode)
 
-		for _, addr := range addresses {
-			lggr.Infow("Whitelist address",
-				"chain", chainSelector,
-				"address", addr.Address,
-				"description", addr.Description)
+		existingMetadata, err := getChainWhitelist(ds.Seal(), chainSelector)
+		if err != nil {
+			return cldf.ChangesetOutput{}, fmt.Errorf("failed to load existing whitelist for chain %d: %w", chainSelector, err)
 		}
+
+		combined := s.reducer(existingMetadata.Addresses, addresses)
 
 		whitelistMetadata := types.WhitelistMetadata{
-			Addresses: addresses,
+			Addresses: combined,
 		}
 
-		err := ds.ChainMetadata().Upsert(datastore.ChainMetadata{
+		err = ds.ChainMetadata().Upsert(datastore.ChainMetadata{
 			ChainSelector: chainSelector,
 			Metadata:      whitelistMetadata,
 		})
@@ -62,6 +77,45 @@ func (s setWhitelistChangeset) Apply(e cldf.Environment, cfg types.SetWhitelistC
 	return cldf.ChangesetOutput{
 		DataStore: ds,
 	}, nil
+}
+
+func mergeWhitelistEntries(existing, incoming []types.WhitelistAddress) []types.WhitelistAddress {
+	if len(existing) == 0 && len(incoming) == 0 {
+		return nil
+	}
+
+	combined := make([]types.WhitelistAddress, len(existing))
+	copy(combined, existing)
+
+	addressIndex := make(map[string]int, len(combined))
+	for idx, addr := range combined {
+		addressIndex[addr.Address] = idx
+	}
+
+	for _, addr := range incoming {
+		if existingIdx, ok := addressIndex[addr.Address]; ok {
+			combined[existingIdx].Description = addr.Description
+			if len(addr.Labels) > 0 {
+				combined[existingIdx].Labels = addr.Labels
+			}
+			continue
+		}
+
+		addressIndex[addr.Address] = len(combined)
+		combined = append(combined, addr)
+	}
+
+	return combined
+}
+
+func overwriteWhitelistEntries(_ []types.WhitelistAddress, incoming []types.WhitelistAddress) []types.WhitelistAddress {
+	if len(incoming) == 0 {
+		return nil
+	}
+
+	combined := make([]types.WhitelistAddress, len(incoming))
+	copy(combined, incoming)
+	return combined
 }
 
 // GetWhitelistedAddresses retrieves all whitelisted addresses for given chains from chain metadata

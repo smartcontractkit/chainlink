@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"sync"
 
+	suistate "github.com/smartcontractkit/chainlink-sui/deployment"
 	tonstate "github.com/smartcontractkit/chainlink-ton/deployment/state"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/view/aptos"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/view/shared"
@@ -167,6 +168,7 @@ type CCIPView struct {
 	SolChains   map[string]SolChainView          `json:"solChains,omitempty"`
 	AptosChains map[string]AptosChainView        `json:"aptosChains,omitempty"`
 	TonChains   map[string]tonstate.TONChainView `json:"tonChains,omitempty"`
+	SuiChains   map[string]suistate.SuiChainView `json:"suiChains,omitempty"`
 	Nops        map[string]view.NopView          `json:"nops,omitempty"`
 }
 

@@ -7,6 +7,7 @@ import (
 )
 
 type Telemetry interface {
+	AuthHeadersTTL() time.Duration
 	Enabled() bool
 	InsecureConnection() bool
 	CACertFile() string
@@ -20,4 +21,9 @@ type Telemetry interface {
 	HeartbeatInterval() time.Duration
 	LogStreamingEnabled() bool
 	LogLevel() zapcore.Level
+	LogBatchProcessor() bool
+	LogExportTimeout() time.Duration
+	LogExportMaxBatchSize() int
+	LogExportInterval() time.Duration
+	LogMaxQueueSize() int
 }

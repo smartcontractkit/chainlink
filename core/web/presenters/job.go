@@ -493,6 +493,50 @@ func NewCCIPSpec(spec *job.CCIPSpec) *CCIPSpec {
 	}
 }
 
+type CCVCommitteeVerifierSpec struct {
+	CreatedAt               time.Time `json:"createdAt"`
+	UpdatedAt               time.Time `json:"updatedAt"`
+	CommitteeVerifierConfig string    `json:"committeeVerifierConfig"`
+}
+
+func NewCCVCommitteeVerifierSpec(spec *job.CCVCommitteeVerifierSpec) *CCVCommitteeVerifierSpec {
+	return &CCVCommitteeVerifierSpec{
+		CreatedAt:               spec.CreatedAt,
+		UpdatedAt:               spec.UpdatedAt,
+		CommitteeVerifierConfig: spec.CommitteeVerifierConfig,
+	}
+}
+
+type CCVExecutorSpec struct {
+	CreatedAt      time.Time `json:"createdAt"`
+	UpdatedAt      time.Time `json:"updatedAt"`
+	ExecutorConfig string    `json:"executorConfig"`
+}
+
+func NewCCVExecutorSpec(spec *job.CCVExecutorSpec) *CCVExecutorSpec {
+	return &CCVExecutorSpec{
+		CreatedAt:      spec.CreatedAt,
+		UpdatedAt:      spec.UpdatedAt,
+		ExecutorConfig: spec.ExecutorConfig,
+	}
+}
+
+type CRESettingsSpec struct {
+	CreatedAt time.Time `json:"createdAt"`
+	UpdatedAt time.Time `json:"updatedAt"`
+	Settings  string    `json:"settings"`
+	Hash      string    `json:"hash"`
+}
+
+func NewCRESettingsSpec(spec *job.CRESettingsSpec) *CRESettingsSpec {
+	return &CRESettingsSpec{
+		CreatedAt: spec.CreatedAt,
+		UpdatedAt: spec.UpdatedAt,
+		Settings:  spec.Settings,
+		Hash:      spec.Hash,
+	}
+}
+
 // JobError represents errors on the job
 type JobError struct {
 	ID          int64     `json:"id"`
@@ -525,6 +569,7 @@ type JobResource struct {
 	ExternalJobID            uuid.UUID                 `json:"externalJobID"`
 	DirectRequestSpec        *DirectRequestSpec        `json:"directRequestSpec"`
 	FluxMonitorSpec          *FluxMonitorSpec          `json:"fluxMonitorSpec"`
+	CRESettings              *CRESettingsSpec          `json:"creSettingsSpec"`
 	CronSpec                 *CronSpec                 `json:"cronSpec"`
 	OffChainReportingSpec    *OffChainReportingSpec    `json:"offChainReportingOracleSpec"`
 	OffChainReporting2Spec   *OffChainReporting2Spec   `json:"offChainReporting2OracleSpec"`
@@ -538,6 +583,8 @@ type JobResource struct {
 	WorkflowSpec             *WorkflowSpec             `json:"workflowSpec"`
 	StandardCapabilitiesSpec *StandardCapabilitiesSpec `json:"standardCapabilitiesSpec"`
 	CCIPSpec                 *CCIPSpec                 `json:"ccipSpec"`
+	CCVCommitteeVerifierSpec *CCVCommitteeVerifierSpec `json:"ccvCommitteeVerifierSpec"`
+	CCVExecutorSpec          *CCVExecutorSpec          `json:"ccvExecutorSpec"`
 	PipelineSpec             PipelineSpec              `json:"pipelineSpec"`
 	Errors                   []JobError                `json:"errors"`
 }
@@ -562,6 +609,8 @@ func NewJobResource(j job.Job) *JobResource {
 		resource.DirectRequestSpec = NewDirectRequestSpec(j.DirectRequestSpec)
 	case job.FluxMonitor:
 		resource.FluxMonitorSpec = NewFluxMonitorSpec(j.FluxMonitorSpec)
+	case job.CRESettings:
+		resource.CRESettings = NewCRESettingsSpec(j.CRESettingsSpec)
 	case job.Cron:
 		resource.CronSpec = NewCronSpec(j.CronSpec)
 	case job.OffchainReporting:
@@ -590,6 +639,10 @@ func NewJobResource(j job.Job) *JobResource {
 		resource.StandardCapabilitiesSpec = NewStandardCapabilitiesSpec(j.StandardCapabilitiesSpec)
 	case job.CCIP:
 		resource.CCIPSpec = NewCCIPSpec(j.CCIPSpec)
+	case job.CCVCommitteeVerifier:
+		resource.CCVCommitteeVerifierSpec = NewCCVCommitteeVerifierSpec(j.CCVCommitteeVerifierSpec)
+	case job.CCVExecutor:
+		resource.CCVExecutorSpec = NewCCVExecutorSpec(j.CCVExecutorSpec)
 	case job.LegacyGasStationServer, job.LegacyGasStationSidecar:
 		// unsupported
 	}

@@ -2,12 +2,9 @@ package ccip
 
 import (
 	"encoding/hex"
-	"fmt"
 	"math/big"
 	"strings"
-	"sync"
 	"testing"
-	"time"
 
 	"github.com/stretchr/testify/require"
 
@@ -17,7 +14,6 @@ import (
 
 	chain_selectors "github.com/smartcontractkit/chain-selectors"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_2_0/router"
-	"github.com/smartcontractkit/chainlink-common/pkg/config"
 	module_fee_quoter "github.com/smartcontractkit/chainlink-sui/bindings/generated/ccip/ccip/fee_quoter"
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/testcontext"
 
@@ -34,13 +30,10 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers"
 	mlt "github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers/messagelimitationstest"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers/messagingtest"
-	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/v1_6"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
 	commoncs "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 
 	testsetups "github.com/smartcontractkit/chainlink/integration-tests/testsetups/ccip"
-
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
 
 func Test_CCIP_Messaging_Sui2EVM(t *testing.T) {
@@ -53,9 +46,6 @@ func Test_CCIP_Messaging_Sui2EVM(t *testing.T) {
 
 	evmChainSelectors := e.Env.BlockChains.ListChainSelectors(chain.WithFamily(chain_selectors.FamilyEVM))
 	suiChainSelectors := e.Env.BlockChains.ListChainSelectors(chain.WithFamily(chain_selectors.FamilySui))
-
-	fmt.Println("EVM: ", evmChainSelectors[0])
-	fmt.Println("Sui: ", suiChainSelectors[0])
 
 	sourceChain := suiChainSelectors[0]
 	destChain := evmChainSelectors[0]
@@ -293,11 +283,10 @@ func Test_CCIP_Messaging_Sui2EVM(t *testing.T) {
 		})
 	})
 
-	fmt.Printf("out: %v\n", out)
+	t.Logf("out: %v\n", out)
 }
 
 func Test_CCIP_Messaging_EVM2Sui(t *testing.T) {
-	lggr := logger.TestLogger(t)
 	ctx := testcontext.Get(t)
 	e, _, _ := testsetups.NewIntegrationEnvironment(
 		t,
@@ -314,7 +303,7 @@ func Test_CCIP_Messaging_EVM2Sui(t *testing.T) {
 	sourceChain := evmChainSelectors[0]
 	destChain := suiChainSelectors[0]
 
-	lggr.Debug("Source chain (EVM): ", sourceChain, "Dest chain (Sui): ", destChain)
+	t.Log("Source chain (EVM): ", sourceChain, "Dest chain (Sui): ", destChain)
 
 	err = testhelpers.AddLaneWithDefaultPricesAndFeeQuoterConfig(t, &e, state, sourceChain, destChain, false)
 	require.NoError(t, err)
@@ -356,6 +345,7 @@ func Test_CCIP_Messaging_EVM2Sui(t *testing.T) {
 	_, _, err = commoncs.ApplyChangesets(t, e.Env, []commoncs.ConfiguredChangeSet{
 		commoncs.Configure(sui_cs.RegisterDummyReceiver{}, sui_cs.RegisterDummyReceiverConfig{
 			SuiChainSelector:       destChain,
+			OwnerCapObjectId:       outputMap.Objects.OwnerCapObjectId,
 			CCIPObjectRefObjectId:  state.SuiChains[destChain].CCIPObjectRef,
 			DummyReceiverPackageId: outputMap.PackageId,
 		}),
@@ -395,6 +385,28 @@ func Test_CCIP_Messaging_EVM2Sui(t *testing.T) {
 		)
 	})
 
+	// TODO: consider using this for single commit with multiple report
+	// tcs := []testhelpers.TestTransferRequest{
+	// 	{
+	// 		Name:           "Message to Sui (valid receiver)",
+	// 		SourceChain:    sourceChain,
+	// 		DestChain:      destChain,
+	// 		Receiver:       receiverByte,
+	// 		Data:           []byte("Hello Sui, from EVM!"),
+	// 		ExtraArgs:      testhelpers.MakeSuiExtraArgs(1000000, true, receiverObjectIDs, [32]byte{}),
+	// 		ExpectedStatus: testhelpers.EXECUTION_STATE_SUCCESS,
+	// 	},
+	// 	{
+	// 		Name:           "Message to Sui (zero receiver)",
+	// 		SourceChain:    sourceChain,
+	// 		DestChain:      destChain,
+	// 		Receiver:       []byte{},
+	// 		Data:           []byte("Hello Sui, from EVM!"),
+	// 		ExtraArgs:      testhelpers.MakeSuiExtraArgs(0, true, [][32]byte{}, [32]byte{}),
+	// 		ExpectedStatus: testhelpers.EXECUTION_STATE_SUCCESS,
+	// 	},
+	// }
+
 	// SUI MaxDataBytes won't exactly be srcFeeQuoterDestChainConfig.MaxDataBytes because we add following additional overhead;
 	//  suiExpandedDataLength +=
 	// ((receiverObjectIdsLength + Client.SUI_MESSAGING_ACCOUNTS_OVERHEAD) * Client.SUI_ACCOUNT_BYTE_SIZE);
@@ -412,21 +424,6 @@ func Test_CCIP_Messaging_EVM2Sui(t *testing.T) {
 	// 		},
 	// 	)
 	// })
-
-	t.Run("Message to Sui with zero receiver", func(t *testing.T) {
-		message := []byte("Hello Sui, from EVM!")
-		messagingtest.Run(t,
-			messagingtest.TestCase{
-				TestSetup:              setup,
-				Nonce:                  &nonce,
-				ValidationType:         messagingtest.ValidationTypeExec,
-				Receiver:               []byte{},
-				MsgData:                message,
-				ExtraArgs:              testhelpers.MakeSuiExtraArgs(0, true, [][32]byte{}, [32]byte{}),
-				ExpectedExecutionState: testhelpers.EXECUTION_STATE_SUCCESS,
-			},
-		)
-	})
 
 	// REVERT CASES
 
@@ -546,22 +543,11 @@ func Test_CCIP_Messaging_EVM2Sui(t *testing.T) {
 	})
 }
 
-// Test is no-op for now
-// Set MsgVisibilityInterval super low
-// Send 5 CCIPSend msgs with invalid receiver
-// Send additional 2 more msgs with valid receiver
-func Test_CCIP_EVM2Sui_ExecPlugin_MessageVisibilityAndRetryBehavior(t *testing.T) {
-	lggr := logger.TestLogger(t)
+func Test_CCIP_EVM2Sui_ZeroReceiver(t *testing.T) {
 	e, _, _ := testsetups.NewIntegrationEnvironment(
 		t,
 		testhelpers.WithNumOfChains(2),
 		testhelpers.WithSuiChains(1),
-		testhelpers.WithOCRConfigOverride(func(params v1_6.CCIPOCRParams) v1_6.CCIPOCRParams {
-			if params.ExecuteOffChainConfig != nil {
-				params.ExecuteOffChainConfig.MessageVisibilityInterval = *config.MustNewDuration(3 * time.Minute)
-			}
-			return params
-		}),
 	)
 
 	evmChainSelectors := e.Env.BlockChains.ListChainSelectors(chain.WithFamily(chain_selectors.FamilyEVM))
@@ -573,7 +559,7 @@ func Test_CCIP_EVM2Sui_ExecPlugin_MessageVisibilityAndRetryBehavior(t *testing.T
 	sourceChain := evmChainSelectors[0]
 	destChain := suiChainSelectors[0]
 
-	lggr.Debug("Source chain (EVM): ", sourceChain, "Dest chain (Sui): ", destChain)
+	t.Log("Source chain (EVM): ", sourceChain, "Dest chain (Sui): ", destChain)
 
 	err = testhelpers.AddLaneWithDefaultPricesAndFeeQuoterConfig(t, &e, state, sourceChain, destChain, false)
 	require.NoError(t, err)
@@ -592,96 +578,19 @@ func Test_CCIP_EVM2Sui_ExecPlugin_MessageVisibilityAndRetryBehavior(t *testing.T
 		)
 	)
 
-	// Deploy SUI Receiver
-	_, output, err := commoncs.ApplyChangesets(t, e.Env, []commoncs.ConfiguredChangeSet{
-		commoncs.Configure(sui_cs.DeployDummyReceiver{}, sui_cs.DeployDummyReceiverConfig{
-			SuiChainSelector: destChain,
-			McmsOwner:        "0x1",
-		}),
-	})
-	require.NoError(t, err)
-
-	rawOutput := output[0].Reports[0]
-
-	outputMap, ok := rawOutput.Output.(sui_ops.OpTxResult[ccipops.DeployDummyReceiverObjects])
-	require.True(t, ok)
-
-	id := strings.TrimPrefix(outputMap.PackageId, "0x")
-	receiverByteDecoded, err := hex.DecodeString(id)
-	require.NoError(t, err)
-
-	// register the receiver
-	_, _, err = commoncs.ApplyChangesets(t, e.Env, []commoncs.ConfiguredChangeSet{
-		commoncs.Configure(sui_cs.RegisterDummyReceiver{}, sui_cs.RegisterDummyReceiverConfig{
-			SuiChainSelector:       destChain,
-			CCIPObjectRefObjectId:  state.SuiChains[destChain].CCIPObjectRef,
-			DummyReceiverPackageId: outputMap.PackageId,
-		}),
-	})
-	require.NoError(t, err)
-
-	receiverByte := receiverByteDecoded
-
-	var clockObj [32]byte
-	copy(clockObj[:], hexutil.MustDecode(
-		"0x0000000000000000000000000000000000000000000000000000000000000006",
-	))
-
-	var stateObj [32]byte
-	copy(stateObj[:], hexutil.MustDecode(
-		outputMap.Objects.CCIPReceiverStateObjectId,
-	))
-
-	t.Run("ExecPlugin_ShouldRetryFailedMessages_And_ProcessNewVisibleOnes", func(t *testing.T) {
+	t.Run("Message to Sui with zero receiver", func(t *testing.T) {
 		message := []byte("Hello Sui, from EVM!")
-		var wg sync.WaitGroup
-
-		// Start failing messages in background
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
-			// DO NOT clone testing.T; use the real one carefully
-			messagingtest.Run(t,
-				messagingtest.TestCase{
-					TestSetup:      setup,
-					Nonce:          &nonce,
-					ValidationType: messagingtest.ValidationTypeExec,
-					Receiver:       receiverByte,
-					MsgData:        message,
-					ExtraArgs: testhelpers.MakeSuiExtraArgs(
-						1_000_000,
-						true,
-						[][32]byte{clockObj, [32]byte{}},
-						[32]byte{}), // invalid receiver
-					NumberOfMessages:       5,
-					ExpectedExecutionState: testhelpers.EXECUTION_STATE_FAILURE,
-				},
-			)
-		}()
-
-		lggr.Info("Waiting 5s before sending valid messages...")
-		time.Sleep(5 * time.Second)
-
-		// Send valid messages
 		messagingtest.Run(t,
 			messagingtest.TestCase{
-				TestSetup:      setup,
-				Nonce:          &nonce,
-				ValidationType: messagingtest.ValidationTypeExec,
-				Receiver:       receiverByte,
-				MsgData:        message,
-				ExtraArgs: testhelpers.MakeSuiExtraArgs(
-					1_000_000,
-					true,
-					[][32]byte{clockObj, stateObj},
-					[32]byte{}),
-				NumberOfMessages:       3,
+				TestSetup:              setup,
+				Nonce:                  &nonce,
+				ValidationType:         messagingtest.ValidationTypeExec,
+				Receiver:               []byte{},
+				MsgData:                message,
+				ExtraArgs:              testhelpers.MakeSuiExtraArgs(0, true, [][32]byte{}, [32]byte{}),
 				ExpectedExecutionState: testhelpers.EXECUTION_STATE_SUCCESS,
 			},
 		)
-
-		// Ensure the background batch completes before the test exits
-		wg.Wait()
 	})
 
 }

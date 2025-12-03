@@ -19,6 +19,9 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/jsonserializable"
 	pkgworkflows "github.com/smartcontractkit/chainlink-common/pkg/workflows"
+	"github.com/smartcontractkit/chainlink/v2/core/services/ccv/ccvcommitteeverifier"
+	"github.com/smartcontractkit/chainlink/v2/core/services/ccv/ccvexecutor"
+	"github.com/smartcontractkit/chainlink/v2/core/services/cresettings"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/artifacts"
 
 	"github.com/smartcontractkit/chainlink-evm/pkg/assets"
@@ -439,6 +442,46 @@ func TestORM_DeleteJob_DeletesAssociatedRecords(t *testing.T) {
 		err = jobORM.DeleteJob(ctx, jb.ID, jb.Type)
 		require.NoError(t, err)
 		cltest.AssertCount(t, db, "vrf_specs", 0)
+		cltest.AssertCount(t, db, "jobs", 0)
+	})
+
+	t.Run("it creates and deletes records for ccv committee verifier jobs", func(t *testing.T) {
+		ctx := testutils.Context(t)
+		jb, err := ccvcommitteeverifier.ValidatedCCVCommitteeVerifierSpec(
+			`
+schemaVersion = 1
+type = "ccvcommitteeverifier"
+committeeVerifierConfig = "Foo = 'Bar'"
+`,
+		)
+		require.NoError(t, err)
+		err = jobORM.CreateJob(ctx, &jb)
+		require.NoError(t, err)
+		cltest.AssertCount(t, db, "ccv_committee_verifier_specs", 1)
+
+		err = jobORM.DeleteJob(ctx, jb.ID, jb.Type)
+		require.NoError(t, err)
+		cltest.AssertCount(t, db, "ccv_committee_verifier_specs", 0)
+		cltest.AssertCount(t, db, "jobs", 0)
+	})
+
+	t.Run("it creates and deletes records for ccv executor jobs", func(t *testing.T) {
+		ctx := testutils.Context(t)
+		jb, err := ccvexecutor.ValidatedCCVExecutorSpec(
+			`
+schemaVersion = 1
+type = "ccvexecutor"
+executorConfig = "Foo = 'Bar'"
+`,
+		)
+		require.NoError(t, err)
+		err = jobORM.CreateJob(ctx, &jb)
+		require.NoError(t, err)
+		cltest.AssertCount(t, db, "ccv_executor_specs", 1)
+
+		err = jobORM.DeleteJob(ctx, jb.ID, jb.Type)
+		require.NoError(t, err)
+		cltest.AssertCount(t, db, "ccv_executor_specs", 0)
 		cltest.AssertCount(t, db, "jobs", 0)
 	})
 
@@ -2497,4 +2540,26 @@ func Test_FindStandardCapabilityJobID_NoMatch(t *testing.T) {
 	id, err := orm.FindStandardCapabilityJobID(ctx, stdCapJobSpec)
 	require.Error(t, err, "found standard capabilities with different command")
 	require.Equal(t, int32(0), id, "found non-zero job id")
+}
+
+func TestORM_CRESettings(t *testing.T) {
+	config := configtest.NewGeneralConfig(t, nil)
+	db := pgtest.NewSqlxDB(t)
+	keyStore := cltest.NewKeyStore(t, db)
+
+	lggr := logger.TestLogger(t)
+	pipelineORM := pipeline.NewORM(db, lggr, config.JobPipeline().MaxSuccessfulRuns())
+	bridgesORM := bridges.NewORM(db)
+
+	jobORM := NewTestORM(t, db, pipelineORM, bridgesORM, keyStore)
+
+	settingsJob, err := cresettings.ValidatedCRESettingsSpec(testspecs.GetCRESettingsSpec())
+	require.NoError(t, err)
+
+	require.NoError(t, jobORM.CreateJob(t.Context(), &settingsJob))
+
+	settingsJob, err = jobORM.FindJobByExternalJobID(t.Context(), settingsJob.ExternalJobID)
+	require.NoError(t, err)
+
+	require.NoError(t, jobORM.DeleteJob(t.Context(), settingsJob.ID, settingsJob.Type))
 }
