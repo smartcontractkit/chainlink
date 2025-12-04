@@ -13,7 +13,6 @@ import (
 	"github.com/ethereum/go-ethereum/crypto"
 
 	"github.com/smartcontractkit/chainlink-deployments-framework/chain"
-	"github.com/smartcontractkit/chainlink-deployments-framework/chain/evm"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 )
 
@@ -29,15 +28,7 @@ func setFeeTokenLogic(env cldf.Environment, cfg SetFeeTokenConfig) (cldf.Changes
 	out := cldf.ChangesetOutput{}
 	ctx := context.Background()
 
-	chain, err := findChainBySelector(env, cfg.ChainSel)
-	if err != nil {
-		return out, fmt.Errorf("error: %w finding chain by selector: %d", err, cfg.ChainSel)
-	}
-
-	evmChain, ok := chain.(evm.Chain)
-	if !ok {
-		return out, errors.New("not an EVM chain")
-	}
+	evmChain := env.BlockChains.EVMChains()[cfg.ChainSel]
 
 	methodSig := []byte("setUserToken(address)")
 	data := crypto.Keccak256(methodSig)[:4]
