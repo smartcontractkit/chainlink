@@ -30,12 +30,12 @@ func NewAtomicCore() *AtomicCore {
 }
 
 func (d *AtomicCore) Store(core zapcore.Core) {
+	// Clean up dead children and update live ones
+	d.cleanup()
+
 	d.mu.Lock()
 	defer d.mu.Unlock()
 	d.core = core
-
-	// Clean up dead children and update live ones
-	d.cleanupLocked()
 
 	// Update all remaining children
 	for _, p := range d.children {
@@ -54,11 +54,11 @@ func (d *AtomicCore) load() zapcore.Core {
 func (d *AtomicCore) Enabled(l zapcore.Level) bool { return d.load().Enabled(l) }
 
 func (d *AtomicCore) With(fs []zapcore.Field) zapcore.Core {
+	// Clean up dead children before adding new one
+	d.cleanup()
+
 	d.mu.Lock()
 	defer d.mu.Unlock()
-
-	// Clean up dead children before adding new one
-	d.cleanupLocked()
 
 	coreWithFields := d.core.With(fs)
 	w := &withCore{fields: fs, AtomicCore: AtomicCore{core: coreWithFields}}
@@ -76,20 +76,26 @@ func (d *AtomicCore) Write(e zapcore.Entry, fs []zapcore.Field) error {
 
 func (d *AtomicCore) Sync() error { return d.load().Sync() }
 
-// cleanupLocked removes dead weak pointers and recursively cleans children.
-// Must be called with d.mu held.
-func (d *AtomicCore) cleanupLocked() {
+// cleanup removes dead weak pointers and recursively cleans children.
+// Does not require d.mu to be held by caller.
+func (d *AtomicCore) cleanup() {
+	// Filter list and collect live children while holding lock
+	d.mu.Lock()
+	var liveChildren []*withCore
 	d.children = slices.DeleteFunc(d.children, func(p weak.Pointer[withCore]) bool {
 		c := p.Value()
 		if c == nil {
 			return true // Remove dead weak pointer
 		}
-		// Recursively cleanup this child (non-blocking since each has its own mutex)
-		c.mu.Lock()
-		c.cleanupLocked()
-		c.mu.Unlock()
-		return false
+		liveChildren = append(liveChildren, c)
+		return false // Keep live pointer
 	})
+	d.mu.Unlock()
+
+	// Recursively cleanup children WITHOUT holding parent lock
+	for _, child := range liveChildren {
+		child.cleanup()
+	}
 }
 
 type withCore struct {
@@ -98,12 +104,12 @@ type withCore struct {
 }
 
 func (w *withCore) Store(core zapcore.Core) {
+	// Clean up dead children before updating live ones
+	w.cleanup()
+
 	w.mu.Lock()
 	defer w.mu.Unlock()
 	w.core = core.With(w.fields)
-
-	// Clean up dead children before updating live ones
-	w.cleanupLocked()
 
 	// Update all remaining children
 	for _, p := range w.children {
