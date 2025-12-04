@@ -274,19 +274,28 @@ func TestZapLogger_Name(t *testing.T) {
 func TestZapLogger_Cleanup(t *testing.T) {
 	ac := NewAtomicCore()
 
-	// Create children that will be GC'd
-	for i := 0; i < 1000; i++ {
-		ac.With([]zapcore.Field{})
+	// Create children in a scope and deliberately allow them to be GC'd
+	// by not keeping any references to them
+	func() {
+		for i := 0; i < 1000; i++ {
+			ac.With([]zapcore.Field{})
+		}
+	}()
+
+	// Verify all children were added before cleanup
+	require.Equal(t, 1000, len(ac.children), "Expected all children to be added")
+
+	// Force GC multiple times to ensure weak pointers are cleared
+	for i := 0; i < 5; i++ {
+		runtime.GC()
+		time.Sleep(10 * time.Millisecond)
 	}
 
-	// Force GC to collect unreferenced children
-	runtime.GC()
-	runtime.GC()
-	time.Sleep(10 * time.Millisecond)
-
-	// Trigger cleanup by creating a new child
+	// Trigger cleanup by creating a new child (which calls cleanupLocked)
 	ac.With([]zapcore.Field{})
 
-	// Most children should be cleaned up now
-	require.Less(t, len(ac.children), 100, "Expected dead children to be cleaned up")
+	// Most/all children should be cleaned up now (allowing 1 for the one we just added)
+	// We use a generous threshold since GC behavior is non-deterministic, but
+	// we should see significant cleanup if weak pointers work correctly
+	require.Less(t, len(ac.children), 50, "Expected most dead children to be cleaned up, got %d", len(ac.children))
 }
