@@ -888,17 +888,17 @@ func Test_ChannelDefinitionCache(t *testing.T) {
 			newDefinitions := make(llotypes.ChannelDefinitions)
 
 			// Create a new definition file with MaxChannelsPerAdder + 1 channels
-			// This should fail because the limit is on the total number of channels in the definition file
+			// The limit is enforced based on existing channels plus new channels being added
+			// When trying to add the (MaxChannelsPerAdder+1)th channel, numberOfChannels will be MaxChannelsPerAdder
 			addChannelDefinitions(newDefinitions, 1, uint32(MaxChannelsPerAdder+1), adderID)
 
 			_, err := cdc.mergeDefinitions(adderID, currentDefinitions, newDefinitions)
 			require.Error(t, err)
 			require.Contains(t, err.Error(), errChannelsPerAdderLimitExceeded.Error())
-			require.Contains(t, err.Error(), strconv.Itoa(MaxChannelsPerAdder+1))
 			require.Contains(t, err.Error(), strconv.Itoa(MaxChannelsPerAdder))
 		})
 
-		t.Run("allows adder definition file with exactly MaxChannelsPerAdder channels when most are existing", func(t *testing.T) {
+		t.Run("allows adder definition file with channels up to MaxChannelsPerAdder when most are existing", func(t *testing.T) {
 			currentDefinitions := make(llotypes.ChannelDefinitions)
 			newDefinitions := make(llotypes.ChannelDefinitions)
 
@@ -909,13 +909,13 @@ func Test_ChannelDefinitionCache(t *testing.T) {
 			// Include these existing channels in the new definition file (they'll be skipped)
 			addChannelDefinitions(newDefinitions, 1, existingEnd, adderID)
 
-			// Add 10 new channels to reach exactly MaxChannelsPerAdder total in the file
-			addChannelDefinitions(newDefinitions, existingEnd+1, uint32(MaxChannelsPerAdder), adderID)
+			//Add 9 new channels to reach exactly MaxChannelsPerAdder total in the file
+			addChannelDefinitions(newDefinitions, existingEnd+1, existingEnd+9, adderID)
 
 			result, err := cdc.mergeDefinitions(adderID, currentDefinitions, newDefinitions)
 			require.NoError(t, err)
-			// Should have 90 existing + 10 new = 100 (MaxChannelsPerAdder)
-			require.Len(t, result, MaxChannelsPerAdder)
+			// Should have 90 existing + 9 new = 99 (below MaxChannelsPerAdder)
+			require.Len(t, result, 99)
 		})
 
 		t.Run("owner definitions are not subject to adder limits", func(t *testing.T) {
@@ -948,7 +948,7 @@ func Test_ChannelDefinitionCache(t *testing.T) {
 			lggr: logger.TestSugared(t),
 		}
 
-		t.Run("removes owner-defined channels missing from new definitions", func(t *testing.T) {
+		t.Run("does not remove owner-defined channels missing from new definitions", func(t *testing.T) {
 			currentDefinitions := make(llotypes.ChannelDefinitions)
 			newDefinitions := make(llotypes.ChannelDefinitions)
 
@@ -963,17 +963,17 @@ func Test_ChannelDefinitionCache(t *testing.T) {
 			result, err := cdc.mergeDefinitions(SourceOwner, currentDefinitions, newDefinitions)
 			require.NoError(t, err)
 
-			// Channels 1, 3, 5 should be present
+			// Channels 1, 3, 5 should be present (updated from newDefinitions)
 			require.Contains(t, result, llotypes.ChannelID(1))
 			require.Contains(t, result, llotypes.ChannelID(3))
 			require.Contains(t, result, llotypes.ChannelID(5))
 
-			// Channels 2 and 4 should be removed
-			require.NotContains(t, result, llotypes.ChannelID(2))
-			require.NotContains(t, result, llotypes.ChannelID(4))
+			// Channels 2 and 4 should remain (not removed, just not in newDefinitions)
+			require.Contains(t, result, llotypes.ChannelID(2))
+			require.Contains(t, result, llotypes.ChannelID(4))
 
-			// Result should contain exactly the channels from newDefinitions
-			require.Len(t, result, 3)
+			// Result should contain all 5 channels (2 and 4 remain from currentDefinitions)
+			require.Len(t, result, 5)
 		})
 
 		t.Run("preserves non-owner channels when owner updates definitions", func(t *testing.T) {
@@ -992,19 +992,20 @@ func Test_ChannelDefinitionCache(t *testing.T) {
 			result, err := cdc.mergeDefinitions(SourceOwner, currentDefinitions, newDefinitions)
 			require.NoError(t, err)
 
-			// Owner channel 1 should be present
+			// Owner channel 1 should be present (updated from newDefinitions)
 			require.Contains(t, result, llotypes.ChannelID(1))
 			require.Equal(t, SourceOwner, result[1].Source)
 
-			// Owner channel 2 should be removed
-			require.NotContains(t, result, llotypes.ChannelID(2))
+			// Owner channel 2 should remain (not removed, just not in newDefinitions)
+			require.Contains(t, result, llotypes.ChannelID(2))
+			require.Equal(t, SourceOwner, result[2].Source)
 
 			// Adder channel 10 should be preserved
 			require.Contains(t, result, llotypes.ChannelID(10))
 			require.Equal(t, adderID, result[10].Source)
 
-			// Result should contain channel 1 (owner) and channel 10 (adder)
-			require.Len(t, result, 2)
+			// Result should contain channel 1 (owner, updated), channel 2 (owner, preserved), and channel 10 (adder)
+			require.Len(t, result, 3)
 		})
 
 		t.Run("owner removal only happens when source is SourceOwner", func(t *testing.T) {

@@ -46,9 +46,10 @@ const (
 	// How often we check for failed persistence and attempt to save again
 	dbPersistLoopInterval = 1 * time.Second
 
-	// MaxChannelsPerAdder is the maximum number of channels allowed in a single adder definition
-	// file. This limit is enforced on the total number of channels in the definition file before
-	// any processing occurs.
+	// MaxChannelsPerAdder is the maximum number of channels allowed per adder source. This limit
+	// is enforced based on existing channels from the same source in currentDefinitions plus new
+	// channels being added incrementally. The limit check occurs during processing, not on the
+	// total file size.
 	MaxChannelsPerAdder = 100
 
 	// newChannelDefinitionEventName is the ABI event name for NewChannelDefinition events.
@@ -474,35 +475,38 @@ func (c *channelDefinitionCache) processLogs(logs []logpoller.Log) {
 
 // mergeDefinitions reconciles new channel definitions with the current set according to source
 // authority rules. Owner definitions (SourceOwner) have full authority: they can add, update, or
-// tombstone (delete) channels. Adder definitions (non-owner sources) have limited authority: they
-// can only add new channels and cannot overwrite or tombstone existing ones.
+// tombstone (delete) channels. Missing channels in newDefinitions are not automatically removed;
+// channels must be explicitly tombstoned to be removed. Adder definitions (non-owner sources) have
+// limited authority: they can only add new channels and cannot overwrite or tombstone existing ones.
 //
 // Adder limits are enforced:
-//   - MaxChannelsPerAdder: The total number of channels in a single adder definition file cannot
-//     exceed this limit. This is checked before processing any channels.
+//   - MaxChannelsPerAdder: The limit is enforced based on existing channels from the same source
+//     in currentDefinitions plus new channels being added incrementally. The check occurs before
+//     each new channel addition. Existing channels that are already in currentDefinitions are
+//     skipped and do not count toward new additions.
 //
 // Returns an error if adder limits are exceeded
-//   - errChannelsPerAdderLimitExceeded: When the adder definition file exceeds MaxChannelsPerAdder
+//   - errChannelsPerAdderLimitExceeded: When trying to add a channel that would cause the total
+//     (existing channels from this source + new channels added) to exceed MaxChannelsPerAdder
 func (c *channelDefinitionCache) mergeDefinitions(source uint32, currentDefinitions llotypes.ChannelDefinitions, newDefinitions llotypes.ChannelDefinitions) (llotypes.ChannelDefinitions, error) {
+
+	// Count the number of channels for adder sources in the current definitions
+	var numberOfChannels uint32
 	if source > SourceOwner {
-		if len(newDefinitions) > MaxChannelsPerAdder {
-			return nil, fmt.Errorf("%w: %d, max %d",
-				errChannelsPerAdderLimitExceeded, len(newDefinitions), MaxChannelsPerAdder)
+		for _, def := range currentDefinitions {
+			if def.Source == source {
+				numberOfChannels++
+			}
 		}
+
 	}
 
 	for channelID, def := range newDefinitions {
-		switch source {
-		case SourceOwner:
+		switch {
+		case source == SourceOwner:
 			currentDefinitions[channelID] = def
 
-		default:
-			if source < SourceOwner {
-				c.lggr.Warnw("undefined source, skipping definition",
-					"channelID", channelID, "source", source)
-				continue
-			}
-
+		case source > SourceOwner:
 			if def.Tombstone {
 				c.lggr.Warnw("invalid channel tombstone, cannot be added by source",
 					"channelID", channelID, "source", source)
@@ -517,18 +521,19 @@ func (c *channelDefinitionCache) mergeDefinitions(source uint32, currentDefiniti
 				// Adders do not overwrite existing definitions, they can only add new ones
 				continue
 			}
-			currentDefinitions[channelID] = def
-		}
-	}
 
-	// Handle owner removals
-	if source == SourceOwner {
-		for channelID, def := range currentDefinitions {
-			if def.Source == SourceOwner {
-				if _, exists := newDefinitions[channelID]; !exists {
-					delete(currentDefinitions, channelID)
-				}
+			if numberOfChannels >= MaxChannelsPerAdder {
+				return nil, fmt.Errorf("%w: %d, max %d",
+					errChannelsPerAdderLimitExceeded, numberOfChannels, MaxChannelsPerAdder)
 			}
+
+			currentDefinitions[channelID] = def
+			numberOfChannels++
+
+		default:
+			c.lggr.Warnw("undefined source, skipping definition",
+				"channelID", channelID, "source", source)
+			continue
 		}
 	}
 
