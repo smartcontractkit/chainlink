@@ -285,8 +285,7 @@ func TestZapLogger_Cleanup(t *testing.T) {
 	// Trigger cleanup manually.
 	runtime.GC()
 	ac.cleanup()
-	ac.With([]zapcore.Field{})
-	// Ideally, ac.children should be 1 here, but since garbage collected weak pointers are not necessarily nil we just
+	// Ideally, ac.children should be 0 here, but since garbage collected weak pointers are not necessarily nil we just
 	// test that some have been cleaned up.
 	require.Less(t, len(ac.children), l)
 }
