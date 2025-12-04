@@ -96,9 +96,7 @@ func (d *AtomicCore) cleanup() {
 }
 
 func (d *AtomicCore) startPeriodicCleanup() {
-	d.cleanupWg.Add(1)
-	go func() {
-		defer d.cleanupWg.Done()
+	d.cleanupWg.Go(func() {
 		ticker := time.NewTicker(cleanupInterval)
 		defer ticker.Stop()
 
@@ -110,7 +108,7 @@ func (d *AtomicCore) startPeriodicCleanup() {
 				return
 			}
 		}
-	}()
+	})
 }
 
 type withCore struct {
