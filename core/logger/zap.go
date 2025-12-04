@@ -81,6 +81,8 @@ func (d *AtomicCore) Close() {
 }
 
 func (d *AtomicCore) cleanup() {
+	var wg sync.WaitGroup
+	defer wg.Wait()
 	d.mu.Lock()
 	defer d.mu.Unlock()
 	d.children = slices.DeleteFunc(d.children, func(p weak.Pointer[withCore]) bool {
@@ -88,7 +90,7 @@ func (d *AtomicCore) cleanup() {
 		if c == nil {
 			return true
 		}
-		c.cleanup()
+		wg.Go(c.cleanup)
 		return false
 	})
 }
