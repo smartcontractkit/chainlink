@@ -279,13 +279,10 @@ func NewApp(s *Shell) *cli.App {
 
 				l, closeFn := lggrCfg.NewWithCores(atomicCore)
 
-				s.Logger = l
-				s.CloseLogger = func() error {
-					atomicCore.Close()
-					return closeFn()
-				}
-				// s.SetOtelCore is a hook that can be used to set the OTel core
-				s.SetOtelCore = atomicCore.Store
+			s.Logger = l
+			s.CloseLogger = closeFn
+			// s.SetOtelCore is a hook that can be used to set the OTel core
+			s.SetOtelCore = atomicCore.Store
 
 				return nil
 			},

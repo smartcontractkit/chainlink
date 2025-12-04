@@ -94,7 +94,6 @@ func TestOtelCore(t *testing.T) {
 // TestAtomicCoreSwap tests the atomic core swap functionality after logger creation.
 func TestAtomicCoreSwap(t *testing.T) {
 	atomicCore := NewAtomicCore()
-	defer atomicCore.Close()
 	setOtelCore := atomicCore.Store
 
 	lggrCfg := Config{

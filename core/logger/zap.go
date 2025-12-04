@@ -4,7 +4,6 @@ import (
 	"os"
 	"slices"
 	"sync"
-	"time"
 	"weak"
 
 	pkgerrors "github.com/pkg/errors"
@@ -16,38 +15,34 @@ import (
 // It starts as a noop core and can be atomically swapped to include additional cores.
 var _ zapcore.Core = &AtomicCore{}
 
-const cleanupInterval = time.Minute * 5
-
 type AtomicCore struct {
-	mu          sync.RWMutex
-	core        zapcore.Core
-	children    []weak.Pointer[withCore]
-	stopCleanup chan struct{}
-	cleanupWg   sync.WaitGroup
+	mu       sync.RWMutex
+	core     zapcore.Core
+	children []weak.Pointer[withCore]
 }
 
 // NewAtomicCore creates a new AtomicCore initialized with a noop core
 func NewAtomicCore() *AtomicCore {
-	ac := &AtomicCore{
-		core:        zapcore.NewNopCore(),
-		stopCleanup: make(chan struct{}),
+	return &AtomicCore{
+		core:     zapcore.NewNopCore(),
+		children: make([]weak.Pointer[withCore], 0),
 	}
-	ac.startPeriodicCleanup()
-	return ac
 }
 
 func (d *AtomicCore) Store(core zapcore.Core) {
 	d.mu.Lock()
 	defer d.mu.Unlock()
 	d.core = core
-	d.children = slices.DeleteFunc(d.children, func(p weak.Pointer[withCore]) bool {
-		c := p.Value()
-		if c == nil {
-			return true
+
+	// Clean up dead children and update live ones
+	d.cleanupLocked()
+
+	// Update all remaining children
+	for _, p := range d.children {
+		if c := p.Value(); c != nil {
+			c.Store(d.core)
 		}
-		c.Store(d.core)
-		return false
-	})
+	}
 }
 
 func (d *AtomicCore) load() zapcore.Core {
@@ -61,6 +56,10 @@ func (d *AtomicCore) Enabled(l zapcore.Level) bool { return d.load().Enabled(l) 
 func (d *AtomicCore) With(fs []zapcore.Field) zapcore.Core {
 	d.mu.Lock()
 	defer d.mu.Unlock()
+
+	// Clean up dead children before adding new one
+	d.cleanupLocked()
+
 	coreWithFields := d.core.With(fs)
 	w := &withCore{fields: fs, AtomicCore: AtomicCore{core: coreWithFields}}
 	d.children = append(d.children, weak.Make(w))
@@ -71,43 +70,25 @@ func (d *AtomicCore) Check(e zapcore.Entry, ce *zapcore.CheckedEntry) *zapcore.C
 	return d.load().Check(e, ce)
 }
 
-func (d *AtomicCore) Write(e zapcore.Entry, fs []zapcore.Field) error { return d.load().Write(e, fs) }
+func (d *AtomicCore) Write(e zapcore.Entry, fs []zapcore.Field) error {
+	return d.load().Write(e, fs)
+}
 
 func (d *AtomicCore) Sync() error { return d.load().Sync() }
 
-func (d *AtomicCore) Close() {
-	close(d.stopCleanup)
-	d.cleanupWg.Wait()
-}
-
-func (d *AtomicCore) cleanup() {
-	var wg sync.WaitGroup
-	defer wg.Wait()
-	d.mu.Lock()
-	defer d.mu.Unlock()
+// cleanupLocked removes dead weak pointers and recursively cleans children.
+// Must be called with d.mu held.
+func (d *AtomicCore) cleanupLocked() {
 	d.children = slices.DeleteFunc(d.children, func(p weak.Pointer[withCore]) bool {
 		c := p.Value()
 		if c == nil {
-			return true
+			return true // Remove dead weak pointer
 		}
-		wg.Go(c.cleanup)
+		// Recursively cleanup this child (non-blocking since each has its own mutex)
+		c.mu.Lock()
+		c.cleanupLocked()
+		c.mu.Unlock()
 		return false
-	})
-}
-
-func (d *AtomicCore) startPeriodicCleanup() {
-	d.cleanupWg.Go(func() {
-		ticker := time.NewTicker(cleanupInterval)
-		defer ticker.Stop()
-
-		for {
-			select {
-			case <-ticker.C:
-				d.cleanup()
-			case <-d.stopCleanup:
-				return
-			}
-		}
 	})
 }
 
@@ -120,14 +101,16 @@ func (w *withCore) Store(core zapcore.Core) {
 	w.mu.Lock()
 	defer w.mu.Unlock()
 	w.core = core.With(w.fields)
-	w.children = slices.DeleteFunc(w.children, func(p weak.Pointer[withCore]) bool {
-		c := p.Value()
-		if c == nil {
-			return true
+
+	// Clean up dead children before updating live ones
+	w.cleanupLocked()
+
+	// Update all remaining children
+	for _, p := range w.children {
+		if c := p.Value(); c != nil {
+			c.Store(w.core)
 		}
-		c.Store(w.core)
-		return false
-	})
+	}
 }
 
 var _ Logger = &zapLogger{}
