@@ -148,12 +148,13 @@ type MessageBody struct {
 	//
 	//	*MessageBody_TriggerRegistrationMetadata
 	//	*MessageBody_TriggerEventMetadata
-	Metadata         isMessageBody_Metadata `protobuf_oneof:"metadata"`
-	CapabilityDonId  uint32                 `protobuf:"varint,15,opt,name=capability_don_id,json=capabilityDonId,proto3" json:"capability_don_id,omitempty"`
-	CallerDonId      uint32                 `protobuf:"varint,16,opt,name=caller_don_id,json=callerDonId,proto3" json:"caller_don_id,omitempty"`
-	CapabilityMethod string                 `protobuf:"bytes,17,opt,name=capability_method,json=capabilityMethod,proto3" json:"capability_method,omitempty"` // method name defined by the capability (empty for legacy "v1" calls)
-	unknownFields    protoimpl.UnknownFields
-	sizeCache        protoimpl.SizeCache
+	Metadata          isMessageBody_Metadata `protobuf_oneof:"metadata"`
+	CapabilityDonId   uint32                 `protobuf:"varint,15,opt,name=capability_don_id,json=capabilityDonId,proto3" json:"capability_don_id,omitempty"`
+	CallerDonId       uint32                 `protobuf:"varint,16,opt,name=caller_don_id,json=callerDonId,proto3" json:"caller_don_id,omitempty"`
+	CapabilityMethod  string                 `protobuf:"bytes,17,opt,name=capability_method,json=capabilityMethod,proto3" json:"capability_method,omitempty"` // method name defined by the capability (empty for legacy "v1" calls)
+	FirstRegistration bool                   `protobuf:"varint,18,opt,name=firstRegistration,proto3" json:"firstRegistration,omitempty"`
+	unknownFields     protoimpl.UnknownFields
+	sizeCache         protoimpl.SizeCache
 }
 
 func (x *MessageBody) Reset() {
@@ -302,6 +303,13 @@ func (x *MessageBody) GetCapabilityMethod() string {
 	return ""
 }
 
+func (x *MessageBody) GetFirstRegistration() bool {
+	if x != nil {
+		return x.FirstRegistration
+	}
+	return false
+}
+
 type isMessageBody_Metadata interface {
 	isMessageBody_Metadata()
 }
@@ -321,8 +329,11 @@ func (*MessageBody_TriggerEventMetadata) isMessageBody_Metadata() {}
 type TriggerRegistrationMetadata struct {
 	state               protoimpl.MessageState `protogen:"open.v1"`
 	LastReceivedEventId string                 `protobuf:"bytes,1,opt,name=last_received_event_id,json=lastReceivedEventId,proto3" json:"last_received_event_id,omitempty"`
-	unknownFields       protoimpl.UnknownFields
-	sizeCache           protoimpl.SizeCache
+	TriggerId           string                 `protobuf:"bytes,2,opt,name=trigger_id,json=triggerId,proto3" json:"trigger_id,omitempty"`
+	// Todo make struct ? probably better to have a structured error with visibility and origin
+	Error         *string `protobuf:"bytes,3,opt,name=error,proto3,oneof" json:"error,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
 }
 
 func (x *TriggerRegistrationMetadata) Reset() {
@@ -358,6 +369,20 @@ func (*TriggerRegistrationMetadata) Descriptor() ([]byte, []int) {
 func (x *TriggerRegistrationMetadata) GetLastReceivedEventId() string {
 	if x != nil {
 		return x.LastReceivedEventId
+	}
+	return ""
+}
+
+func (x *TriggerRegistrationMetadata) GetTriggerId() string {
+	if x != nil {
+		return x.TriggerId
+	}
+	return ""
+}
+
+func (x *TriggerRegistrationMetadata) GetError() string {
+	if x != nil && x.Error != nil {
+		return *x.Error
 	}
 	return ""
 }
@@ -421,7 +446,7 @@ const file_core_capabilities_remote_types_messages_proto_rawDesc = "" +
 	"-core/capabilities/remote/types/messages.proto\x12\x06remote\";\n" +
 	"\aMessage\x12\x1c\n" +
 	"\tsignature\x18\x01 \x01(\fR\tsignature\x12\x12\n" +
-	"\x04body\x18\x02 \x01(\fR\x04body\"\x86\x05\n" +
+	"\x04body\x18\x02 \x01(\fR\x04body\"\xb4\x05\n" +
 	"\vMessageBody\x12\x18\n" +
 	"\aversion\x18\x01 \x01(\rR\aversion\x12\x16\n" +
 	"\x06sender\x18\x02 \x01(\fR\x06sender\x12\x1a\n" +
@@ -439,11 +464,16 @@ const file_core_capabilities_remote_types_messages_proto_rawDesc = "" +
 	"\x16trigger_event_metadata\x18\x0e \x01(\v2\x1c.remote.TriggerEventMetadataH\x00R\x14triggerEventMetadata\x12*\n" +
 	"\x11capability_don_id\x18\x0f \x01(\rR\x0fcapabilityDonId\x12\"\n" +
 	"\rcaller_don_id\x18\x10 \x01(\rR\vcallerDonId\x12+\n" +
-	"\x11capability_method\x18\x11 \x01(\tR\x10capabilityMethodB\n" +
+	"\x11capability_method\x18\x11 \x01(\tR\x10capabilityMethod\x12,\n" +
+	"\x11firstRegistration\x18\x12 \x01(\bR\x11firstRegistrationB\n" +
 	"\n" +
-	"\bmetadataJ\x04\b\a\x10\bJ\x04\b\b\x10\t\"R\n" +
+	"\bmetadataJ\x04\b\a\x10\bJ\x04\b\b\x10\t\"\x96\x01\n" +
 	"\x1bTriggerRegistrationMetadata\x123\n" +
-	"\x16last_received_event_id\x18\x01 \x01(\tR\x13lastReceivedEventId\"c\n" +
+	"\x16last_received_event_id\x18\x01 \x01(\tR\x13lastReceivedEventId\x12\x1d\n" +
+	"\n" +
+	"trigger_id\x18\x02 \x01(\tR\ttriggerId\x12\x19\n" +
+	"\x05error\x18\x03 \x01(\tH\x00R\x05error\x88\x01\x01B\b\n" +
+	"\x06_error\"c\n" +
 	"\x14TriggerEventMetadata\x12(\n" +
 	"\x10trigger_event_id\x18\x01 \x01(\tR\x0etriggerEventId\x12!\n" +
 	"\fworkflow_ids\x18\x02 \x03(\tR\vworkflowIds*v\n" +
@@ -496,6 +526,7 @@ func file_core_capabilities_remote_types_messages_proto_init() {
 		(*MessageBody_TriggerRegistrationMetadata)(nil),
 		(*MessageBody_TriggerEventMetadata)(nil),
 	}
+	file_core_capabilities_remote_types_messages_proto_msgTypes[2].OneofWrappers = []any{}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{

@@ -40,13 +40,15 @@ message MessageBody {
   uint32 capability_don_id = 15;
   uint32 caller_don_id = 16;
   string capability_method = 17; // method name defined by the capability (empty for legacy "v1" calls)
+  bool firstRegistration = 18;
 }
 
 message TriggerRegistrationMetadata {
   string last_received_event_id = 1;
+  string trigger_id =2;
 
-  // Todo make struct ? probably better to have a structured error with visibility and origin
-  optional string error = 2;
+  // Todo make struct instead of serialized string (no backwards compatibility issues here)
+  optional string error = 3;
 }
 
 message TriggerEventMetadata {

@@ -10,6 +10,7 @@ import (
 	"time"
 
 	commoncap "github.com/smartcontractkit/chainlink-common/pkg/capabilities"
+	caperrors "github.com/smartcontractkit/chainlink-common/pkg/capabilities/errors"
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/pb"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
@@ -237,9 +238,19 @@ func (p *triggerPublisher) Receive(_ context.Context, msg *types.MessageBody) {
 			}
 			p.wg.Add(1)
 			go p.triggerEventLoop(callbackCh, key)
+
+			p.sendTriggerRegistrationResponse(cfg, msg, req, nil)
 			p.lggr.Debugw("updated trigger registration", "workflowId", req.Metadata.WorkflowID)
 		} else {
 			cancel()
+
+			errMsg := "failed to register trigger"
+			var capError caperrors.Error
+			if errors.As(err, &capError) {
+				errMsg = capError.SerializeToRemoteString()
+			}
+
+			p.sendTriggerRegistrationResponse(cfg, msg, req, &errMsg)
 			p.lggr.Errorw("failed to register trigger", "workflowId", req.Metadata.WorkflowID, "err", err)
 		}
 	case types.MethodTriggerEvent:
@@ -249,6 +260,24 @@ func (p *triggerPublisher) Receive(_ context.Context, msg *types.MessageBody) {
 		p.lggr.Errorw("received message with unknown method",
 			"method", SanitizeLogString(msg.Method), "sender", sender)
 	}
+}
+
+// sendTriggerRegistrationResponse sends a trigger registration response back to the caller DON with an optional error message
+func (p *triggerPublisher) sendTriggerRegistrationResponse(cfg *dynamicPublisherConfig, msg *types.MessageBody, req commoncap.TriggerRegistrationRequest, errMsg *string) {
+	registrationErrorMessage := &types.MessageBody{
+		CapabilityId:    p.capabilityID,
+		CapabilityDonId: cfg.capDonInfo.ID,
+		CallerDonId:     msg.CallerDonId,
+		Method:          types.RegisterTriggerResponse,
+		Metadata: &types.MessageBody_TriggerRegistrationMetadata{
+			TriggerRegistrationMetadata: &types.TriggerRegistrationMetadata{
+				TriggerId: req.TriggerID,
+				Error:     errMsg,
+			},
+		},
+		CapabilityMethod: p.capMethodName,
+	}
+	p.sendToAllNodes(msg.CallerDonId, cfg, registrationErrorMessage)
 }
 
 func (p *triggerPublisher) registrationCleanupLoop() {
@@ -385,12 +414,16 @@ func (p *triggerPublisher) sendBatch(resp *batchedResponse) {
 			},
 			CapabilityMethod: p.capMethodName,
 		}
-		// NOTE: send to all nodes by default, introduce different strategies later (KS-76)
-		for _, peerID := range cfg.workflowDONs[resp.callerDonID].Members {
-			err := p.dispatcher.Send(peerID, msg)
-			if err != nil {
-				p.lggr.Errorw("failed to send trigger event", "peerID", peerID, "err", err)
-			}
+		p.sendToAllNodes(resp.callerDonID, cfg, msg)
+	}
+}
+
+func (p *triggerPublisher) sendToAllNodes(callerDonID uint32, cfg *dynamicPublisherConfig, msg *types.MessageBody) {
+	// NOTE: send to all nodes by default, introduce different strategies later (KS-76)
+	for _, peerID := range cfg.workflowDONs[callerDonID].Members {
+		err := p.dispatcher.Send(peerID, msg)
+		if err != nil {
+			p.lggr.Errorw("failed to send trigger event", "peerID", peerID, "err", err)
 		}
 	}
 }
