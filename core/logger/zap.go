@@ -23,6 +23,7 @@ type AtomicCore struct {
 	core        zapcore.Core
 	children    []weak.Pointer[withCore]
 	stopCleanup chan struct{}
+	cleanupWg   sync.WaitGroup
 }
 
 // NewAtomicCore creates a new AtomicCore initialized with a noop core
@@ -76,6 +77,7 @@ func (d *AtomicCore) Sync() error { return d.load().Sync() }
 
 func (d *AtomicCore) Close() {
 	close(d.stopCleanup)
+	d.cleanupWg.Wait()
 }
 
 func (d *AtomicCore) cleanup() {
@@ -92,7 +94,9 @@ func (d *AtomicCore) cleanup() {
 }
 
 func (d *AtomicCore) startPeriodicCleanup() {
+	d.cleanupWg.Add(1)
 	go func() {
+		defer d.cleanupWg.Done()
 		ticker := time.NewTicker(cleanupInterval)
 		defer ticker.Stop()
 

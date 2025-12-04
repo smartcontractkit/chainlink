@@ -245,6 +245,8 @@ func TestZapLogger_LogCaller(t *testing.T) {
 	lggr := newTestLogger(t, local)
 
 	lggr.Debug("test message with caller")
+	_, _, lineCall, ok := runtime.Caller(0)
+	require.True(t, ok)
 
 	pollChan <- time.Now()
 	<-local.testDiskLogLvlChan
@@ -256,7 +258,7 @@ func TestZapLogger_LogCaller(t *testing.T) {
 	logs := string(b)
 	lines := strings.Split(logs, "\n")
 
-	require.Contains(t, lines[0], "logger/zap_test.go:247")
+	require.Contains(t, lines[0], fmt.Sprintf("logger/zap_test.go:%d\ttest message with caller", lineCall-1))
 }
 
 func TestZapLogger_Name(t *testing.T) {
@@ -284,7 +286,7 @@ func TestZapLogger_Cleanup(t *testing.T) {
 	runtime.GC()
 	ac.cleanup()
 	ac.With([]zapcore.Field{})
-	// Ideally, ac.children should be 1 here, but since garbage collected weak pointers are not necessary nil we just
+	// Ideally, ac.children should be 1 here, but since garbage collected weak pointers are not necessarily nil we just
 	// test that some have been cleaned up.
 	require.Less(t, len(ac.children), l)
 }
