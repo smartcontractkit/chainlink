@@ -1,14 +1,18 @@
 package migrate_test
 
 import (
+	"fmt"
+	"io/fs"
 	"math/big"
 	"os"
+	"strconv"
 	"testing"
 	"time"
 
 	"github.com/google/uuid"
 	"github.com/lib/pq"
 	"github.com/pressly/goose/v3"
+	"github.com/pressly/goose/v3/database"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"gopkg.in/guregu/null.v4"
@@ -27,6 +31,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
 	"github.com/smartcontractkit/chainlink/v2/core/store/migrate"
+	"github.com/smartcontractkit/chainlink/v2/core/store/migrate/migrations"
 	"github.com/smartcontractkit/chainlink/v2/core/utils/testutils/heavyweight"
 )
 
@@ -537,4 +542,229 @@ func TestRollback_247_TxStateEnumUpdate(t *testing.T) {
 	require.NoError(t, err)
 	_, err = p.UpTo(ctx, 247)
 	require.NoError(t, err)
+}
+
+func TestHasPending(t *testing.T) {
+	ctx := testutils.Context(t)
+	_, db := heavyweight.FullTestDBEmptyV2(t, nil)
+
+	// Test HasPending on a new provider
+	hasPending, err := migrate.HasPending(ctx, db.DB)
+	require.NoError(t, err)
+	require.True(t, hasPending, "New database should have pending migrations")
+
+	// Migrate up to the latest version
+	err = migrate.Migrate(ctx, db.DB)
+	require.NoError(t, err)
+
+	// Check current version to determine latest
+	currentVer, err := migrate.Current(ctx, db.DB)
+	require.NoError(t, err)
+	require.Greater(t, currentVer, int64(0), "Should be at a version greater than 0")
+
+	// Check HasPending after migrating to latest - should be false
+	hasPending, err = migrate.HasPending(ctx, db.DB)
+	require.NoError(t, err)
+	require.False(t, hasPending, "Should have no pending migrations after migrating to latest")
+
+	// Rollback to latest minus 1
+	rollbackVersion := currentVer - 1
+	err = migrate.Rollback(ctx, db.DB, null.IntFrom(rollbackVersion))
+	require.NoError(t, err)
+
+	// Verify we rolled back correctly
+	ver, err := migrate.Current(ctx, db.DB)
+	require.NoError(t, err)
+	require.Equal(t, rollbackVersion, ver)
+
+	// Call HasPending - should now be true
+	hasPending, err = migrate.HasPending(ctx, db.DB)
+	require.NoError(t, err)
+	require.True(t, hasPending, "Should have pending migrations after rollback")
+
+	// Migrate up one version
+	p, err := migrate.NewProvider(ctx, db.DB)
+	require.NoError(t, err)
+	_, err = p.UpByOne(ctx)
+	require.NoError(t, err)
+
+	// Verify we're back at the latest version
+	ver, err = migrate.Current(ctx, db.DB)
+	require.NoError(t, err)
+	require.Equal(t, currentVer, ver)
+
+	// Call HasPending again - should be false
+	hasPending, err = migrate.HasPending(ctx, db.DB)
+	require.NoError(t, err)
+	require.False(t, hasPending, "Should have no pending migrations after migrating back up")
+}
+
+func TestIsIdempotent(t *testing.T) {
+	ctx := testutils.Context(t)
+	_, db := heavyweight.FullTestDBEmptyV2(t, nil)
+
+	// Helper function to create a provider with custom go migrations
+	createCustomProvider := func(goMigrations []*goose.Migration) (*goose.Provider, error) {
+		store, err := database.NewStore(goose.DialectPostgres, "goose_migrations")
+		if err != nil {
+			return nil, err
+		}
+
+		logMigrations := os.Getenv("CL_LOG_SQL_MIGRATIONS")
+		verbose, _ := strconv.ParseBool(logMigrations)
+
+		fys, err := fs.Sub(embedMigrations, MIGRATIONS_DIR)
+		if err != nil {
+			return nil, fmt.Errorf("failed to get sub filesystem for embedded migration dir: %w", err)
+		}
+
+		goose.ResetGlobalMigrations()
+		p, err := goose.NewProvider("", db.DB, fys,
+			goose.WithStore(store),
+			goose.WithGoMigrations(goMigrations...),
+			goose.WithVerbose(verbose))
+		if err != nil {
+			return nil, fmt.Errorf("failed to create goose provider: %w", err)
+		}
+
+		err = ensureMigrated(ctx, db.DB, p, store.Tablename())
+		if err != nil {
+			return nil, err
+		}
+
+		return p, nil
+	}
+
+	t.Run("FirstProviderHasMoreMigrations", func(t *testing.T) {
+		// Create first provider with more migrations
+		fullMigrations := []*goose.Migration{
+			migrations.Migration36,
+			migrations.Migration54,
+			migrations.Migration56,
+			migrations.Migration195,
+		}
+
+		provider1, err := createCustomProvider(fullMigrations)
+		require.NoError(t, err)
+
+		// Migrate to latest with first provider
+		_, err = provider1.Up(ctx)
+		require.NoError(t, err)
+
+		// Verify first provider is idempotent
+		isIdempotent, err := migrate.IsIdempotent(ctx, db.DB)
+		require.NoError(t, err)
+		require.True(t, isIdempotent, "First provider should be idempotent after migration")
+
+		// Create second provider with fewer migrations (subset)
+		fewerMigrations := []*goose.Migration{
+			migrations.Migration36,
+			migrations.Migration54,
+		}
+
+		// Reset global migrations for second provider
+		goose.ResetGlobalMigrations()
+
+		// We need to manually create the second provider to avoid the ensureMigrated logic
+		// that would interfere with our test
+		store, err := database.NewStore(goose.DialectPostgres, "goose_migrations")
+		require.NoError(t, err)
+
+		fys, err := fs.Sub(embedMigrations, MIGRATIONS_DIR)
+		require.NoError(t, err)
+
+		provider2, err := goose.NewProvider("", db.DB, fys,
+			goose.WithStore(store),
+			goose.WithGoMigrations(fewerMigrations...),
+			goose.WithVerbose(false))
+		require.NoError(t, err)
+
+		// Check versions manually for second provider
+		storeVersion, targetVersion, err := provider2.GetVersions(ctx)
+		require.NoError(t, err)
+
+		// Store version should be higher than target version (since DB has more migrations applied)
+		require.Greater(t, storeVersion, targetVersion, "Store version should be greater than target version")
+
+		// IsIdempotent should return false when store version > target version
+		isIdempotent = targetVersion == storeVersion
+		require.False(t, isIdempotent, "Second provider should not be idempotent when it has fewer migrations")
+	})
+
+	t.Run("SecondProviderHasMoreMigrations", func(t *testing.T) {
+		// Start fresh with a new database
+		_, db2 := heavyweight.FullTestDBEmptyV2(t, nil)
+
+		// Create first provider with fewer migrations
+		fewerMigrations := []*goose.Migration{
+			migrations.Migration36,
+			migrations.Migration54,
+		}
+
+		provider1, err := createCustomProvider(fewerMigrations)
+		require.NoError(t, err)
+
+		// Migrate to latest with first provider
+		_, err = provider1.Up(ctx)
+		require.NoError(t, err)
+
+		// Get current version after first provider migration
+		currentVer, err := provider1.GetDBVersion(ctx)
+		require.NoError(t, err)
+
+		// Create second provider with more migrations
+		moreMigrations := []*goose.Migration{
+			migrations.Migration36,
+			migrations.Migration54,
+			migrations.Migration56,
+			migrations.Migration195,
+		}
+
+		// Reset global migrations for second provider
+		goose.ResetGlobalMigrations()
+
+		store, err := database.NewStore(goose.DialectPostgres, "goose_migrations")
+		require.NoError(t, err)
+
+		fys, err := fs.Sub(embedMigrations, MIGRATIONS_DIR)
+		require.NoError(t, err)
+
+		provider2, err := goose.NewProvider("", db2.DB, fys,
+			goose.WithStore(store),
+			goose.WithGoMigrations(moreMigrations...),
+			goose.WithVerbose(false))
+		require.NoError(t, err)
+
+		// Manually ensure the migration table exists and has the same state as db
+		_, err = provider2.GetDBVersion(ctx)
+		require.NoError(t, err)
+
+		// Insert the migration records that were applied by provider1
+		// This simulates the scenario where the DB was migrated by a provider with fewer migrations
+		sql := fmt.Sprintf(`INSERT INTO %s (version_id, is_applied, tstamp) VALUES ($1, true, NOW()) ON CONFLICT DO NOTHING;`, store.Tablename())
+		_, err = db2.DB.ExecContext(ctx, sql, 36)
+		require.NoError(t, err)
+		_, err = db2.DB.ExecContext(ctx, sql, 54)
+		require.NoError(t, err)
+
+		// Check versions for second provider
+		storeVersion, targetVersion, err := provider2.GetVersions(ctx)
+		require.NoError(t, err)
+
+		// Store version should be lower than target version (since provider2 has more migrations available)
+		require.Less(t, storeVersion, targetVersion, "Store version should be less than target version")
+
+		// IsIdempotent should return false when store version < target version
+		isIdempotent := targetVersion == storeVersion
+		require.False(t, isIdempotent, "Second provider should not be idempotent when it has more migrations available")
+
+		// After migrating with second provider, it should be idempotent
+		_, err = provider2.Up(ctx)
+		require.NoError(t, err)
+
+		storeVersion, targetVersion, err = provider2.GetVersions(ctx)
+		require.NoError(t, err)
+		isIdempotent = targetVersion == storeVersion
+		require.True(t, isIdempotent, "Second provider should be idempotent after applying all its migrations")
+	})
 }

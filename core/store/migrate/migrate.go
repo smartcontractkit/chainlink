@@ -157,6 +157,7 @@ func Rollback(ctx context.Context, db *sql.DB, version null.Int) error {
 	return err
 }
 
+// Current returns the current migration version applied to the database
 func Current(ctx context.Context, db *sql.DB) (int64, error) {
 	provider, err := NewProvider(ctx, db)
 	if err != nil {
@@ -165,6 +166,30 @@ func Current(ctx context.Context, db *sql.DB) (int64, error) {
 	return provider.GetDBVersion(ctx)
 }
 
+// HasPending returns whether there are pending migrations that have
+// not yet been applied to the database
+func HasPending(ctx context.Context, db *sql.DB) (bool, error) {
+	provider, err := NewProvider(ctx, db)
+	if err != nil {
+		return false, err
+	}
+	return provider.HasPending(ctx)
+}
+
+// IsIdempotent returns whether the database is at the identical version as the target version
+func IsIdempotent(ctx context.Context, db *sql.DB) (bool, error) {
+	provider, err := NewProvider(ctx, db)
+	if err != nil {
+		return false, err
+	}
+	storeVersion, targetVersion, err := provider.GetVersions(ctx)
+	if err != nil {
+		return false, err
+	}
+	return targetVersion == storeVersion, nil
+}
+
+// Status prints the status of all migrations and whether they have been applied
 func Status(ctx context.Context, db *sql.DB) error {
 	provider, err := NewProvider(ctx, db)
 	if err != nil {
