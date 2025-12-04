@@ -12,7 +12,6 @@ import (
 	ethtypes "github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/crypto"
 
-	"github.com/smartcontractkit/chainlink-deployments-framework/chain"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 )
 
@@ -84,15 +83,4 @@ func setFeeTokenLogic(env cldf.Environment, cfg SetFeeTokenConfig) (cldf.Changes
 	}
 
 	return out, nil
-}
-
-func findChainBySelector(e cldf.Environment, selector uint64) (chain.BlockChain, error) {
-	evmChains := e.BlockChains.EVMChains()
-
-	for _, chain := range evmChains {
-		if chain.ChainSelector() == selector {
-			return chain, nil
-		}
-	}
-	return nil, fmt.Errorf("error finding chain with selector: %d", selector)
 }
