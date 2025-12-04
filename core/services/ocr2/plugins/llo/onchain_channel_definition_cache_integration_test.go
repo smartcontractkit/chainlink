@@ -1086,7 +1086,7 @@ func Test_ChannelDefinitionCache_OwnerAndAdderMerging(t *testing.T) {
 		assert.Equal(t, ownerDefs[500].Streams, defs[500].Streams, "channel 500 should have owner's streams")
 	})
 
-	t.Run("owner can remove channels", func(t *testing.T) {
+	t.Run("owner cannot implicitly remove channels", func(t *testing.T) {
 		observedLogs.TakeAll()
 
 		// Start with channels from owner and adders
@@ -1193,21 +1193,72 @@ func Test_ChannelDefinitionCache_OwnerAndAdderMerging(t *testing.T) {
 			"url", url3)
 
 		require.Eventually(t, func() bool {
-			defs := cdc.Definitions(llotypes.ChannelDefinitions{})
+			defs := cdc.Definitions(ownerDefs)
 			_, has600 := defs[600]
 			_, has601 := defs[601]
 			_, has602 := defs[602]
-			return !has600 && has601 && has602
-		}, 5*time.Second, 100*time.Millisecond, "channel 600 should be removed, 601 and 602 should remain")
+			return has600 && has601 && has602
+		}, 5*time.Second, 100*time.Millisecond, "channel 600, 601 and 602 should still be present")
+	})
 
-		// Verify excluded owner channel is removed, but adder channel remains
-		defs := cdc.Definitions(llotypes.ChannelDefinitions{})
-		_, exists := defs[600]
-		assert.False(t, exists, "channel 600 (owner) should be removed")
-		_, exists = defs[601]
-		assert.True(t, exists, "channel 601 (owner) should remain")
-		_, exists = defs[602]
-		assert.True(t, exists, "channel 602 (adder) should remain")
+	t.Run("owner can remove channels explicitly", func(t *testing.T) {
+		observedLogs.TakeAll()
+
+		// Start with channels from owner and adders
+		ownerDefs := llotypes.ChannelDefinitions{
+			600: {
+				ReportFormat: llotypes.ReportFormatJSON,
+				Streams: []llotypes.Stream{
+					{StreamID: 1, Aggregator: llotypes.AggregatorMedian},
+				},
+				Source:    channeldefinitions.SourceOwner,
+				Tombstone: false,
+			},
+			601: {
+				ReportFormat: llotypes.ReportFormatJSON,
+				Streams: []llotypes.Stream{
+					{StreamID: 2, Aggregator: llotypes.AggregatorMode},
+				},
+				Source:    channeldefinitions.SourceOwner,
+				Tombstone: false,
+			},
+		}
+
+		// Owner sets new definitions that exclude channel 600
+		ownerDefsUpdated := llotypes.ChannelDefinitions{
+			600: {
+				ReportFormat: llotypes.ReportFormatJSON,
+				Streams: []llotypes.Stream{
+					{StreamID: 1, Aggregator: llotypes.AggregatorMedian},
+				},
+				Source:    channeldefinitions.SourceOwner,
+				Tombstone: true,
+			},
+		}
+
+		ownerDefsUpdatedJSON, err := json.MarshalIndent(ownerDefsUpdated, "", "  ")
+		require.NoError(t, err)
+		ownerDefsUpdatedSHA := sha3.Sum256(ownerDefsUpdatedJSON)
+
+		url3 := "http://example.com/owner-removed-600.json"
+		rc := NewMockReadCloser(ownerDefsUpdatedJSON)
+		client.SetResponseForURL(url3, &http.Response{
+			StatusCode: 200,
+			Body:       rc,
+		}, nil)
+		require.NoError(t, utils.JustError(configStoreContract.SetChannelDefinitions(steve, donID, url3, ownerDefsUpdatedSHA)))
+		backend.Commit()
+
+		testutils.WaitForLogMessageWithField(t, observedLogs, "Got new logs",
+			"url", url3)
+
+		require.Eventually(t, func() bool {
+			defs := cdc.Definitions(ownerDefs)
+			def600 := defs[600]
+			_, has601 := defs[601]
+			_, has602 := defs[602]
+			return def600.Tombstone && has601 && has602
+		}, 5*time.Second, 100*time.Millisecond, "channel 600 should be removed, 601 and 602 should still be present")
 	})
 
 	t.Run("multiple adders can add different channels", func(t *testing.T) {
