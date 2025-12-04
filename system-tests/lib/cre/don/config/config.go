@@ -41,6 +41,7 @@ import (
 const TronEVMChainID = 3360022319
 
 func PrepareNodeTOMLs(
+	ctx context.Context,
 	topology *cre.Topology,
 	creEnv *cre.Environment,
 	nodeSets []*cre.NodeSet,
@@ -122,6 +123,22 @@ func PrepareNodeTOMLs(
 				return nil, errors.Wrap(configErr, "failed to generate config")
 			}
 
+			// For Kubernetes, save configs to ConfigMaps
+			if creEnv.Provider.IsKubernetes() {
+				instanceNames := generateInstanceNames(localNodeSets[i].Name, donMetadata.NodesMetadata)
+				for j, instanceName := range instanceNames {
+					err := CreateConfigOverride(ctx, framework.L, CreateConfigOverrideInput{
+						Namespace:    creEnv.Provider.Kubernetes.Namespace,
+						InstanceName: instanceName,
+						ConfigToml:   config[j],
+					})
+					if err != nil {
+						return nil, fmt.Errorf("failed to create config override for node %s: %w", instanceName, err)
+					}
+				}
+			}
+
+			// Set TestConfigOverrides for all providers (needed for features to work)
 			for j := range donMetadata.NodesMetadata {
 				localNodeSets[i].NodeSpecs[j].Node.TestConfigOverrides = config[j]
 			}
@@ -129,12 +146,36 @@ func PrepareNodeTOMLs(
 
 		// generate node TOML secrets only if they are not provided in the environment TOML config
 		if secretsFound == 0 {
+			instanceNames := generateInstanceNames(localNodeSets[i].Name, donMetadata.NodesMetadata)
 			for nodeIndex := range donMetadata.NodesMetadata {
 				wnode := donMetadata.NodesMetadata[nodeIndex]
 				nodeSecretsTOML, err := wnode.Keys.ToNodeSecretsTOML()
 				if err != nil {
 					return nil, errors.Wrapf(err, "failed to marshal node secrets (DON: %s, Node index: %d)", donMetadata.Name, nodeIndex)
 				}
+
+				// For Kubernetes, save secrets to Kubernetes Secrets
+				if creEnv.Provider.IsKubernetes() {
+					labels := map[string]string{
+						"app":  "chainlink",
+						"don":  donMetadata.Name,
+						"node": instanceNames[nodeIndex],
+					}
+
+					err := CreateSecretsOverride(ctx, framework.L, CreateSecretsOverrideInput{
+						Namespace:    creEnv.Provider.Kubernetes.Namespace,
+						InstanceName: instanceNames[nodeIndex],
+						SecretsToml:  nodeSecretsTOML,
+						Labels:       labels,
+					})
+					if err != nil {
+						return nil, fmt.Errorf("failed to create secrets override for node %s: %w", instanceNames[nodeIndex], err)
+					}
+					framework.L.Debug().Msgf("   Secret keys: P2PKey, DKGKey, EVM keys (%d chains), Solana keys (%d chains)",
+						len(wnode.Keys.EVM), len(wnode.Keys.Solana))
+				}
+
+				// Set TestSecretsOverrides for all providers (needed for features and key access)
 				localNodeSets[i].NodeSpecs[nodeIndex].Node.TestSecretsOverrides = nodeSecretsTOML
 			}
 		}
@@ -698,4 +739,17 @@ func appendEVMChain(existingConfig *evmconfigtoml.EVMConfigs, evmChain *evmChain
 		cfg = buildEVMConfig(evmChain)
 	}
 	*existingConfig = append(*existingConfig, &cfg)
+}
+
+// generateInstanceNames creates Kubernetes-compatible instance names for nodes
+// Bootstrap nodes get names like "workflow-bt-0", plugin nodes get "workflow-0", "workflow-1", etc.
+// This is a wrapper around infra.GenerateNodeInstanceNames that converts NodeMetadata to bool roles
+func generateInstanceNames(nodeSetName string, nodesMetadata []*cre.NodeMetadata) []string {
+	// Convert NodeMetadata to bool slice indicating bootstrap roles
+	nodeMetadataRoles := make([]bool, len(nodesMetadata))
+	for i, nodeMetadata := range nodesMetadata {
+		nodeMetadataRoles[i] = nodeMetadata.HasRole(cre.BootstrapNode)
+	}
+
+	return infra.GenerateNodeInstanceNames(nodeSetName, nodeMetadataRoles)
 }

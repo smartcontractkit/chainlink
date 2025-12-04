@@ -51,6 +51,7 @@ func BuildFromSavedState(ctx context.Context, cldLogger logger.Logger, cachedInp
 		cldLogger,
 		cachedInput.Blockchains,
 		blockchainDeployers,
+		cachedInput.Infra,
 	)
 	if startErr != nil {
 		return nil, nil, errors.Wrap(startErr, "failed to start blockchains")

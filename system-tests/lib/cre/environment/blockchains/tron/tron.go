@@ -152,9 +152,20 @@ func (t *Deployer) Deploy(ctx context.Context, input *blockchain.Input) (blockch
 	var bcOut *blockchain.Output
 	var err error
 
-	if input.Out != nil {
+	switch {
+	case t.provider.IsKubernetes():
+		// For Kubernetes, use the blockchain output from config (no deployment)
+		if err = blockchains.ValidateKubernetesBlockchainOutput(input); err != nil {
+			return nil, err
+		}
+
+		t.testLogger.Info().Msgf("Using configured Kubernetes blockchain URLs for %s (chain_id: %s)", input.Type, input.ChainID)
 		bcOut = input.Out
-	} else {
+	case input.Out != nil:
+		// Use pre-configured output (cached)
+		bcOut = input.Out
+	default:
+		// Docker deployment
 		bcOut, err = blockchain.NewWithContext(ctx, input)
 		if err != nil {
 			return nil, pkgerrors.Wrapf(err, "failed to deploy blockchain %s chainID: %s", input.Type, input.ChainID)

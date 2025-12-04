@@ -27,14 +27,9 @@ import (
 
 	cldlogger "github.com/smartcontractkit/chainlink/deployment/logger"
 
-	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/gateway"
-	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/blockchains"
-	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/blockchains/evm"
-	blockchains_sets "github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/blockchains/sets"
-	envconfig "github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/config"
-	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/stagegen"
-	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/flags"
-	"github.com/smartcontractkit/chainlink/system-tests/lib/infra"
+	"github.com/smartcontractkit/chainlink-testing-framework/framework"
+	billingplatformservice "github.com/smartcontractkit/chainlink-testing-framework/framework/components/dockercompose/billing_platform_service"
+	chipingressset "github.com/smartcontractkit/chainlink-testing-framework/framework/components/dockercompose/chip_ingress_set"
 
 	keystone_changeset "github.com/smartcontractkit/chainlink/deployment/keystone/changeset"
 	libc "github.com/smartcontractkit/chainlink/system-tests/lib/conversions"
@@ -44,10 +39,14 @@ import (
 	feature_set "github.com/smartcontractkit/chainlink/system-tests/lib/cre/features/sets"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/crecli"
 	libformat "github.com/smartcontractkit/chainlink/system-tests/lib/format"
-
-	"github.com/smartcontractkit/chainlink-testing-framework/framework"
-	billingplatformservice "github.com/smartcontractkit/chainlink-testing-framework/framework/components/dockercompose/billing_platform_service"
-	chipingressset "github.com/smartcontractkit/chainlink-testing-framework/framework/components/dockercompose/chip_ingress_set"
+	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/gateway"
+	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/blockchains"
+	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/blockchains/evm"
+	blockchains_sets "github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/blockchains/sets"
+	envconfig "github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/config"
+	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/stagegen"
+	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/flags"
+	"github.com/smartcontractkit/chainlink/system-tests/lib/infra"
 	"github.com/smartcontractkit/chainlink-testing-framework/framework/tracking"
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/ptr"
 )
@@ -119,23 +118,8 @@ var StartCmdPreRunFunc = func(cmd *cobra.Command, args []string) {
 	// ensure non-nil dxTracker by default
 	initDxTracker()
 
-	// remove all containers before starting the environment, just in case
-	_ = framework.RemoveTestContainers()
-
-	sigCh := make(chan os.Signal, 1)
-	signal.Notify(sigCh, os.Interrupt, syscall.SIGTERM)
-
-	go func() {
-		sig := <-sigCh
-		fmt.Printf("\nReceived signal: %s\n", sig)
-
-		removeErr := framework.RemoveTestContainers()
-		if removeErr != nil {
-			fmt.Fprint(os.Stderr, removeErr, manualCtfCleanupMsg)
-		}
-
-		os.Exit(1)
-	}()
+	// Note: Signal handler setup moved to RunE after config is loaded,
+	// so we can skip Docker cleanup for Kubernetes provider
 }
 
 var StartCmdRecoverHandlerFunc = func(p any, cleanupOnFailure bool, cleanupWait time.Duration) {
@@ -289,14 +273,42 @@ func startCmd() *cobra.Command {
 				return errors.Wrap(err, "failed to load environment configuration")
 			}
 
-			if err := ensureDockerIsRunning(cmdContext); err != nil {
-				return err
+			// Skip Docker operations for Kubernetes provider (Docker not needed)
+			isDocker := in.Infra != nil && !in.Infra.IsKubernetes()
+			if isDocker {
+				// Remove all containers before starting the environment, just in case
+				_ = framework.RemoveTestContainers()
+
+				if err := ensureDockerIsRunning(cmdContext); err != nil {
+					return err
+				}
+
+				// This will not work with remote images that require authentication, but it will catch early most of the issues with missing env setup
+				if err := ensureDockerImagesExist(cmdContext, framework.L, in, withPluginsDockerImage); err != nil {
+					return err
+				}
+			} else {
+				framework.L.Info().Msg("Skipping Docker cleanup and checks for Kubernetes provider")
 			}
 
-			// This will not work with remote images that require authentication, but it will catch early most of the issues with missing env setup
-			if err := ensureDockerImagesExist(cmdContext, framework.L, in, withPluginsDockerImage); err != nil {
-				return err
-			}
+			// Setup signal handler after we know the provider type
+			sigCh := make(chan os.Signal, 1)
+			signal.Notify(sigCh, os.Interrupt, syscall.SIGTERM)
+
+			go func() {
+				sig := <-sigCh
+				fmt.Printf("\nReceived signal: %s\n", sig)
+
+				// Only cleanup Docker containers if using Docker provider
+				if isDocker {
+					removeErr := framework.RemoveTestContainers()
+					if removeErr != nil {
+						fmt.Fprint(os.Stderr, removeErr, manualCtfCleanupMsg)
+					}
+				}
+
+				os.Exit(1)
+			}()
 
 			withV2Registries := withContractsVersion == "v2"
 			envDependencies := cre.NewEnvironmentDependencies(
@@ -313,8 +325,8 @@ func startCmd() *cobra.Command {
 				return errors.Wrap(err, "either cron binary path must be set in TOML config (%s) or you must use Docker image with all capabilities included and passed via withPluginsDockerImageFlag")
 			}
 
-			features := feature_set.New()
-			gatewayWhitelistConfig := gateway.WhitelistConfig{
+		features := feature_set.New()
+		gatewayWhitelistConfig := gateway.WhitelistConfig{
 				ExtraAllowedPorts:   append(extraAllowedGatewayPorts, in.Fake.Port, in.FakeHTTP.Port),
 				ExtraAllowedIPsCIDR: []string{"0.0.0.0/0"},
 			}
@@ -881,6 +893,12 @@ func ensureDockerIsRunning(ctx context.Context) error {
 func ensureDockerImagesExist(ctx context.Context, logger zerolog.Logger, in *envconfig.Config, withPluginsDockerImageFlag string) error {
 	// Skip checks in CI environment
 	if os.Getenv("CI") == "true" {
+		return nil
+	}
+
+	// Skip checks for Kubernetes provider (images run in cluster, not locally)
+	if in.Infra != nil && in.Infra.IsKubernetes() {
+		logger.Info().Msg("Skipping Docker image checks for Kubernetes provider")
 		return nil
 	}
 
