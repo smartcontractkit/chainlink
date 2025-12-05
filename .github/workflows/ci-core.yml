@@ -265,12 +265,12 @@ jobs:
         with:
           CLI_VERSION: 7.10.0
 
-      - name: Setup Sui CLI v1.57.2
+      - name: Setup Sui CLI v1.60.1
         if: ${{ matrix.type.should-run == 'true' && matrix.type.setup-sui == 'true' }}
         uses: ./.github/actions/setup-sui
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
-          version: mainnet-1.57.2
+          version: mainnet-1.60.1
 
       - name: Setup wasmd
         if: ${{ matrix.type.should-run == 'true' }}

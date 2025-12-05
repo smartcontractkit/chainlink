@@ -1,10 +1,10 @@
 name: Setup Sui CLI
-description: Install and cache Sui CLI using suiup
+description: Install and cache Sui CLI from official GitHub releases
 inputs:
   version:
-    description: Sui CLI version to install (e.g., mainnet-v1.57.2)
+    description: Sui CLI version to install (e.g., mainnet-v1.60.1)
     required: false
-    default: mainnet-v1.57.2
+    default: mainnet-v1.60.1
   github-token:
     description: GitHub token to use for authentication
     required: true
@@ -21,15 +21,49 @@ runs:
         key: ${{ runner.os }}-suiup-${{ inputs.version }}
 
     - if: ${{ steps.cache.outputs.cache-hit != 'true' }}
-      name: Install suiup and Sui CLI
+      name: Install Sui CLI
       shell: bash
       env:
         GITHUB_TOKEN: ${{ inputs.github-token }}
         GH_TOKEN: ${{ inputs.github-token }}
       run: |
-        cargo install --git https://github.com/Mystenlabs/suiup.git --locked
-        "$HOME/.cargo/bin/suiup" install sui@${{ inputs.version }} --yes
+        # Install Sui CLI directly from GitHub releases
+        mkdir -p ~/.suiup/bin
+        cd ~/.suiup/bin
+        
+        # Determine platform using GitHub Actions runner context
+        if [[ "$RUNNER_OS" == "Linux" ]]; then
+          if [[ "$(uname -m)" == "aarch64" ]]; then
+            PLATFORM="ubuntu-aarch64"
+          else
+            PLATFORM="ubuntu-x86_64"
+          fi
+        elif [[ "$RUNNER_OS" == "macOS" ]]; then
+          if [[ "$(uname -m)" == "arm64" ]]; then
+            PLATFORM="macos-arm64"
+          else
+            PLATFORM="macos-x86_64"
+          fi
+        else
+          echo "Unsupported platform: $RUNNER_OS"
+          exit 1
+        fi
+        
+        # Download and install Sui CLI
+        SUI_VERSION="${{ inputs.version }}"
+        FILENAME="sui-${SUI_VERSION}-${PLATFORM}.tgz"
+        DOWNLOAD_URL="https://github.com/MystenLabs/sui/releases/download/${SUI_VERSION}/${FILENAME}"
+        
+        echo "Downloading Sui CLI ${SUI_VERSION} for ${PLATFORM}..."
+        curl -L -o "${FILENAME}" "${DOWNLOAD_URL}"
+        tar -xzf "${FILENAME}"
+        rm "${FILENAME}"
+        
+        # Make executable
+        chmod +x sui
+        
+        echo "Sui CLI installed to ~/.suiup/bin/sui"
 
     - name: Export Sui CLI to PATH
       shell: bash
-      run: echo "PATH=$HOME/.suiup/bin:$HOME/.local/bin:$HOME/.cargo/bin:$PATH" >> $GITHUB_ENV
+      run: echo "$HOME/.suiup/bin" >> $GITHUB_PATH
