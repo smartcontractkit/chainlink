@@ -28,8 +28,8 @@ runs:
         GH_TOKEN: ${{ inputs.github-token }}
       run: |
         cargo install --git https://github.com/Mystenlabs/suiup.git --locked
-        "$HOME/.local/bin/suiup" install sui@${{ inputs.version }} --yes
+        "$HOME/.cargo/bin/suiup" install sui@${{ inputs.version }} --yes
 
     - name: Export Sui CLI to PATH
       shell: bash
-      run: echo "PATH=$HOME/.suiup/bin:$HOME/.local/bin:$PATH" >> $GITHUB_ENV
+      run: echo "PATH=$HOME/.suiup/bin:$HOME/.local/bin:$HOME/.cargo/bin:$PATH" >> $GITHUB_ENV
