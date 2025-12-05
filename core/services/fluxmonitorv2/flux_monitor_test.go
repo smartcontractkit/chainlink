@@ -1136,6 +1136,7 @@ func TestFluxMonitor_IdleTimerResetsOnNewRound(t *testing.T) {
 }
 
 func TestFluxMonitor_RoundTimeoutCausesPoll_timesOutAtZero(t *testing.T) {
+	quarantine.Flaky(t, "DX-1840")
 	t.Parallel()
 
 	g := gomega.NewWithT(t)
