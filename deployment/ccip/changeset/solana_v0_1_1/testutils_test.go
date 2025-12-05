@@ -7,7 +7,7 @@ import (
 
 func skipInCI(t *testing.T) {
 	ci := os.Getenv("CI") == "true"
-	if ci && false { // test - disable
+	if ci {
 		t.Skip("Skipping in CI")
 	}
 }
