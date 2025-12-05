@@ -10,6 +10,11 @@ jobs:
     name: Sync
     runs-on: ubuntu-latest
     steps:
+      - name: Validate Branch
+        run: |
+          git ls-remote "https://github.com/${{ github.repository }}.git" develop | grep -q "refs/heads/develop$" || (echo "develop branch is missing in origin (${{ github.repository }})" && exit 1)
+          git ls-remote "https://github.com/smartcontractkit/chainlink.git" develop | grep -q "refs/heads/develop$" || (echo "develop branch is missing in upstream (smartcontractkit/chainlink)" && exit 1)
+        if: github.repository != 'smartcontractkit/chainlink'
       - uses: actions/checkout@v4
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
