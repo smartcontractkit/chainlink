@@ -270,7 +270,7 @@ jobs:
         uses: ./.github/actions/setup-sui
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
-          version: mainnet-1.61.2
+          version: mainnet-v1.61.2
 
       - name: Setup wasmd
         if: ${{ matrix.type.should-run == 'true' }}
