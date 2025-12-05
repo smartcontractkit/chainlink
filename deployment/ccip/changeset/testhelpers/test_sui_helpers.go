@@ -23,13 +23,15 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	cldf_sui "github.com/smartcontractkit/chainlink-deployments-framework/chain/sui"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
-	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
+
+	// "github.com/smartcontractkit/chainlink-deployments-framework/operations"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/shared/generated/initial/burn_mint_erc677"
 	suiBind "github.com/smartcontractkit/chainlink-sui/bindings/bind"
 	sui_deployment "github.com/smartcontractkit/chainlink-sui/deployment"
 	sui_cs "github.com/smartcontractkit/chainlink-sui/deployment/changesets"
 	sui_ops "github.com/smartcontractkit/chainlink-sui/deployment/ops"
-	ccipops "github.com/smartcontractkit/chainlink-sui/deployment/ops/ccip"
+
+	// ccipops "github.com/smartcontractkit/chainlink-sui/deployment/ops/ccip"
 	burnminttokenpoolops "github.com/smartcontractkit/chainlink-sui/deployment/ops/ccip_burn_mint_token_pool"
 	lockreleasetokenpoolops "github.com/smartcontractkit/chainlink-sui/deployment/ops/ccip_lock_release_token_pool"
 	managedtokenpoolops "github.com/smartcontractkit/chainlink-sui/deployment/ops/ccip_managed_token_pool"
@@ -137,38 +139,42 @@ func SendSuiCCIPRequest(e cldf.Environment, cfg *ccipclient.CCIPSendReqConfig) (
 		fmt.Println("onRamp v2 not set, using onramp v1")
 		onRampPackageID = state.SuiChains[cfg.SourceChain].OnRampAddress
 	}
+	fmt.Println("onRampPackageID: ", onRampPackageID)
+	fmt.Println("onRampStateObjectID: ", state.SuiChains[cfg.SourceChain].OnRampStateObjectId)
+	fmt.Println("linkTokenPkgID: ", state.SuiChains[cfg.SourceChain].LinkTokenAddress)
+	fmt.Println("linkTokenObjectMetadataID: ", state.SuiChains[cfg.SourceChain].LinkTokenCoinMetadataId)
 	onRampStateObjectID := state.SuiChains[cfg.SourceChain].OnRampStateObjectId
 	linkTokenPkgID := state.SuiChains[cfg.SourceChain].LinkTokenAddress
 	linkTokenObjectMetadataID := state.SuiChains[cfg.SourceChain].LinkTokenCoinMetadataId
-	ccipOwnerCapID := state.SuiChains[cfg.SourceChain].CCIPOwnerCapObjectId
-
-	bigIntSourceUsdPerToken, parsed := new(big.Int).SetString("15377040000000000000000000000", 10) // 1e27 since sui is 1e9
-	if !parsed {
-		return &ccipclient.AnyMsgSentEvent{}, errors.New("failed converting SourceUSDPerToken to bigInt")
-	}
-
-	bigIntGasUsdPerUnitGas, ok := new(big.Int).SetString("41946474500", 10) // optimism sep 4145822215
-	if !ok {
-		return &ccipclient.AnyMsgSentEvent{}, errors.New("failed converting GasUsdPerUnitGas to bigInt")
-	}
+	// ccipOwnerCapID := state.SuiChains[cfg.SourceChain].CCIPOwnerCapObjectId
+	//
+	// bigIntSourceUsdPerToken, parsed := new(big.Int).SetString("15377040000000000000000000000", 10) // 1e27 since sui is 1e9
+	// if !parsed {
+	// 	return &ccipclient.AnyMsgSentEvent{}, errors.New("failed converting SourceUSDPerToken to bigInt")
+	// }
+	//
+	// bigIntGasUsdPerUnitGas, ok := new(big.Int).SetString("41946474500", 10) // optimism sep 4145822215
+	// if !ok {
+	// 	return &ccipclient.AnyMsgSentEvent{}, errors.New("failed converting GasUsdPerUnitGas to bigInt")
+	// }
 
 	// getValidatedFee
 	msg := cfg.Message.(SuiSendRequest)
 
-	// Update Prices on FeeQuoter with minted LinkToken
-	_, err = operations.ExecuteOperation(e.OperationsBundle, ccipops.FeeQuoterUpdatePricesWithOwnerCapOp, deps.SuiChain,
-		ccipops.FeeQuoterUpdatePricesWithOwnerCapInput{
-			CCIPPackageId:         ccipPackageID,
-			CCIPObjectRef:         ccipObjectRefID,
-			OwnerCapObjectId:      ccipOwnerCapID,
-			SourceTokens:          []string{linkTokenObjectMetadataID},
-			SourceUsdPerToken:     []*big.Int{bigIntSourceUsdPerToken},
-			GasDestChainSelectors: []uint64{cfg.DestChain},
-			GasUsdPerUnitGas:      []*big.Int{bigIntGasUsdPerUnitGas},
-		})
-	if err != nil {
-		return &ccipclient.AnyMsgSentEvent{}, errors.New("failed to updatePrice for Sui chain " + err.Error())
-	}
+	// // Update Prices on FeeQuoter with minted LinkToken
+	// _, err = operations.ExecuteOperation(e.OperationsBundle, ccipops.FeeQuoterUpdatePricesWithOwnerCapOp, deps.SuiChain,
+	// 	ccipops.FeeQuoterUpdatePricesWithOwnerCapInput{
+	// 		CCIPPackageId:         ccipPackageID,
+	// 		CCIPObjectRef:         ccipObjectRefID,
+	// 		OwnerCapObjectId:      ccipOwnerCapID,
+	// 		SourceTokens:          []string{linkTokenObjectMetadataID},
+	// 		SourceUsdPerToken:     []*big.Int{bigIntSourceUsdPerToken},
+	// 		GasDestChainSelectors: []uint64{cfg.DestChain},
+	// 		GasUsdPerUnitGas:      []*big.Int{bigIntGasUsdPerUnitGas},
+	// 	})
+	// if err != nil {
+	// 	return &ccipclient.AnyMsgSentEvent{}, errors.New("failed to updatePrice for Sui chain " + err.Error())
+	// }
 
 	// TODO: might be needed for validation
 	// feeQuoter, err := module_fee_quoter.NewFeeQuoter(ccipPackageID, deps.SuiChain.Client)
@@ -555,7 +561,7 @@ func SendSuiCCIPRequest(e cldf.Environment, cfg *ccipclient.CCIPSendReqConfig) (
 		return nil, errors.New("failed to decode parameters for token pool function: " + err.Error())
 	}
 
-	typeArgsList = []string{linkTokenPkgID + "::link::LINK"}
+	typeArgsList = []string{"0x2::sui::SUI"}
 	typeParamsList = []string{}
 	paramValues = []any{
 		suiBind.Object{Id: ccipObjectRefID},

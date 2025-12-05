@@ -123,14 +123,23 @@ func subscribeTransmitEvents(
 				SourceChainSelector: srcChainSel,
 				DestChainSelector:   event.DestChainSelector,
 			}
+
+			seqNumRange, exists := seqNums[csPair]
+			if !exists {
+				lggr.Debugw("skipping event for unknown destination chain",
+					"srcChain", srcChainSel,
+					"destChain", event.DestChainSelector)
+				continue
+			}
+
 			// always store the lowest seen number as the start seq num
-			if event.SequenceNumber < seqNums[csPair].Start.Load() {
-				seqNums[csPair].Start.Store(event.SequenceNumber)
+			if event.SequenceNumber < seqNumRange.Start.Load() {
+				seqNumRange.Start.Store(event.SequenceNumber)
 			}
 
 			// always store the greatest sequence number we have seen as the maximum
-			if event.SequenceNumber > seqNums[csPair].End.Load() {
-				seqNums[csPair].End.Store(event.SequenceNumber)
+			if event.SequenceNumber > seqNumRange.End.Load() {
+				seqNumRange.End.Store(event.SequenceNumber)
 			}
 		case <-ctx.Done():
 			lggr.Errorw("received context cancel signal for transmit watcher",
@@ -512,12 +521,13 @@ func fundAdditionalKeys(lggr logger.Logger, e cldf.Environment, destChains []uin
 	g := new(errgroup.Group)
 	for sel, addresses := range addressMap {
 		sel, addresses := sel, addresses
-		funding := fundingAmount
-		if sel == chainselectors.AVALANCHE_TESTNET_FUJI.Selector || sel == chainselectors.BINANCE_SMART_CHAIN_TESTNET.Selector {
-			funding = 5000000000000000000
+		funding := new(big.Int).SetUint64(fundingAmount)
+		if sel == chainselectors.AVALANCHE_TESTNET_FUJI.Selector || sel == chainselectors.BINANCE_SMART_CHAIN_TESTNET.Selector || sel == chainselectors.POLYGON_TESTNET_AMOY.Selector {
+			funding, _ = new(big.Int).SetString("30000000000000000000", 10) // 30 tokens
+
 		}
 		g.Go(func() error {
-			return crib.SendFundsToAccounts(e.GetContext(), lggr, e.BlockChains.EVMChains()[sel], addresses, new(big.Int).SetUint64(funding), sel)
+			return crib.SendFundsToAccounts(e.GetContext(), lggr, e.BlockChains.EVMChains()[sel], addresses, funding, sel)
 		})
 	}
 

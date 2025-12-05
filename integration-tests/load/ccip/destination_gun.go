@@ -630,6 +630,10 @@ func (m *DestinationGun) sendSuiSourceMessage(src uint64) error {
 		return fmt.Errorf("no Sui source key available for chain %d", src)
 	}
 
+	// Lock entire Sui operation to prevent object version conflicts
+	globalSuiMutex.Lock()
+	defer globalSuiMutex.Unlock()
+
 	msg, err := m.getSuiMessage()
 	if err != nil {
 		return fmt.Errorf("failed to get Sui message: %w", err)
@@ -643,10 +647,7 @@ func (m *DestinationGun) sendSuiSourceMessage(src uint64) error {
 		MaxRetries:   1,
 	}
 
-	// Lock to prevent concurrent Sui transactions from using the same gas object
-	globalSuiMutex.Lock()
 	_, err = testhelpers.SendSuiCCIPRequest(m.env, &sendRequestCfg)
-	globalSuiMutex.Unlock()
 
 	if err != nil {
 		m.l.Errorw("SendRequestSui failed",
@@ -684,12 +685,23 @@ func (m *DestinationGun) getSuiMessage() (testhelpers.SuiSendRequest, error) {
 	m.l.Infow("Selected message type", "msgType", *selectedMsgDetails.MsgType)
 
 	// Get fee token object ID
-	feeTokenObjectId := strings.TrimPrefix(*m.testConfig.TestnetConfig.SuiConfig.SuiFeeTokenObjectId, "0x")
+	// TMP Comment out due to Prod testnet setup
+	// feeTokenObjectId := strings.TrimPrefix(*m.testConfig.TestnetConfig.SuiConfig.SuiFeeTokenObjectId, "0x")
+
+	//TODO: Derive fee token from split
+
+	ctx := context.Background()
+	feeTokenNew, err := SplitCoin(ctx, m.env)
+	if err != nil {
+		return testhelpers.SuiSendRequest{}, err
+	}
 
 	message := testhelpers.SuiSendRequest{
 		Receiver:  common.LeftPadBytes(m.receiver, 32),
 		ExtraArgs: []byte{24, 29, 207, 16, 64, 13, 3, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1},
-		FeeToken:  feeTokenObjectId,
+		// TMP Comment out due to Prod testnet setup
+		// FeeToken:  feeTokenObjectId,
+		FeeToken: feeTokenNew,
 	}
 
 	switch {

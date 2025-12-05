@@ -2,11 +2,13 @@ package ccip
 
 import (
 	"context"
+	"encoding/base64"
 	"encoding/hex"
 	"errors"
 	"fmt"
 	"math"
 	"math/big"
+	"strconv"
 	"strings"
 	"sync"
 	"testing"
@@ -22,13 +24,16 @@ import (
 	_ "github.com/lib/pq"
 	"go.uber.org/atomic"
 
+	selectors "github.com/smartcontractkit/chain-selectors"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_3/message_hasher"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 	pkgtypes "github.com/smartcontractkit/chainlink-common/pkg/types"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/ccipocr3"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/query"
+	cldf_chain "github.com/smartcontractkit/chainlink-deployments-framework/chain"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+	sui_common "github.com/smartcontractkit/chainlink-sui/bindings/bind"
 
 	"github.com/smartcontractkit/chainlink-sui/relayer/chainreader/config"
 	"github.com/smartcontractkit/chainlink-sui/relayer/chainreader/database"
@@ -1121,4 +1126,90 @@ func createSuiChainReader(
 	}
 
 	return NewChainReaderFromLatestBlock(ctx, lggr, ptbClient, chainReaderConfig, db)
+}
+
+func SplitCoin(ctx context.Context, env cldf.Environment) (string, error) {
+	// signerAddr, _ := suiSigner.GetAddress()
+	suiSelectors := env.BlockChains.ListChainSelectors(cldf_chain.WithFamily(selectors.FamilySui))
+	if len(suiSelectors) == 0 {
+		return "", errors.New("no Sui chains available")
+	}
+	suiSelector := suiSelectors[0]
+
+	suiChain := env.BlockChains.SuiChains()[suiSelector]
+	client := sui.NewSuiClient(suiChain.URL)
+
+	signerAddr, err := suiChain.Signer.GetAddress()
+	if err != nil {
+		return "", err
+	}
+
+	coinsResp, err := client.SuiXGetAllCoins(ctx, models.SuiXGetAllCoinsRequest{
+		Owner: signerAddr,
+		Limit: 10,
+	})
+	if err != nil {
+		return "", err
+	}
+	coins := coinsResp.Data
+
+	fmt.Println("Available Coins:", coins)
+	if coins == nil {
+		return "", errors.New("Not enough balance")
+	}
+
+	var largestCoin models.CoinData
+	var largestBalance uint64
+
+	for _, c := range coins {
+		if c.CoinType != "0x2::sui::SUI" {
+			continue
+		}
+
+		// Convert string balance to number if needed
+		var bal uint64
+		switch v := any(c.Balance).(type) {
+		case string:
+			bal, _ = strconv.ParseUint(v, 10, 64)
+		case uint64:
+			bal = v
+		default:
+			return "", errors.New("Unexpected balance")
+		}
+
+		if bal > largestBalance {
+			largestBalance = bal
+			largestCoin = c
+		}
+	}
+
+	tokenToSplit := largestCoin.CoinObjectId
+	fmt.Printf("Selected base coin (largest): %s with balance %v\n", tokenToSplit, largestCoin.Balance)
+
+	req := models.PayRequest{
+		Signer:      signerAddr,             // your wallet address
+		SuiObjectId: []string{tokenToSplit}, // coin(s) to draw from (can include gas coin)
+		Recipient:   []string{signerAddr},   // send to yourself to create a new coin
+		Amount:      []string{"500000000"},  // in MIST (0.5 SUI)
+		Gas:         nil,                    // let the node pick gas (or use a different one)
+		GasBudget:   "10000000",             // budget for this tx
+	}
+
+	resp, err := client.Pay(ctx, req)
+	if err != nil {
+		return "", err
+	}
+
+	decodedSplitTx, err := base64.StdEncoding.DecodeString(resp.TxBytes)
+	if err != nil {
+		return "", err
+	}
+
+	splitTx, err := sui_common.SignAndSendTx(ctx, suiChain.Signer, client, decodedSplitTx, true)
+	if err != nil {
+		return "", err
+	}
+
+	fmt.Printf("Split coins")
+	return splitTx.Effects.Created[0].Reference.ObjectId, nil
 }
