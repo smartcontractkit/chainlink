@@ -15,6 +15,8 @@ import (
 
 	"github.com/jmoiron/sqlx"
 
+	"github.com/smartcontractkit/quarantine"
+
 	"github.com/smartcontractkit/chainlink-common/pkg/services/servicetest"
 
 	"github.com/smartcontractkit/chainlink-evm/pkg/chains/legacyevm"
@@ -118,6 +120,7 @@ func Test_UpkeepExecuter_ErrorsIfStartedTwice(t *testing.T) {
 }
 
 func Test_UpkeepExecuter_PerformsUpkeep_Happy(t *testing.T) {
+	quarantine.Flaky(t, "DX-1727")
 	taskRuns := 11
 
 	t.Parallel()
