@@ -16,7 +16,41 @@ on:
 
 
 jobs:
-  core:
+  list-all-tag-combinations:
+    name: List all tag combinations
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 1
+
+      - name: List all tags (./core/)
+        working-directory: ./core
+        run: |
+          find . -name '*.go' -print0 \
+            | xargs -0 grep -hE '^[[:space:]]*//(go:build|\+build)' 2>/dev/null \
+            | sed -E '
+            s|^[[:space:]]*//go:build[[:space:]]+||;
+            s|^[[:space:]]*//\+build[[:space:]]+||;
+            s/[[:space:]]+$//
+          ' \
+            | sed -E '/^[[:space:]]*$/d' \
+            | sort -u
+
+      - name: List all tags (./deployment/)
+        working-directory: ./deployment
+        run: |
+          find . -name '*.go' -print0 \
+            | xargs -0 grep -hE '^[[:space:]]*//(go:build|\+build)' 2>/dev/null \
+            | sed -E '
+            s|^[[:space:]]*//go:build[[:space:]]+||;
+            s|^[[:space:]]*//\+build[[:space:]]+||;
+            s/[[:space:]]+$//
+          ' \
+            | sed -E '/^[[:space:]]*$/d' \
+            | sort -u
+
+  tagged-tests:
     env:
       # We explicitly have this env var not be "CL_DATABASE_URL" to avoid having it be used by core related tests
       # when they should not be using it, while still allowing us to DRY up the setup
