@@ -150,7 +150,7 @@ func requireCapability(t *testing.T, fixture *test.EnvWrapperV2, capID string) {
 			break
 		}
 	}
-	require.True(t, found, "new capability %d should be registered", capID)
+	require.True(t, found, "new capability %s should be registered", capID)
 
 	// Nodes should now include new capability id
 	nodes, err := pkg.GetNodes(nil, capReg)
