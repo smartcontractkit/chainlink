@@ -22,13 +22,13 @@ import (
 
 func TestGenericOpsWithMcms(t *testing.T) {
 	t.Parallel()
-	skipInCI(t) // takes too long in CI
+	testhelpers.SkipInCI(t)
 	doTestGenericOps(t, true)
 }
 
 func TestGenericOpsWithoutMcms(t *testing.T) {
 	t.Parallel()
-	skipInCI(t)
+	testhelpers.SkipInCI(t)
 	doTestGenericOps(t, false)
 }
 

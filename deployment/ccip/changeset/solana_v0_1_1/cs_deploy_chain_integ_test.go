@@ -38,7 +38,7 @@ import (
 // Doing this in CI is expensive, so we skip it for now.
 func TestUpgrade(t *testing.T) {
 	t.Parallel()
-	skipInCI(t)
+	testhelpers.SkipInCI(t)
 
 	homeChainSel := chain_selectors.TEST_90000001.Selector
 	solSelector := chain_selectors.TEST_22222222222222222222222222222222222222222222.Selector
@@ -238,7 +238,7 @@ func TestUpgrade(t *testing.T) {
 
 func TestClose(t *testing.T) {
 	t.Parallel()
-	skipInCI(t)
+	testhelpers.SkipInCI(t)
 
 	homeChainSel := chain_selectors.TEST_90000001.Selector
 	solSelector := chain_selectors.TEST_22222222222222222222222222222222222222222222.Selector
@@ -314,7 +314,7 @@ func TestClose(t *testing.T) {
 }
 
 func TestIDL(t *testing.T) {
-	skipInCI(t)
+	testhelpers.SkipInCI(t)
 	tenv, _ := testhelpers.NewMemoryEnvironment(t, testhelpers.WithSolChains(1), testhelpers.WithCCIPSolanaContractVersion(ccipChangesetSolana.SolanaContractV0_1_1))
 	solChain := tenv.Env.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chain_selectors.FamilySolana))[0]
 	e, _, err := commonchangeset.ApplyChangesets(t, tenv.Env, []commonchangeset.ConfiguredChangeSet{

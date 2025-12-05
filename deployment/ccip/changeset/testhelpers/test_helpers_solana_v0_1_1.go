@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"math/big"
+	"os"
 	"regexp"
 	"testing"
 	"time"
@@ -48,6 +49,15 @@ import (
 	commontypes "github.com/smartcontractkit/chainlink/deployment/common/types"
 	"github.com/smartcontractkit/chainlink/deployment/utils/solutils"
 )
+
+func SkipInCI(t *testing.T) {
+	t.Helper()
+
+	ci := os.Getenv("CI") == "true"
+	if ci {
+		t.Skip("Skipping in CI")
+	}
+}
 
 func TransferOwnershipSolanaV0_1_1(
 	t *testing.T,

@@ -1,7 +1,6 @@
 package solana_test
 
 import (
-	"os"
 	"testing"
 
 	solBinary "github.com/gagliardetto/binary"
@@ -18,15 +17,6 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 	"github.com/stretchr/testify/require"
 )
-
-func skipInCI(t *testing.T) {
-	t.Helper()
-
-	ci := os.Getenv("CI") == "true"
-	if ci {
-		t.Skip("Skipping in CI")
-	}
-}
 
 func initialDeployCS(t *testing.T, e cldf.Environment, buildConfig *ccipChangesetSolana.BuildSolanaConfig) []commonchangeset.ConfiguredChangeSet {
 	evmSelectors := e.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chain_selectors.FamilyEVM))

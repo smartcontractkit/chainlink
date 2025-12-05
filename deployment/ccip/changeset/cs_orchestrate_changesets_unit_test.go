@@ -1,3 +1,5 @@
+//go:build !integration
+
 package changeset_test
 
 import (

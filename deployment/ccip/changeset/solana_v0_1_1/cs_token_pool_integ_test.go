@@ -53,7 +53,7 @@ const (
 
 func TestAddTokenPoolWithoutMcms(t *testing.T) {
 	t.Parallel()
-	skipInCI(t)
+	testhelpers.SkipInCI(t)
 
 	tenv, _ := testhelpers.NewMemoryEnvironment(t, testhelpers.WithSolChains(1), testhelpers.WithCCIPSolanaContractVersion(ccipChangesetSolana.SolanaContractV0_1_1))
 	doTestTokenPool(t, tenv.Env, TokenPoolTestConfig{MCMS: false, TokenMetadata: shared.CLLMetadata})
@@ -767,7 +767,7 @@ func TestAddTokenPoolE2EWithMcms(t *testing.T) {
 }
 
 func TestPartnerTokenPools(t *testing.T) {
-	skipInCI(t)
+	testhelpers.SkipInCI(t)
 	tenv, _ := testhelpers.NewMemoryEnvironment(t, testhelpers.WithSolChains(1), testhelpers.WithCCIPSolanaContractVersion(ccipChangesetSolana.SolanaContractV0_1_1))
 	e := tenv.Env
 	solChainSelectors := e.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chain_selectors.FamilySolana))
@@ -797,7 +797,7 @@ func TestPartnerTokenPools(t *testing.T) {
 }
 
 func TestPartnerTokenPoolsWithUpgrades(t *testing.T) {
-	skipInCI(t)
+	testhelpers.SkipInCI(t)
 	tenv, _ := testhelpers.NewMemoryEnvironment(t, testhelpers.WithSolChains(1), testhelpers.WithCCIPSolanaContractVersion(ccipChangesetSolana.SolanaContractV0_1_1))
 	e := tenv.Env
 	var err error
@@ -890,7 +890,7 @@ func getTokenPoolBaseChainConfig(t *testing.T, e cldf.Environment, solChain uint
 }
 
 func TestCreatingMultisig(t *testing.T) {
-	skipInCI(t)
+	testhelpers.SkipInCI(t)
 	tenv, _ := testhelpers.NewMemoryEnvironment(t, testhelpers.WithSolChains(1), testhelpers.WithCCIPSolanaContractVersion(ccipChangesetSolana.SolanaContractV0_1_1))
 	solChain := tenv.Env.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chain_selectors.FamilySolana))[0]
 	deployerKey := tenv.Env.BlockChains.SolanaChains()[solChain].DeployerKey.PublicKey()

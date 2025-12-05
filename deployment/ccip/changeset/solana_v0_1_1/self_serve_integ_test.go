@@ -38,9 +38,9 @@ import (
 )
 
 func TestOnboardTokenPoolForSelfServeWithMCMs(t *testing.T) {
-	// TODO: Fix this test
-	skipInCI(t)
 	t.Parallel()
+	// TODO: Fix this test
+	testhelpers.SkipInCI(t)
 	doTestOnboardTokenPoolForSelfServe(t, true)
 }
 
