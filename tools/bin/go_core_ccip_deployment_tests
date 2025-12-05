@@ -6,6 +6,7 @@ SCRIPT_PATH=`dirname "$0"`; SCRIPT_PATH=`eval "cd \"$SCRIPT_PATH\" && pwd"`
 OUTPUT_FILE=${OUTPUT_FILE:-"./output.txt"}
 JUNIT_FILE=${JUNIT_FILE:-"./junit.xml"}
 GO_TEST_TIMEOUT=${GO_TEST_TIMEOUT:-"15m"}
+GO_TEST_TAGS=${GO_TEST_TAGS:-""}
 # Adjusting freeport port block size for tests.
 export CL_RESERVE_PORTS=128
 
@@ -18,6 +19,10 @@ export PATH
 
 echo "Running go_core_ccip_deployment_tests for event: $GITHUB_EVENT_NAME"
 GO_TEST_FLAGS="-timeout=${GO_TEST_TIMEOUT}"
+if [[ -n "$GO_TEST_TAGS" ]]; then
+  GO_TEST_FLAGS="$GO_TEST_FLAGS -tags=$GO_TEST_TAGS"
+fi
+
 if [[ "$GITHUB_EVENT_NAME" == 'push' ]]; then
   GO_TEST_FLAGS="$GO_TEST_FLAGS -count=1"
 elif [[ "$GITHUB_EVENT_NAME" == 'schedule' ]]; then

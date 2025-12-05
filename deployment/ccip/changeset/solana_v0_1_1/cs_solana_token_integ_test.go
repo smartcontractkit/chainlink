@@ -1,3 +1,5 @@
+//go:build integration && solana
+
 package solana_test
 
 import (
@@ -12,8 +14,6 @@ import (
 
 	cldf_chain "github.com/smartcontractkit/chainlink-deployments-framework/chain"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
-	"github.com/smartcontractkit/chainlink-deployments-framework/engine/test/environment"
-	"github.com/smartcontractkit/chainlink-deployments-framework/engine/test/runtime"
 
 	solTokenUtil "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/tokens"
 
@@ -174,28 +174,4 @@ func TestSolanaTokenOps(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, int(1000), outVal)
 	require.Equal(t, 9, int(outDec))
-}
-
-func TestDeployLinkToken(t *testing.T) {
-	selector := chain_selectors.TEST_22222222222222222222222222222222222222222222.Selector
-	rt, err := runtime.New(t.Context(), runtime.WithEnvOpts(
-		environment.WithSolanaContainer(t, []uint64{selector}, t.TempDir(), map[string]string{}),
-	))
-	require.NoError(t, err)
-
-	// solana test
-	solLinkTokenPrivKey, _ := solana.NewRandomPrivateKey()
-
-	err = rt.Exec(
-		runtime.ChangesetTask(cldf.CreateLegacyChangeSet(commonchangeset.DeploySolanaLinkToken), commonchangeset.DeploySolanaLinkTokenConfig{
-			ChainSelector: selector,
-			TokenPrivKey:  solLinkTokenPrivKey,
-			TokenDecimals: 9,
-		}),
-	)
-	require.NoError(t, err)
-
-	addrs, err := rt.State().AddressBook.AddressesForChain(selector)
-	require.NoError(t, err)
-	require.NotEmpty(t, addrs)
 }

@@ -1,3 +1,5 @@
+//go:build integration && solana
+
 package solana_test
 
 import (

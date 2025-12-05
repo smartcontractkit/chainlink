@@ -1,7 +1,6 @@
 package solana_test
 
 import (
-	"os"
 	"testing"
 	"time"
 
@@ -130,13 +129,6 @@ func TestDeployChainContractsChangesetPreload(t *testing.T) {
 	require.NoError(t, err)
 	err = testhelpers.ValidateSolanaState(e, []uint64{solSelector})
 	require.NoError(t, err)
-}
-
-func skipInCI(t *testing.T) {
-	ci := os.Getenv("CI") == "true"
-	if ci {
-		t.Skip("Skipping in CI")
-	}
 }
 
 // Upgrade flows must do the following:
