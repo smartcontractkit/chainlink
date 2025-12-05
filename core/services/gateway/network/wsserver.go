@@ -137,7 +137,7 @@ func (s *webSocketServer) handleRequest(w http.ResponseWriter, r *http.Request) 
 	conn.SetReadLimit(int64(maxRequestBytes))
 	msgType, response, err := conn.ReadMessage()
 	if err != nil || msgType != websocket.BinaryMessage {
-		s.lggr.Errorw("invalid handshake message", "msgType", msgType, "err", err)
+		s.lggr.Errorw("invalid handshake message", "msgType", msgType, "err", err, "remoteAddr", conn.RemoteAddr())
 		conn.Close()
 		s.acceptor.AbortHandshake(attemptId)
 		return
