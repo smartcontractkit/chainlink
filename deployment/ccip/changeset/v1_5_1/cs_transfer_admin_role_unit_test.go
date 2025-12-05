@@ -1,4 +1,4 @@
-// go:build !integration
+//go:build !integration
 
 package v1_5_1_test
 

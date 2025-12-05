@@ -1,3 +1,5 @@
+//go:build integration && db
+
 package v1_5_test
 
 import (
