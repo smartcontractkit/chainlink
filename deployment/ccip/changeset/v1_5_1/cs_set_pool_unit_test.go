@@ -1,3 +1,5 @@
+//go:build !integration
+
 package v1_5_1_test
 
 import (
@@ -18,7 +20,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
 
-func TestAcceptAdminRoleChangeset_Validations(t *testing.T) {
+func TestSetPoolChangeset_Validations(t *testing.T) {
 	t.Parallel()
 
 	e, selectorA, _, tokens := testhelpers.SetupTwoChainEnvironmentWithTokens(t, logger.TestLogger(t), true)
@@ -44,7 +46,7 @@ func TestAcceptAdminRoleChangeset_Validations(t *testing.T) {
 			Msg: "Chain selector is invalid",
 			Config: v1_5_1.TokenAdminRegistryChangesetConfig{
 				Pools: map[uint64]map[shared.TokenSymbol]v1_5_1.TokenPoolInfo{
-					0: map[shared.TokenSymbol]v1_5_1.TokenPoolInfo{},
+					0: {},
 				},
 			},
 			ErrStr: "failed to validate chain selector 0",
@@ -53,7 +55,7 @@ func TestAcceptAdminRoleChangeset_Validations(t *testing.T) {
 			Msg: "Chain selector doesn't exist in environment",
 			Config: v1_5_1.TokenAdminRegistryChangesetConfig{
 				Pools: map[uint64]map[shared.TokenSymbol]v1_5_1.TokenPoolInfo{
-					5009297550715157269: map[shared.TokenSymbol]v1_5_1.TokenPoolInfo{},
+					5009297550715157269: {},
 				},
 			},
 			ErrStr: "does not exist in environment",
@@ -63,7 +65,7 @@ func TestAcceptAdminRoleChangeset_Validations(t *testing.T) {
 			Config: v1_5_1.TokenAdminRegistryChangesetConfig{
 				MCMS: mcmsConfig,
 				Pools: map[uint64]map[shared.TokenSymbol]v1_5_1.TokenPoolInfo{
-					selectorA: map[shared.TokenSymbol]v1_5_1.TokenPoolInfo{
+					selectorA: {
 						testhelpers.TestTokenSymbol: {
 							Type:    "InvalidType",
 							Version: deployment.Version1_5_1,
@@ -78,7 +80,7 @@ func TestAcceptAdminRoleChangeset_Validations(t *testing.T) {
 			Config: v1_5_1.TokenAdminRegistryChangesetConfig{
 				MCMS: mcmsConfig,
 				Pools: map[uint64]map[shared.TokenSymbol]v1_5_1.TokenPoolInfo{
-					selectorA: map[shared.TokenSymbol]v1_5_1.TokenPoolInfo{
+					selectorA: {
 						testhelpers.TestTokenSymbol: {
 							Type:    shared.BurnMintTokenPool,
 							Version: deployment.Version1_0_0,
@@ -89,7 +91,7 @@ func TestAcceptAdminRoleChangeset_Validations(t *testing.T) {
 			ErrStr: "1.0.0 is not a known token pool version",
 		},
 		{
-			Msg: "Not pending admin",
+			Msg: "Not admin",
 			Config: v1_5_1.TokenAdminRegistryChangesetConfig{
 				MCMS: mcmsConfig,
 				Pools: map[uint64]map[shared.TokenSymbol]v1_5_1.TokenPoolInfo{
@@ -101,7 +103,7 @@ func TestAcceptAdminRoleChangeset_Validations(t *testing.T) {
 					},
 				},
 			},
-			ErrStr: "is not the pending administrator",
+			ErrStr: "is not the administrator",
 		},
 	}
 
@@ -109,7 +111,7 @@ func TestAcceptAdminRoleChangeset_Validations(t *testing.T) {
 		t.Run(test.Msg, func(t *testing.T) {
 			_, err := commonchangeset.Apply(t, e,
 				commonchangeset.Configure(
-					cldf.CreateLegacyChangeSet(v1_5_1.AcceptAdminRoleChangeset),
+					cldf.CreateLegacyChangeSet(v1_5_1.SetPoolChangeset),
 					test.Config,
 				),
 			)
@@ -119,11 +121,11 @@ func TestAcceptAdminRoleChangeset_Validations(t *testing.T) {
 	}
 }
 
-func TestAcceptAdminRoleChangeset_Execution(t *testing.T) {
+func TestSetPoolChangeset_Execution(t *testing.T) {
 	for _, mcmsConfig := range []*proposalutils.TimelockConfig{nil, {MinDelay: 0 * time.Second}} {
-		msg := "Accept admin role with MCMS"
+		msg := "Set pool with MCMS"
 		if mcmsConfig == nil {
-			msg = "Accept admin role without MCMS"
+			msg = "Set pool without MCMS"
 		}
 
 		t.Run(msg, func(t *testing.T) {
@@ -145,10 +147,10 @@ func TestAcceptAdminRoleChangeset_Execution(t *testing.T) {
 			state, err := stateview.LoadOnchainState(e)
 			require.NoError(t, err)
 
-			registryOnA := state.MustGetEVMChainState(selectorA).TokenAdminRegistry
-			registryOnB := state.MustGetEVMChainState(selectorB).TokenAdminRegistry
+			registryOnA := state.Chains[selectorA].TokenAdminRegistry
+			registryOnB := state.Chains[selectorB].TokenAdminRegistry
 
-			e, err = commonchangeset.Apply(t, e, commonchangeset.Configure(
+			_, err = commonchangeset.Apply(t, e, commonchangeset.Configure(
 				cldf.CreateLegacyChangeSet(v1_5_1.ProposeAdminRoleChangeset),
 				v1_5_1.TokenAdminRegistryChangesetConfig{
 					MCMS: mcmsConfig,
@@ -186,24 +188,35 @@ func TestAcceptAdminRoleChangeset_Execution(t *testing.T) {
 						},
 					},
 				},
+			), commonchangeset.Configure(
+				cldf.CreateLegacyChangeSet(v1_5_1.SetPoolChangeset),
+				v1_5_1.TokenAdminRegistryChangesetConfig{
+					MCMS: mcmsConfig,
+					Pools: map[uint64]map[shared.TokenSymbol]v1_5_1.TokenPoolInfo{
+						selectorA: {
+							testhelpers.TestTokenSymbol: {
+								Type:    shared.BurnMintTokenPool,
+								Version: deployment.Version1_5_1,
+							},
+						},
+						selectorB: {
+							testhelpers.TestTokenSymbol: {
+								Type:    shared.BurnMintTokenPool,
+								Version: deployment.Version1_5_1,
+							},
+						},
+					},
+				},
 			))
 			require.NoError(t, err)
 
 			configOnA, err := registryOnA.GetTokenConfig(nil, tokens[selectorA].Address)
 			require.NoError(t, err)
-			if mcmsConfig != nil {
-				require.Equal(t, state.MustGetEVMChainState(selectorA).Timelock.Address(), configOnA.Administrator)
-			} else {
-				require.Equal(t, e.BlockChains.EVMChains()[selectorA].DeployerKey.From, configOnA.Administrator)
-			}
+			require.Equal(t, state.Chains[selectorA].BurnMintTokenPools[testhelpers.TestTokenSymbol][deployment.Version1_5_1].Address(), configOnA.TokenPool)
 
 			configOnB, err := registryOnB.GetTokenConfig(nil, tokens[selectorB].Address)
 			require.NoError(t, err)
-			if mcmsConfig != nil {
-				require.Equal(t, state.MustGetEVMChainState(selectorB).Timelock.Address(), configOnB.Administrator)
-			} else {
-				require.Equal(t, e.BlockChains.EVMChains()[selectorB].DeployerKey.From, configOnB.Administrator)
-			}
+			require.Equal(t, state.Chains[selectorB].BurnMintTokenPools[testhelpers.TestTokenSymbol][deployment.Version1_5_1].Address(), configOnB.TokenPool)
 		})
 	}
 }
