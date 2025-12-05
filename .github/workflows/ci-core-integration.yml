@@ -73,12 +73,14 @@ jobs:
             tags: "integration aptos"
             go-mod-directory: "deployment/"
             aptos-cli-version: "7.10.0"
+            setup-plugins: "true"
 
           - module: Deployment
             cmd: go_core_ccip_deployment_tests
             os: cpu=16/ram=32/family=c6id/spot=false/image=ubuntu24-full-x64/extras=s3-cache
             tags: "integration db"
             go-mod-directory: "deployment/"
+            setup-plugins: "true"
 
     name: "${{ matrix.type.module }} - Tagged Tests (${{matrix.type.tags}})"
     timeout-minutes: 20
