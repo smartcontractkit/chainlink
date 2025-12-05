@@ -473,6 +473,38 @@ func (c *channelDefinitionCache) processLogs(logs []logpoller.Log) {
 	}
 }
 
+type chOpts struct {
+	FeedID common.Hash `json:"feedID"`
+}
+
+// extractFeedID attempts to extract the FeedID from channel options JSON.
+// Returns the FeedID if found, or an empty hash if not found or if parsing fails.
+func extractFeedID(opts llotypes.ChannelOpts) common.Hash {
+	if len(opts) == 0 {
+		return common.Hash{}
+	}
+
+	var optsJSON chOpts
+	if err := json.Unmarshal(opts, &optsJSON); err != nil {
+		// If unmarshaling fails, return empty hash (not all channel types have FeedID)
+		return common.Hash{}
+	}
+	return optsJSON.FeedID
+}
+
+// buildFeedIDMap extracts FeedIDs from channel definitions and builds a map
+// from FeedID to channel ID for collision detection.
+func buildFeedIDMap(definitions llotypes.ChannelDefinitions) map[common.Hash]uint32 {
+	feedIDToChannelID := make(map[common.Hash]uint32)
+	for channelID, def := range definitions {
+		feedID := extractFeedID(def.Opts)
+		if feedID != (common.Hash{}) {
+			feedIDToChannelID[feedID] = channelID
+		}
+	}
+	return feedIDToChannelID
+}
+
 // mergeDefinitions reconciles new channel definitions with the current set according to source
 // authority rules. Owner definitions (SourceOwner) have full authority: they can add, update, or
 // tombstone (delete) channels. Missing channels in newDefinitions are not automatically removed;
@@ -485,11 +517,14 @@ func (c *channelDefinitionCache) processLogs(logs []logpoller.Log) {
 //     each new channel addition. Existing channels that are already in currentDefinitions are
 //     skipped and do not count toward new additions.
 //
-// Returns an error if adder limits are exceeded
+// FeedID uniqueness is enforced:
+//   - All channels must have unique FeedIDs in their options. If a new channel has a FeedID that
+//     collides with an existing channel, the new channel is logged and skipped (not added).
+//
+// Returns an error if adder limits are exceeded:
 //   - errChannelsPerAdderLimitExceeded: When trying to add a channel that would cause the total
 //     (existing channels from this source + new channels added) to exceed MaxChannelsPerAdder
-func (c *channelDefinitionCache) mergeDefinitions(source uint32, currentDefinitions llotypes.ChannelDefinitions, newDefinitions llotypes.ChannelDefinitions) (llotypes.ChannelDefinitions, error) {
-
+func (c *channelDefinitionCache) mergeDefinitions(source uint32, currentDefinitions llotypes.ChannelDefinitions, newDefinitions llotypes.ChannelDefinitions, feedIDToChannelID map[common.Hash]uint32) (llotypes.ChannelDefinitions, error) {
 	// Count the number of channels for adder sources in the current definitions
 	var numberOfChannels uint32
 	if source > SourceOwner {
@@ -502,9 +537,31 @@ func (c *channelDefinitionCache) mergeDefinitions(source uint32, currentDefiniti
 	}
 
 	for channelID, def := range newDefinitions {
+
+		// Check for FeedID collision before adding the channel
+		newFeedID := extractFeedID(def.Opts)
+		if newFeedID != (common.Hash{}) {
+			if existingChannelID, exists := feedIDToChannelID[newFeedID]; exists && existingChannelID != channelID {
+				c.lggr.Warnw("feedID collision detected, skipping channel definition",
+					"channelID", channelID, "feedID", newFeedID.Hex(), "existingChannelID", existingChannelID, "source", source, "feedID", newFeedID.Hex())
+				continue
+			}
+		}
+
 		switch {
 		case source == SourceOwner:
+			// Remove old FeedID from map if this channel already existed with a different FeedID
+			if existingDef, exists := currentDefinitions[channelID]; exists {
+				oldFeedID := extractFeedID(existingDef.Opts)
+				if oldFeedID != (common.Hash{}) && oldFeedID != newFeedID {
+					delete(feedIDToChannelID, oldFeedID)
+				}
+			}
 			currentDefinitions[channelID] = def
+			// Update FeedID map after adding the channel
+			if newFeedID != (common.Hash{}) {
+				feedIDToChannelID[newFeedID] = channelID
+			}
 
 		case source > SourceOwner:
 			if def.Tombstone {
@@ -529,6 +586,10 @@ func (c *channelDefinitionCache) mergeDefinitions(source uint32, currentDefiniti
 
 			currentDefinitions[channelID] = def
 			numberOfChannels++
+			// Update FeedID map after adding the channel
+			if newFeedID != (common.Hash{}) {
+				feedIDToChannelID[newFeedID] = channelID
+			}
 
 		default:
 			c.lggr.Warnw("undefined source, skipping definition",
@@ -856,8 +917,9 @@ func (c *channelDefinitionCache) Definitions(prev llotypes.ChannelDefinitions) l
 		return src[i].Trigger.BlockNum < src[j].Trigger.BlockNum
 	})
 
+	feedIDToChannelID := buildFeedIDMap(merged)
 	for _, sourceDefinition := range src {
-		merged, err = c.mergeDefinitions(sourceDefinition.Trigger.Source, merged, sourceDefinition.Definitions)
+		merged, err = c.mergeDefinitions(sourceDefinition.Trigger.Source, merged, sourceDefinition.Definitions, feedIDToChannelID)
 		if err != nil {
 			c.lggr.Errorw("failed to merge definitions", "err", err, "source", sourceDefinition.Trigger.Source,
 				"blockNum", sourceDefinition.Trigger.BlockNum, "txHash", common.BytesToHash(sourceDefinition.Trigger.TxHash[:]).Hex())
