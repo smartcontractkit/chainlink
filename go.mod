@@ -1,6 +1,6 @@
 module github.com/smartcontractkit/chainlink/v2
 
-go 1.25.3
+go 1.25.5
 
 require (
 	github.com/BurntSushi/toml v1.4.0
