@@ -27,7 +27,7 @@ runs:
         GITHUB_TOKEN: ${{ inputs.github-token }}
         GH_TOKEN: ${{ inputs.github-token }}
       run: |
-        curl -sSfL https://raw.githubusercontent.com/Mystenlabs/suiup/main/install.sh | sh
+        cargo install --git https://github.com/Mystenlabs/suiup.git --locked
         "$HOME/.local/bin/suiup" install sui@${{ inputs.version }} --yes
 
     - name: Export Sui CLI to PATH
