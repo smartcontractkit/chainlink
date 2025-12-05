@@ -27,13 +27,23 @@ jobs:
         type:
           - module: Deployment
             cmd: go_core_ccip_deployment_tests
-            os: runs-on=${{ github.run_id }}-deployment/cpu=48/ram=96/family=c6id/spot=false/image=ubuntu24-full-x64/extras=s3-cache
+            os: cpu=32/ram=64/family=c6id/spot=false/image=ubuntu24-full-x64/extras=s3-cache
             tags: "integration solana"
             go-mod-directory: "deployment/"
+            setup-solana: "true"
+            setup-plugins: "true"
+
+          - module: Deployment
+            cmd: go_core_ccip_deployment_tests
+            os: cpu=32/ram=64/family=c6id/spot=false/image=ubuntu24-full-x64/extras=s3-cache
+            tags: "integration aptos"
+            go-mod-directory: "deployment/"
+            setup-solana: "false"
+            aptos-cli-version: "7.10.0"
 
     name: "${{ matrix.type.module }} - Tagged Tests (${{matrix.type.tags}})"
     timeout-minutes: 20
-    runs-on: ${{ matrix.type.os }}
+    runs-on: runs-on=${{ github.run_id }}-${{ strategy.job-index }}/${{ matrix.type.os }}
     permissions:
       id-token: write
       contents: read
@@ -52,28 +62,9 @@ jobs:
       - name: Setup Go
         uses: ./.github/actions/setup-go
         with:
-          # race/fuzz tests don't benefit repeated caching, so restore from develop's build cache
-          restore-build-cache-only: ${{ matrix.type.cmd == 'go_core_fuzz' || matrix.type.cmd == 'go_core_race_tests' }}
           build-cache-version: ${{ matrix.type.cmd }}
           go-version-file: ${{ matrix.type.go-mod-directory }}go.mod
           go-module-file: ${{ matrix.type.go-mod-directory }}go.sum
-
-      - name: Setup Solana
-        uses: ./.github/actions/setup-solana
-
-      # - name: Setup Aptos
-      #   uses: aptos-labs/actions/install-aptos-cli@63740b290d839b87ecfafbcf75ed03a36a54a29f # jan 15, 2025
-      #   with:
-      #     CLI_VERSION: 7.10.0
-
-      # - name: Setup Sui CLI v1.57.2
-      #   uses: ./.github/actions/setup-sui
-      #   with:
-      #     github-token: ${{ secrets.GITHUB_TOKEN }}
-      #     version: mainnet-1.57.2
-
-      # - name: Setup wasmd
-      #   uses: ./.github/actions/setup-wasmd
 
       - name: Setup Postgres
         uses: smartcontractkit/.github/actions/setup-postgres@setup-postgres/v1
@@ -81,19 +72,40 @@ jobs:
           tmpfs: "true"
           image-tag: "16-alpine"
 
+      - name: Setup DB
+        run: go run ./core/store/cmd/preparetest
+        env:
+          CL_DATABASE_URL: ${{ env.DB_URL }}
+
       - name: Touching core/web/assets/index.html
         run: mkdir -p core/web/assets && touch core/web/assets/index.html
 
       - name: Download Go vendor packages
         run: go mod download
 
-      - name: Setup DB
-        run: go run ./core/store/cmd/preparetest
-        env:
-          CL_DATABASE_URL: ${{ env.DB_URL }}
+      - name: Setup Solana
+        if: matrix.type.setup-solana == 'true'
+        uses: ./.github/actions/setup-solana
 
-      # - name: Install LOOP Plugins
-      #   run: make install-plugins
+      - name: Setup Aptos
+        if: ${{ matrix.type.aptos-cli-version != '' }}
+        uses: aptos-labs/actions/install-aptos-cli@63740b290d839b87ecfafbcf75ed03a36a54a29f # jan 15, 2025
+        with:
+          CLI_VERSION: ${{ matrix.type.aptos-cli-version }}
+
+      # - name: Setup Sui CLI v1.57.2
+      #   uses: ./.github/actions/setup-sui
+      #   with:
+      #     github-token: ${{ secrets.GITHUB_TOKEN }}
+      #     version: mainnet-1.57.2
+
+      - name: Setup wasmd
+        if: matrix.type.setup-plugins == 'true'
+        uses: ./.github/actions/setup-wasmd
+
+      - name: Install LOOP Plugins
+        if: matrix.type.setup-plugins == 'true'
+        run: make install-plugins
 
       - name: Run tests
         timeout-minutes: 22

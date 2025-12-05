@@ -1,3 +1,5 @@
+//go:build integration && aptos
+
 package aptos_test
 
 import (
