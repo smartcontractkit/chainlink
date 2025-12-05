@@ -1,3 +1,5 @@
+//go:build integration && db
+
 package nodetestutils
 
 import (
