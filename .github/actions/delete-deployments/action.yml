@@ -34,7 +34,6 @@ runs:
   using: composite
   steps:
     - name: Setup Node
-      # Pin setup-node@v4 to commit for supply-chain security; update periodically.
       uses: actions/setup-node@v4
       with:
         node-version: "20"
