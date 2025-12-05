@@ -26,7 +26,7 @@ jobs:
       matrix:
         type:
           - module: Deployment
-            cmd: deployment_tests
+            cmd: go_core_ccip_deployment_tests
             os: runs-on=${{ github.run_id }}-deployment/cpu=48/ram=96/family=c6id/spot=false/image=ubuntu24-full-x64/extras=s3-cache
             tags: "integration solana"
             go-mod-directory: "deployment/"
@@ -103,7 +103,7 @@ jobs:
           GO_TEST_TAGS: ${{ matrix.type.tags }}
           CL_DATABASE_URL: ${{ env.DB_URL }}
           OUTPUT_FILE: ./output.txt
-          PRODUCE_JUNIT_XML: ${{ matrix.type.trunk-auto-quarantine }}
+          PRODUCE_JUNIT_XML: true
           JUNIT_FILE: ${{ github.workspace }}/junit.xml
           RUN_QUARANTINED_TESTS: "true" # always run quarantined tests in CI
         run: |
