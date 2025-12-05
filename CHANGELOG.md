@@ -100,7 +100,7 @@
 
 - [#20407](https://github.com/smartcontractkit/chainlink/pull/20407) [`d51865a`](https://github.com/smartcontractkit/chainlink/commit/d51865a07142730111b77781886640050d4aa0bb) - #updated chain selector to version v1.0.84
 
-## 2.31.0
+## 2.31.0 - UNRELEASED
 
 ### Minor Changes
 
@@ -151,6 +151,7 @@
 - [#19710](https://github.com/smartcontractkit/chainlink/pull/19710) [`5625fd0`](https://github.com/smartcontractkit/chainlink/commit/5625fd08dfcd03072efed15c50cd14518022483f) - #updated CCIP changesets to deploy v1.5.1 TokenPoolFactory instead of latest version
 
 - [#19667](https://github.com/smartcontractkit/chainlink/pull/19667) [`535a014`](https://github.com/smartcontractkit/chainlink/commit/535a014bef3a6a007ecf7fe8c2d9f21907e4d127) - #added Add Workflow Registry Chain Selector to CRE v2 registry events.
+
 
 ## 2.30.1 - 2025-11-18
 
