@@ -18,15 +18,20 @@ PATH=$PATH:$(go env GOPATH)/bin
 export PATH
 
 echo "Running go_core_ccip_deployment_tests for event: $GITHUB_EVENT_NAME"
-GO_TEST_FLAGS="-timeout=${GO_TEST_TIMEOUT}"
+
+# Use an array so tags with spaces are preserved as a single argument
+GO_TEST_FLAGS=( "-timeout=${GO_TEST_TIMEOUT}" )
+
 if [[ -n "$GO_TEST_TAGS" ]]; then
-  GO_TEST_FLAGS="$GO_TEST_FLAGS -tags=$GO_TEST_TAGS"
+  # This will produce a single argument: -tags=<contents of GO_TEST_TAGS>,
+  # even if GO_TEST_TAGS contains spaces.
+  GO_TEST_FLAGS+=( "-tags=${GO_TEST_TAGS}" )
 fi
 
 if [[ "$GITHUB_EVENT_NAME" == 'push' ]]; then
-  GO_TEST_FLAGS="$GO_TEST_FLAGS -count=1"
+  GO_TEST_FLAGS+=( "-count=1" )
 elif [[ "$GITHUB_EVENT_NAME" == 'schedule' ]]; then
-  GO_TEST_FLAGS="$GO_TEST_FLAGS -covermode=atomic -coverpkg=./... -coverprofile=coverage.txt"
+  GO_TEST_FLAGS+=( "-covermode=atomic" "-coverpkg=./..." "-coverprofile=coverage.txt" )
 elif [[ "$GITHUB_EVENT_NAME" == 'pull_request' || "$GITHUB_EVENT_NAME" == 'merge_group' ]]; then
   RERUN_FLAGS=""
   if [[ "$TRUNK_AUTO_QUARANTINE" != "true" ]]; then
@@ -41,7 +46,8 @@ if [[ "$PRODUCE_JUNIT_XML" == "true" ]]; then
   JUNIT_FLAG="--junitfile=$JUNIT_FILE"
 fi
 
-echo "Using GO_TEST_FLAGS: $GO_TEST_FLAGS"
+echo "Using GO_TEST_FLAGS: ${GO_TEST_FLAGS[*]}"
+echo "Using GO_TEST_TAGS: $GO_TEST_TAGS"
 echo "Using RERUN_FLAGS: $RERUN_FLAGS"
 echo "Using JUNIT_FLAG: $JUNIT_FLAG"
 
@@ -57,7 +63,7 @@ gotestsum \
   --packages='./...' \
   --jsonfile "$OUTPUT_FILE" \
   "$JUNIT_FLAG" \
-  -- $GO_TEST_FLAGS
+  -- "${GO_TEST_FLAGS[@]}"
 
 EXITCODE=${PIPESTATUS[0]}
 

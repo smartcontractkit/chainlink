@@ -132,8 +132,8 @@ func TestAddTokenE2E(t *testing.T) {
 				externalAdmin = utils.RandomAddress()
 			}
 
-			SelectorA2B := createSymmetricRateLimits(100, 1000)
-			SelectorB2A := createSymmetricRateLimits(100, 1000)
+			SelectorA2B := testhelpers.CreateSymmetricRateLimits(100, 1000)
+			SelectorB2A := testhelpers.CreateSymmetricRateLimits(100, 1000)
 			addTokenE2EConfig := v1_5_1.AddTokensE2EConfig{
 				MCMS: mcmsConfig,
 			}
