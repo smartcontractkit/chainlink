@@ -5,6 +5,9 @@ inputs:
     description: Sui CLI version to install (e.g., mainnet-v1.57.2)
     required: false
     default: mainnet-v1.57.2
+  github-token:
+    description: GitHub token to use for authentication
+    required: true
 
 runs:
   using: composite
@@ -20,10 +23,13 @@ runs:
     - if: ${{ steps.cache.outputs.cache-hit != 'true' }}
       name: Install suiup and Sui CLI
       shell: bash
+      env:
+        GITHUB_TOKEN: ${{ inputs.github-token }}
+        GH_TOKEN: ${{ inputs.github-token }}
       run: |
-        curl -sSfL https://raw.githubusercontent.com/MystenLabs/suiup/main/install.sh | sh
-        "$HOME/.local/bin/suiup" install sui@${{ inputs.version }} --yes
+        cargo install --git https://github.com/Mystenlabs/suiup.git --locked
+        "$HOME/.cargo/bin/suiup" install sui@${{ inputs.version }} --yes
 
     - name: Export Sui CLI to PATH
       shell: bash
-      run: echo "PATH=$HOME/.suiup/bin:$HOME/.local/bin:$PATH" >> $GITHUB_ENV
+      run: echo "PATH=$HOME/.suiup/bin:$HOME/.local/bin:$HOME/.cargo/bin:$PATH" >> $GITHUB_ENV
