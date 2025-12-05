@@ -1,3 +1,5 @@
+//go:build integration && solana
+
 package solana_test
 
 import (
@@ -6,6 +8,8 @@ import (
 )
 
 func skipInCI(t *testing.T) {
+	t.Helper()
+
 	ci := os.Getenv("CI") == "true"
 	if ci {
 		t.Skip("Skipping in CI")

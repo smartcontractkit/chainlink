@@ -1,3 +1,7 @@
+//go:build integration && !solana && !aptos
+
+// maybe?
+
 package v1_5_1_test
 
 import (

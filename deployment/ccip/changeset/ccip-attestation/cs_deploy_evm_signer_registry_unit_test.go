@@ -1,3 +1,5 @@
+//go:build !integration
+
 package ccip_attestation_test
 
 import (
