@@ -269,6 +269,7 @@ jobs:
         if: ${{ matrix.type.should-run == 'true' && matrix.type.setup-sui == 'true' }}
         uses: ./.github/actions/setup-sui
         with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
           version: mainnet-1.57.2
 
       - name: Setup wasmd
