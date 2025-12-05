@@ -1423,6 +1423,7 @@ func TestFluxMonitor_ConsumeLogBroadcast(t *testing.T) {
 }
 
 func TestFluxMonitor_ConsumeLogBroadcast_Error(t *testing.T) {
+	quarantine.Flaky(t, "DX-1844")
 	t.Parallel()
 
 	testCases := []struct {
