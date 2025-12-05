@@ -35,7 +35,7 @@ runs:
   steps:
     - name: Setup Node
       # Pin setup-node@v4 to commit for supply-chain security; update periodically.
-      uses: actions/setup-node@0a44ba784f751b8b62ce51b2b32110f316b9a121
+      uses: actions/setup-node@v4
       with:
         node-version: "20"
         cache: "pnpm"
