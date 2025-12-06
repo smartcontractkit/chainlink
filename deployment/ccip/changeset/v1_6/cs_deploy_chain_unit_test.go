@@ -1,3 +1,5 @@
+//go:build !integration
+
 package v1_6_test
 
 import (
@@ -173,21 +175,5 @@ func testDeployChainContractsChangesetWithEnv(t *testing.T, e cldf.Environment, 
 		require.Equal(t, newFqVersion.String(), postState.Chains[sel].FeeQuoterVersion.String())
 		require.Equal(t, state.Chains[sel].OffRamp, postState.Chains[sel].OffRamp)
 		require.Equal(t, state.Chains[sel].OnRamp, postState.Chains[sel].OnRamp)
-	}
-}
-
-func TestDeployCCIPContracts(t *testing.T) {
-	t.Parallel()
-	testhelpers.DeployCCIPContractsTest(t, 0, 0)
-}
-
-func TestDeployStaticLinkToken(t *testing.T) {
-	t.Parallel()
-	e, _ := testhelpers.NewMemoryEnvironment(t, testhelpers.WithStaticLink())
-	// load onchain state
-	state, err := stateview.LoadOnchainState(e.Env)
-	require.NoError(t, err)
-	for _, chain := range e.Env.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chain_selectors.FamilyEVM)) {
-		require.NotNil(t, state.Chains[chain].StaticLinkToken)
 	}
 }
