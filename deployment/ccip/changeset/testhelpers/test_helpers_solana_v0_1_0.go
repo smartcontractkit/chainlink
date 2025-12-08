@@ -1915,7 +1915,6 @@ func MintAndAllow(
 	allowance := new(big.Int).Mul(big.NewInt(1e18), big.NewInt(100))
 
 	for chain, mintTokenInfos := range tokenMap {
-
 		configurePoolGrp.Go(func() error {
 			for _, mintTokenInfo := range mintTokenInfos {
 				sender := mintTokenInfo.sender

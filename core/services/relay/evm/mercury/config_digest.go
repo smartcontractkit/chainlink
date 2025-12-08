@@ -2,7 +2,6 @@ package mercury
 
 import (
 	"encoding/binary"
-	"fmt"
 	"math/big"
 	"strings"
 
@@ -19,7 +18,7 @@ func makeConfigDigestArgs() abi.Arguments {
 	abi, err := abi.JSON(strings.NewReader(exposed_verifier.ExposedVerifierABI))
 	if err != nil {
 		// assertion
-		panic(fmt.Sprintf("could not parse aggregator ABI: %s", err.Error()))
+		panic("could not parse aggregator ABI: " + err.Error())
 	}
 	return abi.Methods["exposedConfigDigestFromConfigData"].Inputs
 }

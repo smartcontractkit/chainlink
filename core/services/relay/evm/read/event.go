@@ -3,6 +3,7 @@ package read
 import (
 	"context"
 	"encoding/hex"
+	"errors"
 	"fmt"
 	"reflect"
 	"strconv"
@@ -146,7 +147,6 @@ func (b *EventBinding) Bind(ctx context.Context, bindings ...common.Address) err
 		}
 
 		b.addBinding(binding)
-
 	}
 
 	if b.registrar == nil || !b.registrar.Dirty() {
@@ -404,7 +404,7 @@ func (b *EventBinding) decodeLogsIntoSequences(ctx context.Context, logs []logpo
 			TxHash: logs[idx].TxHash.Bytes(),
 			Cursor: logpoller.FormatContractReaderCursor(logs[idx]),
 			Head: commontypes.Head{
-				Height:    fmt.Sprint(logs[idx].BlockNumber),
+				Height:    strconv.FormatInt(logs[idx].BlockNumber, 10),
 				Hash:      logs[idx].BlockHash.Bytes(),
 				Timestamp: uint64(logs[idx].BlockTimestamp.Unix()),
 			},
@@ -504,7 +504,6 @@ func (b *EventBinding) decodeLog(ctx context.Context, log *logpoller.Log, into a
 	if isTypeHardcoded(into) {
 		// handle hardcoded decoding
 		return decodeHardcodedType(into, log)
-
 	}
 	// decode non indexed topics and apply output modifiers
 	if err := b.codec.Decode(ctx, log.Data, into, codec.WrapItemType(b.contractName, b.eventName, false)); err != nil {
@@ -865,7 +864,7 @@ func decodeHardcodedType(out any, log *logpoller.Log) error {
 
 func unpackLog(out any, event string, log *logpoller.Log, hcabi abi.ABI) error {
 	if len(log.Topics) == 0 {
-		return fmt.Errorf("log has no topics to decode")
+		return errors.New("log has no topics to decode")
 	}
 
 	logID := common.BytesToHash(log.Topics[0])
@@ -962,7 +961,6 @@ func populateCommitReportAcceptFromEvent(out *chainaccessor.CommitReportAccepted
 			chainaccessor.GasPriceUpdate(update),
 		)
 	}
-
 }
 
 func convertRoots(r []offramp.InternalMerkleRoot) []chainaccessor.MerkleRoot {

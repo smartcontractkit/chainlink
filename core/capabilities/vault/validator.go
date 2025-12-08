@@ -27,23 +27,18 @@ func (r *RequestValidator) ValidateUpdateSecretsRequest(publicKey *tdh2easy.Publ
 	return r.validateWriteRequest(publicKey, request.RequestId, request.EncryptedSecrets)
 }
 
-func maybeGetLimit(ctx context.Context, limiter limits.BoundLimiter[int]) string {
-	l, err := limiter.Limit(ctx)
-	if err != nil {
-		return "UNKNOWN"
-	}
-
-	return strconv.Itoa(l)
-}
-
 // validateWriteRequest performs common validation for CreateSecrets and UpdateSecrets requests
 // It treats publicKey as optional, since it can be nil if the gateway nodes don't have the public key cached yet
 func (r *RequestValidator) validateWriteRequest(publicKey *tdh2easy.PublicKey, id string, encryptedSecrets []*vaultcommon.EncryptedSecret) error {
 	if id == "" {
 		return errors.New("request ID must not be empty")
 	}
-	if r.MaxRequestBatchSizeLimiter.Check(context.Background(), len(encryptedSecrets)) != nil {
-		return errors.New("request batch size exceeds maximum of " + maybeGetLimit(context.Background(), r.MaxRequestBatchSizeLimiter))
+	if err := r.MaxRequestBatchSizeLimiter.Check(context.Background(), len(encryptedSecrets)); err != nil {
+		var errBoundLimited limits.ErrorBoundLimited[int]
+		if errors.As(err, &errBoundLimited) {
+			return fmt.Errorf("request batch size exceeds maximum of %d", errBoundLimited.Limit)
+		}
+		return fmt.Errorf("failed to check request batch size limit: %w", err)
 	}
 	if len(encryptedSecrets) == 0 {
 		return errors.New("request batch must contain at least 1 item")

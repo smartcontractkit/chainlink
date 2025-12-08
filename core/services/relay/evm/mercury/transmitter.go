@@ -8,6 +8,7 @@ import (
 	"io"
 	"math/big"
 	"sort"
+	"strconv"
 	"sync"
 	"time"
 
@@ -271,7 +272,7 @@ func (s *server) runQueueLoop(stopCh services.StopChan, wg *sync.WaitGroup, feed
 				s.transmitDuplicateCount.Inc()
 				s.lggr.Debugw("Transmit report success; duplicate report", "payload", hexutil.Encode(t.Req.Payload), "response", res, "repts", t.ReportCtx.ReportTimestamp)
 			default:
-				transmitServerErrorCount.WithLabelValues(feedIDHex, s.url, fmt.Sprintf("%d", res.Code)).Inc()
+				transmitServerErrorCount.WithLabelValues(feedIDHex, s.url, strconv.Itoa(int(res.Code))).Inc()
 				s.lggr.Errorw("Transmit report failed; mercury server returned error", "response", res, "reportCtx", t.ReportCtx, "err", res.Error, "code", res.Code)
 			}
 		}

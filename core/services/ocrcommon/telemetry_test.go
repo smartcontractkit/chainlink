@@ -169,9 +169,9 @@ func TestParseEATelemetry(t *testing.T) {
 	assert.NoError(t, err)
 	assert.Equal(t, "data-source-name", ea.DataSource)
 	assert.Equal(t, int64(92233720368547760), ea.ProviderRequestedTimestamp)
-	assert.Equal(t, ea.ProviderReceivedTimestamp, int64(-92233720368547760))
+	assert.Equal(t, int64(-92233720368547760), ea.ProviderReceivedTimestamp)
 	assert.Equal(t, int64(1), ea.ProviderDataStreamEstablished)
-	assert.Equal(t, ea.ProviderIndicatedTime, int64(-123456789))
+	assert.Equal(t, int64(-123456789), ea.ProviderIndicatedTime)
 
 	_, err = parseEATelemetry(nil)
 	assert.Error(t, err)
@@ -580,15 +580,15 @@ func TestGetPricesFromBridgeByTelemetryField(t *testing.T) {
 	jsonParseTaskBid := pipeline.JSONParseTask{
 		BaseTask: pipeline.NewBaseTask(1, "json_parse_2", nil, nil, 2),
 	}
-	jsonParseTaskBid.BaseTask.Tags = `{"priceType": "bid"}`
+	jsonParseTaskBid.Tags = `{"priceType": "bid"}`
 	jsonParseTaskAsk := pipeline.JSONParseTask{
 		BaseTask: pipeline.NewBaseTask(2, "json_parse_3", nil, nil, 3),
 	}
-	jsonParseTaskAsk.BaseTask.Tags = `{"priceType": "ask"}`
+	jsonParseTaskAsk.Tags = `{"priceType": "ask"}`
 	jsonParseTaskBenchmark := pipeline.JSONParseTask{
 		BaseTask: pipeline.NewBaseTask(3, "json_parse_1", nil, nil, 1),
 	}
-	jsonParseTaskBenchmark.BaseTask.Tags = `{"priceType": "benchmark"}`
+	jsonParseTaskBenchmark.Tags = `{"priceType": "benchmark"}`
 
 	bridgeOutputs := []pipeline.Task{&jsonParseTaskAsk, &jsonParseTaskBid, &jsonParseTaskBenchmark}
 
@@ -633,9 +633,9 @@ func TestGetPricesFromBridgeByTelemetryField(t *testing.T) {
 
 	// now removing the TaskTags will throw off the parsed order - and we'll be parsing the "incorrect" prices
 	// according to the legacy ordering approach
-	jsonParseTaskAsk.BaseTask.Tags = ""
-	jsonParseTaskBid.BaseTask.Tags = ""
-	jsonParseTaskBenchmark.BaseTask.Tags = ""
+	jsonParseTaskAsk.Tags = ""
+	jsonParseTaskBid.Tags = ""
+	jsonParseTaskBenchmark.Tags = ""
 
 	wrongBenchmarkPrice, wrongBidPrice, wrongAskPrice := getPricesFromBridgeTask(lggr, taskRunResults[0], taskRunResults, 1)
 	require.Equal(t, 1234567.1234567, wrongBenchmarkPrice)
@@ -752,7 +752,7 @@ func getViewFunctionTaskRunResults() pipeline.TaskRunResults {
 			BaseTask: pipeline.NewBaseTask(3, "ds1_parse", nil, nil, 3),
 			Times:    "1",
 		}
-		task.BaseTask.Tags = `{"priceType": "exchangeRate"}`
+		task.Tags = `{"priceType": "exchangeRate"}`
 		return task
 	}()
 

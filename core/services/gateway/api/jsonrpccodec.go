@@ -49,7 +49,7 @@ func (*JsonRPCCodec) DecodeLegacyResponse(msgBytes []byte) (*Message, error) {
 		return nil, err
 	}
 	if response.Error != nil {
-		return nil, fmt.Errorf("received non-empty error field: %v", response.Error)
+		return nil, fmt.Errorf("received non-empty error field: %w", response.Error)
 	}
 	if response.Result == nil {
 		return nil, errors.New("received empty result field")

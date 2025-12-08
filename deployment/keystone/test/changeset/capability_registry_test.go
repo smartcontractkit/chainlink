@@ -8,6 +8,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	chainsel "github.com/smartcontractkit/chain-selectors"
+
 	"github.com/smartcontractkit/chainlink-deployments-framework/engine/test/environment"
 
 	"github.com/smartcontractkit/chainlink/deployment/common/view/v1_0"

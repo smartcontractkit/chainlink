@@ -21,8 +21,8 @@ func TestEthKeyV2_ToKey(t *testing.T) {
 	k := KeyFor(internal.NewRaw(privateKeyECDSA.D.Bytes()))
 
 	assert.Equal(t, k.getPK(), privateKeyECDSA)
-	assert.Equal(t, k.getPK().PublicKey.X, privateKeyECDSA.PublicKey.X)
-	assert.Equal(t, k.getPK().PublicKey.Y, privateKeyECDSA.PublicKey.Y)
+	assert.Equal(t, k.getPK().X, privateKeyECDSA.X)
+	assert.Equal(t, k.getPK().Y, privateKeyECDSA.Y)
 	assert.Equal(t, types.EIP55AddressFromAddress(crypto.PubkeyToAddress(privateKeyECDSA.PublicKey)).Hex(), k.ID())
 }
 

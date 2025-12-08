@@ -330,7 +330,7 @@ func TestPlugin_Observation_GetSecretsRequest_SecretIdentifierInvalid(t *testing
 				Key:       "hello",
 				Namespace: "world",
 			},
-			err: "invalid secret identifier: owner exceeds maximum length of 3 bytes",
+			err: "invalid secret identifier: owner exceeds maximum length of 3b",
 		},
 	}
 
@@ -911,7 +911,7 @@ func TestPlugin_Observation_CreateSecretsRequest_SecretIdentifierInvalid(t *test
 				Key:       "hello",
 				Namespace: "world",
 			},
-			err: "invalid secret identifier: owner exceeds maximum length of 3 bytes",
+			err: "invalid secret identifier: owner exceeds maximum length of 3b",
 		},
 	}
 
@@ -1277,7 +1277,7 @@ func TestPlugin_Observation_CreateSecretsRequest_InvalidCiphertext_TooLong(t *te
 
 	assert.True(t, proto.Equal(p.EncryptedSecrets[0].Id, batchResp.Responses[0].Id))
 	resp := batchResp.Responses[0]
-	assert.Contains(t, resp.GetError(), "ciphertext size exceeds maximum allowed size: 10 bytes")
+	assert.Contains(t, resp.GetError(), "ciphertext size exceeds maximum allowed size: 10b")
 }
 
 func TestPlugin_Observation_CreateSecretsRequest_InvalidCiphertext_EncryptedWithWrongPublicKey(t *testing.T) {
@@ -2394,7 +2394,7 @@ func TestPlugin_Observation_UpdateSecretsRequest_SecretIdentifierInvalid(t *test
 				Key:       "hello",
 				Namespace: "world",
 			},
-			err: "invalid secret identifier: owner exceeds maximum length of 3 bytes",
+			err: "invalid secret identifier: owner exceeds maximum length of 3b",
 		},
 	}
 
@@ -2646,7 +2646,7 @@ func TestPlugin_Observation_UpdateSecretsRequest_InvalidCiphertext_TooLong(t *te
 
 	assert.True(t, proto.Equal(p.EncryptedSecrets[0].Id, batchResp.Responses[0].Id))
 	resp := batchResp.Responses[0]
-	assert.Contains(t, resp.GetError(), "ciphertext size exceeds maximum allowed size: 10 bytes")
+	assert.Contains(t, resp.GetError(), "ciphertext size exceeds maximum allowed size: 10b")
 }
 
 func TestPlugin_Observation_UpdateSecretsRequest_InvalidCiphertext_EncryptedWithWrongPublicKey(t *testing.T) {

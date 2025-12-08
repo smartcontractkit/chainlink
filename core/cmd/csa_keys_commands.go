@@ -232,7 +232,7 @@ func (s *Shell) ExportCSAKey(c *cli.Context) (err error) {
 		return s.errorOut(errors.Wrapf(err, "Could not write %v", filepath))
 	}
 
-	_, err = os.Stderr.WriteString(fmt.Sprintf("🔑 Exported P2P key %s to %s\n", ID, filepath))
+	_, err = fmt.Fprintf(os.Stderr, "🔑 Exported P2P key %s to %s\n", ID, filepath)
 	if err != nil {
 		return s.errorOut(err)
 	}

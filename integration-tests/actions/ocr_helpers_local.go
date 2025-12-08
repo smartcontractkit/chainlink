@@ -49,7 +49,7 @@ func CreateOCRJobsLocal(
 		}
 		bootstrapP2PId := bootstrapP2PIds.Data[0].Attributes.PeerID
 		bootstrapSpec := &nodeclient.OCRBootstrapJobSpec{
-			Name:            fmt.Sprintf("bootstrap-%s", uuid.New().String()),
+			Name:            "bootstrap-" + uuid.New().String(),
 			ContractAddress: ocrInstance.Address(),
 			EVMChainID:      evmChainID.String(),
 			P2PPeerID:       bootstrapP2PId,
@@ -171,7 +171,7 @@ func CreateOCRJobsWithForwarderLocal(
 		}
 		bootstrapP2PId := bootstrapP2PIds.Data[0].Attributes.PeerID
 		bootstrapSpec := &nodeclient.OCRBootstrapJobSpec{
-			Name:            fmt.Sprintf("bootstrap-%s", uuid.New().String()),
+			Name:            "bootstrap-" + uuid.New().String(),
 			ContractAddress: ocrInstance.Address(),
 			EVMChainID:      evmChainID,
 			P2PPeerID:       bootstrapP2PId,

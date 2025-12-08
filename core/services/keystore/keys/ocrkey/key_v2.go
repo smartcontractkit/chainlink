@@ -72,9 +72,9 @@ func NewV2() (KeyV2, error) {
 
 func MustNewV2XXXTestingOnly(k *big.Int) KeyV2 {
 	ecdsaKey := new(ecdsa.PrivateKey)
-	ecdsaKey.PublicKey.Curve = curve
+	ecdsaKey.Curve = curve
 	ecdsaKey.D = k
-	ecdsaKey.PublicKey.X, ecdsaKey.PublicKey.Y = curve.ScalarBaseMult(k.Bytes())
+	ecdsaKey.X, ecdsaKey.Y = curve.ScalarBaseMult(k.Bytes())
 	var seed [32]byte
 	copy(seed[:], k.Bytes())
 	offChainPriv := ed25519.NewKeyFromSeed(seed[:])

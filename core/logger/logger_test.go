@@ -94,6 +94,7 @@ func TestOtelCore(t *testing.T) {
 // TestAtomicCoreSwap tests the atomic core swap functionality after logger creation.
 func TestAtomicCoreSwap(t *testing.T) {
 	atomicCore := NewAtomicCore()
+	defer atomicCore.Close()
 	setOtelCore := atomicCore.Store
 
 	lggrCfg := Config{
@@ -127,5 +128,4 @@ func TestAtomicCoreSwap(t *testing.T) {
 	assert.Equal(t, 1, otelLogs.Len(), "Expected 1 log after core swap")
 	assert.Equal(t, "after swap", otelLogs.All()[0].Message)
 	assert.Equal(t, zapcore.InfoLevel, otelLogs.All()[0].Level)
-
 }

@@ -149,7 +149,7 @@ func Test_OCR2KeyStore_E2E(t *testing.T) {
 
 		keys, err := ks.GetAll()
 		assert.NoError(t, err)
-		require.Equal(t, len(chaintype.SupportedChainTypes), len(keys))
+		require.Len(t, keys, len(chaintype.SupportedChainTypes))
 
 		err = ks.EnsureKeys(ctx, chaintype.SupportedChainTypes...)
 		assert.NoError(t, err)

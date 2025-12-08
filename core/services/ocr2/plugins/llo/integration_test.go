@@ -545,7 +545,7 @@ channelDefinitionsContractFromBlock = %d`, serverURL, serverPubKey, donID, confi
 		// Set config on the destination verifier
 		signerAddresses := make([]common.Address, len(oracles))
 		for i, oracle := range oracles {
-			signerAddresses[i] = common.BytesToAddress(oracle.OracleIdentity.OnchainPublicKey)
+			signerAddresses[i] = common.BytesToAddress(oracle.OnchainPublicKey)
 		}
 		{
 			recipientAddressesAndWeights := []destination_verifier.CommonAddressAndWeight{}
@@ -1233,7 +1233,7 @@ dp -> deribit_funding_interval_hours_parse -> deribit_funding_interval_hours_dec
 				assert.Equal(t, "000000000000000000000000000000000000000000000000000d8e0d00000001", fmt.Sprintf("%x", reportCtx.([3][32]uint8)[2])) // extra hash
 
 				reportElems := make(map[string]any)
-				err = lloevm.BaseSchema.UnpackIntoMap(reportElems, report.([]byte))
+				err = lloevm.BaseSchemaUint32.UnpackIntoMap(reportElems, report.([]byte))
 				require.NoError(t, err)
 
 				feedID := reportElems["feedId"].([32]uint8)

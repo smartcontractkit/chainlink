@@ -1,7 +1,6 @@
 package chaos
 
 import (
-	"fmt"
 	"math/big"
 	"testing"
 	"time"
@@ -191,7 +190,7 @@ func TestAutomationChaos(t *testing.T) {
 			}
 
 			for name, testCase := range testCases {
-				t.Run(fmt.Sprintf("Automation_%s", name), func(t *testing.T) {
+				t.Run("Automation_"+name, func(t *testing.T) {
 					t.Parallel()
 					network := networks.MustGetSelectedNetworkConfig(config.Network)[0] // Need a new copy of the network for each test
 
@@ -203,7 +202,7 @@ func TestAutomationChaos(t *testing.T) {
 
 					testEnvironment := environment.
 						New(&environment.Config{
-							NamespacePrefix: fmt.Sprintf("chaos-automation-%s", name),
+							NamespacePrefix: "chaos-automation-" + name,
 							TTL:             time.Hour * 1,
 							Test:            t,
 							Labels:          nsLabels,
@@ -319,7 +318,6 @@ func TestAutomationChaos(t *testing.T) {
 					}, "5m", "1s").Should(gomega.Succeed()) // ~1m for cluster setup, ~2m for performing each upkeep 5 times, ~2m buffer
 				})
 			}
-
 		})
 	}
 }

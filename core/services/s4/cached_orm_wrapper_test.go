@@ -49,12 +49,12 @@ func TestGetSnapshotCacheFilled(t *testing.T) {
 		// first call will go to the underlaying orm implementation to fill the cache
 		first_snapshot, err := orm.GetSnapshot(ctx, fullAddressRange)
 		assert.NoError(t, err)
-		assert.Equal(t, len(rows), len(first_snapshot))
+		assert.Len(t, first_snapshot, len(rows))
 
 		// on the second call, the results will come from the cache, if not the mock will return an error because of .Once()
 		cache_snapshot, err := orm.GetSnapshot(ctx, fullAddressRange)
 		assert.NoError(t, err)
-		assert.Equal(t, len(rows), len(cache_snapshot))
+		assert.Len(t, cache_snapshot, len(rows))
 
 		snapshotRowMap := make(map[string]*s4.SnapshotRow)
 		for i, sr := range cache_snapshot {
@@ -92,12 +92,12 @@ func TestUpdateInvalidatesSnapshotCache(t *testing.T) {
 		// first call will go to the underlaying orm implementation to fill the cache
 		first_snapshot, err := orm.GetSnapshot(ctx, fullAddressRange)
 		assert.NoError(t, err)
-		assert.Equal(t, len(rows), len(first_snapshot))
+		assert.Len(t, first_snapshot, len(rows))
 
 		// on the second call, the results will come from the cache, if not the mock will return an error because of .Once()
 		cache_snapshot, err := orm.GetSnapshot(ctx, fullAddressRange)
 		assert.NoError(t, err)
-		assert.Equal(t, len(rows), len(cache_snapshot))
+		assert.Len(t, cache_snapshot, len(rows))
 
 		// this update call will invalidate the cache
 		row := &s4.Row{
@@ -117,7 +117,7 @@ func TestUpdateInvalidatesSnapshotCache(t *testing.T) {
 		underlayingORM.On("GetSnapshot", mock.Anything, fullAddressRange).Return(rows, nil).Once()
 		third_snapshot, err := orm.GetSnapshot(ctx, fullAddressRange)
 		assert.NoError(t, err)
-		assert.Equal(t, len(rows), len(third_snapshot))
+		assert.Len(t, third_snapshot, len(rows))
 	})
 
 	t.Run("OK-GetSnapshot_cache_not_invalidated_after_update", func(t *testing.T) {
@@ -138,12 +138,12 @@ func TestUpdateInvalidatesSnapshotCache(t *testing.T) {
 		// first call will go to the underlaying orm implementation to fill the cache
 		first_snapshot, err := orm.GetSnapshot(ctx, addressRange)
 		assert.NoError(t, err)
-		assert.Equal(t, len(rows), len(first_snapshot))
+		assert.Len(t, first_snapshot, len(rows))
 
 		// on the second call, the results will come from the cache, if not the mock will return an error because of .Once()
 		cache_snapshot, err := orm.GetSnapshot(ctx, addressRange)
 		assert.NoError(t, err)
-		assert.Equal(t, len(rows), len(cache_snapshot))
+		assert.Len(t, cache_snapshot, len(rows))
 
 		// this update call wont invalidate the cache because the address is out of the cache address range
 		outOfCachedRangeAddress := ubig.New(common.BytesToAddress(append(bytes.Repeat([]byte{0x00}, common.AddressLength-1), 5)).Big())
@@ -163,7 +163,7 @@ func TestUpdateInvalidatesSnapshotCache(t *testing.T) {
 		// given the cache was not invalidated this request wont reach the underlaying orm implementation
 		third_snapshot, err := orm.GetSnapshot(ctx, addressRange)
 		assert.NoError(t, err)
-		assert.Equal(t, len(rows), len(third_snapshot))
+		assert.Len(t, third_snapshot, len(rows))
 	})
 }
 

@@ -15,5 +15,5 @@ func TestPrometheusConfig(t *testing.T) {
 	require.NoError(t, err)
 
 	p := cfg.Prometheus()
-	assert.Equal(t, "", p.AuthToken())
+	assert.Empty(t, p.AuthToken())
 }

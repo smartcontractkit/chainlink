@@ -289,7 +289,7 @@ func TestCoreRelayerChainInteroperators(t *testing.T) {
 				assert.Len(t, nodesStats, expectedNodeCnt)
 				assert.Len(t, nodesStats, cnt)
 			}
-			assert.EqualValues(t, tt.expectedRelayerNetworks, gotRelayerNetworks)
+			assert.Equal(t, tt.expectedRelayerNetworks, gotRelayerNetworks)
 
 			allRelayerIds := [][]types.RelayID{
 				tt.expectedEVMRelayerIds,

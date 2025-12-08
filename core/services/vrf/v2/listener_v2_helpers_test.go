@@ -18,13 +18,13 @@ func TestListener_EstimateFeeJuels(t *testing.T) {
 	weiPerUnitLink := big.NewInt(5898160000000000)
 	actual, err := v2.EstimateFeeJuels(callbackGasLimit, maxGasPriceGwei, weiPerUnitLink)
 	expected := big.NewInt(1780216203019246680)
-	require.Equal(t, actual.Cmp(expected), 0, "expected:", expected.String(), "actual:", actual.String())
+	require.Equal(t, 0, actual.Cmp(expected), "expected:", expected.String(), "actual:", actual.String())
 	require.NoError(t, err)
 
 	weiPerUnitLink = big.NewInt(5898161234554321)
 	actual, err = v2.EstimateFeeJuels(callbackGasLimit, maxGasPriceGwei, weiPerUnitLink)
 	expected = big.NewInt(1780215830399116719)
-	require.Equal(t, actual.Cmp(expected), 0, "expected:", expected.String(), "actual:", actual.String())
+	require.Equal(t, 0, actual.Cmp(expected), "expected:", expected.String(), "actual:", actual.String())
 	require.NoError(t, err)
 
 	actual, err = v2.EstimateFeeJuels(callbackGasLimit, maxGasPriceGwei, big.NewInt(0))

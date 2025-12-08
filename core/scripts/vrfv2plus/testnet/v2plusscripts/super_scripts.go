@@ -352,7 +352,7 @@ func SmokeTestVRF(e helpers.Environment) {
 			GasPrice: tx.GasPrice(),
 		}
 		r, err := e.Ec.CallContract(context.Background(), call, receipt.BlockNumber)
-		fmt.Println("call contract", "r", r, "err", err)
+		fmt.Println("call contract", "r", string(r), "err", err)
 		rpcError, err := evmclient.ExtractRPCError(err)
 		fmt.Println("extracting rpc error", rpcError.String(), err)
 		os.Exit(1)

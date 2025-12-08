@@ -21,8 +21,8 @@ type WorkflowRegistry struct {
 
 func NewWorkflowRegistry(ctx context.Context, t *testing.T, backend *EthBlockchain) *WorkflowRegistry {
 	// Deploy a test workflow_registry
-	wfRegistryAddr, _, wfRegistryC, err := workflow_registry_wrapper.DeployWorkflowRegistry(backend.transactionOpts, backend.Backend.Client())
-	backend.Backend.Commit()
+	wfRegistryAddr, _, wfRegistryC, err := workflow_registry_wrapper.DeployWorkflowRegistry(backend.transactionOpts, backend.Client())
+	backend.Commit()
 	require.NoError(t, err)
 
 	// setup contract state to allow the secrets to be updated
@@ -57,9 +57,9 @@ func updateAuthorizedAddress(
 	t.Helper()
 	_, err := wfRegC.UpdateAuthorizedAddresses(th.transactionOpts, addresses, true)
 	require.NoError(t, err, "failed to update authorised addresses")
-	th.Backend.Commit()
-	th.Backend.Commit()
-	th.Backend.Commit()
+	th.Commit()
+	th.Commit()
+	th.Commit()
 	gotAddresses, err := wfRegC.GetAllAuthorizedAddresses(&bind.CallOpts{
 		From: th.transactionOpts.From,
 	})
@@ -77,9 +77,9 @@ func updateAllowedDONs(
 	t.Helper()
 	_, err := wfRegC.UpdateAllowedDONs(th.transactionOpts, donIDs, allowed)
 	require.NoError(t, err, "failed to update DONs")
-	th.Backend.Commit()
-	th.Backend.Commit()
-	th.Backend.Commit()
+	th.Commit()
+	th.Commit()
+	th.Commit()
 	gotDons, err := wfRegC.GetAllAllowedDONs(&bind.CallOpts{
 		From: th.transactionOpts.From,
 	})
@@ -107,9 +107,9 @@ func registerWorkflow(
 	_, err := wfRegC.RegisterWorkflow(th.transactionOpts, input.Name, input.ID, donID,
 		input.Status, input.BinaryURL, input.ConfigURL, input.SecretsURL)
 	require.NoError(t, err, "failed to register workflow")
-	th.Backend.Commit()
-	th.Backend.Commit()
-	th.Backend.Commit()
+	th.Commit()
+	th.Commit()
+	th.Commit()
 }
 
 type UpdatedWorkflow struct {
@@ -129,9 +129,9 @@ func updateWorkflow(
 	t.Helper()
 	_, err := wfRegC.UpdateWorkflow(th.transactionOpts, input.WorkflowKey, input.ID, input.BinaryURL, input.ConfigURL, input.SecretsURL)
 	require.NoError(t, err, "failed to update workflow")
-	th.Backend.Commit()
-	th.Backend.Commit()
-	th.Backend.Commit()
+	th.Commit()
+	th.Commit()
+	th.Commit()
 }
 
 func computeHashKey(

@@ -116,7 +116,7 @@ func (ks *workflow) Import(ctx context.Context, keyJSON []byte, password string)
 	if _, found := ks.keyRing.Workflow[key.ID()]; found {
 		return workflowkey.Key{}, fmt.Errorf("key with ID %s already exists", key.ID())
 	}
-	return key, ks.keyManager.safeAddKey(ctx, key)
+	return key, ks.safeAddKey(ctx, key)
 }
 
 func (ks *workflow) Export(id string, password string) ([]byte, error) {
