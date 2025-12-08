@@ -1,25 +1,49 @@
+# .github/workflows/codeql-advanced.yml
 name: "CodeQL Advanced"
 
 on:
   push:
     branches:
       - develop
-      - release/*
-  merge_group:
+      - "release/*"
   pull_request:
+    # Run on all PR activity (default types are sufficient)
+    branches:
+      - develop
+      - "release/*"
+  merge_group:
   schedule:
-    - cron: "22 22 * * 2"
+    - cron: "22 22 * * 2"  # Every Tuesday at 22:22 UTC
+  workflow_dispatch:
+
+permissions:
+  contents: read
 
 jobs:
+  runner-config:
+    runs-on: ubuntu-latest
+    outputs:
+      go-runner: ${{ steps.set.outputs.runner }}
+    steps:
+      - name: Set Go runner (self-hosted when available)
+        id: set
+        run: |
+          # Use your self-hosted Go-optimized runner when on push/schedule/merge_group
+          if [[ "${{ github.event_name }}" != "pull_request"; then
+            echo "runner=runs-on=${{ github.run_id }}/cpu=16/ram=64/family=c7g/image=ubuntu24-go" >> $GITHUB_OUTPUT
+          else
+            echo "runner=ubuntu-latest" >> $GITHUB_OUTPUT
+          fi
+
   analyze:
-    name: Analyze (${{ matrix.language }})
-    needs: [ runner-config ]
+    name: CodeQL – ${{ matrix.language }}
+    needs: runner-config
     runs-on: ${{ matrix.runs-on || 'ubuntu-latest' }}
     permissions:
-      # required for all workflows
-      security-events: write
-      # required to fetch internal or private CodeQL packs
-      packages: read
+      security-events: write   # Required to upload SARIF results
+      packages: read           # For private CodeQL packs (if any)
+      actions: read            # Recommended for actions language
+      contents: read
 
     strategy:
       fail-fast: false
@@ -34,34 +58,56 @@ jobs:
 
           - language: javascript-typescript
             build-mode: none
-            codeql-config: |
-              paths-ignore:
-                - 'core/web/assets'
-                - '**/node_modules/**'
+            config-file: .github/codeql/config-js.yml  # Optional: external config
 
           - language: python
             build-mode: none
+
     steps:
-      - name: Enable S3 Cache for Self-Hosted Runners
-        # these env vars are set (and exposed) when it is a self-hosted runner with extras=s3-cache
-        if: ${{ env.RUNS_ON_INSTANCE_ID != '' && env.ACTIONS_CACHE_URL != '' }}
+      - name: Enable S3 Cache (self-hosted runners only)
+        if: runner.arch == 'ARM64' || contains(runner.name, 'self-hosted')
         uses: runs-on/action@66d4449b717b5462159659523d1241051ff470b9 # v1
+        with:
+          cache-prefix: codeql
 
       - name: Checkout repository
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # Required for accurate CodeQL analysis
 
-      - name: Set up Go
+      - name: Setup Go (only for Go analysis)
         if: matrix.language == 'go'
         uses: ./.github/actions/setup-go
         with:
-          restore-build-cache-only: ${{ github.event_name != 'push' }}
-          build-cache-version: "codeql"
+          restore-build-cache-only: ${{ github.event_name != 'push' && github.event_name != 'schedule' }}
+          build-cache-version: "codeql-${{ github.run_id }}"
 
-      - name: Touching core/web/assets/index.html
+      # Workaround: CodeQL Go extractor fails if no web assets exist
+      - name: Create dummy web assets (Go workaround)
         if: matrix.language == 'go'
-        run: mkdir -p core/web/assets && touch core/web/assets/index.html
+        run: |
+          mkdir -p core/web/assets
+          echo "<html><body>CodeQL placeholder</body></html>" > core/web/assets/index.html
 
-      # Initializes the CodeQL tools for scanning.
+      - name: Initialize CodeQL
+        uses: github/codeql-action@v3
+        with:
+          languages: ${{ matrix.language }}
+          config-file: ${{ matrix.config-file || '' }}
+          queries: +security-and-quality
+          # Optional: custom queries
+          # queries: .github/codeql/custom-queries
+
+      - name: Autobuild (for compiled languages)
+        if: matrix.build-mode != 'none'
+        uses: github/codeql-action/autobuild@v3
+
+      - name: Perform CodeQL Analysis
+        uses: github/codeql-action/analyze@v3
+        with:
+          category: "/language:${{ matrix.language }}"
+          upload: always
+          cleanup-level: full      # Initializes the CodeQL tools for scanning.
       - name: Initialize CodeQL
         uses: github/codeql-action/init@v3
         with:
