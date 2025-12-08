@@ -120,10 +120,10 @@ func MintLinkTokenMCMSLogic(e cldf.Environment, cfg MintLinkTokenMCMSConfig) (cl
 	}
 
 	e.Logger.Infow("Preparing MCMS proposal to mint LINK tokens",
-	"chain", cfg.Selector,
-	"to", cfg.ToAddress.Hex(),
-	"amount", cfg.Amount.String(),
-)
+		"chain", cfg.Selector,
+		"to", cfg.ToAddress.Hex(),
+		"amount", cfg.Amount.String(),
+	)
 
 	// Call mint - this creates a simulated transaction that will be included in the MCMS proposal
 	_, err = linkToken.Mint(opts, cfg.ToAddress, cfg.Amount)
