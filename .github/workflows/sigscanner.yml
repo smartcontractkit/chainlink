@@ -3,15 +3,15 @@ name: SigScanner – Signature Verification
 
 on:
   push:
-    branches: [main, master, develop, release/**]
+    branches: [main, master, develop, "release/**"]
   pull_request:
     types: [opened, synchronize, reopened]
   merge_group:
 
 permissions:
   contents: read
-  statuses: write           # Needed to post "SigScanner" check on PRs
-  pull-requests: write       # Needed for PR comments on failure (optional but nice)
+  statuses: write      # For commit status
+  pull-requests: write  # For commenting on failure
 
 jobs:
   verify-signature:
@@ -19,16 +19,12 @@ jobs:
     timeout-minutes: 8
 
     steps:
-      # For PRs coming from a fork we CANNOT use secrets directly in the job.
-      # We therefore run the actual check only when secrets are available.
-      # For forks we skip the real API call but still mark the check as failed with a clear message.
-
-      - name: Checkout repository (for commit info)
+      - name: Checkout code
         uses: actions/checkout@v4
         with:
           fetch-depth: 1
 
-      - name: Check if we can run the real scanner (secrets exist + not a fork)
+      - name: Determine if we can run SigScanner securely
         id: can-scan
         run: |
           if [[ -n "${{ secrets.SIGSCANNER_API_TOKEN }}" && \
@@ -39,7 +35,7 @@ jobs:
             echo "scan=false" >> $GITHUB_OUTPUT
           fi
 
-      - name: Run SigScanner (trusted contributors only)
+      - name: Run SigScanner verification
         if: steps.can-scan.outputs.scan == 'true'
         env:
           API_TOKEN: ${{ secrets.SIGSCANNER_API_TOKEN }}
@@ -51,17 +47,79 @@ jobs:
             -H "Content-Type: application/json" \
             -H "Authorization: $API_TOKEN" \
             -d '{
-              "commit": "${{ github.sha }}",
-              "repository": "${{ github.repository }}",
-              "author": "${{ github.actor }}",
-              "ref": "${{ github.ref }}",
-              "event": "${{ github.event_name }}",
-              "run_id": "${{ github.run_id }}"
-            }')
+                  "commit": "${{ github.sha }}",
+                  "repository": "${{ github.repository }}",
+                  "author": "${{ github.actor }}",
+                  "ref": "${{ github.ref }}",
+                  "event": "${{ github.event_name }}",
+                  "run_id": "${{ github.run_id }}"
+                }')
 
           HTTP_CODE="${RESPONSE: -3}"
           BODY="${RESPONSE%???}"
 
+          echo "SigScanner returned HTTP $HTTP_CODE"
+          if [[ "$HTTP_CODE" == "200" ]]; then
+            echo "Signature verified successfully"
+            exit 0
+          else
+            echo "Signature verification FAILED"
+            echo "Response: $BODY"
+            exit 1
+          fi
+
+      - name: Block on forks or missing secrets
+        if: steps.can-scan.outputs.scan != 'true'
+        run: |
+          echo "SigScanner verification blocked or skipped"
+          if [[ "${{ github.event.pull_request.head.repo.fork }}" == "true" ]]; then
+            echo "Reason: Pull request comes from a fork (secrets unavailable)"
+            echo "Solution: Ask a maintainer to re-run on an internal branch or add 'trusted-contributor' label"
+          else
+            echo "Reason: Missing SIGSCANNER_API_TOKEN or SIGSCANNER_API_URL secret"
+          fi
+          exit 1
+
+      - name: Success – Post commit status
+        if: success() && steps.can-scan.outputs.scan == 'true'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            github.rest.repos.createCommitStatus({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              sha: context.sha,
+              state: "success",
+              context: "SigScanner",
+              description: "Commit signature verified",
+              target_url: context.payload.repository.html_url + "/actions/runs/" + context.runId
+            })
+
+      - name: Failure – Post status + comment
+        if: failure()
+        uses: actions/github-script@v7
+        with:
+          script: |
+            github.rest.repos.createCommitStatus({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              sha: context.sha,
+              state: "failure",
+              context: "SigScanner",
+              description: "Signature verification failed or blocked",
+              target_url: context.payload.repository.html_url + "/actions/runs/" + context.runId
+            })
+
+            if (context.eventName.includes('pull_request')) {
+              github.rest.issues.createComment({
+                issue_number: context.issue.number,
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                body: `SigScanner verification **failed or was blocked**.\n\n` +
+                      `Run: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}\n\n` +
+                      `If this is a fork PR, a maintainer needs to trigger the check on an internal ref.`
+              })
+            }
           echo "SigScanner returned HTTP $HTTP_CODE"
 
           if [[ "$HTTP_CODE" == "200" ]]; then
