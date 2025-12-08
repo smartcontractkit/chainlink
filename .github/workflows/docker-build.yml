@@ -17,31 +17,37 @@ on:
         type: string
 
 concurrency:
-  group: "docker-build-${{ github.event_name }}-${{ github.ref_name }}"
+  group: docker-build-${{ github.event_name }}-${{ github.ref_name || github.sha }}
   cancel-in-progress: true
 
 jobs:
   init:
     runs-on: ubuntu-24.04
     outputs:
-      # Determines whether the actual build job should run
-      should-run: >-
-        ${{ 
-          steps.pr-labels.outputs.check-label-found == 'true' ||
-          github.event_name == 'push' ||
-          github.event_name == 'schedule' ||
-          github.event_name == 'workflow_dispatch'
-        }}
+      should-run: ${{ steps.check.outputs.should-run }}
       runner-arm64: ${{ steps.runner-labels.outputs.runner-arm64 }}
       runner-amd64: ${{ steps.runner-labels.outputs.runner-amd64 }}
-      version-tag: ${{ steps.version-info.outputs.version-tag }}
+      version-tag: ${{ steps.version-info.outputs.version-tag || '' }}
     steps:
       - name: Get PR Labels
         id: pr-labels
+        if: github.event_name == 'pull_request'
         uses: smartcontractkit/.github/actions/get-pr-labels@get-pr-labels/v1
         with:
-          check-label: "build-publish"
+          check-label: build-publish
           skip-merge-group: "true"
+
+      - name: Determine if build should run
+        id: check
+        run: |
+          if [[ "${{ github.event_name }}" == "pull_request" && "${{ steps.pr-labels.outputs.check-label-found }}" == "true" ]] || \
+             [[ "${{ github.event_name }}" == "push" ]] || \
+             [[ "${{ github.event_name }}" == "schedule" ]] || \
+             [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
+            echo "should-run=true" >> $GITHUB_OUTPUT
+          else
+            echo "should-run=false" >> $GITHUB_OUTPUT
+          fi
 
       - name: Set runner labels
         id: runner-labels
@@ -55,13 +61,15 @@ jobs:
             echo "runner-arm64=${SH_RUNNER_LABEL_ARM64}" >> $GITHUB_OUTPUT
             echo "runner-amd64=${SH_RUNNER_LABEL_AMD64}" >> $GITHUB_OUTPUT
           else
-            # Use standard GitHub-hosted labels for push/schedule/dispatch
             echo "runner-arm64=${GH_RUNNER_LABEL_ARM64}" >> $GITHUB_OUTPUT
             echo "runner-amd64=${GH_RUNNER_LABEL_AMD64}" >> $GITHUB_OUTPUT
           fi
 
-      # Optional: if you extract version elsewhere, keep this step
+      # Uncomment and fill if you need to compute a version tag
       # - name: Extract version
+      #   id: version-info
+      #   run: |
+      #     echo "version-tag=v$(cat VERSION)" >> $GITHUB_OUTPUT      # - name: Extract version
       #   id: version-info
       #   run: ...      - name: Checkout repository
         uses: actions/checkout@v4
