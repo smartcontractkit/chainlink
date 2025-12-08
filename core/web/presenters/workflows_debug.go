@@ -25,80 +25,12 @@ func (r WorkflowDebugWorkflowsResource) GetName() string {
 	return "workflows_debug"
 }
 
-// WorkflowDebugExecutionsResource represents the list of executions for a workflow
-type WorkflowDebugExecutionsResource struct {
-	JAID
-	WorkflowID string                              `json:"workflowId"`
-	Executions []devobservability.ExecutionSummary `json:"executions"`
-}
-
-// NewWorkflowDebugExecutionsResource creates a new executions resource
-func NewWorkflowDebugExecutionsResource(workflowID string, executions []devobservability.ExecutionSummary) *WorkflowDebugExecutionsResource {
-	return &WorkflowDebugExecutionsResource{
-		JAID:       NewJAID("workflow_executions"),
-		WorkflowID: workflowID,
-		Executions: executions,
-	}
-}
-
-// GetName implements the api2go EntityNamer interface
-func (r WorkflowDebugExecutionsResource) GetName() string {
-	return "workflow_executions"
-}
-
-// WorkflowDebugEventsResource represents the events for a specific execution
-type WorkflowDebugEventsResource struct {
-	JAID
-	WorkflowID  string                        `json:"workflowId"`
-	ExecutionID string                        `json:"executionId"`
-	Events      []devobservability.EventEntry `json:"events"`
-}
-
-// NewWorkflowDebugEventsResource creates a new events resource
-func NewWorkflowDebugEventsResource(workflowID, executionID string, events []devobservability.EventEntry) *WorkflowDebugEventsResource {
-	return &WorkflowDebugEventsResource{
-		JAID:        NewJAID("workflow_events"),
-		WorkflowID:  workflowID,
-		ExecutionID: executionID,
-		Events:      events,
-	}
-}
-
-// GetName implements the api2go EntityNamer interface
-func (r WorkflowDebugEventsResource) GetName() string {
-	return "workflow_events"
-}
-
-// WorkflowDebugExecutionResource represents detailed execution information
-type WorkflowDebugExecutionResource struct {
-	JAID
-	WorkflowID  string                          `json:"workflowId"`
-	ExecutionID string                          `json:"executionId"`
-	Execution   *devobservability.ExecutionData `json:"execution"`
-}
-
-// NewWorkflowDebugExecutionResource creates a new execution resource
-func NewWorkflowDebugExecutionResource(workflowID, executionID string, execution *devobservability.ExecutionData) *WorkflowDebugExecutionResource {
-	return &WorkflowDebugExecutionResource{
-		JAID:        NewJAID("workflow_execution"),
-		WorkflowID:  workflowID,
-		ExecutionID: executionID,
-		Execution:   execution,
-	}
-}
-
-// GetName implements the api2go EntityNamer interface
-func (r WorkflowDebugExecutionResource) GetName() string {
-	return "workflow_execution"
-}
-
 // WorkflowDebugStatsResource represents statistics about the dev observability store
 type WorkflowDebugStatsResource struct {
 	JAID
-	TotalWorkflows  int            `json:"totalWorkflows"`
-	TotalExecutions int            `json:"totalExecutions"`
-	TotalEvents     int            `json:"totalEvents"`
-	WorkflowStats   map[string]int `json:"workflowStats"`
+	TotalWorkflows int            `json:"totalWorkflows"`
+	TotalEvents    int            `json:"totalEvents"`
+	WorkflowStats  map[string]int `json:"workflowStats"`
 }
 
 // NewWorkflowDebugStatsResource creates a new stats resource
@@ -110,9 +42,6 @@ func NewWorkflowDebugStatsResource(stats map[string]interface{}) *WorkflowDebugS
 
 	if v, ok := stats["total_workflows"].(int); ok {
 		resource.TotalWorkflows = v
-	}
-	if v, ok := stats["total_executions"].(int); ok {
-		resource.TotalExecutions = v
 	}
 	if v, ok := stats["total_events"].(int); ok {
 		resource.TotalEvents = v

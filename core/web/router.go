@@ -309,10 +309,7 @@ func v2Routes(app chainlink.Application, r *gin.RouterGroup) {
 			authv2.GET("/debug/workflow/stats", wdc.GetStats)
 			authv2.GET("/debug/workflow/orphan_events", wdc.GetOrphanEvents)
 			authv2.DELETE("/debug/workflow", wdc.Clear)
-			authv2.GET("/debug/workflow/:workflowID/executions", wdc.GetExecutions)
 			authv2.GET("/debug/workflow/:workflowID/events", wdc.GetWorkflowEvents)
-			authv2.GET("/debug/workflow/:workflowID/executions/:executionID", wdc.GetExecution)
-			authv2.GET("/debug/workflow/:workflowID/executions/:executionID/events", wdc.GetEvents)
 		}
 
 		csakc := CSAKeysController{app}

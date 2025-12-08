@@ -3,338 +3,231 @@
 package devobservability
 
 import (
-	"context"
-	"errors"
 	"fmt"
 	"sync"
 	"time"
 
 	lru "github.com/hashicorp/golang-lru/v2"
-	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/store"
 )
 
-const maxExecutions = 1000
+const (
+	maxWorkflows         = 100  // Maximum number of workflows to cache
+	maxEventsPerWorkflow = 1000 // Maximum events per workflow
+	maxOrphanEvents      = 1000 // Maximum orphan events to cache
+)
+
+type workflowEventData struct {
+	mu           sync.RWMutex
+	eventsCache  *lru.Cache[int64, EventEntry] // keyed by sequence number
+	nextSequence int64
+}
 
 type devStore struct {
-	cache          *lru.Cache[string, *ExecutionData]
-	workflowIndex  map[string][]string
-	workflowEvents map[string][]EventEntry // Events with workflowID but no executionID
-	orphanEvents   []EventEntry
-	indexMu        sync.RWMutex
+	cache       *lru.Cache[string, *workflowEventData]
+	orphanCache *lru.Cache[int64, EventEntry] // keyed by timestamp nanos for ordering
+	orphanMu    sync.RWMutex
 }
 
 func init() {
 	fmt.Println("[DevObservability] Initializing dev store...")
-	cache, err := lru.NewWithEvict(maxExecutions, func(executionID string, data *ExecutionData) {
-		if globalStore != nil {
-			globalStore.(*devStore).removeFromIndex(data.WorkflowID, executionID)
-		}
-	})
+	cache, err := lru.New[string, *workflowEventData](maxWorkflows)
 	if err != nil {
-		panic("failed to create LRU cache: " + err.Error())
+		panic("failed to create workflow LRU cache: " + err.Error())
+	}
+
+	orphanCache, err := lru.New[int64, EventEntry](maxOrphanEvents)
+	if err != nil {
+		panic("failed to create orphan LRU cache: " + err.Error())
 	}
 
 	store := &devStore{
-		cache:          cache,
-		workflowIndex:  make(map[string][]string),
-		workflowEvents: make(map[string][]EventEntry),
-		orphanEvents:   make([]EventEntry, 0),
+		cache:       cache,
+		orphanCache: orphanCache,
 	}
 
 	globalStore = store
 	fmt.Println("[DevObservability] Dev store initialized successfully")
 }
 
-func (s *devStore) getOrCreateExecution(workflowID, executionID string) *ExecutionData {
-	if data, ok := s.cache.Get(executionID); ok {
+func (s *devStore) getOrCreateWorkflowData(workflowID string) *workflowEventData {
+	if data, ok := s.cache.Get(workflowID); ok {
 		return data
 	}
 
-	fmt.Printf("[DevObservability] getOrCreateExecution: workflowID=%s, executionID=%s\n", workflowID, executionID)
-
-	data := &ExecutionData{
-		WorkflowID:  workflowID,
-		ExecutionID: executionID,
-		Status:      store.StatusStarted,
-		StartTime:   time.Now(),
-		Events:      make([]EventRecord, 0),
+	eventsCache, err := lru.New[int64, EventEntry](maxEventsPerWorkflow)
+	if err != nil {
+		panic("failed to create events LRU cache: " + err.Error())
 	}
 
-	s.cache.Add(executionID, data)
-	s.addToIndex(workflowID, executionID)
+	data := &workflowEventData{
+		eventsCache:  eventsCache,
+		nextSequence: 1,
+	}
+
+	s.cache.Add(workflowID, data)
+	fmt.Printf("[DevObservability] Created workflow data for: %s\n", workflowID)
 
 	return data
 }
 
-func (s *devStore) addToIndex(workflowID, executionID string) {
-	s.indexMu.Lock()
-	defer s.indexMu.Unlock()
-
-	executions := s.workflowIndex[workflowID]
-	for _, id := range executions {
-		if id == executionID {
-			return
-		}
-	}
-	s.workflowIndex[workflowID] = append(executions, executionID)
-}
-
-func (s *devStore) removeFromIndex(workflowID, executionID string) {
-	s.indexMu.Lock()
-	defer s.indexMu.Unlock()
-
-	executions := s.workflowIndex[workflowID]
-	for i, id := range executions {
-		if id == executionID {
-			executions[i] = executions[len(executions)-1]
-			s.workflowIndex[workflowID] = executions[:len(executions)-1]
-			break
-		}
-	}
-
-	if len(s.workflowIndex[workflowID]) == 0 {
-		delete(s.workflowIndex, workflowID)
-	}
-}
-
-func (s *devStore) storeRawEvent(ctx context.Context, workflowID, executionID, eventType string, payload []byte) {
-	data := s.getOrCreateExecution(workflowID, executionID)
+func (s *devStore) storeWorkflowEvent(workflowID, eventType string, payload []byte) {
+	data := s.getOrCreateWorkflowData(workflowID)
 
 	data.mu.Lock()
 	defer data.mu.Unlock()
 
-	data.Events = append(data.Events, EventRecord{
-		Timestamp: time.Now(),
-		EventType: eventType,
-		Data:      payload,
-	})
-
-	fmt.Printf("[DevObservability] Event stored! workflow=%s, execution=%s, type=%s, total_events=%d\n", workflowID, executionID, eventType, len(data.Events))
-}
-
-func (s *devStore) storeOrphanEvent(ctx context.Context, eventType string, payload []byte) {
-	s.indexMu.Lock()
-	defer s.indexMu.Unlock()
-
-	s.orphanEvents = append(s.orphanEvents, EventEntry{
-		Type:      eventType,
-		Timestamp: time.Now(),
-		Message:   payload,
-	})
-
-	// Keep only last 1000 orphan events
-	if len(s.orphanEvents) > 1000 {
-		s.orphanEvents = s.orphanEvents[len(s.orphanEvents)-1000:]
-	}
-
-	fmt.Printf("[DevObservability] Orphan event stored! type=%s, total_orphan_events=%d\n", eventType, len(s.orphanEvents))
-}
-
-func (s *devStore) storeWorkflowEvent(ctx context.Context, workflowID, eventType string, payload []byte) {
-	s.indexMu.Lock()
-	defer s.indexMu.Unlock()
-
-	fmt.Printf("[DevObservability] storeWorkflowEvent called with workflowID=%s, eventType=%s\n", workflowID, eventType)
-
-	entry := EventEntry{
+	event := EventEntry{
+		Sequence:  data.nextSequence,
 		Type:      eventType,
 		Timestamp: time.Now(),
 		Message:   payload,
 	}
 
-	s.workflowEvents[workflowID] = append(s.workflowEvents[workflowID], entry)
+	// Add to LRU cache - it will automatically evict oldest when at capacity
+	data.eventsCache.Add(data.nextSequence, event)
+	data.nextSequence++
 
-	// Keep only last 100 events per workflow
-	if len(s.workflowEvents[workflowID]) > 100 {
-		s.workflowEvents[workflowID] = s.workflowEvents[workflowID][len(s.workflowEvents[workflowID])-100:]
-	}
-
-	fmt.Printf("[DevObservability] Workflow-level event stored! workflow=%s, type=%s, total_workflow_events=%d\n", workflowID, eventType, len(s.workflowEvents[workflowID]))
+	fmt.Printf("[DevObservability] Event stored! workflow=%s, type=%s, seq=%d, total_events=%d\n",
+		workflowID, eventType, event.Sequence, data.eventsCache.Len())
 }
 
-func (s *devStore) UpdateExecutionStatus(ctx context.Context, status string) {
-	workflowID, executionID, ok := GetExecutionContext(ctx)
-	if !ok {
-		return
+func (s *devStore) storeOrphanEvent(eventType string, payload []byte) {
+	s.orphanMu.Lock()
+	defer s.orphanMu.Unlock()
+
+	now := time.Now()
+	event := EventEntry{
+		Sequence:  0, // Orphan events don't have sequence numbers
+		Type:      eventType,
+		Timestamp: now,
+		Message:   payload,
 	}
 
-	data := s.getOrCreateExecution(workflowID, executionID)
-	data.mu.Lock()
-	defer data.mu.Unlock()
+	// Use timestamp nanos as key (ensures ordering)
+	// LRU will automatically evict oldest when capacity is reached
+	s.orphanCache.Add(now.UnixNano(), event)
 
-	data.Status = status
-	if status == store.StatusCompleted || status == store.StatusErrored || status == store.StatusTimeout || status == store.StatusCompletedEarlyExit {
-		now := time.Now()
-		data.EndTime = &now
-	}
-}
-
-func (s *devStore) GetExecution(executionID string) *ExecutionData {
-	data, _ := s.cache.Get(executionID)
-	return data
-}
-
-func (s *devStore) GetExecutions(workflowID string, statusFilter string) []ExecutionSummary {
-	s.indexMu.RLock()
-	executionIDs := s.workflowIndex[workflowID]
-	s.indexMu.RUnlock()
-
-	summaries := make([]ExecutionSummary, 0, len(executionIDs))
-	for _, execID := range executionIDs {
-		if data, ok := s.cache.Get(execID); ok {
-			data.mu.RLock()
-			// Apply status filter if specified
-			if statusFilter == "" || data.Status == statusFilter {
-				summaries = append(summaries, ExecutionSummary{
-					ExecutionID: data.ExecutionID,
-					Status:      data.Status,
-					StartTime:   data.StartTime,
-				})
-			}
-			data.mu.RUnlock()
-		}
-	}
-
-	return summaries
+	fmt.Printf("[DevObservability] Orphan event stored! type=%s, total_orphan_events=%d\n",
+		eventType, s.orphanCache.Len())
 }
 
 func (s *devStore) GetWorkflows() []string {
-	s.indexMu.RLock()
-	defer s.indexMu.RUnlock()
-
-	// Use a map to deduplicate workflow IDs from both sources
-	workflowMap := make(map[string]bool)
-
-	// Add workflows that have executions
-	for workflowID := range s.workflowIndex {
-		workflowMap[workflowID] = true
-	}
-
-	// Add workflows that have workflow-level events
-	for workflowID := range s.workflowEvents {
-		workflowMap[workflowID] = true
-	}
-
-	workflowIDs := make([]string, 0, len(workflowMap))
-	for workflowID := range workflowMap {
-		workflowIDs = append(workflowIDs, workflowID)
-	}
-
+	keys := s.cache.Keys()
+	workflowIDs := make([]string, len(keys))
+	copy(workflowIDs, keys)
 	return workflowIDs
 }
 
-func (s *devStore) GetEvents(workflowID, executionID string) ([]EventEntry, error) {
-	data, ok := s.cache.Get(executionID)
+func (s *devStore) GetOrphanEvents(limit int) []EventEntry {
+	s.orphanMu.RLock()
+	defer s.orphanMu.RUnlock()
+
+	// Get all keys (timestamp nanos) from cache
+	keys := s.orphanCache.Keys()
+	if len(keys) == 0 {
+		return []EventEntry{}
+	}
+
+	// Keys are in LRU order, not chronological order
+	// We need to sort by timestamp to get chronological order
+	allEvents := make([]EventEntry, 0, len(keys))
+	for _, key := range keys {
+		if evt, ok := s.orphanCache.Peek(key); ok {
+			allEvents = append(allEvents, evt)
+		}
+	}
+
+	// Sort by timestamp to ensure chronological order
+	for i := 0; i < len(allEvents)-1; i++ {
+		for j := i + 1; j < len(allEvents); j++ {
+			if allEvents[i].Timestamp.After(allEvents[j].Timestamp) {
+				allEvents[i], allEvents[j] = allEvents[j], allEvents[i]
+			}
+		}
+	}
+
+	// Return most recent N events
+	if limit <= 0 || limit > len(allEvents) {
+		limit = len(allEvents)
+	}
+
+	return allEvents[max(len(allEvents)-limit, 0):]
+}
+
+func (s *devStore) GetWorkflowEvents(workflowID string, limit int) []EventEntry {
+	data, ok := s.cache.Get(workflowID)
 	if !ok {
-		return nil, errors.New("execution not found")
+		return []EventEntry{}
 	}
 
 	data.mu.RLock()
 	defer data.mu.RUnlock()
 
-	entries := make([]EventEntry, len(data.Events))
-	for i, evt := range data.Events {
-		entries[i] = EventEntry{
-			Type:      evt.EventType,
-			Timestamp: evt.Timestamp,
-			Message:   evt.Data,
-		}
-	}
-
-	return entries, nil
-}
-
-func (s *devStore) GetOrphanEvents(limit int) []EventEntry {
-	s.indexMu.RLock()
-	defer s.indexMu.RUnlock()
-
-	if limit <= 0 || limit > len(s.orphanEvents) {
-		limit = len(s.orphanEvents)
-	}
-
-	// Return most recent events
-	start := len(s.orphanEvents) - limit
-	if start < 0 {
-		start = 0
-	}
-
-	result := make([]EventEntry, limit)
-	copy(result, s.orphanEvents[start:])
-
-	return result
-}
-
-func (s *devStore) GetWorkflowEvents(workflowID string, limit int) []EventEntry {
-	s.indexMu.RLock()
-	defer s.indexMu.RUnlock()
-
-	events, ok := s.workflowEvents[workflowID]
-	if !ok {
+	// Get all sequence keys from cache
+	keys := data.eventsCache.Keys()
+	if len(keys) == 0 {
 		return []EventEntry{}
 	}
 
-	if limit <= 0 || limit > len(events) {
-		limit = len(events)
+	// Get all events and sort by sequence
+	allEvents := make([]EventEntry, 0, len(keys))
+	for _, seq := range keys {
+		if evt, ok := data.eventsCache.Peek(seq); ok {
+			allEvents = append(allEvents, evt)
+		}
 	}
 
-	// Return most recent events
-	start := len(events) - limit
-	if start < 0 {
-		start = 0
+	// Sort by sequence to ensure chronological order
+	for i := 0; i < len(allEvents)-1; i++ {
+		for j := i + 1; j < len(allEvents); j++ {
+			if allEvents[i].Sequence > allEvents[j].Sequence {
+				allEvents[i], allEvents[j] = allEvents[j], allEvents[i]
+			}
+		}
 	}
 
-	result := make([]EventEntry, limit)
-	copy(result, events[start:])
+	// Return most recent N events
+	if limit <= 0 || limit > len(allEvents) {
+		limit = len(allEvents)
+	}
 
-	return result
+	return allEvents[max(len(allEvents)-limit, 0):]
 }
 
 func (s *devStore) Clear() {
 	s.cache.Purge()
-	s.indexMu.Lock()
-	s.workflowIndex = make(map[string][]string)
-	s.workflowEvents = make(map[string][]EventEntry)
-	s.orphanEvents = make([]EventEntry, 0)
-	s.indexMu.Unlock()
+	s.orphanMu.Lock()
+	s.orphanCache.Purge()
+	s.orphanMu.Unlock()
 }
 
 func (s *devStore) Stats() map[string]interface{} {
-	s.indexMu.RLock()
-	workflowCount := len(s.workflowIndex)
-	workflowStats := make(map[string]int)
-	for wfID, execIDs := range s.workflowIndex {
-		workflowStats[wfID] = len(execIDs)
-	}
-	s.indexMu.RUnlock()
-
 	totalEvents := 0
-	totalExecutions := s.cache.Len()
+	workflowStats := make(map[string]int)
 
-	// Count all events across all executions
+	// Count all events across all workflows
 	keys := s.cache.Keys()
-	for _, execID := range keys {
-		if data, ok := s.cache.Peek(execID); ok {
+	for _, workflowID := range keys {
+		if data, ok := s.cache.Peek(workflowID); ok {
 			data.mu.RLock()
-			totalEvents += len(data.Events)
+			eventCount := data.eventsCache.Len()
+			workflowStats[workflowID] = eventCount
+			totalEvents += eventCount
 			data.mu.RUnlock()
 		}
 	}
 
-	s.indexMu.RLock()
-	orphanEventsCount := len(s.orphanEvents)
-	workflowEventsCount := 0
-	for _, events := range s.workflowEvents {
-		workflowEventsCount += len(events)
-	}
-	s.indexMu.RUnlock()
+	s.orphanMu.RLock()
+	orphanEventsCount := s.orphanCache.Len()
+	s.orphanMu.RUnlock()
 
 	return map[string]interface{}{
-		"total_executions": totalExecutions,
-		"total_workflows":  workflowCount,
-		"total_events":     totalEvents,
-		"workflow_events":  workflowEventsCount,
-		"orphan_events":    orphanEventsCount,
-		"workflow_stats":   workflowStats,
-		"capacity":         maxExecutions,
+		"total_workflows":         len(keys),
+		"total_events":            totalEvents,
+		"orphan_events":           orphanEventsCount,
+		"workflow_stats":          workflowStats,
+		"max_workflows":           maxWorkflows,
+		"max_events_per_workflow": maxEventsPerWorkflow,
+		"max_orphan_events":       maxOrphanEvents,
 	}
 }

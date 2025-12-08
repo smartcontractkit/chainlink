@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/contexts"
 	"github.com/smartcontractkit/chainlink-common/pkg/custmsg"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	"github.com/smartcontractkit/chainlink-common/pkg/settings/limits"
@@ -22,7 +23,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/workflowkey"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/artifacts"
-	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/devobservability"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/events"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/internal"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/metering"
@@ -276,7 +276,7 @@ func (h *eventHandler) Handle(ctx context.Context, event Event) error {
 		}
 
 		wfID := payload.WorkflowID.Hex()
-		ctx = devobservability.WithWorkflowID(ctx, wfID)
+		ctx = contexts.WithCRE(ctx, contexts.CRE{Workflow: wfID, Owner: hex.EncodeToString(payload.WorkflowOwner)})
 
 		cma := h.emitter.With(
 			platform.KeyWorkflowID, wfID,
@@ -303,7 +303,8 @@ func (h *eventHandler) Handle(ctx context.Context, event Event) error {
 
 		newWorkflowID := payload.NewWorkflowID.Hex()
 		oldWorkflowID := payload.OldWorkflowID.Hex()
-		ctx = devobservability.WithWorkflowID(ctx, newWorkflowID)
+		ctx = contexts.WithCRE(ctx, contexts.CRE{Workflow: newWorkflowID, Owner: hex.EncodeToString(payload.WorkflowOwner)})
+
 		cma := h.emitter.With(
 			platform.KeyWorkflowID, newWorkflowID,
 			platform.KeyWorkflowName, payload.WorkflowName,
@@ -328,7 +329,7 @@ func (h *eventHandler) Handle(ctx context.Context, event Event) error {
 		}
 
 		wfID := payload.WorkflowID.Hex()
-		ctx = devobservability.WithWorkflowID(ctx, wfID)
+		ctx = contexts.WithCRE(ctx, contexts.CRE{Workflow: wfID, Owner: hex.EncodeToString(payload.WorkflowOwner)})
 
 		cma := h.emitter.With(
 			platform.KeyWorkflowID, wfID,
@@ -355,7 +356,8 @@ func (h *eventHandler) Handle(ctx context.Context, event Event) error {
 
 		wfID := payload.WorkflowID.Hex()
 		wfOwner := hex.EncodeToString(payload.WorkflowOwner)
-		ctx = devobservability.WithWorkflowID(ctx, wfID)
+		ctx = contexts.WithCRE(ctx, contexts.CRE{Workflow: wfID, Owner: wfOwner})
+
 		cma := h.emitter.With(
 			platform.KeyWorkflowID, wfID,
 			platform.KeyWorkflowName, payload.WorkflowName,
@@ -380,7 +382,7 @@ func (h *eventHandler) Handle(ctx context.Context, event Event) error {
 
 		wfID := payload.WorkflowID.Hex()
 		wfOwner := hex.EncodeToString(payload.WorkflowOwner)
-		ctx = devobservability.WithWorkflowID(ctx, wfID)
+		ctx = contexts.WithCRE(ctx, contexts.CRE{Workflow: wfID, Owner: wfOwner})
 		cma := h.emitter.With(
 			platform.KeyWorkflowID, wfID,
 			platform.KeyWorkflowName, payload.WorkflowName,

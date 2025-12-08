@@ -27,7 +27,6 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/workflows/exec"
 	"github.com/smartcontractkit/chainlink-common/pkg/workflows/sdk"
 	"github.com/smartcontractkit/chainlink-protos/cre/go/values"
-	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/devobservability"
 
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/transmission"
 	"github.com/smartcontractkit/chainlink/v2/core/platform"
@@ -703,11 +702,6 @@ func (e *Engine) finishExecution(ctx context.Context, cma custmsg.MessageEmitter
 		e.logger.Errorf("failed to emit execution finished event: %+v", err)
 	}
 
-	// Update execution status for dev observability
-	workflowID, execID, hasCtx := devobservability.GetExecutionContext(ctx)
-	e.logger.Infof("[DevObservability] finishExecution context check: workflowID=%s, executionID=%s, hasContext=%v (expected executionID=%s)", workflowID, execID, hasCtx, executionID)
-	devobservability.GetStore().UpdateExecutionStatus(ctx, status)
-
 	e.onExecutionFinished(executionID)
 
 	return nil
@@ -720,9 +714,6 @@ func (e *Engine) worker(ctx context.Context) {
 	defer e.wg.Done()
 	ctx, cancel := e.stopCh.Ctx(ctx)
 	defer cancel()
-
-	// Add workflow ID to context for all operations in this worker
-	ctx = devobservability.WithWorkflowID(ctx, e.workflow.id)
 
 	for {
 		select {
@@ -752,9 +743,6 @@ func (e *Engine) worker(ctx context.Context) {
 				e.logger.With(platform.KeyTriggerID, te.ID).Errorf("could not generate execution ID: %v", err)
 				continue
 			}
-
-			// Add execution context for dev observability
-			ctx = devobservability.WithExecutionContext(ctx, e.workflow.id, executionID)
 
 			if err = e.ratelimiter.AllowErr(ctx); err != nil {
 				lggr := e.logger.With(platform.KeyWorkflowID, e.workflow.id, platform.KeyWorkflowOwner, e.workflow.owner, platform.KeyWorkflowExecutionID, executionID, "err", err)
@@ -793,9 +781,6 @@ func (e *Engine) worker(ctx context.Context) {
 }
 
 func (e *Engine) workerForStepRequest(ctx context.Context, msg stepRequest) {
-	// Add execution ID to context for dev observability
-	ctx = devobservability.WithExecutionID(ctx, msg.state.ExecutionID)
-
 	// Instantiate a child logger; in addition to the WorkflowID field the workflow
 	// logger will already have, this adds the `stepRef` and `executionID`
 	l := e.logger.With(platform.KeyStepRef, msg.stepRef, platform.KeyWorkflowExecutionID, msg.state.ExecutionID)

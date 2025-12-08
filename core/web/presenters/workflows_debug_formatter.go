@@ -15,109 +15,16 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/devobservability"
 )
 
-// WorkflowDebugEventsFormattedResource represents events with decoded protobuf messages
-type WorkflowDebugEventsFormattedResource struct {
-	JAID
-	WorkflowID  string                `json:"workflowId"`
-	ExecutionID string                `json:"executionId"`
-	Events      []FormattedEventEntry `json:"events"`
-}
-
-// FormattedEventEntry contains the event with decoded message
+// FormattedEventEntry represents an event with decoded protobuf message
 type FormattedEventEntry struct {
-	Type          string                 `json:"type"`
-	Timestamp     string                 `json:"timestamp"`
-	MessageBase64 string                 `json:"messageBase64,omitempty"`
-	MessageJSON   map[string]interface{} `json:"messageJson,omitempty"`
-	DecodeError   string                 `json:"decodeError,omitempty"`
+	Sequence    int64                  `json:"sequence"`
+	Type        string                 `json:"type"`
+	Timestamp   string                 `json:"timestamp"`
+	MessageJSON map[string]interface{} `json:"messageJson,omitempty"`
+	DecodeError string                 `json:"decodeError,omitempty"`
 }
 
-// NewWorkflowDebugEventsFormattedResource creates a formatted events resource with decoded protobufs
-func NewWorkflowDebugEventsFormattedResource(workflowID, executionID string, events []devobservability.EventEntry) *WorkflowDebugEventsFormattedResource {
-	formattedEvents := make([]FormattedEventEntry, len(events))
-
-	for i, evt := range events {
-		formatted := FormattedEventEntry{
-			Type:      evt.Type,
-			Timestamp: evt.Timestamp.Format("2006-01-02T15:04:05.000Z07:00"),
-			// Don't include base64 in decoded format - it's redundant
-		}
-
-		// Try to decode the protobuf message based on event type
-		var protoMsg proto.Message
-		switch evt.Type {
-		case "workflows.v1.WorkflowExecutionStarted":
-			protoMsg = &workflowevents.WorkflowExecutionStarted{}
-		case "workflows.v1.WorkflowExecutionFinished":
-			protoMsg = &workflowevents.WorkflowExecutionFinished{}
-		case "workflows.v1.CapabilityExecutionStarted":
-			protoMsg = &workflowevents.CapabilityExecutionStarted{}
-		case "workflows.v1.CapabilityExecutionFinished":
-			protoMsg = &workflowevents.CapabilityExecutionFinished{}
-		case "workflows.v1.MeteringReport":
-			protoMsg = &workflowevents.MeteringReport{}
-		case "workflows.v1.WorkflowStatusChanged":
-			protoMsg = &workflowevents.WorkflowStatusChanged{}
-		case "workflows.v1.UserLogs":
-			protoMsg = &workflowevents.UserLogs{}
-		case "BaseMessage":
-			protoMsg = &commonevents.BaseMessage{}
-		case "workflows.v2.WorkflowExecutionStarted":
-			protoMsg = &eventsv2.WorkflowExecutionStarted{}
-		case "workflows.v2.WorkflowExecutionFinished":
-			protoMsg = &eventsv2.WorkflowExecutionFinished{}
-		case "workflows.v2.CapabilityExecutionStarted":
-			protoMsg = &eventsv2.CapabilityExecutionStarted{}
-		case "workflows.v2.CapabilityExecutionFinished":
-			protoMsg = &eventsv2.CapabilityExecutionFinished{}
-		case "workflows.v2.TriggerExecutionStarted":
-			protoMsg = &eventsv2.TriggerExecutionStarted{}
-		case "workflows.v2.WorkflowUserLog":
-			protoMsg = &eventsv2.WorkflowUserLog{}
-		case "workflows.v2.WorkflowActivated":
-			protoMsg = &eventsv2.WorkflowActivated{}
-		case "workflows.v2.WorkflowPaused":
-			protoMsg = &eventsv2.WorkflowPaused{}
-		case "workflows.v2.WorkflowDeleted":
-			protoMsg = &eventsv2.WorkflowDeleted{}
-		}
-
-		if protoMsg != nil {
-			if err := proto.Unmarshal(evt.Message, protoMsg); err != nil {
-				formatted.DecodeError = fmt.Sprintf("Failed to unmarshal protobuf: %v", err)
-			} else {
-				// Convert protobuf to JSON
-				jsonBytes, err := protojson.Marshal(protoMsg)
-				if err != nil {
-					formatted.DecodeError = fmt.Sprintf("Failed to convert to JSON: %v", err)
-				} else {
-					var jsonObj map[string]interface{}
-					if err := json.Unmarshal(jsonBytes, &jsonObj); err != nil {
-						formatted.DecodeError = fmt.Sprintf("Failed to parse JSON: %v", err)
-					} else {
-						formatted.MessageJSON = jsonObj
-					}
-				}
-			}
-		}
-
-		formattedEvents[i] = formatted
-	}
-
-	return &WorkflowDebugEventsFormattedResource{
-		JAID:        NewJAID("workflow_events_formatted"),
-		WorkflowID:  workflowID,
-		ExecutionID: executionID,
-		Events:      formattedEvents,
-	}
-}
-
-// GetName implements the api2go EntityNamer interface
-func (r WorkflowDebugEventsFormattedResource) GetName() string {
-	return "workflow_events_formatted"
-}
-
-// WorkflowDebugOrphanEventsFormattedResource represents orphan events with decoded protobuf messages
+// WorkflowDebugOrphanEventsFormattedResource represents orphan events with decoded protobufs
 type WorkflowDebugOrphanEventsFormattedResource struct {
 	JAID
 	Events []FormattedEventEntry `json:"events"`
@@ -129,6 +36,7 @@ func NewWorkflowDebugOrphanEventsFormattedResource(events []devobservability.Eve
 
 	for i, evt := range events {
 		formatted := FormattedEventEntry{
+			Sequence:  evt.Sequence,
 			Type:      evt.Type,
 			Timestamp: evt.Timestamp.Format("2006-01-02T15:04:05.000Z07:00"),
 			// Don't include base64 in decoded format - it's redundant
@@ -219,6 +127,7 @@ func NewWorkflowDebugWorkflowEventsFormattedResource(workflowID string, events [
 
 	for i, evt := range events {
 		formatted := FormattedEventEntry{
+			Sequence:  evt.Sequence,
 			Type:      evt.Type,
 			Timestamp: evt.Timestamp.Format("2006-01-02T15:04:05.000Z07:00"),
 		}

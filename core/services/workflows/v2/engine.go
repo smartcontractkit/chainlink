@@ -25,7 +25,6 @@ import (
 	billing "github.com/smartcontractkit/chainlink-protos/billing/go"
 	sdkpb "github.com/smartcontractkit/chainlink-protos/cre/go/sdk"
 	protoevents "github.com/smartcontractkit/chainlink-protos/workflows/go/events"
-	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/devobservability"
 
 	"github.com/smartcontractkit/chainlink/v2/core/platform"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/events"
@@ -187,7 +186,6 @@ func (e *Engine) start(ctx context.Context) error {
 	e.cfg.Module.Start()
 	ctx = context.WithoutCancel(ctx)
 	ctx = contexts.WithCRE(ctx, contexts.CRE{Owner: e.cfg.WorkflowOwner, Workflow: e.cfg.WorkflowID}) // org added later
-	ctx = devobservability.WithWorkflowID(ctx, e.cfg.WorkflowID)
 	e.srvcEng.GoCtx(ctx, e.heartbeatLoop)
 	e.srvcEng.GoCtx(ctx, e.init)
 	e.srvcEng.GoCtx(ctx, e.handleAllTriggerEvents)
@@ -505,9 +503,6 @@ func (e *Engine) startExecution(ctx context.Context, wrappedTriggerEvent enqueue
 	creCtx.Org = organizationID
 	ctx = contexts.WithCRE(ctx, creCtx)
 
-	// Add execution context for dev observability
-	ctx = devobservability.WithExecutionContext(ctx, e.cfg.WorkflowID, executionID)
-
 	e.metrics.UpdateTotalWorkflowsGauge(ctx, executingWorkflows.Add(1))
 	defer e.metrics.UpdateTotalWorkflowsGauge(ctx, executingWorkflows.Add(-1))
 
@@ -626,7 +621,6 @@ func (e *Engine) startExecution(ctx context.Context, wrappedTriggerEvent enqueue
 
 		executionLogger.Errorw("Workflow execution failed with module execution error", "status", executionStatus, "durationMs", executionDuration.Milliseconds(), "err", execErr)
 		_ = events.EmitExecutionFinishedEvent(ctx, loggerLabels, executionStatus, executionID, e.logger())
-		devobservability.GetStore().UpdateExecutionStatus(ctx, executionStatus)
 		e.cfg.Hooks.OnExecutionFinished(executionID, executionStatus)
 		e.cfg.Hooks.OnExecutionError(execErr.Error())
 		return
@@ -642,7 +636,6 @@ func (e *Engine) startExecution(ctx context.Context, wrappedTriggerEvent enqueue
 		e.metrics.With("workflowID", e.cfg.WorkflowID, "workflowName", e.cfg.WorkflowName.String()).IncrementWorkflowExecutionFailedCounter(ctx)
 		executionLogger.Errorw("Workflow execution failed", "status", executionStatus, "durationMs", executionDuration.Milliseconds(), "error", result.GetError())
 		_ = events.EmitExecutionFinishedEvent(ctx, loggerLabels, executionStatus, executionID, e.logger())
-		devobservability.GetStore().UpdateExecutionStatus(ctx, executionStatus)
 		e.cfg.Hooks.OnExecutionFinished(executionID, executionStatus)
 		e.cfg.Hooks.OnExecutionError(result.GetError())
 		return
@@ -651,7 +644,6 @@ func (e *Engine) startExecution(ctx context.Context, wrappedTriggerEvent enqueue
 	executionStatus = store.StatusCompleted
 	executionLogger.Infow("Workflow execution finished successfully", "durationMs", executionDuration.Milliseconds())
 	_ = events.EmitExecutionFinishedEvent(ctx, loggerLabels, executionStatus, executionID, e.logger())
-	devobservability.GetStore().UpdateExecutionStatus(ctx, executionStatus)
 	e.metrics.UpdateWorkflowCompletedDurationHistogram(ctx, int64(executionDuration.Seconds()))
 	e.metrics.With("workflowID", e.cfg.WorkflowID, "workflowName", e.cfg.WorkflowName.String()).IncrementWorkflowExecutionSucceededCounter(ctx)
 	e.cfg.Hooks.OnResultReceived(result)
