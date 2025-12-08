@@ -429,21 +429,13 @@ func (e *Engine) runTriggerSubscriptionPhase(ctx context.Context) error {
 	registrationErr := g.Wait()
 	close(resultsCh)
 
-	// Collect results
+	// Collect results into e.triggers map
 	e.triggersRegMu.Lock()
 	defer e.triggersRegMu.Unlock()
 
 	eventChans := make([]<-chan capabilities.TriggerResponse, len(subs.Subscriptions))
 	triggerCapIDs := make([]string, len(subs.Subscriptions))
 
-	// If any registration failed, unregister successful ones and return error
-	if registrationErr != nil {
-		e.logger().Errorw("One or more trigger registrations failed - reverting all", "err", registrationErr)
-		e.unregisterAllTriggers(ctx) // needs to be called under e.triggersRegMu lock
-		return registrationErr
-	}
-
-	// collect successful registrations
 	for result := range resultsCh {
 		e.triggers[result.registrationID] = &triggerCapability{
 			TriggerCapability: result.triggerCap,
@@ -452,6 +444,13 @@ func (e *Engine) runTriggerSubscriptionPhase(ctx context.Context) error {
 		}
 		eventChans[result.index] = result.eventCh
 		triggerCapIDs[result.index] = result.triggerCapID
+	}
+
+	// If any registration failed, unregister successful ones and return error
+	if registrationErr != nil {
+		e.logger().Errorw("One or more trigger registrations failed - reverting all", "err", registrationErr)
+		e.unregisterAllTriggers(ctx) // needs to be called under e.triggersRegMu lock
+		return registrationErr
 	}
 
 	// start listening for trigger events only if all registrations succeeded
