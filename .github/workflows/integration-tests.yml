@@ -1,67 +1,127 @@
-# N/B: ci-core, which runs on PRs, will trigger linting for affected directories/modules
-# no need to run lint twice
+# .github/workflows/integration-tests.yml
 name: Integration Tests
-run-name: Integration Tests ${{ inputs.distinct_run_name && inputs.distinct_run_name || '' }}
+run-name: Integration Tests ${{ inputs.distinct_run_name || '' }}
+
 on:
   merge_group:
   pull_request:
     types: [opened, synchronize, reopened, labeled]
   push:
-    tags:
-      - "*"
     branches:
       - develop
+    tags:
+      - "*"
   workflow_dispatch:
     inputs:
       cl_ref:
-        description: "The ref to checkout, defaults to the calling branch"
+        description: "Chainlink repo ref to test against (branch/tag/SHA)"
         required: false
         type: string
       evm-ref:
-        description: "The sha of the chainlink-evm commit to use if wanted"
+        description: "chainlink-evm commit SHA to build and use"
         required: false
         type: string
       run_solana:
-        description: "Run solana tests"
-        required: false
-        type: string
-        default: "false"
+        description: "Run Solana integration tests"
+        type: boolean
+        default: false
       distinct_run_name:
-        description: "A unique identifier for this run, only use from other repos"
+        description: "Unique suffix for run name (used by external callers)"
         required: false
         type: string
       ecr_name:
-        description: "The name of the ECR repository to push the image to, defaults to 'chainlink'"
-        required: false
+        description: "ECR repository name for test image"
+        default: chainlink
         type: string
-        default: "chainlink"
 
-# Only run 1 of this workflow at a time per PR, but don't cancel runs on develop
 concurrency:
-  group: ${{ github.ref != 'refs/heads/develop' && format('{0}-{1}-{2}-e2e-tests-{3}', github.ref, github.repository, github.event_name, inputs.distinct_run_name) || github.sha }}
+  group: >-
+    ${{ 
+      github.ref != 'refs/heads/develop' &&
+      format('integration-tests-{0}-{1}', github.ref, inputs.distinct_run_name || github.run_id) ||
+      'integration-tests-develop'
+    }}
   cancel-in-progress: true
 
 env:
-  # for run-test variables and environment
-  ENV_JOB_IMAGE: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}.dkr.ecr.${{ secrets.QA_AWS_REGION }}.amazonaws.com/chainlink-tests:${{ inputs.evm-ref || github.sha }}
-  CHAINLINK_IMAGE: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}.dkr.ecr.${{ secrets.QA_AWS_REGION }}.amazonaws.com/${{ inputs.ecr_name || 'chainlink-integration-tests' }}
-  CHAINLINK_REF: ${{ inputs.cl_ref || github.sha }}
+  ENV_JOB_IMAGE: >-
+    ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}.dkr.ecr.${{ secrets.QA_AWS_REGION }}.amazonaws.com/chainlink-tests:${{ inputs.evm-ref || github.sha }}
+  CHAINLINK_IMAGE: >-
+    ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}.dkr.ecr.${{ secrets.QA_AWS_REGION }}.amazonaws.com/${{ inputs.ecr_name || 'chainlink-integration-tests' }}
+  CHAINLINK_REF: ${{ inputs.cl_ref || github.ref }}
   TEST_SUITE: smoke
-  MOD_CACHE_VERSION: 2
+  MOD_CACHE_VERSION: "2"
 
 jobs:
   enforce-ctf-version:
     name: Enforce CTF Version
     runs-on: ubuntu-latest
-    # We don't directly merge dependabot PRs, so let's not waste the resources
-    if: github.actor != 'dependabot[bot]'
+    if: github.actor != 'dependabot[bot]' && github.actor != 'dependabot-preview[bot]'
     steps:
-      - run: echo "${{github.event_name}}"
-      - name: Checkout the repo
+      - name: Checkout repository
         uses: actions/checkout@v4
         with:
-          persist-credentials: false
-          repository: smartcontractkit/chainlink
+          fetch-depth: 0
+
+      - name: Verify CTF version compatibility
+        run: |
+          # Example: Fail if CTF version in go.mod doesn't match expected range
+          CTF_VERSION=$(go list -m -f '{{.Version}}' github.com/smartcontractkit/chainlink-testing-framework)
+          echo "Detected CTF version: $CTF_VERSION"
+
+          # Adjust this check to your policy
+          if [[ ! "$CTF_VERSION" =~ ^v1\.(4[0-9]|[5-9][0-9]) ]]; then
+            echo "CTF version $CTF_VERSION is too old. Please upgrade to v1.40+"
+            exit 1
+          fi
+
+  integration-tests:
+    name: Integration Tests ${{ matrix.network || 'evm' }}
+    needs: enforce-ctf-version
+    runs-on: ubuntu-latest
+    timeout-minutes: 180
+
+    strategy:
+      fail-fast: false
+      matrix:
+        network: [evm]
+        include:
+          - network: solana
+            enabled: ${{ inputs.run_solana == 'true' || inputs.run_solana == true }}
+
+    # Only run Solana if explicitly enabled
+    if: matrix.enabled != false
+
+    steps:
+      - name: Checkout Chainlink
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.cl_ref || github.ref }}
+          fetch-depth: 0
+
+      - name: Login to AWS ECR
+        uses: aws-actions/amazon-ecr-login@v2
+        with:
+          aws-access-key-id: ${{ secrets.QA_AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.QA_AWS_SECRET_ACCESS_KEY }}
+          region: ${{ secrets.QA_AWS_REGION }}
+
+      - name: Pull / Build test environment image
+        run: |
+          if docker pull "$ENV_JOB_IMAGE" 2>/dev/null; then
+            echo "Using pre-built test image: $ENV_JOB_IMAGE"
+          else
+            echo "Image not found, building locally..."
+            make build-test-image EVM_REF=${{ inputs.evm-ref || github.sha }}
+          fi
+
+      - name: Run Integration Tests
+        env:
+          SELECTED_NETWORKS: ${{ matrix.network }}
+          CHAINLINK_IMAGE: ${{ env.CHAINLINK_IMAGE }}
+          CHAINLINK_COMMIT_SHA: ${{ inputs.cl_ref || github.sha }}
+        run: |
+          make test-integration          repository: smartcontractkit/chainlink
           ref: ${{ inputs.cl_ref }}
       - name: Check Merge Group Condition
         id: condition-check
