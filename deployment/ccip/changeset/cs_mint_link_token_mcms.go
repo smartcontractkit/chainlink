@@ -21,10 +21,9 @@ import (
 var MintLinkTokenMCMS = cldf.CreateChangeSet(MintLinkTokenMCMSLogic, MintLinkTokenMCMSPreconditions)
 
 type MintLinkTokenMCMSConfig struct {
-	Selector uint64 `json:"selector"`
-	ToAddress common.Address `json:"toAddress"`
-	Amount *big.Int `json:"amount"`
-	GrantMintRoleToTimelock bool `json:"grantMintRoleToTimelock"`
+	Selector   uint64                        `json:"selector"`
+	ToAddress  common.Address                `json:"toAddress"`
+	Amount     *big.Int                      `json:"amount"`
 	MCMSConfig *proposalutils.TimelockConfig `json:"mcmsConfig"`
 }
 
@@ -107,20 +106,16 @@ func MintLinkTokenMCMSLogic(e cldf.Environment, cfg MintLinkTokenMCMSConfig) (cl
 		return cldf.ChangesetOutput{}, fmt.Errorf("failed to check if timelock is minter: %w", err)
 	}
 
-	// If the timelock doesn't have the minter role and the user wants to grant it
+	// If the timelock doesn't have the minter role, grant it
 	if !isMinter {
-		if cfg.GrantMintRoleToTimelock {
-			e.Logger.Infow("Timelock does not have minter role, granting mint and burn roles",
-				"chain", cfg.Selector,
-				"timelock", timelockAddr.Hex(),
-			)
-			// Grant mint and burn roles to the timelock - creates a simulated transaction that will be included in the MCMS proposal
-			_, err = linkToken.GrantMintAndBurnRoles(opts, timelockAddr)
-			if err != nil {
-				return cldf.ChangesetOutput{}, fmt.Errorf("failed to prepare grant mint and burn roles transaction: %w", err)
-			}
-		} else {
-			return cldf.ChangesetOutput{}, fmt.Errorf("timelock %s does not have minter role on LinkToken. Set grantMintRoleToTimelock=true to grant it", timelockAddr.Hex())
+		e.Logger.Infow("Timelock does not have minter role, granting mint and burn roles",
+			"chain", cfg.Selector,
+			"timelock", timelockAddr.Hex(),
+		)
+		// Grant mint and burn roles to the timelock - creates a simulated transaction that will be included in the MCMS proposal
+		_, err = linkToken.GrantMintAndBurnRoles(opts, timelockAddr)
+		if err != nil {
+			return cldf.ChangesetOutput{}, fmt.Errorf("failed to prepare grant mint and burn roles transaction: %w", err)
 		}
 	}
 
@@ -134,6 +129,20 @@ func MintLinkTokenMCMSLogic(e cldf.Environment, cfg MintLinkTokenMCMSConfig) (cl
 	_, err = linkToken.Mint(opts, cfg.ToAddress, cfg.Amount)
 	if err != nil {
 		return cldf.ChangesetOutput{}, fmt.Errorf("failed to prepare mint transaction: %w", err)
+	}
+
+	// Always revoke mint/burn roles from timelock after minting
+	e.Logger.Infow("Adding revoke mint and burn roles to proposal",
+		"chain", cfg.Selector,
+		"timelock", timelockAddr.Hex(),
+	)
+	_, err = linkToken.RevokeMintRole(opts, timelockAddr)
+	if err != nil {
+		return cldf.ChangesetOutput{}, fmt.Errorf("failed to prepare revoke mint role transaction: %w", err)
+	}
+	_, err = linkToken.RevokeBurnRole(opts, timelockAddr)
+	if err != nil {
+		return cldf.ChangesetOutput{}, fmt.Errorf("failed to prepare revoke burn role transaction: %w", err)
 	}
 
 	// Enact returns the MCMS proposal in the ChangesetOutput
