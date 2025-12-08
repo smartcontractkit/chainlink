@@ -48,7 +48,7 @@ func deployCCIPSequence(b operations.Bundle, deps operation.AptosDeps, in Deploy
 	// Generate batch operations to deploy CCIP package
 	deployCCIPInput := operation.DeployCCIPInput{
 		MCMSAddress: in.MCMSAddress,
-		IsUpdate:    false,
+		IsUpgrade:   false,
 	}
 	deployCCIPReport, err := operations.ExecuteOperation(b, operation.DeployCCIPOp, deps, deployCCIPInput)
 	if err != nil {
