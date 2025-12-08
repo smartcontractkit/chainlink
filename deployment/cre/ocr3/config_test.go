@@ -14,8 +14,7 @@ import (
 	types3 "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 	"github.com/stretchr/testify/require"
 
-	cldf_evm "github.com/smartcontractkit/chainlink-deployments-framework/chain/evm"
-	focr "github.com/smartcontractkit/chainlink-deployments-framework/offchain/ocr"
+	"github.com/smartcontractkit/chainlink-deployments-framework/offchain/ocr"
 
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/common/view"
@@ -91,15 +90,7 @@ func Test_configureOCR3Request_generateOCR3Config(t *testing.T) {
 	var cfg OracleConfig
 	err := json.Unmarshal([]byte(ocr3Cfg), &cfg)
 	require.NoError(t, err)
-	r := ConfigureOCR3Request{
-		Cfg:   &cfg,
-		Nodes: nodes,
-		Chain: cldf_evm.Chain{
-			Selector: chain_selectors.ETHEREUM_TESTNET_SEPOLIA.Selector,
-		},
-		OcrSecrets: focr.XXXGenerateTestOCRSecrets(),
-	}
-	got, err := r.generateOCR3Config()
+	got, err := GenerateOCR3ConfigFromNodes(cfg, nodes, chain_selectors.ETHEREUM_TESTNET_SEPOLIA.Selector, ocr.XXXGenerateTestOCRSecrets(), nil)
 	require.NoError(t, err)
 	b, err := json.MarshalIndent(got, "", "  ")
 	require.NoError(t, err)
@@ -111,29 +102,13 @@ func Test_configureOCR3Request_generateOCR3Config(t *testing.T) {
 		for i := 1; i <= len(nodes); i++ {
 			cfg2.TransmissionSchedule = append(cfg2.TransmissionSchedule, i)
 		}
-		r := ConfigureOCR3Request{
-			Cfg:   &cfg2,
-			Nodes: nodes,
-			Chain: cldf_evm.Chain{
-				Selector: chain_selectors.ETHEREUM_TESTNET_SEPOLIA.Selector,
-			},
-			OcrSecrets: focr.XXXGenerateTestOCRSecrets(),
-		}
-		_, err := r.generateOCR3Config()
+		_, err := GenerateOCR3ConfigFromNodes(cfg2, nodes, chain_selectors.ETHEREUM_TESTNET_SEPOLIA.Selector, ocr.XXXGenerateTestOCRSecrets(), nil)
 		require.Error(t, err)
 	})
 	t.Run("transmitter schedule eqaul num nodes", func(t *testing.T) {
 		cfg2 := cfg
 		cfg2.TransmissionSchedule = []int{len(nodes) + 1}
-		r := ConfigureOCR3Request{
-			Cfg:   &cfg2,
-			Nodes: nodes,
-			Chain: cldf_evm.Chain{
-				Selector: chain_selectors.ETHEREUM_TESTNET_SEPOLIA.Selector,
-			},
-			OcrSecrets: focr.XXXGenerateTestOCRSecrets(),
-		}
-		_, err := r.generateOCR3Config()
+		_, err := GenerateOCR3ConfigFromNodes(cfg2, nodes, chain_selectors.ETHEREUM_TESTNET_SEPOLIA.Selector, ocr.XXXGenerateTestOCRSecrets(), nil)
 		require.Error(t, err)
 	})
 }

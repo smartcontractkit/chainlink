@@ -8,6 +8,8 @@ import (
 	"github.com/fbsobreira/gotron-sdk/pkg/address"
 	chainsel "github.com/smartcontractkit/chain-selectors"
 
+	capabilities_registry "github.com/smartcontractkit/chainlink-evm/gethwrappers/keystone/generated/capabilities_registry_1_1_0"
+
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	cldf_tron "github.com/smartcontractkit/chainlink-deployments-framework/chain/tron"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
@@ -31,6 +33,7 @@ type ConfigureForwarderRequest struct {
 	RegistryChainSel uint64
 	Chains           map[uint64]struct{}
 	TriggerOptions   *cldf_tron.TriggerOptions
+	Registry         *capabilities_registry.CapabilitiesRegistry
 }
 
 func (cs ConfigureForwarder) Apply(env cldf.Environment, req *ConfigureForwarderRequest) (cldf.ChangesetOutput, error) {
@@ -38,6 +41,7 @@ func (cs ConfigureForwarder) Apply(env cldf.Environment, req *ConfigureForwarder
 		NodeIDs:          req.WFNodeIDs,
 		Name:             req.WFDonName,
 		RegistryChainSel: req.RegistryChainSel,
+		Registry:         req.Registry,
 	})
 	if err != nil {
 		return cldf.ChangesetOutput{}, fmt.Errorf("failed to create registered don: %w", err)

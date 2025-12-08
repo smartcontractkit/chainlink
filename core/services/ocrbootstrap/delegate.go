@@ -98,7 +98,7 @@ func (d *Delegate) ServicesForSpec(ctx context.Context, jb job.Job) (services []
 		return nil, fmt.Errorf("ServicesForSpec: could not get relayer: %w", err)
 	}
 
-	relayer, err := d.RelayGetter.Get(rid)
+	relayer, err := d.Get(rid)
 	if err != nil {
 		return nil, fmt.Errorf("ServiceForSpec: failed to get relay %s is it enabled?: %w", rid.Name(), err)
 	}

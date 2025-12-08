@@ -26,7 +26,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/blockchains/evm"
 	libcrypto "github.com/smartcontractkit/chainlink/system-tests/lib/crypto"
-	http_negative_config "github.com/smartcontractkit/chainlink/system-tests/tests/regression/cre/http/config"
+	http_config "github.com/smartcontractkit/chainlink/system-tests/tests/regression/cre/http/config"
 	t_helpers "github.com/smartcontractkit/chainlink/system-tests/tests/test-helpers"
 	ttypes "github.com/smartcontractkit/chainlink/system-tests/tests/test-helpers/configuration"
 )
@@ -111,7 +111,7 @@ func HTTPTriggerFailsTest(t *testing.T, testEnv *ttypes.TestEnvironment, httpNeg
 		authorizedKeyToUse = publicKeyAddr.Hex()
 	}
 
-	workflowConfig := http_negative_config.Config{
+	workflowConfig := http_config.Config{
 		AuthorizedKey: authorizedKeyToUse,
 		URL:           fakeServer.BaseURLHost + "/orders-" + testID,
 		TestCase:      httpNegativeTest.testCase,
@@ -157,8 +157,8 @@ func executeHTTPTriggerRequestExpectingFailure(t *testing.T, testEnv *ttypes.Tes
 	testLogger := framework.L
 
 	// Get gateway configuration
-	require.NotEmpty(t, testEnv.CreEnvironment.DonTopology.GatewayConnectorOutput.Configurations, "expected at least one gateway configuration")
-	gatewayConfig := testEnv.CreEnvironment.DonTopology.GatewayConnectorOutput.Configurations[0]
+	require.NotEmpty(t, testEnv.Dons.GatewayConnectors.Configurations, "expected at least one gateway configuration")
+	gatewayConfig := testEnv.Dons.GatewayConnectors.Configurations[0]
 
 	// Build gateway URL
 	newGatewayURL := gatewayConfig.Incoming.Protocol + "://" + gatewayConfig.Incoming.Host + ":" + strconv.Itoa(gatewayConfig.Incoming.ExternalPort) + gatewayConfig.Incoming.Path
@@ -166,7 +166,7 @@ func executeHTTPTriggerRequestExpectingFailure(t *testing.T, testEnv *ttypes.Tes
 	require.NoError(t, err, "failed to parse gateway URL")
 
 	// Get workflow owner
-	workflowOwner := testEnv.Blockchains[0].(*evm.Blockchain).SethClient.MustGetRootPrivateKey()
+	workflowOwner := testEnv.CreEnvironment.Blockchains[0].(*evm.Blockchain).SethClient.MustGetRootPrivateKey()
 	workflowOwnerAddress := strings.ToLower(crypto.PubkeyToAddress(workflowOwner.PublicKey).Hex())
 
 	testLogger.Info().Msgf("Attempting HTTP trigger execution that should fail for workflow: %s", workflowName)

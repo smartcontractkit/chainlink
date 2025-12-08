@@ -79,6 +79,7 @@ type Event struct {
 	Name WorkflowRegistryEventName
 	Data any
 	Head Head
+	Info string // additional human-readable metadata
 }
 
 // NOTE: The following types differ from gethwrappers in that they are chain agnostic definitions (owners are represented as bytes / workflow IDs might be more than bytes32)

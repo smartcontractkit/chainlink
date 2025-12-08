@@ -74,7 +74,7 @@ func TestField_SmokeTestPick(t *testing.T) {
 	f := newFieldZero()
 	f.Pick(randomStream)
 	observedFieldElt(t, f)
-	assert.Equal(t, f.int().Cmp(big.NewInt(1000000000)), 1,
+	assert.Equal(t, 1, f.int().Cmp(big.NewInt(1000000000)),
 		"should be greater than 1000000000, with very high probability")
 }
 
@@ -131,8 +131,8 @@ func TestField_MaybeSquareRootInField(t *testing.T) {
 	for range numFieldSamples {
 		f.Pick(randomStream)
 		observedFieldElt(t, f)
-		require.Equal(t, f.int().Cmp(q), -1, "picked larger value than q: %s", f)
-		require.NotEqual(t, f.int().Cmp(big.NewInt(-1)), -1,
+		require.Equal(t, -1, f.int().Cmp(q), "picked larger value than q: %s", f)
+		require.NotEqual(t, -1, f.int().Cmp(big.NewInt(-1)),
 			"backing int must be non-negative")
 		s := fieldSquare(f)
 		g := maybeSqrtInField(s)

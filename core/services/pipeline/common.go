@@ -29,8 +29,11 @@ const (
 	BlockHeaderFeederJobType       string = "blockheaderfeeder"
 	BlockhashStoreJobType          string = "blockhashstore"
 	BootstrapJobType               string = "bootstrap"
+	CRESettings                    string = "cresettings"
 	CronJobType                    string = "cron"
 	CCIPJobType                    string = "ccip"
+	CCVCommitteeVerifierJobType    string = "ccvcommitteeverifier"
+	CCVExecutorJobType             string = "ccvexecutor"
 	DirectRequestJobType           string = "directrequest"
 	FluxMonitorJobType             string = "fluxmonitor"
 	GatewayJobType                 string = "gateway"
@@ -329,9 +332,11 @@ const (
 	TaskTypeLessThan         TaskType = "lessthan"
 	TaskTypeLookup           TaskType = "lookup"
 	TaskTypeLowercase        TaskType = "lowercase"
+	TaskTypeMax              TaskType = "max"
 	TaskTypeMean             TaskType = "mean"
 	TaskTypeMedian           TaskType = "median"
 	TaskTypeMerge            TaskType = "merge"
+	TaskTypeMin              TaskType = "min"
 	TaskTypeMode             TaskType = "mode"
 	TaskTypeMultiply         TaskType = "multiply"
 	TaskTypeSum              TaskType = "sum"
@@ -373,10 +378,14 @@ func UnmarshalTaskFromMap(taskType TaskType, taskMap any, ID int, dotID string) 
 		task = &HTTPTask{BaseTask: BaseTask{id: ID, dotID: dotID}}
 	case TaskTypeBridge:
 		task = &BridgeTask{BaseTask: BaseTask{id: ID, dotID: dotID}}
+	case TaskTypeMax:
+		task = &MaxTask{BaseTask: BaseTask{id: ID, dotID: dotID}}
 	case TaskTypeMean:
 		task = &MeanTask{BaseTask: BaseTask{id: ID, dotID: dotID}}
 	case TaskTypeMedian:
 		task = &MedianTask{BaseTask: BaseTask{id: ID, dotID: dotID}}
+	case TaskTypeMin:
+		task = &MinTask{BaseTask: BaseTask{id: ID, dotID: dotID}}
 	case TaskTypeMode:
 		task = &ModeTask{BaseTask: BaseTask{id: ID, dotID: dotID}}
 	case TaskTypeSum:

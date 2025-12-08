@@ -69,10 +69,10 @@ func TestCREConfigWithFileURL(t *testing.T) {
 
 func TestEmptyCREConfig(t *testing.T) {
 	cfg := creConfig{s: toml.CreSecrets{}, c: toml.CreConfig{}}
-	assert.Equal(t, "", cfg.StreamsAPIKey())
-	assert.Equal(t, "", cfg.StreamsAPISecret())
-	assert.Equal(t, "", cfg.WsURL())
-	assert.Equal(t, "", cfg.RestURL())
+	assert.Empty(t, cfg.StreamsAPIKey())
+	assert.Empty(t, cfg.StreamsAPISecret())
+	assert.Empty(t, cfg.WsURL())
+	assert.Empty(t, cfg.RestURL())
 
 	// Test empty WorkflowFetcher
 	fetcher := cfg.WorkflowFetcher()

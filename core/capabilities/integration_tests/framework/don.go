@@ -212,11 +212,11 @@ func (d *DON) Initialise() {
 	id := d.capabilitiesRegistry.setupDON(d.config, d.publishedCapabilities)
 
 	//nolint:gosec // disable G115
-	d.config.DON.ID = uint32(id)
-	d.id = &d.config.DON.ID
+	d.config.ID = uint32(id)
+	d.id = &d.config.ID
 
 	if d.config.AcceptsWorkflows && d.workflowRegistry != nil {
-		d.workflowRegistry.UpdateAllowedDons([]uint32{d.config.DON.ID})
+		d.workflowRegistry.UpdateAllowedDons([]uint32{d.config.ID})
 		d.nodeConfigModifiers = append(d.nodeConfigModifiers, func(c *chainlink.Config, node *capabilityNode) {
 			workflowRegistryAddressStr := d.workflowRegistry.addr.String()
 			c.Capabilities.WorkflowRegistry.Address = &workflowRegistryAddressStr
@@ -227,7 +227,7 @@ func (d *DON) Initialise() {
 }
 
 func (d *DON) GetID() uint32 {
-	if d.config.DON.ID == 0 {
+	if d.config.ID == 0 {
 		panic("DON ID not set, call Initialise() first")
 	}
 
@@ -571,8 +571,8 @@ func (d *DON) AddEthereumWriteTargetNonStandardCapability(forwarderAddr common.A
 func (d *DON) addEthereumWriteTarget(forwarderAddr common.Address, published bool) (string, string, error) {
 	d.nodeConfigModifiers = append(d.nodeConfigModifiers, func(c *chainlink.Config, node *capabilityNode) {
 		eip55Address := types.EIP55AddressFromAddress(forwarderAddr)
-		c.EVM[0].Chain.Workflow.ForwarderAddress = &eip55Address
-		c.EVM[0].Chain.Workflow.FromAddress = &node.key.EIP55Address
+		c.EVM[0].Workflow.ForwarderAddress = &eip55Address
+		c.EVM[0].Workflow.FromAddress = &node.key.EIP55Address
 	})
 
 	labelledName := "write_geth-testnet"

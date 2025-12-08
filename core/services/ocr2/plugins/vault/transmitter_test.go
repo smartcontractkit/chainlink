@@ -77,16 +77,17 @@ func TestTransmitter(t *testing.T) {
 			F: 1,
 		},
 		store: store,
-		cfg: &ReportingPluginConfig{
-			BatchSize:                         10,
-			PublicKey:                         nil,
-			PrivateKeyShare:                   nil,
-			MaxSecretsPerOwner:                1,
-			MaxCiphertextLengthBytes:          1024,
-			MaxIdentifierOwnerLengthBytes:     100,
-			MaxIdentifierNamespaceLengthBytes: 100,
-			MaxIdentifierKeyLengthBytes:       100,
-		},
+		cfg: makeReportingPluginConfig(
+			t,
+			10,
+			nil,
+			nil,
+			1,
+			1024,
+			100,
+			100,
+			100,
+		),
 	}
 
 	seqNr := uint64(1)

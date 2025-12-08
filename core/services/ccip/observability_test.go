@@ -41,7 +41,7 @@ func Test_MetricsAreTrackedForAllMethods(t *testing.T) {
 
 	tokens, err := ccipORM.GetTokenPricesByDestChain(ctx, 100)
 	require.NoError(t, err)
-	assert.Equal(t, len(tokenPrices), len(tokens))
+	assert.Len(t, tokens, len(tokenPrices))
 	assert.Equal(t, len(tokenPrices), counterFromGaugeByLabels(ccipORM.datasetSize, "GetTokenPricesByDestChain", "100"))
 	assert.Equal(t, 1, counterFromHistogramByLabels(t, ccipORM.queryDuration, "GetTokenPricesByDestChain", "100"))
 
@@ -67,7 +67,7 @@ func Test_MetricsAreTrackedForAllMethods(t *testing.T) {
 
 	gas, err := ccipORM.GetGasPricesByDestChain(ctx, 100)
 	require.NoError(t, err)
-	assert.Equal(t, len(gasPrices), len(gas))
+	assert.Len(t, gas, len(gasPrices))
 	assert.Equal(t, len(gasPrices), counterFromGaugeByLabels(ccipORM.datasetSize, "GetGasPricesByDestChain", "100"))
 	assert.Equal(t, 1, counterFromHistogramByLabels(t, ccipORM.queryDuration, "GetGasPricesByDestChain", "100"))
 }

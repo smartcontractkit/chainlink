@@ -14,7 +14,6 @@ import (
 
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_5_0/token_admin_registry"
 
-	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/latest/factory_burn_mint_erc20"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/latest/maybe_revert_message_receiver"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/latest/mock_lbtc_token_pool"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/latest/mock_usdc_token_messenger"
@@ -31,6 +30,7 @@ import (
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_5_1/token_pool_factory"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_5_1/usdc_token_pool"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_0/registry_module_owner_custom"
+	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_2/factory_burn_mint_erc20"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/shared/generated/initial/burn_mint_erc677"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/shared/generated/initial/multicall3"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/shared/generated/initial/weth9"
@@ -47,9 +47,7 @@ import (
 	opsutil "github.com/smartcontractkit/chainlink/deployment/common/opsutils"
 )
 
-var (
-	_ cldf.ChangeSet[DeployPrerequisiteConfig] = DeployPrerequisitesChangeset
-)
+var _ cldf.ChangeSet[DeployPrerequisiteConfig] = DeployPrerequisitesChangeset
 
 // DeployPrerequisitesChangeset deploys the pre-requisite contracts for CCIP
 // pre-requisite contracts are the contracts which can be reused from previous versions of CCIP
@@ -64,12 +62,26 @@ func DeployPrerequisitesChangeset(env cldf.Environment, cfg DeployPrerequisiteCo
 	err = deployPrerequisiteChainContracts(env, ab, cfg)
 	if err != nil {
 		env.Logger.Errorw("Failed to deploy prerequisite contracts", "err", err, "addressBook", ab)
+
+		ds, err := shared.PopulateDataStore(ab)
+		if err != nil {
+			return cldf.ChangesetOutput{}, fmt.Errorf("failed to populate in-memory DataStore: %w", err)
+		}
+
 		return cldf.ChangesetOutput{
 			AddressBook: ab,
+			DataStore:   ds,
 		}, fmt.Errorf("failed to deploy prerequisite contracts: %w", err)
 	}
+
+	ds, err := shared.PopulateDataStore(ab)
+	if err != nil {
+		return cldf.ChangesetOutput{}, fmt.Errorf("failed to populate in-memory DataStore: %w", err)
+	}
+
 	return cldf.ChangesetOutput{
 		AddressBook: ab,
+		DataStore:   ds,
 	}, nil
 }
 
@@ -589,9 +601,8 @@ func deployPrerequisiteContracts(e cldf.Environment, ab cldf.AddressBook, state 
 			tokenPoolFactoryAddr = tokenPoolFactory.Address()
 		}
 
-		factoryBurnMintERC20, burnMintTokenPool, burnFromMintTokenPool, burnWithFromMintTokenPool, lockReleaseTokenPool, err =
-			deployTokenPools(e.Logger, chain, ab, rmnProxy.Address(), r.Address(),
-				factoryBurnMintERC20, burnMintTokenPool, burnFromMintTokenPool, burnWithFromMintTokenPool, lockReleaseTokenPool)
+		factoryBurnMintERC20, burnMintTokenPool, burnFromMintTokenPool, burnWithFromMintTokenPool, lockReleaseTokenPool, err = deployTokenPools(e.Logger, chain, ab, rmnProxy.Address(), r.Address(),
+			factoryBurnMintERC20, burnMintTokenPool, burnFromMintTokenPool, burnWithFromMintTokenPool, lockReleaseTokenPool)
 		if err != nil {
 			return err
 		}
@@ -789,7 +800,7 @@ func deployTokenPools(
 						chain.Client,
 						string(shared.FactoryBurnMintERC20Symbol),
 						string(shared.FactoryBurnMintERC20Symbol),
-						uint8(18),
+						18,
 						big.NewInt(0),
 						big.NewInt(0),
 						chain.DeployerKey.From,
@@ -807,7 +818,7 @@ func deployTokenPools(
 					)
 				}
 				return cldf.ContractDeploy[*factory_burn_mint_erc20.FactoryBurnMintERC20]{
-					Address: factoryBurnMintERC20Addr, Contract: contract, Tx: tx2, Tv: cldf.NewTypeAndVersion(shared.FactoryBurnMintERC20Token, deployment.Version1_0_0), Err: err2,
+					Address: factoryBurnMintERC20Addr, Contract: contract, Tx: tx2, Tv: cldf.NewTypeAndVersion(shared.FactoryBurnMintERC20Token, deployment.Version1_6_2), Err: err2,
 				}
 			},
 		)

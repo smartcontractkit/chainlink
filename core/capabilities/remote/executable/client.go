@@ -70,7 +70,7 @@ func NewClient(capabilityID string, capMethodName string, dispatcher types.Dispa
 		capabilityID:             capabilityID,
 		capMethodName:            capMethodName,
 		dispatcher:               dispatcher,
-		lggr:                     logger.Named(lggr, "ExecutableCapabilityClient"),
+		lggr:                     logger.With(logger.Named(lggr, "ExecutableCapabilityClient"), "capabilityID", capabilityID, "capMethodName", capMethodName),
 		requestIDToCallerRequest: make(map[string]*request.ClientRequest),
 		stopCh:                   make(services.StopChan),
 	}
@@ -81,6 +81,9 @@ func NewClient(capabilityID string, capMethodName string, dispatcher types.Dispa
 func (c *client) SetConfig(remoteCapabilityInfo commoncap.CapabilityInfo, localDonInfo commoncap.DON, requestTimeout time.Duration, transmissionConfig *transmission.TransmissionConfig) error {
 	if remoteCapabilityInfo.ID == "" || remoteCapabilityInfo.ID != c.capabilityID {
 		return fmt.Errorf("capability info provided does not match the client's capabilityID: %s != %s", remoteCapabilityInfo.ID, c.capabilityID)
+	}
+	if remoteCapabilityInfo.DON == nil {
+		return errors.New("remote capability info missing DON")
 	}
 	if len(localDonInfo.Members) == 0 {
 		return errors.New("empty localDonInfo provided")
@@ -96,6 +99,7 @@ func (c *client) SetConfig(remoteCapabilityInfo commoncap.CapabilityInfo, localD
 		requestTimeout:       requestTimeout,
 		transmissionConfig:   transmissionConfig,
 	})
+	c.lggr.Infow("SetConfig", "remoteDONName", remoteCapabilityInfo.DON.Name, "remoteDONID", remoteCapabilityInfo.DON.ID, "requestTimeout", requestTimeout, "transmissionConfig", transmissionConfig)
 	return nil
 }
 
@@ -131,7 +135,7 @@ func (c *client) Start(ctx context.Context) error {
 			c.checkDispatcherReady()
 		}()
 
-		c.lggr.Info("ExecutableCapability Client started")
+		c.lggr.Info("ExecutableCapabilityClient started")
 		return nil
 	})
 }
@@ -141,7 +145,7 @@ func (c *client) Close() error {
 		close(c.stopCh)
 		c.cancelAllRequests(errors.New("client closed"))
 		c.wg.Wait()
-		c.lggr.Info("ExecutableCapability closed")
+		c.lggr.Info("ExecutableCapabilityClient closed")
 		return nil
 	})
 }
@@ -234,9 +238,10 @@ func (c *client) Execute(ctx context.Context, capReq commoncap.CapabilityRequest
 	if err != nil {
 		return commoncap.CapabilityResponse{}, fmt.Errorf("failed to create client request: %w", err)
 	}
+	c.lggr.Debugw("created new client request", "requestID", req.ID())
 
-	if err = c.sendRequest(req); err != nil {
-		return commoncap.CapabilityResponse{}, fmt.Errorf("failed to send request: %w", err)
+	if err = c.storeRequest(req); err != nil {
+		return commoncap.CapabilityResponse{}, fmt.Errorf("failed to store request: %w", err)
 	}
 
 	var respResult []byte
@@ -266,16 +271,12 @@ func (c *client) Execute(ctx context.Context, capReq commoncap.CapabilityRequest
 	return capabilityResponse, nil
 }
 
-func (c *client) sendRequest(req *request.ClientRequest) error {
+func (c *client) storeRequest(req *request.ClientRequest) error {
 	c.mutex.Lock()
 	defer c.mutex.Unlock()
-
-	c.lggr.Debugw("executing remote execute capability", "requestID", req.ID())
-
 	if _, ok := c.requestIDToCallerRequest[req.ID()]; ok {
 		return fmt.Errorf("request for ID %s already exists", req.ID())
 	}
-
 	c.requestIDToCallerRequest[req.ID()] = req
 	return nil
 }

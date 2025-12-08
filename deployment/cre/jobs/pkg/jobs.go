@@ -2,6 +2,7 @@ package pkg
 
 import (
 	"context"
+	"errors"
 	"fmt"
 
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
@@ -11,8 +12,8 @@ import (
 )
 
 type ProposeJobRequest struct {
-	Spec      string // toml
 	DONName   string
+	Spec      string // toml
 	Env       string // staging, testnet, mainnet, etc...
 	JobLabels map[string]string
 	DONFilter *nodeapiv1.ListNodesRequest_Filter
@@ -23,6 +24,9 @@ func ProposeJob(ctx context.Context, e cldf.Environment, req ProposeJobRequest) 
 	nodes, err := offchain.FetchNodesFromJD(ctx, e.Offchain, req.DONFilter)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get don nodes: %w", err)
+	}
+	if len(nodes) == 0 {
+		return nil, fmt.Errorf("no nodes found for DON `%s` with filters %+v", req.DONName, req.DONFilter)
 	}
 
 	jobSpecs := map[string][]string{}
@@ -44,6 +48,9 @@ func ProposeJob(ctx context.Context, e cldf.Environment, req ProposeJobRequest) 
 		}
 
 		jobSpecs[node.Id] = append(jobSpecs[node.Id], offchainReq.Job)
+	}
+	if len(jobSpecs) == 0 {
+		return nil, errors.New("no jobs were proposed")
 	}
 
 	return jobSpecs, nil

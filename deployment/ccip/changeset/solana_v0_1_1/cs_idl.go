@@ -9,8 +9,6 @@ import (
 	"path/filepath"
 	"strings"
 
-	solanastateview "github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview/solana"
-
 	"github.com/gagliardetto/solana-go"
 	"github.com/pelletier/go-toml"
 	chainsel "github.com/smartcontractkit/chain-selectors"
@@ -19,13 +17,13 @@ import (
 	cldfsolana "github.com/smartcontractkit/chainlink-deployments-framework/chain/solana"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 
-	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
+	solanastateview "github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview/solana"
 	commonstate "github.com/smartcontractkit/chainlink/deployment/common/changeset/state"
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 	"github.com/smartcontractkit/chainlink/deployment/common/types"
-	"github.com/smartcontractkit/chainlink/deployment/environment/memory"
+	"github.com/smartcontractkit/chainlink/deployment/utils/solutils"
 )
 
 // use this changeset to upload the IDL for a program
@@ -60,6 +58,7 @@ type IDLConfig struct {
 	LockReleaseTokenPoolMetadata []string                      // metadata for the lock release token pool (keyed my client identifier (metadata))
 	MCMS                         *proposalutils.TimelockConfig // timelock config for mcms
 	CCTPTokenPool                bool
+	IdlSpace                     uint64
 }
 
 func (c IDLConfig) Validate(e cldf.Environment) error {
@@ -143,45 +142,45 @@ func SetAuthorityIDL(e cldf.Environment, c IDLConfig) (cldf.ChangesetOutput, err
 
 	// set idl authority
 	if c.Router {
-		err = SetAuthorityIDLByCLI(e, timelockSignerPDA.String(), chain.ProgramsPath, chainState.Router.String(), deployment.RouterProgramName, "")
+		err = SetAuthorityIDLByCLI(e, timelockSignerPDA.String(), chain.ProgramsPath, chainState.Router.String(), solutils.ProgCCIPRouter, "")
 		if err != nil {
 			return cldf.ChangesetOutput{}, err
 		}
 	}
 	if c.FeeQuoter {
-		err = SetAuthorityIDLByCLI(e, timelockSignerPDA.String(), chain.ProgramsPath, chainState.FeeQuoter.String(), deployment.FeeQuoterProgramName, "")
+		err = SetAuthorityIDLByCLI(e, timelockSignerPDA.String(), chain.ProgramsPath, chainState.FeeQuoter.String(), solutils.ProgFeeQuoter, "")
 		if err != nil {
 			return cldf.ChangesetOutput{}, err
 		}
 	}
 	if c.OffRamp {
-		err = SetAuthorityIDLByCLI(e, timelockSignerPDA.String(), chain.ProgramsPath, chainState.OffRamp.String(), deployment.OffRampProgramName, "")
+		err = SetAuthorityIDLByCLI(e, timelockSignerPDA.String(), chain.ProgramsPath, chainState.OffRamp.String(), solutils.ProgCCIPOfframp, "")
 		if err != nil {
 			return cldf.ChangesetOutput{}, err
 		}
 	}
 	if c.RMNRemote {
-		err = SetAuthorityIDLByCLI(e, timelockSignerPDA.String(), chain.ProgramsPath, chainState.RMNRemote.String(), deployment.RMNRemoteProgramName, "")
+		err = SetAuthorityIDLByCLI(e, timelockSignerPDA.String(), chain.ProgramsPath, chainState.RMNRemote.String(), solutils.ProgRMNRemote, "")
 		if err != nil {
 			return cldf.ChangesetOutput{}, err
 		}
 	}
 	for _, bnmMetadata := range c.BurnMintTokenPoolMetadata {
 		tokenPool := chainState.GetActiveTokenPool(shared.BurnMintTokenPool, bnmMetadata)
-		err = SetAuthorityIDLByCLI(e, timelockSignerPDA.String(), chain.ProgramsPath, tokenPool.String(), deployment.BurnMintTokenPoolProgramName, "")
+		err = SetAuthorityIDLByCLI(e, timelockSignerPDA.String(), chain.ProgramsPath, tokenPool.String(), solutils.ProgBurnMintTokenPool, "")
 		if err != nil {
 			return cldf.ChangesetOutput{}, err
 		}
 	}
 	for _, lrMetadata := range c.LockReleaseTokenPoolMetadata {
 		tokenPool := chainState.GetActiveTokenPool(shared.LockReleaseTokenPool, lrMetadata)
-		err = SetAuthorityIDLByCLI(e, timelockSignerPDA.String(), chain.ProgramsPath, tokenPool.String(), deployment.LockReleaseTokenPoolProgramName, "")
+		err = SetAuthorityIDLByCLI(e, timelockSignerPDA.String(), chain.ProgramsPath, tokenPool.String(), solutils.ProgLockReleaseTokenPool, "")
 		if err != nil {
 			return cldf.ChangesetOutput{}, err
 		}
 	}
 	if c.CCTPTokenPool {
-		err = SetAuthorityIDLByCLI(e, timelockSignerPDA.String(), chain.ProgramsPath, chainState.CCTPTokenPool.String(), deployment.CCTPTokenPoolProgramName, "")
+		err = SetAuthorityIDLByCLI(e, timelockSignerPDA.String(), chain.ProgramsPath, chainState.CCTPTokenPool.String(), solutils.ProgCCTPTokenPool, "")
 		if err != nil {
 			return cldf.ChangesetOutput{}, err
 		}
@@ -197,13 +196,13 @@ func SetAuthorityIDL(e cldf.Environment, c IDLConfig) (cldf.ChangesetOutput, err
 	}
 
 	if c.AccessController {
-		err = SetAuthorityIDLByCLI(e, timelockSignerPDA.String(), chain.ProgramsPath, mcmState.AccessControllerProgram.String(), types.AccessControllerProgram.String(), "")
+		err = SetAuthorityIDLByCLI(e, timelockSignerPDA.String(), chain.ProgramsPath, mcmState.AccessControllerProgram.String(), solutils.ProgAccessController, "")
 		if err != nil {
 			return cldf.ChangesetOutput{}, err
 		}
 	}
 	if c.Timelock {
-		err = SetAuthorityIDLByCLI(e, timelockSignerPDA.String(), chain.ProgramsPath, mcmState.TimelockProgram.String(), types.RBACTimelockProgram.String(), "")
+		err = SetAuthorityIDLByCLI(e, timelockSignerPDA.String(), chain.ProgramsPath, mcmState.TimelockProgram.String(), solutils.ProgTimelock, "")
 		if err != nil {
 			return cldf.ChangesetOutput{}, err
 		}
@@ -262,7 +261,7 @@ func WriteAnchorToml(e cldf.Environment, filename, anchorVersion, cluster, walle
 // resolve artifacts based on sha and write anchor.toml file to simulate anchor workspace
 func RepoSetup(e cldf.Environment, chain cldfsolana.Chain, gitCommitSha string) error {
 	e.Logger.Debug("Downloading Solana CCIP program artifacts...")
-	err := memory.DownloadSolanaCCIPProgramArtifacts(e.GetContext(), chain.ProgramsPath, e.Logger, gitCommitSha)
+	err := solutils.DownloadChainlinkCCIPProgramArtifacts(e.GetContext(), chain.ProgramsPath, gitCommitSha, e.Logger)
 	if err != nil {
 		return fmt.Errorf("error downloading solana ccip program artifacts: %w", err)
 	}
@@ -413,7 +412,7 @@ func SetAuthorityIDLByCLI(e cldf.Environment, newAuthority, programsPath, progra
 // Discriminator to invoke IDL operations
 const IdlIxTag uint64 = 0x0a69e9a778bcf440
 
-const DefaultIDLMaxSize = 512 * 1024 // 512 KB
+const DefaultIDLMaxSize = 10000 // This is using the max value of creating an IDL account https://github.com/solana-foundation/anchor/blob/2a050757609a3c59bd77084a259f5ea64fcebfa6/lang/syn/src/codegen/program/idl.rs#L150
 
 // Number ids of the operations: copied from https://github.com/solana-foundation/anchor/blob/v0.29.0/lang/src/idl.rs#L36
 const (
@@ -550,28 +549,28 @@ func CloseIDLs(e cldf.Environment, c IDLConfig) (cldf.ChangesetOutput, error) {
 func getAffectedPrograms(e cldf.Environment, c IDLConfig, chainState solanastateview.CCIPChainState, chain cldfsolana.Chain) (map[solana.PublicKey]string, error) {
 	programs := make(map[solana.PublicKey]string)
 	if c.Router {
-		programs[chainState.Router] = deployment.RouterProgramName
+		programs[chainState.Router] = solutils.ProgCCIPRouter
 	}
 	if c.FeeQuoter {
-		programs[chainState.FeeQuoter] = deployment.FeeQuoterProgramName
+		programs[chainState.FeeQuoter] = solutils.ProgFeeQuoter
 	}
 	if c.OffRamp {
-		programs[chainState.OffRamp] = deployment.OffRampProgramName
+		programs[chainState.OffRamp] = solutils.ProgCCIPOfframp
 	}
 	if c.RMNRemote {
-		programs[chainState.RMNRemote] = deployment.RMNRemoteProgramName
+		programs[chainState.RMNRemote] = solutils.ProgRMNRemote
 	}
 	for _, bnmMetadata := range c.BurnMintTokenPoolMetadata {
 		tokenPool := chainState.GetActiveTokenPool(shared.BurnMintTokenPool, bnmMetadata)
-		programs[tokenPool] = deployment.BurnMintTokenPoolProgramName
+		programs[tokenPool] = solutils.ProgBurnMintTokenPool
 	}
 	for _, lrMetadata := range c.LockReleaseTokenPoolMetadata {
 		tokenPool := chainState.GetActiveTokenPool(shared.LockReleaseTokenPool, lrMetadata)
-		programs[tokenPool] = deployment.LockReleaseTokenPoolProgramName
+		programs[tokenPool] = solutils.ProgLockReleaseTokenPool
 	}
 	if c.CCTPTokenPool {
 		tokenPool := chainState.GetActiveTokenPool(shared.CCTPTokenPool, shared.CLLMetadata)
-		programs[tokenPool] = deployment.CCTPTokenPoolProgramName
+		programs[tokenPool] = solutils.ProgCCTPTokenPool
 	}
 	addresses, err := e.ExistingAddresses.AddressesForChain(chain.Selector)
 	if err != nil {
@@ -582,13 +581,13 @@ func getAffectedPrograms(e cldf.Environment, c IDLConfig, chainState solanastate
 		return nil, fmt.Errorf("failed to load MCMS with timelock chain state: %w", err)
 	}
 	if c.AccessController {
-		programs[mcmState.AccessControllerProgram] = deployment.AccessControllerProgramName
+		programs[mcmState.AccessControllerProgram] = solutils.ProgAccessController
 	}
 	if c.Timelock {
-		programs[mcmState.TimelockProgram] = deployment.TimelockProgramName
+		programs[mcmState.TimelockProgram] = solutils.ProgTimelock
 	}
 	if c.MCM {
-		programs[mcmState.McmProgram] = deployment.McmProgramName
+		programs[mcmState.McmProgram] = solutils.ProgMCM
 	}
 	return programs, nil
 }
@@ -642,13 +641,13 @@ func setBufferIdlInstruction(e cldf.Environment, programID, buffer, authority so
 	return buildIdlInstruction(programID, accounts, IdlInstructionSetBuffer, []byte{})
 }
 
-func createIdlInstruction(e cldf.Environment, programID, authority solana.PublicKey) (solana.GenericInstruction, error) {
+func createIdlInstruction(e cldf.Environment, programID, authority solana.PublicKey, dataLen uint64) (solana.GenericInstruction, error) {
 	accounts, instruction, err := getAccountsFoCreateIdlInstruction(e, programID, authority)
 	if err != nil {
 		return instruction, err
 	}
 
-	params := idlCreateParams(uint64(DefaultIDLMaxSize))
+	params := idlCreateParams(dataLen)
 
 	return buildIdlInstruction(programID, accounts, IdlInstructionCreate, params)
 }
@@ -724,7 +723,12 @@ func IdlInitIx(e cldf.Environment, programsPath, programID, programName string, 
 			return nil, fmt.Errorf("error setting buffer authority: %w", err)
 		}
 	}
-	instruction, err := createIdlInstruction(e, solana.MustPublicKeyFromBase58(programID), authority)
+	dataLen := uint64(DefaultIDLMaxSize) // Using the max size of the IDL account as default
+	if c.IdlSpace > 0 {
+		dataLen = c.IdlSpace
+	}
+
+	instruction, err := createIdlInstruction(e, solana.MustPublicKeyFromBase58(programID), authority, dataLen)
 	if err != nil {
 		return nil, fmt.Errorf("error generating set buffer ix: %w", err)
 	}

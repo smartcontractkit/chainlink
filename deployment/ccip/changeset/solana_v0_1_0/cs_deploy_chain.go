@@ -13,8 +13,6 @@ import (
 	"github.com/smartcontractkit/mcms"
 	mcmsTypes "github.com/smartcontractkit/mcms/types"
 
-	"github.com/smartcontractkit/chainlink-common/pkg/utils/mathutil"
-
 	cldf_solana "github.com/smartcontractkit/chainlink-deployments-framework/chain/solana"
 
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
@@ -24,6 +22,7 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
 	solanastateview "github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview/solana"
+	"github.com/smartcontractkit/chainlink/deployment/utils/solutils"
 
 	"github.com/smartcontractkit/chainlink/deployment/common/changeset/state"
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
@@ -50,16 +49,16 @@ var _ cldf.ChangeSet[ExtendGlobalLookupTableConfig] = ExtendGlobalLookupTableCha
 
 func getTypeToProgramDeployName() map[cldf.ContractType]string {
 	return map[cldf.ContractType]string{
-		shared.Router:                  deployment.RouterProgramName,
-		shared.OffRamp:                 deployment.OffRampProgramName,
-		shared.FeeQuoter:               deployment.FeeQuoterProgramName,
-		shared.BurnMintTokenPool:       deployment.BurnMintTokenPoolProgramName,
-		shared.LockReleaseTokenPool:    deployment.LockReleaseTokenPoolProgramName,
-		shared.RMNRemote:               deployment.RMNRemoteProgramName,
-		types.AccessControllerProgram:  deployment.AccessControllerProgramName,
-		types.ManyChainMultisigProgram: deployment.McmProgramName,
-		types.RBACTimelockProgram:      deployment.TimelockProgramName,
-		shared.Receiver:                deployment.ReceiverProgramName,
+		shared.Router:                  solutils.ProgCCIPRouter,
+		shared.OffRamp:                 solutils.ProgCCIPOfframp,
+		shared.FeeQuoter:               solutils.ProgFeeQuoter,
+		shared.BurnMintTokenPool:       solutils.ProgBurnMintTokenPool,
+		shared.LockReleaseTokenPool:    solutils.ProgLockReleaseTokenPool,
+		shared.RMNRemote:               solutils.ProgRMNRemote,
+		types.AccessControllerProgram:  solutils.ProgAccessController,
+		types.ManyChainMultisigProgram: solutils.ProgMCM,
+		types.RBACTimelockProgram:      solutils.ProgTimelock,
+		shared.Receiver:                solutils.ProgTestCCIPReceiver,
 	}
 }
 
@@ -211,14 +210,27 @@ func DeployChainContractsChangeset(e cldf.Environment, c DeployChainContractsCon
 		if err != nil {
 			return cldf.ChangesetOutput{}, fmt.Errorf("failed to build proposal: %w", err)
 		}
+
+		ds, err := shared.PopulateDataStore(newAddresses)
+		if err != nil {
+			return cldf.ChangesetOutput{}, fmt.Errorf("failed to populate in-memory DataStore: %w", err)
+		}
+
 		return cldf.ChangesetOutput{
 			MCMSTimelockProposals: []mcms.TimelockProposal{*proposal},
 			AddressBook:           newAddresses,
+			DataStore:             ds,
 		}, nil
+	}
+
+	ds, err := shared.PopulateDataStore(newAddresses)
+	if err != nil {
+		return cldf.ChangesetOutput{}, fmt.Errorf("failed to populate in-memory DataStore: %w", err)
 	}
 
 	return cldf.ChangesetOutput{
 		AddressBook: newAddresses,
+		DataStore:   ds,
 	}, nil
 }
 
@@ -231,14 +243,14 @@ func DeployAndMaybeSaveToAddressBook(
 	contractType cldf.ContractType,
 	version semver.Version,
 	isUpgrade bool,
-	metadata string) (solana.PublicKey, error) {
+	metadata string,
+) (solana.PublicKey, error) {
 	programName := getTypeToProgramDeployName()[contractType]
 	// the last bool is whether to overallocate the buffer account, if the program is going to be managed
 	// by timelock/mcms we want to overallocate the buffer account so that future upgrades can be performed
 	programID, err := chain.DeployProgram(e.Logger, cldf_solana.ProgramInfo{
-		Name:  programName,
-		Bytes: deployment.SolanaProgramBytes[programName],
-	}, isUpgrade, true)
+		Name: programName,
+	}, isUpgrade, false)
 	if err != nil {
 		return solana.PublicKey{}, fmt.Errorf("failed to deploy program: %w", err)
 	}
@@ -700,7 +712,6 @@ func initializeRouter(
 		ccipRouterProgram,
 		programData.Address,
 	).ValidateAndBuild()
-
 	if err != nil {
 		return fmt.Errorf("failed to build instruction: %w", err)
 	}
@@ -751,7 +762,6 @@ func initializeFeeQuoter(
 		chain.DeployerKey.PublicKey(),
 		solana.SystemProgramID,
 	).ValidateAndBuild()
-
 	if err != nil {
 		return fmt.Errorf("failed to build instruction: %w", err)
 	}
@@ -793,7 +803,6 @@ func initializeOffRamp(
 		offRampAddress,
 		programData.Address,
 	).ValidateAndBuild()
-
 	if err != nil {
 		return fmt.Errorf("failed to build instruction: %w", err)
 	}
@@ -807,7 +816,6 @@ func initializeOffRamp(
 		offRampAddress,
 		programData.Address,
 	).ValidateAndBuild()
-
 	if err != nil {
 		return fmt.Errorf("failed to build instruction: %w", err)
 	}
@@ -898,8 +906,6 @@ func generateUpgradeTxns(
 	timelockSignerPDA := state.GetTimelockSignerPDA(mcmState.TimelockProgram, mcmState.TimelockSeed)
 	// if we're not upgrading via timelock, execute the raw ixns
 	if config.UpgradeConfig.UpgradeAuthority != timelockSignerPDA {
-		programName := getTypeToProgramDeployName()[contractType]
-		newBytes := deployment.SolanaProgramBytes[programName]
 		bufferSize, err := GetSolProgramSize(&e, chain, bufferProgram)
 		if err != nil {
 			return nil, fmt.Errorf("failed to get buffer size: %w", err)
@@ -910,7 +916,7 @@ func generateUpgradeTxns(
 			chain,
 			programID,
 			config.UpgradeConfig.UpgradeAuthority,
-			mathutil.Max(newBytes, bufferSize),
+			bufferSize,
 		)
 		if err != nil {
 			return txns, fmt.Errorf("failed to generate extend buffer instruction: %w", err)
@@ -1055,7 +1061,8 @@ func GetSolProgramSize(e *cldf.Environment, chain cldf_solana.Chain, programID s
 func getSolProgramData(e cldf.Environment, chain cldf_solana.Chain, programID solana.PublicKey) (struct {
 	DataType uint32
 	Address  solana.PublicKey
-}, error) {
+}, error,
+) {
 	var programData struct {
 		DataType uint32
 		Address  solana.PublicKey

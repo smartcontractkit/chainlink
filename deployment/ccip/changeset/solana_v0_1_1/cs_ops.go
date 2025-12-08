@@ -8,7 +8,6 @@ import (
 	"github.com/Masterminds/semver/v3"
 	"github.com/gagliardetto/solana-go"
 
-	cldf_solana "github.com/smartcontractkit/chainlink-deployments-framework/chain/solana"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 
 	"github.com/smartcontractkit/mcms"
@@ -242,7 +241,7 @@ func SetUpgradeAuthorityChangeset(
 	e.Logger.Infow("Setting upgrade authority", "newUpgradeAuthority", config.NewUpgradeAuthority.String())
 	mcmsTxns := make([]mcmsTypes.Transaction, 0)
 	for _, programID := range programs {
-		ixn := SetUpgradeAuthority(&e, &chain, programID, currentAuthority, config.NewUpgradeAuthority, false)
+		ixn := SetUpgradeAuthority(&e, programID, currentAuthority, config.NewUpgradeAuthority, false)
 		if config.MCMS == nil {
 			if err := chain.Confirm([]solana.Instruction{ixn}); err != nil {
 				return cldf.ChangesetOutput{}, fmt.Errorf("failed to confirm instructions: %w", err)
@@ -272,14 +271,7 @@ func SetUpgradeAuthorityChangeset(
 }
 
 // SetUpgradeAuthority creates a transaction to set the upgrade authority for a program
-func SetUpgradeAuthority(
-	e *cldf.Environment,
-	chain *cldf_solana.Chain,
-	programID solana.PublicKey,
-	currentUpgradeAuthority solana.PublicKey,
-	newUpgradeAuthority solana.PublicKey,
-	isBuffer bool,
-) solana.Instruction {
+func SetUpgradeAuthority(e *cldf.Environment, programID solana.PublicKey, currentUpgradeAuthority solana.PublicKey, newUpgradeAuthority solana.PublicKey, isBuffer bool) solana.Instruction {
 	e.Logger.Infow("Setting upgrade authority", "programID", programID.String(), "currentUpgradeAuthority", currentUpgradeAuthority.String(), "newUpgradeAuthority", newUpgradeAuthority.String())
 	// Buffers use the program account as the program data account
 	programDataSlice := solana.NewAccountMeta(programID, true, false)
@@ -491,8 +483,14 @@ func DeployReceiverForTest(e cldf.Environment, cfg DeployForTestConfig) (cldf.Ch
 		}
 	}
 
+	ds, err := shared.PopulateDataStore(ab)
+	if err != nil {
+		return cldf.ChangesetOutput{}, fmt.Errorf("failed to populate in-memory DataStore: %w", err)
+	}
+
 	return cldf.ChangesetOutput{
 		AddressBook: ab,
+		DataStore:   ds,
 	}, nil
 }
 

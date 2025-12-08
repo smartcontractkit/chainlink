@@ -16,6 +16,7 @@ import (
 	chainsel "github.com/smartcontractkit/chain-selectors"
 
 	signer_registry "github.com/smartcontractkit/chainlink/deployment/ccip/shared/bindings/signer_registry_solana"
+	"github.com/smartcontractkit/chainlink/deployment/utils/solutils"
 
 	cldf_solana "github.com/smartcontractkit/chainlink-deployments-framework/chain/solana"
 
@@ -23,7 +24,6 @@ import (
 	sol_rpc "github.com/gagliardetto/solana-go/rpc"
 
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
-	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared"
 )
 
@@ -56,7 +56,7 @@ func DeployBaseSignerRegistryContractChangeset(e cldf.Environment, c DeployBaseS
 
 	newAddresses := cldf.NewMemoryAddressBook()
 
-	programFileName := deployment.BaseSignerRegistryProgramName + ".so"
+	programFileName := solutils.ProgBaseSignerRegistry + ".so"
 	programFilePath := filepath.Join(chain.ProgramsPath, programFileName)
 	if _, err := os.Stat(programFilePath); err != nil {
 		if !os.IsNotExist(err) {
@@ -74,8 +74,14 @@ func DeployBaseSignerRegistryContractChangeset(e cldf.Environment, c DeployBaseS
 		return cldf.ChangesetOutput{}, fmt.Errorf("failed to deploy base signer registry contract: %w", err)
 	}
 
+	ds, err := shared.PopulateDataStore(newAddresses)
+	if err != nil {
+		return cldf.ChangesetOutput{}, fmt.Errorf("failed to populate in-memory DataStore: %w", err)
+	}
+
 	return cldf.ChangesetOutput{
 		AddressBook: newAddresses,
+		DataStore:   ds,
 	}, nil
 }
 
@@ -107,7 +113,6 @@ func InitializeBaseSignerRegistryContractChangeset(e cldf.Environment, c Initali
 		eventAuthorityPda,
 		signer_registry.ProgramID,
 	)
-
 	if err != nil {
 		return cldf.ChangesetOutput{}, fmt.Errorf("failed to initialize base signer registry contract: %w", err)
 	}
@@ -122,13 +127,12 @@ func InitializeBaseSignerRegistryContractChangeset(e cldf.Environment, c Initali
 func deployBaseSignerRegistryContract(e cldf.Environment, chain cldf_solana.Chain, ab cldf.AddressBook, config DeployBaseSignerRegistryContractConfig,
 ) (solana.PublicKey, error) {
 	contractType := shared.SVMSignerRegistry
-	programName := deployment.BaseSignerRegistryProgramName
+	programName := solutils.ProgBaseSignerRegistry
 
 	programID, err := chain.DeployProgram(e.Logger, cldf_solana.ProgramInfo{
 		Name:  programName,
-		Bytes: deployment.SolanaProgramBytes[programName],
+		Bytes: solutils.GetProgramBufferBytes(programName),
 	}, config.IsUpgrade, true)
-
 	if err != nil {
 		return solana.PublicKey{}, fmt.Errorf("failed to deploy program: %w", err)
 	}
@@ -224,7 +228,7 @@ func DownloadReleaseArtifactsFromGithubWorkflowRun(
 			continue
 		}
 
-		if err := os.MkdirAll(filepath.Dir(filePath), 0755); err != nil {
+		if err := os.MkdirAll(filepath.Dir(filePath), 0o755); err != nil {
 			return fmt.Errorf("failed to create parent directory for %s: %w", filePath, err)
 		}
 
@@ -259,7 +263,8 @@ func DownloadReleaseArtifactsFromGithubWorkflowRun(
 func getSolProgramData(e cldf.Environment, chain cldf_solana.Chain, programID solana.PublicKey) (struct {
 	DataType uint32
 	Address  solana.PublicKey
-}, error) {
+}, error,
+) {
 	var programData struct {
 		DataType uint32
 		Address  solana.PublicKey

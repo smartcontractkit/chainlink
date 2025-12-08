@@ -122,6 +122,26 @@ func TestWithSubject(t *testing.T) {
 	require.Equal(t, subject, *opts.subject)
 }
 
+func TestWithMaxExpiryDuration(t *testing.T) {
+	duration := 10 * time.Minute
+	opts := &verifyOptions{}
+
+	WithMaxExpiryDuration(duration)(opts)
+
+	require.NotNil(t, opts.maxExpiryDuration)
+	require.Equal(t, duration, *opts.maxExpiryDuration)
+}
+
+func TestWithIssuedAtTolerance(t *testing.T) {
+	duration := 10 * time.Minute
+	opts := &verifyOptions{}
+
+	WithIssuedAtTolerance(duration)(opts)
+
+	require.NotNil(t, opts.issuedAtTolerance)
+	require.Equal(t, duration, *opts.issuedAtTolerance)
+}
+
 func testRequest(t *testing.T) jsonrpc.Request[json.RawMessage] {
 	params := json.RawMessage(`{"num":3}`)
 	return jsonrpc.Request[json.RawMessage]{
@@ -310,6 +330,64 @@ func TestVerifyRequestJWT_Integration(t *testing.T) {
 		_, _, err = VerifyRequestJWT(tokenString, req)
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "token is expired")
+	})
+
+	t.Run("should reject JWT with issuedAt in the future", func(t *testing.T) {
+		digest, err := req.Digest()
+		require.NoError(t, err)
+
+		now := time.Now()
+		// issuedAt is 7 mins in the future (beyond default 5-min tolerance)
+		issuedAt := now.Add(7 * time.Minute)
+		// expiresAt is 8 minute in the future (after issuedAt)
+		expiresAt := now.Add(8 * time.Minute)
+
+		claims := JWTClaims{
+			Digest: "0x" + digest,
+			RegisteredClaims: jwt.RegisteredClaims{
+				ID:        "test-jti",
+				ExpiresAt: jwt.NewNumericDate(expiresAt),
+				IssuedAt:  jwt.NewNumericDate(issuedAt),
+			},
+		}
+
+		token := jwt.NewWithClaims(&SigningMethodEth{}, claims)
+		tokenString, err := token.SignedString(privateKey)
+		require.NoError(t, err)
+
+		_, _, err = VerifyRequestJWT(tokenString, req)
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "issuedAt (iat) is too far in the future")
+
+		// Should succeed with custom 10-minute tolerance
+		_, _, err = VerifyRequestJWT(tokenString, req, WithIssuedAtTolerance(10*time.Minute))
+		require.NoError(t, err)
+	})
+
+	t.Run("should accept JWT with issuedAt slightly in the future (within default tolerance)", func(t *testing.T) {
+		digest, err := req.Digest()
+		require.NoError(t, err)
+
+		now := time.Now()
+		// issuedAt is 1 minute in the future (within default 2-min tolerance)
+		issuedAt := now.Add(1 * time.Minute)
+		expiresAt := issuedAt.Add(3 * time.Minute)
+
+		claims := JWTClaims{
+			Digest: "0x" + digest,
+			RegisteredClaims: jwt.RegisteredClaims{
+				ID:        "test-jti",
+				ExpiresAt: jwt.NewNumericDate(expiresAt),
+				IssuedAt:  jwt.NewNumericDate(issuedAt),
+			},
+		}
+
+		token := jwt.NewWithClaims(&SigningMethodEth{}, claims)
+		tokenString, err := token.SignedString(privateKey)
+		require.NoError(t, err)
+
+		_, _, err = VerifyRequestJWT(tokenString, req)
+		require.NoError(t, err)
 	})
 
 	t.Run("should validate that expiredAt exceeds max expiry", func(t *testing.T) {

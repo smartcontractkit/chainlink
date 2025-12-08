@@ -73,13 +73,13 @@ func Test_Queue(t *testing.T) {
 			require.True(t, ok)
 		}
 		report := transmitQueue.HealthReport()
-		assert.Nil(t, report[transmitQueue.Name()])
+		assert.NoError(t, report[transmitQueue.Name()])
 	})
 
 	t.Run("transmit queue is more than 50% full", func(t *testing.T) {
 		transmitQueue.Push(testTransmissions[2].tr, testTransmissions[2].ctx)
 		report := transmitQueue.HealthReport()
-		assert.Equal(t, report[transmitQueue.Name()].Error(), "transmit priority queue is greater than 50% full (4/7)")
+		assert.Equal(t, "transmit priority queue is greater than 50% full (4/7)", report[transmitQueue.Name()].Error())
 	})
 
 	t.Run("transmit queue pops the highest priority transmission", func(t *testing.T) {

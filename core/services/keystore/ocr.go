@@ -115,7 +115,7 @@ func (ks *ocr) Import(ctx context.Context, keyJSON []byte, password string) (ocr
 	if _, found := ks.keyRing.OCR[key.ID()]; found {
 		return ocrkey.KeyV2{}, fmt.Errorf("key with ID %s already exists", key.ID())
 	}
-	return key, ks.keyManager.safeAddKey(ctx, key)
+	return key, ks.safeAddKey(ctx, key)
 }
 
 func (ks *ocr) Export(id string, password string) ([]byte, error) {

@@ -9,14 +9,17 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi/bind/v2"
 	"github.com/ethereum/go-ethereum/common"
 	mcmslib "github.com/smartcontractkit/mcms"
+	"github.com/smartcontractkit/mcms/types"
 
 	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
 	capabilities_registry_v2 "github.com/smartcontractkit/chainlink-evm/gethwrappers/workflow/generated/capabilities_registry_wrapper_v2"
+
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset/state"
 	"github.com/smartcontractkit/chainlink/deployment/cre/capabilities_registry/v2/changeset/operations/contracts"
-	"github.com/smartcontractkit/chainlink/deployment/cre/ocr3"
+	"github.com/smartcontractkit/chainlink/deployment/cre/common/strategies"
+	crecontracts "github.com/smartcontractkit/chainlink/deployment/cre/contracts"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/p2pkey"
 )
 
@@ -36,7 +39,7 @@ type AddCapabilitiesInput struct {
 	Force bool
 
 	RegistryRef datastore.AddressRefKey
-	MCMSConfig  *ocr3.MCMSConfig
+	MCMSConfig  *crecontracts.MCMSConfig
 }
 
 func (i *AddCapabilitiesInput) Validate() error {
@@ -50,9 +53,9 @@ func (i *AddCapabilitiesInput) Validate() error {
 }
 
 type AddCapabilitiesOutput struct {
-	DonInfo           capabilities_registry_v2.CapabilitiesRegistryDONInfo
-	UpdatedNodes      []*capabilities_registry_v2.CapabilitiesRegistryNodeUpdated
-	AddedCapabilities []*capabilities_registry_v2.CapabilitiesRegistryCapabilityConfigured
+	AddedCapabilities []contracts.RegisterableCapability
+	DonInfo           capabilities_registry_v2.CapabilitiesRegistryUpdateDONParams
+	UpdatedNodes      []capabilities_registry_v2.CapabilitiesRegistryNodeParams
 	Proposals         []mcmslib.TimelockProposal
 }
 
@@ -66,7 +69,6 @@ var AddCapabilities = operations.NewSequence[AddCapabilitiesInput, AddCapabiliti
 		}
 
 		chainSel := input.RegistryRef.ChainSelector()
-
 		chain, ok := deps.Env.BlockChains.EVMChains()[chainSel]
 		if !ok {
 			return AddCapabilitiesOutput{}, fmt.Errorf("chain not found for selector %d", chainSel)
@@ -84,7 +86,7 @@ var AddCapabilities = operations.NewSequence[AddCapabilitiesInput, AddCapabiliti
 			return AddCapabilitiesOutput{}, fmt.Errorf("failed to create CapabilitiesRegistry: %w", err)
 		}
 
-		don, nodes, err := getDonNodes(input.DonName, capReg)
+		don, nodes, err := GetDonNodes(input.DonName, capReg)
 		if err != nil {
 			return AddCapabilitiesOutput{}, fmt.Errorf("failed to get DON %s nodes: %w", input.DonName, err)
 		}
@@ -95,7 +97,7 @@ var AddCapabilities = operations.NewSequence[AddCapabilitiesInput, AddCapabiliti
 		}
 
 		nodeUpdates := make(map[string]contracts.NodeConfig, len(p2pIDs))
-		capabilities := make([]capabilities_registry_v2.CapabilitiesRegistryCapability, len(input.CapabilityConfigs))
+		capabilities := make([]contracts.RegisterableCapability, len(input.CapabilityConfigs))
 		for i, cfg := range input.CapabilityConfigs {
 			metadataBytes, err := json.Marshal(cfg.Capability.Metadata)
 			if err != nil {
@@ -106,7 +108,11 @@ var AddCapabilities = operations.NewSequence[AddCapabilitiesInput, AddCapabiliti
 				ConfigurationContract: cfg.Capability.ConfigurationContract,
 				Metadata:              metadataBytes,
 			}
-			capabilities[i] = capability
+			capabilities[i] = contracts.RegisterableCapability{
+				Metadata:              cfg.Capability.Metadata,
+				CapabilityID:          cfg.Capability.CapabilityID,
+				ConfigurationContract: cfg.Capability.ConfigurationContract,
+			}
 			for _, p2pID := range p2pIDs {
 				p2pIDStr := p2pID.String()
 				nodeUpdate, exists := nodeUpdates[p2pIDStr]
@@ -120,14 +126,31 @@ var AddCapabilities = operations.NewSequence[AddCapabilitiesInput, AddCapabiliti
 			}
 		}
 
+		// Create the appropriate strategy
+		strategy, err := strategies.CreateStrategy(
+			chain,
+			*deps.Env,
+			input.MCMSConfig,
+			deps.MCMSContracts,
+			common.HexToAddress(registryAddressRef.Address),
+			contracts.AddCapabilitiesDescription,
+		)
+		if err != nil {
+			return AddCapabilitiesOutput{}, fmt.Errorf("failed to create strategy: %w", err)
+		}
+
 		regCapsReport, err := operations.ExecuteOperation(
 			b,
 			contracts.RegisterCapabilities,
-			contracts.RegisterCapabilitiesDeps(deps),
+			contracts.RegisterCapabilitiesDeps{
+				Env:      deps.Env,
+				Strategy: strategy,
+			},
 			contracts.RegisterCapabilitiesInput{
 				Address:       registryAddressRef.Address,
 				ChainSelector: chainSel,
 				Capabilities:  capabilities,
+				MCMSConfig:    input.MCMSConfig,
 			},
 		)
 		if err != nil {
@@ -140,10 +163,12 @@ var AddCapabilities = operations.NewSequence[AddCapabilitiesInput, AddCapabiliti
 			contracts.UpdateNodesDeps{
 				Env:                  deps.Env,
 				CapabilitiesRegistry: capReg,
+				Strategy:             strategy,
 			},
 			contracts.UpdateNodesInput{
 				ChainSelector: chainSel,
 				NodesUpdates:  nodeUpdates,
+				MCMSConfig:    input.MCMSConfig,
 			},
 		)
 		if err != nil {
@@ -156,31 +181,61 @@ var AddCapabilities = operations.NewSequence[AddCapabilitiesInput, AddCapabiliti
 			contracts.UpdateDONDeps{
 				Env:                  deps.Env,
 				CapabilitiesRegistry: capReg,
+				Strategy:             strategy,
 			},
 			contracts.UpdateDONInput{
-				ChainSelector:     chainSel,
-				P2PIDs:            p2pIDs,
-				CapabilityConfigs: input.CapabilityConfigs,
-				DonName:           input.DonName,
-				F:                 don.F,
-				IsPrivate:         !don.IsPublic,
-				Force:             input.Force,
+				ChainSelector:                     chainSel,
+				P2PIDs:                            p2pIDs,
+				CapabilityConfigs:                 input.CapabilityConfigs,
+				MergeCapabilityConfigsWithOnChain: true,
+				DonName:                           input.DonName,
+				F:                                 don.F,
+				IsPrivate:                         !don.IsPublic,
+				Force:                             input.Force,
+				MCMSConfig:                        input.MCMSConfig,
 			},
 		)
 		if err != nil {
 			return AddCapabilitiesOutput{}, fmt.Errorf("failed to update don: %w", err)
 		}
 
+		var proposals []mcmslib.TimelockProposal
+
+		if input.MCMSConfig != nil {
+			ops := toOpsSlice(regCapsReport.Output.Operation, updateNodesReport.Output.Operation, updateDonReport.Output.Operation)
+			if len(ops) > 0 {
+				proposal, mcmsErr := strategy.BuildProposal(ops)
+				if mcmsErr != nil {
+					return AddCapabilitiesOutput{}, fmt.Errorf("failed to build MCMS proposal: %w", mcmsErr)
+				}
+
+				proposals = append(proposals, *proposal)
+			} else {
+				deps.Env.Logger.Warnw("Add capability sequence has not produced any operations to execute")
+			}
+		}
+
 		return AddCapabilitiesOutput{
 			DonInfo:           updateDonReport.Output.DonInfo,
 			UpdatedNodes:      updateNodesReport.Output.UpdatedNodes,
 			AddedCapabilities: regCapsReport.Output.Capabilities,
-			Proposals:         regCapsReport.Output.Proposals,
+			Proposals:         proposals,
 		}, nil
 	},
 )
 
-func getDonNodes(donName string, capReg *capabilities_registry_v2.CapabilitiesRegistry) (
+func toOpsSlice(opPtrs ...*types.BatchOperation) []types.BatchOperation {
+	var result []types.BatchOperation
+	for _, opPtr := range opPtrs {
+		if opPtr != nil {
+			result = append(result, *opPtr)
+		}
+	}
+
+	return result
+}
+
+func GetDonNodes(donName string, capReg *capabilities_registry_v2.CapabilitiesRegistry) (
 	*capabilities_registry_v2.CapabilitiesRegistryDONInfo,
 	[]capabilities_registry_v2.INodeInfoProviderNodeInfo,
 	error,

@@ -8,16 +8,15 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
-	mcmslib "github.com/smartcontractkit/mcms"
+	mcmstypes "github.com/smartcontractkit/mcms/types"
 
 	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
-
 	workflow_registry_v2 "github.com/smartcontractkit/chainlink-evm/gethwrappers/workflow/generated/workflow_registry_wrapper_v2"
-	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset/state"
+
 	"github.com/smartcontractkit/chainlink/deployment/cre/common/strategies"
-	"github.com/smartcontractkit/chainlink/deployment/cre/ocr3"
+	"github.com/smartcontractkit/chainlink/deployment/cre/contracts"
 )
 
 const (
@@ -31,25 +30,30 @@ const (
 
 // Common dependencies for workflow registry operations
 type WorkflowRegistryOpDeps struct {
-	Env           *cldf.Environment
-	MCMSContracts *commonchangeset.MCMSWithTimelockState // Required if MCMSConfig is not nil
+	Env      *cldf.Environment
+	Strategy strategies.TransactionStrategy
+	Registry *workflow_registry_v2.WorkflowRegistry
 }
 
 // SetConfig Operation
 type SetConfigOpInput struct {
-	ChainSelector uint64           `json:"chainSelector"`
-	Qualifier     string           `json:"qualifier"` // Qualifier to identify the specific workflow registry
-	NameLen       uint8            `json:"nameLen"`
-	TagLen        uint8            `json:"tagLen"`
-	URLLen        uint8            `json:"urlLen"`
-	AttrLen       uint16           `json:"attrLen"`
-	ExpiryLen     uint32           `json:"expiryLen"`
-	MCMSConfig    *ocr3.MCMSConfig `json:"mcmsConfig,omitempty"`
+	// We are passing the registry via the deps, but we keep chainSelector and qualifier to allow the operation to be
+	// unique.
+	ChainSelector uint64 `json:"chainSelector"`
+	Qualifier     string `json:"qualifier"`
+
+	NameLen    uint8                 `json:"nameLen"`
+	TagLen     uint8                 `json:"tagLen"`
+	URLLen     uint8                 `json:"urlLen"`
+	AttrLen    uint16                `json:"attrLen"`
+	ExpiryLen  uint32                `json:"expiryLen"`
+	MCMSConfig *contracts.MCMSConfig `json:"mcmsConfig,omitempty"`
 }
 
 type SetConfigOpOutput struct {
-	Success   bool                       `json:"success"`
-	Proposals []mcmslib.TimelockProposal `json:"proposals,omitempty"`
+	Success         bool                      `json:"success"`
+	RegistryAddress common.Address            `json:"registryAddress"`
+	MCMSOperation   *mcmstypes.BatchOperation `json:"mcmsOperation"`
 }
 
 var SetConfigOp = operations.NewOperation(
@@ -57,38 +61,12 @@ var SetConfigOp = operations.NewOperation(
 	semver.MustParse("1.0.0"),
 	"Set Config in WorkflowRegistry V2",
 	func(b operations.Bundle, deps WorkflowRegistryOpDeps, input SetConfigOpInput) (SetConfigOpOutput, error) {
-		chain, ok := deps.Env.BlockChains.EVMChains()[input.ChainSelector]
-		if !ok {
-			return SetConfigOpOutput{}, fmt.Errorf("chain with selector %d not found", input.ChainSelector)
-		}
-
-		registry, err := getWorkflowRegistryV2FromDatastore(deps.Env, input.ChainSelector, input.Qualifier)
-		if err != nil {
-			return SetConfigOpOutput{}, fmt.Errorf("failed to get workflow registry v2: %w", err)
-		}
-
-		// Create the appropriate strategy
-		strategy, err := strategies.CreateStrategy(
-			chain,
-			*deps.Env,
-			input.MCMSConfig,
-			deps.MCMSContracts,
-			registry.Address(),
-			SetConfigDescription,
-		)
-		if err != nil {
-			return SetConfigOpOutput{}, fmt.Errorf("failed to create strategy: %w", err)
-		}
-
 		// Execute the transaction using the strategy
-		proposals, err := strategy.Apply(func(opts *bind.TransactOpts) (*types.Transaction, error) {
-			tx, err := registry.SetConfig(opts, input.NameLen, input.TagLen, input.URLLen, input.AttrLen, input.ExpiryLen)
-			if err != nil {
-				return nil, fmt.Errorf("failed to call SetConfig: %w", err)
-			}
-			return tx, nil
+		operation, _, err := deps.Strategy.Apply(func(opts *bind.TransactOpts) (*types.Transaction, error) {
+			return deps.Registry.SetConfig(opts, input.NameLen, input.TagLen, input.URLLen, input.AttrLen, input.ExpiryLen)
 		})
 		if err != nil {
+			err = cldf.DecodeErr(workflow_registry_v2.WorkflowRegistryABI, err)
 			return SetConfigOpOutput{}, fmt.Errorf("failed to execute SetConfig: %w", err)
 		}
 
@@ -99,24 +77,29 @@ var SetConfigOp = operations.NewOperation(
 		}
 
 		return SetConfigOpOutput{
-			Success:   true,
-			Proposals: proposals,
+			Success:         true,
+			MCMSOperation:   operation,
+			RegistryAddress: deps.Registry.Address(),
 		}, nil
 	},
 )
 
 // UpdateAllowedSigners Operation
 type UpdateAllowedSignersOpInput struct {
-	ChainSelector uint64           `json:"chainSelector"`
-	Qualifier     string           `json:"qualifier"` // Qualifier to identify the specific workflow registry
-	Signers       []common.Address `json:"signers"`
-	Allowed       bool             `json:"allowed"`
-	MCMSConfig    *ocr3.MCMSConfig `json:"mcmsConfig,omitempty"`
+	// We are passing the registry via the deps, but we keep chainSelector and qualifier to allow the operation to be
+	// unique.
+	ChainSelector uint64 `json:"chainSelector"`
+	Qualifier     string `json:"qualifier"` // Qualifier to identify the specific workflow registry
+
+	Signers    []common.Address      `json:"signers"`
+	Allowed    bool                  `json:"allowed"`
+	MCMSConfig *contracts.MCMSConfig `json:"mcmsConfig,omitempty"`
 }
 
 type UpdateAllowedSignersOpOutput struct {
-	Success   bool                       `json:"success"`
-	Proposals []mcmslib.TimelockProposal `json:"proposals,omitempty"`
+	Success         bool                      `json:"success"`
+	MCMSOperation   *mcmstypes.BatchOperation `json:"mcmsOperation"`
+	RegistryAddress common.Address            `json:"registryAddress"`
 }
 
 var UpdateAllowedSignersOp = operations.NewOperation(
@@ -128,38 +111,12 @@ var UpdateAllowedSignersOp = operations.NewOperation(
 			return UpdateAllowedSignersOpOutput{}, errors.New("must provide at least one signer")
 		}
 
-		chain, ok := deps.Env.BlockChains.EVMChains()[input.ChainSelector]
-		if !ok {
-			return UpdateAllowedSignersOpOutput{}, fmt.Errorf("chain with selector %d not found", input.ChainSelector)
-		}
-
-		registry, err := getWorkflowRegistryV2FromDatastore(deps.Env, input.ChainSelector, input.Qualifier)
-		if err != nil {
-			return UpdateAllowedSignersOpOutput{}, fmt.Errorf("failed to get workflow registry v2: %w", err)
-		}
-
-		// Create the appropriate strategy
-		strategy, err := strategies.CreateStrategy(
-			chain,
-			*deps.Env,
-			input.MCMSConfig,
-			deps.MCMSContracts,
-			registry.Address(),
-			UpdateAllowedSignersDescription,
-		)
-		if err != nil {
-			return UpdateAllowedSignersOpOutput{}, fmt.Errorf("failed to create strategy: %w", err)
-		}
-
 		// Execute the transaction using the strategy
-		proposals, err := strategy.Apply(func(opts *bind.TransactOpts) (*types.Transaction, error) {
-			tx, err := registry.UpdateAllowedSigners(opts, input.Signers, input.Allowed)
-			if err != nil {
-				return nil, fmt.Errorf("failed to call UpdateAllowedSigners: %w", err)
-			}
-			return tx, nil
+		operation, _, err := deps.Strategy.Apply(func(opts *bind.TransactOpts) (*types.Transaction, error) {
+			return deps.Registry.UpdateAllowedSigners(opts, input.Signers, input.Allowed)
 		})
 		if err != nil {
+			err = cldf.DecodeErr(workflow_registry_v2.WorkflowRegistryABI, err)
 			return UpdateAllowedSignersOpOutput{}, fmt.Errorf("failed to execute UpdateAllowedSigners: %w", err)
 		}
 
@@ -170,24 +127,29 @@ var UpdateAllowedSignersOp = operations.NewOperation(
 		}
 
 		return UpdateAllowedSignersOpOutput{
-			Success:   true,
-			Proposals: proposals,
+			Success:         true,
+			MCMSOperation:   operation,
+			RegistryAddress: deps.Registry.Address(),
 		}, nil
 	},
 )
 
 // SetWorkflowOwnerConfig Operation
 type SetWorkflowOwnerConfigOpInput struct {
-	ChainSelector uint64           `json:"chainSelector"`
-	Qualifier     string           `json:"qualifier"` // Qualifier to identify the specific workflow registry
-	Owner         common.Address   `json:"owner"`
-	Config        []byte           `json:"config"`
-	MCMSConfig    *ocr3.MCMSConfig `json:"mcmsConfig,omitempty"`
+	// We are passing the registry via the deps, but we keep chainSelector and qualifier to allow the operation to be
+	// unique.
+	ChainSelector uint64 `json:"chainSelector"`
+	Qualifier     string `json:"qualifier"` // Qualifier to identify the specific workflow registry
+
+	Owner      common.Address        `json:"owner"`
+	Config     []byte                `json:"config"`
+	MCMSConfig *contracts.MCMSConfig `json:"mcmsConfig,omitempty"`
 }
 
 type SetWorkflowOwnerConfigOpOutput struct {
-	Success   bool                       `json:"success"`
-	Proposals []mcmslib.TimelockProposal `json:"proposals,omitempty"`
+	Success         bool                      `json:"success"`
+	RegistryAddress common.Address            `json:"registryAddress"`
+	MCMSOperation   *mcmstypes.BatchOperation `json:"mcmsOperation"`
 }
 
 var SetWorkflowOwnerConfigOp = operations.NewOperation(
@@ -195,38 +157,12 @@ var SetWorkflowOwnerConfigOp = operations.NewOperation(
 	semver.MustParse("1.0.0"),
 	"Set Workflow Owner Config in WorkflowRegistry V2",
 	func(b operations.Bundle, deps WorkflowRegistryOpDeps, input SetWorkflowOwnerConfigOpInput) (SetWorkflowOwnerConfigOpOutput, error) {
-		chain, ok := deps.Env.BlockChains.EVMChains()[input.ChainSelector]
-		if !ok {
-			return SetWorkflowOwnerConfigOpOutput{}, fmt.Errorf("chain with selector %d not found", input.ChainSelector)
-		}
-
-		registry, err := getWorkflowRegistryV2FromDatastore(deps.Env, input.ChainSelector, input.Qualifier)
-		if err != nil {
-			return SetWorkflowOwnerConfigOpOutput{}, fmt.Errorf("failed to get workflow registry v2: %w", err)
-		}
-
-		// Create the appropriate strategy
-		strategy, err := strategies.CreateStrategy(
-			chain,
-			*deps.Env,
-			input.MCMSConfig,
-			deps.MCMSContracts,
-			registry.Address(),
-			SetWorkflowOwnerConfigDescription,
-		)
-		if err != nil {
-			return SetWorkflowOwnerConfigOpOutput{}, fmt.Errorf("failed to create strategy: %w", err)
-		}
-
 		// Execute the transaction using the strategy
-		proposals, err := strategy.Apply(func(opts *bind.TransactOpts) (*types.Transaction, error) {
-			tx, err := registry.SetWorkflowOwnerConfig(opts, input.Owner, input.Config)
-			if err != nil {
-				return nil, fmt.Errorf("failed to call SetWorkflowOwnerConfig: %w", err)
-			}
-			return tx, nil
+		operation, _, err := deps.Strategy.Apply(func(opts *bind.TransactOpts) (*types.Transaction, error) {
+			return deps.Registry.SetWorkflowOwnerConfig(opts, input.Owner, input.Config)
 		})
 		if err != nil {
+			err = cldf.DecodeErr(workflow_registry_v2.WorkflowRegistryABI, err)
 			return SetWorkflowOwnerConfigOpOutput{}, fmt.Errorf("failed to execute SetWorkflowOwnerConfig: %w", err)
 		}
 
@@ -237,25 +173,30 @@ var SetWorkflowOwnerConfigOp = operations.NewOperation(
 		}
 
 		return SetWorkflowOwnerConfigOpOutput{
-			Success:   true,
-			Proposals: proposals,
+			Success:         true,
+			MCMSOperation:   operation,
+			RegistryAddress: deps.Registry.Address(),
 		}, nil
 	},
 )
 
 // SetDONLimit Operation
 type SetDONLimitOpInput struct {
-	ChainSelector    uint64           `json:"chainSelector"`
-	Qualifier        string           `json:"qualifier"` // Qualifier to identify the specific workflow registry
-	DONFamily        string           `json:"donFamily"`
-	DONLimit         uint32           `json:"donlimit"`
-	UserDefaultLimit uint32           `json:"userDefaultLimit"`
-	MCMSConfig       *ocr3.MCMSConfig `json:"mcmsConfig,omitempty"`
+	// We are passing the registry via the deps, but we keep chainSelector and qualifier to allow the operation to be
+	// unique.
+	ChainSelector uint64 `json:"chainSelector"`
+	Qualifier     string `json:"qualifier"` // Qualifier to identify the specific workflow registry
+
+	DONFamily        string                `json:"donFamily"`
+	DONLimit         uint32                `json:"donlimit"`
+	UserDefaultLimit uint32                `json:"userDefaultLimit"`
+	MCMSConfig       *contracts.MCMSConfig `json:"mcmsConfig,omitempty"`
 }
 
 type SetDONLimitOpOutput struct {
-	Success   bool                       `json:"success"`
-	Proposals []mcmslib.TimelockProposal `json:"proposals,omitempty"`
+	Success         bool                      `json:"success"`
+	RegistryAddress common.Address            `json:"registryAddress"`
+	MCMSOperation   *mcmstypes.BatchOperation `json:"mcmsOperation"`
 }
 
 var SetDONLimitOp = operations.NewOperation(
@@ -263,38 +204,12 @@ var SetDONLimitOp = operations.NewOperation(
 	semver.MustParse("1.0.0"),
 	"Set DON DONLimit in WorkflowRegistry V2",
 	func(b operations.Bundle, deps WorkflowRegistryOpDeps, input SetDONLimitOpInput) (SetDONLimitOpOutput, error) {
-		chain, ok := deps.Env.BlockChains.EVMChains()[input.ChainSelector]
-		if !ok {
-			return SetDONLimitOpOutput{}, fmt.Errorf("chain with selector %d not found", input.ChainSelector)
-		}
-
-		registry, err := getWorkflowRegistryV2FromDatastore(deps.Env, input.ChainSelector, input.Qualifier)
-		if err != nil {
-			return SetDONLimitOpOutput{}, fmt.Errorf("failed to get workflow registry v2: %w", err)
-		}
-
-		// Create the appropriate strategy
-		strategy, err := strategies.CreateStrategy(
-			chain,
-			*deps.Env,
-			input.MCMSConfig,
-			deps.MCMSContracts,
-			registry.Address(),
-			SetDONLimitDescription,
-		)
-		if err != nil {
-			return SetDONLimitOpOutput{}, fmt.Errorf("failed to create strategy: %w", err)
-		}
-
 		// Execute the transaction using the strategy
-		proposals, err := strategy.Apply(func(opts *bind.TransactOpts) (*types.Transaction, error) {
-			tx, err := registry.SetDONLimit(opts, input.DONFamily, input.DONLimit, input.UserDefaultLimit)
-			if err != nil {
-				return nil, fmt.Errorf("failed to call SetDONLimit: %w", err)
-			}
-			return tx, nil
+		operation, _, err := deps.Strategy.Apply(func(opts *bind.TransactOpts) (*types.Transaction, error) {
+			return deps.Registry.SetDONLimit(opts, input.DONFamily, input.DONLimit, input.UserDefaultLimit)
 		})
 		if err != nil {
+			err = cldf.DecodeErr(workflow_registry_v2.WorkflowRegistryABI, err)
 			return SetDONLimitOpOutput{}, fmt.Errorf("failed to execute SetDONLimit: %w", err)
 		}
 
@@ -305,26 +220,31 @@ var SetDONLimitOp = operations.NewOperation(
 		}
 
 		return SetDONLimitOpOutput{
-			Success:   true,
-			Proposals: proposals,
+			Success:         true,
+			MCMSOperation:   operation,
+			RegistryAddress: deps.Registry.Address(),
 		}, nil
 	},
 )
 
 // SetUserDONOverride Operation
 type SetUserDONOverrideOpInput struct {
-	ChainSelector uint64           `json:"chainSelector"`
-	Qualifier     string           `json:"qualifier"` // Qualifier to identify the specific workflow registry
-	User          common.Address   `json:"user"`
-	DONFamily     string           `json:"donFamily"`
-	Limit         uint32           `json:"limit"`
-	Enabled       bool             `json:"enabled"`
-	MCMSConfig    *ocr3.MCMSConfig `json:"mcmsConfig,omitempty"`
+	// We are passing the registry via the deps, but we keep chainSelector and qualifier to allow the operation to be
+	// unique.
+	ChainSelector uint64 `json:"chainSelector"`
+	Qualifier     string `json:"qualifier"` // Qualifier to identify the specific workflow registry
+
+	User       common.Address        `json:"user"`
+	DONFamily  string                `json:"donFamily"`
+	Limit      uint32                `json:"limit"`
+	Enabled    bool                  `json:"enabled"`
+	MCMSConfig *contracts.MCMSConfig `json:"mcmsConfig,omitempty"`
 }
 
 type SetUserDONOverrideOpOutput struct {
-	Success   bool                       `json:"success"`
-	Proposals []mcmslib.TimelockProposal `json:"proposals,omitempty"`
+	Success         bool                      `json:"success"`
+	RegistryAddress common.Address            `json:"registryAddress"`
+	MCMSOperation   *mcmstypes.BatchOperation `json:"mcmsOperation"`
 }
 
 var SetUserDONOverrideOp = operations.NewOperation(
@@ -332,38 +252,12 @@ var SetUserDONOverrideOp = operations.NewOperation(
 	semver.MustParse("1.0.0"),
 	"Set User DON Override in WorkflowRegistry V2",
 	func(b operations.Bundle, deps WorkflowRegistryOpDeps, input SetUserDONOverrideOpInput) (SetUserDONOverrideOpOutput, error) {
-		chain, ok := deps.Env.BlockChains.EVMChains()[input.ChainSelector]
-		if !ok {
-			return SetUserDONOverrideOpOutput{}, fmt.Errorf("chain with selector %d not found", input.ChainSelector)
-		}
-
-		registry, err := getWorkflowRegistryV2FromDatastore(deps.Env, input.ChainSelector, input.Qualifier)
-		if err != nil {
-			return SetUserDONOverrideOpOutput{}, fmt.Errorf("failed to get workflow registry v2: %w", err)
-		}
-
-		// Create the appropriate strategy
-		strategy, err := strategies.CreateStrategy(
-			chain,
-			*deps.Env,
-			input.MCMSConfig,
-			deps.MCMSContracts,
-			registry.Address(),
-			SetUserDONOverrideDescription,
-		)
-		if err != nil {
-			return SetUserDONOverrideOpOutput{}, fmt.Errorf("failed to create strategy: %w", err)
-		}
-
 		// Execute the transaction using the strategy
-		proposals, err := strategy.Apply(func(opts *bind.TransactOpts) (*types.Transaction, error) {
-			tx, err := registry.SetUserDONOverride(opts, input.User, input.DONFamily, input.Limit, input.Enabled)
-			if err != nil {
-				return nil, fmt.Errorf("failed to call SetUserDONOverride: %w", err)
-			}
-			return tx, nil
+		operation, _, err := deps.Strategy.Apply(func(opts *bind.TransactOpts) (*types.Transaction, error) {
+			return deps.Registry.SetUserDONOverride(opts, input.User, input.DONFamily, input.Limit, input.Enabled)
 		})
 		if err != nil {
+			err = cldf.DecodeErr(workflow_registry_v2.WorkflowRegistryABI, err)
 			return SetUserDONOverrideOpOutput{}, fmt.Errorf("failed to execute SetUserDONOverride: %w", err)
 		}
 
@@ -374,24 +268,29 @@ var SetUserDONOverrideOp = operations.NewOperation(
 		}
 
 		return SetUserDONOverrideOpOutput{
-			Success:   true,
-			Proposals: proposals,
+			Success:         true,
+			MCMSOperation:   operation,
+			RegistryAddress: deps.Registry.Address(),
 		}, nil
 	},
 )
 
-// SetCapabilitiesRegistry Operation
+// SetCapabilitiesRegistry MCMSOperation
 type SetCapabilitiesRegistryOpInput struct {
-	ChainSelector    uint64           `json:"chainSelector"`
-	Qualifier        string           `json:"qualifier"` // Qualifier to identify the specific workflow registry
-	Registry         common.Address   `json:"registry"`
-	ChainSelectorDON uint64           `json:"chainSelectorDON"`
-	MCMSConfig       *ocr3.MCMSConfig `json:"mcmsConfig,omitempty"`
+	// We are passing the registry via the deps, but we keep chainSelector and qualifier to allow the operation to be
+	// unique.
+	ChainSelector uint64 `json:"chainSelector"`
+	Qualifier     string `json:"qualifier"` // Qualifier to identify the specific workflow registry
+
+	Registry         common.Address        `json:"registry"`
+	ChainSelectorDON uint64                `json:"chainSelectorDON"`
+	MCMSConfig       *contracts.MCMSConfig `json:"mcmsConfig,omitempty"`
 }
 
 type SetCapabilitiesRegistryOpOutput struct {
-	Success   bool                       `json:"success"`
-	Proposals []mcmslib.TimelockProposal `json:"proposals,omitempty"`
+	Success         bool                      `json:"success"`
+	RegistryAddress common.Address            `json:"registryAddress"`
+	MCMSOperation   *mcmstypes.BatchOperation `json:"mcmsOperation"`
 }
 
 var SetCapabilitiesRegistryOp = operations.NewOperation(
@@ -399,38 +298,12 @@ var SetCapabilitiesRegistryOp = operations.NewOperation(
 	semver.MustParse("1.0.0"),
 	"Set DON Registry in WorkflowRegistry V2",
 	func(b operations.Bundle, deps WorkflowRegistryOpDeps, input SetCapabilitiesRegistryOpInput) (SetCapabilitiesRegistryOpOutput, error) {
-		chain, ok := deps.Env.BlockChains.EVMChains()[input.ChainSelector]
-		if !ok {
-			return SetCapabilitiesRegistryOpOutput{}, fmt.Errorf("chain with selector %d not found", input.ChainSelector)
-		}
-
-		registry, err := getWorkflowRegistryV2FromDatastore(deps.Env, input.ChainSelector, input.Qualifier)
-		if err != nil {
-			return SetCapabilitiesRegistryOpOutput{}, fmt.Errorf("failed to get workflow registry v2: %w", err)
-		}
-
-		// Create the appropriate strategy
-		strategy, err := strategies.CreateStrategy(
-			chain,
-			*deps.Env,
-			input.MCMSConfig,
-			deps.MCMSContracts,
-			registry.Address(),
-			SetCapabilitiesRegistryDescription,
-		)
-		if err != nil {
-			return SetCapabilitiesRegistryOpOutput{}, fmt.Errorf("failed to create strategy: %w", err)
-		}
-
 		// Execute the transaction using the strategy
-		proposals, err := strategy.Apply(func(opts *bind.TransactOpts) (*types.Transaction, error) {
-			tx, err := registry.SetCapabilitiesRegistry(opts, input.Registry, input.ChainSelectorDON)
-			if err != nil {
-				return nil, fmt.Errorf("failed to call SetCapabilitiesRegistry: %w", err)
-			}
-			return tx, nil
+		operation, _, err := deps.Strategy.Apply(func(opts *bind.TransactOpts) (*types.Transaction, error) {
+			return deps.Registry.SetCapabilitiesRegistry(opts, input.Registry, input.ChainSelectorDON)
 		})
 		if err != nil {
+			err = cldf.DecodeErr(workflow_registry_v2.WorkflowRegistryABI, err)
 			return SetCapabilitiesRegistryOpOutput{}, fmt.Errorf("failed to execute SetCapabilitiesRegistry: %w", err)
 		}
 
@@ -441,15 +314,16 @@ var SetCapabilitiesRegistryOp = operations.NewOperation(
 		}
 
 		return SetCapabilitiesRegistryOpOutput{
-			Success:   true,
-			Proposals: proposals,
+			Success:         true,
+			MCMSOperation:   operation,
+			RegistryAddress: deps.Registry.Address(),
 		}, nil
 	},
 )
 
 // Helper function to get registry instance from datastore
 
-func getWorkflowRegistryV2FromDatastore(env *cldf.Environment, chainSelector uint64, qualifier string) (*workflow_registry_v2.WorkflowRegistry, error) {
+func GetWorkflowRegistryV2FromDatastore(env *cldf.Environment, chainSelector uint64, qualifier string) (*workflow_registry_v2.WorkflowRegistry, error) {
 	addresses := env.DataStore.Addresses().Filter(datastore.AddressRefByChainSelector(chainSelector))
 	if len(addresses) == 0 {
 		return nil, fmt.Errorf("no addresses found for chain selector %d", chainSelector)

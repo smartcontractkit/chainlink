@@ -1056,6 +1056,38 @@ func Test_Report_FormatReport(t *testing.T) {
 		billingClient.AssertExpectations(t)
 	})
 
+	t.Run("includes orgID in metadata", func(t *testing.T) {
+		t.Parallel()
+
+		testOrgID := "org-123"
+		labels := map[string]string{
+			platform.KeyWorkflowOwner:       "accountId",
+			platform.KeyWorkflowID:          "workflowId",
+			platform.KeyWorkflowVersion:     workflowV2,
+			platform.KeyWorkflowExecutionID: "workflowExecutionId",
+			platform.KeyDonID:               "42",
+			platform.KeyDonF:                "1",
+			platform.KeyDonN:                "3",
+			platform.KeyP2PID:               "peerId",
+			platform.KeyTriggerID:           "triggerId",
+			platform.KeyOrganizationID:      testOrgID,
+		}
+
+		billingClient := mocks.NewBillingClient(t)
+		billingClient.EXPECT().GetWorkflowExecutionRates(mock.Anything, mock.Anything).
+			Return(&billing.GetWorkflowExecutionRatesResponse{}, nil)
+
+		report, err := NewReport(t.Context(), labels, logger.Nop(), billingClient, defaultMetrics(t), dummyRegistryAddress, dummyChainSelector, workflowV2)
+		require.NoError(t, err)
+
+		billingClient.EXPECT().ReserveCredits(mock.Anything, mock.Anything).Return(&successReserveResponse, nil)
+		require.NoError(t, report.Reserve(t.Context()))
+
+		meteringReport := report.FormatReport()
+		require.Equal(t, testOrgID, meteringReport.Metadata.OrgID)
+		billingClient.AssertExpectations(t)
+	})
+
 	t.Run("contains all step data", func(t *testing.T) {
 		t.Parallel()
 

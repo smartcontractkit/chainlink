@@ -98,7 +98,11 @@ func TestComputeStartAddsToRegistry(t *testing.T) {
 
 	cp, err := th.registry.Get(t.Context(), CapabilityIDCompute)
 	require.NoError(t, err)
-	assert.Equal(t, th.compute, cp)
+	loader, ok := cp.(interface {
+		Load() *cappkg.ExecutableCapability
+	})
+	require.True(t, ok, "expected atomic executable but got: %T", cp)
+	assert.Equal(t, th.compute, *loader.Load())
 }
 
 func TestComputeExecuteMissingConfig(t *testing.T) {
@@ -288,7 +292,7 @@ func TestComputeFetch(t *testing.T) {
 	actual.Metadata.Metering[0].SpendValue = "0"
 
 	require.NoError(t, err)
-	assert.EqualValues(t, expected, actual)
+	assert.Equal(t, expected, actual)
 
 	assert.Less(t, spendValue, uint64(400))
 }

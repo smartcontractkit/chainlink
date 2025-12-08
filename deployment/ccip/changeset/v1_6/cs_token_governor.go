@@ -8,6 +8,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
+
 	"github.com/smartcontractkit/chainlink-evm/pkg/utils"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/deployergroup"
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
@@ -304,15 +305,20 @@ func DeployTokenGovernor(env cldf.Environment, c TokenGovernorChangesetConfig) (
 					}
 				},
 			)
-
 			if err != nil {
 				return cldf.ChangesetOutput{}, fmt.Errorf("failed to deploy token governor on %s: %w", chain, err)
 			}
 		}
 	}
 
+	ds, err := shared.PopulateDataStore(newAddresses)
+	if err != nil {
+		return cldf.ChangesetOutput{}, fmt.Errorf("failed to populate in-memory DataStore: %w", err)
+	}
+
 	return cldf.ChangesetOutput{
 		AddressBook: newAddresses,
+		DataStore:   ds,
 	}, nil
 }
 

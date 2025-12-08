@@ -17,7 +17,8 @@ import (
 )
 
 const (
-	maxJWTExpiryDuration = 5 * time.Minute // Maximum allowed expiry duration
+	maxJWTExpiryDuration     = 5 * time.Minute // Maximum allowed expiry duration
+	defaultIssuedAtTolerance = 5 * time.Minute // Default tolerance for issuedAt validation to handle clock drift
 )
 
 // Option is a function type that allows configuring CreateRequestJWT.
@@ -35,6 +36,7 @@ type VerifyOption func(*verifyOptions)
 
 type verifyOptions struct {
 	maxExpiryDuration *time.Duration
+	issuedAtTolerance *time.Duration
 }
 
 func WithExpiry(d time.Duration) Option {
@@ -64,6 +66,14 @@ func WithSubject(subject string) Option {
 func WithMaxExpiryDuration(d time.Duration) VerifyOption {
 	return func(opts *verifyOptions) {
 		opts.maxExpiryDuration = &d
+	}
+}
+
+// WithIssuedAtTolerance sets the tolerance for issuedAt validation to handle clock skew.
+// This allows tokens with issuedAt times slightly in the future (within the tolerance) to be accepted
+func WithIssuedAtTolerance(d time.Duration) VerifyOption {
+	return func(opts *verifyOptions) {
+		opts.issuedAtTolerance = &d
 	}
 }
 
@@ -228,6 +238,11 @@ func VerifyRequestJWT[T any](tokenString string, req jsonrpc.Request[T], opts ..
 	if options.maxExpiryDuration != nil {
 		maxExpiryDuration = *options.maxExpiryDuration
 	}
+
+	issuedAtTolerance := defaultIssuedAtTolerance
+	if options.issuedAtTolerance != nil {
+		issuedAtTolerance = *options.issuedAtTolerance
+	}
 	signedString, signature, err := splitToken(tokenString)
 	if err != nil {
 		return nil, gethcommon.Address{}, err
@@ -271,6 +286,11 @@ func VerifyRequestJWT[T any](tokenString string, req jsonrpc.Request[T], opts ..
 	}
 	if verifiedClaims.IssuedAt == nil {
 		return nil, gethcommon.Address{}, errors.New("issuedAt (iat) is required but missing")
+	}
+	now := time.Now()
+	issuedAt := verifiedClaims.IssuedAt
+	if issuedAt.After(now.Add(issuedAtTolerance)) {
+		return nil, gethcommon.Address{}, fmt.Errorf("issuedAt (iat) is too far in the future (beyond tolerance of %.0f seconds)", issuedAtTolerance.Seconds())
 	}
 	duration := verifiedClaims.ExpiresAt.Sub(verifiedClaims.IssuedAt.Time)
 	if duration > maxExpiryDuration {

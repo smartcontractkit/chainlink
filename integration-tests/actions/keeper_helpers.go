@@ -55,7 +55,7 @@ func CreateKeeperJobsWithKeyIndex(
 		chainlinkNodeAddress, err := chainlinkNode.EthAddresses()
 		require.NoError(t, err, "Error retrieving chainlink node address")
 		_, err = chainlinkNode.MustCreateJob(&nodeclient.KeeperJobSpec{
-			Name:                     fmt.Sprintf("keeper-test-%s", keeperRegistry.Address()),
+			Name:                     "keeper-test-" + keeperRegistry.Address(),
 			ContractAddress:          keeperRegistry.Address(),
 			FromAddress:              chainlinkNodeAddress[keyIndex],
 			EVMChainID:               evmChainID,
@@ -310,7 +310,7 @@ func RegisterUpkeepContractsWithCheckData(t *testing.T, client *seth.Client, lin
 			// register upkeep with native token
 			tx, err = registrar.RegisterUpkeepFromKey(
 				keyNum,
-				fmt.Sprintf("upkeep_%s", id),
+				"upkeep_"+id,
 				[]byte("test@mail.com"),
 				config.address,
 				upkeepGasLimit,
@@ -328,7 +328,7 @@ func RegisterUpkeepContractsWithCheckData(t *testing.T, client *seth.Client, lin
 		} else {
 			// register upkeep with LINK
 			req, err := registrar.EncodeRegisterRequest(
-				fmt.Sprintf("upkeep_%s", id),
+				"upkeep_"+id,
 				[]byte("test@mail.com"),
 				config.address,
 				upkeepGasLimit,
@@ -398,7 +398,7 @@ func RegisterUpkeepContractsWithCheckData(t *testing.T, client *seth.Client, lin
 	upkeepIds, err := executor.Execute(concurrency, configs, registerUpkeepFn)
 	require.NoError(t, err, "Failed to register upkeeps using executor")
 
-	require.Equal(t, numberOfContracts, len(upkeepIds), "Incorrect number of Keeper Consumer Contracts registered")
+	require.Len(t, upkeepIds, numberOfContracts, "Incorrect number of Keeper Consumer Contracts registered")
 	l.Info().Msg("Successfully registered all Keeper Consumer Contracts")
 
 	return upkeepIds
@@ -452,7 +452,7 @@ func DeployKeeperConsumers(t *testing.T, client *seth.Client, numberOfContracts 
 	require.NoError(t, err, "Failed to deploy keeper consumers")
 
 	// require.Equal(t, 0, len(deplymentErrors), "Error deploying consumer contracts")
-	require.Equal(t, numberOfContracts, len(results), "Incorrect number of Keeper Consumer Contracts deployed")
+	require.Len(t, results, numberOfContracts, "Incorrect number of Keeper Consumer Contracts deployed")
 	l.Info().Msg("Successfully deployed all Keeper Consumer Contracts")
 
 	return results
@@ -467,7 +467,7 @@ func SetupKeeperConsumers(t *testing.T, client *seth.Client, numberOfContracts i
 	if config.GetAutomationConfig().UseExistingUpkeepContracts() {
 		contractsLoaded, err := config.GetAutomationConfig().UpkeepContractAddresses()
 		require.NoError(t, err, "Failed to get upkeep contract addresses")
-		require.Equal(t, numberOfContracts, len(contractsLoaded), "Incorrect number of Keeper Consumer Contracts loaded")
+		require.Len(t, contractsLoaded, numberOfContracts, "Incorrect number of Keeper Consumer Contracts loaded")
 		l.Info().Int("Number of Contracts", numberOfContracts).Msg("Loading upkeep contracts from config")
 		// Load existing contracts
 		for i := range numberOfContracts {
@@ -516,7 +516,7 @@ func DeployKeeperConsumersPerformance(
 			Msg("Deployed Keeper Performance Contract")
 	}
 
-	require.Equal(t, numberOfContracts, len(upkeeps), "Incorrect number of consumers contracts deployed")
+	require.Len(t, upkeeps, numberOfContracts, "Incorrect number of consumers contracts deployed")
 	l.Info().Msg("Successfully deployed all Keeper Consumer Contracts")
 
 	return upkeeps
@@ -542,7 +542,7 @@ func DeployPerformDataChecker(
 			Int("Out Of", numberOfContracts).
 			Msg("Deployed PerformDataChecker Contract")
 	}
-	require.Equal(t, numberOfContracts, len(upkeeps), "Incorrect number of PerformDataChecker contracts deployed")
+	require.Len(t, upkeeps, numberOfContracts, "Incorrect number of PerformDataChecker contracts deployed")
 	l.Info().Msg("Successfully deployed all PerformDataChecker Contracts")
 
 	return upkeeps
@@ -570,7 +570,7 @@ func DeployUpkeepCounters(
 			Int("Out Of", numberOfContracts).
 			Msg("Deployed Keeper Consumer Contract")
 	}
-	require.Equal(t, numberOfContracts, len(upkeepCounters), "Incorrect number of Keeper Consumer contracts deployed")
+	require.Len(t, upkeepCounters, numberOfContracts, "Incorrect number of Keeper Consumer contracts deployed")
 	l.Info().Msg("Successfully deployed all Keeper Consumer Contracts")
 
 	return upkeepCounters
@@ -598,7 +598,7 @@ func DeployUpkeepPerformCounterRestrictive(
 			Int("Out Of", numberOfContracts).
 			Msg("Deployed Keeper Consumer Contract")
 	}
-	require.Equal(t, numberOfContracts, len(upkeepCounters), "Incorrect number of Keeper Consumer contracts deployed")
+	require.Len(t, upkeepCounters, numberOfContracts, "Incorrect number of Keeper Consumer contracts deployed")
 	l.Info().Msg("Successfully deployed all Keeper Consumer Contracts")
 
 	return upkeepCounters

@@ -16,16 +16,14 @@ import (
 	mcmsTypes "github.com/smartcontractkit/mcms/types"
 
 	cldf_solana "github.com/smartcontractkit/chainlink-deployments-framework/chain/solana"
-
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 
-	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
 	commonstate "github.com/smartcontractkit/chainlink/deployment/common/changeset/state"
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 	"github.com/smartcontractkit/chainlink/deployment/common/types"
-	"github.com/smartcontractkit/chainlink/deployment/environment/memory"
+	"github.com/smartcontractkit/chainlink/deployment/utils/solutils"
 )
 
 // use this changeset to upload the IDL for a program
@@ -99,7 +97,7 @@ func writeAnchorToml(e cldf.Environment, filename, anchorVersion, cluster, walle
 // resolve artifacts based on sha and write anchor.toml file to simulate anchor workspace
 func repoSetup(e cldf.Environment, chain cldf_solana.Chain, gitCommitSha string) error {
 	e.Logger.Debug("Downloading Solana CCIP program artifacts...")
-	err := memory.DownloadSolanaCCIPProgramArtifacts(e.GetContext(), chain.ProgramsPath, e.Logger, gitCommitSha)
+	err := solutils.DownloadChainlinkCCIPProgramArtifacts(e.GetContext(), chain.ProgramsPath, gitCommitSha, e.Logger)
 	if err != nil {
 		return fmt.Errorf("error downloading solana ccip program artifacts: %w", err)
 	}
@@ -343,7 +341,7 @@ func (c IDLConfig) Validate(e cldf.Environment) error {
 			return fmt.Errorf("lockReleaseTokenPool not deployed for chain %d, cannot upload idl", c.ChainSelector)
 		}
 	}
-	addresses, err := e.ExistingAddresses.AddressesForChain(c.ChainSelector) //nolint:staticcheck // Addressbook is deprecated, but we still use it for the time being
+	addresses, err := e.ExistingAddresses.AddressesForChain(c.ChainSelector)
 	if err != nil {
 		return fmt.Errorf("failed to get existing addresses: %w", err)
 	}
@@ -375,44 +373,44 @@ func UploadIDL(e cldf.Environment, c IDLConfig) (cldf.ChangesetOutput, error) {
 
 	// start uploading
 	if c.Router {
-		err := idlInit(e, chain.ProgramsPath, chainState.Router.String(), deployment.RouterProgramName)
+		err := idlInit(e, chain.ProgramsPath, chainState.Router.String(), solutils.ProgCCIPRouter)
 		if err != nil {
 			return cldf.ChangesetOutput{}, err
 		}
 	}
 	if c.FeeQuoter {
-		err := idlInit(e, chain.ProgramsPath, chainState.FeeQuoter.String(), deployment.FeeQuoterProgramName)
+		err := idlInit(e, chain.ProgramsPath, chainState.FeeQuoter.String(), solutils.ProgFeeQuoter)
 		if err != nil {
 			return cldf.ChangesetOutput{}, nil
 		}
 	}
 	if c.OffRamp {
-		err := idlInit(e, chain.ProgramsPath, chainState.OffRamp.String(), deployment.OffRampProgramName)
+		err := idlInit(e, chain.ProgramsPath, chainState.OffRamp.String(), solutils.ProgCCIPOfframp)
 		if err != nil {
 			return cldf.ChangesetOutput{}, nil
 		}
 	}
 	if c.RMNRemote {
-		err := idlInit(e, chain.ProgramsPath, chainState.RMNRemote.String(), deployment.RMNRemoteProgramName)
+		err := idlInit(e, chain.ProgramsPath, chainState.RMNRemote.String(), solutils.ProgRMNRemote)
 		if err != nil {
 			return cldf.ChangesetOutput{}, nil
 		}
 	}
 	for _, bnmMetadata := range c.BurnMintTokenPoolMetadata {
 		tokenPool := chainState.GetActiveTokenPool(shared.BurnMintTokenPool, bnmMetadata)
-		err := idlInit(e, chain.ProgramsPath, tokenPool.String(), deployment.BurnMintTokenPoolProgramName)
+		err := idlInit(e, chain.ProgramsPath, tokenPool.String(), solutils.ProgBurnMintTokenPool)
 		if err != nil {
 			return cldf.ChangesetOutput{}, nil
 		}
 	}
 	for _, lrMetadata := range c.LockReleaseTokenPoolMetadata {
 		tokenPool := chainState.GetActiveTokenPool(shared.LockReleaseTokenPool, lrMetadata)
-		err := idlInit(e, chain.ProgramsPath, tokenPool.String(), deployment.LockReleaseTokenPoolProgramName)
+		err := idlInit(e, chain.ProgramsPath, tokenPool.String(), solutils.ProgLockReleaseTokenPool)
 		if err != nil {
 			return cldf.ChangesetOutput{}, nil
 		}
 	}
-	addresses, err := e.ExistingAddresses.AddressesForChain(c.ChainSelector) //nolint:staticcheck // Addressbook is deprecated, but we still use it for the time being
+	addresses, err := e.ExistingAddresses.AddressesForChain(c.ChainSelector)
 	if err != nil {
 		return cldf.ChangesetOutput{}, fmt.Errorf("failed to get existing addresses: %w", err)
 	}
@@ -421,19 +419,19 @@ func UploadIDL(e cldf.Environment, c IDLConfig) (cldf.ChangesetOutput, error) {
 		return cldf.ChangesetOutput{}, fmt.Errorf("failed to load MCMS with timelock chain state: %w", err)
 	}
 	if c.MCM {
-		err := idlInit(e, chain.ProgramsPath, mcmState.McmProgram.String(), deployment.McmProgramName)
+		err := idlInit(e, chain.ProgramsPath, mcmState.McmProgram.String(), solutils.ProgMCM)
 		if err != nil {
 			return cldf.ChangesetOutput{}, nil
 		}
 	}
 	if c.Timelock {
-		err := idlInit(e, chain.ProgramsPath, mcmState.TimelockProgram.String(), deployment.TimelockProgramName)
+		err := idlInit(e, chain.ProgramsPath, mcmState.TimelockProgram.String(), solutils.ProgTimelock)
 		if err != nil {
 			return cldf.ChangesetOutput{}, nil
 		}
 	}
 	if c.AccessController {
-		err := idlInit(e, chain.ProgramsPath, mcmState.AccessControllerProgram.String(), deployment.AccessControllerProgramName)
+		err := idlInit(e, chain.ProgramsPath, mcmState.AccessControllerProgram.String(), solutils.ProgAccessController)
 		if err != nil {
 			return cldf.ChangesetOutput{}, nil
 		}
@@ -458,45 +456,45 @@ func SetAuthorityIDL(e cldf.Environment, c IDLConfig) (cldf.ChangesetOutput, err
 
 	// set idl authority
 	if c.Router {
-		err = setIdlAuthority(e, timelockSignerPDA.String(), chain.ProgramsPath, chainState.Router.String(), deployment.RouterProgramName, "")
+		err = setIdlAuthority(e, timelockSignerPDA.String(), chain.ProgramsPath, chainState.Router.String(), solutils.ProgCCIPRouter, "")
 		if err != nil {
 			return cldf.ChangesetOutput{}, err
 		}
 	}
 	if c.FeeQuoter {
-		err = setIdlAuthority(e, timelockSignerPDA.String(), chain.ProgramsPath, chainState.FeeQuoter.String(), deployment.FeeQuoterProgramName, "")
+		err = setIdlAuthority(e, timelockSignerPDA.String(), chain.ProgramsPath, chainState.FeeQuoter.String(), solutils.ProgFeeQuoter, "")
 		if err != nil {
 			return cldf.ChangesetOutput{}, err
 		}
 	}
 	if c.OffRamp {
-		err = setIdlAuthority(e, timelockSignerPDA.String(), chain.ProgramsPath, chainState.OffRamp.String(), deployment.OffRampProgramName, "")
+		err = setIdlAuthority(e, timelockSignerPDA.String(), chain.ProgramsPath, chainState.OffRamp.String(), solutils.ProgCCIPOfframp, "")
 		if err != nil {
 			return cldf.ChangesetOutput{}, err
 		}
 	}
 	if c.RMNRemote {
-		err = setIdlAuthority(e, timelockSignerPDA.String(), chain.ProgramsPath, chainState.RMNRemote.String(), deployment.RMNRemoteProgramName, "")
+		err = setIdlAuthority(e, timelockSignerPDA.String(), chain.ProgramsPath, chainState.RMNRemote.String(), solutils.ProgRMNRemote, "")
 		if err != nil {
 			return cldf.ChangesetOutput{}, err
 		}
 	}
 	for _, bnmMetadata := range c.BurnMintTokenPoolMetadata {
 		tokenPool := chainState.GetActiveTokenPool(shared.BurnMintTokenPool, bnmMetadata)
-		err = setIdlAuthority(e, timelockSignerPDA.String(), chain.ProgramsPath, tokenPool.String(), deployment.BurnMintTokenPoolProgramName, "")
+		err = setIdlAuthority(e, timelockSignerPDA.String(), chain.ProgramsPath, tokenPool.String(), solutils.ProgBurnMintTokenPool, "")
 		if err != nil {
 			return cldf.ChangesetOutput{}, err
 		}
 	}
 	for _, lrMetadata := range c.LockReleaseTokenPoolMetadata {
 		tokenPool := chainState.GetActiveTokenPool(shared.LockReleaseTokenPool, lrMetadata)
-		err = setIdlAuthority(e, timelockSignerPDA.String(), chain.ProgramsPath, tokenPool.String(), deployment.LockReleaseTokenPoolProgramName, "")
+		err = setIdlAuthority(e, timelockSignerPDA.String(), chain.ProgramsPath, tokenPool.String(), solutils.ProgLockReleaseTokenPool, "")
 		if err != nil {
 			return cldf.ChangesetOutput{}, err
 		}
 	}
 
-	addresses, err := e.ExistingAddresses.AddressesForChain(chain.Selector) //nolint:staticcheck // Addressbook is deprecated, but we still use it for the time being
+	addresses, err := e.ExistingAddresses.AddressesForChain(chain.Selector)
 	if err != nil {
 		return cldf.ChangesetOutput{}, fmt.Errorf("failed to get existing addresses: %w", err)
 	}
@@ -542,7 +540,7 @@ func UpgradeIDL(e cldf.Environment, c IDLConfig) (cldf.ChangesetOutput, error) {
 
 	mcmsTxs := make([]mcmsTypes.Transaction, 0)
 	if c.Router {
-		upgradeTx, err := upgradeIDLIx(e, chain.ProgramsPath, chainState.Router.String(), deployment.RouterProgramName, c)
+		upgradeTx, err := upgradeIDLIx(e, chain.ProgramsPath, chainState.Router.String(), solutils.ProgCCIPRouter, c)
 		if err != nil {
 			return cldf.ChangesetOutput{}, fmt.Errorf("error generating upgrade tx: %w", err)
 		}
@@ -551,7 +549,7 @@ func UpgradeIDL(e cldf.Environment, c IDLConfig) (cldf.ChangesetOutput, error) {
 		}
 	}
 	if c.FeeQuoter {
-		upgradeTx, err := upgradeIDLIx(e, chain.ProgramsPath, chainState.FeeQuoter.String(), deployment.FeeQuoterProgramName, c)
+		upgradeTx, err := upgradeIDLIx(e, chain.ProgramsPath, chainState.FeeQuoter.String(), solutils.ProgFeeQuoter, c)
 		if err != nil {
 			return cldf.ChangesetOutput{}, fmt.Errorf("error generating upgrade tx: %w", err)
 		}
@@ -560,7 +558,7 @@ func UpgradeIDL(e cldf.Environment, c IDLConfig) (cldf.ChangesetOutput, error) {
 		}
 	}
 	if c.OffRamp {
-		upgradeTx, err := upgradeIDLIx(e, chain.ProgramsPath, chainState.OffRamp.String(), deployment.OffRampProgramName, c)
+		upgradeTx, err := upgradeIDLIx(e, chain.ProgramsPath, chainState.OffRamp.String(), solutils.ProgCCIPOfframp, c)
 		if err != nil {
 			return cldf.ChangesetOutput{}, fmt.Errorf("error generating upgrade tx: %w", err)
 		}
@@ -569,7 +567,7 @@ func UpgradeIDL(e cldf.Environment, c IDLConfig) (cldf.ChangesetOutput, error) {
 		}
 	}
 	if c.RMNRemote {
-		upgradeTx, err := upgradeIDLIx(e, chain.ProgramsPath, chainState.RMNRemote.String(), deployment.RMNRemoteProgramName, c)
+		upgradeTx, err := upgradeIDLIx(e, chain.ProgramsPath, chainState.RMNRemote.String(), solutils.ProgRMNRemote, c)
 		if err != nil {
 			return cldf.ChangesetOutput{}, fmt.Errorf("error generating upgrade tx: %w", err)
 		}
@@ -579,7 +577,7 @@ func UpgradeIDL(e cldf.Environment, c IDLConfig) (cldf.ChangesetOutput, error) {
 	}
 	for _, bnmMetadata := range c.BurnMintTokenPoolMetadata {
 		tokenPool := chainState.GetActiveTokenPool(shared.BurnMintTokenPool, bnmMetadata)
-		upgradeTx, err := upgradeIDLIx(e, chain.ProgramsPath, tokenPool.String(), deployment.BurnMintTokenPoolProgramName, c)
+		upgradeTx, err := upgradeIDLIx(e, chain.ProgramsPath, tokenPool.String(), solutils.ProgBurnMintTokenPool, c)
 		if err != nil {
 			return cldf.ChangesetOutput{}, fmt.Errorf("error generating upgrade tx: %w", err)
 		}
@@ -589,7 +587,7 @@ func UpgradeIDL(e cldf.Environment, c IDLConfig) (cldf.ChangesetOutput, error) {
 	}
 	for _, lrMetadata := range c.LockReleaseTokenPoolMetadata {
 		tokenPool := chainState.GetActiveTokenPool(shared.LockReleaseTokenPool, lrMetadata)
-		upgradeTx, err := upgradeIDLIx(e, chain.ProgramsPath, tokenPool.String(), deployment.LockReleaseTokenPoolProgramName, c)
+		upgradeTx, err := upgradeIDLIx(e, chain.ProgramsPath, tokenPool.String(), solutils.ProgLockReleaseTokenPool, c)
 		if err != nil {
 			return cldf.ChangesetOutput{}, fmt.Errorf("error generating upgrade tx: %w", err)
 		}
@@ -598,7 +596,7 @@ func UpgradeIDL(e cldf.Environment, c IDLConfig) (cldf.ChangesetOutput, error) {
 		}
 	}
 
-	addresses, err := e.ExistingAddresses.AddressesForChain(chain.Selector) //nolint:staticcheck // Addressbook is deprecated, but we still use it for the time being
+	addresses, err := e.ExistingAddresses.AddressesForChain(chain.Selector)
 	if err != nil {
 		return cldf.ChangesetOutput{}, fmt.Errorf("failed to get existing addresses: %w", err)
 	}
@@ -608,7 +606,7 @@ func UpgradeIDL(e cldf.Environment, c IDLConfig) (cldf.ChangesetOutput, error) {
 	}
 
 	if c.AccessController {
-		upgradeTx, err := upgradeIDLIx(e, chain.ProgramsPath, mcmState.AccessControllerProgram.String(), deployment.AccessControllerProgramName, c)
+		upgradeTx, err := upgradeIDLIx(e, chain.ProgramsPath, mcmState.AccessControllerProgram.String(), solutils.ProgAccessController, c)
 		if err != nil {
 			return cldf.ChangesetOutput{}, fmt.Errorf("error generating upgrade tx: %w", err)
 		}
@@ -617,7 +615,7 @@ func UpgradeIDL(e cldf.Environment, c IDLConfig) (cldf.ChangesetOutput, error) {
 		}
 	}
 	if c.Timelock {
-		upgradeTx, err := upgradeIDLIx(e, chain.ProgramsPath, mcmState.TimelockProgram.String(), deployment.TimelockProgramName, c)
+		upgradeTx, err := upgradeIDLIx(e, chain.ProgramsPath, mcmState.TimelockProgram.String(), solutils.ProgTimelock, c)
 		if err != nil {
 			return cldf.ChangesetOutput{}, fmt.Errorf("error generating upgrade tx: %w", err)
 		}
@@ -626,7 +624,7 @@ func UpgradeIDL(e cldf.Environment, c IDLConfig) (cldf.ChangesetOutput, error) {
 		}
 	}
 	if c.MCM {
-		upgradeTx, err := upgradeIDLIx(e, chain.ProgramsPath, mcmState.McmProgram.String(), deployment.McmProgramName, c)
+		upgradeTx, err := upgradeIDLIx(e, chain.ProgramsPath, mcmState.McmProgram.String(), solutils.ProgMCM, c)
 		if err != nil {
 			return cldf.ChangesetOutput{}, fmt.Errorf("error generating upgrade tx: %w", err)
 		}

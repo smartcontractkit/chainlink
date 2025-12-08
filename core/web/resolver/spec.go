@@ -156,6 +156,30 @@ func (r *SpecResolver) ToCCIPSpec() (*CCIPSpecResolver, bool) {
 	return &CCIPSpecResolver{spec: *r.j.CCIPSpec}, true
 }
 
+func (r *SpecResolver) ToCCVCommitteeVerifierSpec() (*CCVCommitteeVerifierSpecResolver, bool) {
+	if r.j.Type != job.CCVCommitteeVerifier {
+		return nil, false
+	}
+
+	return &CCVCommitteeVerifierSpecResolver{spec: *r.j.CCVCommitteeVerifierSpec}, true
+}
+
+func (r *SpecResolver) ToCCVExecutorSpec() (*CCVExecutorSpecResolver, bool) {
+	if r.j.Type != job.CCVExecutor {
+		return nil, false
+	}
+
+	return &CCVExecutorSpecResolver{spec: *r.j.CCVExecutorSpec}, true
+}
+
+func (r *SpecResolver) ToCRESettingsSpec() (*CRESettingsSpecResolver, bool) {
+	if r.j.Type != job.CRESettings {
+		return nil, false
+	}
+
+	return &CRESettingsSpecResolver{spec: *r.j.CRESettingsSpec}, true
+}
+
 type CronSpecResolver struct {
 	spec job.CronSpec
 }
@@ -1086,6 +1110,46 @@ func (r *StreamSpecResolver) StreamID() *string {
 	return r.streamID
 }
 
+type CCVCommitteeVerifierSpecResolver struct {
+	spec job.CCVCommitteeVerifierSpec
+}
+
+func (r *CCVCommitteeVerifierSpecResolver) CreatedAt() graphql.Time {
+	return graphql.Time{Time: r.spec.CreatedAt}
+}
+
+func (r *CCVCommitteeVerifierSpecResolver) UpdatedAt() graphql.Time {
+	return graphql.Time{Time: r.spec.UpdatedAt}
+}
+
+func (r *CCVCommitteeVerifierSpecResolver) ID() graphql.ID {
+	return graphql.ID(stringutils.FromInt32(r.spec.ID))
+}
+
+func (r *CCVCommitteeVerifierSpecResolver) CommitteeVerifierConfig() string {
+	return r.spec.CommitteeVerifierConfig
+}
+
+type CCVExecutorSpecResolver struct {
+	spec job.CCVExecutorSpec
+}
+
+func (r *CCVExecutorSpecResolver) CreatedAt() graphql.Time {
+	return graphql.Time{Time: r.spec.CreatedAt}
+}
+
+func (r *CCVExecutorSpecResolver) UpdatedAt() graphql.Time {
+	return graphql.Time{Time: r.spec.UpdatedAt}
+}
+
+func (r *CCVExecutorSpecResolver) ID() graphql.ID {
+	return graphql.ID(stringutils.FromInt32(r.spec.ID))
+}
+
+func (r *CCVExecutorSpecResolver) ExecutorConfig() string {
+	return r.spec.ExecutorConfig
+}
+
 type CCIPSpecResolver struct {
 	spec job.CCIPSpec
 }
@@ -1134,4 +1198,28 @@ func (r *CCIPSpecResolver) PluginConfig() gqlscalar.Map {
 
 func (r *CCIPSpecResolver) P2PKeyID() string {
 	return r.spec.P2PKeyID
+}
+
+type CRESettingsSpecResolver struct {
+	spec job.CRESettingsSpec
+}
+
+func (r *CRESettingsSpecResolver) CreatedAt() graphql.Time {
+	return graphql.Time{Time: r.spec.CreatedAt}
+}
+
+func (r *CRESettingsSpecResolver) UpdatedAt() graphql.Time {
+	return graphql.Time{Time: r.spec.UpdatedAt}
+}
+
+func (r *CRESettingsSpecResolver) ID() graphql.ID {
+	return graphql.ID(stringutils.FromInt32(r.spec.ID))
+}
+
+func (r *CRESettingsSpecResolver) Settings() string {
+	return r.spec.Settings
+}
+
+func (r *CRESettingsSpecResolver) Hash() string {
+	return r.spec.Hash
 }

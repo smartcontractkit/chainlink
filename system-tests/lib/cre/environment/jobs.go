@@ -1,9 +1,9 @@
 package environment
 
 import (
+	"context"
 	"errors"
 	"fmt"
-	"os"
 	"strings"
 	"time"
 
@@ -15,7 +15,6 @@ import (
 	"google.golang.org/grpc/credentials/insecure"
 
 	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/jd"
-	ctfconfig "github.com/smartcontractkit/chainlink-testing-framework/lib/config"
 
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/crib"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/infra"
@@ -26,7 +25,7 @@ type StartedJD struct {
 	Client   *cldf_jd.JobDistributor
 }
 
-func StartJD(lggr zerolog.Logger, jdInput jd.Input, infraInput infra.Provider) (*StartedJD, error) {
+func StartJD(ctx context.Context, lggr zerolog.Logger, jdInput jd.Input, infraInput infra.Provider) (*StartedJD, error) {
 	startTime := time.Now()
 	lggr.Info().Msg("Starting Job Distributor")
 
@@ -38,19 +37,13 @@ func StartJD(lggr zerolog.Logger, jdInput jd.Input, infraInput infra.Provider) (
 		}
 
 		var jdErr error
-		jdInput.Out, jdErr = crib.DeployJd(deployCribJdInput)
+		jdInput.Out, jdErr = crib.DeployJd(ctx, deployCribJdInput)
 		if jdErr != nil {
 			return nil, pkgerrors.Wrap(jdErr, "failed to deploy JD with devspace")
 		}
 	}
 
-	if os.Getenv("CI") == "true" {
-		jdImage := ctfconfig.MustReadEnvVar_String(E2eJobDistributorImageEnvVarName)
-		jdVersion := os.Getenv(E2eJobDistributorVersionEnvVarName)
-		jdInput.Image = fmt.Sprintf("%s:%s", jdImage, jdVersion)
-	}
-
-	jdOutput, jdErr := jd.NewJD(&jdInput)
+	jdOutput, jdErr := jd.NewWithContext(ctx, &jdInput)
 	if jdErr != nil {
 		jdErr = fmt.Errorf("failed to start JD container for image %s: %w", jdInput.Image, jdErr)
 

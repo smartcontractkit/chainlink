@@ -43,7 +43,7 @@ func TestAddNodes(t *testing.T) {
 
 	var mcCases = []mcmsCase{
 		{name: "no mcms", mcmsConfig: nil},
-		{name: "with mcms", mcmsConfig: &changeset.MCMSConfig{MinDuration: 0}},
+		{name: "with mcms", mcmsConfig: &changeset.MCMSConfig{MinDelay: 0}},
 	}
 	for _, mcCase := range mcCases {
 		mcmsConfig := mcCase.mcmsConfig

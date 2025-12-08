@@ -1,6 +1,7 @@
 package cre
 
 import (
+	"context"
 	"fmt"
 	"maps"
 	"os"
@@ -9,19 +10,21 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/Masterminds/semver/v3"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/gagliardetto/solana-go"
+	"github.com/google/uuid"
 	"github.com/pelletier/go-toml/v2"
 	"github.com/pkg/errors"
-
-	"github.com/smartcontractkit/smdkg/dkgocr/dkgocrtypes"
+	"github.com/rs/zerolog"
 
 	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	jobv1 "github.com/smartcontractkit/chainlink-protos/job-distributor/v1/job"
 	ks_sol "github.com/smartcontractkit/chainlink/deployment/keystone/changeset/solana"
+	coretoml "github.com/smartcontractkit/chainlink/v2/core/config/toml"
+	corechainlink "github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 
-	cldf_jd "github.com/smartcontractkit/chainlink-deployments-framework/offchain/jd"
 	keystone_changeset "github.com/smartcontractkit/chainlink/deployment/keystone/changeset"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/secrets"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/blockchains"
@@ -30,8 +33,12 @@ import (
 
 	"github.com/smartcontractkit/chainlink-testing-framework/framework"
 	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/blockchain"
+	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/clnode"
 	ns "github.com/smartcontractkit/chainlink-testing-framework/framework/components/simple_node_set"
+	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/ptr"
 )
+
+const EnvironmentName = "local-cre"
 
 type CapabilityFlag = string
 
@@ -44,21 +51,22 @@ const (
 
 // Capabilities
 const (
-	ConsensusCapability     CapabilityFlag = "ocr3"
-	ConsensusCapabilityV2   CapabilityFlag = "consensus" // v2
-	CronCapability          CapabilityFlag = "cron"
-	EVMCapability           CapabilityFlag = "evm"
-	CustomComputeCapability CapabilityFlag = "custom-compute"
-	WriteEVMCapability      CapabilityFlag = "write-evm"
-	WriteSolanaCapability   CapabilityFlag = "write-solana"
-	ReadContractCapability  CapabilityFlag = "read-contract"
-	LogTriggerCapability    CapabilityFlag = "log-event-trigger"
-	WebAPITargetCapability  CapabilityFlag = "web-api-target"
-	WebAPITriggerCapability CapabilityFlag = "web-api-trigger"
-	MockCapability          CapabilityFlag = "mock"
-	VaultCapability         CapabilityFlag = "vault"
-	HTTPTriggerCapability   CapabilityFlag = "http-trigger"
-	HTTPActionCapability    CapabilityFlag = "http-action"
+	ConsensusCapability       CapabilityFlag = "ocr3"
+	DONTimeCapability         CapabilityFlag = "don-time"
+	ConsensusCapabilityV2     CapabilityFlag = "consensus" // v2
+	CronCapability            CapabilityFlag = "cron"
+	EVMCapability             CapabilityFlag = "evm"
+	CustomComputeCapability   CapabilityFlag = "custom-compute"
+	WriteEVMCapability        CapabilityFlag = "write-evm"
+	WriteSolanaCapability     CapabilityFlag = "write-solana"
+	ReadContractCapability    CapabilityFlag = "read-contract"
+	LogEventTriggerCapability CapabilityFlag = "log-event-trigger"
+	WebAPITargetCapability    CapabilityFlag = "web-api-target"
+	WebAPITriggerCapability   CapabilityFlag = "web-api-trigger"
+	MockCapability            CapabilityFlag = "mock"
+	VaultCapability           CapabilityFlag = "vault"
+	HTTPTriggerCapability     CapabilityFlag = "http-trigger"
+	HTTPActionCapability      CapabilityFlag = "http-action"
 	// Add more capabilities as needed
 )
 
@@ -91,28 +99,28 @@ func (cfp *cliFlagsProvider) WithV2Registries() bool {
 
 type ContractVersionsProvider interface {
 	// ContractVersions returns a map of contract name to semver
-	ContractVersions() map[string]string
+	ContractVersions() map[ContractType]*semver.Version
 }
 
 type contractVersionsProvider struct {
-	contracts map[string]string
+	contracts map[ContractType]*semver.Version
 }
 
-func (cvp *contractVersionsProvider) ContractVersions() map[string]string {
-	cv := make(map[string]string, 0)
+func (cvp *contractVersionsProvider) ContractVersions() map[ContractType]*semver.Version {
+	cv := make(map[ContractType]*semver.Version, 0)
 	maps.Copy(cv, cvp.contracts)
 	return cv
 }
 
-func NewContractVersionsProvider(overrides map[string]string) *contractVersionsProvider {
+func NewContractVersionsProvider(overrides map[ContractType]*semver.Version) *contractVersionsProvider {
 	cvp := &contractVersionsProvider{
-		contracts: map[string]string{
-			keystone_changeset.OCR3Capability.String():       "1.0.0",
-			keystone_changeset.WorkflowRegistry.String():     "1.0.0",
-			keystone_changeset.CapabilitiesRegistry.String(): "1.1.0",
-			keystone_changeset.KeystoneForwarder.String():    "1.0.0",
-			ks_sol.ForwarderContract.String():                "1.0.0",
-			ks_sol.ForwarderState.String():                   "1.0.0",
+		contracts: map[ContractType]*semver.Version{
+			keystone_changeset.OCR3Capability.String():       semver.MustParse("1.0.0"),
+			keystone_changeset.WorkflowRegistry.String():     semver.MustParse("1.0.0"),
+			keystone_changeset.CapabilitiesRegistry.String(): semver.MustParse("1.1.0"),
+			keystone_changeset.KeystoneForwarder.String():    semver.MustParse("1.0.0"),
+			ks_sol.ForwarderContract.String():                semver.MustParse("1.0.0"),
+			ks_sol.ForwarderState.String():                   semver.MustParse("1.0.0"),
 		},
 	}
 	maps.Copy(cvp.contracts, overrides)
@@ -147,7 +155,7 @@ func (e *envionmentDependencies) WithV2Registries() bool {
 	return e.cliFlagsProvider.WithV2Registries()
 }
 
-func (e *envionmentDependencies) ContractVersions() map[string]string {
+func (e *envionmentDependencies) ContractVersions() map[ContractType]*semver.Version {
 	return e.contractSetProvider.ContractVersions()
 }
 
@@ -175,8 +183,7 @@ const (
 )
 
 type (
-	DonJobs        = []*jobv1.ProposeJobRequest
-	DonsToJobSpecs = map[uint64]DonJobs
+	DonJobs = []*jobv1.ProposeJobRequest
 )
 
 const (
@@ -189,7 +196,7 @@ type (
 	NodeIndexToSecretsOverride = map[int]string
 )
 
-type CapabilityConfigs = map[string]CapabilityConfig
+type CapabilityConfigs = map[CapabilityFlag]CapabilityConfig
 
 type CapabilityConfig struct {
 	BinaryPath   string         `toml:"binary_path"`
@@ -331,39 +338,22 @@ type SolChain struct {
 	ArtifactsDir  string
 }
 
-type ConfigureKeystoneInput struct {
+type ConfigureCapabilityRegistryInput struct {
 	ChainSelector               uint64
 	Topology                    *Topology
 	CldEnv                      *cldf.Environment
-	NodeSets                    []*CapabilitiesAwareNodeSet
+	NodeSets                    []*NodeSet
 	CapabilityRegistryConfigFns []CapabilityRegistryConfigFn
 	Blockchains                 []blockchains.Blockchain
-
-	OCR3Config  keystone_changeset.OracleConfig
-	OCR3Address *common.Address // v1 consensus contract address
-
-	DONTimeConfig  keystone_changeset.OracleConfig
-	DONTimeAddress *common.Address
-
-	VaultOCR3Config  keystone_changeset.OracleConfig
-	VaultOCR3Address *common.Address
-
-	DKGReportingPluginConfig *dkgocrtypes.ReportingPluginConfig
-	DKGOCR3Config            keystone_changeset.OracleConfig
-	DKGOCR3Address           *common.Address
-
-	EVMOCR3Config    keystone_changeset.OracleConfig
-	EVMOCR3Addresses map[uint64]common.Address // chain selector to address map
-
-	ConsensusV2OCR3Config  keystone_changeset.OracleConfig // v2 consensus contract config
-	ConsensusV2OCR3Address *common.Address
 
 	CapabilitiesRegistryAddress *common.Address
 
 	WithV2Registries bool
+
+	DONCapabilityWithConfigs map[uint64][]keystone_changeset.DONCapabilityWithConfig
 }
 
-func (c *ConfigureKeystoneInput) Validate() error {
+func (c *ConfigureCapabilityRegistryInput) Validate() error {
 	if c.ChainSelector == 0 {
 		return errors.New("chain selector not set")
 	}
@@ -379,30 +369,35 @@ func (c *ConfigureKeystoneInput) Validate() error {
 	if c.CldEnv == nil {
 		return errors.New("chainlink deployment env not set")
 	}
-	if c.OCR3Address == nil || c.CapabilitiesRegistryAddress == nil {
-		return errors.New("OCR3Address and CapabilitiesRegistryAddress must be set")
-	}
 
 	return nil
 }
 
-type GatewayConnectorDons struct {
-	MembersEthAddresses []string `toml:"members_eth_addresses" json:"members_eth_addresses"`
-	ID                  string   `toml:"id" json:"id"`
-	Handlers            map[string]string
+type GatewayConfig struct {
+	Name     string // DON name
+	Handlers []string
 }
-type GatewayConnectorOutput struct {
+
+type GatewayConnectors struct {
 	Configurations []*DonGatewayConfiguration `toml:"configurations" json:"configurations"`
 }
 
-func NewGatewayConnectorOutput() *GatewayConnectorOutput {
-	return &GatewayConnectorOutput{
+func (g *GatewayConnectors) FindByNodeUUID(uuid string) (*GatewayConfiguration, error) {
+	for _, config := range g.Configurations {
+		if config.NodeUUID == uuid {
+			return config.GatewayConfiguration, nil
+		}
+	}
+	return nil, fmt.Errorf("gateway configuration for node UUID %s not found", uuid)
+}
+
+func NewGatewayConnectorOutput() *GatewayConnectors {
+	return &GatewayConnectors{
 		Configurations: make([]*DonGatewayConfiguration, 0),
 	}
 }
 
 type DonGatewayConfiguration struct {
-	Dons []GatewayConnectorDons `toml:"dons" json:"dons"` // do not set, it will be set dynamically
 	*GatewayConfiguration
 }
 
@@ -410,21 +405,23 @@ type NodeConfigTransformerFn = func(input GenerateConfigsInput, existingConfigs 
 
 type (
 	HandlerTypeToConfig    = map[string]string
-	GatewayHandlerConfigFn = func(don *DON) (HandlerTypeToConfig, error)
+	GatewayHandlerConfigFn = func(don *Don) (HandlerTypeToConfig, error)
+	ContractType           = string
 )
 
 type GenerateConfigsInput struct {
 	Datastore               datastore.DataStore
 	DonMetadata             *DonMetadata
 	Blockchains             map[uint64]blockchains.Blockchain
-	HomeChainSelector       uint64
+	RegistryChainSelector   uint64
 	Flags                   []string
 	CapabilitiesPeeringData CapabilitiesPeeringData
 	OCRPeeringData          OCRPeeringData
-	AddressBook             cldf.AddressBook
-	NodeSet                 *CapabilitiesAwareNodeSet
+	NodeSet                 *NodeSet
 	CapabilityConfigs       CapabilityConfigs
-	GatewayConnectorOutput  *GatewayConnectorOutput // optional, automatically set if some DON in the topology has the GatewayDON flag
+	ContractVersions        map[ContractType]*semver.Version
+	GatewayConnectorOutput  *GatewayConnectors // optional, automatically set if some DON in the topology has the GatewayDON flag
+	Provider                infra.Provider
 }
 
 func (g *GenerateConfigsInput) Validate() error {
@@ -434,7 +431,7 @@ func (g *GenerateConfigsInput) Validate() error {
 	if len(g.Blockchains) == 0 {
 		return errors.New("blockchain output not set")
 	}
-	if g.HomeChainSelector == 0 {
+	if g.RegistryChainSelector == 0 {
 		return errors.New("home chain selector not set")
 	}
 	if len(g.Flags) == 0 {
@@ -446,17 +443,13 @@ func (g *GenerateConfigsInput) Validate() error {
 	if g.OCRPeeringData == (OCRPeeringData{}) {
 		return errors.New("ocr peering data not set")
 	}
-	_, addrErr := g.AddressBook.AddressesForChain(g.HomeChainSelector)
-	if addrErr != nil {
-		return fmt.Errorf("failed to get addresses for chain %d: %w", g.HomeChainSelector, addrErr)
-	}
 	_, dsErr := g.Datastore.Addresses().Fetch()
 	if dsErr != nil {
 		return fmt.Errorf("failed to get addresses from datastore: %w", dsErr)
 	}
-	h := g.Datastore.Addresses().Filter(datastore.AddressRefByChainSelector(g.HomeChainSelector))
+	h := g.Datastore.Addresses().Filter(datastore.AddressRefByChainSelector(g.RegistryChainSelector))
 	if len(h) == 0 {
-		return fmt.Errorf("no addresses found for home chain %d in datastore", g.HomeChainSelector)
+		return fmt.Errorf("no addresses found for home chain %d in datastore", g.RegistryChainSelector)
 	}
 	// TODO check for required registry contracts by type and version
 	return nil
@@ -468,18 +461,12 @@ type DonMetadata struct {
 	ID            uint64          `toml:"id" json:"id"`
 	Name          string          `toml:"name" json:"name"`
 
-	ns CapabilitiesAwareNodeSet // computed field, not serialized
-	gh GatewayHelper
+	ns NodeSet // computed field, not serialized
 }
 
-func NewDonMetadata(c *CapabilitiesAwareNodeSet, id uint64, provider infra.Provider) (*DonMetadata, error) {
+func NewDonMetadata(c *NodeSet, id uint64, provider infra.Provider) (*DonMetadata, error) {
 	cfgs := make([]NodeMetadataConfig, len(c.NodeSpecs))
 	for i, nodeSpec := range c.NodeSpecs {
-		nodeType := WorkerNode
-		if c.BootstrapNodeIndex != -1 && i == c.BootstrapNodeIndex {
-			nodeType = BootstrapNode
-		}
-
 		cfg := NodeMetadataConfig{
 			Keys: NodeKeyInput{
 				EVMChainIDs:     c.EVMChains(),
@@ -487,15 +474,10 @@ func NewDonMetadata(c *CapabilitiesAwareNodeSet, id uint64, provider infra.Provi
 				Password:        "dev-password",
 				ImportedSecrets: nodeSpec.Node.TestSecretsOverrides,
 			},
-			Host:  provider.InternalHost(i, nodeType == BootstrapNode, c.Name),
-			Roles: []string{nodeType},
+			Host:  provider.InternalHost(i, slices.Contains(nodeSpec.Roles, BootstrapNode), c.Name),
+			Roles: nodeSpec.Roles,
 			Index: i,
 		}
-
-		if slices.Contains(c.DONTypes, GatewayDON) && c.GatewayNodeIndex != -1 && i == c.GatewayNodeIndex {
-			cfg.Roles = append(cfg.Roles, GatewayNode)
-		}
-
 		cfgs[i] = cfg
 	}
 
@@ -514,15 +496,14 @@ func NewDonMetadata(c *CapabilitiesAwareNodeSet, id uint64, provider infra.Provi
 	return out, nil
 }
 
-func (m *DonMetadata) GatewayConfig(p infra.Provider) (*DonGatewayConfiguration, error) {
+func (m *DonMetadata) GatewayConfig(p infra.Provider, gatewayNodeIdx int) (*DonGatewayConfiguration, error) {
 	gatewayNode, hasGateway := m.Gateway()
 	if !hasGateway {
 		return nil, errors.New("don does not have a gateway node")
 	}
 
 	return &DonGatewayConfiguration{
-		Dons:                 make([]GatewayConnectorDons, 0),
-		GatewayConfiguration: NewGatewayConfig(p, gatewayNode.Index, gatewayNode.HasRole(BootstrapNode), m.Name),
+		GatewayConfiguration: NewGatewayConfig(p, gatewayNode.Index, gatewayNodeIdx, gatewayNode.HasRole(BootstrapNode), gatewayNode.UUID, m.Name),
 	}, nil
 }
 
@@ -566,7 +547,7 @@ func (m *DonMetadata) HasFlag(flag CapabilityFlag) bool {
 	return HasFlag(m.Flags, flag)
 }
 
-func (m *DonMetadata) CapabilitiesAwareNodeSet() *CapabilitiesAwareNodeSet {
+func (m *DonMetadata) NodeSets() *NodeSet {
 	return &m.ns
 }
 
@@ -580,11 +561,12 @@ func (m *DonMetadata) RequiresOCR() bool {
 }
 
 func (m *DonMetadata) RequiresGateway() bool {
-	return m.gh.RequiresGateway(m.Flags)
-}
-
-func (m *DonMetadata) RequiresWebAPI() bool {
-	return m.gh.RequiresWebAPI(m.Flags)
+	return HasFlag(m.Flags, CustomComputeCapability) ||
+		HasFlag(m.Flags, WebAPITriggerCapability) ||
+		HasFlag(m.Flags, WebAPITargetCapability) ||
+		HasFlag(m.Flags, VaultCapability) ||
+		HasFlag(m.Flags, HTTPActionCapability) ||
+		HasFlag(m.Flags, HTTPTriggerCapability)
 }
 
 func (m *DonMetadata) IsWorkflowDON() bool {
@@ -596,18 +578,186 @@ func (m *DonMetadata) IsWorkflowDON() bool {
 	return slices.Contains(m.Flags, WorkflowDON)
 }
 
-type Dons struct {
-	Dons []*DON `toml:"dons" json:"dons"`
+// ConfigureForGatewayAccess adds gateway connector configuration to each node;s TOML config. It only adds connectors, if they are not already present.
+func (m *DonMetadata) ConfigureForGatewayAccess(chainID uint64, connectors GatewayConnectors) error {
+	workers, wErr := m.Workers()
+	if wErr != nil {
+		return wErr
+	}
+
+	for _, workerNode := range workers {
+		currentConfig := m.NodeSets().NodeSpecs[workerNode.Index].Node.TestConfigOverrides
+
+		var typedConfig corechainlink.Config
+		unmarshallErr := toml.Unmarshal([]byte(currentConfig), &typedConfig)
+		if unmarshallErr != nil {
+			return errors.Wrapf(unmarshallErr, "failed to unmarshal config for node index %d", workerNode.Index)
+		}
+
+		evmKey, ok := workerNode.Keys.EVM[chainID]
+		if !ok {
+			return fmt.Errorf("failed to get EVM key (chainID %d, node index %d)", chainID, workerNode.Index)
+		}
+
+		// if no gateways are configured, then gateway connector config is most probably also not configured
+		if len(typedConfig.Capabilities.GatewayConnector.Gateways) == 0 {
+			typedConfig.Capabilities.GatewayConnector = coretoml.GatewayConnector{
+				DonID:             ptr.Ptr(m.Name),
+				ChainIDForNodeKey: ptr.Ptr(strconv.FormatUint(chainID, 10)),
+				NodeAddress:       ptr.Ptr(evmKey.PublicAddress.Hex()),
+			}
+		}
+
+		// make sure that all other gateways are also present in the config
+		for _, gatewayConnector := range connectors.Configurations {
+			alreadyPresent := false
+			for _, existingGateway := range typedConfig.Capabilities.GatewayConnector.Gateways {
+				if gatewayConnector.AuthGatewayID == *existingGateway.ID {
+					alreadyPresent = true
+					continue
+				}
+			}
+
+			if !alreadyPresent {
+				typedConfig.Capabilities.GatewayConnector.Gateways = append(typedConfig.Capabilities.GatewayConnector.Gateways, coretoml.ConnectorGateway{
+					ID: ptr.Ptr(gatewayConnector.AuthGatewayID),
+					URL: ptr.Ptr(fmt.Sprintf("ws://%s:%d%s",
+						gatewayConnector.Outgoing.Host,
+						gatewayConnector.Outgoing.Port,
+						gatewayConnector.Outgoing.Path)),
+				})
+			}
+		}
+
+		stringifiedConfig, mErr := toml.Marshal(typedConfig)
+		if mErr != nil {
+			return errors.Wrapf(mErr, "failed to marshal config for node index %d", workerNode.Index)
+		}
+
+		m.NodeSets().NodeSpecs[workerNode.Index].Node.TestConfigOverrides = string(stringifiedConfig)
+	}
+
+	return nil
 }
 
-func (d *Dons) List() []*DON {
+type Dons struct {
+	Dons              []*Don             `toml:"dons" json:"dons"`
+	GatewayConnectors *GatewayConnectors `toml:"gateway_connectors" json:"gateway_connectors"`
+}
+
+func (d *Dons) List() []*Don {
 	return d.Dons
 }
 
-func NewDons(dons []*DON) *Dons {
-	return &Dons{
-		Dons: dons,
+func (d *Dons) MustWorkflowDON() *Don {
+	for _, don := range d.Dons {
+		if don.HasFlag(WorkflowDON) {
+			return don
+		}
 	}
+	panic("no workflow DON found")
+}
+
+func (d *Dons) NodeWithUUID(uuid string) (*Node, bool) {
+	for _, don := range d.Dons {
+		for _, node := range don.Nodes {
+			if node.UUID == uuid {
+				return node, true
+			}
+		}
+	}
+
+	return nil, false
+}
+
+func (d *Dons) AsNodeSetWithChainCapabilities() []NodeSetWithCapabilityConfigs {
+	out := make([]NodeSetWithCapabilityConfigs, len(d.Dons))
+	for i, don := range d.Dons {
+		out[i] = don
+	}
+	return out
+}
+
+func NewDons(dons []*Don, gatewayConnectors *GatewayConnectors) *Dons {
+	return &Dons{
+		Dons:              dons,
+		GatewayConnectors: gatewayConnectors,
+	}
+}
+
+// BootstrapNode returns the the bootstrap node that should be used as the bootstrap node for P2P peering
+// Currently only one bootstrap is supported.
+func (d *Dons) Bootstrap() (*Node, bool) {
+	for _, don := range d.List() {
+		if node, isBootstrap := don.Bootstrap(); isBootstrap {
+			return node, true
+		}
+	}
+
+	return nil, false
+}
+
+func (d *Dons) Gateway() (*Node, bool) {
+	for _, don := range d.List() {
+		if node, hasGateway := don.Gateway(); hasGateway {
+			return node, true
+		}
+	}
+
+	return nil, false
+}
+
+func (d *Dons) DonsWithFlag(flag CapabilityFlag) []*Don {
+	found := make([]*Don, 0)
+	for _, don := range d.List() {
+		if don.HasFlag(flag) {
+			found = append(found, don)
+		}
+	}
+
+	return found
+}
+
+func (d *Dons) DonsWithFlags(flags ...CapabilityFlag) []*Don {
+	found := make([]*Don, 0)
+	for _, don := range d.List() {
+		for _, flag := range flags {
+			if don.HasFlag(flag) {
+				found = append(found, don)
+			}
+		}
+	}
+
+	seen := make(map[uint64]struct{})
+	uniqueFound := make([]*Don, 0)
+	for _, don := range found {
+		if _, exists := seen[don.ID]; !exists {
+			seen[don.ID] = struct{}{}
+			uniqueFound = append(uniqueFound, don)
+		}
+	}
+
+	return uniqueFound
+}
+
+func (d *Dons) OneDonWithFlag(flag CapabilityFlag) (*Don, error) {
+	found := d.DonsWithFlag(flag)
+
+	if len(found) != 1 {
+		return nil, fmt.Errorf("expected exactly one DON with flag %s, found %d", flag, len(found))
+	}
+
+	return found[0], nil
+}
+
+func (d *Dons) AnyDonHasCapability(capability CapabilityFlag) bool {
+	for _, don := range d.List() {
+		if don.HasFlag(capability) {
+			return true
+		}
+	}
+
+	return false
 }
 
 type DonsMetadata struct {
@@ -653,7 +803,7 @@ func (m DonsMetadata) validate() error {
 	}
 
 	if m.RequiresGateway() && !m.GatewayEnabled() {
-		return errors.New("at least one DON requires gateway due to its capabilities, but no DON is configured with gateway")
+		return errors.New("at least one DON requires gateway due to its capabilities, but no DON had a node with role 'gateway'")
 	}
 
 	return nil
@@ -722,6 +872,7 @@ type NodeMetadata struct {
 	Host  string            `toml:"host" json:"host"`
 	Roles []string          `toml:"roles" json:"roles"`
 	Index int               `toml:"index" json:"index"` // hopefully we can remove it later, but for now we need it to construct urls in CRIB
+	UUID  string            `toml:"uuid" json:"uuid"`
 }
 
 func (n *NodeMetadata) HasRole(role string) bool {
@@ -754,6 +905,7 @@ func NewNodeMetadata(c NodeMetadataConfig) (*NodeMetadata, error) {
 		Host:  c.Host,
 		Roles: c.Roles,
 		Index: c.Index,
+		UUID:  uuid.NewString(),
 	}, nil
 }
 
@@ -771,64 +923,22 @@ func newNodes(cfgs []NodeMetadataConfig) ([]*NodeMetadata, error) {
 	return nodes, nil
 }
 
-func NewDonTopology(registryChainSelector uint64, topology *Topology, dons *Dons) *DonTopology {
-	return &DonTopology{
-		WorkflowDonID:          topology.WorkflowDONID,
-		HomeChainSelector:      registryChainSelector,
-		Dons:                   dons,
-		GatewayConnectorOutput: topology.GatewayConnectorOutput,
-	}
+type NodeSpecWithRole struct {
+	*clnode.Input            // Embed the CTF Input
+	Roles         []NodeType `toml:"roles" validate:"required"` // e.g., "plugin", "bootstrap" or "gateway"
 }
 
-type DonTopology struct {
-	WorkflowDonID          uint64                  `toml:"workflow_don_id" json:"workflow_don_id"`
-	HomeChainSelector      uint64                  `toml:"home_chain_selector" json:"home_chain_selector"`
-	Dons                   *Dons                   `toml:"dons" json:"dons"`
-	GatewayConnectorOutput *GatewayConnectorOutput `toml:"gateway_connector_output" json:"gateway_connector_output"`
-}
-
-// BootstrapNode returns the the bootstrap node that should be used as the bootstrap node for P2P peering
-// Currently only one bootstrap is supported.
-func (t *DonTopology) Bootstrap() (*Node, bool) {
-	for _, don := range t.Dons.List() {
-		if node, isBootstrap := don.Bootstrap(); isBootstrap {
-			return node, true
-		}
-	}
-
-	return nil, false
-}
-
-func (t *DonTopology) Gateway() (*Node, bool) {
-	for _, don := range t.Dons.List() {
-		if node, hasGateway := don.Gateway(); hasGateway {
-			return node, true
-		}
-	}
-
-	return nil, false
-}
-
-func (t *DonTopology) AnyDonHasCapability(capability CapabilityFlag) bool {
-	for _, don := range t.Dons.List() {
-		if don.HasFlag(capability) {
-			return true
-		}
-	}
-
-	return false
-}
-
-// CapabilitiesAwareNodeSet is the serialized form that declares nodesets in a topology.
-type CapabilitiesAwareNodeSet struct {
+// NodeSet is the serialized form that declares nodesets (DON) in a topology
+type NodeSet struct {
 	*ns.Input
+
+	// Our role-aware node specs (shadows ns.Input.NodeSpecs)
+	NodeSpecs []*NodeSpecWithRole `toml:"node_specs" validate:"required"`
+
 	Capabilities []string `toml:"capabilities"` // global capabilities that have no chain-specific configuration (like cron, web-api-target, web-api-trigger, etc.)
-	DONTypes     []string `toml:"don_types"`
+	DONTypes     []string `toml:"don_types"`    // workflow, capabilities, gateway
 	// SupportedEVMChains is filter. Use EVMChains() to get the actual list of chains supported by the nodeset.
-	SupportedEVMChains []uint64 `toml:"supported_evm_chains"` // chain IDs that the DON supports, empty means all chains
-	// TODO separate out bootstrap as a concept rather than index
-	BootstrapNodeIndex   int               `toml:"bootstrap_node_index"` // -1 -> no bootstrap, only used if the DON doesn't hae the GatewayDON flag
-	GatewayNodeIndex     int               `toml:"gateway_node_index"`   // -1 -> no gateway, only used if the DON has the GatewayDON flag
+	SupportedEVMChains   []uint64          `toml:"supported_evm_chains"` // chain IDs that the DON supports, empty means all chains
 	EnvVars              map[string]string `toml:"env_vars"`             // additional environment variables to be set on each node
 	RawChainCapabilities any               `toml:"chain_capabilities"`
 	// ChainCapabilities allows enabling capabilities per chain with optional per-chain overrides.
@@ -846,16 +956,48 @@ type CapabilitiesAwareNodeSet struct {
 	ComputedCapabilities []string `toml:"computed_capabilities"`
 }
 
-func (c *CapabilitiesAwareNodeSet) Flags() []string {
+func (c *NodeSet) Flags() []string {
 	var stringCaps []string
 
 	return append(stringCaps, append(c.ComputedCapabilities, c.DONTypes...)...)
 }
 
+func (c *NodeSet) GetChainCapabilityConfigs() map[string]*ChainCapabilityConfig {
+	return c.ChainCapabilities
+}
+
+func (c *NodeSet) GetCapabilityConfigOverrides() map[string]map[string]any {
+	return c.CapabilityOverrides
+}
+
+func (c *NodeSet) GetCapabilityFlags() []string {
+	return c.Flags()
+}
+
+func (c *NodeSet) GetName() string {
+	return c.Name
+}
+
+func (c *NodeSet) ExtractCTFInputs() []*clnode.Input {
+	inputs := make([]*clnode.Input, len(c.NodeSpecs))
+	for i, spec := range c.NodeSpecs {
+		inputs[i] = spec.Input
+	}
+	return inputs
+}
+
+func ConvertToNodeSetWithChainCapabilities(nodeSets []*NodeSet) []NodeSetWithCapabilityConfigs {
+	result := make([]NodeSetWithCapabilityConfigs, len(nodeSets))
+	for i, nodeSet := range nodeSets {
+		result[i] = nodeSet
+	}
+	return result
+}
+
 // EVMChains returns the list of EVM chain IDs that the nodeset supports. If SupportedChains is set, it is returned directly.
 // Otherwise, the chain IDs are computed from the ChainCapabilities map by collecting all EnabledChains from each capability.
 // The returned list is deduplicated and sorted.
-func (c *CapabilitiesAwareNodeSet) EVMChains() []uint64 {
+func (c *NodeSet) EVMChains() []uint64 {
 	if len(c.SupportedEVMChains) != 0 {
 		return c.SupportedEVMChains
 	}
@@ -900,9 +1042,9 @@ type ChainCapabilityConfig struct {
 	ChainOverrides map[uint64]map[string]any `toml:"-"`
 }
 
-// ParseChainCapabilities parses chain_capabilities from raw TOML data and sets it on the CapabilitiesAwareNodeSet.
+// ParseChainCapabilities parses chain_capabilities from raw TOML data and sets it on the NodeSet.
 // This allows us to handle the flexible chain_capabilities syntax without a complex custom unmarshaler.
-func (c *CapabilitiesAwareNodeSet) ParseChainCapabilities() error {
+func (c *NodeSet) ParseChainCapabilities() error {
 	c.ChainCapabilities = make(map[string]*ChainCapabilityConfig)
 	c.ComputedCapabilities = append(c.ComputedCapabilities, c.Capabilities...)
 
@@ -1013,7 +1155,7 @@ func (c *CapabilitiesAwareNodeSet) ParseChainCapabilities() error {
 	return nil
 }
 
-func (c *CapabilitiesAwareNodeSet) ValidateChainCapabilities(bcInput []*blockchain.Input) error {
+func (c *NodeSet) ValidateChainCapabilities(bcInput []*blockchain.Input) error {
 	knownChains := []uint64{}
 	for _, bc := range bcInput {
 		if strings.EqualFold(bc.Type, blockchain.FamilySolana) {
@@ -1043,7 +1185,7 @@ func (c *CapabilitiesAwareNodeSet) ValidateChainCapabilities(bcInput []*blockcha
 //
 // For example, with 4 nodes, at most 1 can be faulty.
 // With 7 nodes, at most 2 can be faulty.
-func (c *CapabilitiesAwareNodeSet) MaxFaultyNodes() (uint32, error) {
+func (c *NodeSet) MaxFaultyNodes() (uint32, error) {
 	if c.Nodes <= 0 {
 		return 0, fmt.Errorf("total nodes must be greater than 0, got %d", c.Nodes)
 	}
@@ -1106,36 +1248,53 @@ func NewNodeKeys(input NodeKeyInput) (*secrets.NodeKeys, error) {
 }
 
 type LinkDonsToJDInput struct {
-	JDClient        *cldf_jd.JobDistributor
 	Blockchains     []blockchains.Blockchain
-	DONs            []*DON
+	Dons            *Dons
 	Topology        *Topology
 	CldfEnvironment *cldf.Environment
 }
 
 type Environment struct {
-	CldfEnvironment *cldf.Environment
-	DonTopology     *DonTopology
+	CldfEnvironment       *cldf.Environment
+	RegistryChainSelector uint64
+	Blockchains           []blockchains.Blockchain
+	ContractVersions      map[ContractType]*semver.Version
+	Provider              infra.Provider
+	CapabilityConfigs     map[CapabilityFlag]CapabilityConfig
+}
+
+func (e *Environment) RegistryChain() (blockchains.Blockchain, error) {
+	for _, bc := range e.Blockchains {
+		if bc.ChainSelector() == e.RegistryChainSelector {
+			return bc, nil
+		}
+	}
+	return nil, fmt.Errorf("registry chain with selector %d not found", e.RegistryChainSelector)
 }
 
 type (
-	CapabilityRegistryConfigFn = func(donFlags []CapabilityFlag, nodeSetInput *CapabilitiesAwareNodeSet) ([]keystone_changeset.DONCapabilityWithConfig, error)
-	JobSpecFn                  = func(input *JobSpecInput) (DonsToJobSpecs, error)
+	CapabilityRegistryConfigFn = func(donFlags []CapabilityFlag, nodeSet *NodeSet) ([]keystone_changeset.DONCapabilityWithConfig, error)
+	JobSpecFn                  = func(input *JobSpecInput) (DonJobs, error)
 )
 
 type JobSpecInput struct {
-	CldEnvironment            *cldf.Environment
-	BlockchainOutput          *blockchain.Output
-	DonTopology               *DonTopology
-	InfraInput                infra.Provider
-	CapabilityConfigs         map[string]CapabilityConfig
-	Capabilities              []InstallableCapability
-	CapabilitiesAwareNodeSets []*CapabilitiesAwareNodeSet
+	CreEnvironment *Environment
+	Don            *Don
+	Dons           *Dons
+	NodeSet        NodeSetWithCapabilityConfigs
+}
+
+type NodeSetWithCapabilityConfigs interface {
+	GetChainCapabilityConfigs() map[string]*ChainCapabilityConfig
+	GetCapabilityConfigOverrides() map[string]map[string]any
+	GetCapabilityFlags() []string
+	GetName() string
 }
 
 // InstallableCapability defines the interface for capabilities that can be dynamically
 // registered and deployed across DONs. This interface enables plug-and-play capability
 // extension without modifying core infrastructure code.
+// Deprecated: Use Feature interface instead for new capabilities.
 type InstallableCapability interface {
 	// Flag returns the unique identifier used in TOML configurations and internal references
 	Flag() CapabilityFlag
@@ -1166,4 +1325,46 @@ type InstallableCapability interface {
 type PersistentConfig interface {
 	Load(absPath string) error
 	Store(absPath string) error
+}
+
+type Features struct {
+	fs []Feature
+}
+
+func NewFeatures(feature ...Feature) Features {
+	return Features{
+		fs: feature,
+	}
+}
+
+func (s *Features) Add(f Feature) {
+	s.fs = append(s.fs, f)
+}
+
+func (s *Features) List() []Feature {
+	return s.fs
+}
+
+type NodeUUID = string
+
+type Feature interface {
+	Flag() CapabilityFlag
+	PreEnvStartup(
+		ctx context.Context,
+		testLogger zerolog.Logger,
+		don *DonMetadata,
+		topology *Topology,
+		creEnv *Environment,
+	) (*PreEnvStartupOutput, error)
+	PostEnvStartup(
+		ctx context.Context,
+		testLogger zerolog.Logger,
+		don *Don,
+		dons *Dons,
+		creEnv *Environment,
+	) error
+}
+
+type PreEnvStartupOutput struct {
+	DONCapabilityWithConfig []keystone_changeset.DONCapabilityWithConfig
 }

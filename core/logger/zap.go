@@ -2,7 +2,10 @@ package logger
 
 import (
 	"os"
-	"sync/atomic"
+	"slices"
+	"sync"
+	"time"
+	"weak"
 
 	pkgerrors "github.com/pkg/errors"
 	"go.uber.org/zap"
@@ -13,29 +16,56 @@ import (
 // It starts as a noop core and can be atomically swapped to include additional cores.
 var _ zapcore.Core = &AtomicCore{}
 
+const cleanupInterval = time.Minute * 5
+
 type AtomicCore struct {
-	atomic.Pointer[zapcore.Core]
+	mu          sync.RWMutex
+	core        zapcore.Core
+	children    []weak.Pointer[withCore]
+	stopCleanup chan struct{}
+	cleanupWg   sync.WaitGroup
 }
 
 // NewAtomicCore creates a new AtomicCore initialized with a noop core
 func NewAtomicCore() *AtomicCore {
-	ac := &AtomicCore{}
-	noop := zapcore.NewNopCore()
-	ac.Store(&noop)
+	ac := &AtomicCore{
+		core:        zapcore.NewNopCore(),
+		stopCleanup: make(chan struct{}),
+	}
+	ac.startPeriodicCleanup()
 	return ac
 }
 
+func (d *AtomicCore) Store(core zapcore.Core) {
+	d.mu.Lock()
+	defer d.mu.Unlock()
+	d.core = core
+	d.children = slices.DeleteFunc(d.children, func(p weak.Pointer[withCore]) bool {
+		c := p.Value()
+		if c == nil {
+			return true
+		}
+		c.Store(d.core)
+		return false
+	})
+}
+
 func (d *AtomicCore) load() zapcore.Core {
-	p := d.Load()
-	if p == nil {
-		return zapcore.NewNopCore()
-	}
-	return *p
+	d.mu.RLock()
+	defer d.mu.RUnlock()
+	return d.core
 }
 
 func (d *AtomicCore) Enabled(l zapcore.Level) bool { return d.load().Enabled(l) }
 
-func (d *AtomicCore) With(fs []zapcore.Field) zapcore.Core { return d.load().With(fs) }
+func (d *AtomicCore) With(fs []zapcore.Field) zapcore.Core {
+	d.mu.Lock()
+	defer d.mu.Unlock()
+	coreWithFields := d.core.With(fs)
+	w := &withCore{fields: fs, AtomicCore: AtomicCore{core: coreWithFields}}
+	d.children = append(d.children, weak.Make(w))
+	return w
+}
 
 func (d *AtomicCore) Check(e zapcore.Entry, ce *zapcore.CheckedEntry) *zapcore.CheckedEntry {
 	return d.load().Check(e, ce)
@@ -44,6 +74,61 @@ func (d *AtomicCore) Check(e zapcore.Entry, ce *zapcore.CheckedEntry) *zapcore.C
 func (d *AtomicCore) Write(e zapcore.Entry, fs []zapcore.Field) error { return d.load().Write(e, fs) }
 
 func (d *AtomicCore) Sync() error { return d.load().Sync() }
+
+func (d *AtomicCore) Close() {
+	close(d.stopCleanup)
+	d.cleanupWg.Wait()
+}
+
+func (d *AtomicCore) cleanup() {
+	var wg sync.WaitGroup
+	defer wg.Wait()
+	d.mu.Lock()
+	defer d.mu.Unlock()
+	d.children = slices.DeleteFunc(d.children, func(p weak.Pointer[withCore]) bool {
+		c := p.Value()
+		if c == nil {
+			return true
+		}
+		wg.Go(c.cleanup)
+		return false
+	})
+}
+
+func (d *AtomicCore) startPeriodicCleanup() {
+	d.cleanupWg.Go(func() {
+		ticker := time.NewTicker(cleanupInterval)
+		defer ticker.Stop()
+
+		for {
+			select {
+			case <-ticker.C:
+				d.cleanup()
+			case <-d.stopCleanup:
+				return
+			}
+		}
+	})
+}
+
+type withCore struct {
+	fields []zapcore.Field
+	AtomicCore
+}
+
+func (w *withCore) Store(core zapcore.Core) {
+	w.mu.Lock()
+	defer w.mu.Unlock()
+	w.core = core.With(w.fields)
+	w.children = slices.DeleteFunc(w.children, func(p weak.Pointer[withCore]) bool {
+		c := p.Value()
+		if c == nil {
+			return true
+		}
+		c.Store(w.core)
+		return false
+	})
+}
 
 var _ Logger = &zapLogger{}
 
@@ -104,7 +189,7 @@ func (l *zapLogger) Name() string {
 }
 
 func (l *zapLogger) sugaredHelper(skip int) *zap.SugaredLogger {
-	return l.SugaredLogger.WithOptions(zap.AddCallerSkip(skip))
+	return l.WithOptions(zap.AddCallerSkip(skip))
 }
 
 func (l *zapLogger) Sync() error {

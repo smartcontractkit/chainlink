@@ -78,7 +78,7 @@ func Test_Pool(t *testing.T) {
 			require.IsType(t, &clientCheckout{}, c)
 
 			conn := c.(*clientCheckout).connection
-			require.Equal(t, conn.Client, client)
+			require.Equal(t, conn.client, client)
 
 			assert.Len(t, conn.checkouts, 1)
 			assert.Same(t, lggr, conn.lggr)
@@ -91,9 +91,9 @@ func Test_Pool(t *testing.T) {
 				err := c.Close()
 				require.NoError(t, err)
 
-				assert.Len(t, conn.checkouts, 0)
-				require.IsType(t, nil, conn.Client)
-				assert.Nil(t, conn.Client)
+				assert.Empty(t, conn.checkouts)
+				require.IsType(t, nil, conn.client)
+				assert.Nil(t, conn.client)
 				assert.True(t, client.closed)
 			})
 		})
@@ -119,13 +119,13 @@ func Test_Pool(t *testing.T) {
 			c3 := mustCheckout(t, p, clientPrivKeys[0], serverPubKey, serverURLs[0])
 			assert.Len(t, p.connections, 1)
 			assert.Len(t, p.connections[serverURLs[0]], 1)
-			assert.Len(t, p.connections[serverURLs[1]], 0)
+			assert.Empty(t, p.connections[serverURLs[1]])
 
 			// conn 2
 			c4 := mustCheckout(t, p, clientPrivKeys[1], serverPubKey, serverURLs[0])
 			assert.Len(t, p.connections, 1)
 			assert.Len(t, p.connections[serverURLs[0]], 2)
-			assert.Len(t, p.connections[serverURLs[1]], 0)
+			assert.Empty(t, p.connections[serverURLs[1]])
 
 			// conn 3
 			c5 := mustCheckout(t, p, clientPrivKeys[0], serverPubKey, serverURLs[1])
@@ -138,37 +138,37 @@ func Test_Pool(t *testing.T) {
 			assert.Same(t, conn1, c2.(*clientCheckout).connection)
 			assert.Same(t, conn1, c3.(*clientCheckout).connection)
 			assert.Len(t, conn1.checkouts, 3)
-			assert.True(t, conn1.Client.(*mockClient).started)
+			assert.True(t, conn1.client.(*mockClient).started)
 
 			conn2 := c4.(*clientCheckout).connection
 			assert.NotEqual(t, conn1, conn2)
 			assert.Len(t, conn2.checkouts, 1)
-			assert.True(t, conn2.Client.(*mockClient).started)
+			assert.True(t, conn2.client.(*mockClient).started)
 
 			conn3 := c5.(*clientCheckout).connection
 			assert.NotEqual(t, conn1, conn3)
 			assert.NotEqual(t, conn2, conn3)
 			assert.Same(t, conn3, c6.(*clientCheckout).connection)
 			assert.Len(t, conn3.checkouts, 2)
-			assert.True(t, conn3.Client.(*mockClient).started)
+			assert.True(t, conn3.client.(*mockClient).started)
 
 			require.NoError(t, c1.Close())
 			assert.Len(t, conn1.checkouts, 2)
-			assert.NotNil(t, conn1.Client)
+			assert.NotNil(t, conn1.client)
 			assert.Len(t, p.connections, 2)
 			assert.Len(t, p.connections[serverURLs[0]], 2)
 			assert.Len(t, p.connections[serverURLs[1]], 1)
 
 			require.NoError(t, c2.Close())
 			assert.Len(t, conn1.checkouts, 1)
-			assert.NotNil(t, conn1.Client)
+			assert.NotNil(t, conn1.client)
 			assert.Len(t, p.connections, 2)
 			assert.Len(t, p.connections[serverURLs[0]], 2)
 			assert.Len(t, p.connections[serverURLs[1]], 1)
 
 			require.NoError(t, c3.Close())
-			assert.Len(t, conn1.checkouts, 0)
-			assert.Nil(t, conn1.Client)
+			assert.Empty(t, conn1.checkouts)
+			assert.Nil(t, conn1.client)
 			assert.Len(t, p.connections, 2)
 			assert.Len(t, p.connections[serverURLs[0]], 1)
 			assert.Len(t, p.connections[serverURLs[1]], 1)
@@ -176,10 +176,10 @@ func Test_Pool(t *testing.T) {
 			c7 := mustCheckout(t, p, clientPrivKeys[0], serverPubKey, serverURLs[0])
 			// Not the same one, since previously all checkouts were checked in, the original connection was deleted from the map and a new one created
 			assert.NotSame(t, conn1, c7.(*clientCheckout).connection)
-			assert.Len(t, conn1.checkouts, 0) // actually, conn1 has already been removed from the map and will be garbage collected
+			assert.Empty(t, conn1.checkouts) // actually, conn1 has already been removed from the map and will be garbage collected
 			conn4 := c7.(*clientCheckout).connection
 			assert.Len(t, conn4.checkouts, 1)
-			assert.NotNil(t, conn4.Client)
+			assert.NotNil(t, conn4.client)
 			assert.Len(t, p.connections, 2)
 			assert.Len(t, p.connections[serverURLs[0]], 2)
 			assert.Len(t, p.connections[serverURLs[1]], 1)
@@ -191,12 +191,12 @@ func Test_Pool(t *testing.T) {
 
 			require.NoError(t, c4.Close())
 			assert.Len(t, p.connections, 1)
-			assert.Len(t, p.connections[serverURLs[0]], 0)
+			assert.Empty(t, p.connections[serverURLs[0]])
 			assert.Len(t, p.connections[serverURLs[1]], 1)
 
 			require.NoError(t, c5.Close())
 			require.NoError(t, c6.Close())
-			assert.Len(t, p.connections, 0)
+			assert.Empty(t, p.connections)
 
 			require.NoError(t, p.Close())
 		})
@@ -210,8 +210,8 @@ func Test_Pool(t *testing.T) {
 	})
 	t.Run("Start", func(t *testing.T) {
 		require.NoError(t, p.Start(ctx))
-		assert.Nil(t, p.Ready())
-		assert.Nil(t, p.HealthReport()["PoolTestLogger"])
+		assert.NoError(t, p.Ready())
+		assert.NoError(t, p.HealthReport()["PoolTestLogger"])
 	})
 	t.Run("Close force closes all connections", func(t *testing.T) {
 		clientPrivKeys := []csakey.KeyV2{

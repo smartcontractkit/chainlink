@@ -49,6 +49,7 @@ type wsConnectionWrapper struct {
 	writeCh    chan writeItem
 	readCh     chan ReadItem
 	shutdownCh chan struct{}
+	wg         services.WaitGroup
 }
 
 func (c *wsConnectionWrapper) HealthReport() map[string]error {
@@ -87,6 +88,9 @@ func NewWSConnectionWrapper(lggr logger.Logger) WSConnectionWrapper {
 
 func (c *wsConnectionWrapper) Start(_ context.Context) error {
 	return c.StartOnce("WSConnectionWrapper", func() error {
+		if err := c.wg.TryAdd(1); err != nil {
+			return err // should never happen
+		}
 		// write pump runs until Shutdown() is called
 		go c.writePump()
 		return nil
@@ -96,7 +100,7 @@ func (c *wsConnectionWrapper) Start(_ context.Context) error {
 // Reset:
 //  1. replaces the underlying connection and shuts the old one down
 //  2. starts a new read goroutine that pushes received messages to readCh
-//  3. returns channel that closes when connection closes
+//  3. returns channel that closes when connection closes, or nil if closed or newConn is nil.
 func (c *wsConnectionWrapper) Reset(newConn *websocket.Conn) <-chan error {
 	oldConn := c.conn.Swap(newConn)
 
@@ -104,6 +108,9 @@ func (c *wsConnectionWrapper) Reset(newConn *websocket.Conn) <-chan error {
 		oldConn.Close()
 	}
 	if newConn == nil {
+		return nil
+	}
+	if err := c.wg.TryAdd(1); err != nil {
 		return nil
 	}
 	closeCh := make(chan error, 1)
@@ -142,11 +149,13 @@ func (c *wsConnectionWrapper) Close() error {
 	return c.StopOnce("WSConnectionWrapper", func() error {
 		close(c.shutdownCh)
 		c.Reset(nil)
+		c.wg.Wait()
 		return nil
 	})
 }
 
 func (c *wsConnectionWrapper) writePump() {
+	defer c.wg.Done()
 	for {
 		select {
 		case wsMsg := <-c.writeCh:
@@ -157,7 +166,11 @@ func (c *wsConnectionWrapper) writePump() {
 				close(wsMsg.ErrCh)
 				break
 			}
-			wsMsg.ErrCh <- conn.WriteMessage(wsMsg.MsgType, wsMsg.Data)
+			err := conn.WriteMessage(wsMsg.MsgType, wsMsg.Data)
+			if err != nil {
+				c.lggr.Errorw("failed to write message", "msgType", wsMsg.MsgType, "dataLen", len(wsMsg.Data), "error", err)
+			}
+			wsMsg.ErrCh <- err
 			close(wsMsg.ErrCh)
 		case <-c.shutdownCh:
 			return
@@ -166,17 +179,27 @@ func (c *wsConnectionWrapper) writePump() {
 }
 
 func (c *wsConnectionWrapper) readPump(conn *websocket.Conn, closeCh chan<- error) {
+	defer c.wg.Done()
 	for {
 		msgType, data, err := conn.ReadMessage()
 		if err != nil {
-			closeCh <- conn.Close()
+			c.lggr.Errorw("failed to read message, closing connection", "error", err)
+			closeErr := conn.Close()
+			if closeErr != nil {
+				c.lggr.Errorw("error closing connection", "error", closeErr)
+			}
+			closeCh <- closeErr
 			close(closeCh)
 			return
 		}
 		select {
 		case c.readCh <- ReadItem{msgType, data}:
 		case <-c.shutdownCh:
-			closeCh <- conn.Close()
+			closeErr := conn.Close()
+			if closeErr != nil {
+				c.lggr.Errorw("error closing connection during shutdown", "error", closeErr)
+			}
+			closeCh <- closeErr
 			close(closeCh)
 			return
 		}

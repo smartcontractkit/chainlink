@@ -14,7 +14,6 @@ import (
 	"golang.org/x/sync/errgroup"
 
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/latest/don_id_claimer"
-	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/latest/factory_burn_mint_erc20"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/latest/fast_transfer_token_pool"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/latest/log_message_data_receiver"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/latest/maybe_revert_message_receiver"
@@ -28,12 +27,13 @@ import (
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_5_0/evm_2_evm_offramp"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_5_0/evm_2_evm_onramp"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_5_0/mock_rmn_contract"
-	registry_module_owner_custom2 "github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_5_0/registry_module_owner_custom"
+	registry_module_owner_custom_2 "github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_5_0/registry_module_owner_custom"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_5_0/rmn_contract"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_5_0/token_admin_registry"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_5_1/burn_from_mint_token_pool"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_5_1/burn_mint_token_pool"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_5_1/burn_with_from_mint_token_pool"
+	factory_burn_mint_erc20_2 "github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_5_1/factory_burn_mint_erc20"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_5_1/lock_release_token_pool"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_5_1/token_pool_factory"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_5_1/usdc_token_pool"
@@ -44,14 +44,17 @@ import (
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_0/registry_module_owner_custom"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_0/rmn_home"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_0/rmn_remote"
+	burn_mint_token_pool_v1_6_1 "github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_1/burn_mint_token_pool"
+	lock_release_token_pool_v1_6_1 "github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_1/lock_release_token_pool"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_2/cctp_message_transmitter_proxy"
+	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_2/factory_burn_mint_erc20"
 	usdc_token_pool_v1_6_2 "github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_2/usdc_token_pool"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_3/fee_quoter"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	capabilities_registry "github.com/smartcontractkit/chainlink-evm/gethwrappers/keystone/generated/capabilities_registry_1_1_0"
+	"github.com/smartcontractkit/chainlink-evm/gethwrappers/shared/generated/1_5_0/burn_mint_erc20_with_drip"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/shared/generated/initial/aggregator_v3_interface"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/shared/generated/initial/burn_mint_erc20"
-	"github.com/smartcontractkit/chainlink-evm/gethwrappers/shared/generated/initial/burn_mint_erc20_with_drip"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/shared/generated/initial/burn_mint_erc677"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/shared/generated/initial/erc20"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/shared/generated/initial/erc677"
@@ -74,6 +77,7 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/ccip/view/v1_5"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/view/v1_5_1"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/view/v1_6"
+	"github.com/smartcontractkit/chainlink/deployment/ccip/view/v1_6_1"
 	"github.com/smartcontractkit/chainlink/deployment/common/changeset/state"
 	v1_1 "github.com/smartcontractkit/chainlink/deployment/common/view/v1_0"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/types"
@@ -96,7 +100,7 @@ type CCIPChainState struct {
 	TokenPoolFactory   *token_pool_factory.TokenPoolFactory
 	RegistryModules1_6 []*registry_module_owner_custom.RegistryModuleOwnerCustom
 	// TODO change this to contract object for v1.5 RegistryModules once we have the wrapper available in chainlink-evm
-	RegistryModules1_5 []*registry_module_owner_custom2.RegistryModuleOwnerCustom
+	RegistryModules1_5 []*registry_module_owner_custom_2.RegistryModuleOwnerCustom
 	Router             *router.Router
 	Weth9              *weth9.WETH9
 	RMNRemote          *rmn_remote.RMNRemote
@@ -104,16 +108,18 @@ type CCIPChainState struct {
 	// Map between token Descriptor (e.g. LinkSymbol, WethSymbol)
 	// and the respective token / token pool contract(s) (only one of which would be active on the registry).
 	// This is more of an illustration of how we'll have tokens, and it might need some work later to work properly.
-	ERC20Tokens               map[shared.TokenSymbol]*erc20.ERC20
-	FactoryBurnMintERC20Token *factory_burn_mint_erc20.FactoryBurnMintERC20
-	ERC677Tokens              map[shared.TokenSymbol]*erc677.ERC677
-	BurnMintTokens677         map[shared.TokenSymbol]*burn_mint_erc677.BurnMintERC677
-	BurnMintERC20             map[shared.TokenSymbol]*burn_mint_erc20.BurnMintERC20
-	BurnMintERC20WithDrip     map[shared.TokenSymbol]*burn_mint_erc20_with_drip.BurnMintERC20
-	TokenGovernor             map[shared.TokenSymbol]*token_governor.TokenGovernor
+	ERC20Tokens                    map[shared.TokenSymbol]*erc20.ERC20
+	FactoryBurnMintERC20Token      *factory_burn_mint_erc20.FactoryBurnMintERC20
+	FactoryBurnMintERC20Token1_5_1 *factory_burn_mint_erc20_2.FactoryBurnMintERC20
+	ERC677Tokens                   map[shared.TokenSymbol]*erc677.ERC677
+	BurnMintTokens677              map[shared.TokenSymbol]*burn_mint_erc677.BurnMintERC677
+	BurnMintERC20                  map[shared.TokenSymbol]*burn_mint_erc20.BurnMintERC20
+	BurnMintERC20WithDrip          map[shared.TokenSymbol]*burn_mint_erc20_with_drip.BurnMintERC20WithDrip
+	TokenGovernor                  map[shared.TokenSymbol]*token_governor.TokenGovernor
 
 	// Pools
 	BurnMintTokenPools                               map[shared.TokenSymbol]map[semver.Version]*burn_mint_token_pool.BurnMintTokenPool
+	BurnMintTokenPoolsV1_6_1                         map[shared.TokenSymbol]map[semver.Version]*burn_mint_token_pool_v1_6_1.BurnMintTokenPool
 	BurnMintTokenPoolsAndProxies                     map[shared.TokenSymbol]map[semver.Version]*burn_mint_token_pool_and_proxy.BurnMintTokenPoolAndProxy
 	BurnMintFastTransferTokenPools                   map[shared.TokenSymbol]map[semver.Version]*fast_transfer_token_pool.BurnMintFastTransferTokenPool
 	BurnMintWithExternalMinterFastTransferTokenPools map[shared.TokenSymbol]map[semver.Version]*burn_mint_with_external_minter_fast_transfer_token_pool.BurnMintWithExternalMinterFastTransferTokenPool
@@ -127,6 +133,7 @@ type CCIPChainState struct {
 	USDCTokenPools                map[semver.Version]*usdc_token_pool.USDCTokenPool
 	USDCTokenPoolsV1_6            map[semver.Version]*usdc_token_pool_v1_6_2.USDCTokenPool
 	LockReleaseTokenPools         map[shared.TokenSymbol]map[semver.Version]*lock_release_token_pool.LockReleaseTokenPool
+	LockReleaseTokenPoolsV1_6_1   map[shared.TokenSymbol]map[semver.Version]*lock_release_token_pool_v1_6_1.LockReleaseTokenPool
 	// Map between token Symbol (e.g. LinkSymbol, WethSymbol)
 	// and the respective aggregator USD feed contract
 	USDFeeds map[shared.TokenSymbol]*aggregator_v3_interface.AggregatorV3Interface
@@ -784,6 +791,21 @@ func (c CCIPChainState) GenerateView(lggr logger.Logger, chain string) (view.Cha
 			}
 		}
 	}
+	for tokenSymbol, versionToPool := range c.BurnMintTokenPoolsV1_6_1 {
+		for _, tokenPool := range versionToPool {
+			jobCh <- func() error {
+				tokenPoolView, err := v1_5_1.GenerateTokenPoolView(tokenPool, c.usdFeedOrDefault(tokenSymbol))
+				if err != nil {
+					return fmt.Errorf("failed to generate burn mint token pool view for %s: %w", tokenPool.Address().String(), err)
+				}
+				chainView.UpdateTokenPool(tokenSymbol.String(), tokenPool.Address().Hex(), v1_5_1.PoolView{
+					TokenPoolView: tokenPoolView,
+				})
+				lggr.Infow("generated burn mint token pool view", "tokenPool", tokenPool.Address().Hex(), "chain", chain)
+				return nil
+			}
+		}
+	}
 	for tokenSymbol, versionToPool := range c.BurnWithFromMintTokenPools {
 		for _, tokenPool := range versionToPool {
 			jobCh <- func() error {
@@ -818,6 +840,19 @@ func (c CCIPChainState) GenerateView(lggr logger.Logger, chain string) (view.Cha
 		for _, tokenPool := range versionToPool {
 			jobCh <- func() error {
 				tokenPoolView, err := v1_5_1.GenerateLockReleaseTokenPoolView(tokenPool, c.usdFeedOrDefault(tokenSymbol))
+				if err != nil {
+					return fmt.Errorf("failed to generate lock release token pool view for %s: %w", tokenPool.Address().String(), err)
+				}
+				chainView.UpdateTokenPool(tokenSymbol.String(), tokenPool.Address().Hex(), tokenPoolView)
+				lggr.Infow("generated lock release token pool view", "tokenPool", tokenPool.Address().Hex(), "chain", chain)
+				return nil
+			}
+		}
+	}
+	for tokenSymbol, versionToPool := range c.LockReleaseTokenPoolsV1_6_1 {
+		for _, tokenPool := range versionToPool {
+			jobCh <- func() error {
+				tokenPoolView, err := v1_6_1.GenerateLockReleaseTokenPoolView(tokenPool, c.usdFeedOrDefault(tokenSymbol))
 				if err != nil {
 					return fmt.Errorf("failed to generate lock release token pool view for %s: %w", tokenPool.Address().String(), err)
 				}
@@ -979,9 +1014,9 @@ func (c CCIPChainState) GenerateView(lggr logger.Logger, chain string) (view.Cha
 			return nil
 		}
 	}
-	if c.MCMSWithTimelockState.Timelock != nil {
+	if c.Timelock != nil {
 		jobCh <- func() error {
-			mcmsView, err := c.MCMSWithTimelockState.GenerateMCMSWithTimelockView()
+			mcmsView, err := c.GenerateMCMSWithTimelockView()
 			if err != nil {
 				return fmt.Errorf("failed to generate MCMS with timelock view for MCMS with timelock %s: %w", c.MCMSWithTimelockState.Timelock.Address().String(), err)
 			}

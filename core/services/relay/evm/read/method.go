@@ -159,6 +159,7 @@ func (b *MethodBinding) GetLatestValueWithHeadData(ctx context.Context, addr com
 
 	callMsg := ethereum.CallMsg{
 		To:   &addr,
+		From: addr,
 		Data: data,
 	}
 
@@ -234,9 +235,10 @@ func (b *MethodBinding) blockAndConfirmationsFromConfidence(ctx context.Context,
 		return nil, 0, fmt.Errorf("%w: head tracker: %w", commontypes.ErrInternal, err)
 	}
 
-	if confirmations == types.Finalized {
+	switch confirmations {
+	case types.Finalized:
 		return finalized, confirmations, nil
-	} else if confirmations == types.Unconfirmed {
+	case types.Unconfirmed:
 		return latest, confirmations, nil
 	}
 

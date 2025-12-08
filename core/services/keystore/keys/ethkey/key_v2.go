@@ -22,9 +22,9 @@ var curve = crypto.S256()
 func KeyFor(raw internal.Raw) KeyV2 {
 	var privateKey ecdsa.PrivateKey
 	d := big.NewInt(0).SetBytes(internal.Bytes(raw))
-	privateKey.PublicKey.Curve = curve
+	privateKey.Curve = curve
 	privateKey.D = d
-	privateKey.PublicKey.X, privateKey.PublicKey.Y = curve.ScalarBaseMult(d.Bytes())
+	privateKey.X, privateKey.Y = curve.ScalarBaseMult(d.Bytes())
 	k := newKeyV2(&privateKey)
 	k.raw = raw
 	return k

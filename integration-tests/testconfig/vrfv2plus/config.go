@@ -49,14 +49,14 @@ type General struct {
 	NativePremiumPercentage           *uint8   `toml:"native_premium_percentage"`              // Native Premium Percentage
 	LinkPremiumPercentage             *uint8   `toml:"link_premium_percentage"`                // LINK Premium Percentage
 
-	//Wrapper config
+	// Wrapper config
 	CoordinatorGasOverheadPerWord      *uint16 `toml:"coordinator_gas_overhead_per_word"`
 	CoordinatorGasOverheadNative       *uint32 `toml:"coordinator_gas_overhead_native"`
 	CoordinatorGasOverheadLink         *uint32 `toml:"coordinator_gas_overhead_link"`
 	CoordinatorNativePremiumPercentage *uint8  `toml:"coordinator_native_premium_percentage"`
 	CoordinatorLinkPremiumPercentage   *uint8  `toml:"coordinator_link_premium_percentage"`
 
-	//OP Stack chains settings
+	// OP Stack chains settings
 	L1FeeCalculationMode *uint8 `toml:"l1_fee_calculation_mode"`
 	L1FeeCoefficient     *uint8 `toml:"l1_fee_coefficient"`
 

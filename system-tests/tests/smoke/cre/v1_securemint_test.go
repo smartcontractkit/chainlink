@@ -35,11 +35,10 @@ import (
 	writetarget "github.com/smartcontractkit/chainlink-solana/pkg/solana/write_target"
 	"github.com/smartcontractkit/chainlink-testing-framework/framework"
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/ptr"
-	"github.com/smartcontractkit/chainlink/deployment"
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 	df_sol "github.com/smartcontractkit/chainlink/deployment/data-feeds/changeset/solana"
-	"github.com/smartcontractkit/chainlink/deployment/environment/memory"
 	ks_sol "github.com/smartcontractkit/chainlink/deployment/keystone/changeset/solana"
+	"github.com/smartcontractkit/chainlink/deployment/utils/solutils"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/jobs"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/blockchains/solana"
@@ -53,7 +52,7 @@ import (
 
 func ExecuteSecureMintTest(t *testing.T, tenv *ttypes.TestEnvironment) {
 	creEnvironment := tenv.CreEnvironment
-	bcs := tenv.Blockchains
+	bcs := tenv.CreEnvironment.Blockchains
 	ds := creEnvironment.CldfEnvironment.DataStore
 
 	// prevalidate environment
@@ -90,11 +89,11 @@ func ExecuteSecureMintTest(t *testing.T, tenv *ttypes.TestEnvironment) {
 	// deploy workflow
 	framework.L.Info().Msg("Generate and propose secure mint job...")
 	jobSpec := createSecureMintWorkflowJobSpec(t, &s, solChain)
-	proposeSecureMintJob(t, creEnvironment.CldfEnvironment.Offchain, creEnvironment.DonTopology, jobSpec)
+	proposeSecureMintJob(t, creEnvironment.CldfEnvironment.Offchain, tenv.Dons, jobSpec)
 	framework.L.Info().Msgf("Secure mint job is successfully posted. Job spec:\n %v", jobSpec)
 
 	// trigger workflow
-	trigger := createFakeTrigger(t, &s, creEnvironment.DonTopology)
+	trigger := createFakeTrigger(t, &s, tenv.Dons)
 	ctx, cancel := context.WithCancel(t.Context())
 	eg := &errgroup.Group{}
 	eg.Go(func() error {
@@ -232,11 +231,16 @@ func deployAndConfigureCache(t *testing.T, s *setup, env cldf.Environment, solCh
 	copy(wfname[:], []byte(s.WFName))
 
 	ds := datastore.NewMemoryDataStore()
-	populateContracts := map[string]datastore.ContractType{
-		deployment.DataFeedsCacheProgramName: df_sol.CacheContract,
-	}
-	err := memory.PopulateDatastore(ds.AddressRefStore, populateContracts, semver.MustParse("1.0.0"), ks_sol.DefaultForwarderQualifier, solChain.ChainSelector())
+
+	err := ds.AddressRefStore.Add(datastore.AddressRef{
+		Address:       solutils.GetProgramID(solutils.ProgDataFeedsCache),
+		ChainSelector: solChain.ChainSelector(),
+		Type:          df_sol.CacheContract,
+		Version:       semver.MustParse("1.0.0"),
+		Qualifier:     ks_sol.DefaultForwarderQualifier,
+	})
 	require.NoError(t, err, "failed to populate datastore")
+
 	env.DataStore = ds.Seal()
 
 	s.CacheProgramID = mustGetContract(t, env.DataStore, solChain.ChainSelector(), df_sol.CacheContract)
@@ -408,7 +412,7 @@ func createSecureMintWorkflowJobSpec(t *testing.T, s *setup, solChain *solana.Bl
 	`, workflowJobSpec.Toml())
 }
 
-func proposeSecureMintJob(t *testing.T, offchain offchain.Client, donTopology *cre.DonTopology, jobSpec string) {
+func proposeSecureMintJob(t *testing.T, offchain offchain.Client, dons *cre.Dons, jobSpec string) {
 	workerNodes, err := offchain.ListNodes(t.Context(), &node.ListNodesRequest{
 		Filter: &node.ListNodesRequest_Filter{
 			Selectors: []*ptypes.Selector{{
@@ -427,7 +431,7 @@ func proposeSecureMintJob(t *testing.T, offchain offchain.Client, donTopology *c
 			NodeId: n.Id,
 		})
 	}
-	err = jobs.Create(t.Context(), offchain, donTopology, specs)
+	err = jobs.Create(t.Context(), offchain, dons, specs)
 	if err != nil && strings.Contains(err.Error(), "is already approved") {
 		return
 	}
@@ -524,7 +528,7 @@ func (f *fakeTrigger) createReport() (*values.Map, error) {
 	return event, nil
 }
 
-func createFakeTrigger(t *testing.T, s *setup, dons *cre.DonTopology) *fakeTrigger {
+func createFakeTrigger(t *testing.T, s *setup, dons *cre.Dons) *fakeTrigger {
 	client := createMockClient(t)
 	framework.L.Info().Msg("Successfully exported ocr2 keys")
 

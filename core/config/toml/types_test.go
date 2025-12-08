@@ -599,7 +599,7 @@ func TestEthKeys_TOMLSerialization(t *testing.T) {
 		var decoded EthKeys
 		err = toml.NewDecoder(strings.NewReader(buf.String())).Decode(&decoded)
 		require.NoError(t, err)
-		assert.Equal(t, len(ethKeysWrapper.Keys), len(decoded.Keys))
+		assert.Len(t, decoded.Keys, len(ethKeysWrapper.Keys))
 		for i, key := range ethKeysWrapper.Keys {
 			// have to compare the GoString() of the Secret because it is redacted
 			assert.Equal(t, key.JSON.GoString(), decoded.Keys[i].JSON.GoString())

@@ -13,13 +13,13 @@ func JobNamer(chainID uint64, flag cre.CapabilityFlag) string {
 	return fmt.Sprintf("%s-%d", flag, chainID)
 }
 
-func CapabilityEnabler(_ []string, nodeSet *cre.CapabilitiesAwareNodeSet, flag cre.CapabilityFlag) bool {
+func CapabilityEnabler(_ []string, nodeSet cre.NodeSetWithCapabilityConfigs, flag cre.CapabilityFlag) bool {
 	// for chain-level capabilities, we need to check which chains the capability is enabled for
-	if nodeSet == nil || nodeSet.ChainCapabilities == nil {
+	if nodeSet == nil || nodeSet.GetChainCapabilityConfigs() == nil {
 		return false
 	}
 
-	chainCapConfig, ok := nodeSet.ChainCapabilities[flag]
+	chainCapConfig, ok := nodeSet.GetChainCapabilityConfigs()[flag]
 	if !ok || chainCapConfig == nil || len(chainCapConfig.EnabledChains) == 0 {
 		return false
 	}
@@ -27,9 +27,9 @@ func CapabilityEnabler(_ []string, nodeSet *cre.CapabilitiesAwareNodeSet, flag c
 	return true
 }
 
-func EnabledChainsProvider(donTopology *cre.DonTopology, nodeSetInput *cre.CapabilitiesAwareNodeSet, flag cre.CapabilityFlag) []uint64 {
+func EnabledChainsProvider(_ uint64, nodeSet cre.NodeSetWithCapabilityConfigs, flag cre.CapabilityFlag) []uint64 {
 	// for chain-level capabilities, we need to return the list of chains the capability is enabled for
-	chainCapConfig, ok := nodeSetInput.ChainCapabilities[flag]
+	chainCapConfig, ok := nodeSet.GetChainCapabilityConfigs()[flag]
 	if !ok || chainCapConfig == nil {
 		return []uint64{}
 	}
@@ -37,11 +37,11 @@ func EnabledChainsProvider(donTopology *cre.DonTopology, nodeSetInput *cre.Capab
 	return chainCapConfig.EnabledChains
 }
 
-func ConfigResolver(nodeSetInput *cre.CapabilitiesAwareNodeSet, capabilityConfig cre.CapabilityConfig, chainID uint64, flag cre.CapabilityFlag) (bool, map[string]any, error) {
+func ConfigResolver(nodeSet cre.NodeSetWithCapabilityConfigs, capabilityConfig cre.CapabilityConfig, chainID uint64, flag cre.CapabilityFlag) (bool, map[string]any, error) {
 	// chain-level capabilities can have per-chain configuration overrides, we need to resolve the config for the given chain
 	enabled, mergedConfig, rErr := envconfig.ResolveCapabilityForChain(
 		flag,
-		nodeSetInput.ChainCapabilities,
+		nodeSet.GetChainCapabilityConfigs(),
 		capabilityConfig.Config,
 		chainID,
 	)

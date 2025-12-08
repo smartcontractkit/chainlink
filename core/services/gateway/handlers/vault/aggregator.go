@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"strconv"
 
 	"github.com/ethereum/go-ethereum/common"
 
@@ -19,7 +20,7 @@ type baseAggregator struct {
 	capabilitiesRegistry capabilitiesRegistry
 }
 
-func (a *baseAggregator) Aggregate(ctx context.Context, l logger.Logger, resps map[string]*jsonrpc.Response[json.RawMessage], currResp *jsonrpc.Response[json.RawMessage]) (*jsonrpc.Response[json.RawMessage], error) {
+func (a *baseAggregator) Aggregate(ctx context.Context, l logger.Logger, resps map[string]jsonrpc.Response[json.RawMessage], currResp *jsonrpc.Response[json.RawMessage]) (*jsonrpc.Response[json.RawMessage], error) {
 	don, err := a.donForVaultCapability(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get DON for vault capability: %w", err)
@@ -55,7 +56,7 @@ func (a *baseAggregator) donForVaultCapability(ctx context.Context) (*capabiliti
 	return &don, nil
 }
 
-func (a *baseAggregator) validateUsingQuorum(don capabilities.DON, resps map[string]*jsonrpc.Response[json.RawMessage], l logger.Logger) (*jsonrpc.Response[json.RawMessage], error) {
+func (a *baseAggregator) validateUsingQuorum(don capabilities.DON, resps map[string]jsonrpc.Response[json.RawMessage], l logger.Logger) (*jsonrpc.Response[json.RawMessage], error) {
 	requiredQuorum := int(2*don.F + 1)
 
 	if len(resps) < requiredQuorum {
@@ -65,7 +66,7 @@ func (a *baseAggregator) validateUsingQuorum(don capabilities.DON, resps map[str
 	shaToCount := map[string]int{}
 	maxShaToCount := 0
 	for _, r := range resps {
-		sha, err := a.sha(r)
+		sha, err := a.sha(&r)
 		if err != nil {
 			l.Errorw("failed to compute digest of response during quorum validation, skipping...", "error", err)
 			continue
@@ -75,13 +76,14 @@ func (a *baseAggregator) validateUsingQuorum(don capabilities.DON, resps map[str
 			maxShaToCount = shaToCount[sha]
 		}
 		if shaToCount[sha] >= requiredQuorum {
-			return r, nil
+			return &r, nil
 		}
 	}
 
 	remainingResponses := len(don.Members) - len(resps)
 	if maxShaToCount+remainingResponses < requiredQuorum {
-		return nil, errQuorumUnobtainable
+		l.Warnw("quorum unattainable for request", "requiredQuorum", requiredQuorum, "remainingResponses", remainingResponses, "maxShaToCount", maxShaToCount, "remainingResponses", remainingResponses, "allResponses", resps)
+		return nil, errors.New(errQuorumUnobtainable.Error() + ". RequiredQuorum=" + strconv.Itoa(requiredQuorum) + ". maxShaToCount=" + strconv.Itoa(maxShaToCount) + " remainingResponses=" + strconv.Itoa(remainingResponses))
 	}
 
 	return nil, errInsufficientResponsesForQuorum
@@ -131,7 +133,10 @@ func (a *baseAggregator) sha(resp *jsonrpc.Response[json.RawMessage]) (string, e
 
 func (a *baseAggregator) validateUsingSignatures(don capabilities.DON, nodes []capabilities.Node, resp *jsonrpc.Response[json.RawMessage]) (*jsonrpc.Response[json.RawMessage], error) {
 	if resp.Result == nil {
-		return nil, errors.New("response result is nil: cannot validate signatures")
+		if resp.Error != nil {
+			return nil, errors.New("response has an error, cannot validate signatures. Error: " + resp.Error.Error())
+		}
+		return nil, errors.New("response result and error both are is nil: cannot validate signatures")
 	}
 
 	if resp.Method == vaulttypes.MethodSecretsGet {

@@ -14,5 +14,5 @@ func TestPtrVal(t *testing.T) {
 
 	var y *string
 	got = value(y)
-	require.Equal(t, "", got)
+	require.Empty(t, got)
 }

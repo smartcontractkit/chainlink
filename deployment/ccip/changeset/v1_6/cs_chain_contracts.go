@@ -1244,7 +1244,19 @@ func (cfg UpdateRouterRampsConfig) Validate(e cldf.Environment, state stateview.
 				//   2. All contracts have the expected owner.
 				// That way, if cfg.MCMS exists, we ensure that every contract is owned by MCMS.
 				// Calling this function will ensure that both these checks are done.
-				err := state.ValidateOwnershipOfChain(e, chainSel, cfg.MCMS)
+
+				ownedContracts := map[string]commoncs.Ownable{
+					"router":       chainState.Router,
+					"feeQuoter":    chainState.FeeQuoter,
+					"offRamp":      chainState.OffRamp,
+					"onRamp":       chainState.OnRamp,
+					"nonceManager": chainState.NonceManager,
+					// RMN remote is owned by a different timelock, so we don't check it here.
+					//	"rmnRemote":          chainState.RMNRemote,
+					"rmnProxy":           chainState.RMNProxy,
+					"tokenAdminRegistry": chainState.TokenAdminRegistry,
+				}
+				err := state.ValidateOwnershipOfChain(e, chainSel, cfg.MCMS, ownedContracts)
 				if err != nil {
 					return fmt.Errorf("failed to validate ownership of contracts on %s: %w", e.BlockChains.EVMChains()[chainSel], err)
 				}
@@ -1730,13 +1742,14 @@ func DefaultFeeQuoterDestChainConfig(configEnabled bool, destChainSelector ...ui
 	familySelector, _ := hex.DecodeString(EVMFamilySelector) // evm
 	if len(destChainSelector) > 0 {
 		destFamily, _ := chain_selectors.GetSelectorFamily(destChainSelector[0])
-		if destFamily == chain_selectors.FamilySolana {
+		switch destFamily {
+		case chain_selectors.FamilySolana:
 			familySelector, _ = hex.DecodeString(SVMFamilySelector) // solana
-		} else if destFamily == chain_selectors.FamilyAptos {
+		case chain_selectors.FamilyAptos:
 			familySelector, _ = hex.DecodeString(AptosFamilySelector) // aptos
-		} else if destFamily == chain_selectors.FamilyTon {
+		case chain_selectors.FamilyTon:
 			familySelector, _ = hex.DecodeString(TVMFamilySelector) // ton
-		} else if destFamily == chain_selectors.FamilySui {
+		case chain_selectors.FamilySui:
 			familySelector, _ = hex.DecodeString(SuiFamilySelector) // Sui
 		}
 	}

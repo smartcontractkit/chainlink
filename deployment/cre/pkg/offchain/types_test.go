@@ -156,3 +156,35 @@ func TestAddToFilterIfNotPresent(t *testing.T) {
 		req.Equal("us-east-1", *last.Value)
 	})
 }
+
+func TestMultipleFilters(t *testing.T) {
+	req := require.New(t)
+
+	filter := &nodev1.ListNodesRequest_Filter{}
+
+	// Create the first filter
+	// Hits special reserved FilterKeyDONName case
+	filter = TargetDONFilter{
+		Key:   FilterKeyDONName,
+		Value: "don1",
+	}.AddToFilter(filter)
+
+	// Create the second filter by adding to the first filter
+	// Generic filter
+	filter = TargetDONFilter{
+		Key:   "product",
+		Value: "product1",
+	}.AddToFilter(filter)
+
+	// Validate
+	req.Equal(&ptypes.Selector{
+		Key: "don-don1",
+		Op:  ptypes.SelectorOp_EXIST,
+	}, filter.Selectors[0])
+	p := "product1"
+	req.Equal(&ptypes.Selector{
+		Op:    ptypes.SelectorOp_EQ,
+		Key:   "product",
+		Value: &p,
+	}, filter.Selectors[1])
+}

@@ -3,12 +3,14 @@ package fakes
 import (
 	"bytes"
 	"context"
+	"errors"
 	"io"
 	"net/http"
 	"strings"
 	"time"
 
 	commonCap "github.com/smartcontractkit/chainlink-common/pkg/capabilities"
+	caperrors "github.com/smartcontractkit/chainlink-common/pkg/capabilities/errors"
 	customhttp "github.com/smartcontractkit/chainlink-common/pkg/capabilities/v2/actions/http"
 	httpserver "github.com/smartcontractkit/chainlink-common/pkg/capabilities/v2/actions/http/server"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
@@ -48,7 +50,7 @@ func NewDirectHTTPAction(lggr logger.Logger) *DirectHTTPAction {
 	return fc
 }
 
-func (fh *DirectHTTPAction) SendRequest(ctx context.Context, metadata commonCap.RequestMetadata, input *customhttp.Request) (*commonCap.ResponseAndMetadata[*customhttp.Response], error) {
+func (fh *DirectHTTPAction) SendRequest(ctx context.Context, metadata commonCap.RequestMetadata, input *customhttp.Request) (*commonCap.ResponseAndMetadata[*customhttp.Response], caperrors.Error) {
 	fh.eng.Infow("HTTP Action SendRequest Started", "input", input)
 
 	// Create HTTP client with timeout
@@ -61,10 +63,10 @@ func (fh *DirectHTTPAction) SendRequest(ctx context.Context, metadata commonCap.
 		Timeout: timeout,
 	}
 
-	// Determine HTTP method (default to GET if not specified)
-	method := input.GetMethod()
+	// Return an error if no HTTP method is provided
+	method := strings.TrimSpace(input.GetMethod())
 	if method == "" {
-		method = "GET"
+		return nil, caperrors.NewPrivateUserError(errors.New("http method cannot be empty"), caperrors.InvalidArgument)
 	}
 	method = strings.ToUpper(method)
 
@@ -85,7 +87,7 @@ func (fh *DirectHTTPAction) SendRequest(ctx context.Context, metadata commonCap.
 			Response:         httpResponse,
 			ResponseMetadata: commonCap.ResponseMetadata{},
 		}
-		return &responseAndMetadata, err
+		return &responseAndMetadata, caperrors.NewPrivateSystemError(err, caperrors.Unknown)
 	}
 
 	// Add headers
@@ -104,7 +106,7 @@ func (fh *DirectHTTPAction) SendRequest(ctx context.Context, metadata commonCap.
 			Response:         httpResponse,
 			ResponseMetadata: commonCap.ResponseMetadata{},
 		}
-		return &responseAndMetadata, err
+		return &responseAndMetadata, caperrors.NewPrivateSystemError(err, caperrors.Unknown)
 	}
 	defer resp.Body.Close()
 
@@ -119,7 +121,7 @@ func (fh *DirectHTTPAction) SendRequest(ctx context.Context, metadata commonCap.
 			Response:         httpResponse,
 			ResponseMetadata: commonCap.ResponseMetadata{},
 		}
-		return &responseAndMetadata, err
+		return &responseAndMetadata, caperrors.NewPrivateSystemError(err, caperrors.Unknown)
 	}
 
 	// Convert headers

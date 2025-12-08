@@ -1,8 +1,6 @@
 package actions
 
 import (
-	"fmt"
-
 	"github.com/rs/zerolog"
 
 	"github.com/smartcontractkit/chainlink/deployment/environment/nodeclient"
@@ -46,7 +44,7 @@ func CreateKeeperJobsLocal(
 			return nil, err
 		}
 		job, err := chainlinkNode.MustCreateJob(&nodeclient.KeeperJobSpec{
-			Name:                     fmt.Sprintf("keeper-test-%s", keeperRegistry.Address()),
+			Name:                     "keeper-test-" + keeperRegistry.Address(),
 			ContractAddress:          keeperRegistry.Address(),
 			FromAddress:              chainlinkNodeAddress,
 			EVMChainID:               evmChainID,

@@ -6,13 +6,15 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"math/big"
 	"strings"
 	"time"
 
+	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
+	gethTypes "github.com/ethereum/go-ethereum/core/types"
 	chainsel "github.com/smartcontractkit/chain-selectors"
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/confighelper"
+	"github.com/smartcontractkit/libocr/offchainreporting2plus/ocr3_1confighelper"
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/ocr3confighelper"
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 	mcmstypes "github.com/smartcontractkit/mcms/types"
@@ -25,7 +27,7 @@ import (
 	focr "github.com/smartcontractkit/chainlink-deployments-framework/offchain/ocr"
 
 	"github.com/smartcontractkit/chainlink/deployment"
-	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
+	"github.com/smartcontractkit/chainlink/deployment/cre/common/strategies"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/chaintype"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocrcommon"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm"
@@ -37,10 +39,6 @@ var (
 
 type TopLevelConfigSource struct {
 	OracleConfig OracleConfig
-}
-
-type MCMSConfig struct {
-	MinDuration time.Duration
 }
 
 type NodeKeys struct {
@@ -135,101 +133,23 @@ func (c *OCR2OracleConfig) UnmarshalJSON(data []byte) error {
 	return nil
 }
 
+func GenerateOCR3ConfigFromNodes(cfg OracleConfig, nodes []deployment.Node, registryChainSel uint64, secrets focr.OCRSecrets, reportingPluginConfigOverride []byte) (OCR2OracleConfig, error) {
+	nca := makeNodeKeysSlice(nodes, registryChainSel)
+	return GenerateOCR3Config(cfg, nca, secrets, reportingPluginConfigOverride)
+}
+
 func GenerateOCR3Config(cfg OracleConfig, nca []NodeKeys, secrets focr.OCRSecrets, reportingPluginConfigOverride []byte) (OCR2OracleConfig, error) {
 	// the transmission schedule is very specific; arguably it should be not be a parameter
 	if len(cfg.TransmissionSchedule) != 1 || cfg.TransmissionSchedule[0] != len(nca) {
 		return OCR2OracleConfig{}, fmt.Errorf("transmission schedule must have exactly one entry, matching the len of the number of nodes want [%d], got %v. Total TransmissionSchedules = %d", len(nca), cfg.TransmissionSchedule, len(cfg.TransmissionSchedule))
 	}
-	onchainPubKeys := [][]byte{}
-	allPubKeys := map[string]any{}
 	if secrets.IsEmpty() {
 		return OCR2OracleConfig{}, errors.New("OCRSecrets is required")
 	}
-	for _, n := range nca {
-		// evm keys always required
-		if n.OCR2OnchainPublicKey == "" {
-			return OCR2OracleConfig{}, errors.New("OCR2OnchainPublicKey is required")
-		}
-		ethPubKey := common.HexToAddress(n.OCR2OnchainPublicKey)
-		pubKeys := map[string]types.OnchainPublicKey{
-			string(chaintype.EVM): ethPubKey.Bytes(),
-		}
-		// add aptos key if present
-		if n.AptosOnchainPublicKey != "" {
-			aptosPubKey, err := hex.DecodeString(n.AptosOnchainPublicKey)
-			if err != nil {
-				return OCR2OracleConfig{}, fmt.Errorf("failed to decode AptosOnchainPublicKey: %w", err)
-			}
-			pubKeys[string(chaintype.Aptos)] = aptosPubKey
-		}
-		// add solana key if present
-		if n.SolanaOnchainPublicKey != "" {
-			solPubKey, err := hex.DecodeString(n.SolanaOnchainPublicKey)
-			if err != nil {
-				return OCR2OracleConfig{}, fmt.Errorf("failed to decode SolanaOnchainPublicKey: %w", err)
-			}
-			pubKeys[string(chaintype.Solana)] = solPubKey
-		}
 
-		// validate uniqueness of each individual key
-		for _, key := range pubKeys {
-			raw := hex.EncodeToString(key)
-			_, exists := allPubKeys[raw]
-			if exists {
-				return OCR2OracleConfig{}, fmt.Errorf("Duplicate onchain public key: '%s'", raw)
-			}
-			allPubKeys[raw] = struct{}{}
-		}
-		pubKey, err := ocrcommon.MarshalMultichainPublicKey(pubKeys)
-		if err != nil {
-			return OCR2OracleConfig{}, fmt.Errorf("failed to marshal multichain public key: %w", err)
-		}
-		onchainPubKeys = append(onchainPubKeys, pubKey)
-	}
-
-	offchainPubKeysBytes := []types.OffchainPublicKey{}
-	for _, n := range nca {
-		pkBytes, err := hex.DecodeString(n.OCR2OffchainPublicKey)
-		if err != nil {
-			return OCR2OracleConfig{}, fmt.Errorf("failed to decode OCR2OffchainPublicKey: %w", err)
-		}
-
-		pkBytesFixed := [ed25519.PublicKeySize]byte{}
-		nCopied := copy(pkBytesFixed[:], pkBytes)
-		if nCopied != ed25519.PublicKeySize {
-			return OCR2OracleConfig{}, fmt.Errorf("wrong num elements copied from ocr2 offchain public key. expected %d but got %d", ed25519.PublicKeySize, nCopied)
-		}
-
-		offchainPubKeysBytes = append(offchainPubKeysBytes, pkBytesFixed)
-	}
-
-	configPubKeysBytes := []types.ConfigEncryptionPublicKey{}
-	for _, n := range nca {
-		pkBytes, err := hex.DecodeString(n.OCR2ConfigPublicKey)
-		if err != nil {
-			return OCR2OracleConfig{}, fmt.Errorf("failed to decode OCR2ConfigPublicKey: %w", err)
-		}
-
-		pkBytesFixed := [ed25519.PublicKeySize]byte{}
-		n := copy(pkBytesFixed[:], pkBytes)
-		if n != ed25519.PublicKeySize {
-			return OCR2OracleConfig{}, fmt.Errorf("wrong num elements copied from ocr2 config public key. expected %d but got %d", ed25519.PublicKeySize, n)
-		}
-
-		configPubKeysBytes = append(configPubKeysBytes, pkBytesFixed)
-	}
-
-	identities := []confighelper.OracleIdentityExtra{}
-	for index := range nca {
-		identities = append(identities, confighelper.OracleIdentityExtra{
-			OracleIdentity: confighelper.OracleIdentity{
-				OnchainPublicKey:  onchainPubKeys[index],
-				OffchainPublicKey: offchainPubKeysBytes[index],
-				PeerID:            nca[index].P2PPeerID,
-				TransmitAccount:   types.Account(nca[index].EthAddress),
-			},
-			ConfigEncryptionPublicKey: configPubKeysBytes[index],
-		})
+	identities, err := makeIdentities(nca)
+	if err != nil {
+		return OCR2OracleConfig{}, fmt.Errorf("failed to make identities: %w", err)
 	}
 
 	cfgBytes := reportingPluginConfigOverride
@@ -298,6 +218,82 @@ func GenerateOCR3Config(cfg OracleConfig, nca []NodeKeys, secrets focr.OCRSecret
 	return config, nil
 }
 
+func GenerateOCR3_1ConfigFromNodes(cfg V3_1OracleConfig, nodes []deployment.Node, registryChainSel uint64, secrets focr.OCRSecrets, reportingPluginConfigOverride []byte) (OCR2OracleConfig, error) {
+	nca := makeNodeKeysSlice(nodes, registryChainSel)
+	return GenerateOCR3_1Config(cfg, nca, secrets, reportingPluginConfigOverride)
+}
+
+func GenerateOCR3_1Config(cfg V3_1OracleConfig, nca []NodeKeys, secrets focr.OCRSecrets, reportingPluginConfigOverride []byte) (OCR2OracleConfig, error) {
+	// the transmission schedule is very specific; arguably it should be not be a parameter
+	if len(cfg.TransmissionSchedule) != 1 || cfg.TransmissionSchedule[0] != len(nca) {
+		return OCR2OracleConfig{}, fmt.Errorf("transmission schedule must have exactly one entry, matching the len of the number of nodes want [%d], got %v. Total TransmissionSchedules = %d", len(nca), cfg.TransmissionSchedule, len(cfg.TransmissionSchedule))
+	}
+
+	if secrets.IsEmpty() {
+		return OCR2OracleConfig{}, errors.New("OCRSecrets is required")
+	}
+
+	identities, err := makeIdentities(nca)
+	if err != nil {
+		return OCR2OracleConfig{}, fmt.Errorf("failed to make identities: %w", err)
+	}
+
+	cfgBytes := reportingPluginConfigOverride
+	if cfgBytes == nil {
+		return OCR2OracleConfig{}, errors.New("failed to get offchain config: reportingPluginConfigOverride is required for OCR3.1")
+	}
+
+	signers, transmitters, f, onchainConfig, offchainConfigVersion, offchainConfig, err := ocr3_1confighelper.ContractSetConfigArgsDeterministic(
+		ocr3_1confighelper.CheckPublicConfigLevelDefault,
+		secrets.EphemeralSk,
+		secrets.SharedSecret,
+		identities,
+		cfg.MaxFaultyOracles,
+		time.Duration(cfg.DeltaProgressMillis)*time.Millisecond,
+		time.Duration(cfg.DeltaRoundMillis)*time.Millisecond,
+		time.Duration(cfg.DeltaGraceMillis)*time.Millisecond,
+		cfg.MaxRoundsPerEpoch,
+		time.Duration(cfg.DeltaStageMillis)*time.Millisecond,
+		cfg.TransmissionSchedule,
+		cfgBytes,
+		nil, // onchainConfig
+		time.Duration(cfg.MaxDurationInitializationMillis)*time.Millisecond,
+		time.Duration(cfg.WarnDurationQueryMillis)*time.Millisecond,
+		time.Duration(cfg.WarnDurationObservationMillis)*time.Millisecond,
+		time.Duration(cfg.WarnDurationValidateObservationMillis)*time.Millisecond,
+		time.Duration(cfg.WarnDurationObservationQuorumMillis)*time.Millisecond,
+		time.Duration(cfg.WarnDurationStateTransition)*time.Millisecond,
+		time.Duration(cfg.WarnDurationCommitted)*time.Millisecond,
+		time.Duration(cfg.MaxDurationShouldAcceptAttestedReportMillis)*time.Millisecond,
+		time.Duration(cfg.MaxDurationShouldTransmitAcceptedReportMillis)*time.Millisecond,
+		ocr3_1confighelper.ContractSetConfigArgsOptionalConfig{},
+	)
+	if err != nil {
+		return OCR2OracleConfig{}, fmt.Errorf("failed to generate contract config args: %w", err)
+	}
+
+	var configSigners [][]byte
+	for _, signer := range signers {
+		configSigners = append(configSigners, signer)
+	}
+
+	transmitterAddresses, err := evm.AccountToAddress(transmitters)
+	if err != nil {
+		return OCR2OracleConfig{}, fmt.Errorf("failed to convert transmitters to addresses: %w", err)
+	}
+
+	config := OCR2OracleConfig{
+		Signers:               configSigners,
+		Transmitters:          transmitterAddresses,
+		F:                     f,
+		OnchainConfig:         onchainConfig,
+		OffchainConfigVersion: offchainConfigVersion,
+		OffchainConfig:        offchainConfig,
+	}
+
+	return config, nil
+}
+
 func getOffchainCfg(oracleCfg OracleConfig) (offchainConfig, error) {
 	var result offchainConfig
 	if oracleCfg.ConsensusCapOffchainConfig != nil {
@@ -316,24 +312,15 @@ func getOffchainCfg(oracleCfg OracleConfig) (offchainConfig, error) {
 }
 
 type ConfigureOCR3Request struct {
-	Cfg        *OracleConfig
-	Chain      cldf_evm.Chain
-	Contract   *ocr3_capability.OCR3Capability
-	Nodes      []deployment.Node
-	DryRun     bool
-	OcrSecrets focr.OCRSecrets
+	Chain    cldf_evm.Chain
+	Contract *ocr3_capability.OCR3Capability
+	DryRun   bool
 
 	ReportingPluginConfigOverride []byte
+	Config                        OCR2OracleConfig
 
-	UseMCMS bool
-}
-
-func (r ConfigureOCR3Request) generateOCR3Config() (OCR2OracleConfig, error) {
-	nks := makeNodeKeysSlice(r.Nodes, r.Chain.Selector)
-	if r.Cfg == nil {
-		return OCR2OracleConfig{}, errors.New("OCR3 config is required")
-	}
-	return GenerateOCR3Config(*r.Cfg, nks, r.OcrSecrets, r.ReportingPluginConfigOverride)
+	UseMCMS  bool
+	Strategy strategies.TransactionStrategy
 }
 
 type ConfigureOCR3Response struct {
@@ -345,47 +332,27 @@ func ConfigureOCR3contract(req ConfigureOCR3Request) (*ConfigureOCR3Response, er
 	if req.Contract == nil {
 		return nil, errors.New("OCR3 contract is nil")
 	}
-	ocrConfig, err := req.generateOCR3Config()
-	if err != nil {
-		return nil, fmt.Errorf("failed to generate OCR3 config: %w", err)
-	}
+	ocrConfig := req.Config
 	if req.DryRun {
 		return &ConfigureOCR3Response{ocrConfig, nil}, nil
 	}
 
-	txOpt := req.Chain.DeployerKey
-	if req.UseMCMS {
-		txOpt = cldf.SimTransactOpts()
-	}
-
-	tx, err := req.Contract.SetConfig(txOpt,
-		ocrConfig.Signers,
-		ocrConfig.Transmitters,
-		ocrConfig.F,
-		ocrConfig.OnchainConfig,
-		ocrConfig.OffchainConfigVersion,
-		ocrConfig.OffchainConfig,
-	)
+	op, _, err := req.Strategy.Apply(func(opts *bind.TransactOpts) (*gethTypes.Transaction, error) {
+		return req.Contract.SetConfig(opts,
+			ocrConfig.Signers,
+			ocrConfig.Transmitters,
+			ocrConfig.F,
+			ocrConfig.OnchainConfig,
+			ocrConfig.OffchainConfigVersion,
+			ocrConfig.OffchainConfig,
+		)
+	})
 	if err != nil {
 		err = cldf.DecodeErr(ocr3_capability.OCR3CapabilityABI, err)
 		return nil, fmt.Errorf("failed to call SetConfig for OCR3 contract %s using mcms: %T: %w", req.Contract.Address().String(), req.UseMCMS, err)
 	}
 
-	var ops mcmstypes.BatchOperation
-	if !req.UseMCMS {
-		_, err = req.Chain.Confirm(tx)
-		if err != nil {
-			err = cldf.DecodeErr(ocr3_capability.OCR3CapabilityABI, err)
-			return nil, fmt.Errorf("failed to confirm SetConfig for OCR3 contract %s: %w", req.Contract.Address().String(), err)
-		}
-	} else {
-		ops, err = proposalutils.BatchOperationForChain(req.Chain.Selector, req.Contract.Address().Hex(), tx.Data(), big.NewInt(0), string(OCR3Capability), nil)
-		if err != nil {
-			return nil, fmt.Errorf("failed to create batch operation: %w", err)
-		}
-	}
-
-	return &ConfigureOCR3Response{ocrConfig, &ops}, nil
+	return &ConfigureOCR3Response{ocrConfig, op}, nil
 }
 
 type ConfigureOCR3Resp struct {
@@ -402,7 +369,8 @@ type ConfigureOCR3Config struct {
 
 	ReportingPluginConfigOverride []byte
 
-	UseMCMS bool
+	UseMCMS  bool
+	Strategy strategies.TransactionStrategy
 }
 
 func ConfigureOCR3ContractFromJD(env *cldf.Environment, cfg ConfigureOCR3Config) (*ConfigureOCR3Resp, error) {
@@ -427,15 +395,18 @@ func ConfigureOCR3ContractFromJD(env *cldf.Environment, cfg ConfigureOCR3Config)
 	if err != nil {
 		return nil, err
 	}
+
+	config, err := GenerateOCR3ConfigFromNodes(*cfg.OCR3Config, nodes, cfg.ChainSel, env.OCRSecrets, cfg.ReportingPluginConfigOverride)
+	if err != nil {
+		return nil, err
+	}
 	r, err := ConfigureOCR3contract(ConfigureOCR3Request{
-		Cfg:                           cfg.OCR3Config,
-		Chain:                         registryChain,
-		Contract:                      contract,
-		Nodes:                         nodes,
-		DryRun:                        cfg.DryRun,
-		UseMCMS:                       cfg.UseMCMS,
-		OcrSecrets:                    env.OCRSecrets,
-		ReportingPluginConfigOverride: cfg.ReportingPluginConfigOverride,
+		Config:   config,
+		Chain:    registryChain,
+		Contract: contract,
+		DryRun:   cfg.DryRun,
+		UseMCMS:  cfg.UseMCMS,
+		Strategy: cfg.Strategy,
 	})
 	if err != nil {
 		return nil, err
@@ -504,4 +475,97 @@ func toNodeKeys(o *deployment.Node, registryChainSel uint64) NodeKeys {
 		SolanaOnchainPublicKey: solanaOnchainPublickey,
 		SolanaBundleID:         solanaOcr2KeyBundleID,
 	}
+}
+
+func makeIdentities(nca []NodeKeys) ([]confighelper.OracleIdentityExtra, error) {
+	onchainPubKeys := [][]byte{}
+	allPubKeys := map[string]any{}
+	for _, n := range nca {
+		// evm keys always required
+		if n.OCR2OnchainPublicKey == "" {
+			return nil, errors.New("OCR2OnchainPublicKey is required")
+		}
+		ethPubKey := common.HexToAddress(n.OCR2OnchainPublicKey)
+		pubKeys := map[string]types.OnchainPublicKey{
+			string(chaintype.EVM): ethPubKey.Bytes(),
+		}
+		// add aptos key if present
+		if n.AptosOnchainPublicKey != "" {
+			aptosPubKey, err := hex.DecodeString(n.AptosOnchainPublicKey)
+			if err != nil {
+				return nil, fmt.Errorf("failed to decode AptosOnchainPublicKey: %w", err)
+			}
+			pubKeys[string(chaintype.Aptos)] = aptosPubKey
+		}
+		// add solana key if present
+		if n.SolanaOnchainPublicKey != "" {
+			solPubKey, err := hex.DecodeString(n.SolanaOnchainPublicKey)
+			if err != nil {
+				return nil, fmt.Errorf("failed to decode SolanaOnchainPublicKey: %w", err)
+			}
+			pubKeys[string(chaintype.Solana)] = solPubKey
+		}
+
+		// validate uniqueness of each individual key
+		for _, key := range pubKeys {
+			raw := hex.EncodeToString(key)
+			_, exists := allPubKeys[raw]
+			if exists {
+				return nil, fmt.Errorf("duplicate onchain public key: '%s'", raw)
+			}
+			allPubKeys[raw] = struct{}{}
+		}
+		pubKey, err := ocrcommon.MarshalMultichainPublicKey(pubKeys)
+		if err != nil {
+			return nil, fmt.Errorf("failed to marshal multichain public key: %w", err)
+		}
+		onchainPubKeys = append(onchainPubKeys, pubKey)
+	}
+
+	offchainPubKeysBytes := []types.OffchainPublicKey{}
+	for _, n := range nca {
+		pkBytes, err := hex.DecodeString(n.OCR2OffchainPublicKey)
+		if err != nil {
+			return nil, fmt.Errorf("failed to decode OCR2OffchainPublicKey: %w", err)
+		}
+
+		pkBytesFixed := [ed25519.PublicKeySize]byte{}
+		nCopied := copy(pkBytesFixed[:], pkBytes)
+		if nCopied != ed25519.PublicKeySize {
+			return nil, fmt.Errorf("wrong num elements copied from ocr2 offchain public key. expected %d but got %d", ed25519.PublicKeySize, nCopied)
+		}
+
+		offchainPubKeysBytes = append(offchainPubKeysBytes, pkBytesFixed)
+	}
+
+	configPubKeysBytes := []types.ConfigEncryptionPublicKey{}
+	for _, n := range nca {
+		pkBytes, err := hex.DecodeString(n.OCR2ConfigPublicKey)
+		if err != nil {
+			return nil, fmt.Errorf("failed to decode OCR2ConfigPublicKey: %w", err)
+		}
+
+		pkBytesFixed := [ed25519.PublicKeySize]byte{}
+		n := copy(pkBytesFixed[:], pkBytes)
+		if n != ed25519.PublicKeySize {
+			return nil, fmt.Errorf("wrong num elements copied from ocr2 config public key. expected %d but got %d", ed25519.PublicKeySize, n)
+		}
+
+		configPubKeysBytes = append(configPubKeysBytes, pkBytesFixed)
+	}
+
+	identities := []confighelper.OracleIdentityExtra{}
+	for index := range nca {
+		identities = append(identities, confighelper.OracleIdentityExtra{
+			OracleIdentity: confighelper.OracleIdentity{
+				OnchainPublicKey:  onchainPubKeys[index],
+				OffchainPublicKey: offchainPubKeysBytes[index],
+				PeerID:            nca[index].P2PPeerID,
+				TransmitAccount:   types.Account(nca[index].EthAddress),
+			},
+			ConfigEncryptionPublicKey: configPubKeysBytes[index],
+		})
+	}
+
+	return identities, nil
 }

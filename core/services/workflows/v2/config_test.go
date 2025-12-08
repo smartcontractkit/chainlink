@@ -9,6 +9,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	commoncaps "github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	"github.com/smartcontractkit/chainlink-common/pkg/custmsg"
 	"github.com/smartcontractkit/chainlink-common/pkg/settings/cresettings"
 	"github.com/smartcontractkit/chainlink-common/pkg/settings/limits"
@@ -16,14 +17,15 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/workflows/dontime"
 	modulemocks "github.com/smartcontractkit/chainlink-common/pkg/workflows/wasm/host/mocks"
 
+	capmocks "github.com/smartcontractkit/chainlink/v2/core/capabilities/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/workflowkey"
 	metmocks "github.com/smartcontractkit/chainlink/v2/core/services/workflows/metering/mocks"
-	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/ratelimiter"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/store"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/syncerlimiter"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/types"
 	v2 "github.com/smartcontractkit/chainlink/v2/core/services/workflows/v2"
+	"github.com/smartcontractkit/chainlink/v2/core/utils/matches"
 )
 
 const (
@@ -70,15 +72,10 @@ func defaultTestConfig(t *testing.T, cfgFn func(*cresettings.Workflows)) *v2.Eng
 	lggr := logger.TestLogger(t)
 	sLimiter, err := syncerlimiter.NewWorkflowLimits(lggr, syncerlimiter.Config{}, lf)
 	require.NoError(t, err)
-	rateLimiter, err := ratelimiter.NewRateLimiter(ratelimiter.Config{
-		GlobalRPS:      10.0,
-		GlobalBurst:    100,
-		PerSenderRPS:   10.0,
-		PerSenderBurst: 100,
-	}, lf)
-	require.NoError(t, err)
 	limiters, err := v2.NewLimiters(lf, cfgFn)
 	require.NoError(t, err)
+	subscriberMock := capmocks.NewDonSubscriber(t)
+	subscriberMock.EXPECT().Subscribe(matches.AnyContext).Return(make(<-chan commoncaps.DON), func() {}, nil).Maybe()
 	t.Cleanup(func() { assert.NoError(t, limiters.Close()) })
 
 	return &v2.EngineConfig{
@@ -87,6 +84,7 @@ func defaultTestConfig(t *testing.T, cfgFn func(*cresettings.Workflows)) *v2.Eng
 		CapRegistry:                       regmocks.NewCapabilitiesRegistry(t),
 		DonTimeStore:                      dontime.NewStore(dontime.DefaultRequestTimeout),
 		UseLocalTimeProvider:              true,
+		DonSubscriber:                     subscriberMock,
 		ExecutionsStore:                   store.NewInMemoryStore(lggr, clockwork.NewRealClock()),
 		WorkflowID:                        testWorkflowID,
 		WorkflowOwner:                     testWorkflowOwnerA,
@@ -96,7 +94,6 @@ func defaultTestConfig(t *testing.T, cfgFn func(*cresettings.Workflows)) *v2.Eng
 		LocalLimits:                       v2.EngineLimits{},
 		LocalLimiters:                     limiters,
 		GlobalExecutionConcurrencyLimiter: sLimiter,
-		GlobalExecutionRateLimiter:        rateLimiter,
 		BeholderEmitter:                   &noopBeholderEmitter{},
 		BillingClient:                     metmocks.NewBillingClient(t),
 		WorkflowRegistryAddress:           "0x123",
@@ -104,8 +101,7 @@ func defaultTestConfig(t *testing.T, cfgFn func(*cresettings.Workflows)) *v2.Eng
 	}
 }
 
-type noopBeholderEmitter struct {
-}
+type noopBeholderEmitter struct{}
 
 func (m *noopBeholderEmitter) Emit(_ context.Context, _ string) error {
 	return nil

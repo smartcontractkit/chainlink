@@ -201,7 +201,7 @@ func AddDons(env cldf.Environment, req *AddDonsRequest) (cldf.ChangesetOutput, e
 			inspectorPerChain,
 			[]types.BatchOperation{*resp.Ops},
 			"proposal to add dons",
-			proposalutils.TimelockConfig{MinDelay: req.MCMSConfig.MinDuration},
+			*req.MCMSConfig,
 		)
 		if err != nil {
 			return out, fmt.Errorf("failed to build proposal: %w", err)

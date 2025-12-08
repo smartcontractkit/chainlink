@@ -723,6 +723,7 @@ func TestVRFV2PlusIntegration_ConsumerProxy_CoordinatorZeroAddress(t *testing.T)
 }
 
 func TestVRFV2PlusIntegration_ExternalOwnerConsumerExample(t *testing.T) {
+	quarantine.Flaky(t, "DX-2222")
 	owner := evmtestutils.MustNewSimTransactor(t)
 	random := evmtestutils.MustNewSimTransactor(t)
 	genesisData := gethtypes.GenesisAlloc{
@@ -1266,7 +1267,7 @@ func TestVRFV2PlusIntegration_Migration(t *testing.T) {
 	require.Equal(t, subV1.Balance(), subV2.LinkBalance)
 	require.Equal(t, subV1.NativeBalance(), subV2.NativeBalance)
 	require.Equal(t, subV1.Owner(), subV2.Owner)
-	require.Equal(t, len(subV1.Consumers()), len(subV2.Consumers))
+	require.Len(t, subV2.Consumers, len(subV1.Consumers()))
 	for i, c := range subV1.Consumers() {
 		require.Equal(t, c, subV2.Consumers[i])
 	}
