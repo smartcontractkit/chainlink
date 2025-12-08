@@ -14,7 +14,7 @@ import (
 )
 
 // createOrUpdateResource is a generic helper for creating or updating Kubernetes resources
-func createOrUpdateResource(ctx context.Context, clientset *kubernetes.Clientset, obj metav1.Object, namespace, name string, logger zerolog.Logger, resourceType string) error {
+func createOrUpdateResource(ctx context.Context, clientset *kubernetes.Clientset, namespace, name string, obj metav1.Object, logger zerolog.Logger, resourceType string) error {
 	obj.SetNamespace(namespace)
 	obj.SetName(name)
 
