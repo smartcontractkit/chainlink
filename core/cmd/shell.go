@@ -53,6 +53,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury/wsrpc/cache"
 	"github.com/smartcontractkit/chainlink/v2/core/services/versioning"
 	"github.com/smartcontractkit/chainlink/v2/core/services/webhook"
+	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/devobservability"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/monitoring"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/syncer"
 	"github.com/smartcontractkit/chainlink/v2/core/sessions"
@@ -136,6 +137,13 @@ func initGlobals(cfgProm config.Prometheus, cfgTracing config.Tracing, cfgTeleme
 			if err != nil {
 				return err
 			}
+
+			// Wrap emitter for dev observability in dev builds
+			if build.IsDev() {
+				lggr.Info("Dev build detected: wrapping beholder emitter for dev observability")
+				beholderClient.Emitter = devobservability.WrapEmitter(beholderClient.Emitter)
+			}
+
 			beholder.SetClient(beholderClient)
 			beholder.SetGlobalOtelProviders()
 			return nil

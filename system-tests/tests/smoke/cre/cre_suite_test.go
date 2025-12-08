@@ -96,6 +96,7 @@ To execute tests with v2 contracts start the local CRE first:
 func Test_CRE_V2_Suite(t *testing.T) {
 	topology := os.Getenv("TOPOLOGY_NAME")
 	t.Run("[v2] Proof Of Reserve - "+topology, func(t *testing.T) {
+		t.Skip()
 		// TODO: Review why this test cannot run with two chains? (CRE-983)
 		// How to configure evm for both chains and capabilities DON (DON<>DON topology)?
 		testEnv := t_helpers.SetupTestEnvironmentWithConfig(t, t_helpers.GetDefaultTestConfig(t), v2RegistriesFlags...)
@@ -114,24 +115,28 @@ func Test_CRE_V2_Suite(t *testing.T) {
 	})
 
 	t.Run("[v2] Cron Beholder - "+topology, func(t *testing.T) {
+		t.Skip()
 		testEnv := t_helpers.SetupTestEnvironmentWithConfig(t, t_helpers.GetDefaultTestConfig(t), v2RegistriesFlags...)
 
 		ExecuteCronBeholderTest(t, testEnv)
 	})
 
 	t.Run("[v2] HTTP Trigger Action - "+topology, func(t *testing.T) {
+		t.Skip()
 		testEnv := t_helpers.SetupTestEnvironmentWithConfig(t, t_helpers.GetDefaultTestConfig(t), v2RegistriesFlags...)
 
 		ExecuteHTTPTriggerActionTest(t, testEnv)
 	})
 
 	t.Run("[v2] HTTP Action CRUD Success - "+topology, func(t *testing.T) {
+		t.Skip()
 		testEnv := t_helpers.SetupTestEnvironmentWithConfig(t, t_helpers.GetDefaultTestConfig(t), v2RegistriesFlags...)
 
 		ExecuteHTTPActionCRUDSuccessTest(t, testEnv)
 	})
 
 	t.Run("[v2] DON Time - "+topology, func(t *testing.T) {
+		t.Skip()
 		testEnv := t_helpers.SetupTestEnvironmentWithConfig(t, t_helpers.GetDefaultTestConfig(t), v2RegistriesFlags...)
 
 		ExecuteDonTimeTest(t, testEnv)

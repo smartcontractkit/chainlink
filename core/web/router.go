@@ -302,6 +302,17 @@ func v2Routes(app chainlink.Application, r *gin.RouterGroup) {
 		if build.IsDev() {
 			capContr := CapabilityController{app}
 			authv2.POST("/execute_capability", auth.RequiresRunRole(capContr.ExecuteCapability))
+
+			// Dev-only workflow debug API
+			wdc := WorkflowsDebugController{app}
+			authv2.GET("/debug/workflow", wdc.GetWorkflows)
+			authv2.GET("/debug/workflow/stats", wdc.GetStats)
+			authv2.GET("/debug/workflow/orphan_events", wdc.GetOrphanEvents)
+			authv2.DELETE("/debug/workflow", wdc.Clear)
+			authv2.GET("/debug/workflow/:workflowID/executions", wdc.GetExecutions)
+			authv2.GET("/debug/workflow/:workflowID/events", wdc.GetWorkflowEvents)
+			authv2.GET("/debug/workflow/:workflowID/executions/:executionID", wdc.GetExecution)
+			authv2.GET("/debug/workflow/:workflowID/executions/:executionID/events", wdc.GetEvents)
 		}
 
 		csakc := CSAKeysController{app}

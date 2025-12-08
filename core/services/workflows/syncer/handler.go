@@ -22,6 +22,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/workflowkey"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/artifacts"
+	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/devobservability"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/events"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/internal"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/metering"
@@ -275,6 +276,7 @@ func (h *eventHandler) Handle(ctx context.Context, event Event) error {
 		}
 
 		wfID := payload.WorkflowID.Hex()
+		ctx = devobservability.WithWorkflowID(ctx, wfID)
 
 		cma := h.emitter.With(
 			platform.KeyWorkflowID, wfID,
@@ -301,6 +303,7 @@ func (h *eventHandler) Handle(ctx context.Context, event Event) error {
 
 		newWorkflowID := payload.NewWorkflowID.Hex()
 		oldWorkflowID := payload.OldWorkflowID.Hex()
+		ctx = devobservability.WithWorkflowID(ctx, newWorkflowID)
 		cma := h.emitter.With(
 			platform.KeyWorkflowID, newWorkflowID,
 			platform.KeyWorkflowName, payload.WorkflowName,
@@ -325,6 +328,7 @@ func (h *eventHandler) Handle(ctx context.Context, event Event) error {
 		}
 
 		wfID := payload.WorkflowID.Hex()
+		ctx = devobservability.WithWorkflowID(ctx, wfID)
 
 		cma := h.emitter.With(
 			platform.KeyWorkflowID, wfID,
@@ -351,6 +355,7 @@ func (h *eventHandler) Handle(ctx context.Context, event Event) error {
 
 		wfID := payload.WorkflowID.Hex()
 		wfOwner := hex.EncodeToString(payload.WorkflowOwner)
+		ctx = devobservability.WithWorkflowID(ctx, wfID)
 		cma := h.emitter.With(
 			platform.KeyWorkflowID, wfID,
 			platform.KeyWorkflowName, payload.WorkflowName,
@@ -375,7 +380,7 @@ func (h *eventHandler) Handle(ctx context.Context, event Event) error {
 
 		wfID := payload.WorkflowID.Hex()
 		wfOwner := hex.EncodeToString(payload.WorkflowOwner)
-
+		ctx = devobservability.WithWorkflowID(ctx, wfID)
 		cma := h.emitter.With(
 			platform.KeyWorkflowID, wfID,
 			platform.KeyWorkflowName, payload.WorkflowName,
