@@ -27,9 +27,15 @@ jobs:
       should-run: ${{ steps.check.outputs.should-run }}
       runner-arm64: ${{ steps.runner-labels.outputs.runner-arm64 }}
       runner-amd64: ${{ steps.runner-labels.outputs.runner-amd64 }}
-      version-tag: ${{ steps.version-info.outputs.version-tag || '' }}
+      version-tag: ${{ steps.version.outputs.version-tag }}
+      image-tag: ${{ steps.version.outputs.image-tag }}
     steps:
-      - name: Get PR Labels
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # needed for proper git tagging/versioning
+
+      - name: Get PR Labels (only on PRs)
         id: pr-labels
         if: github.event_name == 'pull_request'
         uses: smartcontractkit/.github/actions/get-pr-labels@get-pr-labels/v1
@@ -37,7 +43,7 @@ jobs:
           check-label: build-publish
           skip-merge-group: "true"
 
-      - name: Determine if build should run
+      - name: Determine if we should build & publish
         id: check
         run: |
           if [[ "${{ github.event_name }}" == "pull_request" && "${{ steps.pr-labels.outputs.check-label-found }}" == "true" ]] || \
@@ -49,11 +55,35 @@ jobs:
             echo "should-run=false" >> $GITHUB_OUTPUT
           fi
 
+      - name: Compute version and image tag
+        id: version
+        run: |
+          # Default fallback
+          TAG="latest"
+
+          if [[ "${{ github.event_name }}" == "push" ]]; then
+            if [[ "${{ github.ref }}" == refs/tags/* ]]; then
+              TAG="${GITHUB_REF#refs/tags/}"
+            elif [[ "${{ github.ref_name }}" == "develop ]]; then
+              TAG="develop"
+            elif [[ "${{ github.ref_name }}" == release/* ]]; then
+              TAG="${GITHUB_REF_NAME#release/}"
+            fi
+          elif [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
+            TAG="${{ github.event.inputs.git-ref }}"
+          fi
+
+          # Clean tag (remove invalid Docker chars)
+          CLEAN_TAG=$(echo "$TAG" | sed -r 's/[^a-zA-Z0-9._-]/-/g')
+
+          echo "version-tag=$TAG" >> $GITHUB_OUTPUT
+          echo "image-tag=$CLEAN_TAG" >> $GITHUB_OUTPUT
+
       - name: Set runner labels
         id: runner-labels
         env:
           SH_RUNNER_LABEL_ARM64: runs-on=${{ github.run_id }}/cpu=8/ram=16/family=c7g/disk=large/spot=false/image=ubuntu24-full-arm64
-          SH_RUNNER_LABEL_AMD64: runs-on=${{ github.run_id }}/cpu=8/ram=16/family=c7a/disk=large/spot=false/image=ubuntu24-full-x64
+          SH_RUNNER_LABEL_AMD64: runs-on=${{ github.run_id }}/cpu=8/ram=16/family=c7a/disk=large/spot=false/image=ubuntu-full-x64
           GH_RUNNER_LABEL_ARM64: ubuntu-24.04-arm
           GH_RUNNER_LABEL_AMD64: ubuntu-24.04
         run: |
@@ -61,6 +91,67 @@ jobs:
             echo "runner-arm64=${SH_RUNNER_LABEL_ARM64}" >> $GITHUB_OUTPUT
             echo "runner-amd64=${SH_RUNNER_LABEL_AMD64}" >> $GITHUB_OUTPUT
           else
+            echo "runner-arm64=${GH_RUNNER_LABEL_ARM64}" >> $GITHUB_OUTPUT
+            echo "runner-amd64=${GH_RUNNER_LABEL_AMD64}" >> $GITHUB_OUTPUT
+          fi
+
+  build-and-push:
+    needs: init
+    if: needs.init.outputs.should-run == 'true'
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+      packages: write
+      id-token: write
+
+    strategy:
+      matrix:
+        platform: [linux/amd64, linux/arm64]
+        runner: [
+          ${{ needs.init.outputs.runner-amd64 }},
+          ${{ needs.init.outputs.runner-arm64 }}
+        ]
+      fail-fast: false
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.inputs.git-ref || github.ref }}
+
+      - name: Set up QEMU (for cross-platform builds)
+        uses: docker/setup-qemu-action@v3
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Login to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Generate metadata (tags, labels)
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ghcr.io/${{ github.repository }}
+          tags: |
+            type=raw,value=${{ needs.init.outputs.image-tag }},enable=${{ needs.init.outputs.image-tag != '' }}
+            type=raw,value=latest,enable=${{ github.ref_name == 'develop' }}
+
+      - name: Build and push multi-platform image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: ./Dockerfile
+          platforms: ${{ matrix.platform }}
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
             echo "runner-arm64=${GH_RUNNER_LABEL_ARM64}" >> $GITHUB_OUTPUT
             echo "runner-amd64=${GH_RUNNER_LABEL_AMD64}" >> $GITHUB_OUTPUT
           fi
