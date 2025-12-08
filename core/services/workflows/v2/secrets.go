@@ -90,7 +90,10 @@ func (s *secretsFetcher) GetSecrets(ctx context.Context, request *sdkpb.GetSecre
 		defer free()
 		return s.getSecretsForBatch(ctx, request)
 	}()
-
+	if err != nil {
+		// Log errors when secrets fetching fails, for troubleshooting and debugging
+		s.lggr.Infow("Secrets fetching failed for request", "request", request, "error", err)
+	}
 	s.metrics.With(
 		"workflowOwner", s.workflowOwner,
 		"workflowName", s.workflowName,
