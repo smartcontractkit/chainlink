@@ -75,6 +75,8 @@ func WithEngineRegistry(er *EngineRegistry) func(*eventHandler) {
 	}
 }
 
+// WithEngineFactoryFn allows for overriding the engine factory function.
+// if in doubt, close initDone channel immediately in tests to prevent deadlocks.
 func WithEngineFactoryFn(efn engineFactoryFn) func(*eventHandler) {
 	return func(e *eventHandler) {
 		e.engineFactory = efn
