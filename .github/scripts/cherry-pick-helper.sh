@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env/bash
 # .github/scripts/cherry-pick-helper.sh
 # Utility script for manual cherry-pick operations
 
@@ -46,12 +46,12 @@ git pull origin "${TARGET_BRANCH}"
 log_info "Creating cherry-pick branch: ${BRANCH_NAME}"
 git checkout -b "${BRANCH_NAME}"
 
-# Get commit message for PR
+# Get commit message for PRß
 COMMIT_MSG=$(git log --format=%s -n 1 "${COMMIT_SHA}")
 
 # Attempt cherry-pick
 log_info "Attempting cherry-pick..."
-if git cherry-pick "${COMMIT_SHA}"; then
+if git cherry-pick -x "${COMMIT_SHA}"; then
     log_info "Cherry-pick successful! Pushing branch..."
     git push origin "${BRANCH_NAME}"
     
@@ -78,12 +78,6 @@ This cherry-pick was created using the automated helper script." \
         log_info "Target: ${TARGET_BRANCH}"
     fi
 else
-    log_error "Cherry-pick failed - conflicts detected"
-    log_info "Conflict resolution required:"
-    log_info "1. Resolve conflicts in the files"
-    log_info "2. git add <resolved-files>"
-    log_info "3. git cherry-pick --continue"
-    log_info "4. git push origin ${BRANCH_NAME}"
-    log_info "5. Create PR manually"
+    log_error "Cherry-pick failed" 
     exit 1
 fi

@@ -1,21 +1,18 @@
 # Automated Cherry-Pick Workflow
 
+The auto-cherry-pick.yml workflow enables [IssueOps](https://issue-ops.github.io/docs/) for certain PR's that, when merged, should be be automatically cherry-picked into a target branch such as a release branch.
+
 ## Usage
 
-### 1. Using Labels (Recommended)
-Add labels to your PR before merging:
-- `cherry-pick/release-2.29.1-ccip`
-- `cherry-pick/release-cre`
-
-The cherry-pick will automatically trigger when the PR is merged to `develop`.
-
-### 2. Using Comments
 Comment on any merged PR:
 ```
 pick release-cre, release-2.29.1-ccip
 ```
+This will create a signed PR against each of the specified branches
 
-### 3. Manual Cherry-Pick
+### Manual Cherry-Pick, Merge Conflicts
+
+If automation fails, for instance because of merge conflict, you should manually create the PR using a helper script:
 ```bash
 # From repository root
 ./.github/scripts/cherry-pick-helper.sh <commit-sha> <target-branch>
@@ -31,11 +28,6 @@ cherry-pick/{short-sha}-to-{target-branch}
 Example: `cherry-pick/abc1234-to-release-cre`
 
 ## Troubleshooting
-
-### Cherry-pick fails with conflicts
-1. The bot will comment on the original PR with manual instructions
-2. Use the helper script: `.github/scripts/cherry-pick-helper.sh`
-3. Resolve conflicts manually and create PR
 
 ### Target branch doesn't exist
 - Ensure the target branch exists in the repository

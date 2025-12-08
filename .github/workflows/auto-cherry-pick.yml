@@ -5,10 +5,8 @@ on:
   issue_comment:
     types: [created]
 
-permissions:
-  contents: write
-  pull-requests: write
-  issues: write
+permissions: {}
+
 
 jobs:
   validate-trigger:
@@ -22,7 +20,7 @@ jobs:
     steps:
       - name: Check if cherry-pick should run
         id: check
-        uses: actions/github-script@v7
+        uses: actions/github-script@v8
         with:
           script: |
             let shouldRun = false;
@@ -70,7 +68,7 @@ jobs:
                   prTitle = pr.title;
                 } else {
                   shouldRun = false;
-                  core.setFailed('PR must be merged and target develop branch');
+                  throw new Error('PR must be merged and target develop branch');
                 }
               }
             }
@@ -95,10 +93,9 @@ jobs:
       fail-fast: false
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         with:
           fetch-depth: 0
-          token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Configure Git
         run: |
@@ -107,7 +104,9 @@ jobs:
 
       - name: Set up GitHub CLI
         run: |
-          echo "${{ secrets.GITHUB_TOKEN }}" | gh auth login --with-token
+          gh auth login --with-token
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Validate target branch exists
         run: |
@@ -150,7 +149,7 @@ jobs:
           # Attempt cherry-pick
           echo "🍒 Cherry-picking ${SHORT_SHA} to ${TARGET_BRANCH}..."
           
-          if git cherry-pick "${COMMIT_SHA}"; then
+          if git cherry-pick -x "${COMMIT_SHA}"; then
             echo "✅ Cherry-pick successful"
             git push origin "${BRANCH_NAME}"
             echo "success=true" >> $GITHUB_OUTPUT
@@ -191,7 +190,7 @@ jobs:
 
       - name: Report failure
         if: steps.cherry-pick.outputs.success == 'false'
-        uses: actions/github-script@v7
+        uses: actions/github-script@v8
         with:
           script: |
             const targetBranch = '${{ matrix.target-branch }}';
@@ -207,7 +206,7 @@ jobs:
               body: `❌ **Cherry-pick to \`${targetBranch}\` failed**
 
             **Commit**: ${shortSha}
-            **Reason**: Merge conflicts detected
+            **Reason**: Cherry pick failed
 
             Manual cherry-pick required. You can use:
             \`\`\`bash
@@ -228,7 +227,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Report cherry-pick results
-        uses: actions/github-script@v7
+        uses: actions/github-script@v8
         with:
           script: |
             const prNumber = '${{ needs.validate-trigger.outputs.pr-number }}';
