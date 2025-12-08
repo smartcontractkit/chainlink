@@ -684,7 +684,7 @@ func (h *eventHandler) tryEngineCreate(ctx context.Context, spec *job.WorkflowSp
 	}
 
 	// Wait for the engine to complete initialization (including trigger subscriptions).
-	// This ensures we don't emit workflowActivated events before triggers are actually subscribed.
+	// This ensures we don't emit workflowActivated events before the engine initializes successfully.
 	select {
 	case <-ctx.Done():
 		// Context cancelled while waiting for initialization
@@ -695,7 +695,7 @@ func (h *eventHandler) tryEngineCreate(ctx context.Context, spec *job.WorkflowSp
 	case initErr := <-initDone:
 		if initErr != nil {
 			// Engine initialization failed (e.g., trigger subscription failed)
-			// TODO (patrickhuie19) add logic to mark a deployment as failed to avoid churn.
+			// TODO (cre-1482) add logic to mark a deployment as failed to avoid churn.
 			// Currently, failed deployments will be retried on each poll cycle (with exponential backoff).
 			// If the failure is due to user error (e.g., invalid trigger config), this causes unnecessary retries.
 			// Consider marking the workflow spec as "failed" in the database and requiring workflow redeployment.
