@@ -111,7 +111,7 @@ var ConfigureSeq = operations.NewSequence[ConfigureSeqInput, ConfigureSeqOutput,
 
 			if len(addressesRefs) > 1 {
 				deps.Env.Logger.Warnf(
-					"Found %d forwarder contract for a chain. Config will be applied to all of them.", len(addressesRefs))
+					"Found %d forwarder contracts for a chain. Config will be applied to all of them.", len(addressesRefs))
 			}
 
 			var mcmsContracts *changesetstate.MCMSWithTimelockState
