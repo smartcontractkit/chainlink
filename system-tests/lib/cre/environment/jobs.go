@@ -42,7 +42,8 @@ func getJDCredentials(lggr zerolog.Logger, infraInput infra.Provider, jdOutput *
 		}
 
 		if useTLS {
-			creds = credentials.NewTLS(nil) // Use system cert pool for TLS
+			// Passing nil uses the system cert pool for TLS verification.
+			creds = credentials.NewTLS(nil)
 			lggr.Info().Msg("Using TLS credentials for JD GRPC connection")
 		} else {
 			lggr.Info().Msg("Using insecure credentials for JD GRPC connection (Kubernetes)")
