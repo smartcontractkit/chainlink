@@ -33,9 +33,9 @@ require (
 	github.com/sethvargo/go-retry v0.2.4
 	github.com/smartcontractkit/chain-selectors v1.0.78
 	github.com/smartcontractkit/chainlink-ccip/chains/solana v0.0.0-20250912190424-fd2e35d7deb5
-	github.com/smartcontractkit/chainlink-common v0.9.6-0.20251105200931-fdbfd5296201
+	github.com/smartcontractkit/chainlink-common v0.9.6-0.20251107181740-8b842a2f1192
 	github.com/smartcontractkit/chainlink-deployments-framework v0.62.0
-	github.com/smartcontractkit/chainlink-evm v0.3.4-0.20251029010119-b2ed6162042f
+	github.com/smartcontractkit/chainlink-evm v0.3.4-0.20251208160518-8173bbd516d5
 	github.com/smartcontractkit/chainlink-evm/gethwrappers v0.0.0-20251022075638-49d961001d1b
 	github.com/smartcontractkit/chainlink-protos/cre/go v0.0.0-20251021010742-3f8d3dba17d8
 	github.com/smartcontractkit/chainlink-protos/job-distributor v0.17.0
