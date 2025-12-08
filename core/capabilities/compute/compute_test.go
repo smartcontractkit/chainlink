@@ -292,7 +292,7 @@ func TestComputeFetch(t *testing.T) {
 	actual.Metadata.Metering[0].SpendValue = "0"
 
 	require.NoError(t, err)
-	assert.EqualValues(t, expected, actual)
+	assert.Equal(t, expected, actual)
 
 	assert.Less(t, spendValue, uint64(400))
 }

@@ -92,7 +92,7 @@ func toByteSlices(addresses []string) [][]byte {
 }
 
 func onTrigger(cfg logtrigger.Config, runtime sdk.Runtime, outputs *evm.Log) (string, error) {
-	runtime.Logger().Info("Trigger OnTrigger called", "outputs", outputs)
+	runtime.Logger().With().Info(fmt.Sprintf("OnTrigger txHash: %s log index: %d", hex.EncodeToString(outputs.TxHash), outputs.Index))
 	t := &T{Logger: runtime.Logger()}
 	require.NotNil(t, outputs, "Log input should not be nil")
 
@@ -134,7 +134,7 @@ func printDecodedData(t *T, runtime sdk.Runtime, eventABI string, eventName stri
 		first = false
 	}
 	decodedData := sb.String()
-	runtime.Logger().Info("Values formatted successfully:", "decodedData ", decodedData)
+	runtime.Logger().Info("Values formatted successfully")
 	return decodedData, nil
 }
 

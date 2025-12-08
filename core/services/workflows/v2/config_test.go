@@ -21,7 +21,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/workflowkey"
 	metmocks "github.com/smartcontractkit/chainlink/v2/core/services/workflows/metering/mocks"
-	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/ratelimiter"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/store"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/syncerlimiter"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/types"
@@ -73,13 +72,6 @@ func defaultTestConfig(t *testing.T, cfgFn func(*cresettings.Workflows)) *v2.Eng
 	lggr := logger.TestLogger(t)
 	sLimiter, err := syncerlimiter.NewWorkflowLimits(lggr, syncerlimiter.Config{}, lf)
 	require.NoError(t, err)
-	rateLimiter, err := ratelimiter.NewRateLimiter(ratelimiter.Config{
-		GlobalRPS:      10.0,
-		GlobalBurst:    100,
-		PerSenderRPS:   10.0,
-		PerSenderBurst: 100,
-	}, lf)
-	require.NoError(t, err)
 	limiters, err := v2.NewLimiters(lf, cfgFn)
 	require.NoError(t, err)
 	subscriberMock := capmocks.NewDonSubscriber(t)
@@ -102,7 +94,6 @@ func defaultTestConfig(t *testing.T, cfgFn func(*cresettings.Workflows)) *v2.Eng
 		LocalLimits:                       v2.EngineLimits{},
 		LocalLimiters:                     limiters,
 		GlobalExecutionConcurrencyLimiter: sLimiter,
-		GlobalExecutionRateLimiter:        rateLimiter,
 		BeholderEmitter:                   &noopBeholderEmitter{},
 		BillingClient:                     metmocks.NewBillingClient(t),
 		WorkflowRegistryAddress:           "0x123",

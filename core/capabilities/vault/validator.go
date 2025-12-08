@@ -27,23 +27,18 @@ func (r *RequestValidator) ValidateUpdateSecretsRequest(publicKey *tdh2easy.Publ
 	return r.validateWriteRequest(publicKey, request.RequestId, request.EncryptedSecrets)
 }
 
-func maybeGetLimit(ctx context.Context, limiter limits.BoundLimiter[int]) string {
-	l, err := limiter.Limit(ctx)
-	if err != nil {
-		return "UNKNOWN"
-	}
-
-	return strconv.Itoa(l)
-}
-
 // validateWriteRequest performs common validation for CreateSecrets and UpdateSecrets requests
 // It treats publicKey as optional, since it can be nil if the gateway nodes don't have the public key cached yet
 func (r *RequestValidator) validateWriteRequest(publicKey *tdh2easy.PublicKey, id string, encryptedSecrets []*vaultcommon.EncryptedSecret) error {
 	if id == "" {
 		return errors.New("request ID must not be empty")
 	}
-	if r.MaxRequestBatchSizeLimiter.Check(context.Background(), len(encryptedSecrets)) != nil {
-		return errors.New("request batch size exceeds maximum of " + maybeGetLimit(context.Background(), r.MaxRequestBatchSizeLimiter))
+	if err := r.MaxRequestBatchSizeLimiter.Check(context.Background(), len(encryptedSecrets)); err != nil {
+		var errBoundLimited limits.ErrorBoundLimited[int]
+		if errors.As(err, &errBoundLimited) {
+			return fmt.Errorf("request batch size exceeds maximum of %d", errBoundLimited.Limit)
+		}
+		return fmt.Errorf("failed to check request batch size limit: %w", err)
 	}
 	if len(encryptedSecrets) == 0 {
 		return errors.New("request batch must contain at least 1 item")
@@ -65,7 +60,7 @@ func (r *RequestValidator) validateWriteRequest(publicKey *tdh2easy.PublicKey, i
 		if req.EncryptedValue == "" {
 			return errors.New("secret must have encrypted value set at index " + strconv.Itoa(idx) + ":" + req.Id.String())
 		}
-		err := r.ensureRightLabelOnSecret(publicKey, req.EncryptedValue, req.Id.Owner)
+		err := EnsureRightLabelOnSecret(publicKey, req.EncryptedValue, req.Id.Owner)
 		if err != nil {
 			return errors.New("Encrypted Secret at index [" + strconv.Itoa(idx) + "] doesn't have owner as the label. Error: " + err.Error())
 		}
@@ -134,7 +129,13 @@ func (r *RequestValidator) ValidateDeleteSecretsRequest(request *vaultcommon.Del
 	return nil
 }
 
-func (r *RequestValidator) ensureRightLabelOnSecret(publicKey *tdh2easy.PublicKey, secret, owner string) error {
+func NewRequestValidator(maxRequestBatchSizeLimiter limits.BoundLimiter[int]) *RequestValidator {
+	return &RequestValidator{
+		MaxRequestBatchSizeLimiter: maxRequestBatchSizeLimiter,
+	}
+}
+
+func EnsureRightLabelOnSecret(publicKey *tdh2easy.PublicKey, secret, owner string) error {
 	cipherText := &tdh2easy.Ciphertext{}
 	cipherBytes, err := hex.DecodeString(secret)
 	if err != nil {
@@ -154,13 +155,7 @@ func (r *RequestValidator) ensureRightLabelOnSecret(publicKey *tdh2easy.PublicKe
 	var ownerLabel [32]byte
 	copy(ownerLabel[12:], ownerAddr.Bytes()) // left-pad with 12 zero
 	if secretLabel != ownerLabel {
-		return errors.New("secret label [" + string(secretLabel[:]) + "] does not match owner label [" + string(ownerLabel[:]) + "]")
+		return errors.New("secret label [" + hex.EncodeToString(secretLabel[:]) + "] does not match owner label [" + hex.EncodeToString(ownerLabel[:]) + "]")
 	}
 	return nil
-}
-
-func NewRequestValidator(maxRequestBatchSizeLimiter limits.BoundLimiter[int]) *RequestValidator {
-	return &RequestValidator{
-		MaxRequestBatchSizeLimiter: maxRequestBatchSizeLimiter,
-	}
 }

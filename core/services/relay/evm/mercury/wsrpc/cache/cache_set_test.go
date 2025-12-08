@@ -25,22 +25,22 @@ func Test_CacheSet(t *testing.T) {
 		var err error
 		var f Fetcher
 		t.Run("with caching disabled, returns nil, nil", func(t *testing.T) {
-			assert.Len(t, disabledCs.caches, 0)
+			assert.Empty(t, disabledCs.caches)
 
 			f, err = disabledCs.Get(ctx, c)
 			require.NoError(t, err)
 
 			assert.Nil(t, f)
-			assert.Len(t, disabledCs.caches, 0)
+			assert.Empty(t, disabledCs.caches)
 		})
 
 		t.Run("with virgin cacheset, makes new entry and returns it", func(t *testing.T) {
-			assert.Len(t, cs.caches, 0)
+			assert.Empty(t, cs.caches)
 
 			f, err = cs.Get(ctx, c)
 			require.NoError(t, err)
 
-			assert.IsType(t, f, &memCache{})
+			assert.IsType(t, &memCache{}, f)
 			assert.Len(t, cs.caches, 1)
 		})
 		t.Run("with existing cache for value, returns that", func(t *testing.T) {
@@ -50,7 +50,7 @@ func Test_CacheSet(t *testing.T) {
 			f2, err = cs.Get(ctx, c)
 			require.NoError(t, err)
 
-			assert.IsType(t, f, &memCache{})
+			assert.IsType(t, &memCache{}, f)
 			assert.Equal(t, f, f2)
 			assert.Len(t, cs.caches, 1)
 		})

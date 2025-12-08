@@ -145,7 +145,7 @@ func (j *JobClient) RegisterNode(ctx context.Context, in *nodev1.RegisterNodeReq
 	}
 
 	var foundNode *nodetestutils.Node
-	for _, node := range j.nodeStore.list() {
+	for _, node := range j.list() {
 		if node.Keys.CSA.ID() == in.GetPublicKey() {
 			foundNode = node
 			break
@@ -174,7 +174,7 @@ func (j *JobClient) RegisterNode(ctx context.Context, in *nodev1.RegisterNodeReq
 // WARNING: The provided input will *overwrite* the existing fields, it won't extend them.
 // TODO: Updating the PublicKey is not supported in this implementation.
 func (j JobClient) UpdateNode(ctx context.Context, in *nodev1.UpdateNodeRequest, opts ...grpc.CallOption) (*nodev1.UpdateNodeResponse, error) {
-	node, err := j.nodeStore.get(in.Id)
+	node, err := j.get(in.Id)
 	if err != nil {
 		return nil, fmt.Errorf("node with ID %s not found", in.Id)
 	}
@@ -182,7 +182,7 @@ func (j JobClient) UpdateNode(ctx context.Context, in *nodev1.UpdateNodeRequest,
 	node.ID = in.Id
 	node.Name = in.Name
 	node.Labels = in.Labels
-	err = j.nodeStore.put(in.Id, node)
+	err = j.put(in.Id, node)
 	if err != nil {
 		return nil, fmt.Errorf("failed to update node: %w", err)
 	}
@@ -200,7 +200,7 @@ func (j JobClient) UpdateNode(ctx context.Context, in *nodev1.UpdateNodeRequest,
 }
 
 func (j JobClient) GetNode(ctx context.Context, in *nodev1.GetNodeRequest, opts ...grpc.CallOption) (*nodev1.GetNodeResponse, error) {
-	n, err := j.nodeStore.get(in.Id)
+	n, err := j.get(in.Id)
 	if err != nil {
 		return nil, err
 	}
@@ -218,7 +218,7 @@ func (j JobClient) GetNode(ctx context.Context, in *nodev1.GetNodeRequest, opts 
 
 func (j JobClient) ListNodes(ctx context.Context, in *nodev1.ListNodesRequest, opts ...grpc.CallOption) (*nodev1.ListNodesResponse, error) {
 	var nodes []*nodev1.Node
-	for id, n := range j.nodeStore.asMap() {
+	for id, n := range j.asMap() {
 		p2pIDLabel := &ptypes.Label{
 			Key:   "p2p_id",
 			Value: pointer.To(n.Keys.PeerID.String()),
@@ -247,7 +247,7 @@ func (j JobClient) ListNodeChainConfigs(ctx context.Context, in *nodev1.ListNode
 	if len(in.Filter.NodeIds) != 1 {
 		return nil, errors.New("only one node id is supported")
 	}
-	n, err := j.nodeStore.get(in.Filter.NodeIds[0]) // j.Nodes[in.Filter.NodeIds[0]]
+	n, err := j.get(in.Filter.NodeIds[0]) // j.Nodes[in.Filter.NodeIds[0]]
 	if err != nil {
 		return nil, fmt.Errorf("node id not found: %s", in.Filter.NodeIds[0])
 	}

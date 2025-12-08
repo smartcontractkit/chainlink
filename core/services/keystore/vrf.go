@@ -111,7 +111,7 @@ func (ks *vrf) Import(ctx context.Context, keyJSON []byte, password string) (vrf
 	if _, found := ks.keyRing.VRF[key.ID()]; found {
 		return vrfkey.KeyV2{}, fmt.Errorf("key with ID %s already exists", key.ID())
 	}
-	return key, ks.keyManager.safeAddKey(ctx, key)
+	return key, ks.safeAddKey(ctx, key)
 }
 
 func (ks *vrf) Export(id string, password string) ([]byte, error) {

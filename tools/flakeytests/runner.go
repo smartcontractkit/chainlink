@@ -60,7 +60,7 @@ type testCommand struct {
 }
 
 func (t *testCommand) test(pkg string, tests []string, w io.Writer) error {
-	replacedPkg := strings.Replace(pkg, t.repo, "", -1)
+	replacedPkg := strings.ReplaceAll(pkg, t.repo, "")
 	cmd := exec.Command(t.command, "."+replacedPkg) //#nosec
 	cmd.Env = os.Environ()
 

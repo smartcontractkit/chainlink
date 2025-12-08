@@ -157,7 +157,7 @@ func (te *CLClusterTestEnv) StartClCluster(
 		if testconfig.GetChainlinkImageConfig().PostgresVersion != nil && *testconfig.GetChainlinkImageConfig().PostgresVersion != "" {
 			opts = append([]func(c *ClNode){
 				func(c *ClNode) {
-					c.PostgresDb.EnvComponent.ContainerVersion = *testconfig.GetChainlinkImageConfig().PostgresVersion
+					c.PostgresDb.ContainerVersion = *testconfig.GetChainlinkImageConfig().PostgresVersion
 				},
 			}, opts...)
 		}

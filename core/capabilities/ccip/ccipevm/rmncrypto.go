@@ -35,12 +35,12 @@ func init() {
 
 	encodingUtilsABI, err = abi.JSON(strings.NewReader(encodingUtilsAbiRaw))
 	if err != nil {
-		panic(fmt.Errorf("failed to parse encoding utils ABI: %v", err))
+		panic(fmt.Errorf("failed to parse encoding utils ABI: %w", err))
 	}
 
 	addressEncodeABI, err = abi.JSON(strings.NewReader(addressEncodeAbiRaw))
 	if err != nil {
-		panic(fmt.Errorf("failed to parse address encode ABI: %v", err))
+		panic(fmt.Errorf("failed to parse address encode ABI: %w", err))
 	}
 }
 
@@ -88,10 +88,10 @@ func (r *EVMRMNCrypto) VerifyReportSignatures(
 	signerAddresses []cciptypes.UnknownAddress,
 ) error {
 	if sigs == nil {
-		return fmt.Errorf("no signatures provided")
+		return errors.New("no signatures provided")
 	}
 	if report.LaneUpdates == nil {
-		return fmt.Errorf("no lane updates provided")
+		return errors.New("no lane updates provided")
 	}
 
 	r.lggr.Debugw("Verifying RMN report signatures",
@@ -149,7 +149,7 @@ func (r *EVMRMNCrypto) VerifyReportSignatures(
 
 		// make sure that signers are ordered correctly (ASC addresses).
 		if bytes.Compare(prevSignerAddr.Bytes(), recoveredAddress.Bytes()) == 1 {
-			return fmt.Errorf("signers are not ordered correctly")
+			return errors.New("signers are not ordered correctly")
 		}
 		prevSignerAddr = recoveredAddress
 
@@ -166,7 +166,7 @@ func (r *EVMRMNCrypto) VerifyReportSignatures(
 			}
 		}
 		if !found {
-			return fmt.Errorf("the recovered public key does not match any signer address, verification failed")
+			return errors.New("the recovered public key does not match any signer address, verification failed")
 		}
 	}
 
@@ -187,13 +187,13 @@ func recoverAddressFromSig(v int, r, s [32]byte, hash []byte) (common.Address, e
 	// Recover the public key bytes from the signature and message hash
 	pubKeyBytes, err := crypto.Ecrecover(hash, sig)
 	if err != nil {
-		return common.Address{}, fmt.Errorf("failed to recover public key: %v", err)
+		return common.Address{}, fmt.Errorf("failed to recover public key: %w", err)
 	}
 
 	// Convert the recovered public key to an ECDSA public key
 	pubKey, err := crypto.UnmarshalPubkey(pubKeyBytes)
 	if err != nil {
-		return common.Address{}, fmt.Errorf("failed to unmarshal public key: %v", err)
+		return common.Address{}, fmt.Errorf("failed to unmarshal public key: %w", err)
 	} // or SigToPub
 
 	return crypto.PubkeyToAddress(*pubKey), nil

@@ -440,66 +440,121 @@ func ConfirmCommitWithExpectedSeqNumRange(
 	seenMessages := NewCommitReportTracker(srcSelector, expectedSeqNumRange)
 
 	verifyCommitReport := func(report *offramp.OffRampCommitReportAccepted) bool {
-		processRoots := func(roots []offramp.InternalMerkleRoot) bool {
-			for _, mr := range roots {
+		t.Logf("Verifying commit report: blessed roots=%d, unblessed roots=%d",
+			len(report.BlessedMerkleRoots), len(report.UnblessedMerkleRoots))
+
+		processRoots := func(roots []offramp.InternalMerkleRoot, rootType string) bool {
+			t.Logf("Processing %d %s merkle roots", len(roots), rootType)
+			for i, mr := range roots {
 				t.Logf(
-					"Received commit report for [%d, %d] on selector %d from source selector %d expected seq nr range %s, token prices: %v",
-					mr.MinSeqNr, mr.MaxSeqNr, dest.Selector, srcSelector, expectedSeqNumRange.String(), report.PriceUpdates.TokenPriceUpdates,
+					"[%s Root #%d] Received commit report for [%d, %d] on selector %d from source selector %d expected seq nr range %s, token prices: %v",
+					rootType, i+1, mr.MinSeqNr, mr.MaxSeqNr, dest.Selector, srcSelector, expectedSeqNumRange.String(), report.PriceUpdates.TokenPriceUpdates,
 				)
 				seenMessages.visitCommitReport(srcSelector, mr.MinSeqNr, mr.MaxSeqNr)
 
-				if mr.SourceChainSelector == srcSelector &&
-					uint64(expectedSeqNumRange.Start()) >= mr.MinSeqNr &&
-					uint64(expectedSeqNumRange.End()) <= mr.MaxSeqNr {
-					t.Logf(
-						"All sequence numbers committed in a single report [%d, %d]",
-						expectedSeqNumRange.Start(), expectedSeqNumRange.End(),
-					)
-					return true
+				// Check source chain selector match
+				if mr.SourceChainSelector != srcSelector {
+					t.Logf("[%s Root #%d] Source chain mismatch: got %d, expected %d",
+						rootType, i+1, mr.SourceChainSelector, srcSelector)
+					continue
 				}
 
-				if !enforceSingleCommit && seenMessages.allCommited(srcSelector) {
-					t.Logf(
-						"All sequence numbers already committed from range [%d, %d]",
-						expectedSeqNumRange.Start(), expectedSeqNumRange.End(),
-					)
-					return true
+				// Check sequence number range
+				expectedStart := uint64(expectedSeqNumRange.Start())
+				expectedEnd := uint64(expectedSeqNumRange.End())
+				if expectedStart < mr.MinSeqNr || expectedEnd > mr.MaxSeqNr {
+					t.Logf("[%s Root #%d] Sequence range mismatch: expected [%d, %d], got [%d, %d]",
+						rootType, i+1, expectedStart, expectedEnd, mr.MinSeqNr, mr.MaxSeqNr)
+					continue
 				}
+
+				t.Logf(
+					"[%s Root #%d] ✅ All sequence numbers committed in a single report [%d, %d]",
+					rootType, i+1, expectedSeqNumRange.Start(), expectedSeqNumRange.End(),
+				)
+				return true
 			}
+
+			// Check if all messages committed across multiple reports (if enforceSingleCommit is false)
+			if !enforceSingleCommit && seenMessages.allCommited(srcSelector) {
+				t.Logf(
+					"✅ All sequence numbers already committed from range [%d, %d] across multiple reports",
+					expectedSeqNumRange.Start(), expectedSeqNumRange.End(),
+				)
+				return true
+			}
+
+			t.Logf("No matching %s roots found for expected criteria", rootType)
 			return false
 		}
 
-		return processRoots(report.BlessedMerkleRoots) || processRoots(report.UnblessedMerkleRoots)
+		blessedResult := processRoots(report.BlessedMerkleRoots, "Blessed")
+		if blessedResult {
+			return true
+		}
+
+		unblessedResult := processRoots(report.UnblessedMerkleRoots, "Unblessed")
+		return unblessedResult
 	}
 
 	defer subscription.Unsubscribe()
-	timeout := time.NewTimer(tests.WaitTimeout(t))
+	timeoutDuration := tests.WaitTimeout(t)
+	startTime := time.Now()
+	t.Logf("Starting commit report wait with timeout: %s", timeoutDuration)
+	timeout := time.NewTimer(timeoutDuration)
 	defer timeout.Stop()
-	ticker := time.NewTicker(2 * time.Second)
+	ticker := time.NewTicker(1 * time.Second)
 	defer ticker.Stop()
 	for {
 		select {
 		case <-t.Context().Done():
 			return nil, nil
 		case <-ticker.C:
-			t.Logf("Waiting for commit report on chain selector %d from source selector %d expected seq nr range %s",
-				dest.Selector, srcSelector, expectedSeqNumRange.String())
+			elapsed := time.Since(startTime)
+			remaining := timeoutDuration - elapsed
+			t.Logf("Waiting for commit report on chain selector %d from source selector %d expected seq nr range %s (elapsed: %s, remaining: %s)",
+				dest.Selector, srcSelector, expectedSeqNumRange.String(), elapsed.Round(time.Second), remaining.Round(time.Second))
 
 			// Need to do this because the subscription sometimes fails to get the event.
+			t.Logf("Creating FilterCommitReportAccepted iterator for offramp %s", offRamp.Address().String())
 			iter, err := offRamp.FilterCommitReportAccepted(&bind.FilterOpts{
 				Context: t.Context(),
 			})
 
 			// In some test case the test ends while the filter is still running resulting in a context.Canceled error.
-			if err != nil && !errors.Is(err, context.Canceled) {
-				require.NoError(t, err)
+			if err != nil {
+				if errors.Is(err, context.Canceled) {
+					t.Logf("FilterCommitReportAccepted context was canceled, continuing...")
+				} else {
+					t.Logf("FilterCommitReportAccepted failed with error: %v", err)
+					require.NoError(t, err)
+				}
+				continue // Skip to next ticker iteration if filter creation failed
 			}
+
+			eventCount := 0
+			t.Logf("Starting to iterate through FilterCommitReportAccepted events...")
 			for iter.Next() {
+				eventCount++
 				event := iter.Event
+				t.Logf("Processing commit report event #%d: blessed roots=%d, unblessed roots=%d",
+					eventCount, len(event.BlessedMerkleRoots), len(event.UnblessedMerkleRoots))
+
 				verified := verifyCommitReport(event)
 				if verified {
+					t.Logf("Commit report verified successfully after processing %d events", eventCount)
 					return event, nil
 				}
+				t.Logf("Commit report event #%d did not match expected criteria", eventCount)
+			}
+
+			// Check for iteration errors
+			if err := iter.Error(); err != nil {
+				t.Logf("Iterator error after processing %d events: %v", eventCount, err)
+			} else if eventCount == 0 {
+				t.Logf("No commit report events found in this iteration")
+			} else {
+				t.Logf("Processed %d commit report events, none matched expected criteria", eventCount)
 			}
 		case subErr := <-subscription.Err():
 			return nil, fmt.Errorf("subscription error: %w", subErr)
@@ -507,9 +562,14 @@ func ConfirmCommitWithExpectedSeqNumRange(
 			return nil, fmt.Errorf("timed out after waiting for commit report on chain selector %d from source selector %d expected seq nr range %s",
 				dest.Selector, srcSelector, expectedSeqNumRange.String())
 		case report := <-sink:
+			t.Logf("Received commit report via subscription: blessed roots=%d, unblessed roots=%d",
+				len(report.BlessedMerkleRoots), len(report.UnblessedMerkleRoots))
 			verified := verifyCommitReport(report)
 			if verified {
+				t.Logf("Subscription commit report verified successfully")
 				return report, nil
+			} else {
+				t.Logf("Subscription commit report did not match expected criteria")
 			}
 		}
 	}
@@ -1373,15 +1433,20 @@ func SuiEventEmitter[T any](
 	Event   T
 	Version string
 }, <-chan error) {
+	startTime := time.Now()
+	t.Logf("[DEBUG] SuiEventEmitter: Starting at %s - will capture ALL historical events plus new ones", startTime.Format(time.RFC3339))
 	ch := make(chan struct {
 		Event   T
 		Version string
 	}, 200)
 	errChan := make(chan error)
-	limit := uint64(50)
-	var lastSeenTxDigest string
+	limit := uint64(50)                 // Use uint64 directly to avoid conversion
+	seenEvents := make(map[string]bool) // Track all seen event IDs to prevent duplicates
 
 	go func() {
+		defer close(ch)
+		defer close(errChan)
+
 		ticker := time.NewTicker(time.Second * 2)
 		defer ticker.Stop()
 
@@ -1390,9 +1455,11 @@ func SuiEventEmitter[T any](
 				// As this can take a few iterations if there are many events, check for done before each request
 				select {
 				case <-done:
+					t.Logf("[DEBUG] SuiEventEmitter: Stopping due to done signal")
 					return
 				default:
 				}
+
 				eventFilter := models.EventFilterByMoveEventType{
 					MoveEventType: fmt.Sprintf("%s::%s::%s", packageID, moduleName, event),
 				}
@@ -1403,40 +1470,84 @@ func SuiEventEmitter[T any](
 					DescendingOrder: false,
 				})
 				if err != nil {
-					errChan <- err
+					t.Logf("[DEBUG] SuiEventEmitter: Query error: %v", err)
+					select {
+					case errChan <- err:
+					case <-done:
+						return
+					}
 					return
 				}
 
 				if len(events.Data) == 0 {
 					// No new events found
+					t.Logf("[DEBUG] SuiEventEmitter: No new events found")
 					break
 				}
 
+				t.Logf("[DEBUG] SuiEventEmitter: Processing %d events", len(events.Data))
+				newEventsCount := 0
+
 				for _, ev := range events.Data {
-					if ev.Id.TxDigest == lastSeenTxDigest {
+					// Create unique event ID combining transaction digest and event sequence
+					eventID := fmt.Sprintf("%s:%s", ev.Id.TxDigest, ev.Id.EventSeq)
+
+					if seenEvents[eventID] {
+						t.Logf("[DEBUG] SuiEventEmitter: Skipping duplicate event %s with type %s and transaction module %s at timestamp %s", eventID, ev.Type, ev.TransactionModule, ev.TimestampMs)
 						continue // skip duplicates
 					}
-					lastSeenTxDigest = ev.Id.TxDigest
+					seenEvents[eventID] = true
 
 					var out T
+					// TODO: Use proper SUI JSON decoder instead of Aptos decoder
 					if err := codec.DecodeAptosJsonValue(ev.ParsedJson, &out); err != nil {
-						errChan <- err
+						t.Logf("[DEBUG] SuiEventEmitter: Decode error for event %s with type %s and transaction module %s at timestamp %s: %v", eventID, ev.Type, ev.TransactionModule, ev.TimestampMs, err)
+						select {
+						case errChan <- fmt.Errorf("failed to decode event %s with type %s and transaction module %s at timestamp %s: %w", eventID, ev.Type, ev.TransactionModule, ev.TimestampMs, err):
+						case <-done:
+							return
+						}
 						continue
 					}
 
-					ch <- struct {
+					newEventsCount++
+					eventData := struct {
 						Event   T
 						Version string
 					}{
 						Event:   out,
-						Version: ev.Id.EventSeq, // use the actual version
+						Version: ev.Id.EventSeq,
 					}
+
+					// Non-blocking send to prevent goroutine deadlock
+					select {
+					case ch <- eventData:
+						t.Logf("[DEBUG] SuiEventEmitter: Sent event %s with type %s and transaction module %s at timestamp %s", eventID, ev.Type, ev.TransactionModule, ev.TimestampMs)
+					case <-done:
+						t.Logf("[DEBUG] SuiEventEmitter: Stopping due to done signal during send")
+						return
+					default:
+						t.Logf("[WARNING] SuiEventEmitter: Channel full, dropping event %s with type %s and transaction module %s at timestamp %s", eventID, ev.Type, ev.TransactionModule, ev.TimestampMs)
+						// Channel is full, log warning but continue processing
+						// This prevents blocking the entire event loop
+					}
+				}
+
+				t.Logf("[DEBUG] SuiEventEmitter: Processed %d new events out of %d total", newEventsCount, len(events.Data))
+
+				// For now, break after processing to avoid infinite loops
+				// TODO: Implement proper cursor-based pagination when SUI SDK supports it
+				if uint64(len(events.Data)) < limit {
+					// Received fewer events than limit, likely no more events available
+					break
 				}
 			}
 			select {
 			case <-done:
+				t.Logf("[DEBUG] SuiEventEmitter: Stopping due to done signal in ticker loop")
 				return
 			case <-ticker.C:
+				t.Logf("[DEBUG] SuiEventEmitter: Ticker fired, checking for new events")
 				continue
 			}
 		}

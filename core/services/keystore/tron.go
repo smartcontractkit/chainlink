@@ -107,7 +107,7 @@ func (ks *tron) Import(ctx context.Context, keyJSON []byte, password string) (tr
 	if _, found := ks.keyRing.Tron[key.ID()]; found {
 		return tronkey.Key{}, fmt.Errorf("key with ID %s already exists", key.ID())
 	}
-	return key, ks.keyManager.safeAddKey(ctx, key)
+	return key, ks.safeAddKey(ctx, key)
 }
 
 func (ks *tron) Export(id string, password string) ([]byte, error) {

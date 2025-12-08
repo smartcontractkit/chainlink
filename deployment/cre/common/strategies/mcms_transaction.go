@@ -2,6 +2,7 @@ package strategies
 
 import (
 	"errors"
+	"fmt"
 	"math/big"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
@@ -57,11 +58,16 @@ func (m *MCMSTransaction) BuildProposal(operations []mcmstypes.BatchOperation) (
 		return nil, errors.New("no operations provided to build proposal")
 	}
 
+	mcmContract, err := m.Config.MCMBasedOnAction(*m.MCMSContracts)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get mcms contract by action '%s' for config %v : %w", m.Config.MCMSAction, m.Config, err)
+	}
+
 	timelocksPerChain := map[uint64]string{
 		m.ChainSel: m.MCMSContracts.Timelock.Address().Hex(),
 	}
-	proposerMCMSes := map[uint64]string{
-		m.ChainSel: m.MCMSContracts.ProposerMcm.Address().Hex(),
+	mcmsAddressesPerChain := map[uint64]string{
+		m.ChainSel: mcmContract.Address().Hex(),
 	}
 	inspector, err := proposalutils.McmsInspectorForChain(m.Env, m.ChainSel)
 	if err != nil {
@@ -74,7 +80,7 @@ func (m *MCMSTransaction) BuildProposal(operations []mcmstypes.BatchOperation) (
 	return proposalutils.BuildProposalFromBatchesV2(
 		m.Env,
 		timelocksPerChain,
-		proposerMCMSes,
+		mcmsAddressesPerChain,
 		inspectorPerChain,
 		operations,
 		m.Description,

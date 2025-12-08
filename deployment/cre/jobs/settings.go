@@ -20,7 +20,13 @@ func verifyCRESettingsSpecInputs(inputs job_types.JobSpecInput) error {
 		return fmt.Errorf("failed to unmarshal job spec input to StandardCapabilityJob: %w", err)
 	}
 
-	if strings.TrimSpace(ji.Settings) == "" {
+	return VerifyCRESettings(ji.Settings)
+}
+
+// VerifyCRESettings ensures that each of the scoped overrides match the cresettings.Schema and every field value is a string,
+// or returns an error.
+func VerifyCRESettings(s string) error {
+	if strings.TrimSpace(s) == "" {
 		return nil
 	}
 	var data struct {
@@ -30,7 +36,7 @@ func verifyCRESettingsSpecInputs(inputs job_types.JobSpecInput) error {
 		Workflow map[string]toml.Tree `toml:"workflow"`
 	}
 
-	if err := toml.NewDecoder(strings.NewReader(ji.Settings)).Decode(&data); err != nil {
+	if err := toml.NewDecoder(strings.NewReader(s)).Decode(&data); err != nil {
 		return fmt.Errorf("invalid toml settings: %w", err)
 	}
 	var errs error

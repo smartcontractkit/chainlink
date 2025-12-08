@@ -1879,7 +1879,6 @@ func assertValidationError(t *testing.T, invalid interface{ Validate() error }, 
 	if err := invalid.Validate(); assert.Error(t, err) {
 		got := err.Error()
 		assert.Equal(t, expMsg, got, diff.Diff(expMsg, got))
-
 	}
 }
 

@@ -251,7 +251,7 @@ func (cli *keysClient[K, P, P2]) ExportKey(c *cli.Context) (err error) {
 		return cli.errorOut(errors.Wrapf(err, "Could not write %v", filepath))
 	}
 
-	_, err = os.Stderr.WriteString(fmt.Sprintf("🔑 Exported %s key %s to %s\n", cli.typ, ID, filepath))
+	_, err = fmt.Fprintf(os.Stderr, "🔑 Exported %s key %s to %s\n", cli.typ, ID, filepath)
 	if err != nil {
 		return cli.errorOut(err)
 	}

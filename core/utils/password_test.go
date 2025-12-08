@@ -29,7 +29,6 @@ func TestVerifyPasswordComplexity(t *testing.T) {
 	}
 
 	for _, test := range tests {
-
 		t.Run(test.password, func(t *testing.T) {
 			t.Parallel()
 

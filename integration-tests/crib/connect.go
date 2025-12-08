@@ -108,6 +108,5 @@ func ConnectRemote() (
 		Headers:    vars.MockserverHeaders,
 	})
 
-	//nolint:gosec // G602 - false positive https://github.com/securego/gosec/issues/1005
 	return sethClient, mockServerClient, clClients[0], clClients[1:], vars, nil
 }

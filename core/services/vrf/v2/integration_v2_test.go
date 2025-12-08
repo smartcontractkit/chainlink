@@ -807,11 +807,12 @@ func assertNumRandomWords(
 func mine(t *testing.T, requestID, subID *big.Int, backend types.Backend, db *sqlx.DB, vrfVersion vrfcommon.Version, chainID *big.Int) bool {
 	txstore := txmgr.NewTxStore(db, logger.TestLogger(t))
 	var metaField string
-	if vrfVersion == vrfcommon.V2Plus {
+	switch vrfVersion {
+	case vrfcommon.V2Plus:
 		metaField = "GlobalSubId"
-	} else if vrfVersion == vrfcommon.V2 {
+	case vrfcommon.V2:
 		metaField = "SubId"
-	} else {
+	default:
 		t.Errorf("unsupported vrf version %s", vrfVersion)
 	}
 
@@ -837,11 +838,12 @@ func mineBatch(t *testing.T, requestIDs []*big.Int, subID *big.Int, backend type
 	requestIDMap := map[string]bool{}
 	txstore := txmgr.NewTxStore(db, logger.TestLogger(t))
 	var metaField string
-	if vrfVersion == vrfcommon.V2Plus {
+	switch vrfVersion {
+	case vrfcommon.V2Plus:
 		metaField = "GlobalSubId"
-	} else if vrfVersion == vrfcommon.V2 {
+	case vrfcommon.V2:
 		metaField = "SubId"
-	} else {
+	default:
 		t.Errorf("unsupported vrf version %s", vrfVersion)
 	}
 	for _, requestID := range requestIDs {
@@ -2355,7 +2357,7 @@ func AssertNativeBalance(t *testing.T, backend types.Backend, address common.Add
 }
 
 func AssertLinkBalances(t *testing.T, linkContract *link_token_interface.LinkToken, addresses []common.Address, balances []*big.Int) {
-	require.Equal(t, len(addresses), len(balances))
+	require.Len(t, balances, len(addresses))
 	for i, a := range addresses {
 		AssertLinkBalance(t, linkContract, a, balances[i])
 	}

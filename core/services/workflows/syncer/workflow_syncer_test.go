@@ -1014,10 +1014,10 @@ type testSecretsWorkEventHandler struct {
 func (m *testSecretsWorkEventHandler) Close() error { return m.wrappedHandler.Close() }
 
 func (m *testSecretsWorkEventHandler) Handle(ctx context.Context, event Event) error {
-	switch {
-	case event.EventType == ForceUpdateSecretsEvent:
+	switch event.EventType {
+	case ForceUpdateSecretsEvent:
 		return m.wrappedHandler.Handle(ctx, event)
-	case event.EventType == WorkflowRegisteredEvent:
+	case WorkflowRegisteredEvent:
 		m.registeredCh <- event
 		return nil
 	default:

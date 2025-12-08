@@ -7,6 +7,7 @@ import (
 	"io"
 
 	"github.com/ethereum/go-ethereum/common"
+
 	"github.com/smartcontractkit/chainlink/deployment/cre/common/strategies"
 
 	"github.com/smartcontractkit/smdkg/dkgocr/dkgocrtypes"

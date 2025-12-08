@@ -545,7 +545,7 @@ channelDefinitionsContractFromBlock = %d`, serverURL, serverPubKey, donID, confi
 		// Set config on the destination verifier
 		signerAddresses := make([]common.Address, len(oracles))
 		for i, oracle := range oracles {
-			signerAddresses[i] = common.BytesToAddress(oracle.OracleIdentity.OnchainPublicKey)
+			signerAddresses[i] = common.BytesToAddress(oracle.OnchainPublicKey)
 		}
 		{
 			recipientAddressesAndWeights := []destination_verifier.CommonAddressAndWeight{}

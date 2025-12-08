@@ -177,7 +177,7 @@ func TestExternalInitiatorsController_Create_without_URL(t *testing.T) {
 	cltest.ParseJSONAPIResponse(t, resp, ei)
 
 	assert.Equal(t, "no-url", ei.Name)
-	assert.Equal(t, "", ei.URL.String())
+	assert.Empty(t, ei.URL.String())
 	assert.NotEmpty(t, ei.AccessKey)
 	assert.NotEmpty(t, ei.Secret)
 	assert.NotEmpty(t, ei.OutgoingToken)

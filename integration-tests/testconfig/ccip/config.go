@@ -1,6 +1,7 @@
 package ccip
 
 import (
+	"errors"
 	"fmt"
 	"math"
 	"strconv"
@@ -27,8 +28,8 @@ const (
 )
 
 var (
-	ErrInvalidHomeChainSelector = fmt.Errorf("invalid home chain selector")
-	ErrInvalidFeedChainSelector = fmt.Errorf("invalid feed chain selector")
+	ErrInvalidHomeChainSelector = errors.New("invalid home chain selector")
+	ErrInvalidFeedChainSelector = errors.New("invalid feed chain selector")
 )
 
 type Config struct {

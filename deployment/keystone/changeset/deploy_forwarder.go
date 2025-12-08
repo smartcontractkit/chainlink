@@ -8,6 +8,7 @@ import (
 	"slices"
 
 	"github.com/ethereum/go-ethereum/common"
+
 	crecontracts "github.com/smartcontractkit/chainlink/deployment/cre/contracts"
 
 	cldf_evm "github.com/smartcontractkit/chainlink-deployments-framework/chain/evm"

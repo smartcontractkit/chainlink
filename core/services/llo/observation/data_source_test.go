@@ -214,7 +214,7 @@ func Test_DataSource(t *testing.T) {
 				1: llo.ToDecimal(decimal.NewFromInt(2181)),
 				2: llo.ToDecimal(decimal.NewFromInt(40602)),
 				3: llo.ToDecimal(decimal.NewFromInt(15)),
-			}, vals, fmt.Sprintf("vals: %v", vals))
+			}, vals, "vals: %v", vals)
 			ds.Close()
 		})
 
@@ -239,7 +239,7 @@ func Test_DataSource(t *testing.T) {
 				11: nil,
 				12: llo.ToDecimal(decimal.NewFromInt(40602)),
 				13: nil,
-			}, vals, fmt.Sprintf("vals: %v", vals))
+			}, vals, "vals: %v", vals)
 			ds.Close()
 		})
 
@@ -270,7 +270,7 @@ func Test_DataSource(t *testing.T) {
 				21: llo.ToDecimal(decimal.NewFromInt(2181)),
 				22: llo.ToDecimal(decimal.NewFromInt(40602)),
 				23: llo.ToDecimal(decimal.NewFromInt(15)),
-			}, vals, fmt.Sprintf("vals: %v", vals))
+			}, vals, "vals: %v", vals)
 
 			// Get only the last 3 packets, as those would be the result of the first round of observations.
 			tm.mu.Lock()
@@ -337,7 +337,7 @@ func Test_DataSource(t *testing.T) {
 				31: nil,
 				32: llo.ToDecimal(decimal.NewFromInt(40602)),
 				33: nil,
-			}, vals, fmt.Sprintf("vals: %v", vals))
+			}, vals, "vals: %v", vals)
 
 			m := make(map[int]v3PremiumLegacyPacket)
 			tm.mu.Lock()

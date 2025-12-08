@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/base64"
 	"encoding/hex"
-	"fmt"
 	"strings"
 	"testing"
 
@@ -41,8 +40,6 @@ import (
 	commoncs "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 
 	testsetups "github.com/smartcontractkit/chainlink/integration-tests/testsetups/ccip"
-
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
 
 func Test_CCIP_Upgrade_Sui2EVM(t *testing.T) {
@@ -57,16 +54,13 @@ func Test_CCIP_Upgrade_Sui2EVM(t *testing.T) {
 	evmChainSelectors := e.Env.BlockChains.ListChainSelectors(chain.WithFamily(chain_selectors.FamilyEVM))
 	suiChainSelectors := e.Env.BlockChains.ListChainSelectors(chain.WithFamily(chain_selectors.FamilySui))
 
-	fmt.Println("EVM: ", evmChainSelectors[0])
-	fmt.Println("Sui: ", suiChainSelectors[0])
-
 	sourceChain := suiChainSelectors[0]
 	destChain := evmChainSelectors[0]
 
+	t.Log("Source chain (EVM): ", sourceChain, "Dest chain (SUI): ", destChain)
+
 	state, err := stateview.LoadOnchainState(e.Env)
 	require.NoError(t, err)
-
-	t.Log("Source chain (Sui): ", sourceChain, "Dest chain (EVM): ", destChain)
 
 	err = testhelpers.AddLaneWithDefaultPricesAndFeeQuoterConfig(t, &e, state, sourceChain, destChain, false)
 	require.NoError(t, err)
@@ -109,7 +103,7 @@ func Test_CCIP_Upgrade_Sui2EVM(t *testing.T) {
 	)
 
 	// upgrade contracts, upgrade onRamp to v2
-	fmt.Println("Upgrading SUI contracts")
+	t.Log("Upgrading SUI contracts")
 	upgradeCCIP(ctx, t, e, sourceChain, contracts.CCIP)
 	upgradeSuiOnRamp(ctx, t, e, sourceChain, contracts.CCIPOnramp)
 
@@ -128,11 +122,10 @@ func Test_CCIP_Upgrade_Sui2EVM(t *testing.T) {
 		)
 	})
 
-	fmt.Printf("out: %v\n", out)
+	t.Logf("out: %v\n", out)
 }
 
 func Test_CCIP_Upgrade_EVM2Sui(t *testing.T) {
-	lggr := logger.TestLogger(t)
 	ctx := testcontext.Get(t)
 	e, _, _ := testsetups.NewIntegrationEnvironment(
 		t,
@@ -149,7 +142,7 @@ func Test_CCIP_Upgrade_EVM2Sui(t *testing.T) {
 	sourceChain := evmChainSelectors[0]
 	destChain := suiChainSelectors[0]
 
-	lggr.Debug("Source chain (EVM): ", sourceChain, "Dest chain (Sui): ", destChain)
+	t.Log("Source chain (EVM): ", sourceChain, "Dest chain (Sui): ", destChain)
 
 	err = testhelpers.AddLaneWithDefaultPricesAndFeeQuoterConfig(t, &e, state, sourceChain, destChain, false)
 	require.NoError(t, err)
@@ -197,7 +190,7 @@ func Test_CCIP_Upgrade_EVM2Sui(t *testing.T) {
 
 	receiverObjectIDs := [][32]byte{clockObj, stateObj}
 
-	fmt.Println("Upgrading SUI contracts")
+	t.Log("Upgrading SUI contracts")
 	upgradeCCIP(ctx, t, e, destChain, contracts.CCIP)
 	upgradeSuiOffRamp(ctx, t, e, destChain, contracts.CCIPOfframp)
 
@@ -261,7 +254,6 @@ func Test_CCIP_Upgrade_EVM2Sui(t *testing.T) {
 }
 
 func Test_CCIP_Upgrade_NoBlock_EVM2Sui(t *testing.T) {
-	lggr := logger.TestLogger(t)
 	ctx := testcontext.Get(t)
 	e, _, _ := testsetups.NewIntegrationEnvironment(
 		t,
@@ -278,7 +270,7 @@ func Test_CCIP_Upgrade_NoBlock_EVM2Sui(t *testing.T) {
 	sourceChain := evmChainSelectors[0]
 	destChain := suiChainSelectors[0]
 
-	lggr.Debug("Source chain (EVM): ", sourceChain, "Dest chain (Sui): ", destChain)
+	t.Log("Source chain (EVM): ", sourceChain, "Dest chain (Sui): ", destChain)
 
 	err = testhelpers.AddLaneWithDefaultPricesAndFeeQuoterConfig(t, &e, state, sourceChain, destChain, false)
 	require.NoError(t, err)
@@ -326,7 +318,7 @@ func Test_CCIP_Upgrade_NoBlock_EVM2Sui(t *testing.T) {
 
 	receiverObjectIDs := [][32]byte{clockObj, stateObj}
 
-	fmt.Println("Upgrading SUI contracts")
+	t.Log("Upgrading SUI contracts")
 	upgradeCCIP(ctx, t, e, destChain, contracts.CCIP)
 	upgradeSuiOffRamp(ctx, t, e, destChain, contracts.CCIPOfframp)
 
@@ -365,7 +357,6 @@ func Test_CCIP_Upgrade_NoBlock_EVM2Sui(t *testing.T) {
 
 func Test_CCIP_Upgrade_CommonPkg_EVM2Sui(t *testing.T) {
 	ctx := testcontext.Get(t)
-	lggr := logger.TestLogger(t)
 	e, _, _ := testsetups.NewIntegrationEnvironment(
 		t,
 		testhelpers.WithNumOfChains(2),
@@ -381,7 +372,7 @@ func Test_CCIP_Upgrade_CommonPkg_EVM2Sui(t *testing.T) {
 	sourceChain := evmChainSelectors[0]
 	destChain := suiChainSelectors[0]
 
-	lggr.Debug("Source chain (EVM): ", sourceChain, "Dest chain (Sui): ", destChain)
+	t.Log("Source chain (EVM): ", sourceChain, "Dest chain (Sui): ", destChain)
 
 	err = testhelpers.AddLaneWithDefaultPricesAndFeeQuoterConfig(t, &e, state, sourceChain, destChain, false)
 	require.NoError(t, err)
@@ -443,7 +434,7 @@ func Test_CCIP_Upgrade_CommonPkg_EVM2Sui(t *testing.T) {
 
 	receiverObjectIDs := [][32]byte{clockObj, stateObj}
 
-	fmt.Println("Upgrading SUI contracts")
+	t.Log("Upgrading SUI contracts")
 	upgradeCCIP(ctx, t, e, destChain, contracts.CCIP)
 
 	// Block ccip v1 FQ
@@ -564,7 +555,7 @@ func upgradeSuiOnRamp(ctx context.Context, t *testing.T, e testhelpers.DeployedE
 	err = e.Env.ExistingAddresses.Save(sourceChain, newOnRampPkgID, typeAndVersionOnRampMockV2)
 	require.NoError(t, err)
 
-	fmt.Println("Upgraded SUI onRamp")
+	t.Log("Upgraded SUI onRamp")
 }
 
 func upgradeSuiOffRamp(ctx context.Context, t *testing.T, e testhelpers.DeployedEnv, sourceChain uint64, version contracts.Package) {
@@ -655,7 +646,7 @@ func upgradeSuiOffRamp(ctx context.Context, t *testing.T, e testhelpers.Deployed
 	err = e.Env.ExistingAddresses.Save(sourceChain, newOffRampPkgID, typeAndVersionOffRampMockV2)
 	require.NoError(t, err)
 
-	fmt.Println("Upgraded SUI offRamp")
+	t.Log("Upgraded SUI offRamp")
 }
 
 func upgradeCCIP(ctx context.Context, t *testing.T, e testhelpers.DeployedEnv, sourceChain uint64, version contracts.Package) string {
@@ -665,7 +656,7 @@ func upgradeCCIP(ctx context.Context, t *testing.T, e testhelpers.DeployedEnv, s
 	signerAddr, err := e.Env.BlockChains.SuiChains()[sourceChain].Signer.GetAddress()
 	require.NoError(t, err)
 
-	fmt.Println("UPGRADECAP, SIGNER: ", state.SuiChains[sourceChain].CCIPUpgradeCapObjectId, signerAddr)
+	t.Log("UPGRADECAP, SIGNER: ", state.SuiChains[sourceChain].CCIPUpgradeCapObjectId, signerAddr)
 	// compile packages
 	compiledPackage, err := suiBind.CompilePackage(version, map[string]string{
 		"ccip":       "0x0",
@@ -745,7 +736,7 @@ func upgradeCCIP(ctx context.Context, t *testing.T, e testhelpers.DeployedEnv, s
 	err = e.Env.ExistingAddresses.Save(sourceChain, newCCIPPkgID, typeAndVersionCCIPMockV2)
 	require.NoError(t, err)
 
-	fmt.Println("Upgraded SUI CCIP")
+	t.Log("Upgraded SUI CCIP")
 
 	return newCCIPPkgID
 }

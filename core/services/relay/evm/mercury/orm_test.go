@@ -61,16 +61,16 @@ func TestORM(t *testing.T) {
 
 	transmissions, err := orm.GetTransmitRequests(ctx, sURL, jobID)
 	require.NoError(t, err)
-	require.Equal(t, transmissions, []*Transmission{
+	require.Equal(t, []*Transmission{
 		{Req: &pb.TransmitRequest{Payload: reports[2]}, ReportCtx: reportContexts[2]},
 		{Req: &pb.TransmitRequest{Payload: reports[1]}, ReportCtx: reportContexts[1]},
 		{Req: &pb.TransmitRequest{Payload: reports[0]}, ReportCtx: reportContexts[0]},
-	})
+	}, transmissions)
 	transmissions, err = orm.GetTransmitRequests(ctx, sURL2, jobID)
 	require.NoError(t, err)
-	require.Equal(t, transmissions, []*Transmission{
+	require.Equal(t, []*Transmission{
 		{Req: &pb.TransmitRequest{Payload: reports[3]}, ReportCtx: reportContexts[0]},
-	})
+	}, transmissions)
 
 	l, err = orm.LatestReport(testutils.Context(t), feedID)
 	require.NoError(t, err)
@@ -83,10 +83,10 @@ func TestORM(t *testing.T) {
 
 	transmissions, err = orm.GetTransmitRequests(ctx, sURL, jobID)
 	require.NoError(t, err)
-	require.Equal(t, transmissions, []*Transmission{
+	require.Equal(t, []*Transmission{
 		{Req: &pb.TransmitRequest{Payload: reports[2]}, ReportCtx: reportContexts[2]},
 		{Req: &pb.TransmitRequest{Payload: reports[0]}, ReportCtx: reportContexts[0]},
-	})
+	}, transmissions)
 
 	l, err = orm.LatestReport(testutils.Context(t), feedID)
 	require.NoError(t, err)
@@ -98,10 +98,10 @@ func TestORM(t *testing.T) {
 
 	transmissions, err = orm.GetTransmitRequests(ctx, sURL, jobID)
 	require.NoError(t, err)
-	require.Equal(t, transmissions, []*Transmission{
+	require.Equal(t, []*Transmission{
 		{Req: &pb.TransmitRequest{Payload: reports[2]}, ReportCtx: reportContexts[2]},
 		{Req: &pb.TransmitRequest{Payload: reports[0]}, ReportCtx: reportContexts[0]},
-	})
+	}, transmissions)
 
 	// Test deleting multiple requests.
 	err = orm.DeleteTransmitRequests(ctx, sURL, []*pb.TransmitRequest{
@@ -124,9 +124,9 @@ func TestORM(t *testing.T) {
 
 	transmissions, err = orm.GetTransmitRequests(ctx, sURL, jobID)
 	require.NoError(t, err)
-	require.Equal(t, transmissions, []*Transmission{
+	require.Equal(t, []*Transmission{
 		{Req: &pb.TransmitRequest{Payload: reports[3]}, ReportCtx: reportContexts[3]},
-	})
+	}, transmissions)
 
 	// Duplicate requests are ignored.
 	err = orm.InsertTransmitRequest(ctx, []string{sURL}, &pb.TransmitRequest{Payload: reports[3]}, jobID, reportContexts[3])
@@ -136,9 +136,9 @@ func TestORM(t *testing.T) {
 
 	transmissions, err = orm.GetTransmitRequests(ctx, sURL, jobID)
 	require.NoError(t, err)
-	require.Equal(t, transmissions, []*Transmission{
+	require.Equal(t, []*Transmission{
 		{Req: &pb.TransmitRequest{Payload: reports[3]}, ReportCtx: reportContexts[3]},
-	})
+	}, transmissions)
 
 	l, err = orm.LatestReport(testutils.Context(t), feedID)
 	require.NoError(t, err)
@@ -238,10 +238,10 @@ func TestORM_PruneTransmitRequests(t *testing.T) {
 
 	transmissions, err := orm.GetTransmitRequests(ctx, sURL, jobID)
 	require.NoError(t, err)
-	require.Equal(t, transmissions, []*Transmission{
+	require.Equal(t, []*Transmission{
 		{Req: &pb.TransmitRequest{Payload: reports[1]}, ReportCtx: makeReportContext(1, 2)},
 		{Req: &pb.TransmitRequest{Payload: reports[0]}, ReportCtx: makeReportContext(1, 1)},
-	})
+	}, transmissions)
 
 	// Max size equal to number of records, expect no-op
 	err = orm.PruneTransmitRequests(ctx, sURL, jobID, 2)
@@ -249,10 +249,10 @@ func TestORM_PruneTransmitRequests(t *testing.T) {
 
 	transmissions, err = orm.GetTransmitRequests(ctx, sURL, jobID)
 	require.NoError(t, err)
-	require.Equal(t, transmissions, []*Transmission{
+	require.Equal(t, []*Transmission{
 		{Req: &pb.TransmitRequest{Payload: reports[1]}, ReportCtx: makeReportContext(1, 2)},
 		{Req: &pb.TransmitRequest{Payload: reports[0]}, ReportCtx: makeReportContext(1, 1)},
-	})
+	}, transmissions)
 
 	// Max size is number of records + 1, but jobID differs, expect no-op
 	err = orm.PruneTransmitRequests(ctx, sURL, -1, 2)

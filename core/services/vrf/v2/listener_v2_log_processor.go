@@ -204,11 +204,12 @@ func (lsn *listenerV2) processPendingVRFRequests(ctx context.Context, pendingReq
 // and returns that value if there are no errors.
 func (lsn *listenerV2) MaybeSubtractReservedLink(ctx context.Context, startBalance *big.Int, chainID *big.Int, subID *big.Int, vrfVersion vrfcommon.Version) (*big.Int, error) {
 	var metaField string
-	if vrfVersion == vrfcommon.V2Plus {
+	switch vrfVersion {
+	case vrfcommon.V2Plus:
 		metaField = txMetaGlobalSubId
-	} else if vrfVersion == vrfcommon.V2 {
+	case vrfcommon.V2:
 		metaField = txMetaFieldSubId
-	} else {
+	default:
 		return nil, errors.Errorf("unsupported vrf version %s", vrfVersion)
 	}
 
@@ -243,12 +244,13 @@ func (lsn *listenerV2) MaybeSubtractReservedLink(ctx context.Context, startBalan
 // and returns that value if there are no errors.
 func (lsn *listenerV2) MaybeSubtractReservedEth(ctx context.Context, startBalance *big.Int, chainID *big.Int, subID *big.Int, vrfVersion vrfcommon.Version) (*big.Int, error) {
 	var metaField string
-	if vrfVersion == vrfcommon.V2Plus {
+	switch vrfVersion {
+	case vrfcommon.V2Plus:
 		metaField = txMetaGlobalSubId
-	} else if vrfVersion == vrfcommon.V2 {
+	case vrfcommon.V2:
 		// native payment is not supported for v2, so returning 0 reserved ETH
 		return big.NewInt(0), nil
-	} else {
+	default:
 		return nil, errors.Errorf("unsupported vrf version %s", vrfVersion)
 	}
 	txes, err := lsn.chain.TxManager().FindTxesByMetaFieldAndStates(ctx, metaField, subID.String(), reserveEthLinkQueryStates, chainID)

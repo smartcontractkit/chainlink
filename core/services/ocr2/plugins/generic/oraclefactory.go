@@ -70,7 +70,6 @@ func NewOracleFactory(params OracleFactoryParams) (core.OracleFactory, error) {
 }
 
 func (of *oracleFactory) NewOracle(ctx context.Context, args core.OracleArgs) (core.Oracle, error) {
-
 	of.lggr.Debugf("Creating new oracle from oracle factory using config: %+v", of.config)
 
 	if !of.peerWrapper.IsStarted() {
