@@ -93,7 +93,7 @@ func (s *secretsFetcher) GetSecrets(ctx context.Context, request *sdkpb.GetSecre
 	getSecretsDuration := time.Since(start).Milliseconds()
 	if err != nil {
 		// Log errors when secrets fetching fails, for troubleshooting and debugging
-		s.lggr.Infow("Secrets fetching failed for request", "request", request, "error", err, "requestLatency", getSecretsDuration)
+		s.lggr.Warnw("Secrets fetching failed for request", "request", request, "error", err, "requestLatency", getSecretsDuration)
 	}
 	s.metrics.With(
 		"workflowOwner", s.workflowOwner,
