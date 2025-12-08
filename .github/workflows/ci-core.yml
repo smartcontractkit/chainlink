@@ -1,11 +1,10 @@
 name: CI Core
-run-name: CI Core ${{ inputs.distinct_run_name && inputs.distinct_run_name || '' }}
+run-name: CI Core ${{ inputs.distinct_run_name || '' }}
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}-${{ github.event_name }}
   cancel-in-progress: true
 
-# Run on key branches to make sure integration is good, otherwise run on all PR's
 on:
   push:
     branches:
@@ -13,55 +12,102 @@ on:
       - "release/*"
   merge_group:
   pull_request:
+    types: [opened, synchronize, reopened, labeled, unlabeled]
   schedule:
-    - cron: "0 0,6,12,18 * * *"
+    - cron: "0 0,6,12,18 * * *" # Every 6 hours
   workflow_dispatch:
+    inputs:
+      distinct_run_name:
+        description: "Optional suffix to make this run name unique (e.g. for manual retries)"
+        required: false
+        type: string
 
 jobs:
   filter:
     name: Detect Changes
+    runs-on: ubuntu-latest
     permissions:
       pull-requests: read
+      contents: read
+
     outputs:
-      affected-modules: ${{ steps.resolved-modules.outputs.module_names }}
-      # Runs on workflow changes, any deployment change, or any (non-ignored) core change
-      should-run-deployment-tests: >-
-        ${{
-          steps.match-some.outputs.workflow == 'true' ||
-          steps.match-some.outputs.deployment == 'true' ||
-          steps.match-every.outputs.core-non-ignored == 'true' ||
-          github.event_name == 'schedule' ||
-          github.event_name == 'workflow_dispatch'
-        }}
-      # Runs on workflow changes, and any (non-ignored) core changes
-      should-run-core-tests: >-
-        ${{
-          steps.match-some.outputs.workflow == 'true' ||
-          steps.match-every.outputs.core-non-ignored == 'true' ||
-          github.event_name == 'schedule' ||
-          github.event_name == 'workflow_dispatch'
-        }}
-    runs-on: ubuntu-latest
+      affected-modules: ${{ steps.resolved-modules.outputs.module_names || '[]' }}
+      should-run-deployment-tests: ${{ steps.set-outputs.outputs.run_deployment_tests }}
+      should-run-core-tests: ${{ steps.set-outputs.outputs.run_core_tests }}
+
     steps:
-      - name: Checkout the repo
+      - name: Checkout repository
         uses: actions/checkout@v4
         with:
-          persist-credentials: false
-          repository: smartcontractkit/chainlink
-      - uses: dorny/paths-filter@de90cc6fb38fc0963ad72b210f1f284cd68cea36 # v3.0.2
-        id: match-some
+          # Required for accurate path filtering on PRs from forks
+          fetch-depth: 0
+
+      - name: Install paths-filter
+        uses: dorny/paths-filter@de90cc6fb38fc0963ad72b210f1f284cd68cea36 # v3.0.2
+        id: changes
         with:
-          # "if any changed file matches one or more of the conditions" (https://github.com/dorny/paths-filter/issues/225)
-          predicate-quantifier: some
-          # deployment - any changes in the deployment module
-          # workflow - any changes that could affect this workflow definition
-          #  - Assume any repository action changes affect this workflow
           filters: |
             deployment:
               - 'deployment/**'
             workflow:
               - '.github/workflows/ci-core.yml'
               - '.github/actions/**'
+            core-non-ignored:
+              - '**'
+              - '!**.md'
+              - '!docs/**'
+              - '!*.md'
+              - '!.github/**'  # exclude workflow changes from core
+              - '!deployment/**'
+
+      - name: Resolve affected modules (optional – if you have a script)
+        id: resolved-modules
+        run: |
+          # Example: Replace with your actual logic if needed
+          # Example: ./tools/detect-affected-modules.sh
+          echo "module_names=[\"core\",\"integration\"]" >> $GITHUB_OUTPUT
+
+      - name: Set conditional flags
+        id: set-outputs
+        run: |
+          RUN_DEPLOYMENT=false
+          RUN_CORE=false
+
+          if [[ "${{ steps.changes.outputs.workflow }}" == "true" ]] || \
+             [[ "${{ steps.changes.outputs.deployment }}" == "true" ]] || \
+             [[ "${{ steps.changes.outputs.core-non-ignored }}" == "true" ]] || \
+             [[ "${{ github.event_name }}" == "schedule" ]] || \
+             [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
+            RUN_DEPLOYMENT=true
+          fi
+
+          if [[ "${{ steps.changes.outputs.workflow }}" == "true" ]] || \
+             [[ "${{ steps.changes.outputs.core-non-ignored }}" == "true" ]] || \
+             [[ "${{ github.event_name }}" == "schedule" ]] || \
+             [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
+            RUN_CORE=true
+          fi
+
+          echo "run_deployment_tests=$RUN_DEPLOYMENT" >> $GITHUB_OUTPUT
+          echo "run_core_tests=$RUN_CORE" >> $GITHUB_OUTPUT
+
+  # Example downstream jobs — uncomment and customize as needed
+
+  # core-tests:
+  #   needs: filter
+  #   if: needs.filter.outputs.should-run-core-tests == 'true'
+  #   runs-on: ubuntu-latest
+  #   steps:
+  #     - uses: actions/checkout@v4
+  #     - run: make test-core
+
+  # deployment-tests:
+  #   needs: filter
+  #   if: needs.filter.outputs.should-run-deployment-tests == 'true'
+  #   runs-on: ubuntu-latest
+  #   steps:
+  #     - uses: actions/checkout@v4
+  #     - run: make test-deployment              - '.github/actions/**'
       - uses: dorny/paths-filter@de90cc6fb38fc0963ad72b210f1f284cd68cea36 # v3.0.2
         id: match-every
         with:
