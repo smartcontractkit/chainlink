@@ -115,19 +115,19 @@ func HTTPActionFailureTest(t *testing.T, testEnv *ttypes.TestEnvironment, httpAc
 
 	workflowName := "http-action-fail-workflow-" + httpActionTest.method + "-" + uuid.New().String()[0:8]
 
-	// Start Beholder listener BEFORE registering workflow to avoid missing messages
-	listenerCtx, messageChan, kafkaErrChan := t_helpers.StartBeholder(t, testLogger, testEnv)
+	// Register and deploy the workflow
+	workflowID := t_helpers.CompileAndDeployWorkflow(t, testEnv, testLogger, workflowName, &workflowConfig, workflowFileLocation)
 
-	// Now register and deploy the workflow
-	t_helpers.CompileAndDeployWorkflow(t, testEnv, testLogger, workflowName, &workflowConfig, workflowFileLocation)
+	channel, listenerCtx, cancelFn, startErr := t_helpers.StartWorkflowEventsSubscriber(t.Context(), t_helpers.GetStandardWorkflowEventsSubscriberConfig(testEnv, workflowID))
+	require.NoError(t, startErr, "Failed to start workflow events subscriber")
 
-	// Wait for specific error message in Beholder based on test case
-	testLogger.Info().Msgf("Waiting for expected HTTP Action failure: '%s' in Beholder...", httpActionTest.expectedError)
+	// Wait for specific error message based on test case
+	testLogger.Info().Msgf("Waiting for expected HTTP Action failure: '%s'...", httpActionTest.expectedError)
 	timeout := 60 * time.Second
 
 	// Expect exact error message for this test case - no fallbacks
-	err := t_helpers.AssertBeholderMessage(listenerCtx, t, httpActionTest.expectedError, testLogger, messageChan, kafkaErrChan, timeout)
-	require.NoError(t, err, "Expected HTTP Action failure message '%s' not found in Beholder logs", httpActionTest.expectedError)
+	err := t_helpers.AssertWorkflowEventMatched(listenerCtx, cancelFn, 2, channel, t_helpers.GetUserLogMatcherFn(httpActionTest.expectedError), timeout, testLogger)
+	require.NoError(t, err, "Expected HTTP Action failure message '%s' not found in logs", httpActionTest.expectedError)
 	testLogger.Info().Msg("HTTP Action failure test completed successfully")
 
 	// Note: Workflow cleanup happens via t.Cleanup() after this function returns

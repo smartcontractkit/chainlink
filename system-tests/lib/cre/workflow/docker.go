@@ -117,7 +117,6 @@ func copyArtifactToDockerContainers(filePath string, containerNamePattern string
 				fmt.Fprint(os.Stderr, execOutput)
 				return errors.Wrap(execOutputErr, "failed to execute mkdir command in Docker container")
 			}
-			fmt.Println("output " + execOutput)
 		}
 	}
 

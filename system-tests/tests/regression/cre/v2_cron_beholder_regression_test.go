@@ -29,18 +29,19 @@ func CronBeholderFailsWithInvalidScheduleTest(t *testing.T, testEnv *ttypes.Test
 	workflowFileLocation := "../../../../core/scripts/cre/environment/examples/workflows/v2/cron/main.go"
 	workflowName := "cronbeholder"
 
-	listenerCtx, messageChan, kafkaErrChan := t_helpers.StartBeholder(t, testLogger, testEnv)
-
 	testLogger.Info().Msg("Creating Cron workflow configuration file...")
 	workflowConfig := crontypes.WorkflowConfig{
 		Schedule: invalidSchedule,
 	}
-	t_helpers.CompileAndDeployWorkflow(t, testEnv, testLogger, workflowName, &workflowConfig, workflowFileLocation)
+	workflowID := t_helpers.CompileAndDeployWorkflow(t, testEnv, testLogger, workflowName, &workflowConfig, workflowFileLocation)
+
+	channel, listenerCtx, cancelFn, startErr := t_helpers.StartWorkflowEventsSubscriber(t.Context(), t_helpers.GetStandardWorkflowEventsSubscriberConfig(testEnv, workflowID))
+	require.NoError(t, startErr, "Failed to start workflow events subscriber")
 
 	testLogger.Warn().Msgf("Expecting Cron workflow to fail with invalid schedule: %s", invalidSchedule)
 	expectedBeholderLog := "beholder found engine initialization failure message!"
 	timeout := 75 * time.Second
-	expectedError := t_helpers.AssertBeholderMessage(listenerCtx, t, expectedBeholderLog, testLogger, messageChan, kafkaErrChan, timeout)
+	expectedError := t_helpers.AssertWorkflowEventMatched(listenerCtx, cancelFn, 2, channel, t_helpers.GetUserLogMatcherFn(expectedBeholderLog), timeout, testLogger)
 	require.Error(t, expectedError, "Cron (Beholder) test failed. This test expects to fail with an error, but did not.")
 
 	testLogger.Info().Msg("Cron (Beholder) fail test completed")

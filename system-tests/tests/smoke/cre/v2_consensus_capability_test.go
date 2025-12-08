@@ -15,12 +15,13 @@ import (
 func ExecuteConsensusTest(t *testing.T, testEnv *ttypes.TestEnvironment) {
 	testLogger := framework.L
 
-	listenerCtx, messageChan, kafkaErrChan := t_helpers.StartBeholder(t, testLogger, testEnv)
+	workflowID := t_helpers.CompileAndDeployWorkflow(t, testEnv, testLogger, "consensustest", &t_helpers.None{}, "../../../../core/scripts/cre/environment/examples/workflows/v2/node-mode/main.go")
 
-	t_helpers.CompileAndDeployWorkflow(t, testEnv, testLogger, "consensustest", &t_helpers.None{}, "../../../../core/scripts/cre/environment/examples/workflows/v2/node-mode/main.go")
+	channel, listenerCtx, cancelFn, startErr := t_helpers.StartWorkflowEventsSubscriber(t.Context(), t_helpers.GetStandardWorkflowEventsSubscriberConfig(testEnv, workflowID))
+	require.NoError(t, startErr, "Failed to start workflow events subscriber")
 
 	expectedBeholderLog := "Successfully passed all consensus tests"
-	err := t_helpers.AssertBeholderMessage(listenerCtx, t, expectedBeholderLog, testLogger, messageChan, kafkaErrChan, 4*time.Minute)
-	require.NoError(t, err, "Consensus capability test failed, Beholder should not return an error")
+	err := t_helpers.AssertWorkflowEventMatched(listenerCtx, cancelFn, 2, channel, t_helpers.GetUserLogMatcherFn(expectedBeholderLog), 4*time.Minute, testLogger)
+	require.NoError(t, err, "Consensus capability test failed")
 	testLogger.Info().Msg("Consensus capability test completed")
 }

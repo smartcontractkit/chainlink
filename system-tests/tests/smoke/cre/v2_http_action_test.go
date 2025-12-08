@@ -120,10 +120,11 @@ func HTTPActionSuccessTest(t *testing.T, testEnv *ttypes.TestEnvironment, httpAc
 
 	testID := uuid.New().String()[0:8]
 	workflowName := "http-action-success-workflow-" + httpActionTest.testCase + "-" + testID
-	thelpers.CompileAndDeployWorkflow(t, testEnv, testLogger, workflowName, &workflowConfig, workflowFileLocation)
+	workflowID := thelpers.CompileAndDeployWorkflow(t, testEnv, testLogger, workflowName, &workflowConfig, workflowFileLocation)
 
-	// Start Beholder listener to capture workflow execution messages
-	listenerCtx, messageChan, kafkaErrChan := thelpers.StartBeholder(t, testLogger, testEnv)
+	// Start workflow events subscriber to capture execution messages
+	channel, listenerCtx, cancelFn, startErr := thelpers.StartWorkflowEventsSubscriber(t.Context(), thelpers.GetStandardWorkflowEventsSubscriberConfig(testEnv, workflowID))
+	require.NoError(t, startErr, "Failed to start workflow events subscriber")
 
 	// Wait for workflow execution to complete and verify success
 	testLogger.Info().Msg("Waiting for HTTP Action CRUD operations to complete...")
@@ -131,7 +132,7 @@ func HTTPActionSuccessTest(t *testing.T, testEnv *ttypes.TestEnvironment, httpAc
 
 	// Expect exact success message for this test case
 	expectedMessage := "HTTP Action CRUD success test completed: " + httpActionTest.testCase
-	err := thelpers.AssertBeholderMessage(listenerCtx, t, expectedMessage, testLogger, messageChan, kafkaErrChan, timeout)
+	err := thelpers.AssertWorkflowEventMatched(listenerCtx, cancelFn, 2, channel, thelpers.GetUserLogMatcherFn(expectedMessage), timeout, testLogger)
 	require.NoError(t, err, "HTTP Action CRUD success test failed")
 
 	testLogger.Info().Msg("HTTP Action CRUD success test completed")

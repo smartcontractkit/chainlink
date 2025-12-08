@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"math/rand"
+	"strings"
 	"sync"
 	"time"
 
@@ -16,6 +17,7 @@ import (
 	eventsv2 "github.com/smartcontractkit/chainlink-protos/workflows/go/v2"
 	"github.com/smartcontractkit/chainlink-testing-framework/framework/clclient"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre"
+	ttypes "github.com/smartcontractkit/chainlink/system-tests/tests/test-helpers/configuration"
 )
 
 const (
@@ -453,4 +455,28 @@ func deserializeWorkflowEvent(eventType string, data []byte) (proto.Message, err
 	}
 
 	return msg, nil
+}
+
+func GetUserLogMatcherFn(expectedMessage string) func(msg proto.Message) bool {
+	return func(msg proto.Message) bool {
+		if log, ok := msg.(*workflowevents.UserLogs); ok {
+			for _, line := range log.LogLines {
+				if strings.Contains(line.Message, expectedMessage) {
+					return true
+				}
+			}
+		}
+		return false
+	}
+}
+
+func GetStandardWorkflowEventsSubscriberConfig(testEnv *ttypes.TestEnvironment, workflowID string) WorkflowEventsSubscriberConfig {
+	wfDon := testEnv.Dons.MustWorkflowDON()
+	return WorkflowEventsSubscriberConfig{
+		WorkflowID:   workflowID,
+		Don:          wfDon,
+		PollInterval: 5 * time.Second,
+		F:            wfDon.WorkersCount() - 2,
+		Logger:       testEnv.Logger,
+	}
 }

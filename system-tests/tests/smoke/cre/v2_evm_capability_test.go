@@ -239,17 +239,22 @@ func ExecuteEVMLogTriggerTest(t *testing.T, testEnv *ttypes.TestEnvironment) {
 	for chainID, bcOutput := range chainsToTest {
 		lggr.Info().Msgf("Creating EVM LogTrigger workflow configuration for chain %s", chainID)
 		workflowConfig, msgEmitter := configureEVMLogTriggerWorkflow(t, lggr, bcOutput)
-		listenerCtx, messageChan, kafkaErrChan := t_helpers.StartBeholder(t, lggr, testEnv)
+
 		workflowName := fmt.Sprintf("evm-logTrigger-workflow-%s-%04d", chainID, rand.Intn(10000))
 		lggr.Info().Msgf("About to deploy Workflow %s on chain %s", workflowName, chainID)
-		t_helpers.CompileAndDeployWorkflow(t, testEnv, lggr, workflowName, &workflowConfig, workflowFileLocation)
+		workflowID := t_helpers.CompileAndDeployWorkflow(t, testEnv, lggr, workflowName, &workflowConfig, workflowFileLocation)
 
+		// Start workflow events subscriber
+		channel, listenerCtx, cancelFn, startErr := t_helpers.StartWorkflowEventsSubscriber(t.Context(), t_helpers.GetStandardWorkflowEventsSubscriberConfig(testEnv, workflowID))
+		require.NoError(t, startErr, "Failed to start workflow events subscriber")
+
+		// Wait for trigger to be up and running
 		triggersUpAndRunning := "Trigger RunSimpleEvmLogTriggerWorkflow called"
-		err := t_helpers.AssertBeholderMessage(listenerCtx, t, triggersUpAndRunning, lggr, messageChan, kafkaErrChan, 4*time.Minute)
-		require.NoError(t, err, "LogTrigger capability test failed, Beholder should not return an error")
+		err := t_helpers.AssertWorkflowEventMatched(listenerCtx, cancelFn, 2, channel, t_helpers.GetUserLogMatcherFn(triggersUpAndRunning), 4*time.Minute, lggr)
+		require.NoError(t, err, "LogTrigger capability test failed waiting for trigger to start")
 
 		message := "Data for log trigger"
-		// start background event emission every 10s while AssertBeholderMessage is running, so that the workflow has events to pick up eventually
+		// start background event emission every 10s while AssertWorkflowEventMatched is running, so that the workflow has events to pick up eventually
 		var emittedEventCount int64
 		ticker := time.NewTicker(10 * time.Second)
 		go func() {
@@ -266,8 +271,9 @@ func ExecuteEVMLogTriggerTest(t *testing.T, testEnv *ttypes.TestEnvironment) {
 				}
 			}
 		}()
+
 		expectedUserLog := "OnTrigger decoded message: message:" + message
-		err = t_helpers.AssertBeholderMessage(listenerCtx, t, expectedUserLog, lggr, messageChan, kafkaErrChan, 4*time.Minute)
+		err = t_helpers.AssertWorkflowEventMatched(listenerCtx, cancelFn, 2, channel, t_helpers.GetUserLogMatcherFn(expectedUserLog), 4*time.Minute, lggr)
 		require.NoError(t, err, "Expected user log test failed")
 
 		lggr.Info().Msgf("🎉 LogTrigger Workflow %s executed successfully on chain %s", workflowName, chainID)
