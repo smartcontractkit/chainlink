@@ -98,6 +98,9 @@ func GetChainReaderConfig(pubKeyStr string) (map[string]any, error) {
 					consts.MethodNameGetARM: {
 						Name:          "get_arm",
 						SignerAddress: fromAddress,
+						Params:        []codec.SuiFunctionParam{},
+						// response is from the package_id input
+						ResponseFromInputs: []string{"package_id"},
 					},
 				},
 			},
