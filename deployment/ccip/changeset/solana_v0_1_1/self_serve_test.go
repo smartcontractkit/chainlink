@@ -9,6 +9,7 @@ import (
 	"github.com/gagliardetto/solana-go/programs/token"
 
 	chainSelectors "github.com/smartcontractkit/chain-selectors"
+	"github.com/smartcontractkit/quarantine"
 	"github.com/stretchr/testify/require"
 
 	lockrelease "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/v0_1_1/lockrelease_token_pool"
@@ -43,6 +44,7 @@ func TestOnboardTokenPoolForSelfServeWithMCMs(t *testing.T) {
 }
 
 func TestOnboardTokenPoolForSelfServeWithoutMCMs(t *testing.T) {
+	quarantine.Flaky(t, "DX-2361")
 	t.Parallel()
 	doTestOnboardTokenPoolForSelfServe(t, false)
 }
