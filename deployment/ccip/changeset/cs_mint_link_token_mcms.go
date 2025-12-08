@@ -16,8 +16,7 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 )
 
-// This changeset is designed for chains where the LinkToken ownership has been
-// transferred to the MCMS timelock. It generates an MCMS proposal to mint tokens.
+// This changeset generates a proposal to mint LINK when LINK is already owned by MCMS
 var MintLinkTokenMCMS = cldf.CreateChangeSet(MintLinkTokenMCMSLogic, MintLinkTokenMCMSPreconditions)
 
 type MintLinkTokenMCMSConfig struct {
@@ -58,7 +57,6 @@ func MintLinkTokenMCMSPreconditions(e cldf.Environment, cfg MintLinkTokenMCMSCon
 	}
 
 	chainName := e.BlockChains.EVMChains()[cfg.Selector].Name()
-	// The mintOnLinkToken should never happen on Mainnet
 	if e.Name == "mainnet" || strings.Contains(chainName, "mainnet") {
 		return errors.New("minting on LINK token is not allowed on Mainnet")
 	}
@@ -74,7 +72,6 @@ func MintLinkTokenMCMSPreconditions(e cldf.Environment, cfg MintLinkTokenMCMSCon
 	return nil
 }
 
-// MintLinkTokenMCMSLogic is the main logic for generating an MCMS proposal to mint LINK tokens.
 func MintLinkTokenMCMSLogic(e cldf.Environment, cfg MintLinkTokenMCMSConfig) (cldf.ChangesetOutput, error) {
 	state, err := stateview.LoadOnchainState(e)
 	if err != nil {
@@ -88,7 +85,7 @@ func MintLinkTokenMCMSLogic(e cldf.Environment, cfg MintLinkTokenMCMSConfig) (cl
 
 	linkToken := chainState.LinkToken
 
-	// Create deployer group with MCMS config - this will generate proposals instead of executing directly
+	// Create deployer group with MCMS config - this will generate a proposal instead of executing directly
 	deployerGroup := deployergroup.NewDeployerGroup(e, state, cfg.MCMSConfig).
 		WithDeploymentContext(fmt.Sprintf("Mint %s LINK tokens to %s on chain %d",
 			cfg.Amount.String(), cfg.ToAddress.Hex(), cfg.Selector))
