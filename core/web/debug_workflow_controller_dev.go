@@ -13,35 +13,35 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/web/presenters"
 )
 
-// WorkflowsDebugController provides dev-only endpoints for accessing workflow execution data
-type WorkflowsDebugController struct {
+// DebugWorkflowController provides dev-only endpoints for accessing workflow execution data
+type DebugWorkflowController struct {
 	App chainlink.Application
 }
 
 // GetWorkflows returns all workflow IDs that have executions in the store
 // GET /v2/debug/workflow
-func (wdc *WorkflowsDebugController) GetWorkflows(c *gin.Context) {
+func (wdc *DebugWorkflowController) GetWorkflows(c *gin.Context) {
 	workflows := devobservability.GetStore().GetWorkflows()
-	jsonAPIResponse(c, presenters.NewWorkflowDebugWorkflowsResource(workflows), "workflows")
+	jsonAPIResponse(c, presenters.NewDebugWorkflowsResource(workflows), "workflows")
 }
 
 // GetStats returns statistics about the dev observability store
 // GET /v2/debug/workflow/stats
-func (wdc *WorkflowsDebugController) GetStats(c *gin.Context) {
+func (wdc *DebugWorkflowController) GetStats(c *gin.Context) {
 	stats := devobservability.GetStore().Stats()
-	jsonAPIResponse(c, presenters.NewWorkflowDebugStatsResource(stats), "stats")
+	jsonAPIResponse(c, presenters.NewDebugWorkflowStatsResource(stats), "stats")
 }
 
 // Clear clears all data from the dev observability store
 // DELETE /v2/workflows_debug
-func (wdc *WorkflowsDebugController) Clear(c *gin.Context) {
+func (wdc *DebugWorkflowController) Clear(c *gin.Context) {
 	devobservability.GetStore().Clear()
 	c.JSON(http.StatusNoContent, nil)
 }
 
 // GetOrphanEvents returns events that were emitted without workflow context
 // GET /v2/debug/workflow/orphan_events
-func (wdc *WorkflowsDebugController) GetOrphanEvents(c *gin.Context) {
+func (wdc *DebugWorkflowController) GetOrphanEvents(c *gin.Context) {
 	limit := 100 // Default limit
 	if limitStr := c.Query("limit"); limitStr != "" {
 		if parsedLimit, err := parseInt(limitStr); err == nil && parsedLimit > 0 {
@@ -53,15 +53,15 @@ func (wdc *WorkflowsDebugController) GetOrphanEvents(c *gin.Context) {
 
 	// Check if client wants formatted output (with decoded protobufs)
 	if c.Query("format") == "decoded" {
-		jsonAPIResponse(c, presenters.NewWorkflowDebugOrphanEventsFormattedResource(events), "orphan_events")
+		jsonAPIResponse(c, presenters.NewDebugWorkflowOrphanEventsFormattedResource(events), "orphan_events")
 	} else {
-		jsonAPIResponse(c, presenters.NewWorkflowDebugOrphanEventsResource(events), "orphan_events")
+		jsonAPIResponse(c, presenters.NewDebugWorkflowOrphanEventsResource(events), "orphan_events")
 	}
 }
 
 // GetWorkflowEvents returns workflow-level events
 // GET /v2/debug/workflow/:workflowID/events
-func (wdc *WorkflowsDebugController) GetWorkflowEvents(c *gin.Context) {
+func (wdc *DebugWorkflowController) GetWorkflowEvents(c *gin.Context) {
 	workflowID := c.Param("workflowID")
 
 	limit := 100 // Default limit
@@ -75,9 +75,9 @@ func (wdc *WorkflowsDebugController) GetWorkflowEvents(c *gin.Context) {
 
 	// Check if client wants formatted output (with decoded protobufs)
 	if c.Query("format") == "decoded" {
-		jsonAPIResponse(c, presenters.NewWorkflowDebugWorkflowEventsFormattedResource(workflowID, events), "workflow_events")
+		jsonAPIResponse(c, presenters.NewDebugWorkflowEventsFormattedResource(workflowID, events), "workflow_events")
 	} else {
-		jsonAPIResponse(c, presenters.NewWorkflowDebugWorkflowEventsResource(workflowID, events), "workflow_events")
+		jsonAPIResponse(c, presenters.NewDebugWorkflowEventsResource(workflowID, events), "workflow_events")
 	}
 }
 

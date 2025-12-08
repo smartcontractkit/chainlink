@@ -304,7 +304,7 @@ func v2Routes(app chainlink.Application, r *gin.RouterGroup) {
 			authv2.POST("/execute_capability", auth.RequiresRunRole(capContr.ExecuteCapability))
 
 			// Dev-only workflow debug API
-			wdc := WorkflowsDebugController{app}
+			wdc := DebugWorkflowController{app}
 			authv2.GET("/debug/workflow", wdc.GetWorkflows)
 			authv2.GET("/debug/workflow/stats", wdc.GetStats)
 			authv2.GET("/debug/workflow/orphan_events", wdc.GetOrphanEvents)

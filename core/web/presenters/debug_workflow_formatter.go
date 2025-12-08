@@ -24,14 +24,14 @@ type FormattedEventEntry struct {
 	DecodeError string                 `json:"decodeError,omitempty"`
 }
 
-// WorkflowDebugOrphanEventsFormattedResource represents orphan events with decoded protobufs
-type WorkflowDebugOrphanEventsFormattedResource struct {
+// DebugWorkflowOrphanEventsFormattedResource represents orphan events with decoded protobufs
+type DebugWorkflowOrphanEventsFormattedResource struct {
 	JAID
 	Events []FormattedEventEntry `json:"events"`
 }
 
-// NewWorkflowDebugOrphanEventsFormattedResource creates a formatted orphan events resource with decoded protobufs
-func NewWorkflowDebugOrphanEventsFormattedResource(events []devobservability.EventEntry) *WorkflowDebugOrphanEventsFormattedResource {
+// NewDebugWorkflowOrphanEventsFormattedResource creates a formatted orphan events resource with decoded protobufs
+func NewDebugWorkflowOrphanEventsFormattedResource(events []devobservability.EventEntry) *DebugWorkflowOrphanEventsFormattedResource {
 	formattedEvents := make([]FormattedEventEntry, len(events))
 
 	for i, evt := range events {
@@ -103,7 +103,7 @@ func NewWorkflowDebugOrphanEventsFormattedResource(events []devobservability.Eve
 		formattedEvents[i] = formatted
 	}
 
-	return &WorkflowDebugOrphanEventsFormattedResource{
+	return &DebugWorkflowOrphanEventsFormattedResource{
 		JAID:   NewJAID("orphan_events_formatted"),
 		Events: formattedEvents,
 	}
@@ -114,15 +114,15 @@ func (r WorkflowDebugOrphanEventsFormattedResource) GetName() string {
 	return "orphan_events_formatted"
 }
 
-// WorkflowDebugWorkflowEventsFormattedResource represents workflow-level events with decoded protobuf messages
-type WorkflowDebugWorkflowEventsFormattedResource struct {
+// DebugWorkflowEventsFormattedResource represents workflow-level events with decoded protobuf messages
+type DebugWorkflowEventsFormattedResource struct {
 	JAID
 	WorkflowID string                `json:"workflowId"`
 	Events     []FormattedEventEntry `json:"events"`
 }
 
-// NewWorkflowDebugWorkflowEventsFormattedResource creates a formatted workflow events resource with decoded protobufs
-func NewWorkflowDebugWorkflowEventsFormattedResource(workflowID string, events []devobservability.EventEntry) *WorkflowDebugWorkflowEventsFormattedResource {
+// NewDebugWorkflowEventsFormattedResource creates a formatted workflow events resource with decoded protobufs
+func NewDebugWorkflowEventsFormattedResource(workflowID string, events []devobservability.EventEntry) *DebugWorkflowEventsFormattedResource {
 	formattedEvents := make([]FormattedEventEntry, len(events))
 
 	for i, evt := range events {
@@ -185,7 +185,7 @@ func NewWorkflowDebugWorkflowEventsFormattedResource(workflowID string, events [
 		formattedEvents[i] = formatted
 	}
 
-	return &WorkflowDebugWorkflowEventsFormattedResource{
+	return &DebugWorkflowEventsFormattedResource{
 		JAID:       NewJAID("workflow_events_formatted"),
 		WorkflowID: workflowID,
 		Events:     formattedEvents,
@@ -193,6 +193,6 @@ func NewWorkflowDebugWorkflowEventsFormattedResource(workflowID string, events [
 }
 
 // GetName implements the api2go EntityNamer interface
-func (r WorkflowDebugWorkflowEventsFormattedResource) GetName() string {
+func (r DebugWorkflowEventsFormattedResource) GetName() string {
 	return "workflow_events_formatted"
 }
