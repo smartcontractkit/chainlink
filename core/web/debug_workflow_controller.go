@@ -13,35 +13,35 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/web/presenters"
 )
 
-// DebugWorkflowController provides dev-only endpoints for accessing workflow execution data
-type DebugWorkflowController struct {
+// WorkflowsDebugController provides dev-only endpoints for accessing workflow execution data
+type WorkflowsDebugController struct {
 	App chainlink.Application
 }
 
 // GetWorkflows returns all workflow IDs that have executions in the store
 // GET /v2/debug/workflow
-func (wdc *DebugWorkflowController) GetWorkflows(c *gin.Context) {
+func (wdc *WorkflowsDebugController) GetWorkflows(c *gin.Context) {
 	workflows := devobservability.GetStore().GetWorkflows()
 	jsonAPIResponse(c, presenters.NewDebugWorkflowsResource(workflows), "workflows")
 }
 
 // GetStats returns statistics about the dev observability store
 // GET /v2/debug/workflow/stats
-func (wdc *DebugWorkflowController) GetStats(c *gin.Context) {
+func (wdc *WorkflowsDebugController) GetStats(c *gin.Context) {
 	stats := devobservability.GetStore().Stats()
 	jsonAPIResponse(c, presenters.NewDebugWorkflowStatsResource(stats), "stats")
 }
 
 // Clear clears all data from the dev observability store
 // DELETE /v2/workflows_debug
-func (wdc *DebugWorkflowController) Clear(c *gin.Context) {
+func (wdc *WorkflowsDebugController) Clear(c *gin.Context) {
 	devobservability.GetStore().Clear()
 	c.JSON(http.StatusNoContent, nil)
 }
 
 // GetOrphanEvents returns events that were emitted without workflow context
 // GET /v2/debug/workflow/orphan_events
-func (wdc *DebugWorkflowController) GetOrphanEvents(c *gin.Context) {
+func (wdc *WorkflowsDebugController) GetOrphanEvents(c *gin.Context) {
 	limit := 100 // Default limit
 	if limitStr := c.Query("limit"); limitStr != "" {
 		if parsedLimit, err := parseInt(limitStr); err == nil && parsedLimit > 0 {
@@ -61,7 +61,7 @@ func (wdc *DebugWorkflowController) GetOrphanEvents(c *gin.Context) {
 
 // GetWorkflowEvents returns workflow-level events
 // GET /v2/debug/workflow/:workflowID/events
-func (wdc *DebugWorkflowController) GetWorkflowEvents(c *gin.Context) {
+func (wdc *WorkflowsDebugController) GetWorkflowEvents(c *gin.Context) {
 	workflowID := c.Param("workflowID")
 
 	limit := 100 // Default limit
@@ -86,9 +86,4 @@ func (wdc *DebugWorkflowController) GetWorkflowEvents(c *gin.Context) {
 	} else {
 		jsonAPIResponse(c, presenters.NewDebugWorkflowEventsResource(workflowID, events), "workflow_events")
 	}
-}
-
-func parseInt(s string) (int, error) {
-	i, err := strconv.Atoi(s)
-	return i, err
 }

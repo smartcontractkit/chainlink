@@ -43,61 +43,11 @@ func NewDebugWorkflowOrphanEventsFormattedResource(events []devobservability.Eve
 		}
 
 		// Try to decode the protobuf message based on event type
-		var protoMsg proto.Message
-		switch evt.Type {
-		case "workflows.v1.WorkflowExecutionStarted":
-			protoMsg = &workflowevents.WorkflowExecutionStarted{}
-		case "workflows.v1.WorkflowExecutionFinished":
-			protoMsg = &workflowevents.WorkflowExecutionFinished{}
-		case "workflows.v1.CapabilityExecutionStarted":
-			protoMsg = &workflowevents.CapabilityExecutionStarted{}
-		case "workflows.v1.CapabilityExecutionFinished":
-			protoMsg = &workflowevents.CapabilityExecutionFinished{}
-		case "workflows.v1.MeteringReport":
-			protoMsg = &workflowevents.MeteringReport{}
-		case "workflows.v1.WorkflowStatusChanged":
-			protoMsg = &workflowevents.WorkflowStatusChanged{}
-		case "workflows.v1.UserLogs":
-			protoMsg = &workflowevents.UserLogs{}
-		case "BaseMessage":
-			protoMsg = &commonevents.BaseMessage{}
-		case "workflows.v2.WorkflowExecutionStarted":
-			protoMsg = &eventsv2.WorkflowExecutionStarted{}
-		case "workflows.v2.WorkflowExecutionFinished":
-			protoMsg = &eventsv2.WorkflowExecutionFinished{}
-		case "workflows.v2.CapabilityExecutionStarted":
-			protoMsg = &eventsv2.CapabilityExecutionStarted{}
-		case "workflows.v2.CapabilityExecutionFinished":
-			protoMsg = &eventsv2.CapabilityExecutionFinished{}
-		case "workflows.v2.TriggerExecutionStarted":
-			protoMsg = &eventsv2.TriggerExecutionStarted{}
-		case "workflows.v2.WorkflowUserLog":
-			protoMsg = &eventsv2.WorkflowUserLog{}
-		case "workflows.v2.WorkflowActivated":
-			protoMsg = &eventsv2.WorkflowActivated{}
-		case "workflows.v2.WorkflowPaused":
-			protoMsg = &eventsv2.WorkflowPaused{}
-		case "workflows.v2.WorkflowDeleted":
-			protoMsg = &eventsv2.WorkflowDeleted{}
-		}
-
-		if protoMsg != nil {
-			if err := proto.Unmarshal(evt.Message, protoMsg); err != nil {
-				formatted.DecodeError = fmt.Sprintf("Failed to unmarshal protobuf: %v", err)
-			} else {
-				// Convert protobuf to JSON
-				jsonBytes, err := protojson.Marshal(protoMsg)
-				if err != nil {
-					formatted.DecodeError = fmt.Sprintf("Failed to convert to JSON: %v", err)
-				} else {
-					var jsonObj map[string]interface{}
-					if err := json.Unmarshal(jsonBytes, &jsonObj); err != nil {
-						formatted.DecodeError = fmt.Sprintf("Failed to parse JSON: %v", err)
-					} else {
-						formatted.MessageJSON = jsonObj
-					}
-				}
-			}
+		messageJSON, err := eventToJSON(evt)
+		if err == nil {
+			formatted.MessageJSON = messageJSON
+		} else {
+			formatted.DecodeError = err.Error()
 		}
 
 		formattedEvents[i] = formatted
@@ -110,7 +60,7 @@ func NewDebugWorkflowOrphanEventsFormattedResource(events []devobservability.Eve
 }
 
 // GetName implements the api2go EntityNamer interface
-func (r WorkflowDebugOrphanEventsFormattedResource) GetName() string {
+func (r DebugWorkflowOrphanEventsFormattedResource) GetName() string {
 	return "orphan_events_formatted"
 }
 
@@ -133,53 +83,11 @@ func NewDebugWorkflowEventsFormattedResource(workflowID string, events []devobse
 		}
 
 		// Try to decode the protobuf message based on event type
-		var protoMsg proto.Message
-		switch evt.Type {
-		case "workflows.v1.WorkflowExecutionStarted":
-			protoMsg = &workflowevents.WorkflowExecutionStarted{}
-		case "workflows.v1.WorkflowExecutionFinished":
-			protoMsg = &workflowevents.WorkflowExecutionFinished{}
-		case "workflows.v1.CapabilityExecutionStarted":
-			protoMsg = &workflowevents.CapabilityExecutionStarted{}
-		case "workflows.v1.CapabilityExecutionFinished":
-			protoMsg = &workflowevents.CapabilityExecutionFinished{}
-		case "workflows.v1.MeteringReport":
-			protoMsg = &workflowevents.MeteringReport{}
-		case "workflows.v1.WorkflowStatusChanged":
-			protoMsg = &workflowevents.WorkflowStatusChanged{}
-		case "workflows.v1.UserLogs":
-			protoMsg = &workflowevents.UserLogs{}
-		case "BaseMessage":
-			protoMsg = &commonevents.BaseMessage{}
-		case "workflows.v2.WorkflowExecutionStarted":
-			protoMsg = &eventsv2.WorkflowExecutionStarted{}
-		case "workflows.v2.WorkflowExecutionFinished":
-			protoMsg = &eventsv2.WorkflowExecutionFinished{}
-		case "workflows.v2.CapabilityExecutionStarted":
-			protoMsg = &eventsv2.CapabilityExecutionStarted{}
-		case "workflows.v2.CapabilityExecutionFinished":
-			protoMsg = &eventsv2.CapabilityExecutionFinished{}
-		case "workflows.v2.TriggerExecutionStarted":
-			protoMsg = &eventsv2.TriggerExecutionStarted{}
-		case "workflows.v2.WorkflowUserLog":
-			protoMsg = &eventsv2.WorkflowUserLog{}
-		case "workflows.v2.WorkflowActivated":
-			protoMsg = &eventsv2.WorkflowActivated{}
-		case "workflows.v2.WorkflowPaused":
-			protoMsg = &eventsv2.WorkflowPaused{}
-		case "workflows.v2.WorkflowDeleted":
-			protoMsg = &eventsv2.WorkflowDeleted{}
-		}
-
-		if protoMsg != nil {
-			if err := proto.Unmarshal(evt.Message, protoMsg); err == nil {
-				if jsonBytes, err := protojson.Marshal(protoMsg); err == nil {
-					var jsonObj map[string]interface{}
-					if err := json.Unmarshal(jsonBytes, &jsonObj); err == nil {
-						formatted.MessageJSON = jsonObj
-					}
-				}
-			}
+		messageJSON, err := eventToJSON(evt)
+		if err == nil {
+			formatted.MessageJSON = messageJSON
+		} else {
+			formatted.DecodeError = err.Error()
 		}
 
 		formattedEvents[i] = formatted
@@ -195,4 +103,58 @@ func NewDebugWorkflowEventsFormattedResource(workflowID string, events []devobse
 // GetName implements the api2go EntityNamer interface
 func (r DebugWorkflowEventsFormattedResource) GetName() string {
 	return "workflow_events_formatted"
+}
+
+func eventToJSON(event devobservability.EventEntry) (map[string]interface{}, error) {
+	var protoMsg proto.Message
+	switch event.Type {
+	case "workflows.v1.WorkflowExecutionStarted":
+		protoMsg = &workflowevents.WorkflowExecutionStarted{}
+	case "workflows.v1.WorkflowExecutionFinished":
+		protoMsg = &workflowevents.WorkflowExecutionFinished{}
+	case "workflows.v1.CapabilityExecutionStarted":
+		protoMsg = &workflowevents.CapabilityExecutionStarted{}
+	case "workflows.v1.CapabilityExecutionFinished":
+		protoMsg = &workflowevents.CapabilityExecutionFinished{}
+	case "workflows.v1.MeteringReport":
+		protoMsg = &workflowevents.MeteringReport{}
+	case "workflows.v1.WorkflowStatusChanged":
+		protoMsg = &workflowevents.WorkflowStatusChanged{}
+	case "workflows.v1.UserLogs":
+		protoMsg = &workflowevents.UserLogs{}
+	case "BaseMessage":
+		protoMsg = &commonevents.BaseMessage{}
+	case "workflows.v2.WorkflowExecutionStarted":
+		protoMsg = &eventsv2.WorkflowExecutionStarted{}
+	case "workflows.v2.WorkflowExecutionFinished":
+		protoMsg = &eventsv2.WorkflowExecutionFinished{}
+	case "workflows.v2.CapabilityExecutionStarted":
+		protoMsg = &eventsv2.CapabilityExecutionStarted{}
+	case "workflows.v2.CapabilityExecutionFinished":
+		protoMsg = &eventsv2.CapabilityExecutionFinished{}
+	case "workflows.v2.TriggerExecutionStarted":
+		protoMsg = &eventsv2.TriggerExecutionStarted{}
+	case "workflows.v2.WorkflowUserLog":
+		protoMsg = &eventsv2.WorkflowUserLog{}
+	case "workflows.v2.WorkflowActivated":
+		protoMsg = &eventsv2.WorkflowActivated{}
+	case "workflows.v2.WorkflowPaused":
+		protoMsg = &eventsv2.WorkflowPaused{}
+	case "workflows.v2.WorkflowDeleted":
+		protoMsg = &eventsv2.WorkflowDeleted{}
+	}
+
+	var err error
+	if protoMsg != nil {
+		if err = proto.Unmarshal(event.Message, protoMsg); err == nil {
+			if jsonBytes, err := protojson.Marshal(protoMsg); err == nil {
+				var jsonObj map[string]interface{}
+				if err = json.Unmarshal(jsonBytes, &jsonObj); err == nil {
+					return jsonObj, nil
+				}
+			}
+		}
+	}
+
+	return nil, fmt.Errorf("failed to convert event to JSON: %w", err)
 }

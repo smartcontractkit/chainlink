@@ -154,7 +154,7 @@ func (s *devStore) GetOrphanEvents(limit int) []EventEntry {
 	return allEvents[max(len(allEvents)-limit, 0):]
 }
 
-func (s *devStore) GetWorkflowEvents(workflowID string, limit int) []EventEntry {
+func (s *devStore) GetWorkflowEvents(workflowID string, limit int, minSequence int64) []EventEntry {
 	data, ok := s.cache.Get(workflowID)
 	if !ok {
 		return []EventEntry{}
@@ -173,6 +173,10 @@ func (s *devStore) GetWorkflowEvents(workflowID string, limit int) []EventEntry 
 	allEvents := make([]EventEntry, 0, len(keys))
 	for _, seq := range keys {
 		if evt, ok := data.eventsCache.Peek(seq); ok {
+			// Filter by minimum sequence if specified
+			if minSequence > 0 && evt.Sequence < minSequence {
+				continue
+			}
 			allEvents = append(allEvents, evt)
 		}
 	}
