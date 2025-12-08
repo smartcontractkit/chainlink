@@ -75,7 +75,10 @@ func StartJD(ctx context.Context, lggr zerolog.Logger, jdInput jd.Input, infraIn
 	} else if infraInput.IsKubernetes() {
 		// For Kubernetes, JD is already running in the cluster, generate service URLs
 		lggr.Info().Msg("Generating Kubernetes service URLs for Job Distributor (already running in cluster)")
-		jdOutput = infra.GenerateKubernetesJDOutput(&infraInput, lggr)
+		jdOutput, jdErr = infra.GenerateKubernetesJDOutput(&infraInput, lggr)
+		if jdErr != nil {
+			return nil, pkgerrors.Wrap(jdErr, "failed to generate Kubernetes JD output")
+		}
 	}
 
 	// Only start JD container for Docker provider

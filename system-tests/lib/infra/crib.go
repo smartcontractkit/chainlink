@@ -78,6 +78,24 @@ func (i *Provider) ExternalGatewayHost() string {
 	return "localhost"
 }
 
+// GetNodeCredentials returns the appropriate API credentials for the infrastructure type
+func (i *Provider) GetNodeCredentials() (apiUser, apiPassword string) {
+	if i.IsKubernetes() && i.Kubernetes.NodeAPIUser != "" {
+		apiUser = i.Kubernetes.NodeAPIUser
+	}
+	if i.IsKubernetes() && i.Kubernetes.NodeAPIPassword != "" {
+		apiPassword = i.Kubernetes.NodeAPIPassword
+	}
+	if apiUser == "" {
+		apiUser = "admin@chain.link" // Default for testing
+	}
+	if apiPassword == "" {
+		apiPassword = "password" // Default for testing
+	}
+
+	return apiUser, apiPassword
+}
+
 func (i *Provider) ExternalGatewayPort(dockerPort int) int {
 	if i.IsCRIB() || i.IsKubernetes() {
 		return 80

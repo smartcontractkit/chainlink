@@ -141,7 +141,6 @@ func SetupTestEnvironment(
 		singleFileLogger,
 		input.BlockchainsInput,
 		input.BlockchainDeployers,
-		&input.Provider,
 	)
 	if startErr != nil {
 		return nil, pkgerrors.Wrap(startErr, "failed to start blockchains")
@@ -234,30 +233,7 @@ func SetupTestEnvironment(
 	})
 
 	donsStartedFuture := queue.SubmitAny(func(ctx context.Context) (any, error) {
-		// Get node API credentials from config, environment, or use defaults
-		apiUser := ""
-		if input.Provider.Kubernetes != nil && input.Provider.Kubernetes.NodeAPIUser != "" {
-			apiUser = input.Provider.Kubernetes.NodeAPIUser
-		}
-		if apiUser == "" {
-			apiUser = os.Getenv("CL_NODE_API_USER")
-		}
-		if apiUser == "" {
-			apiUser = "admin@chain.link" // Required default for testing
-		}
-
-		apiPassword := ""
-		if input.Provider.Kubernetes != nil && input.Provider.Kubernetes.NodeAPIPassword != "" {
-			apiPassword = input.Provider.Kubernetes.NodeAPIPassword
-		}
-		if apiPassword == "" {
-			apiPassword = os.Getenv("CL_NODE_API_PASSWORD")
-		}
-		if apiPassword == "" {
-			apiPassword = "password" // Required default for testing
-		}
-
-		nodeSetOutput, startDonsErr := StartDONs(ctx, testLogger, topology, input.Provider, deployedBlockchains.RegistryChain().CtfOutput(), input.CapabilityConfigs, input.CopyCapabilityBinaries, updatedNodeSets, apiUser, apiPassword)
+		nodeSetOutput, startDonsErr := StartDONs(ctx, testLogger, topology, input.Provider, deployedBlockchains.RegistryChain().CtfOutput(), input.CapabilityConfigs, input.CopyCapabilityBinaries, updatedNodeSets)
 		if startDonsErr != nil {
 			return nil, pkgerrors.Wrap(startDonsErr, "failed to start DONs")
 		}
@@ -378,7 +354,7 @@ func SetupTestEnvironment(
 	wfFiltersFuture := queue.SubmitErr(func(ctx context.Context) error {
 		// we currently have no way of checking if filters were registered, when code runs in CRIB or Kubernetes
 		// as we don't have a way to get its database connection string
-		if input.Provider.Type == infra.CRIB || input.Provider.IsKubernetes() {
+		if !input.Provider.IsDocker() {
 			return nil
 		}
 

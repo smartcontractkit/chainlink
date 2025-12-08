@@ -56,9 +56,9 @@ func StartDONs(
 	capabilityConfigs cre.CapabilityConfigs,
 	copyCapabilityBinaries bool,
 	nodeSets []*cre.NodeSet,
-	apiUser, apiPassword string,
 ) (*StartedDONs, error) {
-	if infraInput.Type == infra.CRIB {
+	switch infraInput.Type {
+	case infra.CRIB:
 		deployCribDonsInput := &crib.DeployCribDonsInput{
 			Topology:       topology,
 			NodeSet:        nodeSets,
@@ -71,7 +71,7 @@ func StartDONs(
 		if devspaceErr != nil {
 			return nil, pkgerrors.Wrap(devspaceErr, "failed to deploy Dons with crib-sdk")
 		}
-	} else if infraInput.IsKubernetes() {
+	case infra.Kubernetes:
 		// For Kubernetes, DONs are already running in the cluster, generate service URLs
 		lggr.Info().Msg("Generating Kubernetes service URLs for DONs (already running in cluster)")
 		for idx, nodeSet := range nodeSets {
@@ -83,12 +83,13 @@ func StartDONs(
 				nodeMetadataRoles[i] = nodeMeta.HasRole(cre.BootstrapNode)
 			}
 
+			apiUser, apiPassword := infraInput.GetNodeCredentials()
 			nodeSet.Out = infra.GenerateKubernetesNodeSetOutput(&infraInput, nodeSet.Name, nodeSet.Nodes, nodeMetadataRoles, apiUser, apiPassword, lggr)
 		}
 	}
 
 	// Skip binary operations for Kubernetes (binaries are in the cluster images)
-	if !infraInput.IsKubernetes() {
+	if infraInput.IsDocker() {
 		for donIdx, donMetadata := range topology.DonsMetadata.List() {
 			if !copyCapabilityBinaries {
 				continue

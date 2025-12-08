@@ -54,7 +54,6 @@ func Start(
 	commonLogger logger.Logger,
 	inputs []*blockchain.Input,
 	deployers map[blockchain.ChainFamily]Deployer,
-	provider *infra.Provider,
 ) (*DeployedBlockchains, error) {
 	outputs := make([]Blockchain, 0, len(inputs))
 

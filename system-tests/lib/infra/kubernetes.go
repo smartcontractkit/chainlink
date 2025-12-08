@@ -67,12 +67,12 @@ func GetKubernetesClient() (*kubernetes.Clientset, error) {
 }
 
 // GenerateKubernetesJDOutput generates JD service URLs for Kubernetes-deployed Job Distributor
-func GenerateKubernetesJDOutput(infraInput *Provider, lggr zerolog.Logger) *jd.Output {
-	externalDomain := ""
-
-	if infraInput.Kubernetes != nil {
-		externalDomain = infraInput.Kubernetes.ExternalDomain
+func GenerateKubernetesJDOutput(infraInput *Provider, lggr zerolog.Logger) (*jd.Output, error) {
+	if infraInput.Kubernetes == nil {
+		return nil, fmt.Errorf("Kubernetes configuration is required for GenerateKubernetesJDOutput")
 	}
+
+	externalDomain := infraInput.Kubernetes.ExternalDomain
 
 	// Kubernetes service naming for JD
 	// Internal URLs use short service names (no namespace suffix) - they're accessed from within same namespace
@@ -83,11 +83,7 @@ func GenerateKubernetesJDOutput(infraInput *Provider, lggr zerolog.Logger) *jd.O
 	externalGRPCUrl := internalGRPCUrl
 	if externalDomain != "" {
 		// Use external domain - just hostname:port (no protocol prefix)
-		namespace := ""
-		if infraInput.Kubernetes != nil {
-			namespace = infraInput.Kubernetes.Namespace
-		}
-		externalGRPCUrl = fmt.Sprintf("%s-job-distributor-grpc.%s:443", namespace, externalDomain)
+		externalGRPCUrl = fmt.Sprintf("%s-job-distributor-grpc.%s:443", infraInput.Kubernetes.Namespace, externalDomain)
 	}
 
 	lggr.Info().Msgf("Generated JD URLs - External GRPC: %s, Internal GRPC: %s, Internal WSRPC: %s",
@@ -98,7 +94,7 @@ func GenerateKubernetesJDOutput(infraInput *Provider, lggr zerolog.Logger) *jd.O
 		ExternalGRPCUrl:  externalGRPCUrl,
 		InternalGRPCUrl:  internalGRPCUrl,
 		InternalWSRPCUrl: internalWSRPCUrl,
-	}
+	}, nil
 }
 
 // GenerateNodeInstanceNames creates Kubernetes-compatible instance names for nodes
