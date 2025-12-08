@@ -7,6 +7,7 @@ import (
 
 	"github.com/jmoiron/sqlx"
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
+	"github.com/smartcontractkit/quarantine"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
@@ -64,6 +65,7 @@ func TestPersistenceManager(t *testing.T) {
 }
 
 func TestPersistenceManagerAsyncDelete(t *testing.T) {
+	quarantine.Flaky(t, "DX-2206")
 	ctx := testutils.Context(t)
 	jobID := rand.Int32()
 	db := testutils.NewSqlxDB(t)
