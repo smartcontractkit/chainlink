@@ -213,7 +213,10 @@ func Test_workflowRegisteredHandler(t *testing.T) {
 					signedConfigURL:                      {Body: config, Err: nil},
 				})
 			},
-			engineFactoryFn: func(ctx context.Context, wfid string, owner string, name types.WorkflowName, tag string, config []byte, binary []byte) (services.Service, error) {
+			engineFactoryFn: func(ctx context.Context, wfid string, owner string, name types.WorkflowName, tag string, config []byte, binary []byte, initDone chan<- error) (services.Service, error) {
+				if initDone != nil {
+					initDone <- nil
+				}
 				return &mockEngine{}, nil
 			},
 			GiveConfig:       config,
@@ -248,13 +251,16 @@ func Test_workflowRegisteredHandler(t *testing.T) {
 					signedConfigURL:                      {Body: config, Err: nil},
 				})
 			},
-			engineFactoryFn: func(ctx context.Context, wfid string, owner string, name types.WorkflowName, tag string, config []byte, binary []byte) (services.Service, error) {
+			engineFactoryFn: func(ctx context.Context, wfid string, owner string, name types.WorkflowName, tag string, config []byte, binary []byte, initDone chan<- error) (services.Service, error) {
 				if _, err := hex.DecodeString(name.Hex()); err != nil {
 					return nil, fmt.Errorf("invalid workflow name: %w", err)
 				}
 				want := hex.EncodeToString([]byte(pkgworkflows.HashTruncateName(name.String())))
 				if want != name.Hex() {
 					return nil, fmt.Errorf("invalid workflow name: doesn't match, got %s, want %s", name.Hex(), want)
+				}
+				if initDone != nil {
+					initDone <- nil
 				}
 				return &mockEngine{}, nil
 			},
@@ -289,7 +295,10 @@ func Test_workflowRegisteredHandler(t *testing.T) {
 					signedConfigURL:                      {Body: config, Err: nil},
 				})
 			},
-			engineFactoryFn: func(ctx context.Context, wfid string, owner string, name types.WorkflowName, tag string, config []byte, binary []byte) (services.Service, error) {
+			engineFactoryFn: func(ctx context.Context, wfid string, owner string, name types.WorkflowName, tag string, config []byte, binary []byte, initDone chan<- error) (services.Service, error) {
+				if initDone != nil {
+					initDone <- nil
+				}
 				return &mockEngine{StartErr: assert.AnError}, nil
 			},
 			GiveConfig:       config,
@@ -606,7 +615,7 @@ type testCase struct {
 	fetcherFactory   func(wfID []byte) *mockFetcher
 	Event            func(wfID []byte) WorkflowRegisteredEvent
 	validationFn     func(t *testing.T, ctx context.Context, event WorkflowRegisteredEvent, h *eventHandler, s *artifacts.Store, wfOwner []byte, wfName string, wfID types.WorkflowID, fetcher *mockFetcher, binaryURL string, configURL string)
-	engineFactoryFn  func(ctx context.Context, wfid string, owner string, name types.WorkflowName, tag string, config []byte, binary []byte) (services.Service, error)
+	engineFactoryFn  func(ctx context.Context, wfid string, owner string, name types.WorkflowName, tag string, config []byte, binary []byte, initDone chan<- error) (services.Service, error)
 }
 
 func testRunningWorkflow(t *testing.T, tc testCase) {
@@ -1037,7 +1046,10 @@ func Test_Handler_OrganizationID(t *testing.T) {
 
 	h, err := NewEventHandler(lggr, store, nil, true, registry, er, emitter, limiters, rl, workflowLimits, artifactStore, workflowEncryptionKey, &testDonNotifier{},
 		WithEngineRegistry(er),
-		WithEngineFactoryFn(func(ctx context.Context, wfid string, owner string, name types.WorkflowName, tag string, config []byte, binary []byte) (services.Service, error) {
+		WithEngineFactoryFn(func(ctx context.Context, wfid string, owner string, name types.WorkflowName, tag string, config []byte, binary []byte, initDone chan<- error) (services.Service, error) {
+			if initDone != nil {
+				initDone <- nil
+			}
 			return &mockEngine{}, nil
 		}),
 		WithOrgResolver(orgResolver),
@@ -1106,7 +1118,10 @@ func Test_Handler_OrganizationID(t *testing.T) {
 
 		hDelete, err := NewEventHandler(lggr, store, nil, true, registry, er, deleteEmitter, limiters, rl, workflowLimits, deleteArtifactStore, workflowEncryptionKey, &testDonNotifier{},
 			WithEngineRegistry(er),
-			WithEngineFactoryFn(func(ctx context.Context, wfid string, owner string, name types.WorkflowName, tag string, config []byte, binary []byte) (services.Service, error) {
+			WithEngineFactoryFn(func(ctx context.Context, wfid string, owner string, name types.WorkflowName, tag string, config []byte, binary []byte, initDone chan<- error) (services.Service, error) {
+				if initDone != nil {
+					initDone <- nil
+				}
 				return &mockEngine{}, nil
 			}),
 			WithOrgResolver(orgResolver),

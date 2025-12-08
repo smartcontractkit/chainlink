@@ -222,6 +222,8 @@ type EngineLimits struct {
 }
 
 type LifecycleHooks struct {
+	// OnInitialized is used to emit a workflowActivated event after the engine
+	// has completed initialization. It is also helpful for testing.
 	OnInitialized          func(err error)
 	OnSubscribedToTriggers func(triggerIDs []string)
 	OnExecutionFinished    func(executionID string, status string)
