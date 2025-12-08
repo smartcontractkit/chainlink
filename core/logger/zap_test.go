@@ -3,6 +3,7 @@ package logger
 import (
 	"fmt"
 	"os"
+	"runtime"
 	"strings"
 	"testing"
 	"time"
@@ -244,6 +245,8 @@ func TestZapLogger_LogCaller(t *testing.T) {
 	lggr := newTestLogger(t, local)
 
 	lggr.Debug("test message with caller")
+	_, _, lineCall, ok := runtime.Caller(0)
+	require.True(t, ok)
 
 	pollChan <- time.Now()
 	<-local.testDiskLogLvlChan
@@ -255,7 +258,7 @@ func TestZapLogger_LogCaller(t *testing.T) {
 	logs := string(b)
 	lines := strings.Split(logs, "\n")
 
-	require.Contains(t, lines[0], "logger/zap_test.go:246")
+	require.Contains(t, lines[0], fmt.Sprintf("logger/zap_test.go:%d\ttest message with caller", lineCall-1))
 }
 
 func TestZapLogger_Name(t *testing.T) {
@@ -266,4 +269,23 @@ func TestZapLogger_Name(t *testing.T) {
 	require.Equal(t, "Lggr1", lggr1.Name())
 	lggr2 := lggr1.Named("Lggr2")
 	require.Equal(t, "Lggr1.Lggr2", lggr2.Name())
+}
+
+func TestZapLogger_Cleanup(t *testing.T) {
+	ac := NewAtomicCore()
+	defer ac.Close()
+	l := 1000000
+	for range l {
+		ac.With([]zapcore.Field{})
+	}
+	// Without the cleanup triggered, all children should remain.
+	// We assume that the cleanupInterval is sufficiently large to not yet trigger.
+	require.Equal(t, len(ac.children), l)
+
+	// Trigger cleanup manually.
+	runtime.GC()
+	ac.cleanup()
+	// Ideally, ac.children should be 0 here, but since garbage collected weak pointers are not necessarily nil we just
+	// test that some have been cleaned up.
+	require.Less(t, len(ac.children), l)
 }

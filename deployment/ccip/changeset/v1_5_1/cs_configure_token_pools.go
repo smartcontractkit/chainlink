@@ -213,6 +213,18 @@ func (c SuiChainUpdate) GetSuiTokenAndTokenPool(state suistate.CCIPChainState) (
 			return "", "", fmt.Errorf("no BnM token pool found for token: %s", c.TokenSymbol)
 		}
 		tpAddress = poolState.PackageID
+	case suistate.SuiManagedTokenPoolType:
+		poolState, ok := state.ManagedTokenPools[c.TokenSymbol]
+		if !ok {
+			return "", "", fmt.Errorf("no Managed token pool found for token: %s", c.TokenSymbol)
+		}
+		tpAddress = poolState.PackageID
+	case suistate.SuiLnRTokenPoolType:
+		poolState, ok := state.LnRTokenPools[c.TokenSymbol]
+		if !ok {
+			return "", "", fmt.Errorf("no LockRelease token pool found for token: %s", c.TokenSymbol)
+		}
+		tpAddress = poolState.PackageID
 	default:
 		return "", "", fmt.Errorf("unknown Aptos token pool type %s", c.Type)
 	}

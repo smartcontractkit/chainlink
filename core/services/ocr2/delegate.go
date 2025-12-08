@@ -34,6 +34,7 @@ import (
 	ocr2keepers21config "github.com/smartcontractkit/chainlink-automation/pkg/v3/config"
 	ocr2keepers21 "github.com/smartcontractkit/chainlink-automation/pkg/v3/plugin"
 	evmconfig "github.com/smartcontractkit/chainlink-evm/pkg/config"
+
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/vault/vaulttypes"
 	"github.com/smartcontractkit/chainlink/v2/core/config/env"
 	syncerV2 "github.com/smartcontractkit/chainlink/v2/core/services/workflows/syncer/v2"
@@ -200,6 +201,7 @@ type ocr2Config interface {
 	KeyBundleID() (string, error)
 	SimulateTransactions() bool
 	TraceLogging() bool
+	SampleTelemetry() bool
 	CaptureAutomationCustomTelemetry() bool
 	AllowNoBootstrappers() bool
 	KeyValueStoreRootDir() string
@@ -1447,6 +1449,7 @@ func (d *Delegate) newServicesLLO(
 		ChainID:                  rid.ChainID,
 
 		TraceLogging:                 d.cfg.OCR2().TraceLogging(),
+		SampleTelemetry:              d.cfg.OCR2().SampleTelemetry(),
 		BinaryNetworkEndpointFactory: d.peerWrapper.Peer2,
 		V2Bootstrappers:              bootstrapPeers,
 		ContractTransmitter:          provider.ContractTransmitter(),

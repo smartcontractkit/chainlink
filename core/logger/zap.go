@@ -4,6 +4,7 @@ import (
 	"os"
 	"slices"
 	"sync"
+	"time"
 	"weak"
 
 	pkgerrors "github.com/pkg/errors"
@@ -15,15 +16,24 @@ import (
 // It starts as a noop core and can be atomically swapped to include additional cores.
 var _ zapcore.Core = &AtomicCore{}
 
+const cleanupInterval = time.Minute * 5
+
 type AtomicCore struct {
-	mu       sync.RWMutex
-	core     zapcore.Core
-	children []weak.Pointer[withCore]
+	mu          sync.RWMutex
+	core        zapcore.Core
+	children    []weak.Pointer[withCore]
+	stopCleanup chan struct{}
+	cleanupWg   sync.WaitGroup
 }
 
 // NewAtomicCore creates a new AtomicCore initialized with a noop core
 func NewAtomicCore() *AtomicCore {
-	return &AtomicCore{core: zapcore.NewNopCore()}
+	ac := &AtomicCore{
+		core:        zapcore.NewNopCore(),
+		stopCleanup: make(chan struct{}),
+	}
+	ac.startPeriodicCleanup()
+	return ac
 }
 
 func (d *AtomicCore) Store(core zapcore.Core) {
@@ -64,6 +74,42 @@ func (d *AtomicCore) Check(e zapcore.Entry, ce *zapcore.CheckedEntry) *zapcore.C
 func (d *AtomicCore) Write(e zapcore.Entry, fs []zapcore.Field) error { return d.load().Write(e, fs) }
 
 func (d *AtomicCore) Sync() error { return d.load().Sync() }
+
+func (d *AtomicCore) Close() {
+	close(d.stopCleanup)
+	d.cleanupWg.Wait()
+}
+
+func (d *AtomicCore) cleanup() {
+	var wg sync.WaitGroup
+	defer wg.Wait()
+	d.mu.Lock()
+	defer d.mu.Unlock()
+	d.children = slices.DeleteFunc(d.children, func(p weak.Pointer[withCore]) bool {
+		c := p.Value()
+		if c == nil {
+			return true
+		}
+		wg.Go(c.cleanup)
+		return false
+	})
+}
+
+func (d *AtomicCore) startPeriodicCleanup() {
+	d.cleanupWg.Go(func() {
+		ticker := time.NewTicker(cleanupInterval)
+		defer ticker.Stop()
+
+		for {
+			select {
+			case <-ticker.C:
+				d.cleanup()
+			case <-d.stopCleanup:
+				return
+			}
+		}
+	})
+}
 
 type withCore struct {
 	fields []zapcore.Field
