@@ -11,10 +11,13 @@ WORKDIR /chainlink
 
 COPY GNUmakefile package.json ./
 COPY tools/bin/ldflags ./tools/bin/
+COPY ./plugins/scripts/setup_git_auth.sh ./
 
 ADD go.mod go.sum ./
 RUN --mount=type=cache,target=/go/pkg/mod \
-    go mod download
+    --mount=type=secret,id=GIT_AUTH_TOKEN \
+    ./setup_git_auth.sh && \
+    GOPRIVATE=github.com/smartcontractkit/*  go mod download
 COPY . .
 
 # Install Delve for debugging with cache mounts
