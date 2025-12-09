@@ -127,7 +127,12 @@ func (w *withCore) Store(core zapcore.Core) {
 	defer w.mu.Unlock()
 	w.core = core.With(w.fields)
 	for p := range w.children {
-		p.Value().Store(w.core)
+		c := p.Value()
+		if c == nil {
+			delete(w.children, p)
+			continue
+		}
+		c.Store(w.core)
 	}
 }
 
