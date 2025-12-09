@@ -18220,7 +18220,7 @@ BlockHistoryBatchLoadSize = 20 # Default
 ComputeUnitLimitDefault = 200_000 # Default
 EstimateComputeUnitLimit = false # Default
 LogPollerStartingLookback = '24h0m0s' # Default
-LogPoller2538Enabled = false # Default
+LogPoller2538Enabled = true # Default
 ```
 
 
@@ -18389,7 +18389,7 @@ LogPollerStartingLookback
 
 ### LogPoller2538Enabled
 ```toml
-LogPoller2538Enabled = false # Default
+LogPoller2538Enabled = true # Default
 ```
 LogPoller2538Enabled
 
@@ -18711,4 +18711,3 @@ URL is the base HTTP(S) endpoint for this node.
 APIKey = 'key' # Example
 ```
 APIKey Header is optional and only required for Nethermind RPCs
-

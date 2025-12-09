@@ -59,7 +59,7 @@ EstimateComputeUnitLimit = false # Default
 # LogPollerStartingLookback
 LogPollerStartingLookback = '24h0m0s' # Default
 # LogPoller2538Enabled
-LogPoller2538Enabled = false # Default
+LogPoller2538Enabled = true # Default
 
 [Solana.Workflow]
 # AcceptanceTimeout is the default timeout for a tranmission to be accepted on chain
