@@ -164,7 +164,7 @@ func keysFromMap(m map[string]blockchains.Blockchain) []string {
 	return keys
 }
 
-func emitEvent(t *testing.T, lggr zerolog.Logger, chainID string, bcOutput blockchains.Blockchain, msgEmitter *evmreadcontracts.MessageEmitter, expectedUserLog string, workflowConfig evm_logTrigger_config.Config) uint64 {
+func emitEvent(ctx context.Context, lggr zerolog.Logger, chainID string, bcOutput blockchains.Blockchain, msgEmitter *evmreadcontracts.MessageEmitter, expectedUserLog string, workflowConfig evm_logTrigger_config.Config) uint64 {
 	lggr.Info().Msgf("Emitting event to be picked up by workflow for chain '%s'", chainID)
 	sethClient := bcOutput.(*evm.Blockchain).SethClient
 	emittingTx, err := msgEmitter.EmitMessage(sethClient.NewTXOpts(), expectedUserLog)
@@ -173,7 +173,7 @@ func emitEvent(t *testing.T, lggr zerolog.Logger, chainID string, bcOutput block
 		return 0
 	}
 
-	emittingReceipt, err := sethClient.WaitMined(t.Context(), lggr, sethClient.Client, emittingTx)
+	emittingReceipt, err := sethClient.WaitMined(ctx, lggr, sethClient.Client, emittingTx)
 	if err != nil {
 		lggr.Info().Msgf("Failed to emit receipt for chain '%s': %v", chainID, err)
 		return 0
@@ -270,6 +270,7 @@ func ExecuteEVMLogTriggerTest(t *testing.T, testEnv *ttypes.TestEnvironment) {
 				// to prevent nonce conflicts during cleanup, since event-emitting transaction
 				// might be in-flight, when context is cancelled and workflow deletion in clean up
 				// might fail with `nonce too low`.
+				lggr.Info().Msgf("Checking for pending transactions before goroutine exits for chain %s", chainID)
 				sethClient := bcOutput.(*evm.Blockchain).SethClient
 				txOpts := sethClient.NewTXOpts()
 
@@ -280,18 +281,20 @@ func ExecuteEVMLogTriggerTest(t *testing.T, testEnv *ttypes.TestEnvironment) {
 					cancel()
 
 					if err1 != nil || err2 != nil {
-						lggr.Warn().Msgf("Failed to check nonces for chain %s: %v, %v", chainID, err1, err2)
-						break
+						lggr.Warn().Msgf("Failed to check nonces for chain %s (attempt %d/30): %v, %v", chainID, i+1, err1, err2)
+						time.Sleep(2 * time.Second)
+						continue
 					}
 
 					if pendingNonce == lastNonce {
-						lggr.Info().Msgf("No pending transactions for chain %s", chainID)
+						lggr.Info().Msgf("No pending transactions for chain %s (pending: %d, last: %d)", chainID, pendingNonce, lastNonce)
 						break
 					}
 
-					lggr.Info().Msgf("Waiting for pending transactions (pending: %d, last: %d) for chain %s", pendingNonce, lastNonce, chainID)
+					lggr.Warn().Msgf("Waiting for pending transactions (pending: %d, last: %d) for chain %s (attempt %d/30)", pendingNonce, lastNonce, chainID, i+1)
 					time.Sleep(2 * time.Second)
 				}
+				lggr.Info().Msgf("Finished checking for pending transactions for chain %s", chainID)
 			}()
 			for {
 				select {
@@ -299,7 +302,7 @@ func ExecuteEVMLogTriggerTest(t *testing.T, testEnv *ttypes.TestEnvironment) {
 					return
 				case <-ticker.C:
 					lggr.Info().Msgf("About to emit event #%d for chain %s", emittedEventCount, chainID)
-					blockNumber := emitEvent(t, lggr, chainID, bcOutput, msgEmitter, message, workflowConfig)
+					blockNumber := emitEvent(listenerCtx, lggr, chainID, bcOutput, msgEmitter, message, workflowConfig)
 					lggr.Info().Msgf("Event emitted for chain %s at blockNumber %d", chainID, blockNumber)
 					emittedEventCount++
 				}
