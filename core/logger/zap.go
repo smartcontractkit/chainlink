@@ -2,140 +2,18 @@ package logger
 
 import (
 	"os"
-	"slices"
-	"sync"
-	"time"
-	"weak"
 
 	pkgerrors "github.com/pkg/errors"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
 )
 
-// AtomicCore provides thread-safe core swapping using atomic operations.
-// It starts as a noop core and can be atomically swapped to include additional cores.
-var _ zapcore.Core = &AtomicCore{}
-
-const cleanupInterval = time.Minute * 5
-
-type AtomicCore struct {
-	mu          sync.RWMutex
-	core        zapcore.Core
-	children    []weak.Pointer[withCore]
-	stopCleanup chan struct{}
-	cleanupWg   sync.WaitGroup
-}
-
-// NewAtomicCore creates a new AtomicCore initialized with a noop core
-func NewAtomicCore() *AtomicCore {
-	ac := &AtomicCore{
-		core:        zapcore.NewNopCore(),
-		stopCleanup: make(chan struct{}),
-	}
-	ac.startPeriodicCleanup()
-	return ac
-}
-
-func (d *AtomicCore) Store(core zapcore.Core) {
-	d.mu.Lock()
-	defer d.mu.Unlock()
-	d.core = core
-	d.children = slices.DeleteFunc(d.children, func(p weak.Pointer[withCore]) bool {
-		c := p.Value()
-		if c == nil {
-			return true
-		}
-		c.Store(d.core)
-		return false
-	})
-}
-
-func (d *AtomicCore) load() zapcore.Core {
-	d.mu.RLock()
-	defer d.mu.RUnlock()
-	return d.core
-}
-
-func (d *AtomicCore) Enabled(l zapcore.Level) bool { return d.load().Enabled(l) }
-
-func (d *AtomicCore) With(fs []zapcore.Field) zapcore.Core {
-	d.mu.Lock()
-	defer d.mu.Unlock()
-	coreWithFields := d.core.With(fs)
-	w := &withCore{fields: fs, AtomicCore: AtomicCore{core: coreWithFields}}
-	d.children = append(d.children, weak.Make(w))
-	return w
-}
-
-func (d *AtomicCore) Check(e zapcore.Entry, ce *zapcore.CheckedEntry) *zapcore.CheckedEntry {
-	return d.load().Check(e, ce)
-}
-
-func (d *AtomicCore) Write(e zapcore.Entry, fs []zapcore.Field) error { return d.load().Write(e, fs) }
-
-func (d *AtomicCore) Sync() error { return d.load().Sync() }
-
-func (d *AtomicCore) Close() {
-	close(d.stopCleanup)
-	d.cleanupWg.Wait()
-}
-
-func (d *AtomicCore) cleanup() {
-	var wg sync.WaitGroup
-	defer wg.Wait()
-	d.mu.Lock()
-	defer d.mu.Unlock()
-	d.children = slices.DeleteFunc(d.children, func(p weak.Pointer[withCore]) bool {
-		c := p.Value()
-		if c == nil {
-			return true
-		}
-		wg.Go(c.cleanup)
-		return false
-	})
-}
-
-func (d *AtomicCore) startPeriodicCleanup() {
-	d.cleanupWg.Go(func() {
-		ticker := time.NewTicker(cleanupInterval)
-		defer ticker.Stop()
-
-		for {
-			select {
-			case <-ticker.C:
-				d.cleanup()
-			case <-d.stopCleanup:
-				return
-			}
-		}
-	})
-}
-
-type withCore struct {
-	fields []zapcore.Field
-	AtomicCore
-}
-
-func (w *withCore) Store(core zapcore.Core) {
-	w.mu.Lock()
-	defer w.mu.Unlock()
-	w.core = core.With(w.fields)
-	w.children = slices.DeleteFunc(w.children, func(p weak.Pointer[withCore]) bool {
-		c := p.Value()
-		if c == nil {
-			return true
-		}
-		c.Store(w.core)
-		return false
-	})
-}
-
 var _ Logger = &zapLogger{}
 
 type zapLogger struct {
 	*zap.SugaredLogger
 	level      zap.AtomicLevel
-	fields     []any
+	fields     []interface{}
 	callerSkip int
 }
 
@@ -155,7 +33,7 @@ func (l *zapLogger) SetLogLevel(lvl zapcore.Level) {
 	l.level.SetLevel(lvl)
 }
 
-func (l *zapLogger) With(args ...any) Logger {
+func (l *zapLogger) With(args ...interface{}) Logger {
 	newLogger := *l
 	newLogger.SugaredLogger = l.SugaredLogger.With(args...)
 	newLogger.fields = copyFields(l.fields, args...)
@@ -163,8 +41,8 @@ func (l *zapLogger) With(args ...any) Logger {
 }
 
 // copyFields returns a copy of fields with add appended.
-func copyFields(fields []any, add ...any) []any {
-	f := make([]any, 0, len(fields)+len(add))
+func copyFields(fields []interface{}, add ...interface{}) []interface{} {
+	f := make([]interface{}, 0, len(fields)+len(add))
 	f = append(f, fields...)
 	f = append(f, add...)
 	return f
@@ -211,6 +89,6 @@ func (l *zapLogger) Sync() error {
 	return err
 }
 
-func (l *zapLogger) Recover(panicErr any) {
+func (l *zapLogger) Recover(panicErr interface{}) {
 	l.Criticalw("Recovered goroutine panic", "panic", panicErr)
 }
