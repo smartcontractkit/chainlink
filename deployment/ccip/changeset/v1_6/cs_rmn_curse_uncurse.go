@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"slices"
+	"sync"
 
 	"github.com/aptos-labs/aptos-go-sdk"
 	"github.com/gagliardetto/solana-go"
@@ -15,6 +16,7 @@ import (
 	chain_selectors "github.com/smartcontractkit/chain-selectors"
 	"github.com/smartcontractkit/mcms"
 	mcmstypes "github.com/smartcontractkit/mcms/types"
+	"golang.org/x/sync/errgroup"
 
 	aptosCCIP "github.com/smartcontractkit/chainlink-aptos/bindings/ccip"
 	aptosOffRamp "github.com/smartcontractkit/chainlink-aptos/bindings/ccip_offramp"
@@ -271,54 +273,87 @@ func CurseGloballyAllChains() CurseAction {
 	}
 }
 
-func FilterOutNotConnectedLanes(e cldf.Environment, curseActions []RMNCurseAction) ([]RMNCurseAction, error) {
-	cursableChains, err := GetCursableChains(e)
-	if err != nil {
-		e.Logger.Errorf("failed to load cursable chains: %v", err)
-		return nil, err
+func FilterOutNotConnectedLanesWithCursableChains(e cldf.Environment, curseActions []RMNCurseAction, cursableChains map[uint64]CursableChain) ([]RMNCurseAction, error) {
+	e.Logger.Infow("FilterOutNotConnectedLanes started", "actionsCount", len(curseActions))
+
+	type connectionCheck struct {
+		action                RMNCurseAction
+		targetChainSelector   uint64
+		sourceChainSelector   uint64
+		targetSourceConnected bool
+		sourceTargetConnected bool
 	}
-	// Filter the curse action to only apply on the connected chains
-	returnActions := make([]RMNCurseAction, 0)
+
+	var globalActions []RMNCurseAction
+	var laneActions []RMNCurseAction
 	for _, action := range curseActions {
 		if action.SubjectToCurse == globals.GlobalCurseSubject() {
-			returnActions = append(returnActions, action)
-			continue
+			globalActions = append(globalActions, action)
+		} else {
+			laneActions = append(laneActions, action)
 		}
+	}
+	e.Logger.Infow("Separated global and lane actions", "globalCount", len(globalActions), "laneCount", len(laneActions))
 
+	e.Logger.Info("Checking lane connections in parallel")
+	checks := make([]connectionCheck, len(laneActions))
+	g, _ := errgroup.WithContext(e.GetContext())
+
+	for i, action := range laneActions {
 		targetChainSelector := action.ChainSelector
 
 		targetFamily, err := chain_selectors.GetSelectorFamily(targetChainSelector)
 		if err != nil {
-			e.Logger.Errorf("failed to get family for chain %d: %v", targetChainSelector, err)
-			return nil, err
+			return nil, fmt.Errorf("failed to get family for chain %d: %w", targetChainSelector, err)
 		}
-
 		sourceChainSelector := globals.FamilyAwareSubjectToSelector(action.SubjectToCurse, targetFamily)
 
-		targetSourceConnected, err := cursableChains[targetChainSelector].IsConnectedToSourceChain(sourceChainSelector)
-		if err != nil {
-			e.Logger.Errorf("failed to check if offramp on chain %d is configured for source chain %d: %v", targetChainSelector, sourceChainSelector, err)
-			return nil, err
+		checks[i] = connectionCheck{
+			action:              action,
+			targetChainSelector: targetChainSelector,
+			sourceChainSelector: sourceChainSelector,
 		}
 
-		if targetSourceConnected {
-			returnActions = append(returnActions, action)
-			continue
-		}
+		// Check target->source connection
+		g.Go(func() error {
+			connected, err := cursableChains[targetChainSelector].IsConnectedToSourceChain(sourceChainSelector)
+			if err != nil {
+				e.Logger.Errorf("failed to check if offramp on chain %d is configured for source chain %d: %v", targetChainSelector, sourceChainSelector, err)
+				return err
+			}
+			checks[i].targetSourceConnected = connected
+			return nil
+		})
 
-		sourceTargetConnected, err := cursableChains[sourceChainSelector].IsConnectedToSourceChain(targetChainSelector)
-		if err != nil {
-			e.Logger.Errorf("failed to check if offramp on chain %d is configured for source chain %d: %v", sourceChainSelector, targetChainSelector, err)
-			return nil, err
-		}
-
-		if sourceTargetConnected {
-			returnActions = append(returnActions, action)
-			continue
-		}
-
-		e.Logger.Warnf("Offramp on chain %d is not configured for source chain %d, skipping curse action", targetChainSelector, sourceChainSelector)
+		// Check source->target connection
+		g.Go(func() error {
+			connected, err := cursableChains[sourceChainSelector].IsConnectedToSourceChain(targetChainSelector)
+			if err != nil {
+				e.Logger.Errorf("failed to check if offramp on chain %d is configured for source chain %d: %v", sourceChainSelector, targetChainSelector, err)
+				return err
+			}
+			checks[i].sourceTargetConnected = connected
+			return nil
+		})
 	}
+
+	if err := g.Wait(); err != nil {
+		return nil, err
+	}
+	e.Logger.Info("Lane connection checks completed")
+
+	returnActions := make([]RMNCurseAction, 0, len(curseActions))
+	returnActions = append(returnActions, globalActions...)
+
+	for _, check := range checks {
+		if check.targetSourceConnected || check.sourceTargetConnected {
+			returnActions = append(returnActions, check.action)
+		} else {
+			e.Logger.Warnf("Offramp on chain %d is not configured for source chain %d, skipping curse action", check.targetChainSelector, check.sourceChainSelector)
+		}
+	}
+
+	e.Logger.Infow("FilterOutNotConnectedLanes completed", "resultCount", len(returnActions))
 	return returnActions, nil
 }
 
@@ -357,6 +392,54 @@ func groupRMNSubjectBySelector(rmnSubjects []RMNCurseAction, avoidCursingSelf bo
 	return grouped, nil
 }
 
+func checkCurseStatuses(
+	ctx context.Context,
+	grouped map[uint64][]globals.Subject,
+	cursableChains map[uint64]CursableChain,
+) (map[uint64]map[globals.Subject]bool, error) {
+	var allChecks []struct {
+		selector uint64
+		subject  globals.Subject
+		cursed   bool
+	}
+	var checksMu sync.Mutex
+	g, _ := errgroup.WithContext(ctx)
+
+	for selector, curseSubjects := range grouped {
+		chain := cursableChains[selector]
+		for _, subject := range curseSubjects {
+			g.Go(func() error {
+				cursed, err := chain.IsSubjectCursed(subject)
+				if err != nil {
+					return fmt.Errorf("failed to check if chain %d subject %x is cursed: %w", selector, subject, err)
+				}
+				checksMu.Lock()
+				allChecks = append(allChecks, struct {
+					selector uint64
+					subject  globals.Subject
+					cursed   bool
+				}{selector: selector, subject: subject, cursed: cursed})
+				checksMu.Unlock()
+				return nil
+			})
+		}
+	}
+
+	if err := g.Wait(); err != nil {
+		return nil, err
+	}
+
+	cursedBySelector := make(map[uint64]map[globals.Subject]bool)
+	for _, check := range allChecks {
+		if _, ok := cursedBySelector[check.selector]; !ok {
+			cursedBySelector[check.selector] = make(map[globals.Subject]bool)
+		}
+		cursedBySelector[check.selector][check.subject] = check.cursed
+	}
+
+	return cursedBySelector, nil
+}
+
 // RMNCurseChangeset creates a new changeset for cursing chains or lanes on RMNRemote contracts.
 // Example usage:
 //
@@ -374,20 +457,32 @@ func groupRMNSubjectBySelector(rmnSubjects []RMNCurseAction, avoidCursingSelf bo
 // The decision to support multiple chain families here is due to the fact that curse changesets are emergency actions
 // we want to keep a simple unified interface for all chain families to streamline emergency procedures.
 func RMNCurseChangeset(e cldf.Environment, cfg RMNCurseConfig) (cldf.ChangesetOutput, error) {
+	e.Logger.Infow("RMNCurseChangeset started", "reason", cfg.Reason)
+
+	e.Logger.Info("Validating curse config")
 	err := cfg.Validate(e)
 	if err != nil {
 		return cldf.ChangesetOutput{}, err
 	}
 
+	e.Logger.Info("Loading onchain state")
 	state, err := stateview.LoadOnchainState(e)
 	if err != nil {
 		return cldf.ChangesetOutput{}, fmt.Errorf("failed to load onchain state: %w", err)
 	}
+	e.Logger.Info("Onchain state loaded")
+
+	e.Logger.Info("Getting cursable chains")
+	cursableChains, err := GetCursableChainsWithState(e, state)
+	if err != nil {
+		return cldf.ChangesetOutput{}, fmt.Errorf("failed to get cursable chains: %w", err)
+	}
+	e.Logger.Infow("Cursable chains retrieved", "count", len(cursableChains))
 
 	description := "proposal to curse RMNs: " + cfg.Reason
 	deployerGroup := deployergroup.NewDeployerGroup(e, state, cfg.MCMS).WithDeploymentContext(description)
 
-	// Generate curse actions
+	e.Logger.Info("Generating curse actions")
 	var curseActions []RMNCurseAction
 	for _, curseAction := range cfg.CurseActions {
 		actions, err := curseAction(e)
@@ -397,34 +492,40 @@ func RMNCurseChangeset(e cldf.Environment, cfg RMNCurseConfig) (cldf.ChangesetOu
 
 		curseActions = append(curseActions, actions...)
 	}
+	e.Logger.Infow("Curse actions generated", "count", len(curseActions))
 
 	if !cfg.IncludeNotConnectedLanes {
-		curseActions, err = FilterOutNotConnectedLanes(e, curseActions)
+		e.Logger.Info("Filtering out not connected lanes")
+		curseActions, err = FilterOutNotConnectedLanesWithCursableChains(e, curseActions, cursableChains)
 		if err != nil {
 			return cldf.ChangesetOutput{}, fmt.Errorf("failed to filter out not connected lanes: %w", err)
 		}
+		e.Logger.Infow("Filtered curse actions", "count", len(curseActions))
 	}
 
-	// Group curse actions by chain selector
+	e.Logger.Info("Grouping curse actions by chain selector")
 	grouped, err := groupRMNSubjectBySelector(curseActions, true, true)
 	if err != nil {
 		return cldf.ChangesetOutput{}, fmt.Errorf("failed to group curse actions: %w", err)
 	}
-	// For each chain in the environment get the RMNRemote contract and call curse
-	cursableChains, err := GetCursableChains(e)
+	e.Logger.Infow("Grouped curse actions", "chainCount", len(grouped))
+
+	e.Logger.Info("Checking curse status")
+	cursedBySelector, err := checkCurseStatuses(e.GetContext(), grouped, cursableChains)
 	if err != nil {
-		return cldf.ChangesetOutput{}, fmt.Errorf("failed to get cursable chains: %w", err)
+		return cldf.ChangesetOutput{}, err
 	}
+	e.Logger.Info("Curse status check completed")
+
+	e.Logger.Info("Processing curse operations for each chain")
 	var aptosProposals []mcms.TimelockProposal
 	for selector, chain := range cursableChains {
 		if curseSubjects, ok := grouped[selector]; ok {
-			// Only curse the subjects that are not actually cursed
+			e.Logger.Infow("Processing chain for cursing", "chain", chain.Name(), "selector", selector, "subjectsCount", len(curseSubjects))
+
 			notAlreadyCursedSubjects := make([]globals.Subject, 0)
 			for _, subject := range curseSubjects {
-				cursed, err := chain.IsSubjectCursed(subject)
-				if err != nil {
-					return cldf.ChangesetOutput{}, fmt.Errorf("failed to check if chain %d is cursed: %w", selector, err)
-				}
+				cursed := cursedBySelector[selector][subject]
 
 				if !cursed || cfg.Force {
 					notAlreadyCursedSubjects = append(notAlreadyCursedSubjects, subject)
@@ -438,6 +539,7 @@ func RMNCurseChangeset(e cldf.Environment, cfg RMNCurseConfig) (cldf.ChangesetOu
 				continue
 			}
 
+			e.Logger.Infow("Cursing chain", "chain", chain.Name(), "selector", selector, "subjectsCount", len(notAlreadyCursedSubjects))
 			err := chain.Curse(deployerGroup, notAlreadyCursedSubjects)
 			if err != nil {
 				return cldf.ChangesetOutput{}, fmt.Errorf("failed to curse chain %d: %w", selector, err)
@@ -466,17 +568,23 @@ func RMNCurseChangeset(e cldf.Environment, cfg RMNCurseConfig) (cldf.ChangesetOu
 		}
 	}
 
+	e.Logger.Info("Enacting deployer group")
 	partialOut, err := deployerGroup.Enact()
 	if err != nil {
 		return cldf.ChangesetOutput{}, fmt.Errorf("failed to enact deployer group: %w", err)
 	}
+	e.Logger.Info("Deployer group enacted")
+
 	if len(aptosProposals) == 0 {
+		e.Logger.Info("RMNCurseChangeset completed (no Aptos proposals)")
 		return partialOut, nil
 	}
 	// can't have Aptos curse/uncurse without MCMS
 	if len(partialOut.MCMSTimelockProposals) != 1 && cfg.MCMS != nil {
 		return cldf.ChangesetOutput{}, fmt.Errorf("expected exactly one MCMS proposal, got %d", len(partialOut.MCMSTimelockProposals))
 	}
+
+	e.Logger.Info("Aggregating MCMS proposals with Aptos proposals")
 	proposals := partialOut.MCMSTimelockProposals
 	proposals = append(proposals, aptosProposals...)
 	aggProposal, err := proposalutils.AggregateProposalsV2(
@@ -493,6 +601,7 @@ func RMNCurseChangeset(e cldf.Environment, cfg RMNCurseConfig) (cldf.ChangesetOu
 	if err != nil {
 		return cldf.ChangesetOutput{}, fmt.Errorf("failed to aggregate MCMS proposals: %w", err)
 	}
+	e.Logger.Info("RMNCurseChangeset completed")
 	return cldf.ChangesetOutput{
 		MCMSTimelockProposals: []mcms.TimelockProposal{*aggProposal},
 	}, nil
@@ -515,20 +624,32 @@ func RMNCurseChangeset(e cldf.Environment, cfg RMNCurseConfig) (cldf.ChangesetOu
 // The decision to support multiple chain families here is due to the fact that curse changesets are emergency actions
 // we want to keep a simple unified interface for all chain families to streamline emergency procedures.
 func RMNUncurseChangeset(e cldf.Environment, cfg RMNCurseConfig) (cldf.ChangesetOutput, error) {
+	e.Logger.Infow("RMNUncurseChangeset started", "reason", cfg.Reason)
+
+	e.Logger.Info("Validating uncurse config")
 	err := cfg.Validate(e)
 	if err != nil {
 		return cldf.ChangesetOutput{}, err
 	}
 
+	e.Logger.Info("Loading onchain state")
 	state, err := stateview.LoadOnchainState(e)
 	if err != nil {
 		return cldf.ChangesetOutput{}, fmt.Errorf("failed to load onchain state: %w", err)
 	}
+	e.Logger.Info("Onchain state loaded")
+
+	e.Logger.Info("Getting cursable chains")
+	cursableChains, err := GetCursableChainsWithState(e, state)
+	if err != nil {
+		return cldf.ChangesetOutput{}, fmt.Errorf("failed to get cursable chains: %w", err)
+	}
+	e.Logger.Infow("Cursable chains retrieved", "count", len(cursableChains))
 
 	description := "proposal to curse RMNs: " + cfg.Reason
 	deployerGroup := deployergroup.NewDeployerGroup(e, state, cfg.MCMS).WithDeploymentContext(description)
 
-	// Generate curse actions
+	e.Logger.Info("Generating curse actions for uncurse")
 	var curseActions []RMNCurseAction
 	for _, curseAction := range cfg.CurseActions {
 		actions, err := curseAction(e)
@@ -538,27 +659,31 @@ func RMNUncurseChangeset(e cldf.Environment, cfg RMNCurseConfig) (cldf.Changeset
 
 		curseActions = append(curseActions, actions...)
 	}
-	// Group curse actions by chain selector
+	e.Logger.Infow("Curse actions generated", "count", len(curseActions))
+
+	e.Logger.Info("Grouping curse actions by chain selector")
 	grouped, err := groupRMNSubjectBySelector(curseActions, false, false)
 	if err != nil {
 		return cldf.ChangesetOutput{}, fmt.Errorf("failed to group curse actions: %w", err)
 	}
+	e.Logger.Infow("Grouped curse actions", "chainCount", len(grouped))
 
-	// For each chain in the environement get the RMNRemote contract and call uncurse
-	cursableChains, err := GetCursableChains(e)
+	e.Logger.Info("Checking curse status")
+	cursedBySelector, err := checkCurseStatuses(e.GetContext(), grouped, cursableChains)
 	if err != nil {
-		return cldf.ChangesetOutput{}, fmt.Errorf("failed to get cursable chains: %w", err)
+		return cldf.ChangesetOutput{}, err
 	}
+	e.Logger.Info("Curse status check completed")
+
+	e.Logger.Info("Processing uncurse operations for each chain")
 	var aptosProposals []mcms.TimelockProposal
 	for selector, chain := range cursableChains {
 		if curseSubjects, ok := grouped[selector]; ok {
-			// Only keep the subject that are actually cursed
+			e.Logger.Infow("Processing chain for uncursing", "chain", chain.Name(), "selector", selector, "subjectsCount", len(curseSubjects))
+
 			actuallyCursedSubjects := make([]globals.Subject, 0)
 			for _, subject := range curseSubjects {
-				cursed, err := chain.IsSubjectCursed(subject)
-				if err != nil {
-					return cldf.ChangesetOutput{}, fmt.Errorf("failed to check if chain %d is cursed: %w", selector, err)
-				}
+				cursed := cursedBySelector[selector][subject]
 
 				if cursed || cfg.Force {
 					actuallyCursedSubjects = append(actuallyCursedSubjects, subject)
@@ -572,6 +697,7 @@ func RMNUncurseChangeset(e cldf.Environment, cfg RMNCurseConfig) (cldf.Changeset
 				continue
 			}
 
+			e.Logger.Infow("Uncursing chain", "chain", chain.Name(), "selector", selector, "subjectsCount", len(actuallyCursedSubjects))
 			err := chain.Uncurse(deployerGroup, actuallyCursedSubjects)
 			if err != nil {
 				return cldf.ChangesetOutput{}, fmt.Errorf("failed to uncurse chain %d: %w", selector, err)
@@ -600,17 +726,23 @@ func RMNUncurseChangeset(e cldf.Environment, cfg RMNCurseConfig) (cldf.Changeset
 		}
 	}
 
+	e.Logger.Info("Enacting deployer group")
 	partialOut, err := deployerGroup.Enact()
 	if err != nil {
 		return cldf.ChangesetOutput{}, fmt.Errorf("failed to enact deployer group: %w", err)
 	}
+	e.Logger.Info("Deployer group enacted")
+
 	if len(aptosProposals) == 0 {
+		e.Logger.Info("RMNUncurseChangeset completed (no Aptos proposals)")
 		return partialOut, nil
 	}
 	// can't have Aptos curse/uncurse without MCMS
 	if len(partialOut.MCMSTimelockProposals) != 1 && cfg.MCMS != nil {
 		return cldf.ChangesetOutput{}, fmt.Errorf("expected exactly one MCMS proposal, got %d", len(partialOut.MCMSTimelockProposals))
 	}
+
+	e.Logger.Info("Aggregating MCMS proposals with Aptos proposals")
 	proposals := partialOut.MCMSTimelockProposals
 	proposals = append(proposals, aptosProposals...)
 	aggProposal, err := proposalutils.AggregateProposalsV2(
@@ -627,6 +759,7 @@ func RMNUncurseChangeset(e cldf.Environment, cfg RMNCurseConfig) (cldf.Changeset
 	if err != nil {
 		return cldf.ChangesetOutput{}, fmt.Errorf("failed to aggregate MCMS proposals: %w", err)
 	}
+	e.Logger.Info("RMNUncurseChangeset completed")
 	return cldf.ChangesetOutput{
 		MCMSTimelockProposals: []mcms.TimelockProposal{*aggProposal},
 	}, nil
@@ -870,13 +1003,15 @@ type EvmCursableChain struct {
 	env                 cldf.Environment
 	chain               evm.CCIPChainState
 	cursedSubjectsCache map[globals.Subject]struct{}
+	cacheOnce           sync.Once
+	cacheErr            error
 }
 
-func (c EvmCursableChain) Name() string {
+func (c *EvmCursableChain) Name() string {
 	return c.env.BlockChains.EVMChains()[c.selector].Name()
 }
 
-func (c EvmCursableChain) IsConnectedToSourceChain(sourceSelector uint64) (bool, error) {
+func (c *EvmCursableChain) IsConnectedToSourceChain(sourceSelector uint64) (bool, error) {
 	destChain := c.chain
 	config, err := destChain.OffRamp.GetSourceChainConfig(nil, sourceSelector)
 	if err != nil {
@@ -910,25 +1045,25 @@ func (c *EvmCursableChain) IsSubjectCursed(subject globals.Subject) (bool, error
 }
 
 func (c *EvmCursableChain) cacheCurses() error {
-	if c.cursedSubjectsCache != nil {
-		return nil
-	}
-	c.cursedSubjectsCache = make(map[globals.Subject]struct{})
-	cursedSubjects, err := c.chain.RMNRemote.GetCursedSubjects(nil)
-	if err != nil {
-		return fmt.Errorf("failed to get cursed subjects for chain %d: %w", c.selector, err)
-	}
-	for _, subj := range cursedSubjects {
-		c.cursedSubjectsCache[subj] = struct{}{}
-	}
-	return nil
+	c.cacheOnce.Do(func() {
+		c.cursedSubjectsCache = make(map[globals.Subject]struct{})
+		cursedSubjects, err := c.chain.RMNRemote.GetCursedSubjects(nil)
+		if err != nil {
+			c.cacheErr = fmt.Errorf("failed to get cursed subjects for chain %d: %w", c.selector, err)
+			return
+		}
+		for _, subj := range cursedSubjects {
+			c.cursedSubjectsCache[subj] = struct{}{}
+		}
+	})
+	return c.cacheErr
 }
 
-func (c EvmCursableChain) IsCursable() (bool, error) {
+func (c *EvmCursableChain) IsCursable() (bool, error) {
 	return c.chain.RMNRemote != nil, nil
 }
 
-func (c EvmCursableChain) Curse(deployerGroup *deployergroup.DeployerGroup, subjects []globals.Subject) error {
+func (c *EvmCursableChain) Curse(deployerGroup *deployergroup.DeployerGroup, subjects []globals.Subject) error {
 	err := assertEndianness(subjects, chain_selectors.FamilyEVM)
 	if err != nil {
 		return fmt.Errorf("failed to assert subject endianness: %w", err)
@@ -946,7 +1081,7 @@ func (c EvmCursableChain) Curse(deployerGroup *deployergroup.DeployerGroup, subj
 	return nil
 }
 
-func (c EvmCursableChain) Uncurse(deployerGroup *deployergroup.DeployerGroup, subjects []globals.Subject) error {
+func (c *EvmCursableChain) Uncurse(deployerGroup *deployergroup.DeployerGroup, subjects []globals.Subject) error {
 	err := assertEndianness(subjects, chain_selectors.FamilyEVM)
 	if err != nil {
 		return fmt.Errorf("failed to assert subject endianness: %w", err)
@@ -970,9 +1105,11 @@ type AptosCursableChain struct {
 	chain               aptosstateview.CCIPChainState
 	MCMSOp              mcmstypes.BatchOperation
 	cursedSubjectsCache map[globals.Subject]struct{}
+	cacheOnce           sync.Once
+	cacheErr            error
 }
 
-func (c AptosCursableChain) IsSubjectCursed(subject globals.Subject) (bool, error) {
+func (c *AptosCursableChain) IsSubjectCursed(subject globals.Subject) (bool, error) {
 	err := c.cacheCurses()
 	if err != nil {
 		return false, fmt.Errorf("failed to cache curses for chain %d: %w", c.selector, err)
@@ -994,20 +1131,20 @@ func (c *AptosCursableChain) IsCursed(subject globals.Subject) (bool, error) {
 }
 
 func (c *AptosCursableChain) cacheCurses() error {
-	if c.cursedSubjectsCache != nil {
-		return nil
-	}
-	c.cursedSubjectsCache = make(map[globals.Subject]struct{})
-	chain := c.env.BlockChains.AptosChains()[c.selector]
-	ccipBind := aptosCCIP.Bind(c.chain.CCIPAddress, chain.Client)
-	cursedSubjects, err := ccipBind.RMNRemote().GetCursedSubjects(nil)
-	if err != nil {
-		return fmt.Errorf("failed to get cursed subjects for chain %d: %w", c.selector, err)
-	}
-	for _, subj := range cursedSubjects {
-		c.cursedSubjectsCache[globals.Subject(subj)] = struct{}{}
-	}
-	return nil
+	c.cacheOnce.Do(func() {
+		c.cursedSubjectsCache = make(map[globals.Subject]struct{})
+		chain := c.env.BlockChains.AptosChains()[c.selector]
+		ccipBind := aptosCCIP.Bind(c.chain.CCIPAddress, chain.Client)
+		cursedSubjects, err := ccipBind.RMNRemote().GetCursedSubjects(nil)
+		if err != nil {
+			c.cacheErr = fmt.Errorf("failed to get cursed subjects for chain %d: %w", c.selector, err)
+			return
+		}
+		for _, subj := range cursedSubjects {
+			c.cursedSubjectsCache[globals.Subject(subj)] = struct{}{}
+		}
+	})
+	return c.cacheErr
 }
 func (c *AptosCursableChain) Curse(deployerGroup *deployergroup.DeployerGroup, subjects []globals.Subject) error {
 	err := assertEndianness(subjects, chain_selectors.FamilyAptos)
@@ -1063,11 +1200,11 @@ func (c *AptosCursableChain) Uncurse(deployerGroup *deployergroup.DeployerGroup,
 	return nil
 }
 
-func (c AptosCursableChain) IsCursable() (bool, error) {
+func (c *AptosCursableChain) IsCursable() (bool, error) {
 	return c.chain.CCIPAddress != aptos.AccountAddress{}, nil
 }
 
-func (c AptosCursableChain) IsConnectedToSourceChain(selector uint64) (bool, error) {
+func (c *AptosCursableChain) IsConnectedToSourceChain(selector uint64) (bool, error) {
 	chain := c.env.BlockChains.AptosChains()[c.selector]
 	offRampBind := aptosOffRamp.Bind(c.chain.CCIPAddress, chain.Client)
 	cfg, err := offRampBind.Offramp().GetSourceChainConfig(nil, selector)
@@ -1078,7 +1215,7 @@ func (c AptosCursableChain) IsConnectedToSourceChain(selector uint64) (bool, err
 	return cfg.IsEnabled, nil
 }
 
-func (c AptosCursableChain) Name() string {
+func (c *AptosCursableChain) Name() string {
 	return c.env.BlockChains.AptosChains()[c.selector].Name()
 }
 
@@ -1087,6 +1224,10 @@ func GetCursableChains(env cldf.Environment) (map[uint64]CursableChain, error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed to load onchain state: %w", err)
 	}
+	return GetCursableChainsWithState(env, state)
+}
+
+func GetCursableChainsWithState(env cldf.Environment, state stateview.CCIPOnChainState) (map[uint64]CursableChain, error) {
 	cursableChains := make(map[uint64]CursableChain)
 	for selector := range state.Chains {
 		cursableChains[selector] = &EvmCursableChain{
