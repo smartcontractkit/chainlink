@@ -45,7 +45,7 @@ plugins:
       installPath: "github.com/smartcontractkit/capabilities/chain_capabilities/evm"
   solana:
     - moduleURI: "github.com/smartcontractkit/chainlink-internal-solana"
-      gitRef: "v0.0.0-20251208235601-443d61346a57"
+      gitRef: "v0.0.0-20251209014608-61e7aa7e30ca"
       installPath: "./pkg/solana/cmd/chainlink-solana"
   mock:
     - moduleURI: "github.com/smartcontractkit/capabilities/mock"
