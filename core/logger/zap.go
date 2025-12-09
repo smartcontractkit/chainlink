@@ -3,6 +3,7 @@ package logger
 import (
 	"fmt"
 	"os"
+	"runtime"
 	"sync"
 	"time"
 	"weak"
@@ -87,20 +88,23 @@ func (d *AtomicCore) Close() {
 }
 
 func (d *AtomicCore) cleanup() {
+	// Explicitly call GC and wait
+	runtime.GC()
+	time.Sleep(10 * time.Second)
 	fmt.Println("DEBUG AtomicCore cleanup", "step", "enter")
 	var wg sync.WaitGroup
 	defer wg.Wait()
 	d.mu.Lock()
 	defer d.mu.Unlock()
-	fmt.Println("DEBUG AtomicCore cleanup", "step", "init loop")
 	initialChildrenCount := len(d.children)
+	fmt.Println("DEBUG AtomicCore cleanup", "step", "init loop", "start_children_count", initialChildrenCount)
 	for p := range d.children {
 		c := p.Value()
 		if c == nil {
 			delete(d.children, p)
 			continue
 		}
-		go c.cleanup()
+		wg.Go(c.cleanup)
 	}
 	fmt.Println("DEBUG AtomicCore cleanup", "deleted_children_count", initialChildrenCount-len(d.children))
 }
