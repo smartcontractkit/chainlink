@@ -378,15 +378,15 @@ func LogWorkflowEvent(
 			// V1 events
 			case "workflows.v1.WorkflowExecutionStarted":
 				if asEvent, ok := msg.Event.(*workflowevents.WorkflowExecutionStarted); ok {
-					fmt.Printf(" [%s] --------> WorkflowExecutionStarted: %s\n", msg.NodeName, asEvent.M.WorkflowID)
+					fmt.Printf(" [%s]#%d --------> WorkflowExecutionStarted: %s\n", msg.NodeName, msg.Sequence, asEvent.M.WorkflowID)
 				}
 			case "workflows.v1.WorkflowExecutionFinished":
 				if asEvent, ok := msg.Event.(*workflowevents.WorkflowExecutionFinished); ok {
-					fmt.Printf(" [%s] --------> WorkflowExecutionFinished: %s\n", msg.NodeName, asEvent.M.WorkflowID)
+					fmt.Printf(" [%s]#%d --------> WorkflowExecutionFinished: %s\n", msg.NodeName, msg.Sequence, asEvent.M.WorkflowID)
 				}
 			case "workflows.v1.WorkflowStatusChanged":
 				if asEvent, ok := msg.Event.(*workflowevents.WorkflowStatusChanged); ok {
-					fmt.Printf(" [%s] --------> WorkflowStatusChanged: %s\n", msg.NodeName, asEvent.Status) // weirdly WorkflowID here is empty!
+					fmt.Printf(" [%s]#%d --------> WorkflowStatusChanged: %s\n", msg.NodeName, msg.Sequence, asEvent.Status) // weirdly WorkflowID here is empty!
 				}
 			case "workflows.v1.UserLogs":
 				if asEvent, ok := msg.Event.(*workflowevents.UserLogs); ok {
@@ -395,17 +395,17 @@ func LogWorkflowEvent(
 						result := re.FindStringSubmatch(line.Message)
 						if len(result) > 1 {
 							for _, match := range result[1:] {
-								fmt.Printf(" [%s] --------> UserLogs: %s\n", msg.NodeName, match)
+								fmt.Printf(" [%s]#%d --------> UserLogs: %s\n", msg.NodeName, msg.Sequence, match)
 							}
 						} else {
-							fmt.Printf(" [%s] --------> UserLogs: %s\n", msg.NodeName, line.Message)
+							fmt.Printf(" [%s]#%d --------> UserLogs: %s\n", msg.NodeName, msg.Sequence, line.Message)
 						}
 					}
 				}
 			// Common events
 			case "BaseMessage":
 				if asEvent, ok := msg.Event.(*commonevents.BaseMessage); ok {
-					fmt.Printf(" [%s] --------> BaseMessage: %s\n", msg.NodeName, asEvent.Msg)
+					fmt.Printf(" [%s]#%d --------> BaseMessage: %s\n", msg.NodeName, msg.Sequence, asEvent.Msg)
 				}
 			}
 		}
@@ -498,8 +498,6 @@ func GetUserLogMatcherFn(expectedMessage string) func(msg proto.Message) (bool, 
 			for _, line := range log.LogLines {
 				if strings.Contains(line.Message, expectedMessage) {
 					return true, nil
-					// } else {
-					// fmt.Printf("Found a different user log: %s\n", line.Message)
 				}
 			}
 		}

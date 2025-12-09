@@ -265,6 +265,34 @@ func ExecuteEVMLogTriggerTest(t *testing.T, testEnv *ttypes.TestEnvironment) {
 		ticker := time.NewTicker(10 * time.Second)
 		go func() {
 			defer ticker.Stop()
+			defer func() {
+				// Wait for any pending transactions to be mined before exiting
+				// to prevent nonce conflicts during cleanup, since event-emitting transaction
+				// might be in-flight, when context is cancelled and workflow deletion in clean up
+				// might fail with `nonce too low`.
+				sethClient := bcOutput.(*evm.Blockchain).SethClient
+				txOpts := sethClient.NewTXOpts()
+
+				for i := 0; i < 30; i++ { // max 30 attempts
+					ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+					pendingNonce, err1 := sethClient.Client.PendingNonceAt(ctx, txOpts.From)
+					lastNonce, err2 := sethClient.Client.NonceAt(ctx, txOpts.From, nil)
+					cancel()
+
+					if err1 != nil || err2 != nil {
+						lggr.Warn().Msgf("Failed to check nonces for chain %s: %v, %v", chainID, err1, err2)
+						break
+					}
+
+					if pendingNonce == lastNonce {
+						lggr.Info().Msgf("No pending transactions for chain %s", chainID)
+						break
+					}
+
+					lggr.Info().Msgf("Waiting for pending transactions (pending: %d, last: %d) for chain %s", pendingNonce, lastNonce, chainID)
+					time.Sleep(2 * time.Second)
+				}
+			}()
 			for {
 				select {
 				case <-listenerCtx.Done():
