@@ -16,7 +16,6 @@ import (
 	"go.uber.org/zap/zapcore"
 
 	chain_selectors "github.com/smartcontractkit/chain-selectors"
-	"github.com/smartcontractkit/chainlink-framework/multinode/config"
 	"github.com/smartcontractkit/libocr/commontypes"
 
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
@@ -217,7 +216,6 @@ func generateNodeTomlConfig(input cre.GenerateConfigsInput, nodeConfigTransforme
 
 func baseNodeConfig() corechainlink.Config {
 	return corechainlink.Config{
-		Solana: solcfg.TOMLConfigs{},
 		Core: coretoml.Core{
 			Feature: coretoml.Feature{
 				LogPoller: ptr.Ptr(true),
@@ -276,11 +274,6 @@ func addBootstrapNodeConfig(
 		existingConfig.Solana = append(existingConfig.Solana, &solcfg.TOMLConfig{
 			Enabled: ptr.Ptr(true),
 			ChainID: ptr.Ptr(commonInputs.solanaChain.ChainID),
-			MultiNode: config.MultiNodeConfig{
-				MultiNode: config.MultiNode{
-					VerifyChainID: ptr.Ptr(false),
-				},
-			},
 			Nodes: []*solcfg.Node{
 				{
 					Name: &commonInputs.solanaChain.Name,
