@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"os"
-	"regexp"
 	"strings"
 	"sync"
 	"time"
@@ -382,24 +381,24 @@ func LogWorkflowEvent(
 				}
 			case "workflows.v1.WorkflowExecutionFinished":
 				if asEvent, ok := msg.Event.(*workflowevents.WorkflowExecutionFinished); ok {
-					fmt.Printf(" [%s]#%d --------> WorkflowExecutionFinished: %s\n", msg.NodeName, msg.Sequence, asEvent.M.WorkflowID)
+					fmt.Printf(" [%s]#%d --------> WorkflowExecutionFinished: %s ---- %s\n", msg.NodeName, msg.Sequence, asEvent.M.WorkflowID, asEvent.Status)
 				}
 			case "workflows.v1.WorkflowStatusChanged":
 				if asEvent, ok := msg.Event.(*workflowevents.WorkflowStatusChanged); ok {
-					fmt.Printf(" [%s]#%d --------> WorkflowStatusChanged: %s\n", msg.NodeName, msg.Sequence, asEvent.Status) // weirdly WorkflowID here is empty!
+					fmt.Printf(" [%s]#%d --------> WorkflowStatusChanged: %s + %s\n", msg.NodeName, msg.Sequence, asEvent.Status, asEvent.Details) // weirdly WorkflowID here is empty!
 				}
 			case "workflows.v1.UserLogs":
 				if asEvent, ok := msg.Event.(*workflowevents.UserLogs); ok {
 					for _, line := range asEvent.LogLines {
-						re := regexp.MustCompile(`msg=\"(.*?)\"`)
-						result := re.FindStringSubmatch(line.Message)
-						if len(result) > 1 {
-							for _, match := range result[1:] {
-								fmt.Printf(" [%s]#%d --------> UserLogs: %s\n", msg.NodeName, msg.Sequence, match)
-							}
-						} else {
-							fmt.Printf(" [%s]#%d --------> UserLogs: %s\n", msg.NodeName, msg.Sequence, line.Message)
-						}
+						// re := regexp.MustCompile(`msg=\"(.*?)\"`)
+						// result := re.FindStringSubmatch(line.Message)
+						// if len(result) > 1 {
+						// 	for _, match := range result[1:] {
+						// 		fmt.Printf(" [%s]#%d --------> UserLogs: %s\n", msg.NodeName, msg.Sequence, match)
+						// 	}
+						// } else {
+						fmt.Printf(" [%s]#%d --------> UserLogs: %s\n", msg.NodeName, msg.Sequence, line.Message)
+						// }
 					}
 				}
 			// Common events
