@@ -2,7 +2,6 @@ package mercurytransmitter
 
 import (
 	"context"
-	"encoding/hex"
 	"errors"
 	"fmt"
 	"strconv"
@@ -109,7 +108,6 @@ func (tq *transmitQueue) Push(t *Transmission) (ok bool) {
 			lggr := tq.lggr
 			if removed, ok := removed.(*Transmission); ok {
 				hash := removed.Hash()
-				lggr = lggr.With("transmissionHash", hex.EncodeToString(hash[:]))
 				tq.asyncDeleter.AsyncDelete(hash)
 			}
 			lggr.Criticalw(fmt.Sprintf("Transmit queue is full; dropping oldest transmission (reached max length of %d)", tq.maxlen), "transmission", removed)
