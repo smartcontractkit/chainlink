@@ -1,13 +1,13 @@
 package logger
 
 import (
+	"fmt"
 	"os"
 	"sync"
 	"time"
 	"weak"
 
 	pkgerrors "github.com/pkg/errors"
-	"github.com/smartcontractkit/wsrpc/logger"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
 )
@@ -34,6 +34,7 @@ func NewAtomicCore() *AtomicCore {
 		stopCleanup: make(chan struct{}),
 	}
 	ac.startPeriodicCleanup()
+	fmt.Println("DEBUG AtomicCore cleanup", "step", "new")
 	return ac
 }
 
@@ -86,12 +87,12 @@ func (d *AtomicCore) Close() {
 }
 
 func (d *AtomicCore) cleanup() {
-	logger.DefaultLogger.Error("DEBUG AtomicCore cleanup", "step", "enter")
+	fmt.Println("DEBUG AtomicCore cleanup", "step", "enter")
 	var wg sync.WaitGroup
 	defer wg.Wait()
 	d.mu.Lock()
 	defer d.mu.Unlock()
-	logger.DefaultLogger.Error("DEBUG AtomicCore cleanup", "step", "init loop")
+	fmt.Println("DEBUG AtomicCore cleanup", "step", "init loop")
 	initialChildrenCount := len(d.children)
 	for p := range d.children {
 		c := p.Value()
@@ -101,7 +102,7 @@ func (d *AtomicCore) cleanup() {
 		}
 		go c.cleanup()
 	}
-	logger.DefaultLogger.Error("DEBUG AtomicCore cleanup", "deleted_children_count", initialChildrenCount-len(d.children))
+	fmt.Println("DEBUG AtomicCore cleanup", "deleted_children_count", initialChildrenCount-len(d.children))
 }
 
 func (d *AtomicCore) startPeriodicCleanup() {
@@ -112,7 +113,7 @@ func (d *AtomicCore) startPeriodicCleanup() {
 		for {
 			select {
 			case <-ticker.C:
-				logger.DefaultLogger.Error("DEBUG AtomicCore cleanup", "step", "trigger")
+				fmt.Println("DEBUG AtomicCore cleanup", "step", "trigger")
 				d.cleanup()
 			case <-d.stopCleanup:
 				return
