@@ -7,7 +7,6 @@ import (
 	"github.com/stretchr/testify/require"
 	"go.opentelemetry.io/otel/log/noop"
 	"go.uber.org/zap/zapcore"
-	"go.uber.org/zap/zaptest/observer"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger/otelzap"
 )
@@ -89,43 +88,4 @@ func TestOtelCore(t *testing.T) {
 			assert.NotNil(t, logger)
 		})
 	}
-}
-
-// TestAtomicCoreSwap tests the atomic core swap functionality after logger creation.
-func TestAtomicCoreSwap(t *testing.T) {
-	atomicCore := NewAtomicCore()
-	defer atomicCore.Close()
-	setOtelCore := atomicCore.Store
-
-	lggrCfg := Config{
-		LogLevel:       zapcore.InfoLevel,
-		JsonConsole:    true,
-		UnixTS:         false,
-		FileMaxSizeMB:  0,
-		FileMaxAgeDays: 0,
-		FileMaxBackups: 0,
-		SentryEnabled:  false,
-	}
-
-	lggr, closeFn := lggrCfg.NewWithCores(atomicCore)
-	defer func() {
-		err := closeFn()
-		require.NoError(t, err)
-	}()
-
-	// Create observer to capture logs
-	otelCore, otelLogs := observer.New(zapcore.InfoLevel)
-
-	lggr.Info("before swap")
-
-	assert.Equal(t, 0, otelLogs.Len(), "Expected no logs before core swap")
-
-	// Swap to the observer core
-	setOtelCore(otelCore)
-
-	lggr.Info("after swap")
-
-	assert.Equal(t, 1, otelLogs.Len(), "Expected 1 log after core swap")
-	assert.Equal(t, "after swap", otelLogs.All()[0].Message)
-	assert.Equal(t, zapcore.InfoLevel, otelLogs.All()[0].Level)
 }

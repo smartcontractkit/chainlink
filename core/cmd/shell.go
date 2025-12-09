@@ -155,7 +155,6 @@ type Shell struct {
 	Logger                         logger.Logger           // initialized in Before
 	Registerer                     prometheus.Registerer   // initialized in Before
 	CloseLogger                    func() error            // called in After
-	SetOtelCore                    func(zapcore.Core)      // reference to AtomicCore.Store
 	AppFactory                     AppFactory
 	KeyStoreAuthenticator          TerminalKeyStoreAuthenticator
 	FallbackAPIInitializer         APIInitializer
