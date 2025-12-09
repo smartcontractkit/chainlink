@@ -7,6 +7,7 @@ import (
 	"weak"
 
 	pkgerrors "github.com/pkg/errors"
+	"github.com/smartcontractkit/wsrpc/logger"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
 )
@@ -42,11 +43,9 @@ func (d *AtomicCore) Store(core zapcore.Core) {
 	d.core = core
 	for p := range d.children {
 		c := p.Value()
-		if c == nil {
-			delete(d.children, p)
-			continue
+		if c != nil {
+			c.Store(d.core)
 		}
-		c.Store(d.core)
 	}
 }
 
@@ -91,6 +90,7 @@ func (d *AtomicCore) cleanup() {
 	defer wg.Wait()
 	d.mu.Lock()
 	defer d.mu.Unlock()
+	initialChildrenCount := len(d.children)
 	for p := range d.children {
 		c := p.Value()
 		if c == nil {
@@ -99,6 +99,7 @@ func (d *AtomicCore) cleanup() {
 		}
 		c.cleanup()
 	}
+	logger.DefaultLogger.Debug("DEBUG AtomicCore cleanup", "deleted_children_count", initialChildrenCount-len(d.children))
 }
 
 func (d *AtomicCore) startPeriodicCleanup() {
@@ -128,11 +129,9 @@ func (w *withCore) Store(core zapcore.Core) {
 	w.core = core.With(w.fields)
 	for p := range w.children {
 		c := p.Value()
-		if c == nil {
-			delete(w.children, p)
-			continue
+		if c != nil {
+			c.Store(w.core)
 		}
-		c.Store(w.core)
 	}
 }
 
