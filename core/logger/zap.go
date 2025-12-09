@@ -169,9 +169,11 @@ func (l *zapLogger) SetLogLevel(lvl zapcore.Level) {
 }
 
 func (l *zapLogger) With(args ...any) Logger {
+	fmt.Println("DEBUG zapLogger With", "initial length", len(l.fields))
 	newLogger := *l
 	newLogger.SugaredLogger = l.SugaredLogger.With(args...)
 	newLogger.fields = copyFields(l.fields, args...)
+	fmt.Println("DEBUG zapLogger With", "final length", len(newLogger.fields))
 	return &newLogger
 }
 
