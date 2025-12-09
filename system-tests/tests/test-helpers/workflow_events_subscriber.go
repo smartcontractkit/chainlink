@@ -357,10 +357,6 @@ func LogWorkflowEvent(
 	ctx context.Context,
 	messageChan <-chan WorkflowEventMessage,
 ) {
-	if os.Getenv("TEST_WORKFLOW_DEBUG_NO_LOGS") == "true" {
-		return
-	}
-
 	for {
 		select {
 		case <-ctx.Done():
@@ -370,6 +366,11 @@ func LogWorkflowEvent(
 			if !ok {
 				// Channel closed (all pollers stopped)
 				return
+			}
+
+			// Don't process the message if debug is disabled
+			if os.Getenv("DISABLE_TEST_WORKFLOW_DEBUG_LOGS") == "true" {
+				continue
 			}
 
 			// Map event type strings to protobuf message types
@@ -529,8 +530,10 @@ func FanOutWorkflowEvents(
 	destinations := make([]chan WorkflowEventMessage, numConsumers)
 	outputs := make([]<-chan WorkflowEventMessage, numConsumers)
 
+	// Use larger buffers for destination channels to handle bursts
+	// Especially important for logging consumers which might be slower
 	for i := range numConsumers {
-		destinations[i] = make(chan WorkflowEventMessage, 100)
+		destinations[i] = make(chan WorkflowEventMessage, 500)
 		outputs[i] = destinations[i]
 	}
 
@@ -552,12 +555,17 @@ func FanOutWorkflowEvents(
 					// Source channel closed
 					return
 				}
-				// Broadcast to all consumers
-				for _, dest := range destinations {
+				// Broadcast to all consumers (non-blocking - drop if slow)
+				for i, dest := range destinations {
 					select {
 					case dest <- msg:
+						// Successfully sent
 					case <-ctx.Done():
 						return
+					default:
+						// Channel full, drop message for this consumer
+						// This prevents slow consumers from blocking the fan-out
+						_ = i // Consumer index available for logging if needed
 					}
 				}
 			}
