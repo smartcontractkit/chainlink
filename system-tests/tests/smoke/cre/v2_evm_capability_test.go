@@ -247,7 +247,7 @@ func ExecuteEVMLogTriggerTest(t *testing.T, testEnv *ttypes.TestEnvironment) {
 		// Start workflow events subscriber
 		channel, listenerCtx, cancelFn, startErr := t_helpers.StartWorkflowEventsSubscriber(t.Context(), t_helpers.GetStandardWorkflowEventsSubscriberConfig(testEnv, workflowID))
 		require.NoError(t, startErr, "Failed to start workflow events subscriber")
-		t.Cleanup(cancelFn)
+		// Note: cancelFn is called manually after test assertions to ensure proper cleanup order
 
 		channels := t_helpers.FanOutWorkflowEvents(listenerCtx, channel, 3)
 		go func() {
@@ -263,7 +263,10 @@ func ExecuteEVMLogTriggerTest(t *testing.T, testEnv *ttypes.TestEnvironment) {
 		// start background event emission every 10s while AssertWorkflowEventMatched is running, so that the workflow has events to pick up eventually
 		var emittedEventCount int64
 		ticker := time.NewTicker(10 * time.Second)
+		var emitterWg sync.WaitGroup
+		emitterWg.Add(1)
 		go func() {
+			defer emitterWg.Done()
 			defer ticker.Stop()
 			defer func() {
 				// Wait for any pending transactions to be mined before exiting
@@ -312,6 +315,12 @@ func ExecuteEVMLogTriggerTest(t *testing.T, testEnv *ttypes.TestEnvironment) {
 		expectedUserLog := "OnTrigger decoded message: message:" + message
 		err = t_helpers.AssertWorkflowEventMatched(listenerCtx, 2, channels[2], t_helpers.GetUserLogMatcherFn(expectedUserLog), 4*time.Minute, lggr)
 		require.NoError(t, err, "Expected user log test failed")
+
+		// Cancel the context to stop the event emitter goroutine, then wait for it to finish
+		lggr.Info().Msgf("Stopping event emitter goroutine for chain %s", chainID)
+		cancelFn()
+		emitterWg.Wait()
+		lggr.Info().Msgf("Event emitter goroutine finished for chain %s", chainID)
 
 		lggr.Info().Msgf("🎉 LogTrigger Workflow %s executed successfully on chain %s", workflowName, chainID)
 		successfulLogTriggerChains = append(successfulLogTriggerChains, chainID)
