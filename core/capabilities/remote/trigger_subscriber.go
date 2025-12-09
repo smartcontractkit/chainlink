@@ -61,7 +61,7 @@ type triggerEventKey struct {
 type subRegState struct {
 	callback   chan commoncap.TriggerResponse
 	rawRequest []byte
-	firstRegistration bool
+	pendingResponseChan chan error
 }
 
 type TriggerSubscriber interface {
@@ -156,27 +156,24 @@ func (s *triggerSubscriber) RegisterTrigger(ctx context.Context, request commonc
 	}
 
 	s.mu.Lock()
-	defer s.mu.Unlock()
 	s.lggr.Infow("RegisterTrigger called", "donId", cfg.capDonInfo.ID, "workflowID", request.Metadata.WorkflowID)
 	regState, ok := s.registeredWorkflows[request.Metadata.WorkflowID]
 
 	var pendingResponseChan chan error
 	if !ok {
+		pendingResponseChan = make(chan error, 1)
 		regState = &subRegState{
 			callback:   make(chan commoncap.TriggerResponse, sendChannelBufferSize),
 			rawRequest: rawRequest,
 			firstRegistration: true,
+			pendingResponseChan: pendingResponseChan,
 		}
 		s.registeredWorkflows[request.Metadata.WorkflowID] = regState
-
-		// Could here create something that would wait for a response from remote nodes
-		// The issue is in the backwards compatibility state would have to rely on a timeout - but it would be no worse than current situation
-		// especially if they do positive ack when registration is successful - so initially it would rely on timeout, but in future could be improved to wait for positive ack
-		// when all dons updated.  As registration only occurs when workflow is started/restarted, the delay should be acceptable.
 	} else {
 		regState.rawRequest = rawRequest
 		s.lggr.Warnw("RegisterTrigger re-registering trigger", "donId", cfg.capDonInfo.ID, "workflowID", request.Metadata.WorkflowID)
 	}
+	s.mu.Unlock()
 
 	if pendingResponseChan != nil {
 		ctxWithTimeout, cancel := context.WithTimeout(ctx, registrationResponseTimeout)
@@ -187,13 +184,12 @@ func (s *triggerSubscriber) RegisterTrigger(ctx context.Context, request commonc
 			return nil, errors.New("trigger subscriber is stopping")
 		case <-ctxWithTimeout.Done():
 			return nil, ctx.Err()
-		case err := <-pendingResponseChan:
+		case err = <-pendingResponseChan:
 			if err != nil {
 				return nil, err
 			}
 			return regState.callback, nil
 		}
-
 	} else {
 		return regState.callback, nil
 	}
@@ -209,6 +205,9 @@ func (s *triggerSubscriber) registrationLoop() {
 		select {
 		case <-s.stopCh:
 			return
+
+		case
+			// Use a registration channel that passes in the registration along with the response channel, instead of first registration flag
 		case <-ticker.C:
 			cfg := s.cfg.Load()
 			if cfg.remoteConfig.RegistrationRefresh != tickerDuration {
@@ -335,28 +334,38 @@ func (s *triggerSubscriber) Receive(_ context.Context, msg *types.MessageBody) {
 			s.registrationResponseCache.Insert(key, sender, nowMs, nil)
 		}
 
-		ready, errors := s.registrationResponseCache.Ready(key, cfg.remoteConfig.MinResponsesToAggregate, nowMs-cfg.remoteConfig.MessageExpiry.Milliseconds(), true)
+
+		// TODO check min responses to aggregate, is it 2f+1 ?
+		ready, responseErrors := s.registrationResponseCache.Ready(key, cfg.remoteConfig.MinResponsesToAggregate, nowMs-cfg.remoteConfig.MessageExpiry.Milliseconds(), true)
+
+		var noErrorCount uint8
 		if ready {
 			// aggregate errors by message
-			map
+			errorToCount := map[string]int{}
+   			for _, responseError := range responseErrors {
+				if len(responseError) > 0 {
+					errorStr := string(responseError)
+					errorToCount[errorStr] = errorToCount[errorStr]+1
+				} else {
+					noErrorCount++
+				}
+			}
 
+			s.
 
+			if noErrorCount >= (s.cfg.Load().capDonInfo.F + 1) {
+				// Successful registration
+				s.lggr.Infow("successful trigger registration", "triggerID", meta.TriggerId, "sender", sender)
+			} else {
+				// Registration failed - log all errors
+				for errStr, count := range errorToCount {
+					s.lggr.Errorw("trigger registration failed", "triggerID", meta.TriggerId, "sender", sender, "error", errStr, "count", count)
+				}
+
+				/
+
+			}
 		}
-
-
-
-
-
-
-		workflow ID and peer ID, but surely though it needs some sort of trigger id?  step id might not be incremented?
-
-		if meta.Error != nil {
-			can probably use message cache here to aggregate errors
-		} else {
-			responses for what registration request as they are on a timer so tick, but could have initial registration flag?
-			yes - initial registration flag would work.   What would be the unique key?
-		}
-
 	} else {
 		s.lggr.Errorw("received trigger event with unknown method", "method", SanitizeLogString(msg.Method), "sender", sender, "err", SanitizeLogString(msg.ErrorMsg))
 	}

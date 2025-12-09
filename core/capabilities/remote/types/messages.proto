@@ -47,7 +47,7 @@ message TriggerRegistrationMetadata {
   string last_received_event_id = 1;
   string trigger_id =2;
 
-  // Todo make struct instead of serialized string (no backwards compatibility issues here)
+  // Todo make struct instead of serialized string (no backwards compatibility issues here so we should do it the right way)
   optional string error = 3;
 }
 
