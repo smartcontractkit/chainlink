@@ -261,7 +261,7 @@ func NewApp(s *Shell) *cli.App {
 					return err
 				}
 
-				// Configure a new logger with OTel atomic core support
+				// Configure a new logger
 				lggrCfg := logger.Config{
 					LogLevel:    s.Config.Log().Level(),
 					Dir:         s.Config.Log().File().Dir(),
@@ -274,18 +274,26 @@ func NewApp(s *Shell) *cli.App {
 					SentryEnabled:  s.Config.Sentry().DSN() != "",
 				}
 
-				// Noop atomic core that can be swapped out later for OTel support
-				atomicCore := logger.NewAtomicCore()
+				// Create atomic core only if log streaming is enabled
+				if s.Config.Telemetry().LogStreamingEnabled() {
+					// Noop atomic core that can be swapped out later for OTel support
+					atomicCore := logger.NewAtomicCore()
+					l, closeFn := lggrCfg.NewWithCores(atomicCore)
 
-				l, closeFn := lggrCfg.NewWithCores(atomicCore)
+					s.Logger = l
+					s.CloseLogger = func() error {
+						atomicCore.Close()
+						return closeFn()
+					}
+					// s.SetOtelCore is a hook that can be used to set the OTel core
+					s.SetOtelCore = atomicCore.Store
+				} else {
+					// Use standard logger without OTel core
+					l, closeFn := lggrCfg.New()
 
-				s.Logger = l
-				s.CloseLogger = func() error {
-					atomicCore.Close()
-					return closeFn()
+					s.Logger = l
+					s.CloseLogger = closeFn
 				}
-				// s.SetOtelCore is a hook that can be used to set the OTel core
-				s.SetOtelCore = atomicCore.Store
 
 				return nil
 			},
