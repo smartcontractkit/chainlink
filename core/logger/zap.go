@@ -86,10 +86,12 @@ func (d *AtomicCore) Close() {
 }
 
 func (d *AtomicCore) cleanup() {
+	logger.DefaultLogger.Error("DEBUG AtomicCore cleanup", "step", "enter")
 	var wg sync.WaitGroup
 	defer wg.Wait()
 	d.mu.Lock()
 	defer d.mu.Unlock()
+	logger.DefaultLogger.Error("DEBUG AtomicCore cleanup", "step", "init loop")
 	initialChildrenCount := len(d.children)
 	for p := range d.children {
 		c := p.Value()
@@ -97,9 +99,9 @@ func (d *AtomicCore) cleanup() {
 			delete(d.children, p)
 			continue
 		}
-		c.cleanup()
+		go c.cleanup()
 	}
-	logger.DefaultLogger.Debug("DEBUG AtomicCore cleanup", "deleted_children_count", initialChildrenCount-len(d.children))
+	logger.DefaultLogger.Error("DEBUG AtomicCore cleanup", "deleted_children_count", initialChildrenCount-len(d.children))
 }
 
 func (d *AtomicCore) startPeriodicCleanup() {
@@ -110,6 +112,7 @@ func (d *AtomicCore) startPeriodicCleanup() {
 		for {
 			select {
 			case <-ticker.C:
+				logger.DefaultLogger.Error("DEBUG AtomicCore cleanup", "step", "trigger")
 				d.cleanup()
 			case <-d.stopCleanup:
 				return
