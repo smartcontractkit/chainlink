@@ -48,6 +48,7 @@ func (noopChipIngressPublisher) RegisterSchemas(ctx context.Context, schemas ...
 func TestChipIngressBatchWorker_BuildCloudEventBatch(t *testing.T) {
 	maxBatchSize := 3
 	chTelemetry := make(chan TelemPayload, 10)
+	// #nosec G115 -- maxBatchSize is a small positive constant, safe to convert to uint
 	worker := NewChipIngressBatchWorker(
 		uint(maxBatchSize),
 		time.Second,
@@ -95,7 +96,7 @@ func TestChipIngressBatchWorker_BuildCloudEventBatch(t *testing.T) {
 	batch2 := worker.BuildCloudEventBatch()
 	require.NotNil(t, batch2)
 	require.Len(t, batch2.Events, 2)
-	assert.Len(t, chTelemetry, 0)
+	assert.Empty(t, chTelemetry)
 }
 
 func TestChipIngressBatchWorker_BuildCloudEventBatchUsesMapping(t *testing.T) {

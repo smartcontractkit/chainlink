@@ -7,8 +7,6 @@ import (
 	"sync/atomic"
 	"time"
 
-	"google.golang.org/grpc"
-
 	"github.com/smartcontractkit/chainlink-common/pkg/chipingress"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
@@ -17,11 +15,6 @@ import (
 const (
 	chipIngress = "chip-ingress"
 )
-
-// chipIngressPublisher captures the subset of the chip ingress client required by the batch worker.
-type chipIngressPublisher interface {
-	PublishBatch(ctx context.Context, in *chipingress.CloudEventBatch, opts ...grpc.CallOption) (*chipingress.PublishResponse, error)
-}
 
 // chipIngressBatchWorker mirrors telemetryIngressBatchWorker but targets the ChIP ingress client.
 // A worker is created per (contractID, telemetry type) pair.
@@ -104,6 +97,7 @@ func (cw *chipIngressBatchWorker) logBufferFullWithExpBackoff(payload TelemPaylo
 func (cw *chipIngressBatchWorker) BuildCloudEventBatch() *chipingress.CloudEventBatch {
 	var events []chipingress.CloudEvent
 
+	// #nosec G115 -- maxBatchSize is uint, safe to convert to int for comparison
 	for len(cw.chTelemetry) > 0 && len(events) < int(cw.maxBatchSize) {
 		payload := <-cw.chTelemetry
 		event, err := cw.payloadToEvent(payload)

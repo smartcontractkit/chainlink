@@ -9,6 +9,7 @@ import (
 	"github.com/onsi/gomega"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
+	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/chipingress"
 	chipingressmocks "github.com/smartcontractkit/chainlink-common/pkg/chipingress/mocks"
@@ -57,7 +58,7 @@ func TestChipIngressBatchClient_HappyPath(t *testing.T) {
 
 		for _, protoEvent := range batch.Events {
 			event, err := chipingress.ProtoToEvent(protoEvent)
-			assert.NoError(t, err)
+			require.NoError(t, err)
 
 			attrs := protoEvent.GetAttributes()
 			contractID := attrs["contractid"].GetCeString()
@@ -67,18 +68,18 @@ func TestChipIngressBatchClient_HappyPath(t *testing.T) {
 				assert.Equal(t, telemPayload1.Telemetry, event.Data())
 				assert.Equal(t, string(synchronization.OCR), attrs["telemetrytype"].GetCeString())
 				assert.Equal(t, telemPayload1.Network, attrs["networkname"].GetCeString())
-				assert.Equal(t, "", attrs["nodeoperatorname"].GetCeString())
-				assert.Equal(t, "", attrs["nodename"].GetCeString())
-				assert.Equal(t, "", attrs["nodecsapublickey"].GetCeString())
+				assert.Empty(t, attrs["nodeoperatorname"].GetCeString())
+				assert.Empty(t, attrs["nodename"].GetCeString())
+				assert.Empty(t, attrs["nodecsapublickey"].GetCeString())
 			}
 			if contractID == "0x3" {
 				contractCounter3.Add(1)
 				assert.Equal(t, telemPayload3.Telemetry, event.Data())
 				assert.Equal(t, string(synchronization.OCR2Functions), attrs["telemetrytype"].GetCeString())
 				assert.Equal(t, telemPayload3.Network, attrs["networkname"].GetCeString())
-				assert.Equal(t, "", attrs["nodeoperatorname"].GetCeString())
-				assert.Equal(t, "", attrs["nodename"].GetCeString())
-				assert.Equal(t, "", attrs["nodecsapublickey"].GetCeString())
+				assert.Empty(t, attrs["nodeoperatorname"].GetCeString())
+				assert.Empty(t, attrs["nodename"].GetCeString())
+				assert.Empty(t, attrs["nodecsapublickey"].GetCeString())
 			}
 		}
 	})
@@ -132,9 +133,7 @@ func TestChipIngressBatchClient_MultipleBatches(t *testing.T) {
 	}
 
 	// Wait for batches to be sent
-	g.Eventually(func() uint32 {
-		return batchCount.Load()
-	}, 200*time.Millisecond).Should(gomega.BeNumerically(">=", 2))
+	g.Eventually(batchCount.Load, 200*time.Millisecond).Should(gomega.BeNumerically(">=", 2))
 }
 
 func TestChipIngressBatchClient_DifferentTelemetryTypes(t *testing.T) {
@@ -241,6 +240,7 @@ func TestChipIngressBatchClient_WorkerReuse(t *testing.T) {
 	var messageCount atomic.Uint32
 	chipClient.On("PublishBatch", mock.Anything, mock.Anything, mock.Anything).Return(&chipingress.PublishResponse{}, nil).Run(func(args mock.Arguments) {
 		batch := args.Get(1).(*chipingress.CloudEventBatch)
+		// #nosec G115 -- len() returns non-negative int, safe to convert to uint32
 		messageCount.Add(uint32(len(batch.Events)))
 	})
 
@@ -251,9 +251,7 @@ func TestChipIngressBatchClient_WorkerReuse(t *testing.T) {
 	}
 
 	// Wait for all messages to be sent
-	g.Eventually(func() uint32 {
-		return messageCount.Load()
-	}).Should(gomega.Equal(uint32(5)))
+	g.Eventually(messageCount.Load).Should(gomega.Equal(uint32(5)))
 }
 
 func TestChipIngressBatchClient_ChainSelectorInAttributes(t *testing.T) {
@@ -312,9 +310,7 @@ func TestChipIngressBatchClient_HealthMonitoring(t *testing.T) {
 	servicetest.Run(t, chipIngressClient)
 
 	// Wait for at least 2 ping calls to verify health monitoring is running
-	g.Eventually(func() uint32 {
-		return pingCallCount.Load()
-	}, 15*time.Second, 100*time.Millisecond).Should(gomega.BeNumerically(">=", 2))
+	g.Eventually(pingCallCount.Load, 15*time.Second, 100*time.Millisecond).Should(gomega.BeNumerically(">=", 2))
 }
 
 func TestChipIngressBatchClient_HealthMonitoring_PingFailure(t *testing.T) {
@@ -335,7 +331,5 @@ func TestChipIngressBatchClient_HealthMonitoring_PingFailure(t *testing.T) {
 	servicetest.Run(t, chipIngressClient)
 
 	// Wait for at least 2 ping calls to verify health monitoring continues despite failures
-	g.Eventually(func() uint32 {
-		return pingCallCount.Load()
-	}, 15*time.Second, 100*time.Millisecond).Should(gomega.BeNumerically(">=", 2))
+	g.Eventually(pingCallCount.Load, 15*time.Second, 100*time.Millisecond).Should(gomega.BeNumerically(">=", 2))
 }

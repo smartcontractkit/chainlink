@@ -18,10 +18,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/synchronization"
 )
 
-const (
-	chipIngress = "chip-ingress"
-)
-
 type Manager struct {
 	services.Service
 
@@ -97,7 +93,7 @@ func (m *Manager) GenMonitoringEndpoint(network string, chainID string, contract
 	}
 
 	if m.chipIngressClient != nil {
-		lggr := m.eng.SugaredLogger.Named("chip-ingress")
+		lggr := m.eng.Named("chip-ingress")
 		adapter, err := NewChipIngressAgent(e.chipIngressClient, network, chainID, contractID, telemType, lggr)
 		if err != nil {
 			m.eng.Errorw("failed to create ChIP ingress agent, falling back to noop", "error", err, "network", network, "chainID", chainID, "contractID", contractID, "telemType", telemType)
@@ -122,7 +118,7 @@ func (m *Manager) GenMultitypeMonitoringEndpoint(network string, chainID string,
 	}
 
 	if m.chipIngressClient != nil {
-		lggr := m.eng.SugaredLogger.Named("chip-ingress-multipletype")
+		lggr := m.eng.Named("chip-ingress-multipletype")
 		adapter, err := NewChipIngressAgentMultitype(e.chipIngressClient, network, chainID, contractID, lggr)
 		if err != nil {
 			m.eng.Errorw("failed to create ChIP ingress multitype agent, falling back to noop", "error", err, "network", network, "chainID", chainID, "contractID", contractID)

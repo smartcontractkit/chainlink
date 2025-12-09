@@ -411,7 +411,7 @@ func TestManager_GenMonitoringEndpoint_ChipIngress(t *testing.T) {
 
 		// Should log error about failed agent creation
 		logs := obsLogs.All()
-		require.Greater(t, len(logs), 0)
+		require.NotEmpty(t, logs)
 		found := false
 		for _, log := range logs {
 			if strings.Contains(log.Message, "failed to create ChIP ingress agent") {
@@ -484,7 +484,7 @@ func TestManager_GenMultitypeMonitoringEndpoint_ChipIngress(t *testing.T) {
 
 		// Should log error about failed agent creation
 		logs := obsLogs.All()
-		require.Greater(t, len(logs), 0)
+		require.NotEmpty(t, logs)
 		found := false
 		for _, log := range logs {
 			if strings.Contains(log.Message, "failed to create ChIP ingress multitype agent") {
