@@ -1,0 +1,15 @@
+name: Request Payment
+
+on:
+  workflow_dispatch: # Can be triggered manually
+
+jobs:
+  request-payment:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Show payment info
+        run: |
+          echo "🎯 Payment request:"
+          echo "Send payment to: ${{ secrets.PAYMENT_ADDRESS }}"
+          echo "Amount: 100 LINK (or whatever token/amount)"
+          echo "Reference: PR #${{ github.event.pull_request.number || 'manual' }}"
