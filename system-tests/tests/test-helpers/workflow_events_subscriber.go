@@ -3,6 +3,7 @@ package helpers
 import (
 	"context"
 	"fmt"
+	"os"
 	"regexp"
 	"strings"
 	"sync"
@@ -356,6 +357,10 @@ func LogWorkflowEvent(
 	ctx context.Context,
 	messageChan <-chan WorkflowEventMessage,
 ) {
+	if os.Getenv("TEST_WORKFLOW_DEBUG_NO_LOGS") == "true" {
+		return
+	}
+
 	for {
 		select {
 		case <-ctx.Done():
@@ -372,15 +377,15 @@ func LogWorkflowEvent(
 			// V1 events
 			case "workflows.v1.WorkflowExecutionStarted":
 				if asEvent, ok := msg.Event.(*workflowevents.WorkflowExecutionStarted); ok {
-					fmt.Printf("WorkflowExecutionStarted: %s\n", asEvent.M.WorkflowID)
+					fmt.Printf(" [%s] --------> WorkflowExecutionStarted: %s\n", msg.NodeName, asEvent.M.WorkflowID)
 				}
 			case "workflows.v1.WorkflowExecutionFinished":
 				if asEvent, ok := msg.Event.(*workflowevents.WorkflowExecutionFinished); ok {
-					fmt.Printf("WorkflowExecutionFinished: %s\n", asEvent.M.WorkflowID)
+					fmt.Printf(" [%s] --------> WorkflowExecutionFinished: %s\n", msg.NodeName, asEvent.M.WorkflowID)
 				}
 			case "workflows.v1.WorkflowStatusChanged":
 				if asEvent, ok := msg.Event.(*workflowevents.WorkflowStatusChanged); ok {
-					fmt.Printf("WorkflowStatusChanged: %s\n", asEvent.Status) // weirdly WorkflowID here is empty!
+					fmt.Printf(" [%s] --------> WorkflowStatusChanged: %s\n", msg.NodeName, asEvent.Status) // weirdly WorkflowID here is empty!
 				}
 			case "workflows.v1.UserLogs":
 				if asEvent, ok := msg.Event.(*workflowevents.UserLogs); ok {
@@ -389,17 +394,17 @@ func LogWorkflowEvent(
 						result := re.FindStringSubmatch(line.Message)
 						if len(result) > 1 {
 							for _, match := range result[1:] {
-								fmt.Printf("UserLogs: %s\n", match)
+								fmt.Printf(" [%s] --------> UserLogs: %s\n", msg.NodeName, match)
 							}
 						} else {
-							fmt.Printf("UserLogs: %s\n", line.Message)
+							fmt.Printf(" [%s] --------> UserLogs: %s\n", msg.NodeName, line.Message)
 						}
 					}
 				}
 			// Common events
 			case "BaseMessage":
 				if asEvent, ok := msg.Event.(*commonevents.BaseMessage); ok {
-					fmt.Printf("BaseMessage: %s\n", asEvent.Msg)
+					fmt.Printf(" [%s] --------> BaseMessage: %s\n", msg.NodeName, asEvent.Msg)
 				}
 			}
 		}
@@ -448,6 +453,8 @@ func deserializeWorkflowEvent(eventType string, data []byte) (proto.Message, err
 		msg = &workflowevents.WorkflowStatusChanged{}
 	case "workflows.v1.UserLogs":
 		msg = &workflowevents.UserLogs{}
+	case "workflows.v1.TransmissionsScheduledEvent":
+		msg = &workflowevents.TransmissionsScheduledEvent{}
 
 	// Common events
 	case "BaseMessage":
