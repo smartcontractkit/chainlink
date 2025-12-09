@@ -87,9 +87,6 @@
       [Billing]
       URL = "billing-platform-service:2223"
       TLSEnabled = false
-
-      [Solana.MultiNode]
-      VerifyChainID = false
       """
 
   [[nodesets.node_specs]]
@@ -111,9 +108,6 @@
       [Billing]
       URL = "billing-platform-service:2223"
       TLSEnabled = false
-
-      [Solana.MultiNode]
-      VerifyChainID = false
       """
 
   [[nodesets.node_specs]]
@@ -135,9 +129,6 @@
       [Billing]
       URL = "billing-platform-service:2223"
       TLSEnabled = false
-
-      [Solana.MultiNode]
-      VerifyChainID = false
       """
 
   [[nodesets.node_specs]]
@@ -159,9 +150,6 @@
       [Billing]
       URL = "billing-platform-service:2223"
       TLSEnabled = false
-
-      [Solana.MultiNode]
-      VerifyChainID = false
       """
 
   [[nodesets.node_specs]]
@@ -183,7 +171,4 @@
       [Billing]
       URL = "billing-platform-service:2223"
       TLSEnabled = false
-
-      [Solana.MultiNode]
-      VerifyChainID = false
       """
