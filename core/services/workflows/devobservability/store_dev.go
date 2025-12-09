@@ -23,9 +23,10 @@ type workflowEventData struct {
 }
 
 type devStore struct {
-	cache       *lru.Cache[string, *workflowEventData]
-	orphanCache *lru.Cache[int64, EventEntry] // keyed by timestamp nanos for ordering
-	orphanMu    sync.RWMutex
+	cache              *lru.Cache[string, *workflowEventData]
+	orphanCache        *lru.Cache[int64, EventEntry] // keyed by sequence number
+	orphanMu           sync.RWMutex
+	nextOrphanSequence int64
 }
 
 func init() {
@@ -41,8 +42,9 @@ func init() {
 	}
 
 	store := &devStore{
-		cache:       cache,
-		orphanCache: orphanCache,
+		cache:              cache,
+		orphanCache:        orphanCache,
+		nextOrphanSequence: 1,
 	}
 
 	globalStore = store
@@ -95,20 +97,20 @@ func (s *devStore) storeOrphanEvent(eventType string, payload []byte) {
 	s.orphanMu.Lock()
 	defer s.orphanMu.Unlock()
 
-	now := time.Now()
 	event := EventEntry{
-		Sequence:  0, // Orphan events don't have sequence numbers
+		Sequence:  s.nextOrphanSequence,
 		Type:      eventType,
-		Timestamp: now,
+		Timestamp: time.Now(),
 		Message:   payload,
 	}
 
-	// Use timestamp nanos as key (ensures ordering)
+	// Use sequence number as key
 	// LRU will automatically evict oldest when capacity is reached
-	s.orphanCache.Add(now.UnixNano(), event)
+	s.orphanCache.Add(s.nextOrphanSequence, event)
+	s.nextOrphanSequence++
 
-	fmt.Printf("[DevObservability] Orphan event stored! type=%s, total_orphan_events=%d\n",
-		eventType, s.orphanCache.Len())
+	fmt.Printf("[DevObservability] Orphan event stored! type=%s, seq=%d, total_orphan_events=%d\n",
+		eventType, event.Sequence, s.orphanCache.Len())
 }
 
 func (s *devStore) GetWorkflows() []string {
@@ -118,29 +120,32 @@ func (s *devStore) GetWorkflows() []string {
 	return workflowIDs
 }
 
-func (s *devStore) GetOrphanEvents(limit int) []EventEntry {
+func (s *devStore) GetOrphanEvents(limit int, minSequence int64) []EventEntry {
 	s.orphanMu.RLock()
 	defer s.orphanMu.RUnlock()
 
-	// Get all keys (timestamp nanos) from cache
+	// Get all sequence keys from cache
 	keys := s.orphanCache.Keys()
 	if len(keys) == 0 {
 		return []EventEntry{}
 	}
 
-	// Keys are in LRU order, not chronological order
-	// We need to sort by timestamp to get chronological order
+	// Get all events and filter by sequence
 	allEvents := make([]EventEntry, 0, len(keys))
-	for _, key := range keys {
-		if evt, ok := s.orphanCache.Peek(key); ok {
+	for _, seq := range keys {
+		if evt, ok := s.orphanCache.Peek(seq); ok {
+			// Filter by minimum sequence if specified
+			if minSequence > 0 && evt.Sequence < minSequence {
+				continue
+			}
 			allEvents = append(allEvents, evt)
 		}
 	}
 
-	// Sort by timestamp to ensure chronological order
+	// Sort by sequence to ensure chronological order
 	for i := 0; i < len(allEvents)-1; i++ {
 		for j := i + 1; j < len(allEvents); j++ {
-			if allEvents[i].Timestamp.After(allEvents[j].Timestamp) {
+			if allEvents[i].Sequence > allEvents[j].Sequence {
 				allEvents[i], allEvents[j] = allEvents[j], allEvents[i]
 			}
 		}
@@ -202,6 +207,7 @@ func (s *devStore) Clear() {
 	s.cache.Purge()
 	s.orphanMu.Lock()
 	s.orphanCache.Purge()
+	s.nextOrphanSequence = 1
 	s.orphanMu.Unlock()
 }
 

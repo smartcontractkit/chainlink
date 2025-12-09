@@ -49,7 +49,14 @@ func (wdc *WorkflowsDebugController) GetOrphanEvents(c *gin.Context) {
 		}
 	}
 
-	events := devobservability.GetStore().GetOrphanEvents(limit)
+	var minSequence int64 = 0
+	if seqStr := c.Query("sequence"); seqStr != "" {
+		if parsedSeq, err := strconv.ParseInt(seqStr, 10, 64); err == nil && parsedSeq > 0 {
+			minSequence = parsedSeq
+		}
+	}
+
+	events := devobservability.GetStore().GetOrphanEvents(limit, minSequence)
 
 	// Check if client wants formatted output (with decoded protobufs)
 	if c.Query("format") == "decoded" {

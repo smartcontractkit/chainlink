@@ -46,8 +46,9 @@ type WorkflowEventsSubscriber struct {
 	retryDelay    time.Duration
 
 	// Per-node sequence tracking
-	nodeSequences map[string]int64 // map[nodeName]lastSequence
-	sequenceMu    sync.RWMutex
+	nodeSequences   map[string]int64 // map[nodeName]lastSequence for workflow events
+	orphanSequences map[string]int64 // map[nodeName]lastSequence for orphan events
+	sequenceMu      sync.RWMutex
 
 	logger      zerolog.Logger
 	messageChan chan WorkflowEventMessage
@@ -106,22 +107,24 @@ func StartWorkflowEventsSubscriber(ctx context.Context, config WorkflowEventsSub
 	messageChan := make(chan WorkflowEventMessage, config.BufferSize)
 
 	sub := &WorkflowEventsSubscriber{
-		workflowID:    config.WorkflowID,
-		don:           config.Don,
-		workerNodes:   workerNodes,
-		pollInterval:  config.PollInterval,
-		retryAttempts: config.RetryAttempts,
-		retryDelay:    config.RetryDelay,
-		nodeSequences: make(map[string]int64),
-		logger:        config.Logger,
-		messageChan:   messageChan,
-		ctx:           subCtx,
-		cancel:        cancel,
+		workflowID:      config.WorkflowID,
+		don:             config.Don,
+		workerNodes:     workerNodes,
+		pollInterval:    config.PollInterval,
+		retryAttempts:   config.RetryAttempts,
+		retryDelay:      config.RetryDelay,
+		nodeSequences:   make(map[string]int64),
+		orphanSequences: make(map[string]int64),
+		logger:          config.Logger,
+		messageChan:     messageChan,
+		ctx:             subCtx,
+		cancel:          cancel,
 	}
 
 	// Initialize sequence tracking for each node
 	for _, node := range workerNodes {
 		sub.nodeSequences[node.Name] = 0
+		sub.orphanSequences[node.Name] = 0
 	}
 
 	// Start polling goroutines (one per node)
@@ -181,14 +184,13 @@ func (s *WorkflowEventsSubscriber) pollNodeLoop(node *cre.Node) {
 	}
 }
 
-// fetchAndProcessEvents calls the API and processes new events
+// fetchAndProcessEvents calls the API and processes new events from both workflow and orphan endpoints
 func (s *WorkflowEventsSubscriber) fetchAndProcessEvents(node *cre.Node, logger zerolog.Logger) error {
-	// Get the last sequence for this specific node
+	// Fetch workflow events
 	s.sequenceMu.RLock()
 	minSequence := s.nodeSequences[node.Name] + 1
 	s.sequenceMu.RUnlock()
 
-	// Call ReadWorkflowEvents with retry logic
 	var response *clclient.WorkflowDebugEvents
 	err := retry.Do(
 		func() error {
@@ -210,10 +212,8 @@ func (s *WorkflowEventsSubscriber) fetchAndProcessEvents(node *cre.Node, logger 
 		return fmt.Errorf("ReadWorkflowEvents failed after %d attempts: %w", s.retryAttempts, err)
 	}
 
-	// Extract events from response
+	// Process workflow events
 	events := response.Data.Attributes.Events
-
-	// Process each event
 	for _, eventEntry := range events {
 		// Check if we already processed this sequence
 		s.sequenceMu.RLock()
@@ -266,6 +266,125 @@ func (s *WorkflowEventsSubscriber) fetchAndProcessEvents(node *cre.Node, logger 
 				Str("type", eventEntry.Type).
 				Int64("sequence", eventEntry.Sequence).
 				Msg("Channel full, dropping event")
+		}
+	}
+
+	// Fetch orphan events
+	s.sequenceMu.RLock()
+	minOrphanSequence := s.orphanSequences[node.Name] + 1
+	s.sequenceMu.RUnlock()
+
+	var orphanResponse *clclient.WorkflowOrphanEvents
+	err = retry.Do(
+		func() error {
+			var apiErr error
+			orphanResponse, _, apiErr = node.Clients.RestClient.ReadOrphanEvents(minOrphanSequence, 100)
+			return apiErr
+		},
+		retry.Attempts(uint(s.retryAttempts)),
+		retry.Delay(s.retryDelay),
+		retry.OnRetry(func(n uint, err error) {
+			logger.Debug().
+				Uint("attempt", n+1).
+				Err(err).
+				Msg("Retrying ReadOrphanEvents")
+		}),
+	)
+
+	if err != nil {
+		return fmt.Errorf("ReadOrphanEvents failed after %d attempts: %w", s.retryAttempts, err)
+	}
+
+	// Process orphan events - filter by workflowID
+	orphanEvents := orphanResponse.Data.Attributes.Events
+	for _, eventEntry := range orphanEvents {
+		// Check if we already processed this sequence
+		s.sequenceMu.RLock()
+		lastOrphanSeq := s.orphanSequences[node.Name]
+		s.sequenceMu.RUnlock()
+
+		if eventEntry.Sequence <= lastOrphanSeq {
+			continue
+		}
+
+		// Deserialize protobuf
+		protoMsg, err := deserializeWorkflowEvent(eventEntry.Type, eventEntry.Message)
+		if err != nil {
+			logger.Warn().
+				Err(err).
+				Str("type", eventEntry.Type).
+				Int64("sequence", eventEntry.Sequence).
+				Msg("Failed to deserialize orphan event")
+			continue
+		}
+
+		// Extract workflowID and filter
+		workflowID, hasWorkflowID := extractWorkflowID(eventEntry.Type, protoMsg)
+		if !hasWorkflowID {
+			// Event doesn't have workflowID - skip it
+			logger.Debug().
+				Str("type", eventEntry.Type).
+				Int64("sequence", eventEntry.Sequence).
+				Msg("Orphan event has no workflowID, skipping")
+
+			// Update sequence even for skipped events
+			s.sequenceMu.Lock()
+			if eventEntry.Sequence > s.orphanSequences[node.Name] {
+				s.orphanSequences[node.Name] = eventEntry.Sequence
+			}
+			s.sequenceMu.Unlock()
+			continue
+		}
+
+		if workflowID != s.workflowID {
+			// Different workflow - skip it
+			logger.Debug().
+				Str("type", eventEntry.Type).
+				Int64("sequence", eventEntry.Sequence).
+				Str("event_workflow_id", workflowID).
+				Str("subscriber_workflow_id", s.workflowID).
+				Msg("Orphan event for different workflow, skipping")
+
+			// Update sequence even for skipped events
+			s.sequenceMu.Lock()
+			if eventEntry.Sequence > s.orphanSequences[node.Name] {
+				s.orphanSequences[node.Name] = eventEntry.Sequence
+			}
+			s.sequenceMu.Unlock()
+			continue
+		}
+
+		// This orphan event belongs to our workflow - send it
+		msg := WorkflowEventMessage{
+			NodeName:  node.Name,
+			Sequence:  eventEntry.Sequence,
+			Type:      eventEntry.Type,
+			Timestamp: eventEntry.Timestamp,
+			Event:     protoMsg,
+		}
+
+		select {
+		case s.messageChan <- msg:
+			logger.Debug().
+				Str("type", eventEntry.Type).
+				Int64("sequence", eventEntry.Sequence).
+				Msg("Orphan event sent to channel")
+
+			// Update last orphan sequence for this node
+			s.sequenceMu.Lock()
+			if eventEntry.Sequence > s.orphanSequences[node.Name] {
+				s.orphanSequences[node.Name] = eventEntry.Sequence
+			}
+			s.sequenceMu.Unlock()
+
+		case <-s.ctx.Done():
+			return nil
+
+		default:
+			logger.Warn().
+				Str("type", eventEntry.Type).
+				Int64("sequence", eventEntry.Sequence).
+				Msg("Channel full, dropping orphan event")
 		}
 	}
 
@@ -412,7 +531,13 @@ func LogWorkflowEvent(
 			// Common events
 			case "BaseMessage":
 				if asEvent, ok := msg.Event.(*commonevents.BaseMessage); ok {
-					fmt.Printf(" [%s]#%d --------> BaseMessage: %s\n", msg.NodeName, msg.Sequence, asEvent.Msg)
+					baseMsg := asEvent.Msg
+					for k, v := range asEvent.Labels {
+						if k == "err" {
+							baseMsg += "; err:" + v
+						}
+					}
+					fmt.Printf(" [%s]#%d --------> BaseMessage: %s\n", msg.NodeName, msg.Sequence, baseMsg)
 				}
 			}
 		}
@@ -437,6 +562,26 @@ func getMapKeys(m map[string]bool) []string {
 		keys = append(keys, k)
 	}
 	return keys
+}
+
+// extractWorkflowID extracts the workflowID field from a deserialized event
+// Returns (workflowID, found) where found indicates if the event type has a workflowID field
+// Currently only BaseMessage events (used for orphan events like trigger registration) have workflowID
+func extractWorkflowID(eventType string, msg proto.Message) (string, bool) {
+	switch eventType {
+	// Common events - BaseMessage is used for orphan events like trigger registration
+	case "BaseMessage":
+		if e, ok := msg.(*commonevents.BaseMessage); ok {
+			// BaseMessage stores workflowID in the Labels map
+			if workflowID, exists := e.Labels["workflowID"]; exists && workflowID != "" {
+				return workflowID, true
+			}
+		}
+	}
+
+	// Event type doesn't have workflowID or we don't handle it yet
+	// Can be extended later to support v1/v2 workflow events if needed
+	return "", false
 }
 
 // deserializeWorkflowEvent deserializes event data based on type

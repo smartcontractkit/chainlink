@@ -6,7 +6,7 @@ import (
 
 // Store is the interface for dev observability storage
 type Store interface {
-	GetOrphanEvents(limit int) []EventEntry
+	GetOrphanEvents(limit int, minSequence int64) []EventEntry
 	GetWorkflowEvents(workflowID string, limit int, minSequence int64) []EventEntry
 	GetWorkflows() []string
 
