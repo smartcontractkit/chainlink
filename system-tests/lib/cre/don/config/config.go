@@ -157,10 +157,6 @@ func generateNodeTomlConfig(input cre.GenerateConfigsInput, nodeConfigTransforme
 	for nodeIdx, nodeMetadata := range input.DonMetadata.NodesMetadata {
 		nodeConfig := baseNodeConfig()
 
-		cfg := solcfg.NewDefault()
-		cfg.MultiNode.MultiNode.VerifyChainID = ptr.Ptr(false)
-		nodeConfig.Solana = solcfg.TOMLConfigs{cfg}
-
 		for _, role := range nodeMetadata.Roles {
 			switch role {
 			case cre.BootstrapNode:
@@ -270,10 +266,14 @@ func addBootstrapNodeConfig(
 		appendEVMChain(&existingConfig.EVM, evmChain)
 	}
 
+	cfg := solcfg.NewDefault()
+	cfg.MultiNode.MultiNode.VerifyChainID = ptr.Ptr(false)
+
 	if commonInputs.solanaChain != nil {
 		existingConfig.Solana = append(existingConfig.Solana, &solcfg.TOMLConfig{
-			Enabled: ptr.Ptr(true),
-			ChainID: ptr.Ptr(commonInputs.solanaChain.ChainID),
+			Enabled:   ptr.Ptr(true),
+			ChainID:   ptr.Ptr(commonInputs.solanaChain.ChainID),
+			MultiNode: cfg.MultiNode,
 			Nodes: []*solcfg.Node{
 				{
 					Name: &commonInputs.solanaChain.Name,
@@ -338,10 +338,14 @@ func addWorkerNodeConfig(
 		appendEVMChain(&existingConfig.EVM, evmChain)
 	}
 
+	cfg := solcfg.NewDefault()
+	cfg.MultiNode.MultiNode.VerifyChainID = ptr.Ptr(false)
+
 	if commonInputs.solanaChain != nil {
 		existingConfig.Solana = append(existingConfig.Solana, &solcfg.TOMLConfig{
-			ChainID: ptr.Ptr(commonInputs.solanaChain.ChainID),
-			Enabled: ptr.Ptr(true),
+			ChainID:   ptr.Ptr(commonInputs.solanaChain.ChainID),
+			Enabled:   ptr.Ptr(true),
+			MultiNode: cfg.MultiNode,
 			Nodes: solcfg.Nodes{
 				{
 					Name: ptr.Ptr(commonInputs.solanaChain.Name),
