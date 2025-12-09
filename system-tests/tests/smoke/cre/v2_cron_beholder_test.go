@@ -28,13 +28,14 @@ func ExecuteCronBeholderTest(t *testing.T, testEnv *ttypes.TestEnvironment) {
 
 	channel, listenerCtx, cancelFn, startErr := t_helpers.StartWorkflowEventsSubscriber(t.Context(), t_helpers.GetStandardWorkflowEventsSubscriberConfig(testEnv, workflowID))
 	require.NoError(t, startErr, "Failed to start workflow events subscriber")
+	t.Cleanup(cancelFn)
 
 	channels := t_helpers.FanOutWorkflowEvents(listenerCtx, channel, 2)
 	go func() {
 		t_helpers.LogWorkflowEvent(listenerCtx, channels[0])
 	}()
 
-	err := t_helpers.AssertWorkflowEventMatched(listenerCtx, cancelFn, 2, channels[1], t_helpers.GetUserLogMatcherFn("Amazing workflow user log"), 2*time.Minute, testLogger)
+	err := t_helpers.AssertWorkflowEventMatched(listenerCtx, 2, channels[1], t_helpers.GetUserLogMatcherFn("Amazing workflow user log"), 2*time.Minute, testLogger)
 	require.NoError(t, err, "Cron (Beholder) test failed")
 	testLogger.Info().Msg("Cron (Beholder) test completed")
 }

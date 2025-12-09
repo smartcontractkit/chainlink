@@ -37,6 +37,7 @@ func CronBeholderFailsWithInvalidScheduleTest(t *testing.T, testEnv *ttypes.Test
 
 	channel, listenerCtx, cancelFn, startErr := t_helpers.StartWorkflowEventsSubscriber(t.Context(), t_helpers.GetStandardWorkflowEventsSubscriberConfig(testEnv, workflowID))
 	require.NoError(t, startErr, "Failed to start workflow events subscriber")
+	t.Cleanup(cancelFn)
 
 	channels := t_helpers.FanOutWorkflowEvents(listenerCtx, channel, 2)
 	go func() {
@@ -46,7 +47,7 @@ func CronBeholderFailsWithInvalidScheduleTest(t *testing.T, testEnv *ttypes.Test
 	testLogger.Warn().Msgf("Expecting Cron workflow to fail with invalid schedule: %s", invalidSchedule)
 	expectedBeholderLog := "beholder found engine initialization failure message!"
 	timeout := 75 * time.Second
-	expectedError := t_helpers.AssertWorkflowEventMatched(listenerCtx, cancelFn, 2, channels[1], t_helpers.GetUserLogMatcherFn(expectedBeholderLog), timeout, testLogger)
+	expectedError := t_helpers.AssertWorkflowEventMatched(listenerCtx, 2, channels[1], t_helpers.GetUserLogMatcherFn(expectedBeholderLog), timeout, testLogger)
 	require.Error(t, expectedError, "Cron (Beholder) test failed. This test expects to fail with an error, but did not.")
 
 	testLogger.Info().Msg("Cron (Beholder) fail test completed")

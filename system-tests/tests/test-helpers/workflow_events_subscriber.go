@@ -272,19 +272,15 @@ type MatcherFunc func(msg proto.Message) (bool, error)
 // - N unique nodes have emitted matching events, OR
 // - The timeout is reached, OR
 // - The subscriber context is cancelled (e.g., due to failures)
-// The cancel function will be called when assertion completes to stop the subscriber.
 // Returns error if conditions not met within timeout.
 func AssertWorkflowEventMatched(
 	ctx context.Context,
-	cancel context.CancelFunc,
 	n int,
 	messageChan <-chan WorkflowEventMessage,
 	matcher MatcherFunc,
 	timeout time.Duration,
 	logger zerolog.Logger,
 ) error {
-	// Ensure subscriber is stopped when assertion completes
-	defer cancel()
 
 	matchedNodes := make(map[string]bool) // Track which nodes have matching events
 	deadline := time.After(timeout)
