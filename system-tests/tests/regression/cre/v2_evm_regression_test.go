@@ -214,9 +214,14 @@ func EVMReadFailsTest(t *testing.T, testEnv *ttypes.TestEnvironment, evmNegative
 		channel, listenerCtx, cancelFn, startErr := t_helpers.StartWorkflowEventsSubscriber(t.Context(), t_helpers.GetStandardWorkflowEventsSubscriberConfig(testEnv, workflowID))
 		require.NoError(t, startErr, "Failed to start workflow events subscriber")
 
+		channels := t_helpers.FanOutWorkflowEvents(listenerCtx, channel, 2)
+		go func() {
+			t_helpers.LogWorkflowEvent(listenerCtx, channels[0])
+		}()
+
 		expectedError := evmNegativeTest.expectedError
 		timeout := 2 * time.Minute
-		err := t_helpers.AssertWorkflowEventMatched(listenerCtx, cancelFn, 2, channel, t_helpers.GetUserLogMatcherFn(expectedError), timeout, testLogger)
+		err := t_helpers.AssertWorkflowEventMatched(listenerCtx, cancelFn, 2, channels[1], t_helpers.GetUserLogMatcherFn(expectedError), timeout, testLogger)
 		require.NoError(t, err, "EVM Read Fail test failed")
 		testLogger.Info().Msg("EVM Read Fail test successfully completed")
 	}
@@ -286,9 +291,14 @@ func EVMWriteFailsTest(t *testing.T, testEnv *ttypes.TestEnvironment, evmNegativ
 		channel, listenerCtx, cancelFn, startErr := t_helpers.StartWorkflowEventsSubscriber(t.Context(), t_helpers.GetStandardWorkflowEventsSubscriberConfig(testEnv, workflowID))
 		require.NoError(t, startErr, "Failed to start workflow events subscriber")
 
+		channels := t_helpers.FanOutWorkflowEvents(listenerCtx, channel, 2)
+		go func() {
+			t_helpers.LogWorkflowEvent(listenerCtx, channels[0])
+		}()
+
 		expectedError := evmNegativeTest.expectedError
 		timeout := 2 * time.Minute
-		err := t_helpers.AssertWorkflowEventMatched(listenerCtx, cancelFn, 2, channel, t_helpers.GetUserLogMatcherFn(expectedError), timeout, testLogger)
+		err := t_helpers.AssertWorkflowEventMatched(listenerCtx, cancelFn, 2, channels[1], t_helpers.GetUserLogMatcherFn(expectedError), timeout, testLogger)
 		require.NoError(t, err, "EVM Write Regression test failed")
 		testLogger.Info().Msg("EVM Write Regression test successfully completed")
 	}

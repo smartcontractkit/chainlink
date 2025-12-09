@@ -121,6 +121,11 @@ func HTTPTriggerFailsTest(t *testing.T, testEnv *ttypes.TestEnvironment, httpNeg
 	channel, listenerCtx, cancelFn, startErr := t_helpers.StartWorkflowEventsSubscriber(t.Context(), t_helpers.GetStandardWorkflowEventsSubscriberConfig(testEnv, workflowID))
 	require.NoError(t, startErr, "Failed to start workflow events subscriber")
 
+	channels := t_helpers.FanOutWorkflowEvents(listenerCtx, channel, 2)
+	go func() {
+		t_helpers.LogWorkflowEvent(listenerCtx, channels[0])
+	}()
+
 	// For invalid key type and invalid public key format, we expect the workflow deployment/trigger setup to fail
 	// For non-existing public key, we expect the trigger execution to fail with unauthorized error at gateway level
 	if httpNegativeTest.testCase == "non-existing-public-key" {
@@ -136,7 +141,7 @@ func HTTPTriggerFailsTest(t *testing.T, testEnv *ttypes.TestEnvironment, httpNeg
 
 	expectedError := httpNegativeTest.expectedError
 	timeout := 2 * time.Minute
-	err = t_helpers.AssertWorkflowEventMatched(listenerCtx, cancelFn, 2, channel, t_helpers.GetUserLogMatcherFn(expectedError), timeout, testLogger)
+	err = t_helpers.AssertWorkflowEventMatched(listenerCtx, cancelFn, 2, channels[1], t_helpers.GetUserLogMatcherFn(expectedError), timeout, testLogger)
 
 	// For invalid key type and invalid public key format, we expect engine initialization failure
 	// This is the correct behavior - the workflow engine should fail to initialize with invalid configs

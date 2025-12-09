@@ -52,9 +52,14 @@ func ConsensusFailsTest(t *testing.T, testEnv *ttypes.TestEnvironment, consensus
 		channel, listenerCtx, cancelFn, startErr := t_helpers.StartWorkflowEventsSubscriber(t.Context(), t_helpers.GetStandardWorkflowEventsSubscriberConfig(testEnv, workflowID))
 		require.NoError(t, startErr, "Failed to start workflow events subscriber")
 
+		channels := t_helpers.FanOutWorkflowEvents(listenerCtx, channel, 2)
+		go func() {
+			t_helpers.LogWorkflowEvent(listenerCtx, channels[0])
+		}()
+
 		timeout := 90 * time.Second
 		expectedError := consensusNegativeTest.expectedError
-		err := t_helpers.AssertWorkflowEventMatched(listenerCtx, cancelFn, 2, channel, t_helpers.GetUserLogMatcherFn(expectedError), timeout, testLogger)
+		err := t_helpers.AssertWorkflowEventMatched(listenerCtx, cancelFn, 2, channels[1], t_helpers.GetUserLogMatcherFn(expectedError), timeout, testLogger)
 		require.NoError(t, err, "Consensus Fail test failed")
 		testLogger.Info().Msg("Consensus Fail test successfully completed")
 	}

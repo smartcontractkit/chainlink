@@ -3,12 +3,13 @@ package helpers
 import (
 	"context"
 	"fmt"
-	"math/rand"
+	"regexp"
 	"strings"
 	"sync"
 	"time"
 
 	"github.com/avast/retry-go/v4"
+	"github.com/pkg/errors"
 	"github.com/rs/zerolog"
 	"google.golang.org/protobuf/proto"
 
@@ -61,7 +62,6 @@ type WorkflowEventsSubscriberConfig struct {
 	WorkflowID    string
 	Don           *cre.Don
 	PollInterval  time.Duration // How often to poll each node
-	F             int           // Number of worker nodes to subscribe to
 	Logger        zerolog.Logger
 	BufferSize    int           // Message channel buffer size (default: 200)
 	RetryAttempts int           // Number of retries on API failure (default: 3)
@@ -69,7 +69,7 @@ type WorkflowEventsSubscriberConfig struct {
 }
 
 // StartWorkflowEventsSubscriber creates and starts a workflow events subscriber.
-// It spawns goroutines that poll F randomly-selected worker nodes for new events.
+// It spawns goroutines that poll all worker nodes for new events.
 // Returns: message channel, context, cancel function, error
 func StartWorkflowEventsSubscriber(ctx context.Context, config WorkflowEventsSubscriberConfig) (
 	<-chan WorkflowEventMessage,
@@ -97,21 +97,9 @@ func StartWorkflowEventsSubscriber(ctx context.Context, config WorkflowEventsSub
 		return nil, nil, nil, fmt.Errorf("failed to get worker nodes: %w", err)
 	}
 
-	// Validate F parameter
-	if config.F <= 0 {
-		return nil, nil, nil, fmt.Errorf("F must be greater than 0, got %d", config.F)
-	}
-	if config.F > len(workerNodes) {
-		return nil, nil, nil, fmt.Errorf("F (%d) cannot be greater than number of worker nodes (%d)", config.F, len(workerNodes))
-	}
-
-	// Select F random worker nodes
-	selectedNodes := selectRandomNodes(workerNodes, config.F)
-
 	config.Logger.Info().
 		Int("total_workers", len(workerNodes)).
-		Int("selected", len(selectedNodes)).
-		Strs("nodes", getNodeNames(selectedNodes)).
+		Strs("nodes", getNodeNames(workerNodes)).
 		Msg("Selected worker nodes for event subscription")
 
 	// Create child context from parent
@@ -121,7 +109,7 @@ func StartWorkflowEventsSubscriber(ctx context.Context, config WorkflowEventsSub
 	sub := &WorkflowEventsSubscriber{
 		workflowID:    config.WorkflowID,
 		don:           config.Don,
-		workerNodes:   selectedNodes,
+		workerNodes:   workerNodes,
 		pollInterval:  config.PollInterval,
 		retryAttempts: config.RetryAttempts,
 		retryDelay:    config.RetryDelay,
@@ -133,12 +121,12 @@ func StartWorkflowEventsSubscriber(ctx context.Context, config WorkflowEventsSub
 	}
 
 	// Initialize sequence tracking for each node
-	for _, node := range selectedNodes {
+	for _, node := range workerNodes {
 		sub.nodeSequences[node.Name] = 0
 	}
 
-	// Start polling goroutines (one per selected node)
-	for _, node := range selectedNodes {
+	// Start polling goroutines (one per node)
+	for _, node := range workerNodes {
 		sub.wg.Add(1)
 		go sub.pollNodeLoop(node)
 	}
@@ -277,11 +265,11 @@ func (s *WorkflowEventsSubscriber) fetchAndProcessEvents(node *cre.Node, logger 
 }
 
 // MatcherFunc is a function that checks if an event matches criteria
-type MatcherFunc func(msg proto.Message) bool
+type MatcherFunc func(msg proto.Message) (bool, error)
 
-// AssertWorkflowEventMatched waits for F nodes to emit events matching the criteria.
+// AssertWorkflowEventMatched waits for N nodes to emit events matching the criteria.
 // This is a BLOCKING function that returns when:
-// - F unique nodes have emitted matching events, OR
+// - N unique nodes have emitted matching events, OR
 // - The timeout is reached, OR
 // - The subscriber context is cancelled (e.g., due to failures)
 // The cancel function will be called when assertion completes to stop the subscriber.
@@ -289,7 +277,7 @@ type MatcherFunc func(msg proto.Message) bool
 func AssertWorkflowEventMatched(
 	ctx context.Context,
 	cancel context.CancelFunc,
-	f int,
+	n int,
 	messageChan <-chan WorkflowEventMessage,
 	matcher MatcherFunc,
 	timeout time.Duration,
@@ -302,7 +290,7 @@ func AssertWorkflowEventMatched(
 	deadline := time.After(timeout)
 
 	logger.Info().
-		Int("required_nodes", f).
+		Int("required_nodes", n).
 		Dur("timeout", timeout).
 		Msg("Waiting for workflow event matches across nodes")
 
@@ -313,7 +301,7 @@ func AssertWorkflowEventMatched(
 			return fmt.Errorf(
 				"subscriber context cancelled: only %d/%d nodes emitted matching events: %w",
 				len(matchedNodes),
-				f,
+				n,
 				ctx.Err(),
 			)
 
@@ -323,7 +311,7 @@ func AssertWorkflowEventMatched(
 				"timeout after %v: only %d/%d nodes emitted matching events",
 				timeout,
 				len(matchedNodes),
-				f,
+				n,
 			)
 
 		case msg, ok := <-messageChan:
@@ -332,11 +320,19 @@ func AssertWorkflowEventMatched(
 				return fmt.Errorf(
 					"message channel closed: only %d/%d nodes emitted matching events",
 					len(matchedNodes),
-					f,
+					n,
 				)
 			}
 
-			if matcher(msg.Event) {
+			if ok, err := matcher(msg.Event); err != nil {
+				logger.Error().
+					Err(err).
+					Str("type", msg.Type).
+					Int64("sequence", msg.Sequence).
+					Msg("Matcher function error")
+
+				return fmt.Errorf("Matcher function errored: %w", err)
+			} else if ok {
 				if !matchedNodes[msg.NodeName] {
 					matchedNodes[msg.NodeName] = true
 
@@ -347,7 +343,7 @@ func AssertWorkflowEventMatched(
 						Int("total_matched_nodes", len(matchedNodes)).
 						Msg("Found matching event from node")
 
-					if len(matchedNodes) >= f {
+					if len(matchedNodes) >= n {
 						logger.Info().
 							Int("matched_nodes", len(matchedNodes)).
 							Strs("nodes", getMapKeys(matchedNodes)).
@@ -360,26 +356,61 @@ func AssertWorkflowEventMatched(
 	}
 }
 
-// Helper functions
+func LogWorkflowEvent(
+	ctx context.Context,
+	messageChan <-chan WorkflowEventMessage,
+) {
+	for {
+		select {
+		case <-ctx.Done():
+			// Subscriber context cancelled (likely due to failures)
+			return
+		case msg, ok := <-messageChan:
+			if !ok {
+				// Channel closed (all pollers stopped)
+				return
+			}
 
-// selectRandomNodes selects up to f random nodes from the list
-func selectRandomNodes(nodes []*cre.Node, f int) []*cre.Node {
-	if f >= len(nodes) {
-		return nodes
+			// Map event type strings to protobuf message types
+			switch msg.Type {
+			// V1 events
+			case "workflows.v1.WorkflowExecutionStarted":
+				if asEvent, ok := msg.Event.(*workflowevents.WorkflowExecutionStarted); ok {
+					fmt.Printf("WorkflowExecutionStarted: %s\n", asEvent.M.WorkflowID)
+				}
+			case "workflows.v1.WorkflowExecutionFinished":
+				if asEvent, ok := msg.Event.(*workflowevents.WorkflowExecutionFinished); ok {
+					fmt.Printf("WorkflowExecutionFinished: %s\n", asEvent.M.WorkflowID)
+				}
+			case "workflows.v1.WorkflowStatusChanged":
+				if asEvent, ok := msg.Event.(*workflowevents.WorkflowStatusChanged); ok {
+					fmt.Printf("WorkflowStatusChanged: %s\n", asEvent.Status) // weirdly WorkflowID here is empty!
+				}
+			case "workflows.v1.UserLogs":
+				if asEvent, ok := msg.Event.(*workflowevents.UserLogs); ok {
+					for _, line := range asEvent.LogLines {
+						re := regexp.MustCompile(`msg=\"(.*?)\"`)
+						result := re.FindStringSubmatch(line.Message)
+						if len(result) > 1 {
+							for _, match := range result[1:] {
+								fmt.Printf("UserLogs: %s\n", match)
+							}
+						} else {
+							fmt.Printf("UserLogs: %s\n", line.Message)
+						}
+					}
+				}
+			// Common events
+			case "BaseMessage":
+				if asEvent, ok := msg.Event.(*commonevents.BaseMessage); ok {
+					fmt.Printf("BaseMessage: %s\n", asEvent.Msg)
+				}
+			}
+		}
 	}
-
-	// Fisher-Yates shuffle and take first f
-	shuffled := make([]*cre.Node, len(nodes))
-	copy(shuffled, nodes)
-
-	r := rand.New(rand.NewSource(time.Now().UnixNano()))
-	for i := len(shuffled) - 1; i > 0; i-- {
-		j := r.Intn(i + 1)
-		shuffled[i], shuffled[j] = shuffled[j], shuffled[i]
-	}
-
-	return shuffled[:f]
 }
+
+// Helper functions
 
 // getNodeNames extracts node names from a list of nodes
 func getNodeNames(nodes []*cre.Node) []string {
@@ -457,16 +488,23 @@ func deserializeWorkflowEvent(eventType string, data []byte) (proto.Message, err
 	return msg, nil
 }
 
-func GetUserLogMatcherFn(expectedMessage string) func(msg proto.Message) bool {
-	return func(msg proto.Message) bool {
+func GetUserLogMatcherFn(expectedMessage string) func(msg proto.Message) (bool, error) {
+	return func(msg proto.Message) (bool, error) {
 		if log, ok := msg.(*workflowevents.UserLogs); ok {
 			for _, line := range log.LogLines {
 				if strings.Contains(line.Message, expectedMessage) {
-					return true
+					return true, nil
+					// } else {
+					// fmt.Printf("Found a different user log: %s\n", line.Message)
 				}
 			}
 		}
-		return false
+		if base, ok := msg.(*commonevents.BaseMessage); ok {
+			if strings.Contains(base.Msg, "Workflow Engine initialization failed") {
+				return false, errors.New("Workflow Engine initialization failed")
+			}
+		}
+		return false, nil
 	}
 }
 
@@ -476,7 +514,52 @@ func GetStandardWorkflowEventsSubscriberConfig(testEnv *ttypes.TestEnvironment, 
 		WorkflowID:   workflowID,
 		Don:          wfDon,
 		PollInterval: 5 * time.Second,
-		F:            wfDon.WorkersCount() - 2,
 		Logger:       testEnv.Logger,
 	}
+}
+
+func FanOutWorkflowEvents(
+	ctx context.Context,
+	source <-chan WorkflowEventMessage,
+	numConsumers int,
+) []<-chan WorkflowEventMessage {
+	destinations := make([]chan WorkflowEventMessage, numConsumers)
+	outputs := make([]<-chan WorkflowEventMessage, numConsumers)
+
+	for i := range numConsumers {
+		destinations[i] = make(chan WorkflowEventMessage, 100)
+		outputs[i] = destinations[i]
+	}
+
+	go func() {
+		defer func() {
+			// Close all destination channels when done
+			for _, dest := range destinations {
+				close(dest)
+			}
+		}()
+
+		for {
+			select {
+			case <-ctx.Done():
+				// Context cancelled, stop fan-out
+				return
+			case msg, ok := <-source:
+				if !ok {
+					// Source channel closed
+					return
+				}
+				// Broadcast to all consumers
+				for _, dest := range destinations {
+					select {
+					case dest <- msg:
+					case <-ctx.Done():
+						return
+					}
+				}
+			}
+		}
+	}()
+
+	return outputs
 }

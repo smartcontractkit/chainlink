@@ -126,13 +126,18 @@ func HTTPActionSuccessTest(t *testing.T, testEnv *ttypes.TestEnvironment, httpAc
 	channel, listenerCtx, cancelFn, startErr := thelpers.StartWorkflowEventsSubscriber(t.Context(), thelpers.GetStandardWorkflowEventsSubscriberConfig(testEnv, workflowID))
 	require.NoError(t, startErr, "Failed to start workflow events subscriber")
 
+	channels := thelpers.FanOutWorkflowEvents(listenerCtx, channel, 2)
+	go func() {
+		thelpers.LogWorkflowEvent(listenerCtx, channels[0])
+	}()
+
 	// Wait for workflow execution to complete and verify success
 	testLogger.Info().Msg("Waiting for HTTP Action CRUD operations to complete...")
 	timeout := 60 * time.Second
 
 	// Expect exact success message for this test case
 	expectedMessage := "HTTP Action CRUD success test completed: " + httpActionTest.testCase
-	err := thelpers.AssertWorkflowEventMatched(listenerCtx, cancelFn, 2, channel, thelpers.GetUserLogMatcherFn(expectedMessage), timeout, testLogger)
+	err := thelpers.AssertWorkflowEventMatched(listenerCtx, cancelFn, 2, channels[1], thelpers.GetUserLogMatcherFn(expectedMessage), timeout, testLogger)
 	require.NoError(t, err, "HTTP Action CRUD success test failed")
 
 	testLogger.Info().Msg("HTTP Action CRUD success test completed")

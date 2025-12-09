@@ -248,9 +248,14 @@ func ExecuteEVMLogTriggerTest(t *testing.T, testEnv *ttypes.TestEnvironment) {
 		channel, listenerCtx, cancelFn, startErr := t_helpers.StartWorkflowEventsSubscriber(t.Context(), t_helpers.GetStandardWorkflowEventsSubscriberConfig(testEnv, workflowID))
 		require.NoError(t, startErr, "Failed to start workflow events subscriber")
 
+		channels := t_helpers.FanOutWorkflowEvents(listenerCtx, channel, 3)
+		go func() {
+			t_helpers.LogWorkflowEvent(listenerCtx, channels[0])
+		}()
+
 		// Wait for trigger to be up and running
 		triggersUpAndRunning := "Trigger RunSimpleEvmLogTriggerWorkflow called"
-		err := t_helpers.AssertWorkflowEventMatched(listenerCtx, cancelFn, 2, channel, t_helpers.GetUserLogMatcherFn(triggersUpAndRunning), 4*time.Minute, lggr)
+		err := t_helpers.AssertWorkflowEventMatched(listenerCtx, cancelFn, 2, channels[1], t_helpers.GetUserLogMatcherFn(triggersUpAndRunning), 4*time.Minute, lggr)
 		require.NoError(t, err, "LogTrigger capability test failed waiting for trigger to start")
 
 		message := "Data for log trigger"
@@ -273,7 +278,7 @@ func ExecuteEVMLogTriggerTest(t *testing.T, testEnv *ttypes.TestEnvironment) {
 		}()
 
 		expectedUserLog := "OnTrigger decoded message: message:" + message
-		err = t_helpers.AssertWorkflowEventMatched(listenerCtx, cancelFn, 2, channel, t_helpers.GetUserLogMatcherFn(expectedUserLog), 4*time.Minute, lggr)
+		err = t_helpers.AssertWorkflowEventMatched(listenerCtx, cancelFn, 2, channels[2], t_helpers.GetUserLogMatcherFn(expectedUserLog), 4*time.Minute, lggr)
 		require.NoError(t, err, "Expected user log test failed")
 
 		lggr.Info().Msgf("🎉 LogTrigger Workflow %s executed successfully on chain %s", workflowName, chainID)

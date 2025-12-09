@@ -121,12 +121,17 @@ func HTTPActionFailureTest(t *testing.T, testEnv *ttypes.TestEnvironment, httpAc
 	channel, listenerCtx, cancelFn, startErr := t_helpers.StartWorkflowEventsSubscriber(t.Context(), t_helpers.GetStandardWorkflowEventsSubscriberConfig(testEnv, workflowID))
 	require.NoError(t, startErr, "Failed to start workflow events subscriber")
 
+	channels := t_helpers.FanOutWorkflowEvents(listenerCtx, channel, 2)
+	go func() {
+		t_helpers.LogWorkflowEvent(listenerCtx, channels[0])
+	}()
+
 	// Wait for specific error message based on test case
 	testLogger.Info().Msgf("Waiting for expected HTTP Action failure: '%s'...", httpActionTest.expectedError)
 	timeout := 60 * time.Second
 
 	// Expect exact error message for this test case - no fallbacks
-	err := t_helpers.AssertWorkflowEventMatched(listenerCtx, cancelFn, 2, channel, t_helpers.GetUserLogMatcherFn(httpActionTest.expectedError), timeout, testLogger)
+	err := t_helpers.AssertWorkflowEventMatched(listenerCtx, cancelFn, 2, channels[1], t_helpers.GetUserLogMatcherFn(httpActionTest.expectedError), timeout, testLogger)
 	require.NoError(t, err, "Expected HTTP Action failure message '%s' not found in logs", httpActionTest.expectedError)
 	testLogger.Info().Msg("HTTP Action failure test completed successfully")
 
