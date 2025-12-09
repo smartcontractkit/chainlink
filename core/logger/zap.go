@@ -2,7 +2,6 @@ package logger
 
 import (
 	"os"
-	"slices"
 	"sync"
 	"time"
 	"weak"
@@ -21,7 +20,7 @@ const cleanupInterval = time.Minute * 5
 type AtomicCore struct {
 	mu          sync.RWMutex
 	core        zapcore.Core
-	children    []weak.Pointer[withCore]
+	children    map[weak.Pointer[withCore]]struct{}
 	stopCleanup chan struct{}
 	cleanupWg   sync.WaitGroup
 }
@@ -30,6 +29,7 @@ type AtomicCore struct {
 func NewAtomicCore() *AtomicCore {
 	ac := &AtomicCore{
 		core:        zapcore.NewNopCore(),
+		children:    make(map[weak.Pointer[withCore]]struct{}),
 		stopCleanup: make(chan struct{}),
 	}
 	ac.startPeriodicCleanup()
@@ -40,14 +40,14 @@ func (d *AtomicCore) Store(core zapcore.Core) {
 	d.mu.Lock()
 	defer d.mu.Unlock()
 	d.core = core
-	d.children = slices.DeleteFunc(d.children, func(p weak.Pointer[withCore]) bool {
+	for p := range d.children {
 		c := p.Value()
 		if c == nil {
-			return true
+			delete(d.children, p)
+			continue
 		}
 		c.Store(d.core)
-		return false
-	})
+	}
 }
 
 func (d *AtomicCore) load() zapcore.Core {
@@ -62,8 +62,14 @@ func (d *AtomicCore) With(fs []zapcore.Field) zapcore.Core {
 	d.mu.Lock()
 	defer d.mu.Unlock()
 	coreWithFields := d.core.With(fs)
-	w := &withCore{fields: fs, AtomicCore: AtomicCore{core: coreWithFields}}
-	d.children = append(d.children, weak.Make(w))
+	w := &withCore{fields: fs, AtomicCore: AtomicCore{
+		core:     coreWithFields,
+		children: make(map[weak.Pointer[withCore]]struct{}),
+	}}
+	if d.children == nil {
+		d.children = make(map[weak.Pointer[withCore]]struct{})
+	}
+	d.children[weak.Make(w)] = struct{}{}
 	return w
 }
 
@@ -85,14 +91,14 @@ func (d *AtomicCore) cleanup() {
 	defer wg.Wait()
 	d.mu.Lock()
 	defer d.mu.Unlock()
-	d.children = slices.DeleteFunc(d.children, func(p weak.Pointer[withCore]) bool {
+	for p := range d.children {
 		c := p.Value()
 		if c == nil {
-			return true
+			delete(d.children, p)
+			continue
 		}
-		wg.Go(c.cleanup)
-		return false
-	})
+		c.cleanup()
+	}
 }
 
 func (d *AtomicCore) startPeriodicCleanup() {
@@ -120,14 +126,9 @@ func (w *withCore) Store(core zapcore.Core) {
 	w.mu.Lock()
 	defer w.mu.Unlock()
 	w.core = core.With(w.fields)
-	w.children = slices.DeleteFunc(w.children, func(p weak.Pointer[withCore]) bool {
-		c := p.Value()
-		if c == nil {
-			return true
-		}
-		c.Store(w.core)
-		return false
-	})
+	for p := range w.children {
+		p.Value().Store(w.core)
+	}
 }
 
 var _ Logger = &zapLogger{}
