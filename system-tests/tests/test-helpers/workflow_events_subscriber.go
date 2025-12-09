@@ -9,7 +9,6 @@ import (
 	"time"
 
 	"github.com/avast/retry-go/v4"
-	"github.com/pkg/errors"
 	"github.com/rs/zerolog"
 	"google.golang.org/protobuf/proto"
 
@@ -216,6 +215,15 @@ func (s *WorkflowEventsSubscriber) fetchAndProcessEvents(node *cre.Node, logger 
 
 	// Process each event
 	for _, eventEntry := range events {
+		// Check if we already processed this sequence
+		s.sequenceMu.RLock()
+		lastSeq := s.nodeSequences[node.Name]
+		s.sequenceMu.RUnlock()
+
+		if eventEntry.Sequence <= lastSeq {
+			continue
+		}
+
 		// Deserialize protobuf based on event type
 		protoMsg, err := deserializeWorkflowEvent(eventEntry.Type, eventEntry.Message)
 		if err != nil {
@@ -385,7 +393,7 @@ func LogWorkflowEvent(
 				}
 			case "workflows.v1.WorkflowStatusChanged":
 				if asEvent, ok := msg.Event.(*workflowevents.WorkflowStatusChanged); ok {
-					fmt.Printf(" [%s]#%d --------> WorkflowStatusChanged: %s + %s\n", msg.NodeName, msg.Sequence, asEvent.Status, asEvent.Details) // weirdly WorkflowID here is empty!
+					fmt.Printf(" [%s]#%d --------> WorkflowStatusChanged: %s\n", msg.NodeName, msg.Sequence, asEvent.Status) // weirdly WorkflowID here is empty!
 				}
 			case "workflows.v1.UserLogs":
 				if asEvent, ok := msg.Event.(*workflowevents.UserLogs); ok {
@@ -397,7 +405,7 @@ func LogWorkflowEvent(
 						// 		fmt.Printf(" [%s]#%d --------> UserLogs: %s\n", msg.NodeName, msg.Sequence, match)
 						// 	}
 						// } else {
-						fmt.Printf(" [%s]#%d --------> UserLogs: %s\n", msg.NodeName, msg.Sequence, line.Message)
+						fmt.Printf(" [%s]#%d --------> UserLogs: %s\n", msg.NodeName, msg.Sequence, strings.TrimSpace(line.Message))
 						// }
 					}
 				}
@@ -502,7 +510,7 @@ func GetUserLogMatcherFn(expectedMessage string) func(msg proto.Message) (bool, 
 		}
 		if base, ok := msg.(*commonevents.BaseMessage); ok {
 			if strings.Contains(base.Msg, "Workflow Engine initialization failed") {
-				return false, errors.New("Workflow Engine initialization failed")
+				return false, fmt.Errorf("found engine initialization failure message: %s", base.Msg)
 			}
 		}
 		return false, nil
