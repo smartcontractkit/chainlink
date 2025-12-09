@@ -157,6 +157,11 @@ func generateNodeTomlConfig(input cre.GenerateConfigsInput, nodeConfigTransforme
 
 	for nodeIdx, nodeMetadata := range input.DonMetadata.NodesMetadata {
 		nodeConfig := baseNodeConfig()
+
+		cfg := solcfg.NewDefault()
+		cfg.MultiNode.MultiNode.VerifyChainID = ptr.Ptr(false)
+		nodeConfig.Solana = solcfg.TOMLConfigs{cfg}
+
 		for _, role := range nodeMetadata.Roles {
 			switch role {
 			case cre.BootstrapNode:
@@ -212,6 +217,7 @@ func generateNodeTomlConfig(input cre.GenerateConfigsInput, nodeConfigTransforme
 
 func baseNodeConfig() corechainlink.Config {
 	return corechainlink.Config{
+		Solana: solcfg.TOMLConfigs{},
 		Core: coretoml.Core{
 			Feature: coretoml.Feature{
 				LogPoller: ptr.Ptr(true),
