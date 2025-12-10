@@ -20,14 +20,14 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared"
 )
 
-var TokenPoolOperations = []operations.Operation[any, any, any]{
-	*DeployTokenPoolModuleOp.AsUntyped(),
-	*ApplyChainUpdatesOp.AsUntyped(),
-	*SetChainRateLimiterConfigsOp.AsUntyped(),
-	*AddRemotePoolsOp.AsUntyped(),
-	*TransferTokenPoolOwnershipOp.AsUntyped(),
-	*AcceptTokenPoolOwnershipOp.AsUntyped(),
-	*ExecuteTokenPoolOwnershipTransferOp.AsUntyped(),
+var TokenPoolOperations = []*operations.Operation[any, any, any]{
+	DeployTokenPoolModuleOp.AsUntyped(),
+	ApplyChainUpdatesOp.AsUntyped(),
+	SetChainRateLimiterConfigsOp.AsUntyped(),
+	AddRemotePoolsOp.AsUntyped(),
+	TransferTokenPoolOwnershipOp.AsUntyped(),
+	AcceptTokenPoolOwnershipOp.AsUntyped(),
+	ExecuteTokenPoolOwnershipTransferOp.AsUntyped(),
 }
 
 type DeployTokenPoolPackageOutput struct {

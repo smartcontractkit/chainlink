@@ -4,7 +4,7 @@ import (
 	cld_ops "github.com/smartcontractkit/chainlink-deployments-framework/operations"
 )
 
-func GetAptosOperations() []cld_ops.Operation[any, any, any] {
+func GetAptosOperations() []*cld_ops.Operation[any, any, any] {
 	// Since go has no Union types we cannot typecheck the output of operations
 	// but only register operations returning:
 	// - mcmstypes.Transaction
@@ -13,7 +13,7 @@ func GetAptosOperations() []cld_ops.Operation[any, any, any] {
 	// - []mcmstypes.Operation
 	// - mcmstypes.BatchOperation
 	// Otherwise dynamic sequence won't know how to handle the output
-	var operations []cld_ops.Operation[any, any, any]
+	var operations []*cld_ops.Operation[any, any, any]
 
 	operations = append(operations, CCIPOperations...)
 	operations = append(operations, FeeQuoterOperations...)

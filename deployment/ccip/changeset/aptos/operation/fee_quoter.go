@@ -13,11 +13,11 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/aptos/utils"
 )
 
-var FeeQuoterOperations = []operations.Operation[any, any, any]{
-	*UpdateFeeQuoterDestsOp.AsUntyped(),
-	*UpdateFeeQuoterPricesOp.AsUntyped(),
-	*ApplyPremiumMultiplierOp.AsUntyped(),
-	*ApplyTokenTransferFeeCfgOp.AsUntyped(),
+var FeeQuoterOperations = []*operations.Operation[any, any, any]{
+	UpdateFeeQuoterDestsOp.AsUntyped(),
+	UpdateFeeQuoterPricesOp.AsUntyped(),
+	ApplyPremiumMultiplierOp.AsUntyped(),
+	ApplyTokenTransferFeeCfgOp.AsUntyped(),
 }
 
 // UpdateFeeQuoterDestsInput contains configuration for updating FeeQuoter destination configs

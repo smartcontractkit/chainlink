@@ -15,10 +15,10 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/aptos/utils"
 )
 
-var MCMSOperations = []operations.Operation[any, any, any]{
-	*AcceptOwnershipOp.AsUntyped(),
-	*SetMinDelayOP.AsUntyped(),
-	*CleanupStagingAreaOp.AsUntyped(),
+var MCMSOperations = []*operations.Operation[any, any, any]{
+	AcceptOwnershipOp.AsUntyped(),
+	SetMinDelayOP.AsUntyped(),
+	CleanupStagingAreaOp.AsUntyped(),
 }
 
 // OP: Deploy MCMS Contract

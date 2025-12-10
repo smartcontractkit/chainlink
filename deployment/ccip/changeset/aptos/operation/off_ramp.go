@@ -15,9 +15,9 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/types"
 )
 
-var OffRampOperations = []operations.Operation[any, any, any]{
-	*UpdateOffRampSourcesOp.AsUntyped(),
-	*SetOcr3ConfigOp.AsUntyped(),
+var OffRampOperations = []*operations.Operation[any, any, any]{
+	UpdateOffRampSourcesOp.AsUntyped(),
+	SetOcr3ConfigOp.AsUntyped(),
 }
 
 // UpdateOffRampSourcesInput contains configuration for updating OffRamp sources
