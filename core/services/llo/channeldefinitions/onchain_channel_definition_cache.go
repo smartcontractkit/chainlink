@@ -558,14 +558,8 @@ func (c *channelDefinitionCache) mergeDefinitions(source uint32, currentDefiniti
 
 		switch {
 		case source == SourceOwner:
-			// Remove old FeedID from map if this channel already existed with a different FeedID
-			if existingDef, exists := currentDefinitions[channelID]; exists {
-				oldFeedID := extractFeedID(existingDef.Opts)
-				if oldFeedID != (common.Hash{}) && oldFeedID != newFeedID {
-					delete(feedIDToChannelID, oldFeedID)
-				}
-			}
 			currentDefinitions[channelID] = def
+
 			// Update FeedID map after adding the channel
 			if newFeedID != (common.Hash{}) {
 				feedIDToChannelID[newFeedID] = channelID
