@@ -19,6 +19,8 @@ import (
 	"github.com/rs/zerolog"
 	"github.com/stretchr/testify/require"
 
+	"github.com/smartcontractkit/quarantine"
+
 	"github.com/smartcontractkit/chainlink-testing-framework/parrot"
 	"github.com/smartcontractkit/chainlink-testing-framework/seth"
 
@@ -97,6 +99,7 @@ func TestOCRv2Basic(t *testing.T) {
 
 // Tests that just calling requestNewRound() will properly induce more rounds
 func TestOCRv2Request(t *testing.T) {
+	quarantine.Flaky(t, "DX-2079")
 	t.Parallel()
 	l := logging.GetTestLogger(t)
 
