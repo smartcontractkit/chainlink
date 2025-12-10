@@ -16,6 +16,7 @@ func main() {
 		httpListen = flag.String("http-listen", ":8080", "HTTP API listen address")
 		upstream   = flag.String("upstream", "", "optional upstream ChipIngress gRPC endpoint for pass-through")
 		cacheSize  = flag.Int("cache-size", 10000, "maximum number of events to cache")
+		daemon     = flag.Bool("daemon", false, "run as daemon without signal handling (for CI environments)")
 	)
 	flag.Parse()
 
@@ -31,7 +32,16 @@ func main() {
 		log.Fatalf("create chip test sink: %v", err)
 	}
 
-	// Run server
+	// In daemon mode, just run forever without signal handling
+	if *daemon {
+		log.Printf("[chip-testsink] starting in daemon mode on gRPC=%s, HTTP=%s", *grpcListen, *httpListen)
+		if err := srv.Run(); err != nil {
+			log.Fatalf("[chip-testsink] daemon stopped: %v", err)
+		}
+		return
+	}
+
+	// Normal mode: run server with graceful shutdown
 	go func() {
 		if err := srv.Run(); err != nil {
 			log.Printf("[chip-testsink] stopped: %v", err)
