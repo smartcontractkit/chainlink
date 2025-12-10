@@ -203,15 +203,15 @@ func TestMCMSTransaction_BuildProposal(t *testing.T) {
 		assert.Equal(t, mcmsContracts.CancellerMcm.Address().String(), metadata.MCMAddress)
 	})
 
-	t.Run("uses custom ValidUntil value to set the proposal duration", func(t *testing.T) {
+	t.Run("uses custom ValidDuration value to set the proposal duration", func(t *testing.T) {
 		m := getMCMSTransaction(t, *fixture.Env)
-		validUntil := 2 * time.Second
+		validDuration := 2 * time.Second
 		cfg := contracts.MCMSConfig{
 			MinDelay: 0,
 			TimelockQualifierPerChain: map[uint64]string{
 				fixture.RegistrySelector: "",
 			},
-			ValidUntil: &validUntil,
+			ValidDuration: &validDuration,
 		}
 		mcmsContracts, err := strategies.GetMCMSContracts(*fixture.Env, fixture.RegistrySelector, cfg)
 		require.NoError(t, err)
@@ -225,7 +225,7 @@ func TestMCMSTransaction_BuildProposal(t *testing.T) {
 		p, err := m.BuildProposal([]mcmstypes.BatchOperation{op})
 		require.NoError(t, err)
 
-		expectedValidUntil := time.Now().Add(validUntil).Unix()
+		expectedValidUntil := time.Now().Add(validDuration).Unix()
 		assert.Equal(t, uint32(expectedValidUntil), p.ValidUntil) //nolint:gosec // G115
 	})
 }
