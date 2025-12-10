@@ -14,7 +14,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/p2pkey"
 )
 
-func TestUpdateNodes(t *testing.T) {
+func TestUnit_UpdateNodes(t *testing.T) {
 	t.Parallel()
 
 	t.Run("no mcms", func(t *testing.T) {

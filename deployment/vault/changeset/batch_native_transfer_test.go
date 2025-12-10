@@ -35,7 +35,7 @@ var (
 	HundredETH = big.NewInt(0).Mul(OneETH, big.NewInt(100))
 )
 
-func TestBatchNativeTransferValidation(t *testing.T) {
+func TestUnit_BatchNativeTransferValidation(t *testing.T) {
 	t.Parallel()
 
 	env, err := environment.New(t.Context())
@@ -121,7 +121,7 @@ func TestBatchNativeTransferValidation(t *testing.T) {
 	}
 }
 
-func TestSetWhitelist(t *testing.T) {
+func TestUnit_SetWhitelist(t *testing.T) {
 	t.Parallel()
 
 	rt, err := runtime.New(t.Context())
@@ -193,7 +193,7 @@ func TestSetWhitelist(t *testing.T) {
 	require.Equal(t, []string{"partner", "approved"}, addressLabels[testAddr2])
 }
 
-func TestBatchNativeTransferIntegration(t *testing.T) {
+func TestUnit_BatchNativeTransferIntegration(t *testing.T) {
 	t.Parallel()
 
 	t.Run("full workflow with MCMS setup", func(t *testing.T) {

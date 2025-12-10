@@ -6,7 +6,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestGetDecimalsFromFeedIDValidFeedID(t *testing.T) {
+func TestUnit_GetDecimalsFromFeedIDValidFeedID(t *testing.T) {
 	decimals, err := GetDecimalsFromFeedID("0x01d0fd1ef80003320000000000000000") // decimal 18
 	require.NoError(t, err)
 	require.Equal(t, uint8(0x12), decimals)

@@ -10,7 +10,7 @@ import (
 	job_types "github.com/smartcontractkit/chainlink/deployment/cre/jobs/types"
 )
 
-func TestJobSpecInput_ToStandardCapabilityJob(t *testing.T) {
+func TestUnit_JobSpecInput_ToStandardCapabilityJob(t *testing.T) {
 	t.Parallel()
 
 	jobName := "test-job"

@@ -205,7 +205,7 @@ func setupRegistryForUpdateDON(t *testing.T, isWorkflow, useMCMS bool) *updFixtu
 }
 
 // Happy path: non-workflow DON; also renames the DON; capability config updated; visibility/F preserved.
-func TestUpdateDONChangeset_ByName_Direct_Succeeds(t *testing.T) {
+func TestUnit_UpdateDONChangeset_ByName_Direct_Succeeds(t *testing.T) {
 	t.Parallel()
 	fx := setupRegistryForUpdateDON(t /*isWorkflow=*/, false, false)
 
@@ -254,7 +254,7 @@ func TestUpdateDONChangeset_ByName_Direct_Succeeds(t *testing.T) {
 	assert.Equal(t, wantProto, got.CapabilityConfigurations[0].Config)
 }
 
-func TestUpdateDONChangeset_ByName_Direct_Succeeds_MCMS(t *testing.T) {
+func TestUnit_UpdateDONChangeset_ByName_Direct_Succeeds_MCMS(t *testing.T) {
 	t.Parallel()
 	fx := setupRegistryForUpdateDON(t /*isWorkflow=*/, false, true)
 
@@ -295,7 +295,7 @@ func TestUpdateDONChangeset_ByName_Direct_Succeeds_MCMS(t *testing.T) {
 }
 
 // Safety gate: workflow DON should refuse without Force=true (changeset passes Force through to operation).
-func TestUpdateDONChangeset_ByName_Workflow_RefusesWithoutForce(t *testing.T) {
+func TestUnit_UpdateDONChangeset_ByName_Workflow_RefusesWithoutForce(t *testing.T) {
 	t.Parallel()
 	fx := setupRegistryForUpdateDON(t /*isWorkflow=*/, true, false)
 
@@ -313,7 +313,7 @@ func TestUpdateDONChangeset_ByName_Workflow_RefusesWithoutForce(t *testing.T) {
 }
 
 // Force override: workflow DON update succeeds when Force=true.
-func TestUpdateDONChangeset_ByName_Workflow_Force_Succeeds(t *testing.T) {
+func TestUnit_UpdateDONChangeset_ByName_Workflow_Force_Succeeds(t *testing.T) {
 	t.Parallel()
 	fx := setupRegistryForUpdateDON(t /*isWorkflow=*/, true, false)
 
@@ -352,7 +352,7 @@ func TestUpdateDONChangeset_ByName_Workflow_Force_Succeeds(t *testing.T) {
 
 // VerifyPreconditions: empty Name is rejected.
 // NOTE: current implementation returns "must provide a non-empty DONName"
-func TestUpdateDONChangeset_VerifyPreconditions_EmptyName(t *testing.T) {
+func TestUnit_UpdateDONChangeset_VerifyPreconditions_EmptyName(t *testing.T) {
 	t.Parallel()
 	var cs changeset.UpdateDON
 	err := cs.VerifyPreconditions(cldf.Environment{}, changeset.UpdateDONInput{
@@ -365,7 +365,7 @@ func TestUpdateDONChangeset_VerifyPreconditions_EmptyName(t *testing.T) {
 }
 
 // Chain not found: Apply should fail early with a clear message.
-func TestUpdateDONChangeset_ByName_ChainNotFound(t *testing.T) {
+func TestUnit_UpdateDONChangeset_ByName_ChainNotFound(t *testing.T) {
 	t.Parallel()
 
 	// Env with no chains (or use a selector not present in env)
@@ -385,7 +385,7 @@ func TestUpdateDONChangeset_ByName_ChainNotFound(t *testing.T) {
 }
 
 // Qualifier not found in DataStore: Apply should fail when it cannot look up the registry address.
-func TestUpdateDONChangeset_ByName_QualifierNotFound(t *testing.T) {
+func TestUnit_UpdateDONChangeset_ByName_QualifierNotFound(t *testing.T) {
 	t.Parallel()
 
 	selector := chainselectors.TEST_90000001.Selector

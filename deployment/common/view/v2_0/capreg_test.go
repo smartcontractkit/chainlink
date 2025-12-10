@@ -23,7 +23,7 @@ type fields struct {
 	Nops             []v2_0.NopView
 }
 
-func TestCapRegView_Denormalize(t *testing.T) {
+func TestUnit_CapRegView_Denormalize(t *testing.T) {
 	donConfig := map[string]any{
 		"defaultConfig": map[string]any{},
 	}

@@ -22,7 +22,7 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/common/types"
 )
 
-func TestFundMCMSignersChangeset_VerifyPreconditions(t *testing.T) {
+func TestUnit_FundMCMSignersChangeset_VerifyPreconditions(t *testing.T) {
 	t.Parallel()
 
 	selector1 := chainselectors.TEST_22222222222222222222222222222222222222222222.Selector
@@ -204,7 +204,7 @@ func TestFundMCMSignersChangeset_VerifyPreconditions(t *testing.T) {
 	}
 }
 
-func TestFundMCMSignersChangeset_Apply(t *testing.T) {
+func TestUnit_FundMCMSignersChangeset_Apply(t *testing.T) {
 	quarantine.Flaky(t, "DX-1776")
 	t.Parallel()
 

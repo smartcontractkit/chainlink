@@ -21,7 +21,7 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/data-feeds/changeset/types"
 )
 
-func TestAcceptOwnership(t *testing.T) {
+func TestUnit_AcceptOwnership(t *testing.T) {
 	t.Parallel()
 
 	selector := chain_selectors.TEST_90000001.Selector

@@ -13,7 +13,7 @@ import (
 	"github.com/smartcontractkit/chainlink-deployments-framework/operations/optest"
 )
 
-func Test_OpAddAddrBookRecord(t *testing.T) {
+func TestUnit_OpAddAddrBookRecord(t *testing.T) {
 	t.Parallel()
 
 	var (
@@ -87,7 +87,7 @@ func Test_OpAddAddrBookRecord(t *testing.T) {
 	}
 }
 
-func Test_OpAddDatastoreAddrRef(t *testing.T) {
+func TestUnit_OpAddDatastoreAddrRef(t *testing.T) {
 	t.Parallel()
 
 	var (

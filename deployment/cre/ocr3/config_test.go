@@ -84,7 +84,7 @@ var ocr3Cfg = `
   "MaxFaultyOracles": 3
 }`
 
-func Test_configureOCR3Request_generateOCR3Config(t *testing.T) {
+func TestUnit_configureOCR3Request_generateOCR3Config(t *testing.T) {
 	nodes := loadTestData(t, "testdata/testnet_wf_view.json")
 
 	var cfg OracleConfig

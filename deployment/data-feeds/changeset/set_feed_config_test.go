@@ -24,7 +24,7 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/data-feeds/changeset/types"
 )
 
-func TestSetFeedConfig(t *testing.T) {
+func TestUnit_SetFeedConfig(t *testing.T) {
 	t.Parallel()
 
 	selector := chain_selectors.TEST_90000001.Selector

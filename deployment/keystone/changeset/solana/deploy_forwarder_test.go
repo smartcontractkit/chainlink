@@ -34,7 +34,7 @@ const (
 // Tests with transfer upgrade authority require downloading and building artifacts
 // from chainlink-solana
 // so we disable them in CI since it will take too long to run
-func TestDeployForwarder(t *testing.T) {
+func TestUnit_DeployForwarder(t *testing.T) {
 	skipInCI(t)
 	t.Parallel()
 
@@ -84,7 +84,7 @@ func TestDeployForwarder(t *testing.T) {
 	})
 }
 
-func TestConfigureForwarder(t *testing.T) {
+func TestUnit_ConfigureForwarder(t *testing.T) {
 	t.Parallel()
 
 	// Setup the solana programs

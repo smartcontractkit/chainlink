@@ -16,7 +16,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/p2pkey"
 )
 
-func TestUpdateNodeCapabilities(t *testing.T) {
+func TestUnit_UpdateNodeCapabilities(t *testing.T) {
 	var (
 		initialp2pToCapabilities = map[p2pkey.PeerID][]kcr.CapabilitiesRegistryCapability{
 			testPeerID(t, "0x1"): []kcr.CapabilitiesRegistryCapability{

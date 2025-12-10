@@ -18,7 +18,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/p2pkey"
 )
 
-func TestGenerateNopsView(t *testing.T) {
+func TestUnit_GenerateNopsView(t *testing.T) {
 	t.Parallel()
 	lggr := logger.Test(t)
 	// Create 3 node IDs

@@ -21,7 +21,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 )
 
-func TestOffRampView(t *testing.T) {
+func TestUnit_OffRampView(t *testing.T) {
 	t.Parallel()
 
 	srcSelector := chainsel.TEST_90000001.Selector

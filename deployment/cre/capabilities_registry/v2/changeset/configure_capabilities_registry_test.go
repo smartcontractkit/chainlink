@@ -48,7 +48,7 @@ const (
 	nodeID1 = "1"
 )
 
-func TestConfigureCapabilitiesRegistry(t *testing.T) {
+func TestUnit_ConfigureCapabilitiesRegistry(t *testing.T) {
 	t.Parallel()
 
 	t.Run("select by address", func(t *testing.T) {
@@ -128,7 +128,7 @@ func suite(t *testing.T, fixture *testFixture) {
 	})
 }
 
-func TestConfigureCapabilitiesRegistryInput_YAMLSerialization(t *testing.T) {
+func TestUnit_ConfigureCapabilitiesRegistryInput_YAMLSerialization(t *testing.T) {
 	originalInput := changeset.ConfigureCapabilitiesRegistryInput{
 		ChainSelector:               123456789,
 		CapabilitiesRegistryAddress: "0x1234567890123456789012345678901234567890",
@@ -278,7 +278,7 @@ func TestConfigureCapabilitiesRegistryInput_YAMLSerialization(t *testing.T) {
 	})
 }
 
-func TestConfigureCapabilitiesRegistryInput_YAMLFromFile(t *testing.T) {
+func TestUnit_ConfigureCapabilitiesRegistryInput_YAMLFromFile(t *testing.T) {
 	yamlConfig := `
 chainSelector: 421614
 capabilitiesRegistryAddress: "0x1234567890123456789012345678901234567890"

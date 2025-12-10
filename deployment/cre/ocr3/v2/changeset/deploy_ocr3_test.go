@@ -13,7 +13,7 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/cre/test"
 )
 
-func TestDeployOCR3(t *testing.T) {
+func TestUnit_DeployOCR3(t *testing.T) {
 	env := test.SetupEnvV2(t, false)
 
 	// Apply the changeset to deploy the V2 capabilities registry

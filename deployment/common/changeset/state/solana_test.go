@@ -24,7 +24,7 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/internal/soltestutils"
 )
 
-func TestMCMSWithTimelockState_GenerateMCMSWithTimelockViewSolana(t *testing.T) {
+func TestUnit_MCMSWithTimelockState_GenerateMCMSWithTimelockViewSolana(t *testing.T) {
 	tests.SkipFlakey(t, "https://smartcontract-it.atlassian.net/browse/DX-404")
 	t.Parallel()
 

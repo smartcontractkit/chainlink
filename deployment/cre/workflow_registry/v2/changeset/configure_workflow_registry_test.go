@@ -10,7 +10,7 @@ import (
 	crecontracts "github.com/smartcontractkit/chainlink/deployment/cre/contracts"
 )
 
-func TestSetConfig(t *testing.T) {
+func TestUnit_SetConfig(t *testing.T) {
 	t.Parallel()
 
 	t.Run("basic metadata config", func(t *testing.T) {
@@ -59,7 +59,7 @@ func TestSetConfig(t *testing.T) {
 	})
 }
 
-func TestUpdateAllowedSigners(t *testing.T) {
+func TestUnit_UpdateAllowedSigners(t *testing.T) {
 	t.Parallel()
 
 	t.Run("update allowed signers", func(t *testing.T) {
@@ -108,7 +108,7 @@ func TestUpdateAllowedSigners(t *testing.T) {
 	})
 }
 
-func TestSetWorkflowOwnerConfig(t *testing.T) {
+func TestUnit_SetWorkflowOwnerConfig(t *testing.T) {
 	t.Parallel()
 
 	t.Run("set workflow owner config", func(t *testing.T) {
@@ -152,7 +152,7 @@ func TestSetWorkflowOwnerConfig(t *testing.T) {
 	})
 }
 
-func TestSetDONLimit(t *testing.T) {
+func TestUnit_SetDONLimit(t *testing.T) {
 	t.Parallel()
 
 	t.Run("set DON limit", func(t *testing.T) {
@@ -198,7 +198,7 @@ func TestSetDONLimit(t *testing.T) {
 	})
 }
 
-func TestSetUserDONOverride(t *testing.T) {
+func TestUnit_SetUserDONOverride(t *testing.T) {
 	t.Parallel()
 
 	t.Run("set user DON override", func(t *testing.T) {
@@ -268,7 +268,7 @@ func TestSetUserDONOverride(t *testing.T) {
 	})
 }
 
-func TestSetCapabilitiesRegistry(t *testing.T) {
+func TestUnit_SetCapabilitiesRegistry(t *testing.T) {
 	t.Parallel()
 
 	// Test data for DON registry configuration
@@ -367,7 +367,7 @@ func TestSetCapabilitiesRegistry(t *testing.T) {
 	})
 }
 
-func TestConfigureWorkflowRegistryValidation(t *testing.T) {
+func TestUnit_ConfigureWorkflowRegistryValidation(t *testing.T) {
 	t.Parallel()
 
 	fixture := setupTest(t)

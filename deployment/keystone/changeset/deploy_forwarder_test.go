@@ -22,7 +22,7 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/keystone/changeset/test"
 )
 
-func TestDeployForwarder(t *testing.T) {
+func TestUnit_DeployForwarder(t *testing.T) {
 	t.Parallel()
 
 	registrySel := chain_selectors.TEST_90000001.Selector
@@ -52,7 +52,7 @@ func TestDeployForwarder(t *testing.T) {
 	})
 }
 
-func TestConfigureForwarders(t *testing.T) {
+func TestUnit_ConfigureForwarders(t *testing.T) {
 	t.Parallel()
 
 	testCases := []struct {

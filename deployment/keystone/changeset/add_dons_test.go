@@ -16,7 +16,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/p2pkey"
 )
 
-func TestAddDONs(t *testing.T) {
+func TestUnit_AddDONs(t *testing.T) {
 	t.Parallel()
 	var testCap = kcr.CapabilitiesRegistryCapability{
 		LabelledName:   "cap1",

@@ -29,7 +29,7 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/cre/test"
 )
 
-func TestProposeJobSpec_VerifyPreconditions(t *testing.T) {
+func TestUnit_ProposeJobSpec_VerifyPreconditions(t *testing.T) {
 	j := jobs.ProposeJobSpec{}
 	var env cldf.Environment
 
@@ -262,7 +262,7 @@ func TestProposeJobSpec_VerifyPreconditions(t *testing.T) {
 	}
 }
 
-func TestProposeJobSpec_VerifyPreconditions_EVM(t *testing.T) {
+func TestUnit_ProposeJobSpec_VerifyPreconditions_EVM(t *testing.T) {
 	j := jobs.ProposeJobSpec{}
 	var env cldf.Environment
 
@@ -438,7 +438,7 @@ func TestProposeJobSpec_VerifyPreconditions_EVM(t *testing.T) {
 	}
 }
 
-func TestProposeJobSpec_Apply(t *testing.T) {
+func TestUnit_ProposeJobSpec_Apply(t *testing.T) {
 	testEnv := test.SetupEnvV2(t, false)
 	env := testEnv.Env
 
@@ -1687,7 +1687,7 @@ PerSenderBurst = 100
 	})
 }
 
-func TestProposeJobSpec_VerifyPreconditions_CRESettings(t *testing.T) {
+func TestUnit_ProposeJobSpec_VerifyPreconditions_CRESettings(t *testing.T) {
 	allDefault, err := toml.Marshal(map[string]any{
 		"global":   cresettings.Default,
 		"org":      map[string]any{"org_foo": cresettings.Default},

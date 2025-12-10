@@ -16,7 +16,7 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/globals"
 )
 
-func Test_RMNRemote_Curse_View(t *testing.T) {
+func TestUnit_RMNRemote_Curse_View(t *testing.T) {
 	t.Parallel()
 
 	selector := chainselectors.TEST_90000001.Selector
@@ -50,32 +50,32 @@ func Test_RMNRemote_Curse_View(t *testing.T) {
 	require.Equal(t, selector, view.CursedSubjectEntries[1].Selector)
 }
 
-func Test_RMN_Selector_To_Solana_Subject(t *testing.T) {
+func TestUnit_RMN_Selector_To_Solana_Subject(t *testing.T) {
 	subject := globals.FamilyAwareSelectorToSubject(chainselectors.BINANCE_SMART_CHAIN_TESTNET.Selector, chainselectors.FamilySolana)
 	require.Equal(t, []byte{251, 150, 143, 3, 112, 145, 21, 184, 0, 0, 0, 0, 0, 0, 0, 0}, subject[:])
 }
 
-func Test_RMN_Subject_To_Solana_Selector(t *testing.T) {
+func TestUnit_RMN_Subject_To_Solana_Selector(t *testing.T) {
 	selector := globals.FamilyAwareSubjectToSelector([16]byte{251, 150, 143, 3, 112, 145, 21, 184, 0, 0, 0, 0, 0, 0, 0, 0}, chainselectors.FamilySolana)
 	require.Equal(t, chainselectors.BINANCE_SMART_CHAIN_TESTNET.Selector, selector)
 }
 
-func Test_RMN_Selector_To_Subject(t *testing.T) {
+func TestUnit_RMN_Selector_To_Subject(t *testing.T) {
 	subject := globals.FamilyAwareSelectorToSubject(chainselectors.BINANCE_SMART_CHAIN_TESTNET.Selector, chainselectors.FamilyEVM)
 	require.Equal(t, []byte{0, 0, 0, 0, 0, 0, 0, 0, 184, 21, 145, 112, 3, 143, 150, 251}, subject[:])
 }
 
-func Test_RMN_Subject_To_Selector(t *testing.T) {
+func TestUnit_RMN_Subject_To_Selector(t *testing.T) {
 	selector := globals.FamilyAwareSubjectToSelector([16]byte{0, 0, 0, 0, 0, 0, 0, 0, 184, 21, 145, 112, 3, 143, 150, 251}, chainselectors.FamilyEVM)
 	require.Equal(t, chainselectors.BINANCE_SMART_CHAIN_TESTNET.Selector, selector)
 }
 
-func Test_GlobalSubject_To_Selector(t *testing.T) {
+func TestUnit_GlobalSubject_To_Selector(t *testing.T) {
 	selector := globals.FamilyAwareSubjectToSelector(globals.GlobalCurseSubject(), chainselectors.FamilyEVM)
 	require.Equal(t, uint64(0), selector)
 }
 
-func Test_GlobalSubject_To_Selector_Solana(t *testing.T) {
+func TestUnit_GlobalSubject_To_Selector_Solana(t *testing.T) {
 	selector := globals.FamilyAwareSubjectToSelector(globals.GlobalCurseSubject(), chainselectors.FamilySolana)
 	require.Equal(t, uint64(0), selector)
 }

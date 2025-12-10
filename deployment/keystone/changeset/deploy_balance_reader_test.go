@@ -15,7 +15,7 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/keystone/changeset"
 )
 
-func TestDeployBalanceReader(t *testing.T) {
+func TestUnit_DeployBalanceReader(t *testing.T) {
 	t.Parallel()
 
 	registrySel := chain_selectors.TEST_90000001.Selector

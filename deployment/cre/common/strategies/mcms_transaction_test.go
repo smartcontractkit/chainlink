@@ -32,7 +32,7 @@ func getMCMSTransaction(t *testing.T, env deployment.Environment) *strategies.MC
 	}
 }
 
-func TestMCMSTransaction_BuildProposal(t *testing.T) {
+func TestUnit_MCMSTransaction_BuildProposal(t *testing.T) {
 	t.Parallel()
 
 	fixture := test.SetupEnvV2(t, true)

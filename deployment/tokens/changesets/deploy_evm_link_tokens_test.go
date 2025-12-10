@@ -17,7 +17,7 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/tokens/internal/ops"
 )
 
-func Test_DeployEVMLinkTokens_VerifyPreconditions(t *testing.T) {
+func TestUnit_DeployEVMLinkTokens_VerifyPreconditions(t *testing.T) {
 	t.Parallel()
 
 	var (
@@ -139,7 +139,7 @@ func Test_DeployEVMLinkTokens_VerifyPreconditions(t *testing.T) {
 	}
 }
 
-func Test_DeployEVMLinkTokens_Apply(t *testing.T) {
+func TestUnit_DeployEVMLinkTokens_Apply(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {

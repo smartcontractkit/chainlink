@@ -15,7 +15,7 @@ import (
 	test2 "github.com/smartcontractkit/chainlink/deployment/cre/test"
 )
 
-func TestCREView(t *testing.T) {
+func TestUnit_CREView(t *testing.T) {
 	t.Parallel()
 	env := test2.SetupEnvV2(t, false)
 

@@ -15,7 +15,7 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/data-feeds/changeset/types"
 )
 
-func TestDeployCache(t *testing.T) {
+func TestUnit_DeployCache(t *testing.T) {
 	t.Parallel()
 
 	selector := chain_selectors.TEST_90000001.Selector

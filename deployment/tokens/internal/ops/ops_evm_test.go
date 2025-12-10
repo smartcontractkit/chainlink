@@ -12,7 +12,7 @@ import (
 	"github.com/smartcontractkit/chainlink-deployments-framework/operations/optest"
 )
 
-func Test_OpEVMDeployLinkToken(t *testing.T) {
+func TestUnit_OpEVMDeployLinkToken(t *testing.T) {
 	t.Parallel()
 
 	var (

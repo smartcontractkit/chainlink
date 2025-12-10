@@ -8,7 +8,7 @@ import (
 	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
 )
 
-func TestSetupEnvV2(t *testing.T) {
+func TestUnit_SetupEnvV2(t *testing.T) {
 	envV2 := SetupEnvV2(t, false)
 	env := envV2.Env
 

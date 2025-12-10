@@ -26,7 +26,7 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/common/types"
 )
 
-func TestTransferToMCMSWithTimelockV2(t *testing.T) {
+func TestUnit_TransferToMCMSWithTimelockV2(t *testing.T) {
 	selector := chain_selectors.TEST_90000001.Selector
 	rt, err := runtime.New(t.Context(), runtime.WithEnvOpts(
 		environment.WithEVMSimulated(t, []uint64{selector}),
@@ -90,7 +90,7 @@ func TestTransferToMCMSWithTimelockV2(t *testing.T) {
 	require.Equal(t, chain.DeployerKey.From, o)
 }
 
-func TestTransferToMCMSWithTimelockV2DataStore(t *testing.T) {
+func TestUnit_TransferToMCMSWithTimelockV2DataStore(t *testing.T) {
 	selector := chain_selectors.TEST_90000001.Selector
 	rt, err := runtime.New(t.Context(), runtime.WithEnvOpts(
 		environment.WithEVMSimulated(t, []uint64{selector}),
@@ -185,7 +185,7 @@ func TestTransferToMCMSWithTimelockV2DataStore(t *testing.T) {
 	require.Equal(t, chain.DeployerKey.From, o)
 }
 
-func TestRenounceTimelockDeployerConfigValidate(t *testing.T) {
+func TestUnit_RenounceTimelockDeployerConfigValidate(t *testing.T) {
 	tests.SkipFlakey(t, "https://smartcontract-it.atlassian.net/browse/DX-724")
 	t.Parallel()
 
@@ -255,7 +255,7 @@ func TestRenounceTimelockDeployerConfigValidate(t *testing.T) {
 	}
 }
 
-func TestRenounceTimelockDeployer(t *testing.T) {
+func TestUnit_RenounceTimelockDeployer(t *testing.T) {
 	selector := chain_selectors.TEST_90000001.Selector
 	rt, err := runtime.New(t.Context(), runtime.WithEnvOpts(
 		environment.WithEVMSimulated(t, []uint64{selector}),

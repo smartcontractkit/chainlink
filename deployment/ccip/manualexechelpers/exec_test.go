@@ -9,7 +9,7 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/ccip/manualexechelpers"
 )
 
-func TestRootMap_AddAndGet(t *testing.T) {
+func TestUnit_RootMap_AddAndGet(t *testing.T) {
 	// Mock data
 	root1 := manualexechelpers.RootCacheEntry{Root: offramp.InternalMerkleRoot{MinSeqNr: 1, MaxSeqNr: 10}, BlockNumber: 1}
 	root2 := manualexechelpers.RootCacheEntry{Root: offramp.InternalMerkleRoot{MinSeqNr: 11, MaxSeqNr: 20}, BlockNumber: 2}

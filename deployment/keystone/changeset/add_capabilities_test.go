@@ -18,7 +18,7 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/keystone/changeset/test"
 )
 
-func TestAddCapabilities(t *testing.T) {
+func TestUnit_AddCapabilities(t *testing.T) {
 	t.Parallel()
 
 	capabilitiesToAdd := []kcr.CapabilitiesRegistryCapability{
@@ -80,7 +80,7 @@ func TestAddCapabilities(t *testing.T) {
 	})
 }
 
-func TestAddCapabilitiesRequest_Validate_WriterCapability(t *testing.T) {
+func TestUnit_AddCapabilitiesRequest_Validate_WriterCapability(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {

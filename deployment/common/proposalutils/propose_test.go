@@ -27,7 +27,7 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/internal/soltestutils"
 )
 
-func TestBuildProposalFromBatchesV2(t *testing.T) {
+func TestUnit_BuildProposalFromBatchesV2(t *testing.T) {
 	quarantine.Flaky(t, "DX-1824")
 	t.Parallel()
 

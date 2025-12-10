@@ -14,7 +14,7 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/cre/test"
 )
 
-func TestConfigureOCR3(t *testing.T) {
+func TestUnit_ConfigureOCR3(t *testing.T) {
 	env := test.SetupEnvV2(t, false)
 
 	testCases := []struct {

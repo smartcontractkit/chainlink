@@ -6,7 +6,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestValidateFeedID(t *testing.T) {
+func TestUnit_ValidateFeedID(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {

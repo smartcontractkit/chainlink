@@ -9,7 +9,7 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/cre/capabilities_registry/v2/changeset/pkg"
 )
 
-func TestCapabilityConfig_MarshalUnmarshal(t *testing.T) {
+func TestUnit_CapabilityConfig_MarshalUnmarshal(t *testing.T) {
 	t.Parallel()
 
 	t.Run("matching keys to proto", func(t *testing.T) {
@@ -54,7 +54,7 @@ func TestCapabilityConfig_MarshalUnmarshal(t *testing.T) {
 	})
 }
 
-func TestCapabilityConfig_UnmarshalWithValidation(t *testing.T) {
+func TestUnit_CapabilityConfig_UnmarshalWithValidation(t *testing.T) {
 	t.Parallel()
 
 	t.Run("unknown fields are detected and reported", func(t *testing.T) {

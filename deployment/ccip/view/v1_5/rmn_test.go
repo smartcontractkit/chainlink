@@ -15,7 +15,7 @@ import (
 	"github.com/smartcontractkit/chainlink-deployments-framework/engine/test/environment"
 )
 
-func TestGenerateRMNView(t *testing.T) {
+func TestUnit_GenerateRMNView(t *testing.T) {
 	t.Parallel()
 
 	selector := chainsel.TEST_90000001.Selector

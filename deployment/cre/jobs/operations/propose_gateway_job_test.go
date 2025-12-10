@@ -127,7 +127,7 @@ var commonInput = ProposeGatewayJobInput{
 	JobLabels:                map[string]string{},
 }
 
-func TestProposeGatewayJob(t *testing.T) {
+func TestUnit_ProposeGatewayJob(t *testing.T) {
 	t.Parallel()
 
 	testCases := []struct {

@@ -31,7 +31,7 @@ import (
 	capabilities_registry "github.com/smartcontractkit/chainlink-evm/gethwrappers/keystone/generated/capabilities_registry_1_1_0"
 )
 
-func TestGetOwnableContractV2(t *testing.T) {
+func TestUnit_GetOwnableContractV2(t *testing.T) {
 	t.Parallel()
 	v1 := semver.MustParse("1.1.0")
 
@@ -97,7 +97,7 @@ func TestGetOwnableContractV2(t *testing.T) {
 	})
 }
 
-func TestGetOwnerTypeAndVersionV2(t *testing.T) {
+func TestUnit_GetOwnerTypeAndVersionV2(t *testing.T) {
 	t.Parallel()
 
 	selector := chainsel.TEST_90000001.Selector
@@ -186,7 +186,7 @@ func TestGetOwnerTypeAndVersionV2(t *testing.T) {
 	})
 }
 
-func TestNewOwnableV2(t *testing.T) {
+func TestUnit_NewOwnableV2(t *testing.T) {
 	t.Parallel()
 
 	selector := chainsel.TEST_90000001.Selector
@@ -294,7 +294,7 @@ func TestNewOwnableV2(t *testing.T) {
 	})
 }
 
-func TestGetOwnedContractV2(t *testing.T) {
+func TestUnit_GetOwnedContractV2(t *testing.T) {
 	t.Parallel()
 
 	selector := chainsel.TEST_90000001.Selector

@@ -122,7 +122,7 @@ func setupUSDCTokenPoolsContractsForConfigure(
 	return usdcToken, messenger
 }
 
-func TestValidateConfigUSDCTokenPoolInput(t *testing.T) {
+func TestUnit_ValidateConfigUSDCTokenPoolInput(t *testing.T) {
 	t.Parallel()
 
 	rt := setupUSDCTokenPoolsEnvironmentForConfigure(t, true)
@@ -280,7 +280,7 @@ func TestValidateConfigUSDCTokenPoolInput(t *testing.T) {
 	}
 }
 
-func TestConfigureUSDCTokenPools(t *testing.T) {
+func TestUnit_ConfigureUSDCTokenPools(t *testing.T) {
 	t.Parallel()
 
 	rt := setupUSDCTokenPoolsEnvironmentForConfigure(t, true)

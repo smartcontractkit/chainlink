@@ -17,7 +17,7 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/cre/mcms/pkg"
 )
 
-func TestMCMSDeployment(t *testing.T) {
+func TestUnit_MCMSDeployment(t *testing.T) {
 	t.Parallel()
 	// Test environment with a simulated EVM blockchain
 	loader := testenv.NewLoader()

@@ -15,7 +15,7 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/keystone/changeset/test"
 )
 
-func TestAddNops(t *testing.T) {
+func TestUnit_AddNops(t *testing.T) {
 	t.Parallel()
 
 	nops := []kcr.CapabilitiesRegistryNodeOperator{

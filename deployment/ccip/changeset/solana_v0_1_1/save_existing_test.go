@@ -19,7 +19,7 @@ import (
 	commontypes "github.com/smartcontractkit/chainlink/deployment/common/types"
 )
 
-func TestSaveExistingCCIP(t *testing.T) {
+func TestUnit_SaveExistingCCIP(t *testing.T) {
 	t.Parallel()
 
 	e, err := environment.New(t.Context())
@@ -58,7 +58,7 @@ func TestSaveExistingCCIP(t *testing.T) {
 	require.Equal(t, state.SolChains[selector].LinkToken.String(), solAddr2)
 }
 
-func TestSaveExisting(t *testing.T) {
+func TestUnit_SaveExisting(t *testing.T) {
 	t.Parallel()
 
 	e, err := environment.New(t.Context())

@@ -32,7 +32,7 @@ var (
 	registryChain = chainsel.TEST_90000001
 )
 
-func TestUpdateDon(t *testing.T) {
+func TestUnit_UpdateDon(t *testing.T) {
 	var (
 		// nodes
 		p2p1     = p2pkey.MustNewV2XXXTestingOnly(big.NewInt(100))
@@ -169,7 +169,7 @@ func TestUpdateDon(t *testing.T) {
 	})
 }
 
-func TestUpdateDon_ChangeComposition(t *testing.T) {
+func TestUnit_UpdateDon_ChangeComposition(t *testing.T) {
 	var (
 		// Initial nodes (n1-n4)
 		p2p1     = p2pkey.MustNewV2XXXTestingOnly(big.NewInt(100))

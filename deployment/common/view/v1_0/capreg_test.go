@@ -10,7 +10,7 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/common/view/types"
 )
 
-func TestCapRegView_Denormalize(t *testing.T) {
+func TestUnit_CapRegView_Denormalize(t *testing.T) {
 	type fields struct {
 		ContractMetaData types.ContractMetaData
 		Capabilities     []CapabilityView

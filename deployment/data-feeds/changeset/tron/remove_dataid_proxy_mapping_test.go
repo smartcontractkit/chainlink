@@ -18,7 +18,7 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/data-feeds/changeset/types"
 )
 
-func TestRemoveDataIDProxyMapping(t *testing.T) {
+func TestUnit_RemoveDataIDProxyMapping(t *testing.T) {
 	t.Parallel()
 
 	selector := chain_selectors.TRON_DEVNET.Selector

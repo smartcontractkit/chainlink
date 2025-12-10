@@ -12,7 +12,7 @@ import (
 )
 
 // TestAddMintersBurnersLink tests the AddMintersBurnersLink changeset
-func TestAddMintersBurnersLink(t *testing.T) {
+func TestUnit_AddMintersBurnersLink(t *testing.T) {
 	t.Parallel()
 
 	var (

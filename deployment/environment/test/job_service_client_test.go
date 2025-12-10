@@ -17,7 +17,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/feeds"
 )
 
-func TestNewJobServiceClient(t *testing.T) {
+func TestUnit_NewJobServiceClient(t *testing.T) {
 	t.Parallel()
 
 	// Create a mock JobApprover getter
@@ -39,7 +39,7 @@ func TestNewJobServiceClient(t *testing.T) {
 	require.Equal(t, mockGetter, client.jobApproverStore)
 }
 
-func TestBatchProposeJob(t *testing.T) {
+func TestUnit_BatchProposeJob(t *testing.T) {
 	t.Parallel()
 	ctx := t.Context()
 
@@ -119,7 +119,7 @@ func TestBatchProposeJob(t *testing.T) {
 	})
 }
 
-func TestProposeJob(t *testing.T) {
+func TestUnit_ProposeJob(t *testing.T) {
 	t.Parallel()
 	ctx := context.Background()
 
@@ -237,7 +237,7 @@ name = "Test Job"
 	})
 }
 
-func TestRevokeJob(t *testing.T) {
+func TestUnit_RevokeJob(t *testing.T) {
 	t.Parallel()
 
 	mockGetter := &mockJobApproverGetter{
@@ -314,7 +314,7 @@ func TestRevokeJob(t *testing.T) {
 	}
 }
 
-func TestGetJob(t *testing.T) {
+func TestUnit_GetJob(t *testing.T) {
 	t.Parallel()
 	ctx := context.Background()
 
@@ -367,7 +367,7 @@ func TestGetJob(t *testing.T) {
 	})
 }
 
-func TestGetProposal(t *testing.T) {
+func TestUnit_GetProposal(t *testing.T) {
 	t.Parallel()
 	ctx := context.Background()
 
@@ -419,7 +419,7 @@ func TestGetProposal(t *testing.T) {
 	})
 }
 
-func TestListJobs(t *testing.T) {
+func TestUnit_ListJobs(t *testing.T) {
 	t.Parallel()
 	ctx := context.Background()
 
@@ -531,7 +531,7 @@ func TestListJobs(t *testing.T) {
 	})
 }
 
-func TestListProposals(t *testing.T) {
+func TestUnit_ListProposals(t *testing.T) {
 	t.Parallel()
 	ctx := context.Background()
 
@@ -629,7 +629,7 @@ func TestListProposals(t *testing.T) {
 	})
 }
 
-func TestMapJobStore(t *testing.T) {
+func TestUnit_MapJobStore(t *testing.T) {
 	t.Parallel()
 
 	store := newMapJobStore()
@@ -707,7 +707,7 @@ func TestMapJobStore(t *testing.T) {
 	})
 }
 
-func TestMapProposalStore(t *testing.T) {
+func TestUnit_MapProposalStore(t *testing.T) {
 	t.Parallel()
 
 	store := newMapProposalStore()
@@ -773,7 +773,7 @@ func TestMapProposalStore(t *testing.T) {
 	})
 }
 
-func TestMatchesSelectors(t *testing.T) {
+func TestUnit_MatchesSelectors(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {

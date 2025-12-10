@@ -18,7 +18,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestMaybeLoadMCMSWithTimelockChainState(t *testing.T) {
+func TestUnit_MaybeLoadMCMSWithTimelockChainState(t *testing.T) {
 	type testCase struct {
 		name      string
 		chain     cldf_evm.Chain

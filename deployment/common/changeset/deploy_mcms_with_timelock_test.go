@@ -36,7 +36,7 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/internal/soltestutils"
 )
 
-func TestGrantRoleInTimeLock(t *testing.T) {
+func TestUnit_GrantRoleInTimeLock(t *testing.T) {
 	selector := chain_selectors.TEST_90000001.Selector
 	env, err := environment.New(t.Context(),
 		environment.WithEVMSimulatedWithConfig(t, []uint64{selector}, onchain.EVMSimLoaderConfig{
@@ -121,7 +121,7 @@ func TestGrantRoleInTimeLock(t *testing.T) {
 	require.Contains(t, proposers, existingProposer.Address().Hex())
 }
 
-func TestDeployMCMSWithTimelockV2WithFewExistingContracts(t *testing.T) {
+func TestUnit_DeployMCMSWithTimelockV2WithFewExistingContracts(t *testing.T) {
 	ctx := t.Context()
 
 	selector1 := chain_selectors.TEST_90000001.Selector
@@ -253,7 +253,7 @@ func TestDeployMCMSWithTimelockV2WithFewExistingContracts(t *testing.T) {
 	require.Equal(t, bypassers, []string{evmState1.BypasserMcm.Address().Hex()})
 }
 
-func TestDeployMCMSWithTimelockV2(t *testing.T) {
+func TestUnit_DeployMCMSWithTimelockV2(t *testing.T) {
 	quarantine.Flaky(t, "DX-1719")
 	t.Parallel()
 
@@ -442,7 +442,7 @@ func TestDeployMCMSWithTimelockV2(t *testing.T) {
 }
 
 // TestDeployMCMSWithTimelockV2SkipInit tests calling the deploy changeset when accounts have already been initialized
-func TestDeployMCMSWithTimelockV2SkipInitSolana(t *testing.T) {
+func TestUnit_DeployMCMSWithTimelockV2SkipInitSolana(t *testing.T) {
 	tests.SkipFlakey(t, "https://smartcontract-it.atlassian.net/browse/DX-438")
 
 	t.Parallel()

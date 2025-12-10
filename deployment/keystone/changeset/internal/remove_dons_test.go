@@ -23,7 +23,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/p2pkey"
 )
 
-func Test_RemoveDONsRequest_validate(t *testing.T) {
+func TestUnit_RemoveDONsRequest_validate(t *testing.T) {
 	type fields struct {
 		DONs                 []uint32
 		chain                cldf_evm.Chain
@@ -77,7 +77,7 @@ func Test_RemoveDONsRequest_validate(t *testing.T) {
 }
 
 // TestRemoveDONs tests the RemoveDONs function
-func TestRemoveDONs(t *testing.T) {
+func TestUnit_RemoveDONs(t *testing.T) {
 	t.Parallel()
 	lggr := logger.Test(t)
 

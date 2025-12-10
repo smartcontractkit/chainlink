@@ -17,7 +17,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/p2pkey"
 )
 
-func TestSetDONsFamilies_VerifyPreconditions(t *testing.T) {
+func TestUnit_SetDONsFamilies_VerifyPreconditions(t *testing.T) {
 	cs := changeset.SetDONsFamilies{}
 
 	env := test.SetupEnvV2(t, false)
@@ -53,7 +53,7 @@ func TestSetDONsFamilies_VerifyPreconditions(t *testing.T) {
 	})
 }
 
-func TestSetDONsFamilies_Apply(t *testing.T) {
+func TestUnit_SetDONsFamilies_Apply(t *testing.T) {
 	cs := changeset.SetDONsFamilies{}
 
 	env := test.SetupEnvV2(t, false)

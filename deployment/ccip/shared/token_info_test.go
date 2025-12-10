@@ -6,7 +6,7 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func TestNewMergedRegistry(t *testing.T) {
+func TestUnit_NewMergedRegistry(t *testing.T) {
 	tests := []struct {
 		name            string
 		newTokens       map[string][]TokenSymbol

@@ -16,7 +16,7 @@ import (
 )
 
 // TestMintLink tests the MintLink changeset
-func TestMintLink(t *testing.T) {
+func TestUnit_MintLink(t *testing.T) {
 	t.Parallel()
 
 	var (

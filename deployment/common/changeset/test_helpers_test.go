@@ -15,7 +15,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
 
-func TestChangeSetLegacyFunction_PassingCase(t *testing.T) {
+func TestUnit_ChangeSetLegacyFunction_PassingCase(t *testing.T) {
 	t.Parallel()
 	e := NewNoopEnvironment(t)
 
@@ -40,7 +40,7 @@ func TestChangeSetLegacyFunction_PassingCase(t *testing.T) {
 	require.NoError(t, err)
 }
 
-func TestChangeSetLegacyFunction_ErrorCase(t *testing.T) {
+func TestUnit_ChangeSetLegacyFunction_ErrorCase(t *testing.T) {
 	t.Parallel()
 	e := NewNoopEnvironment(t)
 
@@ -79,7 +79,7 @@ func NewNoopEnvironment(t *testing.T) cldf.Environment {
 	)
 }
 
-func TestApplyChangesetsHelpers(t *testing.T) {
+func TestUnit_ApplyChangesetsHelpers(t *testing.T) {
 	t.Parallel()
 
 	changesets := []ConfiguredChangeSet{

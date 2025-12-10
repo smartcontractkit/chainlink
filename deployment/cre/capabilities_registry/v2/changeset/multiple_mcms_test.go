@@ -22,7 +22,7 @@ import (
 
 // TestMultipleMCMSDeploymentsConflict demonstrates the gap where GetMCMSContracts
 // cannot distinguish between multiple MCMS deployments on the same chain
-func TestMultipleMCMSDeploymentsConflict(t *testing.T) {
+func TestUnit_MultipleMCMSDeploymentsConflict(t *testing.T) {
 	t.Parallel()
 
 	selector := chainselectors.TEST_90000001.Selector

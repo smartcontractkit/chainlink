@@ -719,7 +719,7 @@ func TestUnit_ValidateConfigureTokenPoolContracts(t *testing.T) {
 	}
 }
 
-func TestIntegation_Solana_ValidateConfigureTokenPoolContractsForSolana(t *testing.T) {
+func TestIntegration_Solana_ValidateConfigureTokenPoolContractsForSolana(t *testing.T) {
 	quarantine.Flaky(t, "DX-1726")
 	t.Parallel()
 	var err error

@@ -25,7 +25,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/p2pkey"
 )
 
-func Test_RegisterNOPS(t *testing.T) {
+func TestUnit_RegisterNOPS(t *testing.T) {
 	var (
 		useMCMS   bool
 		lggr      = logger.Test(t)
@@ -66,7 +66,7 @@ func Test_RegisterNOPS(t *testing.T) {
 	})
 }
 
-func Test_AddCapabilities(t *testing.T) {
+func TestUnit_AddCapabilities(t *testing.T) {
 	var (
 		useMCMS   bool
 		lggr      = logger.Test(t)
@@ -140,7 +140,7 @@ func Test_AddCapabilities(t *testing.T) {
 	})
 }
 
-func Test_RegisterNodes(t *testing.T) {
+func TestUnit_RegisterNodes(t *testing.T) {
 	var (
 		useMCMS                  bool
 		lggr                     = logger.Test(t)
@@ -394,7 +394,7 @@ func assertNodesExist(t *testing.T, registry *kcr.CapabilitiesRegistry, nodes ..
 	}
 }
 
-func Test_RegisterDons(t *testing.T) {
+func TestUnit_RegisterDons(t *testing.T) {
 	var (
 		useMCMS   bool
 		lggr      = logger.Test(t)
@@ -582,7 +582,7 @@ func Test_RegisterDons(t *testing.T) {
 	})
 }
 
-func TestAddNodes(t *testing.T) {
+func TestUnit_AddNodes(t *testing.T) {
 	var (
 		lggr                     = logger.Test(t)
 		existingNOP              = testNop(t, "testNop")

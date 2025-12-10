@@ -9,7 +9,7 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/cre/test"
 )
 
-func TestDeployVault(t *testing.T) {
+func TestUnit_DeployVault(t *testing.T) {
 	env := test.SetupEnvV2(t, false)
 
 	changesetOutput, err := DeployVault{}.Apply(*env.Env, DeployVaultInput{

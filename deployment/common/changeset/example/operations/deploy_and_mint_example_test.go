@@ -11,7 +11,7 @@ import (
 	"github.com/smartcontractkit/chainlink-deployments-framework/engine/test/environment"
 )
 
-func TestDeployAndMintExampleChangeset(t *testing.T) {
+func TestUnit_DeployAndMintExampleChangeset(t *testing.T) {
 	selector := chain_selectors.TEST_90000001.Selector
 	env, err := environment.New(t.Context(), environment.WithEVMSimulated(t, []uint64{selector}))
 	require.NoError(t, err)

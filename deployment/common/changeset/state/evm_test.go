@@ -23,7 +23,7 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/common/types"
 )
 
-func TestMCMSWithTimelockState_GenerateMCMSWithTimelockViewV2(t *testing.T) {
+func TestUnit_MCMSWithTimelockState_GenerateMCMSWithTimelockViewV2(t *testing.T) {
 	selector := chain_selectors.TEST_90000001.Selector
 	env, err := environment.New(t.Context(),
 		environment.WithEVMSimulated(t, []uint64{selector}),
@@ -131,7 +131,7 @@ func TestMCMSWithTimelockState_GenerateMCMSWithTimelockViewV2(t *testing.T) {
 	}
 }
 
-func TestAddressesForChain(t *testing.T) {
+func TestUnit_AddressesForChain(t *testing.T) {
 	chainSelector := chain_selectors.ETHEREUM_MAINNET.Selector
 
 	t.Run("environment with AddressBook only", func(t *testing.T) {

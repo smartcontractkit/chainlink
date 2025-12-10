@@ -8,7 +8,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestGateway_Validate(t *testing.T) {
+func TestUnit_Gateway_Validate(t *testing.T) {
 	t.Parallel()
 
 	g := GatewayJob{}
@@ -325,7 +325,7 @@ WriteTimeoutMillis = 16000
 `
 )
 
-func TestGateway_Resolve(t *testing.T) {
+func TestUnit_Gateway_Resolve(t *testing.T) {
 	t.Parallel()
 
 	g := GatewayJob{
@@ -385,7 +385,7 @@ func TestGateway_Resolve(t *testing.T) {
 	assert.Equal(t, expected, spec)
 }
 
-func TestGateway_Resolve_WithVaultHandler(t *testing.T) {
+func TestUnit_Gateway_Resolve_WithVaultHandler(t *testing.T) {
 	t.Parallel()
 
 	g := GatewayJob{
@@ -447,7 +447,7 @@ func TestGateway_Resolve_WithVaultHandler(t *testing.T) {
 	assert.Equal(t, expectedWithVault, spec)
 }
 
-func TestGateway_Resolve_WithHTTPCapabilitiesHandler(t *testing.T) {
+func TestUnit_Gateway_Resolve_WithHTTPCapabilitiesHandler(t *testing.T) {
 	t.Parallel()
 
 	g := GatewayJob{

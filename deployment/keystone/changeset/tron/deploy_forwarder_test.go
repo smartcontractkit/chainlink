@@ -14,7 +14,7 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/keystone/changeset/tron"
 )
 
-func TestDeployForwarder(t *testing.T) {
+func TestUnit_DeployForwarder(t *testing.T) {
 	t.Parallel()
 
 	registrySel := chain_selectors.TRON_DEVNET.Selector

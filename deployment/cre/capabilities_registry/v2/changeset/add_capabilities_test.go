@@ -68,7 +68,7 @@ var (
 	}
 )
 
-func TestAddCapabilities_VerifyPreconditions(t *testing.T) {
+func TestUnit_AddCapabilities_VerifyPreconditions(t *testing.T) {
 	cs := changeset.AddCapabilities{}
 
 	env := test.SetupEnvV2(t, false)
@@ -187,7 +187,7 @@ func requireCapability(t *testing.T, fixture *test.EnvWrapperV2, capID string) {
 	require.True(t, cfgFound, "expected don to have %s capability configuration", capID)
 }
 
-func TestAddCapabilities_Apply(t *testing.T) {
+func TestUnit_AddCapabilities_Apply(t *testing.T) {
 	// SetupEnvV2 deploys a cap reg v2 and configures it. So no need to do that here, just leverage the existing one.
 	fixture := test.SetupEnvV2(t, false)
 
@@ -200,7 +200,7 @@ func TestAddCapabilities_Apply(t *testing.T) {
 	requireCapability(t, fixture, anotherCapID)
 }
 
-func TestAddCapabilities_Apply_MCMS(t *testing.T) {
+func TestUnit_AddCapabilities_Apply_MCMS(t *testing.T) {
 	// SetupEnvV2 deploys a cap reg v2 and configures it. So no need to do that here, just leverage the existing one.
 	fixture := test.SetupEnvV2(t, true)
 

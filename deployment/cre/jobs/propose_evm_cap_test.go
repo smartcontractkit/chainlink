@@ -75,7 +75,7 @@ func seedAddressesForSelector(t *testing.T, ds *datastore.MemoryDataStore, sel u
 	}))
 }
 
-func TestProposeEVMCapJobSpec_VerifyPreconditions_success(t *testing.T) {
+func TestUnit_ProposeEVMCapJobSpec_VerifyPreconditions_success(t *testing.T) {
 	var env cldf.Environment
 
 	ds := datastore.NewMemoryDataStore()
@@ -105,7 +105,7 @@ func TestProposeEVMCapJobSpec_VerifyPreconditions_success(t *testing.T) {
 	require.NoError(t, err)
 }
 
-func TestProposeEVMCapJobSpec_VerifyPreconditions_requiredFields(t *testing.T) {
+func TestUnit_ProposeEVMCapJobSpec_VerifyPreconditions_requiredFields(t *testing.T) {
 	var env cldf.Environment
 	ds := datastore.NewMemoryDataStore()
 	selector := chainsel.ETHEREUM_TESTNET_SEPOLIA.Selector
@@ -144,7 +144,7 @@ func TestProposeEVMCapJobSpec_VerifyPreconditions_requiredFields(t *testing.T) {
 	}
 }
 
-func TestProposeEVMCapJobSpec_VerifyPreconditions_missingAddresses(t *testing.T) {
+func TestUnit_ProposeEVMCapJobSpec_VerifyPreconditions_missingAddresses(t *testing.T) {
 	var env cldf.Environment
 	ds := datastore.NewMemoryDataStore()
 	selector := chainsel.ETHEREUM_TESTNET_SEPOLIA.Selector
@@ -181,7 +181,7 @@ func TestProposeEVMCapJobSpec_VerifyPreconditions_missingAddresses(t *testing.T)
 	assert.Contains(t, err.Error(), "failed to get CRE forwarder address")
 }
 
-func TestProposeEVMCapJobSpec_VerifyPreconditions_mismatchAndMinimums(t *testing.T) {
+func TestUnit_ProposeEVMCapJobSpec_VerifyPreconditions_mismatchAndMinimums(t *testing.T) {
 	var env cldf.Environment
 	ds := datastore.NewMemoryDataStore()
 	chain := chainsel.ETHEREUM_TESTNET_SEPOLIA
@@ -255,7 +255,7 @@ func TestProposeEVMCapJobSpec_VerifyPreconditions_mismatchAndMinimums(t *testing
 	})
 }
 
-func TestProposeEVMCapJobSpec_Apply_success(t *testing.T) {
+func TestUnit_ProposeEVMCapJobSpec_Apply_success(t *testing.T) {
 	testEnv := test.SetupEnvV2(t, false)
 	env := testEnv.Env
 
@@ -311,7 +311,7 @@ func TestProposeEVMCapJobSpec_Apply_success(t *testing.T) {
 	assert.Len(t, out.Reports, 1)
 }
 
-func TestProposeEVMCapJobSpec_Apply_duplicateNodeIDs(t *testing.T) {
+func TestUnit_ProposeEVMCapJobSpec_Apply_duplicateNodeIDs(t *testing.T) {
 	testEnv := test.SetupEnvV2(t, false)
 	env := testEnv.Env
 

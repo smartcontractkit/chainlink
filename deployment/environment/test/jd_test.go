@@ -19,7 +19,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/p2pkey"
 )
 
-func TestJDNodeService_GetNode(t *testing.T) {
+func TestUnit_JDNodeService_GetNode(t *testing.T) {
 	nodes := []deployment.Node{
 		{
 			NodeID: "node1",
@@ -70,7 +70,7 @@ func TestJDNodeService_GetNode(t *testing.T) {
 	}
 }
 
-func TestJDNodeService_ListNodes(t *testing.T) {
+func TestUnit_JDNodeService_ListNodes(t *testing.T) {
 	workflowKey1 := "workflow_key_1"
 	workflowKey2 := "workflow_key_2"
 	nodes := []deployment.Node{
@@ -157,7 +157,7 @@ func TestJDNodeService_ListNodes(t *testing.T) {
 	}
 }
 
-func TestJDNodeService_ListNodeChainConfigs(t *testing.T) {
+func TestUnit_JDNodeService_ListNodeChainConfigs(t *testing.T) {
 	nodes := []deployment.Node{
 		{
 			NodeID: "node1",
@@ -331,7 +331,7 @@ func TestJDNodeService_ListNodeChainConfigs(t *testing.T) {
 	}
 }
 
-func TestNewJDServiceFromListNodes(t *testing.T) {
+func TestUnit_NewJDServiceFromListNodes(t *testing.T) {
 	workflowKey1 := "workflow_key_1"
 	workflowKey2 := "workflow_key_2"
 	workflowKey3 := "workflow_key_3"

@@ -25,7 +25,7 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/keystone/changeset/test"
 )
 
-func TestDeployOCR3(t *testing.T) {
+func TestUnit_DeployOCR3(t *testing.T) {
 	t.Parallel()
 
 	registrySel := chain_selectors.TEST_90000001.Selector
@@ -59,7 +59,7 @@ func TestDeployOCR3(t *testing.T) {
 	assert.Empty(t, oaddrs)
 }
 
-func TestConfigureOCR3(t *testing.T) {
+func TestUnit_ConfigureOCR3(t *testing.T) {
 	t.Parallel()
 
 	nWfNodes := 4

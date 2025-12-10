@@ -161,7 +161,7 @@ func setupRegistryForDeleteDON(t *testing.T, secondDON bool) *delFixture {
 	}
 }
 
-func TestDeleteDONChangeset_ByName_Direct_Succeeds(t *testing.T) {
+func TestUnit_DeleteDONChangeset_ByName_Direct_Succeeds(t *testing.T) {
 	t.Parallel()
 	fx := setupRegistryForDeleteDON(t, false)
 
@@ -183,7 +183,7 @@ func TestDeleteDONChangeset_ByName_Direct_Succeeds(t *testing.T) {
 	require.Error(t, err)
 }
 
-func TestDeleteDONChangeset_ByNames_Multi_Succeeds(t *testing.T) {
+func TestUnit_DeleteDONChangeset_ByNames_Multi_Succeeds(t *testing.T) {
 	t.Parallel()
 	fx := setupRegistryForDeleteDON(t, true)
 
@@ -208,7 +208,7 @@ func TestDeleteDONChangeset_ByNames_Multi_Succeeds(t *testing.T) {
 	}
 }
 
-func TestDeleteDONChangeset_VerifyPreconditions_EmptyList(t *testing.T) {
+func TestUnit_DeleteDONChangeset_VerifyPreconditions_EmptyList(t *testing.T) {
 	t.Parallel()
 	var cs changeset.DeleteDONs
 	err := cs.VerifyPreconditions(cldf.Environment{}, changeset.DeleteDONsInput{
@@ -220,7 +220,7 @@ func TestDeleteDONChangeset_VerifyPreconditions_EmptyList(t *testing.T) {
 	assert.Contains(t, err.Error(), "must provide at least one DON name")
 }
 
-func TestDeleteDONChangeset_Apply_MissingDON_Fails(t *testing.T) {
+func TestUnit_DeleteDONChangeset_Apply_MissingDON_Fails(t *testing.T) {
 	t.Parallel()
 
 	selector := chainselectors.TEST_90000001.Selector
@@ -248,7 +248,7 @@ func TestDeleteDONChangeset_Apply_MissingDON_Fails(t *testing.T) {
 	// Avoid asserting specific substrings to keep this robust across ABI/runtime changes.
 }
 
-func TestDeleteDONChangeset_ChainNotFound(t *testing.T) {
+func TestUnit_DeleteDONChangeset_ChainNotFound(t *testing.T) {
 	t.Parallel()
 
 	rt, err := runtime.New(t.Context(), runtime.WithEnvOpts(
@@ -265,7 +265,7 @@ func TestDeleteDONChangeset_ChainNotFound(t *testing.T) {
 	assert.Contains(t, err.Error(), "chain not found for selector")
 }
 
-func TestDeleteDONChangeset_QualifierNotFound(t *testing.T) {
+func TestUnit_DeleteDONChangeset_QualifierNotFound(t *testing.T) {
 	t.Parallel()
 
 	selector := chainselectors.TEST_90000001.Selector
@@ -284,7 +284,7 @@ func TestDeleteDONChangeset_QualifierNotFound(t *testing.T) {
 	assert.Contains(t, err.Error(), "failed to get registry address")
 }
 
-func TestDeleteDON_MCMS_Configuration(t *testing.T) {
+func TestUnit_DeleteDON_MCMS_Configuration(t *testing.T) {
 	t.Parallel()
 	fx := setupRegistryForDeleteDON(t, false)
 

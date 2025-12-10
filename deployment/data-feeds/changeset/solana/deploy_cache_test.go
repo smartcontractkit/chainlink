@@ -30,7 +30,7 @@ const (
 
 // TODO: This test is not working as expected, however this has been modified to work with the new
 // test engine environment.
-func TestDeployCache(t *testing.T) {
+func TestUnit_DeployCache(t *testing.T) {
 	skipInCI(t)
 	t.Parallel()
 
@@ -100,7 +100,7 @@ func TestDeployCache(t *testing.T) {
 
 // TODO: This test is not working as expected, however this has been modified to work with the new
 // test engine environment.
-func TestConfigureCache(t *testing.T) {
+func TestUnit_ConfigureCache(t *testing.T) {
 	skipInCI(t)
 	t.Parallel()
 

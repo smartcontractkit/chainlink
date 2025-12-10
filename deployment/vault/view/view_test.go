@@ -18,7 +18,7 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/vault/changeset/types"
 )
 
-func TestVault_NoChains(t *testing.T) {
+func TestUnit_Vault_NoChains(t *testing.T) {
 	t.Parallel()
 
 	env, err := environment.New(t.Context())
@@ -34,7 +34,7 @@ func TestVault_NoChains(t *testing.T) {
 	require.Empty(t, view.MCMSWithTimelock)
 }
 
-func TestGenerateVaultView_WithoutTimelock(t *testing.T) {
+func TestUnit_GenerateVaultView_WithoutTimelock(t *testing.T) {
 	t.Parallel()
 
 	selectors := []uint64{chainselectors.TEST_90000001.Selector}
@@ -57,7 +57,7 @@ func TestGenerateVaultView_WithoutTimelock(t *testing.T) {
 	require.Empty(t, view.MCMSWithTimelock)
 }
 
-func TestGenerateVaultView_WithMCMSAndWhitelist(t *testing.T) {
+func TestUnit_GenerateVaultView_WithMCMSAndWhitelist(t *testing.T) {
 	t.Parallel()
 
 	selectors := []uint64{chainselectors.TEST_90000001.Selector, chainselectors.TEST_90000002.Selector}

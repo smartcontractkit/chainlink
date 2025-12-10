@@ -23,7 +23,7 @@ const (
 	whitelistTestAddr4 = "0x4444444444444444444444444444444444444444"
 )
 
-func TestSetWhitelistValidation(t *testing.T) {
+func TestUnit_SetWhitelistValidation(t *testing.T) {
 	t.Parallel()
 
 	selector1 := chainselectors.TEST_90000001.Selector
@@ -138,7 +138,7 @@ func TestSetWhitelistValidation(t *testing.T) {
 	}
 }
 
-func TestGetWhitelistedAddresses(t *testing.T) {
+func TestUnit_GetWhitelistedAddresses(t *testing.T) {
 	t.Parallel()
 
 	selector1 := chainselectors.TEST_90000001.Selector
@@ -254,7 +254,7 @@ func TestGetWhitelistedAddresses(t *testing.T) {
 	}
 }
 
-func TestValidateWhitelist(t *testing.T) {
+func TestUnit_ValidateWhitelist(t *testing.T) {
 	t.Parallel()
 
 	env, err := environment.New(t.Context(),
@@ -353,7 +353,7 @@ func TestValidateWhitelist(t *testing.T) {
 	})
 }
 
-func TestGetChainWhitelist(t *testing.T) {
+func TestUnit_GetChainWhitelist(t *testing.T) {
 	t.Parallel()
 
 	selector := chainselectors.TEST_90000001.Selector
@@ -406,7 +406,7 @@ func TestGetChainWhitelist(t *testing.T) {
 	})
 }
 
-func TestSetWhitelistChangeset(t *testing.T) {
+func TestUnit_SetWhitelistChangeset(t *testing.T) {
 	t.Parallel()
 
 	var (
@@ -537,7 +537,7 @@ func TestSetWhitelistChangeset(t *testing.T) {
 	})
 }
 
-func TestOverwriteWhitelistChangeset(t *testing.T) {
+func TestUnit_OverwriteWhitelistChangeset(t *testing.T) {
 	t.Parallel()
 
 	var (

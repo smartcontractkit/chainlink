@@ -15,7 +15,7 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/keystone/changeset/tron"
 )
 
-func TestConfigureForwarder(t *testing.T) {
+func TestUnit_ConfigureForwarder(t *testing.T) {
 	t.Parallel()
 
 	testCases := []struct {

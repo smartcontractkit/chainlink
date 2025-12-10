@@ -13,7 +13,7 @@ import (
 	"github.com/smartcontractkit/chainlink-deployments-framework/operations/optest"
 )
 
-func Test_PersistAddress(t *testing.T) {
+func TestUnit_PersistAddress(t *testing.T) {
 	t.Parallel()
 
 	var (

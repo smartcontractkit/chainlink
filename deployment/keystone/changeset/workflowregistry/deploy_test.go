@@ -13,7 +13,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func Test_Deploy(t *testing.T) {
+func TestUnit_Deploy(t *testing.T) {
 	t.Parallel()
 
 	registrySel := chain_selectors.TEST_90000001.Selector

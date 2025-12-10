@@ -9,7 +9,7 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/cre/jobs/pkg"
 )
 
-func TestStdCap_Validate(t *testing.T) {
+func TestUnit_StdCap_Validate(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
@@ -73,7 +73,7 @@ config = """{"proxyMode": "direct"}"""
 `
 )
 
-func TestStdCap_Resolve(t *testing.T) {
+func TestUnit_StdCap_Resolve(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {

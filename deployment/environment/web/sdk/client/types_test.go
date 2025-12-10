@@ -6,7 +6,7 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/environment/web/sdk/internal/generated"
 )
 
-func TestDecodeInput(t *testing.T) {
+func TestUnit_DecodeInput(t *testing.T) {
 	type args struct {
 		in  any
 		out any

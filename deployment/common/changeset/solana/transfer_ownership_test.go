@@ -21,7 +21,7 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/internal/soltestutils"
 )
 
-func TestTransferToMCMSToTimelockSolana(t *testing.T) {
+func TestUnit_TransferToMCMSToTimelockSolana(t *testing.T) {
 	quarantine.Flaky(t, "DX-1773")
 	t.Parallel()
 

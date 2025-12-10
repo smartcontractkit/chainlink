@@ -7,7 +7,7 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/helpers"
 )
 
-func TestAddValueToNestedMap(t *testing.T) {
+func TestUnit_AddValueToNestedMap(t *testing.T) {
 	tests := []struct {
 		name     string
 		mapping  map[string]map[string]int

@@ -18,7 +18,7 @@ import (
 
 var once sync.Once
 
-func Test_SeqDeploySolTokens(t *testing.T) {
+func TestUnit_SeqDeploySolTokens(t *testing.T) {
 	t.Parallel()
 
 	var (

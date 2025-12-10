@@ -14,7 +14,7 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/common/view/v1_0"
 )
 
-func TestHydrateCapabilityRegistry(t *testing.T) {
+func TestUnit_HydrateCapabilityRegistry(t *testing.T) {
 	b, err := os.ReadFile("testdata/capability_registry_view.json")
 	require.NoError(t, err)
 	require.NotEmpty(t, b)

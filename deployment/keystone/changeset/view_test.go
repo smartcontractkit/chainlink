@@ -52,7 +52,7 @@ var oracleConfig = changeset.OracleConfig{
 	UniqueReports: true,
 }
 
-func TestKeystoneView(t *testing.T) {
+func TestUnit_KeystoneView(t *testing.T) {
 	t.Parallel()
 	env := test.SetupContractTestEnv(t, test.EnvWrapperConfig{
 		WFDonConfig:     test.DonConfig{N: 4, Name: "wfDon"},

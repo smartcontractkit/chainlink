@@ -16,7 +16,7 @@ import (
 	"github.com/smartcontractkit/chainlink-deployments-framework/engine/test/environment"
 )
 
-func TestGeneratePriceRegistryView(t *testing.T) {
+func TestUnit_GeneratePriceRegistryView(t *testing.T) {
 	t.Parallel()
 
 	selector := chainselectors.TEST_90000001.Selector

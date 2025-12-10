@@ -12,7 +12,7 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/cre/contracts"
 )
 
-func TestAdminBatchPauseWorkflows(t *testing.T) {
+func TestUnit_AdminBatchPauseWorkflows(t *testing.T) {
 	t.Parallel()
 
 	testWorkflowID1 := [32]byte{1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32}
@@ -69,7 +69,7 @@ func TestAdminBatchPauseWorkflows(t *testing.T) {
 	})
 }
 
-func TestAdminPauseWorkflow(t *testing.T) {
+func TestUnit_AdminPauseWorkflow(t *testing.T) {
 	t.Parallel()
 
 	testWorkflowID := [32]byte{1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32}
@@ -125,7 +125,7 @@ func TestAdminPauseWorkflow(t *testing.T) {
 	})
 }
 
-func TestAdminPauseAllByOwner(t *testing.T) {
+func TestUnit_AdminPauseAllByOwner(t *testing.T) {
 	t.Parallel()
 
 	testOwner := common.HexToAddress("0x1234567890123456789012345678901234567890")
@@ -193,7 +193,7 @@ func TestAdminPauseAllByOwner(t *testing.T) {
 	})
 }
 
-func TestAdminPauseAllByDON(t *testing.T) {
+func TestUnit_AdminPauseAllByDON(t *testing.T) {
 	t.Parallel()
 
 	testDONFamily := "test-don-family"
@@ -261,7 +261,7 @@ func TestAdminPauseAllByDON(t *testing.T) {
 	})
 }
 
-func TestAdminBatchPauseWorkflowsValidation(t *testing.T) {
+func TestUnit_AdminBatchPauseWorkflowsValidation(t *testing.T) {
 	t.Parallel()
 
 	fixture := setupTest(t)

@@ -6,7 +6,7 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func TestResolveOCR3Job(t *testing.T) {
+func TestUnit_ResolveOCR3Job(t *testing.T) {
 	t.Parallel()
 
 	type args struct {

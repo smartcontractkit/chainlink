@@ -17,7 +17,7 @@ import (
 	"github.com/smartcontractkit/chainlink-deployments-framework/engine/test/environment"
 )
 
-func TestOnRampView(t *testing.T) {
+func TestUnit_OnRampView(t *testing.T) {
 	t.Parallel()
 
 	selector := chainsel.TEST_90000001.Selector

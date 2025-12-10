@@ -22,7 +22,7 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/common/types"
 )
 
-func TestUpdateTimelockDelaySolana_VerifyPreconditions(t *testing.T) {
+func TestUnit_UpdateTimelockDelaySolana_VerifyPreconditions(t *testing.T) {
 	t.Parallel()
 
 	selector1 := chainselectors.TEST_22222222222222222222222222222222222222222222.Selector
@@ -124,7 +124,7 @@ func TestUpdateTimelockDelaySolana_VerifyPreconditions(t *testing.T) {
 	}
 }
 
-func TestUpdateTimelockDelaySolana_Apply(t *testing.T) {
+func TestUnit_UpdateTimelockDelaySolana_Apply(t *testing.T) {
 	tests.SkipFlakey(t, "https://smartcontract-it.atlassian.net/browse/DX-762")
 	t.Parallel()
 

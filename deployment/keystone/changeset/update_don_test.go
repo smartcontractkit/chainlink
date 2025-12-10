@@ -30,7 +30,7 @@ var (
 	caps = []kcr.CapabilitiesRegistryCapability{capA, capB}
 )
 
-func TestUpdateDon(t *testing.T) {
+func TestUnit_UpdateDon(t *testing.T) {
 	t.Parallel()
 
 	capACfg, err := proto.Marshal(test.GetDefaultCapConfig(t, capA))
@@ -150,7 +150,7 @@ func TestUpdateDon(t *testing.T) {
 	}
 }
 
-func TestUpdateDon_ChangeComposition(t *testing.T) {
+func TestUnit_UpdateDon_ChangeComposition(t *testing.T) {
 	t.Parallel()
 
 	// Test capability configurations

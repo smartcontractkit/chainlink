@@ -16,7 +16,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 )
 
-func TestDownloadProgramArtifacts(t *testing.T) {
+func TestUnit_DownloadProgramArtifacts(t *testing.T) {
 	tests := []struct {
 		name        string
 		setupServer func() *httptest.Server
@@ -159,7 +159,7 @@ func TestDownloadProgramArtifacts(t *testing.T) {
 	}
 }
 
-func TestDownloadProgramArtifacts_ContextCancellation(t *testing.T) {
+func TestUnit_DownloadProgramArtifacts_ContextCancellation(t *testing.T) {
 	// Create a server that delays response
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		// Simulate a slow server
@@ -181,14 +181,14 @@ func TestDownloadProgramArtifacts_ContextCancellation(t *testing.T) {
 	require.ErrorContains(t, err, "context canceled")
 }
 
-func TestDownloadProgramArtifacts_InvalidURL(t *testing.T) {
+func TestUnit_DownloadProgramArtifacts_InvalidURL(t *testing.T) {
 	tempDir := t.TempDir()
 
 	err := downloadProgramArtifacts(t.Context(), "http://invalid-url", tempDir, logger.Test(t))
 	require.ErrorContains(t, err, "dial tcp: lookup invalid-url: no such host")
 }
 
-func TestDownloadProgramArtifacts_NonExistentTargetDir(t *testing.T) {
+func TestUnit_DownloadProgramArtifacts_NonExistentTargetDir(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/gzip")
 

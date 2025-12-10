@@ -23,7 +23,7 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/utils/solutils"
 )
 
-func TestMCMSSignFireDrillChangeset(t *testing.T) {
+func TestUnit_MCMSSignFireDrillChangeset(t *testing.T) {
 	t.Parallel()
 
 	evmSelector1 := chain_selectors.TEST_90000001.Selector

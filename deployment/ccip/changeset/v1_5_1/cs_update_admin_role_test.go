@@ -18,7 +18,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
 
-func TestUnitUpdateAdminRoleChangesetV2_Validations(t *testing.T) {
+func TestUnit_UnitUpdateAdminRoleChangesetV2_Validations(t *testing.T) {
 	t.Parallel()
 
 	mcmsConfig := &proposalutils.TimelockConfig{MinDelay: 0 * time.Second}
@@ -138,7 +138,7 @@ func TestUnitUpdateAdminRoleChangesetV2_Validations(t *testing.T) {
 	}
 }
 
-func TestUnitUpdateAdminRoleChangesetV2_EmptyConfigIsGracefullyHandled(t *testing.T) {
+func TestUnit_UnitUpdateAdminRoleChangesetV2_EmptyConfigIsGracefullyHandled(t *testing.T) {
 	t.Parallel()
 
 	e, _, _, _ := testhelpers.SetupTwoChainEnvironmentWithTokens(t, logger.TestLogger(t), true)
@@ -152,7 +152,7 @@ func TestUnitUpdateAdminRoleChangesetV2_EmptyConfigIsGracefullyHandled(t *testin
 	require.NoError(t, err)
 }
 
-func TestUnitUpdateAdminRoleChangesetV2_ExecutionWithoutMCMS(t *testing.T) {
+func TestUnit_UnitUpdateAdminRoleChangesetV2_ExecutionWithoutMCMS(t *testing.T) {
 	t.Parallel()
 
 	e, selectorA, selectorB, _ := testhelpers.SetupTwoChainEnvironmentWithTokens(t, logger.TestLogger(t), false)
@@ -254,7 +254,7 @@ func TestUnitUpdateAdminRoleChangesetV2_ExecutionWithoutMCMS(t *testing.T) {
 	require.Equal(t, newAdminB, configOnB.PendingAdministrator)
 }
 
-func TestUnitUpdateAdminRoleChangesetV2_ExecutionWithMCMS(t *testing.T) {
+func TestUnit_UnitUpdateAdminRoleChangesetV2_ExecutionWithMCMS(t *testing.T) {
 	t.Parallel()
 
 	mcmsConfig := &proposalutils.TimelockConfig{MinDelay: 0 * time.Second}
@@ -305,7 +305,7 @@ func TestUnitUpdateAdminRoleChangesetV2_ExecutionWithMCMS(t *testing.T) {
 	require.Equal(t, newAdminB, configOnB.PendingAdministrator)
 }
 
-func TestUnitUpdateAdminRoleChangesetV2_MultipleTokensPerChain(t *testing.T) {
+func TestUnit_UnitUpdateAdminRoleChangesetV2_MultipleTokensPerChain(t *testing.T) {
 	t.Parallel()
 
 	mcmsConfig := &proposalutils.TimelockConfig{MinDelay: 0 * time.Second}

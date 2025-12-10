@@ -13,7 +13,7 @@ import (
 	"github.com/smartcontractkit/chainlink-deployments-framework/engine/test/runtime"
 )
 
-func TestDeployWorkflowRegistry(t *testing.T) {
+func TestUnit_DeployWorkflowRegistry(t *testing.T) {
 	// Create a minimal environment with one EVM chain
 	selector := chainselectors.TEST_90000001.Selector
 	rt, err := runtime.New(t.Context(), runtime.WithEnvOpts(

@@ -26,7 +26,7 @@ import (
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 )
 
-func TestValidateDeployTokenPoolContractsConfig(t *testing.T) {
+func TestUnit_ValidateDeployTokenPoolContractsConfig(t *testing.T) {
 	t.Parallel()
 
 	e, err := environment.New(t.Context(),
@@ -97,7 +97,7 @@ func TestValidateDeployTokenPoolContractsConfig(t *testing.T) {
 	}
 }
 
-func TestValidateDeployTokenPoolInput(t *testing.T) {
+func TestUnit_ValidateDeployTokenPoolInput(t *testing.T) {
 	t.Parallel()
 
 	e, selectorA, _, tokens := testhelpers.SetupTwoChainEnvironmentWithTokens(t, logger.Test(t), true)
@@ -229,7 +229,7 @@ func TestValidateDeployTokenPoolInput(t *testing.T) {
 	}
 }
 
-func TestDeployTokenPoolContracts(t *testing.T) {
+func TestUnit_DeployTokenPoolContracts(t *testing.T) {
 	t.Parallel()
 
 	acceptLiquidity := false

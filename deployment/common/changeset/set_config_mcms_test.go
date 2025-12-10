@@ -30,7 +30,7 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/internal/soltestutils"
 )
 
-func TestSetConfigMCMSV2EVM(t *testing.T) {
+func TestUnit_SetConfigMCMSV2EVM(t *testing.T) {
 	t.Parallel()
 
 	selector1 := chain_selectors.TEST_90000001.Selector
@@ -165,7 +165,7 @@ func TestSetConfigMCMSV2EVM(t *testing.T) {
 	}
 }
 
-func TestSetConfigMCMSV2Solana(t *testing.T) {
+func TestUnit_SetConfigMCMSV2Solana(t *testing.T) {
 	t.Parallel()
 
 	selector := chain_selectors.TEST_22222222222222222222222222222222222222222222.Selector
@@ -273,7 +273,7 @@ func TestSetConfigMCMSV2Solana(t *testing.T) {
 	})
 }
 
-func TestValidateV2(t *testing.T) {
+func TestUnit_ValidateV2(t *testing.T) {
 	tests.SkipFlakey(t, "https://smartcontract-it.atlassian.net/browse/DX-439")
 
 	t.Parallel()
@@ -514,7 +514,7 @@ func createSolSigner(t *testing.T) (*ecdsa.PrivateKey, common.Address) {
 	return key, crypto.PubkeyToAddress(*publicKey)
 }
 
-func TestSetConfigMCMSV2Partial(t *testing.T) {
+func TestUnit_SetConfigMCMSV2Partial(t *testing.T) {
 	t.Parallel()
 
 	selector := chain_selectors.TEST_90000001.Selector

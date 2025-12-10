@@ -21,7 +21,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func Test_GetContractSet(t *testing.T) {
+func TestUnit_GetContractSet(t *testing.T) {
 	type testCase struct {
 		name        string
 		giveRequest *GetContractSetsRequest

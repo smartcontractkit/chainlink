@@ -19,7 +19,7 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/cre/test"
 )
 
-func TestCsRegisterNodesWithJD_Apply(t *testing.T) {
+func TestUnit_CsRegisterNodesWithJD_Apply(t *testing.T) {
 	t.Parallel()
 
 	zone := test.Zone
@@ -373,7 +373,7 @@ func TestCsRegisterNodesWithJD_Apply(t *testing.T) {
 	})
 }
 
-func TestCsRegisterNodesWithJDV2_Apply(t *testing.T) {
+func TestUnit_CsRegisterNodesWithJDV2_Apply(t *testing.T) {
 	t.Parallel()
 
 	t.Run("registers nodes for a DON", func(t *testing.T) {

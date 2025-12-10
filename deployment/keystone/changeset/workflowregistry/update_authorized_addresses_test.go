@@ -21,7 +21,7 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/keystone/changeset/workflowregistry"
 )
 
-func TestUpdateAuthorizedAddresses(t *testing.T) {
+func TestUnit_UpdateAuthorizedAddresses(t *testing.T) {
 	lggr := logger.Test(t)
 
 	chainSel := chain_selectors.ETHEREUM_TESTNET_SEPOLIA.Selector
@@ -75,7 +75,7 @@ func TestUpdateAuthorizedAddresses(t *testing.T) {
 	assert.Empty(t, authorizedAddresses)
 }
 
-func Test_UpdateAuthorizedAddresses_WithMCMS(t *testing.T) {
+func TestUnit_UpdateAuthorizedAddresses_WithMCMS(t *testing.T) {
 	te := test.SetupContractTestEnv(t, test.EnvWrapperConfig{
 		WFDonConfig:     test.DonConfig{Name: "wfDon", N: 4},
 		AssetDonConfig:  test.DonConfig{Name: "assetDon", N: 4},

@@ -108,12 +108,12 @@ func doDeployConfigureForwardersSeq(t *testing.T, useMcms bool) {
 	}
 }
 
-func Test_DeployConfigureForwardersSeqWithoutMCMSSetup(t *testing.T) {
+func TestUnit_DeployConfigureForwardersSeqWithoutMCMSSetup(t *testing.T) {
 	t.Parallel()
 	doDeployConfigureForwardersSeq(t, false)
 }
 
-func Test_DeployConfigureForwardersSeqWithMCMSSetup(t *testing.T) {
+func TestUnit_DeployConfigureForwardersSeqWithMCMSSetup(t *testing.T) {
 	t.Parallel()
 	doDeployConfigureForwardersSeq(t, true)
 }

@@ -13,7 +13,7 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/keystone/changeset/test"
 )
 
-func Test_RemoveDONsRequest_validate(t *testing.T) {
+func TestUnit_RemoveDONsRequest_validate(t *testing.T) {
 	t.Parallel()
 
 	env := test.SetupContractTestEnv(t, test.EnvWrapperConfig{
@@ -76,7 +76,7 @@ func Test_RemoveDONsRequest_validate(t *testing.T) {
 	}
 }
 
-func TestRemoveDONs(t *testing.T) {
+func TestUnit_RemoveDONs(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {

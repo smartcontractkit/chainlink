@@ -11,7 +11,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 )
 
-func TestOCR2TaskJobSpec_String(t *testing.T) {
+func TestUnit_OCR2TaskJobSpec_String(t *testing.T) {
 	for _, tt := range []struct {
 		name string
 		spec OCR2TaskJobSpec

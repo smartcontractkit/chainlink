@@ -14,7 +14,7 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/cre/test"
 )
 
-func TestProposeStandardCapabilityJob_VerifyPreconditions(t *testing.T) {
+func TestUnit_ProposeStandardCapabilityJob_VerifyPreconditions(t *testing.T) {
 	j := jobs.ProposeStandardCapabilityJob{}
 	var env cldf.Environment
 
@@ -51,7 +51,7 @@ func TestProposeStandardCapabilityJob_VerifyPreconditions(t *testing.T) {
 	require.NoError(t, err)
 }
 
-func TestProposeStandardCapabilityJob_Apply(t *testing.T) {
+func TestUnit_ProposeStandardCapabilityJob_Apply(t *testing.T) {
 	testEnv := test.SetupEnvV2(t, false)
 
 	// Build minimal environment
@@ -78,7 +78,7 @@ func TestProposeStandardCapabilityJob_Apply(t *testing.T) {
 	assert.Len(t, reqs, 4)
 }
 
-func TestProposeStandardCapabilityJob_Apply_HTTPTrigger(t *testing.T) {
+func TestUnit_ProposeStandardCapabilityJob_Apply_HTTPTrigger(t *testing.T) {
 	testEnv := test.SetupEnvV2(t, false)
 	env := testEnv.Env
 
@@ -115,7 +115,7 @@ func TestProposeStandardCapabilityJob_Apply_HTTPTrigger(t *testing.T) {
 	}
 }
 
-func TestProposeStandardCapabilityJob_Apply_HTTPAction(t *testing.T) {
+func TestUnit_ProposeStandardCapabilityJob_Apply_HTTPAction(t *testing.T) {
 	testEnv := test.SetupEnvV2(t, false)
 	env := testEnv.Env
 
@@ -152,7 +152,7 @@ func TestProposeStandardCapabilityJob_Apply_HTTPAction(t *testing.T) {
 	}
 }
 
-func TestProposeStandardCapabilityJob_VerifyPreconditions_HTTPJobs(t *testing.T) {
+func TestUnit_ProposeStandardCapabilityJob_VerifyPreconditions_HTTPJobs(t *testing.T) {
 	j := jobs.ProposeStandardCapabilityJob{}
 	var env cldf.Environment
 

@@ -118,7 +118,7 @@ func setupUSDCTokenPoolsContractsForDeploy(
 	return usdcToken, messenger
 }
 
-func TestValidateDeployUSDCTokenPoolContractsConfig(t *testing.T) {
+func TestUnit_ValidateDeployUSDCTokenPoolContractsConfig(t *testing.T) {
 	t.Parallel()
 
 	rt := setupUSDCTokenPoolsEnvironmentForDeploy(t, true)
@@ -174,7 +174,7 @@ func TestValidateDeployUSDCTokenPoolContractsConfig(t *testing.T) {
 	}
 }
 
-func TestValidateDeployUSDCTokenPoolInput(t *testing.T) {
+func TestUnit_ValidateDeployUSDCTokenPoolInput(t *testing.T) {
 	t.Parallel()
 
 	rt := setupUSDCTokenPoolsEnvironmentForDeploy(t, true)
@@ -318,7 +318,7 @@ func TestValidateDeployUSDCTokenPoolInput(t *testing.T) {
 	}
 }
 
-func TestDeployUSDCTokenPool(t *testing.T) {
+func TestUnit_DeployUSDCTokenPool(t *testing.T) {
 	t.Parallel()
 
 	rt := setupUSDCTokenPoolsEnvironmentForDeploy(t, true)
@@ -366,7 +366,7 @@ func TestDeployUSDCTokenPool(t *testing.T) {
 	}
 }
 
-func TestDeployHybridLockReleaseUSDCTokenPool(t *testing.T) {
+func TestUnit_DeployHybridLockReleaseUSDCTokenPool(t *testing.T) {
 	t.Parallel()
 
 	rt := setupUSDCTokenPoolsEnvironmentForDeploy(t, true)

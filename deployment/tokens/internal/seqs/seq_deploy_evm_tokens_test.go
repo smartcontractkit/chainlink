@@ -15,7 +15,7 @@ import (
 	"github.com/smartcontractkit/chainlink-deployments-framework/operations/optest"
 )
 
-func Test_SeqDeployEVMTokens(t *testing.T) {
+func TestUnit_SeqDeployEVMTokens(t *testing.T) {
 	t.Parallel()
 
 	var (

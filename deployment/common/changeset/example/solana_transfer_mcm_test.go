@@ -31,7 +31,7 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/utils/solutils"
 )
 
-func TestTransferFromTimelockConfig_VerifyPreconditions(t *testing.T) {
+func TestUnit_TransferFromTimelockConfig_VerifyPreconditions(t *testing.T) {
 	t.Parallel()
 
 	receiverKey := solana.NewWallet().PublicKey()
@@ -187,7 +187,7 @@ func TestTransferFromTimelockConfig_VerifyPreconditions(t *testing.T) {
 	}
 }
 
-func TestTransferFromTimelockConfig_Apply(t *testing.T) {
+func TestUnit_TransferFromTimelockConfig_Apply(t *testing.T) {
 	quarantine.Flaky(t, "DX-1754")
 	t.Parallel()
 

@@ -9,7 +9,7 @@ import (
 	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
 )
 
-func TestDisableRetryExampleChangeset(t *testing.T) {
+func TestUnit_DisableRetryExampleChangeset(t *testing.T) {
 	env, err := environment.New(t.Context())
 	require.NoError(t, err)
 
@@ -18,7 +18,7 @@ func TestDisableRetryExampleChangeset(t *testing.T) {
 	require.ErrorContains(t, err, "operation failed")
 }
 
-func TestUpdateInputExampleChangeset(t *testing.T) {
+func TestUnit_UpdateInputExampleChangeset(t *testing.T) {
 	env, err := environment.New(t.Context())
 	require.NoError(t, err)
 

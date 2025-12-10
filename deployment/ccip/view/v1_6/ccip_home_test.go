@@ -16,7 +16,7 @@ import (
 	"github.com/smartcontractkit/chainlink-deployments-framework/engine/test/environment"
 )
 
-func TestCCIPHomeView(t *testing.T) {
+func TestUnit_CCIPHomeView(t *testing.T) {
 	t.Parallel()
 
 	selector := chain_selectors.TEST_90000001.Selector

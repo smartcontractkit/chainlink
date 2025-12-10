@@ -17,7 +17,7 @@ import (
 // client, this is the best we can do for unit tests.
 //
 // This test is limited to verifying operation error handling.
-func Test_OpSolDeployLinkToken(t *testing.T) {
+func TestUnit_OpSolDeployLinkToken(t *testing.T) {
 	t.Parallel()
 
 	var (

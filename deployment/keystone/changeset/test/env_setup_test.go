@@ -10,7 +10,7 @@ import (
 	"github.com/smartcontractkit/chainlink-protos/job-distributor/v1/node"
 )
 
-func TestSetupEnv(t *testing.T) {
+func TestUnit_SetupEnv(t *testing.T) {
 	t.Parallel()
 
 	t.Run("test env with in memory nodes", func(t *testing.T) {

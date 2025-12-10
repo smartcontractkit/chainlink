@@ -12,7 +12,7 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/tokens/internal/ops"
 )
 
-func Test_validateNoDupeSelectors(t *testing.T) {
+func TestUnit_validateNoDupeSelectors(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
@@ -51,7 +51,7 @@ func Test_validateNoDupeSelectors(t *testing.T) {
 	}
 }
 
-func Test_validateNoExistingLinkToken(t *testing.T) {
+func TestUnit_validateNoExistingLinkToken(t *testing.T) {
 	var (
 		csel    = chain_selectors.ETHEREUM_TESTNET_SEPOLIA.Selector
 		ethAddr = "0xeC91988D7dD84d8adE801b739172ad15c860A700"
@@ -147,7 +147,7 @@ func Test_validateNoExistingLinkToken(t *testing.T) {
 	}
 }
 
-func Test_validateChainSelectorsFamily(t *testing.T) {
+func TestUnit_validateChainSelectorsFamily(t *testing.T) {
 	t.Parallel()
 
 	var (

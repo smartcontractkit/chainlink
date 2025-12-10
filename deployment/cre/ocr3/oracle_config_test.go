@@ -9,7 +9,7 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
-func TestOracleConfig_JSON(t *testing.T) {
+func TestUnit_OracleConfig_JSON(t *testing.T) {
 	t.Run("Legacy config returns an error", func(t *testing.T) {
 		var cfg OracleConfig
 		err := json.Unmarshal([]byte(legacyOcr3Cfg), &cfg)

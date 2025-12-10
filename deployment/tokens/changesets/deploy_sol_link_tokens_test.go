@@ -16,7 +16,7 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/tokens/internal/ops"
 )
 
-func Test_DeploySolLinkTokens_VerifyPreconditions(t *testing.T) {
+func TestUnit_DeploySolLinkTokens_VerifyPreconditions(t *testing.T) {
 	t.Parallel()
 
 	var (
@@ -138,7 +138,7 @@ func Test_DeploySolLinkTokens_VerifyPreconditions(t *testing.T) {
 	}
 }
 
-func Test_DeploySolLinkTokens_Apply(t *testing.T) {
+func TestUnit_DeploySolLinkTokens_Apply(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {

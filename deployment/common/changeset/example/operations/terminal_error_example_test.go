@@ -9,7 +9,7 @@ import (
 	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
 )
 
-func TestTerminalErrorExampleChangeset(t *testing.T) {
+func TestUnit_TerminalErrorExampleChangeset(t *testing.T) {
 	env, err := environment.New(t.Context())
 	require.NoError(t, err)
 

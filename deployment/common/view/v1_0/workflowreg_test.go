@@ -15,7 +15,7 @@ import (
 )
 
 // TestNewWorkflowView tests the helper function that converts on-chain WorkflowMetadata -> WorkflowView.
-func TestNewWorkflowView(t *testing.T) {
+func TestUnit_NewWorkflowView(t *testing.T) {
 	t.Run("nil input => error", func(t *testing.T) {
 		// Updated: nil input now returns an error.
 		wv, err := NewWorkflowView(nil)
@@ -53,7 +53,7 @@ func TestNewWorkflowView(t *testing.T) {
 }
 
 // TestGenerateWorkflowRegistryView uses a mock workflow registry to test the main view generation function.
-func TestGenerateWorkflowRegistryView(t *testing.T) {
+func TestUnit_GenerateWorkflowRegistryView(t *testing.T) {
 	tests := []struct {
 		name            string
 		mockSetup       func(*mocks.WorkflowRegistryInterface)
@@ -170,7 +170,7 @@ func TestGenerateWorkflowRegistryView(t *testing.T) {
 	}
 }
 
-func TestWorkflowStatus_MarshalUnmarshal(t *testing.T) {
+func TestUnit_WorkflowStatus_MarshalUnmarshal(t *testing.T) {
 	tests := []struct {
 		name string
 		ws   WorkflowStatus

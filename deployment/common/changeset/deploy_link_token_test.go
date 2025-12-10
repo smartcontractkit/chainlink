@@ -16,7 +16,7 @@ import (
 	commonState "github.com/smartcontractkit/chainlink/deployment/common/changeset/state"
 )
 
-func TestDeployLinkToken(t *testing.T) {
+func TestUnit_DeployLinkToken(t *testing.T) {
 	t.Parallel()
 
 	selector := chain_selectors.TEST_90000001.Selector
@@ -43,7 +43,7 @@ func TestDeployLinkToken(t *testing.T) {
 	require.NoError(t, err)
 }
 
-func TestDeployLinkTokenZk(t *testing.T) {
+func TestUnit_DeployLinkTokenZk(t *testing.T) {
 	// Timeouts in CI
 	tests.SkipFlakey(t, "https://smartcontract-it.atlassian.net/browse/CCIP-6427")
 

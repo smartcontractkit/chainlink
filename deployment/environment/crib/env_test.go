@@ -9,7 +9,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 )
 
-func TestShouldProvideEnvironmentConfig(t *testing.T) {
+func TestUnit_ShouldProvideEnvironmentConfig(t *testing.T) {
 	tests.SkipFlakey(t, "https://smartcontract-it.atlassian.net/browse/DX-291")
 
 	t.Parallel()

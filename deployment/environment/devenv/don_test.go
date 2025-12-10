@@ -6,7 +6,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestPtrVal(t *testing.T) {
+func TestUnit_PtrVal(t *testing.T) {
 	x := "hello"
 	xptr := ptr(x)
 	got := value(xptr)

@@ -18,7 +18,7 @@ import (
 	changeset3 "github.com/smartcontractkit/chainlink/deployment/keystone/changeset"
 )
 
-func TestConfigureForwardersSeq(t *testing.T) {
+func TestUnit_ConfigureForwardersSeq(t *testing.T) {
 	envWrapper, donConfig := setupForwarderTest(t, false)
 	env := envWrapper.Env
 
@@ -39,7 +39,7 @@ func TestConfigureForwardersSeq(t *testing.T) {
 	require.NotNil(t, output.Output.Config, "should have configuration")
 }
 
-func TestConfigureForwarders(t *testing.T) {
+func TestUnit_ConfigureForwarders(t *testing.T) {
 	envWrapper, donConfig := setupForwarderTest(t, false)
 	env := envWrapper.Env
 	registryChainSel := envWrapper.RegistrySelector
@@ -60,7 +60,7 @@ func TestConfigureForwarders(t *testing.T) {
 	require.Empty(t, changesetOutput.MCMSTimelockProposals, "should not have MCMS proposals when not using MCMS")
 }
 
-func TestConfigureForwarders_WithMCMS(t *testing.T) {
+func TestUnit_ConfigureForwarders_WithMCMS(t *testing.T) {
 	envWrapper, donConfig := setupForwarderTest(t, true)
 	env := envWrapper.Env
 	registryChainSel := envWrapper.RegistrySelector
@@ -86,7 +86,7 @@ func TestConfigureForwarders_WithMCMS(t *testing.T) {
 	require.NotEmpty(t, changesetOutput.MCMSTimelockProposals, "should have MCMS proposals when using MCMS")
 }
 
-func TestConfigureForwarders_SpecificChains(t *testing.T) {
+func TestUnit_ConfigureForwarders_SpecificChains(t *testing.T) {
 	// This test needs a custom setup to deploy to multiple chains first
 	envWrapper := test.SetupEnvV2(t, false)
 	env := envWrapper.Env

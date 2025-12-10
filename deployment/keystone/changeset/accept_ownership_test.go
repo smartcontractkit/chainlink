@@ -17,7 +17,7 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/keystone/changeset"
 )
 
-func TestAcceptAllOwnership(t *testing.T) {
+func TestUnit_AcceptAllOwnership(t *testing.T) {
 	t.Parallel()
 
 	registrySel := chain_selectors.TEST_90000001.Selector

@@ -30,7 +30,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/p2pkey"
 )
 
-func Test_UpdateNodesRequest_validate(t *testing.T) {
+func TestUnit_UpdateNodesRequest_validate(t *testing.T) {
 	type fields struct {
 		p2pToUpdates         map[p2pkey.PeerID]internal.NodeUpdate
 		nopToNodes           map[kcr.CapabilitiesRegistryNodeOperator][]*internal.P2PSignerEnc
@@ -102,7 +102,7 @@ func newEncryptionKey(t *testing.T) [32]byte {
 	return [32]byte(key)
 }
 
-func TestUpdateNodes(t *testing.T) {
+func TestUnit_UpdateNodes(t *testing.T) {
 	chain := testChain(t)
 	require.NotNil(t, chain)
 	lggr := logger.Test(t)
@@ -618,7 +618,7 @@ func TestUpdateNodes(t *testing.T) {
 	})
 }
 
-func TestAppendCapabilities(t *testing.T) {
+func TestUnit_AppendCapabilities(t *testing.T) {
 	var (
 		capMap = map[p2pkey.PeerID][]kcr.CapabilitiesRegistryCapability{
 			testPeerID(t, "peerID_1"): []kcr.CapabilitiesRegistryCapability{

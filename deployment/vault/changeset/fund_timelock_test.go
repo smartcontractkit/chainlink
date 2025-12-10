@@ -17,7 +17,7 @@ var (
 	FiveETH = big.NewInt(0).Mul(OneETH, big.NewInt(5))
 )
 
-func TestFundTimelockValidation(t *testing.T) {
+func TestUnit_FundTimelockValidation(t *testing.T) {
 	t.Parallel()
 
 	selector := chainselectors.TEST_90000001.Selector
@@ -100,7 +100,7 @@ func TestFundTimelockValidation(t *testing.T) {
 	}
 }
 
-func TestGetTimelockBalances(t *testing.T) {
+func TestUnit_GetTimelockBalances(t *testing.T) {
 	t.Parallel()
 
 	selectors := []uint64{chainselectors.TEST_90000001.Selector, chainselectors.TEST_90000002.Selector}
@@ -147,7 +147,7 @@ func TestGetTimelockBalances(t *testing.T) {
 	})
 }
 
-func TestCalculateFundingRequirements(t *testing.T) {
+func TestUnit_CalculateFundingRequirements(t *testing.T) {
 	t.Parallel()
 
 	selectors := []uint64{chainselectors.TEST_90000001.Selector, chainselectors.TEST_90000002.Selector}
@@ -221,7 +221,7 @@ func TestCalculateFundingRequirements(t *testing.T) {
 	})
 }
 
-func TestFundTimelockChangeset(t *testing.T) {
+func TestUnit_FundTimelockChangeset(t *testing.T) {
 	t.Parallel()
 
 	selector1 := chainselectors.TEST_90000001.Selector

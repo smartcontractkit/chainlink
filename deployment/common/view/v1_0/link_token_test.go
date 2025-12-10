@@ -16,7 +16,7 @@ import (
 	"github.com/smartcontractkit/chainlink-deployments-framework/engine/test/environment"
 )
 
-func TestLinkTokenView(t *testing.T) {
+func TestUnit_LinkTokenView(t *testing.T) {
 	selector := chainselectors.TEST_90000001.Selector
 	env, err := environment.New(t.Context(),
 		environment.WithEVMSimulated(t, []uint64{selector}),
@@ -32,7 +32,7 @@ func TestLinkTokenView(t *testing.T) {
 	testLinkTokenViewWithChain(t, chain, lt)
 }
 
-func TestLinkTokenViewZk(t *testing.T) {
+func TestUnit_LinkTokenViewZk(t *testing.T) {
 	// Timeouts in CI
 	tests.SkipFlakey(t, "https://smartcontract-it.atlassian.net/browse/CCIP-6427")
 

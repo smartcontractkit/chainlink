@@ -54,7 +54,7 @@ func setupLinkTransferRuntime(t *testing.T) (*runtime.Runtime, uint64) {
 	return rt, selector
 }
 
-func TestValidate(t *testing.T) {
+func TestUnit_Validate(t *testing.T) {
 	rt, selector := setupLinkTransferRuntime(t)
 
 	chain := rt.Environment().BlockChains.EVMChains()[selector]
@@ -225,7 +225,7 @@ func TestValidate(t *testing.T) {
 	}
 }
 
-func TestLinkTransferMCMSV2(t *testing.T) {
+func TestUnit_LinkTransferMCMSV2(t *testing.T) {
 	t.Parallel()
 
 	var (

@@ -8,7 +8,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/cresettings"
 )
 
-func TestCRESettingsJob_ResolveJob(t *testing.T) {
+func TestUnit_CRESettingsJob_ResolveJob(t *testing.T) {
 	tests := []struct {
 		name     string
 		settings string

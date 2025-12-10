@@ -17,7 +17,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
 
-func TestSaveExisting(t *testing.T) {
+func TestUnit_SaveExisting(t *testing.T) {
 	dummyEnv := cldf.Environment{
 		Name:              "dummy",
 		Logger:            logger.TestLogger(t),
@@ -60,7 +60,7 @@ func TestSaveExisting(t *testing.T) {
 	require.Len(t, addressForChain1, 1)
 }
 
-func TestSaveExistingAddressWithLabels(t *testing.T) {
+func TestUnit_SaveExistingAddressWithLabels(t *testing.T) {
 	dummyEnv := cldf.Environment{
 		Name:              "dummy",
 		Logger:            logger.TestLogger(t),
@@ -99,7 +99,7 @@ func TestSaveExistingAddressWithLabels(t *testing.T) {
 	require.Equal(t, "dummyType 1.5.0 label1 label2", addressForChain1[common.BigToAddress(big.NewInt(1)).String()].String())
 }
 
-func TestSaveExistingMCMSAddressWithLabels(t *testing.T) {
+func TestUnit_SaveExistingMCMSAddressWithLabels(t *testing.T) {
 	dummyEnv := cldf.Environment{
 		Name:              "dummy",
 		Logger:            logger.TestLogger(t),

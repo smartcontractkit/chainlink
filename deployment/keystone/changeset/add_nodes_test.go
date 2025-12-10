@@ -22,7 +22,7 @@ type mcmsTestCase struct {
 	mcmsConfig *changeset.MCMSConfig
 }
 
-func TestAddNodes(t *testing.T) {
+func TestUnit_AddNodes(t *testing.T) {
 	t.Parallel()
 
 	type input struct {

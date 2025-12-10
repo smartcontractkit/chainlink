@@ -19,7 +19,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
 
-func TestDeployMCMSWithConfig(t *testing.T) {
+func TestUnit_DeployMCMSWithConfig(t *testing.T) {
 	lggr := logger.TestLogger(t)
 
 	selector := chainsel.TEST_90000001.Selector
@@ -59,7 +59,7 @@ func TestDeployMCMSWithConfig(t *testing.T) {
 	require.Contains(t, mcmWithLabel.Tv.Labels, label, "label mismatch")
 }
 
-func TestDeployMCMSWithTimelockContracts(t *testing.T) {
+func TestUnit_DeployMCMSWithTimelockContracts(t *testing.T) {
 	selector := chainsel.TEST_90000001.Selector
 	env, err := environment.New(t.Context(),
 		environment.WithEVMSimulated(t, []uint64{selector}),
