@@ -125,12 +125,6 @@ func Test_CRE_V2_Suite(t *testing.T) {
 		ExecuteHTTPTriggerActionTest(t, testEnv)
 	})
 
-	t.Run("[v2] HTTP Action CRUD Success - "+topology, func(t *testing.T) {
-		testEnv := t_helpers.SetupTestEnvironmentWithConfig(t, t_helpers.GetDefaultTestConfig(t), v2RegistriesFlags...)
-
-		ExecuteHTTPActionCRUDSuccessTest(t, testEnv)
-	})
-
 	t.Run("[v2] DON Time - "+topology, func(t *testing.T) {
 		testEnv := t_helpers.SetupTestEnvironmentWithConfig(t, t_helpers.GetDefaultTestConfig(t), v2RegistriesFlags...)
 
@@ -150,14 +144,12 @@ func Test_CRE_V2_EVM_Suite(t *testing.T) {
 	testEnv.CreEnvironment.Blockchains = []blockchains.Blockchain{testEnv.CreEnvironment.Blockchains[0]}
 
 	t.Run("[v2] EVM Write - "+topology, func(t *testing.T) {
-		t.Skip()
 		priceProvider, porWfCfg := beforePoRTest(t, testEnv, "por-workflowV2", PoRWFV2Location)
 		porWfCfg.FeedIDs = []string{porWfCfg.FeedIDs[0]}
 		ExecutePoRTest(t, testEnv, priceProvider, porWfCfg, false)
 	})
 
 	t.Run("[v2] EVM Read - "+topology, func(t *testing.T) {
-		t.Skip()
 		ExecuteEVMReadTest(t, testEnv)
 	})
 

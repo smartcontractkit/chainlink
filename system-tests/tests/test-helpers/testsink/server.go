@@ -77,6 +77,7 @@ func NewServer(cfg Config) (*Server, error) {
 	mux := http.NewServeMux()
 	mux.HandleFunc("/reset", s.handleReset)
 	mux.HandleFunc("/events", s.handleEvents)
+	mux.HandleFunc("/sequence", s.handleSequence)
 
 	s.httpServer = &http.Server{
 		Addr:    cfg.HTTPListen,
@@ -138,7 +139,7 @@ func (s *Server) Publish(ctx context.Context, event *pb.CloudEvent) (*chippb.Pub
 		attrs[k] = v
 	}
 
-	fmt.Printf("Received event with type %s and attributes: %+v. Has ProtoData: %v\n", event.Type, attrs, event.GetProtoData() != nil)
+	fmt.Printf("Received event with type %s\n", event.Type)
 
 	ce := CapturedEvent{
 		Domain: event.Source,
@@ -252,4 +253,21 @@ func (s *Server) handleEvents(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "application/json")
 	_ = json.NewEncoder(w).Encode(out)
+}
+
+// GET /sequence - returns the current (latest) sequence number
+func (s *Server) handleSequence(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		http.Error(w, "GET only", http.StatusMethodNotAllowed)
+		return
+	}
+
+	currentSeq := s.store.CurrentSequence()
+
+	response := map[string]uint64{
+		"sequence": currentSeq,
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	_ = json.NewEncoder(w).Encode(response)
 }

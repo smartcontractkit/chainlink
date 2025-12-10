@@ -115,16 +115,17 @@ func HTTPActionFailureTest(t *testing.T, testEnv *ttypes.TestEnvironment, httpAc
 
 	workflowName := "http-action-fail-workflow-" + httpActionTest.method + "-" + uuid.New().String()[0:8]
 
-	// Now register and deploy the workflow
-	workflowID := t_helpers.CompileAndDeployWorkflow(t, testEnv, testLogger, workflowName, &workflowConfig, workflowFileLocation)
-
-	// Start Chip events subscriber AFTER workflow deployment to avoid missing messages
+	// Start subscriber BEFORE registering workflow to capture the current sequence
+	// and avoid processing old events from previous test runs
 	channel, listenerCtx, cancelFn, startErr := t_helpers.StartChipEventsSubscriber(t.Context(), t_helpers.ChipEventsSubscriberConfig{
 		ChipServerURL: "http://localhost:8081",
 		Logger:        testLogger,
 	})
 	require.NoError(t, startErr, "Failed to start chip events subscriber")
 	t.Cleanup(cancelFn)
+
+	// Now register and deploy the workflow
+	workflowID := t_helpers.CompileAndDeployWorkflow(t, testEnv, testLogger, workflowName, &workflowConfig, workflowFileLocation)
 
 	channels := t_helpers.FanOutChipEvents(listenerCtx, channel, 2)
 	go func() {

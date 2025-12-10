@@ -25,7 +25,7 @@ type Store struct {
 
 func NewStore(size int) (*Store, error) {
 	if size <= 0 {
-		size = 10000
+		size = 2000
 	}
 	cache, err := lru.New[uint64, CapturedEvent](size)
 	if err != nil {
@@ -75,4 +75,12 @@ func (s *Store) Reset() {
 
 	s.cache.Purge()
 	s.sequence = 0
+}
+
+// CurrentSequence returns the current (latest) sequence number
+func (s *Store) CurrentSequence() uint64 {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	return s.sequence
 }

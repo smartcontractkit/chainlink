@@ -15,16 +15,16 @@ import (
 func ExecuteConsensusTest(t *testing.T, testEnv *ttypes.TestEnvironment) {
 	testLogger := framework.L
 
-	// listenerCtx, messageChan, kafkaErrChan := t_helpers.StartBeholder(t, testLogger, testEnv)
-
-	workflowID := t_helpers.CompileAndDeployWorkflow(t, testEnv, testLogger, "consensustest", &t_helpers.None{}, "../../../../core/scripts/cre/environment/examples/workflows/v2/node-mode/main.go")
-
+	// Start subscriber BEFORE registering workflow to capture the current sequence
+	// and avoid processing old events from previous test runs
 	channel, listenerCtx, cancelFn, startErr := t_helpers.StartChipEventsSubscriber(t.Context(), t_helpers.ChipEventsSubscriberConfig{
 		ChipServerURL: "http://localhost:8081", // HTTP API port, not gRPC port
 		Logger:        testLogger,
 	})
 	require.NoError(t, startErr, "Failed to start workflow events subscriber")
 	t.Cleanup(cancelFn)
+
+	workflowID := t_helpers.CompileAndDeployWorkflow(t, testEnv, testLogger, "consensustest", &t_helpers.None{}, "../../../../core/scripts/cre/environment/examples/workflows/v2/node-mode/main.go")
 
 	channels := t_helpers.FanOutChipEvents(listenerCtx, channel, 2)
 	go func() {

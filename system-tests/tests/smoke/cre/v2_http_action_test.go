@@ -118,17 +118,18 @@ func HTTPActionSuccessTest(t *testing.T, testEnv *ttypes.TestEnvironment, httpAc
 		Body:     httpActionTest.body,
 	}
 
-	testID := uuid.New().String()[0:8]
-	workflowName := "http-action-success-workflow-" + httpActionTest.testCase + "-" + testID
-	workflowID := thelpers.CompileAndDeployWorkflow(t, testEnv, testLogger, workflowName, &workflowConfig, workflowFileLocation)
-
-	// Start Chip events subscriber
+	// Start subscriber BEFORE registering workflow to capture the current sequence
+	// and avoid processing old events from previous test runs
 	channel, listenerCtx, cancelFn, startErr := thelpers.StartChipEventsSubscriber(t.Context(), thelpers.ChipEventsSubscriberConfig{
 		ChipServerURL: "http://localhost:8081",
 		Logger:        testLogger,
 	})
 	require.NoError(t, startErr, "Failed to start chip events subscriber")
 	t.Cleanup(cancelFn)
+
+	testID := uuid.New().String()[0:8]
+	workflowName := "http-action-success-workflow-" + httpActionTest.testCase + "-" + testID
+	workflowID := thelpers.CompileAndDeployWorkflow(t, testEnv, testLogger, workflowName, &workflowConfig, workflowFileLocation)
 
 	channels := thelpers.FanOutChipEvents(listenerCtx, channel, 2)
 	go func() {

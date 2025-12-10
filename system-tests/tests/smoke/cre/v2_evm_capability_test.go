@@ -240,15 +240,18 @@ func ExecuteEVMLogTriggerTest(t *testing.T, testEnv *ttypes.TestEnvironment) {
 		lggr.Info().Msgf("Creating EVM LogTrigger workflow configuration for chain %s", chainID)
 		workflowConfig, msgEmitter := configureEVMLogTriggerWorkflow(t, lggr, bcOutput)
 		workflowName := fmt.Sprintf("evm-logTrigger-workflow-%s-%04d", chainID, rand.Intn(10000))
-		lggr.Info().Msgf("About to deploy Workflow %s on chain %s", workflowName, chainID)
-		workflowID := t_helpers.CompileAndDeployWorkflow(t, testEnv, lggr, workflowName, &workflowConfig, workflowFileLocation)
 
+		// Start subscriber BEFORE registering workflow to capture the current sequence
+		// and avoid processing old events from previous test runs
 		channel, listenerCtx, cancelFn, startErr := t_helpers.StartChipEventsSubscriber(t.Context(), t_helpers.ChipEventsSubscriberConfig{
 			ChipServerURL: "http://localhost:8081",
 			Logger:        lggr,
 		})
 		require.NoError(t, startErr, "Failed to start chip events subscriber")
 		// Note: cancelFn is called manually after test assertions to ensure proper cleanup order
+
+		lggr.Info().Msgf("About to deploy Workflow %s on chain %s", workflowName, chainID)
+		workflowID := t_helpers.CompileAndDeployWorkflow(t, testEnv, lggr, workflowName, &workflowConfig, workflowFileLocation)
 
 		channels := t_helpers.FanOutChipEvents(listenerCtx, channel, 2)
 		go func() {

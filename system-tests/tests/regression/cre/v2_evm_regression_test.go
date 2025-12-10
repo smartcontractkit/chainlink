@@ -209,14 +209,17 @@ func EVMReadFailsTest(t *testing.T, testEnv *ttypes.TestEnvironment, evmNegative
 			},
 		}
 		workflowName := fmt.Sprintf("evm-read-fail-workflow-%s-%04d", chainID, rand.Intn(10000))
-		workflowID := t_helpers.CompileAndDeployWorkflow(t, testEnv, testLogger, workflowName, &workflowConfig, workflowFileLocation)
 
+		// Start subscriber BEFORE registering workflow to capture the current sequence
+		// and avoid processing old events from previous test runs
 		channel, listenerCtx, cancelFn, startErr := t_helpers.StartChipEventsSubscriber(t.Context(), t_helpers.ChipEventsSubscriberConfig{
 			ChipServerURL: "http://localhost:8081",
 			Logger:        testLogger,
 		})
 		require.NoError(t, startErr, "Failed to start chip events subscriber")
 		t.Cleanup(cancelFn)
+
+		workflowID := t_helpers.CompileAndDeployWorkflow(t, testEnv, testLogger, workflowName, &workflowConfig, workflowFileLocation)
 
 		channels := t_helpers.FanOutChipEvents(listenerCtx, channel, 2)
 		go func() {
@@ -290,14 +293,17 @@ func EVMWriteFailsTest(t *testing.T, testEnv *ttypes.TestEnvironment, evmNegativ
 				DataFeedsCacheAddress: dataFeedsCacheAddress,
 			},
 		}
-		workflowID := t_helpers.CompileAndDeployWorkflow(t, testEnv, testLogger, workflowName, &workflowConfig, workflowFileLocation)
 
+		// Start subscriber BEFORE registering workflow to capture the current sequence
+		// and avoid processing old events from previous test runs
 		channel, listenerCtx, cancelFn, startErr := t_helpers.StartChipEventsSubscriber(t.Context(), t_helpers.ChipEventsSubscriberConfig{
 			ChipServerURL: "http://localhost:8081",
 			Logger:        testLogger,
 		})
 		require.NoError(t, startErr, "Failed to start chip events subscriber")
 		t.Cleanup(cancelFn)
+
+		workflowID := t_helpers.CompileAndDeployWorkflow(t, testEnv, testLogger, workflowName, &workflowConfig, workflowFileLocation)
 
 		channels := t_helpers.FanOutChipEvents(listenerCtx, channel, 2)
 		go func() {

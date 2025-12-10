@@ -15,7 +15,7 @@ func main() {
 		grpcListen = flag.String("grpc-listen", ":9090", "ChipIngress gRPC listen address")
 		httpListen = flag.String("http-listen", ":8080", "HTTP API listen address")
 		upstream   = flag.String("upstream", "", "optional upstream ChipIngress gRPC endpoint for pass-through")
-		cacheSize  = flag.Int("cache-size", 10000, "maximum number of events to cache")
+		cacheSize  = flag.Int("cache-size", 2000, "maximum number of events to cache")
 		daemon     = flag.Bool("daemon", false, "run as daemon without signal handling (for CI environments)")
 	)
 	flag.Parse()

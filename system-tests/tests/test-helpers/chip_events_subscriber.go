@@ -35,19 +35,21 @@ import (
 
 const (
 	defaultEventBufferSize = 200
-	defaultPollInterval    = 5 * time.Second
+	defaultPollInterval    = 2 * time.Second
 	defaultRetryAttempts   = 3
 	defaultRetryDelay      = 1 * time.Second
+	defaultEventLimit      = 100
+	defaultBatchSize       = 20
 )
 
 // ChipEventMessage wraps an event from the chip test sink with metadata
 type ChipEventMessage struct {
-	Sequence uint64                 `json:"sequence"`
-	Domain   string                 `json:"domain"`
-	Entity   string                 `json:"entity"`
-	Schema   string                 `json:"schema"`
-	Body     string                 `json:"body"` // base64 encoded
-	Attrs    map[string]interface{} `json:"attrs"`
+	Sequence uint64         `json:"sequence"`
+	Domain   string         `json:"domain"`
+	Entity   string         `json:"entity"`
+	Schema   string         `json:"schema"`
+	Body     string         `json:"body"` // base64 encoded
+	Attrs    map[string]any `json:"attrs"`
 	// Extracted metadata (populated by subscriber if available)
 	WorkflowID string `json:"workflowId,omitempty"` // Extracted workflow ID
 	NodeP2PID  string `json:"nodeP2pId,omitempty"`  // Extracted node P2P ID
@@ -60,6 +62,7 @@ type ChipEventsSubscriber struct {
 	retryAttempts int
 	retryDelay    time.Duration
 	eventLimit    int // Maximum events to fetch per poll
+	batchSize     int
 
 	// Sequence tracking
 	lastSequence uint64
@@ -82,6 +85,38 @@ type ChipEventsSubscriberConfig struct {
 	RetryAttempts int           // Number of retries on API failure (default: 3)
 	RetryDelay    time.Duration // Delay between retries (default: 1s)
 	EventLimit    int           // Maximum number of events to fetch per poll (default: 100)
+	BatchSize     int           // Number of events to fetch per batch
+}
+
+// getCurrentSequence fetches the latest sequence number from the chip server
+// Returns 0 if no events exist yet, or the highest sequence number
+func getCurrentSequence(ctx context.Context, chipServerURL string, httpClient *http.Client) (uint64, error) {
+	url := fmt.Sprintf("%s/sequence", chipServerURL)
+
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
+	if err != nil {
+		return 0, fmt.Errorf("create request: %w", err)
+	}
+
+	resp, err := httpClient.Do(req)
+	if err != nil {
+		return 0, fmt.Errorf("http request: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(resp.Body)
+		return 0, fmt.Errorf("unexpected status %d: %s", resp.StatusCode, string(body))
+	}
+
+	var result struct {
+		Sequence uint64 `json:"sequence"`
+	}
+	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+		return 0, fmt.Errorf("decode response: %w", err)
+	}
+
+	return result.Sequence, nil
 }
 
 // StartChipEventsSubscriber creates and starts a chip events subscriber.
@@ -126,7 +161,10 @@ func StartChipEventsSubscriber(ctx context.Context, config ChipEventsSubscriberC
 		config.RetryDelay = defaultRetryDelay
 	}
 	if config.EventLimit == 0 {
-		config.EventLimit = 100
+		config.EventLimit = defaultEventLimit
+	}
+	if config.BatchSize == 0 {
+		config.BatchSize = defaultBatchSize
 	}
 
 	if config.ChipServerURL == "" {
@@ -142,20 +180,31 @@ func StartChipEventsSubscriber(ctx context.Context, config ChipEventsSubscriberC
 	subCtx, cancel := context.WithCancel(ctx)
 	messageChan := make(chan ChipEventMessage, config.BufferSize)
 
+	// Get current sequence to avoid reading old events from previous test runs
+	httpClient := &http.Client{Timeout: 30 * time.Second}
+	currentSequence, err := getCurrentSequence(subCtx, config.ChipServerURL, httpClient)
+	if err != nil {
+		cancel()
+		return nil, nil, nil, fmt.Errorf("failed to get current sequence: %w", err)
+	}
+
+	config.Logger.Info().
+		Uint64("starting_sequence", currentSequence).
+		Msg("Subscriber will start from current sequence to avoid stale events")
+
 	sub := &ChipEventsSubscriber{
 		chipServerURL: config.ChipServerURL,
 		pollInterval:  config.PollInterval,
 		retryAttempts: config.RetryAttempts,
 		retryDelay:    config.RetryDelay,
 		eventLimit:    config.EventLimit,
-		lastSequence:  0,
+		batchSize:     config.BatchSize,
+		lastSequence:  currentSequence,
 		logger:        config.Logger,
 		messageChan:   messageChan,
 		ctx:           subCtx,
 		cancel:        cancel,
-		httpClient: &http.Client{
-			Timeout: 30 * time.Second,
-		},
+		httpClient:    httpClient,
 	}
 
 	// Start polling goroutine
@@ -261,32 +310,80 @@ func (s *ChipEventsSubscriber) fetchAndProcessEvents() error {
 		return fmt.Errorf("fetch events failed after %d attempts: %w", s.retryAttempts, err)
 	}
 
-	// Process events
-	for _, event := range events {
-		// Check if we already processed this sequence
-		s.sequenceMu.RLock()
-		lastSeq := s.lastSequence
-		s.sequenceMu.RUnlock()
+	if len(events) == 0 {
+		return nil
+	}
 
-		if event.Sequence <= lastSeq {
-			continue
-		}
+	// Process events in parallel batches for better throughput
+	batchSize := s.batchSize
+	numBatches := (len(events) + batchSize - 1) / batchSize
+	processedEvents := make([]ChipEventMessage, 0, len(events))
+	var processMu sync.Mutex
+	var wg sync.WaitGroup
 
-		// Extract workflow ID and node P2P ID and populate them in the event
-		if workflowID, err := extractWorkflowID(event); err == nil && workflowID != "" {
-			event.WorkflowID = workflowID
-		}
-		if nodeP2PID, err := extractNodeP2PID(event); err == nil && nodeP2PID != "" {
-			event.NodeP2PID = nodeP2PID
-		}
+	for i := range numBatches {
+		start := i * batchSize
+		end := min(start+batchSize, len(events))
+		batch := events[start:end]
 
-		// Send to channel (non-blocking with context check)
+		wg.Add(1)
+		go func(eventBatch []ChipEventMessage) {
+			defer wg.Done()
+
+			localProcessed := make([]ChipEventMessage, 0, len(eventBatch))
+			for _, event := range eventBatch {
+				// Check if we already processed this sequence
+				s.sequenceMu.RLock()
+				lastSeq := s.lastSequence
+				s.sequenceMu.RUnlock()
+
+				if event.Sequence <= lastSeq {
+					continue
+				}
+
+				// Extract workflow ID and node P2P ID and populate them in the event
+				metadata, wfErr := extractMetadata(event)
+				if wfErr != nil {
+					s.logger.Debug().
+						Err(wfErr).
+						Str("entity", event.Entity).
+						Uint64("sequence", event.Sequence).
+						Msg("Failed to extract metadata")
+				}
+				
+				// Populate fields if metadata was successfully extracted
+				if metadata != nil {
+					if metadata.workflowID != "" {
+						event.WorkflowID = metadata.workflowID
+					}
+					if metadata.p2pID != "" {
+						event.NodeP2PID = metadata.p2pID
+					}
+				}
+
+				localProcessed = append(localProcessed, event)
+			}
+
+			// Append to global processed events (thread-safe)
+			processMu.Lock()
+			processedEvents = append(processedEvents, localProcessed...)
+			processMu.Unlock()
+		}(batch)
+	}
+
+	// Wait for all batches to complete
+	wg.Wait()
+
+	// Send all processed events to channel in sequence order
+	for _, event := range processedEvents {
 		select {
 		case s.messageChan <- event:
 			s.logger.Debug().
 				Uint64("sequence", event.Sequence).
 				Str("entity", event.Entity).
 				Str("domain", event.Domain).
+				Str("workflow_id", event.WorkflowID).
+				Str("node_p2p_id", event.NodeP2PID).
 				Msg("Event sent to channel")
 
 			// Update last sequence
@@ -310,88 +407,57 @@ func (s *ChipEventsSubscriber) fetchAndProcessEvents() error {
 	return nil
 }
 
-// extractWorkflowID extracts the workflow ID from an event
-func extractWorkflowID(event ChipEventMessage) (string, error) {
-	switch event.Entity {
-	case "workflows.v1.UserLogs":
-		decoded := make([]byte, base64.StdEncoding.DecodedLen(len(event.Body)))
-		n, err := base64.StdEncoding.Decode(decoded, []byte(event.Body))
-		if err != nil {
-			return "", fmt.Errorf("failed to decode entity body from base64: %w", err)
-		}
-		decoded = decoded[:n]
-		msg := &workflowevents.UserLogs{}
-		err = proto.Unmarshal(decoded, msg)
-		if err != nil {
-			return "", fmt.Errorf("failed to unmarshal entity with type '%s' to %T: %w", event.Entity, msg, err)
-		}
-
-		if msg.M != nil {
-			return msg.M.WorkflowID, nil
-		}
-		return "", fmt.Errorf("UserLogs message has nil M field")
-	case "BaseMessage":
-		decoded := make([]byte, base64.StdEncoding.DecodedLen(len(event.Body)))
-		n, err := base64.StdEncoding.Decode(decoded, []byte(event.Body))
-		if err != nil {
-			return "", fmt.Errorf("failed to decode entity body from base64: %w", err)
-		}
-		decoded = decoded[:n]
-		msg := &commonevents.BaseMessage{}
-		err = proto.Unmarshal(decoded, msg)
-		if err != nil {
-			return "", fmt.Errorf("failed to unmarshal entity with type '%s' to %T: %w", event.Entity, msg, err)
-		}
-
-		if msg.Labels != nil {
-			return msg.Labels["workflowID"], nil
-		}
-		return "", fmt.Errorf("BaseMessage has nil Labels field")
-	}
-
-	return "", nil
+type eventMetadata struct {
+	workflowID, p2pID string
 }
 
-// extractNodeP2PID extracts the node P2P ID from an event
-func extractNodeP2PID(event ChipEventMessage) (string, error) {
+// extractWorkflowID extracts the workflow ID from an event
+func extractMetadata(event ChipEventMessage) (*eventMetadata, error) {
 	switch event.Entity {
 	case "workflows.v1.UserLogs":
 		decoded := make([]byte, base64.StdEncoding.DecodedLen(len(event.Body)))
 		n, err := base64.StdEncoding.Decode(decoded, []byte(event.Body))
 		if err != nil {
-			return "", fmt.Errorf("failed to decode entity body from base64: %w", err)
+			return nil, fmt.Errorf("failed to decode entity body from base64: %w", err)
 		}
 		decoded = decoded[:n]
 		msg := &workflowevents.UserLogs{}
 		err = proto.Unmarshal(decoded, msg)
 		if err != nil {
-			return "", fmt.Errorf("failed to unmarshal entity with type '%s' to %T: %w", event.Entity, msg, err)
+			return nil, fmt.Errorf("failed to unmarshal entity with type '%s' to %T: %w", event.Entity, msg, err)
 		}
 
 		if msg.M != nil {
-			return msg.M.P2PID, nil
+			return &eventMetadata{
+				workflowID: msg.M.WorkflowID,
+				p2pID:      msg.M.P2PID,
+			}, nil
+
 		}
-		return "", fmt.Errorf("UserLogs message has nil M field")
+		return nil, fmt.Errorf("UserLogs message has nil M field")
 	case "BaseMessage":
 		decoded := make([]byte, base64.StdEncoding.DecodedLen(len(event.Body)))
 		n, err := base64.StdEncoding.Decode(decoded, []byte(event.Body))
 		if err != nil {
-			return "", fmt.Errorf("failed to decode entity body from base64: %w", err)
+			return nil, fmt.Errorf("failed to decode entity body from base64: %w", err)
 		}
 		decoded = decoded[:n]
 		msg := &commonevents.BaseMessage{}
 		err = proto.Unmarshal(decoded, msg)
 		if err != nil {
-			return "", fmt.Errorf("failed to unmarshal entity with type '%s' to %T: %w", event.Entity, msg, err)
+			return nil, fmt.Errorf("failed to unmarshal entity with type '%s' to %T: %w", event.Entity, msg, err)
 		}
 
 		if msg.Labels != nil {
-			return msg.Labels["p2pID"], nil
+			return &eventMetadata{
+				workflowID: msg.Labels["workflowID"],
+				p2pID:      msg.Labels["p2pID"],
+			}, nil
 		}
-		return "", fmt.Errorf("BaseMessage has nil Labels field")
+		return nil, fmt.Errorf("BaseMessage has nil Labels field")
 	}
 
-	return "", nil
+	return nil, nil
 }
 
 // LogChipEvents logs chip events as they arrive on the message channel.
@@ -495,7 +561,7 @@ func AssertChipEventMatchedByNodes(
 		Str("workflow_id", workflowID).
 		Int("required_nodes", n).
 		Dur("timeout", timeout).
-		Msg("Waiting for chip event matches across nodes")
+		Msg("Waiting for event matches across nodes")
 
 	for {
 		select {
@@ -524,8 +590,17 @@ func AssertChipEventMatchedByNodes(
 				)
 			}
 
-			// Filter by workflow ID and skip events without
-			if workflowID == "" || event.WorkflowID != workflowID {
+			// Skip events without workflow ID - we can't attribute them to any workflow
+			if event.WorkflowID == "" {
+				logger.Debug().
+					Str("entity", event.Entity).
+					Uint64("sequence", event.Sequence).
+					Msg("Event has no workflow ID, skipping")
+				continue
+			}
+
+			// Filter by workflow ID if provided
+			if workflowID != "" && event.WorkflowID != workflowID {
 				continue
 			}
 
