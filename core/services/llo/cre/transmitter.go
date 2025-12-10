@@ -118,7 +118,7 @@ func (t *transmitter) start(ctx context.Context) error {
 }
 
 func (t *transmitter) close() error {
-	return t.registry.Remove(context.Background(), t.CapabilityInfo.ID)
+	return t.registry.Remove(context.Background(), t.ID)
 }
 
 func (t *transmitter) FromAccount(context.Context) (ocr2types.Account, error) {
@@ -190,7 +190,7 @@ func (t *transmitter) processNewEvent(ctx context.Context, event *capabilities.O
 	}
 	capResponse := capabilities.TriggerResponse{
 		Event: capabilities.TriggerEvent{
-			TriggerType: t.CapabilityInfo.ID,
+			TriggerType: t.ID,
 			ID:          p.EventID,
 			Outputs:     o,
 		},

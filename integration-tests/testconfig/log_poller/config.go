@@ -1,6 +1,7 @@
 package logpoller
 
 import (
+	"errors"
 	"fmt"
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
@@ -24,7 +25,7 @@ type Config struct {
 
 func (c *Config) Validate() error {
 	if c.General == nil {
-		return fmt.Errorf("General config must be set")
+		return errors.New("General config must be set")
 	}
 
 	err := c.General.Validate()
@@ -35,7 +36,7 @@ func (c *Config) Validate() error {
 	switch *c.General.Generator {
 	case GeneratorType_WASP:
 		if c.Wasp == nil {
-			return fmt.Errorf("wasp config is nil")
+			return errors.New("wasp config is nil")
 		}
 		err = c.Wasp.Validate()
 		if err != nil {
@@ -43,7 +44,7 @@ func (c *Config) Validate() error {
 		}
 	case GeneratorType_Looped:
 		if c.LoopedConfig == nil {
-			return fmt.Errorf("looped config is nil")
+			return errors.New("looped config is nil")
 		}
 		err = c.LoopedConfig.Validate()
 		if err != nil {
@@ -70,15 +71,15 @@ type LoopedConfig struct {
 
 func (l *LoopedConfig) Validate() error {
 	if l.ExecutionCount == nil || *l.ExecutionCount == 0 {
-		return fmt.Errorf("execution_count must be set and > 0")
+		return errors.New("execution_count must be set and > 0")
 	}
 
 	if l.MinEmitWaitTimeMs == nil || *l.MinEmitWaitTimeMs == 0 {
-		return fmt.Errorf("min_emit_wait_time_ms must be set and > 0")
+		return errors.New("min_emit_wait_time_ms must be set and > 0")
 	}
 
 	if l.MaxEmitWaitTimeMs == nil || *l.MaxEmitWaitTimeMs == 0 {
-		return fmt.Errorf("max_emit_wait_time_ms must be set and > 0")
+		return errors.New("max_emit_wait_time_ms must be set and > 0")
 	}
 
 	return nil
@@ -94,15 +95,15 @@ type General struct {
 
 func (g *General) Validate() error {
 	if g.Generator == nil || *g.Generator == "" {
-		return fmt.Errorf("generator is empty")
+		return errors.New("generator is empty")
 	}
 
 	if g.Contracts == nil || *g.Contracts == 0 {
-		return fmt.Errorf("contracts is 0, but must be > 0")
+		return errors.New("contracts is 0, but must be > 0")
 	}
 
 	if g.EventsPerTx == nil || *g.EventsPerTx == 0 {
-		return fmt.Errorf("events_per_tx is 0, but must be > 0")
+		return errors.New("events_per_tx is 0, but must be > 0")
 	}
 
 	return nil
@@ -115,7 +116,7 @@ type ChaosConfig struct {
 
 func (c *ChaosConfig) Validate() error {
 	if c.ExperimentCount != nil && *c.ExperimentCount == 0 {
-		return fmt.Errorf("experiment_count must be > 0")
+		return errors.New("experiment_count must be > 0")
 	}
 
 	return nil
@@ -131,22 +132,22 @@ type WaspConfig struct {
 
 func (w *WaspConfig) Validate() error {
 	if w.RPS == nil && w.LPS == nil {
-		return fmt.Errorf("either RPS or LPS needs to be set")
+		return errors.New("either RPS or LPS needs to be set")
 	}
 	if *w.RPS == 0 && *w.LPS == 0 {
-		return fmt.Errorf("either RPS or LPS needs to be a positive integer")
+		return errors.New("either RPS or LPS needs to be a positive integer")
 	}
 	if *w.RPS != 0 && *w.LPS != 0 {
-		return fmt.Errorf("only one of RPS or LPS can be set")
+		return errors.New("only one of RPS or LPS can be set")
 	}
 	if w.Duration == nil || w.Duration.Duration == 0 {
-		return fmt.Errorf("duration must be set and > 0")
+		return errors.New("duration must be set and > 0")
 	}
 	if w.CallTimeout == nil || w.CallTimeout.Duration == 0 {
-		return fmt.Errorf("call_timeout must be set and > 0")
+		return errors.New("call_timeout must be set and > 0")
 	}
 	if w.RateLimitUnitDuration == nil || w.RateLimitUnitDuration.Duration == 0 {
-		return fmt.Errorf("rate_limit_unit_duration  must be set and > 0")
+		return errors.New("rate_limit_unit_duration  must be set and > 0")
 	}
 
 	return nil

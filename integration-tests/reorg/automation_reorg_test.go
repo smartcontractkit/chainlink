@@ -60,7 +60,7 @@ func TestAutomationReorg(t *testing.T) {
 	require.NoError(t, err, "Error getting config")
 
 	findIntValue := func(text string, substring string) (int, error) {
-		re := regexp.MustCompile(fmt.Sprintf(`%s\s*=\s*(\d+)`, substring))
+		re := regexp.MustCompile(substring + "\\s*=\\s*(\\d+)")
 
 		match := re.FindStringSubmatch(text)
 		if len(match) > 1 {

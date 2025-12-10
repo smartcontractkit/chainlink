@@ -41,7 +41,7 @@ func TestP2PKeys_PeerID(t *testing.T) {
 
 		err = id.Scan(12)
 		assert.Error(t, err)
-		assert.Equal(t, "", id.String())
+		assert.Empty(t, id.String())
 	})
 }
 

@@ -32,7 +32,7 @@ type VU struct {
 	lta           common.Address
 	bootstrapNode *nodeclient.ChainlinkK8sClient
 	workerNodes   []*nodeclient.ChainlinkK8sClient
-	msClient      *client2.MockserverClient //nolint:staticcheck //SA1019 no need to upgrade
+	msClient      *client2.MockserverClient
 	l             zerolog.Logger
 	ocrInstances  []contracts.OffchainAggregator
 	config        ocr.OffChainAggregatorsConfig
@@ -47,7 +47,7 @@ func NewVU(
 	lta common.Address,
 	bootstrapNode *nodeclient.ChainlinkK8sClient,
 	workerNodes []*nodeclient.ChainlinkK8sClient,
-	msClient *client2.MockserverClient, //nolint:staticcheck //SA1019 no need to upgrade
+	msClient *client2.MockserverClient,
 ) *VU {
 	return &VU{
 		VUControl:     wasp.NewVUControl(),

@@ -24,7 +24,7 @@ func (cco *clientCheckout) Start(_ context.Context) error {
 }
 
 func (cco *clientCheckout) Close() error {
-	cco.connection.checkin(cco)
+	cco.checkin(cco)
 	return nil
 }
 

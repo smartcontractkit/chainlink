@@ -276,7 +276,7 @@ func TestPriceService_observeGasPriceUpdates(t *testing.T) {
 				return
 			}
 			assert.NoError(t, err)
-			assert.Equal(t, tc.expSourceGasPriceUSD.Cmp(sourceGasPriceUSD), 0)
+			assert.Equal(t, 0, tc.expSourceGasPriceUSD.Cmp(sourceGasPriceUSD))
 		})
 	}
 }

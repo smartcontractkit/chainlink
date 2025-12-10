@@ -240,14 +240,15 @@ func (d *DynamicPriceGetter) performBatchCall(
 				respErr = errors.Join(respErr, fmt.Errorf("error with contract reader readName %v: %w", read.ReadName, readErr))
 				continue
 			}
-			if read.ReadName == DecimalsMethodName {
+			switch read.ReadName {
+			case DecimalsMethodName:
 				decimal, ok := val.(*uint8)
 				if !ok {
 					return fmt.Errorf("expected type uint8 for method call %v on contract %v: %w", batchCalls.decimalCalls[j].MethodName(), batchCalls.decimalCalls[j].ContractAddress(), readErr)
 				}
 
 				decimalsCR = append(decimalsCR, *decimal)
-			} else if read.ReadName == LatestRoundDataMethodName {
+			case LatestRoundDataMethodName:
 				latestRoundDataRes, ok := val.(*aggregator_v3_interface.LatestRoundData)
 				if !ok {
 					return fmt.Errorf("expected type latestRoundDataConfig for method call %v on contract %v: %w", batchCalls.latestRoundDataCalls[j].MethodName(), batchCalls.latestRoundDataCalls[j].ContractAddress(), readErr)

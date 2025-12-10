@@ -168,10 +168,16 @@ func emitEvent(t *testing.T, lggr zerolog.Logger, chainID string, bcOutput block
 	lggr.Info().Msgf("Emitting event to be picked up by workflow for chain '%s'", chainID)
 	sethClient := bcOutput.(*evm.Blockchain).SethClient
 	emittingTx, err := msgEmitter.EmitMessage(sethClient.NewTXOpts(), expectedUserLog)
-	require.NoError(t, err, "failed to emit message from contract '%s'", workflowConfig.Addresses[0])
+	if err != nil {
+		lggr.Info().Msgf("Failed to emit transaction for chain '%s': %v", chainID, err)
+		return 0
+	}
 
 	emittingReceipt, err := sethClient.WaitMined(t.Context(), lggr, sethClient.Client, emittingTx)
-	require.NoError(t, err, "failed to get message emitter event tx")
+	if err != nil {
+		lggr.Info().Msgf("Failed to emit receipt for chain '%s': %v", chainID, err)
+		return 0
+	}
 	lggr.Info().Msgf("Transaction for chain '%s' mined at '%d' with emitted message %q", chainID, emittingReceipt.BlockNumber.Uint64(), expectedUserLog)
 	return emittingReceipt.BlockNumber.Uint64()
 }
@@ -233,17 +239,36 @@ func ExecuteEVMLogTriggerTest(t *testing.T, testEnv *ttypes.TestEnvironment) {
 	for chainID, bcOutput := range chainsToTest {
 		lggr.Info().Msgf("Creating EVM LogTrigger workflow configuration for chain %s", chainID)
 		workflowConfig, msgEmitter := configureEVMLogTriggerWorkflow(t, lggr, bcOutput)
-
+		listenerCtx, messageChan, kafkaErrChan := t_helpers.StartBeholder(t, lggr, testEnv)
 		workflowName := fmt.Sprintf("evm-logTrigger-workflow-%s-%04d", chainID, rand.Intn(10000))
 		lggr.Info().Msgf("About to deploy Workflow %s on chain %s", workflowName, chainID)
 		t_helpers.CompileAndDeployWorkflow(t, testEnv, lggr, workflowName, &workflowConfig, workflowFileLocation)
 
-		time.Sleep(30 * time.Second) // wait for trigger to be registered
+		triggersUpAndRunning := "Trigger RunSimpleEvmLogTriggerWorkflow called"
+		err := t_helpers.AssertBeholderMessage(listenerCtx, t, triggersUpAndRunning, lggr, messageChan, kafkaErrChan, 4*time.Minute)
+		require.NoError(t, err, "LogTrigger capability test failed, Beholder should not return an error")
 
 		message := "Data for log trigger"
-		startBlock := emitEvent(t, lggr, chainID, bcOutput, msgEmitter, message, workflowConfig)
-		evmChain := bcOutput.(*evm.Blockchain)
-		validateWorkflowExecution(t, lggr, testEnv, evmChain, workflowName, common.HexToAddress(workflowConfig.Addresses[0]), startBlock)
+		// start background event emission every 10s while AssertBeholderMessage is running, so that the workflow has events to pick up eventually
+		var emittedEventCount int64
+		ticker := time.NewTicker(10 * time.Second)
+		go func() {
+			defer ticker.Stop()
+			for {
+				select {
+				case <-listenerCtx.Done():
+					return
+				case <-ticker.C:
+					lggr.Info().Msgf("About to emit event #%d for chain %s", emittedEventCount, chainID)
+					blockNumber := emitEvent(t, lggr, chainID, bcOutput, msgEmitter, message, workflowConfig)
+					lggr.Info().Msgf("Event emitted for chain %s at blockNumber %d", chainID, blockNumber)
+					emittedEventCount++
+				}
+			}
+		}()
+		expectedUserLog := "OnTrigger decoded message: message:" + message
+		err = t_helpers.AssertBeholderMessage(listenerCtx, t, expectedUserLog, lggr, messageChan, kafkaErrChan, 4*time.Minute)
+		require.NoError(t, err, "Expected user log test failed")
 
 		lggr.Info().Msgf("🎉 LogTrigger Workflow %s executed successfully on chain %s", workflowName, chainID)
 		successfulLogTriggerChains = append(successfulLogTriggerChains, chainID)

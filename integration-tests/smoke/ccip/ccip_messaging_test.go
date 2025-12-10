@@ -33,7 +33,7 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/v1_6"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/manualexechelpers"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
-	"github.com/smartcontractkit/chainlink/deployment/environment/memory"
+	"github.com/smartcontractkit/chainlink/deployment/utils/nodetestutils"
 	testsetups "github.com/smartcontractkit/chainlink/integration-tests/testsetups/ccip"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/ccipevm"
 	cctypes "github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/types"
@@ -46,15 +46,15 @@ func Test_CCIPMessaging_EVM2EVM(t *testing.T) {
 		chainsel.TEST_90000001, // dest
 	}
 	var chainIDs = []uint64{
-		chains[0].EvmChainID,
-		chains[1].EvmChainID,
+		chains[0].Selector,
+		chains[1].Selector,
 	}
 	// Setup 2 chains and a single lane.
 	ctx := testhelpers.Context(t)
 	e, _, _ := testsetups.NewIntegrationEnvironment(
 		t,
-		testhelpers.WithChainIDs(chainIDs),
-		testhelpers.WithCLNodeConfigOpts(memory.WithFinalityDepths(map[uint64]uint32{
+		testhelpers.WithEVMChainsBySelectors(chainIDs),
+		testhelpers.WithCLNodeConfigOpts(nodetestutils.WithFinalityDepths(map[uint64]uint32{
 			chains[1].EvmChainID: 30, // make dest chain finality depth 30 so we can observe exec behavior
 		})),
 	)

@@ -385,7 +385,7 @@ func (c *CommitStore) GetAcceptedCommitReportsGteTimestamp(ctx context.Context, 
 	res := make([]cciptypes.CommitStoreReportWithTxMeta, 0, len(parsedLogs))
 	for _, log := range parsedLogs {
 		res = append(res, cciptypes.CommitStoreReportWithTxMeta{
-			TxMeta:            log.TxMeta.WithFinalityStatus(uint64(latestBlock.FinalizedBlockNumber)),
+			TxMeta:            log.WithFinalityStatus(uint64(latestBlock.FinalizedBlockNumber)),
 			CommitStoreReport: log.Data,
 		})
 	}

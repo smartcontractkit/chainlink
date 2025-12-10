@@ -155,7 +155,7 @@ func (c *Cache) GetCachedResponse(ctx context.Context, dotId string, specId int3
 		return cached.Value, nil
 	}
 
-	response, finishedAt, err := c.ORM.GetCachedResponseWithFinished(ctx, dotId, specId, maxElapsed)
+	response, finishedAt, err := c.GetCachedResponseWithFinished(ctx, dotId, specId, maxElapsed)
 	if err != nil {
 		return nil, err
 	}
@@ -208,7 +208,7 @@ func (c *Cache) doBulkUpsert(ctx context.Context) {
 		return
 	}
 
-	if err := c.ORM.BulkUpsertBridgeResponse(ctx, values); err != nil {
+	if err := c.BulkUpsertBridgeResponse(ctx, values); err != nil {
 		c.eng.Warnf("bulk upsert of bridge responses failed: %s", err.Error())
 	}
 }

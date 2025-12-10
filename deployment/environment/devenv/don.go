@@ -11,6 +11,7 @@ import (
 	"golang.org/x/sync/errgroup"
 
 	chainsel "github.com/smartcontractkit/chain-selectors"
+
 	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/blockchain"
 
 	"github.com/rs/zerolog"

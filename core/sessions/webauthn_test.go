@@ -30,7 +30,7 @@ func TestWebAuthnSessionStore(t *testing.T) {
 	s := NewWebAuthnSessionStore()
 
 	val, ok := s.take(key)
-	assert.Equal(t, "", val)
+	assert.Empty(t, val)
 	require.False(t, ok)
 
 	require.NoError(t, s.SaveWebauthnSession(key, &data))
@@ -40,7 +40,7 @@ func TestWebAuthnSessionStore(t *testing.T) {
 	assert.Equal(t, data, got)
 
 	val, ok = s.take(key)
-	assert.Equal(t, "", val)
+	assert.Empty(t, val)
 	require.False(t, ok)
 
 	_, err = s.GetWebauthnSession(key)
@@ -63,7 +63,7 @@ func TestWebAuthnSessionStore(t *testing.T) {
 	wcfg := WebAuthnConfiguration{RPID: "test-rpid", RPOrigin: "test-rporigin"}
 	cc, err := s.BeginWebAuthnRegistration(user, uwas, wcfg)
 	require.NoError(t, err)
-	require.Equal(t, "Chainlink Operator", cc.Response.RelyingParty.CredentialEntity.Name)
+	require.Equal(t, "Chainlink Operator", cc.Response.RelyingParty.Name)
 	require.Equal(t, "test-rpid", cc.Response.RelyingParty.ID)
 	require.Equal(t, user.Email, cc.Response.User.Name)
 	require.Equal(t, user.Email, cc.Response.User.DisplayName)

@@ -421,6 +421,7 @@ type GenerateConfigsInput struct {
 	CapabilityConfigs       CapabilityConfigs
 	ContractVersions        map[ContractType]*semver.Version
 	GatewayConnectorOutput  *GatewayConnectors // optional, automatically set if some DON in the topology has the GatewayDON flag
+	Provider                infra.Provider
 }
 
 func (g *GenerateConfigsInput) Validate() error {

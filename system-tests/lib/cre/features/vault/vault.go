@@ -28,6 +28,7 @@ import (
 	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
 	kcr "github.com/smartcontractkit/chainlink-evm/gethwrappers/keystone/generated/capabilities_registry_1_1_0"
 	ocr3_capability "github.com/smartcontractkit/chainlink-evm/gethwrappers/keystone/generated/ocr3_capability_1_0_0"
+	"github.com/smartcontractkit/chainlink/deployment/cre/common/strategies"
 	cre_jobs "github.com/smartcontractkit/chainlink/deployment/cre/jobs"
 	cre_jobs_ops "github.com/smartcontractkit/chainlink/deployment/cre/jobs/operations"
 	"github.com/smartcontractkit/chainlink/deployment/cre/jobs/pkg"
@@ -168,11 +169,29 @@ func (o *Vault) PostEnvStartup(
 		return fmt.Errorf("failed to create DKG reporting plugin config: %w", dErr)
 	}
 
+	chain, ok := creEnv.CldfEnvironment.BlockChains.EVMChains()[creEnv.RegistryChainSelector]
+	if !ok {
+		return fmt.Errorf("chain with selector %d not found in environment", creEnv.RegistryChainSelector)
+	}
+
+	strategy, err := strategies.CreateStrategy(
+		chain,
+		*creEnv.CldfEnvironment,
+		nil,
+		nil,
+		*vaultDKGOCR3Addr,
+		"PostEnvStartup - Configure OCR3 Contract - Vault DKG",
+	)
+	if err != nil {
+		return fmt.Errorf("failed to create strategy: %w", err)
+	}
+
 	_, err = operations.ExecuteOperation(
 		creEnv.CldfEnvironment.OperationsBundle,
 		ks_contracts_op.ConfigureDKGOp,
 		ks_contracts_op.ConfigureDKGOpDeps{
-			Env: creEnv.CldfEnvironment,
+			Env:      creEnv.CldfEnvironment,
+			Strategy: strategy,
 		},
 		ks_contracts_op.ConfigureDKGOpInput{
 			ContractAddress:       vaultDKGOCR3Addr,
@@ -192,11 +211,24 @@ func (o *Vault) PostEnvStartup(
 		return fmt.Errorf("failed to create Vault reporting plugin config override: %w", cErr)
 	}
 
+	strategy, err = strategies.CreateStrategy(
+		chain,
+		*creEnv.CldfEnvironment,
+		nil,
+		nil,
+		*vaultOCR3Addr,
+		"PostEnvStartup - Configure OCR3 Contract - Vault",
+	)
+	if err != nil {
+		return fmt.Errorf("failed to create strategy: %w", err)
+	}
+
 	_, err = operations.ExecuteOperation(
 		creEnv.CldfEnvironment.OperationsBundle,
 		depcontracts.ConfigureOCR3_1,
 		depcontracts.ConfigureOCR3_1Deps{
-			Env: creEnv.CldfEnvironment,
+			Env:      creEnv.CldfEnvironment,
+			Strategy: strategy,
 		},
 		depcontracts.ConfigureOCR3_1Input{
 			ContractAddress:               vaultOCR3Addr,
@@ -391,7 +423,7 @@ func reportingPluginConfigOverride(vaultDKGOCR3Addr *common.Address, creEnv *cre
 	return cfgb, nil
 }
 
-func EncryptSecret(secret, masterPublicKeyStr string) (string, error) {
+func EncryptSecret(secret, masterPublicKeyStr string, owner common.Address) (string, error) {
 	masterPublicKey := tdh2easy.PublicKey{}
 	masterPublicKeyBytes, err := hex.DecodeString(masterPublicKeyStr)
 	if err != nil {
@@ -401,7 +433,9 @@ func EncryptSecret(secret, masterPublicKeyStr string) (string, error) {
 	if err != nil {
 		return "", errors.Wrap(err, "failed to unmarshal master public key")
 	}
-	cipher, err := tdh2easy.Encrypt(&masterPublicKey, []byte(secret))
+	var label [32]byte
+	copy(label[12:], owner.Bytes()) // left-pad with 12 zero
+	cipher, err := tdh2easy.EncryptWithLabel(&masterPublicKey, []byte(secret), label)
 	if err != nil {
 		return "", errors.Wrap(err, "failed to encrypt secret")
 	}

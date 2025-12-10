@@ -88,7 +88,7 @@ func generateConfirmedTestOrmRows(t *testing.T, n int, ttl time.Duration) []*s4_
 }
 
 func compareRows(t *testing.T, protoRows []*s4.Row, ormRows []*s4_svc.Row) {
-	assert.Equal(t, len(ormRows), len(protoRows))
+	assert.Len(t, protoRows, len(ormRows))
 	for i, row := range protoRows {
 		assert.Equal(t, row.Address, ormRows[i].Address.Bytes())
 		assert.Equal(t, row.Version, ormRows[i].Version)
@@ -99,7 +99,7 @@ func compareRows(t *testing.T, protoRows []*s4.Row, ormRows []*s4_svc.Row) {
 }
 
 func compareSnapshotRows(t *testing.T, snapshot []*s4.SnapshotRow, ormVersions []*s4_svc.SnapshotRow) {
-	assert.Equal(t, len(ormVersions), len(snapshot))
+	assert.Len(t, snapshot, len(ormVersions))
 	for i, row := range snapshot {
 		assert.Equal(t, row.Address, ormVersions[i].Address.Bytes())
 		assert.Equal(t, row.Slotid, uint32(ormVersions[i].SlotId))

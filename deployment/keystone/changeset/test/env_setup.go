@@ -28,10 +28,11 @@ import (
 	commontypes "github.com/smartcontractkit/chainlink/deployment/common/types"
 	"github.com/smartcontractkit/chainlink/deployment/cre/contracts"
 	"github.com/smartcontractkit/chainlink/deployment/cre/ocr3"
-	"github.com/smartcontractkit/chainlink/deployment/environment/memory"
 	envtest "github.com/smartcontractkit/chainlink/deployment/environment/test"
+	"github.com/smartcontractkit/chainlink/deployment/internal/jdtestutils"
 	"github.com/smartcontractkit/chainlink/deployment/keystone/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/keystone/changeset/internal"
+	"github.com/smartcontractkit/chainlink/deployment/utils/nodetestutils"
 
 	kcr "github.com/smartcontractkit/chainlink-evm/gethwrappers/keystone/generated/capabilities_registry_1_1_0"
 	forwarder "github.com/smartcontractkit/chainlink-evm/gethwrappers/keystone/generated/forwarder_1_0_0"
@@ -478,7 +479,7 @@ func setupMemoryNodeTest(
 
 	wfChains := map[uint64]cldf_evm.Chain{}
 	wfChains[registryChainSel] = blockchains.EVMChains()[registryChainSel]
-	wfConf := memory.NewNodesConfig{
+	wfConf := nodetestutils.NewNodesConfig{
 		LogLevel:       zapcore.InfoLevel,
 		BlockChains:    blockchains,
 		NumNodes:       c.WFDonConfig.N,
@@ -486,10 +487,10 @@ func setupMemoryNodeTest(
 		RegistryConfig: crConfig,
 		CustomDBSetup:  nil,
 	}
-	wfNodes := memory.NewNodes(t, wfConf)
+	wfNodes := nodetestutils.NewNodes(t, wfConf)
 	require.Len(t, wfNodes, c.WFDonConfig.N)
 
-	cwConf := memory.NewNodesConfig{
+	cwConf := nodetestutils.NewNodesConfig{
 		LogLevel:       zapcore.InfoLevel,
 		BlockChains:    blockchains,
 		NumNodes:       c.WriterDonConfig.N,
@@ -497,12 +498,12 @@ func setupMemoryNodeTest(
 		RegistryConfig: crConfig,
 		CustomDBSetup:  nil,
 	}
-	cwNodes := memory.NewNodes(t, cwConf)
+	cwNodes := nodetestutils.NewNodes(t, cwConf)
 	require.Len(t, cwNodes, c.WriterDonConfig.N)
 
 	assetChains := map[uint64]cldf_evm.Chain{}
 	assetChains[registryChainSel] = blockchains.EVMChains()[registryChainSel]
-	assetCfg := memory.NewNodesConfig{
+	assetCfg := nodetestutils.NewNodesConfig{
 		LogLevel:       zapcore.InfoLevel,
 		BlockChains:    blockchains,
 		NumNodes:       c.AssetDonConfig.N,
@@ -510,7 +511,7 @@ func setupMemoryNodeTest(
 		RegistryConfig: crConfig,
 		CustomDBSetup:  nil,
 	}
-	assetNodes := memory.NewNodes(t, assetCfg)
+	assetNodes := nodetestutils.NewNodes(t, assetCfg)
 	require.Len(t, assetNodes, c.AssetDonConfig.N)
 
 	dons := newMemoryDons()
@@ -518,10 +519,22 @@ func setupMemoryNodeTest(
 	dons.Put(newMemoryDon(c.AssetDonConfig.Name, assetNodes))
 	dons.Put(newMemoryDon(c.WriterDonConfig.Name, cwNodes))
 
-	env := memory.NewMemoryEnvironmentFromChainsNodes(
-		t.Context, lggr, blockchains, dons.AllNodes(),
+	var nodeIDs []string
+	for id := range dons.AllNodes() {
+		nodeIDs = append(nodeIDs, id)
+	}
+
+	env, err := environment.New(t.Context(),
+		environment.WithLogger(lggr),
+		environment.WithNodeIDs(nodeIDs),
+		environment.WithOffchainClient(jdtestutils.NewMemoryJobClient(dons.AllNodes())),
 	)
-	return dons, env
+	require.NoError(t, err)
+
+	// Override the blockchains with the ones we want to use
+	env.BlockChains = blockchains
+
+	return dons, *env
 }
 
 func registryChain(t *testing.T, chains map[uint64]cldf_evm.Chain) uint64 {

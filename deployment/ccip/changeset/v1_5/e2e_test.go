@@ -48,8 +48,12 @@ func TestE2ELegacy(t *testing.T) {
 				},
 			},
 		}),
-		testhelpers.WithNumOfChains(3),
-		testhelpers.WithChainIDs([]uint64{chainselectors.GETH_TESTNET.EvmChainID}))
+		testhelpers.WithEVMChainsBySelectors([]uint64{
+			chainselectors.GETH_TESTNET.Selector,
+			chainselectors.TEST_90000001.Selector,
+			chainselectors.TEST_90000002.Selector,
+		}),
+	)
 	state, err := stateview.LoadOnchainState(e.Env, stateview.WithLoadLegacyContracts(true))
 	require.NoError(t, err)
 	allChains := e.Env.BlockChains.ListChainSelectors(

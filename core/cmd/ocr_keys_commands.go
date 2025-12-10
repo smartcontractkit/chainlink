@@ -271,7 +271,7 @@ func (s *Shell) ExportOCRKey(c *cli.Context) (err error) {
 		return s.errorOut(errors.Wrapf(err, "Could not write %v", filepath))
 	}
 
-	_, err = os.Stderr.WriteString(fmt.Sprintf("Exported OCR key bundle %s to %s", ID, filepath))
+	_, err = fmt.Fprintf(os.Stderr, "Exported OCR key bundle %s to %s", ID, filepath)
 	if err != nil {
 		return s.errorOut(err)
 	}

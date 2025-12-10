@@ -172,26 +172,12 @@ func (n Node) AllOCRConfigs() map[chain_selectors.ChainDetails]OCRConfig {
 }
 
 func (n Node) OCRConfigForChainSelector(chainSel uint64) (OCRConfig, bool) {
-	fam, err := chain_selectors.GetSelectorFamily(chainSel)
-	if err != nil {
-		return OCRConfig{}, false
+	chainSelToConfig := make(map[uint64]OCRConfig, len(n.SelToOCRConfig))
+	for details, config := range n.SelToOCRConfig {
+		chainSelToConfig[details.ChainSelector] = config
 	}
 
-	id, err := chain_selectors.GetChainIDFromSelector(chainSel)
-	if err != nil {
-		return OCRConfig{}, false
-	}
-
-	want, err := chain_selectors.GetChainDetailsByChainIDAndFamily(id, fam)
-	if err != nil {
-		return OCRConfig{}, false
-	}
-	// only applicable for test related simulated chains, the chains don't have a name
-	if want.ChainName == "" {
-		want.ChainName = strconv.FormatUint(want.ChainSelector, 10)
-	}
-
-	c, ok := n.SelToOCRConfig[want]
+	c, ok := chainSelToConfig[chainSel]
 	return c, ok
 }
 

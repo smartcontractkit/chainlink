@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strconv"
 	"sync"
 	"time"
 
@@ -83,7 +84,7 @@ func NewTransmitQueue(lggr logger.Logger, serverURL, feedID string, maxlen int, 
 		maxlen,
 		false,
 		nil,
-		transmitQueueLoad.WithLabelValues(feedID, serverURL, fmt.Sprintf("%d", maxlen)),
+		transmitQueueLoad.WithLabelValues(feedID, serverURL, strconv.Itoa(maxlen)),
 	}
 }
 
@@ -234,8 +235,8 @@ func (pq priorityQueue) Len() int { return len(pq) }
 func (pq priorityQueue) Less(i, j int) bool {
 	// We want Pop to give us the latest round, so we use greater than here
 	// i.e. a later epoch/round is "less" than an earlier one
-	return pq[i].ReportCtx.ReportTimestamp.Epoch > pq[j].ReportCtx.ReportTimestamp.Epoch &&
-		pq[i].ReportCtx.ReportTimestamp.Round > pq[j].ReportCtx.ReportTimestamp.Round
+	return pq[i].ReportCtx.Epoch > pq[j].ReportCtx.Epoch &&
+		pq[i].ReportCtx.Round > pq[j].ReportCtx.Round
 }
 
 func (pq priorityQueue) Swap(i, j int) {

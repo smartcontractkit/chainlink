@@ -6,8 +6,6 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"github.com/smartcontractkit/quarantine"
-
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/blockchains"
 	t_helpers "github.com/smartcontractkit/chainlink/system-tests/tests/test-helpers"
 )
@@ -126,7 +124,6 @@ func Test_CRE_V2_EVM_Suite(t *testing.T) {
 	})
 
 	t.Run("[v2] EVM LogTrigger - "+topology, func(t *testing.T) {
-		quarantine.Flaky(t, "PLEX-1894")
 		ExecuteEVMLogTriggerTest(t, testEnv)
 	})
 }
@@ -167,4 +164,10 @@ func Test_CRE_V2_Billing_EVM_Write(t *testing.T) {
 	priceProvider, porWfCfg := beforePoRTest(t, testEnv, "por-workflowV2-billing", PoRWFV2Location)
 	porWfCfg.FeedIDs = []string{porWfCfg.FeedIDs[0]}
 	ExecutePoRTest(t, testEnv, priceProvider, porWfCfg, true)
+}
+
+func Test_CRE_V2_Beholder_Suite(t *testing.T) {
+	testEnv := t_helpers.SetupTestEnvironmentWithConfig(t, t_helpers.GetDefaultTestConfig(t), append(v2RegistriesFlags, "--with-dashboards")...)
+
+	ExecuteLogStreamingTest(t, testEnv)
 }

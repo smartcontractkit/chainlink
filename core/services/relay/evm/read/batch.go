@@ -53,7 +53,7 @@ type Call struct {
 func (c BatchCall) String() string {
 	callString := ""
 	for _, call := range c {
-		callString += fmt.Sprintf("%s\n", call.String())
+		callString += call.String() + "\n"
 	}
 	return callString
 }
@@ -343,7 +343,6 @@ func (c *defaultEvmBatchCaller) batchCallLimit(ctx context.Context, blockNumber 
 		eg.SetLimit(int(c.parallelRpcCallsLimit))
 
 		for jobIdx := range jobs {
-
 			eg.Go(func() error {
 				res, err := c.batchCall(ctx, jobs[jobIdx].blockNumber, jobs[jobIdx].calls)
 				if err != nil {

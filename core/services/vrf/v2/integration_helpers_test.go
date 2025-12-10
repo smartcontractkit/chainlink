@@ -239,9 +239,10 @@ func testMultipleConsumersNeedBHS(
 		v2PlusCoordinatorAddress string
 	)
 
-	if vrfVersion == vrfcommon.V2 {
+	switch vrfVersion {
+	case vrfcommon.V2:
 		v2CoordinatorAddress = coordinatorAddress.String()
-	} else if vrfVersion == vrfcommon.V2Plus {
+	case vrfcommon.V2Plus:
 		v2PlusCoordinatorAddress = coordinatorAddress.String()
 	}
 
@@ -390,9 +391,10 @@ func testMultipleConsumersNeedTrustedBHS(
 		v2PlusCoordinatorAddress string
 	)
 
-	if vrfVersion == vrfcommon.V2 {
+	switch vrfVersion {
+	case vrfcommon.V2:
 		v2CoordinatorAddress = coordinatorAddress.String()
-	} else if vrfVersion == vrfcommon.V2Plus {
+	case vrfcommon.V2Plus:
 		v2PlusCoordinatorAddress = coordinatorAddress.String()
 	}
 
@@ -788,9 +790,10 @@ func testBlockHeaderFeeder(
 		v2coordinatorAddress     string
 		v2plusCoordinatorAddress string
 	)
-	if vrfVersion == vrfcommon.V2 {
+	switch vrfVersion {
+	case vrfcommon.V2:
 		v2coordinatorAddress = coordinatorAddress.String()
-	} else if vrfVersion == vrfcommon.V2Plus {
+	case vrfcommon.V2Plus:
 		v2plusCoordinatorAddress = coordinatorAddress.String()
 	}
 

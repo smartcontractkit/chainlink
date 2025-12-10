@@ -91,7 +91,7 @@ func TestKeyRing_Encrypt_Decrypt(t *testing.T) {
 		require.Equal(t, internal.RawBytes(originalKeyRing.OCR[ocr[1].ID()]), internal.RawBytes(decryptedKeyRing.OCR[ocr[1].ID()]))
 		require.Equal(t, originalKeyRing.OCR[ocr[1].ID()].OffChainEncryption, decryptedKeyRing.OCR[ocr[1].ID()].OffChainEncryption)
 		// compare ocr2 keys
-		require.Equal(t, len(chaintype.SupportedChainTypes), len(decryptedKeyRing.OCR2))
+		require.Len(t, decryptedKeyRing.OCR2, len(chaintype.SupportedChainTypes))
 		for i := range ocr2 {
 			id := ocr2[i].ID()
 			require.Equal(t, originalKeyRing.OCR2[id].ID(), decryptedKeyRing.OCR2[id].ID())

@@ -83,7 +83,7 @@ func TestForwarderOCR2Basic(t *testing.T) {
 		t, sethClient, common.HexToAddress(linkContract.Address()), len(workerNodes),
 	)
 
-	require.Equal(t, len(workerNodes), len(operators), "Number of operators should match number of worker nodes")
+	require.Len(t, operators, len(workerNodes), "Number of operators should match number of worker nodes")
 
 	for i := range workerNodes {
 		actions.AcceptAuthorizedReceiversOperator(

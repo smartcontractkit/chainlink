@@ -19,7 +19,6 @@ func TestDisableRetryExampleChangeset(t *testing.T) {
 }
 
 func TestUpdateInputExampleChangeset(t *testing.T) {
-
 	env, err := environment.New(t.Context())
 	require.NoError(t, err)
 

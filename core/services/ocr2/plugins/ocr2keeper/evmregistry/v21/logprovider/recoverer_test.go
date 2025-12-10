@@ -195,14 +195,14 @@ func TestLogRecoverer_Clean(t *testing.T) {
 			defer r.lock.RUnlock()
 
 			pending := r.pending
-			require.Equal(t, len(tc.wantPending), len(pending))
+			require.Len(t, pending, len(tc.wantPending))
 			sort.Slice(pending, func(i, j int) bool {
 				return pending[i].WorkID < pending[j].WorkID
 			})
 			for i := range pending {
 				require.Equal(t, tc.wantPending[i].WorkID, pending[i].WorkID)
 			}
-			require.Equal(t, len(tc.wantVisited), len(r.visited))
+			require.Len(t, r.visited, len(tc.wantVisited))
 			for _, id := range tc.wantVisited {
 				_, ok := r.visited[id]
 				require.True(t, ok)
@@ -441,7 +441,7 @@ func TestLogRecoverer_Recover(t *testing.T) {
 
 			proposals, err := recoverer.GetRecoveryProposals(ctx)
 			require.NoError(t, err)
-			require.Equal(t, len(tc.proposalsWorkIDs), len(proposals))
+			require.Len(t, proposals, len(tc.proposalsWorkIDs))
 			if len(proposals) > 0 {
 				sort.Slice(proposals, func(i, j int) bool {
 					return proposals[i].WorkID < proposals[j].WorkID
@@ -552,7 +552,7 @@ func TestLogRecoverer_FilterFinalizedStates(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			recoverer, _, _, _ := setupTestRecoverer(t, time.Millisecond*50, int64(100))
 			state := recoverer.filterFinalizedStates(upkeepFilter{}, tc.logs, tc.states)
-			require.Equal(t, len(tc.want), len(state))
+			require.Len(t, state, len(tc.want))
 			for i := range state {
 				require.Equal(t, tc.want[i].LogIndex, state[i].LogIndex)
 			}
@@ -1163,7 +1163,7 @@ func TestLogRecoverer_pending(t *testing.T) {
 			}
 			pending := r.pending
 			require.GreaterOrEqual(t, len(pending), len(tc.new))
-			require.Equal(t, len(tc.want), len(pending))
+			require.Len(t, pending, len(tc.want))
 			sort.Slice(pending, func(i, j int) bool {
 				return pending[i].WorkID < pending[j].WorkID
 			})

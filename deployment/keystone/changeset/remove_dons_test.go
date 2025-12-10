@@ -127,7 +127,7 @@ func TestRemoveDONs(t *testing.T) {
 				RegistryRef:      te.CapabilityRegistryAddressRef(),
 			}
 			if tt.useMCMS {
-				req.MCMSConfig = &changeset.MCMSConfig{MinDuration: 0}
+				req.MCMSConfig = &changeset.MCMSConfig{MinDelay: 0}
 			}
 
 			// 4) Call the RemoveDONs changeset

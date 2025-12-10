@@ -264,7 +264,9 @@ func (c *gatewayConnector) reconnectLoop(gatewayState *gatewayState) {
 			c.lggr.Infow("connected successfully", "url", gatewayState.url)
 			closeCh := gatewayState.conn.Reset(conn)
 			gatewayState.signal()
-			<-closeCh
+			if closeCh != nil { // nil means already closed
+				<-closeCh
+			}
 			c.lggr.Infow("connection closed", "url", gatewayState.url)
 
 			// reset backoff

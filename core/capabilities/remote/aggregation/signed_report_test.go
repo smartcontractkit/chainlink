@@ -470,7 +470,6 @@ func TestSignedReportAggregator_Aggregate(t *testing.T) {
 		gotLogLine := gotLog.All()[0]
 		assert.True(t, logContainErr(t, gotLogLine, aggregation.ErrMalformedSigner), "expected error to be contained in log")
 	})
-
 }
 
 // TODO this seems useful in our common logging package

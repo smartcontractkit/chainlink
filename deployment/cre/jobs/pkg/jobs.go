@@ -12,8 +12,8 @@ import (
 )
 
 type ProposeJobRequest struct {
-	Spec      string // toml
 	DONName   string
+	Spec      string // toml
 	Env       string // staging, testnet, mainnet, etc...
 	JobLabels map[string]string
 	DONFilter *nodeapiv1.ListNodesRequest_Filter

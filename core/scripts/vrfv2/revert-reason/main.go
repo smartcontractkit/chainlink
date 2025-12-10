@@ -36,7 +36,7 @@ func main() {
 		GasPrice: tx.GasPrice(),
 	}
 	r, err := ec.CallContract(context.Background(), call, re.BlockNumber)
-	fmt.Println("call contract", "r", r, "err", err)
+	fmt.Println("call contract", "r", string(r), "err", err)
 	rpcError, err := evmclient.ExtractRPCError(err)
 	fmt.Println("extracting rpc error", rpcError.String(), err)
 }

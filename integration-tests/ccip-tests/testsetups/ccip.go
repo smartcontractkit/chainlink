@@ -291,7 +291,7 @@ func (c *CCIPTestConfig) SetNetworkPairs(lggr zerolog.Logger) error {
 				eth1 := ctf_config_types.EthereumVersion_Eth1
 				geth := ctf_config_types.ExecutionLayer_Geth
 
-				c.EnvInput.PrivateEthereumNetworks[fmt.Sprint(chainID)] = &ctf_config.EthereumNetworkConfig{
+				c.EnvInput.PrivateEthereumNetworks[strconv.FormatInt(chainID, 10)] = &ctf_config.EthereumNetworkConfig{
 					EthereumVersion:     &eth1,
 					ExecutionLayer:      &geth,
 					EthereumChainConfig: chainConfig,
@@ -900,7 +900,6 @@ func (o *CCIPTestSetUpOutputs) WaitForPriceUpdates() {
 					Uint64("dest_chain", lane.Source.DestinationChainId).
 					Str("price_registry", lane.Source.Common.PriceRegistry.Address()).
 					Msg("Stopping price update watch")
-
 			}()
 			var allTokens []common.Address
 			for _, token := range lane.Source.Common.BridgeTokens {
@@ -1189,7 +1188,7 @@ func CCIPDefaultTestSetUp(
 	err = laneconfig.WriteLanesToJSON(setUpArgs.LaneConfigFile, setUpArgs.LaneConfig)
 	require.NoError(t, err)
 
-	require.Equal(t, len(setUpArgs.Lanes), len(testConfig.NetworkPairs),
+	require.Len(t, testConfig.NetworkPairs, len(setUpArgs.Lanes),
 		"Number of bi-directional lanes should be equal to number of network pairs")
 	// only required for env set up
 	setUpArgs.LaneContractsByNetwork = nil

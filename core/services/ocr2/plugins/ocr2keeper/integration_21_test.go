@@ -230,8 +230,8 @@ func TestIntegration_KeeperPluginLogUpkeep(t *testing.T) {
 
 	ids, addrs, contracts := deployUpkeeps(t, backend, carrol, steve, linkToken, registry, upkeeps)
 	require.Len(t, ids, upkeeps)
-	require.Equal(t, len(ids), len(contracts))
-	require.Equal(t, len(ids), len(addrs))
+	require.Len(t, contracts, len(ids))
+	require.Len(t, addrs, len(ids))
 
 	commit()
 

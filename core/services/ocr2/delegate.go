@@ -34,6 +34,7 @@ import (
 	ocr2keepers21config "github.com/smartcontractkit/chainlink-automation/pkg/v3/config"
 	ocr2keepers21 "github.com/smartcontractkit/chainlink-automation/pkg/v3/plugin"
 	evmconfig "github.com/smartcontractkit/chainlink-evm/pkg/config"
+
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/vault/vaulttypes"
 	"github.com/smartcontractkit/chainlink/v2/core/config/env"
 	syncerV2 "github.com/smartcontractkit/chainlink/v2/core/services/workflows/syncer/v2"
@@ -44,6 +45,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/loop"
 	"github.com/smartcontractkit/chainlink-common/pkg/loop/reportingplugins"
 	"github.com/smartcontractkit/chainlink-common/pkg/loop/reportingplugins/ocr3"
+	"github.com/smartcontractkit/chainlink-common/pkg/settings/limits"
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
 	cciptypes "github.com/smartcontractkit/chainlink-common/pkg/types/ccip"
@@ -146,6 +148,7 @@ type Delegate struct {
 	dontimeStore                   *dontime.Store
 	gatewayConnectorServiceWrapper *gatewayconnector.ServiceWrapper
 	WorkflowRegistrySyncer         syncerV2.WorkflowRegistrySyncer
+	limitsFactory                  limits.Factory
 }
 
 type DelegateConfig interface {
@@ -198,6 +201,7 @@ type ocr2Config interface {
 	KeyBundleID() (string, error)
 	SimulateTransactions() bool
 	TraceLogging() bool
+	SampleTelemetry() bool
 	CaptureAutomationCustomTelemetry() bool
 	AllowNoBootstrappers() bool
 	KeyValueStoreRootDir() string
@@ -259,6 +263,7 @@ type DelegateOpts struct {
 	WorkflowKs                     keystore.Workflow
 	DKGRecipientKs                 keystore.DKGRecipient
 	WorkflowRegistrySyncer         syncerV2.WorkflowRegistrySyncer
+	LimitsFactory                  limits.Factory
 }
 
 func NewDelegate(
@@ -292,6 +297,7 @@ func NewDelegate(
 		retirementReportCache:          opts.RetirementReportCache,
 		gatewayConnectorServiceWrapper: opts.GatewayConnectorServiceWrapper,
 		WorkflowRegistrySyncer:         opts.WorkflowRegistrySyncer,
+		limitsFactory:                  opts.LimitsFactory,
 	}
 }
 
@@ -580,7 +586,7 @@ func (d *Delegate) ServicesForSpec(ctx context.Context, jb job.Job) ([]job.Servi
 	case types.CCIPExecution:
 		return d.newServicesCCIPExecution(ctx, lggr, jb, bootstrapPeers, kb, ocrDB, lc, transmitterID)
 	case types.VaultPlugin:
-		return d.newServicesVaultPlugin(ctx, lggr, jb, bootstrapPeers, kb, ocrDB, lc, d.capabilitiesRegistry, d.gatewayConnectorServiceWrapper, d.WorkflowRegistrySyncer)
+		return d.newServicesVaultPlugin(ctx, lggr, jb, bootstrapPeers, kb, ocrDB, lc, d.capabilitiesRegistry, d.gatewayConnectorServiceWrapper, d.WorkflowRegistrySyncer, d.limitsFactory)
 
 	case types.DonTimePlugin:
 		return d.newDonTimePlugin(ctx, lggr, jb, bootstrapPeers, kb, ocrDB, lc)
@@ -647,6 +653,7 @@ func (d *Delegate) newServicesVaultPlugin(
 	capabilitiesRegistry core.CapabilitiesRegistry,
 	wrapper *gatewayconnector.ServiceWrapper,
 	syncer syncerV2.WorkflowRegistrySyncer,
+	limitsFactory limits.Factory,
 ) (srvs []job.ServiceCtx, err error) {
 	spec := jb.OCR2OracleSpec
 
@@ -679,7 +686,10 @@ func (d *Delegate) newServicesVaultPlugin(
 	expiryDuration := cfg.RequestExpiryDuration.Duration()
 	requestStoreHandler := requests.NewHandler(lggr, requestStore, clock, expiryDuration)
 	lpk := vaultcap.NewLazyPublicKey()
-	vaultCapability := vaultcap.NewCapability(lggr, clock, expiryDuration, requestStoreHandler, vaultcap.NewRequestAuthorizer(lggr, syncer), capabilitiesRegistry, lpk)
+	vaultCapability, err := vaultcap.NewCapability(lggr, clock, expiryDuration, requestStoreHandler, vaultcap.NewRequestAuthorizer(lggr, syncer), capabilitiesRegistry, lpk, limitsFactory)
+	if err != nil {
+		return nil, fmt.Errorf("failed to instantiate vault plugin: failed to create vault capability: %w", err)
+	}
 	srvs = append(srvs, vaultCapability)
 
 	handler, err := vaultcap.NewGatewayHandler(capabilitiesRegistry, vaultCapability, gwconnector, d.lggr)
@@ -727,6 +737,12 @@ func (d *Delegate) newServicesVaultPlugin(
 	})
 	srvs = append(srvs, ocrLogger)
 
+	dm, err := vaultocrplugin.NewDiskMonitor(lggr, d.cfg.OCR2().KeyValueStoreRootDir())
+	if err != nil {
+		return nil, fmt.Errorf("failed to instantiate vault plugin: failed to create disk monitor: %w", err)
+	}
+	srvs = append(srvs, dm)
+
 	fullPath := filepath.Join(d.cfg.OCR2().KeyValueStoreRootDir(), jb.ExternalJobID.String())
 	err = utils.EnsureDirAndMaxPerms(fullPath, os.FileMode(0700))
 	if err != nil {
@@ -767,6 +783,7 @@ func (d *Delegate) newServicesVaultPlugin(
 		vaultocrplugin.NewVaultORM(d.ds),
 		&dkgRecipientKey,
 		lpk,
+		limitsFactory,
 	)
 	if err != nil {
 		return nil, fmt.Errorf("failed to instantiate vault plugin: failed to create reporting plugin factory: %w", err)
@@ -1002,7 +1019,7 @@ func (d *Delegate) newServicesGenericPlugin(
 		return nil, fmt.Errorf("failed to create relayer set: %w", err)
 	}
 
-	relayer, err := d.RelayGetter.Get(rid)
+	relayer, err := d.Get(rid)
 	if err != nil {
 		return nil, ErrRelayNotEnabled{Err: err, Relay: spec.Relay, PluginName: pCfg.PluginName}
 	}
@@ -1225,7 +1242,7 @@ func (d *Delegate) newServicesMercury(
 	if rid.Network != relay.NetworkEVM {
 		return nil, fmt.Errorf("mercury services: expected EVM relayer got %q", rid.Network)
 	}
-	relayer, err := d.RelayGetter.Get(rid)
+	relayer, err := d.Get(rid)
 	if err != nil {
 		return nil, ErrRelayNotEnabled{Err: err, Relay: spec.Relay, PluginName: "mercury"}
 	}
@@ -1328,7 +1345,7 @@ func (d *Delegate) newServicesLLO(
 	if err != nil {
 		return nil, ErrJobSpecNoRelayer{Err: err, PluginName: "streams"}
 	}
-	relayer, err := d.RelayGetter.Get(rid)
+	relayer, err := d.Get(rid)
 	if err != nil {
 		return nil, ErrRelayNotEnabled{Err: err, Relay: spec.Relay, PluginName: "streams"}
 	}
@@ -1432,6 +1449,7 @@ func (d *Delegate) newServicesLLO(
 		ChainID:                  rid.ChainID,
 
 		TraceLogging:                 d.cfg.OCR2().TraceLogging(),
+		SampleTelemetry:              d.cfg.OCR2().SampleTelemetry(),
 		BinaryNetworkEndpointFactory: d.peerWrapper.Peer2,
 		V2Bootstrappers:              bootstrapPeers,
 		ContractTransmitter:          provider.ContractTransmitter(),
@@ -1496,7 +1514,7 @@ func (d *Delegate) newServicesMedian(
 		d.cfg,
 	)
 
-	relayer, err := d.RelayGetter.Get(rid)
+	relayer, err := d.Get(rid)
 	if err != nil {
 		return nil, ErrRelayNotEnabled{Err: err, PluginName: "median", Relay: spec.Relay}
 	}
@@ -1573,7 +1591,7 @@ func (d *Delegate) newServicesOCR2Keepers21(
 	}
 
 	transmitterID := spec.TransmitterID.String
-	relayer, err := d.RelayGetter.Get(rid)
+	relayer, err := d.Get(rid)
 	if err != nil {
 		return nil, ErrRelayNotEnabled{Err: err, Relay: spec.Relay, PluginName: "ocr2keepers"}
 	}
@@ -2092,7 +2110,7 @@ func (d *Delegate) ccipCommitGetDstProvider(ctx context.Context, jb job.Job, plu
 	}
 
 	// Get provider from dest chain
-	dstRelayer, err := d.RelayGetter.Get(dstRid)
+	dstRelayer, err := d.Get(dstRid)
 	if err != nil {
 		return nil, err
 	}
@@ -2149,7 +2167,7 @@ func (d *Delegate) ccipCommitGetSrcProvider(ctx context.Context, jb job.Job, plu
 	srcChainIDstr := strconv.FormatUint(srcChainID, 10)
 
 	// Get provider from source chain
-	srcRelayer, err := d.RelayGetter.Get(types.RelayID{Network: spec.Relay, ChainID: srcChainIDstr})
+	srcRelayer, err := d.Get(types.RelayID{Network: spec.Relay, ChainID: srcChainIDstr})
 	if err != nil {
 		return nil, 0, err
 	}
@@ -2254,7 +2272,7 @@ func (d *Delegate) ccipExecGetDstProvider(ctx context.Context, jb job.Job, plugi
 	}
 
 	// Get provider from dest chain
-	dstRelayer, err := d.RelayGetter.Get(dstRid)
+	dstRelayer, err := d.Get(dstRid)
 	if err != nil {
 		return nil, err
 	}
@@ -2305,7 +2323,7 @@ func (d *Delegate) ccipExecGetSrcProvider(ctx context.Context, jb job.Job, plugi
 	srcChainIDstr := strconv.FormatUint(srcChainID, 10)
 
 	// Get provider from source chain
-	srcRelayer, err := d.RelayGetter.Get(types.RelayID{Network: spec.Relay, ChainID: srcChainIDstr})
+	srcRelayer, err := d.Get(types.RelayID{Network: spec.Relay, ChainID: srcChainIDstr})
 	if err != nil {
 		return nil, 0, fmt.Errorf("failed to get relayer: %w", err)
 	}

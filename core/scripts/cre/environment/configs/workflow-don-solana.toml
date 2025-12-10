@@ -75,19 +75,7 @@
       # 5002 is the web API capabilities port for incoming requests
       # 15002 is the vault port for incoming requests
       custom_ports = ["13401:7777","5002:5002","15002:15002"]
-      user_config_overrides = """
-      [Log]
-      Level = 'debug'
-      JSONConsole = true
-
-      # Remove this bit to allow downloading workflows from remote sources
-      [CRE.WorkflowFetcher]
-      URL = "file:///home/chainlink/workflows"
-
-      [Billing]
-      URL = "billing-platform-service:2223"
-      TLSEnabled = false
-      """
+      user_config_overrides = ""
 
   [[nodesets.node_specs]]
     roles = ["plugin"]
@@ -96,19 +84,7 @@
       docker_file = "core/chainlink.Dockerfile"
       custom_ports = ["13402:7777"]   # External:internal port mapping
       #image = "chainlink-tmp:latest"
-      user_config_overrides = """
-      [Log]
-      Level = 'debug'
-      JSONConsole = true
-
-      # Remove this bit to allow downloading workflows from remote sources
-      [CRE.WorkflowFetcher]
-      URL = "file:///home/chainlink/workflows"
-
-      [Billing]
-      URL = "billing-platform-service:2223"
-      TLSEnabled = false
-      """
+      user_config_overrides = ""
 
   [[nodesets.node_specs]]
     roles = ["plugin"]
@@ -117,19 +93,7 @@
       docker_file = "core/chainlink.Dockerfile"
       custom_ports = ["13403:7777"]   # External:internal port mapping
       #image = "chainlink-tmp:latest"
-      user_config_overrides = """
-      [Log]
-      Level = 'debug'
-      JSONConsole = true
-
-      # Remove this bit to allow downloading workflows from remote sources
-      [CRE.WorkflowFetcher]
-      URL = "file:///home/chainlink/workflows"
-
-      [Billing]
-      URL = "billing-platform-service:2223"
-      TLSEnabled = false
-      """
+      user_config_overrides = ""
 
   [[nodesets.node_specs]]
     roles = ["plugin"]
@@ -138,19 +102,7 @@
       docker_file = "core/chainlink.Dockerfile"
       #image = "chainlink-tmp:latest"
       custom_ports = ["13404:7777"]   # External:internal port mapping
-      user_config_overrides = """
-      [Log]
-      Level = 'debug'
-      JSONConsole = true
-
-      # Remove this bit to allow downloading workflows from remote sources
-      [CRE.WorkflowFetcher]
-      URL = "file:///home/chainlink/workflows"
-
-      [Billing]
-      URL = "billing-platform-service:2223"
-      TLSEnabled = false
-      """
+      user_config_overrides = ""
 
   [[nodesets.node_specs]]
     roles = ["plugin"]
@@ -159,16 +111,4 @@
       docker_file = "core/chainlink.Dockerfile"
       #image = "chainlink-tmp:latest"
       custom_ports = ["13405:7777"]   # External:internal port mapping
-      user_config_overrides = """
-      [Log]
-      Level = 'debug'
-      JSONConsole = true
-
-      # Remove this bit to allow downloading workflows from remote sources
-      [CRE.WorkflowFetcher]
-      URL = "file:///home/chainlink/workflows"
-
-      [Billing]
-      URL = "billing-platform-service:2223"
-      TLSEnabled = false
-      """
+      user_config_overrides = ""

@@ -63,6 +63,6 @@ func (o *ObservedOffRampReader) GetTokens(ctx context.Context) (cciptypes.OffRam
 
 func (o *ObservedOffRampReader) GetSendersNonce(ctx context.Context, senders []cciptypes.Address) (map[cciptypes.Address]uint64, error) {
 	return withObservedInteraction(o.metric, "ListSenderNonces", func() (map[cciptypes.Address]uint64, error) {
-		return o.OffRampReader.ListSenderNonces(ctx, senders)
+		return o.ListSenderNonces(ctx, senders)
 	})
 }

@@ -213,6 +213,7 @@ AllowNoBootstrappers = false
 DefaultTransactionQueueDepth = 1
 SimulateTransactions = false
 TraceLogging = false
+SampleTelemetry = false
 KeyValueStoreRootDir = '~/.chainlink-data'
 
 [OCR]
@@ -400,6 +401,7 @@ InsecureConnection = false
 TraceSampleRatio = 0.01
 EmitterBatchProcessor = true
 EmitterExportTimeout = '1s'
+AuthHeadersTTL = '0s'
 ChipIngressEndpoint = ''
 ChipIngressInsecureConnection = false
 HeartbeatInterval = '1s'
@@ -536,7 +538,7 @@ EnforceRepeatableRead = true
 DeathDeclarationDelay = '1m0s'
 NewHeadsPollInterval = '0s'
 VerifyChainID = true
-ExternalRequestMaxResponseSize = 50000
+ExternalRequestMaxResponseSize = 1000000
 
 [EVM.OCR]
 ContractConfirmations = 4

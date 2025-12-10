@@ -32,6 +32,10 @@ var (
 		DON:                      getDON(1, []ragep2ptypes.PeerID{p2pID1}, 0),
 		CapabilityConfigurations: defaultCapCfgs,
 	}
+	secondaryRegistryDon = registrysyncer.DON{
+		DON:                      getDON(2, []ragep2ptypes.PeerID{p2pID1}, 0),
+		CapabilityConfigurations: defaultCapCfgs,
+	}
 )
 
 func getP2PID(id uint32) ragep2ptypes.PeerID {

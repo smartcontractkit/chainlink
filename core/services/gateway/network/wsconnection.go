@@ -49,6 +49,7 @@ type wsConnectionWrapper struct {
 	writeCh    chan writeItem
 	readCh     chan ReadItem
 	shutdownCh chan struct{}
+	wg         services.WaitGroup
 }
 
 func (c *wsConnectionWrapper) HealthReport() map[string]error {
@@ -87,6 +88,9 @@ func NewWSConnectionWrapper(lggr logger.Logger) WSConnectionWrapper {
 
 func (c *wsConnectionWrapper) Start(_ context.Context) error {
 	return c.StartOnce("WSConnectionWrapper", func() error {
+		if err := c.wg.TryAdd(1); err != nil {
+			return err // should never happen
+		}
 		// write pump runs until Shutdown() is called
 		go c.writePump()
 		return nil
@@ -96,7 +100,7 @@ func (c *wsConnectionWrapper) Start(_ context.Context) error {
 // Reset:
 //  1. replaces the underlying connection and shuts the old one down
 //  2. starts a new read goroutine that pushes received messages to readCh
-//  3. returns channel that closes when connection closes
+//  3. returns channel that closes when connection closes, or nil if closed or newConn is nil.
 func (c *wsConnectionWrapper) Reset(newConn *websocket.Conn) <-chan error {
 	oldConn := c.conn.Swap(newConn)
 
@@ -104,6 +108,9 @@ func (c *wsConnectionWrapper) Reset(newConn *websocket.Conn) <-chan error {
 		oldConn.Close()
 	}
 	if newConn == nil {
+		return nil
+	}
+	if err := c.wg.TryAdd(1); err != nil {
 		return nil
 	}
 	closeCh := make(chan error, 1)
@@ -142,11 +149,13 @@ func (c *wsConnectionWrapper) Close() error {
 	return c.StopOnce("WSConnectionWrapper", func() error {
 		close(c.shutdownCh)
 		c.Reset(nil)
+		c.wg.Wait()
 		return nil
 	})
 }
 
 func (c *wsConnectionWrapper) writePump() {
+	defer c.wg.Done()
 	for {
 		select {
 		case wsMsg := <-c.writeCh:
@@ -170,6 +179,7 @@ func (c *wsConnectionWrapper) writePump() {
 }
 
 func (c *wsConnectionWrapper) readPump(conn *websocket.Conn, closeCh chan<- error) {
+	defer c.wg.Done()
 	for {
 		msgType, data, err := conn.ReadMessage()
 		if err != nil {
