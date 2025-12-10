@@ -226,6 +226,7 @@ func TestMCMSTransaction_BuildProposal(t *testing.T) {
 		require.NoError(t, err)
 
 		expectedValidUntil := time.Now().Add(validDuration).Unix()
-		assert.Equal(t, uint32(expectedValidUntil), p.ValidUntil) //nolint:gosec // G115
+		// Using InDelta to allow for slight timing differences during test execution
+		assert.InDelta(t, uint32(expectedValidUntil), p.ValidUntil, 1, "ValidUntil should be within 1 second of expected value") //nolint:gosec // G115
 	})
 }
