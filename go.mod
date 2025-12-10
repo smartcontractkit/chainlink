@@ -87,7 +87,7 @@ require (
 	github.com/smartcontractkit/chainlink-ccv v0.0.0-20251208105135-980e1424951b
 	github.com/smartcontractkit/chainlink-common v0.9.6-0.20251125103916-0b41e73b80c4
 	github.com/smartcontractkit/chainlink-common/pkg/chipingress v0.0.10
-	github.com/smartcontractkit/chainlink-data-streams v0.1.7-0.20251123170926-313d8827bd6f
+	github.com/smartcontractkit/chainlink-data-streams v0.1.7-0.20251209111830-ccd12a5b2a19
 	github.com/smartcontractkit/chainlink-evm v0.3.4-0.20251208160518-8173bbd516d5
 	github.com/smartcontractkit/chainlink-evm/gethwrappers v0.0.0-20251022075638-49d961001d1b
 	github.com/smartcontractkit/chainlink-feeds v0.1.2-0.20250227211209-7cd000095135
