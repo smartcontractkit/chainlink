@@ -269,7 +269,7 @@ func Test_ChannelDefinitionCache_Integration(t *testing.T) {
 
 		testutils.WaitForLogMessageWithField(t, observedLogs,
 			"Error while fetching channel definitions",
-			"err", "invalid character '{' looking for beginning of object key string")
+			"err", "failed to fetch channel definitions: failed to decode channel definitions JSON from http://example.com/foo: invalid character '{' looking for beginning of object key string")
 		assert.Empty(t, cdc.Definitions(llotypes.ChannelDefinitions{}))
 	})
 
@@ -1379,15 +1379,18 @@ func Test_ChannelDefinitionCache_OwnerAndAdderMerging(t *testing.T) {
 		_ = cdc.Definitions(llotypes.ChannelDefinitions{})
 
 		// Verify error is logged and channels are not merged
-		testutils.WaitForLogMessageWithField(t, observedLogs, "failed to merge definitions",
-			"err", "channels per adder limit exceeded")
+		testutils.WaitForLogMessageWithField(t, observedLogs, "adder limit exceeded, skipping remaining definitions for source",
+			"source", fmt.Sprintf("%d", adder1ID))
 
-		// Verify no channels from this definition were added
+		// Verify no channels above the limit were added
 		defs := cdc.Definitions(llotypes.ChannelDefinitions{})
-		for i := uint32(800); i < 800+channeldefinitions.MaxChannelsPerAdder+1; i++ {
-			_, exists := defs[i]
-			assert.False(t, exists, "channel %d should not exist (limit exceeded)", i)
+		var addedDefinitionsCount int
+		for _, def := range defs {
+			if def.Source == adder1ID {
+				addedDefinitionsCount++
+			}
 		}
+		require.Equal(t, addedDefinitionsCount, channeldefinitions.MaxChannelsPerAdder)
 	})
 
 	t.Run("deterministic processing order", func(t *testing.T) {

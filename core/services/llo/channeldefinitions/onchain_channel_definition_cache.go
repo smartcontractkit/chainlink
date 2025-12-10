@@ -78,9 +78,6 @@ var (
 	ChannelDefinitionAdded = (channel_config_store.ChannelConfigStoreChannelDefinitionAdded{}).Topic()
 	// NoLimitSortAsc is a query configuration that sorts results by sequence in ascending order with no limit.
 	NoLimitSortAsc = query.NewLimitAndSort(query.Limit{}, query.NewSortBySequence(query.Asc))
-
-	// errChannelsPerAdderLimitExceeded is returned when an adder definition file exceeds MaxChannelsPerAdder.
-	errChannelsPerAdderLimitExceeded = errors.New("channels per adder limit exceeded")
 )
 
 func init() {
@@ -520,11 +517,7 @@ func buildFeedIDMap(definitions llotypes.ChannelDefinitions) map[common.Hash]uin
 // FeedID uniqueness is enforced:
 //   - All channels must have unique FeedIDs in their options. If a new channel has a FeedID that
 //     collides with an existing channel, the new channel is logged and skipped (not added).
-//
-// Returns an error if adder limits are exceeded:
-//   - errChannelsPerAdderLimitExceeded: When trying to add a channel that would cause the total
-//     (existing channels from this source + new channels added) to exceed MaxChannelsPerAdder
-func (c *channelDefinitionCache) mergeDefinitions(source uint32, currentDefinitions llotypes.ChannelDefinitions, newDefinitions llotypes.ChannelDefinitions, feedIDToChannelID map[common.Hash]uint32) (llotypes.ChannelDefinitions, error) {
+func (c *channelDefinitionCache) mergeDefinitions(source uint32, currentDefinitions llotypes.ChannelDefinitions, newDefinitions llotypes.ChannelDefinitions, feedIDToChannelID map[common.Hash]uint32) {
 	// Count the number of channels for adder sources in the current definitions
 	var numberOfChannels uint32
 	if source > SourceOwner {
@@ -533,10 +526,19 @@ func (c *channelDefinitionCache) mergeDefinitions(source uint32, currentDefiniti
 				numberOfChannels++
 			}
 		}
-
 	}
 
-	for channelID, def := range newDefinitions {
+	// process new definitions in a deterministic order
+	channelIDs := make([]llotypes.ChannelID, 0, len(newDefinitions))
+	for channelID := range newDefinitions {
+		channelIDs = append(channelIDs, channelID)
+	}
+	sort.Slice(channelIDs, func(i, j int) bool {
+		return channelIDs[i] < channelIDs[j]
+	})
+
+	for _, channelID := range channelIDs {
+		def := newDefinitions[channelID]
 
 		// Check for FeedID collision before adding the channel
 		newFeedID := extractFeedID(def.Opts)
@@ -579,9 +581,11 @@ func (c *channelDefinitionCache) mergeDefinitions(source uint32, currentDefiniti
 				continue
 			}
 
+			// stop processing new definitions if the adder limit is exceeded
 			if numberOfChannels >= MaxChannelsPerAdder {
-				return nil, fmt.Errorf("%w: %d, max %d",
-					errChannelsPerAdderLimitExceeded, numberOfChannels, MaxChannelsPerAdder)
+				c.lggr.Warnw("adder limit exceeded, skipping remaining definitions for source",
+					"source", source, "numberOfChannels", numberOfChannels, "max", MaxChannelsPerAdder)
+				return
 			}
 
 			currentDefinitions[channelID] = def
@@ -598,7 +602,7 @@ func (c *channelDefinitionCache) mergeDefinitions(source uint32, currentDefiniti
 		}
 	}
 
-	return currentDefinitions, nil
+	return
 }
 
 // fetchLatestLoop is an asynchronous goroutine that receives fetch triggers from the poll chain
@@ -655,13 +659,6 @@ func (c *channelDefinitionCache) fetchLoop(ctx context.Context, trigger types.Tr
 	if err = c.fetchAndSetChannelDefinitions(ctx, trigger); err == nil {
 		return
 	}
-
-	if errors.Is(err, errChannelsPerAdderLimitExceeded) {
-		c.lggr.Errorw("Error while fetching channel definitions due to limits exceeded, stopping retries",
-			"donID", c.donID, "err", err, "source", trigger.Source)
-		return
-	}
-
 	c.lggr.Warnw("Error while fetching channel definitions", "donID",
 		c.donID, "err", err, "source", trigger.Source, "attempt", b.Attempt())
 
@@ -671,11 +668,6 @@ func (c *channelDefinitionCache) fetchLoop(ctx context.Context, trigger types.Tr
 			return
 		case <-time.After(b.Duration()):
 			if err := c.fetchAndSetChannelDefinitions(ctx, trigger); err != nil {
-				if errors.Is(err, errChannelsPerAdderLimitExceeded) {
-					c.lggr.Errorw("Error while fetching channel definitions due to limits exceeded, stopping retries",
-						"donID", c.donID, "err", err, "source", trigger.Source)
-					return
-				}
 				c.lggr.Warnw("Error while fetching channel definitions", "donID",
 					c.donID, "err", err, "source", trigger.Source, "attempt", b.Attempt())
 				continue
@@ -888,7 +880,6 @@ func (c *channelDefinitionCache) Name() string { return c.lggr.Name() }
 // This is the main method that performs the actual reconciliation of channel definitions from
 // multiple sources with the previous outcome definitions.
 func (c *channelDefinitionCache) Definitions(prev llotypes.ChannelDefinitions) llotypes.ChannelDefinitions {
-	var err error
 	var merged llotypes.ChannelDefinitions
 
 	merged = maps.Clone(prev)
@@ -919,11 +910,7 @@ func (c *channelDefinitionCache) Definitions(prev llotypes.ChannelDefinitions) l
 
 	feedIDToChannelID := buildFeedIDMap(merged)
 	for _, sourceDefinition := range src {
-		merged, err = c.mergeDefinitions(sourceDefinition.Trigger.Source, merged, sourceDefinition.Definitions, feedIDToChannelID)
-		if err != nil {
-			c.lggr.Errorw("failed to merge definitions", "err", err, "source", sourceDefinition.Trigger.Source,
-				"blockNum", sourceDefinition.Trigger.BlockNum, "txHash", common.BytesToHash(sourceDefinition.Trigger.TxHash[:]).Hex())
-		}
+		c.mergeDefinitions(sourceDefinition.Trigger.Source, merged, sourceDefinition.Definitions, feedIDToChannelID)
 	}
 
 	return merged

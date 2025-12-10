@@ -11,7 +11,6 @@ import (
 	"math/big"
 	"math/rand"
 	"net/http"
-	"strconv"
 	"testing"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -905,10 +904,18 @@ func Test_ChannelDefinitionCache(t *testing.T) {
 			addChannelDefinitions(newDefinitions, 1, uint32(MaxChannelsPerAdder+1), adderID)
 
 			feedIDToChannelID := buildFeedIDMap(currentDefinitions)
-			_, err := cdc.mergeDefinitions(adderID, currentDefinitions, newDefinitions, feedIDToChannelID)
-			require.Error(t, err)
-			require.Contains(t, err.Error(), errChannelsPerAdderLimitExceeded.Error())
-			require.Contains(t, err.Error(), strconv.Itoa(MaxChannelsPerAdder))
+			cdc.mergeDefinitions(adderID, currentDefinitions, newDefinitions, feedIDToChannelID)
+			// The implementation stops processing at MaxChannelsPerAdder and doesn't return an error
+			// Verify that only MaxChannelsPerAdder channels were added
+			require.LessOrEqual(t, len(currentDefinitions), MaxChannelsPerAdder, "should not exceed MaxChannelsPerAdder")
+			// Count channels from this adder source
+			adderChannelCount := uint32(0)
+			for _, def := range currentDefinitions {
+				if def.Source == adderID {
+					adderChannelCount++
+				}
+			}
+			require.Equal(t, MaxChannelsPerAdder, int(adderChannelCount), "should have exactly MaxChannelsPerAdder channels from this adder")
 		})
 
 		t.Run("allows adder definition file with channels up to MaxChannelsPerAdder when most are existing", func(t *testing.T) {
@@ -926,10 +933,9 @@ func Test_ChannelDefinitionCache(t *testing.T) {
 			addChannelDefinitions(newDefinitions, existingEnd+1, existingEnd+9, adderID)
 
 			feedIDToChannelID := buildFeedIDMap(currentDefinitions)
-			result, err := cdc.mergeDefinitions(adderID, currentDefinitions, newDefinitions, feedIDToChannelID)
-			require.NoError(t, err)
+			cdc.mergeDefinitions(adderID, currentDefinitions, newDefinitions, feedIDToChannelID)
 			// Should have 90 existing + 9 new = 99 (below MaxChannelsPerAdder)
-			require.Len(t, result, 99)
+			require.Len(t, currentDefinitions, 99)
 		})
 
 		t.Run("owner definitions are not subject to adder limits", func(t *testing.T) {
@@ -940,9 +946,8 @@ func Test_ChannelDefinitionCache(t *testing.T) {
 			addChannelDefinitions(newDefinitions, 1, 20, SourceOwner)
 
 			feedIDToChannelID := buildFeedIDMap(currentDefinitions)
-			result, err := cdc.mergeDefinitions(SourceOwner, currentDefinitions, newDefinitions, feedIDToChannelID)
-			require.NoError(t, err)
-			require.Len(t, result, 20)
+			cdc.mergeDefinitions(SourceOwner, currentDefinitions, newDefinitions, feedIDToChannelID)
+			require.Len(t, currentDefinitions, 20)
 		})
 
 		t.Run("owner can have more than MaxChannelsPerAdder channels", func(t *testing.T) {
@@ -953,9 +958,8 @@ func Test_ChannelDefinitionCache(t *testing.T) {
 			addChannelDefinitions(newDefinitions, 1, uint32(MaxChannelsPerAdder+10), SourceOwner)
 
 			feedIDToChannelID := buildFeedIDMap(currentDefinitions)
-			result, err := cdc.mergeDefinitions(SourceOwner, currentDefinitions, newDefinitions, feedIDToChannelID)
-			require.NoError(t, err)
-			require.Len(t, result, MaxChannelsPerAdder+10)
+			cdc.mergeDefinitions(SourceOwner, currentDefinitions, newDefinitions, feedIDToChannelID)
+			require.Len(t, currentDefinitions, MaxChannelsPerAdder+10)
 		})
 	})
 
@@ -977,20 +981,19 @@ func Test_ChannelDefinitionCache(t *testing.T) {
 			newDefinitions[5] = makeChannelDefinition(5, SourceOwner)
 
 			feedIDToChannelID := buildFeedIDMap(currentDefinitions)
-			result, err := cdc.mergeDefinitions(SourceOwner, currentDefinitions, newDefinitions, feedIDToChannelID)
-			require.NoError(t, err)
+			cdc.mergeDefinitions(SourceOwner, currentDefinitions, newDefinitions, feedIDToChannelID)
 
 			// Channels 1, 3, 5 should be present (updated from newDefinitions)
-			require.Contains(t, result, llotypes.ChannelID(1))
-			require.Contains(t, result, llotypes.ChannelID(3))
-			require.Contains(t, result, llotypes.ChannelID(5))
+			require.Contains(t, currentDefinitions, llotypes.ChannelID(1))
+			require.Contains(t, currentDefinitions, llotypes.ChannelID(3))
+			require.Contains(t, currentDefinitions, llotypes.ChannelID(5))
 
 			// Channels 2 and 4 should remain (not removed, just not in newDefinitions)
-			require.Contains(t, result, llotypes.ChannelID(2))
-			require.Contains(t, result, llotypes.ChannelID(4))
+			require.Contains(t, currentDefinitions, llotypes.ChannelID(2))
+			require.Contains(t, currentDefinitions, llotypes.ChannelID(4))
 
 			// Result should contain all 5 channels (2 and 4 remain from currentDefinitions)
-			require.Len(t, result, 5)
+			require.Len(t, currentDefinitions, 5)
 		})
 
 		t.Run("preserves non-owner channels when owner updates definitions", func(t *testing.T) {
@@ -1007,23 +1010,22 @@ func Test_ChannelDefinitionCache(t *testing.T) {
 			newDefinitions[1] = makeChannelDefinition(1, SourceOwner)
 
 			feedIDToChannelID := buildFeedIDMap(currentDefinitions)
-			result, err := cdc.mergeDefinitions(SourceOwner, currentDefinitions, newDefinitions, feedIDToChannelID)
-			require.NoError(t, err)
+			cdc.mergeDefinitions(SourceOwner, currentDefinitions, newDefinitions, feedIDToChannelID)
 
 			// Owner channel 1 should be present (updated from newDefinitions)
-			require.Contains(t, result, llotypes.ChannelID(1))
-			require.Equal(t, SourceOwner, result[1].Source)
+			require.Contains(t, currentDefinitions, llotypes.ChannelID(1))
+			require.Equal(t, SourceOwner, currentDefinitions[1].Source)
 
 			// Owner channel 2 should remain (not removed, just not in newDefinitions)
-			require.Contains(t, result, llotypes.ChannelID(2))
-			require.Equal(t, SourceOwner, result[2].Source)
+			require.Contains(t, currentDefinitions, llotypes.ChannelID(2))
+			require.Equal(t, SourceOwner, currentDefinitions[2].Source)
 
 			// Adder channel 10 should be preserved
-			require.Contains(t, result, llotypes.ChannelID(10))
-			require.Equal(t, adderID, result[10].Source)
+			require.Contains(t, currentDefinitions, llotypes.ChannelID(10))
+			require.Equal(t, adderID, currentDefinitions[10].Source)
 
 			// Result should contain channel 1 (owner, updated), channel 2 (owner, preserved), and channel 10 (adder)
-			require.Len(t, result, 3)
+			require.Len(t, currentDefinitions, 3)
 		})
 
 		t.Run("owner removal only happens when source is SourceOwner", func(t *testing.T) {
@@ -1040,19 +1042,18 @@ func Test_ChannelDefinitionCache(t *testing.T) {
 
 			// When source is an adder (not SourceOwner), owner channels should NOT be removed
 			feedIDToChannelID := buildFeedIDMap(currentDefinitions)
-			result, err := cdc.mergeDefinitions(adderID, currentDefinitions, newDefinitions, feedIDToChannelID)
-			require.NoError(t, err)
+			cdc.mergeDefinitions(adderID, currentDefinitions, newDefinitions, feedIDToChannelID)
 
 			// Owner channel 1 should still be present (adder can't overwrite it)
-			require.Contains(t, result, llotypes.ChannelID(1))
-			require.Equal(t, SourceOwner, result[1].Source, "channel 1 should still have owner source")
+			require.Contains(t, currentDefinitions, llotypes.ChannelID(1))
+			require.Equal(t, SourceOwner, currentDefinitions[1].Source, "channel 1 should still have owner source")
 
 			// Owner channel 2 should still be present (not removed because source is not SourceOwner)
-			require.Contains(t, result, llotypes.ChannelID(2))
-			require.Equal(t, SourceOwner, result[2].Source)
+			require.Contains(t, currentDefinitions, llotypes.ChannelID(2))
+			require.Equal(t, SourceOwner, currentDefinitions[2].Source)
 
 			// Result should contain both owner channels (adder's attempt to add channel 1 is ignored)
-			require.Len(t, result, 2)
+			require.Len(t, currentDefinitions, 2)
 		})
 
 		t.Run("owner can tombstone owner channels", func(t *testing.T) {
@@ -1081,20 +1082,19 @@ func Test_ChannelDefinitionCache(t *testing.T) {
 			}
 
 			feedIDToChannelID := buildFeedIDMap(currentDefinitions)
-			result, err := cdc.mergeDefinitions(SourceOwner, currentDefinitions, newDefinitions, feedIDToChannelID)
-			require.NoError(t, err)
+			cdc.mergeDefinitions(SourceOwner, currentDefinitions, newDefinitions, feedIDToChannelID)
 
 			// Result should contain both channels
-			require.Len(t, result, 2)
+			require.Len(t, currentDefinitions, 2)
 
 			// Owner channel 1 should be present (tombstone succeeded)
-			require.Contains(t, result, llotypes.ChannelID(1))
-			require.Equal(t, SourceOwner, result[1].Source)
-			require.True(t, result[1].Tombstone, "channel 1 should be tombstoned")
+			require.Contains(t, currentDefinitions, llotypes.ChannelID(1))
+			require.Equal(t, SourceOwner, currentDefinitions[1].Source)
+			require.True(t, currentDefinitions[1].Tombstone, "channel 1 should be tombstoned")
 
 			// Adder channel 2 should be kept in definitions with Tombstone: true (tombstone succeeded)
-			require.Contains(t, result, llotypes.ChannelID(2))
-			require.True(t, result[2].Tombstone, "channel 2 should be tombstoned")
+			require.Contains(t, currentDefinitions, llotypes.ChannelID(2))
+			require.True(t, currentDefinitions[2].Tombstone, "channel 2 should be tombstoned")
 		})
 	})
 
@@ -1121,16 +1121,15 @@ func Test_ChannelDefinitionCache(t *testing.T) {
 			newDefinitions[3] = makeChannelDefinitionWithFeedID(3, SourceOwner, feedID2)
 
 			feedIDToChannelID := buildFeedIDMap(currentDefinitions)
-			result, err := cdc.mergeDefinitions(SourceOwner, currentDefinitions, newDefinitions, feedIDToChannelID)
-			require.NoError(t, err)
+			cdc.mergeDefinitions(SourceOwner, currentDefinitions, newDefinitions, feedIDToChannelID)
 
 			// Channel 1 should be present (existing)
-			require.Contains(t, result, llotypes.ChannelID(1))
+			require.Contains(t, currentDefinitions, llotypes.ChannelID(1))
 			// Channel 2 should NOT be present (collision, skipped)
-			require.NotContains(t, result, llotypes.ChannelID(2))
+			require.NotContains(t, currentDefinitions, llotypes.ChannelID(2))
 			// Channel 3 should be present (unique FeedID)
-			require.Contains(t, result, llotypes.ChannelID(3))
-			require.Len(t, result, 2)
+			require.Contains(t, currentDefinitions, llotypes.ChannelID(3))
+			require.Len(t, currentDefinitions, 2)
 		})
 
 		t.Run("allows owner to update same channel with same FeedID", func(t *testing.T) {
@@ -1146,13 +1145,12 @@ func Test_ChannelDefinitionCache(t *testing.T) {
 			newDefinitions[1] = updatedDef
 
 			feedIDToChannelID := buildFeedIDMap(currentDefinitions)
-			result, err := cdc.mergeDefinitions(SourceOwner, currentDefinitions, newDefinitions, feedIDToChannelID)
-			require.NoError(t, err)
+			cdc.mergeDefinitions(SourceOwner, currentDefinitions, newDefinitions, feedIDToChannelID)
 
 			// Channel 1 should be present and updated
-			require.Contains(t, result, llotypes.ChannelID(1))
-			require.Equal(t, uint32(999), result[1].Streams[0].StreamID)
-			require.Len(t, result, 1)
+			require.Contains(t, currentDefinitions, llotypes.ChannelID(1))
+			require.Equal(t, uint32(999), currentDefinitions[1].Streams[0].StreamID)
+			require.Len(t, currentDefinitions, 1)
 		})
 
 		t.Run("skips owner update to same channel with colliding FeedID", func(t *testing.T) {
@@ -1168,15 +1166,14 @@ func Test_ChannelDefinitionCache(t *testing.T) {
 			newDefinitions[1] = makeChannelDefinitionWithFeedID(1, SourceOwner, feedID2)
 
 			feedIDToChannelID := buildFeedIDMap(currentDefinitions)
-			result, err := cdc.mergeDefinitions(SourceOwner, currentDefinitions, newDefinitions, feedIDToChannelID)
-			require.NoError(t, err)
+			cdc.mergeDefinitions(SourceOwner, currentDefinitions, newDefinitions, feedIDToChannelID)
 
 			// Channel 1 should still have feedID1 (update was skipped)
-			require.Contains(t, result, llotypes.ChannelID(1))
-			require.Equal(t, feedID1, extractFeedID(result[1].Opts))
+			require.Contains(t, currentDefinitions, llotypes.ChannelID(1))
+			require.Equal(t, feedID1, extractFeedID(currentDefinitions[1].Opts))
 			// Channel 2 should still be present
-			require.Contains(t, result, llotypes.ChannelID(2))
-			require.Len(t, result, 2)
+			require.Contains(t, currentDefinitions, llotypes.ChannelID(2))
+			require.Len(t, currentDefinitions, 2)
 		})
 
 		t.Run("skips adder channel with colliding FeedID", func(t *testing.T) {
@@ -1193,16 +1190,15 @@ func Test_ChannelDefinitionCache(t *testing.T) {
 			newDefinitions[3] = makeChannelDefinitionWithFeedID(3, adderID, feedID2)
 
 			feedIDToChannelID := buildFeedIDMap(currentDefinitions)
-			result, err := cdc.mergeDefinitions(adderID, currentDefinitions, newDefinitions, feedIDToChannelID)
-			require.NoError(t, err)
+			cdc.mergeDefinitions(adderID, currentDefinitions, newDefinitions, feedIDToChannelID)
 
 			// Channel 1 should be present (existing)
-			require.Contains(t, result, llotypes.ChannelID(1))
+			require.Contains(t, currentDefinitions, llotypes.ChannelID(1))
 			// Channel 2 should NOT be present (collision, skipped)
-			require.NotContains(t, result, llotypes.ChannelID(2))
+			require.NotContains(t, currentDefinitions, llotypes.ChannelID(2))
 			// Channel 3 should be present (unique FeedID)
-			require.Contains(t, result, llotypes.ChannelID(3))
-			require.Len(t, result, 2)
+			require.Contains(t, currentDefinitions, llotypes.ChannelID(3))
+			require.Len(t, currentDefinitions, 2)
 		})
 
 		t.Run("allows owner to update channel with new unique FeedID", func(t *testing.T) {
@@ -1216,13 +1212,12 @@ func Test_ChannelDefinitionCache(t *testing.T) {
 			newDefinitions[1] = makeChannelDefinitionWithFeedID(1, SourceOwner, feedID2)
 
 			feedIDToChannelID := buildFeedIDMap(currentDefinitions)
-			result, err := cdc.mergeDefinitions(SourceOwner, currentDefinitions, newDefinitions, feedIDToChannelID)
-			require.NoError(t, err)
+			cdc.mergeDefinitions(SourceOwner, currentDefinitions, newDefinitions, feedIDToChannelID)
 
 			// Channel 1 should be present with new feedID2
-			require.Contains(t, result, llotypes.ChannelID(1))
-			require.Equal(t, feedID2, extractFeedID(result[1].Opts))
-			require.Len(t, result, 1)
+			require.Contains(t, currentDefinitions, llotypes.ChannelID(1))
+			require.Equal(t, feedID2, extractFeedID(currentDefinitions[1].Opts))
+			require.Len(t, currentDefinitions, 1)
 		})
 
 		t.Run("skips multiple channels with same colliding FeedID", func(t *testing.T) {
@@ -1241,18 +1236,17 @@ func Test_ChannelDefinitionCache(t *testing.T) {
 			newDefinitions[5] = makeChannelDefinitionWithFeedID(5, SourceOwner, feedID2)
 
 			feedIDToChannelID := buildFeedIDMap(currentDefinitions)
-			result, err := cdc.mergeDefinitions(SourceOwner, currentDefinitions, newDefinitions, feedIDToChannelID)
-			require.NoError(t, err)
+			cdc.mergeDefinitions(SourceOwner, currentDefinitions, newDefinitions, feedIDToChannelID)
 
 			// Channel 1 should be present (existing)
-			require.Contains(t, result, llotypes.ChannelID(1))
+			require.Contains(t, currentDefinitions, llotypes.ChannelID(1))
 			// Channels 2, 3, 4 should NOT be present (all collided)
-			require.NotContains(t, result, llotypes.ChannelID(2))
-			require.NotContains(t, result, llotypes.ChannelID(3))
-			require.NotContains(t, result, llotypes.ChannelID(4))
+			require.NotContains(t, currentDefinitions, llotypes.ChannelID(2))
+			require.NotContains(t, currentDefinitions, llotypes.ChannelID(3))
+			require.NotContains(t, currentDefinitions, llotypes.ChannelID(4))
 			// Channel 5 should be present (unique FeedID)
-			require.Contains(t, result, llotypes.ChannelID(5))
-			require.Len(t, result, 2)
+			require.Contains(t, currentDefinitions, llotypes.ChannelID(5))
+			require.Len(t, currentDefinitions, 2)
 		})
 
 		t.Run("allows channels without FeedID", func(t *testing.T) {
@@ -1269,14 +1263,13 @@ func Test_ChannelDefinitionCache(t *testing.T) {
 			newDefinitions[3] = makeChannelDefinitionWithFeedID(3, SourceOwner, feedID2)
 
 			feedIDToChannelID := buildFeedIDMap(currentDefinitions)
-			result, err := cdc.mergeDefinitions(SourceOwner, currentDefinitions, newDefinitions, feedIDToChannelID)
-			require.NoError(t, err)
+			cdc.mergeDefinitions(SourceOwner, currentDefinitions, newDefinitions, feedIDToChannelID)
 
 			// All channels should be present
-			require.Contains(t, result, llotypes.ChannelID(1))
-			require.Contains(t, result, llotypes.ChannelID(2))
-			require.Contains(t, result, llotypes.ChannelID(3))
-			require.Len(t, result, 3)
+			require.Contains(t, currentDefinitions, llotypes.ChannelID(1))
+			require.Contains(t, currentDefinitions, llotypes.ChannelID(2))
+			require.Contains(t, currentDefinitions, llotypes.ChannelID(3))
+			require.Len(t, currentDefinitions, 3)
 		})
 	})
 }
