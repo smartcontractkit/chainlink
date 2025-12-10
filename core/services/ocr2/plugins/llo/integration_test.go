@@ -2242,9 +2242,9 @@ lloConfigMode = "bluegreen"
 		addBootstrapJob(t, bootstrapNode, configuratorAddress, "job-channel-merge", relayType, relayConfig)
 
 		// Configure adders on the contract
-		// Adder IDs start from 2 (since SourceOwner = 1)
-		adder1ID := uint32(2)
-		adder2ID := uint32(3)
+		// Adder IDs start from 1000
+		adder1ID := uint32(1001)
+		adder2ID := uint32(1002)
 
 		require.NoError(t, utils.JustError(configStore.SetChannelAdderAddress(steve, adder1ID, adder1.From)))
 		backend.Commit()
