@@ -1,0 +1,190 @@
+name: CI Core Integration
+run-name: CI Core Integration
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}-${{ github.event_name }}
+  cancel-in-progress: true
+
+# Run on key branches to make sure integration is good, otherwise run on all PR's
+on:
+  push:
+    branches:
+      - develop
+      - "release/*"
+  merge_group:
+  pull_request:
+
+
+jobs:
+  list-all-tag-combinations:
+    name: List all tag combinations
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 1
+
+      - name: List all tags (./core/)
+        working-directory: ./core
+        run: |
+          find . -name '*.go' -print0 \
+            | xargs -0 grep -hE '^[[:space:]]*//(go:build|\+build)' 2>/dev/null \
+            | sed -E '
+            s|^[[:space:]]*//go:build[[:space:]]+||;
+            s|^[[:space:]]*//\+build[[:space:]]+||;
+            s/[[:space:]]+$//
+          ' \
+            | sed -E '/^[[:space:]]*$/d' \
+            | sort -u
+
+      - name: List all tags (./deployment/)
+        working-directory: ./deployment
+        run: |
+          find . -name '*.go' -print0 \
+            | xargs -0 grep -hE '^[[:space:]]*//(go:build|\+build)' 2>/dev/null \
+            | sed -E '
+            s|^[[:space:]]*//go:build[[:space:]]+||;
+            s|^[[:space:]]*//\+build[[:space:]]+||;
+            s/[[:space:]]+$//
+          ' \
+            | sed -E '/^[[:space:]]*$/d' \
+            | sort -u
+
+  tagged-tests:
+    env:
+      # We explicitly have this env var not be "CL_DATABASE_URL" to avoid having it be used by core related tests
+      # when they should not be using it, while still allowing us to DRY up the setup
+      DB_URL: postgresql://postgres:postgres@localhost:5432/chainlink_test?sslmode=disable
+    strategy:
+      fail-fast: false
+      matrix:
+        type:
+          - module: Deployment
+            cmd: go_core_ccip_deployment_tests
+            os: cpu=32/ram=64/family=c5ad/spot=false/image=ubuntu24-full-x64/extras=s3-cache
+            regex: "(TestIntegration_Solana_)"
+            go-mod-directory: "deployment/"
+            setup-solana: "true"
+            setup-plugins: "true"
+
+          - module: Deployment
+            cmd: go_core_ccip_deployment_tests
+            os: cpu=32/ram=64/family=c5ad/spot=false/image=ubuntu24-full-x64/extras=s3-cache
+            regex: "^(TestIntegration_Aptos_)"
+            go-mod-directory: "deployment/"
+            aptos-cli-version: "7.10.0"
+            setup-plugins: "true"
+
+          - module: Deployment
+            cmd: go_core_ccip_deployment_tests
+            os: cpu=32/ram=64/family=c5ad/spot=false/image=ubuntu24-full-x64/extras=s3-cache
+            regex: "^(TestIntegration_Shared_)"
+            go-mod-directory: "deployment/"
+            setup-plugins: "true"
+
+    name: "${{ matrix.type.module }} - Tagged Tests (${{matrix.type.tags}})"
+    timeout-minutes: 20
+    runs-on: runs-on=${{ github.run_id }}-${{ strategy.job-index }}/${{ matrix.type.os }}
+    permissions:
+      id-token: write
+      contents: read
+      actions: read
+    steps:
+      - name: Enable S3 Cache for Self-Hosted Runners
+        # these env vars are set (and exposed) when it is a self-hosted runner with extras=s3-cache
+        if: ${{ env.RUNS_ON_INSTANCE_ID != '' && env.ACTIONS_CACHE_URL != '' }}
+        uses: runs-on/action@66d4449b717b5462159659523d1241051ff470b9 # v1
+
+      - name: Checkout the repo
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - name: Setup Go
+        uses: ./.github/actions/setup-go
+        with:
+          build-cache-version: ${{ matrix.type.cmd }}
+          go-version-file: ${{ matrix.type.go-mod-directory }}go.mod
+          go-module-file: ${{ matrix.type.go-mod-directory }}go.sum
+
+      - name: Setup Postgres
+        uses: smartcontractkit/.github/actions/setup-postgres@setup-postgres/v1
+        with:
+          tmpfs: "true"
+          image-tag: "16-alpine"
+
+      - name: Setup DB
+        run: go run ./core/store/cmd/preparetest
+        env:
+          CL_DATABASE_URL: ${{ env.DB_URL }}
+
+      - name: Touching core/web/assets/index.html
+        run: mkdir -p core/web/assets && touch core/web/assets/index.html
+
+      - name: Download Go vendor packages
+        run: go mod download
+
+      - name: Setup Solana
+        if: matrix.type.setup-solana == 'true'
+        uses: ./.github/actions/setup-solana
+
+      - name: Setup Aptos
+        if: ${{ matrix.type.aptos-cli-version != '' }}
+        uses: aptos-labs/actions/install-aptos-cli@63740b290d839b87ecfafbcf75ed03a36a54a29f # jan 15, 2025
+        with:
+          CLI_VERSION: ${{ matrix.type.aptos-cli-version }}
+
+      # - name: Setup Sui CLI v1.57.2
+      #   uses: ./.github/actions/setup-sui
+      #   with:
+      #     github-token: ${{ secrets.GITHUB_TOKEN }}
+      #     version: mainnet-1.57.2
+
+      - name: Setup wasmd
+        if: matrix.type.setup-plugins == 'true'
+        uses: ./.github/actions/setup-wasmd
+
+      - name: Install LOOP Plugins
+        if: matrix.type.setup-plugins == 'true'
+        run: make install-plugins
+
+      - name: Run tests
+        timeout-minutes: 22
+        id: run-tests
+        shell: bash
+        env:
+          TEST_REGEX: ${{ matrix.type.regex }}
+          CL_DATABASE_URL: ${{ env.DB_URL }}
+          OUTPUT_FILE: ./output.txt
+          PRODUCE_JUNIT_XML: true
+          JUNIT_FILE: ${{ github.workspace }}/junit.xml
+          RUN_QUARANTINED_TESTS: "true" # always run quarantined tests in CI
+        run: |
+          GODEBUG=goindex=0 ./tools/bin/${{ matrix.type.cmd }} ./...
+          # See: https://github.com/golang/go/issues/69179
+
+      - name: Artifact name
+        id: artifact-name
+        if: ${{ always() }}
+        env:
+          CMD: ${{ matrix.type.cmd }}
+          TAGS: ${{ matrix.type.tags }}
+        run: |
+          # replace spaces with underscores for artifact names
+          TAGS_UNDERSCORED=${TAGS// /_}
+          echo "artifact-name=${CMD}_${TAGS_UNDERSCORED}_logs" | tee -a "$GITHUB_OUTPUT"
+
+      - name: Store logs artifacts
+        if: ${{ always() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ steps.artifact-name.outputs.artifact-name }}
+          path: |
+            ./output.txt
+            ./output-short.txt
+            ./race.*
+            ./coverage.txt
+            ./postgres_logs.txt
+            ./junit.xml
+            ./deployment/junit.xml
+          retention-days: 7

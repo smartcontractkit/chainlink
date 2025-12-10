@@ -6,6 +6,7 @@ SCRIPT_PATH=`dirname "$0"`; SCRIPT_PATH=`eval "cd \"$SCRIPT_PATH\" && pwd"`
 OUTPUT_FILE=${OUTPUT_FILE:-"./output.txt"}
 JUNIT_FILE=${JUNIT_FILE:-"./junit.xml"}
 GO_TEST_TIMEOUT=${GO_TEST_TIMEOUT:-"15m"}
+TEST_REGEX=${TEST_REGEX:-""}
 
 echo "Installing gotestsum..."
 go install gotest.tools/gotestsum@v1.12.3
@@ -13,11 +14,13 @@ PATH=$PATH:$(go env GOPATH)/bin
 export PATH
 
 echo "Running go_core_tests for event: $GITHUB_EVENT_NAME"
-GO_TEST_FLAGS="-timeout=${GO_TEST_TIMEOUT}"
+
+GO_TEST_FLAGS=( "-timeout=${GO_TEST_TIMEOUT}" )
+
 if [[ "$GITHUB_EVENT_NAME" == 'push' ]]; then
-  GO_TEST_FLAGS="$GO_TEST_FLAGS -count=1"
+  GO_TEST_FLAGS+=( "-count=1" )
 elif [[ "$GITHUB_EVENT_NAME" == 'schedule' ]]; then
-  GO_TEST_FLAGS="$GO_TEST_FLAGS -covermode=atomic -coverpkg=./... -coverprofile=coverage.txt"
+  GO_TEST_FLAGS+=( "-covermode=atomic" "-coverpkg=./..." "-coverprofile=coverage.txt" )
 elif [[ "$GITHUB_EVENT_NAME" == 'pull_request' || "$GITHUB_EVENT_NAME" == 'merge_group' ]]; then
   RERUN_FLAGS=""
   if [[ "$TRUNK_AUTO_QUARANTINE" != "true" ]]; then
@@ -28,11 +31,17 @@ elif [[ "$GITHUB_EVENT_NAME" == 'pull_request' || "$GITHUB_EVENT_NAME" == 'merge
   fi
 fi
 
+# Optionally filter tests by prefix
+if [[ -n "$TEST_REGEX" ]]; then
+  echo "Using TEST_REGEX: $TEST_REGEX"
+  GO_TEST_FLAGS+=( "-run=$TEST_REGEX" )
+fi
+
 if [[ "$PRODUCE_JUNIT_XML" == "true" ]]; then
   JUNIT_FLAG="--junitfile=$JUNIT_FILE"
 fi
 
-echo "Using GO_TEST_FLAGS: $GO_TEST_FLAGS"
+echo "Using GO_TEST_FLAGS: ${GO_TEST_FLAGS[*]}"
 echo "Using RERUN_FLAGS: $RERUN_FLAGS"
 echo "Using JUNIT_FLAG: $JUNIT_FLAG"
 
@@ -48,7 +57,7 @@ gotestsum \
   --packages='./...' \
   --jsonfile "$OUTPUT_FILE" \
   "$JUNIT_FLAG" \
-  -- $GO_TEST_FLAGS
+  -- "${GO_TEST_FLAGS[@]}"
 
 EXITCODE=${PIPESTATUS[0]}
 
