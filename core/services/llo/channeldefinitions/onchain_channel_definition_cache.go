@@ -414,9 +414,8 @@ func (c *channelDefinitionCache) readLogs(ctx context.Context) (err error) {
 }
 
 // scanFromBlockNum returns the next block number to scan from, ensuring no gaps between
-// persisted and in-memory state. It uses the maximum of the in-memory definitions block number
-// and the initial block number, then subtracts 1 to prevent re-scanning blocks that have
-// already been processed and to ensure no gaps in block scanning.
+// persisted and in-memory state.
+// It returns the max between the in-memory definitions block number and the initial block number.
 func (c *channelDefinitionCache) scanFromBlockNum() int64 {
 	c.definitionsMu.RLock()
 	defer c.definitionsMu.RUnlock()
@@ -747,7 +746,6 @@ func (c *channelDefinitionCache) fetchChannelDefinitions(ctx context.Context, tr
 	if err != nil {
 		return nil, fmt.Errorf("failed to make HTTP request to channel definitions URL %s: %w", trigger.URL, err)
 	}
-	defer reader.Close()
 
 	if statusCode >= 400 {
 		// NOTE: Truncate the returned body here as we don't want to spam the
@@ -760,6 +758,7 @@ func (c *channelDefinitionCache) fetchChannelDefinitions(ctx context.Context, tr
 		}
 		return nil, fmt.Errorf("HTTP error from channel definitions URL %s (status %d): %s", trigger.URL, statusCode, string(bodyBytes))
 	}
+	defer reader.Close()
 
 	var buf bytes.Buffer
 	// Use a teeReader to avoid excessive copying
