@@ -404,9 +404,21 @@ jobs:
     needs: [filter]
     runs-on: ubuntu-latest
     if: ${{  needs.filter.outputs.should-run-core-tests == 'true' }}
+    env:
+      GOPRIVATE: github.com/smartcontractkit/chainlink-internal-solana
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+
+      - name: Setup GitHub token using GATI
+        id: github-token
+        uses: smartcontractkit/.github/actions/setup-github-token@setup-github-token/1.0.0
+        with:
+          aws-role-arn: ${{ secrets.AWS_OIDC_CHAINLINK_READ_ONLY_TOKEN_ISSUER_ROLE_ARN }}
+          aws-lambda-url: ${{ secrets.AWS_INFRA_RELENG_TOKEN_ISSUER_LAMBDA_URL }}
+          aws-region: us-west-2
+          aws-role-duration-seconds: "1800"
+          set-git-config: "true"
 
       - name: Setup Go
         uses: ./.github/actions/setup-go
