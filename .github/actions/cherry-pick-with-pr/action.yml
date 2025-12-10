@@ -35,7 +35,6 @@ runs:
     - name: Checkout repository
       uses: actions/checkout@v5
       with:
-        fetch-depth: 0
         token: ${{ inputs.github-token }}
 
     - name: Configure Git
@@ -76,8 +75,6 @@ runs:
         # Use the existing cherry-pick-helper script
         echo "🍒 Using cherry-pick-helper script..."
         
-        # Make the script executable
-        chmod +x .github/scripts/cherry-pick-helper.sh
         
         # Run the cherry-pick helper script
         if .github/scripts/cherry-pick-helper.sh "${COMMIT_SHA}" "${TARGET_BRANCH}"; then
