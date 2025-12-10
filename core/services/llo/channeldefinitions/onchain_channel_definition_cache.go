@@ -43,8 +43,10 @@ const (
 	MaxChannelDefinitionsFileSize = 25 * 1024 * 1024 // 25MB
 	// How often we query logpoller for new logs
 	defaultLogPollInterval = 1 * time.Second
-	// How often we check for failed persistence and attempt to save again
+	// dbPersistLoopInterval is the interval at which we check for failed persistence and attempt to save again
 	dbPersistLoopInterval = 1 * time.Second
+	// defaultFetchTimeout is the default timeout for fetching channel definitions.
+	defaultFetchTimeout = 30 * time.Second
 
 	// MaxChannelsPerAdder is the maximum number of channels allowed per adder source. This limit
 	// is enforced based on existing channels from the same source in currentDefinitions plus new
@@ -721,6 +723,13 @@ func (c *channelDefinitionCache) fetchChannelDefinitions(ctx context.Context, tr
 	u, err := url.ParseRequestURI(trigger.URL)
 	if err != nil {
 		return nil, fmt.Errorf("failed to parse URL %s: %w", trigger.URL, err)
+	}
+
+	// If the context has no deadline, set a default timeout
+	if _, ok := ctx.Deadline(); !ok {
+		var cancel context.CancelFunc
+		ctx, cancel = context.WithTimeout(ctx, defaultFetchTimeout)
+		defer cancel()
 	}
 
 	request, err := http.NewRequestWithContext(ctx, "GET", u.String(), nil)
