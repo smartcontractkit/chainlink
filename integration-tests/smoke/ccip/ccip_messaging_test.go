@@ -12,7 +12,14 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/gagliardetto/solana-go"
+	"github.com/gagliardetto/solana-go/rpc"
+	"github.com/stretchr/testify/assert"
+
 	chainsel "github.com/smartcontractkit/chain-selectors"
+	soltestutils "github.com/smartcontractkit/chainlink-ccip/chains/solana/contracts/tests/testutils"
+	"github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/v0_1_1/ccip_offramp"
+	"github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/v0_1_1/test_ccip_receiver"
+
 	"github.com/stretchr/testify/require"
 	"golang.org/x/exp/maps"
 
@@ -308,7 +315,7 @@ func Test_CCIPMessaging_MultiExecReports_EVM2Solana(t *testing.T) {
 	done := make(chan any)
 	defer close(done)
 	offrampAddress := state.SolChains[destChain].OffRamp
-	sink, errCh := testhelpers.SolEventEmitter[solccip.EventTransmitted](ctx, solChains[destChain].Client, offrampAddress, "Transmitted", 0, done, time.NewTicker(2*time.Second))
+	sink, errCh := testhelpers.SolEventEmitter[solccip.EventTransmitted](ctx, solChains[destChain].Client, offrampAddress, "Transmitted", 0, done, time.NewTicker(2*time.Second), false)
 	timeout := time.NewTimer(tests.WaitTimeout(t) - 5*time.Second) // 5 seconds buffer for cleanup
 	defer timeout.Stop()
 
@@ -676,6 +683,214 @@ func Test_CCIPMessaging_Solana2EVM(t *testing.T) {
 
 		_ = out // avoid unused error
 	})
+}
+
+func Test_CCIPMessaging_EVM2Solana_Revert(t *testing.T) {
+	inflightDuration := time.Millisecond
+
+	// Setup 2 chains (EVM and Solana) and a single lane.
+	e, _, _ := testsetups.NewIntegrationEnvironment(t,
+		testhelpers.WithMultiCall3(),
+		testhelpers.WithSolChains(1),
+		testhelpers.WithOCRConfigOverride(func(params v1_6.CCIPOCRParams) v1_6.CCIPOCRParams {
+			params.ExecuteOffChainConfig.InflightCacheExpiry = *config.MustNewDuration(inflightDuration)
+			params.ExecuteOffChainConfig.MessageVisibilityInterval = *config.MustNewDuration(1 * time.Hour)
+			params.ExecuteOffChainConfig.MultipleReportsEnabled = true
+			params.ExecuteOffChainConfig.MaxReportMessages = 1
+			params.ExecuteOffChainConfig.MaxSingleChainReports = 1
+			params.ExecuteOffChainConfig.SolanaChainWriterConfigVersion = &cctypes.SolanaChainWriterExecuteConfigVersionV2
+			return params
+		}),
+	)
+
+	// TODO: do this as part of setup
+	testhelpers.DeploySolanaCcipReceiver(t, e.Env)
+
+	state, err := stateview.LoadOnchainState(e.Env)
+	require.NoError(t, err)
+
+	allChainSelectors := e.Env.BlockChains.ListChainSelectors(chain.WithFamily(chainsel.FamilyEVM))
+	allSolChainSelectors := e.Env.BlockChains.ListChainSelectors(chain.WithFamily(chainsel.FamilySolana))
+	sourceChain := allChainSelectors[0]
+	destChain := allSolChainSelectors[0]
+	t.Log("All chain selectors:", allChainSelectors,
+		", sol chain selectors:", allSolChainSelectors,
+		", home chain selector:", e.HomeChainSel,
+		", feed chain selector:", e.FeedChainSel,
+		", source chain selector:", sourceChain,
+		", dest chain selector:", destChain,
+	)
+	// connect a single lane, source to dest
+	testhelpers.AddLaneWithEnforceOutOfOrder(t, &e, state, sourceChain, destChain, false)
+
+	var (
+		// nonce    uint64 // Nonce not used as Solana check is skipped
+		sender = common.LeftPadBytes(e.Env.BlockChains.EVMChains()[sourceChain].DeployerKey.From.Bytes(), 32)
+		out    mt.TestCaseOutput
+		setup  = mt.NewTestSetupWithDeployedEnv(
+			t,
+			e,
+			state,
+			sourceChain,
+			destChain,
+			sender,
+			false, // testRouter
+		)
+	)
+
+	fmt.Println("Waiting for event filter...")
+	// Wait for filter registration for CCIPMessageSent (onramp), CommitReportAccepted (offramp), and ExecutionStateChanged (offramp)
+	testhelpers.WaitForEventFilterRegistrationOnLane(t, state, e.Env.Offchain, sourceChain, destChain)
+	fmt.Println("Done: Waiting for event filter...")
+
+	receiverProgram := state.SolChains[destChain].Receiver
+	receiver := receiverProgram.Bytes()
+	receiverTargetAccountPDA, _, _ := solana.FindProgramAddress([][]byte{[]byte("counter")}, receiverProgram)
+	receiverExternalExecutionConfigPDA, _, _ := solana.FindProgramAddress([][]byte{[]byte("external_execution_config")}, receiverProgram)
+
+	/////////////////////////////////////////////////////////////////////////////////
+	// This is the point where the env diverges from Test_CCIPMessaging_EVM2Solana //
+	/////////////////////////////////////////////////////////////////////////////////
+
+	// Set reject all flag in receiver to force reverts
+	ctx := testhelpers.Context(t)
+	solChains := e.Env.BlockChains.SolanaChains()
+	deployer := solChains[destChain].DeployerKey
+	ix, err := test_ccip_receiver.NewSetRejectAllInstruction(true, receiverTargetAccountPDA, deployer.PublicKey()).ValidateAndBuild()
+	require.NoError(t, err)
+	ixData, err := ix.Data()
+	require.NoError(t, err)
+	rejectAllIx := solana.NewInstruction(receiverProgram, ix.Accounts(), ixData)
+	res := soltestutils.SendAndConfirm(ctx, t, solChains[destChain].Client, []solana.Instruction{rejectAllIx}, *deployer, solconfig.DefaultCommitment)
+	require.Nil(t, res.Meta.Err)
+
+	t.Run("failed messages should only execute once", func(t *testing.T) {
+		accounts := [][32]byte{
+			receiverExternalExecutionConfigPDA,
+			receiverTargetAccountPDA,
+			solana.SystemProgramID,
+		}
+
+		extraArgs, err := ccipevm.SerializeClientSVMExtraArgsV1(msg_hasher163.ClientSVMExtraArgsV1{
+			AccountIsWritableBitmap:  solccip.GenerateBitMapForIndexes([]int{0, 1}),
+			Accounts:                 accounts,
+			ComputeUnits:             1_000_000,
+			AllowOutOfOrderExecution: true,
+		})
+		require.NoError(t, err)
+
+		blockH, err := e.Env.BlockChains.SolanaChains()[destChain].Client.GetBlockHeight(t.Context(), rpc.CommitmentFinalized)
+		if err != nil {
+			t.Fatalf("failed to get latest block height: %v", err)
+		}
+
+		out = mt.Run(
+			t,
+			mt.TestCase{
+				ValidationType:   mt.ValidationTypeCommit,
+				TestSetup:        setup,
+				Nonce:            nil, // Solana nonce check is skipped
+				Receiver:         receiver,
+				MsgData:          bytes.Repeat([]byte("a"), 1),
+				ExtraArgs:        extraArgs,
+				NumberOfMessages: 1,
+				UseMulticall3:    true,
+			},
+		)
+
+		var seqNrs []uint64
+		for _, msgEvent := range out.AllMsgSentEvents {
+			seqNrs = append(seqNrs, msgEvent.SequenceNumber)
+		}
+
+		// This test works by waiting for an extra long duration and checking that
+		// no re-execution happens for the failed message.
+
+		fmt.Println("Checking for states.")
+		states, err := testhelpers.GetMessageStatesWithSeqNrsSol(
+			t,
+			2*time.Minute, // timeout
+			sourceChain,
+			e.Env.BlockChains.SolanaChains()[destChain],
+			state.SolChains[destChain].OffRamp,
+			blockH,
+			seqNrs,
+			true,
+		)
+		fmt.Println("Done checking for states.")
+		if err != nil {
+			t.Logf("Error getting message states: %v", err)
+		}
+		//else {
+		//	if states[seqNrs[0]] == testhelpers.EXECUTION_STATE_INPROGRESS {
+		//		assert.Fail(t, "An additional in progress event is detected.")
+		//	}
+		//}
+
+		fmt.Println(states)
+		_, ok := states[seqNrs[0]]
+		assert.True(t, ok, "status returned for seqNr")
+
+		// Only 1 event
+		assert.Len(t, states[seqNrs[0]], 1)
+		// And it is in progress.
+		assert.Equal(t, int(states[seqNrs[0]][0].State), int(ccip_offramp.InProgress_MessageExecutionState))
+
+		/*
+			// We need to find an in progress state.
+			looking := true
+			for looking {
+				states, err := testhelpers.GetMessageStateWithSeqNrsSol(
+					t,
+					sourceChain,
+					e.Env.BlockChains.SolanaChains()[destChain],
+					state.SolChains[destChain].OffRamp,
+					blockH,
+					seqNrs,
+					true,
+				)
+				if err != nil {
+					t.Logf("Error getting message states: %v", err)
+				} else {
+					if states[seqNrs[0]] == testhelpers.EXECUTION_STATE_INPROGRESS {
+						// We see the message is "in progress", as expected
+						looking = false
+					}
+				}
+				// Wait a bit before trying again
+				if looking {
+					time.Sleep(5 * time.Second)
+				}
+			}
+			// Update the blockH, we'll continue searching for events from here.
+			blockH, err = e.Env.BlockChains.SolanaChains()[destChain].Client.GetBlockHeight(t.Context(), rpc.CommitmentFinalized)
+			if err != nil {
+				t.Fatalf("failed to get latest block height: %v", err)
+			}
+			// Wait for the in-flight duration to expire to ensure no re-execution happens.
+			time.Sleep(inflightDuration * 2)
+			// There should be no more in progress events.
+			states, err := testhelpers.GetMessageStatesWithSeqNrsSol(
+				t,
+				sourceChain,
+				e.Env.BlockChains.SolanaChains()[destChain],
+				state.SolChains[destChain].OffRamp,
+				blockH,
+				seqNrs,
+				true,
+			)
+			if err != nil {
+				t.Logf("Error getting message states: %v", err)
+			} else {
+				if states[seqNrs[0]] == testhelpers.EXECUTION_STATE_INPROGRESS {
+					assert.Fail(t, "An additional in progress event is detected.")
+				}
+			}
+		*/
+		fmt.Println("done")
+	})
+
+	_ = out
 }
 
 type monitorState struct {
