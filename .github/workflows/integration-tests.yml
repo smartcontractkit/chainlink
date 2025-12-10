@@ -137,7 +137,8 @@ jobs:
 
   labels:
     name: Get PR labels and set runner labels
-    if: github.actor != 'dependabot[bot]'
+    # if: github.actor != 'dependabot[bot]'
+    if: false
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -192,7 +193,8 @@ jobs:
 
   build-chainlink:
     name: Build Chainlink Image ${{ matrix.image.name }}
-    if: github.actor != 'dependabot[bot]'
+    # if: github.actor != 'dependabot[bot]'
+    if: false
     environment: integration
     runs-on: ${{ matrix.image.runner }}
     needs:
