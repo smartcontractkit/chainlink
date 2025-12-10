@@ -11,6 +11,8 @@ replace github.com/smartcontractkit/chainlink/v2 => ../../
 
 replace github.com/smartcontractkit/chainlink/deployment => ../../deployment
 
+replace github.com/smartcontractkit/chainlink-solana => github.com/smartcontractkit/chainlink-internal-solana v0.0.0-20251209200852-32cea9d176b2
+
 require (
 	dario.cat/mergo v1.0.2
 	github.com/Masterminds/semver/v3 v3.4.0

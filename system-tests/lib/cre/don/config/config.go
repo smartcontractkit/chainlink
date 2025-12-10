@@ -266,14 +266,14 @@ func addBootstrapNodeConfig(
 		appendEVMChain(&existingConfig.EVM, evmChain)
 	}
 
-	cfg := solcfg.NewDefault()
-	cfg.MultiNode.MultiNode.VerifyChainID = ptr.Ptr(false)
+	solCfg := solcfg.NewDefault()
+	solCfg.Chain.LogPoller2538Enabled = ptr.Ptr(false)
 
 	if commonInputs.solanaChain != nil {
 		existingConfig.Solana = append(existingConfig.Solana, &solcfg.TOMLConfig{
-			Enabled:   ptr.Ptr(true),
-			ChainID:   ptr.Ptr(commonInputs.solanaChain.ChainID),
-			MultiNode: cfg.MultiNode,
+			Enabled: ptr.Ptr(true),
+			ChainID: ptr.Ptr(commonInputs.solanaChain.ChainID),
+			Chain:   solCfg.Chain,
 			Nodes: []*solcfg.Node{
 				{
 					Name: &commonInputs.solanaChain.Name,
@@ -338,14 +338,14 @@ func addWorkerNodeConfig(
 		appendEVMChain(&existingConfig.EVM, evmChain)
 	}
 
-	cfg := solcfg.NewDefault()
-	cfg.MultiNode.MultiNode.VerifyChainID = ptr.Ptr(false)
+	solCfg := solcfg.NewDefault()
+	solCfg.Chain.LogPoller2538Enabled = ptr.Ptr(false)
 
 	if commonInputs.solanaChain != nil {
 		existingConfig.Solana = append(existingConfig.Solana, &solcfg.TOMLConfig{
-			ChainID:   ptr.Ptr(commonInputs.solanaChain.ChainID),
-			Enabled:   ptr.Ptr(true),
-			MultiNode: cfg.MultiNode,
+			ChainID: ptr.Ptr(commonInputs.solanaChain.ChainID),
+			Enabled: ptr.Ptr(true),
+			Chain:   solCfg.Chain,
 			Nodes: solcfg.Nodes{
 				{
 					Name: ptr.Ptr(commonInputs.solanaChain.Name),
