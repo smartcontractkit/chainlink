@@ -274,7 +274,7 @@ func addBootstrapNodeConfig(
 			URL: ptr.Ptr("file:///home/chainlink/workflows"),
 		}
 
-		existingConfig.Telemetry.ChipIngressEndpoint = ptr.Ptr("host.docker.internal:9999")
+		existingConfig.Telemetry.ChipIngressEndpoint = ptr.Ptr(strings.TrimPrefix(framework.HostDockerInternal(), "http://") + ":9999")
 		existingConfig.Telemetry.ChipIngressInsecureConnection = ptr.Ptr(true)
 		existingConfig.Telemetry.HeartbeatInterval = commonconfig.MustNewDuration(30 * time.Second)
 
@@ -358,7 +358,7 @@ func addWorkerNodeConfig(
 			URL: ptr.Ptr("file:///home/chainlink/workflows"),
 		}
 
-		existingConfig.Telemetry.ChipIngressEndpoint = ptr.Ptr("host.docker.internal:9999")
+		existingConfig.Telemetry.ChipIngressEndpoint = ptr.Ptr(strings.TrimPrefix(framework.HostDockerInternal(), "http://") + ":9999")
 		existingConfig.Telemetry.ChipIngressInsecureConnection = ptr.Ptr(true)
 		existingConfig.Telemetry.HeartbeatInterval = commonconfig.MustNewDuration(30 * time.Second)
 
