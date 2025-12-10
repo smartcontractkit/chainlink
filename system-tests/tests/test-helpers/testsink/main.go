@@ -8,7 +8,6 @@ import (
 	"os/signal"
 	"syscall"
 	"time"
-	// "github.com/smartcontractkit/chainlink/pkg/chiptestsink"
 )
 
 func main() {
@@ -16,6 +15,7 @@ func main() {
 		grpcListen = flag.String("grpc-listen", ":9090", "ChipIngress gRPC listen address")
 		httpListen = flag.String("http-listen", ":8080", "HTTP API listen address")
 		upstream   = flag.String("upstream", "", "optional upstream ChipIngress gRPC endpoint for pass-through")
+		cacheSize  = flag.Int("cache-size", 10000, "maximum number of events to cache")
 	)
 	flag.Parse()
 
@@ -23,6 +23,7 @@ func main() {
 		GRPCListen:       *grpcListen,
 		HTTPListen:       *httpListen,
 		UpstreamEndpoint: *upstream,
+		CacheSize:        *cacheSize,
 	}
 
 	srv, err := NewServer(cfg)
