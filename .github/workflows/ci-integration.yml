@@ -36,7 +36,7 @@ jobs:
           - module: Deployment
             cmd: go_core_ccip_deployment_tests
             os: cpu=32/ram=64/family=c5ad/spot=false/image=ubuntu24-full-x64/extras=s3-cache
-            regex: "^(TestIntegration_Aptos_)"
+            regex: "^TestIntegration_Aptos_"
             go-mod-directory: "deployment/"
             aptos-cli-version: "7.10.0"
             setup-plugins: "true"
@@ -44,7 +44,7 @@ jobs:
           - module: Deployment
             cmd: go_core_ccip_deployment_tests
             os: cpu=32/ram=64/family=c5ad/spot=false/image=ubuntu24-full-x64/extras=s3-cache
-            regex: "^(TestIntegration_Shared_)"
+            regex: "^TestIntegration_Shared_"
             go-mod-directory: "deployment/"
             setup-plugins: "true"
 
@@ -122,7 +122,7 @@ jobs:
           TEST_REGEX: ${{ matrix.type.regex }}
           CL_DATABASE_URL: ${{ env.DB_URL }}
           OUTPUT_FILE: ./output.txt
-          PRODUCE_JUNIT_XML: true
+          PRODUCE_JUNIT_XML: "true"
           JUNIT_FILE: ${{ github.workspace }}/junit.xml
           RUN_QUARANTINED_TESTS: "true" # always run quarantined tests in CI
         run: |
