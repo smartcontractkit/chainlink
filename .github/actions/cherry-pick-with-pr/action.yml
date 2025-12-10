@@ -1,0 +1,122 @@
+name: 'Cherry-pick with PR creation'
+description: 'Cherry-picks a commit to a target branch and creates a PR using the helper script'
+
+inputs:
+  commit-sha:
+    description: 'The commit SHA to cherry-pick'
+    required: true
+  target-branch:
+    description: 'The target branch to cherry-pick to'
+    required: true
+  pr-number:
+    description: 'Original PR number'
+    required: true
+  pr-title:
+    description: 'Original PR title'
+    required: true
+  github-token:
+    description: 'GitHub token for authentication'
+    required: true
+
+outputs:
+  success:
+    description: 'Whether the cherry-pick was successful'
+    value: ${{ steps.execute.outputs.success }}
+  short-sha:
+    description: 'Short SHA of the commit'
+    value: ${{ steps.execute.outputs.short-sha }}
+  branch-name:
+    description: 'Name of the cherry-pick branch'
+    value: ${{ steps.execute.outputs.branch-name }}
+
+runs:
+  using: composite
+  steps:
+    - name: Checkout repository
+      uses: actions/checkout@v5
+      with:
+        fetch-depth: 0
+        token: ${{ inputs.github-token }}
+
+    - name: Configure Git
+      shell: bash
+      run: |
+        git config --global user.name "github-actions[bot]"
+        git config --global user.email "github-actions[bot]@users.noreply.github.com"
+
+    - name: Set up GitHub CLI
+      shell: bash
+      run: |
+        echo "${{ inputs.github-token }}" | gh auth login --with-token
+
+    - name: Validate target branch exists
+      shell: bash
+      run: |
+        if ! git ls-remote --exit-code --heads origin "${{ inputs.target-branch }}"; then
+          echo "❌ Target branch '${{ inputs.target-branch }}' does not exist"
+          exit 1
+        fi
+        echo "✅ Target branch '${{ inputs.target-branch }}' exists"
+
+    - name: Execute cherry-pick and create PR
+      id: execute
+      shell: bash
+      run: |
+        COMMIT_SHA="${{ inputs.commit-sha }}"
+        TARGET_BRANCH="${{ inputs.target-branch }}"
+        SHORT_SHA="${COMMIT_SHA:0:7}"
+        BRANCH_NAME="cherry-pick/${SHORT_SHA}-to-${TARGET_BRANCH}"
+        PR_NUMBER="${{ inputs.pr-number }}"
+        PR_TITLE="${{ inputs.pr-title }}"
+
+        # Set outputs
+        echo "short-sha=${SHORT_SHA}" >> $GITHUB_OUTPUT
+        echo "branch-name=${BRANCH_NAME}" >> $GITHUB_OUTPUT
+
+        # Use the existing cherry-pick-helper script
+        echo "🍒 Using cherry-pick-helper script..."
+        
+        # Make the script executable
+        chmod +x .github/scripts/cherry-pick-helper.sh
+        
+        # Run the cherry-pick helper script
+        if .github/scripts/cherry-pick-helper.sh "${COMMIT_SHA}" "${TARGET_BRANCH}"; then
+          echo "✅ Cherry-pick helper completed successfully"
+          echo "success=true" >> $GITHUB_OUTPUT
+          
+          # The script creates the branch and pushes it, now we need to create the PR
+          echo "📝 Creating pull request..."
+          
+          PR_BODY="🍒 **Cherry-pick of #${PR_NUMBER}**
+
+        **Original PR**: #${PR_NUMBER}
+        **Original commit**: ${COMMIT_SHA}
+        **Target branch**: \`${TARGET_BRANCH}\`
+        **Cherry-pick branch**: \`${BRANCH_NAME}\`
+
+        ---
+
+        ${PR_TITLE}
+
+        > This cherry-pick was created automatically using the cherry-pick-helper script.
+        > Please review the changes and merge if appropriate.
+        > 
+        > If there are conflicts or issues, you may need to create a manual cherry-pick."
+
+          gh pr create \
+            --title "🍒 Cherry-pick: ${PR_TITLE} (${SHORT_SHA}) to ${TARGET_BRANCH}" \
+            --body "${PR_BODY}" \
+            --base "${TARGET_BRANCH}" \
+            --head "${BRANCH_NAME}" \
+            --label "cherry-pick" \
+            --label "automated" || {
+              echo "⚠️ PR creation failed, but cherry-pick branch was created successfully"
+              echo "Branch ${BRANCH_NAME} is available for manual PR creation"
+            }
+            
+          echo "✅ Cherry-pick and PR creation completed"
+        else
+          echo "❌ Cherry-pick failed"
+          echo "success=false" >> $GITHUB_OUTPUT
+          exit 1
+        fi
