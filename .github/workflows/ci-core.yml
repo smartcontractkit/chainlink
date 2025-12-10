@@ -208,7 +208,7 @@ jobs:
           - cmd: go_core_tests
             os: ${{ needs.runner-config.outputs.core-tests-runner }}
             should-run: ${{ needs.filter.outputs.should-run-core-tests }}
-            regex: "^(TestUnit_)"
+            regex: "^(TestScripts|TestUnit_)"
             # trunk-auto-quarantine: "true"
 
           # - cmd: go_core_tests_integration
