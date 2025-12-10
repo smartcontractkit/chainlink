@@ -164,7 +164,7 @@ func keysFromMap(m map[string]blockchains.Blockchain) []string {
 	return keys
 }
 
-func emitEvent(t *testing.T, lggr zerolog.Logger, chainID string, bcOutput blockchains.Blockchain, msgEmitter *evmreadcontracts.MessageEmitter, expectedUserLog string, workflowConfig evm_logTrigger_config.Config) uint64 {
+func emitEvent(ctx context.Context, lggr zerolog.Logger, chainID string, bcOutput blockchains.Blockchain, msgEmitter *evmreadcontracts.MessageEmitter, expectedUserLog string, workflowConfig evm_logTrigger_config.Config) uint64 {
 	lggr.Info().Msgf("Emitting event to be picked up by workflow for chain '%s'", chainID)
 	sethClient := bcOutput.(*evm.Blockchain).SethClient
 	emittingTx, err := msgEmitter.EmitMessage(sethClient.NewTXOpts(), expectedUserLog)
@@ -173,7 +173,7 @@ func emitEvent(t *testing.T, lggr zerolog.Logger, chainID string, bcOutput block
 		return 0
 	}
 
-	emittingReceipt, err := sethClient.WaitMined(t.Context(), lggr, sethClient.Client, emittingTx)
+	emittingReceipt, err := sethClient.WaitMined(ctx, lggr, sethClient.Client, emittingTx)
 	if err != nil {
 		lggr.Info().Msgf("Failed to emit receipt for chain '%s': %v", chainID, err)
 		return 0
@@ -239,36 +239,87 @@ func ExecuteEVMLogTriggerTest(t *testing.T, testEnv *ttypes.TestEnvironment) {
 	for chainID, bcOutput := range chainsToTest {
 		lggr.Info().Msgf("Creating EVM LogTrigger workflow configuration for chain %s", chainID)
 		workflowConfig, msgEmitter := configureEVMLogTriggerWorkflow(t, lggr, bcOutput)
-		listenerCtx, messageChan, kafkaErrChan := t_helpers.StartBeholder(t, lggr, testEnv)
 		workflowName := fmt.Sprintf("evm-logTrigger-workflow-%s-%04d", chainID, rand.Intn(10000))
 		lggr.Info().Msgf("About to deploy Workflow %s on chain %s", workflowName, chainID)
-		t_helpers.CompileAndDeployWorkflow(t, testEnv, lggr, workflowName, &workflowConfig, workflowFileLocation)
+		workflowID := t_helpers.CompileAndDeployWorkflow(t, testEnv, lggr, workflowName, &workflowConfig, workflowFileLocation)
+
+		channel, listenerCtx, cancelFn, startErr := t_helpers.StartChipEventsSubscriber(t.Context(), t_helpers.ChipEventsSubscriberConfig{
+			ChipServerURL: "http://localhost:8081",
+			Logger:        lggr,
+		})
+		require.NoError(t, startErr, "Failed to start chip events subscriber")
+		// Note: cancelFn is called manually after test assertions to ensure proper cleanup order
+
+		channels := t_helpers.FanOutChipEvents(listenerCtx, channel, 2)
+		go func() {
+			t_helpers.LogChipEvents(listenerCtx, channels[0], lggr)
+		}()
 
 		triggersUpAndRunning := "Trigger RunSimpleEvmLogTriggerWorkflow called"
-		err := t_helpers.AssertBeholderMessage(listenerCtx, t, triggersUpAndRunning, lggr, messageChan, kafkaErrChan, 4*time.Minute)
-		require.NoError(t, err, "LogTrigger capability test failed, Beholder should not return an error")
+		err := t_helpers.AssertChipEventMatchedByNodes(listenerCtx, workflowID, 2, channels[1], t_helpers.GetUserLogMatcherFn(triggersUpAndRunning), 4*time.Minute, lggr)
+		require.NoError(t, err, "LogTrigger capability test failed, should not return an error")
 
 		message := "Data for log trigger"
-		// start background event emission every 10s while AssertBeholderMessage is running, so that the workflow has events to pick up eventually
+		// start background event emission every 10s while AssertChipEventMatchedByNodes is running, so that the workflow has events to pick up eventually
 		var emittedEventCount int64
 		ticker := time.NewTicker(10 * time.Second)
+		var emitterWg sync.WaitGroup
+		emitterWg.Add(1)
 		go func() {
+			defer emitterWg.Done()
 			defer ticker.Stop()
+			defer func() {
+				// Wait for any pending transactions to be mined before exiting
+				// to prevent nonce conflicts during cleanup, since event-emitting transaction
+				// might be in-flight, when context is cancelled and workflow deletion in clean up
+				// might fail with `nonce too low`.
+				lggr.Info().Msgf("Checking for pending transactions before goroutine exits for chain %s", chainID)
+				sethClient := bcOutput.(*evm.Blockchain).SethClient
+				txOpts := sethClient.NewTXOpts()
+
+				for i := 0; i < 30; i++ { // max 30 attempts
+					ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+					pendingNonce, err1 := sethClient.Client.PendingNonceAt(ctx, txOpts.From)
+					lastNonce, err2 := sethClient.Client.NonceAt(ctx, txOpts.From, nil)
+					cancel()
+
+					if err1 != nil || err2 != nil {
+						lggr.Warn().Msgf("Failed to check nonces for chain %s (attempt %d/30): %v, %v", chainID, i+1, err1, err2)
+						time.Sleep(2 * time.Second)
+						continue
+					}
+
+					if pendingNonce == lastNonce {
+						lggr.Info().Msgf("No pending transactions for chain %s (pending: %d, last: %d)", chainID, pendingNonce, lastNonce)
+						break
+					}
+
+					lggr.Warn().Msgf("Waiting for pending transactions (pending: %d, last: %d) for chain %s (attempt %d/30)", pendingNonce, lastNonce, chainID, i+1)
+					time.Sleep(2 * time.Second)
+				}
+				lggr.Info().Msgf("Finished checking for pending transactions for chain %s", chainID)
+			}()
 			for {
 				select {
 				case <-listenerCtx.Done():
 					return
 				case <-ticker.C:
 					lggr.Info().Msgf("About to emit event #%d for chain %s", emittedEventCount, chainID)
-					blockNumber := emitEvent(t, lggr, chainID, bcOutput, msgEmitter, message, workflowConfig)
+					blockNumber := emitEvent(listenerCtx, lggr, chainID, bcOutput, msgEmitter, message, workflowConfig)
 					lggr.Info().Msgf("Event emitted for chain %s at blockNumber %d", chainID, blockNumber)
 					emittedEventCount++
 				}
 			}
 		}()
 		expectedUserLog := "OnTrigger decoded message: message:" + message
-		err = t_helpers.AssertBeholderMessage(listenerCtx, t, expectedUserLog, lggr, messageChan, kafkaErrChan, 4*time.Minute)
+		err = t_helpers.AssertChipEventMatchedByNodes(listenerCtx, workflowID, 2, channels[1], t_helpers.GetUserLogMatcherFn(expectedUserLog), 4*time.Minute, lggr)
 		require.NoError(t, err, "Expected user log test failed")
+
+		// Cancel the context to stop the event emitter goroutine, then wait for it to finish
+		lggr.Info().Msgf("Stopping event emitter goroutine for chain %s", chainID)
+		cancelFn()
+		emitterWg.Wait()
+		lggr.Info().Msgf("Event emitter goroutine finished for chain %s", chainID)
 
 		lggr.Info().Msgf("🎉 LogTrigger Workflow %s executed successfully on chain %s", workflowName, chainID)
 		successfulLogTriggerChains = append(successfulLogTriggerChains, chainID)

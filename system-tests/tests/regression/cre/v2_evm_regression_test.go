@@ -199,7 +199,6 @@ func EVMReadFailsTest(t *testing.T, testEnv *ttypes.TestEnvironment, evmNegative
 		readBalancesAddress, rbErr := contracts.DeployReadBalancesContract(testLogger, chainSelector, creEnvironment)
 		require.NoError(t, rbErr, "failed to deploy Read Balances contract on chain %d", chainSelector)
 
-		listenerCtx, messageChan, kafkaErrChan := t_helpers.StartBeholder(t, testLogger, testEnv)
 		testLogger.Info().Msg("Creating EVM Read Fail workflow configuration...")
 		workflowConfig := evm_negative_config.Config{
 			ChainSelector:  bcOutput.ChainSelector(),
@@ -210,11 +209,23 @@ func EVMReadFailsTest(t *testing.T, testEnv *ttypes.TestEnvironment, evmNegative
 			},
 		}
 		workflowName := fmt.Sprintf("evm-read-fail-workflow-%s-%04d", chainID, rand.Intn(10000))
-		t_helpers.CompileAndDeployWorkflow(t, testEnv, testLogger, workflowName, &workflowConfig, workflowFileLocation)
+		workflowID := t_helpers.CompileAndDeployWorkflow(t, testEnv, testLogger, workflowName, &workflowConfig, workflowFileLocation)
+
+		channel, listenerCtx, cancelFn, startErr := t_helpers.StartChipEventsSubscriber(t.Context(), t_helpers.ChipEventsSubscriberConfig{
+			ChipServerURL: "http://localhost:8081",
+			Logger:        testLogger,
+		})
+		require.NoError(t, startErr, "Failed to start chip events subscriber")
+		t.Cleanup(cancelFn)
+
+		channels := t_helpers.FanOutChipEvents(listenerCtx, channel, 2)
+		go func() {
+			t_helpers.LogChipEvents(listenerCtx, channels[0], testLogger)
+		}()
 
 		expectedError := evmNegativeTest.expectedError
 		timeout := 2 * time.Minute
-		err := t_helpers.AssertBeholderMessage(listenerCtx, t, expectedError, testLogger, messageChan, kafkaErrChan, timeout)
+		err := t_helpers.AssertChipEventMatchedByNodes(listenerCtx, workflowID, 2, channels[1], t_helpers.GetUserLogMatcherFn(expectedError), timeout, testLogger)
 		require.NoError(t, err, "EVM Read Fail test failed")
 		testLogger.Info().Msg("EVM Read Fail test successfully completed")
 	}
@@ -269,7 +280,6 @@ func EVMWriteFailsTest(t *testing.T, testEnv *ttypes.TestEnvironment, evmNegativ
 		feedID := "018e16c38e000320000000000000000000000000000000000000000000000000" // 32 hex characters (16 bytes)
 		dataFeedsCacheAddress := deployAndConfigureEVMContracts(t, testLogger, chainSelector, chainID, creEnvironment, workflowOwner, workflowName, feedID, common.HexToAddress(forwarderAddress))
 
-		listenerCtx, messageChan, kafkaErrChan := t_helpers.StartBeholder(t, testLogger, testEnv)
 		testLogger.Info().Msg("Creating EVM Write Regression workflow configuration...")
 		workflowConfig := evm_write_negative_config.Config{
 			FeedID:         feedID,
@@ -280,11 +290,23 @@ func EVMWriteFailsTest(t *testing.T, testEnv *ttypes.TestEnvironment, evmNegativ
 				DataFeedsCacheAddress: dataFeedsCacheAddress,
 			},
 		}
-		t_helpers.CompileAndDeployWorkflow(t, testEnv, testLogger, workflowName, &workflowConfig, workflowFileLocation)
+		workflowID := t_helpers.CompileAndDeployWorkflow(t, testEnv, testLogger, workflowName, &workflowConfig, workflowFileLocation)
+
+		channel, listenerCtx, cancelFn, startErr := t_helpers.StartChipEventsSubscriber(t.Context(), t_helpers.ChipEventsSubscriberConfig{
+			ChipServerURL: "http://localhost:8081",
+			Logger:        testLogger,
+		})
+		require.NoError(t, startErr, "Failed to start chip events subscriber")
+		t.Cleanup(cancelFn)
+
+		channels := t_helpers.FanOutChipEvents(listenerCtx, channel, 2)
+		go func() {
+			t_helpers.LogChipEvents(listenerCtx, channels[0], testLogger)
+		}()
 
 		expectedError := evmNegativeTest.expectedError
 		timeout := 2 * time.Minute
-		err := t_helpers.AssertBeholderMessage(listenerCtx, t, expectedError, testLogger, messageChan, kafkaErrChan, timeout)
+		err := t_helpers.AssertChipEventMatchedByNodes(listenerCtx, workflowID, 2, channels[1], t_helpers.GetUserLogMatcherFn(expectedError), timeout, testLogger)
 		require.NoError(t, err, "EVM Write Regression test failed")
 		testLogger.Info().Msg("EVM Write Regression test successfully completed")
 	}

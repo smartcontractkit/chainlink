@@ -40,8 +40,6 @@ func ConsensusFailsTest(t *testing.T, testEnv *ttypes.TestEnvironment, consensus
 	for _, bcOutput := range testEnv.CreEnvironment.Blockchains {
 		chainID := bcOutput.CtfOutput().ChainID
 
-		listenerCtx, messageChan, kafkaErrChan := t_helpers.StartBeholder(t, testLogger, testEnv)
-
 		testLogger.Info().Msg("Creating Consensus Fail workflow configuration...")
 		workflowName := fmt.Sprintf("consensus-fail-workflow-%s-%04d", chainID, rand.Intn(10000))
 		feedID := "018e16c38e000320000000000000000000000000000000000000000000000000" // 32 hex characters (16 bytes)
@@ -49,11 +47,23 @@ func ConsensusFailsTest(t *testing.T, testEnv *ttypes.TestEnvironment, consensus
 			CaseToTrigger: consensusNegativeTest.caseToTrigger,
 			FeedID:        feedID,
 		}
-		t_helpers.CompileAndDeployWorkflow(t, testEnv, testLogger, workflowName, &workflowConfig, workflowFileLocation)
+		workflowID := t_helpers.CompileAndDeployWorkflow(t, testEnv, testLogger, workflowName, &workflowConfig, workflowFileLocation)
+
+		channel, listenerCtx, cancelFn, startErr := t_helpers.StartChipEventsSubscriber(t.Context(), t_helpers.ChipEventsSubscriberConfig{
+			ChipServerURL: "http://localhost:8081",
+			Logger:        testLogger,
+		})
+		require.NoError(t, startErr, "Failed to start chip events subscriber")
+		t.Cleanup(cancelFn)
+
+		channels := t_helpers.FanOutChipEvents(listenerCtx, channel, 2)
+		go func() {
+			t_helpers.LogChipEvents(listenerCtx, channels[0], testLogger)
+		}()
 
 		timeout := 90 * time.Second
 		expectedError := consensusNegativeTest.expectedError
-		err := t_helpers.AssertBeholderMessage(listenerCtx, t, expectedError, testLogger, messageChan, kafkaErrChan, timeout)
+		err := t_helpers.AssertChipEventMatchedByNodes(listenerCtx, workflowID, 2, channels[1], t_helpers.GetUserLogMatcherFn(expectedError), timeout, testLogger)
 		require.NoError(t, err, "Consensus Fail test failed")
 		testLogger.Info().Msg("Consensus Fail test successfully completed")
 	}

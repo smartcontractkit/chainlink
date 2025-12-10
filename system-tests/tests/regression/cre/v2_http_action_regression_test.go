@@ -115,19 +115,29 @@ func HTTPActionFailureTest(t *testing.T, testEnv *ttypes.TestEnvironment, httpAc
 
 	workflowName := "http-action-fail-workflow-" + httpActionTest.method + "-" + uuid.New().String()[0:8]
 
-	// Start Beholder listener BEFORE registering workflow to avoid missing messages
-	listenerCtx, messageChan, kafkaErrChan := t_helpers.StartBeholder(t, testLogger, testEnv)
-
 	// Now register and deploy the workflow
-	t_helpers.CompileAndDeployWorkflow(t, testEnv, testLogger, workflowName, &workflowConfig, workflowFileLocation)
+	workflowID := t_helpers.CompileAndDeployWorkflow(t, testEnv, testLogger, workflowName, &workflowConfig, workflowFileLocation)
 
-	// Wait for specific error message in Beholder based on test case
-	testLogger.Info().Msgf("Waiting for expected HTTP Action failure: '%s' in Beholder...", httpActionTest.expectedError)
+	// Start Chip events subscriber AFTER workflow deployment to avoid missing messages
+	channel, listenerCtx, cancelFn, startErr := t_helpers.StartChipEventsSubscriber(t.Context(), t_helpers.ChipEventsSubscriberConfig{
+		ChipServerURL: "http://localhost:8081",
+		Logger:        testLogger,
+	})
+	require.NoError(t, startErr, "Failed to start chip events subscriber")
+	t.Cleanup(cancelFn)
+
+	channels := t_helpers.FanOutChipEvents(listenerCtx, channel, 2)
+	go func() {
+		t_helpers.LogChipEvents(listenerCtx, channels[0], testLogger)
+	}()
+
+	// Wait for specific error message in Chip events based on test case
+	testLogger.Info().Msgf("Waiting for expected HTTP Action failure: '%s' in Chip events...", httpActionTest.expectedError)
 	timeout := 60 * time.Second
 
 	// Expect exact error message for this test case - no fallbacks
-	err := t_helpers.AssertBeholderMessage(listenerCtx, t, httpActionTest.expectedError, testLogger, messageChan, kafkaErrChan, timeout)
-	require.NoError(t, err, "Expected HTTP Action failure message '%s' not found in Beholder logs", httpActionTest.expectedError)
+	err := t_helpers.AssertChipEventMatchedByNodes(listenerCtx, workflowID, 2, channels[1], t_helpers.GetUserLogMatcherFn(httpActionTest.expectedError), timeout, testLogger)
+	require.NoError(t, err, "Expected HTTP Action failure message '%s' not found in Chip events", httpActionTest.expectedError)
 	testLogger.Info().Msg("HTTP Action failure test completed successfully")
 
 	// Note: Workflow cleanup happens via t.Cleanup() after this function returns

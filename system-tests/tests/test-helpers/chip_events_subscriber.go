@@ -21,6 +21,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"strings"
 	"sync"
 	"time"
 
@@ -447,11 +448,14 @@ func LogChipEvents(
 					continue
 				}
 
+				if strings.Contains(msg.Msg, "heartbeat") || strings.Contains(msg.Msg, "metering report") {
+					continue
+				}
+
 				logger.Info().
 					Str("node_p2p_id", event.NodeP2PID).
 					Str("workflow_id", event.WorkflowID).
-					Uint64("sequence", event.Sequence).
-					Msgf("[BaseMessage] %s", msg.Msg)
+					Msgf("[BaseMessage]#%d %s", event.Sequence, msg.Msg)
 
 			default:
 				logger.Debug().
@@ -635,7 +639,7 @@ func GetUserLogMatcherFn(expectedMessage string) ChipEventMatcherFunc {
 			}
 
 			for _, line := range msg.LogLines {
-				if len(line.Message) > 0 && stringContains(line.Message, expectedMessage) {
+				if len(line.Message) > 0 && strings.Contains(line.Message, expectedMessage) {
 					return true, nil
 				}
 			}
@@ -655,27 +659,11 @@ func GetUserLogMatcherFn(expectedMessage string) ChipEventMatcherFunc {
 				return false, nil // Ignore unmarshal errors
 			}
 
-			if stringContains(msg.Msg, "Workflow Engine initialization failed") {
+			if strings.Contains(msg.Msg, "Workflow Engine initialization failed") {
 				return false, fmt.Errorf("found engine initialization failure message: %s", msg.Msg)
 			}
 		}
 
 		return false, nil
 	}
-}
-
-// stringContains is a helper function to check if a string contains a substring
-func stringContains(s, substr string) bool {
-	if len(substr) == 0 {
-		return true
-	}
-	if len(s) < len(substr) {
-		return false
-	}
-	for i := 0; i <= len(s)-len(substr); i++ {
-		if s[i:i+len(substr)] == substr {
-			return true
-		}
-	}
-	return false
 }
