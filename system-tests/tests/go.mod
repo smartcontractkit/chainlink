@@ -85,8 +85,10 @@ require (
 	github.com/failsafe-go/failsafe-go v0.9.0 // indirect
 	github.com/hashicorp/golang-lru/v2 v2.0.7 // indirect
 	github.com/influxdata/tdigest v0.0.2-0.20210216194612-fc98d27c9e8b // indirect
+	github.com/mfridman/interpolate v0.0.2 // indirect
+	github.com/pressly/goose/v3 v3.26.0 // indirect
 	github.com/smartcontractkit/chainlink-ccip/ccv/chains/evm v0.0.0-20251127040717-30244f57ea7a // indirect
-	github.com/smartcontractkit/chainlink-ccv v0.0.0-20251208105135-980e1424951b // indirect
+	github.com/smartcontractkit/chainlink-ccv v0.0.0-20251208191515-6b00fe4f7aa7 // indirect
 	github.com/smartcontractkit/chainlink-protos/chainlink-ccv/go v0.0.0-20251126123859-d079d6815edb // indirect
 )
 
