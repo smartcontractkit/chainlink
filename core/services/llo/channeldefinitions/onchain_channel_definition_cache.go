@@ -468,7 +468,11 @@ func (c *channelDefinitionCache) processLogs(logs []logpoller.Log) {
 			continue
 		}
 		c.lggr.Infow("Got new logs", "source", trigger.Source, "url", trigger.URL, "sha", hex.EncodeToString(trigger.SHA[:]), "blockNum", trigger.BlockNum)
-		c.fetchTriggerCh <- trigger
+		select {
+		case c.fetchTriggerCh <- trigger:
+		case <-c.chStop:
+			return
+		}
 	}
 }
 
