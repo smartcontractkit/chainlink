@@ -404,6 +404,9 @@ jobs:
     needs: [filter]
     runs-on: ubuntu-latest
     if: ${{  needs.filter.outputs.should-run-core-tests == 'true' }}
+    permissions:
+      id-token: write
+      contents: read
     env:
       GOPRIVATE: github.com/smartcontractkit/chainlink-internal-solana
     steps:
