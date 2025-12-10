@@ -44,7 +44,7 @@ func TestIntegration_Shared_LoadChainState_MultipleFeeQuoters(t *testing.T) {
 	require.Equal(t, deployment.Version1_2_0, *state.FeeQuoterVersion, "expected latest fee quoter version to be selected")
 }
 
-func TestUnit_SmokeState(t *testing.T) {
+func TestIntegration_Shared_SmokeState(t *testing.T) {
 	tenv, _ := testhelpers.NewMemoryEnvironment(t, testhelpers.WithNumOfChains(3))
 	state, err := stateview.LoadOnchainState(tenv.Env)
 	require.NoError(t, err)
@@ -52,7 +52,7 @@ func TestUnit_SmokeState(t *testing.T) {
 	require.NoError(t, err)
 }
 
-func TestUnit_MCMSState(t *testing.T) {
+func TestIntegration_Shared_MCMSState(t *testing.T) {
 	tenv, _ := testhelpers.NewMemoryEnvironment(t, testhelpers.WithNoJobsAndContracts())
 	addressbook := cldf.NewMemoryAddressBook()
 	newTv := cldf.NewTypeAndVersion(types.ManyChainMultisig, deployment.Version1_0_0)

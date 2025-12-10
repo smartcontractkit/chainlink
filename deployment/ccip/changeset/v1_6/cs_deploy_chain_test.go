@@ -181,7 +181,7 @@ func TestIntegration_Shared_DeployCCIPContracts(t *testing.T) {
 	testhelpers.DeployCCIPContractsTest(t, 0, 0)
 }
 
-func TestUnit_DeployStaticLinkToken(t *testing.T) {
+func TestIntegration_Shared_DeployStaticLinkToken(t *testing.T) {
 	t.Parallel()
 	e, _ := testhelpers.NewMemoryEnvironment(t, testhelpers.WithStaticLink())
 	// load onchain state
