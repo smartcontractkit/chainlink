@@ -85,7 +85,7 @@ func deployUSDCPrerequisites(
 	return usdcToken, messenger
 }
 
-func TestValidateDeployUSDCTokenPoolContractsConfig(t *testing.T) {
+func TestUnit_ValidateDeployUSDCTokenPoolContractsConfig(t *testing.T) {
 	t.Parallel()
 
 	e, err := environment.New(t.Context(),
@@ -136,7 +136,7 @@ func TestValidateDeployUSDCTokenPoolContractsConfig(t *testing.T) {
 	}
 }
 
-func TestValidateDeployUSDCTokenPoolInput(t *testing.T) {
+func TestUnit_ValidateDeployUSDCTokenPoolInput(t *testing.T) {
 	t.Parallel()
 
 	selector := chain_selectors.TEST_90000001.Selector
@@ -238,7 +238,7 @@ func TestValidateDeployUSDCTokenPoolInput(t *testing.T) {
 	}
 }
 
-func TestDeployUSDCTokenPoolContracts(t *testing.T) {
+func TestUnit_DeployUSDCTokenPoolContracts(t *testing.T) {
 	t.Parallel()
 
 	for _, numRuns := range []int{1, 2} {

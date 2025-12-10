@@ -31,7 +31,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
 
-func TestAddTokenE2E(t *testing.T) {
+func TestIntegration_Shared_AddTokenE2E(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {

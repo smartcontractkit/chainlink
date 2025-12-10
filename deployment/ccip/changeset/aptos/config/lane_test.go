@@ -15,7 +15,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/ccipevm"
 )
 
-func TestToEVMUpdateLanesConfig(t *testing.T) {
+func TestUnit_ToEVMUpdateLanesConfig(t *testing.T) {
 	t.Parallel()
 	tests := []struct {
 		name     string

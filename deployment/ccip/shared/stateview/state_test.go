@@ -30,7 +30,7 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/common/types"
 )
 
-func TestLoadChainState_MultipleFeeQuoters(t *testing.T) {
+func TestIntegration_Shared_LoadChainState_MultipleFeeQuoters(t *testing.T) {
 	tenv, _ := testhelpers.NewMemoryEnvironment(t, testhelpers.WithNumOfChains(3))
 	fq1 := utils.RandomAddress().Hex()
 	fq2 := utils.RandomAddress().Hex()
@@ -44,7 +44,7 @@ func TestLoadChainState_MultipleFeeQuoters(t *testing.T) {
 	require.Equal(t, deployment.Version1_2_0, *state.FeeQuoterVersion, "expected latest fee quoter version to be selected")
 }
 
-func TestSmokeState(t *testing.T) {
+func TestUnit_SmokeState(t *testing.T) {
 	tenv, _ := testhelpers.NewMemoryEnvironment(t, testhelpers.WithNumOfChains(3))
 	state, err := stateview.LoadOnchainState(tenv.Env)
 	require.NoError(t, err)
@@ -52,7 +52,7 @@ func TestSmokeState(t *testing.T) {
 	require.NoError(t, err)
 }
 
-func TestMCMSState(t *testing.T) {
+func TestUnit_MCMSState(t *testing.T) {
 	tenv, _ := testhelpers.NewMemoryEnvironment(t, testhelpers.WithNoJobsAndContracts())
 	addressbook := cldf.NewMemoryAddressBook()
 	newTv := cldf.NewTypeAndVersion(types.ManyChainMultisig, deployment.Version1_0_0)
@@ -69,7 +69,7 @@ func TestMCMSState(t *testing.T) {
 	require.Equal(t, addr.String(), state.Chains[tenv.HomeChainSel].CancellerMcm.Address().String())
 }
 
-func TestEnforceMCMSUsageIfProd(t *testing.T) {
+func TestUnit_EnforceMCMSUsageIfProd(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {

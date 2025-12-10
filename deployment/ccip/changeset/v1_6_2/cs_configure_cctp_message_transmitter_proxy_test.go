@@ -121,7 +121,7 @@ func setupCCTPMsgTransmitterProxyContractsForConfigure(
 	return usdcToken, messenger
 }
 
-func TestValidateConfigureCCTPMessageTransmitterProxyInput(t *testing.T) {
+func TestUnit_ValidateConfigureCCTPMessageTransmitterProxyInput(t *testing.T) {
 	t.Parallel()
 
 	rt := setupCCTPMsgTransmitterProxyEnvironmentForConfigure(t, true)
@@ -186,7 +186,7 @@ func TestValidateConfigureCCTPMessageTransmitterProxyInput(t *testing.T) {
 	}
 }
 
-func TestConfigureCCTPMessageTransmitterProxy(t *testing.T) {
+func TestUnit_ConfigureCCTPMessageTransmitterProxy(t *testing.T) {
 	quarantine.Flaky(t, "DX-2064")
 	t.Parallel()
 

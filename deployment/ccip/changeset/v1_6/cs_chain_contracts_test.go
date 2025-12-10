@@ -47,7 +47,7 @@ import (
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 )
 
-func TestUpdateOnRampsDests(t *testing.T) {
+func TestIntegration_Shared_UpdateOnRampsDests(t *testing.T) {
 	for _, tc := range []struct {
 		name        string
 		mcmsEnabled bool
@@ -123,7 +123,7 @@ func TestUpdateOnRampsDests(t *testing.T) {
 	}
 }
 
-func TestUpdateOnRampDynamicConfig(t *testing.T) {
+func TestIntegration_Shared_UpdateOnRampDynamicConfig(t *testing.T) {
 	for _, tc := range []struct {
 		name        string
 		mcmsEnabled bool
@@ -191,7 +191,7 @@ func TestUpdateOnRampDynamicConfig(t *testing.T) {
 	}
 }
 
-func TestUpdateOnRampAllowList(t *testing.T) {
+func TestIntegration_Shared_UpdateOnRampAllowList(t *testing.T) {
 	for _, tc := range []struct {
 		name        string
 		mcmsEnabled bool
@@ -267,7 +267,7 @@ func TestUpdateOnRampAllowList(t *testing.T) {
 	}
 }
 
-func TestWithdrawOnRampFeeTokens(t *testing.T) {
+func TestIntegration_Shared_WithdrawOnRampFeeTokens(t *testing.T) {
 	for _, tc := range []struct {
 		name        string
 		mcmsEnabled bool
@@ -383,7 +383,7 @@ func TestWithdrawOnRampFeeTokens(t *testing.T) {
 	}
 }
 
-func TestUpdateOffRampsSources(t *testing.T) {
+func TestIntegration_Shared_UpdateOffRampsSources(t *testing.T) {
 	for _, tc := range []struct {
 		name        string
 		mcmsEnabled bool
@@ -459,7 +459,7 @@ func TestUpdateOffRampsSources(t *testing.T) {
 	}
 }
 
-func TestUpdateFQDests(t *testing.T) {
+func TestIntegration_Shared_UpdateFQDests(t *testing.T) {
 	for _, tc := range []struct {
 		name        string
 		mcmsEnabled bool
@@ -527,7 +527,7 @@ func TestUpdateFQDests(t *testing.T) {
 	}
 }
 
-func TestUpdateFeeQuoterDestsConfig_Validate_MultipleReportsEnabled(t *testing.T) {
+func TestIntegration_Shared_UpdateFeeQuoterDestsConfig_Validate_MultipleReportsEnabled(t *testing.T) {
 	tenv, _ := testhelpers.NewMemoryEnvironment(t)
 	allChains := maps.Keys(tenv.Env.BlockChains.EVMChains())
 	source := allChains[0]
@@ -617,7 +617,7 @@ func TestUpdateFeeQuoterDestsConfig_Validate_MultipleReportsEnabled(t *testing.T
 	require.NoError(t, err)
 }
 
-func TestUpdateRouterRamps(t *testing.T) {
+func TestIntegration_Shared_UpdateRouterRamps(t *testing.T) {
 	for _, tc := range []struct {
 		name                   string
 		transferHomeContracts  bool
@@ -722,7 +722,7 @@ func TestUpdateRouterRamps(t *testing.T) {
 	}
 }
 
-func TestUpdateDynamicConfigOffRampChangeset(t *testing.T) {
+func TestIntegration_Shared_UpdateDynamicConfigOffRampChangeset(t *testing.T) {
 	for _, tc := range []struct {
 		name        string
 		mcmsEnabled bool
@@ -782,7 +782,7 @@ func TestUpdateDynamicConfigOffRampChangeset(t *testing.T) {
 	}
 }
 
-func TestUpdateNonceManagersCS(t *testing.T) {
+func TestIntegration_Shared_UpdateNonceManagersCS(t *testing.T) {
 	for _, tc := range []struct {
 		name        string
 		mcmsEnabled bool
@@ -840,7 +840,7 @@ func TestUpdateNonceManagersCS(t *testing.T) {
 	}
 }
 
-func TestUpdateNonceManagersCSApplyPreviousRampsUpdates(t *testing.T) {
+func TestIntegration_Shared_UpdateNonceManagersCSApplyPreviousRampsUpdates(t *testing.T) {
 	e, tenv := testhelpers.NewMemoryEnvironment(
 		t,
 		testhelpers.WithPrerequisiteDeploymentOnly(&changeset.V1_5DeploymentConfig{
@@ -943,7 +943,7 @@ func TestUpdateNonceManagersCSApplyPreviousRampsUpdates(t *testing.T) {
 	require.NoError(t, err)
 }
 
-func TestSetOCR3ConfigValidations(t *testing.T) {
+func TestIntegration_Shared_SetOCR3ConfigValidations(t *testing.T) {
 	e, _ := testhelpers.NewMemoryEnvironment(
 		t,
 		testhelpers.WithPrerequisiteDeploymentOnly(nil))
@@ -1061,7 +1061,7 @@ func TestSetOCR3ConfigValidations(t *testing.T) {
 	require.Contains(t, err.Error(), "OCR3 config FRoleDON is lower than chainConfig FChain")
 }
 
-func TestApplyFeeTokensUpdatesFeeQuoterChangeset(t *testing.T) {
+func TestIntegration_Shared_ApplyFeeTokensUpdatesFeeQuoterChangeset(t *testing.T) {
 	for _, tc := range []struct {
 		name        string
 		mcmsEnabled bool
@@ -1146,7 +1146,7 @@ func TestApplyFeeTokensUpdatesFeeQuoterChangeset(t *testing.T) {
 	}
 }
 
-func TestApplyPremiumMultiplierWeiPerEthUpdatesFeeQuoterChangeset(t *testing.T) {
+func TestIntegration_Shared_ApplyPremiumMultiplierWeiPerEthUpdatesFeeQuoterChangeset(t *testing.T) {
 	for _, tc := range []struct {
 		name        string
 		mcmsEnabled bool
@@ -1258,7 +1258,7 @@ func TestApplyPremiumMultiplierWeiPerEthUpdatesFeeQuoterChangeset(t *testing.T) 
 	}
 }
 
-func TestUpdateTokenPriceFeedsFeeQuoterChangeset(t *testing.T) {
+func TestIntegration_Shared_UpdateTokenPriceFeedsFeeQuoterChangeset(t *testing.T) {
 	for _, tc := range []struct {
 		name        string
 		mcmsEnabled bool
@@ -1375,7 +1375,7 @@ func TestUpdateTokenPriceFeedsFeeQuoterChangeset(t *testing.T) {
 	}
 }
 
-func TestApplyTokenTransferFeeConfigUpdatesFeeQuoterChangeset(t *testing.T) {
+func TestIntegration_Shared_ApplyTokenTransferFeeConfigUpdatesFeeQuoterChangeset(t *testing.T) {
 	for _, tc := range []struct {
 		name        string
 		mcmsEnabled bool
@@ -1483,7 +1483,7 @@ func TestApplyTokenTransferFeeConfigUpdatesFeeQuoterChangeset(t *testing.T) {
 	}
 }
 
-func TestApplyTokenTransferFeeConfigUpdatesFeeQuoterChangesetV2(t *testing.T) {
+func TestIntegration_Shared_ApplyTokenTransferFeeConfigUpdatesFeeQuoterChangesetV2(t *testing.T) {
 	for _, tc := range []struct {
 		name        string
 		mcmsEnabled bool
@@ -1617,7 +1617,7 @@ func TestApplyTokenTransferFeeConfigUpdatesFeeQuoterChangesetV2(t *testing.T) {
 	}
 }
 
-func TestUpdateWrappedNativeOnRouterChangeset(t *testing.T) {
+func TestIntegration_Shared_UpdateWrappedNativeOnRouterChangeset(t *testing.T) {
 	for _, tc := range []struct {
 		name        string
 		mcmsEnabled bool

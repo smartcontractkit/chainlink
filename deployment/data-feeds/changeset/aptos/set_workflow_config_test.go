@@ -18,7 +18,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 )
 
-func TestSetWorkflowConfig(t *testing.T) {
+func TestIntegration_Aptos_SetWorkflowConfig(t *testing.T) {
 	t.Parallel()
 
 	selector := chain_selectors.APTOS_LOCALNET.Selector

@@ -88,7 +88,7 @@ func getSolanaTokenTransferFeeConfig(t *testing.T, tEnv cldf.Environment, srcSel
 	return cfg
 }
 
-func TestSetTokenTransferFeeConfig_Validations(t *testing.T) {
+func TestIntegration_Solana_SetTokenTransferFeeConfig_Validations(t *testing.T) {
 	// Build a mixed env with EVM + non-EVM so we can validate both families in one table-driven test
 	env, _ := testhelpers.NewMemoryEnvironment(t,
 		testhelpers.WithCCIPSolanaContractVersion(ccip_cs_sol_v0_1_1.SolanaContractV0_1_1),
@@ -280,7 +280,7 @@ func TestSetTokenTransferFeeConfig_Validations(t *testing.T) {
 	}
 }
 
-func TestSetTokenTransferFeeConfig_EmptyConfigIsGracefullyHandled(t *testing.T) {
+func TestIntegration_Solana_SetTokenTransferFeeConfig_EmptyConfigIsGracefullyHandled(t *testing.T) {
 	env, _ := testhelpers.NewMemoryEnvironment(t,
 		testhelpers.WithCCIPSolanaContractVersion(ccip_cs_sol_v0_1_1.SolanaContractV0_1_1),
 		testhelpers.WithNumOfChains(2),
@@ -296,7 +296,7 @@ func TestSetTokenTransferFeeConfig_EmptyConfigIsGracefullyHandled(t *testing.T) 
 	require.NoError(t, err)
 }
 
-func TestSetTokenTransferFeeConfig_EVM_V1_6_0_Only(t *testing.T) {
+func TestIntegration_Solana_SetTokenTransferFeeConfig_EVM_V1_6_0_Only(t *testing.T) {
 	// Setup EVM environment
 	env, _ := testhelpers.NewMemoryEnvironment(t, testhelpers.WithNumOfChains(2))
 
@@ -359,7 +359,7 @@ func TestSetTokenTransferFeeConfig_EVM_V1_6_0_Only(t *testing.T) {
 	require.Equal(t, cfg1, cfg2)
 }
 
-func TestSetTokenTransferFeeConfig_EVM_V1_5_1_Only(t *testing.T) {
+func TestIntegration_Solana_SetTokenTransferFeeConfig_EVM_V1_5_1_Only(t *testing.T) {
 	// Setup EVM environment
 	env, _ := testhelpers.NewMemoryEnvironment(t,
 		testhelpers.WithNumOfChains(2),
@@ -454,7 +454,7 @@ func TestSetTokenTransferFeeConfig_EVM_V1_5_1_Only(t *testing.T) {
 	require.Equal(t, cfg1, cfg2)
 }
 
-func TestSetTokenTransferFeeConfig_Solana_V0_1_0_Only(t *testing.T) {
+func TestIntegration_Solana_SetTokenTransferFeeConfig_Solana_V0_1_0_Only(t *testing.T) {
 	// Setup Solana environment
 	env, _ := testhelpers.NewMemoryEnvironment(t,
 		testhelpers.WithCCIPSolanaContractVersion(ccip_cs_sol_v0_1_1.SolanaContractV0_1_1),
@@ -547,7 +547,7 @@ func TestSetTokenTransferFeeConfig_Solana_V0_1_0_Only(t *testing.T) {
 	require.True(t, solCfgY.TokenTransferConfig.IsEnabled)
 }
 
-func TestSetTokenTransferFeeConfig_MixedFamilies_SingleApply(t *testing.T) {
+func TestIntegration_Solana_SetTokenTransferFeeConfig_MixedFamilies_SingleApply(t *testing.T) {
 	// Build a mixed env with EVM + non-EVM
 	env, _ := testhelpers.NewMemoryEnvironment(t,
 		testhelpers.WithCCIPSolanaContractVersion(ccip_cs_sol_v0_1_1.SolanaContractV0_1_1),

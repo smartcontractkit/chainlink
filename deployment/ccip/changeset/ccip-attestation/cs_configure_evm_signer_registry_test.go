@@ -51,7 +51,7 @@ func deployTestSignerRegistry(t *testing.T, env cldf.Environment, selector uint6
 	return signerRegistry.Address
 }
 
-func TestEVMSignerRegistryConfiguration_Preconditions(t *testing.T) {
+func TestUnit_EVMSignerRegistryConfiguration_Preconditions(t *testing.T) {
 	t.Parallel()
 
 	selector := uint64(ccip_attestation.BaseMainnetSelector)
@@ -135,7 +135,7 @@ func TestEVMSignerRegistryConfiguration_Preconditions(t *testing.T) {
 	}
 }
 
-func TestEVMSignerRegistryConfiguration_StateValidation(t *testing.T) {
+func TestUnit_EVMSignerRegistryConfiguration_StateValidation(t *testing.T) {
 	t.Parallel()
 
 	selector := uint64(ccip_attestation.BaseMainnetSelector)
@@ -184,7 +184,7 @@ func TestEVMSignerRegistryConfiguration_StateValidation(t *testing.T) {
 	require.ErrorContains(t, err, "is already a signer")
 }
 
-func TestEVMSignerRegistryConfiguration_DirectExecution(t *testing.T) {
+func TestUnit_EVMSignerRegistryConfiguration_DirectExecution(t *testing.T) {
 	t.Parallel()
 
 	selector := uint64(ccip_attestation.BaseMainnetSelector)
@@ -233,7 +233,7 @@ func TestEVMSignerRegistryConfiguration_DirectExecution(t *testing.T) {
 	require.Equal(t, uint64(2), count.Uint64())
 }
 
-func TestEVMSignerRegistryConfiguration_NoRegistries(t *testing.T) {
+func TestUnit_EVMSignerRegistryConfiguration_NoRegistries(t *testing.T) {
 	t.Parallel()
 
 	selector := uint64(ccip_attestation.BaseMainnetSelector)

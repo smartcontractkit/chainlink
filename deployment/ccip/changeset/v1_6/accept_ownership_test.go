@@ -13,7 +13,7 @@ import (
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 )
 
-func Test_NewAcceptOwnershipChangeset(t *testing.T) {
+func TestIntegration_Shared_NewAcceptOwnershipChangeset(t *testing.T) {
 	t.Parallel()
 	e, _ := testhelpers.NewMemoryEnvironment(t)
 	_, err := stateview.LoadOnchainState(e.Env)

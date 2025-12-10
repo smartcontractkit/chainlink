@@ -33,7 +33,7 @@ import (
 	commontypes "github.com/smartcontractkit/chainlink/deployment/common/types"
 )
 
-func TestCloneTransactOptsWithGas(t *testing.T) {
+func TestUnit_CloneTransactOptsWithGas(t *testing.T) {
 	t.Parallel()
 	orig := &bind.TransactOpts{
 		GasLimit: 100,
@@ -52,7 +52,7 @@ func TestCloneTransactOptsWithGas(t *testing.T) {
 	assert.Nil(t, opsutils.CloneTransactOptsWithGas(nil, 1, 1))
 }
 
-func TestGasBoostConfigsForChainMap(t *testing.T) {
+func TestUnit_GasBoostConfigsForChainMap(t *testing.T) {
 	t.Parallel()
 	chainMap := map[uint64]string{1: "a", 2: "b"}
 	gasBoostConfigs := map[uint64]commontypes.GasBoostConfig{
@@ -67,7 +67,7 @@ func TestGasBoostConfigsForChainMap(t *testing.T) {
 	assert.Empty(t, opsutils.GasBoostConfigsForChainMap[string](nil, gasBoostConfigs))
 }
 
-func TestGetBoostedGasForAttempt_DefaultsAndOverrides(t *testing.T) {
+func TestUnit_GetBoostedGasForAttempt_DefaultsAndOverrides(t *testing.T) {
 	t.Parallel()
 	cfg := commontypes.GasBoostConfig{}
 	limit, price := opsutils.GetBoostedGasForAttempt(cfg, 0)
@@ -88,7 +88,7 @@ func TestGetBoostedGasForAttempt_DefaultsAndOverrides(t *testing.T) {
 	assert.Equal(t, uint64(2000+3*100), price)
 }
 
-func TestRetryDeploymentWithGasBoost(t *testing.T) {
+func TestUnit_RetryDeploymentWithGasBoost(t *testing.T) {
 	t.Parallel()
 	cfg := &commontypes.GasBoostConfig{
 		InitialGasLimit:   1000,
@@ -103,7 +103,7 @@ func TestRetryDeploymentWithGasBoost(t *testing.T) {
 	assert.NotNil(t, opsutils.RetryDeploymentWithGasBoost[string](nil))
 }
 
-func TestAddEVMCallSequenceToCSOutput_SequenceError(t *testing.T) {
+func TestUnit_AddEVMCallSequenceToCSOutput_SequenceError(t *testing.T) {
 	t.Parallel()
 
 	env, err := environment.New(t.Context(),
@@ -131,7 +131,7 @@ func TestAddEVMCallSequenceToCSOutput_SequenceError(t *testing.T) {
 	assert.Equal(t, seqReport.ExecutionReports, result.Reports)
 }
 
-func TestAddEVMCallSequenceToCSOutput_NoMCMS(t *testing.T) {
+func TestUnit_AddEVMCallSequenceToCSOutput_NoMCMS(t *testing.T) {
 	t.Parallel()
 
 	env, err := environment.New(t.Context(),
@@ -156,7 +156,7 @@ func TestAddEVMCallSequenceToCSOutput_NoMCMS(t *testing.T) {
 	assert.Equal(t, seqReport.ExecutionReports, result.Reports)
 }
 
-func TestAddEVMCallSequenceToCSOutput_AllConfirmed(t *testing.T) {
+func TestUnit_AddEVMCallSequenceToCSOutput_AllConfirmed(t *testing.T) {
 	t.Parallel()
 
 	env, err := environment.New(t.Context(),
@@ -183,7 +183,7 @@ func TestAddEVMCallSequenceToCSOutput_AllConfirmed(t *testing.T) {
 	assert.Nil(t, result.MCMSTimelockProposals)
 }
 
-func TestAddEVMCallSequenceToCSOutput_ProposalCombination(t *testing.T) {
+func TestIntegration_Shared_AddEVMCallSequenceToCSOutput_ProposalCombination(t *testing.T) {
 	t.Parallel()
 	deployedEnvironment, _ := testhelpers.NewMemoryEnvironment(
 		t,
@@ -290,7 +290,7 @@ func TestAddEVMCallSequenceToCSOutput_ProposalCombination(t *testing.T) {
 		"Aggregated proposal should contain operations")
 }
 
-func TestNewEVMCallOperation(t *testing.T) {
+func TestUnit_NewEVMCallOperation(t *testing.T) {
 	t.Parallel()
 	version, _ := semver.NewVersion("1.0.0")
 
@@ -436,7 +436,7 @@ func TestNewEVMCallOperation(t *testing.T) {
 	})
 }
 
-func TestContractOpts_Validate(t *testing.T) {
+func TestUnit_ContractOpts_Validate(t *testing.T) {
 	tests := []struct {
 		desc       string
 		opts       *opsutils.ContractOpts
@@ -494,7 +494,7 @@ func TestContractOpts_Validate(t *testing.T) {
 	}
 }
 
-func TestNewEVMDeployOperation(t *testing.T) {
+func TestUnit_NewEVMDeployOperation(t *testing.T) {
 	t.Parallel()
 	contractType := cldf.ContractType("TestContract")
 	version, _ := semver.NewVersion("1.0.0")

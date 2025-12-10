@@ -19,7 +19,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
 
-func TestFastTransferUpdateLaneConfigChangeset_ValidationErrors(t *testing.T) {
+func TestUnit_FastTransferUpdateLaneConfigChangeset_ValidationErrors(t *testing.T) {
 	e, selectorA, selectorB, tokens := testhelpers.SetupTwoChainEnvironmentWithTokens(t, logger.TestLogger(t), true)
 
 	e = testhelpers.DeployTestTokenPools(t, e, map[uint64]v1_5_1.DeployTokenPoolInput{
@@ -90,7 +90,7 @@ func TestFastTransferUpdateLaneConfigChangeset_ValidationErrors(t *testing.T) {
 	}
 }
 
-func TestFastTransferFillerAllowlistChangeset_ValidationErrors(t *testing.T) {
+func TestUnit_FastTransferFillerAllowlistChangeset_ValidationErrors(t *testing.T) {
 	e, selectorA, selectorB, tokens := testhelpers.SetupTwoChainEnvironmentWithTokens(t, logger.TestLogger(t), true)
 
 	e = testhelpers.DeployTestTokenPools(t, e, map[uint64]v1_5_1.DeployTokenPoolInput{
@@ -167,7 +167,7 @@ func TestFastTransferFillerAllowlistChangeset_ValidationErrors(t *testing.T) {
 	})
 }
 
-func TestFastTransferFillerAllowlistChangeset_RemoveFillers(t *testing.T) {
+func TestUnit_FastTransferFillerAllowlistChangeset_RemoveFillers(t *testing.T) {
 	e, selectorA, selectorB, tokens := testhelpers.SetupTwoChainEnvironmentWithTokens(t, logger.TestLogger(t), true)
 
 	e = testhelpers.DeployTestTokenPools(t, e, map[uint64]v1_5_1.DeployTokenPoolInput{
@@ -289,7 +289,7 @@ func TestFastTransferFillerAllowlistChangeset_RemoveFillers(t *testing.T) {
 	}
 }
 
-func TestFastTransferFillerAllowlistChangeset_AddAndRemoveSimultaneously(t *testing.T) {
+func TestUnit_FastTransferFillerAllowlistChangeset_AddAndRemoveSimultaneously(t *testing.T) {
 	e, selectorA, selectorB, tokens := testhelpers.SetupTwoChainEnvironmentWithTokens(t, logger.TestLogger(t), true)
 
 	e = testhelpers.DeployTestTokenPools(t, e, map[uint64]v1_5_1.DeployTokenPoolInput{
@@ -489,7 +489,7 @@ var testCases = []testCase{
 	},
 }
 
-func TestFastTransferUpdateLaneConfigChangeset_WithMCMS(t *testing.T) {
+func TestUnit_FastTransferUpdateLaneConfigChangeset_WithMCMS(t *testing.T) {
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
 			e, selectorA, selectorB, tokens := testhelpers.SetupTwoChainEnvironmentWithTokens(t, logger.TestLogger(t), tc.mcmsEnabled)
@@ -557,7 +557,7 @@ func TestFastTransferUpdateLaneConfigChangeset_WithMCMS(t *testing.T) {
 	}
 }
 
-func TestFastTransferFillerAllowlistChangeset_WithMCMS(t *testing.T) {
+func TestUnit_FastTransferFillerAllowlistChangeset_WithMCMS(t *testing.T) {
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
 			e, selectorA, selectorB, tokens := testhelpers.SetupTwoChainEnvironmentWithTokens(t, logger.TestLogger(t), tc.mcmsEnabled)
@@ -620,7 +620,7 @@ func TestFastTransferFillerAllowlistChangeset_WithMCMS(t *testing.T) {
 	}
 }
 
-func TestFastTransferUpdateLaneConfigChangeset_EdgeCases(t *testing.T) {
+func TestUnit_FastTransferUpdateLaneConfigChangeset_EdgeCases(t *testing.T) {
 	e, selectorA, selectorB, tokens := testhelpers.SetupTwoChainEnvironmentWithTokens(t, logger.TestLogger(t), true)
 
 	e = testhelpers.DeployTestTokenPools(t, e, map[uint64]v1_5_1.DeployTokenPoolInput{
@@ -799,7 +799,7 @@ func TestFastTransferUpdateLaneConfigChangeset_EdgeCases(t *testing.T) {
 	}
 }
 
-func TestFastTransferFillerAllowlistChangeset_DuplicateFillerValidation(t *testing.T) {
+func TestUnit_FastTransferFillerAllowlistChangeset_DuplicateFillerValidation(t *testing.T) {
 	e, selectorA, selectorB, tokens := testhelpers.SetupTwoChainEnvironmentWithTokens(t, logger.TestLogger(t), true)
 
 	e = testhelpers.DeployTestTokenPools(t, e, map[uint64]v1_5_1.DeployTokenPoolInput{
@@ -857,7 +857,7 @@ func TestFastTransferFillerAllowlistChangeset_DuplicateFillerValidation(t *testi
 	require.Contains(t, err.Error(), "is not in the allowlist")
 }
 
-func TestFastTransferUpdateLaneConfigChangeset_SettlementOverheadGasAndCustomExtraArgs(t *testing.T) {
+func TestUnit_FastTransferUpdateLaneConfigChangeset_SettlementOverheadGasAndCustomExtraArgs(t *testing.T) {
 	e, selectorA, selectorB, tokens := testhelpers.SetupTwoChainEnvironmentWithTokens(t, logger.TestLogger(t), false)
 
 	e = testhelpers.DeployTestTokenPools(t, e, map[uint64]v1_5_1.DeployTokenPoolInput{
@@ -978,7 +978,7 @@ func TestFastTransferUpdateLaneConfigChangeset_SettlementOverheadGasAndCustomExt
 	}
 }
 
-func TestFastTransferUpdateLaneConfigChangeset_DestinationPoolTypeAndVersion(t *testing.T) {
+func TestUnit_FastTransferUpdateLaneConfigChangeset_DestinationPoolTypeAndVersion(t *testing.T) {
 	e, selectorA, selectorB, tokens := testhelpers.SetupTwoChainEnvironmentWithTokens(t, logger.TestLogger(t), false)
 
 	// Deploy different types of pools on different chains
@@ -1119,7 +1119,7 @@ func TestFastTransferUpdateLaneConfigChangeset_DestinationPoolTypeAndVersion(t *
 	}
 }
 
-func TestFastTransferUpdateLaneConfigChangeset_ValidationErrors_DestinationFields(t *testing.T) {
+func TestUnit_FastTransferUpdateLaneConfigChangeset_ValidationErrors_DestinationFields(t *testing.T) {
 	e, selectorA, selectorB, tokens := testhelpers.SetupTwoChainEnvironmentWithTokens(t, logger.TestLogger(t), false)
 
 	e = testhelpers.DeployTestTokenPools(t, e, map[uint64]v1_5_1.DeployTokenPoolInput{

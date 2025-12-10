@@ -37,7 +37,7 @@ var testTokenTransferFeeConfig = fee_quoter.TokenTransferFeeConfig{
 	IsEnabled:         true,
 }
 
-func TestAddTokenPool_Apply(t *testing.T) {
+func TestIntegration_Aptos_AddTokenPool_Apply(t *testing.T) {
 	quarantine.Flaky(t, "DX-2088")
 	t.Parallel()
 	// Setup environment and config with 1 Aptos chain

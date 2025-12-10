@@ -18,7 +18,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 )
 
-func TestTransferOwnership(t *testing.T) {
+func TestIntegration_Aptos_TransferOwnership(t *testing.T) {
 	t.Parallel()
 	selector := chain_selectors.APTOS_LOCALNET.Selector
 	rt, err := runtime.New(t.Context(), runtime.WithEnvOpts(

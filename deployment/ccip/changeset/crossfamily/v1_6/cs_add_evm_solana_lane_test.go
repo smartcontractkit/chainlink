@@ -29,7 +29,7 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 )
 
-func TestAddEVMSolanaLaneBidirectional(t *testing.T) {
+func TestIntegration_Solana_AddEVMSolanaLaneBidirectional(t *testing.T) {
 	quarantine.Flaky(t, "DX-1741")
 	for _, tc := range []struct {
 		name        string

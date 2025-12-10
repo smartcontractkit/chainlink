@@ -20,7 +20,7 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/utils/nodetestutils"
 )
 
-func TestJobClientProposeJob(t *testing.T) {
+func TestIntegration_Shared_JobClientProposeJob(t *testing.T) {
 	t.Parallel()
 	ctx := t.Context()
 
@@ -125,7 +125,7 @@ func TestJobClientProposeJob(t *testing.T) {
 	}
 }
 
-func TestJobClientJobAPI(t *testing.T) {
+func TestIntegration_Shared_JobClientJobAPI(t *testing.T) {
 	t.Parallel()
 
 	ctx := t.Context()

@@ -22,7 +22,7 @@ import (
 	commontypes "github.com/smartcontractkit/chainlink/deployment/common/types"
 )
 
-func TestSaveExistingCCIP(t *testing.T) {
+func TestUnit_SaveExistingCCIP(t *testing.T) {
 	t.Parallel()
 
 	rt, err := runtime.New(t.Context(), runtime.WithEnvOpts(

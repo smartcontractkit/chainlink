@@ -52,7 +52,7 @@ func makeSigners(n int) []signer_registry.ISignerRegistrySigner {
 	return signers
 }
 
-func TestEVMSignerRegistry_Preconditions(t *testing.T) {
+func TestUnit_EVMSignerRegistry_Preconditions(t *testing.T) {
 	t.Parallel()
 
 	// Create a minimal environment for precondition tests
@@ -193,7 +193,7 @@ func TestEVMSignerRegistry_Preconditions(t *testing.T) {
 	}
 }
 
-func TestEVMSignerRegistry_DeploysOnlyOnBaseChains(t *testing.T) {
+func TestUnit_EVMSignerRegistry_DeploysOnlyOnBaseChains(t *testing.T) {
 	t.Parallel()
 
 	// Create environment with Base Mainnet and Base Sepolia chain IDs
@@ -253,7 +253,7 @@ func TestEVMSignerRegistry_DeploysOnlyOnBaseChains(t *testing.T) {
 	require.Equal(t, signer2, signers[1].EvmAddress)
 }
 
-func TestEVMSignerRegistry_SkipsNonBaseChains(t *testing.T) {
+func TestUnit_EVMSignerRegistry_SkipsNonBaseChains(t *testing.T) {
 	t.Parallel()
 
 	// Create environment with non-Base chains

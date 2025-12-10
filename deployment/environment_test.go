@@ -19,7 +19,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/p2pkey"
 )
 
-func TestNode_OCRConfigForChainSelector(t *testing.T) {
+func TestUnit_Node_OCRConfigForChainSelector(t *testing.T) {
 	var m = map[chain_selectors.ChainDetails]OCRConfig{
 		{
 			ChainSelector: chain_selectors.APTOS_TESTNET.Selector,
@@ -102,7 +102,7 @@ func TestNode_OCRConfigForChainSelector(t *testing.T) {
 	}
 }
 
-func TestNode_ChainConfigs(t *testing.T) {
+func TestUnit_Node_ChainConfigs(t *testing.T) {
 	type fields struct {
 		NodeID         string
 		SelToOCRConfig map[chain_selectors.ChainDetails]OCRConfig
@@ -304,7 +304,7 @@ func hexFrom32Byte(t *testing.T, s string) string {
 	return hex.EncodeToString(b[:])
 }
 
-func Test_isValidMultiAddr(t *testing.T) {
+func TestUnit_isValidMultiAddr(t *testing.T) {
 	// Generate a p2p piece using p2pkey.MustNewV2XXXTestingOnly()
 	seed := big.NewInt(123)
 	p2p := p2pkey.MustNewV2XXXTestingOnly(seed).PeerID().String()
@@ -338,7 +338,7 @@ func Test_isValidMultiAddr(t *testing.T) {
 		})
 	}
 }
-func TestNewNodeFromJD(t *testing.T) {
+func TestUnit_NewNodeFromJD(t *testing.T) {
 	wk := "node-workflow-key"
 	type args struct {
 		jdNode       *nodev1.Node

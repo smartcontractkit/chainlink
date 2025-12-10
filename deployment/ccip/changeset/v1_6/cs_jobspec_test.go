@@ -14,7 +14,7 @@ import (
 	ccip "github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/validate"
 )
 
-func TestJobSpecChangeset(t *testing.T) {
+func TestIntegration_Shared_JobSpecChangeset(t *testing.T) {
 	t.Parallel()
 	var err error
 	tenv, _ := testhelpers.NewMemoryEnvironment(t, testhelpers.WithNoJobsAndContracts())
@@ -54,7 +54,7 @@ func TestJobSpecChangeset(t *testing.T) {
 	}
 }
 
-func TestJobSpecChangesetIdempotent(t *testing.T) {
+func TestIntegration_Shared_JobSpecChangesetIdempotent(t *testing.T) {
 	e, _ := testhelpers.NewMemoryEnvironment(t)
 	// we call the changeset again to ensure that it doesn't return any new job specs
 	// as the job specs are already created in the first call

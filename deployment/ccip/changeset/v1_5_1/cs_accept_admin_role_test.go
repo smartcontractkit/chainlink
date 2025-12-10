@@ -18,7 +18,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
 
-func TestAcceptAdminRoleChangeset_Validations(t *testing.T) {
+func TestUnit_AcceptAdminRoleChangeset_Validations(t *testing.T) {
 	t.Parallel()
 
 	e, selectorA, _, tokens := testhelpers.SetupTwoChainEnvironmentWithTokens(t, logger.TestLogger(t), true)
@@ -119,7 +119,7 @@ func TestAcceptAdminRoleChangeset_Validations(t *testing.T) {
 	}
 }
 
-func TestAcceptAdminRoleChangeset_Execution(t *testing.T) {
+func TestUnit_AcceptAdminRoleChangeset_Execution(t *testing.T) {
 	for _, mcmsConfig := range []*proposalutils.TimelockConfig{nil, {MinDelay: 0 * time.Second}} {
 		msg := "Accept admin role with MCMS"
 		if mcmsConfig == nil {

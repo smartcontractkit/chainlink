@@ -20,7 +20,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
 
-func TestProposeAdminRoleChangeset_Validations(t *testing.T) {
+func TestUnit_ProposeAdminRoleChangeset_Validations(t *testing.T) {
 	t.Parallel()
 
 	e, selectorA, _, tokens := testhelpers.SetupTwoChainEnvironmentWithTokens(t, logger.TestLogger(t), true)
@@ -160,7 +160,7 @@ func TestProposeAdminRoleChangeset_Validations(t *testing.T) {
 	}
 }
 
-func TestProposeAdminRoleChangeset_ExecutionWithoutExternalAdmin(t *testing.T) {
+func TestUnit_ProposeAdminRoleChangeset_ExecutionWithoutExternalAdmin(t *testing.T) {
 	for _, mcmsConfig := range []*proposalutils.TimelockConfig{nil, {MinDelay: 0 * time.Second}} {
 		msg := "Propose admin role without external admin with MCMS"
 		if mcmsConfig == nil {
@@ -232,7 +232,7 @@ func TestProposeAdminRoleChangeset_ExecutionWithoutExternalAdmin(t *testing.T) {
 	}
 }
 
-func TestProposeAdminRoleChangeset_ExecutionWithExternalAdmin(t *testing.T) {
+func TestUnit_ProposeAdminRoleChangeset_ExecutionWithExternalAdmin(t *testing.T) {
 	for _, mcmsConfig := range []*proposalutils.TimelockConfig{nil, {MinDelay: 0 * time.Second}} {
 		msg := "Propose admin role with external admin with MCMS"
 		if mcmsConfig == nil {
@@ -300,7 +300,7 @@ func TestProposeAdminRoleChangeset_ExecutionWithExternalAdmin(t *testing.T) {
 	}
 }
 
-func TestProposeAdminRoleChangesetV2_Validations(t *testing.T) {
+func TestUnit_ProposeAdminRoleChangesetV2_Validations(t *testing.T) {
 	t.Parallel()
 
 	e, _, selectorB, _ := testhelpers.SetupTwoChainEnvironmentWithTokens(t, logger.TestLogger(t), true)
@@ -453,7 +453,7 @@ func TestProposeAdminRoleChangesetV2_Validations(t *testing.T) {
 	}
 }
 
-func TestProposeAdminRoleChangesetV2_ExecutionWithMCMS(t *testing.T) {
+func TestUnit_ProposeAdminRoleChangesetV2_ExecutionWithMCMS(t *testing.T) {
 	t.Parallel()
 
 	mcmsConfig := &proposalutils.TimelockConfig{MinDelay: 0 * time.Second}
@@ -505,7 +505,7 @@ func TestProposeAdminRoleChangesetV2_ExecutionWithMCMS(t *testing.T) {
 	require.Equal(t, adminAddressB, configOnB.PendingAdministrator)
 }
 
-func TestProposeAdminRoleChangesetV2_ExecutionWithoutMCMS(t *testing.T) {
+func TestUnit_ProposeAdminRoleChangesetV2_ExecutionWithoutMCMS(t *testing.T) {
 	t.Parallel()
 
 	e, selectorA, selectorB, _ := testhelpers.SetupTwoChainEnvironmentWithTokens(t, logger.TestLogger(t), false)
@@ -555,7 +555,7 @@ func TestProposeAdminRoleChangesetV2_ExecutionWithoutMCMS(t *testing.T) {
 	require.Equal(t, adminAddressB, configOnB.PendingAdministrator)
 }
 
-func TestProposeAdminRoleChangesetV2_MultipleTokensPerChain(t *testing.T) {
+func TestUnit_ProposeAdminRoleChangesetV2_MultipleTokensPerChain(t *testing.T) {
 	t.Parallel()
 
 	mcmsConfig := &proposalutils.TimelockConfig{MinDelay: 0 * time.Second}
@@ -614,7 +614,7 @@ func TestProposeAdminRoleChangesetV2_MultipleTokensPerChain(t *testing.T) {
 	require.Equal(t, adminAddress3, config3.PendingAdministrator)
 }
 
-func TestProposeAdminRoleChangesetV2_EmptyConfigReturnsError(t *testing.T) {
+func TestUnit_ProposeAdminRoleChangesetV2_EmptyConfigReturnsError(t *testing.T) {
 	t.Parallel()
 
 	e, _, _, _ := testhelpers.SetupTwoChainEnvironmentWithTokens(t, logger.TestLogger(t), true)
@@ -632,7 +632,7 @@ func TestProposeAdminRoleChangesetV2_EmptyConfigReturnsError(t *testing.T) {
 	require.ErrorContains(t, err, "at least one chain with token admin info must be specified")
 }
 
-func TestProposeAdminRoleChangesetV2_PendingAdminValidation(t *testing.T) {
+func TestUnit_ProposeAdminRoleChangesetV2_PendingAdminValidation(t *testing.T) {
 	t.Parallel()
 
 	mcmsConfig := &proposalutils.TimelockConfig{MinDelay: 0 * time.Second}
@@ -712,7 +712,7 @@ func TestProposeAdminRoleChangesetV2_PendingAdminValidation(t *testing.T) {
 	require.Equal(t, adminAddress2, config.PendingAdministrator, "Pending administrator should be updated to the new admin address")
 }
 
-func TestProposeAdminRoleChangesetV2_OverrideFunctionality(t *testing.T) {
+func TestUnit_ProposeAdminRoleChangesetV2_OverrideFunctionality(t *testing.T) {
 	t.Parallel()
 
 	mcmsConfig := &proposalutils.TimelockConfig{MinDelay: 0 * time.Second}

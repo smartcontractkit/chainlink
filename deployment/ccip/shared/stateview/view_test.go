@@ -9,7 +9,7 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
 )
 
-func TestSmokeView(t *testing.T) {
+func TestIntegration_Shared_SmokeView(t *testing.T) {
 	t.Parallel()
 	tenv, _ := testhelpers.NewMemoryEnvironment(t, testhelpers.WithNumOfChains(3))
 	jsonData, err := stateview.ViewCCIP(tenv.Env)

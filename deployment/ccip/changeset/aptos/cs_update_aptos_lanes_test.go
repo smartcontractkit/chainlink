@@ -30,7 +30,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/ccipevm"
 )
 
-func TestAddAptosLanes_Apply(t *testing.T) {
+func TestIntegration_Aptos_AddAptosLanes_Apply(t *testing.T) {
 	t.Parallel()
 	// Setup environment and config
 	deployedEnvironment, _ := testhelpers.NewMemoryEnvironment(

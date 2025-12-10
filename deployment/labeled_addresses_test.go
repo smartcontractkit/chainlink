@@ -9,7 +9,7 @@ import (
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 )
 
-func TestLabeledAddresses_And(t *testing.T) {
+func TestUnit_LabeledAddresses_And(t *testing.T) {
 	tests := []struct {
 		name   string
 		give   LabeledAddresses

@@ -114,7 +114,7 @@ func setupCCTPMsgTransmitterProxyContractsForDeploy(
 	return messenger
 }
 
-func TestValidateDeployCCTPMessageTransmitterProxyInput(t *testing.T) {
+func TestUnit_ValidateDeployCCTPMessageTransmitterProxyInput(t *testing.T) {
 	t.Parallel()
 
 	rt := setupCCTPMsgTransmitterProxyEnvironmentForDeploy(t, false)
@@ -153,7 +153,7 @@ func TestValidateDeployCCTPMessageTransmitterProxyInput(t *testing.T) {
 	}
 }
 
-func TestDeployCCTPMessageTransmitterProxy(t *testing.T) {
+func TestUnit_DeployCCTPMessageTransmitterProxy(t *testing.T) {
 	t.Parallel()
 
 	rt := setupCCTPMsgTransmitterProxyEnvironmentForDeploy(t, true)

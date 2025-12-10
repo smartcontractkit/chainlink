@@ -79,12 +79,12 @@ func deployTokenAndMint(t *testing.T, tenv cldf.Environment, solChain uint64, wa
 }
 
 // remote chain setup
-func TestAddRemoteChainWithMcms(t *testing.T) {
+func TestIntegration_Solana_AddRemoteChainWithMcms(t *testing.T) {
 	t.Parallel()
 	doTestAddRemoteChain(t, true)
 }
 
-func TestAddRemoteChainWithoutMcms(t *testing.T) {
+func TestIntegration_Solana_AddRemoteChainWithoutMcms(t *testing.T) {
 	t.Parallel()
 	skipInCI(t)
 	doTestAddRemoteChain(t, false)
@@ -642,19 +642,19 @@ func doTestBilling(t *testing.T, mcms bool) {
 	require.Equal(t, feeAggResult+1000, newFeeAggResult)
 }
 
-func TestBillingWithMcms(t *testing.T) {
+func TestIntegration_Solana_BillingWithMcms(t *testing.T) {
 	quarantine.Flaky(t, "DX-1723")
 	t.Parallel()
 	doTestBilling(t, true)
 }
 
-func TestBillingWithoutMcms(t *testing.T) {
+func TestIntegration_Solana_BillingWithoutMcms(t *testing.T) {
 	t.Parallel()
 	skipInCI(t)
 	doTestBilling(t, false)
 }
 
-func TestSetTokenAuthority(t *testing.T) {
+func TestIntegration_Solana_SetTokenAuthority(t *testing.T) {
 	quarantine.Flaky(t, "DX-1778")
 	t.Parallel()
 	tenv, _ := testhelpers.NewMemoryEnvironment(t, testhelpers.WithSolChains(1), testhelpers.WithCCIPSolanaContractVersion(ccipChangesetSolana.SolanaContractV0_1_1))
@@ -876,13 +876,13 @@ func doTestTokenAdminRegistry(t *testing.T, mcms bool) {
 	}
 }
 
-func TestTokenAdminRegistryWithMcms(t *testing.T) {
+func TestIntegration_Solana_TokenAdminRegistryWithMcms(t *testing.T) {
 	quarantine.Flaky(t, "DX-1720")
 	t.Parallel()
 	doTestTokenAdminRegistry(t, true)
 }
 
-func TestTokenAdminRegistryWithoutMcms(t *testing.T) {
+func TestIntegration_Solana_TokenAdminRegistryWithoutMcms(t *testing.T) {
 	t.Parallel()
 	skipInCI(t)
 	doTestTokenAdminRegistry(t, false)
@@ -987,21 +987,21 @@ func doTestPoolLookupTable(t *testing.T, e cldf.Environment, mcms bool, tokenMet
 	require.Equal(t, lookupTablePubKey, tokenAdminRegistry.LookupTable)
 }
 
-func TestPoolLookupTableWithMcms(t *testing.T) {
+func TestIntegration_Solana_PoolLookupTableWithMcms(t *testing.T) {
 	quarantine.Flaky(t, "DX-1753")
 	t.Parallel()
 	tenv, _ := testhelpers.NewMemoryEnvironment(t, testhelpers.WithSolChains(1), testhelpers.WithCCIPSolanaContractVersion(ccipChangesetSolana.SolanaContractV0_1_1))
 	doTestPoolLookupTable(t, tenv.Env, true, shared.CLLMetadata)
 }
 
-func TestPoolLookupTableWithoutMcms(t *testing.T) {
+func TestIntegration_Solana_PoolLookupTableWithoutMcms(t *testing.T) {
 	t.Parallel()
 	skipInCI(t)
 	tenv, _ := testhelpers.NewMemoryEnvironment(t, testhelpers.WithSolChains(1), testhelpers.WithCCIPSolanaContractVersion(ccipChangesetSolana.SolanaContractV0_1_1))
 	doTestPoolLookupTable(t, tenv.Env, false, shared.CLLMetadata)
 }
 
-func TestDeployCCIPContracts(t *testing.T) {
+func TestIntegration_Solana_DeployCCIPContracts(t *testing.T) {
 	// TODO: Fix this test to use the new changeset
 	t.Parallel()
 	skipInCI(t)
@@ -1009,7 +1009,7 @@ func TestDeployCCIPContracts(t *testing.T) {
 }
 
 // ocr3 test
-func TestSetOcr3Active(t *testing.T) {
+func TestIntegration_Solana_SetOcr3Active(t *testing.T) {
 	quarantine.Flaky(t, "DX-1775")
 	t.Parallel()
 	tenv, _ := testhelpers.NewMemoryEnvironment(t,
@@ -1039,7 +1039,7 @@ func TestSetOcr3Active(t *testing.T) {
 	require.NoError(t, err)
 }
 
-func TestSetOcr3Candidate(t *testing.T) {
+func TestIntegration_Solana_SetOcr3Candidate(t *testing.T) {
 	quarantine.Flaky(t, "DX-1771")
 	t.Parallel()
 	tenv, _ := testhelpers.NewMemoryEnvironment(t,

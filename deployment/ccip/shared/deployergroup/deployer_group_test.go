@@ -187,7 +187,7 @@ var deployerGroupTestCases = []deployerGroupTestCase{
 	},
 }
 
-func TestDeployerGroup(t *testing.T) {
+func TestIntegration_Shared_DeployerGroup(t *testing.T) {
 	for _, tc := range deployerGroupTestCases {
 		t.Run(tc.name, func(t *testing.T) {
 			e, _ := testhelpers.NewMemoryEnvironment(t, testhelpers.WithNumOfChains(2))
@@ -223,7 +223,7 @@ func TestDeployerGroup(t *testing.T) {
 	}
 }
 
-func TestDeployerGroupMCMS(t *testing.T) {
+func TestIntegration_Shared_DeployerGroupMCMS(t *testing.T) {
 	for _, tc := range deployerGroupTestCases {
 		t.Run(tc.name, func(t *testing.T) {
 			if tc.name == "happy path" {
@@ -292,7 +292,7 @@ func TestDeployerGroupMCMS(t *testing.T) {
 	}
 }
 
-func TestDeployerGroupWithTimelockAddressQualifier(t *testing.T) {
+func TestIntegration_Shared_DeployerGroupWithTimelockAddressQualifier(t *testing.T) {
 	var err error
 	linktokenOwnerQualifier := "link-owner"
 	selectorIndex := uint64(0)
@@ -377,7 +377,7 @@ func TestDeployerGroupWithTimelockAddressQualifier(t *testing.T) {
 	require.Equal(t, sumOfMints, amount)
 }
 
-func TestDeployerGroupGenerateMultipleProposals(t *testing.T) {
+func TestIntegration_Shared_DeployerGroupGenerateMultipleProposals(t *testing.T) {
 	tc := dummyMultiChainDeployerGroupChangesetConfig{
 		address: common.HexToAddress("0x455E5AA18469bC6ccEF49594645666C587A3a71B"),
 		mints: []mintConfig{
@@ -443,7 +443,7 @@ func TestDeployerGroupGenerateMultipleProposals(t *testing.T) {
 	require.NotEmpty(t, cs.DescribedTimelockProposals[2])
 }
 
-func TestDeployerGroupMultipleProposalsMCMS(t *testing.T) {
+func TestIntegration_Shared_DeployerGroupMultipleProposalsMCMS(t *testing.T) {
 	cfg := dummyMultiChainDeployerGroupChangesetConfig{
 		address: common.HexToAddress("0x455E5AA18469bC6ccEF49594645666C587A3a71B"),
 		mints: []mintConfig{
@@ -516,7 +516,7 @@ func TestDeployerGroupMultipleProposalsMCMS(t *testing.T) {
 	require.Equal(t, sumOfMints, amount)
 }
 
-func TestEmptyBatch(t *testing.T) {
+func TestIntegration_Shared_EmptyBatch(t *testing.T) {
 	e, _ := testhelpers.NewMemoryEnvironment(t, testhelpers.WithNumOfChains(2))
 
 	cfg := dummyEmptyBatchChangesetConfig{

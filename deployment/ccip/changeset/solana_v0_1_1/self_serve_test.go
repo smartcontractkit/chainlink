@@ -35,14 +35,14 @@ import (
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 )
 
-func TestOnboardTokenPoolForSelfServeWithMCMs(t *testing.T) {
+func TestIntegration_Solana_OnboardTokenPoolForSelfServeWithMCMs(t *testing.T) {
 	// TODO: Fix this test
 	skipInCI(t)
 	t.Parallel()
 	doTestOnboardTokenPoolForSelfServe(t, true)
 }
 
-func TestOnboardTokenPoolForSelfServeWithoutMCMs(t *testing.T) {
+func TestIntegration_Solana_OnboardTokenPoolForSelfServeWithoutMCMs(t *testing.T) {
 	t.Parallel()
 	doTestOnboardTokenPoolForSelfServe(t, false)
 }

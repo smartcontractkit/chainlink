@@ -7,7 +7,7 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func Test_MergeWithOverrides(t *testing.T) {
+func TestUnit_MergeWithOverrides(t *testing.T) {
 	assert.Equal(t, ExecOCRParams.DeltaProgress, ExecOCRParamsForEthereum.DeltaProgress)
 	assert.Equal(t, ExecOCRParams.DeltaResend, ExecOCRParamsForEthereum.DeltaResend)
 	assert.Equal(t, ExecOCRParams.DeltaInitial, ExecOCRParamsForEthereum.DeltaInitial)

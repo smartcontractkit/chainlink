@@ -67,7 +67,7 @@ func configureHybridTokenPoolChains(t *testing.T, e cldf.Environment, selectorA,
 	require.NoError(t, err)
 }
 
-func TestHybridTokenPoolUpdateGroupsChangeset_ValidationErrors(t *testing.T) {
+func TestUnit_HybridTokenPoolUpdateGroupsChangeset_ValidationErrors(t *testing.T) {
 	e, selectorA, selectorB, tokens := testhelpers.SetupTwoChainEnvironmentWithTokens(t, logger.TestLogger(t), true)
 
 	externalMinterA, _ := testhelpers.DeployTokenGovernor(t, e, selectorA, tokens[selectorA].Address)
@@ -208,7 +208,7 @@ func TestHybridTokenPoolUpdateGroupsChangeset_ValidationErrors(t *testing.T) {
 	}
 }
 
-func TestHybridTokenPoolUpdateGroupsChangeset_BasicUpdates(t *testing.T) {
+func TestUnit_HybridTokenPoolUpdateGroupsChangeset_BasicUpdates(t *testing.T) {
 	e, selectorA, selectorB, tokens := testhelpers.SetupTwoChainEnvironmentWithTokens(t, logger.TestLogger(t), true)
 
 	externalMinterA, _ := testhelpers.DeployTokenGovernor(t, e, selectorA, tokens[selectorA].Address)
@@ -311,7 +311,7 @@ func TestHybridTokenPoolUpdateGroupsChangeset_BasicUpdates(t *testing.T) {
 	}
 }
 
-func TestHybridTokenPoolUpdateGroupsChangeset_WithMCMS(t *testing.T) {
+func TestUnit_HybridTokenPoolUpdateGroupsChangeset_WithMCMS(t *testing.T) {
 	testCases := []struct {
 		name            string
 		mcmsEnabled     bool
@@ -405,7 +405,7 @@ func TestHybridTokenPoolUpdateGroupsChangeset_WithMCMS(t *testing.T) {
 	}
 }
 
-func TestHybridTokenPoolUpdateGroupsChangeset_EdgeCases(t *testing.T) {
+func TestUnit_HybridTokenPoolUpdateGroupsChangeset_EdgeCases(t *testing.T) {
 	e, selectorA, selectorB, tokens := testhelpers.SetupTwoChainEnvironmentWithTokens(t, logger.TestLogger(t), false)
 
 	externalMinterA, _ := testhelpers.DeployTokenGovernor(t, e, selectorA, tokens[selectorA].Address)
@@ -454,7 +454,7 @@ func TestHybridTokenPoolUpdateGroupsChangeset_EdgeCases(t *testing.T) {
 	require.Equal(t, v1_5_1.BurnAndMint, v1_5_1.Group(currentGroup))
 }
 
-func TestHybridTokenPoolUpdateGroupsChangeset_NoOpUpdate(t *testing.T) {
+func TestUnit_HybridTokenPoolUpdateGroupsChangeset_NoOpUpdate(t *testing.T) {
 	e, selectorA, selectorB, tokens := testhelpers.SetupTwoChainEnvironmentWithTokens(t, logger.TestLogger(t), false)
 
 	externalMinterA, _ := testhelpers.DeployTokenGovernor(t, e, selectorA, tokens[selectorA].Address)

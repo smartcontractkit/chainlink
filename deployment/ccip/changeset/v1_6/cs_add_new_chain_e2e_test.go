@@ -67,7 +67,7 @@ func checkConnectivity(
 	require.Equal(t, state.Chains[selector].OnRamp.Address().Hex(), onRamp.Hex(), "onRamp must equal expected")
 }
 
-func TestConnectNewChain(t *testing.T) {
+func TestIntegration_Shared_ConnectNewChain(t *testing.T) {
 	t.Parallel()
 	mustHaveOwner := func(t *testing.T, ownable commonchangeset.Ownable, expectedOwner string) {
 		owner, err := ownable.Owner(nil)
@@ -235,7 +235,7 @@ func TestConnectNewChain(t *testing.T) {
 	}
 }
 
-func TestAddAndPromoteCandidatesForNewChain(t *testing.T) {
+func TestIntegration_Shared_AddAndPromoteCandidatesForNewChain(t *testing.T) {
 	t.Parallel()
 	type test struct {
 		Msg         string
@@ -543,7 +543,7 @@ func TestAddAndPromoteCandidatesForNewChain(t *testing.T) {
 	}
 }
 
-func TestRemoveLinkTokenAddressIfExists(t *testing.T) {
+func TestIntegration_Shared_RemoveLinkTokenAddressIfExists(t *testing.T) {
 	t.Parallel()
 
 	t.Run("should remove LINK token successfully if already exists", func(t *testing.T) {
@@ -603,7 +603,7 @@ func TestRemoveLinkTokenAddressIfExists(t *testing.T) {
 	})
 }
 
-func TestValidateTransmitterAddresses(t *testing.T) {
+func TestIntegration_Shared_ValidateTransmitterAddresses(t *testing.T) {
 	t.Parallel()
 	t.Run("should fail if the number of transmitter address is less than 3f+1", func(t *testing.T) {
 		// Test the core validation logic from ValidateTransmitters method

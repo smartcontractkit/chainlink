@@ -49,7 +49,7 @@ const (
 	PartnerMetadata3 = "partner_testing_3"
 )
 
-func TestAddTokenPoolWithoutMcms(t *testing.T) {
+func TestIntegration_Solana_AddTokenPoolWithoutMcms(t *testing.T) {
 	t.Parallel()
 	skipInCI(t)
 
@@ -57,7 +57,7 @@ func TestAddTokenPoolWithoutMcms(t *testing.T) {
 	doTestTokenPool(t, tenv.Env, TokenPoolTestConfig{MCMS: false, TokenMetadata: shared.CLLMetadata})
 }
 
-func TestAddTokenPoolWithMcms(t *testing.T) {
+func TestIntegration_Solana_AddTokenPoolWithMcms(t *testing.T) {
 	quarantine.Flaky(t, "DX-1797")
 	t.Parallel()
 	tenv, _ := testhelpers.NewMemoryEnvironment(t, testhelpers.WithSolChains(1), testhelpers.WithCCIPSolanaContractVersion(ccipChangesetSolana.SolanaContractV0_1_1))
@@ -671,7 +671,7 @@ var zeroRateLimitConfig = ccipChangesetSolana.RateLimiterConfig{
 	},
 }
 
-func TestAddTokenPoolE2EWithMcms(t *testing.T) {
+func TestIntegration_Solana_AddTokenPoolE2EWithMcms(t *testing.T) {
 	quarantine.Flaky(t, "DX-1774")
 	t.Parallel()
 	tenv, _ := testhelpers.NewMemoryEnvironment(t, testhelpers.WithSolChains(1), testhelpers.WithCCIPSolanaContractVersion(ccipChangesetSolana.SolanaContractV0_1_1))
@@ -764,7 +764,7 @@ func TestAddTokenPoolE2EWithMcms(t *testing.T) {
 	require.NoError(t, err)
 }
 
-func TestPartnerTokenPools(t *testing.T) {
+func TestIntegration_Solana_PartnerTokenPools(t *testing.T) {
 	skipInCI(t)
 	tenv, _ := testhelpers.NewMemoryEnvironment(t, testhelpers.WithSolChains(1), testhelpers.WithCCIPSolanaContractVersion(ccipChangesetSolana.SolanaContractV0_1_1))
 	e := tenv.Env
@@ -794,7 +794,7 @@ func TestPartnerTokenPools(t *testing.T) {
 	doTestTokenPool(t, e, TokenPoolTestConfig{MCMS: true, TokenMetadata: PartnerMetadata})
 }
 
-func TestPartnerTokenPoolsWithUpgrades(t *testing.T) {
+func TestIntegration_Solana_PartnerTokenPoolsWithUpgrades(t *testing.T) {
 	skipInCI(t)
 	tenv, _ := testhelpers.NewMemoryEnvironment(t, testhelpers.WithSolChains(1), testhelpers.WithCCIPSolanaContractVersion(ccipChangesetSolana.SolanaContractV0_1_1))
 	e := tenv.Env
@@ -887,7 +887,7 @@ func getTokenPoolBaseChainConfig(t *testing.T, e cldf.Environment, solChain uint
 	return base
 }
 
-func TestCreatingMultisig(t *testing.T) {
+func TestIntegration_Solana_CreatingMultisig(t *testing.T) {
 	skipInCI(t)
 	tenv, _ := testhelpers.NewMemoryEnvironment(t, testhelpers.WithSolChains(1), testhelpers.WithCCIPSolanaContractVersion(ccipChangesetSolana.SolanaContractV0_1_1))
 	solChain := tenv.Env.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chain_selectors.FamilySolana))[0]

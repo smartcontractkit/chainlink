@@ -30,7 +30,7 @@ import (
 	commontypes "github.com/smartcontractkit/chainlink/deployment/common/types"
 )
 
-func TestDeployChainContractsChangeset(t *testing.T) {
+func TestUnit_DeployChainContractsChangeset(t *testing.T) {
 	t.Parallel()
 
 	homeChainSel := chain_selectors.TEST_90000001.Selector
@@ -45,7 +45,7 @@ func TestDeployChainContractsChangeset(t *testing.T) {
 	testDeployChainContractsChangesetWithEnv(t, *env, homeChainSel)
 }
 
-func TestDeployChainContractsChangesetZk(t *testing.T) {
+func TestUnit_DeployChainContractsChangesetZk(t *testing.T) {
 	// Timeouts in CI
 	tests.SkipFlakey(t, "https://smartcontract-it.atlassian.net/browse/CCIP-6427")
 
@@ -176,12 +176,12 @@ func testDeployChainContractsChangesetWithEnv(t *testing.T, e cldf.Environment, 
 	}
 }
 
-func TestDeployCCIPContracts(t *testing.T) {
+func TestIntegration_Shared_DeployCCIPContracts(t *testing.T) {
 	t.Parallel()
 	testhelpers.DeployCCIPContractsTest(t, 0, 0)
 }
 
-func TestDeployStaticLinkToken(t *testing.T) {
+func TestUnit_DeployStaticLinkToken(t *testing.T) {
 	t.Parallel()
 	e, _ := testhelpers.NewMemoryEnvironment(t, testhelpers.WithStaticLink())
 	// load onchain state

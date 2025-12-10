@@ -152,7 +152,7 @@ func checkBidirectionalLaneConnectivity(
 	}
 }
 
-func TestBuildConfigs(t *testing.T) {
+func TestUnit_BuildConfigs(t *testing.T) {
 	selectors := []uint64{1, 2}
 
 	chains := make([]v1_6.ChainDefinition, len(selectors))
@@ -266,7 +266,7 @@ func TestBuildConfigs(t *testing.T) {
 	}, configs.UpdateRouterRampsConfig)
 }
 
-func TestUpdateBidirectionalLanesChangeset(t *testing.T) {
+func TestIntegration_Shared_UpdateBidirectionalLanesChangeset(t *testing.T) {
 	t.Parallel()
 
 	type test struct {

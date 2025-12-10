@@ -25,7 +25,7 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 )
 
-func TestValidateSyncUSDCDomainsWithChainsConfig(t *testing.T) {
+func TestIntegration_Shared_ValidateSyncUSDCDomainsWithChainsConfig(t *testing.T) {
 	t.Parallel()
 
 	testCases := []struct {
@@ -183,7 +183,7 @@ func TestValidateSyncUSDCDomainsWithChainsConfig(t *testing.T) {
 	}
 }
 
-func TestSyncUSDCDomainsWithChainsChangeset(t *testing.T) {
+func TestIntegration_Shared_SyncUSDCDomainsWithChainsChangeset(t *testing.T) {
 	t.Parallel()
 
 	for _, mcmsConfig := range []*proposalutils.TimelockConfig{nil, {MinDelay: 0 * time.Second}} {

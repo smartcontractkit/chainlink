@@ -40,7 +40,7 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/internal/soltestutils"
 )
 
-func TestValidateContracts(t *testing.T) {
+func TestUnit_ValidateContracts(t *testing.T) {
 	validPubkey := solana.NewWallet().PublicKey()
 
 	zeroPubkey := solana.PublicKey{} // Zero public key
@@ -102,7 +102,7 @@ func TestValidateContracts(t *testing.T) {
 	}
 }
 
-func TestValidate(t *testing.T) {
+func TestUnit_Validate(t *testing.T) {
 	selector := chainselectors.TEST_22222222222222222222222222222222222222222222.Selector
 
 	tests := []struct {
@@ -343,7 +343,7 @@ func prepareEnvironmentForOwnershipTransfer(t *testing.T) (cldf.Environment, sta
 	return e, state
 }
 
-func TestTransferCCIPToMCMSWithTimelockSolana(t *testing.T) {
+func TestIntegration_Solana_TransferCCIPToMCMSWithTimelockSolana(t *testing.T) {
 	t.Parallel()
 	skipInCI(t)
 
@@ -435,7 +435,7 @@ func TestTransferCCIPToMCMSWithTimelockSolana(t *testing.T) {
 	}, 30*time.Second, 5*time.Second, "RMNRemote config PDA owner was not changed to timelock signer PDA")
 }
 
-func TestTransferCCIPFromMCMSWithTimelockSolana(t *testing.T) {
+func TestIntegration_Solana_TransferCCIPFromMCMSWithTimelockSolana(t *testing.T) {
 	t.Parallel()
 	skipInCI(t)
 

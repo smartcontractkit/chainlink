@@ -29,7 +29,7 @@ import (
 
 // This test only works if the destination chain id is 1337
 // Otherwise it shows error for offchain and onchain config digest mismatch
-func TestE2ELegacy(t *testing.T) {
+func TestIntegration_Shared_E2ELegacy(t *testing.T) {
 	e, _ := testhelpers.NewMemoryEnvironment(
 		t,
 		testhelpers.WithPrerequisiteDeploymentOnly(&changeset.V1_5DeploymentConfig{

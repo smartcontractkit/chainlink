@@ -18,7 +18,7 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
 )
 
-func TestDeployPrerequisites(t *testing.T) {
+func TestUnit_DeployPrerequisites(t *testing.T) {
 	t.Parallel()
 
 	e, err := environment.New(t.Context(),
@@ -30,7 +30,7 @@ func TestDeployPrerequisites(t *testing.T) {
 	testDeployPrerequisitesWithEnv(t, *e)
 }
 
-func TestDeployPrerequisitesZk(t *testing.T) {
+func TestUnit_DeployPrerequisitesZk(t *testing.T) {
 	// Timeouts in CI
 	tests.SkipFlakey(t, "https://smartcontract-it.atlassian.net/browse/CCIP-6427")
 

@@ -18,7 +18,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
 
-func TestSetPoolChangeset_Validations(t *testing.T) {
+func TestUnit_SetPoolChangeset_Validations(t *testing.T) {
 	t.Parallel()
 
 	e, selectorA, _, tokens := testhelpers.SetupTwoChainEnvironmentWithTokens(t, logger.TestLogger(t), true)
@@ -119,7 +119,7 @@ func TestSetPoolChangeset_Validations(t *testing.T) {
 	}
 }
 
-func TestSetPoolChangeset_Execution(t *testing.T) {
+func TestUnit_SetPoolChangeset_Execution(t *testing.T) {
 	for _, mcmsConfig := range []*proposalutils.TimelockConfig{nil, {MinDelay: 0 * time.Second}} {
 		msg := "Set pool with MCMS"
 		if mcmsConfig == nil {

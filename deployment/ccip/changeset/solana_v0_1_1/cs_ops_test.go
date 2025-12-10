@@ -18,13 +18,13 @@ import (
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 )
 
-func TestGenericOpsWithMcms(t *testing.T) {
+func TestIntegration_Solana_GenericOpsWithMcms(t *testing.T) {
 	t.Parallel()
 	skipInCI(t) // takes too long in CI
 	doTestGenericOps(t, true)
 }
 
-func TestGenericOpsWithoutMcms(t *testing.T) {
+func TestIntegration_Solana_GenericOpsWithoutMcms(t *testing.T) {
 	t.Parallel()
 	skipInCI(t)
 	doTestGenericOps(t, false)

@@ -26,7 +26,7 @@ import (
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 )
 
-func TestSolanaTokenOps(t *testing.T) {
+func TestIntegration_Solana_SolanaTokenOps(t *testing.T) {
 	quarantine.Flaky(t, "DX-1728")
 	t.Parallel()
 	tenv, _ := testhelpers.NewMemoryEnvironment(t, testhelpers.WithSolChains(1), testhelpers.WithCCIPSolanaContractVersion(changeset_solana.SolanaContractV0_1_1))
@@ -176,7 +176,7 @@ func TestSolanaTokenOps(t *testing.T) {
 	require.Equal(t, 9, int(outDec))
 }
 
-func TestDeployLinkToken(t *testing.T) {
+func TestUnit_DeployLinkToken(t *testing.T) {
 	selector := chain_selectors.TEST_22222222222222222222222222222222222222222222.Selector
 	rt, err := runtime.New(t.Context(), runtime.WithEnvOpts(
 		environment.WithSolanaContainer(t, []uint64{selector}, t.TempDir(), map[string]string{}),

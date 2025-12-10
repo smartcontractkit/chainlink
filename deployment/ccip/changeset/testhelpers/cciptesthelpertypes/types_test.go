@@ -22,7 +22,7 @@ func chainSelectorSlice(n int) []cciptypes.ChainSelector {
 	return selectors
 }
 
-func TestRandomTopology_getChainToFChainMapping(t *testing.T) {
+func TestUnit_RandomTopology_getChainToFChainMapping(t *testing.T) {
 	type args struct {
 		chainSelectors []cciptypes.ChainSelector
 	}
@@ -155,7 +155,7 @@ func generateTestP2PIDs(count int) [][32]byte {
 	return p2pIDs
 }
 
-func TestRandomTopology_getNodesForChain(t *testing.T) {
+func TestUnit_RandomTopology_getNodesForChain(t *testing.T) {
 	type args struct {
 		fChain             int
 		nonBootstrapP2pIDs [][32]byte
@@ -277,7 +277,7 @@ func TestRandomTopology_getNodesForChain(t *testing.T) {
 	}
 }
 
-func TestRandomTopology_validate(t *testing.T) {
+func TestUnit_RandomTopology_validate(t *testing.T) {
 	const homeChainSelector = 1
 	type args struct {
 		chainSelectors    []cciptypes.ChainSelector
@@ -401,7 +401,7 @@ func TestRandomTopology_validate(t *testing.T) {
 	}
 }
 
-func TestRandomTopology_ChainToNodeMapping(t *testing.T) {
+func TestUnit_RandomTopology_ChainToNodeMapping(t *testing.T) {
 	const homeChainSelector = 1
 	type args struct {
 		nonBootstrapP2pIDs [][32]byte
@@ -586,7 +586,7 @@ func TestRandomTopology_ChainToNodeMapping(t *testing.T) {
 	}
 }
 
-func TestTopology_ChainToNodeMapping(t *testing.T) {
+func TestUnit_Topology_ChainToNodeMapping(t *testing.T) {
 	type args struct {
 		nonBootstrapP2pIDs    [][32]byte
 		nonHomeChainSelectors []cciptypes.ChainSelector

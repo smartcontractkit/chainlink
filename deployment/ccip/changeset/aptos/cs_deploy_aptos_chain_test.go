@@ -29,7 +29,7 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/common/types"
 )
 
-func TestDeployAptosChainImp_VerifyPreconditions(t *testing.T) {
+func TestIntegration_Aptos_DeployAptosChainImp_VerifyPreconditions(t *testing.T) {
 	t.Parallel()
 	tests := []struct {
 		name      string
@@ -237,7 +237,7 @@ func TestDeployAptosChainImp_VerifyPreconditions(t *testing.T) {
 	}
 }
 
-func TestDeployAptosChain_Apply(t *testing.T) {
+func 	TestIntegration_Aptos_DeployAptosChain_Apply(t *testing.T) {
 	t.Parallel()
 
 	// Setup environment with 1 Aptos chain

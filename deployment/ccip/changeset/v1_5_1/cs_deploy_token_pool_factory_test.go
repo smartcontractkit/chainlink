@@ -25,7 +25,7 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
 )
 
-func TestDeployTokenPoolFactoryChangeset(t *testing.T) {
+func TestUnit_DeployTokenPoolFactoryChangeset(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {

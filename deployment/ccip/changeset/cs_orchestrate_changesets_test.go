@@ -109,7 +109,7 @@ func newRuntimeWithMCMS(t *testing.T) *runtime.Runtime {
 	return rt
 }
 
-func TestOrchestrateChangesets_VerifyPreconditions(t *testing.T) {
+func TestUnit_OrchestrateChangesets_VerifyPreconditions(t *testing.T) {
 	t.Run("description failure", func(t *testing.T) {
 		env, err := environment.New(t.Context(),
 			environment.WithLogger(logger.Test(t)),
@@ -179,7 +179,7 @@ func TestOrchestrateChangesets_VerifyPreconditions(t *testing.T) {
 	})
 }
 
-func TestOrchestrateChangesets_Apply(t *testing.T) {
+func TestUnit_OrchestrateChangesets_Apply(t *testing.T) {
 	t.Run("first fails", func(t *testing.T) {
 		rt := newRuntimeWithMCMS(t)
 
@@ -257,7 +257,7 @@ func TestOrchestrateChangesets_Apply(t *testing.T) {
 	})
 }
 
-func TestOrchestrateChangesetsConfig_MCMSGetsOverridden(t *testing.T) {
+func TestUnit_OrchestrateChangesetsConfig_MCMSGetsOverridden(t *testing.T) {
 	rt := newRuntimeWithMCMS(t)
 	env := rt.Environment()
 	state, err := stateview.LoadOnchainState(env)

@@ -139,7 +139,7 @@ func validateSolanaConfig(t *testing.T, state stateview.CCIPOnChainState, solCha
 	require.Equal(t, solChainUpdates[solanaSelector].RateLimiterConfig.Outbound.IsEnabled, outboundRateLimiterConfig.IsEnabled)
 }
 
-func TestValidateRemoteChains(t *testing.T) {
+func TestUnit_ValidateRemoteChains(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
@@ -192,7 +192,7 @@ func TestValidateRemoteChains(t *testing.T) {
 	}
 }
 
-func TestValidateTokenPoolConfig(t *testing.T) {
+func TestUnit_ValidateTokenPoolConfig(t *testing.T) {
 	t.Parallel()
 
 	e, selectorA, _, tokens := testhelpers.SetupTwoChainEnvironmentWithTokens(t, logger.Test(t), true)
@@ -245,7 +245,7 @@ func TestValidateTokenPoolConfig(t *testing.T) {
 	}
 }
 
-func TestValidateConfigureTokenPoolContractsConfig(t *testing.T) {
+func TestUnit_ValidateConfigureTokenPoolContractsConfig(t *testing.T) {
 	t.Parallel()
 
 	e, err := environment.New(t.Context(),
@@ -345,7 +345,7 @@ func TestValidateConfigureTokenPoolContractsConfig(t *testing.T) {
 	}
 }
 
-func TestValidateConfigureTokenPoolContracts(t *testing.T) {
+func TestUnit_ValidateConfigureTokenPoolContracts(t *testing.T) {
 	t.Parallel()
 
 	type regPass struct {
@@ -719,7 +719,7 @@ func TestValidateConfigureTokenPoolContracts(t *testing.T) {
 	}
 }
 
-func TestValidateConfigureTokenPoolContractsForSolana(t *testing.T) {
+func TestIntegation_Solana_ValidateConfigureTokenPoolContractsForSolana(t *testing.T) {
 	quarantine.Flaky(t, "DX-1726")
 	t.Parallel()
 	var err error

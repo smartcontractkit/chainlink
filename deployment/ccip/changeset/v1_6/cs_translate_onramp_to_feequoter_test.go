@@ -37,7 +37,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/ccipevm"
 )
 
-func TestTranslateEVM2EVMOnRampsToFeeQuoterChangeset(t *testing.T) {
+func TestIntegration_Shared_TranslateEVM2EVMOnRampsToFeeQuoterChangeset(t *testing.T) {
 	ctx := testcontext.Get(t)
 
 	// 1. Deploy 1.5 pre-requisites

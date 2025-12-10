@@ -340,7 +340,7 @@ func initMigrationEnvironment(t *testing.T, numChains int, mcmsCfg proposalutils
 	return e
 }
 
-func TestInitAndPromoteChainUpgrades(t *testing.T) {
+func TestIntegration_Shared_InitAndPromoteChainUpgrades(t *testing.T) {
 	mcmsCfg := proposalutils.TimelockConfig{
 		MinDelay:   0 * time.Second,
 		MCMSAction: mcmstypes.TimelockActionSchedule,

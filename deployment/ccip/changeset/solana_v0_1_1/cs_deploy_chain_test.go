@@ -103,7 +103,7 @@ func initialDeployCS(t *testing.T, e cldf.Environment, buildConfig *ccipChangese
 }
 
 // use this for a quick deploy test
-func TestDeployChainContractsChangesetPreload(t *testing.T) {
+func TestUnit_DeployChainContractsChangesetPreload(t *testing.T) {
 	quarantine.Flaky(t, "DX-1729")
 	t.Parallel()
 
@@ -145,7 +145,7 @@ func skipInCI(t *testing.T) {
 // 2. Build the upgraded contracts. We need the declare ids to match the existing deployed programs,
 // so we need to do a local build again. We cannot do a remote fetch because those artifacts will not have the same keys as step 1.
 // Doing this in CI is expensive, so we skip it for now.
-func TestUpgrade(t *testing.T) {
+func TestIntegration_Solana_Upgrade(t *testing.T) {
 	t.Parallel()
 	skipInCI(t)
 
@@ -345,7 +345,7 @@ func TestUpgrade(t *testing.T) {
 	require.NoError(t, err)
 }
 
-func TestClose(t *testing.T) {
+func TestIntegration_Solana_Close(t *testing.T) {
 	t.Parallel()
 	skipInCI(t)
 
@@ -422,7 +422,7 @@ func TestClose(t *testing.T) {
 	require.NoError(t, err)
 }
 
-func TestIDL(t *testing.T) {
+func TestIntegration_Solana_IDL(t *testing.T) {
 	skipInCI(t)
 	tenv, _ := testhelpers.NewMemoryEnvironment(t, testhelpers.WithSolChains(1), testhelpers.WithCCIPSolanaContractVersion(ccipChangesetSolana.SolanaContractV0_1_1))
 	solChain := tenv.Env.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chain_selectors.FamilySolana))[0]

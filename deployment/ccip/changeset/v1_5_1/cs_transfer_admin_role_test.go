@@ -22,7 +22,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
 
-func TestTransferAdminRoleChangeset_Validations(t *testing.T) {
+func TestUnitTransferAdminRoleChangeset_Validations(t *testing.T) {
 	t.Parallel()
 
 	e, selectorA, _, tokens := testhelpers.SetupTwoChainEnvironmentWithTokens(t, logger.TestLogger(t), true)
@@ -139,7 +139,7 @@ func TestTransferAdminRoleChangeset_Validations(t *testing.T) {
 	}
 }
 
-func TestTransferAdminRoleChangeset_Execution(t *testing.T) {
+func TestUnitTransferAdminRoleChangeset_Execution(t *testing.T) {
 	for _, mcmsConfig := range []*proposalutils.TimelockConfig{nil, {MinDelay: 0 * time.Second}} {
 		msg := "Transfer admin role with MCMS"
 		if mcmsConfig == nil {
@@ -243,7 +243,7 @@ func TestTransferAdminRoleChangeset_Execution(t *testing.T) {
 	}
 }
 
-func TestTransferAdminRoleChangesetV2_EmptyConfigReturnsError(t *testing.T) {
+func TestUnitTransferAdminRoleChangesetV2_EmptyConfigReturnsError(t *testing.T) {
 	t.Parallel()
 
 	e, _, _, _ := testhelpers.SetupTwoChainEnvironmentWithTokens(t, logger.TestLogger(t), true)
@@ -258,7 +258,7 @@ func TestTransferAdminRoleChangesetV2_EmptyConfigReturnsError(t *testing.T) {
 	require.ErrorContains(t, err, "at least one chain with token admin info must be specified")
 }
 
-func TestTransferAdminRoleChangesetV2_ExecutionWithMCMS(t *testing.T) {
+func TestUnitTransferAdminRoleChangesetV2_ExecutionWithMCMS(t *testing.T) {
 	t.Parallel()
 
 	mcmsConfig := &proposalutils.TimelockConfig{MinDelay: 0 * time.Second}
@@ -309,7 +309,7 @@ func TestTransferAdminRoleChangesetV2_ExecutionWithMCMS(t *testing.T) {
 	require.Equal(t, newAdminB, configOnB.PendingAdministrator)
 }
 
-func TestTransferAdminRoleChangesetV2_ExecutionWithoutMCMS(t *testing.T) {
+func TestUnitTransferAdminRoleChangesetV2_ExecutionWithoutMCMS(t *testing.T) {
 	t.Parallel()
 
 	e, selectorA, selectorB, _ := testhelpers.SetupTwoChainEnvironmentWithTokens(t, logger.TestLogger(t), false)
@@ -415,7 +415,7 @@ func TestTransferAdminRoleChangesetV2_ExecutionWithoutMCMS(t *testing.T) {
 	require.Equal(t, newAdminB, configOnB.PendingAdministrator)
 }
 
-func TestTransferAdminRoleChangesetV2_MultipleTokensPerChain(t *testing.T) {
+func TestUnitTransferAdminRoleChangesetV2_MultipleTokensPerChain(t *testing.T) {
 	t.Parallel()
 
 	mcmsConfig := &proposalutils.TimelockConfig{MinDelay: 0 * time.Second}
@@ -456,7 +456,7 @@ func TestTransferAdminRoleChangesetV2_MultipleTokensPerChain(t *testing.T) {
 	}
 }
 
-func TestTransferAdminRoleChangesetV2_Validations(t *testing.T) {
+func TestUnitTransferAdminRoleChangesetV2_Validations(t *testing.T) {
 	t.Parallel()
 
 	mcmsConfig := &proposalutils.TimelockConfig{MinDelay: 0 * time.Second}

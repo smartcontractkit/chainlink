@@ -19,7 +19,7 @@ import (
 	tokencs "github.com/smartcontractkit/chainlink/deployment/tokens/changesets"
 )
 
-func TestDeployLinktokenAndTransferOwnershipCS(t *testing.T) {
+func TestUnit_DeployLinktokenAndTransferOwnershipCS(t *testing.T) {
 	t.Parallel()
 
 	selector := chainselectors.TEST_90000001.Selector
@@ -81,7 +81,7 @@ func TestDeployLinktokenAndTransferOwnershipCS(t *testing.T) {
 	require.GreaterOrEqual(t, totalSupply.Cmp(expectedMintAmount), 0, "Total supply should be at least the minted amount")
 }
 
-func TestDeployLinktokenAndGrantMintRole(t *testing.T) {
+func TestUnit_DeployLinktokenAndGrantMintRole(t *testing.T) {
 	t.Parallel()
 
 	selector := chainselectors.TEST_90000001.Selector

@@ -37,7 +37,7 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 )
 
-func TestInvalidOCR3Params(t *testing.T) {
+func TestIntegration_Shared_InvalidOCR3Params(t *testing.T) {
 	e, _ := testhelpers.NewMemoryEnvironment(t,
 		testhelpers.WithPrerequisiteDeploymentOnly(nil))
 	chain1 := e.Env.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chain_selectors.FamilyEVM))[0]
@@ -98,7 +98,7 @@ func TestInvalidOCR3Params(t *testing.T) {
 	require.True(t, matched)
 }
 
-func Test_PromoteCandidate(t *testing.T) {
+func TestIntegration_Shared_PromoteCandidate(t *testing.T) {
 	for _, tc := range []struct {
 		name        string
 		mcmsEnabled bool
@@ -190,7 +190,7 @@ func Test_PromoteCandidate(t *testing.T) {
 	}
 }
 
-func Test_SetCandidate(t *testing.T) {
+func TestIntegration_Shared_SetCandidate(t *testing.T) {
 	for _, tc := range []struct {
 		name        string
 		mcmsEnabled bool
@@ -320,7 +320,7 @@ func Test_SetCandidate(t *testing.T) {
 	}
 }
 
-func Test_RevokeCandidate(t *testing.T) {
+func TestIntegration_Shared_RevokeCandidate(t *testing.T) {
 	for _, tc := range []struct {
 		name        string
 		mcmsEnabled bool
@@ -459,7 +459,7 @@ func Test_RevokeCandidate(t *testing.T) {
 	}
 }
 
-func Test_UpdateChainConfigs(t *testing.T) {
+func TestIntegration_Shared_UpdateChainConfigs(t *testing.T) {
 	for _, tc := range []struct {
 		name        string
 		mcmsEnabled bool

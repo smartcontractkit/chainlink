@@ -18,7 +18,7 @@ import (
 	"github.com/smartcontractkit/chainlink-deployments-framework/engine/test/onchain"
 )
 
-func TestNode(t *testing.T) {
+func TestIntegration_Shared_Node(t *testing.T) {
 	evmchains, err := onchain.NewEVMSimLoaderWithConfig(onchain.EVMSimLoaderConfig{
 		NumAdditionalAccounts: 5,
 	}).LoadN(t, 3)

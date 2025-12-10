@@ -27,7 +27,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/types"
 )
 
-func TestDeployHomeChain(t *testing.T) {
+func TestUnit_DeployHomeChain(t *testing.T) {
 	t.Parallel()
 
 	homeChainSel := chain_selectors.TEST_90000001.Selector
@@ -78,7 +78,7 @@ func TestDeployHomeChain(t *testing.T) {
 	require.Len(t, capRegSnap.Nodes, len(p2pIds))
 }
 
-func TestDeployHomeChainIdempotent(t *testing.T) {
+func TestIntegration_Shared_DeployHomeChainIdempotent(t *testing.T) {
 	e, _ := testhelpers.NewMemoryEnvironment(t)
 	nodes, err := deployment.NodeInfo(e.Env.NodeIDs, e.Env.Offchain)
 	require.NoError(t, err)
@@ -99,7 +99,7 @@ func TestDeployHomeChainIdempotent(t *testing.T) {
 	require.NoError(t, err)
 }
 
-func TestDeployDonIDClaimerAndOffSet(t *testing.T) {
+func TestIntegration_Shared_DeployDonIDClaimerAndOffSet(t *testing.T) {
 	ctx := testcontext.Get(t)
 	deployedEnvironment, _ := testhelpers.NewMemoryEnvironment(t)
 	e := deployedEnvironment.Env
@@ -163,7 +163,7 @@ func TestDeployDonIDClaimerAndOffSet(t *testing.T) {
 	require.Equal(t, nextDonID+1, nextDonIDAfterOffset)
 }
 
-func TestRemoveDonsValidate(t *testing.T) {
+func TestIntegration_Shared_RemoveDonsValidate(t *testing.T) {
 	e, _ := testhelpers.NewMemoryEnvironment(t)
 	s, err := stateview.LoadOnchainState(e.Env)
 	require.NoError(t, err)
@@ -218,7 +218,7 @@ func TestRemoveDonsValidate(t *testing.T) {
 	}
 }
 
-func TestRemoveDons(t *testing.T) {
+func TestIntegration_Shared_RemoveDons(t *testing.T) {
 	e, _ := testhelpers.NewMemoryEnvironment(t)
 	s, err := stateview.LoadOnchainState(e.Env)
 	require.NoError(t, err)
@@ -268,7 +268,7 @@ func TestRemoveDons(t *testing.T) {
 	require.Len(t, donsAfter, len(donsBefore)-1)
 }
 
-func TestAddDonAfterRemoveDons(t *testing.T) {
+func TestIntegration_Shared_AddDonAfterRemoveDons(t *testing.T) {
 	e, _ := testhelpers.NewMemoryEnvironment(t)
 	s, err := stateview.LoadOnchainState(e.Env)
 	require.NoError(t, err)
@@ -338,7 +338,7 @@ func TestAddDonAfterRemoveDons(t *testing.T) {
 	require.NoError(t, err)
 }
 
-func TestAddUpdateAndRemoveNops(t *testing.T) {
+func TestIntegration_Shared_AddUpdateAndRemoveNops(t *testing.T) {
 	for _, tc := range []struct {
 		name        string
 		mcmsEnabled bool
@@ -471,7 +471,7 @@ func TestAddUpdateAndRemoveNops(t *testing.T) {
 	}
 }
 
-func TestRemoveNodes(t *testing.T) {
+func TestIntegration_Shared_RemoveNodes(t *testing.T) {
 	for _, tc := range []struct {
 		name        string
 		mcmsEnabled bool

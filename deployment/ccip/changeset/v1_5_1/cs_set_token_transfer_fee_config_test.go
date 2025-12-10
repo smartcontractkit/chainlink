@@ -50,7 +50,7 @@ func ReadTokenTransferFeeConfig(t *testing.T, e testhelpers.DeployedEnv, srcSele
 	return onramp.GetTokenTransferFeeConfig(&bind.CallOpts{Context: e.Env.GetContext()}, token)
 }
 
-func TestSetTokenTransferFeeConfig_Validations(t *testing.T) {
+func TestIntegration_Shared_SetTokenTransferFeeConfig_Validations(t *testing.T) {
 	t.Parallel()
 
 	// Spin up a memory env with minimal prerequisite deployment
@@ -195,7 +195,7 @@ func TestSetTokenTransferFeeConfig_Validations(t *testing.T) {
 	}
 }
 
-func TestSetTokenTransferFeeConfig_EmptyConfigIsGracefullyHandled(t *testing.T) {
+func TestIntegration_Shared_SetTokenTransferFeeConfig_EmptyConfigIsGracefullyHandled(t *testing.T) {
 	// Spin up a memory env with minimal prerequisite deployment
 	e, _ := testhelpers.NewMemoryEnvironment(t,
 		testhelpers.WithNumOfChains(2),
@@ -232,7 +232,7 @@ func TestSetTokenTransferFeeConfig_EmptyConfigIsGracefullyHandled(t *testing.T) 
 	require.NoError(t, err)
 }
 
-func TestSetTokenTransferFeeConfig_Execution_WithoutMCMS(t *testing.T) {
+func TestIntegration_Shared_SetTokenTransferFeeConfig_Execution_WithoutMCMS(t *testing.T) {
 	// Spin up a memory env with minimal prerequisite deployment
 	e, _ := testhelpers.NewMemoryEnvironment(t,
 		testhelpers.WithNumOfChains(2),
@@ -302,7 +302,7 @@ func TestSetTokenTransferFeeConfig_Execution_WithoutMCMS(t *testing.T) {
 	require.True(t, cfgA.AggregateRateLimitEnabled)
 }
 
-func TestSetTokenTransferFeeConfig_Execution_WithMCMS(t *testing.T) {
+func TestIntegration_Shared_SetTokenTransferFeeConfig_Execution_WithMCMS(t *testing.T) {
 	// Spin up a memory env with minimal prerequisite deployment
 	e, _ := testhelpers.NewMemoryEnvironment(t,
 		testhelpers.WithNumOfChains(2),
@@ -415,7 +415,7 @@ func TestSetTokenTransferFeeConfig_Execution_WithMCMS(t *testing.T) {
 	require.False(t, cfgB.IsEnabled, "tokenB should be using default fee config after reset")
 }
 
-func TestSetTokenTransferFeeConfig_MultipleChains(t *testing.T) {
+func TestIntegration_Shared_SetTokenTransferFeeConfig_MultipleChains(t *testing.T) {
 	// Spin up a memory env with minimal prerequisite deployment
 	e, _ := testhelpers.NewMemoryEnvironment(t,
 		testhelpers.WithNumOfChains(2),

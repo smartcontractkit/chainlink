@@ -20,7 +20,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/types"
 )
 
-func TestSetOCR3Offramp_Apply(t *testing.T) {
+func TestIntegration_Aptos_PSetOCR3Offramp_Apply(t *testing.T) {
 	t.Parallel()
 	// Setup environment and config
 	deployedEnvironment, _ := testhelpers.NewMemoryEnvironment(
