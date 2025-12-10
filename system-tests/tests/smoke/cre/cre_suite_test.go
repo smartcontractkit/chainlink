@@ -95,41 +95,35 @@ func Test_CRE_V2_Suite(t *testing.T) {
 	})
 
 	t.Run("[v2] Vault DON - "+topology, func(t *testing.T) {
-		t.Skip()
 		testEnv := t_helpers.SetupTestEnvironmentWithConfig(t, t_helpers.GetDefaultTestConfig(t), v2RegistriesFlags...)
 
 		ExecuteVaultTest(t, testEnv)
 	})
 
 	t.Run("[v2] Cron Beholder - "+topology, func(t *testing.T) {
-		t.Skip()
 		testEnv := t_helpers.SetupTestEnvironmentWithConfig(t, t_helpers.GetDefaultTestConfig(t), v2RegistriesFlags...)
 
 		ExecuteCronBeholderTest(t, testEnv)
 	})
 
 	t.Run("[v2] HTTP Trigger Action - "+topology, func(t *testing.T) {
-		t.Skip()
 		testEnv := t_helpers.SetupTestEnvironmentWithConfig(t, t_helpers.GetDefaultTestConfig(t), v2RegistriesFlags...)
 
 		ExecuteHTTPTriggerActionTest(t, testEnv)
 	})
 
 	t.Run("[v2] HTTP Action CRUD Success - "+topology, func(t *testing.T) {
-		t.Skip()
 		testEnv := t_helpers.SetupTestEnvironmentWithConfig(t, t_helpers.GetDefaultTestConfig(t), v2RegistriesFlags...)
 
 		ExecuteHTTPActionCRUDSuccessTest(t, testEnv)
 	})
 
 	t.Run("[v2] DON Time - "+topology, func(t *testing.T) {
-		t.Skip()
 		testEnv := t_helpers.SetupTestEnvironmentWithConfig(t, t_helpers.GetDefaultTestConfig(t), v2RegistriesFlags...)
 
 		ExecuteDonTimeTest(t, testEnv)
 	})
 	t.Run("[v2] Consensus - "+topology, func(t *testing.T) {
-		t.Skip()
 		testEnv := t_helpers.SetupTestEnvironmentWithConfig(t, t_helpers.GetDefaultTestConfig(t), v2RegistriesFlags...)
 
 		ExecuteConsensusTest(t, testEnv)

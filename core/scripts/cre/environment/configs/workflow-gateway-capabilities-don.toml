@@ -50,7 +50,7 @@
   capabilities = ["ocr3", "custom-compute", "web-api-trigger", "cron", "http-action", "http-trigger", "consensus", "don-time"]
 
   [nodesets.chain_capabilities]
-    # we want to write only to the home chain, so that we can test whether remote capabilities of the 'capabilities DON' is used
+    # we want to write only to the home chain, so that we can test whether remote capabilities of the 'capabilities DON' are used
     write-evm = ["1337"]
     read-contract = ["1337"]
     evm = ["1337"]
