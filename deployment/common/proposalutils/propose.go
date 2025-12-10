@@ -34,6 +34,7 @@ type TimelockConfig struct {
 	MCMSAction                types.TimelockAction `json:"mcmsAction"`
 	OverrideRoot              bool                 `json:"overrideRoot"`                        // if true, override the previous root with the new one.
 	TimelockQualifierPerChain map[uint64]string    `json:"timelockQualifierPerChain,omitempty"` // optional qualifier to fetch timelock address from datastore
+	ValidUntil                *time.Duration       `json:"validUntil" yaml:"validUntil"`
 }
 
 func (tc *TimelockConfig) MCMBasedOnActionSolana(s state.MCMSWithTimelockStateSolana) (string, error) {
@@ -212,7 +213,11 @@ func BuildProposalFromBatchesV2(
 		return nil, err
 	}
 
-	validUntil := time.Now().Unix() + int64(DefaultValidUntil.Seconds())
+	proposalDuration := DefaultValidUntil
+	if mcmsCfg.ValidUntil != nil {
+		proposalDuration = *mcmsCfg.ValidUntil
+	}
+	validUntil := time.Now().Add(proposalDuration).Unix()
 
 	builder := mcmslib.NewTimelockProposalBuilder()
 	builder.
