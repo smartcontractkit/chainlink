@@ -20,7 +20,6 @@ import (
 
 type Manager struct {
 	services.Service
-
 	eng *services.Engine
 
 	bufferSize uint
