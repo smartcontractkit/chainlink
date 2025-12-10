@@ -2027,6 +2027,7 @@ type TestTransferRequest struct {
 	SourceChain, DestChain uint64
 	Receiver               []byte
 	TokenReceiverATA       []byte
+	PTTReceiver            []byte // PTT: Final recipient address where tokens are forwarded (for balance verification)
 	ExpectedStatus         int
 	// optional
 	Tokens                []router.ClientEVMTokenAmount
@@ -2083,6 +2084,8 @@ func TransferMultiple(
 				if destFamily == chainsel.FamilySolana || destFamily == chainsel.FamilySui {
 					// for EVM2Solana token transfer we need to use tokenReceiver instead logical receiver
 					expectedTokenBalances.add(tt.DestChain, tt.TokenReceiverATA, tt.ExpectedTokenBalances)
+				} else if len(tt.PTTReceiver) > 0 {
+					expectedTokenBalances.add(tt.DestChain, tt.PTTReceiver, tt.ExpectedTokenBalances)
 				} else {
 					expectedTokenBalances.add(tt.DestChain, tt.Receiver, tt.ExpectedTokenBalances)
 				}

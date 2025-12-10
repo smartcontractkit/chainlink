@@ -547,12 +547,19 @@ func DeployRegulatedTransferableTokenAptos(
 	return evmToken, evmPool, tokenMetadataAddress, aptosTokenPool, nil
 }
 
-// DeployAptosCCIPReceiver deploys the ccip_dummy_receiver package to all Aptos chains, saving the resulting address in the address book for future use
-func DeployAptosCCIPReceiver(t *testing.T, e cldf.Environment) {
+// DeployAptosCCIPReceiverToResourceAccount deploys the ccip_dummy_receiver package to all Aptos chains, saving the resulting address in the address book for future use
+func DeployAptosCCIPReceiverToResourceAccount(t *testing.T, e cldf.Environment) {
 	state, err := aptosstate.LoadOnchainStateAptos(e)
 	require.NoError(t, err)
 	for selector, onchainState := range state {
-		addr, tx, _, err := ccip_dummy_receiver.DeployToObject(e.BlockChains.AptosChains()[selector].DeployerSigner, e.BlockChains.AptosChains()[selector].Client, onchainState.CCIPAddress, onchainState.MCMSAddress)
+		uniqueSeed := ccip_dummy_receiver.DefaultSeed + time.Now().String()
+		addr, tx, _, err := ccip_dummy_receiver.DeployToResourceAccount(
+			e.BlockChains.AptosChains()[selector].DeployerSigner,
+			e.BlockChains.AptosChains()[selector].Client,
+			onchainState.CCIPAddress,
+			onchainState.MCMSAddress,
+			uniqueSeed,
+		)
 		require.NoError(t, err)
 		t.Logf("(Aptos) CCIPDummyReceiver(ccip: %s, mcms: %s) deployed to %s in tx %s", onchainState.CCIPAddress.StringLong(), onchainState.MCMSAddress.StringLong(), addr.StringLong(), tx.Hash)
 		require.NoError(t, e.BlockChains.AptosChains()[selector].Confirm(tx.Hash))

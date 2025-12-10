@@ -42,7 +42,7 @@ func Test_CCIP_Messaging_EVM2Aptos(t *testing.T) {
 	aptosChainSelectors := e.Env.BlockChains.ListChainSelectors(chain.WithFamily(chain_selectors.FamilyAptos))
 
 	// Deploy the dummy receiver contract
-	testhelpers.DeployAptosCCIPReceiver(t, e.Env)
+	testhelpers.DeployAptosCCIPReceiverToResourceAccount(t, e.Env)
 
 	state, err := stateview.LoadOnchainState(e.Env)
 	require.NoError(t, err)
@@ -359,7 +359,7 @@ func assertAptosMessageReceivedMatchesSource(t *testing.T, e testhelpers.Deploye
 
 func getLatestDummyReceiverEvent(t *testing.T, rpcClient aptos.AptosRpcClient, dummyReceiver aptos.AccountAddress, sequenceNumber uint64) ([]*aptosapi.Event, error) {
 	limit := uint64(1)
-	return rpcClient.EventsByHandle(dummyReceiver, dummyReceiver.String()+"::dummy_receiver::CCIPReceiverState", "received_message_events", &sequenceNumber, &limit)
+	return rpcClient.EventsByHandle(dummyReceiver, dummyReceiver.String()+"::ptt_dummy_receiver::CCIPReceiverState", "received_message_handle", &sequenceNumber, &limit)
 }
 
 func Test_CCIP_Messaging_Aptos2EVM(t *testing.T) {

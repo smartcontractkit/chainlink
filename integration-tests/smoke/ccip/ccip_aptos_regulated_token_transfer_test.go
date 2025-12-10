@@ -34,8 +34,9 @@ func Test_CCIP_RegulatedTokenTransfer_EVM2Aptos(t *testing.T) {
 	evmChainSelectors := e.Env.BlockChains.ListChainSelectors(chain.WithFamily(chain_selectors.FamilyEVM))
 	aptosChainSelectors := e.Env.BlockChains.ListChainSelectors(chain.WithFamily(chain_selectors.FamilyAptos))
 
-	// Deploy the dummy receiver contract
-	testhelpers.DeployAptosCCIPReceiver(t, e.Env)
+	// Deploy the dummy receiver contract to resource account
+	// This is so we can transfer tokens from the receiver contract to the final recipient
+	testhelpers.DeployAptosCCIPReceiverToResourceAccount(t, e.Env)
 
 	state, err := stateview.LoadOnchainState(e.Env)
 	require.NoError(t, err)
@@ -119,6 +120,32 @@ func Test_CCIP_RegulatedTokenTransfer_EVM2Aptos(t *testing.T) {
 				},
 			},
 			ExtraArgs: testhelpers.MakeEVMExtraArgsV2(100000, true),
+		},
+		// PTT (Programmable Token Transfer) Test Case
+		// This tests the full flow: EVM EOA -> PTT Receiver -> Final Recipient EOA
+		// The PTT receiver reads the final recipient from the data field and forwards tokens
+		// This would catch edge cases like reentrancy with dispatchable tokens (regulated tokens)
+		{
+			Name:           "PTT: Send regulated token to receiver, forward to EOA",
+			SourceChain:    sourceChain,
+			DestChain:      destChain,
+			Receiver:       ccipChainState.ReceiverAddress[:], // PTT receiver contract (same as dummy receiver)
+			Data:           deployerDestChain[:],              // Final recipient address encoded in data
+			PTTReceiver:    deployerDestChain[:],              // For balance verification at final recipient
+			ExpectedStatus: testhelpers.EXECUTION_STATE_SUCCESS,
+			Tokens: []router.ClientEVMTokenAmount{
+				{
+					Token:  evmToken.Address(),
+					Amount: big.NewInt(1e18),
+				},
+			},
+			ExtraArgs: testhelpers.MakeEVMExtraArgsV2(300000, true), // Higher gas for forwarding
+			ExpectedTokenBalances: []testhelpers.ExpectedBalance{
+				{
+					Token:  aptosToken[:],
+					Amount: big.NewInt(1e8),
+				},
+			},
 		},
 	}
 
