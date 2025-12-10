@@ -536,7 +536,7 @@ Registers a workflow with the specified configuration.
 func registerWorkflow(ctx context.Context, t *testing.T,
 	wfRegCfg *WorkflowRegistrationConfig, sethClient *seth.Client,
 	testLogger zerolog.Logger,
-) {
+) string {
 	t.Helper()
 
 	t.Cleanup(func() {
@@ -570,6 +570,8 @@ func registerWorkflow(ctx context.Context, t *testing.T,
 	)
 	require.NoError(t, registerErr, "failed to register workflow '%s'", wfRegCfg.WorkflowName)
 	testLogger.Info().Msgf("Workflow registered successfully: '%s'", workflowID)
+
+	return workflowID
 }
 
 /*
@@ -605,7 +607,7 @@ func deleteWorkflows(
 func CompileAndDeployWorkflow[T WorkflowConfig](t *testing.T,
 	testEnv *ttypes.TestEnvironment, testLogger zerolog.Logger, workflowName string,
 	workflowConfig *T, workflowFileLocation string,
-) {
+) string {
 	t.Helper()
 
 	testLogger.Info().Msgf("compiling and registering workflow '%s'", workflowName)
@@ -636,5 +638,5 @@ func CompileAndDeployWorkflow[T WorkflowConfig](t *testing.T,
 		Blockchains:             testEnv.CreEnvironment.Blockchains,
 	}
 	require.IsType(t, &evm.Blockchain{}, testEnv.CreEnvironment.Blockchains[0], "expected EVM blockchain type")
-	registerWorkflow(t.Context(), t, workflowRegConfig, testEnv.CreEnvironment.Blockchains[0].(*evm.Blockchain).SethClient, testLogger)
+	return registerWorkflow(t.Context(), t, workflowRegConfig, testEnv.CreEnvironment.Blockchains[0].(*evm.Blockchain).SethClient, testLogger)
 }
