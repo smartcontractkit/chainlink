@@ -692,7 +692,10 @@ func (c *channelDefinitionCache) fetchAndSetChannelDefinitions(ctx context.Conte
 	c.definitionsMu.RLock()
 	latestBlockNum := c.definitions.LastBlockNum
 	c.definitionsMu.RUnlock()
-	if trigger.BlockNum <= latestBlockNum {
+
+	// we allow processing triggers at the latest block number or greater to ensure
+	// multiple triggers at the same block number are processed correctly
+	if trigger.BlockNum < latestBlockNum {
 		return nil
 	}
 
