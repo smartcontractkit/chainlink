@@ -17,6 +17,7 @@ import (
 	"github.com/smartcontractkit/chainlink-ccv/protocol"
 	"github.com/smartcontractkit/chainlink-ccv/protocol/common/hmac"
 	"github.com/smartcontractkit/chainlink-ccv/verifier/commit"
+	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 	commontypes "github.com/smartcontractkit/chainlink-common/pkg/types"
 	"github.com/smartcontractkit/chainlink/v2/core/config"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
@@ -36,14 +37,16 @@ type Delegate struct {
 	// TODO: EVM specific (!)
 	chainServices []commontypes.ChainService
 	ocrKs         keystore.OCR2
+	ds            sqlutil.DataSource
 
 	isNewlyCreatedJob bool
 }
 
-func NewDelegate(lggr logger.Logger, ccvConfig config.CCV, ocrKs keystore.OCR2, chainServices []commontypes.ChainService) *Delegate {
+func NewDelegate(lggr logger.Logger, ds sqlutil.DataSource, ccvConfig config.CCV, ocrKs keystore.OCR2, chainServices []commontypes.ChainService) *Delegate {
 	return &Delegate{
 		delegateLogger: lggr.Named("CCVCommitteeVerifierDelegate"),
 		lggr:           lggr,
+		ds:             ds,
 		ccvConfig:      ccvConfig,
 		chainServices:  chainServices,
 		ocrKs:          ocrKs,
@@ -139,6 +142,7 @@ func (d *Delegate) ServicesForSpec(ctx context.Context, spec job.Job) (services 
 		common.HexToAddress(decodedCfg.SignerAddress).Bytes(),
 		newSignerAdapter(signingKey),
 		legacyChains,
+		d.ds,
 	)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create verification coordinator: %w", err)
