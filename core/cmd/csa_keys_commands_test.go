@@ -20,7 +20,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/web/presenters"
 )
 
-func TestUnit_CSAKeyPresenter_RenderTable(t *testing.T) {
+func TestIntegration_Shared_CSAKeyPresenter_RenderTable(t *testing.T) {
 	t.Parallel()
 
 	var (
@@ -52,7 +52,7 @@ func TestUnit_CSAKeyPresenter_RenderTable(t *testing.T) {
 	assert.Contains(t, output, pubKey)
 }
 
-func TestUnit_Shell_ListCSAKeys(t *testing.T) {
+func TestIntegration_Shared_Shell_ListCSAKeys(t *testing.T) {
 	t.Parallel()
 	ctx := testutils.Context(t)
 
@@ -70,7 +70,7 @@ func TestUnit_Shell_ListCSAKeys(t *testing.T) {
 	assert.Equal(t, "csa_"+key.PublicKeyString(), keys[0].PubKey)
 }
 
-func TestUnit_Shell_CreateCSAKey(t *testing.T) {
+func TestIntegration_Shared_Shell_CreateCSAKey(t *testing.T) {
 	t.Parallel()
 
 	app := startNewApplicationV2(t, nil)
@@ -83,7 +83,7 @@ func TestUnit_Shell_CreateCSAKey(t *testing.T) {
 	requireCSAKeyCount(t, app, 1)
 }
 
-func TestUnit_Shell_ImportExportCsaKey(t *testing.T) {
+func TestIntegration_Shared_Shell_ImportExportCsaKey(t *testing.T) {
 	t.Parallel()
 
 	defer deleteKeyExportFile(t)

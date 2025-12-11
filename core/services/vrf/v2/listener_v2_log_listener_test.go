@@ -237,7 +237,7 @@ func TestUnit_InitProcessedBlock_NoVRFReqs(t *testing.T) {
 	require.Equal(t, int64(6), lastProcessedBlock)
 }
 
-func TestUnit_LogPollerFilterRegistered(t *testing.T) {
+func TestIntegration_Shared_LogPollerFilterRegistered(t *testing.T) {
 	t.Parallel()
 	// Instantiate listener.
 	th := setupVRFLogPollerListenerTH(t)
@@ -827,7 +827,7 @@ func SetupGetUnfulfilledTH(t *testing.T) (*listenerV2, *ubig.Big) {
 	return listener, chainID
 }
 
-func TestUnit_GetUnfulfilled_NoVRFReqs(t *testing.T) {
+func TestIntegration_Shared_GetUnfulfilled_NoVRFReqs(t *testing.T) {
 	t.Parallel()
 
 	listener, chainID := SetupGetUnfulfilledTH(t)
@@ -856,7 +856,7 @@ func TestUnit_GetUnfulfilled_NoVRFReqs(t *testing.T) {
 	require.Empty(t, fulfilled)
 }
 
-func TestUnit_GetUnfulfilled_NoUnfulfilledVRFReqs(t *testing.T) {
+func TestIntegration_Shared_GetUnfulfilled_NoUnfulfilledVRFReqs(t *testing.T) {
 	t.Parallel()
 
 	listener, chainID := SetupGetUnfulfilledTH(t)
@@ -914,7 +914,7 @@ func TestUnit_GetUnfulfilled_NoUnfulfilledVRFReqs(t *testing.T) {
 	require.Len(t, fulfilled, 5)
 }
 
-func TestUnit_GetUnfulfilled_OneUnfulfilledVRFReq(t *testing.T) {
+func TestIntegration_Shared_GetUnfulfilled_OneUnfulfilledVRFReq(t *testing.T) {
 	t.Parallel()
 
 	listener, chainID := SetupGetUnfulfilledTH(t)
@@ -955,7 +955,7 @@ func TestUnit_GetUnfulfilled_OneUnfulfilledVRFReq(t *testing.T) {
 	require.Empty(t, fulfilled)
 }
 
-func TestUnit_GetUnfulfilled_SomeUnfulfilledVRFReq(t *testing.T) {
+func TestIntegration_Shared_GetUnfulfilled_SomeUnfulfilledVRFReq(t *testing.T) {
 	t.Parallel()
 
 	listener, chainID := SetupGetUnfulfilledTH(t)
@@ -1002,7 +1002,7 @@ func TestUnit_GetUnfulfilled_SomeUnfulfilledVRFReq(t *testing.T) {
 	require.Len(t, unfulfilled, len(expected))
 }
 
-func TestUnit_GetUnfulfilled_UnfulfilledNFulfilledVRFReqs(t *testing.T) {
+func TestIntegration_Shared_GetUnfulfilled_UnfulfilledNFulfilledVRFReqs(t *testing.T) {
 	t.Parallel()
 
 	listener, chainID := SetupGetUnfulfilledTH(t)

@@ -27,7 +27,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
 )
 
-func TestUnit_ORM_MostRecentFluxMonitorRoundID(t *testing.T) {
+func TestIntegration_Shared_ORM_MostRecentFluxMonitorRoundID(t *testing.T) {
 	t.Parallel()
 	ctx := t.Context()
 
@@ -82,7 +82,7 @@ func TestUnit_ORM_MostRecentFluxMonitorRoundID(t *testing.T) {
 	require.Equal(t, 5, count)
 }
 
-func TestUnit_ORM_UpdateFluxMonitorRoundStats(t *testing.T) {
+func TestIntegration_Shared_ORM_UpdateFluxMonitorRoundStats(t *testing.T) {
 	t.Parallel()
 	ctx := t.Context()
 
@@ -168,7 +168,7 @@ func makeJob(t *testing.T) *job.Job {
 	}
 }
 
-func TestUnit_ORM_CreateEthTransaction(t *testing.T) {
+func TestIntegration_Shared_ORM_CreateEthTransaction(t *testing.T) {
 	t.Parallel()
 
 	db := pgtest.NewSqlxDB(t)

@@ -20,7 +20,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/web/presenters"
 )
 
-func TestUnit_OCRKeyBundlePresenter_RenderTable(t *testing.T) {
+func TestIntegration_Shared_OCRKeyBundlePresenter_RenderTable(t *testing.T) {
 	t.Parallel()
 
 	var (
@@ -64,7 +64,7 @@ func TestUnit_OCRKeyBundlePresenter_RenderTable(t *testing.T) {
 	assert.Contains(t, output, hex.EncodeToString(pubKeyConfig[:]))
 }
 
-func TestUnit_Shell_ListOCRKeyBundles(t *testing.T) {
+func TestIntegration_Shared_Shell_ListOCRKeyBundles(t *testing.T) {
 	t.Parallel()
 	ctx := testutils.Context(t)
 
@@ -82,7 +82,7 @@ func TestUnit_Shell_ListOCRKeyBundles(t *testing.T) {
 	require.Equal(t, key.ID(), output[0].ID)
 }
 
-func TestUnit_Shell_CreateOCRKeyBundle(t *testing.T) {
+func TestIntegration_Shared_Shell_CreateOCRKeyBundle(t *testing.T) {
 	t.Parallel()
 
 	app := startNewApplicationV2(t, nil)
@@ -101,7 +101,7 @@ func TestUnit_Shell_CreateOCRKeyBundle(t *testing.T) {
 	require.Equal(t, output.ID, keys[0].ID())
 }
 
-func TestUnit_Shell_DeleteOCRKeyBundle(t *testing.T) {
+func TestIntegration_Shared_Shell_DeleteOCRKeyBundle(t *testing.T) {
 	t.Parallel()
 	ctx := testutils.Context(t)
 
@@ -129,7 +129,7 @@ func TestUnit_Shell_DeleteOCRKeyBundle(t *testing.T) {
 	assert.Equal(t, key.ID(), output.ID)
 }
 
-func TestUnit_Shell_ImportExportOCRKey(t *testing.T) {
+func TestIntegration_Shared_Shell_ImportExportOCRKey(t *testing.T) {
 	defer deleteKeyExportFile(t)
 	ctx := testutils.Context(t)
 

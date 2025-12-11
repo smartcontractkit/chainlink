@@ -216,7 +216,7 @@ func createBridge(t testing.TB, name string, val string, borm bridges.ORM, maxCa
 	}))
 }
 
-func TestUnit_ObservationContext_Observe_integrationRealPipeline(t *testing.T) {
+func TestIntegration_Shared_ObservationContext_Observe_integrationRealPipeline(t *testing.T) {
 	ctx := t.Context()
 	lggr := logger.TestLogger(t)
 	db := pgtest.NewSqlxDB(t)

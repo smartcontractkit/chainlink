@@ -13,7 +13,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/static"
 )
 
-func TestUnit_ORM_NodeVersion_UpsertNodeVersion(t *testing.T) {
+func TestIntegration_Shared_ORM_NodeVersion_UpsertNodeVersion(t *testing.T) {
 	ctx := t.Context()
 	db := pgtest.NewSqlxDB(t)
 

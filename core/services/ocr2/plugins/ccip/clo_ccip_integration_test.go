@@ -24,7 +24,7 @@ import (
 	integrationtesthelpers "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/testhelpers/integration"
 )
 
-func TestUnit_CLOSpecApprovalFlow_pipeline(t *testing.T) {
+func TestIntegration_Shared_CLOSpecApprovalFlow_pipeline(t *testing.T) {
 	quarantine.Flaky(t, "DX-1807")
 	t.Parallel()
 
@@ -44,7 +44,7 @@ func TestUnit_CLOSpecApprovalFlow_pipeline(t *testing.T) {
 	test_CLOSpecApprovalFlow(t, ccipTH, tokenPricesUSDPipeline, "")
 }
 
-func TestUnit_CLOSpecApprovalFlow_dynamicPriceGetter(t *testing.T) {
+func TestIntegration_Shared_CLOSpecApprovalFlow_dynamicPriceGetter(t *testing.T) {
 	quarantine.Flaky(t, "DX-1805")
 	t.Parallel()
 	ccipTH := integrationtesthelpers.SetupCCIPIntegrationTH(

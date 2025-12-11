@@ -14,7 +14,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
 )
 
-func TestUnit_Run_Status(t *testing.T) {
+func TestIntegration_Shared_Run_Status(t *testing.T) {
 	t.Parallel()
 
 	assert.False(t, pipeline.RunStatusUnknown.Finished())
@@ -81,7 +81,7 @@ func TestUnit_RunErrors_ToError(t *testing.T) {
 	require.ErrorContains(t, runErrors.ToError(), "bad thing happened\npretty bad thing happened")
 }
 
-func TestUnit_Run_StringOutputs(t *testing.T) {
+func TestIntegration_Shared_Run_StringOutputs(t *testing.T) {
 	t.Parallel()
 
 	t.Run("invalid outputs", func(t *testing.T) {

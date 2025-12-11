@@ -20,7 +20,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestUnit_ValidateBridgeType(t *testing.T) {
+func TestIntegration_Shared_ValidateBridgeType(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
@@ -111,7 +111,7 @@ func TestUnit_ValidateBridgeType(t *testing.T) {
 	}
 }
 
-func TestUnit_ValidateBridgeNotExist(t *testing.T) {
+func TestIntegration_Shared_ValidateBridgeNotExist(t *testing.T) {
 	t.Parallel()
 
 	ctx := testutils.Context(t)
@@ -143,7 +143,7 @@ func BenchmarkBridgeTypesController_Index(b *testing.B) {
 	}
 }
 
-func TestUnit_BridgeTypesController_Index(t *testing.T) {
+func TestIntegration_Shared_BridgeTypesController_Index(t *testing.T) {
 	t.Parallel()
 
 	app := cltest.NewApplication(t)
@@ -212,7 +212,7 @@ func setupBridgeControllerIndex(t testing.TB, orm bridges.ORM) ([]*bridges.Bridg
 	return []*bridges.BridgeType{bt1, bt2}, err
 }
 
-func TestUnit_BridgeTypesController_Create_Success(t *testing.T) {
+func TestIntegration_Shared_BridgeTypesController_Create_Success(t *testing.T) {
 	t.Parallel()
 
 	app := cltest.NewApplication(t)
@@ -241,7 +241,7 @@ func TestUnit_BridgeTypesController_Create_Success(t *testing.T) {
 	assert.NotEmpty(t, bt.OutgoingToken)
 }
 
-func TestUnit_BridgeTypesController_Update_Success(t *testing.T) {
+func TestIntegration_Shared_BridgeTypesController_Update_Success(t *testing.T) {
 	t.Parallel()
 
 	app := cltest.NewApplication(t)
@@ -267,7 +267,7 @@ func TestUnit_BridgeTypesController_Update_Success(t *testing.T) {
 	assert.Equal(t, cltest.WebURL(t, "http://yourbridge"), ubt.URL)
 }
 
-func TestUnit_BridgeController_Show(t *testing.T) {
+func TestIntegration_Shared_BridgeController_Show(t *testing.T) {
 	t.Parallel()
 
 	app := cltest.NewApplication(t)
@@ -298,7 +298,7 @@ func TestUnit_BridgeController_Show(t *testing.T) {
 	assert.Equal(t, http.StatusNotFound, resp.StatusCode, "Response should be 404")
 }
 
-func TestUnit_BridgeTypesController_Create_AdapterExistsError(t *testing.T) {
+func TestIntegration_Shared_BridgeTypesController_Create_AdapterExistsError(t *testing.T) {
 	t.Parallel()
 
 	app := cltest.NewApplication(t)
@@ -314,7 +314,7 @@ func TestUnit_BridgeTypesController_Create_AdapterExistsError(t *testing.T) {
 	cltest.AssertServerResponse(t, resp, http.StatusBadRequest)
 }
 
-func TestUnit_BridgeTypesController_Create_BindJSONError(t *testing.T) {
+func TestIntegration_Shared_BridgeTypesController_Create_BindJSONError(t *testing.T) {
 	t.Parallel()
 
 	app := cltest.NewApplication(t)
@@ -330,7 +330,7 @@ func TestUnit_BridgeTypesController_Create_BindJSONError(t *testing.T) {
 	cltest.AssertServerResponse(t, resp, http.StatusUnprocessableEntity)
 }
 
-func TestUnit_BridgeTypesController_Create_DatabaseError(t *testing.T) {
+func TestIntegration_Shared_BridgeTypesController_Create_DatabaseError(t *testing.T) {
 	t.Parallel()
 
 	app := cltest.NewApplication(t)

@@ -166,7 +166,7 @@ const (
 	binaryCmd      = "core/capabilities/compute/test/simple/cmd"
 )
 
-func TestUnit_workflowRegisteredHandler(t *testing.T) {
+func TestIntegration_Shared_workflowRegisteredHandler(t *testing.T) {
 	binaryURLFactory := func(wfID string) string {
 		return "http://example.com/" + wfID + "/binary"
 	}

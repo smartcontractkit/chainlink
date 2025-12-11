@@ -85,7 +85,7 @@ func getMockedRequestLog(t *testing.T) logpoller.Log {
 	}
 }
 
-func TestUnit_LogPollerWrapper_SingleSubscriberEmptyEvents(t *testing.T) {
+func TestIntegration_Shared_LogPollerWrapper_SingleSubscriberEmptyEvents(t *testing.T) {
 	t.Parallel()
 	ctx := testutils.Context(t)
 	lp, lpWrapper, client := setUp(t, 100_000) // check only once
@@ -107,7 +107,7 @@ func TestUnit_LogPollerWrapper_SingleSubscriberEmptyEvents(t *testing.T) {
 	require.Empty(t, resps)
 }
 
-func TestUnit_LogPollerWrapper_ErrorOnZeroAddresses(t *testing.T) {
+func TestIntegration_Shared_LogPollerWrapper_ErrorOnZeroAddresses(t *testing.T) {
 	t.Parallel()
 	ctx := testutils.Context(t)
 	lp, lpWrapper, client := setUp(t, 100_000) // check only once
@@ -120,7 +120,7 @@ func TestUnit_LogPollerWrapper_ErrorOnZeroAddresses(t *testing.T) {
 	require.Error(t, err)
 }
 
-func TestUnit_LogPollerWrapper_LatestEvents_ReorgHandling(t *testing.T) {
+func TestIntegration_Shared_LogPollerWrapper_LatestEvents_ReorgHandling(t *testing.T) {
 	t.Parallel()
 	ctx := testutils.Context(t)
 	lp, lpWrapper, client := setUp(t, 100_000)
@@ -156,7 +156,7 @@ func TestUnit_LogPollerWrapper_LatestEvents_ReorgHandling(t *testing.T) {
 	assert.Empty(t, oracleRequests)
 }
 
-func TestUnit_LogPollerWrapper_FilterPreviouslyDetectedEvents_TruncatesLogs(t *testing.T) {
+func TestIntegration_Shared_LogPollerWrapper_FilterPreviouslyDetectedEvents_TruncatesLogs(t *testing.T) {
 	t.Parallel()
 	_, lpWrapper, _ := setUp(t, 100_000)
 
@@ -174,7 +174,7 @@ func TestUnit_LogPollerWrapper_FilterPreviouslyDetectedEvents_TruncatesLogs(t *t
 	assert.Len(t, mockedDetectedEvents.isPreviouslyDetected, 1000)
 }
 
-func TestUnit_LogPollerWrapper_FilterPreviouslyDetectedEvents_SkipsInvalidLog(t *testing.T) {
+func TestIntegration_Shared_LogPollerWrapper_FilterPreviouslyDetectedEvents_SkipsInvalidLog(t *testing.T) {
 	t.Parallel()
 	_, lpWrapper, _ := setUp(t, 100_000)
 	inputLogs := []logpoller.Log{getMockedRequestLog(t)}
@@ -189,7 +189,7 @@ func TestUnit_LogPollerWrapper_FilterPreviouslyDetectedEvents_SkipsInvalidLog(t 
 	assert.Empty(t, mockedDetectedEvents.isPreviouslyDetected)
 }
 
-func TestUnit_LogPollerWrapper_FilterPreviouslyDetectedEvents_FiltersPreviouslyDetectedEvent(t *testing.T) {
+func TestIntegration_Shared_LogPollerWrapper_FilterPreviouslyDetectedEvents_FiltersPreviouslyDetectedEvent(t *testing.T) {
 	t.Parallel()
 	_, lpWrapper, _ := setUp(t, 100_000)
 	mockedRequestLog := getMockedRequestLog(t)
@@ -216,7 +216,7 @@ func TestUnit_LogPollerWrapper_FilterPreviouslyDetectedEvents_FiltersPreviouslyD
 	assert.Empty(t, mockedDetectedEvents.isPreviouslyDetected)
 }
 
-func TestUnit_LogPollerWrapper_UnregisterOldFiltersOnRouteUpgrade(t *testing.T) {
+func TestIntegration_Shared_LogPollerWrapper_UnregisterOldFiltersOnRouteUpgrade(t *testing.T) {
 	t.Parallel()
 	ctx := testutils.Context(t)
 	lp, lpWrapper, _ := setUp(t, 100_000) // check only once

@@ -13,7 +13,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/fluxmonitorv2"
 )
 
-func TestUnit_Flags_IsLowered(t *testing.T) {
+func TestIntegration_Shared_Flags_IsLowered(t *testing.T) {
 	t.Parallel()
 
 	testCases := []struct {

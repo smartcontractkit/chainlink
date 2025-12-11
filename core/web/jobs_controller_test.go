@@ -45,7 +45,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/web/presenters"
 )
 
-func TestUnit_JobsController_Create_ValidationFailure_OffchainReportingSpec(t *testing.T) {
+func TestIntegration_Shared_JobsController_Create_ValidationFailure_OffchainReportingSpec(t *testing.T) {
 	var (
 		contractAddress = cltest.NewEIP55Address()
 	)
@@ -105,7 +105,7 @@ func TestUnit_JobsController_Create_ValidationFailure_OffchainReportingSpec(t *t
 	}
 }
 
-func TestUnit_JobController_Create_DirectRequest_Fast(t *testing.T) {
+func TestIntegration_Shared_JobController_Create_DirectRequest_Fast(t *testing.T) {
 	ctx := testutils.Context(t)
 	app, client := setupJobsControllerTests(t)
 	require.NoError(t, app.KeyStore.OCR().Add(ctx, cltest.DefaultOCRKey))
@@ -139,7 +139,7 @@ func mustInt32FromString(t *testing.T, s string) int32 {
 	return int32(i)
 }
 
-func TestUnit_JobController_Create_HappyPath(t *testing.T) {
+func TestIntegration_Shared_JobController_Create_HappyPath(t *testing.T) {
 	ctx := testutils.Context(t)
 	app, client := setupJobsControllerTests(t)
 	b1, b2 := setupBridges(t, app.GetDB())
@@ -506,7 +506,7 @@ targets:
 	}
 }
 
-func TestUnit_JobsController_Create_WebhookSpec(t *testing.T) {
+func TestIntegration_Shared_JobsController_Create_WebhookSpec(t *testing.T) {
 	app := cltest.NewApplicationEVMDisabled(t)
 	require.NoError(t, app.Start(testutils.Context(t)))
 
@@ -535,7 +535,7 @@ func TestUnit_JobsController_Create_WebhookSpec(t *testing.T) {
 //go:embed webhook-spec-template.yml
 var webhookSpecTemplate string
 
-func TestUnit_JobsController_FailToCreate_EmptyJsonAttribute(t *testing.T) {
+func TestIntegration_Shared_JobsController_FailToCreate_EmptyJsonAttribute(t *testing.T) {
 	app := cltest.NewApplicationEVMDisabled(t)
 	require.NoError(t, app.Start(testutils.Context(t)))
 
@@ -555,7 +555,7 @@ func TestUnit_JobsController_FailToCreate_EmptyJsonAttribute(t *testing.T) {
 	require.Contains(t, string(b), "syntax is not supported. Please use \\\"{}\\\" instead")
 }
 
-func TestUnit_JobsController_Index_HappyPath(t *testing.T) {
+func TestIntegration_Shared_JobsController_Index_HappyPath(t *testing.T) {
 	_, client, ocrJobSpecFromFile, _, ereJobSpecFromFile, _ := setupJobSpecsControllerTestsWithJobs(t)
 
 	url := url.URL{Path: "/v2/jobs"}
@@ -577,7 +577,7 @@ func TestUnit_JobsController_Index_HappyPath(t *testing.T) {
 	runOCRJobSpecAssertions(t, ocrJobSpecFromFile, resources[1])
 }
 
-func TestUnit_JobsController_Show_HappyPath(t *testing.T) {
+func TestIntegration_Shared_JobsController_Show_HappyPath(t *testing.T) {
 	_, client, ocrJobSpecFromFile, jobID, ereJobSpecFromFile, jobID2 := setupJobSpecsControllerTestsWithJobs(t)
 
 	response, cleanup := client.Get("/v2/jobs/" + strconv.Itoa(int(jobID)))
@@ -621,7 +621,7 @@ func TestUnit_JobsController_Show_HappyPath(t *testing.T) {
 	runDirectRequestJobSpecAssertions(t, ereJobSpecFromFile, ereJob)
 }
 
-func TestUnit_JobsController_Show_InvalidID(t *testing.T) {
+func TestIntegration_Shared_JobsController_Show_InvalidID(t *testing.T) {
 	_, client, _, _, _, _ := setupJobSpecsControllerTestsWithJobs(t)
 
 	response, cleanup := client.Get("/v2/jobs/uuidLikeString")
@@ -629,7 +629,7 @@ func TestUnit_JobsController_Show_InvalidID(t *testing.T) {
 	cltest.AssertServerResponse(t, response, http.StatusUnprocessableEntity)
 }
 
-func TestUnit_JobsController_Show_NonExistentID(t *testing.T) {
+func TestIntegration_Shared_JobsController_Show_NonExistentID(t *testing.T) {
 	_, client, _, _, _, _ := setupJobSpecsControllerTestsWithJobs(t)
 
 	response, cleanup := client.Get("/v2/jobs/999999999")
@@ -638,7 +638,7 @@ func TestUnit_JobsController_Show_NonExistentID(t *testing.T) {
 	cltest.AssertServerResponse(t, response, http.StatusNotFound)
 }
 
-func TestUnit_JobsController_Update_HappyPath(t *testing.T) {
+func TestIntegration_Shared_JobsController_Update_HappyPath(t *testing.T) {
 	ctx := testutils.Context(t)
 	cfg := configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
 		c.OCR.Enabled = ptr(true)
@@ -704,7 +704,7 @@ func TestUnit_JobsController_Update_HappyPath(t *testing.T) {
 	cltest.AssertServerResponse(t, response, http.StatusOK)
 }
 
-func TestUnit_JobsController_Update_NonExistentID(t *testing.T) {
+func TestIntegration_Shared_JobsController_Update_NonExistentID(t *testing.T) {
 	ctx := testutils.Context(t)
 	cfg := configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
 		c.OCR.Enabled = ptr(true)

@@ -13,7 +13,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/web/presenters"
 )
 
-func TestUnit_ExternalInitiatorPresenter_RenderTable(t *testing.T) {
+func TestIntegration_Shared_ExternalInitiatorPresenter_RenderTable(t *testing.T) {
 	t.Parallel()
 
 	var (

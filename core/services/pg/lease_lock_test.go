@@ -23,7 +23,7 @@ func newLeaseLock(t *testing.T, db *sqlx.DB, cfg pg.LeaseLockConfig) pg.LeaseLoc
 	return pg.NewLeaseLock(db, uuid.New(), logger.TestLogger(t), cfg)
 }
 
-func TestUnit_LeaseLock(t *testing.T) {
+func TestIntegration_Shared_LeaseLock(t *testing.T) {
 	cfg, db := heavyweight.FullTestDBNoFixturesV2(t, func(c *chainlink.Config, s *chainlink.Secrets) {
 		t := true
 		c.Database.Lock.Enabled = &t

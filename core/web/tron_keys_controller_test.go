@@ -14,7 +14,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestUnit_TronKeysController_Index_HappyPath(t *testing.T) {
+func TestIntegration_Shared_TronKeysController_Index_HappyPath(t *testing.T) {
 	t.Parallel()
 
 	client, keyStore := setupTronKeysControllerTests(t)
@@ -34,7 +34,7 @@ func TestUnit_TronKeysController_Index_HappyPath(t *testing.T) {
 	require.Equal(t, keys[0].PublicKeyStr(), resources[0].PubKey)
 }
 
-func TestUnit_TronKeysController_Create_HappyPath(t *testing.T) {
+func TestIntegration_Shared_TronKeysController_Create_HappyPath(t *testing.T) {
 	t.Parallel()
 
 	app := cltest.NewApplicationEVMDisabled(t)
@@ -60,7 +60,7 @@ func TestUnit_TronKeysController_Create_HappyPath(t *testing.T) {
 	require.NoError(t, err)
 }
 
-func TestUnit_TronKeysController_Delete_NonExistentTronKeyID(t *testing.T) {
+func TestIntegration_Shared_TronKeysController_Delete_NonExistentTronKeyID(t *testing.T) {
 	t.Parallel()
 
 	client, _ := setupTronKeysControllerTests(t)
@@ -71,7 +71,7 @@ func TestUnit_TronKeysController_Delete_NonExistentTronKeyID(t *testing.T) {
 	require.Equal(t, http.StatusNotFound, response.StatusCode)
 }
 
-func TestUnit_TronKeysController_Delete_HappyPath(t *testing.T) {
+func TestIntegration_Shared_TronKeysController_Delete_HappyPath(t *testing.T) {
 	t.Parallel()
 	ctx := testutils.Context(t)
 

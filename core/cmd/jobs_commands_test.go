@@ -25,7 +25,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/web/presenters"
 )
 
-func TestUnit_JobPresenter_RenderTable(t *testing.T) {
+func TestIntegration_Shared_JobPresenter_RenderTable(t *testing.T) {
 	t.Parallel()
 
 	var (
@@ -89,7 +89,7 @@ func TestUnit_JobPresenter_RenderTable(t *testing.T) {
 	assert.Contains(t, output, createdAt.Format(time.RFC3339))
 }
 
-func TestUnit_JobRenderer_GetTasks(t *testing.T) {
+func TestIntegration_Shared_JobRenderer_GetTasks(t *testing.T) {
 	t.Parallel()
 
 	r := &cmd.JobPresenter{}
@@ -121,7 +121,7 @@ func TestUnit_JobRenderer_GetTasks(t *testing.T) {
 	})
 }
 
-func TestUnit_Job_FriendlyTasks(t *testing.T) {
+func TestIntegration_Shared_Job_FriendlyTasks(t *testing.T) {
 	t.Parallel()
 
 	r := &cmd.JobPresenter{}
@@ -147,7 +147,7 @@ func TestUnit_Job_FriendlyTasks(t *testing.T) {
 	})
 }
 
-func TestUnit_Job_FriendlyCreatedAt(t *testing.T) {
+func TestIntegration_Shared_Job_FriendlyCreatedAt(t *testing.T) {
 	t.Parallel()
 
 	now := time.Now()
@@ -268,7 +268,7 @@ func TestUnit_Job_FriendlyCreatedAt(t *testing.T) {
 	}
 }
 
-func TestUnit_Job_ToRows(t *testing.T) {
+func TestIntegration_Shared_Job_ToRows(t *testing.T) {
 	t.Parallel()
 
 	now := time.Now()
@@ -307,7 +307,7 @@ func getDirectRequestSpec() string {
 	return fmt.Sprintf(directRequestSpecTemplate, testutils.FixtureChainID.String(), uuid.New(), uuid.New())
 }
 
-func TestUnit_Shell_ListFindJobs(t *testing.T) {
+func TestIntegration_Shared_Shell_ListFindJobs(t *testing.T) {
 	t.Parallel()
 
 	app := startNewApplicationV2(t, func(c *chainlink.Config, s *chainlink.Secrets) {
@@ -333,7 +333,7 @@ func TestUnit_Shell_ListFindJobs(t *testing.T) {
 	assert.Equal(t, createOutput.ID, jobs[0].ID)
 }
 
-func TestUnit_Shell_ShowJob(t *testing.T) {
+func TestIntegration_Shared_Shell_ShowJob(t *testing.T) {
 	t.Parallel()
 
 	app := startNewApplicationV2(t, func(c *chainlink.Config, s *chainlink.Secrets) {
@@ -366,7 +366,7 @@ func TestUnit_Shell_ShowJob(t *testing.T) {
 //go:embed ocr-bootstrap-spec.yml
 var ocrBootstrapSpec string
 
-func TestUnit_Shell_CreateJobV2(t *testing.T) {
+func TestIntegration_Shared_Shell_CreateJobV2(t *testing.T) {
 	t.Parallel()
 
 	app := startNewApplicationV2(t, func(c *chainlink.Config, s *chainlink.Secrets) {
@@ -404,7 +404,7 @@ func TestUnit_Shell_CreateJobV2(t *testing.T) {
 	assert.Equal(t, "0x27548a32b9aD5D64c5945EaE9Da5337bc3169D15", output.OffChainReportingSpec.ContractAddress.String())
 }
 
-func TestUnit_Shell_DeleteJob(t *testing.T) {
+func TestIntegration_Shared_Shell_DeleteJob(t *testing.T) {
 	t.Parallel()
 
 	app := startNewApplicationV2(t, func(c *chainlink.Config, s *chainlink.Secrets) {

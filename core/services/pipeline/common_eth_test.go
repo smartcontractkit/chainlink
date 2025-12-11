@@ -19,7 +19,7 @@ func mustABIType(t *testing.T, ty string) abi.Type {
 	return typ
 }
 
-func TestUnit_convertToETHABIType(t *testing.T) {
+func TestIntegration_Shared_convertToETHABIType(t *testing.T) {
 	t.Parallel()
 
 	emptyHash := common.Hash{}
@@ -107,7 +107,7 @@ func TestUnit_convertToETHABIType(t *testing.T) {
 	}
 }
 
-func TestUnit_convertToETHABIType_Errors(t *testing.T) {
+func TestIntegration_Shared_convertToETHABIType_Errors(t *testing.T) {
 	t.Parallel()
 
 	for _, tt := range []struct {
@@ -125,7 +125,7 @@ func TestUnit_convertToETHABIType_Errors(t *testing.T) {
 	}
 }
 
-func TestUnit_convertToETHABIBytes_Errors(t *testing.T) {
+func TestIntegration_Shared_convertToETHABIBytes_Errors(t *testing.T) {
 	t.Parallel()
 
 	for _, tt := range []struct {

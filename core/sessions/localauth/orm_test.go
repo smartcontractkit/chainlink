@@ -33,7 +33,7 @@ func setupORM(t *testing.T) (*sqlx.DB, sessions.AuthenticationProvider) {
 	return db, orm
 }
 
-func TestUnit_ORM_FindUser(t *testing.T) {
+func TestIntegration_Shared_ORM_FindUser(t *testing.T) {
 	t.Parallel()
 	ctx := testutils.Context(t)
 
@@ -52,7 +52,7 @@ func TestUnit_ORM_FindUser(t *testing.T) {
 	assert.Equal(t, user1.HashedPassword, actual.HashedPassword)
 }
 
-func TestUnit_ORM_AuthorizedUserWithSession(t *testing.T) {
+func TestIntegration_Shared_ORM_AuthorizedUserWithSession(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
@@ -97,7 +97,7 @@ func TestUnit_ORM_AuthorizedUserWithSession(t *testing.T) {
 	}
 }
 
-func TestUnit_ORM_DeleteUser(t *testing.T) {
+func TestIntegration_Shared_ORM_DeleteUser(t *testing.T) {
 	t.Parallel()
 	ctx := testutils.Context(t)
 	_, orm := setupORM(t)
@@ -112,7 +112,7 @@ func TestUnit_ORM_DeleteUser(t *testing.T) {
 	require.Error(t, err)
 }
 
-func TestUnit_ORM_DeleteUserSession(t *testing.T) {
+func TestIntegration_Shared_ORM_DeleteUserSession(t *testing.T) {
 	t.Parallel()
 	ctx := testutils.Context(t)
 
@@ -136,7 +136,7 @@ func TestUnit_ORM_DeleteUserSession(t *testing.T) {
 	require.Empty(t, sessions)
 }
 
-func TestUnit_ORM_DeleteUserCascade(t *testing.T) {
+func TestIntegration_Shared_ORM_DeleteUserCascade(t *testing.T) {
 	ctx := testutils.Context(t)
 	db, orm := setupORM(t)
 

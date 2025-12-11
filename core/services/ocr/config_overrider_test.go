@@ -84,7 +84,7 @@ func TestIntegration_OCRConfigOverrider_EntersHibernation(t *testing.T) {
 	g.Eventually(func() *ocrtypes.ConfigOverride { return uni.overrider.ConfigOverride() }, 10*time.Second, 450*time.Millisecond).Should(gomega.Equal(expectedOverride))
 }
 
-func TestUnit_OCRConfigOverrider(t *testing.T) {
+func TestIntegration_Shared_OCRConfigOverrider(t *testing.T) {
 	t.Parallel()
 
 	t.Run("Before first tick returns nil override, later does return a specific override when hibernating", func(t *testing.T) {

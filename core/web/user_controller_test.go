@@ -19,7 +19,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
-func TestUnit_UserController_UpdatePassword(t *testing.T) {
+func TestIntegration_Shared_UserController_UpdatePassword(t *testing.T) {
 	t.Parallel()
 
 	app := cltest.NewApplicationEVMDisabled(t)
@@ -84,7 +84,7 @@ func TestUnit_UserController_UpdatePassword(t *testing.T) {
 	}
 }
 
-func TestUnit_UserController_CreateUser(t *testing.T) {
+func TestIntegration_Shared_UserController_CreateUser(t *testing.T) {
 	t.Parallel()
 
 	app := cltest.NewApplicationEVMDisabled(t)
@@ -178,7 +178,7 @@ func TestUnit_UserController_CreateUser(t *testing.T) {
 	}
 }
 
-func TestUnit_UserController_UpdateRole(t *testing.T) {
+func TestIntegration_Shared_UserController_UpdateRole(t *testing.T) {
 	t.Parallel()
 	ctx := testutils.Context(t)
 
@@ -225,7 +225,7 @@ func TestUnit_UserController_UpdateRole(t *testing.T) {
 	}
 }
 
-func TestUnit_UserController_DeleteUser(t *testing.T) {
+func TestIntegration_Shared_UserController_DeleteUser(t *testing.T) {
 	t.Parallel()
 	ctx := testutils.Context(t)
 
@@ -252,7 +252,7 @@ func TestUnit_UserController_DeleteUser(t *testing.T) {
 	assert.Contains(t, errors.Errors[0].Detail, "specified user not found")
 }
 
-func TestUnit_UserController_NewAPIToken(t *testing.T) {
+func TestIntegration_Shared_UserController_NewAPIToken(t *testing.T) {
 	t.Parallel()
 
 	app := cltest.NewApplicationEVMDisabled(t)
@@ -273,7 +273,7 @@ func TestUnit_UserController_NewAPIToken(t *testing.T) {
 	assert.NotEmpty(t, authToken.Secret)
 }
 
-func TestUnit_UserController_NewAPIToken_unauthorized(t *testing.T) {
+func TestIntegration_Shared_UserController_NewAPIToken_unauthorized(t *testing.T) {
 	t.Parallel()
 
 	app := cltest.NewApplicationEVMDisabled(t)
@@ -289,7 +289,7 @@ func TestUnit_UserController_NewAPIToken_unauthorized(t *testing.T) {
 	assert.Equal(t, http.StatusUnauthorized, resp.StatusCode)
 }
 
-func TestUnit_UserController_DeleteAPIKey(t *testing.T) {
+func TestIntegration_Shared_UserController_DeleteAPIKey(t *testing.T) {
 	t.Parallel()
 
 	app := cltest.NewApplicationEVMDisabled(t)
@@ -306,7 +306,7 @@ func TestUnit_UserController_DeleteAPIKey(t *testing.T) {
 	require.Equal(t, http.StatusNoContent, resp.StatusCode)
 }
 
-func TestUnit_UserController_DeleteAPIKey_unauthorized(t *testing.T) {
+func TestIntegration_Shared_UserController_DeleteAPIKey_unauthorized(t *testing.T) {
 	t.Parallel()
 
 	app := cltest.NewApplicationEVMDisabled(t)

@@ -14,7 +14,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/configtest"
 )
 
-func TestUnit_LCAController_FindLCA(t *testing.T) {
+func TestIntegration_Shared_LCAController_FindLCA(t *testing.T) {
 	cfg := configtest.NewTestGeneralConfig(t)
 	ec := setupEthClientForControllerTests(t)
 	app := cltest.NewApplicationWithConfigAndKey(t, cfg, cltest.DefaultP2PKey, ec)

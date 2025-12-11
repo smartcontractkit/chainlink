@@ -1912,7 +1912,7 @@ func TestUnit_validateEnv(t *testing.T) {
 	- environment variable GAS_UPDATER_ENABLED must not be set: unsupported with config v2`)
 }
 
-func TestUnit_Config_SetFrom(t *testing.T) {
+func TestIntegration_Shared_Config_SetFrom(t *testing.T) {
 	t.Parallel()
 	for _, tt := range []struct {
 		name string

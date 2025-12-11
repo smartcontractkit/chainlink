@@ -761,7 +761,7 @@ func checkResultLen(t *testing.T, priceService PriceService, destChainSelector u
 	return nil
 }
 
-func TestUnit_PriceService_priceWriteInBackground(t *testing.T) {
+func TestIntegration_Shared_PriceService_priceWriteInBackground(t *testing.T) {
 	lggr := logger.TestLogger(t)
 	jobId := int32(1)
 	destChain := chainselectors.TEST_1338

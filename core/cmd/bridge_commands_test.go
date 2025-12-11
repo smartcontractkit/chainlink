@@ -18,7 +18,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/web/presenters"
 )
 
-func TestUnit_BridgePresenter_RenderTable(t *testing.T) {
+func TestIntegration_Shared_BridgePresenter_RenderTable(t *testing.T) {
 	t.Parallel()
 
 	var (
@@ -62,7 +62,7 @@ func TestUnit_BridgePresenter_RenderTable(t *testing.T) {
 	assert.NotContains(t, output, outgoingToken)
 }
 
-func TestUnit_Shell_IndexBridges(t *testing.T) {
+func TestIntegration_Shared_Shell_IndexBridges(t *testing.T) {
 	t.Parallel()
 	ctx := testutils.Context(t)
 
@@ -99,7 +99,7 @@ func TestUnit_Shell_IndexBridges(t *testing.T) {
 	assert.Equal(t, bt2.Confirmations, p.Confirmations)
 }
 
-func TestUnit_Shell_ShowBridge(t *testing.T) {
+func TestIntegration_Shared_Shell_ShowBridge(t *testing.T) {
 	t.Parallel()
 
 	app := startNewApplicationV2(t, nil)
@@ -127,7 +127,7 @@ func TestUnit_Shell_ShowBridge(t *testing.T) {
 	assert.Equal(t, bt.Confirmations, p.Confirmations)
 }
 
-func TestUnit_Shell_CreateBridge(t *testing.T) {
+func TestIntegration_Shared_Shell_CreateBridge(t *testing.T) {
 	t.Parallel()
 
 	app := startNewApplicationV2(t, nil)
@@ -164,7 +164,7 @@ func TestUnit_Shell_CreateBridge(t *testing.T) {
 	}
 }
 
-func TestUnit_Shell_RemoveBridge(t *testing.T) {
+func TestIntegration_Shared_Shell_RemoveBridge(t *testing.T) {
 	t.Parallel()
 
 	app := startNewApplicationV2(t, nil)
@@ -192,7 +192,7 @@ func TestUnit_Shell_RemoveBridge(t *testing.T) {
 	assert.Equal(t, bt.URL.String(), p.URL)
 	assert.Equal(t, bt.Confirmations, p.Confirmations)
 }
-func TestUnit_Shell_UpdateBridge(t *testing.T) {
+func TestIntegration_Shared_Shell_UpdateBridge(t *testing.T) {
 	t.Parallel()
 
 	app := startNewApplicationV2(t, nil)

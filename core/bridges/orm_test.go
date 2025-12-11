@@ -30,7 +30,7 @@ func setupORM(t *testing.T) (*sqlx.DB, bridges.ORM) {
 	return db, orm
 }
 
-func TestUnit_ORM_FindBridges(t *testing.T) {
+func TestIntegration_Shared_ORM_FindBridges(t *testing.T) {
 	t.Parallel()
 	_, orm := setupORM(t)
 
@@ -67,7 +67,7 @@ func TestUnit_ORM_FindBridges(t *testing.T) {
 	require.Error(t, err, bts)
 }
 
-func TestUnit_ORM_FindBridge(t *testing.T) {
+func TestIntegration_Shared_ORM_FindBridge(t *testing.T) {
 	t.Parallel()
 	ctx := testutils.Context(t)
 
@@ -103,7 +103,7 @@ func TestUnit_ORM_FindBridge(t *testing.T) {
 		})
 	}
 }
-func TestUnit_ORM_UpdateBridgeType(t *testing.T) {
+func TestIntegration_Shared_ORM_UpdateBridgeType(t *testing.T) {
 	ctx := testutils.Context(t)
 	_, orm := setupORM(t)
 

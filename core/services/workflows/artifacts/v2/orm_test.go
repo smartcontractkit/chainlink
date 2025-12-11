@@ -13,7 +13,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestUnit_UpsertWorkflowSpec(t *testing.T) {
+func TestIntegration_Shared_UpsertWorkflowSpec(t *testing.T) {
 	t.Run("inserts new spec", func(t *testing.T) {
 		db := pgtest.NewSqlxDB(t)
 		ctx := testutils.Context(t)

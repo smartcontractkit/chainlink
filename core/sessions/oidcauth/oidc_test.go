@@ -34,7 +34,7 @@ func setupAuthenticationProvider(t *testing.T) (*sqlx.DB, sessions.Authenticatio
 	return db, oidcAuthProvider
 }
 
-func TestUnit_ORM_FindUser_Empty(t *testing.T) {
+func TestIntegration_Shared_ORM_FindUser_Empty(t *testing.T) {
 	t.Parallel()
 	ctx := testutils.Context(t)
 	// Init OIDC authenticator
@@ -44,7 +44,7 @@ func TestUnit_ORM_FindUser_Empty(t *testing.T) {
 	require.ErrorContains(t, err, "user not found")
 }
 
-func TestUnit_ORM_FindUser_Single(t *testing.T) {
+func TestIntegration_Shared_ORM_FindUser_Single(t *testing.T) {
 	t.Parallel()
 	ctx := testutils.Context(t)
 	// Init OIDC authenticator
@@ -66,7 +66,7 @@ func TestUnit_ORM_FindUser_Single(t *testing.T) {
 	require.Equal(t, foundUser.Role, user1.Role)
 }
 
-func TestUnit_ORM_FindUserByAPIToken_Success(t *testing.T) {
+func TestIntegration_Shared_ORM_FindUserByAPIToken_Success(t *testing.T) {
 	ctx := testutils.Context(t)
 	// Init OIDC authenticator
 	db, oidcAuthProvider := setupAuthenticationProvider(t)

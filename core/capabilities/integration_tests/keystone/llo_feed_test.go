@@ -25,7 +25,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/llo/cre"
 )
 
-func TestUnit_runLLOWorkflow(t *testing.T) {
+func TestIntegration_Shared_runLLOWorkflow(t *testing.T) {
 	ctx := t.Context()
 
 	lggr := logger.Test(t)

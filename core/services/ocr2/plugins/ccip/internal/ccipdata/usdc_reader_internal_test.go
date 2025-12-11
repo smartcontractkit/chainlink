@@ -138,7 +138,7 @@ func TestUnit_Parse(t *testing.T) {
 	require.Equal(t, expectedPostParse, hexutil.Encode(parsedBody))
 }
 
-func TestUnit_Filters(t *testing.T) {
+func TestIntegration_Shared_Filters(t *testing.T) {
 	t.Run("filters of different jobs should be distinct", func(t *testing.T) {
 		ctx := t.Context()
 		lggr := logger.Test(t)

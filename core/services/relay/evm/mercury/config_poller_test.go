@@ -20,7 +20,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
-func TestUnit_MercuryConfigPoller(t *testing.T) {
+func TestIntegration_Shared_MercuryConfigPoller(t *testing.T) {
 	feedID := evmutils.NewHash()
 	feedIDBytes := [32]byte(feedID)
 

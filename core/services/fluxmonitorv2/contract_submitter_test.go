@@ -14,7 +14,7 @@ import (
 	fmmocks "github.com/smartcontractkit/chainlink/v2/core/services/fluxmonitorv2/mocks"
 )
 
-func TestUnit_FluxAggregatorContractSubmitter_Submit(t *testing.T) {
+func TestIntegration_Shared_FluxAggregatorContractSubmitter_Submit(t *testing.T) {
 	t.Parallel()
 	var (
 		fluxAggregator    = mocks.NewFluxAggregator(t)

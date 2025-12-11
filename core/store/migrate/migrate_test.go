@@ -68,7 +68,7 @@ func getOCR2Spec100() OffchainReporting2OracleSpec100 {
 	}
 }
 
-func TestUnit_Migrate_0100_BootstrapConfigs(t *testing.T) {
+func TestIntegration_Shared_Migrate_0100_BootstrapConfigs(t *testing.T) {
 	cfg, db := heavyweight.FullTestDBEmptyV2(t, nil)
 	lggr := logger.TestLogger(t)
 	p, err := migrate.NewProvider(testutils.Context(t), db.DB)
@@ -340,7 +340,7 @@ ON jobs.offchainreporting2_oracle_spec_id = ocr2.id`
 	require.Equal(t, jobIdAndContractId{ID: 20, ContractID: "sol_187246hr3781h9fd198fh391g8f924"}, jobsAndContracts[3])
 }
 
-func TestUnit_Migrate_101_GenericOCR2(t *testing.T) {
+func TestIntegration_Shared_Migrate_101_GenericOCR2(t *testing.T) {
 	_, db := heavyweight.FullTestDBEmptyV2(t, nil)
 	ctx := testutils.Context(t)
 	p, err := migrate.NewProvider(ctx, db.DB)
@@ -393,7 +393,7 @@ func TestUnit_Migrate_101_GenericOCR2(t *testing.T) {
 	require.Equal(t, spec.JuelsPerFeeCoinPipeline, juels)
 }
 
-func TestUnit_Migrate(t *testing.T) {
+func TestIntegration_Shared_Migrate(t *testing.T) {
 	ctx := testutils.Context(t)
 	_, db := heavyweight.FullTestDBEmptyV2(t, nil)
 
@@ -449,7 +449,7 @@ func TestUnit_SetMigrationENVVars(t *testing.T) {
 	})
 }
 
-func TestUnit_NoTriggers(t *testing.T) {
+func TestIntegration_Shared_NoTriggers(t *testing.T) {
 	_, db := heavyweight.FullTestDBEmptyV2(t, nil)
 	p, err := migrate.NewProvider(testutils.Context(t), db.DB)
 	require.NoError(t, err)
@@ -528,7 +528,7 @@ func BenchmarkBackfillingRecordsWithMigration202(b *testing.B) {
 	}
 }
 
-func TestUnit_Rollback_247_TxStateEnumUpdate(t *testing.T) {
+func TestIntegration_Shared_Rollback_247_TxStateEnumUpdate(t *testing.T) {
 	ctx := testutils.Context(t)
 	_, db := heavyweight.FullTestDBV2(t, nil)
 	p, err := migrate.NewProvider(ctx, db.DB)

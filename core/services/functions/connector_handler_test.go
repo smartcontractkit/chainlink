@@ -64,7 +64,7 @@ func newOffchainRequest(t *testing.T, sender []byte, ageSec uint64) (*api.Messag
 	return msg, internalId
 }
 
-func TestUnit_FunctionsConnectorHandler(t *testing.T) {
+func TestIntegration_Shared_FunctionsConnectorHandler(t *testing.T) {
 	t.Parallel()
 
 	logger := logger.TestLogger(t)

@@ -69,7 +69,7 @@ func mockRegistry1_1(
 	}
 }
 
-func TestUnit_LogListenerOpts1_1(t *testing.T) {
+func TestIntegration_Shared_LogListenerOpts1_1(t *testing.T) {
 	db := pgtest.NewSqlxDB(t)
 	korm := keeper.NewORM(db, logger.TestLogger(t))
 	ethClient := clienttest.NewClientWithDefaultChainID(t)

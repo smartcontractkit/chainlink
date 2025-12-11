@@ -15,7 +15,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestUnit_StarkNetKeysController_Index_HappyPath(t *testing.T) {
+func TestIntegration_Shared_StarkNetKeysController_Index_HappyPath(t *testing.T) {
 	t.Parallel()
 
 	client, keyStore := setupStarkNetKeysControllerTests(t)
@@ -35,7 +35,7 @@ func TestUnit_StarkNetKeysController_Index_HappyPath(t *testing.T) {
 	assert.Equal(t, keys[0].StarkKeyStr(), resources[0].StarkKey)
 }
 
-func TestUnit_StarkNetKeysController_Create_HappyPath(t *testing.T) {
+func TestIntegration_Shared_StarkNetKeysController_Create_HappyPath(t *testing.T) {
 	t.Parallel()
 
 	app := cltest.NewApplicationEVMDisabled(t)
@@ -61,7 +61,7 @@ func TestUnit_StarkNetKeysController_Create_HappyPath(t *testing.T) {
 	require.NoError(t, err)
 }
 
-func TestUnit_StarkNetKeysController_Delete_NonExistentStarkNetKeyID(t *testing.T) {
+func TestIntegration_Shared_StarkNetKeysController_Delete_NonExistentStarkNetKeyID(t *testing.T) {
 	t.Parallel()
 
 	client, _ := setupStarkNetKeysControllerTests(t)
@@ -72,7 +72,7 @@ func TestUnit_StarkNetKeysController_Delete_NonExistentStarkNetKeyID(t *testing.
 	assert.Equal(t, http.StatusNotFound, response.StatusCode)
 }
 
-func TestUnit_StarkNetKeysController_Delete_HappyPath(t *testing.T) {
+func TestIntegration_Shared_StarkNetKeysController_Delete_HappyPath(t *testing.T) {
 	t.Parallel()
 	ctx := testutils.Context(t)
 

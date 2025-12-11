@@ -655,7 +655,7 @@ func TestIntegration_CCIP(t *testing.T) {
 }
 
 // TestReorg ensures that CCIP works even when a below finality depth reorg happens
-func TestUnit_Reorg(t *testing.T) {
+func TestIntegration_Shared_Reorg(t *testing.T) {
 	t.Parallel()
 	// We need higher finality depth on the destination to perform reorg deep enough to revert commit and execution reports
 	destinationFinalityDepth := uint32(50)

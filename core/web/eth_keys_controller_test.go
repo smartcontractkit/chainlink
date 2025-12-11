@@ -26,7 +26,7 @@ import (
 	webpresenters "github.com/smartcontractkit/chainlink/v2/core/web/presenters"
 )
 
-func TestUnit_ETHKeysController_Index_Success(t *testing.T) {
+func TestIntegration_Shared_ETHKeysController_Index_Success(t *testing.T) {
 	t.Parallel()
 	ctx := testutils.Context(t)
 
@@ -77,7 +77,7 @@ func TestUnit_ETHKeysController_Index_Success(t *testing.T) {
 	}
 }
 
-func TestUnit_ETHKeysController_Index_Errors(t *testing.T) {
+func TestIntegration_Shared_ETHKeysController_Index_Errors(t *testing.T) {
 	t.Parallel()
 	ctx := testutils.Context(t)
 
@@ -115,7 +115,7 @@ func TestUnit_ETHKeysController_Index_Errors(t *testing.T) {
 	assert.Equal(t, "115792089237316195423570985008687907853269984665640564039457584007913129639935", balance.MaxGasPriceWei.String())
 }
 
-func TestUnit_ETHKeysController_Index_Disabled(t *testing.T) {
+func TestIntegration_Shared_ETHKeysController_Index_Disabled(t *testing.T) {
 	t.Parallel()
 	ctx := testutils.Context(t)
 
@@ -149,7 +149,7 @@ func TestUnit_ETHKeysController_Index_Disabled(t *testing.T) {
 	assert.Nil(t, balance.MaxGasPriceWei)
 }
 
-func TestUnit_ETHKeysController_Index_NotDev(t *testing.T) {
+func TestIntegration_Shared_ETHKeysController_Index_NotDev(t *testing.T) {
 	t.Parallel()
 
 	ethClient := cltest.NewEthMocksWithStartupAssertions(t)
@@ -185,7 +185,7 @@ func TestUnit_ETHKeysController_Index_NotDev(t *testing.T) {
 	assert.Equal(t, "256", only.LinkBalance.String())
 }
 
-func TestUnit_ETHKeysController_Index_NoAccounts(t *testing.T) {
+func TestIntegration_Shared_ETHKeysController_Index_NoAccounts(t *testing.T) {
 	t.Parallel()
 
 	app := cltest.NewApplication(t)
@@ -204,7 +204,7 @@ func TestUnit_ETHKeysController_Index_NoAccounts(t *testing.T) {
 	assert.Empty(t, balances)
 }
 
-func TestUnit_ETHKeysController_CreateSuccess(t *testing.T) {
+func TestIntegration_Shared_ETHKeysController_CreateSuccess(t *testing.T) {
 	t.Parallel()
 
 	config := configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
@@ -245,7 +245,7 @@ func TestUnit_ETHKeysController_CreateSuccess(t *testing.T) {
 	assert.Equal(t, "115792089237316195423570985008687907853269984665640564039457584007913129639935", balance.MaxGasPriceWei.String())
 }
 
-func TestUnit_ETHKeysController_ChainSuccess_UpdateNonce(t *testing.T) {
+func TestIntegration_Shared_ETHKeysController_ChainSuccess_UpdateNonce(t *testing.T) {
 	t.Parallel()
 	ctx := testutils.Context(t)
 
@@ -287,7 +287,7 @@ func TestUnit_ETHKeysController_ChainSuccess_UpdateNonce(t *testing.T) {
 	assert.False(t, updatedKey.Disabled)
 }
 
-func TestUnit_ETHKeysController_ChainSuccess_Disable(t *testing.T) {
+func TestIntegration_Shared_ETHKeysController_ChainSuccess_Disable(t *testing.T) {
 	t.Parallel()
 	ctx := testutils.Context(t)
 
@@ -332,7 +332,7 @@ func TestUnit_ETHKeysController_ChainSuccess_Disable(t *testing.T) {
 	assert.True(t, updatedKey.Disabled)
 }
 
-func TestUnit_ETHKeysController_ChainSuccess_Enable(t *testing.T) {
+func TestIntegration_Shared_ETHKeysController_ChainSuccess_Enable(t *testing.T) {
 	t.Parallel()
 	ctx := testutils.Context(t)
 
@@ -376,7 +376,7 @@ func TestUnit_ETHKeysController_ChainSuccess_Enable(t *testing.T) {
 	assert.False(t, updatedKey.Disabled)
 }
 
-func TestUnit_ETHKeysController_ChainSuccess_ResetWithAbandon(t *testing.T) {
+func TestIntegration_Shared_ETHKeysController_ChainSuccess_ResetWithAbandon(t *testing.T) {
 	t.Parallel()
 	ctx := testutils.Context(t)
 
@@ -449,7 +449,7 @@ func TestUnit_ETHKeysController_ChainSuccess_ResetWithAbandon(t *testing.T) {
 	assert.Equal(t, "abandoned", tx.Error.String)
 }
 
-func TestUnit_ETHKeysController_ChainFailure_InvalidAbandon(t *testing.T) {
+func TestIntegration_Shared_ETHKeysController_ChainFailure_InvalidAbandon(t *testing.T) {
 	t.Parallel()
 	ctx := testutils.Context(t)
 
@@ -483,7 +483,7 @@ func TestUnit_ETHKeysController_ChainFailure_InvalidAbandon(t *testing.T) {
 	assert.Equal(t, http.StatusBadRequest, resp.StatusCode)
 }
 
-func TestUnit_ETHKeysController_ChainFailure_InvalidEnabled(t *testing.T) {
+func TestIntegration_Shared_ETHKeysController_ChainFailure_InvalidEnabled(t *testing.T) {
 	t.Parallel()
 	ctx := testutils.Context(t)
 
@@ -517,7 +517,7 @@ func TestUnit_ETHKeysController_ChainFailure_InvalidEnabled(t *testing.T) {
 	assert.Equal(t, http.StatusBadRequest, resp.StatusCode)
 }
 
-func TestUnit_ETHKeysController_ChainFailure_InvalidAddress(t *testing.T) {
+func TestIntegration_Shared_ETHKeysController_ChainFailure_InvalidAddress(t *testing.T) {
 	t.Parallel()
 	ctx := testutils.Context(t)
 
@@ -546,7 +546,7 @@ func TestUnit_ETHKeysController_ChainFailure_InvalidAddress(t *testing.T) {
 	assert.Equal(t, http.StatusBadRequest, resp.StatusCode)
 }
 
-func TestUnit_ETHKeysController_ChainFailure_MissingAddress(t *testing.T) {
+func TestIntegration_Shared_ETHKeysController_ChainFailure_MissingAddress(t *testing.T) {
 	t.Parallel()
 	ctx := testutils.Context(t)
 
@@ -575,7 +575,7 @@ func TestUnit_ETHKeysController_ChainFailure_MissingAddress(t *testing.T) {
 	assert.Equal(t, http.StatusInternalServerError, resp.StatusCode)
 }
 
-func TestUnit_ETHKeysController_ChainFailure_InvalidChainID(t *testing.T) {
+func TestIntegration_Shared_ETHKeysController_ChainFailure_InvalidChainID(t *testing.T) {
 	t.Parallel()
 	ctx := testutils.Context(t)
 
@@ -604,7 +604,7 @@ func TestUnit_ETHKeysController_ChainFailure_InvalidChainID(t *testing.T) {
 	assert.Equal(t, http.StatusBadRequest, resp.StatusCode)
 }
 
-func TestUnit_ETHKeysController_ChainFailure_MissingChainID(t *testing.T) {
+func TestIntegration_Shared_ETHKeysController_ChainFailure_MissingChainID(t *testing.T) {
 	t.Parallel()
 	ctx := testutils.Context(t)
 
@@ -637,7 +637,7 @@ func TestUnit_ETHKeysController_ChainFailure_MissingChainID(t *testing.T) {
 	assert.Equal(t, http.StatusNotFound, resp.StatusCode)
 }
 
-func TestUnit_ETHKeysController_DeleteSuccess(t *testing.T) {
+func TestIntegration_Shared_ETHKeysController_DeleteSuccess(t *testing.T) {
 	t.Parallel()
 	ctx := testutils.Context(t)
 	ethClient := cltest.NewEthMocksWithStartupAssertions(t)
@@ -688,7 +688,7 @@ func TestUnit_ETHKeysController_DeleteSuccess(t *testing.T) {
 	assert.Equal(t, addr1.String(), balance.Address)
 }
 
-func TestUnit_ETHKeysController_DeleteFailure_InvalidAddress(t *testing.T) {
+func TestIntegration_Shared_ETHKeysController_DeleteFailure_InvalidAddress(t *testing.T) {
 	t.Parallel()
 	ctx := testutils.Context(t)
 	ethClient := cltest.NewEthMocksWithStartupAssertions(t)
@@ -710,7 +710,7 @@ func TestUnit_ETHKeysController_DeleteFailure_InvalidAddress(t *testing.T) {
 	assert.Equal(t, http.StatusBadRequest, resp.StatusCode)
 }
 
-func TestUnit_ETHKeysController_DeleteFailure_KeyMissing(t *testing.T) {
+func TestIntegration_Shared_ETHKeysController_DeleteFailure_KeyMissing(t *testing.T) {
 	t.Parallel()
 	ctx := testutils.Context(t)
 	ethClient := cltest.NewEthMocksWithStartupAssertions(t)

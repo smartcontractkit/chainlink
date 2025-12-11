@@ -10,7 +10,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
 )
 
-func TestUnit_Graph_Decode(t *testing.T) {
+func TestIntegration_Shared_Graph_Decode(t *testing.T) {
 	t.Parallel()
 
 	expected := map[string]map[string]bool{
@@ -117,7 +117,7 @@ func TestUnit_Graph_Decode(t *testing.T) {
 	}
 }
 
-func TestUnit_Graph_TasksInDependencyOrder(t *testing.T) {
+func TestIntegration_Shared_Graph_TasksInDependencyOrder(t *testing.T) {
 	t.Parallel()
 
 	p, err := pipeline.Parse(pipeline.DotStr)
@@ -209,7 +209,7 @@ func TestUnit_Graph_TasksInDependencyOrder(t *testing.T) {
 	require.Equal(t, expected, p.Tasks)
 }
 
-func TestUnit_Graph_HasCycles(t *testing.T) {
+func TestIntegration_Shared_Graph_HasCycles(t *testing.T) {
 	t.Parallel()
 
 	_, err := pipeline.Parse(pipeline.DotStr)
@@ -224,7 +224,7 @@ func TestUnit_Graph_HasCycles(t *testing.T) {
 	require.Contains(t, err.Error(), "cycle detected")
 }
 
-func TestUnit_Graph_ImplicitDependencies(t *testing.T) {
+func TestIntegration_Shared_Graph_ImplicitDependencies(t *testing.T) {
 	t.Parallel()
 
 	g := pipeline.NewGraph()

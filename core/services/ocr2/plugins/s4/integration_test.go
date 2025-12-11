@@ -153,7 +153,7 @@ func checkNoUnconfirmedRows(ctx context.Context, t *testing.T, orm s4_svc.ORM, l
 	assert.Empty(t, rows)
 }
 
-func TestUnit_S4Integration_HappyDON(t *testing.T) {
+func TestIntegration_Shared_S4Integration_HappyDON(t *testing.T) {
 	don := newDON(t, 4, createPluginConfig(100))
 	ctx := testutils.Context(t)
 

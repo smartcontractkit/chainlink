@@ -20,7 +20,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr"
 )
 
-func TestUnit_DB_ReadWriteState(t *testing.T) {
+func TestIntegration_Shared_DB_ReadWriteState(t *testing.T) {
 	db := pgtest.NewSqlxDB(t)
 
 	configDigest := cltest.MakeConfigDigest(t)

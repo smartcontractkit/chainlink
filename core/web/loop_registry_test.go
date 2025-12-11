@@ -62,7 +62,7 @@ func (m *mockLoopImpl) run() {
 	testMetric.Inc()
 }
 
-func TestUnit_LoopRegistry(t *testing.T) {
+func TestIntegration_Shared_LoopRegistry(t *testing.T) {
 	ctx := testutils.Context(t)
 	cfg := configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
 		c.OCR.Enabled = ptr(true)

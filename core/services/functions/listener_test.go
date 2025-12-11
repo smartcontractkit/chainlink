@@ -164,7 +164,7 @@ func packFlags(requestSizeTier int, secretSizeTier int) [32]byte {
 	return flags
 }
 
-func TestUnit_FunctionsListener_HandleOracleRequestV1_Success(t *testing.T) {
+func TestIntegration_Shared_FunctionsListener_HandleOracleRequestV1_Success(t *testing.T) {
 	testutils.SkipShortDB(t)
 	t.Parallel()
 
@@ -192,7 +192,7 @@ func TestUnit_FunctionsListener_HandleOracleRequestV1_Success(t *testing.T) {
 	<-doneCh
 }
 
-func TestUnit_FunctionsListener_HandleOffchainRequest_Success(t *testing.T) {
+func TestIntegration_Shared_FunctionsListener_HandleOffchainRequest_Success(t *testing.T) {
 	testutils.SkipShortDB(t)
 	t.Parallel()
 
@@ -214,7 +214,7 @@ func TestUnit_FunctionsListener_HandleOffchainRequest_Success(t *testing.T) {
 	require.NoError(t, uni.service.HandleOffchainRequest(testutils.Context(t), request))
 }
 
-func TestUnit_FunctionsListener_HandleOffchainRequest_Invalid(t *testing.T) {
+func TestIntegration_Shared_FunctionsListener_HandleOffchainRequest_Invalid(t *testing.T) {
 	testutils.SkipShortDB(t)
 	t.Parallel()
 	uni := NewFunctionsListenerUniverse(t, 0, 1_000_000)
@@ -238,7 +238,7 @@ func TestUnit_FunctionsListener_HandleOffchainRequest_Invalid(t *testing.T) {
 	require.Error(t, uni.service.HandleOffchainRequest(testutils.Context(t), request))
 }
 
-func TestUnit_FunctionsListener_HandleOffchainRequest_InternalError(t *testing.T) {
+func TestIntegration_Shared_FunctionsListener_HandleOffchainRequest_InternalError(t *testing.T) {
 	testutils.SkipShortDB(t)
 	t.Parallel()
 	uni := NewFunctionsListenerUniverse(t, 0, 1_000_000)
@@ -258,7 +258,7 @@ func TestUnit_FunctionsListener_HandleOffchainRequest_InternalError(t *testing.T
 	require.Error(t, uni.service.HandleOffchainRequest(testutils.Context(t), request))
 }
 
-func TestUnit_FunctionsListener_HandleOracleRequestV1_ComputationError(t *testing.T) {
+func TestIntegration_Shared_FunctionsListener_HandleOracleRequestV1_ComputationError(t *testing.T) {
 	testutils.SkipShortDB(t)
 	t.Parallel()
 
@@ -286,7 +286,7 @@ func TestUnit_FunctionsListener_HandleOracleRequestV1_ComputationError(t *testin
 	<-doneCh
 }
 
-func TestUnit_FunctionsListener_HandleOracleRequestV1_ThresholdDecryptedSecrets(t *testing.T) {
+func TestIntegration_Shared_FunctionsListener_HandleOracleRequestV1_ThresholdDecryptedSecrets(t *testing.T) {
 	testutils.SkipShortDB(t)
 	t.Parallel()
 
@@ -327,7 +327,7 @@ func TestUnit_FunctionsListener_HandleOracleRequestV1_ThresholdDecryptedSecrets(
 	<-doneCh
 }
 
-func TestUnit_FunctionsListener_HandleOracleRequestV1_CBORTooBig(t *testing.T) {
+func TestIntegration_Shared_FunctionsListener_HandleOracleRequestV1_CBORTooBig(t *testing.T) {
 	testutils.SkipShortDB(t)
 	t.Parallel()
 
@@ -353,7 +353,7 @@ func TestUnit_FunctionsListener_HandleOracleRequestV1_CBORTooBig(t *testing.T) {
 	<-doneCh
 }
 
-func TestUnit_FunctionsListener_ReportSourceCodeDomains(t *testing.T) {
+func TestIntegration_Shared_FunctionsListener_ReportSourceCodeDomains(t *testing.T) {
 	testutils.SkipShortDB(t)
 	t.Parallel()
 
@@ -393,7 +393,7 @@ func TestUnit_FunctionsListener_ReportSourceCodeDomains(t *testing.T) {
 	assert.Equal(t, Domains, req.Domains)
 }
 
-func TestUnit_FunctionsListener_PruneRequests(t *testing.T) {
+func TestIntegration_Shared_FunctionsListener_PruneRequests(t *testing.T) {
 	testutils.SkipShortDB(t)
 	t.Parallel()
 
@@ -408,7 +408,7 @@ func TestUnit_FunctionsListener_PruneRequests(t *testing.T) {
 	<-doneCh
 }
 
-func TestUnit_FunctionsListener_TimeoutRequests(t *testing.T) {
+func TestIntegration_Shared_FunctionsListener_TimeoutRequests(t *testing.T) {
 	testutils.SkipShortDB(t)
 	t.Parallel()
 
@@ -423,7 +423,7 @@ func TestUnit_FunctionsListener_TimeoutRequests(t *testing.T) {
 	<-doneCh
 }
 
-func TestUnit_FunctionsListener_ORMDoesNotFreezeHandlersForever(t *testing.T) {
+func TestIntegration_Shared_FunctionsListener_ORMDoesNotFreezeHandlersForever(t *testing.T) {
 	testutils.SkipShortDB(t)
 	t.Parallel()
 

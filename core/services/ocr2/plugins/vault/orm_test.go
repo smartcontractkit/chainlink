@@ -56,7 +56,7 @@ func createTestInstanceID() dkgocrtypes.InstanceID {
 	return dkgocrtypes.MakeInstanceID(configContract, configDigest)
 }
 
-func TestUnit_ORM_WriteAndReadResultPackage(t *testing.T) {
+func TestIntegration_Shared_ORM_WriteAndReadResultPackage(t *testing.T) {
 	t.Parallel()
 	ctx := testutils.Context(t)
 
@@ -82,7 +82,7 @@ func TestUnit_ORM_WriteAndReadResultPackage(t *testing.T) {
 	}
 }
 
-func TestUnit_ORM_ReadResultPackage_NotFound(t *testing.T) {
+func TestIntegration_Shared_ORM_ReadResultPackage_NotFound(t *testing.T) {
 	t.Parallel()
 	ctx := testutils.Context(t)
 
@@ -94,7 +94,7 @@ func TestUnit_ORM_ReadResultPackage_NotFound(t *testing.T) {
 	assert.Nil(t, readValue)
 }
 
-func TestUnit_ORM_WriteResultPackage_Upsert(t *testing.T) {
+func TestIntegration_Shared_ORM_WriteResultPackage_Upsert(t *testing.T) {
 	t.Parallel()
 	ctx := testutils.Context(t)
 
@@ -138,7 +138,7 @@ func TestUnit_ORM_WriteResultPackage_Upsert(t *testing.T) {
 	assert.Equal(t, commontypes.OracleID(3), readValue.Signatures[0].Signer)
 }
 
-func TestUnit_ORM_WriteResultPackage_MultipleSignatures(t *testing.T) {
+func TestIntegration_Shared_ORM_WriteResultPackage_MultipleSignatures(t *testing.T) {
 	t.Parallel()
 	ctx := testutils.Context(t)
 
@@ -168,7 +168,7 @@ func TestUnit_ORM_WriteResultPackage_MultipleSignatures(t *testing.T) {
 	}
 }
 
-func TestUnit_ORM_WriteResultPackage_DifferentInstanceIDs(t *testing.T) {
+func TestIntegration_Shared_ORM_WriteResultPackage_DifferentInstanceIDs(t *testing.T) {
 	t.Parallel()
 	ctx := testutils.Context(t)
 
@@ -203,7 +203,7 @@ func TestUnit_ORM_WriteResultPackage_DifferentInstanceIDs(t *testing.T) {
 	assert.Equal(t, uint64(2), readValue2.SeqNr)
 }
 
-func TestUnit_ORM_WriteResultPackage_TimestampsUpdated(t *testing.T) {
+func TestIntegration_Shared_ORM_WriteResultPackage_TimestampsUpdated(t *testing.T) {
 	t.Parallel()
 	ctx := testutils.Context(t)
 
@@ -239,7 +239,7 @@ func TestUnit_ORM_WriteResultPackage_TimestampsUpdated(t *testing.T) {
 		"updated_at should be >= initial timestamp")
 }
 
-func TestUnit_ORM_ConfigDigestHandling(t *testing.T) {
+func TestIntegration_Shared_ORM_ConfigDigestHandling(t *testing.T) {
 	t.Parallel()
 	ctx := testutils.Context(t)
 
@@ -267,7 +267,7 @@ func TestUnit_ORM_ConfigDigestHandling(t *testing.T) {
 	assert.Equal(t, testDigest, readValue.ConfigDigest)
 }
 
-func TestUnit_ORM_WriteResultPackage_ValidationErrors(t *testing.T) {
+func TestIntegration_Shared_ORM_WriteResultPackage_ValidationErrors(t *testing.T) {
 	t.Parallel()
 	ctx := testutils.Context(t)
 

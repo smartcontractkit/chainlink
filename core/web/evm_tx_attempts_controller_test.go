@@ -15,7 +15,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestUnit_TxAttemptsController_Index_Success(t *testing.T) {
+func TestIntegration_Shared_TxAttemptsController_Index_Success(t *testing.T) {
 	t.Parallel()
 
 	app := cltest.NewApplicationWithKey(t)
@@ -46,7 +46,7 @@ func TestUnit_TxAttemptsController_Index_Success(t *testing.T) {
 	assert.Equal(t, "2", attempts[1].SentAt, "expected tx attempts order by sentAt descending")
 }
 
-func TestUnit_TxAttemptsController_Index_Error(t *testing.T) {
+func TestIntegration_Shared_TxAttemptsController_Index_Error(t *testing.T) {
 	t.Parallel()
 
 	app := cltest.NewApplicationWithKey(t)

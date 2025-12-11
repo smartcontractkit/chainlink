@@ -15,7 +15,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
 
-func TestUnit_BridgeCache_Type(t *testing.T) {
+func TestIntegration_Shared_BridgeCache_Type(t *testing.T) {
 	t.Parallel()
 
 	t.Run("loads bridge from data source - single", func(t *testing.T) {
@@ -128,7 +128,7 @@ func TestUnit_BridgeCache_Type(t *testing.T) {
 	})
 }
 
-func TestUnit_BridgeCache_Response(t *testing.T) {
+func TestIntegration_Shared_BridgeCache_Response(t *testing.T) {
 	t.Parallel()
 
 	t.Run("loads response from data source", func(t *testing.T) {

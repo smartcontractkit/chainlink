@@ -21,7 +21,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestUnit_ValidateExternalInitiator(t *testing.T) {
+func TestIntegration_Shared_ValidateExternalInitiator(t *testing.T) {
 	t.Parallel()
 
 	db := pgtest.NewSqlxDB(t)
@@ -64,7 +64,7 @@ func TestUnit_ValidateExternalInitiator(t *testing.T) {
 	}
 }
 
-func TestUnit_ExternalInitiatorsController_Index(t *testing.T) {
+func TestIntegration_Shared_ExternalInitiatorsController_Index(t *testing.T) {
 	t.Parallel()
 
 	app := cltest.NewApplicationWithConfig(t,
@@ -130,7 +130,7 @@ func TestUnit_ExternalInitiatorsController_Index(t *testing.T) {
 	assert.Equal(t, eiFoo.OutgoingToken, eis[0].OutgoingToken)
 }
 
-func TestUnit_ExternalInitiatorsController_Create_success(t *testing.T) {
+func TestIntegration_Shared_ExternalInitiatorsController_Create_success(t *testing.T) {
 	t.Parallel()
 
 	app := cltest.NewApplicationWithConfig(t,
@@ -157,7 +157,7 @@ func TestUnit_ExternalInitiatorsController_Create_success(t *testing.T) {
 	assert.NotEmpty(t, ei.OutgoingSecret)
 }
 
-func TestUnit_ExternalInitiatorsController_Create_without_URL(t *testing.T) {
+func TestIntegration_Shared_ExternalInitiatorsController_Create_without_URL(t *testing.T) {
 	t.Parallel()
 
 	app := cltest.NewApplicationWithConfig(t,
@@ -184,7 +184,7 @@ func TestUnit_ExternalInitiatorsController_Create_without_URL(t *testing.T) {
 	assert.NotEmpty(t, ei.OutgoingSecret)
 }
 
-func TestUnit_ExternalInitiatorsController_Create_invalid(t *testing.T) {
+func TestIntegration_Shared_ExternalInitiatorsController_Create_invalid(t *testing.T) {
 	t.Parallel()
 
 	app := cltest.NewApplicationWithConfig(t,
@@ -202,7 +202,7 @@ func TestUnit_ExternalInitiatorsController_Create_invalid(t *testing.T) {
 	cltest.AssertServerResponse(t, resp, http.StatusBadRequest)
 }
 
-func TestUnit_ExternalInitiatorsController_Delete(t *testing.T) {
+func TestIntegration_Shared_ExternalInitiatorsController_Delete(t *testing.T) {
 	t.Parallel()
 
 	app := cltest.NewApplicationWithConfig(t,
@@ -224,7 +224,7 @@ func TestUnit_ExternalInitiatorsController_Delete(t *testing.T) {
 	cltest.AssertServerResponse(t, resp, http.StatusNoContent)
 }
 
-func TestUnit_ExternalInitiatorsController_DeleteNotFound(t *testing.T) {
+func TestIntegration_Shared_ExternalInitiatorsController_DeleteNotFound(t *testing.T) {
 	t.Parallel()
 
 	app := cltest.NewApplicationWithConfig(t,

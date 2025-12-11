@@ -88,7 +88,7 @@ serverURL = 'wss://localhost:8080'
 serverPubKey = '8fa807463ad73f9ee855cfd60ba406dcf98a2855b3dd8af613107b0f6890a707'
 `
 
-func TestUnit_ORM(t *testing.T) {
+func TestIntegration_Shared_ORM(t *testing.T) {
 	t.Parallel()
 
 	config := configtest.NewTestGeneralConfig(t)
@@ -360,7 +360,7 @@ func TestUnit_ORM(t *testing.T) {
 	})
 }
 
-func TestUnit_ORM_DeleteJob_DeletesAssociatedRecords(t *testing.T) {
+func TestIntegration_Shared_ORM_DeleteJob_DeletesAssociatedRecords(t *testing.T) {
 	t.Parallel()
 	ctx := testutils.Context(t)
 	config := configtest.NewGeneralConfig(t, nil)
@@ -524,7 +524,7 @@ executorConfig = "Foo = 'Bar'"
 	})
 }
 
-func TestUnit_ORM_CreateJob_VRFV2(t *testing.T) {
+func TestIntegration_Shared_ORM_CreateJob_VRFV2(t *testing.T) {
 	ctx := testutils.Context(t)
 	config := configtest.NewTestGeneralConfig(t)
 	db := pgtest.NewSqlxDB(t)

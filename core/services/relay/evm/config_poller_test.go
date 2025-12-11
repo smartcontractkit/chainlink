@@ -44,7 +44,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
-func TestUnit_ConfigPoller(t *testing.T) {
+func TestIntegration_Shared_ConfigPoller(t *testing.T) {
 	quarantine.Flaky(t, "DX-1757")
 	lggr := logger.Test(t)
 	var ethClient *client.SimulatedBackendClient

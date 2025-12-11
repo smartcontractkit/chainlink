@@ -55,7 +55,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ocr2key"
 )
 
-func TestUnit_ContractTransmitter_TransmitWithoutSignatures(t *testing.T) {
+func TestIntegration_Shared_ContractTransmitter_TransmitWithoutSignatures(t *testing.T) {
 	type testCase struct {
 		name                string
 		pluginType          uint8

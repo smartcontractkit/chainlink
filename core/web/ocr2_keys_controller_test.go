@@ -17,7 +17,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestUnit_OCR2KeysController_Index_HappyPath(t *testing.T) {
+func TestIntegration_Shared_OCR2KeysController_Index_HappyPath(t *testing.T) {
 	client, OCRKeyStore := setupOCR2KeysControllerTests(t)
 
 	keys, _ := OCRKeyStore.GetAll()
@@ -34,7 +34,7 @@ func TestUnit_OCR2KeysController_Index_HappyPath(t *testing.T) {
 	assert.Equal(t, keys[0].ID(), resources[0].ID)
 }
 
-func TestUnit_OCR2KeysController_Create_HappyPath(t *testing.T) {
+func TestIntegration_Shared_OCR2KeysController_Create_HappyPath(t *testing.T) {
 	client, OCRKeyStore := setupOCR2KeysControllerTests(t)
 
 	for _, test := range []struct {
@@ -71,7 +71,7 @@ func TestUnit_OCR2KeysController_Create_HappyPath(t *testing.T) {
 	}
 }
 
-func TestUnit_OCR2KeysController_Delete_NonExistentOCRKeyID(t *testing.T) {
+func TestIntegration_Shared_OCR2KeysController_Delete_NonExistentOCRKeyID(t *testing.T) {
 	client, _ := setupOCR2KeysControllerTests(t)
 
 	nonExistentOCRKeyID := "eb81f4a35033ac8dd68b9d33a039a713d6fd639af6852b81f47ffeda1c95de54"
@@ -80,7 +80,7 @@ func TestUnit_OCR2KeysController_Delete_NonExistentOCRKeyID(t *testing.T) {
 	assert.Equal(t, http.StatusNotFound, response.StatusCode)
 }
 
-func TestUnit_OCR2KeysController_Delete_HappyPath(t *testing.T) {
+func TestIntegration_Shared_OCR2KeysController_Delete_HappyPath(t *testing.T) {
 	ctx := testutils.Context(t)
 	client, OCRKeyStore := setupOCR2KeysControllerTests(t)
 

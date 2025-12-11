@@ -19,7 +19,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestUnit_TransactionsController_Index_Success(t *testing.T) {
+func TestIntegration_Shared_TransactionsController_Index_Success(t *testing.T) {
 	t.Parallel()
 
 	app := cltest.NewApplicationWithKey(t)
@@ -65,7 +65,7 @@ func TestUnit_TransactionsController_Index_Success(t *testing.T) {
 	require.Equal(t, "3", txs[1].SentAt, "expected tx attempts order by sentAt descending")
 }
 
-func TestUnit_TransactionsController_Index_Error(t *testing.T) {
+func TestIntegration_Shared_TransactionsController_Index_Error(t *testing.T) {
 	t.Parallel()
 
 	app := cltest.NewApplicationWithKey(t)
@@ -78,7 +78,7 @@ func TestUnit_TransactionsController_Index_Error(t *testing.T) {
 	cltest.AssertServerResponse(t, resp, 422)
 }
 
-func TestUnit_TransactionsController_Show_Success(t *testing.T) {
+func TestIntegration_Shared_TransactionsController_Show_Success(t *testing.T) {
 	t.Parallel()
 
 	app := cltest.NewApplicationWithKey(t)
@@ -112,7 +112,7 @@ func TestUnit_TransactionsController_Show_Success(t *testing.T) {
 	assert.Equal(t, txp.Value, ptx.Value)
 }
 
-func TestUnit_TransactionsController_Show_NotFound(t *testing.T) {
+func TestIntegration_Shared_TransactionsController_Show_NotFound(t *testing.T) {
 	t.Parallel()
 
 	app := cltest.NewApplicationWithKey(t)

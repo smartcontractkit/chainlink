@@ -342,7 +342,7 @@ var routesRolesMap = [...]routeRules{
 // because hitting the handler are not mocked and will crash as expected
 // Iterate over the above routesRolesMap and assert each path is wrapped and
 // the user role is enforced with the correct middleware
-func TestUnit_RBAC_Routemap_Admin(t *testing.T) {
+func TestIntegration_Shared_RBAC_Routemap_Admin(t *testing.T) {
 	app := cltest.NewApplicationEVMDisabled(t)
 	require.NoError(t, app.Start(testutils.Context(t)))
 
@@ -380,7 +380,7 @@ func TestUnit_RBAC_Routemap_Admin(t *testing.T) {
 	}
 }
 
-func TestUnit_RBAC_Routemap_Edit(t *testing.T) {
+func TestIntegration_Shared_RBAC_Routemap_Edit(t *testing.T) {
 	app := cltest.NewApplicationEVMDisabled(t)
 	require.NoError(t, app.Start(testutils.Context(t)))
 
@@ -427,7 +427,7 @@ func TestUnit_RBAC_Routemap_Edit(t *testing.T) {
 	}
 }
 
-func TestUnit_RBAC_Routemap_Run(t *testing.T) {
+func TestIntegration_Shared_RBAC_Routemap_Run(t *testing.T) {
 	app := cltest.NewApplicationEVMDisabled(t)
 	require.NoError(t, app.Start(testutils.Context(t)))
 
@@ -474,7 +474,7 @@ func TestUnit_RBAC_Routemap_Run(t *testing.T) {
 	}
 }
 
-func TestUnit_RBAC_Routemap_ViewOnly(t *testing.T) {
+func TestIntegration_Shared_RBAC_Routemap_ViewOnly(t *testing.T) {
 	app := cltest.NewApplicationEVMDisabled(t)
 	require.NoError(t, app.Start(testutils.Context(t)))
 

@@ -30,7 +30,7 @@ func must(t testing.TB, s string) *url.URL {
 	return v
 }
 
-func TestUnit_PeriodicBackup_RunBackup(t *testing.T) {
+func TestIntegration_Shared_PeriodicBackup_RunBackup(t *testing.T) {
 	backupConfig := newTestConfig(time.Minute, nil, "", config.DatabaseBackupModeFull)
 	periodicBackup := mustNewDatabaseBackup(t, *(must(t, string(env.DatabaseURL.Get()))), os.TempDir(), backupConfig)
 	assert.False(t, periodicBackup.frequencyIsTooSmall())
@@ -49,7 +49,7 @@ func TestUnit_PeriodicBackup_RunBackup(t *testing.T) {
 	assert.NotContains(t, result.pgDumpArguments, "--exclude-table-data=pipeline_task_runs")
 }
 
-func TestUnit_PeriodicBackup_RunBackupInLiteMode(t *testing.T) {
+func TestIntegration_Shared_PeriodicBackup_RunBackupInLiteMode(t *testing.T) {
 	backupConfig := newTestConfig(time.Minute, nil, "", config.DatabaseBackupModeLite)
 	periodicBackup := mustNewDatabaseBackup(t, *(must(t, string(env.DatabaseURL.Get()))), os.TempDir(), backupConfig)
 	assert.False(t, periodicBackup.frequencyIsTooSmall())
@@ -68,7 +68,7 @@ func TestUnit_PeriodicBackup_RunBackupInLiteMode(t *testing.T) {
 	assert.Contains(t, result.pgDumpArguments, "--exclude-table-data=pipeline_task_runs")
 }
 
-func TestUnit_PeriodicBackup_RunBackupWithoutVersion(t *testing.T) {
+func TestIntegration_Shared_PeriodicBackup_RunBackupWithoutVersion(t *testing.T) {
 	backupConfig := newTestConfig(time.Minute, nil, "", config.DatabaseBackupModeFull)
 	periodicBackup := mustNewDatabaseBackup(t, *(must(t, string(env.DatabaseURL.Get()))), os.TempDir(), backupConfig)
 	assert.False(t, periodicBackup.frequencyIsTooSmall())
@@ -103,7 +103,7 @@ func TestUnit_PeriodicBackup_FrequencyTooSmall(t *testing.T) {
 	assert.True(t, periodicBackup.frequencyIsTooSmall())
 }
 
-func TestUnit_PeriodicBackup_AlternativeOutputDir(t *testing.T) {
+func TestIntegration_Shared_PeriodicBackup_AlternativeOutputDir(t *testing.T) {
 	backupDir := filepath.Join(os.TempDir(), "alternative")
 	backupConfig := newTestConfig(time.Second, nil, backupDir, config.DatabaseBackupModeFull)
 	periodicBackup := mustNewDatabaseBackup(t, *(must(t, string(env.DatabaseURL.Get()))), os.TempDir(), backupConfig)

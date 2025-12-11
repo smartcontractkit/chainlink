@@ -8,7 +8,7 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func TestUnit_Api_ParsePaginatedRequest(t *testing.T) {
+func TestIntegration_Shared_Api_ParsePaginatedRequest(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
@@ -56,7 +56,7 @@ func (r *TestResource) SetID(value string) error {
 	return nil
 }
 
-func TestUnit_Api_NewPaginatedResponse(t *testing.T) {
+func TestIntegration_Shared_Api_NewPaginatedResponse(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
@@ -121,7 +121,7 @@ func TestUnit_Api_NewPaginatedResponse(t *testing.T) {
 	}
 }
 
-func TestUnit_Pagination_ParsePaginatedResponse(t *testing.T) {
+func TestIntegration_Shared_Pagination_ParsePaginatedResponse(t *testing.T) {
 	t.Parallel()
 
 	var docs []TestResource
@@ -149,7 +149,7 @@ func (d DummyResource) GetID() string {
 	return d.ID
 }
 
-func TestUnit_NewJSONAPIResponse(t *testing.T) {
+func TestIntegration_Shared_NewJSONAPIResponse(t *testing.T) {
 	t.Parallel()
 
 	buffer, err := NewJSONAPIResponse(12981)

@@ -27,7 +27,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/headreporter"
 )
 
-func TestUnit_PrometheusReporter(t *testing.T) {
+func TestIntegration_Shared_PrometheusReporter(t *testing.T) {
 	t.Run("with nothing in the database", func(t *testing.T) {
 		db := pgtest.NewSqlxDB(t)
 

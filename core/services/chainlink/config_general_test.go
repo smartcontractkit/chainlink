@@ -33,7 +33,7 @@ func TestUnit_TOMLGeneralConfig_Defaults(t *testing.T) {
 	assert.Equal(t, 15*time.Minute, config.WebServer().SessionTimeout().Duration())
 }
 
-func TestUnit_TOMLGeneralConfig_InsecureConfig(t *testing.T) {
+func TestIntegration_Shared_TOMLGeneralConfig_InsecureConfig(t *testing.T) {
 	t.Parallel()
 
 	t.Run("all insecure configs are false by default", func(t *testing.T) {

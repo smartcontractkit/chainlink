@@ -30,7 +30,7 @@ import (
 
 func ptr[T any](t T) *T { return &t }
 
-func TestUnit_EthKeysPresenter_RenderTable(t *testing.T) {
+func TestIntegration_Shared_EthKeysPresenter_RenderTable(t *testing.T) {
 	t.Parallel()
 
 	var (
@@ -86,7 +86,7 @@ func TestUnit_EthKeysPresenter_RenderTable(t *testing.T) {
 	assert.Contains(t, output, maxGasPriceWei.String())
 }
 
-func TestUnit_Shell_ListETHKeys(t *testing.T) {
+func TestIntegration_Shared_Shell_ListETHKeys(t *testing.T) {
 	t.Parallel()
 
 	ethClient := newEthMock(t)
@@ -111,7 +111,7 @@ func TestUnit_Shell_ListETHKeys(t *testing.T) {
 	assert.Equal(t, "13", balances[0].LinkBalance.String())
 }
 
-func TestUnit_Shell_ListETHKeys_Error(t *testing.T) {
+func TestIntegration_Shared_Shell_ListETHKeys_Error(t *testing.T) {
 	t.Parallel()
 
 	ethClient := newEthMock(t)
@@ -136,7 +136,7 @@ func TestUnit_Shell_ListETHKeys_Error(t *testing.T) {
 	assert.Nil(t, balances[0].LinkBalance)
 }
 
-func TestUnit_Shell_ListETHKeys_Disabled(t *testing.T) {
+func TestIntegration_Shared_Shell_ListETHKeys_Disabled(t *testing.T) {
 	t.Parallel()
 
 	ethClient := newEthMock(t)
@@ -165,7 +165,7 @@ func TestUnit_Shell_ListETHKeys_Disabled(t *testing.T) {
 	}, balances[0].ToRow())
 }
 
-func TestUnit_Shell_CreateETHKey(t *testing.T) {
+func TestIntegration_Shared_Shell_CreateETHKey(t *testing.T) {
 	t.Parallel()
 
 	ethClient := newEthMock(t)
@@ -206,7 +206,7 @@ func TestUnit_Shell_CreateETHKey(t *testing.T) {
 	require.Len(t, keys, 2)
 }
 
-func TestUnit_Shell_DeleteETHKey(t *testing.T) {
+func TestIntegration_Shared_Shell_DeleteETHKey(t *testing.T) {
 	t.Parallel()
 
 	app := startNewApplicationV2(t, func(c *chainlink.Config, s *chainlink.Secrets) {
@@ -238,7 +238,7 @@ func TestUnit_Shell_DeleteETHKey(t *testing.T) {
 	assert.Error(t, err)
 }
 
-func TestUnit_Shell_ImportExportETHKey_NoChains(t *testing.T) {
+func TestIntegration_Shared_Shell_ImportExportETHKey_NoChains(t *testing.T) {
 	t.Parallel()
 
 	t.Cleanup(func() { deleteKeyExportFile(t) })
@@ -344,7 +344,7 @@ func TestUnit_Shell_ImportExportETHKey_NoChains(t *testing.T) {
 	require.Error(t, err, "Error exporting")
 	require.Error(t, utils.JustError(os.Stat(keyName)))
 }
-func TestUnit_Shell_ImportExportETHKey_WithChains(t *testing.T) {
+func TestIntegration_Shared_Shell_ImportExportETHKey_WithChains(t *testing.T) {
 	t.Parallel()
 
 	t.Cleanup(func() { deleteKeyExportFile(t) })

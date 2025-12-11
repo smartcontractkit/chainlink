@@ -100,7 +100,7 @@ func newContractTrackerUni(t *testing.T, opts ...any) (uni contractTrackerUni) {
 	return uni
 }
 
-func TestUnit_OCRContractTracker_LatestBlockHeight(t *testing.T) {
+func TestIntegration_Shared_OCRContractTracker_LatestBlockHeight(t *testing.T) {
 	t.Parallel()
 
 	t.Run("before first head incoming, looks up on-chain", func(t *testing.T) {
@@ -153,7 +153,7 @@ func TestUnit_OCRContractTracker_LatestBlockHeight(t *testing.T) {
 	})
 }
 
-func TestUnit_OCRContractTracker_HandleLog_OCRContractLatestRoundRequested(t *testing.T) {
+func TestIntegration_Shared_OCRContractTracker_HandleLog_OCRContractLatestRoundRequested(t *testing.T) {
 	t.Parallel()
 
 	fixtureLogAddress := gethCommon.HexToAddress("0x03bd0d5d39629423979f8a0e53dbce78c1791ebf")
@@ -345,7 +345,7 @@ func TestUnit_OCRContractTracker_HandleLog_OCRContractLatestRoundRequested(t *te
 	})
 }
 
-func TestUnit_OCRContractTracker_IsLaterThan(t *testing.T) {
+func TestIntegration_Shared_OCRContractTracker_IsLaterThan(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {

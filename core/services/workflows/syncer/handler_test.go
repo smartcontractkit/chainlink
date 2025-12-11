@@ -314,7 +314,7 @@ const (
 	noDagBinaryCmd = "core/services/workflows/cmd/cre/examples/v2/simple_cron"
 )
 
-func TestUnit_workflowRegisteredHandler(t *testing.T) {
+func TestIntegration_Shared_workflowRegisteredHandler(t *testing.T) {
 	binaryURL := "http://example.com/binary"
 	secretsURL := "http://example.com/secrets"
 	configURL := "http://example.com/config"

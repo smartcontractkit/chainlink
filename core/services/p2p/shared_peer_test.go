@@ -25,7 +25,7 @@ import (
 	p2ptypes "github.com/smartcontractkit/chainlink/v2/core/services/p2p/types"
 )
 
-func TestUnit_Don2DonSharedPeer_WithRealSingletonPeerWrapper(t *testing.T) {
+func TestIntegration_Shared_Don2DonSharedPeer_WithRealSingletonPeerWrapper(t *testing.T) {
 	db := pgtest.NewSqlxDB(t)
 	keyStore := cltest.NewKeyStore(t, db)
 	k, err := keyStore.P2P().Create(testutils.Context(t))

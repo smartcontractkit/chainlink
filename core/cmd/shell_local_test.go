@@ -83,7 +83,7 @@ func genTestEVMRelayers(t *testing.T, cfg chainlink.GeneralConfig, ds sqlutil.Da
 	return relayers
 }
 
-func TestUnit_Shell_RunNodeWithAPICredentialsFile(t *testing.T) {
+func TestIntegration_Shared_Shell_RunNodeWithAPICredentialsFile(t *testing.T) {
 	tests := []struct {
 		name       string
 		apiFile    string

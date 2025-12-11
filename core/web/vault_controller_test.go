@@ -40,7 +40,7 @@ func setupVaultControllerTests(t *testing.T) (cltest.HTTPClientCleaner, keystore
 	return client, app.GetKeyStore(), orm
 }
 
-func TestUnit_VaultController_VerifyDKGResult_HappyPath(t *testing.T) {
+func TestIntegration_Shared_VaultController_VerifyDKGResult_HappyPath(t *testing.T) {
 	client, keystore, orm := setupVaultControllerTests(t)
 
 	keys, err := keystore.DKGRecipient().GetAll()
@@ -96,7 +96,7 @@ func TestUnit_VaultController_VerifyDKGResult_HappyPath(t *testing.T) {
 	cltest.AssertServerResponse(t, response, http.StatusOK)
 }
 
-func TestUnit_VaultController_VerifyDKGResult_WrongKey(t *testing.T) {
+func TestIntegration_Shared_VaultController_VerifyDKGResult_WrongKey(t *testing.T) {
 	client, keystore, orm := setupVaultControllerTests(t)
 
 	keys, err := keystore.DKGRecipient().GetAll()
@@ -157,7 +157,7 @@ func TestUnit_VaultController_VerifyDKGResult_WrongKey(t *testing.T) {
 	cltest.AssertServerResponse(t, response, http.StatusBadRequest)
 }
 
-func TestUnit_VaultController_VerifyDKGResult_CantFindResultForInstanceID(t *testing.T) {
+func TestIntegration_Shared_VaultController_VerifyDKGResult_CantFindResultForInstanceID(t *testing.T) {
 	client, _, _ := setupVaultControllerTests(t)
 
 	bdata, err := json.Marshal(web.VerifyDKGResultRequest{
@@ -171,7 +171,7 @@ func TestUnit_VaultController_VerifyDKGResult_CantFindResultForInstanceID(t *tes
 	cltest.AssertServerResponse(t, response, http.StatusNotFound)
 }
 
-func TestUnit_VaultController_VerifyDKGResult_MissingInstanceIDOrPublicKey(t *testing.T) {
+func TestIntegration_Shared_VaultController_VerifyDKGResult_MissingInstanceIDOrPublicKey(t *testing.T) {
 	client, _, _ := setupVaultControllerTests(t)
 
 	bdata, err := json.Marshal(web.VerifyDKGResultRequest{
@@ -193,7 +193,7 @@ func TestUnit_VaultController_VerifyDKGResult_MissingInstanceIDOrPublicKey(t *te
 	cltest.AssertServerResponse(t, response, http.StatusBadRequest)
 }
 
-func TestUnit_VaultController_ExportDKGResult(t *testing.T) {
+func TestIntegration_Shared_VaultController_ExportDKGResult(t *testing.T) {
 	client, keystore, orm := setupVaultControllerTests(t)
 
 	keys, err := keystore.DKGRecipient().GetAll()

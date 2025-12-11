@@ -20,7 +20,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/s4/mocks"
 )
 
-func TestUnit_GetSnapshotEmpty(t *testing.T) {
+func TestIntegration_Shared_GetSnapshotEmpty(t *testing.T) {
 	t.Run("OK-no_rows", func(t *testing.T) {
 		ctx := testutils.Context(t)
 		psqlORM := setupORM(t, "test")

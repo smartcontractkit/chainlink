@@ -21,7 +21,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/web/presenters"
 )
 
-func TestUnit_OCR2KeyBundlePresenter_RenderTable(t *testing.T) {
+func TestIntegration_Shared_OCR2KeyBundlePresenter_RenderTable(t *testing.T) {
 	t.Parallel()
 
 	var (
@@ -67,7 +67,7 @@ func TestUnit_OCR2KeyBundlePresenter_RenderTable(t *testing.T) {
 	assert.Contains(t, output, hex.EncodeToString(pubKeyConfig[:]))
 }
 
-func TestUnit_Shell_OCR2Keys(t *testing.T) {
+func TestIntegration_Shared_Shell_OCR2Keys(t *testing.T) {
 	t.Parallel()
 
 	app := startNewApplicationV2(t, nil)

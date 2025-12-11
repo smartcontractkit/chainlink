@@ -21,7 +21,7 @@ func (testcfg) DefaultHTTPTimeout() commonconfig.Duration {
 	return *commonconfig.MustNewDuration(2 * time.Second)
 }
 
-func TestUnit_Validate(t *testing.T) {
+func TestIntegration_Shared_Validate(t *testing.T) {
 	quarantine.Flaky(t, "DX-1852")
 	t.Parallel()
 	var tt = []struct {

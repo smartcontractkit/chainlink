@@ -7,7 +7,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestUnit_ValidatedKeeperSpec(t *testing.T) {
+func TestIntegration_Shared_ValidatedKeeperSpec(t *testing.T) {
 	t.Parallel()
 
 	type args struct {

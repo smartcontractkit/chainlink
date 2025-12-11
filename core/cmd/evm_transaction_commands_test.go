@@ -25,7 +25,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 )
 
-func TestUnit_Shell_IndexTransactions(t *testing.T) {
+func TestIntegration_Shared_Shell_IndexTransactions(t *testing.T) {
 	t.Parallel()
 
 	app := startNewApplicationV2(t, nil)
@@ -65,7 +65,7 @@ func TestUnit_Shell_IndexTransactions(t *testing.T) {
 	assert.Empty(t, renderedTxs)
 }
 
-func TestUnit_Shell_ShowTransaction(t *testing.T) {
+func TestIntegration_Shared_Shell_ShowTransaction(t *testing.T) {
 	t.Parallel()
 
 	app := startNewApplicationV2(t, nil)
@@ -90,7 +90,7 @@ func TestUnit_Shell_ShowTransaction(t *testing.T) {
 	assert.Equal(t, &tx.FromAddress, renderedTx.From)
 }
 
-func TestUnit_Shell_IndexTxAttempts(t *testing.T) {
+func TestIntegration_Shared_Shell_IndexTxAttempts(t *testing.T) {
 	t.Parallel()
 
 	app := startNewApplicationV2(t, nil)
@@ -129,7 +129,7 @@ func TestUnit_Shell_IndexTxAttempts(t *testing.T) {
 	assert.Empty(t, renderedAttempts)
 }
 
-func TestUnit_Shell_SendEther_From_Txm(t *testing.T) {
+func TestIntegration_Shared_Shell_SendEther_From_Txm(t *testing.T) {
 	t.Parallel()
 
 	key := cltest.MustGenerateRandomKey(t)
@@ -192,7 +192,7 @@ func TestUnit_Shell_SendEther_From_Txm(t *testing.T) {
 	assert.Equal(t, attempts[0].Hash, output.Hash)
 }
 
-func TestUnit_Shell_SendEther_From_Txm_WEI(t *testing.T) {
+func TestIntegration_Shared_Shell_SendEther_From_Txm_WEI(t *testing.T) {
 	t.Parallel()
 
 	key := cltest.MustGenerateRandomKey(t)

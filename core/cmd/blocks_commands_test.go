@@ -13,7 +13,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 )
 
-func TestUnit_ReplayFromBlock(t *testing.T) {
+func TestIntegration_Shared_ReplayFromBlock(t *testing.T) {
 	t.Parallel()
 
 	app := startNewApplicationV2(t, func(c *chainlink.Config, s *chainlink.Secrets) {
@@ -69,7 +69,7 @@ func TestUnit_ReplayFromBlock(t *testing.T) {
 	})
 }
 
-func TestUnit_FindLCA(t *testing.T) {
+func TestIntegration_Shared_FindLCA(t *testing.T) {
 	t.Parallel()
 
 	// ethClient.On("BalanceAt", mock.Anything, mock.Anything, mock.Anything).Return(big.NewInt(42), nil)

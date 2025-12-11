@@ -69,7 +69,7 @@ func assertLastRunHeight(t *testing.T, db *sqlx.DB, upkeep keeper.UpkeepRegistra
 	require.Equal(t, lastKeeperIndex, upkeep.LastKeeperIndex.Int64)
 }
 
-func TestUnit_KeeperDB_Registries(t *testing.T) {
+func TestIntegration_Shared_KeeperDB_Registries(t *testing.T) {
 	t.Parallel()
 	ctx := testutils.Context(t)
 	db, _, orm := setupKeeperDB(t)
@@ -83,7 +83,7 @@ func TestUnit_KeeperDB_Registries(t *testing.T) {
 	require.Len(t, existingRegistries, 2)
 }
 
-func TestUnit_KeeperDB_RegistryByContractAddress(t *testing.T) {
+func TestIntegration_Shared_KeeperDB_RegistryByContractAddress(t *testing.T) {
 	t.Parallel()
 	ctx := testutils.Context(t)
 	db, _, orm := setupKeeperDB(t)
@@ -97,7 +97,7 @@ func TestUnit_KeeperDB_RegistryByContractAddress(t *testing.T) {
 	require.Equal(t, registry, registryByContractAddress)
 }
 
-func TestUnit_KeeperDB_UpsertUpkeep(t *testing.T) {
+func TestIntegration_Shared_KeeperDB_UpsertUpkeep(t *testing.T) {
 	t.Parallel()
 	ctx := testutils.Context(t)
 	db, _, orm := setupKeeperDB(t)
@@ -133,7 +133,7 @@ func TestUnit_KeeperDB_UpsertUpkeep(t *testing.T) {
 	require.Equal(t, int64(1), upkeepFromDB.LastRunBlockHeight) // shouldn't change on upsert
 }
 
-func TestUnit_KeeperDB_BatchDeleteUpkeepsForJob(t *testing.T) {
+func TestIntegration_Shared_KeeperDB_BatchDeleteUpkeepsForJob(t *testing.T) {
 	t.Parallel()
 	ctx := testutils.Context(t)
 	db, _, orm := setupKeeperDB(t)
@@ -160,7 +160,7 @@ func TestUnit_KeeperDB_BatchDeleteUpkeepsForJob(t *testing.T) {
 	require.Equal(t, expectedUpkeepID, remainingUpkeep.UpkeepID)
 }
 
-func TestUnit_KeeperDB_EligibleUpkeeps_Shuffle(t *testing.T) {
+func TestIntegration_Shared_KeeperDB_EligibleUpkeeps_Shuffle(t *testing.T) {
 	t.Parallel()
 	ctx := testutils.Context(t)
 	db, _, orm := setupKeeperDB(t)
@@ -191,7 +191,7 @@ func TestUnit_KeeperDB_EligibleUpkeeps_Shuffle(t *testing.T) {
 	assert.NotEqualValues(t, ordered, shuffled)
 }
 
-func TestUnit_KeeperDB_NewEligibleUpkeeps_GracePeriod(t *testing.T) {
+func TestIntegration_Shared_KeeperDB_NewEligibleUpkeeps_GracePeriod(t *testing.T) {
 	t.Parallel()
 	ctx := testutils.Context(t)
 	db, _, orm := setupKeeperDB(t)
@@ -219,7 +219,7 @@ func TestUnit_KeeperDB_NewEligibleUpkeeps_GracePeriod(t *testing.T) {
 	require.NotEmpty(t, list1, "should get some eligible upkeeps now that they are outside grace period")
 }
 
-func TestUnit_KeeperDB_EligibleUpkeeps_TurnsRandom(t *testing.T) {
+func TestIntegration_Shared_KeeperDB_EligibleUpkeeps_TurnsRandom(t *testing.T) {
 	t.Parallel()
 	ctx := testutils.Context(t)
 	db, _, orm := setupKeeperDB(t)
@@ -263,7 +263,7 @@ func TestUnit_KeeperDB_EligibleUpkeeps_TurnsRandom(t *testing.T) {
 	assert.NotEqual(t, list1, list4, "list1 vs list4")
 }
 
-func TestUnit_KeeperDB_NewEligibleUpkeeps_SkipIfLastPerformedByCurrentKeeper(t *testing.T) {
+func TestIntegration_Shared_KeeperDB_NewEligibleUpkeeps_SkipIfLastPerformedByCurrentKeeper(t *testing.T) {
 	t.Parallel()
 	ctx := testutils.Context(t)
 	db, _, orm := setupKeeperDB(t)
@@ -286,7 +286,7 @@ func TestUnit_KeeperDB_NewEligibleUpkeeps_SkipIfLastPerformedByCurrentKeeper(t *
 	require.Empty(t, list0, "should be 0 as all last perform was done by current node")
 }
 
-func TestUnit_KeeperDB_NewEligibleUpkeeps_CoverBuddy(t *testing.T) {
+func TestIntegration_Shared_KeeperDB_NewEligibleUpkeeps_CoverBuddy(t *testing.T) {
 	t.Parallel()
 	ctx := testutils.Context(t)
 	db, _, orm := setupKeeperDB(t)
@@ -311,7 +311,7 @@ func TestUnit_KeeperDB_NewEligibleUpkeeps_CoverBuddy(t *testing.T) {
 	require.Greater(t, len(listAfter), len(listBefore), "after our buddy runs all the performs we should have more eligible then a normal turn")
 }
 
-func TestUnit_KeeperDB_NewEligibleUpkeeps_FirstTurn(t *testing.T) {
+func TestIntegration_Shared_KeeperDB_NewEligibleUpkeeps_FirstTurn(t *testing.T) {
 	t.Parallel()
 	ctx := testutils.Context(t)
 	db, _, orm := setupKeeperDB(t)
@@ -333,7 +333,7 @@ func TestUnit_KeeperDB_NewEligibleUpkeeps_FirstTurn(t *testing.T) {
 	require.NotEmpty(t, listKpr0, "kpr0 should have some eligible as a normal turn")
 }
 
-func TestUnit_KeeperDB_NewEligibleUpkeeps_FiltersByRegistry(t *testing.T) {
+func TestIntegration_Shared_KeeperDB_NewEligibleUpkeeps_FiltersByRegistry(t *testing.T) {
 	t.Parallel()
 	ctx := testutils.Context(t)
 	db, _, orm := setupKeeperDB(t)
@@ -358,7 +358,7 @@ func TestUnit_KeeperDB_NewEligibleUpkeeps_FiltersByRegistry(t *testing.T) {
 	assert.Len(t, list2, 1)
 }
 
-func TestUnit_KeeperDB_AllUpkeepIDsForRegistry(t *testing.T) {
+func TestIntegration_Shared_KeeperDB_AllUpkeepIDsForRegistry(t *testing.T) {
 	t.Parallel()
 	ctx := testutils.Context(t)
 	db, _, orm := setupKeeperDB(t)
@@ -387,7 +387,7 @@ func TestUnit_KeeperDB_AllUpkeepIDsForRegistry(t *testing.T) {
 	require.Contains(t, upkeepIDs, *ubig.New(big.NewInt(8)))
 }
 
-func TestUnit_KeeperDB_UpdateUpkeepLastKeeperIndex(t *testing.T) {
+func TestIntegration_Shared_KeeperDB_UpdateUpkeepLastKeeperIndex(t *testing.T) {
 	t.Parallel()
 	ctx := testutils.Context(t)
 	db, _, orm := setupKeeperDB(t)
@@ -402,7 +402,7 @@ func TestUnit_KeeperDB_UpdateUpkeepLastKeeperIndex(t *testing.T) {
 	require.Equal(t, int64(0), upkeep.LastKeeperIndex.Int64)
 }
 
-func TestUnit_KeeperDB_NewSetLastRunInfoForUpkeepOnJob(t *testing.T) {
+func TestIntegration_Shared_KeeperDB_NewSetLastRunInfoForUpkeepOnJob(t *testing.T) {
 	t.Parallel()
 	ctx := testutils.Context(t)
 	db, _, orm := setupKeeperDB(t)
@@ -440,7 +440,7 @@ func TestUnit_KeeperDB_NewSetLastRunInfoForUpkeepOnJob(t *testing.T) {
 	assertLastRunHeight(t, db, upkeep, 101, 0)
 }
 
-func TestUnit_KeeperDB_LeastSignificant(t *testing.T) {
+func TestIntegration_Shared_KeeperDB_LeastSignificant(t *testing.T) {
 	t.Parallel()
 	db, _, _ := setupKeeperDB(t)
 	sql := `SELECT least_significant($1, $2)`
@@ -486,7 +486,7 @@ func TestUnit_KeeperDB_LeastSignificant(t *testing.T) {
 	}
 }
 
-func TestUnit_KeeperDB_Uint256ToBit(t *testing.T) {
+func TestIntegration_Shared_KeeperDB_Uint256ToBit(t *testing.T) {
 	t.Parallel()
 	db, _, _ := setupKeeperDB(t)
 	sql := `SELECT uint256_to_bit($1)`

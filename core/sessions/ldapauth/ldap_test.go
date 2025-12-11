@@ -39,7 +39,7 @@ func setupAuthenticationProvider(t *testing.T, ldapClient ldapauth.LDAPClient) (
 	return db, ldapAuthProvider
 }
 
-func TestUnit_ORM_FindUser_Empty(t *testing.T) {
+func TestIntegration_Shared_ORM_FindUser_Empty(t *testing.T) {
 	t.Parallel()
 	ctx := testutils.Context(t)
 
@@ -62,7 +62,7 @@ func TestUnit_ORM_FindUser_Empty(t *testing.T) {
 	require.ErrorContains(t, err, "LDAP query returned no matching users")
 }
 
-func TestUnit_ORM_FindUser_NoGroups(t *testing.T) {
+func TestIntegration_Shared_ORM_FindUser_NoGroups(t *testing.T) {
 	t.Parallel()
 	ctx := testutils.Context(t)
 
@@ -102,7 +102,7 @@ func TestUnit_ORM_FindUser_NoGroups(t *testing.T) {
 	require.ErrorContains(t, err, "user present in directory, but matching no role groups assigned")
 }
 
-func TestUnit_ORM_FindUser_NotActive(t *testing.T) {
+func TestIntegration_Shared_ORM_FindUser_NotActive(t *testing.T) {
 	t.Parallel()
 	ctx := testutils.Context(t)
 
@@ -142,7 +142,7 @@ func TestUnit_ORM_FindUser_NotActive(t *testing.T) {
 	require.ErrorContains(t, err, "user not active")
 }
 
-func TestUnit_ORM_FindUser_Single(t *testing.T) {
+func TestIntegration_Shared_ORM_FindUser_Single(t *testing.T) {
 	t.Parallel()
 	ctx := testutils.Context(t)
 
@@ -200,7 +200,7 @@ func TestUnit_ORM_FindUser_Single(t *testing.T) {
 	require.Equal(t, sessions.UserRoleEdit, user.Role)
 }
 
-func TestUnit_ORM_FindUser_FallbackMatchLocalAdmin(t *testing.T) {
+func TestIntegration_Shared_ORM_FindUser_FallbackMatchLocalAdmin(t *testing.T) {
 	t.Parallel()
 	ctx := testutils.Context(t)
 
@@ -215,7 +215,7 @@ func TestUnit_ORM_FindUser_FallbackMatchLocalAdmin(t *testing.T) {
 	require.Equal(t, sessions.UserRoleAdmin, user.Role)
 }
 
-func TestUnit_ORM_FindUserByAPIToken_Success(t *testing.T) {
+func TestIntegration_Shared_ORM_FindUserByAPIToken_Success(t *testing.T) {
 	ctx := testutils.Context(t)
 	// Initilaize LDAP Authentication Provider with mock client
 	mockLdapClient := mocks.NewLDAPClient(t)

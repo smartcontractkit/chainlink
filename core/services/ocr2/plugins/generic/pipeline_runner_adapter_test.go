@@ -35,7 +35,7 @@ answer [type=sum values=<[ $(val), 2 ]>]
 answer;
 `
 
-func TestUnit_Adapter_Integration(t *testing.T) {
+func TestIntegration_Shared_Adapter_Integration(t *testing.T) {
 	testutils.SkipShortDB(t)
 	ctx := testutils.Context(t)
 	logger := logger.TestLogger(t)

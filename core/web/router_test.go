@@ -19,7 +19,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestUnit_TokenAuthRequired_NoCredentials(t *testing.T) {
+func TestIntegration_Shared_TokenAuthRequired_NoCredentials(t *testing.T) {
 	ctx := testutils.Context(t)
 	app := cltest.NewApplicationEVMDisabled(t)
 	require.NoError(t, app.Start(ctx))
@@ -37,7 +37,7 @@ func TestUnit_TokenAuthRequired_NoCredentials(t *testing.T) {
 	assert.Equal(t, http.StatusUnauthorized, resp.StatusCode)
 }
 
-func TestUnit_TokenAuthRequired_SessionCredentials(t *testing.T) {
+func TestIntegration_Shared_TokenAuthRequired_SessionCredentials(t *testing.T) {
 	app := cltest.NewApplicationEVMDisabled(t)
 	require.NoError(t, app.Start(testutils.Context(t)))
 
@@ -52,7 +52,7 @@ func TestUnit_TokenAuthRequired_SessionCredentials(t *testing.T) {
 	assert.Equal(t, http.StatusUnprocessableEntity, resp.StatusCode)
 }
 
-func TestUnit_TokenAuthRequired_TokenCredentials(t *testing.T) {
+func TestIntegration_Shared_TokenAuthRequired_TokenCredentials(t *testing.T) {
 	ctx := testutils.Context(t)
 	app := cltest.NewApplicationEVMDisabled(t)
 	require.NoError(t, app.Start(ctx))
@@ -85,7 +85,7 @@ func TestUnit_TokenAuthRequired_TokenCredentials(t *testing.T) {
 	assert.Equal(t, http.StatusOK, resp.StatusCode)
 }
 
-func TestUnit_TokenAuthRequired_BadTokenCredentials(t *testing.T) {
+func TestIntegration_Shared_TokenAuthRequired_BadTokenCredentials(t *testing.T) {
 	ctx := testutils.Context(t)
 	app := cltest.NewApplicationEVMDisabled(t)
 	require.NoError(t, app.Start(ctx))
@@ -118,7 +118,7 @@ func TestUnit_TokenAuthRequired_BadTokenCredentials(t *testing.T) {
 	assert.Equal(t, http.StatusUnauthorized, resp.StatusCode)
 }
 
-func TestUnit_Sessions_RateLimited(t *testing.T) {
+func TestIntegration_Shared_Sessions_RateLimited(t *testing.T) {
 	ctx := testutils.Context(t)
 	app := cltest.NewApplicationEVMDisabled(t)
 	require.NoError(t, app.Start(ctx))
@@ -147,7 +147,7 @@ func TestUnit_Sessions_RateLimited(t *testing.T) {
 	assert.Equal(t, 429, resp.StatusCode)
 }
 
-func TestUnit_Router_LargePOSTBody(t *testing.T) {
+func TestIntegration_Shared_Router_LargePOSTBody(t *testing.T) {
 	ctx := testutils.Context(t)
 	app := cltest.NewApplicationEVMDisabled(t)
 	require.NoError(t, app.Start(ctx))
@@ -167,7 +167,7 @@ func TestUnit_Router_LargePOSTBody(t *testing.T) {
 	assert.Equal(t, http.StatusRequestEntityTooLarge, resp.StatusCode)
 }
 
-func TestUnit_Router_GinHelmetHeaders(t *testing.T) {
+func TestIntegration_Shared_Router_GinHelmetHeaders(t *testing.T) {
 	ctx := testutils.Context(t)
 	app := cltest.NewApplicationEVMDisabled(t)
 	require.NoError(t, app.Start(ctx))

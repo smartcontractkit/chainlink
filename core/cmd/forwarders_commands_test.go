@@ -18,7 +18,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/web/presenters"
 )
 
-func TestUnit_EVMForwarderPresenter_RenderTable(t *testing.T) {
+func TestIntegration_Shared_EVMForwarderPresenter_RenderTable(t *testing.T) {
 	t.Parallel()
 
 	var (
@@ -62,7 +62,7 @@ func TestUnit_EVMForwarderPresenter_RenderTable(t *testing.T) {
 	assert.Contains(t, output, createdAt.Format(time.RFC3339))
 }
 
-func TestUnit_Shell_TrackEVMForwarder(t *testing.T) {
+func TestIntegration_Shared_Shell_TrackEVMForwarder(t *testing.T) {
 	t.Parallel()
 
 	id := newRandChainID()
@@ -107,7 +107,7 @@ func TestUnit_Shell_TrackEVMForwarder(t *testing.T) {
 	require.Empty(t, fwds)
 }
 
-func TestUnit_Shell_TrackEVMForwarder_BadAddress(t *testing.T) {
+func TestIntegration_Shared_Shell_TrackEVMForwarder_BadAddress(t *testing.T) {
 	t.Parallel()
 
 	id := newRandChainID()
@@ -128,7 +128,7 @@ func TestUnit_Shell_TrackEVMForwarder_BadAddress(t *testing.T) {
 	require.Contains(t, err.Error(), "could not decode address: invalid hex string")
 }
 
-func TestUnit_Shell_DeleteEVMForwarders_MissingFwdId(t *testing.T) {
+func TestIntegration_Shared_Shell_DeleteEVMForwarders_MissingFwdId(t *testing.T) {
 	t.Parallel()
 
 	app := startNewApplicationV2(t, func(c *chainlink.Config, s *chainlink.Secrets) {

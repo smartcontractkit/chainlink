@@ -327,7 +327,7 @@ func TestUnit_KeeperEthIntegration(t *testing.T) {
 	}
 }
 
-func TestUnit_KeeperForwarderEthIntegration(t *testing.T) {
+func TestIntegration_Shared_KeeperForwarderEthIntegration(t *testing.T) {
 	quarantine.Flaky(t, "DX-2042")
 	t.Parallel()
 	t.Run("keeper_forwarder_flow", func(t *testing.T) {
@@ -490,7 +490,7 @@ func TestUnit_KeeperForwarderEthIntegration(t *testing.T) {
 	})
 }
 
-func TestUnit_MaxPerformDataSize(t *testing.T) {
+func TestIntegration_Shared_MaxPerformDataSize(t *testing.T) {
 	t.Parallel()
 	t.Run("max_perform_data_size_test", func(t *testing.T) {
 		ctx := testutils.Context(t)

@@ -68,7 +68,7 @@ func assertLimit[N limits.Number](t *testing.T, expected int, limiter limits.Bou
 	assert.Equal(t, expected, int(l))
 }
 
-func TestUnit_Plugin_ReportingPluginFactory_UsesDefaultsIfNotProvidedInOffchainConfig(t *testing.T) {
+func TestIntegration_Shared_Plugin_ReportingPluginFactory_UsesDefaultsIfNotProvidedInOffchainConfig(t *testing.T) {
 	lggr := logger.TestLogger(t)
 	store := requests.NewStore[*vaulttypes.Request]()
 

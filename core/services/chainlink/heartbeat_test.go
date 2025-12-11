@@ -19,7 +19,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 )
 
-func TestUnit_NewHeartbeat_ConfiguresHeartbeatInterval(t *testing.T) {
+func TestIntegration_Shared_NewHeartbeat_ConfiguresHeartbeatInterval(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {

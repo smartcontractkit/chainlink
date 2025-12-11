@@ -11,7 +11,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
 )
 
-func TestUnit_Getters_VarExpr(t *testing.T) {
+func TestIntegration_Shared_Getters_VarExpr(t *testing.T) {
 	t.Parallel()
 
 	vars := createTestVars()
@@ -57,7 +57,7 @@ func TestUnit_Getters_VarExpr(t *testing.T) {
 	}
 }
 
-func TestUnit_Getters_JSONWithVarExprs(t *testing.T) {
+func TestIntegration_Shared_Getters_JSONWithVarExprs(t *testing.T) {
 	t.Parallel()
 
 	vars := createTestVars()
@@ -115,7 +115,7 @@ func TestUnit_Getters_JSONWithVarExprs(t *testing.T) {
 	}
 }
 
-func TestUnit_Getters_Input(t *testing.T) {
+func TestIntegration_Shared_Getters_Input(t *testing.T) {
 	t.Parallel()
 
 	t.Run("returns the requested input's Value and Error if they exist", func(t *testing.T) {
@@ -134,7 +134,7 @@ func TestUnit_Getters_Input(t *testing.T) {
 	})
 }
 
-func TestUnit_Getters_Inputs(t *testing.T) {
+func TestIntegration_Shared_Getters_Inputs(t *testing.T) {
 	t.Parallel()
 
 	theErr := errors.New("some issue")
@@ -172,7 +172,7 @@ func TestUnit_Getters_Inputs(t *testing.T) {
 	}
 }
 
-func TestUnit_Getters_NonemptyString(t *testing.T) {
+func TestIntegration_Shared_Getters_NonemptyString(t *testing.T) {
 	t.Parallel()
 
 	t.Run("returns any non-empty string", func(t *testing.T) {
@@ -189,7 +189,7 @@ func TestUnit_Getters_NonemptyString(t *testing.T) {
 	})
 }
 
-func TestUnit_Getters_ValidDurationInSeconds(t *testing.T) {
+func TestIntegration_Shared_Getters_ValidDurationInSeconds(t *testing.T) {
 	t.Parallel()
 
 	t.Run("returns duration in seconds", func(t *testing.T) {
@@ -223,7 +223,7 @@ func TestUnit_Getters_ValidDurationInSeconds(t *testing.T) {
 	})
 }
 
-func TestUnit_Getters_From(t *testing.T) {
+func TestIntegration_Shared_Getters_From(t *testing.T) {
 	t.Parallel()
 
 	t.Run("no inputs", func(t *testing.T) {

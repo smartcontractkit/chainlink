@@ -36,7 +36,7 @@ func TestUnit_BridgeTypeRequest(t *testing.T) {
 	assert.Error(t, r.SetID("abc123.,<>/.foobar"))
 }
 
-func TestUnit_BridgeType_Authenticate(t *testing.T) {
+func TestIntegration_Shared_BridgeType_Authenticate(t *testing.T) {
 	t.Parallel()
 
 	bta, bt := cltest.NewBridgeType(t, cltest.BridgeOpts{})
@@ -95,7 +95,7 @@ func TestUnit_BridgeName_UnmarshalJSON(t *testing.T) {
 	require.Error(t, json.Unmarshal([]byte(`"invalid,.<>/asdf?"`), &b))
 }
 
-func TestUnit_MarshalBridgeMetaData(t *testing.T) {
+func TestIntegration_Shared_MarshalBridgeMetaData(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {

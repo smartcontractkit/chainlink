@@ -15,7 +15,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/web/presenters"
 )
 
-func TestUnit_SuiKeysController_Index_HappyPath(t *testing.T) {
+func TestIntegration_Shared_SuiKeysController_Index_HappyPath(t *testing.T) {
 	t.Parallel()
 
 	client, keyStore := setupSuiKeysControllerTests(t)
@@ -35,7 +35,7 @@ func TestUnit_SuiKeysController_Index_HappyPath(t *testing.T) {
 	assert.Equal(t, keys[0].PublicKeyStr(), resources[0].PubKey)
 }
 
-func TestUnit_SuiKeysController_Create_HappyPath(t *testing.T) {
+func TestIntegration_Shared_SuiKeysController_Create_HappyPath(t *testing.T) {
 	t.Parallel()
 
 	app := cltest.NewApplicationEVMDisabled(t)
@@ -61,7 +61,7 @@ func TestUnit_SuiKeysController_Create_HappyPath(t *testing.T) {
 	require.NoError(t, err)
 }
 
-func TestUnit_SuiKeysController_Delete_NonExistentSuiKeyID(t *testing.T) {
+func TestIntegration_Shared_SuiKeysController_Delete_NonExistentSuiKeyID(t *testing.T) {
 	t.Parallel()
 
 	client, _ := setupSuiKeysControllerTests(t)
@@ -72,7 +72,7 @@ func TestUnit_SuiKeysController_Delete_NonExistentSuiKeyID(t *testing.T) {
 	assert.Equal(t, http.StatusNotFound, response.StatusCode)
 }
 
-func TestUnit_SuiKeysController_Delete_HappyPath(t *testing.T) {
+func TestIntegration_Shared_SuiKeysController_Delete_HappyPath(t *testing.T) {
 	t.Parallel()
 	ctx := testutils.Context(t)
 

@@ -21,7 +21,7 @@ import (
 //go:embed fixtures/operator_ui/assets
 var testFs embed.FS
 
-func TestUnit_GuiAssets_DefaultIndexHtml_OK(t *testing.T) {
+func TestIntegration_Shared_GuiAssets_DefaultIndexHtml_OK(t *testing.T) {
 	t.Parallel()
 
 	app := cltest.NewApplication(t)
@@ -52,7 +52,7 @@ func TestUnit_GuiAssets_DefaultIndexHtml_OK(t *testing.T) {
 	}
 }
 
-func TestUnit_GuiAssets_DefaultIndexHtml_NotFound(t *testing.T) {
+func TestIntegration_Shared_GuiAssets_DefaultIndexHtml_NotFound(t *testing.T) {
 	t.Parallel()
 
 	app := cltest.NewApplication(t)
@@ -84,7 +84,7 @@ func TestUnit_GuiAssets_DefaultIndexHtml_NotFound(t *testing.T) {
 	}
 }
 
-func TestUnit_GuiAssets_DefaultIndexHtml_RateLimited(t *testing.T) {
+func TestIntegration_Shared_GuiAssets_DefaultIndexHtml_RateLimited(t *testing.T) {
 	t.Parallel()
 
 	config := configtest.NewGeneralConfig(t, nil)
@@ -111,7 +111,7 @@ func TestUnit_GuiAssets_DefaultIndexHtml_RateLimited(t *testing.T) {
 	assert.Equal(t, http.StatusTooManyRequests, resp.StatusCode)
 }
 
-func TestUnit_GuiAssets_AssetsFS(t *testing.T) {
+func TestIntegration_Shared_GuiAssets_AssetsFS(t *testing.T) {
 	t.Parallel()
 
 	efs := web.NewEmbedFileSystem(testFs, "fixtures/operator_ui")

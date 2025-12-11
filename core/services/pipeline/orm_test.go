@@ -83,7 +83,7 @@ func setupLiteORM(t *testing.T) (db *sqlx.DB, orm pipeline.ORM, jorm job.ORM) {
 	return setupORM(t, false)
 }
 
-func TestUnit_PipelineORM_CreateSpec(t *testing.T) {
+func TestIntegration_Shared_PipelineORM_CreateSpec(t *testing.T) {
 	ctx := testutils.Context(t)
 	db, orm, _ := setupLiteORM(t)
 

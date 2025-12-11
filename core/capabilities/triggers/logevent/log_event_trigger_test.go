@@ -18,7 +18,7 @@ import (
 )
 
 // Test for Log Event Trigger Capability happy path for EVM
-func TestUnit_LogEventTriggerEVMHappyPath(t *testing.T) {
+func TestIntegration_Shared_LogEventTriggerEVMHappyPath(t *testing.T) {
 	t.Parallel()
 	th := testutils.NewContractReaderTH(t)
 
@@ -65,7 +65,7 @@ func TestUnit_LogEventTriggerEVMHappyPath(t *testing.T) {
 
 // Test if Log Event Trigger Capability is able to receive only new logs
 // by using cursor and does not receive duplicate logs
-func TestUnit_LogEventTriggerCursorNewLogs(t *testing.T) {
+func TestIntegration_Shared_LogEventTriggerCursorNewLogs(t *testing.T) {
 	t.Parallel()
 	th := testutils.NewContractReaderTH(t)
 
