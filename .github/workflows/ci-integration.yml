@@ -38,6 +38,11 @@ jobs:
             cmd: go_core_tests
             os: cpu=32/ram=64/family=c5ad/spot=false/image=ubuntu24-full-x64/extras=s3-cache
 
+          - module: Core
+            test-suite: "test-scripts"
+            cmd: go_core_tests
+            os: cpu=32/ram=64/family=c5ad/spot=false/image=ubuntu24-full-x64/extras=s3-cache
+
           - module: Deployment
             cmd: go_core_ccip_deployment_tests
             test-suite: "solana"
