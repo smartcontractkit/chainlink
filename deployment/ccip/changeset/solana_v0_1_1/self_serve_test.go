@@ -40,12 +40,13 @@ func TestOnboardTokenPoolForSelfServeWithMCMs(t *testing.T) {
 	// TODO: Fix this test
 	skipInCI(t)
 	t.Parallel()
+	tests.BelongsToCISuite(t, "solana")
 	doTestOnboardTokenPoolForSelfServe(t, true)
 }
 
 func TestOnboardTokenPoolForSelfServeWithoutMCMs(t *testing.T) {
 	t.Parallel()
-	tests.BelongsToCISuite(t, "with-db")
+	tests.BelongsToCISuite(t, "solana")
 	doTestOnboardTokenPoolForSelfServe(t, false)
 }
 

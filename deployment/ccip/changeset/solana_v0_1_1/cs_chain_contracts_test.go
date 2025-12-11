@@ -82,13 +82,14 @@ func deployTokenAndMint(t *testing.T, tenv cldf.Environment, solChain uint64, wa
 // remote chain setup
 func TestAddRemoteChainWithMcms(t *testing.T) {
 	t.Parallel()
-	tests.BelongsToCISuite(t, "with-db")
+	tests.BelongsToCISuite(t, "solana")
 	doTestAddRemoteChain(t, true)
 }
 
 func TestAddRemoteChainWithoutMcms(t *testing.T) {
 	t.Parallel()
 	skipInCI(t)
+	tests.BelongsToCISuite(t, "solana") // ?
 	doTestAddRemoteChain(t, false)
 }
 
@@ -645,22 +646,23 @@ func doTestBilling(t *testing.T, mcms bool) {
 }
 
 func TestBillingWithMcms(t *testing.T) {
-	tests.BelongsToCISuite(t, "with-db")
-	quarantine.Flaky(t, "DX-1723")
 	t.Parallel()
+	tests.BelongsToCISuite(t, "solana")
+	quarantine.Flaky(t, "DX-1723")
 	doTestBilling(t, true)
 }
 
 func TestBillingWithoutMcms(t *testing.T) {
 	t.Parallel()
 	skipInCI(t)
+	tests.BelongsToCISuite(t, "solana") // ?
 	doTestBilling(t, false)
 }
 
 func TestSetTokenAuthority(t *testing.T) {
-	tests.BelongsToCISuite(t, "with-db")
-	quarantine.Flaky(t, "DX-1778")
 	t.Parallel()
+	quarantine.Flaky(t, "DX-1778")
+	tests.BelongsToCISuite(t, "solana")
 	tenv, _ := testhelpers.NewMemoryEnvironment(t, testhelpers.WithSolChains(1), testhelpers.WithCCIPSolanaContractVersion(ccipChangesetSolana.SolanaContractV0_1_1))
 	solChain := tenv.Env.BlockChains.ListChainSelectors(cldfChain.WithFamily(chainSelectors.FamilySolana))[0]
 	state, err := stateview.LoadOnchainStateSolana(tenv.Env)
@@ -881,15 +883,16 @@ func doTestTokenAdminRegistry(t *testing.T, mcms bool) {
 }
 
 func TestTokenAdminRegistryWithMcms(t *testing.T) {
-	tests.BelongsToCISuite(t, "with-db")
-	quarantine.Flaky(t, "DX-1720")
 	t.Parallel()
+	quarantine.Flaky(t, "DX-1720")
+	tests.BelongsToCISuite(t, "solana")
 	doTestTokenAdminRegistry(t, true)
 }
 
 func TestTokenAdminRegistryWithoutMcms(t *testing.T) {
 	t.Parallel()
 	skipInCI(t)
+	tests.BelongsToCISuite(t, "solana") // ?
 	doTestTokenAdminRegistry(t, false)
 }
 
@@ -993,9 +996,9 @@ func doTestPoolLookupTable(t *testing.T, e cldf.Environment, mcms bool, tokenMet
 }
 
 func TestPoolLookupTableWithMcms(t *testing.T) {
-	tests.BelongsToCISuite(t, "with-db")
-	quarantine.Flaky(t, "DX-1753")
 	t.Parallel()
+	quarantine.Flaky(t, "DX-1753")
+	tests.BelongsToCISuite(t, "solana")
 	tenv, _ := testhelpers.NewMemoryEnvironment(t, testhelpers.WithSolChains(1), testhelpers.WithCCIPSolanaContractVersion(ccipChangesetSolana.SolanaContractV0_1_1))
 	doTestPoolLookupTable(t, tenv.Env, true, shared.CLLMetadata)
 }
@@ -1003,6 +1006,7 @@ func TestPoolLookupTableWithMcms(t *testing.T) {
 func TestPoolLookupTableWithoutMcms(t *testing.T) {
 	t.Parallel()
 	skipInCI(t)
+	tests.BelongsToCISuite(t, "solana") // ?
 	tenv, _ := testhelpers.NewMemoryEnvironment(t, testhelpers.WithSolChains(1), testhelpers.WithCCIPSolanaContractVersion(ccipChangesetSolana.SolanaContractV0_1_1))
 	doTestPoolLookupTable(t, tenv.Env, false, shared.CLLMetadata)
 }
@@ -1011,14 +1015,15 @@ func TestDeployCCIPContracts(t *testing.T) {
 	// TODO: Fix this test to use the new changeset
 	t.Parallel()
 	skipInCI(t)
+	tests.BelongsToCISuite(t, "solana") // ?
 	testhelpers.DeployCCIPContractsTest(t, 1, 1)
 }
 
 // ocr3 test
 func TestSetOcr3Active(t *testing.T) {
-	tests.BelongsToCISuite(t, "with-db")
-	quarantine.Flaky(t, "DX-1775")
 	t.Parallel()
+	quarantine.Flaky(t, "DX-1775")
+	tests.BelongsToCISuite(t, "solana")
 	tenv, _ := testhelpers.NewMemoryEnvironment(t,
 		testhelpers.WithNumOfNodes(16),
 		testhelpers.WithNumOfBootstrapNodes(3),
@@ -1047,9 +1052,9 @@ func TestSetOcr3Active(t *testing.T) {
 }
 
 func TestSetOcr3Candidate(t *testing.T) {
-	tests.BelongsToCISuite(t, "with-db")
-	quarantine.Flaky(t, "DX-1771")
 	t.Parallel()
+	quarantine.Flaky(t, "DX-1771")
+	tests.BelongsToCISuite(t, "solana")
 	tenv, _ := testhelpers.NewMemoryEnvironment(t,
 		testhelpers.WithSolChains(1), testhelpers.WithCCIPSolanaContractVersion(ccipChangesetSolana.SolanaContractV0_1_1))
 	var err error

@@ -4,10 +4,12 @@ import (
 	"encoding/hex"
 	"testing"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/stretchr/testify/require"
 )
 
 func TestKMSToEthSigConversion(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	kmsSigBytes, err := hex.DecodeString("304402206168865941bafcae3a8cf8b26edbb5693d62222b2e54d962c1aabbeaddf33b6802205edc7f597d2bf2d1eaa14fc514a6202bafcffe52b13ae3fec00674d92a874b73")
 	require.NoError(t, err)
 	ecdsaPublicKeyBytes, err := hex.DecodeString("04a735e9e3cb526f83be23b03f1f5ae7788a8654e3f0fcfb4f978290de07ebd47da30eeb72e904fdd4a81b46e320908ff4345e119148f89c1f04674c14a506e24b")

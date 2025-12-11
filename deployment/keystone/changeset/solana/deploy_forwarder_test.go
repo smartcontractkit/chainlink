@@ -38,6 +38,7 @@ const (
 func TestDeployForwarder(t *testing.T) {
 	skipInCI(t)
 	t.Parallel()
+	tests.BelongsToCISuite(t, "unit") // ?
 
 	selector := chain_selectors.TEST_22222222222222222222222222222222222222222222.Selector
 	env, err := environment.New(t.Context(),

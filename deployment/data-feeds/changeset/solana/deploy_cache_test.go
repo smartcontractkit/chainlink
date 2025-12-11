@@ -16,6 +16,7 @@ import (
 	"github.com/smartcontractkit/chainlink-deployments-framework/engine/test/environment"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 	solanaMCMS "github.com/smartcontractkit/chainlink/deployment/common/changeset/solana/mcms"
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
@@ -33,6 +34,7 @@ const (
 func TestDeployCache(t *testing.T) {
 	skipInCI(t)
 	t.Parallel()
+	tests.BelongsToCISuite(t, "solana")
 
 	selector := chain_selectors.TEST_22222222222222222222222222222222222222222222.Selector
 	e, err := environment.New(t.Context(),
@@ -103,6 +105,7 @@ func TestDeployCache(t *testing.T) {
 func TestConfigureCache(t *testing.T) {
 	skipInCI(t)
 	t.Parallel()
+	tests.BelongsToCISuite(t, "solana")
 
 	selector := chain_selectors.TEST_22222222222222222222222222222222222222222222.Selector
 	programsPath := t.TempDir()

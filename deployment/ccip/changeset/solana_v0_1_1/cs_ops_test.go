@@ -5,6 +5,7 @@ import (
 	"time"
 
 	chain_selectors "github.com/smartcontractkit/chain-selectors"
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/stretchr/testify/require"
 
 	cldf_chain "github.com/smartcontractkit/chainlink-deployments-framework/chain"
@@ -20,13 +21,15 @@ import (
 
 func TestGenericOpsWithMcms(t *testing.T) {
 	t.Parallel()
-	skipInCI(t) // takes too long in CI
+	skipInCI(t)                         // takes too long in CI
+	tests.BelongsToCISuite(t, "solana") // ?
 	doTestGenericOps(t, true)
 }
 
 func TestGenericOpsWithoutMcms(t *testing.T) {
 	t.Parallel()
 	skipInCI(t)
+	tests.BelongsToCISuite(t, "solana") // ?
 	doTestGenericOps(t, false)
 }
 

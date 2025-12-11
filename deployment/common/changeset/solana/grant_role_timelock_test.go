@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/gagliardetto/solana-go"
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	mcmssolanasdk "github.com/smartcontractkit/mcms/sdk/solana"
 	mcmstypes "github.com/smartcontractkit/mcms/types"
 	"github.com/stretchr/testify/require"
@@ -21,6 +22,7 @@ import (
 func TestGrantRoleTimelockSolana(t *testing.T) {
 	t.Skip("fails with Program is not deployed (DoajfR5tK24xVw51fWcawUZWhAXD8yrBJVacc13neVQA) in CI")
 	t.Parallel()
+	tests.BelongsToCISuite(t, "solana")
 
 	// --- arrange ---
 	rt, selector := setupTest(t)

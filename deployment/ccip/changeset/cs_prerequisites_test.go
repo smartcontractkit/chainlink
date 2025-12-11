@@ -32,10 +32,9 @@ func TestDeployPrerequisites(t *testing.T) {
 }
 
 func TestDeployPrerequisitesZk(t *testing.T) {
+	t.Parallel()
 	// Timeouts in CI
 	tests.SkipFlakey(t, "https://smartcontract-it.atlassian.net/browse/CCIP-6427")
-
-	t.Parallel()
 	tests.BelongsToCISuite(t, "with-db") // ?
 
 	e, err := environment.New(t.Context(),

@@ -47,10 +47,10 @@ func TestDeployChainContractsChangeset(t *testing.T) {
 }
 
 func TestDeployChainContractsChangesetZk(t *testing.T) {
+	t.Parallel()
 	// Timeouts in CI
 	tests.SkipFlakey(t, "https://smartcontract-it.atlassian.net/browse/CCIP-6427")
-
-	t.Parallel()
+	tests.BelongsToCISuite(t, "unit") // ?
 
 	homeChainSel := chain_selectors.TEST_90000001.Selector
 	zkChainSel := chain_selectors.TEST_90000050.Selector

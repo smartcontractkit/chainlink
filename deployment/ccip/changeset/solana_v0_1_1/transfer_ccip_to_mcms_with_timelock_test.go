@@ -349,6 +349,7 @@ func prepareEnvironmentForOwnershipTransfer(t *testing.T) (cldf.Environment, sta
 func TestTransferCCIPToMCMSWithTimelockSolana(t *testing.T) {
 	t.Parallel()
 	skipInCI(t)
+	tests.BelongsToCISuite(t, "solana") // ?
 
 	e, state := prepareEnvironmentForOwnershipTransfer(t)
 	solSelector := e.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chainselectors.FamilySolana))[0]
@@ -441,6 +442,7 @@ func TestTransferCCIPToMCMSWithTimelockSolana(t *testing.T) {
 func TestTransferCCIPFromMCMSWithTimelockSolana(t *testing.T) {
 	t.Parallel()
 	skipInCI(t)
+	tests.BelongsToCISuite(t, "solana") // ?
 
 	e, state := prepareEnvironmentForOwnershipTransfer(t)
 	solSelector := e.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chainselectors.FamilySolana))[0]

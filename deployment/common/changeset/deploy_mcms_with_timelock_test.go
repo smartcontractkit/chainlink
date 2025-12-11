@@ -446,9 +446,9 @@ func TestDeployMCMSWithTimelockV2(t *testing.T) {
 
 // TestDeployMCMSWithTimelockV2SkipInit tests calling the deploy changeset when accounts have already been initialized
 func TestDeployMCMSWithTimelockV2SkipInitSolana(t *testing.T) {
-	tests.SkipFlakey(t, "https://smartcontract-it.atlassian.net/browse/DX-438")
-
 	t.Parallel()
+	tests.SkipFlakey(t, "https://smartcontract-it.atlassian.net/browse/DX-438")
+	tests.BelongsToCISuite(t, "unit") // ?
 
 	selector := chain_selectors.TEST_22222222222222222222222222222222222222222222.Selector
 	programsPath, programIDs, ab := soltestutils.PreloadMCMS(t, selector)

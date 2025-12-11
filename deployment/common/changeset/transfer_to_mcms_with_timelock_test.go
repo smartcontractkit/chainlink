@@ -190,6 +190,7 @@ func TestTransferToMCMSWithTimelockV2DataStore(t *testing.T) {
 func TestRenounceTimelockDeployerConfigValidate(t *testing.T) {
 	tests.SkipFlakey(t, "https://smartcontract-it.atlassian.net/browse/DX-724")
 	t.Parallel()
+	tests.BelongsToCISuite(t, "unit") // ?
 
 	selector1 := chain_selectors.TEST_90000001.Selector
 	selector2 := chain_selectors.TEST_90000002.Selector

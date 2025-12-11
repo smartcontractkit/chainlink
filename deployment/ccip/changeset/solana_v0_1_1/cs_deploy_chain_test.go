@@ -105,9 +105,9 @@ func initialDeployCS(t *testing.T, e cldf.Environment, buildConfig *ccipChangese
 
 // use this for a quick deploy test
 func TestDeployChainContractsChangesetPreload(t *testing.T) {
+	t.Parallel()
 	tests.BelongsToCISuite(t, "unit")
 	quarantine.Flaky(t, "DX-1729")
-	t.Parallel()
 
 	homeChainSel := chain_selectors.TEST_90000001.Selector
 	solSelector := chain_selectors.TEST_22222222222222222222222222222222222222222222.Selector
@@ -150,6 +150,7 @@ func skipInCI(t *testing.T) {
 func TestUpgrade(t *testing.T) {
 	t.Parallel()
 	skipInCI(t)
+	tests.BelongsToCISuite(t, "solana") // ?
 
 	homeChainSel := chain_selectors.TEST_90000001.Selector
 	solSelector := chain_selectors.TEST_22222222222222222222222222222222222222222222.Selector
@@ -350,6 +351,7 @@ func TestUpgrade(t *testing.T) {
 func TestClose(t *testing.T) {
 	t.Parallel()
 	skipInCI(t)
+	tests.BelongsToCISuite(t, "solana") // ?
 
 	homeChainSel := chain_selectors.TEST_90000001.Selector
 	solSelector := chain_selectors.TEST_22222222222222222222222222222222222222222222.Selector
@@ -426,6 +428,7 @@ func TestClose(t *testing.T) {
 
 func TestIDL(t *testing.T) {
 	skipInCI(t)
+	tests.BelongsToCISuite(t, "solana") // ?
 	tenv, _ := testhelpers.NewMemoryEnvironment(t, testhelpers.WithSolChains(1), testhelpers.WithCCIPSolanaContractVersion(ccipChangesetSolana.SolanaContractV0_1_1))
 	solChain := tenv.Env.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chain_selectors.FamilySolana))[0]
 	e, _, err := commonchangeset.ApplyChangesets(t, tenv.Env, []commonchangeset.ConfiguredChangeSet{

@@ -47,8 +47,8 @@ func TestDeployLinkToken(t *testing.T) {
 func TestDeployLinkTokenZk(t *testing.T) {
 	// Timeouts in CI
 	tests.SkipFlakey(t, "https://smartcontract-it.atlassian.net/browse/CCIP-6427")
-
 	t.Parallel()
+	tests.BelongsToCISuite(t, "unit") // ?
 
 	selector := chain_selectors.TEST_90000050.Selector
 	rt, err := runtime.New(t.Context(), runtime.WithEnvOpts(

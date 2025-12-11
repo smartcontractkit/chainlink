@@ -10,6 +10,7 @@ import (
 
 	gethcommon "github.com/ethereum/go-ethereum/common"
 	chain_selectors "github.com/smartcontractkit/chain-selectors"
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	types2 "github.com/smartcontractkit/libocr/offchainreporting2/types"
 	types3 "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 	"github.com/stretchr/testify/assert"
@@ -20,6 +21,7 @@ import (
 )
 
 func TestNode_OCRConfigForChainSelector(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	var m = map[chain_selectors.ChainDetails]OCRConfig{
 		{
 			ChainSelector: chain_selectors.APTOS_TESTNET.Selector,
@@ -103,6 +105,7 @@ func TestNode_OCRConfigForChainSelector(t *testing.T) {
 }
 
 func TestNode_ChainConfigs(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	type fields struct {
 		NodeID         string
 		SelToOCRConfig map[chain_selectors.ChainDetails]OCRConfig
@@ -305,6 +308,7 @@ func hexFrom32Byte(t *testing.T, s string) string {
 }
 
 func Test_isValidMultiAddr(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	// Generate a p2p piece using p2pkey.MustNewV2XXXTestingOnly()
 	seed := big.NewInt(123)
 	p2p := p2pkey.MustNewV2XXXTestingOnly(seed).PeerID().String()
@@ -339,6 +343,7 @@ func Test_isValidMultiAddr(t *testing.T) {
 	}
 }
 func TestNewNodeFromJD(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	wk := "node-workflow-key"
 	type args struct {
 		jdNode       *nodev1.Node

@@ -28,7 +28,7 @@ import (
 )
 
 func TestSolanaTokenOps(t *testing.T) {
-	tests.BelongsToCISuite(t, "with-db")
+	tests.BelongsToCISuite(t, "solana")
 	quarantine.Flaky(t, "DX-1728")
 	t.Parallel()
 	tenv, _ := testhelpers.NewMemoryEnvironment(t, testhelpers.WithSolChains(1), testhelpers.WithCCIPSolanaContractVersion(changeset_solana.SolanaContractV0_1_1))

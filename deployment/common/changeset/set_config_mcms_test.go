@@ -277,8 +277,8 @@ func TestSetConfigMCMSV2Solana(t *testing.T) {
 
 func TestValidateV2(t *testing.T) {
 	tests.SkipFlakey(t, "https://smartcontract-it.atlassian.net/browse/DX-439")
-
 	t.Parallel()
+	tests.BelongsToCISuite(t, "unit") // ?
 
 	evmSelector := chain_selectors.TEST_90000001.Selector
 	solSelector := chain_selectors.TEST_22222222222222222222222222222222222222222222.Selector

@@ -27,6 +27,7 @@ import (
 func TestMCMSWithTimelockState_GenerateMCMSWithTimelockViewSolana(t *testing.T) {
 	tests.SkipFlakey(t, "https://smartcontract-it.atlassian.net/browse/DX-404")
 	t.Parallel()
+	tests.BelongsToCISuite(t, "solana") // ?
 
 	selector := chainselectors.TEST_22222222222222222222222222222222222222222222.Selector
 	programsPath, programIDs, ab := soltestutils.PreloadMCMS(t, selector)
