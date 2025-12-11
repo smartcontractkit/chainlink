@@ -70,11 +70,6 @@ var (
 )
 
 const (
-	TopologyWorkflow                    = "workflow"
-	TopologyWorkflowGateway             = "workflow-gateway"
-	TopologyWorkflowGatewayCapabilities = "workflow-gateway-capabilities"
-	TopologyMock                        = "mock"
-
 	WorkflowTriggerWebTrigger = "web-trigger"
 	WorkflowTriggerCron       = "cron"
 )
@@ -491,15 +486,9 @@ func setupDashboards(setupCfg SetupConfig) error {
 		return errors.Wrap(cfgErr, "failed to read config")
 	}
 
-	// Run the `ctf obs up -f` command from the ./bin directory
-	ctfCmd := exec.Command("./bin/ctf", "obs", "up", "-f")
-
-	obsOutput, err := ctfCmd.CombinedOutput()
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "Error: %s\n", err)
-		return errors.Wrap(err, "failed to start ctf observability stack: "+string(obsOutput))
+	if err := framework.ObservabilityUpFull(); err != nil {
+		return fmt.Errorf("failed to start ctf observability stack: %w", err)
 	}
-
 	fmt.Print(libformat.PurpleText("\nObservabilty stack setup completed successfully\n"))
 
 	// Wait for grafana at localhost:3000 to be available
@@ -508,7 +497,7 @@ func setupDashboards(setupCfg SetupConfig) error {
 	for range 30 {
 		time.Sleep(1 * time.Second)
 		req, _ := http.NewRequestWithContext(context.Background(), http.MethodGet, "http://localhost:3000", nil)
-		_, err = http.DefaultClient.Do(req)
+		_, err := http.DefaultClient.Do(req)
 		if err != nil {
 			continue
 		}
@@ -532,9 +521,11 @@ func setupDashboards(setupCfg SetupConfig) error {
 
 	// Check the file exists before trying to run the script
 	scriptPath := filepath.Join(targetPath, "deploy-cre-local.sh")
-	if _, err = os.Stat(scriptPath); os.IsNotExist(err) {
-		return errors.New("deploy-cre-local.sh script does not exist, ensure the setup command has been run")
+	if _, err := os.Stat(scriptPath); os.IsNotExist(err) {
+		return fmt.Errorf("%s script does not exist, ensure the setup command has been run", scriptPath)
 	}
+
+	fmt.Print(libformat.PurpleText("\nDeploying dashboards...") + "\n(watch for potential authorization requests!)\n")
 
 	deployDashboardsCmd := exec.Command("./deploy-cre-local.sh")
 	deployDashboardsCmd.Dir = targetPath
