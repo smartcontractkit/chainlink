@@ -10,7 +10,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/fluxmonitorv2"
 )
 
-func TestUnit_PaymentChecker_SufficientFunds(t *testing.T) {
+func TestIntegration_Shared_PaymentChecker_SufficientFunds(t *testing.T) {
 	t.Parallel()
 	var (
 		checker     = fluxmonitorv2.NewPaymentChecker(nil, nil)
@@ -43,7 +43,7 @@ func TestUnit_PaymentChecker_SufficientFunds(t *testing.T) {
 	}
 }
 
-func TestUnit_PaymentChecker_SufficientPayment(t *testing.T) {
+func TestIntegration_Shared_PaymentChecker_SufficientPayment(t *testing.T) {
 	t.Parallel()
 	var (
 		payment int64 = 10

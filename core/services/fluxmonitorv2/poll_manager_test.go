@@ -83,7 +83,7 @@ func watchTicks(t *testing.T, pm *fluxmonitorv2.PollManager, waitDuration time.D
 	return ticks
 }
 
-func TestUnit_PollManager_PollTicker(t *testing.T) {
+func TestIntegration_Shared_PollManager_PollTicker(t *testing.T) {
 	t.Parallel()
 	pm, err := fluxmonitorv2.NewPollManager(fluxmonitorv2.PollManagerConfig{
 		PollTickerInterval:    pollTickerDefaultDuration,
@@ -104,7 +104,7 @@ func TestUnit_PollManager_PollTicker(t *testing.T) {
 	assert.False(t, ticks.roundTicked)
 }
 
-func TestUnit_PollManager_IdleTimer(t *testing.T) {
+func TestIntegration_Shared_PollManager_IdleTimer(t *testing.T) {
 	t.Parallel()
 	pm, err := fluxmonitorv2.NewPollManager(fluxmonitorv2.PollManagerConfig{
 		PollTickerInterval:    100 * time.Millisecond,
@@ -127,7 +127,7 @@ func TestUnit_PollManager_IdleTimer(t *testing.T) {
 	assert.False(t, ticks.roundTicked)
 }
 
-func TestUnit_PollManager_RoundTimer(t *testing.T) {
+func TestIntegration_Shared_PollManager_RoundTimer(t *testing.T) {
 	t.Parallel()
 	pm, err := fluxmonitorv2.NewPollManager(fluxmonitorv2.PollManagerConfig{
 		PollTickerInterval:    pollTickerDefaultDuration,
@@ -151,7 +151,7 @@ func TestUnit_PollManager_RoundTimer(t *testing.T) {
 	assert.True(t, ticks.roundTicked)
 }
 
-func TestUnit_PollManager_RetryTimer(t *testing.T) {
+func TestIntegration_Shared_PollManager_RetryTimer(t *testing.T) {
 	t.Parallel()
 	pm, err := fluxmonitorv2.NewPollManager(fluxmonitorv2.PollManagerConfig{
 		PollTickerInterval:      pollTickerDefaultDuration,
@@ -188,7 +188,7 @@ func TestUnit_PollManager_RetryTimer(t *testing.T) {
 	assert.False(t, ticks.retryTicked)
 }
 
-func TestUnit_PollManager_InitialPoll(t *testing.T) {
+func TestIntegration_Shared_PollManager_InitialPoll(t *testing.T) {
 	t.Parallel()
 	pm := newPollManager(t)
 	pm.Start(false, flux_aggregator_wrapper.OracleRoundState{})
@@ -197,7 +197,7 @@ func TestUnit_PollManager_InitialPoll(t *testing.T) {
 	assert.True(t, ticks.initialPoll)
 }
 
-func TestUnit_PollManager_HibernationTimer(t *testing.T) {
+func TestIntegration_Shared_PollManager_HibernationTimer(t *testing.T) {
 	t.Parallel()
 	pm, err := fluxmonitorv2.NewPollManager(fluxmonitorv2.PollManagerConfig{
 		PollTickerInterval:    pollTickerDefaultDuration,
@@ -219,7 +219,7 @@ func TestUnit_PollManager_HibernationTimer(t *testing.T) {
 	assert.True(t, ticks.hibernationTicked)
 }
 
-func TestUnit_PollManager_HibernationOnStartThenAwaken(t *testing.T) {
+func TestIntegration_Shared_PollManager_HibernationOnStartThenAwaken(t *testing.T) {
 	t.Parallel()
 	pm, err := fluxmonitorv2.NewPollManager(fluxmonitorv2.PollManagerConfig{
 		PollTickerInterval:    pollTickerDefaultDuration,
@@ -254,7 +254,7 @@ func TestUnit_PollManager_HibernationOnStartThenAwaken(t *testing.T) {
 	assert.True(t, ticks.roundTicked)
 }
 
-func TestUnit_PollManager_AwakeOnStartThenHibernate(t *testing.T) {
+func TestIntegration_Shared_PollManager_AwakeOnStartThenHibernate(t *testing.T) {
 	t.Parallel()
 	pm := newPollManager(t)
 
@@ -279,7 +279,7 @@ func TestUnit_PollManager_AwakeOnStartThenHibernate(t *testing.T) {
 	assert.False(t, ticks.roundTicked)
 }
 
-func TestUnit_PollManager_ShouldPerformInitialPoll(t *testing.T) {
+func TestIntegration_Shared_PollManager_ShouldPerformInitialPoll(t *testing.T) {
 	t.Parallel()
 	testCases := []struct {
 		name               string
@@ -344,7 +344,7 @@ func TestUnit_PollManager_ShouldPerformInitialPoll(t *testing.T) {
 	}
 }
 
-func TestUnit_PollManager_Stop(t *testing.T) {
+func TestIntegration_Shared_PollManager_Stop(t *testing.T) {
 	t.Parallel()
 	pm := newPollManager(t)
 
@@ -368,7 +368,7 @@ func TestUnit_PollManager_Stop(t *testing.T) {
 	assert.False(t, ticks.roundTicked)
 }
 
-func TestUnit_PollManager_ResetIdleTimer(t *testing.T) {
+func TestIntegration_Shared_PollManager_ResetIdleTimer(t *testing.T) {
 	t.Parallel()
 	pm := newPollManager(t)
 
@@ -389,7 +389,7 @@ func TestUnit_PollManager_ResetIdleTimer(t *testing.T) {
 	assert.True(t, ticks.idleTicked)
 }
 
-func TestUnit_PollManager_ResetIdleTimerWhenHibernating(t *testing.T) {
+func TestIntegration_Shared_PollManager_ResetIdleTimerWhenHibernating(t *testing.T) {
 	t.Parallel()
 	pm := newPollManager(t)
 
@@ -410,7 +410,7 @@ func TestUnit_PollManager_ResetIdleTimerWhenHibernating(t *testing.T) {
 	assert.False(t, ticks.idleTicked)
 }
 
-func TestUnit_PollManager_Reset(t *testing.T) {
+func TestIntegration_Shared_PollManager_Reset(t *testing.T) {
 	t.Parallel()
 	pm := newPollManager(t)
 
@@ -438,7 +438,7 @@ func TestUnit_PollManager_Reset(t *testing.T) {
 	assert.True(t, ticks.roundTicked)
 }
 
-func TestUnit_PollManager_ResetWhenHibernating(t *testing.T) {
+func TestIntegration_Shared_PollManager_ResetWhenHibernating(t *testing.T) {
 	t.Parallel()
 	pm := newPollManager(t)
 

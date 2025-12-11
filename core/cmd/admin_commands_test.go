@@ -21,7 +21,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/web/presenters"
 )
 
-func TestUnit_Shell_CreateUser(t *testing.T) {
+func TestIntegration_Shared_Shell_CreateUser(t *testing.T) {
 	app := startNewApplicationV2(t, nil)
 	client, _ := app.NewShellAndRenderer()
 	client.PasswordPrompter = cltest.MockPasswordPrompter{
@@ -60,7 +60,7 @@ func TestUnit_Shell_CreateUser(t *testing.T) {
 	}
 }
 
-func TestUnit_Shell_ChangeRole(t *testing.T) {
+func TestIntegration_Shared_Shell_ChangeRole(t *testing.T) {
 	ctx := testutils.Context(t)
 	app := startNewApplicationV2(t, nil)
 	client, _ := app.NewShellAndRenderer()
@@ -100,7 +100,7 @@ func TestUnit_Shell_ChangeRole(t *testing.T) {
 	}
 }
 
-func TestUnit_Shell_DeleteUser(t *testing.T) {
+func TestIntegration_Shared_Shell_DeleteUser(t *testing.T) {
 	ctx := testutils.Context(t)
 	app := startNewApplicationV2(t, nil)
 	client, _ := app.NewShellAndRenderer()
@@ -135,7 +135,7 @@ func TestUnit_Shell_DeleteUser(t *testing.T) {
 	}
 }
 
-func TestUnit_Shell_ListUsers(t *testing.T) {
+func TestIntegration_Shared_Shell_ListUsers(t *testing.T) {
 	ctx := testutils.Context(t)
 	app := startNewApplicationV2(t, nil)
 	client, _ := app.NewShellAndRenderer()
@@ -165,7 +165,7 @@ func TestUnit_Shell_ListUsers(t *testing.T) {
 	assert.Truef(t, userPresenterFound, "expected to find user %s in presenter list", user.Email)
 }
 
-func TestUnit_AdminUsersPresenter_RenderTable(t *testing.T) {
+func TestIntegration_Shared_AdminUsersPresenter_RenderTable(t *testing.T) {
 	user := sessions.User{
 		Email:     "foo@bar.com",
 		Role:      "admin",

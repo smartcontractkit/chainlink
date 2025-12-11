@@ -271,7 +271,7 @@ func setupTestServiceCfg(
 	}
 }
 
-func TestUnit_Service_RegisterManager(t *testing.T) {
+func TestIntegration_Shared_Service_RegisterManager(t *testing.T) {
 	t.Parallel()
 
 	var (
@@ -318,7 +318,7 @@ func TestUnit_Service_RegisterManager(t *testing.T) {
 	assert.Equal(t, actual, id)
 }
 
-func TestUnit_Service_RegisterManager_MultiFeedsManager(t *testing.T) {
+func TestIntegration_Shared_Service_RegisterManager_MultiFeedsManager(t *testing.T) {
 	t.Parallel()
 
 	var (
@@ -369,7 +369,7 @@ func TestUnit_Service_RegisterManager_MultiFeedsManager(t *testing.T) {
 	assert.Equal(t, actual, id)
 }
 
-func TestUnit_Service_RegisterManager_InvalidCreateManager(t *testing.T) {
+func TestIntegration_Shared_Service_RegisterManager_InvalidCreateManager(t *testing.T) {
 	t.Parallel()
 
 	var (
@@ -412,7 +412,7 @@ func TestUnit_Service_RegisterManager_InvalidCreateManager(t *testing.T) {
 	assert.Equal(t, "orm error", err.Error())
 }
 
-func TestUnit_Service_RegisterManager_DuplicateFeedsManager(t *testing.T) {
+func TestIntegration_Shared_Service_RegisterManager_DuplicateFeedsManager(t *testing.T) {
 	t.Parallel()
 
 	pubKeyHex := "0f17c3bf72de8beef6e2d17a14c0a972f5d7e0e66e70722373f12b88382d40f9"
@@ -449,7 +449,7 @@ func TestUnit_Service_RegisterManager_DuplicateFeedsManager(t *testing.T) {
 	assert.Equal(t, "manager was previously registered using the same public key", err.Error())
 }
 
-func TestUnit_Service_ListManagers(t *testing.T) {
+func TestIntegration_Shared_Service_ListManagers(t *testing.T) {
 	t.Parallel()
 	ctx := testutils.Context(t)
 
@@ -468,7 +468,7 @@ func TestUnit_Service_ListManagers(t *testing.T) {
 	assert.Equal(t, mgrs, actual)
 }
 
-func TestUnit_Service_GetManager(t *testing.T) {
+func TestIntegration_Shared_Service_GetManager(t *testing.T) {
 	t.Parallel()
 	ctx := testutils.Context(t)
 
@@ -488,7 +488,7 @@ func TestUnit_Service_GetManager(t *testing.T) {
 	assert.Equal(t, actual, &mgr)
 }
 
-func TestUnit_Service_UpdateFeedsManager(t *testing.T) {
+func TestIntegration_Shared_Service_UpdateFeedsManager(t *testing.T) {
 	mgr := feeds.FeedsManager{ID: 1}
 
 	svc := setupTestService(t)
@@ -501,7 +501,7 @@ func TestUnit_Service_UpdateFeedsManager(t *testing.T) {
 	require.NoError(t, err)
 }
 
-func TestUnit_Service_EnableFeedsManager(t *testing.T) {
+func TestIntegration_Shared_Service_EnableFeedsManager(t *testing.T) {
 	mgr := feeds.FeedsManager{ID: 1}
 
 	svc := setupTestService(t)
@@ -516,7 +516,7 @@ func TestUnit_Service_EnableFeedsManager(t *testing.T) {
 	require.NotNil(t, actual)
 }
 
-func TestUnit_Service_DisableFeedsManager(t *testing.T) {
+func TestIntegration_Shared_Service_DisableFeedsManager(t *testing.T) {
 	mgr := feeds.FeedsManager{ID: 1}
 
 	svc := setupTestService(t)
@@ -530,7 +530,7 @@ func TestUnit_Service_DisableFeedsManager(t *testing.T) {
 	require.NotNil(t, actual)
 }
 
-func TestUnit_Service_ListManagersByIDs(t *testing.T) {
+func TestIntegration_Shared_Service_ListManagersByIDs(t *testing.T) {
 	t.Parallel()
 	ctx := testutils.Context(t)
 
@@ -550,7 +550,7 @@ func TestUnit_Service_ListManagersByIDs(t *testing.T) {
 	assert.Equal(t, mgrs, actual)
 }
 
-func TestUnit_Service_CreateChainConfig(t *testing.T) {
+func TestIntegration_Shared_Service_CreateChainConfig(t *testing.T) {
 	tests := []struct {
 		name              string
 		chainType         feeds.ChainType
@@ -660,7 +660,7 @@ func TestUnit_Service_CreateChainConfig(t *testing.T) {
 	}
 }
 
-func TestUnit_Service_CreateChainConfig_InvalidAdminAddress(t *testing.T) {
+func TestIntegration_Shared_Service_CreateChainConfig_InvalidAdminAddress(t *testing.T) {
 	var (
 		mgr = feeds.FeedsManager{ID: 1}
 		cfg = feeds.ChainConfig{
@@ -681,7 +681,7 @@ func TestUnit_Service_CreateChainConfig_InvalidAdminAddress(t *testing.T) {
 	assert.Equal(t, "invalid admin address: 0x00000000000", err.Error())
 }
 
-func TestUnit_Service_DeleteChainConfig(t *testing.T) {
+func TestIntegration_Shared_Service_DeleteChainConfig(t *testing.T) {
 	var (
 		mgr         = feeds.FeedsManager{ID: 1}
 		nodeVersion = &versioning.NodeVersion{
@@ -721,7 +721,7 @@ func TestUnit_Service_DeleteChainConfig(t *testing.T) {
 	waitSyncNodeInfoCall(t, svc.logs)
 }
 
-func TestUnit_Service_ListChainConfigsByManagerIDs(t *testing.T) {
+func TestIntegration_Shared_Service_ListChainConfigsByManagerIDs(t *testing.T) {
 	ctx := testutils.Context(t)
 	var (
 		mgr = feeds.FeedsManager{ID: 1}
@@ -741,7 +741,7 @@ func TestUnit_Service_ListChainConfigsByManagerIDs(t *testing.T) {
 	assert.Equal(t, []feeds.ChainConfig{cfg}, actual)
 }
 
-func TestUnit_Service_UpdateChainConfig(t *testing.T) {
+func TestIntegration_Shared_Service_UpdateChainConfig(t *testing.T) {
 	tests := []struct {
 		name              string
 		chainType         feeds.ChainType
@@ -838,7 +838,7 @@ func TestUnit_Service_UpdateChainConfig(t *testing.T) {
 	}
 }
 
-func TestUnit_Service_UpdateChainConfig_InvalidAdminAddress(t *testing.T) {
+func TestIntegration_Shared_Service_UpdateChainConfig_InvalidAdminAddress(t *testing.T) {
 	var (
 		mgr = feeds.FeedsManager{ID: 1}
 		cfg = feeds.ChainConfig{
@@ -859,7 +859,7 @@ func TestUnit_Service_UpdateChainConfig_InvalidAdminAddress(t *testing.T) {
 	assert.Equal(t, "invalid admin address: 0x00000000000", err.Error())
 }
 
-func TestUnit_Service_ProposeJob(t *testing.T) {
+func TestIntegration_Shared_Service_ProposeJob(t *testing.T) {
 	t.Parallel()
 
 	var (
@@ -1340,7 +1340,7 @@ func TestUnit_Service_ProposeJob(t *testing.T) {
 	}
 }
 
-func TestUnit_Service_DeleteJob(t *testing.T) {
+func TestIntegration_Shared_Service_DeleteJob(t *testing.T) {
 	t.Parallel()
 
 	var (
@@ -1656,7 +1656,7 @@ func TestUnit_Service_DeleteJob(t *testing.T) {
 	}
 }
 
-func TestUnit_Service_RevokeJob(t *testing.T) {
+func TestIntegration_Shared_Service_RevokeJob(t *testing.T) {
 	t.Parallel()
 
 	var (
@@ -1883,7 +1883,7 @@ answer1      [type=median index=0];
 	}
 }
 
-func TestUnit_Service_SyncNodeInfo(t *testing.T) {
+func TestIntegration_Shared_Service_SyncNodeInfo(t *testing.T) {
 	tests := []struct {
 		name      string
 		chainType feeds.ChainType
@@ -2034,7 +2034,7 @@ func TestUnit_Service_SyncNodeInfo(t *testing.T) {
 	}
 }
 
-func TestUnit_Service_syncNodeInfoWithRetry(t *testing.T) {
+func TestIntegration_Shared_Service_syncNodeInfoWithRetry(t *testing.T) {
 	t.Parallel()
 
 	mgr := feeds.FeedsManager{ID: 1}
@@ -2212,7 +2212,7 @@ func TestUnit_Service_syncNodeInfoWithRetry(t *testing.T) {
 	}
 }
 
-func TestUnit_Service_IsJobManaged(t *testing.T) {
+func TestIntegration_Shared_Service_IsJobManaged(t *testing.T) {
 	t.Parallel()
 
 	svc := setupTestService(t)
@@ -2226,7 +2226,7 @@ func TestUnit_Service_IsJobManaged(t *testing.T) {
 	assert.True(t, isManaged)
 }
 
-func TestUnit_Service_ListJobProposalsByManagersIDs(t *testing.T) {
+func TestIntegration_Shared_Service_ListJobProposalsByManagersIDs(t *testing.T) {
 	t.Parallel()
 	ctx := testutils.Context(t)
 
@@ -2246,7 +2246,7 @@ func TestUnit_Service_ListJobProposalsByManagersIDs(t *testing.T) {
 	assert.Equal(t, actual, jps)
 }
 
-func TestUnit_Service_GetJobProposal(t *testing.T) {
+func TestIntegration_Shared_Service_GetJobProposal(t *testing.T) {
 	t.Parallel()
 	ctx := testutils.Context(t)
 
@@ -2265,7 +2265,7 @@ func TestUnit_Service_GetJobProposal(t *testing.T) {
 	assert.Equal(t, actual, &ms)
 }
 
-func TestUnit_Service_CancelSpec(t *testing.T) {
+func TestIntegration_Shared_Service_CancelSpec(t *testing.T) {
 	var (
 		externalJobID = uuid.New()
 		jp            = &feeds.JobProposal{
@@ -2496,7 +2496,7 @@ func TestUnit_Service_CancelSpec(t *testing.T) {
 	}
 }
 
-func TestUnit_Service_GetSpec(t *testing.T) {
+func TestIntegration_Shared_Service_GetSpec(t *testing.T) {
 	t.Parallel()
 	ctx := testutils.Context(t)
 
@@ -2515,7 +2515,7 @@ func TestUnit_Service_GetSpec(t *testing.T) {
 	assert.Equal(t, &spec, actual)
 }
 
-func TestUnit_Service_ListSpecsByJobProposalIDs(t *testing.T) {
+func TestIntegration_Shared_Service_ListSpecsByJobProposalIDs(t *testing.T) {
 	t.Parallel()
 	ctx := testutils.Context(t)
 
@@ -2536,7 +2536,7 @@ func TestUnit_Service_ListSpecsByJobProposalIDs(t *testing.T) {
 	assert.Equal(t, specs, actual)
 }
 
-func TestUnit_Service_ApproveSpec(t *testing.T) {
+func TestIntegration_Shared_Service_ApproveSpec(t *testing.T) {
 	var evmChainID *evmbig.Big
 	address := types.EIP55AddressFromAddress(common.Address{})
 	externalJobID := uuid.New()
@@ -3265,7 +3265,7 @@ answer1 [type=median index=0];
 	}
 }
 
-func TestUnit_Service_ApproveSpec_OCR2(t *testing.T) {
+func TestIntegration_Shared_Service_ApproveSpec_OCR2(t *testing.T) {
 	address := "0x613a38AC1659769640aaE063C651F48E0250454C"
 	feedIDHex := "0x0000000000000000000000000000000000000000000000000000000000000001"
 	feedID := common.HexToHash(feedIDHex)
@@ -3856,7 +3856,7 @@ updateInterval = "20m"
 	}
 }
 
-func TestUnit_Service_ApproveSpec_Stream(t *testing.T) {
+func TestIntegration_Shared_Service_ApproveSpec_Stream(t *testing.T) {
 	externalJobID := uuid.New()
 	streamName := "LINK / ETH | version 3 | contract 0x0000000000000000000000000000000000000000"
 	streamID := uint32(1009001032)
@@ -4374,7 +4374,7 @@ func TestUnit_Service_ApproveSpec_Stream(t *testing.T) {
 	}
 }
 
-func TestUnit_Service_ApproveSpec_Bootstrap(t *testing.T) {
+func TestIntegration_Shared_Service_ApproveSpec_Bootstrap(t *testing.T) {
 	address := "0x613a38AC1659769640aaE063C651F48E0250454C"
 	feedIDHex := "0x0000000000000000000000000000000000000000000000000000000000000001"
 	feedID := common.HexToHash(feedIDHex)
@@ -4919,7 +4919,7 @@ chainID = 0
 	}
 }
 
-func TestUnit_Service_RejectSpec(t *testing.T) {
+func TestIntegration_Shared_Service_RejectSpec(t *testing.T) {
 	var (
 		ctx = testutils.Context(t)
 		jp  = &feeds.JobProposal{
@@ -5058,7 +5058,7 @@ func TestUnit_Service_RejectSpec(t *testing.T) {
 	}
 }
 
-func TestUnit_Service_UpdateSpecDefinition(t *testing.T) {
+func TestIntegration_Shared_Service_UpdateSpecDefinition(t *testing.T) {
 	var (
 		ctx         = testutils.Context(t)
 		specID      = int64(1)
@@ -5147,7 +5147,7 @@ func TestUnit_Service_UpdateSpecDefinition(t *testing.T) {
 	}
 }
 
-func TestUnit_Service_StartStop(t *testing.T) {
+func TestIntegration_Shared_Service_StartStop(t *testing.T) {
 	key := cltest.DefaultCSAKey
 
 	var (
@@ -5243,7 +5243,7 @@ func logMessages(logEntries []observer.LoggedEntry) []string {
 	return messages
 }
 
-func TestUnit_Service_GetJobRuns(t *testing.T) {
+func TestIntegration_Shared_Service_GetJobRuns(t *testing.T) {
 	t.Parallel()
 
 	var (

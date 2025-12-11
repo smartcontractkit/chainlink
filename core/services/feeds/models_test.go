@@ -9,7 +9,7 @@ import (
 	"gopkg.in/guregu/null.v4"
 )
 
-func TestUnit_NewChainType(t *testing.T) {
+func TestIntegration_Shared_NewChainType(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
@@ -58,7 +58,7 @@ func TestUnit_NewChainType(t *testing.T) {
 	}
 }
 
-func TestUnit_ToPluginType(t *testing.T) {
+func TestIntegration_Shared_ToPluginType(t *testing.T) {
 	t.Parallel()
 
 	pt, err := ToPluginType("commit")
@@ -87,7 +87,7 @@ func TestUnit_ToPluginType(t *testing.T) {
 	assert.EqualError(t, err, "unknown plugin type")
 }
 
-func TestUnit_FromPluginType(t *testing.T) {
+func TestIntegration_Shared_FromPluginType(t *testing.T) {
 	t.Parallel()
 
 	assert.Equal(t, "commit", FromPluginTypeInput(PluginTypeCommit))
@@ -98,7 +98,7 @@ func TestUnit_FromPluginType(t *testing.T) {
 	assert.Equal(t, "unknown", FromPluginTypeInput(PluginTypeUnknown))
 }
 
-func TestUnit_FluxMonitorConfig_Value(t *testing.T) {
+func TestIntegration_Shared_FluxMonitorConfig_Value(t *testing.T) {
 	t.Parallel()
 
 	cfg := FluxMonitorConfig{Enabled: true}
@@ -113,7 +113,7 @@ func TestUnit_FluxMonitorConfig_Value(t *testing.T) {
 	assert.Equal(t, want, string(actual))
 }
 
-func TestUnit_FluxMonitorConfig_Scan(t *testing.T) {
+func TestIntegration_Shared_FluxMonitorConfig_Scan(t *testing.T) {
 	t.Parallel()
 
 	var (
@@ -128,7 +128,7 @@ func TestUnit_FluxMonitorConfig_Scan(t *testing.T) {
 	assert.Equal(t, want, actual)
 }
 
-func TestUnit_OCR1Config_Value(t *testing.T) {
+func TestIntegration_Shared_OCR1Config_Value(t *testing.T) {
 	t.Parallel()
 
 	var (
@@ -190,7 +190,7 @@ func TestUnit_OCR1Config_Value(t *testing.T) {
 	}
 }
 
-func TestUnit_OCR1Config_Scan(t *testing.T) {
+func TestIntegration_Shared_OCR1Config_Scan(t *testing.T) {
 	t.Parallel()
 
 	var (
@@ -250,7 +250,7 @@ func TestUnit_OCR1Config_Scan(t *testing.T) {
 	}
 }
 
-func TestUnit_Plugins_Value(t *testing.T) {
+func TestIntegration_Shared_Plugins_Value(t *testing.T) {
 	t.Parallel()
 
 	var (
@@ -273,7 +273,7 @@ func TestUnit_Plugins_Value(t *testing.T) {
 	assert.Equal(t, want, string(actual))
 }
 
-func TestUnit_Plugins_Scan(t *testing.T) {
+func TestIntegration_Shared_Plugins_Scan(t *testing.T) {
 	t.Parallel()
 
 	var (
@@ -294,7 +294,7 @@ func TestUnit_Plugins_Scan(t *testing.T) {
 	assert.Equal(t, want, actual)
 }
 
-func TestUnit_OCR2Config_Value(t *testing.T) {
+func TestIntegration_Shared_OCR2Config_Value(t *testing.T) {
 	t.Parallel()
 
 	var (
@@ -325,7 +325,7 @@ func TestUnit_OCR2Config_Value(t *testing.T) {
 	assert.Equal(t, want, string(actual))
 }
 
-func TestUnit_OCR2Config_Scan(t *testing.T) {
+func TestIntegration_Shared_OCR2Config_Scan(t *testing.T) {
 	t.Parallel()
 
 	var (
@@ -354,7 +354,7 @@ func TestUnit_OCR2Config_Scan(t *testing.T) {
 	assert.Equal(t, want, actual)
 }
 
-func TestUnit_JobProposal_CanEditDefinition(t *testing.T) {
+func TestIntegration_Shared_JobProposal_CanEditDefinition(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
@@ -395,7 +395,7 @@ func TestUnit_JobProposal_CanEditDefinition(t *testing.T) {
 }
 
 // Test_toMetrics tests the toMetrics method
-func TestUnit_toMetrics(t *testing.T) {
+func TestIntegration_Shared_toMetrics(t *testing.T) {
 	t.Parallel()
 
 	jpCounts := JobProposalCounts{

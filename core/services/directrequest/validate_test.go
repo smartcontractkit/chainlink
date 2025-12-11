@@ -8,7 +8,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestUnit_ValidatedDirectRequestSpec(t *testing.T) {
+func TestIntegration_Shared_ValidatedDirectRequestSpec(t *testing.T) {
 	t.Parallel()
 
 	toml := `
@@ -37,7 +37,7 @@ observationSource   = """
 	assert.Equal(t, time.Time{}, s.DirectRequestSpec.UpdatedAt)
 }
 
-func TestUnit_ValidatedDirectRequestSpec_MinIncomingConfirmations(t *testing.T) {
+func TestIntegration_Shared_ValidatedDirectRequestSpec_MinIncomingConfirmations(t *testing.T) {
 	t.Parallel()
 
 	t.Run("no minIncomingConfirmations specified", func(t *testing.T) {

@@ -39,7 +39,7 @@ const (
 	integrationBuildName = "go:build.integration"
 )
 
-func TestUnit_Main(m *testing.M) {
+func TestMain(m *testing.M) {
 	os.Exit(testscript.RunMain(m, map[string]func() int{
 		"chainlink": core.Main,
 	}))
@@ -57,7 +57,7 @@ var (
 // .txt or .txtar with the testscripts library. To run an individual test, specify it in the
 // -run param of go test without the txtar or txt suffix, like so:
 // go test . -run TestScripts/node/validate/default
-func TestUnit_Scripts(t *testing.T) {
+func TestScripts(t *testing.T) {
 	if testing.Short() {
 		t.Skip("skipping testscript")
 	}
