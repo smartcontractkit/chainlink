@@ -216,6 +216,7 @@ func (l *zapLogger) Recover(panicErr any) {
 	l.Criticalw("Recovered goroutine panic", "panic", panicErr)
 }
 
+// shrink returns a copy of s with no extra capacity.
 func shrink[T any](s []T) []T {
 	return append([]T(nil), s...)
 }
