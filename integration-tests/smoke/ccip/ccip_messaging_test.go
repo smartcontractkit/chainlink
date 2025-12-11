@@ -686,7 +686,7 @@ func Test_CCIPMessaging_Solana2EVM(t *testing.T) {
 // CCIPReceiver to reject all messages. The in-flight cache is designed to prevent re-execution during OCR transmission.
 // The main assertion is that there is only a single "in progress" event; this indicates that there was only one
 // execution.
-func Test_CCIPMessaging_EVM2Solana_Revert(t *testing.T) {
+func Test_CCIPMessaging_Revert_EVM2Solana(t *testing.T) {
 	inflightDuration := 30 * time.Second
 
 	// Setup 2 chains (EVM and Solana) and a single lane.
