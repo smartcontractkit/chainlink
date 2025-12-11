@@ -506,6 +506,7 @@ func TestShell_RemoveBlocks(t *testing.T) {
 }
 
 func TestShell_BeforeNode(t *testing.T) {
+	testutils.SkipShortDB(t)
 	tests := []struct {
 		name         string
 		pwdfile      string
