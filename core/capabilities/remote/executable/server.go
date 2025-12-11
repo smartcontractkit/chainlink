@@ -107,6 +107,11 @@ func (r *server) SetConfig(remoteExecutableConfig *commoncap.RemoteExecutableCon
 	if len(localDonInfo.Members) == 0 {
 		return errors.New("empty localDonInfo provided")
 	}
+	fmt.Println("set config cap info id", capInfo.ID)
+	fmt.Println("cap info workflow dons")
+	for id, don := range workflowDONs {
+		fmt.Println(id, don.Name)
+	}
 	if len(workflowDONs) == 0 {
 		return errors.New("empty workflowDONs provided")
 	}

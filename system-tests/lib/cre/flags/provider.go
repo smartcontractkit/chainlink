@@ -21,10 +21,12 @@ func NewDefaultCapabilityFlagsProvider() *DefaultCapbilityFlagsProvider {
 			cre.VaultCapability,
 			cre.HTTPTriggerCapability,
 			cre.HTTPActionCapability,
+			cre.SolanaCapability,
 			cre.WriteSolanaCapability,
 		},
 		chainSpecificCapabilities: []cre.CapabilityFlag{
 			cre.EVMCapability,
+			cre.SolanaCapability,
 			cre.WriteEVMCapability,
 			cre.ReadContractCapability,
 			cre.LogEventTriggerCapability,
@@ -67,6 +69,7 @@ func NewExtensibleCapabilityFlagsProvider(extraGlobalFlags []string) *Extensible
 		chainSpecificCapabilities: []cre.CapabilityFlag{
 			cre.EVMCapability,
 			cre.WriteEVMCapability,
+			cre.SolanaCapability,
 			cre.ReadContractCapability,
 			cre.LogEventTriggerCapability,
 		},
@@ -101,6 +104,7 @@ func NewSwappableCapabilityFlagsProvider() *DefaultCapbilityFlagsProvider {
 			cre.EVMCapability,
 			cre.ReadContractCapability,
 			cre.LogEventTriggerCapability,
+			cre.SolanaCapability,
 		},
 	}
 }

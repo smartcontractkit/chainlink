@@ -63,7 +63,7 @@ func (o *Solana) PreEnvStartup(
 		}
 	}
 
-	programID, state, fErr := deployForwarder(testLogger, creEnv, solChain)
+	programID, state, fErr := DeployForwarder(testLogger, creEnv, solChain)
 	if fErr != nil {
 		return nil, errors.Wrap(fErr, "failed to deploy solana forwarder")
 	}
@@ -90,6 +90,7 @@ func (o *Solana) PreEnvStartup(
 		if uErr != nil {
 			return nil, errors.Wrapf(uErr, "failed to update node config for node index %d", workerNode.Index)
 		}
+
 		don.NodeSets().NodeSpecs[workerNode.Index].Node.TestConfigOverrides = *updatedConfig
 	}
 
@@ -111,7 +112,7 @@ func (o *Solana) PreEnvStartup(
 	}, nil
 }
 
-func deployForwarder(testLogger zerolog.Logger, creEnv *cre.Environment, solChain *solana.Blockchain) (*string, *string, error) {
+func DeployForwarder(testLogger zerolog.Logger, creEnv *cre.Environment, solChain *solana.Blockchain) (*string, *string, error) {
 	memoryDatastore, err := contracts.NewDataStoreFromExisting(creEnv.CldfEnvironment.DataStore)
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to create memory datastore: %w", err)
@@ -119,7 +120,7 @@ func deployForwarder(testLogger zerolog.Logger, creEnv *cre.Environment, solChai
 
 	version := creEnv.ContractVersions[ks_sol.ForwarderContract.String()]
 
-	// Forwarder for solana is predeployed on chain spin-up. We jus need to add it to memory datastore here
+	// Forwarder for solana is predeployed on chain spin-up. We just need to add it to memory datastore here
 	err = memoryDatastore.Addresses().Add(datastore.AddressRef{
 		Address:       solutils.GetProgramID(solutils.ProgKeystoneForwarder),
 		ChainSelector: solChain.ChainSelector(),
@@ -127,7 +128,7 @@ func deployForwarder(testLogger zerolog.Logger, creEnv *cre.Environment, solChai
 		Version:       version,
 		Qualifier:     ks_sol.DefaultForwarderQualifier,
 	})
-	if err != nil {
+	if err != nil && !errors.Is(err, datastore.ErrAddressRefExists) {
 		return nil, nil, fmt.Errorf("failed to add address to the datastore for Solana Forwarder: %w", err)
 	}
 
@@ -158,7 +159,8 @@ func deployForwarder(testLogger zerolog.Logger, creEnv *cre.Environment, solChai
 		Qualifier:     ks_sol.DefaultForwarderQualifier,
 		Type:          ks_sol.ForwarderState,
 	})
-	if err != nil {
+
+	if err != nil && !errors.Is(err, datastore.ErrAddressRefExists) {
 		return nil, nil, errors.Wrap(err, "failed to add address to the datastore for Solana Forwarder state")
 	}
 
@@ -261,6 +263,16 @@ const solWorkflowConfigTemplate = `
 	`
 
 func (o *Solana) PostEnvStartup(
+	ctx context.Context,
+	testLogger zerolog.Logger,
+	don *cre.Don,
+	dons *cre.Dons,
+	creEnv *cre.Environment,
+) error {
+	return ConfigureForwarders(ctx, testLogger, don, dons, creEnv)
+}
+
+func ConfigureForwarders(
 	ctx context.Context,
 	testLogger zerolog.Logger,
 	don *cre.Don,

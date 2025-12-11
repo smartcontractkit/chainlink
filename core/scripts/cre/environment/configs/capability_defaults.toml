@@ -72,6 +72,9 @@
 [capability_configs.http-action]
   binary_path = "./binaries/http_action"
 
+[capability_configs.solana]
+  binary_path = "./binaries/solana"
+
 [capability_configs.http-action.config]
   # HTTP Action capability configuration
   ProxyMode = "gateway"

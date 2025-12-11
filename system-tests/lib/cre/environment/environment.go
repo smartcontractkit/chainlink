@@ -196,6 +196,7 @@ func SetupTestEnvironment(
 	fmt.Print(libformat.PurpleText("%s", input.StageGen.Wrap("Applying Features before environment startup")))
 	var donsCapabilities = make(map[uint64][]keystone_changeset.DONCapabilityWithConfig)
 	for _, feature := range input.Features.List() {
+		testLogger.Info().Msgf("Feature: '%s'", feature.Flag())
 		for _, donMetadata := range topology.DonsMetadataWithFlag(feature.Flag()) {
 			testLogger.Info().Msgf("Executing PreEnvStartup for feature %s for don '%s'", feature.Flag(), donMetadata.Name)
 			output, preErr := feature.PreEnvStartup(
@@ -217,6 +218,14 @@ func SetupTestEnvironment(
 			testLogger.Info().Msgf("PreEnvStartup for feature %s executed successfully", feature.Flag())
 		}
 	}
+	testLogger.Info().Msg("don capabilities")
+	for i, capa := range donsCapabilities {
+		testLogger.Info().Msgf("don id: %d", i)
+		for _, c := range capa {
+			testLogger.Info().Msgf("name: %s config: %s", c.Capability.LabelledName, c.Config.String())
+		}
+	}
+
 	fmt.Print(libformat.PurpleText("%s", input.StageGen.WrapAndNext("Applied Features in %.2f seconds", input.StageGen.Elapsed().Seconds())))
 
 	queue := worker.New(ctx, 10)
@@ -402,6 +411,7 @@ func SetupTestEnvironment(
 	fmt.Print(libformat.PurpleText("%s", input.StageGen.Wrap("Applying Features after environment startup")))
 
 	for _, feature := range input.Features.List() {
+		fmt.Println("feature", feature.Flag())
 		for _, don := range dons.DonsWithFlag(feature.Flag()) {
 			testLogger.Info().Msgf("Executing PostEnvStartup for feature %s for don '%s'", feature.Flag(), don.Name)
 			if pErr := feature.PostEnvStartup(

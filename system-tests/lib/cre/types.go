@@ -67,6 +67,7 @@ const (
 	VaultCapability           CapabilityFlag = "vault"
 	HTTPTriggerCapability     CapabilityFlag = "http-trigger"
 	HTTPActionCapability      CapabilityFlag = "http-action"
+	SolanaCapability          CapabilityFlag = "solana"
 	// Add more capabilities as needed
 )
 
@@ -557,7 +558,7 @@ func (m *DonMetadata) EVMChains() []uint64 {
 
 func (m *DonMetadata) RequiresOCR() bool {
 	return slices.Contains(m.Flags, ConsensusCapability) || slices.Contains(m.Flags, ConsensusCapabilityV2) ||
-		slices.Contains(m.Flags, VaultCapability) || slices.Contains(m.Flags, EVMCapability)
+		slices.Contains(m.Flags, VaultCapability) || slices.Contains(m.Flags, EVMCapability) || slices.Contains(m.Flags, SolanaCapability)
 }
 
 func (m *DonMetadata) RequiresGateway() bool {
