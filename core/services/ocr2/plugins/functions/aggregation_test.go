@@ -37,7 +37,7 @@ func reqMeta(id int, result []byte, err []byte, callbackGas uint32, coordinatorC
 	}
 }
 
-func TestCanAggregate(t *testing.T) {
+func TestUnit_CanAggregate(t *testing.T) {
 	t.Parallel()
 	obs := make([]*encoding.ProcessedRequest, 10)
 
@@ -51,7 +51,7 @@ func TestCanAggregate(t *testing.T) {
 	require.False(t, functions.CanAggregate(0, 0, obs[:0]))
 }
 
-func TestAggregate_Successful(t *testing.T) {
+func TestUnit_Aggregate_Successful(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {

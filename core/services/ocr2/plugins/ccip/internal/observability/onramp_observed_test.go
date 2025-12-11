@@ -30,7 +30,7 @@ const expectedWrapper = "core/services/ocr2/plugins/ccip/internal/observability.
 
 // TestOnRampObservedMethods tests that all methods of OnRampReader are observed by a wrapper.
 // It uses the runtime to detect if the call stack contains the wrapper class.
-func TestOnRampObservedMethods(t *testing.T) {
+func TestUnit_OnRampObservedMethods(t *testing.T) {
 	// Methods not expected to be observed.
 	// Add a method name here to exclude it from the test.
 	excludedMethods := []string{

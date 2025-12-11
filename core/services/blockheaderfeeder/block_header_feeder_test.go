@@ -34,7 +34,7 @@ type testCase struct {
 	batchBHS            blockhashstore.TestBatchBHS
 }
 
-func TestFeeder(t *testing.T) {
+func TestUnit_Feeder(t *testing.T) {
 	tests := []testCase{
 		{
 			name:                "single missing block",
@@ -232,7 +232,7 @@ func (test testCase) testFeeder(t *testing.T) {
 	require.Equal(t, test.storeBatchCallCount, test.batchBHS.StoreVerifyHeaderCallCounter)
 }
 
-func TestFeeder_CachesStoredBlocks(t *testing.T) {
+func TestUnit_Feeder_CachesStoredBlocks(t *testing.T) {
 	coordinator := &blockhashstore.TestCoordinator{
 		RequestEvents: []blockhashstore.Event{{Block: 74, ID: "request"}},
 	}

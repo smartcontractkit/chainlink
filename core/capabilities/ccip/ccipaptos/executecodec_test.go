@@ -91,7 +91,7 @@ var randomExecuteReport = func(t *testing.T, chainSelector uint64, gasLimit *big
 	return cciptypes.ExecutePluginReport{ChainReports: chainReports}
 }
 
-func TestExecutePluginCodecV1(t *testing.T) {
+func TestUnit_ExecutePluginCodecV1(t *testing.T) {
 	ctx := t.Context()
 	mockExtraDataCodec := &mocks.SourceChainExtraDataCodec{}
 	destGasAmount := rand.Uint32()
@@ -194,7 +194,7 @@ func TestExecutePluginCodecV1(t *testing.T) {
 
 // Go equivalent of test_deserialize_execution_report
 // https://github.com/smartcontractkit/chainlink-aptos/blob/4a9525abbbc024af87ed6277c57dcf8aa58dd268/contracts/ccip/ccip_offramp/tests/offramp_test.move#L453
-func TestExecutePluginCodecV1_Decode(t *testing.T) {
+func TestUnit_ExecutePluginCodecV1_Decode(t *testing.T) {
 	expectedSender, err := hexutil.Decode("0xd87929a32cf0cbdc9e2d07ffc7c33344079de727")
 	require.NoError(t, err)
 	expectedData, err := hexutil.Decode("0x68656c6c6f20434349505265636569766572") // "hello CCIPReceiver"

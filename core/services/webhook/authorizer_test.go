@@ -23,7 +23,7 @@ type eiDisabledCfg struct{}
 
 func (eiDisabledCfg) ExternalInitiatorsEnabled() bool { return false }
 
-func Test_Authorizer(t *testing.T) {
+func TestUnit_Authorizer(t *testing.T) {
 	db := pgtest.NewSqlxDB(t)
 	borm := bridges.NewORM(db)
 

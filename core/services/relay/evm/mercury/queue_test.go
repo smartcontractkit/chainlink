@@ -60,7 +60,7 @@ func createTestTransmissions(t *testing.T) []TestTransmissionWithReport {
 	}
 }
 
-func Test_Queue(t *testing.T) {
+func TestUnit_Queue(t *testing.T) {
 	t.Parallel()
 	testTransmissions := createTestTransmissions(t)
 	deleter := mocks.NewAsyncDeleter(t)

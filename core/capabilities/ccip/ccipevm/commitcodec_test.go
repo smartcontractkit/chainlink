@@ -77,7 +77,7 @@ var randomCommitReport = func() cciptypes.CommitPluginReport {
 	}
 }
 
-func TestCommitPluginCodecV1(t *testing.T) {
+func TestUnit_CommitPluginCodecV1(t *testing.T) {
 	testCases := []struct {
 		name   string
 		report func(report cciptypes.CommitPluginReport) cciptypes.CommitPluginReport

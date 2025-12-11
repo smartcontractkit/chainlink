@@ -12,7 +12,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 )
 
-func TestHandleShutdown(t *testing.T) {
+func TestUnit_HandleShutdown(t *testing.T) {
 	proc, err := os.FindProcess(os.Getpid())
 	require.NoError(t, err)
 

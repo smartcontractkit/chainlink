@@ -74,7 +74,7 @@ func (m *mockSystemOperator) WriteFile(path string, data []byte, perm os.FileMod
 	return nil
 }
 
-func TestUpdater_Run(t *testing.T) {
+func TestUnit_Updater_Run(t *testing.T) {
 	testTime := time.Date(2024, 11, 22, 18, 21, 10, 0, time.UTC)
 	// Use a full 40-character SHA
 	testSHA := "ac7a7395feed" + strings.Repeat("0", 28)
@@ -285,7 +285,7 @@ replace github.com/smartcontractkit/chainlink/v3 => ../
 	}
 }
 
-func TestUpdater_FindLocalReplaceModules(t *testing.T) {
+func TestUnit_Updater_FindLocalReplaceModules(t *testing.T) {
 	sysOp := newMockSystemOperator()
 	sysOp.files["go.mod"] = []byte(`
 module test

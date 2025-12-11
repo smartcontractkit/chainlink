@@ -11,7 +11,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/synchronization/mocks"
 )
 
-func TestTelemetryIngressWorker_BuildTelemBatchReq(t *testing.T) {
+func TestUnit_TelemetryIngressWorker_BuildTelemBatchReq(t *testing.T) {
 	telemPayload := synchronization.TelemPayload{
 		Telemetry:  []byte("Mock telemetry"),
 		ContractID: "0xa",

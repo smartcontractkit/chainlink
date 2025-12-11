@@ -17,7 +17,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/events"
 )
 
-func TestEmit(t *testing.T) {
+func TestUnit_Emit(t *testing.T) {
 	// t.Parallel() // TODO: the beholder tester uses t.SetEnv and cannot use t.Parallel
 	triggerID := "trigger_" + uuid.NewString()
 	executionID := "execution_" + uuid.NewString()

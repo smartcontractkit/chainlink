@@ -17,7 +17,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/tronkey"
 )
 
-func Test_TronKeyStore_E2E(t *testing.T) {
+func TestUnit_TronKeyStore_E2E(t *testing.T) {
 	db := pgtest.NewSqlxDB(t)
 
 	keyStore := keystore.ExposedNewMaster(t, db)

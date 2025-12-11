@@ -14,7 +14,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
 )
 
-func TestETHABIEncodeTask2(t *testing.T) {
+func TestUnit_ETHABIEncodeTask2(t *testing.T) {
 	var bytes32 [32]byte
 	copy(bytes32[:], []byte("chainlink chainlink chainlink"))
 

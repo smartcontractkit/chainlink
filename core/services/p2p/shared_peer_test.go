@@ -25,7 +25,7 @@ import (
 	p2ptypes "github.com/smartcontractkit/chainlink/v2/core/services/p2p/types"
 )
 
-func TestDon2DonSharedPeer_WithRealSingletonPeerWrapper(t *testing.T) {
+func TestUnit_Don2DonSharedPeer_WithRealSingletonPeerWrapper(t *testing.T) {
 	db := pgtest.NewSqlxDB(t)
 	keyStore := cltest.NewKeyStore(t, db)
 	k, err := keyStore.P2P().Create(testutils.Context(t))
@@ -55,12 +55,12 @@ func TestDon2DonSharedPeer_WithRealSingletonPeerWrapper(t *testing.T) {
 	require.NoError(t, sp.Close())
 }
 
-func TestDon2DonSharedPeer_ErrorOnNilSingletonPeerWrapper(t *testing.T) {
+func TestUnit_Don2DonSharedPeer_ErrorOnNilSingletonPeerWrapper(t *testing.T) {
 	sp := p2p.NewDon2DonSharedPeer(nil, nil, logger.TestLogger(t))
 	require.Error(t, sp.Start(t.Context()))
 }
 
-func TestDon2DonSharedPeer_UpdateConnectionsByDONs(t *testing.T) {
+func TestUnit_Don2DonSharedPeer_UpdateConnectionsByDONs(t *testing.T) {
 	pw := ocrcommon.NewSingletonPeerWrapper(nil, nil, nil, nil, logger.TestLogger(t)) // nils are ok, we won't Start() it
 	_, myPeerID := newKeyPair(t)
 	_, peerID2 := newKeyPair(t)

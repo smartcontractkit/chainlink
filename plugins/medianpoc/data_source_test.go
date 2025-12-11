@@ -32,7 +32,7 @@ func (m *mockPipelineRunner) ExecuteRun(ctx context.Context, spec string, vars c
 	return m.results, m.err
 }
 
-func TestDataSource(t *testing.T) {
+func TestUnit_DataSource(t *testing.T) {
 	lggr := logger.TestLogger(t)
 	expect := jsonserializable.JSONSerializable{Val: int64(3), Valid: true}
 	pr := &mockPipelineRunner{
@@ -69,7 +69,7 @@ func TestDataSource(t *testing.T) {
 	assert.Equal(t, expectBN, ds.current.LatestAnswer)
 }
 
-func TestDataSource_ResultErrors(t *testing.T) {
+func TestUnit_DataSource_ResultErrors(t *testing.T) {
 	lggr := logger.TestLogger(t)
 	pr := &mockPipelineRunner{
 		results: core.TaskResults{
@@ -92,7 +92,7 @@ func TestDataSource_ResultErrors(t *testing.T) {
 	assert.ErrorContains(t, err, "something went wrong")
 }
 
-func TestDataSource_ResultNotAnInt(t *testing.T) {
+func TestUnit_DataSource_ResultNotAnInt(t *testing.T) {
 	lggr := logger.TestLogger(t)
 
 	expect := jsonserializable.JSONSerializable{Val: "string-result", Valid: true}

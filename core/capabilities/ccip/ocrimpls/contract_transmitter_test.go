@@ -55,7 +55,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ocr2key"
 )
 
-func Test_ContractTransmitter_TransmitWithoutSignatures(t *testing.T) {
+func TestUnit_ContractTransmitter_TransmitWithoutSignatures(t *testing.T) {
 	type testCase struct {
 		name                string
 		pluginType          uint8
@@ -189,7 +189,7 @@ func abiEncodeUint32(data uint32) ([]byte, error) {
 }
 
 // Test EVM -> SVM extra data decoding in contract transmitter
-func TestSVMExecCallDataFuncExtraDataDecoding(t *testing.T) {
+func TestUnit_SVMExecCallDataFuncExtraDataDecoding(t *testing.T) {
 	extraDataCodec := ccipocr3.ExtraDataCodecMap(map[string]ccipocr3.SourceChainExtraDataCodec{
 		chainsel.FamilyEVM:    ccipevm.ExtraDataDecoder{},
 		chainsel.FamilySolana: ccipsolana.ExtraDataDecoder{},

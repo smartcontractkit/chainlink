@@ -30,7 +30,7 @@ func init() {
 	}
 }
 
-func TestReportEncoder_EncodeExtract(t *testing.T) {
+func TestUnit_ReportEncoder_EncodeExtract(t *testing.T) {
 	encoder := reportEncoder{
 		packer: NewAbiPacker(),
 	}
@@ -111,7 +111,7 @@ func TestReportEncoder_EncodeExtract(t *testing.T) {
 	}
 }
 
-func TestReportEncoder_BackwardsCompatibility(t *testing.T) {
+func TestUnit_ReportEncoder_BackwardsCompatibility(t *testing.T) {
 	encoder := reportEncoder{
 		packer: NewAbiPacker(),
 	}

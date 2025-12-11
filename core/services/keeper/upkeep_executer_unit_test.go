@@ -23,7 +23,7 @@ func (r *registry) CheckGasOverhead() uint32   { return uint32(0) }
 func (r *registry) PerformGasOverhead() uint32 { return r.pgo }
 func (r *registry) MaxPerformDataSize() uint32 { return r.mpds }
 
-func TestBuildJobSpec(t *testing.T) {
+func TestUnit_BuildJobSpec(t *testing.T) {
 	from := types.EIP55Address(testutils.NewAddress().Hex())
 	contract := types.EIP55Address(testutils.NewAddress().Hex())
 	chainID := "250"

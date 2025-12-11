@@ -30,7 +30,7 @@ func setupORM(t *testing.T) (*sqlx.DB, bridges.ORM) {
 	return db, orm
 }
 
-func TestORM_FindBridges(t *testing.T) {
+func TestUnit_ORM_FindBridges(t *testing.T) {
 	t.Parallel()
 	_, orm := setupORM(t)
 
@@ -67,7 +67,7 @@ func TestORM_FindBridges(t *testing.T) {
 	require.Error(t, err, bts)
 }
 
-func TestORM_FindBridge(t *testing.T) {
+func TestUnit_ORM_FindBridge(t *testing.T) {
 	t.Parallel()
 	ctx := testutils.Context(t)
 
@@ -103,7 +103,7 @@ func TestORM_FindBridge(t *testing.T) {
 		})
 	}
 }
-func TestORM_UpdateBridgeType(t *testing.T) {
+func TestUnit_ORM_UpdateBridgeType(t *testing.T) {
 	ctx := testutils.Context(t)
 	_, orm := setupORM(t)
 
@@ -137,7 +137,7 @@ func TestORM_UpdateBridgeType(t *testing.T) {
 	require.Empty(t, bs)
 }
 
-func TestORM_TestCachedResponse(t *testing.T) {
+func TestUnit_ORM_TestCachedResponse(t *testing.T) {
 	ctx := testutils.Context(t)
 	cfg := configtest.NewGeneralConfig(t, nil)
 	db := pgtest.NewSqlxDB(t)
@@ -159,7 +159,7 @@ func TestORM_TestCachedResponse(t *testing.T) {
 	require.Equal(t, []byte{111, 222, 2}, val)
 }
 
-func TestORM_CreateExternalInitiator(t *testing.T) {
+func TestUnit_ORM_CreateExternalInitiator(t *testing.T) {
 	ctx := testutils.Context(t)
 	_, orm := setupORM(t)
 
@@ -177,7 +177,7 @@ func TestORM_CreateExternalInitiator(t *testing.T) {
 	require.Contains(t, orm.CreateExternalInitiator(ctx, exi2).Error(), `ERROR: duplicate key value violates unique constraint "external_initiators_name_key" (SQLSTATE 23505)`)
 }
 
-func TestORM_DeleteExternalInitiator(t *testing.T) {
+func TestUnit_ORM_DeleteExternalInitiator(t *testing.T) {
 	ctx := testutils.Context(t)
 	_, orm := setupORM(t)
 

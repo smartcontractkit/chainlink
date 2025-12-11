@@ -16,7 +16,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evmregistry/v21/core"
 )
 
-func TestPacker_PackReport(t *testing.T) {
+func TestUnit_Packer_PackReport(t *testing.T) {
 	for _, tc := range []struct {
 		name       string
 		report     ac.IAutomationV21PlusCommonReport
@@ -115,7 +115,7 @@ func TestPacker_PackReport(t *testing.T) {
 	}
 }
 
-func TestPacker_UnpackCheckResults(t *testing.T) {
+func TestUnit_Packer_UnpackCheckResults(t *testing.T) {
 	uid, _ := new(big.Int).SetString("1843548457736589226156809205796175506139185429616502850435279853710366065936", 10)
 	upkeepId := ocr2keepers.UpkeepIdentifier{}
 	upkeepId.FromBigInt(uid)
@@ -204,7 +204,7 @@ func TestPacker_UnpackCheckResults(t *testing.T) {
 	}
 }
 
-func TestPacker_UnpackPerformResult(t *testing.T) {
+func TestUnit_Packer_UnpackPerformResult(t *testing.T) {
 	tests := []struct {
 		Name    string
 		RawData string
@@ -227,7 +227,7 @@ func TestPacker_UnpackPerformResult(t *testing.T) {
 	}
 }
 
-func TestPacker_UnpackLogTriggerConfig(t *testing.T) {
+func TestUnit_Packer_UnpackLogTriggerConfig(t *testing.T) {
 	tests := []struct {
 		name    string
 		raw     []byte
@@ -271,7 +271,7 @@ func TestPacker_UnpackLogTriggerConfig(t *testing.T) {
 	}
 }
 
-func TestPacker_PackReport_UnpackReport(t *testing.T) {
+func TestUnit_Packer_PackReport_UnpackReport(t *testing.T) {
 	report := ac.IAutomationV21PlusCommonReport{
 		FastGasWei:   big.NewInt(1),
 		LinkNative:   big.NewInt(1),

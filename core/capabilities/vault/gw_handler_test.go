@@ -21,7 +21,7 @@ import (
 	connector_mocks "github.com/smartcontractkit/chainlink/v2/core/services/gateway/connector/mocks"
 )
 
-func TestGatewayHandler_HandleGatewayMessage(t *testing.T) {
+func TestUnit_GatewayHandler_HandleGatewayMessage(t *testing.T) {
 	lggr := logger.TestLogger(t)
 	ctx := context.Background()
 
@@ -186,7 +186,7 @@ func TestGatewayHandler_HandleGatewayMessage(t *testing.T) {
 	}
 }
 
-func TestGatewayHandler_Lifecycle(t *testing.T) {
+func TestUnit_GatewayHandler_Lifecycle(t *testing.T) {
 	lggr := logger.TestLogger(t)
 	ctx := context.Background()
 

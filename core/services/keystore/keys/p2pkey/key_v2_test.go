@@ -11,7 +11,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestP2PKeys_KeyV2(t *testing.T) {
+func TestUnit_P2PKeys_KeyV2(t *testing.T) {
 	kv2, err := NewV2()
 	require.NoError(t, err)
 

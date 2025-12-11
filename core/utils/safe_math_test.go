@@ -8,7 +8,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
-func Test_NonNegativeInt64ToUint64(t *testing.T) {
+func TestUnit_NonNegativeInt64ToUint64(t *testing.T) {
 	tests := []struct {
 		input    int64
 		expected uint64

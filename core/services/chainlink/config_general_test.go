@@ -19,7 +19,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/config/toml"
 )
 
-func TestTOMLGeneralConfig_Defaults(t *testing.T) {
+func TestUnit_TOMLGeneralConfig_Defaults(t *testing.T) {
 	config, err := GeneralConfigOpts{}.New()
 	require.NoError(t, err)
 	assert.Equal(t, (*url.URL)(nil), config.WebServer().BridgeResponseURL())
@@ -33,7 +33,7 @@ func TestTOMLGeneralConfig_Defaults(t *testing.T) {
 	assert.Equal(t, 15*time.Minute, config.WebServer().SessionTimeout().Duration())
 }
 
-func TestTOMLGeneralConfig_InsecureConfig(t *testing.T) {
+func TestUnit_TOMLGeneralConfig_InsecureConfig(t *testing.T) {
 	t.Parallel()
 
 	t.Run("all insecure configs are false by default", func(t *testing.T) {
@@ -82,7 +82,7 @@ func TestTOMLGeneralConfig_InsecureConfig(t *testing.T) {
 	})
 }
 
-func TestValidateDB(t *testing.T) {
+func TestUnit_ValidateDB(t *testing.T) {
 	t.Setenv(string(env.Config), "")
 
 	t.Run("unset db url", func(t *testing.T) {
@@ -117,7 +117,7 @@ func TestValidateDB(t *testing.T) {
 	})
 }
 
-func TestConfig_LogSQL(t *testing.T) {
+func TestUnit_Config_LogSQL(t *testing.T) {
 	config, err := GeneralConfigOpts{}.New()
 	require.NoError(t, err)
 
@@ -155,7 +155,7 @@ var WebServerLDAPSecretsTOML string
 //go:embed testdata/mergingsecretsdata/secrets-webserver-oidc.toml
 var WebServerOIDCSecretsTOML string
 
-func TestConfig_SecretsMerging(t *testing.T) {
+func TestUnit_Config_SecretsMerging(t *testing.T) {
 	t.Run("verify secrets merging in GeneralConfigOpts.New()", func(t *testing.T) {
 		databaseSecrets, err := parseSecrets(databaseSecretsTOML)
 		require.NoErrorf(t, err, "error: %s", err)

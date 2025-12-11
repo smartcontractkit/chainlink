@@ -7,7 +7,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestVRFKeys_Models(t *testing.T) {
+func TestUnit_VRFKeys_Models(t *testing.T) {
 	kv2, err := NewV2()
 	require.NoError(t, err)
 	k := EncryptedVRFKey{

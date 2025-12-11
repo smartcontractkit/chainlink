@@ -12,7 +12,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/p2pkey"
 )
 
-func TestP2PKeyResource(t *testing.T) {
+func TestUnit_P2PKeyResource(t *testing.T) {
 	key := p2pkey.MustNewV2XXXTestingOnly(big.NewInt(1))
 	peerID := key.PeerID()
 	peerIDStr := peerID.String()

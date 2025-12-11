@@ -192,7 +192,7 @@ func toPeerIDs(ids [][32]byte) []p2ptypes.PeerID {
 	return pids
 }
 
-func TestReader_Integration(t *testing.T) {
+func TestUnit_Reader_Integration(t *testing.T) {
 	ctx := testutils.Context(t)
 	reg, regAddress, owner, sim := startNewChainWithRegistry(t)
 
@@ -375,7 +375,7 @@ func TestReader_Integration(t *testing.T) {
 	}, s.IDsToNodes)
 }
 
-func TestSyncer_DBIntegration(t *testing.T) {
+func TestUnit_Syncer_DBIntegration(t *testing.T) {
 	quarantine.Flaky(t, "DX-1925")
 	ctx := testutils.Context(t)
 	reg, regAddress, owner, sim := startNewChainWithRegistry(t)
@@ -501,7 +501,7 @@ func TestSyncer_DBIntegration(t *testing.T) {
 	}
 }
 
-func TestSyncer_LocalNode(t *testing.T) {
+func TestUnit_Syncer_LocalNode(t *testing.T) {
 	ctx := t.Context()
 	lggr := logger.TestLogger(t)
 

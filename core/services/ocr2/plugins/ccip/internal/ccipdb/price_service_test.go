@@ -31,7 +31,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/prices"
 )
 
-func TestPriceService_writeGasPrices(t *testing.T) {
+func TestUnit_PriceService_writeGasPrices(t *testing.T) {
 	lggr := logger.TestLogger(t)
 	jobId := int32(1)
 	destChainSelector := uint64(12345)
@@ -95,7 +95,7 @@ func TestPriceService_writeGasPrices(t *testing.T) {
 	}
 }
 
-func TestPriceService_writeTokenPrices(t *testing.T) {
+func TestUnit_PriceService_writeTokenPrices(t *testing.T) {
 	lggr := logger.TestLogger(t)
 	jobId := int32(1)
 	destChainSelector := uint64(12345)
@@ -167,7 +167,7 @@ func TestPriceService_writeTokenPrices(t *testing.T) {
 	}
 }
 
-func TestPriceService_observeGasPriceUpdates(t *testing.T) {
+func TestUnit_PriceService_observeGasPriceUpdates(t *testing.T) {
 	lggr := logger.TestLogger(t)
 	jobId := int32(1)
 	destChain := chainselectors.TEST_1338
@@ -281,7 +281,7 @@ func TestPriceService_observeGasPriceUpdates(t *testing.T) {
 	}
 }
 
-func TestPriceService_observeTokenPriceUpdates(t *testing.T) {
+func TestUnit_PriceService_observeTokenPriceUpdates(t *testing.T) {
 	lggr := logger.TestLogger(t)
 	jobId := int32(1)
 	destChain := chainselectors.TEST_1338
@@ -502,7 +502,7 @@ func TestPriceService_observeTokenPriceUpdates(t *testing.T) {
 	}
 }
 
-func TestPriceService_calculateUsdPer1e18TokenAmount(t *testing.T) {
+func TestUnit_PriceService_calculateUsdPer1e18TokenAmount(t *testing.T) {
 	testCases := []struct {
 		name       string
 		price      *big.Int
@@ -542,7 +542,7 @@ func TestPriceService_calculateUsdPer1e18TokenAmount(t *testing.T) {
 	}
 }
 
-func TestPriceService_GetGasAndTokenPrices(t *testing.T) {
+func TestUnit_PriceService_GetGasAndTokenPrices(t *testing.T) {
 	lggr := logger.TestLogger(t)
 	jobId := int32(1)
 	destChainSelector := uint64(12345)
@@ -761,7 +761,7 @@ func checkResultLen(t *testing.T, priceService PriceService, destChainSelector u
 	return nil
 }
 
-func TestPriceService_priceWriteInBackground(t *testing.T) {
+func TestUnit_PriceService_priceWriteInBackground(t *testing.T) {
 	lggr := logger.TestLogger(t)
 	jobId := int32(1)
 	destChain := chainselectors.TEST_1338

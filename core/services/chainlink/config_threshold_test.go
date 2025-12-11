@@ -14,7 +14,7 @@ ThresholdKeyShare = "something"
 `
 )
 
-func TestThresholdConfig(t *testing.T) {
+func TestUnit_ThresholdConfig(t *testing.T) {
 	opts := GeneralConfigOpts{
 		SecretsStrings: []string{thresholdSecrets},
 	}

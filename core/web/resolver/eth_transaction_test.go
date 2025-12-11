@@ -26,7 +26,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/web/testutils"
 )
 
-func TestResolver_EthTransaction(t *testing.T) {
+func TestUnit_Resolver_EthTransaction(t *testing.T) {
 	t.Parallel()
 
 	query := `
@@ -241,7 +241,7 @@ func TestResolver_EthTransaction(t *testing.T) {
 	RunGQLTests(t, testCases)
 }
 
-func TestResolver_EthTransactions(t *testing.T) {
+func TestUnit_Resolver_EthTransactions(t *testing.T) {
 	t.Parallel()
 
 	query := `
@@ -347,7 +347,7 @@ func TestResolver_EthTransactions(t *testing.T) {
 	RunGQLTests(t, testCases)
 }
 
-func TestResolver_EthTransactionsAttempts(t *testing.T) {
+func TestUnit_Resolver_EthTransactionsAttempts(t *testing.T) {
 	t.Parallel()
 
 	query := `

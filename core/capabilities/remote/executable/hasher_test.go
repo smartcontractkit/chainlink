@@ -13,7 +13,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/remote/types"
 )
 
-func TestWriteReportExcludeSignaturesHasher_Hash(t *testing.T) {
+func TestUnit_WriteReportExcludeSignaturesHasher_Hash(t *testing.T) {
 	req1a := getRequest(t, []byte("testdata"), [][]byte{[]byte("sig1"), []byte("sig2")})
 	req1b := getRequest(t, []byte("testdata"), [][]byte{[]byte("sig3"), []byte("sig4")})
 	req2 := getRequest(t, []byte("otherdata"), [][]byte{[]byte("sig1"), []byte("sig2")})
@@ -30,7 +30,7 @@ func TestWriteReportExcludeSignaturesHasher_Hash(t *testing.T) {
 	require.NotEqual(t, hash1a, hash2) // different data, same signatures
 }
 
-func TestWriteReportExcludeSignaturesHasher_Hash_NilPayload(t *testing.T) {
+func TestUnit_WriteReportExcludeSignaturesHasher_Hash_NilPayload(t *testing.T) {
 	nilReq := capabilities.CapabilityRequest{Payload: nil}
 	nilReqBytes, err := pb.MarshalCapabilityRequest(nilReq)
 	require.NoError(t, err)
@@ -43,7 +43,7 @@ func TestWriteReportExcludeSignaturesHasher_Hash_NilPayload(t *testing.T) {
 	require.Contains(t, err.Error(), "capability request payload is nil")
 }
 
-func TestWriteReportExcludeSignaturesHasher_Hash_NilReport(t *testing.T) {
+func TestUnit_WriteReportExcludeSignaturesHasher_Hash_NilReport(t *testing.T) {
 	nilReq := &evmcappb.WriteReportRequest{Report: nil}
 	nilPb, err := anypb.New(nilReq)
 	require.NoError(t, err)
@@ -60,7 +60,7 @@ func TestWriteReportExcludeSignaturesHasher_Hash_NilReport(t *testing.T) {
 	require.Contains(t, err.Error(), "WriteReportRequest.Report is nil")
 }
 
-func TestWriteReportExcludeSignaturesHasher_Hash_InvalidPayload(t *testing.T) {
+func TestUnit_WriteReportExcludeSignaturesHasher_Hash_InvalidPayload(t *testing.T) {
 	// Test with completely invalid payload that cannot be unmarshaled
 	msgBody := &types.MessageBody{
 		Payload: []byte("invalid protobuf data"),
@@ -72,7 +72,7 @@ func TestWriteReportExcludeSignaturesHasher_Hash_InvalidPayload(t *testing.T) {
 	require.Contains(t, err.Error(), "failed to unmarshal capability request")
 }
 
-func TestSimpleHasher_ExcludesSpendLimits(t *testing.T) {
+func TestUnit_SimpleHasher_ExcludesSpendLimits(t *testing.T) {
 	// Create two requests with identical payloads but different SpendLimits
 	req1 := getRequestWithSpendLimits(t, []byte("testdata"), []capabilities.SpendLimit{
 		{SpendType: "gas", Limit: "1000"},
@@ -99,7 +99,7 @@ func TestSimpleHasher_ExcludesSpendLimits(t *testing.T) {
 	require.NotEqual(t, hash1, hash3) // different data should produce different hash
 }
 
-func TestWriteReportExcludeSignaturesHasher_ExcludesSpendLimits(t *testing.T) {
+func TestUnit_WriteReportExcludeSignaturesHasher_ExcludesSpendLimits(t *testing.T) {
 	// Create two requests with identical payloads but different SpendLimits
 	req1 := getWriteReportRequestWithSpendLimits(t, []byte("testdata"), [][]byte{[]byte("sig1"), []byte("sig2")}, []capabilities.SpendLimit{
 		{SpendType: "gas", Limit: "1000"},

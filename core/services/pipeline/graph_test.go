@@ -10,7 +10,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
 )
 
-func TestGraph_Decode(t *testing.T) {
+func TestUnit_Graph_Decode(t *testing.T) {
 	t.Parallel()
 
 	expected := map[string]map[string]bool{
@@ -117,7 +117,7 @@ func TestGraph_Decode(t *testing.T) {
 	}
 }
 
-func TestGraph_TasksInDependencyOrder(t *testing.T) {
+func TestUnit_Graph_TasksInDependencyOrder(t *testing.T) {
 	t.Parallel()
 
 	p, err := pipeline.Parse(pipeline.DotStr)
@@ -209,7 +209,7 @@ func TestGraph_TasksInDependencyOrder(t *testing.T) {
 	require.Equal(t, expected, p.Tasks)
 }
 
-func TestGraph_HasCycles(t *testing.T) {
+func TestUnit_Graph_HasCycles(t *testing.T) {
 	t.Parallel()
 
 	_, err := pipeline.Parse(pipeline.DotStr)
@@ -224,7 +224,7 @@ func TestGraph_HasCycles(t *testing.T) {
 	require.Contains(t, err.Error(), "cycle detected")
 }
 
-func TestGraph_ImplicitDependencies(t *testing.T) {
+func TestUnit_Graph_ImplicitDependencies(t *testing.T) {
 	t.Parallel()
 
 	g := pipeline.NewGraph()
@@ -251,7 +251,7 @@ func TestGraph_ImplicitDependencies(t *testing.T) {
 	require.True(t, g.HasEdgeFromTo(nodes["c"], nodes["d"]))
 }
 
-func TestParse(t *testing.T) {
+func TestUnit_Parse(t *testing.T) {
 	for _, s := range []struct {
 		name     string
 		pipeline string

@@ -25,7 +25,7 @@ func cosmosStartNewApplication(t *testing.T, cfgs ...chainlink.RawConfig) *cltes
 	})
 }
 
-func TestShell_IndexCosmosNodes(t *testing.T) {
+func TestUnit_Shell_IndexCosmosNodes(t *testing.T) {
 	t.Parallel()
 
 	chainID := cosmostest.RandomChainID()
@@ -74,7 +74,7 @@ func starknetStartNewApplication(t *testing.T, cfgs ...chainlink.RawConfig) *clt
 	})
 }
 
-func TestShell_IndexStarkNetNodes(t *testing.T) {
+func TestUnit_Shell_IndexStarkNetNodes(t *testing.T) {
 	t.Parallel()
 
 	id := "starknet chain ID"

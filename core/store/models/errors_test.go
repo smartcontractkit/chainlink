@@ -9,7 +9,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/store/models"
 )
 
-func TestNewJSONAPIErrors(t *testing.T) {
+func TestUnit_NewJSONAPIErrors(t *testing.T) {
 	t.Parallel()
 
 	res := models.NewJSONAPIErrors()
@@ -18,7 +18,7 @@ func TestNewJSONAPIErrors(t *testing.T) {
 	require.Empty(t, res.Errors)
 }
 
-func TestNewJSONAPIErrorsWith(t *testing.T) {
+func TestUnit_NewJSONAPIErrorsWith(t *testing.T) {
 	t.Parallel()
 
 	res := models.NewJSONAPIErrorsWith("foo")
@@ -28,7 +28,7 @@ func TestNewJSONAPIErrorsWith(t *testing.T) {
 	require.Equal(t, "foo", res.Errors[0].Detail)
 }
 
-func TestJSONAPIErrors_Error(t *testing.T) {
+func TestUnit_JSONAPIErrors_Error(t *testing.T) {
 	t.Parallel()
 
 	res := models.NewJSONAPIErrorsWith("foo")
@@ -39,7 +39,7 @@ func TestJSONAPIErrors_Error(t *testing.T) {
 	require.Equal(t, "foo,bar", res.Error())
 }
 
-func TestJSONAPIErrors_CoerceEmptyToNil(t *testing.T) {
+func TestUnit_JSONAPIErrors_CoerceEmptyToNil(t *testing.T) {
 	t.Parallel()
 
 	res := models.NewJSONAPIErrors()
@@ -55,7 +55,7 @@ func TestJSONAPIErrors_CoerceEmptyToNil(t *testing.T) {
 	require.Equal(t, res, err)
 }
 
-func TestJSONAPIErrors_Merge(t *testing.T) {
+func TestUnit_JSONAPIErrors_Merge(t *testing.T) {
 	t.Parallel()
 
 	res1 := models.NewJSONAPIErrorsWith("foo")

@@ -22,7 +22,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
 
-func TestLogEventProvider_GetFilters(t *testing.T) {
+func TestUnit_LogEventProvider_GetFilters(t *testing.T) {
 	p := NewLogProvider(logger.TestLogger(t), nil, big.NewInt(1), &mockedPacker{}, NewUpkeepFilterStore(), NewOptions(200, big.NewInt(1)))
 
 	_, f := newEntry(p, 1)
@@ -64,7 +64,7 @@ func TestLogEventProvider_GetFilters(t *testing.T) {
 	})
 }
 
-func TestLogEventProvider_UpdateEntriesLastPoll(t *testing.T) {
+func TestUnit_LogEventProvider_UpdateEntriesLastPoll(t *testing.T) {
 	p := NewLogProvider(logger.TestLogger(t), nil, big.NewInt(1), &mockedPacker{}, NewUpkeepFilterStore(), NewOptions(200, big.NewInt(1)))
 
 	n := 10
@@ -108,7 +108,7 @@ func TestLogEventProvider_UpdateEntriesLastPoll(t *testing.T) {
 	})
 }
 
-func TestLogEventProvider_ScheduleReadJobs(t *testing.T) {
+func TestUnit_LogEventProvider_ScheduleReadJobs(t *testing.T) {
 	mp := new(mocks.LogPoller)
 
 	tests := []struct {
@@ -238,7 +238,7 @@ func TestLogEventProvider_ScheduleReadJobs(t *testing.T) {
 	}
 }
 
-func TestLogEventProvider_ReadLogs(t *testing.T) {
+func TestUnit_LogEventProvider_ReadLogs(t *testing.T) {
 	ctx := testutils.Context(t)
 
 	mp := new(mocks.LogPoller)
@@ -316,7 +316,7 @@ func remainingBlockWindowCounts(queues map[string]*upkeepLogQueue, blockRate int
 	return blockWindowCounts
 }
 
-func TestLogEventProvider_GetLatestPayloads(t *testing.T) {
+func TestUnit_LogEventProvider_GetLatestPayloads(t *testing.T) {
 	t.Run("dequeuing from an empty buffer returns 0 logs", func(t *testing.T) {
 		opts := NewOptions(200, big.NewInt(42161))
 

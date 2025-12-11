@@ -9,7 +9,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/internal"
 )
 
-func TestNew(t *testing.T) {
+func TestUnit_New(t *testing.T) {
 	key, err := New()
 	require.NoError(t, err)
 
@@ -18,7 +18,7 @@ func TestNew(t *testing.T) {
 	assert.Equal(t, key.ID(), key.PublicKeyString())
 }
 
-func TestPublicKey(t *testing.T) {
+func TestUnit_PublicKey(t *testing.T) {
 	key, err := New()
 	require.NoError(t, err)
 
@@ -27,7 +27,7 @@ func TestPublicKey(t *testing.T) {
 	assert.Len(t, pubKey, 33)
 }
 
-func TestPublicKeyString(t *testing.T) {
+func TestUnit_PublicKeyString(t *testing.T) {
 	key, err := New()
 	require.NoError(t, err)
 
@@ -36,7 +36,7 @@ func TestPublicKeyString(t *testing.T) {
 	assert.Len(t, pubKeyStr, 66)
 }
 
-func TestECDH(t *testing.T) {
+func TestUnit_ECDH(t *testing.T) {
 	key1, err := New()
 	require.NoError(t, err)
 
@@ -53,7 +53,7 @@ func TestECDH(t *testing.T) {
 	assert.NotEmpty(t, secret1)
 }
 
-func TestRaw(t *testing.T) {
+func TestUnit_Raw(t *testing.T) {
 	key, err := New()
 	require.NoError(t, err)
 
@@ -67,7 +67,7 @@ func TestRaw(t *testing.T) {
 	assert.Equal(t, key.PublicKeyString(), key2.PublicKeyString())
 }
 
-func TestKeyUniqueness(t *testing.T) {
+func TestUnit_KeyUniqueness(t *testing.T) {
 	key1, err := New()
 	require.NoError(t, err)
 

@@ -56,7 +56,7 @@ func makePipelineWithMultipleStreamResults(streamIDs []streams.StreamID, results
 	}
 }
 
-func TestObservationContext_Observe(t *testing.T) {
+func TestUnit_ObservationContext_Observe(t *testing.T) {
 	ctx := t.Context()
 	r := &mockRegistry{}
 	telem := &mockTelemeter{}
@@ -141,7 +141,7 @@ func TestObservationContext_Observe(t *testing.T) {
 	})
 }
 
-func TestObservationContext_Observe_concurrencyStressTest(t *testing.T) {
+func TestUnit_ObservationContext_Observe_concurrencyStressTest(t *testing.T) {
 	ctx := t.Context()
 	r := &mockRegistry{}
 	telem := &mockTelemeter{}
@@ -216,7 +216,7 @@ func createBridge(t testing.TB, name string, val string, borm bridges.ORM, maxCa
 	}))
 }
 
-func TestObservationContext_Observe_integrationRealPipeline(t *testing.T) {
+func TestUnit_ObservationContext_Observe_integrationRealPipeline(t *testing.T) {
 	ctx := t.Context()
 	lggr := logger.TestLogger(t)
 	db := pgtest.NewSqlxDB(t)

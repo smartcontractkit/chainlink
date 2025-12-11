@@ -20,7 +20,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr"
 )
 
-func Test_DB_ReadWriteState(t *testing.T) {
+func TestUnit_DB_ReadWriteState(t *testing.T) {
 	db := pgtest.NewSqlxDB(t)
 
 	configDigest := cltest.MakeConfigDigest(t)
@@ -101,7 +101,7 @@ func Test_DB_ReadWriteState(t *testing.T) {
 	})
 }
 
-func Test_DB_ReadWriteConfig(t *testing.T) {
+func TestUnit_DB_ReadWriteConfig(t *testing.T) {
 	db := pgtest.NewSqlxDB(t)
 	sqlDB := db
 
@@ -182,7 +182,7 @@ func assertPendingTransmissionEqual(t *testing.T, pt1, pt2 ocrtypes.PendingTrans
 	}
 }
 
-func Test_DB_PendingTransmissions(t *testing.T) {
+func TestUnit_DB_PendingTransmissions(t *testing.T) {
 	db := pgtest.NewSqlxDB(t)
 	sqlDB := db
 	ethKeyStore := cltest.NewKeyStore(t, db).Eth()
@@ -386,7 +386,7 @@ func Test_DB_PendingTransmissions(t *testing.T) {
 	})
 }
 
-func Test_DB_LatestRoundRequested(t *testing.T) {
+func TestUnit_DB_LatestRoundRequested(t *testing.T) {
 	db := pgtest.NewSqlxDB(t)
 	sqlDB := db
 

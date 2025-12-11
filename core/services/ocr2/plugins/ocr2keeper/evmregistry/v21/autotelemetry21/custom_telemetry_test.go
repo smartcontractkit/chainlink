@@ -18,7 +18,7 @@ import (
 // const blockSize = int64(4)
 const finality = uint32(4)
 
-func TestNewAutomationCustomTelemetryService(t *testing.T) {
+func TestUnit_NewAutomationCustomTelemetryService(t *testing.T) {
 	me := &MockMonitoringEndpoint{}
 	lggr := logger.TestLogger(t)
 	var hb heads.Broadcaster

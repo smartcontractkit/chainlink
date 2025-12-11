@@ -29,7 +29,7 @@ func observedFieldElt(t *testing.T, s *fieldElt) {
 
 var randomStream = cryptotest.NewStream(&testing.T{}, 0)
 
-func TestField_SetIntAndEqual(t *testing.T) {
+func TestUnit_Field_SetIntAndEqual(t *testing.T) {
 	tests := []int64{5, 67108864, 67108865, 4294967295}
 	g := newFieldZero()
 	for _, test := range tests {
@@ -45,17 +45,17 @@ func TestField_SetIntAndEqual(t *testing.T) {
 	}
 }
 
-func TestField_String(t *testing.T) {
+func TestUnit_Field_String(t *testing.T) {
 	require.Equal(t, "fieldElt{0}", fieldZero.String())
 }
 
-func TestField_Equal(t *testing.T) {
+func TestUnit_Field_Equal(t *testing.T) {
 	require.True(t, (*fieldElt)(nil).Equal((*fieldElt)(nil)))
 	require.False(t, (*fieldElt)(nil).Equal(fieldZero))
 	require.False(t, fieldZero.Equal((*fieldElt)(nil)))
 }
 
-func TestField_Set(t *testing.T) {
+func TestUnit_Field_Set(t *testing.T) {
 	f := fieldEltFromInt(1)
 	g := newFieldZero()
 	g.Set(f)
@@ -64,13 +64,13 @@ func TestField_Set(t *testing.T) {
 		"Set takes a copy of the backing big.Int")
 }
 
-func TestFieldEltFromInt(t *testing.T) {
+func TestUnit_FieldEltFromInt(t *testing.T) {
 	assert.Equal(t, fieldEltFromInt(1), // Also tests fieldElt.modQ
 		fieldEltFromBigInt(new(big.Int).Add(q, big.NewInt(1))),
 		"only one representation of a ℤ/qℤ element should be used")
 }
 
-func TestField_SmokeTestPick(t *testing.T) {
+func TestUnit_Field_SmokeTestPick(t *testing.T) {
 	f := newFieldZero()
 	f.Pick(randomStream)
 	observedFieldElt(t, f)
@@ -78,7 +78,7 @@ func TestField_SmokeTestPick(t *testing.T) {
 		"should be greater than 1000000000, with very high probability")
 }
 
-func TestField_Neg(t *testing.T) {
+func TestUnit_Field_Neg(t *testing.T) {
 	f := newFieldZero()
 	for range numFieldSamples {
 		f.Pick(randomStream)
@@ -91,7 +91,7 @@ func TestField_Neg(t *testing.T) {
 	}
 }
 
-func TestField_Sub(t *testing.T) {
+func TestUnit_Field_Sub(t *testing.T) {
 	f := newFieldZero()
 	for range numFieldSamples {
 		f.Pick(randomStream)
@@ -102,7 +102,7 @@ func TestField_Sub(t *testing.T) {
 	}
 }
 
-func TestField_Clone(t *testing.T) {
+func TestUnit_Field_Clone(t *testing.T) {
 	f := fieldEltFromInt(1)
 	g := f.Clone()
 	h := f.Clone()
@@ -111,7 +111,7 @@ func TestField_Clone(t *testing.T) {
 	assert.Equal(t, f, h, "clone does not make a copy")
 }
 
-func TestField_SetBytesAndBytes(t *testing.T) {
+func TestUnit_Field_SetBytesAndBytes(t *testing.T) {
 	f := newFieldZero()
 	g := newFieldZero()
 	for range numFieldSamples {
@@ -124,7 +124,7 @@ func TestField_SetBytesAndBytes(t *testing.T) {
 	}
 }
 
-func TestField_MaybeSquareRootInField(t *testing.T) {
+func TestUnit_Field_MaybeSquareRootInField(t *testing.T) {
 	f := newFieldZero()
 	minusOne := fieldEltFromInt(-1)
 	assert.Nil(t, maybeSqrtInField(minusOne), "-1 is not a square, in this field")
@@ -152,7 +152,7 @@ func TestField_MaybeSquareRootInField(t *testing.T) {
 	}
 }
 
-func TestField_RightHandSide(t *testing.T) {
+func TestUnit_Field_RightHandSide(t *testing.T) {
 	assert.Equal(t, rightHandSide(fieldEltFromInt(1)), fieldEltFromInt(8))
 	assert.Equal(t, rightHandSide(fieldEltFromInt(2)), fieldEltFromInt(15))
 }

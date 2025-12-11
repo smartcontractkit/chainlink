@@ -33,7 +33,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evmregistry/v21/logprovider"
 )
 
-func TestMercuryConfig_RemoveTrailingSlash(t *testing.T) {
+func TestUnit_MercuryConfig_RemoveTrailingSlash(t *testing.T) {
 	tests := []struct {
 		Name      string
 		URL       string
@@ -76,7 +76,7 @@ func TestMercuryConfig_RemoveTrailingSlash(t *testing.T) {
 	}
 }
 
-func TestPollLogs(t *testing.T) {
+func TestUnit_PollLogs(t *testing.T) {
 	tests := []struct {
 		Name             string
 		LastPoll         int64
@@ -244,7 +244,7 @@ func TestPollLogs(t *testing.T) {
 	}
 }
 
-func TestRegistry_refreshLogTriggerUpkeeps(t *testing.T) {
+func TestUnit_Registry_refreshLogTriggerUpkeeps(t *testing.T) {
 	for _, tc := range []struct {
 		name             string
 		ids              []*big.Int

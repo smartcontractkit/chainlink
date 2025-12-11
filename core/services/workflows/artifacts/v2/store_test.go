@@ -42,7 +42,7 @@ func (m *mockFetcher) RetrieveURL(ctx context.Context, req *storage_service.Down
 	return string(m.responseMap[req.Id+"-"+req.Type.String()].Body), m.responseMap[req.Id+"-"+req.Type.String()].Err
 }
 
-func Test_Store_DeleteWorkflowArtifacts(t *testing.T) {
+func TestUnit_Store_DeleteWorkflowArtifacts(t *testing.T) {
 	lggr := logger.TestLogger(t)
 	db := pgtest.NewSqlxDB(t)
 	orm := &orm{ds: db, lggr: lggr}
@@ -93,7 +93,7 @@ func Test_Store_DeleteWorkflowArtifacts(t *testing.T) {
 	require.ErrorIs(t, err, sql.ErrNoRows)
 }
 
-func Test_Store_FetchWorkflowArtifacts_WithStorage(t *testing.T) {
+func TestUnit_Store_FetchWorkflowArtifacts_WithStorage(t *testing.T) {
 	lggr := logger.TestLogger(t)
 	db := pgtest.NewSqlxDB(t)
 	orm := &orm{ds: db, lggr: lggr}
@@ -140,7 +140,7 @@ func Test_Store_FetchWorkflowArtifacts_WithStorage(t *testing.T) {
 	require.Equal(t, []byte(configData), config)
 }
 
-func Test_Store_FetchWorkflowArtifacts_WithoutStorage(t *testing.T) {
+func TestUnit_Store_FetchWorkflowArtifacts_WithoutStorage(t *testing.T) {
 	lggr := logger.TestLogger(t)
 	db := pgtest.NewSqlxDB(t)
 	orm := &orm{ds: db, lggr: lggr}
@@ -183,7 +183,7 @@ func Test_Store_FetchWorkflowArtifacts_WithoutStorage(t *testing.T) {
 	require.Equal(t, []byte(configData), config)
 }
 
-func Test_Store_FetchWorkflowArtifacts_SkipsRetrieving(t *testing.T) {
+func TestUnit_Store_FetchWorkflowArtifacts_SkipsRetrieving(t *testing.T) {
 	lggr := logger.TestLogger(t)
 	db := pgtest.NewSqlxDB(t)
 	orm := &orm{ds: db, lggr: lggr}

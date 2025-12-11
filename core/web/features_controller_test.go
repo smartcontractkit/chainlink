@@ -15,7 +15,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func Test_FeaturesController_List(t *testing.T) {
+func TestUnit_FeaturesController_List(t *testing.T) {
 	app := cltest.NewApplicationWithConfig(t, configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
 		csa := true
 		c.Feature.UICSAKeys = &csa

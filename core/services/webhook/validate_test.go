@@ -16,7 +16,7 @@ import (
 	webhookmocks "github.com/smartcontractkit/chainlink/v2/core/services/webhook/mocks"
 )
 
-func TestValidatedWebJobSpec(t *testing.T) {
+func TestUnit_ValidatedWebJobSpec(t *testing.T) {
 	t.Parallel()
 	var tt = []struct {
 		name      string

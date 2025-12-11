@@ -47,7 +47,7 @@ var (
 	}
 )
 
-func TestUnmarshalBytes(t *testing.T) {
+func TestUnit_UnmarshalBytes(t *testing.T) {
 	for _, test := range unmarshalBytesTests {
 		var v PlainHexBytes
 		err := json.Unmarshal([]byte(test.input), &v)
@@ -61,7 +61,7 @@ func TestUnmarshalBytes(t *testing.T) {
 	}
 }
 
-func TestMarshalBytes(t *testing.T) {
+func TestUnit_MarshalBytes(t *testing.T) {
 	for _, test := range encodeBytesTests {
 		in := test.input.([]byte)
 		out, err := json.Marshal(PlainHexBytes(in))

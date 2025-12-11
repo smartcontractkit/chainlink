@@ -32,7 +32,7 @@ const (
 	workflowOwnerID      = "0xAA"
 )
 
-func Test_Client_DonTopologies(t *testing.T) {
+func TestUnit_Client_DonTopologies(t *testing.T) {
 	tests.SkipFlakey(t, "https://smartcontract-it.atlassian.net/browse/CAPPL-322")
 
 	ctx := testutils.Context(t)
@@ -83,7 +83,7 @@ func Test_Client_DonTopologies(t *testing.T) {
 	}
 }
 
-func Test_Client_TransmissionSchedules(t *testing.T) {
+func TestUnit_Client_TransmissionSchedules(t *testing.T) {
 	tests.SkipFlakey(t, "https://smartcontract-it.atlassian.net/browse/DX-104")
 	ctx := testutils.Context(t)
 
@@ -143,7 +143,7 @@ func Test_Client_TransmissionSchedules(t *testing.T) {
 		})
 }
 
-func Test_Client_TimesOutIfInsufficientCapabilityPeerResponses(t *testing.T) {
+func TestUnit_Client_TimesOutIfInsufficientCapabilityPeerResponses(t *testing.T) {
 	ctx := testutils.Context(t)
 
 	responseTest := func(t *testing.T, response commoncap.CapabilityResponse, responseError error) {
@@ -170,7 +170,7 @@ func Test_Client_TimesOutIfInsufficientCapabilityPeerResponses(t *testing.T) {
 		})
 }
 
-func Test_Client_ContextCanceledBeforeQuorumReached(t *testing.T) {
+func TestUnit_Client_ContextCanceledBeforeQuorumReached(t *testing.T) {
 	ctx, cancel := context.WithCancel(testutils.Context(t))
 
 	responseTest := func(t *testing.T, response commoncap.CapabilityResponse, responseError error) {
@@ -371,7 +371,7 @@ func (t *clientTestServer) sendResponse(messageID string, responseErr error,
 	}
 }
 
-func TestClient_SetConfig(t *testing.T) {
+func TestUnit_Client_SetConfig(t *testing.T) {
 	lggr := logger.Test(t)
 	capabilityID := "test_capability@1.0.0"
 
@@ -460,7 +460,7 @@ func TestClient_SetConfig(t *testing.T) {
 	})
 }
 
-func TestClient_SetConfig_StartClose(t *testing.T) {
+func TestUnit_Client_SetConfig_StartClose(t *testing.T) {
 	ctx := testutils.Context(t)
 	lggr := logger.Test(t)
 	capabilityID := "test_capability@1.0.0"

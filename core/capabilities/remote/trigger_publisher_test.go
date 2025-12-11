@@ -20,7 +20,7 @@ import (
 
 const capID = "cap_id@1"
 
-func TestTriggerPublisher_Register(t *testing.T) {
+func TestUnit_TriggerPublisher_Register(t *testing.T) {
 	ctx := testutils.Context(t)
 	capabilityDONID, workflowDONID := uint32(1), uint32(2)
 
@@ -41,7 +41,7 @@ func TestTriggerPublisher_Register(t *testing.T) {
 	require.NoError(t, publisher.Close())
 }
 
-func TestTriggerPublisher_ReceiveTriggerEvents_NoBatching(t *testing.T) {
+func TestUnit_TriggerPublisher_ReceiveTriggerEvents_NoBatching(t *testing.T) {
 	ctx := testutils.Context(t)
 	capabilityDONID, workflowDONID := uint32(1), uint32(2)
 
@@ -61,7 +61,7 @@ func TestTriggerPublisher_ReceiveTriggerEvents_NoBatching(t *testing.T) {
 	require.NoError(t, publisher.Close())
 }
 
-func TestTriggerPublisher_ReceiveTriggerEvents_BatchingEnabled(t *testing.T) {
+func TestUnit_TriggerPublisher_ReceiveTriggerEvents_BatchingEnabled(t *testing.T) {
 	ctx := testutils.Context(t)
 	capabilityDONID, workflowDONID := uint32(1), uint32(2)
 
@@ -99,7 +99,7 @@ func TestTriggerPublisher_ReceiveTriggerEvents_BatchingEnabled(t *testing.T) {
 	require.NoError(t, publisher.Close())
 }
 
-func TestTriggerPublisher_SetConfig_Basic(t *testing.T) {
+func TestUnit_TriggerPublisher_SetConfig_Basic(t *testing.T) {
 	t.Parallel()
 	lggr := logger.Test(t)
 	capInfo := commoncap.CapabilityInfo{

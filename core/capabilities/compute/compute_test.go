@@ -91,7 +91,7 @@ func setup(t *testing.T, config Config) testHarness {
 	}
 }
 
-func TestComputeStartAddsToRegistry(t *testing.T) {
+func TestUnit_ComputeStartAddsToRegistry(t *testing.T) {
 	th := setup(t, defaultConfig)
 
 	require.NoError(t, th.compute.Start(t.Context()))
@@ -105,7 +105,7 @@ func TestComputeStartAddsToRegistry(t *testing.T) {
 	assert.Equal(t, th.compute, *loader.Load())
 }
 
-func TestComputeExecuteMissingConfig(t *testing.T) {
+func TestUnit_ComputeExecuteMissingConfig(t *testing.T) {
 	t.Parallel()
 	th := setup(t, defaultConfig)
 	require.NoError(t, th.compute.Start(t.Context()))
@@ -127,7 +127,7 @@ func TestComputeExecuteMissingConfig(t *testing.T) {
 	assert.ErrorContains(t, err, "invalid request: could not find \"config\" in map")
 }
 
-func TestComputeExecuteMissingBinary(t *testing.T) {
+func TestUnit_ComputeExecuteMissingBinary(t *testing.T) {
 	th := setup(t, defaultConfig)
 
 	require.NoError(t, th.compute.Start(t.Context()))
@@ -147,7 +147,7 @@ func TestComputeExecuteMissingBinary(t *testing.T) {
 	assert.ErrorContains(t, err, "invalid request: could not find \"binary\" in map")
 }
 
-func TestComputeExecute(t *testing.T) {
+func TestUnit_ComputeExecute(t *testing.T) {
 	t.Parallel()
 	th := setup(t, defaultConfig)
 
@@ -206,7 +206,7 @@ func TestComputeExecute(t *testing.T) {
 	assert.Less(t, spendValue, uint64(400))
 }
 
-func TestComputeFetch(t *testing.T) {
+func TestUnit_ComputeFetch(t *testing.T) {
 	t.Parallel()
 	workflowID := "15c631d295ef5e32deb99a10ee6804bc4af13855687559d7ff6552ac6dbb2ce0"
 	workflowExecutionID := "95ef5e32deb99a10ee6804bc4af13855687559d7ff6552ac6dbb2ce0abbadeed"
@@ -297,7 +297,7 @@ func TestComputeFetch(t *testing.T) {
 	assert.Less(t, spendValue, uint64(400))
 }
 
-func TestCompute_SpendValueRelativeToComputeTime(t *testing.T) {
+func TestUnit_Compute_SpendValueRelativeToComputeTime(t *testing.T) {
 	t.Parallel()
 
 	// because we are using ms precision and test overhead can result in variance, we use a range of 400ms
@@ -381,7 +381,7 @@ func TestCompute_SpendValueRelativeToComputeTime(t *testing.T) {
 	}
 }
 
-func TestComputeFetchMaxResponseSizeBytes(t *testing.T) {
+func TestUnit_ComputeFetchMaxResponseSizeBytes(t *testing.T) {
 	t.Parallel()
 	workflowID := "15c631d295ef5e32deb99a10ee6804bc4af13855687559d7ff6552ac6dbb2ce0"
 	workflowExecutionID := "95ef5e32deb99a10ee6804bc4af13855687559d7ff6552ac6dbb2ce0abbadeed"

@@ -13,7 +13,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 )
 
-func TestGetChainFromSpec(t *testing.T) {
+func TestUnit_GetChainFromSpec(t *testing.T) {
 	testChainID := int64(1337)
 
 	tests := []struct {
@@ -60,7 +60,7 @@ func TestGetChainFromSpec(t *testing.T) {
 	}
 }
 
-func TestGetChainByChainSelector_success(t *testing.T) {
+func TestUnit_GetChainByChainSelector_success(t *testing.T) {
 	mockChain := mocks.NewChain(t)
 	mockChain.On("ID").Return(big.NewInt(11155111))
 
@@ -74,14 +74,14 @@ func TestGetChainByChainSelector_success(t *testing.T) {
 	require.Equal(t, int64(11155111), chainID)
 }
 
-func TestGetChainByChainSelector_selectorNotFound(t *testing.T) {
+func TestUnit_GetChainByChainSelector_selectorNotFound(t *testing.T) {
 	mockChainSet := mocks.NewLegacyChainContainer(t)
 
 	_, _, err := GetChainByChainSelector(mockChainSet, uint64(444000444))
 	require.Error(t, err)
 }
 
-func TestGetChainById_notFound(t *testing.T) {
+func TestUnit_GetChainById_notFound(t *testing.T) {
 	mockChainSet := mocks.NewLegacyChainContainer(t)
 	mockChainSet.On("Get", "444").Return(nil, errors.New("test")).Maybe()
 
@@ -90,7 +90,7 @@ func TestGetChainById_notFound(t *testing.T) {
 	require.Contains(t, err.Error(), "chain not found in chainset")
 }
 
-func TestResolveChainNames(t *testing.T) {
+func TestUnit_ResolveChainNames(t *testing.T) {
 	tests := []struct {
 		name                    string
 		sourceChainId           int64

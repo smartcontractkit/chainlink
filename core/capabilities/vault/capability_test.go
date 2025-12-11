@@ -29,7 +29,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
 
-func TestCapability_CapabilityCall(t *testing.T) {
+func TestUnit_Capability_CapabilityCall(t *testing.T) {
 	lggr := logger.TestLogger(t)
 	clock := clockwork.NewFakeClock()
 	expiry := 10 * time.Second
@@ -127,7 +127,7 @@ func TestCapability_CapabilityCall(t *testing.T) {
 	assert.True(t, proto.Equal(expectedResponse, typedResponse))
 }
 
-func TestCapability_CapabilityCall_DuringSubscriptionPhase(t *testing.T) {
+func TestUnit_Capability_CapabilityCall_DuringSubscriptionPhase(t *testing.T) {
 	lggr := logger.TestLogger(t)
 	clock := clockwork.NewFakeClock()
 	expiry := 10 * time.Second
@@ -224,7 +224,7 @@ func TestCapability_CapabilityCall_DuringSubscriptionPhase(t *testing.T) {
 	assert.True(t, proto.Equal(expectedResponse, typedResponse))
 }
 
-func TestCapability_CapabilityCall_ReturnsIncorrectType(t *testing.T) {
+func TestUnit_Capability_CapabilityCall_ReturnsIncorrectType(t *testing.T) {
 	lggr := logger.TestLogger(t)
 	clock := clockwork.NewFakeClock()
 	expiry := 10 * time.Second
@@ -299,7 +299,7 @@ func TestCapability_CapabilityCall_ReturnsIncorrectType(t *testing.T) {
 	assert.ErrorContains(t, err, "cannot parse invalid wire-format data")
 }
 
-func TestCapability_CapabilityCall_TimeOut(t *testing.T) {
+func TestUnit_Capability_CapabilityCall_TimeOut(t *testing.T) {
 	lggr := logger.TestLogger(t)
 	fakeClock := clockwork.NewFakeClock()
 	expiry := 10 * time.Second
@@ -370,7 +370,7 @@ func TestCapability_CapabilityCall_TimeOut(t *testing.T) {
 	assert.ErrorContains(t, err, "timeout exceeded")
 }
 
-func TestCapability_CRUD(t *testing.T) {
+func TestUnit_Capability_CRUD(t *testing.T) {
 	owner := "0x0001020304050607080900010203040506070809"
 	requestID := owner + "::" + "test-request-id"
 	sid := &vault.SecretIdentifier{
@@ -1072,7 +1072,7 @@ func TestCapability_CRUD(t *testing.T) {
 	}
 }
 
-func TestCapability_Lifecycle(t *testing.T) {
+func TestUnit_Capability_Lifecycle(t *testing.T) {
 	lggr := logger.TestLogger(t)
 	clock := clockwork.NewFakeClock()
 	expiry := 10 * time.Second
@@ -1104,7 +1104,7 @@ func TestCapability_Lifecycle(t *testing.T) {
 	require.Nil(t, loader.Load())
 }
 
-func TestCapability_PublicKeyGet(t *testing.T) {
+func TestUnit_Capability_PublicKeyGet(t *testing.T) {
 	lggr := logger.TestLogger(t)
 	clock := clockwork.NewFakeClock()
 	expiry := 10 * time.Second

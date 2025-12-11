@@ -22,7 +22,7 @@ const (
 )
 
 // Verify that cache evicts an expired module.
-func TestCache(t *testing.T) {
+func TestUnit_Cache(t *testing.T) {
 	tests.SkipFlakey(t, "https://smartcontract-it.atlassian.net/browse/DX-558")
 
 	t.Parallel()
@@ -63,7 +63,7 @@ func TestCache(t *testing.T) {
 }
 
 // Verify that an expired module is not evicted because evictAfterSize is 1
-func TestCache_EvictAfterSize(t *testing.T) {
+func TestUnit_Cache_EvictAfterSize(t *testing.T) {
 	t.Parallel()
 	clock := clockwork.NewFakeClock()
 	tick := 1 * time.Second
@@ -106,7 +106,7 @@ func TestCache_EvictAfterSize(t *testing.T) {
 	assert.True(t, ok)
 }
 
-func TestCache_AddDuplicatedModule(t *testing.T) {
+func TestUnit_Cache_AddDuplicatedModule(t *testing.T) {
 	tests.SkipFlakey(t, "https://smartcontract-it.atlassian.net/browse/DX-574")
 
 	t.Parallel()

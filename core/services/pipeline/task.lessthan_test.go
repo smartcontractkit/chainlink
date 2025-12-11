@@ -12,7 +12,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
 )
 
-func TestLessThanTask_Happy(t *testing.T) {
+func TestUnit_LessThanTask_Happy(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
@@ -102,7 +102,7 @@ func TestLessThanTask_Happy(t *testing.T) {
 	}
 }
 
-func TestLessThanTask_Unhappy(t *testing.T) {
+func TestUnit_LessThanTask_Unhappy(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {

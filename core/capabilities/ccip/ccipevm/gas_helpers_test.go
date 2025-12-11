@@ -12,7 +12,7 @@ import (
 	"github.com/smartcontractkit/chainlink-ccip/pkg/types/ccipocr3"
 )
 
-func Test_calculateMessageMaxGas(t *testing.T) {
+func TestUnit_calculateMessageMaxGas(t *testing.T) {
 	type args struct {
 		dataLen          int
 		numTokens        int
@@ -90,7 +90,7 @@ func Test_calculateMessageMaxGas(t *testing.T) {
 
 // TestCalculateMaxGas is taken from the ccip repo where the CalculateMerkleTreeGas and CalculateMessageMaxGas values
 // are combined to one function.
-func TestCalculateMaxGas(t *testing.T) {
+func TestUnit_CalculateMaxGas(t *testing.T) {
 	tests := []struct {
 		name             string
 		numRequests      int

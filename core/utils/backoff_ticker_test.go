@@ -8,7 +8,7 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func TestBackoffTicker_Bounds(t *testing.T) {
+func TestUnit_BackoffTicker_Bounds(t *testing.T) {
 	t.Parallel()
 
 	bt := NewBackoffTicker(1*time.Millisecond, 2*time.Second)
@@ -17,7 +17,7 @@ func TestBackoffTicker_Bounds(t *testing.T) {
 	assert.Equal(t, 2*time.Second, max)
 }
 
-func TestBackoffTicker_StartTwice(t *testing.T) {
+func TestUnit_BackoffTicker_StartTwice(t *testing.T) {
 	t.Parallel()
 
 	bt := NewBackoffTicker(1*time.Second, 10*time.Second)
@@ -30,7 +30,7 @@ func TestBackoffTicker_StartTwice(t *testing.T) {
 	assert.False(t, ok)
 }
 
-func TestBackoffTicker_StopTwice(t *testing.T) {
+func TestUnit_BackoffTicker_StopTwice(t *testing.T) {
 	t.Parallel()
 
 	bt := NewBackoffTicker(1*time.Second, 10*time.Second)
@@ -44,7 +44,7 @@ func TestBackoffTicker_StopTwice(t *testing.T) {
 	assert.False(t, ok)
 }
 
-func TestBackoffTicker_NoTicksAfterStop(t *testing.T) {
+func TestUnit_BackoffTicker_NoTicksAfterStop(t *testing.T) {
 	t.Parallel()
 
 	min := 100 * time.Millisecond
@@ -77,7 +77,7 @@ func TestBackoffTicker_NoTicksAfterStop(t *testing.T) {
 	}
 }
 
-func TestBackoffTicker_Ticks(t *testing.T) {
+func TestUnit_BackoffTicker_Ticks(t *testing.T) {
 	t.Parallel()
 
 	min := 100 * time.Millisecond
@@ -122,7 +122,7 @@ func TestBackoffTicker_Ticks(t *testing.T) {
 	}
 }
 
-func TestBackoffTicker_Restart(t *testing.T) {
+func TestUnit_BackoffTicker_Restart(t *testing.T) {
 	t.Parallel()
 
 	min := 1 * time.Second

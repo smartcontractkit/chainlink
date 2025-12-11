@@ -11,7 +11,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 )
 
-func TestLocalRegistry_DONsForCapability(t *testing.T) {
+func TestUnit_LocalRegistry_DONsForCapability(t *testing.T) {
 	lggr := logger.Test(t)
 	getPeerID := func() (types.PeerID, error) {
 		return [32]byte{0: 1}, nil

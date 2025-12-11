@@ -7,7 +7,7 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func TestBestEffortExtractEAStatus(t *testing.T) {
+func TestUnit_BestEffortExtractEAStatus(t *testing.T) {
 	tests := []struct {
 		name       string
 		arg        []byte

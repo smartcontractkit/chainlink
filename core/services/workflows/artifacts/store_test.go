@@ -26,7 +26,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func Test_Handler_SecretsFor(t *testing.T) {
+func TestUnit_Handler_SecretsFor(t *testing.T) {
 	lggr := logger.TestLogger(t)
 	db := pgtest.NewSqlxDB(t)
 	orm := &orm{ds: db, lggr: lggr}
@@ -86,7 +86,7 @@ func Test_Handler_SecretsFor(t *testing.T) {
 	assert.Equal(t, expectedSecrets, gotSecrets)
 }
 
-func Test_Handler_SecretsFor_RefreshesSecrets(t *testing.T) {
+func TestUnit_Handler_SecretsFor_RefreshesSecrets(t *testing.T) {
 	lggr := logger.TestLogger(t)
 	db := pgtest.NewSqlxDB(t)
 	orm := &orm{ds: db, lggr: lggr}
@@ -151,7 +151,7 @@ func Test_Handler_SecretsFor_RefreshesSecrets(t *testing.T) {
 	assert.Equal(t, expectedSecrets, gotSecrets)
 }
 
-func Test_Handler_SecretsFor_RefreshLogic(t *testing.T) {
+func TestUnit_Handler_SecretsFor_RefreshLogic(t *testing.T) {
 	lggr := logger.TestLogger(t)
 	db := pgtest.NewSqlxDB(t)
 	orm := &orm{ds: db, lggr: lggr}

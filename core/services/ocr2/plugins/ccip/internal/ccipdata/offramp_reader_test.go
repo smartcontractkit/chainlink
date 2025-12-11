@@ -40,7 +40,7 @@ type offRampReaderTH struct {
 	reader ccipdata.OffRampReader
 }
 
-func TestExecOnchainConfig120(t *testing.T) {
+func TestUnit_ExecOnchainConfig120(t *testing.T) {
 	tests := []struct {
 		name      string
 		want      v1_2_0.ExecOnchainConfig
@@ -82,7 +82,7 @@ func TestExecOnchainConfig120(t *testing.T) {
 	}
 }
 
-func TestOffRampReaderInit(t *testing.T) {
+func TestUnit_OffRampReaderInit(t *testing.T) {
 	tests := []struct {
 		name    string
 		version string
@@ -285,7 +285,7 @@ func testOffRampReader(t *testing.T, th offRampReaderTH) {
 	require.NoError(t, err)
 }
 
-func TestNewOffRampReader(t *testing.T) {
+func TestUnit_NewOffRampReader(t *testing.T) {
 	var tt = []struct {
 		typeAndVersion string
 		expectedErr    string

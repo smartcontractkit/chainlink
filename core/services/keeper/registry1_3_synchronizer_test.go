@@ -93,7 +93,7 @@ func mockRegistry1_3(
 	}
 }
 
-func Test_LogListenerOpts1_3(t *testing.T) {
+func TestUnit_LogListenerOpts1_3(t *testing.T) {
 	db := pgtest.NewSqlxDB(t)
 	korm := keeper.NewORM(db, logger.TestLogger(t))
 	ethClient := clienttest.NewClientWithDefaultChainID(t)
@@ -122,7 +122,7 @@ func Test_LogListenerOpts1_3(t *testing.T) {
 	require.Contains(t, logListenerOpts.LogsWithTopics, registry1_3.KeeperRegistryUpkeepCheckDataUpdated{}.Topic(), "Registry should listen to KeeperRegistryUpkeepCheckDataUpdated log")
 }
 
-func Test_RegistrySynchronizer1_3_Start(t *testing.T) {
+func TestUnit_RegistrySynchronizer1_3_Start(t *testing.T) {
 	db, synchronizer, ethMock, _, job := setupRegistrySync(t, keeper.RegistryVersion_1_3)
 
 	contractAddress := job.KeeperSpec.ContractAddress.Address()
@@ -149,7 +149,7 @@ func Test_RegistrySynchronizer1_3_Start(t *testing.T) {
 	require.Error(t, err)
 }
 
-func Test_RegistrySynchronizer1_3_FullSync(t *testing.T) {
+func TestUnit_RegistrySynchronizer1_3_FullSync(t *testing.T) {
 	ctx := testutils.Context(t)
 	g := gomega.NewWithT(t)
 	db, synchronizer, ethMock, _, job := setupRegistrySync(t, keeper.RegistryVersion_1_3)
@@ -223,7 +223,7 @@ func Test_RegistrySynchronizer1_3_FullSync(t *testing.T) {
 	assertUpkeepIDs(t, db, []int64{69, 420, 2022})
 }
 
-func Test_RegistrySynchronizer1_3_ConfigSetLog(t *testing.T) {
+func TestUnit_RegistrySynchronizer1_3_ConfigSetLog(t *testing.T) {
 	ctx := testutils.Context(t)
 	db, synchronizer, ethMock, lb, job := setupRegistrySync(t, keeper.RegistryVersion_1_3)
 
@@ -275,7 +275,7 @@ func Test_RegistrySynchronizer1_3_ConfigSetLog(t *testing.T) {
 	cltest.AssertCount(t, db, "keeper_registries", 1)
 }
 
-func Test_RegistrySynchronizer1_3_KeepersUpdatedLog(t *testing.T) {
+func TestUnit_RegistrySynchronizer1_3_KeepersUpdatedLog(t *testing.T) {
 	ctx := testutils.Context(t)
 	db, synchronizer, ethMock, lb, job := setupRegistrySync(t, keeper.RegistryVersion_1_3)
 
@@ -326,7 +326,7 @@ func Test_RegistrySynchronizer1_3_KeepersUpdatedLog(t *testing.T) {
 	cltest.AssertCount(t, db, "keeper_registries", 1)
 }
 
-func Test_RegistrySynchronizer1_3_UpkeepCanceledLog(t *testing.T) {
+func TestUnit_RegistrySynchronizer1_3_UpkeepCanceledLog(t *testing.T) {
 	ctx := testutils.Context(t)
 	db, synchronizer, ethMock, lb, job := setupRegistrySync(t, keeper.RegistryVersion_1_3)
 
@@ -365,7 +365,7 @@ func Test_RegistrySynchronizer1_3_UpkeepCanceledLog(t *testing.T) {
 	cltest.WaitForCount(t, db, "upkeep_registrations", 2)
 }
 
-func Test_RegistrySynchronizer1_3_UpkeepRegisteredLog(t *testing.T) {
+func TestUnit_RegistrySynchronizer1_3_UpkeepRegisteredLog(t *testing.T) {
 	ctx := testutils.Context(t)
 	db, synchronizer, ethMock, lb, job := setupRegistrySync(t, keeper.RegistryVersion_1_3)
 
@@ -407,7 +407,7 @@ func Test_RegistrySynchronizer1_3_UpkeepRegisteredLog(t *testing.T) {
 	cltest.WaitForCount(t, db, "upkeep_registrations", 2)
 }
 
-func Test_RegistrySynchronizer1_3_UpkeepPerformedLog(t *testing.T) {
+func TestUnit_RegistrySynchronizer1_3_UpkeepPerformedLog(t *testing.T) {
 	ctx := testutils.Context(t)
 	g := gomega.NewWithT(t)
 
@@ -462,7 +462,7 @@ func Test_RegistrySynchronizer1_3_UpkeepPerformedLog(t *testing.T) {
 	}, testutils.WaitTimeout(t), cltest.DBPollingInterval).Should(gomega.Equal(int64(0)))
 }
 
-func Test_RegistrySynchronizer1_3_UpkeepGasLimitSetLog(t *testing.T) {
+func TestUnit_RegistrySynchronizer1_3_UpkeepGasLimitSetLog(t *testing.T) {
 	ctx := testutils.Context(t)
 	g := gomega.NewWithT(t)
 	db, synchronizer, ethMock, lb, job := setupRegistrySync(t, keeper.RegistryVersion_1_3)
@@ -515,7 +515,7 @@ func Test_RegistrySynchronizer1_3_UpkeepGasLimitSetLog(t *testing.T) {
 	g.Eventually(getExecuteGas, testutils.WaitTimeout(t), cltest.DBPollingInterval).Should(gomega.Equal(uint32(4_000_000)))
 }
 
-func Test_RegistrySynchronizer1_3_UpkeepReceivedLog(t *testing.T) {
+func TestUnit_RegistrySynchronizer1_3_UpkeepReceivedLog(t *testing.T) {
 	ctx := testutils.Context(t)
 	db, synchronizer, ethMock, lb, job := setupRegistrySync(t, keeper.RegistryVersion_1_3)
 
@@ -557,7 +557,7 @@ func Test_RegistrySynchronizer1_3_UpkeepReceivedLog(t *testing.T) {
 	cltest.WaitForCount(t, db, "upkeep_registrations", 2)
 }
 
-func Test_RegistrySynchronizer1_3_UpkeepMigratedLog(t *testing.T) {
+func TestUnit_RegistrySynchronizer1_3_UpkeepMigratedLog(t *testing.T) {
 	ctx := testutils.Context(t)
 	db, synchronizer, ethMock, lb, job := setupRegistrySync(t, keeper.RegistryVersion_1_3)
 
@@ -597,7 +597,7 @@ func Test_RegistrySynchronizer1_3_UpkeepMigratedLog(t *testing.T) {
 	cltest.WaitForCount(t, db, "upkeep_registrations", 2)
 }
 
-func Test_RegistrySynchronizer1_3_UpkeepPausedLog_UpkeepUnpausedLog(t *testing.T) {
+func TestUnit_RegistrySynchronizer1_3_UpkeepPausedLog_UpkeepUnpausedLog(t *testing.T) {
 	ctx := testutils.Context(t)
 	db, synchronizer, ethMock, lb, job := setupRegistrySync(t, keeper.RegistryVersion_1_3)
 
@@ -664,7 +664,7 @@ func Test_RegistrySynchronizer1_3_UpkeepPausedLog_UpkeepUnpausedLog(t *testing.T
 	require.Equal(t, registryId, upkeep.RegistryID)
 }
 
-func Test_RegistrySynchronizer1_3_UpkeepCheckDataUpdatedLog(t *testing.T) {
+func TestUnit_RegistrySynchronizer1_3_UpkeepCheckDataUpdatedLog(t *testing.T) {
 	ctx := testutils.Context(t)
 	g := gomega.NewWithT(t)
 	db, synchronizer, ethMock, lb, job := setupRegistrySync(t, keeper.RegistryVersion_1_3)

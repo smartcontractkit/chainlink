@@ -21,7 +21,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/testhelpers"
 )
 
-func TestObservationFilter(t *testing.T) {
+func TestUnit_ObservationFilter(t *testing.T) {
 	t.Parallel()
 	lggr := logger.TestLogger(t)
 	obs1 := CommitObservation{Interval: cciptypes.CommitStoreInterval{Min: 1, Max: 10}}
@@ -39,7 +39,7 @@ type CommitObservationLegacy struct {
 	SourceGasPriceUSD *big.Int                       `json:"sourceGasPrice"`
 }
 
-func TestObservationCompat_MultiChainGas(t *testing.T) {
+func TestUnit_ObservationCompat_MultiChainGas(t *testing.T) {
 	t.Parallel()
 	obsLegacy := CommitObservationLegacy{
 		Interval: cciptypes.CommitStoreInterval{
@@ -67,7 +67,7 @@ func TestObservationCompat_MultiChainGas(t *testing.T) {
 	assert.Equal(t, observations[0], observations[1])
 }
 
-func TestCommitObservationJsonDeserialization(t *testing.T) {
+func TestUnit_CommitObservationJsonDeserialization(t *testing.T) {
 	t.Parallel()
 	expectedObservation := CommitObservation{
 		Interval: cciptypes.CommitStoreInterval{
@@ -95,7 +95,7 @@ func TestCommitObservationJsonDeserialization(t *testing.T) {
 	assert.Equal(t, expectedObservation, observations[0])
 }
 
-func TestCommitObservationMarshal(t *testing.T) {
+func TestUnit_CommitObservationMarshal(t *testing.T) {
 	t.Parallel()
 	obs := CommitObservation{
 		Interval: cciptypes.CommitStoreInterval{
@@ -123,7 +123,7 @@ func TestCommitObservationMarshal(t *testing.T) {
 	assert.True(t, exists)
 }
 
-func TestExecutionObservationJsonDeserialization(t *testing.T) {
+func TestUnit_ExecutionObservationJsonDeserialization(t *testing.T) {
 	t.Parallel()
 	expectedObservation := ExecutionObservation{Messages: map[uint64]MsgData{
 		2: {TokenData: tokenData("c")},
@@ -146,7 +146,7 @@ func TestExecutionObservationJsonDeserialization(t *testing.T) {
 	assert.Equal(t, expectedObservation, observations[0])
 }
 
-func TestObservationSize(t *testing.T) {
+func TestUnit_ObservationSize(t *testing.T) {
 	t.Parallel()
 	testParams := gopter.DefaultTestParameters()
 	testParams.MinSuccessfulTests = 100
@@ -171,7 +171,7 @@ func TestObservationSize(t *testing.T) {
 	p.TestingRun(t)
 }
 
-func TestNewExecutionObservation(t *testing.T) {
+func TestUnit_NewExecutionObservation(t *testing.T) {
 	t.Parallel()
 	tests := []struct {
 		name         string
@@ -228,7 +228,7 @@ func tokenData(value string) [][]byte {
 	return [][]byte{[]byte(value)}
 }
 
-func TestCommitObservationJsonSerializationDeserialization(t *testing.T) {
+func TestUnit_CommitObservationJsonSerializationDeserialization(t *testing.T) {
 	t.Parallel()
 	jsonEncoded := `{
 		"interval": {
@@ -283,7 +283,7 @@ func TestCommitObservationJsonSerializationDeserialization(t *testing.T) {
 	assert.Equal(t, expectedObservation, observations[0])
 }
 
-func TestAddressEncodingBackwardsCompatibility(t *testing.T) {
+func TestUnit_AddressEncodingBackwardsCompatibility(t *testing.T) {
 	t.Parallel()
 	// The intention of this test is to remind including proper formatting of addresses after config is updated.
 	//

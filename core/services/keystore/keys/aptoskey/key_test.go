@@ -10,7 +10,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/internal"
 )
 
-func TestAptosKey(t *testing.T) {
+func TestUnit_AptosKey(t *testing.T) {
 	bytes, err := hex.DecodeString("f0d07ab448018b2754475f9a3b580218b0675a1456aad96ad607c7bbd7d9237b")
 	require.NoError(t, err)
 	k := KeyFor(internal.NewRaw(bytes))

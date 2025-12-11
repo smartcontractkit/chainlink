@@ -11,7 +11,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestThreadControl_Close(t *testing.T) {
+func TestUnit_ThreadControl_Close(t *testing.T) {
 	n := 10
 	tc := NewThreadControl()
 
@@ -29,7 +29,7 @@ func TestThreadControl_Close(t *testing.T) {
 	require.Equal(t, int32(n), finished.Load())
 }
 
-func TestThreadControl_GoCtx(t *testing.T) {
+func TestUnit_ThreadControl_GoCtx(t *testing.T) {
 	tc := NewThreadControl()
 	defer tc.Close()
 

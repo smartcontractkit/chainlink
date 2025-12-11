@@ -39,7 +39,7 @@ func MetricsLabelerTest(t *testing.T) *monitoring.WorkflowsMetricLabeler {
 	return l
 }
 
-func TestSecretsFetcher_BulkFetchesSecretsFromCapability(t *testing.T) {
+func TestUnit_SecretsFetcher_BulkFetchesSecretsFromCapability(t *testing.T) {
 	lggr := logger.TestLogger(t)
 	reg := coreCap.NewRegistry(lggr)
 	peer := coreCap.RandomUTF8BytesWord()
@@ -213,7 +213,7 @@ func TestSecretsFetcher_BulkFetchesSecretsFromCapability(t *testing.T) {
 	assert.Contains(t, errVal.Error, "failed to aggregate decryption shares")
 }
 
-func TestSecretsFetcher_ReturnsErrorIfCapabilityNoFound(t *testing.T) {
+func TestUnit_SecretsFetcher_ReturnsErrorIfCapabilityNoFound(t *testing.T) {
 	lggr := logger.TestLogger(t)
 	reg := coreCap.NewRegistry(lggr)
 	peer := coreCap.RandomUTF8BytesWord()
@@ -248,7 +248,7 @@ func TestSecretsFetcher_ReturnsErrorIfCapabilityNoFound(t *testing.T) {
 	assert.ErrorContains(t, err, "no compatible capability found")
 }
 
-func TestSecretsFetcher_ReturnsErrorIfCapabilityErrors(t *testing.T) {
+func TestUnit_SecretsFetcher_ReturnsErrorIfCapabilityErrors(t *testing.T) {
 	lggr := logger.TestLogger(t)
 	reg := coreCap.NewRegistry(lggr)
 	peer := coreCap.RandomUTF8BytesWord()
@@ -292,7 +292,7 @@ func TestSecretsFetcher_ReturnsErrorIfCapabilityErrors(t *testing.T) {
 	require.ErrorContains(t, err, "could not authorize the request")
 }
 
-func TestSecretsFetcher_ReturnsErrorIfNoResponseForRequest(t *testing.T) {
+func TestUnit_SecretsFetcher_ReturnsErrorIfNoResponseForRequest(t *testing.T) {
 	lggr := logger.TestLogger(t)
 	reg := coreCap.NewRegistry(lggr)
 	peer := coreCap.RandomUTF8BytesWord()
@@ -344,7 +344,7 @@ func TestSecretsFetcher_ReturnsErrorIfNoResponseForRequest(t *testing.T) {
 	assert.Equal(t, fmt.Sprintf("could not find response for the request: %s::Bar::Foo", normalizedOwner), errVal.Error)
 }
 
-func TestSecretsFetcher_ReturnsErrorIfMissingEncryptionSharesForNode(t *testing.T) {
+func TestUnit_SecretsFetcher_ReturnsErrorIfMissingEncryptionSharesForNode(t *testing.T) {
 	lggr := logger.TestLogger(t)
 	reg := coreCap.NewRegistry(lggr)
 	peer := coreCap.RandomUTF8BytesWord()
@@ -416,7 +416,7 @@ func TestSecretsFetcher_ReturnsErrorIfMissingEncryptionSharesForNode(t *testing.
 	assert.Contains(t, errVal.Error, "no shares found for this node's encryption key")
 }
 
-func TestSecretsFetcher_ReturnsErrorIfCantCombineShares(t *testing.T) {
+func TestUnit_SecretsFetcher_ReturnsErrorIfCantCombineShares(t *testing.T) {
 	lggr := logger.TestLogger(t)
 	reg := coreCap.NewRegistry(lggr)
 	peer := coreCap.RandomUTF8BytesWord()

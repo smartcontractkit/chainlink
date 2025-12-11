@@ -7,7 +7,7 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func TestMerge(t *testing.T) {
+func TestUnit_Merge(t *testing.T) {
 	vars := map[string]any{
 		"jb": map[string]any{
 			"databaseID": "some-job-id",

@@ -13,7 +13,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
 
-func TestInMemoryStore_Add(t *testing.T) {
+func TestUnit_InMemoryStore_Add(t *testing.T) {
 	store := NewInMemoryStore(logger.TestLogger(t), clockwork.NewFakeClock())
 
 	execution, err := store.Add(context.Background(), map[string]*WorkflowExecutionStep{
@@ -33,7 +33,7 @@ func TestInMemoryStore_Add(t *testing.T) {
 	assert.Error(t, err)
 }
 
-func TestInMemoryStore_UpsertStep(t *testing.T) {
+func TestUnit_InMemoryStore_UpsertStep(t *testing.T) {
 	fakeClock := clockwork.NewFakeClock()
 	store := NewInMemoryStore(logger.TestLogger(t), fakeClock)
 
@@ -52,7 +52,7 @@ func TestInMemoryStore_UpsertStep(t *testing.T) {
 		updatedState.UpdatedAt.After(previousUpdatedAt.Add(1*time.Hour)))
 }
 
-func TestInMemoryStore_Get(t *testing.T) {
+func TestUnit_InMemoryStore_Get(t *testing.T) {
 	store := NewInMemoryStore(logger.TestLogger(t), clockwork.NewFakeClock())
 	_, err := store.Add(context.Background(), map[string]*WorkflowExecutionStep{}, "test-id", "w1", StatusStarted)
 	require.NoError(t, err)
@@ -64,7 +64,7 @@ func TestInMemoryStore_Get(t *testing.T) {
 	assert.Equal(t, StatusStarted, retrievedState.Status)
 }
 
-func TestInMemoryStore_FinishedExecution(t *testing.T) {
+func TestUnit_InMemoryStore_FinishedExecution(t *testing.T) {
 	store := NewInMemoryStoreWithPruneConfiguration(logger.TestLogger(t), clockwork.NewRealClock(),
 		10*time.Millisecond, 1*time.Hour)
 	servicetest.Run(t, store)
@@ -86,7 +86,7 @@ func TestInMemoryStore_FinishedExecution(t *testing.T) {
 	}, 10*time.Second, 10*time.Millisecond)
 }
 
-func TestInMemoryStore_ExpiresNonCompletedExecutions(t *testing.T) {
+func TestUnit_InMemoryStore_ExpiresNonCompletedExecutions(t *testing.T) {
 	expirationDuration := 50 * time.Millisecond
 
 	store := NewInMemoryStoreWithPruneConfiguration(logger.TestLogger(t), clockwork.NewRealClock(),

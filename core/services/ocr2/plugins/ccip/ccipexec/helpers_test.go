@@ -9,7 +9,7 @@ import (
 	"github.com/smartcontractkit/chainlink-evm/pkg/utils"
 )
 
-func Test_CommitReportWithSendRequests_uniqueSenders(t *testing.T) {
+func TestUnit_CommitReportWithSendRequests_uniqueSenders(t *testing.T) {
 	messageFn := func(address cciptypes.Address) cciptypes.EVM2EVMOnRampCCIPSendRequestedWithMeta {
 		return cciptypes.EVM2EVMOnRampCCIPSendRequestedWithMeta{EVM2EVMMessage: cciptypes.EVM2EVMMessage{Sender: address}}
 	}

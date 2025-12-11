@@ -17,7 +17,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
 
-func Test_MetricsAreTrackedForAllMethods(t *testing.T) {
+func TestUnit_MetricsAreTrackedForAllMethods(t *testing.T) {
 	ctx := testutils.Context(t)
 	db := pgtest.NewSqlxDB(t)
 	ccipORM, err := NewObservedORM(db, logger.TestLogger(t))

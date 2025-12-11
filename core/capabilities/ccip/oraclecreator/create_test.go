@@ -35,7 +35,7 @@ import (
 // TestPluginOracleCreatorCreate_InvalidSelector ensures that Create returns an error when an
 // unknown chain selector is provided. This exercises the early-return error path
 // before any heavy initialisation takes place.
-func TestPluginOracleCreatorCreate_InvalidSelector(t *testing.T) {
+func TestUnit_PluginOracleCreatorCreate_InvalidSelector(t *testing.T) {
 	t.Parallel()
 
 	lggr := logger.Test(t)
@@ -83,7 +83,7 @@ func TestPluginOracleCreatorCreate_InvalidSelector(t *testing.T) {
 // TestCreateFactoryAndTransmitter_PeerWrapperNotStarted verifies that the
 // helper returns an error when called for a commit plugin but the peer wrapper
 // has not been started – this guards a critical control-flow condition.
-func TestCreateFactoryAndTransmitter_PeerWrapperNotStarted(t *testing.T) {
+func TestUnit_CreateFactoryAndTransmitter_PeerWrapperNotStarted(t *testing.T) {
 	t.Parallel()
 
 	lggr := logger.Test(t)
@@ -123,7 +123,7 @@ func TestCreateFactoryAndTransmitter_PeerWrapperNotStarted(t *testing.T) {
 
 // TestCreateFactoryAndTransmitter_NilDestChainWriter verifies that a NoOpTransmitter
 // is created when destChainWriter is nil for both commit and execute plugin types.
-func TestCreateFactoryAndTransmitter_NilDestChainWriter(t *testing.T) {
+func TestUnit_CreateFactoryAndTransmitter_NilDestChainWriter(t *testing.T) {
 	t.Parallel()
 
 	lggr := logger.Test(t)

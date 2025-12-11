@@ -26,7 +26,7 @@ func (g *GetUpkeepFailure) GetUpkeep(opts *bind.CallOpts, id *big.Int) (*UpkeepC
 	return nil, fmt.Errorf("%w [%w]: getConfig v1.%d", ErrContractCallFailure, errGetUpkeep, RegistryVersion_1_2)
 }
 
-func TestSyncUpkeepWithCallback_UpkeepNotFound(t *testing.T) {
+func TestUnit_SyncUpkeepWithCallback_UpkeepNotFound(t *testing.T) {
 	ctx := testutils.Context(t)
 	log, logObserver := logger.TestLoggerObserved(t, zapcore.ErrorLevel)
 	synchronizer := &RegistrySynchronizer{

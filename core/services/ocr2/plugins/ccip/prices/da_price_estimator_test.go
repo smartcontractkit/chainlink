@@ -20,7 +20,7 @@ func encodeGasPrice(daPrice, execPrice *big.Int) *big.Int {
 	return new(big.Int).Add(new(big.Int).Lsh(daPrice, daGasPriceEncodingLength), execPrice)
 }
 
-func TestDAPriceEstimator_GetGasPrice(t *testing.T) {
+func TestUnit_DAPriceEstimator_GetGasPrice(t *testing.T) {
 	ctx := context.Background()
 
 	testCases := []struct {
@@ -151,7 +151,7 @@ func TestDAPriceEstimator_GetGasPrice(t *testing.T) {
 	})
 }
 
-func TestDAPriceEstimator_DenoteInUSD(t *testing.T) {
+func TestUnit_DAPriceEstimator_DenoteInUSD(t *testing.T) {
 	val1e18 := func(val int64) *big.Int { return new(big.Int).Mul(big.NewInt(1e18), big.NewInt(val)) }
 
 	testCases := []struct {
@@ -194,7 +194,7 @@ func TestDAPriceEstimator_DenoteInUSD(t *testing.T) {
 	}
 }
 
-func TestDAPriceEstimator_Median(t *testing.T) {
+func TestUnit_DAPriceEstimator_Median(t *testing.T) {
 	val1e18 := func(val int64) *big.Int { return new(big.Int).Mul(big.NewInt(1e18), big.NewInt(val)) }
 
 	testCases := []struct {
@@ -280,7 +280,7 @@ func TestDAPriceEstimator_Median(t *testing.T) {
 	}
 }
 
-func TestDAPriceEstimator_Deviates(t *testing.T) {
+func TestUnit_DAPriceEstimator_Deviates(t *testing.T) {
 	testCases := []struct {
 		name             string
 		gasPrice1        *big.Int
@@ -369,7 +369,7 @@ func TestDAPriceEstimator_Deviates(t *testing.T) {
 	}
 }
 
-func TestDAPriceEstimator_EstimateMsgCostUSD(t *testing.T) {
+func TestUnit_DAPriceEstimator_EstimateMsgCostUSD(t *testing.T) {
 	execCostUSD := big.NewInt(100_000)
 
 	testCases := []struct {

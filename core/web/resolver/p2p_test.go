@@ -14,7 +14,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/p2pkey"
 )
 
-func TestResolver_GetP2PKeys(t *testing.T) {
+func TestUnit_Resolver_GetP2PKeys(t *testing.T) {
 	t.Parallel()
 
 	query := `
@@ -67,7 +67,7 @@ func TestResolver_GetP2PKeys(t *testing.T) {
 	RunGQLTests(t, testCases)
 }
 
-func TestResolver_CreateP2PKey(t *testing.T) {
+func TestUnit_Resolver_CreateP2PKey(t *testing.T) {
 	t.Parallel()
 
 	query := `
@@ -116,7 +116,7 @@ func TestResolver_CreateP2PKey(t *testing.T) {
 	RunGQLTests(t, testCases)
 }
 
-func TestResolver_DeleteP2PKey(t *testing.T) {
+func TestUnit_Resolver_DeleteP2PKey(t *testing.T) {
 	t.Parallel()
 
 	fakeKey := p2pkey.MustNewV2XXXTestingOnly(big.NewInt(1))

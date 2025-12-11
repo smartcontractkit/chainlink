@@ -33,7 +33,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/testdata/testspecs"
 )
 
-func TestGetEVMEffectiveTransmitterID(t *testing.T) {
+func TestUnit_GetEVMEffectiveTransmitterID(t *testing.T) {
 	customChainID := big.New(testutils.NewRandomEVMChainID())
 
 	config := configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {

@@ -11,7 +11,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/sessions"
 )
 
-func TestUserResource(t *testing.T) {
+func TestUnit_UserResource(t *testing.T) {
 	var (
 		ts = time.Date(2000, 1, 1, 0, 0, 0, 0, time.UTC)
 	)

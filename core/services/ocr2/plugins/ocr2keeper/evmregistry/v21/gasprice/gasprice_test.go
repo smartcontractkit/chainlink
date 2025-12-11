@@ -21,7 +21,7 @@ type WrongOffchainConfig struct {
 	MaxGasPrice1 []int `json:"maxGasPrice1" cbor:"maxGasPrice1"`
 }
 
-func TestGasPrice_Check(t *testing.T) {
+func TestUnit_GasPrice_Check(t *testing.T) {
 	lggr := logger.TestLogger(t)
 	uid, _ := new(big.Int).SetString("1843548457736589226156809205796175506139185429616502850435279853710366065936", 10)
 

@@ -10,7 +10,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/types/query"
 )
 
-func TestCreateQueryName(t *testing.T) {
+func TestUnit_CreateQueryName(t *testing.T) {
 	eventQueries := []EventQuery{
 		{
 			Filter: query.KeyFilter{Key: "key1"},
@@ -50,7 +50,7 @@ func TestCreateQueryName(t *testing.T) {
 	assert.Equal(t, expectedQueryName, queryName)
 }
 
-func TestValidateEventQueries(t *testing.T) {
+func TestUnit_ValidateEventQueries(t *testing.T) {
 	tests := []struct {
 		name          string
 		eventQueries  []EventQuery

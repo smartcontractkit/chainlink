@@ -20,7 +20,7 @@ func createTestMetrics(t *testing.T) *metrics.Metrics {
 	return m
 }
 
-func TestWorkflowMetadataAggregator_StartStop(t *testing.T) {
+func TestUnit_WorkflowMetadataAggregator_StartStop(t *testing.T) {
 	lggr := logger.Test(t)
 	testMetrics := createTestMetrics(t)
 	agg := NewWorkflowMetadataAggregator(lggr, 2, 100*time.Millisecond, testMetrics)
@@ -63,7 +63,7 @@ func createTestWorkflowMetadata(workflowID, workflowName, workflowOwner, workflo
 	}
 }
 
-func TestWorkflowMetadataAggregator_Collect(t *testing.T) {
+func TestUnit_WorkflowMetadataAggregator_Collect(t *testing.T) {
 	lggr := logger.Test(t)
 	testMetrics := createTestMetrics(t)
 	agg := NewWorkflowMetadataAggregator(lggr, 2, 10*time.Second, testMetrics)
@@ -121,7 +121,7 @@ func TestWorkflowMetadataAggregator_Collect(t *testing.T) {
 	require.NotEqual(t, timestamp1, timestamp2)
 }
 
-func TestWorkflowMetadataAggregator_CollectDifferentObservations(t *testing.T) {
+func TestUnit_WorkflowMetadataAggregator_CollectDifferentObservations(t *testing.T) {
 	lggr := logger.Test(t)
 	testMetrics := createTestMetrics(t)
 	agg := NewWorkflowMetadataAggregator(lggr, 2, 10*time.Second, testMetrics)
@@ -165,7 +165,7 @@ func TestWorkflowMetadataAggregator_CollectDifferentObservations(t *testing.T) {
 	require.True(t, nodeObs2.nodes.Contains("node2"))
 }
 
-func TestWorkflowMetadataAggregator_Aggregate(t *testing.T) {
+func TestUnit_WorkflowMetadataAggregator_Aggregate(t *testing.T) {
 	lggr := logger.Test(t)
 	threshold := 2
 	testMetrics := createTestMetrics(t)
@@ -230,7 +230,7 @@ func TestWorkflowMetadataAggregator_Aggregate(t *testing.T) {
 	require.Len(t, result, 3) // observation3 reaches threshold
 }
 
-func TestWorkflowMetadataAggregator_Aggregate_ChronologicalOrder(t *testing.T) {
+func TestUnit_WorkflowMetadataAggregator_Aggregate_ChronologicalOrder(t *testing.T) {
 	lggr := logger.Test(t)
 	threshold := 2
 	testMetrics := createTestMetrics(t)
@@ -282,7 +282,7 @@ func TestWorkflowMetadataAggregator_Aggregate_ChronologicalOrder(t *testing.T) {
 	require.Equal(t, "workflowName1", result[2].WorkflowSelector.WorkflowName)
 }
 
-func TestWorkflowMetadataAggregator_Aggregate_ChronologicalOrder_SameWorkflowNameOwnerTag(t *testing.T) {
+func TestUnit_WorkflowMetadataAggregator_Aggregate_ChronologicalOrder_SameWorkflowNameOwnerTag(t *testing.T) {
 	lggr := logger.Test(t)
 	threshold := 2
 	testMetrics := createTestMetrics(t)
@@ -349,7 +349,7 @@ func TestWorkflowMetadataAggregator_Aggregate_ChronologicalOrder_SameWorkflowNam
 	require.Equal(t, "workflowID1", result[2].WorkflowSelector.WorkflowID)
 }
 
-func TestWorkflowMetadataAggregator_ReapObservations(t *testing.T) {
+func TestUnit_WorkflowMetadataAggregator_ReapObservations(t *testing.T) {
 	lggr := logger.Test(t)
 	cleanupInterval := 1 * time.Second
 	testMetrics := createTestMetrics(t)
@@ -384,7 +384,7 @@ func TestWorkflowMetadataAggregator_ReapObservations(t *testing.T) {
 	require.Empty(t, agg.observations)
 }
 
-func TestWorkflowMetadataAggregator_ReapObservations_UnexpiredObservation(t *testing.T) {
+func TestUnit_WorkflowMetadataAggregator_ReapObservations_UnexpiredObservation(t *testing.T) {
 	lggr := logger.Test(t)
 	cleanupInterval := 1 * time.Second
 	testMetrics := createTestMetrics(t)
@@ -421,7 +421,7 @@ func TestWorkflowMetadataAggregator_ReapObservations_UnexpiredObservation(t *tes
 	require.True(t, o.nodes.Contains("node3"))
 }
 
-func TestWorkflowMetadataAggregator_Collect_EdgeCases(t *testing.T) {
+func TestUnit_WorkflowMetadataAggregator_Collect_EdgeCases(t *testing.T) {
 	lggr := logger.Test(t)
 
 	t.Run("empty workflow ID", func(t *testing.T) {

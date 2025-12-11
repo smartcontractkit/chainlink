@@ -14,7 +14,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
 )
 
-func TestMaxTask(t *testing.T) {
+func TestUnit_MaxTask(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {

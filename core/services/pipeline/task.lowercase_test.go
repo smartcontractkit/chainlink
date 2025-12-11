@@ -12,7 +12,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
 )
 
-func TestLowercaseTask(t *testing.T) {
+func TestUnit_LowercaseTask(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {

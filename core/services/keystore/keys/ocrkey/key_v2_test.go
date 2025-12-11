@@ -18,7 +18,7 @@ func assertKeyBundlesNotEqual(t *testing.T, pk1 ocrkey.KeyV2, pk2 ocrkey.KeyV2) 
 	assert.NotEqual(t, pk1.ExportedOffChainEncryption(), pk2.ExportedOffChainEncryption())
 }
 
-func TestOCRKeys_New(t *testing.T) {
+func TestUnit_OCRKeys_New(t *testing.T) {
 	t.Parallel()
 	pk1, err := ocrkey.NewV2()
 	require.NoError(t, err)
@@ -30,7 +30,7 @@ func TestOCRKeys_New(t *testing.T) {
 	assertKeyBundlesNotEqual(t, pk1, pk3)
 	assertKeyBundlesNotEqual(t, pk2, pk3)
 }
-func TestOCRKeys_Raw_Key(t *testing.T) {
+func TestUnit_OCRKeys_Raw_Key(t *testing.T) {
 	t.Parallel()
 	key := ocrkey.MustNewV2XXXTestingOnly(big.NewInt(1))
 	require.Equal(t, key.ID(), ocrkey.KeyFor(key.Raw()).ID())

@@ -19,7 +19,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 )
 
-func TestNewHeartbeat_ConfiguresHeartbeatInterval(t *testing.T) {
+func TestUnit_NewHeartbeat_ConfiguresHeartbeatInterval(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
@@ -51,7 +51,7 @@ func TestNewHeartbeat_ConfiguresHeartbeatInterval(t *testing.T) {
 	}
 }
 
-func TestHeartbeat_MeterEvents(t *testing.T) {
+func TestUnit_Heartbeat_MeterEvents(t *testing.T) {
 	lggr := logger.TestLogger(t)
 
 	// Use a thread-safe byte collector

@@ -22,7 +22,7 @@ func newTestLogger(t *testing.T, cfg Config) Logger {
 	return lggr
 }
 
-func TestZapLogger_OutOfDiskSpace(t *testing.T) {
+func TestUnit_ZapLogger_OutOfDiskSpace(t *testing.T) {
 	maxSize := utils.FileSize(5 * utils.MB)
 
 	logsDir := t.TempDir()
@@ -206,7 +206,7 @@ func TestZapLogger_OutOfDiskSpace(t *testing.T) {
 	})
 }
 
-func TestZapLogger_LogCaller(t *testing.T) {
+func TestUnit_ZapLogger_LogCaller(t *testing.T) {
 	maxSize := utils.FileSize(5 * utils.MB)
 
 	logsDir := t.TempDir()
@@ -258,7 +258,7 @@ func TestZapLogger_LogCaller(t *testing.T) {
 	require.Contains(t, lines[0], "logger/zap_test.go:246")
 }
 
-func TestZapLogger_Name(t *testing.T) {
+func TestUnit_ZapLogger_Name(t *testing.T) {
 	cfg := Config{}
 	lggr := newTestLogger(t, cfg)
 	require.Empty(t, lggr.Name())

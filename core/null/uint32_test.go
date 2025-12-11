@@ -12,7 +12,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/null"
 )
 
-func TestUint32From(t *testing.T) {
+func TestUnit_Uint32From(t *testing.T) {
 	tests := []struct {
 		input uint32
 	}{
@@ -29,7 +29,7 @@ func TestUint32From(t *testing.T) {
 	}
 }
 
-func TestUnmarshalUint32_Valid(t *testing.T) {
+func TestUnit_UnmarshalUint32_Valid(t *testing.T) {
 	tests := []struct {
 		name, input string
 	}{
@@ -48,7 +48,7 @@ func TestUnmarshalUint32_Valid(t *testing.T) {
 	}
 }
 
-func TestUnmarshalUint32_Invalid(t *testing.T) {
+func TestUnit_UnmarshalUint32_Invalid(t *testing.T) {
 	tests := []struct {
 		name, input string
 	}{
@@ -66,7 +66,7 @@ func TestUnmarshalUint32_Invalid(t *testing.T) {
 	}
 }
 
-func TestUnmarshalUint32_Error(t *testing.T) {
+func TestUnit_UnmarshalUint32_Error(t *testing.T) {
 	tests := []struct {
 		name, input string
 	}{
@@ -85,7 +85,7 @@ func TestUnmarshalUint32_Error(t *testing.T) {
 	}
 }
 
-func TestUnmarshalUint32Overflow(t *testing.T) {
+func TestUnit_UnmarshalUint32Overflow(t *testing.T) {
 	maxUint32 := uint64(math.MaxUint32)
 
 	// Max uint32 should decode successfully
@@ -98,7 +98,7 @@ func TestUnmarshalUint32Overflow(t *testing.T) {
 	require.Error(t, err)
 }
 
-func TestTextUnmarshalInt_Valid(t *testing.T) {
+func TestUnit_TextUnmarshalInt_Valid(t *testing.T) {
 	var i null.Uint32
 	err := i.UnmarshalText([]byte("12345"))
 	require.NoError(t, err)
@@ -106,7 +106,7 @@ func TestTextUnmarshalInt_Valid(t *testing.T) {
 	assert.Equal(t, uint32(12345), i.Uint32)
 }
 
-func TestTextUnmarshalInt_Invalid(t *testing.T) {
+func TestUnit_TextUnmarshalInt_Invalid(t *testing.T) {
 	tests := []struct {
 		name, input string
 	}{
@@ -124,7 +124,7 @@ func TestTextUnmarshalInt_Invalid(t *testing.T) {
 	}
 }
 
-func TestMarshalInt(t *testing.T) {
+func TestUnit_MarshalInt(t *testing.T) {
 	i := null.Uint32From(12345)
 	data, err := json.Marshal(i)
 	require.NoError(t, err)
@@ -137,7 +137,7 @@ func TestMarshalInt(t *testing.T) {
 	assertJSONEquals(t, data, "null", "null json marshal")
 }
 
-func TestMarshalIntText(t *testing.T) {
+func TestUnit_MarshalIntText(t *testing.T) {
 	i := null.Uint32From(12345)
 	data, err := i.MarshalText()
 	require.NoError(t, err)
@@ -150,14 +150,14 @@ func TestMarshalIntText(t *testing.T) {
 	assertJSONEquals(t, data, "", "null text marshal")
 }
 
-func TestUint32SetValid(t *testing.T) {
+func TestUnit_Uint32SetValid(t *testing.T) {
 	change := null.NewUint32(0, false)
 	change.SetValid(12345)
 	assert.True(t, change.Valid)
 	assert.Equal(t, uint32(12345), change.Uint32)
 }
 
-func TestUint32Scan(t *testing.T) {
+func TestUnit_Uint32Scan(t *testing.T) {
 	var i null.Uint32
 	err := i.Scan(12345)
 	require.NoError(t, err)

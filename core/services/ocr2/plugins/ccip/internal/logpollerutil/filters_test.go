@@ -10,7 +10,7 @@ import (
 	"github.com/smartcontractkit/chainlink-evm/pkg/logpoller"
 )
 
-func Test_FiltersDiff(t *testing.T) {
+func TestUnit_FiltersDiff(t *testing.T) {
 	type args struct {
 		filtersBefore []logpoller.Filter
 		filtersNow    []logpoller.Filter
@@ -67,7 +67,7 @@ func Test_FiltersDiff(t *testing.T) {
 	}
 }
 
-func Test_filterContainsZeroAddress(t *testing.T) {
+func TestUnit_filterContainsZeroAddress(t *testing.T) {
 	type args struct {
 		addrs []common.Address
 	}
@@ -112,7 +112,7 @@ func Test_filterContainsZeroAddress(t *testing.T) {
 	}
 }
 
-func Test_containsFilter(t *testing.T) {
+func TestUnit_containsFilter(t *testing.T) {
 	type args struct {
 		filters []logpoller.Filter
 		f       logpoller.Filter

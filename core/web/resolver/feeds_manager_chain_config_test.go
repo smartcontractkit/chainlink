@@ -13,7 +13,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/utils/stringutils"
 )
 
-func Test_CreateFeedsManagerChainConfig(t *testing.T) {
+func TestUnit_CreateFeedsManagerChainConfig(t *testing.T) {
 	var (
 		mgrID          = int64(100)
 		cfgID          = int64(1)
@@ -490,7 +490,7 @@ func Test_CreateFeedsManagerChainConfig(t *testing.T) {
 	RunGQLTests(t, testCases)
 }
 
-func Test_DeleteFeedsManagerChainConfig(t *testing.T) {
+func TestUnit_DeleteFeedsManagerChainConfig(t *testing.T) {
 	var (
 		cfgID = int64(1)
 
@@ -578,7 +578,7 @@ func Test_DeleteFeedsManagerChainConfig(t *testing.T) {
 	RunGQLTests(t, testCases)
 }
 
-func Test_UpdateFeedsManagerChainConfig(t *testing.T) {
+func TestUnit_UpdateFeedsManagerChainConfig(t *testing.T) {
 	var (
 		cfgID             = int64(1)
 		peerID            = null.StringFrom("p2p_12D3KooWMoejJznyDuEk5aX6GvbjaG12UzeornPCBNzMRqdwrFJw")

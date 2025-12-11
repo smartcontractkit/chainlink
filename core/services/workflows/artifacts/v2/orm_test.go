@@ -13,7 +13,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func Test_UpsertWorkflowSpec(t *testing.T) {
+func TestUnit_UpsertWorkflowSpec(t *testing.T) {
 	t.Run("inserts new spec", func(t *testing.T) {
 		db := pgtest.NewSqlxDB(t)
 		ctx := testutils.Context(t)
@@ -131,7 +131,7 @@ func Test_UpsertWorkflowSpec(t *testing.T) {
 	})
 }
 
-func Test_DeleteWorkflowSpec(t *testing.T) {
+func TestUnit_DeleteWorkflowSpec(t *testing.T) {
 	t.Run("deletes a workflow spec by ID", func(t *testing.T) {
 		db := pgtest.NewSqlxDB(t)
 		ctx := testutils.Context(t)
@@ -178,7 +178,7 @@ func Test_DeleteWorkflowSpec(t *testing.T) {
 	})
 }
 
-func Test_GetWorkflowSpec(t *testing.T) {
+func TestUnit_GetWorkflowSpec(t *testing.T) {
 	t.Run("gets a workflow spec by ID", func(t *testing.T) {
 		db := pgtest.NewSqlxDB(t)
 		ctx := testutils.Context(t)

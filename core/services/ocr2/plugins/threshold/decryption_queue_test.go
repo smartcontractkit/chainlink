@@ -17,7 +17,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 )
 
-func Test_decryptionQueue_NewThresholdDecryptor(t *testing.T) {
+func TestUnit_decryptionQueue_NewThresholdDecryptor(t *testing.T) {
 	lggr := logger.TestLogger(t)
 	dq := NewDecryptionQueue(5, 1001, 64, 1002, lggr)
 
@@ -26,7 +26,7 @@ func Test_decryptionQueue_NewThresholdDecryptor(t *testing.T) {
 	assert.Equal(t, time.Duration(1002), dq.completedRequestsCacheTimeout)
 }
 
-func Test_decryptionQueue_Decrypt_ReturnResultAfterCallingDecrypt(t *testing.T) {
+func TestUnit_decryptionQueue_Decrypt_ReturnResultAfterCallingDecrypt(t *testing.T) {
 	lggr := logger.TestLogger(t)
 	dq := NewDecryptionQueue(5, 1000, 64, testutils.WaitTimeout(t), lggr)
 
@@ -44,7 +44,7 @@ func Test_decryptionQueue_Decrypt_ReturnResultAfterCallingDecrypt(t *testing.T) 
 	}
 }
 
-func Test_decryptionQueue_Decrypt_CiphertextIdTooLarge(t *testing.T) {
+func TestUnit_decryptionQueue_Decrypt_CiphertextIdTooLarge(t *testing.T) {
 	lggr := logger.TestLogger(t)
 	dq := NewDecryptionQueue(1, 1000, 16, testutils.WaitTimeout(t), lggr)
 
@@ -54,7 +54,7 @@ func Test_decryptionQueue_Decrypt_CiphertextIdTooLarge(t *testing.T) {
 	assert.Equal(t, "ciphertextId too large", err.Error())
 }
 
-func Test_decryptionQueue_Decrypt_EmptyCiphertextId(t *testing.T) {
+func TestUnit_decryptionQueue_Decrypt_EmptyCiphertextId(t *testing.T) {
 	lggr := logger.TestLogger(t)
 	dq := NewDecryptionQueue(1, 1000, 64, testutils.WaitTimeout(t), lggr)
 
@@ -64,7 +64,7 @@ func Test_decryptionQueue_Decrypt_EmptyCiphertextId(t *testing.T) {
 	assert.Equal(t, "ciphertextId is empty", err.Error())
 }
 
-func Test_decryptionQueue_Decrypt_CiphertextTooLarge(t *testing.T) {
+func TestUnit_decryptionQueue_Decrypt_CiphertextTooLarge(t *testing.T) {
 	lggr := logger.TestLogger(t)
 	dq := NewDecryptionQueue(1, 10, 64, testutils.WaitTimeout(t), lggr)
 
@@ -74,7 +74,7 @@ func Test_decryptionQueue_Decrypt_CiphertextTooLarge(t *testing.T) {
 	assert.Equal(t, "ciphertext too large", err.Error())
 }
 
-func Test_decryptionQueue_Decrypt_EmptyCiphertext(t *testing.T) {
+func TestUnit_decryptionQueue_Decrypt_EmptyCiphertext(t *testing.T) {
 	lggr := logger.TestLogger(t)
 	dq := NewDecryptionQueue(1, 1000, 64, testutils.WaitTimeout(t), lggr)
 
@@ -84,7 +84,7 @@ func Test_decryptionQueue_Decrypt_EmptyCiphertext(t *testing.T) {
 	assert.Equal(t, "ciphertext is empty", err.Error())
 }
 
-func Test_decryptionQueue_Decrypt_DuplicateCiphertextId(t *testing.T) {
+func TestUnit_decryptionQueue_Decrypt_DuplicateCiphertextId(t *testing.T) {
 	lggr := logger.TestLogger(t)
 	dq := NewDecryptionQueue(1, 1000, 64, testutils.WaitTimeout(t), lggr)
 
@@ -101,7 +101,7 @@ func Test_decryptionQueue_Decrypt_DuplicateCiphertextId(t *testing.T) {
 	assert.Equal(t, "ciphertextId must be unique", err.Error())
 }
 
-func Test_decryptionQueue_Decrypt_ContextCancelled(t *testing.T) {
+func TestUnit_decryptionQueue_Decrypt_ContextCancelled(t *testing.T) {
 	lggr := logger.TestLogger(t)
 	dq := NewDecryptionQueue(1, 1000, 64, 100, lggr)
 
@@ -112,7 +112,7 @@ func Test_decryptionQueue_Decrypt_ContextCancelled(t *testing.T) {
 	assert.Equal(t, "context provided by caller was cancelled", err.Error())
 }
 
-func Test_decryptionQueue_Decrypt_QueueFull(t *testing.T) {
+func TestUnit_decryptionQueue_Decrypt_QueueFull(t *testing.T) {
 	lggr := logger.TestLogger(t)
 	dq := NewDecryptionQueue(1, 1000, 64, testutils.WaitTimeout(t), lggr)
 
@@ -133,7 +133,7 @@ func Test_decryptionQueue_Decrypt_QueueFull(t *testing.T) {
 	assert.Equal(t, "queue is full", err.Error())
 }
 
-func Test_decryptionQueue_GetRequests(t *testing.T) {
+func TestUnit_decryptionQueue_GetRequests(t *testing.T) {
 	lggr := logger.TestLogger(t)
 	dq := NewDecryptionQueue(3, 1000, 64, testutils.WaitTimeout(t), lggr)
 
@@ -168,7 +168,7 @@ func Test_decryptionQueue_GetRequests(t *testing.T) {
 	}
 }
 
-func Test_decryptionQueue_GetCiphertext(t *testing.T) {
+func TestUnit_decryptionQueue_GetCiphertext(t *testing.T) {
 	lggr := logger.TestLogger(t)
 	dq := NewDecryptionQueue(3, 1000, 64, testutils.WaitTimeout(t), lggr)
 
@@ -188,7 +188,7 @@ func Test_decryptionQueue_GetCiphertext(t *testing.T) {
 	}
 }
 
-func Test_decryptionQueue_GetCiphertext_CiphertextNotFound(t *testing.T) {
+func TestUnit_decryptionQueue_GetCiphertext_CiphertextNotFound(t *testing.T) {
 	lggr := logger.TestLogger(t)
 	dq := NewDecryptionQueue(3, 1000, 64, testutils.WaitTimeout(t), lggr)
 
@@ -196,7 +196,7 @@ func Test_decryptionQueue_GetCiphertext_CiphertextNotFound(t *testing.T) {
 	assert.ErrorIs(t, err, decryptionPlugin.ErrNotFound)
 }
 
-func Test_decryptionQueue_Decrypt_DecryptCalledAfterReadyResult(t *testing.T) {
+func TestUnit_decryptionQueue_Decrypt_DecryptCalledAfterReadyResult(t *testing.T) {
 	lggr := logger.TestLogger(t)
 	dq := NewDecryptionQueue(2, 1000, 64, testutils.WaitTimeout(t), lggr)
 
@@ -211,7 +211,7 @@ func Test_decryptionQueue_Decrypt_DecryptCalledAfterReadyResult(t *testing.T) {
 	}
 }
 
-func Test_decryptionQueue_ReadyResult_ExpireRequest(t *testing.T) {
+func TestUnit_decryptionQueue_ReadyResult_ExpireRequest(t *testing.T) {
 	lggr := logger.TestLogger(t)
 	dq := NewDecryptionQueue(2, 1000, 64, 100, lggr)
 
@@ -226,7 +226,7 @@ func Test_decryptionQueue_ReadyResult_ExpireRequest(t *testing.T) {
 	assert.Equal(t, "context provided by caller was cancelled", err.Error())
 }
 
-func Test_decryptionQueue_Decrypt_CleanupSuccessfulRequest(t *testing.T) {
+func TestUnit_decryptionQueue_Decrypt_CleanupSuccessfulRequest(t *testing.T) {
 	lggr := logger.TestLogger(t)
 	dq := NewDecryptionQueue(2, 1000, 64, testutils.WaitTimeout(t), lggr)
 
@@ -245,7 +245,7 @@ func Test_decryptionQueue_Decrypt_CleanupSuccessfulRequest(t *testing.T) {
 	assert.Equal(t, "context provided by caller was cancelled", err2.Error())
 }
 
-func Test_decryptionQueue_Decrypt_UserErrorDuringDecryption(t *testing.T) {
+func TestUnit_decryptionQueue_Decrypt_UserErrorDuringDecryption(t *testing.T) {
 	lggr := logger.TestLogger(t)
 	dq := NewDecryptionQueue(5, 1000, 64, testutils.WaitTimeout(t), lggr)
 	ciphertextId := []byte{0x12, 0x0f}
@@ -261,7 +261,7 @@ func Test_decryptionQueue_Decrypt_UserErrorDuringDecryption(t *testing.T) {
 	assert.Equal(t, "pending decryption request for ciphertextId 0x120f was closed without a response", err.Error())
 }
 
-func Test_decryptionQueue_Decrypt_HandleClosedChannelWithoutPlaintextResponse(t *testing.T) {
+func TestUnit_decryptionQueue_Decrypt_HandleClosedChannelWithoutPlaintextResponse(t *testing.T) {
 	lggr := logger.TestLogger(t)
 	dq := NewDecryptionQueue(5, 1000, 64, testutils.WaitTimeout(t), lggr)
 	ciphertextId := []byte{0x00, 0xff}
@@ -277,7 +277,7 @@ func Test_decryptionQueue_Decrypt_HandleClosedChannelWithoutPlaintextResponse(t 
 	assert.Equal(t, "pending decryption request for ciphertextId 0x00ff was closed without a response", err.Error())
 }
 
-func Test_decryptionQueue_GetRequests_RequestsCountLimit(t *testing.T) {
+func TestUnit_decryptionQueue_GetRequests_RequestsCountLimit(t *testing.T) {
 	lggr := logger.TestLogger(t)
 	dq := NewDecryptionQueue(4, 1000, 64, testutils.WaitTimeout(t), lggr)
 
@@ -321,7 +321,7 @@ func Test_decryptionQueue_GetRequests_RequestsCountLimit(t *testing.T) {
 	}
 }
 
-func Test_decryptionQueue_GetRequests_TotalBytesLimit(t *testing.T) {
+func TestUnit_decryptionQueue_GetRequests_TotalBytesLimit(t *testing.T) {
 	lggr := logger.TestLogger(t)
 	dq := NewDecryptionQueue(4, 10, 64, testutils.WaitTimeout(t), lggr)
 
@@ -365,7 +365,7 @@ func Test_decryptionQueue_GetRequests_TotalBytesLimit(t *testing.T) {
 	}
 }
 
-func Test_decryptionQueue_GetRequests_PendingRequestQueueShorterThanRequestCountLimit(t *testing.T) {
+func TestUnit_decryptionQueue_GetRequests_PendingRequestQueueShorterThanRequestCountLimit(t *testing.T) {
 	lggr := logger.TestLogger(t)
 	dq := NewDecryptionQueue(4, 1000, 64, testutils.WaitTimeout(t), lggr)
 
@@ -387,7 +387,7 @@ func Test_decryptionQueue_GetRequests_PendingRequestQueueShorterThanRequestCount
 	}
 }
 
-func Test_decryptionQueue_GetRequests_ExpiredRequest(t *testing.T) {
+func TestUnit_decryptionQueue_GetRequests_ExpiredRequest(t *testing.T) {
 	lggr := logger.TestLogger(t)
 	dq := NewDecryptionQueue(4, 1000, 64, testutils.WaitTimeout(t), lggr)
 
@@ -409,7 +409,7 @@ func Test_decryptionQueue_GetRequests_ExpiredRequest(t *testing.T) {
 	}
 }
 
-func Test_decryptionQueue_Start(t *testing.T) {
+func TestUnit_decryptionQueue_Start(t *testing.T) {
 	lggr := logger.TestLogger(t)
 	dq := NewDecryptionQueue(4, 1000, 64, testutils.WaitTimeout(t), lggr)
 
@@ -420,7 +420,7 @@ func Test_decryptionQueue_Start(t *testing.T) {
 	require.NoError(t, err)
 }
 
-func Test_decryptionQueue_Close(t *testing.T) {
+func TestUnit_decryptionQueue_Close(t *testing.T) {
 	lggr := logger.TestLogger(t)
 	dq := NewDecryptionQueue(4, 1000, 64, testutils.WaitTimeout(t), lggr)
 

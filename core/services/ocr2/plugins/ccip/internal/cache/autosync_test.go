@@ -16,7 +16,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/cache"
 )
 
-func TestLogpollerEventsBased(t *testing.T) {
+func TestUnit_LogpollerEventsBased(t *testing.T) {
 	ctx := testutils.Context(t)
 	lp := lpmocks.NewLogPoller(t)
 	observedEvents := []common.Hash{

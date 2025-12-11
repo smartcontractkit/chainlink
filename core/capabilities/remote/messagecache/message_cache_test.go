@@ -16,7 +16,7 @@ const (
 	payloadA = "payloadA"
 )
 
-func TestMessageCache_InsertReady(t *testing.T) {
+func TestUnit_MessageCache_InsertReady(t *testing.T) {
 	cache := messagecache.NewMessageCache[string, string]()
 
 	// not ready with one message
@@ -42,7 +42,7 @@ func TestMessageCache_InsertReady(t *testing.T) {
 	require.False(t, ready)
 }
 
-func TestMessageCache_DeleteOlderThan(t *testing.T) {
+func TestUnit_MessageCache_DeleteOlderThan(t *testing.T) {
 	cache := messagecache.NewMessageCache[string, string]()
 
 	ts := cache.Insert(eventID1, peerID1, 100, []byte(payloadA))

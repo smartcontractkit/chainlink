@@ -20,7 +20,7 @@ var (
 	user5String = "519BFD3D78fbb740c614432975CBE829E26C490e"
 )
 
-func TestWorkflowLimits(t *testing.T) {
+func TestUnit_WorkflowLimits(t *testing.T) {
 	t.Parallel()
 	lggr := logger.TestLogger(t)
 

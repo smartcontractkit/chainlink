@@ -6,7 +6,7 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func Test_diskSpaceAvailable(t *testing.T) {
+func TestUnit_diskSpaceAvailable(t *testing.T) {
 	t.Parallel()
 
 	size, err := diskSpaceAvailable(".")

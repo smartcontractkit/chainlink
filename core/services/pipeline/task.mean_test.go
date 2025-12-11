@@ -13,7 +13,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
 )
 
-func TestMeanTask(t *testing.T) {
+func TestUnit_MeanTask(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {

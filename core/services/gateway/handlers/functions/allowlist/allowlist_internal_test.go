@@ -17,7 +17,7 @@ import (
 	amocks "github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers/functions/allowlist/mocks"
 )
 
-func TestUpdateAllowedSendersInBatches(t *testing.T) {
+func TestUnit_UpdateAllowedSendersInBatches(t *testing.T) {
 	t.Run("OK-simple_update_in_batches", func(t *testing.T) {
 		ctx := context.Background()
 		config := OnchainAllowlistConfig{

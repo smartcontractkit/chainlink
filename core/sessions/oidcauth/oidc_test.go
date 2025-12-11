@@ -34,7 +34,7 @@ func setupAuthenticationProvider(t *testing.T) (*sqlx.DB, sessions.Authenticatio
 	return db, oidcAuthProvider
 }
 
-func TestORM_FindUser_Empty(t *testing.T) {
+func TestUnit_ORM_FindUser_Empty(t *testing.T) {
 	t.Parallel()
 	ctx := testutils.Context(t)
 	// Init OIDC authenticator
@@ -44,7 +44,7 @@ func TestORM_FindUser_Empty(t *testing.T) {
 	require.ErrorContains(t, err, "user not found")
 }
 
-func TestORM_FindUser_Single(t *testing.T) {
+func TestUnit_ORM_FindUser_Single(t *testing.T) {
 	t.Parallel()
 	ctx := testutils.Context(t)
 	// Init OIDC authenticator
@@ -66,7 +66,7 @@ func TestORM_FindUser_Single(t *testing.T) {
 	require.Equal(t, foundUser.Role, user1.Role)
 }
 
-func TestORM_FindUserByAPIToken_Success(t *testing.T) {
+func TestUnit_ORM_FindUserByAPIToken_Success(t *testing.T) {
 	ctx := testutils.Context(t)
 	// Init OIDC authenticator
 	db, oidcAuthProvider := setupAuthenticationProvider(t)
@@ -83,7 +83,7 @@ func TestORM_FindUserByAPIToken_Success(t *testing.T) {
 	require.Equal(t, sessions.UserRoleEdit, foundUser.Role)
 }
 
-func TestORM_FindUserByAPIToken_Expired(t *testing.T) {
+func TestUnit_ORM_FindUserByAPIToken_Expired(t *testing.T) {
 	ctx := testutils.Context(t)
 	// Init OIDC authenticator
 	cfg := oidcauth.TestConfig{}
@@ -100,7 +100,7 @@ func TestORM_FindUserByAPIToken_Expired(t *testing.T) {
 	require.Equal(t, sessions.ErrUserSessionExpired, err)
 }
 
-func TestORM_ListUsers(t *testing.T) {
+func TestUnit_ORM_ListUsers(t *testing.T) {
 	ctx := testutils.Context(t)
 	// Init OIDC authenticator
 	db, oidcAuthProvider := setupAuthenticationProvider(t)
@@ -136,7 +136,7 @@ func TestORM_ListUsers(t *testing.T) {
 	}
 }
 
-func TestORM_CreateSession(t *testing.T) {
+func TestUnit_ORM_CreateSession(t *testing.T) {
 	t.Parallel()
 	ctx := testutils.Context(t)
 	db, oidcAuthProvider := setupAuthenticationProvider(t)
@@ -156,7 +156,7 @@ func TestORM_CreateSession(t *testing.T) {
 	require.NoError(t, err)
 }
 
-func TestORM_DeleteSession(t *testing.T) {
+func TestUnit_ORM_DeleteSession(t *testing.T) {
 	t.Parallel()
 	ctx := testutils.Context(t)
 	db, oidcAuthProvider := setupAuthenticationProvider(t)
@@ -179,7 +179,7 @@ func TestORM_DeleteSession(t *testing.T) {
 	require.NoError(t, err)
 }
 
-func TestORM_ClearNonConcurrentSession(t *testing.T) {
+func TestUnit_ORM_ClearNonConcurrentSession(t *testing.T) {
 	t.Parallel()
 	ctx := testutils.Context(t)
 	db, oidcAuthProvider := setupAuthenticationProvider(t)
@@ -202,7 +202,7 @@ func TestORM_ClearNonConcurrentSession(t *testing.T) {
 	require.NoError(t, err)
 }
 
-func Test_AuthorizeUserWithSession_Success(t *testing.T) {
+func TestUnit_AuthorizeUserWithSession_Success(t *testing.T) {
 	t.Parallel()
 	ctx := testutils.Context(t)
 	db, oidcAuthProvider := setupAuthenticationProvider(t)
@@ -229,7 +229,7 @@ func Test_AuthorizeUserWithSession_Success(t *testing.T) {
 	require.Equal(t, user1.Role, user.Role)
 }
 
-func Test_AuthorizeUserWithSession_Expired(t *testing.T) {
+func TestUnit_AuthorizeUserWithSession_Expired(t *testing.T) {
 	t.Parallel()
 	ctx := testutils.Context(t)
 	cfg := oidcauth.TestConfig{}
@@ -260,7 +260,7 @@ func Test_AuthorizeUserWithSession_Expired(t *testing.T) {
 	require.Equal(t, err, sessions.ErrUserSessionExpired)
 }
 
-func Test_AuthorizeUserWithSession_SessionRoleMatchesUserRole(t *testing.T) {
+func TestUnit_AuthorizeUserWithSession_SessionRoleMatchesUserRole(t *testing.T) {
 	t.Parallel()
 	ctx := testutils.Context(t)
 	db, oidcAuthProvider := setupAuthenticationProvider(t)
@@ -286,7 +286,7 @@ func Test_AuthorizeUserWithSession_SessionRoleMatchesUserRole(t *testing.T) {
 	require.Equal(t, sessions.UserRoleView, user.Role)
 }
 
-func TestORM_CreateSession_LocalAdminFallbackLogin(t *testing.T) {
+func TestUnit_ORM_CreateSession_LocalAdminFallbackLogin(t *testing.T) {
 	t.Parallel()
 	ctx := testutils.Context(t)
 	db, oidcAuthProvider := setupAuthenticationProvider(t)
@@ -314,7 +314,7 @@ func TestORM_CreateSession_LocalAdminFallbackLogin(t *testing.T) {
 	require.ErrorContains(t, err, "invalid password")
 }
 
-func Test_IDClaimsToUserRole(t *testing.T) {
+func TestUnit_IDClaimsToUserRole(t *testing.T) {
 	t.Parallel()
 	cfg := oidcauth.TestConfig{}
 	db := pgtest.NewSqlxDB(t)
@@ -387,7 +387,7 @@ func Test_IDClaimsToUserRole(t *testing.T) {
 	}
 }
 
-func Test_ExtractIDClaimValues(t *testing.T) {
+func TestUnit_ExtractIDClaimValues(t *testing.T) {
 	t.Parallel()
 	cfg := oidcauth.TestConfig{}
 	db := pgtest.NewSqlxDB(t)

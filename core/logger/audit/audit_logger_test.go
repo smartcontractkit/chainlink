@@ -82,7 +82,7 @@ func (c Config) JsonWrapperKey() string {
 	return ""
 }
 
-func TestCheckLoginAuditLog(t *testing.T) {
+func TestUnit_CheckLoginAuditLog(t *testing.T) {
 	t.Parallel()
 
 	// Create a channel that will be used instead of an HTTP client

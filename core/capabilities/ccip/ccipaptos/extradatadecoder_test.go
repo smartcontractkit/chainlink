@@ -10,7 +10,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func Test_decodeExtraData(t *testing.T) {
+func TestUnit_decodeExtraData(t *testing.T) {
 	extraDataDecoder := &ExtraDataDecoder{}
 
 	t.Run("decode extra args into map evm v1", func(t *testing.T) {

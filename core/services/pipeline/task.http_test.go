@@ -33,7 +33,7 @@ import (
 // external adapters.
 // https://github.com/smartcontractkit/price-adapters
 
-func TestHTTPTask_Happy(t *testing.T) {
+func TestUnit_HTTPTask_Happy(t *testing.T) {
 	t.Parallel()
 
 	config := configtest.NewTestGeneralConfig(t)
@@ -64,7 +64,7 @@ func TestHTTPTask_Happy(t *testing.T) {
 	require.Equal(t, decimal.NewFromInt(9700), x.Data.Result)
 }
 
-func TestHTTPTask_Variables(t *testing.T) {
+func TestUnit_HTTPTask_Variables(t *testing.T) {
 	t.Parallel()
 
 	validMeta := map[string]any{"theMeta": "yes"}
@@ -205,7 +205,7 @@ func TestHTTPTask_Variables(t *testing.T) {
 	}
 }
 
-func TestHTTPTask_OverrideURLSafe(t *testing.T) {
+func TestUnit_HTTPTask_OverrideURLSafe(t *testing.T) {
 	t.Parallel()
 
 	config := configtest.NewTestGeneralConfig(t)
@@ -252,7 +252,7 @@ func TestHTTPTask_OverrideURLSafe(t *testing.T) {
 	require.NoError(t, result.Error)
 }
 
-func TestHTTPTask_ErrorMessage(t *testing.T) {
+func TestUnit_HTTPTask_ErrorMessage(t *testing.T) {
 	t.Parallel()
 
 	config := configtest.NewTestGeneralConfig(t)
@@ -285,7 +285,7 @@ func TestHTTPTask_ErrorMessage(t *testing.T) {
 	require.Nil(t, result.Value)
 }
 
-func TestHTTPTask_OnlyErrorMessage(t *testing.T) {
+func TestUnit_HTTPTask_OnlyErrorMessage(t *testing.T) {
 	t.Parallel()
 
 	config := configtest.NewTestGeneralConfig(t)
@@ -315,7 +315,7 @@ func TestHTTPTask_OnlyErrorMessage(t *testing.T) {
 	require.Nil(t, result.Value)
 }
 
-func TestHTTPTask_Headers(t *testing.T) {
+func TestUnit_HTTPTask_Headers(t *testing.T) {
 	allHeaders := func(headers http.Header) (s []string) {
 		var keys []string
 		for k := range headers {

@@ -35,7 +35,7 @@ func setupTestHandlers(t *testing.T) *TestRPCHandlers {
 	}
 }
 
-func Test_RPCHandlers_ProposeJob(t *testing.T) {
+func TestUnit_RPCHandlers_ProposeJob(t *testing.T) {
 	var (
 		ctx                  = testutils.Context(t)
 		jobID                = uuid.New()
@@ -62,7 +62,7 @@ func Test_RPCHandlers_ProposeJob(t *testing.T) {
 	require.NoError(t, err)
 }
 
-func Test_RPCHandlers_DeleteJob(t *testing.T) {
+func TestUnit_RPCHandlers_DeleteJob(t *testing.T) {
 	var (
 		ctx   = testutils.Context(t)
 		jobID = uuid.New()
@@ -82,7 +82,7 @@ func Test_RPCHandlers_DeleteJob(t *testing.T) {
 	require.NoError(t, err)
 }
 
-func Test_RPCHandlers_RevokeJob(t *testing.T) {
+func TestUnit_RPCHandlers_RevokeJob(t *testing.T) {
 	var (
 		ctx   = testutils.Context(t)
 		jobID = uuid.New()
@@ -102,7 +102,7 @@ func Test_RPCHandlers_RevokeJob(t *testing.T) {
 	require.NoError(t, err)
 }
 
-func Test_RPCHandlers_GetJobRuns(t *testing.T) {
+func TestUnit_RPCHandlers_GetJobRuns(t *testing.T) {
 	var (
 		ctx   = testutils.Context(t)
 		jobID = uuid.New()
@@ -157,7 +157,7 @@ func Test_RPCHandlers_GetJobRuns(t *testing.T) {
 	require.Equal(t, "fatal1", run2.FatalErrors[0])
 }
 
-func Test_RPCHandlers_GetJobRuns_InvalidUUID(t *testing.T) {
+func TestUnit_RPCHandlers_GetJobRuns_InvalidUUID(t *testing.T) {
 	ctx := testutils.Context(t)
 	h := setupTestHandlers(t)
 
@@ -170,7 +170,7 @@ func Test_RPCHandlers_GetJobRuns_InvalidUUID(t *testing.T) {
 	require.Contains(t, err.Error(), "invalid UUID")
 }
 
-func Test_RPCHandlers_GetJobRuns_DefaultLimit(t *testing.T) {
+func TestUnit_RPCHandlers_GetJobRuns_DefaultLimit(t *testing.T) {
 	var (
 		ctx   = testutils.Context(t)
 		jobID = uuid.New()
@@ -192,7 +192,7 @@ func Test_RPCHandlers_GetJobRuns_DefaultLimit(t *testing.T) {
 	require.NoError(t, err)
 }
 
-func Test_RPCHandlers_GetJobRuns_ExceedsMaxLimit(t *testing.T) {
+func TestUnit_RPCHandlers_GetJobRuns_ExceedsMaxLimit(t *testing.T) {
 	var (
 		ctx   = testutils.Context(t)
 		jobID = uuid.New()

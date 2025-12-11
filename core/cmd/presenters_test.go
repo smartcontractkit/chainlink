@@ -9,7 +9,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/cmd"
 )
 
-func TestJAID(t *testing.T) {
+func TestUnit_JAID(t *testing.T) {
 	t.Parallel()
 
 	jaid := cmd.JAID{ID: "1"}

@@ -32,7 +32,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/plugins"
 )
 
-func TestCoreRelayerChainInteroperators(t *testing.T) {
+func TestUnit_CoreRelayerChainInteroperators(t *testing.T) {
 	evmChainID1, evmChainID2 := ubig.New(big.NewInt(1)), ubig.New(big.NewInt(2))
 	solanaChainID1, solanaChainID2 := "solana-id-1", "solana-id-2"
 

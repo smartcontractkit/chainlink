@@ -11,7 +11,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
 
-func TestMergeEpochAndRound(t *testing.T) {
+func TestUnit_MergeEpochAndRound(t *testing.T) {
 	type args struct {
 		epoch uint32
 		round uint8
@@ -52,7 +52,7 @@ func TestMergeEpochAndRound(t *testing.T) {
 	}
 }
 
-func TestContiguousReqs(t *testing.T) {
+func TestUnit_ContiguousReqs(t *testing.T) {
 	testCases := []struct {
 		min    uint64
 		max    uint64
@@ -73,7 +73,7 @@ func TestContiguousReqs(t *testing.T) {
 	}
 }
 
-func TestCalculateUsdPerUnitGas(t *testing.T) {
+func TestUnit_CalculateUsdPerUnitGas(t *testing.T) {
 	testCases := []struct {
 		name           string
 		sourceGasPrice *big.Int
@@ -102,7 +102,7 @@ func TestCalculateUsdPerUnitGas(t *testing.T) {
 	}
 }
 
-func TestBigIntSortedMiddle(t *testing.T) {
+func TestUnit_BigIntSortedMiddle(t *testing.T) {
 	tests := []struct {
 		name string
 		vals []*big.Int
@@ -136,7 +136,7 @@ func TestBigIntSortedMiddle(t *testing.T) {
 	}
 }
 
-func TestDeviates(t *testing.T) {
+func TestUnit_Deviates(t *testing.T) {
 	type args struct {
 		x1  *big.Int
 		x2  *big.Int
@@ -220,7 +220,7 @@ func TestDeviates(t *testing.T) {
 	}
 }
 
-func TestDeviatesOnCurve(t *testing.T) {
+func TestUnit_DeviatesOnCurve(t *testing.T) {
 	type args struct {
 		xNew  *big.Int
 		xOld  *big.Int
@@ -292,7 +292,7 @@ func TestDeviatesOnCurve(t *testing.T) {
 	}
 }
 
-func TestCalculateCurveThresholdPPB(t *testing.T) {
+func TestUnit_CalculateCurveThresholdPPB(t *testing.T) {
 	tests := []struct {
 		x             float64
 		ppbLowerBound int64

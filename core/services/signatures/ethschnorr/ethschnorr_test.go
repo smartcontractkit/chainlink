@@ -35,7 +35,7 @@ func printTest(t *testing.T, msg *big.Int, private kyber.Scalar,
 		signature.CommitmentPublicAddress)
 }
 
-func TestShortSchnorr_SignAndVerify(t *testing.T) {
+func TestUnit_ShortSchnorr_SignAndVerify(t *testing.T) {
 	if printTests {
 		t.Log("tests = [\n")
 	}
@@ -94,12 +94,12 @@ func TestShortSchnorr_SignAndVerify(t *testing.T) {
 	require.Contains(t, err.Error(), "not a valid signature")
 }
 
-func TestShortSchnorr_NewSignature(t *testing.T) {
+func TestUnit_ShortSchnorr_NewSignature(t *testing.T) {
 	s := NewSignature()
 	require.Equal(t, s.Signature, big.NewInt(0))
 }
 
-func TestShortSchnorr_ChallengeHash(t *testing.T) {
+func TestUnit_ShortSchnorr_ChallengeHash(t *testing.T) {
 	point := secp256k1Group.Point()
 	var hash [20]byte
 	h, err := ChallengeHash(point, hash, big.NewInt(-1))

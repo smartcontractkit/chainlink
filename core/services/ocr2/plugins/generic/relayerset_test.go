@@ -14,7 +14,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/types/core"
 )
 
-func TestRelayerSet_List(t *testing.T) {
+func TestUnit_RelayerSet_List(t *testing.T) {
 	testRelayersMap := map[types.RelayID]loop.Relayer{}
 	testRelayersMap[types.RelayID{Network: "N1", ChainID: "C1"}] = &TestRelayer{}
 	testRelayersMap[types.RelayID{Network: "N2", ChainID: "C2"}] = &TestRelayer{}
@@ -41,7 +41,7 @@ func TestRelayerSet_List(t *testing.T) {
 	assert.True(t, ok)
 }
 
-func TestRelayerSet_Get(t *testing.T) {
+func TestUnit_RelayerSet_Get(t *testing.T) {
 	testRelayersMap := map[types.RelayID]loop.Relayer{}
 	testRelayersMap[types.RelayID{Network: "N1", ChainID: "C1"}] = &TestRelayer{}
 	testRelayersMap[types.RelayID{Network: "N2", ChainID: "C2"}] = &TestRelayer{}
@@ -59,7 +59,7 @@ func TestRelayerSet_Get(t *testing.T) {
 	assert.Error(t, err)
 }
 
-func TestRelayerSet_NewPluginProvider(t *testing.T) {
+func TestUnit_RelayerSet_NewPluginProvider(t *testing.T) {
 	testRelayersMap := map[types.RelayID]loop.Relayer{}
 	testRelayer := &TestRelayer{}
 	testRelayersMap[types.RelayID{Network: "N1", ChainID: "C1"}] = testRelayer

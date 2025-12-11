@@ -153,7 +153,7 @@ func createPayload() evm.ABIPayload {
 	return evm.ABIPayload("kitties")
 }
 
-func TestEVMService(t *testing.T) {
+func TestUnit_EVMService(t *testing.T) {
 	t.Parallel()
 	ctx := t.Context()
 
@@ -353,7 +353,7 @@ func TestEVMService(t *testing.T) {
 	}
 }
 
-func TestEVMService_HeaderByNumber(t *testing.T) {
+func TestUnit_EVMService_HeaderByNumber(t *testing.T) {
 	testCases := []struct {
 		Name           string
 		Request        evm.HeaderByNumberRequest
@@ -524,7 +524,7 @@ func runSubmitTxGettingDifferentStatusAndReceipts(m *Mocks, ctx any, expectedRet
 	}
 }
 
-func TestConverters(t *testing.T) {
+func TestUnit_Converters(t *testing.T) {
 	t.Parallel()
 
 	t.Run("convert head", func(t *testing.T) {
@@ -559,7 +559,7 @@ func TestConverters(t *testing.T) {
 	})
 }
 
-func TestEVMService_EstimateGas(t *testing.T) {
+func TestUnit_EVMService_EstimateGas(t *testing.T) {
 	testCases := []struct {
 		Name           string
 		Request        *evm.CallMsg
@@ -610,7 +610,7 @@ func TestEVMService_EstimateGas(t *testing.T) {
 	}
 }
 
-func TestEVMService_CallContract(t *testing.T) {
+func TestUnit_EVMService_CallContract(t *testing.T) {
 	testCases := []struct {
 		Name           string
 		Request        evm.CallContractRequest

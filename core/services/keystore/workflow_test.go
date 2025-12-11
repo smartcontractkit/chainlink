@@ -16,7 +16,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/workflowkey"
 )
 
-func Test_EncryptionKeyStore_E2E(t *testing.T) {
+func TestUnit_EncryptionKeyStore_E2E(t *testing.T) {
 	db := pgtest.NewSqlxDB(t)
 	keyStore := keystore.ExposedNewMaster(t, db)
 	require.NoError(t, keyStore.Unlock(testutils.Context(t), cltest.Password))

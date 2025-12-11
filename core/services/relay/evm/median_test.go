@@ -16,7 +16,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/common/chains/mocks"
 )
 
-func TestNewMedianProvider(t *testing.T) {
+func TestUnit_NewMedianProvider(t *testing.T) {
 	lggr := logger.Test(t)
 
 	chain := mocks.NewChain(t)

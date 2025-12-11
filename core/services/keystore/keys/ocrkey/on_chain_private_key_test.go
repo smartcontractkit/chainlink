@@ -10,7 +10,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestOCRKeys_OnChainPrivateKey(t *testing.T) {
+func TestUnit_OCRKeys_OnChainPrivateKey(t *testing.T) {
 	t.Parallel()
 
 	pk, err := ecdsa.GenerateKey(crypto.S256(), rand.Reader)

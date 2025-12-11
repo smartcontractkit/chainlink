@@ -10,7 +10,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/vrf/vrftesthelpers"
 )
 
-func TestMeasureRandomnessRequestGasCost(t *testing.T) {
+func TestUnit_MeasureRandomnessRequestGasCost(t *testing.T) {
 	key := cltest.MustGenerateRandomKey(t)
 	coordinator := vrftesthelpers.NewVRFCoordinatorUniverse(t, key)
 	keyHash_, _, fee := registerProvingKey(t, coordinator)

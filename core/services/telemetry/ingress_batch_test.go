@@ -11,7 +11,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/telemetry"
 )
 
-func TestIngressAgentBatch(t *testing.T) {
+func TestUnit_IngressAgentBatch(t *testing.T) {
 	telemetryBatchClient := mocks.NewTelemetryService(t)
 	ingressAgentBatch := telemetry.NewIngressAgentWrapper(telemetryBatchClient)
 	monitoringEndpoint := ingressAgentBatch.GenMonitoringEndpoint("test-network", "test-chainID", "0xa", synchronization.OCR)

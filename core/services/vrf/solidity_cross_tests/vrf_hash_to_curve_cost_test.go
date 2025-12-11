@@ -90,7 +90,7 @@ func HashToCurveGasCostBound(numOrdinates uint64) uint64 {
 	return baseCost + marginalCost*numOrdinates
 }
 
-func TestMeasureHashToCurveGasCost(t *testing.T) {
+func TestUnit_MeasureHashToCurveGasCost(t *testing.T) {
 	contract, owner := deployVRFContract(t)
 	numSamples := int64(numSamples())
 	for i := range numSamples {

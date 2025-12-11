@@ -8,7 +8,7 @@ import (
 	ocr2keepers "github.com/smartcontractkit/chainlink-common/pkg/types/automation"
 )
 
-func TestTransmitEventCache_Sanity(t *testing.T) {
+func TestUnit_TransmitEventCache_Sanity(t *testing.T) {
 	tests := []struct {
 		name        string
 		cap         int64

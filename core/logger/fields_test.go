@@ -8,7 +8,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
 
-func TestFields_Merge(t *testing.T) {
+func TestUnit_Fields_Merge(t *testing.T) {
 	t.Parallel()
 
 	f1 := make(logger.Fields)
@@ -36,7 +36,7 @@ func TestFields_Merge(t *testing.T) {
 	})
 }
 
-func TestFields_Slice(t *testing.T) {
+func TestUnit_Fields_Slice(t *testing.T) {
 	t.Parallel()
 
 	f := make(logger.Fields)
@@ -62,7 +62,7 @@ func TestFields_Slice(t *testing.T) {
 	})
 }
 
-func TestFields_With(t *testing.T) {
+func TestUnit_Fields_With(t *testing.T) {
 	t.Parallel()
 
 	f := make(logger.Fields)

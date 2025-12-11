@@ -14,7 +14,7 @@ import (
 	"github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/latest/fee_quoter"
 )
 
-func Test_decodeExtraArgs(t *testing.T) {
+func TestUnit_decodeExtraArgs(t *testing.T) {
 	extraDataDecoder := &ExtraDataDecoder{}
 	t.Run("decode dest exec data into map svm", func(t *testing.T) {
 		destGasAmount := uint32(10000)

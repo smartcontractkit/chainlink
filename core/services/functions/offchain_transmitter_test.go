@@ -11,7 +11,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/functions"
 )
 
-func TestOffchainTransmitter(t *testing.T) {
+func TestUnit_OffchainTransmitter(t *testing.T) {
 	t.Parallel()
 
 	transmitter := functions.NewOffchainTransmitter(1)

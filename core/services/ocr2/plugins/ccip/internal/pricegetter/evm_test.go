@@ -49,7 +49,7 @@ func init() {
 	TK4 = utils.RandomAddress()
 }
 
-func TestDynamicPriceGetterWithEmptyInput(t *testing.T) {
+func TestUnit_DynamicPriceGetterWithEmptyInput(t *testing.T) {
 	tests := []struct {
 		name  string
 		param testParameters

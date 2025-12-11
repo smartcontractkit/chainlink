@@ -12,7 +12,7 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func TestInMemoryORM(t *testing.T) {
+func TestUnit_InMemoryORM(t *testing.T) {
 	t.Parallel()
 
 	address := testutils.NewAddress()
@@ -68,7 +68,7 @@ func TestInMemoryORM(t *testing.T) {
 	})
 }
 
-func TestInMemoryORM_DeleteExpired(t *testing.T) {
+func TestUnit_InMemoryORM_DeleteExpired(t *testing.T) {
 	t.Parallel()
 	ctx := testutils.Context(t)
 
@@ -102,7 +102,7 @@ func TestInMemoryORM_DeleteExpired(t *testing.T) {
 	assert.Len(t, rows, 156)
 }
 
-func TestInMemoryORM_GetUnconfirmedRows(t *testing.T) {
+func TestUnit_InMemoryORM_GetUnconfirmedRows(t *testing.T) {
 	t.Parallel()
 	ctx := testutils.Context(t)
 
@@ -132,7 +132,7 @@ func TestInMemoryORM_GetUnconfirmedRows(t *testing.T) {
 	assert.Len(t, rows, 100)
 }
 
-func TestInMemoryORM_GetSnapshot(t *testing.T) {
+func TestUnit_InMemoryORM_GetSnapshot(t *testing.T) {
 	t.Parallel()
 	ctx := testutils.Context(t)
 

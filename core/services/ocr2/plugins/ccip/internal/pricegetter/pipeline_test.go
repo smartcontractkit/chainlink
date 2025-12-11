@@ -30,7 +30,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
 )
 
-func TestParsingDifferentFormats(t *testing.T) {
+func TestUnit_ParsingDifferentFormats(t *testing.T) {
 	tests := []struct {
 		name          string
 		inputValue    string

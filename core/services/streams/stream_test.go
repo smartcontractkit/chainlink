@@ -56,7 +56,7 @@ func (m *MockTask) TaskRetries() uint32                { return 0 }
 func (m *MockTask) TaskMinBackoff() time.Duration      { return 0 }
 func (m *MockTask) TaskMaxBackoff() time.Duration      { return 0 }
 
-func Test_Stream(t *testing.T) {
+func TestUnit_Stream(t *testing.T) {
 	lggr := logger.Test(t)
 	runner := &mockRunner{}
 	ctx := testutils.Context(t)

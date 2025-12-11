@@ -11,7 +11,7 @@ import (
 	"github.com/smartcontractkit/chainlink-evm/pkg/logpoller"
 )
 
-func TestUpkeepFilter_Select(t *testing.T) {
+func TestUnit_UpkeepFilter_Select(t *testing.T) {
 	var zeroBytes [32]byte
 	emptyTopic := common.BytesToHash(zeroBytes[:])
 	contractAddress := common.HexToAddress("0xB9F3af0c2CbfE108efd0E23F7b0a151Ea42f764E")

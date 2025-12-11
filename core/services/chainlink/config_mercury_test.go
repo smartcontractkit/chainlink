@@ -25,7 +25,7 @@ Password = "password2"
 `
 )
 
-func TestMercuryConfig(t *testing.T) {
+func TestUnit_MercuryConfig(t *testing.T) {
 	opts := GeneralConfigOpts{
 		SecretsStrings: []string{secretsMercury},
 	}
@@ -37,7 +37,7 @@ func TestMercuryConfig(t *testing.T) {
 	assert.Equal(t, &types.MercuryCredentials{URL: "https://chain2.link", Username: "username2", Password: "password2"}, m.Credentials("cred2"))
 }
 
-func TestMercuryTLS(t *testing.T) {
+func TestUnit_MercuryTLS(t *testing.T) {
 	certPath := "/path/to/cert.pem"
 	transmission := toml.Mercury{
 		TLS: toml.MercuryTLS{

@@ -36,7 +36,7 @@ func seedAllowedSenders(t *testing.T, orm allowlist.ORM, amount int) []common.Ad
 
 	return storedAllowedSenders
 }
-func TestORM_GetAllowedSenders(t *testing.T) {
+func TestUnit_ORM_GetAllowedSenders(t *testing.T) {
 	t.Parallel()
 	t.Run("fetch first page", func(t *testing.T) {
 		ctx := testutils.Context(t)
@@ -61,7 +61,7 @@ func TestORM_GetAllowedSenders(t *testing.T) {
 	})
 }
 
-func TestORM_CreateAllowedSenders(t *testing.T) {
+func TestUnit_ORM_CreateAllowedSenders(t *testing.T) {
 	t.Parallel()
 
 	t.Run("OK-create_an_allowed_sender", func(t *testing.T) {
@@ -139,7 +139,7 @@ func TestORM_CreateAllowedSenders(t *testing.T) {
 	})
 }
 
-func TestORM_DeleteAllowedSenders(t *testing.T) {
+func TestUnit_ORM_DeleteAllowedSenders(t *testing.T) {
 	t.Parallel()
 
 	t.Run("OK-delete_blocked_sender_from_allowed_list", func(t *testing.T) {
@@ -192,7 +192,7 @@ func TestORM_DeleteAllowedSenders(t *testing.T) {
 	})
 }
 
-func TestORM_PurgeAllowedSenders(t *testing.T) {
+func TestUnit_ORM_PurgeAllowedSenders(t *testing.T) {
 	t.Parallel()
 
 	t.Run("OK-purge_allowed_list", func(t *testing.T) {
@@ -259,7 +259,7 @@ func TestORM_PurgeAllowedSenders(t *testing.T) {
 	})
 }
 
-func Test_NewORM(t *testing.T) {
+func TestUnit_NewORM(t *testing.T) {
 	t.Run("OK-create_ORM", func(t *testing.T) {
 		_, err := allowlist.NewORM(pgtest.NewSqlxDB(t), logger.Test(t), testutils.NewAddress())
 		require.NoError(t, err)

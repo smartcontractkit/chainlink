@@ -11,7 +11,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
 )
 
-func TestBase64DecodeTask(t *testing.T) {
+func TestUnit_Base64DecodeTask(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {

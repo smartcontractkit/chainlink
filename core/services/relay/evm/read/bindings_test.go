@@ -27,7 +27,7 @@ var (
 	}
 )
 
-func TestBindingsRegistry(t *testing.T) {
+func TestUnit_BindingsRegistry(t *testing.T) {
 	t.Parallel()
 
 	t.Run("readers are addable, bindable, and retrievable", func(t *testing.T) {

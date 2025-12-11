@@ -8,7 +8,7 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func TestParseBigIntFromAny(t *testing.T) {
+func TestUnit_ParseBigIntFromAny(t *testing.T) {
 	decimalVal := decimal.New(123, 0)
 
 	testCases := []struct {

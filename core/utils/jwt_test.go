@@ -13,7 +13,7 @@ import (
 	jsonrpc "github.com/smartcontractkit/chainlink-common/pkg/jsonrpc2"
 )
 
-func TestSigningMethodEth_Sign(t *testing.T) {
+func TestUnit_SigningMethodEth_Sign(t *testing.T) {
 	t.Run("valid ECDSA key", func(t *testing.T) {
 		privateKey, err := crypto.GenerateKey()
 		require.NoError(t, err)
@@ -36,7 +36,7 @@ func TestSigningMethodEth_Sign(t *testing.T) {
 	})
 }
 
-func TestSigningMethodEth_Verify(t *testing.T) {
+func TestUnit_SigningMethodEth_Verify(t *testing.T) {
 	privateKey, err := crypto.GenerateKey()
 	require.NoError(t, err)
 	address := crypto.PubkeyToAddress(privateKey.PublicKey)
@@ -83,7 +83,7 @@ func TestSigningMethodEth_Verify(t *testing.T) {
 	})
 }
 
-func TestWithExpiry(t *testing.T) {
+func TestUnit_WithExpiry(t *testing.T) {
 	duration := 30 * time.Minute
 	opts := &jwtOptions{}
 
@@ -93,7 +93,7 @@ func TestWithExpiry(t *testing.T) {
 	require.Equal(t, duration, *opts.expiryDuration)
 }
 
-func TestWithIssuer(t *testing.T) {
+func TestUnit_WithIssuer(t *testing.T) {
 	issuer := "test-issuer"
 	opts := &jwtOptions{}
 
@@ -103,7 +103,7 @@ func TestWithIssuer(t *testing.T) {
 	require.Equal(t, issuer, *opts.issuer)
 }
 
-func TestWithAudience(t *testing.T) {
+func TestUnit_WithAudience(t *testing.T) {
 	audience := []string{"aud1", "aud2"}
 	opts := &jwtOptions{}
 
@@ -112,7 +112,7 @@ func TestWithAudience(t *testing.T) {
 	require.Equal(t, audience, opts.audience)
 }
 
-func TestWithSubject(t *testing.T) {
+func TestUnit_WithSubject(t *testing.T) {
 	subject := "test-subject"
 	opts := &jwtOptions{}
 
@@ -122,7 +122,7 @@ func TestWithSubject(t *testing.T) {
 	require.Equal(t, subject, *opts.subject)
 }
 
-func TestWithMaxExpiryDuration(t *testing.T) {
+func TestUnit_WithMaxExpiryDuration(t *testing.T) {
 	duration := 10 * time.Minute
 	opts := &verifyOptions{}
 
@@ -132,7 +132,7 @@ func TestWithMaxExpiryDuration(t *testing.T) {
 	require.Equal(t, duration, *opts.maxExpiryDuration)
 }
 
-func TestWithIssuedAtTolerance(t *testing.T) {
+func TestUnit_WithIssuedAtTolerance(t *testing.T) {
 	duration := 10 * time.Minute
 	opts := &verifyOptions{}
 
@@ -152,7 +152,7 @@ func testRequest(t *testing.T) jsonrpc.Request[json.RawMessage] {
 	}
 }
 
-func TestCreateRequestJWT(t *testing.T) {
+func TestUnit_CreateRequestJWT(t *testing.T) {
 	req := testRequest(t)
 
 	t.Run("default options", func(t *testing.T) {
@@ -198,7 +198,7 @@ func TestCreateRequestJWT(t *testing.T) {
 	})
 }
 
-func TestSplitToken(t *testing.T) {
+func TestUnit_SplitToken(t *testing.T) {
 	t.Run("valid token format", func(t *testing.T) {
 		tokenString := "header.payload.signature"
 
@@ -223,7 +223,7 @@ func TestSplitToken(t *testing.T) {
 	})
 }
 
-func TestVerifyRequestJWT_Integration(t *testing.T) {
+func TestUnit_VerifyRequestJWT_Integration(t *testing.T) {
 	privateKey, err := crypto.GenerateKey()
 	require.NoError(t, err)
 
@@ -488,7 +488,7 @@ func TestVerifyRequestJWT_Integration(t *testing.T) {
 	})
 }
 
-func TestSigningMethodRegistration(t *testing.T) {
+func TestUnit_SigningMethodRegistration(t *testing.T) {
 	method := jwt.GetSigningMethod("ETH")
 	require.NotNil(t, method)
 

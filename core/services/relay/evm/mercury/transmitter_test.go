@@ -41,7 +41,7 @@ func (m mockCfg) TransmitTimeout() time.Duration {
 	return 1 * time.Hour
 }
 
-func Test_MercuryTransmitter_Transmit(t *testing.T) {
+func TestUnit_MercuryTransmitter_Transmit(t *testing.T) {
 	lggr := logger.Test(t)
 	db := testutils.NewSqlxDB(t)
 	var jobID int32
@@ -125,7 +125,7 @@ func Test_MercuryTransmitter_Transmit(t *testing.T) {
 	})
 }
 
-func Test_MercuryTransmitter_LatestTimestamp(t *testing.T) {
+func TestUnit_MercuryTransmitter_LatestTimestamp(t *testing.T) {
 	t.Parallel()
 	lggr := logger.Test(t)
 	db := testutils.NewSqlxDB(t)
@@ -234,7 +234,7 @@ func (m *mockCodec) ObservationTimestampFromReport(ctx context.Context, report o
 	return 0, nil
 }
 
-func Test_MercuryTransmitter_LatestPrice(t *testing.T) {
+func TestUnit_MercuryTransmitter_LatestPrice(t *testing.T) {
 	t.Parallel()
 	lggr := logger.Test(t)
 	db := testutils.NewSqlxDB(t)
@@ -313,7 +313,7 @@ func Test_MercuryTransmitter_LatestPrice(t *testing.T) {
 	})
 }
 
-func Test_MercuryTransmitter_FetchInitialMaxFinalizedBlockNumber(t *testing.T) {
+func TestUnit_MercuryTransmitter_FetchInitialMaxFinalizedBlockNumber(t *testing.T) {
 	t.Parallel()
 
 	lggr := logger.Test(t)
@@ -393,7 +393,7 @@ func Test_MercuryTransmitter_FetchInitialMaxFinalizedBlockNumber(t *testing.T) {
 	})
 }
 
-func Test_sortReportsLatestFirst(t *testing.T) {
+func TestUnit_sortReportsLatestFirst(t *testing.T) {
 	reports := []*pb.Report{
 		nil,
 		{ObservationsTimestamp: 1},
@@ -447,7 +447,7 @@ func (m *mockQ) Push(req *pb.TransmitRequest, reportCtx ocrtypes.ReportContext) 
 func (m *mockQ) Init(transmissions []*Transmission) {}
 func (m *mockQ) IsEmpty() bool                      { return false }
 
-func Test_MercuryTransmitter_runQueueLoop(t *testing.T) {
+func TestUnit_MercuryTransmitter_runQueueLoop(t *testing.T) {
 	feedIDHex := utils.NewHash().Hex()
 	lggr := logger.Test(t)
 	c := &mocks.MockWSRPCClient{}

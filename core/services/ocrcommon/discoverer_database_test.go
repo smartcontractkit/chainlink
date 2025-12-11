@@ -15,7 +15,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocrcommon"
 )
 
-func Test_DiscovererDatabase(t *testing.T) {
+func TestUnit_DiscovererDatabase(t *testing.T) {
 	db := pgtest.NewSqlxDB(t)
 
 	localPeerID1 := mustRandomP2PPeerID(t)

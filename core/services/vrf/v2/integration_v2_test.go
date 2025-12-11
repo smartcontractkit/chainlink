@@ -914,7 +914,7 @@ func checkForReceipt(t *testing.T, db *sqlx.DB, txID int64) bool {
 	return count > 0
 }
 
-func TestVRFV2Integration_SingleConsumer_ForceFulfillment(t *testing.T) {
+func TestUnit_VRFV2Integration_SingleConsumer_ForceFulfillment(t *testing.T) {
 	quarantine.Flaky(t, "DX-1875")
 	t.Parallel()
 	ownerKey := cltest.MustGenerateRandomKey(t)
@@ -931,7 +931,7 @@ func TestVRFV2Integration_SingleConsumer_ForceFulfillment(t *testing.T) {
 	)
 }
 
-func TestVRFV2Integration_SingleConsumer_ForceFulfillment_BatchEnabled(t *testing.T) {
+func TestUnit_VRFV2Integration_SingleConsumer_ForceFulfillment_BatchEnabled(t *testing.T) {
 	t.Parallel()
 	ownerKey := cltest.MustGenerateRandomKey(t)
 	uni := newVRFCoordinatorV2Universe(t, ownerKey, 1)
@@ -947,7 +947,7 @@ func TestVRFV2Integration_SingleConsumer_ForceFulfillment_BatchEnabled(t *testin
 	)
 }
 
-func TestVRFV2Integration_SingleConsumer_HappyPath_BatchFulfillment(t *testing.T) {
+func TestUnit_VRFV2Integration_SingleConsumer_HappyPath_BatchFulfillment(t *testing.T) {
 	t.Parallel()
 	ownerKey := cltest.MustGenerateRandomKey(t)
 	uni := newVRFCoordinatorV2Universe(t, ownerKey, 1)
@@ -969,7 +969,7 @@ func TestVRFV2Integration_SingleConsumer_HappyPath_BatchFulfillment(t *testing.T
 	)
 }
 
-func TestVRFV2Integration_SingleConsumer_HappyPath_BatchFulfillment_BigGasCallback(t *testing.T) {
+func TestUnit_VRFV2Integration_SingleConsumer_HappyPath_BatchFulfillment_BigGasCallback(t *testing.T) {
 	t.Parallel()
 	ownerKey := cltest.MustGenerateRandomKey(t)
 	uni := newVRFCoordinatorV2Universe(t, ownerKey, 1)
@@ -991,7 +991,7 @@ func TestVRFV2Integration_SingleConsumer_HappyPath_BatchFulfillment_BigGasCallba
 	)
 }
 
-func TestVRFV2Integration_SingleConsumer_HappyPath(t *testing.T) {
+func TestUnit_VRFV2Integration_SingleConsumer_HappyPath(t *testing.T) {
 	t.Parallel()
 	ownerKey := cltest.MustGenerateRandomKey(t)
 	uni := newVRFCoordinatorV2Universe(t, ownerKey, 1)
@@ -1016,7 +1016,7 @@ func TestVRFV2Integration_SingleConsumer_HappyPath(t *testing.T) {
 	)
 }
 
-func TestVRFV2Integration_SingleConsumer_EOA_Request(t *testing.T) {
+func TestUnit_VRFV2Integration_SingleConsumer_EOA_Request(t *testing.T) {
 	t.Skip("questionable value of this test")
 	t.Parallel()
 	ownerKey := cltest.MustGenerateRandomKey(t)
@@ -1032,7 +1032,7 @@ func TestVRFV2Integration_SingleConsumer_EOA_Request(t *testing.T) {
 	)
 }
 
-func TestVRFV2Integration_SingleConsumer_EOA_Request_Batching_Enabled(t *testing.T) {
+func TestUnit_VRFV2Integration_SingleConsumer_EOA_Request_Batching_Enabled(t *testing.T) {
 	t.Skip("questionable value of this test")
 	t.Parallel()
 	ownerKey := cltest.MustGenerateRandomKey(t)
@@ -1164,7 +1164,7 @@ func testEoa(
 	t.Log("Done!")
 }
 
-func TestVRFV2Integration_SingleConsumer_EIP150_HappyPath(t *testing.T) {
+func TestUnit_VRFV2Integration_SingleConsumer_EIP150_HappyPath(t *testing.T) {
 	t.Skip("TODO: VRF-617")
 	t.Parallel()
 	ownerKey := cltest.MustGenerateRandomKey(t)
@@ -1180,7 +1180,7 @@ func TestVRFV2Integration_SingleConsumer_EIP150_HappyPath(t *testing.T) {
 	)
 }
 
-func TestVRFV2Integration_SingleConsumer_EIP150_Revert(t *testing.T) {
+func TestUnit_VRFV2Integration_SingleConsumer_EIP150_Revert(t *testing.T) {
 	t.Parallel()
 	ownerKey := cltest.MustGenerateRandomKey(t)
 	uni := newVRFCoordinatorV2Universe(t, ownerKey, 1)
@@ -1216,7 +1216,7 @@ func deployWrapper(t *testing.T, uni coordinatorV2UniverseCommon, wrapperOverhea
 	return
 }
 
-func TestVRFV2Integration_SingleConsumer_Wrapper(t *testing.T) {
+func TestUnit_VRFV2Integration_SingleConsumer_Wrapper(t *testing.T) {
 	t.Parallel()
 	ctx := testutils.Context(t)
 	wrapperOverhead := uint32(30_000)
@@ -1297,7 +1297,7 @@ func TestVRFV2Integration_SingleConsumer_Wrapper(t *testing.T) {
 	t.Log("Done!")
 }
 
-func TestVRFV2Integration_Wrapper_High_Gas(t *testing.T) {
+func TestUnit_VRFV2Integration_Wrapper_High_Gas(t *testing.T) {
 	t.Parallel()
 	ctx := testutils.Context(t)
 	wrapperOverhead := uint32(30_000)
@@ -1380,7 +1380,7 @@ func TestVRFV2Integration_Wrapper_High_Gas(t *testing.T) {
 	t.Log("Done!")
 }
 
-func TestVRFV2Integration_SingleConsumer_NeedsBlockhashStore(t *testing.T) {
+func TestUnit_VRFV2Integration_SingleConsumer_NeedsBlockhashStore(t *testing.T) {
 	t.Parallel()
 	ownerKey := cltest.MustGenerateRandomKey(t)
 	uni := newVRFCoordinatorV2Universe(t, ownerKey, 2)
@@ -1400,7 +1400,7 @@ func TestVRFV2Integration_SingleConsumer_NeedsBlockhashStore(t *testing.T) {
 	)
 }
 
-func TestVRFV2Integration_SingleConsumer_NeedsTrustedBlockhashStore(t *testing.T) {
+func TestUnit_VRFV2Integration_SingleConsumer_NeedsTrustedBlockhashStore(t *testing.T) {
 	t.Parallel()
 	ownerKey := cltest.MustGenerateRandomKey(t)
 	uni := newVRFCoordinatorV2PlusUniverse(t, ownerKey, 2, true)
@@ -1420,7 +1420,7 @@ func TestVRFV2Integration_SingleConsumer_NeedsTrustedBlockhashStore(t *testing.T
 	)
 }
 
-func TestVRFV2Integration_SingleConsumer_NeedsTrustedBlockhashStore_AfterDelay(t *testing.T) {
+func TestUnit_VRFV2Integration_SingleConsumer_NeedsTrustedBlockhashStore_AfterDelay(t *testing.T) {
 	t.Parallel()
 	ownerKey := cltest.MustGenerateRandomKey(t)
 	uni := newVRFCoordinatorV2PlusUniverse(t, ownerKey, 2, true)
@@ -1440,7 +1440,7 @@ func TestVRFV2Integration_SingleConsumer_NeedsTrustedBlockhashStore_AfterDelay(t
 	)
 }
 
-func TestVRFV2Integration_SingleConsumer_BlockHeaderFeeder(t *testing.T) {
+func TestUnit_VRFV2Integration_SingleConsumer_BlockHeaderFeeder(t *testing.T) {
 	t.Parallel()
 	ownerKey := cltest.MustGenerateRandomKey(t)
 	uni := newVRFCoordinatorV2Universe(t, ownerKey, 1)
@@ -1460,7 +1460,7 @@ func TestVRFV2Integration_SingleConsumer_BlockHeaderFeeder(t *testing.T) {
 	)
 }
 
-func TestVRFV2Integration_SingleConsumer_NeedsTopUp(t *testing.T) {
+func TestUnit_VRFV2Integration_SingleConsumer_NeedsTopUp(t *testing.T) {
 	t.Skip("fails after geth upgrade https://github.com/smartcontractkit/chainlink/pull/11809")
 	t.Parallel()
 	ownerKey := cltest.MustGenerateRandomKey(t)
@@ -1483,21 +1483,21 @@ func TestVRFV2Integration_SingleConsumer_NeedsTopUp(t *testing.T) {
 	)
 }
 
-func TestVRFV2Integration_SingleConsumer_BigGasCallback_Sandwich(t *testing.T) {
+func TestUnit_VRFV2Integration_SingleConsumer_BigGasCallback_Sandwich(t *testing.T) {
 	t.Skip("fails after geth upgrade https://github.com/smartcontractkit/chainlink/pull/11809")
 	ownerKey := cltest.MustGenerateRandomKey(t)
 	uni := newVRFCoordinatorV2Universe(t, ownerKey, 1)
 	testSingleConsumerBigGasCallbackSandwich(t, ownerKey, uni.coordinatorV2UniverseCommon, uni.batchCoordinatorContractAddress, vrfcommon.V2, false)
 }
 
-func TestVRFV2Integration_SingleConsumer_MultipleGasLanes(t *testing.T) {
+func TestUnit_VRFV2Integration_SingleConsumer_MultipleGasLanes(t *testing.T) {
 	t.Skip("fails after geth upgrade https://github.com/smartcontractkit/chainlink/pull/11809")
 	ownerKey := cltest.MustGenerateRandomKey(t)
 	uni := newVRFCoordinatorV2Universe(t, ownerKey, 1)
 	testSingleConsumerMultipleGasLanes(t, ownerKey, uni.coordinatorV2UniverseCommon, uni.batchCoordinatorContractAddress, vrfcommon.V2, false)
 }
 
-func TestVRFV2Integration_SingleConsumer_AlwaysRevertingCallback_StillFulfilled(t *testing.T) {
+func TestUnit_VRFV2Integration_SingleConsumer_AlwaysRevertingCallback_StillFulfilled(t *testing.T) {
 	ownerKey := cltest.MustGenerateRandomKey(t)
 	uni := newVRFCoordinatorV2Universe(t, ownerKey, 0)
 	testSingleConsumerAlwaysRevertingCallbackStillFulfilled(
@@ -1511,7 +1511,7 @@ func TestVRFV2Integration_SingleConsumer_AlwaysRevertingCallback_StillFulfilled(
 	)
 }
 
-func TestVRFV2Integration_ConsumerProxy_HappyPath(t *testing.T) {
+func TestUnit_VRFV2Integration_ConsumerProxy_HappyPath(t *testing.T) {
 	ownerKey := cltest.MustGenerateRandomKey(t)
 	uni := newVRFCoordinatorV2Universe(t, ownerKey, 0)
 	testConsumerProxyHappyPath(
@@ -1524,7 +1524,7 @@ func TestVRFV2Integration_ConsumerProxy_HappyPath(t *testing.T) {
 	)
 }
 
-func TestVRFV2Integration_ConsumerProxy_CoordinatorZeroAddress(t *testing.T) {
+func TestUnit_VRFV2Integration_ConsumerProxy_CoordinatorZeroAddress(t *testing.T) {
 	ownerKey := cltest.MustGenerateRandomKey(t)
 	uni := newVRFCoordinatorV2Universe(t, ownerKey, 0)
 	testConsumerProxyCoordinatorZeroAddress(t, uni.coordinatorV2UniverseCommon)
@@ -1576,7 +1576,7 @@ func registerProvingKeyHelper(t *testing.T, uni coordinatorV2UniverseCommon, coo
 	uni.backend.Commit()
 }
 
-func TestExternalOwnerConsumerExample(t *testing.T) {
+func TestUnit_ExternalOwnerConsumerExample(t *testing.T) {
 	owner := evmtestutils.MustNewSimTransactor(t)
 	random := evmtestutils.MustNewSimTransactor(t)
 	genesisData := gethtypes.GenesisAlloc{
@@ -1640,7 +1640,7 @@ func TestExternalOwnerConsumerExample(t *testing.T) {
 	require.NoError(t, err)
 }
 
-func TestSimpleConsumerExample(t *testing.T) {
+func TestUnit_SimpleConsumerExample(t *testing.T) {
 	owner := evmtestutils.MustNewSimTransactor(t)
 	random := evmtestutils.MustNewSimTransactor(t)
 	genesisData := gethtypes.GenesisAlloc{
@@ -1680,7 +1680,7 @@ func TestSimpleConsumerExample(t *testing.T) {
 	AssertLinkBalances(t, linkContract, []common.Address{owner.From, consumerAddress, coordinatorAddress}, []*big.Int{assets.Ether(1_000_000_000).ToInt(), assets.Ether(0).ToInt(), assets.Ether(0).ToInt()})
 }
 
-func TestIntegrationVRFV2(t *testing.T) {
+func TestUnit_IntegrationVRFV2(t *testing.T) {
 	t.Parallel()
 	ctx := testutils.Context(t)
 	// Reconfigure the sim chain with a default gas price of 1 gwei,
@@ -1881,7 +1881,7 @@ func TestIntegrationVRFV2(t *testing.T) {
 	}, testutils.WaitTimeout(t), 1*time.Second)
 }
 
-func TestMaliciousConsumer(t *testing.T) {
+func TestUnit_MaliciousConsumer(t *testing.T) {
 	t.Parallel()
 	key := cltest.MustGenerateRandomKey(t)
 	uni := newVRFCoordinatorV2Universe(t, key, 1)
@@ -1895,7 +1895,7 @@ func TestMaliciousConsumer(t *testing.T) {
 	)
 }
 
-func TestRequestCost(t *testing.T) {
+func TestUnit_RequestCost(t *testing.T) {
 	ctx := testutils.Context(t)
 	key := cltest.MustGenerateRandomKey(t)
 	uni := newVRFCoordinatorV2Universe(t, key, 1)
@@ -1967,7 +1967,7 @@ func TestRequestCost(t *testing.T) {
 	})
 }
 
-func TestMaxConsumersCost(t *testing.T) {
+func TestUnit_MaxConsumersCost(t *testing.T) {
 	key := cltest.MustGenerateRandomKey(t)
 	uni := newVRFCoordinatorV2Universe(t, key, 1)
 	carol := uni.vrfConsumers[0]
@@ -2002,7 +2002,7 @@ func TestMaxConsumersCost(t *testing.T) {
 	assert.Less(t, estimate, uint64(100000))
 }
 
-func TestFulfillmentCost(t *testing.T) {
+func TestUnit_FulfillmentCost(t *testing.T) {
 	ctx := testutils.Context(t)
 	key := cltest.MustGenerateRandomKey(t)
 	uni := newVRFCoordinatorV2Universe(t, key, 1)
@@ -2105,7 +2105,7 @@ func TestFulfillmentCost(t *testing.T) {
 	})
 }
 
-func TestStartingCountsV1(t *testing.T) {
+func TestUnit_StartingCountsV1(t *testing.T) {
 	cfg, db := heavyweight.FullTestDBNoFixturesV2(t, nil)
 
 	ctx := testutils.Context(t)
@@ -2304,7 +2304,7 @@ func TestStartingCountsV1(t *testing.T) {
 	assert.Equal(t, uint64(2), countsV2[big.NewInt(0x12).String()])
 }
 
-func TestVRFV2Integration_ReplayOldRequestsOnStartUp(t *testing.T) {
+func TestUnit_VRFV2Integration_ReplayOldRequestsOnStartUp(t *testing.T) {
 	t.Parallel()
 	ownerKey := cltest.MustGenerateRandomKey(t)
 	uni := newVRFCoordinatorV2Universe(t, ownerKey, 1)

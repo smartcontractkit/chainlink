@@ -8,7 +8,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestKeeperConfig(t *testing.T) {
+func TestUnit_KeeperConfig(t *testing.T) {
 	opts := GeneralConfigOpts{
 		ConfigStrings: []string{fullTOML},
 	}

@@ -6,7 +6,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestFilePersistedSecretGenerator(t *testing.T) {
+func TestUnit_FilePersistedSecretGenerator(t *testing.T) {
 	t.Parallel()
 	rootDir := t.TempDir()
 	var secretGenerator FilePersistedSecretGenerator

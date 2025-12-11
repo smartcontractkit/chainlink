@@ -10,7 +10,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/configs/evm"
 )
 
-func TestChainWriterConfigRaw(t *testing.T) {
+func TestUnit_ChainWriterConfigRaw(t *testing.T) {
 	tests := []struct {
 		name              string
 		fromAddress       common.Address

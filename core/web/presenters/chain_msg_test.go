@@ -12,7 +12,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/solanatest"
 )
 
-func TestSolanaMessageResource(t *testing.T) {
+func TestUnit_SolanaMessageResource(t *testing.T) {
 	id := "1"
 	chainID := solanatest.RandomChainID()
 	r := NewSolanaMsgResource(id, chainID)
@@ -39,7 +39,7 @@ func TestSolanaMessageResource(t *testing.T) {
 	assert.JSONEq(t, expected, string(b))
 }
 
-func TestCosmosMessageResource(t *testing.T) {
+func TestUnit_CosmosMessageResource(t *testing.T) {
 	id := "1"
 	chainID := cosmostest.RandomChainID()
 	contractID := "cosmos1p3ucd3ptpw902fluyjzkq3fflq4btddac9sa3s"

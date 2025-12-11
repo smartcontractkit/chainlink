@@ -40,7 +40,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/plugins"
 )
 
-func TestTerminalCookieAuthenticator_AuthenticateWithoutSession(t *testing.T) {
+func TestUnit_TerminalCookieAuthenticator_AuthenticateWithoutSession(t *testing.T) {
 	t.Parallel()
 
 	ctx := testutils.Context(t)
@@ -71,7 +71,7 @@ func TestTerminalCookieAuthenticator_AuthenticateWithoutSession(t *testing.T) {
 	}
 }
 
-func TestTerminalCookieAuthenticator_AuthenticateWithSession(t *testing.T) {
+func TestUnit_TerminalCookieAuthenticator_AuthenticateWithSession(t *testing.T) {
 	t.Parallel()
 
 	ctx := testutils.Context(t)
@@ -121,7 +121,7 @@ func (d diskCookieStoreConfig) RootDir() string {
 	return d.rootdir
 }
 
-func TestDiskCookieStore_Retrieve(t *testing.T) {
+func TestUnit_DiskCookieStore_Retrieve(t *testing.T) {
 	t.Parallel()
 
 	cfg := diskCookieStoreConfig{}
@@ -150,7 +150,7 @@ func TestDiskCookieStore_Retrieve(t *testing.T) {
 	})
 }
 
-func TestTerminalAPIInitializer_InitializeWithoutAPIUser(t *testing.T) {
+func TestUnit_TerminalAPIInitializer_InitializeWithoutAPIUser(t *testing.T) {
 	email := "good@email.com"
 
 	tests := []struct {
@@ -196,7 +196,7 @@ func TestTerminalAPIInitializer_InitializeWithoutAPIUser(t *testing.T) {
 	}
 }
 
-func TestTerminalAPIInitializer_InitializeWithExistingAPIUser(t *testing.T) {
+func TestUnit_TerminalAPIInitializer_InitializeWithExistingAPIUser(t *testing.T) {
 	ctx := testutils.Context(t)
 	db := pgtest.NewSqlxDB(t)
 	lggr := logger.TestLogger(t)
@@ -223,7 +223,7 @@ func TestTerminalAPIInitializer_InitializeWithExistingAPIUser(t *testing.T) {
 	assert.Equal(t, initialUser.HashedPassword, user.HashedPassword)
 }
 
-func TestFileAPIInitializer_InitializeWithoutAPIUser(t *testing.T) {
+func TestUnit_FileAPIInitializer_InitializeWithoutAPIUser(t *testing.T) {
 	tests := []struct {
 		name      string
 		file      string
@@ -260,7 +260,7 @@ func TestFileAPIInitializer_InitializeWithoutAPIUser(t *testing.T) {
 	}
 }
 
-func TestFileAPIInitializer_InitializeWithExistingAPIUser(t *testing.T) {
+func TestUnit_FileAPIInitializer_InitializeWithExistingAPIUser(t *testing.T) {
 	db := pgtest.NewSqlxDB(t)
 	orm := localauth.NewORM(db, time.Minute, logger.TestLogger(t), audit.NoopLogger)
 
@@ -289,7 +289,7 @@ func TestFileAPIInitializer_InitializeWithExistingAPIUser(t *testing.T) {
 	}
 }
 
-func TestPromptingSessionRequestBuilder(t *testing.T) {
+func TestUnit_PromptingSessionRequestBuilder(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
@@ -312,7 +312,7 @@ func TestPromptingSessionRequestBuilder(t *testing.T) {
 	}
 }
 
-func TestFileSessionRequestBuilder(t *testing.T) {
+func TestUnit_FileSessionRequestBuilder(t *testing.T) {
 	t.Parallel()
 
 	builder := cmd.NewFileSessionRequestBuilder(logger.TestLogger(t))
@@ -338,7 +338,7 @@ func TestFileSessionRequestBuilder(t *testing.T) {
 	}
 }
 
-func TestNewUserCache(t *testing.T) {
+func TestUnit_NewUserCache(t *testing.T) {
 	r, err := rand.Int(rand.Reader, big.NewInt(256*1024*1024))
 	require.NoError(t, err)
 	// NewUserCache owns it's Dir.
@@ -355,7 +355,7 @@ func TestNewUserCache(t *testing.T) {
 	assert.DirExists(t, c.RootDir())
 }
 
-func TestSetupSolanaRelayer(t *testing.T) {
+func TestUnit_SetupSolanaRelayer(t *testing.T) {
 	lggr := logger.TestLogger(t)
 	reg := plugins.NewTestLoopRegistry(lggr)
 	ks := &keystore.StarknetLooppSigner{StarkNet: mocks.NewStarkNet(t)}
@@ -483,7 +483,7 @@ func TestSetupSolanaRelayer(t *testing.T) {
 	})
 }
 
-func TestSetupStarkNetRelayer(t *testing.T) {
+func TestUnit_SetupStarkNetRelayer(t *testing.T) {
 	lggr := logger.TestLogger(t)
 	reg := plugins.NewTestLoopRegistry(lggr)
 	ks := &keystore.StarknetLooppSigner{StarkNet: mocks.NewStarkNet(t)}
@@ -623,7 +623,7 @@ func getFuncName(i any) string {
 	return runtime.FuncForPC(reflect.ValueOf(i).Pointer()).Name()
 }
 
-func TestShell_emitNodeConfig(t *testing.T) {
+func TestUnit_Shell_emitNodeConfig(t *testing.T) {
 	// t.Parallel() // beholder tester uses t.SetEnv and cannot use t.Parallel
 
 	ctx := testutils.Context(t)

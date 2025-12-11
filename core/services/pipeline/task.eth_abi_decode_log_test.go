@@ -16,7 +16,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
 )
 
-func TestETHABIDecodeLogTask(t *testing.T) {
+func TestUnit_ETHABIDecodeLogTask(t *testing.T) {
 	tests := []struct {
 		name                  string
 		abi                   string

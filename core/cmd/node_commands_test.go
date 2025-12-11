@@ -28,7 +28,7 @@ func assertTableRenders(t *testing.T, r *cltest.RendererMock) {
 	}
 }
 
-func TestShell_IndexEVMNodes(t *testing.T) {
+func TestUnit_Shell_IndexEVMNodes(t *testing.T) {
 	t.Parallel()
 
 	chainID := newRandChainID()
@@ -106,7 +106,7 @@ func solanaStartNewApplication(t *testing.T, cfgs ...*solcfg.TOMLConfig) *cltest
 	})
 }
 
-func TestShell_IndexSolanaNodes(t *testing.T) {
+func TestUnit_Shell_IndexSolanaNodes(t *testing.T) {
 	t.Parallel()
 
 	id := solanatest.RandomChainID()

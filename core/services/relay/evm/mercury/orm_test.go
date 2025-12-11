@@ -19,7 +19,7 @@ var (
 	sURL3 = "wss://mercuryserver.example/foo"
 )
 
-func TestORM(t *testing.T) {
+func TestUnit_ORM(t *testing.T) {
 	ctx := testutils.Context(t)
 	db := testutils.NewSqlxDB(t)
 
@@ -150,7 +150,7 @@ func TestORM(t *testing.T) {
 	require.Len(t, transmissions, 1)
 }
 
-func TestORM_InsertTransmitRequest_MultipleServerURLs(t *testing.T) {
+func TestUnit_ORM_InsertTransmitRequest_MultipleServerURLs(t *testing.T) {
 	ctx := testutils.Context(t)
 	db := testutils.NewSqlxDB(t)
 
@@ -195,7 +195,7 @@ func TestORM_InsertTransmitRequest_MultipleServerURLs(t *testing.T) {
 	assert.Equal(t, reports[0], l)
 }
 
-func TestORM_PruneTransmitRequests(t *testing.T) {
+func TestUnit_ORM_PruneTransmitRequests(t *testing.T) {
 	ctx := testutils.Context(t)
 	db := testutils.NewSqlxDB(t)
 	jobID := rand.Int32() // foreign key constraints disabled so value doesn't matter
@@ -288,7 +288,7 @@ func TestORM_PruneTransmitRequests(t *testing.T) {
 	assert.Len(t, transmissions, 3)
 }
 
-func TestORM_InsertTransmitRequest_LatestReport(t *testing.T) {
+func TestUnit_ORM_InsertTransmitRequest_LatestReport(t *testing.T) {
 	ctx := testutils.Context(t)
 	db := testutils.NewSqlxDB(t)
 	jobID := rand.Int32() // foreign key constraints disabled so value doesn't matter
@@ -360,7 +360,7 @@ func TestORM_InsertTransmitRequest_LatestReport(t *testing.T) {
 	})
 }
 
-func Test_ReportCodec_FeedIDFromReport(t *testing.T) {
+func TestUnit_ReportCodec_FeedIDFromReport(t *testing.T) {
 	t.Run("FeedIDFromReport extracts the current block number from a valid report", func(t *testing.T) {
 		report := buildSampleV2Report(42)
 

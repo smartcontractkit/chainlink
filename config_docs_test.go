@@ -16,7 +16,7 @@ var (
 	secretsMD string
 )
 
-func TestConfigDocs(t *testing.T) {
+func TestUnit_ConfigDocs(t *testing.T) {
 	config, err := docs.GenerateConfig()
 	assert.NoError(t, err, "invalid config docs")
 	assert.Equal(t, configMD, config, "docs/CONFIG.md is out of date. Run 'make config-docs' to regenerate.")

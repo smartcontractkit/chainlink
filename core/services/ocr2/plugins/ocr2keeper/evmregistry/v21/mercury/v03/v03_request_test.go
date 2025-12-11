@@ -98,7 +98,7 @@ func setupClient(t *testing.T) *client {
 	return client
 }
 
-func TestV03_DoMercuryRequestV03(t *testing.T) {
+func TestUnit_V03_DoMercuryRequestV03(t *testing.T) {
 	t.Parallel()
 	upkeepId, _ := new(big.Int).SetString("88786950015966611018675766524283132478093844178961698330929478019253453382042", 10)
 
@@ -179,7 +179,7 @@ func TestV03_DoMercuryRequestV03(t *testing.T) {
 	}
 }
 
-func TestV03_DoMercuryRequestV03_MultipleFeedsSuccess(t *testing.T) {
+func TestUnit_V03_DoMercuryRequestV03_MultipleFeedsSuccess(t *testing.T) {
 	t.Parallel()
 	upkeepId, _ := new(big.Int).SetString("88786950015966611018675766524283132478093844178961698330929478019253453382042", 10)
 	pluginRetryKey := "88786950015966611018675766524283132478093844178961698330929478019253453382042|34"
@@ -231,7 +231,7 @@ func TestV03_DoMercuryRequestV03_MultipleFeedsSuccess(t *testing.T) {
 	assert.Equal(t, encoding.NoPipelineError, state)
 }
 
-func TestV03_DoMercuryRequestV03_Timeout(t *testing.T) {
+func TestUnit_V03_DoMercuryRequestV03_Timeout(t *testing.T) {
 	t.Skip("TODO: MERC-5965")
 	t.Parallel()
 	upkeepId, _ := new(big.Int).SetString("88786950015966611018675766524283132478093844178961698330929478019253453382042", 10)
@@ -289,7 +289,7 @@ func TestV03_DoMercuryRequestV03_Timeout(t *testing.T) {
 	assert.Equal(t, [][]byte(nil), values)
 }
 
-func TestV03_DoMercuryRequestV03_OneFeedSuccessOneFeedPipelineError(t *testing.T) {
+func TestUnit_V03_DoMercuryRequestV03_OneFeedSuccessOneFeedPipelineError(t *testing.T) {
 	t.Parallel()
 	upkeepId, _ := new(big.Int).SetString("88786950015966611018675766524283132478093844178961698330929478019253453382042", 10)
 	pluginRetryKey := "88786950015966611018675766524283132478093844178961698330929478019253453382042|34"
@@ -346,7 +346,7 @@ func TestV03_DoMercuryRequestV03_OneFeedSuccessOneFeedPipelineError(t *testing.T
 	assert.Equal(t, [][]byte(nil), values)
 }
 
-func TestV03_DoMercuryRequestV03_OneFeedSuccessOneFeedErrCode(t *testing.T) {
+func TestUnit_V03_DoMercuryRequestV03_OneFeedSuccessOneFeedErrCode(t *testing.T) {
 	t.Parallel()
 	upkeepId, _ := new(big.Int).SetString("88786950015966611018675766524283132478093844178961698330929478019253453382042", 10)
 	pluginRetryKey := "88786950015966611018675766524283132478093844178961698330929478019253453382042|34"
@@ -417,7 +417,7 @@ func TestV03_DoMercuryRequestV03_OneFeedSuccessOneFeedErrCode(t *testing.T) {
 	assert.Equal(t, encoding.NoPipelineError, state)
 }
 
-func TestV03_MultiFeedRequest(t *testing.T) {
+func TestUnit_V03_MultiFeedRequest(t *testing.T) {
 	t.Parallel()
 	upkeepId := big.NewInt(123456789)
 	tests := []struct {

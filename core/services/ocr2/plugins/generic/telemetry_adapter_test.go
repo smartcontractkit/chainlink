@@ -39,7 +39,7 @@ func (m *mockGenerator) GenMultitypeMonitoringEndpoint(network string, chainID s
 	return nil
 }
 
-func TestTelemetryAdapter(t *testing.T) {
+func TestUnit_TelemetryAdapter(t *testing.T) {
 	ta := generic.NewTelemetryAdapter(&mockGenerator{})
 
 	tests := []struct {

@@ -44,7 +44,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/prices"
 )
 
-func TestCommitReportingPlugin_Observation(t *testing.T) {
+func TestUnit_CommitReportingPlugin_Observation(t *testing.T) {
 	sourceNativeTokenAddr := ccipcalc.HexToAddress("1000")
 	destChainSelector := uint64(1)
 	sourceChainSelector := uint64(2)
@@ -223,7 +223,7 @@ func TestCommitReportingPlugin_Observation(t *testing.T) {
 	}
 }
 
-func TestCommitReportingPlugin_Report(t *testing.T) {
+func TestUnit_CommitReportingPlugin_Report(t *testing.T) {
 	ctx := testutils.Context(t)
 	sourceChainSelector := uint64(rand.Int())
 	var gasPrice = big.NewInt(1)
@@ -475,7 +475,7 @@ func TestCommitReportingPlugin_Report(t *testing.T) {
 	}
 }
 
-func TestCommitReportingPlugin_ShouldAcceptFinalizedReport(t *testing.T) {
+func TestUnit_CommitReportingPlugin_ShouldAcceptFinalizedReport(t *testing.T) {
 	ctx := testutils.Context(t)
 
 	newPlugin := func() *CommitReportingPlugin {
@@ -598,7 +598,7 @@ func TestCommitReportingPlugin_ShouldAcceptFinalizedReport(t *testing.T) {
 	})
 }
 
-func TestCommitReportingPlugin_ShouldTransmitAcceptedReport(t *testing.T) {
+func TestUnit_CommitReportingPlugin_ShouldTransmitAcceptedReport(t *testing.T) {
 	report := cciptypes.CommitStoreReport{
 		TokenPrices: []cciptypes.TokenPrice{
 			{Token: cciptypes.Address(utils.RandomAddress().String()), Value: big.NewInt(9e18)},
@@ -656,7 +656,7 @@ func TestCommitReportingPlugin_ShouldTransmitAcceptedReport(t *testing.T) {
 	})
 }
 
-func TestCommitReportingPlugin_observePriceUpdates(t *testing.T) {
+func TestUnit_CommitReportingPlugin_observePriceUpdates(t *testing.T) {
 	destChainSelector := uint64(12345)
 	sourceChainSelector := uint64(67890)
 
@@ -756,7 +756,7 @@ type CommitObservationLegacy struct {
 	SourceGasPriceUSD *big.Int                       `json:"sourceGasPrice"`
 }
 
-func TestCommitReportingPlugin_extractObservationData(t *testing.T) {
+func TestUnit_CommitReportingPlugin_extractObservationData(t *testing.T) {
 	token1 := ccipcalc.HexToAddress("0xa")
 	token2 := ccipcalc.HexToAddress("0xb")
 	token1Price := big.NewInt(1)
@@ -1030,7 +1030,7 @@ func TestCommitReportingPlugin_extractObservationData(t *testing.T) {
 	}
 }
 
-func TestCommitReportingPlugin_calculatePriceUpdates(t *testing.T) {
+func TestUnit_CommitReportingPlugin_calculatePriceUpdates(t *testing.T) {
 	const defaultSourceChainSelector = 10 // we reuse this value across all test cases
 	feeToken1 := ccipcalc.HexToAddress("0xa")
 	feeToken2 := ccipcalc.HexToAddress("0xb")
@@ -1566,7 +1566,7 @@ func TestCommitReportingPlugin_calculatePriceUpdates(t *testing.T) {
 	}
 }
 
-func TestCommitReportingPlugin_isStaleReport(t *testing.T) {
+func TestUnit_CommitReportingPlugin_isStaleReport(t *testing.T) {
 	ctx := context.Background()
 	lggr := logger.TestLogger(t)
 	merkleRoot1 := utils.Keccak256Fixed([]byte("some merkle root 1"))
@@ -1620,7 +1620,7 @@ func TestCommitReportingPlugin_isStaleReport(t *testing.T) {
 	})
 }
 
-func TestCommitReportingPlugin_calculateMinMaxSequenceNumbers(t *testing.T) {
+func TestUnit_CommitReportingPlugin_calculateMinMaxSequenceNumbers(t *testing.T) {
 	testCases := []struct {
 		name              string
 		commitStoreSeqNum uint64
@@ -1708,7 +1708,7 @@ func TestCommitReportingPlugin_calculateMinMaxSequenceNumbers(t *testing.T) {
 	}
 }
 
-func TestCommitReportingPlugin_getLatestGasPriceUpdate(t *testing.T) {
+func TestUnit_CommitReportingPlugin_getLatestGasPriceUpdate(t *testing.T) {
 	now := time.Now()
 	chainSelector1 := uint64(1234)
 	chainSelector2 := uint64(5678)
@@ -1794,7 +1794,7 @@ func TestCommitReportingPlugin_getLatestGasPriceUpdate(t *testing.T) {
 	}
 }
 
-func TestCommitReportingPlugin_getLatestTokenPriceUpdates(t *testing.T) {
+func TestUnit_CommitReportingPlugin_getLatestTokenPriceUpdates(t *testing.T) {
 	now := time.Now()
 	tk1 := cciptypes.Address(utils.RandomAddress().String())
 	tk2 := cciptypes.Address(utils.RandomAddress().String())
@@ -1863,7 +1863,7 @@ func TestCommitReportingPlugin_getLatestTokenPriceUpdates(t *testing.T) {
 	}
 }
 
-func Test_commitReportSize(t *testing.T) {
+func TestUnit_commitReportSize(t *testing.T) {
 	testParams := gopter.DefaultTestParameters()
 	testParams.MinSuccessfulTests = 100
 	p := gopter.NewProperties(testParams)
@@ -1887,7 +1887,7 @@ func Test_commitReportSize(t *testing.T) {
 	p.TestingRun(t)
 }
 
-func Test_calculateIntervalConsensus(t *testing.T) {
+func TestUnit_calculateIntervalConsensus(t *testing.T) {
 	tests := []struct {
 		name       string
 		intervals  []cciptypes.CommitStoreInterval
@@ -1929,7 +1929,7 @@ func Test_calculateIntervalConsensus(t *testing.T) {
 	}
 }
 
-func TestCommitReportToEthTxMeta(t *testing.T) {
+func TestUnit_CommitReportToEthTxMeta(t *testing.T) {
 	mctx := hashutil.NewKeccak()
 	tree, err := merklemulti.NewTree(mctx, [][32]byte{mctx.Hash([]byte{0xaa})})
 	require.NoError(t, err)

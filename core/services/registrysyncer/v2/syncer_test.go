@@ -163,7 +163,7 @@ func toPeerIDs(ids [][32]byte) []p2ptypes.PeerID {
 	return pids
 }
 
-func TestReader_Integration(t *testing.T) {
+func TestUnit_Reader_Integration(t *testing.T) {
 	ctx := testutils.Context(t)
 	lggr := logger.TestLogger(t)
 
@@ -391,7 +391,7 @@ func TestReader_Integration(t *testing.T) {
 	}, s.IDsToNodes)
 }
 
-func TestSyncer_V2_DBIntegration(t *testing.T) {
+func TestUnit_Syncer_V2_DBIntegration(t *testing.T) {
 	ctx := testutils.Context(t)
 	lggr := logger.TestLogger(t)
 
@@ -558,7 +558,7 @@ func TestSyncer_V2_DBIntegration(t *testing.T) {
 	}
 }
 
-func TestSyncer_V2_LocalNode(t *testing.T) {
+func TestUnit_Syncer_V2_LocalNode(t *testing.T) {
 	ctx := testutils.Context(t)
 	lggr := logger.TestLogger(t)
 
@@ -673,7 +673,7 @@ func TestSyncer_V2_LocalNode(t *testing.T) {
 	assert.Equal(t, []string{"write-chain@1.0.1", "trigger@1.0.0"}, nodeInfo.CapabilityIDs)
 }
 
-func TestReader_V2_FamilyOperations(t *testing.T) {
+func TestUnit_Reader_V2_FamilyOperations(t *testing.T) {
 	ctx := testutils.Context(t)
 	lggr := logger.TestLogger(t)
 

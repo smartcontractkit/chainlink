@@ -18,7 +18,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestWorkflowArtifactsORM_GetAndUpdate(t *testing.T) {
+func TestUnit_WorkflowArtifactsORM_GetAndUpdate(t *testing.T) {
 	db := pgtest.NewSqlxDB(t)
 	ctx := testutils.Context(t)
 	lggr := logger.TestLogger(t)
@@ -57,7 +57,7 @@ func TestWorkflowArtifactsORM_GetAndUpdate(t *testing.T) {
 	assert.Equal(t, "new contents", contents)
 }
 
-func Test_UpsertWorkflowSpec(t *testing.T) {
+func TestUnit_UpsertWorkflowSpec(t *testing.T) {
 	db := pgtest.NewSqlxDB(t)
 	ctx := testutils.Context(t)
 	lggr := logger.TestLogger(t)
@@ -119,7 +119,7 @@ func Test_UpsertWorkflowSpec(t *testing.T) {
 	})
 }
 
-func Test_DeleteWorkflowSpec(t *testing.T) {
+func TestUnit_DeleteWorkflowSpec(t *testing.T) {
 	db := pgtest.NewSqlxDB(t)
 	ctx := testutils.Context(t)
 	lggr := logger.TestLogger(t)
@@ -160,7 +160,7 @@ func Test_DeleteWorkflowSpec(t *testing.T) {
 	})
 }
 
-func Test_GetWorkflowSpec(t *testing.T) {
+func TestUnit_GetWorkflowSpec(t *testing.T) {
 	db := pgtest.NewSqlxDB(t)
 	ctx := testutils.Context(t)
 	lggr := logger.TestLogger(t)
@@ -199,7 +199,7 @@ func Test_GetWorkflowSpec(t *testing.T) {
 	})
 }
 
-func Test_GetWorkflowSpecByID(t *testing.T) {
+func TestUnit_GetWorkflowSpecByID(t *testing.T) {
 	db := pgtest.NewSqlxDB(t)
 	ctx := testutils.Context(t)
 	lggr := logger.TestLogger(t)
@@ -238,7 +238,7 @@ func Test_GetWorkflowSpecByID(t *testing.T) {
 	})
 }
 
-func Test_GetContentsByWorkflowID(t *testing.T) {
+func TestUnit_GetContentsByWorkflowID(t *testing.T) {
 	db := pgtest.NewSqlxDB(t)
 	ctx := testutils.Context(t)
 	lggr := logger.TestLogger(t)
@@ -298,7 +298,7 @@ func Test_GetContentsByWorkflowID(t *testing.T) {
 	assert.Equal(t, giveContent, gotContent)
 }
 
-func Test_GetContentsByWorkflowID_SecretsProvidedButEmpty(t *testing.T) {
+func TestUnit_GetContentsByWorkflowID_SecretsProvidedButEmpty(t *testing.T) {
 	db := pgtest.NewSqlxDB(t)
 	ctx := testutils.Context(t)
 	lggr := logger.TestLogger(t)
@@ -332,7 +332,7 @@ func Test_GetContentsByWorkflowID_SecretsProvidedButEmpty(t *testing.T) {
 	require.ErrorIs(t, err, ErrEmptySecrets)
 }
 
-func Test_UpsertWorkflowSpecWithSecrets(t *testing.T) {
+func TestUnit_UpsertWorkflowSpecWithSecrets(t *testing.T) {
 	db := pgtest.NewSqlxDB(t)
 	ctx := testutils.Context(t)
 	lggr := logger.TestLogger(t)

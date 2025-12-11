@@ -9,7 +9,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func Test_DecodeBase58(t *testing.T) {
+func TestUnit_DecodeBase58(t *testing.T) {
 	invalidAddresses := []string{
 		"TronEnergyioE1Z3ukeRv38sYkv5Jn55bL",
 		"TronEnergyioNijNo8g3LF2ABKUAae6D2Z",
@@ -33,7 +33,7 @@ func Test_DecodeBase58(t *testing.T) {
 	}
 }
 
-func TestAddress(t *testing.T) {
+func TestUnit_Address(t *testing.T) {
 	t.Run("Valid Addresses", func(t *testing.T) {
 		validAddresses := []string{
 			"TR7NHqjeKQxGTCi8q8ZY4pL8otSzgjLj6t",
@@ -103,7 +103,7 @@ func TestAddress(t *testing.T) {
 	})
 }
 
-func TestHexToAddress(t *testing.T) {
+func TestUnit_HexToAddress(t *testing.T) {
 	t.Run("Valid Hex Addresses", func(t *testing.T) {
 		validHexAddresses := []string{
 			"41a614f803b6fd780986a42c78ec9c7f77e6ded13c",

@@ -26,7 +26,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 )
 
-func TestMessageHasher_EVM2SVM(t *testing.T) {
+func TestUnit_MessageHasher_EVM2SVM(t *testing.T) {
 	registeredExtraDataCodecMap := map[string]ccipocr3.SourceChainExtraDataCodec{
 		chainsel.FamilyAptos:  ccipaptos.ExtraDataDecoder{},
 		chainsel.FamilyEVM:    ccipevm.ExtraDataDecoder{},
@@ -43,7 +43,7 @@ func TestMessageHasher_EVM2SVM(t *testing.T) {
 	require.Equal(t, expectedHash, actualHash[:32])
 }
 
-func TestMessageHasher_InvalidReceiver(t *testing.T) {
+func TestUnit_MessageHasher_InvalidReceiver(t *testing.T) {
 	any2AnyMsg, _, _ := createEVM2SolanaMessages(t)
 
 	// Set receiver to a []byte of 2 length
@@ -73,7 +73,7 @@ func TestMessageHasher_InvalidReceiver(t *testing.T) {
 	require.Error(t, err)
 }
 
-func TestMessageHasher_InvalidDestinationTokenAddress(t *testing.T) {
+func TestUnit_MessageHasher_InvalidDestinationTokenAddress(t *testing.T) {
 	any2AnyMsg, _, _ := createEVM2SolanaMessages(t)
 
 	// Set DestTokenAddress to a []byte of 2 length
@@ -195,7 +195,7 @@ func abiEncodeUint32(data uint32) ([]byte, error) {
 	return utils.ABIEncode(`[{ "type": "uint32" }]`, data)
 }
 
-func TestToLittleEndian(t *testing.T) {
+func TestUnit_ToLittleEndian(t *testing.T) {
 	mustSetString := func(s string) *big.Int {
 		b, ok := big.NewInt(0).SetString(s, 10)
 		if !ok {

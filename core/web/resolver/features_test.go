@@ -8,7 +8,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 )
 
-func Test_ToFeatures(t *testing.T) {
+func TestUnit_ToFeatures(t *testing.T) {
 	query := `
 	{
 		features {

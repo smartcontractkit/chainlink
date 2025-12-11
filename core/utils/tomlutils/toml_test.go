@@ -6,7 +6,7 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func TestUtils_TomlFloat32_Success_Decimal(t *testing.T) {
+func TestUnit_Utils_TomlFloat32_Success_Decimal(t *testing.T) {
 	t.Parallel()
 
 	var tomlF32 Float32
@@ -17,7 +17,7 @@ func TestUtils_TomlFloat32_Success_Decimal(t *testing.T) {
 	assert.Equal(t, tomlF32, Float32(0.23))
 }
 
-func TestUtils_TomlFloat32_Success_Integer(t *testing.T) {
+func TestUnit_Utils_TomlFloat32_Success_Integer(t *testing.T) {
 	t.Parallel()
 
 	var tomlF32 Float32
@@ -28,7 +28,7 @@ func TestUtils_TomlFloat32_Success_Integer(t *testing.T) {
 	assert.Equal(t, tomlF32, Float32(13))
 }
 
-func TestUtils_TomlFloat32_Failure(t *testing.T) {
+func TestUnit_Utils_TomlFloat32_Failure(t *testing.T) {
 	t.Parallel()
 
 	var tomlF32 Float32
@@ -38,7 +38,7 @@ func TestUtils_TomlFloat32_Failure(t *testing.T) {
 	assert.Error(t, err)
 }
 
-func TestUtils_TomlFloat64_Success_Decimal(t *testing.T) {
+func TestUnit_Utils_TomlFloat64_Success_Decimal(t *testing.T) {
 	t.Parallel()
 
 	var tomlF64 Float64
@@ -49,7 +49,7 @@ func TestUtils_TomlFloat64_Success_Decimal(t *testing.T) {
 	assert.Equal(t, tomlF64, Float64(2.82))
 }
 
-func TestUtils_TomlFloat64_Success_Integer(t *testing.T) {
+func TestUnit_Utils_TomlFloat64_Success_Integer(t *testing.T) {
 	t.Parallel()
 
 	var tomlF64 Float64
@@ -60,7 +60,7 @@ func TestUtils_TomlFloat64_Success_Integer(t *testing.T) {
 	assert.Equal(t, tomlF64, Float64(3))
 }
 
-func TestUtils_TomlFloat64_Failure(t *testing.T) {
+func TestUnit_Utils_TomlFloat64_Failure(t *testing.T) {
 	t.Parallel()
 
 	var tomlF64 Float64

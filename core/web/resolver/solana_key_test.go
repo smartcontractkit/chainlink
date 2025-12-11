@@ -12,7 +12,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/solkey"
 )
 
-func TestResolver_SolanaKeys(t *testing.T) {
+func TestUnit_Resolver_SolanaKeys(t *testing.T) {
 	t.Parallel()
 
 	query := `

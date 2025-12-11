@@ -65,7 +65,7 @@ func (fakeReportingPlugin) Close() error {
 
 var _ types.ReportingPlugin = &fakeReportingPlugin{}
 
-func TestPlugin_MustInstantiate(t *testing.T) {
+func TestUnit_Plugin_MustInstantiate(t *testing.T) {
 	// Ensure instantiation without panic for no override backend.
 	var reportingPlugin = &fakeReportingPlugin{}
 	promPlugin := New(reportingPlugin, "test", "EVM", big.NewInt(1), types.ReportingPluginConfig{}, nil)
@@ -77,7 +77,7 @@ func TestPlugin_MustInstantiate(t *testing.T) {
 	require.NotNil(t, promPlugin)
 }
 
-func TestPlugin_GetLatencies(t *testing.T) {
+func TestUnit_Plugin_GetLatencies(t *testing.T) {
 	// Use arbitrary report timestamp and label values.
 	configDigest := common.BytesToHash(crypto.Keccak256([]byte("foobar")))
 	reportTimestamp := types.ReportTimestamp{

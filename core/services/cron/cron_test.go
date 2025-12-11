@@ -20,7 +20,7 @@ import (
 	pipelinemocks "github.com/smartcontractkit/chainlink/v2/core/services/pipeline/mocks"
 )
 
-func TestCronV2Pipeline(t *testing.T) {
+func TestUnit_CronV2Pipeline(t *testing.T) {
 	runner := pipelinemocks.NewRunner(t)
 	cfg := configtest.NewTestGeneralConfig(t)
 	db := pgtest.NewSqlxDB(t)
@@ -51,7 +51,7 @@ func TestCronV2Pipeline(t *testing.T) {
 	defer func() { assert.NoError(t, service.Close()) }()
 }
 
-func TestCronV2Schedule(t *testing.T) {
+func TestUnit_CronV2Schedule(t *testing.T) {
 	t.Parallel()
 
 	spec := job.Job{

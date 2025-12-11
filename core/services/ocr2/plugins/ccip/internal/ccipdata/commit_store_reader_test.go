@@ -40,7 +40,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/ccipdata/v1_2_0"
 )
 
-func TestCommitOffchainConfig_Encoding(t *testing.T) {
+func TestUnit_CommitOffchainConfig_Encoding(t *testing.T) {
 	tests := map[string]struct {
 		want      v1_2_0.JSONCommitOffchainConfig
 		expectErr bool
@@ -102,7 +102,7 @@ func TestCommitOffchainConfig_Encoding(t *testing.T) {
 	}
 }
 
-func TestCommitOnchainConfig(t *testing.T) {
+func TestUnit_CommitOnchainConfig(t *testing.T) {
 	tests := []struct {
 		name      string
 		want      ccipdata.CommitOnchainConfig
@@ -137,7 +137,7 @@ func TestCommitOnchainConfig(t *testing.T) {
 	}
 }
 
-func TestCommitStoreReaders(t *testing.T) {
+func TestUnit_CommitStoreReaders(t *testing.T) {
 	user, ec := newSim(t)
 	ctx := testutils.Context(t)
 	lggr := logger.Test(t)
@@ -348,7 +348,7 @@ func TestCommitStoreReaders(t *testing.T) {
 	}
 }
 
-func TestNewCommitStoreReader(t *testing.T) {
+func TestUnit_NewCommitStoreReader(t *testing.T) {
 	var tt = []struct {
 		typeAndVersion string
 		expectedErr    string

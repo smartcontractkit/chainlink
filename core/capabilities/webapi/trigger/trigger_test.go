@@ -159,7 +159,7 @@ func requireChanMsg[T capabilities.TriggerResponse](t *testing.T, ch <-chan capa
 	return capabilities.TriggerResponse{}, errors.New("channel timeout")
 }
 
-func TestTriggerExecute(t *testing.T) {
+func TestUnit_TriggerExecute(t *testing.T) {
 	th := setup(t)
 	ctx := testutils.Context(t)
 	ctx, cancelContext := context.WithDeadline(ctx, time.Now().Add(10*time.Second))
@@ -323,7 +323,7 @@ func TestTriggerExecute(t *testing.T) {
 	cancelContext()
 }
 
-func TestRegisterNoAllowedSenders(t *testing.T) {
+func TestUnit_RegisterNoAllowedSenders(t *testing.T) {
 	th := setup(t)
 	ctx := testutils.Context(t)
 	Config, _ := workflowTriggerConfig(th, []string{}, []string{"daily_price_update"})
@@ -342,7 +342,7 @@ func TestRegisterNoAllowedSenders(t *testing.T) {
 	gatewayRequest(t, privateKey1, []string{"daily_price_update"}, "")
 }
 
-func TestTriggerExecute2WorkflowsSameTopicDifferentAllowLists(t *testing.T) {
+func TestUnit_TriggerExecute2WorkflowsSameTopicDifferentAllowLists(t *testing.T) {
 	th := setup(t)
 	ctx := testutils.Context(t)
 	ctx, cancelContext := context.WithDeadline(ctx, time.Now().Add(10*time.Second))
@@ -401,7 +401,7 @@ func TestTriggerExecute2WorkflowsSameTopicDifferentAllowLists(t *testing.T) {
 	cancelContext()
 }
 
-func TestRegisterUnregister(t *testing.T) {
+func TestUnit_RegisterUnregister(t *testing.T) {
 	th := setup(t)
 	ctx := testutils.Context(t)
 	Config, err := workflowTriggerConfig(th, []string{address1}, []string{"daily_price_update"})

@@ -13,7 +13,7 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func TestNewExternalInitiator(t *testing.T) {
+func TestUnit_NewExternalInitiator(t *testing.T) {
 	eia := auth.NewToken()
 	assert.Len(t, eia.AccessKey, 32)
 	assert.Len(t, eia.Secret, 64)
@@ -30,7 +30,7 @@ func TestNewExternalInitiator(t *testing.T) {
 	assert.Equal(t, ei.AccessKey, eia.AccessKey)
 }
 
-func TestAuthenticateExternalInitiator(t *testing.T) {
+func TestUnit_AuthenticateExternalInitiator(t *testing.T) {
 	eia := auth.NewToken()
 	ok, err := bridges.AuthenticateExternalInitiator(eia, &bridges.ExternalInitiator{
 		Salt:         "salt",

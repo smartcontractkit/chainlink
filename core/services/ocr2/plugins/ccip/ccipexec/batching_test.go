@@ -40,7 +40,7 @@ type testCase struct {
 	msgCost                                          int64
 }
 
-func Test_NewBatchingStrategy(t *testing.T) {
+func TestUnit_NewBatchingStrategy(t *testing.T) {
 	t.Parallel()
 
 	mockStatusChecker := mockstatuschecker.NewCCIPTransactionStatusChecker(t)
@@ -58,7 +58,7 @@ func Test_NewBatchingStrategy(t *testing.T) {
 	}
 }
 
-func Test_validateSendRequests(t *testing.T) {
+func TestUnit_validateSendRequests(t *testing.T) {
 	testCases := []struct {
 		name             string
 		seqNums          []uint64
@@ -125,7 +125,7 @@ func (m delayedTokenDataWorker) GetMsgTokenData(ctx context.Context, msg cciptyp
 	return nil, ctx.Err()
 }
 
-func TestExecutionReportingPlugin_getTokenDataWithCappedLatency(t *testing.T) {
+func TestUnit_ExecutionReportingPlugin_getTokenDataWithCappedLatency(t *testing.T) {
 	testCases := []struct {
 		name               string
 		allowedWaitingTime time.Duration
@@ -166,7 +166,7 @@ func TestExecutionReportingPlugin_getTokenDataWithCappedLatency(t *testing.T) {
 	}
 }
 
-func TestBatchingStrategies(t *testing.T) {
+func TestUnit_BatchingStrategies(t *testing.T) {
 	sender1 := ccipcalc.HexToAddress("0xa")
 	destNative := ccipcalc.HexToAddress("0xb")
 	srcNative := ccipcalc.HexToAddress("0xc")

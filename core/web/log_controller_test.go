@@ -30,7 +30,7 @@ type testCase struct {
 	expectedErrorCode int
 }
 
-func TestLogController_GetLogConfig(t *testing.T) {
+func TestUnit_LogController_GetLogConfig(t *testing.T) {
 	t.Parallel()
 
 	cfg := configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
@@ -63,7 +63,7 @@ func TestLogController_GetLogConfig(t *testing.T) {
 	}
 }
 
-func TestLogController_PatchLogConfig(t *testing.T) {
+func TestUnit_LogController_PatchLogConfig(t *testing.T) {
 	t.Parallel()
 
 	sqlTrue := true

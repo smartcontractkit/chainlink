@@ -34,7 +34,7 @@ var (
 	wrongLength = "8d4e66"
 )
 
-func TestEVMEncoder_SingleField(t *testing.T) {
+func TestUnit_EVMEncoder_SingleField(t *testing.T) {
 	config := map[string]any{
 		"abi": "bytes[] Full_reports",
 	}
@@ -69,7 +69,7 @@ func TestEVMEncoder_SingleField(t *testing.T) {
 	require.Equal(t, expected, hex.EncodeToString(encoded))
 }
 
-func TestEVMEncoder_TwoFields(t *testing.T) {
+func TestUnit_EVMEncoder_TwoFields(t *testing.T) {
 	config := map[string]any{
 		"abi": "uint256[] Prices, uint32[] Timestamps",
 	}
@@ -105,7 +105,7 @@ func TestEVMEncoder_TwoFields(t *testing.T) {
 	require.Equal(t, expected, hex.EncodeToString(encoded))
 }
 
-func TestEVMEncoder_Tuple(t *testing.T) {
+func TestUnit_EVMEncoder_Tuple(t *testing.T) {
 	config := map[string]any{
 		"abi": "(uint256[] Prices, uint32[] Timestamps) Elem",
 	}
@@ -144,7 +144,7 @@ func TestEVMEncoder_Tuple(t *testing.T) {
 	require.Equal(t, expected, hex.EncodeToString(encoded))
 }
 
-func TestEVMEncoder_ListOfTuples(t *testing.T) {
+func TestUnit_EVMEncoder_ListOfTuples(t *testing.T) {
 	config := map[string]any{
 		"abi": "(uint256 Price, uint32 Timestamp)[] Elems",
 	}
@@ -186,7 +186,7 @@ func TestEVMEncoder_ListOfTuples(t *testing.T) {
 	require.Equal(t, expected, hex.EncodeToString(encoded))
 }
 
-func TestEVMEncoder_InvalidIDs(t *testing.T) {
+func TestUnit_EVMEncoder_InvalidIDs(t *testing.T) {
 	config := map[string]any{
 		"abi": "bytes[] Full_reports",
 	}
@@ -217,7 +217,7 @@ func TestEVMEncoder_InvalidIDs(t *testing.T) {
 	assert.ErrorContains(t, err, "wrong length")
 }
 
-func TestEVMEncoder_SubABI(t *testing.T) {
+func TestUnit_EVMEncoder_SubABI(t *testing.T) {
 	config := map[string]any{
 		"abi": "(bytes32 FeedID, bytes Bundle, uint32 Timestamp)[] Reports",
 		"subabi": map[string]string{

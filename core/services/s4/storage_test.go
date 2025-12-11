@@ -33,7 +33,7 @@ func setupTestStorage(t *testing.T, now time.Time) (*mocks.ORM, s4.Storage) {
 	return orm, storage
 }
 
-func TestStorage_Constraints(t *testing.T) {
+func TestUnit_Storage_Constraints(t *testing.T) {
 	t.Parallel()
 
 	_, storage := setupTestStorage(t, time.Now())
@@ -41,7 +41,7 @@ func TestStorage_Constraints(t *testing.T) {
 	assert.Equal(t, constraints, c)
 }
 
-func TestStorage_Errors(t *testing.T) {
+func TestUnit_Storage_Errors(t *testing.T) {
 	t.Parallel()
 
 	now := time.Now()
@@ -160,7 +160,7 @@ func TestStorage_Errors(t *testing.T) {
 	})
 }
 
-func TestStorage_PutAndGet(t *testing.T) {
+func TestUnit_Storage_PutAndGet(t *testing.T) {
 	t.Parallel()
 
 	now := time.Now()
@@ -201,7 +201,7 @@ func TestStorage_PutAndGet(t *testing.T) {
 	assert.Equal(t, record.Payload, rec.Payload)
 }
 
-func TestStorage_List(t *testing.T) {
+func TestUnit_Storage_List(t *testing.T) {
 	t.Parallel()
 
 	ormMock, storage := setupTestStorage(t, time.Now())

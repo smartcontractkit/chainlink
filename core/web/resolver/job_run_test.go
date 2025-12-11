@@ -18,7 +18,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/utils/stringutils"
 )
 
-func TestQuery_PaginatedJobRuns(t *testing.T) {
+func TestUnit_Query_PaginatedJobRuns(t *testing.T) {
 	t.Parallel()
 
 	query := `
@@ -84,7 +84,7 @@ func TestQuery_PaginatedJobRuns(t *testing.T) {
 	RunGQLTests(t, testCases)
 }
 
-func TestResolver_JobRun(t *testing.T) {
+func TestUnit_Resolver_JobRun(t *testing.T) {
 	t.Parallel()
 
 	query := `
@@ -235,7 +235,7 @@ func TestResolver_JobRun(t *testing.T) {
 	RunGQLTests(t, testCases)
 }
 
-func TestResolver_RunJob(t *testing.T) {
+func TestUnit_Resolver_RunJob(t *testing.T) {
 	t.Parallel()
 
 	mutation := `

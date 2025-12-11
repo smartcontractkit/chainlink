@@ -10,7 +10,7 @@ import (
 	"github.com/smartcontractkit/chainlink-protos/cre/go/values"
 )
 
-func TestWorkflowExecution_DeepCopy(t *testing.T) {
+func TestUnit_WorkflowExecution_DeepCopy(t *testing.T) {
 	now := time.Now()
 	inputs, err := values.NewMap(map[string]int{})
 	require.NoError(t, err)

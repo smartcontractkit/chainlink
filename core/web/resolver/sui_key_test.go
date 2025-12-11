@@ -12,7 +12,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/suikey"
 )
 
-func TestResolver_SuiKeys(t *testing.T) {
+func TestUnit_Resolver_SuiKeys(t *testing.T) {
 	t.Parallel()
 
 	query := `

@@ -31,7 +31,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/rpclib/rpclibmocks"
 )
 
-func TestOffRampGetDestinationTokensFromSourceTokens(t *testing.T) {
+func TestUnit_OffRampGetDestinationTokensFromSourceTokens(t *testing.T) {
 	ctx := testutils.Context(t)
 	const numSrcTokens = 20
 
@@ -101,7 +101,7 @@ func TestOffRampGetDestinationTokensFromSourceTokens(t *testing.T) {
 	}
 }
 
-func TestCachedOffRampTokens(t *testing.T) {
+func TestUnit_CachedOffRampTokens(t *testing.T) {
 	// Test data.
 	srcTks, dstTks, _ := generateTokensAndOutputs(3)
 
@@ -156,7 +156,7 @@ func generateTokensAndOutputs(nbTokens uint) ([]common.Address, []common.Address
 	return srcTks, dstTks, outputs
 }
 
-func Test_LogsAreProperlyMarkedAsFinalized(t *testing.T) {
+func TestUnit_LogsAreProperlyMarkedAsFinalized(t *testing.T) {
 	minSeqNr := uint64(10)
 	maxSeqNr := uint64(14)
 	inputLogs := []logpoller.Log{
@@ -211,7 +211,7 @@ func Test_LogsAreProperlyMarkedAsFinalized(t *testing.T) {
 	}
 }
 
-func TestGetRouter(t *testing.T) {
+func TestUnit_GetRouter(t *testing.T) {
 	routerAddr := utils.RandomAddress()
 
 	mockOffRamp := mock_contracts.NewEVM2EVMOffRampInterface(t)

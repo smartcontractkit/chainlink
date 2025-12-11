@@ -53,7 +53,7 @@ func makeSampleTransmission(seqNr uint64, sURL string) *mercurytransmitter.Trans
 	}
 }
 
-func Test_Cleanup(t *testing.T) {
+func TestUnit_Cleanup(t *testing.T) {
 	ctx := testutils.Context(t)
 
 	lp := &mockLogPoller{}
@@ -121,7 +121,7 @@ func Test_Cleanup(t *testing.T) {
 	})
 }
 
-func Test_StaleTransmissionReaper(t *testing.T) {
+func TestUnit_StaleTransmissionReaper(t *testing.T) {
 	ds := pgtest.NewSqlxDB(t)
 	lggr := logger.TestLogger(t)
 	tr := &transmissionReaper{ds: ds, lggr: lggr, maxAge: 24 * time.Hour}
@@ -154,7 +154,7 @@ WHERE transmission_hash IN (
 	assert.Equal(t, int64(n-5), d)
 }
 
-func Test_OrphanedTransmissionReaper(t *testing.T) {
+func TestUnit_OrphanedTransmissionReaper(t *testing.T) {
 	ds := pgtest.NewSqlxDB(t)
 	lggr := logger.TestLogger(t)
 	tr := &transmissionReaper{ds: ds, lggr: lggr, maxAge: 24 * time.Hour}

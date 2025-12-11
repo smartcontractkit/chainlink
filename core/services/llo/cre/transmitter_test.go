@@ -22,7 +22,7 @@ const (
 	donID = 4
 )
 
-func Test_Transmitter(t *testing.T) {
+func TestUnit_Transmitter(t *testing.T) {
 	digest := types.ConfigDigest{1, 2, 3}
 	sigs := []types.AttributedOnchainSignature{
 		{

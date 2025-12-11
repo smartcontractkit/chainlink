@@ -14,7 +14,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities"
 )
 
-func TestDonNotifier_WaitForDon(t *testing.T) {
+func TestUnit_DonNotifier_WaitForDon(t *testing.T) {
 	notifier := capabilities.NewDonNotifier()
 	don := commoncap.DON{
 		ID: 1,
@@ -44,7 +44,7 @@ func TestDonNotifier_WaitForDon(t *testing.T) {
 	assert.Equal(t, don, result)
 }
 
-func TestDonNotifier_WaitForDon_ContextTimeout(t *testing.T) {
+func TestUnit_DonNotifier_WaitForDon_ContextTimeout(t *testing.T) {
 	notifier := capabilities.NewDonNotifier()
 
 	ctx, cancel := context.WithCancel(context.Background())
@@ -55,7 +55,7 @@ func TestDonNotifier_WaitForDon_ContextTimeout(t *testing.T) {
 	assert.ErrorContains(t, err, context.Canceled.Error())
 }
 
-func TestDonNotifier_DonUpdate(t *testing.T) {
+func TestUnit_DonNotifier_DonUpdate(t *testing.T) {
 	notifier := capabilities.NewDonNotifier()
 	notifyChs := []chan struct{}{
 		make(chan struct{}),

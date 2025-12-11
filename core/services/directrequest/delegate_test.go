@@ -39,7 +39,7 @@ import (
 	pipeline_mocks "github.com/smartcontractkit/chainlink/v2/core/services/pipeline/mocks"
 )
 
-func TestDelegate_ServicesForSpec(t *testing.T) {
+func TestUnit_Delegate_ServicesForSpec(t *testing.T) {
 	ethClient := clienttest.NewClientWithDefaultChainID(t)
 	runner := pipeline_mocks.NewRunner(t)
 	db := pgtest.NewSqlxDB(t)
@@ -153,7 +153,7 @@ func (uni *DirectRequestUniverse) Cleanup() {
 	uni.cleanup()
 }
 
-func TestDelegate_ServicesListenerHandleLog(t *testing.T) {
+func TestUnit_Delegate_ServicesListenerHandleLog(t *testing.T) {
 	quarantine.Flaky(t, "DX-1909")
 	testutils.SkipShortDB(t)
 	t.Parallel()

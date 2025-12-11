@@ -21,7 +21,7 @@ import (
 	telemPb "github.com/smartcontractkit/chainlink/v2/core/services/synchronization/telem"
 )
 
-func TestTelemetryIngressBatchClient_HappyPath(t *testing.T) {
+func TestUnit_TelemetryIngressBatchClient_HappyPath(t *testing.T) {
 	g := gomega.NewWithT(t)
 
 	// Create mocks

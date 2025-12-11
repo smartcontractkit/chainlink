@@ -21,7 +21,7 @@ func bootstrapPersistenceManager(t *testing.T, jobID int32, db *sqlx.DB) *Persis
 	return NewPersistenceManager(logger.Test(t), "mercuryserver.example", orm, jobID, 2, 5*time.Millisecond, 5*time.Millisecond)
 }
 
-func TestPersistenceManager(t *testing.T) {
+func TestUnit_PersistenceManager(t *testing.T) {
 	jobID1 := rand.Int32()
 	jobID2 := jobID1 + 1
 
@@ -63,7 +63,7 @@ func TestPersistenceManager(t *testing.T) {
 	})
 }
 
-func TestPersistenceManagerAsyncDelete(t *testing.T) {
+func TestUnit_PersistenceManagerAsyncDelete(t *testing.T) {
 	ctx := testutils.Context(t)
 	jobID := rand.Int32()
 	db := testutils.NewSqlxDB(t)
@@ -111,7 +111,7 @@ func TestPersistenceManagerAsyncDelete(t *testing.T) {
 	}, transmissions)
 }
 
-func TestPersistenceManagerPrune(t *testing.T) {
+func TestUnit_PersistenceManagerPrune(t *testing.T) {
 	jobID1 := rand.Int32()
 	jobID2 := jobID1 + 1
 	db := testutils.NewSqlxDB(t)

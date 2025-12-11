@@ -153,7 +153,7 @@ func getUpkeepIDFromTx(t *testing.T, registryWrapper *keeper.RegistryWrapper, re
 	return upkeepID
 }
 
-func TestKeeperEthIntegration(t *testing.T) {
+func TestUnit_KeeperEthIntegration(t *testing.T) {
 	tests.SkipFlakey(t, "https://smartcontract-it.atlassian.net/browse/DX-400")
 
 	t.Parallel()
@@ -327,7 +327,7 @@ func TestKeeperEthIntegration(t *testing.T) {
 	}
 }
 
-func TestKeeperForwarderEthIntegration(t *testing.T) {
+func TestUnit_KeeperForwarderEthIntegration(t *testing.T) {
 	quarantine.Flaky(t, "DX-2042")
 	t.Parallel()
 	t.Run("keeper_forwarder_flow", func(t *testing.T) {
@@ -490,7 +490,7 @@ func TestKeeperForwarderEthIntegration(t *testing.T) {
 	})
 }
 
-func TestMaxPerformDataSize(t *testing.T) {
+func TestUnit_MaxPerformDataSize(t *testing.T) {
 	t.Parallel()
 	t.Run("max_perform_data_size_test", func(t *testing.T) {
 		ctx := testutils.Context(t)

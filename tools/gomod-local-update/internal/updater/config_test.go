@@ -5,7 +5,7 @@ import (
 	"testing"
 )
 
-func TestConfig_Validate(t *testing.T) {
+func TestUnit_Config_Validate(t *testing.T) {
 	tests := []struct {
 		name    string
 		config  *Config
@@ -96,7 +96,7 @@ func TestConfig_Validate(t *testing.T) {
 	}
 }
 
-func TestConfig_ValidateErrorType(t *testing.T) {
+func TestUnit_Config_ValidateErrorType(t *testing.T) {
 	cfg := &Config{
 		RepoRemote:  "invalid*remote",
 		BranchTrunk: "develop",
@@ -115,7 +115,7 @@ func TestConfig_ValidateErrorType(t *testing.T) {
 	}
 }
 
-func TestParseFlags(t *testing.T) {
+func TestUnit_ParseFlags(t *testing.T) {
 	tests := []struct {
 		name    string
 		args    []string

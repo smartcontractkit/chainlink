@@ -20,7 +20,7 @@ func assertBetween(t *testing.T, got time.Duration, low time.Duration, high time
 	assert.LessOrEqual(t, got, high)
 }
 
-func TestScheduledExecutionStrategy_LocalDON(t *testing.T) {
+func TestUnit_ScheduledExecutionStrategy_LocalDON(t *testing.T) {
 	var gotTime time.Time
 	var called bool
 

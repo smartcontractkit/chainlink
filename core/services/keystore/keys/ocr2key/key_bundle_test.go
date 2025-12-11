@@ -16,7 +16,7 @@ func assertKeyBundlesNotEqual(t *testing.T, pk1 ocr2key.KeyBundle, pk2 ocr2key.K
 	assert.NotEqual(t, pk1.OnChainPublicKey(), pk2.OnChainPublicKey())
 }
 
-func TestOCR2Keys_New(t *testing.T) {
+func TestUnit_OCR2Keys_New(t *testing.T) {
 	t.Parallel()
 	var keys []ocr2key.KeyBundle
 
@@ -50,7 +50,7 @@ func TestOCR2Keys_New(t *testing.T) {
 	}
 }
 
-func TestOCR2KeyBundle_BundleBase(t *testing.T) {
+func TestUnit_OCR2KeyBundle_BundleBase(t *testing.T) {
 	t.Parallel()
 
 	for _, chain := range chaintype.SupportedChainTypes {

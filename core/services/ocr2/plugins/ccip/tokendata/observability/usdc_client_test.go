@@ -33,7 +33,7 @@ type expected struct {
 	count  int
 }
 
-func TestUSDCClientMonitoring(t *testing.T) {
+func TestUnit_USDCClientMonitoring(t *testing.T) {
 	tests := []struct {
 		name     string
 		server   *httptest.Server

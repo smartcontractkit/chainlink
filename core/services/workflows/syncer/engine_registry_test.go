@@ -12,7 +12,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/types"
 )
 
-func TestEngineRegistry(t *testing.T) {
+func TestUnit_EngineRegistry(t *testing.T) {
 	var srv services.Service = &fakeService{}
 
 	const id1 = "foo"
@@ -71,7 +71,7 @@ func TestEngineRegistry(t *testing.T) {
 	require.Len(t, es, 2)
 }
 
-func TestEngineRegistry_keyFor(t *testing.T) {
+func TestUnit_EngineRegistry_keyFor(t *testing.T) {
 	owner := []byte("owner")
 	k := EngineRegistryKey{Owner: owner, Name: "name"}
 	assert.Equal(t, k.keyFor(), fmt.Sprintf("%x-name", owner))

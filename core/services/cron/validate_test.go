@@ -11,7 +11,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 )
 
-func TestValidatedCronJobSpec(t *testing.T) {
+func TestUnit_ValidatedCronJobSpec(t *testing.T) {
 	var tt = []struct {
 		name      string
 		toml      string

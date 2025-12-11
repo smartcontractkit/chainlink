@@ -19,7 +19,7 @@ type expectedKey struct {
 	Version int    `json:"version"`
 }
 
-func Test_CSAKeysQuery(t *testing.T) {
+func TestUnit_CSAKeysQuery(t *testing.T) {
 	query := `
 	query GetCSAKeys {
 		csaKeys {
@@ -72,7 +72,7 @@ func Test_CSAKeysQuery(t *testing.T) {
 	RunGQLTests(t, testCases)
 }
 
-func Test_CreateCSAKey(t *testing.T) {
+func TestUnit_CreateCSAKey(t *testing.T) {
 	query := `
 	mutation CreateCSAKey {
 		createCSAKey {
@@ -140,7 +140,7 @@ func Test_CreateCSAKey(t *testing.T) {
 	RunGQLTests(t, testCases)
 }
 
-func Test_DeleteCSAKey(t *testing.T) {
+func TestUnit_DeleteCSAKey(t *testing.T) {
 	query := `
 	mutation DeleteCSAKey($id: ID!) {
 		deleteCSAKey(id: $id) {

@@ -36,7 +36,7 @@ type mockEvmConfig struct {
 func (m *mockEvmConfig) LinkContractAddress() string       { return m.linkAddr }
 func (m *mockEvmConfig) GasEstimator() config.GasEstimator { return m.gasEstimatorMock }
 
-func TestResolver_ETHKeys(t *testing.T) {
+func TestUnit_Resolver_ETHKeys(t *testing.T) {
 	t.Parallel()
 
 	query := `

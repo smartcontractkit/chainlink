@@ -33,7 +33,7 @@ var (
 	jsonParseTaskValue = "1234"
 )
 
-func Test_InMemoryDataSource(t *testing.T) {
+func TestUnit_InMemoryDataSource(t *testing.T) {
 	runner := pipelinemocks.NewRunner(t)
 	runner.On("ExecuteRun", mock.Anything, mock.AnythingOfType("pipeline.Spec"), mock.Anything, mock.Anything).
 		Return(&pipeline.Run{}, pipeline.TaskRunResults{
@@ -52,7 +52,7 @@ func Test_InMemoryDataSource(t *testing.T) {
 	assert.Equal(t, mockValue, val.String()) // returns expected value after pipeline run
 }
 
-func Test_CachedInMemoryDataSourceErrHandling(t *testing.T) {
+func TestUnit_CachedInMemoryDataSourceErrHandling(t *testing.T) {
 	changeResultValue := func(runner *pipelinemocks.Runner, value string, returnErr, once bool) {
 		result := pipeline.Result{
 			Value: value,
@@ -144,7 +144,7 @@ func Test_CachedInMemoryDataSourceErrHandling(t *testing.T) {
 	})
 }
 
-func Test_InMemoryDataSourceWithProm(t *testing.T) {
+func TestUnit_InMemoryDataSourceWithProm(t *testing.T) {
 	runner := pipelinemocks.NewRunner(t)
 
 	jsonParseTask := pipeline.JSONParseTask{
@@ -200,7 +200,7 @@ func (ms *mockSaver) Save(r *pipeline.Run) {
 	ms.r = r
 }
 
-func Test_NewDataSourceV2(t *testing.T) {
+func TestUnit_NewDataSourceV2(t *testing.T) {
 	runner := pipelinemocks.NewRunner(t)
 	ms := &mockSaver{}
 	runner.On("ExecuteRun", mock.Anything, mock.AnythingOfType("pipeline.Spec"), mock.Anything, mock.Anything).
@@ -221,7 +221,7 @@ func Test_NewDataSourceV2(t *testing.T) {
 	assert.Equal(t, &pipeline.Run{}, ms.r)   // expected data properly passed to channel
 }
 
-func Test_NewDataSourceV1(t *testing.T) {
+func TestUnit_NewDataSourceV1(t *testing.T) {
 	runner := pipelinemocks.NewRunner(t)
 	ms := &mockSaver{}
 	runner.On("ExecuteRun", mock.Anything, mock.AnythingOfType("pipeline.Spec"), mock.Anything, mock.Anything).

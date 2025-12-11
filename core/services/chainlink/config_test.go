@@ -220,7 +220,7 @@ var (
 	}
 )
 
-func TestConfig_Marshal(t *testing.T) {
+func TestUnit_Config_Marshal(t *testing.T) {
 	zeroSeconds := *commoncfg.MustNewDuration(time.Second * 0)
 	second := *commoncfg.MustNewDuration(time.Second)
 	minute := *commoncfg.MustNewDuration(time.Minute)
@@ -1470,7 +1470,7 @@ ReaperMaxAge = '678h0m0s'
 	}
 }
 
-func TestConfig_full(t *testing.T) {
+func TestUnit_Config_full(t *testing.T) {
 	var got Config
 	require.NoError(t, commoncfg.DecodeTOML(strings.NewReader(fullTOML), &got))
 	// Except for some EVM node fields.
@@ -1550,7 +1550,7 @@ func TestConfig_full(t *testing.T) {
 //go:embed testdata/config-invalid.toml
 var invalidTOML string
 
-func TestConfig_Validate(t *testing.T) {
+func TestUnit_Config_Validate(t *testing.T) {
 	for _, tt := range []struct {
 		name string
 		toml string
@@ -1705,7 +1705,7 @@ var (
 	secretsMultiRedactedTOML string
 )
 
-func Test_generalConfig_LogConfiguration(t *testing.T) {
+func TestUnit_generalConfig_LogConfiguration(t *testing.T) {
 	const (
 		secrets   = "# Secrets:\n"
 		input     = "# Input Configuration:\n"
@@ -1777,7 +1777,7 @@ func Test_generalConfig_LogConfiguration(t *testing.T) {
 	}
 }
 
-func TestNewGeneralConfig_ParsingError_InvalidSyntax(t *testing.T) {
+func TestUnit_NewGeneralConfig_ParsingError_InvalidSyntax(t *testing.T) {
 	invalidTOML := "{ bad syntax {"
 	opts := GeneralConfigOpts{
 		ConfigStrings:  []string{invalidTOML},
@@ -1787,7 +1787,7 @@ func TestNewGeneralConfig_ParsingError_InvalidSyntax(t *testing.T) {
 	assert.EqualError(t, err, "failed to decode config TOML: toml: invalid character at start of key: {")
 }
 
-func TestNewGeneralConfig_ParsingError_DuplicateField(t *testing.T) {
+func TestUnit_NewGeneralConfig_ParsingError_DuplicateField(t *testing.T) {
 	invalidTOML := `Dev = false
 Dev = true`
 	opts := GeneralConfigOpts{
@@ -1798,7 +1798,7 @@ Dev = true`
 	assert.EqualError(t, err, "failed to decode config TOML: toml: key Dev is already defined")
 }
 
-func TestNewGeneralConfig_SecretsOverrides(t *testing.T) {
+func TestUnit_NewGeneralConfig_SecretsOverrides(t *testing.T) {
 	// Provide a keystore password file and an env var with DB URL
 	const PWD_OVERRIDE = "great_password"
 	const DBURL_OVERRIDE = "http://user@db"
@@ -1818,7 +1818,7 @@ func TestNewGeneralConfig_SecretsOverrides(t *testing.T) {
 	assert.Equal(t, DBURL_OVERRIDE, (&dbURL).String())
 }
 
-func TestSecrets_Validate(t *testing.T) {
+func TestUnit_Secrets_Validate(t *testing.T) {
 	for _, tt := range []struct {
 		name string
 		toml string
@@ -1882,7 +1882,7 @@ func assertValidationError(t *testing.T, invalid interface{ Validate() error }, 
 	}
 }
 
-func TestConfig_setDefaults(t *testing.T) {
+func TestUnit_Config_setDefaults(t *testing.T) {
 	var c Config
 	c.EVM = evmcfg.EVMConfigs{{ChainID: ubig.NewI(99999133712345)}}
 	c.Cosmos = RawConfigs{{"ChainID": ptr("unknown cosmos chain")}}
@@ -1896,7 +1896,7 @@ func TestConfig_setDefaults(t *testing.T) {
 	configtest.AssertFieldsNotNil(t, c.Core)
 }
 
-func Test_validateEnv(t *testing.T) {
+func TestUnit_validateEnv(t *testing.T) {
 	t.Setenv("LOG_LEVEL", "warn")
 	t.Setenv("DATABASE_URL", "foo")
 	assert.ErrorContains(t, validateEnv(), `invalid environment: 2 errors:
@@ -1912,7 +1912,7 @@ func Test_validateEnv(t *testing.T) {
 	- environment variable GAS_UPDATER_ENABLED must not be set: unsupported with config v2`)
 }
 
-func TestConfig_SetFrom(t *testing.T) {
+func TestUnit_Config_SetFrom(t *testing.T) {
 	t.Parallel()
 	for _, tt := range []struct {
 		name string
@@ -1940,7 +1940,7 @@ func TestConfig_SetFrom(t *testing.T) {
 	}
 }
 
-func TestConfig_warnings(t *testing.T) {
+func TestUnit_Config_warnings(t *testing.T) {
 	tests := []struct {
 		name           string
 		config         Config
@@ -1988,7 +1988,7 @@ func mustHexToBig(t *testing.T, hx string) *big.Int {
 	return n
 }
 
-func TestRawConfig_IsEnabled(t *testing.T) {
+func TestUnit_RawConfig_IsEnabled(t *testing.T) {
 	assert.True(t, RawConfig{"Enabled": true}.IsEnabled())
 	assert.True(t, RawConfig{"Enabled": nil}.IsEnabled())
 	assert.True(t, RawConfig{}.IsEnabled())
@@ -1997,7 +1997,7 @@ func TestRawConfig_IsEnabled(t *testing.T) {
 	assert.False(t, RawConfig{"Enabled": "garbage"}.IsEnabled())
 }
 
-func TestRawConfig_SetDefaults(t *testing.T) {
+func TestUnit_RawConfig_SetDefaults(t *testing.T) {
 	c := RawConfig{"Enabled": true}
 	c.SetDefaults()
 	require.NotContains(t, c, "Enabled")

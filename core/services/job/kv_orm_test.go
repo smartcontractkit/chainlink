@@ -21,7 +21,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/testdata/testspecs"
 )
 
-func TestJobKVStore(t *testing.T) {
+func TestUnit_JobKVStore(t *testing.T) {
 	ctx := t.Context()
 
 	config := configtest.NewTestGeneralConfig(t)
@@ -73,7 +73,7 @@ func TestJobKVStore(t *testing.T) {
 	require.NoError(t, jobORM.DeleteJob(ctx, jobID, jb.Type))
 }
 
-func TestJobKVStore_PruneExpiredEntries(t *testing.T) {
+func TestUnit_JobKVStore_PruneExpiredEntries(t *testing.T) {
 	ctx, cancel := context.WithCancel(testutils.Context(t))
 	defer cancel()
 

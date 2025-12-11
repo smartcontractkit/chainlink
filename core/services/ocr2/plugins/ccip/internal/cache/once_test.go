@@ -11,7 +11,7 @@ import (
 )
 
 // TestCallOnceOnNoErrorCachingSuccess tests caching behavior when the function succeeds.
-func TestCallOnceOnNoErrorCachingSuccess(t *testing.T) {
+func TestUnit_CallOnceOnNoErrorCachingSuccess(t *testing.T) {
 	callCount := 0
 	testFunc := func(ctx context.Context) (string, error) {
 		callCount++
@@ -31,7 +31,7 @@ func TestCallOnceOnNoErrorCachingSuccess(t *testing.T) {
 }
 
 // TestCallOnceOnNoErrorCachingError tests that the function is retried after an error.
-func TestCallOnceOnNoErrorCachingError(t *testing.T) {
+func TestUnit_CallOnceOnNoErrorCachingError(t *testing.T) {
 	callCount := 0
 	testFunc := func(ctx context.Context) (string, error) {
 		callCount++
@@ -55,7 +55,7 @@ func TestCallOnceOnNoErrorCachingError(t *testing.T) {
 }
 
 // TestCallOnceOnNoErrorCachingConcurrency tests that the function works correctly under concurrent access.
-func TestCallOnceOnNoErrorCachingConcurrency(t *testing.T) {
+func TestUnit_CallOnceOnNoErrorCachingConcurrency(t *testing.T) {
 	var wg sync.WaitGroup
 	callCount := 0
 	testFunc := func(ctx context.Context) (string, error) {

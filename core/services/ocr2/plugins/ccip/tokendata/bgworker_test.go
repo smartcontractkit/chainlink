@@ -18,7 +18,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/tokendata"
 )
 
-func TestBackgroundWorker(t *testing.T) {
+func TestUnit_BackgroundWorker(t *testing.T) {
 	ctx := testutils.Context(t)
 
 	const numTokens = 100
@@ -97,7 +97,7 @@ func TestBackgroundWorker(t *testing.T) {
 	require.NoError(t, w.Close())
 }
 
-func TestBackgroundWorker_RetryOnErrors(t *testing.T) {
+func TestUnit_BackgroundWorker_RetryOnErrors(t *testing.T) {
 	ctx := testutils.Context(t)
 
 	tk1 := cciptypes.Address(utils.RandomAddress().String())
@@ -165,7 +165,7 @@ func TestBackgroundWorker_RetryOnErrors(t *testing.T) {
 	require.NoError(t, w.Close())
 }
 
-func TestBackgroundWorker_Timeout(t *testing.T) {
+func TestUnit_BackgroundWorker_Timeout(t *testing.T) {
 	ctx := testutils.Context(t)
 
 	tk1 := cciptypes.Address(utils.RandomAddress().String())

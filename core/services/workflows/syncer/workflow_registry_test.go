@@ -29,7 +29,7 @@ func (m *mockService) Ready() error { return nil }
 
 func (m *mockService) Name() string { return "svc" }
 
-func Test_generateReconciliationEvents(t *testing.T) {
+func TestUnit_generateReconciliationEvents(t *testing.T) {
 	t.Run("WorkflowRegisteredEvent", func(t *testing.T) {
 		lggr := logger.TestLogger(t)
 		ctx := testutils.Context(t)

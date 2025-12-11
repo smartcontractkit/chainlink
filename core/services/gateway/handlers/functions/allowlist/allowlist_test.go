@@ -32,7 +32,7 @@ const (
 	ToSContractV110 = "Functions Terms of Service Allow List v1.1.0"
 )
 
-func TestUpdateAndCheck(t *testing.T) {
+func TestUnit_UpdateAndCheck(t *testing.T) {
 	t.Parallel()
 
 	t.Run("OK-with_ToS_V1.0.0", func(t *testing.T) {
@@ -118,7 +118,7 @@ func TestUpdateAndCheck(t *testing.T) {
 	})
 }
 
-func TestUnsupportedVersion(t *testing.T) {
+func TestUnit_UnsupportedVersion(t *testing.T) {
 	t.Parallel()
 
 	client := clienttest.NewClient(t)
@@ -133,7 +133,7 @@ func TestUnsupportedVersion(t *testing.T) {
 	require.Error(t, err)
 }
 
-func TestUpdatePeriodically(t *testing.T) {
+func TestUnit_UpdatePeriodically(t *testing.T) {
 	t.Parallel()
 
 	t.Run("OK-with_ToS_V1.0.0", func(t *testing.T) {
@@ -225,7 +225,7 @@ func TestUpdatePeriodically(t *testing.T) {
 	})
 }
 
-func TestUpdateFromContract(t *testing.T) {
+func TestUnit_UpdateFromContract(t *testing.T) {
 	t.Parallel()
 
 	t.Run("OK-fetch_complete_list_of_allowed_senders", func(t *testing.T) {
@@ -315,7 +315,7 @@ func TestUpdateFromContract(t *testing.T) {
 	})
 }
 
-func TestExtractContractVersion(t *testing.T) {
+func TestUnit_ExtractContractVersion(t *testing.T) {
 	type tc struct {
 		name           string
 		versionStr     string

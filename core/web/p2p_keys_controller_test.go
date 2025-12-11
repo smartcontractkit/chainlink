@@ -16,7 +16,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestP2PKeysController_Index_HappyPath(t *testing.T) {
+func TestUnit_P2PKeysController_Index_HappyPath(t *testing.T) {
 	t.Parallel()
 
 	client, keyStore := setupP2PKeysControllerTests(t)
@@ -37,7 +37,7 @@ func TestP2PKeysController_Index_HappyPath(t *testing.T) {
 	assert.Equal(t, keys[0].PeerID().String(), resources[0].PeerID)
 }
 
-func TestP2PKeysController_Create_HappyPath(t *testing.T) {
+func TestUnit_P2PKeysController_Create_HappyPath(t *testing.T) {
 	t.Parallel()
 
 	app := cltest.NewApplicationEVMDisabled(t)
@@ -66,7 +66,7 @@ func TestP2PKeysController_Create_HappyPath(t *testing.T) {
 	require.NoError(t, err)
 }
 
-func TestP2PKeysController_Delete_NonExistentP2PKeyID(t *testing.T) {
+func TestUnit_P2PKeysController_Delete_NonExistentP2PKeyID(t *testing.T) {
 	t.Parallel()
 
 	client, _ := setupP2PKeysControllerTests(t)
@@ -77,7 +77,7 @@ func TestP2PKeysController_Delete_NonExistentP2PKeyID(t *testing.T) {
 	assert.Equal(t, http.StatusNotFound, response.StatusCode)
 }
 
-func TestP2PKeysController_Delete_InvalidPeerID(t *testing.T) {
+func TestUnit_P2PKeysController_Delete_InvalidPeerID(t *testing.T) {
 	t.Parallel()
 
 	client, _ := setupP2PKeysControllerTests(t)
@@ -88,7 +88,7 @@ func TestP2PKeysController_Delete_InvalidPeerID(t *testing.T) {
 	assert.Equal(t, http.StatusUnprocessableEntity, response.StatusCode)
 }
 
-func TestP2PKeysController_Delete_HappyPath(t *testing.T) {
+func TestUnit_P2PKeysController_Delete_HappyPath(t *testing.T) {
 	t.Parallel()
 	ctx := testutils.Context(t)
 

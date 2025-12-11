@@ -33,7 +33,7 @@ const (
 	stepRef1             = "stepRef1"
 )
 
-func Test_ClientRequest_MessageValidation(t *testing.T) {
+func TestUnit_ClientRequest_MessageValidation(t *testing.T) {
 	numWorkflowPeers := 2
 	workflowPeers := make([]p2ptypes.PeerID, numWorkflowPeers)
 	for i := range numWorkflowPeers {

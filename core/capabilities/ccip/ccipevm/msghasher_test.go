@@ -47,7 +47,7 @@ var extraDataCodec = ccipocr3.ExtraDataCodecMap(map[string]ccipocr3.SourceChainE
 
 // NOTE: these test cases are only EVM <-> EVM.
 // Update these cases once we have non-EVM examples.
-func TestMessageHasher_EVM2EVM(t *testing.T) {
+func TestUnit_MessageHasher_EVM2EVM(t *testing.T) {
 	ctx := testutils.Context(t)
 	d := testSetup(t)
 
@@ -220,7 +220,7 @@ func testSetup(t *testing.T) *testSetupData {
 	}
 }
 
-func TestMessagerHasher_againstRmnSharedVector(t *testing.T) {
+func TestUnit_MessagerHasher_againstRmnSharedVector(t *testing.T) {
 	transactor := evmtestutils.MustNewSimTransactor(t)
 	backend := backends.NewSimulatedBackend(types.GenesisAlloc{
 		transactor.From: {Balance: assets.Ether(1000).ToInt()},

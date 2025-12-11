@@ -57,7 +57,7 @@ func newNoopCacheSet() cache.CacheSet {
 	return &mockCacheSet{}
 }
 
-func Test_Client_Transmit(t *testing.T) {
+func TestUnit_Client_Transmit(t *testing.T) {
 	lggr := logger.Test(t)
 	ctx := testutils.Context(t)
 	req := &pb.TransmitRequest{}
@@ -127,7 +127,7 @@ func Test_Client_Transmit(t *testing.T) {
 	})
 }
 
-func Test_Client_LatestReport(t *testing.T) {
+func TestUnit_Client_LatestReport(t *testing.T) {
 	lggr := logger.Test(t)
 	ctx := testutils.Context(t)
 	cacheReads := 5

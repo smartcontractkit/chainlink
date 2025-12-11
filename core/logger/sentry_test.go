@@ -6,7 +6,7 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func Test_toMap(t *testing.T) {
+func TestUnit_toMap(t *testing.T) {
 	t.Run("with even number of keys/values", func(t *testing.T) {
 		keysAndValues := []any{
 			"foo", 1, "bar", 42.43, "boggly", "str",

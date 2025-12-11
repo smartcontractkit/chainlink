@@ -11,7 +11,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/logger/otelzap"
 )
 
-func TestConfig(t *testing.T) {
+func TestUnit_Config(t *testing.T) {
 	// no sampling
 	assert.Nil(t, newZapConfigBase().Sampling)
 	assert.Nil(t, newZapConfigProd(false, false).Sampling)
@@ -21,7 +21,7 @@ func TestConfig(t *testing.T) {
 	assert.False(t, newZapConfigProd(false, false).Development)
 }
 
-func TestStderrWriter(t *testing.T) {
+func TestUnit_StderrWriter(t *testing.T) {
 	sw := stderrWriter{}
 
 	// Test Write
@@ -34,7 +34,7 @@ func TestStderrWriter(t *testing.T) {
 	require.NoError(t, err)
 }
 
-func TestOtelCore(t *testing.T) {
+func TestUnit_OtelCore(t *testing.T) {
 	testCases := []struct {
 		name       string
 		enableOtel bool

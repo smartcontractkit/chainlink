@@ -12,7 +12,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/tronkey"
 )
 
-func TestResolver_TronKeys(t *testing.T) {
+func TestUnit_Resolver_TronKeys(t *testing.T) {
 	t.Parallel()
 
 	query := `

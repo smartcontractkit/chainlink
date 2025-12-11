@@ -20,7 +20,7 @@ import (
 	configutils "github.com/smartcontractkit/chainlink/v2/core/utils/config"
 )
 
-func TestMercurySecrets_valid(t *testing.T) {
+func TestUnit_MercurySecrets_valid(t *testing.T) {
 	ms := MercurySecrets{
 		Credentials: map[string]MercuryCredentials{
 			"cred1": {
@@ -46,7 +46,7 @@ func TestMercurySecrets_valid(t *testing.T) {
 	assert.NoError(t, err)
 }
 
-func TestMercurySecrets_duplicateURLs(t *testing.T) {
+func TestUnit_MercurySecrets_duplicateURLs(t *testing.T) {
 	ms := MercurySecrets{
 		Credentials: map[string]MercuryCredentials{
 			"cred1": {
@@ -67,7 +67,7 @@ func TestMercurySecrets_duplicateURLs(t *testing.T) {
 	assert.Equal(t, "URL: invalid value (https://GOOGLE.COM): duplicate - must be unique", err.Error())
 }
 
-func TestMercurySecrets_emptyURL(t *testing.T) {
+func TestUnit_MercurySecrets_emptyURL(t *testing.T) {
 	ms := MercurySecrets{
 		Credentials: map[string]MercuryCredentials{
 			"cred1": {
@@ -83,7 +83,7 @@ func TestMercurySecrets_emptyURL(t *testing.T) {
 	assert.Equal(t, "URL: missing: must be provided and non-empty", err.Error())
 }
 
-func Test_validateDBURL(t *testing.T) {
+func TestUnit_validateDBURL(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
@@ -113,7 +113,7 @@ func Test_validateDBURL(t *testing.T) {
 	}
 }
 
-func TestDatabaseSecrets_ValidateConfig(t *testing.T) {
+func TestUnit_DatabaseSecrets_ValidateConfig(t *testing.T) {
 	validUrl := commonconfig.URL(url.URL{Scheme: "https", Host: "localhost"})
 	validSecretURL := *models.NewSecretURL(&validUrl)
 
@@ -186,7 +186,7 @@ func TestDatabaseSecrets_ValidateConfig(t *testing.T) {
 		})
 	}
 }
-func TestTracing_ValidateCollectorTarget(t *testing.T) {
+func TestUnit_Tracing_ValidateCollectorTarget(t *testing.T) {
 	tests := []struct {
 		name            string
 		collectorTarget *string
@@ -314,7 +314,7 @@ func TestTracing_ValidateCollectorTarget(t *testing.T) {
 	}
 }
 
-func TestTracing_ValidateSamplingRatio(t *testing.T) {
+func TestUnit_Tracing_ValidateSamplingRatio(t *testing.T) {
 	tests := []struct {
 		name          string
 		samplingRatio *float64
@@ -374,7 +374,7 @@ func TestTracing_ValidateSamplingRatio(t *testing.T) {
 	}
 }
 
-func TestTracing_ValidateTLSCertPath(t *testing.T) {
+func TestUnit_Tracing_ValidateTLSCertPath(t *testing.T) {
 	// tests for Tracing.Mode = 'tls'
 	tls_tests := []struct {
 		name        string
@@ -474,7 +474,7 @@ func TestTracing_ValidateTLSCertPath(t *testing.T) {
 	}
 }
 
-func TestTracing_ValidateMode(t *testing.T) {
+func TestUnit_Tracing_ValidateMode(t *testing.T) {
 	tests := []struct {
 		name        string
 		mode        *string
@@ -536,7 +536,7 @@ func TestTracing_ValidateMode(t *testing.T) {
 	}
 }
 
-func TestMercuryTLS_ValidateTLSCertPath(t *testing.T) {
+func TestUnit_MercuryTLS_ValidateTLSCertPath(t *testing.T) {
 	tests := []struct {
 		name        string
 		tlsCertPath *string
@@ -581,7 +581,7 @@ func TestMercuryTLS_ValidateTLSCertPath(t *testing.T) {
 	}
 }
 
-func TestEthKeys_TOMLSerialization(t *testing.T) {
+func TestUnit_EthKeys_TOMLSerialization(t *testing.T) {
 	t.Parallel()
 	t.Run("encode", func(t *testing.T) {
 		ethKeysWrapper := EthKeys{
@@ -622,7 +622,7 @@ Password = 'something'`
 	})
 }
 
-func TestSolKeys_TOMLSerialization(t *testing.T) {
+func TestUnit_SolKeys_TOMLSerialization(t *testing.T) {
 	t.Parallel()
 
 	t.Run("encode", func(t *testing.T) {
@@ -664,7 +664,7 @@ Password = 'secret'`
 	})
 }
 
-func TestSolKeys_SetFrom(t *testing.T) {
+func TestUnit_SolKeys_SetFrom(t *testing.T) {
 	t.Parallel()
 
 	solKeysWrapper1 := &SolKeys{}
@@ -683,7 +683,7 @@ func TestSolKeys_SetFrom(t *testing.T) {
 	assert.Equal(t, solKeysWrapper2, *solKeysWrapper1)
 }
 
-func TestEthKeys_SetFrom(t *testing.T) {
+func TestUnit_EthKeys_SetFrom(t *testing.T) {
 	ethKeysWrapper1 := &EthKeys{}
 	ethKeysWrapper2 := EthKeys{
 		Keys: []*EthKey{
@@ -699,7 +699,7 @@ func TestEthKeys_SetFrom(t *testing.T) {
 // ptr is a utility function for converting a value to a pointer to the value.
 func ptr[T any](t T) *T { return &t }
 
-func TestBridgeStatusReporter_ValidateConfig(t *testing.T) {
+func TestUnit_BridgeStatusReporter_ValidateConfig(t *testing.T) {
 	testCases := []struct {
 		name        string
 		config      *BridgeStatusReporter

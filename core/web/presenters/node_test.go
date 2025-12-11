@@ -11,7 +11,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
 )
 
-func TestNodeResource(t *testing.T) {
+func TestUnit_NodeResource(t *testing.T) {
 	var nodeResource NodeResource
 	state := "test"
 	cfg := "cfg"

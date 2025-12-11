@@ -237,7 +237,7 @@ func testPriceRegistryReader(t *testing.T, th priceRegReaderTH, pr ccipdata.Pric
 	}
 }
 
-func TestPriceRegistryReader(t *testing.T) {
+func TestUnit_PriceRegistryReader(t *testing.T) {
 	th := setupPriceRegistryReaderTH(t)
 	// Assert all readers produce the same expected results.
 	for version, pr := range th.readers {
@@ -247,7 +247,7 @@ func TestPriceRegistryReader(t *testing.T) {
 	}
 }
 
-func TestNewPriceRegistryReader(t *testing.T) {
+func TestUnit_NewPriceRegistryReader(t *testing.T) {
 	var tt = []struct {
 		typeAndVersion string
 		expectedErr    string

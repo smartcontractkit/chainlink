@@ -42,7 +42,7 @@ Name = "example_node"
 Address = "0x68902d681c28119f9b2531473a417088bf008e59"
 `
 
-func TestConnectionManager_NewConnectionManager_ValidConfig(t *testing.T) {
+func TestUnit_ConnectionManager_NewConnectionManager_ValidConfig(t *testing.T) {
 	t.Parallel()
 
 	tomlConfig := parseTOMLConfig(t, defaultConfig)
@@ -50,7 +50,7 @@ func TestConnectionManager_NewConnectionManager_ValidConfig(t *testing.T) {
 	_ = newConnectionManager(t, tomlConfig, clockwork.NewFakeClock())
 }
 
-func TestConnectionManager_NewConnectionManager_InvalidConfig(t *testing.T) {
+func TestUnit_ConnectionManager_NewConnectionManager_InvalidConfig(t *testing.T) {
 	t.Parallel()
 
 	invalidCases := map[string]string{
@@ -127,7 +127,7 @@ func signAndPackAuthHeader(t *testing.T, authHeaderElems *network.AuthHeaderElem
 	return append(packedElems, signature...)
 }
 
-func TestConnectionManager_StartHandshake(t *testing.T) {
+func TestUnit_ConnectionManager_StartHandshake(t *testing.T) {
 	t.Parallel()
 
 	config, nodes := newTestConfig(t, 4)
@@ -180,7 +180,7 @@ func TestConnectionManager_StartHandshake(t *testing.T) {
 	require.ErrorIs(t, err, network.ErrAuthInvalidTimestamp)
 }
 
-func TestConnectionManager_FinalizeHandshake(t *testing.T) {
+func TestUnit_ConnectionManager_FinalizeHandshake(t *testing.T) {
 	t.Parallel()
 
 	config, nodes := newTestConfig(t, 4)
@@ -213,7 +213,7 @@ func TestConnectionManager_FinalizeHandshake(t *testing.T) {
 	require.ErrorIs(t, err, network.ErrChallengeInvalidSignature)
 }
 
-func TestConnectionManager_SendToNode_Failures(t *testing.T) {
+func TestUnit_ConnectionManager_SendToNode_Failures(t *testing.T) {
 	t.Parallel()
 
 	config, nodes := newTestConfig(t, 2)
@@ -229,7 +229,7 @@ func TestConnectionManager_SendToNode_Failures(t *testing.T) {
 	require.Error(t, err)
 }
 
-func TestConnectionManager_CleanStartClose(t *testing.T) {
+func TestUnit_ConnectionManager_CleanStartClose(t *testing.T) {
 	t.Parallel()
 
 	config, _ := newTestConfig(t, 2)

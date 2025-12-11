@@ -10,7 +10,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 )
 
-func TestNewCCIPSpecToml(t *testing.T) {
+func TestUnit_NewCCIPSpecToml(t *testing.T) {
 	tests := []struct {
 		name     string
 		specArgs validate.SpecArgs
@@ -32,7 +32,7 @@ func TestNewCCIPSpecToml(t *testing.T) {
 	}
 }
 
-func TestValidatedCCIPSpec(t *testing.T) {
+func TestUnit_ValidatedCCIPSpec(t *testing.T) {
 	type args struct {
 		tomlString string
 	}

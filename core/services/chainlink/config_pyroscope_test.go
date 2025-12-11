@@ -6,7 +6,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestPyroscopeConfigTest(t *testing.T) {
+func TestUnit_PyroscopeConfigTest(t *testing.T) {
 	opts := GeneralConfigOpts{
 		ConfigStrings:  []string{fullTOML},
 		SecretsStrings: []string{secretsFullTOML},

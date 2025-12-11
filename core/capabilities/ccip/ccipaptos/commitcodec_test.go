@@ -77,7 +77,7 @@ var randomCommitReport = func() cciptypes.CommitPluginReport {
 	}
 }
 
-func TestCommitPluginCodecV1(t *testing.T) {
+func TestUnit_CommitPluginCodecV1(t *testing.T) {
 	testCases := []struct {
 		name   string
 		report func(report cciptypes.CommitPluginReport) cciptypes.CommitPluginReport
@@ -141,7 +141,7 @@ func TestCommitPluginCodecV1(t *testing.T) {
 
 // Go equivalent of test_deserialize_commit_report
 // https://github.com/smartcontractkit/chainlink-aptos/blob/cb70d13f90d16ea7fea7f0f52f02fbebc38d16a9/contracts/ccip/ccip_offramp/tests/offramp_test.move#L525
-func TestCommitPluginCodecV1_Decode(t *testing.T) {
+func TestUnit_CommitPluginCodecV1_Decode(t *testing.T) {
 	expectedSourceToken := "0x000000000000000000000000000000000000000000000000000000000000000a"
 	expectedUsdPerToken, ok := new(big.Int).SetString("500000000000000000000", 10)
 	require.True(t, ok)

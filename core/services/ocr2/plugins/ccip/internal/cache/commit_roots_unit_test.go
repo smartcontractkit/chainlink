@@ -15,7 +15,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/ccipdata/mocks"
 )
 
-func Test_CacheIsInitializedWithFirstCall(t *testing.T) {
+func TestUnit_CacheIsInitializedWithFirstCall(t *testing.T) {
 	commitStoreReader := mocks.NewCommitStoreReader(t)
 	cache := newCommitRootsCache(logger.TestLogger(t), commitStoreReader, time.Hour, time.Hour, time.Hour, time.Hour)
 	commitStoreReader.On("GetAcceptedCommitReportsGteTimestamp", mock.Anything, mock.Anything, mock.Anything).Return([]ccip.CommitStoreReportWithTxMeta{}, nil)
@@ -25,7 +25,7 @@ func Test_CacheIsInitializedWithFirstCall(t *testing.T) {
 	assertRoots(t, roots)
 }
 
-func Test_CacheExpiration(t *testing.T) {
+func TestUnit_CacheExpiration(t *testing.T) {
 	ts1 := time.Now().Add(-5 * time.Millisecond).Truncate(time.Millisecond)
 	ts2 := time.Now().Add(-3 * time.Millisecond).Truncate(time.Millisecond)
 	ts3 := time.Now().Add(-1 * time.Millisecond).Truncate(time.Millisecond)
@@ -55,7 +55,7 @@ func Test_CacheExpiration(t *testing.T) {
 	}, 5*time.Second, 1*time.Second)
 }
 
-func Test_CacheFullEviction(t *testing.T) {
+func TestUnit_CacheFullEviction(t *testing.T) {
 	commitStoreReader := mocks.NewCommitStoreReader(t)
 	cache := newCommitRootsCache(logger.TestLogger(t), commitStoreReader, 2*time.Second, 1*time.Second, time.Second, time.Second)
 
@@ -93,7 +93,7 @@ func Test_CacheFullEviction(t *testing.T) {
 	}, 10*time.Second, time.Second)
 }
 
-func Test_CacheProgression_Internal(t *testing.T) {
+func TestUnit_CacheProgression_Internal(t *testing.T) {
 	ts1 := time.Now().Add(-5 * time.Hour).Truncate(time.Millisecond)
 	ts2 := time.Now().Add(-3 * time.Hour).Truncate(time.Millisecond)
 	ts3 := time.Now().Add(-1 * time.Hour).Truncate(time.Millisecond)

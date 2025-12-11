@@ -10,7 +10,7 @@ import (
 	lloconfig "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/llo/config"
 )
 
-func Test_ChannelDefinitionCacheFactory(t *testing.T) {
+func TestUnit_ChannelDefinitionCacheFactory(t *testing.T) {
 	lggr := logger.TestLogger(t)
 	cdcFactory := NewChannelDefinitionCacheFactory(lggr, nil, nil, nil)
 

@@ -10,7 +10,7 @@ import (
 	ksmocks "github.com/smartcontractkit/chainlink/v2/core/services/keystore/mocks"
 )
 
-func TestSigner_InitializeAndSign(t *testing.T) {
+func TestUnit_Signer_InitializeAndSign(t *testing.T) {
 	keystoreP2P := ksmocks.NewP2P(t)
 	key, err := p2pkey.NewV2()
 	require.NoError(t, err)

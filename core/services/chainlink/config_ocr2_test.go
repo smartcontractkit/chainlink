@@ -7,7 +7,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestOCR2Config(t *testing.T) {
+func TestUnit_OCR2Config(t *testing.T) {
 	opts := GeneralConfigOpts{
 		ConfigStrings: []string{fullTOML},
 	}

@@ -8,7 +8,7 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func TestUnmarshalDuration(t *testing.T) {
+func TestUnit_UnmarshalDuration(t *testing.T) {
 	raw := `"2s"`
 
 	var value Duration
@@ -18,7 +18,7 @@ func TestUnmarshalDuration(t *testing.T) {
 	assert.Equal(t, 2*time.Second, value.Value())
 }
 
-func TestUnmarshalConfig(t *testing.T) {
+func TestUnit_UnmarshalConfig(t *testing.T) {
 	raw := `{"cacheExpiration":"2s","maxServiceWorkers":42}`
 
 	var config PluginConfig

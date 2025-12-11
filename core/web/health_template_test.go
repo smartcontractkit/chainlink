@@ -37,7 +37,7 @@ original error`},
 	// TODO truncated error
 }
 
-func Test_checkTree_WriteHTMLTo(t *testing.T) {
+func TestUnit_checkTree_WriteHTMLTo(t *testing.T) {
 	ct := newCheckTree(checks())
 	var b bytes.Buffer
 	require.NoError(t, ct.WriteHTMLTo(&b))
@@ -45,7 +45,7 @@ func Test_checkTree_WriteHTMLTo(t *testing.T) {
 	require.Equalf(t, healthHTML, got, "got: %s", got)
 }
 
-func Test_writeTextTo(t *testing.T) {
+func TestUnit_writeTextTo(t *testing.T) {
 	var b bytes.Buffer
 	require.NoError(t, writeTextTo(&b, checks()))
 	got := b.String()

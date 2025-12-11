@@ -9,7 +9,7 @@ import (
 	ubig "github.com/smartcontractkit/chainlink-evm/pkg/utils/big"
 )
 
-func TestUpkeepIdentifer_String(t *testing.T) {
+func TestUnit_UpkeepIdentifer_String(t *testing.T) {
 	for _, test := range []struct {
 		name string
 		id   string

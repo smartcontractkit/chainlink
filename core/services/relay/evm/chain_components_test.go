@@ -57,7 +57,7 @@ import (
 const commonGasLimitOnEvms = uint64(4712388)
 const finalityDepth = 4
 
-func TestContractReaderEventsInitValidation(t *testing.T) {
+func TestUnit_ContractReaderEventsInitValidation(t *testing.T) {
 	tests := []struct {
 		name                 string
 		chainContractReaders map[string]config.ChainContractReader
@@ -220,7 +220,7 @@ func TestContractReaderEventsInitValidation(t *testing.T) {
 	}
 }
 
-func TestChainReader_HealthReport(t *testing.T) {
+func TestUnit_ChainReader_HealthReport(t *testing.T) {
 	lp := lpmocks.NewLogPoller(t)
 	lp.EXPECT().HealthReport().Return(map[string]error{"lp_name": clcommontypes.ErrFinalityViolated}).Once()
 	ht := headstest.NewTracker[*clevmtypes.Head, common.Hash](t)
@@ -233,7 +233,7 @@ func TestChainReader_HealthReport(t *testing.T) {
 	require.True(t, services.ContainsError(healthReport, htError), "expected chain reader to propagate headtracker's error")
 }
 
-func TestSequencesHaveTxHash(t *testing.T) {
+func TestUnit_SequencesHaveTxHash(t *testing.T) {
 	t.Parallel()
 
 	helper := &helper{}
@@ -283,7 +283,7 @@ func TestSequencesHaveTxHash(t *testing.T) {
 	}, it.MaxWaitTimeForEvents(), time.Millisecond*10)
 }
 
-func TestChainComponents(t *testing.T) {
+func TestUnit_ChainComponents(t *testing.T) {
 	tests.SkipFlakey(t, "https://smartcontract-it.atlassian.net/browse/DX-401")
 
 	t.Parallel()

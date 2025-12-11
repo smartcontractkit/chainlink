@@ -12,7 +12,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/aptoskey"
 )
 
-func TestResolver_AptosKeys(t *testing.T) {
+func TestUnit_Resolver_AptosKeys(t *testing.T) {
 	t.Parallel()
 
 	query := `

@@ -7,7 +7,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestFluxMonitorConfig(t *testing.T) {
+func TestUnit_FluxMonitorConfig(t *testing.T) {
 	opts := GeneralConfigOpts{
 		ConfigStrings: []string{fullTOML},
 	}

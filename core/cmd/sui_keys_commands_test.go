@@ -21,7 +21,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/web/presenters"
 )
 
-func TestSuiKeyPresenter_RenderTable(t *testing.T) {
+func TestUnit_SuiKeyPresenter_RenderTable(t *testing.T) {
 	t.Parallel()
 
 	var (
@@ -56,7 +56,7 @@ func TestSuiKeyPresenter_RenderTable(t *testing.T) {
 	assert.Contains(t, output, pubKey)
 }
 
-func TestShell_SuiKeys(t *testing.T) {
+func TestUnit_Shell_SuiKeys(t *testing.T) {
 	app := startNewApplicationV2(t, nil)
 	ks := app.GetKeyStore().Sui()
 	cleanup := func() {

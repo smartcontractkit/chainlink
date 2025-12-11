@@ -12,7 +12,7 @@ import (
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 )
 
-func TestCosmosKeyRing_Sign_Verify(t *testing.T) {
+func TestUnit_CosmosKeyRing_Sign_Verify(t *testing.T) {
 	kr1, err := newCosmosKeyring(cryptorand.Reader)
 	require.NoError(t, err)
 	kr2, err := newCosmosKeyring(cryptorand.Reader)
@@ -43,7 +43,7 @@ func TestCosmosKeyRing_Sign_Verify(t *testing.T) {
 	})
 }
 
-func TestCosmosKeyRing_Marshalling(t *testing.T) {
+func TestUnit_CosmosKeyRing_Marshalling(t *testing.T) {
 	kr1, err := newCosmosKeyring(cryptorand.Reader)
 	require.NoError(t, err)
 	m, err := kr1.Marshal()

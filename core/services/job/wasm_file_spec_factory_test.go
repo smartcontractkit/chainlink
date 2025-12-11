@@ -20,7 +20,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 )
 
-func TestWasmFileSpecFactory(t *testing.T) {
+func TestUnit_WasmFileSpecFactory(t *testing.T) {
 	binaryLocation := createTestBinary(t)
 	configLocation := "testdata/config.json"
 	config, err := os.ReadFile(configLocation)

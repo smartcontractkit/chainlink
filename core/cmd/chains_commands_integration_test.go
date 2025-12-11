@@ -14,7 +14,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 )
 
-func TestShell_IndexCosmosChains(t *testing.T) {
+func TestUnit_Shell_IndexCosmosChains(t *testing.T) {
 	t.Parallel()
 
 	chainID := cosmostest.RandomChainID()

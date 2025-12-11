@@ -12,7 +12,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/services/servicetest"
 )
 
-func Test_CancellingContext_StopsTask(t *testing.T) {
+func TestUnit_CancellingContext_StopsTask(t *testing.T) {
 	tp := newParallelExecutor(10)
 	servicetest.Run(t, tp)
 
@@ -44,7 +44,7 @@ func Test_CancellingContext_StopsTask(t *testing.T) {
 	}, 10*time.Second, 10*time.Millisecond)
 }
 
-func Test_ExecuteRequestTimesOutWhenParallelExecutionLimitReached(t *testing.T) {
+func TestUnit_ExecuteRequestTimesOutWhenParallelExecutionLimitReached(t *testing.T) {
 	tp := newParallelExecutor(3)
 	servicetest.Run(t, tp)
 
@@ -63,7 +63,7 @@ func Test_ExecuteRequestTimesOutWhenParallelExecutionLimitReached(t *testing.T) 
 	require.ErrorIs(t, err, context.DeadlineExceeded)
 }
 
-func Test_ExecutingMultipleTasksInParallel(t *testing.T) {
+func TestUnit_ExecutingMultipleTasksInParallel(t *testing.T) {
 	tp := newParallelExecutor(10)
 	servicetest.Run(t, tp)
 
@@ -82,7 +82,7 @@ func Test_ExecutingMultipleTasksInParallel(t *testing.T) {
 	}, 10*time.Second, 10*time.Millisecond)
 }
 
-func Test_StopsExecutingMultipleParallelTasksWhenClosed(t *testing.T) {
+func TestUnit_StopsExecutingMultipleParallelTasksWhenClosed(t *testing.T) {
 	tp := newParallelExecutor(10)
 	var counter int32
 	t.Cleanup(func() {

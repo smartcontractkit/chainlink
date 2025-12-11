@@ -15,7 +15,7 @@ import (
 	"github.com/smartcontractkit/chainlink-evm/pkg/gas/mocks"
 )
 
-func TestExecPriceEstimator_GetGasPrice(t *testing.T) {
+func TestUnit_ExecPriceEstimator_GetGasPrice(t *testing.T) {
 	ctx := context.Background()
 
 	testCases := []struct {
@@ -106,7 +106,7 @@ func TestExecPriceEstimator_GetGasPrice(t *testing.T) {
 	}
 }
 
-func TestExecPriceEstimator_DenoteInUSD(t *testing.T) {
+func TestUnit_ExecPriceEstimator_DenoteInUSD(t *testing.T) {
 	val1e18 := func(val int64) *big.Int { return new(big.Int).Mul(big.NewInt(1e18), big.NewInt(val)) }
 
 	testCases := []struct {
@@ -147,7 +147,7 @@ func TestExecPriceEstimator_DenoteInUSD(t *testing.T) {
 	}
 }
 
-func TestExecPriceEstimator_Median(t *testing.T) {
+func TestUnit_ExecPriceEstimator_Median(t *testing.T) {
 	val1e18 := func(val int64) *big.Int { return new(big.Int).Mul(big.NewInt(1e18), big.NewInt(val)) }
 
 	testCases := []struct {
@@ -199,7 +199,7 @@ func TestExecPriceEstimator_Median(t *testing.T) {
 	}
 }
 
-func TestExecPriceEstimator_Deviates(t *testing.T) {
+func TestUnit_ExecPriceEstimator_Deviates(t *testing.T) {
 	testCases := []struct {
 		name         string
 		gasPrice1    *big.Int
@@ -255,7 +255,7 @@ func TestExecPriceEstimator_Deviates(t *testing.T) {
 	}
 }
 
-func TestExecPriceEstimator_EstimateMsgCostUSD(t *testing.T) {
+func TestUnit_ExecPriceEstimator_EstimateMsgCostUSD(t *testing.T) {
 	testCases := []struct {
 		name               string
 		gasPrice           *big.Int

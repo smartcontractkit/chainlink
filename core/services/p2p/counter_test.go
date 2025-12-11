@@ -6,7 +6,7 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func Test_groupID(t *testing.T) {
+func TestUnit_groupID(t *testing.T) {
 	g := &counter{}
 	assert.Equal(t, [32]byte{}, g.Bytes())
 	g.Inc()

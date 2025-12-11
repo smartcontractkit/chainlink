@@ -10,7 +10,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
-func TestLogConfig(t *testing.T) {
+func TestUnit_LogConfig(t *testing.T) {
 	opts := GeneralConfigOpts{
 		ConfigStrings: []string{fullTOML},
 	}

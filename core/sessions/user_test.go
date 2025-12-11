@@ -13,7 +13,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestNewUser(t *testing.T) {
+func TestUnit_NewUser(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
@@ -49,7 +49,7 @@ func TestNewUser(t *testing.T) {
 	}
 }
 
-func TestUserGenerateAuthToken(t *testing.T) {
+func TestUnit_UserGenerateAuthToken(t *testing.T) {
 	var user sessions.User
 	token, err := user.GenerateAuthToken()
 	require.NoError(t, err)
@@ -57,7 +57,7 @@ func TestUserGenerateAuthToken(t *testing.T) {
 	assert.NotEqual(t, null.StringFrom(token.Secret), user.TokenHashedSecret)
 }
 
-func TestAuthenticateUserByToken(t *testing.T) {
+func TestUnit_AuthenticateUserByToken(t *testing.T) {
 	var user sessions.User
 
 	token, err := user.GenerateAuthToken()

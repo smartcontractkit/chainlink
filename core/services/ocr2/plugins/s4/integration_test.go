@@ -153,7 +153,7 @@ func checkNoUnconfirmedRows(ctx context.Context, t *testing.T, orm s4_svc.ORM, l
 	assert.Empty(t, rows)
 }
 
-func TestS4Integration_HappyDON(t *testing.T) {
+func TestUnit_S4Integration_HappyDON(t *testing.T) {
 	don := newDON(t, 4, createPluginConfig(100))
 	ctx := testutils.Context(t)
 
@@ -179,7 +179,7 @@ func TestS4Integration_HappyDON(t *testing.T) {
 	}
 }
 
-func TestS4Integration_HappyDON_4X(t *testing.T) {
+func TestUnit_S4Integration_HappyDON_4X(t *testing.T) {
 	don := newDON(t, 4, createPluginConfig(100))
 	ctx := testutils.Context(t)
 
@@ -208,7 +208,7 @@ func TestS4Integration_HappyDON_4X(t *testing.T) {
 	}
 }
 
-func TestS4Integration_WrongSignature(t *testing.T) {
+func TestUnit_S4Integration_WrongSignature(t *testing.T) {
 	don := newDON(t, 4, createPluginConfig(100))
 	ctx := testutils.Context(t)
 
@@ -243,7 +243,7 @@ func TestS4Integration_WrongSignature(t *testing.T) {
 	require.Len(t, ur, 1)
 }
 
-func TestS4Integration_MaxObservations(t *testing.T) {
+func TestUnit_S4Integration_MaxObservations(t *testing.T) {
 	config := createPluginConfig(100)
 	config.MaxObservationEntries = 5
 	don := newDON(t, 4, config)
@@ -270,7 +270,7 @@ func TestS4Integration_MaxObservations(t *testing.T) {
 	}
 }
 
-func TestS4Integration_Expired(t *testing.T) {
+func TestUnit_S4Integration_Expired(t *testing.T) {
 	config := createPluginConfig(100)
 	config.MaxObservationEntries = 5
 	don := newDON(t, 4, config)
@@ -295,7 +295,7 @@ func TestS4Integration_Expired(t *testing.T) {
 	}
 }
 
-func TestS4Integration_NSnapshotShards(t *testing.T) {
+func TestUnit_S4Integration_NSnapshotShards(t *testing.T) {
 	config := createPluginConfig(10000)
 	config.NSnapshotShards = 4
 	don := newDON(t, 4, config)
@@ -323,7 +323,7 @@ func TestS4Integration_NSnapshotShards(t *testing.T) {
 	}
 }
 
-func TestS4Integration_OneNodeOutOfSync(t *testing.T) {
+func TestUnit_S4Integration_OneNodeOutOfSync(t *testing.T) {
 	don := newDON(t, 4, createPluginConfig(100))
 	ctx := testutils.Context(t)
 
@@ -350,7 +350,7 @@ func TestS4Integration_OneNodeOutOfSync(t *testing.T) {
 	checkNoUnconfirmedRows(ctx, t, don.orms[don.size-1], 10)
 }
 
-func TestS4Integration_RandomState(t *testing.T) {
+func TestUnit_S4Integration_RandomState(t *testing.T) {
 	don := newDON(t, 4, createPluginConfig(1000))
 	ctx := testutils.Context(t)
 

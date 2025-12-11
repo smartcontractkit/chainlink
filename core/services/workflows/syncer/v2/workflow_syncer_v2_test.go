@@ -49,7 +49,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/utils/crypto"
 )
 
-func Test_InitialStateSyncV2(t *testing.T) {
+func TestUnit_InitialStateSyncV2(t *testing.T) {
 	lggr := logger.TestLogger(t)
 	backendTH := testutils.NewEVMBackendTH(t)
 	donID := uint32(1)
@@ -151,7 +151,7 @@ func Test_InitialStateSyncV2(t *testing.T) {
 	)
 }
 
-func Test_RegistrySyncer_SkipsEventsNotBelongingToDONV2(t *testing.T) {
+func TestUnit_RegistrySyncer_SkipsEventsNotBelongingToDONV2(t *testing.T) {
 	var (
 		lggr      = logger.TestLogger(t)
 		backendTH = testutils.NewEVMBackendTH(t)
@@ -235,7 +235,7 @@ func Test_RegistrySyncer_SkipsEventsNotBelongingToDONV2(t *testing.T) {
 	}, tests.WaitTimeout(t), time.Second)
 }
 
-func Test_RegistrySyncer_WorkflowRegistered_InitiallyPausedV2(t *testing.T) {
+func TestUnit_RegistrySyncer_WorkflowRegistered_InitiallyPausedV2(t *testing.T) {
 	var (
 		ctx       = coretestutils.Context(t)
 		lggr      = logger.TestLogger(t)
@@ -335,7 +335,7 @@ func Test_RegistrySyncer_WorkflowRegistered_InitiallyPausedV2(t *testing.T) {
 	require.ErrorContains(t, err, "sql: no rows in result set")
 }
 
-func Test_RegistrySyncer_WorkflowRegistered_InitiallyActivatedV2(t *testing.T) {
+func TestUnit_RegistrySyncer_WorkflowRegistered_InitiallyActivatedV2(t *testing.T) {
 	var (
 		ctx       = coretestutils.Context(t)
 		lggr      = logger.TestLogger(t)
@@ -439,7 +439,7 @@ func Test_RegistrySyncer_WorkflowRegistered_InitiallyActivatedV2(t *testing.T) {
 	}, tests.WaitTimeout(t), time.Second)
 }
 
-func Test_StratReconciliation_InitialStateSyncV2(t *testing.T) {
+func TestUnit_StratReconciliation_InitialStateSyncV2(t *testing.T) {
 	t.Run("with heavy load", func(t *testing.T) {
 		lggr := logger.TestLogger(t)
 		backendTH := testutils.NewEVMBackendTH(t)
@@ -512,7 +512,7 @@ func Test_StratReconciliation_InitialStateSyncV2(t *testing.T) {
 	})
 }
 
-func Test_RegistrySyncer_DONUpdate(t *testing.T) {
+func TestUnit_RegistrySyncer_DONUpdate(t *testing.T) {
 	lggr := logger.TestLogger(t)
 	backendTH := testutils.NewEVMBackendTH(t)
 	donID := uint32(1)
@@ -605,7 +605,7 @@ func Test_RegistrySyncer_DONUpdate(t *testing.T) {
 	}
 }
 
-func Test_StratReconciliation_RetriesWithBackoffV2(t *testing.T) {
+func TestUnit_StratReconciliation_RetriesWithBackoffV2(t *testing.T) {
 	lggr := logger.TestLogger(t)
 	backendTH := testutils.NewEVMBackendTH(t)
 	donID := uint32(1)

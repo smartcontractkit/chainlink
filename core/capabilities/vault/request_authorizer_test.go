@@ -19,7 +19,7 @@ import (
 	syncerv2mocks "github.com/smartcontractkit/chainlink/v2/core/services/workflows/syncer/v2/mocks"
 )
 
-func TestRequestAuthorizer_CreateSecrets(t *testing.T) {
+func TestUnit_RequestAuthorizer_CreateSecrets(t *testing.T) {
 	params, err := json.Marshal(vaultcommon.CreateSecretsRequest{
 		EncryptedSecrets: []*vaultcommon.EncryptedSecret{
 			{
@@ -59,7 +59,7 @@ func TestRequestAuthorizer_CreateSecrets(t *testing.T) {
 	testAuthForRequests(t, allowListedReq, notAllowListedReq)
 }
 
-func TestRequestAuthorizer_UpdateSecrets(t *testing.T) {
+func TestUnit_RequestAuthorizer_UpdateSecrets(t *testing.T) {
 	params, err := json.Marshal(vaultcommon.UpdateSecretsRequest{
 		EncryptedSecrets: []*vaultcommon.EncryptedSecret{
 			{
@@ -98,7 +98,7 @@ func TestRequestAuthorizer_UpdateSecrets(t *testing.T) {
 	testAuthForRequests(t, allowListedReq, notAllowListedReq)
 }
 
-func TestRequestAuthorizer_DeleteSecrets(t *testing.T) {
+func TestUnit_RequestAuthorizer_DeleteSecrets(t *testing.T) {
 	params, err := json.Marshal(vaultcommon.DeleteSecretsRequest{
 		Ids: []*vaultcommon.SecretIdentifier{
 			{
@@ -131,7 +131,7 @@ func TestRequestAuthorizer_DeleteSecrets(t *testing.T) {
 	testAuthForRequests(t, allowListedReq, notAllowListedReq)
 }
 
-func TestRequestAuthorizer_ListSecrets(t *testing.T) {
+func TestUnit_RequestAuthorizer_ListSecrets(t *testing.T) {
 	params, err := json.Marshal(vaultcommon.ListSecretIdentifiersRequest{
 		Namespace: "b",
 	})

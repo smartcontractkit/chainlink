@@ -90,7 +90,7 @@ var (
 	expectedLoopServiceCnt     = expectedEmbeddedServiceCnt + 2 // factory server and loop unregisterer
 )
 
-func TestNewServices(t *testing.T) {
+func TestUnit_NewServices(t *testing.T) {
 	type args struct {
 		pluginConfig job.JSONConfig
 		feedID       utils.FeedID

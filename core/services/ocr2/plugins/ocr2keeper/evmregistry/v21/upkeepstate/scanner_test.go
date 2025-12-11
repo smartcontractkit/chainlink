@@ -16,7 +16,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
 
-func TestPerformedEventsScanner(t *testing.T) {
+func TestUnit_PerformedEventsScanner(t *testing.T) {
 	ctx := testutils.Context(t)
 	registryAddr := common.HexToAddress("0x12345")
 	lggr := logger.TestLogger(t)
@@ -111,7 +111,7 @@ func TestPerformedEventsScanner(t *testing.T) {
 	}
 }
 
-func TestPerformedEventsScanner_Batch(t *testing.T) {
+func TestUnit_PerformedEventsScanner_Batch(t *testing.T) {
 	ctx := testutils.Context(t)
 	registryAddr := common.HexToAddress("0x12345")
 	lggr := logger.TestLogger(t)

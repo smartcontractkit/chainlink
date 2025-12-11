@@ -36,7 +36,7 @@ type onRampReaderTH struct {
 	reader ccipdata.OnRampReader
 }
 
-func TestNewOnRampReader_noContractAtAddress(t *testing.T) {
+func TestUnit_NewOnRampReader_noContractAtAddress(t *testing.T) {
 	ctx := t.Context()
 	_, bc := ccipdata.NewSimulation(t)
 	addr := ccipcalc.EvmAddrToGeneric(utils.RandomAddress())
@@ -44,7 +44,7 @@ func TestNewOnRampReader_noContractAtAddress(t *testing.T) {
 	assert.EqualError(t, err, fmt.Sprintf("unable to read type and version: error calling typeAndVersion on addr: %s no contract code at given address", addr))
 }
 
-func TestOnRampReaderInit(t *testing.T) {
+func TestUnit_OnRampReaderInit(t *testing.T) {
 	tests := []struct {
 		name    string
 		version string
@@ -287,7 +287,7 @@ func testOnRampReader(t *testing.T, th onRampReaderTH, expectedRouterAddress com
 	require.Equal(t, ccipcalc.EvmAddrToGeneric(expectedRouterAddress), cfg.Router)
 }
 
-func TestNewOnRampReader(t *testing.T) {
+func TestUnit_NewOnRampReader(t *testing.T) {
 	var tt = []struct {
 		typeAndVersion string
 		expectedErr    string

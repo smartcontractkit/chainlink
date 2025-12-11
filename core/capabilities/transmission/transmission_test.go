@@ -13,7 +13,7 @@ import (
 	p2ptypes "github.com/smartcontractkit/chainlink/v2/core/services/p2p/types"
 )
 
-func Test_GetPeerIDToTransmissionDelay(t *testing.T) {
+func TestUnit_GetPeerIDToTransmissionDelay(t *testing.T) {
 	peer1 := [32]byte(fmt.Appendf(nil, "%-32s", "one"))
 	peer2 := [32]byte(fmt.Appendf(nil, "%-32s", "two"))
 	peer3 := [32]byte(fmt.Appendf(nil, "%-32s", "three"))

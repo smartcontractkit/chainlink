@@ -19,7 +19,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/ccipdata/v1_2_0"
 )
 
-func TestCommitStore(t *testing.T) {
+func TestUnit_CommitStore(t *testing.T) {
 	ctx := t.Context()
 	for _, versionStr := range []string{ccipdata.V1_2_0} {
 		lggr := logger.Test(t)

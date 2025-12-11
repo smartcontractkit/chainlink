@@ -15,7 +15,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/web/presenters"
 )
 
-func TestAptosKeysController_Index_HappyPath(t *testing.T) {
+func TestUnit_AptosKeysController_Index_HappyPath(t *testing.T) {
 	t.Parallel()
 
 	client, keyStore := setupAptosKeysControllerTests(t)
@@ -35,7 +35,7 @@ func TestAptosKeysController_Index_HappyPath(t *testing.T) {
 	assert.Equal(t, keys[0].PublicKeyStr(), resources[0].PubKey)
 }
 
-func TestAptosKeysController_Create_HappyPath(t *testing.T) {
+func TestUnit_AptosKeysController_Create_HappyPath(t *testing.T) {
 	t.Parallel()
 
 	app := cltest.NewApplicationEVMDisabled(t)
@@ -61,7 +61,7 @@ func TestAptosKeysController_Create_HappyPath(t *testing.T) {
 	require.NoError(t, err)
 }
 
-func TestAptosKeysController_Delete_NonExistentAptosKeyID(t *testing.T) {
+func TestUnit_AptosKeysController_Delete_NonExistentAptosKeyID(t *testing.T) {
 	t.Parallel()
 
 	client, _ := setupAptosKeysControllerTests(t)
@@ -72,7 +72,7 @@ func TestAptosKeysController_Delete_NonExistentAptosKeyID(t *testing.T) {
 	assert.Equal(t, http.StatusNotFound, response.StatusCode)
 }
 
-func TestAptosKeysController_Delete_HappyPath(t *testing.T) {
+func TestUnit_AptosKeysController_Delete_HappyPath(t *testing.T) {
 	t.Parallel()
 	ctx := testutils.Context(t)
 

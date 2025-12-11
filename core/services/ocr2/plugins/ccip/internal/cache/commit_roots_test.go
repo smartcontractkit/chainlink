@@ -22,7 +22,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/ccipdata/v1_2_0"
 )
 
-func Test_RootsEligibleForExecution(t *testing.T) {
+func TestUnit_RootsEligibleForExecution(t *testing.T) {
 	ctx := testutils.Context(t)
 	chainID := testutils.NewRandomEVMChainID()
 	orm := logpoller.NewORM(chainID, pgtest.NewSqlxDB(t), logger.TestLogger(t))
@@ -138,7 +138,7 @@ func Test_RootsEligibleForExecution(t *testing.T) {
 	assertRoots(t, roots)
 }
 
-func Test_RootsEligibleForExecutionWithReorgs(t *testing.T) {
+func TestUnit_RootsEligibleForExecutionWithReorgs(t *testing.T) {
 	ctx := testutils.Context(t)
 	chainID := testutils.NewRandomEVMChainID()
 	orm := logpoller.NewORM(chainID, pgtest.NewSqlxDB(t), logger.TestLogger(t))
@@ -212,7 +212,7 @@ func Test_RootsEligibleForExecutionWithReorgs(t *testing.T) {
 }
 
 // Not very likely, but let's be more defensive here and verify if cache works properly and can deal with duplicates
-func Test_BlocksWithTheSameTimestamps(t *testing.T) {
+func TestUnit_BlocksWithTheSameTimestamps(t *testing.T) {
 	ctx := testutils.Context(t)
 	chainID := testutils.NewRandomEVMChainID()
 	orm := logpoller.NewORM(chainID, pgtest.NewSqlxDB(t), logger.TestLogger(t))

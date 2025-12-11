@@ -15,7 +15,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestCosmosKeysController_Index_HappyPath(t *testing.T) {
+func TestUnit_CosmosKeysController_Index_HappyPath(t *testing.T) {
 	t.Parallel()
 
 	client, keyStore := setupCosmosKeysControllerTests(t)
@@ -35,7 +35,7 @@ func TestCosmosKeysController_Index_HappyPath(t *testing.T) {
 	assert.Equal(t, keys[0].PublicKeyStr(), resources[0].PubKey)
 }
 
-func TestCosmosKeysController_Create_HappyPath(t *testing.T) {
+func TestUnit_CosmosKeysController_Create_HappyPath(t *testing.T) {
 	t.Parallel()
 
 	app := cltest.NewApplicationEVMDisabled(t)
@@ -62,7 +62,7 @@ func TestCosmosKeysController_Create_HappyPath(t *testing.T) {
 	require.NoError(t, err)
 }
 
-func TestCosmosKeysController_Delete_NonExistentCosmosKeyID(t *testing.T) {
+func TestUnit_CosmosKeysController_Delete_NonExistentCosmosKeyID(t *testing.T) {
 	t.Parallel()
 
 	client, _ := setupCosmosKeysControllerTests(t)
@@ -73,7 +73,7 @@ func TestCosmosKeysController_Delete_NonExistentCosmosKeyID(t *testing.T) {
 	assert.Equal(t, http.StatusNotFound, response.StatusCode)
 }
 
-func TestCosmosKeysController_Delete_HappyPath(t *testing.T) {
+func TestUnit_CosmosKeysController_Delete_HappyPath(t *testing.T) {
 	t.Parallel()
 	ctx := testutils.Context(t)
 

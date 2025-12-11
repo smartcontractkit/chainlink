@@ -14,7 +14,7 @@ import (
 
 // TestMeasureFulfillmentGasCost establishes rough bounds on the cost of
 // providing a proof to the VRF coordinator.
-func TestMeasureFulfillmentGasCost(t *testing.T) {
+func TestUnit_MeasureFulfillmentGasCost(t *testing.T) {
 	key := cltest.MustGenerateRandomKey(t)
 	coordinator := vrftesthelpers.NewVRFCoordinatorUniverse(t, key)
 	keyHash, _, fee := registerProvingKey(t, coordinator)

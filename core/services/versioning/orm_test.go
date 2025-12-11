@@ -13,7 +13,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/static"
 )
 
-func TestORM_NodeVersion_UpsertNodeVersion(t *testing.T) {
+func TestUnit_ORM_NodeVersion_UpsertNodeVersion(t *testing.T) {
 	ctx := t.Context()
 	db := pgtest.NewSqlxDB(t)
 
@@ -87,7 +87,7 @@ func TestORM_NodeVersion_UpsertNodeVersion(t *testing.T) {
 	})
 }
 
-func Test_Version_CheckVersion(t *testing.T) {
+func TestUnit_Version_CheckVersion(t *testing.T) {
 	ctx := testutils.Context(t)
 	db := pgtest.NewSqlxDB(t)
 
@@ -125,7 +125,7 @@ func Test_Version_CheckVersion(t *testing.T) {
 	assert.Equal(t, "9.9.8", dbv.String())
 }
 
-func TestORM_CheckVersion_CCIP(t *testing.T) {
+func TestUnit_ORM_CheckVersion_CCIP(t *testing.T) {
 	ctx := testutils.Context(t)
 	db := pgtest.NewSqlxDB(t)
 
@@ -205,7 +205,7 @@ func TestORM_CheckVersion_CCIP(t *testing.T) {
 	}
 }
 
-func TestORM_NodeVersion_FindLatestNodeVersion(t *testing.T) {
+func TestUnit_ORM_NodeVersion_FindLatestNodeVersion(t *testing.T) {
 	ctx := testutils.Context(t)
 	db := pgtest.NewSqlxDB(t)
 	orm := NewORM(db, logger.TestLogger(t))

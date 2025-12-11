@@ -10,7 +10,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/standardcapabilities"
 )
 
-func Test_ValidatedStandardCapabilitiesSpec(t *testing.T) {
+func TestUnit_ValidatedStandardCapabilitiesSpec(t *testing.T) {
 	type testCase struct {
 		name          string
 		tomlString    string

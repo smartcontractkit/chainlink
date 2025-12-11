@@ -18,7 +18,7 @@ import (
 
 // Integration/load test that combines Data Feeds Consensus Aggregator and Streams Codec.
 // For more meaningful measurements, increase the values of parameters P and T.
-func TestStreamsConsensusAggregator(t *testing.T) {
+func TestUnit_StreamsConsensusAggregator(t *testing.T) {
 	Nt := 10 // trigger DON nodes
 	Ft := 3  // trigger DON faulty nodes
 	Nw := 10 // workflow DON nodes

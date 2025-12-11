@@ -10,7 +10,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/config/toml"
 )
 
-func TestTelemetryIngressConfig(t *testing.T) {
+func TestUnit_TelemetryIngressConfig(t *testing.T) {
 	opts := GeneralConfigOpts{
 		ConfigStrings: []string{fullTOML},
 	}
@@ -35,7 +35,7 @@ func TestTelemetryIngressConfig(t *testing.T) {
 	assert.Equal(t, "test-pub-key", tec[0].ServerPubKey())
 }
 
-func TestTelemetryIngressConfig_ChipIngressEnabled(t *testing.T) {
+func TestUnit_TelemetryIngressConfig_ChipIngressEnabled(t *testing.T) {
 	t.Run("returns false when ChipIngressEnabled is explicitly false", func(t *testing.T) {
 		falseVal := false
 		config := &telemetryIngressConfig{

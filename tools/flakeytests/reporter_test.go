@@ -9,7 +9,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestMakeRequest_SingleTest(t *testing.T) {
+func TestUnit_MakeRequest_SingleTest(t *testing.T) {
 	now := time.Now()
 	ts := strconv.FormatInt(now.UnixNano(), 10)
 	r := &Report{
@@ -30,7 +30,7 @@ func TestMakeRequest_SingleTest(t *testing.T) {
 	})
 }
 
-func TestMakeRequest_MultipleTests(t *testing.T) {
+func TestUnit_MakeRequest_MultipleTests(t *testing.T) {
 	now := time.Now()
 	ts := strconv.FormatInt(now.UnixNano(), 10)
 	r := &Report{
@@ -54,7 +54,7 @@ func TestMakeRequest_MultipleTests(t *testing.T) {
 	})
 }
 
-func TestMakeRequest_NoTests(t *testing.T) {
+func TestUnit_MakeRequest_NoTests(t *testing.T) {
 	now := time.Now()
 	ts := strconv.FormatInt(now.UnixNano(), 10)
 	r := NewReport()
@@ -68,7 +68,7 @@ func TestMakeRequest_NoTests(t *testing.T) {
 	})
 }
 
-func TestMakeRequest_WithContext(t *testing.T) {
+func TestUnit_MakeRequest_WithContext(t *testing.T) {
 	now := time.Now()
 	ts := strconv.FormatInt(now.UnixNano(), 10)
 	r := NewReport()
@@ -82,7 +82,7 @@ func TestMakeRequest_WithContext(t *testing.T) {
 	})
 }
 
-func TestMakeRequest_Panics(t *testing.T) {
+func TestUnit_MakeRequest_Panics(t *testing.T) {
 	now := time.Now()
 	ts := strconv.FormatInt(now.UnixNano(), 10)
 	r := &Report{
@@ -108,7 +108,7 @@ func TestMakeRequest_Panics(t *testing.T) {
 	})
 }
 
-func TestDedupeEntries(t *testing.T) {
+func TestUnit_DedupeEntries(t *testing.T) {
 	r := &Report{
 		tests: map[string]map[string]int{
 			"core/assets": map[string]int{

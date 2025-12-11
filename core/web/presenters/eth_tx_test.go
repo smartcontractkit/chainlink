@@ -17,7 +17,7 @@ import (
 	txmgrcommon "github.com/smartcontractkit/chainlink-framework/chains/txmgr"
 )
 
-func TestEthTxResource(t *testing.T) {
+func TestUnit_EthTxResource(t *testing.T) {
 	t.Parallel()
 
 	chainID := big.NewInt(54321)

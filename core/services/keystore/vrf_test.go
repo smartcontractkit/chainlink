@@ -18,7 +18,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func Test_VRFKeyStore_E2E(t *testing.T) {
+func TestUnit_VRFKeyStore_E2E(t *testing.T) {
 	db := pgtest.NewSqlxDB(t)
 	keyStore := keystore.ExposedNewMaster(t, db)
 	require.NoError(t, keyStore.Unlock(testutils.Context(t), cltest.Password))

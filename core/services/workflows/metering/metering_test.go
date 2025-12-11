@@ -111,7 +111,7 @@ var (
 	two = decimal.NewFromInt(2)
 )
 
-func Test_Report(t *testing.T) {
+func TestUnit_Report(t *testing.T) {
 	t.Parallel()
 
 	t.Run("error if incorrect labels", func(t *testing.T) {
@@ -123,7 +123,7 @@ func Test_Report(t *testing.T) {
 	})
 }
 
-func Test_Report_MeteringMode(t *testing.T) {
+func TestUnit_Report_MeteringMode(t *testing.T) {
 	t.Parallel()
 
 	t.Run("Reserve switches to metering mode", func(t *testing.T) {
@@ -405,7 +405,7 @@ func Test_Report_MeteringMode(t *testing.T) {
 	})
 }
 
-func Test_medianSpend(t *testing.T) {
+func TestUnit_medianSpend(t *testing.T) {
 	t.Parallel()
 
 	tt := []struct {
@@ -469,7 +469,7 @@ func Test_medianSpend(t *testing.T) {
 	}
 }
 
-func Test_Report_Reserve(t *testing.T) {
+func TestUnit_Report_Reserve(t *testing.T) {
 	t.Parallel()
 
 	t.Run("returns an error if insufficient funding", func(t *testing.T) {
@@ -515,7 +515,7 @@ func Test_Report_Reserve(t *testing.T) {
 	})
 }
 
-func Test_Report_Deduct(t *testing.T) {
+func TestUnit_Report_Deduct(t *testing.T) {
 	t.Parallel()
 
 	one := decimal.NewFromInt(1)
@@ -800,7 +800,7 @@ func Test_Report_Deduct(t *testing.T) {
 	})
 }
 
-func Test_Report_Settle(t *testing.T) {
+func TestUnit_Report_Settle(t *testing.T) {
 	t.Parallel()
 
 	t.Run("returns an error if not initialized", func(t *testing.T) {
@@ -1021,7 +1021,7 @@ func Test_Report_Settle(t *testing.T) {
 	})
 }
 
-func Test_Report_FormatReport(t *testing.T) {
+func TestUnit_Report_FormatReport(t *testing.T) {
 	t.Parallel()
 
 	t.Run("does not contain metadata", func(t *testing.T) {
@@ -1294,7 +1294,7 @@ func Test_Report_FormatReport(t *testing.T) {
 	})
 }
 
-func Test_Report_SendReceipt(t *testing.T) {
+func TestUnit_Report_SendReceipt(t *testing.T) {
 	t.Parallel()
 
 	t.Run("returns an error if not initialized", func(t *testing.T) {
@@ -1495,7 +1495,7 @@ func Test_Report_SendReceipt(t *testing.T) {
 	})
 }
 
-func Test_Report_EmitReceipt(t *testing.T) {
+func TestUnit_Report_EmitReceipt(t *testing.T) {
 	t.Run("happy path", func(t *testing.T) {
 		// No parallel
 		beholderTester := beholdertest.NewObserver(t)
@@ -1610,7 +1610,7 @@ func Test_Report_EmitReceipt(t *testing.T) {
 	})
 }
 
-func Test_MeterReports(t *testing.T) {
+func TestUnit_MeterReports(t *testing.T) {
 	t.Parallel()
 
 	workflowExecutionID1 := "exec1"
@@ -1685,7 +1685,7 @@ func Test_MeterReports(t *testing.T) {
 	})
 }
 
-func Test_MeterReports_Length(t *testing.T) {
+func TestUnit_MeterReports_Length(t *testing.T) {
 	t.Parallel()
 
 	billingClient := mocks.NewBillingClient(t)
@@ -1717,7 +1717,7 @@ func Test_MeterReports_Length(t *testing.T) {
 	assert.Equal(t, 2, mrs.Len())
 }
 
-func Test_MeterReports_Start(t *testing.T) {
+func TestUnit_MeterReports_Start(t *testing.T) {
 	t.Parallel()
 
 	t.Run("can only start report once", func(t *testing.T) {
@@ -1738,7 +1738,7 @@ func Test_MeterReports_Start(t *testing.T) {
 	})
 }
 
-func Test_MeterReports_Get(t *testing.T) {
+func TestUnit_MeterReports_Get(t *testing.T) {
 	t.Parallel()
 
 	t.Run("returns when report exists", func(t *testing.T) {
@@ -1772,7 +1772,7 @@ func Test_MeterReports_Get(t *testing.T) {
 	})
 }
 
-func Test_MeterReports_End(t *testing.T) {
+func TestUnit_MeterReports_End(t *testing.T) {
 	t.Parallel()
 
 	t.Run("can only end existing report", func(t *testing.T) {
@@ -1834,7 +1834,7 @@ func Test_MeterReports_End(t *testing.T) {
 	})
 }
 
-func TestRatiosFromConfig(t *testing.T) {
+func TestUnit_RatiosFromConfig(t *testing.T) {
 	t.Parallel()
 
 	t.Run("happy path", func(t *testing.T) {

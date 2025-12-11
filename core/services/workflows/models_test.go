@@ -12,7 +12,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 )
 
-func TestParse_Graph(t *testing.T) {
+func TestUnit_Parse_Graph(t *testing.T) {
 	t.Parallel()
 	testCases := []struct {
 		name   string
@@ -321,7 +321,7 @@ targets:
 	}
 }
 
-func TestParsesIntsCorrectly(t *testing.T) {
+func TestUnit_ParsesIntsCorrectly(t *testing.T) {
 	spec, _, _, err := job.YAMLSpecFactory{}.Spec(testutils.Context(t), hardcodedWorkflow, "")
 	require.NoError(t, err)
 

@@ -10,7 +10,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/abihelpers"
 )
 
-func Test_EVMTokenDataEncoder(t *testing.T) {
+func TestUnit_EVMTokenDataEncoder(t *testing.T) {
 	var empty usdcAttestationPayload
 	encoder := NewEVMTokenDataEncoder()
 

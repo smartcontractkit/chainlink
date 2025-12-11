@@ -88,7 +88,7 @@ serverURL = 'wss://localhost:8080'
 serverPubKey = '8fa807463ad73f9ee855cfd60ba406dcf98a2855b3dd8af613107b0f6890a707'
 `
 
-func TestORM(t *testing.T) {
+func TestUnit_ORM(t *testing.T) {
 	t.Parallel()
 
 	config := configtest.NewTestGeneralConfig(t)
@@ -360,7 +360,7 @@ func TestORM(t *testing.T) {
 	})
 }
 
-func TestORM_DeleteJob_DeletesAssociatedRecords(t *testing.T) {
+func TestUnit_ORM_DeleteJob_DeletesAssociatedRecords(t *testing.T) {
 	t.Parallel()
 	ctx := testutils.Context(t)
 	config := configtest.NewGeneralConfig(t, nil)
@@ -524,7 +524,7 @@ executorConfig = "Foo = 'Bar'"
 	})
 }
 
-func TestORM_CreateJob_VRFV2(t *testing.T) {
+func TestUnit_ORM_CreateJob_VRFV2(t *testing.T) {
 	ctx := testutils.Context(t)
 	config := configtest.NewTestGeneralConfig(t)
 	db := pgtest.NewSqlxDB(t)
@@ -609,7 +609,7 @@ func TestORM_CreateJob_VRFV2(t *testing.T) {
 	cltest.AssertCount(t, db, "jobs", 0)
 }
 
-func TestORM_CreateJob_VRFV2Plus(t *testing.T) {
+func TestUnit_ORM_CreateJob_VRFV2Plus(t *testing.T) {
 	ctx := testutils.Context(t)
 	config := configtest.NewTestGeneralConfig(t)
 	db := pgtest.NewSqlxDB(t)
@@ -697,7 +697,7 @@ func TestORM_CreateJob_VRFV2Plus(t *testing.T) {
 	cltest.AssertCount(t, db, "jobs", 0)
 }
 
-func TestORM_CreateJob_OCRBootstrap(t *testing.T) {
+func TestUnit_ORM_CreateJob_OCRBootstrap(t *testing.T) {
 	ctx := testutils.Context(t)
 	config := configtest.NewTestGeneralConfig(t)
 	db := pgtest.NewSqlxDB(t)
@@ -725,7 +725,7 @@ func TestORM_CreateJob_OCRBootstrap(t *testing.T) {
 	cltest.AssertCount(t, db, "jobs", 0)
 }
 
-func TestORM_CreateJob_EVMChainID_Validation(t *testing.T) {
+func TestUnit_ORM_CreateJob_EVMChainID_Validation(t *testing.T) {
 	config := configtest.NewGeneralConfig(t, nil)
 	db := pgtest.NewSqlxDB(t)
 	keyStore := cltest.NewKeyStore(t, db)
@@ -809,7 +809,7 @@ func TestORM_CreateJob_EVMChainID_Validation(t *testing.T) {
 	})
 }
 
-func TestORM_CreateJob_OCR_DuplicatedContractAddress(t *testing.T) {
+func TestUnit_ORM_CreateJob_OCR_DuplicatedContractAddress(t *testing.T) {
 	ctx := testutils.Context(t)
 	customChainID := big.New(testutils.NewRandomEVMChainID())
 
@@ -886,7 +886,7 @@ func TestORM_CreateJob_OCR_DuplicatedContractAddress(t *testing.T) {
 	})
 }
 
-func TestORM_CreateJob_OCR2_DuplicatedContractAddress(t *testing.T) {
+func TestUnit_ORM_CreateJob_OCR2_DuplicatedContractAddress(t *testing.T) {
 	ctx := testutils.Context(t)
 	customChainID := big.New(testutils.NewRandomEVMChainID())
 
@@ -948,7 +948,7 @@ func TestORM_CreateJob_OCR2_DuplicatedContractAddress(t *testing.T) {
 	require.NoError(t, err)
 }
 
-func TestORM_CreateJob_OCR2_Sending_Keys_Transmitter_Keys_Validations(t *testing.T) {
+func TestUnit_ORM_CreateJob_OCR2_Sending_Keys_Transmitter_Keys_Validations(t *testing.T) {
 	ctx := testutils.Context(t)
 	customChainID := big.New(testutils.NewRandomEVMChainID())
 
@@ -1007,7 +1007,7 @@ func TestORM_CreateJob_OCR2_Sending_Keys_Transmitter_Keys_Validations(t *testing
 	})
 }
 
-func TestORM_ValidateKeyStoreMatch(t *testing.T) {
+func TestUnit_ORM_ValidateKeyStoreMatch(t *testing.T) {
 	ctx := testutils.Context(t)
 	config := configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {})
 
@@ -1118,7 +1118,7 @@ func TestORM_ValidateKeyStoreMatch(t *testing.T) {
 	})
 }
 
-func Test_FindJobs(t *testing.T) {
+func TestUnit_FindJobs(t *testing.T) {
 	t.Parallel()
 	ctx := testutils.Context(t)
 
@@ -1193,7 +1193,7 @@ func Test_FindJobs(t *testing.T) {
 	})
 }
 
-func Test_FindJob(t *testing.T) {
+func TestUnit_FindJob(t *testing.T) {
 	t.Parallel()
 	ctx := testutils.Context(t)
 	evmRelay := "evm"
@@ -1438,7 +1438,7 @@ func Test_FindJob(t *testing.T) {
 	})
 }
 
-func Test_FindJobsByPipelineSpecIDs(t *testing.T) {
+func TestUnit_FindJobsByPipelineSpecIDs(t *testing.T) {
 	t.Parallel()
 	ctx := testutils.Context(t)
 
@@ -1489,7 +1489,7 @@ func Test_FindJobsByPipelineSpecIDs(t *testing.T) {
 	})
 }
 
-func Test_FindPipelineRuns(t *testing.T) {
+func TestUnit_FindPipelineRuns(t *testing.T) {
 	t.Parallel()
 	ctx := testutils.Context(t)
 
@@ -1558,7 +1558,7 @@ func Test_FindPipelineRuns(t *testing.T) {
 	})
 }
 
-func Test_PipelineRunsByJobID(t *testing.T) {
+func TestUnit_PipelineRunsByJobID(t *testing.T) {
 	t.Parallel()
 	ctx := testutils.Context(t)
 
@@ -1627,7 +1627,7 @@ func Test_PipelineRunsByJobID(t *testing.T) {
 	})
 }
 
-func Test_FindPipelineRunIDsByJobID(t *testing.T) {
+func TestUnit_FindPipelineRunIDsByJobID(t *testing.T) {
 	ctx := testutils.Context(t)
 	var jb job.Job
 
@@ -1748,7 +1748,7 @@ func Test_FindPipelineRunIDsByJobID(t *testing.T) {
 	})
 }
 
-func Test_FindPipelineRunsByIDs(t *testing.T) {
+func TestUnit_FindPipelineRunsByIDs(t *testing.T) {
 	t.Parallel()
 	ctx := testutils.Context(t)
 
@@ -1815,7 +1815,7 @@ func Test_FindPipelineRunsByIDs(t *testing.T) {
 	})
 }
 
-func Test_FindPipelineRunByID(t *testing.T) {
+func TestUnit_FindPipelineRunByID(t *testing.T) {
 	t.Parallel()
 	ctx := testutils.Context(t)
 
@@ -1861,7 +1861,7 @@ func Test_FindPipelineRunByID(t *testing.T) {
 	})
 }
 
-func Test_FindJobWithoutSpecErrors(t *testing.T) {
+func TestUnit_FindJobWithoutSpecErrors(t *testing.T) {
 	t.Parallel()
 	ctx := testutils.Context(t)
 
@@ -1899,7 +1899,7 @@ func Test_FindJobWithoutSpecErrors(t *testing.T) {
 	assert.Len(t, jbWithErrors.JobSpecErrors, 2)
 }
 
-func Test_FindSpecErrorsByJobIDs(t *testing.T) {
+func TestUnit_FindSpecErrorsByJobIDs(t *testing.T) {
 	t.Parallel()
 	ctx := testutils.Context(t)
 
@@ -1934,7 +1934,7 @@ func Test_FindSpecErrorsByJobIDs(t *testing.T) {
 	assert.Len(t, specErrs, 2)
 }
 
-func Test_CountPipelineRunsByJobID(t *testing.T) {
+func TestUnit_CountPipelineRunsByJobID(t *testing.T) {
 	t.Parallel()
 	ctx := testutils.Context(t)
 
@@ -1992,7 +1992,7 @@ func Test_CountPipelineRunsByJobID(t *testing.T) {
 	})
 }
 
-func Test_ORM_FindJobByWorkflow(t *testing.T) {
+func TestUnit_ORM_FindJobByWorkflow(t *testing.T) {
 	var addr1 = "0x0123456789012345678901234567890123456789"
 	var addr2 = "0xabcdefabcdefabcdefabcdefabcdefabcdefabcd"
 	t.Parallel()
@@ -2117,7 +2117,7 @@ func Test_ORM_FindJobByWorkflow(t *testing.T) {
 	}
 }
 
-func Test_ORM_FindJobByWorkflow_Multiple(t *testing.T) {
+func TestUnit_ORM_FindJobByWorkflow_Multiple(t *testing.T) {
 	var addr1 = "0x012345678901234567890123456789012345ffff"
 	var addr2 = "0xabcdefabcdefabcdefabcdefabcdefabcdef0000"
 	t.Parallel()
@@ -2220,7 +2220,7 @@ func mustInsertPipelineRun(t *testing.T, orm pipeline.ORM, j job.Job) pipeline.R
 	return run
 }
 
-func TestORM_CreateJob_OCR2_With_DualTransmission(t *testing.T) {
+func TestUnit_ORM_CreateJob_OCR2_With_DualTransmission(t *testing.T) {
 	ctx := testutils.Context(t)
 	customChainID := big.New(testutils.NewRandomEVMChainID())
 
@@ -2301,7 +2301,7 @@ func TestORM_CreateJob_OCR2_With_DualTransmission(t *testing.T) {
 	require.NoError(t, jobORM.CreateJob(ctx, &jb))
 }
 
-func TestORM_CreateJob_KeyLocking(t *testing.T) {
+func TestUnit_ORM_CreateJob_KeyLocking(t *testing.T) {
 	ctx := testutils.Context(t)
 	customChainID := big.New(testutils.NewRandomEVMChainID())
 
@@ -2402,7 +2402,7 @@ func TestORM_CreateJob_KeyLocking(t *testing.T) {
 	})
 }
 
-func Test_FindGatewayJobID(t *testing.T) {
+func TestUnit_FindGatewayJobID(t *testing.T) {
 	t.Parallel()
 	ctx := testutils.Context(t)
 
@@ -2439,7 +2439,7 @@ func Test_FindGatewayJobID(t *testing.T) {
 	require.Equal(t, jobSpec.ID, id, "mismatch job id")
 }
 
-func Test_FindGatewayJobID_NoMatch(t *testing.T) {
+func TestUnit_FindGatewayJobID_NoMatch(t *testing.T) {
 	t.Parallel()
 	ctx := testutils.Context(t)
 
@@ -2476,7 +2476,7 @@ func Test_FindGatewayJobID_NoMatch(t *testing.T) {
 	require.Equal(t, int32(0), id, "found non-zero job id")
 }
 
-func Test_FindStandardCapabilityJobID(t *testing.T) {
+func TestUnit_FindStandardCapabilityJobID(t *testing.T) {
 	t.Parallel()
 	ctx := testutils.Context(t)
 
@@ -2509,7 +2509,7 @@ func Test_FindStandardCapabilityJobID(t *testing.T) {
 	require.Equal(t, jobSpec.ID, id, "mismatch job id")
 }
 
-func Test_FindStandardCapabilityJobID_NoMatch(t *testing.T) {
+func TestUnit_FindStandardCapabilityJobID_NoMatch(t *testing.T) {
 	t.Parallel()
 	ctx := testutils.Context(t)
 
@@ -2542,7 +2542,7 @@ func Test_FindStandardCapabilityJobID_NoMatch(t *testing.T) {
 	require.Equal(t, int32(0), id, "found non-zero job id")
 }
 
-func TestORM_CRESettings(t *testing.T) {
+func TestUnit_ORM_CRESettings(t *testing.T) {
 	config := configtest.NewGeneralConfig(t, nil)
 	db := pgtest.NewSqlxDB(t)
 	keyStore := cltest.NewKeyStore(t, db)

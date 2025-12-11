@@ -20,7 +20,7 @@ import (
 	ccipdatamocks "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/ccipdata/mocks"
 )
 
-func TestCommitReportEncoding(t *testing.T) {
+func TestUnit_CommitReportEncoding(t *testing.T) {
 	t.Parallel()
 	ctx := testutils.Context(t)
 	report := cciptypes.CommitStoreReport{
@@ -62,7 +62,7 @@ func TestCommitReportEncoding(t *testing.T) {
 	require.Equal(t, report, decodedReport)
 }
 
-func TestCommitStoreV120ffchainConfigEncoding(t *testing.T) {
+func TestUnit_CommitStoreV120ffchainConfigEncoding(t *testing.T) {
 	t.Parallel()
 	validConfig := JSONCommitOffchainConfig{
 		SourceFinalityDepth:      3,
@@ -152,7 +152,7 @@ func TestCommitStoreV120ffchainConfigEncoding(t *testing.T) {
 	}
 }
 
-func TestCommitStoreV120ffchainConfigDecodingCompatibility(t *testing.T) {
+func TestUnit_CommitStoreV120ffchainConfigDecodingCompatibility(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {

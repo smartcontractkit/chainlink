@@ -12,7 +12,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
-func TestFiniteTicker(t *testing.T) {
+func TestUnit_FiniteTicker(t *testing.T) {
 	t.Parallel()
 
 	var counter atomic.Int32

@@ -47,7 +47,7 @@ func generateWrapper(t *testing.T, privateKey *ecdsa.PrivateKey, keystoreKey *ec
 	return wrapper, err
 }
 
-func TestGatewayConnectorServiceWrapper_CleanStartClose(t *testing.T) {
+func TestUnit_GatewayConnectorServiceWrapper_CleanStartClose(t *testing.T) {
 	t.Parallel()
 
 	key, _ := testutils.NewPrivateKeyAndAddress(t)
@@ -63,7 +63,7 @@ func TestGatewayConnectorServiceWrapper_CleanStartClose(t *testing.T) {
 	})
 }
 
-func TestGatewayConnectorServiceWrapper_NonexistentKey(t *testing.T) {
+func TestUnit_GatewayConnectorServiceWrapper_NonexistentKey(t *testing.T) {
 	t.Parallel()
 
 	key, _ := testutils.NewPrivateKeyAndAddress(t)

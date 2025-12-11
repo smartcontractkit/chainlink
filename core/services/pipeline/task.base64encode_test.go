@@ -12,7 +12,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
 )
 
-func TestBase64EncodeTask(t *testing.T) {
+func TestUnit_Base64EncodeTask(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
@@ -66,7 +66,7 @@ func TestBase64EncodeTask(t *testing.T) {
 	}
 }
 
-func TestBase64EncodeTaskInputParamLiteral(t *testing.T) {
+func TestUnit_Base64EncodeTaskInputParamLiteral(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {

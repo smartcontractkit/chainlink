@@ -12,7 +12,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/web/auth"
 )
 
-func TestResolver_UpdateUserPassword(t *testing.T) {
+func TestUnit_Resolver_UpdateUserPassword(t *testing.T) {
 	t.Parallel()
 
 	mutation := `

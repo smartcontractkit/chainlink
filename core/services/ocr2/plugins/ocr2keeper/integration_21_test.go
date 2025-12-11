@@ -63,7 +63,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm"
 )
 
-func TestFilterNamesFromSpec21(t *testing.T) {
+func TestUnit_FilterNamesFromSpec21(t *testing.T) {
 	b := make([]byte, 20)
 	_, err := crand.Read(b)
 	require.NoError(t, err)

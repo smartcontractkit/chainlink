@@ -20,7 +20,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/web/presenters"
 )
 
-func TestStarkNetKeyPresenter_RenderTable(t *testing.T) {
+func TestUnit_StarkNetKeyPresenter_RenderTable(t *testing.T) {
 	t.Parallel()
 
 	var (
@@ -54,7 +54,7 @@ func TestStarkNetKeyPresenter_RenderTable(t *testing.T) {
 	assert.Contains(t, output, starkKey)
 }
 
-func TestShell_StarkNetKeys(t *testing.T) {
+func TestUnit_Shell_StarkNetKeys(t *testing.T) {
 	app := startNewApplicationV2(t, nil)
 	ks := app.GetKeyStore().StarkNet()
 	cleanup := func() {

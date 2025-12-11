@@ -19,7 +19,7 @@ import (
 
 const neverExpireTTL = 1000 * time.Hour // some massive value that will never expire during a test
 
-func Test_Cache(t *testing.T) {
+func TestUnit_Cache(t *testing.T) {
 	lggr := logger.Test(t)
 	client := &mockClient{}
 	cfg := Config{}

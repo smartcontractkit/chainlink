@@ -4,7 +4,7 @@ import (
 	"testing"
 )
 
-func Test_connectionsManager_IsConnected(t *testing.T) {
+func TestUnit_connectionsManager_IsConnected(t *testing.T) {
 	type fields struct {
 		connections map[int64]*connection
 	}

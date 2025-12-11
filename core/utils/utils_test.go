@@ -18,14 +18,14 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestUtils_NewBytes32ID(t *testing.T) {
+func TestUnit_Utils_NewBytes32ID(t *testing.T) {
 	t.Parallel()
 
 	id := utils.NewBytes32ID()
 	assert.NotContains(t, id, "-")
 }
 
-func TestUtils_NewSecret(t *testing.T) {
+func TestUnit_Utils_NewSecret(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
@@ -44,7 +44,7 @@ func TestUtils_NewSecret(t *testing.T) {
 	}
 }
 
-func TestUtils_StringToHex(t *testing.T) {
+func TestUnit_Utils_StringToHex(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
@@ -65,7 +65,7 @@ func TestUtils_StringToHex(t *testing.T) {
 	}
 }
 
-func TestUtils_DurationFromNow(t *testing.T) {
+func TestUnit_Utils_DurationFromNow(t *testing.T) {
 	t.Parallel()
 
 	future := time.Now().Add(time.Second)
@@ -73,7 +73,7 @@ func TestUtils_DurationFromNow(t *testing.T) {
 	assert.Positive(t, duration)
 }
 
-func TestBoundedQueue(t *testing.T) {
+func TestUnit_BoundedQueue(t *testing.T) {
 	t.Parallel()
 
 	q := utils.NewBoundedQueue[int](3)
@@ -113,7 +113,7 @@ func TestBoundedQueue(t *testing.T) {
 	require.False(t, q.Full())
 }
 
-func TestBoundedPriorityQueue(t *testing.T) {
+func TestUnit_BoundedPriorityQueue(t *testing.T) {
 	t.Parallel()
 
 	q := utils.NewBoundedPriorityQueue[int](map[uint]int{
@@ -165,7 +165,7 @@ func TestBoundedPriorityQueue(t *testing.T) {
 	require.Zero(t, q.Take())
 }
 
-func Test_WithJitter(t *testing.T) {
+func TestUnit_WithJitter(t *testing.T) {
 	t.Parallel()
 
 	d := 10 * time.Second
@@ -177,7 +177,7 @@ func Test_WithJitter(t *testing.T) {
 	}
 }
 
-func TestIsEmpty(t *testing.T) {
+func TestUnit_IsEmpty(t *testing.T) {
 	t.Parallel()
 
 	b := make([]byte, 32)
@@ -187,7 +187,7 @@ func TestIsEmpty(t *testing.T) {
 	assert.False(t, utils.IsEmpty(b))
 }
 
-func TestHashPassword(t *testing.T) {
+func TestUnit_HashPassword(t *testing.T) {
 	t.Parallel()
 
 	h, err := utils.HashPassword("Qwerty123!")
@@ -201,7 +201,7 @@ func TestHashPassword(t *testing.T) {
 	assert.False(t, ok)
 }
 
-func TestISO8601UTC(t *testing.T) {
+func TestUnit_ISO8601UTC(t *testing.T) {
 	t.Parallel()
 
 	ts := time.Unix(1651818206, 0)
@@ -209,7 +209,7 @@ func TestISO8601UTC(t *testing.T) {
 	assert.Equal(t, "2022-05-06T06:23:26Z", str)
 }
 
-func TestFormatJSON(t *testing.T) {
+func TestUnit_FormatJSON(t *testing.T) {
 	t.Parallel()
 
 	json := `{"foo":123}`
@@ -218,7 +218,7 @@ func TestFormatJSON(t *testing.T) {
 	assert.Equal(t, "\"{\\\"foo\\\":123}\"", string(formatted))
 }
 
-func TestMustUnmarshalToMap(t *testing.T) {
+func TestUnit_MustUnmarshalToMap(t *testing.T) {
 	t.Parallel()
 
 	json := `{"foo":123.45}`
@@ -236,7 +236,7 @@ func TestMustUnmarshalToMap(t *testing.T) {
 	})
 }
 
-func TestSha256(t *testing.T) {
+func TestUnit_Sha256(t *testing.T) {
 	t.Parallel()
 
 	hexHash, err := utils.Sha256("test")
@@ -247,7 +247,7 @@ func TestSha256(t *testing.T) {
 	assert.Len(t, hash, 32)
 }
 
-func TestWithCloseChan(t *testing.T) {
+func TestUnit_WithCloseChan(t *testing.T) {
 	t.Parallel()
 
 	assertCtxCancelled := func(ctx context.Context, t *testing.T) {
@@ -296,7 +296,7 @@ func TestWithCloseChan(t *testing.T) {
 	})
 }
 
-func TestContextFromChan(t *testing.T) {
+func TestUnit_ContextFromChan(t *testing.T) {
 	t.Parallel()
 
 	ch := make(chan struct{})
@@ -312,7 +312,7 @@ func TestContextFromChan(t *testing.T) {
 	}
 }
 
-func TestContextFromChanWithTimeout(t *testing.T) {
+func TestUnit_ContextFromChanWithTimeout(t *testing.T) {
 	t.Parallel()
 
 	assertCtxCancelled := func(ctx context.Context, t *testing.T) {
@@ -346,7 +346,7 @@ func TestContextFromChanWithTimeout(t *testing.T) {
 	})
 }
 
-func TestLeftPadBitString(t *testing.T) {
+func TestUnit_LeftPadBitString(t *testing.T) {
 	t.Parallel()
 
 	for _, test := range []struct {
@@ -365,7 +365,7 @@ func TestLeftPadBitString(t *testing.T) {
 	}
 }
 
-func TestValidateCronSchedule(t *testing.T) {
+func TestUnit_ValidateCronSchedule(t *testing.T) {
 	t.Parallel()
 
 	err := utils.ValidateCronSchedule("")
@@ -381,7 +381,7 @@ func TestValidateCronSchedule(t *testing.T) {
 	assert.Error(t, err)
 }
 
-func TestPausableTicker(t *testing.T) {
+func TestUnit_PausableTicker(t *testing.T) {
 	t.Parallel()
 
 	var counter atomic.Int32
@@ -416,7 +416,7 @@ func TestPausableTicker(t *testing.T) {
 	wait20.AwaitOrFail(t)
 }
 
-func TestCronTicker(t *testing.T) {
+func TestUnit_CronTicker(t *testing.T) {
 	t.Parallel()
 
 	var counter atomic.Int32
@@ -448,7 +448,7 @@ func TestCronTicker(t *testing.T) {
 	assert.Equal(t, c, counter.Load())
 }
 
-func TestErrorBuffer(t *testing.T) {
+func TestUnit_ErrorBuffer(t *testing.T) {
 	t.Parallel()
 
 	err1 := errors.New("err1")

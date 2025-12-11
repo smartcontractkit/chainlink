@@ -193,7 +193,7 @@ func setup(t *testing.T) (vrfUniverse, *v1.Listener, job.Job) {
 	return vuni, listener, jb
 }
 
-func TestDelegate_ReorgAttackProtection(t *testing.T) {
+func TestUnit_Delegate_ReorgAttackProtection(t *testing.T) {
 	vuni, listener, jb := setup(t)
 
 	// Same request has already been fulfilled twice
@@ -241,7 +241,7 @@ func TestDelegate_ReorgAttackProtection(t *testing.T) {
 	}
 }
 
-func TestDelegate_ValidLog(t *testing.T) {
+func TestUnit_Delegate_ValidLog(t *testing.T) {
 	vuni, listener, jb := setup(t)
 	txHash := evmutils.NewHash()
 	reqID1 := evmutils.NewHash()
@@ -362,7 +362,7 @@ func TestDelegate_ValidLog(t *testing.T) {
 	}
 }
 
-func TestDelegate_InvalidLog(t *testing.T) {
+func TestUnit_Delegate_InvalidLog(t *testing.T) {
 	vuni, listener, jb := setup(t)
 	vuni.lb.On("WasAlreadyConsumed", mock.Anything, mock.Anything).Return(false, nil)
 	done := make(chan struct{})
@@ -426,7 +426,7 @@ func TestDelegate_InvalidLog(t *testing.T) {
 	require.Empty(t, txes)
 }
 
-func TestFulfilledCheck(t *testing.T) {
+func TestUnit_FulfilledCheck(t *testing.T) {
 	vuni, listener, jb := setup(t)
 	vuni.lb.On("WasAlreadyConsumed", mock.Anything, mock.Anything).Return(false, nil)
 	done := make(chan struct{})
@@ -474,7 +474,7 @@ func TestFulfilledCheck(t *testing.T) {
 	require.Empty(t, runs)
 }
 
-func Test_CheckFromAddressMaxGasPrices(t *testing.T) {
+func TestUnit_CheckFromAddressMaxGasPrices(t *testing.T) {
 	t.Run("returns nil error if gasLanePrice not set in job spec", func(tt *testing.T) {
 		spec := `
 type            = "vrf"
@@ -568,7 +568,7 @@ decode_log->vrf->encode_tx->submit_tx
 	})
 }
 
-func Test_CheckFromAddressesExist(t *testing.T) {
+func TestUnit_CheckFromAddressesExist(t *testing.T) {
 	t.Run("from addresses exist", func(t *testing.T) {
 		ctx := testutils.Context(t)
 		db := pgtest.NewSqlxDB(t)
@@ -628,7 +628,7 @@ func Test_CheckFromAddressesExist(t *testing.T) {
 	})
 }
 
-func Test_FromAddressMaxGasPricesAllEqual(t *testing.T) {
+func TestUnit_FromAddressMaxGasPricesAllEqual(t *testing.T) {
 	t.Run("all max gas prices equal", func(tt *testing.T) {
 		fromAddresses := []string{
 			"0x498C2Dce1d3aEDE31A8c808c511C38a809e67684",
@@ -685,7 +685,7 @@ func Test_FromAddressMaxGasPricesAllEqual(t *testing.T) {
 	})
 }
 
-func Test_VRFV2PlusServiceFailsWhenVRFOwnerProvided(t *testing.T) {
+func TestUnit_VRFV2PlusServiceFailsWhenVRFOwnerProvided(t *testing.T) {
 	db := pgtest.NewSqlxDB(t)
 	cfg := configtest.NewTestGeneralConfig(t)
 	vuni := buildVrfUni(t, db, cfg)

@@ -36,7 +36,7 @@ func newMockReporter() *mockReporter {
 	return &mockReporter{report: NewReport()}
 }
 
-func TestParser(t *testing.T) {
+func TestUnit_Parser(t *testing.T) {
 	output := `{"Time":"2023-09-07T15:39:46.378315+01:00","Action":"fail","Package":"github.com/smartcontractkit/chainlink-evm/pkg/assets","Test":"TestLink","Elapsed":0}
 `
 
@@ -50,7 +50,7 @@ func TestParser(t *testing.T) {
 	assert.Equal(t, 1, ts["github.com/smartcontractkit/chainlink-evm/pkg/assets"]["TestLink"])
 }
 
-func TestParser_SkipsNonJSON(t *testing.T) {
+func TestUnit_Parser_SkipsNonJSON(t *testing.T) {
 	output := `Failed tests and panics:
 -------
 {"Time":"2023-09-07T15:39:46.378315+01:00","Action":"fail","Package":"github.com/smartcontractkit/chainlink-evm/pkg/assets","Test":"TestLink","Elapsed":0}
@@ -66,7 +66,7 @@ func TestParser_SkipsNonJSON(t *testing.T) {
 	assert.Equal(t, 1, ts["github.com/smartcontractkit/chainlink-evm/pkg/assets"]["TestLink"])
 }
 
-func TestParser_PanicDueToLogging(t *testing.T) {
+func TestUnit_Parser_PanicDueToLogging(t *testing.T) {
 	output := `
 {"Time":"2023-09-07T16:01:40.649849+01:00","Action":"output","Package":"github.com/smartcontractkit/chainlink-evm/pkg/assets","Test":"TestAssets_LinkScanValue","Output":"panic: foo\n"}
 `
@@ -81,7 +81,7 @@ func TestParser_PanicDueToLogging(t *testing.T) {
 	assert.Equal(t, 1, ts["github.com/smartcontractkit/chainlink-evm/pkg/assets"]["TestAssets_LinkScanValue"])
 }
 
-func TestParser_SuccessfulOutput(t *testing.T) {
+func TestUnit_Parser_SuccessfulOutput(t *testing.T) {
 	output := `
 {"Time":"2023-09-07T16:22:52.556853+01:00","Action":"start","Package":"github.com/smartcontractkit/chainlink-evm/pkg/assets"}
 {"Time":"2023-09-07T16:22:52.762353+01:00","Action":"run","Package":"github.com/smartcontractkit/chainlink-evm/pkg/assets","Test":"TestAssets_NewLinkAndString"}
@@ -109,7 +109,7 @@ func (t testAdapter) test(pkg string, tests []string, out io.Writer) error {
 	return t(pkg, tests, out)
 }
 
-func TestRunner_WithFlake(t *testing.T) {
+func TestUnit_Runner_WithFlake(t *testing.T) {
 	initialOutput := `{"Time":"2023-09-07T15:39:46.378315+01:00","Action":"fail","Package":"github.com/smartcontractkit/chainlink-evm/pkg/assets","Test":"TestLink","Elapsed":0}`
 	outputs := []string{
 		`{"Time":"2023-09-07T15:39:46.378315+01:00","Action":"fail","Package":"github.com/smartcontractkit/chainlink-evm/pkg/assets","Test":"TestLink","Elapsed":0}`,
@@ -139,7 +139,7 @@ func TestRunner_WithFlake(t *testing.T) {
 	assert.True(t, ok)
 }
 
-func TestRunner_WithFailedPackage(t *testing.T) {
+func TestUnit_Runner_WithFailedPackage(t *testing.T) {
 	initialOutput := `
 {"Time":"2023-09-07T15:39:46.378315+01:00","Action":"fail","Package":"github.com/smartcontractkit/chainlink-evm/pkg/assets","Test":"TestLink","Elapsed":0}
 {"Time":"2023-09-07T15:39:46.378315+01:00","Action":"fail","Package":"github.com/smartcontractkit/chainlink-evm/pkg/assets","Elapsed":0}
@@ -174,7 +174,7 @@ func TestRunner_WithFailedPackage(t *testing.T) {
 	assert.True(t, ok)
 }
 
-func TestRunner_AllFailures(t *testing.T) {
+func TestUnit_Runner_AllFailures(t *testing.T) {
 	output := `{"Time":"2023-09-07T15:39:46.378315+01:00","Action":"fail","Package":"github.com/smartcontractkit/chainlink-evm/pkg/assets","Test":"TestLink","Elapsed":0}`
 
 	rerunOutput := `
@@ -198,7 +198,7 @@ func TestRunner_AllFailures(t *testing.T) {
 	assert.Empty(t, m.report.tests)
 }
 
-func TestRunner_RerunSuccessful(t *testing.T) {
+func TestUnit_Runner_RerunSuccessful(t *testing.T) {
 	output := `{"Time":"2023-09-07T15:39:46.378315+01:00","Action":"fail","Package":"github.com/smartcontractkit/chainlink-evm/pkg/assets","Test":"TestLink","Elapsed":0}`
 
 	rerunOutputs := []string{
@@ -225,7 +225,7 @@ func TestRunner_RerunSuccessful(t *testing.T) {
 	assert.True(t, ok)
 }
 
-func TestRunner_RootLevelTest(t *testing.T) {
+func TestUnit_Runner_RootLevelTest(t *testing.T) {
 	output := `{"Time":"2023-09-07T15:39:46.378315+01:00","Action":"fail","Package":"github.com/smartcontractkit/chainlink/v2/","Test":"TestConfigDocs","Elapsed":0}`
 
 	rerunOutput := ``
@@ -247,7 +247,7 @@ func TestRunner_RootLevelTest(t *testing.T) {
 	assert.True(t, ok)
 }
 
-func TestRunner_RerunFailsWithNonzeroExitCode(t *testing.T) {
+func TestUnit_Runner_RerunFailsWithNonzeroExitCode(t *testing.T) {
 	output := `{"Time":"2023-09-07T15:39:46.378315+01:00","Action":"fail","Package":"github.com/smartcontractkit/chainlink-evm/pkg/assets","Test":"TestLink","Elapsed":0}`
 
 	rerunOutputs := []string{
@@ -274,7 +274,7 @@ func TestRunner_RerunFailsWithNonzeroExitCode(t *testing.T) {
 	assert.True(t, ok)
 }
 
-func TestRunner_RerunWithNonZeroExitCodeDoesntStopCommand(t *testing.T) {
+func TestUnit_Runner_RerunWithNonZeroExitCodeDoesntStopCommand(t *testing.T) {
 	outputs := []io.Reader{
 		strings.NewReader(`
 {"Time":"2023-09-07T15:39:46.378315+01:00","Action":"fail","Package":"github.com/smartcontractkit/chainlink-evm/pkg/assets","Test":"TestLink","Elapsed":0}
@@ -315,7 +315,7 @@ func TestRunner_RerunWithNonZeroExitCodeDoesntStopCommand(t *testing.T) {
 }
 
 // Used for integration tests
-func TestSkippedForTests_Subtests(t *testing.T) {
+func TestUnit_SkippedForTests_Subtests(t *testing.T) {
 	if skipIntegrationTestMode {
 		t.Skip()
 	}
@@ -330,7 +330,7 @@ func TestSkippedForTests_Subtests(t *testing.T) {
 }
 
 // Used for integration tests
-func TestSkippedForTests(t *testing.T) {
+func TestUnit_SkippedForTests(t *testing.T) {
 	if skipIntegrationTestMode {
 		t.Skip()
 	}
@@ -341,7 +341,7 @@ func TestSkippedForTests(t *testing.T) {
 }
 
 // Used for integration tests
-func TestSkippedForTests_Success(t *testing.T) {
+func TestUnit_SkippedForTests_Success(t *testing.T) {
 	if skipIntegrationTestMode {
 		t.Skip()
 	}
@@ -420,7 +420,7 @@ func TestIntegration_ParsesPanics(t *testing.T) {
 	assert.False(t, ok)
 }
 
-func TestIntegration(t *testing.T) {
+func TestUnit_Integration(t *testing.T) {
 	if testing.Short() {
 		t.Skip()
 	}

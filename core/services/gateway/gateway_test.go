@@ -57,7 +57,7 @@ func newGatewayHandler(t *testing.T) gateway.HandlerFactory {
 	return gateway.NewHandlerFactory(nil, nil, nil, nil, nil, lggr, limits.Factory{Logger: lggr})
 }
 
-func TestGateway_NewGatewayFromConfig_ValidConfig(t *testing.T) {
+func TestUnit_Gateway_NewGatewayFromConfig_ValidConfig(t *testing.T) {
 	t.Parallel()
 
 	tomlConfig := buildConfig(`
@@ -79,7 +79,7 @@ Address = "0x0001020304050607080900010203040506070809"
 	require.NoError(t, err)
 }
 
-func TestGateway_NewGatewayFromConfig_DuplicateID(t *testing.T) {
+func TestUnit_Gateway_NewGatewayFromConfig_DuplicateID(t *testing.T) {
 	t.Parallel()
 
 	tomlConfig := buildConfig(`
@@ -97,7 +97,7 @@ HandlerName = "dummy"
 	require.Error(t, err)
 }
 
-func TestGateway_NewGatewayFromConfig_InvalidHandler(t *testing.T) {
+func TestUnit_Gateway_NewGatewayFromConfig_InvalidHandler(t *testing.T) {
 	t.Parallel()
 
 	tomlConfig := buildConfig(`
@@ -111,7 +111,7 @@ HandlerName = "no_such_handler"
 	require.Error(t, err)
 }
 
-func TestGateway_NewGatewayFromConfig_MissingID(t *testing.T) {
+func TestUnit_Gateway_NewGatewayFromConfig_MissingID(t *testing.T) {
 	t.Parallel()
 
 	tomlConfig := buildConfig(`
@@ -125,7 +125,7 @@ SomeOtherField = "abcd"
 	require.Error(t, err)
 }
 
-func TestGateway_NewGatewayFromConfig_InvalidNodeAddress(t *testing.T) {
+func TestUnit_Gateway_NewGatewayFromConfig_InvalidNodeAddress(t *testing.T) {
 	t.Parallel()
 
 	tomlConfig := buildConfig(`
@@ -143,7 +143,7 @@ Address = "0xnot_an_address"
 	require.Error(t, err)
 }
 
-func TestGateway_CleanStartAndClose(t *testing.T) {
+func TestUnit_Gateway_CleanStartAndClose(t *testing.T) {
 	t.Parallel()
 
 	lggr := logger.Test(t)
@@ -214,7 +214,7 @@ func newJSONRpcRequest(t *testing.T, requestID string, method string, payload []
 	return rawRequest
 }
 
-func TestGateway_ProcessRequest_ParseError(t *testing.T) {
+func TestUnit_Gateway_ProcessRequest_ParseError(t *testing.T) {
 	t.Parallel()
 
 	gw, _ := newGatewayWithMockHandler(t)
@@ -223,7 +223,7 @@ func TestGateway_ProcessRequest_ParseError(t *testing.T) {
 	require.Equal(t, 400, statusCode)
 }
 
-func TestGateway_ProcessRequest_MessageValidationError(t *testing.T) {
+func TestUnit_Gateway_ProcessRequest_MessageValidationError(t *testing.T) {
 	t.Parallel()
 
 	gw, _ := newGatewayWithMockHandler(t)
@@ -233,7 +233,7 @@ func TestGateway_ProcessRequest_MessageValidationError(t *testing.T) {
 	require.Equal(t, 400, statusCode)
 }
 
-func TestGateway_ProcessRequest_MissingDonId(t *testing.T) {
+func TestUnit_Gateway_ProcessRequest_MissingDonId(t *testing.T) {
 	t.Parallel()
 
 	gw, _ := newGatewayWithMockHandler(t)
@@ -243,7 +243,7 @@ func TestGateway_ProcessRequest_MissingDonId(t *testing.T) {
 	require.Equal(t, 400, statusCode)
 }
 
-func TestGateway_ProcessRequest_IncorrectDonId(t *testing.T) {
+func TestUnit_Gateway_ProcessRequest_IncorrectDonId(t *testing.T) {
 	t.Parallel()
 
 	gw, _ := newGatewayWithMockHandler(t)
@@ -253,7 +253,7 @@ func TestGateway_ProcessRequest_IncorrectDonId(t *testing.T) {
 	require.Equal(t, 400, statusCode)
 }
 
-func TestGateway_LegacyRequest_HandlerResponse(t *testing.T) {
+func TestUnit_Gateway_LegacyRequest_HandlerResponse(t *testing.T) {
 	t.Parallel()
 
 	gw, handler := newGatewayWithMockHandler(t)
@@ -276,7 +276,7 @@ func TestGateway_LegacyRequest_HandlerResponse(t *testing.T) {
 	require.Equal(t, 200, statusCode)
 }
 
-func TestGateway_NewRequest_HandlerResponse(t *testing.T) {
+func TestUnit_Gateway_NewRequest_HandlerResponse(t *testing.T) {
 	t.Parallel()
 
 	gw, handler := newGatewayWithMockHandler(t)
@@ -303,7 +303,7 @@ func TestGateway_NewRequest_HandlerResponse(t *testing.T) {
 	require.Equal(t, 200, statusCode)
 }
 
-func TestGateway_ProcessRequest_HandlerTimeout(t *testing.T) {
+func TestUnit_Gateway_ProcessRequest_HandlerTimeout(t *testing.T) {
 	t.Parallel()
 
 	gw, handler := newGatewayWithMockHandler(t)
@@ -317,7 +317,7 @@ func TestGateway_ProcessRequest_HandlerTimeout(t *testing.T) {
 	require.Equal(t, 504, statusCode)
 }
 
-func TestGateway_ProcessRequest_HandlerError(t *testing.T) {
+func TestUnit_Gateway_ProcessRequest_HandlerError(t *testing.T) {
 	t.Parallel()
 
 	gw, handler := newGatewayWithMockHandler(t)
@@ -366,7 +366,7 @@ func newMockHandler(t *testing.T, method string) *handlermocks.Handler {
 	return handler
 }
 
-func TestGateway_Multihandler(t *testing.T) {
+func TestUnit_Gateway_Multihandler(t *testing.T) {
 	tomlConfig := buildConfig(`
 [[dons]]
 DonId = "1"

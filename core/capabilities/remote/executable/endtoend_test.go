@@ -27,7 +27,7 @@ import (
 	p2ptypes "github.com/smartcontractkit/chainlink/v2/core/services/p2p/types"
 )
 
-func Test_RemoteExecutableCapability_ExecutionNotBlockedBySlowCapabilityExecution_AllAtOnce(t *testing.T) {
+func TestUnit_RemoteExecutableCapability_ExecutionNotBlockedBySlowCapabilityExecution_AllAtOnce(t *testing.T) {
 	ctx := testutils.Context(t)
 
 	workflowIDToPause := map[string]time.Duration{}
@@ -90,7 +90,7 @@ func Test_RemoteExecutableCapability_ExecutionNotBlockedBySlowCapabilityExecutio
 	}, 1*time.Minute, 10*time.Millisecond, "require 10 callbacks from 1s delay capability")
 }
 
-func Test_RemoteExecutableCapability_ExecutionNotBlockedBySlowCapabilityExecution_OneAtATime(t *testing.T) {
+func TestUnit_RemoteExecutableCapability_ExecutionNotBlockedBySlowCapabilityExecution_OneAtATime(t *testing.T) {
 	ctx := testutils.Context(t)
 
 	workflowIDToPause := map[string]time.Duration{}
@@ -153,7 +153,7 @@ func Test_RemoteExecutableCapability_ExecutionNotBlockedBySlowCapabilityExecutio
 	}, 1*time.Minute, 10*time.Millisecond, "require 10 callbacks from 1s delay capability")
 }
 
-func Test_RemoteExecutableCapability_TransmissionSchedules(t *testing.T) {
+func TestUnit_RemoteExecutableCapability_TransmissionSchedules(t *testing.T) {
 	tests.SkipFlakey(t, "https://smartcontract-it.atlassian.net/browse/DX-108")
 	ctx := testutils.Context(t)
 
@@ -193,7 +193,7 @@ func Test_RemoteExecutableCapability_TransmissionSchedules(t *testing.T) {
 	testRemoteExecutableCapability(ctx, t, capability, 10, 9, timeOut, 10, 9, timeOut, method, true)
 }
 
-func Test_RemoteExecutionCapability_CapabilityError(t *testing.T) {
+func TestUnit_RemoteExecutionCapability_CapabilityError(t *testing.T) {
 	ctx := testutils.Context(t)
 
 	capability := &TestErrorCapability{}
@@ -217,7 +217,7 @@ func Test_RemoteExecutionCapability_CapabilityError(t *testing.T) {
 	}
 }
 
-func Test_RemoteExecutableCapability_RandomCapabilityError(t *testing.T) {
+func TestUnit_RemoteExecutableCapability_RandomCapabilityError(t *testing.T) {
 	ctx := testutils.Context(t)
 
 	capability := &TestRandomErrorCapability{}

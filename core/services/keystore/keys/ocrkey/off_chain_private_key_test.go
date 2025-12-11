@@ -7,7 +7,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestOCRKeys_OffChainPrivateKey(t *testing.T) {
+func TestUnit_OCRKeys_OffChainPrivateKey(t *testing.T) {
 	t.Parallel()
 
 	k, err := NewV2()

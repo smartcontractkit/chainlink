@@ -105,7 +105,7 @@ func makeDonIDTopic(donID uint32) []byte {
 	return common.BigToHash(big.NewInt(int64(donID))).Bytes()
 }
 
-func Test_ChannelDefinitionCache(t *testing.T) {
+func TestUnit_ChannelDefinitionCache(t *testing.T) {
 	donID := rand.Uint32()
 
 	t.Run("Definitions", func(t *testing.T) {
@@ -459,7 +459,7 @@ func Test_ChannelDefinitionCache(t *testing.T) {
 	})
 }
 
-func Test_filterName(t *testing.T) {
+func TestUnit_filterName(t *testing.T) {
 	s := types.ChannelDefinitionCacheFilterName(common.Address{1, 2, 3}, 654)
 	assert.Equal(t, "OCR3 LLO ChannelDefinitionCachePoller - 0x0102030000000000000000000000000000000000:654", s)
 }

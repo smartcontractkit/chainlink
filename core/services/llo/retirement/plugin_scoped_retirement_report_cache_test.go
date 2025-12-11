@@ -68,7 +68,7 @@ func (m *mockCodec) Decode(b []byte) (datastreamsllo.RetirementReport, error) {
 	return m.decode(b)
 }
 
-func Test_PluginScopedRetirementReportCache(t *testing.T) {
+func TestUnit_PluginScopedRetirementReportCache(t *testing.T) {
 	rrc := &mockRetirementReportCache{}
 	v := &mockVerifier{}
 	c := &mockCodec{}

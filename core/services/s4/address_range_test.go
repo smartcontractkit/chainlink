@@ -9,7 +9,7 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func TestAddressRange_NewFullAddressRange(t *testing.T) {
+func TestUnit_AddressRange_NewFullAddressRange(t *testing.T) {
 	t.Parallel()
 
 	full := s4.NewFullAddressRange()
@@ -23,7 +23,7 @@ func TestAddressRange_NewFullAddressRange(t *testing.T) {
 	})
 }
 
-func TestAddressRange_NewSingleAddressRange(t *testing.T) {
+func TestUnit_AddressRange_NewSingleAddressRange(t *testing.T) {
 	t.Parallel()
 
 	addr := big.NewI(0x123)
@@ -38,7 +38,7 @@ func TestAddressRange_NewSingleAddressRange(t *testing.T) {
 	assert.False(t, sar.Contains(addr))
 }
 
-func TestAddressRange_NewInitialAddressRangeForIntervals(t *testing.T) {
+func TestUnit_AddressRange_NewInitialAddressRangeForIntervals(t *testing.T) {
 	t.Parallel()
 
 	t.Run("invalid intervals", func(t *testing.T) {
@@ -87,7 +87,7 @@ func TestAddressRange_NewInitialAddressRangeForIntervals(t *testing.T) {
 	})
 }
 
-func TestAddressRange_Contains(t *testing.T) {
+func TestUnit_AddressRange_Contains(t *testing.T) {
 	t.Parallel()
 
 	r, err := s4.NewInitialAddressRangeForIntervals(256)

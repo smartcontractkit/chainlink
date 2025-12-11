@@ -18,7 +18,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/web/presenters"
 )
 
-func TestVRFKeyPresenter_RenderTable(t *testing.T) {
+func TestUnit_VRFKeyPresenter_RenderTable(t *testing.T) {
 	t.Parallel()
 
 	var (
@@ -66,7 +66,7 @@ func AssertKeysEqualNoTimestamps(t *testing.T, k1, k2 cmd.VRFKeyPresenter) {
 	assert.Equal(t, k1.Uncompressed, k2.Uncompressed)
 }
 
-func TestShellVRF_CRUD(t *testing.T) {
+func TestUnit_ShellVRF_CRUD(t *testing.T) {
 	t.Parallel()
 
 	// Test application boots with vrf password loaded in memory.
@@ -124,7 +124,7 @@ func TestShellVRF_CRUD(t *testing.T) {
 	assert.Len(t, allKeys, 1)
 }
 
-func TestVRF_ImportExport(t *testing.T) {
+func TestUnit_VRF_ImportExport(t *testing.T) {
 	t.Parallel()
 	// Test application boots with vrf password loaded in memory.
 	// i.e. as if a user had booted with --vrfpassword=<vrfPasswordFilePath>

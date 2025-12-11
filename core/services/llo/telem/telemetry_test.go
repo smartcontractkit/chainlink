@@ -139,7 +139,7 @@ var trrs = pipeline.TaskRunResults{
 	},
 }
 
-func Test_Telemeter_v3PremiumLegacy(t *testing.T) {
+func TestUnit_Telemeter_v3PremiumLegacy(t *testing.T) {
 	lggr := logger.TestLogger(t)
 	m := &mockMonitoringEndpoint{}
 
@@ -269,7 +269,7 @@ func Test_Telemeter_v3PremiumLegacy(t *testing.T) {
 	})
 }
 
-func Test_Telemeter_observationScopedTelemetry(t *testing.T) {
+func TestUnit_Telemeter_observationScopedTelemetry(t *testing.T) {
 	t.Parallel()
 	lggr := logger.TestLogger(t)
 
@@ -404,7 +404,7 @@ func Test_Telemeter_observationScopedTelemetry(t *testing.T) {
 	})
 }
 
-func Test_Telemeter_outcomeTelemetry(t *testing.T) {
+func TestUnit_Telemeter_outcomeTelemetry(t *testing.T) {
 	t.Parallel()
 
 	lggr := logger.TestLogger(t)
@@ -531,7 +531,7 @@ func Test_Telemeter_outcomeTelemetry(t *testing.T) {
 	})
 }
 
-func Test_Telemeter_reportTelemetry(t *testing.T) {
+func TestUnit_Telemeter_reportTelemetry(t *testing.T) {
 	t.Parallel()
 
 	lggr := logger.TestLogger(t)

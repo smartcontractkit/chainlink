@@ -33,7 +33,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr"
 )
 
-func TestValidateOracleSpec(t *testing.T) {
+func TestUnit_ValidateOracleSpec(t *testing.T) {
 	var tt = []struct {
 		name      string
 		toml      string
@@ -446,7 +446,7 @@ answer1      [type=median index=0];
 	}
 }
 
-func TestOnChainContractAvailability(t *testing.T) {
+func TestUnit_OnChainContractAvailability(t *testing.T) {
 	// Because some RPCs prune logs we have scenarios in which a job spec update will lead to outages because of the inability to get the logs. We need to safeguard against these outages by checking if the node can access the OCR configuration
 	// There are 4 possible scenarios:
 	// 1. Contract is not deployed

@@ -23,7 +23,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/blockhashstore"
 )
 
-func TestStoreRotatesFromAddresses(t *testing.T) {
+func TestUnit_StoreRotatesFromAddresses(t *testing.T) {
 	ctx := testutils.Context(t)
 	db := pgtest.NewSqlxDB(t)
 	ethClient := clienttest.NewClientWithDefaultChainID(t)

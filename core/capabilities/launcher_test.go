@@ -71,7 +71,7 @@ func (m *mockCapability) UnregisterFromWorkflow(ctx context.Context, request cap
 	return nil
 }
 
-func TestLauncher(t *testing.T) {
+func TestUnit_Launcher(t *testing.T) {
 	t.Run("OK-wires_up_external_capabilities", func(t *testing.T) {
 		lggr := logger.Test(t)
 		registry := NewRegistry(lggr)
@@ -279,7 +279,7 @@ func newTriggerEventMsg(t *testing.T,
 	}, triggerEventValue
 }
 
-func TestLauncher_RemoteTriggerModeAggregatorShim(t *testing.T) {
+func TestUnit_Launcher_RemoteTriggerModeAggregatorShim(t *testing.T) {
 	ctx := t.Context()
 	lggr := logger.Test(t)
 	registry := NewRegistry(lggr)
@@ -388,7 +388,7 @@ func TestLauncher_RemoteTriggerModeAggregatorShim(t *testing.T) {
 	require.Equal(t, response.Event.Outputs, triggerEventValue)
 }
 
-func TestSyncer_IgnoresCapabilitiesForPrivateDON(t *testing.T) {
+func TestUnit_Syncer_IgnoresCapabilitiesForPrivateDON(t *testing.T) {
 	lggr := logger.Test(t)
 	registry := NewRegistry(lggr)
 	dispatcher := remoteMocks.NewDispatcher(t)
@@ -435,7 +435,7 @@ func TestSyncer_IgnoresCapabilitiesForPrivateDON(t *testing.T) {
 	assert.Empty(t, launcher.subServices)
 }
 
-func TestLauncher_WiresUpClientsForPublicWorkflowDON(t *testing.T) {
+func TestUnit_Launcher_WiresUpClientsForPublicWorkflowDON(t *testing.T) {
 	lggr := logger.Test(t)
 	registry := NewRegistry(lggr)
 	dispatcher := remoteMocks.NewDispatcher(t)
@@ -496,7 +496,7 @@ func TestLauncher_WiresUpClientsForPublicWorkflowDON(t *testing.T) {
 	require.NoError(t, err)
 }
 
-func TestLauncher_WiresUpClientsForPublicWorkflowDONButIgnoresPrivateCapabilities(t *testing.T) {
+func TestUnit_Launcher_WiresUpClientsForPublicWorkflowDONButIgnoresPrivateCapabilities(t *testing.T) {
 	lggr := logger.Test(t)
 	registry := NewRegistry(lggr)
 	dispatcher := remoteMocks.NewDispatcher(t)
@@ -551,7 +551,7 @@ func TestLauncher_WiresUpClientsForPublicWorkflowDONButIgnoresPrivateCapabilitie
 	require.NoError(t, err)
 }
 
-func TestLauncher_SucceedsEvenIfDispatcherAlreadyHasReceiver(t *testing.T) {
+func TestUnit_Launcher_SucceedsEvenIfDispatcherAlreadyHasReceiver(t *testing.T) {
 	lggr := logger.Test(t)
 	registry := NewRegistry(lggr)
 	dispatcher := remoteMocks.NewDispatcher(t)
@@ -617,7 +617,7 @@ func TestLauncher_SucceedsEvenIfDispatcherAlreadyHasReceiver(t *testing.T) {
 	require.NoError(t, err)
 }
 
-func TestLauncher_SuccessfullyFilterDon2Don(t *testing.T) {
+func TestUnit_Launcher_SuccessfullyFilterDon2Don(t *testing.T) {
 	lggr := logger.Test(t)
 	registry := NewRegistry(lggr)
 	dispatcher := remoteMocks.NewDispatcher(t)
@@ -710,7 +710,7 @@ func TestLauncher_SuccessfullyFilterDon2Don(t *testing.T) {
 	require.NoError(t, err)
 }
 
-func TestLauncher_DonPairsToUpdate(t *testing.T) {
+func TestUnit_Launcher_DonPairsToUpdate(t *testing.T) {
 	registry := NewRegistry(logger.Test(t))
 	dispatcher := remoteMocks.NewDispatcher(t)
 
@@ -768,7 +768,7 @@ func TestLauncher_DonPairsToUpdate(t *testing.T) {
 	require.Equal(t, p2ptypes.DonPair{localRegistry.IDsToDONs[wfDONID].DON, localRegistry.IDsToDONs[mixedDONID].DON}, res[1])
 }
 
-func TestLauncher_DonPairsToUpdate_SkipsDifferentFamilies(t *testing.T) {
+func TestUnit_Launcher_DonPairsToUpdate_SkipsDifferentFamilies(t *testing.T) {
 	registry := NewRegistry(logger.Test(t))
 	dispatcher := remoteMocks.NewDispatcher(t)
 
@@ -822,7 +822,7 @@ func TestLauncher_DonPairsToUpdate_SkipsDifferentFamilies(t *testing.T) {
 	require.Equal(t, p2ptypes.DonPair{localRegistry.IDsToDONs[registrysyncer.DonID(wfDONID)].DON, localRegistry.IDsToDONs[registrysyncer.DonID(capDONZoneAID)].DON}, res[0])
 }
 
-func TestLauncher_V2CapabilitiesAddViaCombinedClient(t *testing.T) {
+func TestUnit_Launcher_V2CapabilitiesAddViaCombinedClient(t *testing.T) {
 	lggr := logger.Test(t)
 	registry := NewRegistry(lggr)
 	dispatcher := remoteMocks.NewDispatcher(t)
@@ -944,7 +944,7 @@ func TestLauncher_V2CapabilitiesAddViaCombinedClient(t *testing.T) {
 	assert.Len(t, capInfo.DON.Members, 5)
 }
 
-func TestLauncher_V2CapabilitiesExposeRemotely(t *testing.T) {
+func TestUnit_Launcher_V2CapabilitiesExposeRemotely(t *testing.T) {
 	lggr := logger.Test(t)
 	registry := NewRegistry(lggr)
 	fullTriggerCapID := "streams-trigger@1.0.0"

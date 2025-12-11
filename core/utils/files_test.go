@@ -20,7 +20,7 @@ func tempFileName() string {
 	return filepath.Join(os.TempDir(), hex.EncodeToString(randBytes))
 }
 
-func TestFileExists(t *testing.T) {
+func TestUnit_FileExists(t *testing.T) {
 	t.Parallel()
 
 	exists, err := FileExists(tempFileName())
@@ -32,7 +32,7 @@ func TestFileExists(t *testing.T) {
 	assert.True(t, exists)
 }
 
-func TestTooPermissive(t *testing.T) {
+func TestUnit_TooPermissive(t *testing.T) {
 	t.Parallel()
 
 	res := TooPermissive(os.FileMode(0700), os.FileMode(0600))
@@ -45,7 +45,7 @@ func TestTooPermissive(t *testing.T) {
 	assert.False(t, res)
 }
 
-func TestFileSize_MarshalText_String(t *testing.T) {
+func TestUnit_FileSize_MarshalText_String(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
@@ -75,7 +75,7 @@ func TestFileSize_MarshalText_String(t *testing.T) {
 	}
 }
 
-func TestFileSize_UnmarshalText(t *testing.T) {
+func TestUnit_FileSize_UnmarshalText(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {

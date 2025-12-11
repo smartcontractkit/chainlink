@@ -28,7 +28,7 @@ func setupWorkflowKeysControllerTests(t *testing.T) (cltest.HTTPClientCleaner, k
 	return client, app.GetKeyStore()
 }
 
-func TestWorkflowKeysController_Index_HappyPath(t *testing.T) {
+func TestUnit_WorkflowKeysController_Index_HappyPath(t *testing.T) {
 	client, keyStore := setupWorkflowKeysControllerTests(t)
 	keys, err := keyStore.Workflow().GetAll()
 	require.NoError(t, err)

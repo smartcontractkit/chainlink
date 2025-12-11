@@ -43,7 +43,7 @@ func requireUserErrorSent(t *testing.T, payload handlers.UserCallbackPayload, er
 	require.Equal(t, api.FromJSONRPCErrorCode(errorCode), payload.ErrorCode)
 }
 
-func TestHttpTriggerHandler_HandleUserTriggerRequest(t *testing.T) {
+func TestUnit_HttpTriggerHandler_HandleUserTriggerRequest(t *testing.T) {
 	triggerReq := createTestTriggerRequest(workflowID)
 	reqBytes, err := json.Marshal(triggerReq)
 	require.NoError(t, err)
@@ -406,7 +406,7 @@ func TestHttpTriggerHandler_HandleUserTriggerRequest(t *testing.T) {
 	})
 }
 
-func TestHttpTriggerHandler_HandleNodeTriggerResponse(t *testing.T) {
+func TestUnit_HttpTriggerHandler_HandleNodeTriggerResponse(t *testing.T) {
 	t.Run("successful aggregation", func(t *testing.T) {
 		handler, mockDon := createTestTriggerHandler(t)
 		privateKey := createTestPrivateKey(t)
@@ -482,7 +482,7 @@ func TestHttpTriggerHandler_HandleNodeTriggerResponse(t *testing.T) {
 	})
 }
 
-func TestHttpTriggerHandler_ServiceLifecycle(t *testing.T) {
+func TestUnit_HttpTriggerHandler_ServiceLifecycle(t *testing.T) {
 	t.Run("start and stop", func(t *testing.T) {
 		handler, _ := createTestTriggerHandler(t)
 
@@ -526,7 +526,7 @@ func registerWorkflow(t *testing.T, handler *httpTriggerHandler, workflowID stri
 	}
 }
 
-func TestHttpTriggerHandler_ReapExpiredCallbacks(t *testing.T) {
+func TestUnit_HttpTriggerHandler_ReapExpiredCallbacks(t *testing.T) {
 	requestID := "test-request-id"
 	triggerReq := gateway_common.HTTPTriggerRequest{
 		Workflow: gateway_common.WorkflowSelector{
@@ -604,7 +604,7 @@ func TestHttpTriggerHandler_ReapExpiredCallbacks(t *testing.T) {
 	})
 }
 
-func TestIsValidJSON(t *testing.T) {
+func TestUnit_IsValidJSON(t *testing.T) {
 	tests := []struct {
 		name     string
 		input    []byte
@@ -650,7 +650,7 @@ func TestIsValidJSON(t *testing.T) {
 	}
 }
 
-func TestHttpTriggerHandler_HandleUserTriggerRequest_Retries(t *testing.T) {
+func TestUnit_HttpTriggerHandler_HandleUserTriggerRequest_Retries(t *testing.T) {
 	lggr := logger.Test(t)
 	cfg := ServiceConfig{
 		MaxTriggerRequestDurationMs: 2000, // 2 seconds for test
@@ -711,7 +711,7 @@ func TestHttpTriggerHandler_HandleUserTriggerRequest_Retries(t *testing.T) {
 	})
 }
 
-func TestHttpTriggerHandler_HandleUserTriggerRequest_JWTAuthorization(t *testing.T) {
+func TestUnit_HttpTriggerHandler_HandleUserTriggerRequest_JWTAuthorization(t *testing.T) {
 	handler, mockDon := createTestTriggerHandler(t)
 	ctx := testutils.Context(t)
 
@@ -856,7 +856,7 @@ func TestHttpTriggerHandler_HandleUserTriggerRequest_JWTAuthorization(t *testing
 	})
 }
 
-func TestHttpTriggerHandler_HandleUserTriggerRequest_WorkflowLookup(t *testing.T) {
+func TestUnit_HttpTriggerHandler_HandleUserTriggerRequest_WorkflowLookup(t *testing.T) {
 	handler, mockDon := createTestTriggerHandler(t)
 	ctx := testutils.Context(t)
 
@@ -1058,7 +1058,7 @@ func TestHttpTriggerHandler_HandleUserTriggerRequest_WorkflowLookup(t *testing.T
 		requireUserErrorSent(t, r, jsonrpc.ErrInvalidRequest)
 	})
 }
-func TestHttpTriggerHandler_HandleUserTriggerRequest_Validation(t *testing.T) {
+func TestUnit_HttpTriggerHandler_HandleUserTriggerRequest_Validation(t *testing.T) {
 	handler, mockDon := createTestTriggerHandler(t)
 
 	t.Run("workflowID uppercase", func(t *testing.T) {
@@ -1572,7 +1572,7 @@ func createTestTriggerHandlerWithConfig(t *testing.T, cfg ServiceConfig) (*httpT
 	return handler, mockDon
 }
 
-func TestHttpTriggerHandler_HandleUserTriggerRequest_RateLimiting(t *testing.T) {
+func TestUnit_HttpTriggerHandler_HandleUserTriggerRequest_RateLimiting(t *testing.T) {
 	cfg := ServiceConfig{
 		CleanUpPeriodMs:             60000,
 		MaxTriggerRequestDurationMs: 300000,
@@ -1684,7 +1684,7 @@ func TestHttpTriggerHandler_HandleUserTriggerRequest_RateLimiting(t *testing.T) 
 	})
 }
 
-func TestHttpTriggerHandler_HandleUserTriggerRequest_StopsRetriesOnQuorum(t *testing.T) {
+func TestUnit_HttpTriggerHandler_HandleUserTriggerRequest_StopsRetriesOnQuorum(t *testing.T) {
 	lggr := logger.Test(t)
 	cfg := WithDefaults(ServiceConfig{})
 

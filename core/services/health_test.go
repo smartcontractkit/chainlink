@@ -12,7 +12,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services"
 )
 
-func TestNewStartUpHealthReport(t *testing.T) {
+func TestUnit_NewStartUpHealthReport(t *testing.T) {
 	lggr, observed := logger.TestLoggerObserved(t, zapcore.InfoLevel)
 	ibhr := services.NewStartUpHealthReport(1234, lggr)
 

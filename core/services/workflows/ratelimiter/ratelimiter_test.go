@@ -10,7 +10,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/settings/limits"
 )
 
-func TestRateLimiter(t *testing.T) {
+func TestUnit_RateLimiter(t *testing.T) {
 	t.Parallel()
 
 	config := Config{

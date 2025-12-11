@@ -8,7 +8,7 @@ import (
 	"github.com/smartcontractkit/chainlink-evm/pkg/utils"
 )
 
-func TestTokenPool(t *testing.T) {
+func TestUnit_TokenPool(t *testing.T) {
 	addr := utils.RandomAddress()
 	chainSelector := uint64(2000)
 	poolType := "BurnMint"

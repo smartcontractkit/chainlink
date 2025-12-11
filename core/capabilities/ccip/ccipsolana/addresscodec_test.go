@@ -10,7 +10,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestPublicKeyFromBytes(t *testing.T) {
+func TestUnit_PublicKeyFromBytes(t *testing.T) {
 	tests := []struct {
 		name     string
 		inHex    string
@@ -61,7 +61,7 @@ func TestPublicKeyFromBytes(t *testing.T) {
 	}
 }
 
-func TestPublicKeyFromBase58(t *testing.T) {
+func TestUnit_PublicKeyFromBase58(t *testing.T) {
 	tests := []struct {
 		name        string
 		in          string
@@ -96,7 +96,7 @@ func TestPublicKeyFromBase58(t *testing.T) {
 	}
 }
 
-func TestAddressCodec_OracleIDAsAddressBytes(t *testing.T) {
+func TestUnit_AddressCodec_OracleIDAsAddressBytes(t *testing.T) {
 	codec := AddressCodec{}
 
 	testCases := []struct {

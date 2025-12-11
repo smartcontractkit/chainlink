@@ -252,11 +252,11 @@ func testMaybeSubtractReservedLink(t *testing.T, vrfVersion vrfcommon.Version) {
 	require.Equal(t, "70000", start.String())
 }
 
-func TestMaybeSubtractReservedLinkV2(t *testing.T) {
+func TestUnit_MaybeSubtractReservedLinkV2(t *testing.T) {
 	testMaybeSubtractReservedLink(t, vrfcommon.V2)
 }
 
-func TestMaybeSubtractReservedLinkV2Plus(t *testing.T) {
+func TestUnit_MaybeSubtractReservedLinkV2Plus(t *testing.T) {
 	testMaybeSubtractReservedLink(t, vrfcommon.V2Plus)
 }
 
@@ -333,11 +333,11 @@ func testMaybeSubtractReservedNative(t *testing.T, vrfVersion vrfcommon.Version)
 	require.Equal(t, "70000", start.String())
 }
 
-func TestMaybeSubtractReservedNativeV2Plus(t *testing.T) {
+func TestUnit_MaybeSubtractReservedNativeV2Plus(t *testing.T) {
 	testMaybeSubtractReservedNative(t, vrfcommon.V2Plus)
 }
 
-func TestMaybeSubtractReservedNativeV2(t *testing.T) {
+func TestUnit_MaybeSubtractReservedNativeV2(t *testing.T) {
 	ctx := testutils.Context(t)
 	db := pgtest.NewSqlxDB(t)
 	lggr := logger.TestLogger(t)
@@ -365,7 +365,7 @@ func TestMaybeSubtractReservedNativeV2(t *testing.T) {
 	assert.Equal(t, big.NewInt(0), start)
 }
 
-func TestListener_GetConfirmedAt(t *testing.T) {
+func TestUnit_Listener_GetConfirmedAt(t *testing.T) {
 	j, err := vrfcommon.ValidatedVRFSpec(testspecs.GenerateVRFSpec(testspecs.VRFSpecParams{
 		RequestedConfsDelay: 10,
 	}).Toml())
@@ -405,7 +405,7 @@ func TestListener_GetConfirmedAt(t *testing.T) {
 	require.Equal(t, uint64(200), confirmedAt) // log block number + # of confirmations
 }
 
-func TestListener_Backoff(t *testing.T) {
+func TestUnit_Listener_Backoff(t *testing.T) {
 	var tests = []struct {
 		name     string
 		initial  time.Duration

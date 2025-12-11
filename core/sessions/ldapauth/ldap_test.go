@@ -39,7 +39,7 @@ func setupAuthenticationProvider(t *testing.T, ldapClient ldapauth.LDAPClient) (
 	return db, ldapAuthProvider
 }
 
-func TestORM_FindUser_Empty(t *testing.T) {
+func TestUnit_ORM_FindUser_Empty(t *testing.T) {
 	t.Parallel()
 	ctx := testutils.Context(t)
 
@@ -62,7 +62,7 @@ func TestORM_FindUser_Empty(t *testing.T) {
 	require.ErrorContains(t, err, "LDAP query returned no matching users")
 }
 
-func TestORM_FindUser_NoGroups(t *testing.T) {
+func TestUnit_ORM_FindUser_NoGroups(t *testing.T) {
 	t.Parallel()
 	ctx := testutils.Context(t)
 
@@ -102,7 +102,7 @@ func TestORM_FindUser_NoGroups(t *testing.T) {
 	require.ErrorContains(t, err, "user present in directory, but matching no role groups assigned")
 }
 
-func TestORM_FindUser_NotActive(t *testing.T) {
+func TestUnit_ORM_FindUser_NotActive(t *testing.T) {
 	t.Parallel()
 	ctx := testutils.Context(t)
 
@@ -142,7 +142,7 @@ func TestORM_FindUser_NotActive(t *testing.T) {
 	require.ErrorContains(t, err, "user not active")
 }
 
-func TestORM_FindUser_Single(t *testing.T) {
+func TestUnit_ORM_FindUser_Single(t *testing.T) {
 	t.Parallel()
 	ctx := testutils.Context(t)
 
@@ -200,7 +200,7 @@ func TestORM_FindUser_Single(t *testing.T) {
 	require.Equal(t, sessions.UserRoleEdit, user.Role)
 }
 
-func TestORM_FindUser_FallbackMatchLocalAdmin(t *testing.T) {
+func TestUnit_ORM_FindUser_FallbackMatchLocalAdmin(t *testing.T) {
 	t.Parallel()
 	ctx := testutils.Context(t)
 
@@ -215,7 +215,7 @@ func TestORM_FindUser_FallbackMatchLocalAdmin(t *testing.T) {
 	require.Equal(t, sessions.UserRoleAdmin, user.Role)
 }
 
-func TestORM_FindUserByAPIToken_Success(t *testing.T) {
+func TestUnit_ORM_FindUserByAPIToken_Success(t *testing.T) {
 	ctx := testutils.Context(t)
 	// Initilaize LDAP Authentication Provider with mock client
 	mockLdapClient := mocks.NewLDAPClient(t)
@@ -234,7 +234,7 @@ func TestORM_FindUserByAPIToken_Success(t *testing.T) {
 	require.Equal(t, sessions.UserRoleEdit, user.Role)
 }
 
-func TestORM_FindUserByAPIToken_Expired(t *testing.T) {
+func TestUnit_ORM_FindUserByAPIToken_Expired(t *testing.T) {
 	ctx := testutils.Context(t)
 	cfg := ldapauth.TestConfig{}
 
@@ -254,7 +254,7 @@ func TestORM_FindUserByAPIToken_Expired(t *testing.T) {
 	require.Equal(t, sessions.ErrUserSessionExpired, err)
 }
 
-func TestORM_ListUsers_Full(t *testing.T) {
+func TestUnit_ORM_ListUsers_Full(t *testing.T) {
 	t.Parallel()
 	ctx := testutils.Context(t)
 
@@ -388,7 +388,7 @@ func TestORM_ListUsers_Full(t *testing.T) {
 	require.Equal(t, sessions.UserRoleAdmin, users[4].Role)
 }
 
-func TestORM_CreateSession_UpstreamBind(t *testing.T) {
+func TestUnit_ORM_CreateSession_UpstreamBind(t *testing.T) {
 	t.Parallel()
 	ctx := testutils.Context(t)
 
@@ -450,7 +450,7 @@ func TestORM_CreateSession_UpstreamBind(t *testing.T) {
 	require.NoError(t, err)
 }
 
-func TestORM_CreateSession_LocalAdminFallbackLogin(t *testing.T) {
+func TestUnit_ORM_CreateSession_LocalAdminFallbackLogin(t *testing.T) {
 	t.Parallel()
 	ctx := testutils.Context(t)
 
@@ -487,7 +487,7 @@ func TestORM_CreateSession_LocalAdminFallbackLogin(t *testing.T) {
 	require.ErrorContains(t, err, "invalid password")
 }
 
-func TestORM_SetPassword_LocalAdminFallbackLogin(t *testing.T) {
+func TestUnit_ORM_SetPassword_LocalAdminFallbackLogin(t *testing.T) {
 	t.Parallel()
 	ctx := testutils.Context(t)
 
@@ -524,7 +524,7 @@ func TestORM_SetPassword_LocalAdminFallbackLogin(t *testing.T) {
 	require.ErrorContains(t, err, "invalid password")
 }
 
-func TestORM_MapSearchGroups(t *testing.T) {
+func TestUnit_ORM_MapSearchGroups(t *testing.T) {
 	t.Parallel()
 
 	cfg := ldapauth.TestConfig{}

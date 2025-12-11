@@ -23,7 +23,7 @@ import (
 	"gopkg.in/guregu/null.v4"
 )
 
-func TestStandardCapabilitiesSpec_Deserialization(t *testing.T) {
+func TestUnit_StandardCapabilitiesSpec_Deserialization(t *testing.T) {
 	tomlData := `
 	type = "standardcapabilities"
 	schemaVersion = 1
@@ -63,7 +63,7 @@ func TestStandardCapabilitiesSpec_Deserialization(t *testing.T) {
 	assert.Equal(t, "5fbb7d5dc1e592142a979b7014552e07a78cb89b1a8626c6412f12f2adfcb240", spec.OracleFactory.OCRKeyBundleID)
 }
 
-func TestOCR2OracleSpec_RelayIdentifier(t *testing.T) {
+func TestUnit_OCR2OracleSpec_RelayIdentifier(t *testing.T) {
 	type fields struct {
 		Relay       string
 		ChainID     string
@@ -134,7 +134,7 @@ var (
 	pretty string
 )
 
-func TestOCR2OracleSpec(t *testing.T) {
+func TestUnit_OCR2OracleSpec(t *testing.T) {
 	val := job.OCR2OracleSpec{
 		Relay:                             relay.NetworkEVM,
 		PluginType:                        types.Median,
@@ -314,7 +314,7 @@ func TestOCR2OracleSpec(t *testing.T) {
 	})
 }
 
-func TestWorkflowSpec_Validate(t *testing.T) {
+func TestUnit_WorkflowSpec_Validate(t *testing.T) {
 	type fields struct {
 		Workflow string
 	}

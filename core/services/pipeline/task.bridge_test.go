@@ -210,7 +210,7 @@ func fakeStringResponder(t *testing.T, s string) http.Handler {
 	})
 }
 
-func TestBridgeTask_Happy(t *testing.T) {
+func TestUnit_BridgeTask_Happy(t *testing.T) {
 	t.Parallel()
 
 	db := pgtest.NewSqlxDB(t)
@@ -269,7 +269,7 @@ func TestBridgeTask_Happy(t *testing.T) {
 	assert.NotEqual(t, uuid.Nil, btelem.DotID)
 }
 
-func TestBridgeTask_HandlesIntermittentFailure(t *testing.T) {
+func TestUnit_BridgeTask_HandlesIntermittentFailure(t *testing.T) {
 	t.Parallel()
 
 	db := pgtest.NewSqlxDB(t)
@@ -330,7 +330,7 @@ func TestBridgeTask_HandlesIntermittentFailure(t *testing.T) {
 	require.Equal(t, runInfo.IsRetryable, runInfo2.IsRetryable)
 }
 
-func TestBridgeTask_DoesNotReturnStaleResults(t *testing.T) {
+func TestUnit_BridgeTask_DoesNotReturnStaleResults(t *testing.T) {
 	t.Parallel()
 
 	ctx := testutils.Context(t)
@@ -424,7 +424,7 @@ func TestBridgeTask_DoesNotReturnStaleResults(t *testing.T) {
 	require.Nil(t, result2.Value)
 }
 
-func TestBridgeTask_AsyncJobPendingState(t *testing.T) {
+func TestUnit_BridgeTask_AsyncJobPendingState(t *testing.T) {
 	t.Parallel()
 
 	db := pgtest.NewSqlxDB(t)
@@ -475,7 +475,7 @@ func TestBridgeTask_AsyncJobPendingState(t *testing.T) {
 	require.Nil(t, result.Value)
 }
 
-func TestBridgeTask_Variables(t *testing.T) {
+func TestUnit_BridgeTask_Variables(t *testing.T) {
 	t.Parallel()
 
 	validMeta := map[string]any{"theMeta": "yes"}
@@ -667,7 +667,7 @@ func TestBridgeTask_Variables(t *testing.T) {
 	}
 }
 
-func TestBridgeTask_Meta(t *testing.T) {
+func TestUnit_BridgeTask_Meta(t *testing.T) {
 	t.Parallel()
 
 	db := pgtest.NewSqlxDB(t)
@@ -718,7 +718,7 @@ func TestBridgeTask_Meta(t *testing.T) {
 	assert.True(t, httpCalled.Load())
 }
 
-func TestBridgeTask_IncludeInputAtKey(t *testing.T) {
+func TestUnit_BridgeTask_IncludeInputAtKey(t *testing.T) {
 	t.Parallel()
 
 	theErr := errors.New("foo")
@@ -785,7 +785,7 @@ func TestBridgeTask_IncludeInputAtKey(t *testing.T) {
 	}
 }
 
-func TestBridgeTask_ErrorMessage(t *testing.T) {
+func TestUnit_BridgeTask_ErrorMessage(t *testing.T) {
 	t.Parallel()
 
 	db := pgtest.NewSqlxDB(t)
@@ -827,7 +827,7 @@ func TestBridgeTask_ErrorMessage(t *testing.T) {
 	require.Nil(t, result.Value)
 }
 
-func TestBridgeTask_OnlyErrorMessage(t *testing.T) {
+func TestUnit_BridgeTask_OnlyErrorMessage(t *testing.T) {
 	t.Parallel()
 
 	db := pgtest.NewSqlxDB(t)
@@ -866,7 +866,7 @@ func TestBridgeTask_OnlyErrorMessage(t *testing.T) {
 	require.Nil(t, result.Value)
 }
 
-func TestBridgeTask_ErrorIfBridgeMissing(t *testing.T) {
+func TestUnit_BridgeTask_ErrorIfBridgeMissing(t *testing.T) {
 	t.Parallel()
 
 	db := pgtest.NewSqlxDB(t)
@@ -893,7 +893,7 @@ func TestBridgeTask_ErrorIfBridgeMissing(t *testing.T) {
 
 // Sample input taken from
 // https://github.com/smartcontractkit/price-adapters#chainlink-price-request-adapters
-func TestAdapterResponse_UnmarshalJSON_Happy(t *testing.T) {
+func TestUnit_AdapterResponse_UnmarshalJSON_Happy(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
@@ -917,7 +917,7 @@ func TestAdapterResponse_UnmarshalJSON_Happy(t *testing.T) {
 	}
 }
 
-func TestBridgeTask_Headers(t *testing.T) {
+func TestUnit_BridgeTask_Headers(t *testing.T) {
 	db := pgtest.NewSqlxDB(t)
 	cfg := configtest.NewTestGeneralConfig(t)
 
@@ -1023,7 +1023,7 @@ func TestBridgeTask_Headers(t *testing.T) {
 	})
 }
 
-func TestBridgeTask_AdapterResponseStatusFailure(t *testing.T) {
+func TestUnit_BridgeTask_AdapterResponseStatusFailure(t *testing.T) {
 	t.Parallel()
 	ctx := testutils.Context(t)
 
@@ -1129,7 +1129,7 @@ func TestBridgeTask_AdapterResponseStatusFailure(t *testing.T) {
 	require.False(t, runInfo.IsPending)
 }
 
-func TestBridgeTask_AdapterTimeout(t *testing.T) {
+func TestUnit_BridgeTask_AdapterTimeout(t *testing.T) {
 	t.Parallel()
 	ctx := testutils.Context(t)
 
@@ -1200,7 +1200,7 @@ func TestBridgeTask_AdapterTimeout(t *testing.T) {
 	})
 }
 
-func TestBridgeTask_PipelineAdapterLWBAError(t *testing.T) {
+func TestUnit_BridgeTask_PipelineAdapterLWBAError(t *testing.T) {
 	t.Parallel()
 
 	dag := `

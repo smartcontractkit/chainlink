@@ -53,7 +53,7 @@ func newRunner(t testing.TB, db *sqlx.DB, bridgeORM bridges.ORM, cfg chainlink.G
 	return r, orm
 }
 
-func Test_PipelineRunner_ExecuteTaskRuns(t *testing.T) {
+func TestUnit_PipelineRunner_ExecuteTaskRuns(t *testing.T) {
 	db := pgtest.NewSqlxDB(t)
 	cfg := configtest.NewTestGeneralConfig(t)
 
@@ -134,7 +134,7 @@ ds5 [type=http method="GET" url="%s" index=2]
 	require.Len(t, errorResults, 3)
 }
 
-func Test_PipelineRunner_ExecuteEthAbiDecode(t *testing.T) {
+func TestUnit_PipelineRunner_ExecuteEthAbiDecode(t *testing.T) {
 	db := pgtest.NewSqlxDB(t)
 	cfg := configtest.NewTestGeneralConfig(t)
 
@@ -219,7 +219,7 @@ func (t taskRunWithVars) String() string {
     `, t.bridgeName, t.ds2URL, t.ds4URL, t.submitBridgeName, t.includeInputAtKey)
 }
 
-func Test_PipelineRunner_ExecuteTaskRunsWithVars(t *testing.T) {
+func TestUnit_PipelineRunner_ExecuteTaskRunsWithVars(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
@@ -390,7 +390,7 @@ decode_log -> decode_cbor;
 `
 )
 
-func Test_PipelineRunner_CBORParse(t *testing.T) {
+func TestUnit_PipelineRunner_CBORParse(t *testing.T) {
 	db := pgtest.NewSqlxDB(t)
 	cfg := configtest.NewTestGeneralConfig(t)
 	btORM := bridgesMocks.NewORM(t)
@@ -451,7 +451,7 @@ func Test_PipelineRunner_CBORParse(t *testing.T) {
 	})
 }
 
-func Test_PipelineRunner_HandleFaults(t *testing.T) {
+func TestUnit_PipelineRunner_HandleFaults(t *testing.T) {
 	// We want to test the scenario where one or multiple APIs time out,
 	// but a sufficient number of them still complete within the desired time frame
 	// and so we can still obtain a median.
@@ -502,7 +502,7 @@ answer1 [type=median                      index=0];
 	}
 }
 
-func Test_PipelineRunner_HandleFaultsPersistRun(t *testing.T) {
+func TestUnit_PipelineRunner_HandleFaultsPersistRun(t *testing.T) {
 	db := pgtest.NewSqlxDB(t)
 	orm := mocks.NewORM(t)
 	btORM := bridgesMocks.NewORM(t)
@@ -548,7 +548,7 @@ succeed2 -> final;
 	assert.Equal(t, "10.5", finalResult.Values[0].(decimal.Decimal).String())
 }
 
-func Test_PipelineRunner_ExecuteAndInsertFinishedRun_SavingTheSpec(t *testing.T) {
+func TestUnit_PipelineRunner_ExecuteAndInsertFinishedRun_SavingTheSpec(t *testing.T) {
 	db := pgtest.NewSqlxDB(t)
 	orm := mocks.NewORM(t)
 	btORM := bridgesMocks.NewORM(t)
@@ -593,7 +593,7 @@ succeed2 -> final;
 	assert.Equal(t, "10.5", finalResult.Values[0].(decimal.Decimal).String())
 }
 
-func Test_PipelineRunner_MultipleOutputs(t *testing.T) {
+func TestUnit_PipelineRunner_MultipleOutputs(t *testing.T) {
 	db := pgtest.NewSqlxDB(t)
 	cfg := configtest.NewTestGeneralConfig(t)
 	btORM := bridgesMocks.NewORM(t)
@@ -621,7 +621,7 @@ a->b2->c;`,
 	assert.Equal(t, mustDecimal(t, "10").String(), result.Value.(decimal.Decimal).String())
 }
 
-func Test_PipelineRunner_MultipleTerminatingOutputs(t *testing.T) {
+func TestUnit_PipelineRunner_MultipleTerminatingOutputs(t *testing.T) {
 	cfg := configtest.NewTestGeneralConfig(t)
 	btORM := bridgesMocks.NewORM(t)
 	r, _ := newRunner(t, pgtest.NewSqlxDB(t), btORM, cfg)
@@ -643,7 +643,7 @@ a->b2;`,
 	assert.Equal(t, mustDecimal(t, "12").String(), result.Values[1].(decimal.Decimal).String())
 }
 
-func Test_PipelineRunner_AsyncJob_Basic(t *testing.T) {
+func TestUnit_PipelineRunner_AsyncJob_Basic(t *testing.T) {
 	db := pgtest.NewSqlxDB(t)
 
 	btcUSDPairing := utils.MustUnmarshalToMap(`{"data":{"coin":"BTC","market":"USD"}}`)
@@ -773,7 +773,7 @@ ds5 [type=http method="GET" url="%s" index=2]
 	require.Len(t, errorResults, 3)
 }
 
-func Test_PipelineRunner_AsyncJob_InstantRestart(t *testing.T) {
+func TestUnit_PipelineRunner_AsyncJob_InstantRestart(t *testing.T) {
 	db := pgtest.NewSqlxDB(t)
 
 	btcUSDPairing := utils.MustUnmarshalToMap(`{"data":{"coin":"BTC","market":"USD"}}`)
@@ -892,7 +892,7 @@ ds5 [type=http method="GET" url="%s" index=2]
 	require.Len(t, errorResults, 3)
 }
 
-func Test_PipelineRunner_LowercaseOutputs(t *testing.T) {
+func TestUnit_PipelineRunner_LowercaseOutputs(t *testing.T) {
 	db := pgtest.NewSqlxDB(t)
 	cfg := configtest.NewTestGeneralConfig(t)
 	btORM := bridgesMocks.NewORM(t)
@@ -915,7 +915,7 @@ a [type=lowercase input="$(first)"]
 	assert.Equal(t, "camelcase", result.Value.(string))
 }
 
-func Test_PipelineRunner_UppercaseOutputs(t *testing.T) {
+func TestUnit_PipelineRunner_UppercaseOutputs(t *testing.T) {
 	db := pgtest.NewSqlxDB(t)
 	cfg := configtest.NewTestGeneralConfig(t)
 	btORM := bridgesMocks.NewORM(t)
@@ -937,7 +937,7 @@ a [type=uppercase input="$(first)"]
 	assert.Equal(t, "SOMERANDOMTEST", result.Value.(string))
 }
 
-func Test_PipelineRunner_HexDecodeOutputs(t *testing.T) {
+func TestUnit_PipelineRunner_HexDecodeOutputs(t *testing.T) {
 	db := pgtest.NewSqlxDB(t)
 	cfg := configtest.NewTestGeneralConfig(t)
 	btORM := bridgesMocks.NewORM(t)
@@ -959,7 +959,7 @@ a [type=hexdecode input="$(astring)"]
 	assert.Equal(t, []byte{0x12, 0x34, 0x56, 0x78}, result.Value)
 }
 
-func Test_PipelineRunner_HexEncodeAndDecode(t *testing.T) {
+func TestUnit_PipelineRunner_HexEncodeAndDecode(t *testing.T) {
 	db := pgtest.NewSqlxDB(t)
 	cfg := configtest.NewTestGeneralConfig(t)
 	btORM := bridgesMocks.NewORM(t)
@@ -984,7 +984,7 @@ en->de
 	assert.Equal(t, inputBytes, result.Value)
 }
 
-func Test_PipelineRunner_Base64DecodeOutputs(t *testing.T) {
+func TestUnit_PipelineRunner_Base64DecodeOutputs(t *testing.T) {
 	db := pgtest.NewSqlxDB(t)
 	cfg := configtest.NewTestGeneralConfig(t)
 	btORM := bridgesMocks.NewORM(t)
@@ -1006,7 +1006,7 @@ a [type=base64decode input="$(astring)"]
 	assert.Equal(t, []byte("Hello, playground"), result.Value)
 }
 
-func Test_PipelineRunner_Base64EncodeAndDecode(t *testing.T) {
+func TestUnit_PipelineRunner_Base64EncodeAndDecode(t *testing.T) {
 	db := pgtest.NewSqlxDB(t)
 	cfg := configtest.NewTestGeneralConfig(t)
 	btORM := bridgesMocks.NewORM(t)
@@ -1031,7 +1031,7 @@ en->de
 	assert.Equal(t, inputBytes, result.Value)
 }
 
-func Test_PipelineRunner_ExecuteRun(t *testing.T) {
+func TestUnit_PipelineRunner_ExecuteRun(t *testing.T) {
 	t.Run("uses cached *Pipeline if available", func(t *testing.T) {
 		db := pgtest.NewSqlxDB(t)
 		cfg := configtest.NewTestGeneralConfig(t)

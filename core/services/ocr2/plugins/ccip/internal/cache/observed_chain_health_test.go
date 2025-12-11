@@ -16,7 +16,7 @@ import (
 
 var address = cciptypes.Address(common.HexToAddress("0x1234567890123456789012345678901234567890").String())
 
-func Test_ObservedChainStateSkipErrors(t *testing.T) {
+func TestUnit_ObservedChainStateSkipErrors(t *testing.T) {
 	mockedHealthcheck := mocks.NewChainHealthcheck(t)
 	mockedHealthcheck.On("IsHealthy", mock.Anything).Return(false, errors.New("error"))
 
@@ -33,7 +33,7 @@ func Test_ObservedChainStateSkipErrors(t *testing.T) {
 	assert.Equal(t, float64(0), testutil.ToFloat64(laneHealthStatus.WithLabelValues("plugin", "10", "20", "0x1234567890123456789012345678901234567890")))
 }
 
-func Test_ObservedChainStateReportsStatus(t *testing.T) {
+func TestUnit_ObservedChainStateReportsStatus(t *testing.T) {
 	mockedHealthcheck := mocks.NewChainHealthcheck(t)
 	mockedHealthcheck.On("IsHealthy", mock.Anything).Return(true, nil).Once()
 

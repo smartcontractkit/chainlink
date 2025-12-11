@@ -15,7 +15,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/suikey"
 )
 
-func Test_SuiKeyStore_E2E(t *testing.T) {
+func TestUnit_SuiKeyStore_E2E(t *testing.T) {
 	db := pgtest.NewSqlxDB(t)
 
 	keyStore := keystore.ExposedNewMaster(t, db)

@@ -15,7 +15,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestJSON_Merge(t *testing.T) {
+func TestUnit_JSON_Merge(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
@@ -93,13 +93,13 @@ func TestJSON_Merge(t *testing.T) {
 	}
 }
 
-func TestJSON_MergeNull(t *testing.T) {
+func TestUnit_JSON_MergeNull(t *testing.T) {
 	merged, err := models.Merge(models.JSON{}, models.JSON{})
 	require.NoError(t, err)
 	assert.Equal(t, `{}`, merged.String())
 }
 
-func TestJSON_UnmarshalJSON(t *testing.T) {
+func TestUnit_JSON_UnmarshalJSON(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
@@ -120,7 +120,7 @@ func TestJSON_UnmarshalJSON(t *testing.T) {
 	}
 }
 
-func TestJSON_ParseJSON(t *testing.T) {
+func TestUnit_JSON_ParseJSON(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
@@ -143,7 +143,7 @@ func TestJSON_ParseJSON(t *testing.T) {
 	}
 }
 
-func TestWebURL_UnmarshalJSON_Error(t *testing.T) {
+func TestUnit_WebURL_UnmarshalJSON_Error(t *testing.T) {
 	t.Parallel()
 	j := []byte(`"NotAUrl"`)
 	wurl := &models.WebURL{}
@@ -151,7 +151,7 @@ func TestWebURL_UnmarshalJSON_Error(t *testing.T) {
 	assert.Error(t, err)
 }
 
-func TestWebURL_UnmarshalJSON(t *testing.T) {
+func TestUnit_WebURL_UnmarshalJSON(t *testing.T) {
 	t.Parallel()
 	j := []byte(`"http://www.duckduckgo.com"`)
 	wurl := &models.WebURL{}
@@ -159,7 +159,7 @@ func TestWebURL_UnmarshalJSON(t *testing.T) {
 	assert.NoError(t, err)
 }
 
-func TestWebURL_MarshalJSON(t *testing.T) {
+func TestUnit_WebURL_MarshalJSON(t *testing.T) {
 	t.Parallel()
 
 	str := "http://www.duckduckgo.com"
@@ -171,7 +171,7 @@ func TestWebURL_MarshalJSON(t *testing.T) {
 	assert.Equal(t, `"`+str+`"`, string(b))
 }
 
-func TestWebURL_String_HasURL(t *testing.T) {
+func TestUnit_WebURL_String_HasURL(t *testing.T) {
 	t.Parallel()
 
 	u, _ := url.Parse("http://www.duckduckgo.com")
@@ -180,7 +180,7 @@ func TestWebURL_String_HasURL(t *testing.T) {
 	assert.Equal(t, "http://www.duckduckgo.com", w.String())
 }
 
-func TestWebURL_String_HasNilURL(t *testing.T) {
+func TestUnit_WebURL_String_HasNilURL(t *testing.T) {
 	t.Parallel()
 
 	w := models.WebURL{}
@@ -188,7 +188,7 @@ func TestWebURL_String_HasNilURL(t *testing.T) {
 	assert.Empty(t, w.String())
 }
 
-func TestCron_UnmarshalJSON_Success(t *testing.T) {
+func TestUnit_Cron_UnmarshalJSON_Success(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
@@ -207,7 +207,7 @@ func TestCron_UnmarshalJSON_Success(t *testing.T) {
 	}
 }
 
-func TestCron_UnmarshalJSON_Invalid(t *testing.T) {
+func TestUnit_Cron_UnmarshalJSON_Invalid(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
@@ -226,7 +226,7 @@ func TestCron_UnmarshalJSON_Invalid(t *testing.T) {
 	}
 }
 
-func TestSha256Hash_MarshalJSON_UnmarshalJSON(t *testing.T) {
+func TestUnit_Sha256Hash_MarshalJSON_UnmarshalJSON(t *testing.T) {
 	t.Parallel()
 
 	hash := models.MustSha256HashFromHex("f5bf259689b26f1374efb3c9a9868796953a0f814bb2d39b968d0e61b58620a5")
@@ -241,7 +241,7 @@ func TestSha256Hash_MarshalJSON_UnmarshalJSON(t *testing.T) {
 	require.Equal(t, hash, newHash)
 }
 
-func TestSha256Hash_Sha256HashFromHex(t *testing.T) {
+func TestUnit_Sha256Hash_Sha256HashFromHex(t *testing.T) {
 	t.Parallel()
 
 	_, err := models.Sha256HashFromHex("abczzz")
@@ -254,14 +254,14 @@ func TestSha256Hash_Sha256HashFromHex(t *testing.T) {
 	require.NoError(t, err)
 }
 
-func TestSha256Hash_String(t *testing.T) {
+func TestUnit_Sha256Hash_String(t *testing.T) {
 	t.Parallel()
 
 	hash := models.MustSha256HashFromHex("f5bf259689b26f1374efb3c9a9868796953a0f814bb2d39b968d0e61b58620a5")
 	assert.Equal(t, "f5bf259689b26f1374efb3c9a9868796953a0f814bb2d39b968d0e61b58620a5", hash.String())
 }
 
-func TestSha256Hash_Scan_Value(t *testing.T) {
+func TestUnit_Sha256Hash_Scan_Value(t *testing.T) {
 	t.Parallel()
 
 	hash := models.MustSha256HashFromHex("f5bf259689b26f1374efb3c9a9868796953a0f814bb2d39b968d0e61b58620a5")
@@ -275,7 +275,7 @@ func TestSha256Hash_Scan_Value(t *testing.T) {
 	require.Equal(t, hash, newHash)
 }
 
-func TestAddressCollection_Scan_Value(t *testing.T) {
+func TestUnit_AddressCollection_Scan_Value(t *testing.T) {
 	t.Parallel()
 
 	ac := models.AddressCollection{
@@ -293,7 +293,7 @@ func TestAddressCollection_Scan_Value(t *testing.T) {
 	require.Equal(t, ac, acNew)
 }
 
-func TestAddressCollection_ToStrings(t *testing.T) {
+func TestUnit_AddressCollection_ToStrings(t *testing.T) {
 	t.Parallel()
 
 	hex1 := "0xaAaAaAaaAaAaAaaAaAAAAAAAAaaaAaAaAaaAaaAa"
@@ -310,7 +310,7 @@ func TestAddressCollection_ToStrings(t *testing.T) {
 	require.Equal(t, hex2, acStrings[1])
 }
 
-func TestWebURL_Scan_Value(t *testing.T) {
+func TestUnit_WebURL_Scan_Value(t *testing.T) {
 	t.Parallel()
 
 	u, err := url.Parse("https://chain.link")
@@ -328,7 +328,7 @@ func TestWebURL_Scan_Value(t *testing.T) {
 	require.Equal(t, w, wNew)
 }
 
-func TestJSON_Scan_Value(t *testing.T) {
+func TestUnit_JSON_Scan_Value(t *testing.T) {
 	t.Parallel()
 
 	js, err := models.ParseJSON([]byte(`{"foo":123}`))
@@ -344,7 +344,7 @@ func TestJSON_Scan_Value(t *testing.T) {
 	require.Equal(t, js, jsNew)
 }
 
-func TestJSON_Bytes(t *testing.T) {
+func TestUnit_JSON_Bytes(t *testing.T) {
 	t.Parallel()
 
 	jsBytes := []byte(`{"foo":123}`)
@@ -355,7 +355,7 @@ func TestJSON_Bytes(t *testing.T) {
 	require.Equal(t, jsBytes, js.Bytes())
 }
 
-func TestJSON_MarshalJSON(t *testing.T) {
+func TestUnit_JSON_MarshalJSON(t *testing.T) {
 	t.Parallel()
 
 	jsBytes := []byte(`{"foo":123}`)
@@ -369,7 +369,7 @@ func TestJSON_MarshalJSON(t *testing.T) {
 	require.Equal(t, jsBytes, bs)
 }
 
-func TestJSON_UnmarshalTOML(t *testing.T) {
+func TestUnit_JSON_UnmarshalTOML(t *testing.T) {
 	t.Parallel()
 
 	jsBytes := []byte(`{"foo":123}`)

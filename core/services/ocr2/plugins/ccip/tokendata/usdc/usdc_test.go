@@ -34,7 +34,7 @@ var (
 	mockMsgTransmitter = utils.RandomAddress()
 )
 
-func TestUSDCReader_callAttestationApi(t *testing.T) {
+func TestUnit_USDCReader_callAttestationApi(t *testing.T) {
 	t.Skip("uses the real USDC attestation API")
 	ctx := t.Context()
 	usdcMessageHash := "912f22a13e9ccb979b621500f6952b2afd6e75be7eadaed93fc2625fe11c52a2"
@@ -52,7 +52,7 @@ func TestUSDCReader_callAttestationApi(t *testing.T) {
 	require.Equal(t, "PENDING", attestation.Attestation)
 }
 
-func TestUSDCReader_callAttestationApiMock(t *testing.T) {
+func TestUnit_USDCReader_callAttestationApiMock(t *testing.T) {
 	t.Parallel()
 	ctx := t.Context()
 	response := attestationResponse{
@@ -76,7 +76,7 @@ func TestUSDCReader_callAttestationApiMock(t *testing.T) {
 	require.Equal(t, response.Attestation, attestation.Attestation)
 }
 
-func TestUSDCReader_callAttestationApiMockError(t *testing.T) {
+func TestUnit_USDCReader_callAttestationApiMockError(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
@@ -230,7 +230,7 @@ func getMockUSDCEndpoint(t *testing.T, response attestationResponse) *httptest.S
 	}))
 }
 
-func TestGetUSDCMessageBody(t *testing.T) {
+func TestUnit_GetUSDCMessageBody(t *testing.T) {
 	t.Parallel()
 	ctx := testutils.Context(t)
 	expectedBody := []byte("0x0000000000000001000000020000000000048d71000000000000000000000000eb08f243e5d3fcff26a9e38ae5520a669f4019d000000000000000000000000023a04d5935ed8bc8e3eb78db3541f0abfb001c6e0000000000000000000000006cb3ed9b441eb674b58495c8b3324b59faff5243000000000000000000000000000000005425890298aed601595a70ab815c96711a31bc65000000000000000000000000ab4f961939bfe6a93567cc57c59eed7084ce2131000000000000000000000000000000000000000000000000000000000000271000000000000000000000000035e08285cfed1ef159236728f843286c55fc0861")
@@ -258,7 +258,7 @@ func TestGetUSDCMessageBody(t *testing.T) {
 	usdcReader.AssertNumberOfCalls(t, "GetUSDCMessagePriorToLogIndexInTx", 1)
 }
 
-func TestTokenDataReader_getUsdcTokenEndOffset(t *testing.T) {
+func TestUnit_TokenDataReader_getUsdcTokenEndOffset(t *testing.T) {
 	t.Parallel()
 	usdcToken := utils.RandomAddress()
 	nonUsdcToken := utils.RandomAddress()
@@ -311,7 +311,7 @@ func TestTokenDataReader_getUsdcTokenEndOffset(t *testing.T) {
 	}
 }
 
-func TestUSDCReader_rateLimiting(t *testing.T) {
+func TestUnit_USDCReader_rateLimiting(t *testing.T) {
 	t.Parallel()
 	testCases := []struct {
 		name         string

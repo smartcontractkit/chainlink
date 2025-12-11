@@ -8,7 +8,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/loop"
 )
 
-func TestNewCmdFactory_RegisterSuccess(t *testing.T) {
+func TestUnit_NewCmdFactory_RegisterSuccess(t *testing.T) {
 	mockRegister := func(id string) (*RegisteredLoop, error) {
 		return &RegisteredLoop{EnvCfg: loop.EnvConfig{}}, nil
 	}
@@ -30,7 +30,7 @@ func TestNewCmdFactory_RegisterSuccess(t *testing.T) {
 	}
 }
 
-func TestNewCmdFactory_RegisterFail(t *testing.T) {
+func TestUnit_NewCmdFactory_RegisterFail(t *testing.T) {
 	mockRegister := func(id string) (*RegisteredLoop, error) {
 		return nil, errors.New("registration failed")
 	}

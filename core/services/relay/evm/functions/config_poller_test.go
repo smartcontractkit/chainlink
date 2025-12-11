@@ -37,7 +37,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
-func TestFunctionsConfigPoller(t *testing.T) {
+func TestUnit_FunctionsConfigPoller(t *testing.T) {
 	t.Run("FunctionsPlugin", func(t *testing.T) {
 		runTest(t, functions.FunctionsPlugin, functions.FunctionsDigestPrefix)
 	})

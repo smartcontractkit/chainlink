@@ -30,7 +30,7 @@ const (
 	privateKey = "6c358b4f16344f03cfce12ebf7b768301bbe6a8977c98a2a2d76699f8bc56161"
 )
 
-func TestOutgoingConnectorHandler_AwaitConnection(t *testing.T) {
+func TestUnit_OutgoingConnectorHandler_AwaitConnection(t *testing.T) {
 	gateways := []string{"gateway1", "gateway2"}
 
 	type testCase struct {
@@ -144,7 +144,7 @@ func TestOutgoingConnectorHandler_AwaitConnection(t *testing.T) {
 	}
 }
 
-func TestHandleSingleNodeRequest(t *testing.T) {
+func TestUnit_HandleSingleNodeRequest(t *testing.T) {
 	t.Run("uses default timeout if no timeout is provided", func(t *testing.T) {
 		msgID := "msgID"
 		testURL := "http://localhost:8080"
@@ -408,7 +408,7 @@ func gatewayResponse(t *testing.T, msgID string, privateKey string) *jsonrpc.Req
 	return req
 }
 
-func TestServiceConfigDefaults(t *testing.T) {
+func TestUnit_ServiceConfigDefaults(t *testing.T) {
 	t.Run("fills default RateLimiterConfigs", func(t *testing.T) {
 		var cfg ServiceConfig
 
@@ -428,7 +428,7 @@ func TestServiceConfigDefaults(t *testing.T) {
 		require.InDelta(t, DefaultWorkflowRPS, oRLConf.PerSenderRPS, 0.001)
 	})
 }
-func TestOutgoingConnectorHandler_HandleGatewayMessage_InvalidMessage(t *testing.T) {
+func TestUnit_OutgoingConnectorHandler_HandleGatewayMessage_InvalidMessage(t *testing.T) {
 	_, handler := newFunctionWithDefaultConfig(
 		t,
 		func(gc *gcmocks.GatewayConnector) {},

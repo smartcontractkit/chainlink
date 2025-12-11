@@ -31,7 +31,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/web/presenters"
 )
 
-func TestPipelineRunsController_CreateWithBody_HappyPath(t *testing.T) {
+func TestUnit_PipelineRunsController_CreateWithBody_HappyPath(t *testing.T) {
 	t.Parallel()
 
 	ctx := testutils.Context(t)
@@ -87,7 +87,7 @@ func TestPipelineRunsController_CreateWithBody_HappyPath(t *testing.T) {
 	}
 }
 
-func TestPipelineRunsController_CreateNoBody_HappyPath(t *testing.T) {
+func TestUnit_PipelineRunsController_CreateNoBody_HappyPath(t *testing.T) {
 	t.Parallel()
 
 	ctx := testutils.Context(t)
@@ -148,7 +148,7 @@ func TestPipelineRunsController_CreateNoBody_HappyPath(t *testing.T) {
 	}
 }
 
-func TestPipelineRunsController_Index_GlobalHappyPath(t *testing.T) {
+func TestUnit_PipelineRunsController_Index_GlobalHappyPath(t *testing.T) {
 	client, jobID, runIDs := setupPipelineRunsControllerTests(t)
 
 	url := url.URL{Path: "/v2/pipeline/runs"}
@@ -176,7 +176,7 @@ func TestPipelineRunsController_Index_GlobalHappyPath(t *testing.T) {
 	require.Len(t, parsedResponse[1].TaskRuns, 8)
 }
 
-func TestPipelineRunsController_Index_HappyPath(t *testing.T) {
+func TestUnit_PipelineRunsController_Index_HappyPath(t *testing.T) {
 	client, jobID, runIDs := setupPipelineRunsControllerTests(t)
 
 	response, cleanup := client.Get("/v2/jobs/" + strconv.Itoa(int(jobID)) + "/runs")
@@ -199,7 +199,7 @@ func TestPipelineRunsController_Index_HappyPath(t *testing.T) {
 	require.Len(t, parsedResponse[1].TaskRuns, 8)
 }
 
-func TestPipelineRunsController_Index_Pagination(t *testing.T) {
+func TestUnit_PipelineRunsController_Index_Pagination(t *testing.T) {
 	client, jobID, runIDs := setupPipelineRunsControllerTests(t)
 
 	response, cleanup := client.Get("/v2/jobs/" + strconv.Itoa(int(jobID)) + "/runs?page=1&size=1")
@@ -221,7 +221,7 @@ func TestPipelineRunsController_Index_Pagination(t *testing.T) {
 	require.Len(t, parsedResponse[0].TaskRuns, 8)
 }
 
-func TestPipelineRunsController_Show_HappyPath(t *testing.T) {
+func TestUnit_PipelineRunsController_Show_HappyPath(t *testing.T) {
 	client, jobID, runIDs := setupPipelineRunsControllerTests(t)
 
 	response, cleanup := client.Get("/v2/jobs/" + strconv.Itoa(int(jobID)) + "/runs/" + strconv.FormatInt(runIDs[0], 10))
@@ -240,7 +240,7 @@ func TestPipelineRunsController_Show_HappyPath(t *testing.T) {
 	require.Len(t, parsedResponse.TaskRuns, 8)
 }
 
-func TestPipelineRunsController_ShowRun_InvalidID(t *testing.T) {
+func TestUnit_PipelineRunsController_ShowRun_InvalidID(t *testing.T) {
 	t.Parallel()
 	app := cltest.NewApplicationEVMDisabled(t)
 	require.NoError(t, app.Start(testutils.Context(t)))

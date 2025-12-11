@@ -12,7 +12,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/vrf/vrfcommon"
 )
 
-func TestListener_EstimateFeeJuels(t *testing.T) {
+func TestUnit_Listener_EstimateFeeJuels(t *testing.T) {
 	callbackGasLimit := uint32(150_000)
 	maxGasPriceGwei := assets.GWei(30).ToInt()
 	weiPerUnitLink := big.NewInt(5898160000000000)
@@ -32,7 +32,7 @@ func TestListener_EstimateFeeJuels(t *testing.T) {
 	require.Error(t, err)
 }
 
-func Test_TxListDeduper(t *testing.T) {
+func TestUnit_TxListDeduper(t *testing.T) {
 	tx1 := &txmgr.Tx{
 		ID:      1,
 		Value:   *big.NewInt(0),

@@ -15,7 +15,7 @@ import (
 	v2 "github.com/smartcontractkit/chainlink/v2/core/services/workflows/v2"
 )
 
-func TestRunner(t *testing.T) {
+func TestUnit_Runner(t *testing.T) {
 	t.Parallel()
 
 	t.Run("happy path with an empty workflow", func(t *testing.T) {

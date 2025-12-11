@@ -13,7 +13,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/internal"
 )
 
-func TestNew(t *testing.T) {
+func TestUnit_New(t *testing.T) {
 	key, err := New()
 	require.NoError(t, err)
 
@@ -21,14 +21,14 @@ func TestNew(t *testing.T) {
 	assert.NotNil(t, key.raw)
 }
 
-func TestPublicKey(t *testing.T) {
+func TestUnit_PublicKey(t *testing.T) {
 	key, err := New()
 	require.NoError(t, err)
 
 	assert.Equal(t, *key.publicKey, key.PublicKey())
 }
 
-func TestEncryptKeyFromRawPrivateKey(t *testing.T) {
+func TestUnit_EncryptKeyFromRawPrivateKey(t *testing.T) {
 	boxPubKey, boxPrivKey, err := box.GenerateKey(cryptorand.Reader)
 	require.NoError(t, err)
 
@@ -45,7 +45,7 @@ func TestEncryptKeyFromRawPrivateKey(t *testing.T) {
 	assert.Equal(t, hex.EncodeToString(byteBoxPubKey), key.PublicKeyString())
 }
 
-func TestPublicKeyStringAndID(t *testing.T) {
+func TestUnit_PublicKeyStringAndID(t *testing.T) {
 	key := "my-test-public-key"
 	var pubkey [32]byte
 	copy(pubkey[:], key)
@@ -63,7 +63,7 @@ func TestPublicKeyStringAndID(t *testing.T) {
 	assert.Equal(t, expected, k.ID())
 }
 
-func TestDecrypt(t *testing.T) {
+func TestUnit_Decrypt(t *testing.T) {
 	key, err := New()
 	require.NoError(t, err)
 
@@ -77,7 +77,7 @@ func TestDecrypt(t *testing.T) {
 	assert.Equal(t, secret, plaintext)
 }
 
-func TestMustNewXXXTestingOnly(t *testing.T) {
+func TestUnit_MustNewXXXTestingOnly(t *testing.T) {
 	tests := []struct {
 		name        string
 		k           *big.Int

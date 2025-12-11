@@ -119,7 +119,7 @@ func rowsToShapshotRows(rows []*s4_svc.Row) []*s4_svc.SnapshotRow {
 	return versions
 }
 
-func TestPlugin_NewReportingPlugin(t *testing.T) {
+func TestUnit_Plugin_NewReportingPlugin(t *testing.T) {
 	t.Parallel()
 
 	logger := commonlogger.NewOCRWrapper(logger.TestLogger(t), true, func(msg string) {})
@@ -165,7 +165,7 @@ func TestPlugin_NewReportingPlugin(t *testing.T) {
 	})
 }
 
-func TestPlugin_Close(t *testing.T) {
+func TestUnit_Plugin_Close(t *testing.T) {
 	t.Parallel()
 
 	logger := commonlogger.NewOCRWrapper(logger.TestLogger(t), true, func(msg string) {})
@@ -178,7 +178,7 @@ func TestPlugin_Close(t *testing.T) {
 	assert.NoError(t, err)
 }
 
-func TestPlugin_ShouldTransmitAcceptedReport(t *testing.T) {
+func TestUnit_Plugin_ShouldTransmitAcceptedReport(t *testing.T) {
 	t.Parallel()
 
 	logger := commonlogger.NewOCRWrapper(logger.TestLogger(t), true, func(msg string) {})
@@ -192,7 +192,7 @@ func TestPlugin_ShouldTransmitAcceptedReport(t *testing.T) {
 	assert.False(t, should)
 }
 
-func TestPlugin_ShouldAcceptFinalizedReport(t *testing.T) {
+func TestUnit_Plugin_ShouldAcceptFinalizedReport(t *testing.T) {
 	t.Parallel()
 
 	logger := commonlogger.NewOCRWrapper(logger.TestLogger(t), true, func(msg string) {})
@@ -252,7 +252,7 @@ func TestPlugin_ShouldAcceptFinalizedReport(t *testing.T) {
 	})
 }
 
-func TestPlugin_Query(t *testing.T) {
+func TestUnit_Plugin_Query(t *testing.T) {
 	t.Parallel()
 
 	logger := commonlogger.NewOCRWrapper(logger.TestLogger(t), true, func(msg string) {})
@@ -329,7 +329,7 @@ func TestPlugin_Query(t *testing.T) {
 	})
 }
 
-func TestPlugin_Observation(t *testing.T) {
+func TestUnit_Plugin_Observation(t *testing.T) {
 	t.Parallel()
 
 	logger := commonlogger.NewOCRWrapper(logger.TestLogger(t), true, func(msg string) {})
@@ -462,7 +462,7 @@ func TestPlugin_Observation(t *testing.T) {
 	})
 }
 
-func TestPlugin_Report(t *testing.T) {
+func TestUnit_Plugin_Report(t *testing.T) {
 	t.Parallel()
 
 	logger := commonlogger.NewOCRWrapper(logger.TestLogger(t), true, func(msg string) {})

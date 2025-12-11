@@ -17,7 +17,7 @@ type event struct {
 	result   Result
 }
 
-func TestScheduler(t *testing.T) {
+func TestUnit_Scheduler(t *testing.T) {
 	// NOTE: task type does not matter in the test cases, it's just there so it's parsed successfully
 	tests := []struct {
 		name      string

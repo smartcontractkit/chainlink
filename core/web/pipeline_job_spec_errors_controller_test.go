@@ -12,7 +12,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 )
 
-func TestPipelineJobSpecErrorsController_Delete_2(t *testing.T) {
+func TestUnit_PipelineJobSpecErrorsController_Delete_2(t *testing.T) {
 	app, client, _, jID, _, _ := setupJobSpecsControllerTestsWithJobs(t)
 
 	description := "job spec error description"
@@ -48,7 +48,7 @@ func TestPipelineJobSpecErrorsController_Delete_2(t *testing.T) {
 	}
 }
 
-func TestPipelineJobSpecErrorsController_Delete_NotFound(t *testing.T) {
+func TestUnit_PipelineJobSpecErrorsController_Delete_NotFound(t *testing.T) {
 	_, client, _, _, _, _ := setupJobSpecsControllerTestsWithJobs(t)
 
 	resp, cleanup := client.Delete("/v2/pipeline/job_spec_errors/1")

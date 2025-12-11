@@ -8,7 +8,7 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func Test_wrappedOracle_Close(t *testing.T) {
+func TestUnit_wrappedOracle_Close(t *testing.T) {
 	tests := []struct {
 		name         string
 		oracleErr    error

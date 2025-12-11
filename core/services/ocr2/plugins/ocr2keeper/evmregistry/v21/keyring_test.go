@@ -11,7 +11,7 @@ import (
 	"github.com/smartcontractkit/chainlink-automation/pkg/v3/plugin"
 )
 
-func TestNewOnchainKeyringV3Wrapper(t *testing.T) {
+func TestUnit_NewOnchainKeyringV3Wrapper(t *testing.T) {
 	t.Run("the on chain keyring wrapper gets the public key and max signature length from the wrapped keyring", func(t *testing.T) {
 		onchainKeyring := &mockOnchainKeyring{
 			MaxSignatureLengthFn: func() int {

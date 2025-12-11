@@ -12,7 +12,7 @@ func init() {
 	logger.InitColor(true)
 }
 
-func TestPrettyConsole_Write(t *testing.T) {
+func TestUnit_PrettyConsole_Write(t *testing.T) {
 	tests := []struct {
 		name      string
 		input     string

@@ -16,7 +16,7 @@ const (
 	ann2    = "announcement2"
 )
 
-func TestInMemoryDiscovererDatabase(t *testing.T) {
+func TestUnit_InMemoryDiscovererDatabase(t *testing.T) {
 	db := p2p.NewInMemoryDiscovererDatabase()
 	require.NoError(t, db.StoreAnnouncement(testutils.Context(t), peerID1, []byte(ann1)))
 	require.NoError(t, db.StoreAnnouncement(testutils.Context(t), peerID2, []byte(ann2)))

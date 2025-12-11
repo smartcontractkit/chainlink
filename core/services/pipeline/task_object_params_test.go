@@ -11,7 +11,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
 )
 
-func TestObjectParam_UnmarshalPipelineParamValid(t *testing.T) {
+func TestUnit_ObjectParam_UnmarshalPipelineParamValid(t *testing.T) {
 	t.Parallel()
 
 	decimalValue := decimal.New(173, -1)
@@ -71,7 +71,7 @@ func TestObjectParam_UnmarshalPipelineParamValid(t *testing.T) {
 	}
 }
 
-func TestObjectParam_Marshal(t *testing.T) {
+func TestUnit_ObjectParam_Marshal(t *testing.T) {
 	tests := []struct {
 		name   string
 		input  *pipeline.ObjectParam

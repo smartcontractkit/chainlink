@@ -33,7 +33,7 @@ URL = "file:///path/to/workflows"
 `
 )
 
-func TestCREConfig(t *testing.T) {
+func TestUnit_CREConfig(t *testing.T) {
 	opts := GeneralConfigOpts{
 		SecretsStrings: []string{secretsCRE},
 		ConfigStrings:  []string{configCRE},
@@ -54,7 +54,7 @@ func TestCREConfig(t *testing.T) {
 	assert.Equal(t, "http://workflow-server.example.com/workflows", fetcher.URL())
 }
 
-func TestCREConfigWithFileURL(t *testing.T) {
+func TestUnit_CREConfigWithFileURL(t *testing.T) {
 	opts := GeneralConfigOpts{
 		ConfigStrings: []string{configCREWithFileURL},
 	}
@@ -67,7 +67,7 @@ func TestCREConfigWithFileURL(t *testing.T) {
 	assert.Equal(t, "file:///path/to/workflows", fetcher.URL())
 }
 
-func TestEmptyCREConfig(t *testing.T) {
+func TestUnit_EmptyCREConfig(t *testing.T) {
 	cfg := creConfig{s: toml.CreSecrets{}, c: toml.CreConfig{}}
 	assert.Empty(t, cfg.StreamsAPIKey())
 	assert.Empty(t, cfg.StreamsAPISecret())
@@ -80,7 +80,7 @@ func TestEmptyCREConfig(t *testing.T) {
 	assert.Empty(t, fetcher.URL(), "Empty WorkflowFetcher should have empty URL")
 }
 
-func TestWorkflowFetcherConfig(t *testing.T) {
+func TestUnit_WorkflowFetcherConfig(t *testing.T) {
 	testCases := []struct {
 		name     string
 		config   string

@@ -12,7 +12,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/config"
 )
 
-func TestDatabaseConfig(t *testing.T) {
+func TestUnit_DatabaseConfig(t *testing.T) {
 	opts := GeneralConfigOpts{
 		ConfigStrings: []string{fullTOML},
 		SecretsStrings: []string{`[Database]

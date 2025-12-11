@@ -11,7 +11,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/fluxmonitorv2"
 )
 
-func TestKeyStore_EnabledKeysForChain(t *testing.T) {
+func TestUnit_KeyStore_EnabledKeysForChain(t *testing.T) {
 	t.Parallel()
 	ctx := testutils.Context(t)
 
@@ -40,7 +40,7 @@ func TestKeyStore_EnabledKeysForChain(t *testing.T) {
 	require.EqualExportedValues(t, key2, keys[0])
 }
 
-func TestKeyStore_GetRoundRobinAddress(t *testing.T) {
+func TestUnit_KeyStore_GetRoundRobinAddress(t *testing.T) {
 	t.Parallel()
 
 	ctx := testutils.Context(t)

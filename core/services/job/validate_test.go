@@ -7,7 +7,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestValidate(t *testing.T) {
+func TestUnit_Validate(t *testing.T) {
 	var tt = []struct {
 		name      string
 		spec      string

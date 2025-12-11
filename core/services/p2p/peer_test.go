@@ -18,7 +18,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/p2p"
 )
 
-func TestPeer_CleanStartClose(t *testing.T) {
+func TestUnit_Peer_CleanStartClose(t *testing.T) {
 	lggr := logger.TestLogger(t)
 	port := freeport.GetOne(t)
 	privKey, _ := newKeyPair(t)

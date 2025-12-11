@@ -28,7 +28,7 @@ func clearJobsDb(t *testing.T, db *sqlx.DB) {
 	cltest.ClearDBTables(t, db, "flux_monitor_round_stats_v2", "jobs", "pipeline_runs", "pipeline_specs", "pipeline_task_runs")
 }
 
-func TestPipelineORM_Integration(t *testing.T) {
+func TestUnit_PipelineORM_Integration(t *testing.T) {
 	ctx := testutils.Context(t)
 	const DotStr = `
         // data source 1

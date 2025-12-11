@@ -20,7 +20,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/web/presenters"
 )
 
-func TestSolanaKeyPresenter_RenderTable(t *testing.T) {
+func TestUnit_SolanaKeyPresenter_RenderTable(t *testing.T) {
 	t.Parallel()
 
 	var (
@@ -55,7 +55,7 @@ func TestSolanaKeyPresenter_RenderTable(t *testing.T) {
 	assert.Contains(t, output, pubKey)
 }
 
-func TestShell_SolanaKeys(t *testing.T) {
+func TestUnit_Shell_SolanaKeys(t *testing.T) {
 	app := startNewApplicationV2(t, nil)
 	ks := app.GetKeyStore().Solana()
 	cleanup := func() {

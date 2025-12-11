@@ -17,7 +17,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
 )
 
-func TestAtrributesAttribute(t *testing.T) {
+func TestUnit_AtrributesAttribute(t *testing.T) {
 	a := `ds1 [type=http method=GET tags=<{"attribute1":"value1", "attribute2":42}>];`
 	p, err := pipeline.Parse(a)
 	require.NoError(t, err)
@@ -25,7 +25,7 @@ func TestAtrributesAttribute(t *testing.T) {
 	assert.JSONEq(t, "{\"attribute1\":\"value1\", \"attribute2\":42}", task.TaskTags())
 }
 
-func TestTimeoutAttribute(t *testing.T) {
+func TestUnit_TimeoutAttribute(t *testing.T) {
 	t.Parallel()
 
 	a := `ds1 [type=http method=GET url="https://chain.link/voter_turnout/USA-2020" requestData=<{"hi": "hello"}> timeout="10s"];`
@@ -43,7 +43,7 @@ func TestTimeoutAttribute(t *testing.T) {
 	assert.False(t, set)
 }
 
-func TestTaskHTTPUnmarshal(t *testing.T) {
+func TestUnit_TaskHTTPUnmarshal(t *testing.T) {
 	t.Parallel()
 
 	a := `ds1 [type=http allowunrestrictednetworkaccess=true method=GET url="https://chain.link/voter_turnout/USA-2020" requestData=<{"hi": "hello"}> timeout="10s"];`
@@ -55,7 +55,7 @@ func TestTaskHTTPUnmarshal(t *testing.T) {
 	require.Equal(t, "true", task.AllowUnrestrictedNetworkAccess)
 }
 
-func TestTaskAnyUnmarshal(t *testing.T) {
+func TestUnit_TaskAnyUnmarshal(t *testing.T) {
 	t.Parallel()
 
 	a := `ds1 [type=any failEarly=true];`
@@ -67,7 +67,7 @@ func TestTaskAnyUnmarshal(t *testing.T) {
 	require.True(t, p.Tasks[0].Base().FailEarly)
 }
 
-func TestRetryUnmarshal(t *testing.T) {
+func TestUnit_RetryUnmarshal(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
@@ -114,7 +114,7 @@ func TestRetryUnmarshal(t *testing.T) {
 	}
 }
 
-func TestUnmarshalTaskFromMap(t *testing.T) {
+func TestUnit_UnmarshalTaskFromMap(t *testing.T) {
 	t.Parallel()
 
 	t.Run("returns error if task is not the right type", func(t *testing.T) {
@@ -182,7 +182,7 @@ func TestUnmarshalTaskFromMap(t *testing.T) {
 	}
 }
 
-func TestCheckInputs(t *testing.T) {
+func TestUnit_CheckInputs(t *testing.T) {
 	t.Parallel()
 
 	emptyPR := []pipeline.Result{}
@@ -223,7 +223,7 @@ func TestCheckInputs(t *testing.T) {
 	}
 }
 
-func TestTaskRunResult_IsPending(t *testing.T) {
+func TestUnit_TaskRunResult_IsPending(t *testing.T) {
 	t.Parallel()
 
 	trr := &pipeline.TaskRunResult{}
@@ -236,7 +236,7 @@ func TestTaskRunResult_IsPending(t *testing.T) {
 	assert.False(t, trrWithFinishedAt.IsPending())
 }
 
-func TestSelectGasLimit(t *testing.T) {
+func TestUnit_SelectGasLimit(t *testing.T) {
 	t.Parallel()
 
 	gcfg := configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
@@ -293,7 +293,7 @@ func TestSelectGasLimit(t *testing.T) {
 		assert.Equal(t, uint64(999), gasLimit)
 	})
 }
-func TestGetNextTaskOf(t *testing.T) {
+func TestUnit_GetNextTaskOf(t *testing.T) {
 	trrs := pipeline.TaskRunResults{
 		{
 			Task: &pipeline.BridgeTask{
@@ -331,7 +331,7 @@ func TestGetNextTaskOf(t *testing.T) {
 	assert.Empty(t, nextTask)
 }
 
-func TestGetDescendantTasks(t *testing.T) {
+func TestUnit_GetDescendantTasks(t *testing.T) {
 	t.Parallel()
 
 	t.Run("GetDescendantTasks with multiple levels of tasks", func(t *testing.T) {

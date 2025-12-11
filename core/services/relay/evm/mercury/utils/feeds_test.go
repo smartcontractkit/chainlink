@@ -15,7 +15,7 @@ var (
 	keystonev4Feed = (FeedID)([32]uint8{01, 12, 34, 56, 78, 00, 04, 04, 00, 00, 00, 00, 00, 00, 00, 00, 00, 00, 00, 00, 00, 00, 00, 00, 00, 00, 00, 00, 00, 00, 00, 00})
 )
 
-func Test_FeedID_Version(t *testing.T) {
+func TestUnit_FeedID_Version(t *testing.T) {
 	t.Run("versioned feed ID", func(t *testing.T) {
 		assert.Equal(t, REPORT_V1, v1FeedID.Version())
 		assert.True(t, v1FeedID.IsV1())

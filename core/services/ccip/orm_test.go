@@ -108,14 +108,14 @@ func getTokenTableRowCount(t *testing.T, ds sqlutil.DataSource) int {
 	return count
 }
 
-func TestInitORM(t *testing.T) {
+func TestUnit_InitORM(t *testing.T) {
 	t.Parallel()
 
 	orm, _ := setupORM(t)
 	assert.NotNil(t, orm)
 }
 
-func TestORM_EmptyGasPrices(t *testing.T) {
+func TestUnit_ORM_EmptyGasPrices(t *testing.T) {
 	t.Parallel()
 	ctx := testutils.Context(t)
 
@@ -126,7 +126,7 @@ func TestORM_EmptyGasPrices(t *testing.T) {
 	assert.NoError(t, err)
 }
 
-func TestORM_EmptyTokenPrices(t *testing.T) {
+func TestUnit_ORM_EmptyTokenPrices(t *testing.T) {
 	t.Parallel()
 	ctx := testutils.Context(t)
 
@@ -137,7 +137,7 @@ func TestORM_EmptyTokenPrices(t *testing.T) {
 	assert.NoError(t, err)
 }
 
-func TestORM_InsertAndGetGasPrices(t *testing.T) {
+func TestUnit_ORM_InsertAndGetGasPrices(t *testing.T) {
 	t.Parallel()
 	ctx := testutils.Context(t)
 
@@ -206,7 +206,7 @@ func TestORM_InsertAndGetGasPrices(t *testing.T) {
 	}
 }
 
-func TestORM_UpsertGasPrices(t *testing.T) {
+func TestUnit_ORM_UpsertGasPrices(t *testing.T) {
 	t.Parallel()
 	ctx := testutils.Context(t)
 
@@ -240,7 +240,7 @@ func TestORM_UpsertGasPrices(t *testing.T) {
 	assert.Equal(t, numSourceChainSelectors, getGasTableRowCount(t, db))
 }
 
-func TestORM_InsertAndGetTokenPrices(t *testing.T) {
+func TestUnit_ORM_InsertAndGetTokenPrices(t *testing.T) {
 	t.Parallel()
 	ctx := testutils.Context(t)
 
@@ -309,7 +309,7 @@ func TestORM_InsertAndGetTokenPrices(t *testing.T) {
 	}
 }
 
-func TestORM_InsertTokenPricesWhenExpired(t *testing.T) {
+func TestUnit_ORM_InsertTokenPricesWhenExpired(t *testing.T) {
 	t.Parallel()
 	ctx := testutils.Context(t)
 	orm, _ := setupORM(t)

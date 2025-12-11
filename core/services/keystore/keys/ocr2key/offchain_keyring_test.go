@@ -12,14 +12,14 @@ import (
 	"golang.org/x/crypto/nacl/box"
 )
 
-func TestOffchainKeyring(t *testing.T) {
+func TestUnit_OffchainKeyring(t *testing.T) {
 	kr, err := newOffchainKeyring(cryptorand.Reader, cryptorand.Reader)
 	require.NoError(t, err)
 	pubKey := kr.OffchainPublicKey()
 	assert.True(t, bytes.Equal(kr.signingKey().Public().(ed25519.PublicKey), pubKey[:]))
 }
 
-func TestOffchainKeyring_NaclBoxSealAnonymous(t *testing.T) {
+func TestUnit_OffchainKeyring_NaclBoxSealAnonymous(t *testing.T) {
 	kr, err := newOffchainKeyring(cryptorand.Reader, cryptorand.Reader)
 	require.NoError(t, err)
 
@@ -35,7 +35,7 @@ func TestOffchainKeyring_NaclBoxSealAnonymous(t *testing.T) {
 	assert.Equal(t, originalMessage, decryptedMessage)
 }
 
-func TestOffchainKeyring_NaclBoxSealAnonymous_ShortCiphertext(t *testing.T) {
+func TestUnit_OffchainKeyring_NaclBoxSealAnonymous_ShortCiphertext(t *testing.T) {
 	kr, err := newOffchainKeyring(cryptorand.Reader, cryptorand.Reader)
 	require.NoError(t, err)
 
@@ -45,7 +45,7 @@ func TestOffchainKeyring_NaclBoxSealAnonymous_ShortCiphertext(t *testing.T) {
 	assert.Equal(t, "ciphertext too short", err.Error())
 }
 
-func TestOffchainKeyring_NaclBoxSealAnonymous_FailedDecryption(t *testing.T) {
+func TestUnit_OffchainKeyring_NaclBoxSealAnonymous_FailedDecryption(t *testing.T) {
 	kr, err := newOffchainKeyring(cryptorand.Reader, cryptorand.Reader)
 	require.NoError(t, err)
 

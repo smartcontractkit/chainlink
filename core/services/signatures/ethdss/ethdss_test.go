@@ -50,7 +50,7 @@ func init() {
 	}
 }
 
-func TestDSSNew(t *testing.T) {
+func TestUnit_DSSNew(t *testing.T) {
 	dssArgs := DSSArgs{secret: partSec[0], participants: partPubs,
 		long: longterms[0], random: randoms[0], msg: msg, T: 4}
 	dss, err := NewDSS(dssArgs)
@@ -62,7 +62,7 @@ func TestDSSNew(t *testing.T) {
 	assert.Error(t, err)
 }
 
-func TestDSSPartialSigs(t *testing.T) {
+func TestUnit_DSSPartialSigs(t *testing.T) {
 	dss0 := getDSS(0)
 	dss1 := getDSS(1)
 	ps0, err := dss0.PartialSig()
@@ -147,7 +147,7 @@ func printTest(t *testing.T, msg *big.Int, public kyber.Point,
 		signature.CommitmentPublicAddress)
 }
 
-func TestDSSSignature(t *testing.T) {
+func TestUnit_DSSSignature(t *testing.T) {
 	dsss := make([]*DSS, nbParticipants)
 	pss := make([]*PartialSig, nbParticipants)
 	for i := range nbParticipants {
@@ -178,7 +178,7 @@ func TestDSSSignature(t *testing.T) {
 	}
 }
 
-func TestPartialSig_Hash(t *testing.T) {
+func TestUnit_PartialSig_Hash(t *testing.T) {
 	observedHashes := make(map[*big.Int]bool)
 	for i := range nbParticipants {
 		psig, err := getDSS(i).PartialSig()

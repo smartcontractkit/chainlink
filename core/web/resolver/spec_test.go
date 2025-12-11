@@ -29,7 +29,7 @@ import (
 // Specs are only embedded on the job and are not fetchable by it's own id, so
 // we test the spec resolvers by fetching a job by id.
 
-func TestResolver_CronSpec(t *testing.T) {
+func TestUnit_Resolver_CronSpec(t *testing.T) {
 	var (
 		id = int32(1)
 	)
@@ -83,7 +83,7 @@ func TestResolver_CronSpec(t *testing.T) {
 	RunGQLTests(t, testCases)
 }
 
-func TestResolver_DirectRequestSpec(t *testing.T) {
+func TestUnit_Resolver_DirectRequestSpec(t *testing.T) {
 	var (
 		id               = int32(1)
 		requesterAddress = common.HexToAddress("0x3cCad4715152693fE3BC4460591e3D3Fbd071b42")
@@ -149,7 +149,7 @@ func TestResolver_DirectRequestSpec(t *testing.T) {
 	RunGQLTests(t, testCases)
 }
 
-func TestResolver_FluxMonitorSpec(t *testing.T) {
+func TestUnit_Resolver_FluxMonitorSpec(t *testing.T) {
 	var (
 		id = int32(1)
 	)
@@ -298,7 +298,7 @@ func TestResolver_FluxMonitorSpec(t *testing.T) {
 	RunGQLTests(t, testCases)
 }
 
-func TestResolver_KeeperSpec(t *testing.T) {
+func TestUnit_Resolver_KeeperSpec(t *testing.T) {
 	var (
 		id          = int32(1)
 		fromAddress = common.HexToAddress("0x3cCad4715152693fE3BC4460591e3D3Fbd071b42")
@@ -358,7 +358,7 @@ func TestResolver_KeeperSpec(t *testing.T) {
 	RunGQLTests(t, testCases)
 }
 
-func TestResolver_OCRSpec(t *testing.T) {
+func TestUnit_Resolver_OCRSpec(t *testing.T) {
 	var (
 		id = int32(1)
 	)
@@ -455,7 +455,7 @@ func TestResolver_OCRSpec(t *testing.T) {
 	RunGQLTests(t, testCases)
 }
 
-func TestResolver_OCR2Spec(t *testing.T) {
+func TestUnit_Resolver_OCR2Spec(t *testing.T) {
 	var (
 		id = int32(1)
 	)
@@ -575,7 +575,7 @@ func TestResolver_OCR2Spec(t *testing.T) {
 	RunGQLTests(t, testCases)
 }
 
-func TestResolver_VRFSpec(t *testing.T) {
+func TestUnit_Resolver_VRFSpec(t *testing.T) {
 	var (
 		id = int32(1)
 	)
@@ -685,7 +685,7 @@ func TestResolver_VRFSpec(t *testing.T) {
 	RunGQLTests(t, testCases)
 }
 
-func TestResolver_WebhookSpec(t *testing.T) {
+func TestUnit_Resolver_WebhookSpec(t *testing.T) {
 	var (
 		id = int32(1)
 	)
@@ -733,7 +733,7 @@ func TestResolver_WebhookSpec(t *testing.T) {
 	RunGQLTests(t, testCases)
 }
 
-func TestResolver_BlockhashStoreSpec(t *testing.T) {
+func TestUnit_Resolver_BlockhashStoreSpec(t *testing.T) {
 	var (
 		id = int32(1)
 	)
@@ -841,7 +841,7 @@ func TestResolver_BlockhashStoreSpec(t *testing.T) {
 	RunGQLTests(t, testCases)
 }
 
-func TestResolver_BlockHeaderFeederSpec(t *testing.T) {
+func TestUnit_Resolver_BlockHeaderFeederSpec(t *testing.T) {
 	var (
 		id = int32(1)
 	)
@@ -945,7 +945,7 @@ func TestResolver_BlockHeaderFeederSpec(t *testing.T) {
 	RunGQLTests(t, testCases)
 }
 
-func TestResolver_BootstrapSpec(t *testing.T) {
+func TestUnit_Resolver_BootstrapSpec(t *testing.T) {
 	var (
 		id = int32(1)
 	)
@@ -1017,7 +1017,7 @@ func TestResolver_BootstrapSpec(t *testing.T) {
 	RunGQLTests(t, testCases)
 }
 
-func TestResolver_WorkflowSpec(t *testing.T) {
+func TestUnit_Resolver_WorkflowSpec(t *testing.T) {
 	var (
 		id = int32(1)
 	)
@@ -1071,7 +1071,7 @@ func TestResolver_WorkflowSpec(t *testing.T) {
 	RunGQLTests(t, testCases)
 }
 
-func TestResolver_GatewaySpec(t *testing.T) {
+func TestUnit_Resolver_GatewaySpec(t *testing.T) {
 	var (
 		id = int32(1)
 	)
@@ -1129,7 +1129,7 @@ func TestResolver_GatewaySpec(t *testing.T) {
 	RunGQLTests(t, testCases)
 }
 
-func TestResolver_StandardCapabilitiesSpec(t *testing.T) {
+func TestUnit_Resolver_StandardCapabilitiesSpec(t *testing.T) {
 	var (
 		id = int32(1)
 	)
@@ -1186,7 +1186,7 @@ func TestResolver_StandardCapabilitiesSpec(t *testing.T) {
 	RunGQLTests(t, testCases)
 }
 
-func TestResolver_StreamSpec(t *testing.T) {
+func TestUnit_Resolver_StreamSpec(t *testing.T) {
 	var (
 		id1      = int32(1)
 		id2      = int32(2)

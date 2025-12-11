@@ -110,14 +110,14 @@ var checkPerformResponse = struct {
 	Success: true,
 }
 
-func Test_UpkeepExecuter_ErrorsIfStartedTwice(t *testing.T) {
+func TestUnit_UpkeepExecuter_ErrorsIfStartedTwice(t *testing.T) {
 	t.Parallel()
 	_, _, _, executer, _, _, _, _, _, _, _, _ := setup(t, nil)
 	err := executer.Start(testutils.Context(t)) // already started in setup()
 	require.Error(t, err)
 }
 
-func Test_UpkeepExecuter_PerformsUpkeep_Happy(t *testing.T) {
+func TestUnit_UpkeepExecuter_PerformsUpkeep_Happy(t *testing.T) {
 	taskRuns := 11
 
 	t.Parallel()
@@ -312,7 +312,7 @@ func Test_UpkeepExecuter_PerformsUpkeep_Happy(t *testing.T) {
 	})
 }
 
-func Test_UpkeepExecuter_PerformsUpkeep_Error(t *testing.T) {
+func TestUnit_UpkeepExecuter_PerformsUpkeep_Error(t *testing.T) {
 	t.Parallel()
 
 	g := gomega.NewWithT(t)

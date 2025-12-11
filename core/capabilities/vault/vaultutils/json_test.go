@@ -8,7 +8,7 @@ import (
 	"google.golang.org/protobuf/types/known/structpb"
 )
 
-func TestToCanonicalJSON(t *testing.T) {
+func TestUnit_ToCanonicalJSON(t *testing.T) {
 	testData, err := structpb.NewValue(map[string]any{
 		"field1": "value1",
 		"field2": 42,

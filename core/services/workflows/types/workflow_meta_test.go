@@ -6,7 +6,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestWorkflowName_Validate(t *testing.T) {
+func TestUnit_WorkflowName_Validate(t *testing.T) {
 	t.Parallel()
 	_, err := NewWorkflowName("")
 	require.Error(t, err)
@@ -18,7 +18,7 @@ func TestWorkflowName_Validate(t *testing.T) {
 	require.NoError(t, err)
 }
 
-func TestWorkflowID_FromHex(t *testing.T) {
+func TestUnit_WorkflowID_FromHex(t *testing.T) {
 	t.Parallel()
 	_, err := WorkflowIDFromHex("wrong chars")
 	require.Error(t, err)
@@ -30,7 +30,7 @@ func TestWorkflowID_FromHex(t *testing.T) {
 	require.NoError(t, err)
 }
 
-func TestValidateWorkflowOwner(t *testing.T) {
+func TestUnit_ValidateWorkflowOwner(t *testing.T) {
 	t.Parallel()
 	require.Error(t, ValidateWorkflowOwner("wrong chars"))
 	require.Error(t, ValidateWorkflowOwner("00112233")) // wrong length

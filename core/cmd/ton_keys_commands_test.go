@@ -20,7 +20,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/web/presenters"
 )
 
-func TestTONKeyPresenter_RenderTable(t *testing.T) {
+func TestUnit_TONKeyPresenter_RenderTable(t *testing.T) {
 	t.Parallel()
 
 	var (
@@ -55,7 +55,7 @@ func TestTONKeyPresenter_RenderTable(t *testing.T) {
 	assert.Contains(t, output, pubKey)
 }
 
-func TestShell_TONKeys(t *testing.T) {
+func TestUnit_Shell_TONKeys(t *testing.T) {
 	app := startNewApplicationV2(t, nil)
 	ks := app.GetKeyStore().TON()
 	cleanup := func() {

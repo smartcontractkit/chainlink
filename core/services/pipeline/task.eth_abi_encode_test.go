@@ -16,7 +16,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
-func TestETHABIEncodeTask(t *testing.T) {
+func TestUnit_ETHABIEncodeTask(t *testing.T) {
 	var bytes32 [32]byte
 	copy(bytes32[:], []byte("chainlink chainlink chainlink"))
 
@@ -240,7 +240,7 @@ func TestETHABIEncodeTask(t *testing.T) {
 	}
 }
 
-func TestETHABIEncode_EncodeIntegers(t *testing.T) {
+func TestUnit_ETHABIEncode_EncodeIntegers(t *testing.T) {
 	testCases := []struct {
 		name                  string
 		abi                   string
@@ -530,7 +530,7 @@ func TestETHABIEncode_EncodeIntegers(t *testing.T) {
 	}
 }
 
-func TestETHABIEncode_EncodeIntegers_Overflow(t *testing.T) {
+func TestUnit_ETHABIEncode_EncodeIntegers_Overflow(t *testing.T) {
 	testCases := []struct {
 		name                  string
 		abi                   string

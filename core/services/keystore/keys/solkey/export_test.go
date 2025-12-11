@@ -6,7 +6,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys"
 )
 
-func TestSolanaKeys_ExportImport(t *testing.T) {
+func TestUnit_SolanaKeys_ExportImport(t *testing.T) {
 	keys.RunKeyExportImportTestcase(t, createKey, decryptKey)
 }
 

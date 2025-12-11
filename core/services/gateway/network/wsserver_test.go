@@ -67,7 +67,7 @@ func sendRequestWithHeader(t *testing.T, url string, headerName string, headerVa
 	return resp
 }
 
-func TestWSServer_HandleRequest_AuthHeaderTooBig(t *testing.T) {
+func TestUnit_WSServer_HandleRequest_AuthHeaderTooBig(t *testing.T) {
 	t.Parallel()
 	_, _, urlStr := startNewWSServer(t, 100_000)
 
@@ -80,7 +80,7 @@ func TestWSServer_HandleRequest_AuthHeaderTooBig(t *testing.T) {
 	require.Equal(t, http.StatusBadRequest, resp.StatusCode)
 }
 
-func TestWSServer_HandleRequest_AuthHeaderIncorrectlyBase64Encoded(t *testing.T) {
+func TestUnit_WSServer_HandleRequest_AuthHeaderIncorrectlyBase64Encoded(t *testing.T) {
 	t.Parallel()
 	_, _, urlStr := startNewWSServer(t, 100_000)
 
@@ -88,7 +88,7 @@ func TestWSServer_HandleRequest_AuthHeaderIncorrectlyBase64Encoded(t *testing.T)
 	require.Equal(t, http.StatusBadRequest, resp.StatusCode)
 }
 
-func TestWSServer_HandleRequest_AuthHeaderInvalid(t *testing.T) {
+func TestUnit_WSServer_HandleRequest_AuthHeaderInvalid(t *testing.T) {
 	t.Parallel()
 	_, acceptor, urlStr := startNewWSServer(t, 100_000)
 
@@ -99,7 +99,7 @@ func TestWSServer_HandleRequest_AuthHeaderInvalid(t *testing.T) {
 	require.Equal(t, http.StatusUnauthorized, resp.StatusCode)
 }
 
-func TestWSServer_WSClient_DefaultConfig_Success(t *testing.T) {
+func TestUnit_WSServer_WSClient_DefaultConfig_Success(t *testing.T) {
 	t.Parallel()
 	_, acceptor, urlStr := startNewWSServer(t, 10_000)
 
@@ -126,7 +126,7 @@ func TestWSServer_WSClient_DefaultConfig_Success(t *testing.T) {
 	require.NoError(t, conn.Close())
 }
 
-func TestWSServer_WSClient_DefaultConfig_Failure(t *testing.T) {
+func TestUnit_WSServer_WSClient_DefaultConfig_Failure(t *testing.T) {
 	quarantine.Flaky(t, "DX-1752")
 	t.Parallel()
 	_, acceptor, urlStr := startNewWSServer(t, 10_000)

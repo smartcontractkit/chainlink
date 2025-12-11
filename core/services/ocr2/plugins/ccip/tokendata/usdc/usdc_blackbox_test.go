@@ -28,7 +28,7 @@ type attestationResponse struct {
 	Attestation string `json:"attestation"`
 }
 
-func TestUSDCReader_ReadTokenData(t *testing.T) {
+func TestUnit_USDCReader_ReadTokenData(t *testing.T) {
 	t.Parallel()
 	tests := []struct {
 		name                string

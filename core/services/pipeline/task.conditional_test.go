@@ -11,7 +11,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
 )
 
-func TestConditionalTask(t *testing.T) {
+func TestUnit_ConditionalTask(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {

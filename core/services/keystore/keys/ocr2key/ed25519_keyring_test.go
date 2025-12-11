@@ -12,7 +12,7 @@ import (
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 )
 
-func TestAptosKeyRing_Sign_Verify(t *testing.T) {
+func TestUnit_AptosKeyRing_Sign_Verify(t *testing.T) {
 	kr1, err := newEd25519Keyring(cryptorand.Reader)
 	require.NoError(t, err)
 	kr2, err := newEd25519Keyring(cryptorand.Reader)
@@ -43,7 +43,7 @@ func TestAptosKeyRing_Sign_Verify(t *testing.T) {
 	})
 }
 
-func TestAptosKeyRing_Marshalling(t *testing.T) {
+func TestUnit_AptosKeyRing_Marshalling(t *testing.T) {
 	kr1, err := newEd25519Keyring(cryptorand.Reader)
 	require.NoError(t, err)
 	m, err := kr1.Marshal()

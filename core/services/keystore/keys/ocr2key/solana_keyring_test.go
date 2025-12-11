@@ -11,7 +11,7 @@ import (
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 )
 
-func TestSolanaKeyring_Sign_Verify(t *testing.T) {
+func TestUnit_SolanaKeyring_Sign_Verify(t *testing.T) {
 	kr1, err := newSolanaKeyring(cryptorand.Reader)
 	require.NoError(t, err)
 	kr2, err := newSolanaKeyring(cryptorand.Reader)
@@ -42,7 +42,7 @@ func TestSolanaKeyring_Sign_Verify(t *testing.T) {
 	})
 }
 
-func TestSolanaKeyring_Marshalling(t *testing.T) {
+func TestUnit_SolanaKeyring_Marshalling(t *testing.T) {
 	kr1, err := newSolanaKeyring(cryptorand.Reader)
 	require.NoError(t, err)
 	m, err := kr1.Marshal()

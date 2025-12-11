@@ -24,7 +24,7 @@ import (
 
 const password = "password"
 
-func TestKeyRing_Encrypt_Decrypt(t *testing.T) {
+func TestUnit_KeyRing_Encrypt_Decrypt(t *testing.T) {
 	csa1, csa2 := csakey.MustNewV2XXXTestingOnly(big.NewInt(1)), csakey.MustNewV2XXXTestingOnly(big.NewInt(2))
 	eth1, eth2 := mustNewEthKey(t), mustNewEthKey(t)
 	ocr := []ocrkey.KeyV2{

@@ -10,7 +10,7 @@ import (
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_0/message_hasher"
 )
 
-func Test_decodeExtraArgs(t *testing.T) {
+func TestUnit_decodeExtraArgs(t *testing.T) {
 	d := testSetup(t)
 	gasLimit := big.NewInt(rand.Int63())
 	extraDataDecoder := &ExtraDataDecoder{}

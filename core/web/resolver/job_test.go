@@ -28,7 +28,7 @@ import (
 
 // This tests the main fields on the job results. Embedded spec testing is done
 // in the `spec_test` file
-func TestResolver_Jobs(t *testing.T) {
+func TestUnit_Resolver_Jobs(t *testing.T) {
 	var (
 		externalJobID = uuid.MustParse(("00000000-0000-0000-0000-000000000001"))
 
@@ -138,7 +138,7 @@ func TestResolver_Jobs(t *testing.T) {
 	RunGQLTests(t, testCases)
 }
 
-func TestResolver_Job(t *testing.T) {
+func TestUnit_Resolver_Job(t *testing.T) {
 	var (
 		id            = int32(1)
 		externalJobID = uuid.MustParse(("00000000-0000-0000-0000-000000000001"))
@@ -291,7 +291,7 @@ func TestResolver_Job(t *testing.T) {
 	RunGQLTests(t, testCases)
 }
 
-func TestResolver_CreateJob(t *testing.T) {
+func TestUnit_Resolver_CreateJob(t *testing.T) {
 	t.Parallel()
 
 	mutation := `
@@ -401,7 +401,7 @@ func TestResolver_CreateJob(t *testing.T) {
 	RunGQLTests(t, testCases)
 }
 
-func TestResolver_DeleteJob(t *testing.T) {
+func TestUnit_Resolver_DeleteJob(t *testing.T) {
 	t.Parallel()
 
 	id := int32(123)

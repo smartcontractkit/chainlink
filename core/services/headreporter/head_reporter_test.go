@@ -20,7 +20,7 @@ func NewHead() evmtypes.Head {
 	return evmtypes.Head{Number: 42, EVMChainID: ubig.New(testutils.FixtureChainID)}
 }
 
-func Test_HeadReporterService(t *testing.T) {
+func TestUnit_HeadReporterService(t *testing.T) {
 	t.Run("report everything", func(t *testing.T) {
 		db := pgtest.NewSqlxDB(t)
 

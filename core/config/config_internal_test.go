@@ -12,7 +12,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/config/parse"
 )
 
-func TestStore_bigIntParser(t *testing.T) {
+func TestUnit_Store_bigIntParser(t *testing.T) {
 	val, err := parse.BigInt("0")
 	assert.NoError(t, err)
 	assert.Equal(t, new(big.Int).SetInt64(0), val)
@@ -30,7 +30,7 @@ func TestStore_bigIntParser(t *testing.T) {
 	assert.Nil(t, val)
 }
 
-func TestStore_levelParser(t *testing.T) {
+func TestUnit_Store_levelParser(t *testing.T) {
 	val, err := parse.LogLevel("ERROR")
 	assert.NoError(t, err)
 	assert.Equal(t, zapcore.ErrorLevel, val)
@@ -44,7 +44,7 @@ func TestStore_levelParser(t *testing.T) {
 	assert.Equal(t, val, zapcore.Level(0))
 }
 
-func TestStore_urlParser(t *testing.T) {
+func TestUnit_Store_urlParser(t *testing.T) {
 	tests := []struct {
 		name      string
 		input     string
@@ -71,7 +71,7 @@ func TestStore_urlParser(t *testing.T) {
 	}
 }
 
-func TestStore_boolParser(t *testing.T) {
+func TestUnit_Store_boolParser(t *testing.T) {
 	val, err := parse.Bool("true")
 	assert.NoError(t, err)
 	assert.Equal(t, true, val)

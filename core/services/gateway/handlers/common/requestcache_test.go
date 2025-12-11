@@ -20,7 +20,7 @@ type requestState struct {
 	counter int
 }
 
-func TestRequestCache_Simple(t *testing.T) {
+func TestUnit_RequestCache_Simple(t *testing.T) {
 	t.Parallel()
 
 	cache := common.NewRequestCache[requestState](time.Hour, 1000)
@@ -50,7 +50,7 @@ func TestRequestCache_Simple(t *testing.T) {
 	require.Equal(t, "aa", msg.Body.MessageId)
 }
 
-func TestRequestCache_MultiResponse(t *testing.T) {
+func TestUnit_RequestCache_MultiResponse(t *testing.T) {
 	t.Parallel()
 
 	nRequests := 10
@@ -102,7 +102,7 @@ func TestRequestCache_MultiResponse(t *testing.T) {
 	}
 }
 
-func TestRequestCache_Timeout(t *testing.T) {
+func TestUnit_RequestCache_Timeout(t *testing.T) {
 	t.Parallel()
 
 	cache := common.NewRequestCache[requestState](time.Millisecond*10, 1000)
@@ -122,7 +122,7 @@ func TestRequestCache_Timeout(t *testing.T) {
 	require.Equal(t, api.RequestTimeoutError, finalResp.ErrorCode)
 }
 
-func TestRequestCache_MaxSize(t *testing.T) {
+func TestUnit_RequestCache_MaxSize(t *testing.T) {
 	t.Parallel()
 
 	cache := common.NewRequestCache[requestState](time.Hour, 2)

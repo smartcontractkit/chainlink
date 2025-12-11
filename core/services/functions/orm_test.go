@@ -62,7 +62,7 @@ func createRequestWithTimestamp(t *testing.T, orm functions.ORM, ts time.Time) (
 	return id, txHash
 }
 
-func TestORM_CreateRequestsAndFindByID(t *testing.T) {
+func TestUnit_ORM_CreateRequestsAndFindByID(t *testing.T) {
 	t.Parallel()
 	ctx := testutils.Context(t)
 
@@ -103,7 +103,7 @@ func TestORM_CreateRequestsAndFindByID(t *testing.T) {
 	})
 }
 
-func TestORM_SetResult(t *testing.T) {
+func TestUnit_ORM_SetResult(t *testing.T) {
 	t.Parallel()
 	ctx := testutils.Context(t)
 
@@ -124,7 +124,7 @@ func TestORM_SetResult(t *testing.T) {
 	require.Equal(t, []byte("result"), req.Result)
 }
 
-func TestORM_SetError(t *testing.T) {
+func TestUnit_ORM_SetError(t *testing.T) {
 	t.Parallel()
 	ctx := testutils.Context(t)
 
@@ -147,7 +147,7 @@ func TestORM_SetError(t *testing.T) {
 	require.Equal(t, []byte("error"), req.Error)
 }
 
-func TestORM_SetError_Internal(t *testing.T) {
+func TestUnit_ORM_SetError_Internal(t *testing.T) {
 	t.Parallel()
 	ctx := testutils.Context(t)
 
@@ -167,7 +167,7 @@ func TestORM_SetError_Internal(t *testing.T) {
 	require.Equal(t, []byte("error"), req.Error)
 }
 
-func TestORM_SetFinalized(t *testing.T) {
+func TestUnit_ORM_SetFinalized(t *testing.T) {
 	t.Parallel()
 	ctx := testutils.Context(t)
 
@@ -184,7 +184,7 @@ func TestORM_SetFinalized(t *testing.T) {
 	require.Equal(t, functions.FINALIZED, req.State)
 }
 
-func TestORM_SetConfirmed(t *testing.T) {
+func TestUnit_ORM_SetConfirmed(t *testing.T) {
 	t.Parallel()
 	ctx := testutils.Context(t)
 
@@ -199,7 +199,7 @@ func TestORM_SetConfirmed(t *testing.T) {
 	require.Equal(t, functions.CONFIRMED, req.State)
 }
 
-func TestORM_StateTransitions(t *testing.T) {
+func TestUnit_ORM_StateTransitions(t *testing.T) {
 	t.Parallel()
 	ctx := testutils.Context(t)
 
@@ -235,7 +235,7 @@ func TestORM_StateTransitions(t *testing.T) {
 	require.Equal(t, functions.CONFIRMED, req.State)
 }
 
-func TestORM_FindOldestEntriesByState(t *testing.T) {
+func TestUnit_ORM_FindOldestEntriesByState(t *testing.T) {
 	t.Parallel()
 
 	orm := setupORM(t)
@@ -274,7 +274,7 @@ func TestORM_FindOldestEntriesByState(t *testing.T) {
 	})
 }
 
-func TestORM_TimeoutExpiredResults(t *testing.T) {
+func TestUnit_ORM_TimeoutExpiredResults(t *testing.T) {
 	t.Parallel()
 	ctx := testutils.Context(t)
 
@@ -323,7 +323,7 @@ func TestORM_TimeoutExpiredResults(t *testing.T) {
 	}
 }
 
-func TestORM_PruneOldestRequests(t *testing.T) {
+func TestUnit_ORM_PruneOldestRequests(t *testing.T) {
 	t.Parallel()
 	ctx := testutils.Context(t)
 
@@ -367,7 +367,7 @@ func TestORM_PruneOldestRequests(t *testing.T) {
 	require.Equal(t, ids[4], result[0].RequestID, "incorrect results order")
 }
 
-func TestORM_PruneOldestRequests_Large(t *testing.T) {
+func TestUnit_ORM_PruneOldestRequests_Large(t *testing.T) {
 	t.Parallel()
 	ctx := testutils.Context(t)
 

@@ -103,7 +103,7 @@ func (f fakeOnchainKeyring) MaxSignatureLength() int {
 	return maxSignatureLength
 }
 
-func TestOCR3OnchainKeyringAdapter(t *testing.T) {
+func TestUnit_OCR3OnchainKeyringAdapter(t *testing.T) {
 	kr := ocrcommon.NewOCR3OnchainKeyringAdapter(fakeOnchainKeyring{})
 
 	_, err := kr.Sign(configDigest, seqNr, rwi)
@@ -114,7 +114,7 @@ func TestOCR3OnchainKeyringAdapter(t *testing.T) {
 	require.Equal(t, maxSignatureLength, kr.MaxSignatureLength())
 }
 
-func TestNewOCR3OnchainKeyringMultiChainAdapter(t *testing.T) {
+func TestUnit_NewOCR3OnchainKeyringMultiChainAdapter(t *testing.T) {
 	evmBundle, err := ocr2key.New(chaintype.EVM)
 	require.NoError(t, err)
 
@@ -187,7 +187,7 @@ func newMultichainAdapter(t *testing.T) *ocrcommon.OCR3OnchainKeyringMultiChainA
 	return adapter
 }
 
-func TestNewOCR3OnchainKeyringMultiChainAdapter_VerifyFromDifferentNodesPublicKeys(t *testing.T) {
+func TestUnit_NewOCR3OnchainKeyringMultiChainAdapter_VerifyFromDifferentNodesPublicKeys(t *testing.T) {
 	firstNodeAdapter := newMultichainAdapter(t)
 	secondNodeAdapter := newMultichainAdapter(t)
 
@@ -263,7 +263,7 @@ func (f fakeContractTransmitter) FromAccount(context.Context) (ocrtypes.Account,
 	return account, nil
 }
 
-func TestContractTransmitter(t *testing.T) {
+func TestUnit_ContractTransmitter(t *testing.T) {
 	ctx := testutils.Context(t)
 	ct := ocrcommon.NewOCR3ContractTransmitterAdapter(fakeContractTransmitter{})
 

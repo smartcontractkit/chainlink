@@ -56,7 +56,7 @@ func createTestWorkflowMetadataHandler(t *testing.T) (*WorkflowMetadataHandler, 
 	return handler, mockDon, donConfig
 }
 
-func TestSyncMetadata(t *testing.T) {
+func TestUnit_SyncMetadata(t *testing.T) {
 	handler, _, _ := createTestWorkflowMetadataHandler(t)
 
 	// Test when aggregator has no data
@@ -109,7 +109,7 @@ func TestSyncMetadata(t *testing.T) {
 	require.Equal(t, testWorkflowID1, workflowID)
 }
 
-func TestSyncMetadataMultipleWorkflows(t *testing.T) {
+func TestUnit_SyncMetadataMultipleWorkflows(t *testing.T) {
 	handler, _, _ := createTestWorkflowMetadataHandler(t)
 
 	ctx := testutils.Context(t)
@@ -161,7 +161,7 @@ func TestSyncMetadataMultipleWorkflows(t *testing.T) {
 	}
 }
 
-func TestSendMetadataPullRequest(t *testing.T) {
+func TestUnit_SendMetadataPullRequest(t *testing.T) {
 	handler, mockDon, donConfig := createTestWorkflowMetadataHandler(t)
 	for _, member := range donConfig.Members {
 		mockDon.EXPECT().SendToNode(mock.Anything, member.Address, mock.Anything).Return(nil).Once()
@@ -172,7 +172,7 @@ func TestSendMetadataPullRequest(t *testing.T) {
 	mockDon.AssertExpectations(t)
 }
 
-func TestSendMetadataPullRequestWithErrors(t *testing.T) {
+func TestUnit_SendMetadataPullRequestWithErrors(t *testing.T) {
 	handler, mockDon, donConfig := createTestWorkflowMetadataHandler(t)
 
 	// Mock errors for some nodes
@@ -194,7 +194,7 @@ func TestSendMetadataPullRequestWithErrors(t *testing.T) {
 	mockDon.AssertExpectations(t)
 }
 
-func TestSendMetadataPullRequestVerifyPayload(t *testing.T) {
+func TestUnit_SendMetadataPullRequestVerifyPayload(t *testing.T) {
 	handler, mockDon, donConfig := createTestWorkflowMetadataHandler(t)
 	// Capture the request payload
 	var capturedReq *jsonrpc.Request[json.RawMessage]
@@ -213,7 +213,7 @@ func TestSendMetadataPullRequestVerifyPayload(t *testing.T) {
 	mockDon.AssertNumberOfCalls(t, "SendToNode", len(donConfig.Members))
 }
 
-func TestOnMetadataPush(t *testing.T) {
+func TestUnit_OnMetadataPush(t *testing.T) {
 	handler, _, _ := createTestWorkflowMetadataHandler(t)
 	ctx := testutils.Context(t)
 
@@ -257,7 +257,7 @@ func TestOnMetadataPush(t *testing.T) {
 	require.Empty(t, handler.workflowRefToID)
 }
 
-func TestOnMetadataPushInvalidJSON(t *testing.T) {
+func TestUnit_OnMetadataPushInvalidJSON(t *testing.T) {
 	handler, _, _ := createTestWorkflowMetadataHandler(t)
 	ctx := testutils.Context(t)
 
@@ -271,7 +271,7 @@ func TestOnMetadataPushInvalidJSON(t *testing.T) {
 	require.Contains(t, err.Error(), "failed to unmarshal metadata")
 }
 
-func TestOnMetadataPullResponse(t *testing.T) {
+func TestUnit_OnMetadataPullResponse(t *testing.T) {
 	handler, _, _ := createTestWorkflowMetadataHandler(t)
 	ctx := testutils.Context(t)
 
@@ -368,7 +368,7 @@ func TestOnMetadataPullResponse(t *testing.T) {
 	require.Equal(t, ref2, r2)
 }
 
-func TestOnMetadataPullResponseInvalidJSON(t *testing.T) {
+func TestUnit_OnMetadataPullResponseInvalidJSON(t *testing.T) {
 	handler, _, _ := createTestWorkflowMetadataHandler(t)
 	ctx := testutils.Context(t)
 
@@ -382,7 +382,7 @@ func TestOnMetadataPullResponseInvalidJSON(t *testing.T) {
 	require.Contains(t, err.Error(), "failed to unmarshal metadata pull response")
 }
 
-func TestStartAndClose(t *testing.T) {
+func TestUnit_StartAndClose(t *testing.T) {
 	handler, _, _ := createTestWorkflowMetadataHandler(t)
 	ctx := testutils.Context(t)
 
@@ -399,7 +399,7 @@ func TestStartAndClose(t *testing.T) {
 	require.Error(t, err)
 }
 
-func TestValidateAuthMetadata(t *testing.T) {
+func TestUnit_ValidateAuthMetadata(t *testing.T) {
 	handler, _, _ := createTestWorkflowMetadataHandler(t)
 
 	tests := []struct {
@@ -800,7 +800,7 @@ func TestValidateAuthMetadata(t *testing.T) {
 	}
 }
 
-func TestOnMetadataPushWithValidation(t *testing.T) {
+func TestUnit_OnMetadataPushWithValidation(t *testing.T) {
 	handler, _, _ := createTestWorkflowMetadataHandler(t)
 	ctx := testutils.Context(t)
 
@@ -866,7 +866,7 @@ func TestOnMetadataPushWithValidation(t *testing.T) {
 	})
 }
 
-func TestOnMetadataPullResponseWithValidation(t *testing.T) {
+func TestUnit_OnMetadataPullResponseWithValidation(t *testing.T) {
 	handler, _, _ := createTestWorkflowMetadataHandler(t)
 	ctx := testutils.Context(t)
 
@@ -964,7 +964,7 @@ func TestOnMetadataPullResponseWithValidation(t *testing.T) {
 	})
 }
 
-func TestWorkflowMetadataHandler_Authorize(t *testing.T) {
+func TestUnit_WorkflowMetadataHandler_Authorize(t *testing.T) {
 	handler, _, _ := createTestWorkflowMetadataHandler(t)
 	privateKey, err := crypto.GenerateKey()
 	require.NoError(t, err)
@@ -1153,7 +1153,7 @@ func TestWorkflowMetadataHandler_Authorize(t *testing.T) {
 	})
 }
 
-func TestWorkflowMetadataHandler_GetWorkflowID(t *testing.T) {
+func TestUnit_WorkflowMetadataHandler_GetWorkflowID(t *testing.T) {
 	handler, _, _ := createTestWorkflowMetadataHandler(t)
 
 	workflowOwner := testWorkflowOwner1
@@ -1196,7 +1196,7 @@ func TestWorkflowMetadataHandler_GetWorkflowID(t *testing.T) {
 	})
 }
 
-func TestWorkflowMetadataHandler_GetWorkflowReference(t *testing.T) {
+func TestUnit_WorkflowMetadataHandler_GetWorkflowReference(t *testing.T) {
 	handler, _, _ := createTestWorkflowMetadataHandler(t)
 
 	workflowOwner := testWorkflowOwner1

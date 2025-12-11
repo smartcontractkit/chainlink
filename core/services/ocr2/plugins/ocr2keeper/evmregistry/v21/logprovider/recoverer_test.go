@@ -28,7 +28,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evmregistry/v21/core/mocks"
 )
 
-func TestLogRecoverer_GetRecoverables(t *testing.T) {
+func TestUnit_LogRecoverer_GetRecoverables(t *testing.T) {
 	ctx := testutils.Context(t)
 	lp := &lpmocks.LogPoller{}
 	lp.On("LatestBlock", mock.Anything).Return(logpoller.Block{BlockNumber: 100}, nil)
@@ -98,7 +98,7 @@ func TestLogRecoverer_GetRecoverables(t *testing.T) {
 	}
 }
 
-func TestLogRecoverer_Clean(t *testing.T) {
+func TestUnit_LogRecoverer_Clean(t *testing.T) {
 	oldLogsOffset := int64(20)
 
 	tests := []struct {
@@ -211,7 +211,7 @@ func TestLogRecoverer_Clean(t *testing.T) {
 	}
 }
 
-func TestLogRecoverer_Recover(t *testing.T) {
+func TestUnit_LogRecoverer_Recover(t *testing.T) {
 	ctx := testutils.Context(t)
 
 	tests := []struct {
@@ -454,7 +454,7 @@ func TestLogRecoverer_Recover(t *testing.T) {
 	}
 }
 
-func TestLogRecoverer_SelectFilterBatch(t *testing.T) {
+func TestUnit_LogRecoverer_SelectFilterBatch(t *testing.T) {
 	n := recoveryBatchSize*2 + 2
 	filters := []upkeepFilter{}
 	for i := range n {
@@ -471,7 +471,7 @@ func TestLogRecoverer_SelectFilterBatch(t *testing.T) {
 	require.Len(t, batch, recoveryBatchSize/2)
 }
 
-func TestLogRecoverer_getFilterBatch(t *testing.T) {
+func TestUnit_LogRecoverer_getFilterBatch(t *testing.T) {
 	tests := []struct {
 		name        string
 		offsetBlock int64
@@ -519,7 +519,7 @@ func TestLogRecoverer_getFilterBatch(t *testing.T) {
 	}
 }
 
-func TestLogRecoverer_FilterFinalizedStates(t *testing.T) {
+func TestUnit_LogRecoverer_FilterFinalizedStates(t *testing.T) {
 	tests := []struct {
 		name   string
 		logs   []logpoller.Log
@@ -560,7 +560,7 @@ func TestLogRecoverer_FilterFinalizedStates(t *testing.T) {
 	}
 }
 
-func TestLogRecoverer_GetProposalData(t *testing.T) {
+func TestUnit_LogRecoverer_GetProposalData(t *testing.T) {
 	for _, tc := range []struct {
 		name        string
 		proposal    ocr2keepers.CoordinatedBlockProposal
@@ -1089,7 +1089,7 @@ func TestLogRecoverer_GetProposalData(t *testing.T) {
 	}
 }
 
-func TestLogRecoverer_pending(t *testing.T) {
+func TestUnit_LogRecoverer_pending(t *testing.T) {
 	tests := []struct {
 		name         string
 		maxPerUpkeep int

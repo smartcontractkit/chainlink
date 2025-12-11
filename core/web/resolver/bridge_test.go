@@ -16,7 +16,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/store/models"
 )
 
-func Test_Bridges(t *testing.T) {
+func TestUnit_Bridges(t *testing.T) {
 	t.Parallel()
 
 	var (
@@ -84,7 +84,7 @@ func Test_Bridges(t *testing.T) {
 	RunGQLTests(t, testCases)
 }
 
-func Test_Bridge(t *testing.T) {
+func TestUnit_Bridge(t *testing.T) {
 	t.Parallel()
 
 	var (
@@ -161,7 +161,7 @@ func Test_Bridge(t *testing.T) {
 	RunGQLTests(t, testCases)
 }
 
-func Test_CreateBridge(t *testing.T) {
+func TestUnit_CreateBridge(t *testing.T) {
 	t.Parallel()
 
 	var (
@@ -241,7 +241,7 @@ func Test_CreateBridge(t *testing.T) {
 	RunGQLTests(t, testCases)
 }
 
-func Test_UpdateBridge(t *testing.T) {
+func TestUnit_UpdateBridge(t *testing.T) {
 	t.Parallel()
 
 	var (
@@ -359,7 +359,7 @@ func Test_UpdateBridge(t *testing.T) {
 	RunGQLTests(t, testCases)
 }
 
-func Test_DeleteBridgeMutation(t *testing.T) {
+func TestUnit_DeleteBridgeMutation(t *testing.T) {
 	t.Parallel()
 
 	name := bridges.BridgeName("bridge1")

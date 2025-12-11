@@ -26,7 +26,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/web/presenters"
 )
 
-func TestJob(t *testing.T) {
+func TestUnit_Job(t *testing.T) {
 	// Used in multiple tests
 	timestamp := time.Date(2000, 1, 1, 0, 0, 0, 0, time.UTC)
 	contractAddress, err := types.NewEIP55Address("0x9E40733cC9df84636505f4e6Db28DCa0dC5D1bba")

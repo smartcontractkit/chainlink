@@ -7,7 +7,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestWorkflowsConfig(t *testing.T) {
+func TestUnit_WorkflowsConfig(t *testing.T) {
 	workflowsTOML := `[Workflows]
 [Workflows.Limits]
 Global = 200

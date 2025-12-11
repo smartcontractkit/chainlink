@@ -55,7 +55,7 @@ func withDefaults(t *testing.T, c chainlink.Config, s chainlink.Secrets) chainli
 	return cfg
 }
 
-func Test_initServerConfig(t *testing.T) {
+func TestUnit_initServerConfig(t *testing.T) {
 	type args struct {
 		opts         *chainlink.GeneralConfigOpts
 		fileNames    []string

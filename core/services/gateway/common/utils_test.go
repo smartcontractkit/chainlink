@@ -11,7 +11,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/common"
 )
 
-func TestUtils_BytesUint32Conversions(t *testing.T) {
+func TestUnit_Utils_BytesUint32Conversions(t *testing.T) {
 	t.Parallel()
 
 	val := uint32(time.Now().Unix())
@@ -19,7 +19,7 @@ func TestUtils_BytesUint32Conversions(t *testing.T) {
 	require.Equal(t, val, common.BytesToUint32(data))
 }
 
-func TestUtils_StringAlignedBytesConversions(t *testing.T) {
+func TestUnit_Utils_StringAlignedBytesConversions(t *testing.T) {
 	t.Parallel()
 
 	val := "my_string"
@@ -35,7 +35,7 @@ func TestUtils_StringAlignedBytesConversions(t *testing.T) {
 	require.Equal(t, val, common.AlignedBytesToString(data))
 }
 
-func TestUtils_BytesSignAndValidate(t *testing.T) {
+func TestUnit_Utils_BytesSignAndValidate(t *testing.T) {
 	t.Parallel()
 
 	data := []byte("data_data")

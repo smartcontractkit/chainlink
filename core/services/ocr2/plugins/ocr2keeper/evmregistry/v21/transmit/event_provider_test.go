@@ -23,7 +23,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evmregistry/v21/core"
 )
 
-func TestTransmitEventProvider_Sanity(t *testing.T) {
+func TestUnit_TransmitEventProvider_Sanity(t *testing.T) {
 	ctx := testutils.Context(t)
 
 	lp := new(mocks.LogPoller)
@@ -100,7 +100,7 @@ func TestTransmitEventProvider_Sanity(t *testing.T) {
 	}
 }
 
-func TestTransmitEventProvider_ProcessLogs(t *testing.T) {
+func TestUnit_TransmitEventProvider_ProcessLogs(t *testing.T) {
 	lp := new(mocks.LogPoller)
 	lp.On("RegisterFilter", mock.Anything, mock.Anything).Return(nil)
 	client := clienttest.NewClient(t)

@@ -223,7 +223,7 @@ var (
 	}
 )
 
-func TestStartHeartbeats(t *testing.T) {
+func TestUnit_StartHeartbeats(t *testing.T) {
 	t.Skip("fails after geth upgrade https://github.com/smartcontractkit/chainlink/pull/11809")
 	t.Run("bhs_heartbeat_happy_path", func(t *testing.T) {
 		expectedDuration := 600 * time.Second
@@ -360,7 +360,7 @@ type testCase struct {
 	expectedErrMsg          string
 }
 
-func TestFeeder(t *testing.T) {
+func TestUnit_Feeder(t *testing.T) {
 	for _, test := range tests {
 		t.Run(test.name, test.testFeeder)
 	}
@@ -397,7 +397,7 @@ func (test testCase) testFeeder(t *testing.T) {
 	require.ElementsMatch(t, test.expectedStoredMapBlocks, maps.Keys(feeder.stored))
 }
 
-func TestFeederWithLogPollerVRFv1(t *testing.T) {
+func TestUnit_FeederWithLogPollerVRFv1(t *testing.T) {
 	for _, test := range tests {
 		t.Run(test.name, test.testFeederWithLogPollerVRFv1)
 	}
@@ -491,7 +491,7 @@ func (test testCase) testFeederWithLogPollerVRFv1(t *testing.T) {
 	require.ElementsMatch(t, test.expectedStoredMapBlocks, maps.Keys(feeder.stored))
 }
 
-func TestFeederWithLogPollerVRFv2(t *testing.T) {
+func TestUnit_FeederWithLogPollerVRFv2(t *testing.T) {
 	for _, test := range tests {
 		t.Run(test.name, test.testFeederWithLogPollerVRFv2)
 	}
@@ -589,7 +589,7 @@ func (test testCase) testFeederWithLogPollerVRFv2(t *testing.T) {
 	require.ElementsMatch(t, test.expectedStoredMapBlocks, maps.Keys(feeder.stored))
 }
 
-func TestFeederWithLogPollerVRFv2Plus(t *testing.T) {
+func TestUnit_FeederWithLogPollerVRFv2Plus(t *testing.T) {
 	for _, test := range tests {
 		t.Run(test.name, test.testFeederWithLogPollerVRFv2Plus)
 	}
@@ -687,7 +687,7 @@ func (test testCase) testFeederWithLogPollerVRFv2Plus(t *testing.T) {
 	require.ElementsMatch(t, test.expectedStoredMapBlocks, maps.Keys(feeder.stored))
 }
 
-func TestFeeder_CachesStoredBlocks(t *testing.T) {
+func TestUnit_Feeder_CachesStoredBlocks(t *testing.T) {
 	coordinator := &TestCoordinator{
 		RequestEvents: []Event{{Block: 100, ID: "1000"}},
 	}

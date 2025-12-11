@@ -62,7 +62,7 @@ func (m *mockKey) reset(format llotypes.ReportFormat) {
 	m.verify = false
 }
 
-func Test_Keyring(t *testing.T) {
+func TestUnit_Keyring(t *testing.T) {
 	lggr := logger.TestLogger(t)
 
 	ks := map[llotypes.ReportFormat]Key{

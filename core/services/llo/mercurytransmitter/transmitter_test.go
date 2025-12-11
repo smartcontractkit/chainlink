@@ -60,7 +60,7 @@ func (m *MockGRPCClient) Transmit(ctx context.Context, in *rpc.TransmitRequest) 
 }
 func (m *MockGRPCClient) ServerURL() string { return "mock server url" }
 
-func Test_Transmitter_Transmit(t *testing.T) {
+func TestUnit_Transmitter_Transmit(t *testing.T) {
 	lggr := logger.TestLogger(t)
 	db := pgtest.NewSqlxDB(t)
 	donID := uint32(123456)
@@ -184,7 +184,7 @@ func (m *mockQ) Push(t *Transmission) (ok bool) {
 func (m *mockQ) Init(transmissions []*Transmission) error { return nil }
 func (m *mockQ) IsEmpty() bool                            { return false }
 
-func Test_Transmitter_runQueueLoop(t *testing.T) {
+func TestUnit_Transmitter_runQueueLoop(t *testing.T) {
 	donIDStr := "555"
 	lggr := logger.TestLogger(t)
 	c := &MockGRPCClient{}

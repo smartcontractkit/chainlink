@@ -22,7 +22,7 @@ import (
 	telem "github.com/smartcontractkit/chainlink/v2/core/services/telemetry"
 )
 
-func TestTelemetryIngressClient_Send_HappyPath(t *testing.T) {
+func TestUnit_TelemetryIngressClient_Send_HappyPath(t *testing.T) {
 	// Create mocks
 	telemClient := mocks.NewTelemClient(t)
 

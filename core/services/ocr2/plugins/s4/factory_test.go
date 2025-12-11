@@ -15,7 +15,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestS4ReportingPluginFactory_NewReportingPlugin(t *testing.T) {
+func TestUnit_S4ReportingPluginFactory_NewReportingPlugin(t *testing.T) {
 	t.Parallel()
 
 	logger := commonlogger.NewOCRWrapper(logger.TestLogger(t), true, func(msg string) {})

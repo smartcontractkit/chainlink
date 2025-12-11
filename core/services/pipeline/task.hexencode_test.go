@@ -13,7 +13,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
 )
 
-func TestHexEncodeTask(t *testing.T) {
+func TestUnit_HexEncodeTask(t *testing.T) {
 	t.Parallel()
 	bigTwo, bigThree := big.NewInt(2), big.NewInt(3)
 
@@ -91,7 +91,7 @@ func TestHexEncodeTask(t *testing.T) {
 	}
 }
 
-func TestHexEncodeTaskInputParamLiteral(t *testing.T) {
+func TestUnit_HexEncodeTaskInputParamLiteral(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {

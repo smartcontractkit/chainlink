@@ -12,7 +12,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm"
 )
 
-func TestRelayerOpts_Validate(t *testing.T) {
+func TestUnit_RelayerOpts_Validate(t *testing.T) {
 	type fields struct {
 		DS                   sqlutil.DataSource
 		CSAKeystore          core.Keystore

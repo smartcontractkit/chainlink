@@ -49,7 +49,7 @@ func newMockClient(lggr logger.Logger) *mockClient {
 	return &mockClient{}
 }
 
-func Test_Pool(t *testing.T) {
+func TestUnit_Pool(t *testing.T) {
 	lggr := logger.Sugared(logger.Test(t)).Named("PoolTestLogger")
 
 	ctx := testutils.Context(t)

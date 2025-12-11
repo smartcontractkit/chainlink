@@ -22,7 +22,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury/v3/reportcodec"
 )
 
-func TestCodec_WrapUnwrap(t *testing.T) {
+func TestUnit_Codec_WrapUnwrap(t *testing.T) {
 	codec := streams.NewCodec(logger.Test(t))
 
 	id1, id1Str := newFeedID(t)

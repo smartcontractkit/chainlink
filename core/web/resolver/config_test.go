@@ -23,7 +23,7 @@ var (
 	configMultiEffective string
 )
 
-func TestResolver_ConfigV2(t *testing.T) {
+func TestUnit_Resolver_ConfigV2(t *testing.T) {
 	t.Parallel()
 
 	query := `

@@ -6,7 +6,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestStringSet(t *testing.T) {
+func TestUnit_StringSet(t *testing.T) {
 	t.Run("add and contains", func(t *testing.T) {
 		s := make(StringSet)
 

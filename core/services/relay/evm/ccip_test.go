@@ -7,7 +7,7 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func Test_CCIPSubjectUUID(t *testing.T) {
+func TestUnit_CCIPSubjectUUID(t *testing.T) {
 	// We want the function to be
 	// (1) an actual function (i.e., deterministic)
 	assert.Equal(t, chainToUUID(big.NewInt(1)), chainToUUID(big.NewInt(1)))

@@ -12,7 +12,7 @@ import (
 
 var errTest = errors.New("error")
 
-func TestLogger_Passthrough(t *testing.T) {
+func TestUnit_Logger_Passthrough(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {

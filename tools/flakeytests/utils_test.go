@@ -9,7 +9,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestDigString(t *testing.T) {
+func TestUnit_DigString(t *testing.T) {
 	in := map[string]any{
 		"pull_request": map[string]any{
 			"url": "some-url",
@@ -35,7 +35,7 @@ var prEventTemplate = `
 }
 `
 
-func TestGetGithubMetadata(t *testing.T) {
+func TestUnit_GetGithubMetadata(t *testing.T) {
 	repo, eventName, sha, event, runID, runAttempt := "chainlink", "merge_group", "a-sha", `{}`, "1234", "1"
 	expectedRunURL := fmt.Sprintf("github.com/%s/actions/runs/%s/attempts/%s", repo, runID, runAttempt)
 	ctx := getGithubMetadata(repo, eventName, sha, strings.NewReader(event), runID, runAttempt)

@@ -23,7 +23,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/web/presenters"
 )
 
-func Test_CosmosChainsController_Show(t *testing.T) {
+func TestUnit_CosmosChainsController_Show(t *testing.T) {
 	t.Parallel()
 
 	const validID = "Chainlink-12"
@@ -130,7 +130,7 @@ TendermintURL = 'http://tender.mint'
 `, rc.ChainID(), gasPrice, gasLimitMult)
 }
 
-func Test_CosmosChainsController_Index(t *testing.T) {
+func TestUnit_CosmosChainsController_Index(t *testing.T) {
 	t.Parallel()
 
 	chainA := chainlink.RawConfig{

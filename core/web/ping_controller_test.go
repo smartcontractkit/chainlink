@@ -17,7 +17,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestPingController_Show_APICredentials(t *testing.T) {
+func TestUnit_PingController_Show_APICredentials(t *testing.T) {
 	t.Parallel()
 
 	app := cltest.NewApplicationEVMDisabled(t)
@@ -32,7 +32,7 @@ func TestPingController_Show_APICredentials(t *testing.T) {
 	require.JSONEq(t, `{"message":"pong"}`, body)
 }
 
-func TestPingController_Show_ExternalInitiatorCredentials(t *testing.T) {
+func TestUnit_PingController_Show_ExternalInitiatorCredentials(t *testing.T) {
 	t.Parallel()
 	ctx := testutils.Context(t)
 
@@ -71,7 +71,7 @@ func TestPingController_Show_ExternalInitiatorCredentials(t *testing.T) {
 	require.JSONEq(t, `{"message":"pong"}`, body)
 }
 
-func TestPingController_Show_NoCredentials(t *testing.T) {
+func TestUnit_PingController_Show_NoCredentials(t *testing.T) {
 	t.Parallel()
 
 	ctx := testutils.Context(t)

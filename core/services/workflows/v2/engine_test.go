@@ -67,7 +67,7 @@ import (
 
 const triggerID = "basic-test-trigger@1.0.0"
 
-func TestEngine_Init(t *testing.T) {
+func TestUnit_Engine_Init(t *testing.T) {
 	t.Parallel()
 
 	module := modulemocks.NewModuleV2(t)
@@ -98,7 +98,7 @@ func TestEngine_Init(t *testing.T) {
 	require.NoError(t, engine.Close())
 }
 
-func TestEngine_Start_RateLimited(t *testing.T) {
+func TestUnit_Engine_Start_RateLimited(t *testing.T) {
 	t.Parallel()
 	sLimiter, err := syncerlimiter.NewWorkflowLimits(logger.Test(t), syncerlimiter.Config{
 		Global:   2,
@@ -164,7 +164,7 @@ func TestEngine_Start_RateLimited(t *testing.T) {
 	require.NoError(t, engine4.Close())
 }
 
-func TestEngine_TriggerSubscriptions(t *testing.T) {
+func TestUnit_Engine_TriggerSubscriptions(t *testing.T) {
 	t.Parallel()
 
 	module := modulemocks.NewModuleV2(t)
@@ -275,7 +275,7 @@ func newTriggerSubs(n int) *sdkpb.ExecutionResult {
 	}
 }
 
-func TestEngine_OrganizationIdLogger(t *testing.T) {
+func TestUnit_Engine_OrganizationIdLogger(t *testing.T) {
 	t.Parallel()
 
 	module := modulemocks.NewModuleV2(t)
@@ -361,7 +361,7 @@ func TestEngine_OrganizationIdLogger(t *testing.T) {
 	require.NoError(t, engine.Close())
 }
 
-func TestEngine_OrganizationIdLogger_OrgResolverFailure(t *testing.T) {
+func TestUnit_Engine_OrganizationIdLogger_OrgResolverFailure(t *testing.T) {
 	t.Parallel()
 
 	module := modulemocks.NewModuleV2(t)
@@ -476,7 +476,7 @@ func (m *mockOrgResolver) Ready() error {
 	return nil
 }
 
-func TestEngine_Execution(t *testing.T) {
+func TestUnit_Engine_Execution(t *testing.T) {
 	quarantine.Flaky(t, "DX-1725")
 	module := modulemocks.NewModuleV2(t)
 	module.EXPECT().Start()
@@ -586,7 +586,7 @@ func TestEngine_Execution(t *testing.T) {
 	})
 }
 
-func TestEngine_ExecutionTimeout(t *testing.T) {
+func TestUnit_Engine_ExecutionTimeout(t *testing.T) {
 	t.Parallel()
 
 	module := modulemocks.NewModuleV2(t)
@@ -673,7 +673,7 @@ func TestEngine_ExecutionTimeout(t *testing.T) {
 	require.NoError(t, engine.Close())
 }
 
-func TestEngine_Metering_ValidBillingClient(t *testing.T) {
+func TestUnit_Engine_Metering_ValidBillingClient(t *testing.T) {
 	t.Parallel()
 
 	module := modulemocks.NewModuleV2(t)
@@ -1073,7 +1073,7 @@ func TestEngine_Metering_ValidBillingClient(t *testing.T) {
 	require.NoError(t, engine.Close())
 }
 
-func TestEngine_CapabilityCallTimeout(t *testing.T) {
+func TestUnit_Engine_CapabilityCallTimeout(t *testing.T) {
 	t.Parallel()
 
 	module := modulemocks.NewModuleV2(t)
@@ -1193,7 +1193,7 @@ func TestEngine_CapabilityCallTimeout(t *testing.T) {
 	require.NoError(t, engine.Close())
 }
 
-func TestEngine_WASMBinary_Simple(t *testing.T) {
+func TestUnit_Engine_WASMBinary_Simple(t *testing.T) {
 	cmd := "core/services/workflows/test/wasm/v2/cmd"
 	log := logger.Test(t)
 	binaryB := wasmtest.CreateTestBinary(cmd, false, t)
@@ -1298,7 +1298,7 @@ func TestEngine_WASMBinary_Simple(t *testing.T) {
 }
 
 // TODO fix
-func TestEngine_WASMBinary_With_Config(t *testing.T) {
+func TestUnit_Engine_WASMBinary_With_Config(t *testing.T) {
 	cmd := "core/services/workflows/test/wasm/v2/cmd/with_config"
 	binaryB := wasmtest.CreateTestBinary(cmd, false, t)
 
@@ -1393,7 +1393,7 @@ func TestEngine_WASMBinary_With_Config(t *testing.T) {
 	})
 }
 
-func TestSecretsFetcher_Integration(t *testing.T) {
+func TestUnit_SecretsFetcher_Integration(t *testing.T) {
 	cmd := "core/services/workflows/test/wasm/v2/cmd/with_secrets"
 	binaryB := wasmtest.CreateTestBinary(cmd, false, t)
 
@@ -1582,7 +1582,7 @@ func TestSecretsFetcher_Integration(t *testing.T) {
 	require.NoError(t, engine.Close())
 }
 
-func TestEngine_HandleNewDON(t *testing.T) {
+func TestUnit_Engine_HandleNewDON(t *testing.T) {
 	t.Parallel()
 
 	t.Run("subscribe and update successfully", func(t *testing.T) {
@@ -1792,7 +1792,7 @@ func TestEngine_HandleNewDON(t *testing.T) {
 // 2. Start the engine (which subscribes to DON updates)
 // 3. Trigger a real DON update via NotifyDonSet() with ConfigVersion = 2
 // 4. Verify that the beholder logger labels are updated to reflect ConfigVersion = 2
-func TestEngine_DonVersionLabelUpdate(t *testing.T) {
+func TestUnit_Engine_DonVersionLabelUpdate(t *testing.T) {
 	t.Parallel()
 
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)

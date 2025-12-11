@@ -12,7 +12,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 )
 
-func TestValidateVRFJobSpec(t *testing.T) {
+func TestUnit_ValidateVRFJobSpec(t *testing.T) {
 	var tt = []struct {
 		name      string
 		toml      string

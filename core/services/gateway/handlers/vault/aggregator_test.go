@@ -26,7 +26,7 @@ func makeNodes(t *testing.T, signers []string) []capabilities.Node {
 	return nodes
 }
 
-func TestAggregator_Valid_Signatures(t *testing.T) {
+func TestUnit_Aggregator_Valid_Signatures(t *testing.T) {
 	signers := []string{
 		"d6da96fe596705b32bc3a0e11cdefad77feaad79000000000000000000000000",
 		"327aa349c9718cd36c877d1e90458fe1929768ad000000000000000000000000",
@@ -104,7 +104,7 @@ func newMessage(t *testing.T) *jsonrpc.Response[json.RawMessage] {
 	}
 }
 
-func TestAggregator_Valid_FallsBackToQuorum(t *testing.T) {
+func TestUnit_Aggregator_Valid_FallsBackToQuorum(t *testing.T) {
 	// No valid signers
 	signers := []string{
 		hex.EncodeToString(mustRandom(64)),
@@ -136,7 +136,7 @@ func TestAggregator_Valid_FallsBackToQuorum(t *testing.T) {
 	assert.Equal(t, &currResp, resp)
 }
 
-func TestAggregator_Valid_FallsBackToQuorum_ExcludesSignaturesInSha(t *testing.T) {
+func TestUnit_Aggregator_Valid_FallsBackToQuorum_ExcludesSignaturesInSha(t *testing.T) {
 	// No valid signers
 	signers := []string{
 		hex.EncodeToString(mustRandom(64)),
@@ -172,7 +172,7 @@ func TestAggregator_Valid_FallsBackToQuorum_ExcludesSignaturesInSha(t *testing.T
 	assert.Contains(t, respDigests, digest)
 }
 
-func TestAggregator_InsufficientResponses(t *testing.T) {
+func TestUnit_Aggregator_InsufficientResponses(t *testing.T) {
 	mcr := &mockCapabilitiesRegistry{F: 1}
 	agg := &baseAggregator{capabilitiesRegistry: mcr}
 
@@ -190,7 +190,7 @@ func TestAggregator_InsufficientResponses(t *testing.T) {
 	require.ErrorContains(t, err, "insufficient valid responses to reach quorum")
 }
 
-func TestAggregator_QuorumUnobtainable(t *testing.T) {
+func TestUnit_Aggregator_QuorumUnobtainable(t *testing.T) {
 	// No valid signers
 	signers := []string{
 		hex.EncodeToString(mustRandom(64)),

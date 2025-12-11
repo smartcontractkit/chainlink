@@ -36,7 +36,7 @@ func (m *testConnManager) SendToNode(ctx context.Context, nodeAddress string, re
 	return nil
 }
 
-func TestDummyHandler_BasicFlow(t *testing.T) {
+func TestUnit_DummyHandler_BasicFlow(t *testing.T) {
 	t.Parallel()
 
 	config := config.DONConfig{

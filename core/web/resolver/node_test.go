@@ -14,7 +14,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/web/testutils"
 )
 
-func TestResolver_Nodes(t *testing.T) {
+func TestUnit_Resolver_Nodes(t *testing.T) {
 	t.Parallel()
 
 	query := `
@@ -101,7 +101,7 @@ func TestResolver_Nodes(t *testing.T) {
 	RunGQLTests(t, testCases)
 }
 
-func Test_NodeQuery(t *testing.T) {
+func TestUnit_NodeQuery(t *testing.T) {
 	t.Parallel()
 
 	query := `

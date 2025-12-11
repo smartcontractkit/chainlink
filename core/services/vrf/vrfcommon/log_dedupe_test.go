@@ -8,7 +8,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestLogDeduper(t *testing.T) {
+func TestUnit_LogDeduper(t *testing.T) {
 	tests := []struct {
 		name    string
 		logs    []types.Log

@@ -14,7 +14,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
 
-func Test_parseLogs(t *testing.T) {
+func TestUnit_parseLogs(t *testing.T) {
 	// generate 100 logs
 	logs := make([]logpoller.Log, 100)
 	for i := range logs {
@@ -39,7 +39,7 @@ func Test_parseLogs(t *testing.T) {
 	}
 }
 
-func Test_parseLogs_withErrors(t *testing.T) {
+func TestUnit_parseLogs_withErrors(t *testing.T) {
 	// generate 50 valid logs and 50 errors
 	actualErrorCount := 50
 	logs := make([]logpoller.Log, actualErrorCount*2)

@@ -13,7 +13,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 )
 
-func Test_VerifyRmnReportSignatures(t *testing.T) {
+func TestUnit_VerifyRmnReportSignatures(t *testing.T) {
 	// NOTE: The following test data (public keys, signatures, ...) are shared from the RMN team.
 
 	onchainRmnRemoteAddr := common.HexToAddress("0x7821bcd6944457d17c631157efeb0c621baa76eb")

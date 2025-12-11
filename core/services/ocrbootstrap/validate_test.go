@@ -9,7 +9,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 )
 
-func TestValidateBootstrapSpec(t *testing.T) {
+func TestUnit_ValidateBootstrapSpec(t *testing.T) {
 	var tt = []struct {
 		name      string
 		toml      string

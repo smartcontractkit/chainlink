@@ -76,7 +76,7 @@ func (g *relayGetter) GetIDToRelayerMap() map[types.RelayID]loop.Relayer {
 	return map[types.RelayID]loop.Relayer{}
 }
 
-func TestSpawner_CreateJobDeleteJob(t *testing.T) {
+func TestUnit_Spawner_CreateJobDeleteJob(t *testing.T) {
 	t.Parallel()
 	ctx := testutils.Context(t)
 

@@ -18,7 +18,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/ccipdata"
 )
 
-func TestPriceRegistry(t *testing.T) {
+func TestUnit_PriceRegistry(t *testing.T) {
 	ctx := testutils.Context(t)
 
 	for _, versionStr := range []string{ccipdata.V1_2_0} {

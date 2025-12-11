@@ -110,7 +110,7 @@ func (t *testDonNotifier) Subscribe(ctx context.Context) (<-chan capabilities.DO
 	return ch, func() {}, t.err
 }
 
-func Test_EventHandlerStateSync(t *testing.T) {
+func TestUnit_EventHandlerStateSync(t *testing.T) {
 	lggr := logger.TestLogger(t)
 	backendTH := testutils.NewEVMBackendTH(t)
 	donID := uint32(1)
@@ -243,7 +243,7 @@ func Test_EventHandlerStateSync(t *testing.T) {
 	}, tests.WaitTimeout(t), time.Second)
 }
 
-func Test_InitialStateSync(t *testing.T) {
+func TestUnit_InitialStateSync(t *testing.T) {
 	lggr := logger.TestLogger(t)
 	backendTH := testutils.NewEVMBackendTH(t)
 	donID := uint32(1)
@@ -308,7 +308,7 @@ func Test_InitialStateSync(t *testing.T) {
 	}
 }
 
-func Test_SecretsWorker(t *testing.T) {
+func TestUnit_SecretsWorker(t *testing.T) {
 	tests.SkipFlakey(t, "https://smartcontract-it.atlassian.net/browse/DX-732")
 	tc := []struct {
 		ss SyncStrategy
@@ -452,7 +452,7 @@ func Test_SecretsWorker(t *testing.T) {
 	}
 }
 
-func Test_RegistrySyncer_SkipsEventsNotBelongingToDON(t *testing.T) {
+func TestUnit_RegistrySyncer_SkipsEventsNotBelongingToDON(t *testing.T) {
 	var (
 		lggr      = logger.TestLogger(t)
 		backendTH = testutils.NewEVMBackendTH(t)
@@ -534,7 +534,7 @@ func Test_RegistrySyncer_SkipsEventsNotBelongingToDON(t *testing.T) {
 	}, tests.WaitTimeout(t), time.Second)
 }
 
-func Test_RegistrySyncer_WorkflowRegistered_InitiallyPaused(t *testing.T) {
+func TestUnit_RegistrySyncer_WorkflowRegistered_InitiallyPaused(t *testing.T) {
 	var (
 		ctx       = coretestutils.Context(t)
 		lggr      = logger.TestLogger(t)
@@ -632,7 +632,7 @@ func Test_RegistrySyncer_WorkflowRegistered_InitiallyPaused(t *testing.T) {
 	}, tests.WaitTimeout(t), time.Second)
 }
 
-func Test_RegistrySyncer_WorkflowRegistered_InitiallyActivated(t *testing.T) {
+func TestUnit_RegistrySyncer_WorkflowRegistered_InitiallyActivated(t *testing.T) {
 	var (
 		ctx       = coretestutils.Context(t)
 		lggr      = logger.TestLogger(t)
@@ -730,7 +730,7 @@ func Test_RegistrySyncer_WorkflowRegistered_InitiallyActivated(t *testing.T) {
 	}, tests.WaitTimeout(t), time.Second)
 }
 
-func Test_StratReconciliation_InitialStateSync(t *testing.T) {
+func TestUnit_StratReconciliation_InitialStateSync(t *testing.T) {
 	quarantine.Flaky(t, "DX-2063")
 	t.Run("with heavy load", func(t *testing.T) {
 		lggr := logger.TestLogger(t)
@@ -801,7 +801,7 @@ func Test_StratReconciliation_InitialStateSync(t *testing.T) {
 	})
 }
 
-func Test_StratReconciliation_RetriesWithBackoff(t *testing.T) {
+func TestUnit_StratReconciliation_RetriesWithBackoff(t *testing.T) {
 	lggr := logger.TestLogger(t)
 	backendTH := testutils.NewEVMBackendTH(t)
 	donID := uint32(1)

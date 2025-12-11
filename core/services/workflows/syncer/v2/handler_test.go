@@ -114,7 +114,7 @@ func mockEngineFactory(ctx context.Context, wfid string, owner string, name type
 	return &mockEngine{}, nil
 }
 
-func Test_Handler(t *testing.T) {
+func TestUnit_Handler(t *testing.T) {
 	t.Run("fails with unsupported event type", func(t *testing.T) {
 		lggr := logger.TestLogger(t)
 		lf := limits.Factory{Logger: lggr}
@@ -166,7 +166,7 @@ const (
 	binaryCmd      = "core/capabilities/compute/test/simple/cmd"
 )
 
-func Test_workflowRegisteredHandler(t *testing.T) {
+func TestUnit_workflowRegisteredHandler(t *testing.T) {
 	binaryURLFactory := func(wfID string) string {
 		return "http://example.com/" + wfID + "/binary"
 	}
@@ -714,7 +714,7 @@ func newMockArtifactStore(as *artifacts.Store, deleteWorkflowArtifactsErr error)
 	}
 }
 
-func Test_workflowDeletedHandler(t *testing.T) {
+func TestUnit_workflowDeletedHandler(t *testing.T) {
 	t.Run("success deleting existing engine and spec", func(t *testing.T) {
 		var (
 			ctx     = testutils.Context(t)
@@ -978,7 +978,7 @@ func (m *mockLinkingService) GetOrganizationFromWorkflowOwner(ctx context.Contex
 	}, nil
 }
 
-func Test_Handler_OrganizationID(t *testing.T) {
+func TestUnit_Handler_OrganizationID(t *testing.T) {
 	observer := beholdertest.NewObserver(t)
 	emitter := custmsg.NewLabeler()
 	ctx := testutils.Context(t)

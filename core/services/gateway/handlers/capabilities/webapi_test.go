@@ -6,7 +6,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestResponseValidate(t *testing.T) {
+func TestUnit_ResponseValidate(t *testing.T) {
 	tt := []struct {
 		name        string
 		response    Response

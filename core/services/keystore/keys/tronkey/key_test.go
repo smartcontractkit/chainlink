@@ -9,7 +9,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestTronKeyNewKeyGeneration(t *testing.T) {
+func TestUnit_TronKeyNewKeyGeneration(t *testing.T) {
 	t.Run("Generate new key and verify its components", func(t *testing.T) {
 		// Generate a new key
 		key, err := New()
@@ -32,7 +32,7 @@ func TestTronKeyNewKeyGeneration(t *testing.T) {
 	})
 }
 
-func TestKeyAddress(t *testing.T) {
+func TestUnit_KeyAddress(t *testing.T) {
 	t.Run("Known private key and expected address", func(t *testing.T) {
 		// Tests cases from https://developers.tron.network/docs/account
 		privateKeyHex := "b406adb115b43e103c7b1dc8b5931f63279a5b6b2cf7328638814c43171a2908"

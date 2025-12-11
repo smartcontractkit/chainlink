@@ -25,7 +25,7 @@ const historySize = 4
 const blockSize = int64(4)
 const finality = uint32(4)
 
-func TestBlockSubscriber_Subscribe(t *testing.T) {
+func TestUnit_BlockSubscriber_Subscribe(t *testing.T) {
 	lggr := logger.TestLogger(t)
 	var hb heads.Broadcaster
 	var lp logpoller.LogPoller
@@ -44,7 +44,7 @@ func TestBlockSubscriber_Subscribe(t *testing.T) {
 	assert.Equal(t, 3, subId)
 }
 
-func TestBlockSubscriber_Unsubscribe(t *testing.T) {
+func TestUnit_BlockSubscriber_Unsubscribe(t *testing.T) {
 	lggr := logger.TestLogger(t)
 	var hb heads.Broadcaster
 	var lp logpoller.LogPoller
@@ -62,7 +62,7 @@ func TestBlockSubscriber_Unsubscribe(t *testing.T) {
 	assert.NoError(t, err)
 }
 
-func TestBlockSubscriber_Unsubscribe_Failure(t *testing.T) {
+func TestUnit_BlockSubscriber_Unsubscribe_Failure(t *testing.T) {
 	lggr := logger.TestLogger(t)
 	var hb heads.Broadcaster
 	var lp logpoller.LogPoller
@@ -74,7 +74,7 @@ func TestBlockSubscriber_Unsubscribe_Failure(t *testing.T) {
 	assert.Equal(t, "subscriber 2 does not exist", err.Error())
 }
 
-func TestBlockSubscriber_GetBlockRange(t *testing.T) {
+func TestUnit_BlockSubscriber_GetBlockRange(t *testing.T) {
 	lggr := logger.TestLogger(t)
 	var hb heads.Broadcaster
 
@@ -113,7 +113,7 @@ func TestBlockSubscriber_GetBlockRange(t *testing.T) {
 	}
 }
 
-func TestBlockSubscriber_InitializeBlocks(t *testing.T) {
+func TestUnit_BlockSubscriber_InitializeBlocks(t *testing.T) {
 	lggr := logger.TestLogger(t)
 	var hb heads.Broadcaster
 
@@ -176,7 +176,7 @@ func TestBlockSubscriber_InitializeBlocks(t *testing.T) {
 	}
 }
 
-func TestBlockSubscriber_BuildHistory(t *testing.T) {
+func TestUnit_BlockSubscriber_BuildHistory(t *testing.T) {
 	lggr := logger.TestLogger(t)
 	var hb heads.Broadcaster
 	lp := new(mocks.LogPoller)
@@ -226,7 +226,7 @@ func TestBlockSubscriber_BuildHistory(t *testing.T) {
 	}
 }
 
-func TestBlockSubscriber_Cleanup(t *testing.T) {
+func TestUnit_BlockSubscriber_Cleanup(t *testing.T) {
 	lggr := logger.TestLogger(t)
 	var hb heads.Broadcaster
 	lp := new(mocks.LogPoller)
@@ -274,7 +274,7 @@ func TestBlockSubscriber_Cleanup(t *testing.T) {
 	}
 }
 
-func TestBlockSubscriber_Start(t *testing.T) {
+func TestUnit_BlockSubscriber_Start(t *testing.T) {
 	lggr := logger.TestLogger(t)
 	hb := headstest.NewBroadcaster[*evmtypes.Head, common.Hash](t)
 	hb.On("Subscribe", mock.Anything).Return(&evmtypes.Head{Number: 42}, func() {})

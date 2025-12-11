@@ -31,7 +31,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestTransfersController_CreateSuccess_From(t *testing.T) {
+func TestUnit_TransfersController_CreateSuccess_From(t *testing.T) {
 	t.Parallel()
 
 	key := cltest.MustGenerateRandomKey(t)
@@ -74,7 +74,7 @@ func TestTransfersController_CreateSuccess_From(t *testing.T) {
 	validateTxCount(t, app.GetDB(), 1)
 }
 
-func TestTransfersController_CreateSuccess_From_WEI(t *testing.T) {
+func TestUnit_TransfersController_CreateSuccess_From_WEI(t *testing.T) {
 	t.Parallel()
 
 	key := cltest.MustGenerateRandomKey(t)
@@ -116,7 +116,7 @@ func TestTransfersController_CreateSuccess_From_WEI(t *testing.T) {
 	validateTxCount(t, app.GetDB(), 1)
 }
 
-func TestTransfersController_CreateSuccess_From_BalanceMonitorDisabled(t *testing.T) {
+func TestUnit_TransfersController_CreateSuccess_From_BalanceMonitorDisabled(t *testing.T) {
 	t.Parallel()
 
 	key := cltest.MustGenerateRandomKey(t)
@@ -163,7 +163,7 @@ func TestTransfersController_CreateSuccess_From_BalanceMonitorDisabled(t *testin
 	validateTxCount(t, app.GetDB(), 1)
 }
 
-func TestTransfersController_TransferZeroAddressError(t *testing.T) {
+func TestUnit_TransfersController_TransferZeroAddressError(t *testing.T) {
 	t.Parallel()
 
 	app := cltest.NewApplicationWithKey(t)
@@ -189,7 +189,7 @@ func TestTransfersController_TransferZeroAddressError(t *testing.T) {
 	cltest.AssertServerResponse(t, resp, http.StatusUnprocessableEntity)
 }
 
-func TestTransfersController_TransferBalanceToLowError(t *testing.T) {
+func TestUnit_TransfersController_TransferBalanceToLowError(t *testing.T) {
 	t.Parallel()
 
 	key := cltest.MustGenerateRandomKey(t)
@@ -225,7 +225,7 @@ func TestTransfersController_TransferBalanceToLowError(t *testing.T) {
 	cltest.AssertServerResponse(t, resp, http.StatusUnprocessableEntity)
 }
 
-func TestTransfersController_TransferBalanceToLowError_ZeroBalance(t *testing.T) {
+func TestUnit_TransfersController_TransferBalanceToLowError_ZeroBalance(t *testing.T) {
 	t.Parallel()
 
 	key := cltest.MustGenerateRandomKey(t)
@@ -264,7 +264,7 @@ func TestTransfersController_TransferBalanceToLowError_ZeroBalance(t *testing.T)
 	cltest.AssertServerResponse(t, resp, http.StatusUnprocessableEntity)
 }
 
-func TestTransfersController_JSONBindingError(t *testing.T) {
+func TestUnit_TransfersController_JSONBindingError(t *testing.T) {
 	t.Parallel()
 
 	app := cltest.NewApplicationWithKey(t)
@@ -278,7 +278,7 @@ func TestTransfersController_JSONBindingError(t *testing.T) {
 	cltest.AssertServerResponse(t, resp, http.StatusBadRequest)
 }
 
-func TestTransfersController_CreateSuccess_eip1559(t *testing.T) {
+func TestUnit_TransfersController_CreateSuccess_eip1559(t *testing.T) {
 	t.Parallel()
 
 	key := cltest.MustGenerateRandomKey(t)
@@ -340,7 +340,7 @@ func TestTransfersController_CreateSuccess_eip1559(t *testing.T) {
 	assert.NotEqual(t, "unstarted", resource.State)
 }
 
-func TestTransfersController_FindTxAttempt(t *testing.T) {
+func TestUnit_TransfersController_FindTxAttempt(t *testing.T) {
 	tx := txmgr.Tx{ID: 1}
 	attempt := txmgr.TxAttempt{ID: 2}
 	txWithAttempt := txmgr.Tx{ID: 1, TxAttempts: []txmgr.TxAttempt{attempt}}

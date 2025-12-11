@@ -14,7 +14,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/registrysyncer"
 )
 
-func Test_diff(t *testing.T) {
+func TestUnit_diff(t *testing.T) {
 	type args struct {
 		capabilityID string
 		oldState     registrysyncer.LocalRegistry
@@ -115,7 +115,7 @@ func Test_diff(t *testing.T) {
 	}
 }
 
-func Test_compareDONs(t *testing.T) {
+func TestUnit_compareDONs(t *testing.T) {
 	type args struct {
 		currCCIPDONs map[registrysyncer.DonID]registrysyncer.DON
 		newCCIPDONs  map[registrysyncer.DonID]registrysyncer.DON
@@ -197,7 +197,7 @@ func Test_compareDONs(t *testing.T) {
 	}
 }
 
-func Test_filterCCIPDONs(t *testing.T) {
+func TestUnit_filterCCIPDONs(t *testing.T) {
 	type args struct {
 		ccipCapability registrysyncer.Capability
 		state          registrysyncer.LocalRegistry
@@ -277,7 +277,7 @@ func Test_filterCCIPDONs(t *testing.T) {
 	}
 }
 
-func Test_checkCapabilityPresence(t *testing.T) {
+func TestUnit_checkCapabilityPresence(t *testing.T) {
 	type args struct {
 		capabilityID string
 		state        registrysyncer.LocalRegistry
@@ -329,7 +329,7 @@ func Test_checkCapabilityPresence(t *testing.T) {
 	}
 }
 
-func Test_isMemberOfDON(t *testing.T) {
+func TestUnit_isMemberOfDON(t *testing.T) {
 	var p2pIDs []ragep2ptypes.PeerID
 	for i := range [4]struct{}{} {
 		p2pIDs = append(p2pIDs, ragep2ptypes.PeerID(p2pkey.MustNewV2XXXTestingOnly(big.NewInt(int64(i+1))).PeerID()))

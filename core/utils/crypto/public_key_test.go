@@ -10,7 +10,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func Test_PublicKey_String(t *testing.T) {
+func TestUnit_PublicKey_String(t *testing.T) {
 	t.Parallel()
 
 	pubKey, _, err := ed25519.GenerateKey(nil)
@@ -22,7 +22,7 @@ func Test_PublicKey_String(t *testing.T) {
 	assert.Equal(t, expected, pk.String())
 }
 
-func Test_PublicKey_MarshalJSON(t *testing.T) {
+func TestUnit_PublicKey_MarshalJSON(t *testing.T) {
 	t.Parallel()
 
 	pubKey, _, err := ed25519.GenerateKey(nil)
@@ -36,7 +36,7 @@ func Test_PublicKey_MarshalJSON(t *testing.T) {
 	assert.Equal(t, fmt.Sprintf(`"%s"`, hexKey), string(actual))
 }
 
-func Test_PublicKey_UnmarshalJSON(t *testing.T) {
+func TestUnit_PublicKey_UnmarshalJSON(t *testing.T) {
 	t.Parallel()
 
 	pubKey, _, err := ed25519.GenerateKey(nil)
@@ -50,7 +50,7 @@ func Test_PublicKey_UnmarshalJSON(t *testing.T) {
 	assert.Equal(t, PublicKey(pubKey), *actual)
 }
 
-func Test_PublicKey_Scan(t *testing.T) {
+func TestUnit_PublicKey_Scan(t *testing.T) {
 	pubKey, _, err := ed25519.GenerateKey(nil)
 	require.NoError(t, err)
 
@@ -72,7 +72,7 @@ func Test_PublicKey_Scan(t *testing.T) {
 	assert.Equal(t, PublicKey(pubKey), *actual)
 }
 
-func Test_PublicKey_Value(t *testing.T) {
+func TestUnit_PublicKey_Value(t *testing.T) {
 	pubKey, _, err := ed25519.GenerateKey(nil)
 	require.NoError(t, err)
 

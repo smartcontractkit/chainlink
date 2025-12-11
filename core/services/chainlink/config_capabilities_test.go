@@ -10,7 +10,7 @@ import (
 	"github.com/smartcontractkit/libocr/commontypes"
 )
 
-func TestCapabilitiesConfig(t *testing.T) {
+func TestUnit_CapabilitiesConfig(t *testing.T) {
 	opts := GeneralConfigOpts{
 		ConfigStrings: []string{fullTOML},
 	}

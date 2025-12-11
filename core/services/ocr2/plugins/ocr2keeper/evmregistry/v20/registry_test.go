@@ -21,7 +21,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 )
 
-func TestGetActiveUpkeepKeys(t *testing.T) {
+func TestUnit_GetActiveUpkeepKeys(t *testing.T) {
 	tests := []struct {
 		Name         string
 		LatestHead   int64
@@ -75,7 +75,7 @@ func TestGetActiveUpkeepKeys(t *testing.T) {
 	}
 }
 
-func TestPollLogs(t *testing.T) {
+func TestUnit_PollLogs(t *testing.T) {
 	tests := []struct {
 		Name             string
 		LastPoll         int64

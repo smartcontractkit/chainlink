@@ -17,7 +17,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestETHKeyResource(t *testing.T) {
+func TestUnit_ETHKeyResource(t *testing.T) {
 	var (
 		now        = time.Date(2000, 1, 1, 0, 0, 0, 0, time.UTC)
 		addressStr = "0x2aCFF2ec69aa9945Ed84f4F281eCCF6911A3B0eD"

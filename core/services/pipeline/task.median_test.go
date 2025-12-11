@@ -13,7 +13,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
 )
 
-func TestMedianTask(t *testing.T) {
+func TestUnit_MedianTask(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
@@ -251,7 +251,7 @@ func TestMedianTask(t *testing.T) {
 	}
 }
 
-func TestMedianTask_AllowedFaultsAndLax_Unmarshal(t *testing.T) {
+func TestUnit_MedianTask_AllowedFaultsAndLax_Unmarshal(t *testing.T) {
 	t.Parallel()
 
 	p, err := pipeline.Parse(`

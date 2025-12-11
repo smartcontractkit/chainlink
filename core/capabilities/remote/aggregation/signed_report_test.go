@@ -25,7 +25,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ocr2key"
 )
 
-func TestSignedReportAggregator_Aggregate(t *testing.T) {
+func TestUnit_SignedReportAggregator_Aggregate(t *testing.T) {
 	t.Parallel()
 
 	// Setup test keys

@@ -10,7 +10,7 @@ import (
 	"github.com/smartcontractkit/chainlink-evm/pkg/utils"
 )
 
-func TestConfirmedLogExtraction(t *testing.T) {
+func TestUnit_ConfirmedLogExtraction(t *testing.T) {
 	lsn := Listener{}
 	lsn.Reqs = []request{
 		{
@@ -49,7 +49,7 @@ func TestConfirmedLogExtraction(t *testing.T) {
 	assert.Empty(t, lsn.Reqs) // all processed
 }
 
-func TestResponsePruning(t *testing.T) {
+func TestUnit_ResponsePruning(t *testing.T) {
 	lsn := Listener{}
 	lsn.LatestHead = 10000
 	lsn.ResponseCount = map[[32]byte]uint64{

@@ -30,7 +30,7 @@ func must(t testing.TB, s string) *url.URL {
 	return v
 }
 
-func TestPeriodicBackup_RunBackup(t *testing.T) {
+func TestUnit_PeriodicBackup_RunBackup(t *testing.T) {
 	backupConfig := newTestConfig(time.Minute, nil, "", config.DatabaseBackupModeFull)
 	periodicBackup := mustNewDatabaseBackup(t, *(must(t, string(env.DatabaseURL.Get()))), os.TempDir(), backupConfig)
 	assert.False(t, periodicBackup.frequencyIsTooSmall())
@@ -49,7 +49,7 @@ func TestPeriodicBackup_RunBackup(t *testing.T) {
 	assert.NotContains(t, result.pgDumpArguments, "--exclude-table-data=pipeline_task_runs")
 }
 
-func TestPeriodicBackup_RunBackupInLiteMode(t *testing.T) {
+func TestUnit_PeriodicBackup_RunBackupInLiteMode(t *testing.T) {
 	backupConfig := newTestConfig(time.Minute, nil, "", config.DatabaseBackupModeLite)
 	periodicBackup := mustNewDatabaseBackup(t, *(must(t, string(env.DatabaseURL.Get()))), os.TempDir(), backupConfig)
 	assert.False(t, periodicBackup.frequencyIsTooSmall())
@@ -68,7 +68,7 @@ func TestPeriodicBackup_RunBackupInLiteMode(t *testing.T) {
 	assert.Contains(t, result.pgDumpArguments, "--exclude-table-data=pipeline_task_runs")
 }
 
-func TestPeriodicBackup_RunBackupWithoutVersion(t *testing.T) {
+func TestUnit_PeriodicBackup_RunBackupWithoutVersion(t *testing.T) {
 	backupConfig := newTestConfig(time.Minute, nil, "", config.DatabaseBackupModeFull)
 	periodicBackup := mustNewDatabaseBackup(t, *(must(t, string(env.DatabaseURL.Get()))), os.TempDir(), backupConfig)
 	assert.False(t, periodicBackup.frequencyIsTooSmall())
@@ -86,7 +86,7 @@ func TestPeriodicBackup_RunBackupWithoutVersion(t *testing.T) {
 	assert.Contains(t, result.path, "backup/cl_backup_unset")
 }
 
-func TestPeriodicBackup_RunBackupViaAltUrlAndMaskPassword(t *testing.T) {
+func TestUnit_PeriodicBackup_RunBackupViaAltUrlAndMaskPassword(t *testing.T) {
 	altUrl, _ := url.Parse("postgresql://invalid:some-pass@invalid")
 	backupConfig := newTestConfig(time.Minute, altUrl, "", config.DatabaseBackupModeFull)
 	periodicBackup := mustNewDatabaseBackup(t, *(must(t, string(env.DatabaseURL.Get()))), os.TempDir(), backupConfig)
@@ -97,13 +97,13 @@ func TestPeriodicBackup_RunBackupViaAltUrlAndMaskPassword(t *testing.T) {
 	assert.Contains(t, partialResult.maskedArguments, "postgresql://invalid:xxxxx@invalid")
 }
 
-func TestPeriodicBackup_FrequencyTooSmall(t *testing.T) {
+func TestUnit_PeriodicBackup_FrequencyTooSmall(t *testing.T) {
 	backupConfig := newTestConfig(time.Second, nil, "", config.DatabaseBackupModeFull)
 	periodicBackup := mustNewDatabaseBackup(t, *(must(t, string(env.DatabaseURL.Get()))), os.TempDir(), backupConfig)
 	assert.True(t, periodicBackup.frequencyIsTooSmall())
 }
 
-func TestPeriodicBackup_AlternativeOutputDir(t *testing.T) {
+func TestUnit_PeriodicBackup_AlternativeOutputDir(t *testing.T) {
 	backupDir := filepath.Join(os.TempDir(), "alternative")
 	backupConfig := newTestConfig(time.Second, nil, backupDir, config.DatabaseBackupModeFull)
 	periodicBackup := mustNewDatabaseBackup(t, *(must(t, string(env.DatabaseURL.Get()))), os.TempDir(), backupConfig)

@@ -10,7 +10,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 )
 
-func TestValidatedCRESettingsSpec(t *testing.T) {
+func TestUnit_ValidatedCRESettingsSpec(t *testing.T) {
 	settingsString := `Foo = "bar"
 `
 	noHash := fmt.Sprintf(`type = "cresettings"

@@ -10,7 +10,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/types"
 )
 
-func TestEngineRegistry(t *testing.T) {
+func TestUnit_EngineRegistry(t *testing.T) {
 	workflowID1 := types.WorkflowID([32]byte{0, 1, 2, 3, 4})
 	workflowID2 := types.WorkflowID([32]byte{0, 1, 2, 3, 4, 5})
 

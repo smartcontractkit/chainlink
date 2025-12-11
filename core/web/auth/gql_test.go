@@ -19,7 +19,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/web/auth"
 )
 
-func Test_AuthenticateGQL_Unauthenticated(t *testing.T) {
+func TestUnit_AuthenticateGQL_Unauthenticated(t *testing.T) {
 	t.Parallel()
 
 	sessionORM := mocks.NewAuthenticationProvider(t)
@@ -42,7 +42,7 @@ func Test_AuthenticateGQL_Unauthenticated(t *testing.T) {
 	r.ServeHTTP(w, req)
 }
 
-func Test_AuthenticateGQL_Authenticated(t *testing.T) {
+func TestUnit_AuthenticateGQL_Authenticated(t *testing.T) {
 	t.Parallel()
 
 	sessionORM := mocks.NewAuthenticationProvider(t)
@@ -71,7 +71,7 @@ func Test_AuthenticateGQL_Authenticated(t *testing.T) {
 	r.ServeHTTP(w, req)
 }
 
-func Test_GetAndSetGQLAuthenticatedSession(t *testing.T) {
+func TestUnit_GetAndSetGQLAuthenticatedSession(t *testing.T) {
 	t.Parallel()
 
 	ctx := testutils.Context(t)

@@ -35,7 +35,7 @@ func setupDB(t *testing.T) *sqlx.DB {
 	return pgtest.NewSqlxDB(t)
 }
 
-func Test_DB_ReadWriteConfig(t *testing.T) {
+func TestUnit_DB_ReadWriteConfig(t *testing.T) {
 	sqlDB := setupDB(t)
 
 	config := ocrtypes.ContractConfig{

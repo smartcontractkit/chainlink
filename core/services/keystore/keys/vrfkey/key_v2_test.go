@@ -12,7 +12,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/signatures/secp256k1"
 )
 
-func TestVRFKeys_KeyV2(t *testing.T) {
+func TestUnit_VRFKeys_KeyV2(t *testing.T) {
 	k, err := NewV2()
 	require.NoError(t, err)
 

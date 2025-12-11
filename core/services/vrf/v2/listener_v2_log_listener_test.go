@@ -196,7 +196,7 @@ func setupVRFLogPollerListenerTH(t *testing.T) *vrfLogPollerListenerTH {
  * TestInitProcessedBlock_UnfulfilledNFulfilledVRFReqs
  */
 
-func TestInitProcessedBlock_NoVRFReqs(t *testing.T) {
+func TestUnit_InitProcessedBlock_NoVRFReqs(t *testing.T) {
 	t.Skip("fails after geth upgrade https://github.com/smartcontractkit/chainlink/pull/11809")
 	t.Parallel()
 	ctx := t.Context()
@@ -237,7 +237,7 @@ func TestInitProcessedBlock_NoVRFReqs(t *testing.T) {
 	require.Equal(t, int64(6), lastProcessedBlock)
 }
 
-func TestLogPollerFilterRegistered(t *testing.T) {
+func TestUnit_LogPollerFilterRegistered(t *testing.T) {
 	t.Parallel()
 	// Instantiate listener.
 	th := setupVRFLogPollerListenerTH(t)
@@ -265,7 +265,7 @@ func TestLogPollerFilterRegistered(t *testing.T) {
 	assert.False(t, ok)
 }
 
-func TestInitProcessedBlock_NoUnfulfilledVRFReqs(t *testing.T) {
+func TestUnit_InitProcessedBlock_NoUnfulfilledVRFReqs(t *testing.T) {
 	t.Skip("fails after geth upgrade https://github.com/smartcontractkit/chainlink/pull/11809")
 	t.Parallel()
 	ctx := t.Context()
@@ -320,7 +320,7 @@ func TestInitProcessedBlock_NoUnfulfilledVRFReqs(t *testing.T) {
 	require.Equal(t, int64(8), lastProcessedBlock)
 }
 
-func TestInitProcessedBlock_OneUnfulfilledVRFReq(t *testing.T) {
+func TestUnit_InitProcessedBlock_OneUnfulfilledVRFReq(t *testing.T) {
 	t.Skip("fails after geth upgrade https://github.com/smartcontractkit/chainlink/pull/11809")
 	t.Parallel()
 	ctx := t.Context()
@@ -372,7 +372,7 @@ func TestInitProcessedBlock_OneUnfulfilledVRFReq(t *testing.T) {
 	require.Equal(t, int64(5), lastProcessedBlock)
 }
 
-func TestInitProcessedBlock_SomeUnfulfilledVRFReqs(t *testing.T) {
+func TestUnit_InitProcessedBlock_SomeUnfulfilledVRFReqs(t *testing.T) {
 	t.Skip("fails after geth upgrade https://github.com/smartcontractkit/chainlink/pull/11809")
 	t.Parallel()
 	ctx := t.Context()
@@ -432,7 +432,7 @@ func TestInitProcessedBlock_SomeUnfulfilledVRFReqs(t *testing.T) {
 	require.Equal(t, int64(6), lastProcessedBlock)
 }
 
-func TestInitProcessedBlock_UnfulfilledNFulfilledVRFReqs(t *testing.T) {
+func TestUnit_InitProcessedBlock_UnfulfilledNFulfilledVRFReqs(t *testing.T) {
 	t.Skip("fails after geth upgrade https://github.com/smartcontractkit/chainlink/pull/11809")
 	t.Parallel()
 	ctx := t.Context()
@@ -506,7 +506,7 @@ func TestInitProcessedBlock_UnfulfilledNFulfilledVRFReqs(t *testing.T) {
  * TestUpdateLastProcessedBlock_UnfulfilledNFulfilledVRFReqs
  */
 
-func TestUpdateLastProcessedBlock_NoVRFReqs(t *testing.T) {
+func TestUnit_UpdateLastProcessedBlock_NoVRFReqs(t *testing.T) {
 	t.Skip("fails after geth upgrade https://github.com/smartcontractkit/chainlink/pull/11809")
 	t.Parallel()
 	ctx := t.Context()
@@ -562,7 +562,7 @@ func TestUpdateLastProcessedBlock_NoVRFReqs(t *testing.T) {
 	require.Equal(t, int64(8), lastProcessedBlock)
 }
 
-func TestUpdateLastProcessedBlock_NoUnfulfilledVRFReqs(t *testing.T) {
+func TestUnit_UpdateLastProcessedBlock_NoUnfulfilledVRFReqs(t *testing.T) {
 	t.Skip("fails after geth upgrade https://github.com/smartcontractkit/chainlink/pull/11809")
 	t.Parallel()
 	ctx := t.Context()
@@ -616,7 +616,7 @@ func TestUpdateLastProcessedBlock_NoUnfulfilledVRFReqs(t *testing.T) {
 	require.Equal(t, int64(8), lastProcessedBlock)
 }
 
-func TestUpdateLastProcessedBlock_OneUnfulfilledVRFReq(t *testing.T) {
+func TestUnit_UpdateLastProcessedBlock_OneUnfulfilledVRFReq(t *testing.T) {
 	t.Skip("fails after geth upgrade https://github.com/smartcontractkit/chainlink/pull/11809")
 	t.Parallel()
 	ctx := t.Context()
@@ -666,7 +666,7 @@ func TestUpdateLastProcessedBlock_OneUnfulfilledVRFReq(t *testing.T) {
 	require.Equal(t, int64(5), lastProcessedBlock)
 }
 
-func TestUpdateLastProcessedBlock_SomeUnfulfilledVRFReqs(t *testing.T) {
+func TestUnit_UpdateLastProcessedBlock_SomeUnfulfilledVRFReqs(t *testing.T) {
 	t.Skip("fails after geth upgrade https://github.com/smartcontractkit/chainlink/pull/11809")
 	t.Parallel()
 	ctx := t.Context()
@@ -722,7 +722,7 @@ func TestUpdateLastProcessedBlock_SomeUnfulfilledVRFReqs(t *testing.T) {
 	require.Equal(t, int64(6), lastProcessedBlock)
 }
 
-func TestUpdateLastProcessedBlock_UnfulfilledNFulfilledVRFReqs(t *testing.T) {
+func TestUnit_UpdateLastProcessedBlock_UnfulfilledNFulfilledVRFReqs(t *testing.T) {
 	t.Skip("fails after geth upgrade https://github.com/smartcontractkit/chainlink/pull/11809")
 	t.Parallel()
 	ctx := t.Context()
@@ -827,7 +827,7 @@ func SetupGetUnfulfilledTH(t *testing.T) (*listenerV2, *ubig.Big) {
 	return listener, chainID
 }
 
-func TestGetUnfulfilled_NoVRFReqs(t *testing.T) {
+func TestUnit_GetUnfulfilled_NoVRFReqs(t *testing.T) {
 	t.Parallel()
 
 	listener, chainID := SetupGetUnfulfilledTH(t)
@@ -856,7 +856,7 @@ func TestGetUnfulfilled_NoVRFReqs(t *testing.T) {
 	require.Empty(t, fulfilled)
 }
 
-func TestGetUnfulfilled_NoUnfulfilledVRFReqs(t *testing.T) {
+func TestUnit_GetUnfulfilled_NoUnfulfilledVRFReqs(t *testing.T) {
 	t.Parallel()
 
 	listener, chainID := SetupGetUnfulfilledTH(t)
@@ -914,7 +914,7 @@ func TestGetUnfulfilled_NoUnfulfilledVRFReqs(t *testing.T) {
 	require.Len(t, fulfilled, 5)
 }
 
-func TestGetUnfulfilled_OneUnfulfilledVRFReq(t *testing.T) {
+func TestUnit_GetUnfulfilled_OneUnfulfilledVRFReq(t *testing.T) {
 	t.Parallel()
 
 	listener, chainID := SetupGetUnfulfilledTH(t)
@@ -955,7 +955,7 @@ func TestGetUnfulfilled_OneUnfulfilledVRFReq(t *testing.T) {
 	require.Empty(t, fulfilled)
 }
 
-func TestGetUnfulfilled_SomeUnfulfilledVRFReq(t *testing.T) {
+func TestUnit_GetUnfulfilled_SomeUnfulfilledVRFReq(t *testing.T) {
 	t.Parallel()
 
 	listener, chainID := SetupGetUnfulfilledTH(t)
@@ -1002,7 +1002,7 @@ func TestGetUnfulfilled_SomeUnfulfilledVRFReq(t *testing.T) {
 	require.Len(t, unfulfilled, len(expected))
 }
 
-func TestGetUnfulfilled_UnfulfilledNFulfilledVRFReqs(t *testing.T) {
+func TestUnit_GetUnfulfilled_UnfulfilledNFulfilledVRFReqs(t *testing.T) {
 	t.Parallel()
 
 	listener, chainID := SetupGetUnfulfilledTH(t)

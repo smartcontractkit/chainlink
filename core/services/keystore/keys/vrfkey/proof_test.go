@@ -9,7 +9,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestVRF_VerifyProof(t *testing.T) {
+func TestUnit_VRF_VerifyProof(t *testing.T) {
 	sk, err := NewV2()
 	require.NoError(t, err)
 	seed, nonce := big.NewInt(2), big.NewInt(3)

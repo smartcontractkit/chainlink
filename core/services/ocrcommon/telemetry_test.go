@@ -98,7 +98,7 @@ var trrs = pipeline.TaskRunResults{
 	},
 }
 
-func TestShouldCollectTelemetry(t *testing.T) {
+func TestUnit_ShouldCollectTelemetry(t *testing.T) {
 	j := job.Job{
 		OCROracleSpec:  &job.OCROracleSpec{CaptureEATelemetry: true},
 		OCR2OracleSpec: &job.OCR2OracleSpec{CaptureEATelemetry: true},
@@ -118,7 +118,7 @@ func TestShouldCollectTelemetry(t *testing.T) {
 	assert.False(t, ShouldCollectEnhancedTelemetry(&j))
 }
 
-func TestGetContract(t *testing.T) {
+func TestUnit_GetContract(t *testing.T) {
 	j := job.Job{
 		OCROracleSpec:  &job.OCROracleSpec{CaptureEATelemetry: true},
 		OCR2OracleSpec: &job.OCR2OracleSpec{CaptureEATelemetry: true},
@@ -141,7 +141,7 @@ func TestGetContract(t *testing.T) {
 	assert.Empty(t, e.getContract())
 }
 
-func TestGetChainID(t *testing.T) {
+func TestUnit_GetChainID(t *testing.T) {
 	j := job.Job{
 		OCROracleSpec:  &job.OCROracleSpec{CaptureEATelemetry: true},
 		OCR2OracleSpec: &job.OCR2OracleSpec{CaptureEATelemetry: true},
@@ -164,7 +164,7 @@ func TestGetChainID(t *testing.T) {
 	assert.Empty(t, e.getChainID())
 }
 
-func TestParseEATelemetry(t *testing.T) {
+func TestUnit_ParseEATelemetry(t *testing.T) {
 	ea, err := parseEATelemetry([]byte(bridgeResponse))
 	assert.NoError(t, err)
 	assert.Equal(t, "data-source-name", ea.DataSource)
@@ -177,7 +177,7 @@ func TestParseEATelemetry(t *testing.T) {
 	assert.Error(t, err)
 }
 
-func TestGetJsonParsedValue(t *testing.T) {
+func TestUnit_GetJsonParsedValue(t *testing.T) {
 	resp := getJsonParsedValue(trrs[0], &trrs)
 	assert.Equal(t, 123456.123456789, *resp)
 
@@ -189,7 +189,7 @@ func TestGetJsonParsedValue(t *testing.T) {
 	assert.Nil(t, resp)
 }
 
-func TestGetJsonParsedValueHexValues(t *testing.T) {
+func TestUnit_GetJsonParsedValueHexValues(t *testing.T) {
 	trrsHexData := pipeline.TaskRunResults{
 		pipeline.TaskRunResult{
 			Task: &pipeline.BridgeTask{
@@ -283,7 +283,7 @@ func TestGetJsonParsedValueHexValues(t *testing.T) {
 	assert.Nil(t, resp)
 }
 
-func TestSendEATelemetry(t *testing.T) {
+func TestUnit_SendEATelemetry(t *testing.T) {
 	wg := sync.WaitGroup{}
 	ingressClient := mocks.NewTelemetryService(t)
 	ingressAgent := telemetry.NewIngressAgentWrapper(ingressClient)
@@ -371,7 +371,7 @@ func TestSendEATelemetry(t *testing.T) {
 	doneCh <- struct{}{}
 }
 
-func TestGetObservation(t *testing.T) {
+func TestUnit_GetObservation(t *testing.T) {
 	j := job.Job{
 		OCROracleSpec:  &job.OCROracleSpec{CaptureEATelemetry: true},
 		OCR2OracleSpec: &job.OCR2OracleSpec{CaptureEATelemetry: true},
@@ -396,7 +396,7 @@ func TestGetObservation(t *testing.T) {
 	assert.Equal(t, int64(123456), obs)
 }
 
-func TestCollectAndSend(t *testing.T) {
+func TestUnit_CollectAndSend(t *testing.T) {
 	wg := sync.WaitGroup{}
 	ingressClient := mocks.NewTelemetryService(t)
 	ingressAgent := telemetry.NewIngressAgentWrapper(ingressClient)
@@ -574,7 +574,7 @@ var trrsMercuryV4 = pipeline.TaskRunResults{
 	},
 }
 
-func TestGetPricesFromBridgeByTelemetryField(t *testing.T) {
+func TestUnit_GetPricesFromBridgeByTelemetryField(t *testing.T) {
 	lggr, _ := logger.TestLoggerObserved(t, zap.WarnLevel)
 	// These are intentionally out of order from the "legacy" method which expects order of `benchmark, bid, ask`
 	jsonParseTaskBid := pipeline.JSONParseTask{
@@ -643,7 +643,7 @@ func TestGetPricesFromBridgeByTelemetryField(t *testing.T) {
 	require.Equal(t, 123456.123456, wrongAskPrice)
 }
 
-func TestGetPricesFromBridgeTaskByOrder(t *testing.T) {
+func TestUnit_GetPricesFromBridgeTaskByOrder(t *testing.T) {
 	lggr, logs := logger.TestLoggerObserved(t, zap.WarnLevel)
 
 	benchmarkPrice, bid, ask := getPricesFromBridgeTask(lggr, trrsMercuryV1[0], trrsMercuryV1, 1)
@@ -711,7 +711,7 @@ func TestGetPricesFromBridgeTaskByOrder(t *testing.T) {
 	require.Equal(t, float64(0), ask)
 }
 
-func TestShouldCollectEnhancedTelemetryMercury(t *testing.T) {
+func TestUnit_ShouldCollectEnhancedTelemetryMercury(t *testing.T) {
 	j := job.Job{
 		Type: job.Type(pipeline.OffchainReporting2JobType),
 		OCR2OracleSpec: &job.OCR2OracleSpec{
@@ -727,7 +727,7 @@ func TestShouldCollectEnhancedTelemetryMercury(t *testing.T) {
 	require.False(t, ShouldCollectEnhancedTelemetryMercury(j))
 }
 
-func TestParseBridgeRequestData(t *testing.T) {
+func TestUnit_ParseBridgeRequestData(t *testing.T) {
 	require.Equal(t, bridgeRequestData{}, parseBridgeRequestData("", 2))
 
 	reqData := `{"data":{"to":"LINK","from":"USD"}}`
@@ -816,7 +816,7 @@ func getViewFunctionTaskRunResults() pipeline.TaskRunResults {
 	}
 }
 
-func TestCollectMercuryEnhancedTelemetryV1ViewFunction(t *testing.T) {
+func TestUnit_CollectMercuryEnhancedTelemetryV1ViewFunction(t *testing.T) {
 	wg := sync.WaitGroup{}
 	ingressClient := mocks.NewTelemetryService(t)
 	ingressAgent := telemetry.NewIngressAgentWrapper(ingressClient)
@@ -903,7 +903,7 @@ func TestCollectMercuryEnhancedTelemetryV1ViewFunction(t *testing.T) {
 	chDone <- struct{}{}
 }
 
-func TestCollectMercuryEnhancedTelemetryV1(t *testing.T) {
+func TestUnit_CollectMercuryEnhancedTelemetryV1(t *testing.T) {
 	wg := sync.WaitGroup{}
 	ingressClient := mocks.NewTelemetryService(t)
 	ingressAgent := telemetry.NewIngressAgentWrapper(ingressClient)
@@ -1020,7 +1020,7 @@ func TestCollectMercuryEnhancedTelemetryV1(t *testing.T) {
 	chDone <- struct{}{}
 }
 
-func TestCollectMercuryEnhancedTelemetryV2(t *testing.T) {
+func TestUnit_CollectMercuryEnhancedTelemetryV2(t *testing.T) {
 	wg := sync.WaitGroup{}
 	ingressClient := mocks.NewTelemetryService(t)
 	ingressAgent := telemetry.NewIngressAgentWrapper(ingressClient)
@@ -1136,7 +1136,7 @@ func TestCollectMercuryEnhancedTelemetryV2(t *testing.T) {
 	chDone <- struct{}{}
 }
 
-func TestCollectMercuryEnhancedTelemetryV4(t *testing.T) {
+func TestUnit_CollectMercuryEnhancedTelemetryV4(t *testing.T) {
 	ingressClient := mocks.NewTelemetryService(t)
 	ingressAgent := telemetry.NewIngressAgentWrapper(ingressClient)
 	monitoringEndpoint := ingressAgent.GenMonitoringEndpoint("test-network", "test-chainID", "0xa", synchronization.EnhancedEAMercury)

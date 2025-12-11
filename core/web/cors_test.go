@@ -9,7 +9,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 )
 
-func TestCors_DefaultOrigins(t *testing.T) {
+func TestUnit_Cors_DefaultOrigins(t *testing.T) {
 	t.Parallel()
 
 	config := configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
@@ -39,7 +39,7 @@ func TestCors_DefaultOrigins(t *testing.T) {
 	}
 }
 
-func TestCors_OverrideOrigins(t *testing.T) {
+func TestUnit_Cors_OverrideOrigins(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {

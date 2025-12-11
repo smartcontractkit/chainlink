@@ -174,7 +174,7 @@ func (m *mockTelemeter) CaptureObservationTelemetry() bool                    { 
 
 var observationTimeout = 100 * time.Millisecond
 
-func Test_DataSource(t *testing.T) {
+func TestUnit_DataSource(t *testing.T) {
 	lggr := logger.NullLogger
 	mainCtx := testutils.Context(t)
 	opts := &mockOpts{}

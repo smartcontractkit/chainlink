@@ -9,7 +9,7 @@ import (
 	"github.com/smartcontractkit/chainlink-evm/pkg/logpoller"
 )
 
-func TestLogComparatorSorter(t *testing.T) {
+func TestUnit_LogComparatorSorter(t *testing.T) {
 	tests := []struct {
 		name     string
 		a        logpoller.Log

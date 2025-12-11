@@ -8,7 +8,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/config/toml"
 )
 
-func TestTracing_Config(t *testing.T) {
+func TestUnit_Tracing_Config(t *testing.T) {
 	// Test when all fields are non-nil
 	enabled := true
 	collectorTarget := "http://localhost:9000"

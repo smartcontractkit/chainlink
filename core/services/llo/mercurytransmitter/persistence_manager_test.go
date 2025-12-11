@@ -26,7 +26,7 @@ func bootstrapPersistenceManager(t *testing.T, donID uint32, db *sqlx.DB, maxTra
 	return NewPersistenceManager(lggr, orm, "wss://example.com/mercury", maxTransmitQueueSize, 5*time.Millisecond, 5*time.Millisecond, 30*24*time.Hour), observedLogs
 }
 
-func TestPersistenceManager(t *testing.T) {
+func TestUnit_PersistenceManager(t *testing.T) {
 	donID1 := uint32(1234)
 	donID2 := uint32(2345)
 
@@ -81,7 +81,7 @@ func TestPersistenceManager(t *testing.T) {
 	})
 }
 
-func TestPersistenceManagerAsyncDelete(t *testing.T) {
+func TestUnit_PersistenceManagerAsyncDelete(t *testing.T) {
 	ctx := testutils.Context(t)
 	donID := uint32(1234)
 	db := pgtest.NewSqlxDB(t)
@@ -105,7 +105,7 @@ func TestPersistenceManagerAsyncDelete(t *testing.T) {
 	assert.ElementsMatch(t, transmissions[1:], result)
 }
 
-func TestPersistenceManagerPrune(t *testing.T) {
+func TestUnit_PersistenceManagerPrune(t *testing.T) {
 	donID1 := uint32(123456)
 	donID2 := uint32(654321)
 	db := pgtest.NewSqlxDB(t)
@@ -155,7 +155,7 @@ func TestPersistenceManagerPrune(t *testing.T) {
 	})
 }
 
-func Test_PersistenceManager_deleteTransmissions(t *testing.T) {
+func TestUnit_PersistenceManager_deleteTransmissions(t *testing.T) {
 	donID1 := uint32(123456)
 	db := pgtest.NewSqlxDB(t)
 

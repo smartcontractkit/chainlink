@@ -18,7 +18,7 @@ import (
 // JobErrors are only embedded on the job and are not fetchable by it's own id,
 // so we test the job error resolvers by fetching a job by id.
 
-func TestResolver_JobErrors(t *testing.T) {
+func TestUnit_Resolver_JobErrors(t *testing.T) {
 	var (
 		id      = int32(1)
 		errorID = int64(200)
@@ -75,7 +75,7 @@ func TestResolver_JobErrors(t *testing.T) {
 	RunGQLTests(t, testCases)
 }
 
-func TestResolver_DismissJobError(t *testing.T) {
+func TestUnit_Resolver_DismissJobError(t *testing.T) {
 	t.Parallel()
 
 	id := int64(1)

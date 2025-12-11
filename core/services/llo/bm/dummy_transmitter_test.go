@@ -16,7 +16,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
 
-func Test_DummyTransmitter(t *testing.T) {
+func TestUnit_DummyTransmitter(t *testing.T) {
 	lggr, observedLogs := logger.TestLoggerObserved(t, zapcore.DebugLevel)
 	tr := NewTransmitter(lggr, "dummy")
 

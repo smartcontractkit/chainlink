@@ -20,7 +20,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
 
-func TestUpkeepStateStore(t *testing.T) {
+func TestUnit_UpkeepStateStore(t *testing.T) {
 	tests := []struct {
 		name               string
 		inserts            []ocr2keepers.CheckResult
@@ -196,7 +196,7 @@ func TestUpkeepStateStore(t *testing.T) {
 	}
 }
 
-func TestUpkeepStateStore_SetSelectIntegration(t *testing.T) {
+func TestUnit_UpkeepStateStore_SetSelectIntegration(t *testing.T) {
 	if testing.Short() {
 		t.Skip("database required for upkeep state store integration test")
 	}
@@ -379,7 +379,7 @@ func TestUpkeepStateStore_SetSelectIntegration(t *testing.T) {
 	}
 }
 
-func TestUpkeepStateStore_emptyDB(t *testing.T) {
+func TestUnit_UpkeepStateStore_emptyDB(t *testing.T) {
 	t.Run("querying non-stored workIDs on empty db returns unknown state results", func(t *testing.T) {
 		lggr, observedLogs := logger.TestLoggerObserved(t, zapcore.ErrorLevel)
 		chainID := testutils.FixtureChainID
@@ -413,7 +413,7 @@ func TestUpkeepStateStore_emptyDB(t *testing.T) {
 	})
 }
 
-func TestUpkeepStateStore_Upsert(t *testing.T) {
+func TestUnit_UpkeepStateStore_Upsert(t *testing.T) {
 	db := pgtest.NewSqlxDB(t)
 	ctx := testutils.Context(t)
 	lggr := logger.TestLogger(t)
@@ -443,7 +443,7 @@ func TestUpkeepStateStore_Upsert(t *testing.T) {
 	require.True(t, now.After(addedAt))
 }
 
-func TestUpkeepStateStore_Service(t *testing.T) {
+func TestUnit_UpkeepStateStore_Service(t *testing.T) {
 	ctx := testutils.Context(t)
 	orm := &mockORM{
 		onDelete: func(tm time.Time) {

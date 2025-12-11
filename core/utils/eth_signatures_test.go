@@ -8,7 +8,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestGetSignersEthAddress_Success(t *testing.T) {
+func TestUnit_GetSignersEthAddress_Success(t *testing.T) {
 	privateKey, err := crypto.GenerateKey()
 	require.NoError(t, err)
 	address := crypto.PubkeyToAddress(privateKey.PublicKey)
@@ -22,14 +22,14 @@ func TestGetSignersEthAddress_Success(t *testing.T) {
 	assert.Equal(t, address, recoveredAddress)
 }
 
-func TestGetSignersEthAddress_InvalidSignatureLength(t *testing.T) {
+func TestUnit_GetSignersEthAddress_InvalidSignatureLength(t *testing.T) {
 	msg := []byte("test message")
 	sig := []byte("invalid signature length")
 	_, err := GetSignersEthAddress(msg, sig)
 	assert.EqualError(t, err, "invalid signature: signature length must be 65 bytes")
 }
 
-func TestGenerateEthPrefixedMsgHash(t *testing.T) {
+func TestUnit_GenerateEthPrefixedMsgHash(t *testing.T) {
 	msg := []byte("test message")
 	expectedPrefix := "\x19Ethereum Signed Message:\n"
 	expectedHash := crypto.Keccak256Hash([]byte(expectedPrefix + "12" + string(msg)))
@@ -38,7 +38,7 @@ func TestGenerateEthPrefixedMsgHash(t *testing.T) {
 	assert.Equal(t, expectedHash, hash)
 }
 
-func TestGenerateEthSignature(t *testing.T) {
+func TestUnit_GenerateEthSignature(t *testing.T) {
 	privateKey, err := crypto.GenerateKey()
 	assert.NoError(t, err)
 

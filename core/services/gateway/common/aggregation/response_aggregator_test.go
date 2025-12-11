@@ -9,7 +9,7 @@ import (
 	jsonrpc "github.com/smartcontractkit/chainlink-common/pkg/jsonrpc2"
 )
 
-func TestIdenticalNodeResponseAggregator_CollectAndAggregate(t *testing.T) {
+func TestUnit_IdenticalNodeResponseAggregator_CollectAndAggregate(t *testing.T) {
 	t.Run("single node response below threshold", func(t *testing.T) {
 		agg, err := NewIdenticalNodeResponseAggregator(2)
 		require.NoError(t, err)
@@ -195,7 +195,7 @@ func TestIdenticalNodeResponseAggregator_CollectAndAggregate(t *testing.T) {
 	})
 }
 
-func TestIdenticalNodeResponseAggregator_EdgeCases(t *testing.T) {
+func TestUnit_IdenticalNodeResponseAggregator_EdgeCases(t *testing.T) {
 	t.Run("empty response", func(t *testing.T) {
 		agg, err := NewIdenticalNodeResponseAggregator(1)
 		require.NoError(t, err)
@@ -239,7 +239,7 @@ func TestIdenticalNodeResponseAggregator_EdgeCases(t *testing.T) {
 	})
 }
 
-func TestIdenticalNodeResponseAggregator_NodeChangesResponse(t *testing.T) {
+func TestUnit_IdenticalNodeResponseAggregator_NodeChangesResponse(t *testing.T) {
 	t.Run("node changes response and reaches threshold", func(t *testing.T) {
 		agg, err := NewIdenticalNodeResponseAggregator(2)
 		require.NoError(t, err)

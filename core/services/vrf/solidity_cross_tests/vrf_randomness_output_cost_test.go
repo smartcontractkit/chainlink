@@ -13,7 +13,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/signatures/secp256k1"
 )
 
-func TestMeasureRandomValueFromVRFProofGasCost(t *testing.T) {
+func TestUnit_MeasureRandomValueFromVRFProofGasCost(t *testing.T) {
 	r := mrand.New(mrand.NewSource(10))
 	sk := randomScalar(t, r)
 	skNum := secp256k1.ToInt(sk)

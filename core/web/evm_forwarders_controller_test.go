@@ -42,7 +42,7 @@ func setupEVMForwardersControllerTest(t *testing.T, overrideFn func(c *chainlink
 	}
 }
 
-func Test_EVMForwardersController_Track(t *testing.T) {
+func TestUnit_EVMForwardersController_Track(t *testing.T) {
 	t.Parallel()
 
 	chainId := big.New(testutils.NewRandomEVMChainID())
@@ -79,7 +79,7 @@ func Test_EVMForwardersController_Track(t *testing.T) {
 	assert.NoError(t, err)
 }
 
-func Test_EVMForwardersController_Index(t *testing.T) {
+func TestUnit_EVMForwardersController_Index(t *testing.T) {
 	t.Parallel()
 
 	chainId := big.New(testutils.NewRandomEVMChainID())

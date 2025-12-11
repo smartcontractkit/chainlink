@@ -31,7 +31,7 @@ func newMockTxStrategy(t *testing.T) *commontxmmocks.TxStrategy {
 	return commontxmmocks.NewTxStrategy(t)
 }
 
-func TestContractTransmitter_LatestConfigDigestAndEpoch(t *testing.T) {
+func TestUnit_ContractTransmitter_LatestConfigDigestAndEpoch(t *testing.T) {
 	t.Parallel()
 	ctx := testutils.Context(t)
 
@@ -78,7 +78,7 @@ func TestContractTransmitter_LatestConfigDigestAndEpoch(t *testing.T) {
 	assert.Equal(t, uint32(2), epoch)
 }
 
-func TestContractTransmitter_Transmit_V1(t *testing.T) {
+func TestUnit_ContractTransmitter_Transmit_V1(t *testing.T) {
 	t.Parallel()
 	ctx := testutils.Context(t)
 
@@ -152,7 +152,7 @@ func TestContractTransmitter_Transmit_V1(t *testing.T) {
 	require.Error(t, ot.Transmit(testutils.Context(t), ocrtypes.ReportContext{}, reportBytes, signatures))
 }
 
-func TestContractTransmitter_Transmit_V1_CoordinatorMismatch(t *testing.T) {
+func TestUnit_ContractTransmitter_Transmit_V1_CoordinatorMismatch(t *testing.T) {
 	t.Parallel()
 	ctx := testutils.Context(t)
 

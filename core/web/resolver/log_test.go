@@ -12,7 +12,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/config"
 )
 
-func TestResolver_SetSQLLogging(t *testing.T) {
+func TestUnit_Resolver_SetSQLLogging(t *testing.T) {
 	t.Parallel()
 
 	mutation := `
@@ -63,7 +63,7 @@ type databaseConfig struct {
 
 func (d *databaseConfig) LogSQL() bool { return d.logSQL }
 
-func TestResolver_SQLLogging(t *testing.T) {
+func TestUnit_Resolver_SQLLogging(t *testing.T) {
 	t.Parallel()
 
 	query := `
@@ -106,7 +106,7 @@ func (l *log) Level() zapcore.Level {
 	return l.level
 }
 
-func TestResolver_GlobalLogLevel(t *testing.T) {
+func TestUnit_Resolver_GlobalLogLevel(t *testing.T) {
 	t.Parallel()
 
 	query := `
@@ -144,7 +144,7 @@ func TestResolver_GlobalLogLevel(t *testing.T) {
 	RunGQLTests(t, testCases)
 }
 
-func TestResolver_SetGlobalLogLevel(t *testing.T) {
+func TestUnit_Resolver_SetGlobalLogLevel(t *testing.T) {
 	t.Parallel()
 
 	mutation := `

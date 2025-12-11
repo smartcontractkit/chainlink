@@ -11,7 +11,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline/mocks"
 )
 
-func TestRunSaver(t *testing.T) {
+func TestUnit_RunSaver(t *testing.T) {
 	pipelineRunner := mocks.NewRunner(t)
 	rs := NewResultRunSaver(
 		pipelineRunner,

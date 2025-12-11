@@ -17,7 +17,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline/mocks"
 )
 
-func TestStringParam_UnmarshalPipelineParam(t *testing.T) {
+func TestUnit_StringParam_UnmarshalPipelineParam(t *testing.T) {
 	t.Parallel()
 
 	var nilObjectParam *pipeline.ObjectParam
@@ -49,7 +49,7 @@ func TestStringParam_UnmarshalPipelineParam(t *testing.T) {
 	}
 }
 
-func TestStringSliceParam_UnmarshalPipelineParam(t *testing.T) {
+func TestUnit_StringSliceParam_UnmarshalPipelineParam(t *testing.T) {
 	t.Parallel()
 
 	expected := pipeline.StringSliceParam{"foo", "bar", "baz"}
@@ -84,7 +84,7 @@ func TestStringSliceParam_UnmarshalPipelineParam(t *testing.T) {
 	}
 }
 
-func TestBytesParam_UnmarshalPipelineParam(t *testing.T) {
+func TestUnit_BytesParam_UnmarshalPipelineParam(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
@@ -112,7 +112,7 @@ func TestBytesParam_UnmarshalPipelineParam(t *testing.T) {
 	}
 }
 
-func TestAddressParam_UnmarshalPipelineParam(t *testing.T) {
+func TestUnit_AddressParam_UnmarshalPipelineParam(t *testing.T) {
 	t.Parallel()
 
 	var addr pipeline.AddressParam
@@ -158,7 +158,7 @@ func TestAddressParam_UnmarshalPipelineParam(t *testing.T) {
 	}
 }
 
-func TestAddressSliceParam_UnmarshalPipelineParam(t *testing.T) {
+func TestUnit_AddressSliceParam_UnmarshalPipelineParam(t *testing.T) {
 	t.Parallel()
 
 	addr1 := common.HexToAddress("0xdeadbeefdeadbeefdeadbeefdeadbeefdeadbeef")
@@ -194,7 +194,7 @@ func TestAddressSliceParam_UnmarshalPipelineParam(t *testing.T) {
 	}
 }
 
-func TestUint64Param_UnmarshalPipelineParam(t *testing.T) {
+func TestUnit_Uint64Param_UnmarshalPipelineParam(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
@@ -239,7 +239,7 @@ func TestUint64Param_UnmarshalPipelineParam(t *testing.T) {
 	}
 }
 
-func TestMaybeUint64Param_UnmarshalPipelineParam(t *testing.T) {
+func TestUnit_MaybeUint64Param_UnmarshalPipelineParam(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
@@ -285,7 +285,7 @@ func TestMaybeUint64Param_UnmarshalPipelineParam(t *testing.T) {
 	}
 }
 
-func TestMaybeBigIntParam_UnmarshalPipelineParam(t *testing.T) {
+func TestUnit_MaybeBigIntParam_UnmarshalPipelineParam(t *testing.T) {
 	t.Parallel()
 
 	fromInt := func(n int64) pipeline.MaybeBigIntParam {
@@ -340,7 +340,7 @@ func TestMaybeBigIntParam_UnmarshalPipelineParam(t *testing.T) {
 	}
 }
 
-func TestMaybeInt32Param_UnmarshalPipelineParam(t *testing.T) {
+func TestUnit_MaybeInt32Param_UnmarshalPipelineParam(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
@@ -380,7 +380,7 @@ func TestMaybeInt32Param_UnmarshalPipelineParam(t *testing.T) {
 	}
 }
 
-func TestBoolParam_UnmarshalPipelineParam(t *testing.T) {
+func TestUnit_BoolParam_UnmarshalPipelineParam(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
@@ -408,7 +408,7 @@ func TestBoolParam_UnmarshalPipelineParam(t *testing.T) {
 	}
 }
 
-func TestDecimalParam_UnmarshalPipelineParam(t *testing.T) {
+func TestUnit_DecimalParam_UnmarshalPipelineParam(t *testing.T) {
 	t.Parallel()
 
 	var nilObjectParam *pipeline.ObjectParam
@@ -442,7 +442,7 @@ func TestDecimalParam_UnmarshalPipelineParam(t *testing.T) {
 	}
 }
 
-func TestURLParam_UnmarshalPipelineParam(t *testing.T) {
+func TestUnit_URLParam_UnmarshalPipelineParam(t *testing.T) {
 	t.Parallel()
 
 	good, err := url.ParseRequestURI("https://chain.link/foo?bar=sergey")
@@ -469,7 +469,7 @@ func TestURLParam_UnmarshalPipelineParam(t *testing.T) {
 	}
 }
 
-func TestMapParam_UnmarshalPipelineParam(t *testing.T) {
+func TestUnit_MapParam_UnmarshalPipelineParam(t *testing.T) {
 	t.Parallel()
 
 	var nilObjectParam *pipeline.ObjectParam
@@ -531,7 +531,7 @@ func TestMapParam_UnmarshalPipelineParam(t *testing.T) {
 	}
 }
 
-func TestSliceParam_UnmarshalPipelineParam(t *testing.T) {
+func TestUnit_SliceParam_UnmarshalPipelineParam(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
@@ -557,7 +557,7 @@ func TestSliceParam_UnmarshalPipelineParam(t *testing.T) {
 	}
 }
 
-func TestHashSliceParam_UnmarshalPipelineParam(t *testing.T) {
+func TestUnit_HashSliceParam_UnmarshalPipelineParam(t *testing.T) {
 	t.Parallel()
 
 	hash1 := common.HexToHash("0xdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeef")
@@ -592,7 +592,7 @@ func TestHashSliceParam_UnmarshalPipelineParam(t *testing.T) {
 	}
 }
 
-func TestSliceParam_FilterErrors(t *testing.T) {
+func TestUnit_SliceParam_FilterErrors(t *testing.T) {
 	t.Parallel()
 
 	s := pipeline.SliceParam{"foo", errors.New("bar"), "baz"}
@@ -601,7 +601,7 @@ func TestSliceParam_FilterErrors(t *testing.T) {
 	require.Equal(t, pipeline.SliceParam{"foo", "baz"}, vals)
 }
 
-func TestSliceParam_FilterNils(t *testing.T) {
+func TestUnit_SliceParam_FilterNils(t *testing.T) {
 	t.Parallel()
 	testErr := errors.New("bar")
 	s := pipeline.SliceParam{"foo", testErr, nil, "baz", nil}
@@ -610,7 +610,7 @@ func TestSliceParam_FilterNils(t *testing.T) {
 	require.Equal(t, pipeline.SliceParam{"foo", testErr, "baz"}, vals)
 }
 
-func TestDecimalSliceParam_UnmarshalPipelineParam(t *testing.T) {
+func TestUnit_DecimalSliceParam_UnmarshalPipelineParam(t *testing.T) {
 	t.Parallel()
 
 	expected := pipeline.DecimalSliceParam{*mustDecimal(t, "1.1"), *mustDecimal(t, "2.2"), *mustDecimal(t, "3.3")}
@@ -641,7 +641,7 @@ func TestDecimalSliceParam_UnmarshalPipelineParam(t *testing.T) {
 	}
 }
 
-func TestJSONPathParam_UnmarshalPipelineParam(t *testing.T) {
+func TestUnit_JSONPathParam_UnmarshalPipelineParam(t *testing.T) {
 	t.Parallel()
 
 	expected := pipeline.JSONPathParam{"1.1", "2.2", "3.3", "sergey"}
@@ -669,7 +669,7 @@ func TestJSONPathParam_UnmarshalPipelineParam(t *testing.T) {
 	}
 }
 
-func TestResolveValue(t *testing.T) {
+func TestUnit_ResolveValue(t *testing.T) {
 	t.Parallel()
 
 	t.Run("calls getters in order until the first one that returns without ErrParameterEmpty", func(t *testing.T) {

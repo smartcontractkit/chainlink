@@ -11,7 +11,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
 )
 
-func TestMemoTask(t *testing.T) {
+func TestUnit_MemoTask(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {

@@ -12,7 +12,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/starkkey"
 )
 
-func TestResolver_StarkNetKeys(t *testing.T) {
+func TestUnit_Resolver_StarkNetKeys(t *testing.T) {
 	t.Parallel()
 
 	query := `

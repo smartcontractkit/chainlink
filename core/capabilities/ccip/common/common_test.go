@@ -14,7 +14,7 @@ import (
 	capcommon "github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/common"
 )
 
-func Test_HashedCapabilityId(t *testing.T) {
+func TestUnit_HashedCapabilityId(t *testing.T) {
 	transactor := testutils.MustNewSimTransactor(t)
 	sb := backends.NewSimulatedBackend(core.GenesisAlloc{
 		transactor.From: {Balance: assets.Ether(1000).ToInt()},

@@ -14,7 +14,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
 )
 
-func TestMinTask(t *testing.T) {
+func TestUnit_MinTask(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {

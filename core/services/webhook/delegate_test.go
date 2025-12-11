@@ -21,7 +21,7 @@ import (
 	webhookmocks "github.com/smartcontractkit/chainlink/v2/core/services/webhook/mocks"
 )
 
-func TestWebhookDelegate(t *testing.T) {
+func TestUnit_WebhookDelegate(t *testing.T) {
 	ctx := testutils.Context(t)
 	var (
 		spec = &job.Job{

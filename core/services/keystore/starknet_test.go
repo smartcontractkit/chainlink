@@ -19,7 +19,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/mocks"
 )
 
-func Test_StarkNetKeyStore_E2E(t *testing.T) {
+func TestUnit_StarkNetKeyStore_E2E(t *testing.T) {
 	db := pgtest.NewSqlxDB(t)
 
 	keyStore := keystore.ExposedNewMaster(t, db)
@@ -108,7 +108,7 @@ func Test_StarkNetKeyStore_E2E(t *testing.T) {
 	})
 }
 
-func TestStarknetSigner(t *testing.T) {
+func TestUnit_StarknetSigner(t *testing.T) {
 	var (
 		starknetSenderAddr = "legit"
 	)

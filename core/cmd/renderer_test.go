@@ -15,7 +15,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestRendererJSON_RenderVRFKeys(t *testing.T) {
+func TestUnit_RendererJSON_RenderVRFKeys(t *testing.T) {
 	t.Parallel()
 
 	r := cmd.RendererJSON{Writer: io.Discard}
@@ -31,7 +31,7 @@ func TestRendererJSON_RenderVRFKeys(t *testing.T) {
 	assert.NoError(t, r.Render(&keys))
 }
 
-func TestRendererTable_RenderConfigurationV2(t *testing.T) {
+func TestUnit_RendererTable_RenderConfigurationV2(t *testing.T) {
 	t.Parallel()
 
 	app := cltest.NewApplicationEVMDisabled(t)
@@ -71,7 +71,7 @@ func (w *testWriter) Write(actual []byte) (int, error) {
 	return len(actual), nil
 }
 
-func TestRendererTable_RenderExternalInitiatorAuthentication(t *testing.T) {
+func TestUnit_RendererTable_RenderExternalInitiatorAuthentication(t *testing.T) {
 	t.Parallel()
 
 	eia := webpresenters.ExternalInitiatorAuthentication{
@@ -104,7 +104,7 @@ func TestRendererTable_RenderExternalInitiatorAuthentication(t *testing.T) {
 	}
 }
 
-func TestRendererTable_RenderUnknown(t *testing.T) {
+func TestUnit_RendererTable_RenderUnknown(t *testing.T) {
 	t.Parallel()
 	r := cmd.RendererTable{Writer: io.Discard}
 	anon := struct{ Name string }{"Romeo"}

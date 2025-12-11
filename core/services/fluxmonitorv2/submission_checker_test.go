@@ -10,7 +10,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/fluxmonitorv2"
 )
 
-func TestSubmissionChecker_IsValid(t *testing.T) {
+func TestUnit_SubmissionChecker_IsValid(t *testing.T) {
 	t.Parallel()
 	testCases := []struct {
 		name   string

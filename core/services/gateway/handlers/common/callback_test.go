@@ -9,7 +9,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers"
 )
 
-func Test_Callback(t *testing.T) {
+func TestUnit_Callback(t *testing.T) {
 	cb := NewCallback()
 	payload := handlers.UserCallbackPayload{RawResponse: []byte("test")}
 

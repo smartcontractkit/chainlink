@@ -44,7 +44,7 @@ var (
 	batchCoordinatorV2ABI = types.MustGetABI(batch_vrf_coordinator_v2.BatchVRFCoordinatorV2ABI)
 )
 
-func TestVRFV2Integration_SingleRevertedTxn_ForceFulfillment(t *testing.T) {
+func TestUnit_VRFV2Integration_SingleRevertedTxn_ForceFulfillment(t *testing.T) {
 	t.Parallel()
 
 	ownerKey := cltest.MustGenerateRandomKey(t)
@@ -60,7 +60,7 @@ func TestVRFV2Integration_SingleRevertedTxn_ForceFulfillment(t *testing.T) {
 	t.Log("Done!")
 }
 
-func TestVRFV2Integration_BatchRevertedTxn_ForceFulfillment(t *testing.T) {
+func TestUnit_VRFV2Integration_BatchRevertedTxn_ForceFulfillment(t *testing.T) {
 	t.Parallel()
 	ownerKey := cltest.MustGenerateRandomKey(t)
 	uni := newVRFCoordinatorV2Universe(t, ownerKey, 1)
@@ -86,7 +86,7 @@ func TestVRFV2Integration_BatchRevertedTxn_ForceFulfillment(t *testing.T) {
 	t.Log("Done!")
 }
 
-func TestVRFV2Integration_ForceFulfillmentRevertedTxn_Retry(t *testing.T) {
+func TestUnit_VRFV2Integration_ForceFulfillmentRevertedTxn_Retry(t *testing.T) {
 	t.Parallel()
 
 	ownerKey := cltest.MustGenerateRandomKey(t)
@@ -108,7 +108,7 @@ func TestVRFV2Integration_ForceFulfillmentRevertedTxn_Retry(t *testing.T) {
 
 	t.Log("Done!")
 }
-func TestVRFV2Integration_CanceledSubForceFulfillmentRevertedTxn_Retry(t *testing.T) {
+func TestUnit_VRFV2Integration_CanceledSubForceFulfillmentRevertedTxn_Retry(t *testing.T) {
 	t.Parallel()
 
 	ownerKey := cltest.MustGenerateRandomKey(t)
@@ -131,7 +131,7 @@ func TestVRFV2Integration_CanceledSubForceFulfillmentRevertedTxn_Retry(t *testin
 	t.Log("Done!")
 }
 
-func TestUniqueReqById_NoPendingReceipts(t *testing.T) {
+func TestUnit_UniqueReqById_NoPendingReceipts(t *testing.T) {
 	revertedForceTxns := []v2.TxnReceiptDB{
 		{RequestID: common.BigToHash(big.NewInt(1)).Hex(),
 			ForceFulfillmentAttempt: 1, EVMReceipt: types.Receipt{Status: 0}},
@@ -159,7 +159,7 @@ func TestUniqueReqById_NoPendingReceipts(t *testing.T) {
 	}
 }
 
-func TestUniqueReqById_WithPendingReceipts(t *testing.T) {
+func TestUnit_UniqueReqById_WithPendingReceipts(t *testing.T) {
 	revertedForceTxns := []v2.TxnReceiptDB{
 		{RequestID: common.BigToHash(big.NewInt(1)).Hex(),
 			ForceFulfillmentAttempt: 1, EVMReceipt: types.Receipt{Status: 0}},

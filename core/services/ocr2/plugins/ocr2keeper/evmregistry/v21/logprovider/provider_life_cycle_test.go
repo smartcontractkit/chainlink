@@ -19,7 +19,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evmregistry/v21/core"
 )
 
-func TestLogEventProvider_LifeCycle(t *testing.T) {
+func TestUnit_LogEventProvider_LifeCycle(t *testing.T) {
 	tests := []struct {
 		name           string
 		errored        bool
@@ -143,7 +143,7 @@ func TestLogEventProvider_LifeCycle(t *testing.T) {
 	}
 }
 
-func TestEventLogProvider_RefreshActiveUpkeeps(t *testing.T) {
+func TestUnit_EventLogProvider_RefreshActiveUpkeeps(t *testing.T) {
 	ctx := testutils.Context(t)
 	mp := new(mocks.LogPoller)
 	mp.On("RegisterFilter", mock.Anything, mock.Anything).Return(nil)
@@ -186,7 +186,7 @@ func TestEventLogProvider_RefreshActiveUpkeeps(t *testing.T) {
 	require.Equal(t, 1, p.filterStore.Size())
 }
 
-func TestLogEventProvider_ValidateLogTriggerConfig(t *testing.T) {
+func TestUnit_LogEventProvider_ValidateLogTriggerConfig(t *testing.T) {
 	contractAddress := common.HexToAddress("0xB9F3af0c2CbfE108efd0E23F7b0a151Ea42f764E")
 	eventSig := common.HexToHash("0x3bdab8bffae631cfee411525ebae27f3fb61b10c662c09ec2a7dbb5854c87e8c")
 	tests := []struct {

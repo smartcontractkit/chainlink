@@ -20,7 +20,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
 )
 
-func TestDivideTask_Happy(t *testing.T) {
+func TestUnit_DivideTask_Happy(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
@@ -132,7 +132,7 @@ func TestDivideTask_Happy(t *testing.T) {
 	}
 }
 
-func TestDivideTask_Unhappy(t *testing.T) {
+func TestUnit_DivideTask_Unhappy(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
@@ -173,7 +173,7 @@ func TestDivideTask_Unhappy(t *testing.T) {
 	}
 }
 
-func TestDivideTask_Overflow(t *testing.T) {
+func TestUnit_DivideTask_Overflow(t *testing.T) {
 	t.Parallel()
 
 	d1, err := decimal.NewFromString("6.34e-01")
@@ -199,7 +199,7 @@ func TestDivideTask_Overflow(t *testing.T) {
 	require.Equal(t, pipeline.ErrDivisionOverlow, errors.Cause(result.Error))
 }
 
-func TestDivide_Example(t *testing.T) {
+func TestUnit_Divide_Example(t *testing.T) {
 	t.Parallel()
 
 	dag := `

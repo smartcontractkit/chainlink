@@ -12,7 +12,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
 )
 
-func TestJSONParseTask(t *testing.T) {
+func TestUnit_JSONParseTask(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {

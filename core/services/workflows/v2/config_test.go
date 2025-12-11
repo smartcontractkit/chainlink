@@ -40,7 +40,7 @@ const (
 	testWorkflowTagA        = "test-tag"
 )
 
-func TestEngineConfig_Validate(t *testing.T) {
+func TestUnit_EngineConfig_Validate(t *testing.T) {
 	t.Parallel()
 	cfg := defaultTestConfig(t, nil)
 

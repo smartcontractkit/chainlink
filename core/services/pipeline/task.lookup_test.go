@@ -11,7 +11,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
 )
 
-func Test_LookupTask(t *testing.T) {
+func TestUnit_LookupTask(t *testing.T) {
 	task := pipeline.LookupTask{}
 	m := map[string]any{
 		"foo": 42,

@@ -15,7 +15,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/vrf/vrfcommon"
 )
 
-func Test_BatchFulfillments_AddRun(t *testing.T) {
+func TestUnit_BatchFulfillments_AddRun(t *testing.T) {
 	batchLimit := uint32(2500)
 	bfs := newBatchFulfillments(batchLimit, vrfcommon.V2)
 	fromAddress := testutils.NewAddress()
@@ -53,7 +53,7 @@ func Test_BatchFulfillments_AddRun(t *testing.T) {
 	require.Len(t, bfs.fulfillments, 2)
 }
 
-func Test_BatchFulfillments_AddRun_V2Plus(t *testing.T) {
+func TestUnit_BatchFulfillments_AddRun_V2Plus(t *testing.T) {
 	batchLimit := uint32(2500)
 	bfs := newBatchFulfillments(batchLimit, vrfcommon.V2Plus)
 	fromAddress := testutils.NewAddress()

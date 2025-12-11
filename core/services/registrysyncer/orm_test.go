@@ -24,7 +24,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/registrysyncer"
 )
 
-func TestRegistrySyncerORM_InsertAndRetrieval(t *testing.T) {
+func TestUnit_RegistrySyncerORM_InsertAndRetrieval(t *testing.T) {
 	db := pgtest.NewSqlxDB(t)
 	ctx := testutils.Context(t)
 	lggr := logger.Test(t)
@@ -147,7 +147,7 @@ func generateState(t *testing.T) registrysyncer.LocalRegistry {
 	}
 }
 
-func TestRegistrySyncerORM_AddLocalRegistry_DuplicateHandling(t *testing.T) {
+func TestUnit_RegistrySyncerORM_AddLocalRegistry_DuplicateHandling(t *testing.T) {
 	db := pgtest.NewSqlxDB(t)
 	ctx := testutils.Context(t)
 	lggr := logger.Test(t)

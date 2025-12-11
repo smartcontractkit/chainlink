@@ -14,7 +14,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 )
 
-func TestUtils_GetTxBlock(t *testing.T) {
+func TestUnit_Utils_GetTxBlock(t *testing.T) {
 	tests := []struct {
 		name         string
 		txHash       common.Hash

@@ -20,7 +20,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/plugins"
 )
 
-func TestStandardCapabilityStart(t *testing.T) {
+func TestUnit_StandardCapabilityStart(t *testing.T) {
 	t.Run("NOK-not_found_binary_does_not_block", func(t *testing.T) {
 		ctx := t.Context()
 		lggr := logger.TestLogger(t)

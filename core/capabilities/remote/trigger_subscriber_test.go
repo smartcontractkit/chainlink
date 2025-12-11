@@ -30,7 +30,7 @@ var (
 	triggerEvent1 = map[string]any{"event": "triggerEvent1"}
 )
 
-func TestTriggerSubscriber_RegisterAndReceive(t *testing.T) {
+func TestUnit_TriggerSubscriber_RegisterAndReceive(t *testing.T) {
 	t.Parallel()
 	lggr := logger.Test(t)
 	capInfo, capDon, workflowDon := buildTwoTestDONs(t, 1, 1)
@@ -79,7 +79,7 @@ func TestTriggerSubscriber_RegisterAndReceive(t *testing.T) {
 	require.Equal(t, response.Event.Outputs, triggerEventValue)
 }
 
-func TestTriggerSubscriber_CorrectEventExpiryCheck(t *testing.T) {
+func TestUnit_TriggerSubscriber_CorrectEventExpiryCheck(t *testing.T) {
 	t.Parallel()
 	lggr := logger.Test(t)
 	capInfo, capDon, workflowDon := buildTwoTestDONs(t, 3, 1)
@@ -144,7 +144,7 @@ func TestTriggerSubscriber_CorrectEventExpiryCheck(t *testing.T) {
 	require.Equal(t, response.Event.Outputs, triggerEventValue)
 }
 
-func TestTriggerSubscriber_SetConfig_Basic(t *testing.T) {
+func TestUnit_TriggerSubscriber_SetConfig_Basic(t *testing.T) {
 	t.Parallel()
 	lggr := logger.Test(t)
 	capInfo, capDon, workflowDon := buildTwoTestDONs(t, 3, 1)
@@ -209,7 +209,7 @@ func TestTriggerSubscriber_SetConfig_Basic(t *testing.T) {
 	})
 }
 
-func TestTriggerSubscriber_RegistrationLoopWithConfigUpdate(t *testing.T) {
+func TestUnit_TriggerSubscriber_RegistrationLoopWithConfigUpdate(t *testing.T) {
 	t.Parallel()
 	lggr := logger.Test(t)
 	capInfo, capDon, _ := buildTwoTestDONs(t, 1, 1)

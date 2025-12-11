@@ -12,7 +12,7 @@ import (
 	"github.com/smartcontractkit/chainlink-evm/pkg/testutils"
 )
 
-func Test_CacheSet(t *testing.T) {
+func TestUnit_CacheSet(t *testing.T) {
 	lggr := logger.Test(t)
 	cs := newCacheSet(lggr, Config{LatestReportTTL: 1})
 	disabledCs := newCacheSet(lggr, Config{LatestReportTTL: 0})

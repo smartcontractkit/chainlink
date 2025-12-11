@@ -20,7 +20,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/web/presenters"
 )
 
-func TestP2PKeyPresenter_RenderTable(t *testing.T) {
+func TestUnit_P2PKeyPresenter_RenderTable(t *testing.T) {
 	t.Parallel()
 
 	var (
@@ -59,7 +59,7 @@ func TestP2PKeyPresenter_RenderTable(t *testing.T) {
 	assert.Contains(t, output, pubKey)
 }
 
-func TestShell_ListP2PKeys(t *testing.T) {
+func TestUnit_Shell_ListP2PKeys(t *testing.T) {
 	t.Parallel()
 	ctx := testutils.Context(t)
 
@@ -77,7 +77,7 @@ func TestShell_ListP2PKeys(t *testing.T) {
 	assert.Equal(t, key.PublicKeyHex(), keys[0].PubKey)
 }
 
-func TestShell_CreateP2PKey(t *testing.T) {
+func TestUnit_Shell_CreateP2PKey(t *testing.T) {
 	t.Parallel()
 
 	app := startNewApplicationV2(t, nil)
@@ -91,7 +91,7 @@ func TestShell_CreateP2PKey(t *testing.T) {
 	require.Len(t, keys, 1)
 }
 
-func TestShell_DeleteP2PKey(t *testing.T) {
+func TestUnit_Shell_DeleteP2PKey(t *testing.T) {
 	t.Parallel()
 	ctx := testutils.Context(t)
 
@@ -118,7 +118,7 @@ func TestShell_DeleteP2PKey(t *testing.T) {
 	requireP2PKeyCount(t, app, 0)
 }
 
-func TestShell_ImportExportP2PKeyBundle(t *testing.T) {
+func TestUnit_Shell_ImportExportP2PKeyBundle(t *testing.T) {
 	t.Parallel()
 	ctx := testutils.Context(t)
 

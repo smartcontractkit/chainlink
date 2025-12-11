@@ -6,7 +6,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys"
 )
 
-func TestOCRKeys_ExportImport(t *testing.T) {
+func TestUnit_OCRKeys_ExportImport(t *testing.T) {
 	keys.RunKeyExportImportTestcase(t, createKey, decryptKey)
 }
 

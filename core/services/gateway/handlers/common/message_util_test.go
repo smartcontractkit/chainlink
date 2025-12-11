@@ -26,7 +26,7 @@ func unsignedMessage() api.Message {
 	}
 }
 
-func TestValidatedMessageFromReq(t *testing.T) {
+func TestUnit_ValidatedMessageFromReq(t *testing.T) {
 	validMsg := unsignedMessage()
 	key, err := crypto.HexToECDSA(privateKey)
 	require.NoError(t, err)
@@ -117,7 +117,7 @@ func TestValidatedMessageFromReq(t *testing.T) {
 	})
 }
 
-func TestValidatedMessageFromResp(t *testing.T) {
+func TestUnit_ValidatedMessageFromResp(t *testing.T) {
 	validMsg := unsignedMessage()
 	key, err := crypto.HexToECDSA(privateKey)
 	require.NoError(t, err)
@@ -190,7 +190,7 @@ func TestValidatedMessageFromResp(t *testing.T) {
 	})
 }
 
-func TestValidatedResponseFromMessage(t *testing.T) {
+func TestUnit_ValidatedResponseFromMessage(t *testing.T) {
 	validMsg := unsignedMessage()
 
 	t.Run("valid message", func(t *testing.T) {
@@ -223,7 +223,7 @@ func TestValidatedResponseFromMessage(t *testing.T) {
 	})
 }
 
-func TestValidatedRequestFromMessage(t *testing.T) {
+func TestUnit_ValidatedRequestFromMessage(t *testing.T) {
 	validMsg := unsignedMessage()
 
 	t.Run("valid message", func(t *testing.T) {

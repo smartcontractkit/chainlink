@@ -24,7 +24,7 @@ import (
 )
 
 // TODO: move this test to `chainlink-solana` https://smartcontract-it.atlassian.net/browse/NONEVM-790
-func TestShell_SolanaSendSol(t *testing.T) {
+func TestUnit_Shell_SolanaSendSol(t *testing.T) {
 	ctx := testutils.Context(t)
 	chainID := "localnet"
 	url := solanatesting.SetupLocalSolNode(t)

@@ -77,7 +77,7 @@ func setupHandler(t *testing.T) (*handler, *mocks.HTTPClient, *handlermocks.DON,
 	return handler, httpClient, don, nodes
 }
 
-func TestHandler_SendHTTPMessageToClient(t *testing.T) {
+func TestUnit_Handler_SendHTTPMessageToClient(t *testing.T) {
 	handler, httpClient, don, nodes := setupHandler(t)
 	ctx := testutils.Context(t)
 	nodeAddr := nodes[0].Address
@@ -259,7 +259,7 @@ func triggerRequest(t *testing.T, key *ecdsa.PrivateKey, topics []string, method
 	return msg
 }
 
-func TestHandlerReceiveHTTPMessageFromClient(t *testing.T) {
+func TestUnit_HandlerReceiveHTTPMessageFromClient(t *testing.T) {
 	handler, _, don, nodes := setupHandler(t)
 	ctx := testutils.Context(t)
 	msg := triggerRequest(t, nodes[0].PrivateKey, []string{"daily_price_update"}, "", "", "")
@@ -365,7 +365,7 @@ func TestHandlerReceiveHTTPMessageFromClient(t *testing.T) {
 	// TODO: Validate Senders and rate limit chck, pending question in trigger about where senders and rate limits are validated
 }
 
-func TestHandleComputeActionMessage(t *testing.T) {
+func TestUnit_HandleComputeActionMessage(t *testing.T) {
 	handler, httpClient, don, nodes := setupHandler(t)
 	ctx := testutils.Context(t)
 	nodeAddr := nodes[0].Address

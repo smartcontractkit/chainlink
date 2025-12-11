@@ -13,7 +13,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 )
 
-func TestCombinedClient_Info(t *testing.T) {
+func TestUnit_CombinedClient_Info(t *testing.T) {
 	ctx := testutils.Context(t)
 	info := createTestCapabilityInfo("test-capability-info", commoncap.CapabilityTypeAction)
 	client := remote.NewCombinedClient(info)
@@ -23,7 +23,7 @@ func TestCombinedClient_Info(t *testing.T) {
 	assert.Equal(t, info, returnedInfo)
 }
 
-func TestCombinedClient_RegisterTrigger_Success(t *testing.T) {
+func TestUnit_CombinedClient_RegisterTrigger_Success(t *testing.T) {
 	ctx := testutils.Context(t)
 	info := createTestCapabilityInfo("test-trigger", commoncap.CapabilityTypeTrigger)
 	client := remote.NewCombinedClient(info)
@@ -46,7 +46,7 @@ func TestCombinedClient_RegisterTrigger_Success(t *testing.T) {
 	assert.Equal(t, responseChan, result)
 }
 
-func TestCombinedClient_RegisterTrigger_MethodNotDefined(t *testing.T) {
+func TestUnit_CombinedClient_RegisterTrigger_MethodNotDefined(t *testing.T) {
 	ctx := testutils.Context(t)
 	info := createTestCapabilityInfo("test-trigger", commoncap.CapabilityTypeTrigger)
 	client := remote.NewCombinedClient(info)
@@ -62,7 +62,7 @@ func TestCombinedClient_RegisterTrigger_MethodNotDefined(t *testing.T) {
 	assert.Contains(t, err.Error(), "method undefined-method not defined")
 }
 
-func TestCombinedClient_RegisterTrigger_ErrorFromSubscriber(t *testing.T) {
+func TestUnit_CombinedClient_RegisterTrigger_ErrorFromSubscriber(t *testing.T) {
 	ctx := testutils.Context(t)
 	info := createTestCapabilityInfo("test-trigger", commoncap.CapabilityTypeTrigger)
 	client := remote.NewCombinedClient(info)
@@ -86,7 +86,7 @@ func TestCombinedClient_RegisterTrigger_ErrorFromSubscriber(t *testing.T) {
 	assert.Equal(t, expectedError, err)
 }
 
-func TestCombinedClient_UnregisterTrigger_Success(t *testing.T) {
+func TestUnit_CombinedClient_UnregisterTrigger_Success(t *testing.T) {
 	ctx := testutils.Context(t)
 	info := createTestCapabilityInfo("test-trigger", commoncap.CapabilityTypeTrigger)
 	client := remote.NewCombinedClient(info)
@@ -106,7 +106,7 @@ func TestCombinedClient_UnregisterTrigger_Success(t *testing.T) {
 	require.NoError(t, err)
 }
 
-func TestCombinedClient_UnregisterTrigger_MethodNotDefined(t *testing.T) {
+func TestUnit_CombinedClient_UnregisterTrigger_MethodNotDefined(t *testing.T) {
 	ctx := testutils.Context(t)
 	info := createTestCapabilityInfo("test-trigger", commoncap.CapabilityTypeTrigger)
 	client := remote.NewCombinedClient(info)
@@ -121,7 +121,7 @@ func TestCombinedClient_UnregisterTrigger_MethodNotDefined(t *testing.T) {
 	assert.Contains(t, err.Error(), "method undefined-method not defined")
 }
 
-func TestCombinedClient_UnregisterTrigger_ErrorFromSubscriber(t *testing.T) {
+func TestUnit_CombinedClient_UnregisterTrigger_ErrorFromSubscriber(t *testing.T) {
 	ctx := testutils.Context(t)
 	info := createTestCapabilityInfo("test-trigger", commoncap.CapabilityTypeTrigger)
 	client := remote.NewCombinedClient(info)
@@ -144,7 +144,7 @@ func TestCombinedClient_UnregisterTrigger_ErrorFromSubscriber(t *testing.T) {
 	assert.Equal(t, expectedError, err)
 }
 
-func TestCombinedClient_RegisterToWorkflow_NotSupported(t *testing.T) {
+func TestUnit_CombinedClient_RegisterToWorkflow_NotSupported(t *testing.T) {
 	ctx := testutils.Context(t)
 	info := createTestCapabilityInfo("test-capability", commoncap.CapabilityTypeTrigger)
 	client := remote.NewCombinedClient(info)
@@ -160,7 +160,7 @@ func TestCombinedClient_RegisterToWorkflow_NotSupported(t *testing.T) {
 	assert.Contains(t, err.Error(), "RegisterToWorkflow is not supported by remote capabilities")
 }
 
-func TestCombinedClient_UnregisterFromWorkflow_NotSupported(t *testing.T) {
+func TestUnit_CombinedClient_UnregisterFromWorkflow_NotSupported(t *testing.T) {
 	ctx := testutils.Context(t)
 	info := createTestCapabilityInfo("test-capability", commoncap.CapabilityTypeTrigger)
 	client := remote.NewCombinedClient(info)
@@ -176,7 +176,7 @@ func TestCombinedClient_UnregisterFromWorkflow_NotSupported(t *testing.T) {
 	assert.Contains(t, err.Error(), "UnregisterFromWorkflow is not supported by remote capabilities")
 }
 
-func TestCombinedClient_Execute_Success(t *testing.T) {
+func TestUnit_CombinedClient_Execute_Success(t *testing.T) {
 	ctx := testutils.Context(t)
 	info := createTestCapabilityInfo("test-executable", commoncap.CapabilityTypeAction)
 	client := remote.NewCombinedClient(info)
@@ -207,7 +207,7 @@ func TestCombinedClient_Execute_Success(t *testing.T) {
 	assert.Equal(t, expectedResponse, result)
 }
 
-func TestCombinedClient_Execute_MethodNotDefined(t *testing.T) {
+func TestUnit_CombinedClient_Execute_MethodNotDefined(t *testing.T) {
 	ctx := testutils.Context(t)
 	info := createTestCapabilityInfo("test-executable", commoncap.CapabilityTypeAction)
 	client := remote.NewCombinedClient(info)
@@ -228,7 +228,7 @@ func TestCombinedClient_Execute_MethodNotDefined(t *testing.T) {
 	assert.Contains(t, err.Error(), "method undefined-method not defined")
 }
 
-func TestCombinedClient_Execute_ErrorFromExecutable(t *testing.T) {
+func TestUnit_CombinedClient_Execute_ErrorFromExecutable(t *testing.T) {
 	ctx := testutils.Context(t)
 	info := createTestCapabilityInfo("test-executable", commoncap.CapabilityTypeAction)
 	client := remote.NewCombinedClient(info)
@@ -258,7 +258,7 @@ func TestCombinedClient_Execute_ErrorFromExecutable(t *testing.T) {
 	assert.Equal(t, expectedError, err)
 }
 
-func TestCombinedClient_SetTriggerSubscriber(t *testing.T) {
+func TestUnit_CombinedClient_SetTriggerSubscriber(t *testing.T) {
 	info := createTestCapabilityInfo("test-capability", commoncap.CapabilityTypeTrigger)
 
 	client := remote.NewCombinedClient(info)
@@ -280,7 +280,7 @@ func TestCombinedClient_SetTriggerSubscriber(t *testing.T) {
 	require.NoError(t, err)
 }
 
-func TestCombinedClient_SetExecutableClient(t *testing.T) {
+func TestUnit_CombinedClient_SetExecutableClient(t *testing.T) {
 	info := createTestCapabilityInfo("test-capability", commoncap.CapabilityTypeAction)
 
 	client := remote.NewCombinedClient(info)
@@ -310,7 +310,7 @@ func TestCombinedClient_SetExecutableClient(t *testing.T) {
 	require.NoError(t, err)
 }
 
-func TestCombinedClient_MultipleMethodsAndCapabilities(t *testing.T) {
+func TestUnit_CombinedClient_MultipleMethodsAndCapabilities(t *testing.T) {
 	ctx := testutils.Context(t)
 	info := createTestCapabilityInfo("test-multi-capability", commoncap.CapabilityTypeAction)
 	client := remote.NewCombinedClient(info)

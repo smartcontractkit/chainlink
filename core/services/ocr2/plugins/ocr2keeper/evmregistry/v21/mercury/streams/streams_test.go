@@ -119,7 +119,7 @@ func setupStreams(t *testing.T) *streams {
 	return streams
 }
 
-func TestStreams_CheckErrorHandler(t *testing.T) {
+func TestUnit_Streams_CheckErrorHandler(t *testing.T) {
 	upkeepId := big.NewInt(123456789)
 	blockNumber := uint64(999)
 	tests := []struct {
@@ -265,7 +265,7 @@ func TestStreams_CheckErrorHandler(t *testing.T) {
 	}
 }
 
-func TestStreams_CheckCallback(t *testing.T) {
+func TestUnit_Streams_CheckCallback(t *testing.T) {
 	upkeepId := big.NewInt(123456789)
 	bn := uint64(999)
 	bs := []byte{183, 114, 215, 10, 0, 0, 0, 0, 0, 0}
@@ -419,7 +419,7 @@ func TestStreams_CheckCallback(t *testing.T) {
 	}
 }
 
-func TestStreams_AllowedToUseMercury(t *testing.T) {
+func TestUnit_Streams_AllowedToUseMercury(t *testing.T) {
 	upkeepId, ok := new(big.Int).SetString("71022726777042968814359024671382968091267501884371696415772139504780367423725", 10)
 	assert.True(t, ok, t.Name())
 	tests := []struct {
@@ -604,7 +604,7 @@ func TestStreams_AllowedToUseMercury(t *testing.T) {
 	}
 }
 
-func TestStreams_StreamsLookup(t *testing.T) {
+func TestUnit_Streams_StreamsLookup(t *testing.T) {
 	upkeepId, ok := new(big.Int).SetString("71022726777042968814359024671382968091267501884371696415772139504780367423725", 10)
 	var upkeepIdentifier [32]byte
 	copy(upkeepIdentifier[:], upkeepId.Bytes())

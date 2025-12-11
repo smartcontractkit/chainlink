@@ -6,7 +6,7 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func TestBatchSplit(t *testing.T) {
+func TestUnit_BatchSplit(t *testing.T) {
 	list := []int{}
 	for i := range 100 {
 		list = append(list, i)

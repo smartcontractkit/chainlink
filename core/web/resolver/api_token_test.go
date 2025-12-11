@@ -14,7 +14,7 @@ import (
 	webauth "github.com/smartcontractkit/chainlink/v2/core/web/auth"
 )
 
-func TestResolver_CreateAPIToken(t *testing.T) {
+func TestUnit_Resolver_CreateAPIToken(t *testing.T) {
 	t.Parallel()
 
 	defaultPassword := "my-password"
@@ -171,7 +171,7 @@ func TestResolver_CreateAPIToken(t *testing.T) {
 	RunGQLTests(t, testCases)
 }
 
-func TestResolver_DeleteAPIToken(t *testing.T) {
+func TestUnit_Resolver_DeleteAPIToken(t *testing.T) {
 	t.Parallel()
 
 	defaultPassword := "my-password"

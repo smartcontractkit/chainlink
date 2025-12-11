@@ -17,7 +17,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 )
 
-func TestHTTPClient_Send(t *testing.T) {
+func TestUnit_HTTPClient_Send(t *testing.T) {
 	t.Parallel()
 
 	// Setup the test environment
@@ -306,7 +306,7 @@ func TestHTTPClient_Send(t *testing.T) {
 // IMPORTANT: The behaviour of Go's network stack is heavily dependent on the platform;
 // this means that the errors returned can change depending on whether the tests are
 // run on osx or on linux.
-func TestHTTPClient_BlocksUnallowed(t *testing.T) {
+func TestUnit_HTTPClient_BlocksUnallowed(t *testing.T) {
 	t.Parallel()
 
 	// Setup the test environment
@@ -510,7 +510,7 @@ func TestHTTPClient_BlocksUnallowed(t *testing.T) {
 	}
 }
 
-func TestHTTPClient_AllowedIPsCIDR(t *testing.T) {
+func TestUnit_HTTPClient_AllowedIPsCIDR(t *testing.T) {
 	t.Parallel()
 
 	// Setup the test environment
@@ -580,7 +580,7 @@ func TestHTTPClient_AllowedIPsCIDR(t *testing.T) {
 	}
 }
 
-func Test_ConfigApplyDefaults(t *testing.T) {
+func TestUnit_ConfigApplyDefaults(t *testing.T) {
 	t.Parallel()
 	t.Run("successfully overrides defaults", func(t *testing.T) {
 		config := HTTPClientConfig{
@@ -604,7 +604,7 @@ func Test_ConfigApplyDefaults(t *testing.T) {
 	})
 }
 
-func TestHTTPClient_ValidateMethod(t *testing.T) {
+func TestUnit_HTTPClient_ValidateMethod(t *testing.T) {
 	t.Parallel()
 	lggr := logger.Test(t)
 
@@ -665,7 +665,7 @@ func TestHTTPClient_ValidateMethod(t *testing.T) {
 	}
 }
 
-func TestHTTPClient_ValidateHeaders(t *testing.T) {
+func TestUnit_HTTPClient_ValidateHeaders(t *testing.T) {
 	t.Parallel()
 	lggr := logger.Test(t)
 
@@ -747,7 +747,7 @@ func TestHTTPClient_ValidateHeaders(t *testing.T) {
 	}
 }
 
-func TestHTTPClient_BlockedRequests_ReturnErrBlockedRequest(t *testing.T) {
+func TestUnit_HTTPClient_BlockedRequests_ReturnErrBlockedRequest(t *testing.T) {
 	t.Parallel()
 
 	lggr := logger.Test(t)

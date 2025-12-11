@@ -14,12 +14,12 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func Test_NotFoundError(t *testing.T) {
+func TestUnit_NotFoundError(t *testing.T) {
 	nfe := NewNotFoundError("test")
 	assert.Equal(t, "could not find \"test\" in map", nfe.Error())
 }
 
-func Test_popValue(t *testing.T) {
+func TestUnit_popValue(t *testing.T) {
 	m, err := values.NewMap(
 		map[string]any{
 			"test":     "value",
@@ -50,7 +50,7 @@ func Test_popValue(t *testing.T) {
 	assert.Empty(t, m.Underlying)
 }
 
-func Test_popOptionalValue(t *testing.T) {
+func TestUnit_popOptionalValue(t *testing.T) {
 	m, err := values.NewMap(
 		map[string]any{
 			"test": "value",
@@ -82,7 +82,7 @@ func Test_popOptionalValue(t *testing.T) {
 	assert.Empty(t, m.Underlying)
 }
 
-func Test_transformer(t *testing.T) {
+func TestUnit_transformer(t *testing.T) {
 	var (
 		lgger   = logger.Test(t)
 		emitter = custmsg.NewLabeler()

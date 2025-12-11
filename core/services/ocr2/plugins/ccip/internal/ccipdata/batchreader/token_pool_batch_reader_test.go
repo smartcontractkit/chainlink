@@ -20,7 +20,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/rpclib/rpclibmocks"
 )
 
-func TestTokenPoolFactory(t *testing.T) {
+func TestUnit_TokenPoolFactory(t *testing.T) {
 	lggr := logger.TestLogger(t)
 	offRamp := utils.RandomAddress()
 	ctx := context.Background()

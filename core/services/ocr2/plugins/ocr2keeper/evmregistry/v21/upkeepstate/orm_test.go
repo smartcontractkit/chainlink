@@ -13,7 +13,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
 )
 
-func TestInsertSelectDelete(t *testing.T) {
+func TestUnit_InsertSelectDelete(t *testing.T) {
 	ctx := testutils.Context(t)
 	chainID := testutils.FixtureChainID
 	db := pgtest.NewSqlxDB(t)

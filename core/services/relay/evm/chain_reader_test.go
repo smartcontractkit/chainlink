@@ -31,7 +31,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm"
 )
 
-func TestChainReaderSizedBigIntTypes(t *testing.T) {
+func TestUnit_ChainReaderSizedBigIntTypes(t *testing.T) {
 	t.Parallel()
 
 	tests := []string{}
@@ -70,7 +70,7 @@ func TestChainReaderSizedBigIntTypes(t *testing.T) {
 	}
 }
 
-func TestChainReader_Bind(t *testing.T) {
+func TestUnit_ChainReader_Bind(t *testing.T) {
 	lp := lpmocks.NewLogPoller(t)
 	ht := headstest.NewTracker[*evmtypes.Head](t)
 	cr, err := evm.NewChainReaderService(t.Context(), logger.Nop(), lp, ht, nil, config.ChainReaderConfig{Contracts: map[string]config.ChainContractReader{
@@ -146,7 +146,7 @@ func TestChainReader_Bind(t *testing.T) {
 	lp.AssertExpectations(t)
 }
 
-func TestChainReaderPrimitiveTypes(t *testing.T) {
+func TestUnit_ChainReaderPrimitiveTypes(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {

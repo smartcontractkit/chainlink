@@ -54,7 +54,7 @@ func newTestConnector(t *testing.T, config *ConnectorConfig) (*gatewayConnector,
 	return connector, signer, handler
 }
 
-func TestGatewayConnector_NewGatewayConnector_ValidConfig(t *testing.T) {
+func TestUnit_GatewayConnector_NewGatewayConnector_ValidConfig(t *testing.T) {
 	t.Parallel()
 
 	tomlConfig := parseTOMLConfig(t, `
@@ -69,7 +69,7 @@ URL = "ws://localhost:8081/node"
 	newTestConnector(t, tomlConfig)
 }
 
-func TestGatewayConnector_NewGatewayConnector_InvalidConfig(t *testing.T) {
+func TestUnit_GatewayConnector_NewGatewayConnector_InvalidConfig(t *testing.T) {
 	t.Parallel()
 
 	invalidCases := map[string]string{
@@ -117,7 +117,7 @@ URL = "ws://localhost:8081/node"
 	}
 }
 
-func TestGatewayConnector_CleanStartAndClose(t *testing.T) {
+func TestUnit_GatewayConnector_CleanStartAndClose(t *testing.T) {
 	t.Parallel()
 
 	connector, signer, _ := newTestConnector(t, parseTOMLConfig(t, defaultConfig))
@@ -125,7 +125,7 @@ func TestGatewayConnector_CleanStartAndClose(t *testing.T) {
 	servicetest.Run(t, connector)
 }
 
-func TestGatewayConnector_NewAuthHeader_SignerError(t *testing.T) {
+func TestUnit_GatewayConnector_NewAuthHeader_SignerError(t *testing.T) {
 	t.Parallel()
 
 	connector, signer, _ := newTestConnector(t, parseTOMLConfig(t, defaultConfig))
@@ -137,7 +137,7 @@ func TestGatewayConnector_NewAuthHeader_SignerError(t *testing.T) {
 	require.Error(t, err)
 }
 
-func TestGatewayConnector_NewAuthHeader_Success(t *testing.T) {
+func TestUnit_GatewayConnector_NewAuthHeader_Success(t *testing.T) {
 	t.Parallel()
 
 	testSignature := make([]byte, network.HandshakeSignatureLen)
@@ -152,7 +152,7 @@ func TestGatewayConnector_NewAuthHeader_Success(t *testing.T) {
 	require.Equal(t, testSignature, header[len(header)-65:])
 }
 
-func TestGatewayConnector_ChallengeResponse(t *testing.T) {
+func TestUnit_GatewayConnector_ChallengeResponse(t *testing.T) {
 	t.Parallel()
 
 	testSignature := make([]byte, network.HandshakeSignatureLen)
@@ -193,7 +193,7 @@ func TestGatewayConnector_ChallengeResponse(t *testing.T) {
 	require.Equal(t, network.ErrAuthInvalidGateway, err)
 }
 
-func TestGatewayConnector_AddHandler(t *testing.T) {
+func TestUnit_GatewayConnector_AddHandler(t *testing.T) {
 	t.Parallel()
 
 	connector, _, _ := newTestConnector(t, parseTOMLConfig(t, defaultConfig))

@@ -107,7 +107,7 @@ func newMockedEncodeTransmissionInfo(state uint8) ([]byte, error) {
 	return buffer.Bytes(), nil
 }
 
-func TestEvmWrite(t *testing.T) {
+func TestUnit_EvmWrite(t *testing.T) {
 	chain := evmmocks.NewChain(t)
 	txManager := txmmocks.NewMockEvmTxManager(t)
 	evmClient := clienttest.NewClient(t)
@@ -495,7 +495,7 @@ func findLogMatch(t *testing.T, observed *observer.ObservedLogs, msg string, key
 		return len(matches) > 0
 	}, 30*time.Second, 1*time.Second)
 }
-func TestExtractNetwork(t *testing.T) {
+func TestUnit_ExtractNetwork(t *testing.T) {
 	testCases := []struct {
 		networkName  string
 		expectedName string

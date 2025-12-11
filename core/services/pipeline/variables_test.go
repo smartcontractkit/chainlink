@@ -9,7 +9,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
 )
 
-func TestVars_Set(t *testing.T) {
+func TestUnit_Vars_Set(t *testing.T) {
 	t.Parallel()
 
 	vars := pipeline.NewVarsFrom(nil)
@@ -27,7 +27,7 @@ func TestVars_Set(t *testing.T) {
 	require.ErrorIs(t, err, pipeline.ErrVarsSetNested)
 }
 
-func TestVars_Get(t *testing.T) {
+func TestUnit_Vars_Get(t *testing.T) {
 	t.Parallel()
 
 	t.Run("gets the values at keypaths that exist", func(t *testing.T) {
@@ -123,7 +123,7 @@ func TestVars_Get(t *testing.T) {
 	})
 }
 
-func TestVars_Copy(t *testing.T) {
+func TestUnit_Vars_Copy(t *testing.T) {
 	t.Parallel()
 
 	vars := pipeline.NewVarsFrom(map[string]any{

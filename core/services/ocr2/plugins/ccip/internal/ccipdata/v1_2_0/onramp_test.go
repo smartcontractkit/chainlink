@@ -16,7 +16,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/abihelpers"
 )
 
-func TestLogPollerClient_GetSendRequestsBetweenSeqNumsV1_2_0(t *testing.T) {
+func TestUnit_LogPollerClient_GetSendRequestsBetweenSeqNumsV1_2_0(t *testing.T) {
 	onRampAddr := utils.RandomAddress()
 	seqNum := uint64(100)
 	limit := uint64(10)

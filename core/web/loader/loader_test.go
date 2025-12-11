@@ -32,7 +32,7 @@ import (
 	testutils2 "github.com/smartcontractkit/chainlink/v2/core/web/testutils"
 )
 
-func TestLoader_ChainsRelayID_HandleDuplicateIDAcrossNetworks(t *testing.T) {
+func TestUnit_Loader_ChainsRelayID_HandleDuplicateIDAcrossNetworks(t *testing.T) {
 	t.Parallel()
 
 	app := coremocks.NewApplication(t)
@@ -105,7 +105,7 @@ func TestLoader_ChainsRelayID_HandleDuplicateIDAcrossNetworks(t *testing.T) {
 	require.ErrorIs(t, results[2].Error, chains.ErrNotFound)
 }
 
-func TestLoader_Nodes(t *testing.T) {
+func TestUnit_Loader_Nodes(t *testing.T) {
 	t.Parallel()
 
 	app := coremocks.NewApplication(t)
@@ -135,7 +135,7 @@ func TestLoader_Nodes(t *testing.T) {
 	assert.Equal(t, []commontypes.NodeStatus{}, found[2].Data)
 }
 
-func TestLoader_FeedsManagers(t *testing.T) {
+func TestUnit_Loader_FeedsManagers(t *testing.T) {
 	t.Parallel()
 
 	fsvc := feedsMocks.NewService(t)
@@ -174,7 +174,7 @@ func TestLoader_FeedsManagers(t *testing.T) {
 	assert.Equal(t, "feeds manager not found", found[3].Error.Error())
 }
 
-func TestLoader_JobProposals(t *testing.T) {
+func TestUnit_Loader_JobProposals(t *testing.T) {
 	t.Parallel()
 
 	fsvc := feedsMocks.NewService(t)
@@ -213,7 +213,7 @@ func TestLoader_JobProposals(t *testing.T) {
 	assert.Equal(t, []feeds.JobProposal{}, found[2].Data)
 }
 
-func TestLoader_JobRuns(t *testing.T) {
+func TestUnit_Loader_JobRuns(t *testing.T) {
 	t.Parallel()
 
 	jobsORM := jobORMMocks.NewORM(t)
@@ -240,7 +240,7 @@ func TestLoader_JobRuns(t *testing.T) {
 	assert.Equal(t, run2, found[2].Data)
 }
 
-func TestLoader_JobsByPipelineSpecIDs(t *testing.T) {
+func TestUnit_Loader_JobsByPipelineSpecIDs(t *testing.T) {
 	t.Parallel()
 
 	t.Run("with out errors", func(t *testing.T) {
@@ -291,7 +291,7 @@ func TestLoader_JobsByPipelineSpecIDs(t *testing.T) {
 	})
 }
 
-func TestLoader_JobsByExternalJobIDs(t *testing.T) {
+func TestUnit_Loader_JobsByExternalJobIDs(t *testing.T) {
 	t.Parallel()
 
 	t.Run("with out errors", func(t *testing.T) {
@@ -317,7 +317,7 @@ func TestLoader_JobsByExternalJobIDs(t *testing.T) {
 	})
 }
 
-func TestLoader_EthTransactionsAttempts(t *testing.T) {
+func TestUnit_Loader_EthTransactionsAttempts(t *testing.T) {
 	t.Parallel()
 
 	txStore := evmtxmgrmocks.NewEvmTxStore(t)
@@ -351,7 +351,7 @@ func TestLoader_EthTransactionsAttempts(t *testing.T) {
 	assert.Equal(t, []txmgr.TxAttempt{attempt1}, found[2].Data)
 }
 
-func TestLoader_SpecErrorsByJobID(t *testing.T) {
+func TestUnit_Loader_SpecErrorsByJobID(t *testing.T) {
 	t.Parallel()
 
 	t.Run("without errors", func(t *testing.T) {
@@ -402,7 +402,7 @@ func TestLoader_SpecErrorsByJobID(t *testing.T) {
 	})
 }
 
-func TestLoader_loadByEthTransactionID(t *testing.T) {
+func TestUnit_Loader_loadByEthTransactionID(t *testing.T) {
 	t.Parallel()
 
 	txStore := evmtxmgrmocks.NewEvmTxStore(t)

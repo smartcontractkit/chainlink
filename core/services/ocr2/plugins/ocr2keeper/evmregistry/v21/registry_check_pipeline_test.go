@@ -33,7 +33,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evmregistry/v21/mocks"
 )
 
-func TestRegistry_GetBlockAndUpkeepId(t *testing.T) {
+func TestUnit_Registry_GetBlockAndUpkeepId(t *testing.T) {
 	r := &EvmRegistry{}
 	tests := []struct {
 		name       string
@@ -78,7 +78,7 @@ func TestRegistry_GetBlockAndUpkeepId(t *testing.T) {
 	}
 }
 
-func TestRegistry_VerifyCheckBlock(t *testing.T) {
+func TestUnit_Registry_VerifyCheckBlock(t *testing.T) {
 	lggr := logger.Test(t)
 	upkeepId := ocr2keepers.UpkeepIdentifier{}
 	upkeepId.FromBigInt(big.NewInt(12345))
@@ -225,7 +225,7 @@ func (p *mockLogPoller) IndexedLogs(ctx context.Context, eventSig common.Hash, a
 	return p.IndexedLogsFn(ctx, eventSig, address, topicIndex, topicValues, confs)
 }
 
-func TestRegistry_VerifyLogExists(t *testing.T) {
+func TestUnit_Registry_VerifyLogExists(t *testing.T) {
 	lggr := logger.Test(t)
 	upkeepId := ocr2keepers.UpkeepIdentifier{}
 	upkeepId.FromBigInt(big.NewInt(12345))
@@ -375,7 +375,7 @@ func TestRegistry_VerifyLogExists(t *testing.T) {
 	}
 }
 
-func TestRegistry_CheckUpkeeps(t *testing.T) {
+func TestUnit_Registry_CheckUpkeeps(t *testing.T) {
 	lggr := logger.Test(t)
 	uid0 := core.GenUpkeepID(autotypes.UpkeepType(0), "p0")
 	uid1 := core.GenUpkeepID(autotypes.UpkeepType(1), "p1")
@@ -536,7 +536,7 @@ func TestRegistry_CheckUpkeeps(t *testing.T) {
 	}
 }
 
-func TestRegistry_SimulatePerformUpkeeps(t *testing.T) {
+func TestUnit_Registry_SimulatePerformUpkeeps(t *testing.T) {
 	uid0 := core.GenUpkeepID(autotypes.UpkeepType(0), "p0")
 	uid1 := core.GenUpkeepID(autotypes.UpkeepType(1), "p1")
 	uid2 := core.GenUpkeepID(autotypes.UpkeepType(1), "p2")

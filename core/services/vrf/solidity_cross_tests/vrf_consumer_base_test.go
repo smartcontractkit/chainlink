@@ -10,7 +10,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/vrf/vrftesthelpers"
 )
 
-func TestConsumerBaseRejectsBadVRFCoordinator(t *testing.T) {
+func TestUnit_ConsumerBaseRejectsBadVRFCoordinator(t *testing.T) {
 	key := cltest.MustGenerateRandomKey(t)
 	coordinator := vrftesthelpers.NewVRFCoordinatorUniverse(t, key)
 	keyHash, _ /* jobID */, fee := registerProvingKey(t, coordinator)

@@ -9,7 +9,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestFilterStore_CRUD(t *testing.T) {
+func TestUnit_FilterStore_CRUD(t *testing.T) {
 	tests := []struct {
 		name               string
 		initial            []upkeepFilter
@@ -67,7 +67,7 @@ func TestFilterStore_CRUD(t *testing.T) {
 	}
 }
 
-func TestFilterStore_Concurrency(t *testing.T) {
+func TestUnit_FilterStore_Concurrency(t *testing.T) {
 	s := NewUpkeepFilterStore()
 	var wg sync.WaitGroup
 

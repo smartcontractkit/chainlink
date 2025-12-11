@@ -8,7 +8,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestLazyFetchPass(t *testing.T) {
+func TestUnit_LazyFetchPass(t *testing.T) {
 	counterFunction := createPassingCounter()
 
 	counter, _ := counterFunction()
@@ -22,7 +22,7 @@ func TestLazyFetchPass(t *testing.T) {
 	require.Equal(t, 2, counter)
 }
 
-func TestLazyFetchFail(t *testing.T) {
+func TestUnit_LazyFetchFail(t *testing.T) {
 	counterFunction := createFailingCounter()
 
 	_, err := counterFunction()
@@ -36,7 +36,7 @@ func TestLazyFetchFail(t *testing.T) {
 	require.Equal(t, "counter 2 failed", err.Error())
 }
 
-func TestLazyFetchMultipleRoutines(t *testing.T) {
+func TestUnit_LazyFetchMultipleRoutines(t *testing.T) {
 	routines := 100
 	counterFunction := LazyFetch(createPassingCounter())
 

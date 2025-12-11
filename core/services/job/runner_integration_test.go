@@ -53,7 +53,7 @@ import (
 
 var monitoringEndpoint = telemetry.MonitoringEndpointGenerator(&telemetry.NoopAgent{})
 
-func TestRunner(t *testing.T) {
+func TestUnit_Runner(t *testing.T) {
 	ctx := testutils.Context(t)
 	db := pgtest.NewSqlxDB(t)
 	keyStore := cltest.NewKeyStore(t, db)
@@ -778,7 +778,7 @@ answer1      [type=median index=0];
 	})
 }
 
-func TestRunner_Success_Callback_AsyncJob(t *testing.T) {
+func TestUnit_Runner_Success_Callback_AsyncJob(t *testing.T) {
 	t.Parallel()
 
 	ethClient := cltest.NewEthMocksWithStartupAssertions(t)
@@ -957,7 +957,7 @@ func TestRunner_Success_Callback_AsyncJob(t *testing.T) {
 	}
 }
 
-func TestRunner_Error_Callback_AsyncJob(t *testing.T) {
+func TestUnit_Runner_Error_Callback_AsyncJob(t *testing.T) {
 	t.Parallel()
 
 	ethClient := cltest.NewEthMocksWithStartupAssertions(t)

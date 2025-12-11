@@ -9,7 +9,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ocrkey"
 )
 
-func TestOCR_OnChainSigningAddress_String(t *testing.T) {
+func TestUnit_OCR_OnChainSigningAddress_String(t *testing.T) {
 	t.Parallel()
 
 	// should contain EIP55CapitalizedAddress

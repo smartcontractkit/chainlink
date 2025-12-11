@@ -15,7 +15,7 @@ import (
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/keeper_registry_wrapper2_0"
 )
 
-func TestUnpackTransmitTxInput(t *testing.T) {
+func TestUnit_UnpackTransmitTxInput(t *testing.T) {
 	registryABI, err := abi.JSON(strings.NewReader(keeper_registry_wrapper2_0.KeeperRegistryABI))
 	assert.NoError(t, err)
 
@@ -36,7 +36,7 @@ func TestUnpackTransmitTxInput(t *testing.T) {
 	assert.Equal(t, rpt.ID.String(), expectedID.String())
 }
 
-func TestUnpackTransmitTxInputErrors(t *testing.T) {
+func TestUnit_UnpackTransmitTxInputErrors(t *testing.T) {
 	tests := []struct {
 		Name    string
 		RawData string
@@ -62,7 +62,7 @@ func TestUnpackTransmitTxInputErrors(t *testing.T) {
 	}
 }
 
-func TestUnpackCheckResults(t *testing.T) {
+func TestUnit_UnpackCheckResults(t *testing.T) {
 	registryABI, err := abi.JSON(strings.NewReader(keeper_registry_wrapper2_0.KeeperRegistryABI))
 	if err != nil {
 		assert.NoError(t, err)
@@ -123,7 +123,7 @@ func TestUnpackCheckResults(t *testing.T) {
 	}
 }
 
-func TestUnpackPerformResult(t *testing.T) {
+func TestUnit_UnpackPerformResult(t *testing.T) {
 	registryABI, err := abi.JSON(strings.NewReader(keeper_registry_wrapper2_0.KeeperRegistryABI))
 	if err != nil {
 		assert.NoError(t, err)

@@ -30,7 +30,7 @@ func (m *mockPipeline) StreamIDs() []StreamID {
 	return m.streamIDs
 }
 
-func Test_Registry(t *testing.T) {
+func TestUnit_Registry(t *testing.T) {
 	lggr := logger.TestLogger(t)
 	runner := &mockRunner{}
 

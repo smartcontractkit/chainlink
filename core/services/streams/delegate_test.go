@@ -26,7 +26,7 @@ type mockDelegateConfig struct{}
 func (m *mockDelegateConfig) MaxSuccessfulRuns() uint64     { return 0 }
 func (m *mockDelegateConfig) ResultWriteQueueDepth() uint64 { return 0 }
 
-func Test_Delegate(t *testing.T) {
+func TestUnit_Delegate(t *testing.T) {
 	lggr := logger.TestLogger(t)
 	registry := &mockRegistry{}
 	runner := &mockRunner{}
@@ -56,7 +56,7 @@ func Test_Delegate(t *testing.T) {
 	})
 }
 
-func Test_ValidatedStreamSpec(t *testing.T) {
+func TestUnit_ValidatedStreamSpec(t *testing.T) {
 	var tt = []struct {
 		name      string
 		toml      string

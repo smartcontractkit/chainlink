@@ -11,7 +11,7 @@ import (
 	ocr2keepers "github.com/smartcontractkit/chainlink-common/pkg/types/automation"
 )
 
-func TestGetUpkeepType(t *testing.T) {
+func TestUnit_GetUpkeepType(t *testing.T) {
 	tests := []struct {
 		name       string
 		upkeepID   []byte

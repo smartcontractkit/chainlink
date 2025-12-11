@@ -10,7 +10,7 @@ import (
 	ocr2keepers "github.com/smartcontractkit/chainlink-automation/pkg/v2"
 )
 
-func TestEVMAutomationEncoder20(t *testing.T) {
+func TestUnit_EVMAutomationEncoder20(t *testing.T) {
 	encoder := EVMAutomationEncoder20{}
 
 	t.Run("encoding an empty list of upkeep results returns a nil byte array", func(t *testing.T) {

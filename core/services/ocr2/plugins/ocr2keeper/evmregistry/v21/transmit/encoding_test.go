@@ -14,7 +14,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evmregistry/v21/core"
 )
 
-func TestTransmitEventLog(t *testing.T) {
+func TestUnit_TransmitEventLog(t *testing.T) {
 	uid := core.GenUpkeepID(types.ConditionTrigger, "111")
 
 	tests := []struct {

@@ -23,7 +23,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ethkey"
 )
 
-func Test_EthKeyStore(t *testing.T) {
+func TestUnit_EthKeyStore(t *testing.T) {
 	t.Parallel()
 
 	db := pgtest.NewSqlxDB(t)
@@ -215,7 +215,7 @@ func Test_EthKeyStore(t *testing.T) {
 	})
 }
 
-func Test_EthKeyStore_GetRoundRobinAddress(t *testing.T) {
+func TestUnit_EthKeyStore_GetRoundRobinAddress(t *testing.T) {
 	ctx := testutils.Context(t)
 	t.Parallel()
 
@@ -336,7 +336,7 @@ func Test_EthKeyStore_GetRoundRobinAddress(t *testing.T) {
 	})
 }
 
-func Test_EthKeyStore_E2E(t *testing.T) {
+func TestUnit_EthKeyStore_E2E(t *testing.T) {
 	t.Parallel()
 
 	db := pgtest.NewSqlxDB(t)
@@ -462,7 +462,7 @@ func Test_EthKeyStore_E2E(t *testing.T) {
 	})
 }
 
-func Test_EthKeyStore_Enable(t *testing.T) {
+func TestUnit_EthKeyStore_Enable(t *testing.T) {
 	t.Parallel()
 
 	db := pgtest.NewSqlxDB(t)
@@ -510,7 +510,7 @@ func Test_EthKeyStore_Enable(t *testing.T) {
 	})
 }
 
-func Test_EthKeyStore_EnsureKeys(t *testing.T) {
+func TestUnit_EthKeyStore_EnsureKeys(t *testing.T) {
 	t.Parallel()
 
 	t.Run("creates one unique key per chain if none exist", func(t *testing.T) {
@@ -582,7 +582,7 @@ func Test_EthKeyStore_EnsureKeys(t *testing.T) {
 	})
 }
 
-func Test_EthKeyStore_Delete(t *testing.T) {
+func TestUnit_EthKeyStore_Delete(t *testing.T) {
 	t.Parallel()
 
 	ctx := testutils.Context(t)
@@ -629,7 +629,7 @@ func Test_EthKeyStore_Delete(t *testing.T) {
 	require.NoError(t, err)
 }
 
-func Test_EthKeyStore_CheckEnabled(t *testing.T) {
+func TestUnit_EthKeyStore_CheckEnabled(t *testing.T) {
 	t.Parallel()
 
 	ctx := testutils.Context(t)
@@ -716,7 +716,7 @@ func Test_EthKeyStore_CheckEnabled(t *testing.T) {
 	})
 }
 
-func Test_EthKeyStore_Disable(t *testing.T) {
+func TestUnit_EthKeyStore_Disable(t *testing.T) {
 	t.Parallel()
 
 	db := pgtest.NewSqlxDB(t)

@@ -12,7 +12,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
 )
 
-func TestMergeTask(t *testing.T) {
+func TestUnit_MergeTask(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {

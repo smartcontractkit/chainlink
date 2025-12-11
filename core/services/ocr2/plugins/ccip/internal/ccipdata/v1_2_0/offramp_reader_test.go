@@ -15,7 +15,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/ccipdata/v1_2_0"
 )
 
-func TestExecutionReportEncodingV120(t *testing.T) {
+func TestUnit_ExecutionReportEncodingV120(t *testing.T) {
 	// Note could consider some fancier testing here (fuzz/property)
 	// but I think that would essentially be testing geth's abi library
 	// as our encode/decode is a thin wrapper around that.

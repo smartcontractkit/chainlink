@@ -7,17 +7,17 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestMax(t *testing.T) {
+func TestUnit_Max(t *testing.T) {
 	m := Max(big.NewInt(1), big.NewInt(2))
 	require.Equal(t, 0, big.NewInt(2).Cmp(m))
 }
 
-func TestMin(t *testing.T) {
+func TestUnit_Min(t *testing.T) {
 	m := Min(big.NewInt(1), big.NewInt(2))
 	require.Equal(t, 0, big.NewInt(1).Cmp(m))
 }
 
-func TestAccumulate(t *testing.T) {
+func TestUnit_Accumulate(t *testing.T) {
 	s := []*big.Int{
 		big.NewInt(1),
 		big.NewInt(2),

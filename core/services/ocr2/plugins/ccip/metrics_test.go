@@ -18,7 +18,7 @@ const (
 	destChainName = "destChain"
 )
 
-func Test_SequenceNumbers(t *testing.T) {
+func TestUnit_SequenceNumbers(t *testing.T) {
 	// setup
 	t.Parallel()
 	var b strings.Builder
@@ -39,7 +39,7 @@ func Test_SequenceNumbers(t *testing.T) {
 	assert.Contains(t, b.String(), "ccip_max_sequence_number")
 }
 
-func Test_NumberOfMessages(t *testing.T) {
+func TestUnit_NumberOfMessages(t *testing.T) {
 	// setup
 	t.Parallel()
 	var b strings.Builder
@@ -65,7 +65,7 @@ func Test_NumberOfMessages(t *testing.T) {
 	assert.Contains(t, b.String(), "ccip_number_of_messages_processed")
 }
 
-func Test_UnexpiredCommitRoots(t *testing.T) {
+func TestUnit_UnexpiredCommitRoots(t *testing.T) {
 	// setup
 	t.Parallel()
 	var b strings.Builder

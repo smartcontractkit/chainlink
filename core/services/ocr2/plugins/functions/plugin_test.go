@@ -20,7 +20,7 @@ import (
 	s4mocks "github.com/smartcontractkit/chainlink/v2/core/services/s4/mocks"
 )
 
-func TestNewConnector_Success(t *testing.T) {
+func TestUnit_NewConnector_Success(t *testing.T) {
 	t.Parallel()
 
 	ctx := testutils.Context(t)
@@ -50,7 +50,7 @@ func TestNewConnector_Success(t *testing.T) {
 	require.NoError(t, err)
 }
 
-func TestNewConnector_NoKeyForConfiguredAddress(t *testing.T) {
+func TestUnit_NewConnector_NoKeyForConfiguredAddress(t *testing.T) {
 	t.Parallel()
 
 	ctx := testutils.Context(t)

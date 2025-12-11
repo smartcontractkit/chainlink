@@ -6,7 +6,7 @@ import (
 	"testing"
 )
 
-func TestIntToUint64(t *testing.T) {
+func TestUnit_IntToUint64(t *testing.T) {
 	// Test Case 1: Positive integer within the range of uint64
 	t.Run("PositiveInteger", func(t *testing.T) {
 		input := 12345

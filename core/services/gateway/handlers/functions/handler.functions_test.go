@@ -99,7 +99,7 @@ func sendNodeReponse(t *testing.T, handler handlers.Handler, userRequestMsg api.
 	}
 }
 
-func TestFunctionsHandler_Minimal(t *testing.T) {
+func TestUnit_FunctionsHandler_Minimal(t *testing.T) {
 	handler, err := functions.NewFunctionsHandlerFromConfig(json.RawMessage("{}"), &config.DONConfig{}, nil, nil, nil, logger.Test(t))
 	require.NoError(t, err)
 
@@ -109,14 +109,14 @@ func TestFunctionsHandler_Minimal(t *testing.T) {
 	require.Error(t, err)
 }
 
-func TestFunctionsHandler_CleanStartAndClose(t *testing.T) {
+func TestUnit_FunctionsHandler_CleanStartAndClose(t *testing.T) {
 	handler, err := functions.NewFunctionsHandlerFromConfig(json.RawMessage("{}"), &config.DONConfig{}, nil, nil, nil, logger.Test(t))
 	require.NoError(t, err)
 
 	servicetest.Run(t, handler)
 }
 
-func TestFunctionsHandler_HandleUserMessage_SecretsSet(t *testing.T) {
+func TestUnit_FunctionsHandler_HandleUserMessage_SecretsSet(t *testing.T) {
 	tests := []struct {
 		name                     string
 		nodeResults              []bool
@@ -165,7 +165,7 @@ func TestFunctionsHandler_HandleUserMessage_SecretsSet(t *testing.T) {
 	}
 }
 
-func TestFunctionsHandler_HandleUserMessage_Heartbeat(t *testing.T) {
+func TestUnit_FunctionsHandler_HandleUserMessage_Heartbeat(t *testing.T) {
 	tests := []struct {
 		name                     string
 		nodeResults              []bool
@@ -213,7 +213,7 @@ func TestFunctionsHandler_HandleUserMessage_Heartbeat(t *testing.T) {
 	}
 }
 
-func TestFunctionsHandler_HandleUserMessage_InvalidMethod(t *testing.T) {
+func TestUnit_FunctionsHandler_HandleUserMessage_InvalidMethod(t *testing.T) {
 	nodes, user := gc.NewTestNodes(t, 4), gc.NewTestNodes(t, 1)[0]
 	handler, _, allowlist, _ := newFunctionsHandlerForATestDON(t, nodes, time.Hour*24, user.Address)
 	userRequestMsg := newSignedMessage(t, "1234", "secrets_reveal_all_please", "don_id", user.PrivateKey)
@@ -224,7 +224,7 @@ func TestFunctionsHandler_HandleUserMessage_InvalidMethod(t *testing.T) {
 	require.Error(t, err)
 }
 
-func TestFunctionsHandler_HandleUserMessage_Timeout(t *testing.T) {
+func TestUnit_FunctionsHandler_HandleUserMessage_Timeout(t *testing.T) {
 	nodes, user := gc.NewTestNodes(t, 4), gc.NewTestNodes(t, 1)[0]
 	handler, don, allowlist, subscriptions := newFunctionsHandlerForATestDON(t, nodes, time.Millisecond*10, user.Address)
 	userRequestMsg := newSignedMessage(t, "1234", "secrets_set", "don_id", user.PrivateKey)

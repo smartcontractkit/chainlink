@@ -61,7 +61,7 @@ func yamlMissingGitRefFor(module string) string {
 // unit tests: small helpers
 // -----------------------------
 
-func TestContains(t *testing.T) {
+func TestUnit_Contains(t *testing.T) {
 	if !contains([]string{"a", "b"}, "a") {
 		t.Fatal("expected contains to find element")
 	}
@@ -70,7 +70,7 @@ func TestContains(t *testing.T) {
 	}
 }
 
-func TestModuleSubdir(t *testing.T) {
+func TestUnit_ModuleSubdir(t *testing.T) {
 	cases := map[string]string{
 		"github.com/org/repo":         "",
 		"github.com/org/repo/relayer": "relayer",
@@ -88,7 +88,7 @@ func TestModuleSubdir(t *testing.T) {
 	}
 }
 
-func TestShaEqual(t *testing.T) {
+func TestUnit_ShaEqual(t *testing.T) {
 	cases := []struct {
 		a, b string
 		want bool
@@ -107,7 +107,7 @@ func TestShaEqual(t *testing.T) {
 	}
 }
 
-func TestNormalizeVersion(t *testing.T) {
+func TestUnit_NormalizeVersion(t *testing.T) {
 	t.Run("plain tag", func(t *testing.T) {
 		mv := normalizeVersion("v1.2.3")
 		if mv.Tag != "v1.2.3" || mv.SHA != "" || mv.TagPrefix != "" || mv.Raw != "v1.2.3" {
@@ -159,7 +159,7 @@ func TestNormalizeVersion(t *testing.T) {
 	})
 }
 
-func TestDesiredYAMLRefForModule(t *testing.T) {
+func TestUnit_DesiredYAMLRefForModule(t *testing.T) {
 	cases := []struct {
 		module string
 		mv     ModuleVersion
@@ -181,7 +181,7 @@ func TestDesiredYAMLRefForModule(t *testing.T) {
 	}
 }
 
-func TestTagsMatchWithSubdir(t *testing.T) {
+func TestUnit_TagsMatchWithSubdir(t *testing.T) {
 	// root modules: tag equality only
 	if !tagsMatchWithSubdir("github.com/example/repo",
 		ModuleVersion{Tag: "v1.2.3", Raw: "v1.2.3"},
@@ -218,7 +218,7 @@ func TestTagsMatchWithSubdir(t *testing.T) {
 	}
 }
 
-func TestVersionsMatchForModule(t *testing.T) {
+func TestUnit_VersionsMatchForModule(t *testing.T) {
 	module := "github.com/example/repo/sub"
 
 	t.Run("SHA equality (prefix)", func(t *testing.T) {
@@ -258,7 +258,7 @@ func TestVersionsMatchForModule(t *testing.T) {
 // YAML discovery/update
 // -----------------------------
 
-func TestDiscoverPluginVersions(t *testing.T) {
+func TestUnit_DiscoverPluginVersions(t *testing.T) {
 	dir := t.TempDir()
 	yamlPath := writeFile(t, dir, "plugins.yaml", samplePluginsYAML())
 
@@ -277,7 +277,7 @@ func TestDiscoverPluginVersions(t *testing.T) {
 	}
 }
 
-func TestUpdateGitRefInYAML_SuccessAndPreserveFormatting(t *testing.T) {
+func TestUnit_UpdateGitRefInYAML_SuccessAndPreserveFormatting(t *testing.T) {
 	dir := t.TempDir()
 	yamlPath := writeFile(t, dir, "plugins.yaml", samplePluginsYAML())
 
@@ -304,7 +304,7 @@ func TestUpdateGitRefInYAML_SuccessAndPreserveFormatting(t *testing.T) {
 	}
 }
 
-func TestUpdateGitRefInYAML_ModuleNotFound(t *testing.T) {
+func TestUnit_UpdateGitRefInYAML_ModuleNotFound(t *testing.T) {
 	dir := t.TempDir()
 	yamlPath := writeFile(t, dir, "plugins.yaml", samplePluginsYAML())
 	err := updateGitRefInYAML(yamlPath, "github.com/does/not/exist", ModuleVersion{Tag: "v0.1.0", Raw: "exist/v0.1.0"})
@@ -313,7 +313,7 @@ func TestUpdateGitRefInYAML_ModuleNotFound(t *testing.T) {
 	}
 }
 
-func TestUpdateGitRefInYAML_NoGitRefLineToReplace(t *testing.T) {
+func TestUnit_UpdateGitRefInYAML_NoGitRefLineToReplace(t *testing.T) {
 	dir := t.TempDir()
 	mod := "github.com/example/repo"
 	yamlPath := writeFile(t, dir, "plugins.yaml", yamlMissingGitRefFor(mod))
@@ -327,7 +327,7 @@ func TestUpdateGitRefInYAML_NoGitRefLineToReplace(t *testing.T) {
 // runSync end-to-end with seam
 // -----------------------------
 
-func TestRunSync_CheckMode_WithMismatch(t *testing.T) {
+func TestUnit_RunSync_CheckMode_WithMismatch(t *testing.T) {
 	dir := t.TempDir()
 	// go.mod only needs to exist
 	goMod := writeFile(t, dir, "go.mod", "module github.com/example/repo\n")
@@ -362,7 +362,7 @@ func TestRunSync_CheckMode_WithMismatch(t *testing.T) {
 	}
 }
 
-func TestRunSync_UpdateMode_AppliesChanges(t *testing.T) {
+func TestUnit_RunSync_UpdateMode_AppliesChanges(t *testing.T) {
 	dir := t.TempDir()
 	goMod := writeFile(t, dir, "go.mod", "module github.com/example/repo\n")
 	plugins := writeFile(t, dir, "plugins.yaml", samplePluginsYAML())
@@ -403,7 +403,7 @@ func TestRunSync_UpdateMode_AppliesChanges(t *testing.T) {
 	}
 }
 
-func TestRunSync_IgnoreModules_SkipsChecks(t *testing.T) {
+func TestUnit_RunSync_IgnoreModules_SkipsChecks(t *testing.T) {
 	dir := t.TempDir()
 	goMod := writeFile(t, dir, "go.mod", "module github.com/example/repo\n")
 	plugins := writeFile(t, dir, "plugins.yaml", samplePluginsYAML())
@@ -429,7 +429,7 @@ func TestRunSync_IgnoreModules_SkipsChecks(t *testing.T) {
 	}
 }
 
-func TestRunSync_FileValidation(t *testing.T) {
+func TestUnit_RunSync_FileValidation(t *testing.T) {
 	dir := t.TempDir()
 	// Missing go.mod
 	_, err := runSync(Options{

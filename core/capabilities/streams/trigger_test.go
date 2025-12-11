@@ -57,7 +57,7 @@ type node struct {
 // Integration/load test that combines Trigger Subscriber, Streams Trigger Aggregator and Streams Codec.
 // It measures time needed to receive and process trigger events from multiple nodes and produce a local aggregated event.
 // For more meaningful measurements, increase the values of parameters P and T.
-func TestStreamsTrigger(t *testing.T) {
+func TestUnit_StreamsTrigger(t *testing.T) {
 	N := 31 // trigger DON nodes
 	F := 10 // faulty nodes
 	R := 5  // different reports per feed (i.e. prices and timestamps)

@@ -64,7 +64,7 @@ targets:
       abi: "receive(report bytes)"
 `
 
-func TestYamlSpecFactory_GetSpec(t *testing.T) {
+func TestUnit_YamlSpecFactory_GetSpec(t *testing.T) {
 	t.Parallel()
 
 	actual, raw, actualSha, err := job.YAMLSpecFactory{}.Spec(testutils.Context(t), anyYamlSpec, "")
@@ -78,7 +78,7 @@ func TestYamlSpecFactory_GetSpec(t *testing.T) {
 	assert.YAMLEq(t, anyYamlSpec, string(raw))
 }
 
-func TestYamlSpecFactory_Config(t *testing.T) {
+func TestUnit_YamlSpecFactory_Config(t *testing.T) {
 	t.Parallel()
 
 	config := "config"

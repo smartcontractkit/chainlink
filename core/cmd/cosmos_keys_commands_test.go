@@ -20,7 +20,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/web/presenters"
 )
 
-func TestCosmosKeyPresenter_RenderTable(t *testing.T) {
+func TestUnit_CosmosKeyPresenter_RenderTable(t *testing.T) {
 	t.Parallel()
 
 	var (
@@ -55,7 +55,7 @@ func TestCosmosKeyPresenter_RenderTable(t *testing.T) {
 	assert.Contains(t, output, pubKey)
 }
 
-func TestShell_CosmosKeys(t *testing.T) {
+func TestUnit_Shell_CosmosKeys(t *testing.T) {
 	app := startNewApplicationV2(t, nil)
 	ks := app.GetKeyStore().Cosmos()
 	cleanup := func() {

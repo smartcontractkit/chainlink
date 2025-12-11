@@ -19,7 +19,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/web/testutils"
 )
 
-func TestResolver_Chains(t *testing.T) {
+func TestUnit_Resolver_Chains(t *testing.T) {
 	var (
 		chainID = *big.NewI(1)
 		query   = `
@@ -139,7 +139,7 @@ ResendAfterThreshold = '1h0m0s'
 	RunGQLTests(t, testCases)
 }
 
-func TestResolver_Chain(t *testing.T) {
+func TestUnit_Resolver_Chain(t *testing.T) {
 	var (
 		chainID = *big.NewI(1)
 		query   = `

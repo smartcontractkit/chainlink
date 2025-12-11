@@ -26,7 +26,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/ccipdata"
 )
 
-func TestLogPollerClient_GetSendRequestsBetweenSeqNums1_4_0(t *testing.T) {
+func TestUnit_LogPollerClient_GetSendRequestsBetweenSeqNums1_4_0(t *testing.T) {
 	onRampAddr := utils.RandomAddress()
 	seqNum := uint64(100)
 	limit := uint64(10)
@@ -66,7 +66,7 @@ func TestLogPollerClient_GetSendRequestsBetweenSeqNums1_4_0(t *testing.T) {
 	}
 }
 
-func Test_ProperlyRecognizesPerLaneCurses(t *testing.T) {
+func TestUnit_ProperlyRecognizesPerLaneCurses(t *testing.T) {
 	user, bc := ccipdata.NewSimulation(t)
 	ctx := testutils.Context(t)
 	destChainSelector := uint64(100)

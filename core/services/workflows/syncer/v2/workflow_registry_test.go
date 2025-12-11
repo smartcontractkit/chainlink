@@ -21,7 +21,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
 
-func Test_generateReconciliationEventsV2(t *testing.T) {
+func TestUnit_generateReconciliationEventsV2(t *testing.T) {
 	// Validate that if no engines are on the node in the registry,
 	// and we see that the contract has workflow state,
 	// that we generate a WorkflowActivatedEvent
@@ -757,7 +757,7 @@ func Test_generateReconciliationEventsV2(t *testing.T) {
 	})
 }
 
-func Test_Start(t *testing.T) {
+func TestUnit_Start(t *testing.T) {
 	t.Run("successful start and close", func(t *testing.T) {
 		lggr := logger.TestLogger(t)
 		workflowDonNotifier := capabilities.NewDonNotifier()
@@ -787,7 +787,7 @@ func Test_Start(t *testing.T) {
 	})
 }
 
-func Test_GetAllowlistedRequests(t *testing.T) {
+func TestUnit_GetAllowlistedRequests(t *testing.T) {
 	lggr := logger.TestLogger(t)
 	ctx := testutils.Context(t)
 	workflowDonNotifier := capabilities.NewDonNotifier()

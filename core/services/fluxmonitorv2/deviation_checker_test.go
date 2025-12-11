@@ -28,7 +28,7 @@ func (o outsideDeviationRow) String() string {
 		o.threshold, o.absoluteThreshold, o.expectation)
 }
 
-func TestDeviationChecker_OutsideDeviation(t *testing.T) {
+func TestUnit_DeviationChecker_OutsideDeviation(t *testing.T) {
 	quarantine.Flaky(t, "DX-1856")
 	t.Parallel()
 

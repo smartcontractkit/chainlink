@@ -13,7 +13,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/utils/crypto"
 )
 
-func Test_FeedsManagers(t *testing.T) {
+func TestUnit_FeedsManagers(t *testing.T) {
 	var (
 		query = `
 			query GetFeedsManagers {
@@ -86,7 +86,7 @@ func Test_FeedsManagers(t *testing.T) {
 	RunGQLTests(t, testCases)
 }
 
-func Test_FeedsManager(t *testing.T) {
+func TestUnit_FeedsManager(t *testing.T) {
 	var (
 		mgrID = int64(1)
 		query = `
@@ -160,7 +160,7 @@ func Test_FeedsManager(t *testing.T) {
 	RunGQLTests(t, testCases)
 }
 
-func Test_CreateFeedsManager(t *testing.T) {
+func TestUnit_CreateFeedsManager(t *testing.T) {
 	var (
 		mgrID     = int64(1)
 		name      = "manager1"
@@ -333,7 +333,7 @@ func Test_CreateFeedsManager(t *testing.T) {
 	RunGQLTests(t, testCases)
 }
 
-func Test_UpdateFeedsManager(t *testing.T) {
+func TestUnit_UpdateFeedsManager(t *testing.T) {
 	var (
 		mgrID     = int64(1)
 		name      = "manager1"
@@ -462,7 +462,7 @@ func Test_UpdateFeedsManager(t *testing.T) {
 	RunGQLTests(t, testCases)
 }
 
-func Test_EnableFeedsManager(t *testing.T) {
+func TestUnit_EnableFeedsManager(t *testing.T) {
 	var (
 		mgrID     = int64(1)
 		name      = "manager1"
@@ -569,7 +569,7 @@ func Test_EnableFeedsManager(t *testing.T) {
 	RunGQLTests(t, testCases)
 }
 
-func Test_DisableFeedsManager(t *testing.T) {
+func TestUnit_DisableFeedsManager(t *testing.T) {
 	var (
 		mgrID     = int64(1)
 		name      = "manager1"

@@ -16,7 +16,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 )
 
-func TestEVMKeyring_SignVerify(t *testing.T) {
+func TestUnit_EVMKeyring_SignVerify(t *testing.T) {
 	kr1, err := newEVMKeyring(cryptorand.Reader)
 	require.NoError(t, err)
 	kr2, err := newEVMKeyring(cryptorand.Reader)
@@ -48,7 +48,7 @@ func TestEVMKeyring_SignVerify(t *testing.T) {
 	})
 }
 
-func TestEVMKeyring_Sign3Verify3(t *testing.T) {
+func TestUnit_EVMKeyring_Sign3Verify3(t *testing.T) {
 	kr1, err := newEVMKeyring(cryptorand.Reader)
 	require.NoError(t, err)
 	kr2, err := newEVMKeyring(cryptorand.Reader)
@@ -80,7 +80,7 @@ func TestEVMKeyring_Sign3Verify3(t *testing.T) {
 	})
 }
 
-func TestEVMKeyring_Marshalling(t *testing.T) {
+func TestUnit_EVMKeyring_Marshalling(t *testing.T) {
 	kr1, err := newEVMKeyring(cryptorand.Reader)
 	require.NoError(t, err)
 
@@ -98,7 +98,7 @@ func TestEVMKeyring_Marshalling(t *testing.T) {
 	assert.Error(t, kr2.Unmarshal([]byte{0x01}))
 }
 
-func TestRawReportContext3(t *testing.T) {
+func TestUnit_RawReportContext3(t *testing.T) {
 	testCases := []struct {
 		name     string
 		digest   [32]byte

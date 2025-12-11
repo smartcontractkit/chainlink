@@ -22,7 +22,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/registrysyncer"
 )
 
-func Test_createDON(t *testing.T) {
+func TestUnit_createDON(t *testing.T) {
 	type args struct {
 		lggr            logger.Logger
 		p2pID           ragep2ptypes.PeerID
@@ -245,7 +245,7 @@ func Test_createDON(t *testing.T) {
 	}
 }
 
-func Test_updateDON(t *testing.T) {
+func TestUnit_updateDON(t *testing.T) {
 	var (
 		digest1 = utils.RandomBytes32()
 		digest2 = utils.RandomBytes32()
@@ -509,7 +509,7 @@ func Test_updateDON(t *testing.T) {
 	}
 }
 
-func Test_launcher_processDiff(t *testing.T) {
+func TestUnit_launcher_processDiff(t *testing.T) {
 	var (
 		digest1 = utils.RandomBytes32()
 		digest2 = utils.RandomBytes32()

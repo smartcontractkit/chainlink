@@ -13,7 +13,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/feeds"
 )
 
-func TestResolver_GetJobProposal(t *testing.T) {
+func TestUnit_Resolver_GetJobProposal(t *testing.T) {
 	t.Parallel()
 
 	query := `

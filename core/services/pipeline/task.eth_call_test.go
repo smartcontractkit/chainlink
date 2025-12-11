@@ -27,7 +27,7 @@ import (
 	pipelinemocks "github.com/smartcontractkit/chainlink/v2/core/services/pipeline/mocks"
 )
 
-func TestETHCallTask(t *testing.T) {
+func TestUnit_ETHCallTask(t *testing.T) {
 	t.Parallel()
 	testutils.SkipShortDB(t)
 

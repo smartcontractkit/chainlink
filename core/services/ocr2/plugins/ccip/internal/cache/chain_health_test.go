@@ -16,7 +16,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/ccipdata/mocks"
 )
 
-func Test_RMNStateCaching(t *testing.T) {
+func TestUnit_RMNStateCaching(t *testing.T) {
 	ctx := t.Context()
 	lggr := logger.TestLogger(t)
 	mockCommitStore := mocks.NewCommitStoreReader(t)
@@ -60,7 +60,7 @@ func Test_RMNStateCaching(t *testing.T) {
 	assert.False(t, healthy)
 }
 
-func Test_ChainStateIsCached(t *testing.T) {
+func TestUnit_ChainStateIsCached(t *testing.T) {
 	ctx := t.Context()
 	lggr := logger.TestLogger(t)
 	mockCommitStore := mocks.NewCommitStoreReader(t)
@@ -103,7 +103,7 @@ func Test_ChainStateIsCached(t *testing.T) {
 	assert.False(t, healthy)
 }
 
-func Test_ChainStateIsHealthy(t *testing.T) {
+func TestUnit_ChainStateIsHealthy(t *testing.T) {
 	testCases := []struct {
 		name                 string
 		commitStoreDown      bool
@@ -189,7 +189,7 @@ func Test_ChainStateIsHealthy(t *testing.T) {
 	}
 }
 
-func Test_RefreshingInBackground(t *testing.T) {
+func TestUnit_RefreshingInBackground(t *testing.T) {
 	mockCommitStore := newCommitStoreWrapper(t, true, nil)
 	mockCommitStore.CommitStoreReader.On("IsDestChainHealthy", mock.Anything).Return(true, nil).Maybe()
 

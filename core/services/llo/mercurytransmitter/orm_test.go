@@ -17,7 +17,7 @@ var (
 	sURL3 = "wss://mercuryserver.example/foo"
 )
 
-func TestORM(t *testing.T) {
+func TestUnit_ORM(t *testing.T) {
 	ctx := testutils.Context(t)
 	db := pgtest.NewSqlxDB(t)
 

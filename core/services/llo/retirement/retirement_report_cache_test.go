@@ -39,7 +39,7 @@ func (m *mockORM) LoadConfigs(ctx context.Context) ([]Config, error) {
 	return configs, m.err
 }
 
-func Test_RetirementReportCache(t *testing.T) {
+func TestUnit_RetirementReportCache(t *testing.T) {
 	t.Parallel()
 
 	ctx := t.Context()

@@ -13,7 +13,7 @@ import (
 var v1FeedId = [32]uint8{00, 01, 107, 74, 167, 229, 124, 167, 182, 138, 225, 191, 69, 101, 63, 86, 182, 86, 253, 58, 163, 53, 239, 127, 174, 105, 107, 102, 63, 27, 132, 114}
 var v2FeedId = [32]uint8{00, 02, 107, 74, 167, 229, 124, 167, 182, 138, 225, 191, 69, 101, 63, 86, 182, 86, 253, 58, 163, 53, 239, 127, 174, 105, 107, 102, 63, 27, 132, 114}
 
-func Test_PluginConfig(t *testing.T) {
+func TestUnit_PluginConfig(t *testing.T) {
 	t.Run("Mercury v1", func(t *testing.T) {
 		t.Run("with valid values", func(t *testing.T) {
 			rawToml := `
@@ -180,7 +180,7 @@ func Test_PluginConfig(t *testing.T) {
 	})
 }
 
-func Test_PluginConfig_GetServers(t *testing.T) {
+func TestUnit_PluginConfig_GetServers(t *testing.T) {
 	t.Run("with single server", func(t *testing.T) {
 		pubKey := utils.PlainHexBytes([]byte{1, 2, 3})
 		pc := PluginConfig{RawServerURL: "example.com", ServerPubKey: pubKey}

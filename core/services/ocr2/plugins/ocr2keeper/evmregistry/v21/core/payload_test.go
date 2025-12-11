@@ -12,7 +12,7 @@ import (
 	ocr2keepers "github.com/smartcontractkit/chainlink-common/pkg/types/automation"
 )
 
-func TestWorkID(t *testing.T) {
+func TestUnit_WorkID(t *testing.T) {
 	tests := []struct {
 		name     string
 		upkeepID string
@@ -94,7 +94,7 @@ func TestWorkID(t *testing.T) {
 	}
 }
 
-func TestNewUpkeepPayload(t *testing.T) {
+func TestUnit_NewUpkeepPayload(t *testing.T) {
 	tests := []struct {
 		name       string
 		upkeepID   *big.Int

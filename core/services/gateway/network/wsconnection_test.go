@@ -31,7 +31,7 @@ func (ssl *serverSideLogic) wsHandler(w http.ResponseWriter, r *http.Request) {
 	ssl.connWrapper.Reset(c)
 }
 
-func TestWSConnectionWrapper_ClientReconnect(t *testing.T) {
+func TestUnit_WSConnectionWrapper_ClientReconnect(t *testing.T) {
 	t.Parallel()
 	lggr := logger.Test(t)
 	// server

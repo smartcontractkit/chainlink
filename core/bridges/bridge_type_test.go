@@ -19,7 +19,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestBridgeTypeRequest(t *testing.T) {
+func TestUnit_BridgeTypeRequest(t *testing.T) {
 	u, err := url.Parse("http://example.com/test")
 	require.NoError(t, err)
 	r := bridges.BridgeTypeRequest{
@@ -36,7 +36,7 @@ func TestBridgeTypeRequest(t *testing.T) {
 	assert.Error(t, r.SetID("abc123.,<>/.foobar"))
 }
 
-func TestBridgeType_Authenticate(t *testing.T) {
+func TestUnit_BridgeType_Authenticate(t *testing.T) {
 	t.Parallel()
 
 	bta, bt := cltest.NewBridgeType(t, cltest.BridgeOpts{})
@@ -83,7 +83,7 @@ func BenchmarkParseBridgeName(b *testing.B) {
 	}
 }
 
-func TestBridgeName_UnmarshalJSON(t *testing.T) {
+func TestUnit_BridgeName_UnmarshalJSON(t *testing.T) {
 	var b bridges.BridgeName
 	require.NoError(t, json.Unmarshal([]byte(`"asdf123test"`), &b))
 	require.Equal(t, "asdf123test", b.String())
@@ -95,7 +95,7 @@ func TestBridgeName_UnmarshalJSON(t *testing.T) {
 	require.Error(t, json.Unmarshal([]byte(`"invalid,.<>/asdf?"`), &b))
 }
 
-func TestMarshalBridgeMetaData(t *testing.T) {
+func TestUnit_MarshalBridgeMetaData(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {

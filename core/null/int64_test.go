@@ -12,7 +12,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/null"
 )
 
-func TestInt64From(t *testing.T) {
+func TestUnit_Int64From(t *testing.T) {
 	tests := []struct {
 		input int64
 	}{
@@ -29,7 +29,7 @@ func TestInt64From(t *testing.T) {
 	}
 }
 
-func TestUnmarshalInt64_Valid(t *testing.T) {
+func TestUnit_UnmarshalInt64_Valid(t *testing.T) {
 	tests := []struct {
 		name, input string
 	}{
@@ -48,7 +48,7 @@ func TestUnmarshalInt64_Valid(t *testing.T) {
 	}
 }
 
-func TestUnmarshalInt64_Invalid(t *testing.T) {
+func TestUnit_UnmarshalInt64_Invalid(t *testing.T) {
 	tests := []struct {
 		name, input string
 	}{
@@ -66,7 +66,7 @@ func TestUnmarshalInt64_Invalid(t *testing.T) {
 	}
 }
 
-func TestUnmarshalInt64_Error(t *testing.T) {
+func TestUnit_UnmarshalInt64_Error(t *testing.T) {
 	tests := []struct {
 		name, input string
 	}{
@@ -85,7 +85,7 @@ func TestUnmarshalInt64_Error(t *testing.T) {
 	}
 }
 
-func TestUnmarshalUint64Overflow(t *testing.T) {
+func TestUnit_UnmarshalUint64Overflow(t *testing.T) {
 	// Max int64 should decode successfully
 	var i null.Int64
 	err := json.Unmarshal([]byte(strconv.FormatInt(math.MaxInt64, 10)), &i)
@@ -96,7 +96,7 @@ func TestUnmarshalUint64Overflow(t *testing.T) {
 	require.Error(t, err)
 }
 
-func TestTextUnmarshalInt64_Valid(t *testing.T) {
+func TestUnit_TextUnmarshalInt64_Valid(t *testing.T) {
 	var i null.Int64
 	err := i.UnmarshalText([]byte("12345"))
 	require.NoError(t, err)
@@ -104,7 +104,7 @@ func TestTextUnmarshalInt64_Valid(t *testing.T) {
 	assert.Equal(t, int64(12345), i.Int64)
 }
 
-func TestTextUnmarshalInt64_Invalid(t *testing.T) {
+func TestUnit_TextUnmarshalInt64_Invalid(t *testing.T) {
 	tests := []struct {
 		name, input string
 	}{
@@ -122,7 +122,7 @@ func TestTextUnmarshalInt64_Invalid(t *testing.T) {
 	}
 }
 
-func TestMarshalInt64(t *testing.T) {
+func TestUnit_MarshalInt64(t *testing.T) {
 	i := null.Int64From(12345)
 	data, err := json.Marshal(i)
 	require.NoError(t, err)
@@ -135,7 +135,7 @@ func TestMarshalInt64(t *testing.T) {
 	assertJSONEquals(t, data, "null", "null json marshal")
 }
 
-func TestMarshalInt64Text(t *testing.T) {
+func TestUnit_MarshalInt64Text(t *testing.T) {
 	i := null.Int64From(12345)
 	data, err := i.MarshalText()
 	require.NoError(t, err)
@@ -148,14 +148,14 @@ func TestMarshalInt64Text(t *testing.T) {
 	assertJSONEquals(t, data, "", "null text marshal")
 }
 
-func TestInt64SetValid(t *testing.T) {
+func TestUnit_Int64SetValid(t *testing.T) {
 	change := null.NewInt64(0, false)
 	change.SetValid(12345)
 	assert.True(t, change.Valid)
 	assert.Equal(t, int64(12345), change.Int64)
 }
 
-func TestInt64Scan(t *testing.T) {
+func TestUnit_Int64Scan(t *testing.T) {
 	var i null.Int64
 	err := i.Scan(int(12345))
 	require.NoError(t, err)

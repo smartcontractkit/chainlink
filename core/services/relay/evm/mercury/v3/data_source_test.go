@@ -75,7 +75,7 @@ func (ms *mockSaver) Save(r *pipeline.Run) {
 	ms.r = r
 }
 
-func Test_Datasource(t *testing.T) {
+func TestUnit_Datasource(t *testing.T) {
 	orm := &mockORM{}
 	jb := job.Job{
 		Type: job.Type(pipeline.OffchainReporting2JobType),

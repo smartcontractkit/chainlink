@@ -13,7 +13,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 )
 
-func TestBlockTimeResolver_BlockTime(t *testing.T) {
+func TestUnit_BlockTimeResolver_BlockTime(t *testing.T) {
 	now := time.Now()
 
 	tests := []struct {

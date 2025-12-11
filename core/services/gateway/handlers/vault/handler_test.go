@@ -103,7 +103,7 @@ func (m *mockCapabilitiesRegistry) DONsForCapability(_ context.Context, _ string
 	}, nil
 }
 
-func TestActiveRequest_SendResponse(t *testing.T) {
+func TestUnit_ActiveRequest_SendResponse(t *testing.T) {
 	rm := json.RawMessage([]byte(`{}`))
 	cb := common.NewCallback()
 	activeRequest := &activeRequest{
@@ -127,7 +127,7 @@ func TestActiveRequest_SendResponse(t *testing.T) {
 	require.ErrorContains(t, err, "response already sent: each callback can only be used once")
 }
 
-func TestVaultHandler_HandleJSONRPCUserMessage(t *testing.T) {
+func TestUnit_VaultHandler_HandleJSONRPCUserMessage(t *testing.T) {
 	createSecretsRequest := &vaultcommon.CreateSecretsRequest{
 		RequestId: "test_request_id",
 		EncryptedSecrets: []*vaultcommon.EncryptedSecret{
@@ -737,7 +737,7 @@ func TestVaultHandler_HandleJSONRPCUserMessage(t *testing.T) {
 	})
 }
 
-func TestVaultHandler_PublicKeyGet(t *testing.T) {
+func TestUnit_VaultHandler_PublicKeyGet(t *testing.T) {
 	h, callback, don, _ := setupHandler(t)
 	signers := []string{
 		"d6da96fe596705b32bc3a0e11cdefad77feaad79000000000000000000000000",

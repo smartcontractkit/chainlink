@@ -14,7 +14,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func Test_MarshalUnmarshalRows(t *testing.T) {
+func TestUnit_MarshalUnmarshalRows(t *testing.T) {
 	t.Parallel()
 
 	const n = 1000
@@ -32,7 +32,7 @@ func Test_MarshalUnmarshalRows(t *testing.T) {
 	require.Equal(t, data, data2)
 }
 
-func Test_MarshalUnmarshalQuery(t *testing.T) {
+func TestUnit_MarshalUnmarshalQuery(t *testing.T) {
 	t.Parallel()
 
 	const n = 100
@@ -83,7 +83,7 @@ func marshalUnmarshal(t *testing.T, row *s4.Row) *s4.Row {
 	return rows[0]
 }
 
-func Test_VerifySignature(t *testing.T) {
+func TestUnit_VerifySignature(t *testing.T) {
 	t.Parallel()
 
 	rows := generateTestRows(t, 2, time.Minute)

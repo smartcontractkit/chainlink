@@ -20,7 +20,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/web/presenters"
 )
 
-func TestTronKeyPresenter_RenderTable(t *testing.T) {
+func TestUnit_TronKeyPresenter_RenderTable(t *testing.T) {
 	t.Parallel()
 
 	var (
@@ -55,7 +55,7 @@ func TestTronKeyPresenter_RenderTable(t *testing.T) {
 	assert.Contains(t, output, pubKey)
 }
 
-func TestShell_TronKeys(t *testing.T) {
+func TestUnit_Shell_TronKeys(t *testing.T) {
 	app := startNewApplicationV2(t, nil)
 	ks := app.GetKeyStore().Tron()
 	cleanup := func() {

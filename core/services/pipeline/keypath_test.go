@@ -8,7 +8,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
 )
 
-func TestKeypath(t *testing.T) {
+func TestUnit_Keypath(t *testing.T) {
 	t.Parallel()
 
 	t.Run("can be constructed from a period-delimited string", func(t *testing.T) {

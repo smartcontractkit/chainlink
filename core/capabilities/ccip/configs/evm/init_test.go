@@ -4,7 +4,7 @@ import (
 	"testing"
 )
 
-func TestConfig(t *testing.T) {
+func TestUnit_Config(t *testing.T) {
 	// Config is created during initialization, the following functions may panic:
 	// MustGetABI
 	// mustGetMethodName

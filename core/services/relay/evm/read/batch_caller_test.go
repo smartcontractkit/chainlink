@@ -21,7 +21,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/read"
 )
 
-func TestDefaultEvmBatchCaller_BatchCallDynamicLimit(t *testing.T) {
+func TestUnit_DefaultEvmBatchCaller_BatchCallDynamicLimit(t *testing.T) {
 	testCases := []struct {
 		name                          string
 		maxBatchSize                  uint
@@ -104,7 +104,7 @@ func TestDefaultEvmBatchCaller_BatchCallDynamicLimit(t *testing.T) {
 	}
 }
 
-func TestDefaultEvmBatchCaller_batchCallLimit(t *testing.T) {
+func TestUnit_DefaultEvmBatchCaller_batchCallLimit(t *testing.T) {
 	ctx := testutils.Context(t)
 	testCases := []struct {
 		numCalls              uint

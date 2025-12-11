@@ -15,7 +15,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/vrfkey"
 )
 
-func TestResolver_GetVRFKey(t *testing.T) {
+func TestUnit_Resolver_GetVRFKey(t *testing.T) {
 	t.Parallel()
 
 	query := `
@@ -102,7 +102,7 @@ func TestResolver_GetVRFKey(t *testing.T) {
 	RunGQLTests(t, testCases)
 }
 
-func TestResolver_GetVRFKeys(t *testing.T) {
+func TestUnit_Resolver_GetVRFKeys(t *testing.T) {
 	t.Parallel()
 
 	query := `
@@ -160,7 +160,7 @@ func TestResolver_GetVRFKeys(t *testing.T) {
 	RunGQLTests(t, testCases)
 }
 
-func TestResolver_CreateVRFKey(t *testing.T) {
+func TestUnit_Resolver_CreateVRFKey(t *testing.T) {
 	t.Parallel()
 
 	mutation := `
@@ -212,7 +212,7 @@ func TestResolver_CreateVRFKey(t *testing.T) {
 	RunGQLTests(t, testCases)
 }
 
-func TestResolver_DeleteVRFKey(t *testing.T) {
+func TestUnit_Resolver_DeleteVRFKey(t *testing.T) {
 	t.Parallel()
 
 	mutation := `

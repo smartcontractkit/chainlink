@@ -10,7 +10,7 @@ import (
 	"github.com/smartcontractkit/libocr/commontypes"
 )
 
-func TestP2PConfig(t *testing.T) {
+func TestUnit_P2PConfig(t *testing.T) {
 	opts := GeneralConfigOpts{
 		ConfigStrings: []string{fullTOML},
 	}

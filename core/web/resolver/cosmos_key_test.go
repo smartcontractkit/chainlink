@@ -12,7 +12,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/cosmoskey"
 )
 
-func TestResolver_CosmosKeys(t *testing.T) {
+func TestUnit_Resolver_CosmosKeys(t *testing.T) {
 	t.Parallel()
 
 	query := `

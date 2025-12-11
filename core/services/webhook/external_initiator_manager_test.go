@@ -21,7 +21,7 @@ import (
 	webhookmocks "github.com/smartcontractkit/chainlink/v2/core/services/webhook/mocks"
 )
 
-func Test_ExternalInitiatorManager_Load(t *testing.T) {
+func TestUnit_ExternalInitiatorManager_Load(t *testing.T) {
 	ctx := testutils.Context(t)
 	db := pgtest.NewSqlxDB(t)
 	borm := bridges.NewORM(db)
@@ -57,7 +57,7 @@ func Test_ExternalInitiatorManager_Load(t *testing.T) {
 	assert.Equal(t, jb2.ExternalJobID, jobID)
 }
 
-func Test_ExternalInitiatorManager_Notify(t *testing.T) {
+func TestUnit_ExternalInitiatorManager_Notify(t *testing.T) {
 	ctx := t.Context()
 	db := pgtest.NewSqlxDB(t)
 	borm := bridges.NewORM(db)
@@ -96,7 +96,7 @@ func Test_ExternalInitiatorManager_Notify(t *testing.T) {
 	require.NoError(t, eim.Notify(ctx, webhookSpecTwoEIs.ID))
 }
 
-func Test_ExternalInitiatorManager_DeleteJob(t *testing.T) {
+func TestUnit_ExternalInitiatorManager_DeleteJob(t *testing.T) {
 	ctx := testutils.Context(t)
 	db := pgtest.NewSqlxDB(t)
 	borm := bridges.NewORM(db)

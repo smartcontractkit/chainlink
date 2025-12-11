@@ -435,7 +435,7 @@ func checkLogWasConsumed(t *testing.T, fa fluxAggregatorUniverse, ds sqlutil.Dat
 	}, testutils.WaitTimeout(t), time.Second).Should(gomega.BeTrue())
 }
 
-func TestFluxMonitor_Deviation(t *testing.T) {
+func TestUnit_FluxMonitor_Deviation(t *testing.T) {
 	quarantine.Flaky(t, "DX-1763")
 	tests := []struct {
 		name    string
@@ -620,7 +620,7 @@ func TestFluxMonitor_Deviation(t *testing.T) {
 	}
 }
 
-func TestFluxMonitor_NewRound(t *testing.T) {
+func TestUnit_FluxMonitor_NewRound(t *testing.T) {
 	quarantine.Flaky(t, "DX-1865")
 	g := gomega.NewWithT(t)
 	fa := setupFluxAggregatorUniverse(t)
@@ -732,7 +732,7 @@ ds1 -> ds1_parse
 	)
 }
 
-func TestFluxMonitor_HibernationMode(t *testing.T) {
+func TestUnit_FluxMonitor_HibernationMode(t *testing.T) {
 	g := gomega.NewWithT(t)
 	fa := setupFluxAggregatorUniverse(t)
 
@@ -848,7 +848,7 @@ ds1 -> ds1_parse
 	assertNoSubmission(t, submissionReceived, 5*pollTimerPeriod, "should not trigger a new run, while flag is raised")
 }
 
-func TestFluxMonitor_InvalidSubmission(t *testing.T) {
+func TestUnit_FluxMonitor_InvalidSubmission(t *testing.T) {
 	// 8 decimals places used for prices.
 	fa := setupFluxAggregatorUniverse(t, WithMinMaxSubmission(
 		big.NewInt(100000000),     // 1 * 10^8
@@ -926,7 +926,7 @@ ds1 -> ds1_parse
 	assert.Contains(t, jse[0].Description, "Answer is outside acceptable range")
 }
 
-func TestFluxMonitorAntiSpamLogic(t *testing.T) {
+func TestUnit_FluxMonitorAntiSpamLogic(t *testing.T) {
 	// - deploy a brand new FM contract
 	fa := setupFluxAggregatorUniverse(t)
 

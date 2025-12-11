@@ -68,7 +68,7 @@ func assertLimit[N limits.Number](t *testing.T, expected int, limiter limits.Bou
 	assert.Equal(t, expected, int(l))
 }
 
-func TestPlugin_ReportingPluginFactory_UsesDefaultsIfNotProvidedInOffchainConfig(t *testing.T) {
+func TestUnit_Plugin_ReportingPluginFactory_UsesDefaultsIfNotProvidedInOffchainConfig(t *testing.T) {
 	lggr := logger.TestLogger(t)
 	store := requests.NewStore[*vaulttypes.Request]()
 
@@ -154,7 +154,7 @@ func TestPlugin_ReportingPluginFactory_UsesDefaultsIfNotProvidedInOffchainConfig
 	assert.Equal(t, 2, infoObject.Limits.MaxBlobPayloadBytes)
 }
 
-func TestPlugin_ReportingPluginFactory_UseDKGResult(t *testing.T) {
+func TestUnit_Plugin_ReportingPluginFactory_UseDKGResult(t *testing.T) {
 	lggr := logger.TestLogger(t)
 	store := requests.NewStore[*vaulttypes.Request]()
 
@@ -210,7 +210,7 @@ func TestPlugin_ReportingPluginFactory_UseDKGResult(t *testing.T) {
 	assert.Equal(t, pkBytes, key)
 }
 
-func TestPlugin_ReportingPluginFactory_InvalidParams(t *testing.T) {
+func TestUnit_Plugin_ReportingPluginFactory_InvalidParams(t *testing.T) {
 	lggr := logger.TestLogger(t)
 	store := requests.NewStore[*vaulttypes.Request]()
 
@@ -264,7 +264,7 @@ func makeReportingPluginConfig(
 	}
 }
 
-func TestPlugin_Observation_NothingInBatch(t *testing.T) {
+func TestUnit_Plugin_Observation_NothingInBatch(t *testing.T) {
 	lggr := logger.TestLogger(t)
 	store := requests.NewStore[*vaulttypes.Request]()
 	r := &ReportingPlugin{
@@ -297,7 +297,7 @@ func TestPlugin_Observation_NothingInBatch(t *testing.T) {
 	assert.Empty(t, obs.Observations)
 }
 
-func TestPlugin_Observation_GetSecretsRequest_SecretIdentifierInvalid(t *testing.T) {
+func TestUnit_Plugin_Observation_GetSecretsRequest_SecretIdentifierInvalid(t *testing.T) {
 	tcs := []struct {
 		name     string
 		id       *vaultcommon.SecretIdentifier
@@ -393,7 +393,7 @@ func TestPlugin_Observation_GetSecretsRequest_SecretIdentifierInvalid(t *testing
 	}
 }
 
-func TestPlugin_Observation_GetSecretsRequest_FillsInNamespace(t *testing.T) {
+func TestUnit_Plugin_Observation_GetSecretsRequest_FillsInNamespace(t *testing.T) {
 	lggr, _ := logger.TestLoggerObserved(t, zapcore.DebugLevel)
 	store := requests.NewStore[*vaulttypes.Request]()
 	_, pk, shares, err := tdh2easy.GenerateKeys(1, 3)
@@ -474,7 +474,7 @@ func TestPlugin_Observation_GetSecretsRequest_FillsInNamespace(t *testing.T) {
 	assert.True(t, proto.Equal(batchResp.Responses[0].Id, createdID))
 }
 
-func TestPlugin_Observation_GetSecretsRequest_SecretDoesNotExist(t *testing.T) {
+func TestUnit_Plugin_Observation_GetSecretsRequest_SecretDoesNotExist(t *testing.T) {
 	lggr := logger.TestLogger(t)
 	store := requests.NewStore[*vaulttypes.Request]()
 	r := &ReportingPlugin{
@@ -534,7 +534,7 @@ func TestPlugin_Observation_GetSecretsRequest_SecretDoesNotExist(t *testing.T) {
 	assert.Contains(t, resp.GetError(), "key does not exist")
 }
 
-func TestPlugin_Observation_GetSecretsRequest_SecretExistsButIsIncorrect(t *testing.T) {
+func TestUnit_Plugin_Observation_GetSecretsRequest_SecretExistsButIsIncorrect(t *testing.T) {
 	lggr, observed := logger.TestLoggerObserved(t, zapcore.DebugLevel)
 	store := requests.NewStore[*vaulttypes.Request]()
 	_, pk, shares, err := tdh2easy.GenerateKeys(1, 3)
@@ -611,7 +611,7 @@ func TestPlugin_Observation_GetSecretsRequest_SecretExistsButIsIncorrect(t *test
 	assert.Contains(t, errString, "failed to unmarshal ciphertext")
 }
 
-func TestPlugin_Observation_GetSecretsRequest_PublicKeyIsInvalid(t *testing.T) {
+func TestUnit_Plugin_Observation_GetSecretsRequest_PublicKeyIsInvalid(t *testing.T) {
 	lggr, _ := logger.TestLoggerObserved(t, zapcore.DebugLevel)
 	store := requests.NewStore[*vaulttypes.Request]()
 	_, pk, shares, err := tdh2easy.GenerateKeys(1, 3)
@@ -686,7 +686,7 @@ func TestPlugin_Observation_GetSecretsRequest_PublicKeyIsInvalid(t *testing.T) {
 	assert.Contains(t, resp.GetError(), "failed to convert public key to bytes")
 }
 
-func TestPlugin_Observation_GetSecretsRequest_SecretLabelIsInvalid(t *testing.T) {
+func TestUnit_Plugin_Observation_GetSecretsRequest_SecretLabelIsInvalid(t *testing.T) {
 	lggr, _ := logger.TestLoggerObserved(t, zapcore.DebugLevel)
 	store := requests.NewStore[*vaulttypes.Request]()
 	_, pk, shares, err := tdh2easy.GenerateKeys(1, 3)
@@ -769,7 +769,7 @@ func TestPlugin_Observation_GetSecretsRequest_SecretLabelIsInvalid(t *testing.T)
 	assert.Contains(t, resp.GetError(), "failed to handle get secret request")
 }
 
-func TestPlugin_Observation_GetSecretsRequest_Success(t *testing.T) {
+func TestUnit_Plugin_Observation_GetSecretsRequest_Success(t *testing.T) {
 	lggr, _ := logger.TestLoggerObserved(t, zapcore.DebugLevel)
 	store := requests.NewStore[*vaulttypes.Request]()
 	_, pk, shares, err := tdh2easy.GenerateKeys(1, 3)
@@ -878,7 +878,7 @@ func TestPlugin_Observation_GetSecretsRequest_Success(t *testing.T) {
 	assert.Equal(t, plaintext, gotSecret)
 }
 
-func TestPlugin_Observation_CreateSecretsRequest_SecretIdentifierInvalid(t *testing.T) {
+func TestUnit_Plugin_Observation_CreateSecretsRequest_SecretIdentifierInvalid(t *testing.T) {
 	tcs := []struct {
 		name     string
 		id       *vaultcommon.SecretIdentifier
@@ -975,7 +975,7 @@ func TestPlugin_Observation_CreateSecretsRequest_SecretIdentifierInvalid(t *test
 	}
 }
 
-func TestPlugin_Observation_CreateSecretsRequest_DisallowsDuplicateRequests(t *testing.T) {
+func TestUnit_Plugin_Observation_CreateSecretsRequest_DisallowsDuplicateRequests(t *testing.T) {
 	lggr := logger.TestLogger(t)
 	store := requests.NewStore[*vaulttypes.Request]()
 	r := &ReportingPlugin{
@@ -1043,7 +1043,7 @@ func TestPlugin_Observation_CreateSecretsRequest_DisallowsDuplicateRequests(t *t
 	assert.Contains(t, resp.GetError(), "duplicate request for secret identifier")
 }
 
-func TestPlugin_StateTransition_CreateSecretsRequest_CorrectlyTracksLimits(t *testing.T) {
+func TestUnit_Plugin_StateTransition_CreateSecretsRequest_CorrectlyTracksLimits(t *testing.T) {
 	lggr := logger.TestLogger(t)
 	store := requests.NewStore[*vaulttypes.Request]()
 	_, pk, shares, err := tdh2easy.GenerateKeys(1, 3)
@@ -1157,7 +1157,7 @@ func TestPlugin_StateTransition_CreateSecretsRequest_CorrectlyTracksLimits(t *te
 	assert.Contains(t, r2.GetError(), "owner has reached maximum number of secrets")
 }
 
-func TestPlugin_Observation_CreateSecretsRequest_InvalidCiphertext(t *testing.T) {
+func TestUnit_Plugin_Observation_CreateSecretsRequest_InvalidCiphertext(t *testing.T) {
 	lggr := logger.TestLogger(t)
 	store := requests.NewStore[*vaulttypes.Request]()
 	r := &ReportingPlugin{
@@ -1218,7 +1218,7 @@ func TestPlugin_Observation_CreateSecretsRequest_InvalidCiphertext(t *testing.T)
 	assert.Contains(t, resp.GetError(), "invalid hex encoding for ciphertext")
 }
 
-func TestPlugin_Observation_CreateSecretsRequest_InvalidCiphertext_TooLong(t *testing.T) {
+func TestUnit_Plugin_Observation_CreateSecretsRequest_InvalidCiphertext_TooLong(t *testing.T) {
 	lggr := logger.TestLogger(t)
 	store := requests.NewStore[*vaulttypes.Request]()
 	r := &ReportingPlugin{
@@ -1280,7 +1280,7 @@ func TestPlugin_Observation_CreateSecretsRequest_InvalidCiphertext_TooLong(t *te
 	assert.Contains(t, resp.GetError(), "ciphertext size exceeds maximum allowed size: 10b")
 }
 
-func TestPlugin_Observation_CreateSecretsRequest_InvalidCiphertext_EncryptedWithWrongPublicKey(t *testing.T) {
+func TestUnit_Plugin_Observation_CreateSecretsRequest_InvalidCiphertext_EncryptedWithWrongPublicKey(t *testing.T) {
 	lggr := logger.TestLogger(t)
 	store := requests.NewStore[*vaulttypes.Request]()
 	// Wrong key
@@ -1353,7 +1353,7 @@ func TestPlugin_Observation_CreateSecretsRequest_InvalidCiphertext_EncryptedWith
 	assert.Contains(t, resp.GetError(), "failed to verify ciphertext")
 }
 
-func TestPlugin_StateTransition_CreateSecretsRequest_TooManySecretsForOwner(t *testing.T) {
+func TestUnit_Plugin_StateTransition_CreateSecretsRequest_TooManySecretsForOwner(t *testing.T) {
 	lggr := logger.TestLogger(t)
 	store := requests.NewStore[*vaulttypes.Request]()
 	_, pk, shares, err := tdh2easy.GenerateKeys(1, 3)
@@ -1442,7 +1442,7 @@ func TestPlugin_StateTransition_CreateSecretsRequest_TooManySecretsForOwner(t *t
 	assert.Contains(t, o.GetCreateSecretsResponse().Responses[0].Error, "owner has reached maximum number of secrets")
 }
 
-func TestPlugin_StateTransition_CreateSecretsRequest_SecretExistsForKey(t *testing.T) {
+func TestUnit_Plugin_StateTransition_CreateSecretsRequest_SecretExistsForKey(t *testing.T) {
 	lggr := logger.TestLogger(t)
 	store := requests.NewStore[*vaulttypes.Request]()
 	_, pk, shares, err := tdh2easy.GenerateKeys(1, 3)
@@ -1525,7 +1525,7 @@ func TestPlugin_StateTransition_CreateSecretsRequest_SecretExistsForKey(t *testi
 	assert.Contains(t, o.GetCreateSecretsResponse().Responses[0].Error, "key already exists")
 }
 
-func TestPlugin_Observation_CreateSecretsRequest_Success(t *testing.T) {
+func TestUnit_Plugin_Observation_CreateSecretsRequest_Success(t *testing.T) {
 	lggr := logger.TestLogger(t)
 	store := requests.NewStore[*vaulttypes.Request]()
 	_, pk, shares, err := tdh2easy.GenerateKeys(1, 3)
@@ -1668,7 +1668,7 @@ func marshalObservations(t *testing.T, observations ...observation) []byte {
 	return b
 }
 
-func TestPlugin_StateTransition_InsufficientObservations(t *testing.T) {
+func TestUnit_Plugin_StateTransition_InsufficientObservations(t *testing.T) {
 	lggr, observed := logger.TestLoggerObserved(t, zapcore.DebugLevel)
 	store := requests.NewStore[*vaulttypes.Request]()
 	_, pk, shares, err := tdh2easy.GenerateKeys(1, 3)
@@ -1741,7 +1741,7 @@ func TestPlugin_StateTransition_InsufficientObservations(t *testing.T) {
 	assert.Equal(t, 1, observed.FilterMessage("insufficient observations found for id").Len())
 }
 
-func TestPlugin_ValidateObservations_InvalidObservations(t *testing.T) {
+func TestUnit_Plugin_ValidateObservations_InvalidObservations(t *testing.T) {
 	lggr, _ := logger.TestLoggerObserved(t, zapcore.DebugLevel)
 	store := requests.NewStore[*vaulttypes.Request]()
 	_, pk, shares, err := tdh2easy.GenerateKeys(1, 3)
@@ -1829,7 +1829,7 @@ func TestPlugin_ValidateObservations_InvalidObservations(t *testing.T) {
 	assert.ErrorContains(t, err, "invalid observation: a single observation cannot contain duplicate observations for the same request id")
 }
 
-func TestPlugin_StateTransition_ShasDontMatch(t *testing.T) {
+func TestUnit_Plugin_StateTransition_ShasDontMatch(t *testing.T) {
 	lggr, observed := logger.TestLoggerObserved(t, zapcore.DebugLevel)
 	store := requests.NewStore[*vaulttypes.Request]()
 	_, pk, shares, err := tdh2easy.GenerateKeys(1, 3)
@@ -1911,7 +1911,7 @@ func TestPlugin_StateTransition_ShasDontMatch(t *testing.T) {
 	assert.Equal(t, 1, observed.FilterMessage("insufficient observations found for id").Len())
 }
 
-func TestPlugin_StateTransition_AggregatesValidationErrors(t *testing.T) {
+func TestUnit_Plugin_StateTransition_AggregatesValidationErrors(t *testing.T) {
 	lggr, observed := logger.TestLoggerObserved(t, zapcore.DebugLevel)
 	store := requests.NewStore[*vaulttypes.Request]()
 	_, pk, shares, err := tdh2easy.GenerateKeys(1, 3)
@@ -1989,7 +1989,7 @@ func TestPlugin_StateTransition_AggregatesValidationErrors(t *testing.T) {
 	assert.Equal(t, 1, observed.FilterMessage("sufficient observations for sha").Len())
 }
 
-func TestPlugin_StateTransition_GetSecretsRequest_CombinesShares(t *testing.T) {
+func TestUnit_Plugin_StateTransition_GetSecretsRequest_CombinesShares(t *testing.T) {
 	lggr, observed := logger.TestLoggerObserved(t, zapcore.DebugLevel)
 	store := requests.NewStore[*vaulttypes.Request]()
 	_, pk, shares, err := tdh2easy.GenerateKeys(1, 3)
@@ -2132,7 +2132,7 @@ func TestPlugin_StateTransition_GetSecretsRequest_CombinesShares(t *testing.T) {
 	assert.Equal(t, 1, observed.FilterMessage("sufficient observations for sha").Len())
 }
 
-func TestPlugin_StateTransition_CreateSecretsRequest_WritesSecrets(t *testing.T) {
+func TestUnit_Plugin_StateTransition_CreateSecretsRequest_WritesSecrets(t *testing.T) {
 	lggr, observed := logger.TestLoggerObserved(t, zapcore.DebugLevel)
 	store := requests.NewStore[*vaulttypes.Request]()
 	_, pk, shares, err := tdh2easy.GenerateKeys(1, 3)
@@ -2228,7 +2228,7 @@ func TestPlugin_StateTransition_CreateSecretsRequest_WritesSecrets(t *testing.T)
 	assert.Equal(t, 1, observed.FilterMessage("sufficient observations for sha").Len())
 }
 
-func TestPlugin_Reports(t *testing.T) {
+func TestUnit_Plugin_Reports(t *testing.T) {
 	value := "encrypted-value"
 	id := &vaultcommon.SecretIdentifier{
 		Owner:     "owner",
@@ -2361,7 +2361,7 @@ func TestPlugin_Reports(t *testing.T) {
 	assert.True(t, proto.Equal(resp2, o2r))
 }
 
-func TestPlugin_Observation_UpdateSecretsRequest_SecretIdentifierInvalid(t *testing.T) {
+func TestUnit_Plugin_Observation_UpdateSecretsRequest_SecretIdentifierInvalid(t *testing.T) {
 	tcs := []struct {
 		name     string
 		id       *vaultcommon.SecretIdentifier
@@ -2458,7 +2458,7 @@ func TestPlugin_Observation_UpdateSecretsRequest_SecretIdentifierInvalid(t *test
 	}
 }
 
-func TestPlugin_Observation_UpdateSecretsRequest_DisallowsDuplicateRequests(t *testing.T) {
+func TestUnit_Plugin_Observation_UpdateSecretsRequest_DisallowsDuplicateRequests(t *testing.T) {
 	lggr := logger.TestLogger(t)
 	store := requests.NewStore[*vaulttypes.Request]()
 	r := &ReportingPlugin{
@@ -2526,7 +2526,7 @@ func TestPlugin_Observation_UpdateSecretsRequest_DisallowsDuplicateRequests(t *t
 	assert.Contains(t, resp.GetError(), "duplicate request for secret identifier")
 }
 
-func TestPlugin_Observation_UpdateSecretsRequest_InvalidCiphertext(t *testing.T) {
+func TestUnit_Plugin_Observation_UpdateSecretsRequest_InvalidCiphertext(t *testing.T) {
 	lggr := logger.TestLogger(t)
 	store := requests.NewStore[*vaulttypes.Request]()
 	r := &ReportingPlugin{
@@ -2587,7 +2587,7 @@ func TestPlugin_Observation_UpdateSecretsRequest_InvalidCiphertext(t *testing.T)
 	assert.Contains(t, resp.GetError(), "invalid hex encoding for ciphertext")
 }
 
-func TestPlugin_Observation_UpdateSecretsRequest_InvalidCiphertext_TooLong(t *testing.T) {
+func TestUnit_Plugin_Observation_UpdateSecretsRequest_InvalidCiphertext_TooLong(t *testing.T) {
 	lggr := logger.TestLogger(t)
 	store := requests.NewStore[*vaulttypes.Request]()
 	r := &ReportingPlugin{
@@ -2649,7 +2649,7 @@ func TestPlugin_Observation_UpdateSecretsRequest_InvalidCiphertext_TooLong(t *te
 	assert.Contains(t, resp.GetError(), "ciphertext size exceeds maximum allowed size: 10b")
 }
 
-func TestPlugin_Observation_UpdateSecretsRequest_InvalidCiphertext_EncryptedWithWrongPublicKey(t *testing.T) {
+func TestUnit_Plugin_Observation_UpdateSecretsRequest_InvalidCiphertext_EncryptedWithWrongPublicKey(t *testing.T) {
 	lggr := logger.TestLogger(t)
 	store := requests.NewStore[*vaulttypes.Request]()
 	// Wrong key
@@ -2722,7 +2722,7 @@ func TestPlugin_Observation_UpdateSecretsRequest_InvalidCiphertext_EncryptedWith
 	assert.Contains(t, resp.GetError(), "failed to verify ciphertext")
 }
 
-func TestPlugin_StateTransition_UpdateSecretsRequest_SecretDoesntExist(t *testing.T) {
+func TestUnit_Plugin_StateTransition_UpdateSecretsRequest_SecretDoesntExist(t *testing.T) {
 	lggr, observed := logger.TestLoggerObserved(t, zapcore.DebugLevel)
 	store := requests.NewStore[*vaulttypes.Request]()
 	_, pk, shares, err := tdh2easy.GenerateKeys(1, 3)
@@ -2817,7 +2817,7 @@ func TestPlugin_StateTransition_UpdateSecretsRequest_SecretDoesntExist(t *testin
 	assert.Equal(t, 1, observed.FilterMessage("sufficient observations for sha").Len())
 }
 
-func TestPlugin_StateTransition_UpdateSecretsRequest_WritesSecrets(t *testing.T) {
+func TestUnit_Plugin_StateTransition_UpdateSecretsRequest_WritesSecrets(t *testing.T) {
 	lggr, observed := logger.TestLoggerObserved(t, zapcore.DebugLevel)
 	store := requests.NewStore[*vaulttypes.Request]()
 	_, pk, shares, err := tdh2easy.GenerateKeys(1, 3)
@@ -2929,7 +2929,7 @@ func TestPlugin_StateTransition_UpdateSecretsRequest_WritesSecrets(t *testing.T)
 	assert.Equal(t, 1, observed.FilterMessage("sufficient observations for sha").Len())
 }
 
-func TestPlugin_Reports_UpdateSecretsRequest(t *testing.T) {
+func TestUnit_Plugin_Reports_UpdateSecretsRequest(t *testing.T) {
 	value := "encrypted-value"
 	id := &vaultcommon.SecretIdentifier{
 		Owner:     "owner",
@@ -3017,7 +3017,7 @@ func TestPlugin_Reports_UpdateSecretsRequest(t *testing.T) {
 	assert.Equal(t, expectedBytes, []byte(o.ReportWithInfo.Report))
 }
 
-func TestPlugin_Observation_DeleteSecrets(t *testing.T) {
+func TestUnit_Plugin_Observation_DeleteSecrets(t *testing.T) {
 	lggr := logger.TestLogger(t)
 	store := requests.NewStore[*vaulttypes.Request]()
 	r := &ReportingPlugin{
@@ -3094,7 +3094,7 @@ func TestPlugin_Observation_DeleteSecrets(t *testing.T) {
 	assert.Empty(t, resp.Responses[0].GetError())
 }
 
-func TestPlugin_Observation_DeleteSecrets_IdDoesntExist(t *testing.T) {
+func TestUnit_Plugin_Observation_DeleteSecrets_IdDoesntExist(t *testing.T) {
 	lggr := logger.TestLogger(t)
 	store := requests.NewStore[*vaulttypes.Request]()
 	r := &ReportingPlugin{
@@ -3150,7 +3150,7 @@ func TestPlugin_Observation_DeleteSecrets_IdDoesntExist(t *testing.T) {
 	assert.Contains(t, resp.Responses[0].GetError(), "key does not exist")
 }
 
-func TestPlugin_Observation_DeleteSecrets_InvalidRequestDuplicateIds(t *testing.T) {
+func TestUnit_Plugin_Observation_DeleteSecrets_InvalidRequestDuplicateIds(t *testing.T) {
 	lggr := logger.TestLogger(t)
 	store := requests.NewStore[*vaulttypes.Request]()
 	r := &ReportingPlugin{
@@ -3211,7 +3211,7 @@ func TestPlugin_Observation_DeleteSecrets_InvalidRequestDuplicateIds(t *testing.
 	assert.Contains(t, resp.Responses[1].GetError(), "duplicate request for secret identifier")
 }
 
-func TestPlugin_StateTransition_DeleteSecretsRequest(t *testing.T) {
+func TestUnit_Plugin_StateTransition_DeleteSecretsRequest(t *testing.T) {
 	lggr, observed := logger.TestLoggerObserved(t, zapcore.DebugLevel)
 	store := requests.NewStore[*vaulttypes.Request]()
 	_, pk, shares, err := tdh2easy.GenerateKeys(1, 3)
@@ -3320,7 +3320,7 @@ func TestPlugin_StateTransition_DeleteSecretsRequest(t *testing.T) {
 	assert.Equal(t, 1, observed.FilterMessage("sufficient observations for sha").Len())
 }
 
-func TestPlugin_StateTransition_DeleteSecretsRequest_SecretDoesNotExist(t *testing.T) {
+func TestUnit_Plugin_StateTransition_DeleteSecretsRequest_SecretDoesNotExist(t *testing.T) {
 	lggr, observed := logger.TestLoggerObserved(t, zapcore.DebugLevel)
 	store := requests.NewStore[*vaulttypes.Request]()
 	_, pk, shares, err := tdh2easy.GenerateKeys(1, 3)
@@ -3418,7 +3418,7 @@ func TestPlugin_StateTransition_DeleteSecretsRequest_SecretDoesNotExist(t *testi
 	assert.Equal(t, 1, observed.FilterMessage("sufficient observations for sha").Len())
 }
 
-func TestPlugin_Reports_DeleteSecretsRequest(t *testing.T) {
+func TestUnit_Plugin_Reports_DeleteSecretsRequest(t *testing.T) {
 	id := &vaultcommon.SecretIdentifier{
 		Owner:     "owner",
 		Namespace: "main",
@@ -3501,7 +3501,7 @@ func TestPlugin_Reports_DeleteSecretsRequest(t *testing.T) {
 	assert.Equal(t, expectedBytes, []byte(o.ReportWithInfo.Report))
 }
 
-func TestPlugin_Observation_ListSecretIdentifiers_OwnerRequired(t *testing.T) {
+func TestUnit_Plugin_Observation_ListSecretIdentifiers_OwnerRequired(t *testing.T) {
 	lggr := logger.TestLogger(t)
 	store := requests.NewStore[*vaulttypes.Request]()
 	r := &ReportingPlugin{
@@ -3549,7 +3549,7 @@ func TestPlugin_Observation_ListSecretIdentifiers_OwnerRequired(t *testing.T) {
 	assert.Contains(t, resp.GetError(), "owner cannot be empty")
 }
 
-func TestPlugin_Observation_ListSecretIdentifiers_NoNamespaceProvided(t *testing.T) {
+func TestUnit_Plugin_Observation_ListSecretIdentifiers_NoNamespaceProvided(t *testing.T) {
 	lggr := logger.TestLogger(t)
 	store := requests.NewStore[*vaulttypes.Request]()
 	r := &ReportingPlugin{
@@ -3643,7 +3643,7 @@ func TestPlugin_Observation_ListSecretIdentifiers_NoNamespaceProvided(t *testing
 	assert.Empty(t, resp.GetError())
 }
 
-func TestPlugin_Observation_ListSecretIdentifiers_FilterByNamespace(t *testing.T) {
+func TestUnit_Plugin_Observation_ListSecretIdentifiers_FilterByNamespace(t *testing.T) {
 	lggr := logger.TestLogger(t)
 	store := requests.NewStore[*vaulttypes.Request]()
 	r := &ReportingPlugin{
@@ -3733,7 +3733,7 @@ func TestPlugin_Observation_ListSecretIdentifiers_FilterByNamespace(t *testing.T
 	assert.Empty(t, resp.GetError())
 }
 
-func TestPlugin_Reports_ListSecretIdentifiersRequest(t *testing.T) {
+func TestUnit_Plugin_Reports_ListSecretIdentifiersRequest(t *testing.T) {
 	id := &vaultcommon.SecretIdentifier{
 		Owner:     "owner",
 		Namespace: "main",
@@ -3812,7 +3812,7 @@ func TestPlugin_Reports_ListSecretIdentifiersRequest(t *testing.T) {
 	assert.Equal(t, expectedBytes, []byte(o.ReportWithInfo.Report))
 }
 
-func TestPlugin_StateTransition_ListSecretIdentifiers(t *testing.T) {
+func TestUnit_Plugin_StateTransition_ListSecretIdentifiers(t *testing.T) {
 	lggr, observed := logger.TestLoggerObserved(t, zapcore.DebugLevel)
 	store := requests.NewStore[*vaulttypes.Request]()
 	_, pk, shares, err := tdh2easy.GenerateKeys(1, 3)

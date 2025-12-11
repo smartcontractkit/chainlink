@@ -33,7 +33,7 @@ func generateAddressString() string {
 	return addressString
 }
 
-func TestAddressBytesToString(t *testing.T) {
+func TestUnit_AddressBytesToString(t *testing.T) {
 	tests := []struct {
 		name     string
 		inHex    string
@@ -84,7 +84,7 @@ func TestAddressBytesToString(t *testing.T) {
 	}
 }
 
-func TestAddressStringToBytes(t *testing.T) {
+func TestUnit_AddressStringToBytes(t *testing.T) {
 	tests := []struct {
 		name        string
 		in          string

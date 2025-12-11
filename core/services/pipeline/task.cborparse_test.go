@@ -11,7 +11,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
 )
 
-func TestCBORParseTask(t *testing.T) {
+func TestUnit_CBORParseTask(t *testing.T) {
 	tests := []struct {
 		name                  string
 		data                  string

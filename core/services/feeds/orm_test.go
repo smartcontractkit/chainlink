@@ -52,7 +52,7 @@ func setupORM(t *testing.T) *TestORM {
 
 // Managers
 
-func Test_ORM_CreateManager_CountManagers(t *testing.T) {
+func TestUnit_ORM_CreateManager_CountManagers(t *testing.T) {
 	t.Parallel()
 	ctx := testutils.Context(t)
 
@@ -79,7 +79,7 @@ func Test_ORM_CreateManager_CountManagers(t *testing.T) {
 	assert.NotZero(t, id)
 }
 
-func Test_ORM_CreateManager(t *testing.T) {
+func TestUnit_ORM_CreateManager(t *testing.T) {
 	t.Parallel()
 	ctx := testutils.Context(t)
 
@@ -106,7 +106,7 @@ func Test_ORM_CreateManager(t *testing.T) {
 	assert.NotZero(t, id)
 }
 
-func Test_ORM_GetManager(t *testing.T) {
+func TestUnit_ORM_GetManager(t *testing.T) {
 	t.Parallel()
 	ctx := testutils.Context(t)
 
@@ -135,7 +135,7 @@ func Test_ORM_GetManager(t *testing.T) {
 	require.Error(t, err)
 }
 
-func Test_ORM_ListManagers(t *testing.T) {
+func TestUnit_ORM_ListManagers(t *testing.T) {
 	t.Parallel()
 	ctx := testutils.Context(t)
 
@@ -163,7 +163,7 @@ func Test_ORM_ListManagers(t *testing.T) {
 	assert.Nil(t, actual.DisabledAt)
 }
 
-func Test_ORM_ListManagersByIDs(t *testing.T) {
+func TestUnit_ORM_ListManagersByIDs(t *testing.T) {
 	t.Parallel()
 	ctx := testutils.Context(t)
 
@@ -191,7 +191,7 @@ func Test_ORM_ListManagersByIDs(t *testing.T) {
 	assert.Nil(t, actual.DisabledAt)
 }
 
-func Test_ORM_UpdateManager(t *testing.T) {
+func TestUnit_ORM_UpdateManager(t *testing.T) {
 	t.Parallel()
 	ctx := testutils.Context(t)
 
@@ -225,7 +225,7 @@ func Test_ORM_UpdateManager(t *testing.T) {
 	assert.Equal(t, updatedMgr.PublicKey, actual.PublicKey)
 }
 
-func Test_ORM_EnableAndDisableManager(t *testing.T) {
+func TestUnit_ORM_EnableAndDisableManager(t *testing.T) {
 	t.Parallel()
 	ctx := testutils.Context(t)
 
@@ -255,7 +255,7 @@ func Test_ORM_EnableAndDisableManager(t *testing.T) {
 
 // Chain Config
 
-func Test_ORM_CreateChainConfig(t *testing.T) {
+func TestUnit_ORM_CreateChainConfig(t *testing.T) {
 	t.Parallel()
 	ctx := testutils.Context(t)
 
@@ -305,7 +305,7 @@ func Test_ORM_CreateChainConfig(t *testing.T) {
 	}, *actual)
 }
 
-func Test_ORM_CreateBatchChainConfig(t *testing.T) {
+func TestUnit_ORM_CreateBatchChainConfig(t *testing.T) {
 	t.Parallel()
 	ctx := testutils.Context(t)
 
@@ -369,7 +369,7 @@ func Test_ORM_CreateBatchChainConfig(t *testing.T) {
 	require.Empty(t, ids)
 }
 
-func Test_ORM_DeleteChainConfig(t *testing.T) {
+func TestUnit_ORM_DeleteChainConfig(t *testing.T) {
 	t.Parallel()
 	ctx := testutils.Context(t)
 
@@ -399,7 +399,7 @@ func Test_ORM_DeleteChainConfig(t *testing.T) {
 	require.Error(t, err)
 }
 
-func Test_ORM_ListChainConfigsByManagerIDs(t *testing.T) {
+func TestUnit_ORM_ListChainConfigsByManagerIDs(t *testing.T) {
 	t.Parallel()
 	ctx := testutils.Context(t)
 
@@ -450,7 +450,7 @@ func Test_ORM_ListChainConfigsByManagerIDs(t *testing.T) {
 	}, actual[0])
 }
 
-func Test_ORM_UpdateChainConfig(t *testing.T) {
+func TestUnit_ORM_UpdateChainConfig(t *testing.T) {
 	t.Parallel()
 	ctx := testutils.Context(t)
 
@@ -513,7 +513,7 @@ func Test_ORM_UpdateChainConfig(t *testing.T) {
 
 // Job Proposals
 
-func Test_ORM_CreateJobProposal(t *testing.T) {
+func TestUnit_ORM_CreateJobProposal(t *testing.T) {
 	t.Parallel()
 	ctx := testutils.Context(t)
 
@@ -547,7 +547,7 @@ func Test_ORM_CreateJobProposal(t *testing.T) {
 	assert.NotZero(t, id)
 }
 
-func Test_ORM_GetJobProposal(t *testing.T) {
+func TestUnit_ORM_GetJobProposal(t *testing.T) {
 	t.Parallel()
 	ctx := testutils.Context(t)
 
@@ -612,7 +612,7 @@ func Test_ORM_GetJobProposal(t *testing.T) {
 	})
 }
 
-func Test_ORM_CountJobProposalsByStatus(t *testing.T) {
+func TestUnit_ORM_CountJobProposalsByStatus(t *testing.T) {
 	t.Parallel()
 
 	testCases := []struct {
@@ -806,7 +806,7 @@ func Test_ORM_CountJobProposalsByStatus(t *testing.T) {
 	}
 }
 
-func Test_ORM_ListJobProposalByManagersIDs(t *testing.T) {
+func TestUnit_ORM_ListJobProposalByManagersIDs(t *testing.T) {
 	t.Parallel()
 	ctx := testutils.Context(t)
 
@@ -839,7 +839,7 @@ func Test_ORM_ListJobProposalByManagersIDs(t *testing.T) {
 	assert.Equal(t, jp.FeedsManagerID, actual.FeedsManagerID)
 }
 
-func Test_ORM_UpdateJobProposalStatus(t *testing.T) {
+func TestUnit_ORM_UpdateJobProposalStatus(t *testing.T) {
 	t.Parallel()
 	ctx := testutils.Context(t)
 
@@ -861,7 +861,7 @@ func Test_ORM_UpdateJobProposalStatus(t *testing.T) {
 	assert.Equal(t, actualCreated.CreatedAt, actual.CreatedAt)
 }
 
-func Test_ORM_UpsertJobProposal(t *testing.T) {
+func TestUnit_ORM_UpsertJobProposal(t *testing.T) {
 	t.Parallel()
 	ctx := testutils.Context(t)
 
@@ -979,7 +979,7 @@ func Test_ORM_UpsertJobProposal(t *testing.T) {
 
 // Job Proposal Specs
 
-func Test_ORM_ApproveSpec(t *testing.T) {
+func TestUnit_ORM_ApproveSpec(t *testing.T) {
 	t.Parallel()
 	ctx := testutils.Context(t)
 
@@ -1021,7 +1021,7 @@ func Test_ORM_ApproveSpec(t *testing.T) {
 	assert.False(t, actualJP.PendingUpdate)
 }
 
-func Test_ORM_CancelSpec(t *testing.T) {
+func TestUnit_ORM_CancelSpec(t *testing.T) {
 	t.Parallel()
 
 	testCases := []struct {
@@ -1094,7 +1094,7 @@ func Test_ORM_CancelSpec(t *testing.T) {
 	}
 }
 
-func Test_ORM_DeleteProposal(t *testing.T) {
+func TestUnit_ORM_DeleteProposal(t *testing.T) {
 	t.Parallel()
 
 	testCases := []struct {
@@ -1249,7 +1249,7 @@ func Test_ORM_DeleteProposal(t *testing.T) {
 	}
 }
 
-func Test_ORM_RevokeSpec(t *testing.T) {
+func TestUnit_ORM_RevokeSpec(t *testing.T) {
 	t.Parallel()
 
 	testCases := []struct {
@@ -1369,7 +1369,7 @@ func Test_ORM_RevokeSpec(t *testing.T) {
 	}
 }
 
-func Test_ORM_ExistsSpecByJobProposalIDAndVersion(t *testing.T) {
+func TestUnit_ORM_ExistsSpecByJobProposalIDAndVersion(t *testing.T) {
 	t.Parallel()
 	ctx := testutils.Context(t)
 
@@ -1390,7 +1390,7 @@ func Test_ORM_ExistsSpecByJobProposalIDAndVersion(t *testing.T) {
 	require.False(t, exists)
 }
 
-func Test_ORM_GetSpec(t *testing.T) {
+func TestUnit_ORM_GetSpec(t *testing.T) {
 	t.Parallel()
 	ctx := testutils.Context(t)
 
@@ -1410,7 +1410,7 @@ func Test_ORM_GetSpec(t *testing.T) {
 	assert.Equal(t, jpID, actual.JobProposalID)
 }
 
-func Test_ORM_GetApprovedSpec(t *testing.T) {
+func TestUnit_ORM_GetApprovedSpec(t *testing.T) {
 	t.Parallel()
 	ctx := testutils.Context(t)
 
@@ -1446,7 +1446,7 @@ func Test_ORM_GetApprovedSpec(t *testing.T) {
 	assert.ErrorIs(t, err, sql.ErrNoRows)
 }
 
-func Test_ORM_GetLatestSpec(t *testing.T) {
+func TestUnit_ORM_GetLatestSpec(t *testing.T) {
 	t.Parallel()
 	ctx := testutils.Context(t)
 
@@ -1475,7 +1475,7 @@ func Test_ORM_GetLatestSpec(t *testing.T) {
 	assert.Equal(t, jpID, actual.JobProposalID)
 }
 
-func Test_ORM_ListSpecsByJobProposalIDs(t *testing.T) {
+func TestUnit_ORM_ListSpecsByJobProposalIDs(t *testing.T) {
 	t.Parallel()
 	ctx := testutils.Context(t)
 
@@ -1510,7 +1510,7 @@ func Test_ORM_ListSpecsByJobProposalIDs(t *testing.T) {
 	assert.Equal(t, jp2ID, actual.JobProposalID)
 }
 
-func Test_ORM_RejectSpec(t *testing.T) {
+func TestUnit_ORM_RejectSpec(t *testing.T) {
 	t.Parallel()
 
 	testCases := []struct {
@@ -1618,7 +1618,7 @@ func Test_ORM_RejectSpec(t *testing.T) {
 	}
 }
 
-func Test_ORM_UpdateSpecDefinition(t *testing.T) {
+func TestUnit_ORM_UpdateSpecDefinition(t *testing.T) {
 	t.Parallel()
 	ctx := testutils.Context(t)
 
@@ -1649,7 +1649,7 @@ func Test_ORM_UpdateSpecDefinition(t *testing.T) {
 
 // Other
 
-func Test_ORM_IsJobManaged(t *testing.T) {
+func TestUnit_ORM_IsJobManaged(t *testing.T) {
 	t.Parallel()
 	ctx := testutils.Context(t)
 
@@ -1683,7 +1683,7 @@ func Test_ORM_IsJobManaged(t *testing.T) {
 	assert.False(t, isManaged)
 }
 
-func Test_ORM_IsJobManagedByFeedsManager(t *testing.T) {
+func TestUnit_ORM_IsJobManagedByFeedsManager(t *testing.T) {
 	t.Parallel()
 	ctx := testutils.Context(t)
 

@@ -24,7 +24,7 @@ APISecret = "indexer-api-secret"
 `
 )
 
-func TestCCVConfig(t *testing.T) {
+func TestUnit_CCVConfig(t *testing.T) {
 	opts := GeneralConfigOpts{
 		SecretsStrings: []string{secretsCCV},
 	}

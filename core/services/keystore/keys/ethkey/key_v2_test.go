@@ -14,7 +14,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/internal"
 )
 
-func TestEthKeyV2_ToKey(t *testing.T) {
+func TestUnit_EthKeyV2_ToKey(t *testing.T) {
 	privateKeyECDSA, err := ecdsa.GenerateKey(crypto.S256(), rand.Reader)
 	require.NoError(t, err)
 
@@ -26,7 +26,7 @@ func TestEthKeyV2_ToKey(t *testing.T) {
 	assert.Equal(t, types.EIP55AddressFromAddress(crypto.PubkeyToAddress(privateKeyECDSA.PublicKey)).Hex(), k.ID())
 }
 
-func TestEthKeyV2_NewV2(t *testing.T) {
+func TestUnit_EthKeyV2_NewV2(t *testing.T) {
 	keyV2, err := NewV2()
 	require.NoError(t, err)
 

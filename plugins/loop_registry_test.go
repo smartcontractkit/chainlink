@@ -15,7 +15,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/config"
 )
 
-func TestPluginPortManager(t *testing.T) {
+func TestUnit_PluginPortManager(t *testing.T) {
 	// register one
 	m := NewTestLoopRegistry(logger.Test(t))
 	pFoo, err := m.Register("foo")
@@ -165,7 +165,7 @@ func (t mockCfgTransmitter) ReaperFrequency() time.Duration { return time.Hour }
 
 func (t mockCfgTransmitter) ReaperMaxAge() time.Duration { return time.Minute }
 
-func TestLoopRegistry_Register(t *testing.T) {
+func TestUnit_LoopRegistry_Register(t *testing.T) {
 	mockCfgDatabase := &mockCfgDatabase{}
 	mockCfgMercury := &mockCfgMercury{}
 	mockCfgTracing := &mockCfgTracing{}

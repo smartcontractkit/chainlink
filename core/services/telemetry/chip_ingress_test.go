@@ -22,7 +22,7 @@ func (m *MockEmitter) Emit(ctx context.Context, body []byte, attrKVs ...any) err
 	return args.Error(0)
 }
 
-func TestNewChipIngressAdapter(t *testing.T) {
+func TestUnit_NewChipIngressAdapter(t *testing.T) {
 	t.Run("Success - Ethereum Mainnet", func(t *testing.T) {
 		mockEmitter := new(MockEmitter)
 		lggr := logger.TestLogger(t)
@@ -114,7 +114,7 @@ func TestNewChipIngressAdapter(t *testing.T) {
 	})
 }
 
-func TestChipIngressAdapter_SendLog(t *testing.T) {
+func TestUnit_ChipIngressAdapter_SendLog(t *testing.T) {
 	t.Run("Success - sends to beholder", func(t *testing.T) {
 		mockEmitter := new(MockEmitter)
 		lggr := logger.TestLogger(t)
@@ -205,7 +205,7 @@ func TestChipIngressAdapter_SendLog(t *testing.T) {
 	})
 }
 
-func TestChipIngressAdapter_ExportedFields(t *testing.T) {
+func TestUnit_ChipIngressAdapter_ExportedFields(t *testing.T) {
 	mockEmitter := new(MockEmitter)
 	lggr := logger.TestLogger(t)
 	contractID := "0x1234567890"
@@ -239,7 +239,7 @@ func TestChipIngressAdapter_ExportedFields(t *testing.T) {
 	})
 }
 
-func TestChipIngressAdapter_InterfaceCompliance(t *testing.T) {
+func TestUnit_ChipIngressAdapter_InterfaceCompliance(t *testing.T) {
 	// This test verifies that ChipIngressAdapter implements commontypes.MonitoringEndpoint
 	mockEmitter := new(MockEmitter)
 	lggr := logger.TestLogger(t)

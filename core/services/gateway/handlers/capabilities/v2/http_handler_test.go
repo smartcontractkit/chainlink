@@ -26,7 +26,7 @@ import (
 	httpmocks "github.com/smartcontractkit/chainlink/v2/core/services/gateway/network/mocks"
 )
 
-func TestNewGatewayHandler(t *testing.T) {
+func TestUnit_NewGatewayHandler(t *testing.T) {
 	t.Run("successful creation", func(t *testing.T) {
 		cfg := serviceCfg()
 		configBytes, err := json.Marshal(cfg)
@@ -104,7 +104,7 @@ func TestNewGatewayHandler(t *testing.T) {
 	})
 }
 
-func TestHandleNodeMessage(t *testing.T) {
+func TestUnit_HandleNodeMessage(t *testing.T) {
 	handler := createTestHandler(t)
 
 	t.Run("successful node message handling", func(t *testing.T) {
@@ -264,7 +264,7 @@ func TestHandleNodeMessage(t *testing.T) {
 	})
 }
 
-func TestServiceLifecycle(t *testing.T) {
+func TestUnit_ServiceLifecycle(t *testing.T) {
 	handler := createTestHandler(t)
 
 	t.Run("start and stop", func(t *testing.T) {
@@ -282,7 +282,7 @@ func TestServiceLifecycle(t *testing.T) {
 		require.NoError(t, err)
 	})
 }
-func TestHandleNodeMessage_RoutesToTriggerHandler(t *testing.T) {
+func TestUnit_HandleNodeMessage_RoutesToTriggerHandler(t *testing.T) {
 	// This test covers the case where the response ID does not contain a "/"
 	// and should be routed to the triggerHandler.HandleNodeTriggerResponse.
 	mockTriggerHandler := triggermocks.NewHTTPTriggerHandler(t)
@@ -306,7 +306,7 @@ func TestHandleNodeMessage_RoutesToTriggerHandler(t *testing.T) {
 	mockTriggerHandler.AssertExpectations(t)
 }
 
-func TestHandleNodeMessage_UnsupportedMethod(t *testing.T) {
+func TestUnit_HandleNodeMessage_UnsupportedMethod(t *testing.T) {
 	handler := createTestHandler(t)
 	rawRes := json.RawMessage([]byte(`{}`))
 	resp := &jsonrpc.Response[json.RawMessage]{
@@ -320,7 +320,7 @@ func TestHandleNodeMessage_UnsupportedMethod(t *testing.T) {
 	require.Contains(t, err.Error(), "unsupported method unsupportedMethod")
 }
 
-func TestHandleNodeMessage_EmptyID(t *testing.T) {
+func TestUnit_HandleNodeMessage_EmptyID(t *testing.T) {
 	handler := createTestHandler(t)
 	rawRes := json.RawMessage([]byte(`{}`))
 	resp := &jsonrpc.Response[json.RawMessage]{
@@ -365,7 +365,7 @@ func (m *mockResponseCache) DeleteExpired(ctx context.Context) int {
 	return 0
 }
 
-func TestGatewayHandler_Start_CallsDeleteExpired(t *testing.T) {
+func TestUnit_GatewayHandler_Start_CallsDeleteExpired(t *testing.T) {
 	cfg := serviceCfg()
 	cfg.CleanUpPeriodMs = 100 // fast cleanup for test
 
@@ -433,7 +433,7 @@ func createTestHandlerWithConfig(t *testing.T, cfg ServiceConfig) *gatewayHandle
 	return handler
 }
 
-func TestCreateHTTPRequestCallback(t *testing.T) {
+func TestUnit_CreateHTTPRequestCallback(t *testing.T) {
 	ctx := testutils.Context(t)
 
 	requestID := "test-request-id"
@@ -535,7 +535,7 @@ func TestCreateHTTPRequestCallback(t *testing.T) {
 }
 
 // TestMakeOutgoingRequestCachingBehavior tests the specific caching logic in makeOutgoingRequest
-func TestMakeOutgoingRequestCachingBehavior(t *testing.T) {
+func TestUnit_MakeOutgoingRequestCachingBehavior(t *testing.T) {
 	t.Run("MaxAgeMs=0 and Store=true calls Set", func(t *testing.T) {
 		handler := createTestHandler(t)
 		mockCache := newMockResponseCache()
@@ -705,7 +705,7 @@ func expectSuccessfulRequest(mockHTTPClient *httpmocks.HTTPClient, mockDon *hand
 	mockDon.EXPECT().SendToNode(mock.Anything, nodeAddr, mock.Anything).Return(nil).Once()
 }
 
-func TestGatewayHandler_MakeOutgoingRequest_NodeRateLimiting(t *testing.T) {
+func TestUnit_GatewayHandler_MakeOutgoingRequest_NodeRateLimiting(t *testing.T) {
 	t.Run("node rate limiting with AllowVerbose", func(t *testing.T) {
 		cfg := ServiceConfig{
 			NodeRateLimiter: ratelimit.RateLimiterConfig{

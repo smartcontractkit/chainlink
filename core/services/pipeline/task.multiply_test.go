@@ -20,7 +20,7 @@ func mustDecimal(t *testing.T, arg string) *decimal.Decimal {
 	return &ret
 }
 
-func TestMultiplyTask_Happy(t *testing.T) {
+func TestUnit_MultiplyTask_Happy(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
@@ -146,7 +146,7 @@ func TestMultiplyTask_Happy(t *testing.T) {
 	}
 }
 
-func TestMultiplyTask_Unhappy(t *testing.T) {
+func TestUnit_MultiplyTask_Unhappy(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
@@ -184,7 +184,7 @@ func TestMultiplyTask_Unhappy(t *testing.T) {
 	}
 }
 
-func TestMultiplyTask_Overflow(t *testing.T) {
+func TestUnit_MultiplyTask_Overflow(t *testing.T) {
 	t.Parallel()
 
 	d1, err := decimal.NewFromString("6.34e-1147483647")

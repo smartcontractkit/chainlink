@@ -14,7 +14,7 @@ func init() {
 	InitColor(false)
 }
 
-func TestTestLogger(t *testing.T) {
+func TestUnit_TestLogger(t *testing.T) {
 	lgr, observed := TestLoggerObserved(t, zapcore.DebugLevel)
 
 	const (

@@ -10,7 +10,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
-func TestVerifyPasswordComplexity(t *testing.T) {
+func TestUnit_VerifyPasswordComplexity(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
@@ -50,7 +50,7 @@ func TestVerifyPasswordComplexity(t *testing.T) {
 	}
 }
 
-func TestPasswordFromFile(t *testing.T) {
+func TestUnit_PasswordFromFile(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {

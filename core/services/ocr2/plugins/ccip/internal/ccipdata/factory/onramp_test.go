@@ -17,7 +17,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/ccipdata"
 )
 
-func TestOnRamp(t *testing.T) {
+func TestUnit_OnRamp(t *testing.T) {
 	ctx := t.Context()
 	for _, versionStr := range []string{ccipdata.V1_2_0, ccipdata.V1_5_0} {
 		lggr := logger.Test(t)

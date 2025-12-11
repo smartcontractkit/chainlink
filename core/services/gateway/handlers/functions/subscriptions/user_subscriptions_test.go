@@ -11,7 +11,7 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func TestUserSubscriptions(t *testing.T) {
+func TestUnit_UserSubscriptions(t *testing.T) {
 	t.Parallel()
 
 	us := subscriptions.NewUserSubscriptions()
@@ -56,7 +56,7 @@ func TestUserSubscriptions(t *testing.T) {
 	})
 }
 
-func TestUserSubscriptions_UpdateSubscription(t *testing.T) {
+func TestUnit_UserSubscriptions_UpdateSubscription(t *testing.T) {
 	t.Parallel()
 
 	t.Run("update balance", func(t *testing.T) {

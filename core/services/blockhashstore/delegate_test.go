@@ -29,7 +29,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ethkey"
 )
 
-func TestDelegate_JobType(t *testing.T) {
+func TestUnit_Delegate_JobType(t *testing.T) {
 	t.Parallel()
 
 	lggr := logger.TestLogger(t)
@@ -83,7 +83,7 @@ func createTestDelegate(t *testing.T) (*blockhashstore.Delegate, *testData) {
 	}
 }
 
-func TestDelegate_ServicesForSpec(t *testing.T) {
+func TestUnit_Delegate_ServicesForSpec(t *testing.T) {
 	t.Parallel()
 
 	delegate, testData := createTestDelegate(t)
@@ -150,7 +150,7 @@ func TestDelegate_ServicesForSpec(t *testing.T) {
 	})
 }
 
-func TestDelegate_StartStop(t *testing.T) {
+func TestUnit_Delegate_StartStop(t *testing.T) {
 	t.Parallel()
 
 	delegate, testData := createTestDelegate(t)

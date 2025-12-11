@@ -708,7 +708,7 @@ func TestIntegration_KeeperPluginForwarderEnabled(t *testing.T) {
 
 func ptr[T any](v T) *T { return &v }
 
-func TestFilterNamesFromSpec20(t *testing.T) {
+func TestUnit_FilterNamesFromSpec20(t *testing.T) {
 	b := make([]byte, 20)
 	_, err := rand.Read(b)
 	require.NoError(t, err)

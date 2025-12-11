@@ -15,7 +15,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 )
 
-func TestWebAuthnSessionStore(t *testing.T) {
+func TestUnit_WebAuthnSessionStore(t *testing.T) {
 	const key = "test-key"
 	data := webauthn.SessionData{
 		Challenge: "challenge-string",

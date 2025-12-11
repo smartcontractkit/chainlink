@@ -14,7 +14,7 @@ import (
 // Tests in this file only run in dev mode
 // /usr/bin/go test --tags=dev -timeout 360s -run ^TestTOMLGeneralConfig_DevModeInsecureConfig github.com/smartcontractkit/chainlink/v2/core/services/chainlink
 
-func TestTOMLGeneralConfig_DevModeInsecureConfig(t *testing.T) {
+func TestUnit_TOMLGeneralConfig_DevModeInsecureConfig(t *testing.T) {
 	t.Parallel()
 
 	t.Run("all insecure configs are false by default", func(t *testing.T) {

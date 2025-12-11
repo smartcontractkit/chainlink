@@ -102,7 +102,7 @@ var randomExecuteReport = func(t *testing.T, sourceChainSelector uint64) ccipocr
 	return ccipocr3.ExecutePluginReport{ChainReports: chainReports}
 }
 
-func TestExecutePluginCodecV1(t *testing.T) {
+func TestUnit_ExecutePluginCodecV1(t *testing.T) {
 	testCases := []struct {
 		name          string
 		report        func(report ccipocr3.ExecutePluginReport) ccipocr3.ExecutePluginReport
@@ -214,7 +214,7 @@ func TestExecutePluginCodecV1(t *testing.T) {
 	}
 }
 
-func Test_DecodingExecuteReport(t *testing.T) {
+func TestUnit_DecodingExecuteReport(t *testing.T) {
 	mockExtraDataCodec := mocks.NewSourceChainExtraDataCodec(t)
 	mockExtraDataCodec.On("DecodeDestExecDataToMap", mock.Anything, mock.Anything).Return(map[string]any{
 		"destGasAmount": uint32(10),

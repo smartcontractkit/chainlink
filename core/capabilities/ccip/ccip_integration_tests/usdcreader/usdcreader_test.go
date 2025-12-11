@@ -45,7 +45,7 @@ import (
 
 const ChainID = 1337
 
-func Test_USDCReader_MessageHashes(t *testing.T) {
+func TestUnit_USDCReader_MessageHashes(t *testing.T) {
 	finalityDepth := 5
 
 	ctx := testutils.Context(t)

@@ -25,7 +25,7 @@ func (m *mockGetter) Get(dest any, query string, args ...any) error {
 	return nil
 }
 
-func Test_checkVersion(t *testing.T) {
+func TestUnit_checkVersion(t *testing.T) {
 	if time.Now().Year() > 2027 {
 		t.Fatal("Postgres version numbers only registered until 2028, please update the postgres version check using: https://www.postgresql.org/support/versioning/ then fix this test")
 	}

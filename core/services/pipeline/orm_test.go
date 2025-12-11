@@ -83,7 +83,7 @@ func setupLiteORM(t *testing.T) (db *sqlx.DB, orm pipeline.ORM, jorm job.ORM) {
 	return setupORM(t, false)
 }
 
-func Test_PipelineORM_CreateSpec(t *testing.T) {
+func TestUnit_PipelineORM_CreateSpec(t *testing.T) {
 	ctx := testutils.Context(t)
 	db, orm, _ := setupLiteORM(t)
 
@@ -106,7 +106,7 @@ func Test_PipelineORM_CreateSpec(t *testing.T) {
 	assert.Equal(t, maxTaskDuration, actual.MaxTaskDuration)
 }
 
-func Test_PipelineORM_FindRun(t *testing.T) {
+func TestUnit_PipelineORM_FindRun(t *testing.T) {
 	db, orm, _ := setupLiteORM(t)
 
 	_, err := db.Exec(`SET CONSTRAINTS fk_pipeline_runs_pruning_key DEFERRED`)
@@ -180,7 +180,7 @@ answer2 [type=bridge name=election_winner index=1];
 	return run
 }
 
-func TestInsertFinishedRuns(t *testing.T) {
+func TestUnit_InsertFinishedRuns(t *testing.T) {
 	ctx := testutils.Context(t)
 	db, orm, _ := setupLiteORM(t)
 
@@ -240,7 +240,7 @@ func TestInsertFinishedRuns(t *testing.T) {
 	require.NoError(t, err)
 }
 
-func Test_PipelineORM_InsertFinishedRunWithSpec(t *testing.T) {
+func TestUnit_PipelineORM_InsertFinishedRunWithSpec(t *testing.T) {
 	ctx := testutils.Context(t)
 	db, orm, jorm := setupLiteORM(t)
 
@@ -327,7 +327,7 @@ answer2 [type=bridge name=election_winner index=1];
 }
 
 // Tests that inserting run results, then later updating the run results via upsert will work correctly.
-func Test_PipelineORM_StoreRun_ShouldUpsert(t *testing.T) {
+func TestUnit_PipelineORM_StoreRun_ShouldUpsert(t *testing.T) {
 	ctx := testutils.Context(t)
 	_, orm, jorm := setupLiteORM(t)
 
@@ -407,7 +407,7 @@ func Test_PipelineORM_StoreRun_ShouldUpsert(t *testing.T) {
 
 // Tests that trying to persist a partial run while new data became available (i.e. via /v2/restart)
 // will detect a restart and update the result data on the Run.
-func Test_PipelineORM_StoreRun_DetectsRestarts(t *testing.T) {
+func TestUnit_PipelineORM_StoreRun_DetectsRestarts(t *testing.T) {
 	ctx := testutils.Context(t)
 	db, orm, jorm := setupLiteORM(t)
 
@@ -472,7 +472,7 @@ func Test_PipelineORM_StoreRun_DetectsRestarts(t *testing.T) {
 	require.True(t, ds1.FinishedAt.Valid)
 }
 
-func Test_PipelineORM_StoreRun_UpdateTaskRunResult(t *testing.T) {
+func TestUnit_PipelineORM_StoreRun_UpdateTaskRunResult(t *testing.T) {
 	ctx := testutils.Context(t)
 	_, orm, jorm := setupLiteORM(t)
 
@@ -554,7 +554,7 @@ func Test_PipelineORM_StoreRun_UpdateTaskRunResult(t *testing.T) {
 	require.Equal(t, jsonserializable.JSONSerializable{Val: cborOutput, Valid: true}, task2.Output)
 }
 
-func Test_PipelineORM_DeleteRun(t *testing.T) {
+func TestUnit_PipelineORM_DeleteRun(t *testing.T) {
 	ctx := testutils.Context(t)
 	_, orm, jorm := setupLiteORM(t)
 
@@ -597,7 +597,7 @@ func Test_PipelineORM_DeleteRun(t *testing.T) {
 	require.Error(t, err, "not found")
 }
 
-func Test_PipelineORM_DeleteRunsOlderThan(t *testing.T) {
+func TestUnit_PipelineORM_DeleteRunsOlderThan(t *testing.T) {
 	ctx := testutils.Context(t)
 	_, orm, jorm := setupHeavyORM(t)
 
@@ -642,7 +642,7 @@ func Test_PipelineORM_DeleteRunsOlderThan(t *testing.T) {
 	}
 }
 
-func Test_GetUnfinishedRuns_Keepers(t *testing.T) {
+func TestUnit_GetUnfinishedRuns_Keepers(t *testing.T) {
 	t.Parallel()
 	ctx := testutils.Context(t)
 
@@ -745,7 +745,7 @@ func Test_GetUnfinishedRuns_Keepers(t *testing.T) {
 	require.Equal(t, 2, counter)
 }
 
-func Test_GetUnfinishedRuns_DirectRequest(t *testing.T) {
+func TestUnit_GetUnfinishedRuns_DirectRequest(t *testing.T) {
 	t.Parallel()
 	ctx := testutils.Context(t)
 
@@ -840,7 +840,7 @@ func Test_GetUnfinishedRuns_DirectRequest(t *testing.T) {
 	require.Equal(t, 1, counter)
 }
 
-func Test_Prune(t *testing.T) {
+func TestUnit_Prune(t *testing.T) {
 	t.Parallel()
 
 	n := uint64(2)

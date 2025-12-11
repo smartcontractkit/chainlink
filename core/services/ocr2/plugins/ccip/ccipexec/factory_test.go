@@ -23,7 +23,7 @@ import (
 // NewReportingPlugin makes several calls (e.g. OffRampReader.ChangeConfig()) that can fail. We use mocks to cause the
 // first call to each of these functions to fail, then all subsequent calls succeed. We assert that NewReportingPlugin
 // retries a sufficient number of times to get through the transient errors and eventually succeed.
-func TestNewReportingPluginRetriesUntilSuccess(t *testing.T) {
+func TestUnit_NewReportingPluginRetriesUntilSuccess(t *testing.T) {
 	ctx := t.Context()
 	execConfig := ExecutionPluginStaticConfig{}
 	execConfig.lggr = logger.TestLogger(t)

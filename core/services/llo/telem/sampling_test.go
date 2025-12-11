@@ -18,7 +18,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/synchronization"
 )
 
-func TestFingerprint(t *testing.T) {
+func TestUnit_Fingerprint(t *testing.T) {
 	t.Parallel()
 
 	ot := time.Now()
@@ -111,7 +111,7 @@ func TestFingerprint(t *testing.T) {
 }
 
 // TestSample ensures Sample() correctly chooses which messages to send.
-func TestSample(t *testing.T) {
+func TestUnit_Sample(t *testing.T) {
 	t.Parallel()
 
 	lggr := logger.TestSugared(t)
@@ -141,7 +141,7 @@ func TestSample(t *testing.T) {
 }
 
 // TestPruningLoop ensures the pruning loop works as expected.
-func TestPruningLoop(t *testing.T) {
+func TestUnit_PruningLoop(t *testing.T) {
 	t.Parallel()
 
 	lggr := logger.TestSugared(t)
@@ -191,7 +191,7 @@ func TestPruningLoop(t *testing.T) {
 }
 
 // TestPruningLoop_Exits ensures the pruning loop exits when its context is cancelled and doesn't leak goroutines.
-func TestPruningLoop_Exits(t *testing.T) {
+func TestUnit_PruningLoop_Exits(t *testing.T) {
 	t.Parallel()
 
 	lggr := logger.TestSugared(t)

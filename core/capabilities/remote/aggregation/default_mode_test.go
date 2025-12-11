@@ -15,7 +15,7 @@ var (
 	triggerEvent2 = map[string]any{"event": "triggerEvent2"}
 )
 
-func TestDefaultModeAggregator_Aggregate(t *testing.T) {
+func TestUnit_DefaultModeAggregator_Aggregate(t *testing.T) {
 	val, err := values.NewMap(triggerEvent1)
 	require.NoError(t, err)
 	capResponse1 := commoncap.TriggerResponse{

@@ -19,7 +19,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/p2p/wrapper"
 )
 
-func TestPeerWrapper_CleanStartClose(t *testing.T) {
+func TestUnit_PeerWrapper_CleanStartClose(t *testing.T) {
 	db := pgtest.NewSqlxDB(t)
 
 	lggr := logger.TestLogger(t)

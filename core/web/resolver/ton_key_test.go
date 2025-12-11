@@ -12,7 +12,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/tonkey"
 )
 
-func TestResolver_TONKeys(t *testing.T) {
+func TestUnit_Resolver_TONKeys(t *testing.T) {
 	t.Parallel()
 
 	query := `

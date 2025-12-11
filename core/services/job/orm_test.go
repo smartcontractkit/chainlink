@@ -25,7 +25,7 @@ func NewTestORM(t *testing.T, ds sqlutil.DataSource, pipelineORM pipeline.ORM, b
 	return o
 }
 
-func TestLoadConfigVarsLocalOCR(t *testing.T) {
+func TestUnit_LoadConfigVarsLocalOCR(t *testing.T) {
 	t.Parallel()
 
 	config := configtest.NewTestGeneralConfig(t)
@@ -46,7 +46,7 @@ func TestLoadConfigVarsLocalOCR(t *testing.T) {
 	require.Equal(t, sqlutil.Interval(chainConfig.EVM().OCR().ContractTransmitterTransmitTimeout()), *jobSpec.ContractTransmitterTransmitTimeout)
 }
 
-func TestSetDRMinIncomingConfirmations(t *testing.T) {
+func TestUnit_SetDRMinIncomingConfirmations(t *testing.T) {
 	t.Parallel()
 
 	config := configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {

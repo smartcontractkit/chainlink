@@ -12,7 +12,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
 
-func TestRetryableZeroMaxRetries(t *testing.T) {
+func TestUnit_RetryableZeroMaxRetries(t *testing.T) {
 	t.Parallel()
 
 	ctx, cancel := context.WithTimeout(context.Background(), 500*time.Millisecond)
@@ -26,7 +26,7 @@ func TestRetryableZeroMaxRetries(t *testing.T) {
 	assert.ErrorIs(t, err, context.DeadlineExceeded, "Expected context deadline exceeded error")
 }
 
-func TestRetryableSuccessOnFirstAttempt(t *testing.T) {
+func TestUnit_RetryableSuccessOnFirstAttempt(t *testing.T) {
 	t.Parallel()
 
 	ctx := t.Context()
@@ -39,7 +39,7 @@ func TestRetryableSuccessOnFirstAttempt(t *testing.T) {
 	require.NoError(t, err, "Expected no error as function succeeds on first attempt")
 }
 
-func TestRetryableSuccessAfterRetries(t *testing.T) {
+func TestUnit_RetryableSuccessAfterRetries(t *testing.T) {
 	t.Parallel()
 
 	ctx := t.Context()
@@ -58,7 +58,7 @@ func TestRetryableSuccessAfterRetries(t *testing.T) {
 	assert.Equal(t, 2, retries, "Expected two retries before success")
 }
 
-func TestRetryableErrorOnFirstTryNoRetries(t *testing.T) {
+func TestUnit_RetryableErrorOnFirstTryNoRetries(t *testing.T) {
 	t.Parallel()
 
 	ctx := t.Context()
@@ -72,7 +72,7 @@ func TestRetryableErrorOnFirstTryNoRetries(t *testing.T) {
 	assert.Equal(t, "max retries (1) reached, aborting", err.Error(), "Expected function to abort after the first try")
 }
 
-func TestRetryableErrorAfterMultipleRetries(t *testing.T) {
+func TestUnit_RetryableErrorAfterMultipleRetries(t *testing.T) {
 	t.Parallel()
 
 	ctx := t.Context()
@@ -90,7 +90,7 @@ func TestRetryableErrorAfterMultipleRetries(t *testing.T) {
 	assert.Equal(t, maxRetries+1, attempts, "Expected the function to be executed retry + 1 times")
 }
 
-func TestRetryableCancellationHandling(t *testing.T) {
+func TestUnit_RetryableCancellationHandling(t *testing.T) {
 	t.Parallel()
 
 	ctx, cancel := context.WithCancel(context.Background())

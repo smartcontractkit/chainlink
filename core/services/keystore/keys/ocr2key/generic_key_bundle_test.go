@@ -30,7 +30,7 @@ type (
 	}
 )
 
-func TestGenericKeyBundle_Migrate_UnmarshalMarshal(t *testing.T) {
+func TestUnit_GenericKeyBundle_Migrate_UnmarshalMarshal(t *testing.T) {
 	// offchain key
 	offKey, err := newOffchainKeyring(cryptorand.Reader, cryptorand.Reader)
 	require.NoError(t, err)

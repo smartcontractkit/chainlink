@@ -96,7 +96,7 @@ var randomExecuteReport = func(t *testing.T, d *testSetupData, chainSelector uin
 	return cciptypes.ExecutePluginReport{ChainReports: chainReports}
 }
 
-func TestExecutePluginCodecV1(t *testing.T) {
+func TestUnit_ExecutePluginCodecV1(t *testing.T) {
 	d := testSetup(t)
 	ctx := testutils.Context(t)
 	mockExtraDataCodec := mocks.NewSourceChainExtraDataCodec(t)
@@ -230,7 +230,7 @@ func TestExecutePluginCodecV1(t *testing.T) {
 	}
 }
 
-func Test_DecodeReport(t *testing.T) {
+func TestUnit_DecodeReport(t *testing.T) {
 	offRampABI, err := offramp.OffRampMetaData.GetAbi()
 	require.NoError(t, err)
 

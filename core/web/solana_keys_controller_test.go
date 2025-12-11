@@ -15,7 +15,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/web/presenters"
 )
 
-func TestSolanaKeysController_Index_HappyPath(t *testing.T) {
+func TestUnit_SolanaKeysController_Index_HappyPath(t *testing.T) {
 	t.Parallel()
 
 	client, keyStore := setupSolanaKeysControllerTests(t)
@@ -35,7 +35,7 @@ func TestSolanaKeysController_Index_HappyPath(t *testing.T) {
 	assert.Equal(t, keys[0].PublicKeyStr(), resources[0].PubKey)
 }
 
-func TestSolanaKeysController_Create_HappyPath(t *testing.T) {
+func TestUnit_SolanaKeysController_Create_HappyPath(t *testing.T) {
 	t.Parallel()
 
 	app := cltest.NewApplicationEVMDisabled(t)
@@ -61,7 +61,7 @@ func TestSolanaKeysController_Create_HappyPath(t *testing.T) {
 	require.NoError(t, err)
 }
 
-func TestSolanaKeysController_Delete_NonExistentSolanaKeyID(t *testing.T) {
+func TestUnit_SolanaKeysController_Delete_NonExistentSolanaKeyID(t *testing.T) {
 	t.Parallel()
 
 	client, _ := setupSolanaKeysControllerTests(t)
@@ -72,7 +72,7 @@ func TestSolanaKeysController_Delete_NonExistentSolanaKeyID(t *testing.T) {
 	assert.Equal(t, http.StatusNotFound, response.StatusCode)
 }
 
-func TestSolanaKeysController_Delete_HappyPath(t *testing.T) {
+func TestUnit_SolanaKeysController_Delete_HappyPath(t *testing.T) {
 	t.Parallel()
 	ctx := testutils.Context(t)
 

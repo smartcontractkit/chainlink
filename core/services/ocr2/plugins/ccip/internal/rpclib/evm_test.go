@@ -21,7 +21,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/rpclib"
 )
 
-func TestDefaultEvmBatchCaller_BatchCallDynamicLimit(t *testing.T) {
+func TestUnit_DefaultEvmBatchCaller_BatchCallDynamicLimit(t *testing.T) {
 	testCases := []struct {
 		name                          string
 		maxBatchSize                  uint
@@ -103,7 +103,7 @@ func TestDefaultEvmBatchCaller_BatchCallDynamicLimit(t *testing.T) {
 	}
 }
 
-func TestDefaultEvmBatchCaller_batchCallLimit(t *testing.T) {
+func TestUnit_DefaultEvmBatchCaller_batchCallLimit(t *testing.T) {
 	ctx := testutils.Context(t)
 
 	testCases := []struct {
@@ -159,7 +159,7 @@ func TestDefaultEvmBatchCaller_batchCallLimit(t *testing.T) {
 	}
 }
 
-func TestParseOutput(t *testing.T) {
+func TestUnit_ParseOutput(t *testing.T) {
 	type testCase[T any] struct {
 		name       string
 		dataAndErr rpclib.DataAndErr

@@ -16,7 +16,7 @@ import (
 	"github.com/smartcontractkit/chainlink-evm/pkg/utils/big"
 )
 
-func TestEVMForwarderResource(t *testing.T) {
+func TestUnit_EVMForwarderResource(t *testing.T) {
 	var (
 		ID        = int64(1)
 		address   = utils.RandomAddress()

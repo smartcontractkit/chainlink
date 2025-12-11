@@ -20,7 +20,7 @@ import (
 	proof2 "github.com/smartcontractkit/chainlink/v2/core/services/vrf/proof"
 )
 
-func TestMarshaledProof(t *testing.T) {
+func TestUnit_MarshaledProof(t *testing.T) {
 	ctx := testutils.Context(t)
 	db := pgtest.NewSqlxDB(t)
 	keyStore := cltest.NewKeyStore(t, db)

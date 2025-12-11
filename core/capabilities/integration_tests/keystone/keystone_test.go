@@ -22,11 +22,11 @@ import (
 	reporttypes "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury/v3/types"
 )
 
-func Test_AllAtOnceTransmissionSchedule(t *testing.T) {
+func TestUnit_AllAtOnceTransmissionSchedule(t *testing.T) {
 	testTransmissionSchedule(t, "2s", "allAtOnce")
 }
 
-func Test_OneAtATimeTransmissionSchedule(t *testing.T) {
+func TestUnit_OneAtATimeTransmissionSchedule(t *testing.T) {
 	testTransmissionSchedule(t, "2s", "oneAtATime")
 }
 

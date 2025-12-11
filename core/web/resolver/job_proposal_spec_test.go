@@ -11,7 +11,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/feeds"
 )
 
-func TestResolver_ApproveJobProposalSpec(t *testing.T) {
+func TestUnit_Resolver_ApproveJobProposalSpec(t *testing.T) {
 	t.Parallel()
 
 	mutation := `
@@ -119,7 +119,7 @@ func TestResolver_ApproveJobProposalSpec(t *testing.T) {
 	RunGQLTests(t, testCases)
 }
 
-func TestResolver_CancelJobProposalSpec(t *testing.T) {
+func TestUnit_Resolver_CancelJobProposalSpec(t *testing.T) {
 	t.Parallel()
 
 	mutation := `
@@ -206,7 +206,7 @@ func TestResolver_CancelJobProposalSpec(t *testing.T) {
 	RunGQLTests(t, testCases)
 }
 
-func TestResolver_RejectJobProposalSpec(t *testing.T) {
+func TestUnit_Resolver_RejectJobProposalSpec(t *testing.T) {
 	t.Parallel()
 
 	mutation := `
@@ -293,7 +293,7 @@ func TestResolver_RejectJobProposalSpec(t *testing.T) {
 	RunGQLTests(t, testCases)
 }
 
-func TestResolver_UpdateJobProposalSpecDefinition(t *testing.T) {
+func TestUnit_Resolver_UpdateJobProposalSpecDefinition(t *testing.T) {
 	t.Parallel()
 
 	mutation := `
@@ -385,7 +385,7 @@ func TestResolver_UpdateJobProposalSpecDefinition(t *testing.T) {
 
 // Tests resolving a job proposal spec. Since there is not GetJobProposalSpec
 // query, we rely on the GetJobProposal query to fetch the nested specs
-func TestResolver_GetJobProposal_Spec(t *testing.T) {
+func TestUnit_Resolver_GetJobProposal_Spec(t *testing.T) {
 	t.Parallel()
 
 	timestamp := time.Date(2021, 1, 1, 0, 0, 0, 0, time.UTC)

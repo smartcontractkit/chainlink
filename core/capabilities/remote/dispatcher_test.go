@@ -79,7 +79,7 @@ func (c testConfig) SendToSharedPeer() bool {
 	return c.sendToSharedPeer
 }
 
-func TestDispatcher_CleanStartClose(t *testing.T) {
+func TestUnit_Dispatcher_CleanStartClose(t *testing.T) {
 	lggr := logger.Test(t)
 	ctx := testutils.Context(t)
 	peer := mocks.NewPeer(t)
@@ -98,7 +98,7 @@ func TestDispatcher_CleanStartClose(t *testing.T) {
 	require.NoError(t, dispatcher.Close())
 }
 
-func TestDispatcher_Receive(t *testing.T) {
+func TestUnit_Dispatcher_Receive(t *testing.T) {
 	lggr := logger.Test(t)
 	ctx := testutils.Context(t)
 	privKey1, peerID1 := newKeyPair(t)
@@ -143,7 +143,7 @@ func TestDispatcher_Receive(t *testing.T) {
 	require.NoError(t, dispatcher.Close())
 }
 
-func TestDispatcher_ReceiveForMethod(t *testing.T) {
+func TestUnit_Dispatcher_ReceiveForMethod(t *testing.T) {
 	lggr := logger.Test(t)
 	ctx := testutils.Context(t)
 	privKey1, peerID1 := newKeyPair(t)
@@ -195,7 +195,7 @@ func TestDispatcher_ReceiveForMethod(t *testing.T) {
 	require.NoError(t, dispatcher.Close())
 }
 
-func TestDispatcher_RespondWithError(t *testing.T) {
+func TestUnit_Dispatcher_RespondWithError(t *testing.T) {
 	lggr := logger.Test(t)
 	ctx := testutils.Context(t)
 	privKey1, peerID1 := newKeyPair(t)
@@ -229,7 +229,7 @@ func TestDispatcher_RespondWithError(t *testing.T) {
 	require.NoError(t, dispatcher.Close())
 }
 
-func TestDispatcher_ReceiveFromBothPeers(t *testing.T) {
+func TestUnit_Dispatcher_ReceiveFromBothPeers(t *testing.T) {
 	lggr := logger.Test(t)
 	ctx := testutils.Context(t)
 	privKey1, peerID1 := newKeyPair(t)
@@ -270,7 +270,7 @@ func TestDispatcher_ReceiveFromBothPeers(t *testing.T) {
 	require.NoError(t, dispatcher.Close())
 }
 
-func TestDispatcher_SendToSharedPeer(t *testing.T) {
+func TestUnit_Dispatcher_SendToSharedPeer(t *testing.T) {
 	lggr := logger.Test(t)
 	ctx := testutils.Context(t)
 	_, peerID1 := newKeyPair(t)

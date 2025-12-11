@@ -39,7 +39,7 @@ var (
 	}
 )
 
-func TestVRFParseRandomnessRequestLog(t *testing.T) {
+func TestUnit_VRFParseRandomnessRequestLog(t *testing.T) {
 	r := solidity_cross_tests.RawRandomnessRequestLogToRandomnessRequestLog(&raw)
 	rawLog, err := r.RawData()
 	require.NoError(t, err)

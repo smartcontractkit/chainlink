@@ -10,7 +10,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/api"
 )
 
-func TestMessage_Validate(t *testing.T) {
+func TestUnit_Message_Validate(t *testing.T) {
 	msg := &api.Message{
 		Body: api.MessageBody{
 			MessageId: "abcd",
@@ -69,7 +69,7 @@ func TestMessage_Validate(t *testing.T) {
 	require.Error(t, msg.Validate())
 }
 
-func TestMessage_MessageSignAndValidateSignature(t *testing.T) {
+func TestUnit_Message_MessageSignAndValidateSignature(t *testing.T) {
 	t.Parallel()
 
 	msg := &api.Message{

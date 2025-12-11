@@ -19,7 +19,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
 
-func Test_Client(t *testing.T) {
+func TestUnit_Client(t *testing.T) {
 	clientPrivKey := ed25519.NewKeyFromSeed(randomBytes(t, 32))
 	serverPrivKey := ed25519.NewKeyFromSeed(randomBytes(t, 32))
 

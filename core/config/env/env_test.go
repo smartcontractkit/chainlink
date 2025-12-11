@@ -6,7 +6,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestNewPlugin(t *testing.T) {
+func TestUnit_NewPlugin(t *testing.T) {
 	for _, tt := range []struct {
 		name string
 		kind string

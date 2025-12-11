@@ -14,7 +14,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evmregistry/v21/core"
 )
 
-func TestActiveUpkeepList(t *testing.T) {
+func TestUnit_ActiveUpkeepList(t *testing.T) {
 	logIDs := []ocr2keepers.UpkeepIdentifier{
 		core.GenUpkeepID(types.LogTrigger, "0"),
 		core.GenUpkeepID(types.LogTrigger, "1"),
@@ -92,7 +92,7 @@ func TestActiveUpkeepList(t *testing.T) {
 	}
 }
 
-func TestActiveUpkeepList_error(t *testing.T) {
+func TestUnit_ActiveUpkeepList_error(t *testing.T) {
 	t.Run("if invalid or negative numbers are in the store, they are excluded from the view operation", func(t *testing.T) {
 		al := &activeList{}
 		al.items = make(map[string]bool)

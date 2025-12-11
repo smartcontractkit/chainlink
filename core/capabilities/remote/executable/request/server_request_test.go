@@ -21,7 +21,7 @@ import (
 	p2ptypes "github.com/smartcontractkit/chainlink/v2/core/services/p2p/types"
 )
 
-func Test_ServerRequest_MessageValidation(t *testing.T) {
+func TestUnit_ServerRequest_MessageValidation(t *testing.T) {
 	lggr := logger.Test(t)
 	capability := TestCapability{}
 	capabilityPeerID := NewP2PPeerID(t)

@@ -9,6 +9,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 )
 
-func TestDocsTOMLComplete(t *testing.T) {
+func TestUnit_DocsTOMLComplete(t *testing.T) {
 	configtest.AssertDocsTOMLComplete[chainlink.Config](t, docs.DocsTOML)
 }

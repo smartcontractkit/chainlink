@@ -20,7 +20,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestSessionsController_Create(t *testing.T) {
+func TestUnit_SessionsController_Create(t *testing.T) {
 	t.Parallel()
 	ctx := testutils.Context(t)
 
@@ -86,7 +86,7 @@ func mustInsertSession(t *testing.T, ds sqlutil.DataSource, session *sessions.Se
 	require.NoError(t, err)
 }
 
-func TestSessionsController_Create_ReapSessions(t *testing.T) {
+func TestUnit_SessionsController_Create_ReapSessions(t *testing.T) {
 	t.Parallel()
 
 	ctx := testutils.Context(t)
@@ -123,7 +123,7 @@ func TestSessionsController_Create_ReapSessions(t *testing.T) {
 	}
 }
 
-func TestSessionsController_Destroy(t *testing.T) {
+func TestUnit_SessionsController_Destroy(t *testing.T) {
 	t.Parallel()
 	ctx := testutils.Context(t)
 
@@ -168,7 +168,7 @@ func TestSessionsController_Destroy(t *testing.T) {
 	}
 }
 
-func TestSessionsController_Destroy_ReapSessions(t *testing.T) {
+func TestUnit_SessionsController_Destroy_ReapSessions(t *testing.T) {
 	t.Parallel()
 	ctx := testutils.Context(t)
 

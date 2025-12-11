@@ -10,7 +10,7 @@ import (
 	"google.golang.org/protobuf/proto"
 )
 
-func TestS4ConfigDecoder(t *testing.T) {
+func TestUnit_S4ConfigDecoder(t *testing.T) {
 	t.Parallel()
 
 	configProto := &config.ReportingPluginConfig{

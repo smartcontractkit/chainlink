@@ -15,7 +15,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/ccipdata/mocks"
 )
 
-func TestFeeEstimatorConfigService(t *testing.T) {
+func TestUnit_FeeEstimatorConfigService(t *testing.T) {
 	svc := estimatorconfig.NewFeeEstimatorConfigService()
 	ctx := context.Background()
 
@@ -50,7 +50,7 @@ func TestFeeEstimatorConfigService(t *testing.T) {
 	require.Error(t, err)
 }
 
-func TestModifyGasPriceComponents(t *testing.T) {
+func TestUnit_ModifyGasPriceComponents(t *testing.T) {
 	t.Run("success modification", func(t *testing.T) {
 		svc := estimatorconfig.NewFeeEstimatorConfigService()
 		ctx := context.Background()

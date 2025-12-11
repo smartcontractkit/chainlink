@@ -12,7 +12,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
-func Test_EncryptedPrivateKey(t *testing.T) {
+func TestUnit_EncryptedPrivateKey(t *testing.T) {
 	t.Parallel()
 
 	privatekey := []byte("privatekey")
@@ -26,7 +26,7 @@ func Test_EncryptedPrivateKey(t *testing.T) {
 	assert.Equal(t, privatekey, actual)
 }
 
-func Test_EncryptedPrivateKey_Decrypt(t *testing.T) {
+func TestUnit_EncryptedPrivateKey_Decrypt(t *testing.T) {
 	t.Parallel()
 
 	passphrase := []byte("passphrase")
@@ -43,7 +43,7 @@ func Test_EncryptedPrivateKey_Decrypt(t *testing.T) {
 	assert.Equal(t, []byte(privkey), actual)
 }
 
-func Test_EncryptedPrivateKey_Scan(t *testing.T) {
+func TestUnit_EncryptedPrivateKey_Scan(t *testing.T) {
 	t.Parallel()
 
 	_, privKey, err := ed25519.GenerateKey(nil)
@@ -74,7 +74,7 @@ func Test_EncryptedPrivateKey_Scan(t *testing.T) {
 	assert.JSONEq(t, string(expPrivKey), string(actPrivKey))
 }
 
-func Test_EncryptedPrivateKey_Value(t *testing.T) {
+func TestUnit_EncryptedPrivateKey_Value(t *testing.T) {
 	t.Parallel()
 
 	_, privKey, err := ed25519.GenerateKey(nil)

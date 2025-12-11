@@ -19,7 +19,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evmregistry/v21/encoding"
 )
 
-func TestGenerateHMACFn(t *testing.T) {
+func TestUnit_GenerateHMACFn(t *testing.T) {
 	testCases := []struct {
 		name     string
 		method   string
@@ -63,7 +63,7 @@ func TestGenerateHMACFn(t *testing.T) {
 	}
 }
 
-func TestPacker_DecodeStreamsLookupRequest(t *testing.T) {
+func TestUnit_Packer_DecodeStreamsLookupRequest(t *testing.T) {
 	tests := []struct {
 		name     string
 		data     []byte
@@ -101,7 +101,7 @@ func TestPacker_DecodeStreamsLookupRequest(t *testing.T) {
 	}
 }
 
-func TestPacker_UnpackGetUpkeepPrivilegeConfig(t *testing.T) {
+func TestUnit_Packer_UnpackGetUpkeepPrivilegeConfig(t *testing.T) {
 	tests := []struct {
 		name    string
 		raw     []byte
@@ -150,7 +150,7 @@ func TestPacker_UnpackGetUpkeepPrivilegeConfig(t *testing.T) {
 	}
 }
 
-func TestPacker_PackGetUpkeepPrivilegeConfig(t *testing.T) {
+func TestUnit_Packer_PackGetUpkeepPrivilegeConfig(t *testing.T) {
 	tests := []struct {
 		name     string
 		upkeepId *big.Int
@@ -190,7 +190,7 @@ func TestPacker_PackGetUpkeepPrivilegeConfig(t *testing.T) {
 	}
 }
 
-func TestPacker_UnpackCheckCallbackResult(t *testing.T) {
+func TestUnit_Packer_UnpackCheckCallbackResult(t *testing.T) {
 	tests := []struct {
 		Name          string
 		CallbackResp  []byte
@@ -246,7 +246,7 @@ func TestPacker_UnpackCheckCallbackResult(t *testing.T) {
 	}
 }
 
-func TestPacker_PackUserCheckErrorHandler(t *testing.T) {
+func TestUnit_Packer_PackUserCheckErrorHandler(t *testing.T) {
 	tests := []struct {
 		name      string
 		errCode   encoding.ErrCode
@@ -284,7 +284,7 @@ func TestPacker_PackUserCheckErrorHandler(t *testing.T) {
 	}
 }
 
-func Test_CalculateRetryConfigFn(t *testing.T) {
+func TestUnit_CalculateRetryConfigFn(t *testing.T) {
 	tests := []struct {
 		name       string
 		times      int

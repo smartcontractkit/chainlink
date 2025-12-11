@@ -8,7 +8,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestParseEnvFile(t *testing.T) {
+func TestUnit_ParseEnvFile(t *testing.T) {
 	t.Run("valid", func(t *testing.T) {
 		got, err := ParseEnvFile("testdata/valid.env")
 		require.NoError(t, err)

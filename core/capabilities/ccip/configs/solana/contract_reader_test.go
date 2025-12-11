@@ -9,7 +9,7 @@ import (
 	"github.com/smartcontractkit/chainlink-solana/pkg/solana/config"
 )
 
-func TestContractReaderConfigRaw(t *testing.T) {
+func TestUnit_ContractReaderConfigRaw(t *testing.T) {
 	cfg, err := DestContractReaderConfig()
 	require.NoError(t, err)
 

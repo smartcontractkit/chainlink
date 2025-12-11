@@ -29,7 +29,7 @@ func (c sessionReaperConfig) SessionReaperExpiration() commonconfig.Duration {
 	return *commonconfig.MustNewDuration(142 * time.Second)
 }
 
-func TestSessionReaper_ReapSessions(t *testing.T) {
+func TestUnit_SessionReaper_ReapSessions(t *testing.T) {
 	t.Parallel()
 
 	db := pgtest.NewSqlxDB(t)

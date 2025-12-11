@@ -20,7 +20,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/s4/mocks"
 )
 
-func TestGetSnapshotEmpty(t *testing.T) {
+func TestUnit_GetSnapshotEmpty(t *testing.T) {
 	t.Run("OK-no_rows", func(t *testing.T) {
 		ctx := testutils.Context(t)
 		psqlORM := setupORM(t, "test")
@@ -33,7 +33,7 @@ func TestGetSnapshotEmpty(t *testing.T) {
 	})
 }
 
-func TestGetSnapshotCacheFilled(t *testing.T) {
+func TestUnit_GetSnapshotCacheFilled(t *testing.T) {
 	t.Run("OK_with_rows_already_cached", func(t *testing.T) {
 		ctx := testutils.Context(t)
 		rows := generateTestSnapshotRows(t, 100)
@@ -76,7 +76,7 @@ func TestGetSnapshotCacheFilled(t *testing.T) {
 	})
 }
 
-func TestUpdateInvalidatesSnapshotCache(t *testing.T) {
+func TestUnit_UpdateInvalidatesSnapshotCache(t *testing.T) {
 	t.Run("OK-GetSnapshot_cache_invalidated_after_update", func(t *testing.T) {
 		ctx := testutils.Context(t)
 		rows := generateTestSnapshotRows(t, 100)
@@ -167,7 +167,7 @@ func TestUpdateInvalidatesSnapshotCache(t *testing.T) {
 	})
 }
 
-func TestGet(t *testing.T) {
+func TestUnit_Get(t *testing.T) {
 	address := big.New(testutils.NewAddress().Big())
 	var slotID uint = 1
 
@@ -199,7 +199,7 @@ func TestGet(t *testing.T) {
 	})
 }
 
-func TestDeletedExpired(t *testing.T) {
+func TestUnit_DeletedExpired(t *testing.T) {
 	var limit uint = 1
 	now := time.Now()
 
@@ -230,7 +230,7 @@ func TestDeletedExpired(t *testing.T) {
 }
 
 // GetUnconfirmedRows(limit uint, qopts ...pg.QOpt) ([]*Row, error)
-func TestGetUnconfirmedRows(t *testing.T) {
+func TestUnit_GetUnconfirmedRows(t *testing.T) {
 	var limit uint = 1
 	lggr := logger.TestLogger(t)
 

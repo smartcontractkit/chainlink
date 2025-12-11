@@ -60,7 +60,7 @@ func (u userFindSuccesser) FindUserByAPIToken(ctx context.Context, token string)
 	return u.user, nil
 }
 
-func TestAuthenticateByToken_Success(t *testing.T) {
+func TestUnit_AuthenticateByToken_Success(t *testing.T) {
 	user := cltest.MustRandomUser(t)
 	key, secret := uuid.New().String(), uuid.New().String()
 	apiToken := auth.Token{AccessKey: key, Secret: secret}
@@ -86,7 +86,7 @@ func TestAuthenticateByToken_Success(t *testing.T) {
 	assert.Equal(t, http.StatusText(http.StatusOK), http.StatusText(w.Code))
 }
 
-func TestAuthenticateByToken_AuthFailed(t *testing.T) {
+func TestUnit_AuthenticateByToken_AuthFailed(t *testing.T) {
 	authr := userFindFailer{err: auth.ErrorAuthFailed}
 
 	called := false
@@ -107,7 +107,7 @@ func TestAuthenticateByToken_AuthFailed(t *testing.T) {
 	assert.Equal(t, http.StatusText(http.StatusUnauthorized), http.StatusText(w.Code))
 }
 
-func TestAuthenticateByToken_RejectsBlankAccessKey(t *testing.T) {
+func TestUnit_AuthenticateByToken_RejectsBlankAccessKey(t *testing.T) {
 	user := cltest.MustRandomUser(t)
 	key, secret := "", uuid.New().String()
 	apiToken := auth.Token{AccessKey: key, Secret: secret}
@@ -133,7 +133,7 @@ func TestAuthenticateByToken_RejectsBlankAccessKey(t *testing.T) {
 	assert.Equal(t, http.StatusText(http.StatusUnauthorized), http.StatusText(w.Code))
 }
 
-func TestRequireAuth_NoneRequired(t *testing.T) {
+func TestUnit_RequireAuth_NoneRequired(t *testing.T) {
 	called := false
 	var authr webauth.Authenticator
 
@@ -152,7 +152,7 @@ func TestRequireAuth_NoneRequired(t *testing.T) {
 	assert.Equal(t, http.StatusText(http.StatusOK), http.StatusText(w.Code))
 }
 
-func TestRequireAuth_AuthFailed(t *testing.T) {
+func TestUnit_RequireAuth_AuthFailed(t *testing.T) {
 	called := false
 	var authr webauth.Authenticator
 	router := gin.New()
@@ -170,7 +170,7 @@ func TestRequireAuth_AuthFailed(t *testing.T) {
 	assert.Equal(t, http.StatusText(http.StatusUnauthorized), http.StatusText(w.Code))
 }
 
-func TestRequireAuth_LastAuthSuccess(t *testing.T) {
+func TestUnit_RequireAuth_LastAuthSuccess(t *testing.T) {
 	called := false
 	var authr webauth.Authenticator
 	router := gin.New()
@@ -188,7 +188,7 @@ func TestRequireAuth_LastAuthSuccess(t *testing.T) {
 	assert.Equal(t, http.StatusText(http.StatusOK), http.StatusText(w.Code))
 }
 
-func TestRequireAuth_Error(t *testing.T) {
+func TestUnit_RequireAuth_Error(t *testing.T) {
 	called := false
 	var authr webauth.Authenticator
 	router := gin.New()
@@ -342,7 +342,7 @@ var routesRolesMap = [...]routeRules{
 // because hitting the handler are not mocked and will crash as expected
 // Iterate over the above routesRolesMap and assert each path is wrapped and
 // the user role is enforced with the correct middleware
-func TestRBAC_Routemap_Admin(t *testing.T) {
+func TestUnit_RBAC_Routemap_Admin(t *testing.T) {
 	app := cltest.NewApplicationEVMDisabled(t)
 	require.NoError(t, app.Start(testutils.Context(t)))
 
@@ -380,7 +380,7 @@ func TestRBAC_Routemap_Admin(t *testing.T) {
 	}
 }
 
-func TestRBAC_Routemap_Edit(t *testing.T) {
+func TestUnit_RBAC_Routemap_Edit(t *testing.T) {
 	app := cltest.NewApplicationEVMDisabled(t)
 	require.NoError(t, app.Start(testutils.Context(t)))
 
@@ -427,7 +427,7 @@ func TestRBAC_Routemap_Edit(t *testing.T) {
 	}
 }
 
-func TestRBAC_Routemap_Run(t *testing.T) {
+func TestUnit_RBAC_Routemap_Run(t *testing.T) {
 	app := cltest.NewApplicationEVMDisabled(t)
 	require.NoError(t, app.Start(testutils.Context(t)))
 
@@ -474,7 +474,7 @@ func TestRBAC_Routemap_Run(t *testing.T) {
 	}
 }
 
-func TestRBAC_Routemap_ViewOnly(t *testing.T) {
+func TestUnit_RBAC_Routemap_ViewOnly(t *testing.T) {
 	app := cltest.NewApplicationEVMDisabled(t)
 	require.NoError(t, app.Start(testutils.Context(t)))
 

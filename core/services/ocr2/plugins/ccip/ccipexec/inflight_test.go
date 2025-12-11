@@ -10,7 +10,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
 
-func TestInflightReportsContainer_add(t *testing.T) {
+func TestUnit_InflightReportsContainer_add(t *testing.T) {
 	lggr := logger.TestLogger(t)
 	container := newInflightExecReportsContainer(time.Second)
 
@@ -26,7 +26,7 @@ func TestInflightReportsContainer_add(t *testing.T) {
 	require.Len(t, container.getAll(), 1)
 }
 
-func TestInflightReportsContainer_expire(t *testing.T) {
+func TestUnit_InflightReportsContainer_expire(t *testing.T) {
 	lggr := logger.TestLogger(t)
 	container := newInflightExecReportsContainer(time.Second)
 

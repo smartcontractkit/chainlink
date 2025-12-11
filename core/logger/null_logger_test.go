@@ -9,7 +9,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
 
-func TestNullLogger(t *testing.T) {
+func TestUnit_NullLogger(t *testing.T) {
 	t.Parallel()
 
 	t.Run("names", func(t *testing.T) {

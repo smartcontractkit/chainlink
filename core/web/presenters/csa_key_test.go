@@ -11,7 +11,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/csakey"
 )
 
-func TestCSAKeyResource(t *testing.T) {
+func TestUnit_CSAKeyResource(t *testing.T) {
 	keyV2, err := csakey.NewV2()
 	require.NoError(t, err)
 

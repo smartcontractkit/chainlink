@@ -10,7 +10,7 @@ import (
 	"github.com/smartcontractkit/chainlink-solana/pkg/solana/chainwriter"
 )
 
-func TestChainWriterConfigRaw(t *testing.T) {
+func TestUnit_ChainWriterConfigRaw(t *testing.T) {
 	tests := []struct {
 		name          string
 		fromAddress   string

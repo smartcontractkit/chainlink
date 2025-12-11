@@ -12,7 +12,7 @@ import (
 	cciptypes "github.com/smartcontractkit/chainlink-ccip/pkg/types/ccipocr3"
 )
 
-func TestCalculateSyncActions(t *testing.T) {
+func TestUnit_CalculateSyncActions(t *testing.T) {
 	tests := []struct {
 		name            string
 		currentDigests  []cciptypes.Bytes32

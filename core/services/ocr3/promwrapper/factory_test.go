@@ -12,7 +12,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
 
-func Test_WrapperFactory(t *testing.T) {
+func TestUnit_WrapperFactory(t *testing.T) {
 	validFactory := NewReportingPluginFactory(
 		fakeFactory[uint]{},
 		logger.TestLogger(t),

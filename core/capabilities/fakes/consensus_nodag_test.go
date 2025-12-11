@@ -25,7 +25,7 @@ const (
 	testRefID         = "0011"
 )
 
-func Test_Simple_EVMEncoder(t *testing.T) {
+func TestUnit_Simple_EVMEncoder(t *testing.T) {
 	nSigners := 4
 	signers := []ocr2key.KeyBundle{}
 	for range nSigners {

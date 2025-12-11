@@ -25,7 +25,8 @@ elif [[ "$GITHUB_EVENT_NAME" == 'pull_request' || "$GITHUB_EVENT_NAME" == 'merge
   RERUN_FLAGS=""
   if [[ "$TRUNK_AUTO_QUARANTINE" != "true" ]]; then
     echo "TRUNK_AUTO_QUARANTINE disabled, allowing for gotestsum to rerun failed tests"
-    RERUN_FLAGS="--rerun-fails-abort-on-data-race --rerun-fails=3"
+    # TODO: Change back to 3
+    RERUN_FLAGS="--rerun-fails-abort-on-data-race --rerun-fails=0"
   else
     echo "TRUNK_AUTO_QUARANTINE enabled, gotestsum will not rerun failed tests"
   fi

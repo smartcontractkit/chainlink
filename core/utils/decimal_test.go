@@ -9,7 +9,7 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func TestDecimal(t *testing.T) {
+func TestUnit_Decimal(t *testing.T) {
 	t.Parallel()
 
 	dec := decimal.New(1, 0)

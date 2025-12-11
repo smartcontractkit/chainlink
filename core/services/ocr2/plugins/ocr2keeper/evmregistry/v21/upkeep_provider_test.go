@@ -16,7 +16,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evmregistry/v21/core"
 )
 
-func TestUpkeepProvider_GetActiveUpkeeps(t *testing.T) {
+func TestUnit_UpkeepProvider_GetActiveUpkeeps(t *testing.T) {
 	ctx := testutils.Context(t)
 
 	var lp logpoller.LogPoller

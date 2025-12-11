@@ -22,7 +22,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 )
 
-func TestHomeChainReader_ChainConfigs(t *testing.T) {
+func TestUnit_HomeChainReader_ChainConfigs(t *testing.T) {
 	ctx := testutils.Context(t)
 	lggr := logger.Test(t)
 	uni := integrationhelpers.NewTestUniverse(ctx, t, lggr)

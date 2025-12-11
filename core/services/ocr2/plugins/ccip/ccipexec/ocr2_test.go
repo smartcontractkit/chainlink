@@ -45,7 +45,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/tokendata"
 )
 
-func TestExecutionReportingPlugin_Observation(t *testing.T) {
+func TestUnit_ExecutionReportingPlugin_Observation(t *testing.T) {
 	testCases := []struct {
 		name               string
 		commitStorePaused  bool
@@ -231,7 +231,7 @@ func TestExecutionReportingPlugin_Observation(t *testing.T) {
 	}
 }
 
-func TestExecutionReportingPlugin_Report(t *testing.T) {
+func TestUnit_ExecutionReportingPlugin_Report(t *testing.T) {
 	testCases := []struct {
 		name               string
 		f                  int
@@ -312,7 +312,7 @@ func TestExecutionReportingPlugin_Report(t *testing.T) {
 	}
 }
 
-func TestExecutionReportingPlugin_ShouldAcceptFinalizedReport(t *testing.T) {
+func TestUnit_ExecutionReportingPlugin_ShouldAcceptFinalizedReport(t *testing.T) {
 	msg := cciptypes.EVM2EVMMessage{
 		SequenceNumber: 12,
 		FeeTokenAmount: big.NewInt(1e9),
@@ -366,7 +366,7 @@ func TestExecutionReportingPlugin_ShouldAcceptFinalizedReport(t *testing.T) {
 	assert.False(t, should)
 }
 
-func TestExecutionReportingPlugin_ShouldTransmitAcceptedReport(t *testing.T) {
+func TestUnit_ExecutionReportingPlugin_ShouldTransmitAcceptedReport(t *testing.T) {
 	msg := cciptypes.EVM2EVMMessage{
 		SequenceNumber: 12,
 		FeeTokenAmount: big.NewInt(1e9),
@@ -414,7 +414,7 @@ func TestExecutionReportingPlugin_ShouldTransmitAcceptedReport(t *testing.T) {
 	assert.False(t, should)
 }
 
-func TestExecutionReportingPlugin_buildReport(t *testing.T) {
+func TestUnit_ExecutionReportingPlugin_buildReport(t *testing.T) {
 	ctx := testutils.Context(t)
 
 	const numMessages = 100
@@ -488,7 +488,7 @@ func TestExecutionReportingPlugin_buildReport(t *testing.T) {
 	assert.LessOrEqual(t, len(execReport), MaxExecutionReportLength, "built execution report length")
 }
 
-func TestExecutionReportingPlugin_getReportsWithSendRequests(t *testing.T) {
+func TestUnit_ExecutionReportingPlugin_getReportsWithSendRequests(t *testing.T) {
 	testCases := []struct {
 		name                string
 		reports             []cciptypes.CommitStoreReport
@@ -620,7 +620,7 @@ func TestExecutionReportingPlugin_getReportsWithSendRequests(t *testing.T) {
 	}
 }
 
-func Test_calculateObservedMessagesConsensus(t *testing.T) {
+func TestUnit_calculateObservedMessagesConsensus(t *testing.T) {
 	type args struct {
 		observations []ccip.ExecutionObservation
 		f            int
@@ -729,7 +729,7 @@ func Test_calculateObservedMessagesConsensus(t *testing.T) {
 	}
 }
 
-func Test_getTokensPrices(t *testing.T) {
+func TestUnit_getTokensPrices(t *testing.T) {
 	tk1 := ccipcalc.HexToAddress("1")
 	tk2 := ccipcalc.HexToAddress("2")
 	tk3 := ccipcalc.HexToAddress("3")
@@ -819,7 +819,7 @@ func Test_getTokensPrices(t *testing.T) {
 	}
 }
 
-func Test_calculateMessageMaxGas(t *testing.T) {
+func TestUnit_calculateMessageMaxGas(t *testing.T) {
 	type args struct {
 		gasLimit    *big.Int
 		numRequests int
@@ -865,7 +865,7 @@ func Test_calculateMessageMaxGas(t *testing.T) {
 	}
 }
 
-func Test_inflightAggregates(t *testing.T) {
+func TestUnit_inflightAggregates(t *testing.T) {
 	const n = 10
 	addrs := make([]cciptypes.Address, n)
 	tokenAddrs := make([]cciptypes.Address, n)
@@ -988,7 +988,7 @@ func Test_inflightAggregates(t *testing.T) {
 	}
 }
 
-func Test_commitReportWithSendRequests_validate(t *testing.T) {
+func TestUnit_commitReportWithSendRequests_validate(t *testing.T) {
 	testCases := []struct {
 		name           string
 		reportInterval cciptypes.CommitStoreInterval
@@ -1036,7 +1036,7 @@ func Test_commitReportWithSendRequests_validate(t *testing.T) {
 	}
 }
 
-func Test_commitReportWithSendRequests_allRequestsAreExecutedAndFinalized(t *testing.T) {
+func TestUnit_commitReportWithSendRequests_allRequestsAreExecutedAndFinalized(t *testing.T) {
 	testCases := []struct {
 		name   string
 		reqs   []cciptypes.EVM2EVMOnRampCCIPSendRequestedWithMeta
@@ -1085,7 +1085,7 @@ func Test_commitReportWithSendRequests_allRequestsAreExecutedAndFinalized(t *tes
 	}
 }
 
-func Test_commitReportWithSendRequests_sendReqFits(t *testing.T) {
+func TestUnit_commitReportWithSendRequests_sendReqFits(t *testing.T) {
 	testCases := []struct {
 		name   string
 		req    cciptypes.EVM2EVMOnRampCCIPSendRequestedWithMeta
@@ -1187,7 +1187,7 @@ func generateExecutionReport(t *testing.T, numMsgs, tokensPerMsg, bytesPerMsg in
 	}
 }
 
-func Test_selectReportsToFillBatch(t *testing.T) {
+func TestUnit_selectReportsToFillBatch(t *testing.T) {
 	tests := []struct {
 		name            string
 		messagesLimit   uint64 // maximum number of messages that can be included in a batch.
@@ -1267,7 +1267,7 @@ func Test_selectReportsToFillBatch(t *testing.T) {
 	}
 }
 
-func Test_prepareTokenExecData(t *testing.T) {
+func TestUnit_prepareTokenExecData(t *testing.T) {
 	ctx := testutils.Context(t)
 
 	weth := cciptypes.Address(utils.RandomAddress().String())
@@ -1414,7 +1414,7 @@ func encodeExecutionReport(t *testing.T, report cciptypes.ExecReport) []byte {
 }
 
 // Verify the price registry update mechanism in case of configuration change on the source onRamp.
-func TestExecutionReportingPlugin_ensurePriceRegistrySynchronization(t *testing.T) {
+func TestUnit_ExecutionReportingPlugin_ensurePriceRegistrySynchronization(t *testing.T) {
 	p := &ExecutionReportingPlugin{}
 	p.lggr = logger.TestLogger(t)
 	p.sourcePriceRegistryLock = sync.RWMutex{}
@@ -1449,7 +1449,7 @@ func TestExecutionReportingPlugin_ensurePriceRegistrySynchronization(t *testing.
 	require.Equal(t, mockPriceRegistryReader2, p.sourcePriceRegistry)
 }
 
-func TestExecutionReportingPlugin_getConsensusThreshold(t *testing.T) {
+func TestUnit_ExecutionReportingPlugin_getConsensusThreshold(t *testing.T) {
 	tests := []struct {
 		name                       string
 		batchingStrategyID         uint32
@@ -1482,7 +1482,7 @@ func TestExecutionReportingPlugin_getConsensusThreshold(t *testing.T) {
 	}
 }
 
-func TestExecutionReportingPlugin_SnoozeLogicWithTokenDataNotReady(t *testing.T) {
+func TestUnit_ExecutionReportingPlugin_SnoozeLogicWithTokenDataNotReady(t *testing.T) {
 	testCases := []struct {
 		name          string
 		msgExecStates []messageExecStatus

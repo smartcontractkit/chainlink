@@ -117,7 +117,7 @@ func newMockDecrypter() *mockDecrypter {
 	}
 }
 
-func Test_Handler(t *testing.T) {
+func TestUnit_Handler(t *testing.T) {
 	lggr := logger.TestLogger(t)
 	emitter := custmsg.NewLabeler()
 	wfStore := store.NewInMemoryStore(lggr, clockwork.NewFakeClock())
@@ -314,7 +314,7 @@ const (
 	noDagBinaryCmd = "core/services/workflows/cmd/cre/examples/v2/simple_cron"
 )
 
-func Test_workflowRegisteredHandler(t *testing.T) {
+func TestUnit_workflowRegisteredHandler(t *testing.T) {
 	binaryURL := "http://example.com/binary"
 	secretsURL := "http://example.com/secrets"
 	configURL := "http://example.com/config"
@@ -866,7 +866,7 @@ func newMockArtifactStore(as *artifacts.Store, deleteWorkflowArtifactsErr error)
 	}
 }
 
-func Test_workflowDeletedHandler(t *testing.T) {
+func TestUnit_workflowDeletedHandler(t *testing.T) {
 	workflowEncryptionKey := workflowkey.MustNewXXXTestingOnly(big.NewInt(1))
 	t.Run("success deleting existing engine and spec", func(t *testing.T) {
 		var (
@@ -1103,7 +1103,7 @@ func Test_workflowDeletedHandler(t *testing.T) {
 	})
 }
 
-func Test_workflowPausedActivatedUpdatedHandler(t *testing.T) {
+func TestUnit_workflowPausedActivatedUpdatedHandler(t *testing.T) {
 	t.Run("success pausing activating and updating existing engine and spec", func(t *testing.T) {
 		var (
 			ctx     = testutils.Context(t)
@@ -1236,7 +1236,7 @@ func Test_workflowPausedActivatedUpdatedHandler(t *testing.T) {
 	})
 }
 
-func TestEngineFactoryFn_SuccessfulCreation(t *testing.T) {
+func TestUnit_EngineFactoryFn_SuccessfulCreation(t *testing.T) {
 	t.Parallel()
 	ctx := testutils.Context(t)
 	lggr := logger.TestLogger(t)

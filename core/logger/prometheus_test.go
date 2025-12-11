@@ -11,7 +11,7 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func TestPrometheusLogger_Counters(t *testing.T) {
+func TestUnit_PrometheusLogger_Counters(t *testing.T) {
 	t.Parallel()
 
 	createRandomNameCounter := func() prometheus.Counter {

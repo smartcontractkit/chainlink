@@ -35,7 +35,7 @@ answer [type=sum values=<[ $(val), 2 ]>]
 answer;
 `
 
-func TestAdapter_Integration(t *testing.T) {
+func TestUnit_Adapter_Integration(t *testing.T) {
 	testutils.SkipShortDB(t)
 	ctx := testutils.Context(t)
 	logger := logger.TestLogger(t)
@@ -104,7 +104,7 @@ func (m *mockPipelineRunner) ExecuteAndInsertFinishedRun(ctx context.Context, sp
 	return 0, m.results, m.err
 }
 
-func TestAdapter_AddsDefaultVars(t *testing.T) {
+func TestUnit_Adapter_AddsDefaultVars(t *testing.T) {
 	logger := logger.TestLogger(t)
 	mpr := newMockPipelineRunner()
 	jobID, externalJobID, name := int32(100), uuid.New(), null.StringFrom("job-name")
@@ -126,7 +126,7 @@ func TestAdapter_AddsDefaultVars(t *testing.T) {
 	assert.Equal(t, externalJobID, gotExternalID)
 }
 
-func TestPipelineRunnerAdapter_SetsVarsOnSpec(t *testing.T) {
+func TestUnit_PipelineRunnerAdapter_SetsVarsOnSpec(t *testing.T) {
 	logger := logger.TestLogger(t)
 	mpr := newMockPipelineRunner()
 	jobID, externalJobID, name, jobType := int32(100), uuid.New(), null.StringFrom("job-name"), job.Type("generic")

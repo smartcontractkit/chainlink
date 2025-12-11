@@ -12,7 +12,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/internal"
 )
 
-func TestMasterKeystore_Unlock_Save(t *testing.T) {
+func TestUnit_MasterKeystore_Unlock_Save(t *testing.T) {
 	t.Parallel()
 
 	db := pgtest.NewSqlxDB(t)

@@ -47,7 +47,7 @@ func (m *mockStreamValue) Type() llo.LLOStreamValue_Type {
 	return llo.LLOStreamValue_TimestampedStreamValue
 }
 
-func TestNewCache(t *testing.T) {
+func TestUnit_NewCache(t *testing.T) {
 	tests := []struct {
 		name            string
 		cleanupInterval time.Duration
@@ -76,7 +76,7 @@ func TestNewCache(t *testing.T) {
 	}
 }
 
-func TestCache_Add_Get(t *testing.T) {
+func TestUnit_Cache_Add_Get(t *testing.T) {
 	tests := []struct {
 		name      string
 		streamID  llotypes.StreamID
@@ -128,7 +128,7 @@ func TestCache_Add_Get(t *testing.T) {
 	}
 }
 
-func TestCache_Cleanup(t *testing.T) {
+func TestUnit_Cache_Cleanup(t *testing.T) {
 	cache := NewCache(time.Millisecond)
 	streamID := llotypes.StreamID(1)
 	value := &mockStreamValue{value: []byte{42}}
@@ -140,7 +140,7 @@ func TestCache_Cleanup(t *testing.T) {
 	assert.Nil(t, gotValue)
 }
 
-func TestCache_ConcurrentAccess(t *testing.T) {
+func TestUnit_Cache_ConcurrentAccess(t *testing.T) {
 	cache := NewCache(0)
 	const numGoroutines = 10
 	const numOperations = uint32(1000)
@@ -170,7 +170,7 @@ func TestCache_ConcurrentAccess(t *testing.T) {
 	}
 }
 
-func TestCache_ConcurrentReadWrite(t *testing.T) {
+func TestUnit_Cache_ConcurrentReadWrite(t *testing.T) {
 	cache := NewCache(0)
 	const numGoroutines = 10
 	const numOperations = uint32(1000)
@@ -203,7 +203,7 @@ func TestCache_ConcurrentReadWrite(t *testing.T) {
 	wg.Wait()
 }
 
-func TestCache_ConcurrentAddGet(t *testing.T) {
+func TestUnit_Cache_ConcurrentAddGet(t *testing.T) {
 	cache := NewCache(0)
 	const numGoroutines = 10
 	const numOperations = uint32(1000)

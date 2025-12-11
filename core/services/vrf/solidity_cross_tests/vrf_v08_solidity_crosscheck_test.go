@@ -37,7 +37,7 @@ func deployVRFV08TestHelper(t *testing.T) *solidity_vrf_v08_verifier_wrapper.VRF
 	return verifier
 }
 
-func TestVRFV08_InvalidPointCoordinates(t *testing.T) {
+func TestUnit_VRFV08_InvalidPointCoordinates(t *testing.T) {
 	verifier := deployVRFV08TestHelper(t)
 	// A value outside [0, ..., FIELD_SIZE-1] should fail
 	_, err := verifier.IsOnCurve(nil,
@@ -57,7 +57,7 @@ func TestVRFV08_InvalidPointCoordinates(t *testing.T) {
 	require.NoError(t, err)
 }
 
-func TestVRFV08_CompareProjectiveECAddToVerifier(t *testing.T) {
+func TestUnit_VRFV08_CompareProjectiveECAddToVerifier(t *testing.T) {
 	t.Parallel()
 	r := mrand.New(mrand.NewSource(11))
 	for j := 0; j < numSamples(); j++ {
@@ -76,7 +76,7 @@ func TestVRFV08_CompareProjectiveECAddToVerifier(t *testing.T) {
 	}
 }
 
-func TestVRFV08_CompareBigModExpToVerifier(t *testing.T) {
+func TestUnit_VRFV08_CompareBigModExpToVerifier(t *testing.T) {
 	t.Parallel()
 	r := mrand.New(mrand.NewSource(0))
 	for j := 0; j < numSamples(); j++ {
@@ -91,7 +91,7 @@ func TestVRFV08_CompareBigModExpToVerifier(t *testing.T) {
 	}
 }
 
-func TestVRFV08_CompareSquareRoot(t *testing.T) {
+func TestUnit_VRFV08_CompareSquareRoot(t *testing.T) {
 	t.Parallel()
 	r := mrand.New(mrand.NewSource(1))
 	for j := 0; j < numSamples(); j++ {
@@ -112,7 +112,7 @@ func TestVRFV08_CompareSquareRoot(t *testing.T) {
 	}
 }
 
-func TestVRFV08_CompareYSquared(t *testing.T) {
+func TestUnit_VRFV08_CompareYSquared(t *testing.T) {
 	t.Parallel()
 	r := mrand.New(mrand.NewSource(2))
 	for i := 0; i < numSamples(); i++ {
@@ -124,7 +124,7 @@ func TestVRFV08_CompareYSquared(t *testing.T) {
 	}
 }
 
-func TestVRFV08_CompareFieldHash(t *testing.T) {
+func TestUnit_VRFV08_CompareFieldHash(t *testing.T) {
 	t.Parallel()
 	r := mrand.New(mrand.NewSource(3))
 	msg := make([]byte, 32)
@@ -139,7 +139,7 @@ func TestVRFV08_CompareFieldHash(t *testing.T) {
 	}
 }
 
-func TestVRFV08_CompareHashToCurve(t *testing.T) {
+func TestUnit_VRFV08_CompareHashToCurve(t *testing.T) {
 	t.Parallel()
 	r := mrand.New(mrand.NewSource(4))
 	for i := 0; i < numSamples(); i++ {
@@ -156,7 +156,7 @@ func TestVRFV08_CompareHashToCurve(t *testing.T) {
 	}
 }
 
-func TestVRFV08_CheckSolidityPointAddition(t *testing.T) {
+func TestUnit_VRFV08_CheckSolidityPointAddition(t *testing.T) {
 	t.Parallel()
 	r := mrand.New(mrand.NewSource(5))
 	for j := 0; j < numSamples(); j++ {
@@ -184,7 +184,7 @@ func TestVRFV08_CheckSolidityPointAddition(t *testing.T) {
 	}
 }
 
-func TestVRFV08_CheckSolidityECMulVerify(t *testing.T) {
+func TestUnit_VRFV08_CheckSolidityECMulVerify(t *testing.T) {
 	t.Parallel()
 	r := mrand.New(mrand.NewSource(6))
 	for j := 0; j < numSamples(); j++ {
@@ -205,7 +205,7 @@ func TestVRFV08_CheckSolidityECMulVerify(t *testing.T) {
 	}
 }
 
-func TestVRFV08_CheckSolidityVerifyLinearCombinationWithGenerator(t *testing.T) {
+func TestUnit_VRFV08_CheckSolidityVerifyLinearCombinationWithGenerator(t *testing.T) {
 	t.Parallel()
 	r := mrand.New(mrand.NewSource(7))
 	for j := 0; j < numSamples(); j++ {
@@ -233,7 +233,7 @@ func TestVRFV08_CheckSolidityVerifyLinearCombinationWithGenerator(t *testing.T) 
 	}
 }
 
-func TestVRFV08_CheckSolidityLinearComination(t *testing.T) {
+func TestUnit_VRFV08_CheckSolidityLinearComination(t *testing.T) {
 	t.Parallel()
 	r := mrand.New(mrand.NewSource(8))
 	for j := 0; j < numSamples(); j++ {
@@ -270,7 +270,7 @@ func TestVRFV08_CheckSolidityLinearComination(t *testing.T) {
 	}
 }
 
-func TestVRFV08_CompareSolidityScalarFromCurvePoints(t *testing.T) {
+func TestUnit_VRFV08_CompareSolidityScalarFromCurvePoints(t *testing.T) {
 	t.Parallel()
 	r := mrand.New(mrand.NewSource(9))
 	for j := 0; j < numSamples(); j++ {
@@ -290,7 +290,7 @@ func TestVRFV08_CompareSolidityScalarFromCurvePoints(t *testing.T) {
 	}
 }
 
-func TestVRFV08_MarshalProof(t *testing.T) {
+func TestUnit_VRFV08_MarshalProof(t *testing.T) {
 	t.Parallel()
 	r := mrand.New(mrand.NewSource(10))
 	for j := 0; j < numSamples(); j++ {

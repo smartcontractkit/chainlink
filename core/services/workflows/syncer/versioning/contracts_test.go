@@ -16,7 +16,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/syncer/versioning"
 )
 
-func TestContracts_TypeAndVersion(t *testing.T) {
+func TestUnit_Contracts_TypeAndVersion(t *testing.T) {
 	t.Parallel()
 
 	t.Run("happy path", func(t *testing.T) {
@@ -95,7 +95,7 @@ func TestContracts_TypeAndVersion(t *testing.T) {
 	})
 }
 
-func TestContracts_VerifyTypeAndVersion(t *testing.T) {
+func TestUnit_Contracts_VerifyTypeAndVersion(t *testing.T) {
 	t.Parallel()
 
 	t.Run("incorrect type", func(t *testing.T) {
@@ -119,7 +119,7 @@ func TestContracts_VerifyTypeAndVersion(t *testing.T) {
 	})
 }
 
-func TestContracts_ParseTypeAndVersion(t *testing.T) {
+func TestUnit_Contracts_ParseTypeAndVersion(t *testing.T) {
 	t.Parallel()
 
 	t.Run("valid string", func(t *testing.T) {
@@ -148,7 +148,7 @@ func TestContracts_ParseTypeAndVersion(t *testing.T) {
 	})
 }
 
-func TestContracts_RunWithRetries(t *testing.T) {
+func TestUnit_Contracts_RunWithRetries(t *testing.T) {
 	t.Parallel()
 
 	t.Run("returns an error if max retries are exceeded", func(t *testing.T) {

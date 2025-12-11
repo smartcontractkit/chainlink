@@ -11,7 +11,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
 )
 
-func TestHexDecodeTask(t *testing.T) {
+func TestUnit_HexDecodeTask(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {

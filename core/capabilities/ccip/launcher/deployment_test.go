@@ -12,7 +12,7 @@ import (
 	mocktypes "github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/types/mocks"
 )
 
-func Test_ccipDeployment_Transitions(t *testing.T) {
+func TestUnit_ccipDeployment_Transitions(t *testing.T) {
 	// we use a pointer to the oracle here for mock assertions
 	type args struct {
 		prevDeployment map[ocrtypes.ConfigDigest]*mocktypes.CCIPOracle

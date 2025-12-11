@@ -14,7 +14,7 @@ import (
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 )
 
-func Test_ReportsGeneratedGauge(t *testing.T) {
+func TestUnit_ReportsGeneratedGauge(t *testing.T) {
 	pluginObservationSize := 5
 	pluginOutcomeSize := 3
 
@@ -117,7 +117,7 @@ func Test_ReportsGeneratedGauge(t *testing.T) {
 	require.Equal(t, pluginObservationSize, int(observationLen))
 }
 
-func Test_DurationHistograms(t *testing.T) {
+func TestUnit_DurationHistograms(t *testing.T) {
 	plugin1 := newReportingPlugin(
 		fakePlugin[uint]{},
 		"evm", "1", "empty", "abc", promOCR3ReportsGenerated, promOCR3Durations, promOCR3Sizes, promOCR3PluginStatus,

@@ -12,7 +12,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 )
 
-func TestTxDBDriver(t *testing.T) {
+func TestUnit_TxDBDriver(t *testing.T) {
 	db := NewSqlxDB(t)
 	dropTable := func() error {
 		_, err := db.Exec(`DROP TABLE IF EXISTS txdb_test`)

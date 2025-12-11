@@ -31,7 +31,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/web/presenters"
 )
 
-func Test_EVMChainsController_Show(t *testing.T) {
+func TestUnit_EVMChainsController_Show(t *testing.T) {
 	t.Parallel()
 
 	validID := ubig.New(testutils.NewRandomEVMChainID())
@@ -109,7 +109,7 @@ func Test_EVMChainsController_Show(t *testing.T) {
 	}
 }
 
-func Test_EVMChainsController_Index(t *testing.T) {
+func TestUnit_EVMChainsController_Index(t *testing.T) {
 	quarantine.Flaky(t, "DX-1795")
 	t.Parallel()
 
@@ -230,7 +230,7 @@ func setupEVMChainsControllerTest(t *testing.T, cfg chainlink.GeneralConfig) *Te
 	}
 }
 
-func Test_SolanaChainsController_Show(t *testing.T) {
+func TestUnit_SolanaChainsController_Show(t *testing.T) {
 	t.Parallel()
 
 	const validID = "Chainlink-12"
@@ -353,7 +353,7 @@ FinalizedBlockOffset = 50
 	}
 }
 
-func Test_SolanaChainsController_Index(t *testing.T) {
+func TestUnit_SolanaChainsController_Index(t *testing.T) {
 	t.Parallel()
 
 	chainA := &config.TOMLConfig{

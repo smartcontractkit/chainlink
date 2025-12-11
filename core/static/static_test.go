@@ -6,7 +6,7 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func Test_short(t *testing.T) {
+func TestUnit_short(t *testing.T) {
 	for _, tt := range []struct {
 		ver, sha       string
 		expVer, expSha string

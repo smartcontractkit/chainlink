@@ -63,7 +63,7 @@ func sendRequest(t *testing.T, url string, body []byte, httpMethod string, origi
 	return resp
 }
 
-func TestHTTPServer_HandleRequest_Correct(t *testing.T) {
+func TestUnit_HTTPServer_HandleRequest_Correct(t *testing.T) {
 	t.Parallel()
 	_, handler, url := startNewServer(t, 100_000, 100_000, false, nil)
 
@@ -76,7 +76,7 @@ func TestHTTPServer_HandleRequest_Correct(t *testing.T) {
 	require.Equal(t, []byte("response"), respBytes)
 }
 
-func TestHTTPServer_HandleRequest_RequestBodyTooBig(t *testing.T) {
+func TestUnit_HTTPServer_HandleRequest_RequestBodyTooBig(t *testing.T) {
 	t.Parallel()
 	_, _, url := startNewServer(t, 5, 100_000, false, nil)
 
@@ -84,7 +84,7 @@ func TestHTTPServer_HandleRequest_RequestBodyTooBig(t *testing.T) {
 	require.Equal(t, http.StatusBadRequest, resp.StatusCode)
 }
 
-func TestHTTPServer_HandleHealthCheck(t *testing.T) {
+func TestUnit_HTTPServer_HandleHealthCheck(t *testing.T) {
 	t.Parallel()
 	_, _, url := startNewServer(t, 100_000, 100_000, false, nil)
 
@@ -96,7 +96,7 @@ func TestHTTPServer_HandleHealthCheck(t *testing.T) {
 	require.Equal(t, []byte(network.HealthCheckResponse), respBytes)
 }
 
-func TestHTTPServer_HandleRequest_CORSEnabled_FromAllowedOrigin(t *testing.T) {
+func TestUnit_HTTPServer_HandleRequest_CORSEnabled_FromAllowedOrigin(t *testing.T) {
 	t.Parallel()
 	_, handler, url := startNewServer(t, 100_000, 100_000, true,
 		[]string{"https://remix.ethereum.org", "https://another.valid.origin.com"})
@@ -114,7 +114,7 @@ func TestHTTPServer_HandleRequest_CORSEnabled_FromAllowedOrigin(t *testing.T) {
 	require.Equal(t, "Content-Type", resp.Header.Get("Access-Control-Allow-Headers"))
 }
 
-func TestHTTPServer_HandleRequest_CORSEnabled_FromAllowedOriginWildcards(t *testing.T) {
+func TestUnit_HTTPServer_HandleRequest_CORSEnabled_FromAllowedOriginWildcards(t *testing.T) {
 	t.Parallel()
 	_, handler, url := startNewServer(t, 100_000, 100_000, true,
 		[]string{"https://*.ethereum.org", "https://*.valid.domain.com", "http://*.gov"})
@@ -156,7 +156,7 @@ func TestHTTPServer_HandleRequest_CORSEnabled_FromAllowedOriginWildcards(t *test
 	require.Equal(t, "Content-Type", resp.Header.Get("Access-Control-Allow-Headers"))
 }
 
-func TestHTTPServer_HandleRequest_CORSEnabled_FromAllowedOrigin_PreflightRequest(t *testing.T) {
+func TestUnit_HTTPServer_HandleRequest_CORSEnabled_FromAllowedOrigin_PreflightRequest(t *testing.T) {
 	t.Parallel()
 	_, _, url := startNewServer(t, 100_000, 100_000, true,
 		[]string{"https://remix.ethereum.org", "https://another.valid.origin.com"})
@@ -172,7 +172,7 @@ func TestHTTPServer_HandleRequest_CORSEnabled_FromAllowedOrigin_PreflightRequest
 	require.Equal(t, "Content-Type", resp.Header.Get("Access-Control-Allow-Headers"))
 }
 
-func TestHTTPServer_HandleRequest_CORSEnabled_FromNotAllowedOrigin(t *testing.T) {
+func TestUnit_HTTPServer_HandleRequest_CORSEnabled_FromNotAllowedOrigin(t *testing.T) {
 	t.Parallel()
 	_, handler, url := startNewServer(t, 100_000, 100_000, true,
 		[]string{"https://remix.ethereum.org", "https://another.valid.origin.com"})
@@ -190,7 +190,7 @@ func TestHTTPServer_HandleRequest_CORSEnabled_FromNotAllowedOrigin(t *testing.T)
 	require.Empty(t, resp.Header.Get("Access-Control-Allow-Headers"))
 }
 
-func TestHTTPServer_HandleRequest_CORSEnabled_FromNotAllowedOriginWildcards(t *testing.T) {
+func TestUnit_HTTPServer_HandleRequest_CORSEnabled_FromNotAllowedOriginWildcards(t *testing.T) {
 	t.Parallel()
 	_, handler, url := startNewServer(t, 100_000, 100_000, true,
 		[]string{"https://*.ethereum.org", "https://*.valid.domain.com", "http://example.gov:8080"})

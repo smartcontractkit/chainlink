@@ -8,7 +8,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/config"
 )
 
-func TestNewMetrics(t *testing.T) {
+func TestUnit_NewMetrics(t *testing.T) {
 	t.Parallel()
 
 	donConfig := &config.DONConfig{

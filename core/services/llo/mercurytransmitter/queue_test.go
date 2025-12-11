@@ -27,7 +27,7 @@ func (m *mockAsyncDeleter) DonID() uint32 {
 	return m.donID
 }
 
-func Test_Queue(t *testing.T) {
+func TestUnit_Queue(t *testing.T) {
 	t.Parallel()
 	const maxSize = 7
 

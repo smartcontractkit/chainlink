@@ -18,7 +18,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func Test_ReportCodec(t *testing.T) {
+func TestUnit_ReportCodec(t *testing.T) {
 	t.Run("Encode: Without Opts SUCCESS", func(t *testing.T) {
 		donID := uint32(1)
 		c := NewReportCodecCapabilityTrigger(logger.Test(t), donID)

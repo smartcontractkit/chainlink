@@ -9,7 +9,7 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func TestOverheadGas(t *testing.T) {
+func TestUnit_OverheadGas(t *testing.T) {
 	// Only Data and TokenAmounts are used from the messages
 	// And only the length is used so the contents doesn't matter.
 	tests := []struct {
@@ -37,7 +37,7 @@ func TestOverheadGas(t *testing.T) {
 	}
 }
 
-func TestMaxGasOverHeadGas(t *testing.T) {
+func TestUnit_MaxGasOverHeadGas(t *testing.T) {
 	// Only Data and TokenAmounts are used from the messages
 	// And only the length is used so the contents doesn't matter.
 	tests := []struct {
@@ -68,7 +68,7 @@ func TestMaxGasOverHeadGas(t *testing.T) {
 	}
 }
 
-func TestWaitBoostedFee(t *testing.T) {
+func TestUnit_WaitBoostedFee(t *testing.T) {
 	tests := []struct {
 		name                     string
 		sendTimeDiff             time.Duration

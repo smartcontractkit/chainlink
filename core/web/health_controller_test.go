@@ -22,7 +22,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/mocks"
 )
 
-func TestHealthController_Readyz(t *testing.T) {
+func TestUnit_HealthController_Readyz(t *testing.T) {
 	var tt = []struct {
 		name   string
 		ready  bool
@@ -58,7 +58,7 @@ func TestHealthController_Readyz(t *testing.T) {
 	}
 }
 
-func TestHealthController_Health_status(t *testing.T) {
+func TestUnit_HealthController_Health_status(t *testing.T) {
 	var tt = []struct {
 		name   string
 		ready  bool
@@ -109,7 +109,7 @@ var (
 	bodyTXTFailing string
 )
 
-func TestHealthController_Health_body(t *testing.T) {
+func TestUnit_HealthController_Health_body(t *testing.T) {
 	bodyJSON = strings.ReplaceAll(bodyJSON, "1399100", testutils.FixtureChainID.String())
 	bodyHTML = strings.ReplaceAll(bodyHTML, "1399100", testutils.FixtureChainID.String())
 	bodyTXT = strings.ReplaceAll(bodyTXT, "1399100", testutils.FixtureChainID.String())

@@ -13,7 +13,7 @@ import (
 	"github.com/smartcontractkit/chainlink-evm/pkg/utils"
 )
 
-func TestProofFlagToBits(t *testing.T) {
+func TestUnit_ProofFlagToBits(t *testing.T) {
 	genFlags := func(indexesSet []int, size int) []bool {
 		bools := make([]bool, size)
 		for _, indexSet := range indexesSet {
@@ -56,7 +56,7 @@ func TestProofFlagToBits(t *testing.T) {
 	}
 }
 
-func TestEvmWord(t *testing.T) {
+func TestUnit_EvmWord(t *testing.T) {
 	testCases := []struct {
 		inp uint64
 		exp common.Hash
@@ -73,7 +73,7 @@ func TestEvmWord(t *testing.T) {
 	}
 }
 
-func TestABIEncodeDecode(t *testing.T) {
+func TestUnit_ABIEncodeDecode(t *testing.T) {
 	abiStr := `[{"components": [{"name":"int1","type":"int256"},{"name":"int2","type":"int256"}], "type":"tuple"}]`
 	values := []any{struct {
 		Int1 *big.Int `json:"int1"`

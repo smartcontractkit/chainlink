@@ -150,7 +150,7 @@ func gatewayResponse(t *testing.T, msgID string, privateKey string) *jsonrpc.Req
 	return req
 }
 
-func TestRegisterUnregister(t *testing.T) {
+func TestUnit_RegisterUnregister(t *testing.T) {
 	th := setup(t, defaultConfig)
 	ctx := testutils.Context(t)
 
@@ -195,7 +195,7 @@ func TestRegisterUnregister(t *testing.T) {
 	})
 }
 
-func TestCapability_Execute(t *testing.T) {
+func TestUnit_Capability_Execute(t *testing.T) {
 	th := setup(t, defaultConfig)
 	ctx := testutils.Context(t)
 	th.connector.EXPECT().DonID(matches.AnyContext).Return("donID", nil)

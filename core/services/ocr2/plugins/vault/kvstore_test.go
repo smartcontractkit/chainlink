@@ -40,7 +40,7 @@ func (k *kv) Write(key []byte, data []byte) error {
 
 var _ (ocr3_1types.KeyValueReadWriter) = (*kv)(nil)
 
-func TestKVStore_Secrets(t *testing.T) {
+func TestUnit_KVStore_Secrets(t *testing.T) {
 	kv := &kv{
 		m: make(map[string]response),
 	}
@@ -93,7 +93,7 @@ func TestKVStore_Secrets(t *testing.T) {
 	assert.Equal(t, newData, s.EncryptedSecret)
 }
 
-func TestKVStore_DeleteSecrets(t *testing.T) {
+func TestUnit_KVStore_DeleteSecrets(t *testing.T) {
 	kv := &kv{
 		m: make(map[string]response),
 	}
@@ -118,7 +118,7 @@ func TestKVStore_DeleteSecrets(t *testing.T) {
 	assert.Empty(t, md.SecretIdentifiers)
 }
 
-func TestKVStore_Metadata(t *testing.T) {
+func TestUnit_KVStore_Metadata(t *testing.T) {
 	owner := "owner"
 	kv := &kv{
 		m: make(map[string]response),
@@ -187,7 +187,7 @@ func TestKVStore_Metadata(t *testing.T) {
 	assert.Len(t, gotM.SecretIdentifiers, 2)
 }
 
-func TestKVStore_Metadata_Delete(t *testing.T) {
+func TestUnit_KVStore_Metadata_Delete(t *testing.T) {
 	owner := "owner"
 	kv := &kv{
 		m: make(map[string]response),
@@ -224,7 +224,7 @@ func TestKVStore_Metadata_Delete(t *testing.T) {
 	require.ErrorContains(t, err, "no metadata found for owner owner")
 }
 
-func TestKVStore_InconsistentWrites(t *testing.T) {
+func TestUnit_KVStore_InconsistentWrites(t *testing.T) {
 	kv := &kv{
 		m: make(map[string]response),
 	}

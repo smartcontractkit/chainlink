@@ -33,7 +33,7 @@ func setupORM(t *testing.T) (*sqlx.DB, sessions.AuthenticationProvider) {
 	return db, orm
 }
 
-func TestORM_FindUser(t *testing.T) {
+func TestUnit_ORM_FindUser(t *testing.T) {
 	t.Parallel()
 	ctx := testutils.Context(t)
 
@@ -52,7 +52,7 @@ func TestORM_FindUser(t *testing.T) {
 	assert.Equal(t, user1.HashedPassword, actual.HashedPassword)
 }
 
-func TestORM_AuthorizedUserWithSession(t *testing.T) {
+func TestUnit_ORM_AuthorizedUserWithSession(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
@@ -97,7 +97,7 @@ func TestORM_AuthorizedUserWithSession(t *testing.T) {
 	}
 }
 
-func TestORM_DeleteUser(t *testing.T) {
+func TestUnit_ORM_DeleteUser(t *testing.T) {
 	t.Parallel()
 	ctx := testutils.Context(t)
 	_, orm := setupORM(t)
@@ -112,7 +112,7 @@ func TestORM_DeleteUser(t *testing.T) {
 	require.Error(t, err)
 }
 
-func TestORM_DeleteUserSession(t *testing.T) {
+func TestUnit_ORM_DeleteUserSession(t *testing.T) {
 	t.Parallel()
 	ctx := testutils.Context(t)
 
@@ -136,7 +136,7 @@ func TestORM_DeleteUserSession(t *testing.T) {
 	require.Empty(t, sessions)
 }
 
-func TestORM_DeleteUserCascade(t *testing.T) {
+func TestUnit_ORM_DeleteUserCascade(t *testing.T) {
 	ctx := testutils.Context(t)
 	db, orm := setupORM(t)
 
@@ -158,7 +158,7 @@ func TestORM_DeleteUserCascade(t *testing.T) {
 	require.Empty(t, sessions)
 }
 
-func TestORM_CreateSession(t *testing.T) {
+func TestUnit_ORM_CreateSession(t *testing.T) {
 	t.Parallel()
 
 	_, orm := setupORM(t)
@@ -197,7 +197,7 @@ func TestORM_CreateSession(t *testing.T) {
 	}
 }
 
-func TestORM_WebAuthn(t *testing.T) {
+func TestUnit_ORM_WebAuthn(t *testing.T) {
 	t.Parallel()
 	ctx := testutils.Context(t)
 
@@ -278,7 +278,7 @@ func TestORM_WebAuthn(t *testing.T) {
 	require.Error(t, err)
 }
 
-func TestOrm_GenerateAuthToken(t *testing.T) {
+func TestUnit_Orm_GenerateAuthToken(t *testing.T) {
 	t.Parallel()
 	ctx := testutils.Context(t)
 

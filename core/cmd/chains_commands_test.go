@@ -22,7 +22,7 @@ func newRandChainID() *big.Big {
 	return big.New(testutils.NewRandomEVMChainID())
 }
 
-func TestShell_IndexEVMChains(t *testing.T) {
+func TestUnit_Shell_IndexEVMChains(t *testing.T) {
 	t.Parallel()
 
 	app := startNewApplicationV2(t, func(c *chainlink.Config, s *chainlink.Secrets) {
@@ -40,7 +40,7 @@ func TestShell_IndexEVMChains(t *testing.T) {
 	assertTableRenders(t, r)
 }
 
-func TestShell_IndexSolanaChains(t *testing.T) {
+func TestUnit_Shell_IndexSolanaChains(t *testing.T) {
 	t.Parallel()
 
 	id := solanatest.RandomChainID()

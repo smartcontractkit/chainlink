@@ -19,7 +19,7 @@ import (
 
 const defaultGasLimit uint32 = 500000
 
-func TestRequestIDMatches(t *testing.T) {
+func TestUnit_RequestIDMatches(t *testing.T) {
 	keyHash := common.HexToHash("0x01")
 	key := cltest.MustGenerateRandomKey(t)
 	baseContract := vrftesthelpers.NewVRFCoordinatorUniverse(t, key).RequestIDBase
@@ -53,7 +53,7 @@ func registerProvingKey(t *testing.T, coordinator vrftesthelpers.CoordinatorUniv
 	return keyHash, jobID, vrfFee
 }
 
-func TestRegisterProvingKey(t *testing.T) {
+func TestUnit_RegisterProvingKey(t *testing.T) {
 	key := cltest.MustGenerateRandomKey(t)
 	coord := vrftesthelpers.NewVRFCoordinatorUniverse(t, key)
 	keyHash, jobID, fee := registerProvingKey(t, coord)
@@ -76,7 +76,7 @@ func TestRegisterProvingKey(t *testing.T) {
 		"VRFCoordinator registered wrong fee, on service agreement!")
 }
 
-func TestFailToRegisterProvingKeyFromANonOwnerAddress(t *testing.T) {
+func TestUnit_FailToRegisterProvingKeyFromANonOwnerAddress(t *testing.T) {
 	key := cltest.MustGenerateRandomKey(t)
 	coordinator := vrftesthelpers.NewVRFCoordinatorUniverse(t, key)
 
@@ -129,7 +129,7 @@ func requestRandomnessV08(t *testing.T, coordinator vrftesthelpers.CoordinatorUn
 		(*solidity_cross_tests.RawRandomnessRequestLog)(log.Event))
 }
 
-func TestRandomnessRequestLog(t *testing.T) {
+func TestUnit_RandomnessRequestLog(t *testing.T) {
 	key := cltest.MustGenerateRandomKey(t)
 	coord := vrftesthelpers.NewVRFCoordinatorUniverseWithV08Consumer(t, key)
 	keyHash_, jobID_, fee := registerProvingKey(t, coord)
@@ -206,7 +206,7 @@ func fulfillRandomnessRequest(t *testing.T, coordinator vrftesthelpers.Coordinat
 	return proof
 }
 
-func TestFulfillRandomness(t *testing.T) {
+func TestUnit_FulfillRandomness(t *testing.T) {
 	key := cltest.MustGenerateRandomKey(t)
 	coordinator := vrftesthelpers.NewVRFCoordinatorUniverse(t, key)
 	keyHash, _, fee := registerProvingKey(t, coordinator)
@@ -231,7 +231,7 @@ func TestFulfillRandomness(t *testing.T) {
 		"was not paid his fee, despite successful fulfillment of randomness request!")
 }
 
-func TestWithdraw(t *testing.T) {
+func TestUnit_Withdraw(t *testing.T) {
 	key := cltest.MustGenerateRandomKey(t)
 	coordinator := vrftesthelpers.NewVRFCoordinatorUniverse(t, key)
 	keyHash, _, fee := registerProvingKey(t, coordinator)

@@ -11,7 +11,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
 )
 
-func Test_RetirementReportCache_ORM(t *testing.T) {
+func TestUnit_RetirementReportCache_ORM(t *testing.T) {
 	db := pgtest.NewSqlxDB(t)
 	orm := &retirementReportCacheORM{db}
 	ctx := t.Context()

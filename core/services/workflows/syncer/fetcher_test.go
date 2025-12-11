@@ -47,7 +47,7 @@ func (w *wrapper) GetGatewayConnector() connector.GatewayConnector {
 	return w.c
 }
 
-func TestNewFetcherService(t *testing.T) {
+func TestUnit_NewFetcherService(t *testing.T) {
 	ctx := context.Background()
 	lggr := logger.TestLogger(t)
 	connector := gcmocks.NewGatewayConnector(t)
@@ -297,7 +297,7 @@ func TestNewFetcherService(t *testing.T) {
 	})
 }
 
-func TestNewFetcherFunc(t *testing.T) {
+func TestUnit_NewFetcherFunc(t *testing.T) {
 	lggr := logger.TestLogger(t)
 	ctx := context.Background()
 	testContent := []byte("test content")

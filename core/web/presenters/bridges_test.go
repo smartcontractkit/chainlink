@@ -14,7 +14,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/store/models"
 )
 
-func TestBridgeResource(t *testing.T) {
+func TestUnit_BridgeResource(t *testing.T) {
 	t.Parallel()
 
 	timestamp := time.Date(2000, 1, 1, 0, 0, 0, 0, time.UTC)

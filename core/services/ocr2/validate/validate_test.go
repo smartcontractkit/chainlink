@@ -21,7 +21,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/validate"
 )
 
-func TestValidateOracleSpec(t *testing.T) {
+func TestUnit_ValidateOracleSpec(t *testing.T) {
 	var tt = []struct {
 		name      string
 		toml      string
@@ -611,7 +611,7 @@ type envelope struct {
 	PluginConfig *validate.OCR2GenericPluginConfig
 }
 
-func TestOCR2GenericPluginConfig_Unmarshal(t *testing.T) {
+func TestUnit_OCR2GenericPluginConfig_Unmarshal(t *testing.T) {
 	payload := `
 [pluginConfig]
 pluginName = "median"
@@ -650,7 +650,7 @@ type envelope2 struct {
 	OnchainSigningStrategy *validate.OCR2OnchainSigningStrategy
 }
 
-func TestOCR2OnchainSigningStrategy_Unmarshal(t *testing.T) {
+func TestUnit_OCR2OnchainSigningStrategy_Unmarshal(t *testing.T) {
 	payload := `
 [onchainSigningStrategy]
 strategyName = "single-chain"

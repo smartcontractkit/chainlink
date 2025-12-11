@@ -18,7 +18,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ocr2key"
 )
 
-func TestResolver_GetOCR2KeyBundles(t *testing.T) {
+func TestUnit_Resolver_GetOCR2KeyBundles(t *testing.T) {
 	t.Parallel()
 
 	query := `
@@ -105,7 +105,7 @@ func TestResolver_GetOCR2KeyBundles(t *testing.T) {
 	RunGQLTests(t, testCases)
 }
 
-func TestResolver_CreateOCR2KeyBundle(t *testing.T) {
+func TestUnit_Resolver_CreateOCR2KeyBundle(t *testing.T) {
 	t.Parallel()
 
 	mutation := `
@@ -188,7 +188,7 @@ func TestResolver_CreateOCR2KeyBundle(t *testing.T) {
 	RunGQLTests(t, testCases)
 }
 
-func TestResolver_DeleteOCR2KeyBundle(t *testing.T) {
+func TestUnit_Resolver_DeleteOCR2KeyBundle(t *testing.T) {
 	t.Parallel()
 
 	fakeKey := ocr2key.MustNewInsecure(keystest.NewRandReaderFromSeed(1), "evm")

@@ -8,7 +8,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestBalanceStore(t *testing.T) {
+func TestUnit_BalanceStore(t *testing.T) {
 	t.Parallel()
 
 	one := decimal.NewFromInt(1)

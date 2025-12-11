@@ -9,7 +9,7 @@ import (
 	"go.uber.org/zap/zapcore"
 )
 
-func TestTrace(t *testing.T) {
+func TestUnit_Trace(t *testing.T) {
 	lgr, observed := TestLoggerObserved(t, zapcore.InfoLevel)
 
 	const (

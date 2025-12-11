@@ -14,7 +14,7 @@ import (
 	ccipdatamocks "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/ccipdata/mocks"
 )
 
-func TestProperLabelsArePassed(t *testing.T) {
+func TestUnit_ProperLabelsArePassed(t *testing.T) {
 	histogram := readerHistogram
 	successCounter := 10
 	failedCounter := 5
@@ -39,7 +39,7 @@ func TestProperLabelsArePassed(t *testing.T) {
 	assert.Equal(t, failedCounter, counterFromHistogramByLabels(t, histogram, "123", "reader", "failedFun"))
 }
 
-func TestMetricsSendFromContractDirectly(t *testing.T) {
+func TestUnit_MetricsSendFromContractDirectly(t *testing.T) {
 	expectedCounter := 4
 	ctx := testutils.Context(t)
 	chainId := int64(420)

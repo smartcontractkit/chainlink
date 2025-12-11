@@ -24,7 +24,7 @@ func modifyCopy[T any](c T, f func(c *T)) T {
 	return c
 }
 
-func TestExecOffchainConfig120_Encoding(t *testing.T) {
+func TestUnit_ExecOffchainConfig120_Encoding(t *testing.T) {
 	t.Parallel()
 	validConfig := JSONExecOffchainConfig{
 		SourceFinalityDepth:         3,
@@ -112,7 +112,7 @@ func TestExecOffchainConfig120_Encoding(t *testing.T) {
 	}
 }
 
-func TestExecOffchainConfig120_ParseRawJson(t *testing.T) {
+func TestUnit_ExecOffchainConfig120_ParseRawJson(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
@@ -180,7 +180,7 @@ func TestExecOffchainConfig120_ParseRawJson(t *testing.T) {
 	}
 }
 
-func Test_GetSendersNonce(t *testing.T) {
+func TestUnit_GetSendersNonce(t *testing.T) {
 	sender1 := cciptypes.Address(utils.RandomAddress().String())
 	sender2 := cciptypes.Address(utils.RandomAddress().String())
 

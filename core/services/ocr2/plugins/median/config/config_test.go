@@ -10,7 +10,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 )
 
-func TestValidatePluginConfig(t *testing.T) {
+func TestUnit_ValidatePluginConfig(t *testing.T) {
 	type testCase struct {
 		name          string
 		pipeline      string

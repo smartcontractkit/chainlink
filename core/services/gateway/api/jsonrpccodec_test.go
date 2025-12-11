@@ -11,7 +11,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/api"
 )
 
-func TestJsonRPCRequest_Decode_Correct(t *testing.T) {
+func TestUnit_JsonRPCRequest_Decode_Correct(t *testing.T) {
 	t.Parallel()
 
 	input := []byte(`{"jsonrpc": "2.0", "id": "aa-bb", "method": "upload", "params": {"body":{"don_id": "functions_local", "payload": {"field": 123}}}}`)
@@ -32,7 +32,7 @@ func TestJsonRPCRequest_Decode_Correct(t *testing.T) {
 	require.Equal(t, msg.Body.Payload, msg2.Body.Payload)
 }
 
-func TestJsonRPCRequest_Decode_Incorrect(t *testing.T) {
+func TestUnit_JsonRPCRequest_Decode_Incorrect(t *testing.T) {
 	t.Parallel()
 
 	testCases := map[string]string{
@@ -49,7 +49,7 @@ func TestJsonRPCRequest_Decode_Incorrect(t *testing.T) {
 	}
 }
 
-func TestJsonRPCRequest_Encode(t *testing.T) {
+func TestUnit_JsonRPCRequest_Encode(t *testing.T) {
 	t.Parallel()
 
 	var msg api.Message
@@ -69,7 +69,7 @@ func TestJsonRPCRequest_Encode(t *testing.T) {
 	require.Equal(t, "upload", decoded.Body.Method)
 }
 
-func TestJsonRPCResponse_Decode(t *testing.T) {
+func TestUnit_JsonRPCResponse_Decode(t *testing.T) {
 	t.Parallel()
 
 	input := []byte(`{"jsonrpc": "2.0", "id": "aa-bb", "result": {"body": {"don_id": "functions_local", "payload": {"field": 123}}}}`)
@@ -81,7 +81,7 @@ func TestJsonRPCResponse_Decode(t *testing.T) {
 	require.NotEmpty(t, msg.Body.Payload)
 }
 
-func TestJsonRPCResponse_Encode(t *testing.T) {
+func TestUnit_JsonRPCResponse_Encode(t *testing.T) {
 	t.Parallel()
 
 	var msg api.Message

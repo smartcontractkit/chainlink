@@ -18,7 +18,7 @@ import (
 	"github.com/smartcontractkit/chainlink-evm/pkg/logpoller"
 )
 
-func Test_DecodeHardcodedType(t *testing.T) {
+func TestUnit_DecodeHardcodedType(t *testing.T) {
 	t.Parallel()
 
 	t.Run("decode hardcoded type offramp CoommitReportAccess success", func(t *testing.T) {

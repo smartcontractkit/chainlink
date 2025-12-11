@@ -11,7 +11,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/internal"
 )
 
-func TestCSAKeyV2_FromRawPrivateKey(t *testing.T) {
+func TestUnit_CSAKeyV2_FromRawPrivateKey(t *testing.T) {
 	pubKey, privKey, err := ed25519.GenerateKey(nil)
 	require.NoError(t, err)
 
@@ -22,7 +22,7 @@ func TestCSAKeyV2_FromRawPrivateKey(t *testing.T) {
 	assert.Equal(t, hex.EncodeToString(pubKey), keyV2.PublicKeyString())
 }
 
-func TestCSAKeyV2_NewV2(t *testing.T) {
+func TestUnit_CSAKeyV2_NewV2(t *testing.T) {
 	keyV2, err := NewV2()
 	require.NoError(t, err)
 

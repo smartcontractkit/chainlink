@@ -14,7 +14,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestTONKeysController_Index_HappyPath(t *testing.T) {
+func TestUnit_TONKeysController_Index_HappyPath(t *testing.T) {
 	t.Parallel()
 
 	client, keyStore := setupTONKeysControllerTests(t)
@@ -34,7 +34,7 @@ func TestTONKeysController_Index_HappyPath(t *testing.T) {
 	require.Equal(t, keys[0].PublicKeyStr(), resources[0].PubKey)
 }
 
-func TestTONKeysController_Create_HappyPath(t *testing.T) {
+func TestUnit_TONKeysController_Create_HappyPath(t *testing.T) {
 	t.Parallel()
 
 	app := cltest.NewApplicationEVMDisabled(t)
@@ -62,7 +62,7 @@ func TestTONKeysController_Create_HappyPath(t *testing.T) {
 	require.NoError(t, err)
 }
 
-func TestTONKeysController_Delete_NonExistentTONKeyID(t *testing.T) {
+func TestUnit_TONKeysController_Delete_NonExistentTONKeyID(t *testing.T) {
 	t.Parallel()
 
 	client, _ := setupTONKeysControllerTests(t)
@@ -73,7 +73,7 @@ func TestTONKeysController_Delete_NonExistentTONKeyID(t *testing.T) {
 	require.Equal(t, http.StatusNotFound, response.StatusCode)
 }
 
-func TestTONKeysController_Delete_HappyPath(t *testing.T) {
+func TestUnit_TONKeysController_Delete_HappyPath(t *testing.T) {
 	t.Parallel()
 	ctx := testutils.Context(t)
 

@@ -23,7 +23,7 @@ const (
 	payload2 = "goodbye world"
 )
 
-func TestValidateMessage(t *testing.T) {
+func TestUnit_ValidateMessage(t *testing.T) {
 	privKey1, peerID1 := newKeyPair(t)
 	_, peerID2 := newKeyPair(t)
 
@@ -95,13 +95,13 @@ func signBody(t *testing.T, senderPrivKey ed25519.PrivateKey, body *remotetypes.
 	}
 }
 
-func TestToPeerID(t *testing.T) {
+func TestUnit_ToPeerID(t *testing.T) {
 	id, err := remote.ToPeerID([]byte("12345678901234567890123456789012"))
 	require.NoError(t, err)
 	require.Equal(t, "12D3KooWD8QYTQVYjB6oog4Ej8PcPpqTrPRnxLQap8yY8KUQRVvq", id.String())
 }
 
-func TestSanitizeLogString(t *testing.T) {
+func TestUnit_SanitizeLogString(t *testing.T) {
 	require.Equal(t, "hello", remote.SanitizeLogString("hello"))
 	require.Equal(t, "[UNPRINTABLE] 0a", remote.SanitizeLogString("\n"))
 

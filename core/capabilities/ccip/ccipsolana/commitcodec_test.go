@@ -57,7 +57,7 @@ var randomBlessedCommitReport = func() cciptypes.CommitPluginReport {
 	}
 }
 
-func TestCommitPluginCodecV1(t *testing.T) {
+func TestUnit_CommitPluginCodecV1(t *testing.T) {
 	testCases := []struct {
 		name   string
 		report func(report cciptypes.CommitPluginReport) cciptypes.CommitPluginReport
@@ -198,7 +198,7 @@ func BenchmarkCommitPluginCodecV1_Encode_Decode(b *testing.B) {
 	}
 }
 
-func Test_DecodingCommitReport(t *testing.T) {
+func TestUnit_DecodingCommitReport(t *testing.T) {
 	t.Run("decode on-chain commit report", func(t *testing.T) {
 		chainSel := cciptypes.ChainSelector(rand.Uint64())
 		minSeqNr := rand.Uint64()

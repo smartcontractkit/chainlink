@@ -11,7 +11,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func Test_NewEncoder(t *testing.T) {
+func TestUnit_NewEncoder(t *testing.T) {
 	t.Parallel()
 	t.Run("All ocr3 encoder types return a factory", func(t *testing.T) {
 		evmEncoding, err := values.NewMap(map[string]any{"abi": "bytes[] Full_reports"})

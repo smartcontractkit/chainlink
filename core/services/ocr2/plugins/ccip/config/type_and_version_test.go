@@ -7,7 +7,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestParseTypeAndVersion(t *testing.T) {
+func TestUnit_ParseTypeAndVersion(t *testing.T) {
 	tests := []struct {
 		name            string
 		input           string

@@ -10,7 +10,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
-func TestExport(t *testing.T) {
+func TestUnit_Export(t *testing.T) {
 	var tt = []struct {
 		chain chaintype.ChainType
 	}{

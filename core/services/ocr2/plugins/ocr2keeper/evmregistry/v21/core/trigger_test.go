@@ -12,7 +12,7 @@ import (
 	ocr2keepers "github.com/smartcontractkit/chainlink-common/pkg/types/automation"
 )
 
-func TestPackUnpackTrigger(t *testing.T) {
+func TestUnit_PackUnpackTrigger(t *testing.T) {
 	tests := []struct {
 		name    string
 		id      []byte

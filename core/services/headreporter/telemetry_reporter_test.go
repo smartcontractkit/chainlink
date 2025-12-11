@@ -30,7 +30,7 @@ import (
 	testutils2 "github.com/smartcontractkit/chainlink/v2/core/web/testutils"
 )
 
-func Test_EVMTelemetryReporter_NewHead(t *testing.T) {
+func TestUnit_EVMTelemetryReporter_NewHead(t *testing.T) {
 	head := evmtypes.Head{
 		Number:     42,
 		EVMChainID: ubig.NewI(100),
@@ -72,7 +72,7 @@ func Test_EVMTelemetryReporter_NewHead(t *testing.T) {
 	assert.NoError(t, err)
 }
 
-func Test_EVMTelemetryReporter_NewHeadMissingFinalized(t *testing.T) {
+func TestUnit_EVMTelemetryReporter_NewHeadMissingFinalized(t *testing.T) {
 	head := evmtypes.Head{
 		Number:     42,
 		EVMChainID: ubig.NewI(100),
@@ -102,7 +102,7 @@ func Test_EVMTelemetryReporter_NewHeadMissingFinalized(t *testing.T) {
 	assert.NoError(t, err)
 }
 
-func Test_EVMTelemetryReporter_NewHead_MissingEndpoint(t *testing.T) {
+func TestUnit_EVMTelemetryReporter_NewHead_MissingEndpoint(t *testing.T) {
 	monitoringEndpointGen := telemetry.NewMockMonitoringEndpointGenerator(t)
 	monitoringEndpointGen.
 		On("GenMonitoringEndpoint", "EVM", "100", "", synchronization.HeadReport).
@@ -125,7 +125,7 @@ func (m mockRelayer) LatestHead(_ context.Context) (types.Head, error) {
 	return m.latestHead, nil
 }
 
-func Test_SolanaTelemetryReporter_ReportPeriodic(t *testing.T) {
+func TestUnit_SolanaTelemetryReporter_ReportPeriodic(t *testing.T) {
 	privKey, err := solana.NewRandomPrivateKey()
 	require.NoError(t, err)
 	blockHash := [32]byte(privKey.PublicKey())
@@ -165,7 +165,7 @@ func Test_SolanaTelemetryReporter_ReportPeriodic(t *testing.T) {
 	assert.NoError(t, err)
 }
 
-func Test_SolanaTelemetryReporter_ReportPeriodic_EmptyBlockHeight(t *testing.T) {
+func TestUnit_SolanaTelemetryReporter_ReportPeriodic_EmptyBlockHeight(t *testing.T) {
 	head := types.Head{
 		Height:    "",
 		Hash:      nil,
@@ -188,7 +188,7 @@ func Test_SolanaTelemetryReporter_ReportPeriodic_EmptyBlockHeight(t *testing.T) 
 	assert.ErrorContains(t, err, "latest block height returned by relayer is empty for {Solana testchain}")
 }
 
-func Test_SolanaTelemetryReporter_ReportPeriodic_MissingEndpoint(t *testing.T) {
+func TestUnit_SolanaTelemetryReporter_ReportPeriodic_MissingEndpoint(t *testing.T) {
 	monitoringEndpoint := mocks2.NewMonitoringEndpoint(t)
 
 	monitoringEndpointGen := telemetry.NewMockMonitoringEndpointGenerator(t)

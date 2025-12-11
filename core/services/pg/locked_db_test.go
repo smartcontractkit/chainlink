@@ -22,7 +22,7 @@ func lease(c *chainlink.Config, s *chainlink.Secrets) {
 	c.Database.Lock.LeaseRefreshInterval = commonconfig.MustNewDuration(time.Second)
 }
 
-func TestLockedDB_HappyPath(t *testing.T) {
+func TestUnit_LockedDB_HappyPath(t *testing.T) {
 	testutils.SkipShortDB(t)
 	config := configtest.NewGeneralConfig(t, lease)
 	lggr := logger.TestLogger(t)
@@ -37,7 +37,7 @@ func TestLockedDB_HappyPath(t *testing.T) {
 	require.Nil(t, ldb.DB())
 }
 
-func TestLockedDB_ContextCancelled(t *testing.T) {
+func TestUnit_LockedDB_ContextCancelled(t *testing.T) {
 	testutils.SkipShortDB(t)
 	config := configtest.NewGeneralConfig(t, lease)
 	lggr := logger.TestLogger(t)
@@ -50,7 +50,7 @@ func TestLockedDB_ContextCancelled(t *testing.T) {
 	require.Nil(t, ldb.DB())
 }
 
-func TestLockedDB_OpenTwice(t *testing.T) {
+func TestUnit_LockedDB_OpenTwice(t *testing.T) {
 	testutils.SkipShortDB(t)
 	config := configtest.NewGeneralConfig(t, lease)
 	lggr := logger.TestLogger(t)
@@ -63,7 +63,7 @@ func TestLockedDB_OpenTwice(t *testing.T) {
 	_ = ldb.Close()
 }
 
-func TestLockedDB_TwoInstances(t *testing.T) {
+func TestUnit_LockedDB_TwoInstances(t *testing.T) {
 	testutils.SkipShortDB(t)
 	config := configtest.NewGeneralConfig(t, lease)
 	lggr := logger.TestLogger(t)
@@ -84,7 +84,7 @@ func TestLockedDB_TwoInstances(t *testing.T) {
 	require.Error(t, err)
 }
 
-func TestOpenUnlockedDB(t *testing.T) {
+func TestUnit_OpenUnlockedDB(t *testing.T) {
 	testutils.SkipShortDB(t)
 	ctx := testutils.Context(t)
 	config := configtest.NewGeneralConfig(t, nil)

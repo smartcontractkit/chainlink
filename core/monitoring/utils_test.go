@@ -7,7 +7,7 @@ import (
 	"go.opentelemetry.io/otel/attribute"
 )
 
-func TestKvMapToOtelAttributes(t *testing.T) {
+func TestUnit_KvMapToOtelAttributes(t *testing.T) {
 	tests := []struct {
 		name     string
 		input    map[string]string

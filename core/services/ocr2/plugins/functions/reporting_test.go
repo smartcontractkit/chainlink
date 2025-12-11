@@ -128,7 +128,7 @@ func newObservation(t *testing.T, observerId uint8, requests ...*encoding.Proces
 	}
 }
 
-func TestFunctionsReporting_Query(t *testing.T) {
+func TestUnit_FunctionsReporting_Query(t *testing.T) {
 	t.Parallel()
 	const batchSize = 10
 	plugin, orm, _, _ := preparePlugin(t, batchSize, 0)
@@ -146,7 +146,7 @@ func TestFunctionsReporting_Query(t *testing.T) {
 	require.Equal(t, reqs[1].RequestID[:], queryProto.RequestIDs[1])
 }
 
-func TestFunctionsReporting_Query_HandleCoordinatorMismatch(t *testing.T) {
+func TestUnit_FunctionsReporting_Query_HandleCoordinatorMismatch(t *testing.T) {
 	t.Parallel()
 	const batchSize = 10
 	plugin, orm, _, _ := preparePlugin(t, batchSize, 1000000)
@@ -166,7 +166,7 @@ func TestFunctionsReporting_Query_HandleCoordinatorMismatch(t *testing.T) {
 	// reqs[1] should be excluded from this query because it has a different coordinator address
 }
 
-func TestFunctionsReporting_Observation(t *testing.T) {
+func TestUnit_FunctionsReporting_Observation(t *testing.T) {
 	t.Parallel()
 	plugin, orm, _, _ := preparePlugin(t, 10, 0)
 
@@ -201,7 +201,7 @@ func TestFunctionsReporting_Observation(t *testing.T) {
 	require.Equal(t, observationProto.ProcessedRequests[1].Result, []byte("def"))
 }
 
-func TestFunctionsReporting_Observation_IncorrectQuery(t *testing.T) {
+func TestUnit_FunctionsReporting_Observation_IncorrectQuery(t *testing.T) {
 	t.Parallel()
 	plugin, orm, _, _ := preparePlugin(t, 10, 0)
 
@@ -228,7 +228,7 @@ func TestFunctionsReporting_Observation_IncorrectQuery(t *testing.T) {
 	require.Equal(t, observationProto.ProcessedRequests[0].Result, []byte("abc"))
 }
 
-func TestFunctionsReporting_Report(t *testing.T) {
+func TestUnit_FunctionsReporting_Report(t *testing.T) {
 	t.Parallel()
 	plugin, _, codec, _ := preparePlugin(t, 10, 1000000)
 	reqId1, reqId2, reqId3 := newRequestID(), newRequestID(), newRequestID()
@@ -265,7 +265,7 @@ func TestFunctionsReporting_Report(t *testing.T) {
 	require.Equal(t, []byte{}, decoded[1].Error)
 }
 
-func TestFunctionsReporting_Report_WithGasLimitAndMetadata(t *testing.T) {
+func TestUnit_FunctionsReporting_Report_WithGasLimitAndMetadata(t *testing.T) {
 	t.Parallel()
 	plugin, _, codec, _ := preparePlugin(t, 10, 300000)
 	reqId1, reqId2, reqId3 := newRequestID(), newRequestID(), newRequestID()
@@ -306,7 +306,7 @@ func TestFunctionsReporting_Report_WithGasLimitAndMetadata(t *testing.T) {
 	// CallbackGasLimit is not ABI-encoded
 }
 
-func TestFunctionsReporting_Report_HandleCoordinatorMismatch(t *testing.T) {
+func TestUnit_FunctionsReporting_Report_HandleCoordinatorMismatch(t *testing.T) {
 	t.Parallel()
 	plugin, _, codec, _ := preparePlugin(t, 10, 300000)
 	reqId1, reqId2, reqId3 := newRequestID(), newRequestID(), newRequestID()
@@ -336,7 +336,7 @@ func TestFunctionsReporting_Report_HandleCoordinatorMismatch(t *testing.T) {
 	// reqId2	should be excluded from this report because it has a different coordinator address
 }
 
-func TestFunctionsReporting_Report_CallbackGasLimitExceeded(t *testing.T) {
+func TestUnit_FunctionsReporting_Report_CallbackGasLimitExceeded(t *testing.T) {
 	t.Parallel()
 	plugin, _, codec, _ := preparePlugin(t, 10, 200000)
 	reqId1, reqId2 := newRequestID(), newRequestID()
@@ -367,7 +367,7 @@ func TestFunctionsReporting_Report_CallbackGasLimitExceeded(t *testing.T) {
 	require.Equal(t, coordinatorContract1[:], decoded[0].CoordinatorContract)
 }
 
-func TestFunctionsReporting_Report_DeterministicOrderOfRequests(t *testing.T) {
+func TestUnit_FunctionsReporting_Report_DeterministicOrderOfRequests(t *testing.T) {
 	t.Parallel()
 	plugin, _, codec, _ := preparePlugin(t, 10, 0)
 	reqId1, reqId2, reqId3 := newRequestID(), newRequestID(), newRequestID()
@@ -396,7 +396,7 @@ func TestFunctionsReporting_Report_DeterministicOrderOfRequests(t *testing.T) {
 	require.Len(t, decoded, 3)
 }
 
-func TestFunctionsReporting_Report_IncorrectObservation(t *testing.T) {
+func TestUnit_FunctionsReporting_Report_IncorrectObservation(t *testing.T) {
 	t.Parallel()
 	plugin, _, _, _ := preparePlugin(t, 10, 0)
 	reqId1 := newRequestID()
@@ -430,7 +430,7 @@ func getReportBytes(t *testing.T, codec encoding.ReportCodec, reqs ...functions_
 	return reportBytes
 }
 
-func TestFunctionsReporting_ShouldAcceptFinalizedReport(t *testing.T) {
+func TestUnit_FunctionsReporting_ShouldAcceptFinalizedReport(t *testing.T) {
 	t.Parallel()
 	plugin, orm, codec, _ := preparePlugin(t, 10, 0)
 
@@ -469,7 +469,7 @@ func TestFunctionsReporting_ShouldAcceptFinalizedReport(t *testing.T) {
 	require.True(t, should)
 }
 
-func TestFunctionsReporting_ShouldAcceptFinalizedReport_OffchainTransmission(t *testing.T) {
+func TestUnit_FunctionsReporting_ShouldAcceptFinalizedReport_OffchainTransmission(t *testing.T) {
 	t.Parallel()
 	plugin, orm, codec, offchainTransmitter := preparePlugin(t, 10, 0)
 	req1 := newRequestWithResult([]byte("abc"))
@@ -484,7 +484,7 @@ func TestFunctionsReporting_ShouldAcceptFinalizedReport_OffchainTransmission(t *
 	require.False(t, should)
 }
 
-func TestFunctionsReporting_ShouldTransmitAcceptedReport(t *testing.T) {
+func TestUnit_FunctionsReporting_ShouldTransmitAcceptedReport(t *testing.T) {
 	t.Parallel()
 	plugin, orm, codec, _ := preparePlugin(t, 10, 0)
 
@@ -522,7 +522,7 @@ func TestFunctionsReporting_ShouldTransmitAcceptedReport(t *testing.T) {
 	require.True(t, should)
 }
 
-func TestFunctionsReporting_ShouldIncludeCoordinator(t *testing.T) {
+func TestUnit_FunctionsReporting_ShouldIncludeCoordinator(t *testing.T) {
 	t.Parallel()
 
 	zeroAddr, coord1, coord2 := &common.Address{}, &common.Address{1}, &common.Address{2}

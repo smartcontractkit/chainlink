@@ -10,7 +10,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/testdata/testspecs"
 )
 
-func TestDelegate_JobSpecValidator(t *testing.T) {
+func TestUnit_Delegate_JobSpecValidator(t *testing.T) {
 	t.Parallel()
 	var tt = []struct {
 		name           string

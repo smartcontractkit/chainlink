@@ -15,7 +15,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/llo/types"
 )
 
-func Test_ORM(t *testing.T) {
+func TestUnit_ORM(t *testing.T) {
 	const ETHMainnetChainSelector uint64 = 5009297550715157269
 	const OtherChainSelector uint64 = 1234567890
 

@@ -37,7 +37,7 @@ func setupMockConfig(t *testing.T, useBatchSend bool, chipIngressEnabled bool) *
 	return tic
 }
 
-func TestManagerAgents(t *testing.T) {
+func TestUnit_ManagerAgents(t *testing.T) {
 	tic := setupMockConfig(t, true, false)
 	te := mocks.NewTelemetryIngressEndpoint(t)
 	te.On("Network").Return("network-1")
@@ -64,7 +64,7 @@ func TestManagerAgents(t *testing.T) {
 	assert.Equal(t, "*telemetry.TypedIngressAgent", reflect.TypeOf(me).String())
 }
 
-func TestNewManager(t *testing.T) {
+func TestUnit_NewManager(t *testing.T) {
 	type endpointTest struct {
 		network       string
 		chainID       string
@@ -196,7 +196,7 @@ func TestNewManager(t *testing.T) {
 	require.Len(t, hr, 4)
 }
 
-func TestCorrectEndpointRouting(t *testing.T) {
+func TestUnit_CorrectEndpointRouting(t *testing.T) {
 	tic := setupMockConfig(t, true, false)
 	tic.On("Endpoints").Return(nil)
 
@@ -284,7 +284,7 @@ func TestCorrectEndpointRouting(t *testing.T) {
 }
 
 // add test for current changes in manager
-func TestManager_ChipIngressClient(t *testing.T) {
+func TestUnit_Manager_ChipIngressClient(t *testing.T) {
 	t.Run("disabled chip ingress", func(t *testing.T) {
 		tic := setupMockConfig(t, true, false)
 		tic.On("Endpoints").Return(nil)

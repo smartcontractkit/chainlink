@@ -14,7 +14,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/ccipcalc"
 )
 
-func TestCommitConfig(t *testing.T) {
+func TestUnit_CommitConfig(t *testing.T) {
 	tests := []struct {
 		name                    string
 		cfg                     CommitPluginJobSpecConfig
@@ -130,7 +130,7 @@ func TestCommitConfig(t *testing.T) {
 	}
 }
 
-func TestExecutionConfig(t *testing.T) {
+func TestUnit_ExecutionConfig(t *testing.T) {
 	exampleConfig := ExecPluginJobSpecConfig{
 		SourceStartBlock: 222,
 		DestStartBlock:   333,
@@ -145,7 +145,7 @@ func TestExecutionConfig(t *testing.T) {
 	require.Equal(t, exampleConfig, parsedConfig)
 }
 
-func TestUSDCValidate(t *testing.T) {
+func TestUnit_USDCValidate(t *testing.T) {
 	testcases := []struct {
 		config USDCConfig
 		err    string
@@ -205,7 +205,7 @@ func TestUSDCValidate(t *testing.T) {
 	}
 }
 
-func TestDynamicPriceGetterConfig(t *testing.T) {
+func TestUnit_DynamicPriceGetterConfig(t *testing.T) {
 	// this test goes through unmarshal -> move deprecated -> validate -> assert equal to expected
 	// for verifying e2e config loading and validation
 	destChain := chainsel.TEST_1000   // 11787463284727550157

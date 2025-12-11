@@ -12,7 +12,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/static"
 )
 
-func TestTelemetryConfig_Enabled(t *testing.T) {
+func TestUnit_TelemetryConfig_Enabled(t *testing.T) {
 	trueVal := true
 	falseVal := false
 
@@ -33,7 +33,7 @@ func TestTelemetryConfig_Enabled(t *testing.T) {
 	}
 }
 
-func TestTelemetryConfig_InsecureConnection(t *testing.T) {
+func TestUnit_TelemetryConfig_InsecureConnection(t *testing.T) {
 	trueVal := true
 	falseVal := false
 
@@ -54,7 +54,7 @@ func TestTelemetryConfig_InsecureConnection(t *testing.T) {
 	}
 }
 
-func TestTelemetryConfig_CACertFile(t *testing.T) {
+func TestUnit_TelemetryConfig_CACertFile(t *testing.T) {
 	tests := []struct {
 		name      string
 		telemetry toml.Telemetry
@@ -72,7 +72,7 @@ func TestTelemetryConfig_CACertFile(t *testing.T) {
 	}
 }
 
-func TestTelemetryConfig_OtelExporterGRPCEndpoint(t *testing.T) {
+func TestUnit_TelemetryConfig_OtelExporterGRPCEndpoint(t *testing.T) {
 	tests := []struct {
 		name      string
 		telemetry toml.Telemetry
@@ -90,7 +90,7 @@ func TestTelemetryConfig_OtelExporterGRPCEndpoint(t *testing.T) {
 	}
 }
 
-func TestTelemetryConfig_ResourceAttributes(t *testing.T) {
+func TestUnit_TelemetryConfig_ResourceAttributes(t *testing.T) {
 	tests := []struct {
 		name      string
 		telemetry toml.Telemetry
@@ -127,7 +127,7 @@ func TestTelemetryConfig_ResourceAttributes(t *testing.T) {
 	}
 }
 
-func TestTelemetryConfig_TraceSampleRatio(t *testing.T) {
+func TestUnit_TelemetryConfig_TraceSampleRatio(t *testing.T) {
 	tests := []struct {
 		name      string
 		telemetry toml.Telemetry
@@ -144,7 +144,7 @@ func TestTelemetryConfig_TraceSampleRatio(t *testing.T) {
 	}
 }
 
-func TestTelemetryConfig_EmitterBatchProcessor(t *testing.T) {
+func TestUnit_TelemetryConfig_EmitterBatchProcessor(t *testing.T) {
 	tests := []struct {
 		name      string
 		telemetry toml.Telemetry
@@ -162,7 +162,7 @@ func TestTelemetryConfig_EmitterBatchProcessor(t *testing.T) {
 	}
 }
 
-func TestTelemetryConfig_EmitterExportTimeout(t *testing.T) {
+func TestUnit_TelemetryConfig_EmitterExportTimeout(t *testing.T) {
 	tests := []struct {
 		name      string
 		telemetry toml.Telemetry
@@ -181,7 +181,7 @@ func TestTelemetryConfig_EmitterExportTimeout(t *testing.T) {
 	}
 }
 
-func TestTelemetryConfig_ChipIngressEndpoint(t *testing.T) {
+func TestUnit_TelemetryConfig_ChipIngressEndpoint(t *testing.T) {
 	tests := []struct {
 		name      string
 		telemetry toml.Telemetry
@@ -200,7 +200,7 @@ func TestTelemetryConfig_ChipIngressEndpoint(t *testing.T) {
 	}
 }
 
-func TestTelemetryConfig_ChipIngressInsecureConnection(t *testing.T) {
+func TestUnit_TelemetryConfig_ChipIngressInsecureConnection(t *testing.T) {
 	tests := []struct {
 		name      string
 		telemetry toml.Telemetry
@@ -226,7 +226,7 @@ func ptrFloat(f float64) *float64 {
 	return &f
 }
 
-func TestTelemetryConfig_HeartbeatInterval(t *testing.T) {
+func TestUnit_TelemetryConfig_HeartbeatInterval(t *testing.T) {
 	tests := []struct {
 		name      string
 		telemetry toml.Telemetry
@@ -245,7 +245,7 @@ func TestTelemetryConfig_HeartbeatInterval(t *testing.T) {
 	}
 }
 
-func TestTelemetryConfig_LogStreamingEnabled(t *testing.T) {
+func TestUnit_TelemetryConfig_LogStreamingEnabled(t *testing.T) {
 	tests := []struct {
 		name      string
 		telemetry toml.Telemetry
@@ -263,7 +263,7 @@ func TestTelemetryConfig_LogStreamingEnabled(t *testing.T) {
 	}
 }
 
-func TestTelemetryConfig_LogLevel(t *testing.T) {
+func TestUnit_TelemetryConfig_LogLevel(t *testing.T) {
 	tests := []struct {
 		name      string
 		telemetry toml.Telemetry
@@ -285,7 +285,7 @@ func TestTelemetryConfig_LogLevel(t *testing.T) {
 	}
 }
 
-func TestTelemetryConfig_LogBatchProcessor(t *testing.T) {
+func TestUnit_TelemetryConfig_LogBatchProcessor(t *testing.T) {
 	tests := []struct {
 		name      string
 		telemetry toml.Telemetry
@@ -304,7 +304,7 @@ func TestTelemetryConfig_LogBatchProcessor(t *testing.T) {
 	}
 }
 
-func TestTelemetryConfig_LogExportTimeout(t *testing.T) {
+func TestUnit_TelemetryConfig_LogExportTimeout(t *testing.T) {
 	tests := []struct {
 		name      string
 		telemetry toml.Telemetry
@@ -321,7 +321,7 @@ func TestTelemetryConfig_LogExportTimeout(t *testing.T) {
 		})
 	}
 }
-func TestTelemetryConfig_LogExportMaxBatchSize(t *testing.T) {
+func TestUnit_TelemetryConfig_LogExportMaxBatchSize(t *testing.T) {
 	tests := []struct {
 		name      string
 		telemetry toml.Telemetry
@@ -343,7 +343,7 @@ func ptrInt(i int) *int {
 	return &i
 }
 
-func TestTelemetryConfig_LogExportInterval(t *testing.T) {
+func TestUnit_TelemetryConfig_LogExportInterval(t *testing.T) {
 	tests := []struct {
 		name      string
 		telemetry toml.Telemetry
@@ -361,7 +361,7 @@ func TestTelemetryConfig_LogExportInterval(t *testing.T) {
 	}
 }
 
-func TestTelemetryConfig_LogMaxQueueSize(t *testing.T) {
+func TestUnit_TelemetryConfig_LogMaxQueueSize(t *testing.T) {
 	tests := []struct {
 		name      string
 		telemetry toml.Telemetry

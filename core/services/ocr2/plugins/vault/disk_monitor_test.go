@@ -20,7 +20,7 @@ func (m *mockGauge) Record(ctx context.Context, value int64, options ...metric.R
 	m.gotValue = value
 }
 
-func TestDiskMonitor_emitDirSizeMetric(t *testing.T) {
+func TestUnit_DiskMonitor_emitDirSizeMetric(t *testing.T) {
 	lggr, observed := logger.TestLoggerObserved(t, zapcore.DebugLevel)
 
 	dm := &DiskMonitor{
@@ -37,7 +37,7 @@ func TestDiskMonitor_emitDirSizeMetric(t *testing.T) {
 	assert.Len(t, observed.FilterMessage("Emitting vault directory size metric").All(), 1)
 }
 
-func TestDiskMonitor_emitDirSizeMetric_error(t *testing.T) {
+func TestUnit_DiskMonitor_emitDirSizeMetric_error(t *testing.T) {
 	lggr, observed := logger.TestLoggerObserved(t, zapcore.DebugLevel)
 
 	dm := &DiskMonitor{

@@ -34,7 +34,7 @@ func observedScalar(t *testing.T, s kyber.Scalar) {
 
 var randomStreamScalar = cryptotest.NewStream(&testing.T{}, 0)
 
-func TestScalar_SetAndEqual(t *testing.T) {
+func TestUnit_Scalar_SetAndEqual(t *testing.T) {
 	tests := []int64{5, 67108864, 67108865, 4294967295}
 	g := newScalar(scalarZero)
 	for _, test := range tests {
@@ -48,14 +48,14 @@ func TestScalar_SetAndEqual(t *testing.T) {
 	}
 }
 
-func TestNewScalar(t *testing.T) {
+func TestUnit_NewScalar(t *testing.T) {
 	one := newScalar(big.NewInt(1))
 	assert.Equal(t, ToInt(one),
 		ToInt(newScalar(big.NewInt(0).Add(ToInt(one), GroupOrder))),
 		"equivalence classes mod GroupOrder not equal")
 }
 
-func TestScalar_SmokeTestPick(t *testing.T) {
+func TestUnit_Scalar_SmokeTestPick(t *testing.T) {
 	f := newScalar(scalarZero).Clone()
 	for range numScalarSamples {
 		f.Pick(randomStreamScalar)
@@ -65,7 +65,7 @@ func TestScalar_SmokeTestPick(t *testing.T) {
 	}
 }
 
-func TestScalar_Neg(t *testing.T) {
+func TestUnit_Scalar_Neg(t *testing.T) {
 	f := newScalar(scalarZero).Clone()
 	for range numScalarSamples {
 		f.Pick(randomStreamScalar)
@@ -76,7 +76,7 @@ func TestScalar_Neg(t *testing.T) {
 	}
 }
 
-func TestScalar_Sub(t *testing.T) {
+func TestUnit_Scalar_Sub(t *testing.T) {
 	f := newScalar(scalarZero).Clone()
 	for range numScalarSamples {
 		f.Pick(randomStreamScalar)
@@ -86,7 +86,7 @@ func TestScalar_Sub(t *testing.T) {
 	}
 }
 
-func TestScalar_Clone(t *testing.T) {
+func TestUnit_Scalar_Clone(t *testing.T) {
 	f := newScalar(big.NewInt(1))
 	g := f.Clone()
 	h := f.Clone()
@@ -95,7 +95,7 @@ func TestScalar_Clone(t *testing.T) {
 	assert.Equal(t, f, h, "clone does not make a copy")
 }
 
-func TestScalar_Marshal(t *testing.T) {
+func TestUnit_Scalar_Marshal(t *testing.T) {
 	f := newScalar(scalarZero)
 	g := newScalar(scalarZero)
 	for range numFieldSamples {
@@ -120,7 +120,7 @@ func TestScalar_Marshal(t *testing.T) {
 	require.NoError(t, err)
 }
 
-func TestScalar_MulDivInv(t *testing.T) {
+func TestUnit_Scalar_MulDivInv(t *testing.T) {
 	f := newScalar(scalarZero)
 	g := newScalar(scalarZero)
 	h := newScalar(scalarZero)
@@ -144,44 +144,44 @@ func TestScalar_MulDivInv(t *testing.T) {
 	}
 }
 
-func TestScalar_AllowVarTime(t *testing.T) {
+func TestUnit_Scalar_AllowVarTime(t *testing.T) {
 	defer func() { require.Contains(t, recover(), "not constant-time!") }()
 	newScalar(bigZero).(*secp256k1Scalar).AllowVarTime(false)
 }
 
-func TestScalar_String(t *testing.T) {
+func TestUnit_Scalar_String(t *testing.T) {
 	require.Equal(t, "scalar{0}", newScalar(bigZero).String())
 }
 
-func TestScalar_SetInt64(t *testing.T) {
+func TestUnit_Scalar_SetInt64(t *testing.T) {
 	require.Equal(t, newScalar(bigZero).SetInt64(1), newScalar(big.NewInt(1)))
 	require.True(t, newScalar(big.NewInt(1)).Zero().Equal(newScalar(bigZero)))
 	require.Equal(t, newScalar(bigZero).One(), newScalar(big.NewInt(1)))
 }
 
-func TestScalar_DivPanicsOnZeroDivisor(t *testing.T) {
+func TestUnit_Scalar_DivPanicsOnZeroDivisor(t *testing.T) {
 	defer func() { require.Contains(t, recover(), "divide by zero") }()
 	newScalar(bigZero).Div(newScalar(bigZero).One(), newScalar(bigZero))
 }
 
-func TestScalar_InvPanicsOnZero(t *testing.T) {
+func TestUnit_Scalar_InvPanicsOnZero(t *testing.T) {
 	defer func() { require.Contains(t, recover(), "divide by zero") }()
 	newScalar(bigZero).Inv(newScalar(bigZero))
 }
 
-func TestScalar_SetBytes(t *testing.T) {
+func TestUnit_Scalar_SetBytes(t *testing.T) {
 	u256Cardinality := zero().Lsh(big.NewInt(1), 256)
 	newScalar(bigZero).(*secp256k1Scalar).int().Cmp(
 		zero().Sub(u256Cardinality, GroupOrder))
 }
 
-func TestScalar_IsSecp256k1Scalar(t *testing.T) {
+func TestUnit_Scalar_IsSecp256k1Scalar(t *testing.T) {
 	c := curve25519.NewBlakeSHA256Curve25519(true)
 	require.False(t, IsSecp256k1Scalar(c.Scalar()))
 	require.True(t, IsSecp256k1Scalar(newScalar(bigZero)))
 }
 
-func TestScalar_IntToScalar(t *testing.T) {
+func TestUnit_Scalar_IntToScalar(t *testing.T) {
 	u256Cardinality := zero().Lsh(big.NewInt(1), 256)
 	IntToScalar(u256Cardinality)
 	require.Equal(t, u256Cardinality, zero().Sub(zero().Lsh(big.NewInt(1), 256),

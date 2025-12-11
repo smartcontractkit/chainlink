@@ -52,7 +52,7 @@ func seedSubscriptions(t *testing.T, orm subscriptions.ORM, amount int) []subscr
 	return storedSubscriptions
 }
 
-func TestORM_GetSubscriptions(t *testing.T) {
+func TestUnit_ORM_GetSubscriptions(t *testing.T) {
 	t.Parallel()
 	t.Run("fetch first page", func(t *testing.T) {
 		ctx := testutils.Context(t)
@@ -77,7 +77,7 @@ func TestORM_GetSubscriptions(t *testing.T) {
 	})
 }
 
-func TestORM_UpsertSubscription(t *testing.T) {
+func TestUnit_ORM_UpsertSubscription(t *testing.T) {
 	t.Parallel()
 
 	t.Run("create a subscription", func(t *testing.T) {
@@ -236,7 +236,7 @@ func TestORM_UpsertSubscription(t *testing.T) {
 		require.Len(t, results, 1, "incorrect results length")
 	})
 }
-func Test_NewORM(t *testing.T) {
+func TestUnit_NewORM(t *testing.T) {
 	t.Parallel()
 	t.Run("OK-create_ORM", func(t *testing.T) {
 		_, err := subscriptions.NewORM(pgtest.NewSqlxDB(t), logger.Test(t), testutils.NewAddress())

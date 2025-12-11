@@ -13,7 +13,7 @@ import (
 	"github.com/xssnick/tonutils-go/ton/wallet"
 )
 
-func TestTONKey(t *testing.T) {
+func TestUnit_TONKey(t *testing.T) {
 	t.Run("Generate new key and verify its components", func(t *testing.T) {
 		// Generate a new key
 		key, err := New()

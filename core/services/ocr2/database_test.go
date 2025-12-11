@@ -62,7 +62,7 @@ func setupDB(t *testing.T) *sqlx.DB {
 	return sqlx
 }
 
-func Test_DB_ReadWriteState(t *testing.T) {
+func TestUnit_DB_ReadWriteState(t *testing.T) {
 	sqlDB := setupDB(t)
 
 	configDigest := testhelpers.MakeConfigDigest(t)
@@ -143,7 +143,7 @@ func Test_DB_ReadWriteState(t *testing.T) {
 	})
 }
 
-func Test_DB_ReadWriteConfig(t *testing.T) {
+func TestUnit_DB_ReadWriteConfig(t *testing.T) {
 	sqlDB := setupDB(t)
 
 	config := ocrtypes.ContractConfig{
@@ -239,7 +239,7 @@ func assertPendingTransmissionEqual(t *testing.T, pt1, pt2 ocrtypes.PendingTrans
 	require.Equal(t, pt1.AttributedSignatures, pt2.AttributedSignatures)
 }
 
-func Test_DB_PendingTransmissions(t *testing.T) {
+func TestUnit_DB_PendingTransmissions(t *testing.T) {
 	sqlDB := setupDB(t)
 
 	ethKeyStore := cltest.NewKeyStore(t, sqlDB).Eth()
@@ -446,7 +446,7 @@ func Test_DB_PendingTransmissions(t *testing.T) {
 	})
 }
 
-func Test_DB_ReadWriteProtocolState(t *testing.T) {
+func TestUnit_DB_ReadWriteProtocolState(t *testing.T) {
 	sqlDB := setupDB(t)
 
 	lggr := logger.TestLogger(t)
@@ -516,7 +516,7 @@ func Test_DB_ReadWriteProtocolState(t *testing.T) {
 	})
 }
 
-func Test_DB_ReadWriteBlock(t *testing.T) {
+func TestUnit_DB_ReadWriteBlock(t *testing.T) {
 	sqlDB := setupDB(t)
 
 	lggr := logger.TestLogger(t)

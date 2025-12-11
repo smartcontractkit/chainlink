@@ -12,7 +12,7 @@ import (
 	clhttptest "github.com/smartcontractkit/chainlink/v2/core/internal/testutils/httptest"
 )
 
-func TestBuildInfoController_Show_APICredentials(t *testing.T) {
+func TestUnit_BuildInfoController_Show_APICredentials(t *testing.T) {
 	t.Parallel()
 
 	app := cltest.NewApplicationEVMDisabled(t)
@@ -31,7 +31,7 @@ func TestBuildInfoController_Show_APICredentials(t *testing.T) {
 	require.Contains(t, strings.TrimSpace(body), "versionTag")
 }
 
-func TestBuildInfoController_Show_NoCredentials(t *testing.T) {
+func TestUnit_BuildInfoController_Show_NoCredentials(t *testing.T) {
 	t.Parallel()
 
 	app := cltest.NewApplicationEVMDisabled(t)
