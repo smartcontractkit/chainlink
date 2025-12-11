@@ -18,6 +18,7 @@ import (
 	"golang.org/x/exp/maps"
 
 	chainsel "github.com/smartcontractkit/chain-selectors"
+
 	soltestutils "github.com/smartcontractkit/chainlink-ccip/chains/solana/contracts/tests/testutils"
 	"github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/v0_1_1/ccip_offramp"
 	"github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/v0_1_1/test_ccip_receiver"
