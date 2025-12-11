@@ -176,9 +176,9 @@ func GenerateNopsView(lggr logger.Logger, nodeIDs []string, oc cldf_offchain.Cli
 	}
 
 	// Sort the nodes within each group by NodeID for deterministic output.
-	for _, nop := range groupedNops {
-		sort.Slice(nop.Nodes, func(i, j int) bool {
-			return nop.Nodes[i].NodeID < nop.Nodes[j].NodeID
+	for key := range groupedNops {
+		sort.Slice(groupedNops[key].Nodes, func(i, j int) bool {
+			return groupedNops[key].Nodes[i].NodeID < groupedNops[key].Nodes[j].NodeID
 		})
 	}
 
