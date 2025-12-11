@@ -30,6 +30,7 @@ import (
 	ccipseq "github.com/smartcontractkit/chainlink/deployment/ccip/sequence/evm/v1_6"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 	commoncs "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
@@ -69,6 +70,7 @@ func checkConnectivity(
 
 func TestConnectNewChain(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "with-db")
 	mustHaveOwner := func(t *testing.T, ownable commonchangeset.Ownable, expectedOwner string) {
 		owner, err := ownable.Owner(nil)
 		require.NoError(t, err, "must get owner")
@@ -237,6 +239,7 @@ func TestConnectNewChain(t *testing.T) {
 
 func TestAddAndPromoteCandidatesForNewChain(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "with-db")
 	type test struct {
 		Msg         string
 		MCMS        *proposalutils.TimelockConfig
@@ -545,6 +548,7 @@ func TestAddAndPromoteCandidatesForNewChain(t *testing.T) {
 
 func TestRemoveLinkTokenAddressIfExists(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "with-db")
 
 	t.Run("should remove LINK token successfully if already exists", func(t *testing.T) {
 		deployedEnvironment, _ := testhelpers.NewMemoryEnvironment(t, testhelpers.WithNumOfChains(2))
@@ -605,6 +609,7 @@ func TestRemoveLinkTokenAddressIfExists(t *testing.T) {
 
 func TestValidateTransmitterAddresses(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "with-db")
 	t.Run("should fail if the number of transmitter address is less than 3f+1", func(t *testing.T) {
 		// Test the core validation logic from ValidateTransmitters method
 		// fChain := uint8(1)

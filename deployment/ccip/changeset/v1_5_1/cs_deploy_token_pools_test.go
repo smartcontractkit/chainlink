@@ -17,6 +17,7 @@ import (
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	"github.com/smartcontractkit/chainlink-deployments-framework/engine/test/environment"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/v1_5_1"
@@ -28,6 +29,7 @@ import (
 
 func TestValidateDeployTokenPoolContractsConfig(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "unit")
 
 	e, err := environment.New(t.Context(),
 		environment.WithEVMSimulatedN(t, 2),
@@ -99,6 +101,7 @@ func TestValidateDeployTokenPoolContractsConfig(t *testing.T) {
 
 func TestValidateDeployTokenPoolInput(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "unit")
 
 	e, selectorA, _, tokens := testhelpers.SetupTwoChainEnvironmentWithTokens(t, logger.Test(t), true)
 	acceptLiquidity := false
@@ -231,6 +234,7 @@ func TestValidateDeployTokenPoolInput(t *testing.T) {
 
 func TestDeployTokenPoolContracts(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "unit")
 
 	acceptLiquidity := false
 

@@ -32,6 +32,7 @@ import (
 
 func TestDeployChainContractsChangeset(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "unit")
 
 	homeChainSel := chain_selectors.TEST_90000001.Selector
 	env, err := environment.New(t.Context(),
@@ -178,11 +179,13 @@ func testDeployChainContractsChangesetWithEnv(t *testing.T, e cldf.Environment, 
 
 func TestDeployCCIPContracts(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "with-db")
 	testhelpers.DeployCCIPContractsTest(t, 0, 0)
 }
 
 func TestDeployStaticLinkToken(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "with-db")
 	e, _ := testhelpers.NewMemoryEnvironment(t, testhelpers.WithStaticLink())
 	// load onchain state
 	state, err := stateview.LoadOnchainState(e.Env)

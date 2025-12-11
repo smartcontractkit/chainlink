@@ -8,6 +8,7 @@ import (
 
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/v1_5_1"
@@ -20,6 +21,7 @@ import (
 
 func TestSetPoolChangeset_Validations(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "unit")
 
 	e, selectorA, _, tokens := testhelpers.SetupTwoChainEnvironmentWithTokens(t, logger.TestLogger(t), true)
 
@@ -120,6 +122,7 @@ func TestSetPoolChangeset_Validations(t *testing.T) {
 }
 
 func TestSetPoolChangeset_Execution(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	for _, mcmsConfig := range []*proposalutils.TimelockConfig{nil, {MinDelay: 0 * time.Second}} {
 		msg := "Set pool with MCMS"
 		if mcmsConfig == nil {

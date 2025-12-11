@@ -20,6 +20,7 @@ import (
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_3/fee_quoter"
 
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_5_0/token_admin_registry"
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers"
@@ -38,6 +39,7 @@ import (
 )
 
 func TestTranslateEVM2EVMOnRampsToFeeQuoterChangeset(t *testing.T) {
+	tests.BelongsToCISuite(t, "with-db")
 	ctx := testcontext.Get(t)
 
 	// 1. Deploy 1.5 pre-requisites

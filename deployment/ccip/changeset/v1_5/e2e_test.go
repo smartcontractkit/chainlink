@@ -25,11 +25,13 @@ import (
 
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_2_0/router"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_5_0/rmn_contract"
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 )
 
 // This test only works if the destination chain id is 1337
 // Otherwise it shows error for offchain and onchain config digest mismatch
 func TestE2ELegacy(t *testing.T) {
+	tests.BelongsToCISuite(t, "with-db")
 	e, _ := testhelpers.NewMemoryEnvironment(
 		t,
 		testhelpers.WithPrerequisiteDeploymentOnly(&changeset.V1_5DeploymentConfig{

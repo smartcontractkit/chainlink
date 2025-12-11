@@ -21,6 +21,7 @@ import (
 	"github.com/smartcontractkit/chainlink-deployments-framework/engine/test/environment"
 	"github.com/smartcontractkit/chainlink-deployments-framework/engine/test/runtime"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared"
@@ -31,6 +32,7 @@ import (
 )
 
 func TestLoadChainState_MultipleFeeQuoters(t *testing.T) {
+	tests.BelongsToCISuite(t, "with-db")
 	tenv, _ := testhelpers.NewMemoryEnvironment(t, testhelpers.WithNumOfChains(3))
 	fq1 := utils.RandomAddress().Hex()
 	fq2 := utils.RandomAddress().Hex()
@@ -45,6 +47,7 @@ func TestLoadChainState_MultipleFeeQuoters(t *testing.T) {
 }
 
 func TestSmokeState(t *testing.T) {
+	tests.BelongsToCISuite(t, "with-db")
 	tenv, _ := testhelpers.NewMemoryEnvironment(t, testhelpers.WithNumOfChains(3))
 	state, err := stateview.LoadOnchainState(tenv.Env)
 	require.NoError(t, err)
@@ -53,6 +56,7 @@ func TestSmokeState(t *testing.T) {
 }
 
 func TestMCMSState(t *testing.T) {
+	tests.BelongsToCISuite(t, "with-db")
 	tenv, _ := testhelpers.NewMemoryEnvironment(t, testhelpers.WithNoJobsAndContracts())
 	addressbook := cldf.NewMemoryAddressBook()
 	newTv := cldf.NewTypeAndVersion(types.ManyChainMultisig, deployment.Version1_0_0)
@@ -71,6 +75,7 @@ func TestMCMSState(t *testing.T) {
 
 func TestEnforceMCMSUsageIfProd(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "unit")
 
 	tests := []struct {
 		Msg                    string

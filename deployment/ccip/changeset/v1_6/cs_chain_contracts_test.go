@@ -43,11 +43,13 @@ import (
 
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_3/fee_quoter"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers"
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 )
 
 func TestUpdateOnRampsDests(t *testing.T) {
+	tests.BelongsToCISuite(t, "with-db")
 	for _, tc := range []struct {
 		name        string
 		mcmsEnabled bool
@@ -124,6 +126,7 @@ func TestUpdateOnRampsDests(t *testing.T) {
 }
 
 func TestUpdateOnRampDynamicConfig(t *testing.T) {
+	tests.BelongsToCISuite(t, "with-db")
 	for _, tc := range []struct {
 		name        string
 		mcmsEnabled bool
@@ -192,6 +195,7 @@ func TestUpdateOnRampDynamicConfig(t *testing.T) {
 }
 
 func TestUpdateOnRampAllowList(t *testing.T) {
+	tests.BelongsToCISuite(t, "with-db")
 	for _, tc := range []struct {
 		name        string
 		mcmsEnabled bool
@@ -268,6 +272,7 @@ func TestUpdateOnRampAllowList(t *testing.T) {
 }
 
 func TestWithdrawOnRampFeeTokens(t *testing.T) {
+	tests.BelongsToCISuite(t, "with-db")
 	for _, tc := range []struct {
 		name        string
 		mcmsEnabled bool
@@ -384,6 +389,7 @@ func TestWithdrawOnRampFeeTokens(t *testing.T) {
 }
 
 func TestUpdateOffRampsSources(t *testing.T) {
+	tests.BelongsToCISuite(t, "with-db")
 	for _, tc := range []struct {
 		name        string
 		mcmsEnabled bool
@@ -460,6 +466,7 @@ func TestUpdateOffRampsSources(t *testing.T) {
 }
 
 func TestUpdateFQDests(t *testing.T) {
+	tests.BelongsToCISuite(t, "with-db")
 	for _, tc := range []struct {
 		name        string
 		mcmsEnabled bool
@@ -528,6 +535,7 @@ func TestUpdateFQDests(t *testing.T) {
 }
 
 func TestUpdateFeeQuoterDestsConfig_Validate_MultipleReportsEnabled(t *testing.T) {
+	tests.BelongsToCISuite(t, "with-db")
 	tenv, _ := testhelpers.NewMemoryEnvironment(t)
 	allChains := maps.Keys(tenv.Env.BlockChains.EVMChains())
 	source := allChains[0]
@@ -618,6 +626,7 @@ func TestUpdateFeeQuoterDestsConfig_Validate_MultipleReportsEnabled(t *testing.T
 }
 
 func TestUpdateRouterRamps(t *testing.T) {
+	tests.BelongsToCISuite(t, "with-db")
 	for _, tc := range []struct {
 		name                   string
 		transferHomeContracts  bool
@@ -723,6 +732,7 @@ func TestUpdateRouterRamps(t *testing.T) {
 }
 
 func TestUpdateDynamicConfigOffRampChangeset(t *testing.T) {
+	tests.BelongsToCISuite(t, "with-db")
 	for _, tc := range []struct {
 		name        string
 		mcmsEnabled bool
@@ -783,6 +793,7 @@ func TestUpdateDynamicConfigOffRampChangeset(t *testing.T) {
 }
 
 func TestUpdateNonceManagersCS(t *testing.T) {
+	tests.BelongsToCISuite(t, "with-db")
 	for _, tc := range []struct {
 		name        string
 		mcmsEnabled bool
@@ -841,6 +852,7 @@ func TestUpdateNonceManagersCS(t *testing.T) {
 }
 
 func TestUpdateNonceManagersCSApplyPreviousRampsUpdates(t *testing.T) {
+	tests.BelongsToCISuite(t, "with-db")
 	e, tenv := testhelpers.NewMemoryEnvironment(
 		t,
 		testhelpers.WithPrerequisiteDeploymentOnly(&changeset.V1_5DeploymentConfig{
@@ -944,6 +956,7 @@ func TestUpdateNonceManagersCSApplyPreviousRampsUpdates(t *testing.T) {
 }
 
 func TestSetOCR3ConfigValidations(t *testing.T) {
+	tests.BelongsToCISuite(t, "with-db")
 	e, _ := testhelpers.NewMemoryEnvironment(
 		t,
 		testhelpers.WithPrerequisiteDeploymentOnly(nil))
@@ -1062,6 +1075,7 @@ func TestSetOCR3ConfigValidations(t *testing.T) {
 }
 
 func TestApplyFeeTokensUpdatesFeeQuoterChangeset(t *testing.T) {
+	tests.BelongsToCISuite(t, "with-db")
 	for _, tc := range []struct {
 		name        string
 		mcmsEnabled bool
@@ -1147,6 +1161,7 @@ func TestApplyFeeTokensUpdatesFeeQuoterChangeset(t *testing.T) {
 }
 
 func TestApplyPremiumMultiplierWeiPerEthUpdatesFeeQuoterChangeset(t *testing.T) {
+	tests.BelongsToCISuite(t, "with-db")
 	for _, tc := range []struct {
 		name        string
 		mcmsEnabled bool
@@ -1259,6 +1274,7 @@ func TestApplyPremiumMultiplierWeiPerEthUpdatesFeeQuoterChangeset(t *testing.T) 
 }
 
 func TestUpdateTokenPriceFeedsFeeQuoterChangeset(t *testing.T) {
+	tests.BelongsToCISuite(t, "with-db")
 	for _, tc := range []struct {
 		name        string
 		mcmsEnabled bool
@@ -1376,6 +1392,7 @@ func TestUpdateTokenPriceFeedsFeeQuoterChangeset(t *testing.T) {
 }
 
 func TestApplyTokenTransferFeeConfigUpdatesFeeQuoterChangeset(t *testing.T) {
+	tests.BelongsToCISuite(t, "with-db")
 	for _, tc := range []struct {
 		name        string
 		mcmsEnabled bool
@@ -1484,6 +1501,7 @@ func TestApplyTokenTransferFeeConfigUpdatesFeeQuoterChangeset(t *testing.T) {
 }
 
 func TestApplyTokenTransferFeeConfigUpdatesFeeQuoterChangesetV2(t *testing.T) {
+	tests.BelongsToCISuite(t, "with-db")
 	for _, tc := range []struct {
 		name        string
 		mcmsEnabled bool
@@ -1618,6 +1636,7 @@ func TestApplyTokenTransferFeeConfigUpdatesFeeQuoterChangesetV2(t *testing.T) {
 }
 
 func TestUpdateWrappedNativeOnRouterChangeset(t *testing.T) {
+	tests.BelongsToCISuite(t, "with-db")
 	for _, tc := range []struct {
 		name        string
 		mcmsEnabled bool

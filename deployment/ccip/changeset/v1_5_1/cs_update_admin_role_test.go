@@ -10,6 +10,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink-evm/pkg/utils"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/v1_5_1"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
@@ -20,6 +21,7 @@ import (
 
 func TestUpdateAdminRoleChangesetV2_Validations(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "unit")
 
 	mcmsConfig := &proposalutils.TimelockConfig{MinDelay: 0 * time.Second}
 	e, selectorA, selectorB, _ := testhelpers.SetupTwoChainEnvironmentWithTokens(t, logger.TestLogger(t), true)
@@ -140,6 +142,7 @@ func TestUpdateAdminRoleChangesetV2_Validations(t *testing.T) {
 
 func TestUpdateAdminRoleChangesetV2_EmptyConfigIsGracefullyHandled(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "unit")
 
 	e, _, _, _ := testhelpers.SetupTwoChainEnvironmentWithTokens(t, logger.TestLogger(t), true)
 
@@ -154,6 +157,7 @@ func TestUpdateAdminRoleChangesetV2_EmptyConfigIsGracefullyHandled(t *testing.T)
 
 func TestUpdateAdminRoleChangesetV2_ExecutionWithoutMCMS(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "unit")
 
 	e, selectorA, selectorB, _ := testhelpers.SetupTwoChainEnvironmentWithTokens(t, logger.TestLogger(t), false)
 
@@ -256,6 +260,7 @@ func TestUpdateAdminRoleChangesetV2_ExecutionWithoutMCMS(t *testing.T) {
 
 func TestUpdateAdminRoleChangesetV2_ExecutionWithMCMS(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "unit")
 
 	mcmsConfig := &proposalutils.TimelockConfig{MinDelay: 0 * time.Second}
 	e, selectorA, selectorB, _ := testhelpers.SetupTwoChainEnvironmentWithTokens(t, logger.TestLogger(t), true)
@@ -307,6 +312,7 @@ func TestUpdateAdminRoleChangesetV2_ExecutionWithMCMS(t *testing.T) {
 
 func TestUpdateAdminRoleChangesetV2_MultipleTokensPerChain(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "unit")
 
 	mcmsConfig := &proposalutils.TimelockConfig{MinDelay: 0 * time.Second}
 	e, selectorA, _, _ := testhelpers.SetupTwoChainEnvironmentWithTokens(t, logger.TestLogger(t), true)

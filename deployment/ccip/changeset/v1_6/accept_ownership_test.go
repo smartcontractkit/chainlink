@@ -8,6 +8,7 @@ import (
 
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
@@ -15,6 +16,7 @@ import (
 
 func Test_NewAcceptOwnershipChangeset(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "with-db")
 	e, _ := testhelpers.NewMemoryEnvironment(t)
 	_, err := stateview.LoadOnchainState(e.Env)
 	require.NoError(t, err)

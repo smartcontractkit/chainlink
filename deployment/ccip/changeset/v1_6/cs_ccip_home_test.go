@@ -33,11 +33,13 @@ import (
 
 	"github.com/stretchr/testify/require"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 )
 
 func TestInvalidOCR3Params(t *testing.T) {
+	tests.BelongsToCISuite(t, "with-db")
 	e, _ := testhelpers.NewMemoryEnvironment(t,
 		testhelpers.WithPrerequisiteDeploymentOnly(nil))
 	chain1 := e.Env.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chain_selectors.FamilyEVM))[0]
@@ -99,6 +101,7 @@ func TestInvalidOCR3Params(t *testing.T) {
 }
 
 func Test_PromoteCandidate(t *testing.T) {
+	tests.BelongsToCISuite(t, "with-db")
 	for _, tc := range []struct {
 		name        string
 		mcmsEnabled bool
@@ -191,6 +194,7 @@ func Test_PromoteCandidate(t *testing.T) {
 }
 
 func Test_SetCandidate(t *testing.T) {
+	tests.BelongsToCISuite(t, "with-db")
 	for _, tc := range []struct {
 		name        string
 		mcmsEnabled bool
@@ -321,6 +325,7 @@ func Test_SetCandidate(t *testing.T) {
 }
 
 func Test_RevokeCandidate(t *testing.T) {
+	tests.BelongsToCISuite(t, "with-db")
 	for _, tc := range []struct {
 		name        string
 		mcmsEnabled bool
@@ -460,6 +465,7 @@ func Test_RevokeCandidate(t *testing.T) {
 }
 
 func Test_UpdateChainConfigs(t *testing.T) {
+	tests.BelongsToCISuite(t, "with-db")
 	for _, tc := range []struct {
 		name        string
 		mcmsEnabled bool

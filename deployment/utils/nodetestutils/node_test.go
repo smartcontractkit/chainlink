@@ -14,11 +14,13 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	cldf_chain "github.com/smartcontractkit/chainlink-deployments-framework/chain"
 	"github.com/smartcontractkit/chainlink-deployments-framework/engine/test/onchain"
 )
 
 func TestNode(t *testing.T) {
+	tests.BelongsToCISuite(t, "with-db")
 	evmchains, err := onchain.NewEVMSimLoaderWithConfig(onchain.EVMSimLoaderConfig{
 		NumAdditionalAccounts: 5,
 	}).LoadN(t, 3)

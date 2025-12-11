@@ -16,6 +16,7 @@ import (
 
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/v1_6"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
@@ -153,6 +154,7 @@ func checkBidirectionalLaneConnectivity(
 }
 
 func TestBuildConfigs(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	selectors := []uint64{1, 2}
 
 	chains := make([]v1_6.ChainDefinition, len(selectors))
@@ -268,6 +270,7 @@ func TestBuildConfigs(t *testing.T) {
 
 func TestUpdateBidirectionalLanesChangeset(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "with-db")
 
 	type test struct {
 		Msg        string

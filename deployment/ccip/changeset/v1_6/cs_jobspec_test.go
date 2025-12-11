@@ -7,6 +7,7 @@ import (
 
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/v1_6"
@@ -16,6 +17,7 @@ import (
 
 func TestJobSpecChangeset(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "with-db")
 	var err error
 	tenv, _ := testhelpers.NewMemoryEnvironment(t, testhelpers.WithNoJobsAndContracts())
 	e := tenv.Env
@@ -55,6 +57,7 @@ func TestJobSpecChangeset(t *testing.T) {
 }
 
 func TestJobSpecChangesetIdempotent(t *testing.T) {
+	tests.BelongsToCISuite(t, "with-db")
 	e, _ := testhelpers.NewMemoryEnvironment(t)
 	// we call the changeset again to ensure that it doesn't return any new job specs
 	// as the job specs are already created in the first call

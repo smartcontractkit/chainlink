@@ -27,6 +27,7 @@ import (
 
 func TestValidateSyncUSDCDomainsWithChainsConfig(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "with-db")
 
 	testCases := []struct {
 		Msg        string
@@ -185,6 +186,7 @@ func TestValidateSyncUSDCDomainsWithChainsConfig(t *testing.T) {
 
 func TestSyncUSDCDomainsWithChainsChangeset(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "with-db")
 
 	for _, mcmsConfig := range []*proposalutils.TimelockConfig{nil, {MinDelay: 0 * time.Second}} {
 		msg := "Sync domains without MCMS"

@@ -23,6 +23,7 @@ import (
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
 	"github.com/smartcontractkit/chainlink/deployment/helpers/pointer"
 )
@@ -52,6 +53,7 @@ func ReadTokenTransferFeeConfig(t *testing.T, e testhelpers.DeployedEnv, srcSele
 
 func TestSetTokenTransferFeeConfig_Validations(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "with-db")
 
 	// Spin up a memory env with minimal prerequisite deployment
 	e, _ := testhelpers.NewMemoryEnvironment(t,
@@ -196,6 +198,8 @@ func TestSetTokenTransferFeeConfig_Validations(t *testing.T) {
 }
 
 func TestSetTokenTransferFeeConfig_EmptyConfigIsGracefullyHandled(t *testing.T) {
+	tests.BelongsToCISuite(t, "with-db")
+
 	// Spin up a memory env with minimal prerequisite deployment
 	e, _ := testhelpers.NewMemoryEnvironment(t,
 		testhelpers.WithNumOfChains(2),
@@ -233,6 +237,8 @@ func TestSetTokenTransferFeeConfig_EmptyConfigIsGracefullyHandled(t *testing.T) 
 }
 
 func TestSetTokenTransferFeeConfig_Execution_WithoutMCMS(t *testing.T) {
+	tests.BelongsToCISuite(t, "with-db")
+
 	// Spin up a memory env with minimal prerequisite deployment
 	e, _ := testhelpers.NewMemoryEnvironment(t,
 		testhelpers.WithNumOfChains(2),
@@ -303,6 +309,8 @@ func TestSetTokenTransferFeeConfig_Execution_WithoutMCMS(t *testing.T) {
 }
 
 func TestSetTokenTransferFeeConfig_Execution_WithMCMS(t *testing.T) {
+	tests.BelongsToCISuite(t, "with-db")
+
 	// Spin up a memory env with minimal prerequisite deployment
 	e, _ := testhelpers.NewMemoryEnvironment(t,
 		testhelpers.WithNumOfChains(2),
@@ -416,6 +424,8 @@ func TestSetTokenTransferFeeConfig_Execution_WithMCMS(t *testing.T) {
 }
 
 func TestSetTokenTransferFeeConfig_MultipleChains(t *testing.T) {
+	tests.BelongsToCISuite(t, "with-db")
+
 	// Spin up a memory env with minimal prerequisite deployment
 	e, _ := testhelpers.NewMemoryEnvironment(t,
 		testhelpers.WithNumOfChains(2),

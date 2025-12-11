@@ -25,6 +25,7 @@ import (
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/shared/generated/initial/burn_mint_erc677"
 	"github.com/smartcontractkit/chainlink-evm/pkg/utils"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared"
@@ -123,6 +124,7 @@ func setupCCTPMsgTransmitterProxyContractsForConfigure(
 
 func TestValidateConfigureCCTPMessageTransmitterProxyInput(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "unit")
 
 	rt := setupCCTPMsgTransmitterProxyEnvironmentForConfigure(t, true)
 	chains := rt.Environment().BlockChains.EVMChains()
@@ -187,6 +189,7 @@ func TestValidateConfigureCCTPMessageTransmitterProxyInput(t *testing.T) {
 }
 
 func TestConfigureCCTPMessageTransmitterProxy(t *testing.T) {
+	tests.BelongsToCISuite(t, "with-db")
 	quarantine.Flaky(t, "DX-2064")
 	t.Parallel()
 

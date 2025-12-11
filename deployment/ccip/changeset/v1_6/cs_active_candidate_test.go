@@ -24,12 +24,15 @@ import (
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_2_0/router"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_3/fee_quoter"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/types"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
 
 func Test_ActiveCandidate(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "with-db")
+
 	// Setup an environment with 2 chains, a source and a dest.
 	// We want to have the active instance execute a few messages
 	// and then setup a candidate instance. The candidate instance

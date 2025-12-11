@@ -17,6 +17,7 @@ import (
 	"github.com/smartcontractkit/chainlink-evm/pkg/utils"
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/testcontext"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/v1_6"
@@ -29,6 +30,7 @@ import (
 
 func TestDeployHomeChain(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "unit")
 
 	homeChainSel := chain_selectors.TEST_90000001.Selector
 	env, err := environment.New(t.Context(),
@@ -79,6 +81,7 @@ func TestDeployHomeChain(t *testing.T) {
 }
 
 func TestDeployHomeChainIdempotent(t *testing.T) {
+	tests.BelongsToCISuite(t, "with-db")
 	e, _ := testhelpers.NewMemoryEnvironment(t)
 	nodes, err := deployment.NodeInfo(e.Env.NodeIDs, e.Env.Offchain)
 	require.NoError(t, err)
@@ -100,6 +103,7 @@ func TestDeployHomeChainIdempotent(t *testing.T) {
 }
 
 func TestDeployDonIDClaimerAndOffSet(t *testing.T) {
+	tests.BelongsToCISuite(t, "with-db")
 	ctx := testcontext.Get(t)
 	deployedEnvironment, _ := testhelpers.NewMemoryEnvironment(t)
 	e := deployedEnvironment.Env
@@ -164,6 +168,7 @@ func TestDeployDonIDClaimerAndOffSet(t *testing.T) {
 }
 
 func TestRemoveDonsValidate(t *testing.T) {
+	tests.BelongsToCISuite(t, "with-db")
 	e, _ := testhelpers.NewMemoryEnvironment(t)
 	s, err := stateview.LoadOnchainState(e.Env)
 	require.NoError(t, err)
@@ -219,6 +224,7 @@ func TestRemoveDonsValidate(t *testing.T) {
 }
 
 func TestRemoveDons(t *testing.T) {
+	tests.BelongsToCISuite(t, "with-db")
 	e, _ := testhelpers.NewMemoryEnvironment(t)
 	s, err := stateview.LoadOnchainState(e.Env)
 	require.NoError(t, err)
@@ -269,6 +275,7 @@ func TestRemoveDons(t *testing.T) {
 }
 
 func TestAddDonAfterRemoveDons(t *testing.T) {
+	tests.BelongsToCISuite(t, "with-db")
 	e, _ := testhelpers.NewMemoryEnvironment(t)
 	s, err := stateview.LoadOnchainState(e.Env)
 	require.NoError(t, err)
@@ -339,6 +346,7 @@ func TestAddDonAfterRemoveDons(t *testing.T) {
 }
 
 func TestAddUpdateAndRemoveNops(t *testing.T) {
+	tests.BelongsToCISuite(t, "with-db")
 	for _, tc := range []struct {
 		name        string
 		mcmsEnabled bool
@@ -472,6 +480,7 @@ func TestAddUpdateAndRemoveNops(t *testing.T) {
 }
 
 func TestRemoveNodes(t *testing.T) {
+	tests.BelongsToCISuite(t, "with-db")
 	for _, tc := range []struct {
 		name        string
 		mcmsEnabled bool

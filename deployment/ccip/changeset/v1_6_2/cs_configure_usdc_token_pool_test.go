@@ -25,6 +25,7 @@ import (
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/shared/generated/initial/burn_mint_erc677"
 	"github.com/smartcontractkit/chainlink-evm/pkg/utils"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared"
@@ -124,6 +125,7 @@ func setupUSDCTokenPoolsContractsForConfigure(
 
 func TestValidateConfigUSDCTokenPoolInput(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "unit")
 
 	rt := setupUSDCTokenPoolsEnvironmentForConfigure(t, true)
 
@@ -282,6 +284,7 @@ func TestValidateConfigUSDCTokenPoolInput(t *testing.T) {
 
 func TestConfigureUSDCTokenPools(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "unit")
 
 	rt := setupUSDCTokenPoolsEnvironmentForConfigure(t, true)
 

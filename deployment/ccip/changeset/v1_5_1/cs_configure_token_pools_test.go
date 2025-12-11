@@ -30,6 +30,7 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 )
@@ -141,6 +142,7 @@ func validateSolanaConfig(t *testing.T, state stateview.CCIPOnChainState, solCha
 
 func TestValidateRemoteChains(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "unit")
 
 	tests := []struct {
 		IsEnabled bool
@@ -194,6 +196,7 @@ func TestValidateRemoteChains(t *testing.T) {
 
 func TestValidateTokenPoolConfig(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "unit")
 
 	e, selectorA, _, tokens := testhelpers.SetupTwoChainEnvironmentWithTokens(t, logger.Test(t), true)
 
@@ -247,6 +250,7 @@ func TestValidateTokenPoolConfig(t *testing.T) {
 
 func TestValidateConfigureTokenPoolContractsConfig(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "unit")
 
 	e, err := environment.New(t.Context(),
 		environment.WithEVMSimulatedN(t, 2),
@@ -347,6 +351,7 @@ func TestValidateConfigureTokenPoolContractsConfig(t *testing.T) {
 
 func TestValidateConfigureTokenPoolContracts(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "unit")
 
 	type regPass struct {
 		SelectorA2B v1_5_1.RateLimiterConfig

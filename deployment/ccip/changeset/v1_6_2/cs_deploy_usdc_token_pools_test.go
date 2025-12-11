@@ -21,6 +21,7 @@ import (
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/shared/generated/initial/burn_mint_erc677"
 	"github.com/smartcontractkit/chainlink-evm/pkg/utils"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/v1_6_2"
@@ -120,6 +121,7 @@ func setupUSDCTokenPoolsContractsForDeploy(
 
 func TestValidateDeployUSDCTokenPoolContractsConfig(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "unit")
 
 	rt := setupUSDCTokenPoolsEnvironmentForDeploy(t, true)
 
@@ -176,6 +178,7 @@ func TestValidateDeployUSDCTokenPoolContractsConfig(t *testing.T) {
 
 func TestValidateDeployUSDCTokenPoolInput(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "unit")
 
 	rt := setupUSDCTokenPoolsEnvironmentForDeploy(t, true)
 	blockchain := slices.Collect(maps.Values(rt.Environment().BlockChains.EVMChains()))[0]
@@ -320,6 +323,7 @@ func TestValidateDeployUSDCTokenPoolInput(t *testing.T) {
 
 func TestDeployUSDCTokenPool(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "unit")
 
 	rt := setupUSDCTokenPoolsEnvironmentForDeploy(t, true)
 	addrBook := cldf.NewMemoryAddressBook()
@@ -368,6 +372,7 @@ func TestDeployUSDCTokenPool(t *testing.T) {
 
 func TestDeployHybridLockReleaseUSDCTokenPool(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "unit")
 
 	rt := setupUSDCTokenPoolsEnvironmentForDeploy(t, true)
 	addrBook := cldf.NewMemoryAddressBook()

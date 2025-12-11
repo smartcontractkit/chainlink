@@ -20,6 +20,7 @@ import (
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/shared/generated/initial/burn_mint_erc677"
 	"github.com/smartcontractkit/chainlink-evm/pkg/utils"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/v1_5_1"
@@ -87,6 +88,7 @@ func deployUSDCPrerequisites(
 
 func TestValidateDeployUSDCTokenPoolContractsConfig(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "unit")
 
 	e, err := environment.New(t.Context(),
 		environment.WithEVMSimulatedN(t, 2),
@@ -138,6 +140,7 @@ func TestValidateDeployUSDCTokenPoolContractsConfig(t *testing.T) {
 
 func TestValidateDeployUSDCTokenPoolInput(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "unit")
 
 	selector := chain_selectors.TEST_90000001.Selector
 	e, err := environment.New(t.Context(),
@@ -240,6 +243,7 @@ func TestValidateDeployUSDCTokenPoolInput(t *testing.T) {
 
 func TestDeployUSDCTokenPoolContracts(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "unit")
 
 	for _, numRuns := range []int{1, 2} {
 		t.Run(fmt.Sprintf("Run deployment %d time(s)", numRuns), func(t *testing.T) {

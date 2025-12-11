@@ -17,6 +17,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_5_1/token_pool"
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 )
 
 // configureHybridTokenPoolChains sets up supported chains for hybrid token pools
@@ -68,6 +69,7 @@ func configureHybridTokenPoolChains(t *testing.T, e cldf.Environment, selectorA,
 }
 
 func TestHybridTokenPoolUpdateGroupsChangeset_ValidationErrors(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	e, selectorA, selectorB, tokens := testhelpers.SetupTwoChainEnvironmentWithTokens(t, logger.TestLogger(t), true)
 
 	externalMinterA, _ := testhelpers.DeployTokenGovernor(t, e, selectorA, tokens[selectorA].Address)
@@ -209,6 +211,7 @@ func TestHybridTokenPoolUpdateGroupsChangeset_ValidationErrors(t *testing.T) {
 }
 
 func TestHybridTokenPoolUpdateGroupsChangeset_BasicUpdates(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	e, selectorA, selectorB, tokens := testhelpers.SetupTwoChainEnvironmentWithTokens(t, logger.TestLogger(t), true)
 
 	externalMinterA, _ := testhelpers.DeployTokenGovernor(t, e, selectorA, tokens[selectorA].Address)
@@ -312,6 +315,7 @@ func TestHybridTokenPoolUpdateGroupsChangeset_BasicUpdates(t *testing.T) {
 }
 
 func TestHybridTokenPoolUpdateGroupsChangeset_WithMCMS(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	testCases := []struct {
 		name            string
 		mcmsEnabled     bool
@@ -406,6 +410,7 @@ func TestHybridTokenPoolUpdateGroupsChangeset_WithMCMS(t *testing.T) {
 }
 
 func TestHybridTokenPoolUpdateGroupsChangeset_EdgeCases(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	e, selectorA, selectorB, tokens := testhelpers.SetupTwoChainEnvironmentWithTokens(t, logger.TestLogger(t), false)
 
 	externalMinterA, _ := testhelpers.DeployTokenGovernor(t, e, selectorA, tokens[selectorA].Address)
@@ -455,6 +460,7 @@ func TestHybridTokenPoolUpdateGroupsChangeset_EdgeCases(t *testing.T) {
 }
 
 func TestHybridTokenPoolUpdateGroupsChangeset_NoOpUpdate(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	e, selectorA, selectorB, tokens := testhelpers.SetupTwoChainEnvironmentWithTokens(t, logger.TestLogger(t), false)
 
 	externalMinterA, _ := testhelpers.DeployTokenGovernor(t, e, selectorA, tokens[selectorA].Address)

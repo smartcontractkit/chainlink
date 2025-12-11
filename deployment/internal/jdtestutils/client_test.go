@@ -15,6 +15,7 @@ import (
 	jobv1 "github.com/smartcontractkit/chainlink-protos/job-distributor/v1/job"
 	"github.com/smartcontractkit/chainlink-protos/job-distributor/v1/shared/ptypes"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/helpers/pointer"
 	"github.com/smartcontractkit/chainlink/deployment/utils/nodetestutils"
@@ -22,6 +23,7 @@ import (
 
 func TestJobClientProposeJob(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "with-db")
 	ctx := t.Context()
 
 	bc, err := onchain.NewEVMSimLoader().LoadN(t, 1)
@@ -127,6 +129,7 @@ func TestJobClientProposeJob(t *testing.T) {
 
 func TestJobClientJobAPI(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "with-db")
 
 	ctx := t.Context()
 	bc, err := onchain.NewEVMSimLoader().LoadN(t, 1)

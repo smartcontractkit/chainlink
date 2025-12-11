@@ -12,6 +12,7 @@ import (
 
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/v1_5_1"
@@ -24,6 +25,7 @@ import (
 
 func TestTransferAdminRoleChangeset_Validations(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "unit")
 
 	e, selectorA, _, tokens := testhelpers.SetupTwoChainEnvironmentWithTokens(t, logger.TestLogger(t), true)
 
@@ -140,6 +142,7 @@ func TestTransferAdminRoleChangeset_Validations(t *testing.T) {
 }
 
 func TestTransferAdminRoleChangeset_Execution(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	for _, mcmsConfig := range []*proposalutils.TimelockConfig{nil, {MinDelay: 0 * time.Second}} {
 		msg := "Transfer admin role with MCMS"
 		if mcmsConfig == nil {
@@ -245,6 +248,7 @@ func TestTransferAdminRoleChangeset_Execution(t *testing.T) {
 
 func TestTransferAdminRoleChangesetV2_EmptyConfigReturnsError(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "unit")
 
 	e, _, _, _ := testhelpers.SetupTwoChainEnvironmentWithTokens(t, logger.TestLogger(t), true)
 
@@ -260,6 +264,7 @@ func TestTransferAdminRoleChangesetV2_EmptyConfigReturnsError(t *testing.T) {
 
 func TestTransferAdminRoleChangesetV2_ExecutionWithMCMS(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "unit")
 
 	mcmsConfig := &proposalutils.TimelockConfig{MinDelay: 0 * time.Second}
 	e, selectorA, selectorB, _ := testhelpers.SetupTwoChainEnvironmentWithTokens(t, logger.TestLogger(t), true)
@@ -311,6 +316,7 @@ func TestTransferAdminRoleChangesetV2_ExecutionWithMCMS(t *testing.T) {
 
 func TestTransferAdminRoleChangesetV2_ExecutionWithoutMCMS(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "unit")
 
 	e, selectorA, selectorB, _ := testhelpers.SetupTwoChainEnvironmentWithTokens(t, logger.TestLogger(t), false)
 
@@ -417,6 +423,7 @@ func TestTransferAdminRoleChangesetV2_ExecutionWithoutMCMS(t *testing.T) {
 
 func TestTransferAdminRoleChangesetV2_MultipleTokensPerChain(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "unit")
 
 	mcmsConfig := &proposalutils.TimelockConfig{MinDelay: 0 * time.Second}
 	e, selectorA, _, _ := testhelpers.SetupTwoChainEnvironmentWithTokens(t, logger.TestLogger(t), true)
@@ -458,6 +465,7 @@ func TestTransferAdminRoleChangesetV2_MultipleTokensPerChain(t *testing.T) {
 
 func TestTransferAdminRoleChangesetV2_Validations(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "unit")
 
 	mcmsConfig := &proposalutils.TimelockConfig{MinDelay: 0 * time.Second}
 	e, selectorA, selectorB, _ := testhelpers.SetupTwoChainEnvironmentWithTokens(t, logger.TestLogger(t), true)

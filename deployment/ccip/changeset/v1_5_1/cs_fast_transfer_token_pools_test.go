@@ -8,6 +8,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/stretchr/testify/require"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/v1_5_1"
@@ -20,6 +21,7 @@ import (
 )
 
 func TestFastTransferUpdateLaneConfigChangeset_ValidationErrors(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	e, selectorA, selectorB, tokens := testhelpers.SetupTwoChainEnvironmentWithTokens(t, logger.TestLogger(t), true)
 
 	e = testhelpers.DeployTestTokenPools(t, e, map[uint64]v1_5_1.DeployTokenPoolInput{
@@ -91,6 +93,7 @@ func TestFastTransferUpdateLaneConfigChangeset_ValidationErrors(t *testing.T) {
 }
 
 func TestFastTransferFillerAllowlistChangeset_ValidationErrors(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	e, selectorA, selectorB, tokens := testhelpers.SetupTwoChainEnvironmentWithTokens(t, logger.TestLogger(t), true)
 
 	e = testhelpers.DeployTestTokenPools(t, e, map[uint64]v1_5_1.DeployTokenPoolInput{
@@ -168,6 +171,7 @@ func TestFastTransferFillerAllowlistChangeset_ValidationErrors(t *testing.T) {
 }
 
 func TestFastTransferFillerAllowlistChangeset_RemoveFillers(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	e, selectorA, selectorB, tokens := testhelpers.SetupTwoChainEnvironmentWithTokens(t, logger.TestLogger(t), true)
 
 	e = testhelpers.DeployTestTokenPools(t, e, map[uint64]v1_5_1.DeployTokenPoolInput{
@@ -290,6 +294,7 @@ func TestFastTransferFillerAllowlistChangeset_RemoveFillers(t *testing.T) {
 }
 
 func TestFastTransferFillerAllowlistChangeset_AddAndRemoveSimultaneously(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	e, selectorA, selectorB, tokens := testhelpers.SetupTwoChainEnvironmentWithTokens(t, logger.TestLogger(t), true)
 
 	e = testhelpers.DeployTestTokenPools(t, e, map[uint64]v1_5_1.DeployTokenPoolInput{
@@ -490,6 +495,7 @@ var testCases = []testCase{
 }
 
 func TestFastTransferUpdateLaneConfigChangeset_WithMCMS(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
 			e, selectorA, selectorB, tokens := testhelpers.SetupTwoChainEnvironmentWithTokens(t, logger.TestLogger(t), tc.mcmsEnabled)
@@ -558,6 +564,7 @@ func TestFastTransferUpdateLaneConfigChangeset_WithMCMS(t *testing.T) {
 }
 
 func TestFastTransferFillerAllowlistChangeset_WithMCMS(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
 			e, selectorA, selectorB, tokens := testhelpers.SetupTwoChainEnvironmentWithTokens(t, logger.TestLogger(t), tc.mcmsEnabled)
@@ -621,6 +628,7 @@ func TestFastTransferFillerAllowlistChangeset_WithMCMS(t *testing.T) {
 }
 
 func TestFastTransferUpdateLaneConfigChangeset_EdgeCases(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	e, selectorA, selectorB, tokens := testhelpers.SetupTwoChainEnvironmentWithTokens(t, logger.TestLogger(t), true)
 
 	e = testhelpers.DeployTestTokenPools(t, e, map[uint64]v1_5_1.DeployTokenPoolInput{
@@ -800,6 +808,7 @@ func TestFastTransferUpdateLaneConfigChangeset_EdgeCases(t *testing.T) {
 }
 
 func TestFastTransferFillerAllowlistChangeset_DuplicateFillerValidation(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	e, selectorA, selectorB, tokens := testhelpers.SetupTwoChainEnvironmentWithTokens(t, logger.TestLogger(t), true)
 
 	e = testhelpers.DeployTestTokenPools(t, e, map[uint64]v1_5_1.DeployTokenPoolInput{
@@ -858,6 +867,7 @@ func TestFastTransferFillerAllowlistChangeset_DuplicateFillerValidation(t *testi
 }
 
 func TestFastTransferUpdateLaneConfigChangeset_SettlementOverheadGasAndCustomExtraArgs(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	e, selectorA, selectorB, tokens := testhelpers.SetupTwoChainEnvironmentWithTokens(t, logger.TestLogger(t), false)
 
 	e = testhelpers.DeployTestTokenPools(t, e, map[uint64]v1_5_1.DeployTokenPoolInput{
@@ -979,6 +989,7 @@ func TestFastTransferUpdateLaneConfigChangeset_SettlementOverheadGasAndCustomExt
 }
 
 func TestFastTransferUpdateLaneConfigChangeset_DestinationPoolTypeAndVersion(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	e, selectorA, selectorB, tokens := testhelpers.SetupTwoChainEnvironmentWithTokens(t, logger.TestLogger(t), false)
 
 	// Deploy different types of pools on different chains
@@ -1120,6 +1131,7 @@ func TestFastTransferUpdateLaneConfigChangeset_DestinationPoolTypeAndVersion(t *
 }
 
 func TestFastTransferUpdateLaneConfigChangeset_ValidationErrors_DestinationFields(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	e, selectorA, selectorB, tokens := testhelpers.SetupTwoChainEnvironmentWithTokens(t, logger.TestLogger(t), false)
 
 	e = testhelpers.DeployTestTokenPools(t, e, map[uint64]v1_5_1.DeployTokenPoolInput{

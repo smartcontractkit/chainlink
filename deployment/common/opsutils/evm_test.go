@@ -18,6 +18,7 @@ import (
 	mcmslib "github.com/smartcontractkit/mcms"
 	mcmstypes "github.com/smartcontractkit/mcms/types"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	cldf_chain "github.com/smartcontractkit/chainlink-deployments-framework/chain"
 	cldf_evm "github.com/smartcontractkit/chainlink-deployments-framework/chain/evm"
 	cldf_evm_provider "github.com/smartcontractkit/chainlink-deployments-framework/chain/evm/provider"
@@ -35,6 +36,7 @@ import (
 
 func TestCloneTransactOptsWithGas(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "unit")
 	orig := &bind.TransactOpts{
 		GasLimit: 100,
 		GasPrice: big.NewInt(123),
@@ -54,6 +56,7 @@ func TestCloneTransactOptsWithGas(t *testing.T) {
 
 func TestGasBoostConfigsForChainMap(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "unit")
 	chainMap := map[uint64]string{1: "a", 2: "b"}
 	gasBoostConfigs := map[uint64]commontypes.GasBoostConfig{
 		1: {InitialGasLimit: 10},
@@ -69,6 +72,7 @@ func TestGasBoostConfigsForChainMap(t *testing.T) {
 
 func TestGetBoostedGasForAttempt_DefaultsAndOverrides(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "unit")
 	cfg := commontypes.GasBoostConfig{}
 	limit, price := opsutils.GetBoostedGasForAttempt(cfg, 0)
 	assert.Equal(t, uint64(200_000), limit)
@@ -90,6 +94,7 @@ func TestGetBoostedGasForAttempt_DefaultsAndOverrides(t *testing.T) {
 
 func TestRetryDeploymentWithGasBoost(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "unit")
 	cfg := &commontypes.GasBoostConfig{
 		InitialGasLimit:   1000,
 		GasLimitIncrement: 100,
@@ -105,6 +110,7 @@ func TestRetryDeploymentWithGasBoost(t *testing.T) {
 
 func TestAddEVMCallSequenceToCSOutput_SequenceError(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "unit")
 
 	env, err := environment.New(t.Context(),
 		environment.WithEVMSimulatedN(t, 1),
@@ -133,6 +139,7 @@ func TestAddEVMCallSequenceToCSOutput_SequenceError(t *testing.T) {
 
 func TestAddEVMCallSequenceToCSOutput_NoMCMS(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "unit")
 
 	env, err := environment.New(t.Context(),
 		environment.WithEVMSimulatedN(t, 1),
@@ -158,6 +165,7 @@ func TestAddEVMCallSequenceToCSOutput_NoMCMS(t *testing.T) {
 
 func TestAddEVMCallSequenceToCSOutput_AllConfirmed(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "unit")
 
 	env, err := environment.New(t.Context(),
 		environment.WithEVMSimulatedN(t, 1),
@@ -185,6 +193,7 @@ func TestAddEVMCallSequenceToCSOutput_AllConfirmed(t *testing.T) {
 
 func TestAddEVMCallSequenceToCSOutput_ProposalCombination(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "with-db")
 	deployedEnvironment, _ := testhelpers.NewMemoryEnvironment(
 		t,
 	)
@@ -292,6 +301,7 @@ func TestAddEVMCallSequenceToCSOutput_ProposalCombination(t *testing.T) {
 
 func TestNewEVMCallOperation(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "unit")
 	version, _ := semver.NewVersion("1.0.0")
 
 	t.Run("ChainSelectorMismatch", func(t *testing.T) {
@@ -437,6 +447,7 @@ func TestNewEVMCallOperation(t *testing.T) {
 }
 
 func TestContractOpts_Validate(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	tests := []struct {
 		desc       string
 		opts       *opsutils.ContractOpts
@@ -496,6 +507,7 @@ func TestContractOpts_Validate(t *testing.T) {
 
 func TestNewEVMDeployOperation(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "unit")
 	contractType := cldf.ContractType("TestContract")
 	version, _ := semver.NewVersion("1.0.0")
 

@@ -188,6 +188,7 @@ var deployerGroupTestCases = []deployerGroupTestCase{
 }
 
 func TestDeployerGroup(t *testing.T) {
+	tests.BelongsToCISuite(t, "with-db")
 	for _, tc := range deployerGroupTestCases {
 		t.Run(tc.name, func(t *testing.T) {
 			e, _ := testhelpers.NewMemoryEnvironment(t, testhelpers.WithNumOfChains(2))
@@ -224,6 +225,7 @@ func TestDeployerGroup(t *testing.T) {
 }
 
 func TestDeployerGroupMCMS(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	for _, tc := range deployerGroupTestCases {
 		t.Run(tc.name, func(t *testing.T) {
 			if tc.name == "happy path" {
@@ -293,6 +295,7 @@ func TestDeployerGroupMCMS(t *testing.T) {
 }
 
 func TestDeployerGroupWithTimelockAddressQualifier(t *testing.T) {
+	tests.BelongsToCISuite(t, "with-db")
 	var err error
 	linktokenOwnerQualifier := "link-owner"
 	selectorIndex := uint64(0)
@@ -378,6 +381,7 @@ func TestDeployerGroupWithTimelockAddressQualifier(t *testing.T) {
 }
 
 func TestDeployerGroupGenerateMultipleProposals(t *testing.T) {
+	tests.BelongsToCISuite(t, "with-db")
 	tc := dummyMultiChainDeployerGroupChangesetConfig{
 		address: common.HexToAddress("0x455E5AA18469bC6ccEF49594645666C587A3a71B"),
 		mints: []mintConfig{
@@ -444,6 +448,7 @@ func TestDeployerGroupGenerateMultipleProposals(t *testing.T) {
 }
 
 func TestDeployerGroupMultipleProposalsMCMS(t *testing.T) {
+	tests.BelongsToCISuite(t, "with-db")
 	cfg := dummyMultiChainDeployerGroupChangesetConfig{
 		address: common.HexToAddress("0x455E5AA18469bC6ccEF49594645666C587A3a71B"),
 		mints: []mintConfig{
@@ -517,6 +522,7 @@ func TestDeployerGroupMultipleProposalsMCMS(t *testing.T) {
 }
 
 func TestEmptyBatch(t *testing.T) {
+	tests.BelongsToCISuite(t, "with-db")
 	e, _ := testhelpers.NewMemoryEnvironment(t, testhelpers.WithNumOfChains(2))
 
 	cfg := dummyEmptyBatchChangesetConfig{

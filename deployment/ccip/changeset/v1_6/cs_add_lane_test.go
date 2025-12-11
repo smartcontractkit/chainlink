@@ -14,12 +14,14 @@ import (
 
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_2_0/router"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
 )
 
 func TestAddLanesWithTestRouter(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "with-db")
 	e, _ := testhelpers.NewMemoryEnvironment(t)
 	// Here we have CR + nodes set up, but no CCIP contracts deployed.
 	state, err := stateview.LoadOnchainState(e.Env)
@@ -53,6 +55,7 @@ func TestAddLanesWithTestRouter(t *testing.T) {
 // this test is there to ensure addLane works between solana and evm chains
 func TestAddLanesWithSolana(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "with-db")
 	e, _ := testhelpers.NewMemoryEnvironment(t, testhelpers.WithSolChains(1))
 	// Here we have CR + nodes set up, but no CCIP contracts deployed.
 	state, err := stateview.LoadOnchainState(e.Env)
