@@ -703,7 +703,7 @@ func createFeedReport(lggr logger.Logger, price decimal.Decimal, timestamp uint6
 
 	reportBytes, err := reportCodec.Encode(report, llotypes.ChannelDefinition{
 		Streams: streams,
-	})
+	}, nil)
 	if err != nil {
 		return nil, "", err
 	}

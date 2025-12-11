@@ -37,7 +37,7 @@ func Test_ReportCodec(t *testing.T) {
 				{StreamID: 1},
 				{StreamID: 2},
 			},
-		})
+		}, nil)
 		require.NoError(t, err)
 
 		var pbuf capabilitiespb.OCRTriggerReport
@@ -100,7 +100,7 @@ func Test_ReportCodec(t *testing.T) {
 				{StreamID: 3},
 			},
 			Opts: opts,
-		})
+		}, nil)
 		require.NoError(t, err)
 
 		var pbuf capabilitiespb.OCRTriggerReport
@@ -329,5 +329,136 @@ func Test_ReportCodec(t *testing.T) {
 			},
 		)
 		require.EqualError(t, err, "multipliers length 3 != StreamValues length 2")
+	})
+}
+
+func TestReportCodecCapabilityTrigger_ParseOpts(t *testing.T) {
+	t.Run("ParseOpts: Valid opts with multipliers SUCCESS", func(t *testing.T) {
+		donID := uint32(1)
+		c := NewReportCodecCapabilityTrigger(logger.Test(t), donID)
+
+		multiplier1, err := decimal.NewFromString("1")
+		require.NoError(t, err)
+		multiplier2, err := decimal.NewFromString("1000000000000000000") // 10^18
+		require.NoError(t, err)
+		multiplier3, err := decimal.NewFromString("1000000") // 10^6
+		require.NoError(t, err)
+
+		optsBytes, err := (&ReportCodecCapabilityTriggerOpts{
+			Multipliers: []ReportCodecCapabilityTriggerMultiplier{
+				{Multiplier: multiplier1, StreamID: 1},
+				{Multiplier: multiplier2, StreamID: 2},
+				{Multiplier: multiplier3, StreamID: 3},
+			},
+		}).Encode()
+		require.NoError(t, err)
+
+		parsed, err := c.ParseOpts(optsBytes)
+		require.NoError(t, err)
+		require.NotNil(t, parsed)
+
+		opts, ok := parsed.(ReportCodecCapabilityTriggerOpts)
+		require.True(t, ok, "parsed result should be ReportCodecCapabilityTriggerOpts")
+
+		require.Len(t, opts.Multipliers, 3)
+		assert.True(t, opts.Multipliers[0].Multiplier.Equal(multiplier1))
+		assert.Equal(t, uint32(1), opts.Multipliers[0].StreamID)
+		assert.True(t, opts.Multipliers[1].Multiplier.Equal(multiplier2))
+		assert.Equal(t, uint32(2), opts.Multipliers[1].StreamID)
+		assert.True(t, opts.Multipliers[2].Multiplier.Equal(multiplier3))
+		assert.Equal(t, uint32(3), opts.Multipliers[2].StreamID)
+	})
+
+	t.Run("ParseOpts: Empty opts nil SUCCESS", func(t *testing.T) {
+		donID := uint32(1)
+		c := NewReportCodecCapabilityTrigger(logger.Test(t), donID)
+
+		parsed, err := c.ParseOpts(nil)
+		require.NoError(t, err)
+		require.NotNil(t, parsed)
+
+		opts, ok := parsed.(ReportCodecCapabilityTriggerOpts)
+		require.True(t, ok, "parsed result should be ReportCodecCapabilityTriggerOpts")
+
+		assert.Nil(t, opts.Multipliers)
+	})
+
+	t.Run("ParseOpts: Empty opts empty byte slice SUCCESS", func(t *testing.T) {
+		donID := uint32(1)
+		c := NewReportCodecCapabilityTrigger(logger.Test(t), donID)
+
+		parsed, err := c.ParseOpts([]byte{})
+		require.NoError(t, err)
+		require.NotNil(t, parsed)
+
+		opts, ok := parsed.(ReportCodecCapabilityTriggerOpts)
+		require.True(t, ok, "parsed result should be ReportCodecCapabilityTriggerOpts")
+
+		assert.Nil(t, opts.Multipliers)
+	})
+
+	t.Run("ParseOpts: Invalid JSON FAIL", func(t *testing.T) {
+		donID := uint32(1)
+		c := NewReportCodecCapabilityTrigger(logger.Test(t), donID)
+
+		invalidJSON := []byte("{invalid json}")
+		parsed, err := c.ParseOpts(invalidJSON)
+
+		require.Error(t, err)
+		require.Nil(t, parsed)
+		assert.Contains(t, err.Error(), "failed to decode opts")
+		assert.Contains(t, err.Error(), string(invalidJSON))
+	})
+
+	t.Run("ParseOpts: JSON with unknown fields FAIL", func(t *testing.T) {
+		donID := uint32(1)
+		c := NewReportCodecCapabilityTrigger(logger.Test(t), donID)
+
+		optsWithUnknownField := []byte(`{"multipliers":[],"unknown":"field"}`)
+		parsed, err := c.ParseOpts(optsWithUnknownField)
+
+		require.Error(t, err)
+		require.Nil(t, parsed)
+		assert.Contains(t, err.Error(), "failed to decode opts")
+		assert.Contains(t, err.Error(), string(optsWithUnknownField))
+	})
+
+	t.Run("ParseOpts: Wrong JSON structure multipliers as string FAIL", func(t *testing.T) {
+		donID := uint32(1)
+		c := NewReportCodecCapabilityTrigger(logger.Test(t), donID)
+
+		wrongTypeJSON := []byte(`{"multipliers":"not an array"}`)
+		parsed, err := c.ParseOpts(wrongTypeJSON)
+
+		require.Error(t, err)
+		require.Nil(t, parsed)
+		assert.Contains(t, err.Error(), "failed to decode opts")
+		assert.Contains(t, err.Error(), string(wrongTypeJSON))
+	})
+
+	t.Run("ParseOpts: Wrong JSON structure invalid multiplier type FAIL", func(t *testing.T) {
+		donID := uint32(1)
+		c := NewReportCodecCapabilityTrigger(logger.Test(t), donID)
+
+		invalidMultiplierJSON := []byte(`{"multipliers":[{"multiplier":"not a number","streamID":1}]}`)
+		parsed, err := c.ParseOpts(invalidMultiplierJSON)
+
+		require.Error(t, err)
+		require.Nil(t, parsed)
+		assert.Contains(t, err.Error(), "failed to decode opts")
+		assert.Contains(t, err.Error(), string(invalidMultiplierJSON))
+	})
+
+	t.Run("ParseOpts: Wrong JSON structure invalid streamID type FAIL", func(t *testing.T) {
+		donID := uint32(1)
+		c := NewReportCodecCapabilityTrigger(logger.Test(t), donID)
+
+		invalidStreamIDJSON := []byte(`{"multipliers":[{"multiplier":"1000","streamID":"not a number"}]}`)
+		parsed, err := c.ParseOpts(invalidStreamIDJSON)
+
+		require.Error(t, err)
+		require.Nil(t, parsed)
+		assert.Contains(t, err.Error(), "failed to decode opts")
+		assert.Contains(t, err.Error(), string(invalidStreamIDJSON))
 	})
 }
