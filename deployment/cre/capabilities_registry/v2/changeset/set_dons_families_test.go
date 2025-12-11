@@ -4,7 +4,6 @@ import (
 	"testing"
 	"time"
 
-	cretime "github.com/smartcontractkit/chainlink/deployment/cre/pkg/time"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
@@ -14,6 +13,7 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/cre/capabilities_registry/v2/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/cre/capabilities_registry/v2/changeset/sequences"
 	"github.com/smartcontractkit/chainlink/deployment/cre/contracts"
+	cretime "github.com/smartcontractkit/chainlink/deployment/cre/pkg/time"
 	"github.com/smartcontractkit/chainlink/deployment/cre/test"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/p2pkey"
 )
