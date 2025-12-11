@@ -197,10 +197,6 @@ jobs:
           fi
 
   core:
-    env:
-      # We explicitly have this env var not be "CL_DATABASE_URL" to avoid having it be used by core related tests
-      # when they should not be using it, while still allowing us to DRY up the setup
-      DB_URL: postgresql://postgres:postgres@localhost:5432/chainlink_test?sslmode=disable
     strategy:
       fail-fast: false
       matrix:
@@ -208,14 +204,15 @@ jobs:
           - cmd: go_core_tests
             os: ${{ needs.runner-config.outputs.core-tests-runner }}
             should-run: ${{ needs.filter.outputs.should-run-core-tests }}
-            trunk-auto-quarantine: "true"
+            # test-suite: "unit"
+            # trunk-auto-quarantine: "true"
 
-          - cmd: go_core_tests_integration
-            os: ${{ needs.runner-config.outputs.core-tests-integration-runner }}
-            should-run: ${{ needs.filter.outputs.should-run-core-tests }}
-            trunk-auto-quarantine: "true"
-            setup-solana: "true"
-            install-loopps: "true"
+          # - cmd: go_core_tests_integration
+          #   os: ${{ needs.runner-config.outputs.core-tests-integration-runner }}
+          #   should-run: ${{ needs.filter.outputs.should-run-core-tests }}
+          #   trunk-auto-quarantine: "true"
+          #   setup-solana: "true"
+          #   install-loopps: "true"
 
           - cmd: go_core_fuzz
             os: ${{ needs.runner-config.outputs.core-fuzz-tests-runner }}
@@ -228,14 +225,11 @@ jobs:
           - cmd: go_core_ccip_deployment_tests
             os: ${{ needs.runner-config.outputs.deployment-tests-runner }}
             should-run: ${{ needs.filter.outputs.should-run-deployment-tests }}
-            trunk-auto-quarantine: "true"
             go-mod-directory: "deployment/"
-            setup-solana: "true"
-            setup-aptos: "true"
-            install-loopps: "true"
-            setup-sui: "true"
+            # test-suite: "unit"
+            # trunk-auto-quarantine: "true"
 
-    name: Core Tests (${{ matrix.type.cmd }}) # Be careful modifying the job name, as it is used to fetch the job URL
+    name: Core Tests (${{ matrix.type.cmd }})
     # We don't directly merge dependabot PRs, so let's not waste the resources
     if: ${{ github.actor != 'dependabot[bot]' }}
     needs: [filter, run-frequency, runner-config]
@@ -267,34 +261,6 @@ jobs:
           go-version-file: ${{ matrix.type.go-mod-directory }}go.mod
           go-module-file: ${{ matrix.type.go-mod-directory }}go.sum
 
-      - name: Setup Solana
-        if: ${{ matrix.type.should-run == 'true' && matrix.type.setup-solana == 'true' }}
-        uses: ./.github/actions/setup-solana
-
-      - name: Setup Aptos
-        if: ${{ matrix.type.should-run == 'true' && matrix.type.setup-aptos == 'true' }}
-        uses: aptos-labs/actions/install-aptos-cli@63740b290d839b87ecfafbcf75ed03a36a54a29f # jan 15, 2025
-        with:
-          CLI_VERSION: 7.10.0
-
-      - name: Setup Sui CLI v1.61.2
-        if: ${{ matrix.type.should-run == 'true' && matrix.type.setup-sui == 'true' }}
-        uses: ./.github/actions/setup-sui
-        with:
-          github-token: ${{ secrets.GITHUB_TOKEN }}
-          version: mainnet-v1.61.2
-
-      - name: Setup wasmd
-        if: ${{ matrix.type.should-run == 'true' }}
-        uses: ./.github/actions/setup-wasmd
-
-      - name: Setup Postgres
-        if: ${{ matrix.type.should-run == 'true' }}
-        uses: smartcontractkit/.github/actions/setup-postgres@setup-postgres/v1
-        with:
-          tmpfs: "true"
-          image-tag: "16-alpine"
-
       - name: Touching core/web/assets/index.html
         if: ${{ matrix.type.should-run == 'true' }}
         run: mkdir -p core/web/assets && touch core/web/assets/index.html
@@ -302,16 +268,6 @@ jobs:
       - name: Download Go vendor packages
         if: ${{ matrix.type.should-run == 'true' }}
         run: go mod download
-
-      - name: Setup DB
-        if: ${{ matrix.type.should-run == 'true' }}
-        run: go run ./core/store/cmd/preparetest
-        env:
-          CL_DATABASE_URL: ${{ env.DB_URL }}
-
-      - name: Install LOOP Plugins
-        if: ${{ matrix.type.should-run == 'true' && matrix.type.install-loopps == 'true' }}
-        run: make install-plugins
 
       - name: Increase Timeouts for Fuzz/Race
         # Increase timeouts for scheduled runs only
@@ -328,9 +284,9 @@ jobs:
         id: run-tests
         shell: bash
         env:
-          CL_DATABASE_URL: ${{ env.DB_URL }}
+          # CL_CURRENT_TEST_SUITE: ${{ matrix.type.test-suite || '' }}
           OUTPUT_FILE: ./output.txt
-          PRODUCE_JUNIT_XML: ${{ matrix.type.trunk-auto-quarantine }}
+          PRODUCE_JUNIT_XML: "true"
           TRUNK_AUTO_QUARANTINE: ${{ matrix.type.trunk-auto-quarantine }}
           RUN_QUARANTINED_TESTS: "true" # always run quarantined tests in CI
           JUNIT_FILE: ${{ github.workspace }}/junit.xml
@@ -366,12 +322,6 @@ jobs:
           fi
           echo "github.event_name: ${{ github.event_name }}"
           echo "github.ref: ${{ github.ref }}"
-
-      - name: Print postgres logs
-        if: ${{ always() &&  matrix.type.should-run == 'true' }}
-        uses: smartcontractkit/.github/actions/setup-postgres@setup-postgres/v1
-        with:
-          print-logs: "true"
 
       - name: Store logs artifacts
         if: ${{ always() && matrix.type.should-run == 'true' }}

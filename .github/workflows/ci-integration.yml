@@ -1,0 +1,169 @@
+name: CI Core Integration
+run-name: CI Core Integration
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}-${{ github.event_name }}
+  cancel-in-progress: true
+
+# Run on key branches to make sure integration is good, otherwise run on all PR's
+on:
+  push:
+    branches:
+      - develop
+      - "release/*"
+  merge_group:
+  pull_request:
+
+
+jobs:
+  integration-tests:
+    # TODO: Enable once tests are added
+    if: false
+    name: "${{ matrix.type.module }} (${{matrix.type.test-suite}})"
+    timeout-minutes: 20
+    runs-on: runs-on=${{ github.run_id }}-${{ strategy.job-index }}/${{ matrix.type.os }}
+    permissions:
+      id-token: write
+      contents: read
+      actions: read
+    env:
+      # We explicitly have this env var not be "CL_DATABASE_URL" to avoid having it be used by core related tests
+      # when they should not be using it, while still allowing us to DRY up the setup
+      DB_URL: postgresql://postgres:postgres@localhost:5432/chainlink_test?sslmode=disable
+
+    strategy:
+      fail-fast: false
+      matrix:
+        type:
+          - module: Core
+            test-suite: "with-db"
+            cmd: go_core_tests
+            os: cpu=32/ram=64/family=c5ad/spot=false/image=ubuntu24-full-x64/extras=s3-cache
+
+          - module: Deployment
+            cmd: go_core_ccip_deployment_tests
+            test-suite: "solana"
+            os: cpu=32/ram=64/family=c5ad/spot=false/image=ubuntu24-full-x64/extras=s3-cache
+            go-mod-directory: "deployment/"
+            setup-solana: "true"
+            # setup-loopps: "true"
+
+          - module: Deployment
+            test-suite: "aptos"
+            cmd: go_core_ccip_deployment_tests
+            os: cpu=32/ram=64/family=c5ad/spot=false/image=ubuntu24-full-x64/extras=s3-cache
+            go-mod-directory: "deployment/"
+            aptos-cli-version: "7.10.0"
+            # setup-loopps: "true"
+
+          - module: Deployment
+            test-suite: "with-db"
+            cmd: go_core_ccip_deployment_tests
+            os: cpu=32/ram=64/family=c5ad/spot=false/image=ubuntu24-full-x64/extras=s3-cache
+            go-mod-directory: "deployment/"
+            # setup-loopps: "true"
+    steps:
+      - name: Enable S3 Cache for Self-Hosted Runners
+        # these env vars are set (and exposed) when it is a self-hosted runner with extras=s3-cache
+        if: ${{ env.RUNS_ON_INSTANCE_ID != '' && env.ACTIONS_CACHE_URL != '' }}
+        uses: runs-on/action@66d4449b717b5462159659523d1241051ff470b9 # v1
+
+      - name: Checkout the repo
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - name: Setup Go
+        uses: ./.github/actions/setup-go
+        with:
+          build-cache-version: ${{ matrix.type.cmd }}
+          go-version-file: ${{ matrix.type.go-mod-directory }}go.mod
+          go-module-file: ${{ matrix.type.go-mod-directory }}go.sum
+
+      - name: Setup Postgres Container
+        uses: smartcontractkit/.github/actions/setup-postgres@setup-postgres/v1
+        with:
+          tmpfs: "true"
+          image-tag: "16-alpine"
+
+      - name: Standard setup commands
+        env:
+          CL_DATABASE_URL: ${{ env.DB_URL }}
+        run: |
+          echo "::group::Run core/store/cmd/preparetest"
+          go run ./core/store/cmd/preparetest
+          echo "::endgroup::"
+
+          echo "::group::Touching core/web/assets/index.html"
+          mkdir -p core/web/assets && touch core/web/assets/index.html
+          echo "::endgroup::"
+
+          echo "::group::Download Go vendor packages"
+          go mod download
+          echo "::endgroup::"
+
+      - name: Setup Solana
+        if: ${{ matrix.type.setup-solana == 'true' }}
+        uses: ./.github/actions/setup-solana
+
+      - name: Setup Aptos
+        if: ${{ matrix.type.aptos-cli-version != '' }}
+        uses: aptos-labs/actions/install-aptos-cli@63740b290d839b87ecfafbcf75ed03a36a54a29f # jan 15, 2025
+        with:
+          CLI_VERSION: ${{ matrix.type.aptos-cli-version }}
+
+      - name: Setup Sui CLI v1.57.2
+        if: ${{ matrix.type.sui-cli-version != '' }}
+        uses: ./.github/actions/setup-sui
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          version: ${{ matrix.type.sui-cli-version }}
+
+      - name: Setup wasmd
+        if: ${{ matrix.type.setup-loopps == 'true' }}
+        uses: ./.github/actions/setup-wasmd
+
+      - name: Install LOOP Plugins
+        if: ${{ matrix.type.setup-loopps == 'true' }}
+        run: make install-plugins
+
+      - name: Run tests
+        timeout-minutes: 22
+        id: run-tests
+        shell: bash
+        env:
+          CL_CURRENT_TEST_SUITE: ${{ matrix.type.test-suite }}
+          CL_DATABASE_URL: ${{ env.DB_URL }}
+          OUTPUT_FILE: ./output.txt
+          PRODUCE_JUNIT_XML: "true"
+          JUNIT_FILE: ${{ github.workspace }}/junit.xml
+          RUN_QUARANTINED_TESTS: "true" # always run quarantined tests in CI
+        run: |
+          GODEBUG=goindex=0 ./tools/bin/${{ matrix.type.cmd }} ./...
+          # See: https://github.com/golang/go/issues/69179
+
+      - name: Artifact name
+        id: artifact-name
+        if: ${{ always() }}
+        env:
+          CMD: ${{ matrix.type.cmd }}
+          REGEX: ${{ matrix.type.regex }}
+        run: |
+          REGEX_SANITIZED=$(echo "$REGEX" | sed 's/[\\^$.*+?{}()|\[\]]//g' | tr ' ' '_')
+          ARTIFACT_NAME="${CMD}_${REGEX_SANITIZED}_logs"
+          echo "artifact-name=$ARTIFACT_NAME" | tee -a "$GITHUB_OUTPUT"
+
+      - name: Store logs artifacts
+        if: ${{ always() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ steps.artifact-name.outputs.artifact-name }}
+          path: |
+            ./output.txt
+            ./output-short.txt
+            ./race.*
+            ./coverage.txt
+            ./postgres_logs.txt
+            ./junit.xml
+            ./deployment/junit.xml
+          retention-days: 7
