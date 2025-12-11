@@ -1,6 +1,10 @@
 # Changelog Chainlink Core
 
+<<<<<<< HEAD
 ## 2.31.0 - UNRELEASED
+=======
+## 2.31.0 - 2025-12-11
+>>>>>>> release/2.31.0
 
 ### Minor Changes
 
