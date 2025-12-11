@@ -23,6 +23,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink/deployment/common/changeset/state"
 	ccipTypes "github.com/smartcontractkit/chainlink/deployment/common/types"
+	cretime "github.com/smartcontractkit/chainlink/deployment/cre/pkg/time"
 )
 
 const (
@@ -34,7 +35,7 @@ type TimelockConfig struct {
 	MCMSAction                types.TimelockAction `json:"mcmsAction"`
 	OverrideRoot              bool                 `json:"overrideRoot"`                        // if true, override the previous root with the new one.
 	TimelockQualifierPerChain map[uint64]string    `json:"timelockQualifierPerChain,omitempty"` // optional qualifier to fetch timelock address from datastore
-	ValidDuration             *time.Duration       `json:"validDuration" yaml:"validDuration"`
+	ValidDuration             *cretime.Duration    `json:"validDuration" yaml:"validDuration"`
 }
 
 func (tc *TimelockConfig) MCMBasedOnActionSolana(s state.MCMSWithTimelockStateSolana) (string, error) {
@@ -215,7 +216,7 @@ func BuildProposalFromBatchesV2(
 
 	proposalDuration := DefaultValidUntil
 	if mcmsCfg.ValidDuration != nil {
-		proposalDuration = *mcmsCfg.ValidDuration
+		proposalDuration = time.Duration(*mcmsCfg.ValidDuration)
 	}
 	validUntil := time.Now().Add(proposalDuration).Unix()
 

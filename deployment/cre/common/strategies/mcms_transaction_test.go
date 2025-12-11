@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
+	cretime "github.com/smartcontractkit/chainlink/deployment/cre/pkg/time"
 	mcmstypes "github.com/smartcontractkit/mcms/types"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -205,7 +206,7 @@ func TestMCMSTransaction_BuildProposal(t *testing.T) {
 
 	t.Run("uses custom ValidDuration value to set the proposal duration", func(t *testing.T) {
 		m := getMCMSTransaction(t, *fixture.Env)
-		validDuration := 2 * time.Second
+		validDuration := cretime.Duration(2 * time.Second)
 		cfg := contracts.MCMSConfig{
 			MinDelay: 0,
 			TimelockQualifierPerChain: map[uint64]string{
@@ -225,7 +226,7 @@ func TestMCMSTransaction_BuildProposal(t *testing.T) {
 		p, err := m.BuildProposal([]mcmstypes.BatchOperation{op})
 		require.NoError(t, err)
 
-		expectedValidUntil := time.Now().Add(validDuration).Unix()
+		expectedValidUntil := time.Now().Add(time.Duration(validDuration)).Unix()
 		// Using InDelta to allow for slight timing differences during test execution
 		assert.InDelta(t, uint32(expectedValidUntil), p.ValidUntil, 1, "ValidUntil should be within 1 second of expected value") //nolint:gosec // G115
 	})
