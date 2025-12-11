@@ -142,6 +142,7 @@ func TestORM_UpdateBridgeType(t *testing.T) {
 }
 
 func TestORM_TestCachedResponse(t *testing.T) {
+	tests.BelongsToCISuite(t, "with-db")
 	ctx := testutils.Context(t)
 	cfg := configtest.NewGeneralConfig(t, nil)
 	db := pgtest.NewSqlxDB(t)

@@ -61,6 +61,7 @@ func TestWorkflowArtifactsORM_GetAndUpdate(t *testing.T) {
 }
 
 func Test_UpsertWorkflowSpec(t *testing.T) {
+	tests.BelongsToCISuite(t, "with-db")
 	db := pgtest.NewSqlxDB(t)
 	ctx := testutils.Context(t)
 	lggr := logger.TestLogger(t)

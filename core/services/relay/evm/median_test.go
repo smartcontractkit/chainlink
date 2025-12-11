@@ -13,10 +13,12 @@ import (
 	"github.com/smartcontractkit/chainlink-evm/pkg/testutils"
 	"github.com/smartcontractkit/chainlink-evm/pkg/utils/big"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/smartcontractkit/chainlink/v2/common/chains/mocks"
 )
 
 func TestNewMedianProvider(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	lggr := logger.Test(t)
 
 	chain := mocks.NewChain(t)

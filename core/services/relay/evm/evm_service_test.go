@@ -28,6 +28,7 @@ import (
 	evmmocks "github.com/smartcontractkit/chainlink/v2/common/chains/mocks"
 	lpmocks "github.com/smartcontractkit/chainlink/v2/common/logpoller/mocks"
 	txmmocks "github.com/smartcontractkit/chainlink/v2/common/txmgr/mocks"
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 )
 
 const ExpectedTxHash = "0xabcd"
@@ -155,6 +156,7 @@ func createPayload() evm.ABIPayload {
 
 func TestEVMService(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "with-db")
 	ctx := t.Context()
 
 	t.Run("RegisterLogTracking", func(t *testing.T) {
@@ -354,6 +356,7 @@ func TestEVMService(t *testing.T) {
 }
 
 func TestEVMService_HeaderByNumber(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	testCases := []struct {
 		Name           string
 		Request        evm.HeaderByNumberRequest
@@ -526,6 +529,7 @@ func runSubmitTxGettingDifferentStatusAndReceipts(m *Mocks, ctx any, expectedRet
 
 func TestConverters(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "with-db")
 
 	t.Run("convert head", func(t *testing.T) {
 		head := types.Head{
@@ -560,6 +564,7 @@ func TestConverters(t *testing.T) {
 }
 
 func TestEVMService_EstimateGas(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	testCases := []struct {
 		Name           string
 		Request        *evm.CallMsg
@@ -611,6 +616,7 @@ func TestEVMService_EstimateGas(t *testing.T) {
 }
 
 func TestEVMService_CallContract(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	testCases := []struct {
 		Name           string
 		Request        evm.CallContractRequest

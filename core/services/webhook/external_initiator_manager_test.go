@@ -12,6 +12,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"github.com/tidwall/gjson"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/smartcontractkit/chainlink/v2/core/bridges"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
@@ -22,6 +23,7 @@ import (
 )
 
 func Test_ExternalInitiatorManager_Load(t *testing.T) {
+	tests.BelongsToCISuite(t, "with-db")
 	ctx := testutils.Context(t)
 	db := pgtest.NewSqlxDB(t)
 	borm := bridges.NewORM(db)

@@ -20,9 +20,11 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/p2pkey"
 	"github.com/smartcontractkit/chainlink/v2/core/services/registrysyncer"
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 )
 
 func Test_createDON(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	type args struct {
 		lggr            logger.Logger
 		p2pID           ragep2ptypes.PeerID
@@ -246,6 +248,7 @@ func Test_createDON(t *testing.T) {
 }
 
 func Test_updateDON(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	var (
 		digest1 = utils.RandomBytes32()
 		digest2 = utils.RandomBytes32()
@@ -510,6 +513,7 @@ func Test_updateDON(t *testing.T) {
 }
 
 func Test_launcher_processDiff(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	var (
 		digest1 = utils.RandomBytes32()
 		digest2 = utils.RandomBytes32()

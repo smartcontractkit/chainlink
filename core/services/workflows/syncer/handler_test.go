@@ -871,6 +871,7 @@ func newMockArtifactStore(as *artifacts.Store, deleteWorkflowArtifactsErr error)
 }
 
 func Test_workflowDeletedHandler(t *testing.T) {
+	tests.BelongsToCISuite(t, "with-db")
 	workflowEncryptionKey := workflowkey.MustNewXXXTestingOnly(big.NewInt(1))
 	t.Run("success deleting existing engine and spec", func(t *testing.T) {
 		var (

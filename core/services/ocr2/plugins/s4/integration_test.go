@@ -183,6 +183,7 @@ func TestS4Integration_HappyDON(t *testing.T) {
 }
 
 func TestS4Integration_HappyDON_4X(t *testing.T) {
+	tests.BelongsToCISuite(t, "with-db")
 	don := newDON(t, 4, createPluginConfig(100))
 	ctx := testutils.Context(t)
 

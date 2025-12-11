@@ -141,6 +141,7 @@ func Test_RootsEligibleForExecution(t *testing.T) {
 }
 
 func Test_RootsEligibleForExecutionWithReorgs(t *testing.T) {
+	tests.BelongsToCISuite(t, "with-db")
 	ctx := testutils.Context(t)
 	chainID := testutils.NewRandomEVMChainID()
 	orm := logpoller.NewORM(chainID, pgtest.NewSqlxDB(t), logger.TestLogger(t))

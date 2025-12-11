@@ -718,6 +718,7 @@ func newMockArtifactStore(as *artifacts.Store, deleteWorkflowArtifactsErr error)
 }
 
 func Test_workflowDeletedHandler(t *testing.T) {
+	tests.BelongsToCISuite(t, "with-db")
 	t.Run("success deleting existing engine and spec", func(t *testing.T) {
 		var (
 			ctx     = testutils.Context(t)

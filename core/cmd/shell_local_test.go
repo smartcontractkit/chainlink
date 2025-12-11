@@ -165,6 +165,7 @@ func TestShell_RunNodeWithAPICredentialsFile(t *testing.T) {
 }
 
 func TestShell_DiskMaxSizeBeforeRotateOptionDisablesAsExpected(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	tests := []struct {
 		name            string
 		logFileSize     func(t *testing.T) utils.FileSize
@@ -202,6 +203,7 @@ func TestShell_DiskMaxSizeBeforeRotateOptionDisablesAsExpected(t *testing.T) {
 }
 
 func TestShell_RebroadcastTransactions_Txm(t *testing.T) {
+	tests.BelongsToCISuite(t, "with-db")
 	// Use a non-transactional db for this test because we need to
 	// test multiple connections to the database, and changes made within
 	// the transaction cannot be seen from another connection.
@@ -271,6 +273,7 @@ func TestShell_RebroadcastTransactions_Txm(t *testing.T) {
 }
 
 func TestShell_RebroadcastTransactions_OutsideRange_Txm(t *testing.T) {
+	tests.BelongsToCISuite(t, "with-db")
 	beginningNonce := uint(7)
 	endingNonce := uint(10)
 	gasPrice := big.NewInt(100000000000)
@@ -359,6 +362,7 @@ func TestShell_RebroadcastTransactions_OutsideRange_Txm(t *testing.T) {
 }
 
 func TestShell_RebroadcastTransactions_AddressCheck(t *testing.T) {
+	tests.BelongsToCISuite(t, "with-db")
 	tests := []struct {
 		name          string
 		enableAddress bool
@@ -433,6 +437,7 @@ func TestShell_RebroadcastTransactions_AddressCheck(t *testing.T) {
 }
 
 func TestShell_CleanupChainTables(t *testing.T) {
+	tests.BelongsToCISuite(t, "with-db")
 	// Just check if it doesn't error, command itself shouldn't be changed unless major schema changes were made.
 	// It would be really hard to write a test that accounts for schema changes, so this should be enough to alarm us that something broke.
 	config, _ := heavyweight.FullTestDBV2(t, func(c *chainlink.Config, s *chainlink.Secrets) { c.Database.DriverName = pgcommon.DriverPostgres })
@@ -453,6 +458,7 @@ func TestShell_CleanupChainTables(t *testing.T) {
 }
 
 func TestShell_RemoveBlocks(t *testing.T) {
+	tests.BelongsToCISuite(t, "with-db")
 	db := pgtest.NewSqlxDB(t)
 	cfg := configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
 		s.Password.Keystore = models.NewSecret("dummy")
@@ -508,6 +514,7 @@ func TestShell_RemoveBlocks(t *testing.T) {
 }
 
 func TestShell_BeforeNode(t *testing.T) {
+	tests.BelongsToCISuite(t, "with-db")
 	testutils.SkipShortDB(t)
 	tests := []struct {
 		name         string
@@ -579,6 +586,7 @@ func TestShell_BeforeNode(t *testing.T) {
 }
 
 func TestShell_RunNode_WithBeforeNode(t *testing.T) {
+	tests.BelongsToCISuite(t, "with-db")
 	tests := []struct {
 		name        string
 		pwdfile     string

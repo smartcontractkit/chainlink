@@ -95,6 +95,7 @@ func Test_LogListenerOpts1_1(t *testing.T) {
 }
 
 func Test_RegistrySynchronizer1_1_Start(t *testing.T) {
+	tests.BelongsToCISuite(t, "with-db")
 	db, synchronizer, ethMock, _, job := setupRegistrySync(t, keeper.RegistryVersion_1_1)
 
 	contractAddress := job.KeeperSpec.ContractAddress.Address()

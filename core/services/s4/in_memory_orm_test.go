@@ -9,11 +9,13 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/s4"
 
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/stretchr/testify/assert"
 )
 
 func TestInMemoryORM(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "with-db")
 
 	address := testutils.NewAddress()
 	var slotId uint = 3
@@ -70,6 +72,7 @@ func TestInMemoryORM(t *testing.T) {
 
 func TestInMemoryORM_DeleteExpired(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "with-db")
 	ctx := testutils.Context(t)
 
 	orm := s4.NewInMemoryORM()
@@ -104,6 +107,7 @@ func TestInMemoryORM_DeleteExpired(t *testing.T) {
 
 func TestInMemoryORM_GetUnconfirmedRows(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "with-db")
 	ctx := testutils.Context(t)
 
 	orm := s4.NewInMemoryORM()
@@ -134,6 +138,7 @@ func TestInMemoryORM_GetUnconfirmedRows(t *testing.T) {
 
 func TestInMemoryORM_GetSnapshot(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "with-db")
 	ctx := testutils.Context(t)
 
 	orm := s4.NewInMemoryORM()

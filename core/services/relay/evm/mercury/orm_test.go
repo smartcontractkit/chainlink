@@ -9,6 +9,7 @@ import (
 
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/smartcontractkit/chainlink-evm/pkg/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury/wsrpc/pb"
 )
@@ -20,6 +21,7 @@ var (
 )
 
 func TestORM(t *testing.T) {
+	tests.BelongsToCISuite(t, "with-db")
 	ctx := testutils.Context(t)
 	db := testutils.NewSqlxDB(t)
 

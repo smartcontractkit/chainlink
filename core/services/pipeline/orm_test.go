@@ -109,6 +109,7 @@ func Test_PipelineORM_CreateSpec(t *testing.T) {
 }
 
 func Test_PipelineORM_FindRun(t *testing.T) {
+	tests.BelongsToCISuite(t, "with-db")
 	db, orm, _ := setupLiteORM(t)
 
 	_, err := db.Exec(`SET CONSTRAINTS fk_pipeline_runs_pruning_key DEFERRED`)

@@ -125,6 +125,7 @@ func Test_Cleanup(t *testing.T) {
 }
 
 func Test_StaleTransmissionReaper(t *testing.T) {
+	tests.BelongsToCISuite(t, "with-db")
 	ds := pgtest.NewSqlxDB(t)
 	lggr := logger.TestLogger(t)
 	tr := &transmissionReaper{ds: ds, lggr: lggr, maxAge: 24 * time.Hour}

@@ -5,6 +5,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/services/p2p"
 )
@@ -17,6 +18,7 @@ const (
 )
 
 func TestInMemoryDiscovererDatabase(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	db := p2p.NewInMemoryDiscovererDatabase()
 	require.NoError(t, db.StoreAnnouncement(testutils.Context(t), peerID1, []byte(ann1)))
 	require.NoError(t, db.StoreAnnouncement(testutils.Context(t), peerID2, []byte(ann2)))

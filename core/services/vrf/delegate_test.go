@@ -244,6 +244,7 @@ func TestDelegate_ReorgAttackProtection(t *testing.T) {
 }
 
 func TestDelegate_ValidLog(t *testing.T) {
+	tests.BelongsToCISuite(t, "with-db")
 	vuni, listener, jb := setup(t)
 	txHash := evmutils.NewHash()
 	reqID1 := evmutils.NewHash()

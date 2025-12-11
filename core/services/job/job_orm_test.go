@@ -614,6 +614,7 @@ func TestORM_CreateJob_VRFV2(t *testing.T) {
 }
 
 func TestORM_CreateJob_VRFV2Plus(t *testing.T) {
+	tests.BelongsToCISuite(t, "with-db")
 	ctx := testutils.Context(t)
 	config := configtest.NewTestGeneralConfig(t)
 	db := pgtest.NewSqlxDB(t)

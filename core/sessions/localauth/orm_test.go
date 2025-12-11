@@ -166,6 +166,7 @@ func TestORM_DeleteUserCascade(t *testing.T) {
 
 func TestORM_CreateSession(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "with-db")
 
 	_, orm := setupORM(t)
 
@@ -205,6 +206,7 @@ func TestORM_CreateSession(t *testing.T) {
 
 func TestORM_WebAuthn(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "with-db")
 	ctx := testutils.Context(t)
 
 	_, orm := setupORM(t)
@@ -286,6 +288,7 @@ func TestORM_WebAuthn(t *testing.T) {
 
 func TestOrm_GenerateAuthToken(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "with-db")
 	ctx := testutils.Context(t)
 
 	_, orm := setupORM(t)

@@ -510,6 +510,7 @@ func Test_Service_UpdateFeedsManager(t *testing.T) {
 }
 
 func Test_Service_EnableFeedsManager(t *testing.T) {
+	tests.BelongsToCISuite(t, "with-db")
 	mgr := feeds.FeedsManager{ID: 1}
 
 	svc := setupTestService(t)

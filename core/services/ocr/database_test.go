@@ -104,6 +104,7 @@ func Test_DB_ReadWriteState(t *testing.T) {
 }
 
 func Test_DB_ReadWriteConfig(t *testing.T) {
+	tests.BelongsToCISuite(t, "with-db")
 	db := pgtest.NewSqlxDB(t)
 	sqlDB := db
 

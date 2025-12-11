@@ -9,6 +9,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	consensustypes "github.com/smartcontractkit/chainlink-common/pkg/capabilities/consensus/ocr3/types"
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/smartcontractkit/chainlink-evm/pkg/testutils"
 	"github.com/smartcontractkit/chainlink-protos/cre/go/values"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm"
@@ -35,6 +36,7 @@ var (
 )
 
 func TestEVMEncoder_SingleField(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	config := map[string]any{
 		"abi": "bytes[] Full_reports",
 	}
@@ -70,6 +72,7 @@ func TestEVMEncoder_SingleField(t *testing.T) {
 }
 
 func TestEVMEncoder_TwoFields(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	config := map[string]any{
 		"abi": "uint256[] Prices, uint32[] Timestamps",
 	}
@@ -106,6 +109,7 @@ func TestEVMEncoder_TwoFields(t *testing.T) {
 }
 
 func TestEVMEncoder_Tuple(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	config := map[string]any{
 		"abi": "(uint256[] Prices, uint32[] Timestamps) Elem",
 	}
@@ -145,6 +149,7 @@ func TestEVMEncoder_Tuple(t *testing.T) {
 }
 
 func TestEVMEncoder_ListOfTuples(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	config := map[string]any{
 		"abi": "(uint256 Price, uint32 Timestamp)[] Elems",
 	}
@@ -187,6 +192,7 @@ func TestEVMEncoder_ListOfTuples(t *testing.T) {
 }
 
 func TestEVMEncoder_InvalidIDs(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	config := map[string]any{
 		"abi": "bytes[] Full_reports",
 	}
@@ -218,6 +224,7 @@ func TestEVMEncoder_InvalidIDs(t *testing.T) {
 }
 
 func TestEVMEncoder_SubABI(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	config := map[string]any{
 		"abi": "(bytes32 FeedID, bytes Bundle, uint32 Timestamp)[] Reports",
 		"subabi": map[string]string{

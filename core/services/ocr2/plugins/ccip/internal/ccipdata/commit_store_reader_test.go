@@ -28,6 +28,7 @@ import (
 	commit_store_helper_1_2_0 "github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_2_0/commit_store_helper"
 	price_registry_1_2_0 "github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_2_0/price_registry"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_5_0/mock_rmn_contract"
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	lpmocks "github.com/smartcontractkit/chainlink/v2/common/logpoller/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
@@ -41,6 +42,7 @@ import (
 )
 
 func TestCommitOffchainConfig_Encoding(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	tests := map[string]struct {
 		want      v1_2_0.JSONCommitOffchainConfig
 		expectErr bool
@@ -103,6 +105,7 @@ func TestCommitOffchainConfig_Encoding(t *testing.T) {
 }
 
 func TestCommitOnchainConfig(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	tests := []struct {
 		name      string
 		want      ccipdata.CommitOnchainConfig
@@ -138,6 +141,7 @@ func TestCommitOnchainConfig(t *testing.T) {
 }
 
 func TestCommitStoreReaders(t *testing.T) {
+	tests.BelongsToCISuite(t, "with-db")
 	user, ec := newSim(t)
 	ctx := testutils.Context(t)
 	lggr := logger.Test(t)

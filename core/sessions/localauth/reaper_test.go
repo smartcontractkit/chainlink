@@ -10,6 +10,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
@@ -31,6 +32,7 @@ func (c sessionReaperConfig) SessionReaperExpiration() commonconfig.Duration {
 
 func TestSessionReaper_ReapSessions(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "with-db")
 
 	db := pgtest.NewSqlxDB(t)
 	config := sessionReaperConfig{}

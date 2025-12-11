@@ -12,6 +12,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/s4"
 	"github.com/smartcontractkit/chainlink/v2/core/services/s4/mocks"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
@@ -35,6 +36,7 @@ func setupTestStorage(t *testing.T, now time.Time) (*mocks.ORM, s4.Storage) {
 
 func TestStorage_Constraints(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "with-db")
 
 	_, storage := setupTestStorage(t, time.Now())
 	c := storage.Constraints()
@@ -43,6 +45,7 @@ func TestStorage_Constraints(t *testing.T) {
 
 func TestStorage_Errors(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "with-db")
 
 	now := time.Now()
 	ormMock, storage := setupTestStorage(t, now)
@@ -162,6 +165,7 @@ func TestStorage_Errors(t *testing.T) {
 
 func TestStorage_PutAndGet(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "unit")
 
 	now := time.Now()
 	ormMock, storage := setupTestStorage(t, now)
@@ -203,6 +207,7 @@ func TestStorage_PutAndGet(t *testing.T) {
 
 func TestStorage_List(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "unit")
 
 	ormMock, storage := setupTestStorage(t, time.Now())
 	address := testutils.NewAddress()

@@ -16,6 +16,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 )
 
 var (
@@ -110,6 +111,7 @@ func getTokenTableRowCount(t *testing.T, ds sqlutil.DataSource) int {
 
 func TestInitORM(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "with-db")
 
 	orm, _ := setupORM(t)
 	assert.NotNil(t, orm)
@@ -117,6 +119,7 @@ func TestInitORM(t *testing.T) {
 
 func TestORM_EmptyGasPrices(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "with-db")
 	ctx := testutils.Context(t)
 
 	orm, _ := setupORM(t)
@@ -128,6 +131,7 @@ func TestORM_EmptyGasPrices(t *testing.T) {
 
 func TestORM_EmptyTokenPrices(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "with-db")
 	ctx := testutils.Context(t)
 
 	orm, _ := setupORM(t)
@@ -139,6 +143,7 @@ func TestORM_EmptyTokenPrices(t *testing.T) {
 
 func TestORM_InsertAndGetGasPrices(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "with-db")
 	ctx := testutils.Context(t)
 
 	orm, db := setupORM(t)
@@ -208,6 +213,7 @@ func TestORM_InsertAndGetGasPrices(t *testing.T) {
 
 func TestORM_UpsertGasPrices(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "with-db")
 	ctx := testutils.Context(t)
 
 	orm, db := setupORM(t)
@@ -242,6 +248,7 @@ func TestORM_UpsertGasPrices(t *testing.T) {
 
 func TestORM_InsertAndGetTokenPrices(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "with-db")
 	ctx := testutils.Context(t)
 
 	orm, db := setupORM(t)
@@ -311,6 +318,7 @@ func TestORM_InsertAndGetTokenPrices(t *testing.T) {
 
 func TestORM_InsertTokenPricesWhenExpired(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "with-db")
 	ctx := testutils.Context(t)
 	orm, _ := setupORM(t)
 

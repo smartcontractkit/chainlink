@@ -29,10 +29,12 @@ import (
 
 	lpmocks "github.com/smartcontractkit/chainlink/v2/common/logpoller/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm"
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 )
 
 func TestChainReaderSizedBigIntTypes(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "with-db")
 
 	tests := []string{}
 
@@ -71,6 +73,7 @@ func TestChainReaderSizedBigIntTypes(t *testing.T) {
 }
 
 func TestChainReader_Bind(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	lp := lpmocks.NewLogPoller(t)
 	ht := headstest.NewTracker[*evmtypes.Head](t)
 	cr, err := evm.NewChainReaderService(t.Context(), logger.Nop(), lp, ht, nil, config.ChainReaderConfig{Contracts: map[string]config.ChainContractReader{
@@ -148,6 +151,7 @@ func TestChainReader_Bind(t *testing.T) {
 
 func TestChainReaderPrimitiveTypes(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "with-db")
 
 	tests := []struct {
 		abiType  string

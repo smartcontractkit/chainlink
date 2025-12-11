@@ -58,6 +58,7 @@ const commonGasLimitOnEvms = uint64(4712388)
 const finalityDepth = 4
 
 func TestContractReaderEventsInitValidation(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	tests := []struct {
 		name                 string
 		chainContractReaders map[string]config.ChainContractReader
@@ -221,6 +222,7 @@ func TestContractReaderEventsInitValidation(t *testing.T) {
 }
 
 func TestChainReader_HealthReport(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	lp := lpmocks.NewLogPoller(t)
 	lp.EXPECT().HealthReport().Return(map[string]error{"lp_name": clcommontypes.ErrFinalityViolated}).Once()
 	ht := headstest.NewTracker[*clevmtypes.Head, common.Hash](t)
@@ -235,6 +237,7 @@ func TestChainReader_HealthReport(t *testing.T) {
 
 func TestSequencesHaveTxHash(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "with-db")
 
 	helper := &helper{}
 	it := &EVMChainComponentsInterfaceTester[*testing.T]{Helper: helper, DeployLock: &sync.Mutex{}}

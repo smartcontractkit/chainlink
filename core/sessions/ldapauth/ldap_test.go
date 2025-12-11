@@ -242,6 +242,7 @@ func TestORM_FindUserByAPIToken_Success(t *testing.T) {
 }
 
 func TestORM_FindUserByAPIToken_Expired(t *testing.T) {
+	tests.BelongsToCISuite(t, "with-db")
 	ctx := testutils.Context(t)
 	cfg := ldapauth.TestConfig{}
 

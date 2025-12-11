@@ -36,6 +36,7 @@ func TestGetSnapshotEmpty(t *testing.T) {
 }
 
 func TestGetSnapshotCacheFilled(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	t.Run("OK_with_rows_already_cached", func(t *testing.T) {
 		ctx := testutils.Context(t)
 		rows := generateTestSnapshotRows(t, 100)
@@ -79,6 +80,7 @@ func TestGetSnapshotCacheFilled(t *testing.T) {
 }
 
 func TestUpdateInvalidatesSnapshotCache(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	t.Run("OK-GetSnapshot_cache_invalidated_after_update", func(t *testing.T) {
 		ctx := testutils.Context(t)
 		rows := generateTestSnapshotRows(t, 100)
@@ -170,6 +172,7 @@ func TestUpdateInvalidatesSnapshotCache(t *testing.T) {
 }
 
 func TestGet(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	address := big.New(testutils.NewAddress().Big())
 	var slotID uint = 1
 
@@ -202,6 +205,7 @@ func TestGet(t *testing.T) {
 }
 
 func TestDeletedExpired(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	var limit uint = 1
 	now := time.Now()
 
@@ -233,6 +237,7 @@ func TestDeletedExpired(t *testing.T) {
 
 // GetUnconfirmedRows(limit uint, qopts ...pg.QOpt) ([]*Row, error)
 func TestGetUnconfirmedRows(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	var limit uint = 1
 	lggr := logger.TestLogger(t)
 

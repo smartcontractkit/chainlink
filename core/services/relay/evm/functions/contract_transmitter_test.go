@@ -16,6 +16,7 @@ import (
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/smartcontractkit/chainlink-evm/pkg/client/clienttest"
 	"github.com/smartcontractkit/chainlink-evm/pkg/keys/keystest"
 	"github.com/smartcontractkit/chainlink-evm/pkg/testutils"
@@ -33,6 +34,7 @@ func newMockTxStrategy(t *testing.T) *commontxmmocks.TxStrategy {
 
 func TestContractTransmitter_LatestConfigDigestAndEpoch(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "unit")
 	ctx := testutils.Context(t)
 
 	digestStr := "000130da6b9315bd59af6b0a3f5463c0d0a39e92eaa34cbcbdbace7b3bfcc776"
@@ -80,6 +82,7 @@ func TestContractTransmitter_LatestConfigDigestAndEpoch(t *testing.T) {
 
 func TestContractTransmitter_Transmit_V1(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "unit")
 	ctx := testutils.Context(t)
 
 	contractVersion := uint32(1)
@@ -154,6 +157,7 @@ func TestContractTransmitter_Transmit_V1(t *testing.T) {
 
 func TestContractTransmitter_Transmit_V1_CoordinatorMismatch(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "unit")
 	ctx := testutils.Context(t)
 
 	contractVersion := uint32(1)

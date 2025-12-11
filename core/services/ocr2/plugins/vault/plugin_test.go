@@ -157,6 +157,7 @@ func TestPlugin_ReportingPluginFactory_UsesDefaultsIfNotProvidedInOffchainConfig
 }
 
 func TestPlugin_ReportingPluginFactory_UseDKGResult(t *testing.T) {
+	tests.BelongsToCISuite(t, "with-db")
 	lggr := logger.TestLogger(t)
 	store := requests.NewStore[*vaulttypes.Request]()
 

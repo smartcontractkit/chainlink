@@ -55,6 +55,7 @@ func TestCronV2Pipeline(t *testing.T) {
 
 func TestCronV2Schedule(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "unit")
 
 	spec := job.Job{
 		Type:          job.Cron,

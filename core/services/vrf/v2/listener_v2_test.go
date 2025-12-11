@@ -259,6 +259,7 @@ func TestMaybeSubtractReservedLinkV2(t *testing.T) {
 }
 
 func TestMaybeSubtractReservedLinkV2Plus(t *testing.T) {
+	tests.BelongsToCISuite(t, "with-db")
 	testMaybeSubtractReservedLink(t, vrfcommon.V2Plus)
 }
 

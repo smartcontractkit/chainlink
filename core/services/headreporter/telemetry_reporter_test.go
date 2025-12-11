@@ -19,6 +19,7 @@ import (
 	evmtypes "github.com/smartcontractkit/chainlink-evm/pkg/types"
 	ubig "github.com/smartcontractkit/chainlink-evm/pkg/utils/big"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	mocks2 "github.com/smartcontractkit/chainlink/v2/common/types/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
@@ -31,6 +32,7 @@ import (
 )
 
 func Test_EVMTelemetryReporter_NewHead(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	head := evmtypes.Head{
 		Number:     42,
 		EVMChainID: ubig.NewI(100),
@@ -73,6 +75,7 @@ func Test_EVMTelemetryReporter_NewHead(t *testing.T) {
 }
 
 func Test_EVMTelemetryReporter_NewHeadMissingFinalized(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	head := evmtypes.Head{
 		Number:     42,
 		EVMChainID: ubig.NewI(100),
@@ -103,6 +106,7 @@ func Test_EVMTelemetryReporter_NewHeadMissingFinalized(t *testing.T) {
 }
 
 func Test_EVMTelemetryReporter_NewHead_MissingEndpoint(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	monitoringEndpointGen := telemetry.NewMockMonitoringEndpointGenerator(t)
 	monitoringEndpointGen.
 		On("GenMonitoringEndpoint", "EVM", "100", "", synchronization.HeadReport).
@@ -126,6 +130,7 @@ func (m mockRelayer) LatestHead(_ context.Context) (types.Head, error) {
 }
 
 func Test_SolanaTelemetryReporter_ReportPeriodic(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	privKey, err := solana.NewRandomPrivateKey()
 	require.NoError(t, err)
 	blockHash := [32]byte(privKey.PublicKey())
@@ -166,6 +171,7 @@ func Test_SolanaTelemetryReporter_ReportPeriodic(t *testing.T) {
 }
 
 func Test_SolanaTelemetryReporter_ReportPeriodic_EmptyBlockHeight(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	head := types.Head{
 		Height:    "",
 		Hash:      nil,
@@ -189,6 +195,7 @@ func Test_SolanaTelemetryReporter_ReportPeriodic_EmptyBlockHeight(t *testing.T) 
 }
 
 func Test_SolanaTelemetryReporter_ReportPeriodic_MissingEndpoint(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	monitoringEndpoint := mocks2.NewMonitoringEndpoint(t)
 
 	monitoringEndpointGen := telemetry.NewMockMonitoringEndpointGenerator(t)

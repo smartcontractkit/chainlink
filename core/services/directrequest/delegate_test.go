@@ -156,9 +156,10 @@ func (uni *DirectRequestUniverse) Cleanup() {
 }
 
 func TestDelegate_ServicesListenerHandleLog(t *testing.T) {
+	t.Parallel()
 	quarantine.Flaky(t, "DX-1909")
 	testutils.SkipShortDB(t)
-	t.Parallel()
+	tests.BelongsToCISuite(t, "with-db")
 
 	t.Run("Log is an OracleRequest", func(t *testing.T) {
 		uni := NewDirectRequestUniverse(t)

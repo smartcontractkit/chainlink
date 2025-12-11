@@ -12,6 +12,7 @@ import (
 
 	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
 	"github.com/smartcontractkit/chainlink-common/pkg/services/servicetest"
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/configtest"
@@ -24,6 +25,7 @@ import (
 
 func Test_SingletonPeerWrapper_Start(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "with-db")
 
 	db := pgtest.NewSqlxDB(t)
 
@@ -110,6 +112,7 @@ func Test_SingletonPeerWrapper_Start(t *testing.T) {
 
 func Test_SingletonPeerWrapper_Close(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "with-db")
 	ctx := testutils.Context(t)
 
 	db := pgtest.NewSqlxDB(t)

@@ -108,6 +108,7 @@ func newMockedEncodeTransmissionInfo(state uint8) ([]byte, error) {
 }
 
 func TestEvmWrite(t *testing.T) {
+	tests.BelongsToCISuite(t, "with-db")
 	chain := evmmocks.NewChain(t)
 	txManager := txmmocks.NewMockEvmTxManager(t)
 	evmClient := clienttest.NewClient(t)

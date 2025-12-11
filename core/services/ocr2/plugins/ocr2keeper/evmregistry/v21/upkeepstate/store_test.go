@@ -15,12 +15,14 @@ import (
 	ocr2keepers "github.com/smartcontractkit/chainlink-common/pkg/types/automation"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/services/servicetest"
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
 
 func TestUpkeepStateStore(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
 	tests := []struct {
 		name               string
 		inserts            []ocr2keepers.CheckResult
@@ -197,6 +199,7 @@ func TestUpkeepStateStore(t *testing.T) {
 }
 
 func TestUpkeepStateStore_SetSelectIntegration(t *testing.T) {
+	tests.BelongsToCISuite(t, "with-db")
 	if testing.Short() {
 		t.Skip("database required for upkeep state store integration test")
 	}

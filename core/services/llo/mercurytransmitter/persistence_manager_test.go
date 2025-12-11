@@ -14,6 +14,7 @@ import (
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/services/servicetest"
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
@@ -27,6 +28,7 @@ func bootstrapPersistenceManager(t *testing.T, donID uint32, db *sqlx.DB, maxTra
 }
 
 func TestPersistenceManager(t *testing.T) {
+	tests.BelongsToCISuite(t, "with-db")
 	donID1 := uint32(1234)
 	donID2 := uint32(2345)
 

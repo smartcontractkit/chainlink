@@ -7,10 +7,13 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/stretchr/testify/require"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 )
 
 func Test_OffchainConfigDigester_ConfigDigest(t *testing.T) {
+	tests.BelongsToCISuite(t, "unit")
+
 	ctx := t.Context()
 	// ChainID and ContractAddress are taken into account for computation
 	cd1, err := OffchainConfigDigester{ChainID: big.NewInt(0)}.ConfigDigest(ctx, types.ContractConfig{})

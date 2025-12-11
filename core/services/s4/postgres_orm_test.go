@@ -12,6 +12,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/v2/core/services/s4"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -50,6 +51,7 @@ func generateTestRows(t *testing.T, n int) []*s4.Row {
 
 func TestNewPostgresOrm(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "with-db")
 
 	orm := setupORM(t, "test")
 	assert.NotNil(t, orm)
@@ -57,6 +59,7 @@ func TestNewPostgresOrm(t *testing.T) {
 
 func TestPostgresORM_UpdateAndGet(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "with-db")
 	ctx := testutils.Context(t)
 
 	orm := setupORM(t, "test")
@@ -89,6 +92,7 @@ func TestPostgresORM_UpdateAndGet(t *testing.T) {
 
 func TestPostgresORM_UpdateSimpleFlow(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "with-db")
 	ctx := testutils.Context(t)
 
 	orm := setupORM(t, "test")
@@ -117,6 +121,7 @@ func TestPostgresORM_UpdateSimpleFlow(t *testing.T) {
 
 func TestPostgresORM_DeleteExpired(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "with-db")
 	ctx := testutils.Context(t)
 
 	orm := setupORM(t, "test")
@@ -146,6 +151,7 @@ func TestPostgresORM_DeleteExpired(t *testing.T) {
 
 func TestPostgresORM_GetSnapshot(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "with-db")
 
 	orm := setupORM(t, "test")
 
@@ -202,6 +208,7 @@ func TestPostgresORM_GetSnapshot(t *testing.T) {
 
 func TestPostgresORM_GetUnconfirmedRows(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "with-db")
 
 	orm := setupORM(t, "test")
 
@@ -234,6 +241,7 @@ func TestPostgresORM_GetUnconfirmedRows(t *testing.T) {
 
 func TestPostgresORM_Namespace(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "with-db")
 	ctx := testutils.Context(t)
 
 	ormA := setupORM(t, "a")
@@ -268,6 +276,7 @@ func TestPostgresORM_Namespace(t *testing.T) {
 
 func TestPostgresORM_BigIntVersion(t *testing.T) {
 	t.Parallel()
+	tests.BelongsToCISuite(t, "with-db")
 	ctx := testutils.Context(t)
 
 	orm := setupORM(t, "test")
