@@ -199,7 +199,7 @@ func TestUnit_Shell_DiskMaxSizeBeforeRotateOptionDisablesAsExpected(t *testing.T
 	}
 }
 
-func TestUnit_Shell_RebroadcastTransactions_Txm(t *testing.T) {
+func TestIntegration_Shared_Shell_RebroadcastTransactions_Txm(t *testing.T) {
 	// Use a non-transactional db for this test because we need to
 	// test multiple connections to the database, and changes made within
 	// the transaction cannot be seen from another connection.
@@ -268,7 +268,7 @@ func TestUnit_Shell_RebroadcastTransactions_Txm(t *testing.T) {
 	assert.NoError(t, c.RebroadcastTransactions(ctx))
 }
 
-func TestUnit_Shell_RebroadcastTransactions_OutsideRange_Txm(t *testing.T) {
+func TestIntegration_Shared_Shell_RebroadcastTransactions_OutsideRange_Txm(t *testing.T) {
 	beginningNonce := uint(7)
 	endingNonce := uint(10)
 	gasPrice := big.NewInt(100000000000)
@@ -356,7 +356,7 @@ func TestUnit_Shell_RebroadcastTransactions_OutsideRange_Txm(t *testing.T) {
 	}
 }
 
-func TestUnit_Shell_RebroadcastTransactions_AddressCheck(t *testing.T) {
+func TestIntegration_Shared_Shell_RebroadcastTransactions_AddressCheck(t *testing.T) {
 	tests := []struct {
 		name          string
 		enableAddress bool
@@ -430,7 +430,7 @@ func TestUnit_Shell_RebroadcastTransactions_AddressCheck(t *testing.T) {
 	}
 }
 
-func TestUnit_Shell_CleanupChainTables(t *testing.T) {
+func TestIntegration_Shared_Shell_CleanupChainTables(t *testing.T) {
 	// Just check if it doesn't error, command itself shouldn't be changed unless major schema changes were made.
 	// It would be really hard to write a test that accounts for schema changes, so this should be enough to alarm us that something broke.
 	config, _ := heavyweight.FullTestDBV2(t, func(c *chainlink.Config, s *chainlink.Secrets) { c.Database.DriverName = pgcommon.DriverPostgres })
@@ -450,7 +450,7 @@ func TestUnit_Shell_CleanupChainTables(t *testing.T) {
 	require.NoError(t, client.CleanupChainTables(c))
 }
 
-func TestUnit_Shell_RemoveBlocks(t *testing.T) {
+func TestIntegration_Shared_Shell_RemoveBlocks(t *testing.T) {
 	db := pgtest.NewSqlxDB(t)
 	cfg := configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
 		s.Password.Keystore = models.NewSecret("dummy")
@@ -505,7 +505,7 @@ func TestUnit_Shell_RemoveBlocks(t *testing.T) {
 	})
 }
 
-func TestUnit_Shell_BeforeNode(t *testing.T) {
+func TestIntegration_Shared_Shell_BeforeNode(t *testing.T) {
 	tests := []struct {
 		name         string
 		pwdfile      string
@@ -575,7 +575,7 @@ func TestUnit_Shell_BeforeNode(t *testing.T) {
 	}
 }
 
-func TestUnit_Shell_RunNode_WithBeforeNode(t *testing.T) {
+func TestIntegration_Shared_Shell_RunNode_WithBeforeNode(t *testing.T) {
 	tests := []struct {
 		name        string
 		pwdfile     string

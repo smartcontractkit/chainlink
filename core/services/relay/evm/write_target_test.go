@@ -107,7 +107,7 @@ func newMockedEncodeTransmissionInfo(state uint8) ([]byte, error) {
 	return buffer.Bytes(), nil
 }
 
-func TestUnit_EvmWrite(t *testing.T) {
+func TestIntegration_Shared_EvmWrite(t *testing.T) {
 	chain := evmmocks.NewChain(t)
 	txManager := txmmocks.NewMockEvmTxManager(t)
 	evmClient := clienttest.NewClient(t)

@@ -131,7 +131,7 @@ func TestIntegration_Shared_UpsertWorkflowSpec(t *testing.T) {
 	})
 }
 
-func TestUnit_DeleteWorkflowSpec(t *testing.T) {
+func TestIntegration_Shared_DeleteWorkflowSpec(t *testing.T) {
 	t.Run("deletes a workflow spec by ID", func(t *testing.T) {
 		db := pgtest.NewSqlxDB(t)
 		ctx := testutils.Context(t)

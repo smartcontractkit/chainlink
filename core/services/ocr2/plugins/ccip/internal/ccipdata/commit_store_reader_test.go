@@ -137,7 +137,7 @@ func TestUnit_CommitOnchainConfig(t *testing.T) {
 	}
 }
 
-func TestUnit_CommitStoreReaders(t *testing.T) {
+func TestIntegration_Shared_CommitStoreReaders(t *testing.T) {
 	user, ec := newSim(t)
 	ctx := testutils.Context(t)
 	lggr := logger.Test(t)

@@ -147,7 +147,7 @@ func generateState(t *testing.T) registrysyncer.LocalRegistry {
 	}
 }
 
-func TestUnit_RegistrySyncerORM_AddLocalRegistry_DuplicateHandling(t *testing.T) {
+func TestIntegration_Shared_RegistrySyncerORM_AddLocalRegistry_DuplicateHandling(t *testing.T) {
 	db := pgtest.NewSqlxDB(t)
 	ctx := testutils.Context(t)
 	lggr := logger.Test(t)

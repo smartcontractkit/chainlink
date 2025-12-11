@@ -19,7 +19,7 @@ var (
 	sURL3 = "wss://mercuryserver.example/foo"
 )
 
-func TestUnit_ORM(t *testing.T) {
+func TestIntegration_Shared_ORM(t *testing.T) {
 	ctx := testutils.Context(t)
 	db := testutils.NewSqlxDB(t)
 

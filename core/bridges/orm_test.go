@@ -137,7 +137,7 @@ func TestIntegration_Shared_ORM_UpdateBridgeType(t *testing.T) {
 	require.Empty(t, bs)
 }
 
-func TestUnit_ORM_TestCachedResponse(t *testing.T) {
+func TestIntegration_Shared_ORM_TestCachedResponse(t *testing.T) {
 	ctx := testutils.Context(t)
 	cfg := configtest.NewGeneralConfig(t, nil)
 	db := pgtest.NewSqlxDB(t)

@@ -31,7 +31,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm"
 )
 
-func TestUnit_ChainReaderSizedBigIntTypes(t *testing.T) {
+func TestIntegration_Shared_ChainReaderSizedBigIntTypes(t *testing.T) {
 	t.Parallel()
 
 	tests := []string{}
@@ -146,7 +146,7 @@ func TestUnit_ChainReader_Bind(t *testing.T) {
 	lp.AssertExpectations(t)
 }
 
-func TestUnit_ChainReaderPrimitiveTypes(t *testing.T) {
+func TestIntegration_Shared_ChainReaderPrimitiveTypes(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {

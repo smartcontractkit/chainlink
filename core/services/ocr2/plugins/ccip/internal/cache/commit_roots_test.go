@@ -138,7 +138,7 @@ func TestIntegration_Shared_RootsEligibleForExecution(t *testing.T) {
 	assertRoots(t, roots)
 }
 
-func TestUnit_RootsEligibleForExecutionWithReorgs(t *testing.T) {
+func TestIntegration_Shared_RootsEligibleForExecutionWithReorgs(t *testing.T) {
 	ctx := testutils.Context(t)
 	chainID := testutils.NewRandomEVMChainID()
 	orm := logpoller.NewORM(chainID, pgtest.NewSqlxDB(t), logger.TestLogger(t))

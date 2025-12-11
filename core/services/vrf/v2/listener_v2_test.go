@@ -256,7 +256,7 @@ func TestIntegration_Shared_MaybeSubtractReservedLinkV2(t *testing.T) {
 	testMaybeSubtractReservedLink(t, vrfcommon.V2)
 }
 
-func TestUnit_MaybeSubtractReservedLinkV2Plus(t *testing.T) {
+func TestIntegration_Shared_MaybeSubtractReservedLinkV2Plus(t *testing.T) {
 	testMaybeSubtractReservedLink(t, vrfcommon.V2Plus)
 }
 

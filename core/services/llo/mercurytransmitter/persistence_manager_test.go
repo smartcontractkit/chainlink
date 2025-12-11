@@ -26,7 +26,7 @@ func bootstrapPersistenceManager(t *testing.T, donID uint32, db *sqlx.DB, maxTra
 	return NewPersistenceManager(lggr, orm, "wss://example.com/mercury", maxTransmitQueueSize, 5*time.Millisecond, 5*time.Millisecond, 30*24*time.Hour), observedLogs
 }
 
-func TestUnit_PersistenceManager(t *testing.T) {
+func TestIntegration_Shared_PersistenceManager(t *testing.T) {
 	donID1 := uint32(1234)
 	donID2 := uint32(2345)
 

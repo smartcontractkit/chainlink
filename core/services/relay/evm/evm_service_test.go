@@ -153,7 +153,7 @@ func createPayload() evm.ABIPayload {
 	return evm.ABIPayload("kitties")
 }
 
-func TestUnit_EVMService(t *testing.T) {
+func TestIntegration_Shared_EVMService(t *testing.T) {
 	t.Parallel()
 	ctx := t.Context()
 
@@ -524,7 +524,7 @@ func runSubmitTxGettingDifferentStatusAndReceipts(m *Mocks, ctx any, expectedRet
 	}
 }
 
-func TestUnit_Converters(t *testing.T) {
+func TestIntegration_Shared_Converters(t *testing.T) {
 	t.Parallel()
 
 	t.Run("convert head", func(t *testing.T) {

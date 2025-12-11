@@ -92,7 +92,7 @@ func TestIntegration_Shared_LogListenerOpts1_1(t *testing.T) {
 	require.Contains(t, logListenerOpts.LogsWithTopics, registry1_1.KeeperRegistryUpkeepPerformed{}.Topic(), "Registry should listen to KeeperRegistryUpkeepPerformed log")
 }
 
-func TestUnit_RegistrySynchronizer1_1_Start(t *testing.T) {
+func TestIntegration_Shared_RegistrySynchronizer1_1_Start(t *testing.T) {
 	db, synchronizer, ethMock, _, job := setupRegistrySync(t, keeper.RegistryVersion_1_1)
 
 	contractAddress := job.KeeperSpec.ContractAddress.Address()

@@ -22,7 +22,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocrcommon"
 )
 
-func TestUnit_SingletonPeerWrapper_Start(t *testing.T) {
+func TestIntegration_Shared_SingletonPeerWrapper_Start(t *testing.T) {
 	t.Parallel()
 
 	db := pgtest.NewSqlxDB(t)
@@ -108,7 +108,7 @@ func TestUnit_SingletonPeerWrapper_Start(t *testing.T) {
 	})
 }
 
-func TestUnit_SingletonPeerWrapper_Close(t *testing.T) {
+func TestIntegration_Shared_SingletonPeerWrapper_Close(t *testing.T) {
 	t.Parallel()
 	ctx := testutils.Context(t)
 

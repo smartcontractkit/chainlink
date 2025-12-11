@@ -48,14 +48,14 @@ func generateTestRows(t *testing.T, n int) []*s4.Row {
 	return rows
 }
 
-func TestUnit_NewPostgresOrm(t *testing.T) {
+func TestIntegration_Shared_NewPostgresOrm(t *testing.T) {
 	t.Parallel()
 
 	orm := setupORM(t, "test")
 	assert.NotNil(t, orm)
 }
 
-func TestUnit_PostgresORM_UpdateAndGet(t *testing.T) {
+func TestIntegration_Shared_PostgresORM_UpdateAndGet(t *testing.T) {
 	t.Parallel()
 	ctx := testutils.Context(t)
 
@@ -87,7 +87,7 @@ func TestUnit_PostgresORM_UpdateAndGet(t *testing.T) {
 	assert.ErrorIs(t, err, s4.ErrNotFound)
 }
 
-func TestUnit_PostgresORM_UpdateSimpleFlow(t *testing.T) {
+func TestIntegration_Shared_PostgresORM_UpdateSimpleFlow(t *testing.T) {
 	t.Parallel()
 	ctx := testutils.Context(t)
 
@@ -115,7 +115,7 @@ func TestUnit_PostgresORM_UpdateSimpleFlow(t *testing.T) {
 	assert.Error(t, orm.Update(ctx, row))
 }
 
-func TestUnit_PostgresORM_DeleteExpired(t *testing.T) {
+func TestIntegration_Shared_PostgresORM_DeleteExpired(t *testing.T) {
 	t.Parallel()
 	ctx := testutils.Context(t)
 
@@ -144,7 +144,7 @@ func TestUnit_PostgresORM_DeleteExpired(t *testing.T) {
 	assert.Equal(t, total-expired, count)
 }
 
-func TestUnit_PostgresORM_GetSnapshot(t *testing.T) {
+func TestIntegration_Shared_PostgresORM_GetSnapshot(t *testing.T) {
 	t.Parallel()
 
 	orm := setupORM(t, "test")
@@ -200,7 +200,7 @@ func TestUnit_PostgresORM_GetSnapshot(t *testing.T) {
 	})
 }
 
-func TestUnit_PostgresORM_GetUnconfirmedRows(t *testing.T) {
+func TestIntegration_Shared_PostgresORM_GetUnconfirmedRows(t *testing.T) {
 	t.Parallel()
 
 	orm := setupORM(t, "test")
@@ -232,7 +232,7 @@ func TestUnit_PostgresORM_GetUnconfirmedRows(t *testing.T) {
 	})
 }
 
-func TestUnit_PostgresORM_Namespace(t *testing.T) {
+func TestIntegration_Shared_PostgresORM_Namespace(t *testing.T) {
 	t.Parallel()
 	ctx := testutils.Context(t)
 
@@ -266,7 +266,7 @@ func TestUnit_PostgresORM_Namespace(t *testing.T) {
 	assert.Len(t, snapshotA, n)
 }
 
-func TestUnit_PostgresORM_BigIntVersion(t *testing.T) {
+func TestIntegration_Shared_PostgresORM_BigIntVersion(t *testing.T) {
 	t.Parallel()
 	ctx := testutils.Context(t)
 

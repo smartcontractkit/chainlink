@@ -233,7 +233,7 @@ func TestUnit_ChainReader_HealthReport(t *testing.T) {
 	require.True(t, services.ContainsError(healthReport, htError), "expected chain reader to propagate headtracker's error")
 }
 
-func TestUnit_SequencesHaveTxHash(t *testing.T) {
+func TestIntegration_Shared_SequencesHaveTxHash(t *testing.T) {
 	t.Parallel()
 
 	helper := &helper{}

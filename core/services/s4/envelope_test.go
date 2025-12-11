@@ -13,7 +13,7 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func TestUnit_Envelope(t *testing.T) {
+func TestIntegration_Shared_Envelope(t *testing.T) {
 	t.Parallel()
 
 	payload := testutils.Random32Byte()

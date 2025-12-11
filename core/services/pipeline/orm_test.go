@@ -106,7 +106,7 @@ func TestIntegration_Shared_PipelineORM_CreateSpec(t *testing.T) {
 	assert.Equal(t, maxTaskDuration, actual.MaxTaskDuration)
 }
 
-func TestUnit_PipelineORM_FindRun(t *testing.T) {
+func TestIntegration_Shared_PipelineORM_FindRun(t *testing.T) {
 	db, orm, _ := setupLiteORM(t)
 
 	_, err := db.Exec(`SET CONSTRAINTS fk_pipeline_runs_pruning_key DEFERRED`)

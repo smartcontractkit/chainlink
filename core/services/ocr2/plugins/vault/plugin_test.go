@@ -154,7 +154,7 @@ func TestIntegration_Shared_Plugin_ReportingPluginFactory_UsesDefaultsIfNotProvi
 	assert.Equal(t, 2, infoObject.Limits.MaxBlobPayloadBytes)
 }
 
-func TestUnit_Plugin_ReportingPluginFactory_UseDKGResult(t *testing.T) {
+func TestIntegration_Shared_Plugin_ReportingPluginFactory_UseDKGResult(t *testing.T) {
 	lggr := logger.TestLogger(t)
 	store := requests.NewStore[*vaulttypes.Request]()
 

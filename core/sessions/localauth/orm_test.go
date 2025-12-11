@@ -158,7 +158,7 @@ func TestIntegration_Shared_ORM_DeleteUserCascade(t *testing.T) {
 	require.Empty(t, sessions)
 }
 
-func TestUnit_ORM_CreateSession(t *testing.T) {
+func TestIntegration_Shared_ORM_CreateSession(t *testing.T) {
 	t.Parallel()
 
 	_, orm := setupORM(t)
@@ -197,7 +197,7 @@ func TestUnit_ORM_CreateSession(t *testing.T) {
 	}
 }
 
-func TestUnit_ORM_WebAuthn(t *testing.T) {
+func TestIntegration_Shared_ORM_WebAuthn(t *testing.T) {
 	t.Parallel()
 	ctx := testutils.Context(t)
 
@@ -278,7 +278,7 @@ func TestUnit_ORM_WebAuthn(t *testing.T) {
 	require.Error(t, err)
 }
 
-func TestUnit_Orm_GenerateAuthToken(t *testing.T) {
+func TestIntegration_Shared_Orm_GenerateAuthToken(t *testing.T) {
 	t.Parallel()
 	ctx := testutils.Context(t)
 

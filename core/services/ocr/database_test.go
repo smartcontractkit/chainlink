@@ -101,7 +101,7 @@ func TestIntegration_Shared_DB_ReadWriteState(t *testing.T) {
 	})
 }
 
-func TestUnit_DB_ReadWriteConfig(t *testing.T) {
+func TestIntegration_Shared_DB_ReadWriteConfig(t *testing.T) {
 	db := pgtest.NewSqlxDB(t)
 	sqlDB := db
 

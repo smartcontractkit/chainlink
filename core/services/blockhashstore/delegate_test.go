@@ -83,7 +83,7 @@ func createTestDelegate(t *testing.T) (*blockhashstore.Delegate, *testData) {
 	}
 }
 
-func TestUnit_Delegate_ServicesForSpec(t *testing.T) {
+func TestIntegration_Shared_Delegate_ServicesForSpec(t *testing.T) {
 	t.Parallel()
 
 	delegate, testData := createTestDelegate(t)
@@ -150,7 +150,7 @@ func TestUnit_Delegate_ServicesForSpec(t *testing.T) {
 	})
 }
 
-func TestUnit_Delegate_StartStop(t *testing.T) {
+func TestIntegration_Shared_Delegate_StartStop(t *testing.T) {
 	t.Parallel()
 
 	delegate, testData := createTestDelegate(t)

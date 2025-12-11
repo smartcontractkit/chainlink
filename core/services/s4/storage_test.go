@@ -41,7 +41,7 @@ func TestUnit_Storage_Constraints(t *testing.T) {
 	assert.Equal(t, constraints, c)
 }
 
-func TestUnit_Storage_Errors(t *testing.T) {
+func TestIntegration_Shared_Storage_Errors(t *testing.T) {
 	t.Parallel()
 
 	now := time.Now()
@@ -160,7 +160,7 @@ func TestUnit_Storage_Errors(t *testing.T) {
 	})
 }
 
-func TestUnit_Storage_PutAndGet(t *testing.T) {
+func TestIntegration_Shared_Storage_PutAndGet(t *testing.T) {
 	t.Parallel()
 
 	now := time.Now()
