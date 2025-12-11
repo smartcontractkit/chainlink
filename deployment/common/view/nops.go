@@ -7,19 +7,27 @@ import (
 	"fmt"
 	"maps"
 	"slices"
+	"sort"
+	"strings"
+
+	chain_selectors "github.com/smartcontractkit/chain-selectors"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
+	cldf_offchain "github.com/smartcontractkit/chainlink-deployments-framework/offchain"
 	jobv1 "github.com/smartcontractkit/chainlink-protos/job-distributor/v1/job"
 	nodev1 "github.com/smartcontractkit/chainlink-protos/job-distributor/v1/node"
-
-	cldf_offchain "github.com/smartcontractkit/chainlink-deployments-framework/offchain"
 
 	"github.com/smartcontractkit/chainlink/deployment"
 )
 
 type NopView struct {
+	Nodes []NopNodeInfo `json:"nodes"`
+}
+
+type NopNodeInfo struct {
 	// NodeID is the unique identifier of the node
 	NodeID           string                `json:"nodeID"`
+	NodeName         string                `json:"nodeName"`
 	PeerID           string                `json:"peerID"`
 	IsBootstrap      bool                  `json:"isBootstrap"`
 	OCRKeys          map[string]OCRKeyView `json:"ocrKeys"`
@@ -32,6 +40,8 @@ type NopView struct {
 	Labels           []LabelView           `json:"labels,omitempty"`
 	ApprovedJobspecs map[string]JobView    `json:"approvedJobspecs,omitempty"` // jobID => jobSpec
 	ProposedJobspecs map[string]JobView    `json:"proposedJobspecs,omitempty"` // jobID => jobSpec
+	Networks         []string              `json:"networks"`
+	Deployment       string                `json:"deployment"`
 }
 
 type JobView struct {
@@ -56,13 +66,12 @@ type OCRKeyView struct {
 }
 
 // GenerateNopsView generates a view of nodes with their details
-func GenerateNopsView(lggr logger.Logger, nodeIDs []string, oc cldf_offchain.Client) (map[string]NopView, error) {
-	nv := make(map[string]NopView)
+func GenerateNopsView(lggr logger.Logger, nodeIDs []string, oc cldf_offchain.Client, deploymentKey string) (map[string]NopView, error) {
 	nodes, err := deployment.NodeInfo(nodeIDs, oc)
 	if errors.Is(err, deployment.ErrMissingNodeMetadata) {
 		lggr.Warnf("Missing node metadata: %s", err.Error())
 	} else if err != nil {
-		return nv, fmt.Errorf("failed to get node info: %w", err)
+		return nil, fmt.Errorf("failed to get node info: %w", err)
 	}
 	nodesResp, err := oc.ListNodes(context.Background(), &nodev1.ListNodesRequest{
 		Filter: &nodev1.ListNodesRequest_Filter{
@@ -70,7 +79,7 @@ func GenerateNopsView(lggr logger.Logger, nodeIDs []string, oc cldf_offchain.Cli
 		},
 	})
 	if err != nil {
-		return nv, fmt.Errorf("failed to list nodes from JD: %w", err)
+		return nil, fmt.Errorf("failed to list nodes from JD: %w", err)
 	}
 	details := func(nodeID string) *nodev1.Node {
 		// extract from the response
@@ -87,24 +96,47 @@ func GenerateNopsView(lggr logger.Logger, nodeIDs []string, oc cldf_offchain.Cli
 		lggr.Warnf("Failed to get approved jobspecs: %v", err)
 	}
 
+	groupedNops := make(map[string]NopView)
 	for _, node := range nodes {
 		nodeName := node.Name
 		if nodeName == "" {
 			nodeName = node.NodeID
 		}
+
+		// group by node name, by extracting the first word before any hyphen, unless the word is cll-cre, cl-cre or
+		// clp-cre, if so, treat that as the first word
+		var nopName string
+		if strings.HasPrefix(nodeName, "cll-cre") {
+			nopName = "cll-cre"
+		} else if strings.HasPrefix(nodeName, "clp-cre") {
+			nopName = "clp-cre"
+		} else if strings.HasPrefix(nodeName, "cl-cre") {
+			nopName = "cl-cre"
+		} else {
+			parts := strings.Split(nodeName, "-")
+			nopName = parts[0]
+		}
+
 		nodeDetails := details(node.NodeID)
 		if nodeDetails == nil {
-			return nv, fmt.Errorf("failed to get node details for node %s", node.NodeID)
+			return groupedNops, fmt.Errorf("failed to get node details for node %s", node.NodeID)
 		}
-		labels := []LabelView{}
+		var labels []LabelView
 		for _, l := range nodeDetails.Labels {
 			labels = append(labels, LabelView{
 				Key:   l.Key,
 				Value: l.Value,
 			})
 		}
-		nop := NopView{
+
+		networks, networksErr := getNodeNetworks(node)
+		if networksErr != nil {
+			return groupedNops, fmt.Errorf("failed to get networks for node %s: %w", node.NodeID, networksErr)
+		}
+
+		fullNodeInfo := NopNodeInfo{
 			NodeID:           node.NodeID,
+			NodeName:         nodeName,
 			PeerID:           node.PeerID.String(),
 			IsBootstrap:      node.IsBootstrap,
 			OCRKeys:          make(map[string]OCRKeyView),
@@ -117,9 +149,11 @@ func GenerateNopsView(lggr logger.Logger, nodeIDs []string, oc cldf_offchain.Cli
 			Labels:           labels,
 			ApprovedJobspecs: jobspecs[node.NodeID],
 			ProposedJobspecs: proposedSpecs[node.NodeID],
+			Deployment:       deploymentKey,
+			Networks:         networks,
 		}
 		for details, ocrConfig := range node.SelToOCRConfig {
-			nop.OCRKeys[details.ChainName] = OCRKeyView{
+			fullNodeInfo.OCRKeys[details.ChainName] = OCRKeyView{
 				OffchainPublicKey:         hex.EncodeToString(ocrConfig.OffchainPublicKey[:]),
 				OnchainPublicKey:          fmt.Sprintf("%x", ocrConfig.OnchainPublicKey[:]),
 				PeerID:                    ocrConfig.PeerID.String(),
@@ -128,9 +162,27 @@ func GenerateNopsView(lggr logger.Logger, nodeIDs []string, oc cldf_offchain.Cli
 				KeyBundleID:               ocrConfig.KeyBundleID,
 			}
 		}
-		nv[nodeName] = nop
+
+		var nop NopView
+		var ok bool
+		if nop, ok = groupedNops[nopName]; !ok {
+			nop = NopView{
+				Nodes: make([]NopNodeInfo, 0),
+			}
+		}
+
+		nop.Nodes = append(nop.Nodes, fullNodeInfo)
+		groupedNops[nopName] = nop
 	}
-	return nv, nil
+
+	// Sort the nodes within each group by NodeID for deterministic output.
+	for _, nop := range groupedNops {
+		sort.Slice(nop.Nodes, func(i, j int) bool {
+			return nop.Nodes[i].NodeID < nop.Nodes[j].NodeID
+		})
+	}
+
+	return groupedNops, nil
 }
 
 func approvedJobspecs(ctx context.Context, lggr logger.Logger, nodeIDs []string, oc cldf_offchain.Client) (nodeJobsView map[string]map[string]JobView, proposedJobsView map[string]map[string]JobView, verr error) {
@@ -202,4 +254,47 @@ func approvedJobspecs(ctx context.Context, lggr logger.Logger, nodeIDs []string,
 		proposedJobsView[nodeID] = proposed
 	}
 	return nodeJobsView, proposedJobsView, verr
+}
+
+// getNodeNetworks returns the list of networks a node is connected to.
+// This function mimics the logic of the CLD command `jd node inspect`
+func getNodeNetworks(node deployment.Node) ([]string, error) {
+	nodeChainCfgs, nodeErr := node.ChainConfigs()
+	if nodeErr != nil {
+		return nil, fmt.Errorf("failed to get chain configs for node %s: %w", node.NodeID, nodeErr)
+	}
+
+	var networks []string
+	for _, cfg := range nodeChainCfgs {
+		var family string
+		switch cfg.Chain.Type {
+		case nodev1.ChainType_CHAIN_TYPE_EVM:
+			family = chain_selectors.FamilyEVM
+		case nodev1.ChainType_CHAIN_TYPE_APTOS:
+			family = chain_selectors.FamilyAptos
+		case nodev1.ChainType_CHAIN_TYPE_SOLANA:
+			family = chain_selectors.FamilySolana
+		case nodev1.ChainType_CHAIN_TYPE_STARKNET:
+			family = chain_selectors.FamilyStarknet
+		case nodev1.ChainType_CHAIN_TYPE_TRON:
+			family = chain_selectors.FamilyTron
+		case nodev1.ChainType_CHAIN_TYPE_TON:
+			family = chain_selectors.FamilyTon
+		case nodev1.ChainType_CHAIN_TYPE_SUI:
+			family = chain_selectors.FamilySui
+		case nodev1.ChainType_CHAIN_TYPE_UNSPECIFIED:
+			return nil, errors.New("chain type must be specified")
+		default:
+			return nil, fmt.Errorf("unsupported chain type %s", cfg.Chain.Type)
+		}
+
+		chainDetails, chainErr := chain_selectors.GetChainDetailsByChainIDAndFamily(cfg.Chain.Id, family)
+		if chainErr != nil {
+			return nil, fmt.Errorf("failed to get chain details for chain ID %s and family %s: %w", cfg.Chain.Id, family, chainErr)
+		}
+
+		networks = append(networks, chainDetails.ChainName)
+	}
+
+	return networks, nil
 }

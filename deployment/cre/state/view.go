@@ -54,7 +54,7 @@ func ViewCRE(e deployment.Environment, previousView json.Marshaler) (json.Marsha
 		}
 		chainViews[chainName] = v
 	}
-	nopsView, err := commonview.GenerateNopsView(e.Logger, e.NodeIDs, e.Offchain)
+	nopsView, err := commonview.GenerateNopsView(e.Logger, e.NodeIDs, e.Offchain, "cre")
 	if err != nil {
 		err2 := fmt.Errorf("failed to view nops: %w", err)
 		lggr.Error(err2)
