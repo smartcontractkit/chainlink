@@ -226,7 +226,7 @@ jobs:
             os: ${{ needs.runner-config.outputs.deployment-tests-runner }}
             should-run: ${{ needs.filter.outputs.should-run-deployment-tests }}
             go-mod-directory: "deployment/"
-            # test-suite: "unit"
+            test-suite: "unit"
             # trunk-auto-quarantine: "true"
 
     name: Core Tests (${{ matrix.type.cmd }})
@@ -284,7 +284,7 @@ jobs:
         id: run-tests
         shell: bash
         env:
-          # CL_CURRENT_TEST_SUITE: ${{ matrix.type.test-suite || '' }}
+          CL_CURRENT_TEST_SUITE: ${{ matrix.type.test-suite }}
           OUTPUT_FILE: ./output.txt
           PRODUCE_JUNIT_XML: "true"
           TRUNK_AUTO_QUARANTINE: ${{ matrix.type.trunk-auto-quarantine }}

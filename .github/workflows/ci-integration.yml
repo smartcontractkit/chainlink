@@ -38,20 +38,20 @@ jobs:
           #   cmd: go_core_tests
           #   os: cpu=32/ram=64/family=c5ad/spot=false/image=ubuntu24-full-x64/extras=s3-cache
 
-          # - module: Deployment
-          #   cmd: go_core_ccip_deployment_tests
-          #   test-suite: "solana"
-          #   os: cpu=32/ram=64/family=c5ad/spot=false/image=ubuntu24-full-x64/extras=s3-cache
-          #   go-mod-directory: "deployment/"
-          #   setup-solana: "true"
+          - module: Deployment
+            cmd: go_core_ccip_deployment_tests
+            test-suite: "solana"
+            os: cpu=32/ram=64/family=c5ad/spot=false/image=ubuntu24-full-x64/extras=s3-cache
+            go-mod-directory: "deployment/"
+            setup-solana: "true"
             # setup-loopps: "true"
 
-          # - module: Deployment
-          #   test-suite: "aptos"
-          #   cmd: go_core_ccip_deployment_tests
-          #   os: cpu=32/ram=64/family=c5ad/spot=false/image=ubuntu24-full-x64/extras=s3-cache
-          #   go-mod-directory: "deployment/"
-          #   aptos-cli-version: "7.10.0"
+          - module: Deployment
+            test-suite: "aptos"
+            cmd: go_core_ccip_deployment_tests
+            os: cpu=32/ram=64/family=c5ad/spot=false/image=ubuntu24-full-x64/extras=s3-cache
+            go-mod-directory: "deployment/"
+            aptos-cli-version: "7.10.0"
             # setup-loopps: "true"
 
           - module: Deployment
@@ -140,22 +140,11 @@ jobs:
           GODEBUG=goindex=0 ./tools/bin/${{ matrix.type.cmd }} ./...
           # See: https://github.com/golang/go/issues/69179
 
-      - name: Artifact name
-        id: artifact-name
-        if: ${{ always() }}
-        env:
-          CMD: ${{ matrix.type.cmd }}
-          REGEX: ${{ matrix.type.regex }}
-        run: |
-          REGEX_SANITIZED=$(echo "$REGEX" | sed 's/[\\^$.*+?{}()|\[\]]//g' | tr ' ' '_')
-          ARTIFACT_NAME="${CMD}_${REGEX_SANITIZED}_logs"
-          echo "artifact-name=$ARTIFACT_NAME" | tee -a "$GITHUB_OUTPUT"
-
       - name: Store logs artifacts
         if: ${{ always() }}
         uses: actions/upload-artifact@v4
         with:
-          name: ${{ steps.artifact-name.outputs.artifact-name }}
+          name: ${{ matrix.type.cmd }}_${{matrix.type.test-suite}}_logs
           path: |
             ./output.txt
             ./output-short.txt
