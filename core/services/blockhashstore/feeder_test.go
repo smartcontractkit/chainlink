@@ -15,6 +15,7 @@ import (
 	"golang.org/x/exp/maps"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/mathutil"
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/solidity_vrf_coordinator_interface"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/vrf_coordinator_v2"
@@ -42,9 +43,9 @@ var (
 	vrfCoordinatorV2ABI     = evmtypes.MustGetABI(vrf_coordinator_v2.VRFCoordinatorV2MetaData.ABI)
 	vrfCoordinatorV1ABI     = evmtypes.MustGetABI(solidity_vrf_coordinator_interface.VRFCoordinatorMetaData.ABI)
 
-	_     Coordinator = &TestCoordinator{}
-	_     BHS         = &TestBHS{}
-	tests             = []testCase{
+	_         Coordinator = &TestCoordinator{}
+	_         BHS         = &TestBHS{}
+	testCases             = []testCase{
 		{
 			name:                    "single unfulfilled request",
 			requests:                []Event{{Block: 150, ID: "1000"}},
@@ -239,7 +240,7 @@ func TestStartHeartbeats(t *testing.T) {
 			100, // Not used for this test
 			expectedDuration,
 			func(ctx context.Context) (uint64, error) {
-				return tests[0].latest, nil
+				return testCases[0].latest, nil
 			})
 
 		ctx, cancel := context.WithCancel(testutils.Context(t))
@@ -284,7 +285,7 @@ func TestStartHeartbeats(t *testing.T) {
 			100, // Not used for this test
 			expectedDuration,
 			func(ctx context.Context) (uint64, error) {
-				return tests[0].latest, nil
+				return testCases[0].latest, nil
 			})
 
 		ctx, cancel := context.WithCancel(testutils.Context(t))
@@ -331,7 +332,7 @@ func TestStartHeartbeats(t *testing.T) {
 			100, // Not used for this test
 			expectedDuration,
 			func(ctx context.Context) (uint64, error) {
-				return tests[0].latest, nil
+				return testCases[0].latest, nil
 			})
 
 		mockTimer := bhsmocks.NewTimer(t)
@@ -362,7 +363,7 @@ type testCase struct {
 
 func TestFeeder(t *testing.T) {
 	tests.BelongsToCISuite(t, "unit")
-	for _, test := range tests {
+	for _, test := range testCases {
 		t.Run(test.name, test.testFeeder)
 	}
 }
@@ -400,7 +401,7 @@ func (test testCase) testFeeder(t *testing.T) {
 
 func TestFeederWithLogPollerVRFv1(t *testing.T) {
 	tests.BelongsToCISuite(t, "unit")
-	for _, test := range tests {
+	for _, test := range testCases {
 		t.Run(test.name, test.testFeederWithLogPollerVRFv1)
 	}
 }
@@ -495,7 +496,7 @@ func (test testCase) testFeederWithLogPollerVRFv1(t *testing.T) {
 
 func TestFeederWithLogPollerVRFv2(t *testing.T) {
 	tests.BelongsToCISuite(t, "unit")
-	for _, test := range tests {
+	for _, test := range testCases {
 		t.Run(test.name, test.testFeederWithLogPollerVRFv2)
 	}
 }
@@ -594,7 +595,7 @@ func (test testCase) testFeederWithLogPollerVRFv2(t *testing.T) {
 
 func TestFeederWithLogPollerVRFv2Plus(t *testing.T) {
 	tests.BelongsToCISuite(t, "unit")
-	for _, test := range tests {
+	for _, test := range testCases {
 		t.Run(test.name, test.testFeederWithLogPollerVRFv2Plus)
 	}
 }

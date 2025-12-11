@@ -18,7 +18,7 @@ func TestValidate(t *testing.T) {
 	v2Coordinator := types.EIP55Address("0x2be990eE17832b59E0086534c5ea2459Aa75E38F")
 	fromAddresses := []types.EIP55Address{("0x469aA2CD13e037DC5236320783dCfd0e641c0559")}
 
-	var tests = []struct {
+	var testCases = []struct {
 		name      string
 		toml      string
 		assertion func(t *testing.T, os job.Job, err error)
@@ -252,7 +252,7 @@ waitBlocks = "shouldBeInt"`,
 		},
 	}
 
-	for _, test := range tests {
+	for _, test := range testCases {
 		t.Run(test.name, func(t *testing.T) {
 			s, err := ValidatedSpec(test.toml)
 			test.assertion(t, s, err)
