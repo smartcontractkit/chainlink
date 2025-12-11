@@ -6,7 +6,6 @@ import (
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
-	cretime "github.com/smartcontractkit/chainlink/deployment/cre/pkg/time"
 	mcmstypes "github.com/smartcontractkit/mcms/types"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -17,6 +16,7 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 	"github.com/smartcontractkit/chainlink/deployment/cre/common/strategies"
 	"github.com/smartcontractkit/chainlink/deployment/cre/contracts"
+	cretime "github.com/smartcontractkit/chainlink/deployment/cre/pkg/time"
 	"github.com/smartcontractkit/chainlink/deployment/cre/test"
 )
 
