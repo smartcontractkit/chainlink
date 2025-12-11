@@ -14,7 +14,6 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/cre/capabilities_registry/v2/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/cre/capabilities_registry/v2/changeset/sequences"
 	"github.com/smartcontractkit/chainlink/deployment/cre/contracts"
-	cretime "github.com/smartcontractkit/chainlink/deployment/cre/pkg/time"
 	"github.com/smartcontractkit/chainlink/deployment/cre/test"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/p2pkey"
 )
@@ -114,7 +113,6 @@ func TestSetDONsFamilies_Apply(t *testing.T) {
 
 		duration, testErr := commonconfig.NewDuration(1 * time.Second)
 		require.NoError(t, testErr)
-		d := cretime.Duration(duration)
 		csOut, testErr := cs.Apply(*mcmsEnv.Env, changeset.SetDONsFamiliesInput{
 			RegistrySelector:  chainSelector,
 			RegistryQualifier: test.RegistryQualifier,
@@ -129,7 +127,7 @@ func TestSetDONsFamilies_Apply(t *testing.T) {
 				TimelockQualifierPerChain: map[uint64]string{
 					chainSelector: "",
 				},
-				ValidDuration: &d,
+				ValidDuration: &duration,
 			},
 		})
 		require.NoError(t, testErr)

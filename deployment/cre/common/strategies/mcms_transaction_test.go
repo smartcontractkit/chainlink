@@ -17,7 +17,6 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 	"github.com/smartcontractkit/chainlink/deployment/cre/common/strategies"
 	"github.com/smartcontractkit/chainlink/deployment/cre/contracts"
-	cretime "github.com/smartcontractkit/chainlink/deployment/cre/pkg/time"
 	"github.com/smartcontractkit/chainlink/deployment/cre/test"
 )
 
@@ -209,13 +208,12 @@ func TestMCMSTransaction_BuildProposal(t *testing.T) {
 		m := getMCMSTransaction(t, *fixture.Env)
 		validDuration, err := commonconfig.NewDuration(2 * time.Second)
 		require.NoError(t, err)
-		d := cretime.Duration(validDuration)
 		cfg := contracts.MCMSConfig{
 			MinDelay: 0,
 			TimelockQualifierPerChain: map[uint64]string{
 				fixture.RegistrySelector: "",
 			},
-			ValidDuration: &d,
+			ValidDuration: &validDuration,
 		}
 		mcmsContracts, err := strategies.GetMCMSContracts(*fixture.Env, fixture.RegistrySelector, cfg)
 		require.NoError(t, err)
