@@ -99,8 +99,9 @@ type billingServiceConfig struct {
 }
 
 type capabilitiesConfig struct {
-	TargetPath   string   `toml:"target_path"`
-	MakeCommands []string `toml:"make_commands"`
+	TargetPath   string            `toml:"target_path"`
+	MakeCommands []string          `toml:"make_commands"`
+	EnvVars      map[string]string `toml:"env_vars"`
 }
 
 type observabilityConfig struct {
@@ -656,6 +657,9 @@ func makeCapabilities(ctx context.Context, capabilitiesConfig capabilitiesConfig
 		cmd.Env = append(cmd.Env, "GOBIN="+tempDirAbsPath)
 		// cross-compile for linux/amd64 with CGO disabled, because our Chainlink Docker images use linux/amd64
 		cmd.Env = append(cmd.Env, "CL_PLUGIN_ENVVARS=GOOS=linux GOARCH=amd64 CGO_ENABLED=0")
+		for k, v := range capabilitiesConfig.EnvVars {
+			cmd.Env = append(cmd.Env, fmt.Sprintf("%s=%s", k, v))
+		}
 		cmd.Stdout = os.Stdout
 		cmd.Stderr = os.Stderr
 

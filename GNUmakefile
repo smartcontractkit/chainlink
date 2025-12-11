@@ -9,6 +9,7 @@ GCFLAGS = -gcflags "$(GO_GCFLAGS)"
 # Set to true to install private plugins (will require GitHub auth).
 CL_INSTALL_PRIVATE_PLUGINS ?= false
 CL_INSTALL_TESTING_PLUGINS ?= false
+CL_INSTALL_PRIVATE_PLUGINS_FILE ?= ./plugins/plugins.private.yaml
 CL_IS_PROD_BUILD ?= true
 # Output directory for loopinstall plugin manifests (set by caller)
 CL_LOOPINSTALL_OUTPUT_DIR ?=
@@ -89,9 +90,9 @@ install-plugins-public: ## Build & install public remote LOOPP binaries (plugins
 .PHONY: install-plugins-private
 install-plugins-private: ## Build & install private remote LOOPP binaries (plugins).
 	if [ -n "$(CL_LOOPINSTALL_OUTPUT_DIR)" ]; then \
-		GOPRIVATE=github.com/smartcontractkit/* go tool loopinstall --concurrency 5 $(LOOPINSTALL_PRIVATE_ARGS) --output-installation-artifacts $(CL_LOOPINSTALL_OUTPUT_DIR)/private.json ./plugins/plugins.private.yaml; \
+		GOPRIVATE=github.com/smartcontractkit/* go tool loopinstall --concurrency 5 $(LOOPINSTALL_PRIVATE_ARGS) --output-installation-artifacts $(CL_LOOPINSTALL_OUTPUT_DIR)/private.json $(CL_INSTALL_PRIVATE_PLUGINS_FILE); \
 	else \
-		GOPRIVATE=github.com/smartcontractkit/* go tool loopinstall --concurrency 5 $(LOOPINSTALL_PRIVATE_ARGS) ./plugins/plugins.private.yaml; \
+		GOPRIVATE=github.com/smartcontractkit/* go tool loopinstall --concurrency 5 $(LOOPINSTALL_PRIVATE_ARGS) $(CL_INSTALL_PRIVATE_PLUGINS_FILE); \
 	fi
 
 .PHONY: install-plugins-testing
@@ -124,6 +125,7 @@ docker:
 	--build-arg COMMIT_SHA=$(COMMIT_SHA) \
 	--build-arg VERSION_TAG=$(VERSION_TAG) \
 	--build-arg CL_INSTALL_PRIVATE_PLUGINS=$(CL_INSTALL_PRIVATE_PLUGINS) \
+	--build-arg CL_INSTALL_PRIVATE_PLUGINS_FILE=$(CL_INSTALL_PRIVATE_PLUGINS_FILE) \
 	--build-arg CL_IS_PROD_BUILD=$(CL_IS_PROD_BUILD) \
 	$(PRIVATE_PLUGIN_ARGS) \
 	-f core/chainlink.Dockerfile . \
